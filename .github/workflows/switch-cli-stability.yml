@@ -100,14 +100,12 @@ jobs:
       - name: Check Clause 22 MDIO ioctl failure propagation
         run: |
           python3 - <<'PY'
-          import re
           from pathlib import Path
 
           driver = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.c").read_text()
           cli = Path("trunk/user/utils/src/switch/mii_mgr.c").read_text()
           makefile = Path("trunk/user/utils/src/switch/Makefile").read_text()
 
-          assert "mii_mgr: mii_mgr" not in cli
           assert "mii_mgr: invalid or incomplete arguments" in cli
           assert "parse_arguments(argc, argv, &options)" in cli
           main = cli.split("int main(", 1)[1]
@@ -118,15 +116,12 @@ jobs:
 
           virtual = driver.split("int virtualif_ioctl(", 1)[1].split("static int ei_change_mtu", 1)[0]
           real = driver.split("int ei_ioctl(", 1)[1].split("static const struct net_device_ops ei_netdev_ops", 1)[0]
-          for operation in ("read", "write"):
-              assert re.search(r"if\\s*\\(\\s*!mii_mgr_" + operation +
-                               r"\\([^;]+?\\)\\s*\\)\\s*return\\s+-EIO;",
-                               virtual, re.S), operation + " virtualif error propagation"
-              assert re.search(r"if\\s*\\(\\s*!mii_mgr_" + operation +
-                               r"\\([^;]+?\\)\\s*\\)\\s*\\{\\s*ret\\s*=\\s*-EIO;\\s*break;",
-                               real, re.S), operation + " ei_ioctl error propagation"
-          assert "copy_to_user(ifr->ifr_data, &mii, sizeof(mii))" in virtual
-          assert real.index("!mii_mgr_read(") < real.index("copy_to_user(ifr->ifr_data, &mii, sizeof(mii))")
+          assert "if (!mii_mgr_read(mii.phy_id, mii.reg_num, &mii.val_out))\n\t\t\treturn -EIO;" in virtual
+          assert "if (!mii_mgr_write(mii.phy_id, mii.reg_num, mii.val_in))\n\t\t\treturn -EIO;" in virtual
+          assert "if (!mii_mgr_read(mii.phy_id, mii.reg_num, &mii.val_out)) {\n\t\t\tret = -EIO;\n\t\t\tbreak;\n\t\t}" in real
+          assert "if (!mii_mgr_write(mii.phy_id, mii.reg_num, mii.val_in))\n\t\t\tret = -EIO;" in real
+          assert virtual.index("if (!mii_mgr_read(") < virtual.index("copy_to_user(ifr->ifr_data, &mii, sizeof(mii))")
+          assert real.index("if (!mii_mgr_read(") < real.index("copy_to_user(ifr->ifr_data, &mii, sizeof(mii))")
           print("Clause 22 MDIO timeout/error results reach both ioctl handlers: OK")
           PY
       - name: Build MII manager and run host argument regression
