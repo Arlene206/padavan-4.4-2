@@ -1,3 +1,17 @@
+## 2026-11-09 07:24 CST — Report switch CLI socket/ioctl failures as process failure
+
+- **Base main SHA:** `b2844cce25673042260b2bd0513c9e1327039dd4` (latest main before this round's code commits).
+- **Implementation:** `81d191705110596bb20f05d1c82a57572f3e0fe3` changes operational `exit(0)` to `exit(EXIT_FAILURE)` in the built `switch_gsw.c` socket setup and all seven ioctl error branches. The normal usage/help exit remains successful.
+- **Workflow correction:** `e2d94abcec416d9394aa82a3ade72d4af5657451` simplifies the source-contract checks after the first workflow run exposed over-escaped regex assertions.
+- **Finding:** the built switch utility's socket and ioctl failures printed errors, closed the socket for ioctl cases, then exited with status 0. Shell callers could mistake failed register/PHY/rate operations for success. The Makefile confirms `switch_gsw.c` is built; the similar legacy `switch.c` is not the active target source.
+- **Changed paths:** `trunk/user/utils/src/switch/switch_gsw.c`; new `.github/workflows/switch-cli-stability.yml`.
+- **Exact-head Actions:** first run [42534941561](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42534941561) FAILED on `81d191705110596bb20f05d1c82a57572f3e0fe3` because the initial workflow's static source-contract expressions were over-escaped. After workflow correction, [42534963105](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42534963105) completed **SUCCESS** on exact head `e2d94abcec416d9394aa82a3ade72d4af5657451`; the check verified the one socket failure, all seven ioctl error branches and the successful help exit.
+- **Validation boundary:** the green Action is a source-contract test only; no production `switch_gsw.c` object or executable was built/run. Container checkout preparation was blocked by DNS resolution failure for `github.com`; no local compiler result, MIPS/uClibc, TRX, switch ioctl runtime or hardware test is claimed.
+- **IPv6 Firewall/NAT audit update:** Linux 4.4 IPv6 table-info and table-replace paths request the table provider by `ip6table_%s`; Kconfig dependencies/selects, `ip6table_nat` per-net table/hooks and conditional IPv6 `xt_FULLCONENAT` target/alias align with the existing ULA NAT writer. Shared restore transaction checks/rollback are already wired. No concrete failure gap was established; configuration/runtime verification remains open.
+- **Next:** inspect the `mii_mgr_cl45.c` `case 'd'` fall-through and CLI argument-order sensitivity, then bounds/error handling across the built switch tools. Keep switch, Firewall/NAT and Wireless **AUDITING**.
+
+---
+
 ## 2026-11-09 06:40 CST — Harden xt_webstr dual-stack packet and URL parsing
 
 - **Base main SHA:** `d82ea0eced9da0f135d333039d946c5596143160` (after DHCPv6 DUID/IPv6 Firewall audit docs checkpoint).
