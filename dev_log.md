@@ -1,3 +1,17 @@
+## 2026-11-08 23:35 CST — Atomically publish WAN resolver configuration
+
+- **Base main HEAD:** `b7bf22baea263e48736f9f9d8ce092950cf87d1d`.
+- **Production + regression commit:** `8eb66335521dea09234b024e0860465c8e07a9f7` — `fix(dns): atomically publish WAN resolver configuration`.
+- **Workflow correction / final exact tested head:** `ed6ca0a3ad5d948dad8fe9ad64274d8c0a344368` — corrected two source-contract newline escapes. Initial Actions run [42495338845](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42495338845) failed at the Python source-boundary contract (`ValueError: substring not found`) after the GNU89 test executables had already run; no production source test failed. Corrected exact-head run [42495526297](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42495526297) completed **SUCCESS**, all 34 functional steps passed.
+- **Recovered scope:** previous handoff directed a review of `DNS_RESOLV_CONF`, WAN resolver update paths and `fill_dnsmasq_servers()`. The domain-specific DNS server snapshot writer was already staged/atomic. The remaining concrete defect was in `net_wan.c::update_resolvconf()`: in-place truncation on first run, predictable renewal staging path, unchecked stdio/rename results, and unconditional success return.
+- **Implementation:** stage resolver output as `/etc/resolv.conf.XXXXXX` using `dnsmasq_file_open()`; detect flush/stream errors; compare using new `dnsmasq_file_contents_equal()` that requires safe regular paths and treats open/read/close uncertainty as changed; publish with checked close and atomic rename through `dnsmasq_file_publish()`. Equal files are discarded without unnecessary DNS reload. Any staging or publication failure cleans up, releases the resolver lock and returns the error while preserving the previous active resolver file.
+- **Changed paths:** `trunk/user/rc/src/net_wan.c`, `trunk/user/rc/src/dnsmasq_file.h`, `trunk/user/rc/src/tests/dnsmasq_file.c`, `.github/workflows/httpd-security.yml`.
+- **Host regression / source contracts:** workflow compiled `tests/dnsmasq_file.c` and `tests/dnsmasq_restart_policy.c` with `cc -std=gnu89 -Wall -Wextra -Werror` and executed both successfully. Logs include `DNSMasq restart policy: PASS` and `DNSMasq temporary-file symlink, hardlink, FIFO and atomic-publication regressions: OK`. Resolver source contracts assert staging, flush, safe compare, checked publication, error return and absence of the old truncating open / unchecked rename. No separate local compiler/CTest or sanitizer run is claimed.
+- **Validation boundary / residual:** L1 source/callsite and workflow contracts PASS; L2 exact-head Actions PASS. Workflow validates helper binaries and production wiring, not a complete `net_wan.c` translation unit. MIPS/uClibc, complete firmware/TRX, WAN/resolver runtime and L4 hardware validation **NOT RUN**. WAN callbacks historically ignore the new return value; server snapshot and resolver file are not one multi-file transaction; no directory-fsync durability is claimed. DNS parser/rebinding and restart-result propagation remain open; DNS is **PARTIAL / AUDITING**.
+- **Next:** rotate to the firewall/NAT ledger: inspect remaining standalone/add-on IPv4 and IPv6 writers, ipset create/delete ordering, command-result handling and IPv6 policy parity. Keep resolver caller status propagation queued for a later bounded follow-up.
+
+---
+
 ## 2026-11-08 23:17 CST — Preserve a running DNSMasq daemon when refresh preparation fails
 
 - **Base main HEAD:** `bb304d66ff7547bab119a8f2c867830ebd629465`.
