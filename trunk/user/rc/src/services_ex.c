@@ -325,6 +325,7 @@ start_dns_dhcpd(int is_ap_mode)
 	FILE *fp;
 	int i_verbose, i_dhcp_enable, is_dhcp_used, is_dns_used;
 	int saved_errno, validation_errno;
+	char config_path[] = "/etc/dnsmasq.conf.XXXXXX";
 	char dhcp_start[32], dhcp_end[32], dns_all[64], dnsv6[40];
 	char *ipaddr, *netmask, *gw, *dns1, *dns2, *dns3, *wins, *domain, *dns6, *dns61;
 	const char *storage_dir = "/etc/storage/dnsmasq";
@@ -354,9 +355,14 @@ start_dns_dhcpd(int is_ap_mode)
 		create_file(DNS_RESOLV_CONF);
 	}
 
-	/* create /etc/dnsmasq.conf */
-	if (!(fp = fopen("/etc/dnsmasq.conf", "w")))
-		return errno;
+	/* Stage a complete configuration beside the live file.  A failed write,
+	 * flush or close must not destroy the last-known-good dnsmasq.conf. */
+	fp = dnsmasq_file_open(config_path);
+	if (!fp) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(LOGNAME, "cannot stage DNSMasq configuration (errno=%d)", saved_errno);
+		return saved_errno;
+	}
 
 	fprintf(fp, "user=%s\n"
 		    "resolv-file=%s\n"
@@ -560,7 +566,11 @@ start_dns_dhcpd(int is_ap_mode)
 #endif
 
 	fprintf(fp, "conf-file=%s/dnsmasq.conf\n", storage_dir);
-	fclose(fp);
+	if (dnsmasq_file_publish(fp, config_path, "/etc/dnsmasq.conf", 0644) != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(LOGNAME, "cannot publish DNSMasq configuration (errno=%d)", saved_errno);
+		return saved_errno;
+	}
 	if (is_dns_used && fill_dnsmasq_servers() != 0) {
 		saved_errno = errno ? errno : EIO;
 		if (dnsmasq_file_is_safe_regular(DNS_SERVERS_FILE) != 0) {
