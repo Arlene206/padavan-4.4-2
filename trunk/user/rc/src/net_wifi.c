@@ -722,9 +722,6 @@ restart_wifi_wl(int radio_on, int need_reload_conf)
 		logmessage(LOGNAME, "Wireless restart aborted: failed to generate 5GHz configuration");
 		return -1;
 	}
-	if (need_reload_conf)
-		nvram_set_int_temp("reload_svc_wl", 1);
-
 	stop_8021x_wl();
 
 	stop_wifi_all_wl();
@@ -734,6 +731,9 @@ restart_wifi_wl(int radio_on, int need_reload_conf)
 		stop_wifi_all_rt();
 	}
 #endif
+
+	if (need_reload_conf)
+		nvram_set_int_temp("reload_svc_wl", 1);
 
 	start_wifi_ap_wl(radio_on);
 	start_wifi_wds_wl(radio_on);
@@ -772,9 +772,6 @@ restart_wifi_rt(int radio_on, int need_reload_conf)
 		logmessage(LOGNAME, "Wireless restart aborted: failed to generate 2.4GHz configuration");
 		return -1;
 	}
-	if (need_reload_conf)
-		nvram_set_int_temp("reload_svc_rt", 1);
-
 	stop_8021x_rt();
 
 	stop_wifi_all_rt();
@@ -784,6 +781,9 @@ restart_wifi_rt(int radio_on, int need_reload_conf)
 		stop_wifi_all_wl();
 	}
 #endif
+
+	if (need_reload_conf)
+		nvram_set_int_temp("reload_svc_rt", 1);
 
 	start_wifi_ap_rt(radio_on);
 	start_wifi_wds_rt(radio_on);

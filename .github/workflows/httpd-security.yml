@@ -808,6 +808,7 @@ jobs:
                   ("stop_8021x_wl();", "stop_wifi_all_wl();",
                    "stop_8021x_rt();", "stop_wifi_all_rt();"),
                   'nvram_set_int_temp("reload_svc_wl", 1);',
+                  "start_wifi_ap_wl(radio_on);",
               ),
               (
                   body(wifi, "restart_wifi_rt(int radio_on, int need_reload_conf)"),
@@ -815,16 +816,19 @@ jobs:
                   ("stop_8021x_rt();", "stop_wifi_all_rt();",
                    "stop_8021x_wl();", "stop_wifi_all_wl();"),
                   'nvram_set_int_temp("reload_svc_rt", 1);',
+                  "start_wifi_ap_rt(radio_on);",
               ),
           )
-          for restart, preflight, stop_calls, reload_flag in restarts:
+          for restart, preflight, stop_calls, reload_flag, start_call in restarts:
               prepare = restart.index(preflight)
               stop_positions = [restart.index(stop) for stop in stop_calls if stop in restart]
               first_stop = min(stop_positions)
+              last_stop = max(stop_positions)
+              reload_position = restart.index(reload_flag)
+              first_start = restart.index(start_call)
               assert prepare < first_stop, "configuration must be generated before stopping either radio"
               assert "return -1;" in restart[prepare:first_stop], "generation failure must exit before radio stop"
-              assert restart.index(reload_flag) > prepare
-              assert restart.index(reload_flag) < first_stop
+              assert last_stop < reload_position < first_start, "reload marker must remain after stop and before start"
 
           push = workflow.split("  push:", 1)[1].split("  pull_request:", 1)[0]
           pr = workflow.split("  pull_request:", 1)[1].split("\njobs:", 1)[0]
