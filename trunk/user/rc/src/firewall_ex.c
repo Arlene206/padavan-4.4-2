@@ -30,6 +30,9 @@
 #include <unistd.h>
 
 #include "rc.h"
+#include "firewall_ppp_interface_policy.h"
+#include "vpn_server_lease_policy.h"
+#include "vpn_server_lease_lock.h"
 #include "firewall_filter_policy.h"
 #include "firewall_rule_file.h"
 #include "firewall_command_status.h"
@@ -774,43 +777,86 @@ fill_static_routes(char *buf, int len, const char *ift)
 		buf[len_iter-1] = '\0';
 }
 
-static void
-include_vpns_clients(FILE *fp)
+static int
+include_vpns_clients(FILE *fp, int *lease_lock_fd)
 {
-	FILE *fpls;
-	int fd;
+	int lock_fd = -1, fd = -1, saved_errno;
+	FILE *fpls = NULL;
 	struct stat lease_stat;
-	char ifname[64] = {0};
-	char *dtype = IPT_CHAIN_NAME_VPN_LIST;
+	char interfaces[MAX_CLIENTS_NUM][VPN_SERVER_LEASE_IFNAME_SIZE];
+	size_t interface_count = 0, i;
 
-	/* The lease file is root-managed state in shared /tmp. Never follow
-	 * symlinks or consume a file that another local user can modify. */
+	if (!fp || !lease_lock_fd) {
+		errno = EINVAL;
+		return -1;
+	}
+	*lease_lock_fd = -1;
+	lock_fd = vpn_server_lease_lock_acquire(VPN_SERVER_LEASE_LOCK_FILE);
+	if (lock_fd < 0)
+		goto failed;
 	fd = open(VPN_SERVER_LEASE_FILE, O_RDONLY | O_NOFOLLOW);
-	if (fd < 0)
-		return;
-
-	if (fstat(fd, &lease_stat) != 0 ||
-	    !S_ISREG(lease_stat.st_mode) ||
-	    lease_stat.st_uid != 0 ||
-	    lease_stat.st_nlink != 1 ||
-	    (lease_stat.st_mode & 077) != 0) {
-		close(fd);
-		return;
+	if (fd < 0) {
+		if (errno != ENOENT)
+			goto failed;
+	} else {
+		if (fstat(fd, &lease_stat) != 0)
+			goto failed;
+		if (!S_ISREG(lease_stat.st_mode) || lease_stat.st_uid != 0 ||
+		    lease_stat.st_nlink != 1 || (lease_stat.st_mode & 077) != 0) {
+			errno = EPERM;
+			goto failed;
+		}
+		fpls = fdopen(fd, "r");
+		if (!fpls)
+			goto failed;
+		fd = -1;
+		if (vpn_server_lease_read_inventory(fpls, interfaces,
+						    MAX_CLIENTS_NUM,
+						    &interface_count) != 0)
+			goto failed;
+		for (i = 0; i < interface_count; ++i) {
+			if (!firewall_ppp_interface_is_safe(interfaces[i], VPN_SERVER_PPP_UNIT)) {
+				errno = EINVAL;
+				goto failed;
+			}
+		}
+		if (fclose(fpls) != 0) {
+			fpls = NULL;
+			if (errno == 0)
+				errno = EIO;
+			goto failed;
+		}
+		fpls = NULL;
 	}
 
-	fpls = fdopen(fd, "r");
-	if (!fpls) {
-		close(fd);
-		return;
+	/* Caller retains the lock through iptables-restore, preventing a producer
+	 * from changing the validated lease snapshot before its activation. */
+	for (i = 0; i < interface_count; ++i) {
+		if (fprintf(fp, "-A %s -i %s -j ACCEPT\n",
+			    IPT_CHAIN_NAME_VPN_LIST, interfaces[i]) < 0)
+			goto failed;
 	}
-
-	while (fscanf(fpls, "%63s %*s %*s %*s\n", ifname) > 0) {
-		if (firewall_ppp_interface_is_safe(ifname, VPN_SERVER_PPP_UNIT))
-			fprintf(fp, "-A %s -i %s -j %s\n", dtype, ifname, "ACCEPT");
+	if (ferror(fp)) {
+		errno = EIO;
+		goto failed;
 	}
+	*lease_lock_fd = lock_fd;
+	return 0;
 
-	fclose(fpls);
+failed:
+	saved_errno = errno ? errno : EIO;
+	if (fpls)
+		(void)fclose(fpls);
+	if (fd >= 0)
+		(void)close(fd);
+	if (lock_fd >= 0)
+		(void)vpn_server_lease_lock_release(lock_fd);
+	logmessage(LOGNAME, "refusing incomplete VPN client firewall inventory (errno=%d)",
+		   saved_errno);
+	errno = saved_errno;
+	return -1;
 }
+
 
 static int
 include_mac_filter(FILE *fp, int mac_filter_mode, char *logdrop)
@@ -1198,7 +1244,7 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	FILE *fp;
 	char timematch[160], *ftype, *dtype, *vpnc_if;
 	char ipt_file[] = "/tmp/ipt_filter.XXXXXX";
-	int ret, wport, lport;
+	int ret, wport, lport, saved_errno, vpn_lease_lock_fd = -1;
 	int is_nat_enabled, is_dos_enabled, is_fw_enabled, is_logaccept, is_logdrop;
 	int is_url_enabled, is_lwf_enabled;
 	int i_vpns_enable, i_vpns_type, i_vpns_actl, i_http_proto, i_bfplimit_ref;
@@ -1619,7 +1665,17 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 			fprintf(fp, "-A %s -i %s -j %s\n", dtype, IFNAME_SERVER_TUN, ftype);
 		else
 #endif
-			include_vpns_clients(fp);
+			if (include_vpns_clients(fp, &vpn_lease_lock_fd) != 0) {
+				saved_errno = errno ? errno : EIO;
+				logmessage(LOGNAME,
+					   "IPv4 filter: refusing VPN_LIST rules from incomplete lease inventory (errno=%d)",
+					   saved_errno);
+				(void)fclose(fp);
+				firewall_abort_core_restore_after_staging_failure();
+				firewall_rule_file_remove(ipt_file);
+				errno = saved_errno;
+				return -1;
+			}
 	}
 
 	/* bfplimit chain */
@@ -1670,6 +1726,14 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 		firewall_apply_core_restore("IPv4 filter restore", "iptables", "filter", ipt_file);
 	}
 	firewall_rule_file_remove(ipt_file);
+	if (vpn_lease_lock_fd >= 0 &&
+	    vpn_server_lease_lock_release(vpn_lease_lock_fd) != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(LOGNAME, "cannot release VPN lease lock after firewall restore (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
 
 	return ret;
 }

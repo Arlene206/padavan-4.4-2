@@ -28,6 +28,7 @@
 #include "rc.h"
 #include "firewall_ppp_interface_policy.h"
 #include "vpn_server_lease_policy.h"
+#include "vpn_server_lease_lock.h"
 
 #define VPNS_LOG_NAME		"VPN server"
 #define VPNS_PPP_UP_SCRIPT	"/tmp/ppp/ip-up.vpns"
@@ -38,40 +39,145 @@ static int xl2tpd_killed_vpns = 0;
 /* Keep the VPN lease index root-private even though the caller uses umask(0000).
  * O_NOFOLLOW, descriptor checks and fchmod prevent shared-/tmp replacement and
  * world-writable lease entries from becoming firewall policy input. */
-static FILE *
-open_vpns_lease_file_append(void)
+/* Truncate only the exact lease inode opened before a failed append. */
+static int
+rollback_vpns_lease_append(const struct stat *original, off_t expected_size)
 {
 	int fd, saved_errno;
-	FILE *fp;
-	struct stat st;
+	struct stat current;
+	fd = open(VPN_SERVER_LEASE_FILE, O_WRONLY | O_NOFOLLOW);
+	if (fd < 0)
+		return -1;
+	if (fstat(fd, &current) != 0)
+		goto failed;
+	if (!S_ISREG(current.st_mode) || current.st_uid != 0 ||
+	    current.st_nlink != 1 || current.st_dev != original->st_dev ||
+	    current.st_ino != original->st_ino || current.st_size != expected_size) {
+		errno = ESTALE;
+		goto failed;
+	}
+	if (ftruncate(fd, original->st_size) != 0 || fsync(fd) != 0)
+		goto failed;
+	if (close(fd) != 0)
+		return -1;
+	return 0;
+failed:
+	saved_errno = errno ? errno : EIO;
+	(void)close(fd);
+	errno = saved_errno;
+	return -1;
+}
+
+static int
+append_vpns_lease_record(const char *record, size_t record_length)
+{
+	int fd = -1, read_fd = -1, append_started = 0;
+	int saved_errno, close_status;
+	FILE *reader = NULL;
+	struct stat original;
+	off_t expected_size;
+	char interfaces[MAX_CLIENTS_NUM][VPN_SERVER_LEASE_IFNAME_SIZE];
+	size_t interface_count = 0, i;
 
 	fd = open(VPN_SERVER_LEASE_FILE,
-		  O_WRONLY | O_APPEND | O_CREAT | O_NOFOLLOW,
+		  O_RDWR | O_APPEND | O_CREAT | O_NOFOLLOW,
 		  S_IRUSR | S_IWUSR);
 	if (fd < 0)
-		return NULL;
-
-	if (fstat(fd, &st) != 0)
-		goto fail;
-	if (!S_ISREG(st.st_mode) || st.st_uid != 0 || st.st_nlink != 1) {
+		return -1;
+	if (fstat(fd, &original) != 0)
+		goto failed;
+	if (!S_ISREG(original.st_mode) || original.st_uid != 0 ||
+	    original.st_nlink != 1 || original.st_size < 0) {
 		errno = EPERM;
-		goto fail;
+		goto failed;
 	}
 	if (fchmod(fd, S_IRUSR | S_IWUSR) != 0)
-		goto fail;
-
-	fp = fdopen(fd, "a");
-	if (!fp)
-		goto fail;
-
-	return fp;
-
-fail:
-	saved_errno = errno;
-	close(fd);
+		goto failed;
+	read_fd = dup(fd);
+	if (read_fd < 0)
+		goto failed;
+	reader = fdopen(read_fd, "r");
+	if (!reader)
+		goto failed;
+	read_fd = -1;
+	if (vpn_server_lease_read_inventory(reader, interfaces,
+					    MAX_CLIENTS_NUM, &interface_count) != 0)
+		goto failed;
+	if (fclose(reader) != 0) {
+		reader = NULL;
+		if (errno == 0)
+			errno = EIO;
+		goto failed;
+	}
+	reader = NULL;
+	for (i = 0; i < interface_count; ++i) {
+		if (!firewall_ppp_interface_is_safe(interfaces[i], VPN_SERVER_PPP_UNIT)) {
+			errno = EINVAL;
+			goto failed;
+		}
+	}
+	if (interface_count >= MAX_CLIENTS_NUM) {
+		errno = EOVERFLOW;
+		goto failed;
+	}
+	expected_size = original.st_size + (off_t)record_length;
+	if (expected_size < original.st_size) {
+		errno = EOVERFLOW;
+		goto failed;
+	}
+	append_started = 1;
+	if (vpn_server_lease_append_record(fd, record, record_length) != 0)
+		goto failed;
+	close_status = close(fd);
+	fd = -1;
+	if (close_status != 0) {
+		saved_errno = errno ? errno : EIO;
+		if (rollback_vpns_lease_append(&original, expected_size) != 0)
+			logmessage(VPNS_LOG_NAME,
+				   "cannot roll back uncertain VPN lease append (errno=%d)",
+				   errno ? errno : EIO);
+		errno = saved_errno;
+		return -1;
+	}
+	return 0;
+failed:
+	saved_errno = errno ? errno : EIO;
+	if (reader)
+		(void)fclose(reader);
+	if (read_fd >= 0)
+		(void)close(read_fd);
+	if (fd >= 0) {
+		if (append_started &&
+		    (ftruncate(fd, original.st_size) != 0 || fsync(fd) != 0))
+			logmessage(VPNS_LOG_NAME,
+				   "cannot roll back failed VPN lease append (errno=%d)",
+				   errno ? errno : EIO);
+		(void)close(fd);
+	}
 	errno = saved_errno;
-	return NULL;
+	return -1;
 }
+
+static int
+clear_vpns_lease_file(void)
+{
+	int lock_fd, result = 0, saved_errno = 0;
+	lock_fd = vpn_server_lease_lock_acquire(VPN_SERVER_LEASE_LOCK_FILE);
+	if (lock_fd < 0)
+		return -1;
+	if (unlink(VPN_SERVER_LEASE_FILE) != 0 && errno != ENOENT) {
+		result = -1;
+		saved_errno = errno ? errno : EIO;
+	}
+	if (vpn_server_lease_lock_release(lock_fd) != 0 && result == 0) {
+		result = -1;
+		saved_errno = errno ? errno : EIO;
+	}
+	if (result != 0)
+		errno = saved_errno;
+	return result;
+}
+
 
 static int
 get_xl2tpd_vpns_active(void)
@@ -210,8 +316,10 @@ start_vpn_server(void)
 	if (nvram_invmatch("vpns_enable", "1") || get_ap_mode())
 		return 0;
 
-	unlink(VPN_SERVER_LEASE_FILE);
-
+	if (clear_vpns_lease_file() != 0) {
+		logmessage(VPNS_LOG_NAME, "cannot clear VPN lease inventory safely (errno=%d)", errno);
+		return -1;
+	}
 	i_type = nvram_get_int("vpns_type");
 #if defined(APP_OPENVPN)
 	if (i_type == 2)
@@ -320,7 +428,8 @@ stop_vpn_server(void)
 	stop_openvpn_server();
 #endif
 
-	unlink(VPN_SERVER_LEASE_FILE);
+	if (clear_vpns_lease_file() != 0)
+		logmessage(VPNS_LOG_NAME, "cannot clear VPN lease inventory safely (errno=%d)", errno);
 }
 
 void
@@ -397,9 +506,7 @@ vpns_firewall_permission(char *ifname, int add)
 }
 
 
-/* Replace the lease index only after its complete existing contents have been
- * validated and copied. An unavailable, malformed or partially-read inventory
- * is not evidence that there are no remaining VPN clients. */
+/* Caller holds VPN_SERVER_LEASE_LOCK_FILE across firewall deletion and pruning. */
 static int
 vpns_prune_lease_file(const char *disconnected_ifname, int *remaining_clients)
 {
@@ -586,49 +693,74 @@ vpns_route_to_remote_lan(const char *cname, char *ifname, char *gw, int add)
 int
 ipup_vpns_main(int argc, char **argv)
 {
-	FILE *fp;
-	int i_cast, i_vuse;
+	int i_cast, i_vuse, lock_fd, firewall_status;
+	int cleanup_failed = 0, saved_errno, record_length;
 	char *peer_name;
+	char lease_record[VPN_SERVER_LEASE_LINE_SIZE];
+	char lease_ifname[VPN_SERVER_LEASE_IFNAME_SIZE];
 	char *svcs[] = { "bcrelay", NULL };
 	const char *script_name = VPN_SERVER_UPDOWN_SCRIPT;
 
-	if (argc < 7 || !argv)
+	if (argc < 7 || !argv || !argv[1] || !argv[5] || !argv[6])
 		return -1;
-
-	/* Reject malformed tokens before firewall, route, lease or hook side effects. */
 	if (!firewall_ppp_interface_is_safe(argv[1], VPN_SERVER_PPP_UNIT)) {
 		logmessage(VPNS_LOG_NAME, "rejecting VPN up event with invalid PPP interface token");
 		return -1;
 	}
-
 	peer_name = safe_getenv("PEERNAME");
-
+	if (!peer_name || !*peer_name) {
+		logmessage(VPNS_LOG_NAME, "rejecting VPN up event without a peer name");
+		return -1;
+	}
+	record_length = snprintf(lease_record, sizeof(lease_record), "%s %s %s %s\n",
+				 argv[1], argv[5], argv[6], peer_name);
+	if (record_length < 0 || (size_t)record_length >= sizeof(lease_record) ||
+	    vpn_server_lease_parse_line(lease_record, (size_t)record_length,
+					lease_ifname, sizeof(lease_ifname)) != 0 ||
+	    strcmp(lease_ifname, argv[1]) != 0) {
+		logmessage(VPNS_LOG_NAME, "rejecting malformed VPN lease record for %s", argv[1]);
+		errno = EINVAL;
+		return -1;
+	}
 	logmessage(VPNS_LOG_NAME, "peer %s (%s) connected - ifname: %s, local IP: %s",
-			argv[6], peer_name, argv[1], argv[5]);
-
+		   argv[6], peer_name, argv[1], argv[5]);
 	umask(0000);
 
-	/* add firewall permission for this client */
-	vpns_firewall_permission(argv[1], 1);
+	lock_fd = vpn_server_lease_lock_acquire(VPN_SERVER_LEASE_LOCK_FILE);
+	if (lock_fd < 0) {
+		logmessage(VPNS_LOG_NAME, "cannot lock VPN lease inventory for connection (errno=%d)", errno);
+		return -1;
+	}
+	firewall_status = vpns_firewall_permission(argv[1], 1);
+	if (firewall_status != 0) {
+		saved_errno = errno ? errno : EIO;
+		if (vpn_server_lease_lock_release(lock_fd) != 0)
+			logmessage(VPNS_LOG_NAME, "cannot release VPN lease lock after firewall-add failure (errno=%d)", errno);
+		errno = saved_errno;
+		return -1;
+	}
+	if (append_vpns_lease_record(lease_record, (size_t)record_length) != 0) {
+		saved_errno = errno ? errno : EIO;
+		if (vpns_firewall_permission(argv[1], 0) != 0)
+			logmessage(VPNS_LOG_NAME, "cannot roll back VPN firewall permission for %s", argv[1]);
+		if (vpn_server_lease_lock_release(lock_fd) != 0)
+			logmessage(VPNS_LOG_NAME, "cannot release VPN lease lock after append failure (errno=%d)", errno);
+		errno = saved_errno;
+		logmessage(VPNS_LOG_NAME, "cannot persist VPN lease record for %s (errno=%d)", argv[1], saved_errno);
+		return -1;
+	}
+	if (vpn_server_lease_lock_release(lock_fd) != 0) {
+		logmessage(VPNS_LOG_NAME, "cannot release VPN lease lock after successful connection record (errno=%d)", errno);
+		cleanup_failed = 1;
+	}
 
 	i_vuse = nvram_get_int("vpns_vuse");
 	if (i_vuse) {
-		/* disable multicast flag */
 		char *ifconfig_argv[] = { "ifconfig", argv[1], "-multicast", NULL };
 		_eval(ifconfig_argv, NULL, 0, NULL);
 	}
-
-	/* add route to client's LAN */
 	vpns_route_to_remote_lan(peer_name, argv[1], NULL, 1);
-
 	set_vpn_balancing(argv[1], 1);
-
-	fp = open_vpns_lease_file_append();
-	if (fp) {
-		fprintf(fp, "%s %s %s %s\n", argv[1], argv[5], argv[6], peer_name);
-		fclose(fp);
-	}
-
 	i_cast = nvram_get_int("vpns_cast");
 	if (pids(svcs[0])) {
 		if (i_cast == 0)
@@ -639,68 +771,64 @@ ipup_vpns_main(int argc, char **argv)
 		if (i_cast == 2 || i_cast == 3)
 			eval("/usr/sbin/bcrelay", "-d", "-i", "ppp[1-5][0-9]", "-o", IFNAME_BR, "-n");
 	}
-
 	if (check_if_file_exist(script_name)) {
 		char *hook_argv[] = {
 			(char *)script_name, "up", argv[1], argv[5], argv[6], peer_name, NULL
 		};
 		_eval(hook_argv, NULL, 0, NULL);
 	}
-
-	return 0;
+	return cleanup_failed ? -1 : 0;
 }
 
 int
 ipdown_vpns_main(int argc, char **argv)
 {
-	int i_clients, firewall_status, lease_status, cleanup_failed;
+	int i_clients = 0, firewall_status = -1, lease_status = -1;
+	int cleanup_failed = 0, lock_fd;
 	char *peer_name;
 	char *svcs[] = { "bcrelay", NULL };
 	const char *script_name = VPN_SERVER_UPDOWN_SCRIPT;
 
-	if (argc < 7 || !argv)
+	if (argc < 7 || !argv || !argv[1] || !argv[5] || !argv[6])
 		return -1;
-
-	/* Don't let malformed disconnect events mutate routes or lease state. */
 	if (!firewall_ppp_interface_is_safe(argv[1], VPN_SERVER_PPP_UNIT)) {
 		logmessage(VPNS_LOG_NAME, "rejecting VPN down event with invalid PPP interface token");
 		return -1;
 	}
-
 	peer_name = safe_getenv("PEERNAME");
-
 	logmessage(VPNS_LOG_NAME, "peer %s (%s) disconnected", argv[6], peer_name);
-
 	umask(0000);
 
-	/* Keep the existing direct rule cleanup, but report its actual result. */
-	firewall_status = vpns_firewall_permission(argv[1], 0);
-	cleanup_failed = (firewall_status != 0);
-
-	vpns_route_to_remote_lan(peer_name, argv[1], NULL, 0);
-
-	/* A failed or incomplete read must leave the last-known-good index intact.
-	 * Do not infer that all clients are gone when the inventory is unknown. */
-	lease_status = vpns_prune_lease_file(argv[1], &i_clients);
-	if (lease_status != 0) {
-		logmessage(VPNS_LOG_NAME,
-			   "cannot safely prune VPN lease inventory (errno=%d); preserving existing file",
-			   errno);
+	lock_fd = vpn_server_lease_lock_acquire(VPN_SERVER_LEASE_LOCK_FILE);
+	if (lock_fd < 0) {
+		logmessage(VPNS_LOG_NAME, "cannot lock VPN lease inventory for disconnect (errno=%d)", errno);
 		cleanup_failed = 1;
+	} else {
+		firewall_status = vpns_firewall_permission(argv[1], 0);
+		if (firewall_status != 0)
+			cleanup_failed = 1;
+		lease_status = vpns_prune_lease_file(argv[1], &i_clients);
+		if (lease_status != 0) {
+			logmessage(VPNS_LOG_NAME,
+				   "cannot safely prune VPN lease inventory (errno=%d); preserving existing file",
+				   errno);
+			cleanup_failed = 1;
+		}
+		if (vpn_server_lease_lock_release(lock_fd) != 0) {
+			logmessage(VPNS_LOG_NAME, "cannot release VPN lease lock after disconnect (errno=%d)", errno);
+			cleanup_failed = 1;
+		}
 	}
-
+	vpns_route_to_remote_lan(peer_name, argv[1], NULL, 0);
 	if (check_if_file_exist(script_name)) {
 		char *hook_argv[] = {
 			(char *)script_name, "down", argv[1], argv[5], argv[6], peer_name, NULL
 		};
 		_eval(hook_argv, NULL, 0, NULL);
 	}
-
 	if (((lease_status == 0 && i_clients == 0) ||
 	     nvram_get_int("vpns_cast") == 0) && pids(svcs[0]))
 		kill_services(svcs, 3, 1);
-
 	return cleanup_failed ? -1 : 0;
 }
-
 

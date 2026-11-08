@@ -191,6 +191,7 @@ on:
       - "trunk/user/rc/src/vpn_server.c"
       - "trunk/user/rc/src/vpn_server_lease_policy.h"
       - "trunk/user/rc/src/tests/vpn_server_lease_policy.c"
+      - "trunk/user/rc/src/vpn_server_lease_lock.h"
   pull_request:
     paths:
       - "trunk/user/shared/src/nvram_linux.h"
@@ -378,6 +379,7 @@ on:
       - "trunk/user/rc/src/vpn_server.c"
       - "trunk/user/rc/src/vpn_server_lease_policy.h"
       - "trunk/user/rc/src/tests/vpn_server_lease_policy.c"
+      - "trunk/user/rc/src/vpn_server_lease_lock.h"
   workflow_dispatch:
 
 permissions:
@@ -2186,6 +2188,8 @@ jobs:
           from pathlib import Path
 
           source = Path("trunk/user/rc/src/vpn_server.c").read_text()
+          firewall = Path("trunk/user/rc/src/firewall_ex.c").read_text()
+          lock_header = Path("trunk/user/rc/src/vpn_server_lease_lock.h").read_text()
           workflow = Path(".github/workflows/httpd-security.yml").read_text()
 
           def body(text, signature):
@@ -2203,6 +2207,9 @@ jobs:
 
           prune = body(source, "vpns_prune_lease_file(const char *disconnected_ifname, int *remaining_clients)")
           down = body(source, "ipdown_vpns_main(int argc, char **argv)")
+          up = body(source, "ipup_vpns_main(int argc, char **argv)")
+          reader = body(firewall, "include_vpns_clients(FILE *fp, int *lease_lock_fd)")
+          filter = body(firewall, "ipt_filter_rules(")
           assert "O_RDONLY | O_NOFOLLOW" in prune
           assert "S_ISREG(lease_stat.st_mode)" in prune
           assert "lease_stat.st_uid != 0" in prune
@@ -2217,17 +2224,38 @@ jobs:
           assert "vpns_prune_lease_file(argv[1], &i_clients)" in down
           assert "lease_status == 0 && i_clients == 0" in down
           assert "cannot safely prune VPN lease inventory" in down
+          assert "vpn_server_lease_lock_acquire(VPN_SERVER_LEASE_LOCK_FILE)" in up
+          assert up.index("vpn_server_lease_lock_acquire") < up.index("vpns_firewall_permission(argv[1], 1)") < up.index("append_vpns_lease_record")
+          assert "vpn_server_lease_lock_release(lock_fd)" in up
+          assert "vpn_server_lease_lock_acquire(VPN_SERVER_LEASE_LOCK_FILE)" in down
+          assert down.index("vpn_server_lease_lock_acquire") < down.index("vpns_firewall_permission(argv[1], 0)") < down.index("vpns_prune_lease_file")
+          assert "vpn_server_lease_read_inventory" in source
+          assert "vpn_server_lease_append_record" in source
+          assert "fsync(fd)" in source and "ftruncate(fd, original.st_size)" in source
+          assert "O_CLOEXEC" in lock_header and "O_NOFOLLOW" in lock_header
+          assert "st.st_nlink != 1" in lock_header
+          assert "vpn_server_lease_read_inventory" in reader
+          assert "fscanf(" not in reader
+          assert "firewall_ppp_interface_is_safe" in reader
+          assert "*lease_lock_fd = lock_fd" in reader
+          assert reader.index("fclose(fpls)") < reader.index("fprintf(fp") < reader.index("*lease_lock_fd = lock_fd")
+          assert "vpn_server_lease_lock_release(lock_fd)" in reader
+          assert "include_vpns_clients(fp, &vpn_lease_lock_fd) != 0" in filter
+          assert filter.index("include_vpns_clients(fp, &vpn_lease_lock_fd) != 0") < filter.index("firewall_abort_core_restore_after_staging_failure()") < filter.index("firewall_finish_rule_file")
+          assert filter.index("firewall_apply_core_restore(") < filter.index("firewall_rule_file_remove(ipt_file)") < filter.index("vpn_server_lease_lock_release(vpn_lease_lock_fd)")
 
           push = workflow.split("  push:" + chr(10) + "    paths:" + chr(10), 1)[1].split("  pull_request:" + chr(10), 1)[0]
           pull = workflow.split("  pull_request:" + chr(10) + "    paths:" + chr(10), 1)[1].split("  workflow_dispatch:" + chr(10), 1)[0]
           for path in (
               "trunk/user/rc/src/vpn_server.c",
+              "trunk/user/rc/src/firewall_ex.c",
+              "trunk/user/rc/src/vpn_server_lease_lock.h",
               "trunk/user/rc/src/vpn_server_lease_policy.h",
               "trunk/user/rc/src/tests/vpn_server_lease_policy.c",
           ):
               needle = f'      - "{path}"'
               assert needle in push and needle in pull
-          print("VPN lease inventory fail-closed parsing, publication ordering and CI path contracts: OK")
+          print("VPN lease producer/consumer serialization, fail-closed validation and firewall staging contracts: OK")
           PY
 
       - name: Check root-managed executable script staging
@@ -3082,7 +3110,7 @@ jobs:
           print("Firewall strict IPv4 restore-token validation and LAN fallback: OK")
           # VPN leases are root-managed policy input in shared /tmp. Require a
           # private, no-follow file and exact PPP interface tokens before rules.
-          vpn_clients_start = firewall.index("include_vpns_clients(FILE *fp)")
+          vpn_clients_start = firewall.index("include_vpns_clients(FILE *fp, int *lease_lock_fd)")
           vpn_clients_end = firewall.index(chr(10) + "}", vpn_clients_start)
           vpn_clients = firewall[vpn_clients_start:vpn_clients_end]
           assert "open(VPN_SERVER_LEASE_FILE, O_RDONLY | O_NOFOLLOW)" in vpn_clients
