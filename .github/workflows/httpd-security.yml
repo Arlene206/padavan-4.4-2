@@ -3120,7 +3120,7 @@ jobs:
           assert "lease_stat.st_uid != 0" in vpn_clients
           assert "lease_stat.st_nlink != 1" in vpn_clients
           assert "(lease_stat.st_mode & 077) != 0" in vpn_clients
-          assert "firewall_ppp_interface_is_safe(ifname, VPN_SERVER_PPP_UNIT)" in vpn_clients
+          assert "firewall_ppp_interface_is_safe(interfaces[i], VPN_SERVER_PPP_UNIT)" in vpn_clients
           assert "ppp_ifindex(ifname)" not in vpn_clients
           assert "firewall_ppp_interface_is_safe" in ppp_policy
           assert '#include "firewall_ppp_interface_policy.h"' in firewall_policy
