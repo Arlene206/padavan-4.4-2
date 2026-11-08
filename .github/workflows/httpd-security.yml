@@ -3134,48 +3134,48 @@ jobs:
           assert "failed to %s firewall permission" in permission
 
           rollback_start = vpn_server.index("rollback_vpns_lease_append(")
-lease_append_start = vpn_server.index("append_vpns_lease_record(const char *record, size_t record_length)")
-lease_clear_start = vpn_server.index("clear_vpns_lease_file(void)", lease_append_start)
-rollback = vpn_server[rollback_start:lease_append_start]
-lease_append = vpn_server[lease_append_start:lease_clear_start]
-assert "O_RDWR | O_APPEND | O_CREAT | O_NOFOLLOW" in lease_append
-assert "fstat(fd, &original)" in lease_append and "S_ISREG(original.st_mode)" in lease_append
-assert "original.st_uid != 0" in lease_append and "original.st_nlink != 1" in lease_append
-assert "fchmod(fd, S_IRUSR | S_IWUSR)" in lease_append
-assert "vpn_server_lease_read_inventory(reader" in lease_append
-assert "vpn_server_lease_append_record(fd, record, record_length)" in lease_append
-assert "ftruncate(fd, original.st_size)" in lease_append
-assert "fsync(fd)" in lease_append
-assert "rollback_vpns_lease_append(&original, expected_size)" in lease_append
-assert "current.st_ino != original->st_ino" in rollback
-lease_clear = vpn_server[lease_clear_start:vpn_server.index("\nstatic int", lease_clear_start)]
-assert "vpn_server_lease_lock_acquire(VPN_SERVER_LEASE_LOCK_FILE)" in lease_clear
-assert "unlink(VPN_SERVER_LEASE_FILE)" in lease_clear
-assert "vpn_server_lease_lock_release(lock_fd)" in lease_clear
-assert "clear_vpns_lease_file()" in vpn_server
-
-ipup_start = vpn_server.index("ipup_vpns_main(int argc, char **argv)")
-ipdown_start = vpn_server.index("ipdown_vpns_main(int argc, char **argv)", ipup_start)
-ipup = vpn_server[ipup_start:ipdown_start]
-ipdown = vpn_server[ipdown_start:]
-for function_body in (ipup, ipdown):
-    token_guard = function_body.index("if (!firewall_ppp_interface_is_safe(argv[1], VPN_SERVER_PPP_UNIT))")
-    firewall_mutation = function_body.index("vpns_firewall_permission(argv[1],")
-    assert token_guard < firewall_mutation
-    assert "rejecting VPN " in function_body[token_guard:function_body.index("peer_name = safe_getenv", token_guard)]
-assert "vpn_server_lease_lock_acquire(VPN_SERVER_LEASE_LOCK_FILE)" in ipup
-ipup_firewall_add = ipup.index("vpns_firewall_permission(argv[1], 1)")
-ipup_append = ipup.index("append_vpns_lease_record(lease_record, (size_t)record_length)")
-assert ipup.index("vpn_server_lease_lock_acquire(VPN_SERVER_LEASE_LOCK_FILE)") < ipup_firewall_add < ipup_append
-assert "vpns_firewall_permission(argv[1], 0)" in ipup
-assert "vpn_server_lease_lock_release(lock_fd)" in ipup
-assert "vpn_server_lease_lock_acquire(VPN_SERVER_LEASE_LOCK_FILE)" in ipdown
-assert ipdown.index("vpn_server_lease_lock_acquire") < ipdown.index("vpns_firewall_permission(argv[1], 0)") < ipdown.index("vpns_prune_lease_file")
-assert "vpn_server_lease_lock_release(lock_fd)" in ipdown
-assert "append_vpns_lease_record(lease_record" in ipup
-assert 'fopen(VPN_SERVER_LEASE_FILE, "a+")' not in ipup
-
-prune_start = vpn_server.index("vpns_prune_lease_file(")
+          lease_append_start = vpn_server.index("append_vpns_lease_record(const char *record, size_t record_length)")
+          lease_clear_start = vpn_server.index("clear_vpns_lease_file(void)", lease_append_start)
+          rollback = vpn_server[rollback_start:lease_append_start]
+          lease_append = vpn_server[lease_append_start:lease_clear_start]
+          assert "O_RDWR | O_APPEND | O_CREAT | O_NOFOLLOW" in lease_append
+          assert "fstat(fd, &original)" in lease_append and "S_ISREG(original.st_mode)" in lease_append
+          assert "original.st_uid != 0" in lease_append and "original.st_nlink != 1" in lease_append
+          assert "fchmod(fd, S_IRUSR | S_IWUSR)" in lease_append
+          assert "vpn_server_lease_read_inventory(reader" in lease_append
+          assert "vpn_server_lease_append_record(fd, record, record_length)" in lease_append
+          assert "ftruncate(fd, original.st_size)" in lease_append
+          assert "fsync(fd)" in lease_append
+          assert "rollback_vpns_lease_append(&original, expected_size)" in lease_append
+          assert "current.st_ino != original->st_ino" in rollback
+          lease_clear = vpn_server[lease_clear_start:vpn_server.index("\nstatic int", lease_clear_start)]
+          assert "vpn_server_lease_lock_acquire(VPN_SERVER_LEASE_LOCK_FILE)" in lease_clear
+          assert "unlink(VPN_SERVER_LEASE_FILE)" in lease_clear
+          assert "vpn_server_lease_lock_release(lock_fd)" in lease_clear
+          assert "clear_vpns_lease_file()" in vpn_server
+          
+          ipup_start = vpn_server.index("ipup_vpns_main(int argc, char **argv)")
+          ipdown_start = vpn_server.index("ipdown_vpns_main(int argc, char **argv)", ipup_start)
+          ipup = vpn_server[ipup_start:ipdown_start]
+          ipdown = vpn_server[ipdown_start:]
+          for function_body in (ipup, ipdown):
+              token_guard = function_body.index("if (!firewall_ppp_interface_is_safe(argv[1], VPN_SERVER_PPP_UNIT))")
+              firewall_mutation = function_body.index("vpns_firewall_permission(argv[1],")
+              assert token_guard < firewall_mutation
+              assert "rejecting VPN " in function_body[token_guard:function_body.index("peer_name = safe_getenv", token_guard)]
+          assert "vpn_server_lease_lock_acquire(VPN_SERVER_LEASE_LOCK_FILE)" in ipup
+          ipup_firewall_add = ipup.index("vpns_firewall_permission(argv[1], 1)")
+          ipup_append = ipup.index("append_vpns_lease_record(lease_record, (size_t)record_length)")
+          assert ipup.index("vpn_server_lease_lock_acquire(VPN_SERVER_LEASE_LOCK_FILE)") < ipup_firewall_add < ipup_append
+          assert "vpns_firewall_permission(argv[1], 0)" in ipup
+          assert "vpn_server_lease_lock_release(lock_fd)" in ipup
+          assert "vpn_server_lease_lock_acquire(VPN_SERVER_LEASE_LOCK_FILE)" in ipdown
+          assert ipdown.index("vpn_server_lease_lock_acquire") < ipdown.index("vpns_firewall_permission(argv[1], 0)") < ipdown.index("vpns_prune_lease_file")
+          assert "vpn_server_lease_lock_release(lock_fd)" in ipdown
+          assert "append_vpns_lease_record(lease_record" in ipup
+          assert 'fopen(VPN_SERVER_LEASE_FILE, "a+")' not in ipup
+          
+          prune_start = vpn_server.index("vpns_prune_lease_file(")
           prune_end = vpn_server.index("\nvoid\nget_vpns_pool", prune_start)
           prune = vpn_server[prune_start:prune_end]
           assert 'char temp_path[] = "/tmp/.vpns.leases.XXXXXX";' in prune
