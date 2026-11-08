@@ -1120,8 +1120,9 @@ jobs:
           assert dnsmasq_restart_body.index("dnsmasq_restart_policy_action") < dnsmasq_restart_body.index("stop_dns_dhcpd")
           assert "DNSMASQ_RESTART_KEEP_RUNNING" in dnsmasq_restart_body
           assert "DNSMASQ_RESTART_ABORT" in dnsmasq_restart_body
-          assert dnsmasq_restart_body.index("stop_dns_dhcpd") < dnsmasq_restart_body.index("is_dns_dhcpd_run()")
-          assert dnsmasq_restart_body.index("is_dns_dhcpd_run()") < dnsmasq_restart_body.index('eval("/usr/sbin/dnsmasq")')
+          stop_call = dnsmasq_restart_body.index("stop_dns_dhcpd();")
+          post_stop_check = dnsmasq_restart_body.index("if (is_dns_dhcpd_run())", stop_call)
+          assert stop_call < post_stop_check < dnsmasq_restart_body.index('eval("/usr/sbin/dnsmasq")')
           assert dnsmasq_restart_body.count('eval("/usr/sbin/dnsmasq")') == 1
           assert "no unvalidated fallback attempted" in dnsmasq_restart_body
           assert "refusing duplicate launch" in dnsmasq_restart_body
