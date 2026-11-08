@@ -91,7 +91,14 @@ firewall_log_command_failure(const char *operation, int status)
 static int
 firewall_adbyby_blockip_preflight(void *context)
 {
+	int status;
+
 	(void)context;
+	/* Rebuild the complete set before restoring rules that reference it.
+	 * The script swaps a fully populated replacement into the stable name. */
+	status = doSystem("sh /usr/bin/adbyby.sh B");
+	if (!firewall_command_status_ok(status))
+		return status;
 	return doSystem("ipset list blockip >/dev/null 2>&1");
 }
 
@@ -110,7 +117,7 @@ firewall_adbyby_report_restore_failure(const char *operation, int status,
 	firewall_log_command_failure(operation, status);
 	if (strcmp(operation, "Adbyby blockip ipset preflight") == 0)
 		logmessage(LOGNAME,
-			   "Skipping Adbyby firewall restore: required blockip ipset is unavailable");
+			   "Skipping Adbyby firewall restore: blockip refresh failed or the set is unavailable");
 }
 #endif
 

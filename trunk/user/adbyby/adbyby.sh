@@ -8,7 +8,6 @@ http_username=`nvram get http_username`
 adbyby_update=`nvram get adbyby_update`
 adbyby_update_hour=`nvram get adbyby_update_hour`
 adbyby_update_min=`nvram get adbyby_update_min`
-nvram set adbyby_adb=0
 ipt_n="iptables -t nat"
 #adbyby_dir="/tmp/adbyby"
 PROG_PATH="/tmp/adbyby"
@@ -16,12 +15,17 @@ DATA_PATH="$PROG_PATH/data"
 WAN_FILE="/etc/storage/dnsmasq-adbyby.d/03-adbyby-ipset.conf"
 wan_mode=`nvram get adbyby_set`
 #abp_mode=`nvram get adbyby_adb_update`
-nvram set adbybyip_mac_x_0=""
-nvram set adbybyip_ip_x_0=""
-nvram set adbybyip_name_x_0=""
-nvram set adbybyip_ip_road_x_0=""
-nvram set adbybyrules_x_0=""
-nvram set adbybyrules_road_x_0=""
+# Firewall rebuild invokes the B action only to refresh the blockip set.
+# Do not reset unrelated NVRAM state when running that narrow operation.
+if [ "$1" != "B" ]; then
+	nvram set adbyby_adb=0
+	nvram set adbybyip_mac_x_0=""
+	nvram set adbybyip_ip_x_0=""
+	nvram set adbybyip_name_x_0=""
+	nvram set adbybyip_ip_road_x_0=""
+	nvram set adbybyrules_x_0=""
+	nvram set adbybyrules_road_x_0=""
+fi
 adbyby_start()
 {
 	addscripts
@@ -156,6 +160,65 @@ del_cron()
 	sed -i '/adbyby/d' /etc/storage/cron/crontabs/$http_username
 }
 
+adbyby_cleanup_blockip_stage()
+{
+	if [ -n "$adbyby_blockip_file" ]; then
+		rm -f "$adbyby_blockip_file"
+		adbyby_blockip_file=""
+	fi
+	if [ -n "$adbyby_blockip_set" ]; then
+		ipset -! destroy "$adbyby_blockip_set" >/dev/null 2>&1
+	fi
+}
+
+# Build a complete replacement off-line, then atomically exchange the set
+# referenced by the live iptables rules. A failed parse/restore never mutates
+# the current blockip inventory.
+adbyby_refresh_blockip_set()
+{
+	adbyby_blockip_set="adbyby_$"
+	adbyby_blockip_file=""
+	adbyby_blockip_file=$(mktemp /tmp/adbyby-blockip.XXXXXX) || return 1
+	if ! chmod 600 "$adbyby_blockip_file" ||
+	   ! awk -v set="$adbyby_blockip_set" '!/^$/&&!/^#/{printf("add %s %s\n",set,$0)}' "$PROG_PATH/blockip.conf" > "$adbyby_blockip_file"; then
+		adbyby_cleanup_blockip_stage
+		return 1
+	fi
+	if ! ipset -! destroy "$adbyby_blockip_set" >/dev/null 2>&1 ||
+	   ! ipset create "$adbyby_blockip_set" hash:net family inet hashsize 1024 maxelem 65536; then
+		adbyby_cleanup_blockip_stage
+		return 1
+	fi
+	if ! ipset -! restore < "$adbyby_blockip_file" 2>/dev/null; then
+		adbyby_cleanup_blockip_stage
+		return 1
+	fi
+	if ! rm -f "$adbyby_blockip_file"; then
+		adbyby_cleanup_blockip_stage
+		return 1
+	fi
+	adbyby_blockip_file=""
+
+	if ipset list blockip >/dev/null 2>&1; then
+		# ipset swap preserves existing kernel references to the stable name.
+		if ! ipset swap "$adbyby_blockip_set" blockip; then
+			adbyby_cleanup_blockip_stage
+			return 1
+		fi
+		# The staging name now owns the old, unreferenced set.
+		if ! ipset destroy "$adbyby_blockip_set"; then
+			logger -t "adbyby" "blockip已刷新，但旧集合清理失败：$adbyby_blockip_set"
+		fi
+	else
+		# Cold boot: no stable set exists yet, so publish the complete staged set.
+		if ! ipset rename "$adbyby_blockip_set" blockip; then
+			adbyby_cleanup_blockip_stage
+			return 1
+		fi
+	fi
+	return 0
+}
+
 ip_rule()
 {
 	ipset -! -N adbyby_esc hash:ip || return 1
@@ -209,26 +272,9 @@ ip_rule()
 		;;
 	esac
 
-	# Use an exclusive private temporary file: a predictable /tmp pathname can be
-	# pre-created by another local process and then followed by the root shell.
-	blockip_file=$(mktemp /tmp/adbyby-blockip.XXXXXX) || return 1
-	if ! chmod 600 "$blockip_file"; then
-		rm -f "$blockip_file"
-		return 1
-	fi
-	if ! printf '%s\n' 'create blockip hash:net family inet hashsize 1024 maxelem 65536' > "$blockip_file" ||
-	   ! awk '!/^$/&&!/^#/{printf("add blockip %s\n",$0)}' "$PROG_PATH/blockip.conf" >> "$blockip_file"; then
-		rm -f "$blockip_file"
-		return 1
-	fi
-	if ! ipset -! restore < "$blockip_file" 2>/dev/null; then
-		rm -f "$blockip_file"
-		return 1
-	fi
-	if ! rm -f "$blockip_file"; then
-		return 1
-	fi
-
+	# Refresh the stable set through an off-line replacement so removed
+	# entries do not survive a firewall rebuild.
+	adbyby_refresh_blockip_set || return 1
 	iptables -I FORWARD -m set --match-set blockip dst -j DROP || return 1
 	iptables -I OUTPUT -m set --match-set blockip dst -j DROP || return 1
 }
@@ -609,6 +655,9 @@ EEE
 }
 
 case $1 in
+B)
+	adbyby_refresh_blockip_set
+	;;
 start)
 	adbyby_start
 	;;
