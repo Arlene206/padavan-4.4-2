@@ -1894,9 +1894,22 @@ jobs:
           all_start = disk_initial.index("umount_all_storage(void)")
           all_end = disk_initial.index("try_device_swapoff(const char *dev_name)", all_start)
           global_cleanup = disk_initial[all_start:all_end]
-          assert "if (swapoff(mpname) != 0)" in global_cleanup
-          assert "if (umount(mpname) != 0)" in global_cleanup
+          assert "if (swapoff(swap_entry->path) != 0)" in global_cleanup
+          assert "if (umount(mount_entry->mountpoint) != 0)" in global_cleanup
           assert "return result;" in global_cleanup
+          assert "storage_inventory_parse_swaps_header" in global_cleanup
+          assert "storage_inventory_parse_swap_line" in global_cleanup
+          assert "storage_inventory_parse_mount_line" in global_cleanup
+          assert global_cleanup.count("ferror(fp)") == 2
+          assert global_cleanup.count("fclose(fp)") == 2
+          swap_gate = global_cleanup.index("storage_inventory_complete(swap_read_error")
+          mount_gate = global_cleanup.index("storage_inventory_complete(mount_read_error")
+          first_swapoff = global_cleanup.index("swapoff(swap_entry->path)")
+          swapoff_gate = global_cleanup.index("storage_inventory_may_unmount(swapoff_status)")
+          first_umount = global_cleanup.index("umount(mount_entry->mountpoint)")
+          assert swap_gate < mount_gate < first_swapoff < swapoff_gate < first_umount
+          assert "free_storage_cleanup_swap_entries(swap_head)" in global_cleanup
+          assert "free_storage_cleanup_mount_entries(mount_head)" in global_cleanup
           assert "extern int umount_all_storage(void);" in disk_header
           assert "int umount_stor_path(" in rc_header and "int umount_ejected(void);" in rc_header
 

@@ -651,62 +651,158 @@ get_mount_path(const char *const pool, char **mount_path)
 	return 0;
 }
 
+struct storage_cleanup_swap_entry {
+	char path[256];
+	struct storage_cleanup_swap_entry *next;
+};
+
+struct storage_cleanup_mount_entry {
+	char device[32];
+	char mountpoint[256];
+	struct storage_cleanup_mount_entry *next;
+};
+
+static void
+free_storage_cleanup_swap_entries(struct storage_cleanup_swap_entry *entry)
+{
+	struct storage_cleanup_swap_entry *next;
+
+	while (entry) {
+		next = entry->next;
+		free(entry);
+		entry = next;
+	}
+}
+
+static void
+free_storage_cleanup_mount_entries(struct storage_cleanup_mount_entry *entry)
+{
+	struct storage_cleanup_mount_entry *next;
+
+	while (entry) {
+		next = entry->next;
+		free(entry);
+		entry = next;
+	}
+}
+
 int
 umount_all_storage(void)
 {
 	FILE *fp;
-	char line[512], devname[32], mpname[256];
-	int result, field_status;
+	char line[512], swap_path[256], devname[32], mpname[256];
+	int swap_read_error, swap_close_error, swap_parse_error;
+	int mount_read_error, mount_close_error, mount_parse_error;
+	int swapoff_status, result;
+	struct storage_cleanup_swap_entry *swap_head, *swap_tail, *swap_entry;
+	struct storage_cleanup_mount_entry *mount_head, *mount_tail, *mount_entry;
+
+	swap_head = swap_tail = NULL;
+	mount_head = mount_tail = NULL;
+
+	/* First stage a complete active-swap inventory. */
+	fp = fopen(PROC_SWAPS_FILE, "r");
+	if (!fp)
+		return -1;
+
+	swap_parse_error = 0;
+	if (!fgets(line, sizeof(line), fp) ||
+	    storage_inventory_parse_swaps_header(line) != 0)
+		swap_parse_error = 1;
+	while (!swap_parse_error && fgets(line, sizeof(line), fp)) {
+		if (storage_inventory_parse_swap_line(line, swap_path,
+						      sizeof(swap_path)) != 0) {
+			swap_parse_error = 1;
+			break;
+		}
+		swap_entry = (struct storage_cleanup_swap_entry *)malloc(sizeof(*swap_entry));
+		if (!swap_entry) {
+			swap_parse_error = 1;
+			break;
+		}
+		strcpy(swap_entry->path, swap_path);
+		swap_entry->next = NULL;
+		if (swap_tail)
+			swap_tail->next = swap_entry;
+		else
+			swap_head = swap_entry;
+		swap_tail = swap_entry;
+	}
+	swap_read_error = ferror(fp);
+	swap_close_error = (fclose(fp) != 0);
+	if (!storage_inventory_complete(swap_read_error, swap_close_error,
+					swap_parse_error)) {
+		free_storage_cleanup_swap_entries(swap_head);
+		return -1;
+	}
+
+	/*
+	 * Stage the entire mount inventory too. No swapoff or umount is issued
+	 * until both procfs snapshots have passed parse, read and close checks.
+	 */
+	fp = fopen(PROC_MOUNTS_FILE, "r");
+	if (!fp) {
+		free_storage_cleanup_swap_entries(swap_head);
+		return -1;
+	}
+
+	mount_parse_error = 0;
+	while (fgets(line, sizeof(line), fp)) {
+		if (storage_inventory_parse_mount_line(line, devname, sizeof(devname),
+						       mpname, sizeof(mpname)) != 0) {
+			mount_parse_error = 1;
+			break;
+		}
+		if (strncmp(devname, "/dev/sd", 7) != 0 &&
+		    strncmp(devname, "/dev/mmcblk", 11) != 0)
+			continue;
+
+		mount_entry = (struct storage_cleanup_mount_entry *)malloc(sizeof(*mount_entry));
+		if (!mount_entry) {
+			mount_parse_error = 1;
+			break;
+		}
+		strcpy(mount_entry->device, devname);
+		strcpy(mount_entry->mountpoint, mpname);
+		mount_entry->next = NULL;
+		if (mount_tail)
+			mount_tail->next = mount_entry;
+		else
+			mount_head = mount_entry;
+		mount_tail = mount_entry;
+	}
+	mount_read_error = ferror(fp);
+	mount_close_error = (fclose(fp) != 0);
+	if (!storage_inventory_complete(mount_read_error, mount_close_error,
+					mount_parse_error)) {
+		free_storage_cleanup_swap_entries(swap_head);
+		free_storage_cleanup_mount_entries(mount_head);
+		return -1;
+	}
+
+	/* Release every swap first. A failed swapoff keeps storage mounted. */
+	swapoff_status = 0;
+	for (swap_entry = swap_head; swap_entry; swap_entry = swap_entry->next) {
+		if (swapoff(swap_entry->path) != 0)
+			swapoff_status = -1;
+	}
+	if (!storage_inventory_may_unmount(swapoff_status)) {
+		free_storage_cleanup_swap_entries(swap_head);
+		free_storage_cleanup_mount_entries(mount_head);
+		return -1;
+	}
 
 	result = 0;
-	fp = fopen(PROC_SWAPS_FILE, "r");
-	if (fp) {
-		if (!fgets(line, sizeof(line), fp) || !storage_swap_header_valid(line)) {
+	for (mount_entry = mount_head; mount_entry; mount_entry = mount_entry->next) {
+		if (umount(mount_entry->mountpoint) != 0) {
 			result = -1;
 		} else {
-			while (fgets(line, sizeof(line), fp)) {
-				if (!strchr(line, '\n') && !feof(fp)) {
-					result = -1;
-					break;
-				}
-				field_status = storage_swap_first_field(line, mpname, sizeof(mpname));
-				if (field_status != 1) {
-					result = -1;
-					continue;
-				}
-				if (swapoff(mpname) != 0)
-					result = -1;
-			}
-			if (ferror(fp))
-				result = -1;
+			(void)rmdir(mount_entry->mountpoint);
 		}
-		if (fclose(fp) != 0)
-			result = -1;
-	} else {
-		result = -1;
 	}
 
-	fp = fopen(PROC_MOUNTS_FILE, "r");
-	if (fp) {
-		while (fgets(line, sizeof(line), fp)) {
-			if (sscanf(line, "%31s %255s %*[^\n]", devname, mpname) != 2)
-				continue;
-			if (strncmp(devname, "/dev/sd", 7) != 0 && strncmp(devname, "/dev/mmcblk", 11) != 0)
-				continue;
-			if (umount(mpname) != 0) {
-				result = -1;
-			} else {
-				(void)rmdir(mpname);
-			}
-		}
-		if (ferror(fp))
-			result = -1;
-		if (fclose(fp) != 0)
-			result = -1;
-	} else {
-		result = -1;
-	}
-
+	free_storage_cleanup_swap_entries(swap_head);
+	free_storage_cleanup_mount_entries(mount_head);
 	return result;
 }
 

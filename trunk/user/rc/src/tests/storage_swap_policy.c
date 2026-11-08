@@ -45,6 +45,52 @@ main(void)
 	assert(storage_swap_inventory_result(0, 1) == STORAGE_SWAP_UNKNOWN);
 	assert(storage_swap_inventory_result(1, 1) == STORAGE_SWAP_UNKNOWN);
 
-	puts("Storage swap inventory policy: PASS");
+	{
+		char device[32], mountpoint[256], swap_path[256];
+
+		assert(storage_inventory_parse_mount_line(
+			"/dev/sda1 /media/usb ext4 rw,relatime 0 0\n",
+			device, sizeof(device), mountpoint, sizeof(mountpoint)) == 0);
+		assert(strcmp(device, "/dev/sda1") == 0);
+		assert(strcmp(mountpoint, "/media/usb") == 0);
+		assert(storage_inventory_parse_mount_line(
+			"/dev/sda1 /media/usb ext4 rw 0\n",
+			device, sizeof(device), mountpoint, sizeof(mountpoint)) != 0);
+		assert(storage_inventory_parse_mount_line(
+			"/dev/sda1 /media/usb ext4 rw 0 0 extra\n",
+			device, sizeof(device), mountpoint, sizeof(mountpoint)) != 0);
+		assert(storage_inventory_parse_mount_line(
+			"/dev/sda1 /media/usb ext4 rw 0 0",
+			device, sizeof(device), mountpoint, sizeof(mountpoint)) != 0);
+
+		assert(storage_inventory_parse_swaps_header(
+			"Filename Type Size Used Priority\n") == 0);
+		assert(storage_inventory_parse_swaps_header(
+			"Filename Type Size Used\n") != 0);
+		assert(storage_inventory_parse_swaps_header(
+			"Filename Type Size Used Priority Extra\n") != 0);
+		assert(storage_inventory_parse_swap_line(
+			"/dev/sda2 partition 1024 0 -2\n",
+			swap_path, sizeof(swap_path)) == 0);
+		assert(strcmp(swap_path, "/dev/sda2") == 0);
+		assert(storage_inventory_parse_swap_line(
+			"/dev/sda2 partition 1024 0\n",
+			swap_path, sizeof(swap_path)) != 0);
+		assert(storage_inventory_parse_swap_line(
+			"/dev/sda2 partition 1024 0 -2 extra\n",
+			swap_path, sizeof(swap_path)) != 0);
+		assert(storage_inventory_parse_swap_line(
+			"/dev/sda2 partition 1024 0 -2",
+			swap_path, sizeof(swap_path)) != 0);
+		assert(!storage_inventory_line_is_complete("/dev/sda2 partition"));
+		assert(storage_inventory_complete(0, 0, 0));
+		assert(!storage_inventory_complete(1, 0, 0));
+		assert(!storage_inventory_complete(0, 1, 0));
+		assert(!storage_inventory_complete(0, 0, 1));
+		assert(storage_inventory_may_unmount(0));
+		assert(!storage_inventory_may_unmount(-1));
+	}
+
+	puts("Storage swap and global cleanup inventory policy: PASS");
 	return 0;
 }
