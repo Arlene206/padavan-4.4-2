@@ -59,6 +59,7 @@
 #include "httpd_script_policy.h"
 #include "httpd_apply_request_policy.h"
 #include "httpd_update_output_policy.h"
+#include "httpd_nvram_restore_policy.h"
 #include "httpd_js_output_policy.h"
 #include "dbapi.h"
 #define GROUP_FLAG_REFRESH 	0
@@ -4640,21 +4641,29 @@ do_restore_nv_cgi(const char *url, FILE *stream)
 {
 	char *upload_file = PROFILE_FIFO_UPLOAD;
 	int ret = -1;
+	int commit_result = -1;
 
 	if (f_exists(upload_file) && get_login_safe()) {
 		doSystem("killall %s %s", "-q", "watchdog");
 		sleep(1);
 		ret = eval("/usr/sbin/nvram", "restore", upload_file);
-		if (ret != 0) {
-			httpd_log("%s: Unable to extract %s file!", "NVRAM restore", "profile");
+		if (ret == 0)
+			commit_result = nvram_commit();
+
+		if (!httpd_nvram_restore_is_committed(ret, commit_result)) {
+			if (ret != 0)
+				httpd_log("%s: Unable to extract %s file!", "NVRAM restore", "profile");
+			else
+				httpd_log("%s: Unable to persist restored %s profile!", "NVRAM restore", "configuration");
+			/* The watchdog was stopped for the upload; restart it on either failure. */
 			eval("/sbin/watchdog");
-		} else
-			nvram_commit();
+			ret = -1;
+		}
 	}
 
 	unlink(upload_file);
 
-	/* Reboot if successful */
+	/* Reboot only after the restored configuration is durably committed. */
 	if (ret == 0) {
 		websApply(stream, "Uploading.asp");
 		sys_reboot();
