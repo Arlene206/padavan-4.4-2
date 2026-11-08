@@ -1,3 +1,16 @@
+## 2026-11-09 05:27 CST — Stage complete mount inventory before per-device unmount
+
+- **Module / priority:** USB/storage safe-removal lifecycle; P2 stability and data-availability protection. USB/storage remains **AUDITING**.
+- **Inventory scope:** `trunk/user/rc/src/services_stor.c::umount_dev()`, its `umount_stor_path()` caller, and the existing `storage_ejected_inventory_policy.h` parser used by `umount_ejected()`. This is a bounded call-path follow-up, not a full storage audit.
+- **Finding:** the per-device unmount loop invoked optional user hooks and `umount()` before the complete `/proc/mounts` scan ended. It skipped malformed/truncated rows and ignored `fclose()` failures, discovering read errors only after earlier side effects. That could leave a partial removal despite an incomplete inventory.
+- **Fix:** stage matching records in memory, validate every six-field mount row and the complete read/close result, and only then invoke unmount hooks/syscalls. Malformed, truncated, overlong, missing/extra-field, read/close-failed, or allocation-failed inventories now abort before all unmount side effects. All staged records are released on both failure and success.
+- **Changed paths:** `trunk/user/rc/src/{services_stor.c,storage_ejected_inventory_policy.h,tests/storage_ejected_inventory_policy.c}`, `.github/workflows/httpd-security.yml`.
+- **Verification:** L1 source/order contract preflight PASS. L2 GNU89 `-Wall -Wextra -Werror` regression PASS and ASan/UBSan + leak detection PASS. Actions run [42525261900](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42525261900), exact head `806cd75c89f047b865d9b11677f8a819f12cb936`, was queued at this entry; CI outcome pending.
+- **Validation boundary:** no production RC translation-unit compile, MIPS/uClibc, full firmware/TRX, actual storage/eject integration or physical hardware validation. Keep USB/storage **AUDITING**.
+- **Next:** reconcile exact-head Actions first, then audit `umount_stor_path()` and safe-remove caller coordination, especially disk-inventory failure, swapoff errors, fallback cleanup and NFS unload/service state gates.
+
+---
+
 ## 2026-11-09 04:40 CST — Reject incomplete USB modem topology metadata before preferred-node publication
 
 - **Module / priority:** USB modem hotplug and multi-device selection; P2 stability/availability. USB/storage remains **AUDITING**.

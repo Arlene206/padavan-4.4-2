@@ -1,3 +1,20 @@
+## Latest resumable checkpoint — Stage complete mount inventory before per-device unmount (2026-11-09 05:27 CST)
+
+- **Repository / active branch:** `Arlene206/padavan-4.4-2`, `main`. Required conversation title remains `Padavan4.4接力开发标题一定要长才好删`.
+- **Recovered task / base:** resumed the exact storage-lifecycle follow-up from the previous handoff. Base `main` HEAD was `e8a67be1c50141330d2389c07f308f1e7e7bbc9b`.
+- **Implementation commit:** `806cd75c89f047b865d9b11677f8a819f12cb936` — stage per-device mount inventory before any unmount hook or syscall; require complete six-field `/proc/mounts` records.
+- **Finding (P2 storage availability / safe-removal integrity):** `umount_dev()` previously ran `opt-umount.sh` and `umount()` while still reading `/proc/mounts`. Malformed/truncated lines were silently skipped, and read/close failures were only considered after earlier mounts could already have been released. A partial inventory could therefore cause partial removal while the caller believed the device pass had been inspected.
+- **Fix:** parse every `/proc/mounts` record and stage all matching device/mountpoint pairs in a private list; verify read status, successful `fclose()`, all six required fields, no extra fields, bounded tokens, and allocation success before invoking any hook or unmount. On any incomplete inventory, free the staged list, return failure, and leave all mounts untouched. Existing partition/root-device matching, optional hook semantics, multiple mounts per partition, unmount error reporting, and spindown failure gate are preserved.
+- **Changed paths:** `trunk/user/rc/src/services_stor.c`, `trunk/user/rc/src/storage_ejected_inventory_policy.h`, `trunk/user/rc/src/tests/storage_ejected_inventory_policy.c`, `.github/workflows/httpd-security.yml`.
+- **Host validation:** GNU89 `-Wall -Wextra -Werror` policy regression PASS; GNU89 ASan/UBSan with leak detection PASS. Pre-update source/workflow ordering contracts PASS: close and complete-inventory gate precede hook and unmount.
+- **GitHub Actions:** run [42525261900](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42525261900), exact head `806cd75c89f047b865d9b11677f8a819f12cb936`, was **QUEUED/PENDING** at handoff-record preparation. Recheck this exact run before selecting another task; do not report it as passed unless its conclusion is success.
+- **Validation boundary:** L1 source and ordering review PASS; L2 focused host regression + sanitizers PASS. Production `services_stor.c` translation-unit build, MIPS/uClibc, complete firmware/TRX, actual USB/eject integration and physical router/storage validation are **NOT RUN**. Storage remains **AUDITING**.
+- **Remote branches:** prior branch inventory showed only `main`; no side checkpoint branch. Re-fetch branch inventory if the next session needs to reconcile further refs.
+- **Exact first action next conversation:** re-fetch `main` and inspect Actions run 42525261900 on exact SHA `806cd75c89f047b865d9b11677f8a819f12cb936`. If it failed, inspect the failed step/log and correct the regression or contract first. If it succeeded, continue the same storage lifecycle audit through `umount_stor_path()`, `safe_remove_stor_device()`, and `safe_remove_all_stor_devices()`; trace how failed `read_disk_data()`, per-device unmount failures, fallback `umount_all_storage()`, swapoff state and NFS unload/service restart decisions interact. Select one further bounded defect only after full caller-flow evidence. Do not redo the staged `umount_dev()` inventory or the NFS atomic export publication fix.
+- **Do not claim:** complete storage audit, full RC object build, MIPS/TRX build, NFS/USB service integration or hardware validation.
+
+---
+
 ## Latest resumable checkpoint — Build NFS exports from a complete mount inventory and publish atomically (2026-11-09 05:01 CST)
 
 - **Active repository / branch:** `Arlene206/padavan-4.4-2`, `main`. Required conversation title remains `Padavan4.4接力开发标题一定要长才好删`.

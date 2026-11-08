@@ -1,3 +1,14 @@
+## 2026-11-09 05:27 CST — Stage complete mount inventory before per-device unmount
+
+- **Base main HEAD:** `e8a67be1c50141330d2389c07f308f1e7e7bbc9b`.
+- **Implementation commit:** `806cd75c89f047b865d9b11677f8a819f12cb936` — `fix(storage): stage complete mount inventory before unmount`.
+- **Module / priority:** USB/storage safe-removal lifecycle; P2 availability and partial-removal prevention.
+- **Finding:** `umount_dev()` ran the optional unmount hook and `umount()` during the `/proc/mounts` read loop. Malformed/truncated records were skipped; read errors were checked only after possible unmounts; `fclose()` status was ignored. A partial or unknown inventory could therefore produce partial device removal.
+- **Fix / changed paths:** `services_stor.c` now stages all matching mounts and gates hook/unmount side effects on complete parsing, successful read and successful close. The shared storage mount parser now requires all six `/proc/mounts` fields, rejects extra fields and retains bounded token/line checks. The regression covers incomplete/missing/extra fields; the Actions contract enforces close/gate-before-hook-before-unmount ordering. Paths: `trunk/user/rc/src/services_stor.c`, `trunk/user/rc/src/storage_ejected_inventory_policy.h`, `trunk/user/rc/src/tests/storage_ejected_inventory_policy.c`, `.github/workflows/httpd-security.yml`.
+- **Tests:** local GNU89 `-Wall -Wextra -Werror` policy regression PASS; local GNU89 ASan/UBSan with leak detection PASS; pre-update source-order/workflow contract checks PASS.
+- **CI:** Actions run [42525261900](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42525261900), exact head `806cd75c89f047b865d9b11677f8a819f12cb936`, **QUEUED/PENDING** when this entry was prepared. Do not mark this commit CI-verified until the exact-head run completes.
+- **Risks / next:** full production RC object build, MIPS/uClibc, firmware/TRX, real hotplug/eject sequence and hardware remain NOT RUN. Continue storage caller review through `umount_stor_path()`, `safe_remove_stor_device()` and `safe_remove_all_stor_devices()` after reconciling the exact-head Actions outcome.
+
 ## 2026-11-09 05:01 CST — Publish NFS exports only from a complete mount inventory
 
 - **Base main HEAD:** `ce256e1458e6e2e103de6863735cc54ec9063e16`.
