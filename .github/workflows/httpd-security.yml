@@ -1085,9 +1085,9 @@ jobs:
             trunk/user/rc/src/tests/dnsmasq_restart_policy.c \
             -o /tmp/dnsmasq_restart_policy
           /tmp/dnsmasq_restart_policy
-          cc -std=gnu89 -Wall -Wextra -Werror \\
-            -I trunk/user/rc/src \\
-            trunk/user/rc/src/tests/wan_resolver_refresh_policy.c \\
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/wan_resolver_refresh_policy.c \
             -o /tmp/wan_resolver_refresh_policy
           /tmp/wan_resolver_refresh_policy
           python3 - <<'PY'
