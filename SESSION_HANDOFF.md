@@ -1,3 +1,18 @@
+## Latest resumable checkpoint — Exact-head storage safe-eject CI passed; continue fallback cleanup audit (2026-11-09 05:30 CST)
+
+- **Repository / active branch:** Arlene206/padavan-4.4-2, main. Required conversation title remains Padavan4.4接力开发标题一定要长才好删.
+- **Completed code task:** commit 806cd75c89f047b865d9b11677f8a819f12cb936 stages the complete /proc/mounts inventory in umount_dev() and prevents unmount hooks/syscalls until all rows, read and close status have passed validation.
+- **CI correction:** commit 362bbdba04966521e950cd2d94a461e7bfeb9bc9 updated the old safe-eject source contract from umount(mpname) to the new staged entry mountpoint and cleanup.
+- **Exact-head Actions:** run [42525420578](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42525420578), head 362bbdba04966521e950cd2d94a461e7bfeb9bc9, completed **SUCCESS, 40/40 steps**. This includes the old safe-eject/spindown contract, storage mount inventory, ejected-storage complete-inventory regression/source contract, swap inventory, filesystem checker gates, and all other jobs in this workflow.
+- **Earlier failure resolved:** run 42525261900 on implementation SHA 806cd75... failed only because the old contract expected umount(mpname); run 42525420578 verifies the corrected workflow and current source. Do not treat the earlier failed run as a code regression after the correction.
+- **Host validation:** GNU89 -Wall -Wextra -Werror focused policy test PASS; GNU89 ASan/UBSan with leak detection PASS. L1 source-order contract and exact-head Actions PASS.
+- **Current main before this governance update:** 5c9f6489ae36d096dc77fa0c04226652b1359d77. This entry is a documentation-only follow-up; re-fetch main before any write.
+- **Validation boundary:** production services_stor.c object compile, MIPS/uClibc, complete firmware/TRX, actual USB/eject/NFS integration and physical router/storage tests remain NOT RUN. Storage is still AUDITING.
+- **Exact next action:** continue the storage cleanup call graph in trunk/user/libdisk/src/disk_initial.c::umount_all_storage() and trunk/user/rc/src/services_stor.c::safe_remove_stor_device()/safe_remove_all_stor_devices(). Check whether the global fallback collector stages and validates its complete /proc/mounts and /proc/swaps inventories before calling swapoff()/umount(), whether fclose/read/parse/allocation failures are propagated, and whether safe-remove callers restart services or unload NFS only after authoritative cleanup state. Compare the fallback path with the newly staged per-device path. Implement one bounded fix only if a concrete defect is demonstrated; add GNU89 regression + workflow source contract and update all three records.
+- **Do not redo:** NFS exports atomic publication fix; staged umount_dev inventory; safe-eject stale assertion correction. Do not claim complete storage audit, MIPS/TRX or hardware validation.
+
+---
+
 ## Latest resumable checkpoint — Correct safe-eject regression contract after staged unmount change (2026-11-09 05:29 CST)
 
 - **Repository / active branch:** Arlene206/padavan-4.4-2, main. Required conversation title remains Padavan4.4接力开发标题一定要长才好删.
