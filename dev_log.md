@@ -1,3 +1,15 @@
+## 2026-11-08 17:59 CST — Distinguish active swap from inactive or unknown storage state
+
+- **Base HEAD:** `f788c64b5fedb83e9f0ed44d8ac4d518988a41a7`.
+- **Code commit:** `f2c6c909a69709a21699eb2498153351f1227e34` — `fix(storage): distinguish active and unknown swap state`.
+- **Recovered work:** completed the previous session's open task covering `try_device_swapoff()` and the SCSI/MMC hotplug removal callers.
+- **Bug / fix:** swap discovery previously treated failure to open/read `/proc/swaps` as no active swap. Added strict header/token parsing, exact device matching, bounded path construction and an inactive/active/unknown result. Unknown inventory now aborts partition/topology construction instead of returning a misleading partial result. Swapoff is skipped for known-inactive devices, restricted to known-active devices, and rechecked after syscall failure. Global swap cleanup checks input and close failures. Hotplug logs errors while continuing the existing unplug notification.
+- **Changed paths:** `trunk/user/libdisk/src/disk_initial.c`, `trunk/user/libdisk/src/disk_initial.h`, `trunk/user/libdisk/src/storage_swap_policy.h`, `trunk/user/rc/src/hotplug_stor.c`, `trunk/user/rc/src/tests/storage_swap_policy.c`, `.github/workflows/httpd-security.yml`.
+- **Validation:** host regression built with `cc -std=gnu89 -Wall -Wextra -Werror` and passed (`Storage swap inventory policy: PASS`). GitHub Actions run `42469432175` was in progress on exact `head_sha=f2c6c909a69709a21699eb2498153351f1227e34` when logged; do not treat it as passed until the run completes. No complete MIPS firmware build, TRX build or physical-router test.
+- **Next handoff:** inspect `trunk/user/rc/src/services_stor.c::umount_ejected()` for unchecked close failures on `/proc/mounts` and `/proc/partitions`, and review partial/truncated records. Continue expanding stability governance beyond storage after this bounded follow-up.
+
+---
+
 ## 2026-11-08 17:43 CST — Align active fork identity and toolchain delivery
 
 - **Base HEAD:** `7f7d3ea41ebdd7eeab8a303f3d4ad8dddb54a8a7`. This is a documentation/build-source handover commit; the resulting commit SHA is available from the updated `main` ref.

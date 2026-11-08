@@ -1,3 +1,14 @@
+## 2026-11-08 17:59 CST — Fail closed on unknown swap inventory during storage removal
+
+- **Module / priority:** libdisk + USB/MMC hotplug, P1 storage-safety and stability. This is the specific unfinished task recovered from the previous session handoff; the wider storage audit remains open.
+- **Finding:** `is_device_swapon()` treated an unavailable, malformed or incompletely read `/proc/swaps` as “not active”. The hotplug remove branches ignored `try_device_swapoff()` results, while the helper always issued `swapoff()` and exposed benign inactive-device errors to callers.
+- **Change:** add bounded device-path and exact `/proc/swaps` first-field policy helpers; distinguish inactive, active and unknown; treat open/header/row/read/close failures as unknown; propagate unknown inventory through partition construction and abort partial `read_disk_data()` results; skip swapoff for known-inactive devices and recheck after syscall failure; validate global swap cleanup; log hotplug failure without suppressing unplug notifications.
+- **Regression / workflow:** add `trunk/user/rc/src/tests/storage_swap_policy.c` and a GNU89 `-Wall -Wextra -Werror` regression step in `httpd-security.yml`, with source contracts for libdisk and both hotplug paths.
+- **Checkpoint:** code commit `f2c6c909a69709a21699eb2498153351f1227e34`, based on `f788c64b5fedb83e9f0ed44d8ac4d518988a41a7`. Host-side policy regression PASS. Active-fork Actions run `42469432175` was in progress on the exact code SHA at checkpoint time; recheck its result before closing validation. No target firmware build or hardware test.
+- **Next:** audit `services_stor.c::umount_ejected()` for ignored `fclose()` errors and incomplete/overlong inventory rows; preserve fail-closed ejection behavior and add focused regression coverage. Then resume cross-subsystem userland governance.
+
+---
+
 > **Repository handover (2026-11-08):** The canonical maintained fork is [Arlene206/padavan-4.4-2](https://github.com/Arlene206/padavan-4.4-2) (`main`). GitHub fork metadata reports parent `xiaobei206/padavan-4.4-2` and source `tsl0922/padavan`. Use the Arlene206 repository for new work. Historical SHA values and xiaobei206 Actions links in dated audit entries are deliberately retained as provenance and verification records.
 >
 > ---
