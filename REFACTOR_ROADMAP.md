@@ -1,3 +1,19 @@
+## 2026-11-09 00:56 CST — Atomically refresh Adbyby blockip across cold boot and firewall rebuilds
+
+- **Base main HEAD:** `71be75dc45c8e450c2718ef34700708f925193cf`.
+- **Production implementation:** `0474abc71b65ececb33fb0f1556b98035995190a` — `fix(adbyby): atomically refresh blockip set across rebuilds`.
+- **Follow-up commits / final tested head:** `f86d4b16e70f43d9baa5dce59156473c764dcff4` improved the fake ipset state model; `ca1cc7770f1eca3388f511d28806e5f7dbc8f551` changed the temporary set name to derive from the unique `mktemp` filename; `f99176926f37e0144a245d16a65bb21c5fd3c439` corrected fake restore success status; `03379fbed41af6a6e3bd88239c39d06cdf679ead` and `5f39e97eb265297fd5a1435b84c7c08140fc1744` added temporary cold-boot diagnostics; `32e45d81e0e1109f879850eeabc59a2a4ebe1686` corrected fake ipset list/swap/rename exit semantics and is the exact tested source/test/workflow HEAD.
+- **Defect:** existing `blockip` membership was not replaced during Adbyby rule refresh. The restore stream's `create blockip` silently kept the pre-existing set, so stale entries absent from the updated config could remain active DROP destinations after firewall rebuild.
+- **Production changes:** build and populate a fresh temporary `hash:net family inet` set; do not touch the live set until the staged restore succeeds. Swap the staged set with stable `blockip` when present, then destroy the old set; rename the fully populated staged set on cold boot. A failed stage or restore leaves the last-known-good live set in place. Added the isolated `adbyby.sh B` refresh action and wired the firewall Adbyby preflight to refresh/verify `blockip` before restoring the saved extension firewall rules. The B action avoids changing unrelated NVRAM settings.
+- **Changed paths:** `trunk/user/adbyby/adbyby.sh`, `trunk/user/adbyby/tests/firewall_snapshot.sh`, `trunk/user/rc/src/firewall_ex.c`, `.github/workflows/httpd-security.yml`.
+- **Host regression:** the stateful fake ipset test covers stale-entry removal on swap, partial restore failure preserving the prior live set, cold-boot rename and absence of leaked stage sets. Existing Adbyby setup failure/cleanup, private firewall snapshot and transactional restore tests remain in the same workflow.
+- **Exact-head Actions:** [run 42502289762](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42502289762) — **SUCCESS**, exact SHA `32e45d81e0e1109f879850eeabc59a2a4ebe1686`, **35/35** steps passed. Logs include `Adbyby private firewall snapshot staging and stale-state cleanup regression: OK`, `Adbyby firewall setup failure propagation and cleanup regression: OK`, and `Adbyby transactional restore regression: OK`.
+- **CI repair notes:** initial intermediate red runs exposed test-double return-code defects and the cold-boot test falsely took a swap path because the fake `list` command returned success after a failed file check. These harness semantics are corrected in the final tested commit. The first implementation's staging name was also changed to use the random `mktemp` suffix rather than a shell-PID interpolation.
+- **Validation boundary:** shell syntax, host regression and standalone GNU89 `-Wall -Wextra -Werror` restore policy compile/run plus source-contract checks passed in Actions. The fake ipset harness does not exercise the actual kernel module. The full production `firewall_ex.c` translation unit was not built; MIPS/uClibc, firmware/TRX, live router firewall rebuild/cold boot, active-kernel swap semantics and physical hardware remain **NOT RUN**.
+- **Next:** rotate to standalone/add-on IPv4 and IPv6 rule writers, firewall restore command-result propagation, rollback behavior and IPv6 parity. Firewall/NAT remains **AUDITING**. DNS/DHCP/resolver remains **PARTIAL / AUDITING**; WAN resolver caller-status propagation is still queued.
+
+---
+
 ## 2026-11-09 00:31 CST — Serialize VPN lease producers and firewall policy consumers
 
 - **Module / priority:** VPN server lease lifecycle plus the firewall restore consumer; P1/P2 stability and cross-process consistency. The preceding fail-closed disconnect-prune fix is retained. Firewall/NAT remains **AUDITING**.
@@ -953,21 +969,21 @@ Priorities:
 ### Remaining firewall scope
 
 - Firewall remains AUDITING. The core built-in restore sequence has a tested snapshot/rollback transaction; Adbyby snapshotting now retains `blockip` FORWARD/OUTPUT DROP rules; VPN lease pruning now preserves the last-known-good active-client index on failed/incomplete disconnect reads. These are bounded fixes, not subsystem completion.
-- Complete the VPN lease producer/consumer lifecycle: serialize ip-up append and ip-down prune, propagate firewall-add and append-stream failures, and make `include_vpns_clients()` reject incomplete inventories before emitting any VPN_LIST rules.
-- The saved Adbyby DROP entries reference the `blockip` ipset; verify set initialization/replay order on cold boot and firewall rebuild, exercise absent-set and extension-restore failure paths, and review the add-on's standalone rule writers. The add-on restore remains outside the core restore transaction.
+- The VPN lease producer/consumer lifecycle is now covered by the 2026-11-09 checkpoint: ip-up append, ip-down prune, start/stop clear and the firewall VPN_LIST reader share the stable lease lock; complete inventory validation gates core firewall restore. Keep the module open for unrelated writers and restore paths.
+- Adbyby `blockip` cold-boot/rebuild initialization is now staged and published by rename/swap, with an exact-head host regression covering stale-entry removal and failed staging. Live-kernel set swap and real router rebuild are still unverified; continue reviewing independent standalone/add-on IPv4 and IPv6 rule writers and extension restore status.
 - Review IPv6 policy independently. Existing host tests cover selected IPv4 rule builders and the bounded core IPv6 restore transaction, not semantic parity of every IPv6 path. After these bounded firewall tasks, rotate to WAN/PPP, storage and other userland lifecycle areas rather than routine SkipDBv2 expansion.
 ---
 
 ## Mandatory next work
 
-1. **Next stability task — close the VPN lease lifecycle consistency gap:** use one stable root-private advisory lock for ip-up append and ip-down prune; check firewall-add and lease append/flush/fclose status on connection; validate the entire lease file in `include_vpns_clients()` before allowing VPN_LIST rules into a firewall restore. Failed/unknown inventory must not silently publish a partial policy. Add GNU89 host failure-injection and source contracts.
-2. **Firewall/NAT rotation:** audit standalone and extension IPv4/IPv6 writers, `ipset` create/delete ordering for Adbyby `blockip` on cold boot and firewall rebuild, restore rollback boundaries, command-result propagation and IPv6 semantic parity. Keep the module **AUDITING** until all writer paths and consumers are reviewed.
-3. **WAN/PPP/DNS follow-up:** propagate `update_resolvconf()` and DNS restart return values through their WAN/notification callers; continue DNS parser/rebinding and multi-file publication review. DNS/DHCP/resolver remains **PARTIAL / AUDITING**.
-4. **Whole-userland rotation:** continue stability/security coverage across wireless management, switch link/speed/VLAN, storage/hotplug/eject, init/service lifecycle, NVRAM, HTTPD, Samba/Unix identity, file services and shared infrastructure. Do not let any single module monopolize development.
-5. Continue HTTPD session/logout/ACL and CSRF review, privileged RC command/configuration boundaries, and request/NVRAM-to-`eval`/`_eval`/`doSystem`/filesystem sinks.
-6. Keep USB/storage/hotplug **AUDITING**; recent mount/swap/eject fixes close only bounded findings, not the subsystem.
-7. Run `make XY-C1 TOOLCHAIN=mipsel-linux-musl` only when actually executed; inspect the produced firmware artifact. Consolidate complete MIPS firmware/image and target-router validation later as planned, and never label host regression as target or hardware validation.
-8. Update the audit table with exact evidence and commits; never mark a whole module complete based on one bounded fix.
+1. **Next stability task — standalone/add-on firewall writers and IPv6 parity:** audit every independent IPv4/IPv6 firewall rule producer and restore consumer; verify `iptables-restore`/`ip6tables-restore` status propagation, rollback/error paths, hook insert/remove ordering and ipset dependencies. Add bounded GNU89 host failure-injection/source-contract coverage.
+2. **DNS/DHCP/resolver:** propagate `update_resolvconf()` and DNS restart return values through WAN event and notification callers; continue DNS parser/rebinding and multi-file publication review. DNS/DHCP/resolver remains **PARTIAL / AUDITING**.
+3. **Whole-userland rotation:** continue stability/security coverage across wireless management, switch link/speed/VLAN, storage/hotplug/eject, init/service lifecycle, NVRAM, HTTPD, Samba/Unix identity, file services and shared infrastructure. Do not let any single module monopolize development.
+4. Continue HTTPD session/logout/ACL and CSRF review, privileged RC command/configuration boundaries, and request/NVRAM-to-`eval`/`_eval`/`doSystem`/filesystem sinks.
+5. Keep USB/storage/hotplug **AUDITING**; recent mount/swap/eject fixes close only bounded findings, not the subsystem.
+6. Run `make XY-C1 TOOLCHAIN=mipsel-linux-musl` only when actually executed; inspect the produced firmware artifact. Consolidate complete MIPS firmware/image and target-router validation later as planned, and never label host regression as target or hardware validation.
+7. Update the audit table with exact evidence and commits; never mark a whole module complete based on one bounded fix.
+
 
 ## Verification gaps
 
