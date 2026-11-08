@@ -38,8 +38,7 @@
 
 #include <nvram_linux.h>
 
-#define PROFILE_HEADER		"HDR1"
-#define PROFILE_HEADER_NEW	"HDR2"
+#include "nvram_profile_policy.h"
 
 static void usage(void)
 {
@@ -53,11 +52,13 @@ static unsigned char get_rand()
 	unsigned char buf[1];
 	FILE *fp;
 
-	fp = fopen("/dev/urandom", "r");
+	buf[0] = 0;
+	fp = fopen("/dev/urandom", "rb");
 	if (fp == NULL) {
 		return 0;
 	}
-	fread(buf, 1, 1, fp);
+	if (fread(buf, 1, 1, fp) != 1)
+		buf[0] = 0;
 	fclose(fp);
 
 	return buf[0];
@@ -88,51 +89,67 @@ static int nvram_save(char *file)
 {
 	FILE *fp;
 	char *name, *buf;
-	unsigned long count, filelen, i;
-	unsigned char rand = 0, temp;
-
-	if ((fp = fopen(file, "w")) == NULL)
-		return -1;
+	unsigned long count, filelen, i, padding_len;
+	unsigned char rand, padding[1024];
 
 	buf = malloc(NVRAM_SPACE);
 	if (!buf) {
-		fclose(fp);
 		perror ("Out of memory!\n");
 		return -1;
 	}
 
 	buf[0] = 0;
-	nvram_getall(buf, NVRAM_SPACE, 0);
+	if (nvram_getall(buf, NVRAM_SPACE, 0) < 0 ||
+	    !nvram_profile_payload_valid((unsigned char *)buf, NVRAM_SPACE,
+					 NVRAM_MAX_PARAM_LEN-1, NVRAM_MAX_VALUE_LEN-1)) {
+		free(buf);
+		return -1;
+	}
 
 	count = 0;
 	for (name = buf; *name; name += strlen(name) + 1)
-	{
-		count = count + strlen(name) + 1;
-	}
+		count += strlen(name) + 1;
 
 	filelen = count + (1024 - count % 1024);
+	if (filelen > 0xffffffUL) {
+		free(buf);
+		return -1;
+	}
 	rand = get_rand() % 30;
-
-	fwrite(PROFILE_HEADER_NEW, 1, 4, fp);
-	fwrite(&filelen, 1, 3, fp);
-	fwrite(&rand, 1, 1, fp);
 
 	for (i = 0; i < count; i++)
 	{
-		if (buf[i] == 0x0)
+		if (buf[i] == 0)
 			buf[i] = 0xfd + get_rand() % 3;
 		else
 			buf[i] = 0xff - buf[i] + rand;
 	}
 
-	fwrite(buf, 1, count, fp);
-	for (i = count; i < filelen; i++)
-	{
-		temp = 0xfd + get_rand() % 3;
-		fwrite(&temp, 1, 1, fp);
+	/* Every padding sentinel decodes to NUL; avoid opening urandom per byte. */
+	memset(padding, 0xfd, sizeof(padding));
+	padding_len = filelen - count;
+
+	fp = fopen(file, "wb");
+	if (fp == NULL) {
+		free(buf);
+		return -1;
 	}
 
-	fclose(fp);
+	if (fwrite(NVRAM_PROFILE_HDR2, 1, 4, fp) != 4 ||
+	    fwrite(&filelen, 1, 3, fp) != 3 ||
+	    fwrite(&rand, 1, 1, fp) != 1 ||
+	    fwrite(buf, 1, count, fp) != count ||
+	    fwrite(padding, 1, padding_len, fp) != padding_len) {
+		fclose(fp);
+		free(buf);
+		return -1;
+	}
+
+	if (fclose(fp) != 0) {
+		free(buf);
+		return -1;
+	}
+
 	free(buf);
 	return 0;
 }
@@ -140,77 +157,80 @@ static int nvram_save(char *file)
 static int nvram_restore(char *file)
 {
 	FILE *fp;
-	char header[8], *p, *v, *buf;
-	unsigned long count, filelen, *filelenptr, i;
-	unsigned char rand, *randptr;
+	unsigned char header[NVRAM_PROFILE_HEADER_SIZE], *buf, rand;
+	char *p, *v;
+	unsigned long count, filelen;
+	unsigned long profile_capacity = (unsigned long)NVRAM_SPACE + 1024UL;
+	int is_current_format, trailing;
 
-	if ((fp = fopen(file, "r+")) == NULL)
+	if ((fp = fopen(file, "rb")) == NULL)
 		return -1;
 
-	buf = malloc(NVRAM_SPACE);
+	buf = malloc((size_t)profile_capacity);
 	if (!buf) {
 		fclose(fp);
 		perror ("Out of memory!\n");
 		return -1;
 	}
 
-	buf[0] = 0;
-
-	count = fread(header, 1, 8, fp);
-	if (count>=8 && strncmp(header, PROFILE_HEADER, 4) == 0)
-	{
-		filelenptr = (unsigned long *)(header + 4);
-		fread(buf, 1, *filelenptr, fp);
-	}
-	else if (count>=8 && strncmp(header, PROFILE_HEADER_NEW, 4) == 0)
-	{
-		filelenptr = (unsigned long *)(header + 4);
-		filelen = *filelenptr & 0xffffff;
-		randptr = (unsigned char *)(header + 7);
-		rand = *randptr;
-		if (filelen > NVRAM_SPACE)
-			filelen = NVRAM_SPACE;
-		count = fread(buf, 1, filelen, fp);
-		for (i = 0; i < count; i++)
-		{
-			if ((unsigned char) buf[i] > ( 0xfd - 0x1))
-				buf[i] = 0x0;
-			else
-				buf[i] = 0xff + rand - buf[i];
-		}
-	}
-	else
-	{
+	count = fread(header, 1, sizeof(header), fp);
+	if (count != sizeof(header) ||
+	    !nvram_profile_parse_header(header, NVRAM_SPACE, profile_capacity,
+					&filelen, &rand, &is_current_format)) {
 		fclose(fp);
 		free(buf);
 		return 1;
 	}
 
-	fclose(fp);
+	count = fread(buf, 1, (size_t)filelen, fp);
+	if (count != filelen || ferror(fp)) {
+		fclose(fp);
+		free(buf);
+		return 1;
+	}
+	trailing = fgetc(fp);
+	if (trailing != EOF || ferror(fp)) {
+		fclose(fp);
+		free(buf);
+		return 1;
+	}
+	if (fclose(fp) != 0) {
+		free(buf);
+		return 1;
+	}
 
-	nvram_clear();
+	if (is_current_format)
+		nvram_profile_decode_payload(buf, filelen, rand);
 
-	p = buf;
+	if (!nvram_profile_payload_valid(buf, filelen,
+					 NVRAM_MAX_PARAM_LEN-1, NVRAM_MAX_VALUE_LEN-1)) {
+		free(buf);
+		return 1;
+	}
 
+	/* Never clear live configuration until the complete profile is validated. */
+	if (nvram_clear() < 0) {
+		free(buf);
+		return -1;
+	}
+
+	p = (char *)buf;
 	while (*p)
 	{
 		v = strchr(p, '=');
-		if (v != NULL)
-		{
-			*v++ = 0;
-			if (is_sys_param(p))
-				nvram_set(p, v);
-			p = v + strlen(v) + 1;
+		if (v == NULL) {
+			free(buf);
+			return 1;
 		}
-		else
-		{
-			nvram_unset(p);
-			p = p + 1;
+		*v++ = 0;
+		if (is_sys_param(p) && nvram_set(p, v) < 0) {
+			free(buf);
+			return -1;
 		}
+		p = v + strlen(v) + 1;
 	}
 
 	free(buf);
-
 	return 0;
 }
 
