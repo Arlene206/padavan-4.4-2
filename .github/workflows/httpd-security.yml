@@ -716,10 +716,10 @@ jobs:
           rt_start = wifi.index("restart_wifi_rt(int radio_on, int need_reload_conf)")
           rt_end = wifi.index("\nint is_need_8021x", rt_start)
           rt_restart = wifi[rt_start:rt_end]
-          assert "if (gen_ralink_config_5g(0) < 0)" in wl_restart
-          assert "if (gen_ralink_config_2g(0) < 0)" in rt_restart
-          assert wl_restart.index("gen_ralink_config_5g(0) < 0") < wl_restart.index("start_wifi_ap_wl")
-          assert rt_restart.index("gen_ralink_config_2g(0) < 0") < rt_restart.index("start_wifi_ap_rt")
+          assert "wireless_restart_preflight(need_reload_conf, gen_ralink_config_5g)" in wl_restart
+          assert "wireless_restart_preflight(need_reload_conf, gen_ralink_config_2g)" in rt_restart
+          assert wl_restart.index("wireless_restart_preflight") < wl_restart.index("stop_8021x_wl")
+          assert rt_restart.index("wireless_restart_preflight") < rt_restart.index("stop_8021x_rt")
           assert "return -1;" in wl_restart and "return -1;" in rt_restart
           assert "return 0;" in wl_restart and "return 0;" in rt_restart
 
