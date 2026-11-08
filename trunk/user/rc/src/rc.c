@@ -754,8 +754,16 @@ init_router(void)
 
 	mount_rwfs_partition();
 
-	gen_ralink_config_2g(0);
-	gen_ralink_config_5g(0);
+	if (gen_ralink_config_2g(0) < 0) {
+		logmessage(LOGNAME, "Router initialization stopped: failed to generate 2.4GHz wireless configuration");
+		return -1;
+	}
+#if BOARD_HAS_5G_RADIO
+	if (gen_ralink_config_5g(0) < 0) {
+		logmessage(LOGNAME, "Router initialization stopped: failed to generate 5GHz wireless configuration");
+		return -1;
+	}
+#endif
 	load_wireless_modules();
 #if defined (USE_MMC_SUPPORT)
 	load_mmc_modules();
@@ -923,6 +931,7 @@ handle_notifications(void)
 	for (i=0; i < 10; i++)
 	{
 		struct dirent *entry;
+		int action_result = 0;
 		
 		entry = readdir(directory);
 		if (!entry)
@@ -1419,14 +1428,16 @@ handle_notifications(void)
 			int radio_on = get_enabled_radio_wl();
 			if (radio_on)
 				radio_on = is_radio_allowed_wl();
-			restart_wifi_wl(radio_on, 1);
+			if (restart_wifi_wl(radio_on, 1) < 0)
+				action_result = -1;
 		}
 		else if (!strcmp(entry->d_name, RCN_RESTART_WIFI2))
 		{
 			int radio_on = get_enabled_radio_rt();
 			if (radio_on)
 				radio_on = is_radio_allowed_rt();
-			restart_wifi_rt(radio_on, 1);
+			if (restart_wifi_rt(radio_on, 1) < 0)
+				action_result = -1;
 		}
 		else if (!strcmp(entry->d_name, "control_wifi_guest_wl"))
 		{
@@ -1486,11 +1497,15 @@ handle_notifications(void)
 		}
 		else if (!strcmp(entry->d_name, "control_wifi_config_wl"))
 		{
-			gen_ralink_config_5g(0);
+#if BOARD_HAS_5G_RADIO
+			if (gen_ralink_config_5g(0) < 0)
+				action_result = -1;
+#endif
 		}
 		else if (!strcmp(entry->d_name, "control_wifi_config_rt"))
 		{
-			gen_ralink_config_2g(0);
+			if (gen_ralink_config_2g(0) < 0)
+				action_result = -1;
 		}
 		else
 		{
@@ -1501,7 +1516,10 @@ handle_notifications(void)
 		 * Retain the incomplete marker only when another safe request
 		 * for this event was queued while the current action was running.
 		 */
-		if (rc_notify_queue_marker_is_safe_at(queue_fd, entry->d_name, 0) != 0) {
+		/* Keep the in-flight marker after a failed wireless operation. */
+		if (action_result < 0) {
+			logmessage(LOGNAME, "Wireless notification %s failed; completion marker retained", entry->d_name);
+		} else if (rc_notify_queue_marker_is_safe_at(queue_fd, entry->d_name, 0) != 0) {
 			unlinkat(queue_fd, entry->d_name, 0);
 			unlinkat(incomplete_dir_fd, entry->d_name, 0);
 		}
@@ -1786,7 +1804,7 @@ main(int argc, char **argv)
 		int radio_on = get_enabled_radio_rt();
 		if (radio_on)
 			radio_on = is_radio_allowed_rt();
-		restart_wifi_rt(radio_on, 1);
+		ret = restart_wifi_rt(radio_on, 1);
 	}
 #if BOARD_HAS_5G_RADIO
 	else if (!strcmp(base, "radio5_toggle")) {
@@ -1822,7 +1840,7 @@ main(int argc, char **argv)
 		int radio_on = get_enabled_radio_wl();
 		if (radio_on)
 			radio_on = is_radio_allowed_wl();
-		restart_wifi_wl(radio_on, 1);
+		ret = restart_wifi_wl(radio_on, 1);
 	}
 #endif
 	else if (!strcmp(base, "lan_eeprom_mac")) {

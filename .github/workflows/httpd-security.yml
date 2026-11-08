@@ -8,6 +8,10 @@ on:
       - "trunk/user/rc/src/tests/nvram_restore_policy.c"
       - "trunk/user/rc/src/rc_nvram_policy.h"
       - ".github/workflows/httpd-security.yml"
+      - "trunk/user/rc/src/ralink_config_file.h"
+      - "trunk/user/rc/src/tests/ralink_config_file.c"
+      - "trunk/user/rc/src/ralink.c"
+      - "trunk/user/rc/src/net_wifi.c"
       - "trunk/user/nvram/src/nvram.c"
       - "trunk/user/nvram/src/nvram_profile_policy.h"
       - "trunk/user/nvram/src/tests/nvram_profile_policy.c"
@@ -183,6 +187,10 @@ on:
       - "trunk/user/rc/src/tests/nvram_restore_policy.c"
       - "trunk/user/rc/src/rc_nvram_policy.h"
       - ".github/workflows/httpd-security.yml"
+      - "trunk/user/rc/src/ralink_config_file.h"
+      - "trunk/user/rc/src/tests/ralink_config_file.c"
+      - "trunk/user/rc/src/ralink.c"
+      - "trunk/user/rc/src/net_wifi.c"
       - "trunk/user/nvram/src/nvram.c"
       - "trunk/user/nvram/src/nvram_profile_policy.h"
       - "trunk/user/nvram/src/tests/nvram_profile_policy.c"
@@ -610,6 +618,94 @@ jobs:
           print("RC NVRAM checked reads, failure gates, recovery mode and CI path contracts: OK")
           PY
 
+      - name: Verify wireless configuration files publish atomically
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            trunk/user/rc/src/tests/ralink_config_file.c \
+            -o /tmp/ralink_config_file
+          /tmp/ralink_config_file
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path("trunk/user/rc/src")
+          helper = (root / "ralink_config_file.h").read_text()
+          regression = (root / "tests/ralink_config_file.c").read_text()
+          ralink = (root / "ralink.c").read_text()
+          wifi = (root / "net_wifi.c").read_text()
+          rc = (root / "rc.c").read_text()
+          rc_header = (root / "rc.h").read_text()
+          workflow = Path(".github/workflows/httpd-security.yml").read_text()
+
+          assert '#include "ralink_config_file.h"' in ralink
+          assert "ralink_config_open_atomic(dat_file, temp_path" in ralink
+          assert "ralink_config_publish_atomic(&fp, temp_path, dat_file)" in ralink
+          assert 'fopen(dat_file, "w+")' not in ralink
+          assert "fflush(stream)" in helper and "ferror(stream)" in helper
+          assert "fsync(fd)" in helper and "fclose(stream)" in helper
+          assert "mkstemp(temp_path)" in helper and "rename(temp_path, path)" in helper
+          assert "unlink(temp_path)" in helper
+          assert "mode_t mode = 0600" in helper
+          assert "test_atomic_replace_and_mode" in regression
+          assert "test_new_file_is_owner_only" in regression
+          assert "test_discard_preserves_old_file" in regression
+          assert "test_rename_failure_cleans_temp" in regression
+          assert "test_delayed_write_error" in regression
+          assert 'fopen("/dev/full", "w")' in regression
+
+          init_start = rc.index("init_router(void)")
+          init_end = rc.index("\nvoid\n", init_start)
+          startup = rc[init_start:init_end]
+          assert "if (gen_ralink_config_2g(0) < 0)" in startup
+          assert "if (gen_ralink_config_5g(0) < 0)" in startup
+          assert startup.index("gen_ralink_config_2g(0) < 0") < startup.index("load_wireless_modules();")
+          assert startup.index("gen_ralink_config_5g(0) < 0") < startup.index("load_wireless_modules();")
+
+          assert "int restart_wifi_wl(int radio_on, int need_reload_conf);" in rc_header
+          assert "int restart_wifi_rt(int radio_on, int need_reload_conf);" in rc_header
+          wl_start = wifi.index("restart_wifi_wl(int radio_on, int need_reload_conf)")
+          wl_end = wifi.index("\nint\nrestart_wifi_rt", wl_start)
+          wl_restart = wifi[wl_start:wl_end]
+          rt_start = wifi.index("restart_wifi_rt(int radio_on, int need_reload_conf)")
+          rt_end = wifi.index("\nint is_need_8021x", rt_start)
+          rt_restart = wifi[rt_start:rt_end]
+          assert "if (gen_ralink_config_5g(0) < 0)" in wl_restart
+          assert "if (gen_ralink_config_2g(0) < 0)" in rt_restart
+          assert wl_restart.index("gen_ralink_config_5g(0) < 0") < wl_restart.index("start_wifi_ap_wl")
+          assert rt_restart.index("gen_ralink_config_2g(0) < 0") < rt_restart.index("start_wifi_ap_rt")
+          assert "return -1;" in wl_restart and "return -1;" in rt_restart
+          assert "return 0;" in wl_restart and "return 0;" in rt_restart
+
+          handler_start = rc.index("handle_notifications(void)")
+          handler_end = rc.index("\ntypedef struct {", handler_start)
+          handler = rc[handler_start:handler_end]
+          assert "int action_result = 0;" in handler
+          assert "if (restart_wifi_wl(radio_on, 1) < 0)" in handler
+          assert "if (restart_wifi_rt(radio_on, 1) < 0)" in handler
+          assert "if (gen_ralink_config_2g(0) < 0)" in handler
+          assert "if (gen_ralink_config_5g(0) < 0)" in handler
+          assert "if (action_result < 0)" in handler
+          failure_branch = handler[handler.index("if (action_result < 0)"):handler.index("if (stop_handle)", handler.index("if (action_result < 0)"))]
+          assert "completion marker retained" in failure_branch
+          assert "unlinkat(incomplete_dir_fd" not in failure_branch
+
+          assert "ret = restart_wifi_rt(radio_on, 1);" in rc
+          assert "ret = restart_wifi_wl(radio_on, 1);" in rc
+
+          push = workflow.split("  push:", 1)[1].split("  pull_request:", 1)[0]
+          pull_request = workflow.split("  pull_request:", 1)[1].split("\njobs:", 1)[0]
+          changed_paths = [
+              "trunk/user/rc/src/ralink_config_file.h",
+              "trunk/user/rc/src/tests/ralink_config_file.c",
+              "trunk/user/rc/src/ralink.c",
+              "trunk/user/rc/src/net_wifi.c",
+              "trunk/user/rc/src/rc.c",
+              "trunk/user/rc/src/rc.h",
+          ]
+          for path in changed_paths:
+              assert f'"{path}"' in push, f"push filter missing {path}"
+              assert f'"{path}"' in pull_request, f"PR filter missing {path}"
+          print("Ralink atomic wireless config, startup/restart failure gates and notification completion contracts: OK")
+          PY
       - name: Verify NVRAM restore commits before reboot
         run: |
           set -eu

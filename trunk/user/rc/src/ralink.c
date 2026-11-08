@@ -30,6 +30,7 @@
 #include <flash_mtd.h>
 
 #include "rc.h"
+#include "ralink_config_file.h"
 
 #define MAX_FRW 64
 
@@ -565,7 +566,8 @@ symlink_sku_file(const char *sku_file, const char *prefix, const char *cc, int r
 static int
 gen_ralink_config(int is_soc_ap, int is_aband, int disable_autoscan)
 {
-	FILE *fp;
+	FILE *fp = NULL;
+	char temp_path[128];
 	char list[2048], *p_str, *c_val_mbss[2];
 	int i_pmfr, i_pmfsha256;
 	int i, i_num,  i_val, i_wmm, i_ldpc, i_stbc;
@@ -614,7 +616,7 @@ gen_ralink_config(int is_soc_ap, int is_aband, int disable_autoscan)
 	i_mode_x = nvram_wlan_get_int(is_aband, "mode_x");
 	i_phy_mode = calc_phy_mode(nvram_wlan_get_int(is_aband, "gmode"), is_aband);
 
-	if (!(fp=fopen(dat_file, "w+")))
+	if (ralink_config_open_atomic(dat_file, temp_path, sizeof(temp_path), &fp) < 0)
 		return -1;
 
 	fprintf(fp, "#The word of \"Default\" must not be removed\nDefault\n");
@@ -1687,7 +1689,10 @@ gen_ralink_config(int is_soc_ap, int is_aband, int disable_autoscan)
 
 	load_user_config(fp, "/etc/storage/wlan", (is_aband) ? "AP_5G.dat" : "AP.dat", NULL);
 
-	fclose(fp);
+	if (ralink_config_publish_atomic(&fp, temp_path, dat_file) < 0) {
+		logmessage(LOGNAME, "Failed to publish wireless configuration %s", dat_file);
+		return -1;
+	}
 
 	return 0;
 }

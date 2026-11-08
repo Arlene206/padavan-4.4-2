@@ -713,7 +713,7 @@ reconnect_apcli(const char *ifname_apcli, int force)
 	}
 }
 
-void
+int
 restart_wifi_wl(int radio_on, int need_reload_conf)
 {
 #if BOARD_HAS_5G_RADIO
@@ -727,7 +727,10 @@ restart_wifi_wl(int radio_on, int need_reload_conf)
 	}
 #endif
 	if (need_reload_conf) {
-		gen_ralink_config_5g(0);
+		if (gen_ralink_config_5g(0) < 0) {
+			logmessage(LOGNAME, "Wireless restart aborted: failed to generate 5GHz configuration");
+			return -1;
+		}
 		nvram_set_int_temp("reload_svc_wl", 1);
 	}
 
@@ -758,9 +761,10 @@ restart_wifi_wl(int radio_on, int need_reload_conf)
 	}
 	system("/usr/bin/iappd.sh restart");
 #endif
+	return 0;
 }
 
-void
+int
 restart_wifi_rt(int radio_on, int need_reload_conf)
 {
 	stop_8021x_rt();
@@ -773,7 +777,10 @@ restart_wifi_rt(int radio_on, int need_reload_conf)
 	}
 #endif
 	if (need_reload_conf) {
-		gen_ralink_config_2g(0);
+		if (gen_ralink_config_2g(0) < 0) {
+			logmessage(LOGNAME, "Wireless restart aborted: failed to generate 2.4GHz configuration");
+			return -1;
+		}
 		nvram_set_int_temp("reload_svc_rt", 1);
 	}
 
@@ -803,6 +810,7 @@ restart_wifi_rt(int radio_on, int need_reload_conf)
 		LED_CONTROL(LED_SW2G, LED_ON);
 	}
 	system("/usr/bin/iappd.sh restart");
+	return 0;
 }
 
 int is_need_8021x(char *auth_mode)
