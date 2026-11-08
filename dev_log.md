@@ -1,3 +1,13 @@
+## 2026-11-09 02:52 CST — Exact-head Actions success for Ralink wireless ioctl handling
+
+- **Exact source/workflow head:** 1682006374bb31895375f01b9b94829bf71d3345 (workflow-only PR filter correction following source/test commit b9845d577186940f8d0384cccceeb6910fbb34e9).
+- **Actions:** run [42512055660](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42512055660) completed SUCCESS, all 36/36 job steps passed. The new “Verify Ralink wireless ioctl error propagation and socket cleanup” step passed.
+- **Correction context:** preceding run 42511836306 failed at the PR-filter source assertion because the new helper and test were not included in the workflow's pull_request paths. The GNU89 helper regression compiled and printed PASS in that run; the follow-up inserted both missing entries into pull_request paths.
+- **Closure / limits:** L1 review and L2 GNU89 + ASan/UBSan local regression plus exact-head Actions PASS. The workflow validates helper logic and production source wiring, not a full production ralink.c build. MIPS/uClibc, full firmware/TRX and live hardware validation NOT RUN.
+- **Next:** proceed with scan/association parsing/bounds and switch link/speed result contracts; keep Wireless AUDITING.
+
+---
+
 ## 2026-11-09 02:51 CST — Correct Ralink wireless ioctl regression PR path filtering
 
 - **Base main HEAD:** 6fd33a513653a1d129d14c49ca37c2b0ef6a0c49.
