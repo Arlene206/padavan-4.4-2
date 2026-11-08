@@ -1,3 +1,22 @@
+## 2026-11-09 04:01 CST — Normalize HTTPD switch ioctl failures and prevent bogus port-byte publication
+
+- **Base main HEAD:** `69a6d107d6952e4a87592f9c19362a2ff70abb40` (documentation checkpoint after the prior tested wireless-tools scan fix).
+- **Implementation commit:** `b77b6779e55cc41c325f012df7bd54fe3d7b975b` — added negative errno normalization, close-result handling and gated HTTPD switch counter publication plus the GNU89 regression and Actions source contracts.
+- **Source correction commit:** `2ace8fabbf9cbe2ace9580143db7e0b87e66eed3` — corrected two duplicated function-signature tokens found during post-commit source review and strengthened the source contract to require a single definition of each status getter.
+- **Workflow contract correction commit:** `d5b0b76372bcec25f698ed9a0dc8408ee8f2044e` — aligned the Python source assertion with the helper's parenthesized ternary expression.
+- **Module / priority:** HTTPD's duplicate MTK/RTL switch status backends; P1/P2 status reliability and prevention of uninitialized counter publication. HTTPD and Wireless remain **AUDITING**.
+- **Inventory expansion:** the prior 36-translation-unit RC scan did not include the separate HTTPD switch backends. Direct consumers in `web_ex.c` include WAN/per-port `fill_eth_port_status()` calls and the RStats endpoint's `get_eth_port_bytes()` call, which skips only negative errors.
+- **Finding:** the two HTTPD wrappers returned positive errno from `open()`/`ioctl()` and discarded `close()` failures. The byte getters checked only `< 0`, then unconditionally read RX/TX from an uninitialized `port_bytes_t`; positive errno therefore fell through as success and could serialize uninitialized stack values to the web counters endpoint. Speed queries shared the positive-error/negative-only mismatch, displaying false "No Link" on I/O failure.
+- **Fix:** a shared `httpd_switch_ioctl_policy.h` normalizes syscall failures to negative errno with `-EIO` fallback, preserves an earlier operation error over close failure, and reports close failure after a successful operation. Both byte getters validate output pointers, zero the ioctl buffer and publish RX/TX only after success. Both speed getters treat any nonzero result as I/O failure.
+- **Changed paths:** `trunk/user/httpd/src/{switch_mtk_esw.c,switch_rtl8367.c,httpd_switch_ioctl_policy.h,tests/httpd_switch_ioctl_policy.c}`, `.github/workflows/httpd-security.yml` (both push and pull-request filters and a new standalone regression/source-contract step).
+- **Tests:** local GNU89 `-Wall -Wextra -Werror` helper regression PASS; local ASan/UBSan helper regression PASS. The regression covers successful/failed syscall normalization, missing-errno `-EIO` fallback, operation-error precedence, close-only failure, success, NULL outputs, and unchanged counters after error.
+- **Actions corrections:** run [42517743357](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42517743357) on `b77b6779e55cc41c325f012df7bd54fe3d7b975b` and run [42517811258](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42517811258) on `2ace8fabbf9cbe2ace9580143db7e0b87e66eed3` both compiled/ran the policy executable successfully but failed the new Python source-contract assertion because its expected ternary omitted parentheses. The source declaration correction and uniqueness check are included before the final run.
+- **Exact-head verification:** Actions run [42517880293](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42517880293), exact SHA `d5b0b76372bcec25f698ed9a0dc8408ee8f2044e`, completed **SUCCESS 39/39**. The new step passed the GNU89 helper executable, production-source wiring checks, and symmetric push/PR path filters.
+- **Validation boundary:** L1 source/caller review and L2 focused GNU89 + ASan/UBSan and exact-head Actions PASS. The workflow does not compile either full production HTTPD switch translation unit. MIPS/uClibc, full firmware/TRX, live switch and router testing NOT RUN.
+- **Residual / next:** `trunk/user/utils/src/switch/` is a separate utility surface. The earlier RC PVID getter now reports negative errno, but `net_wan.c` has consumers in `get_vlan_vid_wan()` and CPU/IPTV VLAN setup around the previously inspected lines 487/620; audit all callsites so errors cannot be interpreted as VLAN IDs. Then rotate to firewall IPv6 or storage. Keep Wireless **AUDITING**.
+
+---
+
 ## 2026-11-09 03:15 CST — Bound wireless-tools scan event frames and ESSID requests
 
 - **Base main HEAD:** `86809d7c5a4a8b2545f42a773d578ed351358721`.
