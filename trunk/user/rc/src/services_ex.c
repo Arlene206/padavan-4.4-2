@@ -34,6 +34,7 @@
 
 #include "rc.h"
 #include "dnsmasq_file.h"
+#include "dnsmasq_restart_policy.h"
 #include "samba_config_value_policy.h"
 
 #define DHCPD_STATIC_MAX	64
@@ -319,8 +320,8 @@ is_dhcpd_enabled(int is_ap_mode)
 		return nvram_match("lan_dhcpd_x", "1") && nvram_invmatch("lan_proto_x", "1");
 }
 
-int
-start_dns_dhcpd(int is_ap_mode)
+static int
+prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 {
 	FILE *fp;
 	int i_verbose, i_dhcp_enable, is_dhcp_used, is_dns_used;
@@ -329,6 +330,12 @@ start_dns_dhcpd(int is_ap_mode)
 	char dhcp_start[32], dhcp_end[32], dns_all[64], dnsv6[40];
 	char *ipaddr, *netmask, *gw, *dns1, *dns2, *dns3, *wins, *domain, *dns6, *dns61;
 	const char *storage_dir = "/etc/storage/dnsmasq";
+
+	if (!service_enabled) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+	*service_enabled = 0;
 
 	i_dhcp_enable = is_dhcpd_enabled(is_ap_mode);
 	i_verbose = nvram_get_int("dhcp_verbose");
@@ -566,25 +573,47 @@ start_dns_dhcpd(int is_ap_mode)
 #endif
 
 	fprintf(fp, "conf-file=%s/dnsmasq.conf\n", storage_dir);
-	if (dnsmasq_file_publish(fp, config_path, "/etc/dnsmasq.conf", 0644) != 0) {
-		saved_errno = errno ? errno : EIO;
-		logmessage(LOGNAME, "cannot publish DNSMasq configuration (errno=%d)", saved_errno);
-		return saved_errno;
-	}
+
+	/* Validate the DNS upstream snapshot before publishing its matching main
+	 * configuration.  Fatal preparation failures leave the active daemon and
+	 * its last-known-good main configuration untouched. */
 	if (is_dns_used && fill_dnsmasq_servers() != 0) {
 		saved_errno = errno ? errno : EIO;
 		if (dnsmasq_file_is_safe_regular(DNS_SERVERS_FILE) != 0) {
 			validation_errno = errno ? errno : EPERM;
+			if (fclose(fp) != 0)
+				logmessage(LOGNAME, "error closing rejected DNSMasq staging file (errno=%d)", errno ? errno : EIO);
+			dnsmasq_file_discard(config_path);
 			logmessage(LOGNAME, "refusing DNSMasq start with unsafe DNS server snapshot (errno=%d)", validation_errno);
 			return validation_errno;
 		}
 		logmessage(LOGNAME, "DNS server snapshot refresh failed; retaining last-known-good file (errno=%d)", saved_errno);
 	}
 
-	if (is_dns_used || is_dhcp_used)
-		return eval("/usr/sbin/dnsmasq");
+	if (dnsmasq_file_publish(fp, config_path, "/etc/dnsmasq.conf", 0644) != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(LOGNAME, "cannot publish DNSMasq configuration (errno=%d)", saved_errno);
+		return saved_errno;
+	}
 
+	*service_enabled = (is_dns_used || is_dhcp_used);
 	return 0;
+}
+
+int
+start_dns_dhcpd(int is_ap_mode)
+{
+	int service_enabled = 0;
+	int status;
+
+	status = prepare_dns_dhcpd(is_ap_mode, &service_enabled);
+	if (status != 0 || !service_enabled)
+		return status;
+
+	status = eval("/usr/sbin/dnsmasq");
+	if (status != 0)
+		logmessage(LOGNAME, "cannot launch DNSMasq after configuration publication (status=%d)", status);
+	return status;
 }
 
 void
@@ -600,8 +629,35 @@ stop_dns_dhcpd(void)
 int
 restart_dhcpd(void)
 {
+	int was_running = is_dns_dhcpd_run();
+	int service_enabled = 0;
+	int prepare_status;
+	int launch_status;
+	enum dnsmasq_restart_action action;
+
+	/* Prepare generated inputs while the current daemon is still untouched. */
+	prepare_status = prepare_dns_dhcpd(get_ap_mode(), &service_enabled);
+	action = dnsmasq_restart_policy_action(was_running, prepare_status, service_enabled);
+	if (action == DNSMASQ_RESTART_KEEP_RUNNING) {
+		logmessage(LOGNAME, "DNSMasq refresh preparation failed (status=%d); keeping the running daemon", prepare_status);
+		return prepare_status;
+	}
+	if (action == DNSMASQ_RESTART_ABORT)
+		return prepare_status;
+
 	stop_dns_dhcpd();
-	return start_dns_dhcpd(get_ap_mode());
+	/* Refuse another launch if a failed stop left the previous process alive. */
+	if (is_dns_dhcpd_run()) {
+		logmessage(LOGNAME, "DNSMasq is still running after stop request; refusing duplicate launch");
+		return EBUSY;
+	}
+	if (action == DNSMASQ_RESTART_STOP_ONLY)
+		return 0;
+
+	launch_status = eval("/usr/sbin/dnsmasq");
+	if (launch_status != 0)
+		logmessage(LOGNAME, "DNSMasq restart launch failed (status=%d); no unvalidated fallback attempted", launch_status);
+	return launch_status;
 }
 
 int

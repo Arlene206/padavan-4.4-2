@@ -160,6 +160,8 @@ on:
       - "trunk/user/pppd/ppp-2.4.7/pppd/ipv6cp.c"
       - "trunk/user/rc/src/dnsmasq_file.h"
       - "trunk/user/rc/src/tests/dnsmasq_file.c"
+      - "trunk/user/rc/src/dnsmasq_restart_policy.h"
+      - "trunk/user/rc/src/tests/dnsmasq_restart_policy.c"
       - "trunk/user/rc/src/vpn_server.c"
       - "trunk/user/rc/src/firewall_filter_policy.h"
       - "trunk/user/rc/src/firewall_ppp_interface_policy.h"
@@ -343,6 +345,8 @@ on:
       - "trunk/user/pppd/ppp-2.4.7/pppd/ipv6cp.c"
       - "trunk/user/rc/src/dnsmasq_file.h"
       - "trunk/user/rc/src/tests/dnsmasq_file.c"
+      - "trunk/user/rc/src/dnsmasq_restart_policy.h"
+      - "trunk/user/rc/src/tests/dnsmasq_restart_policy.c"
       - "trunk/user/rc/src/vpn_server.c"
       - "trunk/user/rc/src/firewall_filter_policy.h"
       - "trunk/user/rc/src/firewall_ppp_interface_policy.h"
@@ -1054,6 +1058,11 @@ jobs:
             trunk/user/rc/src/tests/dnsmasq_file.c \
             -o /tmp/dnsmasq_file
           /tmp/dnsmasq_file
+          cc -std=gnu89 -Wall -Wextra -Werror \\
+            -I trunk/user/rc/src \\
+            trunk/user/rc/src/tests/dnsmasq_restart_policy.c \\
+            -o /tmp/dnsmasq_restart_policy
+          /tmp/dnsmasq_restart_policy
           python3 - <<'PY'
           from pathlib import Path
 
@@ -1062,6 +1071,8 @@ jobs:
           helper = Path("trunk/user/rc/src/dnsmasq_file.h").read_text()
           test = Path("trunk/user/rc/src/tests/dnsmasq_file.c").read_text()
           workflow = Path(".github/workflows/httpd-security.yml").read_text()
+          restart_policy = Path("trunk/user/rc/src/dnsmasq_restart_policy.h").read_text()
+          restart_test = Path("trunk/user/rc/src/tests/dnsmasq_restart_policy.c").read_text()
 
           assert '#include "dnsmasq_file.h"' in service
           assert 'fp[2] = dnsmasq_file_open(hosts_static_path);' in service
@@ -1085,15 +1096,36 @@ jobs:
           assert 'fopen("/tmp/hosts.static", "w+")' not in service
           assert 'fopen(DNS_SERVERS_FILE, "w")' not in service
           assert 'create_file(DHCPD_LEASE_FILE)' not in service
-          dnsmasq_start = service.index("start_dns_dhcpd(int is_ap_mode)")
-          dnsmasq_stop = service.index("\nvoid\nstop_dns_dhcpd", dnsmasq_start)
+          dnsmasq_prepare = service.index("prepare_dns_dhcpd(int is_ap_mode")
+          dnsmasq_start = service.index("\\nint\\nstart_dns_dhcpd", dnsmasq_prepare)
+          dnsmasq_stop = service.index("\\nvoid\\nstop_dns_dhcpd", dnsmasq_start)
+          dnsmasq_prepare_body = service[dnsmasq_prepare:dnsmasq_start]
           dnsmasq_start_body = service[dnsmasq_start:dnsmasq_stop]
-          assert 'char config_path[] = "/etc/dnsmasq.conf.XXXXXX";' in dnsmasq_start_body
-          assert 'fp = dnsmasq_file_open(config_path);' in dnsmasq_start_body
-          assert 'dnsmasq_file_publish(fp, config_path, "/etc/dnsmasq.conf", 0644)' in dnsmasq_start_body
-          assert 'fopen("/etc/dnsmasq.conf", "w")' not in dnsmasq_start_body
-          assert 'cannot publish DNSMasq configuration' in dnsmasq_start_body
-          assert dnsmasq_start_body.index("dnsmasq_file_publish") < dnsmasq_start_body.index('eval("/usr/sbin/dnsmasq")')
+          assert 'char config_path[] = "/etc/dnsmasq.conf.XXXXXX";' in dnsmasq_prepare_body
+          assert 'fp = dnsmasq_file_open(config_path);' in dnsmasq_prepare_body
+          assert 'dnsmasq_file_publish(fp, config_path, "/etc/dnsmasq.conf", 0644)' in dnsmasq_prepare_body
+          assert dnsmasq_prepare_body.index("fill_dnsmasq_servers()") < dnsmasq_prepare_body.index("dnsmasq_file_publish")
+          assert "dnsmasq_file_discard(config_path)" in dnsmasq_prepare_body
+          assert 'fopen("/etc/dnsmasq.conf", "w")' not in dnsmasq_prepare_body
+          assert 'cannot publish DNSMasq configuration' in dnsmasq_prepare_body
+          assert "prepare_dns_dhcpd(is_ap_mode, &service_enabled)" in dnsmasq_start_body
+          assert dnsmasq_start_body.index("prepare_dns_dhcpd") < dnsmasq_start_body.index('eval("/usr/sbin/dnsmasq")')
+
+          assert "DNSMASQ_RESTART_KEEP_RUNNING" in restart_policy and "DNSMASQ_RESTART_ABORT" in restart_policy
+          assert "prepare_status != 0" in restart_policy
+          dnsmasq_restart = service.index("\\nint\\nrestart_dhcpd(void)")
+          dnsmasq_restart_end = service.index("\\nint\\nrestart_dns", dnsmasq_restart)
+          dnsmasq_restart_body = service[dnsmasq_restart:dnsmasq_restart_end]
+          assert dnsmasq_restart_body.index("prepare_dns_dhcpd") < dnsmasq_restart_body.index("dnsmasq_restart_policy_action")
+          assert dnsmasq_restart_body.index("dnsmasq_restart_policy_action") < dnsmasq_restart_body.index("stop_dns_dhcpd")
+          assert "DNSMASQ_RESTART_KEEP_RUNNING" in dnsmasq_restart_body
+          assert "DNSMASQ_RESTART_ABORT" in dnsmasq_restart_body
+          assert dnsmasq_restart_body.index("stop_dns_dhcpd") < dnsmasq_restart_body.index("is_dns_dhcpd_run()")
+          assert dnsmasq_restart_body.index("is_dns_dhcpd_run()") < dnsmasq_restart_body.index('eval("/usr/sbin/dnsmasq")')
+          assert dnsmasq_restart_body.count('eval("/usr/sbin/dnsmasq")') == 1
+          assert "no unvalidated fallback attempted" in dnsmasq_restart_body
+          assert "refusing duplicate launch" in dnsmasq_restart_body
+          assert "DNSMasq restart policy: PASS" in restart_test
           assert 'config_fail_template' in test
           assert 'dnsmasq_file_publish(fp, config_fail_template, config_destination, 0644) == -1' in test
           assert 'read_exact(config_destination, "generated-config\\n")' in test

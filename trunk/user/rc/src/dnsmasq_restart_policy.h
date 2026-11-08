@@ -1,0 +1,22 @@
+#ifndef PADAVAN_DNSMASQ_RESTART_POLICY_H
+#define PADAVAN_DNSMASQ_RESTART_POLICY_H
+
+/* Separate preparation from stop/launch so failed refreshes cannot take down
+ * an already healthy daemon, and disabled service configurations stop cleanly. */
+enum dnsmasq_restart_action {
+	DNSMASQ_RESTART_ABORT = 0,
+	DNSMASQ_RESTART_KEEP_RUNNING,
+	DNSMASQ_RESTART_STOP_ONLY,
+	DNSMASQ_RESTART_STOP_AND_START
+};
+
+static enum dnsmasq_restart_action
+dnsmasq_restart_policy_action(int was_running, int prepare_status, int service_enabled)
+{
+	if (prepare_status != 0)
+		return was_running ? DNSMASQ_RESTART_KEEP_RUNNING : DNSMASQ_RESTART_ABORT;
+
+	return service_enabled ? DNSMASQ_RESTART_STOP_AND_START : DNSMASQ_RESTART_STOP_ONLY;
+}
+
+#endif /* PADAVAN_DNSMASQ_RESTART_POLICY_H */
