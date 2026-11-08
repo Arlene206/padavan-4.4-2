@@ -26,6 +26,8 @@ main(void)
 	char fail_template[256], fail_path[256], lease_path[256];
 	char config_destination[256], config_template[256];
 	char config_fail_template[256], config_fail_path[256];
+	char resolv_destination[256], resolv_same_template[256], resolv_diff_template[256];
+	char resolv_symlink[256], resolv_link_template[256];
 	char symlink_lease[256], hardlink_lease[256], fifo_lease[256], private_lease[256];
 	FILE *fp;
 	struct stat st;
@@ -59,6 +61,11 @@ main(void)
 	assert(snprintf(config_destination, sizeof(config_destination), "%s/dnsmasq.conf", directory) > 0);
 	assert(snprintf(config_template, sizeof(config_template), "%s/dnsmasq.conf.XXXXXX", directory) > 0);
 	assert(snprintf(config_fail_template, sizeof(config_fail_template), "%s/dnsmasq.conf.failed.XXXXXX", directory) > 0);
+	assert(snprintf(resolv_destination, sizeof(resolv_destination), "%s/resolv.conf", directory) > 0);
+	assert(snprintf(resolv_same_template, sizeof(resolv_same_template), "%s/resolv.same.XXXXXX", directory) > 0);
+	assert(snprintf(resolv_diff_template, sizeof(resolv_diff_template), "%s/resolv.diff.XXXXXX", directory) > 0);
+	assert(snprintf(resolv_symlink, sizeof(resolv_symlink), "%s/resolv.link", directory) > 0);
+	assert(snprintf(resolv_link_template, sizeof(resolv_link_template), "%s/resolv.link.XXXXXX", directory) > 0);
 
 	fp = fopen(sentinel, "w");
 	assert(fp != NULL);
@@ -85,6 +92,38 @@ main(void)
 	assert(dnsmasq_file_is_safe_regular(destination) == -1);
 	assert(chmod(destination, 0644) == 0);
 	read_exact(destination, "server=/example.test/192.0.2.53\n");
+	read_exact(sentinel, "preserve-me\n");
+
+	/* Resolver comparison must distinguish equal/different content and reject links. */
+	fp = fopen(resolv_destination, "w");
+	assert(fp != NULL);
+	assert(fputs("nameserver 127.0.0.1\n", fp) >= 0);
+	assert(fclose(fp) == 0);
+	assert(chmod(resolv_destination, 0644) == 0);
+	fp = dnsmasq_file_open(resolv_same_template);
+	assert(fp != NULL);
+	assert(fputs("nameserver 127.0.0.1\n", fp) >= 0);
+	assert(fflush(fp) == 0);
+	assert(dnsmasq_file_contents_equal(resolv_destination, resolv_same_template) == 1);
+	assert(fclose(fp) == 0);
+	dnsmasq_file_discard(resolv_same_template);
+
+	fp = dnsmasq_file_open(resolv_diff_template);
+	assert(fp != NULL);
+	assert(fputs("nameserver 192.0.2.53\n", fp) >= 0);
+	assert(fflush(fp) == 0);
+	assert(dnsmasq_file_contents_equal(resolv_destination, resolv_diff_template) == 0);
+	assert(fclose(fp) == 0);
+	dnsmasq_file_discard(resolv_diff_template);
+
+	assert(symlink(sentinel, resolv_symlink) == 0);
+	fp = dnsmasq_file_open(resolv_link_template);
+	assert(fp != NULL);
+	assert(fputs("preserve-me\n", fp) >= 0);
+	assert(fflush(fp) == 0);
+	assert(dnsmasq_file_contents_equal(resolv_symlink, resolv_link_template) == 0);
+	assert(fclose(fp) == 0);
+	dnsmasq_file_discard(resolv_link_template);
 	read_exact(sentinel, "preserve-me\n");
 
 	/* Finalization errors retain errno, unlink staging and preserve old output. */
@@ -174,6 +213,8 @@ main(void)
 	assert(unlink(lease_path) == 0);
 	assert(unlink(destination) == 0);
 	assert(unlink(config_destination) == 0);
+	assert(unlink(resolv_symlink) == 0);
+	assert(unlink(resolv_destination) == 0);
 	assert(unlink(sentinel) == 0);
 	assert(rmdir(directory) == 0);
 	return 0;

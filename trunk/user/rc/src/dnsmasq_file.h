@@ -181,6 +181,51 @@ dnsmasq_file_is_safe_regular(const char *path)
 	return 0;
 }
 
+/* Compare byte-for-byte only after validating both paths.  Any open, read or
+ * close error means "different", so an uncertain comparison cannot suppress
+ * publication of a complete resolver file. */
+static int
+dnsmasq_file_contents_equal(const char *path, const char *staged_path)
+{
+	FILE *current, *staged;
+	int current_char, staged_char;
+	int equal = 1;
+
+	if (dnsmasq_file_is_safe_regular(path) != 0 ||
+	    dnsmasq_file_is_safe_regular(staged_path) != 0)
+		return 0;
+
+	current = fopen(path, "r");
+	if (!current)
+		return 0;
+	staged = fopen(staged_path, "r");
+	if (!staged) {
+		fclose(current);
+		return 0;
+	}
+
+	for (;;) {
+		current_char = fgetc(current);
+		staged_char = fgetc(staged);
+		if (current_char != staged_char) {
+			equal = 0;
+			break;
+		}
+		if (current_char == EOF) {
+			if (ferror(current) || ferror(staged))
+				equal = 0;
+			break;
+		}
+	}
+
+	if (fclose(current) != 0)
+		equal = 0;
+	if (fclose(staged) != 0)
+		equal = 0;
+
+	return equal;
+}
+
 /* dnsmasq opens this predictable lease pathname as part of service startup.
  * Refuse links, non-regular files and multiply-linked files before changing
  * permissions; opening never truncates existing lease records. */

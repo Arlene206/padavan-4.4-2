@@ -1084,6 +1084,24 @@ jobs:
           assert 'if (is_dns_used && fill_dnsmasq_servers() != 0)' in service
           assert 'dnsmasq_file_is_safe_regular(DNS_SERVERS_FILE)' in service
           assert 'if (!is_first_run && fill_dnsmasq_servers() != 0)' in net_wan
+          resolver_start = net_wan.index("update_resolvconf(int is_first_run, int do_not_notify)")
+          resolver_end = net_wan.index("\\nint\\nupdate_hosts_router", resolver_start)
+          resolver = net_wan[resolver_start:resolver_end]
+          assert 'char resolv_temp[] = "/etc/resolv.conf.XXXXXX";' in resolver
+          assert 'fp = dnsmasq_file_open(resolv_temp);' in resolver
+          assert 'fflush(fp) != 0 || ferror(fp)' in resolver
+          assert 'dnsmasq_file_contents_equal(DNS_RESOLV_CONF, resolv_temp)' in resolver
+          assert 'dnsmasq_file_publish(fp, resolv_temp, DNS_RESOLV_CONF, 0644)' in resolver
+          assert 'fopen((is_first_run) ? DNS_RESOLV_CONF : resolv_temp, "w+")' not in resolver
+          assert 'rename(resolv_temp, DNS_RESOLV_CONF)' not in resolver
+          assert 'return saved_errno;' in resolver
+          assert 'static int\\ndnsmasq_file_contents_equal' in helper
+          assert 'dnsmasq_file_is_safe_regular(path)' in helper
+          assert 'ferror(current)' in helper and 'ferror(staged)' in helper
+          assert 'fclose(current)' in helper and 'fclose(staged)' in helper
+          assert 'dnsmasq_file_contents_equal(resolv_destination, resolv_same_template) == 1' in test
+          assert 'dnsmasq_file_contents_equal(resolv_destination, resolv_diff_template) == 0' in test
+          assert 'dnsmasq_file_contents_equal(resolv_symlink, resolv_link_template) == 0' in test
           assert 'if (resolv_changed && !do_not_notify && dns_servers_ready)' in net_wan
           assert 'dnsmasq_file_is_safe_regular(DNS_SERVERS_FILE)' in net_wan
           assert 'if (dnsmasq_file_is_safe_regular("/tmp/hosts.static") == 0)' in net_wan
