@@ -1,3 +1,17 @@
+## 2026-11-08 21:43 CST — Preserve dirty NVRAM state and gate reboot on durable commit
+
+- **Base main HEAD:** `f252390de24e99b94336426cb366e1b596ca02a3`.
+- **Recovered P1:** previous handoff's `asus_nvram_commit()` / `nvram_commit_safe()` audit. Confirmed that the commit return was dropped, dirty state was cleared before persistence (including manual-mode deferral), and reboot proceeded after an unchecked commit.
+- **Commit chain:** `46564452ac0e20872f4c6c7f5f074b4324bab244` (policy header); `959f49f19ee54e8d910a35f554bebdf44cd057e9` (GNU89 test); `6bacf222c2f341d92a2c9aa62089ab2ae7633e75` (header prototype); `32bcf145e607fd795e23a64b8656635d6d09c5e1` (production fix); `45eb5a0356f95390c53c6ac528cc15ae3aa07cf5`, `c78193bf7e060468f932c11a6116e2236a6818a6` and final code/test/workflow SHA `b2413070cc6205caf006424c2c02c622b12c540d` (workflow wiring/contracts).
+- **Changed paths:** new `httpd_nvram_commit_policy.h` and `tests/httpd_nvram_commit_policy.c`; updated `httpd.h`, `web_ex.c` and `.github/workflows/httpd-security.yml`.
+- **Implementation:** `nvram_commit_safe()` now returns either the underlying commit result or `HTTPD_NVRAM_COMMIT_DEFERRED`. Dirty state is preserved on failed/deferred persistence and cleared only on successful commit. Reboot requires a successful commit whenever manual mode is enabled or changes remain dirty; failed commit cancels reboot and leaves restart bits pending. Successful explicit CommitFlash NVRAM commit clears dirty state.
+- **Tests:** `cc -std=gnu89 -Wall -Wextra -Werror` host regression PASS (`HTTPD NVRAM commit policy: PASS`). Independent source-contract preflight over current fetched blobs PASSed 18 checks. Workflow compiles the test and checks code wiring/order plus symmetric push/PR path filters.
+- **Actions:** current exact push head `b2413070cc6205caf006424c2c02c622b12c540d` is **NOT VERIFIED**: combined-status rows were empty and the available commit-workflow-runs connector exposes PR-triggered runs only. Earlier group-compaction exact head `e7a4316532e7acf6a95f60a92e799700b1cfb888`, Actions run [42485117467](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42485117467), was SUCCESS; do not confuse that prior run with this new change.
+- **Limits / remaining audit:** full production HTTPD build, MIPS/uClibc, firmware/TRX and hardware NOT RUN. NVRAM remains AUDITING. RC default restore ignores clear/per-key SET outcomes; erase ignores flag SET/commit outcomes; init_router ignores startup commit; restore replay, backup atomicity, group rollback atomicity, read-error-vs-missing-key distinction and temporary/persistent semantics remain open.
+- **Next exact task:** inspect and fix `trunk/user/rc/src/rc.c::nvram_restore_defaults()`, `erase_nvram()` and `init_router()` commit-result propagation with a failure-injection GNU89 policy test and workflow source contract. After that bounded follow-up, rotate to wireless management or DNS/resolver P1/P2 governance; keep NVRAM marked AUDITING.
+
+---
+
 ## 2026-11-08 21:28 CST — Make NVRAM group deletion failure-safe across all columns
 
 - **Base main HEAD:** `83aacc03e4c34a6b8c87b76dbb1d161074fe3fa1`.
