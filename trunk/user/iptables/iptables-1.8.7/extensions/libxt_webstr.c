@@ -82,8 +82,14 @@ webstr_init(struct xt_entry_match *m)
 static void
 parse_string(const unsigned char *s, struct xt_webstr_info *info)
 {
-	if (strlen(s) <= BM_MAX_NLEN) strcpy(info->string, s);
-	else xtables_error(PARAMETER_PROBLEM, "WEBSTR too long `%s'", s);
+	size_t len = strlen((const char *)s);
+
+	/* The matchinfo field must retain its final NUL byte. */
+	if (len >= sizeof(info->string)) {
+		xtables_error(PARAMETER_PROBLEM, "WEBSTR too long `%s'", s);
+		return;
+	}
+	memcpy(info->string, s, len + 1);
 }
 
 static int

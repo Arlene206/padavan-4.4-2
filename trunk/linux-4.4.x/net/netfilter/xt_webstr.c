@@ -57,8 +57,15 @@
 #include <linux/skbuff.h>
 #include <linux/ip.h>
 #include <linux/tcp.h>
+#include <linux/slab.h>
+#include <linux/string.h>
 
 #include <linux/netfilter/x_tables.h>
+#if IS_ENABLED(CONFIG_IPV6)
+#include <net/ipv6.h>
+#endif
+
+#include "xt_webstr_parser_policy.h"
 #include <linux/netfilter_ipv4/ip_tables.h>
 #include <linux/netfilter_ipv6/ip6_tables.h>
 #include <linux/netfilter/xt_webstr.h>
@@ -76,20 +83,10 @@ MODULE_ALIAS("ipt_webstr");
 #define	toupper(x) (isupper(x) ? (x) : (x) - 'a' + 'A')
 #define tolower(x) (isupper(x) ? ((x) - 'A' + 'a') : (x))
 
-#define split(word, wordlist, next, delim) \
-    for (next = wordlist, \
-	strncpy(word, next, sizeof(word)), \
-	word[(next=strstr(next, delim)) ? strstr(word, delim) - word : sizeof(word) - 1] = '\0', \
-	next = next ? next + sizeof(delim) - 1 : NULL ; \
-	strlen(word); \
-	next = next ? : "", \
-	strncpy(word, next, sizeof(word)), \
-	word[(next=strstr(next, delim)) ? strstr(word, delim) - word : sizeof(word) - 1] = '\0', \
-	next = next ? next + sizeof(delim) - 1 : NULL)
-
 #define URLSIZE 	1024
 #define WORDSIZE 	256
 #define HOSTSIZE 	256
+#define WEBSTR_MAX_SCAN_SIZE 2048
 
 
 /* Flags for get_http_info() */
@@ -113,7 +110,6 @@ typedef struct httpinfo {
     char  url[URLSIZE];
     int urllen;
 } httpinfo_t;
-static httpinfo_t htinfo;
 
 /* Return 1 for match, 0 for accept, -1 for partial. */
 static int find_pattern2(const char *data, size_t dlen,
@@ -122,7 +118,7 @@ static int find_pattern2(const char *data, size_t dlen,
 	unsigned int *numoff,
 	unsigned int *numlen)
 {
-    size_t i, j, k;
+    size_t i;
     int state = 0;
     *numoff = *numlen = 0;
 
@@ -155,12 +151,13 @@ static int find_pattern2(const char *data, size_t dlen,
 	if (memcmp(data + i, pattern, plen ) != 0)
 	    continue;
 
-	/* Here, it means patten match!! */
-	*numoff=i + plen;
-	for (j = *numoff, k = 0; data[j] != term; j++, k++)
-	    if (j > dlen) return -1 ;	/* no terminal char */
+	/* Here, it means pattern match. Bound the CR search before reading. */
+	*numoff = i + plen;
+	if (xt_webstr_find_terminator((const unsigned char *)data,
+				      (unsigned int)dlen, *numoff,
+				      (unsigned char)term, numlen) != 0)
+	    return -1;
 
-	*numlen = k;
 	return 1;
     }
     return 0;
@@ -168,11 +165,10 @@ static int find_pattern2(const char *data, size_t dlen,
 
 static int mangle_http_header(int flags, unsigned char *data, unsigned int datalen)
 {
-    int found, offset, len;
-    int ret = 0;
+    int found, ret = 0;
+    unsigned int offset, len;
 
-
-    DEBUGP( PRINTK_LEVEL "%s: seq=%u\n", __FUNCTION__, ntohl(tcph->seq));
+    DEBUGP( PRINTK_LEVEL "%s: processing HTTP header data\n", __FUNCTION__);
 
     /* Basic checking, is it HTTP packet? */
     if (datalen < 10)
@@ -186,7 +182,7 @@ static int mangle_http_header(int flags, unsigned char *data, unsigned int datal
     if (flags & HTTP_COOKIE) {
 	found = find_pattern2(data, datalen, "Cookie: ", 
 		sizeof("Cookie: ")-1, '\r', &offset, &len);
-	if (found) {
+	if (found == 1) {
 	    char c;
 	    offset -= (sizeof("Cookie: ") - 1);
 	    /* Swap the 2rd and 4th bit */
@@ -202,262 +198,333 @@ static int mangle_http_header(int flags, unsigned char *data, unsigned int datal
 
 static int get_http_info(int flags, httpinfo_t *info, const unsigned char *data, unsigned int datalen)
 {
-    int found, offset;
-    int hostlen, pathlen;
+    int found, offset = 0;
+    int hostlen = 0, pathlen;
+    unsigned int match_offset = 0, match_length = 0;
     int ret = 0;
 
-    /* Basic checking, is it HTTP packet? */
+    if (!info || !data)
+	return 0;
+    memset(info, 0, sizeof(*info));
+
     if (datalen < 10)
-    {
-        #ifdef DEBUG
-            DEBUGP( PRINTK_LEVEL "%s: Error ?SYN? datalen <10 datalen=%d\n", __FUNCTION__ ,datalen);
-        #endif
-	return ret;	/* Not enough length, ignore it */
-    }
+	return ret;
     if (memcmp(data, "GET ", sizeof("GET ") - 1) != 0 &&
         memcmp(data, "POST ", sizeof("POST ") - 1) != 0 &&
         memcmp(data, "HEAD ", sizeof("HEAD ") - 1) != 0)
-    {
-        #ifdef DEBUG
-            DEBUGP( PRINTK_LEVEL "%s: Error no GET/POST clause\n", __FUNCTION__ );
-        #endif
-	    return ret;	/* Pass it */
-    }
+	return ret;
     if (!(flags & (HTTP_HOST | HTTP_URL)))
-    {
-        #ifdef DEBUG
-            DEBUGP( PRINTK_LEVEL "%s: Error nor HOST nor URL match\n", __FUNCTION__ );
-        #endif
-	    return ret;
-    }
+	return ret;
 
-    if ( flags & HTTP_HOST )  /* it is always true because MATCH parameter parser adds HTTP__HOST when HTTP_URL is specified */ 
-    {
-        /* find the 'Host: ' value */
-         found = find_pattern2(data, datalen, "Host: ", 
-        	    sizeof("Host: ") - 1, '\r', &offset, &hostlen);
-        #ifdef DEBUG
-        if (found )
-            DEBUGP( PRINTK_LEVEL "Host found at offset=%d, with hostlen=%d\n", offset, hostlen);
-        #endif
+    if (flags & HTTP_HOST) {
+	found = find_pattern2(data, datalen, "Host: ",
+			      sizeof("Host: ") - 1, '\r',
+			      &match_offset, &match_length);
+	if (found != 1 || !match_length)
+		return ret;
 
-        if (!found || !hostlen)
-        	return ret;
-
-        ret++;	/* Host found, increase the return value */
-		hostlen = (hostlen < HOSTSIZE) ? hostlen : HOSTSIZE;
-        strncpy(info->host, data + offset, hostlen);
-		 *(info->host + hostlen) = 0;		/* null-terminated */
-        info->hostlen = hostlen;
-        DEBUGP( PRINTK_LEVEL "HOST=%s, hostlen=%d\n", info->host, info->hostlen);
+	offset = (int)match_offset;
+	hostlen = (int)xt_webstr_copy_length(match_length, HOSTSIZE);
+	memcpy(info->host, data + offset, (unsigned int)hostlen);
+	info->host[hostlen] = '\0';
+	info->hostlen = hostlen;
+	ret++;
     }
 
     if (!(flags & HTTP_URL))
 	return ret;
 
-    /* find the ['GET ' | 'POST ' | 'HEAD'] parameter value, i.e find url */
     found = find_pattern2(data, datalen, "GET ",
-	    sizeof("GET ") - 1, '\r', &offset, &pathlen);
-    DEBUGP( PRINTK_LEVEL "HTTP GET found=%d\n", found);
-    if (!found)
+			  sizeof("GET ") - 1, '\r',
+			  &match_offset, &match_length);
+    if (found != 1) {
 	found = find_pattern2(data, datalen, "POST ",
-		sizeof("POST ") - 1, '\r', &offset, &pathlen);
-    if (!found) 
-        found = find_pattern2(data, datalen, "HEAD ", 
-                sizeof("HEAD ") - 1, '\r', &offset, &pathlen);      
-    DEBUGP( PRINTK_LEVEL "HTTP POST found=%d\n", found);
+			      sizeof("POST ") - 1, '\r',
+			      &match_offset, &match_length);
+    }
+    if (found != 1) {
+	found = find_pattern2(data, datalen, "HEAD ",
+			      sizeof("HEAD ") - 1, '\r',
+			      &match_offset, &match_length);
+    }
+    if (found != 1)
+	return ret;
 
-    if (!found || (pathlen -= (sizeof(" HTTP/x.x") - 1)) <= 0) /* ignore this field */
-	   return ret;
-    DEBUGP( PRINTK_LEVEL " pathlen - (sizeof(' HTTP/x.x') %d\n", pathlen - (sizeof(" HTTP/x.x") - 1));
+    offset = (int)match_offset;
+    pathlen = (int)match_length;
+    if (pathlen <= (int)(sizeof(" HTTP/x.x") - 1))
+	return ret;
+    pathlen -= (int)(sizeof(" HTTP/x.x") - 1);
 
-    ret++;	/* GET/POST found, increase the return value */
-    pathlen = ((pathlen + hostlen) < URLSIZE) ? pathlen : URLSIZE - hostlen;
-	DEBUGP( PRINTK_LEVEL " Make url start from host hostlen %d\n", hostlen);
-	strncpy(info->url, info->host, hostlen);
-	
-	
-    strncpy(info->url + hostlen, data + offset, pathlen);
-    *(info->url + hostlen + pathlen) = 0;	/* null-terminated */
-	/* in a regular http reguest, host is after url */
-    DEBUGP( PRINTK_LEVEL " Append Url  to host sits at address of %p, offset=%d from tcp payload to \n", data + offset, offset);
+    ret++;
+    pathlen = (int)xt_webstr_url_path_length((unsigned int)hostlen,
+					     (unsigned int)pathlen, URLSIZE);
+    memcpy(info->url, info->host, (unsigned int)hostlen);
+    memcpy(info->url + hostlen, data + offset, (unsigned int)pathlen);
+    info->url[hostlen + pathlen] = '\0';
     info->urllen = hostlen + pathlen;
-    DEBUGP( PRINTK_LEVEL "URL=%s, urllen=%d\n", info->url, info->urllen);
 
     return ret;
 }
 
 /* Linear string search based on memcmp() */
-static char *search_linear (char *needle, char *haystack, int needle_len, int haystack_len) 
+static char *search_linear(char *needle, char *haystack,
+			    int needle_len, int haystack_len)
 {
-	char *k = haystack + (haystack_len-needle_len);
-	char *t = haystack;
-	
-	DEBUGP( PRINTK_LEVEL "%s: haystack=%s, needle=%s\n", __FUNCTION__, t, needle);
-	for(; t <= k; t++) {
-		DEBUGP( PRINTK_LEVEL "%s: haystack=%s, needle=%s\n", __FUNCTION__, t, needle);
-		if (strncasecmp(t, needle, needle_len) == 0) return t;
-		//if ( memcmp(t, needle, needle_len) == 0 ) return t;
-	}
+	char *end, *cursor;
 
+	if (!needle || !haystack || needle_len <= 0 ||
+	    haystack_len < needle_len)
+		return NULL;
+	end = haystack + (haystack_len - needle_len);
+	for (cursor = haystack; cursor <= end; cursor++) {
+		if (strncasecmp(cursor, needle, needle_len) == 0)
+			return cursor;
+	}
 	return NULL;
 }
 
-#define TOKEN   "<&nbsp;>" 
+#define TOKEN   "<&nbsp;>"
 
-static bool xt_webstr_match(const struct sk_buff *skb,  struct xt_action_param *par)
+static int
+webstr_match_token_list(const char *wordlist, unsigned int wordlist_len,
+			char *haystack, int haystack_len)
 {
-	const struct xt_webstr_info *info = par->matchinfo;
-	unsigned char *data;
-	unsigned int datalen;
-	struct tcphdr *tcph;
-	char *wordlist = (char *)&info->string;
+	const unsigned int delimiter_len = sizeof(TOKEN) - 1;
+	unsigned int offset = 0, token_start, token_len;
+	char needle[WORDSIZE];
+	char *chtemp;
+	int nlen, status;
+
+	if (!wordlist || !haystack || wordlist_len > BM_MAX_NLEN ||
+	    haystack_len <= 0)
+		return 0;
+
+	while (offset < wordlist_len) {
+		token_start = offset;
+		status = xt_webstr_next_token(wordlist, wordlist_len, &offset,
+					      TOKEN, delimiter_len, &token_len);
+		if (status <= 0)
+			break;
+		if (token_len >= sizeof(needle))
+			token_len = sizeof(needle) - 1;
+		memcpy(needle, wordlist + token_start, token_len);
+		needle[token_len] = '\0';
+		chtemp = strstr(needle, "://");
+		if (chtemp)
+			memmove(needle, chtemp + 3, strlen(chtemp + 3) + 1);
+		nlen = strlen(needle);
+		if (!nlen || nlen > haystack_len)
+			continue;
+		if (search_linear(needle, haystack, nlen, haystack_len) != NULL)
+			return 1;
+	}
+	return 0;
+}
+
+static bool xt_webstr_match(const struct sk_buff *skb, struct xt_action_param *par)
+{
+	const struct xt_webstr_info *info;
+	const struct tcphdr *tcph;
+	struct tcphdr _tcph;
+	httpinfo_t *htinfo = NULL;
+	unsigned char *data = NULL;
+	unsigned char *allocated_data = NULL;
+	char *wordlist;
+	unsigned int datalen, payload_offset, tcp_header_len;
+	int network_offset, tcp_offset;
 	int flags = 0;
 	int found = 0;
+	int result = 0;
 	long int opt = 0;
 
-	if (info->len < 1)
-	    return 0;
+	if (!skb || !par || !par->matchinfo)
+		return 0;
+	info = par->matchinfo;
+	if (info->len < 1 || info->len >= sizeof(info->string) ||
+	    info->string[info->len] != '\0')
+		return 0;
+	wordlist = (char *)&info->string;
+
+	network_offset = skb_network_offset(skb);
+	if (network_offset < 0)
+		return 0;
 
 	if (par->family == NFPROTO_IPV4) {
-		struct iphdr *iph = ip_hdr(skb);
-		if (!iph) {
+		struct iphdr _iph;
+		const struct iphdr *iph;
+		unsigned int ip_header_len;
+
+		iph = skb_header_pointer(skb, network_offset, sizeof(_iph), &_iph);
+		if (!iph || iph->version != 4 || iph->ihl < 5 ||
+		    iph->protocol != IPPROTO_TCP)
 			return 0;
-		}
-		tcph = (void *)iph + iph->ihl*4;
-		data = (void *)tcph + tcph->doff*4;
-		datalen = (skb)->len - (iph->ihl*4) - (tcph->doff*4);
+		if (ntohs(iph->frag_off) & IP_OFFSET)
+			return 0;
+		ip_header_len = (unsigned int)iph->ihl * 4;
+		if (!xt_webstr_span_is_valid(skb->len,
+					     (unsigned int)network_offset,
+					     ip_header_len))
+			return 0;
+		tcp_offset = network_offset + (int)ip_header_len;
 	}
 #if IS_ENABLED(CONFIG_IPV6)
 	else if (par->family == NFPROTO_IPV6) {
-		struct ipv6hdr *iph = ipv6_hdr(skb);
-		if (!iph) {
+		struct ipv6hdr _iph;
+		const struct ipv6hdr *iph;
+		u8 nexthdr;
+		__be16 frag_off = 0;
+
+		iph = skb_header_pointer(skb, network_offset, sizeof(_iph), &_iph);
+		if (!iph || iph->version != 6)
 			return 0;
-		}
-		tcph = (void *)iph + sizeof(struct ipv6hdr);
-		data = (void *)tcph + tcph->doff*4;
-		datalen = (skb)->len - sizeof(struct ipv6hdr) - (tcph->doff*4);
+		nexthdr = iph->nexthdr;
+		tcp_offset = ipv6_skip_exthdr(skb,
+					      network_offset + (int)sizeof(*iph),
+					      &nexthdr, &frag_off);
+		if (tcp_offset < 0 || nexthdr != IPPROTO_TCP)
+			return 0;
 	}
 #endif
 	else
 		return 0;
 
-	DEBUGP( PRINTK_LEVEL "\n************************************************\n"
-		"%s: type=%s\n", __FUNCTION__, (info->type == XT_WEBSTR_URL) 
-		? "XT_WEBSTR_URL"  : (info->type == XT_WEBSTR_HOST) 
-		? "XT_WEBSTR_HOST" : "XT_WEBSTR_CONTENT" );
-	
-	/* Determine the flags value for get_http_info(), and mangle packet 
-	 * if needed. */
-	switch(info->type)
-	{
-	    case XT_WEBSTR_URL:
+	if (tcp_offset < 0 ||
+	    !xt_webstr_span_is_valid(skb->len, (unsigned int)tcp_offset,
+				     sizeof(_tcph)))
+		return 0;
+	tcph = skb_header_pointer(skb, tcp_offset, sizeof(_tcph), &_tcph);
+	if (!tcph || tcph->doff < 5)
+		return 0;
+	tcp_header_len = (unsigned int)tcph->doff * 4;
+	if (!xt_webstr_tcp_header_is_valid(skb->len,
+					   (unsigned int)tcp_offset,
+					   tcp_header_len))
+		return 0;
+
+	payload_offset = (unsigned int)tcp_offset + tcp_header_len;
+	if (!xt_webstr_span_is_valid(skb->len, payload_offset, 0))
+		return 0;
+	datalen = skb->len - payload_offset;
+	if (datalen > WEBSTR_MAX_SCAN_SIZE)
+		datalen = WEBSTR_MAX_SCAN_SIZE;
+	if (datalen < 10)
+		return 0;
+
+	if (xt_webstr_span_is_valid(skb_headlen(skb), payload_offset, datalen)) {
+		data = skb->data + payload_offset;
+	} else {
+		allocated_data = kmalloc(datalen, GFP_ATOMIC);
+		if (!allocated_data)
+			goto out;
+		if (skb_copy_bits(skb, (int)payload_offset, allocated_data,
+				  (int)datalen) != 0)
+			goto out;
+		data = allocated_data;
+	}
+
+	switch (info->type) {
+	case XT_WEBSTR_URL:
 		flags |= HTTP_URL;
-       /* add both flags because we construct url from host name first, then url
-       adds HTTP__HOST when HTTP_URL is specified */
-	    case XT_WEBSTR_HOST:
+	case XT_WEBSTR_HOST:
 		flags |= HTTP_HOST;
 		break;
-
-	    case XT_WEBSTR_CONTENT:
+	case XT_WEBSTR_CONTENT:
 		opt = simple_strtol(wordlist, (char **)NULL, 10);
-		DEBUGP( PRINTK_LEVEL "%s: string=%s, opt=%#lx\n", __FUNCTION__, wordlist, opt);
-
 		if (opt & (BLK_JAVA | BLK_ACTIVE | BLK_PROXY))
-		    flags |= HTTP_URL;
+			flags |= HTTP_URL;
 		if (opt & BLK_PROXY)
-		    flags |= HTTP_HOST;
-		if (opt & BLK_COOKIE)
-		    mangle_http_header(HTTP_COOKIE, data, datalen);
+			flags |= HTTP_HOST;
+		if (opt & BLK_COOKIE) {
+			int changed = mangle_http_header(HTTP_COOKIE, data, datalen);
+
+			if (changed > 0 && allocated_data &&
+			    skb_store_bits((struct sk_buff *)skb, (int)payload_offset,
+				   data, (int)datalen) != 0)
+				goto out;
+		}
 		break;
-
-	    default:
-		printk( KERN_ERR "%s: Sorry! Cannot find  match type.\n", __FILE__);
-		return 0;
+	default:
+		goto out;
 	}
 
-	/* Get the http header info */
+	if (!flags)
+		goto out;
+	if (memcmp(data, "GET ", sizeof("GET ") - 1) != 0 &&
+	    memcmp(data, "POST ", sizeof("POST ") - 1) != 0 &&
+	    memcmp(data, "HEAD ", sizeof("HEAD ") - 1) != 0)
+		goto out;
 
-    DEBUGP( PRINTK_LEVEL "%s:, skb->len=%d, datalen=%d seq=%u\n", __FUNCTION__,skb->len, datalen, ntohl(tcph->seq));
-	if (get_http_info(flags, &htinfo, data, datalen) < 1)
-	    return 0;
+	/* Per-invocation state avoids the original cross-CPU parser data race.
+	 * Keep the >1 KiB object off the stack on CONFIG_FRAME_WARN boards. */
+	htinfo = kmalloc(sizeof(*htinfo), GFP_ATOMIC);
+	if (!htinfo)
+		goto out;
+	if (get_http_info(flags, htinfo, data, datalen) < 1)
+		goto out;
 
-	/* Check if the http header content contains the forbidden keyword */
 	if (info->type == XT_WEBSTR_HOST || info->type == XT_WEBSTR_URL) {
-	    int nlen = 0, hlen = 0;
-	    char needle[WORDSIZE], *haystack = NULL;
-	    char *next;
-	    char *chtemp;
+		char *haystack;
+		int hlen;
 
-	    if (info->type == XT_WEBSTR_HOST) {
-		haystack = htinfo.host;
-		hlen = htinfo.hostlen;
-	    }
-	    else {
-		haystack = htinfo.url;
-		hlen = htinfo.urllen;
-	    }
-	    split(needle, wordlist, next, TOKEN) {
-	        /* Don't include '://' as part of the word being searched for */
-	        chtemp = strstr(needle, "://");
-	        if (NULL != chtemp)
-	            strcpy(needle, chtemp + 3);
-		nlen = strlen(needle);
-		DEBUGP( PRINTK_LEVEL "keyword=%s, nlen=%d, hlen=%d\n", needle, nlen, hlen);
-		if (!nlen || !hlen || nlen > hlen) continue;
-		if (search_linear(needle, haystack, nlen, hlen) != NULL) {
-		    found = 1;
-		    break;
+		if (info->type == XT_WEBSTR_HOST) {
+			haystack = htinfo->host;
+			hlen = htinfo->hostlen;
+		} else {
+			haystack = htinfo->url;
+			hlen = htinfo->urllen;
 		}
-	    }
-	}
-	else {		/* XT_WEBSTR_CONTENT */
-	    int vicelen;
+		found = webstr_match_token_list(wordlist, info->len, haystack, hlen);
+	} else {
+		int vicelen;
 
-	    if (opt & BLK_JAVA) {
-		vicelen = sizeof(".js") - 1;
-		if (strncasecmp(htinfo.url + htinfo.urllen - vicelen, ".js", vicelen) == 0) {
-		    DEBUGP( PRINTK_LEVEL "%s: MATCH....java\n", __FUNCTION__);
-		    found = 1;
-		    goto match_ret;
+		if (opt & BLK_JAVA) {
+			vicelen = sizeof(".js") - 1;
+			if (htinfo->urllen >= vicelen &&
+			    strncasecmp(htinfo->url + htinfo->urllen - vicelen,
+					".js", vicelen) == 0) {
+				found = 1;
+				goto match_ret;
+			}
+			vicelen = sizeof(".class") - 1;
+			if (htinfo->urllen >= vicelen &&
+			    strncasecmp(htinfo->url + htinfo->urllen - vicelen,
+					".class", vicelen) == 0) {
+				found = 1;
+				goto match_ret;
+			}
 		}
-		vicelen = sizeof(".class") - 1;
-		if (strncasecmp(htinfo.url + htinfo.urllen - vicelen, ".class", vicelen) == 0) {
-		    DEBUGP( PRINTK_LEVEL "%s: MATCH....java\n", __FUNCTION__);
-		    found = 1;
-		    goto match_ret;
+		if (opt & BLK_ACTIVE) {
+			vicelen = sizeof(".ocx") - 1;
+			if (htinfo->urllen >= vicelen &&
+			    strncasecmp(htinfo->url + htinfo->urllen - vicelen,
+					".ocx", vicelen) == 0) {
+				found = 1;
+				goto match_ret;
+			}
+			vicelen = sizeof(".cab") - 1;
+			if (htinfo->urllen >= vicelen &&
+			    strncasecmp(htinfo->url + htinfo->urllen - vicelen,
+					".cab", vicelen) == 0) {
+				found = 1;
+				goto match_ret;
+			}
 		}
-	    }
-	    if (opt & BLK_ACTIVE){
-		vicelen = sizeof(".ocx") - 1;
-		if (strncasecmp(htinfo.url + htinfo.urllen - vicelen, ".ocx", vicelen) == 0) {
-		    DEBUGP( PRINTK_LEVEL "%s: MATCH....activex\n", __FUNCTION__);
-		    found = 1;
-		    goto match_ret;
-		}
-		vicelen = sizeof(".cab") - 1;
-		if (strncasecmp(htinfo.url + htinfo.urllen - vicelen, ".cab", vicelen) == 0) {
-		    DEBUGP( PRINTK_LEVEL "%s: MATCH....activex\n", __FUNCTION__);
-		    found = 1;
-		    goto match_ret;
-		}
-	    }
-	    if (opt & BLK_PROXY){
-		if (strncasecmp(htinfo.url + htinfo.hostlen, "http://", sizeof("http://") - 1) == 0) {
-		    DEBUGP( PRINTK_LEVEL "%s: MATCH....proxy\n", __FUNCTION__);
-		    found = 1;
-		    goto match_ret;
-		}
-	    }
+		if ((opt & BLK_PROXY) &&
+		    htinfo->urllen >= htinfo->hostlen +
+			(int)(sizeof("http://") - 1) &&
+		    strncasecmp(htinfo->url + htinfo->hostlen,
+				"http://", sizeof("http://") - 1) == 0)
+			found = 1;
 	}
 
 match_ret:
-	DEBUGP( PRINTK_LEVEL "%s: Verdict =======> %s \n",__FUNCTION__
-		, found ? "MATCH FOUND" : "MATCH NOT FOUND");
-
-	return (found ^ info->invert);
+	result = found ^ info->invert;
+out:
+	kfree(htinfo);
+	kfree(allocated_data);
+	return result;
 }
-
 
 static struct xt_match webstr_match[] __read_mostly = {
 	{
