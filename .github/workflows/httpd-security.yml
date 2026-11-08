@@ -2211,7 +2211,8 @@ jobs:
           assert "firewall_ppp_interface_is_safe" in prune
           assert "ferror(input)" in prune and "fclose(input)" in prune
           assert prune.index("fclose(input)") < prune.index("fclose(output)") < prune.index("rename(temp_path, VPN_SERVER_LEASE_FILE)")
-          assert "unlink(temp_path)" in prune
+          assert "temp_created = 1" in prune
+          assert "if (temp_created && temp_path[0] && unlink(temp_path)" in prune
           assert "fscanf(" not in down
           assert "vpns_prune_lease_file(argv[1], &i_clients)" in down
           assert "lease_status == 0 && i_clients == 0" in down

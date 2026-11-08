@@ -403,7 +403,7 @@ vpns_firewall_permission(char *ifname, int add)
 static int
 vpns_prune_lease_file(const char *disconnected_ifname, int *remaining_clients)
 {
-	int lease_fd = -1, temp_fd = -1, line_status, saved_errno;
+	int lease_fd = -1, temp_fd = -1, line_status, saved_errno, temp_created = 0;
 	FILE *input = NULL, *output = NULL;
 	struct stat lease_stat;
 	char temp_path[] = "/tmp/.vpns.leases.XXXXXX";
@@ -438,6 +438,7 @@ vpns_prune_lease_file(const char *disconnected_ifname, int *remaining_clients)
 	temp_fd = mkstemp(temp_path);
 	if (temp_fd < 0)
 		goto failed;
+	temp_created = 1;
 	if (fchmod(temp_fd, S_IRUSR | S_IWUSR) != 0)
 		goto failed;
 	output = fdopen(temp_fd, "w");
@@ -508,7 +509,7 @@ failed:
 		(void)close(lease_fd);
 	if (temp_fd >= 0)
 		(void)close(temp_fd);
-	if (temp_path[0] && unlink(temp_path) != 0 && errno != ENOENT)
+	if (temp_created && temp_path[0] && unlink(temp_path) != 0 && errno != ENOENT)
 		logmessage(VPNS_LOG_NAME,
 			   "cannot remove temporary VPN lease inventory %s (errno=%d)",
 			   temp_path, errno);
