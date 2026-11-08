@@ -189,6 +189,12 @@ on:
   pull_request:
     paths:
       - "trunk/user/shared/src/nvram_linux.h"
+      - "trunk/user/rc/src/switch_status_policy.h"
+      - "trunk/user/rc/src/tests/switch_status_policy.c"
+      - "trunk/user/rc/src/switch_mtk_esw.c"
+      - "trunk/user/rc/src/switch_rtl8367.c"
+      - "trunk/user/rc/src/switch.h"
+      - "trunk/user/rc/src/rstats.c"
       - "trunk/user/shared/src/nvram_linux.c"
       - "trunk/user/rc/src/tests/nvram_restore_policy.c"
       - "trunk/user/rc/src/rc_nvram_policy.h"
