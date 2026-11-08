@@ -1,3 +1,18 @@
+## 2026-11-09 01:52 CST — Preserve active WAN/PPP/VPN state on resolver refresh failure
+
+- **Base main HEAD:** 4eba111c445d7bcbb1f0383550386e96258aa2bb.
+- **Production + policy test:** ad7cc2ef13dff078aeb7530ddd2726c25009b57c.
+- **Workflow follow-ups:** 6bb705b940fade59ad393e1d3dca7a07da772ccf (GNU89 compile continuation), 3f7da390d081345dc7208ec3b05a388404308aa8 (diagnostic source assertion), 8f3c7493c01b1eed76a50be23dcb4d74149f458d (DHCP resolver source contracts).
+- **Recovered task:** prior handoff explicitly queued handling ignored update_resolvconf() statuses in WAN callers after the atomic resolver publisher was completed.
+- **Finding:** ten event callsites in the examined modules discarded the updater status: six in net_wan.c, one in net_ppp.c, one in net_wan6.c, and two in vpn_client.c. A resolver file refresh failure must not be converted into a link-down or a failed PPP/DHCP/VPN callback; the atomic writer preserves the previous published file.
+- **Fix:** new refresh_resolvconf_nonfatal(reason, is_first_run) wrapper and wan_resolver_refresh_policy.h classify non-zero refresh status as KEEP_WAN and log event context/status. All ten discovered callsites now use it. rc.h publishes the wrapper prototype.
+- **Changed paths:** net_wan.c, net_ppp.c, net_wan6.c, vpn_client.c, rc.h, new policy header/test, and .github/workflows/httpd-security.yml. Push and PR triggers now include net_wan6/VPN source and new helper/test paths.
+- **Regression:** new GNU89 -Wall -Wextra -Werror test covers status 0, EIO, ENOSPC and negative failure status. The first workflow run [42506772399](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42506772399) failed in the newly added shell compile command due a doubled continuation slash. Follow-up run [42506819206](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42506819206) completed the DNS/resolver step successfully (new policy test included) but then exposed stale DHCP workflow assertions that expected direct updater calls. Those assertions were changed to expect the contextual wrapper. Exact current candidate run [42506991629](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42506991629) on 8f3c7493c01b1eed76a50be23dcb4d74149f458d is **PENDING / IN PROGRESS**; do not report final CI success before it finishes.
+- **Validation limits:** no local full RC compile, MIPS/uClibc, full firmware/TRX or physical-router validation. Wider repository-wide caller scan remains incomplete; no whole DNS module closure is claimed. restart_dns() result propagation, DNSMasq parser/rebinding and resolver/upstream-snapshot transactionality remain open.
+- **Next:** verify exact-head Actions run 42506991629. If green, run the broader direct-caller/restart-result inventory, then rotate to wireless radio restart's configuration-generation/stop ordering reliability issue.
+
+---
+
 ## 2026-11-09 01:20:38 CST — Gate WAN startup on initial firewall filter restore success
 
 - **Base main HEAD:** fd3072d0901f2edf11fcc6be7318ab6972045c5d.
