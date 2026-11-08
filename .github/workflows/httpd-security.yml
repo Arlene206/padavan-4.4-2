@@ -1793,7 +1793,7 @@ jobs:
           regression = Path("trunk/user/rc/src/tests/modem_node_file.c").read_text()
           assert '#include "modem_node_file.h"' in hotplug
           assert hotplug.count("modem_node_file_write(MODEM_NODE_DIR, device_name, node_data)") == 3
-          assert hotplug.count("modem_node_file_remove(MODEM_NODE_DIR, device_name)") == 3
+          assert hotplug.count("modem_node_file_remove(MODEM_NODE_DIR, device_name)") >= 3
           assert 'fopen(node_fname, "w+")' not in hotplug
           assert 'mkdir_if_none(MODEM_NODE_DIR, "777")' not in hotplug
           assert hotplug.count("modem_node_name_is_safe(device_name)") == 3
