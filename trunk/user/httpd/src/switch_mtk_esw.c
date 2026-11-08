@@ -25,6 +25,7 @@
 #include <sys/ioctl.h>
 
 #include "httpd.h"
+#include "httpd_switch_ioctl_policy.h"
 
 #include <mtk_esw/ioctl.h>
 
@@ -85,52 +86,56 @@ typedef struct esw_mib_counters_s
 
 int mtk_esw_ioctl(unsigned int cmd, unsigned int par, unsigned int *value)
 {
-	int fd, retVal = 0;
+	int fd, ioctl_result, ioctl_errno = 0;
+	int close_result, close_errno = 0;
+	int operation_status, close_status;
 
 	fd = open(MTK_ESW_DEVPATH, O_RDONLY);
 	if (fd < 0) {
+		int open_errno = errno;
 		perror(MTK_ESW_DEVPATH);
-		return errno;
+		return httpd_switch_normalize_result(fd, open_errno);
 	}
 
 	cmd &= ((1L << MTK_ESW_IOCTL_CMD_LENGTH_BITS) - 1);
 	cmd |= (par << MTK_ESW_IOCTL_CMD_LENGTH_BITS);
 
-	if (ioctl(fd, cmd, value) < 0) {
+	ioctl_result = ioctl(fd, cmd, value);
+	if (ioctl_result < 0) {
+		ioctl_errno = errno;
 		perror("ioctl");
-		retVal = errno;
 	}
+	operation_status = httpd_switch_normalize_result(ioctl_result, ioctl_errno);
 
-	close(fd);
+	close_result = close(fd);
+	if (close_result < 0) {
+		close_errno = errno;
+		perror("close");
+	}
+	close_status = httpd_switch_normalize_result(close_result, close_errno);
 
-	return retVal;
+	return httpd_switch_choose_result(operation_status, close_status);
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// MIB COUNTERS
-////////////////////////////////////////////////////////////////////////////////
-
-int get_eth_port_bytes(int port_id_uapi, uint64_t *rx, uint64_t *tx)
+int get_eth_port_bytes(int get_eth_port_bytes(int port_id_uapi, uint64_t *rx, uint64_t *tx)
 {
 	port_bytes_t pb;
 	int ioctl_result;
 
+	if (!rx || !tx)
+		return -EINVAL;
+
+	memset(&pb, 0, sizeof(pb));
 	ioctl_result = mtk_esw_ioctl(MTK_ESW_IOCTL_STATUS_BYTES_PORT, port_id_uapi, (unsigned int *)&pb);
-	if (ioctl_result < 0)
-		return ioctl_result;
-
-	*rx = pb.RX;
-	*tx = pb.TX;
-
-	return ioctl_result;
+	return httpd_switch_publish_port_bytes(ioctl_result, pb.RX, pb.TX, rx, tx);
 }
 
-int fill_eth_port_status(int port_id_uapi, char linkstate[40])
+int fill_eth_port_status(int fill_eth_port_status(int port_id_uapi, char linkstate[40])
 {
 	unsigned int link_value = 0;
 	int has_link = 0;
 
-	if (mtk_esw_ioctl(MTK_ESW_IOCTL_STATUS_SPEED_PORT, port_id_uapi, &link_value) < 0) {
+	if (mtk_esw_ioctl(MTK_ESW_IOCTL_STATUS_SPEED_PORT, port_id_uapi, &link_value) != 0) {
 		strcpy(linkstate, "I/O Error");
 		return 0;
 	}
