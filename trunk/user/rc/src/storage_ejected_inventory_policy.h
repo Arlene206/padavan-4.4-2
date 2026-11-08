@@ -58,7 +58,8 @@ storage_ejected_parse_mount_line(const char *line, char *device,
 				 size_t mountpoint_size)
 {
 	const char *cursor;
-	int status;
+	char ignored[512];
+	int status, i;
 
 	if (!storage_ejected_line_is_complete(line))
 		return -1;
@@ -72,7 +73,15 @@ storage_ejected_parse_mount_line(const char *line, char *device,
 	if (status != 1)
 		return -1;
 
-	return 0;
+	/* /proc/mounts has six fields; require the whole record before using it. */
+	for (i = 0; i < 4; i++) {
+		status = storage_ejected_next_token(&cursor, ignored, sizeof(ignored));
+		if (status != 1)
+			return -1;
+	}
+
+	/* Reject extra fields as well as missing fields. */
+	return storage_ejected_next_token(&cursor, ignored, sizeof(ignored)) == 0 ? 0 : -1;
 }
 
 static int

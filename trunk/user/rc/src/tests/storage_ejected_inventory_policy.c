@@ -24,6 +24,15 @@ main(void)
 	assert(storage_ejected_parse_mount_line("/dev/sda1 /media/usb ext4 rw",
 						 device, sizeof(device), mountpoint,
 						 sizeof(mountpoint)) != 0);
+	assert(storage_ejected_parse_mount_line("/dev/sda1 /media/usb ext4 rw 0\n",
+						 device, sizeof(device), mountpoint,
+						 sizeof(mountpoint)) != 0);
+	assert(storage_ejected_parse_mount_line("/dev/sda1 /media/usb ext4\n",
+						 device, sizeof(device), mountpoint,
+						 sizeof(mountpoint)) != 0);
+	assert(storage_ejected_parse_mount_line(
+		"/dev/sda1 /media/usb ext4 rw 0 0 extra\n",
+		device, sizeof(device), mountpoint, sizeof(mountpoint)) != 0);
 	assert(storage_ejected_parse_mount_line(
 		"/dev/abcdefghijklmnopqrstuvwxyz123456 /media/usb ext4 rw 0 0\n",
 		device, sizeof(device), mountpoint, sizeof(mountpoint)) != 0);

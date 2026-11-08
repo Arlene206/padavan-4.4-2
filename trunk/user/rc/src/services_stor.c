@@ -1776,30 +1776,58 @@ is_disk_or_partition(const char *candidate, const char *disk, int is_mmc)
 	return 1;
 }
 
+struct storage_unmount_mount_entry {
+	char device[32];
+	char mountpoint[256];
+	struct storage_unmount_mount_entry *next;
+};
+
+static void
+free_storage_unmount_mounts(struct storage_unmount_mount_entry *entry)
+{
+	struct storage_unmount_mount_entry *next;
+
+	while (entry) {
+		next = entry->next;
+		free(entry);
+		entry = next;
+	}
+}
+
 static int
 umount_dev(const char *dev_name, int is_root_dev)
 {
 	FILE *procpt;
 	char line[512], devname[32], mpname[256];
-	int result, hook_status, saved_errno;
+	int result, hook_status;
+	int mount_read_error, mount_close_error, mount_parse_error;
+	struct storage_unmount_mount_entry *head, *tail, *entry;
 
 	if (!dev_name || !*dev_name)
 		return -1;
 
 	procpt = fopen(PROC_MOUNTS_FILE, "r");
 	if (!procpt) {
-		saved_errno = errno;
 		logmessage("Storage", "cannot read %s before unmounting %s (errno %d)",
-			   PROC_MOUNTS_FILE, dev_name, saved_errno);
+			   PROC_MOUNTS_FILE, dev_name, errno);
 		return -1;
 	}
 
-	result = 0;
+	/*
+	 * Stage every matching mount before running hooks or unmounting. A
+	 * malformed/truncated row, read/close error, or allocation failure makes
+	 * the target inventory uncertain, so no mount side effect is permitted.
+	 */
+	head = tail = NULL;
+	mount_parse_error = 0;
 	while (fgets(line, sizeof(line), procpt)) {
 		int is_our_dev = 0;
 
-		if (sscanf(line, "%31s %255s %*[^\n]", devname, mpname) != 2)
-			continue;
+		if (storage_ejected_parse_mount_line(line, devname, sizeof(devname),
+						     mpname, sizeof(mpname)) != 0) {
+			mount_parse_error = 1;
+			break;
+		}
 		if (strncmp(devname, "/dev/sd", 7) == 0) {
 			if (is_root_dev) {
 				if (is_disk_or_partition(devname + 5, dev_name, 0))
@@ -1820,29 +1848,54 @@ umount_dev(const char *dev_name, int is_root_dev)
 			}
 		}
 #endif
-		if (is_our_dev) {
-			hook_status = eval("/usr/bin/opt-umount.sh", devname, mpname);
-			if (hook_status != 0)
-				logmessage("Storage", "optional unmount hook returned %d for %s at %s",
-					   hook_status, devname, mpname);
-			if (umount(mpname) != 0) {
-				saved_errno = errno;
-				logmessage("Storage", "failed to unmount %s from %s (errno %d)",
-					   devname, mpname, saved_errno);
-				result = -1;
-			} else {
-				(void)rmdir(mpname);
-			}
-			/* A partition can have more than one mount; inspect all entries. */
-		}
-	}
-	if (ferror(procpt)) {
-		logmessage("Storage", "error reading %s while unmounting %s",
-			   PROC_MOUNTS_FILE, dev_name);
-		result = -1;
-	}
-	fclose(procpt);
+		if (!is_our_dev)
+			continue;
 
+		entry = (struct storage_unmount_mount_entry *)malloc(sizeof(*entry));
+		if (!entry) {
+			mount_parse_error = 1;
+			break;
+		}
+		strcpy(entry->device, devname);
+		strcpy(entry->mountpoint, mpname);
+		entry->next = NULL;
+		if (tail)
+			tail->next = entry;
+		else
+			head = entry;
+		tail = entry;
+	}
+
+	mount_read_error = ferror(procpt);
+	mount_close_error = (fclose(procpt) != 0);
+	if (!storage_ejected_inventory_complete(mount_read_error,
+						mount_close_error,
+						mount_parse_error)) {
+		logmessage("Storage", "incomplete %s before unmounting %s (read error=%d, close error=%d, malformed/truncated row or allocation failure=%d); leaving mounts untouched",
+			   PROC_MOUNTS_FILE, dev_name, mount_read_error,
+			   mount_close_error, mount_parse_error);
+		free_storage_unmount_mounts(head);
+		return -1;
+	}
+
+	result = 0;
+	for (entry = head; entry; entry = entry->next) {
+		hook_status = eval("/usr/bin/opt-umount.sh", entry->device,
+				   entry->mountpoint);
+		if (hook_status != 0)
+			logmessage("Storage", "optional unmount hook returned %d for %s at %s",
+				   hook_status, entry->device, entry->mountpoint);
+		if (umount(entry->mountpoint) != 0) {
+			logmessage("Storage", "failed to unmount %s from %s (errno %d)",
+				   entry->device, entry->mountpoint, errno);
+			result = -1;
+		} else {
+			(void)rmdir(entry->mountpoint);
+		}
+		/* A partition can have more than one mount; inspect all entries. */
+	}
+
+	free_storage_unmount_mounts(head);
 	return result;
 }
 
