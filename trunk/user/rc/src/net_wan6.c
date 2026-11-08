@@ -547,7 +547,7 @@ int dhcp6c_main(int argc, char **argv)
 	if (dns6_auto) {
 		dns6_new = getenv("new_domain_name_servers");
 		if (store_wan_dns6(dns6_new))
-			update_resolvconf(0, 0);
+			refresh_resolvconf_nonfatal("DHCPv6 DNS update", 0);
 	}
 
 	return 0;

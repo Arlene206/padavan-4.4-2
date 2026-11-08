@@ -268,7 +268,7 @@ restore_dns_from_vpnc(void)
 
 	if (*vpnc_dns) {
 		nvram_set_temp("vpnc_dns_t", "");
-		update_resolvconf(0, 0);
+		refresh_resolvconf_nonfatal("VPN client DNS removal", 0);
 	}
 }
 
@@ -339,7 +339,7 @@ ipup_vpnc_main(int argc, char **argv)
 
 	nvram_set_temp("vpnc_dns_t", buf);
 	if (strlen(buf) > 0)
-		update_resolvconf(0, 0);
+		refresh_resolvconf_nonfatal("VPN client DNS update", 0);
 
 	if (check_if_file_exist(script_name))
 		doSystem("%s %s", script_name, "up");

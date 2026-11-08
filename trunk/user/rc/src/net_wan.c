@@ -32,6 +32,7 @@
 
 #include "rc.h"
 #include "dnsmasq_file.h"
+#include "wan_resolver_refresh_policy.h"
 #include "dhcp_lease_policy.h"
 #include "switch.h"
 #include <gpioutils.h>
@@ -866,7 +867,7 @@ start_wan(void)
 
 	reload_nat_modules();
 
-	update_resolvconf(1, 0);
+	refresh_resolvconf_nonfatal("WAN startup", 1);
 
 	set_nf_conntrack();
 	set_tcp_syncookies();
@@ -1238,8 +1239,8 @@ man_up(char *man_ifname, int unit, int is_static)
 	add_man_gateway_routes(man_ifname, unit, 2);
 
 	if (!is_static) {
-		/* update resolv.conf content */
-		update_resolvconf(0, 0);
+		/* A resolver refresh error must not tear down this live link. */
+		refresh_resolvconf_nonfatal("MAN up", 0);
 		
 		/* re-start firewall */
 		notify_rc("restart_firewall_wan");
@@ -1299,8 +1300,8 @@ man_down(char *man_ifname, int unit)
 	nvram_set_temp("wanx_routes_ms", "");
 	nvram_set_temp("wanx_routes_rfc", "");
 
-	/* Refresh both resolv.conf and dnsmasq's domain-specific server snapshot. */
-	update_resolvconf(0, 0);
+	/* Refresh both DNS snapshots; keep the link if publication fails. */
+	refresh_resolvconf_nonfatal("MAN down", 0);
 	notify_rc("restart_firewall_wan");
 
 	/* stop multicast router */
@@ -1378,8 +1379,8 @@ wan_up(char *wan_ifname, int unit, int is_static)
 		wan6_up(wan_ifname, unit);
 #endif
 
-	/* update resolv.conf content */
-	update_resolvconf(0, 0);
+	/* Resolver refresh failure is non-fatal to the established WAN link. */
+	refresh_resolvconf_nonfatal("WAN up", 0);
 
 	if (!is_static) {
 		/* re-start firewall */
@@ -1481,8 +1482,8 @@ wan_down(char *wan_ifname, int unit, int is_static)
 	    strlen(nvram_safe_get("wanx_dns")) > 6)
 		set_wan_unit_value(unit, "dns", "");
 
-	/* update resolv.conf content */
-	update_resolvconf(0, 0);
+	/* Resolver refresh failure must not block WAN teardown/cleanup. */
+	refresh_resolvconf_nonfatal("WAN down", 0);
 
 	if (!modem_unit_id && wan_proto == IPV4_WAN_PROTO_IPOE_STATIC)
 		ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
@@ -1843,6 +1844,20 @@ update_resolvconf(int is_first_run, int do_not_notify)
 		restart_dns();
 
 	return 0;
+}
+
+void
+refresh_resolvconf_nonfatal(const char *reason, int is_first_run)
+{
+	int refresh_status;
+
+	refresh_status = update_resolvconf(is_first_run, 0);
+	if (wan_resolver_refresh_policy_action(refresh_status) ==
+	    WAN_RESOLVER_REFRESH_KEEP_WAN) {
+		logmessage(LOGNAME,
+			   "resolver refresh failed after %s (status=%d); keeping WAN state and last-known-good resolver",
+			   (reason && *reason) ? reason : "WAN event", refresh_status);
+	}
 }
 
 int
@@ -2750,7 +2765,7 @@ udhcpc_renew(char *wan_ifname)
 
 	if (is_changed) {
 		logmessage(log_prefix, "renew (%s), DNS/domain configuration changed", wan_ifname);
-		update_resolvconf(0, 0);
+		refresh_resolvconf_nonfatal("WAN DHCP renewal", 0);
 	}
 
 	return 0;

@@ -1062,7 +1062,7 @@ ipv6down_main(int argc, char **argv)
 
 	wan6_down(ppp_ifname, unit);
 
-	update_resolvconf(0, 0);
+	refresh_resolvconf_nonfatal("PPP IPv6 down", 0);
 
 	if (ppp_wan_session_state_unlock(callback_fd) != 0)
 		return -1;
