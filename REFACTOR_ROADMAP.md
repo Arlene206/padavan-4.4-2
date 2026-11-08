@@ -1,3 +1,16 @@
+## 2026-11-09 05:38 CST — Stage complete global swap and mount inventories before fallback cleanup
+
+- **Module / priority:** USB/storage safe-removal fallback; P2 stability and safe-eject integrity. USB/storage remains **AUDITING**.
+- **Finding:** libdisk umount_all_storage() previously ran swapoff while /proc/swaps was still being scanned, then unmounted matching mounts while /proc/mounts was still being scanned. A malformed/truncated mount row was silently skipped; read/fclose failures were only reported after earlier side effects. In addition, mount unmounts continued even after one swapoff failed.
+- **Fix:** stage complete swap and mount inventories before any operation. Require exact five-field swaps header/records and six-field mount records, newline-terminated bounded tokens, successful reads/fclose and allocation. Any incomplete inventory returns failure without swapoff/umount. Attempt all staged swapoffs first; any swapoff failure blocks all mount unmounts. Free all staged allocations on every return path.
+- **Implementation:** commit 27b94e9b7ad7e7d73a2a2c2db94aaa3aa79868f0. Changed disk_initial.c, storage_swap_policy.h, tests/storage_swap_policy.c and workflow source contracts.
+- **CI correction:** first run [42525975164](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42525975164) on the implementation SHA showed the new policy binary passed, but an older static source contract still required the old direct parser calls inside umount_all_storage(). Workflow correction 7ed4a755c7d71b95ff92e7bb487af6a42861fbd1 updates the contract to require staged parses and ordered side-effect gates.
+- **Exact-head validation:** Actions [42526075706](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42526075706), exact SHA 7ed4a755c7d71b95ff92e7bb487af6a42861fbd1, completed **SUCCESS (40/40)**. Local GNU89 -Wall -Wextra -Werror and ASan/UBSan + leak detection policy regressions PASS.
+- **Boundary:** no production libdisk object build, MIPS/uClibc, full firmware/TRX, actual storage runtime or hardware validation. Do not mark USB/storage complete.
+- **Next rotation:** IPv6 Firewall/NAT parity and failure handling. Trace IPv6 ruleset writers, startup/restart callers, transaction/rollback semantics and failure propagation against the IPv4 path. Choose one evidenced bug. Keep Firewall/NAT and Wireless AUDITING; switch CLI/register audit remains open.
+
+---
+
 ## 2026-11-09 05:30 CST — Verify staged per-device unmount change on corrected exact-head Actions
 
 - **Module / priority:** USB/storage safe-removal lifecycle; P2 reliability.
