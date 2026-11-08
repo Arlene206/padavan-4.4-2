@@ -72,8 +72,9 @@ jobs:
           assert "parsed > max_value" in source
           assert source.count("case 'd':") == 1
           assert source.count("case 'r':") == 1
-          assert workflow.count("mii_mgr_cl45.c") == 2
-          assert workflow.count("mii_mgr_cl45_cli.c") == 2
+          filters = workflow.split("jobs:", 1)[0]
+          assert filters.count("trunk/user/utils/src/switch/mii_mgr_cl45.c") == 2
+          assert filters.count("trunk/user/utils/src/switch/tests/mii_mgr_cl45_cli.c") == 2
           test_path = Path("trunk/user/utils/src/switch/tests/mii_mgr_cl45_cli.c")
           assert test_path.is_file()
           print("Clause 45 parser, validation-before-socket, cleanup and CI path contracts: OK")
