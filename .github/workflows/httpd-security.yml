@@ -2209,9 +2209,9 @@ jobs:
           assert "int ipt_nat_default(void);" in rc_header
           assert "int ipt_filter_default(void);" in rc_header
           assert "int ip6t_filter_default(void);" in rc_header
-          assert "int\\nipt_filter_default(void)" in firewall
-          assert "int\\nip6t_filter_default(void)" in firewall
-          assert "int\\nipt_nat_default(void)" in firewall
+          assert re.search(r"\bint\s+ipt_filter_default\(void\)", firewall)
+          assert re.search(r"\bint\s+ip6t_filter_default\(void\)", firewall)
+          assert re.search(r"\bint\s+ipt_nat_default\(void\)", firewall)
           assert "return result;" in firewall[firewall.index("ipt_filter_default(void)"):firewall.index("ip6t_filter_default(void)")]
           assert "return result;" in firewall[firewall.index("ip6t_filter_default(void)"):firewall.index("ipt_nat_rules(")]
           boot_start = rc_source.index("if (!is_ap_mode) {", rc_source.index("start_dns_dhcpd(is_ap_mode);"))
