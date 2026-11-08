@@ -1032,7 +1032,7 @@ jobs:
           assert "rc_notify_queue_marker_is_safe_at(queue_fd, entry->d_name, 0)" in consumer
           assert "unlinkat(queue_fd, entry->d_name, 0)" in consumer
           assert "symlink(victim, marker)" in test and "hard-linked" in test and "mkfifo(marker" in test
-          push_paths = workflow.split("  push:\n    paths:\n", 1)[1].split("  pull_request:\\n", 1)[0]
+          push_paths = workflow.split("  push:\n    paths:\n", 1)[1].split("  pull_request:\n", 1)[0]
           pr_paths = workflow.split("  pull_request:\n    paths:\n", 1)[1].split("  workflow_dispatch:", 1)[0]
           for changed in (
               "trunk/user/rc/src/rc.c",
