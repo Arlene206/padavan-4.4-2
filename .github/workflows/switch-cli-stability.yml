@@ -1,0 +1,59 @@
+name: Switch CLI ioctl failure-status regression
+
+on:
+  push:
+    paths:
+      - "trunk/user/utils/src/switch/switch_gsw.c"
+      - "trunk/user/utils/src/switch/Makefile"
+      - ".github/workflows/switch-cli-stability.yml"
+  pull_request:
+    paths:
+      - "trunk/user/utils/src/switch/switch_gsw.c"
+      - "trunk/user/utils/src/switch/Makefile"
+      - ".github/workflows/switch-cli-stability.yml"
+  workflow_dispatch:
+
+jobs:
+  switch-cli-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check built switch CLI reports operational failures
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          makefile = Path("trunk/user/utils/src/switch/Makefile").read_text()
+          source = Path("trunk/user/utils/src/switch/switch_gsw.c").read_text()
+
+          # The MT7621 switch_gsw.c translation unit is the one wired into this
+          # utility target; the legacy switch.c is not the production source.
+          assert re.search(r"^SRC\s*=\s*switch_gsw\\.c\s*$", makefile, re.M)
+
+          socket_init = source.split("void switch_init(void)", 1)[1].split(
+              "void switch_fini(void)", 1
+          )[0]
+          assert 'perror("socket");' in socket_init
+          assert "exit(EXIT_FAILURE);" in socket_init
+          assert "exit(0);" not in socket_init
+
+          # Each ioctl failure branch must close the socket and terminate with a
+          # failing status. This includes both register-access compile-time
+          # variants plus PHY and rate-limit operations.
+          failures = re.findall(
+              r"if\\s*\\(\\s*-1\\s*==\\s*ioctl\\([^;]+?\\)\\s*\\)\\s*\\{(.*?)\\}",
+              source,
+              re.S,
+          )
+          assert len(failures) == 7, f"expected 7 ioctl failure branches, got {len(failures)}"
+          for branch in failures:
+              assert 'perror("ioctl");' in branch
+              assert "close(esw_fd);" in branch
+              assert "exit(EXIT_FAILURE);" in branch
+              assert "exit(0);" not in branch
+
+          # Keep the ordinary usage/help path successful.
+          assert "switch_fini();\n\texit(0);" in source
+          print("switch_gsw operational socket/ioctl failures return failure status: OK")
+          PY

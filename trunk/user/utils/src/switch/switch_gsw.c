@@ -42,7 +42,7 @@ void switch_init(void)
 	esw_fd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (esw_fd < 0) {
 		perror("socket");
-		exit(0);
+		exit(EXIT_FAILURE);
 	}
 }
 
@@ -129,7 +129,7 @@ int reg_read(int offset, int *value)
 	if (-1 == ioctl(esw_fd, RAETH_MII_READ, &ifr)) {
 		perror("ioctl");
 		close(esw_fd);
-		exit(0);
+		exit(EXIT_FAILURE);
 	}
 
 	*value = mii.val_out;
@@ -152,7 +152,7 @@ int reg_write(int offset, int value)
 	if (-1 == ioctl(esw_fd, RAETH_MII_WRITE, &ifr)) {
 		perror("ioctl");
 		close(esw_fd);
-		exit(0);
+		exit(EXIT_FAILURE);
 	}
 	return 0;
 }
@@ -170,7 +170,7 @@ int reg_read(int offset, int *value)
 	if (-1 == ioctl(esw_fd, RAETH_ESW_REG_READ, &ifr)) {
 		perror("ioctl");
 		close(esw_fd);
-		exit(0);
+		exit(EXIT_FAILURE);
 	}
 	*value = reg.val;
 	return 0;
@@ -188,7 +188,7 @@ int reg_write(int offset, int value)
 	if (-1 == ioctl(esw_fd, RAETH_ESW_REG_WRITE, &ifr)) {
 		perror("ioctl");
 		close(esw_fd);
-		exit(0);
+		exit(EXIT_FAILURE);
 	}
 	return 0;
 }
@@ -205,7 +205,7 @@ int phy_dump(int phy_addr)
 	if (-1 == ioctl(esw_fd, RAETH_ESW_PHY_DUMP, &ifr)) {
 		perror("ioctl");
 		close(esw_fd);
-		exit(0);
+		exit(EXIT_FAILURE);
 	}
 	return 0;
 }
@@ -223,7 +223,7 @@ int ingress_rate_set(int on_off, int port, int bw)
 	if (-1 == ioctl(esw_fd, RAETH_ESW_INGRESS_RATE, &ifr)) {
 		perror("ioctl");
 		close(esw_fd);
-		exit(0);
+		exit(EXIT_FAILURE);
 	}
 	return 0;
 }
@@ -241,7 +241,7 @@ int egress_rate_set(int on_off, int port, int bw)
 	if (-1 == ioctl(esw_fd, RAETH_ESW_EGRESS_RATE, &ifr)) {
 		perror("ioctl");
 		close(esw_fd);
-		exit(0);
+		exit(EXIT_FAILURE);
 	}
 	return 0;
 }
