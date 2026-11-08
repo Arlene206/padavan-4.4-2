@@ -17,6 +17,7 @@ struct fake_nvram {
 	struct fake_entry entries[FAKE_MAX_KEYS];
 	int operation_count;
 	const char *fail_key;
+	int fail_after_apply;
 };
 
 static struct fake_entry *
@@ -73,10 +74,11 @@ fake_get(void *context, const char *key)
 static int
 fake_set_common(struct fake_nvram *fake, const char *key, const char *value)
 {
-	if (fake_should_fail(fake, key))
+	int fail = fake_should_fail(fake, key);
+	if (fail && !fake->fail_after_apply)
 		return -1;
 	fake_put(fake, key, value);
-	return 0;
+	return fail ? -1 : 0;
 }
 
 static int
@@ -273,6 +275,28 @@ test_count_write_failure_rolls_back(void)
 }
 
 static int
+test_count_write_applied_then_failed_rolls_back_count(void)
+{
+	struct fake_nvram fake;
+	const char *names[] = { "alpha", "beta" };
+	int del_map[] = { 3, -1 };
+
+	fake_init_group(&fake);
+	fake.fail_key = "group_count";
+	fake.fail_after_apply = 1;
+	if (httpd_nvram_group_compact(names, 2, "group_count", 4, del_map,
+				      128, &fake_ops, &fake) == 0)
+		return 1;
+	if (!expect_value(&fake, "group_count", "4") ||
+	    !expect_value(&fake, "alpha0", "a0") ||
+	    !expect_value(&fake, "alpha3", "a3") ||
+	    !expect_value(&fake, "beta0", "b0") ||
+	    !expect_value(&fake, "beta3", "b3"))
+		return 1;
+	return 0;
+}
+
+static int
 test_stale_cleanup_failure_rolls_back(void)
 {
 	struct fake_nvram fake;
@@ -299,6 +323,7 @@ main(void)
 	    test_later_column_failure_rolls_back() ||
 	    test_deleted_value_cache_failure_rolls_back() ||
 	    test_count_write_failure_rolls_back() ||
+	    test_count_write_applied_then_failed_rolls_back_count() ||
 	    test_stale_cleanup_failure_rolls_back()) {
 		fprintf(stderr, "NVRAM group compaction policy: FAIL\n");
 		return 1;

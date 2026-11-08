@@ -48,6 +48,7 @@ httpd_nvram_group_restore(const char * const *names, int name_count,
 			  int row_slots,
 			  struct httpd_nvram_group_cell *cells,
 			  struct httpd_nvram_group_cell *last_cells,
+			  const char *count_name, const char *count_value,
 			  const struct httpd_nvram_group_ops *ops,
 			  void *context)
 {
@@ -87,6 +88,8 @@ httpd_nvram_group_restore(const char * const *names, int name_count,
 		}
 	}
 
+	if (ops->set(context, count_name, count_value) != 0)
+		failed = 1;
 	return failed ? -1 : 0;
 }
 
@@ -107,6 +110,7 @@ httpd_nvram_group_compact(const char * const *names, int name_count,
 	struct httpd_nvram_group_cell *last_cells = NULL;
 	char key[HTTPD_NVRAM_GROUP_KEY_SIZE];
 	char count_value[16];
+	char *count_snapshot = NULL;
 	size_t cell_count, column_offset;
 	int map_count = 0, previous = -1;
 	int row_slots, new_count;
@@ -133,19 +137,34 @@ httpd_nvram_group_compact(const char * const *names, int name_count,
 	if (map_count == 0)
 		return 0;
 
+	{
+		const char *stored_count = ops->get(context, count_name);
+		if (!stored_count)
+			return -1;
+		count_snapshot = strdup(stored_count);
+		if (!count_snapshot)
+			return -1;
+	}
+
 	for (column = 0; column < name_count; ++column) {
 		if (!names[column] || !*names[column] ||
-		    strlen(names[column]) + 3 >= sizeof(key))
+		    strlen(names[column]) + 3 >= sizeof(key)) {
+			free(count_snapshot);
 			return -1;
+		}
 		for (row = 0; row < column; ++row) {
-			if (!strcmp(names[column], names[row]))
+			if (!strcmp(names[column], names[row])) {
+				free(count_snapshot);
 				return -1;
+			}
 		}
 	}
 
 	row_slots = group_count + HTTPD_NVRAM_GROUP_EXTRA_ROWS;
-	if ((size_t)name_count > ((size_t)-1) / (size_t)row_slots)
+	if ((size_t)name_count > ((size_t)-1) / (size_t)row_slots) {
+		free(count_snapshot);
 		return -1;
+	}
 	cell_count = (size_t)name_count * (size_t)row_slots;
 	cells = (struct httpd_nvram_group_cell *)calloc(cell_count,
 							 sizeof(*cells));
@@ -255,14 +274,17 @@ httpd_nvram_group_compact(const char * const *names, int name_count,
 fail_after_write:
 	rollback_result = httpd_nvram_group_restore(names, name_count, row_slots,
 						     cells, last_cells,
+						     count_name, count_snapshot,
 						     ops, context);
 	httpd_nvram_group_free_cells(cells, cell_count);
 	httpd_nvram_group_free_cells(last_cells, (size_t)name_count);
+	free(count_snapshot);
 	return rollback_result == 0 ? -1 : -2;
 
 fail_before_write:
 	httpd_nvram_group_free_cells(cells, cell_count);
 	httpd_nvram_group_free_cells(last_cells, (size_t)name_count);
+	free(count_snapshot);
 	return -1;
 }
 
