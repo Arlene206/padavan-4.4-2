@@ -14,7 +14,7 @@
 - **CI finding:** run 42511836306 on exact SHA b9845d577186940f8d0384cccceeb6910fbb34e9 failed at the new source-contract step because the new helper/test paths were absent from the actual pull_request.paths list. The GNU89 policy executable itself passed earlier in the same step.
 - **Correction:** workflow-only commit 1682006374bb31895375f01b9b94829bf71d3345 adds wireless_ioctl_policy.h and tests/wireless_ioctl_policy.c to the real PR path filter; the push filter already included them.
 - **Exact-head verification:** Actions run 42512055660, head 1682006374bb31895375f01b9b94829bf71d3345, completed SUCCESS, with all 36/36 job steps passed.
-- **Next:** inspect this exact run and, once green, audit scan/association parsing and switch link/speed result contracts. Wireless remains AUDITING.
+- **Next:** continue the wireless audit at scan/association parsing and switch link/speed result contracts. Wireless remains AUDITING; do not infer subsystem closure from this bounded fix.
 
 ---
 
@@ -29,16 +29,6 @@
 
 ---
 
-## 2026-11-09 02:49 CST — Normalize Ralink wireless ioctl and socket cleanup errors
-
-- **Module / priority:** Wireless management / Ralink ioctl wrapper; P2 stability and resource-cleanup correctness. The broader Wireless module remains AUDITING.
-- **Finding:** wl_ioctl() returned positive socket errno values, but its only direct caller get_apcli_connected() interprets non-negative results as a successful query. ioctl errors were returned as generic -1; descriptor close failures were ignored.
-- **Fix:** normalize socket/ioctl/close failures to negative errno with -EIO fallback when errno is missing. Preserve an earlier ioctl error if close also fails; report close failure only after successful ioctl. Keep the existing public boolean result of get_apcli_connected() unchanged.
-- **Evidence / tests:** direct static-wrapper callsite traced to get_apcli_connected(); external consumers of the public declaration were not exhaustively indexed. GNU89 -Wall -Wextra -Werror policy regression and ASan/UBSan host run PASS. Exact-head Actions run 42511836306 is PENDING on b9845d577186940f8d0384cccceeb6910fbb34e9; workflow checks the production wrapper's wiring but not a full ralink.c compile. MIPS/uClibc, TRX and hardware NOT RUN.
-- **Changed paths:** trunk/user/rc/src/{ralink.c,wireless_ioctl_policy.h,tests/wireless_ioctl_policy.c}, .github/workflows/httpd-security.yml.
-- **Next:** once exact-head CI is green, audit scan/association parsing and bounds plus switch link/speed result contracts; continue to rotate across user-space modules.
-
----
 
 ## 2026-11-09 02:42 CST — Propagate switch WAN PVID read failures
 
