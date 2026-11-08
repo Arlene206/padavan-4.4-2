@@ -221,6 +221,8 @@ on:
       - "trunk/user/rc/src/ralink_config_file.h"
       - "trunk/user/rc/src/tests/ralink_config_file.c"
       - "trunk/user/rc/src/ralink.c"
+      - "trunk/user/rc/src/wireless_restart_policy.h"
+      - "trunk/user/rc/src/tests/wireless_restart_policy.c"
       - "trunk/user/rc/src/net_wifi.c"
       - "trunk/user/nvram/src/nvram.c"
       - "trunk/user/nvram/src/nvram_profile_policy.h"
