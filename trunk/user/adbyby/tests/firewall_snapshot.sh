@@ -215,8 +215,9 @@ done
 rm -f "$TEST_IPSET_STATE/blockip"
 printf '198.51.100.0/24\n' > "$PROG_PATH/blockip.conf"
 : > "$TEST_IPSET_LOG"
-if ! adbyby_refresh_blockip_set; then
+if ! ( set -x; adbyby_refresh_blockip_set ); then
     echo "failed to create blockip on cold boot" >&2
+    echo "ipset log=$TEST_IPSET_LOG" >&2
     cat "$TEST_IPSET_LOG" >&2
     ls -la "$TEST_IPSET_STATE" >&2
     exit 1
