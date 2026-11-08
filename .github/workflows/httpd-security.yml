@@ -80,6 +80,8 @@ on:
       - "trunk/user/httpd/src/nvram_x.c"
       - "trunk/user/httpd/src/nvram_x.h"
       - "trunk/user/httpd/src/httpd_nvram_group_policy.h"
+      - "trunk/user/httpd/src/httpd_nvram_commit_policy.h"
+      - "trunk/user/httpd/src/tests/httpd_nvram_commit_policy.c"
       - "trunk/user/httpd/src/tests/httpd_nvram_group_policy.c"
       - "trunk/user/httpd/src/httpd_nvram_restore_policy.h"
       - "trunk/user/httpd/src/tests/httpd_nvram_restore_policy.c"
@@ -633,6 +635,76 @@ jobs:
               needle = f'      - "{path}"'
               assert needle in push_paths and needle in pr_paths
           print("NVRAM all-column compaction, rollback gate, and CI path contracts: OK")
+          PY
+
+      - name: Verify HTTPD NVRAM commit failure handling
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/httpd/src \
+            trunk/user/httpd/src/tests/httpd_nvram_commit_policy.c \
+            -o /tmp/httpd_nvram_commit_policy
+          /tmp/httpd_nvram_commit_policy
+          python3 - <<'PY'
+          from pathlib import Path
+
+          web_ex = Path("trunk/user/httpd/src/web_ex.c").read_text()
+          httpd_h = Path("trunk/user/httpd/src/httpd.h").read_text()
+          policy = Path("trunk/user/httpd/src/httpd_nvram_commit_policy.h").read_text()
+          workflow = Path(".github/workflows/httpd-security.yml").read_text()
+
+          def body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          safe = body(web_ex, "nvram_commit_safe(void)")
+          asus = body(web_ex, "asus_nvram_commit(int eid")
+          notify = body(web_ex, "ej_notify_services(int eid")
+          flash = body(web_ex, 'else if (!strcmp(value, " CommitFlash "))')
+
+          assert "return HTTPD_NVRAM_COMMIT_DEFERRED;" in safe
+          assert "return nvram_commit();" in safe
+          assert "extern int nvram_commit_safe(void);" in httpd_h
+          assert "commit_result != HTTPD_NVRAM_COMMIT_DEFERRED" in asus
+          assert "httpd_nvram_commit_clears_dirty(commit_result)" in asus
+          assert asus.index("nvram_commit_safe()") < asus.index("httpd_nvram_commit_clears_dirty(commit_result)")
+          assert asus.index("httpd_nvram_commit_clears_dirty(commit_result)") < asus.index("nvram_modified = 0;")
+          assert "pending changes remain dirty" in asus
+
+          assert "httpd_nvram_reboot_requires_commit(manual_mode, nvram_modified)" in notify
+          assert "httpd_nvram_reboot_is_safe(commit_required, commit_result)" in notify
+          assert notify.index("commit_result = nvram_commit();") < notify.index("httpd_nvram_reboot_is_safe(")
+          assert notify.index("httpd_nvram_reboot_is_safe(") < notify.index("restart_needed_bits = 0;")
+          assert notify.index("restart_needed_bits = 0;") < notify.index("sys_reboot();")
+          assert "reboot cancelled" in notify
+          gate = notify.index("httpd_nvram_reboot_is_safe(")
+          reset = notify.index("restart_needed_bits = 0;", gate)
+          assert "return 0;" in notify[gate:reset]
+
+          assert "nvram_result = nvram_commit();" in flash
+          assert flash.index("nvram_result = nvram_commit();") < flash.index("httpd_nvram_commit_clears_dirty(nvram_result)")
+          assert "httpd_nvram_commit_clears_dirty(commit_result)" in policy
+          assert "manual_mode || nvram_modified" in policy
+          assert "!commit_required || commit_result == 0" in policy
+
+          push_paths = workflow.split("  pull_request:\\n", 1)[0]
+          pr_paths = workflow.split("  pull_request:\\n", 1)[1].split("  workflow_dispatch:\\n", 1)[0]
+          for path in (
+              "trunk/user/httpd/src/httpd_nvram_commit_policy.h",
+              "trunk/user/httpd/src/tests/httpd_nvram_commit_policy.c",
+          ):
+              needle = f'      - "{path}"'
+              assert needle in push_paths and needle in pr_paths
+          print("HTTPD NVRAM dirty-state, manual-commit, reboot-gate and CI path contracts: OK")
           PY
 
       - name: Check privileged staging shell syntax
