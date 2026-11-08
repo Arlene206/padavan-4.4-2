@@ -24,6 +24,8 @@ main(void)
 	char directory[] = "/tmp/dnsmasq-file-test.XXXXXX";
 	char sentinel[256], destination[256], template[256], staged[256];
 	char fail_template[256], fail_path[256], lease_path[256];
+	char config_destination[256], config_template[256];
+	char config_fail_template[256], config_fail_path[256];
 	char symlink_lease[256], hardlink_lease[256], fifo_lease[256], private_lease[256];
 	FILE *fp;
 	struct stat st;
@@ -54,6 +56,9 @@ main(void)
 	assert(snprintf(hardlink_lease, sizeof(hardlink_lease), "%s/hardlink.leases", directory) > 0);
 	assert(snprintf(fifo_lease, sizeof(fifo_lease), "%s/fifo.leases", directory) > 0);
 	assert(snprintf(private_lease, sizeof(private_lease), "%s/private.leases", directory) > 0);
+	assert(snprintf(config_destination, sizeof(config_destination), "%s/dnsmasq.conf", directory) > 0);
+	assert(snprintf(config_template, sizeof(config_template), "%s/dnsmasq.conf.XXXXXX", directory) > 0);
+	assert(snprintf(config_fail_template, sizeof(config_fail_template), "%s/dnsmasq.conf.failed.XXXXXX", directory) > 0);
 
 	fp = fopen(sentinel, "w");
 	assert(fp != NULL);
@@ -95,6 +100,33 @@ main(void)
 	assert(fail_template[0] == '\0');
 	assert(access(fail_path, F_OK) != 0 && errno == ENOENT);
 	read_exact(destination, "server=/example.test/192.0.2.53\n");
+
+	/* The main service config is also staged and atomically published. */
+	fp = fopen(config_destination, "w");
+	assert(fp != NULL);
+	assert(fputs("last-known-good\n", fp) >= 0);
+	assert(fclose(fp) == 0);
+	assert(chmod(config_destination, 0644) == 0);
+	fp = dnsmasq_file_open(config_template);
+	assert(fp != NULL);
+	assert(fputs("generated-config\n", fp) >= 0);
+	assert(dnsmasq_file_publish(fp, config_template, config_destination, 0644) == 0);
+	read_exact(config_destination, "generated-config\n");
+	assert(stat(config_destination, &st) == 0 && (st.st_mode & 0777) == 0644);
+
+	/* A late flush/close error must preserve the previous service config. */
+	fp = dnsmasq_file_open(config_fail_template);
+	assert(fp != NULL);
+	assert(snprintf(config_fail_path, sizeof(config_fail_path), "%s", config_fail_template) > 0);
+	assert(fputs("partial-config\n", fp) >= 0);
+	assert(close(fileno(fp)) == 0);
+	errno = 0;
+	assert(dnsmasq_file_publish(fp, config_fail_template, config_destination, 0644) == -1);
+	saved_errno = errno;
+	assert(saved_errno != 0);
+	assert(config_fail_template[0] == '\0');
+	assert(access(config_fail_path, F_OK) != 0 && errno == ENOENT);
+	read_exact(config_destination, "generated-config\n");
 
 	/* Lease file initialization must reject a symlink without touching target. */
 	assert(symlink(sentinel, symlink_lease) == 0);
@@ -141,6 +173,7 @@ main(void)
 	assert(unlink(private_lease) == 0);
 	assert(unlink(lease_path) == 0);
 	assert(unlink(destination) == 0);
+	assert(unlink(config_destination) == 0);
 	assert(unlink(sentinel) == 0);
 	assert(rmdir(directory) == 0);
 	return 0;
