@@ -1,3 +1,18 @@
+## Latest resumable checkpoint — Correct safe-eject regression contract after staged unmount change (2026-11-09 05:29 CST)
+
+- **Repository / active branch:** Arlene206/padavan-4.4-2, main. Required conversation title remains Padavan4.4接力开发标题一定要长才好删.
+- **Code commit:** 806cd75c89f047b865d9b11677f8a819f12cb936 — per-device unmount now stages and validates the complete mount inventory before hook/unmount side effects.
+- **CI recovery:** exact-head run [42525261900](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42525261900), head 806cd75c89f047b865d9b11677f8a819f12cb936, completed FAILURE at the pre-existing "Verify storage safe-eject failure gates spindown" Python source contract. Its obsolete check still expected umount(mpname); the implementation intentionally changed the iterator to staged entries and calls umount(entry->mountpoint). This was a stale source assertion, not a compiler/test failure; later steps were skipped, so the new ejected-inventory source contract did not execute in that run.
+- **Workflow correction commit:** 362bbdba04966521e950cd2d94a461e7bfeb9bc9 — updated the old safe-eject contract to assert the staged-entry unmount and corresponding staged-entry rmdir/error path; retained the checks that unmount failure sets result = -1 before successful cleanup.
+- **Exact corrected Actions run:** [42525420578](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42525420578), head 362bbdba04966521e950cd2d94a461e7bfeb9bc9, was IN_PROGRESS when this checkpoint was written. Recheck this exact run before continuing. Do not report the workflow as passed until its conclusion is SUCCESS.
+- **Host regression:** GNU89 -Wall -Wextra -Werror regression PASS; GNU89 ASan/UBSan with leak detection PASS. Code source-order checks confirm inventory close and complete-inventory gate precede hook and unmount.
+- **Current main / records:** code commit 806cd75...; workflow correction 362bbd...; this handoff/governance update is expected to follow the workflow correction on main. No side checkpoint branch was created; main is the only known branch.
+- **Validation boundary:** full production services_stor.c object compile, MIPS/uClibc, full firmware/TRX, actual storage hotplug/eject integration, NFS integration and physical hardware validation remain NOT RUN. USB/storage remains AUDITING.
+- **Exact first action next conversation:** re-fetch main; inspect run 42525420578 and exact head 362bbdba04966521e950cd2d94a461e7bfeb9bc9. If failed, inspect the failed step/log and correct it before any other work. If successful, continue the global storage-lifecycle handoff through umount_stor_path(), safe_remove_stor_device(), and safe_remove_all_stor_devices(), specifically checking behavior when read_disk_data() fails, per-device unmount/swapoff fails, fallback umount_all_storage() runs, and NFS unload/service restoration decisions are made. Select one bounded, evidenced defect; do not redo NFS atomic export publication or staged umount_dev().
+- **Do not claim:** CI success before the exact-head run completes; complete storage audit; full production RC build; MIPS/TRX build; real device or hardware validation.
+
+---
+
 ## Latest resumable checkpoint — Stage complete mount inventory before per-device unmount (2026-11-09 05:27 CST)
 
 - **Repository / active branch:** `Arlene206/padavan-4.4-2`, `main`. Required conversation title remains `Padavan4.4接力开发标题一定要长才好删`.

@@ -1,3 +1,13 @@
+## 2026-11-09 05:29 CST — Correct safe-eject regression contract after staged unmount change
+
+- **Base main HEAD:** 8eb1f3e64092d5f7469c9732b18d586dc890af97.
+- **Workflow correction commit:** 362bbdba04966521e950cd2d94a461e7bfeb9bc9 — test(storage): align safe-eject contract with staged mount entries.
+- **Recovered CI failure:** run [42525261900](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42525261900), exact head 806cd75c89f047b865d9b11677f8a819f12cb936, failed because the pre-existing safe-eject source contract still required the old umount(mpname) call while the new staged-list implementation uses umount(entry->mountpoint). It stopped the workflow before the subsequent new ejected-inventory validation steps; this was a stale assertion, not a compiler or regression-test failure.
+- **Correction:** .github/workflows/httpd-security.yml now asserts the staged mountpoint unmount and staged rmdir call, retaining the result error-path check.
+- **Tests:** GNU89 -Wall -Wextra -Werror focused policy regression PASS; GNU89 ASan/UBSan + leak detection PASS.
+- **CI:** corrected run [42525420578](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42525420578), exact head 362bbdba04966521e950cd2d94a461e7bfeb9bc9, IN_PROGRESS at entry time. Recheck before marking complete.
+- **Remaining risk:** full production RC object build, MIPS/uClibc, complete firmware/TRX, real storage/eject path and physical device validation NOT RUN. Next: reconcile exact-head Actions, then continue storage safe-removal caller review.
+
 ## 2026-11-09 05:27 CST — Stage complete mount inventory before per-device unmount
 
 - **Base main HEAD:** `e8a67be1c50141330d2389c07f308f1e7e7bbc9b`.

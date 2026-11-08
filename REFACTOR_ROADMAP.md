@@ -1,3 +1,13 @@
+## 2026-11-09 05:29 CST — Correct safe-eject regression contract after staged unmount change
+
+- **Module / priority:** storage safe-removal / Actions regression integration; P2 validation reliability.
+- **CI finding:** exact-head run [42525261900](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42525261900), SHA 806cd75c89f047b865d9b11677f8a819f12cb936, failed in the old "Verify storage safe-eject failure gates spindown" step. Its string assertion still expected umount(mpname) after umount_dev() was deliberately changed to staged records and umount(entry->mountpoint). The failure was the stale source contract; subsequent new ejected-inventory test steps were skipped.
+- **Correction:** workflow-only commit 362bbdba04966521e950cd2d94a461e7bfeb9bc9 updates the assertion to the staged mountpoint and staged cleanup while preserving the actual result-propagation checks.
+- **Verification:** focused GNU89 regression and ASan/UBSan + leak detection PASS locally. Corrected Actions run [42525420578](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42525420578), exact head 362bbdba04966521e950cd2d94a461e7bfeb9bc9, was in progress when logged.
+- **Next:** reconcile exact-head Actions first. On green, continue umount_stor_path() and safe-removal caller flow. Keep USB/storage AUDITING; target/firmware/hardware validation NOT RUN.
+
+---
+
 ## 2026-11-09 05:27 CST — Stage complete mount inventory before per-device unmount
 
 - **Module / priority:** USB/storage safe-removal lifecycle; P2 stability and data-availability protection. USB/storage remains **AUDITING**.
