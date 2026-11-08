@@ -176,9 +176,16 @@ adbyby_cleanup_blockip_stage()
 # the current blockip inventory.
 adbyby_refresh_blockip_set()
 {
-	adbyby_blockip_set="adbyby_$"
-	adbyby_blockip_file=""
+	adbyby_blockip_set=""
 	adbyby_blockip_file=$(mktemp /tmp/adbyby-blockip.XXXXXX) || return 1
+	adbyby_blockip_set=$(basename "$adbyby_blockip_file" | sed 's/^adbyby-blockip\\./adbyby_/') || {
+		rm -f "$adbyby_blockip_file"
+		return 1
+	}
+	[ -n "$adbyby_blockip_set" ] || {
+		rm -f "$adbyby_blockip_file"
+		return 1
+	}
 	if ! chmod 600 "$adbyby_blockip_file" ||
 	   ! awk -v set="$adbyby_blockip_set" '!/^$/&&!/^#/{printf("add %s %s\n",set,$0)}' "$PROG_PATH/blockip.conf" > "$adbyby_blockip_file"; then
 		adbyby_cleanup_blockip_stage

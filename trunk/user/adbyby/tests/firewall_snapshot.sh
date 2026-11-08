@@ -52,7 +52,7 @@ cat > "$test_root/bin/ipset" <<'EOF'
 #!/bin/sh
 printf '%s\n' "$*" >> "$TEST_IPSET_LOG"
 exist=0
-if [ "\${1:-}" = "-!" ]; then
+if [ "$1" = "-!" ]; then
     exist=1
     shift
 fi
@@ -106,7 +106,7 @@ case "$command" in
             [ -f "$state/$set_name" ] || exit 1
             printf '%s\n' "$entry" >> "$state/$set_name" || exit 1
         done
-        [ "\${FAIL_IPSET_RESTORE:-0}" = "1" ] && exit 1
+        [ "$FAIL_IPSET_RESTORE" = "1" ] && exit 1
         ;;
     *)
         exit 0

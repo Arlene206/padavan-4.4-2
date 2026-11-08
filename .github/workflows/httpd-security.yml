@@ -2009,6 +2009,7 @@ jobs:
           assert 'final_file="$save_dir/.adbyby.save"' in adbyby
           assert 'umask 077' in adbyby and 'mv -f "$next_file" "$final_file"' in adbyby
           assert 'adbyby_refresh_blockip_set()' in adbyby
+          assert "basename \"$adbyby_blockip_file\"" in adbyby
           assert 'mktemp /tmp/adbyby-blockip.XXXXXX' in adbyby
           assert 'ipset create "$adbyby_blockip_set" hash:net family inet' in adbyby
           assert 'ipset -! restore < "$adbyby_blockip_file" 2>/dev/null' in adbyby
