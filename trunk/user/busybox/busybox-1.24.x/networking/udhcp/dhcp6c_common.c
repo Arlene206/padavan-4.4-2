@@ -35,6 +35,7 @@
 #include <netdb.h>
 
 #include "dhcp6c.h"
+#include "../../../../shared/src/dhcp6c_duid_file_policy.h"
 
 
 static int copyin_option(int, struct dhcp6opt *, struct dhcp6opt *,
@@ -593,16 +594,26 @@ static ssize_t gethwid(char *buf, uint16_t *hwtype)
 int get_duid(const char *idfile, struct dhcp6_vbuf *duid, int duid_type)
 {
 	int fd;
+	int duid_file_created = 0;
 	uint16_t len = 0, hwtype = 0;
+	struct stat st;
 
-	fd = open(idfile, O_RDONLY);
-	if (fd < 0 && errno != ENOENT)
-		bb_info_msg("can't open DUID file: %s", idfile);
+	fd = dhcp6c_duid_open_existing(idfile);
+	if (fd < 0 && errno != ENOENT) {
+		bb_error_msg("refusing unsafe DUID file: %s", idfile);
+		return -1;
+	}
 
-	if (fd > 0) {
-		/* decode length */
+	if (fd >= 0) {
+		/* Decode only a bounded regular file opened without following links. */
 		if (safe_read(fd, &len, sizeof(len)) != sizeof(len)) {
 			bb_error_msg("DUID file corrupted");
+			goto fail;
+		}
+		if (len == 0 || len > 128 ||
+		    fstat(fd, &st) != 0 ||
+		    st.st_size != (off_t)(sizeof(len) + len)) {
+			bb_error_msg("DUID file has an invalid length");
 			goto fail;
 		}
 		duid->dv_len = len;
@@ -654,28 +665,40 @@ int get_duid(const char *idfile, struct dhcp6_vbuf *duid, int duid_type)
 
 		log1("generated a new DUID: %s", duidstr(duid));
 
-		/* save the (new) ID to the file for next time */
-		fd = open(idfile, O_WRONLY|O_CREAT|O_TRUNC);
+		/* Never truncate a path that appeared after the initial ENOENT. */
+		fd = dhcp6c_duid_open_create(idfile);
 		if (fd < 0) {
-			/* Not fatal */
+			/* The in-memory identifier remains usable for this run. */
+			bb_info_msg("can't safely save DUID file: %s", idfile);
 			return 0;
 		}
+		duid_file_created = 1;
+
 		iov[0].iov_base = &len;
 		iov[0].iov_len  = sizeof(len);
 		iov[1].iov_base = duid->dv_buf;
 		iov[1].iov_len  = duid->dv_len;
-		if (writev(fd, iov, 2) < 0) {
-			bb_error_msg("can't write DUID file");
+		if (writev(fd, iov, 2) != (ssize_t)(sizeof(len) + duid->dv_len)) {
+			bb_error_msg("short or failed DUID file write");
 			goto fail;
 		}
 	}
-	if (fd > 0)
-		close(fd);
+
+	if (fd >= 0) {
+		if (close(fd) != 0 && duid_file_created) {
+			fd = -1;
+			bb_error_msg("failed to close DUID file");
+			goto fail;
+		}
+		fd = -1;
+	}
 	return 0;
 
-  fail:
-	if (fd > 0)
+fail:
+	if (fd >= 0)
 		close(fd);
+	if (duid_file_created)
+		unlink(idfile);
 	dhcp6_vbuf_free(duid);
 	return -1;
 }

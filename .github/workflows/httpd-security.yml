@@ -3,6 +3,9 @@ name: HTTPD Authentication and Security Regression
 on:
   push:
     paths:
+      - "trunk/user/shared/src/dhcp6c_duid_file_policy.h"
+      - "trunk/user/shared/src/tests/dhcp6c_duid_file_policy.c"
+      - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c_common.c"
       - "trunk/user/rc/src/net.c"
       - "trunk/user/rc/src/net_lan.c"
       - "trunk/user/shared/src/nvram_linux.h"
@@ -222,6 +225,9 @@ on:
       - "trunk/user/rc/src/vpn_server_lease_lock.h"
   pull_request:
     paths:
+      - "trunk/user/shared/src/dhcp6c_duid_file_policy.h"
+      - "trunk/user/shared/src/tests/dhcp6c_duid_file_policy.c"
+      - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c_common.c"
       - "trunk/user/rc/src/net.c"
       - "trunk/user/rc/src/net_lan.c"
       - "trunk/user/shared/src/nvram_linux.h"
@@ -2622,6 +2628,44 @@ jobs:
           print("Early WAN startup fails closed when an active firewall filter cannot be installed: OK")
           print("Firewall table restore transaction, reverse rollback and fail-closed recovery contracts: OK")
           print("Firewall restore and extension command failures are reported: OK")
+          PY
+
+      - name: Check DHCPv6 DUID file safety
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -Itrunk/user/shared/src \
+            trunk/user/shared/src/tests/dhcp6c_duid_file_policy.c \
+            -o /tmp/dhcp6c_duid_file_policy
+          /tmp/dhcp6c_duid_file_policy
+          python3 - <<'PY'
+          from pathlib import Path
+
+          rc = Path("trunk/user/rc/src/net_wan6.c").read_text()
+          busybox = Path("trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c_common.c").read_text()
+          policy = Path("trunk/user/shared/src/dhcp6c_duid_file_policy.h").read_text()
+          get_duid_start = busybox.index("int get_duid(")
+          get_duid_end = busybox.index(chr(10) + "void dhcp6_init_options", get_duid_start)
+          get_duid = busybox[get_duid_start:get_duid_end]
+
+          assert '#include "../../shared/src/dhcp6c_duid_file_policy.h"' in rc
+          assert '#include "../../../../shared/src/dhcp6c_duid_file_policy.h"' in busybox
+          assert "dhcp6c_duid_open_create(duid_file)" in rc
+          assert 'fopen(duid_file, "w")' not in rc
+          assert "duid_done == 3" in rc
+          assert "fclose(fp)" in rc
+          assert "dhcp6c_duid_open_existing(idfile)" in get_duid
+          assert "dhcp6c_duid_open_create(idfile)" in get_duid
+          assert "if (fd >= 0)" in get_duid
+          assert "if (fd > 0)" not in get_duid
+          assert "st_size != (off_t)(sizeof(len) + len)" in get_duid
+          assert "writev(fd, iov, 2) != (ssize_t)(sizeof(len) + duid->dv_len)" in get_duid
+          assert "O_RDONLY | O_NOFOLLOW | O_NONBLOCK" in policy
+          assert "O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW" in policy
+          assert "st_uid != geteuid()" in policy
+          assert "st_nlink != 1" in policy
+          assert "S_IWGRP | S_IWOTH" in policy
+          print("DHCPv6 DUID symlink, ownership, file-type and short-write contracts: OK")
           PY
 
 

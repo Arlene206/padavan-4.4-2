@@ -29,6 +29,7 @@
 #include <net/ethernet.h>
 
 #include "rc.h"
+#include "../../shared/src/dhcp6c_duid_file_policy.h"
 
 #if defined (USE_IPV6)
 
@@ -556,7 +557,9 @@ int dhcp6c_main(int argc, char **argv)
 int start_dhcp6c(char *wan_ifname)
 {
 	FILE *fp;
+	int duid_fd;
 	int wan6_dhcp, dns6_auto, lan6_auto, sla_id, sla_len;
+	int duid_error;
 	unsigned int ia_id;
 	unsigned char ea[ETHER_ADDR_LEN];
 	const char *conf_file = "/etc/dhcp6c.conf";
@@ -579,26 +582,61 @@ int start_dhcp6c(char *wan_ifname)
 			uint16_t type;
 			uint16_t hwtype;
 		} __attribute__ ((__packed__)) duid3;
-		
+		size_t duid_done;
+
 		/* generate IAID from the last 20 bits of WAN MAC */
 		ia_id = ((unsigned int)(ea[3] & 0x0f) << 16) |
 			((unsigned int)(ea[4]) << 8) |
 			((unsigned int)(ea[5]));
-		
+
 		/* create DUID from WAN MAC */
 		duid_len = sizeof(duid3) + ETHER_ADDR_LEN;
 		duid3.type = htons(3);		/* DUID-LL */
 		duid3.hwtype = htons(1);	/* Ethernet */
-		
-		unlink(duid_file);
-		if ((fp = fopen(duid_file, "w"))) {
-			size_t duid_done = 0;
-			duid_done += fwrite(&duid_len, sizeof(duid_len), 1, fp);
-			duid_done += fwrite(&duid3, sizeof(duid3), 1, fp);
-			duid_done += fwrite(&ea, ETHER_ADDR_LEN, 1, fp);
-			fclose(fp);
-			if (duid_done != 3)
-				unlink(duid_file);
+
+		/* /tmp is shared-writable: never reopen this pathname with
+		 * fopen("w"), which follows a symlink raced into place. */
+		if (unlink(duid_file) != 0 && errno != ENOENT) {
+			duid_error = errno ? errno : EIO;
+			logmessage("DHCPv6 WAN Client",
+				   "cannot remove stale DUID file (errno=%d)", duid_error);
+			errno = duid_error;
+			return -1;
+		}
+
+		duid_fd = dhcp6c_duid_open_create(duid_file);
+		if (duid_fd < 0) {
+			duid_error = errno ? errno : EIO;
+			logmessage("DHCPv6 WAN Client",
+				   "cannot safely create DUID file (errno=%d)", duid_error);
+			errno = duid_error;
+			return -1;
+		}
+
+		fp = fdopen(duid_fd, "wb");
+		if (!fp) {
+			duid_error = errno ? errno : EIO;
+			close(duid_fd);
+			unlink(duid_file);
+			logmessage("DHCPv6 WAN Client",
+				   "cannot open DUID stream (errno=%d)", duid_error);
+			errno = duid_error;
+			return -1;
+		}
+
+		duid_done = 0;
+		duid_done += fwrite(&duid_len, sizeof(duid_len), 1, fp);
+		duid_done += fwrite(&duid3, sizeof(duid3), 1, fp);
+		duid_done += fwrite(&ea, ETHER_ADDR_LEN, 1, fp);
+		duid_error = (duid_done == 3) ? 0 : EIO;
+		if (fclose(fp) != 0 && duid_error == 0)
+			duid_error = errno ? errno : EIO;
+		if (duid_error != 0) {
+			unlink(duid_file);
+			logmessage("DHCPv6 WAN Client",
+				   "incomplete DUID file write (errno=%d)", duid_error);
+			errno = duid_error;
+			return -1;
 		}
 	}
 
