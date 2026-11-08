@@ -33,6 +33,20 @@
 #include "rc.h"
 #include "storage_partition_probe.h"
 
+static void
+report_device_swapoff(const char *device_name)
+{
+	int status, saved_errno;
+
+	status = try_device_swapoff(device_name);
+	if (status != 0) {
+		saved_errno = errno;
+		logmessage("Storage", "could not verify or disable swap for removed device %s (status %d, errno %d)",
+			   device_name ? device_name : "(unknown)", status, saved_errno);
+	}
+}
+
+
 static int
 check_root_partition(const char *devname, int is_mmc)
 {
@@ -78,7 +92,7 @@ mdev_sd_main(int argc, char **argv)
 
 	// If remove the device?
 	if (!get_hotplug_action(action)) {
-		try_device_swapoff(device_name);
+		report_device_swapoff(device_name);
 		len = strlen(device_name);
 		if (len > 2 && device_name[0] == 's' && device_name[1] == 'd' &&
 		    (device_name[len - 1] < '0' || device_name[len - 1] > '9'))
@@ -159,7 +173,7 @@ mdev_mmc_main(int argc, char **argv)
 
 	// If remove the device?
 	if (!get_hotplug_action(action)) {
-		try_device_swapoff(device_name);
+		report_device_swapoff(device_name);
 		if (strncmp(device_name, "mmcblk", 6) == 0 &&
 		    !strchr(device_name + 6, 'p'))
 			notify_rc("on_unplug_mass_storage");

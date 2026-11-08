@@ -69,6 +69,7 @@ extern void free_disk_data(disk_info_t *disk_info_list);
 
 extern int get_mount_path(const char *const pool, char **mount_path);
 extern int is_usb_storage_mounted(void);
+/* 0 = already inactive or disabled successfully; -1 = unknown state or failure. */
 extern int try_device_swapoff(const char *dev_name);
 extern int umount_all_storage(void);
 

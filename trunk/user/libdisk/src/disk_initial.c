@@ -24,6 +24,7 @@
 #include <sys/swap.h>
 #include <sys/mount.h>
 #include <limits.h>
+#include <errno.h>
 
 #include <shutils.h>
 
@@ -33,6 +34,7 @@
 #endif
 #include "disk_io_tools.h"
 #include "disk_initial.h"
+#include "storage_swap_policy.h"
 
 #define SD_DISK_MAJOR		8
 #define MMC_DISK_MAJOR		179
@@ -244,36 +246,64 @@ static int
 is_device_swapon(const char *dev_name)
 {
 	FILE *fp;
-	int ret, dev_len;
-	char line[512], dev_dst[32];
+	char line[512], dev_path[64];
+	int found, matched, read_failed, saved_errno, close_status, close_errno;
 
-	if (!dev_name)
-		return 0;
+	if (storage_swap_build_device_path(dev_name, dev_path, sizeof(dev_path)) != 0) {
+		errno = EINVAL;
+		return STORAGE_SWAP_UNKNOWN;
+	}
 
+	errno = 0;
 	fp = fopen(PROC_SWAPS_FILE, "r");
 	if (!fp)
-		return 0;
+		return STORAGE_SWAP_UNKNOWN;
 
-	/* skip one line */
-	if (!fgets(line, sizeof(line), fp)) {
-		fclose(fp);
-		return 0;
+	found = 0;
+	read_failed = 0;
+	saved_errno = 0;
+	if (!fgets(line, sizeof(line), fp) || !storage_swap_header_valid(line)) {
+		read_failed = 1;
+		saved_errno = errno ? errno : EIO;
 	}
 
-	snprintf(dev_dst, sizeof(dev_dst), "/dev/%s ", dev_name); // need space!
-	dev_len = strlen(dev_dst);
-
-	ret = 0;
-	while (fgets(line, sizeof(line), fp)) {
-		if (strncmp(line, dev_dst, dev_len) == 0) {
-			ret = 1;
+	while (!read_failed && fgets(line, sizeof(line), fp)) {
+		if (!strchr(line, '\n') && !feof(fp)) {
+			read_failed = 1;
+			saved_errno = EOVERFLOW;
 			break;
 		}
+
+		matched = storage_swap_line_matches_device(line, dev_path);
+		if (matched < 0) {
+			read_failed = 1;
+			saved_errno = EIO;
+			break;
+		}
+		if (matched == 1)
+			found = 1;
 	}
 
-	fclose(fp);
+	if (!read_failed && ferror(fp)) {
+		read_failed = 1;
+		saved_errno = errno ? errno : EIO;
+	}
 
-	return ret;
+	errno = 0;
+	close_status = fclose(fp);
+	close_errno = errno;
+	if (close_status != 0) {
+		read_failed = 1;
+		if (saved_errno == 0)
+			saved_errno = close_errno ? close_errno : EIO;
+	}
+
+	if (read_failed) {
+		errno = saved_errno ? saved_errno : EIO;
+		return STORAGE_SWAP_UNKNOWN;
+	}
+
+	return storage_swap_inventory_result(found, 0);
 }
 
 static int
@@ -426,7 +456,7 @@ static partition_info_t *
 create_partition(const char *dev_name, int dev_type, disk_info_t *disk_info, partition_info_t **new_part_info)
 {
 	partition_info_t *part_info;
-	int mount_status;
+	int mount_status, swap_status, saved_errno;
 
 	if (!disk_info || !new_part_info)
 		return NULL;
@@ -463,7 +493,14 @@ create_partition(const char *dev_name, int dev_type, disk_info_t *disk_info, par
 		
 		get_partition_size(dev_name, dev_type, part_info);
 		
-		if (is_device_swapon(dev_name)) {
+		swap_status = is_device_swapon(dev_name);
+		if (swap_status == STORAGE_SWAP_UNKNOWN) {
+			saved_errno = errno ? errno : EIO;
+			free_partition_data(&part_info);
+			errno = saved_errno;
+			return NULL;
+		}
+		if (swap_status == STORAGE_SWAP_ACTIVE) {
 			part_info->file_system = strdup("swap");
 			if (!part_info->file_system) {
 				free_partition_data(&part_info);
@@ -619,25 +656,32 @@ umount_all_storage(void)
 {
 	FILE *fp;
 	char line[512], devname[32], mpname[256];
-	int result;
+	int result, field_status;
 
 	result = 0;
 	fp = fopen(PROC_SWAPS_FILE, "r");
 	if (fp) {
-		/* skip one line */
-		if (!fgets(line, sizeof(line), fp)) {
+		if (!fgets(line, sizeof(line), fp) || !storage_swap_header_valid(line)) {
 			result = -1;
 		} else {
 			while (fgets(line, sizeof(line), fp)) {
-				if (sscanf(line, "%255s %*[^\n]", mpname) != 1)
+				if (!strchr(line, '\n') && !feof(fp)) {
+					result = -1;
+					break;
+				}
+				field_status = storage_swap_first_field(line, mpname, sizeof(mpname));
+				if (field_status != 1) {
+					result = -1;
 					continue;
+				}
 				if (swapoff(mpname) != 0)
 					result = -1;
 			}
 			if (ferror(fp))
 				result = -1;
 		}
-		fclose(fp);
+		if (fclose(fp) != 0)
+			result = -1;
 	} else {
 		result = -1;
 	}
@@ -657,7 +701,8 @@ umount_all_storage(void)
 		}
 		if (ferror(fp))
 			result = -1;
-		fclose(fp);
+		if (fclose(fp) != 0)
+			result = -1;
 	} else {
 		result = -1;
 	}
@@ -668,14 +713,39 @@ umount_all_storage(void)
 int
 try_device_swapoff(const char *dev_name)
 {
-	char dev_dst[32];
+	char dev_dst[64];
+	int swap_status, saved_errno;
 
-	if (!dev_name)
+	if (storage_swap_build_device_path(dev_name, dev_dst, sizeof(dev_dst)) != 0) {
+		errno = EINVAL;
 		return -1;
+	}
 
-	snprintf(dev_dst, sizeof(dev_dst), "/dev/%s", dev_name);
+	swap_status = is_device_swapon(dev_name);
+	if (swap_status == STORAGE_SWAP_UNKNOWN)
+		return -1;
+	if (swap_status == STORAGE_SWAP_INACTIVE)
+		return 0;
+	if (swap_status != STORAGE_SWAP_ACTIVE) {
+		errno = EIO;
+		return -1;
+	}
 
-	return swapoff(dev_dst);
+	if (swapoff(dev_dst) == 0)
+		return 0;
+
+	saved_errno = errno ? errno : EIO;
+	swap_status = is_device_swapon(dev_name);
+	if (swap_status == STORAGE_SWAP_INACTIVE)
+		return 0;
+	if (swap_status == STORAGE_SWAP_UNKNOWN) {
+		if (errno == 0)
+			errno = saved_errno;
+		return -1;
+	}
+
+	errno = saved_errno;
+	return -1;
 }
 
 void
@@ -839,7 +909,7 @@ read_disk_data(void)
 	partition_info_t **follow_partition_list;
 	unsigned long long dev_size;
 	u32 major, minor;
-	int dev_type;
+	int dev_type, read_error, close_status, saved_errno;
 
 	fp = fopen(PROC_PARTITIONS_FILE, "r");
 	if (!fp)
@@ -892,11 +962,26 @@ read_disk_data(void)
 			while(*follow_partition_list)
 				follow_partition_list = &((*follow_partition_list)->next);
 			
-			create_partition(dev_name, dev_type, parent_disk_info, follow_partition_list);
+			if (!create_partition(dev_name, dev_type, parent_disk_info, follow_partition_list)) {
+				saved_errno = errno ? errno : EIO;
+				errno = 0;
+				fclose(fp);
+				free_disk_data(disk_info_list);
+				errno = saved_errno;
+				return NULL;
+			}
 		}
 	}
 
-	fclose(fp);
+	read_error = ferror(fp);
+	errno = 0;
+	close_status = fclose(fp);
+	if (read_error || close_status != 0) {
+		saved_errno = errno ? errno : EIO;
+		free_disk_data(disk_info_list);
+		errno = saved_errno;
+		return NULL;
+	}
 
 	return disk_info_list;
 }

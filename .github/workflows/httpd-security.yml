@@ -99,6 +99,8 @@ on:
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/libdisk/src/disk_initial.c"
       - "trunk/user/libdisk/src/disk_initial.h"
+      - "trunk/user/libdisk/src/storage_swap_policy.h"
+      - "trunk/user/rc/src/tests/storage_swap_policy.c"
       - "trunk/user/rc/src/tests/storage_partition_probe.c"
       - "trunk/user/rc/src/samba_passdb_policy.h"
       - "trunk/user/rc/src/tests/samba_passdb_policy.c"
@@ -251,6 +253,8 @@ on:
       - "trunk/user/rc/src/hotplug_stor.c"
       - "trunk/user/rc/src/storage_partition_probe.h"
       - "trunk/user/libdisk/src/disk_initial.h"
+      - "trunk/user/libdisk/src/storage_swap_policy.h"
+      - "trunk/user/rc/src/tests/storage_swap_policy.c"
       - "trunk/user/libdisk/src/disk_initial.c"
       - "trunk/user/rc/src/tests/storage_partition_probe.c"
       - "trunk/user/rc/src/samba_passdb_policy.h"
@@ -969,6 +973,70 @@ jobs:
           assert "if (count_stor_mountpoint())" not in service
           assert service.count("count_stor_mountpoint()") == 3
           print("Storage mount inventory I/O failures remain distinct from an empty inventory: OK")
+          PY
+
+      - name: Verify storage swap inventory distinguishes inactive, active and unknown
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/libdisk/src \
+            trunk/user/rc/src/tests/storage_swap_policy.c \
+            -o /tmp/storage_swap_policy
+          /tmp/storage_swap_policy
+          python3 - <<'PY'
+          from pathlib import Path
+
+          libdisk = Path("trunk/user/libdisk/src/disk_initial.c").read_text()
+          libdisk_header = Path("trunk/user/libdisk/src/disk_initial.h").read_text()
+          helper = Path("trunk/user/libdisk/src/storage_swap_policy.h").read_text()
+          test = Path("trunk/user/rc/src/tests/storage_swap_policy.c").read_text()
+          hotplug = Path("trunk/user/rc/src/hotplug_stor.c").read_text()
+
+          probe_start = libdisk.index("is_device_swapon(const char *dev_name)")
+          probe_end = libdisk.index("get_partition_mount_data(", probe_start)
+          probe = libdisk[probe_start:probe_end]
+          assert "storage_swap_build_device_path" in probe
+          assert "storage_swap_header_valid" in probe
+          assert "ferror(fp)" in probe and "fclose(fp)" in probe
+          assert "STORAGE_SWAP_UNKNOWN" in probe
+
+          partition_start = libdisk.index("create_partition(const char *dev_name")
+          partition_end = libdisk.index("has_dev_mountpoint(", partition_start)
+          partition = libdisk[partition_start:partition_end]
+          assert "swap_status == STORAGE_SWAP_UNKNOWN" in partition
+          assert "free_partition_data(&part_info)" in partition
+
+          read_start = libdisk.index("read_disk_data(void)")
+          read_data = libdisk[read_start:]
+          assert "if (!create_partition(" in read_data
+          assert "free_disk_data(disk_info_list)" in read_data
+          assert "read_error = ferror(fp)" in read_data
+
+          swapoff_start = libdisk.index("try_device_swapoff(const char *dev_name)")
+          swapoff_end = libdisk.index("free_disk_data(", swapoff_start)
+          swapoff = libdisk[swapoff_start:swapoff_end]
+          assert "STORAGE_SWAP_INACTIVE" in swapoff
+          assert "STORAGE_SWAP_ACTIVE" in swapoff
+          assert "swapoff(dev_dst)" in swapoff
+          assert swapoff.index("STORAGE_SWAP_ACTIVE") < swapoff.index("swapoff(dev_dst)")
+
+          cleanup_start = libdisk.index("umount_all_storage(void)")
+          cleanup_end = libdisk.index("try_device_swapoff(", cleanup_start)
+          cleanup = libdisk[cleanup_start:cleanup_end]
+          assert "storage_swap_header_valid(line)" in cleanup
+          assert "storage_swap_first_field(line, mpname" in cleanup
+          assert "fclose(fp) != 0" in cleanup
+
+          for function_name in ("mdev_sd_main", "mdev_mmc_main"):
+              start = hotplug.index(function_name + "(")
+              end = hotplug.index("\n}", start) + 2
+              body = hotplug[start:end]
+              assert "report_device_swapoff(device_name)" in body
+              assert body.index("report_device_swapoff(device_name)") < body.index('notify_rc("on_unplug_mass_storage")')
+          assert "0 = already inactive or disabled successfully" in libdisk_header
+          assert "storage_swap_inventory_result" in helper
+          assert "STORAGE_SWAP_UNKNOWN" in test and "/dev/sda10" in test
+          print("Storage swap removal and inventory failure gates: OK")
           PY
 
       - name: Verify filesystem checker statuses gate read-write automount
