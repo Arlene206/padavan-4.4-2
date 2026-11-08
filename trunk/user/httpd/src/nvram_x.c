@@ -97,6 +97,6 @@ nvram_del_group_map_x(const char * const *names, int name_count,
 	if (result == -2)
 		fprintf(stderr, "NVRAM group compaction failed and rollback was incomplete; group count was not reduced\n");
 	else if (result != 0)
-		fprintf(stderr, "NVRAM group compaction failed; group count was not reduced\\n");
+		fprintf(stderr, "NVRAM group compaction failed; group count was not reduced\n");
 	return result;
 }

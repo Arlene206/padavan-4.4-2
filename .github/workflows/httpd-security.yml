@@ -611,7 +611,11 @@ jobs:
           assert "nvram_del_group_map_x" in remove
           assert "nvram_set_int" not in remove
           assert "apply_cgi_group(wp, sid, NULL, groupId, GROUP_FLAG_REMOVE) < 0" in caller
-          assert caller.index("GROUP_FLAG_REMOVE) < 0") < caller.index("validate_cgi(wp, sid)")
+          remove_error = caller.index('if (apply_cgi_group(wp, sid, NULL, groupId, GROUP_FLAG_REMOVE) < 0)')
+          remove_refresh = caller.index('else if (!strncmp(value1, " Refresh ", 9))', remove_error)
+          remove_failure_branch = caller[remove_error:remove_refresh]
+          assert 'websError(wp, 500' in remove_failure_branch
+          assert 'return 0;' in remove_failure_branch
           push_paths = workflow.split("  pull_request:\n", 1)[0]
           pr_paths = workflow.split("  pull_request:\n", 1)[1].split("  workflow_dispatch:\n", 1)[0]
           for path in (
