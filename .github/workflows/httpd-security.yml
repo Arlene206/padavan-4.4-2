@@ -2242,7 +2242,10 @@ jobs:
           assert "vpn_server_lease_lock_release(lock_fd)" in reader
           assert "include_vpns_clients(fp, &vpn_lease_lock_fd) != 0" in filter
           assert filter.index("include_vpns_clients(fp, &vpn_lease_lock_fd) != 0") < filter.index("firewall_abort_core_restore_after_staging_failure()") < filter.index("firewall_finish_rule_file")
-          assert filter.index("firewall_apply_core_restore(") < filter.index("firewall_rule_file_remove(ipt_file)") < filter.index("vpn_server_lease_lock_release(vpn_lease_lock_fd)")
+          restore_apply = filter.index("firewall_apply_core_restore(")
+          restore_remove = filter.index("firewall_rule_file_remove(ipt_file)", restore_apply)
+          lock_release = filter.index("vpn_server_lease_lock_release(vpn_lease_lock_fd)", restore_remove)
+          assert restore_apply < restore_remove < lock_release
 
           push = workflow.split("  push:" + chr(10) + "    paths:" + chr(10), 1)[1].split("  pull_request:" + chr(10), 1)[0]
           pull = workflow.split("  pull_request:" + chr(10) + "    paths:" + chr(10), 1)[1].split("  workflow_dispatch:" + chr(10), 1)[0]
