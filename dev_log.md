@@ -1,3 +1,17 @@
+## 2026-11-09 02:02 CST — Complete RC resolver caller inventory and DNSMasq reload status handling
+
+- **Base main HEAD:** `4a4bd268c517f6b1ef06c148d7378c3e9fb487b8`.
+- **Production + host-policy-test commit:** `bbbccb7fa7ffd62688cbb96bb06f7855c1d03fbd` — route the remaining RC resolver callers through non-fatal event wrappers and propagate DNSMasq reload errors.
+- **Workflow contract follow-ups:** `d23aa53916e08f2f6b4390011d12c7f1ee1b4176` fixes the source-range anchor for the new internal wrapper; `1290d4737a2d677761314923a6456e786a3d60cd` fixes the stale resolver condition contract and is the exact tested source/workflow SHA.
+- **Recovered scope / audit:** the prior handoff required a wider direct caller search plus `restart_dns()` result mapping. Searched all 36 C source files in `trunk/user/rc/src/`; found two additional unwrapped `update_resolvconf()` callers in `net6.c` (IPv6 disable) and `vpn_openvpn.c` (OpenVPN client DNS update). Mapped RC restart calls in the resolver updater, DDNS update callback and explicit RC command.
+- **Finding:** the missed callers ignored the resolver publisher's failure status. The updater also ignored a failed DNSMasq cache reload after a resolver file was already published; explicit RC restart discarded status and DDNS purge had no failure diagnostic.
+- **Implementation / changed paths:** `net_wan.c` adds a reusable contextual wrapper and a no-notify variant. `net6.c` and `vpn_openvpn.c` now use the correct wrapper while retaining IPv6-disable no-notify semantics. `update_resolvconf()` checks daemon state, propagates a failed SIGHUP request after publication, and logs the distinct published-file/reload-failed condition. `services_ex.c` logs a failed DDNS cache purge but preserves DDNS callback success; `rc.c` returns explicit restart status; `rc.h` declares the new helper. Updated policy documentation/test and workflow contracts. Paths: `trunk/user/rc/src/{net_wan.c,net6.c,vpn_openvpn.c,rc.c,rc.h,services_ex.c,wan_resolver_refresh_policy.h,tests/wan_resolver_refresh_policy.c}`, `.github/workflows/httpd-security.yml`.
+- **Tests:** GNU89 `-Wall -Wextra -Werror` host test includes success, EIO, ENOSPC, negative status and positive wait-status failure. Exact final Actions run [42507835294](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42507835294) on SHA `1290d4737a2d677761314923a6456e786a3d60cd` completed **SUCCESS**; all **35/35** job steps passed, including the resolver policy test, DNSMasq generated-file checks and DHCP lease/resolver source contracts. Intermediate source-contract-only failures: run 42507686843 (incorrect helper extraction boundary) and 42507779715 (stale old daemon-guard assertion); both were corrected by the listed workflow follow-ups.
+- **Validation limits:** RC caller map/source review PASS for the 36 source files in the RC directory. L2 host policy regression and exact-head Actions PASS. No local full production RC object compile, MIPS/uClibc, firmware/TRX, live WAN/DNSMasq or physical hardware validation.
+- **Next:** rotate to wireless reliability. Audit band-specific restart order in `trunk/user/rc/src/net_wifi.c` and `ralink.c`; the roadmap records that generator failure can occur after radio services were stopped. Add a focused policy regression and source contract that ensure replacement configuration is fully generated before destructive service stop.
+
+---
+
 ## 2026-11-09 01:52 CST — Preserve active WAN/PPP/VPN state on resolver refresh failure
 
 - **Base main HEAD:** 4eba111c445d7bcbb1f0383550386e96258aa2bb.
