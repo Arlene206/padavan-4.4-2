@@ -1,3 +1,18 @@
+## 2026-11-08 18:16 CST — Fail closed on incomplete ejected-storage inventories
+
+- **Base HEAD:** `e2732c4a87fda124c8adace03a285f20df51b47e`.
+- **Implementation commit:** `f452122c9ece19a9734bdebba1b620c4040cb29b` — `fix(storage): fail closed on incomplete eject inventories`.
+- **Workflow-contract follow-up / exact tested HEAD:** `00952278e965e051873a3d08d3346fbabaca2e35` — `test(storage): align safe-eject contract with staged inventory`.
+- **Recovered defect:** `services_stor.c::umount_ejected()` ignored `fclose()` failures on `/proc/mounts` and `/proc/partitions`; permissive parsing skipped long/truncated/malformed records; unmount side effects could occur before the mount inventory's final stream status was known.
+- **Implementation:** stage candidate mounts, validate line/token lengths, and require a complete read and successful close before cleanup starts. Strictly parse all `/proc/partitions` rows and require successful read/parse/close plus an exact inactive-device result before unmount. Unknown inventory fails closed. New helper/test: `storage_ejected_inventory_policy.h`, `tests/storage_ejected_inventory_policy.c`.
+- **Changed paths:** `trunk/user/rc/src/services_stor.c`, `trunk/user/rc/src/storage_ejected_inventory_policy.h`, `trunk/user/rc/src/tests/storage_ejected_inventory_policy.c`, `.github/workflows/httpd-security.yml`.
+- **Host validation:** GNU89 compile with `-Wall -Wextra -Werror` and policy regression PASS. Additional host procfs sanity harness parsed 14 `/proc/mounts` rows and 20 `/proc/partitions` rows without parser errors.
+- **CI:** run [42470336980](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42470336980) first failed on an outdated existing safe-eject source assertion expecting `umount(mpname)` after the implementation began operating on staged `entry->mountpoint`. The structural check was updated without weakening ordering/failure assertions. Exact-head run [42470478843](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42470478843) completed **SUCCESS** on `head_sha=00952278e965e051873a3d08d3346fbabaca2e35`; new ejected-inventory regression and all other workflow checks passed.
+- **Validation boundary:** L1 source review and L2 host/Actions only. Production MIPS/uClibc compile, full firmware/TRX, device eject/runtime and physical hardware validation NOT RUN.
+- **Next handoff:** storage remains AUDITING, not closed. Rotate to NVRAM/configuration persistence: inspect `trunk/user/nvram/**`, `trunk/user/httpd/src/nvram_x.c` and RC callers, focusing on commit/save status propagation, partial persistence, rollback/atomicity, buffer-length handling and migration; implement one bounded reproducible stability fix with host regression and workflow coverage.
+
+---
+
 ## 2026-11-08 17:59 CST — Distinguish active swap from inactive or unknown storage state
 
 - **Base HEAD:** `f788c64b5fedb83e9f0ed44d8ac4d518988a41a7`.
