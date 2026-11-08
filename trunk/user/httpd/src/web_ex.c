@@ -60,6 +60,7 @@
 #include "httpd_apply_request_policy.h"
 #include "httpd_update_output_policy.h"
 #include "httpd_nvram_restore_policy.h"
+#include "httpd_nvram_commit_policy.h"
 #include "httpd_js_output_policy.h"
 #include "dbapi.h"
 #define GROUP_FLAG_REFRESH 	0
@@ -91,13 +92,13 @@ extern int auth_nvram_changed;
 extern int http_is_ssl;
 #endif
 
-void
+int
 nvram_commit_safe(void)
 {
 	if (nvram_get_int("nvram_manual") == 1)
-		return;
+		return HTTPD_NVRAM_COMMIT_DEFERRED;
 
-	nvram_commit();
+	return nvram_commit();
 }
 
 void
@@ -1559,8 +1560,12 @@ static int
 asus_nvram_commit(int eid, webs_t wp, int argc, char **argv)
 {
 	if (nvram_modified) {
-		nvram_modified = 0;
-		nvram_commit_safe();
+		int commit_result = nvram_commit_safe();
+
+		if (httpd_nvram_commit_clears_dirty(commit_result))
+			nvram_modified = 0;
+		else if (commit_result != HTTPD_NVRAM_COMMIT_DEFERRED)
+			httpd_log("NVRAM commit failed; pending changes remain dirty for retry");
 	}
 
 	return 0;
@@ -1575,9 +1580,21 @@ ej_notify_services(int eid, webs_t wp, int argc, char **argv)
 		return 0;
 
 	if ((restart_needed_bits & EVM_RESTART_REBOOT) != 0) {
+		int manual_mode = (nvram_get_int("nvram_manual") == 1);
+		int commit_required = httpd_nvram_reboot_requires_commit(manual_mode, nvram_modified);
+		int commit_result = 0;
+
+		if (commit_required)
+			commit_result = nvram_commit();
+
+		if (!httpd_nvram_reboot_is_safe(commit_required, commit_result)) {
+			httpd_log("NVRAM commit failed; reboot cancelled to preserve pending configuration");
+			return 0;
+		}
+
+		if (commit_required)
+			nvram_modified = 0;
 		restart_needed_bits = 0;
-		if (nvram_get_int("nvram_manual") == 1)
-			nvram_commit();
 		sys_reboot();
 		return 0;
 	}
@@ -4046,12 +4063,16 @@ apply_cgi(const char *url, webs_t wp)
 	}
 	else if (!strcmp(value, " CommitFlash "))
 	{
-		int commit_all = 0, sys_result = 0;
+		int commit_all = 0, sys_result = 0, nvram_result = 0;
 		char *action_id = websGetVar(wp, "nvram_action", "");
 		if (strcmp(action_id, "commit_all") == 0)
 			commit_all = 1;
-		if (commit_all || strcmp(action_id, "commit_nvram") == 0)
-			sys_result |= nvram_commit();
+		if (commit_all || strcmp(action_id, "commit_nvram") == 0) {
+			nvram_result = nvram_commit();
+			sys_result |= nvram_result;
+			if (httpd_nvram_commit_clears_dirty(nvram_result))
+				nvram_modified = 0;
+		}
 		if (commit_all || strcmp(action_id, "commit_storage") == 0)
 			sys_result |= doSystem("/sbin/mtd_storage.sh %s", "save");
 		websWrite(wp, "{\"sys_result\": %d}", sys_result);
