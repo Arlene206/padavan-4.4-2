@@ -3121,13 +3121,16 @@ jobs:
               assert "rejecting VPN " in function_body[token_guard:function_body.index("peer_name = safe_getenv", token_guard)]
           assert "fp = open_vpns_lease_file_append();" in ipup
           assert 'fopen(VPN_SERVER_LEASE_FILE, "a+")' not in ipup
-          assert 'char clients_l2[] = "/tmp/.vpns.leases.XXXXXX";' in ipdown
-          assert "open(clients_l1, O_RDONLY | O_NOFOLLOW)" in ipdown
-          assert "mkstemp(clients_l2)" in ipdown
-          assert "fchmod(temp_fd, S_IRUSR | S_IWUSR)" in ipdown
-          assert 'fdopen(temp_fd, "w")' in ipdown
-          assert "rename(clients_l2, clients_l1)" in ipdown
-          assert 'fopen(clients_l2, "w")' not in ipdown
+          prune_start = vpn_server.index("vpns_prune_lease_file(")
+          prune_end = vpn_server.index("\\nvoid\\nget_vpns_pool", prune_start)
+          prune = vpn_server[prune_start:prune_end]
+          assert 'char temp_path[] = "/tmp/.vpns.leases.XXXXXX";' in prune
+          assert "open(VPN_SERVER_LEASE_FILE, O_RDONLY | O_NOFOLLOW)" in prune
+          assert "mkstemp(temp_path)" in prune
+          assert "fchmod(temp_fd, S_IRUSR | S_IWUSR)" in prune
+          assert 'fdopen(temp_fd, "w")' in prune
+          assert "rename(temp_path, VPN_SERVER_LEASE_FILE)" in prune
+          assert 'fopen(temp_path, "w")' not in prune
           assert 'firewall_ppp_interface_is_safe("ppp10+", 10)' in firewall_test
           assert 'firewall_ppp_interface_is_safe("ppp65536", 10)' in firewall_test
           print("VPN lease file private descriptor and strict PPP token checks: OK")
