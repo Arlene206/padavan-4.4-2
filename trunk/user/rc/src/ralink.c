@@ -31,6 +31,7 @@
 
 #include "rc.h"
 #include "ralink_config_file.h"
+#include "wireless_ioctl_policy.h"
 
 #define MAX_FRW 64
 
@@ -1718,6 +1719,10 @@ wl_ioctl(const char *ifname, int cmd, struct iwreq *pwrq)
 {
 	int ret = 0;
 	int s;
+	int socket_errno;
+	int ioctl_errno = 0;
+	int close_ret;
+	int close_errno = 0;
 	size_t ifname_len;
 
 	if (!ifname || !pwrq)
@@ -1728,19 +1733,28 @@ wl_ioctl(const char *ifname, int cmd, struct iwreq *pwrq)
 
 	/* open socket to kernel */
 	if ((s = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+		socket_errno = errno;
 		perror("socket");
-		return errno;
+		return wireless_ioctl_error_status(socket_errno);
 	}
 
 	/* do it */
 	memset(pwrq->ifr_name, 0, sizeof(pwrq->ifr_name));
 	memcpy(pwrq->ifr_name, ifname, ifname_len);
-	if ((ret = ioctl(s, cmd, pwrq)) < 0)
+	ret = ioctl(s, cmd, pwrq);
+	if (ret < 0) {
+		ioctl_errno = errno;
 		perror(pwrq->ifr_name);
+	}
 
-	/* cleanup */
-	close(s);
-	return ret;
+	/* cleanup: do not retry close() after an error on Linux. */
+	close_ret = close(s);
+	if (close_ret < 0) {
+		close_errno = errno;
+		perror("close wireless ioctl socket");
+	}
+
+	return wireless_ioctl_status(ret, ioctl_errno, close_ret, close_errno);
 }
 
 int
