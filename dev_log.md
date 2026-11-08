@@ -1,3 +1,19 @@
+## 2026-11-09 01:20:38 CST — Gate WAN startup on initial firewall filter restore success
+
+- **Base main HEAD:** fd3072d0901f2edf11fcc6be7318ab6972045c5d.
+- **Implementation + host regression:** aab5ac686bc09fed3af2c105249146656e356f12 — propagate default IPv4 NAT, IPv4 filter and IPv6 filter writer results to early startup.
+- **Workflow contract correction / exact tested source+workflow SHA:** 99008e14e552964dfc320d3d65b1ddb271514e56.
+- **Recovered task:** verified the prior handoff's exact rollback-forwarding candidate 0b886c2ede22c9561a8c9ed0caa69ce01f4a5df5 with Actions run [42503262857](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42503262857), then continued the requested Firewall/NAT audit.
+- **Finding:** early RC boot discarded return status from the default filter writers and unconditionally called start_wan(). With filtering enabled, a default filter staging/restore failure could therefore be hidden before WAN bring-up.
+- **Implementation:** the three default writers now return result codes; early boot blocks WAN startup unless IPv4 and any active IPv6 default filter are installed. Failure disables IPv4 forwarding and active IPv6 forwarding. An explicitly disabled firewall retains the existing permissive behavior; NAT default-rule failure is logged separately.
+- **Changed paths:** trunk/user/rc/src/firewall_ex.c, trunk/user/rc/src/rc.c, trunk/user/rc/src/rc.h, new trunk/user/rc/src/firewall_startup_policy.h, new trunk/user/rc/src/tests/firewall_startup_policy.c, .github/workflows/httpd-security.yml.
+- **Regression:** GNU89 -Wall -Wextra -Werror compilation and execution of the startup policy test; existing firewall command-status and transaction tests; static contracts for result propagation and gate ordering. Exact-head Actions [42504271461](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42504271461) on 99008e14e552964dfc320d3d65b1ddb271514e56 completed **SUCCESS**, all 35/35 steps passed.
+- **Test correction history:** initial run [42504152544](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42504152544) failed only at the new Python source-contract's incorrectly escaped newline signature assertion; corrected in the workflow-only follow-up 99008e1..., whose exact-head run is green. Do not count the failed first run as validation.
+- **Boundary:** full RC/firewall production translation-unit build, MIPS/uClibc, firmware/TRX, live WAN/iptables and physical hardware were **NOT RUN**. Firewall/NAT remains **AUDITING**.
+- **Next:** DNS/DHCP/resolver rotation — audit WAN callers of update_resolvconf() in net_wan.c and propagate publication status without dropping a healthy link or replacing the last valid resolver.
+
+---
+
 ## 2026-11-09 01:06 CST — Preserve forwarding state after firewall restore rollback
 
 - **Base main HEAD:** `0e3e8744f8e6a97fee5a279e5412e852acc19840`.
