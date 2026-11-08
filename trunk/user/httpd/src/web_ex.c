@@ -4163,7 +4163,7 @@ apply_cgi(const char *url, webs_t wp)
 						apply_cgi_group(wp, sid, NULL, groupId, GROUP_FLAG_ADD);
 					else if (!strncmp(value1, " Del ", 5)) {
 						if (apply_cgi_group(wp, sid, NULL, groupId, GROUP_FLAG_REMOVE) < 0) {
-							websError(wp, 500, "Unable to remove this entry safely; the group count was not reduced.\\n");
+							websError(wp, 500, "Unable to remove this entry safely; the group count was not reduced.\n");
 							return 0;
 						}
 					}
@@ -4265,7 +4265,7 @@ nvram_remove_group_item(struct variable *v, int *delMap)
 	if (!names)
 		return -1;
 	for (gv = (struct variable *)v->argv[0], index = 0;
-	     gv->name != NULL; gv = (struct variable *)(gv + 1))
+	     gv->name != NULL; gv++)
 		names[index++] = gv->name;
 
 	result = nvram_del_group_map_x(names, name_count, v->argv[3],
