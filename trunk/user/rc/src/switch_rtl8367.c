@@ -284,8 +284,10 @@ int phy_vlan_reset_table(void)
 int phy_vlan_pvid_wan_get(void)
 {
 	unsigned int pvid = 2;
-	rtl8367_ioctl(RTL8367_IOCTL_VLAN_PVID_WAN_GET, 0, &pvid);
-	return (int)pvid;
+	int ioctl_result;
+
+	ioctl_result = rtl8367_ioctl(RTL8367_IOCTL_VLAN_PVID_WAN_GET, 0, &pvid);
+	return switch_status_read_vlan_pvid(ioctl_result, pvid);
 }
 
 int phy_vlan_accept_port_mode(int accept_mode, unsigned int port_pask)
@@ -593,11 +595,11 @@ static int show_vlan_pvid_wan(void)
 
 	retVal = rtl8367_ioctl(RTL8367_IOCTL_VLAN_PVID_WAN_GET, 0, &arg);
 	if (retVal != 0)
-		arg = 2;
+		return retVal;
 
 	printf("%d\n", arg);
 
-	return retVal;
+	return 0;
 }
 
 static int asic_reg_get(unsigned int cmd, unsigned int reg)

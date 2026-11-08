@@ -880,6 +880,9 @@ jobs:
           assert "test_positive_errno_is_negative_and_does_not_publish" in test
           assert "test_negative_error_is_preserved" in test
           assert "test_null_output_is_rejected" in test
+          assert "switch_status_read_vlan_pvid" in helper
+          assert "test_vlan_pvid_returns_value_only_after_success" in test
+          assert "test_vlan_pvid_normalizes_ioctl_errors" in test
 
           for source, ioctl_name, device_ioctl in (
               (mtk, "mtk_esw_ioctl", "MTK_ESW_IOCTL_STATUS_BYTES_PORT"),
@@ -893,6 +896,15 @@ jobs:
               assert device_ioctl in bytes_body
               assert "switch_status_publish_port_bytes(ioctl_result, pb.RX, pb.TX, rx, tx)" in bytes_body
               assert "if (ioctl_result < 0)" not in bytes_body
+
+              pvid_body = body(source, "int phy_vlan_pvid_wan_get(void)")
+              assert f"{ioctl_name}( " not in pvid_body
+              assert f"{ioctl_name}(" in pvid_body
+              assert "switch_status_read_vlan_pvid(ioctl_result, pvid)" in pvid_body
+
+              show_body = body(source, "static int\nshow_vlan_pvid_wan(void)")
+              assert "if (retVal != 0)" in show_body
+              assert show_body.index("return retVal;") < show_body.index('printf("%d\\n", arg);')
 
           assert "phy_status_port_bytes(i, &counter[0], &counter[1]) < 0" in rstats
           for path in (

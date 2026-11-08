@@ -64,6 +64,23 @@ test_null_output_is_rejected(void)
     return 0;
 }
 
+static int
+test_vlan_pvid_returns_value_only_after_success(void)
+{
+    CHECK(switch_status_read_vlan_pvid(0, 2) == 2);
+    CHECK(switch_status_read_vlan_pvid(0, 4094) == 4094);
+    return 0;
+}
+
+static int
+test_vlan_pvid_normalizes_ioctl_errors(void)
+{
+    CHECK(switch_status_read_vlan_pvid(EIO, 2) == -EIO);
+    CHECK(switch_status_read_vlan_pvid(ENODEV, 4094) == -ENODEV);
+    CHECK(switch_status_read_vlan_pvid(-EIO, 2) == -EIO);
+    return 0;
+}
+
 int
 main(void)
 {
@@ -71,6 +88,8 @@ main(void)
     CHECK(test_positive_errno_is_negative_and_does_not_publish() == 0);
     CHECK(test_negative_error_is_preserved() == 0);
     CHECK(test_null_output_is_rejected() == 0);
-    puts("Switch port-byte error propagation policy: PASS");
+    CHECK(test_vlan_pvid_returns_value_only_after_success() == 0);
+    CHECK(test_vlan_pvid_normalizes_ioctl_errors() == 0);
+    puts("Switch port-byte and VLAN PVID error propagation policy: PASS");
     return 0;
 }

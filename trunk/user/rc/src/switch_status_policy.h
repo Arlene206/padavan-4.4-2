@@ -26,4 +26,18 @@ switch_status_publish_port_bytes(int ioctl_result, uint64_t received,
     return 0;
 }
 
+/*
+ * The public WAN-PVID getter returns the VLAN ID on success and a negative
+ * errno on device/open/ioctl/close failure. Do not turn a failed read into
+ * the caller's plausible default VLAN ID.
+ */
+static inline int
+switch_status_read_vlan_pvid(int ioctl_result, unsigned int pvid)
+{
+    if (ioctl_result != 0)
+        return (ioctl_result > 0) ? -ioctl_result : ioctl_result;
+
+    return (int)pvid;
+}
+
 #endif /* SWITCH_STATUS_POLICY_H */
