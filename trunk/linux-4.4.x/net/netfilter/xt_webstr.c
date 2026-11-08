@@ -327,6 +327,8 @@ static bool xt_webstr_match(const struct sk_buff *skb, struct xt_action_param *p
 	const struct xt_webstr_info *info;
 	const struct tcphdr *tcph;
 	struct tcphdr _tcph;
+	unsigned char method_buf[sizeof("POST ") - 1];
+	const unsigned char *method;
 	httpinfo_t *htinfo = NULL;
 	unsigned char *data = NULL;
 	unsigned char *allocated_data = NULL;
@@ -411,6 +413,16 @@ static bool xt_webstr_match(const struct sk_buff *skb, struct xt_action_param *p
 	if (datalen < 10)
 		return 0;
 
+	/* Reject non-HTTP TCP payloads before allocating a linear copy. */
+	method = skb_header_pointer(skb, (int)payload_offset,
+				    sizeof(method_buf), method_buf);
+	if (!method)
+		return 0;
+	if (memcmp(method, "GET ", sizeof("GET ") - 1) != 0 &&
+	    memcmp(method, "POST ", sizeof("POST ") - 1) != 0 &&
+	    memcmp(method, "HEAD ", sizeof("HEAD ") - 1) != 0)
+		return 0;
+
 	if (xt_webstr_span_is_valid(skb_headlen(skb), payload_offset, datalen)) {
 		data = skb->data + payload_offset;
 	} else {
@@ -426,6 +438,7 @@ static bool xt_webstr_match(const struct sk_buff *skb, struct xt_action_param *p
 	switch (info->type) {
 	case XT_WEBSTR_URL:
 		flags |= HTTP_URL;
+		/* fall through */
 	case XT_WEBSTR_HOST:
 		flags |= HTTP_HOST;
 		break;
@@ -449,10 +462,6 @@ static bool xt_webstr_match(const struct sk_buff *skb, struct xt_action_param *p
 	}
 
 	if (!flags)
-		goto out;
-	if (memcmp(data, "GET ", sizeof("GET ") - 1) != 0 &&
-	    memcmp(data, "POST ", sizeof("POST ") - 1) != 0 &&
-	    memcmp(data, "HEAD ", sizeof("HEAD ") - 1) != 0)
 		goto out;
 
 	/* Per-invocation state avoids the original cross-CPU parser data race.

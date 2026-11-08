@@ -53,6 +53,10 @@ jobs:
           assert "kfree(htinfo);" in matcher
           assert "kfree(allocated_data);" in matcher
           assert "skb_header_pointer(skb" in matcher
+          assert "method = skb_header_pointer(skb" in matcher
+          assert matcher.index("method = skb_header_pointer(skb") < matcher.index(
+              "allocated_data = kmalloc"
+          )
           assert "skb_copy_bits(skb" in matcher
           assert "skb_store_bits((struct sk_buff *)skb" in matcher
           assert "ipv6_skip_exthdr(skb" in matcher
