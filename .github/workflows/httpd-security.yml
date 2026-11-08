@@ -3123,7 +3123,7 @@ jobs:
           assert "fp = open_vpns_lease_file_append();" in ipup
           assert 'fopen(VPN_SERVER_LEASE_FILE, "a+")' not in ipup
           prune_start = vpn_server.index("vpns_prune_lease_file(")
-          prune_end = vpn_server.index("\\nvoid\\nget_vpns_pool", prune_start)
+          prune_end = vpn_server.index("\nvoid\nget_vpns_pool", prune_start)
           prune = vpn_server[prune_start:prune_end]
           assert 'char temp_path[] = "/tmp/.vpns.leases.XXXXXX";' in prune
           assert "open(VPN_SERVER_LEASE_FILE, O_RDONLY | O_NOFOLLOW)" in prune
