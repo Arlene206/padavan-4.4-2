@@ -3970,7 +3970,7 @@ jobs:
           assert "iw_scan_event_length_valid" in bounds
           assert "iw_scan_essid_length_valid" in bounds
           assert "event_end = stream->current + iwe->len" in parser
-          assert parser.index("iw_scan_event_length_valid(remaining") < parser.index("memcpy((char *) iwe")
+          assert parser.index("iw_scan_event_length_valid(remaining") < parser.index("memcpy((char *) iwe + IW_EV_LCP_LEN")
           assert "event_end - pointer" in parser
           assert "stream->current = event_end" in parser
           assert "iw_scan_essid_length_valid(essid_len, sizeof(scanopt.essid))" in scan

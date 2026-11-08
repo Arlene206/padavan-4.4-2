@@ -56,7 +56,7 @@ test_truncated_fixed_event(void)
     result = iw_extract_event_stream(&stream, &iwe, WE_VERSION);
     CHECK(result < 0);
     CHECK(stream.value == NULL);
-    CHECK(stream.current == frame + IW_EV_LCP_PK_LEN + sizeof(__u32));
+    CHECK((unsigned char *) stream.current == frame + IW_EV_LCP_PK_LEN + sizeof(__u32));
     return 0;
 }
 
@@ -79,7 +79,7 @@ test_point_payload_cannot_exceed_buffer(void)
     result = iw_extract_event_stream(&stream, &iwe, WE_VERSION);
     CHECK(result < 0);
     CHECK(stream.value == NULL);
-    CHECK(stream.current == frame + sizeof(frame));
+    CHECK((unsigned char *) stream.current == frame + sizeof(frame));
     return 0;
 }
 
@@ -107,7 +107,7 @@ test_valid_point_payload(void)
     CHECK(((char *) iwe.u.data.pointer + iwe.u.data.length) <=
           ((char *) frame + sizeof(frame)));
     CHECK(memcmp(iwe.u.data.pointer, "abc", 3) == 0);
-    CHECK(stream.current == frame + sizeof(frame));
+    CHECK((unsigned char *) stream.current == frame + sizeof(frame));
     return 0;
 }
 
