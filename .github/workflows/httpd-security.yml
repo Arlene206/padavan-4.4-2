@@ -902,7 +902,7 @@ jobs:
               assert f"{ioctl_name}(" in pvid_body
               assert "switch_status_read_vlan_pvid(ioctl_result, pvid)" in pvid_body
 
-              show_body = body(source, "static int\nshow_vlan_pvid_wan(void)")
+              show_body = body(source, "static int show_vlan_pvid_wan(void)")
               assert "if (retVal != 0)" in show_body
               assert show_body.index("return retVal;") < show_body.index('printf("%d\\n", arg);')
 
