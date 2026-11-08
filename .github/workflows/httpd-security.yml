@@ -23,6 +23,10 @@ on:
       - "trunk/user/rc/src/switch.h"
       - "trunk/user/rc/src/rstats.c"
       - "trunk/user/rc/src/detect_link.c"
+      - "trunk/user/wireless-tools/src/iw_scan_bounds.h"
+      - "trunk/user/wireless-tools/src/tests/iw_scan_bounds.c"
+      - "trunk/user/wireless-tools/src/iwlib.c"
+      - "trunk/user/wireless-tools/src/iwlist.c"
       - "trunk/user/nvram/src/nvram.c"
       - "trunk/user/nvram/src/nvram_profile_policy.h"
       - "trunk/user/nvram/src/tests/nvram_profile_policy.c"
@@ -218,6 +222,10 @@ on:
       - "trunk/user/rc/src/switch.h"
       - "trunk/user/rc/src/rstats.c"
       - "trunk/user/rc/src/detect_link.c"
+      - "trunk/user/wireless-tools/src/iw_scan_bounds.h"
+      - "trunk/user/wireless-tools/src/tests/iw_scan_bounds.c"
+      - "trunk/user/wireless-tools/src/iwlib.c"
+      - "trunk/user/wireless-tools/src/iwlist.c"
       - "trunk/user/shared/src/nvram_linux.c"
       - "trunk/user/rc/src/tests/nvram_restore_policy.c"
       - "trunk/user/rc/src/rc_nvram_policy.h"
@@ -3917,4 +3925,69 @@ jobs:
               assert l2tp_start.index('nvram_set_int_temp("l2tp_wan_t", 0);') < l2tp_start.index("start_rpl2tp(unit)")
           assert l2tp_start.index('nvram_set_int_temp("l2tp_wan_t", 1);') < l2tp_start.index("safe_start_xl2tpd()")
           print("Service termination, WAN stop gates and L2TP transport startup contracts: OK")
+          PY
+
+      - name: Verify wireless-tools scan input and event bounds
+        run: |
+          set -eu
+          tmp_dir="$RUNNER_TEMP/wireless-tools-scan"
+          mkdir -p "$tmp_dir"
+          cp trunk/user/wireless-tools/src/wireless.22.h "$tmp_dir/wireless.h"
+          cc -std=gnu89 -Wall -Wextra -g -fsanitize=address,undefined \
+            -fno-omit-frame-pointer \
+            -I "$tmp_dir" -I trunk/user/wireless-tools/src \
+            trunk/user/wireless-tools/src/iwlib.c \
+            trunk/user/wireless-tools/src/tests/iw_scan_bounds.c \
+            -lm -o "$tmp_dir/iw_scan_bounds"
+          ASAN_OPTIONS=detect_leaks=1 "$tmp_dir/iw_scan_bounds"
+          cc -std=gnu89 -Wall -Wextra \
+            -I "$tmp_dir" -I trunk/user/wireless-tools/src \
+            -c trunk/user/wireless-tools/src/iwlist.c \
+            -o "$tmp_dir/iwlist.o"
+          python3 - <<'PY'
+          from pathlib import Path
+
+          lib = Path("trunk/user/wireless-tools/src/iwlib.c").read_text()
+          scanner = Path("trunk/user/wireless-tools/src/iwlist.c").read_text()
+          bounds = Path("trunk/user/wireless-tools/src/iw_scan_bounds.h").read_text()
+          workflow = Path(".github/workflows/httpd-security.yml").read_text()
+
+          def body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          parser = body(lib, "iw_extract_event_stream(struct stream_descr *")
+          scan = body(scanner, "print_scanning_info(int")
+          assert "iw_scan_event_length_valid" in bounds
+          assert "iw_scan_essid_length_valid" in bounds
+          assert "event_end = stream->current + iwe->len" in parser
+          assert parser.index("iw_scan_event_length_valid(remaining") < parser.index("memcpy((char *) iwe")
+          assert "event_end - pointer" in parser
+          assert "stream->current = event_end" in parser
+          assert "iw_scan_essid_length_valid(essid_len, sizeof(scanopt.essid))" in scan
+          assert scan.index("iw_scan_essid_length_valid") < scan.index("memcpy(scanopt.essid")
+          assert "pointer <= event_end" in parser
+
+          paths = (
+              "trunk/user/wireless-tools/src/iw_scan_bounds.h",
+              "trunk/user/wireless-tools/src/tests/iw_scan_bounds.c",
+              "trunk/user/wireless-tools/src/iwlib.c",
+              "trunk/user/wireless-tools/src/iwlist.c",
+          )
+          push = workflow.split("  pull_request:", 1)[0]
+          pr = workflow.split("  pull_request:", 1)[1].split("  workflow_dispatch:", 1)[0]
+          for path in paths:
+              assert '"' + path + '"' in push
+              assert '"' + path + '"' in pr
+
+          print("Wireless-tools scan framing and ESSID bounds contracts: OK")
           PY

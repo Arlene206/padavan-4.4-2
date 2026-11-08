@@ -28,6 +28,7 @@
 /***************************** INCLUDES *****************************/
 
 #include "iwlib-private.h"		/* Private header */
+#include "iw_scan_bounds.h"
 
 /************************ CONSTANTS & MACROS ************************/
 
@@ -2826,12 +2827,24 @@ iw_extract_event_stream(struct stream_descr *	stream,	/* Stream of events */
   int		event_type = 0;
   unsigned int	event_len = 1;		/* Invalid */
   char *	pointer;
+  char *	event_end;
+  size_t	remaining;
   /* Don't "optimise" the following variable, it will crash */
   unsigned	cmd_index;		/* *MUST* be unsigned */
 
-  /* Check for end of stream */
-  if((stream->current + IW_EV_LCP_PK_LEN) > stream->end)
-    return(0);
+  /* Validate the stream pointers before doing any pointer arithmetic. */
+  if((stream == NULL) || (iwe == NULL) ||
+     (stream->current == NULL) || (stream->end == NULL) ||
+     (stream->current > stream->end))
+    return(-1);
+
+  remaining = (size_t) (stream->end - stream->current);
+  /* Preserve the historical treatment of a short trailing header as EOF. */
+  if(remaining < IW_EV_LCP_PK_LEN)
+    {
+      stream->value = NULL;
+      return(0);
+    }
 
 #ifdef DEBUG
   printf("DBG - stream->current = %p, stream->value = %p, stream->end = %p\n",
@@ -2847,9 +2860,20 @@ iw_extract_event_stream(struct stream_descr *	stream,	/* Stream of events */
 	 iwe->cmd, iwe->len);
 #endif
 
-  /* Check invalid events */
+  /* Reject empty events and lengths extending beyond the supplied buffer. */
   if(iwe->len <= IW_EV_LCP_PK_LEN)
-    return(-1);
+    {
+      stream->value = NULL;
+      return(-1);
+    }
+  if(!iw_scan_event_length_valid(remaining, iwe->len,
+                                 IW_EV_LCP_PK_LEN + 1))
+    {
+      stream->value = NULL;
+      stream->current = stream->end;
+      return(-2);
+    }
+  event_end = stream->current + iwe->len;
 
   /* Get the type and length of that event */
   if(iwe->cmd <= SIOCIWLAST)
@@ -2872,11 +2896,21 @@ iw_extract_event_stream(struct stream_descr *	stream,	/* Stream of events */
   if((we_version <= 18) && (event_type == IW_HEADER_TYPE_POINT))
     event_len += IW_EV_POINT_OFF;
 
+  /* A known event must contain its complete fixed header. */
+  if((event_len > IW_EV_LCP_PK_LEN) &&
+     !iw_scan_event_length_valid(remaining, iwe->len, event_len))
+    {
+      stream->value = NULL;
+      stream->current = event_end;
+      return(-2);
+    }
+
   /* Check if we know about this event */
   if(event_len <= IW_EV_LCP_PK_LEN)
     {
       /* Skip to next event */
-      stream->current += iwe->len;
+      stream->value = NULL;
+      stream->current = event_end;
       return(2);
     }
   event_len -= IW_EV_LCP_PK_LEN;
@@ -2892,11 +2926,13 @@ iw_extract_event_stream(struct stream_descr *	stream,	/* Stream of events */
 	 event_type, event_len, pointer);
 #endif
 
-  /* Copy the rest of the event (at least, fixed part) */
-  if((pointer + event_len) > stream->end)
+  /* The fixed part must fit inside this event, not merely the whole stream. */
+  if((pointer < (stream->current + IW_EV_LCP_PK_LEN)) ||
+     (pointer > event_end) ||
+     ((size_t) (event_end - pointer) < event_len))
     {
-      /* Go to next event */
-      stream->current += iwe->len;
+      stream->value = NULL;
+      stream->current = event_end;
       return(-2);
     }
   /* Fixup for WE-19 and later : pointer no longer in the stream */
@@ -2913,8 +2949,8 @@ iw_extract_event_stream(struct stream_descr *	stream,	/* Stream of events */
   /* Special processing for iw_point events */
   if(event_type == IW_HEADER_TYPE_POINT)
     {
-      /* Check the length of the payload */
-      unsigned int	extra_len = iwe->len - (event_len + IW_EV_LCP_PK_LEN);
+      /* The fixed part has already been checked against iwe->len. */
+      unsigned int	extra_len = (unsigned int) (event_end - pointer);
       if(extra_len > 0)
 	{
 	  /* Set pointer on variable part (warning : non aligned) */
@@ -2991,7 +3027,8 @@ iw_extract_event_stream(struct stream_descr *	stream,	/* Stream of events */
 	iwe->u.data.pointer = NULL;
 
       /* Go to next event */
-      stream->current += iwe->len;
+      stream->value = NULL;
+      stream->current = event_end;
     }
   else
     {
@@ -3009,20 +3046,30 @@ iw_extract_event_stream(struct stream_descr *	stream,	/* Stream of events */
 #endif
 	  pointer -= event_len;
 	  pointer += 4;
+	  /* Validate the compatibility-adjusted payload before copying it. */
+	  if((pointer < (stream->current + IW_EV_LCP_PK_LEN)) ||
+	     (pointer > event_end) ||
+	     ((size_t) (event_end - pointer) < event_len))
+	    {
+	      stream->value = NULL;
+	      stream->current = event_end;
+	      return(-2);
+	    }
 	  /* Beware of alignement. Dest has local alignement, not packed */
 	  memcpy((char *) iwe + IW_EV_LCP_LEN, pointer, event_len);
 	  pointer += event_len;
 	}
 
       /* Is there more value in the event ? */
-      if((pointer + event_len) <= (stream->current + iwe->len))
+      if((pointer <= event_end) &&
+	 ((size_t) (event_end - pointer) >= event_len))
 	/* Go to next value */
 	stream->value = pointer;
       else
 	{
 	  /* Go to next event */
 	  stream->value = NULL;
-	  stream->current += iwe->len;
+	  stream->current = event_end;
 	}
     }
   return(1);

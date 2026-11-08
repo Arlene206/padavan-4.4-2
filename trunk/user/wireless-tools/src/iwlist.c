@@ -12,6 +12,7 @@
  */
 
 #include "iwlib-private.h"		/* Private header */
+#include "iw_scan_bounds.h"
 #include <sys/time.h>
 
 /****************************** TYPES ******************************/
@@ -626,6 +627,7 @@ print_scanning_info(int		skfd,
   int			has_range;
   struct timeval	tv;				/* Select timeout */
   int			timeout = 15000000;		/* 15s */
+  size_t		essid_len;
 
   /* Avoid "Unused parameter" warning */
   args = args; count = count;
@@ -681,9 +683,17 @@ print_scanning_info(int		skfd,
 	  args++;
 	  count--;
 
-	  /* Store the ESSID in the scan options */
-	  scanopt.essid_len = strlen(args[0]);
-	  memcpy(scanopt.essid, args[0], scanopt.essid_len);
+	  /* Store only ESSIDs that fit in the fixed-size scan request. */
+	  essid_len = strlen(args[0]);
+	  if(!iw_scan_essid_length_valid(essid_len, sizeof(scanopt.essid)))
+	    {
+	      fprintf(stderr,
+		      "ESSID is too long for a wireless scan request (maximum %lu bytes)\n",
+		      (unsigned long) sizeof(scanopt.essid));
+	      return(-1);
+	    }
+	  scanopt.essid_len = (__u8) essid_len;
+	  memcpy(scanopt.essid, args[0], essid_len);
 	  /* Initialise BSSID as needed */
 	  if(scanopt.bssid.sa_family == 0)
 	    {
