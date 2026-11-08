@@ -1,3 +1,17 @@
+## 2026-11-09 01:06 CST — Preserve forwarding state after firewall restore rollback
+
+- **Module / priority:** Firewall/NAT — restore transaction completion and forwarding activation; P1 stability/security. Firewall/NAT remains **AUDITING**.
+- **Recovered scope:** continue the firewall inventory from the previous Adbyby checkpoint. VPN leases and the Adbyby `blockip` set lifecycle are completed bounded tasks and were not reopened.
+- **Finding:** after a built-in IPv4/IPv6 table apply failed and the transaction successfully restored prior snapshots, `start_firewall_ex()` skipped extension hooks but still fell through to `set_ipv4_forward(1)`. Rollback means the previous rules are back; it does not mean the requested new ruleset was installed. Enabling forwarding on this path could expose cold-start/default firewall state or override the prior forwarding state.
+- **Fix:** return from the failed-built-in-restore branch after logging, before forwarding activation, PPPoE multi-WAN detection and module cleanup. A successful rollback therefore preserves the previous forwarding state; the existing rollback-failure path still disables IPv4 and IPv6 forwarding and retains snapshots.
+- **Changed paths:** `trunk/user/rc/src/firewall_ex.c`; `.github/workflows/httpd-security.yml`.
+- **Regression:** the already-wired `firewall_restore_transaction.c` GNU89 host regression covers restore failure + successful reverse rollback (transaction failed, rollback_failed false). The workflow source contract now requires the failure-path return to precede `set_ipv4_forward(1)` and asserts the transaction-state checks remain present.
+- **Commit chain:** production `4d0ed84aad409693aca03e52aa880bed9d1ca661`; workflow contract `0b886c2ede22c9561a8c9ed0caa69ce01f4a5df5` (candidate exact code/workflow SHA).
+- **Verification / limits:** source/control-flow review PASS. Exact-head Actions for `0b886c2ede22c9561a8c9ed0caa69ce01f4a5df5` **NOT VERIFIED**: combined status returned no rows and the connected run-list endpoint provides PR-triggered runs only. No local compile was performed. Full RC translation unit, MIPS/uClibc, firmware/TRX, live router and hardware remain **NOT RUN**. Keep Firewall/NAT AUDITING.
+- **Next:** verify the exact-head Actions run/logs for `0b886c2ede22c9561a8c9ed0caa69ce01f4a5df5`. Once green, continue standalone/add-on IPv4/IPv6 rule-writer and restore-status parity work, without narrowing future governance to one subsystem.
+
+---
+
 ## 2026-11-09 00:56 CST — Atomically refresh Adbyby blockip across cold boot and firewall rebuilds
 
 - **Module / priority:** Firewall/NAT — Adbyby ipset lifecycle; P1/P2 firewall availability and stale-policy reliability. Firewall/NAT remains **AUDITING**.
