@@ -181,7 +181,12 @@ fi
 printf '203.0.113.9\n203.0.113.0/24\n' > "$test_root/expected-blockip"
 cmp "$test_root/expected-blockip" "$TEST_IPSET_STATE/blockip"
 grep -F 'swap adbyby_' "$TEST_IPSET_LOG" >/dev/null
-[ ! -e "$TEST_IPSET_STATE/adbyby_$" ]
+for staged_set in "$TEST_IPSET_STATE"/adbyby_*; do
+    [ ! -e "$staged_set" ] || {
+        echo "orphaned blockip staging set: $staged_set" >&2
+        exit 1
+    }
+done
 
 # A partial restore failure must discard only the staging set and preserve
 # the complete last-known-good live blockip inventory.
@@ -195,7 +200,12 @@ if adbyby_refresh_blockip_set; then
 fi
 unset FAIL_IPSET_RESTORE
 [ "$(cat "$TEST_IPSET_STATE/blockip")" = "192.0.2.44" ]
-[ ! -e "$TEST_IPSET_STATE/adbyby_$" ]
+for staged_set in "$TEST_IPSET_STATE"/adbyby_*; do
+    [ ! -e "$staged_set" ] || {
+        echo "orphaned blockip staging set: $staged_set" >&2
+        exit 1
+    }
+done
 
 # Cold boot has no stable target, so publish by rename after the staged set
 # has been fully populated.
@@ -208,7 +218,12 @@ if ! adbyby_refresh_blockip_set; then
 fi
 [ "$(cat "$TEST_IPSET_STATE/blockip")" = "198.51.100.0/24" ]
 grep -F 'rename adbyby_' "$TEST_IPSET_LOG" >/dev/null
-[ ! -e "$TEST_IPSET_STATE/adbyby_$" ]
+for staged_set in "$TEST_IPSET_STATE"/adbyby_*; do
+    [ ! -e "$staged_set" ] || {
+        echo "orphaned blockip staging set: $staged_set" >&2
+        exit 1
+    }
+done
 
 : > "$PROG_PATH/blockip.conf"
 save_adbyby_rule_snapshot()

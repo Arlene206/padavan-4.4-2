@@ -178,7 +178,7 @@ adbyby_refresh_blockip_set()
 {
 	adbyby_blockip_set=""
 	adbyby_blockip_file=$(mktemp /tmp/adbyby-blockip.XXXXXX) || return 1
-	adbyby_blockip_set=$(basename "$adbyby_blockip_file" | sed 's/^adbyby-blockip\\./adbyby_/') || {
+	adbyby_blockip_set=$(basename "$adbyby_blockip_file" | sed 's/^adbyby-blockip\./adbyby_/') || {
 		rm -f "$adbyby_blockip_file"
 		return 1
 	}
