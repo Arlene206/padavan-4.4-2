@@ -77,6 +77,8 @@ on:
       - "trunk/user/httpd/src/httpd.h"
       - "trunk/user/shared/src/include/ralink_boards.h"
       - "trunk/user/httpd/src/web_ex.c"
+      - "trunk/user/httpd/src/httpd_nvram_restore_policy.h"
+      - "trunk/user/httpd/src/tests/httpd_nvram_restore_policy.c"
       - "trunk/user/httpd/src/variables.c"
       - "trunk/user/httpd/src/httpd_script_policy.h"
       - "trunk/user/httpd/src/tests/httpd_script_policy.c"
@@ -173,6 +175,8 @@ on:
       - "trunk/user/httpd/src/httpd.c"
       - "trunk/user/httpd/src/ej.c"
       - "trunk/user/httpd/src/web_ex.c"
+      - "trunk/user/httpd/src/httpd_nvram_restore_policy.h"
+      - "trunk/user/httpd/src/tests/httpd_nvram_restore_policy.c"
       - "trunk/user/httpd/src/aidisk.c"
       - "trunk/user/httpd/src/httpd_storage_ej_policy.h"
       - "trunk/user/httpd/src/tests/httpd_storage_ej_policy.c"
@@ -502,6 +506,59 @@ jobs:
               needle = f'      - "{path}"'
               assert needle in push_paths and needle in pr_paths
           print("NVRAM profile read/write bounds, validation-before-clear and CI path wiring: OK")
+          PY
+
+      - name: Verify NVRAM restore commits before reboot
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/httpd/src \
+            trunk/user/httpd/src/tests/httpd_nvram_restore_policy.c \
+            -o /tmp/httpd_nvram_restore_policy
+          /tmp/httpd_nvram_restore_policy
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/user/httpd/src/web_ex.c").read_text()
+          helper = Path("trunk/user/httpd/src/httpd_nvram_restore_policy.h").read_text()
+
+          def body(signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          restore = body("do_restore_nv_cgi(const char *url")
+          restore_call = restore.index('eval("/usr/sbin/nvram", "restore", upload_file)')
+          commit_call = restore.index("commit_result = nvram_commit()")
+          commit_gate = restore.index("httpd_nvram_restore_is_committed(ret, commit_result)")
+          watchdog_restart = restore.index('eval("/sbin/watchdog")')
+          assert restore_call < commit_call < commit_gate < watchdog_restart
+          assert "if (ret == 0)" in restore
+          assert 'httpd_log("%s: Unable to persist restored %s profile!"' in restore
+          assert "Reboot only after the restored configuration is durably committed" in restore
+          assert restore.count("nvram_commit()") == 1
+          assert restore.index("httpd_nvram_restore_is_committed") < restore.index("sys_reboot")
+          assert "return (restore_result == 0 && commit_result == 0);" in helper
+
+          workflow = Path(".github/workflows/httpd-security.yml").read_text()
+          push_paths = workflow.split("  pull_request:\\n", 1)[0]
+          pr_paths = workflow.split("  pull_request:\\n", 1)[1].split("  workflow_dispatch:\\n", 1)[0]
+          for path in (
+              "trunk/user/httpd/src/web_ex.c",
+              "trunk/user/httpd/src/httpd_nvram_restore_policy.h",
+              "trunk/user/httpd/src/tests/httpd_nvram_restore_policy.c",
+          ):
+              needle = f'      - "{path}"'
+              assert needle in push_paths and needle in pr_paths
+          print("NVRAM restore durability, watchdog recovery, and exact workflow triggers: OK")
           PY
 
       - name: Check privileged staging shell syntax
