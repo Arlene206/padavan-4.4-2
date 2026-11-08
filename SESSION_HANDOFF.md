@@ -27,18 +27,18 @@
 - **Remote checkpoint audit:** retain the historical divergent branches; do not merge stale trees wholesale. The last branch audit recorded no open PRs and did not identify a current unique checkpoint requiring merge. Refresh live refs before future branch mutations.
 - **Whole-userland rotation remains mandatory:** storage/hotplug is still P1/P2 **AUDITING**, not closed. Firewall IPv6/standalone writers, WAN reconnect/watchdog/backoff, DHCP/DNS/routing, HTTPD/auth/upload/restore, configuration persistence and boot/system management remain in the global risk ledger.
 
-## Latest resumable checkpoint — Repair POSIX shell descriptor portability in automount
+## Previous resumable checkpoint — Repair POSIX shell descriptor portability in automount
 
 - **Current source/test/workflow SHA:** `2f4828c42a1a0a449f92aa2f9f5fd3ab6dbdaa09`; active branch `main`.
 - **Reviewed files and finding:** `trunk/user/scripts/files/sbin/automount.sh` used fd 500 for both `fs_module.lock` and `automount_mountpoint.lock`. The source-level lock design was sound in intent, but fd 500 redirection is not parsed by Ubuntu's POSIX `sh`/dash, so the workflow's required `sh -n` rejected the script before the host regression could complete.
 - **Changed paths:** `trunk/user/scripts/files/sbin/automount.sh`; `.github/workflows/httpd-security.yml`. The nested module lock uses fd 9, and the outer mountpoint lock uses fd 8. All external mount helpers explicitly close fd 8 so children cannot accidentally prolong the mountpoint lock. Workflow assertions were updated to the actual descriptor layout.
 - **Tests/CI:** local dash syntax check for the replacement descriptors PASS; original fd-500 syntax was reproduced as FAIL/exit 2. Exact-head [Actions run 42460430403](https://github.com/xiaobei206/padavan-4.4-2/actions/runs/42460430403) SUCCESS on `2f4828c42a1a0a449f92aa2f9f5fd3ab6dbdaa09`, 25/25 job steps. No target or hardware validation.
-- **First next action:** continue the pre-existing storage/hotplug handoff by tracing `try_device_swapoff()` from `trunk/user/rc/src/hotplug_stor.c` and `trunk/user/libdisk/src/disk_initial.c`. Both `mdev_sd_main()` and `mdev_mmc_main()` currently ignore the helper return on device-removal events. Do **not** naively treat every nonzero `swapoff()` as a failure: most removed block devices are not active swap, and Linux can return `EINVAL` for such a request. First make active/inactive swap discovery and `/proc/swaps` read-error semantics explicit, then add focused host-testable policy coverage and workflow source contracts; preserve the cleanup notification path even if swapoff fails. Afterward address `services_stor.c::umount_ejected()` inventory and `fclose` errors and ensure those failures reach cleanup callers.
+- **Next action at that historical checkpoint (completed above):** trace and repair `try_device_swapoff()` and its ignored SCSI/MMC hotplug callers. This follow-up was completed in code commit `f2c6c909a69709a21699eb2498153351f1227e34` and passed exact-head Actions run `42469432175`. Do not repeat it; the current next task is `services_stor.c::umount_ejected()` as recorded in the latest checkpoint at the top of this file.
 - **Working state:** the fd portability fix is committed to `main`; exact-head Actions passed. No local-only source patch or pending checkpoint branch is carried. Do not claim the storage subsystem is fully audited, or claim target/hardware success.
 
 ---
 
-## Latest resumable checkpoint — Preserve storage state when mount inventory I/O fails
+## Previous resumable checkpoint — Preserve storage state when mount inventory I/O fails
 
 - **Exact code/test checkpoint:** branch `main`, implementation commit `4c305894ea1de24bdf6157f633a54ace7effc257`, based on `717113c7904eb55a05dd253859645f6c22820a9b`. The code, host regression, source-contract workflow and build-path triggers are committed; exact-head Actions [run 42457727317](https://github.com/xiaobei206/padavan-4.4-2/actions/runs/42457727317) completed **SUCCESS** on `4c305894ea1de24bdf6157f633a54ace7effc257`.
 - **Module / priority:** USB/storage/hotplug, P1 stability and data-integrity protection. This is the first bounded finding in the resumed storage rotation, not a claim that the storage subsystem is fully audited.
@@ -101,7 +101,7 @@
 
 ---
 
-## Latest resumable checkpoint — Retry failed firewall restore snapshot cleanup
+## Previous resumable checkpoint — Retry failed firewall restore snapshot cleanup
 
 - **Main baseline:** `c49eab3250abe1fd0159ee933609fe862e62e1af`; this round continues the top handoff item after the direct ASP query-output fix.
 - **Exact tested implementation/source head:** `47d68c69d5a2e9b1ba5a89a55664bb50410f218c`; later main commits are documentation-only verification/checkpoint updates.
@@ -114,7 +114,7 @@
 
 ---
 
-## Latest resumable checkpoint — Escape reflected query values in direct ASP JavaScript
+## Previous resumable checkpoint — Escape reflected query values in direct ASP JavaScript
 
 - **Code checkpoint on main:** exact validated source/workflow head is `de5418e7024db61842ec624014bed510e80a57fa`. The implementation was introduced in `b68ecd147bfd7543e802142aa7cc3e7c417bce59`, its policy test correction is `84c325f3563eeca96b326aa6a71f1317d8f17720`, and the final caller-inventory/CI contract is `de5418e7024db61842ec624014bed510e80a57fa`.
 - **Remote checkpoint review:** stale branch `security/storage-ej-authorization-20261108` is at `5dfca9b8be8c865367243561d8cee6aef7db408a`, diverged from current main (11 commits ahead / 134 behind; merge base `ffdee3519d860d832d82fbd8a6aab46467a94163`), and has no open PR. Its core `httpd_storage_ej_policy.h` and `tests/httpd_storage_ej_policy.c` blobs are byte-identical to current main; its older CGI-method policy has since evolved on main. Do not cherry-pick this stale checkpoint or treat it as unfinished storage authorization work. No open PRs were present at inspection time.
@@ -129,7 +129,7 @@
 
 ---
 
-## Latest resumable checkpoint — Classify the complete direct ASP EJ registry
+## Previous resumable checkpoint — Classify the complete direct ASP EJ registry
 
 - **Current code checkpoint:** direct-EJ policy hardening is on main at code commit 0b7e26f916e79550d2242bf3ee7437f41483f6d5, following the default-deny and caller-inventory commits 8295ea2eed6dfbda1db551d97072de92cd796f4a and 5d690dfe2b27ec08849caf46c74c3a358b9c109d. The prior PR #12 direct-action fix remains integrated at 705876cf766e36d09bce695f53cf203016df05cc.
 - **Resumed item:** the previous checkpoint explicitly left direct ASP EJ authorization PARTIAL: unclassified names retained legacy allow behavior, and the 88-entry EJ registry / ASP caller map had not been exhaustively tied to the policy.
@@ -146,7 +146,7 @@
 
 ---
 
-## Latest resumable checkpoint — Gate privileged direct ASP EJ actions
+## Previous resumable checkpoint — Gate privileged direct ASP EJ actions
 
 - **Main integration:** PR [#12](https://github.com/xiaobei206/padavan-4.4-2/pull/12) squash-merged to `main` at `705876cf766e36d09bce695f53cf203016df05cc`. Base `main` SHA: `cf4ba992a4825c44e6ea2f50b963de6d5c2d5a25`; exact tested PR source head: `1bcdd24f6ef67004be9cc7ad2331c3612751929e`.
 - **Module:** HTTPD direct ASP template EJ dispatch, alongside existing dynamic `update.cgi`, auth/session, CSRF and CGI-method gates.
@@ -207,7 +207,7 @@
 
 ---
 
-## Latest resumable checkpoint — WAN demand-PPP timeout fail-closed (merged)
+## Previous resumable checkpoint — WAN demand-PPP timeout fail-closed (merged)
 
 - **Main integration:** PR [#8](https://github.com/xiaobei206/padavan-4.4-2/pull/8) merged to main at `c1a5403721bbc4201dd0e094675b043af03c715d`. This checkpoint is based on that code integration; fetch current `main` before additional changes.
 - **Exact tested code/test/workflow head:** `eeb47b3c761a06fc28fb76e3f2c62cef354e0a79`. Exact-head Actions [run 42447907470](https://github.com/xiaobei206/padavan-4.4-2/actions/runs/42447907470) passed **SUCCESS, 23/23 steps**; exact-head push run [42447904690](https://github.com/xiaobei206/padavan-4.4-2/actions/runs/42447904690) also passed.
@@ -288,7 +288,7 @@
 - **Exact next action:** continue outside SkipDBv2: enumerate remaining direct/add-on/standalone `iptables` and `ip6tables` mutation/replay paths, establish regression coverage for IPv6 policy parity and failure handling, then rotate to WAN/PPP and storage unmount/swap. Keep exact code/test/workflow SHA separate from later records-only commits, and do not claim a firmware or hardware build.
 
 
-## Latest resumable checkpoint — Adbyby blockip firewall rule persistence
+## Previous resumable checkpoint — Adbyby blockip firewall rule persistence
 
 - **Current code/test/workflow head at recovery:** `10c81b096b45c97b4494843e1997a45c5138a5d7` (`fix(adbyby): persist blockip firewall rules`), parent `bb4d0e2faa5ee5d0d5f622103296d36e1f869e9b`. This documentation checkpoint is built directly on that code head; re-fetch `main` before any further write rather than assuming the code SHA is still the branch tip.
 - **Recovered task:** followed the preceding firewall transaction handoff's explicit instruction to inspect Adbyby and other extension firewall mutation/replay paths. This is a distinct add-on persistence path, not another SkipDBv2 round.
@@ -300,7 +300,7 @@
 - **Residual risks:** the restored DROP rules reference the runtime `blockip` ipset; creation-versus-replay ordering and behavior when the set is missing or restore fails are **NOT VERIFIED**. Add-on restore is outside the built-in ten-table rollback transaction. Whole-firewall mutation coverage and IPv6 policy parity remain AUDITING; HTTPD CSRF/session/ACL, WAN/PPP and storage unmount/swap residuals remain open. SkipDBv2 checkpoint branches remain stale and unmerged.
 - **Exact next action:** trace the boot/firewall-rebuild order that creates `blockip` relative to `start_firewall_ex()` replaying `/home/root/.adbyby.save`; add a focused failure-path regression for absent set/failed extension restore before changing rollback semantics. Then inventory remaining add-on/standalone `iptables`/`ip6tables` mutations and IPv6 policy parity; after recording firewall residuals, rotate to WAN/PPP and storage unmount/swap. Do not return to routine SkipDBv2-only expansion.
 
-## Latest resumable checkpoint — Cross-table firewall restore transaction and fail-closed rollback
+## Previous resumable checkpoint — Cross-table firewall restore transaction and fail-closed rollback
 
 - **Tested code/test/workflow SHA:** `29450b33d5711c9e1464018979c87cbeb1b01271` (`fix(firewall): disable IPv6 forwarding after rollback failure`). The bounded implementation commit is `51eeff9587fbce148275a0454b2c2fb1eae00579`; workflow source-contract correction is `462fdd1cec6b91aaf5e9c7ef3cab1cfb81cd5d00`. A subsequent governance-only checkpoint is committed on `main`; re-fetch the branch tip when resuming rather than treating this tested code SHA as the permanent branch tip.
 - **Exact-head Actions:** [run 42442350086](https://github.com/xiaobei206/padavan-4.4-2/actions/runs/42442350086) completed **SUCCESS** on exact `head_sha=29450b33d5711c9e1464018979c87cbeb1b01271`; the single job passed **21/21 steps**, including GNU89 `-Wall -Wextra -Werror` compile/run for the transaction regression, the updated IPv6 restore source contract, and broader HTTPD/authentication/DNS/DHCP/PPP/storage/RC source checks. The prior implementation attempt [run 42442185220](https://github.com/xiaobei206/padavan-4.4-2/actions/runs/42442185220) failed at a stale source assertion that expected a direct `ip6tables-restore` call after core restore dispatch had been wrapped; the corrected contract commit `462fdd1cec6b91aaf5e9c7ef3cab1cfb81cd5d00` passed [run 42442274221](https://github.com/xiaobei206/padavan-4.4-2/actions/runs/42442274221), and the final IPv6 fail-closed change passed the exact-head run above. The earlier failed run is retained as history, not represented as green.
@@ -312,7 +312,7 @@
 - **Residual risks:** this is runtime rollback for the identified core restore sequence, not proof that every privileged firewall mutation throughout the whole userland is transactionally covered. Add-on operations (including Adbyby's extension restore) remain outside the core transaction, and their command/input trust boundaries need an independent pass. Independent IPv6 policy parity, WAN/PPP transitions, storage unmount/swap behavior, HTTPD CSRF token/session/ACL gaps and broader privileged shell/filesystem sinks remain AUDITING. Remote SkipDBv2 refactor checkpoints remain divergent/stale relative to current main and were not merged.
 - **Exact next action:** inventory every `iptables`/`ip6tables` mutation outside these ten core restore call sites, including extension scripts and standalone table writers; add focused tests/contracts for any uncovered failure path. Then rotate to the outstanding WAN/PPP and storage unmount/swap P1/P2 modules, preserving repository-wide userland coverage. Do not return to routine SkipDBv2-only expansion.
 
-## Latest resumable checkpoint — Firewall core restore failures suppress extension hooks
+## Previous resumable checkpoint — Firewall core restore failures suppress extension hooks
 
 - **Current code/test/workflow commit on main:** `73becc2f98907b21e67bf817f28ec9d63cfe5857` (`test(firewall): include stddef for restore-state regression`), following implementation commit `5bafda5b0206d2f42a0f42f1b68f97d8152c373a` (`fix(firewall): gate extension hooks after core restore failures`). The code task is committed to `main`; this governance-only commit updates the three durable records.
 - **Exact-head Actions:** [run 42438489905](https://github.com/xiaobei206/padavan-4.4-2/actions/runs/42438489905), workflow `HTTPD Authentication and Security Regression`, completed SUCCESS with `head_sha=73becc2f98907b21e67bf817f28ec9d63cfe5857`; **21/21 job steps passed**, including GNU89 compile/run for `firewall_command_status.c`, the firewall restore/state source contract and the broader HTTPD/DNS/DHCP/PPP/storage/init checks. The previous attempt, [run 42438415639](https://github.com/xiaobei206/padavan-4.4-2/actions/runs/42438415639), failed on `5bafda5b0206d2f42a0f42f1b68f97d8152c373a` because the new test referenced `NULL` without including `<stddef.h>`; follow-up commit `73becc2f98907b21e67bf817f28ec9d63cfe5857` adds that include and the exact-head rerun passed. The failed run is retained as history rather than hidden.
@@ -325,7 +325,7 @@
 - **Remaining risk:** this change does **not** implement cross-table rollback and cannot undo earlier tables already restored before a later failure. It skips only the optional extension hook block; later core table generation and the existing IPv4-forwarding setup continue as before. Firewall rollback/transactionality, restore failure recovery, external hook provenance and independently reviewed IPv6 semantic parity remain AUDITING. WAN/PPP, storage unmount/swap and other userland P1/P2 modules remain on the repository-wide ledger.
 - **Exact next action:** fetch current `main` and confirm it descends from `73becc2f98907b21e67bf817f28ec9d63cfe5857`; then design a separately bounded and tested strategy for cross-table firewall rollback/recovery, with explicit compatibility behavior when a rollback itself fails. Keep IPv6 policy parity and WAN/PPP transitions as distinct follow-up audits. Do not return to routine SkipDBv2-only expansion.
 
-## Latest resumable checkpoint — HTTPD authenticated POST Origin/Referer validation
+## Previous resumable checkpoint — HTTPD authenticated POST Origin/Referer validation
 
 - **Code/test/workflow commit on main:** `9110854745aced73ffb91318dc0e095099623d8e` (`security(httpd): reject cross-origin authenticated POSTs`). This checkpoint was built directly on main `9cd980aaa74f7eddca67d8f59001a31ac04ab851`; the current main code tree has been re-read from GitHub after the write. A follow-up governance-only commit updates this handoff, roadmap and development log; at the next start, fetch current main HEAD and verify it is a descendant of the code commit.
 - **Actions:** [run 42437940928](https://github.com/xiaobei206/padavan-4.4-2/actions/runs/42437940928), workflow `HTTPD Authentication and Security Regression`, completed **SUCCESS** on the exact code SHA `9110854745aced73ffb91318dc0e095099623d8e`. The only job, `HTTPD authentication and disclosure policy`, passed all 21 steps, including `Compile and run policy regression` and `Verify HTTPD auth and route-access wiring`.
@@ -337,7 +337,7 @@
 - **Whole-repository status:** HTTPD/CGI/auth remains `AUDITING`; this commit does not close the auth/CSRF/session audit. Still open: synchronizer tokens/Origin-absent handling, session IP/NAT and ACL/logout/credential-change semantics, remaining HTTPD command/filesystem sinks, HTTP/TLS/archive behavior, storage unmount/swap, firewall rollback/IPv6, WAN/PPP and additional userland service review. Do not resume routine SkipDBv2-only work merely because it is familiar.
 - **Exact next action:** re-fetch current `main` and Actions status, then map every authenticated state-changing HTTP route and its shipped UI caller to a token/Origin/Referer policy; determine whether any supported management client legitimately omits both metadata headers. After that, select a distinct remaining P1/P2 module (prioritize firewall rollback/IPv6 or WAN/PPP residuals) and update all governance records.
 
-## Latest resumable checkpoint — Direct storage EJ authorization merged and verified
+## Previous resumable checkpoint — Direct storage EJ authorization merged and verified
 
 - **Current main code/test/workflow SHA:** `177c60102b26e735ddf3fd784da8a2eeb36eb127`, squash merge of [PR #2](https://github.com/xiaobei206/padavan-4.4-2/pull/2) (`security/httpd: protect direct storage EJ mutations`). The pre-merge source head, exactly tested by CI, was `5dfca9b8be8c865367243561d8cee6aef7db408a`. The main branch is updated; there is no outstanding code branch for this task.
 - **Exact Actions evidence:** [run 42437383770](https://github.com/xiaobei206/padavan-4.4-2/actions/runs/42437383770) completed SUCCESS on the exact PR source SHA `5dfca9...`, 21/21 job steps passing. In particular, `Compile and run policy regression` and `Verify HTTPD auth and route-access wiring` passed after the final code, workflow and documentation commits on that branch. The squash merge keeps that tested tree content.
@@ -348,7 +348,7 @@
 - **Validation boundary / remaining work:** source/call-path review, focused host tests and exact-head GitHub Actions PASS. Production MIPS/uClibc HTTPD object compilation, full firmware/TRX build and inspection, live HTTP integration and physical router/hardware validation are NOT RUN. This is not general CSRF protection. Origin/Referer/request tokens, same-source/NAT session ownership, logout/credential-change lifecycle, ACL behavior and remaining command/filesystem sinks remain open. Storage unmount/swap, firewall rollback/IPv6 and WAN/PPP residuals remain on the global ledger.
 - **Next exact action:** continue the HTTPD session/CSRF audit—map Origin/Referer/request-token behavior to all state-changing endpoints, ensure same-NAT/session and ACL semantics are deliberate, and inspect residual `eval`/`_eval`/`doSystem`/filesystem sinks. Then rotate to other P1/P2 userland modules. Do not return to routine SkipDBv2-only work; preserve firewall rollback/IPv6, WAN/PPP, storage unmount/swap and other whole-repository coverage.
 
-## Latest resumable checkpoint — Gate dynamic update.cgi EJ callback selection
+## Previous resumable checkpoint — Gate dynamic update.cgi EJ callback selection
 
 - **Base main SHA:**  e7064cef7429723ebead04b9180f97459b52a979. **Primary code/test/workflow commit:** 24bbbc5898cfca302640b77da00bcaaff34d1d15. **Denial-response literal correction / final source SHA:** 9b0409afdd62418aa3696d325b5e0175eab78130 on main.
 - **P1 finding:** the authenticated, POST-only update.cgi route still accepted a request-controlled output selector and dispatched any matching callback in ej_handlers[]. The registry includes NVRAM read/dump and commit, service notification/restart, WAN/WOL actions, wireless scans, feature-specific action hooks, OpenVPN/certificate helpers and storage account/share mutations. POST-only protects against browser-simple GET invocation but does not provide per-operation authorization to a valid but untrusted management session.
@@ -471,7 +471,7 @@
 - **Remote checkpoint branches compared against tested SHA `966efa0380ffaa2ce18c702f0d2131e9e10b492d`:** `refactor/bstream-tag-wire` 1 ahead / 573 behind; `refactor/dbapi-result-20261105` 8 / 654; `refactor/dynlib-lifecycle` 0 / 577; `refactor/sorting-boundaries` 0 / 573; `refactor/uarray-character-ctype` 2 / 571. Ahead-only deltas remain confined to SkipDBv2, its tests/build/workflow and dev log; none was merged.
 - **Next bounded task:** continue FTP/Samba account and password provisioning, ACL correctness, persistent custom `/etc/storage/smb.conf`, FTP anonymous-write/chroot/umask semantics and dedicated FTP service identity. Then rotate to USB/storage/hotplug and init/service lifecycle. Keep firewall cross-table rollback and IPv6 semantic parity as separate open items; do not return to routine SkipDBv2-only work.
 
-## Latest resumable checkpoint — FTP fail-closed mode and non-root worker configuration (exact-head Actions PASS)
+## Previous resumable checkpoint — FTP fail-closed mode and non-root worker configuration (exact-head Actions PASS)
 
 - **Source/test/workflow SHA:** [`c258be09506ef66523924d3ed618bf6d5d3c7ae5`](https://github.com/xiaobei206/padavan-4.4-2/commit/c258be09506ef66523924d3ed618bf6d5d3c7ae5), based on main `3b1174428facdb6b4c94e6a974832fdedbae15c5`. Exact-head GitHub Actions [run 42420569075](https://github.com/xiaobei206/padavan-4.4-2/actions/runs/42420569075) completed **SUCCESS** on that SHA. This adds the FTP policy helper/test and workflow source contracts; all job steps, including the `Verify Samba share configuration trust boundaries` step, completed successfully.
 - **Finding 1 — invalid FTP mode fails open:** `Advanced_AiDisk_others.asp` exposes only modes 1–4, but `write_vsftpd_conf()` used the raw `st_ftp_mode` integer. Anything other than exactly mode 2 followed a branch with `anonymous_enable=YES`, so malformed or stale values could enable anonymous access. `ftp_share_policy.h::ftp_share_mode_normalize()` preserves all four supported modes and maps every other value to mode 2 (local login enabled, anonymous login disabled).
@@ -524,7 +524,7 @@
 - **Checkpoint branches:** compare against current main found `refactor/bstream-tag-wire` 1 ahead / 557 behind, `refactor/dbapi-result-20261105` 8 ahead / 638 behind, `refactor/dynlib-lifecycle` 0 ahead / 561 behind, `refactor/sorting-boundaries` 0 ahead / 557 behind, and `refactor/uarray-character-ctype` 2 ahead / 555 behind. Ahead diffs are SkipDBv2-related source/workflow plus branch log edits; none was merged.
 - **Next action:** continue with remaining P1 system/userland risk—firewall restore failure/rollback and IPv6 policy parity—then rotate through FTP/Samba, USB/storage/hotplug and init/service lifecycle. Continue HTTPD/CGI/auth reviews where the roadmap still shows open residuals. Do not return to routine SkipDBv2 expansion merely because those checkpoints exist.
 
-## Latest resumable checkpoint — PPP secret-file hardening + DNSMasq input validation (exact-head host Actions PASS)
+## Previous resumable checkpoint — PPP secret-file hardening + DNSMasq input validation (exact-head host Actions PASS)
 
 - **Current main verification head:** `73f921259959dbdf377943f46cb567051c83ef7c` (`test(ppp): align private mode source assertion`), following code commit `bd7d7fbbd69156cdd563579aaa85ee8762824719` (`fix(ppp): secure credential options before writing`). Exact-head Actions run [`42415669510`](https://github.com/xiaobei206/padavan-4.4-2/actions/runs/42415669510) completed **SUCCESS** against `73f921259959dbdf377943f46cb567051c83ef7c`; every job step passed.
 - **PPP finding:** `launch_wan_pppd()` wrote PPP configuration containing clear-text credentials with `fopen(options, "w")`, then applied `chmod(0600)` only after writing. The new `ppp_options_file.h` verifies/repairs `/tmp/ppp` directory permissions before use; rejects symlink, non-regular, wrong-owner, and multiply-linked options files; applies owner-only mode before truncation/writing using `O_NOFOLLOW | O_NONBLOCK`, checks the opened inode, and checks flush/close. On finalization failure it removes the partial credentials file and aborts starting PPP.
@@ -569,7 +569,7 @@
 - **Remote SkipDBv2 checkpoints:** compared against `dd9326876226ebf7948710a66a38ee883d5fb576`: BStreamTag 1 ahead / 536 behind; DBAPI 8 / 617; dynlib lifecycle 0 / 540; sorting 0 / 536; UArray 2 / 534. Ahead-only deltas remain confined to SkipDBv2 and its workflow/log; none was merged.
 - **Next exact action:** continue the firewall audit with restore-failure/rollback behavior and IPv6 rule semantic parity; then move to DNS/DHCP and WAN/PPP/service lifecycle rather than returning to routine SkipDBv2 refactoring.
 
-## Latest resumable checkpoint — Firewall restore failure reporting and extension-hook inventory
+## Previous resumable checkpoint — Firewall restore failure reporting and extension-hook inventory
 
 - Verified source/test/workflow checkpoint on `main`: `f7e3a3270a4f90ecd296bdb09313843d958d85af`; implementation commit: `79daaef39110c33078d747a017aefb6845ffbca6`; one-line workflow assertion correction: `f7e3a3270a4f90ecd296bdb09313843d958d85af`. This documentation update is a follow-up commit; re-fetch actual `main` HEAD on resume.
 - Exact-head GitHub Actions run `42412279665` completed SUCCESS on `f7e3a3270a4f90ecd296bdb09313843d958d85af`; job `128522798720` passed all steps, including GNU89 `-Wall -Wextra -Werror` command-status tests, prior firewall/HTTPD tests, AP migration and source-contract checks. Local GNU89 helper regression also compiled and ran PASS.
@@ -581,7 +581,7 @@
 - Re-checked remote checkpoints against this tested source SHA. Ahead/behind: BStreamTag `1/531`, DBAPI `8/612`, dynlib lifecycle `0/535`, sorting `0/531`, UArray `2/529`. All ahead-only changes remain in SkipDBv2 plus its workflow/log; none was merged. Routine SkipDBv2 work stays paused.
 - Next exact action: decide/verify the correct ownership, regular-file, symlink and writable-mode contract for both root extension hooks and restored storage; then design/test partial firewall failure behavior (including whether a safe multi-table rollback is feasible) and independently compare IPv6 rule semantics. After these P1/P2 items, broaden into DNS/DHCP and WAN/PPP/service lifecycle.
 
-## Latest resumable checkpoint — Add-on firewall restore hooks isolated and exact-head host CI passed
+## Previous resumable checkpoint — Add-on firewall restore hooks isolated and exact-head host CI passed
 
 - Final source/test checkpoint on `main`: `6949cdf53ba9ba682c169b30eee2fab77949b04b`; implementation commit: `699639f7e94eba48ea2f54cbad3c52d227ca1eec`; resumed baseline: `918c07bcde23d1b698ba1fcf5aecec5b9e73525a`. Exact-head GitHub Actions run `42410980863` completed SUCCESS on `6949cdf53ba9ba682c169b30eee2fab77949b04b`. All job steps passed, including GNU89 C regression, Adbyby shell snapshot regression, the existing HTTPD/firewall policy suite, AP migration, root-managed script staging and HTTPD route-access checks.
 - The first two Actions attempts exposed test-harness-only issues (legacy script sourcing under `set -u`, then an OUTPUT fixture line excluded by Adbyby's existing `ADBYBY` filter); those were corrected. A final test-only hardening exports the simulated `iptables-save` failure flag to the child stub. Final exact-head run `42410980863` is the authoritative PASS; do not cite the earlier failed runs as current failures.
@@ -593,7 +593,7 @@
 - Validation boundaries: exact-head host Actions PASS (run `42410980863`). No full production RC/firmware compile, MIPS target build, image, router runtime, live iptables restore, privilege-exploit/race stress or hardware test was performed. Whole-userland inventory and overall firewall audit remain IN PROGRESS.
 - Next exact action: inventory creation, migration, mode/ownership, edit paths and invocation/error behavior of `/etc/storage/post_iptables_script.sh`; inspect the external Optware installer/owner contract for `/opt/bin/update_iptables.sh`; then audit restore return statuses, cross-table rollback, IPv6 semantic parity and remaining NVRAM/interface tokens before moving on to DNS/DHCP and other network services.
 
-## Latest resumable checkpoint — Add-on firewall restore inputs isolated from shared /tmp
+## Previous resumable checkpoint — Add-on firewall restore inputs isolated from shared /tmp
 
 - Source/test/workflow implementation commit on `main`: `699639f7e94eba48ea2f54cbad3c52d227ca1eec`; resumption baseline: `918c07bcde23d1b698ba1fcf5aecec5b9e73525a`. GitHub Actions run `42410593918` is running against this exact source SHA; do not mark this checkpoint HOST VERIFIED until its final result is inspected.
 - Recovered the exact next action from the previous checkpoint: enumerate optional add-on restore producers/consumers and privileged firewall hook dispatch. Remote checkpoint branches' ahead-only work remains SkipDBv2-only and was not merged.
@@ -605,7 +605,7 @@
 - Validation: implementation and tests are committed; exact-head Actions run `42410593918` is pending. No MIPS target build, firmware image, router runtime, live iptables restore, exploit race or hardware test has been run.
 - Next exact action: inspect run `42410593918` against `699639f7e94eba48ea2f54cbad3c52d227ca1eec`; then audit `/etc/storage/post_iptables_script.sh` and `/opt/bin/update_iptables.sh` deployment/writer trust, followed by restore exit statuses, failure rollback and IPv6 parity.
 
-## Latest resumable checkpoint — Firewall IPv4 tokens and VPN PPP lease state hardened (exact-head Actions verified)
+## Previous resumable checkpoint — Firewall IPv4 tokens and VPN PPP lease state hardened (exact-head Actions verified)
 
 - Exact source/test/workflow checkpoint on `main`: `53186f1753a5c8ef55a8f144980b62af742f4722`; baseline when this task resumed: `ed49070e7496fe982098dc1520f3bca09c3183e5`. The source, tests and workflow changes are committed on main. Subsequent documentation-only commits update this handoff, roadmap and dev log.
 - Resumed the previous handoff exactly: continue firewall P1 review beyond the already-complete 10 fixed-name restore-file staging changes.
@@ -618,7 +618,7 @@
 - Remaining firewall items: producers and file permissions for `/tmp/shadowsocks_iptables.save` and `/tmp/adbyby.save`; `SCRIPT_POST_FIREWALL`; `/opt/bin/update_iptables.sh`; residual interface/NVRAM token provenance; restore return codes; cross-table rollback and IPv6 semantic parity.
 - Next exact action: enumerate add-on restore-file producers and post-firewall hook consumers/writers; verify identity, modes, grammar, shell dispatch, and error handling. Then audit restore failure rollback and IPv6 parity; continue into DNS/DHCP and full WAN/PPP. Keep routine SkipDBv2 expansion paused.
 
-## Latest resumable checkpoint — Firewall IPv4/IPv6 restore-file staging hardened (exact-head Actions verified)
+## Previous resumable checkpoint — Firewall IPv4/IPv6 restore-file staging hardened (exact-head Actions verified)
 
 - Current source/test checkpoint on `main`: `18993430b0cea13d94c706dc5d2157ed8849127c`. The production/test/workflow implementation commit is `876d2740ce0bf2398b69906c9051401464308f11`; a follow-up source formatting commit produced the exact final tested SHA above. Baseline before this task: `a32605822a3c0028cf7b593068d34392d773d81a`.
 - Recovered the exact prior handoff task: continue the P1 firewall audit from built-in IPv4/IPv6 iptables restore-file sinks. No outstanding AP migration item remained; the previous HTTPD MIME route matrix checkpoint was already complete.
@@ -630,7 +630,7 @@
 - Remaining firewall audit is still open: trace every remaining NVRAM-derived rule token and the provenance of WAN/MAN/LAN interface/address values, VPN lease interface names, and VTS/masquerade values; inspect third-party `/tmp/shadowsocks_iptables.save` and `/tmp/adbyby.save` producers plus `SCRIPT_POST_FIREWALL` and `/opt/bin/update_iptables.sh`; check restore exit codes, multi-table rollback and IPv6 rule-semantic parity.
 - Next exact action: continue that NVRAM/interface/address and add-on producer audit, then restore error/rollback and IPv6 parity. After the firewall pass, broaden into DNS/DHCP and WAN/PPP; do not resume routine SkipDBv2 expansion while these higher-risk userland modules remain unaudited.
 
-## Latest resumable checkpoint — exhaustive HTTPD MIME route matrix and session-lock triage
+## Previous resumable checkpoint — exhaustive HTTPD MIME route matrix and session-lock triage
 
 - Main source/test checkpoint: 1e305137d9b2e2f0add305a323038f2d722dd162 (parent 2f57e866271fc5b9c7cc0253275330594b605e06); active branch: main. This handoff update is a documentation-only follow-up; on resume, re-fetch the actual main HEAD.
 - Recovered the precise previous next action: complete the conditional HTTPD need_auth route matrix and assess same-NAT logout/CSRF reset behavior. No unfinished AP migration code remained; the previous stock-only migration exact-head run 42402389122 is SUCCESS on 150e7869077bf7b4a275d61b57648a319c1849b8.
@@ -643,7 +643,7 @@
 - Working tree: completed workflow/test change is committed on main; no local-only patch or checkpoint branch is outstanding.
 - Next exact action: audit the remaining trunk/user/rc/src/firewall_ex.c NVRAM-to-iptables/ip6tables restore sinks, trace rule-file composition and every shell/interface/address argument, then inspect failure rollback/cleanup and IPv6 parity. Do not return to SkipDBv2 absent a higher-priority regression.
 
-## Latest resumable checkpoint — migrate only verified legacy AP defaults (exact-head Actions verified)
+## Previous resumable checkpoint — migrate only verified legacy AP defaults (exact-head Actions verified)
 
 - Current verified source checkpoint on `main`: `150e7869077bf7b4a275d61b57648a319c1849b8` (final AP migration CI-contract correction; based on the implementation commit `0b2e6bed342fb17bad5c78508c033f6bbd334c85`). The migration work resumes the exact prior handoff action; do not replace persistent AP scripts by filename or version guess.
 - Historical identity: the only earlier tracked stock AP template is `trunk/user/scripts/files/usr/bin/ap_script.sh` at `4d3da07289441a229611f0f12fe5d8efbb9b10fa`. Its exact SHA-256 is `8d94a244022c46b6f5e921065fd6b6cadcaa58134a034f8332a8fc12b5af3251`; it is preserved as `trunk/user/scripts/tests/fixtures/ap_script_legacy_stock.sh`.
@@ -669,7 +669,7 @@
 - Upgrade caveat: `autostart.sh` runs an existing executable `/etc/storage/ap_script.sh` and copies the ROM default only when that stored file is not executable. This change updates the ROM default template; it deliberately does not overwrite an existing user-managed executable copy. Existing devices with an older executable persistent copy need a separate safe migration decision; do not blindly replace user customizations.
 - Next exact action: review a safe stock-only migration strategy for existing persistent AP script copies, then continue the highest-risk unfinished P1 work: HTTPD logout/session/ACL and same-NAT ownership semantics, followed by firewall restore/IPv6 parity. Continue beyond HTTPD/SkipDB into DNS/DHCP, WAN/PPP, file sharing, storage/hotplug and service lifecycle. The bounded script trace does not close the whole userland audit.
 
-## Latest resumable checkpoint — HTTPD script-writer staging-file TOCTOU fixed (exact-head Actions verified)
+## Previous resumable checkpoint — HTTPD script-writer staging-file TOCTOU fixed (exact-head Actions verified)
 
 - Main code HEAD before this checkpoint: `0bbd8062e8bf7842e4879032aca3c1781bd393fa`; source commit: `0bbd8062e8bf7842e4879032aca3c1781bd393fa` (`fix(httpd): create upload staging files safely`). Documentation changes are committed separately afterward; fetch live `main` before the next task.
 - Recovered the previous exact next action: trace all `scripts.*` file variables from HTTPD registration/write/read paths into RC/init/service consumers, and enumerate executable `/tmp` producers/callers.
@@ -683,7 +683,7 @@
 - Remote checkpoint comparison at baseline `dea8ed96eed030a77e8f1fc416330b2ec563348f`: `refactor/bstream-tag-wire` 1 ahead / 486 behind (SkipDBv2 BStreamTag only); `refactor/dbapi-result-20261105` 8 ahead / 567 behind (SkipDBv2 DBAPI only); `refactor/dynlib-lifecycle` 0 ahead / 490 behind; `refactor/sorting-boundaries` 0 ahead / 486 behind; `refactor/uarray-character-ctype` 2 ahead / 484 behind (SkipDBv2 UArray only). No checkpoint contains relevant HTTPD work; none was merged.
 - Next exact action: finish tracing the registered add-on script consumers and identify every alternate writer/producer for executable `/tmp` files; then continue HTTPD session/logout/ACL and remaining firewall restore/IPv6 review. Extend the inventory into DNS/DHCP, WAN/PPP, file sharing, storage/hotplug and service lifecycle. Keep routine SkipDBv2 expansion paused.
 
-## Latest resumable checkpoint — Fixed-name sys_script dispatch audit (source and exact-head host CI verified)
+## Previous resumable checkpoint — Fixed-name sys_script dispatch audit (source and exact-head host CI verified)
 
 - Current main HEAD before this handoff update: `c4f7a8d8dc12abda6f872c0471bedac03e1b3a12`; active branch: `main`. Source commit `3859fc59fa3b890a6ce08a2956719c6640a88337` adds an explicit fixed-name dispatch policy to HTTPD.
 - Recovered the prior handoff's next action: audit the fixed-name `sys_script()` branches separately from the arbitrary `/tmp/<name>` `_eval()` fallback.
@@ -699,7 +699,7 @@
 
 # Session Handoff — Padavan 4.4
 
-## Latest resumable checkpoint — Firewall schedule fail-closed dispatch (source fix; exact-head Actions pending)
+## Previous resumable checkpoint — Firewall schedule fail-closed dispatch (source fix; exact-head Actions pending)
 
 - Main documentation HEAD immediately before this handoff update: `dde51661ccc1ee35732938b4d3d6df5c4968f3c8`. Production source checkpoint: `166274833a1df1ca8a8312fa1d250df72934b738`; roadmap checkpoint: `7af500fac248839e2a2df8bdde8372365d0eee29`; dev-log checkpoint: `dde51661ccc1ee35732938b4d3d6df5c4968f3c8`. This handoff update is the final documentation write; fetch live `main` again before follow-on work.
 - Prior handoff task recovery: the HTTPD executable-script write/execution trust-boundary fix was already complete on source SHA `5025bcb42d92c715d55595c15ff161cf13eb920e`, with HTTPD Actions run `42393893775` SUCCESS on that exact SHA. This round selected the next explicit P1 gap rather than repeating that work.
@@ -719,7 +719,7 @@
 4. Continue HTTPD session/logout/ACL and privileged RC authorization review; then continue remaining firewall restore inputs, command/interface arguments, rollback and IPv6 parity.
 5. Expand the whole-userland inventory/audit through DNS/DHCP, WAN/PPP, wireless, file sharing, storage/hotplug and init/service lifecycle. Keep routine SkipDBv2 expansion paused.
 6. Run `make XY-C1 TOOLCHAIN=mipsel-linux-musl` only when actually executed; inspect the produced image. Do not claim target build or hardware validation from host tests.
-## Latest resumable checkpoint — HTTPD generic dispatch and executable-script write gates (host verified)
+## Previous resumable checkpoint — HTTPD generic dispatch and executable-script write gates (host verified)
 
 - Main HEAD immediately before this handoff update: 5025bcb42d92c715d55595c15ff161cf13eb920e; active branch: main. This documentation checkpoint advances main; always fetch live main before follow-on work.
 - Previous unfinished task recovered: generic sys_script() /tmp/<name> _eval fallback trusted-session gate. Its exact push-triggered HTTPD regression is confirmed SUCCESS: run 42392318537, exact head SHA fb488c486462bdbf1dbedbaad559f21bd7f1785c.
