@@ -14,7 +14,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-static int
+static inline int
 dhcp6c_duid_open_existing(const char *path)
 {
 	struct stat st;
@@ -50,7 +50,7 @@ dhcp6c_duid_open_existing(const char *path)
 	return fd;
 }
 
-static int
+static inline int
 dhcp6c_duid_open_create(const char *path)
 {
 	if (!path || !*path) {
