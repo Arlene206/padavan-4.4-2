@@ -894,9 +894,10 @@ jobs:
           assert "if (!procpt)" in ejected and "return -1;" in ejected
           assert "if (!procpt2)" in ejected
           assert "partition_read_error = ferror(procpt2);" in ejected
-          assert "if (umount(mpname) != 0)" in ejected
+          assert "if (umount(entry->mountpoint) != 0)" in ejected
           assert "result = -1;" in ejected and "return result;" in ejected
-          assert ejected.index("if (umount(mpname) != 0)") < ejected.index("(void)rmdir(mpname)")
+          assert ejected.index("if (umount(entry->mountpoint) != 0)") < ejected.index("(void)rmdir(entry->mountpoint)")
+          assert "partition_close_error = (fclose(procpt2) != 0)" in ejected
 
           path_start = service.index("umount_stor_path(disk_info_t *disks_info, int port, const char *dev_name, int do_spindown)")
           path_end = service.index("stop_stor_apps(void)", path_start)
