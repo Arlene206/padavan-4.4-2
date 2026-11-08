@@ -28,6 +28,7 @@
 #include <time.h>
 
 #include "rc.h"
+#include "wireless_restart_policy.h"
 #include "switch.h"
 #include "gpio_pins.h"
 #include <gpioutils.h>
@@ -717,6 +718,13 @@ int
 restart_wifi_wl(int radio_on, int need_reload_conf)
 {
 #if BOARD_HAS_5G_RADIO
+	if (wireless_restart_preflight(need_reload_conf, gen_ralink_config_5g) < 0) {
+		logmessage(LOGNAME, "Wireless restart aborted: failed to generate 5GHz configuration");
+		return -1;
+	}
+	if (need_reload_conf)
+		nvram_set_int_temp("reload_svc_wl", 1);
+
 	stop_8021x_wl();
 
 	stop_wifi_all_wl();
@@ -726,13 +734,6 @@ restart_wifi_wl(int radio_on, int need_reload_conf)
 		stop_wifi_all_rt();
 	}
 #endif
-	if (need_reload_conf) {
-		if (gen_ralink_config_5g(0) < 0) {
-			logmessage(LOGNAME, "Wireless restart aborted: failed to generate 5GHz configuration");
-			return -1;
-		}
-		nvram_set_int_temp("reload_svc_wl", 1);
-	}
 
 	start_wifi_ap_wl(radio_on);
 	start_wifi_wds_wl(radio_on);
@@ -767,6 +768,13 @@ restart_wifi_wl(int radio_on, int need_reload_conf)
 int
 restart_wifi_rt(int radio_on, int need_reload_conf)
 {
+	if (wireless_restart_preflight(need_reload_conf, gen_ralink_config_2g) < 0) {
+		logmessage(LOGNAME, "Wireless restart aborted: failed to generate 2.4GHz configuration");
+		return -1;
+	}
+	if (need_reload_conf)
+		nvram_set_int_temp("reload_svc_rt", 1);
+
 	stop_8021x_rt();
 
 	stop_wifi_all_rt();
@@ -776,13 +784,6 @@ restart_wifi_rt(int radio_on, int need_reload_conf)
 		stop_wifi_all_wl();
 	}
 #endif
-	if (need_reload_conf) {
-		if (gen_ralink_config_2g(0) < 0) {
-			logmessage(LOGNAME, "Wireless restart aborted: failed to generate 2.4GHz configuration");
-			return -1;
-		}
-		nvram_set_int_temp("reload_svc_rt", 1);
-	}
 
 	start_wifi_ap_rt(radio_on);
 	start_wifi_wds_rt(radio_on);

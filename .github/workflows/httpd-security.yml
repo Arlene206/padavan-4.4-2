@@ -11,6 +11,8 @@ on:
       - "trunk/user/rc/src/ralink_config_file.h"
       - "trunk/user/rc/src/tests/ralink_config_file.c"
       - "trunk/user/rc/src/ralink.c"
+      - "trunk/user/rc/src/wireless_restart_policy.h"
+      - "trunk/user/rc/src/tests/wireless_restart_policy.c"
       - "trunk/user/rc/src/net_wifi.c"
       - "trunk/user/rc/src/switch_status_policy.h"
       - "trunk/user/rc/src/tests/switch_status_policy.c"
@@ -753,6 +755,86 @@ jobs:
               assert f'"{path}"' in push, f"push filter missing {path}"
               assert f'"{path}"' in pull_request, f"PR filter missing {path}"
           print("Ralink atomic wireless config, startup/restart failure gates and notification completion contracts: OK")
+          PY
+      - name: Verify wireless restart configuration preflight
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/wireless_restart_policy.c \
+            -o /tmp/wireless_restart_policy
+          /tmp/wireless_restart_policy
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path("trunk/user/rc/src")
+          policy = (root / "wireless_restart_policy.h").read_text()
+          test = (root / "tests/wireless_restart_policy.c").read_text()
+          wifi = (root / "net_wifi.c").read_text()
+          workflow = Path(".github/workflows/httpd-security.yml").read_text()
+
+          def body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          assert '#include "wireless_restart_policy.h"' in wifi
+          assert "if (!need_reload_conf)" in policy
+          assert "if (!generate_config)" in policy
+          assert "return generate_config(0);" in policy
+          for case in (
+              "test_no_reload_skips_generator",
+              "test_reload_generates_once_before_caller_continues",
+              "test_generation_failure_is_propagated",
+              "test_missing_generator_fails_closed",
+              "test_nonnegative_generator_status_is_preserved",
+          ):
+              assert case in test
+
+          restarts = (
+              (
+                  body(wifi, "restart_wifi_wl(int radio_on, int need_reload_conf)"),
+                  "wireless_restart_preflight(need_reload_conf, gen_ralink_config_5g)",
+                  ("stop_8021x_wl();", "stop_wifi_all_wl();",
+                   "stop_8021x_rt();", "stop_wifi_all_rt();"),
+                  'nvram_set_int_temp("reload_svc_wl", 1);',
+              ),
+              (
+                  body(wifi, "restart_wifi_rt(int radio_on, int need_reload_conf)"),
+                  "wireless_restart_preflight(need_reload_conf, gen_ralink_config_2g)",
+                  ("stop_8021x_rt();", "stop_wifi_all_rt();",
+                   "stop_8021x_wl();", "stop_wifi_all_wl();"),
+                  'nvram_set_int_temp("reload_svc_rt", 1);',
+              ),
+          )
+          for restart, preflight, stop_calls, reload_flag in restarts:
+              prepare = restart.index(preflight)
+              stop_positions = [restart.index(stop) for stop in stop_calls if stop in restart]
+              first_stop = min(stop_positions)
+              assert prepare < first_stop, "configuration must be generated before stopping either radio"
+              assert "return -1;" in restart[prepare:first_stop], "generation failure must exit before radio stop"
+              assert restart.index(reload_flag) > prepare
+              assert restart.index(reload_flag) < first_stop
+
+          push = workflow.split("  push:", 1)[1].split("  pull_request:", 1)[0]
+          pr = workflow.split("  pull_request:", 1)[1].split("\njobs:", 1)[0]
+          for path in (
+              "trunk/user/rc/src/wireless_restart_policy.h",
+              "trunk/user/rc/src/tests/wireless_restart_policy.c",
+          ):
+              entry = '      - "' + path + '"'
+              assert entry in push, "push filter missing " + path
+              assert entry in pr, "PR filter missing " + path
+
+          print("2.4/5GHz and DBDC radio restart preflight ordering contracts: OK")
           PY
       - name: Verify switch port-byte ioctl errors and output publication
         run: |
