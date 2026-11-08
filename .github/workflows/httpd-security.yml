@@ -3,6 +3,8 @@ name: HTTPD Authentication and Security Regression
 on:
   push:
     paths:
+      - "trunk/user/rc/src/net.c"
+      - "trunk/user/rc/src/net_lan.c"
       - "trunk/user/shared/src/nvram_linux.h"
       - "trunk/user/shared/src/nvram_linux.c"
       - "trunk/user/rc/src/tests/nvram_restore_policy.c"
@@ -218,6 +220,8 @@ on:
       - "trunk/user/rc/src/vpn_server_lease_lock.h"
   pull_request:
     paths:
+      - "trunk/user/rc/src/net.c"
+      - "trunk/user/rc/src/net_lan.c"
       - "trunk/user/shared/src/nvram_linux.h"
       - "trunk/user/rc/src/switch_status_policy.h"
       - "trunk/user/rc/src/tests/switch_status_policy.c"
@@ -947,6 +951,9 @@ jobs:
           rtl = (root / "switch_rtl8367.c").read_text()
           rstats = (root / "rstats.c").read_text()
           detect_link = (root / "detect_link.c").read_text()
+          net_wan = (root / "net_wan.c").read_text()
+          net_lan = (root / "net_lan.c").read_text()
+          net = (root / "net.c").read_text()
           test = (root / "tests/switch_status_policy.c").read_text()
           workflow = Path(".github/workflows/httpd-security.yml").read_text()
 
@@ -972,6 +979,10 @@ jobs:
           assert "switch_status_read_vlan_pvid" in helper
           assert "test_vlan_pvid_returns_value_only_after_success" in test
           assert "test_vlan_pvid_normalizes_ioctl_errors" in test
+          assert "switch_status_resolve_vlan_vid" in helper
+          assert "test_vlan_fallback_rejects_failed_or_invalid_pvid" in test
+          assert "switch_status_vlan_pvid_changed" in helper
+          assert "test_failed_pvid_samples_do_not_signal_vlan_change" in test
           assert "switch_status_link_refresh_required" in helper
           assert "switch_status_link_refresh_failed" in helper
           assert "test_link_refresh_retries_failed_switch_reads" in test
@@ -1009,6 +1020,41 @@ jobs:
           assert "if (lan_link_result == 0)" in timer_body
           assert "dl_refresh_pending = switch_status_link_refresh_failed(" in timer_body
           assert "phy_status_port_bytes(i, &counter[0], &counter[1]) < 0" in rstats
+
+          get_vlan = body(net_wan, "get_vlan_vid_wan(void)")
+          assert "vlan_vid = phy_vlan_pvid_wan_get();" in get_vlan
+          assert get_vlan.index("if (vlan_vid < 0)") < get_vlan.index("return vlan_vid;")
+          assert "if (!is_vlan_vid_valid(vlan_vid))" in get_vlan
+
+          config_vinet = body(net_wan, "config_vinet_wan(void)")
+          assert "need_pvid" in config_vinet
+          assert "pvid_result < 0 || !is_vlan_vid_valid(pvid_result)" in config_vinet
+          assert config_vinet.index("return ret;") < config_vinet.index("hw_vlan_tx_map(")
+          assert "switch_status_resolve_vlan_vid" in config_vinet
+          assert "return 0;" in config_vinet
+
+          launch_iptv = body(net_wan, "launch_viptv_wan(void)")
+          assert "pvid_wan < 0 || !is_vlan_vid_valid(pvid_wan)" in launch_iptv
+          assert launch_iptv.index("return ret;") < launch_iptv.index("snprintf(viptv_ifname")
+          assert "switch_status_resolve_vlan_vid" in launch_iptv
+          assert "return 0;" in launch_iptv
+
+          start_wan = body(net_wan, "start_wan(void)")
+          assert start_wan.index("vlan_result = config_vinet_wan()") < start_wan.index("remove_cb_links();")
+          assert start_wan.index("remove_cb_links();") < start_wan.index("return;")
+          assert start_wan.index("vlan_result = config_vinet_wan()") < start_wan.index("launch_viptv_wan()")
+
+          hnat_update = body(net, "hwnat_configure(int wan_vid)")
+          assert hnat_update.index("if (wan_vid < 0)") < hnat_update.index('module_param_set_int("hw_nat", "wan_vid", wan_vid)')
+          hnat_reload = body(net, "reload_nat_modules(void)")
+          assert "hwnat_wan_vid = get_vlan_vid_wan();" in hnat_reload
+          assert hnat_reload.index("if (hwnat_wan_vid < 0)") < hnat_reload.index('snprintf(hnat_param, sizeof(hnat_param), "wan_vid=%d", hwnat_wan_vid)')
+          assert "hwnat_configure(hwnat_wan_vid);" in hnat_reload
+
+          lan_restart = body(net_lan, "restart_switch_config_vlan(void)")
+          assert lan_restart.index("if (get_ap_mode())") < lan_restart.index("pvid_wan_before = phy_vlan_pvid_wan_get();")
+          assert "switch_status_vlan_pvid_changed(pvid_wan_before, pvid_wan_after)" in lan_restart
+          assert "unable to compare WAN switch PVID" in lan_restart
           for path in (
               "trunk/user/rc/src/switch_status_policy.h",
               "trunk/user/rc/src/tests/switch_status_policy.c",
@@ -1017,6 +1063,9 @@ jobs:
               "trunk/user/rc/src/switch.h",
               "trunk/user/rc/src/rstats.c",
               "trunk/user/rc/src/detect_link.c",
+              "trunk/user/rc/src/net_wan.c",
+              "trunk/user/rc/src/net_lan.c",
+              "trunk/user/rc/src/net.c",
           ):
               assert f'"{path}"' in workflow
           push = workflow.split("  push:", 1)[1].split("  pull_request:", 1)[0]
@@ -1029,6 +1078,9 @@ jobs:
               "trunk/user/rc/src/switch.h",
               "trunk/user/rc/src/rstats.c",
               "trunk/user/rc/src/detect_link.c",
+              "trunk/user/rc/src/net_wan.c",
+              "trunk/user/rc/src/net_lan.c",
+              "trunk/user/rc/src/net.c",
           ):
               assert f'"{path}"' in push, f"push filter missing {path}"
               assert f'"{path}"' in pull_request, f"PR filter missing {path}"

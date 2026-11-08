@@ -32,6 +32,7 @@
 
 #include "rc.h"
 #include "switch.h"
+#include "switch_status_policy.h"
 #include <gpioutils.h>
 
 #if BOARD_RAM_SIZE < 32
@@ -479,19 +480,28 @@ void
 restart_switch_config_vlan(void)
 {
 #if !defined (USE_GMAC2_TO_GPHY) && !defined (USE_GMAC2_TO_GSW)
-	int pvid_wan = phy_vlan_pvid_wan_get();
+	int pvid_wan_before, pvid_wan_after;
 #endif
 
 	if (get_ap_mode())
 		return;
 
+#if !defined (USE_GMAC2_TO_GPHY) && !defined (USE_GMAC2_TO_GSW)
+	pvid_wan_before = phy_vlan_pvid_wan_get();
+#endif
+
 	notify_reset_detect_link();
 	switch_config_vlan(0);
 
 #if !defined (USE_GMAC2_TO_GPHY) && !defined (USE_GMAC2_TO_GSW)
-	if (phy_vlan_pvid_wan_get() != pvid_wan)
-#endif
+	pvid_wan_after = phy_vlan_pvid_wan_get();
+	if (pvid_wan_before < 0 || pvid_wan_after < 0) {
+		logmessage(LOGNAME, "unable to compare WAN switch PVID after VLAN reconfiguration (%d, %d)",
+			   pvid_wan_before, pvid_wan_after);
+	} else if (switch_status_vlan_pvid_changed(pvid_wan_before, pvid_wan_after)) {
 		full_restart_wan();
+	}
+#endif
 }
 
 int

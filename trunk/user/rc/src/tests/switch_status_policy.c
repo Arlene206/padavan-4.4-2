@@ -83,6 +83,34 @@ test_vlan_pvid_normalizes_ioctl_errors(void)
 
 
 static int
+test_vlan_fallback_rejects_failed_or_invalid_pvid(void)
+{
+    int vlan_vid = 77;
+    CHECK(switch_status_resolve_vlan_vid(100, 1, -EIO, 0, &vlan_vid) == 0);
+    CHECK(vlan_vid == 100);
+    CHECK(switch_status_resolve_vlan_vid(0, 0, 2, 1, &vlan_vid) == 0);
+    CHECK(vlan_vid == 2);
+    vlan_vid = 77;
+    CHECK(switch_status_resolve_vlan_vid(0, 0, -EIO, 0, &vlan_vid) == -EIO);
+    CHECK(vlan_vid == 77);
+    CHECK(switch_status_resolve_vlan_vid(0, 0, 4095, 0, &vlan_vid) == -EINVAL);
+    CHECK(vlan_vid == 77);
+    CHECK(switch_status_resolve_vlan_vid(0, 0, 2, 1, NULL) == -EINVAL);
+    return 0;
+}
+
+static int
+test_failed_pvid_samples_do_not_signal_vlan_change(void)
+{
+    CHECK(switch_status_vlan_pvid_changed(2, 3) == 1);
+    CHECK(switch_status_vlan_pvid_changed(2, 2) == 0);
+    CHECK(switch_status_vlan_pvid_changed(-EIO, 3) == 0);
+    CHECK(switch_status_vlan_pvid_changed(2, -EIO) == 0);
+    CHECK(switch_status_vlan_pvid_changed(-ENODEV, -EIO) == 0);
+    return 0;
+}
+
+static int
 test_link_refresh_retries_failed_switch_reads(void)
 {
     CHECK(switch_status_link_refresh_required(0, 0, 0, 0) == 1);
@@ -108,6 +136,8 @@ main(void)
     CHECK(test_null_output_is_rejected() == 0);
     CHECK(test_vlan_pvid_returns_value_only_after_success() == 0);
     CHECK(test_vlan_pvid_normalizes_ioctl_errors() == 0);
+    CHECK(test_vlan_fallback_rejects_failed_or_invalid_pvid() == 0);
+    CHECK(test_failed_pvid_samples_do_not_signal_vlan_change() == 0);
     CHECK(test_link_refresh_retries_failed_switch_reads() == 0);
     puts("Switch status error propagation and link-refresh retry policy: PASS");
     return 0;

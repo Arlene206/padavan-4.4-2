@@ -35,6 +35,7 @@
 #include "wan_resolver_refresh_policy.h"
 #include "dhcp_lease_policy.h"
 #include "switch.h"
+#include "switch_status_policy.h"
 #include <gpioutils.h>
 
 char*
@@ -267,8 +268,13 @@ get_vlan_vid_wan(void)
 	else
 		vlan_vid = 0;
 
-	if (!is_vlan_vid_valid(vlan_vid))
+	if (!is_vlan_vid_valid(vlan_vid)) {
 		vlan_vid = phy_vlan_pvid_wan_get();
+		if (vlan_vid < 0)
+			return vlan_vid;
+		if (!is_vlan_vid_valid(vlan_vid))
+			return -EINVAL;
+	}
 
 	return vlan_vid;
 }
@@ -457,11 +463,12 @@ config_soft_bridges_other(int vinet_vid, int viptv_vid, int pvid_wan, const char
 }
 #endif
 
-static void
+static int
 config_vinet_wan(void)
 {
 	int vlan_vid[2], vlan_pri, pvid_wan;
 	int is_vlan_filter, is_vlan_ifname;
+	int need_pvid, pvid_result = 0, ret;
 	char vinet_ifname[24];
 	const char *vinet_iflast, *wan_hwaddr;
 #if defined (USE_SINGLE_MAC)
@@ -484,15 +491,41 @@ config_vinet_wan(void)
 		vlan_pri = 0;
 	}
 
-	pvid_wan = phy_vlan_pvid_wan_get();
-
-	if (!is_vlan_vid_valid(vlan_vid[0])) {
-		vlan_vid[0] = pvid_wan;
-		vlan_pri = 0;
+	need_pvid = (!is_vlan_vid_valid(vlan_vid[0]) ||
+		     !is_vlan_vid_valid(vlan_vid[1]));
+#if defined (USE_GMAC2_TO_GPHY) || defined (USE_GMAC2_TO_GSW)
+	if (bridge_mode != SWAPI_WAN_BRIDGE_DISABLE && is_vlan_filter)
+		need_pvid = 1;
+#endif
+	if (need_pvid) {
+		pvid_result = phy_vlan_pvid_wan_get();
+		if (pvid_result < 0 || !is_vlan_vid_valid(pvid_result)) {
+			ret = (pvid_result < 0) ? pvid_result : -EINVAL;
+			logmessage(LOGNAME, "cannot configure WAN VLANs: switch PVID read failed (%d)", pvid_result);
+			return ret;
+		}
 	}
-
-	if (!is_vlan_vid_valid(vlan_vid[1]))
-		vlan_vid[1] = pvid_wan;
+	pvid_wan = pvid_result;
+	{
+		int configured_vid = vlan_vid[0];
+		ret = switch_status_resolve_vlan_vid(configured_vid,
+						     is_vlan_vid_valid(configured_vid),
+						     pvid_result, is_vlan_vid_valid(pvid_result),
+						     &vlan_vid[0]);
+		if (ret != 0)
+			return ret;
+		if (!is_vlan_vid_valid(configured_vid))
+			vlan_pri = 0;
+	}
+	{
+		int configured_vid = vlan_vid[1];
+		ret = switch_status_resolve_vlan_vid(configured_vid,
+						     is_vlan_vid_valid(configured_vid),
+						     pvid_result, is_vlan_vid_valid(pvid_result),
+						     &vlan_vid[1]);
+		if (ret != 0)
+			return ret;
+	}
 
 	/* update VLAN VID for raeth (HW_VLAN_TX) */
 	hw_vlan_tx_map(6, vlan_vid[0]);
@@ -552,6 +585,7 @@ config_vinet_wan(void)
 		control_if_ipv6(vinet_ifname, 1);
 #endif
 	set_wan_unit_value(0, "ifname", vinet_ifname);
+	return 0;
 }
 
 static void
@@ -593,10 +627,11 @@ wait_apcli_connected(const char *ifname, int wait_sec)
 	return 0;
 }
 
-static void
+static int
 launch_viptv_wan(void)
 {
-	int vlan_vid[2], vlan_pri, pvid_wan;
+	int vlan_vid[2], vlan_pri, pvid_wan = 0;
+	int need_pvid, ret;
 	int is_vlan_filter, viptv_mode;
 	char viptv_ifname[24], *viptv_addr, *viptv_mask, *viptv_gate;
 	const char *viptv_iflast, *vinet_iflast, *wan_hwaddr;
@@ -617,14 +652,35 @@ launch_viptv_wan(void)
 		vlan_pri = 0;
 	}
 
-	pvid_wan = phy_vlan_pvid_wan_get();
-
-	if (!is_vlan_vid_valid(vlan_vid[0]))
-		vlan_vid[0] = pvid_wan;
-
-	if (!is_vlan_vid_valid(vlan_vid[1])) {
-		vlan_vid[1] = pvid_wan;
-		vlan_pri = 0;
+	need_pvid = (!is_vlan_vid_valid(vlan_vid[0]) ||
+		     !is_vlan_vid_valid(vlan_vid[1]));
+	if (need_pvid) {
+		pvid_wan = phy_vlan_pvid_wan_get();
+		if (pvid_wan < 0 || !is_vlan_vid_valid(pvid_wan)) {
+			ret = (pvid_wan < 0) ? pvid_wan : -EINVAL;
+			logmessage(LOGNAME, "cannot configure IPTV VLANs: switch PVID read failed (%d)", pvid_wan);
+			return ret;
+		}
+	}
+	{
+		int configured_vid = vlan_vid[0];
+		ret = switch_status_resolve_vlan_vid(configured_vid,
+						     is_vlan_vid_valid(configured_vid),
+						     pvid_wan, is_vlan_vid_valid(pvid_wan),
+						     &vlan_vid[0]);
+		if (ret != 0)
+			return ret;
+	}
+	{
+		int configured_vid = vlan_vid[1];
+		ret = switch_status_resolve_vlan_vid(configured_vid,
+						     is_vlan_vid_valid(configured_vid),
+						     pvid_wan, is_vlan_vid_valid(pvid_wan),
+						     &vlan_vid[1]);
+		if (ret != 0)
+			return ret;
+		if (!is_vlan_vid_valid(configured_vid))
+			vlan_pri = 0;
 	}
 
 	vinet_iflast = get_wan_unit_value(0, "viflast");
@@ -640,7 +696,7 @@ launch_viptv_wan(void)
 		viptv_ifname[0] = 0;
 		nvram_set_temp("viptv_ifname", viptv_ifname);
 		
-		return;
+		return 0;
 	}
 
 	/* case3: CPU Internet tagged: y, CPU IPTV tagged: y (different VID) */
@@ -698,6 +754,8 @@ launch_viptv_wan(void)
 	} else {
 		start_udhcpc_viptv(viptv_ifname);
 	}
+
+	return 0;
 }
 
 static void
@@ -856,13 +914,23 @@ void
 start_wan(void)
 {
 	int unit, wan_proto;
+	int vlan_result;
 	char *wan_ifname;
 
 	/* Create links */
 	create_cb_links();
 
-	config_vinet_wan();
-	launch_viptv_wan();
+	vlan_result = config_vinet_wan();
+	if (vlan_result != 0) {
+		logmessage(LOGNAME, "aborting WAN startup: WAN VLAN configuration failed (%d)", vlan_result);
+		remove_cb_links();
+		return;
+	}
+
+	vlan_result = launch_viptv_wan();
+	if (vlan_result != 0)
+		logmessage(LOGNAME, "skipping IPTV VLAN setup after switch PVID failure (%d)", vlan_result);
+
 	config_apcli_wisp();
 
 	reload_nat_modules();

@@ -574,7 +574,7 @@ is_hwnat_allow(void)
 }
 
 static void
-hwnat_configure(void)
+hwnat_configure(int wan_vid)
 {
 	const char *hwnat_status = "Disabled";
 
@@ -583,7 +583,12 @@ hwnat_configure(void)
 		return;
 	}
 
-	module_param_set_int("hw_nat", "wan_vid", get_vlan_vid_wan());
+	if (wan_vid < 0) {
+		logmessage(LOGNAME, "Hardware NAT/Routing: retaining current WAN VID; lookup failed (%d)", wan_vid);
+		return;
+	}
+
+	module_param_set_int("hw_nat", "wan_vid", wan_vid);
 
 	hwnat_status = "Enabled, IPoE/PPPoE offload [WAN]<->[LAN/WLAN]";
 	logmessage(LOGNAME, "%s: %s", "Hardware NAT/Routing", hwnat_status);
@@ -622,6 +627,7 @@ reload_nat_modules(void)
 	int wan_nat_x = nvram_get_int("wan_nat_x");
 #if defined (USE_HW_NAT)
 	char hnat_param[80];
+	int hwnat_wan_vid = -1;
 	int hwnat_allow = is_hwnat_allow();
 	int hwnat_loaded = is_hwnat_loaded();
 	int ipv6_nat = nvram_get_int("ip6_lan_auto");
@@ -706,10 +712,17 @@ reload_nat_modules(void)
 
 #if defined (USE_HW_NAT)
 	if (hwnat_allow)
-	{	if(!hwnat_loaded)
-		{snprintf(hnat_param, sizeof(hnat_param), "wan_vid=%d", get_vlan_vid_wan());
-		module_smart_load("hw_nat", hnat_param);}
-		int hw_nat_mode = nvram_get_int("hw_nat_mode");
+	{
+		hwnat_wan_vid = get_vlan_vid_wan();
+		if (hwnat_wan_vid < 0) {
+			logmessage(LOGNAME, "Hardware NAT/Routing: skipping WAN VID load/update after switch PVID failure (%d)",
+				   hwnat_wan_vid);
+		} else if (!hwnat_loaded) {
+			snprintf(hnat_param, sizeof(hnat_param), "wan_vid=%d", hwnat_wan_vid);
+			module_smart_load("hw_nat", hnat_param);
+		}
+		{
+			int hw_nat_mode = nvram_get_int("hw_nat_mode");
 #if defined (USE_MT7615_AP) || defined (USE_MT7915_AP) || defined (USE_MT76X2_AP)
 		if (hw_nat_mode == 1)
 		{doSystem("iwpriv %s set hw_nat_register=%d", IFNAME_2G_MAIN, 1);
@@ -722,9 +735,10 @@ reload_nat_modules(void)
 		else
 		{doSystem("echo 7 0 > /sys/kernel/debug/hnat/hnat_setting");}
 #endif
+		}
 	}
 
-	hwnat_configure();
+	hwnat_configure(hwnat_wan_vid);
 #endif
 #if defined (USE_SFE)
 	int sfe_enable = nvram_get_int("sfe_enable");

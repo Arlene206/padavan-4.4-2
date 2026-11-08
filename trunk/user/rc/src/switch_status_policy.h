@@ -47,6 +47,34 @@ switch_status_read_vlan_pvid(int ioctl_result, unsigned int pvid)
  * keeps the refresh pending so a transient switch ioctl error cannot leave
  * detect_link with stale state until some unrelated future link transition.
  */
+/* Resolve an explicit VLAN ID or a validated switch PVID fallback. */
+static inline int
+switch_status_resolve_vlan_vid(int configured_vid, int configured_valid,
+                               int pvid_result, int pvid_valid,
+                               int *resolved_vid)
+{
+    if (!resolved_vid)
+        return -EINVAL;
+    if (configured_valid) {
+        *resolved_vid = configured_vid;
+        return 0;
+    }
+    if (pvid_result < 0)
+        return pvid_result;
+    if (!pvid_valid)
+        return -EINVAL;
+    *resolved_vid = pvid_result;
+    return 0;
+}
+
+/* A failed PVID sample is not a VLAN change and must not trigger a WAN restart. */
+static inline int
+switch_status_vlan_pvid_changed(int previous_result, int current_result)
+{
+    return (previous_result >= 0 && current_result >= 0 &&
+            previous_result != current_result);
+}
+
 static inline int
 switch_status_link_refresh_required(int initialized, int retry_pending,
                                     int changed_result,
