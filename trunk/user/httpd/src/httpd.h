@@ -206,7 +206,7 @@ extern void do_restore_nv_post(const char *url, FILE *stream, int clen, char *bo
 extern void do_restore_st_post(const char *url, FILE *stream, int clen, char *boundary);
 
 // web_ex.c
-extern void nvram_commit_safe(void);
+extern int nvram_commit_safe(void);
 extern void do_uncgi_query(const char *query);
 extern void do_cgi_clear(void);
 
