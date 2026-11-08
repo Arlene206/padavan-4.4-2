@@ -1134,7 +1134,7 @@ jobs:
           assert "refresh_status = update_resolvconf(is_first_run, 0);" in resolver_refresh
           assert "wan_resolver_refresh_policy_action(refresh_status)" in resolver_refresh
           assert "WAN_RESOLVER_REFRESH_KEEP_WAN" in resolver_refresh
-          assert "keeping WAN state and last-known-good resolver" in resolver_refresh
+          assert "keeping WAN state and last-known-good resolver" in net_wan
           assert "static inline int" in resolver_policy
           assert "refresh_status == 0" in resolver_policy
           assert "EIO" in resolver_test and "ENOSPC" in resolver_test
