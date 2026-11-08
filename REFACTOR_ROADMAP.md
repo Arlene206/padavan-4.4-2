@@ -1,3 +1,16 @@
+## 2026-11-09 04:40 CST — Reject incomplete USB modem topology metadata before preferred-node publication
+
+- **Module / priority:** USB modem hotplug and multi-device selection; P2 stability/availability. USB/storage remains **AUDITING**.
+- **Recovered IPv6 audit:** inspected `firewall_ex.c` IPv6 filter/default-filter/NAT/mangle writers, `rc.c` early-boot WAN gate, and the shared firewall restore transaction. Static source tracing showed `full_restart_ipv6()` reaches a full WAN restart on enable; static IPoE rebuilds through `start_firewall_ex()`, while dynamic `wan_up()` requests a firewall restart. The suspected gap was not demonstrated and no IPv6 firewall change was made. Firewall/NAT remains **AUDITING**.
+- **Finding:** NDIS and serial/ACM hotplug handlers could publish preferred modem metadata with `devnum=0` when USB topology lookup failed. `usb_modem.c::find_modem_node()` interprets a zero filter as no device-number constraint, so a multi-modem setup could select a control TTY belonging to another physical device.
+- **Fix:** require a nonempty USB parent port ID and USB device number 1..127 before publishing preferred NDIS/TTY metadata. Require successful net-device parent lookup and successful TTY interface + parent lookup; on incomplete or invalid identity, remove stale node metadata and exit before the metadata write or modem-start notification.
+- **Changed paths:** `trunk/user/rc/src/{hotplug_usb.c,modem_node_file.h,tests/modem_node_file.c}`; `.github/workflows/httpd-security.yml`.
+- **Verification:** focused GNU89 `-Wall -Wextra -Werror` regression printed `USB modem node private metadata staging: PASS`. Initial run [42521134292](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42521134292) failed only at a source-contract count that still expected exactly three removal callsites after the new cleanup paths; the C regression passed. Workflow correction `46abee304f53e127a8ff2b99a7a82a0f4768ff3c` retains per-handler cleanup assertions and accepts the expanded count. Exact-head Actions [42521206486](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42521206486) on `46abee304f53e127a8ff2b99a7a82a0f4768ff3c` completed **SUCCESS (39/39)**.
+- **Validation boundary:** L1 source/dataflow review + L2 focused host regression and exact-head Actions PASS. No full production RC translation-unit compile, MIPS/uClibc, firmware/TRX, real multi-modem integration or hardware validation. Do not mark USB/storage complete.
+- **Next rotation:** examine storage lifecycle in `services_stor.c`: first map NFS export inventory generation and restart behavior (`write_nfsd_exports()`, `run_nfsd()`, `restart_nfsd()`), then inspect complete mount inventory handling in `umount_dev()` and its safe-remove callers. Choose a bug only after tracing read, parse, close, partial-publication and service-state failure paths. Keep storage, Firewall/NAT and Wireless **AUDITING**.
+
+---
+
 ## 2026-11-09 04:21 CST — Prevent failed WAN switch PVID reads from becoming VLAN IDs
 
 - **Module / priority:** WAN VLAN setup + MTK/RTL switch consumers; P2 availability and configuration reliability. Wireless/switch remains **AUDITING**.
