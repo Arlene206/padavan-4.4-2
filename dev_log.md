@@ -1,3 +1,18 @@
+## 2026-11-09 03:01 CST — Retry detect_link switch-state refresh after ioctl failures
+
+- **Base main HEAD:** `5f12410a75f994ab117717f1968dcf56fde5b805`.
+- **Implementation + regression + workflow commit:** `fe2b21a85299a7101e7a8e2e15a2df5eb900dbed` — `fix(switch): retry failed link-state refreshes`.
+- **Module / priority:** Wireless management / MTK + RTL switch status; P1/P2 link-state availability.
+- **Finding:** `detect_link.c::dl_on_timer()` ignored `phy_status_port_link_changed()` errors, and neither a failed change query nor a failed WAN/LAN sample guaranteed another poll. This could preserve stale WAN/LAN state until an unrelated later link-change notification.
+- **Fix:** added shared refresh-required / refresh-failed policies; the timer now retries on the next polling interval until the change query and both status samples succeed. Cached values are still updated only on successful reads.
+- **Changed paths:** `trunk/user/rc/src/{detect_link.c,switch_status_policy.h,tests/switch_status_policy.c}`; `.github/workflows/httpd-security.yml`.
+- **Callsite review:** scanned all 36 C translation units in `trunk/user/rc/src/` for the public switch link/speed/bytes API family. Calls were found in `detect_link.c`, `net_wan.c` and `rstats.c`; no `phy_status_port_speed()` consumer was found in that directory scan.
+- **Validation:** local GNU89 `-Wall -Wextra -Werror` focused regression PASS; local ASan/UBSan + leak detection PASS. Exact-head Actions [run 42512806703](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42512806703), exact head `fe2b21a85299a7101e7a8e2e15a2df5eb900dbed`, completed **SUCCESS**, all 37/37 steps passed, including the new policy test/source contract.
+- **Validation limits:** Actions validates the helper and production source wiring, not the full production `detect_link.c` translation unit. Full MIPS/uClibc build, firmware/TRX and physical switch/router testing NOT RUN.
+- **Next:** audit wireless scan/association parsing and returned-length/ioctl contracts in `net_wifi.c` / `ralink.c`; finish switch speed/link status caller mapping, then rotate across other high-risk user-space modules. Wireless remains AUDITING.
+
+---
+
 ## 2026-11-09 02:53 CST — Finalize Ralink wireless ioctl task handoff
 
 - **Main before this governance-only checkpoint:** 5a0390d491cc125a2d2ed1e440e0886c6c8cf464.
