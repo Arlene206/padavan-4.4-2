@@ -110,7 +110,7 @@ static int rtl8367_ioctl(unsigned int cmd, unsigned int par, unsigned int *value
 	return httpd_switch_choose_result(operation_status, close_status);
 }
 
-int get_eth_port_bytes(int get_eth_port_bytes(int port_id_uapi, uint64_t *rx, uint64_t *tx)
+int get_eth_port_bytes(int port_id_uapi, uint64_t *rx, uint64_t *tx)
 {
 	port_bytes_t pb;
 	int ioctl_result;
@@ -123,7 +123,7 @@ int get_eth_port_bytes(int get_eth_port_bytes(int port_id_uapi, uint64_t *rx, ui
 	return httpd_switch_publish_port_bytes(ioctl_result, pb.RX, pb.TX, rx, tx);
 }
 
-int fill_eth_port_status(int fill_eth_port_status(int port_id_uapi, char linkstate[40])
+int fill_eth_port_status(int port_id_uapi, char linkstate[40])
 {
 	unsigned int link_value = 0;
 	int has_link = 0;

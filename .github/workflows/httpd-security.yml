@@ -4046,6 +4046,8 @@ jobs:
               assert "httpd_switch_choose_result(operation_status, close_status)" in wrapper
 
               getter = body(source, "int get_eth_port_bytes(")
+              assert source.count("int get_eth_port_bytes(") == 1
+              assert source.count("int fill_eth_port_status(") == 1
               assert getter.index("if (!rx || !tx)") < getter.index("memset(&pb, 0, sizeof(pb))") < getter.index("ioctl_result =")
               assert "return httpd_switch_publish_port_bytes(ioctl_result, pb.RX, pb.TX, rx, tx);" in getter
               speed = body(source, "int fill_eth_port_status(")
