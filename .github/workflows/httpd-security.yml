@@ -1058,9 +1058,9 @@ jobs:
             trunk/user/rc/src/tests/dnsmasq_file.c \
             -o /tmp/dnsmasq_file
           /tmp/dnsmasq_file
-          cc -std=gnu89 -Wall -Wextra -Werror \\
-            -I trunk/user/rc/src \\
-            trunk/user/rc/src/tests/dnsmasq_restart_policy.c \\
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/dnsmasq_restart_policy.c \
             -o /tmp/dnsmasq_restart_policy
           /tmp/dnsmasq_restart_policy
           python3 - <<'PY'
@@ -1097,8 +1097,8 @@ jobs:
           assert 'fopen(DNS_SERVERS_FILE, "w")' not in service
           assert 'create_file(DHCPD_LEASE_FILE)' not in service
           dnsmasq_prepare = service.index("prepare_dns_dhcpd(int is_ap_mode")
-          dnsmasq_start = service.index("\\nint\\nstart_dns_dhcpd", dnsmasq_prepare)
-          dnsmasq_stop = service.index("\\nvoid\\nstop_dns_dhcpd", dnsmasq_start)
+          dnsmasq_start = service.index("\nint\nstart_dns_dhcpd", dnsmasq_prepare)
+          dnsmasq_stop = service.index("\nvoid\nstop_dns_dhcpd", dnsmasq_start)
           dnsmasq_prepare_body = service[dnsmasq_prepare:dnsmasq_start]
           dnsmasq_start_body = service[dnsmasq_start:dnsmasq_stop]
           assert 'char config_path[] = "/etc/dnsmasq.conf.XXXXXX";' in dnsmasq_prepare_body
@@ -1113,8 +1113,8 @@ jobs:
 
           assert "DNSMASQ_RESTART_KEEP_RUNNING" in restart_policy and "DNSMASQ_RESTART_ABORT" in restart_policy
           assert "prepare_status != 0" in restart_policy
-          dnsmasq_restart = service.index("\\nint\\nrestart_dhcpd(void)")
-          dnsmasq_restart_end = service.index("\\nint\\nrestart_dns", dnsmasq_restart)
+          dnsmasq_restart = service.index("\nint\nrestart_dhcpd(void)")
+          dnsmasq_restart_end = service.index("\nint\nrestart_dns", dnsmasq_restart)
           dnsmasq_restart_body = service[dnsmasq_restart:dnsmasq_restart_end]
           assert dnsmasq_restart_body.index("prepare_dns_dhcpd") < dnsmasq_restart_body.index("dnsmasq_restart_policy_action")
           assert dnsmasq_restart_body.index("dnsmasq_restart_policy_action") < dnsmasq_restart_body.index("stop_dns_dhcpd")
@@ -1131,7 +1131,12 @@ jobs:
           assert 'read_exact(config_destination, "generated-config\\n")' in test
           push_paths = workflow.split("  push:\n    paths:\n", 1)[1].split("  pull_request:\n", 1)[0]
           pr_paths = workflow.split("  pull_request:\n    paths:\n", 1)[1].split("  workflow_dispatch:", 1)[0]
-          for changed in ("trunk/user/rc/src/services_ex.c", "trunk/user/rc/src/tests/dnsmasq_file.c"):
+          for changed in (
+              "trunk/user/rc/src/services_ex.c",
+              "trunk/user/rc/src/tests/dnsmasq_file.c",
+              "trunk/user/rc/src/dnsmasq_restart_policy.h",
+              "trunk/user/rc/src/tests/dnsmasq_restart_policy.c",
+          ):
               assert f'"{changed}"' in push_paths
               assert f'"{changed}"' in pr_paths
           assert 'mkstemp(path)' in helper and 'rename(path, destination)' in helper
