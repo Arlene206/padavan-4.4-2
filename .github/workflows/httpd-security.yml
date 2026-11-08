@@ -1096,7 +1096,7 @@ jobs:
           assert 'config_fail_template' in test
           assert 'dnsmasq_file_publish(fp, config_fail_template, config_destination, 0644) == -1' in test
           assert 'read_exact(config_destination, "generated-config\\n")' in test
-          push_paths = workflow.split("  push:\n    paths:\n", 1)[1].split("  pull_request:\\n", 1)[0]
+          push_paths = workflow.split("  push:\n    paths:\n", 1)[1].split("  pull_request:\n", 1)[0]
           pr_paths = workflow.split("  pull_request:\n    paths:\n", 1)[1].split("  workflow_dispatch:", 1)[0]
           for changed in ("trunk/user/rc/src/services_ex.c", "trunk/user/rc/src/tests/dnsmasq_file.c"):
               assert f'"{changed}"' in push_paths
