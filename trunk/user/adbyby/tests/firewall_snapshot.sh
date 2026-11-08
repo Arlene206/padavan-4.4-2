@@ -106,12 +106,15 @@ case "$command" in
             [ -f "$state/$set_name" ] || exit 1
             printf '%s\n' "$entry" >> "$state/$set_name" || exit 1
         done
-        [ "$FAIL_IPSET_RESTORE" = "1" ] && exit 1
+        if [ "$FAIL_IPSET_RESTORE" = "1" ]; then
+            exit 1
+        fi
         ;;
     *)
         exit 0
         ;;
 esac
+exit 0
 EOF
 chmod 700 "$test_root/bin/"*
 PATH="$test_root/bin:$PATH"
