@@ -986,9 +986,15 @@ restart_upnp(void)
 int
 ddns_updated_main(int argc, char *argv[])
 {
-	// Purge dnsmasq cache
-	if (getenv("INADYN_IP"))
-		restart_dns();
+	int restart_status;
+
+	/* The cache purge is best effort; do not fail the DDNS update callback. */
+	if (getenv("INADYN_IP") && is_dns_dhcpd_run()) {
+		restart_status = restart_dns();
+		if (restart_status != 0)
+			logmessage(LOGNAME, "DDNS update completed but DNSMasq cache purge failed (status=%d)",
+				   restart_status);
+	}
 
 	return 0;
 }

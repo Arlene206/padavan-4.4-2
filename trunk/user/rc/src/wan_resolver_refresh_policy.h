@@ -1,8 +1,9 @@
 #ifndef PADAVAN_WAN_RESOLVER_REFRESH_POLICY_H
 #define PADAVAN_WAN_RESOLVER_REFRESH_POLICY_H
 
-/* A resolver publication failure must not tear down an otherwise healthy
- * WAN, PPP or VPN link. update_resolvconf() already preserves the old file. */
+/* A resolver publication or DNS reload failure must not tear down an
+ * otherwise healthy WAN, PPP or VPN link. Failed publication preserves the
+ * old file; a failed reload is reported after the new file is published. */
 #define WAN_RESOLVER_REFRESH_COMPLETE 0
 #define WAN_RESOLVER_REFRESH_KEEP_WAN 1
 

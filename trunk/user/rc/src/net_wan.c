@@ -1705,6 +1705,7 @@ update_resolvconf(int is_first_run, int do_not_notify)
 	char resolv_temp[] = "/etc/resolv.conf.XXXXXX";
 	int i, i_pdns, i_total_dns = 0;
 	int lock, dns_static, resolv_changed = 0;
+	int dns_restart_status;
 	int dns_servers_ready = 1, saved_errno, validation_errno;
 
 	if (!is_first_run && fill_dnsmasq_servers() != 0) {
@@ -1840,24 +1841,45 @@ update_resolvconf(int is_first_run, int do_not_notify)
 		resolv_changed = 1;
 
 	/* notify dnsmasq */
-	if (resolv_changed && !do_not_notify && dns_servers_ready)
-		restart_dns();
+	if (resolv_changed && !do_not_notify && dns_servers_ready &&
+	    is_dns_dhcpd_run()) {
+		dns_restart_status = restart_dns();
+		if (dns_restart_status != 0) {
+			logmessage(LOGNAME,
+				   "resolver file published but DNSMasq cache reload failed (status=%d)",
+				   dns_restart_status);
+			return dns_restart_status;
+		}
+	}
 
 	return 0;
+}
+
+static void
+refresh_resolvconf_nonfatal_internal(const char *reason, int is_first_run,
+				     int do_not_notify)
+{
+	int refresh_status;
+
+	refresh_status = update_resolvconf(is_first_run, do_not_notify);
+	if (wan_resolver_refresh_policy_action(refresh_status) ==
+	    WAN_RESOLVER_REFRESH_KEEP_WAN) {
+		logmessage(LOGNAME,
+			   "resolver/DNS refresh did not complete after %s (status=%d); keeping WAN state",
+			   (reason && *reason) ? reason : "WAN event", refresh_status);
+	}
 }
 
 void
 refresh_resolvconf_nonfatal(const char *reason, int is_first_run)
 {
-	int refresh_status;
+	refresh_resolvconf_nonfatal_internal(reason, is_first_run, 0);
+}
 
-	refresh_status = update_resolvconf(is_first_run, 0);
-	if (wan_resolver_refresh_policy_action(refresh_status) ==
-	    WAN_RESOLVER_REFRESH_KEEP_WAN) {
-		logmessage(LOGNAME,
-			   "resolver refresh failed after %s (status=%d); keeping WAN state and last-known-good resolver",
-			   (reason && *reason) ? reason : "WAN event", refresh_status);
-	}
+void
+refresh_resolvconf_nonfatal_no_notify(const char *reason, int is_first_run)
+{
+	refresh_resolvconf_nonfatal_internal(reason, is_first_run, 1);
 }
 
 int

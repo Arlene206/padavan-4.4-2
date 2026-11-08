@@ -297,6 +297,7 @@ int  add_static_man_routes(char *man_ifname);
 int  del_static_man_routes(char *man_ifname);
 int  update_resolvconf(int is_first_run, int do_not_notify);
 void refresh_resolvconf_nonfatal(const char *reason, int is_first_run);
+void refresh_resolvconf_nonfatal_no_notify(const char *reason, int is_first_run);
 int  update_hosts_router(const char *lan_ipaddr);
 int  get_wan_ether_link_direct(int is_ap_mode);
 int  get_wan_dns_static(void);

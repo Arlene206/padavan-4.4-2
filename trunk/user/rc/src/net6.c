@@ -162,7 +162,7 @@ void full_restart_ipv6(int ipv6_type_old)
 		reset_wan6_vars();
 		control_if_ipv6_all(0);
 		set_libc_gai(1);
-		update_resolvconf(0, 1);
+		refresh_resolvconf_nonfatal_no_notify("IPv6 disabled", 0);
 		reload_nat_modules();
 		restart_firewall();
 		start_dns_dhcpd(0);

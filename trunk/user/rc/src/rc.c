@@ -1778,7 +1778,7 @@ main(int argc, char **argv)
 		notify_rc("manual_wan_reconnect");
 	}
 	else if (!strcmp(base, "restart_dns")) {
-		restart_dns();
+		ret = restart_dns();
 	}
 	else if (!strcmp(base, "restart_dhcpd")) {
 		restart_dhcpd();

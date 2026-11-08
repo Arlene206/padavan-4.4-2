@@ -916,7 +916,7 @@ on_client_ifup(void)
 
 	nvram_set_temp("vpnc_dns_t", buf);
 	if (strlen(buf) > 0)
-		update_resolvconf(0, 0);
+		refresh_resolvconf_nonfatal("OpenVPN client DNS update", 0);
 
 	call_client_script(VPN_CLIENT_UPDOWN_SCRIPT, "up");
 
