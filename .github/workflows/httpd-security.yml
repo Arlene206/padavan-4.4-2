@@ -1141,7 +1141,7 @@ jobs:
           assert 'return saved_errno;' in resolver
           assert '#include "wan_resolver_refresh_policy.h"' in net_wan
           assert 'void refresh_resolvconf_nonfatal(const char *reason, int is_first_run);' in rc_header
-          resolver_refresh = net_wan[net_wan.index("refresh_resolvconf_nonfatal(const char *reason, int is_first_run)"):resolver_end]
+          resolver_refresh = net_wan[net_wan.index("refresh_resolvconf_nonfatal_internal("):resolver_end]
           assert "refresh_status = update_resolvconf(is_first_run, do_not_notify);" in resolver_refresh
           assert "wan_resolver_refresh_policy_action(refresh_status)" in resolver_refresh
           assert "WAN_RESOLVER_REFRESH_KEEP_WAN" in resolver_refresh
