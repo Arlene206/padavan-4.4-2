@@ -40,4 +40,27 @@ switch_status_read_vlan_pvid(int ioctl_result, unsigned int pvid)
     return (int)pvid;
 }
 
+
+/*
+ * Link-change notifications are a hint to refresh the sampled WAN/LAN state.
+ * A failed notification read must trigger a refresh, and any failed sample
+ * keeps the refresh pending so a transient switch ioctl error cannot leave
+ * detect_link with stale state until some unrelated future link transition.
+ */
+static inline int
+switch_status_link_refresh_required(int initialized, int retry_pending,
+                                    int changed_result,
+                                    unsigned int link_changed)
+{
+    return (!initialized || retry_pending ||
+            changed_result != 0 || link_changed != 0);
+}
+
+static inline int
+switch_status_link_refresh_failed(int changed_result, int wan_result,
+                                  int lan_result)
+{
+    return (changed_result != 0 || wan_result < 0 || lan_result != 0);
+}
+
 #endif /* SWITCH_STATUS_POLICY_H */

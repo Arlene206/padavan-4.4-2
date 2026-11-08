@@ -34,6 +34,7 @@
 
 #include "rc.h"
 #include "switch.h"
+#include "switch_status_policy.h"
 #include "gpio_pins.h"
 
 #define DL_POLL_INTERVAL	2 /* every 2 seconds  */
@@ -222,34 +223,44 @@ static void
 dl_on_timer(void)
 {
 	static int dl_initialized = 0;
+	static int dl_refresh_pending = 0;
 	int is_ap_mode = dl_is_ap_mode;
 	unsigned int is_link_changed;
+	int link_changed_result;
 
 	dl_counter_total++;
 
 	is_link_changed = 0;
-	phy_status_port_link_changed(&is_link_changed);
-	if (is_link_changed || !dl_initialized) {
+	link_changed_result = phy_status_port_link_changed(&is_link_changed);
+	if (switch_status_link_refresh_required(dl_initialized,
+	                                       dl_refresh_pending,
+	                                       link_changed_result,
+	                                       is_link_changed)) {
 		int phy_link;
-		
-		phy_link = get_wan_ether_link_direct(is_ap_mode);
-		if (phy_link >= 0)
-			dl_status_wan = phy_link;
-		
+		int wan_link_result;
+		int lan_link_result;
+
+		wan_link_result = get_wan_ether_link_direct(is_ap_mode);
+		if (wan_link_result >= 0)
+			dl_status_wan = wan_link_result;
+
 		phy_link = 0;
-		if (phy_status_port_link_lan_all(&phy_link) == 0)
+		lan_link_result = phy_status_port_link_lan_all(&phy_link);
+		if (lan_link_result == 0)
 			dl_status_lan = phy_link;
-		
+
 		if (is_ap_mode)
 			dl_status_lan |= dl_status_wan;
-		
+
+		dl_refresh_pending = switch_status_link_refresh_failed(
+			link_changed_result, wan_link_result, lan_link_result);
 		if (!dl_initialized)
 			dl_initialized = 1;
 	}
 
 	if (!is_ap_mode) {
 		dl_handle_link_wan();
-		
+
 		if (get_wan_wisp_active(&dl_status_wisp))
 			dl_handle_link_wisp();
 	}

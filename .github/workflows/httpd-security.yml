@@ -22,6 +22,7 @@ on:
       - "trunk/user/rc/src/switch_rtl8367.c"
       - "trunk/user/rc/src/switch.h"
       - "trunk/user/rc/src/rstats.c"
+      - "trunk/user/rc/src/detect_link.c"
       - "trunk/user/nvram/src/nvram.c"
       - "trunk/user/nvram/src/nvram_profile_policy.h"
       - "trunk/user/nvram/src/tests/nvram_profile_policy.c"
@@ -216,6 +217,7 @@ on:
       - "trunk/user/rc/src/switch_rtl8367.c"
       - "trunk/user/rc/src/switch.h"
       - "trunk/user/rc/src/rstats.c"
+      - "trunk/user/rc/src/detect_link.c"
       - "trunk/user/shared/src/nvram_linux.c"
       - "trunk/user/rc/src/tests/nvram_restore_policy.c"
       - "trunk/user/rc/src/rc_nvram_policy.h"
@@ -928,6 +930,7 @@ jobs:
           mtk = (root / "switch_mtk_esw.c").read_text()
           rtl = (root / "switch_rtl8367.c").read_text()
           rstats = (root / "rstats.c").read_text()
+          detect_link = (root / "detect_link.c").read_text()
           test = (root / "tests/switch_status_policy.c").read_text()
           workflow = Path(".github/workflows/httpd-security.yml").read_text()
 
@@ -953,6 +956,9 @@ jobs:
           assert "switch_status_read_vlan_pvid" in helper
           assert "test_vlan_pvid_returns_value_only_after_success" in test
           assert "test_vlan_pvid_normalizes_ioctl_errors" in test
+          assert "switch_status_link_refresh_required" in helper
+          assert "switch_status_link_refresh_failed" in helper
+          assert "test_link_refresh_retries_failed_switch_reads" in test
 
           for source, ioctl_name, device_ioctl in (
               (mtk, "mtk_esw_ioctl", "MTK_ESW_IOCTL_STATUS_BYTES_PORT"),
@@ -976,6 +982,16 @@ jobs:
               assert "if (retVal != 0)" in show_body
               assert show_body.index("return retVal;") < show_body.index('printf("%d\\n", arg);')
 
+          timer_body = body(detect_link, "static void\ndl_on_timer(void)")
+          assert '#include "switch_status_policy.h"' in detect_link
+          assert "static int dl_refresh_pending = 0;" in timer_body
+          assert "link_changed_result = phy_status_port_link_changed(&is_link_changed);" in timer_body
+          assert "switch_status_link_refresh_required(dl_initialized," in timer_body
+          assert "wan_link_result = get_wan_ether_link_direct(is_ap_mode);" in timer_body
+          assert "if (wan_link_result >= 0)" in timer_body
+          assert "lan_link_result = phy_status_port_link_lan_all(&phy_link);" in timer_body
+          assert "if (lan_link_result == 0)" in timer_body
+          assert "dl_refresh_pending = switch_status_link_refresh_failed(" in timer_body
           assert "phy_status_port_bytes(i, &counter[0], &counter[1]) < 0" in rstats
           for path in (
               "trunk/user/rc/src/switch_status_policy.h",
@@ -984,6 +1000,7 @@ jobs:
               "trunk/user/rc/src/switch_rtl8367.c",
               "trunk/user/rc/src/switch.h",
               "trunk/user/rc/src/rstats.c",
+              "trunk/user/rc/src/detect_link.c",
           ):
               assert f'"{path}"' in workflow
           push = workflow.split("  push:", 1)[1].split("  pull_request:", 1)[0]
@@ -995,10 +1012,11 @@ jobs:
               "trunk/user/rc/src/switch_rtl8367.c",
               "trunk/user/rc/src/switch.h",
               "trunk/user/rc/src/rstats.c",
+              "trunk/user/rc/src/detect_link.c",
           ):
               assert f'"{path}"' in push, f"push filter missing {path}"
               assert f'"{path}"' in pull_request, f"PR filter missing {path}"
-          print("MTK/RTL switch ioctl error normalization, close handling, counter output and caller contracts: OK")
+          print("MTK/RTL switch error handling and detect_link refresh retry contracts: OK")
           PY
       - name: Verify NVRAM restore commits before reboot
         run: |
