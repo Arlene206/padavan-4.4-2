@@ -1865,9 +1865,9 @@ jobs:
           umount_dev = service[umount_dev_start:umount_dev_end]
           assert "static int" in service[max(0, umount_dev_start - 24):umount_dev_start]
           assert "if (!procpt)" in umount_dev and "return -1;" in umount_dev
-          assert "if (umount(mpname) != 0)" in umount_dev
-          failed_umount = umount_dev.index("if (umount(mpname) != 0)")
-          success_cleanup = umount_dev.index("(void)rmdir(mpname)", failed_umount)
+          assert "if (umount(entry->mountpoint) != 0)" in umount_dev
+          failed_umount = umount_dev.index("if (umount(entry->mountpoint) != 0)")
+          success_cleanup = umount_dev.index("(void)rmdir(entry->mountpoint)", failed_umount)
           assert failed_umount < success_cleanup
           assert "result = -1;" in umount_dev[failed_umount:success_cleanup]
 
