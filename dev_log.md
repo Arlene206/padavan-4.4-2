@@ -1,3 +1,18 @@
+## 2026-11-08 19:10 CST — Require durable NVRAM profile commit before HTTPD reboot
+
+- **Base main HEAD:** `69fcd2859fee35c125f4d79af0ad3569bcf91e3f`.
+- **Code / test / workflow chain:** policy `cdbf2e8351e383892d3cdc8185ad9c8a2e24182d`; regression `456f09952353503443945c8cf932efb32ad19209`; production wiring `45e15098c5016bf6e71831c477b8adf5db708ef7`; workflow and exact source/test checkpoint `ff4be91261099d7069db5b5bef0279853eecb85e` (`main`).
+- **Recovered P1 lost-persistence defect:** `do_restore_nv_cgi()` accepted a successful `nvram restore` process result, ignored the subsequent `nvram_commit()` result, and rebooted anyway. The shared NVRAM API returns failure when opening `/dev/nvram` or issuing `NVRAM_IOCTL_COMMIT` fails. Rebooting after that failure could discard the restored volatile configuration while presenting the upload as successful.
+- **Fix:** add `httpd_nvram_restore_policy.h`; reboot eligibility requires both restore and commit results to be zero. The CGI captures commit status only after a successful restore. Either failure is logged, the watchdog stopped for the upload is restarted, the result is changed to failure, and the existing UploadError response is used; reboot is now after the durability gate only.
+- **Changed paths:** `trunk/user/httpd/src/web_ex.c`; new `trunk/user/httpd/src/httpd_nvram_restore_policy.h`; new `trunk/user/httpd/src/tests/httpd_nvram_restore_policy.c`; `.github/workflows/httpd-security.yml`.
+- **Host regression:** `cc -std=gnu89 -Wall -Wextra -Werror` compile and execution PASS (`NVRAM restore durability policy`). Cases cover successful restore+commit, restore failure, commit failure (negative and positive nonzero), and combined failure.
+- **Source/CI wiring checks:** live GitHub source review verified restore < commit < gate < watchdog recovery < reboot, one commit call, and push/PR filters for both new files. Workflow includes the host regression and the same source-order contract.
+- **Exact-head Actions:** **PENDING / NOT VERIFIED** for `ff4be91261099d7069db5b5bef0279853eecb85e`. The combined-status endpoint returned no status entries and the available workflow-run lookup exposes PR-triggered runs only; no run ID, URL or PASS is claimed. Previous NVRAM profile I/O Actions success run 42472927950 remains evidence only for `2c608709dcf7cd2f74f454f2cdae8a47af107a46`.
+- **Validation boundary / residual risks:** L1 scoped source review and L2 local policy regression PASS. No full HTTPD compile, production MIPS/uClibc compile, firmware/TRX, router restore, or hardware test. On commit failure, replayed key values may remain in volatile NVRAM; the new gate prevents reboot but does not roll those values back, and the uploaded profile is still unlinked. Per-key restore rollback, atomic profile saving, `nvram_x.c` compaction errors, dirty-flag commit propagation, and RC defaults/commit callers remain open.
+- **Next exact task:** audit `nvram_del_list_map_x()` and its `nvram_remove_group_item()` caller. The helper ignores every `nvram_set()`/`nvram_unset()` result while the caller unconditionally publishes the reduced row count. Define failure propagation and a safe partial-rewrite/recovery strategy, then add host regression and workflow coverage. Keep NVRAM AUDITING and rotate across the whole userland after this bounded item.
+
+---
+
 ## 2026-11-08 18:52 CST — Record NVRAM handoff and governance checkpoint
 
 - **Base HEAD:** `2c608709dcf7cd2f74f454f2cdae8a47af107a46`.
