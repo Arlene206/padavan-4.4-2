@@ -2153,6 +2153,16 @@ jobs:
                             "firewall_hook_file_stage(opt_iptables_script"):
               assert restore_gate < firewall_main.index(hook_call), hook_call
           assert "Skipping extension firewall hooks after built-in table restore failure" in firewall_main[restore_gate:]
+          failure_notice = firewall_main.index(
+              '"Skipping extension firewall hooks after built-in table restore failure"'
+          )
+          failure_return = firewall_main.index("return;", failure_notice)
+          forwarding_enable = firewall_main.index("set_ipv4_forward(1);", failure_notice)
+          # A successful rollback restores the previous policy, not the new
+          # ruleset. Do not enable forwarding or run later setup on this path.
+          assert failure_notice < failure_return < forwarding_enable
+          assert "assert(!firewall_restore_transaction_ok(&tx));" in transaction_test
+          assert "assert(!firewall_restore_transaction_rollback_failed(&tx));" in transaction_test
           assert "firewall_restore_transaction_rollback_failed(&firewall_core_restore_transaction)" in firewall_main
           assert "firewall_restore_transaction_prepare_reset" in firewall_main
           assert firewall_main.index("firewall_restore_transaction_prepare_reset") < firewall_main.index("ipt_raw_rules();")
