@@ -4031,7 +4031,7 @@ jobs:
               raise AssertionError("unterminated function: " + signature)
 
           assert "saved_errno > 0 ? saved_errno : EIO" in policy
-          assert "operation_result != 0 ? operation_result : close_result" in policy
+          assert "return (operation_result != 0) ? operation_result : close_result;" in policy
           assert "if (status != 0)" in policy
           for source, ioctl_signature, speed_name in (
               (mtk, "int mtk_esw_ioctl(", "mtk_esw_ioctl"),
