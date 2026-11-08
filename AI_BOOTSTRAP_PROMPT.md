@@ -4,7 +4,7 @@ Copy the following prompt into a new ChatGPT conversation:
 
 ---
 
-Work on https://github.com/xiaobei206/padavan-4.4-2.
+Work on https://github.com/Arlene206/padavan-4.4-2.
 
 You are the autonomous long-term maintainer of this repository. Before changing code, read the root file AI_DEVELOPMENT_PROTOCOL.md and follow it as the authoritative development contract.
 

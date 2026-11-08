@@ -1,5 +1,10 @@
 ## Development direction update — 2026-11-08
 
+- **Canonical repository handover:** active repository is now [Arlene206/padavan-4.4-2](https://github.com/Arlene206/padavan-4.4-2), default branch `main`. GitHub fork metadata reports parent `xiaobei206/padavan-4.4-2` and source `tsl0922/padavan`. Use the Arlene206 URL for all new development, Actions, branches, releases, and clone instructions.
+- **Historical references:** old xiaobei206 Actions URLs, commit records, and checkpoint links in this handoff are retained as historical evidence. Do not rewrite them or treat them as the active remote.
+- **Toolchain handover:** the maintained repository already publishes both `mipsel-linux-musl.tar.xz` and `mipsel-linux-uclibc.tar.xz` in its [toolchain release](https://github.com/Arlene206/padavan-4.4-2/releases/tag/toolchain). The root Makefile and custom-build workflow now use these fork-owned assets.
+- **Base HEAD before this maintenance update:** `7f7d3ea41ebdd7eeab8a303f3d4ad8dddb54a8a7`. Fetch live `main` before any subsequent write.
+
 - Primary direction: find and fix stability bugs across the whole integrated Padavan user space. Continue security review in parallel; critical security vulnerabilities, data corruption, boot blockers and severe system failures remain immediate priorities.
 - Preserve the existing GPT handoff workflow and historical checkpoints. Add newer resumable checkpoints without rewriting the project's documentation architecture.
 - **Active branch:** `main`. **Code/test/workflow checkpoint before this documentation refresh:** `2f4828c42a1a0a449f92aa2f9f5fd3ab6dbdaa09` (`fix(storage): use portable automount lock descriptors`), based on documentation baseline `84013d94812460b66e92c611686722e2320497a3`. This documentation refresh is committed as a follow-on to that code checkpoint; the next conversation must fetch live `main` HEAD before any new write.

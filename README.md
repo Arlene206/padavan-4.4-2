@@ -1,4 +1,6 @@
-# padavan #
+# Padavan 4.4
+
+This is the actively maintained fork at [Arlene206/padavan-4.4-2](https://github.com/Arlene206/padavan-4.4-2). GitHub identifies `xiaobei206/padavan-4.4-2` as its parent fork and `tsl0922/padavan` as the source repository. Historical commit authorship, upstream lineage, and device-port attribution are intentionally preserved.
 
 This project is based on original rt-n56u with latest mtk 4.4.198 kernel, which is fetch from D-LINK GPL code.
 
@@ -125,8 +127,10 @@ This project is based on original rt-n56u with latest mtk 4.4.198 kernel, which 
     ```
 - Clone source code
   ```sh
-  git clone https://github.com/TurBoTse/padavan.git
+  git clone https://github.com/Arlene206/padavan-4.4-2.git
   ```
+
+  Prebuilt `mipsel-linux-musl` and `mipsel-linux-uclibc` toolchains are published in this repository's [toolchain release](https://github.com/Arlene206/padavan-4.4-2/releases/tag/toolchain). The top-level Makefile downloads the selected archive from this repository. The build definitions and toolchain source used to produce them remain under `toolchain/` and `.github/workflows/toolchain.yml`.
 - Modify template file and start compiling
   ```sh
   # (Optional) Modify template file

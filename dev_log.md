@@ -1,3 +1,15 @@
+## 2026-11-08 17:43 CST — Align active fork identity and toolchain delivery
+
+- **Base HEAD:** `7f7d3ea41ebdd7eeab8a303f3d4ad8dddb54a8a7`. This is a documentation/build-source handover commit; the resulting commit SHA is available from the updated `main` ref.
+- **Repository identity:** confirmed GitHub fork metadata: parent `xiaobei206/padavan-4.4-2`, source `tsl0922/padavan`, active destination `Arlene206/padavan-4.4-2`. Updated the README clone command and the active AI bootstrap/protocol repository locations. Added canonical-remote notes to the handoff and roadmap.
+- **Toolchain delivery:** inspected the current `toolchain` release and confirmed both `mipsel-linux-musl.tar.xz` and `mipsel-linux-uclibc.tar.xz` assets are present. Changed the root Makefile default and custom GitHub Actions workflow to use this repository's release URLs. The custom firmware artifact prefix now identifies the maintained fork.
+- **Downloader audit:** `trunk/include/download.mk` selects `github_archive` for third-party GitHub source URLs and invokes `trunk/tools/dl_github_archive.py`, with a Git clone fallback. `trunk/tools/download.pl` is the package download/mirror helper. These tools are part of the build system and their package-specific upstream URLs/checksums remain unchanged; they are not the firmware repository checkout.
+- **Attribution/history policy:** retained original author credits, the documented `hanwckf/rt-n56u` history, device-port source links (including the TurBoTse MSG1500-Z attribution), and dated historical CI/checkpoint URLs. No global replacement was performed.
+- **Validation:** inspected the current fork metadata, workflow definitions, download.mk dispatch path, and toolchain release asset metadata. Documentation/source-reference review PASS. No firmware build, YAML workflow execution, MIPS compile, TRX build, or hardware test was run as part of this documentation-only handover.
+- **Changed paths:** `README.md`, `Makefile`, `.github/workflows/custom.yml`, `AI_BOOTSTRAP_PROMPT.md`, `AI_DEVELOPMENT_PROTOCOL.md`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+
+---
+
 ## 2026-11-08 15:51 CST — Use POSIX-compatible file descriptors in automount locks
 
 - **Base / current source-test checkpoint:** the then-current main was `84013d94812460b66e92c611686722e2320497a3`; the affected automation/source-contract checkpoint was `97c91cff20070c451a04f6c7fff4a3fa496d6588`. Fix commit: `2f4828c42a1a0a449f92aa2f9f5fd3ab6dbdaa09`.

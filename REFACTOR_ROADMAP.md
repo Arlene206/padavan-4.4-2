@@ -1,3 +1,7 @@
+> **Repository handover (2026-11-08):** The canonical maintained fork is [Arlene206/padavan-4.4-2](https://github.com/Arlene206/padavan-4.4-2) (`main`). GitHub fork metadata reports parent `xiaobei206/padavan-4.4-2` and source `tsl0922/padavan`. Use the Arlene206 repository for new work. Historical SHA values and xiaobei206 Actions links in dated audit entries are deliberately retained as provenance and verification records.
+>
+> ---
+>
 ## 2026-11-08 15:51 CST — Repair POSIX shell descriptor portability in automount locks
 
 - **Module / priority:** USB/storage/hotplug, P1/P2 stability. The global storage audit remains open.
