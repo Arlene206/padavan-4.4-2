@@ -1084,6 +1084,23 @@ jobs:
           assert 'fopen("/tmp/hosts.static", "w+")' not in service
           assert 'fopen(DNS_SERVERS_FILE, "w")' not in service
           assert 'create_file(DHCPD_LEASE_FILE)' not in service
+          dnsmasq_start = service.index("start_dns_dhcpd(int is_ap_mode)")
+          dnsmasq_stop = service.index("\\nvoid\\nstop_dns_dhcpd", dnsmasq_start)
+          dnsmasq_start_body = service[dnsmasq_start:dnsmasq_stop]
+          assert 'char config_path[] = "/etc/dnsmasq.conf.XXXXXX";' in dnsmasq_start_body
+          assert 'fp = dnsmasq_file_open(config_path);' in dnsmasq_start_body
+          assert 'dnsmasq_file_publish(fp, config_path, "/etc/dnsmasq.conf", 0644)' in dnsmasq_start_body
+          assert 'fopen("/etc/dnsmasq.conf", "w")' not in dnsmasq_start_body
+          assert 'cannot publish DNSMasq configuration' in dnsmasq_start_body
+          assert dnsmasq_start_body.index("dnsmasq_file_publish") < dnsmasq_start_body.index('eval("/usr/sbin/dnsmasq")')
+          assert 'config_fail_template' in test
+          assert 'dnsmasq_file_publish(fp, config_fail_template, config_destination, 0644) == -1' in test
+          assert 'read_exact(config_destination, "generated-config\\\\n")' in test
+          push_paths = workflow.split("  push:\\n    paths:\\n", 1)[1].split("  pull_request:\\n", 1)[0]
+          pr_paths = workflow.split("  pull_request:\\n    paths:\\n", 1)[1].split("  workflow_dispatch:", 1)[0]
+          for changed in ("trunk/user/rc/src/services_ex.c", "trunk/user/rc/src/tests/dnsmasq_file.c"):
+              assert f'"{changed}"' in push_paths
+              assert f'"{changed}"' in pr_paths
           assert 'mkstemp(path)' in helper and 'rename(path, destination)' in helper
           assert 'O_NOFOLLOW' in helper and 'st.st_uid != geteuid()' in helper
           assert 'st.st_nlink != 1' in helper and 'S_ISREG(st.st_mode)' in helper
