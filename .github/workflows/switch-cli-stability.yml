@@ -5,11 +5,15 @@ on:
     paths:
       - "trunk/user/utils/src/switch/switch_gsw.c"
       - "trunk/user/utils/src/switch/Makefile"
+      - "trunk/user/utils/src/switch/mii_mgr_cl45.c"
+      - "trunk/user/utils/src/switch/tests/mii_mgr_cl45_cli.c"
       - ".github/workflows/switch-cli-stability.yml"
   pull_request:
     paths:
       - "trunk/user/utils/src/switch/switch_gsw.c"
       - "trunk/user/utils/src/switch/Makefile"
+      - "trunk/user/utils/src/switch/mii_mgr_cl45.c"
+      - "trunk/user/utils/src/switch/tests/mii_mgr_cl45_cli.c"
       - ".github/workflows/switch-cli-stability.yml"
   workflow_dispatch:
 
@@ -53,3 +57,35 @@ jobs:
           assert "switch_fini();\n\texit(0);" in source
           print("switch_gsw operational socket/ioctl failures return failure status: OK")
           PY
+      - name: Check Clause 45 argument handling and source contracts
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/user/utils/src/switch/mii_mgr_cl45.c").read_text()
+          workflow = Path(".github/workflows/switch-cli-stability.yml").read_text()
+          assert "static int parse_hex_argument(" in source
+          assert "static int parse_arguments(" in source
+          assert "case 'd':" in source and "case 'r':" in source
+          assert source.index("parse_arguments(argc, argv, &mii, &method)") < source.index("socket(AF_INET")
+          assert "if (close(sk) < 0 && status == EXIT_SUCCESS)" in source
+          assert "parsed > max_value" in source
+          assert source.count("case 'd':") == 1
+          assert source.count("case 'r':") == 1
+          assert workflow.count("mii_mgr_cl45.c") == 2
+          assert workflow.count("mii_mgr_cl45_cli.c") == 2
+          test_path = Path("trunk/user/utils/src/switch/tests/mii_mgr_cl45_cli.c")
+          assert test_path.is_file()
+          print("Clause 45 parser, validation-before-socket, cleanup and CI path contracts: OK")
+          PY
+      - name: Build Clause 45 CLI and run host argument regression
+        run: |
+          SWITCH_DIR=trunk/user/utils/src/switch
+          RAETH_INCLUDE=trunk/linux-4.4.x/drivers/net/ethernet/raeth
+          cc -std=gnu89 -Wall -Wextra -Werror -I "$RAETH_INCLUDE" \
+            -c "$SWITCH_DIR/mii_mgr_cl45.c" -o /tmp/mii_mgr_cl45.o
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I "$RAETH_INCLUDE" "$SWITCH_DIR/tests/mii_mgr_cl45_cli.c" \
+            -o /tmp/mii_mgr_cl45_cli
+          ASAN_OPTIONS=detect_leaks=1 /tmp/mii_mgr_cl45_cli
