@@ -2299,7 +2299,8 @@ int virtualif_ioctl(struct net_device *net_dev, struct ifreq *ifr, int cmd)
 	case RAETH_MII_READ:
 		if (copy_from_user(&mii, ifr->ifr_data, sizeof(mii)))
 			return -EFAULT;
-		mii_mgr_read(mii.phy_id, mii.reg_num, &mii.val_out);
+		if (!mii_mgr_read(mii.phy_id, mii.reg_num, &mii.val_out))
+			return -EIO;
 		if (copy_to_user(ifr->ifr_data, &mii, sizeof(mii)))
 			return -EFAULT;
 		break;
@@ -2307,7 +2308,8 @@ int virtualif_ioctl(struct net_device *net_dev, struct ifreq *ifr, int cmd)
 	case RAETH_MII_WRITE:
 		if (copy_from_user(&mii, ifr->ifr_data, sizeof(mii)))
 			return -EFAULT;
-		mii_mgr_write(mii.phy_id, mii.reg_num, mii.val_in);
+		if (!mii_mgr_write(mii.phy_id, mii.reg_num, mii.val_in))
+			return -EIO;
 		break;
 	default:
 		return -EOPNOTSUPP;
@@ -2719,7 +2721,10 @@ int ei_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			break;
 		}
 		spin_lock_irq(&ei_local->page_lock);
-		mii_mgr_read(mii.phy_id, mii.reg_num, &mii.val_out);
+		if (!mii_mgr_read(mii.phy_id, mii.reg_num, &mii.val_out)) {
+			ret = -EIO;
+			break;
+		}
 		spin_unlock_irq(&ei_local->page_lock);
 		if (copy_to_user(ifr->ifr_data, &mii, sizeof(mii))) {
 			spin_lock_irq(&ei_local->page_lock);
@@ -2737,7 +2742,8 @@ int ei_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			break;
 		}
 		spin_lock_irq(&ei_local->page_lock);
-		mii_mgr_write(mii.phy_id, mii.reg_num, mii.val_in);
+		if (!mii_mgr_write(mii.phy_id, mii.reg_num, mii.val_in))
+			ret = -EIO;
 		break;
 	case RAETH_MII_READ_CL45:
 		spin_unlock_irq(&ei_local->page_lock);

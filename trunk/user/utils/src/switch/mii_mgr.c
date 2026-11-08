@@ -9,10 +9,13 @@
 #include <linux/if.h>
 #include <linux/mii.h>
 #include <linux/types.h>
+#include <ctype.h>
+#include <errno.h>
+#include <limits.h>
 
 #include <ra_ioctl.h>
 
-#define MII_MGR_HELP	1
+#define MII_MGR_HELP 1
 
 void show_usage(void)
 {
@@ -24,120 +27,217 @@ void show_usage(void)
 #endif
 }
 
+struct mii_mgr_options {
+	struct ra_mii_ioctl_data mii;
+	int method;
+#if defined(CONFIG_RALINK_MT7628)
+	struct ra_mii_ioctl_data page_mii;
+	int page_select;
+#endif
+};
+
+static int parse_unsigned_argument(const char *text, int base,
+				   unsigned long maximum,
+				   unsigned long *value)
+{
+	char *end;
+	unsigned long parsed;
+
+	if (text == NULL || text[0] == '\0' || text[0] == '-' ||
+	    isspace((unsigned char)text[0]))
+		return -1;
+
+	errno = 0;
+	parsed = strtoul(text, &end, base);
+	if (errno == ERANGE || end == text || *end != '\0' || parsed > maximum)
+		return -1;
+
+	*value = parsed;
+	return 0;
+}
+
+static int parse_arguments(int argc, char **argv,
+			   struct mii_mgr_options *parsed)
+{
+	int opt;
+	int method_seen = 0;
+	int phy_seen = 0;
+	int reg_seen = 0;
+	int value_seen = 0;
+	char *reg_text = NULL;
+	unsigned long number;
+#if defined(CONFIG_RALINK_MT7628)
+	int page_seen = 0;
+	const char *option_string = "gsp:r:v:L:G:t";
+#else
+	const char *option_string = "gsp:r:v:t";
+#endif
+
+	if (argc < 1 || argv == NULL || parsed == NULL)
+		return -1;
+
+	memset(parsed, 0, sizeof(*parsed));
+	optind = 1;
+	opterr = 0;
+
+	while ((opt = getopt(argc, argv, option_string)) != -1) {
+		switch (opt) {
+		case 'g':
+			if (method_seen)
+				return -1;
+			parsed->method = RAETH_MII_READ;
+			method_seen = 1;
+			break;
+		case 's':
+			if (method_seen)
+				return -1;
+			parsed->method = RAETH_MII_WRITE;
+			method_seen = 1;
+			break;
+		case 'p':
+			if (phy_seen ||
+			    parse_unsigned_argument(optarg, 10, 31, &number) < 0)
+				return -1;
+			parsed->mii.phy_id = (__u32)number;
+			phy_seen = 1;
+			break;
+		case 'r':
+			if (reg_seen)
+				return -1;
+			reg_text = optarg;
+			reg_seen = 1;
+			break;
+		case 'v':
+			if (value_seen ||
+			    parse_unsigned_argument(optarg, 16, 0xffff, &number) < 0)
+				return -1;
+			parsed->mii.val_in = (__u32)number;
+			value_seen = 1;
+			break;
+#if defined(CONFIG_RALINK_MT7628)
+		case 'L':
+		case 'G':
+			if (page_seen ||
+			    parse_unsigned_argument(optarg, 16, UINT_MAX >> 12,
+						    &number) < 0)
+				return -1;
+			parsed->page_mii.reg_num = 31;
+			parsed->page_mii.val_in = (__u32)(number << 12);
+			if (opt == 'L')
+				parsed->page_mii.val_in |= 0x8000;
+			parsed->page_select = 1;
+			page_seen = 1;
+			break;
+#endif
+		case 't':
+			/* Retain the historical, intentionally unused option. */
+			break;
+		default:
+			return -1;
+		}
+	}
+
+	if (optind != argc || !phy_seen)
+		return -1;
+
+#if defined(CONFIG_RALINK_MT7628)
+	parsed->page_mii.phy_id = parsed->mii.phy_id;
+#endif
+
+	if (!method_seen) {
+#if defined(CONFIG_RALINK_MT7628)
+		return parsed->page_select && !reg_seen && !value_seen ? 0 : -1;
+#else
+		return -1;
+#endif
+	}
+
+	if (!reg_seen ||
+	    (parsed->method == RAETH_MII_READ && value_seen) ||
+	    (parsed->method == RAETH_MII_WRITE && !value_seen))
+		return -1;
+
+#if defined(CONFIG_RALINK_MT7621) || defined(CONFIG_MT7530_GSW)
+	if (parsed->mii.phy_id == 31) {
+		if (parse_unsigned_argument(reg_text, 16, 0xffff, &number) < 0)
+			return -1;
+	} else
+#endif
+	{
+		if (parse_unsigned_argument(reg_text, 10, 31, &number) < 0)
+			return -1;
+	}
+
+	parsed->mii.reg_num = (__u32)number;
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
-	int sk, opt, ret = 0;
-	char options[] = "gsp:r:v:L:G:?t";
-	int method = 0;
+	int sk;
+	int status = EXIT_SUCCESS;
 	struct ifreq ifr;
-	struct ra_mii_ioctl_data mii;
+	struct mii_mgr_options options;
 
-#if defined (CONFIG_RALINK_MT7628)
-	struct ifreq ifr2;
-	ra_mii_ioctl_data mii2;
-	int page_select = 0;
-	int method2 = 0;
-#endif
-	if (argc < 6) {
+	if (argc == 1 || (argc == 2 && strcmp(argv[1], "-?") == 0)) {
 		show_usage();
-		return 0;
+		return EXIT_SUCCESS;
 	}
+
+	if (parse_arguments(argc, argv, &options) < 0) {
+		fprintf(stderr, "mii_mgr: invalid or incomplete arguments\n");
+		show_usage();
+		return EXIT_FAILURE;
+	}
+
+	memset(&ifr, 0, sizeof(ifr));
+	strncpy(ifr.ifr_name, "eth2", sizeof(ifr.ifr_name) - 1);
+	ifr.ifr_data = (void *)&options.mii;
 
 	sk = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sk < 0) {
-		printf("Open socket failed\n");
-		return -1;
+		perror("mii_mgr: socket");
+		return EXIT_FAILURE;
 	}
 
-	strncpy(ifr.ifr_name, "eth2", 5);
-	ifr.ifr_data = &mii;
-#if defined (CONFIG_RALINK_MT7628)
-	strncpy(ifr2.ifr_name, "eth2", 5);
-	ifr2.ifr_data = &mii2;
-#endif
+#if defined(CONFIG_RALINK_MT7628)
+	if (options.page_select) {
+		struct ifreq ifr2;
 
-	while ((opt = getopt(argc, argv, options)) != -1) {
-		switch (opt) {
-			case 'g':
-				method = RAETH_MII_READ;
-				break;
-			case 's':
-				method = RAETH_MII_WRITE;
-				break;
-			case 'p':
-				mii.phy_id = strtoul(optarg, NULL, 10);
-#if defined (CONFIG_RALINK_MT7628)
-				mii2.phy_id = strtoul(optarg, NULL, 10);
-#endif
-				break;
-			case 'r':
-#if defined (CONFIG_RALINK_MT7621) || defined (CONFIG_MT7530_GSW)
-				if(mii.phy_id == 31) {
-					mii.reg_num = strtol(optarg, NULL, 16);
-				} else {
-					mii.reg_num = strtol(optarg, NULL, 10);
-				}
-#else
-				mii.reg_num = strtol(optarg, NULL, 10);
-#endif
-				break;
-			case 'L':
-#if defined (CONFIG_RALINK_MT7628)
-				mii2.reg_num = 31;
-				mii2.val_in = (strtol(optarg, NULL, 16) << 12);
-				mii2.val_in |= 0x8000;
-				page_select = 1;
-#endif
-				break;
-			case 'G':
-#if defined (CONFIG_RALINK_MT7628)
-				mii2.reg_num = 31;
-				mii2.val_in = (strtol(optarg, NULL, 16) << 12);
-				page_select = 1;
-#endif
-				break;
-
-			case 'v':
-				mii.val_in = strtol(optarg, NULL, 16);
-				break;
-			case '?':
-				show_usage();
-				break;
-		}
-	}
-
-#if defined (CONFIG_RALINK_MT7628)
-	if(page_select){
-		method2 = RAETH_MII_WRITE;
-		ret = ioctl(sk, method2, &ifr2);
-		if (ret < 0) {
-			printf("mii_mgr: ioctl error\n");
-		}
-		else{
+		memset(&ifr2, 0, sizeof(ifr2));
+		strncpy(ifr2.ifr_name, "eth2", sizeof(ifr2.ifr_name) - 1);
+		ifr2.ifr_data = (void *)&options.page_mii;
+		if (ioctl(sk, RAETH_MII_WRITE, &ifr2) < 0) {
+			perror("mii_mgr: page-select ioctl");
+			status = EXIT_FAILURE;
+		} else {
 			printf("Set: phy[%d].reg[%d] = %04x\n",
-				mii2.phy_id, mii2.reg_num, mii2.val_in);
+			       options.page_mii.phy_id, options.page_mii.reg_num,
+			       options.page_mii.val_in);
 		}
 	}
 #endif
-	if ((method == RAETH_MII_READ) || (method == RAETH_MII_WRITE)){
-		ret = ioctl(sk, method, &ifr);
-		if (ret < 0) {
-			printf("mii_mgr: ioctl error\n");
-		}
-		else {
-			switch (method) {
-			case RAETH_MII_READ:
-				printf("Get: phy[%d].reg[%d] = %04x\n",
-					mii.phy_id, mii.reg_num, mii.val_out);
-				break;
-			case RAETH_MII_WRITE:
-				printf("Set: phy[%d].reg[%d] = %04x\n",
-					mii.phy_id, mii.reg_num, mii.val_in);
-				break;
-			}
+
+	if (status == EXIT_SUCCESS && options.method != 0) {
+		if (ioctl(sk, options.method, &ifr) < 0) {
+			perror("mii_mgr: ioctl");
+			status = EXIT_FAILURE;
+		} else if (options.method == RAETH_MII_READ) {
+			printf("Get: phy[%d].reg[%d] = %04x\n",
+			       options.mii.phy_id, options.mii.reg_num,
+			       options.mii.val_out);
+		} else {
+			printf("Set: phy[%d].reg[%d] = %04x\n",
+			       options.mii.phy_id, options.mii.reg_num,
+			       options.mii.val_in);
 		}
 	}
 
-	close(sk);
-	return ret;
+	if (close(sk) < 0) {
+		perror("mii_mgr: close");
+		if (status == EXIT_SUCCESS)
+			status = EXIT_FAILURE;
+	}
+
+	return status;
 }
