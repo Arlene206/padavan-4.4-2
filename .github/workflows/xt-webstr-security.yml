@@ -61,8 +61,10 @@ jobs:
           assert "skb_store_bits((struct sk_buff *)skb" in matcher
           assert "ipv6_skip_exthdr(skb" in matcher
           assert "nexthdr != IPPROTO_TCP" in matcher
+          assert "xt_webstr_ipv6_fragment_is_initial(ntohs(frag_off))" in matcher
           assert "tcph->doff < 5" in matcher
           assert "xt_webstr_tcp_header_is_valid" in matcher
+          assert "xt_webstr_ipv6_fragment_is_initial" in source
           assert "info->len >= sizeof(info->string)" in matcher
           assert "xt_webstr_next_token" in source
           assert "memset(info, 0, sizeof(*info));" in parser

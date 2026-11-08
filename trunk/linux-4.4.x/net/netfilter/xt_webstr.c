@@ -384,7 +384,8 @@ static bool xt_webstr_match(const struct sk_buff *skb, struct xt_action_param *p
 		tcp_offset = ipv6_skip_exthdr(skb,
 					      network_offset + (int)sizeof(*iph),
 					      &nexthdr, &frag_off);
-		if (tcp_offset < 0 || nexthdr != IPPROTO_TCP)
+		if (tcp_offset < 0 || nexthdr != IPPROTO_TCP ||
+		    !xt_webstr_ipv6_fragment_is_initial(ntohs(frag_off)))
 			return 0;
 	}
 #endif

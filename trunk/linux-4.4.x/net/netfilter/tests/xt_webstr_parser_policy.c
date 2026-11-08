@@ -58,6 +58,12 @@ main(void)
 				    &offset, separator, sizeof(separator) - 1,
 				    &token_len) == -1);
 
+	assert(xt_webstr_ipv6_fragment_is_initial(0));
+	assert(xt_webstr_ipv6_fragment_is_initial(1)); /* More fragments bit. */
+	assert(xt_webstr_ipv6_fragment_is_initial(7));
+	assert(!xt_webstr_ipv6_fragment_is_initial(8));
+	assert(!xt_webstr_ipv6_fragment_is_initial(0xfff8));
+
 	assert(xt_webstr_span_is_valid(80, 40, 40));
 	assert(!xt_webstr_span_is_valid(79, 40, 40));
 	assert(!xt_webstr_span_is_valid(80, 81, 0));

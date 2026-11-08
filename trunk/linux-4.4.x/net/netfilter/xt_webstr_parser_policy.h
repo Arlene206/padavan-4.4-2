@@ -75,6 +75,13 @@ xt_webstr_next_token(const char *list, unsigned int list_len,
 }
 
 static inline int
+xt_webstr_ipv6_fragment_is_initial(unsigned int fragment_offset)
+{
+	/* The low three bits are reserved/M; bits 3..15 carry fragment offset. */
+	return (fragment_offset & ~0x7U) == 0;
+}
+
+static inline int
 xt_webstr_tcp_header_is_valid(unsigned int packet_len, unsigned int tcp_offset,
 			      unsigned int tcp_header_len)
 {
