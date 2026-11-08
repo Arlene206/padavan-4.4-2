@@ -301,11 +301,20 @@ int mdev_net_main(int argc, char **argv)
 		goto out_unlock;
 	}
 
-	// Get DevNum
-	devnum = 0;
-	usb_port_id[0] = 0;
-	if (get_usb_port_by_device(device_name, usb_port_id, sizeof(usb_port_id)))
-		devnum = get_usb_devnum(usb_port_id);
+	/* Resolve the physical USB identity before publishing a preferred NDIS node. */
+	usb_port_id[0] = '\0';
+	if (!get_usb_port_by_device(device_name, usb_port_id, sizeof(usb_port_id))) {
+		usb_dbg("(%s): USB parent topology is not ready; refusing modem metadata.\n", device_name);
+		(void)modem_node_file_remove(MODEM_NODE_DIR, device_name);
+		goto out_unlock;
+	}
+	usb_port_id[sizeof(usb_port_id) - 1] = '\0';
+	devnum = get_usb_devnum(usb_port_id);
+	if (!modem_node_usb_identity_is_valid(usb_port_id, devnum)) {
+		usb_dbg("(%s): USB device number is invalid; refusing modem metadata.\n", device_name);
+		(void)modem_node_file_remove(MODEM_NODE_DIR, device_name);
+		goto out_unlock;
+	}
 
 	// Publish root-managed metadata through atomic replacement.
 	data_len = snprintf(node_data, sizeof(node_data),
@@ -363,15 +372,28 @@ int mdev_tty_main(int argc, char **argv)
 		goto out_unlock;
 	}
 
-	// Get DevNum
-	devnum = 0;
-	has_int_pipe = 0;
-	usb_port_id[0] = 0;
-	if (get_usb_interface_by_device(device_name, usb_interface_id, sizeof(usb_interface_id))) {
-		has_int_pipe = get_usb_interface_Int_endpoint(usb_interface_id);
-		if (get_usb_port_by_interface_string(usb_interface_id, usb_port_id, sizeof(usb_port_id)))
-			devnum = get_usb_devnum(usb_port_id);
+	/* A control TTY must carry the same physical USB identity as its NDIS peer. */
+	usb_port_id[0] = '\0';
+	usb_interface_id[0] = '\0';
+	if (!get_usb_interface_by_device(device_name, usb_interface_id, sizeof(usb_interface_id))) {
+		usb_dbg("(%s): USB interface topology is not ready; refusing modem metadata.\n", device_name);
+		(void)modem_node_file_remove(MODEM_NODE_DIR, device_name);
+		goto out_unlock;
 	}
+	usb_interface_id[sizeof(usb_interface_id) - 1] = '\0';
+	if (!get_usb_port_by_interface_string(usb_interface_id, usb_port_id, sizeof(usb_port_id))) {
+		usb_dbg("(%s): USB parent topology is not ready; refusing modem metadata.\n", device_name);
+		(void)modem_node_file_remove(MODEM_NODE_DIR, device_name);
+		goto out_unlock;
+	}
+	usb_port_id[sizeof(usb_port_id) - 1] = '\0';
+	devnum = get_usb_devnum(usb_port_id);
+	if (!modem_node_usb_identity_is_valid(usb_port_id, devnum)) {
+		usb_dbg("(%s): USB device number is invalid; refusing modem metadata.\n", device_name);
+		(void)modem_node_file_remove(MODEM_NODE_DIR, device_name);
+		goto out_unlock;
+	}
+	has_int_pipe = get_usb_interface_Int_endpoint(usb_interface_id);
 
 	// Publish root-managed metadata through atomic replacement.
 	data_len = snprintf(node_data, sizeof(node_data),

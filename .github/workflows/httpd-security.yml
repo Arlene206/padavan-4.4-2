@@ -1804,8 +1804,20 @@ jobs:
           assert "fchmod(fd, 0644)" in helper
           assert 'fopen(node_fname, "r")' in reader
           assert 'fopen(node_fname, "r+")' not in reader
+          assert 'get_modem_node("ttyUSB", devnum, NULL)' in reader
+          net_start = hotplug.index("int mdev_net_main(")
+          tty_start = hotplug.index("int mdev_tty_main(", net_start)
+          net_handler = hotplug[net_start:tty_start]
+          tty_handler = hotplug[tty_start:]
+          for handler in (net_handler, tty_handler):
+              assert handler.index("modem_node_usb_identity_is_valid") < handler.index(
+                  "modem_node_file_write(MODEM_NODE_DIR, device_name, node_data)")
+              assert "modem_node_file_remove(MODEM_NODE_DIR, device_name);" in handler
+          assert "devnum >= 1 && devnum <= 127" in helper
+          assert "USB parent topology is not ready" in net_handler
+          assert "USB interface topology is not ready" in tty_handler
           assert "symlink(outside_file, link_path)" in regression
-          print("USB hotplug metadata path safety and atomic replacement: OK")
+          print("USB hotplug metadata identity validation and atomic replacement: OK")
           PY
 
       - name: Verify block-storage whole-disk partition gate

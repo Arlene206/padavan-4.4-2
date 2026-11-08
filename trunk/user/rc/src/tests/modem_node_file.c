@@ -17,6 +17,13 @@ main(void)
 	char line[64];
 	int n;
 
+	assert(modem_node_usb_identity_is_valid("1-1", 7));
+	assert(modem_node_usb_identity_is_valid("1-2.3", 127));
+	assert(!modem_node_usb_identity_is_valid(NULL, 7));
+	assert(!modem_node_usb_identity_is_valid("", 7));
+	assert(!modem_node_usb_identity_is_valid("1-1", 0));
+	assert(!modem_node_usb_identity_is_valid("1-1", -1));
+	assert(!modem_node_usb_identity_is_valid("1-1", 128));
 	assert(modem_node_name_is_safe("ttyUSB0"));
 	assert(modem_node_name_is_safe("ttyACM12"));
 	assert(modem_node_name_is_safe("cdc-wdm0"));
