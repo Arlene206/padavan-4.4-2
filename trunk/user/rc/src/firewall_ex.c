@@ -2864,9 +2864,15 @@ firewall_restore_complete:
 	}
 	} else {
 		logmessage(LOGNAME, "Skipping extension firewall hooks after built-in table restore failure");
+		/*
+		 * Rollback restored the previous rules, not the requested new policy.
+		 * Preserve the existing forwarding state and stop before enabling
+		 * forwarding or running post-firewall setup against an unapplied ruleset.
+		 */
+		return;
 	}
 
-	/* enable IPv4 forward */
+	/* enable IPv4 forward only after every built-in table was applied */
 	set_ipv4_forward(1);
 
 	if (nvram_match("pppoemwan_enable", "1"))
