@@ -269,6 +269,7 @@ httpd_nvram_group_compact(const char * const *names, int name_count,
 
 	httpd_nvram_group_free_cells(cells, cell_count);
 	httpd_nvram_group_free_cells(last_cells, (size_t)name_count);
+	free(count_snapshot);
 	return 0;
 
 fail_after_write:

@@ -610,6 +610,9 @@ jobs:
           assert "const char *stored_count = ops->get(context, count_name)" in compact
           restore = body(helper, "httpd_nvram_group_restore(")
           assert "ops->set(context, count_name, count_value) != 0" in restore
+          success_cleanup = compact[compact.index("httpd_nvram_group_free_cells(last_cells, (size_t)name_count);"):]
+          assert success_cleanup.index("free(count_snapshot)") < success_cleanup.index("return 0;")
+          assert compact.count("free(count_snapshot)") >= 3
           assert compact.index("Do not remove old rows") < compact.index("ops->set(context, count_name, count_value)")
           assert "nvram_del_group_map_x" in remove
           assert "nvram_set_int" not in remove
