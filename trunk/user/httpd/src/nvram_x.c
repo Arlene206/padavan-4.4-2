@@ -23,6 +23,7 @@
 
 #include "common.h"
 #include "nvram_x.h"
+#include "httpd_nvram_group_policy.h"
 
 
 char *nvram_get_list_x(const char *name, int index)
@@ -50,73 +51,52 @@ int nvram_match_list_x(const char *name, char *match, int index)
 	return value && !strcmp(value, match);
 }
 
-void nvram_del_list_map_x(const char *name, int group_count, int *delMap)
+static const char *
+nvram_group_policy_get(void *context, const char *name)
 {
-	char oname[64], nname[64], tmp[256], *oval;
-	int i, i_len, ni, di, group_count_new;
-	int map_count = 0, previous = -1;
-
-	if (!name || !delMap || !*name ||
-	    group_count < 1 || group_count > MAX_GROUP_COUNT)
-		return;
-
-	/* This function may be called with a map populated from HTTP input.
-	 * Validate it independently so malformed indexes cannot desynchronize
-	 * the compacting loop or decrement the row count below zero. */
-	while (map_count <= MAX_GROUP_COUNT && delMap[map_count] != -1) {
-		if (map_count == MAX_GROUP_COUNT ||
-		    delMap[map_count] < 0 ||
-		    delMap[map_count] >= group_count ||
-		    delMap[map_count] <= previous)
-			return;
-		previous = delMap[map_count];
-		++map_count;
-	}
-	if (map_count > group_count)
-		return;
-
-	ni = 0;
-	di = 0;
-	tmp[0] = 0;
-
-	for (i=0; i < group_count; i++) {
-		snprintf(oname, sizeof(oname), "%s%d", name, i);
-		snprintf(nname, sizeof(nname), "%s%d", name, ni);
-		
-		if (delMap[di] == i) {
-			/* store first deleted value */
-			if (di == 0) {
-				oval = nvram_safe_get(oname);
-				i_len = MIN(strlen(oval), sizeof(tmp)-1);
-				strncpy(tmp, oval, i_len);
-				tmp[i_len] = 0;
-			}
-			
-			di++;
-			if (di > MAX_GROUP_COUNT)
-				break;
-		} else {
-			oval = nvram_safe_get(oname);
-			nvram_set(nname, oval);
-			ni++;
-		}
-	}
-
-	/* store single deleted value */
-	snprintf(oname, sizeof(oname), "%s_0", name);
-	if (di == 1)
-		nvram_set_temp(oname, tmp);
-	else
-		nvram_unset(oname);
-
-	group_count_new = group_count - di;
-	if (group_count_new < 0)
-		group_count_new = 0;
-
-	/* clear old array data (try +8 items for clear old trash) */
-	for (i = (group_count+7); i >= group_count_new; i--) {
-		snprintf(oname, sizeof(oname), "%s%d", name, i);
-		nvram_unset(oname);
-	}
+	(void)context;
+	return nvram_get(name);
 }
 
+static int
+nvram_group_policy_set(void *context, const char *name, const char *value)
+{
+	(void)context;
+	return nvram_set(name, value);
+}
+
+static int
+nvram_group_policy_set_temp(void *context, const char *name, const char *value)
+{
+	(void)context;
+	return nvram_set_temp(name, value);
+}
+
+static int
+nvram_group_policy_unset(void *context, const char *name)
+{
+	(void)context;
+	return nvram_unset(name);
+}
+
+int
+nvram_del_group_map_x(const char * const *names, int name_count,
+		      const char *count_name, int group_count, int *delMap)
+{
+	static const struct httpd_nvram_group_ops ops = {
+		nvram_group_policy_get,
+		nvram_group_policy_set,
+		nvram_group_policy_set_temp,
+		nvram_group_policy_unset
+	};
+	int result;
+
+	result = httpd_nvram_group_compact(names, name_count, count_name,
+					   group_count, delMap,
+					   MAX_GROUP_COUNT, &ops, NULL);
+	if (result == -2)
+		fprintf(stderr, "NVRAM group compaction failed and rollback was incomplete; group count was not reduced\\n");
+	else if (result != 0)
+		fprintf(stderr, "NVRAM group compaction failed; group count was not reduced\\n");
+	return result;
+}

@@ -77,6 +77,14 @@ on:
       - "trunk/user/httpd/src/httpd.h"
       - "trunk/user/shared/src/include/ralink_boards.h"
       - "trunk/user/httpd/src/web_ex.c"
+      - "trunk/user/httpd/src/nvram_x.c"
+      - "trunk/user/httpd/src/nvram_x.h"
+      - "trunk/user/httpd/src/httpd_nvram_group_policy.h"
+      - "trunk/user/httpd/src/tests/httpd_nvram_group_policy.c"
+      - "trunk/user/httpd/src/nvram_x.c"
+      - "trunk/user/httpd/src/nvram_x.h"
+      - "trunk/user/httpd/src/httpd_nvram_group_policy.h"
+      - "trunk/user/httpd/src/tests/httpd_nvram_group_policy.c"
       - "trunk/user/httpd/src/httpd_nvram_restore_policy.h"
       - "trunk/user/httpd/src/tests/httpd_nvram_restore_policy.c"
       - "trunk/user/httpd/src/variables.c"
@@ -559,6 +567,62 @@ jobs:
               needle = f'      - "{path}"'
               assert needle in push_paths and needle in pr_paths
           print("NVRAM restore durability, watchdog recovery, and exact workflow triggers: OK")
+          PY
+
+      - name: Verify NVRAM group compaction fails closed
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/httpd/src \
+            trunk/user/httpd/src/tests/httpd_nvram_group_policy.c \
+            -o /tmp/httpd_nvram_group_policy
+          /tmp/httpd_nvram_group_policy
+          python3 - <<'PY'
+          from pathlib import Path
+
+          nvram_x = Path("trunk/user/httpd/src/nvram_x.c").read_text()
+          header = Path("trunk/user/httpd/src/nvram_x.h").read_text()
+          helper = Path("trunk/user/httpd/src/httpd_nvram_group_policy.h").read_text()
+          web_ex = Path("trunk/user/httpd/src/web_ex.c").read_text()
+          workflow = Path(".github/workflows/httpd-security.yml").read_text()
+
+          def body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          compact = body(helper, "httpd_nvram_group_compact(")
+          remove = body(web_ex, "nvram_remove_group_item(struct variable")
+          caller = body(web_ex, "apply_cgi(const char *url")
+          assert "httpd_nvram_group_compact" in nvram_x
+          assert "nvram_del_group_map_x" in header
+          assert "ops->set(context, key, value) != 0" in compact
+          assert "ops->set_temp(context, key, value) != 0" in compact
+          assert "ops->unset(context, key) != 0" in compact
+          assert compact.index("Do not remove old rows") < compact.index("ops->set(context, count_name, count_value)")
+          assert "nvram_del_group_map_x" in remove
+          assert "nvram_set_int" not in remove
+          assert "apply_cgi_group(wp, sid, NULL, groupId, GROUP_FLAG_REMOVE) < 0" in caller
+          assert caller.index("GROUP_FLAG_REMOVE) < 0") < caller.index("validate_cgi(wp, sid)")
+          push_paths = workflow.split("  pull_request:\n", 1)[0]
+          pr_paths = workflow.split("  pull_request:\n", 1)[1].split("  workflow_dispatch:\n", 1)[0]
+          for path in (
+              "trunk/user/httpd/src/nvram_x.c",
+              "trunk/user/httpd/src/nvram_x.h",
+              "trunk/user/httpd/src/httpd_nvram_group_policy.h",
+              "trunk/user/httpd/src/tests/httpd_nvram_group_policy.c",
+          ):
+              needle = f'      - "{path}"'
+              assert needle in push_paths and needle in pr_paths
+          print("NVRAM all-column compaction, rollback gate, and CI path contracts: OK")
           PY
 
       - name: Check privileged staging shell syntax

@@ -22,7 +22,7 @@
 
 extern char *nvram_get_list_x(const char *name, int index);
 extern int  nvram_match_list_x(const char *name, char *match, int index);
-extern void nvram_del_list_map_x(const char *name, int group_count, int *delMap);
+extern int nvram_del_group_map_x(const char * const *names, int name_count,\n\t\t\t\t const char *count_name, int group_count, int *delMap);
 
 
 #endif /* _nvram_x_h_ */

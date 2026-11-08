@@ -4161,8 +4161,12 @@ apply_cgi(const char *url, webs_t wp)
 						apply_cgi_group(wp, sid, NULL, groupId, GROUP_FLAG_DELETE);
 					else if (!strncmp(value1, " Add ", 5))
 						apply_cgi_group(wp, sid, NULL, groupId, GROUP_FLAG_ADD);
-					else if (!strncmp(value1, " Del ", 5))
-						apply_cgi_group(wp, sid, NULL, groupId, GROUP_FLAG_REMOVE);
+					else if (!strncmp(value1, " Del ", 5)) {
+						if (apply_cgi_group(wp, sid, NULL, groupId, GROUP_FLAG_REMOVE) < 0) {
+							websError(wp, 500, "Unable to remove this entry safely; the group count was not reduced.\\n");
+							return 0;
+						}
+					}
 					else if (!strncmp(value1, " Refresh ", 9))
 						apply_cgi_group(wp, sid, NULL, groupId, GROUP_FLAG_REFRESH);
 					
@@ -4238,37 +4242,38 @@ nvram_add_group_item(webs_t wp, struct variable *v)
 	nvram_set_int(v->argv[3], gcount);
 }
 
-static void
+static int
 nvram_remove_group_item(struct variable *v, int *delMap)
 {
 	struct variable *gv;
-	int i, di, gcount;
+	const char **names;
+	int name_count = 0, index, gcount, result;
 
 	if (!v || !v->argv || !v->argv[0] || !v->argv[3] || !delMap)
-		return;
+		return -1;
 
 	gcount = nvram_get_int(v->argv[3]);
 	if (gcount < 1 || gcount > MAX_GROUP_COUNT)
-		return;
+		return -1;
 
-	for (gv = (struct variable *)v->argv[0]; gv->name!=NULL; gv++)
-		nvram_del_list_map_x(gv->name, gcount, delMap);
+	for (gv = (struct variable *)v->argv[0]; gv->name != NULL; gv++)
+		name_count++;
+	if (name_count < 1)
+		return -1;
 
-	di = 0;
-	for (i=0; i < gcount; i++) {
-		if (delMap[di]==i) {
-			di++;
-			if (di > MAX_GROUP_COUNT)
-				break;
-		}
-	}
+	names = (const char **)calloc((size_t)name_count, sizeof(*names));
+	if (!names)
+		return -1;
+	for (gv = (struct variable *)v->argv[0], index = 0;
+	     gv->name != NULL; gv = (struct variable *)(gv + 1))
+		names[index++] = gv->name;
 
-	if (di > 0) {
-		gcount -= di;
-		if (gcount < 0)
-			gcount = 0;
-		nvram_set_int(v->argv[3], gcount);
-	}
+	result = nvram_del_group_map_x(names, name_count, v->argv[3],
+				       gcount, delMap);
+	free(names);
+	if (result != 0)
+		return -1;
+	return 1;
 }
 
 /* Rule for table: 
@@ -4416,8 +4421,7 @@ apply_cgi_group(webs_t wp, int sid, struct variable *var, const char *groupName,
 		nvram_add_group_item(wp, v);
 		return 1;
 	} else if (flag == GROUP_FLAG_REMOVE) {
-		nvram_remove_group_item(v, group_del_map);
-		return 1;
+		return nvram_remove_group_item(v, group_del_map);
 	}
 
 	return 0;
