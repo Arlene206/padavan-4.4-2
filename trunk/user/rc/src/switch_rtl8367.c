@@ -27,6 +27,7 @@
 
 #include "rc.h"
 #include "switch.h"
+#include "switch_status_policy.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 // MIB COUNTERS
@@ -95,7 +96,10 @@ rtl8367_ioctl(unsigned int cmd, unsigned int par, unsigned int *value)
 		retVal = errno;
 	}
 
-	close(fd);
+	if (close(fd) < 0 && retVal == 0) {
+		perror("close");
+		retVal = errno;
+	}
 
 	return retVal;
 }
@@ -146,14 +150,13 @@ int phy_status_port_bytes(int port_id_uapi, uint64_t *rx, uint64_t *tx)
 	port_bytes_t pb;
 	int ioctl_result;
 
+	if (!rx || !tx)
+		return -EINVAL;
+
+	memset(&pb, 0, sizeof(pb));
 	ioctl_result = rtl8367_ioctl(RTL8367_IOCTL_STATUS_BYTES_PORT, port_id_uapi, (unsigned int *)&pb);
-	if (ioctl_result < 0)
-		return ioctl_result;
 
-	*rx = pb.RX;
-	*tx = pb.TX;
-
-	return ioctl_result;
+	return switch_status_publish_port_bytes(ioctl_result, pb.RX, pb.TX, rx, tx);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
