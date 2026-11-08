@@ -675,6 +675,7 @@ jobs:
 
           assert "return HTTPD_NVRAM_COMMIT_DEFERRED;" in safe
           assert "return nvram_commit();" in safe
+          assert '#include "httpd_nvram_commit_policy.h"' in web_ex
           assert "extern int nvram_commit_safe(void);" in httpd_h
           assert "commit_result != HTTPD_NVRAM_COMMIT_DEFERRED" in asus
           assert "httpd_nvram_commit_clears_dirty(commit_result)" in asus
@@ -694,7 +695,7 @@ jobs:
 
           assert "nvram_result = nvram_commit();" in flash
           assert flash.index("nvram_result = nvram_commit();") < flash.index("httpd_nvram_commit_clears_dirty(nvram_result)")
-          assert "httpd_nvram_commit_clears_dirty(commit_result)" in policy
+          assert "httpd_nvram_commit_clears_dirty(int commit_result)" in policy
           assert "manual_mode || nvram_modified" in policy
           assert "!commit_required || commit_result == 0" in policy
 
