@@ -574,7 +574,7 @@ jobs:
           assert "rc_nvram_should_restore_defaults" in restore
           assert "rc_nvram_apply_defaults" in restore
           assert "nvram_clear()" not in restore and "nvram_set(" not in restore
-          assert "if (need_commit < 0)" in router_init
+          assert "if (nvram_need_commit < 0)" in router_init
           assert "rc_nvram_commit_if_needed" in router_init
           assert router_init.index("rc_nvram_commit_if_needed") < router_init.index("mount_rwfs_partition")
           assert "return -1;" in router_init
@@ -586,18 +586,16 @@ jobs:
           assert "int init_router(void);" in rc_header
           assert "int erase_nvram(void);" in rc_header
           assert "router_ready = (init_router() == 0);" in main_loop
-          assert "if (router_ready)\\n\\t\\t\\t\\thandle_notifications();" not in main_loop
-          assert "if (router_ready)" in main_loop
-          assert "handle_notifications();" in main_loop
-          assert "on_deferred_hotplug_dev();" in main_loop
+          assert "if (router_ready)\n\t\t\t\thandle_notifications();" in main_loop
+          assert "if (router_ready)\n\t\t\t\ton_deferred_hotplug_dev();" in main_loop
           assert "rc_nvram_policy_read" in policy
           assert "nvram_commit" in policy
 
-          push_paths = workflow.split("  push:\\n    paths:\\n", 1)[1].split(
-              "  pull_request:\\n", 1
+          push_paths = workflow.split("  push:\n    paths:\n", 1)[1].split(
+              "  pull_request:\n", 1
           )[0]
-          pr_paths = workflow.split("  pull_request:\\n    paths:\\n", 1)[1].split(
-              "  workflow_dispatch:\\n", 1
+          pr_paths = workflow.split("  pull_request:\n    paths:\n", 1)[1].split(
+              "  workflow_dispatch:\n", 1
           )[0]
           for path in (
               "trunk/user/rc/src/rc.c",

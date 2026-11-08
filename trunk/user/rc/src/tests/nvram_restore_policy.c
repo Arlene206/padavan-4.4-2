@@ -5,7 +5,7 @@
 
 #define CHECK(condition) do { \
     if (!(condition)) { \
-        fprintf(stderr, "FAIL:%d: %s\\n", __LINE__, #condition); \
+                fprintf(stderr, "FAIL:%d: %s\\n", __LINE__, #condition); \
         return 1; \
     } \
 } while (0)
