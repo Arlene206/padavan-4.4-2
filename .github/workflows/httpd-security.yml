@@ -684,7 +684,9 @@ jobs:
           assert "if (gen_ralink_config_2g(0) < 0)" in handler
           assert "if (gen_ralink_config_5g(0) < 0)" in handler
           assert "if (action_result < 0)" in handler
-          failure_branch = handler[handler.index("if (action_result < 0)"):handler.index("if (stop_handle)", handler.index("if (action_result < 0)"))]
+          failure_start = handler.index("if (action_result < 0)")
+          failure_end = handler.index("} else if (rc_notify_queue_marker_is_safe_at", failure_start)
+          failure_branch = handler[failure_start:failure_end]
           assert "completion marker retained" in failure_branch
           assert "unlinkat(incomplete_dir_fd" not in failure_branch
 
