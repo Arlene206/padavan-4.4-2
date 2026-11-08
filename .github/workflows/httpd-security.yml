@@ -2078,9 +2078,20 @@ jobs:
           cleanup_start = libdisk.index("umount_all_storage(void)")
           cleanup_end = libdisk.index("try_device_swapoff(", cleanup_start)
           cleanup = libdisk[cleanup_start:cleanup_end]
-          assert "storage_swap_header_valid(line)" in cleanup
-          assert "storage_swap_first_field(line, mpname" in cleanup
-          assert "fclose(fp) != 0" in cleanup
+          assert "storage_inventory_parse_swaps_header(line)" in cleanup
+          assert "storage_inventory_parse_swap_line(line, swap_path" in cleanup
+          assert "storage_inventory_parse_mount_line(line, devname" in cleanup
+          assert "storage_inventory_complete(swap_read_error" in cleanup
+          assert "storage_inventory_complete(mount_read_error" in cleanup
+          assert "storage_inventory_may_unmount(swapoff_status)" in cleanup
+          assert cleanup.count("ferror(fp)") == 2
+          assert cleanup.count("fclose(fp)") == 2
+          inventory_gate = cleanup.index("storage_inventory_complete(swap_read_error")
+          mount_gate = cleanup.index("storage_inventory_complete(mount_read_error")
+          first_swapoff = cleanup.index("swapoff(swap_entry->path)")
+          swapoff_gate = cleanup.index("storage_inventory_may_unmount(swapoff_status)")
+          first_umount = cleanup.index("umount(mount_entry->mountpoint)")
+          assert inventory_gate < mount_gate < first_swapoff < swapoff_gate < first_umount
 
           for function_name in ("mdev_sd_main", "mdev_mmc_main"):
               start = hotplug.index(function_name + "(")
