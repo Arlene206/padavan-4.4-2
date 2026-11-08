@@ -184,6 +184,8 @@ on:
       - "trunk/user/httpd/src/nvram_x.c"
       - "trunk/user/httpd/src/nvram_x.h"
       - "trunk/user/httpd/src/httpd_nvram_group_policy.h"
+      - "trunk/user/httpd/src/httpd_nvram_commit_policy.h"
+      - "trunk/user/httpd/src/tests/httpd_nvram_commit_policy.c"
       - "trunk/user/httpd/src/tests/httpd_nvram_group_policy.c"
       - "trunk/user/httpd/src/httpd_nvram_restore_policy.h"
       - "trunk/user/httpd/src/tests/httpd_nvram_restore_policy.c"
@@ -696,8 +698,8 @@ jobs:
           assert "manual_mode || nvram_modified" in policy
           assert "!commit_required || commit_result == 0" in policy
 
-          push_paths = workflow.split("  pull_request:\\n", 1)[0]
-          pr_paths = workflow.split("  pull_request:\\n", 1)[1].split("  workflow_dispatch:\\n", 1)[0]
+          push_paths = workflow.split("  pull_request:\n", 1)[0]
+          pr_paths = workflow.split("  pull_request:\n", 1)[1].split("  workflow_dispatch:\n", 1)[0]
           for path in (
               "trunk/user/httpd/src/httpd_nvram_commit_policy.h",
               "trunk/user/httpd/src/tests/httpd_nvram_commit_policy.c",
