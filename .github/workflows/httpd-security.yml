@@ -549,8 +549,8 @@ jobs:
           assert "return (restore_result == 0 && commit_result == 0);" in helper
 
           workflow = Path(".github/workflows/httpd-security.yml").read_text()
-          push_paths = workflow.split("  pull_request:\\n", 1)[0]
-          pr_paths = workflow.split("  pull_request:\\n", 1)[1].split("  workflow_dispatch:\\n", 1)[0]
+          push_paths = workflow.split("  pull_request:\n", 1)[0]
+          pr_paths = workflow.split("  pull_request:\n", 1)[1].split("  workflow_dispatch:\n", 1)[0]
           for path in (
               "trunk/user/httpd/src/web_ex.c",
               "trunk/user/httpd/src/httpd_nvram_restore_policy.h",
