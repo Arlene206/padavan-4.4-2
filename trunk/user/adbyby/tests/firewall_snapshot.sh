@@ -82,22 +82,27 @@ case "$command" in
         : > "$state/$name"
         ;;
     list)
-        [ -f "$state/$1" ]
+        [ -f "$state/$1" ] && exit 0
+        exit 1
         ;;
     swap)
         first="$1"
         second="$2"
         [ -f "$state/$first" ] && [ -f "$state/$second" ] || exit 1
-        temporary="$state/.swap.$$"
-        cp "$state/$first" "$temporary" &&
-        cp "$state/$second" "$state/$first" &&
-        mv "$temporary" "$state/$second"
+        temporary="$state/.swap.$"
+        if cp "$state/$first" "$temporary" &&
+           cp "$state/$second" "$state/$first" &&
+           mv "$temporary" "$state/$second"; then
+            exit 0
+        fi
+        exit 1
         ;;
     rename)
         first="$1"
         second="$2"
         [ -f "$state/$first" ] && [ ! -e "$state/$second" ] || exit 1
-        mv "$state/$first" "$state/$second"
+        mv "$state/$first" "$state/$second" || exit 1
+        exit 0
         ;;
     restore)
         while IFS=' ' read -r operation set_name entry; do
@@ -215,7 +220,7 @@ done
 rm -f "$TEST_IPSET_STATE/blockip"
 printf '198.51.100.0/24\n' > "$PROG_PATH/blockip.conf"
 : > "$TEST_IPSET_LOG"
-if ! ( set -x; adbyby_refresh_blockip_set ); then
+if ! adbyby_refresh_blockip_set; then
     echo "failed to create blockip on cold boot" >&2
     echo "ipset log=$TEST_IPSET_LOG" >&2
     cat "$TEST_IPSET_LOG" >&2
