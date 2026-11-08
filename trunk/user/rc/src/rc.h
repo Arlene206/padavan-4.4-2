@@ -145,14 +145,14 @@ struct disk_info_t;
 /* rc.c */
 void setenv_tz(void);
 void setkernel_tz(void);
-void init_router(void);
+int init_router(void);
 void shutdown_router(int level);
 void handle_notifications(void);
 void LED_CONTROL(int gpio_led, int flag);
 void storage_save_time(time_t delta);
 void write_storage_to_mtd(void);
 void erase_storage(void);
-void erase_nvram(void);
+int erase_nvram(void);
 
 /* init.c */
 void init_main_loop(void);

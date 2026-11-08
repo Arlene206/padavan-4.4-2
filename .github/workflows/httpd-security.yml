@@ -3,6 +3,10 @@ name: HTTPD Authentication and Security Regression
 on:
   push:
     paths:
+      - "trunk/user/shared/src/nvram_linux.h"
+      - "trunk/user/shared/src/nvram_linux.c"
+      - "trunk/user/rc/src/tests/nvram_restore_policy.c"
+      - "trunk/user/rc/src/rc_nvram_policy.h"
       - ".github/workflows/httpd-security.yml"
       - "trunk/user/nvram/src/nvram.c"
       - "trunk/user/nvram/src/nvram_profile_policy.h"
@@ -174,6 +178,10 @@ on:
       - "trunk/user/adbyby/tests/firewall_snapshot.sh"
   pull_request:
     paths:
+      - "trunk/user/shared/src/nvram_linux.h"
+      - "trunk/user/shared/src/nvram_linux.c"
+      - "trunk/user/rc/src/tests/nvram_restore_policy.c"
+      - "trunk/user/rc/src/rc_nvram_policy.h"
       - ".github/workflows/httpd-security.yml"
       - "trunk/user/nvram/src/nvram.c"
       - "trunk/user/nvram/src/nvram_profile_policy.h"
@@ -518,6 +526,90 @@ jobs:
               needle = f'      - "{path}"'
               assert needle in push_paths and needle in pr_paths
           print("NVRAM profile read/write bounds, validation-before-clear and CI path wiring: OK")
+          PY
+
+      - name: Verify RC NVRAM default restore and erase durability
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/shared/src -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/nvram_restore_policy.c \
+            -o /tmp/rc_nvram_restore_policy
+          /tmp/rc_nvram_restore_policy
+          python3 - <<'PY'
+          from pathlib import Path
+
+          rc = Path("trunk/user/rc/src/rc.c").read_text()
+          rc_header = Path("trunk/user/rc/src/rc.h").read_text()
+          init = Path("trunk/user/rc/src/init.c").read_text()
+          policy = Path("trunk/user/rc/src/rc_nvram_policy.h").read_text()
+          nvram = Path("trunk/user/shared/src/nvram_linux.c").read_text()
+          nvram_header = Path("trunk/user/shared/src/nvram_linux.h").read_text()
+          workflow = Path(".github/workflows/httpd-security.yml").read_text()
+
+          def body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          getter = body(nvram, "nvram_get_checked(const char *name, char **value)")
+          restore = body(rc, "nvram_restore_defaults(void)")
+          erase = body(rc, "erase_nvram(void)")
+          router_init = body(rc, "init_router(void)")
+          main = body(rc, "main(int argc, char **argv)")
+          main_loop = body(init, "init_main_loop(void)")
+
+          assert "extern int nvram_get_checked(const char *name, char **value);" in nvram_header
+          assert "return (*value != NULL) ? 1 : 0;" in getter
+          assert "if (close(nvram_fd) < 0)" in getter
+          assert "if (ret < 0 && errno == EOVERFLOW" in getter
+          assert "rc_nvram_should_restore_defaults" in restore
+          assert "rc_nvram_apply_defaults" in restore
+          assert "nvram_clear()" not in restore and "nvram_set(" not in restore
+          assert "if (need_commit < 0)" in router_init
+          assert "rc_nvram_commit_if_needed" in router_init
+          assert router_init.index("rc_nvram_commit_if_needed") < router_init.index("mount_rwfs_partition")
+          assert "return -1;" in router_init
+          assert "rc_nvram_erase_and_commit" in erase
+          reset_branch = main.split('if (!strcmp(base, "reset_to_defaults"))', 1)[1].split(
+              'else if (!strcmp(base, "run_telnetd"))', 1
+          )[0]
+          assert reset_branch.index("erase_nvram() == 0") < reset_branch.index("return sys_exit()")
+          assert "int init_router(void);" in rc_header
+          assert "int erase_nvram(void);" in rc_header
+          assert "router_ready = (init_router() == 0);" in main_loop
+          assert "if (router_ready)\\n\\t\\t\\t\\thandle_notifications();" not in main_loop
+          assert "if (router_ready)" in main_loop
+          assert "handle_notifications();" in main_loop
+          assert "on_deferred_hotplug_dev();" in main_loop
+          assert "rc_nvram_policy_read" in policy
+          assert "nvram_commit" in policy
+
+          push_paths = workflow.split("  push:\\n    paths:\\n", 1)[1].split(
+              "  pull_request:\\n", 1
+          )[0]
+          pr_paths = workflow.split("  pull_request:\\n    paths:\\n", 1)[1].split(
+              "  workflow_dispatch:\\n", 1
+          )[0]
+          for path in (
+              "trunk/user/rc/src/rc.c",
+              "trunk/user/rc/src/rc.h",
+              "trunk/user/rc/src/rc_nvram_policy.h",
+              "trunk/user/rc/src/tests/nvram_restore_policy.c",
+              "trunk/user/shared/src/nvram_linux.c",
+              "trunk/user/shared/src/nvram_linux.h",
+          ):
+              needle = f'      - "{path}"'
+              assert needle in push_paths and needle in pr_paths
+          print("RC NVRAM checked reads, failure gates, recovery mode and CI path contracts: OK")
           PY
 
       - name: Verify NVRAM restore commits before reboot

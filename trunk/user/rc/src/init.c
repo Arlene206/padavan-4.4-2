@@ -457,6 +457,7 @@ init_main_loop(void)
 {
 	pid_t shell_pid = 0;
 	int shutdown_handled = 0;
+	int router_ready;
 	int i;
 	sigset_t wait_mask, original_mask;
 
@@ -497,8 +498,10 @@ init_main_loop(void)
 	/* SIGUSR2 remains a reserved, currently no-op event signal. */
 	control_signal(SIGUSR2, SIG_BLOCK);
 
-	/* Router init and start */
-	init_router();
+	/* Router init and start; keep PID 1 in recovery mode on NVRAM failure. */
+	router_ready = (init_router() == 0);
+	if (!router_ready)
+		logmessage(LOGNAME, "Router startup failed; console recovery remains available");
 
 	/* unblock SIGUSR1 */
 	control_signal(SIGUSR1, SIG_UNBLOCK);
@@ -541,14 +544,16 @@ init_main_loop(void)
 		/* Handle SIGUSR1 signal */
 		if (signal_state.usr1_pending) {
 			signal_state.usr1_pending = 0;
-			handle_notifications();
+			if (router_ready)
+				handle_notifications();
 		}
 
 		/* Handle SIGALRM signal */
 		if (signal_state.alarm_pending) {
 			signal_state.alarm_pending = 0;
 #if defined (USE_USB_SUPPORT) || defined (USE_STORAGE)
-			on_deferred_hotplug_dev();
+			if (router_ready)
+				on_deferred_hotplug_dev();
 #endif
 		}
 	}

@@ -43,6 +43,7 @@
 #endif
 
 #include "rc.h"
+#include "rc_nvram_policy.h"
 #include <rc_notify_queue.h>
 #include "gpio_pins.h"
 #include "switch.h"
@@ -51,7 +52,44 @@
 
 extern struct nvram_pair router_defaults[];
 
+/* Keep NVRAM device operations injectable for the host-side policy test. */
+static int
+rc_nvram_policy_clear(void *context)
+{
+    (void)context;
+    return nvram_clear();
+}
+
+static int
+rc_nvram_policy_get(void *context, const char *name, char **value)
+{
+    (void)context;
+    return nvram_get_checked(name, value);
+}
+
+static int
+rc_nvram_policy_set(void *context, const char *name, const char *value)
+{
+    (void)context;
+    return nvram_set(name, value);
+}
+
+static int
+rc_nvram_policy_commit(void *context)
+{
+    (void)context;
+    return nvram_commit();
+}
+
+static const struct rc_nvram_policy_ops rc_nvram_ops = {
+    rc_nvram_policy_clear,
+    rc_nvram_policy_get,
+    rc_nvram_policy_set,
+    rc_nvram_policy_commit
+};
+
 /* static values */
+
 static int nvram_modem_type = 0;
 static int nvram_modem_rule = 0;
 static int nvram_ipv6_type = 0;
@@ -59,39 +97,28 @@ static int nvram_ipv6_type = 0;
 static int
 nvram_restore_defaults(void)
 {
-	struct nvram_pair *np;
 	int restore_defaults;
-	char tmp[32] = {0};
-	unsigned char buffer[2] = {0};
+	int need_commit;
 	char lan_mac[] = "FFFF";
-
+	unsigned char buffer[2] = {0};
 	int i_offset = get_wired_mac_e2p_offset(0) + 4;
-	if (flash_mtd_read(MTD_PART_NAME_FACTORY, i_offset, buffer, 2) == 0) {
-		sprintf(lan_mac, "%02X%02X", buffer[0] & 0xff, buffer[1] & 0xff);
+
+	if (flash_mtd_read(MTD_PART_NAME_FACTORY, i_offset, buffer, 2) == 0)
+		snprintf(lan_mac, sizeof(lan_mac), "%02X%02X",
+			 buffer[0] & 0xff, buffer[1] & 0xff);
+
+	/* A failed NVRAM read must not be mistaken for an absent first-boot key. */
+	if (rc_nvram_should_restore_defaults(&rc_nvram_ops, NULL,
+					     &restore_defaults) < 0) {
+		logmessage(LOGNAME, "NVRAM restore-state read failed; aborting router startup");
+		return -1;
 	}
 
-	/* Restore defaults if told to or OS has changed */
-	restore_defaults = !nvram_match("restore_defaults", "0");
-
-	/* check asus-wrt NVRAM content (sorry, but many params is incompatible) */
-	if (!restore_defaults) {
-		if (nvram_get("buildno") && nvram_get("buildinfo") && nvram_get("extendno"))
-			restore_defaults = 1;
-	}
-
-	if (restore_defaults)
-		nvram_clear();
-
-	/* Restore defaults */
-	for (np = router_defaults; np->name; np++) {
-		if (restore_defaults || !nvram_get(np->name)) {
-			if (strstr(np->name,"wl_ssid") || strstr(np->name,"rt_ssid") || !strcmp(np->name,"wl_guest_ssid") || !strcmp(np->name,"rt_guest_ssid")){
-				sprintf(tmp, np->value, lan_mac);
-				nvram_set(np->name, tmp);
-			} else {
-				nvram_set(np->name, np->value);
-			}
-		}
+	need_commit = rc_nvram_apply_defaults(restore_defaults, router_defaults,
+					      lan_mac, &rc_nvram_ops, NULL);
+	if (need_commit < 0) {
+		logmessage(LOGNAME, "NVRAM clear/default write failed; aborting router startup");
+		return -1;
 	}
 
 	klogctl(8, NULL, nvram_get_int("console_loglevel"));
@@ -101,7 +128,7 @@ nvram_restore_defaults(void)
 	nvram_modem_rule = nvram_get_int("modem_rule");
 	nvram_ipv6_type = get_ipv6_type();
 
-	return restore_defaults;
+	return need_commit;
 }
 
 static void
@@ -466,11 +493,15 @@ erase_storage(void)
 	doSystem("/sbin/mtd_storage.sh %s", "erase");
 }
 
-void
+int
 erase_nvram(void)
 {
-	nvram_set_int("restore_defaults", 1);
-	nvram_commit();
+	if (rc_nvram_erase_and_commit(&rc_nvram_ops, NULL) < 0) {
+		logmessage(LOGNAME, "NVRAM reset flag could not be durably committed");
+		return -1;
+	}
+
+	return 0;
 }
 
 static void
@@ -690,7 +721,7 @@ init_crontab(void)
 	return ret;
 }
 
-void 
+int 
 init_router(void)
 {
 	int log_remote, is_ap_mode, nvram_need_commit;
@@ -705,6 +736,10 @@ init_router(void)
 	nvram_convert_old_params();
 
 	nvram_need_commit = nvram_restore_defaults();
+	if (nvram_need_commit < 0) {
+		logmessage(LOGNAME, "Router initialization stopped: NVRAM defaults are not trustworthy");
+		return -1;
+	}
 
 	get_eeprom_params();
 
@@ -712,8 +747,10 @@ init_router(void)
 
 	init_gpio_leds_buttons();
 
-	if (nvram_need_commit)
-		nvram_commit();
+	if (rc_nvram_commit_if_needed(nvram_need_commit, &rc_nvram_ops, NULL) < 0) {
+		logmessage(LOGNAME, "Router initialization stopped: NVRAM defaults commit failed");
+		return -1;
+	}
 
 	mount_rwfs_partition();
 
@@ -792,6 +829,8 @@ init_router(void)
 	system("/usr/bin/copyscripts.sh &");
 	system("/etc/storage/started_script.sh &");
 	system("/usr/bin/autostart.sh &");
+
+	return 0;
 }
 
 /*
@@ -1590,8 +1629,9 @@ main(int argc, char **argv)
 
 	ret = 0;
 	if (!strcmp(base, "reset_to_defaults")) {
-		erase_nvram();
-		sys_exit();
+		if (erase_nvram() == 0)
+			return sys_exit();
+		ret = -1;
 	}
 	else if (!strcmp(base, "run_telnetd")) {
 		run_telnetd();

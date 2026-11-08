@@ -10,6 +10,8 @@ struct nvram_pair {
 };
 
 extern char *nvram_get(const char *name);
+/* 1=value present, 0=key absent, -1=backend/read/close error. */
+extern int nvram_get_checked(const char *name, char **value);
 extern char *nvram_safe_get(const char *name);
 extern int nvram_get_int(const char *name);
 extern int nvram_safe_get_int(const char* name, int val_def, int val_min, int val_max);

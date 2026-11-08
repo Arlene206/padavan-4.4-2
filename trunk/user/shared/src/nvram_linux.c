@@ -33,18 +33,25 @@
 #define MAX_CACHE_LEN	(2*NVRAM_MAX_VALUE_LEN)
 #define MIN_CACHE_RES	32
 
-char *
-nvram_get_(const char *name)
+int
+nvram_get_checked(const char *name, char **value)
 {
-	static int  nvr_index = 0;
+	static int nvr_index = 0;
 	static char nvr_cache[MAX_CACHE_LEN] = {0};
 	int ret, i_cache, nvram_fd;
+	int saved_errno = 0;
 	anvram_ioctl_t nvr;
 
+	if (!name || !value) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	*value = NULL;
 	nvram_fd = open(PATH_DEV_NVRAM, O_RDWR);
 	if (nvram_fd < 0) {
 		perror(PATH_DEV_NVRAM);
-		return NULL;
+		return -1;
 	}
 
 	i_cache = nvr_index;
@@ -59,29 +66,54 @@ nvram_get_(const char *name)
 	nvr.is_temp = 0;
 
 	ret = ioctl(nvram_fd, NVRAM_IOCTL_GET, &nvr);
-	if (ret < 0) {
-		if (errno == EOVERFLOW && nvr.len_value > 0 && nvr.len_value <= MAX_CACHE_LEN) {
-			if ((MAX_CACHE_LEN - i_cache) < nvr.len_value)
-				i_cache = 0;
-			nvr.len_value = MAX_CACHE_LEN - i_cache;
-			nvr.value = &nvr_cache[i_cache];
-			ret = ioctl(nvram_fd, NVRAM_IOCTL_GET, &nvr);
-		}
-		if (ret < 0) {
-			perror(PATH_DEV_NVRAM);
-			close(nvram_fd);
-			return NULL;
-		}
+	if (ret < 0 && errno == EOVERFLOW &&
+	    nvr.len_value > 0 && nvr.len_value <= MAX_CACHE_LEN) {
+		if ((MAX_CACHE_LEN - i_cache) < nvr.len_value)
+			i_cache = 0;
+		nvr.len_value = MAX_CACHE_LEN - i_cache;
+		nvr.value = &nvr_cache[i_cache];
+		ret = ioctl(nvram_fd, NVRAM_IOCTL_GET, &nvr);
 	}
 
-	if (nvr.len_value < 1)
-		nvr.value = NULL;
-	else
+	if (ret < 0) {
+		saved_errno = errno;
+		perror(PATH_DEV_NVRAM);
+		if (close(nvram_fd) < 0 && saved_errno == 0)
+			saved_errno = errno;
+		errno = saved_errno;
+		return -1;
+	}
+
+	if (nvr.len_value < 1) {
+		*value = NULL;
+	} else {
+		if (nvr.len_value > MAX_CACHE_LEN - i_cache) {
+			close(nvram_fd);
+			errno = EOVERFLOW;
+			return -1;
+		}
+		*value = nvr.value;
 		nvr_index = i_cache + nvr.len_value;
+	}
 
-	close(nvram_fd);
+	if (close(nvram_fd) < 0) {
+		perror(PATH_DEV_NVRAM);
+		*value = NULL;
+		return -1;
+	}
 
-	return nvr.value;
+	return (*value != NULL) ? 1 : 0;
+}
+
+static char *
+nvram_get_(const char *name)
+{
+	char *value = NULL;
+
+	if (nvram_get_checked(name, &value) != 1)
+		return NULL;
+
+	return value;
 }
 
 char *
