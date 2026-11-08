@@ -1,3 +1,19 @@
+## 2026-11-09 01:06 CST — Preserve forwarding state after firewall restore rollback
+
+- **Base main HEAD:** `0e3e8744f8e6a97fee5a279e5412e852acc19840`.
+- **Production commit:** `4d0ed84aad409693aca03e52aa880bed9d1ca661` — return immediately when a built-in firewall restore transaction failed but its rollback completed.
+- **Workflow/source-contract commit:** `0b886c2ede22c9561a8c9ed0caa69ce01f4a5df5`; candidate exact source + workflow SHA.
+- **Recovered scope:** continued the explicit Firewall/NAT follow-up from the Adbyby blockip checkpoint: inspect restore status propagation, rollback and forwarding activation across IPv4/IPv6.
+- **Finding:** the restore transaction correctly marked the new ruleset failed and reversed already-applied tables. If rollback succeeded, `rollback_failed` stayed false. The caller logged that extension hooks were skipped, but did not return; it still called `set_ipv4_forward(1)`. A successful rollback restores the previous ruleset, not the failed requested ruleset, so forwarding must not be newly enabled on this path.
+- **Change:** add an immediate return after the built-in-restore-failure log. This keeps the pre-existing forwarding state paired with the restored previous policy and skips PPPoE multi-WAN detection and module unload on a failed rebuild. The existing rollback-failed path remains responsible for disabling IPv4 and IPv6 forwarding.
+- **Changed paths:** `trunk/user/rc/src/firewall_ex.c`; `.github/workflows/httpd-security.yml`.
+- **Regression / CI wiring:** the existing `tests/firewall_restore_transaction.c` test checks a failed apply with successful reverse rollback: transaction stays failed and rollback_failed is false. The workflow source-contract step now checks that this transaction state is covered and that the failure branch's return is before `set_ipv4_forward(1)`. The GNU89 `-Wall -Wextra -Werror` test command is already in the workflow.
+- **Actions:** exact candidate `0b886c2ede22c9561a8c9ed0caa69ce01f4a5df5` is **NOT VERIFIED** in GitHub Actions. The connected combined-status result was empty and the available commit-runs method returned only PR-triggered runs, so no push run ID or logs could be retrieved. Do not count prior Adbyby run `42502289762` as validation of this change.
+- **Validation boundary:** L1 source/control-flow review PASS. No separate local compile/test run is claimed. Production RC translation unit, MIPS/uClibc, full firmware/TRX, live router iptables/ip6tables and hardware **NOT RUN**.
+- **Next:** verify exact-head Actions for `0b886c2ede22c9561a8c9ed0caa69ce01f4a5df5`, inspect logs, and repair any failure before rotating to remaining standalone/add-on IPv4/IPv6 firewall writers and policy parity. Firewall/NAT remains AUDITING; DNS/DHCP/resolver remains PARTIAL/AUDITING.
+
+---
+
 ## 2026-11-09 00:56 CST — Atomically refresh Adbyby blockip across cold boot and firewall rebuilds
 
 - **Base main HEAD:** `71be75dc45c8e450c2718ef34700708f925193cf`.
