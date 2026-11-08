@@ -1,3 +1,20 @@
+## 2026-11-09 03:15 CST — Bound wireless-tools scan event frames and ESSID requests
+
+- **Base main HEAD:** `86809d7c5a4a8b2545f42a773d578ed351358721`.
+- **Implementation commit:** `205b32b1f040bd3e930f9fb28a715527d4b59949` — `fix(wireless-tools): validate scan event and ESSID bounds`.
+- **CI-contract/test cleanup commit:** `5cd0396df804f7bc0eefd632c3379d85ed9a4c7a` — `test(wireless-tools): correct scan bounds CI contract`.
+- **Module / priority:** Wireless management / wireless-tools; P2 memory-safety and scan reliability. Whole Wireless module remains **AUDITING**.
+- **Source ownership finding:** `net_wifi.c` / `ralink.c` are not the Wireless Extensions scan-event parser. The actual event decoder is `trunk/user/wireless-tools/src/iwlib.c::iw_extract_event_stream()`; scan request ESSID parsing is in `iwlist.c::print_scanning_info()`. Kept the scope at the actual parser rather than adding a redundant parser elsewhere.
+- **Defects:** event lengths supplied by the driver/ioctl buffer were not checked against the actual remaining bytes or the descriptor's fixed-header size; fixed reads were checked against the whole stream rather than the individual event, allowing a short event to read into a following event. Point events could expose a payload pointer/length beyond the buffer. The `iwlist essid` option copied unbounded input into a fixed 32-byte scan-request ESSID field.
+- **Fix:** added `iw_scan_bounds.h`; validate stream/frame length, known fixed-header length, event-local payload boundaries and compatibility-adjusted copies; clear invalid point pointers and stop at malformed event boundaries. Reject overlong ESSIDs before updating `essid_len` or copying to `scanopt.essid`.
+- **Changed paths:** `trunk/user/wireless-tools/src/{iwlib.c,iwlist.c,iw_scan_bounds.h,tests/iw_scan_bounds.c}`; `.github/workflows/httpd-security.yml` (both push and pull-request path filters and a new test/contract step).
+- **CI correction:** initial run [42513929518](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42513929518) on implementation commit `205b32b1f040bd3e930f9fb28a715527d4b59949` printed the sanitizer regression PASS and compiled `iwlist.c`, but failed an overly broad Python assertion that matched the earlier LCP-header memcpy. Follow-up `5cd0396df804f7bc0eefd632c3379d85ed9a4c7a` fixed the source-contract anchor and test pointer casts.
+- **Exact-head verification:** Actions run [42514055103](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42514055103), exact head `5cd0396df804f7bc0eefd632c3379d85ed9a4c7a`, **SUCCESS 38/38**. The step builds/runs the decoder regression with GNU89 + ASan/UBSan + leak detection, compiles `iwlist.c`, and checks both workflow filters and guard ordering.
+- **Validation limit:** this is host-side focused regression/source-contract evidence. MIPS/uClibc compile, full firmware/TRX, live scan with the target wireless drivers and physical-router validation NOT RUN.
+- **Next:** do not redo this scanner fix. Map switch link/speed/ioctl consumers across the whole user tree, beyond the 36 RC translation units already checked; verify return conventions and callers' error handling. Then rotate to firewall IPv6 / storage / broader userland stability. Wireless remains AUDITING.
+
+---
+
 ## 2026-11-09 03:01 CST — Retry detect_link switch-state refresh after ioctl failures
 
 - **Base main HEAD:** `5f12410a75f994ab117717f1968dcf56fde5b805`.
