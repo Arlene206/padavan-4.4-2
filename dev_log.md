@@ -1,3 +1,23 @@
+## 2026-11-09 00:31 CST — Serialize VPN lease producers and firewall policy consumers
+
+- **Base main HEAD:** `571d28d3c42fca7adef26197aaec2201206f7de2`.
+- **Production/test commit:** `3922f16daf7d4147e08f871369f589658b56c77d` — `fix(vpn): serialize lease inventory lifecycle`.
+- **Workflow contract commits:** `a46bded7e17118cdde2261f99179136cf83fe1e6` corrected the apply/remove/release ordering assertion; `b8cd52d406d42213eb182832b546d98543e9a891` aligned the validated interface array contract; `f66c6d7288922fb7955396201b48a705150074b8` updated stale append/lock source checks; `665a23cab0a340393270cac445acfab16f7f9dd1` restored YAML heredoc indentation and is the exact tested source/test/workflow HEAD.
+- **Recovered defect:** the previous handoff had completed fail-closed pruning but explicitly left the ip-up writer, ip-down pruner and firewall VPN_LIST consumer unsynchronized. A concurrent firewall rebuild could also validate an older lease snapshot, then apply it after a new VPN client had installed its direct ACCEPT rule, silently deleting that client's allow.
+- **Production changes:**
+  1. Added `vpn_server_lease_lock.h` with a persistent private `/tmp/.vpns.leases.lock` inode, no-follow/close-on-exec open, owner/mode/link checks and blocking advisory write lock. The lock inode is never unlinked.
+  2. Replaced unchecked ip-up stdio append with a checked descriptor append: validate the existing inventory and new record, enforce the client cap, write all bytes, `fsync`, check close, and attempt rollback only when the reopened file is the same device/inode with the expected appended size. Firewall add errors stop before persistence; append failures trigger best-effort direct firewall permission removal and a failure return.
+  3. Put ip-down direct firewall deletion and fail-closed prune inside the same lock; serialize start/stop lease-index clearing as well.
+  4. Replaced permissive `fscanf` inventory consumption with complete bounded validation and safe interface checks. The firewall consumer transfers the acquired lock to `ipt_filter_rules`, which keeps it held through the staged core `iptables-restore` application before release. Incomplete inventories abort the staged core restore.
+- **Changed paths:** `trunk/user/rc/src/vpn_server.c`, `trunk/user/rc/src/firewall_ex.c`, `trunk/user/rc/src/vpn_server_lease_lock.h` (new), `trunk/user/rc/src/vpn_server_lease_policy.h`, `trunk/user/rc/src/tests/vpn_server_lease_policy.c`, `.github/workflows/httpd-security.yml`.
+- **Host regression:** GNU89 `-Wall -Wextra -Werror` compile/run PASS; ASan/UBSan with leak detection PASS on the host policy/lock harness. Cases cover malformed and unterminated records, binary NUL, CRLF, overlong fields, malformed suffix after a valid row, inventory overflow/empty file, lock symlink/hardlink rejection, forked writer contention, successful append and `/dev/full` write failure.
+- **Exact-head GitHub Actions:** [run 42500281239](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42500281239) completed **SUCCESS** on `665a23cab0a340393270cac445acfab16f7f9dd1`; 35/35 job steps passed. The committed regression executable ran, and source contracts for VPN lease ordering, firewall restore, Adbyby firewall rollback, switch byte counters, DNSMasq generated files and HTTPD auth/routes all passed.
+- **CI maintenance notes:** earlier attempts exposed stale workflow assumptions about the old append helper, a single `ifname` reader variable and restore-lock release ordering; one intermediate workflow edit also lost YAML heredoc indentation. These were corrected in the final exact-head run. The final Actions result is green; intermediate red runs must not be represented as production policy-test failures.
+- **Validation boundary:** workflow compiles/tests standalone policy/lock code and checks production source wiring; full RC translation units `vpn_server.c` and `firewall_ex.c` were not compiled. MIPS/uClibc, full firmware/TRX, real router VPN churn, runtime firewall restore and physical hardware are **NOT RUN**. No parent-directory fsync or power-loss durability guarantee is claimed.
+- **Next:** audit Adbyby `blockip` ipset cold-boot/rebuild create-delete order and independent IPv4/IPv6 firewall writers/restore status propagation. Keep Firewall/NAT **AUDITING** and DNS/DHCP/resolver **PARTIAL / AUDITING**; WAN resolver caller return-value propagation remains open. This record is included in the same governance checkpoint update as `SESSION_HANDOFF.md` and `REFACTOR_ROADMAP.md`.
+
+---
+
 ## 2026-11-08 23:55 CST — Preserve VPN lease inventory when disconnect reads are incomplete
 
 - **Base main HEAD:** `5a300389ebf64dfde28eb82cbb09788f04c82f0e`.
