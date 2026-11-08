@@ -1,3 +1,15 @@
+## 2026-11-09 05:57 CST — Secure DHCPv6 DUID persistence; continue IPv6 Firewall/NAT parity audit
+
+- **Module / priority:** DHCPv6 WAN identity persistence; P1 local privileged-file-clobber hardening plus P2 persistence/reliability. Firewall/NAT and Wireless remain AUDITING.
+- **Finding:** RC wrote /tmp/dhcp6c_duid after unlinking then reopening with fopen("w"), allowing a symlink race in shared-writable /tmp. BusyBox get_duid() followed existing links, used O_CREAT|O_TRUNC without the mandatory mode argument, accepted short writev(), and mishandled fd 0.
+- **Fix / commits:** 077c17adb49bce9c8a1636e31a01228fbe107b8d adds a shared safe-open helper and regression; 7dd3986ef682e3e58ba58fed981dbac9cdc1d371 marks the header helpers inline to avoid an unused-function -Werror in one-caller translation units. The helper rejects symlinks, non-regular files, wrong owners, multiple links, group/world-writable files and out-of-range sizes; exclusive 0600 create prevents overwrite races. Both RC and BusyBox check complete writes; BusyBox verifies the exact DUID length against file size.
+- **Changed paths:** shared DUID helper/test, net_wan6.c, BusyBox dhcp6c_common.c, and .github/workflows/httpd-security.yml (push/PR filters + source contract).
+- **Validation:** local GNU89 -Wall -Wextra -Werror, ASan/UBSan + leak-detection policy tests PASS; exact-head Actions [42527600055](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42527600055), head 7dd3986ef682e3e58ba58fed981dbac9cdc1d371, SUCCESS, including the new DHCPv6 DUID step. L1/L2 only: no full production RC/BusyBox objects, MIPS/uClibc, firmware/TRX, live DHCPv6 or hardware tests.
+- **IPv6 rotation status:** traced core IPv6 filter/default-filter/mangle/NAT restore writers and shared rollback; early boot gate; IPv6 disable/re-enable restart behavior. The suspected IPv6-enable refresh gap was not established. miniupnpd package currently explicitly disables IPv6. The broader IPv6 Firewall/NAT map remains AUDITING.
+- **Next:** trace ip6table_nat load/ownership, the ULA FULLCONENAT rule, and extension-hook interactions/failure outcomes; then continue full IPv6-vs-IPv4 semantics. Keep the separate switch CLI/register audit open.
+
+---
+
 ## 2026-11-09 05:38 CST — Stage complete global swap and mount inventories before fallback cleanup
 
 - **Module / priority:** USB/storage safe-removal fallback; P2 stability and safe-eject integrity. USB/storage remains **AUDITING**.
