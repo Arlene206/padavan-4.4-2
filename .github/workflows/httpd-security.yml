@@ -188,6 +188,9 @@ on:
       - "trunk/user/shared/src/tests/rc_notify_queue.c"
       - "trunk/user/adbyby/adbyby.sh"
       - "trunk/user/adbyby/tests/firewall_snapshot.sh"
+      - "trunk/user/rc/src/vpn_server.c"
+      - "trunk/user/rc/src/vpn_server_lease_policy.h"
+      - "trunk/user/rc/src/tests/vpn_server_lease_policy.c"
   pull_request:
     paths:
       - "trunk/user/shared/src/nvram_linux.h"
@@ -372,6 +375,9 @@ on:
       - "trunk/user/shared/src/tests/rc_notify_queue.c"
       - "trunk/user/adbyby/adbyby.sh"
       - "trunk/user/adbyby/tests/firewall_snapshot.sh"
+      - "trunk/user/rc/src/vpn_server.c"
+      - "trunk/user/rc/src/vpn_server_lease_policy.h"
+      - "trunk/user/rc/src/tests/vpn_server_lease_policy.c"
   workflow_dispatch:
 
 permissions:
@@ -2165,6 +2171,62 @@ jobs:
           assert "firewall_restore_transaction_finish" in transaction_test
           print("Firewall table restore transaction, reverse rollback and fail-closed recovery contracts: OK")
           print("Firewall restore and extension command failures are reported: OK")
+          PY
+
+
+      - name: Check VPN server lease pruning fails closed
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -Itrunk/user/rc/src \
+            trunk/user/rc/src/tests/vpn_server_lease_policy.c \
+            -o /tmp/vpn_server_lease_policy
+          /tmp/vpn_server_lease_policy
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/user/rc/src/vpn_server.c").read_text()
+          workflow = Path(".github/workflows/httpd-security.yml").read_text()
+
+          def body(text, signature):
+              start = text.index(signature)
+              brace = text.index("{", start)
+              depth = 0
+              for pos in range(brace, len(text)):
+                  if text[pos] == "{":
+                      depth += 1
+                  elif text[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return text[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          prune = body(source, "vpns_prune_lease_file(const char *disconnected_ifname, int *remaining_clients)")
+          down = body(source, "ipdown_vpns_main(int argc, char **argv)")
+          assert "O_RDONLY | O_NOFOLLOW" in prune
+          assert "S_ISREG(lease_stat.st_mode)" in prune
+          assert "lease_stat.st_uid != 0" in prune
+          assert "vpn_server_lease_read_line" in prune
+          assert "vpn_server_lease_parse_line" in prune
+          assert "firewall_ppp_interface_is_safe" in prune
+          assert "ferror(input)" in prune and "fclose(input)" in prune
+          assert prune.index("fclose(input)") < prune.index("fclose(output)") < prune.index("rename(temp_path, VPN_SERVER_LEASE_FILE)")
+          assert "unlink(temp_path)" in prune
+          assert "fscanf(" not in down
+          assert "vpns_prune_lease_file(argv[1], &i_clients)" in down
+          assert "lease_status == 0 && i_clients == 0" in down
+          assert "cannot safely prune VPN lease inventory" in down
+
+          push = workflow.split("  push:" + chr(10) + "    paths:" + chr(10), 1)[1].split("  pull_request:" + chr(10), 1)[0]
+          pull = workflow.split("  pull_request:" + chr(10) + "    paths:" + chr(10), 1)[1].split("  workflow_dispatch:" + chr(10), 1)[0]
+          for path in (
+              "trunk/user/rc/src/vpn_server.c",
+              "trunk/user/rc/src/vpn_server_lease_policy.h",
+              "trunk/user/rc/src/tests/vpn_server_lease_policy.c",
+          ):
+              needle = f'      - "{path}"'
+              assert needle in push and needle in pull
+          print("VPN lease inventory fail-closed parsing, publication ordering and CI path contracts: OK")
           PY
 
       - name: Check root-managed executable script staging

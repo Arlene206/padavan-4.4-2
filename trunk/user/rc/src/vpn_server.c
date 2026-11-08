@@ -27,6 +27,7 @@
 
 #include "rc.h"
 #include "firewall_ppp_interface_policy.h"
+#include "vpn_server_lease_policy.h"
 
 #define VPNS_LOG_NAME		"VPN server"
 #define VPNS_PPP_UP_SCRIPT	"/tmp/ppp/ip-up.vpns"
@@ -395,6 +396,127 @@ vpns_firewall_permission(char *ifname, int add)
 	return 0;
 }
 
+
+/* Replace the lease index only after its complete existing contents have been
+ * validated and copied. An unavailable, malformed or partially-read inventory
+ * is not evidence that there are no remaining VPN clients. */
+static int
+vpns_prune_lease_file(const char *disconnected_ifname, int *remaining_clients)
+{
+	int lease_fd = -1, temp_fd = -1, line_status, saved_errno;
+	FILE *input = NULL, *output = NULL;
+	struct stat lease_stat;
+	char temp_path[] = "/tmp/.vpns.leases.XXXXXX";
+	char line[VPN_SERVER_LEASE_LINE_SIZE];
+	char ifname[VPN_SERVER_LEASE_IFNAME_SIZE];
+	size_t line_length;
+
+	if (!disconnected_ifname || !remaining_clients ||
+	    !firewall_ppp_interface_is_safe(disconnected_ifname, VPN_SERVER_PPP_UNIT)) {
+		errno = EINVAL;
+		return -1;
+	}
+	*remaining_clients = 0;
+
+	/* Never turn a missing/unreadable source into an empty active-client list. */
+	lease_fd = open(VPN_SERVER_LEASE_FILE, O_RDONLY | O_NOFOLLOW);
+	if (lease_fd < 0)
+		goto failed;
+	if (fstat(lease_fd, &lease_stat) != 0)
+		goto failed;
+	if (!S_ISREG(lease_stat.st_mode) || lease_stat.st_uid != 0 ||
+	    lease_stat.st_nlink != 1 || (lease_stat.st_mode & 077) != 0) {
+		errno = EPERM;
+		goto failed;
+	}
+	input = fdopen(lease_fd, "r");
+	if (!input)
+		goto failed;
+	lease_fd = -1;
+
+	/* Do not create a replacement until the source inode passed validation. */
+	temp_fd = mkstemp(temp_path);
+	if (temp_fd < 0)
+		goto failed;
+	if (fchmod(temp_fd, S_IRUSR | S_IWUSR) != 0)
+		goto failed;
+	output = fdopen(temp_fd, "w");
+	if (!output)
+		goto failed;
+	temp_fd = -1;
+
+	for (;;) {
+		line_status = vpn_server_lease_read_line(input, line, sizeof(line),
+						 &line_length);
+		if (line_status == 0)
+			break;
+		if (line_status < 0)
+			goto failed;
+		if (vpn_server_lease_parse_line(line, line_length, ifname,
+						 sizeof(ifname)) != 0 ||
+		    !firewall_ppp_interface_is_safe(ifname, VPN_SERVER_PPP_UNIT)) {
+			errno = EINVAL;
+			goto failed;
+		}
+		if (vpn_server_lease_should_keep(ifname, disconnected_ifname)) {
+			if (fwrite(line, 1, line_length, output) != line_length) {
+				if (errno == 0)
+					errno = EIO;
+				goto failed;
+			}
+			++(*remaining_clients);
+		}
+	}
+	if (ferror(input)) {
+		if (errno == 0)
+			errno = EIO;
+		goto failed;
+	}
+	if (fclose(input) != 0) {
+		input = NULL;
+		if (errno == 0)
+			errno = EIO;
+		goto failed;
+	}
+	input = NULL;
+
+	if (fflush(output) != 0 || ferror(output)) {
+		if (errno == 0)
+			errno = EIO;
+		goto failed;
+	}
+	if (fclose(output) != 0) {
+		output = NULL;
+		if (errno == 0)
+			errno = EIO;
+		goto failed;
+	}
+	output = NULL;
+
+	if (rename(temp_path, VPN_SERVER_LEASE_FILE) != 0)
+		goto failed;
+	temp_path[0] = '\0';
+	return 0;
+
+failed:
+	saved_errno = errno ? errno : EIO;
+	if (input)
+		(void)fclose(input);
+	if (output)
+		(void)fclose(output);
+	if (lease_fd >= 0)
+		(void)close(lease_fd);
+	if (temp_fd >= 0)
+		(void)close(temp_fd);
+	if (temp_path[0] && unlink(temp_path) != 0 && errno != ENOENT)
+		logmessage(VPNS_LOG_NAME,
+			   "cannot remove temporary VPN lease inventory %s (errno=%d)",
+			   temp_path, errno);
+	*remaining_clients = 0;
+	errno = saved_errno;
+	return -1;
+}
+
 void
 get_vpns_pool(int i_vuse, unsigned int *ip_v, unsigned int *ip_m, unsigned int *vp_b, unsigned int *vp_e)
 {
@@ -530,13 +652,8 @@ ipup_vpns_main(int argc, char **argv)
 int
 ipdown_vpns_main(int argc, char **argv)
 {
-	FILE *fp1, *fp2;
-	int i_clients, lease_fd, temp_fd, write_failed;
-	struct stat lease_stat;
-	char ifname[16], addr_l[64], addr_r[64], name_p[64];
+	int i_clients, firewall_status, lease_status, cleanup_failed;
 	char *peer_name;
-	const char *clients_l1 = VPN_SERVER_LEASE_FILE;
-	char clients_l2[] = "/tmp/.vpns.leases.XXXXXX";
 	char *svcs[] = { "bcrelay", NULL };
 	const char *script_name = VPN_SERVER_UPDOWN_SCRIPT;
 
@@ -555,60 +672,20 @@ ipdown_vpns_main(int argc, char **argv)
 
 	umask(0000);
 
-	vpns_firewall_permission(argv[1], 0);
+	/* Keep the existing direct rule cleanup, but report its actual result. */
+	firewall_status = vpns_firewall_permission(argv[1], 0);
+	cleanup_failed = (firewall_status != 0);
+
 	vpns_route_to_remote_lan(peer_name, argv[1], NULL, 0);
 
-	i_clients = 0;
-	fp1 = NULL;
-	fp2 = NULL;
-
-	/* Read only a root-owned private regular file; don't follow shared-/tmp links. */
-	lease_fd = open(clients_l1, O_RDONLY | O_NOFOLLOW);
-	if (lease_fd >= 0) {
-		if (fstat(lease_fd, &lease_stat) == 0 &&
-		    S_ISREG(lease_stat.st_mode) &&
-		    lease_stat.st_uid == 0 &&
-		    lease_stat.st_nlink == 1 &&
-		    (lease_stat.st_mode & 077) == 0)
-			fp1 = fdopen(lease_fd, "r");
-
-		if (!fp1)
-			close(lease_fd);
-	}
-
-	/* mkstemp gives the replacement a unique 0600 pathname. */
-	temp_fd = mkstemp(clients_l2);
-	if (temp_fd >= 0) {
-		if (fchmod(temp_fd, S_IRUSR | S_IWUSR) == 0)
-			fp2 = fdopen(temp_fd, "w");
-		if (!fp2) {
-			close(temp_fd);
-			unlink(clients_l2);
-		}
-	}
-
-	if (fp1) {
-		while (fscanf(fp1, "%15s %63s %63s %63[^\n]\n", ifname, addr_l, addr_r, name_p) == 4) {
-			if (strcmp(ifname, argv[1])) {
-				i_clients++;
-				if (fp2)
-					fprintf(fp2, "%s %s %s %s\n", ifname, addr_l, addr_r, name_p);
-			}
-		}
-
-		fclose(fp1);
-	}
-
-	if (fp2) {
-		write_failed = 0;
-		if (fflush(fp2) != 0 || ferror(fp2))
-			write_failed = 1;
-		if (fclose(fp2) != 0)
-			write_failed = 1;
-		if (!write_failed && rename(clients_l2, clients_l1) == 0)
-			clients_l2[0] = '\0';
-		if (clients_l2[0])
-			unlink(clients_l2);
+	/* A failed or incomplete read must leave the last-known-good index intact.
+	 * Do not infer that all clients are gone when the inventory is unknown. */
+	lease_status = vpns_prune_lease_file(argv[1], &i_clients);
+	if (lease_status != 0) {
+		logmessage(VPNS_LOG_NAME,
+			   "cannot safely prune VPN lease inventory (errno=%d); preserving existing file",
+			   errno);
+		cleanup_failed = 1;
 	}
 
 	if (check_if_file_exist(script_name)) {
@@ -618,9 +695,11 @@ ipdown_vpns_main(int argc, char **argv)
 		_eval(hook_argv, NULL, 0, NULL);
 	}
 
-	if ((i_clients == 0 || nvram_get_int("vpns_cast") == 0) && pids(svcs[0]))
+	if (((lease_status == 0 && i_clients == 0) ||
+	     nvram_get_int("vpns_cast") == 0) && pids(svcs[0]))
 		kill_services(svcs, 3, 1);
 
-	return 0;
+	return cleanup_failed ? -1 : 0;
 }
+
 
