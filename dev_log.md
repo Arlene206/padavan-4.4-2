@@ -1,3 +1,16 @@
+## 2026-11-09 02:42 CST — Propagate switch WAN PVID read failures instead of returning the default
+
+- **Base main HEAD:** `b3e555cc4df630896ae85a6fe09023b83dd02748`.
+- **Production + policy-test commit:** `cea7ea5496345d4d8d3886aa11ff570bce0c118e` — `fix(switch): propagate VLAN PVID read failures`.
+- **Workflow source-contract correction:** `7693832bf3869632ef981b22acb5013031b1b94f` — corrected the source extraction anchor to match the actual one-line `static int show_vlan_pvid_wan(void)` definition.
+- **Scope / finding:** resumed the queued Wireless/MTK switch audit. Both `phy_vlan_pvid_wan_get()` implementations discarded positive-errno ioctl failures and returned the initialized PVID 2. The matching CLI status functions also printed the fallback 2 even when the switch device read failed.
+- **Fix / changed paths:** added `switch_status_read_vlan_pvid()` to `trunk/user/rc/src/switch_status_policy.h`; captured and normalized ioctl results in `switch_mtk_esw.c` and `switch_rtl8367.c`; made both CLI status readers return the failure before output; documented the public return contract in `switch.h`; extended `tests/switch_status_policy.c`. Workflow contracts now check both drivers and CLI failure-before-print behavior. Paths: `trunk/user/rc/src/{switch.h,switch_status_policy.h,tests/switch_status_policy.c,switch_mtk_esw.c,switch_rtl8367.c}`, `.github/workflows/httpd-security.yml`.
+- **Regression / CI:** the GNU89 `-Wall -Wextra -Werror` host executable passed and printed `Switch port-byte and VLAN PVID error propagation policy: PASS` during run [42511206908](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42511206908), but the run then failed at the Python source-contract step because the contract expected a split-line function signature. This was a workflow-contract defect, not a C test failure. Workflow-only follow-up `7693832bf3869632ef981b22acb5013031b1b94f` fixed the anchor. Exact-head Actions run [42511306190](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42511306190) on that SHA was **PENDING / IN PROGRESS** at the time of this log entry; do not claim final CI success.
+- **Validation limits:** L1 source review PASS; L2 host test executable PASS, corrected exact-head workflow/source-contract PENDING. Complete production switch translation units, MIPS/uClibc, firmware/TRX, actual switch behavior and physical hardware NOT RUN. No repository-wide consumer/callsite closure is claimed.
+- **Next:** verify exact-head run 42511306190 on 7693832bf3869632ef981b22acb5013031b1b94f. Then resume wireless ioctl cleanup at `ralink.c::wl_ioctl()`, tracing callers before normalizing socket/open/ioctl/close status; keep the Wireless row AUDITING.
+
+---
+
 ## 2026-11-09 02:35 CST — Preserve wireless reload marker lifecycle during restart preflight
 
 - **Base main HEAD:** `9629dc21091a2f70f1ae54db7ecafe225fc9b39c` (the previous docs checkpoint).
