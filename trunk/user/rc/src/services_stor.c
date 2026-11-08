@@ -43,6 +43,7 @@
 #include "ftp_share_policy.h"
 #include "storage_mount_inventory_policy.h"
 #include "storage_ejected_inventory_policy.h"
+#include "storage_nfs_export_policy.h"
 #include "switch.h"
 
 void
@@ -866,30 +867,94 @@ void restart_smbd(void)
 #endif
 
 #if defined (APP_NFSD)
-static void
+static int
 write_nfsd_exports(void)
 {
-	FILE *procpt, *fp;
-	char line[512], devname[32], mpname[256], fstype[32], fsmode[4], acl_lan[32], acl_vpn[32];
+	FILE *procpt = NULL, *fp = NULL;
+	char line[512], devname[32], mpname[256], fstype[32], fsmode[256];
+	char acl_lan[32], acl_vpn[32], staged_path[] = "/etc/.exports.XXXXXX";
 	const char *exports_link = "/etc/storage/exports";
 	const char *exports_file = "/etc/exports";
 	const char *exports_rule = "async,insecure,no_root_squash,no_subtree_check";
 	char *nfsmm, *acl_addr, *acl_mask;
+	int fd = -1, read_error, close_error, parse_error = 0;
+	int close_status, output_error = 0, saved_errno = 0;
 #if defined (USE_IPV6)
 	int ipv6_type;
-	char *acl_addr6, *acl_len6;
+	char *acl_addr6 = NULL, *acl_len6 = NULL;
 #endif
 
-	unlink(exports_file);
-
+	/*
+	 * Preserve an operator-provided exports file as a symlink, but publish
+	 * the replacement atomically so a failed symlink/rename leaves the old
+	 * NFS configuration intact.
+	 */
 	if (check_if_file_exist(exports_link)) {
-		symlink(exports_link, exports_file);
-		return;
+		fd = mkstemp(staged_path);
+		if (fd < 0)
+			return -1;
+		if (close(fd) != 0) {
+			saved_errno = errno;
+			unlink(staged_path);
+			errno = saved_errno;
+			return -1;
+		}
+		if (unlink(staged_path) != 0) {
+			saved_errno = errno;
+			unlink(staged_path);
+			errno = saved_errno;
+			return -1;
+		}
+		if (symlink(exports_link, staged_path) != 0) {
+			saved_errno = errno;
+			unlink(staged_path);
+			errno = saved_errno;
+			return -1;
+		}
+		if (rename(staged_path, exports_file) != 0) {
+			saved_errno = errno;
+			unlink(staged_path);
+			errno = saved_errno;
+			logmessage("Storage", "cannot publish custom NFS exports link (errno %d)", saved_errno);
+			return -1;
+		}
+		return 0;
 	}
 
-	fp = fopen(exports_file, "w");
-	if (!fp)
-		return;
+	procpt = fopen(PROC_MOUNTS_FILE, "r");
+	if (!procpt) {
+		saved_errno = errno ? errno : EIO;
+		logmessage("Storage", "cannot open %s while generating NFS exports (errno %d)",
+			   PROC_MOUNTS_FILE, saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
+
+	fd = mkstemp(staged_path);
+	if (fd < 0) {
+		saved_errno = errno ? errno : EIO;
+		fclose(procpt);
+		errno = saved_errno;
+		return -1;
+	}
+	if (fchmod(fd, 0644) != 0) {
+		saved_errno = errno ? errno : EIO;
+		close(fd);
+		fclose(procpt);
+		unlink(staged_path);
+		errno = saved_errno;
+		return -1;
+	}
+	fp = fdopen(fd, "w");
+	if (!fp) {
+		saved_errno = errno ? errno : EIO;
+		close(fd);
+		fclose(procpt);
+		unlink(staged_path);
+		errno = saved_errno;
+		return -1;
+	}
+	fd = -1;
 
 	acl_addr = nvram_safe_get("lan_ipaddr_t");
 	acl_mask = nvram_safe_get("lan_netmask_t");
@@ -920,45 +985,79 @@ write_nfsd_exports(void)
 		} else
 #endif
 			ip2class(acl_addr, acl_mask, acl_vpn, sizeof(acl_vpn));
-		
+
 		if (strcmp(acl_lan, acl_vpn) == 0)
 			acl_vpn[0] = 0;
 	}
 
 	fprintf(fp, "# %s\n\n", "auto-created file");
 
-	procpt = fopen(PROC_MOUNTS_FILE, "r");
-	if (procpt) {
-		while (fgets(line, sizeof(line), procpt)) {
-			if (sscanf(line, "%31s %255s %31s %3[^\n]", devname, mpname, fstype, fsmode) != 4)
-				continue;
-			
-			if (strcmp(fstype, "fuseblk") == 0)
-				continue;
-			
-			if (!is_valid_storage_device(devname))
-				continue;
-			
-			if (strncmp(mpname, "/media/", 7) == 0) {
-				fsmode[2] = 0;
-				nfsmm = (strcmp(fsmode, "ro") == 0) ? "ro" : "rw";
-				fprintf(fp, "%s\t", mpname);
-				fprintf(fp, " %s(%s,%s)", acl_lan, nfsmm, exports_rule);
-#if defined (USE_IPV6)
-				if ((ipv6_type != IPV6_DISABLED) && (*acl_addr6) && (*acl_len6)) {
-					fprintf(fp, " %s/%s(%s,%s)", acl_addr6, acl_len6, nfsmm, exports_rule);
-				}
-#endif
-				if (acl_vpn[0])
-					fprintf(fp, " %s(%s,%s)", acl_vpn, nfsmm, exports_rule);
-				fprintf(fp, "\n");
-			}
+	while (fgets(line, sizeof(line), procpt)) {
+		if (storage_nfs_export_parse_mount_line(line,
+				devname, sizeof(devname), mpname, sizeof(mpname),
+				fstype, sizeof(fstype), fsmode, sizeof(fsmode)) != 0) {
+			parse_error = 1;
+			break;
 		}
-		
-		fclose(procpt);
+
+		if (strcmp(fstype, "fuseblk") == 0)
+			continue;
+
+		if (!is_valid_storage_device(devname))
+			continue;
+
+		if (strncmp(mpname, "/media/", 7) == 0) {
+			nfsmm = (strncmp(fsmode, "ro", 2) == 0) ? "ro" : "rw";
+			fprintf(fp, "%s\t", mpname);
+			fprintf(fp, " %s(%s,%s)", acl_lan, nfsmm, exports_rule);
+#if defined (USE_IPV6)
+			if ((ipv6_type != IPV6_DISABLED) && acl_addr6 && acl_len6 &&
+			    (*acl_addr6) && (*acl_len6)) {
+				fprintf(fp, " %s/%s(%s,%s)", acl_addr6, acl_len6, nfsmm, exports_rule);
+			}
+#endif
+			if (acl_vpn[0])
+				fprintf(fp, " %s(%s,%s)", acl_vpn, nfsmm, exports_rule);
+			fprintf(fp, "\n");
+		}
 	}
 
-	fclose(fp);
+	read_error = ferror(procpt);
+	close_status = fclose(procpt);
+	procpt = NULL;
+	close_error = (close_status != 0);
+	if (!storage_nfs_export_may_publish(1, read_error, close_error, parse_error)) {
+		saved_errno = errno ? errno : EIO;
+		logmessage("Storage", "refusing to publish incomplete %s while generating NFS exports (read error=%d, close error=%d, malformed/truncated row=%d)",
+			   PROC_MOUNTS_FILE, read_error, close_error, parse_error);
+		fclose(fp);
+		unlink(staged_path);
+		errno = saved_errno;
+		return -1;
+	}
+
+	if (ferror(fp) || fflush(fp) != 0)
+		output_error = 1;
+	if (fclose(fp) != 0)
+		output_error = 1;
+	fp = NULL;
+	if (output_error) {
+		saved_errno = errno ? errno : EIO;
+		logmessage("Storage", "cannot complete staged NFS exports (errno %d)", saved_errno);
+		unlink(staged_path);
+		errno = saved_errno;
+		return -1;
+	}
+
+	if (rename(staged_path, exports_file) != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage("Storage", "cannot publish generated NFS exports (errno %d)", saved_errno);
+		unlink(staged_path);
+		errno = saved_errno;
+		return -1;
+	}
+
+	return 0;
 }
 
 void unload_nfsd(void)
@@ -974,23 +1073,36 @@ void stop_nfsd(void)
 	eval("/usr/bin/nfsd.sh", "stop");
 }
 
-void run_nfsd(void)
+void
+run_nfsd(void)
 {
+	int export_status;
+
 	if (nvram_invmatch("nfsd_enable", "1"))
 		return;
 
-	// always update nfsd exports
-	write_nfsd_exports();
+	export_status = write_nfsd_exports();
+	if (!storage_nfs_export_may_start(1, export_status)) {
+		logmessage("Storage", "NFS start skipped because exports could not be generated safely");
+		return;
+	}
 
 	eval("/usr/bin/nfsd.sh", "start");
 }
 
-void reload_nfsd(void)
+void
+reload_nfsd(void)
 {
+	int export_status;
+
 	if (nvram_invmatch("nfsd_enable", "1"))
 		return;
 
-	write_nfsd_exports();
+	export_status = write_nfsd_exports();
+	if (!storage_nfs_export_may_start(1, export_status)) {
+		logmessage("Storage", "NFS reload skipped because exports could not be generated safely");
+		return;
+	}
 
 	eval("/usr/bin/nfsd.sh", "reload");
 }

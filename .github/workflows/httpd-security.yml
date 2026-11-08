@@ -130,6 +130,8 @@ on:
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/storage_ejected_inventory_policy.h"
       - "trunk/user/rc/src/tests/storage_ejected_inventory_policy.c"
+      - "trunk/user/rc/src/storage_nfs_export_policy.h"
+      - "trunk/user/rc/src/tests/storage_nfs_export_policy.c"
       - "trunk/user/rc/src/storage_mount_inventory_policy.h"
       - "trunk/user/rc/src/tests/storage_mount_inventory_policy.c"
       - "trunk/user/rc/src/hotplug_usb.c"
@@ -345,6 +347,8 @@ on:
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/storage_ejected_inventory_policy.h"
       - "trunk/user/rc/src/tests/storage_ejected_inventory_policy.c"
+      - "trunk/user/rc/src/storage_nfs_export_policy.h"
+      - "trunk/user/rc/src/tests/storage_nfs_export_policy.c"
       - "trunk/user/rc/src/storage_mount_inventory_policy.h"
       - "trunk/user/rc/src/tests/storage_mount_inventory_policy.c"
       - "trunk/user/rc/src/hotplug_usb.c"
@@ -4131,4 +4135,60 @@ jobs:
               assert '"' + path + '"' in pr
 
           print("HTTPD switch ioctl failure and counter publication contracts: OK")
+          PY
+- name: Verify NFS exports require a complete mount inventory
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/storage_nfs_export_policy.c \
+            -o "$RUNNER_TEMP/storage_nfs_export_policy"
+          "$RUNNER_TEMP/storage_nfs_export_policy"
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/user/rc/src/services_stor.c").read_text()
+          policy = Path("trunk/user/rc/src/storage_nfs_export_policy.h").read_text()
+          workflow = Path(".github/workflows/httpd-security.yml").read_text()
+
+          def body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          writer = body(source, "write_nfsd_exports(void)")
+          starter = body(source, "run_nfsd(void)")
+          reloader = body(source, "reload_nfsd(void)")
+          assert "storage_nfs_export_parse_mount_line" in writer
+          assert "storage_nfs_export_may_publish" in writer
+          assert "ferror(procpt)" in writer and "fclose(procpt)" in writer
+          assert "mkstemp(staged_path)" in writer
+          assert "rename(staged_path, exports_file)" in writer
+          assert "unlink(exports_file)" not in writer
+          assert "storage_nfs_export_may_start" in policy
+          for function, action in ((starter, '"start"'), (reloader, '"reload"')):
+              assert "write_nfsd_exports()" in function
+              assert "storage_nfs_export_may_start" in function
+              assert function.index("storage_nfs_export_may_start") < function.index("eval(")
+              assert action in function
+          paths = (
+              "trunk/user/rc/src/services_stor.c",
+              "trunk/user/rc/src/storage_nfs_export_policy.h",
+              "trunk/user/rc/src/tests/storage_nfs_export_policy.c",
+          )
+          push = workflow.split("  pull_request:", 1)[0]
+          pr = workflow.split("  workflow_dispatch:", 1)[0].split("  pull_request:", 1)[1]
+          for path in paths:
+              assert push.count('"' + path + '"') == 1
+              assert pr.count('"' + path + '"') == 1
+
+          print("NFS export inventory atomic publication and start/reload failure gates: OK")
           PY
