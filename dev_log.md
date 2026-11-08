@@ -1,3 +1,15 @@
+## 2026-11-09 02:51 CST — Correct Ralink wireless ioctl regression PR path filtering
+
+- **Base main HEAD:** 6fd33a513653a1d129d14c49ca37c2b0ef6a0c49.
+- **Workflow-only correction commit:** 1682006374bb31895375f01b9b94829bf71d3345 — add the wireless ioctl policy header and regression test to the actual pull_request path filter.
+- **CI failure inspected:** Actions run 42511836306 on exact source SHA b9845d577186940f8d0384cccceeb6910fbb34e9 failed at the Python source contract: the new test/header paths existed in push filters but were absent from pull_request filters. The GNU89 policy binary compiled and printed PASS before the assertion. No code-test failure was observed.
+- **Correction:** added trunk/user/rc/src/wireless_ioctl_policy.h and trunk/user/rc/src/tests/wireless_ioctl_policy.c to the PR filter. Push filter entries remain. No production-source change in this follow-up.
+- **Current Actions:** exact-head run 42512055660 on 1682006374bb31895375f01b9b94829bf71d3345 was QUEUED / PENDING at this record update. Must inspect its conclusion before claiming completion.
+- **Validation:** previous local GNU89 -Wall -Wextra -Werror regression and ASan/UBSan runs PASS. The failed Actions attempt demonstrates the new C policy test ran and passed; only the PR-filter source contract failed. Full ralink.c production compile, MIPS/uClibc, firmware/TRX and hardware NOT RUN.
+- **Next:** fetch run 42512055660 and verify exact SHA; correct any remaining CI failure before starting another task.
+
+---
+
 ## 2026-11-09 02:49 CST — Normalize Ralink wireless ioctl and socket cleanup errors
 
 - **Base main HEAD:** f114d6bcba6d500d65cb5f59c83b94116d34e600.
