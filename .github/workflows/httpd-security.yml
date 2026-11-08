@@ -1472,7 +1472,7 @@ jobs:
           renew = wan[renew_start:renew_end]
           assert renew.count("dhcp_lease_route_text_is_safe(value)") >= 6
           assert "dnsmasq domain-specific server routing too" in renew
-          assert "update_resolvconf(0, 0);" in renew
+          assert 'refresh_resolvconf_nonfatal("WAN DHCP renewal", 0);' in renew
           assert "void\ndel_dhcp_routes_by_prefix" in wan
           assert "void del_dhcp_routes_by_prefix(char *prefix, char *ifname, int metric);" in header
 
@@ -1489,7 +1489,7 @@ jobs:
           man_down = wan[man_start:man_end]
           assert 'route_del(man_ifname, 2, "0.0.0.0", man_gate, "0.0.0.0");' in man_down
           assert "del_static_man_routes(man_ifname);" in man_down
-          assert "update_resolvconf(0, 0);" in man_down
+          assert 'refresh_resolvconf_nonfatal("MAN down", 0);' in man_down
           assert 'notify_rc("restart_firewall_wan");' in man_down
           print("DHCP lease normalization, route reconciliation, and resolver refresh contracts: OK")
           PY
