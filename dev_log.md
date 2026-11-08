@@ -1,3 +1,17 @@
+## 2026-11-09 02:49 CST — Normalize Ralink wireless ioctl and socket cleanup errors
+
+- **Base main HEAD:** f114d6bcba6d500d65cb5f59c83b94116d34e600.
+- **Source + policy-test + workflow commit:** b9845d577186940f8d0384cccceeb6910fbb34e9 — fix(wireless): normalize ioctl and socket cleanup errors.
+- **Recovered task:** resumed the exact wireless ralink.c::wl_ioctl() task queued by the previous handoff after verifying the preceding exact-head Actions run 42511306190 succeeded on 7693832bf3869632ef981b22acb5013031b1b94f.
+- **Caller trace / finding:** the file-static wl_ioctl() has one direct caller, get_apcli_connected(), which interprets any non-negative result as a successful ioctl. The wrapper returned positive socket errno on socket failure, generic -1 for ioctl failure, and ignored close() errors. The declaration of get_apcli_connected() is public in rc.h; GitHub indexed-code search did not prove the complete set of external callers.
+- **Implementation / changed paths:** new wireless_ioctl_policy.h maps positive errno to negative errno and uses -EIO when errno is unavailable. ralink.c captures socket/ioctl/close errno before logging; ioctl failure takes precedence over close failure, while close failure is returned after successful ioctl. No unsafe close retry is added. New tests/wireless_ioctl_policy.c covers socket errno, zero errno, ioctl/close precedence, close-only failure and success. Paths: trunk/user/rc/src/{ralink.c,wireless_ioctl_policy.h,tests/wireless_ioctl_policy.c}, .github/workflows/httpd-security.yml; push and PR path filters include the new header/test.
+- **Local tests:** GNU89 -Wall -Wextra -Werror compile/run PASS; AddressSanitizer + UndefinedBehaviorSanitizer with leak detection PASS. Output: “Ralink wireless ioctl errors preserve operation failure and report close failure: PASS”.
+- **Actions:** exact-head run 42511836306 on b9845d577186940f8d0384cccceeb6910fbb34e9 was IN_PROGRESS / PENDING at documentation time; the new test/source-contract job step is “Verify Ralink wireless ioctl error propagation and socket cleanup”. Earlier exact-head run 42511306190 on 7693832bf3869632ef981b22acb5013031b1b94f completed SUCCESS, 36/36 steps.
+- **Validation limits:** L1 source review PASS; L2 local GNU89 + ASan/UBSan policy test PASS; exact-head Actions PENDING. CI source contract does not compile the full production ralink.c translation unit. MIPS/uClibc, complete firmware/TRX, live wireless query and hardware NOT RUN.
+- **Next:** verify run 42511836306 against the exact head. Once green, continue scan/association parsing and switch link/speed result contracts without closing the Wireless module.
+
+---
+
 ## 2026-11-09 02:42 CST — Propagate switch WAN PVID read failures instead of returning the default
 
 - **Base main HEAD:** `b3e555cc4df630896ae85a6fe09023b83dd02748`.
