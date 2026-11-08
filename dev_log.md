@@ -1,3 +1,18 @@
+## 2026-11-09 02:35 CST — Preserve wireless reload marker lifecycle during restart preflight
+
+- **Base main HEAD:** `9629dc21091a2f70f1ae54db7ecafe225fc9b39c` (the previous docs checkpoint).
+- **Production ordering follow-up:** `0fa21090339a8980a3a711fae56bb806fabcdfbc` — `fix(wireless): preserve reload marker lifecycle ordering`.
+- **Recovered scope:** after the config-before-stop change was green on the previous exact source/workflow head, re-reviewed the `reload_svc_rt/wl` temporary marker placement to avoid unnecessary behavior changes.
+- **Finding / compatibility refinement:** the first preflight patch moved the marker from its original post-stop/pre-start location to before service stops. That would change established reload-state timing on otherwise successful restarts. There was no need to make that semantic change to close the failure window.
+- **Implementation:** kept `wireless_restart_preflight()` before every selected-band or DBDC cross-band stop, but moved the existing marker assignment back to after all relevant stop calls and immediately before service start. On generator failure, the functions still return before stopping any radio. On success, marker timing remains as in the original lifecycle.
+- **Changed paths:** `trunk/user/rc/src/net_wifi.c`, `.github/workflows/httpd-security.yml`.
+- **Workflow contract:** now asserts for both 2.4GHz and 5GHz that preflight and the failure return precede the first stop, then verifies `last_stop < reload_marker < first_start`; preserves push/PR filter checks for the new helper and test.
+- **Exact-head Actions:** [run 42510704060](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42510704060) on exact SHA `0fa21090339a8980a3a711fae56bb806fabcdfbc` completed **SUCCESS**, 36/36 steps passed; both wireless config atomic publication and restart preflight/marker ordering steps passed.
+- **Validation limits:** source-order/compatibility review PASS. The helper's GNU89 `-Wall -Wextra -Werror` host regression and ASan/UBSan run passed in the previous source round; this follow-up keeps that helper/test unchanged. No complete RC production object, MIPS/uClibc build, full firmware/TRX, live wireless stack or physical hardware test was run.
+- **Next:** continue wireless management audit with scan/association parsing and remaining ioctl result/buffer contracts; keep the module AUDITING.
+
+---
+
 ## 2026-11-09 02:33 CST — Preflight radio config before destructive wireless restart
 
 - **Base main HEAD:** `1fa703acc92f09914f3de943262e1f2ea15e5648`.
