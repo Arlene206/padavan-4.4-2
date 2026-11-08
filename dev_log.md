@@ -1,3 +1,18 @@
+## 2026-11-08 14:44 UTC — Normalize MTK/RTL switch port-counter ioctl errors
+
+- **Base main HEAD:** `a1bb5a8d41b6c4c237e9af42ad612b403b27fdd3`.
+- **Implementation/test/workflow commit:** `646c29081e07359391e830b89929f14a5abacdb8`. **Workflow PR-filter correction:** `d943c4a138afce543bef45c4e362dccedf2871aa`.
+- **Recovered task:** previous `SESSION_HANDOFF.md` directed verification of positive-errno return values from `switch_mtk_esw.c` / `switch_rtl8367.c`, the `phy_status_port_bytes()` output path, all callers, and descriptor close handling.
+- **Finding:** both driver ioctl wrappers return positive `errno` on open/ioctl failure, while `phy_status_port_bytes()` tested only `<0`; it then copied potentially uninitialized `port_bytes_t` fields to caller outputs. The `rstats.c` caller itself also checks `<0`, so the positive errno was treated as an accepted sample and could corrupt the port traffic history. Both wrappers ignored `close(fd)` failure.
+- **Fix:** added `switch_status_policy.h` with a shared publication policy that rejects null destinations, converts positive errno to negative errno, preserves negative failures and publishes RX/TX only when the ioctl path returns zero. Both driver implementations validate pointers, zero their local `port_bytes_t` before ioctl and use the shared helper. Both ioctl wrappers now check `close()` and propagate close failure if there is no earlier error.
+- **Changed paths:** `trunk/user/rc/src/switch_mtk_esw.c`, `switch_rtl8367.c`, new `switch_status_policy.h`, new `tests/switch_status_policy.c`, `.github/workflows/httpd-security.yml`. `rstats.c` / `switch.h` were inspected and asserted by CI; caller/API unchanged.
+- **Host tests:** GNU89 `-Wall -Wextra -Werror` compile/run PASS. ASan/UBSan with leak detection PASS. Cases: success copies both counters; `EIO`/`ENODEV`/`EBADF` normalize to negative and don't mutate outputs; already-negative errors remain negative; null outputs reject with `-EINVAL`.
+- **Actions:** `42491291207` on exact code head `646c29081e07359391e830b89929f14a5abacdb8` compiled and passed the new policy test but failed in the new source-contract step because the new paths were present in `push.paths` but missing from `pull_request.paths`. Added the six paths to PR filters in `d943c4a138afce543bef45c4e362dccedf2871aa`; exact corrected-head run `42491385478` was queued when this log was written. Record the result after rechecking.
+- **Validation boundary:** policy and source-contract coverage only; production switch-driver translation units not built. MIPS/uClibc, full firmware/TRX and actual switch hardware NOT RUN. `close()` failure is source-checked but not device-level fault-injected. The broader wireless module remains **AUDITING**.
+- **Next:** rotate to DNS/DHCP/resolver reliability. Trace dnsmasq config generation and publication, resolver-file trust/ownership, service restart/rollback and error propagation; pick one bounded P1/P2 issue and add a focused host regression + source contract. Retain wireless switch link/speed/VLAN conventions, radio restart failure ordering and scan/association parsing for later rounds.
+
+---
+
 ## 2026-11-08 22:35 CST — Publish Ralink wireless configuration atomically and gate radio restart on generation success
 
 - **Base main HEAD:** `414eb1ea69bee85efa2f5faf136d9bfcff5ca3a6`.

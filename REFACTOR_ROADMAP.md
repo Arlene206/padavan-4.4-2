@@ -1,3 +1,12 @@
+## 2026-11-08 — Normalize MTK/RTL switch port-counter I/O failures
+
+- **Module / priority:** Wireless management / MTK switch interfaces, P1/P2 traffic-counter reliability. The broader wireless module remains **AUDITING**.
+- **Finding:** both switch ioctl wrappers use zero for success and positive `errno` on open/ioctl failure, while `phy_status_port_bytes()` checked only `< 0`; it copied uninitialized counter bytes and returned positive errno. `rstats.c` also checks only `< 0`, so it could consume the failed sample as valid traffic. The wrappers ignored descriptor close errors.
+- **Fix:** shared `switch_status_policy.h` normalizes positive errno to negative, preserves negative errors, validates destinations and publishes RX/TX only on success. Both switch drivers initialize the local counter structure and use the policy. Their ioctl wrappers now propagate close failure unless an earlier error already exists.
+- **Validation:** GNU89 `-Wall -Wextra -Werror` regression and ASan/UBSan run PASS. Exact code head `646c29081e07359391e830b89929f14a5abacdb8` Actions run `42491291207` passed the new C regression but failed its PR path-filter assertion; the missing PR paths were added in workflow-only commit `d943c4a138afce543bef45c4e362dccedf2871aa`. Exact corrected-head Actions run `42491385478` was pending at this documentation checkpoint; recheck before marking PASS. Production switch translation units, MIPS/uClibc, TRX and physical hardware NOT RUN.
+
+---
+
 ## 2026-11-08 22:00 CST — Gate RC defaults, reset and PID 1 startup on durable NVRAM persistence
 
 - **Module / priority:** NVRAM/configuration persistence, P1 data-integrity and boot reliability. The module remains **AUDITING**.
