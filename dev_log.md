@@ -1,3 +1,17 @@
+## 2026-11-08 18:50 CST — Fail closed on NVRAM profile I/O
+
+- **Base HEAD:** `de3b3486f5e2c49b747ff7e8a247f3a7daedd7c4`.
+- **Code / regression / workflow commit:** `2c608709dcf7cd2f74f454f2cdae8a47af107a46` — `fix(nvram): reject incomplete profile restores`.
+- **Defect:** `nvram_save()` ignored the `nvram_getall()` result and stdio write/close errors, potentially reporting an empty or partial backup as success. `nvram_restore()` trusted a raw HDR1 length, did not validate HDR2 complete reads, and cleared live NVRAM before the full payload was validated; clear/set errors were ignored.
+- **Implementation:** new `nvram_profile_policy.h` parses HDR1 32-bit LE/HDR2 24-bit lengths with bounds, rejects zero/unknown/oversized profiles, validates bounded NUL-delimited name=value records and padding, and decodes HDR2 payloads. Restore now checks exact reads, EOF/trailing bytes, ferror/fclose and complete payload before clear; clear/set errors propagate. Save checks get-all before opening the file and validates every write/close; the existing 1 KiB padding layout is preserved with a single sentinel block.
+- **Changed paths:** `trunk/user/nvram/src/nvram.c`; new `trunk/user/nvram/src/nvram_profile_policy.h`; new `trunk/user/nvram/src/tests/nvram_profile_policy.c`; `.github/workflows/httpd-security.yml`.
+- **Host test:** `cc -std=gnu89 -Wall -Wextra -Werror` compile and execution PASS (`NVRAM profile policy: PASS`).
+- **GitHub Actions:** run [42472927950](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42472927950) completed **SUCCESS** on exact `head_sha=2c608709dcf7cd2f74f454f2cdae8a47af107a46`; all 28 job steps passed, including the new NVRAM policy regression and source-contract step.
+- **Validation boundary / remaining risks:** L1 source review and L2 host/Actions PASS. MIPS/uClibc target compile, full firmware/TRX, target restore behavior and hardware validation NOT RUN. Restore can still leave partial configuration if a variable set fails after clear; profile saving is not atomic. `nvram_x.c` and all RC/HTTPD commit/save callers remain under audit.
+- **Next action:** continue with `trunk/user/httpd/src/nvram_x.c` and RC callers; trace set/unset/clear/commit and temp/persistent writes, and implement one bounded partial-update or lost-commit stability fix. Keep NVRAM AUDITING and maintain whole-userland rotation.
+
+---
+
 ## 2026-11-08 18:16 CST — Fail closed on incomplete ejected-storage inventories
 
 - **Base HEAD:** `e2732c4a87fda124c8adace03a285f20df51b47e`.
