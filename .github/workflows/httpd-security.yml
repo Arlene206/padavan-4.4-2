@@ -172,6 +172,9 @@ on:
       - "trunk/user/rc/src/tests/firewall_hook_file.c"
       - "trunk/user/rc/src/firewall_command_status.h"
       - "trunk/user/rc/src/tests/firewall_command_status.c"
+      - "trunk/user/rc/src/firewall_startup_policy.h"
+      - "trunk/user/rc/src/tests/firewall_startup_policy.c"
+      - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/firewall_restore_transaction.h"
       - "trunk/user/rc/src/firewall_adbyby_restore_policy.h"
       - "trunk/user/rc/src/tests/firewall_adbyby_restore_policy.c"
@@ -361,6 +364,9 @@ on:
       - "trunk/user/rc/src/tests/firewall_hook_file.c"
       - "trunk/user/rc/src/firewall_command_status.h"
       - "trunk/user/rc/src/tests/firewall_command_status.c"
+      - "trunk/user/rc/src/firewall_startup_policy.h"
+      - "trunk/user/rc/src/tests/firewall_startup_policy.c"
+      - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/firewall_restore_transaction.h"
       - "trunk/user/rc/src/firewall_adbyby_restore_policy.h"
       - "trunk/user/rc/src/tests/firewall_adbyby_restore_policy.c"
@@ -2069,6 +2075,11 @@ jobs:
           /tmp/firewall_command_status
           cc -std=gnu89 -Wall -Wextra -Werror \
             -Itrunk/user/rc/src \
+            trunk/user/rc/src/tests/firewall_startup_policy.c \
+            -o /tmp/firewall_startup_policy
+          /tmp/firewall_startup_policy
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -Itrunk/user/rc/src \
             trunk/user/rc/src/tests/firewall_restore_transaction.c \
             -o /tmp/firewall_restore_transaction
           /tmp/firewall_restore_transaction
@@ -2081,6 +2092,10 @@ jobs:
           status_test = Path("trunk/user/rc/src/tests/firewall_command_status.c").read_text()
           transaction_helper = Path("trunk/user/rc/src/firewall_restore_transaction.h").read_text()
           transaction_test = Path("trunk/user/rc/src/tests/firewall_restore_transaction.c").read_text()
+          startup_policy = Path("trunk/user/rc/src/firewall_startup_policy.h").read_text()
+          startup_test = Path("trunk/user/rc/src/tests/firewall_startup_policy.c").read_text()
+          rc_source = Path("trunk/user/rc/src/rc.c").read_text()
+          rc_header = Path("trunk/user/rc/src/rc.h").read_text()
           adbyby_policy = Path("trunk/user/rc/src/firewall_adbyby_restore_policy.h").read_text()
           adbyby_policy_test = Path("trunk/user/rc/src/tests/firewall_adbyby_restore_policy.c").read_text()
           shutils = Path("trunk/user/shared/src/shutils.c").read_text()
@@ -2187,6 +2202,30 @@ jobs:
           assert "cleanup_failed" in transaction_helper
           assert "typedef int (*firewall_restore_remove_fn)" in transaction_helper
           assert "firewall_restore_transaction_finish" in transaction_test
+          # Initial boot must not expose WAN until restrictive filters are installed.
+          assert "firewall_startup_policy_allows_wan" in startup_policy
+          assert "firewall_startup_policy_allows_wan(1, 0, 1, -1)" in startup_test
+          assert "firewall_startup_policy_allows_wan(0, -1, 1, -1)" in startup_test
+          assert "int ipt_nat_default(void);" in rc_header
+          assert "int ipt_filter_default(void);" in rc_header
+          assert "int ip6t_filter_default(void);" in rc_header
+          assert "int\\nipt_filter_default(void)" in firewall
+          assert "int\\nip6t_filter_default(void)" in firewall
+          assert "int\\nipt_nat_default(void)" in firewall
+          assert "return result;" in firewall[firewall.index("ipt_filter_default(void)"):firewall.index("ip6t_filter_default(void)")]
+          assert "return result;" in firewall[firewall.index("ip6t_filter_default(void)"):firewall.index("ipt_nat_rules(")]
+          boot_start = rc_source.index("if (!is_ap_mode) {", rc_source.index("start_dns_dhcpd(is_ap_mode);"))
+          boot_end = rc_source.index("start_services_once(is_ap_mode);", boot_start)
+          boot = rc_source[boot_start:boot_end]
+          assert "nat_restore_status = ipt_nat_default();" in boot
+          assert "ipv4_filter_status = ipt_filter_default();" in boot
+          assert "ipv6_filter_status = ip6t_filter_default();" in boot
+          assert "get_ipv6_type() != IPV6_DISABLED" in boot
+          assert "firewall_startup_policy_allows_wan" in boot
+          assert boot.index("firewall_startup_policy_allows_wan") < boot.index("start_wan();")
+          assert "set_ipv4_forward(0);" in boot
+          assert 'set_interface_conf_int("ipv6", "all", "forwarding", 0);' in boot
+          print("Early WAN startup fails closed when an active firewall filter cannot be installed: OK")
           print("Firewall table restore transaction, reverse rollback and fail-closed recovery contracts: OK")
           print("Firewall restore and extension command failures are reported: OK")
           PY

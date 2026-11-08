@@ -1745,18 +1745,18 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	return ret;
 }
 
-void
+int
 ipt_filter_default(void)
 {
 	FILE *fp;
 	char *ftype, *dtype;
-	int is_fw_enabled;
+	int is_fw_enabled, result = -1;
 	char ipt_file[] = "/tmp/ipt_filter.XXXXXX";
 
 	is_fw_enabled = nvram_match("fw_enable_x", "1");
 
 	if (!(fp=firewall_open_rule_file(ipt_file, "IPv4 default filter")))
-		return;
+		return -1;
 
 	fprintf(fp, "*%s\n", "filter");
 	fprintf(fp, ":%s %s [0:0]\n", "INPUT", (is_fw_enabled) ? "DROP" : "ACCEPT");
@@ -1786,8 +1786,9 @@ ipt_filter_default(void)
 
 	fprintf(fp, "COMMIT\n\n");
 	if (firewall_finish_rule_file(fp, ipt_file, "IPv4 default filter") == 0)
-		firewall_apply_core_restore("IPv4 default filter restore", "iptables", "filter", ipt_file);
+		result = firewall_apply_core_restore("IPv4 default filter restore", "iptables", "filter", ipt_file);
 	firewall_rule_file_remove(ipt_file);
+	return result;
 }
 
 static void
@@ -2152,18 +2153,18 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 	return ret;
 }
 
-void
+int
 ip6t_filter_default(void)
 {
 	FILE *fp;
 	char *ftype, *dtype;
-	int is_fw_enabled;
+	int is_fw_enabled, result = -1;
 	char ipt_file[] = "/tmp/ip6t_filter.XXXXXX";
 
 	is_fw_enabled = nvram_match("fw_enable_x", "1");
 
 	if (!(fp=firewall_open_rule_file(ipt_file, "IPv6 default filter")))
-		return;
+		return -1;
 
 	fprintf(fp, "*%s\n", "filter");
 	fprintf(fp, ":%s %s [0:0]\n", "INPUT", (is_fw_enabled) ? "DROP" : "ACCEPT");
@@ -2194,8 +2195,9 @@ ip6t_filter_default(void)
 
 	fprintf(fp, "COMMIT\n\n");
 	if (firewall_finish_rule_file(fp, ipt_file, "IPv6 default filter") == 0)
-		firewall_apply_core_restore("IPv6 default filter restore", "ip6tables", "filter", ipt_file);
+		result = firewall_apply_core_restore("IPv6 default filter restore", "ip6tables", "filter", ipt_file);
 	firewall_rule_file_remove(ipt_file);
+	return result;
 }
 
 static void
@@ -2603,17 +2605,17 @@ ipt_nat_rules(char *man_if, char *man_ip,
 	return 0;
 }
 
-void
+int
 ipt_nat_default(void)
 {
 	FILE *fp;
-	int is_nat_enabled;
+	int is_nat_enabled, result = -1;
 	char ipt_file[] = "/tmp/ipt_nat.XXXXXX";
 
 	is_nat_enabled = nvram_match("wan_nat_x", "1");
 
 	if (!(fp=firewall_open_rule_file(ipt_file, "IPv4 default NAT")))
-		return;
+		return -1;
 
 	fprintf(fp, "*%s\n", "nat");
 	fprintf(fp, ":%s %s [0:0]\n", "PREROUTING", "ACCEPT");
@@ -2640,8 +2642,9 @@ ipt_nat_default(void)
 
 	fprintf(fp, "COMMIT\n\n");
 	if (firewall_finish_rule_file(fp, ipt_file, "IPv4 default NAT") == 0)
-		firewall_apply_core_restore("IPv4 default NAT restore", "iptables", "nat", ipt_file);
+		result = firewall_apply_core_restore("IPv4 default NAT restore", "iptables", "nat", ipt_file);
 	firewall_rule_file_remove(ipt_file);
+	return result;
 }
 
 void

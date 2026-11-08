@@ -385,7 +385,7 @@ int ipv6up_main(int argc, char **argv);
 int ipv6down_main(int argc, char **argv);
 
 /* firewall_ex.c */
-void ip6t_filter_default(void);
+int ip6t_filter_default(void);
 #endif
 
 /* vpn_server.c */
@@ -723,8 +723,8 @@ void try_start_usb_modem_to_wan(void);
 #endif
 
 /* firewall_ex.c */
-void ipt_nat_default(void);
-void ipt_filter_default(void);
+int ipt_nat_default(void);
+int ipt_filter_default(void);
 void fill_static_routes(char *buf, int len, const char *ift);
 void ip2class(const char *addr, const char *mask, char *out_buf, size_t out_len);
 void start_firewall_ex(void);

@@ -43,6 +43,7 @@
 #endif
 
 #include "rc.h"
+#include "firewall_startup_policy.h"
 #include "rc_nvram_policy.h"
 #include <rc_notify_queue.h>
 #include "gpio_pins.h"
@@ -814,12 +815,35 @@ init_router(void)
 #endif
 
 	if (!is_ap_mode) {
-		ipt_nat_default();
-		ipt_filter_default();
+		int nat_restore_status;
+		int ipv4_filter_status;
+		int ipv6_filter_status = 0;
+		int firewall_enabled;
+		int ipv6_filter_required = 0;
+
+		firewall_enabled = nvram_match("fw_enable_x", "1");
+		nat_restore_status = ipt_nat_default();
+		ipv4_filter_status = ipt_filter_default();
 #if defined (USE_IPV6)
-		ip6t_filter_default();
+		ipv6_filter_required = (get_ipv6_type() != IPV6_DISABLED);
+		ipv6_filter_status = ip6t_filter_default();
 #endif
-		start_wan();
+		if (nat_restore_status != 0)
+			logmessage(LOGNAME, "Initial IPv4 NAT rules were not applied; checking filter safety before WAN startup");
+
+		if (!firewall_startup_policy_allows_wan(firewall_enabled,
+							ipv4_filter_status,
+							ipv6_filter_required,
+							ipv6_filter_status)) {
+			logmessage(LOGNAME, "Blocking WAN startup: restrictive IPv4/IPv6 firewall filters could not be verified");
+			set_ipv4_forward(0);
+#if defined (USE_IPV6)
+			if (ipv6_filter_required)
+				set_interface_conf_int("ipv6", "all", "forwarding", 0);
+#endif
+		} else {
+			start_wan();
+		}
 	}
 
 	start_services_once(is_ap_mode);
