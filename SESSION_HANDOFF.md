@@ -45,7 +45,7 @@ Findings and fixes in this commit:
 - **WAN/PPP — PARTIAL / AUDITING:** route first-error propagation is bounded and tested; broader PPP and runtime routing remain open.
 - **USB/storage/hotplug, HTTPD/CGI/authentication, NVRAM/config persistence, init/service lifecycle, switch/PHY/MDIO and shared/third-party userland:** remain open in the roadmap.
 
-## Validation boundary
+## Verification boundary
 
 | Level | Status |
 |---|---|

@@ -4,8 +4,8 @@
 
 - **Repository:** `Arlene206/padavan-4.4-2`.
 - **Base main SHA before this documentation update:** `91cae3d19bb72a9e0cebcad509db256aded52467`.
-- **Completed code change:** `91cae3d19bb72a9e0cebcad509db256aded52467` — FULLCONENAT notifier state is now per network namespace.
-- **Exact-head evidence:** FULLCONENAT lifecycle regression [42555493213](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42555493213) and AI handoff contract [42555491302](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42555491302) both SUCCESS on `91cae3d19bb72a9e0cebcad509db256aded52467`. A documentation-only update now triggers a fresh handoff check.
+- **Completed code changes:** `91cae3d19bb72a9e0cebcad509db256aded52467` — FULLCONENAT notifier state is per network namespace; `0810b15526a7c6c7b7ba5980679c62fd522f481a` — wireless iNIC guest recovery and shutdown/LED state.
+- **Exact-head evidence:** FULLCONENAT lifecycle [42555493213](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42555493213) and docs [42555491302](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42555491302) PASS on `91cae3d19bb72a9e0cebcad509db256aded52467`; wireless regression [42557455460](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42557455460) and HTTPD regression [42557455207](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42557455207) PASS on exact code SHA `0810b15526a7c6c7b7ba5980679c62fd522f481a`. The first docs run [42557455144](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42557455144) FAILED on that SHA because the current handoff heading was `## Validation boundary` rather than the validator's required `## Verification boundary`; this correction restores the required heading and triggers a fresh check.
 
 ## Status semantics
 
@@ -43,7 +43,7 @@
 | Level | Evidence status | Limitation |
 |---|---|---|
 | L1 static/source review | PASS for FULLCONENAT per-net notifier lifecycle and the current bounded wireless iNIC guest/shutdown state paths. | Does not prove FULLCONENAT mapping-table namespace isolation or close Wireless/Firewall. |
-| L2 host regression / Actions | FULLCONENAT lifecycle contract PASS on exact code SHA `91cae3d19bb72a9e0cebcad509db256aded52467`; handoff docs PASS on `91b3bb41efe0f6ad11d18f8a19d9df3592d7c7b6`; wireless source/host and handoff-doc contracts are PENDING for this round's resulting main SHA. | These checks do not compile the target RC or verify live radio/driver behavior. |
+| L2 host regression / Actions | Wireless radio-state host/source contract and dependent HTTPD regression PASS on exact code SHA `0810b15526a7c6c7b7ba5980679c62fd522f481a`; AI handoff run `42557455144` FAILED only on the required heading name, corrected here; fresh docs contract PENDING for this documentation commit. | These checks do not compile the target RC or verify live radio/driver behavior. |
 | L3 MIPS/uClibc and complete firmware | NOT VERIFIED | Schedule the integrated build after core source governance is substantially complete. |
 | L4 hardware/flash/boot/runtime | NOT VERIFIED | Requires router testing; do not infer from host or source-contract checks. |
 

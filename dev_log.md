@@ -1,3 +1,16 @@
+## 2026-11-09 11:40 CST (UTC+8) — Restore required handoff verification heading after contract failure
+
+- **Base main SHA:** `0810b15526a7c6c7b7ba5980679c62fd522f481a`; resulting documentation-only commit: THIS COMMIT.
+- **Wireless code regression:** [42557455460](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42557455460) SUCCESS on exact code SHA `0810b15526a7c6c7b7ba5980679c62fd522f481a`; the workflow compiled and ran the GNU89 policy test and passed the wireless source contracts for iNIC recovery, interface-down aggregation, MII teardown and LED publication. Dependent HTTPD regression [42557455207](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42557455207) also SUCCESS on that exact SHA.
+- **Documentation contract finding:** [42557455144](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42557455144) FAILED on `0810b15526a7c6c7b7ba5980679c62fd522f481a` because `SESSION_HANDOFF.md` used `## Validation boundary`; `scripts/check_ai_handoff_docs.py` requires the literal heading `## Verification boundary`. No archive/hash/count error was reached in that run.
+- **Correction:** restore the required heading without changing the substantive checkpoint; preserve the superseded handoff and roadmap byte-for-byte, update indexes, and rotate the oldest complete root log record to the active shard.
+- **Validation:** wireless L2 Actions PASS on exact code SHA; docs L2 correction is PENDING until a fresh exact-head contract run. No target RC/MIPS firmware or hardware check.
+- **Remaining:** current docs run must pass on the resulting main SHA. Wireless driver/switch consumers and board-specific runtime remain open; FULLCONENAT mapping namespace scope remains a distinct P2 audit.
+- **Next:** verify the fresh AI handoff documentation contract on exact live main. Then resume DNS/DHCP client lifecycle error handling.
+- **Result:** THIS COMMIT.
+
+---
+
 ## 2026-11-09 11:21 CST (UTC+8) — Fix wireless interface-down result handling and LED state publication
 
 - **Base main SHA:** `91b3bb41efe0f6ad11d18f8a19d9df3592d7c7b6`; resulting source/documentation commit: THIS COMMIT.
@@ -264,20 +277,6 @@
 - **GitHub Actions:** expanded push and pull_request path triggers include both changed source/test files. The intended host object/test steps are attached to exact code/workflow head `dea77de9896bbf4be067029609099b4020c53e3b`. At this log update, the exact push-triggered run ID/URL and conclusion were not exposed by the connected Actions interface; `get_commit_combined_status` returned no status contexts and the commit-run lookup is PR-triggered only. Record **PENDING / NOT VERIFIED** until the run is directly inspected. Previous `switch_gsw.c` source-contract Actions run [42534963105](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42534963105) remains SUCCESS on its exact SHA `e2d94abcec416d9394aa82a3ade72d4af5657451`.
 - **Validation boundary:** L1 source/driver-ABI review PASS; L2 local host-copy compile + focused ASan/UBSan parser regression PASS; new exact-head Actions result PENDING / NOT VERIFIED. No production MIPS/uClibc compile, full firmware/TRX, live Clause 45 ioctl/register access or physical switch/router tests were run. Switch utilities remain AUDITING.
 - **Next:** verify Actions on `dea77de9896bbf4be067029609099b4020c53e3b`; then continue the switch-tool rotation with `mii_mgr.c` numeric parsing, mode/required-option checks, ioctl and close error propagation plus remaining `switch_gsw.c` input/register sequencing. Do not close Switch, Firewall/NAT or Wireless from this bounded task.
-
----
-
-## 2026-11-09 07:24 CST — Report switch CLI socket/ioctl failures as process failure
-
-- **Base main SHA:** `b2844cce25673042260b2bd0513c9e1327039dd4` (latest main before this round's code commits).
-- **Implementation:** `81d191705110596bb20f05d1c82a57572f3e0fe3` changes operational `exit(0)` to `exit(EXIT_FAILURE)` in the built `switch_gsw.c` socket setup and all seven ioctl error branches. The normal usage/help exit remains successful.
-- **Workflow correction:** `e2d94abcec416d9394aa82a3ade72d4af5657451` simplifies the source-contract checks after the first workflow run exposed over-escaped regex assertions.
-- **Finding:** the built switch utility's socket and ioctl failures printed errors, closed the socket for ioctl cases, then exited with status 0. Shell callers could mistake failed register/PHY/rate operations for success. The Makefile confirms `switch_gsw.c` is built; the similar legacy `switch.c` is not the active target source.
-- **Changed paths:** `trunk/user/utils/src/switch/switch_gsw.c`; new `.github/workflows/switch-cli-stability.yml`.
-- **Exact-head Actions:** first run [42534941561](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42534941561) FAILED on `81d191705110596bb20f05d1c82a57572f3e0fe3` because the initial workflow's static source-contract expressions were over-escaped. After workflow correction, [42534963105](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42534963105) completed **SUCCESS** on exact head `e2d94abcec416d9394aa82a3ade72d4af5657451`; the check verified the one socket failure, all seven ioctl error branches and the successful help exit.
-- **Validation boundary:** the green Action is a source-contract test only; no production `switch_gsw.c` object or executable was built/run. Container checkout preparation was blocked by DNS resolution failure for `github.com`; no local compiler result, MIPS/uClibc, TRX, switch ioctl runtime or hardware test is claimed.
-- **IPv6 Firewall/NAT audit update:** Linux 4.4 IPv6 table-info and table-replace paths request the table provider by `ip6table_%s`; Kconfig dependencies/selects, `ip6table_nat` per-net table/hooks and conditional IPv6 `xt_FULLCONENAT` target/alias align with the existing ULA NAT writer. Shared restore transaction checks/rollback are already wired. No concrete failure gap was established; configuration/runtime verification remains open.
-- **Next:** inspect the `mii_mgr_cl45.c` `case 'd'` fall-through and CLI argument-order sensitivity, then bounds/error handling across the built switch tools. Keep switch, Firewall/NAT and Wireless **AUDITING**.
 
 ---
 
