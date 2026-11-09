@@ -2,12 +2,12 @@
 
 - Maintained fork: `Arlene206/padavan-4.4-2`; work only on this repository.
 - Branch inventory at takeover: `main` only; no remote checkpoint branch. No force-pushes were used.
-- Latest source/control checkpoint before this handoff-documentation commit: `258532a78922549698bc6d9b869c7777f8f4ac05`. This file update will advance `main`; on the next takeover, fetch the actual ref rather than assuming this source checkpoint is still HEAD.
-- Samba production implementation commit: `1a7097ace2e6c689cb7e92cd10055967d99fe143` (parent `6b44e023c2f669865fc8b5cb5425d824b8335d8b`). Follow-up commits updated the Samba and HTTPD semantic workflow extractors after initial assertions still referenced the previous writer layout.
+- Latest code checkpoint before this in-place record update: `ac75a8ff43fca3672b44605a2974a0497ecd1c0d` (FTP upload descriptor anchoring); this record and its directory-identity/source-contract follow-up are included in THIS COMMIT. Fetch the live ref on the next takeover.- Samba production implementation commit: `1a7097ace2e6c689cb7e92cd10055967d99fe143` (parent `6b44e023c2f669865fc8b5cb5425d824b8335d8b`). Follow-up commits updated the Samba and HTTPD semantic workflow extractors after initial assertions still referenced the previous writer layout.
 - Exact Actions evidence:
   - Samba share configuration regression [42708213921] completed SUCCESS on exact SHA `e9a93eb84ac9f95447150869fab7e0ae1c2da9ff`. GNU89 host compilation/execution passed for config-file, passdb policy, the new paired transaction, and daemon policy tests; the full Samba source-order contract also passed.
   - HTTPD Authentication/Security regression [42708503436] completed SUCCESS on exact SHA `258532a78922549698bc6d9b869c7777f8f4ac05`, including Samba share/ACL trust-boundary checks and the updated unlocked-writer source extractor.
   - AI handoff documentation validation [42708503300] completed SUCCESS on exact SHA `258532a78922549698bc6d9b869c7777f8f4ac05`.
+  - FTP upload host regression compile/run step 3 of [42713615415] completed SUCCESS on exact SHA `ac75a8ff43fca3672b44605a2974a0497ecd1c0d`; its later semantic contract step failed on a stale metadata-classifier count (2 expected, 3 present after the new resolver). AI handoff docs [42713615421] completed SUCCESS on that SHA.
   - Initial attempts on `1a7097a...` failed only in stale semantic workflow extractors; the new transaction host test itself passed. The assertions were corrected and later exact-SHA runs above passed. Do not report the initial failures as green.
 - The exact-head DHCP callback and handoff checks on `6b44e023c2f669865fc8b5cb5425d824b8335d8b` were already SUCCESS: WAN DHCP callback [42703609156] and AI handoff docs [42703609087].
 - Root `dev_log.md` had 78 complete records before this entry; this entry makes 79/119. Its previous size was approximately 189 KiB, below the 384 KiB early-rotation target. No archive rotation is due.
@@ -28,6 +28,14 @@
 - Three IPv4 helper call sites now pass &context; five identical version-conditional declaration wrappers were removed so the semantic function-body extractor can parse the refactored functions.
 - The exact-head semantic contract progressed through mapping structures, namespace/zone lookup filters, IPv4/IPv6 lookup paths and conditional notifier callback signatures. FULLCONENAT lifecycle regression [42678875089] and AI handoff docs [42678875391] passed on exact SHA `bc99b6801c44f55e13dc0214336408f712e0abf8`; subsequent WAN DHCP work did not modify the kernel code.
 - Kernel translation-unit compilation remains unverified; the host policy test and semantic source contract do not replace a target kernel object build.
+
+## Completed FTP upload path anchoring (bounded first slice)
+
+- Finding: upload ACL resolution canonicalized the target with `realpath()`, but `str_create()` / `str_create_exclusive()` reopened the original pathname. A final or parent symlink could be substituted between authorization and open, redirecting the write after the ACL decision.
+- Fix: `ftp_acl_path_resolve_write_entry()` resolves the effective target and returns canonical parent plus leaf; `ftp_acl_path_open_directory()` walks absolute canonical components using `openat(O_PATH|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC)`; `asus_open_upload_path()` checks ACLs, compares pre-open `stat()` identity with the pinned descriptor's `fstat()`, and opens the leaf with `openat(O_NOFOLLOW|O_CLOEXEC)`. Existing final-symlink writes still target their canonical destination; dangling links and metadata targets remain rejected.
+- Failed-upload cleanup uses the retained directory descriptor and compares the open file's device/inode against `fstatat(AT_SYMLINK_NOFOLLOW)` before `unlinkat()`. This detects a replacement already present at check time, but the final check/unlink pair is not atomic against a concurrent writer in that same directory on Linux 4.4; cleanup remains best-effort. Cleanup through a final symlink alias is deliberately disabled rather than unlinking the resolved target.
+- Regression tests exercise parent-path replacement by a cross-share symlink, final-leaf `O_NOFOLLOW`, canonical target resolution, dangling-link rejection and replacement-inode cleanup. The host compile/run step passed in run [42713615415] on `ac75a8ff43fca3672b44605a2974a0497ecd1c0d`; its static-contract step exposed a stale hard-coded count and was corrected in THIS COMMIT.
+- L3 MIPS/uClibc production-object validation and L4 device behavior remain NOT VERIFIED.
 
 ## Completed FTP work
 
@@ -50,24 +58,25 @@
 
 ## Active task
 
-1. Continue whole-userland governance outside DHCP/WAN and Samba. Start with the tracked FTP `realpath()`-to-filesystem-syscall TOCTOU risk: trace each path resolver, authorization check, and subsequent open/unlink/rename/list/metadata syscall; determine whether directory-FD-relative operations can close the race without breaking the embedded vsftpd/uClibc environment.
-2. Add a deterministic host race/policy regression only after the concrete race window and supported syscall behavior are established. Preserve current fail-closed symlink/ACL semantics; do not make speculative broad FTP changes.
-3. Keep the IPTV DHCP callback status-loss observation, FULLCONENAT target-kernel/MIPS build, and NFS `async`/AUTH_SYS/root-squash/external-mount compatibility questions in the priority queue.
+1. Continue the unfinished FTP `realpath()`-to-filesystem-syscall TOCTOU audit. The first bounded slice now anchors STOR/APPE/STOU to a canonical parent descriptor and uses `openat(O_NOFOLLOW)`; do not treat the wider task as complete.
+2. Next inspect and implement one coherent descriptor-relative slice for RETR/SIZE and file-entry mutations (DELE/RMD/MKD/RNTO), preserving final-symlink semantics. Then cover LIST/NLST recursion and the still path-based MDTM/SITE CHMOD metadata operations. Keep the final `fstatat`/`unlinkat` cleanup race documented until an atomic safe strategy exists.
+3. The target config pins uClibc-ng 1.0.51 and Linux 4.4; GNU feature macros expose the Linux `openat`/O_PATH family, but no target cross-compile has been performed. Keep target compatibility as NOT VERIFIED until L3.
+4. Keep the IPTV DHCP callback status-loss observation, FULLCONENAT target-kernel/MIPS build, and NFS `async`/AUTH_SYS/root-squash/external-mount compatibility questions in the priority queue.
 
 ## Verification boundary
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for the bounded BusyBox DHCP event-state audit and Samba paired publication/recovery control flow. No BusyBox applet modification was justified. |
-| L2 host / GitHub Actions | Samba transaction host tests plus source-order contract [42708213921] PASS on exact SHA `e9a93eb84ac9f95447150869fab7e0ae1c2da9ff`. HTTPD/Samba dependent trust-boundary regression [42708503436] and handoff validation [42708503300] PASS on exact SHA `258532a78922549698bc6d9b869c7777f8f4ac05`. DHCP callback [42703609156] and docs [42703609087] PASS on exact SHA `6b44e023c2f669865fc8b5cb5425d824b8335d8b`. |
-| L3 production RC objects, MIPS/uClibc objects, complete firmware/TRX | NOT VERIFIED. |
-| L4 physical router behavior, SMB authentication under load, DHCP/IPTV, and hardware | NOT VERIFIED. |
+| L1 source review | PASS for the bounded BusyBox DHCP event-state audit, Samba paired publication/recovery, and the first FTP upload descriptor-anchoring slice. Remaining FTP path-based syscall sites are still under audit. |
+| L2 host / GitHub Actions | FTP upload host compile/run step passed in [42713615415] on exact SHA `ac75a8ff43fca3672b44605a2974a0497ecd1c0d`; its source-contract step failed only on the stale metadata-classifier count, corrected in THIS COMMIT. Exact-head FTP and AI-doc Actions for THIS commit are pending. Samba transaction [42708213921], dependent HTTPD [42708503436], docs [42708503300], DHCP callback [42703609156] and docs [42703609087] remain as previously recorded. |
+| L3 production RC/MIPS/uClibc/firmware builds and artifact validation | NOT VERIFIED. |
+| L4 physical router behavior and hardware | NOT VERIFIED. |
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` ref, branch list, recent checkpoint references and Actions. Record exact HEAD SHA; do not assume the source SHA in this file is still live HEAD after this documentation checkpoint.
-2. Read the current FTP path-resolution and syscall implementation end-to-end. Focus on whether canonical-path validation can be raced before the final filesystem operation; document the precise affected commands and target libc/kernel constraints.
-3. Keep the IPTV DHCP callback status-loss issue, FULLCONENAT target build, and NFS compatibility decisions visible. Do not repeat the completed BusyBox callback-state audit or Samba paired-publication fix unless new evidence invalidates them.
+1. Fetch live `main`, branch list and all Actions for the exact head. Reconcile the FTP and AI-doc runs created by THIS COMMIT; do not assume their status.
+2. Resume at the remaining FTP race sites, beginning with `handle_retr()` and `handle_size()`: trace the canonical ACL resolution through the final open/stat syscall and design a descriptor-relative implementation using the verified dirfd pattern. Then assess entry mutation and recursive listing paths.
+3. Keep `handle_mdtm()` and `handle_site_chmod()` explicitly open as path-based metadata operations; do not claim complete FTP TOCTOU coverage. Preserve the IPTV DHCP callback, FULLCONENAT target-build and NFS compatibility items in the global queue.
 
 ## Continuation rules
 

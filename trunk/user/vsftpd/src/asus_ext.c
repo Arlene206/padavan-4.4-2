@@ -348,6 +348,7 @@ asus_open_upload_path(struct vsf_session* p_sess,
                       unsigned int leaf_size, int* p_cleanup_allowed)
 {
   char resolved_parent[PATH_MAX];
+  struct stat expected_parent, opened_parent;
   int parent_fd, file_fd, flags, saved_errno;
   if (!p_sess || !p_path_str || !p_parent_fd || !p_leaf ||
       leaf_size == 0 || !p_cleanup_allowed) {
@@ -366,9 +367,28 @@ asus_open_upload_path(struct vsf_session* p_sess,
     errno = EACCES;
     return -1;
   }
+  /*
+   * Bind the pinned descriptor to the same directory object observed after
+   * path resolution and ACL evaluation; fail closed on a directory swap.
+   */
+  if (stat(resolved_parent, &expected_parent) != 0)
+    return -1;
   parent_fd = ftp_acl_path_open_directory(resolved_parent);
   if (parent_fd < 0)
     return -1;
+  if (fstat(parent_fd, &opened_parent) != 0) {
+    saved_errno = errno;
+    close(parent_fd);
+    errno = saved_errno;
+    return -1;
+  }
+  if (!S_ISDIR(opened_parent.st_mode) ||
+      expected_parent.st_dev != opened_parent.st_dev ||
+      expected_parent.st_ino != opened_parent.st_ino) {
+    close(parent_fd);
+    errno = ESTALE;
+    return -1;
+  }
   flags = O_WRONLY | O_NONBLOCK | O_CREAT | O_NOFOLLOW | O_CLOEXEC;
   if (exclusive)
     flags |= O_EXCL | O_APPEND;

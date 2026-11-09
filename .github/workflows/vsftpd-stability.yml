@@ -153,7 +153,7 @@ jobs:
           assert "ftp_acl_path_is_internal_metadata(str_getbuf(p_path_str))" in acl_directory
           assert "ftp_acl_path_is_internal_metadata(p_filename)" in acl_visible
           assert "ftp_acl_path_is_internal_metadata" in acl_path_policy
-          assert acl_path_policy.count("ftp_acl_path_is_internal_metadata(target)") == 2
+          assert acl_path_policy.count("ftp_acl_path_is_internal_metadata(target)") == 3
           assert "reserved metadata file or symlink alias was accepted" in acl_path_test
           assert "ftp_acl_path_is_internal_metadata" in vsftpd_acl
           assert "ftp_acl_path_is_internal_metadata(p_filename)" in vsftpd_acl
@@ -168,6 +168,9 @@ jobs:
           assert "fstatat(dir_fd, leaf" in acl_path_policy
           assert "unlinkat(dir_fd, leaf" in acl_path_policy
           assert "openat(parent_fd, p_leaf, flags, mode)" in vsftpd_acl
+          assert "stat(resolved_parent, &expected_parent)" in vsftpd_acl
+          assert "fstat(parent_fd, &opened_parent)" in vsftpd_acl
+          assert "expected_parent.st_ino != opened_parent.st_ino" in vsftpd_acl
           assert "ftp_acl_path_unlink_opened_entry" in vsftpd_acl
           assert "O_NOFOLLOW" in vsftpd_acl
           assert "O_CLOEXEC" in vsftpd_acl

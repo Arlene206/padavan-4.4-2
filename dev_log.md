@@ -1,3 +1,19 @@
+## 2026-11-10 06:39 CST (UTC+8) — Anchor FTP uploads to an ACL-authorized directory descriptor
+
+- **Base main SHA:** `6b4b62e61ee13c7882579648c395fee8acc6ebbf`; active branch: `main`; no remote checkpoint branch.
+- **Recovered state:** the preceding main SHA had Samba share configuration stability and AI handoff documentation Actions [42709723952] / [42709723572] SUCCESS. The FTP realpath-to-filesystem-syscall audit remained the unfinished handoff task.
+- **Finding:** STOR/APPE/STOU performed canonical-parent ACL validation, then reopened the original pathname through `str_create()` / `str_create_exclusive()`. A final or parent symlink could be substituted between the ACL decision and the actual write.
+- **Fix:** first code commit `ac75a8ff43fca3672b44605a2974a0497ecd1c0d` added a split canonical parent/leaf resolver, component-by-component `O_PATH|O_DIRECTORY|O_NOFOLLOW` parent walk, `openat(O_NOFOLLOW|O_CLOEXEC)` upload open, and descriptor-relative failed-upload cleanup guarded by device/inode identity. Existing final symlink writes still resolve to their target; dangling links and internal metadata remain rejected. Cleanup through a final symlink alias is intentionally disabled.
+- **Race refinement in THIS COMMIT:** compare `stat(resolved_parent)` with `fstat(parent_fd)` after the no-follow component walk; reject a changed/non-directory identity with `ESTALE`. Correct the workflow's previous hard-coded expectation of two canonical metadata-target checks to three after the new resolver added the third.
+- **Cleanup limit:** `fstatat(AT_SYMLINK_NOFOLLOW)` followed by `unlinkat()` catches a replacement already present at check time, but Linux 4.4 has no unlink-by-fd primitive; the final name-check/unlink pair is not atomic against a concurrent writer in the same directory. This remains best-effort and is explicitly open.
+- **Regression:** the GNU89 host policy test covers canonical write-leaf resolution, cross-share parent-path symlink replacement while a dirfd is pinned, final-leaf `O_NOFOLLOW`, and failed-upload cleanup when the leaf inode was replaced. The compile/run step 3 of vsftpd Actions [42713615415] completed SUCCESS on exact SHA `ac75a8ff43fca3672b44605a2974a0497ecd1c0d`; the later static-contract step failed on the stale count assertion described above. AI docs [42713615421] completed SUCCESS on that SHA. This commit's exact-head FTP and docs Actions are pending.
+- **Changed paths:** `trunk/user/vsftpd/src/ftp_acl_path_policy.h`, `trunk/user/vsftpd/src/asus_ext.c`, `trunk/user/vsftpd/src/asus_ext.h`, `trunk/user/vsftpd/src/postlogin.c`, `trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c`, `.github/workflows/vsftpd-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and this log.
+- **Validation boundary:** L1 focused source review PASS. L2 regression compile/run step PASS but the full workflow on `ac75a8f...` FAILED in its semantic contract; final exact-head regression is pending. L3 MIPS/uClibc production object and L4 hardware validation NOT VERIFIED.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** continue the FTP TOCTOU audit with RETR/SIZE, then file-entry mutation and recursive LIST/NLST; MDTM and SITE CHMOD remain path-based. Keep IPTV DHCP callback, FULLCONENAT target build and NFS compatibility tasks queued.
+
+---
+
 ## 2026-11-10 06:08 CST (UTC+8) — Recover Samba passdb/config publication after same-boot process interruption
 
 - **Base main SHA:** `258532a78922549698bc6d9b869c7777f8f4ac05`; active branch: `main`; remote checkpoint branches: none.
