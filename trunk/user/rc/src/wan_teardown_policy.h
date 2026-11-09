@@ -10,24 +10,38 @@ struct wan_teardown_interface_ops {
 /*
  * Attempt every distinct interface even after an earlier failure.  Callers
  * must not publish WAN-down state unless the complete teardown succeeds.
+ * The USB network name is optional because most WAN modes have no NDIS link.
  */
 static inline int
 wan_teardown_ifdown_interfaces(const char *management_ifname,
 			       const char *wan_ifname,
+			       const char *usbnet_ifname,
 			       const struct wan_teardown_interface_ops *ops,
 			       void *context)
 {
-	int result = 0;
+	const char *ifnames[3];
+	int i, j, result = 0;
 
 	if (!management_ifname || !*management_ifname ||
 	    !wan_ifname || !*wan_ifname || !ops || !ops->ifdown)
 		return -1;
 
-	if (ops->ifdown(context, management_ifname) != 0)
-		result = -1;
-	if (strcmp(management_ifname, wan_ifname) != 0 &&
-	    ops->ifdown(context, wan_ifname) != 0)
-		result = -1;
+	ifnames[0] = management_ifname;
+	ifnames[1] = wan_ifname;
+	ifnames[2] = usbnet_ifname;
+
+	for (i = 0; i < 3; i++) {
+		if (!ifnames[i] || !*ifnames[i])
+			continue;
+		for (j = 0; j < i; j++) {
+			if (ifnames[j] && strcmp(ifnames[j], ifnames[i]) == 0)
+				break;
+		}
+		if (j != i)
+			continue;
+		if (ops->ifdown(context, ifnames[i]) != 0)
+			result = -1;
+	}
 
 	return result;
 }

@@ -1168,6 +1168,7 @@ stop_wan(void)
 {
 	int unit, wan_proto, ifdown_status;
 	char *man_ifname;
+	char *usbnet_ifname;
 	char* svcs_ppp[] = {
 		"ip-up", "ip-down",
 #if defined (USE_IPV6)
@@ -1188,6 +1189,7 @@ stop_wan(void)
 	nvram_set_int_temp("deferred_wanup_t", 0);
 	wan_proto = get_wan_proto(unit);
 	man_ifname = get_man_ifname(unit);
+	usbnet_ifname = NULL;
 	notify_pause_detect_internet();
 	stop_vpn_client();
 
@@ -1215,9 +1217,12 @@ stop_wan(void)
 	    strcmp(man_ifname, get_wan_unit_value(unit, "ifname_t")) == 0)
 		wan_down(man_ifname, unit, 1);
 #if defined (USE_USB_SUPPORT)
+	if (get_usb_modem_wan(unit) && nvram_get_int("modem_type") == 3)
+		usbnet_ifname = get_wan_unit_value(unit, "ifname_t");
 	stop_wan_usbnet();
 #endif
 	ifdown_status = wan_teardown_ifdown_interfaces(man_ifname, IFNAME_WAN,
+						       usbnet_ifname,
 						       &wan_teardown_ifdown_ops, NULL);
 	remove_cb_links();
 	if (ifdown_status != 0) {

@@ -62,7 +62,13 @@ jobs:
           service_gate = 'kill_services(svcs_wan, 3, 1)'
           teardown = "ifdown_status = wan_teardown_ifdown_interfaces("
           failure_gate = "if (ifdown_status != 0)"
+          usbnet_gate = 'if (get_usb_modem_wan(unit) && nvram_get_int("modem_type") == 3)'
+          assert "usbnet_ifname = NULL;" in stop
+          assert usbnet_gate in stop
+          assert stop.index(usbnet_gate) < stop.index('usbnet_ifname = get_wan_unit_value(unit, "ifname_t");') < stop.index("stop_wan_usbnet();")
           assert stop.index(service_gate) < stop.index("stop_wan_usbnet();") < stop.index(teardown)
+          teardown_path = stop[stop.index(teardown):stop.index("remove_cb_links();")]
+          assert "usbnet_ifname" in teardown_path
           assert stop.index(teardown) < stop.index("remove_cb_links();")
           assert stop.index("remove_cb_links();") < stop.index(failure_gate)
           failure_path = stop[stop.index(failure_gate):]
