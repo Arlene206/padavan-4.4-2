@@ -1348,10 +1348,11 @@ man_up(char *man_ifname, int unit, int is_static)
 	start_igmpproxy(man_ifname);
 }
 
-static void
+static int
 man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)
 {
 	int wan_proto, is_modem_active, is_man_dns_auto;
+	int status = 0, route_status;
 	char *next, *man_gate, *man_addr, *man_mask, *man_dns;
 	char word[100];
 
@@ -1369,9 +1370,18 @@ man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)
 	if (dhcp_lease_ipv4_is_valid(man_gate)) {
 		if (dhcp_lease_ipv4_is_valid(man_addr) &&
 		    dhcp_lease_netmask_is_valid(man_mask) &&
-		    !is_same_subnet(man_gate, man_addr, man_mask))
-			route_del(man_ifname, 2, man_gate, NULL, "255.255.255.255");
-		route_del(man_ifname, 2, "0.0.0.0", man_gate, "0.0.0.0");
+		    !is_same_subnet(man_gate, man_addr, man_mask)) {
+			route_status = route_del(man_ifname, 2, man_gate, NULL, "255.255.255.255");
+			status = route_status_accumulate(status, route_status);
+			if (route_status != 0)
+				logmessage(LOGNAME, "failed to delete MAN gateway host route %s on %s (error=%d)",
+					   man_gate, man_ifname, route_status);
+		}
+		route_status = route_del(man_ifname, 2, "0.0.0.0", man_gate, "0.0.0.0");
+		status = route_status_accumulate(status, route_status);
+		if (route_status != 0)
+			logmessage(LOGNAME, "failed to delete MAN default route via %s on %s (error=%d)",
+				   man_gate, man_ifname, route_status);
 
 		/* Match the conditional DNS host routes installed by man_up(). */
 		if (is_man_dns_auto && !is_modem_active &&
@@ -1382,14 +1392,26 @@ man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)
 				    dhcp_lease_ipv4_is_valid(man_addr) &&
 				    dhcp_lease_netmask_is_valid(man_mask) &&
 				    !is_same_subnet(word, man_addr, man_mask))
-					route_del(man_ifname, 2, word, man_gate, "255.255.255.255");
+					route_status = route_del(man_ifname, 2, word, man_gate, "255.255.255.255");
+					status = route_status_accumulate(status, route_status);
+					if (route_status != 0)
+						logmessage(LOGNAME, "failed to delete MAN DNS route %s via %s on %s (error=%d)",
+							   word, man_gate, man_ifname, route_status);
 			}
 		}
 	}
 
 	/* Remove DHCP and static MAN routes before discarding their source data. */
-	del_dhcp_routes_by_prefix("wanx_", man_ifname, 0);
-	del_static_man_routes(man_ifname);
+	route_status = del_dhcp_routes_by_prefix("wanx_", man_ifname, 0);
+	status = route_status_accumulate(status, route_status);
+	if (route_status != 0)
+		logmessage(LOGNAME, "failed to delete DHCP MAN routes on %s (error=%d)",
+			   man_ifname, route_status);
+	route_status = del_static_man_routes(man_ifname);
+	status = route_status_accumulate(status, route_status);
+	if (route_status != 0)
+		logmessage(LOGNAME, "failed to delete static MAN routes on %s (error=%d)",
+			   man_ifname, route_status);
 
 	/*
 	 * The off-subnet gateway host route above is derived from this lease's
@@ -1411,12 +1433,18 @@ man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)
 
 	/* stop multicast router */
 	stop_igmpproxy(man_ifname);
+
+	return status;
 }
 
 void
 man_down(char *man_ifname, int unit)
 {
-	man_down_internal(man_ifname, unit, 0);
+	int status = man_down_internal(man_ifname, unit, 0);
+
+	if (status != 0)
+		logmessage(LOGNAME, "MAN route teardown incomplete on %s (error=%d)",
+			   man_ifname, status);
 }
 
 void
@@ -1538,12 +1566,13 @@ wan_up(char *wan_ifname, int unit, int is_static)
 		{doSystem("/usr/bin/detect.sh");}
 }
 
-void
-wan_down(char *wan_ifname, int unit, int is_static)
+static int
+wan_down_internal(char *wan_ifname, int unit, int is_static)
 {
 	char *wan_addr, *wan_gate;
 	const char *script_postw = SCRIPT_POST_WAN;
 	int wan_proto, modem_unit_id;
+	int status = 0, route_status;
 
 	logmessage(LOGNAME, "%s %s (%s)", "WAN", "down", wan_ifname);
 
@@ -1567,7 +1596,11 @@ wan_down(char *wan_ifname, int unit, int is_static)
 	    (!modem_unit_id && wan_proto == IPV4_WAN_PROTO_IPOE_DHCP)) {
 		char prefix[16];
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
-		del_dhcp_routes_by_prefix(prefix, wan_ifname, 0);
+		route_status = del_dhcp_routes_by_prefix(prefix, wan_ifname, 0);
+		status = route_status_accumulate(status, route_status);
+		if (route_status != 0)
+			logmessage(LOGNAME, "failed to delete WAN DHCP routes on %s (error=%d)",
+				   wan_ifname, route_status);
 	}
 
 	/* Stop multicast router (for NDIS or IPoE) */
@@ -1582,11 +1615,20 @@ wan_down(char *wan_ifname, int unit, int is_static)
 
 	/* Remove default route to gateway if specified */
 	wan_gate = get_wan_unit_value(unit, "gateway");
-	if (is_valid_ipv4(wan_gate))
-		route_del(wan_ifname, 1, "0.0.0.0", wan_gate, "0.0.0.0");
+	if (is_valid_ipv4(wan_gate)) {
+		route_status = route_del(wan_ifname, 1, "0.0.0.0", wan_gate, "0.0.0.0");
+		status = route_status_accumulate(status, route_status);
+		if (route_status != 0)
+			logmessage(LOGNAME, "failed to delete WAN default route via %s on %s (error=%d)",
+				   wan_gate, wan_ifname, route_status);
+	}
 
 	/* Remove interface dependent static routes */
-	del_static_wan_routes(wan_ifname);
+	route_status = del_static_wan_routes(wan_ifname);
+	status = route_status_accumulate(status, route_status);
+	if (route_status != 0)
+		logmessage(LOGNAME, "failed to delete static WAN routes on %s (error=%d)",
+			   wan_ifname, route_status);
 
 	/* leave as is if no dns servers left for demand to work */
 	if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC || wan_proto == IPV4_WAN_PROTO_IPOE_DHCP ||
@@ -1596,8 +1638,13 @@ wan_down(char *wan_ifname, int unit, int is_static)
 	/* Resolver refresh failure must not block WAN teardown/cleanup. */
 	refresh_resolvconf_nonfatal("WAN down", 0);
 
-	if (!modem_unit_id && wan_proto == IPV4_WAN_PROTO_IPOE_STATIC)
-		ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
+	if (!modem_unit_id && wan_proto == IPV4_WAN_PROTO_IPOE_STATIC) {
+		route_status = ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
+		status = route_status_accumulate(status, route_status);
+		if (route_status != 0)
+			logmessage(LOGNAME, "failed to clear static WAN address on %s (error=%d)",
+				   wan_ifname, route_status);
+	}
 
 	/* flush conntrack table (only old WAN IP records) */
 	wan_addr = get_wan_unit_value(unit, "ipaddr");
@@ -1617,6 +1664,18 @@ wan_down(char *wan_ifname, int unit, int is_static)
 	{doSystem("%s %s %s %s", script_postw, "down", wan_ifname, wan_addr);}
 	if (nvram_match("pppoemwan_enable", "1"))
 	{doSystem("/usr/bin/detect.sh");}
+
+	return status;
+}
+
+void
+wan_down(char *wan_ifname, int unit, int is_static)
+{
+	int status = wan_down_internal(wan_ifname, unit, is_static);
+
+	if (status != 0)
+		logmessage(LOGNAME, "WAN route teardown incomplete on %s (error=%d)",
+			   wan_ifname, status);
 }
 
 void
@@ -2366,6 +2425,7 @@ udhcpc_deconfig(char *wan_ifname, int is_zcip)
 {
 	int unit, wan_proto, is_man;
 	int interface_status = 0, reset_man_address = 0;
+	int cleanup_status;
 	char log_prefix[32], *udhcpc_state;
 
 	unit = get_wan_unit(wan_ifname);
@@ -2405,11 +2465,15 @@ udhcpc_deconfig(char *wan_ifname, int is_zcip)
 		udhcpc_state, wan_ifname);
 
 	if (is_man)
-		man_down_internal(wan_ifname, unit, reset_man_address);
+		cleanup_status = man_down_internal(wan_ifname, unit, reset_man_address);
 	else
-		wan_down(wan_ifname, unit, 0);
+		cleanup_status = wan_down_internal(wan_ifname, unit, 0);
 
-	return interface_status;
+	if (cleanup_status != 0)
+		logmessage(log_prefix, "route teardown incomplete on %s (error=%d)",
+			   wan_ifname, cleanup_status);
+
+	return route_status_accumulate(interface_status, cleanup_status);
 }
 
 struct wan_dhcp_interface_context {

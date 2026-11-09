@@ -1,3 +1,17 @@
+## 2026-11-10 04:55 CST (UTC+8) — Propagate MAN/WAN route teardown failures without short-circuiting cleanup
+
+- **Base main SHA:** `19b3ce5dc958a3a1594cf18baa9aaba96e55b806`; active branch: `main`.
+- **Recovered exact-head evidence:** WAN route status [42695351469], HTTPD Authentication/Security [42695351402] and AI handoff docs [42695351591] all completed SUCCESS on this exact SHA. The route-status sanitizer host regression and semantic checks passed; the HTTPD suite completed its 39 steps; docs validation reports 74/119 root records and valid archive inventory. The preceding MAN deconfig implementation passed WAN DHCP callback [42694649038] and WAN interface teardown [42694649527] on exact parent SHA `5718821e4b566fea1856945c322899b5145c995c`.
+- **Finding:** `route_del()`, `del_dhcp_routes_by_prefix()` and `del_static_*_routes()` return useful error status, but `man_down()` / `wan_down()` discarded those results before teardown returned. The DHCP callback therefore could report an interface-clear failure but not route cleanup failures.
+- **Fix:** add private status-returning `man_down_internal()` and `wan_down_internal()`; accumulate each MAN gateway host/default/DNS, DHCP and static route delete with `route_status_accumulate()`, and aggregate WAN DHCP/default/static route deletion plus static WAN address-clear results. Continue all cleanup after the first error and log failed operations. Preserve public void APIs through wrappers that log aggregate failures. `udhcpc_deconfig()` consumes the private status and returns the first interface-clear or route-cleanup error after all cleanup.
+- **Regression coverage:** update WAN route-status source contract for both internal helpers, each status-returning operation, continued cleanup ordering and public wrapper logging. Update DHCP callback contract for combined status and HTTPD extractor for the internal signature.
+- **Changed paths:** `trunk/user/rc/src/net_wan.c`; `.github/workflows/wan-route-status.yml`; `.github/workflows/wan-dhcp-callback-stability.yml`; `.github/workflows/httpd-security.yml`; `SESSION_HANDOFF.md`; `REFACTOR_ROADMAP.md`; this root log record.
+- **Validation:** L1 source review and transformed-source semantic assertions passed. Exact-head route/HTTPD/docs checks on base SHA passed; WAN DHCP/teardown checks passed on the prior production SHA. THIS changed-head WAN DHCP, WAN route, WAN teardown, HTTPD and AI docs Actions are **PENDING**. No production RC object, MIPS/uClibc, firmware/TRX or router test is claimed.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** reconcile exact-head Actions; then audit route additions in MAN/WAN up paths for status handling and partial-install rollback.
+
+---
+
 ## 2026-11-10 04:42 CST (UTC+8) — Repair WAN route and HTTPD source contracts after MAN teardown refactor
 
 - **Base main SHA:** `5718821e4b566fea1856945c322899b5145c995c`; active branch: `main`; remote branches: `main` only.

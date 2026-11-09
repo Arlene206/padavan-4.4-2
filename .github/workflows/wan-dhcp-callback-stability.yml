@@ -74,8 +74,9 @@ jobs:
           assert "interface_status = ifconfig(wan_ifname, IFUP, \"0.0.0.0\", NULL)" in deconfig
           assert "if (interface_status != 0)" in deconfig
           assert "continuing lease cleanup" in deconfig
-          assert "man_down_internal(wan_ifname, unit, reset_man_address)" in deconfig
-          assert "return interface_status;" in deconfig
+          assert "cleanup_status = man_down_internal(wan_ifname, unit, reset_man_address)" in deconfig
+          assert "cleanup_status = wan_down_internal(wan_ifname, unit, 0)" in deconfig
+          assert "return route_status_accumulate(interface_status, cleanup_status);" in deconfig
           assert 'nvram_set_temp("wanx_ipaddr", "0.0.0.0")' not in deconfig
 
           man_down = body(source, "man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)")

@@ -1,15 +1,15 @@
 ## Current repository state
 
 - Maintained fork: Arlene206/padavan-4.4-2; do not substitute upstream.
-- Base main SHA for THIS downstream source-contract repair: `5718821e4b566fea1856945c322899b5145c995c`; active branch `main`. The live remote branch inventory contains only `main`; no checkpoint branch exists.
-- Exact-head Actions on `5718821e4b566fea1856945c322899b5145c995c`: WAN DHCP callback [42694649038] SUCCESS; WAN interface teardown [42694649527] SUCCESS; AI handoff docs [42694649648] SUCCESS. The WAN DHCP GNU89 rollback compile/run and extended MAN deconfig ordering contract passed; the documentation inventory validator passed.
-- Two dependent source-contract workflows exposed follow-up test-maintenance gaps on the same SHA: WAN route status [42694649350] compiled and ran its sanitizer host regression, then failed because its Python check still extracted the public `man_down()` wrapper after the implementation moved to `man_down_internal()`; HTTPD security [42694649091] passed its earlier policy and source checks, then failed its final DHCP lease contract because it likewise expected resolver/firewall calls in the wrapper. These are stale test extraction ranges, not observed compiler or host-policy failures; the exact failing assertions were inspected in the Action logs.
-- THIS batch updates both workflows to inspect the actual internal teardown body, verifies gateway host-route deletion precedes MAN address invalidation, and separately checks that the public wrapper still delegates with address reset disabled. No production code is changed in this correction.
-- The underlying MAN deconfig fix remains on main: the old lease address is available through off-subnet gateway route cleanup, then cleared before resolver/firewall refresh; interface-clear failure is logged and returned after best-effort cleanup.
-- BusyBox callback audit remains: `udhcp_run_script()` discards `spawn_and_wait()` status; `leasefail` occurs on initial discovery retry exhaustion; a NAK is followed by deconfig for a previously bound lease but not initial REQUESTING; SIGUSR2/release-on-quit invoke deconfig rather than a distinct release callback. Do not change these semantics without a demonstrated requirement.
-- Remaining WAN teardown concern: `man_down()` / `wan_down()` ignore route deletion return values despite the underlying DHCP/static helpers returning status; trace failure accumulation and state publication before modifying.
+- Base main SHA for THIS WAN/MAN route teardown status-propagation fix: `19b3ce5dc958a3a1594cf18baa9aaba96e55b806`; active branch `main`; only `main` exists remotely and no checkpoint branch is present.
+- The previous source-contract repair is green on exact SHA `19b3ce5dc958a3a1594cf18baa9aaba96e55b806`: WAN route status [42695351469], HTTPD Authentication/Security [42695351402], and AI handoff docs [42695351591] all completed SUCCESS. Route-status sanitizer host compilation/execution and every semantic assertion passed; the HTTPD suite completed all 39 steps; docs validator reports root log 74/119 and valid archive inventory.
+- The preceding production MAN deconfig change passed WAN DHCP callback [42694649038] and WAN interface teardown [42694649527] on exact parent SHA `5718821e4b566fea1856945c322899b5145c995c`. This commit changes `net_wan.c` and callback contracts, so those workflows must rerun on the new exact SHA.
+- The MAN DHCP route-leak correction remains: retain the old `wanx_ipaddr` through off-subnet gateway host-route deletion; clear it only after MAN route cleanup and before resolver/firewall refresh. Interface-clear errors are logged and combined with cleanup status.
+- THIS batch makes MAN/WAN teardown report route failures: private `man_down_internal()` and `wan_down_internal()` aggregate each direct gateway/DNS route deletion and DHCP/static route helper result through `route_status_accumulate()`, continue attempting later cleanup, and return the first failure. Existing public void wrappers preserve their APIs and log incomplete teardown; `udhcpc_deconfig()` consumes the internal result and combines it with interface-clear status.
+- BusyBox's `udhcp_run_script()` still discards `spawn_and_wait()` status; the new callback return value is therefore not used to stop BusyBox's internal transition. Per-operation and summary log messages make cleanup failures observable.
+- Route-add status in `add_man_gateway_routes()` / `wan_up()`, callback semantics for leasefail/NAK/release and route retry/reconciliation remain open. Do not conflate this teardown fix with target routing tests.
 - NFS custom-export provenance review found no untrusted/local-account writer. `/etc` is tmpfs; `/etc/storage` is root-managed persistent MTD content; web restore requires authenticated privileged access. The RC writer accepts regular files or symlinks to regular files, falls back only on ENOENT, and fails closed otherwise. `nfsd.sh` propagates `exportfs -r` failure. No NFS code change was justified; async durability, AUTH_SYS/no_root_squash and external mounts remain separate compatibility decisions.
-- Root `dev_log.md` will contain 74 /119 complete newest-first records after THIS entry; no archive rotation is due.
+- Root `dev_log.md` will contain 75 /119 complete newest-first records after THIS entry; no archive rotation is due.
 
 ## Completed FULLCONENAT namespace / zone work
 
@@ -32,25 +32,25 @@
 
 ## Active task
 
-1. Reconcile THIS workflow contract repair on its exact resulting main SHA. Require WAN DHCP, WAN interface teardown, WAN route-status, HTTPD and AI handoff documentation workflows to complete successfully on that same SHA, and inspect the failed/repaired steps' logs.
-2. If green, continue the WAN/MAN route teardown audit: propagate accumulated statuses from gateway, DHCP and static route deletes through `man_down()` and `wan_down()` while still attempting every cleanup; retain source lease fields until all associated route removals have been attempted.
-3. Finish the DHCP callback semantics review without changing BusyBox's ignored script-exit-status contract absent a demonstrated issue. Preserve the MAN off-subnet route fix and the bound callback rollback ordering.
-4. Keep NFS async durability/AUTH_SYS/root-squash/external mounts, Samba same-boot passdb/config recovery, FULLCONENAT target build, and FTP realpath-to-syscall TOCTOU visible in the wider whole-userland queue.
+1. Reconcile THIS WAN/MAN teardown status-propagation change on its exact resulting main SHA. Inspect WAN DHCP, route status, WAN interface teardown, HTTPD security and AI handoff documentation Actions; require all applicable workflows to pass on the same SHA.
+2. If green, audit route additions in `add_man_gateway_routes()`, `wan_up()` and `man_up()` for ignored failures and incomplete rollback/reconciliation; extend the existing GNU89 route-status regression and source contracts without repeating deletion-status work.
+3. Complete the bounded BusyBox callback state review (initial leasefail, NAK/deconfig, lease expiry, repeated renew and SIGUSR2 release) without changing ignored script-exit semantics absent a demonstrated defect.
+4. Rotate broader governance coverage after the WAN batch: revisit Samba same-boot file publication and other P2 entries; keep NFS compatibility decisions, FULLCONENAT target build, and FTP realpath-to-syscall TOCTOU visible.
 
 ## Verification boundary
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for the MAN off-subnet gateway host-route dependency and deconfig ordering fix, and for the downstream workflow assertion updates; the public `man_down()` wrapper preserves its original non-reset behavior. Previous WAN bound transaction/rollback and NFS trust-boundary reviews remain PASS. |
-| L2 host / Actions | Exact SHA `5718821e4b566fea1856945c322899b5145c995c`: WAN DHCP callback [42694649038], WAN interface teardown [42694649527] and AI docs [42694649648] SUCCESS. WAN route status [42694649350] failed only in source-body extraction after implementation refactor; HTTPD security [42694649091] failed its final MAN source-contract assertion for the same wrapper/body assumption. THIS workflow correction and exact-head reruns are PENDING. |
+| L1 source review | PASS for MAN off-subnet gateway route identity/order and accumulated route teardown status across direct host/default/DNS plus DHCP/static route deletion; WAN teardown aggregates DHCP/default/static route and static-address-clear results. Public void wrappers log failures; deconfig combines interface and route cleanup status while continuing teardown. |
+| L2 host / Actions | Exact SHA `19b3ce5dc958a3a1594cf18baa9aaba96e55b806`: WAN route status [42695351469], HTTPD security [42695351402] and AI docs [42695351591] SUCCESS. Previous parent SHA `5718821e4b566fea1856945c322899b5145c995c` WAN DHCP [42694649038] and WAN teardown [42694649527] SUCCESS. THIS code change and callback-dependent workflow updates are PENDING exact resulting HEAD. |
 | L3 production RC object, MIPS/uClibc kernel object, full firmware/TRX | NOT VERIFIED. |
-| L4 target router DHCP release/NAK/lease-expiry, failed ioctl and route reconciliation behavior | NOT VERIFIED. |
+| L4 target router ioctl failures, stale-route cleanup, DHCP NAK/expiry/release and multi-WAN behavior | NOT VERIFIED. |
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, branch/checkpoint inventory and recent Actions; verify the exact resulting SHA for THIS source-contract repair.
-2. Confirm WAN DHCP, WAN interface teardown, WAN route status, HTTPD security and AI handoff docs all complete on that exact SHA. Inspect the repaired route/HTTPD step logs and ensure the host tests remain green.
-3. Then trace return values from `route_del()`, `del_dhcp_routes_by_prefix()` and `del_static_man_routes()` through `man_down()` / `wan_down()`; decide how to report accumulated failures while still attempting all cleanup. Preserve old lease inputs until route operations have been attempted.
+1. Fetch live `main`, branches/checkpoints and recent Actions; confirm the exact SHA for THIS teardown status fix.
+2. Inspect the exact-head WAN DHCP callback, WAN route-status, WAN interface teardown, HTTPD and AI handoff docs jobs. Confirm both host tests and semantic contracts pass; do not treat parent SHA results as validation of THIS code.
+3. Then trace ignored route-add results through `add_man_gateway_routes()`, `wan_up()` and `man_up()`; design bounded rollback/reporting that preserves route and NVRAM consistency. Do not undo the first-lease interface transaction or MAN deconfig fix.
 
 ## Continuation rules
 
