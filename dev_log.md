@@ -1,3 +1,16 @@
+## 2026-11-09 11:17 CST (UTC+8) — Confirm FULLCONENAT per-net notifier regression and handoff archive CI
+
+- **Base main SHA:** `91cae3d19bb72a9e0cebcad509db256aded52467`; this documentation-only follow-up records the exact-head results for the code commit.
+- **FULLCONENAT lifecycle regression:** [run 42555493213](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42555493213), SUCCESS on exact source commit `91cae3d19bb72a9e0cebcad509db256aded52467`. Its updated step, “Verify FULLCONENAT per-net notifier ownership and cleanup”, passed the per-net registry/refcount, both notifier API layouts, registration/unwind, owning-net unregister, RCU grace period, IPv4/IPv6 rule destructor/module reference order and two-namespace lifecycle assertions.
+- **AI handoff documentation contract:** [run 42555491302](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42555491302), SUCCESS on exact source commit `91cae3d19bb72a9e0cebcad509db256aded52467`. The executed `scripts/check_ai_handoff_docs.py` reported: `PASS (root log=20 entries; archive shards: dev-log=4, handoff=6, roadmap=5)`.
+- **Code commit:** `91cae3d19bb72a9e0cebcad509db256aded52467` — `fix(netfilter): scope FULLCONENAT notifiers per netns`.
+- **Validation boundary:** L1 source review PASS; L2 focused source-contract and documentation-archive Actions PASS on the exact code commit. These workflows do not compile the kernel module or execute conntrack/NAT in a live namespace. No local kernel object, MIPS/uClibc, full firmware/TRX or hardware test is claimed.
+- **Open risks:** Firewall/NAT stays AUDITING. FULLCONENAT IPv4/IPv6 mapping tables and its dying-tuple queue remain module-global and are not netns-keyed; IPv4/IPv6 writer parity, rollback/runtime semantics and complete module closure remain open.
+- **Actions on this follow-up:** the documentation-only commit will trigger a fresh AI handoff contract run. The next handoff must reconcile that run against the resulting live `main` SHA; the FULLCONENAT code regression above remains tied to the unchanged source commit `91cae3d19bb72a9e0cebcad509db256aded52467`.
+- **Next:** after the new documentation contract passes on exact live main, rotate to Wireless: inspect `check_inic_mii_rebooted()` guest-interface-up handling, then `stop_wifi_all_wl/rt()` interface-down and LED publication gates. Keep FULLCONENAT mapping namespace scope as an explicit later audit.
+
+---
+
 ## 2026-11-09 11:11 CST (UTC+8) — Scope FULLCONENAT conntrack notifiers to their owning network namespace
 
 - **Base main SHA:** `93277fe13c6c53e49fd94d3badfd4a1a4def0241`.
@@ -265,16 +278,3 @@
 - **Audit state / next:** IPv6 Firewall/NAT audit did not establish a new gap; keep it AUDITING. Next perform focused Linux 4.4 IPv4-only and IPv6-enabled `xt_webstr.c` builds (`CONFIG_FRAME_WARN=1024`) and target userspace extension compile; then resume `ip6table_nat` load ownership, ULA `FULLCONENAT`, extension-hook failure handling, followed by switch CLI/register and Wireless audits. Do not treat this bounded parser change as subsystem closure.
 
 ---
-
-## 2026-11-09 05:57 CST — Secure DHCPv6 DUID file creation and consumption
-
-- **Base main SHA:** 21a12930bda9c0e4587ea6b0f26da6ff4162df45.
-- **Implementation commit:** 077c17adb49bce9c8a1636e31a01228fbe107b8d — add shared no-symlink DUID open policy, use exclusive 0600 file creation in RC and BusyBox, validate existing DUID ownership/type/link-count/mode/size, enforce exact write lengths and descriptor-zero handling.
-- **Compile-hygiene follow-up:** 7dd3986ef682e3e58ba58fed981dbac9cdc1d371 — change shared helper functions to static inline; a single-caller -Wall -Wextra -Werror include check had exposed an unused-function warning with plain static definitions.
-- **Finding:** privileged start_dhcp6c() used unlink + fopen("/tmp/dhcp6c_duid", "w"), exposing a predictable symlink race under shared-writable /tmp. BusyBox get_duid() separately followed symlinks, invoked open(O_CREAT|O_TRUNC) without a mode argument, accepted short writev(), and used fd > 0 rather than fd >= 0.
-- **Changed paths:** trunk/user/shared/src/dhcp6c_duid_file_policy.h; trunk/user/shared/src/tests/dhcp6c_duid_file_policy.c; trunk/user/rc/src/net_wan6.c; trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c_common.c; .github/workflows/httpd-security.yml.
-- **Tests:** local GNU89 -Wall -Wextra -Werror regression PASS, covering exclusive create/mode, no truncation, accepted legacy owner-readable file, writable-mode rejection, hard links, symlinks and nonblocking FIFO rejection. ASan/UBSan with leak detection PASS. The Actions contract verifies both source integrations, the exact writev() count, file metadata restrictions and symmetric push/PR filters.
-- **Exact-head Actions:** [42527600055](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42527600055), exact SHA 7dd3986ef682e3e58ba58fed981dbac9cdc1d371, SUCCESS; new "Check DHCPv6 DUID file safety" step passed.
-- **Validation limit:** not a full production RC/BusyBox translation-unit compile; MIPS/uClibc, firmware/TRX, live DHCPv6 lease/IA_PD and router hardware tests NOT RUN.
-- **IPv6 source-map notes:** core IPv6 filter/default-filter, mangle and NAT tables use the shared family-aware firewall transaction. Boot blocks WAN when the IPv6 default filter fails if IPv6 is enabled. full_restart_ipv6() rebuilds via full WAN restart on enable; no refresh-gap defect was established in this pass. miniupnpd package config has ENABLE_IPV6:=0.
-- **Next:** continue IPv6 NAT/mangle/filter parity. Specifically trace ip6table_nat load, the ULA FULLCONENAT rule, table setup conditions and extension hook interactions/failure behavior. Firewall/NAT and Wireless remain AUDITING; switch CLI/register audit remains open.
