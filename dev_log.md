@@ -1,3 +1,15 @@
+## 2026-11-10 06:58 CST (UTC+8) — Correct the FTP final-symlink regression expectation
+
+- **Base main SHA:** `6f15ad9a2580f9d0bba16447d61d315d5e8eb4e3`.
+- **CI review:** VSFTPD regression [42720752045] compiled all GNU89 host tests and passed the config-file and daemon-policy executions. The ACL-path test then failed because it required `ELOOP` from the descriptor helper. The helper first executes `fstatat(AT_SYMLINK_NOFOLLOW)`, identifies that the substituted entry is a symlink rather than a regular file, and correctly rejects it with `EINVAL` before `openat()`; the separate direct `openat(O_NOFOLLOW)` assertion still specifically expects `ELOOP`. AI handoff validation [42720752091] completed SUCCESS on the exact base SHA.
+- **Correction:** expect `EINVAL` from the helper's earlier no-follow metadata gate and clarify the test failure message. Update the workflow source contract to match the corrected test.
+- **Changed paths:** `trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c`, `.github/workflows/vsftpd-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and this log.
+- **Validation:** L1 review confirms fail-closed helper behavior; host regression and semantic source-contract Actions are pending on THIS resulting SHA. No successful ACL-path host run is claimed yet. L3 target build and L4 hardware validation remain NOT VERIFIED.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** reconcile exact-head VSFTPD and AI-doc Actions. If green, proceed to descriptor-relative DELE/RMD/MKD/RNTO while retaining LIST/NLST, MDTM/SITE CHMOD, the upload cleanup race, and the cross-module priority queue.
+
+---
+
 ## 2026-11-10 06:57 CST (UTC+8) — Anchor FTP RETR and SIZE to the ACL-authorized file descriptor
 
 - **Base main SHA:** `f03f31fb33875fcf104f444cd6c87b77258126eb`; active branch: `main`; remote branches: `main` only.

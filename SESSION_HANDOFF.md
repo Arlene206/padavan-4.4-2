@@ -2,16 +2,16 @@
 
 - Maintained fork: `Arlene206/padavan-4.4-2`; work only on this repository.
 - Branch inventory at takeover: `main` only; no remote checkpoint branch. No force-pushes were used.
-- Live main baseline before this round: `f03f31fb33875fcf104f444cd6c87b77258126eb`. FTP upload dirfd anchoring and multiline source-contract correction are complete on that head. Remote branches: `main` only; no checkpoint branch.
+- Current main checkpoint before this test-contract correction: `6f15ad9a2580f9d0bba16447d61d315d5e8eb4e3` (RETR/SIZE descriptor-relative implementation); remote branches: `main` only; no checkpoint branch.
 - Samba production implementation commit: `1a7097ace2e6c689cb7e92cd10055967d99fe143` (parent `6b44e023c2f669865fc8b5cb5425d824b8335d8b`). Follow-up commits updated the Samba and HTTPD semantic workflow extractors after initial assertions still referenced the previous writer layout.
 - Exact Actions evidence:
   - Samba share configuration regression [42708213921] completed SUCCESS on exact SHA `e9a93eb84ac9f95447150869fab7e0ae1c2da9ff`. GNU89 host compilation/execution passed for config-file, passdb policy, the new paired transaction, and daemon policy tests; the full Samba source-order contract also passed.
   - HTTPD Authentication/Security regression [42708503436] completed SUCCESS on exact SHA `258532a78922549698bc6d9b869c7777f8f4ac05`, including Samba share/ACL trust-boundary checks and the updated unlocked-writer source extractor.
   - AI handoff documentation validation [42708503300] completed SUCCESS on exact SHA `258532a78922549698bc6d9b869c7777f8f4ac05`.
-  - Latest VSFTPD regression [42714563434] completed SUCCESS on exact live SHA `f03f31fb33875fcf104f444cd6c87b77258126eb`: GNU89 config, daemon and ACL path regression compile/run plus semantic source contracts passed. AI handoff docs [42714560664] also completed SUCCESS on the same exact SHA.
+  - VSFTPD regression [42720752045] on exact SHA `6f15ad9a2580f9d0bba16447d61d315d5e8eb4e3` compiled successfully and passed config/daemon tests, then failed the ACL-path test because its symlink rejection assertion expected `ELOOP`; the policy correctly rejected earlier with `EINVAL` from `fstatat(AT_SYMLINK_NOFOLLOW)`. This test-contract mismatch is corrected in THIS COMMIT. AI handoff docs [42720752091] completed SUCCESS on that exact SHA.
   - Initial attempts on `1a7097a...` failed only in stale semantic workflow extractors; the new transaction host test itself passed. The assertions were corrected and later exact-SHA runs above passed. Do not report the initial failures as green.
 - The exact-head DHCP callback and handoff checks on `6b44e023c2f669865fc8b5cb5425d824b8335d8b` were already SUCCESS: WAN DHCP callback [42703609156] and AI handoff docs [42703609087].
-- Root `dev_log.md` has 81 complete records before this round; this milestone makes 82/119. No archive rotation is due.
+- Root `dev_log.md` has 82 complete records before this follow-up; this milestone makes 83/119. No archive rotation is due.
 - L3 production RC/MIPS/uClibc/firmware builds and L4 physical router validation are NOT VERIFIED.
 
 ## Completed DHCP callback and BusyBox event-state review
@@ -68,15 +68,15 @@
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for the bounded BusyBox DHCP event-state review, Samba paired publication/recovery, FTP upload dirfd anchoring, and RETR/SIZE descriptor-open control flow in THIS COMMIT. Broader FTP path syscall coverage remains incomplete. |
-| L2 host / GitHub Actions | Prior VSFTPD regression [42714563434] and AI-doc validation [42714560664] passed on exact base SHA `f03f31fb33875fcf104f444cd6c87b77258126eb`. RETR/SIZE host regression and semantic source-contract Actions for THIS COMMIT are pending exact SHA. |
+| L1 source review | PASS for the bounded BusyBox DHCP event-state review, Samba paired publication/recovery, FTP upload dirfd anchoring, and RETR/SIZE descriptor-open control flow. |
+| L2 host / GitHub Actions | VSFTPD run [42720752045] on exact SHA `6f15ad9a2580f9d0bba16447d61d315d5e8eb4e3` compiled the GNU89 host tests and passed config/daemon tests, but the ACL-path test failed only because its symlink-rejection assertion expected `ELOOP` instead of the helper's deliberate early `EINVAL`. AI-doc validation [42720752091] passed on that same SHA. The corrected regression and source contract in THIS COMMIT are pending. |
 | L3 production RC/MIPS/uClibc/firmware builds and artifact validation | NOT VERIFIED. |
 | L4 physical router behavior and hardware | NOT VERIFIED. |
 
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, branch list and all Actions for its exact head. Reconcile this RETR/SIZE commit's VSFTPD and AI-doc runs by run ID and exact `head_sha`; do not assume their status.
+1. Fetch live `main`, branch list and Actions for the exact head; reconcile this errno-expectation correction's VSFTPD and AI-doc runs by exact `head_sha`.
 2. If green, implement the next bounded FTP descriptor-relative mutation slice for DELE/RMD/MKD/RNTO while preserving existing ACL semantics; then assess LIST/NLST recursion.
 3. Keep `handle_mdtm()` and `handle_site_chmod()` explicitly open as path-based operations, and preserve the non-atomic upload cleanup race plus IPTV DHCP callback, FULLCONENAT target-build and NFS compatibility follow-ups.
 

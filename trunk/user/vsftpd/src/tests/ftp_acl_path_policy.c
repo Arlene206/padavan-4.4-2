@@ -261,8 +261,8 @@ main(void)
   }
   errno = 0;
   existing_file_fd = ftp_acl_path_open_existing_file(dir_fd, "race-link", 0);
-  if (existing_file_fd >= 0 || errno != ELOOP) {
-    fprintf(stderr, "existing-file helper followed a substituted final symlink\n");
+  if (existing_file_fd >= 0 || errno != EINVAL) {
+    fprintf(stderr, "existing-file helper did not reject a substituted final symlink\n");
     return 1;
   }
   errno = 0;
