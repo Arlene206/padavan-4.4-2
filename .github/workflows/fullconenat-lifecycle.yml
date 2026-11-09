@@ -98,7 +98,7 @@ jobs:
 
           # The 4.4 notifier provider can reject an already-owned per-net
           # notifier; xtables propagates negative checkentry results.
-          notifier = function_body(ecache, "int nf_conntrack_register_notifier(struct net *net,")
+          notifier = function_body(ecache, "struct nf_ct_event_notifier *new)")
           assert "ret = -EBUSY;" in notifier
           xt_check = function_body(xtables, "int xt_check_target(")
           assert "if (ret < 0)" in xt_check and "return ret;" in xt_check
