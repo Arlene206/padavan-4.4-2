@@ -1,3 +1,14 @@
+## 2026-11-10 02:43 CST (UTC+8) — Align FULLCONENAT IPv6 inbound validation contract
+
+- **Base main SHA:** 736fab062b66468a654f73f6c67ed42bd9babb69; resulting commit: THIS COMMIT.
+- **Exact-head Actions:** FULLCONENAT [42677876443] passed notifier ownership/cleanup, GNU89 namespace/zone policy compile/run, struct layout, namespace/zone lookup, check_mapping helpers, corrected IPv4 calls and five mapping-function source checks. It then failed at the IPv6 target assertion. The test incorrectly required a direct check_mapping6(mapping, &context) call inside fullconenat_tg6(); in this implementation get_mapping6_by_ext_port(port, ip, &context) validates each candidate via check_mapping6(p_current, context) before returning it. Outbound reuse separately calls check_mapping6(src_mapping, &context). AI handoff docs [42677876166] passed on exact base SHA.
+- **Correction:** assert the inbound target calls the context-scoped external-port lookup and that the lookup itself performs check_mapping6() before returning a candidate. Retain the direct outbound-reuse assertion. No production behavior change.
+- **Changed paths:** .github/workflows/fullconenat-lifecycle.yml, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md, dev_log.md.
+- **Validation:** source review confirms the inbound validation resides in get_mapping6_by_ext_port() and the IPv6 target invokes that helper with &context; prior exact-head GNU89 policy binary PASS. Exact-head FULLCONENAT and docs runs for THIS contract correction are pending. No kernel translation-unit build, MIPS/uClibc kernel build, firmware/TRX or device test is claimed.
+- **Next:** verify every exact-head Action on THIS resulting SHA. If green, start the NFS custom exports writer/provenance/permissions/content-policy audit; keep DHCP callback state and FTP pathname TOCTOU queued.
+
+---
+
 ## 2026-11-10 02:38 CST (UTC+8) — Simplify FULLCONENAT context-based function signatures
 
 - **Base main SHA:** 3f3368948e481d90db14e7e00868062dce7ef02b; resulting commit: THIS COMMIT.

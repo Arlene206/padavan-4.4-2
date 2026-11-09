@@ -287,8 +287,10 @@ jobs:
           assert "check_mapping(mapping, context)" not in ipv4_target
           assert "check_mapping(src_mapping, net, zone)" not in ipv4_target
 
+          ipv6_lookup = function_body(source, "static struct nat_mapping6* get_mapping6_by_ext_port(")
+          assert "check_mapping6(p_current, context)" in ipv6_lookup
           ipv6_target = function_body(source, "static unsigned int fullconenat_tg6(")
-          assert "check_mapping6(mapping, &context)" in ipv6_target
+          assert "get_mapping6_by_ext_port(port, ip, &context)" in ipv6_target
           assert "check_mapping6(src_mapping, &context)" in ipv6_target
 
           for signature in ("static struct nat_mapping* allocate_mapping(",
