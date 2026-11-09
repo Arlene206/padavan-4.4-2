@@ -589,8 +589,14 @@ jobs:
           assert "pidof rpc.mountd" in nfs_stop and "pidof nfsd" in nfs_stop
           assert "killall -q -9 rpc.mountd" in nfs_stop and "killall -q -9 nfsd" in nfs_stop
           assert 'return "$status"' in nfs_stop
-          assert '"$mount_status" -eq 1' in nfs_umount and '"$mount_status" -eq 0' in nfs_umount
-          assert 'umount "$mountpoint"' in nfs_umount
+          # The helper now uses explicit 0/1/conflict case states. Require a
+          # fail-closed exact-tuple guard before unmount, then verify absence.
+          assert 'case "$mount_status" in' in nfs_umount
+          assert 'refusing to unmount conflicting or unreadable mount state' in nfs_umount
+          assert 'func_mount_status "$mountpoint" "$filesystem" "$source"' in nfs_umount
+          assert 'umount "$mountpoint" 2>/dev/null || return 1' in nfs_umount
+          assert nfs_umount.index('case "$mount_status" in') < nfs_umount.index('umount "$mountpoint" 2>/dev/null || return 1')
+          assert '[ "$mount_status" -eq 1 ]' in nfs_umount
           assert nfs_stop.index('/sbin/exportfs -ua') < nfs_stop.index('func_unmount_if_mounted /var/lib/nfs/rpc_pipefs')
           assert nfs_stop.index('func_unmount_if_mounted /var/lib/nfs/rpc_pipefs') < nfs_stop.index('func_unmount_if_mounted /proc/fs/nfsd')
           assert nfs_stop.index('func_unmount_if_mounted /proc/fs/nfsd') < nfs_stop.index('rm -f /var/lib/nfs/etab')

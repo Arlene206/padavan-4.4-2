@@ -1,3 +1,16 @@
+## 2026-11-09 21:13 CST (UTC+8) — Align storage caller-graph contract with NFS mount-state semantics
+
+- **Base main SHA:** `eb21523750bc3218121f5adf3457c587d8e9a6e0`; resulting commit: THIS COMMIT.
+- **Exact-head Actions:** NFS [42622521213](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42622521213) and AI handoff docs [42622521280](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42622521280) both SUCCESS on exact `head_sha=eb21523750bc3218121f5adf3457c587d8e9a6e0`. USB storage [42622521225](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42622521225) FAILED on the same exact SHA at its final whole-caller-graph assertion; all preceding shell syntax, Optware lifecycle and GNU89 host regression steps passed.
+- **Finding:** the storage workflow still expected `func_unmount_if_mounted()` to use both numeric `$mount_status -eq 0/1` tests. The NFS mount-identity fix replaced that logic with an explicit `case` that preserves the three states (expected mount / absent / conflicting or unreadable) and refuses unsafe teardown. This is a stale cross-workflow contract, not a production NFS test failure.
+- **Correction:** require the `case`-based pre-unmount conflict guard, exact tuple inventory invocation, refusal log, checked `umount`, guard-before-unmount ordering and post-unmount absent-state check. Production NFS/storage code is unchanged.
+- **Changed paths:** `.github/workflows/storage-hotplug-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+- **Validation:** exact job-log/source review identified the obsolete assertion in the final caller-graph step. No local full checkout or local execution of the workflow Python contract/docs validator is available; the updated storage and docs Actions are pending on THIS COMMIT's exact head.
+- **Validation boundary:** L1 contract/source review PASS. NFS runtime workflow and docs/archive workflow PASS on the base exact SHA; the full storage workflow is not green yet. L3 MIPS/uClibc, complete firmware/TRX and L4 hardware remain NOT VERIFIED.
+- **Next:** reconcile storage/docs Actions on the resulting exact SHA; then continue NFS export UID/GID/permission and option compatibility review before rotating to Samba passdb/account/ACL/credential security.
+
+---
+
 ## 2026-11-09 21:01 CST (UTC+8) — Verify exact NFS pseudo-filesystem mounts before startup and teardown
 
 - **Base main SHA:** `363f2e4101bd8087e25710e875a4719023af6637`; resulting commit: THIS COMMIT.
