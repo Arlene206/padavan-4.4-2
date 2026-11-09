@@ -1,3 +1,17 @@
+## 2026-11-09 09:23 CST — Gate WDS bridge attachment on successful interface-up commands
+
+- **Base main SHA:** `771430b44511920b63a9091c264ebc44b52db054`.
+- **Code commit:** `05c6472da8f4105dbc99c6c082d376ce5bbbff84` — gate all four 5GHz WDS and all four 2.4GHz WDS interface-up paths through `wif_control_success()`; a failed interface-up no longer leads to bridge attachment.
+- **Regression/workflow commit:** `4cded21c21a4a4108970fad055f45a7d9d6650f1` — add eight WDS source-order contracts, including the requirement that one failed port must not short-circuit attempts for the other configured WDS ports.
+- **Finding:** `start_wifi_wds_wl()` and `start_wifi_wds_rt()` discarded `wif_control()` results and unconditionally attached each requested WDS interface to `br0`. A failed `ifconfig up` could therefore publish stale bridge membership for an interface that did not transition successfully.
+- **Implementation details:** 5GHz bridge attachment is now a single statement guarded by the matching successful status check. 2.4GHz gates wrap the bridge-side conditional so that RT3352 MII builds retain their existing no-direct-bridge behavior while still logging interface failures. Each WDS port is checked independently; no early return prevents other enabled WDS ports from being attempted. Stop/mode-disable behavior and WDS port-count selection are unchanged.
+- **Changed paths:** `trunk/user/rc/src/net_wifi.c`; `.github/workflows/wireless-radio-state.yml`. Existing `wireless_radio_policy.c` GNU89 host test is reused; no new test source was added.
+- **Validation:** L1 fetched-source preflight confirmed all eight calls are guarded and their corresponding bridge calls remain downstream. L2 local host test compiled with `cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined` and ASan/UBSan + leak detection; executable PASS. Exact workflow-head GitHub Actions run [42545325747](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42545325747) completed SUCCESS on `4cded21c21a4a4108970fad055f45a7d9d6650f1`; the compile/policy executable and Python source-contract step both passed. Code-only head `05c6472da8f4105dbc99c6c082d376ce5bbbff84` also triggered run 42545322482; the final exact test/workflow-head result is the run cited above.
+- **Validation boundary / remaining risks:** no production RC translation-unit/object build, MIPS/uClibc build, complete firmware/TRX, live WDS transition, RT3352 MII behavior or physical-router validation. Wireless remains **AUDITING**. iNIC main boot/disable ordering, `check_inic_mii_rebooted()`, stop-path status handling, association/driver/switch consumers and external consumers remain open. Firewall/NAT also remains AUDITING, including the separate FULLCONENAT global notifier/reference-count versus per-net namespace question.
+- **Next:** re-fetch main and audit `start_inic_mii()` first, specifically failed `rai0` up/down command handling before iNIC update, isolation, RadioOn and bridge operations; then inspect `stop_wifi_all_wl/rt()` and `check_inic_mii_rebooted()`. Close only evidenced defects, then rotate away from Wireless toward DNS/DHCP or another high-risk unaudited user-space module.
+
+---
+
 ## 2026-11-09 09:18 CST — Gate AP and APCLI bridge publication on successful interface-up commands
 
 - **Base main SHA:** `398aaf17125ee87321c683c1e3b9d951178e04ed`.
