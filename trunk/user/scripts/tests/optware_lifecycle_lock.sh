@@ -26,31 +26,40 @@ optware_lifecycle_lock_acquire "$lock_file"
 (
 	exec 9>&-
 	. "$helper"
-	: > "$tmpdir/child-started"
+	if optware_lifecycle_lock_try_acquire "$lock_file"; then
+		: > "$tmpdir/nonblocking-acquired"
+		optware_lifecycle_lock_release
+		exit 1
+	fi
+	: > "$tmpdir/nonblocking-refused"
 	optware_lifecycle_lock_acquire "$lock_file"
-	: > "$tmpdir/child-acquired"
+	: > "$tmpdir/blocking-acquired"
 	optware_lifecycle_lock_release
 ) &
 child_pid=$!
 
 attempt=0
-while [ ! -f "$tmpdir/child-started" ]; do
+while [ ! -f "$tmpdir/nonblocking-refused" ]; do
+	if [ -f "$tmpdir/nonblocking-acquired" ]; then
+		echo "nonblocking Optware teardown lock acquired while startup owned it" >&2
+		exit 1
+	fi
 	attempt=$((attempt + 1))
 	if [ "$attempt" -ge 50 ]; then
-		echo "child did not reach the lock contention point" >&2
+		echo "nonblocking Optware lock attempt did not return promptly" >&2
 		exit 1
 	fi
 	sleep 0.1
 done
 
 sleep 1
-if [ -f "$tmpdir/child-acquired" ]; then
-	echo "Optware lifecycle lock did not block a competing process" >&2
+if [ -f "$tmpdir/blocking-acquired" ]; then
+	echo "blocking Optware lifecycle lock did not wait for the owner" >&2
 	exit 1
 fi
 
 optware_lifecycle_lock_release
 wait "$child_pid"
 child_pid=
-[ -f "$tmpdir/child-acquired" ]
-echo "Optware startup and teardown lifecycle lock serializes competing processes: PASS"
+[ -f "$tmpdir/blocking-acquired" ]
+echo "Optware teardown fails fast under a held lifecycle lock; startup waits for release: PASS"

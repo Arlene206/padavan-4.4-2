@@ -168,12 +168,13 @@ jobs:
           assert deferred_event.index("try_start_stor_apps()") < deferred_event.index('nvram_set_int_temp("usb_hotplug_ms", 0)')
           assert "alarm(5);" in deferred_event
 
-          assert "flock 9" in opt_lock and 'exec 9>>"$optware_lock_file"' in opt_lock
-          assert "optware_lifecycle_lock_acquire" in opt_lock_test
+          assert "flock 9" in opt_lock and "flock -n 9" in opt_lock
+          assert 'exec 9>>"$optware_lock_file"' in opt_lock
+          assert "optware_lifecycle_lock_try_acquire" in opt_lock_test
           assert opt_start.index("optware_lifecycle_lock_acquire") < opt_start.index("mountpoint -q /opt")
           assert opt_start.index("mountpoint -q /opt") < opt_start.index("start 9>&-")
           assert opt_start.index("start 9>&-") < opt_start.rindex("optware_lifecycle_lock_release")
-          assert opt_umount.index("optware_lifecycle_lock_acquire") < opt_umount.index("mountpoint -q /opt")
+          assert opt_umount.index("optware_lifecycle_lock_try_acquire") < opt_umount.index("mountpoint -q /opt")
           assert opt_umount.index("stop 9>&-") < opt_umount.index("umount /opt")
           assert opt_umount.index("umount /opt") < opt_umount.rindex("optware_lifecycle_lock_release")
 

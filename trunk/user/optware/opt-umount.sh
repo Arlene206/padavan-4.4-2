@@ -6,8 +6,8 @@ self_name="opt-umount.sh"
 [ -z "$1" ] || [ -z "$2" ] && exit 1
 
 . /sbin/optware_lifecycle_lock.sh || exit 1
-if ! optware_lifecycle_lock_acquire; then
-	logger -t "${self_name}" "cannot acquire Optware lifecycle lock; refusing unmount"
+if ! optware_lifecycle_lock_try_acquire; then
+	logger -t "${self_name}" "Optware lifecycle is busy; refusing unmount so storage remains attached"
 	exit 1
 fi
 
