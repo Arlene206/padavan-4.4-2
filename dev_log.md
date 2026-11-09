@@ -1,3 +1,15 @@
+## 2026-11-10 02:31 CST (UTC+8) — Fix FULLCONENAT namespace call sites and regression contracts
+
+- **Base main SHA:** e0dcc7dbc3a85d5f6b1115e63e8f7b75a0e8e08d; resulting commit: THIS COMMIT.
+- **Recovered exact-head Actions:** FULLCONENAT [42674430844] ran the existing notifier lifecycle contract and GNU89 namespace/zone identity regression successfully, then failed the semantic contract at struct_body(): the workflow used over-escaped regex tokens and could not match the real struct nat_mapping. AI handoff docs [42674431213] also reported failure on the exact base SHA, but the Actions API exposed no jobs/check-run detail; its cause is unclassified.
+- **Production source review:** the namespace-context refactor changed check_mapping() to accept const struct fullconenat_namespace_context *, but three IPv4 target call sites retained the old API: two passed context by value and one passed obsolete (net, zone) arguments. Correct all three to pass &context; IPv6 call sites already use the pointer form.
+- **Workflow correction:** use normal Python regex escapes for mapping struct declarations; resolve the purge helper by its stable function-name/signature substring rather than a literal escaped newline; assert the IPv4 target uses only the new pointer API and that the IPv6 target remains aligned.
+- **Changed paths:** trunk/linux-4.4.x/net/netfilter/xt_FULLCONENAT.c, .github/workflows/fullconenat-lifecycle.yml, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md, dev_log.md.
+- **Validation:** L1 inspection confirmed the saved zone matches the Linux 4.4 nf_conntrack_find_get(net, zone, tuple) prototype and nf_ct_zone_init(zone,id,dir,flags) helper. The base exact-head workflow's GNU89 policy binary compiled and ran PASS; the semantic step then failed as above. THIS correction's exact-head FULLCONENAT and docs runs are pending. No full xt_FULLCONENAT.c kernel object, MIPS/uClibc kernel build, firmware/TRX or hardware validation is claimed.
+- **Next:** inspect each exact-head Actions run on THIS resulting SHA, including failed job logs; then begin NFS custom exports writer provenance/ownership/mode/content trust-boundary audit if green. Keep DHCP callback state and FTP pathname TOCTOU on the wider queue.
+
+---
+
 ## 2026-11-10 01:46 CST (UTC+8) — Correct vsftpd semantic workflow assertion ordering
 
 - **Base main SHA:** `30d64c73546db236c12679d24eda74c1ea9f2916`; resulting commit: THIS COMMIT.

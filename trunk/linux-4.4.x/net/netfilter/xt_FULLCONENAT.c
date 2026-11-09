@@ -1198,7 +1198,7 @@ static unsigned int fullconenat_tg(struct sk_buff *skb, const struct xt_action_p
       spin_unlock_bh(&fullconenat_lock);
       return ret;
     }
-    if (check_mapping(mapping, context)) {
+    if (check_mapping(mapping, &context)) {
       newrange.flags = NF_NAT_RANGE_MAP_IPS | NF_NAT_RANGE_PROTO_SPECIFIED;
       newrange.min_addr.ip = mapping->int_addr;
       newrange.max_addr.ip = mapping->int_addr;
@@ -1232,7 +1232,7 @@ static unsigned int fullconenat_tg(struct sk_buff *skb, const struct xt_action_p
       original_port = be16_to_cpu((ct_tuple_origin->src).u.udp.port);
 
       src_mapping = get_mapping_by_int_src(ip, original_port, &context);
-      if (src_mapping != NULL && check_mapping(src_mapping, net, zone)) {
+      if (src_mapping != NULL && check_mapping(src_mapping, &context)) {
 
         /* outbound nat: if a previously established mapping is active,
          * we will reuse that mapping. */
@@ -1283,7 +1283,7 @@ static unsigned int fullconenat_tg(struct sk_buff *skb, const struct xt_action_p
 
     /* save the mapping information into our mapping table */
     mapping = src_mapping;
-    if (mapping == NULL || !check_mapping(mapping, context)) {
+    if (mapping == NULL || !check_mapping(mapping, &context)) {
       mapping = allocate_mapping(ip, original_port, port, ifindex, &context);
     }
     if (mapping != NULL) {

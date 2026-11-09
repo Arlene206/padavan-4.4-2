@@ -252,7 +252,7 @@ jobs:
 
           def struct_body(text, name):
               match = re.search(
-                  r"\\bstruct\\s+" + re.escape(name) + r"\\s*\\{(.*?)\\};",
+                  r"\bstruct\s+" + re.escape(name) + r"\s*\{(.*?)\};",
                   text, re.S)
               assert match, f"missing struct {name}"
               return match.group(1)
@@ -281,6 +281,16 @@ jobs:
               assert "mapping->context.zone_id" in check
               assert "mapping->context.zone_flags" in check
               assert "mapping->context.zone_dir" in check
+          ipv4_target = function_body(source, "static unsigned int fullconenat_tg(")
+          assert "check_mapping(mapping, &context)" in ipv4_target
+          assert "check_mapping(src_mapping, &context)" in ipv4_target
+          assert "check_mapping(mapping, context)" not in ipv4_target
+          assert "check_mapping(src_mapping, net, zone)" not in ipv4_target
+
+          ipv6_target = function_body(source, "static unsigned int fullconenat_tg6(")
+          assert "check_mapping6(mapping, &context)" in ipv6_target
+          assert "check_mapping6(src_mapping, &context)" in ipv6_target
+
           for signature in ("static struct nat_mapping* allocate_mapping(",
                             "static struct nat_mapping6* allocate_mapping6("):
               assert "p_new->context = *context;" in function_body(source, signature)
@@ -295,7 +305,7 @@ jobs:
           assert "get_mapping_by_int_src(ip, port)" not in gc
           assert "get_mapping6_by_int_src(ip6, port, ext_ip6)" not in gc
 
-          purge = function_body(source, "static void\\nfullconenat_purge_net(")
+          purge = function_body(source, "fullconenat_purge_net(struct net *net)")
           assert purge.count("fullconenat_namespace_context_belongs_to_net") == 3
           assert "kill_mapping(mapping)" in purge and "kill_mapping6(mapping6)" in purge
           assert "list_del(&item->list);" in purge

@@ -1,10 +1,18 @@
 ## Current repository state
 
-- Maintained fork: `Arlene206/padavan-4.4-2`; never substitute the upstream repository.
-- Base `main` SHA for THIS workflow-contract correction: `30d64c73546db236c12679d24eda74c1ea9f2916`. Only `main` exists; no separate checkpoint branch.
-- The preceding target-path ACL commit `071739a00401b1b229bb79613d30bdd4c452faa4` passed both exact-head workflows: vsftpd [42665789660] and AI handoff docs [42665789545].
-- Current second-batch commit `30d64c73546db236c12679d24eda74c1ea9f2916` produced exact-head docs SUCCESS [42667318504]. Its vsftpd run [42667318607] compiled all GNU89 regression binaries and ran them successfully, but the Python semantic-contract step failed with `NameError: acl_path is not defined`: the new ACL helper bodies were referenced before extraction. THIS commit only corrects the workflow declaration order and refreshes the continuation record; production C source and host tests are unchanged.
-- Root `dev_log.md` has 65 complete newest-first records before THIS entry; it is under 384 KiB and does not need archive rotation.
+- Maintained fork: Arlene206/padavan-4.4-2; do not substitute upstream.
+- Base main SHA for THIS FULLCONENAT correction batch: e0dcc7dbc3a85d5f6b1115e63e8f7b75a0e8e08d. Active branch is main. Remote branch inventory contains only main; no checkpoint branch exists.
+- Commit e0dcc7dbc3a85d5f6b1115e63e8f7b75a0e8e08d introduced per-network-namespace and conntrack-zone identity into global FULLCONENAT mapping and dying-tuple state. Exact-head FULLCONENAT Actions [42674430844](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42674430844) passed the prior notifier lifecycle contract and GNU89 context-policy regression, then failed the new semantic contract because its struct regex was over-escaped and could not match struct nat_mapping. AI handoff docs run [42674431213](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42674431213) also reports failure; the Actions API returned no job/check-run detail, so the cause is unclassified.
+- Source review of e0dcc7dbc3a85d5f6b1115e63e8f7b75a0e8e08d also found three IPv4 target call sites retaining the old check_mapping() API: two passed context by value and one used obsolete (net, zone) arguments. THIS batch corrects all three to pass &context and adds IPv4/IPv6 target source contracts. Exact-head rerun is pending.
+- The previous vsftpd correction is closed: runs [42667988550](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42667988550) and [42667988522](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42667988522) both completed SUCCESS on exact head_sha 895f2a9ebcb58e810694f76cbf13706ffea9ef75.
+- Root dev_log.md remains below the 384 KiB rotation target and within the 20–119 record window after THIS entry. No archive rotation is required.
+
+## Completed FULLCONENAT namespace / zone work
+
+- IPv4/IPv6 mapping entries and pending dying-tuple records retain the owning struct net pointer plus conntrack zone identity (id, flags and direction).
+- Mapping lookup and tuple garbage collection are scoped by the full identity. Conntrack lookups reconstruct the saved zone; final per-net target teardown unregisters the notifier, waits for legacy RCU callback readers, purges only that namespace's mapping/queue entries, then drops the conntrack namespace reference.
+- The new GNU89 host policy regression covers same/different namespace, zone ID, flags, direction and null inputs. It passed as step 4 of base Actions run 42674430844.
+- THIS batch corrects the three missed IPv4 helper call sites and repairs the workflow struct/purge source matchers. The standalone policy binary does not compile the full kernel translation unit; target compilation remains unverified.
 
 ## Completed FTP work
 
@@ -18,29 +26,28 @@
 
 ## Active task
 
-1. Verify the exact full SHA of THIS correction commit on every triggered workflow. Confirm vsftpd GNU89 test step PASS and semantic source-contract step PASS; docs validator must also pass at the same full head SHA.
-2. Then continue the whole-repository audit outside FTP, beginning with NFS custom exports. Initial inspection found:
-   - `write_nfsd_exports()` accepts `/etc/storage/exports` if it is a regular file or symlink to a regular file; only ENOENT enables generated exports.
-   - Custom content is linked into `/etc/exports` without checking ownership, mode, content scope, or NFS options. Determine who can create/write `/etc/storage/exports` and whether it is an intentional trusted operator override before treating this as a security bug.
-   - Generated options are `async,secure,no_root_squash,no_subtree_check`; source comments state `secure` is retained to stop unprivileged source ports claiming UID 0 under AUTH_SYS, while `no_root_squash` is preserved for compatibility.
-   - Generated exports validate LAN/VPN IPv4/IPv6 ACLs, mount inventory and staging errors. `nfsd.sh` has explicit start/reload/stop checks and retains state when daemon termination fails.
-   - Inspect web UI/config writer, `/etc/storage` provisioning and permission modes, NFS shell tests/workflows, exportfs semantics, and `/etc` tmpfs behavior before deciding the next bounded fix.
-3. Keep DHCP leasefail/accepted-NAK/release state and FULLCONENAT mapping-hash/dying-tuple namespace ownership visible on the whole-repository queue. Keep FTP pathname realpath-to-syscall TOCTOU and target validation residuals too.
+1. Verify the exact full SHA of THIS correction commit on every triggered workflow. Inspect FULLCONENAT job steps: the GNU89 namespace/zone regression and semantic source contracts must both pass. Inspect the AI handoff documentation workflow on the same full SHA; its base run reported failure with no job detail, so explicitly classify the new result.
+2. If exact-head checks pass, resume the repository-wide queue outside Netfilter with the NFS custom exports trust-boundary investigation:
+   - Trace all UI, CGI, shell and RC writers/readers of /etc/storage/exports; identify ownership, modes, symlink creation and whether untrusted/local accounts can modify it.
+   - Determine whether the file is an intentional administrator-only authoritative override. Do not label missing in-code ownership/mode/content checks a vulnerability until writer trust is established.
+   - Review /etc/storage provisioning, /etc tmpfs lifecycle, exportfs parsing/failure recovery and NFS mount/ACL constraints.
+   - Keep generated defaults async,secure,no_root_squash,no_subtree_check, root UID/GID compatibility and external-mount policy as separate decisions; do not change these options speculatively.
+3. Then rank DHCP leasefail/accepted-NAK/release callback-state semantics and FULLCONENAT residual target-validation risks by reproducibility and impact. Keep FTP realpath-to-syscall symlink-swap TOCTOU visible.
 
 ## Verification boundary
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for path-target ACL guards across the above FTP command families and exact reserved-sidecar name/canonical-target denial. Pathname symlink-swap TOCTOU remains. |
-| L2 host / Actions | Parent `30d64c73546db236c12679d24eda74c1ea9f2916`: GNU89 compilation and all host regression binaries PASS; docs action [42667318504] PASS; vsftpd semantic contract failed only due to `acl_path` being referenced before assignment. THIS correction moves extraction before use; exact-head rerun pending. |
-| L3 MIPS/uClibc / production vsftpd object / firmware/TRX | NOT VERIFIED. |
-| L4 live FTP ACL/account/anonymous tests, NFS clients and physical router validation | NOT VERIFIED. |
+| L1 source review | PASS for namespace/zone identity propagation, lookup scoping and teardown ordering; THIS batch fixes all three stale IPv4 helper call sites and strengthens source contracts. |
+| L2 host / Actions | Base [42674430844] exact-head: notifier/lifecycle contract PASS; GNU89 context-policy binary compile/run PASS; later semantic contract FAIL because its struct regex was over-escaped. THIS correction adds fixed matchers and IPv4 call-site contracts; exact-head Actions pending. Base docs run [42674431213] reports failure but exposed no job detail; new exact-head docs result pending. |
+| L3 MIPS/uClibc kernel object, full firmware/TRX | NOT VERIFIED. |
+| L4 target router namespace/conntrack-zone/NAT behavior | NOT VERIFIED. |
 
 ## Exact first action for the next GPT
 
-1. Fetch current `main`, branches and Actions. Verify the new full SHA matches every run; inspect steps/logs rather than trusting summary conclusions.
-2. If green, resume NFS override trust-boundary investigation described above and make a focused host/source test if a reproducible flaw is confirmed.
-3. Then rank DHCP callback-state semantics vs FULLCONENAT tuple namespace ownership by severity and reproducibility.
+1. Fetch live main, remote branches and all Actions for the new full SHA; match every run's head_sha exactly.
+2. Inspect FULLCONENAT job steps/logs and confirm the GNU89 policy regression, namespace/zone source contracts and AI handoff docs validator outcomes. Do not assume docs passed when run metadata is incomplete.
+3. On green exact-head checks, begin NFS custom exports provenance/permissions/content-policy tracing before changing NFS behavior.
 
 ## Continuation rules
 
