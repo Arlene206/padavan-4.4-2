@@ -1221,7 +1221,7 @@ stop_wan(void)
 						       &wan_teardown_ifdown_ops, NULL);
 	remove_cb_links();
 	if (ifdown_status != 0) {
-		logmessage(LOGNAME, "WAN interface shutdown incomplete; retaining WAN runtime state");
+		logmessage(LOGNAME, "WAN interface shutdown incomplete; skipping final WAN state clear");
 		return -1;
 	}
 	clear_wan_state();
