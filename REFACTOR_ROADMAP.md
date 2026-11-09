@@ -1,4 +1,4 @@
-## 2026-11-09 09:15 CST — Gate AP and APCLI bridge publication on successful interface-up commands
+## 2026-11-09 09:18 CST — Gate AP and APCLI bridge publication on successful interface-up commands
 
 - **Module / priority:** RC Wireless AP/APCLI startup lifecycle; P2 interface-state consistency and failed-transition recovery. Wireless remains **AUDITING**, not closed.
 - **Source paths / responsibilities:** `trunk/user/rc/src/net_wifi.c` — `start_wifi_ap_wl/rt()`, `start_wifi_apcli_wl/rt()`, RT3352 `IFNAME_INIC_GUEST` startup and the existing `wif_control_success()` status gate; `.github/workflows/wireless-radio-state.yml` — GNU89 policy test and production call-order contracts.
