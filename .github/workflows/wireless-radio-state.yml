@@ -150,6 +150,58 @@ jobs:
                           f"{name}: {ifname} may be attached to bridge after failed interface-up"
                       )
 
+          # RT3352 iNIC startup must not continue publishing bridge/radio
+          # state when rai0 fails to transition up. Recovery must isolate,
+          # disable the RGMII path, and assert reset in that order.
+          inic = function_body(source, "start_inic_mii(void)")
+          startup_gate = "if (!wif_control_success(ifname_inic, 1))"
+          assert startup_gate in inic, "start_inic_mii: missing checked rai0 interface-up gate"
+          gate_pos = inic.index(startup_gate)
+          failure_return = inic.index("return;", gate_pos)
+          failure_path = inic[gate_pos:failure_return]
+          recovery_steps = (
+              "br_add_del_if(IFNAME_BR, ifname_inic, 0)",
+              "phy_isolate_inic(1)",
+              "phy_disable_inic(1)",
+              "cpu_gpio_set_pin(1, 0)",
+          )
+          recovery_positions = [failure_path.index(step) for step in recovery_steps]
+          assert recovery_positions == sorted(recovery_positions), (
+              "start_inic_mii: failed rai0 startup must remove bridge membership, "
+              "isolate, disable RGMII, and assert reset"
+          )
+          for effect in (
+              "update_inic_mii();",
+              'doSystem("iwpriv %s set %s=%d", ifname_inic, "RadioOn", 0)',
+              "br_add_del_if(IFNAME_BR, ifname_inic, is_need_8021x(",
+          ):
+              assert failure_return < inic.index(effect, gate_pos), (
+                  f"start_inic_mii: failed rai0 startup may still reach {effect}"
+              )
+
+          # The explicit inic_disable path is fail-safe: a failed ifconfig
+          # down must not prevent bridge removal, isolation, RGMII disable,
+          # or reset assertion.
+          disable_pos = inic.rfind("} else {")
+          assert disable_pos >= 0, "start_inic_mii: missing inic_disable branch"
+          disable_path = inic[disable_pos:]
+          down_call = "(void)wif_control_success(ifname_inic, 0)"
+          assert down_call in disable_path, "start_inic_mii: missing checked rai0 shutdown"
+          down_pos = disable_path.index(down_call)
+          disable_steps = (
+              "br_add_del_if(IFNAME_BR, ifname_inic, 0)",
+              "phy_isolate_inic(1)",
+              "phy_disable_inic(1)",
+              "cpu_gpio_set_pin(1, 0)",
+          )
+          disable_positions = [disable_path.index(step, down_pos) for step in disable_steps]
+          assert disable_positions == sorted(disable_positions), (
+              "start_inic_mii: failed rai0 shutdown must not skip fail-safe cleanup"
+          )
+          assert "return;" not in disable_path, (
+              "start_inic_mii: interface-down failure must not short-circuit reset cleanup"
+          )
+
           paths = (
               ".github/workflows/wireless-radio-state.yml",
               "trunk/user/rc/src/net_wifi.c",
