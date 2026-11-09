@@ -83,7 +83,7 @@ jobs:
               "trunk/user/rc/src/tests/wireless_radio_policy.c",
           )
           for path in paths:
-              assert workflow.count(path) == 2, f"push/PR path filters differ for {path}"
+              assert workflow.count(path) == 3, f"push/PR path filters differ for {path}"
 
           print("Wireless driver/restart failure state-publication contracts: PASS")
           PY
