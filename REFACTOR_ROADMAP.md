@@ -5,8 +5,8 @@
 ## Current source / CI checkpoint
 
 - Repository: Arlene206/padavan-4.4-2 (maintained fork).
-- Latest source/test checkpoint: THIS COMMIT — stage the entire generated Samba configuration, check stream/flush/close and share-inventory reads, atomically publish, and gate WINS startup plus nmbd/smbd reload. Base main SHA `c51c0f73fa2dccdd191515347acf80fd2a0132d2`; new Samba exact-head Actions are pending.
-- Previous exact-head runs: vsftpd [42586171489](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42586171489), storage [42586171713](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42586171713), HTTPD [42586171537](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42586171537) and AI handoff docs [42586171552](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42586171552) all PASS on exact SHA `c51c0f73fa2dccdd191515347acf80fd2a0132d2`.
+- Latest code checkpoint: `724b4c9982cba13c3c7274ba4744f88fb5799835` — Samba generated configuration now uses same-directory staging/atomic publication and gates WINS startup plus nmbd/smbd reload. Current bounded follow-up corrects two exact-head CI regressions: the Samba GNU89 test's double-escaped C literal and the HTTPD workflow's obsolete expectations for the former direct-to-live-file writer. Base SHA for the correction: `724b4c9982cba13c3c7274ba4744f88fb5799835`; new exact-head Actions are pending.
+- Baseline exact-head Actions: Samba [42587965407](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42587965407) FAILED at C test compile; HTTPD [42587965159](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42587965159) FAILED at stale Samba source contract. vsftpd [42587965266](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42587965266), storage [42587965191](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42587965191), WAN route [42587965174](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42587965174) and AI handoff docs [42587965152](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42587965152) all PASS on exact SHA `724b4c9982cba13c3c7274ba4744f88fb5799835`.
 
 ## Whole-repository module status
 
@@ -21,14 +21,14 @@
 | HTTPD / CGI / authentication | PARTIAL / AUDITING | Authentication, disclosure, safe publication, NVRAM restore and CGI policy checks have recent Actions. | Whole-route input, authorization and error-path inventory. |
 | NVRAM / persistence / startup | PARTIAL / AUDITING | Atomic publication and restore failure gates. | Remaining direct callers, flash recovery and board variants. |
 | Switch / PHY / MDIO / link state | PARTIAL / AUDITING | Selected ioctl propagation, PVID/link retry, CLI ordering and MDIO timeout checks. | Other board drivers and live hardware behavior. |
-| Samba share service / accounts | PARTIAL / AUDITING | Generated smb.conf is staged and atomically published; share-folder inventory/read errors fail closed; WINS startup and nmbd/smbd reload are gated on successful configuration publication. Focused GNU89 host/source regression added. | Passdb/account mutation consistency, ACL/permission mapping, credential security, live Samba reload behavior and target runtime. |
+| Samba share service / accounts | PARTIAL / AUDITING | Generated smb.conf is staged and atomically published; share-folder inventory/read errors fail closed; WINS startup and nmbd/smbd reload are gated on successful publication. Regression correction fixes a double-escaped C test literal and updates the dependent HTTPD contract to the staged writer; new exact-head Actions pending. | Passdb/account mutation consistency, ACL/permission mapping, credential security, live Samba reload behavior and target runtime. |
 | FTP service / vsftpd | PARTIAL / AUDITING | Generated vsftpd config uses checked same-directory staging/atomic replacement and daemon startup is gated on publication success. | Authentication, credential/ACL semantics, path confinement, stop/lifecycle error propagation and target runtime. |
 | NFS / third-party add-ons | AUDITING | NFS mount inventory and selected external-script lifecycle checks. | Permissions, command injection, service failures, mount lifecycle and arbitrary external init ordering. |
 | Init / PID 1 / service supervision | AUDITING | Notification deferral, child reaping and selected start/stop failure gates. | Cross-module ordering, shutdown races and package supervision. |
 
 ## Priority queue
 
-1. P2 — After exact-head Samba checks pass, rotate to NFS mount/permission lifecycle and third-party add-on service supervision; trace full caller and init order before selecting one bounded P2 bug.
+1. P2 — First reconcile the corrected Samba and HTTPD Actions on the exact new main SHA. Once green, rotate to NFS mount/permission lifecycle and third-party add-on service supervision; trace full caller and init order before selecting one bounded P2 bug.
 2. P2 — Continue the separate Samba account/passdb mutation and ACL/permission audit; do not equate atomic config publication with complete service security.
 3. P2/P3 — Continue LAN DHCP leasefail, accepted-NAK and release state semantics; account for BusyBox discarding callback exit status. Target/live DHCP validation remains outstanding.
 4. Separate kernel task — FULLCONENAT mapping-hash and dying-tuple queue namespace ownership. Keep it separate from userland work.
@@ -48,10 +48,10 @@
 
 | Level | Evidence | Limits |
 |---|---|---|
-| L1 source review | PASS for SMB staged/atomic config generation, fail-closed folder inventory, WINS startup and nmbd/smbd reload gates; PASS for vsftpd staged config, daemon-start gate and corrected error return, plus bounded DHCP/storage reviews. |
-| L2 host / Actions | vsftpd [42586171489](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42586171489), storage [42586171713](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42586171713), HTTPD [42586171537](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42586171537) and docs [42586171552](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42586171552) PASS on exact SHA `c51c0f73fa2dccdd191515347acf80fd2a0132d2`. New Samba helper/test compiled and passed locally under GNU89 `-Wall -Wextra -Werror`; its workflow and exact-head run are pending. |
+| L1 source review | PASS for SMB staged/atomic config generation, fail-closed folder inventory, WINS startup and nmbd/smbd reload gates; PASS for the preceding vsftpd, DHCP, storage and selected service-lifecycle reviews. | A bounded source review does not close Samba/FTP service security or whole-module audits. |
+| L2 host / Actions | On exact baseline SHA `724b4c9982cba13c3c7274ba4744f88fb5799835`: vsftpd [42587965266](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42587965266), storage [42587965191](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42587965191), WAN route [42587965174](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42587965174) and docs [42587965152](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42587965152) PASS; Samba [42587965407](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42587965407) FAIL at the GNU89 test compile due to a double-escaped character constant; HTTPD [42587965159](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42587965159) FAIL at obsolete Samba source-contract expectations. Corrected exact-head Samba and HTTPD Actions are pending. | No local L2 run in this session; production RC object, MIPS/uClibc and firmware/TRX are not verified. |
 | L3 MIPS/uClibc / production objects / firmware/TRX | NOT VERIFIED. | Full build phase required. |
-| L4 live router / DHCP churn / storage hotplug / physical hardware | NOT VERIFIED. | Requires device validation. |
+| L4 live router / SMB share/auth/ACL / physical hardware | NOT VERIFIED. | Requires device validation. |
 
 ## Handoff requirements
 

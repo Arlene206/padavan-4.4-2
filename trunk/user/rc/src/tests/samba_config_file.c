@@ -89,12 +89,12 @@ main(void)
 
 	/* Explicit discard also closes and removes an unpublished candidate. */
 	assert(samba_config_file_open(target, staged, sizeof(staged), &fp) == 0);
-	assert(fputs("discard me\\n", fp) >= 0);
+	assert(fputs("discard me\n", fp) >= 0);
 	samba_config_file_discard(&fp, staged);
 	assert(fp == NULL);
-	assert(staged[0] == '\\0');
+	assert(staged[0] == '\0');
 	read_text_file(target, contents, sizeof(contents));
-	assert(strcmp(contents, "new configuration\\n") == 0);
+	assert(strcmp(contents, "new configuration\n") == 0);
 
 	/* Missing parent and a short staging buffer fail without truncation. */
 	path_len = snprintf(missing_target, sizeof(missing_target),

@@ -2372,7 +2372,7 @@ jobs:
           share_test = Path("trunk/user/rc/src/tests/samba_share_policy.c").read_text()
           assert "samba_config_value_is_safe" in config_policy
           assert '#include "samba_config_value_policy.h"' in service_config
-          config_header = service_config[service_config.index("write_smb_conf_header(void)"):
+          config_header = service_config[service_config.index("write_smb_conf_header(FILE *fp)"):
                                          service_config.index(chr(10) + "void" + chr(10) + "stop_nmbd")]
           assert config_header.index("samba_config_value_is_safe(p_workgroup)") < config_header.index('fprintf(fp, "workgroup = %s')
           assert config_header.index("samba_config_value_is_safe(p_computer_name)") < config_header.index('fprintf(fp, "netbios name = %s')
@@ -2465,10 +2465,17 @@ jobs:
           assert "if (!disks_info)" in writer
           assert "disks_info = read_disk_data();" in writer
           assert "if (get_account_list(&acc_num, &account_list) < 0)" in writer
-          assert 'fp = fopen(SAMBA_CONF, "a");' in writer
+          assert "samba_config_file_open(SAMBA_CONF" in writer
+          assert "write_smb_conf_header(fp)" in writer
+          assert 'fp = fopen(staged_path, "a");' in writer
+          assert "check_existed_share(share, staged_path)" in writer
+          assert "samba_config_file_publish(&fp, staged_path, SAMBA_CONF)" in writer
+          assert 'fopen(SAMBA_CONF, "a")' not in writer
+          assert "if (fclose(fp) != 0)" in writer
           assert "result = -1;" in writer and writer.count("result = -1;") >= 4
-          assert "if (fp && fclose(fp) != 0)" in writer
-          assert "return result;" in writer
+          assert writer.index("if (result != 0)") < writer.index("samba_config_file_discard(&fp, staged_path)")
+          assert writer.index("samba_config_file_discard(&fp, staged_path)") < writer.index("samba_config_file_publish(&fp, staged_path, SAMBA_CONF)")
+          assert "return -1;" in writer
           assert "samba_acl_right_can_read(guest_right)" in writer
           assert "samba_acl_right_can_write(guest_right)" in writer
           assert "samba_acl_right_can_read(right)" in writer

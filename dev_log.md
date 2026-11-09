@@ -1,3 +1,16 @@
+## 2026-11-09 16:53 CST (UTC+8) — Repair Samba exact-head regression and dependent HTTPD contract
+
+- **Base main SHA:** `724b4c9982cba13c3c7274ba4744f88fb5799835`; resulting commit: THIS COMMIT.
+- **Recovered failures:** exact-head Samba workflow [42587965407](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42587965407) failed at GNU89 test compilation because `tests/samba_config_file.c:95` contained a double-escaped character constant (`'\\0'`). The exact-head HTTPD workflow [42587965159](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42587965159) failed in its Samba trust-boundary source contract: it still required the old `write_smb_conf_header(void)` signature and direct live-file append/close/return patterns after the implementation moved to a stream-based header and atomic staging.
+- **Correction:** normalize the discard test's newline/NUL literals to valid single C escapes. Update HTTPD's Samba contract to require `write_smb_conf_header(FILE *fp)`, same-directory staging, staged-file appends/duplicate checks, checked close, discard on generation failure and publication only after complete generation; explicitly reject direct append to `SAMBA_CONF`. Preserve the existing permission/account/security assertions.
+- **Other exact-head evidence:** vsftpd [42587965266](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42587965266), storage [42587965191](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42587965191), WAN route [42587965174](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42587965174) and AI handoff docs [42587965152](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42587965152) all passed on the exact base SHA.
+- **Changed paths:** `.github/workflows/httpd-security.yml`, `trunk/user/rc/src/tests/samba_config_file.c`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+- **Validation:** root-cause review is based on the exact Actions job logs and current source blobs. No local repository checkout is available; local GNU89 test, workflow Python contracts and docs validator were NOT RUN in this round. Corrected Samba/HTTPD exact-head Actions are pending after this commit.
+- **Validation boundary:** no new production C implementation was changed. The atomic Samba publisher remains L1-reviewed but its corrected regression still requires L2 confirmation. No production RC/Samba object, MIPS/uClibc build, firmware/TRX, live SMB share/auth/ACL or hardware test.
+- **Next:** fetch live main/all branches and verify the corrected Samba and HTTPD Actions against the resulting exact SHA. If both pass, rotate to NFS mount/permission lifecycle and third-party add-on service supervision; keep Samba account/ACL and FTP authentication/path-confinement audits open.
+
+---
+
 ## 2026-11-09 — Stage and atomically publish generated Samba configuration
 
 - **Base main SHA:** `c51c0f73fa2dccdd191515347acf80fd2a0132d2`; resulting source/test checkpoint: THIS COMMIT.
