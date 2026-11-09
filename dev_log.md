@@ -1,3 +1,13 @@
+## 2026-11-09 22:55 CST (UTC+8) — Align HTTPD and handoff CI contracts with daemon status API
+
+- **Base main SHA:** `30432e4636c5b00c96cb8918caaebe37b133a28c`; resulting commit: THIS COMMIT.
+- **Exact-head Actions:** Samba [42647280352], NFS [42647280434], USB storage [42647280185], vsftpd [42647280155] and WAN route [42647280379] passed. HTTPD [42647280187] failed because its source contract still searched for `void run_samba(void)` after the function became status-returning. AI handoff docs [42647282663] failed because its validator requires `## Active task` and `## Exact first action for the next GPT`.
+- **Fix:** update the HTTPD regression signature lookup to `int run_samba(void)`; restore the two required handoff headings and record the exact next action. No production C change in this corrective patch.
+- **Verification:** failure causes confirmed from the GitHub Actions logs; corrective exact-head Actions pending. No production RC object/firmware/device build claimed.
+- **Next:** verify every current exact-head workflow; if green, continue durable PREPARED/COMMITTED passdb/config recovery and then the WINS-only daemon status path.
+
+---
+
 ## 2026-11-09 22:45 CST (UTC+8) — Check Samba daemon reload/start status and postconditions
 
 - **Base main SHA:** `cf75016ebf1f1150cd4db39308ead1e09bb0e66e`; resulting commit: THIS COMMIT.

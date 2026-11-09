@@ -1,13 +1,13 @@
 ## Current repository state
 
 - Maintained fork: `Arlene206/padavan-4.4-2`; never substitute the upstream repository.
-- Base `main` for the current daemon-lifecycle patch: `cf75016ebf1f1150cd4db39308ead1e09bb0e66e`.
+- Current `main` before this CI-contract follow-up: `30432e4636c5b00c96cb8918caaebe37b133a28c`; this commit introduced the checked SMB daemon lifecycle change.
 - The only branch is `main`; no separate checkpoint branch exists.
 - Root `dev_log.md` contains 54 complete newest-first records before this patch. It is below the 384 KiB early rotation target and 512 KiB hard limit; no rotation is needed.
 
 ## Latest verified parent checkpoint
 
-The parent commit `cf75016ebf1f1150cd4db39308ead1e09bb0e66e` (`fix(samba): keep passdb and share config consistent`) was verified on exact-head GitHub Actions. All six runs completed SUCCESS with exact matching full `head_sha`:
+The verified parent commit `cf75016ebf1f1150cd4db39308ead1e09bb0e66e` (`fix(samba): keep passdb and share config consistent`) was verified on exact-head GitHub Actions. All six runs completed SUCCESS with exact matching full `head_sha`:
 
 - Samba [42638624538]
 - NFS [42638624367]
@@ -25,8 +25,9 @@ The parent fix delays generated Samba share-config publication until all staged 
 - Optional WSDD2 reload/start failures are logged without hiding required SMB daemon status.
 - RC notification processing stores `restart_smbd()` failure in `action_result`, retaining the incomplete notification marker; direct `run_samba` and `run_ftpsamba` commands propagate the Samba result.
 - Storage startup logs when Samba fails to reach its daemon postconditions.
+- CI review on `30432e4636c5b00c96cb8918caaebe37b133a28c`: Samba, NFS, USB storage, vsftpd and WAN route Actions passed. HTTPD and AI-handoff Actions exposed stale contract expectations (the HTTPD test still searched for the old `void run_samba` signature; the documentation validator requires the `## Active task` and `## Exact first action for the next GPT` headings). This follow-up corrects both tests/contracts.
 
-## Open risks and exact next work
+## Active task
 
 1. **Durable paired-file recovery (P2):** a power loss after publishing `/etc/samba/smbpasswd` but before publishing `/etc/smb.conf` can leave a mismatched pair. Implement a private, root-owned transaction journal with PREPARED/COMMITTED states, a process-wide lock, fsynced same-directory snapshots and parent directories, idempotent rollback/recovery, and fail-closed handling of malformed or unsafe journal files. Run recovery before any Samba passdb/config mutation. Keep backups until a durable COMMITTED marker is published.
 2. **WINS-only path:** `start_wins()` in `services_ex.c` still ignores the nmbd `eval()` result and has no stable-PID postcondition; trace its callers and return/status propagation before editing. Also inspect `stop_samba()`/nmbd stop failure handling.
@@ -40,6 +41,11 @@ The parent fix delays generated Samba share-config publication until all staged 
 | L2 host / Actions | Parent `cf75016ebf1f1150cd4db39308ead1e09bb0e66e` all six exact-head Actions listed above are SUCCESS. Current patch's exact-head Actions are pending. |
 | L3 MIPS/uClibc / production RC object / firmware/TRX | NOT VERIFIED. |
 | L4 live Samba authentication/reload, interruption recovery and physical router | NOT VERIFIED. |
+
+## Exact first action for the next GPT
+
+1. Read the current `main` head and this handoff, then verify all Actions against the exact current SHA; specifically confirm the Samba daemon lifecycle regression, the HTTPD Samba identity-boundary check and the AI handoff documentation contract.
+2. If those checks pass, resume the P2 durable passdb/config PREPARED/COMMITTED journal and recovery gate described above. Do not repeat this patch or claim cross-file crash atomicity before the recovery path and interruption tests exist.
 
 ## Continuation rules
 

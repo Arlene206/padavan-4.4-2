@@ -1,8 +1,9 @@
 ## Current source / CI checkpoint
 
 - Repository: `Arlene206/padavan-4.4-2`; maintained fork only.
-- Base `main` SHA for this Samba daemon-lifecycle review: `cf75016ebf1f1150cd4db39308ead1e09bb0e66e`; only `main` exists and there is no separate checkpoint branch.
+- Current `main` before this CI-contract follow-up: `30432e4636c5b00c96cb8918caaebe37b133a28c`; only `main` exists and there is no separate checkpoint branch.
 - Parent Samba passdb/config consistency commit is green on exact SHA `cf75016ebf1f1150cd4db39308ead1e09bb0e66e`: Samba [42638624538], NFS [42638624367], HTTPD/security [42638624464], USB storage [42638624595], vsftpd [42638624417], and AI docs [42638624607]. All six completed SUCCESS with matching full `head_sha`.
+- Current daemon-lifecycle commit `30432e4636c5b00c96cb8918caaebe37b133a28c` has five exact-head passes (Samba [42647280352], NFS [42647280434], USB [42647280185], vsftpd [42647280155], WAN route [42647280379]); HTTPD [42647280187] and AI docs [42647282663] failed because their regression expectations were stale after the int signature / handoff heading updates. THIS follow-up fixes those test contracts; recheck the new exact SHA.
 - THIS change checks return values for Samba `smbd`/`nmbd` HUP/start commands, requires a stable PID postcondition, propagates failures through `run_samba()`/`restart_smbd()` and RC notification/command callers, and reports optional WSDD2 failures separately.
 - The parent passdb/config update still lacks power-failure atomicity: a reset between publishing the passdb and `smb.conf` may leave a mismatched pair until recovery. No journal recovery or cross-file crash atomicity is claimed.
 - NFS generated defaults retain `secure,no_root_squash,async`; the custom override path accepts only direct regular files or symlinks to regular files and permits generated fallback only on `ENOENT`. Root-squash, AUTH_SYS trust, custom override content/ACL bypass, durability and external-mount policy remain open.
@@ -50,7 +51,7 @@
 | Level | Evidence | Limits |
 |---|---|---|
 | L1 source review | PASS for strict NFS LAN/VPN IPv4/IPv6 ACL validation, Linux 4.4 AUTH_SYS/reserved-port semantics, Samba 0/1/2/3/error permission mapping, NFS override fail-closed classification, parent Samba passdb/config ordinary-error rollback, and current Samba daemon command status / stable-PID / RC propagation paths. |
-| L2 host / Actions | Parent SHA `cf75016ebf1f1150cd4db39308ead1e09bb0e66e` exact-head Samba [42638624538], NFS [42638624367], HTTPD [42638624464], storage [42638624595], vsftpd [42638624417] and AI docs [42638624607] all SUCCESS with matching full `head_sha`. THIS daemon-lifecycle patch's Samba and HTTPD workflows are pending exact-head. No full local checkout, production RC object, firmware build or device test is claimed.
+| L2 host / Actions | Parent SHA `cf75016ebf1f1150cd4db39308ead1e09bb0e66e` exact-head Samba [42638624538], NFS [42638624367], HTTPD [42638624464], storage [42638624595], vsftpd [42638624417] and AI docs [42638624607] all SUCCESS with matching full `head_sha`. The daemon-lifecycle SHA `30432e4636c5b00c96cb8918caaebe37b133a28c` had five passes and two workflow-contract failures (HTTPD signature check and required handoff headings); this follow-up fixes both. New exact-head Actions remain pending. No full local checkout, production RC object, firmware build or device test is claimed.
 | L3 MIPS/uClibc / production objects / firmware/TRX | NOT VERIFIED. | Full target build phase required. |
 | L4 live NFS export/stop, USB eject, filesystem integration / physical router | NOT VERIFIED. | Requires target-device validation. |
 

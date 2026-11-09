@@ -2450,7 +2450,7 @@ jobs:
           assert 'assert(strcmp(SAMBA_GUEST_ACCOUNT, "nobody") == 0);' in Path("trunk/user/rc/src/tests/samba_share_policy.c").read_text()
 
           account_guard = source.index("if (!samba_service_account_is_safe(nvram_safe_get(tmpuser)))")
-          run_start = source.index("void run_samba(void)")
+          run_start = source.index("int run_samba(void)")
           run_body = source[run_start:]
           assert account_guard < source.index("samba_run_smbpasswd(", account_guard)
           assert "samba_passdb_password_is_safe(nvram_safe_get(tmp2))" in run_body
