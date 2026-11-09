@@ -1203,6 +1203,7 @@ static void
 handle_mkd(struct vsf_session* p_sess)
 {
   int retval;
+  int permission_denied = 0;
   resolve_tilde(&p_sess->ftp_arg_str, p_sess);
   vsf_log_start_entry(p_sess, kVSFLogEntryMkdir);
   str_copy(&p_sess->log_str, &p_sess->ftp_arg_str);
@@ -1212,17 +1213,16 @@ handle_mkd(struct vsf_session* p_sess)
     vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
     return;
   }
-  if (!asus_check_permission_path(p_sess, PERM_WRITE, &p_sess->ftp_arg_str))
-  {
-    vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
-    return;
-  }
-  /* NOTE! Actual permissions will be governed by the tunable umask */
-  retval = str_mkdir(&p_sess->ftp_arg_str, 0777);
+  /* NOTE! Actual permissions are governed by the tunable umask. */
+  retval = asus_make_directory_path(p_sess, &p_sess->ftp_arg_str, 0777,
+                                    &permission_denied);
   if (retval != 0)
   {
-    vsf_cmdio_write(p_sess, FTP_FILEFAIL,
-                    "Create directory operation failed.");
+    if (permission_denied)
+      vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
+    else
+      vsf_cmdio_write(p_sess, FTP_FILEFAIL,
+                      "Create directory operation failed.");
     return;
   }
   vsf_log_do_log(p_sess, 1);

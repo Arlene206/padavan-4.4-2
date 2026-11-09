@@ -1,3 +1,17 @@
+## 2026-11-10 07:10 CST (UTC+8) — Anchor FTP MKD creation to the authorized parent descriptor
+
+- **Base main SHA:** `05c7a13f44e64b4ba81f4af34b1000bb8eb4792e`.
+- **Recovered exact-head CI:** DELE/RMD VSFTPD regression [42721783706] and AI handoff docs [42721783725] both completed SUCCESS on this exact SHA. GNU89 path-policy tests confirmed DELE unlinks a symlink entry without deleting its target, RMD refuses directory symlinks, the empty-directory operation works, metadata leaves are denied, and parent identity replacement is detected.
+- **Finding:** MKD evaluated WRITE permission against a canonical parent path and then invoked path-based `str_mkdir()`, leaving the same parent-component TOCTOU window as DELE/RMD.
+- **Fix:** add `asus_make_directory_path()`, which resolves and verifies the canonical parent descriptor, evaluates the existing WRITE ACL against that parent while holding the dirfd, rechecks device/inode identity, and invokes `mkdirat()` on the final leaf. The existing mode `0777`, process umask, log behavior and FTP error classes are preserved.
+- **Regression:** add GNU89 helper coverage for descriptor-relative directory creation, mode-independent directory type verification, and reserved metadata rejection. Extend the semantic workflow to require MKD's descriptor wrapper and forbid `str_mkdir()`.
+- **Changed paths:** `trunk/user/vsftpd/src/ftp_acl_path_policy.h`, `asus_ext.c`, `asus_ext.h`, `postlogin.c`, `tests/ftp_acl_path_policy.c`, `.github/workflows/vsftpd-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and this log.
+- **Validation:** L1 source review PASS. Exact-head GNU89 test/source-contract and AI-doc Actions are pending for THIS commit. No local checkout/compiler or docs checker is available. L3 target compilation and L4 physical-router testing remain NOT VERIFIED.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** reconcile exact-head Actions; then map and test RNFR/RNTO state and two-parent semantics before replacing `str_rename()` with `renameat()`. Preserve LIST/NLST/STAT, MDTM/SITE CHMOD and upload-cleanup race as open work.
+
+---
+
 ## 2026-11-10 07:00 CST (UTC+8) — Anchor FTP DELE and RMD to pinned parent descriptors
 
 - **Base main SHA:** `bfd883ad75d5579c54922432a597efcade5a7509`; branch inventory at start of slice: `main` only.

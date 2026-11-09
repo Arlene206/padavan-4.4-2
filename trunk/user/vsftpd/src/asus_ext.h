@@ -22,6 +22,9 @@ int asus_check_permission_existing_path(struct vsf_session* p_sess, int perm,
                                         const struct mystr* p_path_str);
 int asus_check_permission_upload(struct vsf_session* p_sess,
                                  const struct mystr* p_path_str);
+int asus_make_directory_path(struct vsf_session* p_sess,
+                            const struct mystr* p_path_str,
+                            unsigned int mode, int* p_permission_denied);
 int asus_remove_path(struct vsf_session* p_sess,
                      const struct mystr* p_path_str, int remove_directory,
                      int* p_permission_denied);

@@ -427,6 +427,27 @@ ftp_acl_path_resolve_directory(const char *path, char *resolved,
 }
 
 
+
+/*
+ * Create a directory entry under an already-authorized, pinned parent.
+ * The final component is never re-resolved after the WRITE ACL check.
+ */
+static int
+ftp_acl_path_make_directory_at(int dir_fd, const char *leaf,
+                               unsigned int mode)
+{
+  if (dir_fd < 0 || !leaf || !*leaf || strchr(leaf, '/') ||
+      strcmp(leaf, ".") == 0 || strcmp(leaf, "..") == 0) {
+    errno = EINVAL;
+    return -1;
+  }
+  if (ftp_acl_path_is_internal_metadata(leaf)) {
+    errno = EACCES;
+    return -1;
+  }
+  return mkdirat(dir_fd, leaf, (mode_t)mode);
+}
+
 /*
  * Remove a leaf from an already-authorized directory. unlinkat() with no
  * flags preserves DELE's unlink-the-symlink behavior; AT_REMOVEDIR preserves

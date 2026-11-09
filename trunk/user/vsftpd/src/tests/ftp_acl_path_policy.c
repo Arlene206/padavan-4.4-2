@@ -180,6 +180,22 @@ main(void)
     fprintf(stderr, "descriptor-relative removal accepted reserved metadata\n");
     return 1;
   }
+  if (ftp_acl_path_make_directory_at(remove_parent_fd, "mkdir-created", 0777) != 0 ||
+      fstatat(remove_parent_fd, "mkdir-created", &st, AT_SYMLINK_NOFOLLOW) != 0 ||
+      !S_ISDIR(st.st_mode)) {
+    fprintf(stderr, "descriptor-relative MKD did not create directory\n");
+    return 1;
+  }
+  errno = 0;
+  if (ftp_acl_path_make_directory_at(remove_parent_fd, ".__alice_var.txt", 0777) == 0 ||
+      errno != EACCES) {
+    fprintf(stderr, "descriptor-relative MKD accepted reserved metadata\n");
+    return 1;
+  }
+  if (ftp_acl_path_remove_entry(remove_parent_fd, "mkdir-created", 1) != 0) {
+    fprintf(stderr, "descriptor-relative MKD fixture cleanup failed\n");
+    return 1;
+  }
   if (close(remove_parent_fd) != 0) {
     perror("close removal fixture directory");
     return 1;

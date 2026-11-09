@@ -2,7 +2,7 @@
 
 - Maintained fork: `Arlene206/padavan-4.4-2`; work only on this repository.
 - Branch inventory at takeover: `main` only; no remote checkpoint branch. No force-pushes were used.
-- Current main baseline for this bounded DELE/RMD slice: `bfd883ad75d5579c54922432a597efcade5a7509`; RETR/SIZE descriptor anchoring, GNU89 host tests, semantic source contract and AI-doc workflow are all green on this exact SHA. Remote branches: `main` only; no checkpoint branch.
+- Current main baseline for this bounded MKD slice: `05c7a13f44e64b4ba81f4af34b1000bb8eb4792e`; the DELE/RMD descriptor-relative mutation and GNU89/source-contract checks, plus AI-doc validation, are green on this exact SHA. Remote branches: `main` only; no checkpoint branch.
 - Samba production implementation commit: `1a7097ace2e6c689cb7e92cd10055967d99fe143` (parent `6b44e023c2f669865fc8b5cb5425d824b8335d8b`). Follow-up commits updated the Samba and HTTPD semantic workflow extractors after initial assertions still referenced the previous writer layout.
 - Exact Actions evidence:
   - Samba share configuration regression [42708213921] completed SUCCESS on exact SHA `e9a93eb84ac9f95447150869fab7e0ae1c2da9ff`. GNU89 host compilation/execution passed for config-file, passdb policy, the new paired transaction, and daemon policy tests; the full Samba source-order contract also passed.
@@ -10,9 +10,10 @@
   - AI handoff documentation validation [42708503300] completed SUCCESS on exact SHA `258532a78922549698bc6d9b869c7777f8f4ac05`.
   - VSFTPD run [42720948938] on exact SHA `4c0d2d8acd9f16c175037a64e4f05494ec7e565f` completed GNU89 host compilation and all three host test executions successfully, including the new ACL-path regression, then failed in the Python semantic source contract at the stale SIZE ordering assertion (`size.index()` still expected the removed path-based check/stat calls). AI handoff docs [42720949030] completed SUCCESS on that exact SHA. THIS COMMIT also updates the stale source-order assertion and the metadata-target classifier count (now four after the added canonical-target check).
   - Final RETR/SIZE exact-head regression [42721150755] and AI handoff docs [42721150532] both completed SUCCESS on exact SHA `bfd883ad75d5579c54922432a597efcade5a7509`; GNU89 host tests and the descriptor-based source contract both passed.
+  - DELE/RMD descriptor-relative mutation regression [42721783706] and AI handoff docs [42721783725] both completed SUCCESS on exact SHA `05c7a13f44e64b4ba81f4af34b1000bb8eb4792e`; GNU89 policy tests and source-contract checks passed.
   - Initial attempts on `1a7097a...` failed only in stale semantic workflow extractors; the new transaction host test itself passed. The assertions were corrected and later exact-SHA runs above passed. Do not report the initial failures as green.
 - The exact-head DHCP callback and handoff checks on `6b44e023c2f669865fc8b5cb5425d824b8335d8b` were already SUCCESS: WAN DHCP callback [42703609156] and AI handoff docs [42703609087].
-- Root `dev_log.md` has 84 complete records before this bounded DELE/RMD slice; this milestone makes 85/119. No archive rotation is due.
+- Root `dev_log.md` has 85 complete records before this bounded MKD slice; this milestone makes 86/119. No archive rotation is due.
 - L3 production RC/MIPS/uClibc/firmware builds and L4 physical router validation are NOT VERIFIED.
 
 ## Completed DHCP callback and BusyBox event-state review
@@ -66,11 +67,19 @@
 - Regression: host policy tests cover symlink-entry deletion without deleting its target, RMD refusing a symlink to a directory, successful empty-directory removal, reserved metadata denial, and parent path identity mismatch after a symlink substitution. GNU89 test and exact-head workflow remain pending for this commit.
 - Remaining FTP work: MKD and RNFR/RNTO still use path-based mutation; LIST/NLST recursive traversal and MDTM/SITE CHMOD also remain open. The upload cleanup check/unlink pair is still non-atomic on Linux 4.4.
 
+## Completed FTP descriptor-relative MKD (bounded creation slice)
+
+- Finding: `handle_mkd()` checked WRITE permission against the canonical parent path, then invoked path-based `str_mkdir()`; a parent component could be swapped after ACL approval.
+- Fix: `asus_make_directory_path()` splits the leaf, resolves and pins the canonical parent, checks WRITE ACL with the parent descriptor held, verifies the same parent device/inode after authorization, and creates via `mkdirat()`.
+- Compatibility: keeps parent-directory WRITE ACL semantics, mode `0777` subject to the existing process umask, and FTP NOPERM versus FILEFAIL responses. Reserved metadata leaves remain blocked.
+- Regression: host policy tests create and inspect a directory using the pinned parent fd and assert reserved metadata cannot be created. Exact-head GNU89 test/source-contract and AI docs are pending for this commit.
+- RNFR/RNTO remain a separate two-path rename transaction and are not included in this slice.
+
 ## Active task
 
-1. Reconcile this commit's VSFTPD host regression/source-contract and AI-doc Actions against the exact resulting SHA. No local checkout was available; no local host compile or docs checker is claimed.
-2. After green exact-head Actions, convert MKD to a descriptor-relative `mkdirat()` path and continue RNFR/RNTO with pinned source/destination parent descriptors plus ACL checks and `renameat()`, preserving RNFR CWD pinning and overwrite behavior deliberately.
-3. Then audit LIST/NLST/STAT path traversal and recursion; `handle_mdtm()` and `handle_site_chmod()` still perform path-based metadata syscalls and must remain explicitly open.
+1. Reconcile this commit's VSFTPD GNU89 host regression/source-contract and AI-doc Actions against the exact resulting SHA. No local checkout/compiler or docs checker is available.
+2. After green exact-head Actions, continue RNFR/RNTO as a separate two-path transaction: pin both canonical parent descriptors, retain source DELETE and destination WRITE ACL checks (including cross-share moves and overwrite behavior), and replace path-based `str_rename()` with descriptor-relative `renameat()`. Preserve RNFR CWD pinning and correctly clear the saved source on all RNTO outcomes.
+3. Then audit LIST/NLST/STAT traversal and recursion; `handle_mdtm()` and `handle_site_chmod()` still perform path-based metadata syscalls and remain open.
 4. Preserve the non-atomic STOR/APPE/STOU cleanup `fstatat`/`unlinkat` limitation on Linux 4.4. L3 target build and L4 hardware validation remain NOT VERIFIED.
 5. Keep IPTV DHCP callback status-loss, FULLCONENAT target kernel/MIPS build, and NFS `async`/AUTH_SYS/root-squash/external-mount compatibility questions in the cross-module queue.
 
@@ -78,16 +87,16 @@
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for the bounded FTP DELE/RMD descriptor-relative design and its no-follow final-entry semantics; other FTP mutation/listing/metadata paths remain open. |
-| L2 host / GitHub Actions | Prior RETR/SIZE host regression/source contract [42721150755] and AI handoff docs [42721150532] passed on exact SHA `bfd883ad75d5579c54922432a597efcade5a7509`. DELE/RMD GNU89 regression and source contract, plus AI docs, are pending for THIS commit. No local checkout/compiler or local docs checker was available. |
+| L1 source review | PASS for bounded FTP DELE/RMD pinned-parent unlink semantics and MKD pinned-parent mkdir semantics. RNFR/RNTO, LIST/NLST/STAT, MDTM/SITE CHMOD and upload cleanup race remain open. |
+| L2 host / GitHub Actions | DELE/RMD VSFTPD regression [42721783706] and AI handoff docs [42721783725] completed SUCCESS on exact SHA `05c7a13f44e64b4ba81f4af34b1000bb8eb4792e`. MKD regression/source-contract and docs validation are pending for THIS commit. No local build was run. |
 | L3 production RC/MIPS/uClibc/firmware builds and artifact validation | NOT VERIFIED. |
 | L4 physical router behavior and hardware | NOT VERIFIED. |
- 
+
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, remote branches and Actions; verify this commit's VSFTPD and AI-doc runs against its exact `head_sha`.
-2. If green, continue with descriptor-relative MKD (`mkdirat`) and then RNFR/RNTO (`renameat`) while preserving source/destination DELETE/WRITE ACL semantics and RNFR CWD pinning. Add deterministic host regressions before modifying production flow.
-3. Keep LIST/NLST/STAT recursive traversal, MDTM/SITE CHMOD, upload cleanup race, IPTV DHCP callback, FULLCONENAT target object, and NFS compatibility explicitly open.
+1. Fetch live `main`, branches and Actions; reconcile MKD workflow jobs against this commit's exact `head_sha`.
+2. If green, begin RNFR/RNTO descriptor-relative rename work. Start by mapping current protocol state (`rnfr_filename_str`), relative-to-absolute CWD pinning, error clearing and cross-share ACL checks; add host policy tests for `renameat()` behavior before wiring the session handler.
+3. Keep LIST/NLST/STAT recursion, MDTM/SITE CHMOD, upload cleanup race, IPTV DHCP callback, FULLCONENAT target validation and NFS compatibility explicitly open.
 
 ## Continuation rules
 
