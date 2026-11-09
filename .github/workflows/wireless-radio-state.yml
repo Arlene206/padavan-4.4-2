@@ -127,6 +127,29 @@ jobs:
                           f"{name}: failed interface-up may still reach {effect}"
                       )
 
+          for name, ifnames in (
+              ("start_wifi_wds_wl", (
+                  "IFNAME_5G_WDS3", "IFNAME_5G_WDS2",
+                  "IFNAME_5G_WDS1", "IFNAME_5G_WDS0",
+              )),
+              ("start_wifi_wds_rt", (
+                  "IFNAME_2G_WDS3", "IFNAME_2G_WDS2",
+                  "IFNAME_2G_WDS1", "IFNAME_2G_WDS0",
+              )),
+          ):
+              body = function_body(source, name + "(int radio_on)")
+              assert "return;" not in body, f"{name}: one WDS failure must not block remaining WDS interfaces"
+              for ifname in ifnames:
+                  gate = "if (wif_control_success(" + ifname + ", 1))"
+                  assert gate in body, f"{name}: missing successful interface-up gate for {ifname}"
+                  gate_pos = body.index(gate)
+                  bridge = "br_add_del_if(IFNAME_BR, " + ifname + ", 1)"
+                  if bridge in body:
+                      bridge_pos = body.index(bridge, gate_pos)
+                      assert gate_pos < bridge_pos, (
+                          f"{name}: {ifname} may be attached to bridge after failed interface-up"
+                      )
+
           paths = (
               ".github/workflows/wireless-radio-state.yml",
               "trunk/user/rc/src/net_wifi.c",
