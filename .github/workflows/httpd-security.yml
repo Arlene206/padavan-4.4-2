@@ -2415,9 +2415,12 @@ jobs:
           assert partition.index("samba_conf_text_is_safe(disk_tag)") < partition.index('fprintf(fp, "comment = %s')
 
           # Per-folder names/paths are checked before permission lookup and config output.
-          folder_block = source[source.index("// 2. start to get every share"):
-                                source.index("free_2_dimension_list(&sh_num, &folder_list);",
-                                             source.index("// 2. start to get every share"))]
+          folder_writer_start = source.index("write_smb_conf(void)")
+          folder_writer_end = source.index("static void" + chr(10) + "clean_smbd_trash", folder_writer_start)
+          folder_writer = source[folder_writer_start:folder_writer_end]
+          folder_start = folder_writer.index("// 2. start to get every share")
+          folder_end = folder_writer.rindex("free_2_dimension_list(&sh_num, &folder_list);")
+          folder_block = folder_writer[folder_start:folder_end]
           assert folder_block.index("samba_share_name_is_safe(folder_list[n])") < folder_block.index('fprintf(fp, "[%s]\\n", share)')
           assert folder_block.index("samba_mount_path_is_safe(follow_partition->mount_point)") < folder_block.index('fprintf(fp, "path = %s/%s\\n"')
           assert folder_block.count("if (!samba_service_account_is_safe(account_list[i]))") == 4

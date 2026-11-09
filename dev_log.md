@@ -1,3 +1,15 @@
+## 2026-11-09 17:09 CST (UTC+8) — Bound Samba folder contract to the complete writer body
+
+- **Base main SHA:** `301de504e474f51f4f04c08ef7f36975f19df9fa`; resulting commit: THIS COMMIT.
+- **Exact-head results:** HTTPD [42590546450](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42590546450) FAILED at step 26, line 62 of its Samba trust-boundary Python contract, with `ValueError: substring not found`. Investigation showed the slice stopped at the first free_2_dimension_list(&sh_num, &folder_list); inside an early close-error branch, before the share output. The old check therefore looked for output outside its own truncated slice. Docs [42590546420](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42590546420) PASS. The C test remains unchanged and passed on exact SHA `088a87e61ca0da3ab040fc230f2d9e875b3920a1`.
+- **Correction:** find the complete write_smb_conf() range, then bound the folder-loop contract from its marker through the final folder-list cleanup in that writer. This keeps the share-name/path guard-before-output assertions over the whole relevant block.
+- **Changed paths:** `.github/workflows/httpd-security.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+- **Validation:** exact source and job-log inspection; the corrected HTTPD/docs workflows are pending on THIS COMMIT. No local checkout, local Python workflow run or docs-validator run is available/claimed.
+- **Validation boundary:** no production C implementation changed. Samba GNU89 host test PASS on SHA 088a87e; HTTPD trust-boundary contract not green yet. No MIPS/uClibc, firmware/TRX, live SMB share/auth/ACL or hardware test.
+- **Next:** reconcile HTTPD and docs Actions against the resulting full main SHA. If green, rotate to NFS mount/permission lifecycle and third-party add-on service supervision; keep Samba account/ACL and FTP authentication/path-confinement audits open.
+
+---
+
 ## 2026-11-09 17:04 CST (UTC+8) — Remove brittle Samba contract slice from HTTPD regression
 
 - **Base main SHA:** `088a87e61ca0da3ab040fc230f2d9e875b3920a1`; resulting commit: THIS COMMIT.
