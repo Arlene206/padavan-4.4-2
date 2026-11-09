@@ -6,6 +6,26 @@
 #include <limits.h>
 #include "ftp_acl_path_policy.h"
 
+
+static void
+create_fixture_file(const char *path)
+{
+  FILE *fp = fopen(path, "w");
+  if (!fp) {
+    perror("create fixture file");
+    exit(1);
+  }
+  if (fputs("fixture\n", fp) < 0) {
+    fclose(fp);
+    perror("write fixture file");
+    exit(1);
+  }
+  if (fclose(fp) != 0) {
+    perror("close fixture file");
+    exit(1);
+  }
+}
+
 static void
 expect_parent(const char *path, const char *expected)
 {
@@ -32,6 +52,9 @@ main(void)
   char template[] = "/tmp/ftp-acl-policy-XXXXXX";
   char cwd[PATH_MAX], root[PATH_MAX], a[PATH_MAX], b[PATH_MAX];
   char alias[PATH_MAX], path[PATH_MAX], parent[PATH_MAX], resolved[PATH_MAX];
+  char file_a[PATH_MAX], file_b[PATH_MAX], link_file[PATH_MAX];
+  char broken_link[PATH_MAX], dir_b[PATH_MAX], dir_alias[PATH_MAX];
+  char new_file[PATH_MAX];
   char tiny[2];
   char *created;
 
@@ -80,7 +103,52 @@ main(void)
         parent, sizeof(parent), resolved, sizeof(resolved)) == 0) {
     fprintf(stderr, "cwd restore or missing-parent rejection failed\n"); return 1;
   }
-  if (unlink(alias) || rmdir(a) || rmdir(b) || rmdir(root)) {
+
+  checked_path(file_a, sizeof(file_a), a, "owned.txt");
+  checked_path(file_b, sizeof(file_b), b, "protected.txt");
+  checked_path(link_file, sizeof(link_file), a, "cross-share-link");
+  checked_path(broken_link, sizeof(broken_link), a, "dangling-link");
+  checked_path(dir_b, sizeof(dir_b), b, "subdir");
+  checked_path(dir_alias, sizeof(dir_alias), a, "directory-link");
+  create_fixture_file(file_a);
+  create_fixture_file(file_b);
+  if (mkdir(dir_b, 0700) || symlink(file_b, link_file) ||
+      symlink("/no-such-ftp-acl-target", broken_link) ||
+      symlink(dir_b, dir_alias)) {
+    perror("create symlink fixtures"); return 1;
+  }
+  if (ftp_acl_path_resolve_existing_parent(file_a, resolved, sizeof(resolved)) ||
+      strcmp(resolved, a)) {
+    fprintf(stderr, "existing file parent resolution failed\n"); return 1;
+  }
+  if (ftp_acl_path_resolve_existing_parent(link_file, resolved, sizeof(resolved)) ||
+      strcmp(resolved, b)) {
+    fprintf(stderr, "read through cross-share symlink was not canonicalized\n"); return 1;
+  }
+  if (ftp_acl_path_resolve_write_parent(link_file, resolved, sizeof(resolved)) ||
+      strcmp(resolved, b)) {
+    fprintf(stderr, "write through cross-share symlink was not canonicalized\n"); return 1;
+  }
+  if (ftp_acl_path_resolve_write_parent(broken_link, resolved, sizeof(resolved)) == 0) {
+    fprintf(stderr, "dangling final symlink accepted for upload\n"); return 1;
+  }
+  checked_path(new_file, sizeof(new_file), a, "new-upload.txt");
+  if (ftp_acl_path_resolve_write_parent(new_file, resolved, sizeof(resolved)) ||
+      strcmp(resolved, a)) {
+    fprintf(stderr, "new upload parent resolution failed\n"); return 1;
+  }
+  checked_path(new_file, sizeof(new_file), dir_alias, "new-through-dir-link.txt");
+  if (ftp_acl_path_resolve_write_parent(new_file, resolved, sizeof(resolved)) ||
+      strcmp(resolved, dir_b)) {
+    fprintf(stderr, "upload through symlinked parent was not canonicalized\n"); return 1;
+  }
+  if (ftp_acl_path_resolve_directory(dir_alias, resolved, sizeof(resolved)) ||
+      strcmp(resolved, dir_b)) {
+    fprintf(stderr, "directory symlink target was not canonicalized\n"); return 1;
+  }
+  if (unlink(dir_alias) || unlink(broken_link) || unlink(link_file) ||
+      unlink(file_a) || unlink(file_b) || rmdir(dir_b) ||
+      unlink(alias) || rmdir(a) || rmdir(b) || rmdir(root)) {
     perror("remove fixture"); return 1;
   }
   puts("vsftpd ACL path parent policy: PASS");

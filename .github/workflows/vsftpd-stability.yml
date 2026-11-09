@@ -114,12 +114,36 @@ jobs:
           assert "pids((char *)daemon) > 0" in running_fn
           assert "usleep(microseconds)" in sleep_fn
 
+          upload = function_body(vsftpd_postlogin, "static void\nhandle_upload_common")
+          mkd = function_body(vsftpd_postlogin, "static void\nhandle_mkd")
+          rmd = function_body(vsftpd_postlogin, "static void\nhandle_rmd")
+          dele = function_body(vsftpd_postlogin, "static void\nhandle_dele")
+          retr = function_body(vsftpd_postlogin, "static void\nhandle_retr")
+          directory = function_body(vsftpd_postlogin, "static void\nhandle_dir_common")
+          assert upload.index("asus_check_permission_upload(p_sess, p_filename)") < upload.index("str_create(")
+          assert "asus_check_permission_path(p_sess, PERM_WRITE, &p_sess->ftp_arg_str)" in mkd
+          assert "asus_check_permission_path(p_sess, PERM_DELETE, &p_sess->ftp_arg_str)" in rmd
+          assert "asus_check_permission_path(p_sess, PERM_DELETE, &p_sess->ftp_arg_str)" in dele
+          assert "asus_check_permission_existing_path(p_sess, PERM_READ" in retr
+          assert "asus_check_permission_directory(p_sess" in directory
+          assert directory.index("asus_check_permission_directory(") < directory.index("get_remote_transfer_fd(")
+          assert "asus_check_permission(p_sess, PERM_READ)" not in directory
+          assert "ftp_acl_path_resolve_existing_parent" in acl_path_policy
+          assert "ftp_acl_path_resolve_write_parent" in acl_path_policy
+          assert "lstat(path, &st)" in acl_path_policy
+          assert "ftp_acl_path_resolve_directory" in acl_path_policy
+          assert "cross-share symlink" in acl_path_test
+          assert "dangling final symlink accepted" in acl_path_test
+
           acl_at = function_body(vsftpd_acl, "asus_check_permission_at(")
           acl_path = function_body(vsftpd_acl, "asus_check_permission_path(")
           rnfr = function_body(vsftpd_postlogin, "static void\nhandle_rnfr(struct vsf_session* p_sess)\n{")
           rnto = function_body(vsftpd_postlogin, "static void\nhandle_rnto(struct vsf_session* p_sess)\n{")
           assert '#include "ftp_acl_path_policy.h"' in vsftpd_acl
           assert "asus_check_permission_path" in vsftpd_acl_header
+          assert "asus_check_permission_existing_path" in vsftpd_acl_header
+          assert "asus_check_permission_upload" in vsftpd_acl_header
+          assert "asus_check_permission_directory" in vsftpd_acl_header
           assert "get_mount_layer(directory" in acl_at
           assert "ftp_acl_path_resolve_parent(" in acl_path
           assert "realpath(parent, resolved)" in acl_path_policy

@@ -297,6 +297,47 @@ asus_check_permission_path(struct vsf_session* p_sess, int perm,
 	return asus_check_permission_at(p_sess, perm, resolved);
 }
 
+int
+asus_check_permission_existing_path(struct vsf_session* p_sess, int perm,
+                                    const struct mystr* p_path_str)
+{
+	char resolved_parent[PATH_MAX];
+	if (!tunable_chroot_local_user) return 1;
+	if (!p_sess || !p_path_str ||
+	    ftp_acl_path_resolve_existing_parent(str_getbuf(p_path_str),
+					 resolved_parent,
+					 sizeof(resolved_parent)) != 0)
+		return 0;
+	return asus_check_permission_at(p_sess, perm, resolved_parent);
+}
+
+int
+asus_check_permission_upload(struct vsf_session* p_sess,
+                             const struct mystr* p_path_str)
+{
+	char resolved_parent[PATH_MAX];
+	if (!tunable_chroot_local_user) return 1;
+	if (!p_sess || !p_path_str ||
+	    ftp_acl_path_resolve_write_parent(str_getbuf(p_path_str),
+					 resolved_parent,
+					 sizeof(resolved_parent)) != 0)
+		return 0;
+	return asus_check_permission_at(p_sess, PERM_WRITE, resolved_parent);
+}
+
+int
+asus_check_permission_directory(struct vsf_session* p_sess,
+                                const struct mystr* p_path_str)
+{
+	char resolved[PATH_MAX];
+	if (!tunable_chroot_local_user) return 1;
+	if (!p_sess || !p_path_str ||
+	    ftp_acl_path_resolve_directory(str_getbuf(p_path_str), resolved,
+				   sizeof(resolved)) != 0)
+		return 0;
+	return asus_check_permission_at(p_sess, PERM_READ, resolved);
+}
+
 int asus_check_file_visible(struct vsf_session* p_sess, const struct mystr* p_filename_str)
 {
 	int i_layer, i_user_right, i_result;

@@ -679,7 +679,7 @@ handle_retr(struct vsf_session* p_sess, int is_http)
     vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
     return;
   }
-  if (!asus_check_permission(p_sess, PERM_READ))
+  if (!asus_check_permission_existing_path(p_sess, PERM_READ, &p_sess->ftp_arg_str))
   {
     vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
     return;
@@ -882,6 +882,13 @@ handle_dir_common(struct vsf_session* p_sess, int full_details, int stat_cmd)
     /* NOTE - failure check done below, it's not forgotten */
     p_dir = str_opendir(&s_dir_name_str);
   }
+  /* Check the directory actually opened, not the session CWD. */
+  if (p_dir != 0 && !asus_check_permission_directory(p_sess,
+                                                       &s_dir_name_str))
+  {
+    vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
+    goto dir_close_out;
+  }
   /* Fine, do it */
   if (stat_cmd)
   {
@@ -905,10 +912,6 @@ handle_dir_common(struct vsf_session* p_sess, int full_details, int stat_cmd)
     {
       dir_allow_read = 0;
     }
-  }
-  if (p_dir && !asus_check_permission(p_sess, PERM_READ))
-  {
-    dir_allow_read = 0;
   }
   if (p_dir != 0 && dir_allow_read)
   {
@@ -1057,7 +1060,7 @@ handle_upload_common(struct vsf_session* p_sess, int is_append, int is_unique)
     vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
     return;
   }
-  if (!asus_check_permission(p_sess, PERM_WRITE))
+  if (!asus_check_permission_upload(p_sess, p_filename))
   {
     vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
     return;
@@ -1202,7 +1205,7 @@ handle_mkd(struct vsf_session* p_sess)
     vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
     return;
   }
-  if (!asus_check_permission(p_sess, PERM_WRITE))
+  if (!asus_check_permission_path(p_sess, PERM_WRITE, &p_sess->ftp_arg_str))
   {
     vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
     return;
@@ -1244,7 +1247,7 @@ handle_rmd(struct vsf_session* p_sess)
     vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
     return;
   }
-  if (!asus_check_permission(p_sess, PERM_DELETE))
+  if (!asus_check_permission_path(p_sess, PERM_DELETE, &p_sess->ftp_arg_str))
   {
     vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
     return;
@@ -1276,7 +1279,7 @@ handle_dele(struct vsf_session* p_sess)
     vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
     return;
   }
-  if (!asus_check_permission(p_sess, PERM_DELETE))
+  if (!asus_check_permission_path(p_sess, PERM_DELETE, &p_sess->ftp_arg_str))
   {
     vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
     return;

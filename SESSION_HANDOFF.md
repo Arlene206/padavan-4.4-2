@@ -1,46 +1,42 @@
 ## Current repository state
 
 - Maintained fork: `Arlene206/padavan-4.4-2`; never substitute the upstream repository.
-- Base `main` SHA for THIS vsftpd source-contract correction: `9133aba76e4de64b8e1fa19e743ce3d95716aad6`; active branch is `main`. Only `main` exists; there is no separate checkpoint branch.
-- Root `dev_log.md` contains 63 complete newest-first records after this correction entry and remains below the 384 KiB early-rotation target.
-
-## Latest verified parent checkpoint
-
-The immediate parent `9133aba76e4de64b8e1fa19e743ce3d95716aad6` has two exact-head Actions, both carrying the matching full `head_sha`:
-
-- AI handoff documentation contract [42661398097] — SUCCESS; handoff/roadmap and archive integrity checks passed.
-- vsftpd configuration publication stability [42661398024] — FAILED at Python source-contract line 76 after all three GNU89 host regression binaries passed. The assertion expected a quoted diagnostic literal, but its newline is escaped before the closing quote. THIS patch changes it to match the diagnostic phrase independently of quote/newline formatting.
+- Base `main` SHA for THIS FTP path-ACL batch: `d784677ab88890bf1551c0a03fec85219285933f`. Only `main` exists; there is no separate checkpoint branch.
+- Root `dev_log.md` has 63 complete newest-first records before THIS entry; it remains below the 384 KiB early-rotation target.
+- The previous checkpoint's exact-head Actions both passed on `d784677ab88890bf1551c0a03fec85219285933f`: vsftpd [42662555873] and AI handoff docs [42662555510]. Both full `head_sha` values matched `d784677ab88890bf1551c0a03fec85219285933f`; the vsftpd job compiled and ran the three GNU89 host regression binaries and passed its semantic source contracts; the docs job passed the archive/root-log validator.
 
 ## Work completed in THIS patch
 
-- Bundled server is vsftpd 3.0.3; PAM is disabled in `builddefs.h`, and `vsf_sysutil_getpwnam()` routes through the Padavan NVRAM account adapter.
-- Padavan NVRAM FTP accounts all map to UID/GID 99, so per-share metadata ACLs are the meaningful account-separation boundary.
-- `RNFR` previously checked `PERM_DELETE` against the current working directory rather than the source path, then retained a relative source name that could resolve differently after a later CWD.
-- `RNTO` applied the generic deny-file filter but did not check the Padavan destination share's `PERM_WRITE` ACL before `str_rename()`. A path-based cross-share rename could therefore cross into a share where the user lacked write permission.
-- Added a bounded parent-path helper that resolves the source/destination parent with `realpath()`, so relative traversal and symlinked parent directories map to the canonical share before applying the existing ACL policy.
-- `RNFR` now stores an absolute source path and checks source-parent delete permission. `RNTO` rechecks source delete permission and checks destination-parent write permission before rename.
-- Added GNU89 host regression coverage for relative/absolute parent extraction, `..` traversal, symlink canonicalization, root/trailing slash, empty/undersized buffers and missing parents. Extended workflow compile/run, source contracts and push/PR path filters.
-- CI follow-up: the first run exposed the source-directory `-I` versus libc `features.h` collision; switching to `-iquote` resolved it. The next run compiled and passed all three host regression binaries, then exposed an over-strict quoted diagnostic source-contract assertion. THIS patch relaxes only that assertion.
+- The bundled server is vsftpd 3.0.3; PAM is disabled, and Padavan NVRAM FTP accounts are mapped to UID/GID 99. Per-share metadata ACLs are therefore the account-separation boundary.
+- The prior RNFR/RNTO correction is already committed: RNFR pins an absolute source and checks canonical source-parent delete permission; RNTO rechecks source delete and destination write permission.
+- The follow-up source audit found several file and directory commands checking `PERM_READ/WRITE/DELETE` against the session CWD even when the FTP argument named a different share. This left cross-share argument paths insufficiently guarded.
+- STOR/APPE/STOU now check write rights against the canonical parent of the effective destination. Existing final symlinks are resolved to the actual target before ACL evaluation; dangling/unresolvable existing entries fail closed. A missing leaf is checked against its canonical parent, including symlinked parent directories.
+- RETR now checks read rights against the canonical parent of the resolved existing target, so final symlinks into another share are evaluated against that share.
+- MKD/RMD/DELE now check the canonical parent of the requested directory entry, matching their filesystem semantics (these operations do not follow a final symlink to operate on its target).
+- LIST/NLST/STAT now check read rights against the actual canonical directory opened, not the session CWD. The permission check occurs before sending a data-channel opening reply or STAT output.
+- Extended the GNU89 host path-policy regression to cover existing cross-share symlink targets, dangling final symlinks, new upload leaves, symlinked parents and directory symlinks. The vsftpd workflow now asserts that each command family uses its target-path ACL helper and that listing checks precede data-channel setup.
+- Path checks remain pathname-based and therefore do not eliminate a concurrent symlink-swap TOCTOU window between canonicalization and the later filesystem operation. A dirfd/openat-style operation binding remains a separate hardening opportunity.
 
 ## Active task
 
-1. Verify exact-head Actions for THIS path-scoped FTP rename-ACL correction. Confirm full `head_sha` values and inspect each triggered job/log.
-2. Continue the FTP path-boundary audit: `STOR/APPE/STOU`, `RETR`, `MKD/RMD/DELE`, `LIST/NLST/STAT` and direct access to per-account share metadata. Trace parent-versus-target and symlink behavior before applying fixes.
-3. Keep NFS custom override-content/ACL and `async` durability, DHCP leasefail/accepted-NAK/release semantics, and FULLCONENAT mapping-hash/dying-tuple namespace ownership on the whole-repository queue.
+1. Verify the exact full SHA on every GitHub Actions run triggered by THIS commit. Inspect job steps/logs; specifically confirm the GNU89 helper/test binaries and the new semantic source contracts pass.
+2. Continue the FTP filename-command audit: SIZE, MDTM, SITE CHMOD, direct access to reserved `.__*` share metadata (including per-account ACL files and folder inventory), and any remaining path-taking commands. Confirm whether metadata files are readable under the deployed mount modes before deciding the protection boundary.
+3. Keep NFS custom override content/ACL and `async` durability, DHCP leasefail/accepted-NAK/release semantics, and FULLCONENAT mapping-hash/dying-tuple namespace ownership on the whole-repository queue.
 
 ## Verification boundary
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for the RNFR/RNTO source/destination ACL gap, absolute RNFR path pinning, canonical parent mapping and fail-closed path-resolution errors. |
-| L2 host / Actions | The standalone path-parent helper/test compiled with GNU89 warnings-as-errors and quote-only include lookup. Parent AI docs [42661398097] passed; parent vsftpd [42661398024] passed all three host regression binaries but failed the strict diagnostic-string source contract. This patch changes only that assertion; exact-head Actions for this SHA are pending. |
+| L1 source review | PASS for the CWD-versus-target ACL gap in STOR/APPE/STOU, RETR, MKD/RMD/DELE and LIST/NLST/STAT; operation-specific final-symlink handling and fail-closed resolution are implemented. |
+| L2 host / Actions | PENDING for THIS SHA. Parent checkpoint `d784677ab88890bf1551c0a03fec85219285933f` had exact-head vsftpd [42662555873] SUCCESS and AI docs [42662555510] SUCCESS. This patch adds GNU89 path-policy regression cases and semantic source contracts; verify the exact new head before claiming them passed. |
 | L3 MIPS/uClibc / production vsftpd object / firmware/TRX | NOT VERIFIED. |
-| L4 live FTP cross-share rename, authentication/ACL/chroot, storage hot-unplug and router validation | NOT VERIFIED. |
+| L4 live FTP cross-share ACL, authentication/anonymous policy, storage hot-unplug and router validation | NOT VERIFIED. |
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, branch list and Actions. Verify the new full SHA against every triggered workflow and inspect job steps/logs.
-2. If exact-head CI is green, continue path-aware permission review of the remaining FTP filename-taking commands. Do not infer that this RNFR/RNTO fix closes other command paths.
+1. Fetch live `main`, branch list and Actions. Verify every triggered workflow's full `head_sha` equals the new main SHA; inspect each job's steps and failure logs.
+2. If exact-head CI is green, continue SIZE/MDTM/SITE CHMOD and direct share-metadata-file access review. Do not infer that these commands are covered by the helpers in THIS patch.
+3. Keep the NFS, DHCP and FULLCONENAT queue items visible; do not narrow the project to vsftpd.
 
 ## Continuation rules
 

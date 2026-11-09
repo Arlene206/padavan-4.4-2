@@ -1,3 +1,16 @@
+## 2026-11-10 01:30 CST (UTC+8) — Enforce target-path share ACLs for FTP file and directory commands
+
+- **Base main SHA:** `d784677ab88890bf1551c0a03fec85219285933f`; resulting commit: THIS COMMIT.
+- **Parent exact-head Actions:** vsftpd [42662555873] SUCCESS and AI handoff docs [42662555510] SUCCESS; both full `head_sha` values matched the base SHA.
+- **Finding:** STOR/APPE/STOU, RETR, MKD/RMD/DELE and LIST/NLST/STAT were checking Padavan share rights against the session CWD rather than the path argument's effective target. This allowed a request naming another share to be evaluated against the wrong ACL context.
+- **Fix:** apply operation-specific path ACL checks. Uploads resolve existing final symlinks to their actual target and reject dangling/unresolvable final entries; new leaves use their canonical parent. RETR resolves its existing target. MKD/RMD/DELE check canonical entry parents, while LIST/NLST/STAT check the actual opened directory before data-channel setup.
+- **Regression coverage:** extend the GNU89 host path-policy test for cross-share final symlinks, dangling upload symlinks, new upload leaves, symlinked parents and directory symlinks. Add source contracts for each command family and ACL-before-transfer ordering.
+- **Validation:** L1 source review PASS. New host regression and semantic Actions are pending exact-head CI. No production vsftpd object, MIPS/uClibc build, firmware/TRX or physical-router test is claimed.
+- **Remaining FTP audit:** SIZE, MDTM, SITE CHMOD and direct access to per-account `.__*` ACL metadata/folder inventory are not covered by THIS patch; inspect deployed mount/file modes and the remaining pathname TOCTOU risk.
+- **Next:** inspect all Actions triggered by THIS commit at the exact new full SHA, then continue the remaining FTP metadata/command audit. Keep NFS custom override/durability, DHCP callback semantics and FULLCONENAT mapping-hash/dying-tuple namespace ownership on the wider governance queue.
+
+---
+
 ## 2026-11-10 01:09 CST (UTC+8) — Relax FTP ACL diagnostic source-contract assertion
 
 - **Base main SHA:** `9133aba76e4de64b8e1fa19e743ce3d95716aad6`; resulting commit: THIS COMMIT.
