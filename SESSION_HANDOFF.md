@@ -5,9 +5,9 @@
 ## Current repository state
 
 - Repository: Arlene206/padavan-4.4-2; maintained fork only.
-- Latest source/test checkpoint: `6175e15b0ce153f5829ea2324e7fb9acb909906e` — LAN DHCP deconfig fail-closed route/interface/resolver handling. Documentation-only commits may advance main after this checkpoint; always fetch live HEAD at takeover.
+- Latest source/test checkpoint: `c42ce06cfc784e64bb71e44088423abc144e2cd6` — LAN DHCP deconfig fail-closed handling plus atomic resolver staging. Documentation-only commits may advance main; always fetch live HEAD at takeover. Documentation-only commits may advance main after this checkpoint; always fetch live HEAD at takeover.
 - Remote branch inventory immediately before this refresh contained only main; recheck at next takeover.
-- Exact source/test-head HTTPD Authentication and Security Regression [42571973359](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42571973359) SUCCESS and AI handoff documentation contract [42571973171](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42571973171), both on `6175e15b0ce153f5829ea2324e7fb9acb909906e`. Storage run [42570160275](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42570160275) remains a passing exact-head test for the earlier storage source batch `c2706ac`.
+- Exact source/test-head HTTPD Authentication and Security Regression [42572938754](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42572938754) SUCCESS and AI handoff documentation contract [42572938846](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42572938846), both on `c42ce06cfc784e64bb71e44088423abc144e2cd6`. The storage hotplug regression [42570160275](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42570160275) passed on the earlier storage source checkpoint `c2706ac`. Storage run [42570160275](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42570160275) remains a passing exact-head test for the earlier storage source batch `c2706ac`.
 - Earlier exact-source HTTPD/security [42568701873](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42568701873) SUCCESS on 2c8b5ff; DHCP lease / renewal and HTTPD checks [42568560276](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42568560276) SUCCESS on 2332158. Do not claim these are new exact-head runs on c2706; the exact-head storage and docs runs above are.
 - Validation ceiling: source audit and host/Actions tests only. No complete production RC/BusyBox object build, MIPS/uClibc build, firmware/TRX, live DHCP transition, storage hotplug churn or hardware validation. The exact-head HTTPD workflow compiles/runs the DHCP policy test and evaluates RC source contracts; it does not compile the complete `net_lan.c` production translation unit.
 
@@ -19,7 +19,7 @@ LAN DHCP lifecycle reliability — AP-mode bound/renew input validation, changed
 
 - b96fa1ee123d45bd15d2e90ff6e4a183ecda0fd0 hardened AP-mode LAN DHCP bound/renew required IP/netmask validation, optional router/DNS/WINS/domain normalization, withdrawn option clearing and lease-duration validation.
 - 23321588f38c3ea9a28355ce7ccc50feb06ef1d8 deletes the old default gateway before publishing new temporary lease values. ESRCH means the route is already absent; other route-delete errors abort publication and preserve the previous lease temp fields. The udhcpc applet rejects an empty interface name.
-- DHCP policy tests cover route-delete outcomes 0, ESRCH and EIO, plus deconfig failure precedence for route, interface and resolver errors. HTTPD workflow contracts verify the bound-path publish gate and deconfig ordering/error gates.
+- DHCP policy tests cover route-delete outcomes 0, ESRCH and EIO, plus deconfig failure precedence for route, interface and resolver errors. HTTPD workflow contracts verify the bound-path publish gate, deconfig failure gates, and staged resolver publication order.
 - The prior HTTPD failure on b96fa1e was a stale workflow assertion after a DNSMasq validator moved to dnsmasq_domain_policy.h; the contract was corrected. Exact-head HTTPD/security and docs Actions passed on 2332158.
 
 ### Confirmed BusyBox udhcpc callback contract
@@ -29,7 +29,7 @@ LAN DHCP lifecycle reliability — AP-mode bound/renew input validation, changed
 - An accepted NAK invokes `nak`, then invokes `deconfig` only if the previous state was not REQUESTING. When a server ID is known, a NAK from another server is ignored.
 - `deconfig` also follows lease expiry/rebind timeout, an ARP-conflicting offered address when not REQUESTING, a repeated SIGUSR1 while already RENEW_REQUESTED, and SIGUSR2/release or SIGTERM exit with release-on-quit. The initial startup `deconfig` call is commented out in this BusyBox fork.
 - `route_del()` in `trunk/user/rc/src/net.c` returns 0 or positive errno. `ifconfig()` in `trunk/user/shared/src/netutils.c` returns 0, positive errno for ioctl failures, but -1 for socket/name-copy failures.
-- `udhcpc_lan_deconfig()` now delegates to an error-returning `lan_down_auto()`. Deconfig deletes the recorded DHCP gateway first (ESRCH is benign; other errors stop before changing the interface), checks static-address `ifconfig()`, serializes resolver clearing with `file_lock("resolv")`, and checks resolver open/close results. Only after all stages succeed does it pause internet detection and call `update_lan_status(0)`. Failure is logged and the old temporary lease/gateway identity is not overwritten. The pure policy regression covers route, interface and resolver status precedence.
+- `udhcpc_lan_deconfig()` delegates to an error-returning `lan_down_auto()`. Deconfig deletes the recorded DHCP gateway first (ESRCH is benign; other errors stop before changing the interface), checks static-address `ifconfig()`, then stages an empty resolver file and atomically publishes it under `file_lock("resolv")` using `dnsmasq_file_open()` / `dnsmasq_file_publish()`. Failed staging or publication leaves the previous resolver file intact; temporary lease/gateway identity is reset only after every cleanup stage succeeds. The pure policy regression covers route, interface and resolver status precedence.
 - The bound path also publishes new temporary lease fields before interface configuration; `ifconfig()` results and `lan_up_auto()` route-add / resolver write-close failures are ignored. Review bound/deconfig as one state transition before editing.
 
 ## Storage / Optware lifecycle follow-through
@@ -45,7 +45,7 @@ LAN DHCP lifecycle reliability — AP-mode bound/renew input validation, changed
 ## Other repository-wide open areas
 
 - USB / storage / hotplug — PARTIAL / AUDITING: complete ejected partition inventory, swapoff-before-unmount, operation-wide storage lock, Optware start/stop serialization and nonblocking teardown lock ordering. Still open: stop-hook/second-unmount status propagation, drafted whole-caller-graph CI, external custom scripts, filesystem runtime and hardware.
-- WAN / DHCP / resolver — PARTIAL / AUDITING: route validation/error handling, DNSMasq file staging and resolver publication have bounded coverage; AP DHCP bound/deconfig transactional state remains open.
+- WAN / DHCP / resolver — PARTIAL / AUDITING: route validation/error handling, DNSMasq file staging and resolver publication have bounded coverage; LAN DHCP deconfig now has fail-closed atomic resolver cleanup, while bound-side effects/rollback remain open.
 - Firewall / NAT — AUDITING: bounded FULLCONENAT worker/notifier failure fixes exist; mapping-hash and dying-tuple queue namespace isolation remains separate kernel work.
 - Wireless — PARTIAL / AUDITING: selected driver result and AP/APCLI/WDS bridge-state publication gates exist; remaining iNIC, board-specific and concurrent lifecycle callers remain open.
 - HTTPD / CGI / authentication — PARTIAL / AUDITING: recent security regression passes; continue route/input/error-path inventory.
@@ -55,23 +55,23 @@ LAN DHCP lifecycle reliability — AP-mode bound/renew input validation, changed
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for AP DHCP option validation and changed-gateway delete-before-publish policy; PASS for the bounded SD/MMC mdev/RC/HTTPD/libdisk/Optware caller and lock-order review. |
-| L2 host / GitHub Actions | Exact-head storage [42570160275](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42570160275) and docs [42570160219](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42570160219) SUCCESS on c2706ac. HTTPD [42568701873](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42568701873) SUCCESS on 2c8b5ff; AP DHCP/HTTPD run [42568560276](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42568560276) SUCCESS on 2332158. |
+| L1 source review | PASS for AP DHCP option validation, changed-gateway delete-before-publish, and fail-closed deconfig route/interface/atomic-resolver cleanup; PASS for the bounded SD/MMC mdev/RC/HTTPD/libdisk/Optware caller and lock-order review. |
+| L2 host / GitHub Actions | Exact-head HTTPD/DHCP [42572938754](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42572938754) and AI docs [42572938846](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42572938846) SUCCESS on `c42ce06`. Storage [42570160275](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42570160275) SUCCESS on `c2706ac`. The HTTPD workflow compiles/runs the pure DHCP policy test and checks source contracts; it does not compile the full production `net_lan.c` translation unit. |
 | L3 MIPS/uClibc / production objects / firmware/TRX | NOT VERIFIED. |
 | L4 live DHCP churn / storage hotplug / physical router | NOT VERIFIED. |
 
 ## Exact first action for the next GPT
 
-1. Fetch live main, branches and Actions; latest source/test checkpoint before this documentation refresh is `6175e15b0ce153f5829ea2324e7fb9acb909906e`.
-2. Continue the remaining DHCP bound transaction. Deconfig is now fail-closed: route delete (ESRCH benign) precedes static interface setup, interface/resolver status is checked, and temporary lease state is reset only on complete success. Next inspect `udhcpc_lan_bound()` / `lan_up_auto()` because they publish temp fields before checking `ifconfig()`, `route_add()` and resolver write/close outcomes. Define rollback/last-known-good behavior that remains correct even though BusyBox discards callback exit status; add policy tests and exact source contracts.
+1. Fetch live main, checkpoint branches and exact-head Actions. Latest source/test checkpoint before this documentation refresh is `c42ce06cfc784e64bb71e44088423abc144e2cd6`.
+2. Continue the remaining DHCP bound transaction. Deconfig now fail-closes after old route delete (ESRCH benign), static interface setup and atomic staged resolver publication; temporary lease identity is reset only after complete success. Inspect `udhcpc_lan_bound()` / `lan_up_auto()` because they currently publish temp fields before checking address `ifconfig()`, `route_add()` and resolver write/publication outcomes. Define a retry-safe rollback/last-known-good policy that remains correct even though BusyBox discards callback exit status; add GNU89 policy tests and exact source contracts.
 3. Audit opt-umount.sh stop-hook and second-umount exit propagation. Ensure the C storage caller sees a nonzero result when teardown did not complete. Preserve the nonblocking try-lock; do not replace it with a blocking lock while holding storage.lock.
 4. Re-read current call sites and finish the drafted storage caller-graph Python regression; add it alongside the existing storage_mountpoint_lock.sh and Optware lock tests in the storage workflow. Verify exact-head Actions.
 5. Rotate to a different userland module after these bounded tasks. Keep FULLCONENAT mapping namespace work separate. Do not repeat completed SkipDBv2/HTTPD work.
 
 ## Recovery and archive rule
 
-- Superseded root handoff snapshots are preserved byte-for-byte as `docs/handoffs/archive/2026/11/part-016.md` and `part-017.md`; the preceding root handoff blob `6071ca33d72cb436375b90537abafac2f598ba44` is part-017. See `docs/handoffs/INDEX.md`.
-- Superseded root roadmap snapshots are preserved byte-for-byte as `docs/roadmap-history/2026/11/part-016.md` and `part-017.md`; the preceding root roadmap blob `a7f5c6d36d44cc557f0dc7687354bbda54afb8c9` is part-017. See `docs/roadmap-history/INDEX.md`.
+- Superseded root handoff snapshots are preserved byte-for-byte as `docs/handoffs/archive/2026/11/part-016.md` through `part-019.md`; the preceding root handoff blob `883e61791dcf7c65b59dee4ca41887d993c1ade7` is part-019. See `docs/handoffs/INDEX.md`.
+- Superseded root roadmap snapshots are preserved byte-for-byte as `docs/roadmap-history/2026/11/part-016.md` through `part-018.md`; the preceding root roadmap blob `7fb99941514b3067268e8758ba74cc4da2d22dbf` is part-018. See `docs/roadmap-history/INDEX.md`.
 - The oldest record evicted by this rotation is appended verbatim to `docs/dev-log/2026/11/part-005.md`; see `docs/dev-log/INDEX.md` for exact counts, byte lengths and blob SHA.
 - Root `dev_log.md` retains exactly the newest 20 complete records. Run `python3 scripts/check_ai_handoff_docs.py` and the exact-head docs workflow after each handoff update.
 
