@@ -48,6 +48,24 @@ wif_control(const char *wifname, int is_up)
 	return ret;
 }
 
+/*
+ * Do not publish a scheduler transition when the interface command failed.
+ * The caller must preserve its current bridge/isolation state for retry.
+ */
+static int
+wif_control_success(const char *wifname, int is_up)
+{
+	int ret = wif_control(wifname, is_up);
+
+	if (!wireless_radio_status_success(ret)) {
+		logmessage(LOGNAME, "%s: failed to set interface %s %s (status=%d)",
+			   __func__, wifname, is_up ? "up" : "down", ret);
+		return 0;
+	}
+
+	return 1;
+}
+
 void
 mlme_state_wl(int is_on)
 {
@@ -1060,7 +1078,8 @@ control_guest_wl(int guest_on, int manual)
 	if (guest_on)
 	{
 		if (!is_interface_up(ifname_ap)) {
-			wif_control(ifname_ap, 1);
+			if (!wif_control_success(ifname_ap, 1))
+				return 0;
 			is_ap_changed = 1;
 		}
 		br_add_del_if(IFNAME_BR, ifname_ap, 1);
@@ -1069,7 +1088,8 @@ control_guest_wl(int guest_on, int manual)
 	else
 	{
 		if (is_interface_up(ifname_ap)) {
-			wif_control(ifname_ap, 0);
+			if (!wif_control_success(ifname_ap, 0))
+				return 0;
 			is_ap_changed = 1;
 		}
 		br_add_del_if(IFNAME_BR, ifname_ap, 0);
@@ -1105,7 +1125,8 @@ control_guest_rt(int guest_on, int manual)
 	if (guest_on)
 	{
 		if (!is_interface_up(ifname_ap)) {
-			wif_control(ifname_ap, 1);
+			if (!wif_control_success(ifname_ap, 1))
+				return 0;
 			is_ap_changed = 1;
 		}
 #if defined(USE_RT3352_MII)
@@ -1119,7 +1140,8 @@ control_guest_rt(int guest_on, int manual)
 	else
 	{
 		if (is_interface_up(ifname_ap)) {
-			wif_control(ifname_ap, 0);
+			if (!wif_control_success(ifname_ap, 0))
+				return 0;
 			is_ap_changed = 1;
 		}
 #if defined(USE_RT3352_MII)

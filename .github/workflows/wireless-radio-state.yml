@@ -76,6 +76,22 @@ jobs:
               assert "wireless_restart_preflight(need_reload_conf, " + generator + ")" in body
               assert body.index("wireless_restart_preflight(") < body.index("return -1;") < body.index("stop_8021x_")
 
+          control = function_body(source, "wif_control_success(const char *wifname, int is_up)")
+          assert "ret = wif_control(wifname, is_up)" in control
+          assert "wireless_radio_status_success(ret)" in control
+          assert control.index("wireless_radio_status_success(ret)") < control.index("return 0;") < control.index("return 1;")
+
+          for name in ("control_guest_wl", "control_guest_rt"):
+              body = function_body(source, name + "(int guest_on, int manual)")
+              for is_up in (1, 0):
+                  gate = "if (!wif_control_success(ifname_ap, " + str(is_up) + "))"
+                  assert gate in body, f"{name}: missing ifconfig status gate for {'up' if is_up else 'down'}"
+                  gate_pos = body.index(gate)
+                  failure_return = body.index("return 0;", gate_pos)
+                  publish = body.index("is_ap_changed = 1;", gate_pos)
+                  bridge = body.index("br_add_del_if(", gate_pos)
+                  assert gate_pos < failure_return < publish < bridge, f"{name}: interface failure can still publish scheduler/bridge state"
+
           paths = (
               ".github/workflows/wireless-radio-state.yml",
               "trunk/user/rc/src/net_wifi.c",
