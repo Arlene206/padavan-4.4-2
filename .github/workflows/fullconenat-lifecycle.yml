@@ -73,7 +73,7 @@ jobs:
           callback_start = fullcone.index("/* conntrack destroy event callback function */")
           callback_end = fullcone.index("static __be32 get_device_ip(", callback_start)
           callback = fullcone[callback_start:callback_end]
-          worker = function_body(fullcone, "static void gc_worker(")
+          worker = function_body(fullcone, "static void gc_worker(struct work_struct *work) {")
           assert "list_add(&(dying_tuple_item->list), &dying_tuple_list);" in callback
           assert "if (wq != NULL)" in callback and "queue_delayed_work(wq, &gc_worker_wk" in callback
           assert "handle_dying_tuples();" in worker
