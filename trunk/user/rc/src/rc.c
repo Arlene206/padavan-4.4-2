@@ -1139,7 +1139,7 @@ handle_notifications(void)
 #if defined(APP_SMBD)
 		else if (strcmp(entry->d_name, RCN_RESTART_SMBD) == 0)
 		{
-			restart_smbd();
+			action_result = restart_smbd();
 		}
 #endif
 #if defined(APP_NFSD)
@@ -1682,7 +1682,7 @@ main(int argc, char **argv)
 	}
 	else if (!strcmp(base, "run_ftpsamba")) {
 #if defined(APP_SMBD)
-		restart_smbd();
+		ret = restart_smbd();
 #else
 		;
 #endif
@@ -1692,7 +1692,7 @@ main(int argc, char **argv)
 	}
 #if defined(APP_SMBD)
 	else if (!strcmp(base, "run_samba")) {
-		restart_smbd();
+		ret = restart_smbd();
 	}
 #endif
 #if defined(APP_FTPD)

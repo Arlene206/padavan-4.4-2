@@ -659,8 +659,8 @@ void restart_ftpd(void);
 int write_smb_conf(void);
 void config_smb_fastpath(int check_pid);
 void stop_samba(int force_stop);
-void run_samba(void);
-void restart_smbd(void);
+int run_samba(void);
+int restart_smbd(void);
 #endif
 #if defined (APP_NFSD)
 void unload_nfsd(void);

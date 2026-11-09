@@ -1,3 +1,15 @@
+## 2026-11-09 22:45 CST (UTC+8) — Check Samba daemon reload/start status and postconditions
+
+- **Base main SHA:** `cf75016ebf1f1150cd4db39308ead1e09bb0e66e`; resulting commit: THIS COMMIT.
+- **Recovered exact-head parent CI:** all six workflows completed SUCCESS with exact matching `head_sha=cf75016ebf1f1150cd4db39308ead1e09bb0e66e`: Samba [42638624538], NFS [42638624367], HTTPD/security [42638624464], USB storage [42638624595], vsftpd [42638624417], and AI handoff docs [42638624607].
+- **Finding:** `run_samba()` ignored command status for `killall -SIGHUP` and daemon `eval()`; a failed reload/start could be hidden from RC callers and the notification queue.
+- **Fix:** check each required nmbd/smbd command result and a bounded stable-PID postcondition; treat a nonzero command result or missing/stale process as failure. Check optional WSDD2 too, but keep its failure as a warning rather than masking SMB availability. Make `run_samba()`/`restart_smbd()` return int; propagate through RC notification and direct command entry points. Storage startup logs failures.
+- **Regression contract:** Samba workflow checks command return handling, bounded PID postconditions, function return types and RC propagation; add `rc.c` to workflow path filters.
+- **Verification:** source/caller review PASS. Parent exact-head Actions above PASS. This commit's Samba/HTTPD Actions pending exact-head. No local full checkout, production RC object, MIPS/uClibc build, firmware/TRX or physical router test is claimed.
+- **Next:** implement durable PREPARED/COMMITTED recovery for the passdb/config pair; then fix WINS-only nmbd start/stop status propagation before rotating to vsftpd lifecycle.
+
+---
+
 ## 2026-11-09 22:20 CST (UTC+8) — Defer Samba share config until passdb provisioning succeeds
 
 - **Base main SHA:** `90e6c14d835216f06163f1347c0d5d8a3a465484`; resulting commit: THIS COMMIT.

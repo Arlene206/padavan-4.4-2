@@ -1,10 +1,12 @@
 ## Current source / CI checkpoint
 
 - Repository: `Arlene206/padavan-4.4-2`; maintained fork only.
-- Base `main` SHA for THIS Samba passdb/config consistency change: `90e6c14d835216f06163f1347c0d5d8a3a465484`; only `main` exists.
-- The previous NFS custom override fail-closed commit is green on exact SHA `90e6c14d835216f06163f1347c0d5d8a3a465484`: NFS [42635610314], HTTPD/security [42635610731], USB storage [42635610419], Samba config [42635610400], vsftpd [42635610401], and AI docs [42635610461]. Every run completed SUCCESS with exact matching full `head_sha`.
-- THIS change delays Samba share config publication until every configured credential has been successfully provisioned to the staged Samba 3.6 passdb. It hard-links the previous private database before replacing it and attempts to restore it if atomic smb.conf publication fails. A power loss between the two file updates is not journal-recovered; no cross-file crash atomicity is claimed.
-- NFS generated defaults retain `secure,no_root_squash,async`; the custom override path fails closed except for true `ENOENT`. Root-squash, AUTH_SYS trust, custom export contents/ACL bypass, `async` durability and external mounts remain open.
+- Base `main` SHA for this Samba daemon-lifecycle review: `cf75016ebf1f1150cd4db39308ead1e09bb0e66e`; only `main` exists and there is no separate checkpoint branch.
+- Parent Samba passdb/config consistency commit is green on exact SHA `cf75016ebf1f1150cd4db39308ead1e09bb0e66e`: Samba [42638624538], NFS [42638624367], HTTPD/security [42638624464], USB storage [42638624595], vsftpd [42638624417], and AI docs [42638624607]. All six completed SUCCESS with matching full `head_sha`.
+- THIS change checks return values for Samba `smbd`/`nmbd` HUP/start commands, requires a stable PID postcondition, propagates failures through `run_samba()`/`restart_smbd()` and RC notification/command callers, and reports optional WSDD2 failures separately.
+- The parent passdb/config update still lacks power-failure atomicity: a reset between publishing the passdb and `smb.conf` may leave a mismatched pair until recovery. No journal recovery or cross-file crash atomicity is claimed.
+- NFS generated defaults retain `secure,no_root_squash,async`; the custom override path accepts only direct regular files or symlinks to regular files and permits generated fallback only on `ENOENT`. Root-squash, AUTH_SYS trust, custom override content/ACL bypass, durability and external-mount policy remain open.
+
 
 ## Whole-repository module status
 
@@ -19,17 +21,18 @@
 | HTTPD / CGI / authentication | PARTIAL / AUDITING | Authentication, disclosure, safe publication, NVRAM restore and CGI policy checks have recent Actions. | Whole-route input, authorization and error-path inventory. |
 | NVRAM / persistence / startup | PARTIAL / AUDITING | Atomic publication and restore failure gates. | Remaining direct callers, flash recovery and board variants. |
 | Switch / PHY / MDIO / link state | PARTIAL / AUDITING | Selected ioctl propagation, PVID/link retry, CLI ordering and MDIO timeout checks. | Other board drivers and live hardware behavior. |
-| Samba share service / accounts | PARTIAL / AUDITING | Generated smb.conf is staged/atomically published; folder inventory/read errors fail closed; mode-4 write-only ACL generation is covered; credential provisioning now completes in a private staged passdb before smb.conf is published, with hard-link snapshot/rollback on config publication failure. THIS consistency fix awaits exact-head regression. | Interrupted-transaction recovery between the passdb and smb.conf updates; ignored daemon SIGHUP/start command statuses and postconditions; broader account mutation and live-auth compatibility. |
+| Samba share service / accounts | PARTIAL / AUDITING | Generated smb.conf is staged/atomically published; folder inventory/read errors fail closed; mode-4 write-only ACL generation is covered; credential provisioning completes in a private staged passdb before smb.conf publication, with hard-link snapshot/rollback on ordinary config errors. Current patch checks smbd/nmbd HUP/start status, stable PID postconditions and propagates failures through RC callers; optional WSDD2 failures are reported separately. | Power-loss journal/recovery for the passdb/config pair; WINS-only nmbd startup status; stop/restart lifecycle status; broader account mutation and live-auth compatibility. |
 | FTP service / vsftpd | PARTIAL / AUDITING | Generated vsftpd config uses checked same-directory staging/atomic replacement and daemon startup is gated on publication success. | Authentication, credential/ACL semantics, path confinement, stop/lifecycle error propagation and target runtime. |
 | NFS / third-party add-ons | PARTIAL / AUDITING | NFS inventory/restart preflight, checked start/reload/shutdown and storage-eject gates; exact pseudo-filesystem tuple identity/conflict-safe teardown; strict LAN/VPN IPv4/IPv6 ACL validation and fail-closed publication; generated exports require `secure` source ports; custom override path now accepts only direct regular files or symlinks to regular files and permits generated fallback only on `ENOENT`. | Root clients still map to server root; AUTH_SYS remains a trusted-network identity model. `async` durability versus throughput, compatibility-backed root-squash migration, trusted custom override ACL/path bypass and malformed-content/exportfs recovery, and explicit external-mount support remain open. THIS custom-path fix awaits exact-head CI. |
 | Init / PID 1 / service supervision | AUDITING | Notification deferral, child reaping and selected start/stop failure gates. MTD Optware worker resets inherited PID1 signal dispositions/mask and is cancelled before normal service shutdown. | Cross-module ordering, other package supervision and remaining shutdown races. |
 
 ## Priority queue
 
-1. P2 — Verify THIS Samba passdb/config consistency fix on exact-head Samba/HTTPD Actions; then assess interrupted-transaction recovery and daemon signal/start postconditions.
-2. P2 — Continue vsftpd authentication/ACL/path confinement/stop lifecycle.
-3. P2 — Keep NFS `async` durability, root-squash compatibility, trusted custom override content/ACL bypass, and external mounts as explicit open risks.
-4. P2/P3 — DHCP leasefail/accepted-NAK/release callback state semantics and BusyBox callback status; keep FULLCONENAT mapping-hash / dying-tuple queue namespace ownership as a separate kernel audit.
+1. P2 — Complete durable Samba passdb/config transaction recovery: journal the old pair before publishing either file, recover PREPARED transactions on every service entry, retain COMMITTED pairs, and fail closed on malformed or unsafe journal state. Then close WINS-only nmbd start/stop result handling.
+2. P2 — Verify THIS Samba daemon-lifecycle change on exact-head Samba and HTTPD Actions; confirm each full `head_sha` and inspect logs.
+3. P2 — Continue vsftpd authentication/ACL/path confinement/stop lifecycle.
+4. P2 — Keep NFS `async` durability, root-squash compatibility, trusted custom override content/ACL bypass, and external mounts as explicit open risks.
+5. P2/P3 — DHCP leasefail/accepted-NAK/release callback state semantics and BusyBox callback status; keep FULLCONENAT mapping-hash / dying-tuple queue namespace ownership as a separate kernel audit.
 
 ## Working rules
 
@@ -46,8 +49,8 @@
 
 | Level | Evidence | Limits |
 |---|---|---|
-| L1 source review | PASS for strict NFS LAN/VPN IPv4/IPv6 ACL validation, Linux 4.4 AUTH_SYS/reserved-port semantics, Samba 0/1/2/3/error permission mapping, and this round's custom NFS override path classification/fail-closed state matrix. |
-| L2 host / Actions | Preceding source-port change exact SHA `a753c86b1f6329e4f9ac8e73ccfcb97f0a14865d`: storage [42631443686], NFS [42631443757], vsftpd [42631443784], Samba [42631443514], AI docs [42631443719], and HTTPD [42631443747] all SUCCESS with matching full `head_sha`. THIS custom-path change's focused standalone GNU89 regression PASS; full production policy test and NFS/HTTPD/storage/docs Actions pending exact-head. No local full checkout, production RC object or firmware build is claimed.
+| L1 source review | PASS for strict NFS LAN/VPN IPv4/IPv6 ACL validation, Linux 4.4 AUTH_SYS/reserved-port semantics, Samba 0/1/2/3/error permission mapping, NFS override fail-closed classification, parent Samba passdb/config ordinary-error rollback, and current Samba daemon command status / stable-PID / RC propagation paths. |
+| L2 host / Actions | Parent SHA `cf75016ebf1f1150cd4db39308ead1e09bb0e66e` exact-head Samba [42638624538], NFS [42638624367], HTTPD [42638624464], storage [42638624595], vsftpd [42638624417] and AI docs [42638624607] all SUCCESS with matching full `head_sha`. THIS daemon-lifecycle patch's Samba and HTTPD workflows are pending exact-head. No full local checkout, production RC object, firmware build or device test is claimed.
 | L3 MIPS/uClibc / production objects / firmware/TRX | NOT VERIFIED. | Full target build phase required. |
 | L4 live NFS export/stop, USB eject, filesystem integration / physical router | NOT VERIFIED. | Requires target-device validation. |
 

@@ -812,24 +812,83 @@ stop_samba(int force_stop)
 	clean_smbd_trash();
 }
 
-void run_samba(void)
+static int
+samba_wait_for_daemon(const char *daemon)
+{
+	int attempt;
+
+	for (attempt = 0; attempt < 30; ++attempt) {
+		if (pids(daemon) > 0) {
+			usleep(500000);
+			if (pids(daemon) > 0)
+				return 0;
+		}
+		usleep(100000);
+	}
+
+	errno = ETIMEDOUT;
+	return -1;
+}
+
+/* A successful shell/exec return is not enough: confirm a stable daemon PID. */
+static int
+samba_ensure_daemon(const char *daemon, int was_running)
+{
+	const char *daemon_path;
+	int command_status;
+
+	if (!daemon || (strcmp(daemon, "nmbd") != 0 &&
+			strcmp(daemon, "smbd") != 0 &&
+			strcmp(daemon, "wsdd2") != 0)) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	if (was_running) {
+		command_status = doSystem("killall %s %s", "-SIGHUP", daemon);
+	} else if (strcmp(daemon, "nmbd") == 0) {
+		daemon_path = "/sbin/nmbd";
+		command_status = eval(daemon_path, "-D", "-s", "/etc/smb.conf");
+	} else if (strcmp(daemon, "smbd") == 0) {
+		daemon_path = "/sbin/smbd";
+		command_status = eval(daemon_path, "-D", "-s", "/etc/smb.conf");
+	} else {
+		daemon_path = "/sbin/wsdd2";
+		command_status = eval(daemon_path, "-d", "-w");
+	}
+
+	if (command_status != 0) {
+		logmessage("Samba Server", "%s %s command failed (status %d)",
+			   daemon, was_running ? "reload" : "start", command_status);
+		return -1;
+	}
+	if (samba_wait_for_daemon(daemon) != 0) {
+		logmessage("Samba Server", "%s did not remain running after %s (errno %d)",
+			   daemon, was_running ? "reload" : "start", errno ? errno : ETIMEDOUT);
+		return -1;
+	}
+
+	return 0;
+}
+
+int run_samba(void)
 {
 	int sh_num, has_nmbd, has_smbd, i, j;
-	int credential_failed = 0, saved_errno;
+	int credential_failed = 0, saved_errno, daemon_failed = 0;
 	char tmpuser[40], tmp2[40];
 #if defined (APP_SMBD36)
 	char staged_passdb[128];
 #endif
 
 	if (nvram_match("enable_samba", "0") || nvram_match("st_samba_mode", "0"))
-		return;
+		return 0;
 
 	recreate_passwd_unix(0);
 
 	mkdir_if_none("/etc/samba", "777");
 	if (samba_secure_private_samba_dir() != 0) {
 		logmessage("Samba Server", "private Samba directory validation failed; service was not reloaded");
-		return;
+		return -1;
 	}
 
 	has_smbd = pids("smbd");
@@ -844,7 +903,7 @@ void run_samba(void)
 #if defined (APP_SMBD36)
 	if (samba_prepare_private_passdb(staged_passdb, sizeof(staged_passdb)) != 0) {
 		logmessage("Samba Server", "unable to prepare private passdb; service was not reloaded");
-		return;
+		return -1;
 	}
 #endif
 
@@ -885,7 +944,7 @@ void run_samba(void)
 	if (credential_failed) {
 		unlink(staged_passdb);
 		logmessage("Samba Server", "credential provisioning failed; existing passdb and configuration were preserved");
-		return;
+		return -1;
 	}
 
 	/*
@@ -903,7 +962,7 @@ void run_samba(void)
 			logmessage("Samba Server", "unable to snapshot existing passdb; service was not reloaded (errno %d)",
 				   saved_errno);
 			errno = saved_errno;
-			return;
+			return -1;
 		}
 		if (rename(staged_passdb, "/etc/samba/smbpasswd") != 0) {
 			saved_errno = errno ? errno : EIO;
@@ -913,7 +972,7 @@ void run_samba(void)
 			logmessage("Samba Server", "unable to publish staged passdb; previous configuration was preserved (errno %d)",
 				   saved_errno);
 			errno = saved_errno;
-			return;
+			return -1;
 		}
 
 		if (write_smb_conf() != 0) {
@@ -926,7 +985,7 @@ void run_samba(void)
 			logmessage("Samba Server", "configuration publication failed; service was not reloaded (errno %d)",
 				   saved_errno);
 			errno = saved_errno;
-			return;
+			return -1;
 		}
 
 		if (passdb_had_original && unlink(passdb_backup) != 0)
@@ -936,49 +995,52 @@ void run_samba(void)
 #else
 	if (credential_failed) {
 		logmessage("Samba Server", "credential provisioning failed; Samba was not reloaded");
-		return;
+		return -1;
 	}
 	if (write_smb_conf() != 0) {
 		logmessage("Samba Server", "configuration generation failed; service was not reloaded");
-		return;
+		return -1;
 	}
 #endif
 
 	config_smb_fastpath(0);
 
-	if (has_nmbd)
-		doSystem("killall %s %s", "-SIGHUP", "nmbd");
-	else
-		eval("/sbin/nmbd", "-D", "-s", "/etc/smb.conf");
-
-	if (has_smbd)
-		doSystem("killall %s %s", "-SIGHUP", "smbd");
-	else
-		eval("/sbin/smbd", "-D", "-s", "/etc/smb.conf");
+	if (samba_ensure_daemon("nmbd", has_nmbd) != 0)
+		daemon_failed = 1;
+	if (samba_ensure_daemon("smbd", has_smbd) != 0)
+		daemon_failed = 1;
 
 #if defined (APP_SMBD36)
-	if (pids("wsdd2"))
-		doSystem("killall %s %s", "-SIGHUP", "wsdd2");
+	if (samba_ensure_daemon("wsdd2", pids("wsdd2") > 0) != 0)
+		logmessage("WSDD2", "optional discovery daemon reload/start failed");
 	else
-		eval("/sbin/wsdd2", "-d", "-w");
-	
-	if (pids("wsdd2"))
 		logmessage("WSDD2", "daemon is started");
 #endif
 
-	if (pids("nmbd") && pids("smbd"))
-		logmessage("Samba Server", "daemon is started");
+	if (daemon_failed) {
+		logmessage("Samba Server", "one or more required daemons failed reload/start postconditions");
+		return -1;
+	}
+	logmessage("Samba Server", "daemon is started");
+	return 0;
 }
 
-void restart_smbd(void)
+int restart_smbd(void)
 {
+	int samba_status = 0;
+
 	stop_samba(1);
 
-	if (storage_has_mounted_devices("restarting Samba"))
-		run_samba();
+	if (storage_has_mounted_devices("restarting Samba")) {
+		samba_status = run_samba();
+		if (samba_status != 0)
+			return samba_status;
+	}
 
 	if (!pids("nmbd"))
 		start_wins();
+
+	return samba_status;
 }
 #endif
 
@@ -2355,7 +2417,8 @@ start_stor_apps(void)
 		need_restart_fw |= is_ftp_run();
 #endif
 #if defined (APP_SMBD)
-	run_samba();
+	if (run_samba() != 0)
+		logmessage("Storage", "Samba startup did not reach its daemon postconditions");
 #endif
 #if defined (APP_NFSD)
 	run_nfsd();

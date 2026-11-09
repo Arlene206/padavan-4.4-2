@@ -7,6 +7,7 @@ on:
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/services_ex.c"
       - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/samba_config_file.h"
       - "trunk/user/rc/src/tests/samba_config_file.c"
       - "trunk/user/rc/src/samba_passdb_policy.h"
@@ -17,6 +18,7 @@ on:
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/services_ex.c"
       - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/samba_config_file.h"
       - "trunk/user/rc/src/tests/samba_config_file.c"
       - "trunk/user/rc/src/samba_passdb_policy.h"
@@ -111,7 +113,7 @@ jobs:
           assert "samba_config_file_publish(&fp, staged, target) == 0" in test
           assert "samba_config_file_publish(&fp, staged, directory_target) != 0" in test
           assert "samba_config_file_discard(&fp, staged)" in test
-          run_samba = function_body(stor, "void run_samba(void)")
+          run_samba = function_body(stor, "int run_samba(void)")
           assert run_samba.index("samba_run_smbpasswd(") < run_samba.index("samba_backup_private_passdb(")
           assert run_samba.index("if (credential_failed)") < run_samba.index("samba_backup_private_passdb(")
           assert run_samba.index("samba_backup_private_passdb(") < run_samba.index('rename(staged_passdb, "/etc/samba/smbpasswd")')
@@ -132,5 +134,30 @@ jobs:
           assert "samba_passdb_restore_file(passdb, backup, had_original)" in passdb_test
           assert 'fopen("/dev/full", "w")' in test
 
-          print("Samba share config publication and reload failure gates: PASS")
+
+          rc = Path("trunk/user/rc/src/rc.c").read_text()
+          wait_fn = function_body(stor, "samba_wait_for_daemon(")
+          ensure_fn = function_body(stor, "samba_ensure_daemon(")
+          assert "usleep(500000)" in wait_fn
+          assert "pids(daemon) > 0" in wait_fn
+          assert "ETIMEDOUT" in wait_fn
+          assert 'doSystem("killall %s %s", "-SIGHUP", daemon)' in ensure_fn
+          assert 'eval(daemon_path, "-D", "-s", "/etc/smb.conf")' in ensure_fn
+          assert "command_status != 0" in ensure_fn
+          assert "samba_wait_for_daemon(daemon) != 0" in ensure_fn
+          run_samba = function_body(stor, "int run_samba(void)")
+          assert 'samba_ensure_daemon("nmbd", has_nmbd)' in run_samba
+          assert 'samba_ensure_daemon("smbd", has_smbd)' in run_samba
+          assert "daemon_failed" in run_samba and "return -1;" in run_samba
+          assert "void run_samba(void);" not in header
+          assert "int run_samba(void);" in header
+          assert "int restart_smbd(void);" in header
+          restart_smbd = function_body(stor, "int restart_smbd(void)")
+          assert "samba_status = run_samba();" in restart_smbd
+          assert "if (samba_status != 0)" in restart_smbd
+          assert "action_result = restart_smbd();" in rc
+          assert 'ret = restart_smbd();' in rc
+          assert "\n\t\t\trestart_smbd();\n" not in rc
+
+          print("Samba share config publication and daemon lifecycle failure gates: PASS")
           PY
