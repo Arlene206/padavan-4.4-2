@@ -166,14 +166,26 @@ reset_fixture
 status=$(run_command mount "" start)
 assert_failed "$status" "nfsd control filesystem mount failure"
 assert_command mount
-assert_no_command exportfs
+assert_command exportfs
+[ ! -s "$MOUNTS_FILE" ] && [ ! -f "$tmp_dir/var/lib/nfs/etab" ] || {
+	echo "failed NFS control mount left startup state after successful cleanup" >&2
+	exit 1
+}
 
 reset_fixture
 printf 'mock %s nfsd rw 0 0\n' "$tmp_dir/proc/fs/nfsd" > "$MOUNTS_FILE"
 status=$(run_command mount "" start)
 assert_failed "$status" "rpc_pipefs mount failure"
 assert_command mount
-assert_no_command exportfs
+assert_command exportfs
+[ ! -s "$MOUNTS_FILE" ] || {
+	echo "NFS control filesystem remained mounted after rpc_pipefs startup failure" >&2
+	exit 1
+}
+[ ! -f "$tmp_dir/var/lib/nfs/etab" ] || {
+	echo "etab remained after successful rpc_pipefs startup rollback" >&2
+	exit 1
+}
 
 reset_fixture
 status=$(run_command exportfs "" start)
@@ -181,6 +193,10 @@ assert_failed "$status" "exportfs failure"
 assert_command exportfs
 assert_no_command rpc.nfsd
 assert_no_command rpc.mountd
+[ -s "$MOUNTS_FILE" ] && [ -f "$tmp_dir/var/lib/nfs/etab" ] || {
+	echo "exportfs failure discarded recovery state despite failed export withdrawal" >&2
+	exit 1
+}
 
 reset_fixture
 status=$(run_command rpc.nfsd "" start)

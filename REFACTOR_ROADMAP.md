@@ -5,9 +5,8 @@
 ## Current source / CI checkpoint
 
 - Repository: Arlene206/padavan-4.4-2; maintained fork only.
-- Latest verified main SHA: `d143581bf5f351cb2cf0d388f2542c3710802c7b`. HTTPD Authentication and Security [42596369094](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42596369094) **SUCCESS** on that exact SHA; AI handoff docs [42596369073](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42596369073) were queued at takeover.
-- NFS mount-inventory/restart-preflight and stop-failure/eject gating are on main. Storage hotplug [42596118456](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42596118456) passed on exact source SHA `9dd2f4a6eed24103617023fc93ea058f51466a0a`; the corrected dependent HTTPD regression passed on d143581.
-- Current bounded follow-up: fail closed on NFS start/reload prerequisites and RPC daemon failures; roll back partial starts and report command status from the RC wrappers. THIS COMMIT's NFS, HTTPD/storage and docs Actions await exact-head verification.
+- Latest main SHA: 'a816159737241f398baa7f827d753f7b99e8131b'. Storage [42597871309](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42597871309), HTTPD [42597871334](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42597871334), Samba [42597871360](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42597871360), vsftpd [42597871344](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42597871344) and AI docs [42597871472](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42597871472) SUCCESS. NFS [42597871349](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42597871349) passed shell syntax/runtime mocks but failed a stale source assertion; this follow-up aligns it and adds rollback cases.
+- NFS mount-inventory/restart-preflight and stop/eject gates are source/CI-complete. Current bounded follow-up covers start/reload validation and cleanup of partial pre-daemon startup while retaining export state if withdrawal fails. New exact-head NFS/HTTPD/storage/docs checks pending.
 
 ## Whole-repository module status
 
@@ -24,12 +23,12 @@
 | Switch / PHY / MDIO / link state | PARTIAL / AUDITING | Selected ioctl propagation, PVID/link retry, CLI ordering and MDIO timeout checks. | Other board drivers and live hardware behavior. |
 | Samba share service / accounts | PARTIAL / AUDITING | Generated smb.conf is staged and atomically published; folder inventory/read errors fail closed; WINS/nmbd/smbd lifecycle is gated on publication. Samba GNU89 helper regression passes; HTTPD's dependent trust-boundary contract now bounds its folder slice to the full writer instead of an early error cleanup; exact-head rerun pending. | Passdb/account mutation consistency, ACL/permission mapping, credential security, live Samba reload behavior and target runtime. |
 | FTP service / vsftpd | PARTIAL / AUDITING | Generated vsftpd config uses checked same-directory staging/atomic replacement and daemon startup is gated on publication success. | Authentication, credential/ACL semantics, path confinement, stop/lifecycle error propagation and target runtime. |
-| NFS / third-party add-ons | PARTIAL / AUDITING | Complete six-field mount inventory, restart preflight, checked daemon/export/pseudo-mount shutdown and fail-closed safe-eject gates are on main. THIS COMMIT checks rpcbind/module/mount/export/RPC start and reload results, verifies daemon processes, rolls back partial starts and logs RC command failures; exact-head Actions pending. | Export ACL/permissions, external mount lifecycle, remaining target-specific stop behavior and third-party init-hook supervision. |
+| NFS / third-party add-ons | PARTIAL / AUDITING | Complete mount inventory/restart preflight; checked shutdown and safe-eject; checked start/reload prerequisites and RPC results; partial-start rollback. THIS follow-up cleans pre-daemon pseudo-mounts and preserves etab when export withdrawal fails. | Export ACL/permissions, external mount lifecycle, target-specific start/stop behavior and third-party init-hook supervision. |
 | Init / PID 1 / service supervision | AUDITING | Notification deferral, child reaping and selected start/stop failure gates. | Cross-module ordering, shutdown races and package supervision. |
 
 ## Priority queue
 
-1. P2 — Reconcile THIS COMMIT's NFS start/reload, HTTPD, storage-hotplug and AI handoff-doc Actions on the exact same full main SHA; inspect every failed step and preserve strong error-path contracts.
+1. P2 — Reconcile THIS follow-up's NFS start/reload and dependent HTTPD, storage-hotplug and AI-doc Actions against one exact full main SHA; inspect rollback and source-contract results.
 2. P2 — Rotate to Optware/third-party startup supervision: inspect `opt-start.sh` hook enumeration, result aggregation, partial-start cleanup, lock/fd ownership and retry semantics.
 3. P2 — Continue NFS export ACL/permission mapping and external mount lifecycle; continue Samba passdb/account mutation, ACL/permission and credential audit; continue vsftpd authentication/ACL/path-confinement/stop lifecycle review.
 4. P2/P3 — Preserve DHCP leasefail/accepted-NAK/release state semantics and BusyBox callback status handling; keep FULLCONENAT mapping-hash and dying-tuple queue namespace ownership as a separate kernel audit.

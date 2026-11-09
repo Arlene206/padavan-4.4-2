@@ -1,3 +1,16 @@
+## 2026-11-09 18:06 CST (UTC+8) — Correct NFS start contract and roll back pre-daemon failures
+
+- **Base main SHA:** 'a816159737241f398baa7f827d753f7b99e8131b'; resulting commit: THIS COMMIT.
+- **Exact-head CI:** storage [42597871309](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42597871309), HTTPD [42597871334](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42597871334), Samba [42597871360](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42597871360), vsftpd [42597871344](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42597871344) and AI docs [42597871472](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42597871472) all SUCCESS on a816159. NFS [42597871349](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42597871349) passed shell syntax and every runtime mock; only its Python source contract failed because it expected numeric comparisons while the helper uses a case statement.
+- **Correction:** align source contract with the explicit 0 / 1 / unknown case labels; do not change the production implementation to satisfy a stale assertion.
+- **Implementation:** failed mounting either NFS control pseudo-filesystem and failed export publication now invoke checked func_stop cleanup. Tests verify successful rollback removes previously mounted control filesystems and etab; if export withdrawal fails, etab and pseudo-mounts remain as recovery evidence.
+- **Changed paths:** .github/workflows/nfsd-start-stability.yml, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md, dev_log.md, trunk/user/nfs-utils/nfsd.sh, trunk/user/nfs-utils/tests/nfsd_start_lifecycle.sh.
+- **Validation:** the previous exact-head shell syntax and runtime mocks PASS; this follow-up's source-contract correction and added rollback assertions require fresh exact-head Actions. No local full checkout, docs validator, production MIPS/uClibc object, firmware/TRX, live NFS or router testing is claimed.
+- **Validation boundary:** L1 source review PASS; L2 this follow-up pending exact-head NFS/HTTPD/storage/docs Actions. L3/L4 NOT VERIFIED.
+- **Next:** reconcile exact-head Actions. If green, rotate to Optware opt-start.sh startup-hook enumeration, status aggregation, partial-start rollback, lock/fd ownership and retry semantics; keep NFS ACL/permissions and external mount lifecycle open.
+
+---
+
 ## 2026-11-09 17:56 CST (UTC+8) — Fail closed on NFS start and reload errors
 
 - **Base main SHA:** `d143581bf5f351cb2cf0d388f2542c3710802c7b`; resulting commit: THIS COMMIT.

@@ -95,10 +95,12 @@ func_start()
 	# The module can remain loaded after its control filesystem was unmounted.
 	func_mount_if_needed /proc/fs/nfsd nfsd nfsd || {
 		logger -t "NFS server" "cannot mount the nfsd control filesystem"
+		func_stop || logger -t "NFS server" "NFS startup cleanup after nfsd control mount failure was incomplete"
 		return 1
 	}
 	func_mount_if_needed /var/lib/nfs/rpc_pipefs rpc_pipefs rpc_pipefs || {
 		logger -t "NFS server" "cannot mount rpc_pipefs"
+		func_stop || logger -t "NFS server" "NFS startup cleanup after rpc_pipefs mount failure was incomplete"
 		return 1
 	}
 
@@ -108,6 +110,7 @@ func_start()
 
 	/sbin/exportfs -r || {
 		logger -t "NFS server" "cannot publish NFS exports"
+		func_stop || logger -t "NFS server" "NFS startup cleanup after export publication failure was incomplete"
 		return 1
 	}
 

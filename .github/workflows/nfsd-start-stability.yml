@@ -54,8 +54,9 @@ jobs:
 
           mount = function_body(script, "func_mount_if_needed()")
           assert 'grep -q " $mountpoint " /proc/mounts' in mount
-          assert '"$mount_status" -eq 0' in mount and '"$mount_status" -eq 1' in mount
-          assert '*)\n\t\treturn 1' in mount
+          assert 'case "$mount_status" in' in mount
+          assert "0)" in mount and "1)" in mount and "*)" in mount
+          assert "return 1" in mount
 
           start = function_body(script, "func_start()")
           for command in (
@@ -72,7 +73,10 @@ jobs:
               assert command in start, command
           assert start.index("/sbin/exportfs -r ||") < start.index("/sbin/rpc.nfsd -N4 -N4.1 1 ||")
           assert start.index("/sbin/rpc.nfsd -N4 -N4.1 1 ||") < start.index("/sbin/rpc.mountd ||")
-          assert start.count("func_stop || logger") >= 2
+          assert start.count("func_stop || logger") >= 5
+          assert "NFS startup cleanup after nfsd control mount failure was incomplete" in start
+          assert "NFS startup cleanup after rpc_pipefs mount failure was incomplete" in start
+          assert "NFS startup cleanup after export publication failure was incomplete" in start
           assert "refusing to reset NFS state while only one server daemon is running" in start
           assert "rpc.nfsd returned success but nfsd is not running" in start
           assert "rpc.mountd returned success but the daemon is not running" in start
