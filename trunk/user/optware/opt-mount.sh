@@ -6,17 +6,41 @@ self_name="opt-mount.sh"
 [ -z "$1" ] || [ -z "$2" ] && exit 1
 
 mtd_device=`echo "$1" | egrep '^/dev/mtd|^/dev/ubi'`
+optware_lifecycle_locked=0
+
+optware_release_lifecycle_lock()
+{
+	if [ "$optware_lifecycle_locked" = "1" ]; then
+		optware_lifecycle_lock_release
+		optware_lifecycle_locked=0
+	fi
+}
 
 if [ -z "$mtd_device" ] ; then
 	optw_enable=`nvram get optw_enable`
 	[ "$optw_enable" != "1" -a "$optw_enable" != "2" ] && exit 0
+else
+	# Internal MTD/UBI startup is not covered by the removable-storage caller.
+	# Serialize the entire /opt bind/setup/start sequence with opt-start/teardown.
+	. /sbin/optware_lifecycle_lock.sh || exit 1
+	if ! optware_lifecycle_lock_acquire; then
+		logger -t "$self_name" "cannot acquire Optware lifecycle lock; refusing MTD startup"
+		exit 1
+	fi
+	optware_lifecycle_locked=1
 fi
 
 # check /opt already mounted
-mountpoint -q /opt && exit 0
+if mountpoint -q /opt; then
+	optware_release_lifecycle_lock
+	exit 0
+fi
 
 # check dir "opt" exist on the drive root
-[ ! -d "$2/opt" ] && exit 0
+if [ ! -d "$2/opt" ]; then
+	optware_release_lifecycle_lock
+	exit 0
+fi
 
 logger -t "${self_name}" "started [$@]"
 
@@ -24,6 +48,7 @@ logger -t "${self_name}" "started [$@]"
 mount -o bind "$2/opt" /opt
 if [ $? -ne 0 ] ; then
 	logger -t "${self_name}" "Mount $2/opt to /opt FAILED! WTF?"
+	optware_release_lifecycle_lock
 	exit 1
 fi
 
@@ -213,8 +238,12 @@ logger -t "${self_name}" "call /opt/etc/init.d"
 # extend path to /opt
 export PATH=/opt/sbin:/opt/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-# start all services S* in /opt/etc/init.d
-for i in `ls /opt/etc/init.d/S??* 2>/dev/null` ; do
-	[ ! -x "${i}" ] && continue
-	${i} start
-done
+# Use the same supervised, rollback-capable startup contract as opt-start.sh.
+if ! optware_lifecycle_start_services /opt/etc/init.d; then
+	logger -t "${self_name}" "MTD Optware service startup failed; see hook and rollback errors"
+	optware_release_lifecycle_lock
+	exit 1
+fi
+
+optware_release_lifecycle_lock
+exit 0

@@ -801,10 +801,22 @@ void umount_rwfs_partition(void)
 	const char *mp_rwfs = MP_MTD_RWFS;
 
 	if (check_if_dir_exist(mp_rwfs)) {
-		doSystem("/usr/bin/opt-umount.sh %s %s", "/dev/ubi", mp_rwfs);
-		
-		if (umount(mp_rwfs) == 0)
+		/*
+		 * opt-umount uses the nonblocking lifecycle lock. If MTD startup
+		 * still owns it, preserve the mounted filesystem and UBI attachment.
+		 */
+		if (doSystem("/usr/bin/opt-umount.sh %s %s", "/dev/ubi", mp_rwfs) != 0) {
+			logmessage(LOGNAME, "refusing to unmount RWFS: Optware teardown did not complete");
+			return;
+		}
+
+		if (umount(mp_rwfs) == 0) {
 			rmdir(mp_rwfs);
+		} else if (errno != EINVAL && errno != ENOENT) {
+			logmessage(LOGNAME, "cannot unmount RWFS at %s (errno %d); keeping UBI attached",
+				   mp_rwfs, errno);
+			return;
+		}
 	}
 
 	mtd_rwfs = mtd_dev_idx(MTD_PART_NAME_RWFS);
@@ -814,7 +826,8 @@ void umount_rwfs_partition(void)
 	if (!is_module_loaded("ubi"))
 		return;
 
-	doSystem("ubidetach -p /dev/mtd%d 2>/dev/null", mtd_rwfs);
+	if (doSystem("ubidetach -p /dev/mtd%d 2>/dev/null", mtd_rwfs) != 0)
+		logmessage(LOGNAME, "failed to detach RWFS UBI volume on MTD%d", mtd_rwfs);
 }
 
 void start_rwfs_optware(void)

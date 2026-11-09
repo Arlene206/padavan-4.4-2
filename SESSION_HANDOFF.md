@@ -5,33 +5,33 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; maintained fork only.
-- Base main SHA for THIS workflow-contract correction: `57aee4fd406d9e4c06f3ee113742ba5b6999fc0d`; resulting commit: THIS COMMIT. The remote branch inventory at takeover contained only `main`; there was no separate checkpoint branch.
-- On base `7005e6c`, storage [42600941876](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42600941876) failed the initial startup regression fixture and docs [42600941917](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42600941917) failed the required handoff heading. Those were corrected on `57aee4f`: docs [42601392329](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42601392329) SUCCESS; storage [42601392256](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42601392256) passed NFS syntax, Optware lock/teardown/startup host regressions and storage GNU89 tests, but the whole-caller-graph Python contract failed at a stale assertion that still expected the removed direct `start 9>&-` loop in `opt-start.sh`.
-- This correction updates that contract to assert lifecycle lock → mount check → shared startup helper → lock release ordering; fd-9 closure remains required inside the shared helper. The production shell supervisor and host startup test passed on `57aee4f`; fresh exact-head storage/docs checks are pending.
+- Base main SHA for THIS MTD/UBI lifecycle change: `0ae74382cdeb593770ef609f7685f36d28ee46f8`; resulting commit: THIS COMMIT.
+- Exact-head Actions for the base were reconciled before editing: USB storage hotplug regression [42602101323](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42602101323) SUCCESS and AI handoff documentation contract [42602101300](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42602101300), both on full SHA `0ae74382cdeb593770ef609f7685f36d28ee46f8`. The storage job passed Optware lock/teardown/startup rollback, eject-inventory and full caller-graph steps; the docs validator also passed.
+- The remote branch inventory contained only `main`; no separate checkpoint branch was present. The earlier `opt-start.sh` startup-supervision fix and its exact-head source contract are complete.
 
 ## Active task
 
-### Optware startup supervision
+### Optware internal MTD/UBI startup and RWFS teardown
 
-P2 stability / service lifecycle. The next task specified by the previous handoff was the Optware `opt-start.sh` startup-hook path.
+P2 stability / service lifecycle. This bounded task traces the separate NAND/RWFS boot path and its matching shutdown path.
 
 ### Finding
 
-`opt-start.sh` enumerated `/opt/etc/init.d/S??*` via `ls` and command substitution, then executed the resulting words unquoted. An external hook filename containing whitespace could be split into the wrong command/path. Hook exit status was ignored, later hooks and package-manager bootstrap continued after failures, and no cleanup was attempted for services started before a failure. The final lock-release command could mask the real startup result.
+`init_router()` calls `start_rwfs_optware()` in `common_ex.c`; that function launches `/usr/bin/opt-mount.sh /dev/ubiN_0 /media/mtd_rwfs &` without holding `storage.lock`. The removable-storage caller reaches the same script with `/dev/sd*` or MMC devices while mdev owns `storage.lock`, but that non-MTD branch only sets `usb_opt_start` and returns. The internal MTD/UBI branch was different: it bound `/opt` and ran init hooks through an `ls` command-substitution loop, bypassing the lifecycle lock and rollback-capable supervisor.
+
+The matching `umount_rwfs_partition()` called `opt-umount.sh` but ignored its exit status before unmounting the RWFS mount and detaching UBI. Since `opt-umount.sh` deliberately uses a nonblocking lifecycle-lock acquisition, it can fail promptly when startup is still running; the old C caller nevertheless continued teardown.
 
 ### Change in THIS commit
 
-- A shared `optware_lifecycle_start_services()` helper performs quoted glob enumeration and skips entries that are not regular executable files.
-- Hooks start in pathname order. On the first nonzero start result, the helper stops the failing hook (which may have partially initialized) and all earlier successful hooks in reverse order. It attempts every rollback even if a stop fails, logs incomplete cleanup, and still returns failure.
-- Hook child processes close fd 9 and cannot inherit the lifecycle lock.
-- `opt-start.sh` now stops before package-manager bootstrap when service startup fails, releases fd 9, and exits nonzero. Normal completion explicitly exits zero.
-- A new host shell test covers ordered starts, filenames containing spaces, non-executable filtering, lock-fd closure, missing/empty directories, failed startup and reverse-order rollback. The storage-hotplug workflow adds runtime and source-contract checks for push and pull_request.
+- The MTD/UBI `opt-mount.sh` branch now acquires the shared Optware lifecycle lock before the `/opt` mount check and holds it through bind setup and service startup. The normal removable-storage branch does not acquire this lock and retains its deferred-start flag behavior.
+- MTD init hooks now run through `optware_lifecycle_start_services()`, sharing pathname-safe enumeration, checked startup status and reverse-order rollback with `opt-start.sh`.
+- All explicit MTD early exits and success/failure exits release the lifecycle lock. A failed hook startup is returned as a nonzero script status.
+- `umount_rwfs_partition()` now aborts before RWFS unmount/UBI detach when `opt-umount.sh` reports failure. It also preserves the UBI attachment when a real unmount error (other than already-unmounted `EINVAL`/`ENOENT`) occurs, and logs detach failures.
 
 ### Files changed
 
-- `trunk/user/scripts/files/sbin/optware_lifecycle_lock.sh`
-- `trunk/user/optware/opt-start.sh`
-- New `trunk/user/scripts/tests/optware_lifecycle_startup.sh`
+- `trunk/user/optware/opt-mount.sh`
+- `trunk/user/rc/src/common_ex.c`
 - `.github/workflows/storage-hotplug-stability.yml`
 - `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`
 
@@ -39,19 +39,20 @@ P2 stability / service lifecycle. The next task specified by the previous handof
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for startup order, pathname handling, child fd closure, first-failure behavior and reverse rollback. |
-| L2 host / Actions | Focused host shell regression and `sh -n` PASS locally. On `57aee4f`, startup/teardown/lock host tests and GNU89 storage tests PASS; the whole-caller-graph contract then failed on its stale pre-refactor `opt-start.sh` assertion. AI docs [42601392329](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42601392329) SUCCESS. THIS correction triggers fresh exact-head storage/docs checks. |
+| L1 source review | PASS for the MTD/UBI caller trace, no-storage-lock startup context, lifecycle-lock acquisition before bind/start, shared supervisor wiring, lock release on explicit exits, and shutdown failure gates before unmount/detach. |
+| L2 host / Actions | Base exact-head USB storage regression [42602101323](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42602101323) and AI docs [42602101300](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42602101300) SUCCESS on `0ae74382cdeb593770ef609f7685f36d28ee46f8`. THIS change adds `sh -n` for `opt-mount.sh` and storage source contracts for MTD lifecycle serialization and RWFS detach gates; exact-head Actions are PENDING. No new local test execution is claimed. |
 | L3 MIPS/uClibc / production objects / firmware/TRX | NOT VERIFIED. |
 | L4 real Optware filesystem/service startup, concurrent eject, external hook behavior / physical router | NOT VERIFIED. |
 
-The helper regression is a host policy/mock test. It does not prove behavior of arbitrary package-provided scripts, mounted removable filesystems, the target BusyBox shell under router load, or live lock contention.
+The shared helper regression remains a host policy/mock test. It does not prove behavior of arbitrary package-provided scripts, mounted removable/internal filesystems, the target BusyBox shell under router load, or live lock contention.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, all remote branches and Actions. Match the full SHA of the new main head to the storage-hotplug and AI-doc workflow runs generated by THIS commit. Inspect logs and fix any failed contract without weakening the lifecycle guarantees.
-2. If green, trace the duplicate direct startup loop in `trunk/user/optware/opt-mount.sh` for internal `/dev/mtd*` / `/dev/ubi*` mounts. It still invokes hooks via `ls` command substitution and bypasses the new supervisor; establish its caller lock context before deciding whether/how to share the helper, and do not introduce a storage-lock/lifecycle-lock inversion.
-3. Continue NFS export ACL/permission mapping and external mount lifecycle; Samba passdb/account mutation, ACL/permission and credential review; vsftpd authentication/ACL/path-confinement/stop lifecycle; LAN DHCP leasefail/accepted-NAK/release callback state handling; and FULLCONENAT mapping-hash / dying-tuple queue namespace ownership.
-4. Keep L3/L4 explicitly unverified until production MIPS/uClibc/firmware and live-router validation actually run.
+1. Fetch live `main`, all remote branches and Actions. Match the full SHA of the new main head to the storage-hotplug and AI-doc workflow runs generated by THIS commit; inspect the MTD shell syntax and new RWFS source-contract steps.
+2. Continue the deferred USB Optware startup retry audit in `services_stor.c`: `try_start_stor_apps()` launches `opt-start.sh &`, while `on_deferred_hotplug_dev()` clears both pending NVRAM flags before the child result is known. Trace the notification/alarm and child-reaping paths before designing a retry protocol. Do not run external init hooks while holding `storage.lock`; avoid duplicate launches while the lifecycle lock is busy; preserve pending work on an incomplete mount inventory; and avoid repeating integrated storage-service starts on every retry.
+3. Separately assess the asynchronous `start_rwfs_optware()` → `opt-mount.sh ... &` result path. MTD script failures are now surfaced by the script but its boot caller still does not observe them or schedule a retry.
+4. Then rotate to NFS export ACL/permission mapping and external mount lifecycle; Samba passdb/account mutation, ACL/permission and credential review; vsftpd authentication/ACL/path-confinement/stop lifecycle; LAN DHCP leasefail/accepted-NAK/release callback state handling; and FULLCONENAT mapping-hash / dying-tuple queue namespace ownership.
+5. Keep L3/L4 explicitly unverified until production MIPS/uClibc/firmware and live-router validation actually run.
 
 ## Documentation maintenance
 

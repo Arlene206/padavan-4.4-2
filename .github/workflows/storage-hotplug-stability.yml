@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/storage-hotplug-stability.yml"
       - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/common_ex.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/nfs-utils/nfsd.sh"
       - "trunk/user/rc/src/hotplug_stor.c"
@@ -30,6 +31,7 @@ on:
     paths:
       - ".github/workflows/storage-hotplug-stability.yml"
       - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/common_ex.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/nfs-utils/nfsd.sh"
       - "trunk/user/rc/src/hotplug_stor.c"
@@ -59,6 +61,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check NFS service stop script syntax
         run: sh -n trunk/user/nfs-utils/nfsd.sh
+      - name: Check Optware MTD startup script syntax
+        run: sh -n trunk/user/optware/opt-mount.sh
       - name: Verify Optware startup and teardown lock regression
         run: |
           set -eu
@@ -98,6 +102,7 @@ jobs:
           workflow = Path(".github/workflows/storage-hotplug-stability.yml").read_text()
           nfs_script = Path("trunk/user/nfs-utils/nfsd.sh").read_text()
           rc_header = (rc_dir / "rc.h").read_text()
+          common_ex = (rc_dir / "common_ex.c").read_text()
 
           def function_body(text, signature):
               start = text.index(signature)
@@ -145,6 +150,7 @@ jobs:
           paths = (
               ".github/workflows/storage-hotplug-stability.yml",
               "trunk/user/rc/src/rc.c",
+              "trunk/user/rc/src/common_ex.c",
               "trunk/user/rc/src/services_stor.c",
               "trunk/user/rc/src/storage_ejected_inventory_policy.h",
               "trunk/user/rc/src/tests/storage_ejected_inventory_policy.c",
@@ -376,6 +382,36 @@ jobs:
           assert 'if [ "$ID_FS_TYPE" == "swap" ]' in automount
           assert 'if swapon "$dev_full" ; then' in automount
           assert opt_mount.index('mount -o bind "$2/opt" /opt') < opt_mount.index("swapon /opt/.swap")
+
+          # Internal MTD/UBI startup runs from start_rwfs_optware() in the
+          # boot path without storage.lock. It must take the shared lifecycle
+          # lock before binding /opt and use the same failure-aware supervisor.
+          mtd_branch = opt_mount.index('if [ -n "$mtd_device" ] ; then')
+          assert opt_mount.index(". /sbin/optware_lifecycle_lock.sh", mtd_branch) < opt_mount.index("optware_lifecycle_lock_acquire", mtd_branch)
+          assert opt_mount.index("optware_lifecycle_lock_acquire", mtd_branch) < opt_mount.index("mountpoint -q /opt")
+          assert opt_mount.index("optware_lifecycle_lock_acquire", mtd_branch) < opt_mount.index('mount -o bind "$2/opt" /opt')
+          assert "optware_lifecycle_start_services /opt/etc/init.d" in opt_mount
+          assert "for i in `ls /opt/etc/init.d/S??* 2>/dev/null`" not in opt_mount
+          assert "${i} start" not in opt_mount
+          assert opt_mount.index("optware_lifecycle_start_services /opt/etc/init.d") < opt_mount.rindex("optware_release_lifecycle_lock")
+          assert "optware_release_lifecycle_lock" in opt_mount
+
+          # Shutdown must honor opt-umount's nonblocking lifecycle-lock result
+          # and must not unmount or detach UBI underneath a running startup hook.
+          rwfs_stop = function_body(common_ex, "void umount_rwfs_partition(void)")
+          rwfs_hook = rwfs_stop.index('doSystem("/usr/bin/opt-umount.sh %s %s", "/dev/ubi", mp_rwfs)')
+          rwfs_hook_gate = rwfs_stop.index("if (doSystem(", rwfs_hook)
+          rwfs_hook_abort = rwfs_stop.index("return;", rwfs_hook_gate)
+          rwfs_umount = rwfs_stop.index("umount(mp_rwfs)")
+          rwfs_detach = rwfs_stop.index('doSystem("ubidetach -p /dev/mtd%d 2>/dev/null", mtd_rwfs)')
+          assert rwfs_hook < rwfs_hook_abort < rwfs_umount < rwfs_detach
+          assert "refusing to unmount RWFS" in rwfs_stop
+          assert "errno != EINVAL && errno != ENOENT" in rwfs_stop
+          unmount_error = rwfs_stop.index("cannot unmount RWFS")
+          assert unmount_error < rwfs_stop.index("return;", unmount_error) < rwfs_detach
+          rwfs_start = function_body(common_ex, "void start_rwfs_optware(void)")
+          assert 'doSystem("/usr/bin/opt-mount.sh %s %s &", dev_ubi, mp_rwfs)' in rwfs_start
+          assert "storage_operation_lock_acquire" not in rwfs_start
 
           # A disk can spin down only after successful unmount, and the script
           # independently rejects a mounted whole-disk or partition path.
