@@ -1866,19 +1866,28 @@ jobs:
           disk_header = Path("trunk/user/libdisk/src/disk_initial.h").read_text()
           rc_header = Path("trunk/user/rc/src/rc.h").read_text()
 
-          umount_dev_start = service.index("umount_dev(const char *dev_name, int is_root_dev)")
-          umount_dev_end = service.index("count_stor_mountpoint(void)", umount_dev_start)
-          umount_dev = service[umount_dev_start:umount_dev_end]
-          assert "static int" in service[max(0, umount_dev_start - 24):umount_dev_start]
-          assert "if (!procpt)" in umount_dev and "return -1;" in umount_dev
-          assert "if (umount(entry->mountpoint) != 0)" in umount_dev
-          failed_umount = umount_dev.index("if (umount(entry->mountpoint) != 0)")
-          success_cleanup = umount_dev.index("(void)rmdir(entry->mountpoint)", failed_umount)
-          assert failed_umount < success_cleanup
-          assert "result = -1;" in umount_dev[failed_umount:success_cleanup]
+          stage_start = service.index("storage_stage_unmount_mounts(")
+          stage_end = service.index("storage_unmount_staged_disk_mounts(", stage_start)
+          stage = service[stage_start:stage_end]
+          assert "fopen(PROC_MOUNTS_FILE, \"r\")" in stage
+          assert "storage_ejected_parse_mount_line" in stage
+          assert "mount_read_error = ferror(procpt)" in stage
+          assert "mount_close_error = (fclose(procpt) != 0)" in stage
+          assert "storage_ejected_inventory_complete" in stage
+          assert stage.index("fclose(procpt)") < stage.index("*staged = head")
+          assert "free_storage_unmount_mounts(head)" in stage
+
+          unmount_start = service.index("storage_unmount_staged_disk_mounts(")
+          unmount_end = service.index("umount_stor_path_range(", unmount_start)
+          unmount = service[unmount_start:unmount_end]
+          assert "storage_ejected_mount_matches_disk(entry->device, disk)" in unmount
+          assert 'eval("/usr/bin/opt-umount.sh", entry->device' in unmount
+          assert "if (umount(entry->mountpoint) != 0)" in unmount
+          assert unmount.index("eval(\"/usr/bin/opt-umount.sh\"") < unmount.index("if (umount(entry->mountpoint) != 0)")
+          assert unmount.index("if (umount(entry->mountpoint) != 0)") < unmount.index("(void)rmdir(entry->mountpoint)")
 
           ejected_start = service.index("umount_ejected(void)")
-          ejected_end = service.index("is_disk_or_partition(const char *candidate, const char *disk, int is_mmc)", ejected_start)
+          ejected_end = service.index("struct storage_unmount_mount_entry", ejected_start)
           ejected = service[ejected_start:ejected_end]
           assert "if (!procpt)" in ejected and "return -1;" in ejected
           assert "if (!procpt2)" in ejected
@@ -1888,14 +1897,18 @@ jobs:
           assert ejected.index("if (umount(entry->mountpoint) != 0)") < ejected.index("(void)rmdir(entry->mountpoint)")
           assert "partition_close_error = (fclose(procpt2) != 0)" in ejected
 
-          path_start = service.index("umount_stor_path(disk_info_t *disks_info, int port, const char *dev_name, int do_spindown)")
-          path_end = service.index("stop_stor_apps(void)", path_start)
+          path_start = service.index("umount_stor_path_range(")
+          path_end = service.index("umount_stor_path(disk_info_t", path_start)
           unmount_path = service[path_start:path_end]
-          assert "try_device_swapoff(follow_partition->device)" in unmount_path
-          assert "if (umount_dev(follow_partition->device, 0) != 0)" in unmount_path
-          assert "if (umount_dev(follow_disk->device, 1) != 0)" in unmount_path
+          mount_snapshot = unmount_path.index("storage_stage_unmount_mounts(&mounts)")
+          swapoff = unmount_path.index("try_device_swapoff(follow_partition->device)")
+          swap_gate = unmount_path.index("storage_ejected_may_unmount_device(1, swapoff_status)")
+          disk_unmount = unmount_path.index("storage_unmount_staged_disk_mounts(follow_disk->device, mounts)")
+          assert mount_snapshot < swapoff < swap_gate < disk_unmount
+          assert "skipping all selected unmounts because swapoff did not complete" in unmount_path
           assert unmount_path.index("if (disk_status == 0)") < unmount_path.index("spindown_hdd(follow_disk->device)")
           assert "skipping spindown" in unmount_path
+          assert "umount_dev(" not in service
 
           all_start = disk_initial.index("umount_all_storage(void)")
           all_end = disk_initial.index("try_device_swapoff(const char *dev_name)", all_start)
@@ -1922,13 +1935,14 @@ jobs:
           safe_start = service.index("safe_remove_stor_device(int port_b, int port_e, const char *dev_name, int do_spindown)")
           safe_end = service.index("safe_remove_all_stor_devices(int do_spindown)", safe_start)
           safe_remove = service[safe_start:safe_end]
-          assert "umount_stor_path(disks_info, port, dev_name, do_spindown) != 0" in safe_remove
+          assert safe_remove.count("umount_stor_path_range(") == 1
+          assert "for (port = port_b; port <= port_e; port++)" not in safe_remove
           assert "mount_count == 0 && unmount_status == 0 && ejected_status == 0" in safe_remove
           all_remove_start = service.index("safe_remove_all_stor_devices(int do_spindown)")
           all_remove = service[all_remove_start:]
           assert "fallback_status = umount_all_storage();" in all_remove
           assert "if (fallback_status != 0)" in all_remove
-          print("Storage safe removal propagates swapoff/unmount failures and blocks unsafe spindown: OK")
+          print("Storage safe removal preflights one complete mount snapshot and all swapoffs before unmount/spindown: OK")
           PY
 
       - name: Verify storage mount inventory distinguishes I/O failure from no mounts
