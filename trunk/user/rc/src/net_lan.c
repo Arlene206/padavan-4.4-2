@@ -1035,9 +1035,22 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 	}
 	snprintf(lease_text, sizeof(lease_text), "%d", lease_dur);
 
-	/* Snapshot the old default gateway before replacing lease state. */
+	/* Snapshot and withdraw the old default gateway before publishing any
+	 * replacement lease fields. ESRCH means the route is already absent;
+	 * other errors must leave the previous lease state untouched. */
 	snprintf(old_gateway, sizeof(old_gateway), "%s",
 		nvram_safe_get("lan_gateway_t"));
+	if (dhcp_lease_ipv4_is_valid(old_gateway) &&
+	    strcmp(old_gateway, gateway_buf) != 0) {
+		route_result = route_del(lan_ifname, 0, "0.0.0.0",
+			old_gateway, "0.0.0.0");
+		if (!dhcp_lease_route_delete_is_ok(route_result)) {
+			logmessage("DHCP LAN Client",
+				"failed to remove previous gateway route on %s (status=%d); retaining previous lease",
+				lan_ifname, route_result);
+			return route_result;
+		}
+	}
 
 	is_changed |= nvram_invmatch("lan_ipaddr_t", lease_ip);
 	ip_changed = nvram_invmatch("lan_ipaddr_t", lease_ip);
@@ -1060,18 +1073,6 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 		char *lan_ipmask = nvram_safe_get("lan_netmask_t");
 		char *lan_gateway = nvram_safe_get("lan_gateway_t");
 		char *lan_domain = nvram_safe_get("lan_domain_t");
-
-		/* Withdraw the old default route before installing a changed router
-		 * option. Otherwise a DHCP renewal can accumulate stale default routes. */
-		if (dhcp_lease_ipv4_is_valid(old_gateway) &&
-		    strcmp(old_gateway, gateway_buf) != 0) {
-			route_result = route_del(lan_ifname, 0, "0.0.0.0",
-				old_gateway, "0.0.0.0");
-			if (route_result != 0)
-				logmessage("DHCP LAN Client",
-					"failed to remove previous gateway route on %s (status=%d)",
-					lan_ifname, route_result);
-		}
 
 		if (ip_changed)
 			ifconfig(lan_ifname, IFUP, "0.0.0.0", NULL);
@@ -1114,6 +1115,8 @@ udhcpc_lan_main(int argc, char **argv)
 		return EINVAL;
 
 	lan_ifname = safe_getenv("interface");
+	if (!lan_ifname || !*lan_ifname)
+		return EINVAL;
 	snprintf(udhcpc_lan_state, sizeof(udhcpc_lan_state), "%s", argv[1]);
 
 	umask(0000);

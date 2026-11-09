@@ -1381,6 +1381,7 @@ jobs:
           resolver_policy = Path("trunk/user/rc/src/wan_resolver_refresh_policy.h").read_text()
           resolver_test = Path("trunk/user/rc/src/tests/wan_resolver_refresh_policy.c").read_text()
           helper = Path("trunk/user/rc/src/dnsmasq_file.h").read_text()
+          domain_policy = Path("trunk/user/rc/src/dnsmasq_domain_policy.h").read_text()
           test = Path("trunk/user/rc/src/tests/dnsmasq_file.c").read_text()
           workflow = Path(".github/workflows/httpd-security.yml").read_text()
           restart_policy = Path("trunk/user/rc/src/dnsmasq_restart_policy.h").read_text()
@@ -1464,7 +1465,7 @@ jobs:
           assert 'is_dns_dhcpd_run()) {' in net_wan
           assert 'dnsmasq_file_is_safe_regular(DNS_SERVERS_FILE)' in net_wan
           assert 'if (dnsmasq_file_is_safe_regular("/tmp/hosts.static") == 0)' in net_wan
-          assert "dnsmasq_valid_server_domain" in helper
+          assert "dnsmasq_valid_server_domain" in domain_policy
           assert service.count("dnsmasq_valid_server_domain(wan_dom)") == 2
           assert service.count("ignoring invalid domain-specific DNS routing domain") == 2
           assert 'server=//203.0.113.9#' in test
@@ -1781,6 +1782,16 @@ jobs:
           assert lan_bound.index("route_del(lan_ifname, 0") < lan_bound.index("lan_up_auto(")
           assert "strcmp(old_gateway, gateway_buf) != 0" in lan_bound
           assert "failed to remove previous gateway route" in lan_bound
+          assert "dhcp_lease_route_delete_is_ok(route_result)" in lan_bound
+          route_delete = lan_bound.index("route_del(lan_ifname, 0")
+          route_delete_failure = lan_bound.index("return route_result;", route_delete)
+          lease_publish = lan_bound.index('nvram_set_temp("lan_ipaddr_t"')
+          assert route_delete < route_delete_failure < lease_publish
+          assert "return status == 0 || status == ESRCH;" in policy
+          lan_main_start = lan.index("udhcpc_lan_main(int argc, char **argv)")
+          lan_main_end = lan.index("start_udhcpc_lan(", lan_main_start)
+          lan_main = lan[lan_main_start:lan_main_end]
+          assert 'if (!lan_ifname || !*lan_ifname)' in lan_main
           print("LAN DHCP lease validation, option withdrawal and route reconciliation contracts: OK")
           assert "dhcp_lease_decimal_is_valid(value, 576U, 1500U" in bound
           assert "del_dhcp_routes_by_prefix(prefix, wan_ifname, 0)" in bound

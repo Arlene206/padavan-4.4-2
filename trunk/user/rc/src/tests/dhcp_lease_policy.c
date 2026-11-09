@@ -19,6 +19,9 @@ main(void)
 	assert(!dhcp_lease_route_destination_is_valid("192.0.2.1", 0));
 	assert(!dhcp_lease_route_destination_is_valid("0.0.0.0", 24));
 	assert(dhcp_lease_route_destination_is_valid("192.0.2.0", 24));
+	assert(dhcp_lease_route_delete_is_ok(0));
+	assert(dhcp_lease_route_delete_is_ok(ESRCH));
+	assert(!dhcp_lease_route_delete_is_ok(EIO));
 	assert(!dhcp_lease_route_destination_is_valid("192.0.2.0", 33));
 	assert(!dhcp_lease_ipv4_is_valid("192.0.2.1;reboot"));
 	assert(!dhcp_lease_ipv4_is_valid("192.0.2.1\n"));

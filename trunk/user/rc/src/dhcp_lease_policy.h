@@ -2,6 +2,7 @@
 #define PADAVAN_DHCP_LEASE_POLICY_H
 
 #include <arpa/inet.h>
+#include <errno.h>
 #include <stddef.h>
 #include <string.h>
 
@@ -146,6 +147,14 @@ dhcp_lease_router_is_changed(const char *stored_gateway,
 		next_gateway[0] = '\0';
 
 	return strcmp(stored_gateway ? stored_gateway : "", next_gateway) != 0;
+}
+
+/* A missing old default route is harmless during lease reconciliation;
+ * other delete errors must stop publication of the replacement lease. */
+static inline int
+dhcp_lease_route_delete_is_ok(int status)
+{
+	return status == 0 || status == ESRCH;
 }
 
 /* Strict decimal parser: no signs, whitespace, suffixes or overflow. */
