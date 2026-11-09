@@ -71,7 +71,7 @@ LAN DHCP lifecycle reliability — AP-mode bound/renew input validation, changed
 ## Recovery and archive rule
 
 - Superseded root handoff snapshots are preserved byte-for-byte as `docs/handoffs/archive/2026/11/part-016.md` and `part-017.md`; the preceding root handoff blob `6071ca33d72cb436375b90537abafac2f598ba44` is part-017. See `docs/handoffs/INDEX.md`.
-- Superseded root roadmap snapshots are preserved byte-for-byte as `docs/roadmap-history/archive/2026/11/part-016.md` and `part-017.md`; the preceding root roadmap blob `a7f5c6d36d44cc557f0dc7687354bbda54afb8c9` is part-017. See `docs/roadmap-history/INDEX.md`.
+- Superseded root roadmap snapshots are preserved byte-for-byte as `docs/roadmap-history/2026/11/part-016.md` and `part-017.md`; the preceding root roadmap blob `a7f5c6d36d44cc557f0dc7687354bbda54afb8c9` is part-017. See `docs/roadmap-history/INDEX.md`.
 - The oldest record evicted by this rotation is appended verbatim to `docs/dev-log/2026/11/part-005.md`; see `docs/dev-log/INDEX.md` for exact counts, byte lengths and blob SHA.
 - Root `dev_log.md` retains exactly the newest 20 complete records. Run `python3 scripts/check_ai_handoff_docs.py` and the exact-head docs workflow after each handoff update.
 
