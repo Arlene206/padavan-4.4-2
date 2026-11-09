@@ -1,3 +1,16 @@
+## 2026-11-09 08:24 CST — Preflight one complete mount inventory for safe storage removal
+
+- **Module / priority:** USB/block-storage safe-removal lifecycle; P2 reliability and safe-eject integrity. Keep USB/storage **AUDITING**.
+- **Recovered task:** the preceding handoff asked whether sequential per-partition `umount_dev()` invocations could partially unmount a disk when a later complete-inventory read/parse/close failed. Source tracing confirmed the window; the multi-port caller also repeated the scan separately for each port.
+- **Fix / commits:** `d7fb1e12867b3678878daba3fb36e94bcd22cbaf` replaces per-device mount scans with one complete staged `/proc/mounts` snapshot for the selected operation. The full six-field parser, read error, close status and allocation outcome must pass before swapoff, optional hooks, unmounts or spindown. The range helper preflights all selected swaps before unmounting any selected disk; any swapoff failure blocks all selected unmounts/spindowns. SD/MMC partition matching is bounded to exact disk names and decimal partition suffixes; exported `umount_stor_path()` ABI is preserved. `safe_remove_stor_device()` now submits the entire port range once.
+- **Regression / workflow:** `storage_ejected_inventory_policy.c` now tests SD/MMC disk/partition matching and the inventory+swapoff unmount gate. The first exact-head Action [42539757133](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42539757133) exposed a stale workflow contract still expecting `umount_dev()`; `97e91979aa731e26962c1f3a1a8b949ab6dfdb43` migrates it. The next run [42539851945](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42539851945) exposed an invalid negative test (matching a device to itself); `968437c118f373bfc4ef1313ffeb259ace788ff1` corrects the test to use a different MMC disk.
+- **Changed paths:** `services_stor.c`, `storage_ejected_inventory_policy.h`, `tests/storage_ejected_inventory_policy.c`, and `.github/workflows/httpd-security.yml`. Existing workflow path filters already covered these paths.
+- **Exact-head validation:** Actions [42539924139](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42539924139) completed **SUCCESS (41/41 steps)** on exact code/test/workflow SHA `968437c118f373bfc4ef1313ffeb259ace788ff1`. The GNU89 `-Wall -Wextra -Werror` policy compile/run and new staging/order source contracts passed with all existing job steps.
+- **Validation boundary:** L1 source/control-flow and L2 focused host/Actions PASS. No full RC object, MIPS/uClibc, complete firmware/TRX, concurrent mount-churn, real storage-device or hardware validation. Do not close USB/storage or claim atomicity against unrelated concurrent mount actors.
+- **Next rotation:** inspect IPv6 Firewall/NAT restore transaction failure propagation from `firewall_ex.c` through IPv6 table registration and extension hooks. Compare IPv4/IPv6 rollback and command status handling, prove a specific defect before changing code, and keep Firewall/NAT **AUDITING**.
+
+---
+
 ## 2026-11-09 08:14 CST — Reject incomplete NFS mount records before export publication
 
 - **Module / priority:** USB/storage safe exports; P2 data-availability and export-configuration reliability. Keep storage **AUDITING**.

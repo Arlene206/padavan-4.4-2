@@ -1,3 +1,18 @@
+## 2026-11-09 08:24 CST — Stage one complete mount inventory across safe storage removal
+
+- **Base main SHA:** `7d10984e2bd89d0adaa63c59b345c8977977bee7`.
+- **Implementation commit:** `d7fb1e12867b3678878daba3fb36e94bcd22cbaf` — stage a complete `/proc/mounts` inventory once for the full selected storage operation; validate all six fields, read/close status and allocations before side effects; preserve the public `umount_stor_path()` signature.
+- **Workflow contract correction:** `97e91979aa731e26962c1f3a1a8b949ab6dfdb43` — migrate the older safe-eject source contract away from the removed per-device `umount_dev()` loop to the range-wide inventory and swapoff preflight.
+- **Regression correction:** `968437c118f373bfc4ef1313ffeb259ace788ff1` — correct a negative MMC match assertion that mistakenly expected a device path not to match itself.
+- **Finding:** `umount_stor_path()` called `umount_dev()` once per partition, and `safe_remove_stor_device()` repeated the path helper once per port. Each inner helper staged the complete mount inventory for only that invocation. A later inventory read/parse/close/allocation error could therefore be discovered after an earlier partition/port had already been unmounted.
+- **Behavioral change:** one operation-wide mount snapshot is parsed and staged first. Any incomplete inventory aborts before swapoff, optional unmount hooks, `umount()` or spindown. The code then attempts all selected swapoffs before any selected unmount; any swapoff failure blocks all selected unmounts and spindown. Staged device entries are matched against exact SD/MMC whole-disk/partition names, preventing a textual prefix such as `sda-extra` from matching `sda`. Multi-port safe removal invokes one range operation rather than a per-port loop.
+- **Changed paths:** `trunk/user/rc/src/services_stor.c`; `trunk/user/rc/src/storage_ejected_inventory_policy.h`; `trunk/user/rc/src/tests/storage_ejected_inventory_policy.c`; `.github/workflows/httpd-security.yml`. Existing push/pull_request path filters already covered the modified source/helper/test paths.
+- **Regression history:** initial exact-head run [42539757133](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42539757133) failed because a pre-existing workflow assertion still required `umount_dev()`. After the workflow contract update, [42539851945](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42539851945) passed the migrated safe-eject source contract but the new C test exposed the invalid same-disk negative assertion. After correcting the fixture, exact-head run [42539924139](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42539924139) completed **SUCCESS** on `968437c118f373bfc4ef1313ffeb259ace788ff1`, 41/41 steps, including the GNU89 `-Wall -Wextra -Werror` compile/run and new operation-wide inventory/swapoff-order contracts.
+- **Validation boundary:** L1 source/control-flow review PASS; L2 focused GNU89 host policy regression and exact-head Actions PASS. No full production `services_stor.c` object, MIPS/uClibc, complete firmware/TRX, concurrent mount-churn/runtime storage or physical router validation was run.
+- **Next:** rotate to the open IPv6 Firewall/NAT audit. Trace `firewall_ex.c` IPv6 restore transactions, `ip6table_nat` registration and extension-hook failures against the IPv4 path; implement only an evidenced return/rollback defect. Keep Firewall/NAT and USB/storage **AUDITING**.
+
+---
+
 ## 2026-11-09 08:14 CST — Require six-field NFS mount records before export publication
 
 - **Base main SHA:** `c06949d9b59a587c728aca2471712aa2becadc8a`.
