@@ -8,12 +8,16 @@ on:
       - "trunk/user/nfs-utils/nfsd.sh"
       - "trunk/user/nfs-utils/tests/nfsd_start_lifecycle.sh"
       - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/storage_nfs_export_policy.h"
+      - "trunk/user/rc/src/tests/storage_nfs_export_policy.c"
   pull_request:
     paths:
       - ".github/workflows/nfsd-start-stability.yml"
       - "trunk/user/nfs-utils/nfsd.sh"
       - "trunk/user/nfs-utils/tests/nfsd_start_lifecycle.sh"
       - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/storage_nfs_export_policy.h"
+      - "trunk/user/rc/src/tests/storage_nfs_export_policy.c"
   workflow_dispatch:
 
 permissions:
@@ -30,6 +34,12 @@ jobs:
           sh -n trunk/user/nfs-utils/tests/nfsd_start_lifecycle.sh
       - name: Exercise NFS start and reload failures
         run: sh trunk/user/nfs-utils/tests/nfsd_start_lifecycle.sh
+      - name: Compile and exercise NFS IPv6 export ACL policy
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -DUSE_IPV6 -Itrunk/user/rc/src \
+            trunk/user/rc/src/tests/storage_nfs_export_policy.c \
+            -o /tmp/storage_nfs_export_policy
+          /tmp/storage_nfs_export_policy
       - name: Verify RC command-status propagation and workflow path filters
         run: |
           python3 - <<'PY'
@@ -37,6 +47,8 @@ jobs:
 
           script = Path("trunk/user/nfs-utils/nfsd.sh").read_text()
           service = Path("trunk/user/rc/src/services_stor.c").read_text()
+          policy = Path("trunk/user/rc/src/storage_nfs_export_policy.h").read_text()
+          policy_test = Path("trunk/user/rc/src/tests/storage_nfs_export_policy.c").read_text()
           workflow = Path(".github/workflows/nfsd-start-stability.yml").read_text()
 
           def function_body(source, signature):
@@ -96,6 +108,18 @@ jobs:
           assert "if (command_status != 0)" in reload_nfsd
           assert 'NFS daemon reload failed (status %d)' in reload_nfsd
 
+          export_writer = function_body(service, "write_nfsd_exports(void)")
+          assert "storage_nfs_export_format_ipv6_acl" in export_writer
+          assert "acl_ipv6_status < 0" in export_writer
+          assert "acl_addr6_export" in export_writer
+          assert 'fprintf(fp, " %s/%s(%s,%s)"' not in export_writer
+          assert "inet_pton(AF_INET6" in policy
+          assert "inet_ntop(AF_INET6" in policy
+          assert "prefix_length < 48U" in policy
+          assert '"64;rw,no_root_squash"' in policy_test
+          assert '"2001:db8::1) 0.0.0.0/0(rw)"' in policy_test
+          assert "Storage NFS export inventory, IPv6 ACL and start gate: PASS" in policy_test
+
           push_filters = workflow.split("  push:", 1)[1].split("  pull_request:", 1)[0]
           pr_filters = workflow.split("  pull_request:", 1)[1].split("  workflow_dispatch:", 1)[0]
           for path in (
@@ -103,6 +127,8 @@ jobs:
               "trunk/user/nfs-utils/nfsd.sh",
               "trunk/user/nfs-utils/tests/nfsd_start_lifecycle.sh",
               "trunk/user/rc/src/services_stor.c",
+              "trunk/user/rc/src/storage_nfs_export_policy.h",
+              "trunk/user/rc/src/tests/storage_nfs_export_policy.c",
           ):
               assert push_filters.count(path) == 1
               assert pr_filters.count(path) == 1

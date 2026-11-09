@@ -9,6 +9,9 @@ main(void)
 {
 	char device[32], mountpoint[256], fstype[32], options[256];
 	char long_line[700];
+#if defined (USE_IPV6)
+	char ipv6_acl[INET6_ADDRSTRLEN + 4];
+#endif
 
 	assert(storage_nfs_export_line_is_complete(
 		"/dev/sda1 /media/AiDisk_1 ext4 rw,relatime 0 0\n"));
@@ -69,6 +72,41 @@ main(void)
 		long_line, device, sizeof(device), mountpoint, sizeof(mountpoint),
 		fstype, sizeof(fstype), options, sizeof(options)) != 0);
 
+#if defined (USE_IPV6)
+	assert(storage_nfs_export_format_ipv6_acl(
+		"2001:0db8:0000:0000:0000:0000:0000:0001", "64",
+		ipv6_acl, sizeof(ipv6_acl)) == 1);
+	assert(strcmp(ipv6_acl, "2001:db8::1/64") == 0);
+	assert(storage_nfs_export_format_ipv6_acl(
+		"2001:db8::1/56", "64", ipv6_acl, sizeof(ipv6_acl)) == 1);
+	assert(strcmp(ipv6_acl, "2001:db8::1/64") == 0);
+	assert(storage_nfs_export_format_ipv6_acl(
+		"", "64", ipv6_acl, sizeof(ipv6_acl)) == 0);
+	assert(ipv6_acl[0] == '\0');
+	assert(storage_nfs_export_format_ipv6_acl(
+		NULL, NULL, ipv6_acl, sizeof(ipv6_acl)) == 0);
+	assert(storage_nfs_export_format_ipv6_acl(
+		"2001:db8::1", "48", ipv6_acl, sizeof(ipv6_acl)) == 1);
+	assert(strcmp(ipv6_acl, "2001:db8::1/48") == 0);
+	assert(storage_nfs_export_format_ipv6_acl(
+		"2001:db8::1", "47", ipv6_acl, sizeof(ipv6_acl)) == -1);
+	assert(storage_nfs_export_format_ipv6_acl(
+		"2001:db8::1", "65", ipv6_acl, sizeof(ipv6_acl)) == -1);
+	assert(storage_nfs_export_format_ipv6_acl(
+		"2001:db8::1", "64;rw,no_root_squash", ipv6_acl,
+		sizeof(ipv6_acl)) == -1);
+	assert(storage_nfs_export_format_ipv6_acl(
+		"2001:db8::1) 0.0.0.0/0(rw)", "64", ipv6_acl,
+		sizeof(ipv6_acl)) == -1);
+	assert(storage_nfs_export_format_ipv6_acl(
+		"2001:db8::1/64;rw,no_root_squash", "64", ipv6_acl,
+		sizeof(ipv6_acl)) == -1);
+	assert(storage_nfs_export_format_ipv6_acl(
+		"not-an-ipv6-address", "64", ipv6_acl, sizeof(ipv6_acl)) == -1);
+	assert(storage_nfs_export_format_ipv6_acl(
+		"2001:db8::1", "128", ipv6_acl, sizeof(ipv6_acl)) == -1);
+#endif /* USE_IPV6 */
+
 	assert(storage_nfs_export_inventory_complete(0, 0, 0));
 	assert(!storage_nfs_export_inventory_complete(1, 0, 0));
 	assert(!storage_nfs_export_inventory_complete(0, 1, 0));
@@ -82,6 +120,6 @@ main(void)
 	assert(!storage_nfs_export_may_start(0, 0));
 	assert(!storage_nfs_export_may_start(1, -1));
 
-	puts("Storage NFS six-field export inventory and start gate: PASS");
+	puts("Storage NFS export inventory, IPv6 ACL and start gate: PASS");
 	return 0;
 }

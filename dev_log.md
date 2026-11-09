@@ -1,3 +1,17 @@
+## 2026-11-09 20:51 CST (UTC+8) — Validate IPv6 LAN ACL before publishing NFS exports
+
+- **Base main SHA:** `5faded68510e91fb526dea6ab3ebd34b5d9dc252`; resulting commit: THIS COMMIT.
+- **Recovered exact-head state:** preceding MTD retry/shutdown checkpoint passed USB storage [42618640557](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42618640557), AI docs [42618640385](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42618640385), Samba [42618640482](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42618640482), WAN [42618640381](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42618640381), and HTTPD [42618640379](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42618640379); all run SHAs exactly matched `5faded68510e91fb526dea6ab3ebd34b5d9dc252`.
+- **Finding:** `write_nfsd_exports()` emitted raw `ip6_lan_addr` and `ip6_lan_size` NVRAM values into `/etc/exports`. Unlike the separate IPv6 network configuration path, this writer did not validate either field before interpreting them as NFS export syntax.
+- **Fix:** validate the IPv6 address with `inet_pton(AF_INET6)`, accept only the existing optional CIDR lexical form, canonicalize with `inet_ntop(AF_INET6)`, and accept only decimal LAN prefix lengths 48–64. The separately stored prefix size remains authoritative, matching `reset_lan6_vars()`. Emit only the canonical combined value. Invalid non-empty configuration aborts and removes the staged file before `/etc/exports` is renamed, preserving the previous file.
+- **Regression:** extend `storage_nfs_export_policy.c` with canonicalization, optional CIDR, empty/unconfigured, /48–/64 bounds, invalid addresses and NFS syntax injection cases. The NFS workflow now compiles/runs the policy in GNU89 with `USE_IPV6`, watches helper/test paths on push and pull requests, and asserts the production writer cannot emit the raw address/prefix interpolation.
+- **Changed paths:** `trunk/user/rc/src/services_stor.c`, `trunk/user/rc/src/storage_nfs_export_policy.h`, `trunk/user/rc/src/tests/storage_nfs_export_policy.c`, `.github/workflows/nfsd-start-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+- **Validation boundary:** L1 source review PASS. L2 GNU89 IPv6 ACL policy compile/run, NFS source/start/reload regression, storage/HTTPD caller contracts and docs/archive validator pending for THIS COMMIT's exact head. L3 MIPS/uClibc production object and firmware/TRX NOT VERIFIED. L4 live NFS/IPv6 client/permissions, storage-eject and hardware NOT VERIFIED.
+- **Open security compatibility item:** generated exports still use the historic `async,insecure,no_root_squash,no_subtree_check` options. Root squash, AUTH_SYS identity mapping and durability/client-port policy require a separate backward-compatibility and permissions review; this commit does not silently change access semantics.
+- **Next:** verify exact-head NFS/storage/HTTPD/docs Actions, then continue NFS root UID/GID policy and external-mount lifecycle/mountpoint matching audit.
+
+---
+
 ## 2026-11-09 20:30 CST (UTC+8) — Bound MTD Optware retries and cancel its worker during shutdown
 
 - **Base main SHA:** `652581beb0b71787096a1a74a90a3f6c32ce7cd6`; resulting commit: THIS COMMIT.

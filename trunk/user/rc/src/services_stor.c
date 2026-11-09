@@ -933,8 +933,9 @@ write_nfsd_exports(void)
 	int fd = -1, read_error, close_error, parse_error = 0;
 	int close_status, output_error = 0, saved_errno = 0;
 #if defined (USE_IPV6)
-	int ipv6_type;
+	int ipv6_type, acl_ipv6_status = 0;
 	char *acl_addr6 = NULL, *acl_len6 = NULL;
+	char acl_addr6_export[INET6_ADDRSTRLEN + 4];
 #endif
 
 	/*
@@ -1024,6 +1025,18 @@ write_nfsd_exports(void)
 	if (ipv6_type != IPV6_DISABLED) {
 		acl_addr6 = nvram_safe_get("ip6_lan_addr");
 		acl_len6 = nvram_safe_get("ip6_lan_size");
+		acl_ipv6_status = storage_nfs_export_format_ipv6_acl(
+			acl_addr6, acl_len6, acl_addr6_export,
+			sizeof(acl_addr6_export));
+		if (acl_ipv6_status < 0) {
+			saved_errno = EINVAL;
+			logmessage("Storage", "refusing to publish NFS exports with an invalid IPv6 LAN ACL");
+			fclose(fp);
+			fclose(procpt);
+			unlink(staged_path);
+			errno = saved_errno;
+			return -1;
+		}
 	}
 #endif
 
@@ -1064,10 +1077,8 @@ write_nfsd_exports(void)
 			fprintf(fp, "%s\t", mpname);
 			fprintf(fp, " %s(%s,%s)", acl_lan, nfsmm, exports_rule);
 #if defined (USE_IPV6)
-			if ((ipv6_type != IPV6_DISABLED) && acl_addr6 && acl_len6 &&
-			    (*acl_addr6) && (*acl_len6)) {
-				fprintf(fp, " %s/%s(%s,%s)", acl_addr6, acl_len6, nfsmm, exports_rule);
-			}
+			if ((ipv6_type != IPV6_DISABLED) && acl_ipv6_status > 0)
+				fprintf(fp, " %s(%s,%s)", acl_addr6_export, nfsmm, exports_rule);
 #endif
 			if (acl_vpn[0])
 				fprintf(fp, " %s(%s,%s)", acl_vpn, nfsmm, exports_rule);
