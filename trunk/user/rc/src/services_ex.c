@@ -39,6 +39,7 @@
 #if defined(APP_SMBD) || defined(APP_NMBD)
 #include "samba_config_file.h"
 #include "samba_daemon_policy.h"
+#include "samba_config_transaction.h"
 #endif
 
 #define DHCPD_STATIC_MAX	64
@@ -796,13 +797,30 @@ start_wins(void)
 {
 	FILE *fp = NULL;
 	char staged_path[64];
-	int command_status, was_running;
+	int command_status, was_running, lock_fd, result = -1;
 
 	if (nvram_match("wins_enable", "0"))
 		return 0;
 
+	lock_fd = samba_config_transaction_lock_acquire(
+		SAMBA_CONFIG_TRANSACTION_LOCK_FILE);
+	if (lock_fd < 0) {
+		logmessage("Samba Server", "cannot lock WINS configuration publication (errno %d)",
+			   errno ? errno : EIO);
+		return -1;
+	}
+	if (samba_config_transaction_recover(
+		SAMBA_CONFIG_TRANSACTION_DIRECTORY,
+		SAMBA_CONFIG_TRANSACTION_PASSDB,
+		SAMBA_CONFIG_TRANSACTION_CONFIG) != 0) {
+		logmessage("Samba Server", "cannot recover interrupted Samba passdb/config publication (errno %d)",
+			   errno ? errno : EIO);
+		goto out;
+	}
+
 	was_running = pids("nmbd") > 0;
 	mkdir_if_none("/etc/samba", "777");
+	staged_path[0] = '\0';
 
 	if (samba_config_file_open(SAMBA_CONF, staged_path,
 				   sizeof(staged_path), &fp) != 0 ||
@@ -810,7 +828,7 @@ start_wins(void)
 	    samba_config_file_publish(&fp, staged_path, SAMBA_CONF) != 0) {
 		samba_config_file_discard(&fp, staged_path);
 		logmessage("Samba Server", "cannot publish WINS configuration; nmbd startup skipped");
-		return -1;
+		goto out;
 	}
 
 	if (was_running)
@@ -821,15 +839,23 @@ start_wins(void)
 	if (command_status != 0) {
 		logmessage("Samba Server", "nmbd %s command failed (status %d)",
 			   was_running ? "reload" : "start", command_status);
-		return -1;
+		goto out;
 	}
 	if (samba_ex_wait_for_daemon("nmbd") != 0) {
 		logmessage("Samba Server", "nmbd did not remain running after WINS start/reload (errno %d)",
 			   errno ? errno : ETIMEDOUT);
-		return -1;
+		goto out;
 	}
 
-	return 0;
+	result = 0;
+out:
+	if (samba_config_transaction_lock_release(lock_fd) != 0) {
+		logmessage("Samba Server", "cannot release WINS configuration lock (errno %d)",
+			   errno ? errno : EIO);
+		if (result == 0)
+			result = -1;
+	}
+	return result;
 }
 
 int

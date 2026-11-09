@@ -12,6 +12,8 @@ on:
       - "trunk/user/rc/src/tests/samba_config_file.c"
       - "trunk/user/rc/src/samba_passdb_policy.h"
       - "trunk/user/rc/src/tests/samba_passdb_policy.c"
+      - "trunk/user/rc/src/samba_config_transaction.h"
+      - "trunk/user/rc/src/tests/samba_config_transaction.c"
       - "trunk/user/rc/src/samba_daemon_policy.h"
       - "trunk/user/rc/src/tests/samba_daemon_policy.c"
   pull_request:
@@ -25,6 +27,8 @@ on:
       - "trunk/user/rc/src/tests/samba_config_file.c"
       - "trunk/user/rc/src/samba_passdb_policy.h"
       - "trunk/user/rc/src/tests/samba_passdb_policy.c"
+      - "trunk/user/rc/src/samba_config_transaction.h"
+      - "trunk/user/rc/src/tests/samba_config_transaction.c"
       - "trunk/user/rc/src/samba_daemon_policy.h"
       - "trunk/user/rc/src/tests/samba_daemon_policy.c"
 
@@ -46,6 +50,11 @@ jobs:
             trunk/user/rc/src/tests/samba_passdb_policy.c \
             -o /tmp/samba-passdb-policy
           /tmp/samba-passdb-policy
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/samba_config_transaction.c \
+            -o /tmp/samba-config-transaction
+          /tmp/samba-config-transaction
           cc -std=gnu89 -Wall -Wextra -Werror \
             -I trunk/user/rc/src \
             trunk/user/rc/src/tests/samba_daemon_policy.c \
@@ -99,6 +108,8 @@ jobs:
           assert "fclose(tp)" in check
 
           wins = function_body(services, "start_wins(void)")
+          assert "samba_config_transaction_lock_acquire(" in wins
+          assert "samba_config_transaction_recover(" in wins
           assert "samba_config_file_open(SAMBA_CONF" in wins
           assert "write_smb_conf_header(fp)" in wins
           assert "samba_config_file_publish(&fp, staged_path, SAMBA_CONF)" in wins
@@ -123,13 +134,28 @@ jobs:
           assert "samba_config_file_publish(&fp, staged, directory_target) != 0" in test
           assert "samba_config_file_discard(&fp, staged)" in test
           run_samba = function_body(stor, "int run_samba(void)")
-          assert run_samba.index("samba_run_smbpasswd(") < run_samba.index("samba_backup_private_passdb(")
-          assert run_samba.index("if (credential_failed)") < run_samba.index("samba_backup_private_passdb(")
-          assert run_samba.index("samba_backup_private_passdb(") < run_samba.index('rename(staged_passdb, "/etc/samba/smbpasswd")')
-          assert run_samba.index('rename(staged_passdb, "/etc/samba/smbpasswd")') < run_samba.index("write_smb_conf() != 0")
-          assert "samba_restore_private_passdb(passdb_backup" in run_samba
-          assert "existing passdb and configuration were preserved" in run_samba
-          assert "CRITICAL: Samba config publication failed and passdb rollback also failed" in run_samba
+          assert run_samba.index("samba_config_transaction_lock_acquire(") < run_samba.index("samba_config_transaction_recover(")
+          assert run_samba.index("samba_run_smbpasswd(") < run_samba.index("samba_config_transaction_begin(")
+          assert run_samba.index("if (credential_failed)") < run_samba.index("samba_config_transaction_begin(")
+          assert run_samba.index("samba_config_transaction_begin(") < run_samba.index('rename(staged_passdb, SAMBA_CONFIG_TRANSACTION_PASSDB)')
+          assert run_samba.index('rename(staged_passdb, SAMBA_CONFIG_TRANSACTION_PASSDB)') < run_samba.index("write_smb_conf_unlocked() != 0")
+          assert run_samba.index("write_smb_conf_unlocked() != 0") < run_samba.index("samba_config_transaction_commit(")
+          assert run_samba.index("samba_config_transaction_commit(") < run_samba.index('samba_ensure_daemon("nmbd"')
+          assert "samba_config_transaction_abort(" in run_samba
+          transaction = Path("trunk/user/rc/src/samba_config_transaction.h").read_text()
+          transaction_test = Path("trunk/user/rc/src/tests/samba_config_transaction.c").read_text()
+          assert "PREPARED" in transaction and "COMMITTED" in transaction
+          assert "samba_config_transaction_recover(" in transaction
+          assert "samba_config_transaction_restore_file(" in transaction
+          assert "samba_config_transaction_lock_acquire(" in transaction
+          assert "Abrupt exit after both renames" in transaction_test
+          assert "partial rollback can be retried" in transaction_test
+          writer = function_body(stor, "static int write_smb_conf_unlocked(void)")
+          public_writer = function_body(stor, "int write_smb_conf(void)")
+          assert "samba_config_file_publish(&fp, staged_path, SAMBA_CONF)" in writer
+          assert "samba_config_transaction_lock_acquire(" in public_writer
+          assert "samba_config_transaction_recover(" in public_writer
+          assert "write_smb_conf_unlocked()" in public_writer
           passdb_policy = Path("trunk/user/rc/src/samba_passdb_policy.h").read_text()
           passdb_test = Path("trunk/user/rc/src/tests/samba_passdb_policy.c").read_text()
           backup_fn = function_body(passdb_policy, "samba_passdb_backup_file(")

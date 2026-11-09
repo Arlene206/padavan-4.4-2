@@ -43,6 +43,7 @@
 #if defined (APP_SMBD)
 #include "samba_config_file.h"
 #include "samba_daemon_policy.h"
+#include "samba_config_transaction.h"
 #endif
 #include "samba_passdb_policy.h"
 #include "ftp_share_policy.h"
@@ -436,22 +437,6 @@ samba_prepare_private_passdb(char *staged_path, size_t staged_path_size)
 	return 0;
 }
 
-static int
-samba_backup_private_passdb(char *backup_path, size_t backup_path_size,
-                            int *had_original)
-{
-	return samba_passdb_backup_file(
-		"/etc/samba/smbpasswd",
-		"/etc/samba/.passdb-rollback.XXXXXX",
-		backup_path, backup_path_size, had_original);
-}
-
-static int
-samba_restore_private_passdb(const char *backup_path, int had_original)
-{
-	return samba_passdb_restore_file(
-		"/etc/samba/smbpasswd", backup_path, had_original);
-}
 #endif
 
 int
@@ -488,8 +473,8 @@ check_existed_share(const char *string, const char *config_path)
 	return result == 0 ? found : -1;
 }
 
-int
-write_smb_conf(void)
+static int
+write_smb_conf_unlocked(void)
 {
 	FILE *fp = NULL;
 	char staged_path[64];
@@ -802,6 +787,43 @@ confpage:
 	return 0;
 }
 
+int
+write_smb_conf(void)
+{
+	int lock_fd, result, saved_errno;
+
+	lock_fd = samba_config_transaction_lock_acquire(
+		SAMBA_CONFIG_TRANSACTION_LOCK_FILE);
+	if (lock_fd < 0) {
+		logmessage("Samba Server", "cannot lock Samba configuration publication (errno %d)",
+			   errno ? errno : EIO);
+		return -1;
+	}
+
+	if (samba_config_transaction_recover(
+		SAMBA_CONFIG_TRANSACTION_DIRECTORY,
+		SAMBA_CONFIG_TRANSACTION_PASSDB,
+		SAMBA_CONFIG_TRANSACTION_CONFIG) != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage("Samba Server", "cannot recover interrupted Samba passdb/config publication (errno %d)",
+			   saved_errno);
+		samba_config_transaction_lock_release(lock_fd);
+		errno = saved_errno;
+		return -1;
+	}
+
+	result = write_smb_conf_unlocked();
+	if (samba_config_transaction_lock_release(lock_fd) != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage("Samba Server", "cannot release Samba configuration lock (errno %d)",
+			   saved_errno);
+		if (result == 0)
+			result = -1;
+		errno = saved_errno;
+	}
+	return result;
+}
+
 static void
 clean_smbd_trash(void)
 {
@@ -940,24 +962,40 @@ samba_ensure_daemon(const char *daemon, int was_running)
 
 int run_samba(void)
 {
-	int sh_num, has_nmbd, has_smbd, i, j;
-	int credential_failed = 0, saved_errno, daemon_failed = 0;
+	int lock_fd, sh_num, has_nmbd, has_smbd, i, j;
+	int credential_failed = 0, daemon_failed = 0, result = -1;
 	char tmpuser[40], tmp2[40];
 #if defined (APP_SMBD36)
+	int saved_errno, transaction_active = 0;
 	char staged_passdb[128];
 #endif
 
 	if (nvram_match("enable_samba", "0") || nvram_match("st_samba_mode", "0"))
 		return 0;
 
-	recreate_passwd_unix(0);
+	lock_fd = samba_config_transaction_lock_acquire(
+		SAMBA_CONFIG_TRANSACTION_LOCK_FILE);
+	if (lock_fd < 0) {
+		logmessage("Samba Server", "cannot lock Samba service publication (errno %d)",
+			   errno ? errno : EIO);
+		return -1;
+	}
 
 	mkdir_if_none("/etc/samba", "777");
 	if (samba_secure_private_samba_dir() != 0) {
 		logmessage("Samba Server", "private Samba directory validation failed; service was not reloaded");
-		return -1;
+		goto out;
+	}
+	if (samba_config_transaction_recover(
+		SAMBA_CONFIG_TRANSACTION_DIRECTORY,
+		SAMBA_CONFIG_TRANSACTION_PASSDB,
+		SAMBA_CONFIG_TRANSACTION_CONFIG) != 0) {
+		logmessage("Samba Server", "interrupted Samba passdb/config transaction could not be recovered (errno %d)",
+			   errno ? errno : EIO);
+		goto out;
 	}
 
+	recreate_passwd_unix(0);
 	has_smbd = pids("smbd");
 	has_nmbd = pids("nmbd");
 
@@ -970,7 +1008,7 @@ int run_samba(void)
 #if defined (APP_SMBD36)
 	if (samba_prepare_private_passdb(staged_passdb, sizeof(staged_passdb)) != 0) {
 		logmessage("Samba Server", "unable to prepare private passdb; service was not reloaded");
-		return -1;
+		goto out;
 	}
 #endif
 
@@ -1007,66 +1045,70 @@ int run_samba(void)
 		}
 	}
 
-#if defined (APP_SMBD36)
 	if (credential_failed) {
+#if defined (APP_SMBD36)
 		unlink(staged_passdb);
+#endif
 		logmessage("Samba Server", "credential provisioning failed; existing passdb and configuration were preserved");
-		return -1;
+		goto out;
 	}
 
+#if defined (APP_SMBD36)
 	/*
-	 * Retain the prior passdb inode until the matching smb.conf has committed.
-	 * Config I/O errors restore the old database before any daemon HUP/start.
+	 * Keep rollback snapshots for both files until the new passdb and matching
+	 * smb.conf are published. PREPARED is recoverable after an abrupt exit;
+	 * COMMITTED makes the pair authoritative and leaves only cleanup work.
 	 */
+	if (samba_config_transaction_begin(
+		SAMBA_CONFIG_TRANSACTION_DIRECTORY,
+		SAMBA_CONFIG_TRANSACTION_PASSDB,
+		SAMBA_CONFIG_TRANSACTION_CONFIG) != 0) {
+		saved_errno = errno ? errno : EIO;
+		unlink(staged_passdb);
+		logmessage("Samba Server", "unable to prepare paired passdb/config transaction (errno %d)",
+			   saved_errno);
+		errno = saved_errno;
+		goto out;
+	}
+	transaction_active = 1;
+
+	if (rename(staged_passdb, SAMBA_CONFIG_TRANSACTION_PASSDB) != 0) {
+		saved_errno = errno ? errno : EIO;
+		unlink(staged_passdb);
+		logmessage("Samba Server", "unable to publish staged passdb (errno %d)",
+			   saved_errno);
+		errno = saved_errno;
+		goto out;
+	}
+
+	if (write_smb_conf_unlocked() != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage("Samba Server", "configuration publication failed; paired rollback requested (errno %d)",
+			   saved_errno);
+		errno = saved_errno;
+		goto out;
+	}
+
 	{
-		char passdb_backup[128];
-		int passdb_had_original = 0;
-
-		if (samba_backup_private_passdb(passdb_backup, sizeof(passdb_backup),
-						&passdb_had_original) != 0) {
+		int commit_status = samba_config_transaction_commit(
+			SAMBA_CONFIG_TRANSACTION_DIRECTORY,
+			SAMBA_CONFIG_TRANSACTION_PASSDB,
+			SAMBA_CONFIG_TRANSACTION_CONFIG);
+		if (commit_status < 0) {
 			saved_errno = errno ? errno : EIO;
-			unlink(staged_passdb);
-			logmessage("Samba Server", "unable to snapshot existing passdb; service was not reloaded (errno %d)",
+			logmessage("Samba Server", "unable to commit paired passdb/config publication (errno %d)",
 				   saved_errno);
 			errno = saved_errno;
-			return -1;
+			goto out;
 		}
-		if (rename(staged_passdb, "/etc/samba/smbpasswd") != 0) {
-			saved_errno = errno ? errno : EIO;
-			unlink(staged_passdb);
-			if (passdb_had_original)
-				unlink(passdb_backup);
-			logmessage("Samba Server", "unable to publish staged passdb; previous configuration was preserved (errno %d)",
-				   saved_errno);
-			errno = saved_errno;
-			return -1;
-		}
-
-		if (write_smb_conf() != 0) {
-			saved_errno = errno ? errno : EIO;
-			if (samba_restore_private_passdb(passdb_backup,
-							 passdb_had_original) != 0) {
-				logmessage("Samba Server", "CRITICAL: Samba config publication failed and passdb rollback also failed; recovery snapshot remains at %s (errno %d)",
-					   passdb_backup, errno ? errno : EIO);
-			}
-			logmessage("Samba Server", "configuration publication failed; service was not reloaded (errno %d)",
-				   saved_errno);
-			errno = saved_errno;
-			return -1;
-		}
-
-		if (passdb_had_original && unlink(passdb_backup) != 0)
-			logmessage("Samba Server", "Samba passdb committed but old snapshot cleanup failed: %s",
-				   passdb_backup);
+		transaction_active = 0;
+		if (commit_status > 0)
+			logmessage("Samba Server", "passdb/config pair committed; transaction snapshot cleanup will be retried");
 	}
 #else
-	if (credential_failed) {
-		logmessage("Samba Server", "credential provisioning failed; Samba was not reloaded");
-		return -1;
-	}
-	if (write_smb_conf() != 0) {
+	if (write_smb_conf_unlocked() != 0) {
 		logmessage("Samba Server", "configuration generation failed; service was not reloaded");
-		return -1;
+		goto out;
 	}
 #endif
 
@@ -1086,10 +1128,33 @@ int run_samba(void)
 
 	if (daemon_failed) {
 		logmessage("Samba Server", "one or more required daemons failed reload/start postconditions");
-		return -1;
+		goto out;
 	}
 	logmessage("Samba Server", "daemon is started");
-	return 0;
+	result = 0;
+
+out:
+#if defined (APP_SMBD36)
+	if (transaction_active) {
+		saved_errno = errno ? errno : EIO;
+		if (samba_config_transaction_abort(
+			SAMBA_CONFIG_TRANSACTION_DIRECTORY,
+			SAMBA_CONFIG_TRANSACTION_PASSDB,
+			SAMBA_CONFIG_TRANSACTION_CONFIG) != 0)
+			logmessage("Samba Server", "CRITICAL: paired publication rollback failed; recovery journal and snapshots remain at %s (errno %d)",
+				   SAMBA_CONFIG_TRANSACTION_DIRECTORY, errno ? errno : EIO);
+		else
+			logmessage("Samba Server", "paired passdb/config publication rolled back");
+		errno = saved_errno;
+	}
+#endif
+	if (samba_config_transaction_lock_release(lock_fd) != 0) {
+		logmessage("Samba Server", "cannot release Samba service publication lock (errno %d)",
+			   errno ? errno : EIO);
+		if (result == 0)
+			result = -1;
+	}
+	return result;
 }
 
 int restart_smbd(void)

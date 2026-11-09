@@ -37,7 +37,7 @@ samba_passdb_password_is_safe(const char *password)
  * replacing it. A symlink or special file is an ambiguous passdb target and
  * fails closed; the hard link retains the original inode, mode and contents.
  */
-static int
+static inline int
 samba_passdb_backup_file(const char *passdb_path,
                          const char *backup_template,
                          char *backup_path, size_t backup_path_size,
@@ -103,7 +103,7 @@ samba_passdb_backup_file(const char *passdb_path,
 }
 
 /* Restore the last-known-good passdb or remove a newly-created first-run DB. */
-static int
+static inline int
 samba_passdb_restore_file(const char *passdb_path,
                           const char *backup_path, int had_original)
 {
