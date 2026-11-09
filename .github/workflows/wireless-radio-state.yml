@@ -92,6 +92,41 @@ jobs:
                   bridge = body.index("br_add_del_if(", gate_pos)
                   assert gate_pos < failure_return < publish < bridge, f"{name}: interface failure can still publish scheduler/bridge state"
 
+
+          for name, gates in (
+              ("start_wifi_ap_wl", (
+                  ("if (!wif_control_success(IFNAME_5G_MAIN, 1))",
+                   ("br_add_del_if(IFNAME_BR, IFNAME_5G_MAIN, 1)", "wif_control_m2u(1, IFNAME_5G_MAIN)")),
+                  ("if (!wif_control_success(IFNAME_5G_GUEST, 1))",
+                   ("br_add_del_if(IFNAME_BR, IFNAME_5G_GUEST, 1)", "wif_control_m2u(1, IFNAME_5G_GUEST)")),
+              )),
+              ("start_wifi_ap_rt", (
+                  ("if (!wif_control_success(IFNAME_INIC_GUEST, 1))",
+                   ("br_add_del_if(IFNAME_BR, IFNAME_INIC_GUEST_VLAN, 1)",)),
+                  ("if (!wif_control_success(IFNAME_2G_MAIN, 1))",
+                   ("br_add_del_if(IFNAME_BR, IFNAME_2G_MAIN, 1)", "wif_control_m2u(0, IFNAME_2G_MAIN)")),
+                  ("if (!wif_control_success(IFNAME_2G_GUEST, 1))",
+                   ("br_add_del_if(IFNAME_BR, IFNAME_2G_GUEST, 1)", "wif_control_m2u(0, IFNAME_2G_GUEST)")),
+              )),
+              ("start_wifi_apcli_wl", (
+                  ("if (!wif_control_success(ifname_apcli, 1))",
+                   ("br_add_del_if(IFNAME_BR, ifname_apcli,", "ApCliAutoConnect")),
+              )),
+              ("start_wifi_apcli_rt", (
+                  ("if (!wif_control_success(ifname_apcli, 1))",
+                   ("br_add_del_if(IFNAME_BR, ifname_apcli,", "ApCliAutoConnect")),
+              )),
+          ):
+              body = function_body(source, name + "(int radio_on)")
+              for gate, effects in gates:
+                  gate_pos = body.index(gate)
+                  failure_return = body.index("return;", gate_pos)
+                  for effect in effects:
+                      effect_pos = body.index(effect, gate_pos)
+                      assert gate_pos < failure_return < effect_pos, (
+                          f"{name}: failed interface-up may still reach {effect}"
+                      )
+
           paths = (
               ".github/workflows/wireless-radio-state.yml",
               "trunk/user/rc/src/net_wifi.c",
