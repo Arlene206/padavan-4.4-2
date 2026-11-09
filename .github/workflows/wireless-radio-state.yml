@@ -82,8 +82,11 @@ jobs:
               "trunk/user/rc/src/wireless_radio_policy.h",
               "trunk/user/rc/src/tests/wireless_radio_policy.c",
           )
+          filters = workflow.split("jobs:", 1)[0]
+          push_filters, pr_filters = filters.split("  pull_request:", 1)
           for path in paths:
-              assert workflow.count(path) == 3, f"push/PR path filters differ for {path}"
+              assert push_filters.count(path) == 1, f"push path filter missing or duplicated: {path}"
+              assert pr_filters.count(path) == 1, f"pull_request path filter missing or duplicated: {path}"
 
           print("Wireless driver/restart failure state-publication contracts: PASS")
           PY
