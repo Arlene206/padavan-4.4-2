@@ -2461,9 +2461,9 @@ jobs:
           assert 'execl("/bin/smbpasswd", "smbpasswd", "-s"' in source
           assert "WIFEXITED(status)" in source and "WEXITSTATUS(status) != 0" in source
           assert "samba_secure_private_samba_dir()" in run_body
-          assert "write_smb_conf() != 0" in run_body
+          assert "write_smb_conf_unlocked() != 0" in run_body
           assert "samba_prepare_private_passdb(staged_passdb" in run_body
-          assert 'rename(staged_passdb, "/etc/samba/smbpasswd")' in run_body
+          assert 'rename(staged_passdb, SAMBA_CONFIG_TRANSACTION_PASSDB)' in run_body
           assert "fchmod(input_fd, 0600)" in source
           handoff_start = source.index("samba_run_smbpasswd(")
           handoff_end = source.index("samba_secure_private_samba_dir()", handoff_start)
@@ -2480,7 +2480,7 @@ jobs:
 
           # A failed disk/account discovery, append open, or stream close must
           # abort configuration generation instead of returning false success.
-          writer_start = source.index("write_smb_conf(void)")
+          writer_start = source.index("write_smb_conf_unlocked(void)")
           writer_end = source.index("static void" + chr(10) + "clean_smbd_trash", writer_start)
           writer = source[writer_start:writer_end]
           assert "if (!disks_info)" in writer
