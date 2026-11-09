@@ -1,13 +1,72 @@
 #ifndef PADAVAN_STORAGE_NFS_EXPORT_POLICY_H
 #define PADAVAN_STORAGE_NFS_EXPORT_POLICY_H
 
-#include <stddef.h>
-#include <string.h>
-
-#if defined (USE_IPV6)
 #include <arpa/inet.h>
 #include <netinet/in.h>
-#endif
+#include <stddef.h>
+#include <stdio.h>
+#include <string.h>
+
+/*
+ * Build a canonical IPv4 client network for an NFS export. The legacy
+ * ip2class() helper accepts unchecked inet_addr() results and counts every
+ * set bit in the netmask, so a non-contiguous mask can become a different,
+ * unintended CIDR prefix. Reject malformed/unspecified/broadcast addresses,
+ * non-contiguous masks and /0 (an unrestricted export).
+ *
+ * Return 1 for a valid ACL and -1 for invalid or truncated input.
+ */
+static int
+storage_nfs_export_format_ipv4_acl(const char *address, const char *netmask,
+				   char *acl, size_t acl_size)
+{
+	struct in_addr parsed_address, parsed_mask, network;
+	unsigned int address_value, mask_value, host_mask, prefix_length = 0;
+	unsigned int bit = 0x80000000U;
+	char address_text[INET_ADDRSTRLEN];
+	int length;
+
+	if (!acl || acl_size == 0)
+		return -1;
+	acl[0] = '\0';
+
+	if (!address || !address[0] || !netmask || !netmask[0])
+		return -1;
+	if (inet_pton(AF_INET, address, &parsed_address) != 1 ||
+	    inet_pton(AF_INET, netmask, &parsed_mask) != 1)
+		return -1;
+
+	address_value = (unsigned int)ntohl(parsed_address.s_addr);
+	if (address_value == 0U || address_value == 0xffffffffU)
+		return -1;
+
+	mask_value = (unsigned int)ntohl(parsed_mask.s_addr);
+	host_mask = ~mask_value;
+	if ((host_mask & (host_mask + 1U)) != 0U)
+		return -1;
+
+	while (bit && (mask_value & bit)) {
+		prefix_length++;
+		bit >>= 1;
+	}
+	if (prefix_length == 0U)
+		return -1;
+
+	network.s_addr = parsed_address.s_addr & parsed_mask.s_addr;
+	if (!inet_ntop(AF_INET, &network, address_text, sizeof(address_text)))
+		return -1;
+
+	length = snprintf(acl, acl_size, "%s/%u", address_text, prefix_length);
+	if (length < 0 || (size_t)length >= acl_size) {
+		acl[0] = '\0';
+		return -1;
+	}
+
+	return 1;
+}
+
+#if defined (USE_IPV6)
+
 
 #if defined (USE_IPV6)
 

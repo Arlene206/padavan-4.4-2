@@ -8,10 +8,53 @@ int
 main(void)
 {
 	char device[32], mountpoint[256], fstype[32], options[256];
+	char ipv4_acl[32], ipv4_small[8];
 	char long_line[700];
 #if defined (USE_IPV6)
 	char ipv6_acl[INET6_ADDRSTRLEN + 4];
 #endif
+
+	/* Canonical IPv4 ACLs must preserve valid CIDR scope exactly. */
+	assert(storage_nfs_export_format_ipv4_acl(
+		"192.168.1.42", "255.255.255.0",
+		ipv4_acl, sizeof(ipv4_acl)) == 1);
+	assert(strcmp(ipv4_acl, "192.168.1.0/24") == 0);
+	assert(storage_nfs_export_format_ipv4_acl(
+		"10.8.7.9", "255.255.255.255",
+		ipv4_acl, sizeof(ipv4_acl)) == 1);
+	assert(strcmp(ipv4_acl, "10.8.7.9/32") == 0);
+	assert(storage_nfs_export_format_ipv4_acl(
+		"128.0.0.9", "128.0.0.0",
+		ipv4_acl, sizeof(ipv4_acl)) == 1);
+	assert(strcmp(ipv4_acl, "128.0.0.0/1") == 0);
+
+	/* Invalid masks/addresses must not widen or corrupt an export ACL. */
+	assert(storage_nfs_export_format_ipv4_acl(
+		"192.168.1.42", "255.0.255.0",
+		ipv4_acl, sizeof(ipv4_acl)) == -1);
+	assert(ipv4_acl[0] == '\0');
+	assert(storage_nfs_export_format_ipv4_acl(
+		"192.168.1.42", "255.255.0.255",
+		ipv4_acl, sizeof(ipv4_acl)) == -1);
+	assert(storage_nfs_export_format_ipv4_acl(
+		"192.168.1.42", "0.0.0.0",
+		ipv4_acl, sizeof(ipv4_acl)) == -1);
+	assert(storage_nfs_export_format_ipv4_acl(
+		"0.0.0.0", "255.255.255.0",
+		ipv4_acl, sizeof(ipv4_acl)) == -1);
+	assert(storage_nfs_export_format_ipv4_acl(
+		"255.255.255.255", "255.255.255.0",
+		ipv4_acl, sizeof(ipv4_acl)) == -1);
+	assert(storage_nfs_export_format_ipv4_acl(
+		"192.168.1.42/24", "255.255.255.0",
+		ipv4_acl, sizeof(ipv4_acl)) == -1);
+	assert(storage_nfs_export_format_ipv4_acl(
+		"192.168.1.42;0.0.0.0/0", "255.255.255.0",
+		ipv4_acl, sizeof(ipv4_acl)) == -1);
+	assert(storage_nfs_export_format_ipv4_acl(
+		"192.168.1.42", "255.255.255.0",
+		ipv4_small, sizeof(ipv4_small)) == -1);
+	assert(ipv4_small[0] == '\0');
 
 	assert(storage_nfs_export_line_is_complete(
 		"/dev/sda1 /media/AiDisk_1 ext4 rw,relatime 0 0\n"));

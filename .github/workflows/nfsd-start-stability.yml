@@ -34,7 +34,7 @@ jobs:
           sh -n trunk/user/nfs-utils/tests/nfsd_start_lifecycle.sh
       - name: Exercise NFS start and reload failures
         run: sh trunk/user/nfs-utils/tests/nfsd_start_lifecycle.sh
-      - name: Compile and exercise NFS IPv6 export ACL policy
+      - name: Compile and exercise NFS IPv4/IPv6 export ACL policy
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror -DUSE_IPV6 -Itrunk/user/rc/src \
             trunk/user/rc/src/tests/storage_nfs_export_policy.c \
@@ -122,8 +122,20 @@ jobs:
           assert 'NFS daemon reload failed (status %d)' in reload_nfsd
 
           export_writer = function_body(service, "write_nfsd_exports(void)")
+          assert "storage_nfs_export_format_ipv4_acl" in export_writer
+          assert "acl_ipv4_status < 0" in export_writer
+          assert "acl_vpn_status < 0" in export_writer
+          assert "ip2class(" not in export_writer
+          assert 'invalid IPv4 LAN ACL' in export_writer
+          assert 'invalid IPv4 VPN ACL' in export_writer
           assert "storage_nfs_export_format_ipv6_acl" in export_writer
           assert "acl_ipv6_status < 0" in export_writer
+          assert "storage_nfs_export_format_ipv4_acl" in policy
+          assert "inet_pton(AF_INET" in policy
+          assert "host_mask & (host_mask + 1U)" in policy
+          assert "prefix_length == 0U" in policy
+          assert '"255.0.255.0"' in policy_test
+          assert '"192.168.1.42;0.0.0.0/0"' in policy_test
           assert "acl_addr6_export" in export_writer
           assert 'fprintf(fp, " %s/%s(%s,%s)"' not in export_writer
           assert "inet_pton(AF_INET6" in policy

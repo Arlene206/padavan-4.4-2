@@ -1,3 +1,17 @@
+## 2026-11-09 21:20 CST (UTC+8) — Validate NFS LAN and VPN IPv4 export networks
+
+- **Base main SHA:** `3c879e06efa256ffbf376848ad69359a9098330e`; resulting commit: THIS COMMIT.
+- **Recovered exact-head CI:** the preceding storage regression correction passed USB storage [42623404967](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42623404967) and AI handoff docs [42623405148](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42623405148), both SUCCESS on exact `head_sha=3c879e06efa256ffbf376848ad69359a9098330e`. The exact NFS lifecycle workflow [42622521213](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42622521213) passed on the unchanged NFS source SHA `eb21523750bc3218121f5adf3457c587d8e9a6e0`.
+- **Finding:** `write_nfsd_exports()` built IPv4 LAN and VPN ACLs with legacy `ip2class()`. That helper feeds unchecked `inet_addr()` results into the network calculation and counts every set netmask bit instead of verifying a contiguous prefix. The LAN path's `is_valid_ipv4()` check validates only address syntax, not mask contiguity; the enabled VPN path did not validate `vpns_vnet` at all. A non-contiguous mask could be represented as a different CIDR, resulting in an unintended export client range.
+- **Fix:** add a strict IPv4 ACL formatter that validates dotted-quad address/netmask syntax, rejects non-contiguous masks, unspecified/all-ones addresses and unrestricted /0, computes the canonical network and checks output bounds. Use it for LAN and enabled VPN ACLs; on invalid state discard the staged exports candidate and prevent NFS start/reload. Preserve the legacy `async,insecure,no_root_squash,no_subtree_check` options pending their separate compatibility review.
+- **Regression:** add GNU89 host cases for /24, /32 and /1, non-contiguous masks, /0, invalid/broadcast addresses, injection-like tokens and undersized output buffers. Extend the NFS workflow source contract to require the formatter in both LAN/VPN paths and forbid the unchecked legacy call in the export writer.
+- **Changed paths:** `trunk/user/rc/src/storage_nfs_export_policy.h`, `trunk/user/rc/src/tests/storage_nfs_export_policy.c`, `trunk/user/rc/src/services_stor.c`, `.github/workflows/nfsd-start-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+- **Validation:** L1 source review; the affected GNU89 test and exact-head Actions are pending. No local full checkout/target build or hardware validation is claimed.
+- **Validation boundary:** L3 MIPS/uClibc and production RC object, full firmware/TRX, live NFS AUTH_SYS/permission behavior and L4 hardware remain NOT VERIFIED.
+- **Next:** reconcile all affected Actions against the resulting full SHA; then continue the NFS root UID/GID, export-option and custom-exports compatibility audit.
+
+---
+
 ## 2026-11-09 21:13 CST (UTC+8) — Align storage caller-graph contract with NFS mount-state semantics
 
 - **Base main SHA:** `eb21523750bc3218121f5adf3457c587d8e9a6e0`; resulting commit: THIS COMMIT.

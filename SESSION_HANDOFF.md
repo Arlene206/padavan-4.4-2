@@ -5,47 +5,49 @@
 ## Current repository state
 
 - Maintained fork: `Arlene206/padavan-4.4-2`; do not substitute the upstream repository.
-- Live `main` baseline for this workflow-contract correction: `eb21523750bc3218121f5adf3457c587d8e9a6e0`; active branch: `main`; no separate checkpoint branch exists.
-- Previous source commit `eb21523750bc3218121f5adf3457c587d8e9a6e0` contains NFS exact source/mountpoint/filesystem tuple validation, foreign/stacked mount rejection, post-mount verification and guarded teardown.
-- Exact-head GitHub Actions for `eb21523750bc3218121f5adf3457c587d8e9a6e0`:
-  - NFS daemon start/reload [42622521213](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42622521213): **SUCCESS**; shell syntax, runtime fixture, IPv6 ACL GNU89 regression and RC caller/path-filter checks passed.
-  - AI handoff documentation [42622521280](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42622521280): **SUCCESS**; current handoff/roadmap, root log and archive validation passed.
-  - USB storage hotplug [42622521225](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42622521225): **FAILURE** in the final whole-caller-graph Python source contract, after all preceding shell and GNU89 regression steps passed. The assertion still expected the former numeric mount-state branches and did not match the new `case`-based fail-closed unmount helper. The run's full `head_sha` exactly matched `eb21523750bc3218121f5adf3457c587d8e9a6e0`.
-- No remote checkpoint branch is pending. The NFS mount tuple implementation is complete at source and its focused exact-head NFS workflow is green; the cross-workflow storage assertion is the only currently identified blocker.
+- Live `main` base for the NFS IPv4 ACL validation fix: `3c879e06efa256ffbf376848ad69359a9098330e`; active branch: `main`; no separate checkpoint branch exists.
+- The preceding storage contract correction is green: USB storage [42623404967](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42623404967) and AI handoff docs [42623405148](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42623405148) both completed SUCCESS with exact `head_sha=3c879e06efa256ffbf376848ad69359a9098330e`. It corrected only the stale caller-graph assertion; no production behavior changed.
+- The NFS exact mount-tuple implementation previously passed NFS daemon start/reload [42622521213](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42622521213) on exact SHA `eb21523750bc3218121f5adf3457c587d8e9a6e0`; NFS production source has not changed since that run. New NFS/storage/HTTPD/docs Actions are required for THIS commit.
+- The dedicated NFS and USB storage caller-graph checks now both cover the exact pseudo-filesystem tuple and checked service stop/reload paths. Keep storage, Samba, FTP and other module coverage rotating.
 
 ## Active task
 
-### Align storage caller-graph regression with NFS tri-state mount teardown
+### Reject malformed or non-contiguous IPv4 ACL networks before NFS export publication
 
-P2 CI integration regression. The production NFS helper now returns 0 for exactly one expected source/mountpoint/filesystem tuple, 1 for an unused path, and 2 for conflict or inventory error. `func_unmount_if_mounted()` uses a `case` statement to fail closed on conflict before unmount, then rechecks that the mountpoint is absent. The USB storage workflow still asserted the old pair of numeric `if` conditions, so its final caller-graph contract failed even though the NFS runtime and shell regressions passed.
+P2 security/reliability. During the NFS root/ACL audit, `write_nfsd_exports()` was found to build both LAN and VPN IPv4 client prefixes with `ip2class()`. That helper uses unchecked `inet_addr()` values and counts all set bits in the mask rather than validating that the mask is a contiguous prefix. The LAN path only called `is_valid_ipv4()`, which checks parseability, not contiguous netmask semantics; the VPN path passed `vpns_vnet` directly without validating it. A non-contiguous LAN mask could therefore be misrepresented as a different CIDR prefix, while malformed VPN network state could produce an unintended ACL. A new NFS-specific formatter rejects invalid input and creates a canonical network prefix.
 
 ### Implementation in THIS commit
 
-- Update only the stale storage workflow source contract; production NFS and storage C/shell behavior remain unchanged.
-- Assert the explicit mount-state `case`, conflict refusal, exact tuple inventory call, preflight-before-unmount ordering, checked `umount`, and post-unmount absent-state verification.
+- Add a strict dotted-quad IPv4 ACL formatter with canonical network calculation, contiguous-netmask validation, explicit rejection of `/0`, unspecified and all-ones addresses, and truncation checks.
+- Use the same formatter for the configured LAN ACL and every enabled VPN ACL path. Invalid configured networks fail closed before the staged `/etc/exports` file is published; preserve the last known-good exports file.
+- Leave the historical `async,insecure,no_root_squash,no_subtree_check` export options unchanged pending compatibility review. The security fix is limited to reliable, correctly scoped client network ACLs.
+- Extend GNU89 host regression for canonical /24, /32 and /1 networks, non-contiguous masks, /0, malformed/injection-like input, unspecified/broadcast addresses and short output buffers. Extend NFS workflow source contracts to ensure the writer no longer calls the unchecked legacy helper.
 
 ### Files changed
 
-- `.github/workflows/storage-hotplug-stability.yml`
+- `trunk/user/rc/src/storage_nfs_export_policy.h`
+- `trunk/user/rc/src/tests/storage_nfs_export_policy.c`
+- `trunk/user/rc/src/services_stor.c`
+- `.github/workflows/nfsd-start-stability.yml`
 - `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`
 
 ### Verification boundary
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for matching the storage source contract to the current NFS exact-tuple / fail-closed unmount semantics; no production behavior is changed. |
-| L2 host / Actions | Base `eb21523750bc3218121f5adf3457c587d8e9a6e0`: NFS run 42622521213 **SUCCESS**, AI docs run 42622521280 **SUCCESS**, USB storage run 42622521225 **FAILURE** at its final stale source-contract assertion. This correction's exact-head storage/docs runs are pending. |
+| L1 source review | PASS for validating both LAN and enabled VPN IPv4 ACLs, rejecting non-contiguous masks and unrestricted /0, canonicalizing the network prefix, and preserving prior exports on validation failure. |
+| L2 host / Actions | Base `3c879e06efa256ffbf376848ad69359a9098330e`: USB storage run 42623404967 and AI docs 42623405148 SUCCESS on exact SHA. Dedicated NFS run 42622521213 SUCCESS on unchanged NFS source at exact SHA `eb21523750bc3218121f5adf3457c587d8e9a6e0`. This commit's GNU89 IPv4/IPv6 policy test, NFS/storage/HTTPD and AI-doc exact-head workflows are pending. |
 | L3 MIPS/uClibc / production RC object / full firmware/TRX | NOT VERIFIED. |
-| L4 NFS mount-stack behavior on router hardware, storage eject and physical-router lifecycle | NOT VERIFIED. |
+| L4 actual NFS AUTH_SYS/root mapping, NFS client access control and physical-router export lifecycle | NOT VERIFIED. |
 
-The failed storage workflow is a source-contract mismatch, not a failed production compile/runtime test: all earlier steps in that job passed. The corrected contract must be confirmed by a new exact-head run. No local full checkout, local execution of the Python workflow contract, production RC build, MIPS/uClibc build, complete firmware/TRX or physical-router test is claimed.
+No local complete repository checkout or local build of the production RC object is available. The actual helper/contract regression runs under the repository's GNU89 GitHub Actions; do not claim target compiler or firmware validation. No change is made yet to the legacy root-squash, transport-port or sync/async options; their compatibility and risk remain a separate review item.
 
 ## Exact first action for the next GPT
 
-1. Fetch the live `main` SHA and exact-head Actions. Inspect the new USB storage caller-graph workflow and AI handoff-doc workflow; both must pass on the same exact resulting SHA.
-2. If the storage source contract still fails, inspect the new traceback and adjust only a demonstrably stale assertion; do not weaken the actual exact mount tuple or conflict-safe unmount guarantees.
-3. Once green, resume the NFS export permission/security audit: `no_root_squash`, AUTH_SYS UID/GID mapping, `async` durability, `insecure` client source ports, custom exports override semantics and external-mount support. Preserve historic behavior until compatibility impact is demonstrated.
-4. Then rotate to Samba passdb/account mutation, ACL/permission and credential security. Keep vsftpd authentication/path confinement, DHCP leasefail/NAK/release callback state, FULLCONENAT queue namespace ownership and cross-module shutdown races open. L3/L4 remain unverified until actual target build and device tests.
+1. Fetch live `main`, all branches and every Actions run for the resulting full SHA. Verify the dedicated NFS IPv4/IPv6 GNU89 policy test, NFS lifecycle, USB storage caller graph, HTTPD security and AI handoff docs; inspect logs for failures.
+2. A malformed LAN or enabled VPN ACL must prevent `/etc/exports` publication and NFS start/reload. Do not change this to silently omit an invalid ACL or to widen its network.
+3. If green, continue the NFS options/identity compatibility review: `no_root_squash` and AUTH_SYS UID/GID mapping, `async` durability, `insecure` source ports, operator-provided `/etc/storage/exports` override semantics and external-mount behavior. Preserve the existing option tuple until an explicit compatibility decision is supported.
+4. Then rotate to Samba passdb/account mutation, ACL/permission and credential security; keep vsftpd authentication/path confinement, DHCP leasefail/NAK/release callback state, FULLCONENAT queue namespace ownership and cross-module shutdown races open. L3/L4 remain unverified until actual target build and device tests.
 
 ## Documentation maintenance
 

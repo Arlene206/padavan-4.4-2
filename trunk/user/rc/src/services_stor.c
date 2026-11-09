@@ -932,6 +932,7 @@ write_nfsd_exports(void)
 	char *nfsmm, *acl_addr, *acl_mask;
 	int fd = -1, read_error, close_error, parse_error = 0;
 	int close_status, output_error = 0, saved_errno = 0;
+	int acl_ipv4_status, acl_vpn_status = 0;
 #if defined (USE_IPV6)
 	int ipv6_type, acl_ipv6_status = 0;
 	char *acl_addr6 = NULL, *acl_len6 = NULL;
@@ -1018,7 +1019,17 @@ write_nfsd_exports(void)
 	}
 
 	acl_lan[0] = 0;
-	ip2class(acl_addr, acl_mask, acl_lan, sizeof(acl_lan));
+	acl_ipv4_status = storage_nfs_export_format_ipv4_acl(
+		acl_addr, acl_mask, acl_lan, sizeof(acl_lan));
+	if (acl_ipv4_status < 0) {
+		saved_errno = EINVAL;
+		logmessage("Storage", "refusing to publish NFS exports with an invalid IPv4 LAN ACL");
+		fclose(fp);
+		fclose(procpt);
+		unlink(staged_path);
+		errno = saved_errno;
+		return -1;
+	}
 
 #if defined (USE_IPV6)
 	ipv6_type = get_ipv6_type();
@@ -1047,11 +1058,22 @@ write_nfsd_exports(void)
 #if defined (APP_OPENVPN)
 		if (nvram_get_int("vpns_type") == 2) {
 			if (nvram_get_int("vpns_ov_mode") == 1)
-				ip2class(acl_addr, acl_mask, acl_vpn, sizeof(acl_vpn));
+				acl_vpn_status = storage_nfs_export_format_ipv4_acl(
+					acl_addr, acl_mask, acl_vpn, sizeof(acl_vpn));
 		} else
 #endif
-			ip2class(acl_addr, acl_mask, acl_vpn, sizeof(acl_vpn));
+			acl_vpn_status = storage_nfs_export_format_ipv4_acl(
+				acl_addr, acl_mask, acl_vpn, sizeof(acl_vpn));
 
+		if (acl_vpn_status < 0) {
+			saved_errno = EINVAL;
+			logmessage("Storage", "refusing to publish NFS exports with an invalid IPv4 VPN ACL");
+			fclose(fp);
+			fclose(procpt);
+			unlink(staged_path);
+			errno = saved_errno;
+			return -1;
+		}
 		if (strcmp(acl_lan, acl_vpn) == 0)
 			acl_vpn[0] = 0;
 	}
