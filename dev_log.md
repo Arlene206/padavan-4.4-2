@@ -1,3 +1,16 @@
+## 2026-11-10 04:42 CST (UTC+8) — Repair WAN route and HTTPD source contracts after MAN teardown refactor
+
+- **Base main SHA:** `5718821e4b566fea1856945c322899b5145c995c`; active branch: `main`; remote branches: `main` only.
+- **Exact-head Action outcomes:** WAN DHCP callback [42694649038], WAN interface teardown [42694649527] and AI handoff docs [42694649648] completed SUCCESS on this SHA. WAN route status [42694649350] and HTTPD security [42694649091] failed at Python semantic checks after their host compilation / earlier source checks had passed.
+- **Failure diagnosis:** the MAN route cleanup implementation had been moved from the public `man_down()` wrapper into `man_down_internal()` to retain the old address through host-route deletion and invalidate it before resolver/firewall refresh. The two dependent workflows still extracted/asserted the public wrapper body; their logs showed a stale test-range assumption, not a failure in the MAN deconfig implementation.
+- **Correction:** update `wan-route-status.yml` to validate route deletion/cleanup order in `man_down_internal()` and the unchanged public wrapper delegation; update the HTTPD DHCP lease contract to inspect the internal implementation and assert the old gateway host route is removed before `wanx_ipaddr` is invalidated. No production source changes in THIS correction.
+- **Changed paths:** `.github/workflows/wan-route-status.yml`; `.github/workflows/httpd-security.yml`; `SESSION_HANDOFF.md`; `REFACTOR_ROADMAP.md`; this root log record.
+- **Validation:** exact-head WAN DHCP/teardown/docs jobs were green. WAN route sanitizer host compilation/execution passed but its semantic step failed; HTTPD earlier policy and source checks passed but the final DHCP assertion failed. Both exact logs were inspected. THIS corrected workflow runs are **PENDING** on the resulting SHA. No production RC/MIPS/firmware or hardware test is claimed.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** require WAN DHCP, teardown, route status, HTTPD and AI docs workflows to pass together on the exact resulting SHA; then investigate route-delete error propagation.
+
+---
+
 ## 2026-11-10 04:30 CST (UTC+8) — Keep MAN DHCP lease identity through gateway route cleanup
 
 - **Base main SHA:** `bf80204bf59e26f74636e9c75ce52c6d5d652bee`; active branch: `main`.

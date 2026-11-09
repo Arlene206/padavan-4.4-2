@@ -1880,11 +1880,13 @@ jobs:
           assert 'del_dhcp_routes_by_prefix("manv_", man_ifname, 0);' in wan
           assert 'del_dhcp_routes_by_prefix("manv_", man_ifname, 0);' in wan[wan.index("udhcpc_viptv_main("):]
 
-          man_start = wan.index("void\nman_down(")
-          man_end = wan.index("void\nwan_up(", man_start)
+          man_start = wan.index("static void\nman_down_internal(")
+          man_end = wan.index("void\nman_down(", man_start)
           man_down = wan[man_start:man_end]
           assert 'route_del(man_ifname, 2, "0.0.0.0", man_gate, "0.0.0.0");' in man_down
           assert "del_static_man_routes(man_ifname);" in man_down
+          assert 'route_del(man_ifname, 2, man_gate, NULL, "255.255.255.255");' in man_down
+          assert man_down.index('route_del(man_ifname, 2, man_gate, NULL, "255.255.255.255");') < man_down.index('nvram_set_temp("wanx_ipaddr", "0.0.0.0")')
           assert 'refresh_resolvconf_nonfatal("MAN down", 0);' in man_down
           assert 'notify_rc("restart_firewall_wan");' in man_down
           print("DHCP lease normalization, route reconciliation, and resolver refresh contracts: OK")

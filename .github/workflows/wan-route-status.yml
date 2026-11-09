@@ -87,9 +87,13 @@ jobs:
               name = signature.split("(")[0]
               assert "int  " + name in header and "void " + name not in header
 
-          man_down = body(wan, "man_down(char *man_ifname, int unit)")
+          man_down = body(wan, "man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)")
           assert man_down.index('del_dhcp_routes_by_prefix("wanx_"') < man_down.index("del_static_man_routes(")
-          assert man_down.index("del_static_man_routes(") < man_down.index('nvram_set_temp("wanx_routes"')
+          assert man_down.index("del_static_man_routes(") < man_down.index('nvram_set_temp("wanx_ipaddr", "0.0.0.0")')
+          assert man_down.index('route_del(man_ifname, 2, man_gate, NULL, "255.255.255.255")') < man_down.index('nvram_set_temp("wanx_ipaddr", "0.0.0.0")')
+          assert man_down.index('nvram_set_temp("wanx_ipaddr", "0.0.0.0")') < man_down.index('nvram_set_temp("wanx_gateway", "")')
+          public_man_down = body(wan, "man_down(char *man_ifname, int unit)")
+          assert "man_down_internal(man_ifname, unit, 0)" in public_man_down
           wan_down = body(wan, "wan_down(char *wan_ifname, int unit, int is_static)")
           assert wan_down.index("del_dhcp_routes_by_prefix(prefix") < wan_down.index("del_static_wan_routes(")
           assert wan_down.index("del_static_wan_routes(") < wan_down.index("control_wan_led_isp_state(0, 0)")
