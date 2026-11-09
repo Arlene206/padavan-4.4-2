@@ -92,4 +92,4 @@
 
 | Archive file | Sections | Date order | Bytes | Git blob SHA |
 |---|---:|---|---:|---|
-| `docs/roadmap-history/2026/11/part-015.md` | 6 | superseded current dashboard | 9046 | `e553ff10f452b56d541a4674bb42b99f0dce3c95` |
+| `docs/roadmap-history/2026/11/part-015.md` | 5 | superseded current dashboard | 9046 | `e553ff10f452b56d541a4674bb42b99f0dce3c95` |
