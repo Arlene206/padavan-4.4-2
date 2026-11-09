@@ -2424,7 +2424,7 @@ jobs:
           assert partition.index("samba_conf_text_is_safe(disk_tag)") < partition.index('fprintf(fp, "comment = %s')
 
           # Per-folder names/paths are checked before permission lookup and config output.
-          folder_writer_start = source.index("write_smb_conf(void)")
+          folder_writer_start = source.index("write_smb_conf_unlocked(void)")
           folder_writer_end = source.index("static void" + chr(10) + "clean_smbd_trash", folder_writer_start)
           folder_writer = source[folder_writer_start:folder_writer_end]
           folder_start = folder_writer.index("// 2. start to get every share")
