@@ -572,21 +572,21 @@ start_wifi_wds_wl(int radio_on)
 			i_wds_num = nvram_wlan_get_int(1, "wdsnum_x");
 		
 		if (i_wds_num > 3) {
-			wif_control(IFNAME_5G_WDS3, 1);
+			if (wif_control_success(IFNAME_5G_WDS3, 1))
 			br_add_del_if(IFNAME_BR, IFNAME_5G_WDS3, 1);
 		}
 		
 		if (i_wds_num > 2) {
-			wif_control(IFNAME_5G_WDS2, 1);
+			if (wif_control_success(IFNAME_5G_WDS2, 1))
 			br_add_del_if(IFNAME_BR, IFNAME_5G_WDS2, 1);
 		}
 		
 		if (i_wds_num > 1) {
-			wif_control(IFNAME_5G_WDS1, 1);
+			if (wif_control_success(IFNAME_5G_WDS1, 1))
 			br_add_del_if(IFNAME_BR, IFNAME_5G_WDS1, 1);
 		}
 		
-		wif_control(IFNAME_5G_WDS0, 1);
+		if (wif_control_success(IFNAME_5G_WDS0, 1))
 		br_add_del_if(IFNAME_BR, IFNAME_5G_WDS0, 1);
 	}
 	else
@@ -612,30 +612,34 @@ start_wifi_wds_rt(int radio_on)
 			i_wds_num = nvram_wlan_get_int(0, "wdsnum_x");
 		
 		if (i_wds_num > 3) {
-			wif_control(IFNAME_2G_WDS3, 1);
+			if (wif_control_success(IFNAME_2G_WDS3, 1)) {
 #if !defined(USE_RT3352_MII)
 			br_add_del_if(IFNAME_BR, IFNAME_2G_WDS3, 1);
 #endif
 		}
+		}
 		
 		if (i_wds_num > 2) {
-			wif_control(IFNAME_2G_WDS2, 1);
+			if (wif_control_success(IFNAME_2G_WDS2, 1)) {
 #if !defined(USE_RT3352_MII)
 			br_add_del_if(IFNAME_BR, IFNAME_2G_WDS2, 1);
 #endif
 		}
+		}
 		
 		if (i_wds_num > 1) {
-			wif_control(IFNAME_2G_WDS1, 1);
+			if (wif_control_success(IFNAME_2G_WDS1, 1)) {
 #if !defined(USE_RT3352_MII)
 			br_add_del_if(IFNAME_BR, IFNAME_2G_WDS1, 1);
 #endif
 		}
+		}
 		
-		wif_control(IFNAME_2G_WDS0, 1);
+		if (wif_control_success(IFNAME_2G_WDS0, 1)) {
 #if !defined(USE_RT3352_MII)
 		br_add_del_if(IFNAME_BR, IFNAME_2G_WDS0, 1);
 #endif
+		}
 	}
 #if !defined(USE_RT3352_MII)
 	else
