@@ -1,0 +1,107 @@
+name: NFS daemon start and reload lifecycle regression
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/nfsd-start-stability.yml"
+      - "trunk/user/nfs-utils/nfsd.sh"
+      - "trunk/user/nfs-utils/tests/nfsd_start_lifecycle.sh"
+      - "trunk/user/rc/src/services_stor.c"
+  pull_request:
+    paths:
+      - ".github/workflows/nfsd-start-stability.yml"
+      - "trunk/user/nfs-utils/nfsd.sh"
+      - "trunk/user/nfs-utils/tests/nfsd_start_lifecycle.sh"
+      - "trunk/user/rc/src/services_stor.c"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  nfsd-start-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check NFS shell syntax
+        run: |
+          sh -n trunk/user/nfs-utils/nfsd.sh
+          sh -n trunk/user/nfs-utils/tests/nfsd_start_lifecycle.sh
+      - name: Exercise NFS start and reload failures
+        run: sh trunk/user/nfs-utils/tests/nfsd_start_lifecycle.sh
+      - name: Verify RC command-status propagation and workflow path filters
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          script = Path("trunk/user/nfs-utils/nfsd.sh").read_text()
+          service = Path("trunk/user/rc/src/services_stor.c").read_text()
+          workflow = Path(".github/workflows/nfsd-start-stability.yml").read_text()
+
+          def function_body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for index in range(brace, len(source)):
+                  if source[index] == "{":
+                      depth += 1
+                  elif source[index] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[start:index + 1]
+              raise AssertionError("unterminated function: " + signature)
+
+          mount = function_body(script, "func_mount_if_needed()")
+          assert 'grep -q " $mountpoint " /proc/mounts' in mount
+          assert '"$mount_status" -eq 0' in mount and '"$mount_status" -eq 1' in mount
+          assert '*)\n\t\treturn 1' in mount
+
+          start = function_body(script, "func_start()")
+          for command in (
+              "/sbin/rpcbind ||",
+              "touch /etc/exports",
+              "mkdir -p /var/lib/nfs/sm",
+              "modprobe -q nfsd ||",
+              "func_mount_if_needed /proc/fs/nfsd nfsd nfsd ||",
+              "func_mount_if_needed /var/lib/nfs/rpc_pipefs rpc_pipefs rpc_pipefs ||",
+              "/sbin/exportfs -r ||",
+              "/sbin/rpc.nfsd -N4 -N4.1 1 ||",
+              "/sbin/rpc.mountd ||",
+          ):
+              assert command in start, command
+          assert start.index("/sbin/exportfs -r ||") < start.index("/sbin/rpc.nfsd -N4 -N4.1 1 ||")
+          assert start.index("/sbin/rpc.nfsd -N4 -N4.1 1 ||") < start.index("/sbin/rpc.mountd ||")
+          assert start.count("func_stop || logger") >= 2
+          assert "refusing to reset NFS state while only one server daemon is running" in start
+          assert "rpc.nfsd returned success but nfsd is not running" in start
+          assert "rpc.mountd returned success but the daemon is not running" in start
+
+          reload = function_body(script, "func_reload()")
+          for prerequisite in ("pidof rpcbind", "pidof nfsd", "pidof rpc.mountd", "[ ! -f /etc/exports ]"):
+              assert prerequisite in reload
+          assert "/sbin/exportfs -r ||" in reload and "return 1" in reload
+
+          run_nfsd = function_body(service, "run_nfsd(void)")
+          assert 'command_status = eval("/usr/bin/nfsd.sh", "start");' in run_nfsd
+          assert "if (command_status != 0)" in run_nfsd
+          assert 'NFS daemon start failed (status %d)' in run_nfsd
+
+          reload_nfsd = function_body(service, "reload_nfsd(void)")
+          assert 'command_status = eval("/usr/bin/nfsd.sh", "reload");' in reload_nfsd
+          assert "if (command_status != 0)" in reload_nfsd
+          assert 'NFS daemon reload failed (status %d)' in reload_nfsd
+
+          push_filters = workflow.split("  push:", 1)[1].split("  pull_request:", 1)[0]
+          pr_filters = workflow.split("  pull_request:", 1)[1].split("  workflow_dispatch:", 1)[0]
+          for path in (
+              ".github/workflows/nfsd-start-stability.yml",
+              "trunk/user/nfs-utils/nfsd.sh",
+              "trunk/user/nfs-utils/tests/nfsd_start_lifecycle.sh",
+              "trunk/user/rc/src/services_stor.c",
+          ):
+              assert push_filters.count(path) == 1
+              assert pr_filters.count(path) == 1
+
+          print("NFS start/reload command status, cleanup and RC caller contracts: PASS")
+          PY

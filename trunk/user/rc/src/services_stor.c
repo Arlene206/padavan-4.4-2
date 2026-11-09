@@ -1127,6 +1127,7 @@ void
 run_nfsd(void)
 {
 	int export_status;
+	int command_status;
 
 	if (nvram_invmatch("nfsd_enable", "1"))
 		return;
@@ -1137,13 +1138,16 @@ run_nfsd(void)
 		return;
 	}
 
-	eval("/usr/bin/nfsd.sh", "start");
+	command_status = eval("/usr/bin/nfsd.sh", "start");
+	if (command_status != 0)
+		logmessage("Storage", "NFS daemon start failed (status %d)", command_status);
 }
 
 void
 reload_nfsd(void)
 {
 	int export_status;
+	int command_status;
 
 	if (nvram_invmatch("nfsd_enable", "1"))
 		return;
@@ -1154,7 +1158,9 @@ reload_nfsd(void)
 		return;
 	}
 
-	eval("/usr/bin/nfsd.sh", "reload");
+	command_status = eval("/usr/bin/nfsd.sh", "reload");
+	if (command_status != 0)
+		logmessage("Storage", "NFS daemon reload failed (status %d)", command_status);
 }
 
 int restart_nfsd(void)

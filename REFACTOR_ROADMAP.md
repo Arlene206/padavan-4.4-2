@@ -5,9 +5,9 @@
 ## Current source / CI checkpoint
 
 - Repository: Arlene206/padavan-4.4-2; maintained fork only.
-- Latest verified main SHA: `656e9819f1de186767738a6d49aedbd171f26ff0`. HTTPD Authentication and Security [42594767916](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42594767916) and AI handoff documentation [42594767915](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42594767915) both SUCCESS on that exact SHA.
-- Completed NFS inventory/restart-preflight baseline: complete six-field `/proc/mounts` inventory with tri-state policy; exports fail closed on incomplete inventory; restart checks inventory before stopping the service.
-- Current bounded follow-up: propagate NFS stop failures and block USB storage detach until daemons, exports and NFS control pseudo-mounts are safely down. THIS COMMIT extends the storage-hotplug source/syntax contracts; exact-head Actions pending.
+- Latest verified main SHA: `d143581bf5f351cb2cf0d388f2542c3710802c7b`. HTTPD Authentication and Security [42596369094](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42596369094) **SUCCESS** on that exact SHA; AI handoff docs [42596369073](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42596369073) were queued at takeover.
+- NFS mount-inventory/restart-preflight and stop-failure/eject gating are on main. Storage hotplug [42596118456](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42596118456) passed on exact source SHA `9dd2f4a6eed24103617023fc93ea058f51466a0a`; the corrected dependent HTTPD regression passed on d143581.
+- Current bounded follow-up: fail closed on NFS start/reload prerequisites and RPC daemon failures; roll back partial starts and report command status from the RC wrappers. THIS COMMIT's NFS, HTTPD/storage and docs Actions await exact-head verification.
 
 ## Whole-repository module status
 
@@ -24,16 +24,15 @@
 | Switch / PHY / MDIO / link state | PARTIAL / AUDITING | Selected ioctl propagation, PVID/link retry, CLI ordering and MDIO timeout checks. | Other board drivers and live hardware behavior. |
 | Samba share service / accounts | PARTIAL / AUDITING | Generated smb.conf is staged and atomically published; folder inventory/read errors fail closed; WINS/nmbd/smbd lifecycle is gated on publication. Samba GNU89 helper regression passes; HTTPD's dependent trust-boundary contract now bounds its folder slice to the full writer instead of an early error cleanup; exact-head rerun pending. | Passdb/account mutation consistency, ACL/permission mapping, credential security, live Samba reload behavior and target runtime. |
 | FTP service / vsftpd | PARTIAL / AUDITING | Generated vsftpd config uses checked same-directory staging/atomic replacement and daemon startup is gated on publication success. | Authentication, credential/ACL semantics, path confinement, stop/lifecycle error propagation and target runtime. |
-| NFS / third-party add-ons | PARTIAL / AUDITING | Complete six-field mount inventory and restart preflight are on main. THIS COMMIT propagates daemon/export/pseudo-mount stop failures and blocks storage detach on incomplete shutdown; exact-head storage/docs Actions pending. | Start/reload partial-failure handling, export ACL/permissions, mount lifecycle, and third-party init-hook supervision. |
+| NFS / third-party add-ons | PARTIAL / AUDITING | Complete six-field mount inventory, restart preflight, checked daemon/export/pseudo-mount shutdown and fail-closed safe-eject gates are on main. THIS COMMIT checks rpcbind/module/mount/export/RPC start and reload results, verifies daemon processes, rolls back partial starts and logs RC command failures; exact-head Actions pending. | Export ACL/permissions, external mount lifecycle, remaining target-specific stop behavior and third-party init-hook supervision. |
 | Init / PID 1 / service supervision | AUDITING | Notification deferral, child reaping and selected start/stop failure gates. | Cross-module ordering, shutdown races and package supervision. |
 
 ## Priority queue
 
-1. P2 — Reconcile THIS COMMIT's storage-hotplug and AI handoff-doc Actions on the exact same full main SHA; inspect shell syntax and every NFS stop/safe-eject assertion.
-2. P2 — Continue NFS `func_start`/`func_reload`/`run_nfsd` partial-failure handling and cleanup, preserving a healthy service until configuration and inventory preflight pass.
-3. P2 — Rotate to Optware/third-party service supervision and init ordering: arbitrary external S??* hooks, child/fd inheritance, status aggregation and storage-detach sequencing.
-4. P2 — Continue Samba passdb/account mutation, ACL/permission and credential audit; continue vsftpd authentication/ACL/path-confinement/stop lifecycle review.
-5. P2/P3 — Preserve DHCP leasefail/accepted-NAK/release state semantics and BusyBox callback status handling; keep FULLCONENAT mapping-hash and dying-tuple queue namespace ownership as a separate kernel audit.
+1. P2 — Reconcile THIS COMMIT's NFS start/reload, HTTPD, storage-hotplug and AI handoff-doc Actions on the exact same full main SHA; inspect every failed step and preserve strong error-path contracts.
+2. P2 — Rotate to Optware/third-party startup supervision: inspect `opt-start.sh` hook enumeration, result aggregation, partial-start cleanup, lock/fd ownership and retry semantics.
+3. P2 — Continue NFS export ACL/permission mapping and external mount lifecycle; continue Samba passdb/account mutation, ACL/permission and credential audit; continue vsftpd authentication/ACL/path-confinement/stop lifecycle review.
+4. P2/P3 — Preserve DHCP leasefail/accepted-NAK/release state semantics and BusyBox callback status handling; keep FULLCONENAT mapping-hash and dying-tuple queue namespace ownership as a separate kernel audit.
 
 ## Working rules
 
@@ -50,8 +49,8 @@
 
 | Level | Evidence | Limits |
 |---|---|---|
-| L1 source review | PASS for NFS mount-inventory policy and restart preflight. THIS COMMIT adds process, export and pseudo-mount stop checks plus fail-closed eject gates; reviewed against base SHA `656e9819f1de186767738a6d49aedbd171f26ff0`. | NFS start/reload, ACL/permissions and live target behavior remain open. |
-| L2 host / Actions | Baseline exact head `656e9819f1de186767738a6d49aedbd171f26ff0`: HTTPD [42594767916](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42594767916) and docs [42594767915](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42594767915) SUCCESS. THIS COMMIT's storage-hotplug `sh -n`/source contracts and docs Actions pending exact head. | No local checkout/compiler/shell/docs-validator run; production RC object not built. |
+| L1 source review | PASS for NFS inventory/restart preflight and shutdown/eject propagation. THIS COMMIT adds start/reload prerequisite gates, daemon verification and partial-start rollback; reviewed against base SHA `d143581bf5f351cb2cf0d388f2542c3710802c7b`. | NFS export ACL/permissions, external mounts and target-specific behavior remain open. |
+| L2 host / Actions | Base exact SHA `d143581bf5f351cb2cf0d388f2542c3710802c7b`: HTTPD [42596369094](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42596369094) SUCCESS; docs [42596369073](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42596369073) queued at takeover. Prior exact source SHA `9dd2f4a6eed24103617023fc93ea058f51466a0a`: storage [42596118456](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42596118456) SUCCESS. THIS COMMIT's NFS start/reload host regression and exact-head workflows pending. | No full local checkout or full production build. |
 | L3 MIPS/uClibc / production objects / firmware/TRX | NOT VERIFIED. | Full target build phase required. |
 | L4 live NFS export/stop, USB eject, filesystem integration / physical router | NOT VERIFIED. | Requires target-device validation. |
 

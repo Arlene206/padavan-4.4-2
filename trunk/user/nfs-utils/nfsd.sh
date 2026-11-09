@@ -1,56 +1,161 @@
 #!/bin/sh
 
+func_mount_if_needed()
+{
+	mountpoint="$1"
+	filesystem="$2"
+	source="$3"
+
+	grep -q " $mountpoint " /proc/mounts
+	mount_status=$?
+	case "$mount_status" in
+	0)
+		return 0
+		;;
+	1)
+		mount -t "$filesystem" "$source" "$mountpoint" || return 1
+		;;
+	*)
+		return 1
+		;;
+	esac
+
+	return 0
+}
+
 func_start()
 {
-	# check rpcbind (needed for NFS)
-	if [ -z "`pidof rpcbind`" ] ; then
-		/sbin/rpcbind
+	# rpcbind is required by the NFS user-space services.
+	if [ -z "$(pidof rpcbind)" ] ; then
+		/sbin/rpcbind || {
+			logger -t "NFS server" "cannot start rpcbind"
+			return 1
+		}
 		sleep 1
+		if [ -z "$(pidof rpcbind)" ] ; then
+			logger -t "NFS server" "rpcbind command succeeded but the daemon is not running"
+			return 1
+		fi
 	fi
 
-	# check NFS server already running
-	if [ -n "`pidof nfsd`" ] && [ -n "`pidof rpc.mountd`" ] ; then
-		# reload exports only
-		[ -f /etc/exports ] && /sbin/exportfs -r
+	# A complete running service only needs its exports reloaded.
+	if [ -n "$(pidof nfsd)" ] && [ -n "$(pidof rpc.mountd)" ] ; then
+		if [ ! -f /etc/exports ] ; then
+			logger -t "NFS server" "cannot reload exports because /etc/exports is missing"
+			return 1
+		fi
+		/sbin/exportfs -r || {
+			logger -t "NFS server" "cannot reload NFS exports"
+			return 1
+		}
 		return 0
 	fi
 
-	touch /etc/exports
-
-	mkdir -p /var/lib/nfs/sm
-	mkdir -p /var/lib/nfs/sm.bak
-	mkdir -p /var/lib/nfs/rpc_pipefs
-
-	echo -n > /var/lib/nfs/etab
-	echo -n > /var/lib/nfs/rmtab
-	echo -n > /var/lib/nfs/xtab
-
-	if [ -z "`cat /proc/filesystems | grep nfsd`" ] ; then
-		modprobe -q nfsd
-		mount -t nfsd nfsd /proc/fs/nfsd
+	# Do not erase export/recovery state while only half of the service is alive.
+	if [ -n "$(pidof nfsd)" ] || [ -n "$(pidof rpc.mountd)" ] ; then
+		logger -t "NFS server" "refusing to reset NFS state while only one server daemon is running"
+		return 1
 	fi
 
-	if ! grep -q /var/lib/nfs/rpc_pipefs /proc/mounts ; then
-		mount -t rpc_pipefs rpc_pipefs /var/lib/nfs/rpc_pipefs
+	if ! touch /etc/exports ; then
+		logger -t "NFS server" "cannot create /etc/exports"
+		return 1
 	fi
 
-	echo 65536 > /proc/fs/nfsd/max_block_size
-
-	/sbin/exportfs -r
-
-	/sbin/rpc.nfsd -N4 -N4.1 1
-	/sbin/rpc.mountd
-
-	if [ $? -eq 0 ] ; then
-		logger -t "NFS server" "daemon is started"
+	if ! mkdir -p /var/lib/nfs/sm /var/lib/nfs/sm.bak /var/lib/nfs/rpc_pipefs ; then
+		logger -t "NFS server" "cannot create NFS state directories"
+		return 1
 	fi
+
+	: > /var/lib/nfs/etab || {
+		logger -t "NFS server" "cannot initialize NFS export state"
+		return 1
+	}
+	: > /var/lib/nfs/rmtab || {
+		logger -t "NFS server" "cannot initialize NFS client state"
+		return 1
+	}
+	: > /var/lib/nfs/xtab || {
+		logger -t "NFS server" "cannot initialize NFS export compatibility state"
+		return 1
+	}
+
+	grep -q nfsd /proc/filesystems
+	filesystem_status=$?
+	if [ "$filesystem_status" -eq 1 ] ; then
+		modprobe -q nfsd || {
+			logger -t "NFS server" "cannot load the nfsd kernel module"
+			return 1
+		}
+	elif [ "$filesystem_status" -ne 0 ] ; then
+		logger -t "NFS server" "cannot inspect /proc/filesystems"
+		return 1
+	fi
+
+	# The module can remain loaded after its control filesystem was unmounted.
+	func_mount_if_needed /proc/fs/nfsd nfsd nfsd || {
+		logger -t "NFS server" "cannot mount the nfsd control filesystem"
+		return 1
+	}
+	func_mount_if_needed /var/lib/nfs/rpc_pipefs rpc_pipefs rpc_pipefs || {
+		logger -t "NFS server" "cannot mount rpc_pipefs"
+		return 1
+	}
+
+	# This kernel tuning value is optional; a missing knob must not hide RPC failures.
+	echo 65536 > /proc/fs/nfsd/max_block_size ||
+		logger -t "NFS server" "cannot set nfsd max_block_size"
+
+	/sbin/exportfs -r || {
+		logger -t "NFS server" "cannot publish NFS exports"
+		return 1
+	}
+
+	/sbin/rpc.nfsd -N4 -N4.1 1 || {
+		logger -t "NFS server" "cannot start nfsd"
+		func_stop || logger -t "NFS server" "NFS startup cleanup after nfsd failure was incomplete"
+		return 1
+	}
+	if [ -z "$(pidof nfsd)" ] ; then
+		logger -t "NFS server" "rpc.nfsd returned success but nfsd is not running"
+		func_stop || logger -t "NFS server" "NFS startup cleanup after nfsd failure was incomplete"
+		return 1
+	fi
+
+	/sbin/rpc.mountd || {
+		logger -t "NFS server" "cannot start rpc.mountd"
+		func_stop || logger -t "NFS server" "NFS startup cleanup after rpc.mountd failure was incomplete"
+		return 1
+	}
+	if [ -z "$(pidof rpc.mountd)" ] ; then
+		logger -t "NFS server" "rpc.mountd returned success but the daemon is not running"
+		func_stop || logger -t "NFS server" "NFS startup cleanup after rpc.mountd failure was incomplete"
+		return 1
+	fi
+
+	logger -t "NFS server" "daemon is started"
+	return 0
 }
 
 func_reload()
 {
-	if [ -n "`pidof rpcbind`" ] && [ -f /etc/exports ] ; then
-		/sbin/exportfs -r
+	if [ -z "$(pidof rpcbind)" ] ; then
+		logger -t "NFS server" "cannot reload NFS exports because rpcbind is not running"
+		return 1
 	fi
+	if [ -z "$(pidof nfsd)" ] || [ -z "$(pidof rpc.mountd)" ] ; then
+		logger -t "NFS server" "cannot reload NFS exports because the NFS daemons are not both running"
+		return 1
+	fi
+	if [ ! -f /etc/exports ] ; then
+		logger -t "NFS server" "cannot reload NFS exports because /etc/exports is missing"
+		return 1
+	fi
+	/sbin/exportfs -r || {
+		logger -t "NFS server" "cannot reload NFS exports"
+		return 1
+	}
+	return 0
 }
 
 func_unmount_if_mounted()
