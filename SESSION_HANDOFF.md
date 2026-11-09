@@ -1,15 +1,12 @@
 ## Current repository state
 
 - Maintained fork: `Arlene206/padavan-4.4-2`; never substitute the upstream repository.
-- Base `main` SHA for THIS Samba/storage lifecycle correction: `af3a388fd889238789f9eb0d19efe6b89c2b24e9`; active branch is `main`. The only remote branch is `main`; no separate checkpoint branch exists.
-- Root `dev_log.md` had 56 complete newest-first records before this entry (about 142 KiB); no archive rotation is required.
+- Base `main` SHA for THIS Samba/storage lifecycle correction: `ef9217b4af66b81e76b53c21bbb0ac559756fa39`; active branch is `main`. The only remote branch is `main`; no separate checkpoint branch exists.
+- Root `dev_log.md` had 57 complete newest-first records before this entry (about 145 KiB); no archive rotation is required.
 
 ## Latest verified parent checkpoint
 
-The immediate parent `af3a388fd889238789f9eb0d19efe6b89c2b24e9` has two exact-head Actions, both completed SUCCESS with matching full `head_sha`:
-
-- HTTPD authentication/security [42647880398] — all job steps SUCCESS, including Samba share trust and Samba/Unix identity-boundary regressions.
-- AI handoff documentation [42647880152] — documentation contract job SUCCESS.
+The immediate parent `ef9217b4af66b81e76b53c21bbb0ac559756fa39` triggered seven exact-head Actions with matching full `head_sha`. USB storage [42651732010], WAN route [42651731613], HTTPD/security [42651731589], vsftpd [42651731452], AI handoff docs [42651731340] and NFS [42651731312] completed SUCCESS. Samba [42651731824] compiled and ran all three GNU89 host regressions successfully, then failed only in the semantic source-contract step because an assertion still expected the old inlined `usleep()/pids()` loop after it had been extracted into the testable policy helper. THIS follow-up updates that assertion to check the runtime callback and policy helper instead; it does not change service semantics.
 
 The preceding daemon-lifecycle implementation commit `30432e4636c5b00c96cb8918caaebe37b133a28c` passed Samba, NFS, USB storage, vsftpd and WAN route Actions; its HTTPD signature and AI-handoff heading contract failures were corrected by the immediate parent above. Earlier passdb/config ordinary-error rollback commit `cf75016ebf1f1150cd4db39308ead1e09bb0e66e` passed all six then-required Actions.
 
@@ -36,7 +33,7 @@ The preceding daemon-lifecycle implementation commit `30432e4636c5b00c96cb8918ca
 | Level | Status |
 |---|---|
 | L1 source review | PASS for Samba stop-result propagation into storage removal, fail-closed tri-state storage gating, WINS-only command results and bounded process-presence postconditions. |
-| L2 host / Actions | GNU89 daemon-presence regression and all affected exact-head Actions are pending for THIS commit. The immediate parent `af3a388fd889238789f9eb0d19efe6b89c2b24e9` HTTPD [42647880398] and AI docs [42647880152] runs are SUCCESS with exact matching full `head_sha`. |
+| L2 host / Actions | The GNU89 daemon-presence regression compiled and passed on parent `ef9217b4af66b81e76b53c21bbb0ac559756fa39`; six of seven parent Actions passed, while the Samba semantic contract failed on the stale inline-wait assertion described above. Exact-head Actions for THIS correction are pending. |
 | L3 MIPS/uClibc / production RC object / firmware/TRX | NOT VERIFIED. |
 | L4 live Samba/WINS behavior, storage hot-unplug and physical-router validation | NOT VERIFIED. |
 

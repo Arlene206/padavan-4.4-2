@@ -1,3 +1,15 @@
+## 2026-11-10 00:12 CST (UTC+8) — Align Samba regression contract with extracted daemon policy
+
+- **Base main SHA:** `ef9217b4af66b81e76b53c21bbb0ac559756fa39`; resulting commit: THIS COMMIT.
+- **Exact-head parent Actions:** USB storage [42651732010], WAN route [42651731613], HTTPD/security [42651731589], vsftpd [42651731452], AI handoff docs [42651731340] and NFS [42651731312] completed SUCCESS with matching full `head_sha=ef9217b4af66b81e76b53c21bbb0ac559756fa39`. Samba [42651731824] compiled and ran its GNU89 config, passdb and new daemon-presence regressions successfully, but the semantic source-contract step failed at the old assertion requiring the wait loop to remain inline in `services_stor.c`.
+- **Finding:** daemon wait logic is now deliberately extracted into `samba_daemon_policy.h`; the previous regression still required `usleep(500000)`, `pids(daemon)` and `ETIMEDOUT` directly inside the wrapper. This was a stale test contract, not a production-code or host-test failure.
+- **Fix:** assert the wrapper delegates to the extracted policy and that its runtime callbacks call `pids()` and `usleep()`; timeout interval and `ETIMEDOUT` behavior remain covered by the host policy test. Align `stop_stor_apps()` local variable indentation.
+- **Changed paths:** `.github/workflows/samba-share-stability.yml`, `trunk/user/rc/src/services_stor.c`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+- **Validation boundary:** exact parent Samba log confirms compile/run success for all three GNU89 regressions; the source-contract false negative is fixed here. New exact-head Actions are pending. No production RC object/MIPS build, firmware/TRX or router test is claimed.
+- **Next:** verify all Actions for THIS exact SHA. If green, resume the whole-repository queue at vsftpd authentication/credential, ACL/path-confinement and stop/restart lifecycle.
+
+---
+
 ## 2026-11-09 23:35 CST (UTC+8) — Gate Samba stop and WINS lifecycle on verified outcomes
 
 - **Base main SHA:** `af3a388fd889238789f9eb0d19efe6b89c2b24e9`; resulting commit: THIS COMMIT.

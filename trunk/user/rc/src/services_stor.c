@@ -2395,7 +2395,7 @@ stop_stor_apps(void)
 {
 	int need_restart_fw = 0;
 
-int stop_status = 0;
+	int stop_status = 0;
 
 #if defined (APP_NFSD)
 	if (stop_nfsd() != 0) {

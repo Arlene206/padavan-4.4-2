@@ -1,8 +1,8 @@
 ## Current source / CI checkpoint
 
 - Repository: `Arlene206/padavan-4.4-2`; maintained fork only.
-- Base `main` SHA for THIS Samba/storage lifecycle correction: `af3a388fd889238789f9eb0d19efe6b89c2b24e9`; only `main` exists and there is no separate checkpoint branch.
-- Immediate-parent exact-head HTTPD [42647880398] and AI handoff docs [42647880152] runs both completed SUCCESS with full matching `head_sha=af3a388fd889238789f9eb0d19efe6b89c2b24e9`. HTTPD job steps included the Samba trust-boundary and Samba/Unix account identity checks.
+- Base `main` SHA for THIS Samba/storage lifecycle correction: `ef9217b4af66b81e76b53c21bbb0ac559756fa39`; only `main` exists and there is no separate checkpoint branch.
+- Parent `ef9217b4af66b81e76b53c21bbb0ac559756fa39` triggered seven exact-head Actions with matching full `head_sha`: USB storage [42651732010], WAN route [42651731613], HTTPD/security [42651731589], vsftpd [42651731452], AI docs [42651731340] and NFS [42651731312] passed. Samba [42651731824] compiled and ran the GNU89 regressions, then failed only because its semantic contract still asserted the prior inline wait implementation; THIS corrective commit updates that contract to assert the extracted runtime adapter and tested policy instead.
 - The preceding daemon-lifecycle SHA `30432e4636c5b00c96cb8918caaebe37b133a28c` passed Samba, NFS, USB storage, vsftpd and WAN route; its stale HTTPD signature and handoff-heading contracts were repaired on the parent above.
 - THIS change carries Samba stop failures to the storage safe-removal gate, rejects unknown mount inventory during Samba restart, and checks WINS-only nmbd start/reload/stop command status plus bounded process-presence postconditions. Exact-head Actions for THIS change are pending.
 - `dev_init.sh` mounts `/etc` as tmpfs. Samba config/passdb files under `/etc` are volatile and recreated at boot; a persistent power-loss journal in that mount cannot be durable. Same-boot abrupt process termination remains a separate, lower-priority recovery question.
@@ -50,7 +50,7 @@
 | Level | Evidence | Limits |
 |---|---|---|
 | L1 source review | PASS for Samba stop-result propagation into storage removal, fail-closed tri-state storage gating, WINS-only command results and bounded process-presence postconditions. | No live process/hardware behavior claimed. |
-| L2 host / Actions | New GNU89 daemon-presence regression and affected exact-head Actions are pending on THIS change. Immediate parent HTTPD [42647880398] and AI docs [42647880152] completed SUCCESS with matching full `head_sha`. | No production RC object, MIPS/uClibc build, firmware/TRX or device test claimed. |
+| L2 host / Actions | The GNU89 daemon-presence regression compiled and passed on parent `ef9217b4af66b81e76b53c21bbb0ac559756fa39`; six of seven parent Actions passed, and Samba failed only on its stale inline-wait source assertion. Exact-head Actions for THIS correction are pending. | No production RC object, MIPS/uClibc build, firmware/TRX or device test claimed. |
 | L3 MIPS/uClibc / production objects / firmware/TRX | NOT VERIFIED. | Full target build phase required. |
 | L4 storage eject, live Samba/WINS behavior / physical router | NOT VERIFIED. | Requires target-device validation. |
 

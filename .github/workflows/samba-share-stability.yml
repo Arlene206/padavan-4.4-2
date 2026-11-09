@@ -147,9 +147,11 @@ jobs:
           rc = Path("trunk/user/rc/src/rc.c").read_text()
           wait_fn = function_body(stor, "samba_wait_for_daemon(")
           ensure_fn = function_body(stor, "samba_ensure_daemon(")
-          assert "usleep(500000)" in wait_fn
-          assert "pids(daemon) > 0" in wait_fn
-          assert "ETIMEDOUT" in wait_fn
+          assert "samba_daemon_wait_for_stable_presence(daemon, 30" in wait_fn
+          running_fn = function_body(stor, "samba_daemon_is_running(")
+          sleep_fn = function_body(stor, "samba_daemon_sleep(")
+          assert "pids((char *)daemon) > 0" in running_fn
+          assert "usleep(microseconds)" in sleep_fn
           assert 'doSystem("killall %s %s", "-SIGHUP", daemon)' in ensure_fn
           assert 'eval(daemon_path, "-D", "-s", "/etc/smb.conf")' in ensure_fn
           assert "command_status != 0" in ensure_fn
