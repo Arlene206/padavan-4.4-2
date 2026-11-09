@@ -5,55 +5,56 @@
 ## Current repository state
 
 - **Repository:** `Arlene206/padavan-4.4-2`, the maintained fork.
-- **Source milestone:** THIS COMMIT — storage eject cleanup now stages a complete partition inventory before unmounting and propagates cleanup errors into PID 1 notification completion.
-- **Documentation baseline:** THIS COMMIT; superseded active handoff/roadmap snapshots and the evicted development-log record are archived and indexed in this change.
-- **Branch/checkpoints:** `main`; no separate remote checkpoint branch was present at the recovery baseline.
-- **Base main SHA:** `692b7b2372dd4ccabab879a53ddcd78aad69e751`.
+- **Current source milestone:** `7fee5c1fc589dc98c3333dd4e052d28881b8756a` — stage one complete `/proc/partitions` inventory before ejected-device unmount and propagate cleanup errors into PID 1 notification completion.
+- **Current follow-up:** THIS COMMIT — update the pre-existing HTTPD security workflow's safe-eject assertions to match the staged inventory implementation.
+- **Branch/checkpoints:** `main`; no separate remote checkpoint branch exists.
+- **Exact-head results on source milestone `7fee5c1fc589dc98c3333dd4e052d28881b8756a`:** USB storage hotplug regression [42561240425](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42561240425) **SUCCESS**; AI handoff documentation contract [42561240402](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42561240402) **SUCCESS**. HTTPD security regression [42561240397](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42561240397) **FAILURE** solely because the older source contract still demanded the removed per-mount `procpt2` reads. This follow-up migrates that assertion; exact-head rerun is pending.
 
 ## Active task
 
-**USB storage eject inventory consistency and error propagation — implemented; exact-head regression pending.**
+**USB storage eject inventory consistency and failure propagation — implementation and focused regression PASS; one legacy CI contract is being migrated.**
 
-Caller and lifecycle trace:
-- `mdev_sd_main()` / `mdev_mmc_main()` call `notify_rc("on_unplug_mass_storage")` for whole-disk removal. PID 1 consumes the notification in `handle_notifications()` and calls `umount_ejected()`.
-- `umount_ejected()` collected a complete `/proc/mounts` inventory before side effects, but reopened `/proc/partitions` for every staged mount entry. A later partition-inventory failure could occur after earlier mountpoints had already been unmounted, creating partial cleanup within one eject event.
-- The PID 1 notification branch ignored the integer result from `umount_ejected()`; the common notification-completion logic could therefore remove the incomplete marker even when cleanup failed.
+Caller/lifecycle chain:
+- `mdev_sd_main()` / `mdev_mmc_main()` signal `on_unplug_mass_storage` for whole-disk removal.
+- PID 1 `handle_notifications()` invokes `umount_ejected()`.
+- Before the fix, `umount_ejected()` staged all `/proc/mounts` rows but reopened `/proc/partitions` for each mount. A later inventory failure could be observed after an earlier mount had been unmounted. PID 1 also discarded the cleanup return code and could mark the notification complete despite cleanup failure.
 
-Implementation in THIS COMMIT:
-1. Added a strict `storage_ejected_parse_partition_line()` contract for complete `/proc/partitions` records. It accepts the validated heading and blank lines, requires numeric major/minor/block fields, a bounded device token, exactly four fields and a terminating newline.
-2. Added one operation-wide `/proc/partitions` staging pass in `services_stor.c`. Read, parse, close or allocation failure aborts before any ejected mount is unmounted. The cleanup loop uses the validated snapshot and no longer reopens procfs per mount.
-3. Changed the PID 1 `on_unplug_mass_storage` branch to assign `action_result = umount_ejected()`; failed cleanup retains the incomplete notification marker and is logged as a failed notification rather than falsely completing.
-4. Extended `storage_ejected_inventory_policy.c` and added `.github/workflows/storage-hotplug-stability.yml` for GNU89 host regression and source-order contracts.
+Implementation at `7fee5c1fc589dc98c3333dd4e052d28881b8756a`:
+1. `storage_ejected_parse_partition_line()` validates complete newline-terminated `/proc/partitions` header/data records, numeric major/minor/block fields, a bounded device token and exact field count.
+2. `storage_stage_ejected_partitions()` takes one complete inventory snapshot, checking read, parse, close and allocation failures before any ejected unmount begins. The cleanup loop consults this staged snapshot and no longer reopens procfs per mount.
+3. PID 1 now sets `action_result = umount_ejected()`; a failed cleanup retains the incomplete notification marker. The common failure log is no longer incorrectly Wireless-specific.
+4. Added seven parser cases, `.github/workflows/storage-hotplug-stability.yml`, and exact-head GNU89/source-order checks.
+
+CI contract correction:
+- The new storage workflow passed both compile/run and source wiring on the exact source milestone. The docs validator also passed.
+- The existing `.github/workflows/httpd-security.yml` still asserted that `umount_ejected()` had a per-mount `procpt2` file read. That assertion became obsolete when inventory staging was moved before the loop. Its run failed only at this stale contract; this follow-up migrates it to assert the staged snapshot, absence of a rescan and staging-before-unmount order.
 
 ## Other open repository work
 
-- **USB / storage / hotplug — PARTIAL / AUDITING:** this round closes the per-mount partition-rescan failure window and discarded-notification-result gap. Caller-wide serialization, hotplug add/remove interleaving, per-device lock identity, filesystem runtime and target hardware remain open.
+- **USB / storage / hotplug — PARTIAL / AUDITING:** this round fixes the per-mount partition-rescan failure window and ignored PID 1 cleanup result. Caller-wide serialization, hotplug add/remove interleaving, per-device lock identity, filesystem runtime and hardware remain open.
 - **Firewall / NAT — AUDITING:** FULLCONENAT notifier ownership is per-network-namespace, but mapping hashes and the dying-tuple queue remain module-global and are not namespace-keyed. IPv4/IPv6 writer parity, rollback and runtime remain open.
-- **DNS / DHCP / resolver — PARTIAL / AUDITING:** WAN/IPTV lease validation, route reconciliation, resolver refresh and DHCPv6 DUID file handling have bounded evidence. LAN DHCP input handling, deconfig/leasefail/NAK/decline/release semantics, error propagation and runtime integration remain open.
-- **WAN / PPP / routing — PARTIAL / AUDITING:** selected route-result propagation and WAN stop/teardown failure gates have exact-head host evidence; broader PPP and runtime routing remain open.
-- **Wireless — PARTIAL / AUDITING:** radio-state, bridge-up and RT3352 iNIC lifecycle paths have bounded evidence; other board-conditional paths and concurrent restart/stop remain open.
-- **HTTPD / CGI / authentication, NVRAM persistence, init/service lifecycle, switch/PHY/MDIO, FTP/Samba/NFS/accounts and integrated third-party userland:** remain separate open areas in `REFACTOR_ROADMAP.md`. No subsystem is declared complete by this storage fix.
+- **DNS / DHCP / resolver — PARTIAL / AUDITING:** WAN/IPTV lease validation, route reconciliation, resolver refresh and DHCPv6 DUID handling have bounded evidence; LAN DHCP and remaining lease lifecycle/error propagation remain open.
+- **WAN / PPP / routing — PARTIAL / AUDITING:** selected route-result propagation and WAN stop/teardown failure gates have bounded exact-head evidence; broader PPP and runtime routing remain open.
+- **Wireless — PARTIAL / AUDITING:** radio-state, bridge-up and RT3352 iNIC lifecycle paths have bounded evidence; other board paths and concurrent restart/stop remain open.
+- **HTTPD / CGI / auth, NVRAM persistence, init/service lifecycle, switch/PHY/MDIO, FTP/Samba/NFS/accounts and integrated third-party userland:** remain separate open areas. No subsystem is declared complete.
 
 ## Verification boundary
 
 | Level | Status |
 |---|---|
-| L1 source/caller review | PASS for the whole-disk remove → PID 1 notification → ejected-mount cleanup path, the inventory failure window and error-result propagation. |
-| L2 host regression / GitHub Actions | PENDING for THIS COMMIT: storage partition parser/test, source-order contract and exact-head AI documentation contract. |
+| L1 source/caller review | PASS for whole-disk removal → PID 1 notification → staged eject cleanup and error propagation. |
+| L2 host regression / Actions | Storage workflow **PASS** [42561240425](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42561240425), documentation contract **PASS** [42561240402](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42561240402), both exact `7fee5c1...`. HTTPD workflow legacy contract failed [42561240397](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42561240397); assertion migration is in THIS COMMIT and awaits rerun. |
 | L3 MIPS/uClibc RC compile and complete firmware/TRX | **NOT VERIFIED**. |
-| L4 flash/boot, real USB disconnect/eject, mount teardown and physical router behavior | **NOT VERIFIED**. |
-
-No production MIPS/uClibc compile, full firmware image, live filesystem integration or physical-router test is claimed.
+| L4 physical USB eject/disconnect, filesystem runtime and router hardware | **NOT VERIFIED**. |
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, root governance files and all three archive indexes. Check the **USB storage hotplug stability regression** and **AI handoff documentation contract** against that exact SHA; do not rely on stale or queued runs.
-2. Record exact commit/run IDs and PASS/FAIL in a documentation-only follow-up if needed. If a workflow fails, fix the failing source/test first and keep the handoff honest.
-3. Continue the global storage caller/concurrency audit: trace disk/partition add/remove event ordering, `file_lock()` identity and scope, `safe_remove_usb_device()`, `safe_remove_stor_device()`, `ejusb/ejata/ejmmc` entry points and overlapping safe-eject requests. Pick one demonstrated defect for the next bounded fix.
-4. Keep FULLCONENAT mapping-table namespace isolation as a separate P2 security/stability task. Do not conflate it with the completed notifier per-net ownership change; kernel/MTK/DTS changes remain outside the ordinary user-space repair batch.
+1. Fetch live `main` and its exact-head Actions. Verify the HTTPD security workflow and AI handoff documentation contract after this assertion migration; record their run IDs and conclusions.
+2. If both pass, continue whole-repository storage caller/concurrency audit: trace `mdev_sd_main()`, `mdev_mmc_main()`, `safe_remove_usb_device()`, `safe_remove_stor_device()`, `ejusb/ejata/ejmmc`, disk add/remove interleaving and `file_lock()` identity/scope. Choose the next fix only after confirming a concrete race or stale-state defect.
+3. Keep FULLCONENAT mapping-table namespace isolation as a separate P2 stability/security task. Do not conflate it with the prior notifier per-net ownership fix. Kernel/MTK/DTS are outside the normal userspace batch.
 
 ## Recovery and archive rule
 
-- The superseded handoff is preserved byte-for-byte as `docs/handoffs/archive/2026/11/part-009.md`; the superseded roadmap is preserved byte-for-byte as `docs/roadmap-history/2026/11/part-010.md`.
-- The superseded 08:14 CST NFS record evicted from the root rolling window is appended verbatim to `docs/dev-log/2026/11/part-005.md`.
-- Root `dev_log.md` retains exactly the newest 20 complete records, newest first. Historical snapshots/records stay indexed and byte-preserved.
+- Superseded current handoff is preserved verbatim as `docs/handoffs/archive/2026/11/part-010.md`; superseded roadmap as `docs/roadmap-history/2026/11/part-011.md`.
+- The 2026-11-09 08:24 CST root log record is appended verbatim to `docs/dev-log/2026/11/part-005.md`.
+- Root log contains exactly newest 20 complete records. Archive indexes and byte/Git blob SHA checks remain authoritative.

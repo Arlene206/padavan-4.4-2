@@ -1909,12 +1909,14 @@ jobs:
           ejected_end = service.index("struct storage_unmount_mount_entry", ejected_start)
           ejected = service[ejected_start:ejected_end]
           assert "if (!procpt)" in ejected and "return -1;" in ejected
-          assert "if (!procpt2)" in ejected
-          assert "partition_read_error = ferror(procpt2);" in ejected
+          assert "storage_stage_ejected_partitions(&partitions)" in ejected
+          assert "storage_ejected_partition_is_active(entry->device + 5," in ejected
+          assert "procpt2" not in ejected
+          assert "fopen(PROC_PARTITIONS_FILE" not in ejected
           assert "if (umount(entry->mountpoint) != 0)" in ejected
           assert "result = -1;" in ejected and "return result;" in ejected
+          assert ejected.index("storage_stage_ejected_partitions(&partitions)") < ejected.index("if (umount(entry->mountpoint) != 0)")
           assert ejected.index("if (umount(entry->mountpoint) != 0)") < ejected.index("(void)rmdir(entry->mountpoint)")
-          assert "partition_close_error = (fclose(procpt2) != 0)" in ejected
 
           path_start = service.index("umount_stor_path_range(")
           path_end = service.index("umount_stor_path(disk_info_t", path_start)

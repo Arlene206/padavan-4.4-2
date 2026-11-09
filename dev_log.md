@@ -1,3 +1,13 @@
+## 2026-11-09 12:20 CST — Align the storage CI contract with staged eject inventory
+
+- **Base main SHA:** `7fee5c1fc589dc98c3333dd4e052d28881b8756a`.
+- **Workflow correction:** THIS COMMIT — migrate the legacy `httpd-security.yml` safe-eject contract from the removed per-mount `procpt2` scan to the operation-wide staged partition snapshot.
+- **Exact-head CI:** storage hotplug regression [42561240425](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42561240425) and AI handoff documentation contract [42561240402](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42561240402) both passed on `7fee5c1fc589dc98c3333dd4e052d28881b8756a`. HTTPD security regression [42561240397](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42561240397) failed only at its legacy source assertion requiring `procpt2`/per-mount `/proc/partitions` reads; preceding compile/regression and unrelated source checks passed. The assertion is updated here to require one staged inventory before unmount and no per-mount rescan.
+- **Validation boundary:** implementation and focused GNU89 policy test are L2 PASS on the prior exact code head; the updated HTTPD workflow and refreshed documentation require exact-head Actions verification. L3 MIPS/uClibc and L4 physical-device validation remain NOT VERIFIED.
+- **Next:** check all Actions for the exact resulting `main` SHA; then continue storage hotplug concurrency audit from add/remove event ordering and per-device lock scope. Do not treat the contract correction as module completion.
+
+---
+
 ## 2026-11-09 12:10 CST — Stage storage eject inventories and propagate cleanup failures
 
 - **Base main SHA:** `692b7b2372dd4ccabab879a53ddcd78aad69e751`.
@@ -247,21 +257,6 @@
 - **Exact-head Actions:** https://github.com/Arlene206/padavan-4.4-2/actions/runs/42542694771 completed **SUCCESS** on exact code/test/workflow SHA b63d863b8afeac8c9fa8012403becb9b312c8607; checkout and the FULLCONENAT/IPv6 restore source-contract step passed.
 - **Validation boundary:** L1 source and error-path review PASS; L2 exact-head GitHub Actions source-contract PASS. No Linux 4.4 kernel object/module build, MIPS/uClibc build, full firmware/TRX, live conntrack/NAT traffic, namespace concurrency or hardware test was run. A separate residual remains to audit: the module-global tg_refer_count/notifier state versus the per-network-namespace notifier API; this bounded fix does not claim multi-netns correctness.
 - **Next rotation:** leave Firewall/NAT AUDITING, not closed. Rotate to remaining Wireless/driver call-site coverage across net_wifi.c, ralink.c and switch link/speed consumers; do not repeat the fixed ralink.c::wl_ioctl() wrapper or the completed iwlib.c/iwlist.c scan-parser bounds. Trace returned lengths, ioctl error propagation and state-publication ordering, prove one new defect before patching, and keep expanding the wider userland inventory.
-
----
-
-## 2026-11-09 08:24 CST — Stage one complete mount inventory across safe storage removal
-
-- **Base main SHA:** `7d10984e2bd89d0adaa63c59b345c8977977bee7`.
-- **Implementation commit:** `d7fb1e12867b3678878daba3fb36e94bcd22cbaf` — stage a complete `/proc/mounts` inventory once for the full selected storage operation; validate all six fields, read/close status and allocations before side effects; preserve the public `umount_stor_path()` signature.
-- **Workflow contract correction:** `97e91979aa731e26962c1f3a1a8b949ab6dfdb43` — migrate the older safe-eject source contract away from the removed per-device `umount_dev()` loop to the range-wide inventory and swapoff preflight.
-- **Regression correction:** `968437c118f373bfc4ef1313ffeb259ace788ff1` — correct a negative MMC match assertion that mistakenly expected a device path not to match itself.
-- **Finding:** `umount_stor_path()` called `umount_dev()` once per partition, and `safe_remove_stor_device()` repeated the path helper once per port. Each inner helper staged the complete mount inventory for only that invocation. A later inventory read/parse/close/allocation error could therefore be discovered after an earlier partition/port had already been unmounted.
-- **Behavioral change:** one operation-wide mount snapshot is parsed and staged first. Any incomplete inventory aborts before swapoff, optional unmount hooks, `umount()` or spindown. The code then attempts all selected swapoffs before any selected unmount; any swapoff failure blocks all selected unmounts and spindown. Staged device entries are matched against exact SD/MMC whole-disk/partition names, preventing a textual prefix such as `sda-extra` from matching `sda`. Multi-port safe removal invokes one range operation rather than a per-port loop.
-- **Changed paths:** `trunk/user/rc/src/services_stor.c`; `trunk/user/rc/src/storage_ejected_inventory_policy.h`; `trunk/user/rc/src/tests/storage_ejected_inventory_policy.c`; `.github/workflows/httpd-security.yml`. Existing push/pull_request path filters already covered the modified source/helper/test paths.
-- **Regression history:** initial exact-head run [42539757133](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42539757133) failed because a pre-existing workflow assertion still required `umount_dev()`. After the workflow contract update, [42539851945](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42539851945) passed the migrated safe-eject source contract but the new C test exposed the invalid same-disk negative assertion. After correcting the fixture, exact-head run [42539924139](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42539924139) completed **SUCCESS** on `968437c118f373bfc4ef1313ffeb259ace788ff1`, 41/41 steps, including the GNU89 `-Wall -Wextra -Werror` compile/run and new operation-wide inventory/swapoff-order contracts.
-- **Validation boundary:** L1 source/control-flow review PASS; L2 focused GNU89 host policy regression and exact-head Actions PASS. No full production `services_stor.c` object, MIPS/uClibc, complete firmware/TRX, concurrent mount-churn/runtime storage or physical router validation was run.
-- **Next:** rotate to the open IPv6 Firewall/NAT audit. Trace `firewall_ex.c` IPv6 restore transactions, `ip6table_nat` registration and extension-hook failures against the IPv4 path; implement only an evidenced return/rollback defect. Keep Firewall/NAT and USB/storage **AUDITING**.
 
 ---
 
