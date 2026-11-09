@@ -177,6 +177,36 @@ ftp_acl_path_split_entry(const char *path, char *parent, size_t parent_size,
 }
 
 /*
+ * Resolve an existing pathname through its final symlink and split the
+ * canonical target into a directory and one leaf component. Later syscalls
+ * use the returned parent descriptor and leaf, never the original pathname.
+ */
+static int
+ftp_acl_path_resolve_existing_entry(const char *path, char *resolved_parent,
+                                    size_t resolved_size, char *leaf,
+                                    size_t leaf_size)
+{
+  char target[PATH_MAX], parent[PATH_MAX];
+  if (!path || !*path || !resolved_parent || resolved_size < PATH_MAX ||
+      !leaf || leaf_size == 0 || strlen(path) >= PATH_MAX ||
+      ftp_acl_path_is_internal_metadata(path)) {
+    errno = EACCES;
+    return -1;
+  }
+  if (realpath(path, target) == NULL)
+    return -1;
+  if (ftp_acl_path_is_internal_metadata(target)) {
+    errno = EACCES;
+    return -1;
+  }
+  if (ftp_acl_path_split_entry(target, parent, sizeof(parent),
+                               leaf, leaf_size) != 0 ||
+      realpath(parent, resolved_parent) == NULL)
+    return -1;
+  return 0;
+}
+
+/*
  * Open an absolute canonical directory one component at a time. O_PATH keeps
  * this usable for write-only directories while providing a stable dirfd.
  * O_NOFOLLOW rejects a component substituted with a symlink after realpath().
@@ -225,6 +255,80 @@ ftp_acl_path_open_directory(const char *path)
     component = (*end == '/') ? end + 1 : end;
   }
   return dir_fd;
+}
+
+/*
+ * Pin a canonical directory and verify that the opened descriptor still
+ * names the directory resolved by the caller.
+ */
+static int
+ftp_acl_path_open_verified_directory(const char *path)
+{
+  struct stat expected, opened;
+  int dir_fd, saved_errno;
+  if (!path || path[0] != '/' || stat(path, &expected) != 0)
+    return -1;
+  dir_fd = ftp_acl_path_open_directory(path);
+  if (dir_fd < 0)
+    return -1;
+  if (fstat(dir_fd, &opened) != 0) {
+    saved_errno = errno;
+    close(dir_fd);
+    errno = saved_errno;
+    return -1;
+  }
+  if (!S_ISDIR(opened.st_mode) ||
+      expected.st_dev != opened.st_dev ||
+      expected.st_ino != opened.st_ino) {
+    close(dir_fd);
+    errno = ESTALE;
+    return -1;
+  }
+  return dir_fd;
+}
+
+/*
+ * Open only a regular file below a pinned directory. O_NOFOLLOW prevents a
+ * final-component symlink substitution; comparing the directory entry with
+ * the returned descriptor rejects a replacement between fstatat() and openat().
+ * stat_only uses O_PATH so SIZE retains stat semantics without needing read
+ * permission on the file itself.
+ */
+static int
+ftp_acl_path_open_existing_file(int dir_fd, const char *leaf, int stat_only)
+{
+  struct stat expected, opened;
+  int file_fd, flags, saved_errno;
+  if (dir_fd < 0 || !leaf || !*leaf || strchr(leaf, '/') ||
+      strcmp(leaf, ".") == 0 || strcmp(leaf, "..") == 0) {
+    errno = EINVAL;
+    return -1;
+  }
+  if (fstatat(dir_fd, leaf, &expected, AT_SYMLINK_NOFOLLOW) != 0)
+    return -1;
+  if (!S_ISREG(expected.st_mode)) {
+    errno = EINVAL;
+    return -1;
+  }
+  flags = (stat_only ? O_PATH : (O_RDONLY | O_NONBLOCK)) |
+          O_NOFOLLOW | O_CLOEXEC;
+  file_fd = openat(dir_fd, leaf, flags);
+  if (file_fd < 0)
+    return -1;
+  if (fstat(file_fd, &opened) != 0) {
+    saved_errno = errno;
+    close(file_fd);
+    errno = saved_errno;
+    return -1;
+  }
+  if (!S_ISREG(opened.st_mode) ||
+      expected.st_dev != opened.st_dev ||
+      expected.st_ino != opened.st_ino) {
+    close(file_fd);
+    errno = ESTALE;
+    return -1;
+  }
+  return file_fd;
 }
 
 /*

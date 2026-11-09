@@ -1,3 +1,17 @@
+## 2026-11-10 06:57 CST (UTC+8) — Anchor FTP RETR and SIZE to the ACL-authorized file descriptor
+
+- **Base main SHA:** `f03f31fb33875fcf104f444cd6c87b77258126eb`; active branch: `main`; remote branches: `main` only.
+- **Recovered exact-head CI:** VSFTPD regression [42714563434] and AI handoff docs [42714560664] both completed SUCCESS on exact base SHA `f03f31fb33875fcf104f444cd6c87b77258126eb`; the previous upload dirfd anchoring task and multiline source-contract correction are complete.
+- **Finding:** `handle_retr()` checked share ACLs through `realpath()` and then reopened the original pathname with `str_open()`; `handle_size()` similarly checked the effective target and later called `str_stat()`. A final or parent symlink could be replaced after authorization, so the final file operation could address a different entry.
+- **Fix:** add `ftp_acl_path_resolve_existing_entry()` to canonicalize an existing target (including final symlinks) into parent/leaf; pin and verify the canonical parent directory; recheck its identity after the share ACL decision; open only a regular leaf using `openat(O_NOFOLLOW|O_CLOEXEC)`; and compare the pre-open `fstatat(AT_SYMLINK_NOFOLLOW)` identity with the opened descriptor's `fstat()`. RETR transfers from that descriptor and SIZE obtains metadata from an `O_PATH` descriptor, retaining stat-only access without requiring file read permission. Dangling/internal-metadata targets and substituted symlink leaves fail closed.
+- **Regression:** extend the GNU89 path-policy test for canonical final-symlink targets, descriptor-relative existing-file open, `O_PATH` stat-only semantics, verified parent pinning, substituted final-symlink rejection and dangling/metadata-link denial. Extend the VSFTPD semantic workflow to require descriptor-based RETR/SIZE and prohibit their old path-based open/stat operations.
+- **Changed paths:** `trunk/user/vsftpd/src/ftp_acl_path_policy.h`, `asus_ext.c`, `asus_ext.h`, `postlogin.c`, `tests/ftp_acl_path_policy.c`, `.github/workflows/vsftpd-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and this log.
+- **Validation:** L1 source/control-flow review PASS; host regression and semantic source-contract Actions are **PENDING** on THIS resulting SHA. No local checkout/compiler was available for a separate host run. L3 MIPS/uClibc object/firmware and L4 hardware validation remain NOT VERIFIED.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** inspect exact-head VSFTPD and AI-doc runs; if green, implement descriptor-relative DELE/RMD/MKD/RNTO while preserving existing ACL semantics. Keep LIST/NLST recursion, path-based MDTM/SITE CHMOD, and the non-atomic upload cleanup race open.
+
+---
+
 ## 2026-11-10 06:46 CST (UTC+8) — Make FTP upload source contract robust to multiline calls
 
 - **Base main SHA:** `9d538991d0644d3393aed62cef09fce89ca86774`; active branch: `main`.

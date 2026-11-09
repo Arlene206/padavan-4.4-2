@@ -659,6 +659,7 @@ handle_retr(struct vsf_session* p_sess, int is_http)
   struct vsf_transfer_ret trans_ret;
   int remote_fd;
   int opened_file;
+  int permission_denied = 0;
   int is_ascii = 0;
   filesize_t offset = p_sess->restart_pos;
   p_sess->restart_pos = 0;
@@ -681,15 +682,15 @@ handle_retr(struct vsf_session* p_sess, int is_http)
     vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
     return;
   }
-  if (!asus_check_permission_existing_path(p_sess, PERM_READ, &p_sess->ftp_arg_str))
-  {
-    vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
-    return;
-  }
-  opened_file = str_open(&p_sess->ftp_arg_str, kVSFSysStrOpenReadOnly);
+  opened_file = asus_open_existing_path(p_sess, PERM_READ,
+                                          &p_sess->ftp_arg_str, 0,
+                                          &permission_denied);
   if (vsf_sysutil_retval_is_error(opened_file))
   {
-    vsf_cmdio_write(p_sess, FTP_FILEFAIL, "Failed to open file.");
+    if (permission_denied)
+      vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
+    else
+      vsf_cmdio_write(p_sess, FTP_FILEFAIL, "Failed to open file.");
     return;
   }
   /* Lock file if required */
@@ -1532,21 +1533,27 @@ handle_size(struct vsf_session* p_sess)
    * I will not do it because it is a potential I/O DoS.
    */
   static struct vsf_sysutil_statbuf* s_p_statbuf;
-  int retval;
+  int opened_file;
+  int permission_denied = 0;
   resolve_tilde(&p_sess->ftp_arg_str, p_sess);
   if (!vsf_access_check_file(&p_sess->ftp_arg_str))
   {
     vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
     return;
   }
-  if (!asus_check_permission_existing_path(p_sess, PERM_READ,
-                                               &p_sess->ftp_arg_str))
+  opened_file = asus_open_existing_path(p_sess, PERM_READ,
+                                        &p_sess->ftp_arg_str, 1,
+                                        &permission_denied);
+  if (vsf_sysutil_retval_is_error(opened_file))
   {
-    vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
+    if (permission_denied)
+      vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
+    else
+      vsf_cmdio_write(p_sess, FTP_FILEFAIL, "Could not get file size.");
     return;
   }
-  retval = str_stat(&p_sess->ftp_arg_str, &s_p_statbuf);
-  if (retval != 0 || !vsf_sysutil_statbuf_is_regfile(s_p_statbuf))
+  vsf_sysutil_fstat(opened_file, &s_p_statbuf);
+  if (!vsf_sysutil_statbuf_is_regfile(s_p_statbuf))
   {
     vsf_cmdio_write(p_sess, FTP_FILEFAIL, "Could not get file size.");
   }
@@ -1557,6 +1564,7 @@ handle_size(struct vsf_session* p_sess)
                          vsf_sysutil_statbuf_get_size(s_p_statbuf));
     vsf_cmdio_write_str(p_sess, FTP_SIZEOK, &s_size_res_str);
   }
+  vsf_sysutil_close(opened_file);
 }
 
 static void

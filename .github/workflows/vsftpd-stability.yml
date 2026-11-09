@@ -126,6 +126,7 @@ jobs:
           rmd = function_body(vsftpd_postlogin, "static void\nhandle_rmd")
           dele = function_body(vsftpd_postlogin, "static void\nhandle_dele")
           retr = function_body(vsftpd_postlogin, "static void\nhandle_retr")
+          existing_open = function_body(vsftpd_acl, "asus_open_existing_path(")
           directory = function_body(vsftpd_postlogin, "static void\nhandle_dir_common")
           acl_at = function_body(vsftpd_acl, "asus_check_permission_at(")
           acl_path = function_body(vsftpd_acl, "asus_check_permission_path(")
@@ -142,9 +143,27 @@ jobs:
           assert "asus_check_permission_path(p_sess, PERM_WRITE, &p_sess->ftp_arg_str)" in mkd
           assert "asus_check_permission_path(p_sess, PERM_DELETE, &p_sess->ftp_arg_str)" in rmd
           assert "asus_check_permission_path(p_sess, PERM_DELETE, &p_sess->ftp_arg_str)" in dele
-          assert "asus_check_permission_existing_path(p_sess, PERM_READ" in retr
+          assert "asus_open_existing_path(p_sess, PERM_READ" in retr
+          assert "&p_sess->ftp_arg_str, 0," in retr
+          assert "str_open(" not in retr
           assert "asus_check_permission_directory(p_sess" in directory
-          assert "asus_check_permission_existing_path(p_sess, PERM_READ" in size
+          assert "asus_open_existing_path(p_sess, PERM_READ" in size
+          assert "&p_sess->ftp_arg_str, 1," in size
+          assert "str_stat(" not in size
+          assert "vsf_sysutil_fstat(opened_file" in size
+          assert "vsf_sysutil_close(opened_file)" in size
+          assert "ftp_acl_path_resolve_existing_entry" in existing_open
+          assert "ftp_acl_path_open_verified_directory" in existing_open
+          assert "asus_check_permission_at(p_sess, perm, resolved_parent)" in existing_open
+          assert "ftp_acl_path_open_existing_file(parent_fd, leaf, stat_only)" in existing_open
+          assert "ftp_acl_path_open_existing_file" in acl_path_policy
+          assert "fstatat(dir_fd, leaf, &expected, AT_SYMLINK_NOFOLLOW)" in acl_path_policy
+          assert "O_PATH : (O_RDONLY | O_NONBLOCK)" in acl_path_policy
+          assert "expected.st_ino != opened.st_ino" in acl_path_policy
+          assert "existing final symlink target was not canonicalized" in acl_path_test
+          assert "stat-only descriptor did not pin the regular target" in acl_path_test
+          assert "existing-file helper followed a substituted final symlink" in acl_path_test
+          assert "existing-file open escaped the pinned directory" in acl_path_test
           assert "can_write ? PERM_WRITE : PERM_READ" in mdtm
           assert "asus_check_permission_existing_path(p_sess, PERM_WRITE" in chmod
           assert size.index("asus_check_permission_existing_path(") < size.index("str_stat(")

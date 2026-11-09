@@ -341,6 +341,69 @@ asus_check_permission_upload(struct vsf_session* p_sess,
 }
 
 
+/*
+ * Resolve and pin the authorized existing target before opening it. The
+ * directory identity is checked again after the ACL lookup, so a concurrent
+ * parent rename cannot redirect the final open to another share.
+ */
+int
+asus_open_existing_path(struct vsf_session* p_sess, int perm,
+                        const struct mystr* p_path_str, int stat_only,
+                        int* p_permission_denied)
+{
+  char resolved_parent[PATH_MAX], leaf[PATH_MAX];
+  struct stat expected_parent, opened_parent;
+  int parent_fd, file_fd, saved_errno;
+  if (!p_permission_denied || !p_sess || !p_path_str) {
+    errno = EINVAL;
+    return -1;
+  }
+  *p_permission_denied = 0;
+  if (ftp_acl_path_resolve_existing_entry(str_getbuf(p_path_str),
+                                          resolved_parent,
+                                          sizeof(resolved_parent),
+                                          leaf, sizeof(leaf)) != 0) {
+    *p_permission_denied = 1;
+    return -1;
+  }
+  parent_fd = ftp_acl_path_open_verified_directory(resolved_parent);
+  if (parent_fd < 0) {
+    *p_permission_denied = 1;
+    return -1;
+  }
+  if (!asus_check_permission_at(p_sess, perm, resolved_parent)) {
+    close(parent_fd);
+    errno = EACCES;
+    *p_permission_denied = 1;
+    return -1;
+  }
+  if (stat(resolved_parent, &expected_parent) != 0 ||
+      fstat(parent_fd, &opened_parent) != 0) {
+    saved_errno = errno;
+    close(parent_fd);
+    errno = saved_errno;
+    *p_permission_denied = 1;
+    return -1;
+  }
+  if (!S_ISDIR(opened_parent.st_mode) ||
+      expected_parent.st_dev != opened_parent.st_dev ||
+      expected_parent.st_ino != opened_parent.st_ino) {
+    close(parent_fd);
+    errno = ESTALE;
+    *p_permission_denied = 1;
+    return -1;
+  }
+  file_fd = ftp_acl_path_open_existing_file(parent_fd, leaf, stat_only);
+  if (file_fd < 0) {
+    saved_errno = errno;
+    close(parent_fd);
+    errno = saved_errno;
+    return -1;
+  }
+  close(parent_fd);
+  return file_fd;
+}
+
 int
 asus_open_upload_path(struct vsf_session* p_sess,
                       const struct mystr* p_path_str, int exclusive,

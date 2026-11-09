@@ -65,7 +65,10 @@ main(void)
   char rollback_path[PATH_MAX], rollback_saved[PATH_MAX];
   char tiny[2];
   int cleanup_allowed, dir_fd, race_fd, rollback_fd, replacement_fd;
-  struct stat st;
+  int existing_dir_fd, existing_file_fd;
+  char existing_leaf[PATH_MAX], readback[16];
+  ssize_t read_length;
+  struct stat st, canonical_st;
   char *created;
 
   if (!ftp_acl_path_is_internal_metadata("/mnt/.__folder_list.txt") ||
@@ -150,6 +153,44 @@ main(void)
       strcmp(resolved, b)) {
     fprintf(stderr, "write through cross-share symlink was not canonicalized\n"); return 1;
   }
+  if (ftp_acl_path_resolve_existing_entry(link_file, resolved, sizeof(resolved),
+                                           existing_leaf, sizeof(existing_leaf)) ||
+      strcmp(resolved, b) || strcmp(existing_leaf, "protected.txt")) {
+    fprintf(stderr, "existing final symlink target was not canonicalized\n");
+    return 1;
+  }
+  existing_dir_fd = ftp_acl_path_open_verified_directory(resolved);
+  if (existing_dir_fd < 0) {
+    perror("pin existing target directory");
+    return 1;
+  }
+  existing_file_fd = ftp_acl_path_open_existing_file(existing_dir_fd,
+                                                      existing_leaf, 0);
+  if (existing_file_fd < 0 || fstat(existing_file_fd, &st) != 0 ||
+      stat(file_b, &canonical_st) != 0 ||
+      st.st_dev != canonical_st.st_dev || st.st_ino != canonical_st.st_ino) {
+    fprintf(stderr, "descriptor-relative existing target open failed\n");
+    return 1;
+  }
+  close(existing_file_fd);
+  existing_file_fd = ftp_acl_path_open_existing_file(existing_dir_fd,
+                                                       existing_leaf, 1);
+  if (existing_file_fd < 0 || fstat(existing_file_fd, &st) != 0 ||
+      (fcntl(existing_file_fd, F_GETFL) & O_PATH) != O_PATH ||
+      st.st_dev != canonical_st.st_dev || st.st_ino != canonical_st.st_ino) {
+    fprintf(stderr, "stat-only descriptor did not pin the regular target\n");
+    return 1;
+  }
+  close(existing_file_fd);
+  close(existing_dir_fd);
+  if (ftp_acl_path_resolve_existing_entry(broken_link, resolved,
+          sizeof(resolved), existing_leaf, sizeof(existing_leaf)) == 0 ||
+      ftp_acl_path_resolve_existing_entry(metadata_alias, resolved,
+          sizeof(resolved), existing_leaf, sizeof(existing_leaf)) == 0) {
+    fprintf(stderr, "dangling or metadata symlink accepted for existing open\n");
+    return 1;
+  }
+
   if (ftp_acl_path_resolve_write_entry(link_file, resolved, sizeof(resolved),
                                        leaf, sizeof(leaf), &cleanup_allowed) ||
       strcmp(resolved, b) || strcmp(leaf, "protected.txt") ||
@@ -190,7 +231,7 @@ main(void)
    * when its pathname is replaced by a symlink to another share.
    */
   checked_path(held_a, sizeof(held_a), root, "shareA-held");
-  dir_fd = ftp_acl_path_open_directory(a);
+  dir_fd = ftp_acl_path_open_verified_directory(a);
   if (dir_fd < 0 || rename(a, held_a) || symlink(b, a)) {
     perror("pin authorized upload directory");
     return 1;
@@ -219,10 +260,27 @@ main(void)
     return 1;
   }
   errno = 0;
+  existing_file_fd = ftp_acl_path_open_existing_file(dir_fd, "race-link", 0);
+  if (existing_file_fd >= 0 || errno != ELOOP) {
+    fprintf(stderr, "existing-file helper followed a substituted final symlink\n");
+    return 1;
+  }
+  errno = 0;
   race_fd = openat(dir_fd, "race-link",
                    O_WRONLY | O_NOFOLLOW | O_CLOEXEC);
   if (race_fd >= 0 || errno != ELOOP) {
     fprintf(stderr, "O_NOFOLLOW accepted a substituted final symlink\n");
+    return 1;
+  }
+  existing_file_fd = ftp_acl_path_open_existing_file(dir_fd, "owned.txt", 0);
+  if (existing_file_fd < 0) {
+    perror("open existing file through pinned original directory");
+    return 1;
+  }
+  read_length = read(existing_file_fd, readback, sizeof(readback) - 1);
+  close(existing_file_fd);
+  if (read_length != 8 || memcmp(readback, "fixture\n", 8) != 0) {
+    fprintf(stderr, "existing-file open escaped the pinned directory\n");
     return 1;
   }
 
