@@ -1,4 +1,4 @@
-## 2026-11-09 09:15 CST — Gate AP and APCLI bridge publication on successful interface-up commands
+## 2026-11-09 09:18 CST — Gate AP and APCLI bridge publication on successful interface-up commands
 
 - **Base main SHA:** `398aaf17125ee87321c683c1e3b9d951178e04ed`.
 - **Code commit:** `df7c97c7fbba3ed30f003a6f7ecb5127b6fc91be` — make the 2.4/5GHz AP main/guest start paths, the RT3352 iNIC guest path, and both AP-client start paths return immediately when `wif_control()` fails. The checked `wif_control_success()` wrapper now gates bridge attachment, M2U configuration and AP-client auto-connect publication.
