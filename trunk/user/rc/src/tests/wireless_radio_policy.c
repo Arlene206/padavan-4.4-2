@@ -20,7 +20,7 @@ int
 main(void)
 {
 	if (test_success_is_published() ||
-	    test_command_and_restart_failures_are_not_published()) {
+	    test_interface_failures_are_not_published()) {
 		fprintf(stderr, "Wireless interface status policy: FAIL\n");
 		return 1;
 	}
