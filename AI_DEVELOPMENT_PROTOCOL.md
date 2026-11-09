@@ -6,6 +6,34 @@
 
 This file is the durable source of development rules. Every new ChatGPT conversation must read this file and the current handoff/roadmap before changing code. Repository state, commits, CI runs, and these documents take precedence over chat memory.
 
+
+## 0. Non-negotiable cross-conversation recovery and record governance
+
+**The user's first priority is uninterrupted development continuity.** Every new GPT conversation must reconstruct the active task, whole-repository progress, validation boundary and exact next action directly from GitHub within a few minutes. This is a required engineering property, not an optional documentation preference.
+
+No session may edit firmware source before completing the recovery sequence in Section 10 and the root `AI_BOOTSTRAP_PROMPT.md`. Live GitHub state and the latest fetched `main` SHA are authoritative; hidden memory or copied chat summaries may not override them. Resume the active handoff task or resolve its pending/failed CI before selecting another task.
+
+### Canonical compact root files
+
+- `SESSION_HANDOFF.md`: exactly one current resumable checkpoint. Target 8–24 KiB; hard limit 64 KiB. State the live-baseline SHA, active branch, last completed task, active task, paths/functions, evidence, exact-head CI, validation gaps, blockers and actionable first inspection. Do not append historical checkpoints here.
+- `REFACTOR_ROADMAP.md`: current whole-repository module dashboard and priority queue. Target below 64 KiB; hard limit 128 KiB. Keep one row per real module with source map, audit status, latest meaningful evidence/commit and next action. Put deep audit notes in `docs/audits/`; preserve superseded snapshots verbatim under `docs/roadmap-history/YYYY/MM/`.
+- `dev_log.md`: newest 20 complete entries, newest first. Target below 64 KiB; hard limit 128 KiB. Rotate complete oldest entries whenever count or size would exceed the limit.
+
+### Lossless archive and rotation rules
+
+- `docs/dev-log/YYYY/MM/part-NNN.md`: older complete log records. Target 256–384 KiB per shard; hard limit 512 KiB. Split only between complete dated records. Each shard is chronological oldest-to-newest so newly evicted records can be appended to the active month shard. Start a new part before exceeding 384 KiB. A single oversized record gets its own shard; never split the record.
+- `docs/dev-log/INDEX.md`: list every shard path, record count, oldest/newest date, exact byte size and Git blob SHA, plus the original source blob SHA.
+- `docs/handoffs/archive/YYYY/MM/`: superseded checkpoints copied verbatim, split only at complete checkpoint boundaries. `docs/handoffs/INDEX.md` records each file, section count, bytes and Git blob SHA.
+- `docs/roadmap-history/YYYY/MM/`: superseded full roadmap snapshots copied verbatim. `docs/roadmap-history/INDEX.md` records each file, section count, bytes and Git blob SHA.
+- Historical entries must remain byte-for-byte intact. Archiving may move and size-shard; it may not delete, rewrite, condense, paraphrase or silently drop a record. Preserve original file blob SHAs in indexes. For log shards, preserve each entry verbatim; archive ordering is oldest-to-newest while the root remains newest-first.
+- Update archive indexes in the same commit as an archive change. Do not load the full archive on every new session; retrieve only older evidence required for the active task.
+
+### Mandatory automated check
+
+Run `python3 scripts/check_ai_handoff_docs.py` before committing documentation changes. The `AI handoff documentation contract` workflow runs on pushes and pull requests and must pass on the exact commit SHA. It checks root limits, the 20-entry log window, archive inventory, shard limits, exact byte counts and Git blob SHAs. A failing governance check blocks the handoff.
+
+For a log entry inside the commit that creates it, label its result `THIS COMMIT` to avoid an impossible self-referential SHA; the next recovery fetches and reconciles the actual SHA. Record exact result SHAs for other commits when known.
+
 ## 1. Operating principles
 
 - Work autonomously within the connected GitHub permissions and available tools. Do not ask for redundant permission or repeat questions already answered.
@@ -121,7 +149,7 @@ Use explicit states such as NOT RUN, PASS, FAIL, BLOCKED, or NOT VERIFIED. A Lev
 ## 9. Three required project records
 
 ### dev_log.md — chronological history
-For every code or documentation commit, add a newest-first entry with:
+For every code or documentation commit, add a newest-first entry with (for the commit that contains its own entry, label the result `THIS COMMIT` and resolve the SHA during the next recovery):
 - Real Beijing time (UTC+8).
 - Base SHA and resulting commit SHA when known.
 - Scope and changed paths.
@@ -130,7 +158,7 @@ For every code or documentation commit, add a newest-first entry with:
 - CI run ID/URL and exact head SHA, or PENDING/NOT RUN.
 - Remaining risks and follow-up.
 
-Do not rewrite or truncate the existing history.
+Do not lose or rewrite existing history. Keep only the newest 20 complete records in the root log; move older entries verbatim into the indexed size-bounded archive described in Section 0.
 
 ### REFACTOR_ROADMAP.md — whole-repository status
 Track each real module's source paths, responsibilities, exposure, priority, audit scope, findings, implementation state, test levels, last commit, and next action. Distinguish:
@@ -208,3 +236,16 @@ At every stop, report briefly:
 - the next highest-priority action.
 
 **Non-negotiable:** stability bug discovery and repair is the primary development direction; security hardening continues in parallel and urgent security issues remain immediate priorities. Do not keep polishing a familiar subsystem while high-risk or failure-prone parts of the firmware remain unaudited. Do not lose unfinished work when a ChatGPT conversation ends. Do not equate local tests with a working firmware image.
+
+ 
+## 12. Handoff governance is a release-blocking invariant
+
+The size policy and archive layout in Section 0 are mandatory for every future GPT, not a one-time migration. Never restore the append-forever design. The root handoff is one actionable state, the roadmap is a dashboard, and the root log is a 20-entry window. Rotate before any hard limit is reached. If an archive cannot be indexed and verified, do not discard the source or claim the migration is complete.
+
+A conversation is not ready to end until:
+1. latest main SHA and active code SHA are distinguished;
+2. exact active task and first next action are in `SESSION_HANDOFF.md`;
+3. `REFACTOR_ROADMAP.md` reflects current whole-userland status and priorities;
+4. `dev_log.md` contains the new complete entry and no more than 20 records;
+5. indexes and the documentation contract check are current;
+6. no unverified L3/L4 work is presented as complete.

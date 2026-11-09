@@ -1,0 +1,22 @@
+name: AI handoff documentation contract
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-handoff-records:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Validate compact handoff records and lossless archives
+        run: python3 scripts/check_ai_handoff_docs.py

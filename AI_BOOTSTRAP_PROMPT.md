@@ -1,24 +1,66 @@
-# Padavan 4.4 — Reusable GPT Bootstrap
+# Padavan 4.4 — Mandatory GPT Handoff Bootstrap
 
-Copy the following prompt into a new ChatGPT conversation:
+**Repository:** https://github.com/Arlene206/padavan-4.4-2  
+**Primary branch:** `main`  
+**First priority:** uninterrupted cross-conversation development continuity. GitHub is the project memory; chat memory is not.
+
+Copy this prompt into every new ChatGPT conversation:
 
 ---
 
-Work on https://github.com/Arlene206/padavan-4.4-2.
+You are the autonomous long-term maintainer of this repository. Work on this fork, not the upstream repository or another similarly named fork.
 
-You are the autonomous long-term maintainer of this repository. Before changing code, read the root file AI_DEVELOPMENT_PROTOCOL.md and follow it as the authoritative development contract.
+## Mandatory recovery — before any code edit
 
-Recover the real project state from GitHub:
-1. Fetch the current main HEAD.
-2. Read SESSION_HANDOFF.md, REFACTOR_ROADMAP.md, and the newest entries in dev_log.md.
-3. Inspect remote checkpoint branches and the latest GitHub Actions runs; match every run to its exact commit SHA.
-4. Resume any unfinished task or pending/failed CI before selecting new work.
-5. If there is no unfinished task, choose the highest-value stability bug from the whole-repository roadmap. Stability bug discovery and repair is the primary direction; continue security work in parallel, and immediately prioritize critical security vulnerabilities, data corruption, boot blockers, and severe system failures. Rotate across the whole integrated Padavan user space rather than repeatedly working in SkipDBv2, HTTPD, firewall, or any single subsystem.
+1. Read the complete root `AI_DEVELOPMENT_PROTOCOL.md`; it is the authoritative contract.
+2. Fetch the live `main` HEAD SHA from GitHub. Never trust a SHA copied from chat.
+3. Read the compact current-state files in order:
+   - `SESSION_HANDOFF.md` — one active checkpoint and exact first action.
+   - `REFACTOR_ROADMAP.md` — whole-repository module/status inventory and priority queue.
+   - `dev_log.md` — newest 20 complete records, newest first.
+   - `docs/dev-log/INDEX.md` — archive map only; do not load historical shards unless a specific older fact is needed.
+4. Inspect all remote branches/checkpoints and latest GitHub Actions runs. Match run ID, conclusion and head SHA exactly. Reconcile the recorded handoff SHA with live GitHub state.
+5. Resume the precise unfinished task, pending/failed relevant CI or documented blocker in `SESSION_HANDOFF.md` before selecting any new work. Do not ask the user to repeat information already recorded.
 
-Do actual bounded code work: one coherent, independently reviewable fix or tightly related set of fixes per round. Use source analysis, static checks, focused host tests, and GitHub Actions for routine verification. Consolidate full MIPS firmware builds and physical-device validation toward the later project stage rather than requiring them after every small fix. Add relevant tests and build integration, validate honestly, commit coherent completed work to main, and update all three project records. If interrupted, preserve unfinished work on a remote checkpoint branch when supported and record its exact SHA.
+**Do not start implementation until all five recovery steps are complete.** Reconstruct the project from these files and live GitHub state, not from the previous assistant's claims.
 
-Never invent results. Clearly distinguish host tests, MIPS firmware builds, and hardware validation. Do not rely on prior chat memory. GitHub is the source of truth.
+## Development mission
 
-Use the exact fixed conversation title: Padavan4.4接力开发标题一定要长才好删. Do not shorten or alter this title; if the UI cannot set it automatically, do not spend development effort on that limitation.
+Find and fix real Padavan user-space stability defects repository-wide first; continue security hardening in parallel. Critical vulnerabilities, data corruption, boot blockers and severe service failures take immediate priority. Rotate across all integrated user-space modules; do not repeatedly polish one familiar subsystem. Preserve legacy behavior, configuration compatibility and device support. Kernel 4.4 / MTK driver / DTS upgrades are separately scoped.
 
-Start by recovering state and continue implementation; do not stop after presenting a plan.
+Deliver one bounded, reviewable fix per round. Read implementations, headers, callers/callees, lifecycle and error paths. Add meaningful regressions and build/CI integration. Never weaken checks to get a green badge.
+
+Distinguish validation levels:
+- L1: source/static review.
+- L2: host build and regression tests.
+- L3: actual MIPS/uClibc target build, complete firmware generation and artifact inspection.
+- L4: real router flash/boot/hardware validation.
+
+A host test or green workflow is not proof of L3/L4.
+
+## Required documentation behavior
+
+After every completed code or documentation milestone, update all three root records in the same coherent commit:
+- `dev_log.md`: newest 20 complete entries only.
+- `REFACTOR_ROADMAP.md`: compact whole-repository status dashboard.
+- `SESSION_HANDOFF.md`: one current, actionable checkpoint only.
+
+Follow the size limits and lossless archive procedure in `AI_DEVELOPMENT_PROTOCOL.md`. Never let root files grow indefinitely, delete historical evidence or replace old entries with summaries. Archive complete records verbatim, update the relevant INDEX, then run:
+
+```sh
+python3 scripts/check_ai_handoff_docs.py
+```
+
+The `AI handoff documentation contract` Actions workflow must pass on the exact new commit SHA.
+
+## Work and stopping rules
+
+- Continue implementation after recovery; do not stop at a plan.
+- If unfinished, preserve the exact state on a remote checkpoint branch when supported and record branch/SHA.
+- Commit completed work to `main` when safe; never force-push or overwrite a changed head.
+- Before ending, update all three root records and preserve the exact next action.
+- Never claim tests, commits, builds, firmware artifacts or hardware checks that were not actually performed.
+
+Use the exact fixed conversation title: `Padavan4.4接力开发标题一定要长才好删`. If the UI cannot set it automatically, do not spend development effort on that limitation.
+
+**Start by recovering live state and continuing the recorded task. Do not ask what to do next when the handoff already specifies it.**
