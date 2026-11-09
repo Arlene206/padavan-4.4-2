@@ -484,13 +484,15 @@ start_wifi_ap_wl(int radio_on)
 	// check Radio enabled and not WDS only, not ApCli only
 	if (radio_on && i_mode_x != 1 && i_mode_x != 3)
 	{
-		wif_control(IFNAME_5G_MAIN, 1);
+		if (!wif_control_success(IFNAME_5G_MAIN, 1))
+			return;
 		br_add_del_if(IFNAME_BR, IFNAME_5G_MAIN, 1);
 		wif_control_m2u(1, IFNAME_5G_MAIN);
 		
 		if (is_guest_allowed_wl())
 		{
-			wif_control(IFNAME_5G_GUEST, 1);
+			if (!wif_control_success(IFNAME_5G_GUEST, 1))
+				return;
 			br_add_del_if(IFNAME_BR, IFNAME_5G_GUEST, 1);
 			wif_control_m2u(1, IFNAME_5G_GUEST);
 		}
@@ -527,7 +529,8 @@ start_wifi_ap_rt(int radio_on)
 	// check Radio enabled and check not WDS only, not ApCli only
 	if (radio_on && i_mode_x != 1 && i_mode_x != 3 && is_guest_allowed_rt())
 	{
-		wif_control(IFNAME_INIC_GUEST, 1);
+		if (!wif_control_success(IFNAME_INIC_GUEST, 1))
+			return;
 		if (!is_ap_mode)
 			br_add_del_if(IFNAME_BR, IFNAME_INIC_GUEST_VLAN, 1);
 	}
@@ -539,13 +542,15 @@ start_wifi_ap_rt(int radio_on)
 	// check Radio enabled and check not WDS only, not ApCli only
 	if (radio_on && i_mode_x != 1 && i_mode_x != 3)
 	{
-		wif_control(IFNAME_2G_MAIN, 1);
+		if (!wif_control_success(IFNAME_2G_MAIN, 1))
+			return;
 		br_add_del_if(IFNAME_BR, IFNAME_2G_MAIN, 1);
 		wif_control_m2u(0, IFNAME_2G_MAIN);
 		
 		if (is_guest_allowed_rt())
 		{
-			wif_control(IFNAME_2G_GUEST, 1);
+			if (!wif_control_success(IFNAME_2G_GUEST, 1))
+				return;
 			br_add_del_if(IFNAME_BR, IFNAME_2G_GUEST, 1);
 			wif_control_m2u(0, IFNAME_2G_GUEST);
 		}
@@ -652,7 +657,8 @@ start_wifi_apcli_wl(int radio_on)
 
 	if (radio_on && (i_mode_x == 3 || i_mode_x == 4) && (strlen(nvram_wlan_get(1, "sta_ssid")) > 0))
 	{
-		wif_control(ifname_apcli, 1);
+		if (!wif_control_success(ifname_apcli, 1))
+			return;
 		br_add_del_if(IFNAME_BR, ifname_apcli, !is_apcli_wisp_wl() || get_ap_mode());
 		if (nvram_wlan_get_int(1, "sta_auto"))
 #if defined (USE_WID_5G) && (USE_WID_5G==7615 || USE_WID_5G==7915)
@@ -682,7 +688,8 @@ start_wifi_apcli_rt(int radio_on)
 
 	if (radio_on && (i_mode_x == 3 || i_mode_x == 4) && (strlen(nvram_wlan_get(0, "sta_ssid")) > 0))
 	{
-		wif_control(ifname_apcli, 1);
+		if (!wif_control_success(ifname_apcli, 1))
+			return;
 #if !defined(USE_RT3352_MII)
 		br_add_del_if(IFNAME_BR, ifname_apcli, !is_apcli_wisp_rt() || get_ap_mode());
 		if (nvram_wlan_get_int(0, "sta_auto"))
