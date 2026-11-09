@@ -2102,7 +2102,7 @@ jobs:
           assert stop_pos < nfs.index("storage_mount_inventory_has_mounts(mount_count)")
           assert "preserving the current NFS service and support state" in nfs
 
-                    safe_start = service.index("safe_remove_stor_device(int port_b")
+          safe_start = service.index("safe_remove_stor_device(int port_b")
           safe_end = service.index("safe_remove_all_stor_devices(int do_spindown)", safe_start)
           safe_remove = service[safe_start:safe_end]
           assert "mount_count < 0" in safe_remove
