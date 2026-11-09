@@ -5,6 +5,8 @@ on:
     paths:
       - ".github/workflows/fullconenat-lifecycle.yml"
       - "trunk/linux-4.4.x/net/netfilter/xt_FULLCONENAT.c"
+      - "trunk/linux-4.4.x/net/netfilter/fullconenat_namespace_policy.h"
+      - "trunk/linux-4.4.x/net/netfilter/tests/fullconenat_namespace_policy.c"
       - "trunk/linux-4.4.x/net/netfilter/x_tables.c"
       - "trunk/linux-4.4.x/net/ipv4/netfilter/ip_tables.c"
       - "trunk/linux-4.4.x/net/netfilter/nf_conntrack_ecache.c"
@@ -17,6 +19,8 @@ on:
     paths:
       - ".github/workflows/fullconenat-lifecycle.yml"
       - "trunk/linux-4.4.x/net/netfilter/xt_FULLCONENAT.c"
+      - "trunk/linux-4.4.x/net/netfilter/fullconenat_namespace_policy.h"
+      - "trunk/linux-4.4.x/net/netfilter/tests/fullconenat_namespace_policy.c"
       - "trunk/linux-4.4.x/net/netfilter/x_tables.c"
       - "trunk/linux-4.4.x/net/ipv4/netfilter/ip_tables.c"
       - "trunk/linux-4.4.x/net/netfilter/nf_conntrack_ecache.c"
@@ -212,4 +216,98 @@ jobs:
           assert "firewall_restore_transaction_abort(tx, command_fn, remove_fn, context);" in apply
 
           print("FULLCONENAT GC prerequisite, notifier error propagation, IPv6 restore rollback contracts: PASS")
+          PY
+
+      - name: Build and run namespace and zone identity regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -Itrunk/linux-4.4.x/net/netfilter \
+            trunk/linux-4.4.x/net/netfilter/tests/fullconenat_namespace_policy.c \
+            -o /tmp/fullconenat_namespace_policy_test
+          /tmp/fullconenat_namespace_policy_test
+
+      - name: Verify FULLCONENAT namespace and zone ownership contracts
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          kernel = Path("trunk/linux-4.4.x/net/netfilter")
+          source = (kernel / "xt_FULLCONENAT.c").read_text()
+          policy = (kernel / "fullconenat_namespace_policy.h").read_text()
+          test = (kernel / "tests/fullconenat_namespace_policy.c").read_text()
+
+          def function_body(text, signature):
+              start = text.index(signature)
+              brace = text.index("{", start)
+              depth = 0
+              for pos in range(brace, len(text)):
+                  if text[pos] == "{":
+                      depth += 1
+                  elif text[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return text[brace + 1:pos]
+              raise AssertionError(f"unterminated function: {signature}")
+
+          def struct_body(text, name):
+              match = re.search(
+                  r"\\bstruct\\s+" + re.escape(name) + r"\\s*\\{(.*?)\\};",
+                  text, re.S)
+              assert match, f"missing struct {name}"
+              return match.group(1)
+
+          for name in ("nat_mapping", "nat_mapping6", "tuple_list"):
+              assert "struct fullconenat_namespace_context context;" in struct_body(source, name)
+          assert "zone_id" in policy and "zone_flags" in policy and "zone_dir" in policy
+          assert "different network namespace" in test
+          assert "different zone id" in test and "different zone flags" in test
+          assert "different zone direction" in test
+
+          for signature in (
+              "static struct nat_mapping* get_mapping_by_ext_port(",
+              "static struct nat_mapping* get_mapping_by_int_src(",
+              "static struct nat_mapping6* get_mapping6_by_ext_port(",
+              "static struct nat_mapping6* get_mapping6_by_int_src(",
+              "static struct nat_mapping6* get_mapping6_by_int_src_inrange(",
+          ):
+              assert "fullconenat_namespace_context_equal" in function_body(source, signature)
+
+          for signature in ("static int check_mapping(", "static int check_mapping6("):
+              check = function_body(source, signature)
+              assert "fullconenat_namespace_context_equal(&mapping->context, context)" in check
+              assert "nf_ct_zone_init(&lookup_zone" in check
+              assert "(struct net *)mapping->context.net" in check
+              assert "mapping->context.zone_id" in check
+              assert "mapping->context.zone_flags" in check
+              assert "mapping->context.zone_dir" in check
+          for signature in ("static struct nat_mapping* allocate_mapping(",
+                            "static struct nat_mapping6* allocate_mapping6("):
+              assert "p_new->context = *context;" in function_body(source, signature)
+
+          callback_start = source.index("static int ct_event_cb")
+          callback_brace = source.index("{", callback_start)
+          callback = function_body(source, source[callback_start:callback_brace].strip())
+          assert "fullconenat_context_from_ct(&dying_tuple_item->context, ct);" in callback
+          gc = function_body(source, "static void handle_dying_tuples(void)")
+          assert "get_mapping_by_int_src(ip, port, &item->context)" in gc
+          assert "get_mapping6_by_int_src(ip6, port, ext_ip6, &item->context)" in gc
+          assert "get_mapping_by_int_src(ip, port)" not in gc
+          assert "get_mapping6_by_int_src(ip6, port, ext_ip6)" not in gc
+
+          purge = function_body(source, "static void\\nfullconenat_purge_net(")
+          assert purge.count("fullconenat_namespace_context_belongs_to_net") == 3
+          assert "kill_mapping(mapping)" in purge and "kill_mapping6(mapping6)" in purge
+          assert "list_del(&item->list);" in purge
+          lock6 = purge.index("spin_lock_bh(&fullconenat6_lock)")
+          lock4 = purge.index("spin_lock_bh(&fullconenat_lock)")
+          lockq = purge.index("spin_lock_bh(&dying_tuple_list_lock)")
+          assert lock6 < lock4 < lockq
+          destroy = function_body(source, "static void fullconenat_tg_destroy(")
+          sync = destroy.index("synchronize_rcu();")
+          purge_at = destroy.index("fullconenat_purge_net(par->net);")
+          free = destroy.index("kfree(notifier);", purge_at)
+          put = destroy.rindex("nf_ct_netns_put(par->net, par->family);")
+          assert sync < purge_at < free < put
+          print("FULLCONENAT IPv4/IPv6 namespace and conntrack-zone ownership contracts: PASS")
           PY

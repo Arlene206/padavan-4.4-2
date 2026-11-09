@@ -35,6 +35,8 @@
 #include <net/netfilter/nf_conntrack_core.h>
 #include <net/netfilter/nf_conntrack_ecache.h>
 
+#include "fullconenat_namespace_policy.h"
+
 #define HASH_2(x, y) ((x + y) / 2 * (x + y + 1) + y)
 
 #define HASHTABLE_BUCKET_BITS 10
@@ -70,6 +72,7 @@ struct nat_mapping_original_tuple {
 };
 
 struct nat_mapping {
+  struct fullconenat_namespace_context context;
   uint16_t port;     /* external UDP port */
   int ifindex;       /* external interface index*/
 
@@ -88,6 +91,7 @@ struct nat_mapping {
 
 #if IS_ENABLED(CONFIG_NF_NAT_IPV6) || (IS_ENABLED(CONFIG_IPV6) && LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0))
 struct nat_mapping6 {
+  struct fullconenat_namespace_context context;
   uint16_t port;     /* external source port */
   union nf_inet_addr addr;       /* external source ip address */
 
@@ -106,6 +110,7 @@ struct nat_mapping6 {
 #endif
 
 struct tuple_list {
+  struct fullconenat_namespace_context context;
   struct nf_conntrack_tuple tuple_original;
   struct nf_conntrack_tuple tuple_reply;
   struct list_head list;
@@ -150,6 +155,30 @@ static DECLARE_DELAYED_WORK(gc_worker_wk, gc_worker);
 
 static char tuple_tmp_string[512];
 
+static void
+fullconenat_context_from_zone(struct fullconenat_namespace_context *context,
+                              struct net *net,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
+                              const struct nf_conntrack_zone *zone)
+#else
+                              u16 zone)
+#endif
+{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
+  fullconenat_namespace_context_set(context, net, zone->id,
+                                    zone->flags, zone->dir);
+#else
+  fullconenat_namespace_context_set(context, net, zone, 0, 0);
+#endif
+}
+
+static void
+fullconenat_context_from_ct(struct fullconenat_namespace_context *context,
+                            struct nf_conn *ct)
+{
+  fullconenat_context_from_zone(context, nf_ct_net(ct), nf_ct_zone(ct));
+}
+
 #if IS_ENABLED(CONFIG_NF_NAT_IPV6) || (IS_ENABLED(CONFIG_IPV6) && LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0))
 /* non-atomic: can only be called serially within lock zones. */
 static char* nf_ct_stringify_tuple6(const struct nf_conntrack_tuple *t) {
@@ -159,7 +188,7 @@ static char* nf_ct_stringify_tuple6(const struct nf_conntrack_tuple *t) {
   return tuple_tmp_string;
 }
 
-static struct nat_mapping6* allocate_mapping6(const union nf_inet_addr *int_addr, const uint16_t int_port, const uint16_t port, const union nf_inet_addr *addr) {
+static struct nat_mapping6* allocate_mapping6(const union nf_inet_addr *int_addr, const uint16_t int_port, const uint16_t port, const union nf_inet_addr *addr, const struct fullconenat_namespace_context *context) {
   struct nat_mapping6 *p_new;
   u32 hash_src;
 
@@ -168,6 +197,7 @@ static struct nat_mapping6* allocate_mapping6(const union nf_inet_addr *int_addr
     pr_debug("xt_FULLCONENAT: ERROR: kmalloc() for new nat_mapping failed.\n");
     return NULL;
   }
+  p_new->context = *context;
   p_new->addr = *addr;
   p_new->port = port;
   p_new->int_addr = *int_addr;
@@ -198,12 +228,12 @@ static void add_original_tuple_to_mapping6(struct nat_mapping6 *mapping, const s
   (mapping->refer_count)++;
 }
 
-static struct nat_mapping6* get_mapping6_by_int_src(const union nf_inet_addr *src_ip, const uint16_t src_port, const union nf_inet_addr *ext_ip) {
+static struct nat_mapping6* get_mapping6_by_int_src(const union nf_inet_addr *src_ip, const uint16_t src_port, const union nf_inet_addr *ext_ip, const struct fullconenat_namespace_context *context) {
   struct nat_mapping6 *p_current;
   u32 hash_src = jhash2((u32 *)src_ip->all, 4, (u32)src_port);
 
   hash_for_each_possible(mapping6_table_by_int_src, p_current, node_by_int_src, hash_src) {
-    if (nf_inet_addr_cmp(&p_current->int_addr, src_ip) && p_current->int_port == src_port && nf_inet_addr_cmp(&p_current->addr, ext_ip)) {
+    if (fullconenat_namespace_context_equal(&p_current->context, context) && nf_inet_addr_cmp(&p_current->int_addr, src_ip) && p_current->int_port == src_port && nf_inet_addr_cmp(&p_current->addr, ext_ip)) {
       return p_current;
     }
   }
@@ -211,12 +241,12 @@ static struct nat_mapping6* get_mapping6_by_int_src(const union nf_inet_addr *sr
   return NULL;
 }
 
-static struct nat_mapping6* get_mapping6_by_int_src_inrange(const union nf_inet_addr *src_ip, const uint16_t src_port, const union nf_inet_addr *min_ip, const union nf_inet_addr *max_ip) {
+static struct nat_mapping6* get_mapping6_by_int_src_inrange(const union nf_inet_addr *src_ip, const uint16_t src_port, const union nf_inet_addr *min_ip, const union nf_inet_addr *max_ip, const struct fullconenat_namespace_context *context) {
   struct nat_mapping6 *p_current;
   u32 hash_src = jhash2((u32 *)src_ip->all, 4, (u32)src_port);
 
   hash_for_each_possible(mapping6_table_by_int_src, p_current, node_by_int_src, hash_src) {
-    if (nf_inet_addr_cmp(&p_current->int_addr, src_ip) && p_current->int_port == src_port && memcmp(&p_current->addr, min_ip, sizeof(union nf_inet_addr)) >= 0 && memcmp(&p_current->addr, max_ip, sizeof(union nf_inet_addr)) <= 0) {
+    if (fullconenat_namespace_context_equal(&p_current->context, context) && nf_inet_addr_cmp(&p_current->int_addr, src_ip) && p_current->int_port == src_port && memcmp(&p_current->addr, min_ip, sizeof(union nf_inet_addr)) >= 0 && memcmp(&p_current->addr, max_ip, sizeof(union nf_inet_addr)) <= 0) {
       return p_current;
     }
   }
@@ -247,14 +277,26 @@ static void kill_mapping6(struct nat_mapping6 *mapping) {
  * possibly delete and free an invalid mapping.
  * the mapping should not be used anymore after check_mapping6() returns 0. */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
-static int check_mapping6(struct nat_mapping6* mapping, struct net *net, const struct nf_conntrack_zone *zone) {
+static int check_mapping6(struct nat_mapping6* mapping, const struct fullconenat_namespace_context *context) {
 #else
-static int check_mapping6(struct nat_mapping6* mapping, struct net *net, const u16 zone) {
+static int check_mapping6(struct nat_mapping6* mapping, const struct fullconenat_namespace_context *context) {
 #endif
   struct list_head *iter, *tmp;
   struct nat_mapping_original_tuple *original_tuple_item;
   struct nf_conntrack_tuple_hash *tuple_hash;
   struct nf_conn *ct;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
+  struct nf_conntrack_zone lookup_zone;
+  const struct nf_conntrack_zone *zone;
+#endif
+
+  if (!fullconenat_namespace_context_equal(&mapping->context, context))
+    return 0;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
+  zone = nf_ct_zone_init(&lookup_zone, mapping->context.zone_id,
+                         mapping->context.zone_dir,
+                         mapping->context.zone_flags);
+#endif
 
   /* for dying/unconfirmed conntrack tuples, an IPCT_DESTROY event may NOT be fired.
    * so we manually kill one of those tuples once we acquire one. */
@@ -262,7 +304,14 @@ static int check_mapping6(struct nat_mapping6* mapping, struct net *net, const u
   list_for_each_safe(iter, tmp, &mapping->original_tuple_list) {
     original_tuple_item = list_entry(iter, struct nat_mapping_original_tuple, node);
 
-    tuple_hash = nf_conntrack_find_get(net, zone, &original_tuple_item->tuple);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
+    tuple_hash = nf_conntrack_find_get((struct net *)mapping->context.net,
+                                       zone, &original_tuple_item->tuple);
+#else
+    tuple_hash = nf_conntrack_find_get((struct net *)mapping->context.net,
+                                       mapping->context.zone_id,
+                                       &original_tuple_item->tuple);
+#endif
 
     if (tuple_hash == NULL) {
       pr_debug("xt_FULLCONENAT: check_mapping6(): tuple %s dying/unconfirmed. free this tuple.\n", nf_ct_stringify_tuple6(&original_tuple_item->tuple));
@@ -290,15 +339,15 @@ static int check_mapping6(struct nat_mapping6* mapping, struct net *net, const u
 }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
-static struct nat_mapping6* get_mapping6_by_ext_port(const uint16_t port, const union nf_inet_addr *ext_ip, struct net *net, const struct nf_conntrack_zone *zone) {
+static struct nat_mapping6* get_mapping6_by_ext_port(const uint16_t port, const union nf_inet_addr *ext_ip, const struct fullconenat_namespace_context *context) {
 #else
-static struct nat_mapping6* get_mapping6_by_ext_port(const uint16_t port, const union nf_inet_addr *ext_ip, struct net *net, const u16 zone) {
+static struct nat_mapping6* get_mapping6_by_ext_port(const uint16_t port, const union nf_inet_addr *ext_ip, const struct fullconenat_namespace_context *context) {
 #endif
   struct nat_mapping6 *p_current;
   struct hlist_node *tmp;
 
   hash_for_each_possible_safe(mapping6_table_by_ext_port, p_current, tmp, node_by_ext_port, port) {
-    if (p_current->port == port && check_mapping6(p_current, net, zone) && nf_inet_addr_cmp(&p_current->addr, ext_ip)) {
+    if (p_current->port == port && fullconenat_namespace_context_equal(&p_current->context, context) && check_mapping6(p_current, context) && nf_inet_addr_cmp(&p_current->addr, ext_ip)) {
       return p_current;
     }
   }
@@ -307,9 +356,9 @@ static struct nat_mapping6* get_mapping6_by_ext_port(const uint16_t port, const 
 }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
-static uint16_t find_appropriate_port6(struct net *net, const struct nf_conntrack_zone *zone, const uint16_t original_port, const union nf_inet_addr *ext_ip, const struct nf_nat_range *range) {
+static uint16_t find_appropriate_port6(const struct fullconenat_namespace_context *context, const uint16_t original_port, const union nf_inet_addr *ext_ip, const struct nf_nat_range *range) {
 #else
-static uint16_t find_appropriate_port6(struct net *net, const u16 zone, const uint16_t original_port, const union nf_inet_addr *ext_ip, const struct nf_nat_range *range) {
+static uint16_t find_appropriate_port6(const struct fullconenat_namespace_context *context, const uint16_t original_port, const union nf_inet_addr *ext_ip, const struct nf_nat_range *range) {
 #endif
   uint16_t min, start, selected, range_size, i;
   struct nat_mapping6* mapping = NULL;
@@ -334,7 +383,7 @@ static uint16_t find_appropriate_port6(struct net *net, const u16 zone, const ui
     if ((original_port >= min && original_port <= min + range_size - 1)
       || !(range->flags & NF_NAT_RANGE_PROTO_SPECIFIED)) {
       /* 1. try to preserve the port if it's available */
-      mapping = get_mapping6_by_ext_port(original_port, ext_ip, net, zone);
+      mapping = get_mapping6_by_ext_port(original_port, ext_ip, context);
       if (mapping == NULL) {
         return original_port;
       }
@@ -347,7 +396,7 @@ static uint16_t find_appropriate_port6(struct net *net, const u16 zone, const ui
   for (i = 0; i < range_size; i++) {
     /* 2. try to find an available port */
     selected = min + ((start + i) % range_size);
-    mapping = get_mapping6_by_ext_port(selected, ext_ip, net, zone);
+    mapping = get_mapping6_by_ext_port(selected, ext_ip, context);
     if (mapping == NULL) {
       return selected;
     }
@@ -355,7 +404,7 @@ static uint16_t find_appropriate_port6(struct net *net, const u16 zone, const ui
 
   /* 3. at least we tried. override a previous mapping. */
   selected = min + start;
-  mapping = get_mapping6_by_ext_port(selected, ext_ip, net, zone);
+  mapping = get_mapping6_by_ext_port(selected, ext_ip, context);
   kill_mapping6(mapping);
 
   return selected;
@@ -416,6 +465,7 @@ static unsigned int fullconenat_tg6(struct sk_buff *skb, const struct xt_action_
   struct nf_conntrack_tuple *ct_tuple, *ct_tuple_origin;
 
   struct nat_mapping6 *mapping, *src_mapping;
+  struct fullconenat_namespace_context context;
   unsigned int ret;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 18, 0)
   struct nf_nat_range2 newrange;
@@ -439,6 +489,7 @@ static unsigned int fullconenat_tg6(struct sk_buff *skb, const struct xt_action_
   ct = nf_ct_get(skb, &ctinfo);
   net = nf_ct_net(ct);
   zone = nf_ct_zone(ct);
+  fullconenat_context_from_zone(&context, net, zone);
 
   newrange.flags       = range->flags | NF_NAT_RANGE_MAP_IPS;
   newrange.min_proto   = range->min_proto;
@@ -458,7 +509,7 @@ static unsigned int fullconenat_tg6(struct sk_buff *skb, const struct xt_action_
     spin_lock_bh(&fullconenat6_lock);
 
     /* find an active mapping based on the inbound port */
-    mapping = get_mapping6_by_ext_port(port, ip, net, zone);
+    mapping = get_mapping6_by_ext_port(port, ip, &context);
     if (mapping != NULL) {
       newrange.flags = NF_NAT_RANGE_MAP_IPS | NF_NAT_RANGE_PROTO_SPECIFIED;
       newrange.min_addr = mapping->int_addr;
@@ -508,11 +559,11 @@ static unsigned int fullconenat_tg6(struct sk_buff *skb, const struct xt_action_
       original_port = be16_to_cpu((ct_tuple_origin->src).u.udp.port);
 
       if (!nf_inet_addr_cmp(&newrange.min_addr, &newrange.max_addr))
-        src_mapping = get_mapping6_by_int_src_inrange(ip, original_port, &newrange.min_addr, &newrange.max_addr);
+        src_mapping = get_mapping6_by_int_src_inrange(ip, original_port, &newrange.min_addr, &newrange.max_addr, &context);
       else
-        src_mapping = get_mapping6_by_int_src(ip, original_port, &newrange.min_addr);
+        src_mapping = get_mapping6_by_int_src(ip, original_port, &newrange.min_addr, &context);
 
-      if (src_mapping != NULL && check_mapping6(src_mapping, net, zone)) {
+      if (src_mapping != NULL && check_mapping6(src_mapping, &context)) {
 
         /* outbound nat: if a previously established mapping is active,
          * we will reuse that mapping. */
@@ -533,7 +584,7 @@ static unsigned int fullconenat_tg6(struct sk_buff *skb, const struct xt_action_
           newrange.max_addr = newrange.min_addr;
         }
 
-        want_port = find_appropriate_port6(net, zone, original_port, &newrange.min_addr, range);
+        want_port = find_appropriate_port6(&context, original_port, &newrange.min_addr, range);
 
         newrange.flags = NF_NAT_RANGE_MAP_IPS | NF_NAT_RANGE_PROTO_SPECIFIED;
         newrange.min_proto.udp.port = cpu_to_be16(want_port);
@@ -563,7 +614,7 @@ static unsigned int fullconenat_tg6(struct sk_buff *skb, const struct xt_action_
     /* save the mapping information into our mapping table */
     mapping = src_mapping;
     if (mapping == NULL) {
-      mapping = allocate_mapping6(ip, original_port, port, &(ct_tuple->dst).u3);
+      mapping = allocate_mapping6(ip, original_port, port, &(ct_tuple->dst).u3, &context);
     }
     if (likely(mapping != NULL)) {
       add_original_tuple_to_mapping6(mapping, ct_tuple_origin);
@@ -586,7 +637,7 @@ static char* nf_ct_stringify_tuple(const struct nf_conntrack_tuple *t) {
   return tuple_tmp_string;
 }
 
-static struct nat_mapping* allocate_mapping(const __be32 int_addr, const uint16_t int_port, const uint16_t port, const int ifindex) {
+static struct nat_mapping* allocate_mapping(const __be32 int_addr, const uint16_t int_port, const uint16_t port, const int ifindex, const struct fullconenat_namespace_context *context) {
   struct nat_mapping *p_new;
   u32 hash_src;
 
@@ -595,6 +646,7 @@ static struct nat_mapping* allocate_mapping(const __be32 int_addr, const uint16_
     pr_debug("xt_FULLCONENAT: ERROR: kmalloc() for new nat_mapping failed.\n");
     return NULL;
   }
+  p_new->context = *context;
   p_new->port = port;
   p_new->int_addr = int_addr;
   p_new->int_port = int_port;
@@ -625,11 +677,11 @@ static void add_original_tuple_to_mapping(struct nat_mapping *mapping, const str
   (mapping->refer_count)++;
 }
 
-static struct nat_mapping* get_mapping_by_ext_port(const uint16_t port, const int ifindex) {
+static struct nat_mapping* get_mapping_by_ext_port(const uint16_t port, const int ifindex, const struct fullconenat_namespace_context *context) {
   struct nat_mapping *p_current;
 
   hash_for_each_possible(mapping_table_by_ext_port, p_current, node_by_ext_port, port) {
-    if (p_current->port == port && p_current->ifindex == ifindex) {
+    if (p_current->port == port && p_current->ifindex == ifindex && fullconenat_namespace_context_equal(&p_current->context, context)) {
       return p_current;
     }
   }
@@ -637,12 +689,12 @@ static struct nat_mapping* get_mapping_by_ext_port(const uint16_t port, const in
   return NULL;
 }
 
-static struct nat_mapping* get_mapping_by_int_src(const __be32 src_ip, const uint16_t src_port) {
+static struct nat_mapping* get_mapping_by_int_src(const __be32 src_ip, const uint16_t src_port, const struct fullconenat_namespace_context *context) {
   struct nat_mapping *p_current;
   u32 hash_src = HASH_2(src_ip, (u32)src_port);
 
   hash_for_each_possible(mapping_table_by_int_src, p_current, node_by_int_src, hash_src) {
-    if (p_current->int_addr == src_ip && p_current->int_port == src_port) {
+    if (p_current->int_addr == src_ip && p_current->int_port == src_port && fullconenat_namespace_context_equal(&p_current->context, context)) {
       return p_current;
     }
   }
@@ -696,22 +748,72 @@ static void destroy_mappings(void) {
 #endif
 }
 
+static void
+fullconenat_purge_net(struct net *net)
+{
+  struct nat_mapping *mapping;
+  struct hlist_node *tmp;
+  struct tuple_list *item;
+  struct list_head *iter, *next;
+  int i;
+#if IS_ENABLED(CONFIG_NF_NAT_IPV6) || (IS_ENABLED(CONFIG_IPV6) && LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0))
+  struct nat_mapping6 *mapping6;
+  spin_lock_bh(&fullconenat6_lock);
+#endif
+  spin_lock_bh(&fullconenat_lock);
+  spin_lock_bh(&dying_tuple_list_lock);
+#if IS_ENABLED(CONFIG_NF_NAT_IPV6) || (IS_ENABLED(CONFIG_IPV6) && LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0))
+  hash_for_each_safe(mapping6_table_by_ext_port, i, tmp, mapping6, node_by_ext_port) {
+    if (fullconenat_namespace_context_belongs_to_net(&mapping6->context, net))
+      kill_mapping6(mapping6);
+  }
+#endif
+  hash_for_each_safe(mapping_table_by_ext_port, i, tmp, mapping, node_by_ext_port) {
+    if (fullconenat_namespace_context_belongs_to_net(&mapping->context, net))
+      kill_mapping(mapping);
+  }
+  list_for_each_safe(iter, next, &dying_tuple_list) {
+    item = list_entry(iter, struct tuple_list, list);
+    if (fullconenat_namespace_context_belongs_to_net(&item->context, net)) {
+      list_del(&item->list);
+      kfree(item);
+    }
+  }
+  spin_unlock_bh(&dying_tuple_list_lock);
+  spin_unlock_bh(&fullconenat_lock);
+#if IS_ENABLED(CONFIG_NF_NAT_IPV6) || (IS_ENABLED(CONFIG_IPV6) && LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0))
+  spin_unlock_bh(&fullconenat6_lock);
+#endif
+}
+
 /* check if a mapping is valid.
  * possibly delete and free an invalid mapping.
  * the mapping should not be used anymore after check_mapping() returns 0. */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
-static int check_mapping(struct nat_mapping* mapping, struct net *net, const struct nf_conntrack_zone *zone) {
+static int check_mapping(struct nat_mapping* mapping, const struct fullconenat_namespace_context *context) {
 #else
-static int check_mapping(struct nat_mapping* mapping, struct net *net, const u16 zone) {
+static int check_mapping(struct nat_mapping* mapping, const struct fullconenat_namespace_context *context) {
 #endif
   struct list_head *iter, *tmp;
   struct nat_mapping_original_tuple *original_tuple_item;
   struct nf_conntrack_tuple_hash *tuple_hash;
   struct nf_conn *ct;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
+  struct nf_conntrack_zone lookup_zone;
+  const struct nf_conntrack_zone *zone;
+#endif
 
   if (mapping == NULL) {
     return 0;
   }
+
+  if (!fullconenat_namespace_context_equal(&mapping->context, context))
+    return 0;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
+  zone = nf_ct_zone_init(&lookup_zone, mapping->context.zone_id,
+                         mapping->context.zone_dir,
+                         mapping->context.zone_flags);
+#endif
 
   if (mapping->port == 0 || mapping->int_addr == 0 || mapping->int_port == 0 || mapping->ifindex == -1) {
     return 0;
@@ -723,7 +825,14 @@ static int check_mapping(struct nat_mapping* mapping, struct net *net, const u16
   list_for_each_safe(iter, tmp, &mapping->original_tuple_list) {
     original_tuple_item = list_entry(iter, struct nat_mapping_original_tuple, node);
 
-    tuple_hash = nf_conntrack_find_get(net, zone, &original_tuple_item->tuple);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
+    tuple_hash = nf_conntrack_find_get((struct net *)mapping->context.net,
+                                       zone, &original_tuple_item->tuple);
+#else
+    tuple_hash = nf_conntrack_find_get((struct net *)mapping->context.net,
+                                       mapping->context.zone_id,
+                                       &original_tuple_item->tuple);
+#endif
 
     if (tuple_hash == NULL) {
       pr_debug("xt_FULLCONENAT: check_mapping(): tuple %s dying/unconfirmed. free this tuple.\n", nf_ct_stringify_tuple(&original_tuple_item->tuple));
@@ -777,13 +886,13 @@ static void handle_dying_tuples(void) {
       ip6 = &(ct_tuple->src).u3;
       port = be16_to_cpu((ct_tuple->src).u.udp.port);
       ext_ip6 = &item->tuple_reply.dst.u3;
-      mapping6 = get_mapping6_by_int_src(ip6, port, ext_ip6);
+      mapping6 = get_mapping6_by_int_src(ip6, port, ext_ip6, &item->context);
       if (mapping6 == NULL) {
         ext_ip6 = &(ct_tuple->dst).u3;
         ct_tuple = &(item->tuple_reply);
         ip6 = &(ct_tuple->src).u3;
         port = be16_to_cpu((ct_tuple->src).u.udp.port);
-        mapping6 = get_mapping6_by_int_src(ip6, port, ext_ip6);
+        mapping6 = get_mapping6_by_int_src(ip6, port, ext_ip6, &item->context);
         if (mapping6 != NULL) {
           pr_debug("xt_FULLCONENAT: handle_dying_tuples(): INBOUND dying conntrack at ext port %d\n", mapping6->port);
         }
@@ -824,12 +933,12 @@ static void handle_dying_tuples(void) {
 
     ip = (ct_tuple->src).u3.ip;
     port = be16_to_cpu((ct_tuple->src).u.udp.port);
-    mapping = get_mapping_by_int_src(ip, port);
+    mapping = get_mapping_by_int_src(ip, port, &item->context);
     if (mapping == NULL) {
       ct_tuple = &(item->tuple_reply);
       ip = (ct_tuple->src).u3.ip;
       port = be16_to_cpu((ct_tuple->src).u.udp.port);
-      mapping = get_mapping_by_int_src(ip, port);
+      mapping = get_mapping_by_int_src(ip, port, &item->context);
       if (mapping != NULL) {
         pr_debug("xt_FULLCONENAT: handle_dying_tuples(): INBOUND dying conntrack at ext port %d\n", mapping->port);
       }
@@ -911,6 +1020,7 @@ static int ct_event_cb(unsigned int events, struct nf_ct_event *item) {
     return 0;
   }
 
+  fullconenat_context_from_ct(&dying_tuple_item->context, ct);
   memcpy(&(dying_tuple_item->tuple_original), ct_tuple_original, sizeof(struct nf_conntrack_tuple));
   memcpy(&(dying_tuple_item->tuple_reply), ct_tuple_reply, sizeof(struct nf_conntrack_tuple));
 
@@ -953,9 +1063,9 @@ static __be32 get_device_ip(const struct net_device* dev) {
 }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
-static uint16_t find_appropriate_port(struct net *net, const struct nf_conntrack_zone *zone, const uint16_t original_port, const int ifindex, const struct nf_nat_ipv4_range *range) {
+static uint16_t find_appropriate_port(const struct fullconenat_namespace_context *context, const uint16_t original_port, const int ifindex, const struct nf_nat_ipv4_range *range) {
 #else
-static uint16_t find_appropriate_port(struct net *net, const u16 zone, const uint16_t original_port, const int ifindex, const struct nf_nat_ipv4_range *range) {
+static uint16_t find_appropriate_port(const struct fullconenat_namespace_context *context, const uint16_t original_port, const int ifindex, const struct nf_nat_ipv4_range *range) {
 #endif
   uint16_t min, start, selected, range_size, i;
   struct nat_mapping* mapping = NULL;
@@ -980,8 +1090,8 @@ static uint16_t find_appropriate_port(struct net *net, const u16 zone, const uin
     if ((original_port >= min && original_port <= min + range_size - 1)
       || !(range->flags & NF_NAT_RANGE_PROTO_SPECIFIED)) {
       /* 1. try to preserve the port if it's available */
-      mapping = get_mapping_by_ext_port(original_port, ifindex);
-      if (mapping == NULL || !(check_mapping(mapping, net, zone))) {
+      mapping = get_mapping_by_ext_port(original_port, ifindex, context);
+      if (mapping == NULL || !(check_mapping(mapping, context))) {
         return original_port;
       }
     }
@@ -993,15 +1103,15 @@ static uint16_t find_appropriate_port(struct net *net, const u16 zone, const uin
   for (i = 0; i < range_size; i++) {
     /* 2. try to find an available port */
     selected = min + ((start + i) % range_size);
-    mapping = get_mapping_by_ext_port(selected, ifindex);
-    if (mapping == NULL || !(check_mapping(mapping, net, zone))) {
+    mapping = get_mapping_by_ext_port(selected, ifindex, context);
+    if (mapping == NULL || !(check_mapping(mapping, context))) {
       return selected;
     }
   }
 
   /* 3. at least we tried. override a previous mapping. */
   selected = min + start;
-  mapping = get_mapping_by_ext_port(selected, ifindex);
+  mapping = get_mapping_by_ext_port(selected, ifindex, context);
   kill_mapping(mapping);
 
   return selected;
@@ -1025,6 +1135,7 @@ static unsigned int fullconenat_tg(struct sk_buff *skb, const struct xt_action_p
   struct net_device *net_dev;
 
   struct nat_mapping *mapping, *src_mapping;
+  struct fullconenat_namespace_context context;
   unsigned int ret;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 18, 0)
   struct nf_nat_range2 newrange;
@@ -1050,6 +1161,7 @@ static unsigned int fullconenat_tg(struct sk_buff *skb, const struct xt_action_p
   ct = nf_ct_get(skb, &ctinfo);
   net = nf_ct_net(ct);
   zone = nf_ct_zone(ct);
+  fullconenat_context_from_zone(&context, net, zone);
 
   memset(&newrange.min_addr, 0, sizeof(newrange.min_addr));
   memset(&newrange.max_addr, 0, sizeof(newrange.max_addr));
@@ -1081,12 +1193,12 @@ static unsigned int fullconenat_tg(struct sk_buff *skb, const struct xt_action_p
     spin_lock_bh(&fullconenat_lock);
 
     /* find an active mapping based on the inbound port */
-    mapping = get_mapping_by_ext_port(port, ifindex);
+    mapping = get_mapping_by_ext_port(port, ifindex, &context);
     if (mapping == NULL) {
       spin_unlock_bh(&fullconenat_lock);
       return ret;
     }
-    if (check_mapping(mapping, net, zone)) {
+    if (check_mapping(mapping, context)) {
       newrange.flags = NF_NAT_RANGE_MAP_IPS | NF_NAT_RANGE_PROTO_SPECIFIED;
       newrange.min_addr.ip = mapping->int_addr;
       newrange.max_addr.ip = mapping->int_addr;
@@ -1119,7 +1231,7 @@ static unsigned int fullconenat_tg(struct sk_buff *skb, const struct xt_action_p
       ip = (ct_tuple_origin->src).u3.ip;
       original_port = be16_to_cpu((ct_tuple_origin->src).u.udp.port);
 
-      src_mapping = get_mapping_by_int_src(ip, original_port);
+      src_mapping = get_mapping_by_int_src(ip, original_port, &context);
       if (src_mapping != NULL && check_mapping(src_mapping, net, zone)) {
 
         /* outbound nat: if a previously established mapping is active,
@@ -1133,7 +1245,7 @@ static unsigned int fullconenat_tg(struct sk_buff *skb, const struct xt_action_p
 
         /* if not, we find a new external port to map to.
          * the SNAT may fail so we should re-check the mapped port later. */
-        want_port = find_appropriate_port(net, zone, original_port, ifindex, range);
+        want_port = find_appropriate_port(&context, original_port, ifindex, range);
 
         newrange.flags = NF_NAT_RANGE_MAP_IPS | NF_NAT_RANGE_PROTO_SPECIFIED;
         newrange.min_proto.udp.port = cpu_to_be16(want_port);
@@ -1171,8 +1283,8 @@ static unsigned int fullconenat_tg(struct sk_buff *skb, const struct xt_action_p
 
     /* save the mapping information into our mapping table */
     mapping = src_mapping;
-    if (mapping == NULL || !check_mapping(mapping, net, zone)) {
-      mapping = allocate_mapping(ip, original_port, port, ifindex);
+    if (mapping == NULL || !check_mapping(mapping, context)) {
+      mapping = allocate_mapping(ip, original_port, port, ifindex, &context);
     }
     if (mapping != NULL) {
       add_original_tuple_to_mapping(mapping, ct_tuple_origin);
@@ -1290,6 +1402,7 @@ static void fullconenat_tg_destroy(const struct xt_tgdtor_param *par)
      * callback readers have left their RCU critical sections.
      */
     synchronize_rcu();
+    fullconenat_purge_net(par->net);
     pr_debug("xt_FULLCONENAT: conntrack notifier unregistered for netns %p\n",
       notifier->net);
     kfree(notifier);
