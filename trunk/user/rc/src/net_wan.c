@@ -33,6 +33,7 @@
 #include "rc.h"
 #include "dnsmasq_file.h"
 #include "wan_resolver_refresh_policy.h"
+#include "wan_teardown_policy.h"
 #include "dhcp_lease_policy.h"
 #include "switch.h"
 #include "switch_status_policy.h"
@@ -1143,10 +1144,29 @@ stop_wan_ppp(void)
 	return 0;
 }
 
+static int
+wan_teardown_ifdown_interface(void *context, const char *ifname)
+{
+	int ret;
+
+	(void)context;
+	ret = ifconfig(ifname, 0, "0.0.0.0", NULL);
+	if (ret == ENODEV)
+		return 0; /* The interface disappeared and is already unavailable. */
+	if (ret != 0)
+		logmessage(LOGNAME, "failed to bring WAN interface %s down (status=%d)", ifname, ret);
+
+	return ret;
+}
+
+static const struct wan_teardown_interface_ops wan_teardown_ifdown_ops = {
+	wan_teardown_ifdown_interface
+};
+
 int
 stop_wan(void)
 {
-	int unit, wan_proto;
+	int unit, wan_proto, ifdown_status;
 	char *man_ifname;
 	char* svcs_ppp[] = {
 		"ip-up", "ip-down",
@@ -1194,13 +1214,16 @@ stop_wan(void)
 	if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC &&
 	    strcmp(man_ifname, get_wan_unit_value(unit, "ifname_t")) == 0)
 		wan_down(man_ifname, unit, 1);
-	ifconfig(man_ifname, 0, "0.0.0.0", NULL);
-	if (strcmp(man_ifname, IFNAME_WAN) != 0)
-		ifconfig(IFNAME_WAN, 0, "0.0.0.0", NULL);
 #if defined (USE_USB_SUPPORT)
 	stop_wan_usbnet();
 #endif
+	ifdown_status = wan_teardown_ifdown_interfaces(man_ifname, IFNAME_WAN,
+						       &wan_teardown_ifdown_ops, NULL);
 	remove_cb_links();
+	if (ifdown_status != 0) {
+		logmessage(LOGNAME, "WAN interface shutdown incomplete; retaining WAN runtime state");
+		return -1;
+	}
 	clear_wan_state();
 	control_wan_led_isp_state(0, 0);
 	return 0;

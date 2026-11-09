@@ -1,0 +1,86 @@
+name: WAN interface teardown stability regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/wan-teardown-stability.yml"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/wan_teardown_policy.h"
+      - "trunk/user/rc/src/tests/wan_teardown_policy.c"
+  pull_request:
+    paths:
+      - ".github/workflows/wan-teardown-stability.yml"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/wan_teardown_policy.h"
+      - "trunk/user/rc/src/tests/wan_teardown_policy.c"
+
+jobs:
+  wan-interface-teardown:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and verify WAN interface teardown status propagation
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/wan_teardown_policy.c \
+            -o /tmp/wan-teardown-policy
+          /tmp/wan-teardown-policy
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path(".")
+          rc = root / "trunk/user/rc/src"
+          source = (rc / "net_wan.c").read_text()
+          workflow = Path(".github/workflows/wan-teardown-stability.yml").read_text()
+
+          def function_body(text, signature):
+              start = text.index(signature)
+              brace = text.index("{", start)
+              depth = 0
+              for pos in range(brace, len(text)):
+                  if text[pos] == "{":
+                      depth += 1
+                  elif text[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return text[brace + 1:pos]
+              raise AssertionError(f"unterminated function: {signature}")
+
+          assert '#include "wan_teardown_policy.h"' in source
+
+          adapter = function_body(
+              source,
+              "wan_teardown_ifdown_interface(void *context, const char *ifname)")
+          assert 'ret = ifconfig(ifname, 0, "0.0.0.0", NULL);' in adapter
+          assert adapter.index("if (ret == ENODEV)") < adapter.index("return 0;")
+          assert adapter.index("if (ret != 0)") < adapter.index('logmessage(')
+          assert adapter.index('logmessage(') < adapter.rindex("return ret;")
+
+          stop = function_body(source, "stop_wan(void)")
+          service_gate = 'kill_services(svcs_wan, 3, 1)'
+          teardown = "ifdown_status = wan_teardown_ifdown_interfaces("
+          failure_gate = "if (ifdown_status != 0)"
+          assert stop.index(service_gate) < stop.index("stop_wan_usbnet();") < stop.index(teardown)
+          assert stop.index(teardown) < stop.index("remove_cb_links();")
+          assert stop.index("remove_cb_links();") < stop.index(failure_gate)
+          assert stop.index(failure_gate) < stop.index("return -1;") < stop.index("clear_wan_state();")
+          assert stop.index("clear_wan_state();") < stop.index("control_wan_led_isp_state(0, 0);")
+          assert "ifconfig(man_ifname, 0," not in stop
+          assert "ifconfig(IFNAME_WAN, 0," not in stop
+
+          paths = (
+              ".github/workflows/wan-teardown-stability.yml",
+              "trunk/user/rc/src/net_wan.c",
+              "trunk/user/rc/src/wan_teardown_policy.h",
+              "trunk/user/rc/src/tests/wan_teardown_policy.c",
+          )
+          filters = workflow.split("jobs:", 1)[0]
+          push_filters, pr_filters = filters.split("  pull_request:", 1)
+          for path in paths:
+              assert push_filters.count(path) == 1, f"push path filter missing or duplicated: {path}"
+              assert pr_filters.count(path) == 1, f"pull_request path filter missing or duplicated: {path}"
+
+          print("WAN interface teardown status propagation contracts: PASS")
+          PY
