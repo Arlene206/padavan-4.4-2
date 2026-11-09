@@ -20,6 +20,7 @@ cleanup()
 trap cleanup 0 HUP INT TERM
 
 lock_file="$tmpdir/optware-lifecycle.lock"
+. "$helper"
 optware_lifecycle_lock_acquire "$lock_file"
 
 (
