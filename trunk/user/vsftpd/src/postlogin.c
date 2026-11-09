@@ -1325,7 +1325,10 @@ handle_rnfr(struct vsf_session* p_sess)
     vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
     return;
   }
-  if (!asus_check_permission(p_sess, PERM_DELETE))
+  /* Pin source to the CWD at RNFR time, rather than later RNTO CWD. */
+  prepend_path_to_filename(&p_sess->ftp_arg_str);
+  if (!asus_check_permission_path(p_sess, PERM_DELETE,
+                                  &p_sess->ftp_arg_str))
   {
     vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
     return;
@@ -1368,6 +1371,15 @@ handle_rnto(struct vsf_session* p_sess)
   prepend_path_to_filename(&s_tmp_str);
   str_append_str(&p_sess->log_str, &s_tmp_str);
   if (!vsf_access_check_file(&p_sess->ftp_arg_str))
+  {
+    vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
+    return;
+  }
+  prepend_path_to_filename(&p_sess->ftp_arg_str);
+  if (!asus_check_permission_path(p_sess, PERM_DELETE,
+                                  &p_sess->rnfr_filename_str) ||
+      !asus_check_permission_path(p_sess, PERM_WRITE,
+                                  &p_sess->ftp_arg_str))
   {
     vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
     return;

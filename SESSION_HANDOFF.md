@@ -1,57 +1,52 @@
 ## Current repository state
 
 - Maintained fork: `Arlene206/padavan-4.4-2`; never substitute the upstream repository.
-- Base `main` SHA for THIS vsftpd lifecycle and regression-contract correction: `af76d3b551a9161d1b10ecb1d33dc3cb27d49839`; active branch is `main`. Only `main` exists; there is no separate checkpoint branch.
-- Root `dev_log.md` had 59 complete newest-first records before this entry; archive rotation is not required.
+- Base `main` SHA for THIS path-scoped vsftpd rename-ACL correction: `f35d0a8b97db4b4ef283cbd367cd4198d63f6b73`; active branch is `main`. Only `main` exists; there is no separate checkpoint branch.
+- Root `dev_log.md` had 60 complete newest-first records before this entry; adding one keeps it within 20–119 and below the 384 KiB early-rotation target.
 
 ## Latest verified parent checkpoint
 
-The immediate parent `af76d3b551a9161d1b10ecb1d33dc3cb27d49839` triggered seven exact-head Actions, all with matching full `head_sha`. Samba [42653764405], USB storage [42653764334], NFS [42653764330], WAN route [42653764278] and AI docs [42653764298] completed SUCCESS. The vsftpd workflow [42653764423] compiled and ran both GNU89 tests successfully, then failed only because its old config-publish contract still searched for a bare `return;` after `write_vsftpd_conf()`, although `run_ftp()` now correctly returns `-1`. HTTPD/security [42653764345] failed only because its FTP config source slice expected the old adjacent `void run_ftp` signature; the new daemon wait adapter now sits between the config writer and the int-returning startup function.
+The immediate parent `f35d0a8b97db4b4ef283cbd367cd4198d63f6b73` has three relevant exact-head Actions, all completed SUCCESS with matching full `head_sha=f35d0a8b97db4b4ef283cbd367cd4198d63f6b73`:
+
+- vsftpd configuration publication stability [42654362095] — GNU89 regression tests and source-contract step SUCCESS.
+- AI handoff documentation contract [42654362075] — live handoff/roadmap and archive inventory/hash validation SUCCESS.
+- HTTPD authentication/security [42654362050] — policy compile/run and semantic source regression SUCCESS.
 
 ## Work completed in THIS patch
 
-- Corrected the vsftpd source contract to require the error return `return -1;`, matching the new integer-returning startup contract.
-- Corrected the HTTPD FTP-config contract to end its slice at the inserted `ftp_daemon_is_running()` adapter, keeping that test focused on `write_vsftpd_conf()` without depending on function adjacency.
-- Extended the vsftpd workflow's own path-filter regression to include every newly watched RC file, helper and test.
-- These changes correct CI source-contract false negatives; they do not alter production service behavior.
-
-## Functional FTP lifecycle fix on the parent
-
-- `stop_ftp()` returns `kill_services()` status and logs a daemon that did not stop cleanly.
-- `stop_stor_apps()` includes FTP stop failure in its result, so existing safe-removal/eject callers refuse to unmount volumes while vsftpd remains active.
-- `run_ftp()` checks the `eval("/sbin/vsftpd")` result and requires a bounded process-presence postcondition before reporting success.
-- `restart_ftpd()` checks stop status and tri-state mount inventory: unknown aborts, known-empty leaves FTP stopped, mounted storage is required before startup. Status propagates through RC notification, direct run/stop, combined FTP/Samba commands and storage startup logging.
-- Added a GNU89-tested daemon-presence policy (delayed start, exit during settle, timeout, invalid arguments).
-
-## Earlier Samba audit correction
-
-`dev_init.sh` mounts `/etc` as a 6 MiB tmpfs. Samba config/passdb and a journal placed there are volatile and disappear on reboot. Persistent power-loss journaling under `/etc` is not possible; same-boot abrupt process death between paired runtime file publication remains a distinct lower-priority question.
+- Bundled server is vsftpd 3.0.3; PAM is disabled in `builddefs.h`, and `vsf_sysutil_getpwnam()` routes through the Padavan NVRAM account adapter.
+- Padavan NVRAM FTP accounts all map to UID/GID 99, so per-share metadata ACLs are the meaningful account-separation boundary.
+- `RNFR` previously checked `PERM_DELETE` against the current working directory rather than the source path, then retained a relative source name that could resolve differently after a later CWD.
+- `RNTO` applied the generic deny-file filter but did not check the Padavan destination share's `PERM_WRITE` ACL before `str_rename()`. A path-based cross-share rename could therefore cross into a share where the user lacked write permission.
+- Added a bounded parent-path helper that resolves the source/destination parent with `realpath()`, so relative traversal and symlinked parent directories map to the canonical share before applying the existing ACL policy.
+- `RNFR` now stores an absolute source path and checks source-parent delete permission. `RNTO` rechecks source delete permission and checks destination-parent write permission before rename.
+- Added GNU89 host regression coverage for relative/absolute parent extraction, `..` traversal, symlink canonicalization, root/trailing slash, empty/undersized buffers and missing parents. Extended workflow compile/run, source contracts and push/PR path filters.
 
 ## Active task
 
-1. Verify every exact-head Action for THIS regression-contract correction. Inspect vsftpd, HTTPD/security, Samba, USB storage, NFS, WAN route and AI docs. Confirm full `head_sha` values and inspect any failure logs.
-2. Once green, audit the actual bundled vsftpd version and PAM/passwd integration, then trace NVRAM share modes to real user IDs, writable directories, anonymous upload/delete policy, chroot/path confinement and symlink traversal. Implement a bounded fix only after following the shipped daemon's implementation.
+1. Verify exact-head Actions for THIS path-scoped FTP rename-ACL correction. Confirm full `head_sha` values and inspect each triggered job/log.
+2. Continue the FTP path-boundary audit: `STOR/APPE/STOU`, `RETR`, `MKD/RMD/DELE`, `LIST/NLST/STAT` and direct access to per-account share metadata. Trace parent-versus-target and symlink behavior before applying fixes.
 3. Keep NFS custom override-content/ACL and `async` durability, DHCP leasefail/accepted-NAK/release semantics, and FULLCONENAT mapping-hash/dying-tuple namespace ownership on the whole-repository queue.
 
 ## Verification boundary
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for FTP stop-result propagation, storage safe-removal gating, fail-closed tri-state restart, checked start result and bounded daemon-presence postcondition. |
-| L2 host / Actions | New FTP daemon-presence GNU89 test compiled and passed locally and in parent Action [42653764423]; FTP config publication GNU89 test also passed in that run. Parent static source contracts had two stale assumptions and are corrected here; exact-head Actions for THIS correction are pending. |
-| L3 MIPS/uClibc / production RC object / firmware/TRX | NOT VERIFIED. |
-| L4 live FTP authentication/ACL/chroot behavior, hot-unplug and router validation | NOT VERIFIED. |
+| L1 source review | PASS for the RNFR/RNTO source/destination ACL gap, absolute RNFR path pinning, canonical parent mapping and fail-closed path-resolution errors. |
+| L2 host / Actions | The standalone path-parent helper/test compiled with `cc -std=gnu89 -Wall -Wextra -Werror` and passed locally. Exact-head Actions for THIS commit are pending; parent vsftpd [42654362095], AI docs [42654362075] and HTTPD/security [42654362050] all passed. |
+| L3 MIPS/uClibc / production vsftpd object / firmware/TRX | NOT VERIFIED. |
+| L4 live FTP cross-share rename, authentication/ACL/chroot, storage hot-unplug and router validation | NOT VERIFIED. |
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, branch list and Actions; verify all runs for the new exact SHA and inspect job steps.
-2. If green, audit the shipped vsftpd code/config/authentication and account mapping, then implement one focused security or reliability fix with GNU89/source regression coverage.
+1. Fetch live `main`, branch list and Actions. Verify the new full SHA against every triggered workflow and inspect job steps/logs.
+2. If exact-head CI is green, continue path-aware permission review of the remaining FTP filename-taking commands. Do not infer that this RNFR/RNTO fix closes other command paths.
 
 ## Continuation rules
 
 - `SESSION_HANDOFF.md` is the sole actionable continuation point; update it only when the resumable task/checkpoint/next action materially changes.
 - Update `REFACTOR_ROADMAP.md` only when module status/evidence/priorities materially change.
 - Root `dev_log.md` keeps 20–119 complete newest-first records; at 120, archive the oldest 100 verbatim and retain the newest 20. Use 384 KiB as the early batch-rotation target and 512 KiB as the hard limit.
-- Preserve existing archive snapshots/indexes byte-for-byte; do not add routine archive snapshots or docs-only CI follow-up commits.
+- Preserve existing archive snapshots/indexes byte-for-byte; do not add routine archive snapshots or docs-only follow-up commits.
 - Run `scripts/check_ai_handoff_docs.py` only with a full local checkout; exact-head Actions are authoritative for the pushed SHA.
 - Recheck live `main`, branches and exact-head Actions on every takeover. Never force-push. Do not claim target builds or device tests without evidence.

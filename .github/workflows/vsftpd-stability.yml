@@ -4,6 +4,11 @@ on:
   push:
     paths:
       - ".github/workflows/vsftpd-stability.yml"
+      - "trunk/user/vsftpd/src/asus_ext.c"
+      - "trunk/user/vsftpd/src/asus_ext.h"
+      - "trunk/user/vsftpd/src/postlogin.c"
+      - "trunk/user/vsftpd/src/ftp_acl_path_policy.h"
+      - "trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c"
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/ftp_config_file.h"
       - "trunk/user/rc/src/tests/ftp_config_file.c"
@@ -14,6 +19,11 @@ on:
   pull_request:
     paths:
       - ".github/workflows/vsftpd-stability.yml"
+      - "trunk/user/vsftpd/src/asus_ext.c"
+      - "trunk/user/vsftpd/src/asus_ext.h"
+      - "trunk/user/vsftpd/src/postlogin.c"
+      - "trunk/user/vsftpd/src/ftp_acl_path_policy.h"
+      - "trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c"
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/ftp_config_file.h"
       - "trunk/user/rc/src/tests/ftp_config_file.c"
@@ -40,6 +50,11 @@ jobs:
             trunk/user/rc/src/tests/ftp_daemon_policy.c \
             -o /tmp/ftp-daemon-policy
           /tmp/ftp-daemon-policy
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/vsftpd/src \
+            trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c \
+            -o /tmp/ftp-acl-path-policy
+          /tmp/ftp-acl-path-policy
       - name: Verify vsftpd configuration publication and startup gates
         run: |
           python3 - <<'PY'
@@ -53,6 +68,11 @@ jobs:
           workflow = Path(".github/workflows/vsftpd-stability.yml").read_text()
           daemon_policy = Path("trunk/user/rc/src/ftp_daemon_policy.h").read_text()
           daemon_test = Path("trunk/user/rc/src/tests/ftp_daemon_policy.c").read_text()
+          vsftpd_acl = Path("trunk/user/vsftpd/src/asus_ext.c").read_text()
+          vsftpd_acl_header = Path("trunk/user/vsftpd/src/asus_ext.h").read_text()
+          vsftpd_postlogin = Path("trunk/user/vsftpd/src/postlogin.c").read_text()
+          acl_path_policy = Path("trunk/user/vsftpd/src/ftp_acl_path_policy.h").read_text()
+          acl_path_test = Path("trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c").read_text()
 
           def function_body(text, signature):
               start = text.index(signature)
@@ -94,6 +114,26 @@ jobs:
           assert "pids((char *)daemon) > 0" in running_fn
           assert "usleep(microseconds)" in sleep_fn
 
+          acl_at = function_body(vsftpd_acl, "asus_check_permission_at(")
+          acl_path = function_body(vsftpd_acl, "asus_check_permission_path(")
+          rnfr = function_body(vsftpd_postlogin, "static void\nhandle_rnfr(struct vsf_session* p_sess)\n{")
+          rnto = function_body(vsftpd_postlogin, "static void\nhandle_rnto(struct vsf_session* p_sess)\n{")
+          assert '#include "ftp_acl_path_policy.h"' in vsftpd_acl
+          assert "asus_check_permission_path" in vsftpd_acl_header
+          assert "get_mount_layer(directory" in acl_at
+          assert "ftp_acl_path_resolve_parent(" in acl_path
+          assert "realpath(parent, resolved)" in acl_path_policy
+          assert rnfr.index("resolve_tilde(") < rnfr.index("vsf_access_check_file(")
+          assert rnfr.index("vsf_access_check_file(") < rnfr.index("prepend_path_to_filename(&p_sess->ftp_arg_str)")
+          assert rnfr.index("prepend_path_to_filename(&p_sess->ftp_arg_str)") < rnfr.index("asus_check_permission_path(p_sess, PERM_DELETE")
+          assert rnfr.index("asus_check_permission_path(p_sess, PERM_DELETE") < rnfr.index("str_stat(")
+          assert "str_copy(&p_sess->rnfr_filename_str, &p_sess->ftp_arg_str)" in rnfr
+          assert rnto.index("vsf_access_check_file(") < rnto.index("prepend_path_to_filename(&p_sess->ftp_arg_str)")
+          assert "asus_check_permission_path(p_sess, PERM_DELETE" in rnto
+          assert "asus_check_permission_path(p_sess, PERM_WRITE" in rnto
+          assert rnto.index("PERM_DELETE") < rnto.index("PERM_WRITE") < rnto.index("str_rename(")
+          assert '"../shareB/file"' in acl_path_test
+          assert '"symlinked parent was not canonicalized"' in acl_path_test
           policy_fn = function_body(daemon_policy, "ftp_daemon_wait_for_stable_presence(")
           assert "ops->is_running(context, daemon)" in policy_fn
           assert "ops->sleep_us(context, 500000U)" in policy_fn
@@ -152,6 +192,11 @@ jobs:
               "trunk/user/rc/src/rc.h",
               "trunk/user/rc/src/ftp_daemon_policy.h",
               "trunk/user/rc/src/tests/ftp_daemon_policy.c",
+              "trunk/user/vsftpd/src/asus_ext.c",
+              "trunk/user/vsftpd/src/asus_ext.h",
+              "trunk/user/vsftpd/src/postlogin.c",
+              "trunk/user/vsftpd/src/ftp_acl_path_policy.h",
+              "trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c",
           )
           filters = workflow.split("jobs:", 1)[0]
           push_filters, pr_filters = filters.split("  pull_request:", 1)
@@ -159,5 +204,5 @@ jobs:
               assert push_filters.count(path) == 1
               assert pr_filters.count(path) == 1
 
-          print("vsftpd generated-config publication and startup gate contracts: PASS")
+          print("vsftpd configuration, lifecycle and path-scoped ACL contracts: PASS")
           PY

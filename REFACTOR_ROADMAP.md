@@ -1,11 +1,9 @@
 ## Current source / CI checkpoint
 
 - Repository: `Arlene206/padavan-4.4-2`; maintained fork only.
-- Base `main` SHA for THIS vsftpd lifecycle and regression-contract correction: `af76d3b551a9161d1b10ecb1d33dc3cb27d49839`; only `main` exists and there is no separate checkpoint branch.
-- Parent `af76d3b551a9161d1b10ecb1d33dc3cb27d49839` triggered seven exact-head Actions with matching full `head_sha`: Samba [42653764405], USB storage [42653764334], NFS [42653764330], WAN route [42653764278] and AI docs [42653764298] passed. FTP [42653764423] compiled/ran both GNU89 tests but a stale `return;` source assertion failed; HTTPD [42653764345] had a stale FTP-config slice boundary after insertion of the wait adapter. Both test contracts are corrected in THIS follow-up.
-- The preceding daemon-lifecycle SHA `30432e4636c5b00c96cb8918caaebe37b133a28c` passed Samba, NFS, USB storage, vsftpd and WAN route; its stale HTTPD signature and handoff-heading contracts were repaired on the parent above.
-- The preceding Samba/storage patch carries Samba stop failures into safe-removal gates, rejects unknown mount inventory during Samba restart and checks WINS-only nmbd status; all six affected exact-head Actions on the parent above are green.
-- The FTP lifecycle implementation on the parent carries vsftpd stop failures into storage safe-removal gates, checks start command status and bounded presence, rejects unknown mount inventory and propagates results through RC callers. THIS follow-up only corrects the two stale test-contract assumptions described above; exact-head Actions for THIS follow-up are pending.
+- Base `main` SHA for THIS path-scoped vsftpd rename-ACL correction: `f35d0a8b97db4b4ef283cbd367cd4198d63f6b73`; only `main` exists and there is no separate checkpoint branch.
+- Parent `f35d0a8b97db4b4ef283cbd367cd4198d63f6b73` has three relevant exact-head Actions, all completed SUCCESS with matching full `head_sha`: vsftpd [42654362095], AI handoff docs [42654362075] and HTTPD/security [42654362050]. All triggered regression and documentation checks were green.
+- This patch resumes the bundled vsftpd security audit and addresses a concrete RNFR/RNTO cross-share ACL gap. Existing service start/stop status propagation and storage safety gates remain in place.
 - `dev_init.sh` mounts `/etc` as tmpfs. Samba config/passdb files under `/etc` are volatile and recreated at boot; a persistent power-loss journal in that mount cannot be durable. Same-boot abrupt process termination remains a separate, lower-priority recovery question.
 - NFS generated defaults retain `secure,no_root_squash,async`; the custom override path accepts only direct regular files or symlinks to regular files and permits generated fallback only on `ENOENT`. Root-squash, AUTH_SYS trust, custom override content/ACL bypass, durability and external-mount policy remain open.
 
@@ -23,16 +21,16 @@
 | NVRAM / persistence / startup | PARTIAL / AUDITING | Atomic publication and restore failure gates. | Remaining direct callers, flash recovery and board variants. |
 | Switch / PHY / MDIO / link state | PARTIAL / AUDITING | Selected ioctl propagation, PVID/link retry, CLI ordering and MDIO timeout checks. | Other board drivers and live hardware behavior. |
 | Samba share service / accounts | PARTIAL / AUDITING | Generated smb.conf is staged/atomically published; folder inventory/read errors fail closed; mode-4 write-only ACL generation is covered; credential provisioning is staged before config publication with ordinary-error passdb rollback. Required smbd/nmbd command status and process-presence postconditions are checked. Samba stop status now propagates into storage-removal gates; WINS-only lifecycle paths check nmbd stop/start/reload and smbd reload results. | Same-boot abrupt process termination between the two runtime file publications; live authentication/reload compatibility. Do not add a purported power-loss journal under /etc tmpfs. |
-| FTP service / vsftpd | PARTIAL / AUDITING | Generated vsftpd config uses checked same-directory staging/atomic replacement; startup now checks the eval result and bounded daemon-presence postcondition. Stop status propagates into storage safe-removal gates and RC restart/stop callers; restart fails closed on unknown mount inventory. | Authentication/account provisioning, credential/ACL semantics, anonymous write/delete exposure, chroot/path confinement and symlink traversal, plus target runtime. |
+| FTP service / vsftpd | PARTIAL / AUDITING | Generated config uses checked same-directory staging/atomic replacement; startup/stop/restart status and bounded daemon-presence checks propagate into storage safety gates. RNFR pins an absolute source path and checks canonical source-parent delete ACL; RNTO revalidates source delete and destination write ACL against canonical parents. GNU89 host regression covers traversal and symlinked parents. | Path-aware ACL coverage for STOR/APPE/STOU, RETR, MKD/RMD/DELE and directory listings; direct metadata-file access, authentication/account semantics, anonymous policy and target runtime. |
 | NFS / third-party add-ons | PARTIAL / AUDITING | NFS inventory/restart preflight, checked start/reload/shutdown and storage-eject gates; exact pseudo-filesystem tuple identity/conflict-safe teardown; strict LAN/VPN IPv4/IPv6 ACL validation and fail-closed publication; generated exports require `secure` source ports; custom override path accepts only direct regular files or symlinks to regular files and permits generated fallback only on `ENOENT`. | Root clients still map to server root; AUTH_SYS remains a trusted-network identity model. `async` durability versus throughput, compatibility-backed root-squash migration, trusted custom override ACL/path bypass and malformed-content/exportfs recovery, and explicit external-mount support remain open. |
 | Init / PID 1 / service supervision | AUDITING | Notification deferral, child reaping and selected start/stop failure gates. MTD Optware worker resets inherited PID1 signal dispositions/mask and is cancelled before normal service shutdown. | Cross-module ordering, other package supervision and remaining shutdown races. |
 
 ## Priority queue
 
-1. P2 — Verify THIS vsftpd regression-contract correction on exact-head vsftpd, Samba, HTTPD, storage, NFS, WAN route and AI handoff Actions; inspect each job and full `head_sha`.
-2. P2 — Audit bundled vsftpd authentication/account provisioning, share-mode ACL semantics, anonymous write/delete exposure, chroot/path confinement and symlink traversal.
-3. P2 — Reassess whether a small same-boot recovery mechanism is justified for abrupt process termination during passdb/config publication. `/etc` is tmpfs, so persistent power-loss journaling is not applicable.
-4. P2 — Keep NFS `async` durability, root-squash compatibility, trusted custom override content/ACL bypass, and external mounts as explicit open risks.
+1. P1 — Verify exact-head vsftpd and AI handoff Actions for THIS path-scoped rename-ACL fix; inspect full `head_sha`, GNU89 compile/run and source-contract logs.
+2. P1 — Complete FTP path-argument ACL audit for STOR/APPE/STOU, RETR, MKD/RMD/DELE, LIST/NLST/STAT and share metadata access. Preserve operation-specific symlink semantics.
+3. P2 — Reassess same-boot recovery after abrupt termination during Samba passdb/config publication. `/etc` is tmpfs; persistent power-loss journaling there is not applicable.
+4. P2 — Keep NFS `async` durability, root-squash compatibility, trusted custom override content/ACL bypass, and external mounts as explicit risks.
 5. P2/P3 — DHCP leasefail/accepted-NAK/release callback state semantics and BusyBox callback status; keep FULLCONENAT mapping-hash / dying-tuple queue namespace ownership as a separate kernel audit.
 
 ## Working rules
@@ -50,8 +48,8 @@
 
 | Level | Evidence | Limits |
 |---|---|---|
-| L1 source review | PASS for Samba and FTP stop-result propagation into storage removal, fail-closed tri-state storage gating, WINS-only and vsftpd command results, bounded daemon-presence postconditions and RC status propagation. | No live process/hardware behavior claimed. |
-| L2 host / Actions | The parent `af76d3b551a9161d1b10ecb1d33dc3cb27d49839` has five of seven exact-head Actions green; FTP [42653764423] and HTTPD [42653764345] failed only on stale test-contract assumptions, while both FTP GNU89 host tests compiled and passed. Those source contracts are corrected here; exact-head Actions for THIS follow-up are pending. | No production RC object, MIPS/uClibc build, firmware/TRX or device test claimed. |
+| L1 source review | PASS for FTP lifecycle status propagation and the RNFR/RNTO ACL correction, including canonical parent resolution and source/destination permission revalidation. | No live FTP session or hardware behavior claimed. |
+| L2 host / Actions | The FTP ACL path-parent helper/test passed a GNU89 warnings-as-errors host run. Exact-head vsftpd and AI docs Actions for THIS commit are pending; parent vsftpd [42654362095], AI docs [42654362075] and HTTPD/security [42654362050] passed with matching full SHA. | No production vsftpd object, MIPS/uClibc build, firmware/TRX or router test claimed. |
 | L3 MIPS/uClibc / production objects / firmware/TRX | NOT VERIFIED. | Full target build phase required. |
 | L4 storage eject, live Samba/WINS behavior / physical router | NOT VERIFIED. | Requires target-device validation. |
 

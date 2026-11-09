@@ -1,3 +1,16 @@
+## 2026-11-10 00:47 CST (UTC+8) — Enforce path-scoped ACLs for FTP rename source and destination
+
+- **Base main SHA:** `f35d0a8b97db4b4ef283cbd367cd4198d63f6b73`; resulting commit: THIS COMMIT.
+- **Recovered exact-head parent Actions:** vsftpd [42654362095], AI handoff docs [42654362075] and HTTPD/security [42654362050] completed SUCCESS with matching full `head_sha=f35d0a8b97db4b4ef283cbd367cd4198d63f6b73`; inspected relevant job steps.
+- **Finding:** Padavan NVRAM FTP accounts all map to UID/GID 99, so per-share metadata ACLs are the meaningful account boundary. `RNFR` checked delete permission for the current working directory rather than the source parent and stored a relative source path that could change after a later CWD. `RNTO` checked only the generic deny-file filter and called `str_rename()` without requiring destination-share write permission. A path-based cross-share rename could bypass the destination ACL.
+- **Fix:** pin the accepted RNFR source to an absolute path. Resolve source/destination parent directories with `realpath()` and apply the existing mount/share ACL policy to the canonical paths. Check source `PERM_DELETE` at RNFR, revalidate it at RNTO, and require destination `PERM_WRITE` before rename. Invalid or missing parents fail closed.
+- **Regression:** add a GNU89-tested path-parent helper covering relative/absolute names, `..` traversal, symlinked parent directories, root/trailing slash, empty/undersized buffers and missing parents. Extend vsftpd workflow compile/run and source-contract coverage plus both push/PR filters.
+- **Changed paths:** `trunk/user/vsftpd/src/asus_ext.c`, `trunk/user/vsftpd/src/asus_ext.h`, `trunk/user/vsftpd/src/postlogin.c`, `trunk/user/vsftpd/src/ftp_acl_path_policy.h`, `trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c`, `.github/workflows/vsftpd-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+- **Validation boundary:** L1 source/path review PASS. The standalone path-parent helper/test compiled with `cc -std=gnu89 -Wall -Wextra -Werror` and passed locally. Exact-head Actions for THIS commit are pending. No bundled vsftpd target object, MIPS/uClibc, firmware/TRX or router test is claimed.
+- **Next:** verify exact-head Actions; continue path-aware review of STOR/APPE/STOU, RETR, MKD/RMD/DELE, LIST/NLST/STAT and per-account metadata access. This patch is deliberately limited to RNFR/RNTO.
+
+---
+
 ## 2026-11-10 00:46 CST (UTC+8) — Repair stale FTP source contracts after lifecycle API change
 
 - **Base main SHA:** `af76d3b551a9161d1b10ecb1d33dc3cb27d49839`; resulting commit: THIS COMMIT.

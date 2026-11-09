@@ -1,5 +1,6 @@
 
 #include "asus_ext.h"
+#include "ftp_acl_path_policy.h"
 #include "session.h"
 #include "ls.h"
 #include "tunables.h"
@@ -213,79 +214,87 @@ int get_permission_ftp(const char *account, const char *mount_path, const char *
 	return result;
 }
 
-int asus_check_permission(struct vsf_session* p_sess, int perm)
+static int
+asus_check_permission_at(struct vsf_session* p_sess, int perm,
+                         const char *directory)
 {
 	int i_layer, i_user_right, i_result;
 	char *mount_path = NULL, *share_name = NULL;
-
 	if (!tunable_chroot_local_user)
 		return 1;
-	if (!p_sess)
+	if (!p_sess || !directory || directory[0] != '/')
 		return 0;
-
-	str_getcwd(&p_sess->cwd_str);
-
 	i_result = 1;
-	i_layer = get_mount_layer(str_getbuf(&p_sess->cwd_str), &mount_path, &share_name);
+	i_layer = get_mount_layer(directory, &mount_path, &share_name);
 	if (i_layer < 0) {
 		i_result = 0;
 		goto free_and_exit;
 	}
-
 	if (mount_path && test_if_hidden_share(mount_path)) {
 		i_result = 0;
 		goto free_and_exit;
 	}
-
-	if(i_layer < SHARE_LAYER){
-		if (perm == PERM_DELETE || perm == PERM_WRITE){
-			if (i_layer < MOUNT_LAYER || !p_sess->is_anonymous || p_sess->st_ftp_mode != 1){
+	if (i_layer < SHARE_LAYER) {
+		if (perm == PERM_DELETE || perm == PERM_WRITE) {
+			if (i_layer < MOUNT_LAYER || !p_sess->is_anonymous ||
+			    p_sess->st_ftp_mode != 1) {
 				i_result = 0;
 				goto free_and_exit;
 			}
 		}
-	}
-	else{
+	} else {
 		const char *account_ftp;
-		
-		if (p_sess->is_anonymous){
+		if (p_sess->is_anonymous) {
 			if (p_sess->st_ftp_mode == 1)
 				goto free_and_exit;
 			account_ftp = FTP_ANONYMOUS_USER;
-		}
-		else{
+		} else {
 			account_ftp = str_getbuf(&p_sess->user_str);
 		}
-		
 		i_user_right = get_permission_ftp(account_ftp, mount_path, share_name);
-		if (perm == PERM_DELETE){
-			if (i_user_right < 3){
+		if (perm == PERM_DELETE) {
+			if (i_user_right < 3) {
 				i_result = 0;
 				goto free_and_exit;
 			}
-		}
-		else if (perm == PERM_WRITE){
-			if (i_user_right < 2){
+		} else if (perm == PERM_WRITE) {
+			if (i_user_right < 2) {
 				i_result = 0;
 				goto free_and_exit;
 			}
-		}
-		else if (perm == PERM_READ){
-			if (i_user_right < 1 || i_user_right == 2){
+		} else if (perm == PERM_READ) {
+			if (i_user_right < 1 || i_user_right == 2) {
 				i_result = 0;
 				goto free_and_exit;
 			}
 		}
 	}
-
 free_and_exit:
-
-	if (mount_path)
-		free(mount_path);
-	if (share_name)
-		free(share_name);
-
+	if (mount_path) free(mount_path);
+	if (share_name) free(share_name);
 	return i_result;
+}
+int
+asus_check_permission(struct vsf_session* p_sess, int perm)
+{
+	if (!tunable_chroot_local_user) return 1;
+	if (!p_sess) return 0;
+	str_getcwd(&p_sess->cwd_str);
+	return asus_check_permission_at(p_sess, perm,
+					str_getbuf(&p_sess->cwd_str));
+}
+int
+asus_check_permission_path(struct vsf_session* p_sess, int perm,
+                           const struct mystr* p_path_str)
+{
+	char parent[PATH_MAX], resolved[PATH_MAX];
+	if (!tunable_chroot_local_user) return 1;
+	if (!p_sess || !p_path_str ||
+	    ftp_acl_path_resolve_parent(str_getbuf(p_path_str), parent,
+					sizeof(parent), resolved,
+					sizeof(resolved)) != 0)
+		return 0;
+	return asus_check_permission_at(p_sess, perm, resolved);
 }
 
 int asus_check_file_visible(struct vsf_session* p_sess, const struct mystr* p_filename_str)
