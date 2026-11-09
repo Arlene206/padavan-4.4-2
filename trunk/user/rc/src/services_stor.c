@@ -91,7 +91,7 @@ storage_has_mounted_devices(const char *operation)
 	int mount_count;
 
 	mount_count = count_stor_mountpoint();
-	if (mount_count < 0) {
+	if (!storage_mount_inventory_is_complete(mount_count)) {
 		logmessage("Storage", "cannot determine mounted storage from %s while %s; refusing storage-dependent service start",
 			   PROC_MOUNTS_FILE, operation);
 		return 0;
@@ -1161,14 +1161,18 @@ void restart_nfsd(void)
 {
 	int mount_count;
 
-	stop_nfsd();
-
+	/*
+	 * Do not stop a running NFS service until the mount inventory is known
+	 * to be complete. A transient /proc/mounts error is not an empty disk.
+	 */
 	mount_count = count_stor_mountpoint();
-	if (mount_count < 0) {
-		logmessage("Storage", "cannot determine mounted storage from %s during NFS restart; keeping NFS support loaded",
+	if (!storage_mount_inventory_is_complete(mount_count)) {
+		logmessage("Storage", "cannot determine mounted storage from %s during NFS restart; preserving the current NFS service and support state",
 			   PROC_MOUNTS_FILE);
 		return;
 	}
+
+	stop_nfsd();
 
 	if (nvram_match("nfsd_enable", "1") &&
 	    storage_mount_inventory_has_mounts(mount_count)) {

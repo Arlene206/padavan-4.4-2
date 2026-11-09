@@ -5,8 +5,8 @@
 ## Current source / CI checkpoint
 
 - Repository: Arlene206/padavan-4.4-2 (maintained fork).
-- Latest code/test checkpoint: `301de504e474f51f4f04c08ef7f36975f19df9fa` — Samba helper regression and docs contract PASS; HTTPD's Samba trust-boundary source contract advanced past the header but failed because the folder-block slice ended at an early cleanup marker before the share output. This correction bounds the folder block within the full writer and uses the final cleanup occurrence.
-- Baseline exact-head Actions: HTTPD [42590546450](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42590546450) FAIL at the folder-block contract slice; AI handoff docs [42590546420](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42590546420) PASS. Samba helper [42589984483](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42589984483) PASS on 088a87e and its test file blob is unchanged at the current baseline. Corrected HTTPD/docs exact-head Actions are pending.
+- Latest code/test checkpoint: `d5cd264e5fda1568d8c1872bac09c0a4ec0da233` — Samba's dependent HTTPD trust-boundary contract is green; the NFS restart path is now being corrected so `/proc/mounts` completeness is checked before stopping the running daemon. The new policy test/source-ordering regression is pending exact-head Actions.
+- Baseline exact-head Actions: HTTPD [42591187385](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42591187385) and AI handoff docs [42591187335](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42591187335) both SUCCESS on exact SHA `d5cd264e5fda1568d8c1872bac09c0a4ec0da233`; Samba helper [42589984483](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42589984483) SUCCESS on exact SHA 088a87e (test blob unchanged). New NFS ordering/policy regression and docs workflow pending on THIS COMMIT.
 
 ## Whole-repository module status
 
@@ -23,12 +23,12 @@
 | Switch / PHY / MDIO / link state | PARTIAL / AUDITING | Selected ioctl propagation, PVID/link retry, CLI ordering and MDIO timeout checks. | Other board drivers and live hardware behavior. |
 | Samba share service / accounts | PARTIAL / AUDITING | Generated smb.conf is staged and atomically published; folder inventory/read errors fail closed; WINS/nmbd/smbd lifecycle is gated on publication. Samba GNU89 helper regression passes; HTTPD's dependent trust-boundary contract now bounds its folder slice to the full writer instead of an early error cleanup; exact-head rerun pending. | Passdb/account mutation consistency, ACL/permission mapping, credential security, live Samba reload behavior and target runtime. |
 | FTP service / vsftpd | PARTIAL / AUDITING | Generated vsftpd config uses checked same-directory staging/atomic replacement and daemon startup is gated on publication success. | Authentication, credential/ACL semantics, path confinement, stop/lifecycle error propagation and target runtime. |
-| NFS / third-party add-ons | AUDITING | NFS mount inventory and selected external-script lifecycle checks. | Permissions, command injection, service failures, mount lifecycle and arbitrary external init ordering. |
+| NFS / third-party add-ons | PARTIAL / AUDITING | NFS export inventory validation/publication and selected lifecycle preflights. This round moves the `restart_nfsd()` incomplete-mount-inventory guard before daemon stop; exact-head validation pending. | `nfsd.sh` start/stop/reload command failures and RC propagation; permissions, command injection, mount lifecycle and arbitrary external init ordering; Optware startup-hook result aggregation. |
 | Init / PID 1 / service supervision | AUDITING | Notification deferral, child reaping and selected start/stop failure gates. | Cross-module ordering, shutdown races and package supervision. |
 
 ## Priority queue
 
-1. P2 — First reconcile the corrected Samba and HTTPD Actions on the exact new main SHA. Once green, rotate to NFS mount/permission lifecycle and third-party add-on service supervision; trace full caller and init order before selecting one bounded P2 bug.
+1. P2 — Verify this NFS restart availability fix on exact-head HTTPD/docs Actions. Then inspect `trunk/user/nfs-utils/nfsd.sh` start/stop/reload command status propagation and select one bounded daemon lifecycle defect; next rotate to third-party `opt-start.sh` startup-hook failure handling.
 2. P2 — Continue the separate Samba account/passdb mutation and ACL/permission audit; do not equate atomic config publication with complete service security.
 3. P2/P3 — Continue LAN DHCP leasefail, accepted-NAK and release state semantics; account for BusyBox discarding callback exit status. Target/live DHCP validation remains outstanding.
 4. Separate kernel task — FULLCONENAT mapping-hash and dying-tuple queue namespace ownership. Keep it separate from userland work.
@@ -48,10 +48,10 @@
 
 | Level | Evidence | Limits |
 |---|---|---|
-| L1 source review | PASS for SMB staged/atomic config generation, fail-closed folder inventory, WINS startup and nmbd/smbd reload gates; PASS for the preceding vsftpd, DHCP, storage and selected service-lifecycle reviews. | A bounded source review does not close Samba/FTP service security or whole-module audits. |
-| L2 host / Actions | Baseline SHA `301de504e474f51f4f04c08ef7f36975f19df9fa`: HTTPD [42590546450](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42590546450) FAIL at the folder-block source slice; docs [42590546420](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42590546420) PASS. Samba helper regression [42589984483](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42589984483) PASS on 088a87e and the test blob is unchanged. Corrected HTTPD/docs exact-head runs pending. | No local L2 run; production RC object, MIPS/uClibc and firmware/TRX are not verified. |
+| L1 source review | PASS for SMB staged/atomic config generation, fail-closed folder inventory, WINS startup/nmbd/smbd reload gates, and NFS restart ordering that preserves the running daemon on an incomplete inventory. | A bounded source review does not close NFS daemon command handling or Samba/FTP service security. |
+| L2 host / Actions | Baseline SHA `d5cd264e5fda1568d8c1872bac09c0a4ec0da233`: HTTPD [42591187385](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42591187385) and docs [42591187335](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42591187335) PASS on the exact SHA. NFS policy regression/source-order contract and docs run for THIS COMMIT pending. | No local L2 run; production RC object, MIPS/uClibc and firmware/TRX are not verified. |
 | L3 MIPS/uClibc / production objects / firmware/TRX | NOT VERIFIED. | Full build phase required. |
-| L4 live router / SMB share/auth/ACL / physical hardware | NOT VERIFIED. | Requires device validation. |
+| L4 live router / NFS mount/restart / SMB share/auth/ACL / physical hardware | NOT VERIFIED. | Requires device validation. |
 
 ## Handoff requirements
 

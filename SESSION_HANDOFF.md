@@ -5,18 +5,26 @@
 ## Current repository state
 
 - Repository: Arlene206/padavan-4.4-2; maintained fork only.
-- Baseline main SHA: `301de504e474f51f4f04c08ef7f36975f19df9fa` (`test(httpd): align Samba config contract with staged writer`); this round repairs the remaining folder-block source slice in the HTTPD Samba contract. Re-fetch live main for the resulting commit SHA.
-- Remote branch inventory at baseline: only `main`; no remote checkpoint branch exists.
-- Exact-head Actions on baseline SHA `301de504e474f51f4f04c08ef7f36975f19df9fa`:
-  - HTTPD Authentication and Security [42590546450](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42590546450) FAILED at step 26 “Verify Samba share configuration trust boundaries”; the Python contract raised `ValueError: substring not found` on its folder-block slice because the first free-list cleanup marker occurs before the share output it intended to inspect.
-  - AI handoff documentation contract [42590546420](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42590546420) SUCCESS.
-  - Samba helper regression [42589984483](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42589984483) SUCCESS on exact SHA `088a87e61ca0da3ab040fc230f2d9e875b3920a1`. The regression test file blob remains unchanged at `b5313443d581a0c3afd212b1cf2dd14ffdc5da0f` in baseline SHA `301de504e474f51f4f04c08ef7f36975f19df9fa`; Samba workflow did not rerun because its path filter was not triggered.
-- The test literal fix and stream-based writer contract changes are already committed. The current source-contract correction bounds the folder inspection to the complete write_smb_conf() body and uses the final folder-list cleanup marker, so the inspected block includes the share-name/path guards and output statements. Do not change production Samba code to work around this test boundary.
-- No local repository checkout is available. The exact-head Samba GNU89 test passed at SHA 088a87e and its test blob is unchanged; the HTTPD source-contract remains red until this correction passes. No local Python contract/docs-validator execution is claimed. L3 production RC/Samba object, MIPS/uClibc, firmware/TRX and L4 live share/router validation remain NOT VERIFIED.
+- Baseline main SHA: `d5cd264e5fda1568d8c1872bac09c0a4ec0da233` (`test(httpd): inspect complete Samba share writer contract`); Samba's dependent HTTPD source contract is now green. This round fixes `restart_nfsd()` stopping NFS before validating `/proc/mounts`. Re-fetch live main for the resulting commit SHA.
+- Remote branch inventory at baseline: only `main` at `d5cd264e5fda1568d8c1872bac09c0a4ec0da233`; no remote checkpoint branch exists.
+- Exact-head Actions on baseline SHA `d5cd264e5fda1568d8c1872bac09c0a4ec0da233`:
+  - HTTPD Authentication and Security [42591187385](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42591187385) SUCCESS; its head SHA exactly matches the baseline and the corrected Samba trust-boundary contract passed.
+  - AI handoff documentation contract [42591187335](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42591187335) SUCCESS on the same exact SHA.
+  - Samba helper regression [42589984483](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42589984483) SUCCESS on exact SHA `088a87e61ca0da3ab040fc230f2d9e875b3920a1`; its test blob remains unchanged at `b5313443d581a0c3afd212b1cf2dd14ffdc5da0f`. Its path-filtered workflow did not rerun on the baseline SHA.
+- The Samba folder-block contract fix is committed and its dependent HTTPD workflow now passes on exact SHA `d5cd264e5fda1568d8c1872bac09c0a4ec0da233`. The docs workflow also passes on that exact SHA. No production Samba code changed in that closure.
+- No local repository checkout is available. No local Python workflow or `scripts/check_ai_handoff_docs.py` run is claimed. The current NFS fix is a focused `services_stor.c` lifecycle-order change; its host policy test and source contract require exact-head Actions confirmation. L3 production RC object/MIPS/uClibc, firmware/TRX and L4 live NFS/router validation remain NOT VERIFIED.
 
 ## Active task
 
-Samba atomic-publication dependent-contract closure — the GNU89 helper regression passed on exact SHA `088a87e61ca0da3ab040fc230f2d9e875b3920a1`, and the docs contract passed on `301de504e474f51f4f04c08ef7f36975f19df9fa`. The HTTPD contract advanced past its header checks but now fails at the folder-block slice: its first cleanup marker is inside an early error branch, before the output statements. Bound that block to the full write_smb_conf() body and slice through its final folder-list cleanup.
+NFS restart availability — `restart_nfsd()` currently stops the daemon before checking whether `/proc/mounts` can be read completely. A transient inventory I/O error then returns early with the service already stopped. Read and validate the inventory first; preserve the current daemon/modules on an unknown inventory, and only then stop/restart or unload based on the complete result.
+
+### NFS restart lifecycle review
+
+- Reviewed `count_stor_mountpoint()` and its tri-state contract: a complete empty inventory is `0`, a complete non-empty inventory is positive, and open/read/close failures return `-1`.
+- Confirmed the failure window in `restart_nfsd()`: `stop_nfsd()` ran before `count_stor_mountpoint()`. The `mount_count < 0` return therefore left the NFS daemons stopped even though the source comment/log intended to preserve support state.
+- Fix in THIS COMMIT: add `storage_mount_inventory_is_complete()` to the existing mount-inventory policy, use it in the common storage-service preflight, and move the NFS stop operation after the incomplete-inventory guard. An unreadable inventory now preserves the running NFS daemon and support modules; complete inventory continues through the existing restart/unload policy.
+- Regression: extend the GNU89 policy test for unknown/empty/non-empty completeness and strengthen the HTTPD workflow source contract to require inventory → unknown guard/return → `stop_nfsd()` ordering. Existing workflow path filters already include all changed source, policy and test paths.
+- No local checkout is available; the host regression, source contract and docs validator are not run locally. Exact-head HTTPD/docs Actions are pending for THIS COMMIT. `nfsd.sh` command-level start/stop error propagation and third-party `opt-start.sh` start-hook failure aggregation remain separate open lifecycle work.
 
 ### Samba generated configuration and caller path reviewed
 
@@ -37,7 +45,7 @@ Samba atomic-publication dependent-contract closure — the GNU89 helper regress
 
 ### Next development rotation
 
-After the Samba, FTP, storage, HTTPD and documentation Actions pass on the new exact head SHA, rotate into NFS mount/permission lifecycle and third-party add-on service supervision rather than staying in Samba. Preserve DHCP leasefail/accepted-NAK/release state semantics and the FULLCONENAT mapping/queue namespace audit as separate tasks.
+After the NFS restart availability fix passes HTTPD and docs Actions on its exact new main SHA, audit `trunk/user/nfs-utils/nfsd.sh` command-level start/stop/reload error propagation as the next bounded NFS lifecycle task. Then inspect third-party `opt-start.sh` startup-hook result aggregation. Preserve DHCP leasefail/accepted-NAK/release state semantics and the FULLCONENAT mapping/queue namespace audit as separate tasks.
 
 ### DHCP changes already completed
 
@@ -82,18 +90,18 @@ After the Samba, FTP, storage, HTTPD and documentation Actions pass on the new e
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for the bounded Samba staged/atomic publication implementation, staged duplicate-share inspection, fail-closed folder inventory and WINS/nmbd/smbd gates. Current follow-up only corrects test source slicing. |
-| L2 host / GitHub Actions | Exact baseline SHA `301de504e474f51f4f04c08ef7f36975f19df9fa`: HTTPD [42590546450](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42590546450) FAIL at the folder-block source slice; docs [42590546420](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42590546420) SUCCESS. Samba helper regression [42589984483](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42589984483) SUCCESS on `088a87e61ca0da3ab040fc230f2d9e875b3920a1`; test blob unchanged since then. Corrected HTTPD/docs runs for THIS COMMIT are pending exact-head reconciliation. |
+| L1 source review | PASS for the Samba staged/atomic publication implementation and its WINS/nmbd/smbd gates; PASS at source-review level for the NFS mount-inventory ordering correction. |
+| L2 host / GitHub Actions | Baseline SHA `d5cd264e5fda1568d8c1872bac09c0a4ec0da233`: HTTPD [42591187385](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42591187385) and AI handoff docs [42591187335](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42591187335) SUCCESS on the exact SHA. This commit's NFS policy regression/source contract and docs workflow are pending exact-head Actions. Samba GNU89 helper PASS on earlier exact SHA `088a87e61ca0da3ab040fc230f2d9e875b3920a1`; no local run. |
 | L3 MIPS/uClibc / production objects / firmware/TRX | NOT VERIFIED. |
-| L4 live SMB share/auth/ACL / physical router | NOT VERIFIED. |
+| L4 live NFS mount/restart / SMB share/auth/ACL / physical router | NOT VERIFIED. |
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, all branches and Actions; verify the resulting full SHA for this folder-contract correction.
-2. Match the new HTTPD Authentication/Security and AI handoff-doc runs to that exact SHA. If the HTTPD step advances and exposes another failing assumption, inspect its exact log and correct only the contract; do not weaken the source checks.
-3. Once HTTPD and docs pass, close this bounded Samba CI task and rotate to the roadmap's P2 NFS mount/permission lifecycle and third-party add-on service supervision audit. Trace the caller graph, init ordering, permission/config behavior and error cleanup before choosing one defect.
-4. Keep Samba passdb/account mutation, ACL/permission and credential review open; keep vsftpd authentication/ACL/path-confinement/stop lifecycle open.
-5. Preserve DHCP leasefail/accepted-NAK/release semantics with BusyBox's dropped callback status as a separate userland task. Keep FULLCONENAT mapping-hash and dying-tuple queue namespace ownership as a separate kernel audit. L3/L4 remain unverified.
+1. Fetch live `main`, all remote branches and Actions; reconcile the full current SHA and exact run IDs/conclusions.
+2. Verify the NFS policy host regression and the ordering contract in the HTTPD workflow, plus the AI handoff documentation contract, against the exact new main SHA. Correct any real failure without weakening the contract.
+3. Once those checks pass, audit `trunk/user/nfs-utils/nfsd.sh` start/stop/reload error propagation and caller handling in `services_stor.c`; choose one bounded daemon lifecycle defect.
+4. Then inspect third-party `opt-start.sh` startup-hook enumeration and failure aggregation; preserve `/opt` availability/retry semantics.
+5. Keep Samba passdb/account/ACL and FTP authentication/path-confinement audits open. Preserve DHCP leasefail/accepted-NAK/release semantics and FULLCONENAT mapping-hash/queue namespace as separate tasks. L3/L4 remain NOT VERIFIED.
 
 ## Documentation maintenance
 

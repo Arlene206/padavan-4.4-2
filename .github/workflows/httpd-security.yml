@@ -2088,16 +2088,21 @@ jobs:
           helper_start = service.index("storage_has_mounted_devices(const char *operation)")
           helper_end = service.index("#if defined (APP_FTPD)", helper_start)
           helper = service[helper_start:helper_end]
-          assert "if (mount_count < 0)" in helper
+          assert "if (!storage_mount_inventory_is_complete(mount_count))" in helper
           assert "refusing storage-dependent service start" in helper
 
           nfs_start = service.index("void restart_nfsd(void)")
           nfs_end = service.index("#endif", nfs_start)
           nfs = service[nfs_start:nfs_end]
-          assert "if (mount_count < 0)" in nfs
-          assert nfs.index("return;") < nfs.index("unload_nfsd();")
+          inventory_pos = nfs.index("mount_count = count_stor_mountpoint();")
+          guard_pos = nfs.index("if (!storage_mount_inventory_is_complete(mount_count))")
+          unknown_return_pos = nfs.index("return;", guard_pos)
+          stop_pos = nfs.index("stop_nfsd();")
+          assert inventory_pos < guard_pos < unknown_return_pos < stop_pos
+          assert stop_pos < nfs.index("storage_mount_inventory_has_mounts(mount_count)")
+          assert "preserving the current NFS service and support state" in nfs
 
-          safe_start = service.index("safe_remove_stor_device(int port_b")
+                    safe_start = service.index("safe_remove_stor_device(int port_b")
           safe_end = service.index("safe_remove_all_stor_devices(int do_spindown)", safe_start)
           safe_remove = service[safe_start:safe_end]
           assert "mount_count < 0" in safe_remove

@@ -13,6 +13,12 @@ storage_mount_inventory_result(int count, int io_failed)
 }
 
 static int
+storage_mount_inventory_is_complete(int count)
+{
+	return count >= 0;
+}
+
+static int
 storage_mount_inventory_has_mounts(int count)
 {
 	return count > 0;

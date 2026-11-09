@@ -11,6 +11,10 @@ main(void)
 	assert(storage_mount_inventory_result(0, 1) == -1);
 	assert(storage_mount_inventory_result(4, 1) == -1);
 
+	assert(!storage_mount_inventory_is_complete(-1));
+	assert(storage_mount_inventory_is_complete(0));
+	assert(storage_mount_inventory_is_complete(1));
+
 	assert(!storage_mount_inventory_has_mounts(-1));
 	assert(!storage_mount_inventory_has_mounts(0));
 	assert(storage_mount_inventory_has_mounts(1));

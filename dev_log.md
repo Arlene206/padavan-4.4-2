@@ -1,3 +1,18 @@
+## 2026-11-09 17:35 CST (UTC+8) — Preserve NFS service when mount inventory is incomplete
+
+- **Base main SHA:** `d5cd264e5fda1568d8c1872bac09c0a4ec0da233`; resulting commit: THIS COMMIT.
+- **Module / priority:** NFS storage-service restart lifecycle, P2 stability. NFS and third-party add-ons remain PARTIAL / AUDITING.
+- **Finding:** `restart_nfsd()` stopped the NFS daemon before calling `count_stor_mountpoint()`. If `/proc/mounts` open/read/close failed, the function returned on the unknown (`-1`) inventory, leaving the previously running NFS service stopped.
+- **Fix:** add `storage_mount_inventory_is_complete()` to the tri-state mount-inventory policy and use it in the shared storage-service preflight. Move `stop_nfsd()` after the NFS restart's completeness guard. A failed inventory now preserves current daemon/module state; complete inventories continue through the existing restart/unload decision.
+- **Regression:** extend the GNU89 policy test for incomplete, empty and non-empty inventory states. Strengthen the HTTPD workflow source contract to assert inventory read → incomplete guard/return → daemon stop ordering. Existing path filters already cover the source, helper and regression paths.
+- **Changed paths:** `trunk/user/rc/src/services_stor.c`, `trunk/user/rc/src/storage_mount_inventory_policy.h`, `trunk/user/rc/src/tests/storage_mount_inventory_policy.c`, `.github/workflows/httpd-security.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+- **Baseline exact-head evidence:** HTTPD [42591187385](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42591187385) and AI handoff docs [42591187335](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42591187335) SUCCESS on `d5cd264e5fda1568d8c1872bac09c0a4ec0da233`. This commit's host policy test, source contract and docs validation await exact-head Actions.
+- **Local validation:** no local checkout is available; no local GNU89 test, workflow Python contract or `scripts/check_ai_handoff_docs.py` run is claimed.
+- **Validation boundary:** L1 focused source/caller review PASS; L2 pending exact-head Actions. No production RC object, MIPS/uClibc, firmware/TRX or live NFS mount/restart/router validation. The separate `nfsd.sh` command-level start/stop/reload status audit and Optware startup-hook aggregation remain open.
+- **Next:** reconcile HTTPD/docs Actions against the resulting full SHA. Then audit `trunk/user/nfs-utils/nfsd.sh` start/stop/reload error propagation as one bounded lifecycle task, followed by third-party `opt-start.sh` start-hook result handling.
+
+---
+
 ## 2026-11-09 17:09 CST (UTC+8) — Bound Samba folder contract to the complete writer body
 
 - **Base main SHA:** `301de504e474f51f4f04c08ef7f36975f19df9fa`; resulting commit: THIS COMMIT.
