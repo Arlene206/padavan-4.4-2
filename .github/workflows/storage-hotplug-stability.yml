@@ -232,9 +232,14 @@ jobs:
           assert "storage_mount_inventory_has_mounts(mount_count) ? 1 : 0" in inventory_gate
           deferred_start = function_body(storage, "try_start_stor_apps(void)")
           assert deferred_start.index("storage_operation_lock_acquire(file_lock)") < deferred_start.index("storage_has_mounted_devices(")
-          assert deferred_start.index("storage_has_mounted_devices(") < deferred_start.index("start_stor_apps();")
-          assert deferred_start.index("start_stor_apps();") < deferred_start.index('nvram_set_int_temp("usb_hotplug_ms", 0)')
-          assert deferred_start.rindex("file_unlock(storage_lock);") < deferred_start.index("storage_optware_start_async();")
+          inventory_check = deferred_start.index('mounted_devices = storage_has_mounted_devices("starting storage applications");')
+          start_apps_call = deferred_start.index("start_stor_apps();")
+          assert inventory_check < start_apps_call
+          hotplug_flag_clear = deferred_start.index('nvram_set_int_temp("usb_hotplug_ms", 0)', start_apps_call)
+          assert start_apps_call < hotplug_flag_clear
+          storage_unlock = deferred_start.rindex("file_unlock(storage_lock);")
+          optware_launch = deferred_start.index("storage_optware_start_async()")
+          assert storage_unlock < optware_launch
           assert "STORAGE_OPTWARE_START_CHILD_SUCCESS" in deferred_start
           success_gate = deferred_start.index("if (child_result == STORAGE_OPTWARE_START_CHILD_SUCCESS)")
           assert deferred_start.index('nvram_set_int_temp("usb_opt_start", 0);', success_gate) > success_gate

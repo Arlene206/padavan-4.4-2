@@ -1,3 +1,15 @@
+## 2026-11-09 19:52 CST (UTC+8) — Correct deferred Optware caller-graph assertion anchors
+
+- **Base main SHA:** `a154f30da5d0eac2d3923d221c39eeb8295965f2`; resulting commit: THIS COMMIT.
+- **Exact-head evidence:** USB storage run [42612494953](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42612494953) compiled and passed the new GNU89 child-result decoder test, Optware shell regressions, and storage inventory/lock tests, then failed the final source contract at stdin line 129 (the deferred inventory/startup ordering assertion). AI docs [42612494818](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42612494818), Samba [42612494997](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42612494997), vsftpd [42612494935](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42612494935), NFS [42612494823](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42612494823), and HTTPD [42612494815](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42612494815) SUCCESS on the same exact SHA.
+- **Correction:** explicitly anchor the inventory assignment, scope the mounted-branch `usb_hotplug_ms` clear search after `start_stor_apps();` (the complete-empty branch legitimately clears it earlier), and find `storage_optware_start_async()` without requiring a standalone semicolon. This is a workflow contract correction only; production code and test coverage are unchanged.
+- **Changed paths:** `.github/workflows/storage-hotplug-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+- **Validation boundary:** base GNU89 child-result test and all earlier shell/storage tests PASS; final source contract failed at the identified assertion. Exact-head storage/docs reruns pending. No full local checkout, full production object, MIPS/uClibc, firmware/TRX, or target-router validation claimed.
+- **Next:** reconcile exact-head storage/docs Actions; then audit the separate async MTD boot-time Optware caller result/retry path.
+
+
+---
+
 ## 2026-11-09 19:45 CST (UTC+8) — Preserve deferred USB Optware startup result and retry state
 
 - **Base main SHA:** `6ae43a6a71e05bf5aeba47516b1c4b193c75075e`; resulting commit: THIS COMMIT.

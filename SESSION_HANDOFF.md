@@ -5,36 +5,36 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; maintained fork only.
-- Base main SHA for THIS deferred USB Optware startup result/retry fix: `6ae43a6a71e05bf5aeba47516b1c4b193c75075e`; resulting commit: THIS COMMIT.
-- Remote branch inventory at recovery: only `main`; no separate checkpoint branch.
-- The preceding internal MTD/UBI startup and RWFS shutdown task is reconciled: USB storage regression [42609876845](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42609876845) and AI handoff documentation [42609876722](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42609876722) both completed SUCCESS on the exact full SHA `6ae43a6a71e05bf5aeba47516b1c4b193c75075e`. All 9 storage workflow steps passed, including Optware MTD syntax, lifecycle-lock/teardown/startup host regressions, GNU89 storage inventory tests, and the whole storage caller-graph/source contract. The documentation validator also passed on that exact SHA.
-- The production MTD/UBI lifecycle correction remains in `b13ca6b46e0bef9474ee6744cf4f7f1734aadc97`; the final RWFS source-contract correction is in `6ae43a6a71e05bf5aeba47516b1c4b193c75075e`. The earlier failed runs on `d225e9e...` are historical and superseded by the two exact-head SUCCESS runs above.
-- THIS commit changes the deferred removable-USB Optware result/retry path in `services_stor.c`, adds a small GNU89 result-channel policy regression, and extends the storage workflow. It does not change the MTD boot caller.
+- Base main SHA for THIS deferred Optware source-contract correction: `a154f30da5d0eac2d3923d221c39eeb8295965f2`; resulting commit: THIS COMMIT.
+- Remote branch inventory: only `main`; no separate checkpoint branch.
+- The previous MTD/UBI startup and RWFS shutdown task is green on exact SHA `6ae43a6a71e05bf5aeba47516b1c4b193c75075e`: USB storage run [42609876845](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42609876845) and AI documentation run [42609876722](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42609876722) both SUCCESS.
+- The deferred USB startup implementation is in parent `a154f30da5d0eac2d3923d221c39eeb8295965f2`. Its exact-head USB storage run [42612494953](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42612494953) compiled and passed the new GNU89 child-result test and all preceding shell/storage tests, but failed the final source-contract check at stdin line 129 (the workflow's string-order assertion for inventory and startup call). AI documentation [42612494818](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42612494818), Samba [42612494997](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42612494997), vsftpd [42612494935](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42612494935), NFS [42612494823](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42612494823), and HTTPD [42612494815](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42612494815) all SUCCESS on the same exact SHA.
+- THIS commit clarifies the source contract by anchoring to the exact inventory assignment, checking flag clearing only after the service-start call, and searching for the Optware launch call without assuming a trailing semicolon. No production behavior is changed.
 
 ## Active task
 
 ### Deferred USB Optware startup result and retry
 
-P2 storage stability / service lifecycle. The previous MTD/UBI/RWFS task is verified green on exact HEAD; this bounded follow-up addresses the separate removable-storage deferred-start path.
+P2 storage stability / service lifecycle. Production changes are in parent commit `a154f30da5d0eac2d3923d221c39eeb8295965f2`; THIS commit fixes only the new storage workflow's source-contract anchors.
 
-### Finding
+### Implementation already present in parent
 
-`storage_has_mounted_devices()` previously converted an incomplete `/proc/mounts` read to false, indistinguishable from a complete empty inventory. `try_start_stor_apps()` launched `opt-start.sh` in the background and returned success without observing the script's exit status. `on_deferred_hotplug_dev()` then cleared both `usb_hotplug_ms` and `usb_opt_start`, losing retry state after hook/startup failure. A retry caused by lock contention also re-ran all integrated storage services.
+- Preserve three states for `/proc/mounts`: mounted, complete-empty, or incomplete. Incomplete inventories retain pending flags and schedule retry.
+- Clear the one-shot `usb_hotplug_ms` after the integrated RC storage services run against a complete mounted inventory, so retries for Optware do not repeatedly start Samba/NFS/FTP.
+- Keep `usb_opt_start` pending until the actual `opt-start.sh` child reports exit status zero.
+- Fork the worker only after releasing `storage.lock`; use a nonblocking result pipe with close-on-exec writer and SIGALRM wakeup. The open result fd suppresses duplicate launches while a worker is active or the result is unconsumed.
+- Preserve NVRAM retry state after child failure/EOF. The child uses existing `opt-start.sh` and its lifecycle lock/supervisor.
 
-### Fix in THIS commit
+### CI contract correction in THIS commit
 
-- Preserve a three-state mount result: mounted, complete-empty, or incomplete. An incomplete inventory keeps both pending NVRAM flags and is retried; a complete empty inventory clears stale work only when no Optware worker is still running.
-- Treat `usb_hotplug_ms` as the one-shot request for integrated RC storage-service startup. Clear it after the complete inventory/start call, so Optware retries do not repeat Samba/NFS/FTP and other integrated startup.
-- Keep `usb_opt_start` pending until the actual `opt-start.sh` child reports exit status 0. A child failure or premature EOF leaves the flag set and schedules retry.
-- Fork the Optware worker only after releasing `storage.lock`. A nonblocking pipe carries its one-byte success/failure result back to PID 1; the child sends SIGALRM after publishing the result. PID 1's existing SIGCHLD reaper can continue reaping children without losing this separate pipe result.
-- The single open result channel prevents duplicate worker launches while startup is running or its result has not yet been consumed. The child closes the read end, and its write end is close-on-exec so grandchildren from `system()` cannot keep the result pipe artificially open.
-- The worker continues to use `opt-start.sh` and the existing shared Optware lifecycle lock/supervisor. No external Optware hook runs while the C caller owns `storage.lock`.
+The exact-head storage run passed all shell regressions, the GNU89 result decoder test, and preceding inventory/lock tests, then stopped at a fragile whole-caller-graph assertion on line 129. The revised assertion:
+- anchors the inventory read to the exact `mounted_devices = storage_has_mounted_devices(...)` assignment;
+- searches for the `usb_hotplug_ms` clear only after `start_stor_apps();` (there is a valid earlier clear in the separate complete-empty branch);
+- searches for `storage_optware_start_async()` without requiring `();`, since it is called in a conditional expression.
+No production source is changed by THIS correction.
 
 ### Files changed
 
-- `trunk/user/rc/src/services_stor.c`
-- `trunk/user/rc/src/storage_optware_start_policy.h`
-- `trunk/user/rc/src/tests/storage_optware_start_policy.c`
 - `.github/workflows/storage-hotplug-stability.yml`
 - `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`
 
@@ -42,19 +42,19 @@ P2 storage stability / service lifecycle. The previous MTD/UBI/RWFS task is veri
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for tri-state `/proc/mounts` handling, one-shot integrated-service flag, async child result channel, no external hook under `storage.lock`, duplicate-worker suppression, and retained retry state. |
-| L2 host / Actions | The new GNU89 policy test compiled and passed locally in a scratch directory. The base storage and AI-doc workflows both passed on exact SHA `6ae43a6a71e05bf5aeba47516b1c4b193c75075e` (storage [42609876845](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42609876845), docs [42609876722](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42609876722)). THIS commit's storage and documentation Actions are pending on its resulting full SHA; no local full-source build or full checkout is claimed. |
+| L1 source review | PASS for tri-state inventory, one-shot integrated service startup, async result channel, lock release before external hooks, and child failure retry. This commit changes only test-contract anchors. |
+| L2 host / Actions | Parent exact-head storage run [42612494953](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42612494953): all shell and GNU89 tests passed; final source-contract test failed at stdin line 129. AI docs [42612494818](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42612494818) SUCCESS; Samba [42612494997](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42612494997), vsftpd [42612494935](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42612494935), NFS [42612494823](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42612494823), and HTTPD [42612494815](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42612494815) SUCCESS on the same SHA. THIS contract correction's exact-head storage/docs Actions are pending. |
 | L3 MIPS/uClibc / production objects / firmware/TRX | NOT VERIFIED. |
 | L4 removable-media hotplug/eject races, real Optware hook failure/hang, target filesystem and physical router | NOT VERIFIED. |
 
-No production RC object, MIPS/uClibc build, firmware/TRX or target-device result is claimed. The policy unit test verifies the pipe-result decoder; Actions must validate the integrated source contract and full storage regression.
+No full local checkout, production RC object, MIPS/uClibc build, firmware/TRX, external hook failure/hang injection, removable-media stress or physical-router result is claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, the complete branch inventory and Actions. Match the USB storage and AI handoff-documentation run `head_sha` values to THIS commit's exact full SHA; inspect every step, especially the deferred Optware result/retry source contract and archive/documentation validator.
-2. If both exact-head workflows pass, audit the separate asynchronous boot-time `start_rwfs_optware()` → `opt-mount.sh ... &` result path in `common_ex.c`. Determine whether the MTD startup should report to PID 1/retry safely without holding `storage.lock`; do not conflate it with the removable USB result pipe.
-3. Then resume NFS export ACL/permission mapping and external mount lifecycle; Samba passdb/account mutation, ACL/permission and credential review; vsftpd authentication/ACL/path-confinement/stop lifecycle; LAN DHCP leasefail/accepted-NAK/release callback state handling; and FULLCONENAT mapping-hash / dying-tuple queue namespace ownership.
-4. Keep L3/L4 explicitly unverified until production MIPS/uClibc/firmware and live-router validation actually run.
+1. Fetch live `main`, complete branch inventory and Actions. Match USB storage and AI handoff-documentation run `head_sha` values to THIS commit's exact full SHA; inspect the source-contract step and archive validator.
+2. If green, audit the separate asynchronous boot-time `start_rwfs_optware()` → `opt-mount.sh ... &` result path in `common_ex.c`; determine whether it needs safe reporting/retry without holding `storage.lock`, separately from the removable USB pipe.
+3. Continue NFS export ACL/permission mapping and external mount lifecycle; Samba passdb/account mutation, ACL/permission and credential review; vsftpd authentication/ACL/path-confinement/stop lifecycle; LAN DHCP leasefail/accepted-NAK/release callback state handling; and FULLCONENAT mapping-hash / dying-tuple queue namespace ownership.
+4. Keep L3/L4 unverified until production MIPS/uClibc/firmware and live-router validation actually run.
 
 ## Documentation maintenance
 
