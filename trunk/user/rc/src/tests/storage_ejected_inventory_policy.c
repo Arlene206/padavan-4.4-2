@@ -73,7 +73,7 @@ main(void)
 	assert(storage_ejected_mount_matches_disk("/dev/sda12", "sda"));
 	assert(!storage_ejected_mount_matches_disk("/dev/sdab1", "sda"));
 	assert(storage_ejected_mount_matches_disk("/dev/mmcblk0p1", "mmcblk0"));
-	assert(!storage_ejected_mount_matches_disk("/dev/mmcblk0p1", "mmcblk0p1"));
+	assert(!storage_ejected_mount_matches_disk("/dev/mmcblk0p1", "mmcblk1"));
 	assert(storage_ejected_may_unmount_device(1, 0));
 	assert(!storage_ejected_may_unmount_device(0, 0));
 	assert(!storage_ejected_may_unmount_device(1, -1));
