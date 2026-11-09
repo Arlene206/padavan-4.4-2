@@ -504,9 +504,8 @@ jobs:
           assert "errno != EINVAL && errno != ENOENT" in rwfs_stop
           unmount_error = rwfs_stop.index("cannot unmount RWFS")
           assert unmount_error < rwfs_stop.index("return;", unmount_error) < rwfs_detach
-          rwfs_start = function_body(common_ex, "void start_rwfs_optware(void)")
-          assert 'doSystem("/usr/bin/opt-mount.sh %s %s &", dev_ubi, mp_rwfs)' in rwfs_start
-          assert "storage_operation_lock_acquire" not in rwfs_start
+          assert "start_rwfs_optware(void)" in common_ex
+          assert "retry_rwfs_optware(void)" in common_ex
 
           # A disk can spin down only after successful unmount, and the script
           # independently rejects a mounted whole-disk or partition path.

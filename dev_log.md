@@ -1,3 +1,15 @@
+## 2026-11-09 20:15 CST (UTC+8) — Remove obsolete MTD fire-and-forget workflow assertion
+
+- **Base main SHA:** `93406e8618deae765a7c9cf6033ce978e58e230a`; resulting commit: THIS COMMIT.
+- **Exact-head Actions:** USB storage [42615049407](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42615049407) passed the Optware/NFS shell checks, lifecycle lock/teardown/startup regressions, GNU89 inventory test, deferred child-result test, and all new MTD worker/result/retry/PID1 source checks. It then failed at the final legacy assertion that still required `doSystem("/usr/bin/opt-mount.sh ... &")`. Samba [42615049566](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42615049566), WAN route [42615049422](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42615049422), HTTPD [42615049699](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42615049699), and docs [42615049390](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42615049390) all SUCCESS on the same full SHA.
+- **Correction:** remove the superseded fire-and-forget expectation and retain explicit presence checks for the new tracked `start_rwfs_optware()` and `retry_rwfs_optware()` entrypoints. Production C is unchanged.
+- **Changed paths:** `.github/workflows/storage-hotplug-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+- **Validation boundary:** base workflow's earlier shell/host/GNU89 tests and new MTD assertions passed; only stale final assertion failed. Exact-head storage/docs reruns pending. No full local checkout, production RC object, MIPS/uClibc, firmware/TRX, or hardware test claimed.
+- **Next:** verify exact-head storage/docs Actions, then assess persistent-failure retry/backoff and shutdown races.
+
+
+---
+
 ## 2026-11-09 20:08 CST (UTC+8) — Track and retry internal MTD/UBI Optware boot startup
 
 - **Base main SHA:** `19c1627490ec550b74b2deb3e19e8965d4374406`; resulting commit: THIS COMMIT.
