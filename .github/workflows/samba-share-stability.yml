@@ -90,7 +90,7 @@ jobs:
           assert "unlink(SAMBA_CONF)" not in header_body
           assert "ferror(fp)" in header_body
 
-          smb = function_body(stor, "write_smb_conf(void)")
+          smb = function_body(stor, "write_smb_conf_unlocked(void)")
           assert "samba_config_file_open(SAMBA_CONF" in smb
           assert "write_smb_conf_header(fp)" in smb
           assert "samba_config_file_publish(&fp, staged_path, SAMBA_CONF)" in smb
