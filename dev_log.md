@@ -1,3 +1,15 @@
+## 2026-11-10 01:46 CST (UTC+8) — Correct vsftpd semantic workflow assertion ordering
+
+- **Base main SHA:** `30d64c73546db236c12679d24eda74c1ea9f2916`; resulting commit: THIS COMMIT.
+- **Previous exact-head results:** vsftpd [42667318607] ran GNU89 compilation and all host regression binaries successfully, then failed the semantic Python contract with `NameError: acl_path is not defined`; AI handoff docs [42667318504] passed. Both run `head_sha` values exactly matched the base.
+- **Root cause:** new assertions for permission helper bodies were inserted before the workflow's later `function_body()` assignments. This was a workflow test defect, not a C compile/test failure.
+- **Fix:** move extraction of `acl_path`, `acl_existing`, `acl_upload`, `acl_directory` and `acl_visible` before their assertions, and remove the later duplicate `acl_path` assignment. No production C or host-test source changed in this correction.
+- **Validation:** correction is awaiting exact-head Actions; previous host binaries already passed. Do not count semantic contract validation as green until rerun succeeds.
+- **Next whole-repo audit:** begin with NFS custom exports provenance/permissions/content policy and generated `async,secure,no_root_squash,no_subtree_check` exports. Initial review found custom override content is linked through without local ownership/mode/content checks; trace the trusted writer/UI and `/etc/storage` setup before classifying it as a vulnerability. NFS daemon startup/stop state gates and generated export ACL validation are already present.
+- Keep DHCP callback leasefail/accepted-NAK/release state, FULLCONENAT tuple namespace, and FTP path TOCTOU in the broader queue.
+
+---
+
 ## 2026-11-10 01:41 CST (UTC+8) — Close remaining FTP metadata command ACL and sidecar disclosure gaps
 
 - **Base main SHA:** `071739a00401b1b229bb79613d30bdd4c452faa4`; resulting commit: THIS COMMIT.
