@@ -1,3 +1,19 @@
+## 2026-11-09 23:35 CST (UTC+8) — Gate Samba stop and WINS lifecycle on verified outcomes
+
+- **Base main SHA:** `af3a388fd889238789f9eb0d19efe6b89c2b24e9`; resulting commit: THIS COMMIT.
+- **Recovered exact-head parent Actions:** HTTPD/security [42647880398] and AI handoff docs [42647880152] both completed SUCCESS with exact matching full `head_sha=af3a388fd889238789f9eb0d19efe6b89c2b24e9`; inspected all job steps.
+- **Finding — storage stop:** `stop_samba()` discarded `kill_services()` status, and `stop_stor_apps()` ignored Samba's stop result. Its safe-removal/eject callers already abort unmount when `stop_stor_apps()` fails, but the failure was only collected for NFS; a still-running Samba daemon could therefore be hidden while storage removal continued.
+- **Finding — restart inventory:** `storage_has_mounted_devices()` is tri-state (negative on incomplete `/proc/mounts` inventory, zero for known-empty, positive for mounted storage). `restart_smbd()` treated any nonzero result as true, so an inventory error could incorrectly enter the service-start path instead of failing closed.
+- **Finding — WINS-only lifecycle:** `start_wins()` ignored the nmbd `eval()` result and did not verify that nmbd remained present. The nmbd stop/restart and smbd reload paths also discarded stop/start/reload status.
+- **Audit correction:** `dev_init.sh` mounts `/etc` as tmpfs before creating `/etc/samba`. Samba config/passdb and any journal under `/etc` are volatile and disappear on reboot. A persistent power-loss journal in this location cannot provide durability; same-boot abrupt process termination is a separate, narrower concern.
+- **Fix:** make Samba/nmbd stop and start/reload helpers return status; propagate `stop_samba()` through `restart_smbd()`, RC stop commands and `stop_stor_apps()`; abort storage-dependent Samba startup on unknown mount inventory; enforce bounded process-presence postconditions for WINS-only starts/reloads. Preserve best-effort service stop ordering but return failure so the existing safe-removal gate blocks unmount.
+- **Regression:** add a GNU89 callback-driven daemon-presence policy test for delayed startup, exit during settling, timeout and invalid arguments; extend Samba workflow path filters, compile/run coverage and source contracts for stop propagation, storage gating and WINS result handling.
+- **Changed paths:** `trunk/user/rc/src/services_stor.c`, `trunk/user/rc/src/services_ex.c`, `trunk/user/rc/src/rc.h`, `trunk/user/rc/src/rc.c`, `trunk/user/rc/src/samba_daemon_policy.h`, `trunk/user/rc/src/tests/samba_daemon_policy.c`, `.github/workflows/samba-share-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+- **Validation boundary:** L1 caller/source review PASS. Exact-head GNU89/Actions validation for THIS commit is pending. No local full repository build, MIPS/uClibc production object, firmware/TRX or router test is claimed.
+- **Next:** verify exact-head Samba, HTTPD, USB/storage, NFS, vsftpd and AI docs Actions; then rotate to vsftpd authentication, ACL/path confinement and stop lifecycle. Keep same-boot process-abort recovery as a separate lower-priority item; do not add an /etc tmpfs “durable journal”.
+
+---
+
 ## 2026-11-09 22:55 CST (UTC+8) — Align HTTPD and handoff CI contracts with daemon status API
 
 - **Base main SHA:** `30432e4636c5b00c96cb8918caaebe37b133a28c`; resulting commit: THIS COMMIT.

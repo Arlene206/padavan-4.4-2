@@ -625,10 +625,10 @@ int start_dns_dhcpd(int is_ap_mode);
 void stop_dns_dhcpd(void);
 #if defined (APP_SMBD) || defined (APP_NMBD)
 int write_smb_conf_header(FILE *fp);
-void stop_nmbd(void);
-void start_wins(void);
-void reload_nmbd(void);
-void restart_nmbd(void);
+int stop_nmbd(void);
+int start_wins(void);
+int reload_nmbd(void);
+int restart_nmbd(void);
 #endif
 int is_upnp_run(void);
 int start_upnp(void);
@@ -658,7 +658,7 @@ void restart_ftpd(void);
 #if defined (APP_SMBD)
 int write_smb_conf(void);
 void config_smb_fastpath(int check_pid);
-void stop_samba(int force_stop);
+int stop_samba(int force_stop);
 int run_samba(void);
 int restart_smbd(void);
 #endif

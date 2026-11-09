@@ -42,6 +42,7 @@
 #include "samba_share_policy.h"
 #if defined (APP_SMBD)
 #include "samba_config_file.h"
+#include "samba_daemon_policy.h"
 #endif
 #include "samba_passdb_policy.h"
 #include "ftp_share_policy.h"
@@ -788,7 +789,7 @@ config_smb_fastpath(int check_pid)
 	fput_int("/proc/net/netfilter/nf_fp_smb", ntohl(lan_ip));
 }
 
-void
+int
 stop_samba(int force_stop)
 {
 	char* svcs[] = { "smbd",
@@ -798,39 +799,51 @@ stop_samba(int force_stop)
 	 "nmbd", NULL };
 
 	const int nmbdidx = sizeof(svcs) / sizeof(svcs[0]) - 2;
+	int stop_status;
 
 	if (!force_stop && nvram_match("wins_enable", "1"))
 		svcs[nmbdidx] = NULL;
 
-	kill_services(svcs, 5, 1);
-
+	stop_status = kill_services(svcs, 5, 1);
 	fput_int("/proc/net/netfilter/nf_fp_smb", 0);
 
+	if (stop_status != 0) {
+		logmessage("Samba Server", "one or more requested Samba daemons did not stop");
+		return stop_status;
+	}
 	if (!svcs[nmbdidx])
-		return;
+		return 0;
 
 	clean_smbd_trash();
+	return 0;
+}
+
+static int
+samba_daemon_is_running(void *context, const char *daemon)
+{
+	(void)context;
+	return pids((char *)daemon) > 0;
+}
+
+static void
+samba_daemon_sleep(void *context, unsigned int microseconds)
+{
+	(void)context;
+	usleep(microseconds);
 }
 
 static int
 samba_wait_for_daemon(const char *daemon)
 {
-	int attempt;
+	static const struct samba_daemon_wait_ops ops = {
+		samba_daemon_is_running,
+		samba_daemon_sleep
+	};
 
-	for (attempt = 0; attempt < 30; ++attempt) {
-		if (pids(daemon) > 0) {
-			usleep(500000);
-			if (pids(daemon) > 0)
-				return 0;
-		}
-		usleep(100000);
-	}
-
-	errno = ETIMEDOUT;
-	return -1;
+	return samba_daemon_wait_for_stable_presence(daemon, 30, &ops, NULL);
 }
 
-/* A successful shell/exec return is not enough: confirm a stable daemon PID. */
+/* A successful command is not enough: require process presence across a settling interval. */
 static int
 samba_ensure_daemon(const char *daemon, int was_running)
 {
@@ -1028,17 +1041,30 @@ int run_samba(void)
 int restart_smbd(void)
 {
 	int samba_status = 0;
+	int stop_status, mount_status;
 
-	stop_samba(1);
+	stop_status = stop_samba(1);
+	if (stop_status != 0) {
+		logmessage("Samba Server", "restart aborted because existing daemons did not stop");
+		return stop_status;
+	}
 
-	if (storage_has_mounted_devices("restarting Samba")) {
+	mount_status = storage_has_mounted_devices("restarting Samba");
+	if (mount_status < 0) {
+		logmessage("Samba Server", "restart aborted because mounted storage state is unknown");
+		return -1;
+	}
+	if (mount_status > 0) {
 		samba_status = run_samba();
 		if (samba_status != 0)
 			return samba_status;
 	}
 
-	if (!pids("nmbd"))
-		start_wins();
+	if (!pids("nmbd")) {
+		samba_status = start_wins();
+		if (samba_status != 0)
+			return samba_status;
+	}
 
 	return samba_status;
 }
@@ -2378,7 +2404,10 @@ int stop_status = 0;
 	}
 #endif
 #if defined (APP_SMBD)
-	stop_samba(0);
+	if (stop_samba(0) != 0) {
+		logmessage("Storage", "Samba server did not stop cleanly; storage removal must be aborted");
+		stop_status = -1;
+	}
 #endif
 #if defined (APP_FTPD)
 	if (nvram_match("ftpd_wopen", "1"))
@@ -2690,7 +2719,7 @@ safe_remove_stor_device(int port_b, int port_e, const char *dev_name, int do_spi
 
 	if (has_mounted_port || has_swapon_port) {
 		if (has_mounted_port && stop_stor_apps() != 0) {
-			logmessage("Storage", "safe removal aborted because NFS could not be stopped");
+			logmessage("Storage", "safe removal aborted because one or more required storage services did not stop");
 			free_disk_data(disks_info);
 			file_unlock(storage_lock);
 			return;
@@ -2736,7 +2765,7 @@ safe_remove_all_stor_devices(int do_spindown)
 	}
 
 	if (stop_stor_apps() != 0) {
-		logmessage("Storage", "eject-all aborted because NFS could not be stopped");
+		logmessage("Storage", "eject-all aborted because one or more required storage services did not stop");
 		file_unlock(storage_lock);
 		return;
 	}

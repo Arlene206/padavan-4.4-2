@@ -38,6 +38,7 @@
 #include "samba_config_value_policy.h"
 #if defined(APP_SMBD) || defined(APP_NMBD)
 #include "samba_config_file.h"
+#include "samba_daemon_policy.h"
 #endif
 
 #define DHCPD_STATIC_MAX	64
@@ -677,6 +678,31 @@ restart_dns(void)
 ///////////////////////////////////////////////////////////////////////
 
 #if defined(APP_SMBD) || defined(APP_NMBD)
+static int
+samba_ex_daemon_is_running(void *context, const char *daemon)
+{
+	(void)context;
+	return pids((char *)daemon) > 0;
+}
+
+static void
+samba_ex_daemon_sleep(void *context, unsigned int microseconds)
+{
+	(void)context;
+	usleep(microseconds);
+}
+
+static int
+samba_ex_wait_for_daemon(const char *daemon)
+{
+	static const struct samba_daemon_wait_ops ops = {
+		samba_ex_daemon_is_running,
+		samba_ex_daemon_sleep
+	};
+
+	return samba_daemon_wait_for_stable_presence(daemon, 30, &ops, NULL);
+}
+
 
 int
 write_smb_conf_header(FILE *fp)
@@ -753,22 +779,29 @@ write_smb_conf_header(FILE *fp)
 	return ferror(fp) ? -1 : 0;
 }
 
-void
+int
 stop_nmbd(void)
 {
 	char* svcs[] = { "nmbd", NULL };
-	kill_services(svcs, 3, 1);
+	int status;
+
+	status = kill_services(svcs, 3, 1);
+	if (status != 0)
+		logmessage("Samba Server", "nmbd did not stop cleanly");
+	return status;
 }
 
-void
+int
 start_wins(void)
 {
 	FILE *fp = NULL;
 	char staged_path[64];
+	int command_status, was_running;
 
 	if (nvram_match("wins_enable", "0"))
-		return;
+		return 0;
 
+	was_running = pids("nmbd") > 0;
 	mkdir_if_none("/etc/samba", "777");
 
 	if (samba_config_file_open(SAMBA_CONF, staged_path,
@@ -777,36 +810,73 @@ start_wins(void)
 	    samba_config_file_publish(&fp, staged_path, SAMBA_CONF) != 0) {
 		samba_config_file_discard(&fp, staged_path);
 		logmessage("Samba Server", "cannot publish WINS configuration; nmbd startup skipped");
-		return;
+		return -1;
 	}
 
-	eval("/sbin/nmbd", "-D", "-s", "/etc/smb.conf");
+	if (was_running)
+		command_status = doSystem("killall %s %s", "-SIGHUP", "nmbd");
+	else
+		command_status = eval("/sbin/nmbd", "-D", "-s", "/etc/smb.conf");
+
+	if (command_status != 0) {
+		logmessage("Samba Server", "nmbd %s command failed (status %d)",
+			   was_running ? "reload" : "start", command_status);
+		return -1;
+	}
+	if (samba_ex_wait_for_daemon("nmbd") != 0) {
+		logmessage("Samba Server", "nmbd did not remain running after WINS start/reload (errno %d)",
+			   errno ? errno : ETIMEDOUT);
+		return -1;
+	}
+
+	return 0;
 }
 
-void
+int
 reload_nmbd(void)
 {
-	if (pids("nmbd"))
-		doSystem("killall %s %s", "-SIGHUP", "nmbd");
+	if (!pids("nmbd"))
+		return 0;
+	if (doSystem("killall %s %s", "-SIGHUP", "nmbd") != 0) {
+		logmessage("Samba Server", "nmbd reload command failed");
+		return -1;
+	}
+	return samba_ex_wait_for_daemon("nmbd");
 }
 
-void
+int
 restart_nmbd(void)
 {
 #if defined(APP_SMBD)
 	if (pids("smbd")) {
 		if (write_smb_conf() != 0) {
 			logmessage("Samba Server", "configuration publication failed; nmbd/smbd reload skipped");
-			return;
+			return -1;
 		}
-		stop_nmbd();
-		eval("/sbin/nmbd", "-D", "-s", "/etc/smb.conf");
-		doSystem("killall %s %s", "-SIGHUP", "smbd");
-		return;
+		if (stop_nmbd() != 0)
+			return -1;
+		if (eval("/sbin/nmbd", "-D", "-s", "/etc/smb.conf") != 0) {
+			logmessage("Samba Server", "nmbd start command failed after configuration publication");
+			return -1;
+		}
+		if (samba_ex_wait_for_daemon("nmbd") != 0) {
+			logmessage("Samba Server", "nmbd did not remain running after restart");
+			return -1;
+		}
+		if (doSystem("killall %s %s", "-SIGHUP", "smbd") != 0) {
+			logmessage("Samba Server", "smbd reload command failed after nmbd restart");
+			return -1;
+		}
+		if (samba_ex_wait_for_daemon("smbd") != 0) {
+			logmessage("Samba Server", "smbd did not remain running after reload");
+			return -1;
+		}
+		return 0;
 	}
 #endif
-	stop_nmbd();
-	start_wins();
+	if (stop_nmbd() != 0)
+		return -1;
+	return start_wins();
 }
 #endif
 

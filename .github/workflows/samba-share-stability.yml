@@ -12,6 +12,8 @@ on:
       - "trunk/user/rc/src/tests/samba_config_file.c"
       - "trunk/user/rc/src/samba_passdb_policy.h"
       - "trunk/user/rc/src/tests/samba_passdb_policy.c"
+      - "trunk/user/rc/src/samba_daemon_policy.h"
+      - "trunk/user/rc/src/tests/samba_daemon_policy.c"
   pull_request:
     paths:
       - ".github/workflows/samba-share-stability.yml"
@@ -23,6 +25,8 @@ on:
       - "trunk/user/rc/src/tests/samba_config_file.c"
       - "trunk/user/rc/src/samba_passdb_policy.h"
       - "trunk/user/rc/src/tests/samba_passdb_policy.c"
+      - "trunk/user/rc/src/samba_daemon_policy.h"
+      - "trunk/user/rc/src/tests/samba_daemon_policy.c"
 
 jobs:
   samba-config:
@@ -42,6 +46,11 @@ jobs:
             trunk/user/rc/src/tests/samba_passdb_policy.c \
             -o /tmp/samba-passdb-policy
           /tmp/samba-passdb-policy
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/samba_daemon_policy.c \
+            -o /tmp/samba-daemon-policy
+          /tmp/samba-daemon-policy
       - name: Verify Samba config staging and service failure gates
         run: |
           python3 - <<'PY'
@@ -159,5 +168,48 @@ jobs:
           assert 'ret = restart_smbd();' in rc
           assert "\n\t\t\trestart_smbd();\n" not in rc
 
-          print("Samba share config publication and daemon lifecycle failure gates: PASS")
+          daemon_policy = Path("trunk/user/rc/src/samba_daemon_policy.h").read_text()
+          daemon_test = Path("trunk/user/rc/src/tests/samba_daemon_policy.c").read_text()
+          wait_policy = function_body(daemon_policy, "samba_daemon_wait_for_stable_presence(")
+          assert "ops->is_running(context, daemon)" in wait_policy
+          assert "ops->sleep_us(context, 500000U)" in wait_policy
+          assert "ops->sleep_us(context, 100000U)" in wait_policy
+          assert "errno = ETIMEDOUT" in wait_policy
+          assert "samba_daemon_wait_for_stable_presence" in daemon_test
+
+          stop_samba = function_body(stor, "int\nstop_samba(int force_stop)")
+          assert "stop_status = kill_services(svcs, 5, 1)" in stop_samba
+          assert "if (stop_status != 0)" in stop_samba
+          assert "clean_smbd_trash()" in stop_samba
+          stop_stor = function_body(stor, "int\nstop_stor_apps(void)")
+          assert "if (stop_samba(0) != 0)" in stop_stor
+          assert "Samba server did not stop cleanly" in stop_stor
+          assert "safe removal aborted because one or more required storage services did not stop" in stor
+          restart_smbd = function_body(stor, "int restart_smbd(void)")
+          assert "stop_status = stop_samba(1)" in restart_smbd
+          assert "if (stop_status != 0)" in restart_smbd
+          assert "mount_status = storage_has_mounted_devices" in restart_smbd
+          assert "if (mount_status < 0)" in restart_smbd
+          assert "if (mount_status > 0)" in restart_smbd
+          assert "samba_status = start_wins()" in restart_smbd
+
+          stop_nmbd = function_body(services, "int\nstop_nmbd(void)")
+          assert "status = kill_services(svcs, 3, 1)" in stop_nmbd
+          assert "return status" in stop_nmbd
+          wins = function_body(services, "int\nstart_wins(void)")
+          assert wins.index("samba_config_file_publish") < wins.index('eval("/sbin/nmbd"')
+          assert "command_status != 0" in wins
+          assert 'samba_ex_wait_for_daemon("nmbd") != 0' in wins
+          assert 'doSystem("killall %s %s", "-SIGHUP", "nmbd")' in wins
+          restart_nmbd = function_body(services, "int\nrestart_nmbd(void)")
+          assert restart_nmbd.index("stop_nmbd() != 0") < restart_nmbd.index('eval("/sbin/nmbd"')
+          assert 'samba_ex_wait_for_daemon("nmbd") != 0' in restart_nmbd
+          assert 'doSystem("killall %s %s", "-SIGHUP", "smbd")' in restart_nmbd
+          assert "int start_wins(void);" in header
+          assert "int stop_nmbd(void);" in header
+          assert "int restart_nmbd(void);" in header
+          assert "int stop_samba(int force_stop);" in header
+          assert "ret = stop_samba(0);" in rc
+
+          print("Samba share config publication, daemon lifecycle and storage-stop failure gates: PASS")
           PY

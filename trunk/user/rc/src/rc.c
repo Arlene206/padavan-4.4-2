@@ -1732,7 +1732,7 @@ main(int argc, char **argv)
 #endif
 #if defined(APP_SMBD)
 	else if (!strcmp(base, "stop_samba")) {
-		stop_samba(0);
+		ret = stop_samba(0);
 	}
 #endif
 	else if (!strcmp(base, "stop_ftpsamba")) {
@@ -1740,7 +1740,7 @@ main(int argc, char **argv)
 		stop_ftp();
 #endif
 #if defined(APP_SMBD)
-		stop_samba(0);
+		ret = stop_samba(0);
 #else
 		;
 #endif
