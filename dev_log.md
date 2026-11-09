@@ -1,3 +1,16 @@
+## 2026-11-10 01:41 CST (UTC+8) — Close remaining FTP metadata command ACL and sidecar disclosure gaps
+
+- **Base main SHA:** `071739a00401b1b229bb79613d30bdd4c452faa4`; resulting commit: THIS COMMIT.
+- **Parent exact-head Actions:** vsftpd [42665789660] SUCCESS and AI handoff docs [42665789545] SUCCESS; both full `head_sha` values matched the base. The prior batch's GNU89 path regression binaries and semantic source contracts passed.
+- **Finding:** SIZE/MDTM/SITE CHMOD still bypassed per-share path ACL checks. The share subsystem stores `.__folder_list.txt` and `.__<account>_var.txt` under each USB mount root; that is MOUNT_LAYER, where the FTP read ACL did not apply. Direct file commands could disclose those ACL/account metadata files.
+- **Fix:** SIZE uses target PERM_READ; MDTM checks PERM_WRITE for an enabled timestamp mutation and PERM_READ for read-only behavior; SITE CHMOD uses target PERM_WRITE. The shared path policy recognizes only the exact folder-list and per-account sidecar filename shapes, denies them before the chroot-ACL bypass, and hides them from directory results at all layers. Existing-file and upload resolvers also check the canonical target, preventing an ordinary symlink alias from exposing or overwriting a reserved sidecar.
+- **Regression coverage:** add GNU89 positive/negative metadata classifier cases, direct and symlink-alias denial cases, and semantic source contracts for SIZE, MDTM, SITE CHMOD and metadata filtering.
+- **Validation:** L1 source review PASS. New exact-head host/semantic Actions pending. No production vsftpd object, MIPS/uClibc build, firmware/TRX or device test claimed.
+- **Residual:** pathname canonicalization and later filesystem syscalls remain vulnerable to concurrent symlink replacement; dirfd/openat-style binding is still open. FTP auth/anonymous compatibility and target validation also remain.
+- **Next:** verify exact-head Actions, then shift next development batch to the highest-impact non-FTP ledger item (NFS override/ACL/durability, DHCP callback state, or FULLCONENAT tuple namespace).
+
+---
+
 ## 2026-11-10 01:30 CST (UTC+8) — Enforce target-path share ACLs for FTP file and directory commands
 
 - **Base main SHA:** `d784677ab88890bf1551c0a03fec85219285933f`; resulting commit: THIS COMMIT.

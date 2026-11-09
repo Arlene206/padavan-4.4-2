@@ -1533,6 +1533,12 @@ handle_size(struct vsf_session* p_sess)
     vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
     return;
   }
+  if (!asus_check_permission_existing_path(p_sess, PERM_READ,
+                                               &p_sess->ftp_arg_str))
+  {
+    vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
+    return;
+  }
   retval = str_stat(&p_sess->ftp_arg_str, &s_p_statbuf);
   if (retval != 0 || !vsf_sysutil_statbuf_is_regfile(s_p_statbuf))
   {
@@ -1610,6 +1616,12 @@ handle_site_chmod(struct vsf_session* p_sess, struct mystr* p_arg_str)
     vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
     return;
   }
+  if (!asus_check_permission_existing_path(p_sess, PERM_WRITE,
+                                               &s_chmod_file_str))
+  {
+    vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
+    return;
+  }
   /* Don't worry - our chmod() implementation only allows 0 - 0777 */
   perms = str_octal_to_uint(p_arg_str);
   retval = str_chmod(&s_chmod_file_str, perms);
@@ -1659,6 +1671,7 @@ handle_mdtm(struct vsf_session* p_sess)
   static struct mystr s_filename_str;
   static struct vsf_sysutil_statbuf* s_p_statbuf;
   int do_write = 0;
+  int can_write = 0;
   long modtime = 0;
   struct str_locate_result loc = str_locate_char(&p_sess->ftp_arg_str, ' ');
   int retval = str_stat(&p_sess->ftp_arg_str, &s_p_statbuf);
@@ -1683,8 +1696,15 @@ handle_mdtm(struct vsf_session* p_sess)
     vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
     return;
   }
-  if (do_write && tunable_write_enable &&
-      (tunable_anon_other_write_enable || !p_sess->is_anonymous))
+  can_write = do_write && tunable_write_enable &&
+              (tunable_anon_other_write_enable || !p_sess->is_anonymous);
+  if (!asus_check_permission_existing_path(p_sess,
+          can_write ? PERM_WRITE : PERM_READ, &p_sess->ftp_arg_str))
+  {
+    vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
+    return;
+  }
+  if (can_write)
   {
     retval = str_stat(&p_sess->ftp_arg_str, &s_p_statbuf);
     if (retval != 0 || !vsf_sysutil_statbuf_is_regfile(s_p_statbuf))

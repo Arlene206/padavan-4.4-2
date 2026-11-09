@@ -48,6 +48,28 @@ ftp_acl_path_resolve_parent(const char *path, char *parent,
   return 0;
 }
 
+
+/*
+ * These files hold the USB mount's account/share ACL database. They are
+ * implementation metadata, not user content, and must never be exposed by
+ * direct FTP file commands.
+ */
+static int
+ftp_acl_path_is_internal_metadata(const char *path)
+{
+  const char *base;
+  size_t length;
+  if (!path || !*path)
+    return 0;
+  base = strrchr(path, '/');
+  base = base ? base + 1 : path;
+  if (strcmp(base, ".__folder_list.txt") == 0)
+    return 1;
+  length = strlen(base);
+  return length > 11 && strncmp(base, ".__", 3) == 0 &&
+         strcmp(base + length - 8, "_var.txt") == 0;
+}
+
 static int
 ftp_acl_path_resolve_existing_parent(const char *path, char *resolved_parent,
                                      size_t resolved_size)
@@ -55,7 +77,8 @@ ftp_acl_path_resolve_existing_parent(const char *path, char *resolved_parent,
   char target[PATH_MAX], parent[PATH_MAX];
   if (!path || !*path || !resolved_parent || resolved_size < PATH_MAX)
     return -1;
-  if (realpath(path, target) == NULL)
+  if (realpath(path, target) == NULL ||
+      ftp_acl_path_is_internal_metadata(target))
     return -1;
   if (ftp_acl_path_parent(target, parent, sizeof(parent)) != 0)
     return -1;
@@ -78,6 +101,8 @@ ftp_acl_path_resolve_write_parent(const char *path, char *resolved_parent,
   if (!path || !*path || !resolved_parent || resolved_size < PATH_MAX)
     return -1;
   if (realpath(path, target) != NULL) {
+    if (ftp_acl_path_is_internal_metadata(target))
+      return -1;
     if (ftp_acl_path_parent(target, parent, sizeof(parent)) != 0)
       return -1;
     if (realpath(parent, resolved_parent) == NULL)

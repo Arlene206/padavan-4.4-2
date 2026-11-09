@@ -54,10 +54,19 @@ main(void)
   char alias[PATH_MAX], path[PATH_MAX], parent[PATH_MAX], resolved[PATH_MAX];
   char file_a[PATH_MAX], file_b[PATH_MAX], link_file[PATH_MAX];
   char broken_link[PATH_MAX], dir_b[PATH_MAX], dir_alias[PATH_MAX];
+  char metadata_file[PATH_MAX], metadata_alias[PATH_MAX];
   char new_file[PATH_MAX];
   char tiny[2];
   char *created;
 
+  if (!ftp_acl_path_is_internal_metadata("/mnt/.__folder_list.txt") ||
+      !ftp_acl_path_is_internal_metadata(".__alice_var.txt") ||
+      ftp_acl_path_is_internal_metadata("/mnt/share/.__notes.txt") ||
+      ftp_acl_path_is_internal_metadata("/mnt/share/.visible-file") ||
+      ftp_acl_path_is_internal_metadata("/mnt/.__alice_var.tx")) {
+    fprintf(stderr, "reserved FTP metadata classification failed\n");
+    return 1;
+  }
   expect_parent("file", ".");
   expect_parent("share/file", "share");
   expect_parent("../share/file", "../share");
@@ -110,11 +119,14 @@ main(void)
   checked_path(broken_link, sizeof(broken_link), a, "dangling-link");
   checked_path(dir_b, sizeof(dir_b), b, "subdir");
   checked_path(dir_alias, sizeof(dir_alias), a, "directory-link");
+  checked_path(metadata_file, sizeof(metadata_file), root, ".__alice_var.txt");
+  checked_path(metadata_alias, sizeof(metadata_alias), a, "metadata-alias");
   create_fixture_file(file_a);
   create_fixture_file(file_b);
+  create_fixture_file(metadata_file);
   if (mkdir(dir_b, 0700) || symlink(file_b, link_file) ||
       symlink("/no-such-ftp-acl-target", broken_link) ||
-      symlink(dir_b, dir_alias)) {
+      symlink(dir_b, dir_alias) || symlink(metadata_file, metadata_alias)) {
     perror("create symlink fixtures"); return 1;
   }
   if (ftp_acl_path_resolve_existing_parent(file_a, resolved, sizeof(resolved)) ||
@@ -132,6 +144,11 @@ main(void)
   if (ftp_acl_path_resolve_write_parent(broken_link, resolved, sizeof(resolved)) == 0) {
     fprintf(stderr, "dangling final symlink accepted for upload\n"); return 1;
   }
+  if (ftp_acl_path_resolve_existing_parent(metadata_file, resolved, sizeof(resolved)) == 0 ||
+      ftp_acl_path_resolve_existing_parent(metadata_alias, resolved, sizeof(resolved)) == 0 ||
+      ftp_acl_path_resolve_write_parent(metadata_alias, resolved, sizeof(resolved)) == 0) {
+    fprintf(stderr, "reserved metadata file or symlink alias was accepted\n"); return 1;
+  }
   checked_path(new_file, sizeof(new_file), a, "new-upload.txt");
   if (ftp_acl_path_resolve_write_parent(new_file, resolved, sizeof(resolved)) ||
       strcmp(resolved, a)) {
@@ -146,7 +163,8 @@ main(void)
       strcmp(resolved, dir_b)) {
     fprintf(stderr, "directory symlink target was not canonicalized\n"); return 1;
   }
-  if (unlink(dir_alias) || unlink(broken_link) || unlink(link_file) ||
+  if (unlink(metadata_alias) || unlink(metadata_file) ||
+      unlink(dir_alias) || unlink(broken_link) || unlink(link_file) ||
       unlink(file_a) || unlink(file_b) || rmdir(dir_b) ||
       unlink(alias) || rmdir(a) || rmdir(b) || rmdir(root)) {
     perror("remove fixture"); return 1;

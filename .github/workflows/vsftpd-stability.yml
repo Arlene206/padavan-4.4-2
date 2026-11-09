@@ -114,6 +114,13 @@ jobs:
           assert "pids((char *)daemon) > 0" in running_fn
           assert "usleep(microseconds)" in sleep_fn
 
+          acl_existing = function_body(vsftpd_acl, "asus_check_permission_existing_path(")
+          acl_upload = function_body(vsftpd_acl, "asus_check_permission_upload(")
+          acl_directory = function_body(vsftpd_acl, "asus_check_permission_directory(")
+          acl_visible = function_body(vsftpd_acl, "int asus_check_file_visible(")
+          size = function_body(vsftpd_postlogin, "static void\nhandle_size")
+          mdtm = function_body(vsftpd_postlogin, "static void\nhandle_mdtm")
+          chmod = function_body(vsftpd_postlogin, "static void\nhandle_site_chmod")
           upload = function_body(vsftpd_postlogin, "static void\nhandle_upload_common")
           mkd = function_body(vsftpd_postlogin, "static void\nhandle_mkd")
           rmd = function_body(vsftpd_postlogin, "static void\nhandle_rmd")
@@ -126,6 +133,23 @@ jobs:
           assert "asus_check_permission_path(p_sess, PERM_DELETE, &p_sess->ftp_arg_str)" in dele
           assert "asus_check_permission_existing_path(p_sess, PERM_READ" in retr
           assert "asus_check_permission_directory(p_sess" in directory
+          assert "asus_check_permission_existing_path(p_sess, PERM_READ" in size
+          assert "can_write ? PERM_WRITE : PERM_READ" in mdtm
+          assert "asus_check_permission_existing_path(p_sess, PERM_WRITE" in chmod
+          assert size.index("asus_check_permission_existing_path(") < size.index("str_stat(")
+          assert mdtm.index("asus_check_permission_existing_path(") < mdtm.index("vsf_sysutil_setmodtime(")
+          assert chmod.index("asus_check_permission_existing_path(") < chmod.index("str_chmod(")
+          assert "ftp_acl_path_is_internal_metadata(str_getbuf(p_path_str))" in acl_path
+          assert "ftp_acl_path_is_internal_metadata(str_getbuf(p_path_str))" in acl_existing
+          assert "ftp_acl_path_is_internal_metadata(str_getbuf(p_path_str))" in acl_upload
+          assert "ftp_acl_path_is_internal_metadata(str_getbuf(p_path_str))" in acl_directory
+          assert "ftp_acl_path_is_internal_metadata(p_filename)" in acl_visible
+          assert "ftp_acl_path_is_internal_metadata" in acl_path_policy
+          assert acl_path_policy.count("ftp_acl_path_is_internal_metadata(target)") == 2
+          assert "reserved metadata file or symlink alias was accepted" in acl_path_test
+          assert "ftp_acl_path_is_internal_metadata" in vsftpd_acl
+          assert "ftp_acl_path_is_internal_metadata(p_filename)" in vsftpd_acl
+          assert "reserved FTP metadata classification failed" in acl_path_test
           assert directory.index("asus_check_permission_directory(") < directory.index("get_remote_transfer_fd(")
           assert "asus_check_permission(p_sess, PERM_READ)" not in directory
           assert "ftp_acl_path_resolve_existing_parent" in acl_path_policy

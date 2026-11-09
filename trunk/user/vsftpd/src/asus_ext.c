@@ -288,8 +288,11 @@ asus_check_permission_path(struct vsf_session* p_sess, int perm,
                            const struct mystr* p_path_str)
 {
 	char parent[PATH_MAX], resolved[PATH_MAX];
+	if (!p_path_str ||
+	    ftp_acl_path_is_internal_metadata(str_getbuf(p_path_str)))
+		return 0;
 	if (!tunable_chroot_local_user) return 1;
-	if (!p_sess || !p_path_str ||
+	if (!p_sess ||
 	    ftp_acl_path_resolve_parent(str_getbuf(p_path_str), parent,
 					sizeof(parent), resolved,
 					sizeof(resolved)) != 0)
@@ -302,8 +305,11 @@ asus_check_permission_existing_path(struct vsf_session* p_sess, int perm,
                                     const struct mystr* p_path_str)
 {
 	char resolved_parent[PATH_MAX];
+	if (!p_path_str ||
+	    ftp_acl_path_is_internal_metadata(str_getbuf(p_path_str)))
+		return 0;
 	if (!tunable_chroot_local_user) return 1;
-	if (!p_sess || !p_path_str ||
+	if (!p_sess ||
 	    ftp_acl_path_resolve_existing_parent(str_getbuf(p_path_str),
 					 resolved_parent,
 					 sizeof(resolved_parent)) != 0)
@@ -316,8 +322,11 @@ asus_check_permission_upload(struct vsf_session* p_sess,
                              const struct mystr* p_path_str)
 {
 	char resolved_parent[PATH_MAX];
+	if (!p_path_str ||
+	    ftp_acl_path_is_internal_metadata(str_getbuf(p_path_str)))
+		return 0;
 	if (!tunable_chroot_local_user) return 1;
-	if (!p_sess || !p_path_str ||
+	if (!p_sess ||
 	    ftp_acl_path_resolve_write_parent(str_getbuf(p_path_str),
 					 resolved_parent,
 					 sizeof(resolved_parent)) != 0)
@@ -330,8 +339,11 @@ asus_check_permission_directory(struct vsf_session* p_sess,
                                 const struct mystr* p_path_str)
 {
 	char resolved[PATH_MAX];
+	if (!p_path_str ||
+	    ftp_acl_path_is_internal_metadata(str_getbuf(p_path_str)))
+		return 0;
 	if (!tunable_chroot_local_user) return 1;
-	if (!p_sess || !p_path_str ||
+	if (!p_sess ||
 	    ftp_acl_path_resolve_directory(str_getbuf(p_path_str), resolved,
 				   sizeof(resolved)) != 0)
 		return 0;
@@ -347,12 +359,14 @@ int asus_check_file_visible(struct vsf_session* p_sess, const struct mystr* p_fi
 	if (str_isempty(p_filename_str))
 		return 0;
 
+	p_filename = str_getbuf(p_filename_str);
+	if (ftp_acl_path_is_internal_metadata(p_filename))
+		return 0;
 	if (!tunable_chroot_local_user)
 		return 1;
 	if (!p_sess)
 		return 0;
 
-	p_filename = str_getbuf(p_filename_str);
 	if (!strcmp(p_filename, ".") || !strcmp(p_filename, ".."))
 		return 1;
 
