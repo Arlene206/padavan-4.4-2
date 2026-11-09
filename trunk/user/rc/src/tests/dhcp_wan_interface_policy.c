@@ -119,6 +119,18 @@ test_failed_first_lease_is_cleared(void)
 }
 
 static void
+test_failed_clear_without_previous_lease_is_reported(void)
+{
+	struct fake_interface fake = { EIO, 0, 0, "", 0 };
+	int rollback_status = 0;
+	assert(dhcp_wan_interface_apply("", "", "198.51.100.20",
+		"255.255.255.128", 1, &fake_ops, &fake,
+		&rollback_status) == EIO);
+	assert(rollback_status == EIO);
+	assert(strcmp(fake.events, "CC") == 0);
+}
+
+static void
 test_invalid_input_has_no_side_effects(void)
 {
 	struct fake_interface fake = { 0, 0, 0, "", 0 };
@@ -137,6 +149,7 @@ main(void)
 	test_failed_set_restores_old_address();
 	test_failed_set_reports_rollback_failure();
 	test_failed_first_lease_is_cleared();
+	test_failed_clear_without_previous_lease_is_reported();
 	test_invalid_input_has_no_side_effects();
 	puts("WAN DHCP interface transaction regression: PASS");
 	return 0;

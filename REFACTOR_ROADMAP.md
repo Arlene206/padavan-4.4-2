@@ -1,18 +1,18 @@
 ## Current source / CI checkpoint
 
 - Repository: Arlene206/padavan-4.4-2; maintained fork only.
-- Base main SHA for THIS WAN DHCP callback transaction fix: `bc99b6801c44f55e13dc0214336408f712e0abf8`; active branch main; only main exists and no remote checkpoint branch was present.
-- FULLCONENAT per-net notifier/namespace/zone lifecycle regression [42678875089] and AI handoff documentation contract [42678875391] both completed SUCCESS on the exact base SHA `bc99b6801c44f55e13dc0214336408f712e0abf8`. This closes the prior callback-source-contract recovery task at L2; kernel/MIPS object compilation remains unverified.
-- THIS commit addresses a separate WAN DHCP callback reliability defect: the callback previously removed old routes and published candidate lease address state before knowing whether interface configuration succeeded. The new host-testable interface transaction checks ioctl results, restores the prior address on failure, and delays old-route removal and primary lease publication until the address is configured. The new exact-head regression is pending.
+- Base main SHA for THIS first-lease rollback regression and handoff correction: `b6c1cdea285b39925c1e9254c7fb325739129491`; active branch main; only main exists and no remote checkpoint branch was present.
+- The WAN DHCP callback implementation and all dependent checks completed SUCCESS on exact SHA `b6c1cdea285b39925c1e9254c7fb325739129491`: WAN DHCP [42690381038], AI handoff docs [42690381155], WAN route [42690381079], WAN interface teardown [42690380777], and HTTPD security/DHCP contracts [42690380735].
+- The WAN DHCP callback now applies candidate addresses before old route removal / primary lease publication and rolls back failed clear/set ioctls. THIS follow-up adds coverage for failure of both the initial clear and the rollback clear, then records the rollback failure; exact-head regression/docs validation is pending.
 - NFS custom-export provenance review found no untrusted write path: `/etc` is tmpfs, `/etc/storage` is root-managed persistent MTD content, and the exposed backup restore route requires authenticated privileged access. The RC writer accepts direct regular files or symlinks to regular files, treats only ENOENT as absence, and fails closed for invalid override paths; NFS start/reload propagates exportfs failures. No vulnerability or compatibility-safe reason to restrict operator-authored export contents was demonstrated. Do not change async, AUTH_SYS/no_root_squash or external-mount defaults without a separate compatibility decision.
-- The root development log currently has 71 /119 records after THIS entry; no archive rotation is due.
+- The root development log currently has 72 /119 records after THIS entry; no archive rotation is due.
 
 ## Whole-repository module status
 
 | Module | Status | Verified bounded work | Open reliability / security work |
 |---|---|---|---|
 | LAN DHCP client / AP-mode lease | PARTIAL / AUDITING | Required IP/netmask validation; optional router/DNS/WINS/domain normalization; withdrawn option clearing; changed-gateway delete-before-publish; fail-closed deconfig cleanup; bound/renew checked address/route/resolver transaction with rollback and last-known-good lease fields preserved. Exact-head GNU89 host/source regression PASS on `70415484275e9c542be3d45b8bad807fb6a09591`. | BusyBox discards event-script exit status; leasefail/NAK/release state handling, retry semantics and live DHCP transitions remain open. |
-| WAN DHCP / route lifecycle | PARTIAL / AUDITING | Lease option validation and route-text safety; route operation error propagation and selected WAN teardown gates. THIS commit adds checked WAN DHCP address application with best-effort rollback and defers old-route removal / primary lease publication until interface setup succeeds; exact-head host/source regression pending. | Deconfig, leasefail/NAK/release state, route-delete/add result reconciliation, PPP/multi-WAN and IPv6 callback lifecycle. |
+| WAN DHCP / route lifecycle | PARTIAL / AUDITING | Lease option validation and route-text safety; route operation error propagation and selected WAN teardown gates. Checked WAN DHCP address application/rollback passed exact-head GNU89 host and source contracts on `b6c1cdea285b39925c1e9254c7fb325739129491`; THIS follow-up adds the first-lease double-clear-failure edge case, pending exact-head CI. | Deconfig, leasefail/NAK/release state, route-delete/add result reconciliation, PPP/multi-WAN and IPv6 callback lifecycle. |
 | DNSMasq / resolver / DHCP files | PARTIAL / AUDITING | Safe staged publication, no-follow lease file validation, domain validation, resolver refresh failure contracts and generated-file trust checks. | Daemon lifecycle, option ownership, DNS update and restart/stop error propagation. |
 | USB / storage / hotplug / filesystem | PARTIAL / AUDITING | Full partition/ejected inventory staging, swapoff-before-unmount gates, operation-wide storage lock, Optware startup supervision/rollback, and checked removable-storage teardown. The internal MTD/UBI path reports actual `opt-mount.sh` status, retries with monotonic exponential backoff, and tracks/cancels its worker process group. Samba and vsftpd stop failures now participate in `stop_stor_apps()`; the safe-removal callers abort before unmount when any required storage service does not stop. | No production RC object/MIPS build; target filesystem and real hardware behavior remain unverified. |
 | Firewall / NAT / Netfilter | AUDITING | Firewall restore failure handling, IPv6 table setup and bounded FULLCONENAT worker/notifier registration error handling. Namespace/zone identity is stored and enforced for IPv4/IPv6 mappings and dying-tuple GC; notifier lifecycle, host policy and exact-head semantic contracts pass on `bc99b6801c44f55e13dc0214336408f712e0abf8`. | Full kernel/MIPS object compile and broader firewall/NAT audit remain open. |
@@ -27,8 +27,8 @@
 
 ## Priority queue
 
-1. P2 — Reconcile the new WAN DHCP callback host/source regression and AI handoff documentation workflow against the exact resulting main SHA. Do not claim target RC/MIPS or router validation.
-2. P2 — Continue WAN DHCP callback-state audit at `udhcpc_deconfig()`, leasefail/NAK/release behavior and BusyBox's ignored callback exit status; separately inspect route-delete/add errors that can leave stale lease routes. Do not repeat the new interface-apply transaction.
+1. P2 — Reconcile the added first-lease rollback-failure regression and AI handoff documentation check against the exact resulting main SHA.
+2. P2 — Continue WAN DHCP callback-state audit at `udhcpc_deconfig()`, leasefail/NAK/release behavior and BusyBox's ignored callback exit status; separately inspect route-delete/add errors that can leave stale lease routes. Do not repeat the bound interface-apply transaction.
 3. P2 — Reassess same-boot Samba passdb/config recovery without proposing persistent journaling under /etc tmpfs.
 4. P2 — Keep FULLCONENAT kernel/MIPS build and residual lifecycle work, plus FTP pathname realpath-to-syscall TOCTOU, visible.
 5. P2 — Keep NFS `async` durability, AUTH_SYS/root-squash compatibility and external mounts as separate evidence-backed decisions; no default change from this audit.
@@ -48,8 +48,8 @@
 
 | Level | Evidence | Limits |
 |---|---|---|
-| L1 source review | PASS for WAN DHCP bound callback input checks, address-before-state ordering, interface error propagation and rollback path; NFS custom override trust boundary review found no untrusted writer. FULLCONENAT namespace/zone identity and cleanup ordering reviewed. | Wider WAN callback/route, firewall/NAT, NFS compatibility and other module audits remain open. |
-| L2 host / Actions | FULLCONENAT [42678875089] and AI docs [42678875391] SUCCESS on exact base SHA `bc99b6801c44f55e13dc0214336408f712e0abf8`. THIS WAN DHCP transaction helper/source workflow is PENDING exact resulting HEAD. | No production RC object build, MIPS/uClibc, firmware/TRX, live ioctl failure injection or router test. |
+| L1 source review | PASS for WAN DHCP bound callback input checks, address-before-state ordering, rollback path and NFS custom-export trust boundary. FULLCONENAT namespace/zone identity and cleanup ordering reviewed. | Wider WAN callback/route, firewall/NAT, NFS compatibility and other module audits remain open. |
+| L2 host / Actions | Exact SHA `b6c1cdea285b39925c1e9254c7fb325739129491`: WAN DHCP [42690381038], AI docs [42690381155], WAN route [42690381079], WAN teardown [42690380777] and HTTPD [42690380735] SUCCESS. THIS added edge-case test/docs correction is PENDING exact resulting HEAD. | No production RC object build, MIPS/uClibc, firmware/TRX, live ioctl failure injection or router test. |
 | L3 MIPS/uClibc / production objects / firmware/TRX | NOT VERIFIED. | Full target build phase required. |
 | L4 storage eject, live Samba/NFS/NAT/DHCP behavior / physical router | NOT VERIFIED. | Requires target-device validation. |
 

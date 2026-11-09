@@ -1,11 +1,15 @@
 ## Current repository state
 
 - Maintained fork: Arlene206/padavan-4.4-2; do not substitute upstream.
-- Base main SHA for THIS WAN DHCP callback transaction fix: `bc99b6801c44f55e13dc0214336408f712e0abf8`; active branch main; only main exists; no checkpoint branch.
-- FULLCONENAT lifecycle run [42678875089] and AI handoff docs run [42678875391] both completed SUCCESS on exact `bc99b6801c44f55e13dc0214336408f712e0abf8`. The previous FULLCONENAT callback source-contract task is complete at L2.
-- THIS batch fixes WAN DHCP bound callback state ordering. The old code deleted routes and exposed candidate IP/netmask/gateway NVRAM before checking interface configuration; failed `ifconfig()` calls were ignored. The new `dhcp_wan_interface_apply()` policy checks clear/set results, attempts to restore the old address (or clear when no valid previous lease exists), returns the original error and reports rollback failure. `udhcpc_bound()` now configures the candidate first; only then removes the old route inventory and publishes the candidate IP/netmask/gateway. When address activation fails, the previous route inventory and primary NVRAM lease remain available for the next callback.
-- A pre-edit NFS custom-export trust audit found no untrusted/local-account writer. `/etc` is tmpfs; `/etc/storage` is root-managed persistent MTD content; UI restore reaches it only through authenticated privileged backup restore. The RC writer accepts regular files or symlinks to regular files, falls back to generated exports only on ENOENT, and fails closed otherwise. `nfsd.sh` propagates `exportfs -r` failures. No NFS source change was justified. Keep async durability, AUTH_SYS/no_root_squash and external-mount policy separate.
-- Root `dev_log.md` has 71 /119 complete newest-first records after THIS commit entry; no rotation due.
+- Base main SHA for THIS edge-case regression and handoff checkpoint correction: `b6c1cdea285b39925c1e9254c7fb325739129491`; active branch main; only main exists; no checkpoint branch.
+- The WAN DHCP callback fix commit `b6c1cdea285b39925c1e9254c7fb325739129491` and every dependent Action below completed SUCCESS on that exact SHA:
+  - WAN DHCP callback policy compile/run and source-order contract [42690381038].
+  - AI handoff documentation validator [42690381155].
+  - WAN route status [42690381079], WAN interface teardown [42690380777], and HTTPD security/DHCP source contract [42690380735].
+- The code fix adds `dhcp_wan_interface_apply()`: candidate WAN addresses are applied before old gateway/DHCP route deletion or primary lease NVRAM publication; failed interface ioctls trigger best-effort restoration of the old address (or a clear when no prior lease was valid), and the callback returns the original error. All five exact-head Actions above passed on `b6c1cdea285b39925c1e9254c7fb325739129491`.
+- THIS follow-up extends the host regression with the first-lease edge case where the initial clear fails and the best-effort rollback clear also fails; it also removes duplicate continuation headings introduced in the prior handoff edit. The new exact-head regression and documentation check are pending.
+- NFS custom-export provenance review found no untrusted/local-account writer. `/etc` is tmpfs; `/etc/storage` is root-managed persistent MTD content; web restore requires authenticated privileged access. The RC writer accepts regular files or symlinks to regular files, falls back only on ENOENT, and fails closed otherwise. `nfsd.sh` propagates `exportfs -r` failure. No NFS code change was justified; async durability, AUTH_SYS/no_root_squash and external mounts remain separate compatibility decisions.
+- Root `dev_log.md` has 72 /119 complete newest-first records after THIS entry; no archive rotation is due.
 
 ## Completed FULLCONENAT namespace / zone work
 
@@ -13,7 +17,7 @@
 - Mapping lookup and tuple garbage collection are scoped by the full identity. Conntrack lookups reconstruct the saved zone; final per-net target teardown unregisters the notifier, waits for legacy RCU callback readers, purges only that namespace's mapping/queue entries, then drops the conntrack namespace reference.
 - The GNU89 host policy regression covers same/different namespace, zone ID, flags, direction and null inputs. It passed exact-head runs [42674430844], [42677259891], [42677876443] and [42678293858]. The notifier/cleanup lifecycle contract also passed all four runs.
 - Three IPv4 helper call sites now pass &context; five identical version-conditional declaration wrappers were removed so the semantic function-body extractor can parse the refactored functions.
-- The exact-head semantic contract progressed through mapping structures, namespace/zone lookup filters, IPv4/IPv6 lookup paths and conditional notifier callback signatures. FULLCONENAT lifecycle regression [42678875089] and AI handoff docs [42678875391] both passed on the exact base SHA `bc99b6801c44f55e13dc0214336408f712e0abf8`.
+- The exact-head semantic contract progressed through mapping structures, namespace/zone lookup filters, IPv4/IPv6 lookup paths and conditional notifier callback signatures. FULLCONENAT lifecycle regression [42678875089] and AI handoff docs [42678875391] passed on exact SHA `bc99b6801c44f55e13dc0214336408f712e0abf8`; subsequent WAN DHCP work did not modify the kernel code.
 - Kernel translation-unit compilation remains unverified; the host policy test and semantic source contract do not replace a target kernel object build.
 
 ## Completed FTP work
@@ -28,39 +32,24 @@
 
 ## Active task
 
-1. Verify the WAN DHCP callback regression and AI handoff documentation Action runs on THIS commit's exact full SHA. Require the GNU89 helper compile/run and every Python source-order/path-filter assertion to pass; inspect logs, not only conclusions.
-2. If green, continue the WAN DHCP event-state audit at `udhcpc_deconfig()`, leasefail/NAK/release semantics and BusyBox callback exit-status handling. Inspect cleanup and route result propagation; do not repeat the interface-apply transaction.
-3. Keep separate compatibility questions open: NFS async durability, AUTH_SYS/root-squash and external mounts. Retain Samba same-boot file publication and FTP realpath-to-syscall TOCTOU in the wider queue.
+1. Verify THIS follow-up WAN DHCP edge-case regression and AI handoff documentation checks against the exact resulting main SHA. Inspect every step.
+2. If green, continue WAN DHCP event-state review at `udhcpc_deconfig()`, leasefail/NAK/release handling and BusyBox's ignored callback exit status. Separately inspect remaining route-delete/add result handling; do not repeat the interface-apply transaction.
+3. Keep NFS async durability, AUTH_SYS/root-squash and external mounts as separate compatibility decisions. Retain Samba same-boot file publication and FTP realpath-to-syscall TOCTOU in the wider queue.
 
 ## Verification boundary
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for WAN DHCP input validation, candidate interface-before-state ordering, rollback path and NFS custom-export trust boundary. Prior FULLCONENAT namespace/zone source review remains PASS. |
-| L2 host / Actions | FULLCONENAT [42678875089] and AI handoff docs [42678875391] SUCCESS on exact base SHA `bc99b6801c44f55e13dc0214336408f712e0abf8`. THIS WAN DHCP callback helper/source regression is PENDING the resulting exact HEAD. No local host binary was run in this session. |
+| L1 source review | PASS for WAN DHCP bound callback input checks, candidate interface-before-state ordering, rollback path and NFS custom-export trust boundary. Prior FULLCONENAT namespace/zone review remains PASS. |
+| L2 host / Actions | Exact SHA `b6c1cdea285b39925c1e9254c7fb325739129491`: WAN DHCP [42690381038], AI docs [42690381155], WAN route [42690381079], WAN teardown [42690380777] and HTTPD [42690380735] all SUCCESS. THIS added first-lease rollback-failure test and documentation correction are PENDING on the resulting exact HEAD. |
 | L3 production RC object, MIPS/uClibc kernel object, full firmware/TRX | NOT VERIFIED. |
 | L4 target router DHCP failure injection, route reconciliation, storage/NFS behavior | NOT VERIFIED. |
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, branches/checkpoints and recent Actions; confirm the exact full SHA for THIS commit.
-2. Inspect the WAN DHCP callback workflow [pending at commit creation] and AI handoff docs run. Require both to pass on the same SHA; inspect every step.
-3. Then audit `udhcpc_deconfig()`, leasefail/NAK/release callback handling and the remaining WAN route-delete/add status propagation. Preserve this commit's ordering/rollback behavior.
-
-## Verification boundary
-
-| Level | Status |
-|---|---|
-| L1 source review | PASS for namespace/zone identity propagation, mapping lookup/GC scoping, teardown ordering and corrected IPv4/IPv6 target behavior. |
-| L2 host / Actions | Exact head 32ade08379b4bad18b8137801a57bb109815cf2a: FULLCONENAT [42678293858] passed notifier, GNU89 policy binary and every semantic check through IPv6 path assertions; last step failed only because the generic scanner counted both conditional ct_event_cb signature braces. AI docs [42678293955] SUCCESS on same exact SHA. THIS callback contract correction awaits exact-head rerun. |
-| L3 MIPS/uClibc kernel object, full firmware/TRX | NOT VERIFIED. |
-| L4 target router namespace/conntrack-zone/NAT behavior | NOT VERIFIED. |
-
-## Exact first action for the next GPT
-
-1. Fetch live main, branches and new Actions; verify exact head_sha.
-2. Inspect the FULLCONENAT log through the final semantic contract and the AI handoff validator. All steps must pass at the same full SHA.
-3. Then start the NFS custom exports writer provenance/permissions/content-policy audit; do not alter defaults without a confirmed compatibility/security finding.
+1. Fetch live `main`, branches/checkpoints and recent Actions; confirm the exact full SHA for THIS follow-up commit.
+2. Inspect the WAN DHCP callback regression and AI handoff docs run. Require both to pass on the same SHA, and inspect logs.
+3. Then audit `udhcpc_deconfig()`, leasefail/NAK/release callback handling and remaining WAN route-delete/add status propagation. Preserve the existing bound transaction/rollback ordering.
 
 ## Continuation rules
 

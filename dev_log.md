@@ -1,3 +1,16 @@
+## 2026-11-10 04:11 CST (UTC+8) — Cover first-lease WAN DHCP rollback failure and repair handoff checkpoint headings
+
+- **Base main SHA:** `b6c1cdea285b39925c1e9254c7fb325739129491`; active branch: `main`.
+- **Exact-head evidence on the base:** WAN DHCP callback [42690381038], AI handoff docs [42690381155], WAN route status [42690381079], WAN interface teardown [42690380777] and HTTPD security/DHCP regression [42690380735] all completed SUCCESS on the same exact SHA `b6c1cdea285b39925c1e9254c7fb325739129491`.
+- **Test extension:** added a GNU89 fake-interface case where no previous lease is valid, the first address-clear ioctl fails, and the best-effort rollback clear fails too. The test asserts that the original failure remains the returned status, the rollback status is exposed, and both clear attempts occur.
+- **Handoff repair:** removed duplicate `Verification boundary` / `Exact first action` sections left by the previous content replacement. The actionable handoff now has one state boundary, one verification matrix and one first-action section. Updated roadmap evidence to distinguish the green base implementation SHA from THIS pending edge-case head.
+- **Changed paths:** `trunk/user/rc/src/tests/dhcp_wan_interface_policy.c`; `SESSION_HANDOFF.md`; `REFACTOR_ROADMAP.md`; this root log record.
+- **Validation:** source-level test path reviewed. Exact-head WAN DHCP compile/run and AI docs workflows are **PENDING** for THIS commit. No local compiler invocation or target build is claimed.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** reconcile the exact-head edge-case and AI handoff Actions; then continue `udhcpc_deconfig()`, leasefail/NAK/release callback semantics and WAN route result propagation.
+
+---
+
 ## 2026-11-10 03:42 CST (UTC+8) — Preserve WAN lease state when DHCP address activation fails
 
 - **Base main SHA:** `bc99b6801c44f55e13dc0214336408f712e0abf8`; active branch: `main`.
