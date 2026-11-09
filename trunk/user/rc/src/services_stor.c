@@ -187,7 +187,7 @@ write_vsftpd_conf(void)
 	fprintf(fp, "ftpd_banner=Welcome to %s FTP service.\n", banner_product);
 	
 	if (ftp_config_file_publish(&fp, staged_path, "/etc/vsftpd.conf") != 0)
-		return;
+		return -1;
 
 	return 0;
 }

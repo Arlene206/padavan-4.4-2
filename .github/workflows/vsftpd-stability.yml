@@ -57,6 +57,10 @@ jobs:
           assert config.index("fprintf(") < config.index("ftp_config_file_publish(")
           assert 'fopen("/etc/vsftpd.conf", "w")' not in config
           assert "return -1;" in config
+          publish_gate = config.index('if (ftp_config_file_publish(')
+          publish_error = config.index("return -1;", publish_gate)
+          publish_success = config.index("return 0;", publish_gate)
+          assert publish_gate < publish_error < publish_success
 
           run = function_body(source, "run_ftp(")
           failure_gate = run.index("if (write_vsftpd_conf() != 0)")

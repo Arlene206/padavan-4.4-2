@@ -5,9 +5,8 @@
 ## Current source / CI checkpoint
 
 - Repository: Arlene206/padavan-4.4-2 (maintained fork).
-- Latest source/test checkpoint: THIS COMMIT — vsftpd generated /etc/vsftpd.conf is staged, fully checked and atomically published; FTP daemon startup now fails closed when publication fails. Base SHA: 85591fa3ea404728bc47a24c4d018148fa974295; reconcile this commit's exact-head workflows live.
-- Previous storage caller-graph USB regression [42582582537](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42582582537) and AI handoff docs [42582582507](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42582582507) PASS on exact SHA 85591fa3ea404728bc47a24c4d018148fa974295. New vsftpd/doc Actions are PENDING at commit creation.
-- Validation limit: focused source review and host regression only. No production MIPS/uClibc objects, firmware/TRX, live FTP behavior or hardware tests.
+- Latest source/test checkpoint: THIS COMMIT — follow-up corrects write_vsftpd_conf() to return -1 on failed atomic publication and extends the source contract to check the failure/success return ordering. The preceding vsftpd/storage/HTTPD/docs workflow set passed on exact SHA 2e27361f396adfe79017b1d815962524af47d097; reconcile THIS COMMIT's exact-head workflows live.
+- Previous exact-head runs: vsftpd [42585929021](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42585929021), storage [42585929025](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42585929025), HTTPD [42585929042](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42585929042) and AI handoff docs [42585929052](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42585929052) all PASS on 2e27361f396adfe79017b1d815962524af47d097.
 
 ## Whole-repository module status
 
@@ -47,8 +46,8 @@
 
 | Level | Evidence | Limits |
 |---|---|---|
-| L1 source review | PASS for DHCP input/transactional cleanup and Optware teardown failure propagation; PASS for the reviewed in-tree SD/MMC hotplug caller/lock graph; PASS for vsftpd staged config publication and daemon-start failure gate. | Does not establish complete bound-side-effect recovery or external custom-script behavior. |
-| L2 host / Actions | Storage caller-graph and docs Actions [42582582537](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42582582537) / [42582582507](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42582582507) PASS on exact SHA 85591fa3ea404728bc47a24c4d018148fa974295. The vsftpd GNU89 host regression/source contract and docs check added in THIS COMMIT are PENDING exact-head reconciliation. | Source contracts and host unit tests do not compile the complete target userland or verify external scripts/filesystem/hardware behavior. |
+| L1 source review | PASS for DHCP input/transactional cleanup and Optware teardown failure propagation; PASS for the reviewed in-tree SD/MMC hotplug caller/lock graph; PASS for vsftpd staged config publication, daemon-start failure gate and corrected error return. | Does not establish complete bound-side-effect recovery or external custom-script behavior. |
+| L2 host / Actions | The vsftpd, storage, HTTPD and docs runs [42585929021](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42585929021), [42585929025](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42585929025), [42585929042](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42585929042) and [42585929052](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42585929052) PASS on exact SHA 2e27361f396adfe79017b1d815962524af47d097. THIS COMMIT's vsftpd and docs checks are PENDING exact-head reconciliation. | Source contracts and host unit tests do not compile the complete target userland or verify external scripts/filesystem/hardware behavior. |
 | L3 MIPS/uClibc / production objects / firmware/TRX | NOT VERIFIED. | Full build phase required. |
 | L4 live router / DHCP churn / storage hotplug / physical hardware | NOT VERIFIED. | Requires device validation. |
 

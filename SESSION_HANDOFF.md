@@ -5,23 +5,22 @@
 ## Current repository state
 
 - Repository: Arlene206/padavan-4.4-2; maintained fork only.
-- Latest source/test checkpoint: THIS COMMIT — vsftpd now stages generated /etc/vsftpd.conf beside the destination, checks formatting/flush/close, atomically renames only a complete file, and prevents daemon startup when publication fails. Base source/test SHA: 85591fa3ea404728bc47a24c4d018148fa974295; resolve this commit's full SHA from live main on the next recovery.
+- Latest source/test checkpoint: THIS COMMIT — follow-up correction ensures write_vsftpd_conf() returns -1 when atomic publication fails, and the regression explicitly checks the error return before its success return. The preceding full vsftpd/storage/HTTPD/docs Actions passed on 2e27361f396adfe79017b1d815962524af47d097; resolve THIS COMMIT's exact SHA and fresh Actions on next recovery.
 - Remote branch inventory at this recovery contained only main; no remote checkpoint branch exists. Recheck at next takeover.
-- The preceding storage caller-graph checkpoint 85591fa3ea404728bc47a24c4d018148fa974295: USB storage regression [42582582537](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42582582537) SUCCESS and AI handoff docs [42582582507](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42582582507), both on exact full head_sha 85591fa3ea404728bc47a24c4d018148fa974295.
-- The new vsftpd host regression and AI handoff documentation workflow are triggered by THIS COMMIT; their exact resulting head_sha, run IDs and conclusions must be fetched live. Do not infer their status from the preceding green checkpoint.
-- Validation ceiling: this round adds a focused GNU89 host regression and source contract. No complete production RC/vsftpd object build, MIPS/uClibc build, firmware/TRX, live FTP login/transfer or hardware validation is claimed.
+- The preceding commit 2e27361f396adfe79017b1d815962524af47d097 passed vsftpd regression [42585929021](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42585929021), storage regression [42585929025](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42585929025), HTTPD regression [42585929042](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42585929042) and AI handoff docs [42585929052](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42585929052), all with exact matching full head_sha. THIS COMMIT's vsftpd and docs Actions are pending and must be checked live.
+- Validation ceiling: the preceding GNU89 host regression and source contract passed. This follow-up adds an RC return-contract correction and a matching source assertion. No complete production RC/vsftpd object build, MIPS/uClibc build, firmware/TRX, live FTP login/transfer or hardware validation is claimed.
 
 ## Active task
 
-The previous USB storage caller-graph source-contract milestone is complete. Its exact-head storage and documentation Actions passed on 85591fa3ea404728bc47a24c4d018148fa974295. This round's bounded vsftpd generated-configuration publication fix is included in THIS COMMIT; the new exact-head vsftpd and documentation Actions must be reconciled during the next recovery.
+The USB storage caller-graph milestone and the vsftpd atomic-config publication fix are complete. The full vsftpd, storage, HTTPD and documentation workflow set passed on exact SHA 2e27361f396adfe79017b1d815962524af47d097. THIS COMMIT adds a follow-up correction for the error return in the new int-valued write_vsftpd_conf() function and strengthens the source contract; its own vsftpd and docs Actions must be reconciled during the next recovery.
 
-### Completed vsftpd configuration reliability fix
+### vsftpd generated configuration publication
 
-- Reviewed the APP_FTPD launch/stop path in trunk/user/rc/src/services_stor.c, RC event dispatch in trunk/user/rc/src/rc.c, exported declarations in rc.h, build inclusion in trunk/user/Makefile and the package Makefiles, and the FTP UI in trunk/user/www/n56u_ribbon_fixed/Advanced_AiDisk_ftp.asp.
-- Confirmed defect: write_vsftpd_conf() opened /etc/vsftpd.conf with "w", immediately truncating the last usable config, ignored all fprintf()/flush/close failures, returned no status, and run_ftp() launched vsftpd regardless. A full/read-only filesystem or late write/close error could therefore leave and launch against a partial configuration.
-- Fix in THIS COMMIT: use mkstemp() in the destination directory, set the generated file mode, stream the complete configuration to the temporary file, check stream error/flush/close, then atomically rename() it over the destination. Any staging/write/close/rename failure discards the temporary file and preserves the prior config. write_vsftpd_conf() now returns status and run_ftp() skips daemon startup on failure.
-- New ftp_config_file.c GNU89 regression covers successful replacement and mode, /dev/full buffered-write failure, failed staging open, truncated staging path and preservation of the last-known-good content. The new workflow also asserts the config publication ordering and daemon-start gate. This regression has not yet been run locally; exact-head Actions are pending at commit creation.
-- The focused audit did not establish a further credential/path-confinement bypass. Keep FTP authentication, ACL, path-confinement and stop/lifecycle behavior PARTIAL / AUDITING; this one fix does not close the service audit.
+- Reviewed the APP_FTPD launch/stop path in trunk/user/rc/src/services_stor.c, RC event dispatch in trunk/user/rc/src/rc.c, exported declarations in rc.h, build inclusion in trunk/user/Makefile and package Makefiles, and the FTP UI in trunk/user/www/n56u_ribbon_fixed/Advanced_AiDisk_ftp.asp.
+- Defect: write_vsftpd_conf() truncated /etc/vsftpd.conf before generation completed, ignored fprintf()/flush/close failures, returned no status, and run_ftp() launched vsftpd regardless. A filesystem or late I/O failure could leave a partial configuration.
+- Fix in the preceding commit: same-directory mkstemp staging, checked stream error/flush/close, atomic rename, and daemon-start gating. THIS COMMIT corrects the int-valued writer's publication-failure branch to return -1 rather than a bare return, and adds a source assertion proving the failure return precedes return 0.
+- The GNU89 host regression and source contract passed on exact SHA 2e27361f396adfe79017b1d815962524af47d097; this follow-up adds a contract assertion for the failure return. Its exact-head Actions are pending at commit creation.
+- The focused audit did not establish a further credential/path-confinement bypass. Keep FTP authentication, ACL, path-confinement and stop/lifecycle behavior PARTIAL / AUDITING; this bounded fix does not close the service audit.
 - Validation boundary: no production RC/vsftpd objects, MIPS/uClibc, firmware/TRX, real FTP login/transfer, storage-unplug concurrency or hardware check.
 
 ### Next development rotation
@@ -71,8 +70,8 @@ After exact-head Actions for THIS COMMIT pass, rotate away from storage/HTTPD to
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for the vsftpd generated-config staging/flush/close/atomic-rename control flow and the daemon-start failure gate; previous PASS evidence for AP DHCP transactions and the reviewed in-tree storage caller/lock-order graph remains bounded to those scopes. |
-| L2 host / GitHub Actions | Previous storage regression [42582582537](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42582582537) and AI handoff docs [42582582507](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42582582507) PASS on exact SHA 85591fa3ea404728bc47a24c4d018148fa974295. The vsftpd GNU89 host regression/source-contract workflow and AI handoff documentation check for THIS COMMIT are PENDING exact-head reconciliation. No local checkout was available for running the C regression or documentation validator independently. |
+| L1 source review | PASS for vsftpd staged config publication, daemon-start failure gate and corrected nonzero error return; previous AP DHCP transaction and in-tree storage caller/lock evidence remains bounded to those scopes. |
+| L2 host / GitHub Actions | vsftpd [42585929021](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42585929021), storage [42585929025](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42585929025), HTTPD [42585929042](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42585929042) and docs [42585929052](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42585929052) all PASS on exact SHA 2e27361f396adfe79017b1d815962524af47d097. THIS COMMIT's vsftpd and AI handoff-documentation runs are PENDING exact-head reconciliation. No local checkout was available for running the C regression or documentation validator independently. |
 | L3 MIPS/uClibc / production objects / firmware/TRX | NOT VERIFIED. |
 | L4 live FTP login/transfer / storage churn / physical router | NOT VERIFIED. |
 

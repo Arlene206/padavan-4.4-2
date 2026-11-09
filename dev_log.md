@@ -1,3 +1,12 @@
+## 2026-11-09 16:27 CST (UTC+8) — Correct vsftpd configuration error return
+
+- **Base main SHA:** `2e27361f396adfe79017b1d815962524af47d097`; resulting commit: THIS COMMIT.
+- **Review correction:** after the atomic-publication commit passed its exact-head vsftpd, storage, HTTPD and documentation workflows, a final source reread found that the new int-valued write_vsftpd_conf() used a bare return after a failed ftp_config_file_publish(). That is an invalid return contract and may trigger a compiler diagnostic.
+- **Fix:** return -1 on publication failure; preserve return 0 only for a completed publication. Extend the Python source contract to require the publication failure return to precede the success return.
+- **Prior exact-head evidence:** vsftpd 42585929021, storage 42585929025, HTTPD 42585929042 and AI handoff docs 42585929052 all completed SUCCESS on 2e27361f396adfe79017b1d815962524af47d097. THIS COMMIT's vsftpd and docs workflows are PENDING.
+- **Validation boundary:** the previous commit's GNU89 test passed; this follow-up is a small RC source-return correction and CI contract addition. No full production object/MIPS/uClibc build or hardware testing.
+- **Next:** reconcile THIS COMMIT's exact-head checks, then continue the Samba/accounts/NFS/add-on reliability rotation. The wider FTP credential/ACL/path-confinement audit remains open.
+
 ## 2026-11-09 16:25 CST (UTC+8) — Atomically publish generated vsftpd configuration
 
 - **Base main SHA:** `85591fa3ea404728bc47a24c4d018148fa974295`; resulting commit: THIS COMMIT.
