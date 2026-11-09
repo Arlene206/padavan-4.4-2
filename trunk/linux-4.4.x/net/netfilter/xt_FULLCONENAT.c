@@ -276,11 +276,7 @@ static void kill_mapping6(struct nat_mapping6 *mapping) {
 /* check if a mapping is valid.
  * possibly delete and free an invalid mapping.
  * the mapping should not be used anymore after check_mapping6() returns 0. */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
 static int check_mapping6(struct nat_mapping6* mapping, const struct fullconenat_namespace_context *context) {
-#else
-static int check_mapping6(struct nat_mapping6* mapping, const struct fullconenat_namespace_context *context) {
-#endif
   struct list_head *iter, *tmp;
   struct nat_mapping_original_tuple *original_tuple_item;
   struct nf_conntrack_tuple_hash *tuple_hash;
@@ -338,11 +334,7 @@ static int check_mapping6(struct nat_mapping6* mapping, const struct fullconenat
   }
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
 static struct nat_mapping6* get_mapping6_by_ext_port(const uint16_t port, const union nf_inet_addr *ext_ip, const struct fullconenat_namespace_context *context) {
-#else
-static struct nat_mapping6* get_mapping6_by_ext_port(const uint16_t port, const union nf_inet_addr *ext_ip, const struct fullconenat_namespace_context *context) {
-#endif
   struct nat_mapping6 *p_current;
   struct hlist_node *tmp;
 
@@ -355,11 +347,7 @@ static struct nat_mapping6* get_mapping6_by_ext_port(const uint16_t port, const 
   return NULL;
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
 static uint16_t find_appropriate_port6(const struct fullconenat_namespace_context *context, const uint16_t original_port, const union nf_inet_addr *ext_ip, const struct nf_nat_range *range) {
-#else
-static uint16_t find_appropriate_port6(const struct fullconenat_namespace_context *context, const uint16_t original_port, const union nf_inet_addr *ext_ip, const struct nf_nat_range *range) {
-#endif
   uint16_t min, start, selected, range_size, i;
   struct nat_mapping6* mapping = NULL;
 
@@ -789,11 +777,7 @@ fullconenat_purge_net(struct net *net)
 /* check if a mapping is valid.
  * possibly delete and free an invalid mapping.
  * the mapping should not be used anymore after check_mapping() returns 0. */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
 static int check_mapping(struct nat_mapping* mapping, const struct fullconenat_namespace_context *context) {
-#else
-static int check_mapping(struct nat_mapping* mapping, const struct fullconenat_namespace_context *context) {
-#endif
   struct list_head *iter, *tmp;
   struct nat_mapping_original_tuple *original_tuple_item;
   struct nf_conntrack_tuple_hash *tuple_hash;
@@ -1062,11 +1046,7 @@ static __be32 get_device_ip(const struct net_device* dev) {
   }
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
 static uint16_t find_appropriate_port(const struct fullconenat_namespace_context *context, const uint16_t original_port, const int ifindex, const struct nf_nat_ipv4_range *range) {
-#else
-static uint16_t find_appropriate_port(const struct fullconenat_namespace_context *context, const uint16_t original_port, const int ifindex, const struct nf_nat_ipv4_range *range) {
-#endif
   uint16_t min, start, selected, range_size, i;
   struct nat_mapping* mapping = NULL;
 

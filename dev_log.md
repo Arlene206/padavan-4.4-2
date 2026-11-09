@@ -1,3 +1,15 @@
+## 2026-11-10 02:38 CST (UTC+8) — Simplify FULLCONENAT context-based function signatures
+
+- **Base main SHA:** 3f3368948e481d90db14e7e00868062dce7ef02b; resulting commit: THIS COMMIT.
+- **Exact-head Actions:** FULLCONENAT [42677259891] passed notifier ownership/cleanup and the GNU89 namespace/zone policy binary. Its semantic source contract passed the corrected struct regex and the new IPv4 helper call-site assertions, then failed at function_body() for get_mapping6_by_ext_port(): both #if/#else branches contained the same signature line with an opening brace, and the simple brace scanner counted both alternatives. AI handoff docs [42677259833] completed SUCCESS on the exact base SHA.
+- **Finding:** after the namespace-context refactor, check_mapping6(), get_mapping6_by_ext_port(), find_appropriate_port6(), check_mapping() and find_appropriate_port() retained version-conditional declaration wrappers, but both branches now have byte-identical signatures. Their duplicate opening braces confuse the workflow's source-function extractor; the actual preprocessor selects only one branch.
+- **Fix:** collapse those five redundant #if/#else declaration wrappers to one function signature each. Function parameters, bodies, version-specific logic within the bodies and runtime behavior are unchanged. Existing semantic function-body assertions now have a single declaration boundary.
+- **Changed paths:** trunk/linux-4.4.x/net/netfilter/xt_FULLCONENAT.c, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md, dev_log.md.
+- **Validation:** local structural scan of all five affected source functions now finds balanced bodies after removing the duplicate conditional opening braces. Prior exact-head GNU89 namespace/zone policy binary PASS; new FULLCONENAT and docs Actions pending. No full kernel object, MIPS/uClibc build, firmware/TRX or device test is claimed.
+- **Next:** verify all Actions on THIS exact resulting SHA; if green, begin NFS custom exports writer/provenance/ownership/mode/content-policy tracing. Keep DHCP callback state and FTP pathname TOCTOU queued.
+
+---
+
 ## 2026-11-10 02:31 CST (UTC+8) — Fix FULLCONENAT namespace call sites and regression contracts
 
 - **Base main SHA:** e0dcc7dbc3a85d5f6b1115e63e8f7b75a0e8e08d; resulting commit: THIS COMMIT.

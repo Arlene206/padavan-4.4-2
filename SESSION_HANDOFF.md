@@ -11,8 +11,9 @@
 
 - IPv4/IPv6 mapping entries and pending dying-tuple records retain the owning struct net pointer plus conntrack zone identity (id, flags and direction).
 - Mapping lookup and tuple garbage collection are scoped by the full identity. Conntrack lookups reconstruct the saved zone; final per-net target teardown unregisters the notifier, waits for legacy RCU callback readers, purges only that namespace's mapping/queue entries, then drops the conntrack namespace reference.
-- The new GNU89 host policy regression covers same/different namespace, zone ID, flags, direction and null inputs. It passed as step 4 of base Actions run 42674430844.
-- THIS batch corrects the three missed IPv4 helper call sites and repairs the workflow struct/purge source matchers. The standalone policy binary does not compile the full kernel translation unit; target compilation remains unverified.
+- The new GNU89 host policy regression covers same/different namespace, zone ID, flags, direction and null inputs. It passed in both exact-head runs [42674430844] (before final semantic contract) and [42677259891] (before final semantic contract).
+- The three IPv4 check_mapping call sites now pass &context; the exact-head semantic contract confirmed those target call sites. In run [42677259891], the same contract advanced to get_mapping6_by_ext_port() and then failed because a source scanner counted both identical #if/#else signature opening braces. THIS batch removes five redundant version-conditional wrappers whose signatures are now byte-for-byte identical after the context API refactor. These are preprocessor-equivalent declaration cleanups, not runtime behavior changes.
+- Kernel translation-unit compilation remains unverified; the standalone policy binary and source-contract workflow do not replace a target kernel object build.
 
 ## Completed FTP work
 
@@ -26,28 +27,28 @@
 
 ## Active task
 
-1. Verify the exact full SHA of THIS correction commit on every triggered workflow. Inspect FULLCONENAT job steps: the GNU89 namespace/zone regression and semantic source contracts must both pass. Inspect the AI handoff documentation workflow on the same full SHA; its base run reported failure with no job detail, so explicitly classify the new result.
-2. If exact-head checks pass, resume the repository-wide queue outside Netfilter with the NFS custom exports trust-boundary investigation:
-   - Trace all UI, CGI, shell and RC writers/readers of /etc/storage/exports; identify ownership, modes, symlink creation and whether untrusted/local accounts can modify it.
-   - Determine whether the file is an intentional administrator-only authoritative override. Do not label missing in-code ownership/mode/content checks a vulnerability until writer trust is established.
+1. Verify the exact full SHA of THIS redundant-signature cleanup commit on every triggered workflow. Inspect FULLCONENAT job steps/logs; the notifier contracts, GNU89 policy regression and namespace/zone semantic contracts must all pass. Confirm the AI handoff documentation validator on the same full SHA.
+2. If exact-head checks pass, continue the NFS custom exports trust-boundary audit:
+   - Trace UI, CGI, shell and RC writers/readers of /etc/storage/exports; identify ownership, modes, symlink creation and whether untrusted/local accounts can modify it.
+   - Decide whether this is an administrator-only authoritative override before classifying missing in-code ownership/mode/content validation as a vulnerability.
    - Review /etc/storage provisioning, /etc tmpfs lifecycle, exportfs parsing/failure recovery and NFS mount/ACL constraints.
-   - Keep generated defaults async,secure,no_root_squash,no_subtree_check, root UID/GID compatibility and external-mount policy as separate decisions; do not change these options speculatively.
-3. Then rank DHCP leasefail/accepted-NAK/release callback-state semantics and FULLCONENAT residual target-validation risks by reproducibility and impact. Keep FTP realpath-to-syscall symlink-swap TOCTOU visible.
+   - Keep generated async,secure,no_root_squash,no_subtree_check defaults, root UID/GID compatibility and external-mount policy as separate decisions; do not alter options speculatively.
+3. Keep DHCP leasefail/accepted-NAK/release callback-state semantics and FTP realpath-to-syscall TOCTOU visible in the whole-repository queue.
 
 ## Verification boundary
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for namespace/zone identity propagation, lookup scoping and teardown ordering; THIS batch fixes all three stale IPv4 helper call sites and strengthens source contracts. |
-| L2 host / Actions | Base [42674430844] exact-head: notifier/lifecycle contract PASS; GNU89 context-policy binary compile/run PASS; later semantic contract FAIL because its struct regex was over-escaped. THIS correction adds fixed matchers and IPv4 call-site contracts; exact-head Actions pending. Base docs run [42674431213] reports failure but exposed no job detail; new exact-head docs result pending. |
+| L1 source review | PASS for namespace/zone identity propagation and the corrected IPv4 helper call sites. Five identical preprocessor signature wrappers have now been collapsed so the semantic contract scanner can reliably extract the affected functions. |
+| L2 host / Actions | Base [42677259891] exact-head: notifier/lifecycle contract PASS; GNU89 namespace/zone policy binary compile/run PASS; semantic step advanced past struct and IPv4 call-site checks, then failed because function_body() counted both identical #if/#else function-signature opening braces. AI handoff docs [42677259833] SUCCESS on the exact base SHA. THIS cleanup's exact-head FULLCONENAT/docs runs pending. |
 | L3 MIPS/uClibc kernel object, full firmware/TRX | NOT VERIFIED. |
 | L4 target router namespace/conntrack-zone/NAT behavior | NOT VERIFIED. |
 
 ## Exact first action for the next GPT
 
-1. Fetch live main, remote branches and all Actions for the new full SHA; match every run's head_sha exactly.
-2. Inspect FULLCONENAT job steps/logs and confirm the GNU89 policy regression, namespace/zone source contracts and AI handoff docs validator outcomes. Do not assume docs passed when run metadata is incomplete.
-3. On green exact-head checks, begin NFS custom exports provenance/permissions/content-policy tracing before changing NFS behavior.
+1. Fetch live main, remote branches and Actions for the new full SHA; verify exact head_sha equality.
+2. Inspect FULLCONENAT job logs and confirm all source-contract checks complete successfully, and confirm the AI handoff docs workflow is green on the same full SHA.
+3. If green, proceed to trace NFS custom exports provenance, writer permissions and content policy before changing behavior.
 
 ## Continuation rules
 
