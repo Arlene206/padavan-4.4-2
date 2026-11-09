@@ -143,3 +143,14 @@
 
 ---
 
+## 2026-11-09 09:18 CST — Gate AP and APCLI bridge publication on successful interface-up commands
+
+- **Base main SHA:** `398aaf17125ee87321c683c1e3b9d951178e04ed`.
+- **Code commit:** `df7c97c7fbba3ed30f003a6f7ecb5127b6fc91be` — make the 2.4/5GHz AP main/guest start paths, the RT3352 iNIC guest path, and both AP-client start paths return immediately when `wif_control()` fails. The checked `wif_control_success()` wrapper now gates bridge attachment, M2U configuration and AP-client auto-connect publication.
+- **Regression/workflow commit:** `abe6bfc750dda173e4cc25866b3e6f43ad12b21b` — extend `.github/workflows/wireless-radio-state.yml` to assert all seven AP/APCLI failure gates occur before their dependent bridge/M2U/AutoConnect side effects. Existing push and pull_request path filters remain enabled.
+- **Finding:** AP and APCLI startup ignored the return from `ifconfig up`. When it failed, code still attempted bridge attachment and M2U, and APCLI also attempted `ApCliAutoConnect`, leaving software bridge/configuration state inconsistent with the actual interface transition.
+- **Validation:** L1 source/call-order preflight PASS for all seven updated gates. L2 host policy regression compiled with GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` and leak detection; executable PASS. New exact-head Actions on `abe6bfc750dda173e4cc25866b3e6f43ad12b21b` is **NOT VERIFIED**: combined-status returned no rows and the available workflow-run query exposes pull_request-triggered runs only, not push-triggered runs. Do not treat Actions as passed until inspected on GitHub.
+- **Validation boundary / remaining risks:** no production RC translation-unit/object build, MIPS/uClibc build, complete firmware/TRX, live AP/APCLI/WDS transition or hardware validation. Wireless remains **AUDITING**. WDS start callers, iNIC main boot/disable sequencing, stop callers and residual driver/association/switch consumers remain open.
+
+---
+

@@ -11,7 +11,7 @@
 | `docs/dev-log/2026/11/part-002.md` | 275 | 2026-11-06 → 2026-11-08 | 357977 | `164858e25153406e26e3f2b9bb6f3904557d5cda` |
 | `docs/dev-log/2026/11/part-003.md` | 78 | 2026-11-08 → 2026-11-09 | 216933 | `f5e28c56ef9055a12f1b0ce7bc9ebd6fbc438233` |
 | `docs/dev-log/2026/11/part-004.md` | 1 | 2026-11-09 → 2026-11-09 | 2653 | `f7016653093548013d8197b6925e7a69cc7b24db` |
-| `docs/dev-log/2026/11/part-005.md` | 10 | 2026-11-09 → 2026-11-09 | 34397 | `fb1c86de2d83a04eec150186fd844a0ea98c1408` |
+| `docs/dev-log/2026/11/part-005.md` | 11 | 2026-11-09 → 2026-11-09 | 36351 | `5892b7d35995429d5f604fd8ff92c81cc55cebd5` |
 
 
 - **Post-migration rotation:** the first evicted root-window record is preserved verbatim in `part-003.md`; its original root source blob was `733d3c678575611642b3f69fe4cfe5e19ece9b57`.
@@ -39,3 +39,6 @@
 - **Rolling-window continuation:** the 2026-11-09 09:04 CST wireless radio-state record evicted at this rotation is appended after the 08:56 CST FULLCONENAT garbage-collection record in part-005.
 
 - **Rolling-window continuation:** the 2026-11-09 09:13 CST guest AP scheduler/bridge-state record evicted at this rotation is preserved verbatim after the 09:04 CST record in part-005; original root source blob: `3bf6391ddb348e17f4c4955ba7658ec5444c8a10`.
+
+
+- Rolling-window continuation: the ## 2026-11-09 09:18 CST — Gate AP and APCLI bridge publication on successful interface-up commands record evicted from the root 20-record window is preserved verbatim at the end of part-005; its original root record blob is d7c5fa747741c15ee95493156f9a96c3c3bb2e86.
