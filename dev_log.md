@@ -1,3 +1,14 @@
+## 2026-11-10 01:05 CST (UTC+8) — Avoid libc header shadowing in FTP path regression build
+
+- **Base main SHA:** `a36c2aa14804e9a8eb45f367672d52cf1f306912`; resulting commit: THIS COMMIT.
+- **Exact-head parent Actions:** AI handoff docs [42660622526] SUCCESS; vsftpd [42660622353] FAILURE at the newly added host-test compile. The two existing FTP config/daemon-policy GNU89 regression binaries had passed earlier in the same step.
+- **Root cause:** `-I trunk/user/vsftpd/src` put the vsftpd source directory ahead of system include paths. Its local `features.h` shadowed glibc's `<features.h>`, causing system-header macro parse errors before the new test compiled.
+- **Correction:** use GCC's quote-only `-iquote trunk/user/vsftpd/src` for the helper's quoted include. This does not affect angle-bracket system-header lookup. Reproduced the collision using a competing `features.h` fixture; the same regression compiled with GNU89, `-Wall -Wextra -Werror` and passed under `-iquote`.
+- **Scope:** workflow compile flag only; no production behavior changed. The RNFR/RNTO path-scoped ACL fix and its test remain unchanged.
+- **Next:** verify exact-head vsftpd and AI handoff Actions for THIS correction. Then continue the remaining FTP path-command ACL audit recorded in `SESSION_HANDOFF.md`.
+
+---
+
 ## 2026-11-10 00:47 CST (UTC+8) — Enforce path-scoped ACLs for FTP rename source and destination
 
 - **Base main SHA:** `f35d0a8b97db4b4ef283cbd367cd4198d63f6b73`; resulting commit: THIS COMMIT.
