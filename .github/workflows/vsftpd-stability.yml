@@ -129,6 +129,7 @@ jobs:
           existing_open = function_body(vsftpd_acl, "asus_open_existing_path(")
           remove_path = function_body(vsftpd_acl, "asus_remove_path(")
           make_directory_path = function_body(vsftpd_acl, "asus_make_directory_path(")
+          rename_path = function_body(vsftpd_acl, "asus_rename_path(")
           directory = function_body(vsftpd_postlogin, "static void\nhandle_dir_common")
           acl_at = function_body(vsftpd_acl, "asus_check_permission_at(")
           acl_path = function_body(vsftpd_acl, "asus_check_permission_path(")
@@ -192,6 +193,13 @@ jobs:
           assert "RMD could not remove an empty directory entry" in acl_path_test
           assert "descriptor-relative removal accepted reserved metadata" in acl_path_test
           assert "directory identity check accepted a substituted parent" in acl_path_test
+          assert "rename resolver followed an ordinary final symlink" in acl_path_test
+          assert "rename resolver did not follow trailing-slash directory link" in acl_path_test
+          assert "cross-directory renameat or overwrite semantics failed" in acl_path_test
+          assert "renameat followed the final symlink instead of moving it" in acl_path_test
+          assert "renameat did not use both pinned parent descriptors" in acl_path_test
+          assert "renameat allowed a reserved source leaf" in acl_path_test
+          assert "renameat allowed a reserved destination leaf" in acl_path_test
           assert "descriptor-relative MKD did not create directory" in acl_path_test
           assert "descriptor-relative MKD accepted reserved metadata" in acl_path_test
           assert "can_write ? PERM_WRITE : PERM_READ" in mdtm
@@ -241,6 +249,7 @@ jobs:
           assert "asus_check_permission_existing_path" in vsftpd_acl_header
           assert "asus_check_permission_upload" in vsftpd_acl_header
           assert "asus_check_permission_directory" in vsftpd_acl_header
+          assert "asus_rename_path" in vsftpd_acl_header
           assert "get_mount_layer(directory" in acl_at
           assert "ftp_acl_path_resolve_parent(" in acl_path
           assert "realpath(parent, resolved)" in acl_path_policy
@@ -250,9 +259,19 @@ jobs:
           assert rnfr.index("asus_check_permission_path(p_sess, PERM_DELETE") < rnfr.index("str_stat(")
           assert "str_copy(&p_sess->rnfr_filename_str, &p_sess->ftp_arg_str)" in rnfr
           assert rnto.index("vsf_access_check_file(") < rnto.index("prepend_path_to_filename(&p_sess->ftp_arg_str)")
-          assert "asus_check_permission_path(p_sess, PERM_DELETE" in rnto
-          assert "asus_check_permission_path(p_sess, PERM_WRITE" in rnto
-          assert rnto.index("PERM_DELETE") < rnto.index("PERM_WRITE") < rnto.index("str_rename(")
+          assert "asus_rename_path(p_sess, &p_sess->rnfr_filename_str" in rnto
+          assert "str_rename(" not in rnto
+          assert rnto.index("asus_rename_path(") < rnto.index("str_free(&p_sess->rnfr_filename_str)")
+          assert "str_free(&p_sess->rnfr_filename_str)" in rnto
+          assert "ftp_acl_path_resolve_rename_entry" in rename_path
+          assert "ftp_acl_path_open_verified_directory(source_parent)" in rename_path
+          assert "ftp_acl_path_open_verified_directory(destination_parent)" in rename_path
+          assert "asus_check_permission_at(p_sess, PERM_DELETE, source_parent)" in rename_path
+          assert "asus_check_permission_at(p_sess, PERM_WRITE, destination_parent)" in rename_path
+          assert rename_path.index("PERM_DELETE") < rename_path.index("PERM_WRITE") < rename_path.index("ftp_acl_path_rename_entry(")
+          assert rename_path.count("ftp_acl_path_verify_directory_identity(") == 2
+          assert "ftp_acl_path_rename_entry(source_parent_fd, source_leaf" in rename_path
+          assert "return renameat(source_dir_fd, source_leaf" in acl_path_policy
           assert '"../shareB/file"' in acl_path_test
           assert "symlinked parent was not canonicalized" in acl_path_test
           policy_fn = function_body(daemon_policy, "ftp_daemon_wait_for_stable_presence(")

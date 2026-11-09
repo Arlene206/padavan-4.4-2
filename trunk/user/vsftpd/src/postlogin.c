@@ -1364,8 +1364,7 @@ static void
 handle_rnto(struct vsf_session* p_sess)
 {
   static struct mystr s_tmp_str;
-  int retval;
-  /* If we didn't get a RNFR, throw a wobbly */
+  int retval, permission_denied = 0;
   if (str_isempty(&p_sess->rnfr_filename_str))
   {
     vsf_cmdio_write(p_sess, FTP_NEEDRNFR,
@@ -1382,32 +1381,25 @@ handle_rnto(struct vsf_session* p_sess)
   str_append_str(&p_sess->log_str, &s_tmp_str);
   if (!vsf_access_check_file(&p_sess->ftp_arg_str))
   {
+    str_free(&p_sess->rnfr_filename_str);
     vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
     return;
   }
   prepend_path_to_filename(&p_sess->ftp_arg_str);
-  if (!asus_check_permission_path(p_sess, PERM_DELETE,
-                                  &p_sess->rnfr_filename_str) ||
-      !asus_check_permission_path(p_sess, PERM_WRITE,
-                                  &p_sess->ftp_arg_str))
-  {
-    vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
-    return;
-  }
-  /* NOTE - might overwrite destination file. Not a concern because the same
-   * could be accomplished with DELE.
-   */
-  retval = str_rename(&p_sess->rnfr_filename_str, &p_sess->ftp_arg_str);
-  /* Clear the RNFR filename; start the two stage process again! */
+  retval = asus_rename_path(p_sess, &p_sess->rnfr_filename_str,
+                           &p_sess->ftp_arg_str, &permission_denied);
   str_free(&p_sess->rnfr_filename_str);
-  if (retval == 0)
+  if (retval != 0)
   {
-    vsf_log_do_log(p_sess, 1);
-    vsf_cmdio_write(p_sess, FTP_RENAMEOK, "Rename successful.");
+    if (permission_denied)
+      vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
+    else
+      vsf_cmdio_write(p_sess, FTP_FILEFAIL, "Rename failed.");
   }
   else
   {
-    vsf_cmdio_write(p_sess, FTP_FILEFAIL, "Rename failed.");
+    vsf_log_do_log(p_sess, 1);
+    vsf_cmdio_write(p_sess, FTP_RENAMEOK, "Rename successful.");
   }
 }
 

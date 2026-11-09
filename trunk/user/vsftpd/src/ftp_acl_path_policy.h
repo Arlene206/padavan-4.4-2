@@ -207,6 +207,81 @@ ftp_acl_path_resolve_existing_entry(const char *path, char *resolved_parent,
 }
 
 /*
+ * Resolve a rename operand into a canonical parent and one leaf component.
+ * Without a trailing slash the final component is intentionally not followed:
+ * renameat() must move a symlink entry, not its target. A trailing slash has
+ * directory-path semantics, so realpath() canonicalizes the existing target.
+ */
+static int
+ftp_acl_path_resolve_rename_entry(const char *path, char *resolved_parent,
+                                  size_t resolved_size, char *leaf,
+                                  size_t leaf_size)
+{
+  char entry[PATH_MAX], parent[PATH_MAX];
+  size_t length;
+  int trailing_slash;
+
+  if (!path || !*path || !resolved_parent || resolved_size < PATH_MAX ||
+      !leaf || leaf_size == 0) {
+    errno = EINVAL;
+    return -1;
+  }
+  length = strlen(path);
+  if (length >= PATH_MAX || ftp_acl_path_is_internal_metadata(path)) {
+    errno = EACCES;
+    return -1;
+  }
+  trailing_slash = path[length - 1] == '/';
+  if (trailing_slash) {
+    if (realpath(path, entry) == NULL)
+      return -1;
+    if (ftp_acl_path_is_internal_metadata(entry)) {
+      errno = EACCES;
+      return -1;
+    }
+    if (ftp_acl_path_split_entry(entry, parent, sizeof(parent),
+                                 leaf, leaf_size) != 0)
+      return -1;
+  } else {
+    if (ftp_acl_path_split_entry(path, parent, sizeof(parent),
+                                 leaf, leaf_size) != 0)
+      return -1;
+    if (ftp_acl_path_is_internal_metadata(leaf)) {
+      errno = EACCES;
+      return -1;
+    }
+  }
+  if (realpath(parent, resolved_parent) == NULL)
+    return -1;
+  return 0;
+}
+
+/* Operate on directory entries relative to the exact parent directories already authorized. */
+static int
+ftp_acl_path_rename_entry(int source_dir_fd, const char *source_leaf,
+                          int destination_dir_fd,
+                          const char *destination_leaf)
+{
+  if (source_dir_fd < 0 || destination_dir_fd < 0 ||
+      !source_leaf || !*source_leaf || strchr(source_leaf, '/') ||
+      strcmp(source_leaf, ".") == 0 || strcmp(source_leaf, "..") == 0 ||
+      !destination_leaf || !*destination_leaf ||
+      strchr(destination_leaf, '/') ||
+      strcmp(destination_leaf, ".") == 0 ||
+      strcmp(destination_leaf, "..") == 0) {
+    errno = EINVAL;
+    return -1;
+  }
+  if (ftp_acl_path_is_internal_metadata(source_leaf) ||
+      ftp_acl_path_is_internal_metadata(destination_leaf)) {
+    errno = EACCES;
+    return -1;
+  }
+  return renameat(source_dir_fd, source_leaf,
+                  destination_dir_fd, destination_leaf);
+}
+
+/*
  * Open an absolute canonical directory one component at a time. O_PATH keeps
  * this usable for write-only directories while providing a stable dirfd.
  * O_NOFOLLOW rejects a component substituted with a symlink after realpath().

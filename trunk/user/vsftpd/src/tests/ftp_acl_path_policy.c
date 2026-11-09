@@ -66,8 +66,13 @@ main(void)
   char tiny[2];
   int cleanup_allowed, dir_fd, race_fd, rollback_fd, replacement_fd;
   int existing_dir_fd, existing_file_fd, remove_parent_fd;
+  int rename_source_fd, rename_destination_fd;
   char existing_leaf[PATH_MAX], readback[16];
   char remove_link[PATH_MAX], remove_dir_link[PATH_MAX], empty_dir[PATH_MAX];
+  char rename_source[PATH_MAX], rename_destination[PATH_MAX];
+  char rename_link[PATH_MAX], rename_link_destination[PATH_MAX];
+  char rename_dir[PATH_MAX], rename_dir_link[PATH_MAX];
+  char rename_parent_a[PATH_MAX], rename_parent_b[PATH_MAX];
   ssize_t read_length;
   struct stat st, canonical_st;
   char *created;
@@ -198,6 +203,144 @@ main(void)
   }
   if (close(remove_parent_fd) != 0) {
     perror("close removal fixture directory");
+    return 1;
+  }
+  checked_path(rename_source, sizeof(rename_source), a, "rename-source.txt");
+  checked_path(rename_destination, sizeof(rename_destination), b, "rename-destination.txt");
+  checked_path(rename_link, sizeof(rename_link), a, "rename-link");
+  checked_path(rename_link_destination, sizeof(rename_link_destination), b,
+               "rename-link-moved");
+  checked_path(rename_dir, sizeof(rename_dir), a, "rename-directory");
+  checked_path(rename_dir_link, sizeof(rename_dir_link), a, "rename-directory-link");
+  checked_path(rename_parent_a, sizeof(rename_parent_a), root, "shareA-held-rename");
+  checked_path(rename_parent_b, sizeof(rename_parent_b), root, "shareB-held-rename");
+  create_fixture_file(rename_source);
+  create_fixture_file(rename_destination);
+  if (symlink(file_b, rename_link) != 0 || mkdir(rename_dir, 0700) != 0 ||
+      symlink(rename_dir, rename_dir_link) != 0) {
+    perror("create rename fixtures");
+    return 1;
+  }
+  if (ftp_acl_path_resolve_rename_entry(rename_link, resolved, sizeof(resolved),
+                                        existing_leaf, sizeof(existing_leaf)) != 0 ||
+      strcmp(resolved, a) || strcmp(existing_leaf, "rename-link")) {
+    fprintf(stderr, "rename resolver followed an ordinary final symlink\n");
+    return 1;
+  }
+  if (snprintf(path, sizeof(path), "%s/", rename_dir_link) < 0 ||
+      ftp_acl_path_resolve_rename_entry(path, resolved, sizeof(resolved),
+          existing_leaf, sizeof(existing_leaf)) != 0 ||
+      strcmp(resolved, a) || strcmp(existing_leaf, "rename-directory")) {
+    fprintf(stderr, "rename resolver did not follow trailing-slash directory link\n");
+    return 1;
+  }
+  if (ftp_acl_path_resolve_rename_entry(metadata_file, resolved,
+          sizeof(resolved), existing_leaf, sizeof(existing_leaf)) == 0 ||
+      ftp_acl_path_resolve_rename_entry("/share/.", resolved,
+          sizeof(resolved), existing_leaf, sizeof(existing_leaf)) == 0 ||
+      ftp_acl_path_resolve_rename_entry("/share/..", resolved,
+          sizeof(resolved), existing_leaf, sizeof(existing_leaf)) == 0) {
+    fprintf(stderr, "rename resolver accepted metadata or dot entries\n");
+    return 1;
+  }
+  if (snprintf(path, sizeof(path), "%s/", rename_source) < 0 ||
+      ftp_acl_path_resolve_rename_entry(path, resolved, sizeof(resolved),
+          existing_leaf, sizeof(existing_leaf)) == 0) {
+    fprintf(stderr, "rename resolver accepted a trailing slash on a regular file\n");
+    return 1;
+  }
+
+  rename_source_fd = ftp_acl_path_open_verified_directory(a);
+  rename_destination_fd = ftp_acl_path_open_verified_directory(b);
+  if (rename_source_fd < 0 || rename_destination_fd < 0 ||
+      stat(rename_source, &canonical_st) != 0 ||
+      ftp_acl_path_rename_entry(rename_source_fd, "rename-source.txt",
+          rename_destination_fd, "rename-destination.txt") != 0 ||
+      stat(rename_destination, &st) != 0 ||
+      st.st_dev != canonical_st.st_dev || st.st_ino != canonical_st.st_ino) {
+    fprintf(stderr, "cross-directory renameat or overwrite semantics failed\n");
+    return 1;
+  }
+  if (lstat(rename_source, &st) == 0) {
+    fprintf(stderr, "renameat left its source entry behind\n");
+    return 1;
+  }
+  if (ftp_acl_path_rename_entry(rename_source_fd, "rename-link",
+          rename_destination_fd, "rename-link-moved") != 0 ||
+      lstat(rename_link_destination, &st) != 0 || !S_ISLNK(st.st_mode) ||
+      stat(file_b, &st) != 0 || !S_ISREG(st.st_mode)) {
+    fprintf(stderr, "renameat followed the final symlink instead of moving it\n");
+    return 1;
+  }
+  errno = 0;
+  if (ftp_acl_path_rename_entry(rename_source_fd, ".__alice_var.txt",
+          rename_destination_fd, "not-moved") == 0 || errno != EACCES) {
+    fprintf(stderr, "renameat allowed a reserved source leaf\n");
+    return 1;
+  }
+  errno = 0;
+  if (ftp_acl_path_rename_entry(rename_source_fd, "rename-directory",
+          rename_destination_fd, ".__alice_var.txt") == 0 || errno != EACCES) {
+    fprintf(stderr, "renameat allowed a reserved destination leaf\n");
+    return 1;
+  }
+  if (ftp_acl_path_rename_entry(rename_source_fd, ".",
+          rename_destination_fd, "invalid-dot") == 0) {
+    fprintf(stderr, "renameat allowed a dot source leaf\n");
+    return 1;
+  }
+
+  {
+    int fd_a = openat(rename_source_fd, "pinned-source",
+                      O_CREAT | O_EXCL | O_WRONLY | O_NOFOLLOW | O_CLOEXEC, 0600);
+    int fd_b = openat(rename_destination_fd, "pinned-source",
+                      O_CREAT | O_EXCL | O_WRONLY | O_NOFOLLOW | O_CLOEXEC, 0600);
+    if (fd_a < 0 || fd_b < 0 || write(fd_a, "source", 6) != 6 ||
+        write(fd_b, "decoy", 5) != 5 || close(fd_a) != 0 || close(fd_b) != 0) {
+      perror("create pinned rename source and decoy");
+      return 1;
+    }
+  }
+  if (rename(a, rename_parent_a) != 0 || rename(b, rename_parent_b) != 0 ||
+      symlink(rename_parent_b, a) != 0 || symlink(rename_parent_a, b) != 0 ||
+      ftp_acl_path_rename_entry(rename_source_fd, "pinned-source",
+          rename_destination_fd, "pinned-source-moved") != 0) {
+    perror("rename through replaced source and destination paths");
+    return 1;
+  }
+  checked_path(path, sizeof(path), rename_parent_a, "pinned-source");
+  if (lstat(path, &st) == 0) {
+    fprintf(stderr, "renameat used the replaced source pathname\n");
+    return 1;
+  }
+  checked_path(path, sizeof(path), rename_parent_b, "pinned-source-moved");
+  if (stat(path, &st) != 0 || st.st_size != 6) {
+    fprintf(stderr, "renameat did not use both pinned parent descriptors\n");
+    return 1;
+  }
+  checked_path(path, sizeof(path), rename_parent_b, "pinned-source");
+  if (stat(path, &st) != 0 || st.st_size != 5) {
+    fprintf(stderr, "renameat moved the decoy from the replaced source path\n");
+    return 1;
+  }
+  if (unlink(path) != 0) {
+    perror("remove pinned rename decoy");
+    return 1;
+  }
+  checked_path(path, sizeof(path), rename_parent_b, "pinned-source-moved");
+  if (unlink(path) != 0 ||
+      unlinkat(rename_source_fd, "rename-directory-link", 0) != 0 ||
+      unlinkat(rename_destination_fd, "rename-link-moved", 0) != 0 ||
+      unlinkat(rename_destination_fd, "rename-destination.txt", 0) != 0 ||
+      unlinkat(rename_source_fd, "rename-directory", AT_REMOVEDIR) != 0) {
+    perror("remove rename fixtures through pinned descriptors");
+    return 1;
+  }
+  close(rename_source_fd);
+  close(rename_destination_fd);
+  if (unlink(a) != 0 || unlink(b) != 0 ||
+      rename(rename_parent_a, a) != 0 || rename(rename_parent_b, b) != 0) {
+    perror("restore pinned rename directories");
     return 1;
   }
   if (ftp_acl_path_resolve_existing_parent(file_a, resolved, sizeof(resolved)) ||

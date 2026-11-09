@@ -1,3 +1,16 @@
+## 2026-11-10 07:29 CST (UTC+8) — Anchor FTP RNFR/RNTO to two ACL-authorized directory descriptors
+
+- **Base main SHA:** `9b6c65686ad95295fd456e074292638a6c9ccf92`; remote branches: `main` only, no checkpoint branch.
+- **Recovered exact-head evidence:** MKD VSFTPD regression [42722114919] and AI handoff docs [42722114837] both completed SUCCESS on exact SHA `9b6c65686ad95295fd456e074292638a6c9ccf92`. GNU89 host suites and the semantic source contract passed.
+- **Finding:** RNFR pins an absolute source path, but RNTO previously checked source DELETE/destination WRITE ACLs through pathnames and then used `str_rename()`. Either parent pathname could be replaced between authorization and the rename syscall.
+- **Fix:** `ftp_acl_path_resolve_rename_entry()` preserves the final leaf for ordinary operands and follows directory-path semantics for trailing-slash operands. `asus_rename_path()` pins both canonical parent dirfds, applies source DELETE and destination WRITE ACL checks, revalidates both parent device/inode identities, then performs `renameat()`. Ordinary final symlinks are renamed as entries; overwrite semantics remain those of `rename(2)`. RNTO consumes pending RNFR state on any attempted result.
+- **Regression:** GNU89 policy tests cover final-link behavior, trailing-slash directory symlink resolution, metadata/dot leaf rejection, cross-directory overwrite and use of both pinned parent descriptors after both corresponding pathnames are substituted with symlinks. The workflow source contract checks the ordered ACL calls, both identity rechecks, renameat use and RNFR-state clearing.
+- **Changed paths:** FTP policy/header/ACL/postlogin/test/workflow plus `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and this log.
+- **Validation:** L1 source/control-flow review PASS. Exact-head VSFTPD GNU89 regression/source contract and AI-doc Actions are pending for THIS resulting SHA; no local checkout/compiler was available. L3 MIPS/uClibc target build and L4 hardware validation remain NOT VERIFIED.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** reconcile exact-head Actions. If green, audit LIST/NLST/STAT traversal/recursion; keep MDTM/SITE CHMOD, non-atomic upload cleanup, and DHCP/FULLCONENAT/NFS queue open.
+
+---
 ## 2026-11-10 07:10 CST (UTC+8) — Anchor FTP MKD creation to the authorized parent descriptor
 
 - **Base main SHA:** `05c7a13f44e64b4ba81f4af34b1000bb8eb4792e`.

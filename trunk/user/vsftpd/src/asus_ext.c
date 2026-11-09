@@ -473,6 +473,77 @@ asus_remove_path(struct vsf_session* p_sess, const struct mystr* p_path_str,
 }
 
 int
+asus_rename_path(struct vsf_session* p_sess,
+                 const struct mystr* p_source_path_str,
+                 const struct mystr* p_destination_path_str,
+                 int* p_permission_denied)
+{
+  char source_parent[PATH_MAX], source_leaf[PATH_MAX];
+  char destination_parent[PATH_MAX], destination_leaf[PATH_MAX];
+  int source_parent_fd = -1, destination_parent_fd = -1;
+  int retval = -1, saved_errno;
+
+  if (!p_sess || !p_source_path_str || !p_destination_path_str ||
+      !p_permission_denied) {
+    errno = EINVAL;
+    return -1;
+  }
+  *p_permission_denied = 0;
+
+  if (ftp_acl_path_resolve_rename_entry(str_getbuf(p_source_path_str),
+                                        source_parent, sizeof(source_parent),
+                                        source_leaf, sizeof(source_leaf)) != 0 ||
+      ftp_acl_path_resolve_rename_entry(str_getbuf(p_destination_path_str),
+                                        destination_parent,
+                                        sizeof(destination_parent),
+                                        destination_leaf,
+                                        sizeof(destination_leaf)) != 0) {
+    *p_permission_denied = 1;
+    return -1;
+  }
+
+  source_parent_fd = ftp_acl_path_open_verified_directory(source_parent);
+  if (source_parent_fd < 0) {
+    *p_permission_denied = 1;
+    return -1;
+  }
+  destination_parent_fd =
+      ftp_acl_path_open_verified_directory(destination_parent);
+  if (destination_parent_fd < 0) {
+    saved_errno = errno;
+    close(source_parent_fd);
+    errno = saved_errno;
+    *p_permission_denied = 1;
+    return -1;
+  }
+
+  if (!asus_check_permission_at(p_sess, PERM_DELETE, source_parent) ||
+      !asus_check_permission_at(p_sess, PERM_WRITE, destination_parent)) {
+    errno = EACCES;
+    *p_permission_denied = 1;
+    goto rename_out;
+  }
+  if (ftp_acl_path_verify_directory_identity(source_parent,
+                                              source_parent_fd) != 0 ||
+      ftp_acl_path_verify_directory_identity(destination_parent,
+                                              destination_parent_fd) != 0) {
+    *p_permission_denied = 1;
+    goto rename_out;
+  }
+
+  retval = ftp_acl_path_rename_entry(source_parent_fd, source_leaf,
+                                     destination_parent_fd,
+                                     destination_leaf);
+
+rename_out:
+  saved_errno = errno;
+  close(destination_parent_fd);
+  close(source_parent_fd);
+  errno = saved_errno;
+  return retval;
+}
+
+int
 asus_open_existing_path(struct vsf_session* p_sess, int perm,
                         const struct mystr* p_path_str, int stat_only,
                         int* p_permission_denied)
