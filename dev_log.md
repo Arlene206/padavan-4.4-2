@@ -1,3 +1,15 @@
+## 2026-11-09 17:04 CST (UTC+8) — Remove brittle Samba contract slice from HTTPD regression
+
+- **Base main SHA:** `088a87e61ca0da3ab040fc230f2d9e875b3920a1`; resulting commit: THIS COMMIT.
+- **Exact-head results:** Samba share stability [42589984483](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42589984483) and AI handoff docs [42589984462](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42589984462) both SUCCESS on the exact base SHA. HTTPD [42589984431](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42589984431) still FAILED at the Samba trust-boundary step: its `config_header` slice raised `ValueError: substring not found` after the function signature migration. Earlier HTTPD policy/regression steps passed.
+- **Correction:** remove the unnecessary end-marker slice. Anchor at `write_smb_conf_header(FILE *fp)`, then compare the workgroup and hostname sanitization guards directly with their respective `fprintf()` calls. Preserve both checks and their ordering requirement.
+- **Changed paths:** `.github/workflows/httpd-security.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+- **Validation:** root cause confirmed from exact-head job 129069003316 logs and current `services_ex.c`. No local repository checkout; no local execution of the Python contract or docs validator. Updated HTTPD and docs Actions are pending on THIS COMMIT.
+- **Validation boundary:** no production C implementation changes. Samba GNU89 host regression PASS on exact SHA `088a87e61ca0da3ab040fc230f2d9e875b3920a1`; exact-head HTTPD contract is not yet green. No MIPS/uClibc, firmware/TRX, live SMB share or hardware validation.
+- **Next:** reconcile HTTPD and AI handoff documentation Actions against the resulting full main SHA. If green, rotate to NFS mount/permission lifecycle and third-party add-on service supervision; keep Samba account/ACL and FTP authentication/path-confinement audits open.
+
+---
+
 ## 2026-11-09 16:53 CST (UTC+8) — Repair Samba exact-head regression and dependent HTTPD contract
 
 - **Base main SHA:** `724b4c9982cba13c3c7274ba4744f88fb5799835`; resulting commit: THIS COMMIT.

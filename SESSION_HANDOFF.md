@@ -5,18 +5,18 @@
 ## Current repository state
 
 - Repository: Arlene206/padavan-4.4-2; maintained fork only.
-- Baseline main SHA: `724b4c9982cba13c3c7274ba4744f88fb5799835` (`fix(samba): publish share config atomically`); this round corrects the focused regression and the dependent HTTPD contract. Re-fetch live main for the resulting commit SHA.
-- Remote branch inventory at baseline: only `main`; no remote checkpoint branch exists. Do not create a checkpoint if this atomic fix is committed to main.
-- Exact-head Actions on baseline SHA `724b4c9982cba13c3c7274ba4744f88fb5799835`:
-  - Samba share stability [42587965407](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42587965407) FAILED in GNU89 compile: `tests/samba_config_file.c:95` used a double-escaped character constant (`'\\0'`), triggering `-Werror=multichar`; its source-contract step was skipped.
-  - HTTPD Authentication and Security [42587965159](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42587965159) FAILED at “Verify Samba share configuration trust boundaries”: the legacy contract searched for `write_smb_conf_header(void)` and direct live-file append/close/return patterns removed by the new staged publisher. The preceding independent Samba token policy, FTP mode, passdb and other earlier HTTPD regression steps passed.
-  - vsftpd [42587965266](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42587965266), storage [42587965191](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42587965191), WAN route status [42587965174](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42587965174), and AI handoff docs [42587965152](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42587965152) all SUCCESS on the same exact SHA.
-- The earlier Samba atomic-publisher implementation remains in the baseline commit. Do not repeat it. The current round fixes only regression source escapes and stale dependent CI assertions; the new exact-head Samba/HTTPD Actions must be reconciled after this round's commit.
-- No local repository checkout is available in this session. Do not claim this round's C test, Python contracts, or `scripts/check_ai_handoff_docs.py` were run locally. L3 production RC/Samba object, MIPS/uClibc, firmware/TRX and L4 live share/router validation remain NOT VERIFIED.
+- Baseline main SHA: `088a87e61ca0da3ab040fc230f2d9e875b3920a1` (`test(samba): repair staged config regressions`); this round removes the remaining brittle delimiter in the dependent HTTPD source contract. Re-fetch live main for the resulting commit SHA.
+- Remote branch inventory at baseline: only `main`; no remote checkpoint branch exists. Do not create a checkpoint if this correction is committed to main.
+- Exact-head Actions on baseline SHA `088a87e61ca0da3ab040fc230f2d9e875b3920a1`:
+  - Samba share stability [42589984483](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42589984483) SUCCESS; the GNU89 `-Wall -Wextra -Werror` helper test compiled and ran.
+  - AI handoff documentation contract [42589984462](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42589984462) SUCCESS.
+  - HTTPD Authentication and Security [42589984431](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42589984431) FAILED only at “Verify Samba share configuration trust boundaries”, where a brittle substring delimiter in the `config_header` slice raised `ValueError: substring not found`. Other preceding checks in that HTTPD job passed, including Samba token policy, FTP mode, passdb and earlier repository regressions.
+- The C regression literal correction and atomic-writer contract migration are already committed; do not repeat them. This round changes the HTTPD guard-order assertion to anchor on `write_smb_conf_header(FILE *fp)` and directly compare the workgroup/hostname guards with their corresponding output calls, without an unnecessary function-end delimiter.
+- No local repository checkout is available in this session. The current exact-head Samba and docs successes are GitHub Actions evidence; no local Python workflow or docs validator run is claimed. L3 production RC/Samba object, MIPS/uClibc, firmware/TRX and L4 live share/router validation remain NOT VERIFIED.
 
 ## Active task
 
-Samba atomic-publication regression closure — recover from the two exact-head failures on baseline SHA `724b4c9982cba13c3c7274ba4744f88fb5799835`: correct the test's double-escaped C literals and update the existing HTTPD Samba contract to the stream-based header plus same-directory staged publication implementation. Do not alter the already-committed production publisher unless a new source defect is demonstrated.
+Samba atomic-publication dependent-contract closure — the GNU89 Samba helper regression now passes on exact SHA `088a87e61ca0da3ab040fc230f2d9e875b3920a1`, as does the docs contract. The HTTPD run still fails because the existing source contract's `config_header` substring slice raises `ValueError`; replace it with direct function-start-anchored guard/write ordering assertions. Do not alter the already-committed production publisher.
 
 ### Samba generated configuration and caller path reviewed
 
@@ -27,7 +27,7 @@ Samba atomic-publication regression closure — recover from the two exact-head 
 - `write_smb_conf_header(FILE *fp)` is now a stream-only emitter; it no longer unlinks or opens the live path. `write_smb_conf()` writes the header and all share sections to the staged path, scans that same staged file for exact section-name collisions, fails closed on folder-inventory/read/append errors, frees the relevant lists on error, and publishes only at the end.
 - `start_wins()` stages and publishes its WINS-only configuration before launching nmbd. When smbd is already running, `restart_nmbd()` now generates the replacement first; a failure preserves the running nmbd/smbd state, while success stops/restarts nmbd and only then signals smbd to reload.
 - New `tests/samba_config_file.c` covers successful replacement and old-file visibility before rename, mode 0644, buffered `/dev/full`/ENOSPC failure, rename failure cleanup, explicit discard, missing-parent open failure and short-path-buffer handling. `.github/workflows/samba-share-stability.yml` compiles the host test with GNU89 `-Wall -Wextra -Werror` and checks the writer/caller failure gates and exact path filters.
-- The exact-head workflow falsified the earlier scratch-test claim: on baseline SHA `724b4c9982cba13c3c7274ba4744f88fb5799835`, the submitted C regression did not compile because of the double-escaped character constant at line 95. The current round corrects that literal and the stale HTTPD contract. No local checkout is available, so local compilation/source contracts/docs validator remain NOT RUN; verify both updated workflows on the new exact SHA.
+- The corrected C helper regression compiled and ran successfully in the Samba exact-head workflow on `088a87e61ca0da3ab040fc230f2d9e875b3920a1`; the docs contract also passed. HTTPD's dependent source contract still needs the delimiter correction recorded above. There is no local checkout, so local Python/source-contract and docs-validator runs remain NOT RUN.
 - Keep Samba PARTIAL / AUDITING. This fixes one config-publication and lifecycle failure mode; account/passdb mutation consistency, ACL/permission mapping, credential security and actual target service behavior remain open.
 
 ### Previous adjacent milestone — vsftpd
@@ -82,16 +82,16 @@ After the Samba, FTP, storage, HTTPD and documentation Actions pass on the new e
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for the bounded Samba staged/atomic publication implementation, staged duplicate-share inspection, fail-closed folder inventory and WINS/nmbd/smbd gates. The current round changes regression literals/contracts only. |
-| L2 host / GitHub Actions | On exact baseline SHA `724b4c9982cba13c3c7274ba4744f88fb5799835`: Samba [42587965407](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42587965407) FAIL (GNU89 test compile; multi-character constant); HTTPD [42587965159](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42587965159) FAIL (stale Samba source-contract expectations). vsftpd [42587965266](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42587965266), storage [42587965191](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42587965191), WAN route [42587965174](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42587965174) and docs [42587965152](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42587965152) PASS. Corrected Samba/HTTPD workflows for THIS COMMIT are pending exact-head reconciliation. No local L2 run in this session. |
+| L1 source review | PASS for the bounded Samba staged/atomic publication implementation, staged duplicate-share inspection, fail-closed folder inventory and WINS/nmbd/smbd gates. Current follow-up only changes a dependent source-contract assertion. |
+| L2 host / GitHub Actions | Exact baseline SHA `088a87e61ca0da3ab040fc230f2d9e875b3920a1`: Samba [42589984483](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42589984483) SUCCESS (GNU89 host test); docs [42589984462](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42589984462) SUCCESS; HTTPD [42589984431](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42589984431) FAIL at the obsolete/brittle Samba source contract (`ValueError: substring not found`). The corrected HTTPD run for THIS COMMIT is pending exact-head reconciliation. |
 | L3 MIPS/uClibc / production objects / firmware/TRX | NOT VERIFIED. |
 | L4 live SMB share/auth/ACL / physical router | NOT VERIFIED. |
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, all branches and Actions; verify the resulting full SHA for this regression-fix commit.
-2. Match the new Samba share-stability and HTTPD Authentication/Security runs to that exact SHA. Inspect every failed job/step log; do not accept a stale green run from `724b4c9982cba13c3c7274ba4744f88fb5799835`.
-3. If both pass, close this bounded Samba CI task and rotate to the roadmap's P2 NFS mount/permission lifecycle and third-party add-on service supervision audit. Trace the caller graph, init ordering, permission/config behavior and error cleanup before choosing one defect.
+1. Fetch live `main`, all branches and Actions; verify the resulting full SHA for this HTTPD contract correction.
+2. Match the new HTTPD Authentication/Security run and AI handoff-doc run to that exact SHA. Confirm the already-passing Samba GNU89 helper regression remains green at the new SHA if its path filter runs.
+3. If HTTPD and docs pass, close this bounded Samba CI task and rotate to the roadmap's P2 NFS mount/permission lifecycle and third-party add-on service supervision audit. Trace the caller graph, init ordering, permission/config behavior and error cleanup before choosing one defect.
 4. Keep Samba passdb/account mutation, ACL/permission and credential review open; keep vsftpd authentication/ACL/path-confinement/stop lifecycle open.
 5. Preserve DHCP leasefail/accepted-NAK/release semantics with BusyBox's dropped callback status as a separate userland task. Keep FULLCONENAT mapping-hash and dying-tuple queue namespace ownership as a separate kernel audit. L3/L4 remain unverified.
 
