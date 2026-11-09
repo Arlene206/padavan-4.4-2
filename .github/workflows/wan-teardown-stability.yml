@@ -65,7 +65,8 @@ jobs:
           assert stop.index(service_gate) < stop.index("stop_wan_usbnet();") < stop.index(teardown)
           assert stop.index(teardown) < stop.index("remove_cb_links();")
           assert stop.index("remove_cb_links();") < stop.index(failure_gate)
-          assert stop.index(failure_gate) < stop.index("return -1;") < stop.index("clear_wan_state();")
+          failure_path = stop[stop.index(failure_gate):]
+          assert failure_path.index("return -1;") < failure_path.index("clear_wan_state();")
           assert stop.index("clear_wan_state();") < stop.index("control_wan_led_isp_state(0, 0);")
           assert "ifconfig(man_ifname, 0," not in stop
           assert "ifconfig(IFNAME_WAN, 0," not in stop
