@@ -1,3 +1,16 @@
+## 2026-11-09 18:36 CST (UTC+8) — Align storage source contract with shared Optware startup helper
+
+- **Base main SHA:** `57aee4fd406d9e4c06f3ee113742ba5b6999fc0d`; resulting commit: THIS COMMIT.
+- **Exact-head evidence:** startup regression, teardown propagation, lifecycle-lock regression, NFS shell syntax and GNU89 storage inventory/operation-lock tests all SUCCESS on `57aee4fd406d9e4c06f3ee113742ba5b6999fc0d`. AI handoff docs [42601392329](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42601392329) SUCCESS on that exact SHA. Storage [42601392256](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42601392256) failed only in its final whole-caller-graph Python contract.
+- **Finding:** the source contract still searched for the old inline `start 9>&-` command inside `opt-start.sh`. The production loop had intentionally moved into `optware_lifecycle_start_services()` in the shared helper, so the assertion raised `ValueError: substring not found` before the remaining caller graph assertions ran.
+- **Correction:** assert lock acquisition → /opt mount recheck → shared startup supervisor → lifecycle lock release in `opt-start.sh`; separately require hook invocation with fd 9 closed inside the shared helper. No production code behavior changed.
+- **Changed paths:** `.github/workflows/storage-hotplug-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+- **Validation:** exact-head job logs inspected. Fresh storage and docs Actions are pending on THIS COMMIT; no claim of green current-head workflow yet.
+- **Validation boundary:** L1 production logic unchanged from prior source review; L2 prior host regressions pass but the storage caller-graph contract has just been corrected and awaits exact-head rerun. No MIPS/uClibc production object, firmware/TRX or hardware validation.
+- **Next:** reconcile the corrected storage/docs Actions on the resulting exact SHA. Continue analysis of the Optware retry contract: `try_start_stor_apps()` launches `opt-start.sh` in the background and clears `usb_opt_start` on successful launch without observing the child's exit status. Determine a non-blocking, lock-order-safe way to surface startup completion/failure and schedule retries before taking the separate `opt-mount.sh` MTD/UBI startup bypass.
+
+---
+
 ## 2026-11-09 18:30 CST (UTC+8) — Correct Optware startup regression and handoff contract
 
 - **Base main SHA:** `7005e6c48835b928d596f4a52f79ca9168a52994`; resulting commit: THIS COMMIT.

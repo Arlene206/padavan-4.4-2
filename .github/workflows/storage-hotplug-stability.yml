@@ -216,8 +216,8 @@ jobs:
           assert 'exec 9>>"$optware_lock_file"' in opt_lock
           assert "optware_lifecycle_lock_try_acquire" in opt_lock_test
           assert opt_start.index("optware_lifecycle_lock_acquire") < opt_start.index("mountpoint -q /opt")
-          assert opt_start.index("mountpoint -q /opt") < opt_start.index("start 9>&-")
-          assert opt_start.index("start 9>&-") < opt_start.rindex("optware_lifecycle_lock_release")
+          assert opt_start.index("mountpoint -q /opt") < opt_start.index("optware_lifecycle_start_services")
+          assert opt_start.index("optware_lifecycle_start_services") < opt_start.rindex("optware_lifecycle_lock_release")
 
           start_gate = "if ! optware_lifecycle_start_services /opt/etc/init.d; then"
           start_gate_pos = opt_start.index(start_gate)

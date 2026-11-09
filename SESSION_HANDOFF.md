@@ -5,10 +5,9 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; maintained fork only.
-- Base main SHA for THIS change: `8e818c475d3aa26fb4d92e255e25405c11f2a08f`; resulting commit: THIS COMMIT. The remote branch inventory at takeover contained only `main`; there was no separate checkpoint branch.
-- Exact-head NFS daemon start/reload regression [42598774070](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42598774070), USB storage hotplug [42598773937](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42598773937), and AI handoff documentation [42598774002](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42598774002) all completed SUCCESS on the exact base SHA `8e818c475d3aa26fb4d92e255e25405c11f2a08f`.
-- NFS start/reload status propagation and pre-daemon rollback are complete at source/CI level on that base. The 8e818c NFS test fixed a stale tri-state mount-contract assertion and added cleanup checks after both control-mount and export-publication failures. When export withdrawal fails, `etab` and pseudo-mounts remain as recovery evidence.
-- Exact parent-source HTTPD [42597871334](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42597871334), Samba [42597871360](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42597871360), and vsftpd [42597871344](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42597871344) runs passed on `a816159737241f398baa7f827d753f7b99e8131b`; no HTTPD-triggering source path changed in the NFS follow-up.
+- Base main SHA for THIS workflow-contract correction: `57aee4fd406d9e4c06f3ee113742ba5b6999fc0d`; resulting commit: THIS COMMIT. The remote branch inventory at takeover contained only `main`; there was no separate checkpoint branch.
+- On base `7005e6c`, storage [42600941876](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42600941876) failed the initial startup regression fixture and docs [42600941917](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42600941917) failed the required handoff heading. Those were corrected on `57aee4f`: docs [42601392329](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42601392329) SUCCESS; storage [42601392256](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42601392256) passed NFS syntax, Optware lock/teardown/startup host regressions and storage GNU89 tests, but the whole-caller-graph Python contract failed at a stale assertion that still expected the removed direct `start 9>&-` loop in `opt-start.sh`.
+- This correction updates that contract to assert lifecycle lock → mount check → shared startup helper → lock release ordering; fd-9 closure remains required inside the shared helper. The production shell supervisor and host startup test passed on `57aee4f`; fresh exact-head storage/docs checks are pending.
 
 ## Active task
 
@@ -41,7 +40,7 @@ P2 stability / service lifecycle. The next task specified by the previous handof
 | Level | Status |
 |---|---|
 | L1 source review | PASS for startup order, pathname handling, child fd closure, first-failure behavior and reverse rollback. |
-| L2 host / Actions | Focused host shell regression and `sh -n` PASS locally. Exact-head storage-hotplug and AI-doc Actions for THIS commit are pending; verify their full `head_sha` and inspect all steps. |
+| L2 host / Actions | Focused host shell regression and `sh -n` PASS locally. On `57aee4f`, startup/teardown/lock host tests and GNU89 storage tests PASS; the whole-caller-graph contract then failed on its stale pre-refactor `opt-start.sh` assertion. AI docs [42601392329](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42601392329) SUCCESS. THIS correction triggers fresh exact-head storage/docs checks. |
 | L3 MIPS/uClibc / production objects / firmware/TRX | NOT VERIFIED. |
 | L4 real Optware filesystem/service startup, concurrent eject, external hook behavior / physical router | NOT VERIFIED. |
 
