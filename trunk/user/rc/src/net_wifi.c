@@ -327,7 +327,21 @@ start_inic_mii(void)
 		phy_disable_inic(0);
 		
 		/* start iNIC boot */
-		wif_control(ifname_inic, 1);
+		if (!wif_control_success(ifname_inic, 1)) {
+			/*
+			 * A failed interface-up must not publish iNIC as usable.
+			 * Remove stale bridge membership and leave the switch port
+			 * isolated, disabled, and the module held in reset.
+			 */
+			br_add_del_if(IFNAME_BR, ifname_inic, 0);
+			if (phy_isolate_inic(1) != 0)
+				logmessage(LOGNAME, "failed to isolate iNIC after %s startup failure", ifname_inic);
+			if (phy_disable_inic(1) != 0)
+				logmessage(LOGNAME, "failed to disable iNIC RGMII after %s startup failure", ifname_inic);
+			cpu_gpio_set_pin(1, 0);
+			logmessage(LOGNAME, "iNIC startup aborted: failed to bring %s up", ifname_inic);
+			return;
+		}
 		
 		/* update some iNIC params */
 		update_inic_mii();
@@ -345,14 +359,17 @@ start_inic_mii(void)
 	} else {
 		/* force disable iNIC (e.g. broken module) */
 		
-		/* down iNIC interface */
-		wif_control(ifname_inic, 0);
+		/* down iNIC interface; always continue the fail-safe sequence */
+		(void)wif_control_success(ifname_inic, 0);
+		br_add_del_if(IFNAME_BR, ifname_inic, 0);
 		
 		// set isolate iNIC port from all LAN ports
-		phy_isolate_inic(1);
+		if (phy_isolate_inic(1) != 0)
+			logmessage(LOGNAME, "failed to isolate disabled iNIC port");
 		
 		/* disable iNIC RGMII port */
-		phy_disable_inic(1);
+		if (phy_disable_inic(1) != 0)
+			logmessage(LOGNAME, "failed to disable iNIC RGMII port");
 		
 		/* raise iNIC reset pin */
 		cpu_gpio_set_pin(1, 0);
