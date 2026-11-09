@@ -7,6 +7,12 @@ on:
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/hotplug_stor.c"
       - "trunk/user/rc/src/storage_operation_lock.h"
+      - "trunk/user/rc/src/storage_partition_probe.h"
+      - "trunk/user/libdisk/src/disk_initial.c"
+      - "trunk/user/libdisk/src/storage_swap_policy.h"
+      - "trunk/user/scripts/files/sbin/automount.sh"
+      - "trunk/user/scripts/files/sbin/spindown.sh"
+      - "trunk/user/optware/opt-mount.sh"
       - "trunk/user/rc/src/tests/storage_operation_lock.c"
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/shared/src/shutils.h"
@@ -23,6 +29,12 @@ on:
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/hotplug_stor.c"
       - "trunk/user/rc/src/storage_operation_lock.h"
+      - "trunk/user/rc/src/storage_partition_probe.h"
+      - "trunk/user/libdisk/src/disk_initial.c"
+      - "trunk/user/libdisk/src/storage_swap_policy.h"
+      - "trunk/user/scripts/files/sbin/automount.sh"
+      - "trunk/user/scripts/files/sbin/spindown.sh"
+      - "trunk/user/optware/opt-mount.sh"
       - "trunk/user/rc/src/tests/storage_operation_lock.c"
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/shared/src/shutils.h"
@@ -62,7 +74,7 @@ jobs:
             trunk/user/shared/src/bin_sem_asus.c \
             -o /tmp/storage-operation-lock
           /tmp/storage-operation-lock
-      - name: Verify whole-operation inventory staging and notification failure propagation
+      - name: Verify whole storage caller graph, operation locks and failure propagation
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -131,6 +143,13 @@ jobs:
 
 
           hotplug = (rc_dir / "hotplug_stor.c").read_text()
+          probe = (rc_dir / "storage_partition_probe.h").read_text()
+          libdisk_dir = Path("trunk/user/libdisk/src")
+          libdisk = (libdisk_dir / "disk_initial.c").read_text()
+          swap_policy = (libdisk_dir / "storage_swap_policy.h").read_text()
+          automount = Path("trunk/user/scripts/files/sbin/automount.sh").read_text()
+          spindown = Path("trunk/user/scripts/files/sbin/spindown.sh").read_text()
+          opt_mount = Path("trunk/user/optware/opt-mount.sh").read_text()
           lock_policy = (rc_dir / "storage_operation_lock.h").read_text()
           lock_test = (rc_dir / "tests/storage_operation_lock.c").read_text()
           opt_start = Path("trunk/user/optware/opt-start.sh").read_text()
@@ -224,6 +243,116 @@ jobs:
           assert "run_umount_test retry 0 2" in opt_teardown_test
           assert "run_umount_test fail 1 2" in opt_teardown_test
 
+          # Trace hotplug entry points through lock acquisition, swap release,
+          # partition mounting, and the deferred notification worker.
+          report_swapoff = function_body(hotplug, "report_device_swapoff(")
+          assert "try_device_swapoff(device_name)" in report_swapoff
+          assert "if (status != 0)" in report_swapoff
+          assert "could not verify or disable swap" in report_swapoff
+
+          for signature in ("mdev_sd_main(", "mdev_mmc_main("):
+              body = function_body(hotplug, signature)
+              operation_lock = body.index("storage_operation_lock_acquire(file_lock)")
+              remove_branch = body.index("if (!get_hotplug_action(action))")
+              mount_call = body.index("_eval(mount_argv, NULL, 0, NULL)")
+              unlock = body.index("out_unlock:")
+              assert operation_lock < remove_branch < mount_call < unlock
+              unplug = body[remove_branch:body.index("goto out_unlock;", remove_branch)]
+              assert unplug.index("report_device_swapoff(device_name)") < unplug.index("notify_rc(")
+              assert 'notify_rc("on_unplug_mass_storage")' in unplug
+              assert 'char *mount_argv[] = { "/sbin/automount.sh", device_name, share_name, NULL };' in body
+              assert 'if (_eval(mount_argv, NULL, 0, NULL) == 0)' in body
+              assert 'notify_rc("on_hotplug_mass_storage")' in body
+
+          check_root = function_body(hotplug, "check_root_partition(")
+          assert check_root.index("storage_disk_name_is_valid") < check_root.index("fopen(PROC_PARTITIONS_FILE")
+          assert "storage_disk_has_partitions(procpt, devname, is_mmc)" in check_root
+          assert "fclose(procpt) != 0 && result == 0" in check_root
+          assert "storage_disk_name_is_valid" in probe
+          assert "storage_disk_has_partitions" in probe
+
+          # Safe removal stages topology first, disables every selected swap,
+          # then unmounts; disk spindown is gated on a successful unmount.
+          path_range = function_body(storage, "umount_stor_path_range(")
+          stage_mounts = path_range.index("storage_stage_unmount_mounts(&mounts)")
+          first_swapoff = path_range.index("try_device_swapoff(")
+          swap_gate = path_range.index("storage_ejected_may_unmount_device(1, swapoff_status)")
+          first_unmount = path_range.index("storage_unmount_staged_disk_mounts(")
+          assert stage_mounts < first_swapoff < swap_gate < first_unmount
+          assert path_range.index("if (disk_status == 0)") < path_range.index("spindown_hdd(")
+          assert "skipping all selected unmounts because swapoff did not complete" in path_range
+
+          safe_remove = function_body(storage, "safe_remove_stor_device(")
+          assert safe_remove.index("stop_stor_apps();") < safe_remove.index("umount_stor_path_range(")
+          assert safe_remove.index("umount_stor_path_range(") < safe_remove.index("umount_ejected_locked()")
+          assert "unmount_status != 0 || ejected_status != 0" in safe_remove
+          assert "mount_count < 0 || unmount_status != 0 || ejected_status != 0" in safe_remove
+
+          remove_all = function_body(storage, "safe_remove_all_stor_devices(")
+          assert remove_all.index("stop_stor_apps();") < remove_all.index("read_disk_data()")
+          assert remove_all.index("read_disk_data()") < remove_all.index("umount_stor_path(")
+          assert "refusing fallback unmount" in remove_all
+
+          # libdisk confirms swap state exactly (not prefix-matched), rechecks
+          # after swapoff failure, and never starts global unmount until both
+          # procfs inventories and every swapoff operation have succeeded.
+          swapoff_device = function_body(libdisk, "try_device_swapoff(")
+          assert "STORAGE_SWAP_UNKNOWN" in swapoff_device
+          assert "STORAGE_SWAP_INACTIVE" in swapoff_device
+          assert "swapoff(dev_dst)" in swapoff_device
+          assert "is_device_swapon(dev_name)" in swapoff_device
+          assert swapoff_device.index("swapoff(dev_dst)") < swapoff_device.rindex("is_device_swapon(dev_name)")
+          assert "return -1;" in swapoff_device
+
+          global_cleanup = function_body(libdisk, "umount_all_storage(void)")
+          swaps_snapshot = global_cleanup.index("fopen(PROC_SWAPS_FILE")
+          mounts_snapshot = global_cleanup.index("fopen(PROC_MOUNTS_FILE")
+          cleanup_swapoff = global_cleanup.index("swapoff(swap_entry->path)")
+          cleanup_gate = global_cleanup.index("storage_inventory_may_unmount(swapoff_status)")
+          cleanup_umount = global_cleanup.index("umount(mount_entry->mountpoint)")
+          assert swaps_snapshot < mounts_snapshot < cleanup_swapoff < cleanup_gate < cleanup_umount
+          assert "storage_inventory_complete(swap_read_error" in global_cleanup
+          assert "storage_inventory_complete(mount_read_error" in global_cleanup
+          assert "storage_inventory_may_unmount" in swap_policy
+
+          # automount has a distinct mountpoint-ownership lock. mdev holds the
+          # shared storage lock synchronously through _eval(automount), while
+          # automount drops fd 8 before ACL/Optware application hooks.
+          lock_open = automount.index('exec 8>>"$automount_lock_file"')
+          lock_wait = automount.index("flock 8")
+          ownership = automount.index("mount_from_device()")
+          mountpoint_umount = automount.index('umount -f "$dev_mount"')
+          lock_close = automount.rindex("exec 8>&-")
+          opt_mount_hook = automount.index('/usr/bin/opt-mount.sh "$dev_full" "$dev_mount"')
+          assert lock_open < lock_wait < ownership < mountpoint_umount < lock_close < opt_mount_hook
+          for line in automount.splitlines():
+              stripped = line.strip()
+              if stripped.startswith("mount ") or stripped.startswith("/sbin/ntfs-3g "):
+                  assert "8>&-" in stripped, stripped
+          assert 'if [ "$ID_FS_TYPE" == "swap" ]' in automount
+          assert 'if swapon "$dev_full" ; then' in automount
+          assert opt_mount.index('mount -o bind "$2/opt" /opt') < opt_mount.index("swapon /opt/.swap")
+
+          # A disk can spin down only after successful unmount, and the script
+          # independently rejects a mounted whole-disk or partition path.
+          spindown_fn = function_body(storage, "spindown_hdd(")
+          assert 'argv[0] = "/sbin/spindown.sh";' in spindown_fn
+          assert "_eval(argv, NULL, 0, NULL);" in spindown_fn
+          assert "if awk -v dev=\"/dev/$1\"" in spindown
+          assert "suffix ~ /^[0-9]+$/ || suffix ~ /^p[0-9]+$/" in spindown
+          assert spindown.index("if awk -v dev=") < spindown.index("/sbin/hdparm -y")
+
+          # RC-facing caller edges: mdev applets, unplug notification, explicit
+          # ATA/MMC/eject-all requests, firmware update and shutdown.
+          assert '"mdev_mmc"' in rc and "mdev_mmc_main" in rc
+          assert '"mdev_sd"' in rc and "mdev_sd_main" in rc
+          assert 'else if (!strcmp(entry->d_name, "on_unplug_mass_storage"))' in notifications
+          assert 'safe_remove_stor_device(ATA_VIRT_PORT_ID, ATA_VIRT_PORT_ID, devn, 1);' in rc
+          assert 'safe_remove_stor_device(MMC_VIRT_PORT_ID, MMC_VIRT_PORT_ID, NULL, 0);' in rc
+          assert "safe_remove_all_stor_devices(0);" in rc
+          assert "safe_remove_all_stor_devices(use_halt);" in rc
+          assert 'else if (!strcmp(base, "ejall"))' in rc
+
           for path in (
               "trunk/user/optware/opt-start.sh",
               "trunk/user/optware/opt-umount.sh",
@@ -231,9 +360,17 @@ jobs:
               "trunk/user/scripts/tests/optware_lifecycle_lock.sh",
               "trunk/user/scripts/tests/optware_lifecycle_teardown.sh",
               "trunk/user/shared/src/shutils.h",
+              "trunk/user/rc/src/hotplug_stor.c",
+              "trunk/user/rc/src/storage_operation_lock.h",
+              "trunk/user/rc/src/storage_partition_probe.h",
+              "trunk/user/libdisk/src/disk_initial.c",
+              "trunk/user/libdisk/src/storage_swap_policy.h",
+              "trunk/user/scripts/files/sbin/automount.sh",
+              "trunk/user/scripts/files/sbin/spindown.sh",
+              "trunk/user/optware/opt-mount.sh",
           ):
               assert push_filters.count(path) == 1
               assert pr_filters.count(path) == 1
 
-          print("USB storage hotplug, safe-unmount and deferred Optware lifecycle contracts: PASS")
+          print("USB storage hotplug full caller graph, lock ordering and teardown contracts: PASS")
           PY

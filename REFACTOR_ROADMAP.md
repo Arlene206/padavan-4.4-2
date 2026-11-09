@@ -5,8 +5,8 @@
 ## Current source / CI checkpoint
 
 - Repository: Arlene206/padavan-4.4-2 (maintained fork).
-- Latest source/test checkpoint: THIS COMMIT — Optware teardown aggregates all executable service-stop results, blocks /opt detachment after a stop failure, and propagates a failed second unmount attempt. Resolve this commit's exact SHA from live `main` at next recovery.
-- HTTPD/DHCP [42577172281](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42577172281) and AI handoff docs [42577172280](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42577172280) PASS on exact prior source SHA `70415484275e9c542be3d45b8bad807fb6a09591`. Storage-hotplug and docs Actions for THIS COMMIT are PENDING until their exact run heads are reconciled.
+- Latest source/test checkpoint: THIS COMMIT — extended storage-hotplug CI source contracts across the in-tree mdev/automount/swap/safe-eject/spindown/RC caller graph. Previous exact-head storage/docs checks passed on `2b3a2d19d76399199d8d813fe96260b0a0910368`; always query this commit's own Actions by full `head_sha`.
+- Previous storage hotplug [42579502834](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42579502834) and AI handoff docs [42579502689](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42579502689) PASS on exact prior SHA `2b3a2d19d76399199d8d813fe96260b0a0910368`. This commit extends the storage source contract; inspect its exact-head Actions live.
 - Validation limit: source review and host/Actions only. No production MIPS/uClibc objects, firmware/TRX or live hardware tests.
 
 ## Whole-repository module status
@@ -16,7 +16,7 @@
 | LAN DHCP client / AP-mode lease | PARTIAL / AUDITING | Required IP/netmask validation; optional router/DNS/WINS/domain normalization; withdrawn option clearing; changed-gateway delete-before-publish; fail-closed deconfig cleanup; bound/renew checked address/route/resolver transaction with rollback and last-known-good lease fields preserved. Exact-head GNU89 host/source regression PASS on `70415484275e9c542be3d45b8bad807fb6a09591`. | BusyBox discards event-script exit status; leasefail/NAK/release state handling, retry semantics and live DHCP transitions remain open. |
 | WAN DHCP / route lifecycle | PARTIAL / AUDITING | Lease option validation, route-text safety, route operation error propagation and selected WAN teardown gates. | Broader callback, multi-WAN and route reconciliation audit. |
 | DNSMasq / resolver / DHCP files | PARTIAL / AUDITING | Safe staged publication, no-follow lease file validation, domain validation, resolver refresh failure contracts and generated-file trust checks. | Daemon lifecycle, option ownership, DNS update and restart/stop error propagation. |
-| USB / storage / hotplug / filesystem | PARTIAL / AUDITING | Full partition inventory staging, swapoff-before-unmount, operation-wide storage lock, deferred-start retry, Optware lifecycle locking/nonblocking teardown try-lock, reverse-order stop-hook aggregation, and fail-closed /opt unmount retry result propagation with mock shell coverage. | Broader in-tree caller-graph contract still needs CI; external init scripts, filesystem runtime and hardware remain unverified. |
+| USB / storage / hotplug / filesystem | PARTIAL / AUDITING | Full partition/ejected inventory staging, swapoff-before-unmount gates, operation-wide storage lock, deferred-start retry, Optware lifecycle serialization and fail-closed teardown error propagation. The storage Actions now include source contracts for SD/MMC mdev → automount, fd8 mountpoint-lock ownership, Optware bind/swap, procfs swap/mount staging, safe-eject/global cleanup, spindown and RC entry points. | No production object/runtime filesystem test; arbitrary external init scripts, target filesystem behavior and hardware remain unverified. |
 | Firewall / NAT / Netfilter | AUDITING | Firewall restore failure handling, IPv6 table setup and bounded FULLCONENAT worker/notifier registration error handling. | Mapping hashes and dying-tuple queue namespace ownership; separate kernel task. |
 | Wireless / Wi-Fi drivers | PARTIAL / AUDITING | Selected ioctl checks, scan bounds, config preflight, radio-state publication and AP/APCLI/WDS bridge gates. | Remaining iNIC/board-specific/concurrent lifecycle and live radio behavior. |
 | HTTPD / CGI / authentication | PARTIAL / AUDITING | Authentication, disclosure, safe publication, NVRAM restore and CGI policy checks have recent Actions. | Whole-route input, authorization and error-path inventory. |
@@ -27,8 +27,8 @@
 
 ## Priority queue
 
-1. P2 — Complete the drafted in-tree storage caller-graph Python regression and add it to `storage-hotplug-stability.yml` alongside mountpoint, operation-lock and Optware lifecycle tests; reconcile exact-head Actions.
-2. P2 — Rotate to another userland service area after the caller-graph contract (FTP/Samba/accounts/NFS/add-ons). Keep broad subsystem coverage moving.
+1. P2 — Begin a new `vsftpd` reliability/security audit across service launch/stop, generated configuration, credentials/permissions and path confinement; pick one bounded fix with a host/source regression.
+2. P2 — Continue broad userland rotation through Samba/accounts/NFS/add-on services; do not remain concentrated in HTTPD, SkipDB or storage.
 3. P2/P3 — Continue LAN DHCP leasefail, accepted-NAK and release state semantics; account for BusyBox discarding callback exit status. Target/live DHCP validation remains outstanding.
 4. Separate kernel task — FULLCONENAT mapping-hash and dying-tuple queue namespace ownership. Keep it separate from userland work.
 
@@ -47,8 +47,8 @@
 
 | Level | Evidence | Limits |
 |---|---|---|
-| L1 source review | PASS for DHCP input and transactional bound/deconfig handling; PASS for Optware stop-hook aggregation, fail-closed /opt unmount retry status, shared eval/_eval return semantics and both C caller gates; lock-order review retained. | Does not establish complete bound-side-effect recovery or external custom-script behavior. |
-| L2 host / Actions | HTTPD/DHCP run [42577172281](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42577172281) and docs run [42577172280](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42577172280) PASS on exact SHA `70415484275e9c542be3d45b8bad807fb6a09591`. Local Optware mock shell regression and `sh -n` PASS; exact-head storage and docs Actions for THIS COMMIT are PENDING. | Storage C host policy tests/source contracts do not build the full target userland or verify external init scripts/filesystem/hardware behavior. |
+| L1 source review | PASS for DHCP input/transactional cleanup and Optware teardown failure propagation; PASS for the reviewed in-tree SD/MMC hotplug, mountpoint/storage lock ordering, swapoff gates, safe-eject/global cleanup, spindown and RC entry graph. | Does not establish complete bound-side-effect recovery or external custom-script behavior. |
+| L2 host / Actions | Previous storage and docs Actions [42579502834](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42579502834) / [42579502689](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42579502689) PASS on exact SHA `2b3a2d19d76399199d8d813fe96260b0a0910368`. This commit adds the complete caller-graph source contract; inspect storage/docs Actions for its exact full SHA. | Source contracts and host unit tests do not compile the complete target userland or verify external scripts/filesystem/hardware behavior. |
 | L3 MIPS/uClibc / production objects / firmware/TRX | NOT VERIFIED. | Full build phase required. |
 | L4 live router / DHCP churn / storage hotplug / physical hardware | NOT VERIFIED. | Requires device validation. |
 

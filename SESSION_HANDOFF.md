@@ -5,15 +5,17 @@
 ## Current repository state
 
 - Repository: Arlene206/padavan-4.4-2; maintained fork only.
-- Latest source/test checkpoint: THIS COMMIT — Optware teardown now aggregates executable S??* stop-hook results, refuses to detach /opt after a stop failure, and returns failure when both /opt unmount attempts fail. The preceding exact source/test head 70415484275e9c542be3d45b8bad807fb6a09591 contains the verified LAN DHCP bound transaction; resolve THIS COMMIT's exact SHA from live main at next recovery.
+- Latest source/test checkpoint: THIS COMMIT — expanded the storage-hotplug CI source contract from selected locks to the in-tree mdev → storage operation lock → automount/Optware, swapoff, safe-eject/global cleanup, spindown and RC entry-point caller graph. The preceding source/test head `2b3a2d19d76399199d8d813fe96260b0a0910368` contains the exact-head verified Optware stop-hook and /opt unmount error-propagation fix. Always resolve this checkpoint's full SHA from live main.
 - Remote branch inventory at this recovery contained only main; no remote checkpoint branch exists. Recheck at next takeover.
-- Exact-head HTTPD Authentication and Security Regression [42577172281](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42577172281) SUCCESS and AI handoff documentation contract [42577172280](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42577172280) SUCCESS on source/test SHA `70415484275e9c542be3d45b8bad807fb6a09591`. The Optware changes in THIS COMMIT trigger the storage-hotplug and AI handoff workflows; reconcile both conclusions and exact `head_sha` after pushing.
+- Previous checkpoint `2b3a2d19d76399199d8d813fe96260b0a0910368`: storage-hotplug regression [42579502834](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42579502834) SUCCESS and AI handoff docs [42579502689](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42579502689) SUCCESS, both verified on that exact full `head_sha`. This commit changes the storage workflow and handoff; its exact-head runs must be queried live and never inferred from the prior checkpoint.
 - Earlier exact-source HTTPD/security [42568701873](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42568701873) SUCCESS on 2c8b5ff; DHCP lease / renewal and HTTPD checks [42568560276](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42568560276) SUCCESS on 2332158. Do not claim these are new exact-head runs on c2706; the exact-head storage and docs runs above are.
 - Validation ceiling: source audit and host/Actions tests only. No complete production RC/BusyBox object build, MIPS/uClibc build, firmware/TRX, live DHCP transition, storage hotplug churn or hardware validation. The exact-head HTTPD workflow compiles/runs the DHCP policy test and evaluates RC source contracts; it does not compile the complete `net_lan.c` production translation unit.
 
 ## Active task
 
-USB/storage/Optware teardown reliability — finish the bounded service-stop and /opt unmount error-propagation work, then complete the drafted whole-caller-graph regression. Keep storage PARTIAL / AUDITING; external init scripts and target filesystem behavior remain outside current host verification.
+The bounded USB storage caller-graph source contract is now added to `.github/workflows/storage-hotplug-stability.yml`. It is CI coverage only; no production C/shell changes were required in this checkpoint. Keep storage PARTIAL / AUDITING pending external-script, target-filesystem and hardware validation.
+
+Next development rotation: begin a fresh reliability/security audit of `vsftpd` and its RC/UI/start-stop configuration path; inspect the full caller graph and select one concrete bug before modifying. Do not repeat HTTPD/SkipDB/storage work merely for convenience. Keep DHCP leasefail/accepted-NAK/release semantics (BusyBox discards callback status) as a separate userland queue item and FULLCONENAT namespace ownership as a separate kernel audit.
 
 ### DHCP changes already completed
 
@@ -42,11 +44,12 @@ USB/storage/Optware teardown reliability — finish the bounded service-stop and
 - Fix in THIS COMMIT: `opt-umount.sh` now uses `optware_lifecycle_stop_services()` to attempt every executable S??* hook in reverse order, aggregate failures, and fail closed if the script inventory cannot be enumerated. Any stop failure releases the lifecycle lock and exits nonzero before swapoff or /opt unmount. `optware_lifecycle_umount_opt()` retries once and returns nonzero if the second attempt also fails; the caller explicitly releases the lock and exits with failure instead of masking it. The nonblocking `flock -n` teardown lock and `opt-start.sh` blocking startup lock are unchanged.
 - The C `eval()` macro in `trunk/user/shared/src/shutils.h` returns `_eval()`'s command status/errno. Both in-tree `services_stor.c` hook call sites already check `hook_status` and skip the associated mount unmount after failure, so no redundant C production change was necessary.
 - New mock-based `optware_lifecycle_teardown.sh` covers reverse-order all-hook attempts, success/failure aggregation, missing versus empty directories, fail-closed inventory enumeration, first-attempt unmount success, successful retry, and both attempts failing. Local shell regression and `sh -n` checks passed; exact-head storage and documentation Actions for THIS COMMIT remain pending.
-- External Optware init scripts are user-supplied and not present in the repo. The try-lock removes the direct blocking lock-order cycle when a startup script itself requests eject; their arbitrary side effects still need bounded integration assumptions. The drafted broader Python caller-graph contract remains uncommitted and is not in current CI.
+- External Optware init scripts are user-supplied and not present in the repo. The try-lock removes the direct blocking lock-order cycle when a startup script itself requests eject; their arbitrary side effects still need bounded integration assumptions.
+- The storage workflow now includes the broader Python source-contract caller graph. It follows mdev SD/MMC device and shared locks through synchronous automount; checks the separate automount mountpoint lock and child fd closure; verifies swap activation/disable and the fail-closed /proc/swaps + /proc/mounts global cleanup gates; asserts unmount errors gate spindown; and covers safe-remove/eject-all, deferred-start and RC applet/notification/firmware/shutdown wiring. The regression is source-structure/ordering coverage, not a production object or runtime filesystem test.
 
 ## Other repository-wide open areas
 
-- USB / storage / hotplug — PARTIAL / AUDITING: complete ejected partition inventory, swapoff-before-unmount, operation-wide storage lock, deferred-start retry, Optware start/stop serialization, nonblocking teardown lock ordering, fail-closed stop-hook aggregation and /opt unmount retry status propagation now have bounded host/source coverage. Still open: drafted whole-caller-graph CI, external custom scripts, filesystem runtime and hardware.
+- USB / storage / hotplug — PARTIAL / AUDITING: complete ejected partition inventory, swapoff-before-unmount, operation-wide storage lock, deferred-start retry, Optware start/stop serialization, nonblocking teardown lock ordering, fail-closed stop-hook aggregation, /opt unmount retry status propagation, and expanded in-tree mdev/automount/swap/eject/spindown/RC caller-graph CI coverage. Still open: arbitrary external custom scripts, target filesystem behavior and hardware.
 - WAN / DHCP / resolver — PARTIAL / AUDITING: route validation/error handling, DNSMasq file staging and resolver publication have bounded coverage; LAN DHCP now has fail-closed deconfig cleanup and a checked bound/renew address-route-resolver transaction with rollback. Leasefail/NAK/release policy and live/target validation remain open.
 - Firewall / NAT — AUDITING: bounded FULLCONENAT worker/notifier failure fixes exist; mapping-hash and dying-tuple queue namespace isolation remains separate kernel work.
 - Wireless — PARTIAL / AUDITING: selected driver result and AP/APCLI/WDS bridge-state publication gates exist; remaining iNIC, board-specific and concurrent lifecycle callers remain open.
@@ -57,18 +60,18 @@ USB/storage/Optware teardown reliability — finish the bounded service-stop and
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for AP DHCP validation and transactional bound/deconfig route-address-resolver handling; PASS for Optware stop-hook aggregation, fail-closed /opt retry status, `eval()` status semantics, both C caller gates, and the preserved storage/lifecycle lock order. |
-| L2 host / GitHub Actions | HTTPD/DHCP run [42577172281](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42577172281) and AI handoff docs [42577172280](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42577172280) PASS on exact prior source SHA `70415484275e9c542be3d45b8bad807fb6a09591`. The new storage-host regression (including the Optware teardown shell test) and docs contract are PENDING for THIS COMMIT. The local Optware mock regression and `sh -n` checks PASS. HTTPD compiles/runs the pure DHCP policy test but does not compile the full production `net_lan.c` translation unit. |
+| L1 source review | PASS for AP DHCP validation and transactional bound/deconfig route-address-resolver handling; PASS for Optware teardown failure propagation and the reviewed in-tree storage caller/lock-order graph. |
+| L2 host / GitHub Actions | Prior storage regression [42579502834](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42579502834) and AI handoff docs [42579502689](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42579502689) PASS on exact SHA `2b3a2d19d76399199d8d813fe96260b0a0910368`. This checkpoint extends the storage source-contract caller graph; query Actions by this commit's full `head_sha` during every recovery. No local checkout was available to run the new inline Python contract independently. |
 | L3 MIPS/uClibc / production objects / firmware/TRX | NOT VERIFIED. |
 | L4 live DHCP churn / storage hotplug / physical router | NOT VERIFIED. |
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and the complete branch inventory; reconcile the storage-hotplug regression and AI handoff documentation Actions against THIS COMMIT's exact `head_sha`.
-2. Re-read the whole in-tree storage caller graph, finish the drafted Python contract, and add it with the existing mountpoint/operation/lifecycle lock tests to `storage-hotplug-stability.yml`. Run the shell and source contracts on the exact resulting head.
-3. Once the bounded storage caller-graph task is verified, rotate to another userland service area (FTP/Samba/accounts/NFS/add-ons) rather than staying in storage or DHCP.
-4. Keep DHCP leasefail/accepted-NAK/release state semantics and BusyBox's discarded callback status as separate open work; do not rely on a callback return-code-only fix.
-5. Keep FULLCONENAT mapping namespace isolation as a separate kernel audit. No full MIPS/uClibc, firmware/TRX or hardware validation has been performed.
+1. Fetch live main, all remote branches and exact-head Actions; inspect the storage-hotplug caller-graph and AI handoff-doc runs for THIS COMMIT using the full `head_sha`.
+2. If either exact-head run failed, inspect its logs and fix only the actual assertion/contract regression. Do not claim target build or hardware results.
+3. Rotate to `vsftpd`: inspect its service launch/stop, configuration generation, credentials/permissions, path confinement, and RC/UI entry points; select and test one bounded stability/security bug before editing.
+4. Preserve open DHCP leasefail/accepted-NAK/release behavior and BusyBox's discarded callback status as a separate task; do not rely on callback return-code-only handling.
+5. Keep FULLCONENAT mapping namespace/dying-tuple queue isolation as a separate kernel audit. No full MIPS/uClibc, firmware/TRX or hardware validation has been performed.
 
 ## Documentation maintenance
 
