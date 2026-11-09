@@ -11,6 +11,8 @@
 #include <linux/version.h>
 #include <linux/types.h>
 #include <linux/list.h>
+#include <linux/slab.h>
+#include <linux/rcupdate.h>
 #include <linux/hashtable.h>
 #include <linux/netdevice.h>
 #include <linux/inetdevice.h>
@@ -109,14 +111,23 @@ struct tuple_list {
   struct list_head list;
 };
 
+/*
+ * Conntrack notifier registration is per network namespace. Keep one
+ * notifier instance and reference count for each namespace using this
+ * target; a notifier_block cannot be linked into multiple atomic chains.
+ */
+struct fullconenat_net_notifier {
+  struct list_head list;
+  struct net *net;
+  unsigned int ref_count;
 #ifdef CONFIG_NF_CONNTRACK_CHAIN_EVENTS
-struct notifier_block ct_event_notifier;
+  struct notifier_block notifier;
 #else
-struct nf_ct_event_notifier ct_event_notifier;
+  struct nf_ct_event_notifier notifier;
 #endif
-int tg_refer_count = 0;
-int ct_event_notifier_registered = 0;
+};
 
+static LIST_HEAD(fullconenat_net_notifiers);
 static DEFINE_MUTEX(nf_ct_net_event_lock);
 
 static DEFINE_HASHTABLE(mapping_table_by_ext_port, HASHTABLE_BUCKET_BITS);
@@ -1175,8 +1186,22 @@ static unsigned int fullconenat_tg(struct sk_buff *skb, const struct xt_action_p
   return ret;
 }
 
+static struct fullconenat_net_notifier *
+fullconenat_find_net_notifier(struct net *net)
+{
+  struct fullconenat_net_notifier *notifier;
+
+  list_for_each_entry(notifier, &fullconenat_net_notifiers, list) {
+    if (notifier->net == net)
+      return notifier;
+  }
+
+  return NULL;
+}
+
 static int fullconenat_tg_check(const struct xt_tgchk_param *par)
 {
+  struct fullconenat_net_notifier *notifier;
   int ret;
 
   ret = nf_ct_netns_get(par->net, par->family);
@@ -1185,49 +1210,89 @@ static int fullconenat_tg_check(const struct xt_tgchk_param *par)
 
   mutex_lock(&nf_ct_net_event_lock);
 
-  if (tg_refer_count == 0) {
-#ifdef CONFIG_NF_CONNTRACK_CHAIN_EVENTS
-    ct_event_notifier.notifier_call = ct_event_cb;
-#else
-    ct_event_notifier.fcn = ct_event_cb;
-#endif
-
-    ret = nf_conntrack_register_notifier(par->net, &ct_event_notifier);
-    if (ret != 0) {
-      printk("xt_FULLCONENAT: error: conntrack notifier registration failed (%d); rejecting target\n", ret);
-      mutex_unlock(&nf_ct_net_event_lock);
-      nf_ct_netns_put(par->net, par->family);
-      return ret;
+  notifier = fullconenat_find_net_notifier(par->net);
+  if (notifier != NULL) {
+    if (notifier->ref_count == ~0U) {
+      ret = -EOVERFLOW;
+      goto err_unlock;
     }
 
-    ct_event_notifier_registered = 1;
-    pr_debug("xt_FULLCONENAT: fullconenat_tg_check(): ct_event_notifier registered\n");
+    notifier->ref_count++;
+    mutex_unlock(&nf_ct_net_event_lock);
+    return 0;
   }
 
-  tg_refer_count++;
-  pr_debug("xt_FULLCONENAT: fullconenat_tg_check(): tg_refer_count is now %d\n", tg_refer_count);
+  notifier = kzalloc(sizeof(*notifier), GFP_KERNEL);
+  if (notifier == NULL) {
+    ret = -ENOMEM;
+    goto err_unlock;
+  }
+
+  notifier->net = par->net;
+#ifdef CONFIG_NF_CONNTRACK_CHAIN_EVENTS
+  notifier->notifier.notifier_call = ct_event_cb;
+#else
+  notifier->notifier.fcn = ct_event_cb;
+#endif
+
+  ret = nf_conntrack_register_notifier(par->net, &notifier->notifier);
+  if (ret != 0) {
+    pr_err("xt_FULLCONENAT: conntrack notifier registration failed for netns (%d); rejecting target\n", ret);
+    kfree(notifier);
+    goto err_unlock;
+  }
+
+  notifier->ref_count = 1;
+  list_add(&notifier->list, &fullconenat_net_notifiers);
+  pr_debug("xt_FULLCONENAT: conntrack notifier registered for netns %p\n", par->net);
 
   mutex_unlock(&nf_ct_net_event_lock);
-
   return 0;
+
+err_unlock:
+  mutex_unlock(&nf_ct_net_event_lock);
+  nf_ct_netns_put(par->net, par->family);
+  return ret;
 }
 
 static void fullconenat_tg_destroy(const struct xt_tgdtor_param *par)
 {
+  struct fullconenat_net_notifier *notifier;
+#ifdef CONFIG_NF_CONNTRACK_CHAIN_EVENTS
+  int ret;
+#endif
+
   mutex_lock(&nf_ct_net_event_lock);
 
-  tg_refer_count--;
+  notifier = fullconenat_find_net_notifier(par->net);
+  if (unlikely(notifier == NULL || notifier->ref_count == 0)) {
+    pr_err("xt_FULLCONENAT: unmatched target destroy for netns %p\n", par->net);
+    mutex_unlock(&nf_ct_net_event_lock);
+    nf_ct_netns_put(par->net, par->family);
+    return;
+  }
 
-  pr_debug("xt_FULLCONENAT: fullconenat_tg_destroy(): tg_refer_count is now %d\n", tg_refer_count);
+  notifier->ref_count--;
+  if (notifier->ref_count == 0) {
+#ifdef CONFIG_NF_CONNTRACK_CHAIN_EVENTS
+    ret = nf_conntrack_unregister_notifier(notifier->net, &notifier->notifier);
+    if (ret != 0)
+      pr_warn("xt_FULLCONENAT: conntrack notifier unregister for netns %p returned %d\n",
+        notifier->net, ret);
+#else
+    nf_conntrack_unregister_notifier(notifier->net, &notifier->notifier);
+#endif
+    list_del(&notifier->list);
 
-  if (tg_refer_count == 0) {
-    if (ct_event_notifier_registered) {
-      nf_conntrack_unregister_notifier(par->net, &ct_event_notifier);
-      ct_event_notifier_registered = 0;
-
-      pr_debug("xt_FULLCONENAT: fullconenat_tg_destroy(): ct_event_notifier unregistered\n");
-
-    }
+    /*
+     * The legacy per-net callback API clears its RCU pointer without
+     * waiting for in-flight callbacks. Do not free its storage until the
+     * callback readers have left their RCU critical sections.
+     */
+    synchronize_rcu();
+    pr_debug("xt_FULLCONENAT: conntrack notifier unregistered for netns %p\n",
+      notifier->net);
+    kfree(notifier);
   }
 
   mutex_unlock(&nf_ct_net_event_lock);

@@ -1,3 +1,20 @@
+## 2026-11-09 11:11 CST (UTC+8) — Scope FULLCONENAT conntrack notifiers to their owning network namespace
+
+- **Base main SHA:** `93277fe13c6c53e49fd94d3badfd4a1a4def0241`.
+- **Module / priority:** Linux Netfilter `xt_FULLCONENAT`; P2 conntrack event lifecycle and namespace-cleanup reliability. Firewall/NAT remains **AUDITING**.
+- **Recovered task:** resumed the exact handoff's remaining audit of the module-global notifier/reference count against Linux 4.4's per-`struct net` conntrack notifier API. Previous FULLCONENAT GC workqueue/registration-error handling was not repeated.
+- **Confirmed defect:** `include/net/netns/conntrack.h` stores `nf_conntrack_event_cb` / `nf_conntrack_chain` inside each namespace. A single global `tg_refer_count` registered the callback only in the first namespace; a last-rule teardown in a second namespace then unregistered against the wrong `par->net`. In the legacy event API this can trigger `BUG_ON(notify != new)`; in chain-event builds it targets the wrong notifier chain. Destroy events for other namespaces were also not delivered to FULLCONENAT's GC.
+- **Fix:** `xt_FULLCONENAT.c` now maintains one notifier object and reference count per namespace. Each namespace registers independently; same-net rules share the node; the last destructor unregisters from the exact stored owner. Allocation, registration and overflow failures release the `nf_ct_netns_get()` reference; legacy callback storage is freed only after `synchronize_rcu()`. Added explicit slab/RCU headers and kept declarations GNU89-compatible.
+- **Teardown review:** IPv4/IPv6 iptables cleanup passes its owning `struct net` into the target destructor and performs `module_put()` only after the destructor returns. The regression contract was extended to cover this ordering, both notifier API variants, registration/unwind, per-net refcounts and independent namespace lifecycles.
+- **Changed paths:** `trunk/linux-4.4.x/net/netfilter/xt_FULLCONENAT.c`; `.github/workflows/fullconenat-lifecycle.yml`; the workflow also reads `include/net/netns/conntrack.h`, IPv4 `ip_tables.c`, IPv6 `ip6_tables.c`, conntrack event provider and existing IPv6 restore rollback sources.
+- **Validation:** L1 source review PASS for notifier API ownership, error unwind, target teardown and RCU lifetime. The expanded workflow is a source-contract/model regression only; exact-head Actions are **PENDING**. No local kernel object/module build or standalone host executable was run.
+- **Actions:** FULLCONENAT lifecycle regression and AI handoff documentation contract are PENDING until their run IDs, conclusions and `head_sha` are reconciled against the resulting main commit.
+- **Remaining risks:** FULLCONENAT mapping hashes and the dying-tuple queue remain module-global and are not keyed by namespace; this round fixes notifier ownership only. IPv4/IPv6 writer parity, complete NAT rollback/runtime semantics, MIPS/uClibc, full firmware/TRX and hardware are not verified.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** verify both Actions workflows on exact live main. If green, rotate to Wireless residuals at `check_inic_mii_rebooted()` guest-interface-up handling and `stop_wifi_all_wl/rt()` interface-down/LED publication; retain FULLCONENAT mapping namespace scope as an explicit open audit.
+
+---
+
 ## 2026-11-09 11:08 CST (UTC+8) — Confirm exact-head route, teardown, HTTPD and handoff CI
 
 - **Base main SHA:** `3e1be8adf8ac531581fa6e505da36c0e5e1e5966`.
@@ -261,16 +278,3 @@
 - **Validation limit:** not a full production RC/BusyBox translation-unit compile; MIPS/uClibc, firmware/TRX, live DHCPv6 lease/IA_PD and router hardware tests NOT RUN.
 - **IPv6 source-map notes:** core IPv6 filter/default-filter, mangle and NAT tables use the shared family-aware firewall transaction. Boot blocks WAN when the IPv6 default filter fails if IPv6 is enabled. full_restart_ipv6() rebuilds via full WAN restart on enable; no refresh-gap defect was established in this pass. miniupnpd package config has ENABLE_IPV6:=0.
 - **Next:** continue IPv6 NAT/mangle/filter parity. Specifically trace ip6table_nat load, the ULA FULLCONENAT rule, table setup conditions and extension hook interactions/failure behavior. Firewall/NAT and Wireless remain AUDITING; switch CLI/register audit remains open.
-
-## 2026-11-09 05:38 CST — Stage global swap/mount inventories before fallback cleanup
-
-- **Implementation commit:** 27b94e9b7ad7e7d73a2a2c2db94aaa3aa79868f0 — fix(storage): stage global swap and mount cleanup inventories.
-- **Finding:** umount_all_storage() performed swapoff() during the /proc/swaps read and umount() during the /proc/mounts read. It did not require complete records for all mount rows, and read/fclose errors were found only after possible side effects. It also proceeded to unmount even when one swapoff failed.
-- **Fix:** add full-record parsers and tri-state completion checks in storage_swap_policy.h; stage active swaps and all mount inventory records first; reject truncated, malformed, missing/extra-field, overlong, read/close-failed or allocation-failed inventories before side effects. On complete inventories, attempt swapoff for each active swap and skip every unmount if any swapoff fails. Free both linked inventories on success and every error path.
-- **Changed files:** trunk/user/libdisk/src/disk_initial.c; trunk/user/libdisk/src/storage_swap_policy.h; trunk/user/rc/src/tests/storage_swap_policy.c; .github/workflows/httpd-security.yml.
-- **Host tests:** GNU89 -Wall -Wextra -Werror policy regression PASS; GNU89 ASan/UBSan with leak detection PASS.
-- **CI contract failure/correction:** initial run [42525975164](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42525975164) on the implementation SHA compiled and ran the new policy test successfully (printed PASS), then failed a stale source assertion expecting direct storage_swap_header_valid/storage_swap_first_field calls inside umount_all_storage(). Workflow correction commit 7ed4a755c7d71b95ff92e7bb487af6a42861fbd1 updates the contract to require the full inventory parsers, ferror/fclose checks and complete-inventory -> swapoff -> swapoff gate -> umount ordering.
-- **Exact-head Actions:** run [42526075706](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42526075706), head 7ed4a755c7d71b95ff92e7bb487af6a42861fbd1, completed **SUCCESS 40/40**; all 5 storage-specific workflow steps passed.
-- **Caller scope:** inspected rc.c ejata/ejmmc/ejall mappings and hotplug_stor.c/hotplug_usb.c direct occurrences. This is not a whole-tree reference closure.
-- **Remaining validation:** production libdisk/RC object build, MIPS/uClibc, full firmware/TRX, real swapoff/unmount, NFS integration and hardware NOT RUN. Storage stays AUDITING.
-- **Next:** rotate to IPv6 Firewall/NAT parity/failure handling per roadmap; trace ruleset writers, startup gates, restart/rollback and failure propagation against IPv4 before selecting a concrete bug.

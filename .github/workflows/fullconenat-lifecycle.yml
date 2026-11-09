@@ -6,7 +6,9 @@ on:
       - ".github/workflows/fullconenat-lifecycle.yml"
       - "trunk/linux-4.4.x/net/netfilter/xt_FULLCONENAT.c"
       - "trunk/linux-4.4.x/net/netfilter/x_tables.c"
+      - "trunk/linux-4.4.x/net/ipv4/netfilter/ip_tables.c"
       - "trunk/linux-4.4.x/net/netfilter/nf_conntrack_ecache.c"
+      - "trunk/linux-4.4.x/include/net/netns/conntrack.h"
       - "trunk/linux-4.4.x/net/ipv6/netfilter/ip6_tables.c"
       - "trunk/linux-4.4.x/net/ipv6/netfilter/ip6table_nat.c"
       - "trunk/user/rc/src/firewall_ex.c"
@@ -16,7 +18,9 @@ on:
       - ".github/workflows/fullconenat-lifecycle.yml"
       - "trunk/linux-4.4.x/net/netfilter/xt_FULLCONENAT.c"
       - "trunk/linux-4.4.x/net/netfilter/x_tables.c"
+      - "trunk/linux-4.4.x/net/ipv4/netfilter/ip_tables.c"
       - "trunk/linux-4.4.x/net/netfilter/nf_conntrack_ecache.c"
+      - "trunk/linux-4.4.x/include/net/netns/conntrack.h"
       - "trunk/linux-4.4.x/net/ipv6/netfilter/ip6_tables.c"
       - "trunk/linux-4.4.x/net/ipv6/netfilter/ip6table_nat.c"
       - "trunk/user/rc/src/firewall_ex.c"
@@ -27,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify FULLCONENAT cleanup prerequisites and error propagation
+      - name: Verify FULLCONENAT per-net notifier ownership and cleanup
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -41,6 +45,8 @@ jobs:
           fullcone = (kernel / "xt_FULLCONENAT.c").read_text()
           xtables = (kernel / "x_tables.c").read_text()
           ecache = (kernel / "nf_conntrack_ecache.c").read_text()
+          conntrack_netns = (root / "trunk/linux-4.4.x/include/net/netns/conntrack.h").read_text()
+          ip_tables = (root / "trunk/linux-4.4.x/net/ipv4/netfilter/ip_tables.c").read_text()
           ip6_tables = (ipv6 / "ip6_tables.c").read_text()
           ip6_nat = (ipv6 / "ip6table_nat.c").read_text()
           firewall = (rc / "firewall_ex.c").read_text()
@@ -78,23 +84,102 @@ jobs:
           assert "if (wq != NULL)" in callback and "queue_delayed_work(wq, &gc_worker_wk" in callback
           assert "handle_dying_tuples();" in worker
 
-          # Both netns acquisition and destroy-notifier registration must be
-          # successful before the xt target is accepted and reference-counted.
+          # The kernel stores conntrack notifier state inside struct net.
+          # FULLCONENAT must therefore own a distinct notifier and refcount
+          # for every namespace, not one module-global first-user registration.
+          assert "struct atomic_notifier_head nf_conntrack_chain;" in conntrack_netns
+          assert "struct nf_ct_event_notifier __rcu *nf_conntrack_event_cb;" in conntrack_netns
+          registry = re.search(r"struct fullconenat_net_notifier\s*\{(.*?)\};", fullcone, re.S)
+          assert registry
+          assert "struct net *net;" in registry.group(1)
+          assert "unsigned int ref_count;" in registry.group(1)
+          assert "struct notifier_block notifier;" in registry.group(1)
+          assert "struct nf_ct_event_notifier notifier;" in registry.group(1)
+          assert "LIST_HEAD(fullconenat_net_notifiers);" in fullcone
+          assert "tg_refer_count" not in fullcone
+          assert "ct_event_notifier_registered" not in fullcone
+
           check = function_body(fullcone, "static int fullconenat_tg_check(")
           get_at = check.index("ret = nf_ct_netns_get(par->net, par->family);")
           get_error_at = check.index("if (ret < 0)", get_at)
           lock_at = check.index("mutex_lock(&nf_ct_net_event_lock);")
-          register_at = check.index("ret = nf_conntrack_register_notifier(par->net, &ct_event_notifier);")
+          lookup_at = check.index("fullconenat_find_net_notifier(par->net)")
+          alloc_at = check.index("kzalloc(sizeof(*notifier), GFP_KERNEL);")
+          register_at = check.index("ret = nf_conntrack_register_notifier(par->net, &notifier->notifier);")
           register_error_at = check.index("if (ret != 0)", register_at)
-          registered_at = check.index("ct_event_notifier_registered = 1;", register_error_at)
-          refcount_at = check.index("tg_refer_count++;")
-          assert get_at < get_error_at < lock_at < register_at < register_error_at < registered_at < refcount_at
-          assert "return ret;" in check[get_error_at:lock_at]
-          notifier_failure = check[register_error_at:registered_at]
-          assert "mutex_unlock(&nf_ct_net_event_lock);" in notifier_failure
-          assert "nf_ct_netns_put(par->net, par->family);" in notifier_failure
-          assert "return ret;" in notifier_failure
-          assert "failed to register a conntrack notifier. Disable active GC" not in check
+          add_at = check.index("list_add(&notifier->list, &fullconenat_net_notifiers);")
+          assert get_at < get_error_at < lock_at < lookup_at < alloc_at < register_at < register_error_at < add_at
+          existing_net = check[lookup_at:alloc_at]
+          assert "if (notifier != NULL)" in existing_net
+          assert "notifier->ref_count++;" in existing_net
+          assert "notifier->ref_count == ~0U" in existing_net
+          assert "ret = -EOVERFLOW;" in existing_net
+          assert "ret = -ENOMEM;" in check[alloc_at:register_at]
+          notifier_failure = check[register_error_at:add_at]
+          assert "kfree(notifier);" in notifier_failure
+          assert "goto err_unlock;" in notifier_failure
+          error_unwind = check[check.index("err_unlock:"):]
+          assert "mutex_unlock(&nf_ct_net_event_lock);" in error_unwind
+          assert "nf_ct_netns_put(par->net, par->family);" in error_unwind
+          assert "return ret;" in error_unwind
+
+          destroy = function_body(fullcone, "static void fullconenat_tg_destroy(")
+          destroy_lookup = destroy.index("fullconenat_find_net_notifier(par->net)")
+          destroy_decrement = destroy.index("notifier->ref_count--;")
+          unregister_at = destroy.index("nf_conntrack_unregister_notifier(notifier->net, &notifier->notifier);")
+          remove_at = destroy.index("list_del(&notifier->list);")
+          synchronize_at = destroy.index("synchronize_rcu();")
+          free_at = destroy.index("kfree(notifier);")
+          put_at = destroy.rindex("nf_ct_netns_put(par->net, par->family);")
+          assert destroy_lookup < destroy_decrement < unregister_at < remove_at < synchronize_at < free_at < put_at
+          assert "notifier->ref_count == 0" in destroy
+          assert "unmatched target destroy" in destroy
+          assert "nf_conntrack_unregister_notifier(par->net," not in destroy
+
+          # Table-rule teardown must call the target destructor with the
+          # owning namespace, then drop the target module reference.
+          v4_cleanup = function_body(ip_tables, "cleanup_entry(struct ipt_entry *e, struct net *net)")
+          v4_destroy = v4_cleanup.index("par.target->destroy(&par);")
+          v4_module_put = v4_cleanup.index("module_put(par.target->me);")
+          assert "par.net      = net;" in v4_cleanup
+          assert v4_destroy < v4_module_put
+          v4_unregister = function_body(ip_tables, "void ipt_unregister_table(struct net *net, struct xt_table *table)")
+          assert "cleanup_entry(iter, net);" in v4_unregister
+
+          v6_cleanup = function_body(ip6_tables, "cleanup_entry(struct ip6t_entry *e, struct net *net)")
+          v6_destroy = v6_cleanup.index("par.target->destroy(&par);")
+          v6_module_put = v6_cleanup.index("module_put(par.target->me);")
+          assert "par.net      = net;" in v6_cleanup
+          assert v6_destroy < v6_module_put
+          v6_unregister = function_body(ip6_tables, "void ip6t_unregister_table(struct net *net, struct xt_table *table)")
+          assert "cleanup_entry(iter, net);" in v6_unregister
+
+          # Exercise the intended namespace-local refcount lifecycle: activity
+          # in A must not suppress registration or cleanup in B.
+          active = {}
+          registrations = []
+          def target_check(net):
+              if net not in active:
+                  active[net] = 0
+                  registrations.append(("register", net))
+              active[net] += 1
+          def target_destroy(net):
+              assert active[net] > 0
+              active[net] -= 1
+              if active[net] == 0:
+                  del active[net]
+                  registrations.append(("unregister", net))
+          target_check("net-A")
+          target_check("net-A")
+          target_check("net-B")
+          target_destroy("net-A")
+          assert active == {"net-A": 1, "net-B": 1}
+          target_destroy("net-B")
+          assert active == {"net-A": 1}
+          target_destroy("net-A")
+          assert active == {}
+          assert registrations == [("register", "net-A"), ("register", "net-B"),
+                                   ("unregister", "net-B"), ("unregister", "net-A")]
 
           # The 4.4 notifier provider can reject an already-owned per-net
           # notifier; xtables propagates negative checkentry results.

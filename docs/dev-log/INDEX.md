@@ -10,6 +10,7 @@
 | `docs/dev-log/2026/11/part-001.md` | 294 | 2026-11-05 → 2026-11-06 | 357382 | `5d2cfa2439d7b1be33333cee6964c005c81dc5ad` |
 | `docs/dev-log/2026/11/part-002.md` | 275 | 2026-11-06 → 2026-11-08 | 357977 | `164858e25153406e26e3f2b9bb6f3904557d5cda` |
 | `docs/dev-log/2026/11/part-003.md` | 78 | 2026-11-08 → 2026-11-09 | 216933 | `f5e28c56ef9055a12f1b0ce7bc9ebd6fbc438233` |
+| `docs/dev-log/2026/11/part-004.md` | 1 | 2026-11-09 → 2026-11-09 | 2653 | `f7016653093548013d8197b6925e7a69cc7b24db` |
 
 
 - **Post-migration rotation:** the first evicted root-window record is preserved verbatim in `part-003.md`; its original root source blob was `733d3c678575611642b3f69fe4cfe5e19ece9b57`.
@@ -17,3 +18,4 @@
 - **Post-migration rotation:** the second evicted root-window record is preserved verbatim in `part-003.md`; its pre-rotation root source blob was `93b0fe7c1d560797a339777b4fe264ba999a08cd`.
 
 - **Post-migration rotation:** the third evicted root-window record is preserved verbatim in `part-003.md`; its pre-rotation root source blob was `187e6df1bb938adb753b9d8eda6e8b36ba7d62c7`.
+- **Rolling-window continuation:** the 2026-11-09 05:38 CST record evicted from the root window is preserved verbatim in part-004, immediately after part-003's 05:30 CST final record.
