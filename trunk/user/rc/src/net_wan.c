@@ -36,6 +36,7 @@
 #include "wan_resolver_refresh_policy.h"
 #include "wan_teardown_policy.h"
 #include "dhcp_lease_policy.h"
+#include "dhcp_wan_interface_policy.h"
 #include "switch.h"
 #include "switch_status_policy.h"
 #include <gpioutils.h>
@@ -2393,6 +2394,34 @@ udhcpc_deconfig(char *wan_ifname, int is_zcip)
 	return 0;
 }
 
+struct wan_dhcp_interface_context {
+	char *ifname;
+};
+
+static int
+wan_dhcp_interface_clear(void *opaque)
+{
+	struct wan_dhcp_interface_context *context =
+		(struct wan_dhcp_interface_context *)opaque;
+
+	return ifconfig(context->ifname, IFUP, "0.0.0.0", NULL);
+}
+
+static int
+wan_dhcp_interface_set(void *opaque, const char *ipaddr,
+		       const char *netmask)
+{
+	struct wan_dhcp_interface_context *context =
+		(struct wan_dhcp_interface_context *)opaque;
+
+	return ifconfig(context->ifname, IFUP, (char *)ipaddr, (char *)netmask);
+}
+
+static const struct dhcp_wan_interface_ops wan_dhcp_interface_ops = {
+	wan_dhcp_interface_clear,
+	wan_dhcp_interface_set
+};
+
 static int
 udhcpc_bound(char *wan_ifname, int is_renew_mode)
 {
@@ -2405,6 +2434,8 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	unsigned int parsed_value;
 	int unit, is_man, is_changed, i_err, has_gateway, lease_dur, dhcp_mtu;
 	int wan_proto, modem_unit_id, route_result, route_metric;
+	int interface_status, rollback_status;
+	struct wan_dhcp_interface_context interface_context;
 
 	unit = get_wan_unit(wan_ifname);
 	is_man = is_ifunit_man(wan_ifname, unit);
@@ -2446,8 +2477,51 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	modem_unit_id = is_ifunit_modem(wan_ifname, unit);
 	route_metric = is_man ? 2 : 1;
 
-	/* Remove the previous lease's default/host gateway routes before adding
-	 * the refreshed lease. Route operations use ioctl, not a shell. */
+	/*
+	 * Configure the candidate address before removing the previous lease's
+	 * routes or publishing new NVRAM state. A failed ioctl must leave the
+	 * last-known-good lease and its routes available for the next callback.
+	 */
+	is_changed = strcmp(old_ip, lease_ip) != 0;
+	i_err = 0;
+	wan_ip = lease_ip;
+	wan_nm = lease_netmask;
+	lan_ip = nvram_safe_get("lan_ipaddr");
+	lan_nm = nvram_safe_get("lan_netmask");
+	interface_context.ifname = wan_ifname;
+
+	if (is_same_subnet2(wan_ip, lan_ip, wan_nm, lan_nm)) {
+		if (!is_renew_mode) {
+			interface_status = wan_dhcp_interface_clear(&interface_context);
+			if (interface_status != 0) {
+				logmessage(log_prefix,
+					   "failed to clear conflicting DHCP address on %s (status=%d)",
+					   wan_ifname, interface_status);
+				return interface_status;
+			}
+		}
+		i_err = 1;
+		logmessage(log_prefix,
+			   "%s (%s). ERROR! Obtained IP [%s/%s] in LAN subnet [%s/%s]. Need change LAN subnet!",
+			   udhcpc_state, wan_ifname, wan_ip, wan_nm, lan_ip, lan_nm);
+	} else {
+		interface_status = dhcp_wan_interface_apply(
+			old_ip, old_mask, lease_ip, lease_netmask, is_changed,
+			&wan_dhcp_interface_ops, &interface_context, &rollback_status);
+		if (interface_status != 0) {
+			logmessage(log_prefix,
+				   "failed to apply DHCP address on %s (status=%d); preserving previous lease and routes",
+				   wan_ifname, interface_status);
+			if (rollback_status != 0)
+				logmessage(log_prefix,
+					   "failed to restore previous DHCP address on %s (status=%d)",
+					   wan_ifname, rollback_status);
+			return interface_status;
+		}
+	}
+
+	/* The old route inventory is still in NVRAM here; remove it only after
+	 * interface configuration succeeds, before publishing the new lease. */
 	if (dhcp_lease_ipv4_is_valid(old_gateway)) {
 		if (dhcp_lease_ipv4_is_valid(old_ip) &&
 		    dhcp_lease_netmask_is_valid(old_mask) &&
@@ -2460,9 +2534,7 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	    (!modem_unit_id && wan_proto == IPV4_WAN_PROTO_IPOE_DHCP))
 		del_dhcp_routes_by_prefix(prefix, wan_ifname, 0);
 
-	i_err = 0;
 	lease_dur = 0;
-	is_changed = nvram_invmatch(strcat_r(prefix, "ipaddr", tmp), lease_ip);
 	has_gateway = 0;
 	dhcp_mtu = 0;
 	gateway_buf[0] = '\0';
@@ -2479,7 +2551,6 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 		else if (route_result < 0)
 			logmessage(log_prefix, "ignoring invalid DHCP router list on %s", wan_ifname);
 	}
-	nvram_set_temp(strcat_r(prefix, "gateway", tmp), gateway_buf);
 
 	value = getenv("dns");
 	lease_dns = value ? trim_r(value) : "";
@@ -2559,35 +2630,17 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	if (!has_gateway) {
 		foreach(route, nvram_safe_get(strcat_r(prefix, "routes_rfc", tmp)), value) {
 			if (has_gateway) {
-				nvram_set_temp(strcat_r(prefix, "gateway", tmp), route);
+				snprintf(gateway_buf, sizeof(gateway_buf), "%s", route);
 				break;
 			} else
 				has_gateway = !strcmp(route, "0.0.0.0/0");
 		}
 	}
+	nvram_set_temp(strcat_r(prefix, "gateway", tmp), gateway_buf);
 
-	lan_ip = nvram_safe_get("lan_ipaddr");
-	lan_nm = nvram_safe_get("lan_netmask");
-	wan_ip = nvram_safe_get(strcat_r(prefix, "ipaddr", tmp));
-	wan_nm = nvram_safe_get(strcat_r(prefix, "netmask", tmp));
-
-	if (is_same_subnet2(wan_ip, lan_ip, wan_nm, lan_nm)) {
-		if (!is_renew_mode)
-			ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
-
-		i_err = 1;
-
-		logmessage(log_prefix,
-			"%s (%s). ERROR! Obtained IP [%s/%s] in LAN subnet [%s/%s]. Need change LAN subnet!",
-			udhcpc_state, wan_ifname, wan_ip, wan_nm, lan_ip, lan_nm);
-	} else {
-		if (is_changed)
-			ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
-
+	if (!i_err) {
 		if (!is_renew_mode && (dhcp_mtu >= 1300 && dhcp_mtu < 1500))
 			set_interface_mtu(wan_ifname, dhcp_mtu);
-
-		ifconfig(wan_ifname, IFUP, wan_ip, wan_nm);
 
 		wan_gw = nvram_safe_get(strcat_r(prefix, "gateway", tmp));
 		logmessage(log_prefix,

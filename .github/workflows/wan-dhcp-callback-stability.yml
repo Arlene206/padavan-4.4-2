@@ -1,0 +1,86 @@
+name: WAN DHCP callback state stability regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/wan-dhcp-callback-stability.yml"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/dhcp_wan_interface_policy.h"
+      - "trunk/user/rc/src/tests/dhcp_wan_interface_policy.c"
+  pull_request:
+    paths:
+      - ".github/workflows/wan-dhcp-callback-stability.yml"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/dhcp_wan_interface_policy.h"
+      - "trunk/user/rc/src/tests/dhcp_wan_interface_policy.c"
+
+jobs:
+  wan-dhcp-callback:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run WAN DHCP interface rollback regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/dhcp_wan_interface_policy.c \
+            -o /tmp/dhcp-wan-interface-policy
+          /tmp/dhcp-wan-interface-policy
+      - name: Verify WAN callback applies interface before publishing lease state
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          rc = Path("trunk/user/rc/src")
+          source = (rc / "net_wan.c").read_text()
+          policy = (rc / "dhcp_wan_interface_policy.h").read_text()
+          workflow = Path(".github/workflows/wan-dhcp-callback-stability.yml").read_text()
+
+          def body(text, signature):
+              start = text.index(signature)
+              brace = text.index("{", start)
+              depth = 0
+              for pos in range(brace, len(text)):
+                  if text[pos] == "{":
+                      depth += 1
+                  elif text[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return text[brace + 1:pos]
+              raise AssertionError(f"unterminated function: {signature}")
+
+          assert '#include "dhcp_wan_interface_policy.h"' in source
+          callback = body(source, "udhcpc_bound(char *wan_ifname, int is_renew_mode)")
+          apply = callback.index("dhcp_wan_interface_apply(")
+          old_routes = callback.index("route_del(wan_ifname, route_metric")
+          primary_state = callback.index('nvram_set_temp(strcat_r(prefix, "ipaddr", tmp), lease_ip)')
+          assert apply < old_routes < primary_state
+          assert "preserving previous lease and routes" in callback
+          assert "failed to restore previous DHCP address" in callback
+          assert "ifconfig(wan_ifname" not in callback
+          assert callback.index("wan_dhcp_interface_clear(&interface_context)") < old_routes
+          assert callback.index('nvram_set_temp(strcat_r(prefix, "gateway", tmp), gateway_buf)') < callback.index("wan_up(wan_ifname, unit, 0)")
+
+          apply_policy = body(policy, "dhcp_wan_interface_apply(")
+          assert "ops->clear_address(context)" in apply_policy
+          assert "ops->set_address(context, new_ipaddr, new_netmask)" in apply_policy
+          assert "goto rollback;" in apply_policy
+          assert "ops->set_address(context, old_ipaddr, old_netmask)" in apply_policy
+          assert "ops->clear_address(context)" in apply_policy
+          assert "if (rollback_status)" in apply_policy
+
+          paths = (
+              ".github/workflows/wan-dhcp-callback-stability.yml",
+              "trunk/user/rc/src/net_wan.c",
+              "trunk/user/rc/src/dhcp_wan_interface_policy.h",
+              "trunk/user/rc/src/tests/dhcp_wan_interface_policy.c",
+          )
+          filters = workflow.split("jobs:", 1)[0]
+          push_filters, pr_filters = filters.split("  pull_request:", 1)
+          for path in paths:
+              assert push_filters.count(path) == 1, f"push path missing/duplicated: {path}"
+              assert pr_filters.count(path) == 1, f"pull_request path missing/duplicated: {path}"
+
+          print("WAN DHCP callback ordering and rollback contracts: PASS")
+          PY

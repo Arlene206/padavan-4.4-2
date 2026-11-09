@@ -1,3 +1,17 @@
+## 2026-11-10 03:42 CST (UTC+8) — Preserve WAN lease state when DHCP address activation fails
+
+- **Base main SHA:** `bc99b6801c44f55e13dc0214336408f712e0abf8`; active branch: `main`.
+- **Recovered verification:** FULLCONENAT lifecycle [42678875089] and AI handoff documentation [42678875391] both completed SUCCESS on the exact base SHA `bc99b6801c44f55e13dc0214336408f712e0abf8`; the previous callback-contract task is complete at L2.
+- **NFS provenance audit:** traced `/etc/storage/exports` through the RC writer, NFS lifecycle, tmpfs/MTD storage provisioning, the web UI and backup restore path. `/etc/storage` is root-managed persistent storage; the visible restore route requires authenticated privileged access. The writer accepts a regular file or symlink to a regular file, treats only ENOENT as missing, and fails closed for invalid paths. `nfsd.sh` propagates `exportfs -r` failures. No untrusted writer or demonstrated override vulnerability was found; no NFS code/default change was justified. Async durability, AUTH_SYS/no_root_squash and external mounts remain separate decisions.
+- **Finding:** `udhcpc_bound()` removed the previous gateway/DHCP routes and published new IP/netmask/gateway NVRAM state before checking whether `ifconfig()` had actually configured the interface. Those ioctl results were discarded. A failed address operation could therefore leave the router reporting the new lease while its interface was not configured and the old route inventory had already been removed.
+- **Fix:** added `dhcp_wan_interface_policy.h` and a GNU89 fake-interface regression. The policy validates candidate input, checks clear/set results, attempts to restore the previous valid address (or clear an interface with no valid previous lease), preserves the original operation error and reports rollback failure. `udhcpc_bound()` now applies the candidate address before removing old gateway/DHCP routes or publishing primary lease NVRAM fields. On interface failure it returns early with old route/lease state retained. The existing LAN-subnet conflict behavior remains, but initial conflict-address clearing is now checked.
+- **Changed paths:** `trunk/user/rc/src/net_wan.c`; new `trunk/user/rc/src/dhcp_wan_interface_policy.h`; new `trunk/user/rc/src/tests/dhcp_wan_interface_policy.c`; new `.github/workflows/wan-dhcp-callback-stability.yml`; `SESSION_HANDOFF.md`; `REFACTOR_ROADMAP.md`; this root log record.
+- **Validation:** L1 source review PASS for the new control-flow ordering and rollback path. The added workflow compiles/runs the GNU89 regression and checks source ordering plus complete push/pull_request path filters. Its exact-head Action is **PENDING** at commit creation. Prior FULLCONENAT and docs Actions above are green on the base SHA only; they do not validate THIS commit. No local host binary, RC object, MIPS/uClibc build, firmware/TRX or hardware test is claimed.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** reconcile WAN DHCP callback and AI handoff Actions against the exact resulting main SHA. If green, continue with WAN DHCP deconfig/leasefail/NAK/release callback state and remaining route-delete/add error handling.
+
+---
+
 ## 2026-11-10 02:48 CST (UTC+8) — Make FULLCONENAT callback source contract preprocessor-aware
 
 - **Base main SHA:** 32ade08379b4bad18b8137801a57bb109815cf2a; resulting commit: THIS COMMIT.
