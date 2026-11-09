@@ -37,6 +37,26 @@ main(void)
 		"/dev/sda1 /media/usb ext4 rw,relatime 0 0",
 		device, sizeof(device), mountpoint, sizeof(mountpoint),
 		fstype, sizeof(fstype), options, sizeof(options)) != 0);
+	assert(storage_nfs_export_parse_mount_line(
+		"/dev/sda1 /media/usb ext4 rw 0\\n", device, sizeof(device),
+		mountpoint, sizeof(mountpoint), fstype, sizeof(fstype),
+		options, sizeof(options)) != 0);
+	assert(storage_nfs_export_parse_mount_line(
+		"/dev/sda1 /media/usb ext4 rw 0 0\\n", device, sizeof(device),
+		mountpoint, sizeof(mountpoint), fstype, sizeof(fstype),
+		options, sizeof(options)) == 0);
+	assert(storage_nfs_export_parse_mount_line(
+		"/dev/sda1 /media/usb ext4 rw invalid 0\\n", device, sizeof(device),
+		mountpoint, sizeof(mountpoint), fstype, sizeof(fstype),
+		options, sizeof(options)) != 0);
+	assert(storage_nfs_export_parse_mount_line(
+		"/dev/sda1 /media/usb ext4 rw 0 0 extra\\n", device, sizeof(device),
+		mountpoint, sizeof(mountpoint), fstype, sizeof(fstype),
+		options, sizeof(options)) != 0);
+	assert(storage_nfs_export_parse_mount_line(
+		"/dev/sda1 /media/usb ext4 rw 12345678901234567 0\\n",
+		device, sizeof(device), mountpoint, sizeof(mountpoint),
+		fstype, sizeof(fstype), options, sizeof(options)) != 0);
 
 	{
 		size_t prefix_length = strlen("/dev/sda1 /");
@@ -62,6 +82,6 @@ main(void)
 	assert(!storage_nfs_export_may_start(0, 0));
 	assert(!storage_nfs_export_may_start(1, -1));
 
-	puts("Storage NFS export inventory and start gate: PASS");
+	puts("Storage NFS six-field export inventory and start gate: PASS");
 	return 0;
 }

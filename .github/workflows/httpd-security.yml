@@ -4234,6 +4234,7 @@ jobs:
 
           source = Path("trunk/user/rc/src/services_stor.c").read_text()
           policy = Path("trunk/user/rc/src/storage_nfs_export_policy.h").read_text()
+          regression = Path("trunk/user/rc/src/tests/storage_nfs_export_policy.c").read_text()
           workflow = Path(".github/workflows/httpd-security.yml").read_text()
 
           def body(source, signature):
@@ -4254,6 +4255,13 @@ jobs:
           reloader = body(source, "reload_nfsd(void)")
           assert "storage_nfs_export_parse_mount_line" in writer
           assert "storage_nfs_export_may_publish" in writer
+          assert "storage_nfs_export_field_is_decimal" in policy
+          assert "storage_nfs_export_next_token(&cursor, dump_frequency" in policy
+          assert "storage_nfs_export_next_token(&cursor, fsck_order" in policy
+          assert "storage_nfs_export_next_token(&cursor, trailing" in policy
+          assert 'ext4 rw 0\\\\n' in regression
+          assert 'ext4 rw invalid 0\\\\n' in regression
+          assert 'ext4 rw 0 0 extra\\\\n' in regression
           assert "ferror(procpt)" in writer and "fclose(procpt)" in writer
           assert "mkstemp(staged_path)" in writer
           assert "rename(staged_path, exports_file)" in writer

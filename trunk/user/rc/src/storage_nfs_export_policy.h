@@ -51,7 +51,28 @@ storage_nfs_export_next_token(const char **cursor, char *token,
 	return 1;
 }
 
-/* Parse the four fields needed to generate an export from /proc/mounts. */
+static int
+storage_nfs_export_field_is_decimal(const char *field)
+{
+	const unsigned char *p;
+
+	if (!field || !field[0])
+		return 0;
+
+	for (p = (const unsigned char *)field; *p; ++p) {
+		if (*p < '0' || *p > '9')
+			return 0;
+	}
+
+	return 1;
+}
+
+/*
+ * Parse a complete six-field /proc/mounts record. Only the first four values
+ * are returned to the export writer, but the trailing dump/pass fields and
+ * end-of-record must also be present so a partial inventory is never treated
+ * as a valid mount entry.
+ */
 static int
 storage_nfs_export_parse_mount_line(const char *line,
 				    char *device, size_t device_size,
@@ -60,6 +81,7 @@ storage_nfs_export_parse_mount_line(const char *line,
 				    char *mount_options, size_t mount_options_size)
 {
 	const char *cursor;
+	char dump_frequency[16], fsck_order[16], trailing[2];
 
 	if (!storage_nfs_export_line_is_complete(line))
 		return -1;
@@ -69,10 +91,20 @@ storage_nfs_export_parse_mount_line(const char *line,
 	    storage_nfs_export_next_token(&cursor, mountpoint, mountpoint_size) != 1 ||
 	    storage_nfs_export_next_token(&cursor, fstype, fstype_size) != 1 ||
 	    storage_nfs_export_next_token(&cursor, mount_options,
-					  mount_options_size) != 1)
+					  mount_options_size) != 1 ||
+	    storage_nfs_export_next_token(&cursor, dump_frequency,
+					  sizeof(dump_frequency)) != 1 ||
+	    storage_nfs_export_next_token(&cursor, fsck_order,
+					  sizeof(fsck_order)) != 1)
 		return -1;
 
-	return 0;
+	if (!storage_nfs_export_field_is_decimal(dump_frequency) ||
+	    !storage_nfs_export_field_is_decimal(fsck_order))
+		return -1;
+
+	/* No seventh field: accepting one would hide a malformed procfs row. */
+	return storage_nfs_export_next_token(&cursor, trailing,
+					    sizeof(trailing)) == 0 ? 0 : -1;
 }
 
 static int
