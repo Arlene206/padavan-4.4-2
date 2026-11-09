@@ -831,64 +831,128 @@ lan_up_manual(char *lan_ifname, char *lan_dname)
 	update_lan_status(0);
 }
 
-static void
-lan_up_auto(char *lan_ifname, char *lan_gateway, char *lan_dname)
+static int
+lan_publish_resolver_auto(char *lan_gateway, char *lan_dname, char *lan_dns)
 {
 	FILE *fp;
-	int dns_count = 0;
+	int lock, status = 0, dns_count = 0;
 	char word[100], *next, *dns_ip;
+	char resolv_temp[] = "/etc/resolv.conf.XXXXXX";
 
-	/* Set default route to gateway if specified */
-	if (is_valid_ipv4(lan_gateway))
-		route_add(lan_ifname, 0, "0.0.0.0", lan_gateway, "0.0.0.0");
+	errno = 0;
+	lock = file_lock("resolv");
+	if (lock < 0)
+		return errno ? errno : EIO;
 
-	/* Open resolv.conf */
-	fp = fopen(DNS_RESOLV_CONF, "w+");
-	if (fp) {
-		if (strlen(lan_dname) > 0)
-			fprintf(fp, "domain %s\n", lan_dname);
-		
-		if (nvram_get_int("lan_dns_x") == 0) {
-			dns_ip = nvram_safe_get("lan_dns1");
-			if (is_valid_ipv4(dns_ip)) {
-				fprintf(fp, "nameserver %s\n", dns_ip);
-				dns_count++;
-			}
-			
-			dns_ip = nvram_safe_get("lan_dns2");
-			if (is_valid_ipv4(dns_ip)) {
-				fprintf(fp, "nameserver %s\n", dns_ip);
-				dns_count++;
-			}
-		} else {
-			foreach(word, nvram_safe_get("lan_dns_t"), next) {
-				if (is_valid_ipv4(word)) {
-					fprintf(fp, "nameserver %s\n", word);
-					dns_count++;
-				}
-			}
-		}
-		
-		if (!dns_count && is_valid_ipv4(lan_gateway))
-			fprintf(fp, "nameserver %s\n", lan_gateway);
-		
-		fclose(fp);
+	fp = dnsmasq_file_open(resolv_temp);
+	if (!fp) {
+		status = errno ? errno : EIO;
+		file_unlock(lock);
+		return status;
 	}
 
-	/* sync time */
-	notify_watchdog_time();
+	/* The previous resolver remains visible until the complete replacement
+	 * has been flushed, closed and atomically renamed into place. */
+	if (lan_dname && *lan_dname)
+		fprintf(fp, "domain %s\n", lan_dname);
 
-	/* fill XXX_t fields */
-	update_lan_status(1);
+	if (nvram_get_int("lan_dns_x") == 0) {
+		dns_ip = nvram_safe_get("lan_dns1");
+		if (is_valid_ipv4(dns_ip)) {
+			fprintf(fp, "nameserver %s\n", dns_ip);
+			dns_count++;
+		}
 
-#if defined(APP_SMBD)
-	/* update SMB fastpath owner address */
-	config_smb_fastpath(1);
-#endif
+		dns_ip = nvram_safe_get("lan_dns2");
+		if (is_valid_ipv4(dns_ip)) {
+			fprintf(fp, "nameserver %s\n", dns_ip);
+			dns_count++;
+		}
+	} else {
+		foreach(word, lan_dns ? lan_dns : "", next) {
+			if (is_valid_ipv4(word)) {
+				fprintf(fp, "nameserver %s\n", word);
+				dns_count++;
+			}
+		}
+	}
 
-	/* di wakeup after 2 secs */
-	notify_run_detect_internet(2);
+	if (!dns_count && is_valid_ipv4(lan_gateway))
+		fprintf(fp, "nameserver %s\n", lan_gateway);
+
+	if (dnsmasq_file_publish(fp, resolv_temp, DNS_RESOLV_CONF, 0644) != 0)
+		status = errno ? errno : EIO;
+
+	file_unlock(lock);
+	return status;
 }
+
+struct lan_dhcp_bound_context {
+	char *lan_ifname;
+	char *lan_gateway;
+	char *lan_domain;
+	char *lan_dns;
+};
+
+static int
+lan_dhcp_bound_delete_route(void *opaque, const char *gateway)
+{
+	struct lan_dhcp_bound_context *context =
+		(struct lan_dhcp_bound_context *)opaque;
+
+	return route_del(context->lan_ifname, 0, "0.0.0.0",
+			 (char *)gateway, "0.0.0.0");
+}
+
+static int
+lan_dhcp_bound_clear_address(void *opaque)
+{
+	struct lan_dhcp_bound_context *context =
+		(struct lan_dhcp_bound_context *)opaque;
+
+	return ifconfig(context->lan_ifname, IFUP, "0.0.0.0", NULL);
+}
+
+static int
+lan_dhcp_bound_set_address(void *opaque, const char *ipaddr,
+			   const char *netmask)
+{
+	struct lan_dhcp_bound_context *context =
+		(struct lan_dhcp_bound_context *)opaque;
+
+	return ifconfig(context->lan_ifname, IFUP,
+			(char *)ipaddr, (char *)netmask);
+}
+
+static int
+lan_dhcp_bound_add_route(void *opaque, const char *gateway)
+{
+	struct lan_dhcp_bound_context *context =
+		(struct lan_dhcp_bound_context *)opaque;
+
+	return route_add(context->lan_ifname, 0, "0.0.0.0",
+			 (char *)gateway, "0.0.0.0");
+}
+
+static int
+lan_dhcp_bound_publish_resolver(void *opaque)
+{
+	struct lan_dhcp_bound_context *context =
+		(struct lan_dhcp_bound_context *)opaque;
+
+	return lan_publish_resolver_auto(context->lan_gateway,
+					 context->lan_domain,
+					 context->lan_dns);
+}
+
+static const struct dhcp_lease_bound_ops lan_dhcp_bound_ops = {
+	lan_dhcp_bound_delete_route,
+	lan_dhcp_bound_clear_address,
+	lan_dhcp_bound_set_address,
+	lan_dhcp_bound_add_route,
+	lan_dhcp_bound_publish_resolver
+};
+
 
 static int
 lan_down_auto(char *lan_ifname)
@@ -1009,11 +1073,14 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 {
 	char *value, *lease_ip, *lease_netmask, *lease_domain;
 	char *lease_dns, *lease_wins;
-	char gateway_buf[INET_ADDRSTRLEN], old_gateway[INET_ADDRSTRLEN];
-	char lease_text[16];
+	char gateway_buf[INET_ADDRSTRLEN], lease_text[16];
+	char old_ipaddr[INET_ADDRSTRLEN], old_netmask[INET_ADDRSTRLEN];
+	char old_gateway[INET_ADDRSTRLEN], old_dns[256], old_domain[256];
 	unsigned int parsed_lease;
-	int is_changed = 0, ip_changed = 0, lease_dur = 0;
-	int route_result;
+	int is_changed, ip_changed, netmask_changed, gateway_changed;
+	int address_changed, apply_gateway, lease_dur = 0;
+	int status, rollback_status = 0;
+	struct lan_dhcp_bound_context context;
 
 	if (!lan_ifname || !*lan_ifname)
 		return EINVAL;
@@ -1043,9 +1110,9 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 	 * server must not leave the previous lease's values live in NVRAM. */
 	gateway_buf[0] = '\0';
 	value = getenv("router");
-	route_result = dhcp_lease_ipv4_list_first(
+	status = dhcp_lease_ipv4_list_first(
 		value ? trim_r(value) : NULL, gateway_buf, sizeof(gateway_buf));
-	if (route_result < 0) {
+	if (status < 0) {
 		logmessage("DHCP LAN Client",
 			"ignoring invalid DHCP router list on %s", lan_ifname);
 		gateway_buf[0] = '\0';
@@ -1088,31 +1155,54 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 	}
 	snprintf(lease_text, sizeof(lease_text), "%d", lease_dur);
 
-	/* Snapshot and withdraw the old default gateway before publishing any
-	 * replacement lease fields. ESRCH means the route is already absent;
-	 * other errors must leave the previous lease state untouched. */
+	/* Snapshot the last-known-good lease before attempting any kernel or file
+	 * changes. A failed bound callback must leave these values available for
+	 * the next DHCP event, since BusyBox discards this callback's return code. */
+	snprintf(old_ipaddr, sizeof(old_ipaddr), "%s",
+		nvram_safe_get("lan_ipaddr_t"));
+	snprintf(old_netmask, sizeof(old_netmask), "%s",
+		nvram_safe_get("lan_netmask_t"));
 	snprintf(old_gateway, sizeof(old_gateway), "%s",
 		nvram_safe_get("lan_gateway_t"));
-	if (dhcp_lease_ipv4_is_valid(old_gateway) &&
-	    strcmp(old_gateway, gateway_buf) != 0) {
-		route_result = route_del(lan_ifname, 0, "0.0.0.0",
-			old_gateway, "0.0.0.0");
-		if (!dhcp_lease_route_delete_is_ok(route_result)) {
+	snprintf(old_dns, sizeof(old_dns), "%s",
+		nvram_safe_get("lan_dns_t"));
+	snprintf(old_domain, sizeof(old_domain), "%s",
+		nvram_safe_get("lan_domain_t"));
+
+	ip_changed = strcmp(old_ipaddr, lease_ip) != 0;
+	netmask_changed = strcmp(old_netmask, lease_netmask) != 0;
+	gateway_changed = strcmp(old_gateway, gateway_buf) != 0;
+	address_changed = ip_changed || netmask_changed;
+	is_changed = address_changed || gateway_changed ||
+		strcmp(old_dns, lease_dns) != 0 ||
+		strcmp(old_domain, lease_domain) != 0;
+	apply_gateway = gateway_changed || !is_renew;
+
+	if (is_changed || !is_renew) {
+		context.lan_ifname = lan_ifname;
+		context.lan_gateway = gateway_buf;
+		context.lan_domain = lease_domain;
+		context.lan_dns = lease_dns;
+
+		status = dhcp_lease_bound_apply(
+			old_ipaddr, old_netmask, old_gateway,
+			lease_ip, lease_netmask, gateway_buf,
+			address_changed || !is_renew, ip_changed, apply_gateway,
+			&lan_dhcp_bound_ops, &context, &rollback_status);
+		if (status != 0) {
 			logmessage("DHCP LAN Client",
-				"failed to remove previous gateway route on %s (status=%d); retaining previous lease",
-				lan_ifname, route_result);
-			return route_result;
+				"bound/renew transaction failed on %s (status=%d); keeping previous lease",
+				lan_ifname, status);
+			if (rollback_status != 0)
+				logmessage("DHCP LAN Client",
+					"failed to roll back LAN DHCP bound transaction on %s (status=%d)",
+					lan_ifname, rollback_status);
+			return status;
 		}
 	}
 
-	is_changed |= nvram_invmatch("lan_ipaddr_t", lease_ip);
-	ip_changed = nvram_invmatch("lan_ipaddr_t", lease_ip);
-	is_changed |= nvram_invmatch("lan_netmask_t", lease_netmask);
-	is_changed |= nvram_invmatch("lan_gateway_t", gateway_buf);
-	is_changed |= nvram_invmatch("lan_dns_t", lease_dns);
-	is_changed |= nvram_invmatch("lan_domain_t", lease_domain);
-
-	/* Required fields passed validation; publish one complete normalized lease. */
+	/* Kernel routes, interface address and resolver publication are complete.
+	 * Only now expose the replacement lease to other RC callers. */
 	nvram_set_temp("lan_ipaddr_t", lease_ip);
 	nvram_set_temp("lan_netmask_t", lease_netmask);
 	nvram_set_temp("lan_gateway_t", gateway_buf);
@@ -1122,21 +1212,20 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 	nvram_set_temp("lan_lease_t", lease_text);
 
 	if (is_changed || !is_renew) {
-		char *lan_ipaddr = nvram_safe_get("lan_ipaddr_t");
-		char *lan_ipmask = nvram_safe_get("lan_netmask_t");
-		char *lan_gateway = nvram_safe_get("lan_gateway_t");
-		char *lan_domain = nvram_safe_get("lan_domain_t");
+		create_hosts_lan(lease_ip, lease_domain);
+		notify_watchdog_time();
 
-		if (ip_changed)
-			ifconfig(lan_ifname, IFUP, "0.0.0.0", NULL);
+#if defined(APP_SMBD)
+		/* update SMB fastpath owner address */
+		config_smb_fastpath(1);
+#endif
 
-		ifconfig(lan_ifname, IFUP, lan_ipaddr, lan_ipmask);
-		create_hosts_lan(lan_ipaddr, lan_domain);
-		lan_up_auto(lan_ifname, lan_gateway, lan_domain);
+		/* di wakeup after 2 secs */
+		notify_run_detect_internet(2);
 		system("/usr/bin/iappd.sh restart");
 		logmessage("DHCP LAN Client",
 			"%s, IP: %s/%s, GW: %s, lease time: %d",
-			udhcpc_lan_state, lan_ipaddr, lan_ipmask, lan_gateway, lease_dur);
+			udhcpc_lan_state, lease_ip, lease_netmask, gateway_buf, lease_dur);
 	}
 
 	if (!is_renew)

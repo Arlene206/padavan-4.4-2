@@ -1767,27 +1767,40 @@ jobs:
           lan_bound = lan[lan_bound_start:lan_bound_end]
           assert '#include "dhcp_lease_policy.h"' in lan
           assert '#include "dnsmasq_domain_policy.h"' in lan
-          assert lan_bound.index("dhcp_lease_ipv4_is_valid(lease_ip)") < lan_bound.index('nvram_set_temp("lan_ipaddr_t"')
-          assert lan_bound.index("dhcp_lease_netmask_is_valid(lease_netmask)") < lan_bound.index('nvram_set_temp("lan_ipaddr_t"')
+          assert lan_bound.index("dhcp_lease_ipv4_is_valid(lease_ip)") < lan_bound.index("dhcp_lease_bound_apply(")
+          assert lan_bound.index("dhcp_lease_netmask_is_valid(lease_netmask)") < lan_bound.index("dhcp_lease_bound_apply(")
           assert "dhcp_lease_ipv4_list_first(" in lan_bound
           assert "dhcp_lease_ipv4_list_is_valid(lease_dns, 255, 16, 1)" in lan_bound
           assert "dhcp_lease_ipv4_list_is_valid(lease_wins, 255, 16, 1)" in lan_bound
           assert "dnsmasq_valid_server_domain(lease_domain)" in lan_bound
           assert "dhcp_lease_decimal_is_valid(value, 0U, 2147483647U" in lan_bound
           assert "atoi(value)" not in lan_bound
-          assert 'nvram_set_temp("lan_gateway_t", gateway_buf)' in lan_bound
-          assert 'nvram_set_temp("lan_dns_t", lease_dns)' in lan_bound
-          assert 'nvram_set_temp("lan_domain_t", lease_domain)' in lan_bound
-          assert 'nvram_set_temp("lan_wins_t", lease_wins)' in lan_bound
-          assert lan_bound.index("route_del(lan_ifname, 0") < lan_bound.index("lan_up_auto(")
-          assert "strcmp(old_gateway, gateway_buf) != 0" in lan_bound
-          assert "failed to remove previous gateway route" in lan_bound
-          assert "dhcp_lease_route_delete_is_ok(route_result)" in lan_bound
-          route_delete = lan_bound.index("route_del(lan_ifname, 0")
-          route_delete_failure = lan_bound.index("return route_result;", route_delete)
+          assert "dhcp_lease_bound_apply(" in lan_bound
+          transaction_call = lan_bound.index("status = dhcp_lease_bound_apply(")
+          transaction_failure = lan_bound.index("if (status != 0)", transaction_call)
           lease_publish = lan_bound.index('nvram_set_temp("lan_ipaddr_t"')
-          assert route_delete < route_delete_failure < lease_publish
-          assert "return status == 0 || status == ESRCH;" in policy
+          assert transaction_call < transaction_failure < lease_publish
+          assert "rollback_status" in lan_bound
+          assert "failed to roll back LAN DHCP bound transaction" in lan_bound
+          assert "dhcp_lease_bound_apply" in policy
+          assert "dhcp_lease_route_add_is_ok" in policy
+          assert "dhcp_lease_route_delete_is_ok(cleanup_status)" in policy
+          assert "address_touched" in policy and "old_route_deleted" in policy
+          assert "dhcp_lease_bound_apply" in test
+          assert '"dCSAP"' in test and '"dCSAPDsa"' in test
+
+          resolver_start = lan.index("lan_publish_resolver_auto(char *lan_gateway")
+          resolver_end = lan.index("struct lan_dhcp_bound_context", resolver_start)
+          resolver = lan[resolver_start:resolver_end]
+          assert 'file_lock("resolv")' in resolver
+          assert "dnsmasq_file_open(resolv_temp)" in resolver
+          assert "dnsmasq_file_publish(fp, resolv_temp, DNS_RESOLV_CONF, 0644)" in resolver
+          assert 'fopen(DNS_RESOLV_CONF' not in resolver
+          assert "return route_del(context->lan_ifname" in lan
+          assert "return route_add(context->lan_ifname" in lan
+          assert "return ifconfig(context->lan_ifname, IFUP" in lan
+          assert 'nvram_set_temp("lan_gateway_t", gateway_buf)' in lan_bound
+          assert lan_bound.index("create_hosts_lan(lease_ip, lease_domain)") > lease_publish
           assert "dhcp_lease_deconfig_status" in test
 
           lan_down_start = lan.index("lan_down_auto(char *lan_ifname)")

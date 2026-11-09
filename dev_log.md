@@ -1,3 +1,16 @@
+## 2026-11-09 15:04 CST (UTC+8) — Make AP-mode LAN DHCP bound updates transactional
+
+- **Base main SHA:** `2f4942be4a1068e72982475166b178add129981c`; resulting commit: THIS COMMIT.
+- **Module / priority:** LAN DHCP client and resolver lifecycle, P1/P2 stability; module remains PARTIAL / AUDITING.
+- **Finding:** the bound/renew callback published temporary NVRAM lease identity before checking interface address changes, ignored default-route addition errors, and rewrote `/etc/resolv.conf` in place without the resolver lock or checked atomic publication. BusyBox's `udhcp_run_script()` synchronously waits for the callback but discards its exit status, so an error return alone cannot keep RC state and the kernel on the previous lease.
+- **Fix:** add a host-testable DHCP bound transaction policy. It deletes a replaced old route, applies the address and new route, then atomically publishes the resolver before committing temporary lease fields. Any failure attempts all compensating operations, restores the previous address/route where they were actually changed, leaves temporary lease state untouched, and records the first rollback failure separately. Route-add `EEXIST` is treated as already-present without claiming ownership for rollback. Resolver generation now uses the shared `resolv` lock and `dnsmasq_file_open/publish` staging path.
+- **Changed paths:** `trunk/user/rc/src/net_lan.c`, `trunk/user/rc/src/dhcp_lease_policy.h`, `trunk/user/rc/src/tests/dhcp_lease_policy.c`, `.github/workflows/httpd-security.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+- **Regression:** expanded GNU89 policy tests for successful transition, old-route deletion failure, interface clear/set failures, route-add failure, resolver publication failure, `EEXIST` ownership behavior, withdrawn gateway, and incomplete rollback. The HTTPD workflow compiles/runs the host regression and verifies the transaction/source wiring. Exact-head Actions are PENDING at commit creation.
+- **Validation boundary:** this commit's host regression and source contracts require exact-head Actions confirmation. L1 source/caller review is complete for the bounded bound callback; L3 production RC object/MIPS-uClibc/firmware and L4 real DHCP renew/failure injection/router validation remain NOT VERIFIED. The BusyBox callback exit-status limitation remains intrinsic; this change protects RC/kernel state with rollback instead of relying on the callback status.
+- **Next:** reconcile HTTPD/DHCP and AI handoff Actions against the exact implementation SHA; then resume Optware `opt-umount.sh` service-stop/second-`umount /opt` error propagation. Keep the storage caller-graph contract queued, then rotate to an unaudited user-space module.
+
+---
+
 ## 2026-11-09 14:37 CST (UTC+8) — Simplify cross-session records and batch log rotation
 
 - **Base main SHA:** `ae0ddfe000ca0ed92154f3b14b125d667a76832a`.

@@ -5,15 +5,15 @@
 ## Current source / CI checkpoint
 
 - Repository: Arlene206/padavan-4.4-2 (maintained fork).
-- Latest source/test checkpoint: `c42ce06cfc784e64bb71e44088423abc144e2cd6`. Later documentation-only commits may advance `main`; refetch live HEAD before writes.
-- Exact source/test-head HTTPD Authentication and Security Regression [42572938754](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42572938754) PASS and AI handoff docs [42572938846](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42572938846) PASS on `c42ce06`. USB storage [42570160275](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42570160275) passed on the earlier storage source checkpoint `c2706ac`.
+- Latest source/test checkpoint: THIS COMMIT — transactional AP-mode LAN DHCP bound/renew address-route-resolver publication with compensating rollback. Resolve the exact SHA from live `main` at next recovery; later documentation-only commits may advance the branch.
+- Exact-head HTTPD/DHCP and AI handoff docs for THIS COMMIT are PENDING; the previous code checkpoint `c42ce06` had both runs 42572938754/42572938846 PASS. The pre-change docs-only main `2f4942b` docs run 42574909848 PASS. USB storage [42570160275](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42570160275) passed on the earlier storage source checkpoint `c2706ac`.
 - Validation limit: source review and host/Actions only. No production MIPS/uClibc objects, firmware/TRX or live hardware tests.
 
 ## Whole-repository module status
 
 | Module | Status | Verified bounded work | Open reliability / security work |
 |---|---|---|---|
-| LAN DHCP client / AP-mode lease | PARTIAL / AUDITING | Required IP/netmask validation; optional router/DNS/WINS/domain normalization; withdrawn option clearing; changed-gateway delete before lease publication; fail-closed deconfig route/interface checks plus atomic staged resolver cleanup gate temporary-state reset; ESRCH benign. | BusyBox waits for DHCP event scripts but ignores child exit status. Remaining bound transaction: interface `ifconfig`, gateway `route_add`, resolver publication failures and last-known-good rollback; leasefail/NAK policy. |
+| LAN DHCP client / AP-mode lease | PARTIAL / AUDITING | Required IP/netmask validation; optional router/DNS/WINS/domain normalization; withdrawn option clearing; changed-gateway delete-before-publish; fail-closed deconfig route/interface checks plus atomic staged resolver cleanup; bound/renew checked address and route operations, resolver lock/staging/publication and compensating rollback with last-known-good lease fields preserved. | BusyBox discards event-script exit status; exact-head host/source contract and retry behavior still need verification. Leasefail/NAK/release policy and live DHCP transitions remain open. |
 | WAN DHCP / route lifecycle | PARTIAL / AUDITING | Lease option validation, route-text safety, route operation error propagation and selected WAN teardown gates. | Broader callback, multi-WAN and route reconciliation audit. |
 | DNSMasq / resolver / DHCP files | PARTIAL / AUDITING | Safe staged publication, no-follow lease file validation, domain validation, resolver refresh failure contracts and generated-file trust checks. | Daemon lifecycle, option ownership, DNS update and restart/stop error propagation. |
 | USB / storage / hotplug / filesystem | PARTIAL / AUDITING | Full partition inventory staging, swapoff-before-unmount, operation-wide storage lock, deferred-start retry, Optware lifecycle locking and nonblocking teardown try-lock to avoid lock inversion. | opt-umount stop-hook / second umount status propagation; broader in-tree caller-graph test draft not yet in CI; external scripts, filesystem runtime and hardware. |
@@ -27,7 +27,7 @@
 
 ## Priority queue
 
-1. P1/P2 — Complete LAN DHCP bound transaction. Deconfig aborts on failed recorded-gateway delete (except ESRCH), static `ifconfig`, resolver lock/staging/publish errors and does not reset temporary lease identity until success. Next make bound `ifconfig` / `route_add` / resolver publication checked and coherent with the last-known-good lease despite BusyBox ignoring callback exit status.
+1. P1/P2 — Verify the new LAN DHCP bound transaction on the exact implementation SHA. The host regression must cover address clear/set, gateway delete/add, resolver publication, rollback, pre-existing routes (`EEXIST`) and failed rollback; then continue leasefail/NAK/release semantics. MIPS/firmware and live DHCP remain unverified.
 2. P2 — Optware safe-eject error propagation. Check every S??* stop return and both /opt umount attempts; propagate failure to the C caller so it never treats incomplete Optware teardown as complete. Keep the try-lock nonblocking below storage.lock.
 3. P2 — Storage caller-graph regression. Revalidate the drafted whole-callgraph Python contract and add it with mountpoint and lifecycle lock tests to storage-hotplug-stability.yml.
 4. P2 — Cross-module rotation. After DHCP/storage bounded work, rotate to another userland area (FTP/Samba/account or add-on services). Do not get stuck in SkipDBv2, HTTPD, storage or DHCP.
