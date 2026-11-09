@@ -1,13 +1,24 @@
 ## Current repository state
 
-- Maintained fork: Arlene206/padavan-4.4-2; work only on this fork.
-- Live `main` SHA: `38a86273a44bc481666674606979321701703f71`; parent: `639ebbdedca75d1938e7d280108d146d05e2e479`. Remote branch list contains only `main`; no checkpoint branch exists.
-- The route-add propagation commit `38a86273a44bc481666674606979321701703f71` is published. It adds private status-returning MAN/WAN up helpers, propagates direct and static/DHCP helper route-add errors without short-circuiting, preserves the public void APIs, and makes `udhcpc_bound()` log/return the route-setup status. It intentionally avoids blind route rollback because route ownership cannot be inferred from an add failure.
-- Exact-head Actions on `38a86273a44bc481666674606979321701703f71`: WAN route operation status [42703179674], AI handoff docs [42703179667], WAN interface teardown [42703179436], and HTTPD security [42703179416] completed SUCCESS.
-- WAN DHCP callback [42703179710] is FAILURE, but its GNU89 interface transaction compile/run step passed. The subsequent source-contract step failed because it still searched for `wan_up(wan_ifname, unit, 0)`; this change correctly calls `wan_up_internal()` / `man_up_internal()` to capture the route status. The failure is a stale test assertion, not evidence of a production compile failure. THIS commit updates that assertion and adds checks for status capture/return; exact-head rerun is pending.
-- BusyBox `udhcp_run_script()` continues to discard callback status; logs remain the operational failure channel. The callback-state review is still open.
-- L3 production RC/MIPS/uClibc/firmware and L4 physical router validation are not established.
-- Root `dev_log.md` currently has 77 complete records; THIS contract-correction entry makes 78 /119. No archive rotation is due.
+- Maintained fork: `Arlene206/padavan-4.4-2`; work only on this repository.
+- Branch inventory at takeover: `main` only; no remote checkpoint branch. No force-pushes were used.
+- Latest source/control checkpoint before this handoff-documentation commit: `258532a78922549698bc6d9b869c7777f8f4ac05`. This file update will advance `main`; on the next takeover, fetch the actual ref rather than assuming this source checkpoint is still HEAD.
+- Samba production implementation commit: `1a7097ace2e6c689cb7e92cd10055967d99fe143` (parent `6b44e023c2f669865fc8b5cb5425d824b8335d8b`). Follow-up commits updated the Samba and HTTPD semantic workflow extractors after initial assertions still referenced the previous writer layout.
+- Exact Actions evidence:
+  - Samba share configuration regression [42708213921] completed SUCCESS on exact SHA `e9a93eb84ac9f95447150869fab7e0ae1c2da9ff`. GNU89 host compilation/execution passed for config-file, passdb policy, the new paired transaction, and daemon policy tests; the full Samba source-order contract also passed.
+  - HTTPD Authentication/Security regression [42708503436] completed SUCCESS on exact SHA `258532a78922549698bc6d9b869c7777f8f4ac05`, including Samba share/ACL trust-boundary checks and the updated unlocked-writer source extractor.
+  - AI handoff documentation validation [42708503300] completed SUCCESS on exact SHA `258532a78922549698bc6d9b869c7777f8f4ac05`.
+  - Initial attempts on `1a7097a...` failed only in stale semantic workflow extractors; the new transaction host test itself passed. The assertions were corrected and later exact-SHA runs above passed. Do not report the initial failures as green.
+- The exact-head DHCP callback and handoff checks on `6b44e023c2f669865fc8b5cb5425d824b8335d8b` were already SUCCESS: WAN DHCP callback [42703609156] and AI handoff docs [42703609087].
+- Root `dev_log.md` had 78 complete records before this entry; this entry makes 79/119. Its previous size was approximately 189 KiB, below the 384 KiB early-rotation target. No archive rotation is due.
+- L3 production RC/MIPS/uClibc/firmware builds and L4 physical router validation are NOT VERIFIED.
+
+## Completed DHCP callback and BusyBox event-state review
+
+- The previously unfinished DHCP callback source-contract correction is reconciled on exact SHA `6b44e023c2f669865fc8b5cb5425d824b8335d8b`: the GNU89 interface transaction regression and callback source-order contract passed [42703609156]; the handoff contract passed [42703609087].
+- Completed a bounded review of BusyBox `udhcp_run_script()` dispatch and callers for initial `leasefail`, accepted NAK, lease expiry, renew/repeated renew, SIGUSR2 and release-on-quit.
+- The applet deliberately ignores `spawn_and_wait()` callback status. Inspected transitions invoke deconfig for lease expiry and release paths; a matching NAK deconfigures only a previously bound state, not the initial REQUESTING state. Retry exhaustion routes to `leasefail`; SIGUSR2/release-on-quit use the release path. No reproducible BusyBox protocol-state defect was established, so no behavior-changing BusyBox patch was justified.
+- Follow-up observation outside this bounded applet audit: the IPTV DHCP callback path in `trunk/user/rc/src/net_wan.c` appears to discard some route/interface operation statuses. It remains a separate queued review and was not changed in this round.
 
 ## Completed FULLCONENAT namespace / zone work
 
@@ -28,32 +39,41 @@
 - GNU89 regression now covers positive/negative metadata filenames, direct sidecar denial, final symlink alias denial, cross-share symlinks, dangling links, new leaves and symlinked directories.
 - The only failure on `30d64c73546db236c12679d24eda74c1ea9f2916` is the CI Python variable-order defect described above; host binaries themselves all passed. The workflow correction moves all helper-body extraction before assertions.
 
+## Completed Samba paired passdb/config publication hardening
+
+- Finding: `run_samba()` staged and renamed the private passdb, then atomically published `/etc/smb.conf`. Ordinary errors restored the passdb, but abrupt termination between the two renames could leave a new passdb paired with old configuration and no same-boot recovery path.
+- Fix: added `samba_config_transaction.h` and a paired transaction journal under `/etc/samba/.config-transaction`. PREPARED records both original-file snapshots before either live file changes; recovery restores both idempotently. COMMITTED records the new pair as authoritative and makes snapshot cleanup retryable. This is explicitly a same-boot process-crash journal in volatile `/etc`, not a power-loss durability guarantee.
+- A shared process-scoped lock at `/var/run/samba-config.lock` serializes `run_samba()`, public `write_smb_conf()`, and WINS-only `start_wins()`. Every writer recovers an interrupted pair before modifying configuration. `run_samba()` keeps the lock through publication and daemon postcondition checks; rollback is attempted before releasing it on an uncommitted failure.
+- Added GNU89 host regression coverage for interruption after passdb rename, interruption after both renames but before COMMITTED, committed-pair cleanup, first-time passdb creation rollback, retry after partial rollback, and symlink-target rejection.
+- Changed source/test paths: `trunk/user/rc/src/services_stor.c`, `trunk/user/rc/src/services_ex.c`, `trunk/user/rc/src/samba_config_transaction.h`, `trunk/user/rc/src/tests/samba_config_transaction.c`, `trunk/user/rc/src/samba_passdb_policy.h`; updated `.github/workflows/samba-share-stability.yml` and dependent `.github/workflows/httpd-security.yml` static contracts.
+- Exact successful Samba host/source regression: [42708213921] on `e9a93eb84ac9f95447150869fab7e0ae1c2da9ff`. Exact successful dependent HTTPD suite: [42708503436] on `258532a78922549698bc6d9b869c7777f8f4ac05`. No full target build or router test is claimed.
+
 ## Active task
 
-1. Reconcile THIS DHCP callback contract correction on the resulting exact `main` SHA. Require the DHCP interface transaction compile/run and full source-order assertions to pass, along with WAN route, WAN teardown, HTTPD and AI handoff workflows; compare each run's `head_sha`.
-2. Once green, finish the bounded BusyBox DHCP callback audit: initial `leasefail`, accepted NAK followed by deconfig, lease expiry, renew/repeated renew, and SIGUSR2/release-on-quit. Trace how `udhcp_run_script()` discards child status; do not change that legacy behavior absent a demonstrated lifecycle/state defect.
-3. Rotate out of WAN after that bounded review. Start with Samba same-boot passdb/config publication, then the next most consequential stability/security item from the whole-userland governance ledger. Keep FTP realpath-to-syscall TOCTOU, FULLCONENAT target build, and NFS compatibility questions visible.
+1. Continue whole-userland governance outside DHCP/WAN and Samba. Start with the tracked FTP `realpath()`-to-filesystem-syscall TOCTOU risk: trace each path resolver, authorization check, and subsequent open/unlink/rename/list/metadata syscall; determine whether directory-FD-relative operations can close the race without breaking the embedded vsftpd/uClibc environment.
+2. Add a deterministic host race/policy regression only after the concrete race window and supported syscall behavior are established. Preserve current fail-closed symlink/ACL semantics; do not make speculative broad FTP changes.
+3. Keep the IPTV DHCP callback status-loss observation, FULLCONENAT target-kernel/MIPS build, and NFS `async`/AUTH_SYS/root-squash/external-mount compatibility questions in the priority queue.
 
 ## Verification boundary
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for MAN/WAN direct and helper route-add aggregation, first-error retention without short-circuiting, logging, public void API preservation, and DHCP bound status capture/return. |
-| L2 host / Actions | Exact SHA `38a86273a44bc481666674606979321701703f71`: WAN route [42703179674], AI docs [42703179667], WAN teardown [42703179436], and HTTPD [42703179416] SUCCESS. DHCP [42703179710] host transaction compile/run PASS; semantic source-order check failed only on its obsolete `wan_up()` call assertion. THIS correction is pending exact-head rerun. |
-| L3 production RC object, MIPS/uClibc objects, complete firmware/TRX | NOT VERIFIED. |
-| L4 router route reconciliation, DHCP failure/release behavior, and hardware | NOT VERIFIED. |
+| L1 source review | PASS for the bounded BusyBox DHCP event-state audit and Samba paired publication/recovery control flow. No BusyBox applet modification was justified. |
+| L2 host / GitHub Actions | Samba transaction host tests plus source-order contract [42708213921] PASS on exact SHA `e9a93eb84ac9f95447150869fab7e0ae1c2da9ff`. HTTPD/Samba dependent trust-boundary regression [42708503436] and handoff validation [42708503300] PASS on exact SHA `258532a78922549698bc6d9b869c7777f8f4ac05`. DHCP callback [42703609156] and docs [42703609087] PASS on exact SHA `6b44e023c2f669865fc8b5cb5425d824b8335d8b`. |
+| L3 production RC objects, MIPS/uClibc objects, complete firmware/TRX | NOT VERIFIED. |
+| L4 physical router behavior, SMB authentication under load, DHCP/IPTV, and hardware | NOT VERIFIED. |
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, branch list and Actions. Confirm the new DHCP workflow commit's exact `head_sha`; require its updated callback-ordering assertion and every triggered workflow to complete SUCCESS.
-2. Then inspect BusyBox's actual `udhcp_run_script()` dispatch/callers for `leasefail`, NAK/deconfig, expiry, renew, and SIGUSR2/release-on-quit. Determine whether discarded callback status causes a reproducible transition defect before changing behavior.
-3. When callback review is complete, move outside WAN to Samba same-boot passdb/config publication, then continue the whole-userland priority queue. Keep FTP path TOCTOU, FULLCONENAT target build, and NFS compatibility visible.
+1. Fetch live `main` ref, branch list, recent checkpoint references and Actions. Record exact HEAD SHA; do not assume the source SHA in this file is still live HEAD after this documentation checkpoint.
+2. Read the current FTP path-resolution and syscall implementation end-to-end. Focus on whether canonical-path validation can be raced before the final filesystem operation; document the precise affected commands and target libc/kernel constraints.
+3. Keep the IPTV DHCP callback status-loss issue, FULLCONENAT target build, and NFS compatibility decisions visible. Do not repeat the completed BusyBox callback-state audit or Samba paired-publication fix unless new evidence invalidates them.
 
 ## Continuation rules
 
 - `SESSION_HANDOFF.md` is the sole actionable continuation point; update only when resumable work/checkpoint/next action materially changes.
 - Update `REFACTOR_ROADMAP.md` only when module status/evidence/priorities materially change.
-- Root `dev_log.md` keeps 20–119 complete newest-first records; at 120, archive the oldest 100 verbatim and retain newest 20. Use 384 KiB as early-rotation target and 512 KiB as hard limit.
+- Root `dev_log.md` keeps 20–119 complete records newest first; at 120, archive the oldest 100 verbatim and retain newest 20. Use 384 KiB as early-rotation target and 512 KiB as hard limit.
 - Preserve archive snapshots/indexes byte-for-byte; do not add routine archive snapshots or docs-only commits.
 - Run `scripts/check_ai_handoff_docs.py` only with a full local checkout; exact-head Actions are authoritative for the pushed SHA.
 - Recheck live `main`, branches and exact-head Actions on every takeover. Never force-push. Do not claim target builds or device tests without evidence.

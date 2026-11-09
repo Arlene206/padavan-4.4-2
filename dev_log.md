@@ -1,3 +1,17 @@
+## 2026-11-10 06:08 CST (UTC+8) — Recover Samba passdb/config publication after same-boot process interruption
+
+- **Base main SHA:** `258532a78922549698bc6d9b869c7777f8f4ac05`; active branch: `main`; remote checkpoint branches: none.
+- **Recovered unfinished work:** the previous handoff's DHCP callback source-contract correction completed on exact SHA `6b44e023c2f669865fc8b5cb5425d824b8335d8b`; WAN DHCP callback [42703609156] and AI handoff docs [42703609087] both completed SUCCESS. The bounded BusyBox event review also completed without a justified applet behavior change.
+- **Finding:** `run_samba()` had ordinary-error passdb rollback, but a process exit after replacing `/etc/samba/smbpasswd` and before the matching `/etc/smb.conf` rename could leave a mismatched pair with no same-boot recovery state.
+- **Fix:** add a PREPARED/COMMITTED paired publication journal and hardlink snapshots under `/etc/samba/.config-transaction`; recover uncommitted pairs idempotently, preserve the committed pair after COMMITTED, and retry cleanup on later writers. Serialize `run_samba()`, public `write_smb_conf()`, and WINS `start_wins()` with `/var/run/samba-config.lock`; all writers recover before config changes. The journal is intentionally volatile under `/etc` and makes no power-loss durability claim.
+- **Regression:** add GNU89 host tests for interruption after passdb rename, interruption after both file renames, committed cleanup, first-run missing passdb, partial rollback retry and symlink refusal. Update Samba and HTTPD semantic contracts to inspect the unlocked config generator and new transaction path.
+- **Changed paths:** `trunk/user/rc/src/services_stor.c`; `trunk/user/rc/src/services_ex.c`; new `trunk/user/rc/src/samba_config_transaction.h`; new `trunk/user/rc/src/tests/samba_config_transaction.c`; `trunk/user/rc/src/samba_passdb_policy.h`; `.github/workflows/samba-share-stability.yml`; `.github/workflows/httpd-security.yml`; `SESSION_HANDOFF.md`; `REFACTOR_ROADMAP.md`; this root log record.
+- **Validation:** Samba transaction host compile/run and source-order contract [42708213921] completed SUCCESS on exact SHA `e9a93eb84ac9f95447150869fab7e0ae1c2da9ff`. Dependent HTTPD/Samba trust-boundary regression [42708503436] and AI docs validation [42708503300] completed SUCCESS on exact SHA `258532a78922549698bc6d9b869c7777f8f4ac05`. Initial stale semantic assertions were corrected; their earlier failures are not counted as PASS. No local target build, MIPS/uClibc object, firmware/TRX or hardware test is claimed.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** audit FTP `realpath()`-to-filesystem-syscall TOCTOU end-to-end, preserving symlink/ACL semantics and the embedded libc/kernel constraints. Keep IPTV DHCP callback status loss, FULLCONENAT target build and NFS compatibility questions queued.
+
+---
+
 ## 2026-11-10 05:25 CST (UTC+8) — Align DHCP callback regression with status-returning WAN/MAN up helpers
 
 - **Base main SHA:** `38a86273a44bc481666674606979321701703f71`; active branch: `main`.
