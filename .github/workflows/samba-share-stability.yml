@@ -144,6 +144,11 @@ jobs:
           assert "samba_config_transaction_abort(" in run_samba
           transaction = Path("trunk/user/rc/src/samba_config_transaction.h").read_text()
           transaction_test = Path("trunk/user/rc/src/tests/samba_config_transaction.c").read_text()
+          cleanup_fn = function_body(transaction, "samba_config_transaction_cleanup(")
+          assert cleanup_fn.index('"state"') < cleanup_fn.index('"passdb.old"')
+          assert "Never delete a snapshot while its marker" in cleanup_fn
+          assert "termination during cleanup" in transaction_test
+          assert "O_NOFOLLOW" in transaction and "st_uid != geteuid()" in transaction
           assert "PREPARED" in transaction and "COMMITTED" in transaction
           assert "samba_config_transaction_recover(" in transaction
           assert "samba_config_transaction_restore_file(" in transaction

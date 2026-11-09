@@ -20,15 +20,26 @@ static inline int
 samba_config_transaction_lock_acquire(const char *lock_path)
 {
 	struct flock lock;
-	int fd, result;
+	struct stat st;
+	int fd, result, flags = O_RDWR | O_CREAT;
 
 	if (!lock_path || !*lock_path) {
 		errno = EINVAL;
 		return -1;
 	}
-	fd = open(lock_path, O_RDWR | O_CREAT, 0600);
+#ifdef O_NOFOLLOW
+	flags |= O_NOFOLLOW;
+#endif
+	fd = open(lock_path, flags, 0600);
 	if (fd < 0)
 		return -1;
+	if (fstat(fd, &st) != 0 || !S_ISREG(st.st_mode) ||
+	    st.st_uid != geteuid()) {
+		int saved_errno = errno ? errno : EINVAL;
+		close(fd);
+		errno = saved_errno;
+		return -1;
+	}
 	if (fchmod(fd, 0600) != 0 ||
 	    fcntl(fd, F_SETFD, FD_CLOEXEC) != 0) {
 		int saved_errno = errno ? errno : EIO;
@@ -98,7 +109,7 @@ samba_config_transaction_snapshot(const char *target_path,
 			return 0;
 		return -1;
 	}
-	if (!S_ISREG(st.st_mode)) {
+	if (!S_ISREG(st.st_mode) || st.st_uid != geteuid()) {
 		errno = EINVAL;
 		return -1;
 	}
@@ -142,6 +153,13 @@ samba_config_transaction_write_state(const char *directory,
 	fd = open(next_path, O_WRONLY | O_CREAT | O_EXCL, 0600);
 	if (fd < 0)
 		return -1;
+	if (fchmod(fd, 0600) != 0) {
+		saved_errno = errno ? errno : EIO;
+		close(fd);
+		unlink(next_path);
+		errno = saved_errno;
+		return -1;
+	}
 
 	offset = 0;
 	while (offset < (size_t)length) {
@@ -188,18 +206,29 @@ samba_config_transaction_read_state(const char *directory,
 {
 	char state_path[SAMBA_CONFIG_TRANSACTION_PATH_MAX];
 	char content[128], expected[128];
+	struct stat st;
 	size_t offset;
-	int fd, passdb, config, phase, length;
+	int fd, passdb, config, phase, length, flags = O_RDONLY;
 	ssize_t count;
 
 	if (!passdb_had_original || !config_had_original || !is_committed ||
 	    samba_config_transaction_make_path(state_path, sizeof(state_path),
 						directory, "state") != 0)
 		return -1;
-	fd = open(state_path, O_RDONLY);
+#ifdef O_NOFOLLOW
+	flags |= O_NOFOLLOW;
+#endif
+	fd = open(state_path, flags);
 	if (fd < 0) {
 		if (errno == ENOENT)
 			return 0;
+		return -1;
+	}
+	if (fstat(fd, &st) != 0 || !S_ISREG(st.st_mode) ||
+	    st.st_uid != geteuid() || (st.st_mode & 0077) != 0) {
+		int saved_errno = errno ? errno : EINVAL;
+		close(fd);
+		errno = saved_errno;
 		return -1;
 	}
 
@@ -274,7 +303,7 @@ samba_config_transaction_restore_file(const char *target_path,
 	}
 	if (lstat(snapshot_path, &st) != 0)
 		return -1;
-	if (!S_ISREG(st.st_mode)) {
+	if (!S_ISREG(st.st_mode) || st.st_uid != geteuid()) {
 		errno = EINVAL;
 		return -1;
 	}
@@ -294,16 +323,29 @@ samba_config_transaction_restore_file(const char *target_path,
 static inline int
 samba_config_transaction_cleanup(const char *directory)
 {
-	static const char *const files[] = {
-		"passdb.old", "config.old", "passdb.restore", "config.restore",
-		"state.new", "state", NULL
+	static const char *const markers[] = { "state.new", "state", NULL };
+	static const char *const snapshots[] = {
+		"passdb.old", "config.old", "passdb.restore", "config.restore", NULL
 	};
 	char path[SAMBA_CONFIG_TRANSACTION_PATH_MAX];
 	int i, result = 0;
 
-	for (i = 0; files[i] != NULL; ++i) {
+	/*
+	 * Remove the decision marker before any rollback snapshot. If the process
+	 * exits after this point, recovery sees no state and treats remaining
+	 * snapshots as cleanup debris. Never delete a snapshot while its marker
+	 * still says PREPARED or COMMITTED.
+	 */
+	for (i = 0; markers[i] != NULL; ++i) {
 		if (samba_config_transaction_make_path(path, sizeof(path),
-						       directory, files[i]) != 0)
+						       directory, markers[i]) != 0)
+			return -1;
+		if (unlink(path) != 0 && errno != ENOENT)
+			return -1;
+	}
+	for (i = 0; snapshots[i] != NULL; ++i) {
+		if (samba_config_transaction_make_path(path, sizeof(path),
+						       directory, snapshots[i]) != 0)
 			return -1;
 		if (unlink(path) != 0 && errno != ENOENT)
 			result = -1;
@@ -342,7 +384,8 @@ samba_config_transaction_recover(const char *directory,
 			return 0;
 		return -1;
 	}
-	if (!S_ISDIR(st.st_mode) || (st.st_mode & 0777) != 0700) {
+	if (!S_ISDIR(st.st_mode) || st.st_uid != geteuid() ||
+	    (st.st_mode & 0777) != 0700) {
 		errno = EINVAL;
 		return -1;
 	}

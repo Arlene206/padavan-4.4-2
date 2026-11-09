@@ -55,6 +55,8 @@ main(void)
 	char root[] = "/tmp/samba-config-transaction.XXXXXX";
 	char lock_path[256], transaction_dir[256], passdb[256], config[256];
 	char passdb_next[256], config_next[256], passdb_link[256];
+	char state_path[256], passdb_snapshot[256], config_snapshot[256];
+	char passdb_restore[256], config_restore[256];
 	int lock_fd;
 
 	assert(mkdtemp(root) != NULL);
@@ -65,6 +67,11 @@ main(void)
 	make_path(passdb_next, sizeof(passdb_next), root, "smbpasswd.next");
 	make_path(config_next, sizeof(config_next), root, "smb.conf.next");
 	make_path(passdb_link, sizeof(passdb_link), root, "passdb-link");
+	make_path(state_path, sizeof(state_path), transaction_dir, "state");
+	make_path(passdb_snapshot, sizeof(passdb_snapshot), transaction_dir, "passdb.old");
+	make_path(config_snapshot, sizeof(config_snapshot), transaction_dir, "config.old");
+	make_path(passdb_restore, sizeof(passdb_restore), transaction_dir, "passdb.restore");
+	make_path(config_restore, sizeof(config_restore), transaction_dir, "config.restore");
 
 	lock_fd = samba_config_transaction_lock_acquire(lock_path);
 	assert(lock_fd >= 0);
@@ -107,6 +114,25 @@ main(void)
 	assert(samba_config_transaction_recover(transaction_dir, passdb, config) == 0);
 	assert(access(passdb, F_OK) != 0);
 	assert_text(config, "committed config\n");
+
+	/*
+	 * Simulate termination during cleanup after both original files have been
+	 * restored and PREPARED is removed, but before any snapshot is deleted.
+	 */
+	write_text(passdb, "cleanup old passdb\n", 0600);
+	write_text(config, "cleanup old config\n", 0644);
+	assert(samba_config_transaction_begin(transaction_dir, passdb, config) == 0);
+	replace_text(passdb, passdb_next, "cleanup new passdb\n", 0600);
+	replace_text(config, config_next, "cleanup new config\n", 0644);
+	assert(samba_config_transaction_restore_file(
+		passdb, passdb_snapshot, passdb_restore, 1) == 0);
+	assert(samba_config_transaction_restore_file(
+		config, config_snapshot, config_restore, 1) == 0);
+	assert(unlink(state_path) == 0);
+	assert(samba_config_transaction_recover(transaction_dir, passdb, config) == 0);
+	assert_text(passdb, "cleanup old passdb\n");
+	assert_text(config, "cleanup old config\n");
+	assert(access(transaction_dir, F_OK) != 0);
 
 	/* A partial rollback can be retried because the snapshots are retained. */
 	write_text(passdb, "retry old passdb\n", 0600);
