@@ -63,14 +63,16 @@ jobs:
           # conntrack-destroy list. Never register a target without this worker.
           init = function_body(fullcone, "static int __init fullconenat_tg_init(void)")
           assert init.index("create_singlethread_workqueue") < init.index("if (wq == NULL)")
-          assert re.search(r"if\\s*\\(wq\\s*==\\s*NULL\\)\\s*\\{[^{}]*return -ENOMEM;", init, re.S)
+          assert re.search(r"if\s*\(wq\s*==\s*NULL\)\s*\{[^{}]*return -ENOMEM;", init, re.S)
           assert init.index("return -ENOMEM;") < init.index("xt_register_targets")
           assert "ret = xt_register_targets(tg_reg, ARRAY_SIZE(tg_reg));" in init
           registration_failure = init[init.index("if (ret != 0)"):]
           assert registration_failure.index("destroy_workqueue(wq)") < registration_failure.index("wq = NULL;") < registration_failure.index("return ret;")
           assert "return xt_register_targets(" not in init
 
-          callback = function_body(fullcone, "static int ct_event_cb(")
+          callback_start = fullcone.index("/* conntrack destroy event callback function */")
+          callback_end = fullcone.index("static __be32 get_device_ip(", callback_start)
+          callback = fullcone[callback_start:callback_end]
           worker = function_body(fullcone, "static void gc_worker(")
           assert "list_add(&(dying_tuple_item->list), &dying_tuple_list);" in callback
           assert "if (wq != NULL)" in callback and "queue_delayed_work(wq, &gc_worker_wk" in callback
@@ -106,7 +108,7 @@ jobs:
 
           # Confirm the IPv6 table-provider and hook-registration failures
           # reach userspace, then remain inside the RC's shared rollback.
-          replace = function_body(ip6_tables, "static int __do_replace(")
+          replace = function_body(ip6_tables, "__do_replace(struct net *net,")
           assert 'try_then_request_module(xt_find_table_lock(net, AF_INET6, name)' in replace
           assert "ret = t ? PTR_ERR(t) : -ENOENT;" in replace
           nat_init = function_body(ip6_nat, "static int __init ip6table_nat_init(void)")
