@@ -33,6 +33,7 @@
 #include "rc.h"
 #include "dnsmasq_domain_policy.h"
 #include "dhcp_lease_policy.h"
+#include "dnsmasq_file.h"
 #include "switch.h"
 #include "switch_status_policy.h"
 #include <gpioutils.h>
@@ -925,20 +926,21 @@ lan_down_auto(char *lan_ifname)
 		return status;
 	}
 
-	/* Clear resolv.conf under the same lock used by other resolver writers. */
+	/* Stage an empty resolver file beside the destination and atomically
+	 * publish it under the same lock used by other resolver writers. */
+	char resolv_temp[] = "/etc/resolv.conf.XXXXXX";
+
 	errno = 0;
 	lock = file_lock("resolv");
 	if (lock < 0) {
 		resolver_status = errno ? errno : EIO;
 	} else {
-		errno = 0;
-		fp = fopen(DNS_RESOLV_CONF, "w+");
+		fp = dnsmasq_file_open(resolv_temp);
 		if (!fp) {
 			resolver_status = errno ? errno : EIO;
-		} else {
-			errno = 0;
-			if (fclose(fp) != 0)
-				resolver_status = errno ? errno : EIO;
+		} else if (dnsmasq_file_publish(fp, resolv_temp,
+						DNS_RESOLV_CONF, 0644) != 0) {
+			resolver_status = errno ? errno : EIO;
 		}
 		file_unlock(lock);
 	}

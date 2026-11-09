@@ -1800,16 +1800,21 @@ jobs:
           route_gate = lan_down.index("dhcp_lease_deconfig_status(route_status, 0, 0)")
           interface_config = lan_down.index("ifconfig(lan_ifname, IFUP")
           resolver_lock = lan_down.index('file_lock("resolv")')
-          resolver_open = lan_down.index('fopen(DNS_RESOLV_CONF, "w+")')
-          resolver_close = lan_down.index("fclose(fp)")
+          resolver_open = lan_down.index("dnsmasq_file_open(resolv_temp)")
+          resolver_publish = lan_down.index("dnsmasq_file_publish(fp, resolv_temp,")
           final_gate = lan_down.rindex("dhcp_lease_deconfig_status(route_status, ifconfig_status,")
           detector_pause = lan_down.index("notify_pause_detect_internet()")
           status_reset = lan_down.index("update_lan_status(0)")
-          assert route_delete < route_gate < interface_config < resolver_lock < resolver_open < resolver_close < final_gate < detector_pause < status_reset
+          assert route_delete < route_gate < interface_config < resolver_lock < resolver_open < resolver_publish < final_gate < detector_pause < status_reset
           assert "if (status != 0)" in lan_down and "return status;" in lan_down
           assert "if (lock < 0)" in lan_down
           assert "if (!fp)" in lan_down
-          assert "if (fclose(fp) != 0)" in lan_down
+          assert '#include "dnsmasq_file.h"' in lan
+          assert 'char resolv_temp[] = "/etc/resolv.conf.XXXXXX";' in lan_down
+          assert "dnsmasq_file_open(resolv_temp)" in lan_down
+          assert "dnsmasq_file_publish(fp, resolv_temp," in lan_down
+          assert "fopen(DNS_RESOLV_CONF" not in lan_down
+          assert "rename(resolv_temp, DNS_RESOLV_CONF)" not in lan_down
           assert 'ifconfig(lan_ifname, IFUP' not in deconfig
           assert "status = lan_down_auto(lan_ifname);" in deconfig
           assert "if (status != 0)" in deconfig and "return status;" in deconfig
