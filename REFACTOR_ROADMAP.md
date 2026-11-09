@@ -1,13 +1,13 @@
 ## Current source / CI checkpoint
 
 - Repository: Arlene206/padavan-4.4-2; maintained fork only.
-- Base main SHA for THIS IPv6 FULLCONENAT contract correction: 736fab062b66468a654f73f6c67ed42bd9babb69; active branch main; only main exists.
-- FULLCONENAT namespace/zone implementation stores the owning network namespace and conntrack zone ID/flags/direction with IPv4/IPv6 mappings and pending destroy tuples. Per-net lookup, tuple GC and teardown are scoped. Three IPv4 check_mapping() call sites were corrected in 3f3368948e481d90db14e7e00868062dce7ef02b; five identical preprocessor signature wrappers were collapsed in 736fab062b66468a654f73f6c67ed42bd9babb69 so semantic body extraction could proceed.
-- Exact-head FULLCONENAT run [42677876443] passed notifier/cleanup, GNU89 namespace/zone policy binary, struct/lookup/check helper and IPv4 assertions; its final IPv6 assertion was invalid because it expected a direct inbound check_mapping6() call, although get_mapping6_by_ext_port() performs that validation internally. THIS batch corrects the contract. Exact-head rerun pending.
-- AI handoff docs [42677876166] SUCCESS on exact SHA 736fab062b66468a654f73f6c67ed42bd9babb69. Earlier docs failure [42674431213] was superseded by this exact-head docs pass.
-- FTP and AI docs runs [42667988550]/[42667988522] passed on exact SHA 895f2a9ebcb58e810694f76cbf13706ffea9ef75.
-- dev_init.sh mounts /etc as tmpfs. Samba config/passdb files there are volatile; persistent power-loss journaling there is not durable.
-- NFS generated defaults remain async,secure,no_root_squash,no_subtree_check. Custom override provenance/permission/content trust, AUTH_SYS/root-squash compatibility, durability and external-mount policy remain open.
+- Base main SHA for THIS FULLCONENAT callback-contract correction: 32ade08379b4bad18b8137801a57bb109815cf2a; active branch main; only main exists.
+- FULLCONENAT records network namespace and conntrack-zone identity in IPv4/IPv6 mappings and dying-tuple entries; mapping lookup, GC and teardown are namespace scoped. Three IPv4 helper calls were corrected in 3f3368948e481d90db14e7e00868062dce7ef02b; five redundant identical conditional signatures were simplified in 736fab062b66468a654f73f6c67ed42bd9babb69.
+- Exact-head [42678293858] passed notifier/cleanup, GNU89 namespace/zone policy binary and all semantic checks through IPv4/IPv6 target validation. It failed only when the simple brace scanner parsed ct_event_cb(), whose notifier-block and legacy callback signatures are mutually exclusive #ifdef/#else definitions, each with its own opening brace. THIS batch extracts the callback by stable source boundaries instead. Exact-head rerun pending.
+- AI docs [42678293955] SUCCESS on exact SHA 32ade08379b4bad18b8137801a57bb109815cf2a. Earlier exact docs workflow failure at e0dcc7 was superseded by successful docs runs on later exact heads.
+- FTP and AI docs [42667988550]/[42667988522] passed on exact SHA 895f2a9ebcb58e810694f76cbf13706ffea9ef75.
+- dev_init.sh mounts /etc as tmpfs; Samba runtime config/passdb files there are volatile and cannot provide persistent power-loss journaling.
+- NFS generated defaults remain async,secure,no_root_squash,no_subtree_check. Custom override trust, AUTH_SYS/root-squash compatibility, async durability and external-mount policy remain open.
 
 ## Whole-repository module status
 
@@ -17,7 +17,7 @@
 | WAN DHCP / route lifecycle | PARTIAL / AUDITING | Lease option validation, route-text safety, route operation error propagation and selected WAN teardown gates. | Broader callback, multi-WAN and route reconciliation audit. |
 | DNSMasq / resolver / DHCP files | PARTIAL / AUDITING | Safe staged publication, no-follow lease file validation, domain validation, resolver refresh failure contracts and generated-file trust checks. | Daemon lifecycle, option ownership, DNS update and restart/stop error propagation. |
 | USB / storage / hotplug / filesystem | PARTIAL / AUDITING | Full partition/ejected inventory staging, swapoff-before-unmount gates, operation-wide storage lock, Optware startup supervision/rollback, and checked removable-storage teardown. The internal MTD/UBI path reports actual `opt-mount.sh` status, retries with monotonic exponential backoff, and tracks/cancels its worker process group. Samba and vsftpd stop failures now participate in `stop_stor_apps()`; the safe-removal callers abort before unmount when any required storage service does not stop. | No production RC object/MIPS build; target filesystem and real hardware behavior remain unverified. |
-| Firewall / NAT / Netfilter | AUDITING | Firewall restore failure handling, IPv6 table setup and bounded FULLCONENAT worker/notifier registration error handling. Namespace/zone identity is stored and enforced for IPv4/IPv6 mappings and dying-tuple GC; GNU89 host policy test, notifier lifecycle and IPv4 target call-site contracts passed. The semantic contract then exposed its scanner's inability to handle duplicate #if/#else signatures; THIS batch removes five now-identical wrappers without changing runtime behavior. | Exact-head semantic workflow contract still needs its IPv6 inbound lookup assertion corrected; the docs action passed on 736fab062b66468a654f73f6c67ed42bd9babb69. Actual kernel/MIPS compilation remains unverified and broader firewall/NAT lifecycle review stays open. |
+| Firewall / NAT / Netfilter | AUDITING | Firewall restore failure handling, IPv6 table setup and bounded FULLCONENAT worker/notifier registration error handling. Namespace/zone identity is stored and enforced for IPv4/IPv6 mappings and dying-tuple GC; notifier lifecycle and host policy steps pass; IPv4 helper call sites are corrected. | Exact-head semantic contract callback extraction still pending; full kernel/MIPS object compile and broader firewall/NAT audit remain open. |
 | Wireless / Wi-Fi drivers | PARTIAL / AUDITING | Selected ioctl checks, scan bounds, config preflight, radio-state publication and AP/APCLI/WDS bridge gates. | Remaining iNIC/board-specific/concurrent lifecycle and live radio behavior. |
 | HTTPD / CGI / authentication | PARTIAL / AUDITING | Authentication, disclosure, safe publication, NVRAM restore and CGI policy checks have recent Actions. | Whole-route input, authorization and error-path inventory. |
 | NVRAM / persistence / startup | PARTIAL / AUDITING | Atomic publication and restore failure gates. | Remaining direct callers, flash recovery and board variants. |
@@ -29,11 +29,11 @@
 
 ## Priority queue
 
-1. P1/P2 — Complete the FULLCONENAT namespace/zone correction: verify exact-head Actions after aligning the IPv6 inbound validation contract with get_mapping6_by_ext_port(); actual kernel-object/MIPS compilation remains unverified.
+1. P1/P2 — Complete FULLCONENAT namespace/zone verification: exact-head semantic contract and AI docs must pass after the callback extractor stops parsing mutually exclusive #ifdef/#else signatures as one C function. Kernel object/MIPS compile remains unverified.
 2. P1/P2 — Trace NFS custom exports writer/trust boundary, /etc/storage ownership/modes and exportfs recovery before deciding whether custom override validation is a real exposure. Keep async durability, AUTH_SYS/root-squash compatibility and external mounts separate.
-3. P2 — Compare DHCP leasefail/accepted-NAK/release callback state semantics and BusyBox callback-status handling; prioritize reproducible stale-state or retry failures.
-4. P2 — Reassess same-boot recovery after abrupt termination during Samba passdb/config publication. /etc is tmpfs; persistent power-loss journaling there is not applicable.
-5. P2 — Keep FULLCONENAT tuple namespace/zone lifecycle residuals and FTP pathname realpath-to-syscall TOCTOU visible; avoid reopening completed FTP ACL work without new evidence.
+3. P2 — Compare DHCP leasefail/accepted-NAK/release callback state semantics and BusyBox callback-status handling.
+4. P2 — Reassess same-boot Samba passdb/config recovery without proposing persistent journaling under /etc tmpfs.
+5. P2 — Keep FULLCONENAT namespace lifecycle residuals and FTP pathname realpath-to-syscall TOCTOU visible.
 
 ## Working rules
 
@@ -50,10 +50,10 @@
 
 | Level | Evidence | Limits |
 |---|---|---|
-| L1 source review | PASS for FULLCONENAT namespace/zone identity propagation, namespace-aware lookup/GC and teardown ordering; THIS batch corrects all three stale IPv4 helper call sites. | Exact-head source contracts pending; broader firewall/NAT audit is not closed. |
-| L2 host / Actions | Base exact-head FULLCONENAT [42674430844]: notifier lifecycle and GNU89 namespace/zone policy compile/run PASS; semantic contract failed on over-escaped struct regex. Follow-up [42677259891]: notifier and host policy PASS; semantic contract passed struct/IPv4 checks but failed because the scanner counted duplicate conditional signature braces. [42677876443]: notifier, host policy, struct/lookup/check helper and IPv4 contracts PASS; last IPv6 assertion incorrectly expected direct inbound check_mapping6(). THIS workflow-only contract correction pending exact-head rerun. AI docs [42677876166] PASS on exact base SHA. FTP and docs runs [42667988550]/[42667988522] PASS on exact 895f2a9ebcb58e810694f76cbf13706ffea9ef75. | AI docs run [42674431213] failed at base SHA but exposed no job details; recheck exact-head docs run. No kernel object or target build claimed. |
+| L1 source review | PASS for FULLCONENAT namespace/zone identity, mapping lookup/GC scoping, teardown ordering, corrected IPv4 calls and IPv6 path. | Wider firewall/NAT audit is still open. |
+| L2 host / Actions | Exact SHA 32ade08379b4bad18b8137801a57bb109815cf2a: FULLCONENAT [42678293858] passed notifier, GNU89 host policy and all semantic checks up to callback source extraction; the naive parser failed on the mutually exclusive dual signatures. AI docs [42678293955] PASS. THIS callback parser update pending exact-head rerun. | No full kernel object, MIPS/uClibc build, firmware/TRX or router test. |
 | L3 MIPS/uClibc / production objects / firmware/TRX | NOT VERIFIED. | Full target build phase required. |
-| L4 storage eject, live Samba/WINS behavior / physical router | NOT VERIFIED. | Requires target-device validation. |
+| L4 storage eject, live Samba/NFS/NAT behavior / physical router | NOT VERIFIED. | Requires target-device validation. |
 
 ## Handoff requirements
 

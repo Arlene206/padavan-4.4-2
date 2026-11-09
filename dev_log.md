@@ -1,3 +1,15 @@
+## 2026-11-10 02:48 CST (UTC+8) — Make FULLCONENAT callback source contract preprocessor-aware
+
+- **Base main SHA:** 32ade08379b4bad18b8137801a57bb109815cf2a; resulting commit: THIS COMMIT.
+- **Exact-head Actions:** FULLCONENAT [42678293858] passed notifier ownership/cleanup, GNU89 namespace/zone policy compile/run, mapping struct and lookup checks, check_mapping helpers, corrected IPv4 calls and the IPv6 inbound/outbound lookup assertions. It then failed while extracting ct_event_cb(): CONFIG_NF_CONNTRACK_CHAIN_EVENTS and its #else branch declare two mutually exclusive signatures, each including an opening brace. The generic source scanner started at the first signature and counted both branches as one function.
+- **Confirmation:** this conditional is intentional API compatibility: the chain-events callback accepts (notifier_block *, events, void *), while the legacy callback accepts (events, nf_ct_event *). The kernel preprocessor compiles only one branch. Do not collapse or alter these distinct production signatures.
+- **Fix:** scope the semantic contract's callback source region from the stable callback marker through the next function declaration, then assert that the selected region saves the conntrack namespace/zone context. AI handoff docs [42678293955] passed on the exact base SHA.
+- **Changed paths:** .github/workflows/fullconenat-lifecycle.yml, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md, dev_log.md.
+- **Validation:** source review confirms the dual signatures are mutually exclusive and preserve the 4.4 notifier APIs; prior exact-head GNU89 policy and all preceding semantic checks PASS. THIS workflow/docs exact-head reruns pending. No production kernel object, MIPS/uClibc build, firmware/TRX or hardware test is claimed.
+- **Next:** verify all Actions on THIS resulting SHA; then proceed to NFS custom exports writer provenance/ownership/mode/content audit if green.
+
+---
+
 ## 2026-11-10 02:43 CST (UTC+8) — Align FULLCONENAT IPv6 inbound validation contract
 
 - **Base main SHA:** 736fab062b66468a654f73f6c67ed42bd9babb69; resulting commit: THIS COMMIT.
