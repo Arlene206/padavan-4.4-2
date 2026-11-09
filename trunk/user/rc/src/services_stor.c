@@ -39,7 +39,7 @@
 
 #include "rc.h"
 #include "storage_operation_lock.h"
-#include "samba_share_policy.h
+#include "samba_share_policy.h"
 #include "samba_passdb_policy.h"
 #include "ftp_share_policy.h"
 #include "storage_mount_inventory_policy.h"

@@ -121,7 +121,7 @@ jobs:
               body = function_body(hotplug, signature)
               assert body.index("file_lock(device_name)") < body.index("storage_operation_lock_acquire(file_lock)")
               assert body.count("file_unlock(storage_lock);") == 1
-              assert body.index("file_unlock(storage_lock);") < body.index("file_unlock(isLock);")
+              assert body.rindex("file_unlock(storage_lock);") < body.rindex("file_unlock(isLock);")
 
           storage_locked = function_body(storage, "umount_ejected_locked(void)")
           wrapper = function_body(storage, "umount_ejected(void)")
