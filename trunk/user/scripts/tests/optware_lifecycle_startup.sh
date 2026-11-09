@@ -31,13 +31,13 @@ cat > "$tmpdir/services-ok/S01-first" <<'HOOK'
 #!/bin/sh
 case "$1" in
 start)
-	printf 'S01-first start\\n' >> "$EVENTS_FILE"
+	printf 'S01-first start\n' >> "$EVENTS_FILE"
 	if flock -n 9 2>/dev/null; then
 		echo "startup hook inherited lifecycle lock fd 9" >&2
 		exit 90
 	fi
 	;;
-stop) printf 'S01-first stop\\n' >> "$EVENTS_FILE" ;;
+stop) printf 'S01-first stop\n' >> "$EVENTS_FILE" ;;
 *) exit 2 ;;
 esac
 HOOK
@@ -45,19 +45,19 @@ cat > "$tmpdir/services-ok/S02 with space" <<'HOOK'
 #!/bin/sh
 case "$1" in
 start)
-	printf 'S02 with space start\\n' >> "$EVENTS_FILE"
+	printf 'S02 with space start\n' >> "$EVENTS_FILE"
 	if flock -n 9 2>/dev/null; then
 		echo "startup hook with spaces inherited lifecycle lock fd 9" >&2
 		exit 90
 	fi
 	;;
-stop) printf 'S02 with space stop\\n' >> "$EVENTS_FILE" ;;
+stop) printf 'S02 with space stop\n' >> "$EVENTS_FILE" ;;
 *) exit 2 ;;
 esac
 HOOK
 cat > "$tmpdir/services-ok/S03-not-executable" <<'HOOK'
 #!/bin/sh
-printf 'non-executable hook ran\\n' >> "$EVENTS_FILE"
+printf 'non-executable hook ran\n' >> "$EVENTS_FILE"
 HOOK
 chmod +x "$tmpdir/services-ok/S01-first" "$tmpdir/services-ok/S02 with space"
 chmod 644 "$tmpdir/services-ok/S03-not-executable"
@@ -66,7 +66,7 @@ if ! optware_lifecycle_start_services "$tmpdir/services-ok"; then
 	echo "valid startup hooks unexpectedly failed" >&2
 	exit 1
 fi
-expected=$(printf 'S01-first start\\nS02 with space start')
+expected=$(printf 'S01-first start\nS02 with space start')
 [ "$(cat "$EVENTS_FILE")" = "$expected" ] || {
 	echo "startup order, pathname quoting, or non-executable filtering failed" >&2
 	exit 1
@@ -76,22 +76,22 @@ expected=$(printf 'S01-first start\\nS02 with space start')
 cat > "$tmpdir/services-fail/S01-first" <<'HOOK'
 #!/bin/sh
 case "$1" in
-start) printf 'S01-first start\\n' >> "$EVENTS_FILE" ;;
-stop) printf 'S01-first stop\\n' >> "$EVENTS_FILE" ;;
+start) printf 'S01-first start\n' >> "$EVENTS_FILE" ;;
+stop) printf 'S01-first stop\n' >> "$EVENTS_FILE" ;;
 *) exit 2 ;;
 esac
 HOOK
 cat > "$tmpdir/services-fail/S02 failing hook" <<'HOOK'
 #!/bin/sh
 case "$1" in
-start) printf 'S02 failing hook start\\n' >> "$EVENTS_FILE"; exit 1 ;;
-stop) printf 'S02 failing hook stop\\n' >> "$EVENTS_FILE"; exit 1 ;;
+start) printf 'S02 failing hook start\n' >> "$EVENTS_FILE"; exit 1 ;;
+stop) printf 'S02 failing hook stop\n' >> "$EVENTS_FILE"; exit 1 ;;
 *) exit 2 ;;
 esac
 HOOK
 cat > "$tmpdir/services-fail/S03-not-started" <<'HOOK'
 #!/bin/sh
-printf 'S03 should not start\\n' >> "$EVENTS_FILE"
+printf 'S03 should not start\n' >> "$EVENTS_FILE"
 exit 0
 HOOK
 chmod +x "$tmpdir/services-fail"/S??*
@@ -99,7 +99,7 @@ if optware_lifecycle_start_services "$tmpdir/services-fail"; then
 	echo "a failed service start was reported as success" >&2
 	exit 1
 fi
-expected=$(printf 'S01-first start\\nS02 failing hook start\\nS02 failing hook stop\\nS01-first stop')
+expected=$(printf 'S01-first start\nS02 failing hook start\nS02 failing hook stop\nS01-first stop')
 [ "$(cat "$EVENTS_FILE")" = "$expected" ] || {
 	echo "partial-start rollback did not stop failed/started hooks in reverse order" >&2
 	exit 1

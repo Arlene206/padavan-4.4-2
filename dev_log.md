@@ -1,3 +1,15 @@
+## 2026-11-09 18:30 CST (UTC+8) — Correct Optware startup regression and handoff contract
+
+- **Base main SHA:** `7005e6c48835b928d596f4a52f79ca9168a52994`; resulting commit: THIS COMMIT.
+- **Recovered exact-head failures:** storage-hotplug [42600941876](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42600941876) passed the existing lock and teardown regressions, then failed the new startup fixture. Source review found the fixture's printf formats were double-escaped, leaving literal backslash-n text and a trailing event marker; normalize them to actual newline escapes. AI handoff docs [42600941917](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42600941917) failed because the live handoff used `## Active checkpoint` instead of the validator-required `## Active task`.
+- **Correction:** correct all startup fixture printf escapes and retain the exact mandatory handoff heading. No production implementation change; the startup supervisor remains the behavior introduced by base commit `7005e6c`.
+- **Validation:** corrected startup fixture and shared lifecycle helper `sh -n` and focused host run PASS in the scratch directory. The prior storage job's first three shell regressions were green; its final whole-caller-graph step was skipped after the startup fixture failed. The docs failure occurred at the heading contract before archive checks. New exact-head storage/docs Actions pending.
+- **Changed paths:** `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`, `trunk/user/scripts/tests/optware_lifecycle_startup.sh`.
+- **Validation boundary:** L1 source review unchanged; L2 focused host regression PASS, corrected exact-head Actions pending. No production MIPS/uClibc object, firmware/TRX or router validation.
+- **Next:** reconcile corrected storage/docs Actions on the resulting exact SHA. If green, investigate the separate `opt-mount.sh` internal MTD/UBI direct service-start loop and its caller/lock context; preserve NFS ACL/permissions, Samba and vsftpd audits, DHCP callback semantics and FULLCONENAT namespace ownership as open work.
+
+---
+
 ## 2026-11-09 18:26 CST (UTC+8) — Supervise Optware startup hooks and roll back partial starts
 
 - **Base main SHA:** `8e818c475d3aa26fb4d92e255e25405c11f2a08f`; resulting commit: THIS COMMIT.

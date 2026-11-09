@@ -10,7 +10,9 @@
 - NFS start/reload status propagation and pre-daemon rollback are complete at source/CI level on that base. The 8e818c NFS test fixed a stale tri-state mount-contract assertion and added cleanup checks after both control-mount and export-publication failures. When export withdrawal fails, `etab` and pseudo-mounts remain as recovery evidence.
 - Exact parent-source HTTPD [42597871334](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42597871334), Samba [42597871360](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42597871360), and vsftpd [42597871344](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42597871344) runs passed on `a816159737241f398baa7f827d753f7b99e8131b`; no HTTPD-triggering source path changed in the NFS follow-up.
 
-## Active checkpoint — Optware startup supervision
+## Active task
+
+### Optware startup supervision
 
 P2 stability / service lifecycle. The next task specified by the previous handoff was the Optware `opt-start.sh` startup-hook path.
 
