@@ -2386,6 +2386,8 @@ jobs:
           assert header_start < hostname_guard < hostname_write
           assert "samba_acl_right_can_read(1)" in share_test
           assert "samba_acl_right_can_write(2)" in share_test
+          assert "samba_acl_right_is_denied(2)" in share_test
+          assert "samba_acl_right_is_denied(-1)" in share_test
           assert '#include "samba_share_policy.h"' in source
           assert '#include "ftp_share_policy.h"' in source
           assert '#include "samba_passdb_policy.h"' in source
@@ -2429,6 +2431,12 @@ jobs:
           assert folder_block.index("samba_share_name_is_safe(folder_list[n])") < folder_block.index('fprintf(fp, "[%s]\\n", share)')
           assert folder_block.index("samba_mount_path_is_safe(follow_partition->mount_point)") < folder_block.index('fprintf(fp, "path = %s/%s\\n"')
           assert folder_block.count("if (!samba_service_account_is_safe(account_list[i]))") == 4
+          invalid_users_start = folder_block.index('fprintf(fp, "invalid users = ");')
+          read_list_start = folder_block.index('fprintf(fp, "read list = ");', invalid_users_start)
+          invalid_users_block = folder_block[invalid_users_start:read_list_start]
+          assert "samba_acl_right_is_denied(right)" in invalid_users_block
+          assert "samba_acl_right_can_read(right)" not in invalid_users_block
+          assert folder_block.count("samba_acl_right_is_denied(guest_right)") == 2
 
           # Anonymous SMB users must map to locked UID 99, never http_username (UID 0).
           guest_start = source.index("if (i_smb_mode == 1 || i_smb_mode == 3) {")

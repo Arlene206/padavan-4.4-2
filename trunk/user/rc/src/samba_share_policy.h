@@ -94,6 +94,18 @@ samba_acl_right_can_write(int right)
 	return right >= 2 && right <= 3;
 }
 
+/*
+ * Samba's invalid-users list denies login even when an account is in
+ * valid-users or write-list. Keep write-only grants out of that deny list.
+ * Unknown/error rights remain denied because neither permission is granted.
+ */
+static int
+samba_acl_right_is_denied(int right)
+{
+	return !samba_acl_right_can_read(right) &&
+	       !samba_acl_right_can_write(right);
+}
+
 /* User names are emitted as comma-separated Samba ACL tokens and argv. */
 static int
 samba_acl_user_is_safe(const char *name)

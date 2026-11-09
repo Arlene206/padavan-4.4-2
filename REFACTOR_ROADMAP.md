@@ -1,13 +1,10 @@
-# Padavan 4.4 — Whole-Repository Modernization Roadmap
-
-> Current dashboard only. Historical snapshots are byte-preserved and indexed. A bounded fix does not prove module completion.
-
 ## Current source / CI checkpoint
 
 - Repository: `Arlene206/padavan-4.4-2`; maintained fork only.
-- Current base main SHA for THIS NFS policy-header preprocessor correction: `ef1aec7b10389eaf240c20b5e999d80ef48996d1`; resulting commit: THIS COMMIT.
-- The prior NFS IPv4 LAN/VPN ACL change is committed in `ef1aec7b10389eaf240c20b5e999d80ef48996d1`. Exact-head storage [42624781463](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42624781463), Samba [42624781449](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42624781449), vsftpd [42624781407](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42624781407) and AI docs [42624781292](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42624781292) passed.
-- NFS [42624781415](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42624781415) and HTTPD [42624781560](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42624781560) failed while compiling the shared policy header: an extra nested `#if defined (USE_IPV6)` left the include guard unterminated. NFS shell/lifecycle and all preceding HTTPD steps passed. THIS commit removes only that redundant guard; exact-head reruns are pending.
+- Base `main` SHA for THIS Samba write-only ACL correction: `6f9226283de4a2b2dce2b14a21efd7efb4a0fc2b`; resulting commit: THIS COMMIT. Only `main` exists; no separate checkpoint branch.
+- The preceding NFS IPv4 policy-header guard correction is green on exact base SHA `6f9226283de4a2b2dce2b14a21efd7efb4a0fc2b`: AI handoff docs [42625376685](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42625376685), NFS lifecycle [42625376591](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42625376591), and HTTPD security [42625376585](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42625376585) are all SUCCESS; every full `head_sha` matches.
+- THIS commit corrects Samba mode-4 ACL generation: write-only right=2 was incorrectly placed in `invalid users` by a read-only deny predicate, including guest access handling. GNU89 helper tests and an HTTPD production-source contract are added; exact-head workflow results are pending.
+- NFS option/identity audit confirms the normal server is NFSv2/v3 with AUTH_SYS only (NFSv4/GSS/Kerberos disabled) and exports `async,insecure,no_root_squash,no_subtree_check`. Kernel nfsd trusts request UID/GID and only remaps UID/GID 0 when root-squash is enabled. Thus an admitted LAN/VPN client can claim UID/GID 0 on exported removable-media data. This is a P2 trust-boundary risk; historic defaults remain unchanged pending compatibility analysis. Operator-provided `/etc/storage/exports` remains an authoritative override that bypasses generated ACL/path restrictions.
 
 ## Whole-repository module status
 
@@ -22,18 +19,17 @@
 | HTTPD / CGI / authentication | PARTIAL / AUDITING | Authentication, disclosure, safe publication, NVRAM restore and CGI policy checks have recent Actions. | Whole-route input, authorization and error-path inventory. |
 | NVRAM / persistence / startup | PARTIAL / AUDITING | Atomic publication and restore failure gates. | Remaining direct callers, flash recovery and board variants. |
 | Switch / PHY / MDIO / link state | PARTIAL / AUDITING | Selected ioctl propagation, PVID/link retry, CLI ordering and MDIO timeout checks. | Other board drivers and live hardware behavior. |
-| Samba share service / accounts | PARTIAL / AUDITING | Generated smb.conf is staged and atomically published; folder inventory/read errors fail closed; WINS/nmbd/smbd lifecycle is gated on publication. Samba GNU89 helper regression passes; HTTPD's dependent trust-boundary contract now bounds its folder slice to the full writer instead of an early error cleanup; exact-head rerun pending. | Passdb/account mutation consistency, ACL/permission mapping, credential security, live Samba reload behavior and target runtime. |
+| Samba share service / accounts | PARTIAL / AUDITING | Generated smb.conf is staged and atomically published; folder inventory/read errors fail closed; service reload is gated on publication. THIS commit distinguishes write-only grants from deny when building per-folder account/guest ACLs; GNU89 rights regression and HTTPD writer contract added, exact-head Actions pending. | Passdb/account mutation consistency, credential failure/recovery, live Samba reload behavior and target runtime. |
 | FTP service / vsftpd | PARTIAL / AUDITING | Generated vsftpd config uses checked same-directory staging/atomic replacement and daemon startup is gated on publication success. | Authentication, credential/ACL semantics, path confinement, stop/lifecycle error propagation and target runtime. |
-| NFS / third-party add-ons | PARTIAL / AUDITING | NFS inventory/restart preflight, checked start/reload/shutdown and storage-eject gates; exact pseudo-filesystem tuple identity and conflict-safe teardown. NFS LAN/VPN IPv4 ACL generation now has a strict contiguous-mask formatter, /0 rejection, canonicalization and fail-closed publication on invalid state; the first exact-head host compile exposed a duplicate preprocessor guard, corrected in THIS commit. | AUTH_SYS UID/GID mapping and historic `async,insecure,no_root_squash` need compatibility review; custom exports semantics and external-mount support remain open. |
+| NFS / third-party add-ons | PARTIAL / AUDITING | NFS inventory/restart preflight, checked start/reload/shutdown and storage-eject gates; exact pseudo-filesystem tuple identity/conflict-safe teardown; strict LAN/VPN IPv4 contiguous-mask validation, /0 rejection, canonicalization and fail-closed publication. NFS/HTTPD header-guard correction is verified by exact-head NFS and HTTPD Actions on `6f9226283de4a2b2dce2b14a21efd7efb4a0fc2b`. | Source review confirms NFSv2/v3 AUTH_SYS only (NFSv4/GSS/Kerberos disabled) plus `no_root_squash`: an admitted client can assert UID/GID 0 on exported media. `async` durability and `insecure` source-port compatibility, operator `/etc/storage/exports` override, and external-mount support need an explicit policy decision; options remain unchanged. |
 | Init / PID 1 / service supervision | AUDITING | Notification deferral, child reaping and selected start/stop failure gates. MTD Optware worker resets inherited PID1 signal dispositions/mask and is cancelled before normal service shutdown. | Cross-module ordering, other package supervision and remaining shutdown races. |
 
 ## Priority queue
 
-1. P2 — Verify the corrected NFS policy header compiles in both NFS and HTTPD shared workflows, then reconcile exact-head storage/Samba/vsftpd/docs Actions; preserve the strict LAN/VPN IPv4 CIDR validation and fail-closed behavior.
-2. P2 — Continue NFS option/identity audit: `no_root_squash`, AUTH_SYS UID/GID mapping, `async` durability, `insecure` client source ports, custom exports override semantics and external-mount support. Existing export options remain unchanged pending compatibility review.
-3. P2 — Samba passdb/account mutation, ACL/permission and credential security; vsftpd authentication/ACL/path confinement/stop lifecycle.
-4. P2/P3 — DHCP leasefail/accepted-NAK/release callback state semantics and BusyBox callback status handling; keep FULLCONENAT mapping-hash / dying-tuple queue namespace ownership as a separate kernel audit.
-
+1. P2 — Verify THIS Samba write-only ACL correction on its exact resulting SHA: GNU89 policy matrix, HTTPD production writer contract, Samba configuration workflow and AI docs; inspect all failures.
+2. P2 — Decide the NFS AUTH_SYS/`no_root_squash` trust boundary with compatibility evidence; evaluate root-squash migration, `async` durability, `insecure` source ports, operator override ownership/ACLs and external-mount behavior. Do not change defaults without a compatibility plan.
+3. P2 — Continue Samba passdb/account mutation consistency, credential failure/recovery and live reload; vsftpd authentication/ACL/path confinement/stop lifecycle.
+4. P2/P3 — DHCP leasefail/accepted-NAK/release callback state semantics and BusyBox callback status; keep FULLCONENAT mapping-hash / dying-tuple queue namespace ownership as a separate kernel audit.
 
 ## Working rules
 
@@ -50,8 +46,8 @@
 
 | Level | Evidence | Limits |
 |---|---|---|
-| L1 source review | PASS for exact NFS pseudo-filesystem tuple identity/conflict-safe teardown and strict IPv4 LAN/VPN ACL canonicalization, contiguous netmask validation, /0 rejection and fail-closed exports publication; duplicate conditional guard identified and removed in THIS commit. |
-| L2 host / Actions | On exact SHA `ef1aec7b10389eaf240c20b5e999d80ef48996d1`: storage [42624781463](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42624781463), Samba [42624781449](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42624781449), vsftpd [42624781407](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42624781407) and docs [42624781292](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42624781292) PASS. NFS [42624781415](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42624781415) and HTTPD [42624781560](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42624781560) FAILED compiling the shared policy header due to an unmatched duplicate `USE_IPV6` guard. This commit corrects that preprocessing issue; affected reruns pending. No production object or full local firmware build is claimed. |
+| L1 source review | PASS for strict NFS LAN/VPN IPv4 ACL canonicalization/fail-closed behavior and this round's Samba 0/1/2/3/error permission mapping; write-only account and guest ACL call sites are explicit. |
+| L2 host / Actions | Exact base SHA `6f9226283de4a2b2dce2b14a21efd7efb4a0fc2b`: AI docs [42625376685](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42625376685), NFS lifecycle [42625376591](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42625376591), and HTTPD security [42625376585](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42625376585) PASS on matching full `head_sha`. THIS commit adds the Samba GNU89 rights matrix and HTTPD production-source contract; resulting exact-head runs are pending. No local complete checkout, production RC object, or firmware build is claimed. |
 | L3 MIPS/uClibc / production objects / firmware/TRX | NOT VERIFIED. | Full target build phase required. |
 | L4 live NFS export/stop, USB eject, filesystem integration / physical router | NOT VERIFIED. | Requires target-device validation. |
 

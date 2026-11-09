@@ -70,6 +70,12 @@ int main(void)
 	assert(samba_acl_right_can_write(2));
 	assert(samba_acl_right_can_write(3));
 	assert(!samba_acl_right_can_write(4));
+	assert(samba_acl_right_is_denied(-1));
+	assert(samba_acl_right_is_denied(0));
+	assert(!samba_acl_right_is_denied(1));
+	assert(!samba_acl_right_is_denied(2));
+	assert(!samba_acl_right_is_denied(3));
+	assert(samba_acl_right_is_denied(4));
 
 	assert(samba_acl_user_is_safe("admin"));
 	assert(samba_acl_user_is_safe("_svc-1.2"));

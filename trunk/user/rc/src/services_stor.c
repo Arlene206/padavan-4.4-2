@@ -619,12 +619,12 @@ write_smb_conf(void)
 					fprintf(fp, "comment = %s\n", folder_list[n]);
 					fprintf(fp, "path = %s/%s\n", follow_partition->mount_point, folder_list[n]);
 					fprintf(fp, /*(guest_right == 2) ? "writeable = yes\n" : */"writeable = no\n");
-					if (samba_acl_right_can_read(guest_right))
+					if (!samba_acl_right_is_denied(guest_right))
 						fprintf(fp, "guest ok = yes\n");
 					
 					fprintf(fp, "valid users = ");
 					first = 1;
-					if (samba_acl_right_can_read(guest_right)) {
+					if (!samba_acl_right_is_denied(guest_right)) {
 						first = 0;
 						fprintf(fp, "%s", "nobody");
 					}
@@ -647,7 +647,8 @@ write_smb_conf(void)
 						if (!samba_service_account_is_safe(account_list[i]))
 							continue;
 						right = get_permission(account_list[i], follow_partition->mount_point, folder_list[n], "cifs");
-						if (samba_acl_right_can_read(right))
+						/* A write-only grant must not be negated by invalid users. */
+						if (!samba_acl_right_is_denied(right))
 							continue;
 						
 						if (first == 1)

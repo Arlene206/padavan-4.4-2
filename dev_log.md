@@ -1,3 +1,17 @@
+## 2026-11-09 21:31 CST (UTC+8) — Preserve Samba write-only permissions in generated share ACLs
+
+- **Base main SHA:** `6f9226283de4a2b2dce2b14a21efd7efb4a0fc2b`; resulting commit: THIS COMMIT. Active branch `main`; no other checkpoint branch exists.
+- **Recovered exact-head CI:** after the NFS IPv4 policy-header guard fix, AI handoff docs [42625376685](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42625376685), NFS lifecycle [42625376591](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42625376591), and HTTPD security [42625376585](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42625376585) completed SUCCESS; each full `head_sha` exactly matched `6f9226283de4a2b2dce2b14a21efd7efb4a0fc2b`.
+- **Finding:** `libdisk/src/disk_share.c::get_permission()` returns CIFS rights 0=deny, 1=read, 2=write, 3=read/write, and returns -1 for malformed/error state. Samba mode-4's `invalid users` builder used “cannot read” as “deny”. That incorrectly put right=2 users into the deny list despite adding them to `write list`; Samba denies users listed in `invalid users`, including users also allowed by `valid users`. The same read-only guest gate omitted write-only guest sessions from `guest ok` and `valid users`.
+- **Fix:** add `samba_acl_right_is_denied()`, which denies only when neither read nor write is granted (including -1 and out-of-range values). Use it for the guest login/valid-users gates and the account deny list. Keep read-list and write-list output tied to read and write rights respectively. This restores write-only behavior without treating lookup errors as grants.
+- **Regression:** extend `tests/samba_share_policy.c` for -1/0/1/2/3/4; extend the HTTPD security workflow's production-source contract to require the helper in both guest gates and the actual `invalid users` block. These workflow tests are pending on THIS exact commit.
+- **NFS audit evidence:** nfs-utils 2.6.1 disables NFSv4, GSS and Kerberos and installs no GSS auth daemons; generated exports retain `async,insecure,no_root_squash,no_subtree_check`. Kernel nfsd maps request UID/GID directly unless root-squash is enabled. With AUTH_SYS and `no_root_squash`, a client in an admitted LAN/VPN network can assert UID/GID 0 against exported removable-media data. This is a P2 data trust-boundary risk, not evidence of direct router-root compromise. `async` durability, `insecure` source-port behavior, custom `/etc/storage/exports` authority and external mounts remain compatibility items; no historic NFS option was changed.
+- **Changed paths:** `trunk/user/rc/src/services_stor.c`, `trunk/user/rc/src/samba_share_policy.h`, `trunk/user/rc/src/tests/samba_share_policy.c`, `.github/workflows/httpd-security.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+- **Validation boundary:** L1 source and call-site review completed. L2 exact-head HTTPD/Samba/NFS/storage/docs workflows PENDING; no local complete checkout or docs validator invocation is claimed. L3 production RC/MIPS/full firmware and L4 physical router remain NOT VERIFIED.
+- **Next:** inspect all Actions for THIS resulting SHA. If green, make an explicit, compatibility-backed NFS AUTH_SYS/root-squash policy decision before altering export defaults; then continue Samba passdb/account mutation and vsftpd authentication/path lifecycle audits.
+
+---
+
 ## 2026-11-09 21:27 CST (UTC+8) — Correct NFS policy header conditional guard after exact-head compile failure
 
 - **Base main SHA:** `ef1aec7b10389eaf240c20b5e999d80ef48996d1`; resulting commit: THIS COMMIT.
