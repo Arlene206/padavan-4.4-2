@@ -38,7 +38,8 @@
 #include <disk_share.h>
 
 #include "rc.h"
-#include "samba_share_policy.h"
+#include "storage_operation_lock.h"
+#include "samba_share_policy.h
 #include "samba_passdb_policy.h"
 #include "ftp_share_policy.h"
 #include "storage_mount_inventory_policy.h"
@@ -1717,8 +1718,8 @@ restore_home_dir(void)
 	}
 }
 
-int
-umount_ejected(void)
+static int
+umount_ejected_locked(void)
 {
 	FILE *procpt;
 	char line[512], devname[32], mpname[256];
@@ -1810,6 +1811,25 @@ umount_ejected(void)
 	free_storage_ejected_mounts(head);
 	free_storage_ejected_partitions(partitions);
 	restore_home_dir();
+	return result;
+}
+
+int
+umount_ejected(void)
+{
+	int storage_lock, result, saved_errno;
+
+	storage_lock = storage_operation_lock_acquire(file_lock);
+	if (storage_lock == -1) {
+		saved_errno = errno ? errno : EIO;
+		logmessage("Storage", "cannot acquire storage operation lock for ejected-device cleanup (errno %d)",
+			   saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
+
+	result = umount_ejected_locked();
+	file_unlock(storage_lock);
 	return result;
 }
 
@@ -2210,13 +2230,22 @@ on_deferred_hotplug_dev(void)
 void
 safe_remove_stor_device(int port_b, int port_e, const char *dev_name, int do_spindown)
 {
+	int storage_lock;
 	int port, has_mounted_port = 0, has_swapon_port = 0;
 	int unmount_status, ejected_status, mount_count;
 	disk_info_t *disks_info, *follow_disk;
 
-	disks_info = read_disk_data();
-	if (!disks_info)
+	storage_lock = storage_operation_lock_acquire(file_lock);
+	if (storage_lock == -1) {
+		logmessage("Storage", "cannot acquire storage operation lock; refusing safe removal");
 		return;
+	}
+
+	disks_info = read_disk_data();
+	if (!disks_info) {
+		file_unlock(storage_lock);
+		return;
+	}
 
 	for (follow_disk = disks_info; follow_disk != NULL; follow_disk = follow_disk->next) {
 		port = (int)follow_disk->port_root;
@@ -2236,7 +2265,7 @@ safe_remove_stor_device(int port_b, int port_e, const char *dev_name, int do_spi
 		unmount_status = umount_stor_path_range(disks_info, port_b, port_e,
 							1, dev_name, do_spindown);
 		if (has_mounted_port) {
-			ejected_status = umount_ejected();
+			ejected_status = umount_ejected_locked();
 			if (unmount_status != 0 || ejected_status != 0)
 				logmessage("Storage", "safe removal incomplete; one or more mount/swap releases failed");
 			mount_count = count_stor_mountpoint();
@@ -2255,13 +2284,21 @@ safe_remove_stor_device(int port_b, int port_e, const char *dev_name, int do_spi
 	}
 
 	free_disk_data(disks_info);
+	file_unlock(storage_lock);
 }
 
 void
 safe_remove_all_stor_devices(int do_spindown)
 {
+	int storage_lock;
 	disk_info_t *disks_info;
 	int path_status, fallback_status;
+
+	storage_lock = storage_operation_lock_acquire(file_lock);
+	if (storage_lock == -1) {
+		logmessage("Storage", "cannot acquire storage operation lock; refusing eject-all operation");
+		return;
+	}
 
 	stop_stor_apps();
 	disks_info = read_disk_data();
@@ -2277,4 +2314,5 @@ safe_remove_all_stor_devices(int do_spindown)
 	if (fallback_status == 0)
 		unload_nfsd();
 #endif
+	file_unlock(storage_lock);
 }

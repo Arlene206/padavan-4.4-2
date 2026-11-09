@@ -5,6 +5,9 @@ on:
     paths:
       - ".github/workflows/storage-hotplug-stability.yml"
       - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/hotplug_stor.c"
+      - "trunk/user/rc/src/storage_operation_lock.h"
+      - "trunk/user/rc/src/tests/storage_operation_lock.c"
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/storage_ejected_inventory_policy.h"
       - "trunk/user/rc/src/tests/storage_ejected_inventory_policy.c"
@@ -12,6 +15,9 @@ on:
     paths:
       - ".github/workflows/storage-hotplug-stability.yml"
       - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/hotplug_stor.c"
+      - "trunk/user/rc/src/storage_operation_lock.h"
+      - "trunk/user/rc/src/tests/storage_operation_lock.c"
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/storage_ejected_inventory_policy.h"
       - "trunk/user/rc/src/tests/storage_ejected_inventory_policy.c"
@@ -29,6 +35,13 @@ jobs:
             trunk/user/rc/src/tests/storage_ejected_inventory_policy.c \
             -o /tmp/storage-ejected-inventory
           /tmp/storage-ejected-inventory
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            -I trunk/user/shared/src \
+            trunk/user/rc/src/tests/storage_operation_lock.c \
+            trunk/user/shared/src/bin_sem_asus.c \
+            -o /tmp/storage-operation-lock
+          /tmp/storage-operation-lock
       - name: Verify whole-operation inventory staging and notification failure propagation
         run: |
           python3 - <<'PY'
@@ -61,7 +74,7 @@ jobs:
           assert "storage_ejected_inventory_complete(" in stage
           assert "free_storage_ejected_partitions(head)" in stage
 
-          eject = function_body(storage, "umount_ejected(void)")
+          eject = function_body(storage, "umount_ejected_locked(void)")
           stage_call = "storage_stage_ejected_partitions(&partitions)"
           unmount_loop = "for (entry = head; entry; entry = entry->next)"
           assert eject.index(stage_call) < eject.index(unmount_loop)
@@ -95,6 +108,38 @@ jobs:
           for path in paths:
               assert push_filters.count(path) == 1
               assert pr_filters.count(path) == 1
+
+
+          hotplug = (rc_dir / "hotplug_stor.c").read_text()
+          lock_policy = (rc_dir / "storage_operation_lock.h").read_text()
+          lock_test = (rc_dir / "tests/storage_operation_lock.c").read_text()
+
+          assert '#define STORAGE_OPERATION_LOCK_TAG "storage"' in lock_policy
+          assert "storage_operation_lock_acquire(file_lock)" in lock_test
+
+          for signature in ("mdev_sd_main(", "mdev_mmc_main("):
+              body = function_body(hotplug, signature)
+              assert body.index("file_lock(device_name)") < body.index("storage_operation_lock_acquire(file_lock)")
+              assert body.count("file_unlock(storage_lock);") == 1
+              assert body.index("file_unlock(storage_lock);") < body.index("file_unlock(isLock);")
+
+          storage_locked = function_body(storage, "umount_ejected_locked(void)")
+          wrapper = function_body(storage, "umount_ejected(void)")
+          assert "storage_stage_ejected_partitions(&partitions)" in storage_locked
+          assert "storage_operation_lock_acquire(file_lock)" in wrapper
+          assert wrapper.index("storage_operation_lock_acquire(file_lock)") < wrapper.index("umount_ejected_locked()")
+          assert "file_unlock(storage_lock);" in wrapper
+
+          safe_remove = function_body(storage, "safe_remove_stor_device(")
+          assert safe_remove.index("storage_operation_lock_acquire(file_lock)") < safe_remove.index("read_disk_data()")
+          assert "umount_ejected_locked()" in safe_remove
+          assert safe_remove.count("file_unlock(storage_lock);") == 2
+          assert "umount_ejected();" not in safe_remove
+
+          remove_all = function_body(storage, "safe_remove_all_stor_devices(")
+          assert remove_all.index("storage_operation_lock_acquire(file_lock)") < remove_all.index("read_disk_data()")
+          assert remove_all.index("umount_all_storage()") < remove_all.index("file_unlock(storage_lock);")
+          assert remove_all.count("file_unlock(storage_lock);") == 1
 
           print("USB storage hotplug staging and completion contracts: PASS")
           PY

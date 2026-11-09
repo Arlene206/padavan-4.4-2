@@ -1905,7 +1905,7 @@ jobs:
           assert unmount.index("eval(\"/usr/bin/opt-umount.sh\"") < unmount.index("if (umount(entry->mountpoint) != 0)")
           assert unmount.index("if (umount(entry->mountpoint) != 0)") < unmount.index("(void)rmdir(entry->mountpoint)")
 
-          ejected_start = service.index("umount_ejected(void)")
+          ejected_start = service.index("umount_ejected_locked(void)")
           ejected_end = service.index("struct storage_unmount_mount_entry", ejected_start)
           ejected = service[ejected_start:ejected_end]
           assert "if (!procpt)" in ejected and "return -1;" in ejected
@@ -2032,7 +2032,7 @@ jobs:
           policy = Path("trunk/user/rc/src/storage_ejected_inventory_policy.h").read_text()
           test = Path("trunk/user/rc/src/tests/storage_ejected_inventory_policy.c").read_text()
 
-          start = source.index("int\numount_ejected(void)")
+          start = source.index("static int\numount_ejected_locked(void)")
           end = source.index("\nstruct storage_unmount_mount_entry", start)
           ejected_body = source[start:end]
           assert "storage_ejected_parse_mount_line" in ejected_body

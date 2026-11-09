@@ -31,6 +31,7 @@
 #include <disk_initial.h>
 
 #include "rc.h"
+#include "storage_operation_lock.h"
 #include "storage_partition_probe.h"
 
 static void
@@ -70,7 +71,7 @@ check_root_partition(const char *devname, int is_mmc)
 int
 mdev_sd_main(int argc, char **argv)
 {
-	int isLock;
+	int isLock, storage_lock;
 	size_t len, disk_len;
 	char share_name[32], disk_name[32];
 	char *device_name, *action, *partno;
@@ -89,6 +90,12 @@ mdev_sd_main(int argc, char **argv)
 	// Check Lock.
 	if ((isLock = file_lock(device_name)) == -1)
 		return 1;
+
+	storage_lock = storage_operation_lock_acquire(file_lock);
+	if (storage_lock == -1) {
+		file_unlock(isLock);
+		return 1;
+	}
 
 	// If remove the device?
 	if (!get_hotplug_action(action)) {
@@ -138,6 +145,7 @@ mdev_sd_main(int argc, char **argv)
 	}
 
 out_unlock:
+	file_unlock(storage_lock);
 	file_unlock(isLock);
 
 	return 0;
@@ -148,7 +156,7 @@ out_unlock:
 int
 mdev_mmc_main(int argc, char **argv)
 {
-	int isLock;
+	int isLock, storage_lock;
 	size_t len, disk_len, i;
 	const char *p;
 	char share_name[32], disk_name[32];
@@ -168,6 +176,12 @@ mdev_mmc_main(int argc, char **argv)
 	// Check Lock.
 	if ((isLock = file_lock(device_name)) == -1)
 		return 1;
+
+	storage_lock = storage_operation_lock_acquire(file_lock);
+	if (storage_lock == -1) {
+		file_unlock(isLock);
+		return 1;
+	}
 
 	len = strlen(device_name);
 
@@ -222,6 +236,7 @@ mdev_mmc_main(int argc, char **argv)
 	}
 
 out_unlock:
+	file_unlock(storage_lock);
 	file_unlock(isLock);
 
 	return 0;
