@@ -622,7 +622,7 @@ int is_dhcpd_enabled(int is_ap_mode);
 int start_dns_dhcpd(int is_ap_mode);
 void stop_dns_dhcpd(void);
 #if defined (APP_SMBD) || defined (APP_NMBD)
-FILE *write_smb_conf_header(void);
+int write_smb_conf_header(FILE *fp);
 void stop_nmbd(void);
 void start_wins(void);
 void reload_nmbd(void);

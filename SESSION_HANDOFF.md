@@ -5,27 +5,35 @@
 ## Current repository state
 
 - Repository: Arlene206/padavan-4.4-2; maintained fork only.
-- Latest source/test checkpoint: THIS COMMIT — follow-up correction ensures write_vsftpd_conf() returns -1 when atomic publication fails, and the regression explicitly checks the error return before its success return. The preceding full vsftpd/storage/HTTPD/docs Actions passed on 2e27361f396adfe79017b1d815962524af47d097; resolve THIS COMMIT's exact SHA and fresh Actions on next recovery.
+- Latest source/test checkpoint: THIS COMMIT — generate Samba smb.conf into a private same-directory staging file; check stream/flush/close; atomically publish only complete output; treat share-inventory errors as fatal; gate WINS startup and nmbd/smbd reload on publication success. Base main SHA `c51c0f73fa2dccdd191515347acf80fd2a0132d2`; reconcile this commit's full exact head SHA and Actions after push.
 - Remote branch inventory at this recovery contained only main; no remote checkpoint branch exists. Recheck at next takeover.
-- The preceding commit 2e27361f396adfe79017b1d815962524af47d097 passed vsftpd regression [42585929021](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42585929021), storage regression [42585929025](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42585929025), HTTPD regression [42585929042](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42585929042) and AI handoff docs [42585929052](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42585929052), all with exact matching full head_sha. THIS COMMIT's vsftpd and docs Actions are pending and must be checked live.
-- Validation ceiling: the preceding GNU89 host regression and source contract passed. This follow-up adds an RC return-contract correction and a matching source assertion. No complete production RC/vsftpd object build, MIPS/uClibc build, firmware/TRX, live FTP login/transfer or hardware validation is claimed.
+- The preceding commit `c51c0f73fa2dccdd191515347acf80fd2a0132d2` passed vsftpd [42586171489](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42586171489), storage [42586171713](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42586171713), HTTPD [42586171537](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42586171537) and AI handoff docs [42586171552](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42586171552), all SUCCESS on exact full SHA `c51c0f73fa2dccdd191515347acf80fd2a0132d2`. New Samba regression and this commit's exact-head workflow results are pending.
+- Validation ceiling: the preceding vsftpd GNU89/source regression and all four exact-head workflows passed on `c51c0f73fa2dccdd191515347acf80fd2a0132d2`. The Samba atomic-publisher helper/test compiled with GNU89 `-Wall -Wextra -Werror` and passed in a scratch host directory. No complete production RC/Samba object build, MIPS/uClibc build, firmware/TRX, live share mount/authentication or router test is claimed.
 
 ## Active task
 
-The USB storage caller-graph milestone and the vsftpd atomic-config publication fix are complete. The full vsftpd, storage, HTTPD and documentation workflow set passed on exact SHA 2e27361f396adfe79017b1d815962524af47d097. THIS COMMIT adds a follow-up correction for the error return in the new int-valued write_vsftpd_conf() function and strengthens the source contract; its own vsftpd and docs Actions must be reconciled during the next recovery.
+Samba share-configuration publication reliability — the existing smb.conf writer deleted/truncated the active configuration before generation had succeeded, and multiple service paths did not gate startup/reload on successful generation. This checkpoint stages the complete replacement, validates write/close status, atomically replaces the live file, and keeps the previous configuration intact on failure.
 
-### vsftpd generated configuration publication
+### Samba generated configuration and caller path reviewed
 
-- Reviewed the APP_FTPD launch/stop path in trunk/user/rc/src/services_stor.c, RC event dispatch in trunk/user/rc/src/rc.c, exported declarations in rc.h, build inclusion in trunk/user/Makefile and package Makefiles, and the FTP UI in trunk/user/www/n56u_ribbon_fixed/Advanced_AiDisk_ftp.asp.
-- Defect: write_vsftpd_conf() truncated /etc/vsftpd.conf before generation completed, ignored fprintf()/flush/close failures, returned no status, and run_ftp() launched vsftpd regardless. A filesystem or late I/O failure could leave a partial configuration.
-- Fix in the preceding commit: same-directory mkstemp staging, checked stream error/flush/close, atomic rename, and daemon-start gating. THIS COMMIT corrects the int-valued writer's publication-failure branch to return -1 rather than a bare return, and adds a source assertion proving the failure return precedes return 0.
-- The GNU89 host regression and source contract passed on exact SHA 2e27361f396adfe79017b1d815962524af47d097; this follow-up adds a contract assertion for the failure return. Its exact-head Actions are pending at commit creation.
-- The focused audit did not establish a further credential/path-confinement bypass. Keep FTP authentication, ACL, path-confinement and stop/lifecycle behavior PARTIAL / AUDITING; this bounded fix does not close the service audit.
-- Validation boundary: no production RC/vsftpd objects, MIPS/uClibc, firmware/TRX, real FTP login/transfer, storage-unplug concurrency or hardware check.
+- `services_ex.c:write_smb_conf_header()` previously unlinked `SAMBA_CONF` and then opened it with `"w"`; any open or later generation failure could therefore remove the last-known-good file. `services_stor.c:write_smb_conf()` subsequently wrote share definitions directly to the live file, closed and reopened it in append mode while scanning for duplicate share names, and only discovered some write errors late.
+- The user-folder inventory path continued when `get_folder_list_in_mount_path()` failed. That allowed the service to silently publish an incomplete set of SMB shares rather than treating an unreadable inventory as a failed generation.
+- `start_wins()` previously ignored header-write/close failure and started nmbd regardless. `restart_nmbd()` ignored `write_smb_conf()` failure and proceeded with nmbd startup and smbd reload; it also stopped nmbd before proving that the replacement config could be generated.
+- New `samba_config_file.h` stages beside `SAMBA_CONF` using `mkstemp()`, applies the existing 0644 config-file mode, checks stream/flush/close status, and uses same-directory `rename()` only after successful generation. Error paths close/unlink the candidate and leave the active config untouched.
+- `write_smb_conf_header(FILE *fp)` is now a stream-only emitter; it no longer unlinks or opens the live path. `write_smb_conf()` writes the header and all share sections to the staged path, scans that same staged file for exact section-name collisions, fails closed on folder-inventory/read/append errors, frees the relevant lists on error, and publishes only at the end.
+- `start_wins()` stages and publishes its WINS-only configuration before launching nmbd. When smbd is already running, `restart_nmbd()` now generates the replacement first; a failure preserves the running nmbd/smbd state, while success stops/restarts nmbd and only then signals smbd to reload.
+- New `tests/samba_config_file.c` covers successful replacement and old-file visibility before rename, mode 0644, buffered `/dev/full`/ENOSPC failure, rename failure cleanup, explicit discard, missing-parent open failure and short-path-buffer handling. `.github/workflows/samba-share-stability.yml` compiles the host test with GNU89 `-Wall -Wextra -Werror` and checks the writer/caller failure gates and exact path filters.
+- The helper/test were compiled and run in a scratch host directory: **PASS**. Source-contract assertions were also checked against the staged source blobs. The full Python workflow contract and docs validator have not run locally because no repository checkout is available; new exact-head Samba Actions are pending.
+- Keep Samba PARTIAL / AUDITING. This fixes one config-publication and lifecycle failure mode; account/passdb mutation consistency, ACL/permission mapping, credential security and actual target service behavior remain open.
+
+### Previous adjacent milestone — vsftpd
+
+- The preceding exact-head milestone fixed generated `/etc/vsftpd.conf` truncation using same-directory staging, checked flush/close and atomic rename, with daemon startup gated on publication success. A follow-up fixed the int-valued writer's publication-error return to `-1`.
+- vsftpd, storage, HTTPD and AI handoff workflows all passed on exact SHA `c51c0f73fa2dccdd191515347acf80fd2a0132d2`. Keep broader FTP authentication, account/ACL, path-confinement and stop/lifecycle audit PARTIAL / AUDITING.
 
 ### Next development rotation
 
-After exact-head Actions for THIS COMMIT pass, rotate away from storage/HTTPD to Samba/account/NFS/add-on service lifecycle and permission/error paths. Preserve the DHCP leasefail/accepted-NAK/release callback semantics as a separate userland task, and FULLCONENAT mapping namespace/queue ownership as a separate kernel audit.
+After the Samba, FTP, storage, HTTPD and documentation Actions pass on the new exact head SHA, rotate into NFS mount/permission lifecycle and third-party add-on service supervision rather than staying in Samba. Preserve DHCP leasefail/accepted-NAK/release state semantics and the FULLCONENAT mapping/queue namespace audit as separate tasks.
 
 ### DHCP changes already completed
 
@@ -70,18 +78,18 @@ After exact-head Actions for THIS COMMIT pass, rotate away from storage/HTTPD to
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for vsftpd staged config publication, daemon-start failure gate and corrected nonzero error return; previous AP DHCP transaction and in-tree storage caller/lock evidence remains bounded to those scopes. |
-| L2 host / GitHub Actions | vsftpd [42585929021](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42585929021), storage [42585929025](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42585929025), HTTPD [42585929042](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42585929042) and docs [42585929052](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42585929052) all PASS on exact SHA 2e27361f396adfe79017b1d815962524af47d097. THIS COMMIT's vsftpd and AI handoff-documentation runs are PENDING exact-head reconciliation. No local checkout was available for running the C regression or documentation validator independently. |
+| L1 source review | PASS for SMB generated-config staging/atomic publish, staged duplicate-share inspection, fail-closed folder inventory, WINS startup gate and nmbd/smbd reload ordering; PASS for the preceding vsftpd config publication/error-return fix and earlier bounded DHCP/storage work. |
+| L2 host / GitHub Actions | vsftpd [42586171489](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42586171489), storage [42586171713](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42586171713), HTTPD [42586171537](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42586171537) and docs [42586171552](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42586171552) all PASS on exact SHA `c51c0f73fa2dccdd191515347acf80fd2a0132d2`. New Samba helper/test passed a local scratch GNU89 `-Wall -Wextra -Werror` host run; new Samba workflow and this commit's exact-head Actions are pending. No full production RC/Samba compile or target/hardware test. |
 | L3 MIPS/uClibc / production objects / firmware/TRX | NOT VERIFIED. |
 | L4 live FTP login/transfer / storage churn / physical router | NOT VERIFIED. |
 
 ## Exact first action for the next GPT
 
-1. Fetch live main, all remote branches and Actions; inspect the vsftpd configuration publication regression and AI handoff-documentation runs for THIS COMMIT, matching each run's full head_sha to the current main SHA.
-2. If either exact-head run failed, inspect its job/step logs and correct only the demonstrated test/source-contract or implementation defect. Do not claim target build or hardware results.
-3. Once the exact-head checks pass, rotate to Samba/accounts/NFS/add-on services and select one concrete P2 reliability/security defect from launch/stop, configuration, permission or error-propagation paths. The broader FTP credential/ACL/path-confinement/service-lifecycle audit remains open.
-4. Preserve open DHCP leasefail/accepted-NAK/release behavior and BusyBox's discarded callback status as a separate task; do not rely on callback return-code-only handling.
-5. Keep FULLCONENAT mapping namespace/dying-tuple queue isolation as a separate kernel audit. No full MIPS/uClibc build, firmware/TRX or hardware validation has been performed.
+1. Fetch live main, all branches and Actions. Match the new Samba share stability, vsftpd, storage hotplug, HTTPD and AI handoff-doc runs against the current main's complete full `head_sha`; inspect any failed job/step logs.
+2. If all exact-head jobs pass, rotate to NFS mount/permission lifecycle and add-on service supervision. Trace the mount/unmount callers, generated config and external init ordering before choosing one bounded P2 issue.
+3. Keep Samba account/passdb mutation consistency, ACL/permission mapping and credential security open. Keep the broader vsftpd authentication/ACL/path-confinement/stop audit open; the bounded atomic config fix does not complete either service.
+4. Preserve DHCP leasefail/accepted-NAK/release state semantics and BusyBox's discarded callback status as a separate userland task; do not rely on callback return-code-only handling.
+5. Keep FULLCONENAT mapping-hash and dying-tuple queue namespace isolation as a separate kernel audit. No full MIPS/uClibc, firmware/TRX or hardware validation has been performed.
 
 ## Documentation maintenance
 

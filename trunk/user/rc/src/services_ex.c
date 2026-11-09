@@ -36,6 +36,9 @@
 #include "dnsmasq_file.h"
 #include "dnsmasq_restart_policy.h"
 #include "samba_config_value_policy.h"
+#if defined(APP_SMBD) || defined(APP_NMBD)
+#include "samba_config_file.h"
+#endif
 
 #define DHCPD_STATIC_MAX	64
 #define DHCPD_MULTIMAC_MAX	8
@@ -675,14 +678,14 @@ restart_dns(void)
 
 #if defined(APP_SMBD) || defined(APP_NMBD)
 
-FILE *
-write_smb_conf_header(void)
+int
+write_smb_conf_header(FILE *fp)
 {
-	FILE *fp;
 	int i_lmb, i_wins_enable;
 	char *p_computer_name, *p_workgroup, *p_res_order;
 
-	unlink(SAMBA_CONF);
+	if (!fp)
+		return -1;
 
 	i_lmb = nvram_get_int("st_samba_lmb");
 	i_wins_enable = nvram_get_int("wins_enable");
@@ -694,9 +697,6 @@ write_smb_conf_header(void)
 		p_workgroup = "";
 	if (!samba_config_value_is_safe(p_computer_name) || !*p_computer_name)
 		p_computer_name = "Padavan";
-
-	if (!(fp = fopen(SAMBA_CONF, "w")))
-		return NULL;
 
 	p_res_order = "lmhosts hosts bcast";
 
@@ -720,13 +720,11 @@ write_smb_conf_header(void)
 
 	if (i_wins_enable) {
 		fprintf(fp, "wins support = %s\n", "yes");
-	} else {
-		if (is_dhcpd_enabled(get_ap_mode())) {
-			char *wins = nvram_safe_get("dhcp_wins_x");
-			if (is_valid_ipv4(wins)) {
-				fprintf(fp, "wins server = %s\n", wins);
-				p_res_order = "lmhosts wins hosts bcast";
-			}
+	} else if (is_dhcpd_enabled(get_ap_mode())) {
+		char *wins = nvram_safe_get("dhcp_wins_x");
+		if (is_valid_ipv4(wins)) {
+			fprintf(fp, "wins server = %s\n", wins);
+			p_res_order = "lmhosts wins hosts bcast";
 		}
 	}
 
@@ -739,7 +737,7 @@ write_smb_conf_header(void)
 	fprintf(fp, "display charset = UTF8\n");
 	fprintf(fp, "bind interfaces only = %s\n", "yes");
 	fprintf(fp, "interfaces = %s\n", IFNAME_BR);
-	fprintf(fp, "unix extensions = no\n");			// fix for MAC users (thanks to 'mark2qualis')
+	fprintf(fp, "unix extensions = no\n");
 	fprintf(fp, "encrypt passwords = yes\n");
 	fprintf(fp, "pam password change = no\n");
 	fprintf(fp, "obey pam restrictions = no\n");
@@ -751,7 +749,8 @@ write_smb_conf_header(void)
 	fprintf(fp, "security = USER\n");
 	fprintf(fp, "username level = 8\n");
 #endif
-	return fp;
+
+	return ferror(fp) ? -1 : 0;
 }
 
 void
@@ -764,16 +763,22 @@ stop_nmbd(void)
 void
 start_wins(void)
 {
-	FILE *fp;
+	FILE *fp = NULL;
+	char staged_path[64];
 
 	if (nvram_match("wins_enable", "0"))
 		return;
 
 	mkdir_if_none("/etc/samba", "777");
 
-	fp = write_smb_conf_header();
-	if (fp)
-		fclose(fp);
+	if (samba_config_file_open(SAMBA_CONF, staged_path,
+				   sizeof(staged_path), &fp) != 0 ||
+	    write_smb_conf_header(fp) != 0 ||
+	    samba_config_file_publish(&fp, staged_path, SAMBA_CONF) != 0) {
+		samba_config_file_discard(&fp, staged_path);
+		logmessage("Samba Server", "cannot publish WINS configuration; nmbd startup skipped");
+		return;
+	}
 
 	eval("/sbin/nmbd", "-D", "-s", "/etc/smb.conf");
 }
@@ -788,14 +793,19 @@ reload_nmbd(void)
 void
 restart_nmbd(void)
 {
-	stop_nmbd();
 #if defined(APP_SMBD)
 	if (pids("smbd")) {
-		write_smb_conf();
+		if (write_smb_conf() != 0) {
+			logmessage("Samba Server", "configuration publication failed; nmbd/smbd reload skipped");
+			return;
+		}
+		stop_nmbd();
 		eval("/sbin/nmbd", "-D", "-s", "/etc/smb.conf");
 		doSystem("killall %s %s", "-SIGHUP", "smbd");
-	} else
+		return;
+	}
 #endif
+	stop_nmbd();
 	start_wins();
 }
 #endif

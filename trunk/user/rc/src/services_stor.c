@@ -40,6 +40,9 @@
 #include "rc.h"
 #include "storage_operation_lock.h"
 #include "samba_share_policy.h"
+#if defined (APP_SMBD)
+#include "samba_config_file.h"
+#endif
 #include "samba_passdb_policy.h"
 #include "ftp_share_policy.h"
 #include "ftp_config_file.h"
@@ -377,50 +380,57 @@ samba_prepare_private_passdb(char *staged_path, size_t staged_path_size)
 #endif
 
 int
-check_existed_share(const char *string)
+check_existed_share(const char *string, const char *config_path)
 {
 	FILE *tp;
 	char buf[4096], target[258];
-	int target_len;
+	int target_len, found = 0, result = 0;
 
-	if((tp = fopen(SAMBA_CONF, "r")) == NULL)
-		return 0;
-
-	if (!string || !*string) {
-		fclose(tp);
-		return 0;
-	}
+	if (!string || !*string || !config_path || !*config_path)
+		return -1;
 
 	target_len = snprintf(target, sizeof(target), "[%s]", string);
-	if (target_len < 0 || target_len >= (int)sizeof(target)) {
-		fclose(tp);
-		return 0;
-	}
+	if (target_len < 0 || target_len >= (int)sizeof(target))
+		return -1;
 
-	while(fgets(buf, sizeof(buf), tp) != NULL){
-		if(strstr(buf, target)){
-			fclose(tp);
-			return 1;
+	tp = fopen(config_path, "r");
+	if (!tp)
+		return -1;
+
+	while (fgets(buf, sizeof(buf), tp) != NULL) {
+		if (strncmp(buf, target, (size_t)target_len) == 0 &&
+		    (buf[target_len] == '\n' || buf[target_len] == '\r' ||
+		     buf[target_len] == '\0')) {
+			found = 1;
+			break;
 		}
 	}
+	if (ferror(tp))
+		result = -1;
+	if (fclose(tp) != 0)
+		result = -1;
 
-	fclose(tp);
-	return 0;
+	return result == 0 ? found : -1;
 }
 
 int
 write_smb_conf(void)
 {
-	FILE *fp;
+	FILE *fp = NULL;
+	char staged_path[64];
 	int i_maxuser, i_smb_mode, result = 0;
 	disk_info_t *follow_disk, *disks_info = NULL;
 	partition_info_t *follow_partition;
 
 	i_smb_mode = nvram_get_int("st_samba_mode");
 
-	fp = write_smb_conf_header();
-	if (!fp)
+	if (samba_config_file_open(SAMBA_CONF, staged_path,
+				   sizeof(staged_path), &fp) != 0)
 		return -1;
+	if (write_smb_conf_header(fp) != 0) {
+		result = -1;
+		goto confpage;
+	}
 
 	/* share mode */
 	if (i_smb_mode == 1 || i_smb_mode == 3) {
@@ -544,12 +554,14 @@ write_smb_conf(void)
 				// 1. get the folder list
 				if (get_folder_list_in_mount_path(follow_partition->mount_point, &sh_num, &folder_list) < 0) {
 					free_2_dimension_list(&sh_num, &folder_list);
-					continue;
+					free_2_dimension_list(&acc_num, &account_list);
+					result = -1;
+					goto confpage;
 				}
 				
 				// 2. start to get every share
 				for (n = 0; n < sh_num; ++n) {
-					int i, right, first;
+					int i, right, first, share_exists;
 					int guest_right;
 					char share[256];
 
@@ -563,23 +575,40 @@ write_smb_conf(void)
 					
 					if (fclose(fp) != 0) {
 						fp = NULL;
+						free_2_dimension_list(&sh_num, &folder_list);
+						free_2_dimension_list(&acc_num, &account_list);
 						result = -1;
 						goto confpage;
 					}
 					fp = NULL;
 
-					if(check_existed_share(share)){
+					share_exists = check_existed_share(share, staged_path);
+					if (share_exists < 0) {
+						free_2_dimension_list(&sh_num, &folder_list);
+						free_2_dimension_list(&acc_num, &account_list);
+						result = -1;
+						goto confpage;
+					}
+					if (share_exists) {
 						i = 1;
-						memset(share, 0, 256);
+						memset(share, 0, sizeof(share));
 						snprintf(share, sizeof(share), "%.*s(%d)", (int)sizeof(share) - 13, folder_list[n], i);
-						while(check_existed_share(share)){
+						while ((share_exists = check_existed_share(share, staged_path)) > 0) {
 							++i;
 							snprintf(share, sizeof(share), "%.*s(%d)", (int)sizeof(share) - 13, folder_list[n], i);
 						}
+						if (share_exists < 0) {
+							free_2_dimension_list(&sh_num, &folder_list);
+							free_2_dimension_list(&acc_num, &account_list);
+							result = -1;
+							goto confpage;
+						}
 					}
-					
-					fp = fopen(SAMBA_CONF, "a");
+
+					fp = fopen(staged_path, "a");
 					if (fp == NULL) {
+						free_2_dimension_list(&sh_num, &folder_list);
+						free_2_dimension_list(&acc_num, &account_list);
 						result = -1;
 						goto confpage;
 					}
@@ -684,10 +713,17 @@ write_smb_conf(void)
 	}
 
 confpage:
-	if (fp && fclose(fp) != 0)
-		result = -1;
+	if (result != 0) {
+		samba_config_file_discard(&fp, staged_path);
+		free_disk_data(disks_info);
+		return -1;
+	}
+	if (samba_config_file_publish(&fp, staged_path, SAMBA_CONF) != 0) {
+		free_disk_data(disks_info);
+		return -1;
+	}
 	free_disk_data(disks_info);
-	return result;
+	return 0;
 }
 
 static void

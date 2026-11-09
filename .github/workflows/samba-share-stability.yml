@@ -1,0 +1,108 @@
+name: Samba share configuration stability regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/samba-share-stability.yml"
+      - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/services_ex.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/samba_config_file.h"
+      - "trunk/user/rc/src/tests/samba_config_file.c"
+  pull_request:
+    paths:
+      - ".github/workflows/samba-share-stability.yml"
+      - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/services_ex.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/samba_config_file.h"
+      - "trunk/user/rc/src/tests/samba_config_file.c"
+
+jobs:
+  samba-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run Samba config publication regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/samba_config_file.c \
+            -o /tmp/samba-config-file
+          /tmp/samba-config-file
+      - name: Verify Samba config staging and service failure gates
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          stor = Path("trunk/user/rc/src/services_stor.c").read_text()
+          services = Path("trunk/user/rc/src/services_ex.c").read_text()
+          header = Path("trunk/user/rc/src/rc.h").read_text()
+          helper = Path("trunk/user/rc/src/samba_config_file.h").read_text()
+          test = Path("trunk/user/rc/src/tests/samba_config_file.c").read_text()
+
+          def function_body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          assert "int write_smb_conf_header(FILE *fp);" in header
+          header_body = function_body(services, "write_smb_conf_header(FILE *fp)")
+          assert "fopen(SAMBA_CONF" not in header_body
+          assert "unlink(SAMBA_CONF)" not in header_body
+          assert "ferror(fp)" in header_body
+
+          smb = function_body(stor, "write_smb_conf(void)")
+          assert "samba_config_file_open(SAMBA_CONF" in smb
+          assert "write_smb_conf_header(fp)" in smb
+          assert "samba_config_file_publish(&fp, staged_path, SAMBA_CONF)" in smb
+          assert 'fopen(SAMBA_CONF, "a")' not in smb
+          assert 'fopen(staged_path, "a")' in smb
+          assert "check_existed_share(share, staged_path)" in smb
+          folder_check = smb[smb.index("get_folder_list_in_mount_path("):]
+          folder_check = folder_check[:folder_check.index("for (n = 0")]
+          assert "goto confpage;" in folder_check
+          assert "continue;" not in folder_check
+
+          check = function_body(stor, "check_existed_share(")
+          assert 'fopen(config_path, "r")' in check
+          assert "ferror(tp)" in check
+          assert "fclose(tp)" in check
+
+          wins = function_body(services, "start_wins(void)")
+          assert "samba_config_file_open(SAMBA_CONF" in wins
+          assert "write_smb_conf_header(fp)" in wins
+          assert "samba_config_file_publish(&fp, staged_path, SAMBA_CONF)" in wins
+          assert wins.index("samba_config_file_publish") < wins.index('eval("/sbin/nmbd"')
+
+          restart = function_body(services, "restart_nmbd(void)")
+          assert restart.index("write_smb_conf() != 0") < restart.index("stop_nmbd()")
+          assert restart.index("write_smb_conf() != 0") < restart.index('eval("/sbin/nmbd"')
+          assert restart.index("write_smb_conf() != 0") < restart.index('doSystem("killall %s %s", "-SIGHUP", "smbd")')
+
+          open_fn = function_body(helper, "samba_config_file_open(")
+          publish_fn = function_body(helper, "samba_config_file_publish(")
+          for token in ("mkstemp(", "fchmod(", "fdopen("):
+              assert token in open_fn
+          for token in ("ferror(fp)", "fflush(fp)", "fclose(fp)",
+                        "rename(staged_path, target_path)", "unlink(staged_path)"):
+              assert token in publish_fn
+          assert publish_fn.index("fflush(fp)") < publish_fn.index("rename(")
+          assert publish_fn.index("fclose(fp)") < publish_fn.index("rename(")
+
+          assert "samba_config_file_publish(&fp, staged, target) == 0" in test
+          assert "samba_config_file_publish(&fp, staged, directory_target) != 0" in test
+          assert "samba_config_file_discard(&fp, staged)" in test
+          assert 'fopen("/dev/full", "w")' in test
+
+          print("Samba share config publication and reload failure gates: PASS")
+          PY
