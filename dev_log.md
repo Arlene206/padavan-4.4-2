@@ -1,3 +1,17 @@
+## 2026-11-09 14:37 CST (UTC+8) — Simplify cross-session records and batch log rotation
+
+- **Base main SHA:** `ae0ddfe000ca0ed92154f3b14b125d667a76832a`.
+- **Governance correction:** replace per-entry 20-record rotation with a 120/100/20 batch policy. The root `dev_log.md` accumulates newest-first records from 20 through 119; when a new entry would create record 120, archive the oldest 100 complete entries verbatim in one batch and retain the newest 20. A 384 KiB target is an earlier size-based rotation trigger; 512 KiB is the hard limit.
+- **Live-state files:** `SESSION_HANDOFF.md` remains one actionable checkpoint and `REFACTOR_ROADMAP.md` remains one current dashboard. Update each in place only when its own facts materially change. Git history is the version archive; routine Handoff/Roadmap snapshots are no longer created.
+- **No mechanical triple-update:** update the log for a coherent milestone, Handoff only when the resumable checkpoint changes or before stopping, and Roadmap only when module status, evidence, inventory or priorities change. Do not create a docs-only follow-up commit just to write a completed CI result back into the files.
+- **Historical preservation:** all existing dev-log, handoff and roadmap archive files/indexes remain unchanged and immutable. The validator continues checking their indexed paths, byte counts, heading counts and Git blob SHAs.
+- **Changed paths:** `AI_BOOTSTRAP_PROMPT.md`, `AI_DEVELOPMENT_PROTOCOL.md`, `scripts/check_ai_handoff_docs.py`, `.github/workflows/ai-handoff-docs.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+- **Validation:** reviewed the new count/size policy and the checker/workflow wiring. The local checker was not run because this session edited repository files through the GitHub API without a local checkout. Exact-head `AI handoff documentation contract` is triggered by this commit; inspect its run against the resulting SHA.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** resume the existing DHCP bound-path transaction in `udhcpc_lan_bound()` / `lan_up_auto()` as recorded in the current handoff. Reconcile this documentation workflow from live Actions; do not make another docs-only commit solely to record its conclusion.
+
+---
+
 ## 2026-11-09 14:27 CST — Atomically publish LAN DHCP deconfig resolver cleanup
 
 - Repository: `Arlene206/padavan-4.4-2`. Base source/test head: `011b6fcf27129efcde3b948384c5b4d1907d0599`.

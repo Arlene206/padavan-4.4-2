@@ -1,6 +1,6 @@
 # Current Session Handoff — Padavan 4.4
 
-> One actionable checkpoint. Historical handoffs are preserved byte-for-byte and indexed. Always fetch live main and exact-head Actions before relying on a SHA.
+> One actionable checkpoint. Existing historical snapshots remain immutable and indexed; routine revisions of this live file are preserved by Git history. Always fetch live main and exact-head Actions before relying on a SHA.
 
 ## Current repository state
 
@@ -68,7 +68,14 @@ LAN DHCP lifecycle reliability — AP-mode bound/renew input validation, changed
 4. Re-read current call sites and finish the drafted storage caller-graph Python regression; add it alongside the existing storage_mountpoint_lock.sh and Optware lock tests in the storage workflow. Verify exact-head Actions.
 5. Rotate to a different userland module after these bounded tasks. Keep FULLCONENAT mapping namespace work separate. Do not repeat completed SkipDBv2/HTTPD work.
 
-## Recovery and archive rule
+## Documentation maintenance
+
+- `SESSION_HANDOFF.md` and `REFACTOR_ROADMAP.md` are live single-copy documents. Update in place only when their respective state materially changes; use Git history to retrieve older versions. Do not create new routine handoff/roadmap archives.
+- `dev_log.md` accumulates newest-first entries from 20–119. When the next entry would make 120, archive the oldest 100 complete entries verbatim and retain the newest 20. If the 384 KiB target is exceeded earlier, batch-archive complete old entries while retaining the newest 20. Hard limit: 512 KiB.
+- Existing `docs/handoffs/archive/` and `docs/roadmap-history/` snapshots and indexes are legacy history. Keep them byte-for-byte intact; the validator continues checking their inventory and hashes.
+- Update only records whose information changed: log for a coherent milestone; handoff for a changed checkpoint/next action or before stopping; roadmap for a changed module status, audit result, or global priority.
+- Run `python3 scripts/check_ai_handoff_docs.py` when a local checkout is available. Inspect the exact-head Actions result after pushing. Do not make a follow-up docs-only commit solely to record a completed CI result; GitHub Actions is authoritative.
+
 
 - Superseded root handoff snapshots are preserved byte-for-byte as `docs/handoffs/archive/2026/11/part-016.md` through `part-020.md`; the preceding root handoff blob `c38ab64b10c69b4a302b87ddd2cef796bed4923a` is part-020. See `docs/handoffs/INDEX.md`.
 - Superseded root roadmap snapshots are preserved byte-for-byte as `docs/roadmap-history/2026/11/part-016.md` through `part-018.md`; the preceding root roadmap blob `7fb99941514b3067268e8758ba74cc4da2d22dbf` is part-018. See `docs/roadmap-history/INDEX.md`.

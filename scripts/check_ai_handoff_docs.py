@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate compact AI handoff records and lossless archives."""
+"""Validate current AI handoff records and batched, lossless history archives."""
 from __future__ import annotations
 
 import hashlib
@@ -10,9 +10,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 HANDOFF_LIMIT = 64 * 1024
 ROADMAP_LIMIT = 128 * 1024
-LOG_LIMIT = 128 * 1024
+LOG_TARGET = 384 * 1024
+LOG_LIMIT = 512 * 1024
 ARCHIVE_LIMIT = 512 * 1024
-LOG_WINDOW = 20
+LOG_RETAIN = 20
+LOG_ARCHIVE_BATCH = 100
+LOG_ROTATE_AT = LOG_RETAIN + LOG_ARCHIVE_BATCH
 
 
 def fail(message: str) -> None:
@@ -28,7 +31,7 @@ def read_bytes(rel: str) -> bytes:
 
 
 def git_blob_sha(data: bytes) -> str:
-    header = f"blob {len(data)}\0".encode("ascii")
+    header = f"blob {len(data)}\\0".encode("ascii")
     return hashlib.sha1(header + data).hexdigest()
 
 
@@ -69,7 +72,11 @@ def check_archive_index(index_rel: str, archive_root: str, heading_pattern: byte
         rows[rel] = True
 
     root = ROOT / archive_root
-    actual_files = {p.relative_to(ROOT).as_posix() for p in root.rglob("*.md") if p.name != "INDEX.md"}
+    actual_files = {
+        p.relative_to(ROOT).as_posix()
+        for p in root.rglob("*.md")
+        if p.name != "INDEX.md"
+    }
     if actual_files != set(rows):
         missing = sorted(actual_files - set(rows))
         stale = sorted(set(rows) - actual_files)
@@ -84,25 +91,58 @@ def main() -> None:
     protocol = read_bytes("AI_DEVELOPMENT_PROTOCOL.md").decode("utf-8")
     handoff = check_limit("SESSION_HANDOFF.md", HANDOFF_LIMIT).decode("utf-8")
     roadmap = check_limit("REFACTOR_ROADMAP.md", ROADMAP_LIMIT).decode("utf-8")
-    log = check_limit("dev_log.md", LOG_LIMIT).decode("utf-8")
+    log_bytes = check_limit("dev_log.md", LOG_LIMIT)
+    log = log_bytes.decode("utf-8")
 
     if "docs/dev-log/INDEX.md" not in bootstrap or "scripts/check_ai_handoff_docs.py" not in bootstrap:
-        fail("bootstrap does not point to canonical archive index and validator")
-    for required in ("cross-conversation", "512 KiB", "docs/dev-log/YYYY/MM/part-NNN.md"):
+        fail("bootstrap does not point to the canonical log archive index and validator")
+    for required in (
+        "cross-conversation",
+        "512 KiB",
+        "docs/dev-log/YYYY/MM/part-NNN.md",
+        "120",
+        "oldest 100",
+        "384 KiB",
+        "Git history",
+    ):
         if required not in protocol:
             fail(f"protocol is missing mandatory governance rule: {required}")
-    for heading in ("## Current repository state", "## Active task", "## Verification boundary", "## Exact first action for the next GPT"):
+    if "20–119" not in protocol or "20–119" not in bootstrap:
+        fail("protocol/bootstrap must define the 20–119 root log window")
+    if "Do not create routine handoff archive copies" not in protocol:
+        fail("protocol must prohibit routine handoff archive snapshots")
+    if "Do not create routine roadmap archive copies" not in protocol:
+        fail("protocol must prohibit routine roadmap archive snapshots")
+    if "Do not create new snapshots for ordinary edits" not in bootstrap:
+        fail("bootstrap must prohibit routine handoff/roadmap snapshots")
+
+    for heading in (
+        "## Current repository state",
+        "## Active task",
+        "## Verification boundary",
+        "## Exact first action for the next GPT",
+    ):
         if heading not in handoff:
             fail(f"handoff missing required section: {heading}")
     if "## Whole-repository module status" not in roadmap or "AUDITING" not in roadmap:
         fail("roadmap does not contain a current module status dashboard")
 
-    log_count = len(re.findall(r"(?m)^## \d{4}-\d{2}-\d{2}\b", log))
-    if log_count != LOG_WINDOW:
-        fail(f"dev_log.md must contain exactly {LOG_WINDOW} complete entries, found {log_count}")
+    log_count = len(re.findall(r"(?m)^## \\d{4}-\\d{2}-\\d{2}\\b", log))
+    if log_count < LOG_RETAIN:
+        fail(f"dev_log.md must retain at least {LOG_RETAIN} complete newest entries; found {log_count}")
+    if log_count >= LOG_ROTATE_AT:
+        fail(
+            f"dev_log.md has {log_count} entries; before committing record {LOG_ROTATE_AT}, "
+            f"archive the oldest {LOG_ARCHIVE_BATCH} complete records and retain {LOG_RETAIN}"
+        )
+    if len(log_bytes) > LOG_TARGET and log_count > LOG_RETAIN:
+        fail(
+            f"dev_log.md is {len(log_bytes)} bytes (target {LOG_TARGET}); "
+            f"batch-rotate old records and retain the newest {LOG_RETAIN}"
+        )
 
     log_files = check_archive_index(
-        "docs/dev-log/INDEX.md", "docs/dev-log", rb"^## \d{4}-\d{2}-\d{2}\b"
+        "docs/dev-log/INDEX.md", "docs/dev-log", rb"^## \\d{4}-\\d{2}-\\d{2}\\b"
     )
     hand_files = check_archive_index(
         "docs/handoffs/INDEX.md", "docs/handoffs", rb"^## "
@@ -112,8 +152,9 @@ def main() -> None:
     )
     print(
         "AI handoff documentation check: PASS "
-        f"(root log={log_count} entries; archive shards: dev-log={log_files}, "
-        f"handoff={hand_files}, roadmap={road_files})"
+        f"(root log={log_count}/{LOG_ROTATE_AT - 1} entries, "
+        f"batch={LOG_ARCHIVE_BATCH}, retain={LOG_RETAIN}, "
+        f"legacy/current archives: dev-log={log_files}, handoff={hand_files}, roadmap={road_files})"
     )
 
 

@@ -39,9 +39,10 @@
 - Prefer focused GNU89 host policy tests plus semantic source contracts; avoid brittle symbol-only checks.
 - Every path-filtered workflow watches production files, helper, tests and workflow for push and pull_request.
 - Actions evidence is valid only for the exact head SHA. Inspect logs for failures.
-- Keep root dev_log.md at exactly the newest 20 complete records; append evicted records verbatim to indexed shards under 512 KiB.
-- Preserve superseded root handoff/roadmap snapshots byte-for-byte in docs archives and update indexes.
-- Run scripts/check_ai_handoff_docs.py and exact-head documentation Actions at handoff.
+- Let root dev_log.md accumulate from 20 to 119 newest-first records. When the next entry would make 120, archive the oldest 100 complete records verbatim and retain the newest 20; use 384 KiB as an earlier batch-rotation target and 512 KiB as the hard limit.
+- Treat SESSION_HANDOFF.md and REFACTOR_ROADMAP.md as live single-copy files: update in place only when their information materially changes; use Git history for previous versions. Do not create new routine handoff/roadmap archive snapshots.
+- Preserve existing handoff/roadmap archive snapshots and indexes byte-for-byte as legacy history. Continue validating their inventory and hashes; do not add new snapshots for ordinary edits.
+- Run scripts/check_ai_handoff_docs.py when a local checkout is available, then inspect the documentation workflow on the exact pushed SHA. Do not create a follow-up docs-only commit solely to write completed CI results into the files.
 
 ## Verification matrix
 
@@ -55,7 +56,7 @@
 ## Handoff requirements
 
 - SESSION_HANDOFF.md is the only actionable continuation point.
-- Update handoff, roadmap and log when the milestone changes.
-- Keep exactly 20 whole records in root dev_log.md; archive complete evicted records and maintain counts/bytes/blob SHAs.
+- Update the handoff only when the resumable task/checkpoint/next action changes or before stopping; update the roadmap only when module status/evidence/priorities change; record coherent milestones in dev_log.md.
+- Keep 20–119 complete records in root dev_log.md. At 120 records, batch-archive the oldest 100 and retain the newest 20; also honor the 384 KiB target and 512 KiB hard limit.
 - Recheck main, checkpoint branches and exact-head Actions on every takeover.
 
