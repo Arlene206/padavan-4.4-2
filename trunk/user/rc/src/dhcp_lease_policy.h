@@ -6,7 +6,7 @@
 #include <string.h>
 
 /* Check canonical dotted-quad syntax, including the all-zero route prefix. */
-static int
+static inline int
 dhcp_lease_ipv4_text_is_valid(const char *value)
 {
 	struct in_addr address;
@@ -15,7 +15,7 @@ dhcp_lease_ipv4_text_is_valid(const char *value)
 }
 
 /* Match the existing RC is_valid_ipv4() contract: 0.0.0.0 is not a host. */
-static int
+static inline int
 dhcp_lease_ipv4_is_valid(const char *value)
 {
 	return dhcp_lease_ipv4_text_is_valid(value) &&
@@ -23,7 +23,7 @@ dhcp_lease_ipv4_is_valid(const char *value)
 }
 
 /* RFC classless routes permit 0.0.0.0 only for the /0 default route. */
-static int
+static inline int
 dhcp_lease_route_destination_is_valid(const char *address,
                                       unsigned int prefix_length)
 {
@@ -36,7 +36,7 @@ dhcp_lease_route_destination_is_valid(const char *address,
 }
 
 /* A netmask must be non-zero and contain one contiguous run of leading ones. */
-static int
+static inline int
 dhcp_lease_netmask_is_valid(const char *value)
 {
 	struct in_addr address;
@@ -54,7 +54,7 @@ dhcp_lease_netmask_is_valid(const char *value)
 }
 
 /* Validate a whitespace-separated list of IPv4 addresses with explicit bounds. */
-static int
+static inline int
 dhcp_lease_ipv4_list_is_valid(const char *value, size_t max_length,
                               unsigned int max_items, int allow_empty)
 {
@@ -99,7 +99,7 @@ dhcp_lease_ipv4_list_is_valid(const char *value, size_t max_length,
 }
 
 /* Return 1 for a first address, 0 for an empty list and -1 for invalid input. */
-static int
+static inline int
 dhcp_lease_ipv4_list_first(const char *value, char *out, size_t out_size)
 {
 	const unsigned char *p;
@@ -136,7 +136,7 @@ dhcp_lease_ipv4_list_first(const char *value, char *out, size_t out_size)
 /* A missing or withdrawn DHCP router option is equivalent to an empty
  * gateway. Compare the normalized first router against the stored lease so
  * renewal callbacks do not preserve a gateway that the server removed. */
-static int
+static inline int
 dhcp_lease_router_is_changed(const char *stored_gateway,
                              const char *router_option,
                              char *next_gateway, size_t next_gateway_size)
@@ -149,7 +149,7 @@ dhcp_lease_router_is_changed(const char *stored_gateway,
 }
 
 /* Strict decimal parser: no signs, whitespace, suffixes or overflow. */
-static int
+static inline int
 dhcp_lease_decimal_is_valid(const char *value, unsigned int minimum,
                             unsigned int maximum, unsigned int *result)
 {
@@ -180,7 +180,7 @@ dhcp_lease_decimal_is_valid(const char *value, unsigned int minimum,
 
 /* Route options are parsed as data, never as shell commands. Bound their size
  * and alphabet before storing them for the route-table parser. */
-static int
+static inline int
 dhcp_lease_route_text_is_safe(const char *value)
 {
 	const unsigned char *p = (const unsigned char *)value;

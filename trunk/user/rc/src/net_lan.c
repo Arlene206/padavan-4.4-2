@@ -31,6 +31,8 @@
 #include <net/if.h>
 
 #include "rc.h"
+#include "dnsmasq_domain_policy.h"
+#include "dhcp_lease_policy.h"
 #include "switch.h"
 #include "switch_status_policy.h"
 #include <gpioutils.h>
@@ -949,66 +951,137 @@ udhcpc_lan_deconfig(char *lan_ifname)
 	return 0;
 }
 
-static int 
+static int
 udhcpc_lan_bound(char *lan_ifname, int is_renew)
 {
-	char *param, *value;
-	char tmp[100], prefix[16];
+	char *value, *lease_ip, *lease_netmask, *lease_domain;
+	char *lease_dns, *lease_wins;
+	char gateway_buf[INET_ADDRSTRLEN], old_gateway[INET_ADDRSTRLEN];
+	char lease_text[16];
+	unsigned int parsed_lease;
 	int is_changed = 0, ip_changed = 0, lease_dur = 0;
+	int route_result;
 
-	snprintf(prefix, sizeof(prefix), "lan_");
+	if (!lan_ifname || !*lan_ifname)
+		return EINVAL;
 
-	if ((value = getenv("ip"))) {
-		param = strcat_r(prefix, "ipaddr_t", tmp);
-		is_changed |= nvram_invmatch(param, value);
-		ip_changed |= is_changed;
-		nvram_set_temp(param, value);
-	}
-	if ((value = getenv("subnet"))) {
-		param = strcat_r(prefix, "netmask_t", tmp);
-		is_changed |= nvram_invmatch(param, value);
-		nvram_set_temp(param, value);
+	/* Do not publish any part of a lease until its required address data is
+	 * valid. The AP-mode LAN address is supplied by an untrusted DHCP server. */
+	value = getenv("ip");
+	lease_ip = value ? trim_r(value) : "";
+	value = getenv("subnet");
+	if (value) {
+		lease_netmask = trim_r(value);
 	} else {
-		is_changed |= 1;
+		lease_netmask = nvram_safe_get("lan_netmask_t");
+		if (!dhcp_lease_netmask_is_valid(lease_netmask))
+			lease_netmask = nvram_safe_get("lan_netmask");
 	}
-	if ((value = getenv("router"))) {
-		param = strcat_r(prefix, "gateway_t", tmp);
-		is_changed |= nvram_invmatch(param, value);
-		nvram_set_temp(param, value);
+
+	if (!dhcp_lease_ipv4_is_valid(lease_ip) ||
+	    !dhcp_lease_netmask_is_valid(lease_netmask)) {
+		logmessage("DHCP LAN Client",
+			"bound/renew (%s) rejected invalid DHCP address/netmask",
+			lan_ifname);
+		return EINVAL;
 	}
-	if ((value = getenv("dns"))) {
-		param = strcat_r(prefix, "dns_t", tmp);
-		is_changed |= nvram_invmatch(param, value);
-		nvram_set_temp(param, value);
+
+	/* Normalize optional options on every event. An option withdrawn by the
+	 * server must not leave the previous lease's values live in NVRAM. */
+	gateway_buf[0] = '\0';
+	value = getenv("router");
+	route_result = dhcp_lease_ipv4_list_first(
+		value ? trim_r(value) : NULL, gateway_buf, sizeof(gateway_buf));
+	if (route_result < 0) {
+		logmessage("DHCP LAN Client",
+			"ignoring invalid DHCP router list on %s", lan_ifname);
+		gateway_buf[0] = '\0';
 	}
-	if ((value = getenv("domain"))) {
-		param = strcat_r(prefix, "domain_t", tmp);
-		is_changed |= nvram_invmatch(param, value);
-		nvram_set_temp(param, value);
+
+	value = getenv("dns");
+	lease_dns = value ? trim_r(value) : "";
+	if (!dhcp_lease_ipv4_list_is_valid(lease_dns, 255, 16, 1)) {
+		logmessage("DHCP LAN Client",
+			"ignoring invalid DHCP DNS list on %s", lan_ifname);
+		lease_dns = "";
 	}
-	if ((value = getenv("wins")))
-		nvram_set_temp(strcat_r(prefix, "wins_t", tmp), value);
-	if ((value = getenv("lease"))) {
-		lease_dur = atoi(value);
-		nvram_set_temp(strcat_r(prefix, "lease_t", tmp), value);
+
+	value = getenv("wins");
+	lease_wins = value ? trim_r(value) : "";
+	if (!dhcp_lease_ipv4_list_is_valid(lease_wins, 255, 16, 1)) {
+		logmessage("DHCP LAN Client",
+			"ignoring invalid DHCP WINS list on %s", lan_ifname);
+		lease_wins = "";
 	}
+
+	value = getenv("domain");
+	lease_domain = value ? trim_r(value) : "";
+	if (*lease_domain && !dnsmasq_valid_server_domain(lease_domain)) {
+		logmessage("DHCP LAN Client",
+			"ignoring invalid DHCP domain on %s", lan_ifname);
+		lease_domain = "";
+	}
+
+	value = getenv("lease");
+	if (value) {
+		value = trim_r(value);
+		if (!dhcp_lease_decimal_is_valid(value, 0U, 2147483647U,
+					 &parsed_lease)) {
+			logmessage("DHCP LAN Client",
+				"ignoring invalid DHCP lease duration on %s", lan_ifname);
+		} else {
+			lease_dur = (int)parsed_lease;
+		}
+	}
+	snprintf(lease_text, sizeof(lease_text), "%d", lease_dur);
+
+	/* Snapshot the old default gateway before replacing lease state. */
+	snprintf(old_gateway, sizeof(old_gateway), "%s",
+		nvram_safe_get("lan_gateway_t"));
+
+	is_changed |= nvram_invmatch("lan_ipaddr_t", lease_ip);
+	ip_changed = nvram_invmatch("lan_ipaddr_t", lease_ip);
+	is_changed |= nvram_invmatch("lan_netmask_t", lease_netmask);
+	is_changed |= nvram_invmatch("lan_gateway_t", gateway_buf);
+	is_changed |= nvram_invmatch("lan_dns_t", lease_dns);
+	is_changed |= nvram_invmatch("lan_domain_t", lease_domain);
+
+	/* Required fields passed validation; publish one complete normalized lease. */
+	nvram_set_temp("lan_ipaddr_t", lease_ip);
+	nvram_set_temp("lan_netmask_t", lease_netmask);
+	nvram_set_temp("lan_gateway_t", gateway_buf);
+	nvram_set_temp("lan_dns_t", lease_dns);
+	nvram_set_temp("lan_domain_t", lease_domain);
+	nvram_set_temp("lan_wins_t", lease_wins);
+	nvram_set_temp("lan_lease_t", lease_text);
 
 	if (is_changed || !is_renew) {
-		char *lan_ipaddr  = nvram_safe_get(strcat_r(prefix, "ipaddr_t", tmp));
-		char *lan_ipmask  = nvram_safe_get(strcat_r(prefix, "netmask_t", tmp));
-		char *lan_gateway = nvram_safe_get(strcat_r(prefix, "gateway_t", tmp));
-		char *lan_domain  = nvram_safe_get(strcat_r(prefix, "domain_t", tmp));
-		
+		char *lan_ipaddr = nvram_safe_get("lan_ipaddr_t");
+		char *lan_ipmask = nvram_safe_get("lan_netmask_t");
+		char *lan_gateway = nvram_safe_get("lan_gateway_t");
+		char *lan_domain = nvram_safe_get("lan_domain_t");
+
+		/* Withdraw the old default route before installing a changed router
+		 * option. Otherwise a DHCP renewal can accumulate stale default routes. */
+		if (dhcp_lease_ipv4_is_valid(old_gateway) &&
+		    strcmp(old_gateway, gateway_buf) != 0) {
+			route_result = route_del(lan_ifname, 0, "0.0.0.0",
+				old_gateway, "0.0.0.0");
+			if (route_result != 0)
+				logmessage("DHCP LAN Client",
+					"failed to remove previous gateway route on %s (status=%d)",
+					lan_ifname, route_result);
+		}
+
 		if (ip_changed)
 			ifconfig(lan_ifname, IFUP, "0.0.0.0", NULL);
-		
+
 		ifconfig(lan_ifname, IFUP, lan_ipaddr, lan_ipmask);
-		
 		create_hosts_lan(lan_ipaddr, lan_domain);
-		
 		lan_up_auto(lan_ifname, lan_gateway, lan_domain);
 		system("/usr/bin/iappd.sh restart");
-		logmessage("DHCP LAN Client", "%s, IP: %s/%s, GW: %s, lease time: %d",
+		logmessage("DHCP LAN Client",
+			"%s, IP: %s/%s, GW: %s, lease time: %d",
 			udhcpc_lan_state, lan_ipaddr, lan_ipmask, lan_gateway, lease_dur);
 	}
 

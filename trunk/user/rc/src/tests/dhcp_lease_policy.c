@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "dhcp_lease_policy.h"
+#include "dnsmasq_domain_policy.h"
 
 int
 main(void)
@@ -26,6 +27,14 @@ main(void)
 	assert(dhcp_lease_netmask_is_valid("255.255.255.255"));
 	assert(!dhcp_lease_netmask_is_valid("255.0.255.0"));
 	assert(!dhcp_lease_netmask_is_valid("0.0.0.0"));
+
+	assert(dnsmasq_valid_server_domain("example.com"));
+	assert(dnsmasq_valid_server_domain("router.lan."));
+	assert(!dnsmasq_valid_server_domain(""));
+	assert(!dnsmasq_valid_server_domain("example.com\n127.0.0.1 injected"));
+	assert(!dnsmasq_valid_server_domain("example.com/8.8.8.8"));
+	assert(!dnsmasq_valid_server_domain("-bad.example"));
+	assert(!dnsmasq_valid_server_domain("bad-.example"));
 
 	assert(dhcp_lease_ipv4_list_is_valid("192.0.2.1 198.51.100.2", 255, 16, 0));
 	assert(dhcp_lease_ipv4_list_is_valid("", 255, 16, 1));
