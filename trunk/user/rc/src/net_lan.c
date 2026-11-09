@@ -964,7 +964,6 @@ lan_down_auto(char *lan_ifname)
 	return 0;
 }
 
-static int
 void 
 update_lan_status(int is_auto)
 {
