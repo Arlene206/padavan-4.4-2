@@ -1,3 +1,18 @@
+## 2026-11-09 11:21 CST (UTC+8) — Fix wireless interface-down result handling and LED state publication
+
+- **Base main SHA:** `91b3bb41efe0f6ad11d18f8a19d9df3592d7c7b6`; resulting source/documentation commit: THIS COMMIT.
+- **Module / priority:** wireless management and RT3352 iNIC lifecycle, P2 stability. Whole-module audit remains open.
+- **Findings:** `check_inic_mii_rebooted()` discarded the return from the periodic iNIC guest-interface-up command, so a failed recovery was indistinguishable from success. `inicd.c` invokes the check from its SIGALRM timer handler, making this an opportunity for an explicit retry on the next health-check tick. `stop_wifi_all_wl()` and `stop_wifi_all_rt()` ignored every interface-down result and switched the radio LED off even if a netdevice remained up. The RT3352 MII startup path brings up `IFNAME_INIC_MAIN` and optionally `IFNAME_INIC_GUEST`, but the old stop path attempted the non-MII 2.4GHz APCLI/WDS/AP names instead of tearing down those iNIC interfaces.
+- **Fix:** route the health-check guest-up through `wif_control_success()` and explicitly defer recovery to the next periodic check on failure. Add a sticky shutdown-result policy; every supported interface-down is attempted and checked, a later success cannot erase an earlier failure, and the LED is switched off only if all required shutdown operations succeeded. The MII path now stops the actual iNIC guest/main interfaces, removes guest VLAN bridge membership, and reports isolate/RGMII-disable failures without short-circuiting cleanup.
+- **Changed paths:** `trunk/user/rc/src/net_wifi.c`; `trunk/user/rc/src/wireless_radio_policy.h`; `trunk/user/rc/src/tests/wireless_radio_policy.c`; `.github/workflows/wireless-radio-state.yml`; compact root handoff/roadmap/log plus lossless archives/indexes.
+- **Regression:** extended GNU89 host policy test with sticky shutdown-failure aggregation; added source contracts for periodic iNIC recovery status, every stop attempt, MII teardown and LED-off ordering. Exact-head wireless and documentation Actions are PENDING at commit creation.
+- **Validation boundary:** L1 source/caller review PASS for the scoped health-check and shutdown paths. L2 host compile/test and Actions PENDING until the new exact-head run completes. No MIPS/uClibc RC build, complete firmware/TRX, live radio restart or hardware test claimed.
+- **Remaining scope:** driver/switch consumers, other board-conditional lifecycle paths and concurrent restart/stop behavior remain open. Firewall/NAT remains AUDITING; FULLCONENAT mapping hashes and the dying-tuple queue are still module-global and not namespace-keyed.
+- **Next:** reconcile wireless and AI handoff documentation workflows against exact live main SHA. Once green, rotate to DNS/DHCP client lifecycle error handling; retain FULLCONENAT mapping namespace isolation as a separate P2 audit.
+- **Result:** THIS COMMIT.
+
+---
+
 ## 2026-11-09 11:17 CST (UTC+8) — Confirm FULLCONENAT per-net notifier regression and handoff archive CI
 
 - **Base main SHA:** `91cae3d19bb72a9e0cebcad509db256aded52467`; this documentation-only follow-up records the exact-head results for the code commit.
@@ -266,15 +281,3 @@
 
 ---
 
-## 2026-11-09 06:40 CST — Harden xt_webstr dual-stack packet and URL parsing
-
-- **Base main SHA:** `d82ea0eced9da0f135d333039d946c5596143160` (after DHCPv6 DUID/IPv6 Firewall audit docs checkpoint).
-- **Implementation commits:** `9bb219bdb2b375e29c1b2e768a2cea1e3cf7fe5a` fixes HTTP packet bounds, static parser-state race, unsafe token splitting, IPv4/IPv6/TCP parsing, Host/URL capacities and iptables userspace string overflow; `6327e7784b1fa39e7b481823749fe7cbd80d5023` moves the HTTP-method check ahead of nonlinear-payload allocation; `3fa30b0aa0e743249d8623fdd5ebcad3d7730d57` adds an explicit first-fragment offset guard after review of Linux 4.4 `ipv6_skip_exthdr()` semantics (the helper already leaves later fragments unparsed, which the TCP protocol gate rejects).
-- **Root cause:** `find_pattern2()` read a terminator byte before checking packet bounds; Host and URL copies could write the NUL one byte past the field; `htinfo` was global shared packet state; IPv6 parsing ignored extension headers and the fragment offset; TCP data offset was trusted; rule tokens were split without an explicit input bound; the userspace `parse_string()` allowed a 256-byte source into a 256-byte array requiring a 257th NUL byte.
-- **Changed paths:** `trunk/linux-4.4.x/net/netfilter/xt_webstr.c`; new `trunk/linux-4.4.x/net/netfilter/xt_webstr_parser_policy.h` and `trunk/linux-4.4.x/net/netfilter/tests/xt_webstr_parser_policy.c`; `trunk/user/iptables/iptables-1.8.7/extensions/libxt_webstr.c`; new `.github/workflows/xt-webstr-security.yml`.
-- **Regression:** local GNU89 `-Wall -Wextra -Werror` + ASan/UBSan + leak-detection regression PASS for the shared policy helpers; test cases include unterminated header values, host/url NUL space, bounded token scanning, TCP/packet spans and IPv6 fragment offset policy. This is a helper-level test and not a kernel matcher or skb runtime test.
-- **Exact-head Actions:** [42530929923](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42530929923) SUCCESS on `9bb219bdb2b375e29c1b2e768a2cea1e3cf7fe5a`; [42531025010](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42531025010) SUCCESS on `6327e7784b1fa39e7b481823749fe7cbd80d5023`; [42531309374](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42531309374) SUCCESS on `3fa30b0aa0e743249d8623fdd5ebcad3d7730d57`. Each completed the GNU89 sanitizer regression and kernel/userspace source-integration contracts.
-- **Validation boundary:** source review + L2 host/Actions PASS. Full kernel module, complete iptables extension production object, MIPS/uClibc cross-build, firmware/TRX, real IPv4/IPv6 traffic, COOKIE writeback and hardware remain NOT RUN.
-- **Audit state / next:** IPv6 Firewall/NAT audit did not establish a new gap; keep it AUDITING. Next perform focused Linux 4.4 IPv4-only and IPv6-enabled `xt_webstr.c` builds (`CONFIG_FRAME_WARN=1024`) and target userspace extension compile; then resume `ip6table_nat` load ownership, ULA `FULLCONENAT`, extension-hook failure handling, followed by switch CLI/register and Wireless audits. Do not treat this bounded parser change as subsystem closure.
-
----

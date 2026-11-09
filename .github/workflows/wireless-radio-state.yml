@@ -179,6 +179,53 @@ jobs:
                   f"start_inic_mii: failed rai0 startup may still reach {effect}"
               )
 
+          # The periodic iNIC health check must retain the guest-up result.
+          inic_check = function_body(source, "check_inic_mii_rebooted(void)")
+          guest_gate = "if (!is_interface_up(IFNAME_INIC_GUEST) && is_guest_allowed_rt())"
+          assert guest_gate in inic_check
+          assert "wif_control_success(IFNAME_INIC_GUEST, 1)" in inic_check
+          assert "wif_control(IFNAME_INIC_GUEST, 1)" not in inic_check
+          assert inic_check.index(guest_gate) < inic_check.index("wif_control_success(IFNAME_INIC_GUEST, 1)")
+          assert "deferred until the next health check" in inic_check
+
+          def assert_shutdown_calls(body, interfaces):
+              calls = []
+              for ifname in interfaces:
+                  call = ("all_stopped = wireless_radio_shutdown_status(all_stopped, "
+                          "wif_control_success(" + ifname + ", 0));")
+                  assert call in body, f"shutdown must check {ifname}"
+                  calls.append(body.index(call))
+              assert calls == sorted(calls), "shutdown must attempt every required interface in order"
+
+          wl_stop = function_body(source, "stop_wifi_all_wl(void)")
+          assert "int all_stopped = 1;" in wl_stop
+          assert_shutdown_calls(wl_stop, (
+              "IFNAME_5G_APCLI", "IFNAME_5G_WDS3", "IFNAME_5G_WDS2",
+              "IFNAME_5G_WDS1", "IFNAME_5G_WDS0", "IFNAME_5G_GUEST",
+              "IFNAME_5G_MAIN",
+          ))
+          assert wl_stop.index("if (all_stopped)") < wl_stop.index("LED_CONTROL(LED_SW5G, LED_OFF);")
+          assert wl_stop.count("LED_CONTROL(LED_SW5G, LED_OFF);") == 1
+          assert "shutdown incomplete; retaining radio LED state" in wl_stop
+
+          rt_stop = function_body(source, "stop_wifi_all_rt(void)")
+          assert "int all_stopped = 1;" in rt_stop
+          mii_start = rt_stop.index("#if defined(USE_RT3352_MII)")
+          mii_else = rt_stop.index("#else", mii_start)
+          mii_branch = rt_stop[mii_start:mii_else]
+          generic_branch = rt_stop[mii_else:]
+          assert_shutdown_calls(mii_branch, ("IFNAME_INIC_GUEST", "IFNAME_INIC_MAIN"))
+          assert "phy_isolate_inic(1)" in mii_branch and "phy_disable_inic(1)" in mii_branch
+          assert "IFNAME_INIC_GUEST_VLAN, 0" in mii_branch
+          assert_shutdown_calls(generic_branch, (
+              "IFNAME_2G_APCLI", "IFNAME_2G_WDS3", "IFNAME_2G_WDS2",
+              "IFNAME_2G_WDS1", "IFNAME_2G_WDS0", "IFNAME_2G_GUEST",
+              "IFNAME_2G_MAIN",
+          ))
+          assert rt_stop.index("if (all_stopped)") < rt_stop.index("LED_CONTROL(LED_SW2G, LED_OFF);")
+          assert rt_stop.count("LED_CONTROL(LED_SW2G, LED_OFF);") == 1
+          assert "shutdown incomplete; retaining radio LED state" in rt_stop
+
           # The explicit inic_disable path is fail-safe: a failed ifconfig
           # down must not prevent bridge removal, isolation, RGMII disable,
           # or reset assertion.

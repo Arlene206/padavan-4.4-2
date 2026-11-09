@@ -1,56 +1,65 @@
 # Current Session Handoff — Padavan 4.4
 
-> One actionable checkpoint only. Historical handoffs and roadmap snapshots are preserved verbatim and indexed. Always fetch live `main` before relying on any SHA below.
+> One actionable checkpoint. Historical handoffs are preserved byte-for-byte and indexed. Always fetch live `main` before relying on a SHA.
 
 ## Current repository state
 
-- **Repository:** `Arlene206/padavan-4.4-2` — this fork, not upstream.
-- **Base main SHA before this documentation update:** `91cae3d19bb72a9e0cebcad509db256aded52467`.
-- **FULLCONENAT implementation commit:** `91cae3d19bb72a9e0cebcad509db256aded52467`; source regression passed on this exact SHA.
-- **Resulting main SHA:** THIS DOCUMENTATION COMMIT; fetch live `main` during the next recovery and match the new documentation Actions run to that exact SHA.
-- **Active branch:** `main`; only `main` was observed remotely, with no separate checkpoint branch.
-- **FULLCONENAT lifecycle regression:** [42555493213](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42555493213) SUCCESS on exact code SHA `91cae3d19bb72a9e0cebcad509db256aded52467`.
-- **AI handoff documentation contract:** [42555491302](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42555491302) SUCCESS on exact code SHA `91cae3d19bb72a9e0cebcad509db256aded52467`; the docs-only follow-up triggers a fresh contract run that must be checked against live `main`.
+- **Repository:** `Arlene206/padavan-4.4-2`, the maintained fork.
+- **Baseline main SHA:** `91b3bb41efe0f6ad11d18f8a19d9df3592d7c7b6`.
+- **Active branch/checkpoints:** `main`; no separate checkpoint branch was present.
+- **This round:** bounded wireless iNIC recovery and radio shutdown-state fix. Source and regression changes are committed together with the active checkpoint; resulting SHA is THIS COMMIT.
+- **Previous handoff documentation check:** run [42555712550](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42555712550) SUCCESS on exact baseline SHA `91b3bb41efe0f6ad11d18f8a19d9df3592d7c7b6`.
 
-## Last completed bounded task
+## Last completed milestone
 
-- **Module:** WAN/PPP route management; bounded fix only, not WAN closure.
-- **Finding/fix:** static and DHCP route helpers preserve the first operation error while continuing remaining valid operations; DHCP route-list allocation errors are propagated and logged. The dependent HTTPD source contract was updated for the status-returning DHCP wrapper.
-- **Code SHA:** `6f4b55e88a553e8bf6ae6f3b41c59963335eb787`; route regression [42552840579](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42552840579) SUCCESS, WAN teardown [42552840447](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42552840447) SUCCESS on exact SHA.
-- **Dependent contract correction:** `3e1be8adf8ac531581fa6e505da36c0e5e1e5966`; HTTPD regression [42553153266](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42553153266) and docs contract [42553153260](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42553153260) SUCCESS on exact SHA.
+- FULLCONENAT per-network-namespace notifier ownership was implemented in commit `91cae3d19bb72a9e0cebcad509db256aded52467`. Exact source lifecycle regression [42555493213](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42555493213) and handoff documentation contract [42555491302](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42555491302) both passed on that code SHA.
+- The subsequent documentation-only main update at `91b3bb41efe0f6ad11d18f8a19d9df3592d7c7b6` passed the AI handoff contract at [42555712550](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42555712550).
 
-## Active task — FULLCONENAT per-net notifier ownership
+## Active task — Wireless interface lifecycle
 
-- **Scoped implementation complete:** commit `91cae3d19bb72a9e0cebcad509db256aded52467`, `fix(netfilter): scope FULLCONENAT notifiers per netns`.
-- **Confirmed defect:** Linux 4.4 stores conntrack event notifier state in each `struct net` (`net->ct.nf_conntrack_event_cb` or `net->ct.nf_conntrack_chain`). The old module-global `tg_refer_count` and notifier registered only in the first namespace; a last-rule teardown in another namespace then attempted unregister on a different `par->net`. The legacy notifier API checks identity using `BUG_ON(notify != new)`, so cross-netns teardown could panic the kernel; chain-event builds targeted the wrong chain and missed the correct cleanup events.
-- **Implemented:** one notifier object and refcount per network namespace; registration occurs once per owning namespace, reference sharing is limited to that namespace, and the last destructor unregisters with its stored `net` and notifier. Allocation/registration/overflow errors unwind `nf_ct_netns_get()`; callback storage is freed only after an RCU grace period.
-- **Teardown verified at source-contract level:** IPv4 and IPv6 iptables cleanup pass the owning `net` to target `.destroy`, then release the target module reference. The lifecycle workflow checks both notifier API variants, error unwind, namespace-local reference sequences and this teardown ordering.
-- **Actions:** FULLCONENAT lifecycle run 42555493213 SUCCESS; AI handoff docs run 42555491302 SUCCESS on exact code SHA `91cae3d19bb72a9e0cebcad509db256aded52467`.
-- **Independent remaining risk:** FULLCONENAT IPv4/IPv6 mapping hashes and the dying-tuple work list remain module-global and not keyed by network namespace. The notifier fix does not establish mapping isolation or full multi-netns support. Keep Firewall/NAT **AUDITING**; IPv4/IPv6 writer parity, rollback, runtime behavior and unload paths beyond the tested ownership contract remain open.
+**Scoped code change implemented; exact-head L2 Actions pending.**
 
-## Verification boundary
+Reviewed:
+- `trunk/user/rc/src/net_wifi.c`: `wif_control()`, `wif_control_success()`, `check_inic_mii_rebooted()`, `start_inic_mii()`, `stop_wifi_all_wl()`, `stop_wifi_all_rt()`, `start_wifi_ap_rt()`, `restart_wifi_wl/rt()`.
+- `trunk/user/rc/src/inicd.c`: the SIGALRM handler invokes `check_inic_mii_rebooted()`; the periodic timer is re-armed after the check.
+- `trunk/user/shared/src/netutils.c`: `is_interface_up()` reports false when the interface is down or its flags query fails; the health-check retains the existing query-before-up behavior.
+- `trunk/user/rc/src/switch_mtk_esw.c` and `switch.h`: checked iNIC isolate/RGMII-disable helper contracts.
+
+Findings and fixes in this commit:
+1. `check_inic_mii_rebooted()` previously discarded the guest `ifconfig up` status. It now uses `wif_control_success()` and logs that a failed recovery is deferred until the next periodic check.
+2. The 5GHz and 2.4GHz stop paths previously discarded all `ifconfig down` results and always published LED_OFF. They now attempt each required stop, accumulate failures without short-circuiting subsequent cleanup, and turn the radio LED off only after all required interface-down operations succeed.
+3. The RT3352 MII 2.4GHz path now tears down the actual `IFNAME_INIC_GUEST` and `IFNAME_INIC_MAIN` interfaces started by `start_inic_mii()`, removes guest VLAN bridge membership, and records isolate/RGMII-disable failures. Non-MII boards retain the generic APCLI/WDS/AP interface set.
+4. Added a GNU89-compatible sticky shutdown-status helper and host regression, plus source-contract coverage for health-check status, all stop attempts, MII teardown and LED ordering.
+
+## Exact verification required
+
+- Wireless workflow: `.github/workflows/wireless-radio-state.yml` — must pass host compile/test and source contracts on the resulting live main SHA.
+- AI handoff documentation contract — must pass on the same exact live main SHA.
+- Baseline documentation contract was run [42555712550](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42555712550) SUCCESS on `91b3bb41efe0f6ad11d18f8a19d9df3592d7c7b6`; this is not evidence for the new commit.
+
+## Other open repository work
+
+- **Wireless — PARTIAL / AUDITING:** this bounded iNIC recovery/shutdown fix is not full driver/switch coverage. Other board-conditional start/stop paths and concurrent restart/stop behavior remain open.
+- **Firewall/NAT — AUDITING:** FULLCONENAT notifier state is per-net; mapping hashes and the dying-tuple queue remain module-global and not namespace-keyed. IPv4/IPv6 writer parity, rollback and runtime are open.
+- **DNS/DHCP — PARTIAL / AUDITING:** resolver staging/restart and DHCPv6 DUID handling have bounded evidence; DHCP renew/decline/release, client lifecycle and resolver recovery remain open.
+- **WAN/PPP — PARTIAL / AUDITING:** route first-error propagation is bounded and tested; broader PPP and runtime routing remain open.
+- **USB/storage/hotplug, HTTPD/CGI/authentication, NVRAM/config persistence, init/service lifecycle, switch/PHY/MDIO and shared/third-party userland:** remain open in the roadmap.
+
+## Validation boundary
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for per-net notifier API ownership, registration/unwind, correct-owner unregister, RCU lifetime and iptables rule/module teardown paths |
-| L2 focused host regression / Actions | PASS on exact code SHA `91cae3d19bb72a9e0cebcad509db256aded52467` for FULLCONENAT lifecycle source contract and compact handoff/archive checker. A docs-only follow-up requires a fresh exact-head documentation contract run. |
-| L3 MIPS/uClibc target build and complete firmware artifact | **NOT VERIFIED** |
-| L4 router flash/boot/hardware behavior | **NOT VERIFIED** |
+| L1 source/caller review | PASS for the bounded iNIC guest recovery and wireless shutdown-state paths |
+| L2 host regression / Actions | New wireless host test and exact-head wireless/docs workflows PENDING at commit creation |
+| L3 MIPS/uClibc RC build and full firmware/TRX | **NOT VERIFIED** |
+| L4 router flash/boot/radio hardware | **NOT VERIFIED** |
 
-No kernel object/module compilation, live multi-netns conntrack/NAT execution, MIPS/uClibc build, firmware/TRX or physical-router test is claimed.
-
-## Other open whole-repository work
-
-- **Wireless — AUDITING:** guest-interface-up handling in `check_inic_mii_rebooted()`; interface-down and LED publication in `stop_wifi_all_wl/rt()`; remaining driver/switch consumers.
-- **WAN / PPP — PARTIAL / AUDITING:** route status propagation has bounded source/host/Actions evidence; PPP callbacks, WAN lifecycle and runtime routing remain open.
-- **DNS / DHCP — PARTIAL / AUDITING:** resolver snapshots, parser/rebinding and DHCP client recovery remain open.
-- **Firewall / NAT — AUDITING:** per-net notifier ownership has source-contract pass; mapping namespace scoping and IPv4/IPv6 writer/rollback parity remain open.
-- **USB/storage/hotplug, Switch/PHY, NVRAM/configuration, init/service lifecycle, HTTPD/session/CSRF/ACL, FTP/Samba/NFS and shared/third-party userland:** remain open in the roadmap.
+No target RC compile, firmware image, radio-cycle or physical-router result is claimed.
 
 ## Exact first action for the next GPT
 
-Fetch live `main`. Require the newest **AI handoff documentation contract** run to have `head_sha` exactly equal to that live SHA and conclusion SUCCESS. Also retain [FULLCONENAT lifecycle run 42555493213](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42555493213) as the source-code regression evidence for commit `91cae3d19bb72a9e0cebcad509db256aded52467`; it is not expected to rerun on a documentation-only commit. If the newest documentation run fails, inspect its job/log and repair the handoff records first. Once green, rotate to Wireless: inspect `check_inic_mii_rebooted()` guest-interface-up result handling, then `stop_wifi_all_wl/rt()` interface-down and LED publication. Keep the global FULLCONENAT mapping-table namespace scope tracked as an open risk.
+Fetch live `main`. Match the newest Wireless radio state regression and AI handoff documentation contract runs to that exact SHA. If either fails, inspect the job/log and fix it before new work. Once both pass, rotate to **DNS/DHCP client lifecycle error handling**: trace the actual DHCP client event/renew/decline/release paths and their service callers, identify one concrete ignored-error or stale-state failure, then implement a bounded fix and host regression. Keep FULLCONENAT mapping namespace isolation tracked as a separate P2 item.
 
-## Recovery rule
+## Recovery and archive rule
 
-After the next code milestone, replace this active checkpoint and archive this exact version verbatim under `docs/handoffs/archive/YYYY/MM/` in the same commit.
+The superseded handoff is preserved verbatim under `docs/handoffs/archive/2026/11/` and indexed in the same commit. At the next milestone, archive this active checkpoint exactly before replacing it.

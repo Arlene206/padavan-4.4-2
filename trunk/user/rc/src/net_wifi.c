@@ -391,8 +391,10 @@ check_inic_mii_rebooted(void)
 	rt_mode_x = get_mode_radio_rt();
 	if (rt_mode_x != 1 && rt_mode_x != 3) {
 		/* check guest AP */
-		if (!is_interface_up(IFNAME_INIC_GUEST) && is_guest_allowed_rt())
-			wif_control(IFNAME_INIC_GUEST, 1);
+		if (!is_interface_up(IFNAME_INIC_GUEST) && is_guest_allowed_rt()) {
+			if (!wif_control_success(IFNAME_INIC_GUEST, 1))
+				logmessage(LOGNAME, "iNIC guest AP recovery deferred until the next health check");
+		}
 	}
 }
 #endif
@@ -441,46 +443,67 @@ void
 stop_wifi_all_wl(void)
 {
 #if BOARD_HAS_5G_RADIO
-	// stop ApCli
-	wif_control(IFNAME_5G_APCLI, 0);
+	int all_stopped = 1;
+
+	// Attempt every interface even after one failure; the LED is a state report.
+	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_5G_APCLI, 0));
 
 	// stop WDS (4 interfaces)
-	wif_control(IFNAME_5G_WDS3, 0);
-	wif_control(IFNAME_5G_WDS2, 0);
-	wif_control(IFNAME_5G_WDS1, 0);
-	wif_control(IFNAME_5G_WDS0, 0);
+	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_5G_WDS3, 0));
+	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_5G_WDS2, 0));
+	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_5G_WDS1, 0));
+	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_5G_WDS0, 0));
 
 	// stop AP (guest + main)
-	wif_control(IFNAME_5G_GUEST, 0);
-	wif_control(IFNAME_5G_MAIN, 0);
+	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_5G_GUEST, 0));
+	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_5G_MAIN, 0));
 
-	LED_CONTROL(LED_SW5G, LED_OFF);
+	if (all_stopped)
+		LED_CONTROL(LED_SW5G, LED_OFF);
+	else
+		logmessage(LOGNAME, "5GHz shutdown incomplete; retaining radio LED state");
 #endif
 }
 
 void 
 stop_wifi_all_rt(void)
 {
+	int all_stopped = 1;
+
 #if defined(USE_RT3352_MII)
 	stop_inicd();
-	
-	// set isolate iNIC port from all LAN ports
-	phy_isolate_inic(1);
-#endif
+
+	/* Isolate the iNIC path, then stop the interfaces started by start_inic_mii(). */
+	if (phy_isolate_inic(1) != 0) {
+		logmessage(LOGNAME, "failed to isolate iNIC during 2.4GHz shutdown");
+		all_stopped = 0;
+	}
+	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_INIC_GUEST, 0));
+	br_add_del_if(IFNAME_BR, IFNAME_INIC_GUEST_VLAN, 0);
+	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_INIC_MAIN, 0));
+	if (phy_disable_inic(1) != 0) {
+		logmessage(LOGNAME, "failed to disable iNIC RGMII during 2.4GHz shutdown");
+		all_stopped = 0;
+	}
+#else
 	// stop ApCli
-	wif_control(IFNAME_2G_APCLI, 0);
+	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_2G_APCLI, 0));
 
 	// stop WDS (4 interfaces)
-	wif_control(IFNAME_2G_WDS3, 0);
-	wif_control(IFNAME_2G_WDS2, 0);
-	wif_control(IFNAME_2G_WDS1, 0);
-	wif_control(IFNAME_2G_WDS0, 0);
+	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_2G_WDS3, 0));
+	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_2G_WDS2, 0));
+	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_2G_WDS1, 0));
+	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_2G_WDS0, 0));
 
 	// stop AP (guest + main)
-	wif_control(IFNAME_2G_GUEST, 0);
-	wif_control(IFNAME_2G_MAIN, 0);
+	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_2G_GUEST, 0));
+	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_2G_MAIN, 0));
+#endif
 
-	LED_CONTROL(LED_SW2G, LED_OFF);
+	if (all_stopped)
+		LED_CONTROL(LED_SW2G, LED_OFF);
+	else
+		logmessage(LOGNAME, "2.4GHz shutdown incomplete; retaining radio LED state");
 }
 
 void 

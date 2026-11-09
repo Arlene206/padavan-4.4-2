@@ -19,7 +19,7 @@
 | Module / area | Status | Evidence already established | Open coverage / next boundary |
 |---|---|---|---|
 | WAN / PPP / routing / IPv6 | PARTIAL / AUDITING | PPP callback identity, demand startup failure, service-stop fence, management/physical/USB NDIS teardown and static/DHCP route first-error aggregation have bounded source/host/Actions evidence. | Keep WAN open; broader PPP/DHCP/WAN runtime, route recovery semantics and target behavior remain open. |
-| Wireless management / driver / iNIC / WDS | PARTIAL / AUDITING | Radio-state publication, AP/APCLI/WDS bridge-up gates and RT3352 iNIC startup recovery have bounded host/Actions evidence. | Next: guest-interface-up result in `check_inic_mii_rebooted()`; interface-down and LED publication in `stop_wifi_all_wl/rt()`; driver/switch consumer coverage. |
+| Wireless management / driver / iNIC / WDS | PARTIAL / AUDITING | Radio-state publication, AP/APCLI/WDS bridge-up gates and RT3352 iNIC startup recovery have bounded evidence; current round checks periodic iNIC guest-up results, gates LED_OFF on all required stop results, and uses the RT3352 MII interface set for teardown with sticky host/source contracts. | Continue driver/switch consumer coverage, other board-conditional lifecycle paths and concurrent restart/stop behavior; target radio-cycle remains unverified. |
 | Firewall / NAT / Netfilter / IPv6 | AUDITING | FULLCONENAT's former module-global notifier/reference count is now per-`struct net`; exact source-contract run 42555493213 passed on code SHA `91cae3d19bb72a9e0cebcad509db256aded52467`. The contract checks correct-owner unregister, RCU release and IPv4/IPv6 rule cleanup before module_put. | Keep module open. FULLCONENAT mapping hashes and dying-tuple list remain module-global and are not netns-keyed; verify mapping isolation, IPv4/IPv6 writer/hook parity, rollback, unload safety and runtime behavior. |
 | DNS / DHCP / resolver | PARTIAL / AUDITING | DNSMasq staging/restart, lease input normalization, DHCPv6 DUID file and WAN resolver refresh have bounded evidence. | Resolver snapshot transactionality, remaining parser/rebinding controls, DHCP renew/decline/release error handling and runtime integration. |
 | USB / storage / hotplug / filesystem | PARTIAL / AUDITING | Mount/swap inventories are staged before selected removal; safe-eject and NFS export parsers have bounded tests. | Operation-wide caller coverage, hot-unplug races, filesystem runtime and NFS integration; target/hardware validation. |
@@ -32,18 +32,18 @@
 
 ## Current priority queue
 
-1. **P2 — Verify this documentation-only handoff update:** require the new AI handoff documentation contract run to pass on the resulting live `main` SHA; repair any archive/index mismatch before new coding.
-2. **P2 — Wireless interface-state residuals:** `check_inic_mii_rebooted()` guest-interface-up handling, then `stop_wifi_all_wl/rt()` interface-down and LED publication.
-3. **P2 — FULLCONENAT mapping namespace isolation:** prove whether the module-global IPv4/IPv6 mapping hashes and dying-tuple list can cross-match identical tuples in separate namespaces; scope mappings by netns only if the call graph confirms a concrete defect.
-4. **P2 — DNS/DHCP:** resolver snapshot transactionality, DHCP client lifecycle and parser/rebinding controls.
-5. **P2 — USB/storage:** hotplug concurrency, mount inventory call-graph completeness and filesystem runtime behavior.
+1. **P2 — Verify this wireless milestone:** require the Wireless radio-state regression and AI handoff documentation contract to pass on the same exact live `main` SHA.
+2. **P2 — DNS/DHCP client lifecycle:** trace renew/decline/release event paths and service callers; prioritize one concrete ignored-error, stale-lease or recovery defect and add a host regression.
+3. **P2 — FULLCONENAT mapping namespace isolation:** establish whether module-global IPv4/IPv6 mapping hashes and the dying-tuple list can cross-match identical tuples in separate namespaces; keep as a distinct security/stability audit.
+4. **P2 — USB/storage:** hotplug concurrency, mount inventory call-graph completeness and filesystem runtime behavior.
+5. **P2 — Wireless driver/switch coverage:** other board-conditional lifecycle consumers and concurrent restart/stop paths.
 
 ## Verification matrix
 
 | Level | Evidence status | Limitation |
 |---|---|---|
-| L1 static/source review | PASS for the selected FULLCONENAT notifier ownership, registration/unwind, teardown and RCU lifetime paths. | Does not prove FULLCONENAT mapping-table namespace isolation or close Firewall/NAT. |
-| L2 host regression / Actions | FULLCONENAT lifecycle contract and handoff docs/archive checker both PASS on exact code SHA `91cae3d19bb72a9e0cebcad509db256aded52467`; a fresh docs-only handoff check is pending on the resulting main SHA. | The source contract is not kernel compilation or a live conntrack/NAT test. |
+| L1 static/source review | PASS for FULLCONENAT per-net notifier lifecycle and the current bounded wireless iNIC guest/shutdown state paths. | Does not prove FULLCONENAT mapping-table namespace isolation or close Wireless/Firewall. |
+| L2 host regression / Actions | FULLCONENAT lifecycle contract PASS on exact code SHA `91cae3d19bb72a9e0cebcad509db256aded52467`; handoff docs PASS on `91b3bb41efe0f6ad11d18f8a19d9df3592d7c7b6`; wireless source/host and handoff-doc contracts are PENDING for this round's resulting main SHA. | These checks do not compile the target RC or verify live radio/driver behavior. |
 | L3 MIPS/uClibc and complete firmware | NOT VERIFIED | Schedule the integrated build after core source governance is substantially complete. |
 | L4 hardware/flash/boot/runtime | NOT VERIFIED | Requires router testing; do not infer from host or source-contract checks. |
 

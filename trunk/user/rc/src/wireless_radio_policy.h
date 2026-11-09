@@ -11,4 +11,14 @@ wireless_radio_status_success(int operation_status)
 	return operation_status == 0;
 }
 
+/*
+ * Preserve a failed interface-down result while still attempting every
+ * remaining interface during radio shutdown.
+ */
+static inline int
+wireless_radio_shutdown_status(int all_stopped, int stop_succeeded)
+{
+	return all_stopped && stop_succeeded;
+}
+
 #endif /* WIRELESS_RADIO_POLICY_H */
