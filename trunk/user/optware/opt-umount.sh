@@ -33,12 +33,15 @@ killall -q opkg
 # try to kill mc (may be running)
 killall -q mc
 
-# stop all services S* in /opt/etc/init.d
+# Stop every service even if one fails, but do not detach /opt unless all
+# service stop hooks succeeded. The storage caller will retain the mount and
+# retry later when the external service failure is corrected.
 if [ -d /opt/etc/init.d ] ; then
-	for i in `ls -r /opt/etc/init.d/S??* 2>/dev/null` ; do
-		[ ! -x "${i}" ] && continue
-		${i} stop 9>&-
-	done
+	if ! optware_lifecycle_stop_services /opt/etc/init.d; then
+		logger -t "${self_name}" "one or more Optware services could not be stopped; refusing unmount"
+		optware_lifecycle_lock_release
+		exit 1
+	fi
 fi
 
 # check swap file exist
@@ -56,12 +59,12 @@ rm -f /etc/localtime
 # flush buffers
 sync
 
-# unbinding
-umount /opt 9>&-
-if [ $? -ne 0 ] ; then
-	logger -t "${self_name}" "umount /opt FAILED! Device is busy?"
-	sleep 1
-	umount /opt 2>/dev/null 9>&-
+# unbinding; return failure if both attempts fail so the C storage caller
+# cannot proceed to detach a still-mounted /opt filesystem.
+if ! optware_lifecycle_umount_opt; then
+	optware_lifecycle_lock_release
+	exit 1
 fi
 
 optware_lifecycle_lock_release
+exit 0

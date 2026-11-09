@@ -9,9 +9,11 @@ on:
       - "trunk/user/rc/src/storage_operation_lock.h"
       - "trunk/user/rc/src/tests/storage_operation_lock.c"
       - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/shared/src/shutils.h"
       - "trunk/user/rc/src/storage_ejected_inventory_policy.h"
       - "trunk/user/rc/src/tests/storage_ejected_inventory_policy.c"
       - "trunk/user/scripts/tests/optware_lifecycle_lock.sh"
+      - "trunk/user/scripts/tests/optware_lifecycle_teardown.sh"
       - "trunk/user/scripts/files/sbin/optware_lifecycle_lock.sh"
       - "trunk/user/optware/opt-umount.sh"
       - "trunk/user/optware/opt-start.sh"
@@ -23,9 +25,11 @@ on:
       - "trunk/user/rc/src/storage_operation_lock.h"
       - "trunk/user/rc/src/tests/storage_operation_lock.c"
       - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/shared/src/shutils.h"
       - "trunk/user/rc/src/storage_ejected_inventory_policy.h"
       - "trunk/user/rc/src/tests/storage_ejected_inventory_policy.c"
       - "trunk/user/scripts/tests/optware_lifecycle_lock.sh"
+      - "trunk/user/scripts/tests/optware_lifecycle_teardown.sh"
       - "trunk/user/scripts/files/sbin/optware_lifecycle_lock.sh"
       - "trunk/user/optware/opt-umount.sh"
       - "trunk/user/optware/opt-start.sh"
@@ -39,6 +43,10 @@ jobs:
         run: |
           set -eu
           sh trunk/user/scripts/tests/optware_lifecycle_lock.sh
+      - name: Verify Optware teardown status propagation regression
+        run: |
+          set -eu
+          sh trunk/user/scripts/tests/optware_lifecycle_teardown.sh
       - name: Compile and run storage eject inventory regression
         run: |
           set -eu
@@ -129,6 +137,8 @@ jobs:
           opt_umount = Path("trunk/user/optware/opt-umount.sh").read_text()
           opt_lock = Path("trunk/user/scripts/files/sbin/optware_lifecycle_lock.sh").read_text()
           opt_lock_test = Path("trunk/user/scripts/tests/optware_lifecycle_lock.sh").read_text()
+          opt_teardown_test = Path("trunk/user/scripts/tests/optware_lifecycle_teardown.sh").read_text()
+          shutils = Path("trunk/user/shared/src/shutils.h").read_text()
 
           assert '#define STORAGE_OPERATION_LOCK_TAG "storage"' in lock_policy
           assert "storage_operation_lock_acquire(file_lock)" in lock_test
@@ -175,14 +185,52 @@ jobs:
           assert opt_start.index("mountpoint -q /opt") < opt_start.index("start 9>&-")
           assert opt_start.index("start 9>&-") < opt_start.rindex("optware_lifecycle_lock_release")
           assert opt_umount.index("optware_lifecycle_lock_try_acquire") < opt_umount.index("mountpoint -q /opt")
-          assert opt_umount.index("stop 9>&-") < opt_umount.index("umount /opt")
-          assert opt_umount.index("umount /opt") < opt_umount.rindex("optware_lifecycle_lock_release")
+          assert opt_umount.index("optware_lifecycle_stop_services") < opt_umount.index("optware_lifecycle_umount_opt")
+          assert '"$_optware_service" stop 9>&-' in opt_lock
+          assert opt_umount.index("optware_lifecycle_umount_opt") < opt_umount.rindex("optware_lifecycle_lock_release")
+
+          assert "optware_lifecycle_stop_services()" in opt_lock
+          assert 'return "$_optware_stop_failed"' in opt_lock
+          assert "optware_lifecycle_umount_opt()" in opt_lock
+          assert "if umount /opt 9>&-; then" in opt_lock
+          assert "if umount /opt 2>/dev/null 9>&-; then" in opt_lock
+          assert "return 1" in opt_lock[opt_lock.index("optware_lifecycle_umount_opt()"):]
+          stop_gate = "if ! optware_lifecycle_stop_services /opt/etc/init.d; then"
+          stop_gate_pos = opt_umount.index(stop_gate)
+          stop_abort_pos = opt_umount.index("exit 1", stop_gate_pos)
+          swapoff_pos = opt_umount.index("swapoff /opt/.swap")
+          unmount_gate = "if ! optware_lifecycle_umount_opt; then"
+          unmount_gate_pos = opt_umount.index(unmount_gate)
+          unmount_abort_pos = opt_umount.index("exit 1", unmount_gate_pos)
+          assert stop_gate_pos < stop_abort_pos < swapoff_pos < unmount_gate_pos < unmount_abort_pos
+          assert opt_umount.rindex("exit 0") > opt_umount.rindex("optware_lifecycle_lock_release")
+
+          assert "return value of executed command or errno" in shutils
+          assert "extern int _eval(char *const argv[], char *path, int timeout, pid_t *ppid);" in shutils
+          assert "_eval(argv, NULL, 0, NULL);" in shutils
+
+          for name, body in (
+              ("ejected-device cleanup", function_body(storage, "umount_ejected_locked(void)")),
+              ("safe-removal disk cleanup", function_body(storage, "storage_unmount_staged_disk_mounts(")),
+          ):
+              hook = body.index('hook_status = eval("/usr/bin/opt-umount.sh"')
+              gate = body.index("if (hook_status != 0)", hook)
+              skip_umount = body.index("continue;", gate)
+              detach = body.index("umount(entry->mountpoint)", skip_umount)
+              assert hook < gate < skip_umount < detach, name
+
+          assert "service stop failure was not propagated" in opt_teardown_test
+          assert "run_umount_test success 0 1" in opt_teardown_test
+          assert "run_umount_test retry 0 2" in opt_teardown_test
+          assert "run_umount_test fail 1 2" in opt_teardown_test
 
           for path in (
               "trunk/user/optware/opt-start.sh",
               "trunk/user/optware/opt-umount.sh",
               "trunk/user/scripts/files/sbin/optware_lifecycle_lock.sh",
               "trunk/user/scripts/tests/optware_lifecycle_lock.sh",
+              "trunk/user/scripts/tests/optware_lifecycle_teardown.sh",
+              "trunk/user/shared/src/shutils.h",
           ):
               assert push_filters.count(path) == 1
               assert pr_filters.count(path) == 1

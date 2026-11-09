@@ -1,3 +1,17 @@
+## 2026-11-09 15:18 CST (UTC+8) — Propagate Optware stop-hook and /opt unmount failures
+
+- **Base main SHA:** `70415484275e9c542be3d45b8bad807fb6a09591`; resulting source/test checkpoint: THIS COMMIT.
+- **Module / priority:** USB storage / Optware safe teardown, P2 stability. Storage remains PARTIAL / AUDITING.
+- **Finding:** `opt-umount.sh` ignored every executable `S??*` stop-hook result, ignored the second `umount /opt` result, and then released fd 9, potentially returning success despite incomplete teardown. The storage C callers already checked `eval()` status, but the shared macro's `_eval()` status contract was not enforced in the storage workflow.
+- **Fix:** add shared helper functions that attempt all executable init scripts in reverse order and aggregate failures; empty init.d is valid, while failed script enumeration fails closed. Any stop failure releases the lifecycle lock and exits nonzero before swapoff/unmount. The `/opt` helper retries once and returns nonzero if both attempts fail; `opt-umount.sh` explicitly propagates failure after lock release. The nonblocking teardown try-lock and blocking startup lock remain unchanged.
+- **Caller proof:** `eval()` in `trunk/user/shared/src/shutils.h` returns `_eval()`'s command status/errno. Both `services_stor.c` call sites check `hook_status` and skip the matching mount unmount on failure; no unnecessary C production edit was made.
+- **Changed paths:** `.github/workflows/storage-hotplug-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`, `trunk/user/optware/opt-umount.sh`, `trunk/user/scripts/files/sbin/optware_lifecycle_lock.sh`, and new `trunk/user/scripts/tests/optware_lifecycle_teardown.sh`.
+- **Regression:** mock-based shell test covers reverse-order full traversal after a stop failure, all-success, missing and empty service directories, fail-closed inventory enumeration, immediate unmount success, retry success and two-attempt failure. Local `sh` regression: **PASS**. `sh -n` on the changed shell scripts: **PASS**. Storage workflow source contracts now verify both C callers gate their unmount on `eval()` status and the new production helper wiring.
+- **Actions:** exact-head USB storage regression and AI handoff documentation contract are **PENDING** at commit creation; reconcile both run IDs, conclusions and full `head_sha` against the resulting `main` commit.
+- **Validation boundary:** L1 selected source/caller review PASS; L2 focused host shell regression PASS locally, Actions pending. No production RC object, MIPS/uClibc, firmware/TRX, real Optware scripts, filesystem failure injection or physical-router validation.
+- **Next:** reconcile exact-head storage/docs Actions, then finish the drafted whole in-tree storage caller-graph regression. After that bounded audit, rotate to another userland service area. Keep DHCP leasefail/NAK/release semantics and FULLCONENAT namespace work separate.
+
+---
 ## 2026-11-09 15:04 CST (UTC+8) — Make AP-mode LAN DHCP bound updates transactional
 
 - **Base main SHA:** `2f4942be4a1068e72982475166b178add129981c`; resulting commit: THIS COMMIT.
