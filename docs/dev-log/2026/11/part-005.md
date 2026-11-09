@@ -130,3 +130,16 @@
 
 ---
 
+## 2026-11-09 09:13 CST — Keep guest AP scheduler and bridge state behind successful ifconfig
+
+- **Base main SHA:** `74ee602e37e5596927023360a375cd882cf7ad11`.
+- **Implementation/test/workflow commit:** `c22eae28906a7a5ab7a76d5c4a3c4431b97aecfa` — add a checked `wif_control_success()` wrapper and stop guest AP control from publishing ON/OFF, bridge membership, M2U or isolation changes after a failed interface up/down command.
+- **Regression correction:** `c10eb07e13d3d48a68943b272253cc84d0d419b5` — correct the test `main()` call after renaming the interface-failure regression function.
+- **Changed paths:** `trunk/user/rc/src/net_wifi.c`, `trunk/user/rc/src/tests/wireless_radio_policy.c`, `.github/workflows/wireless-radio-state.yml`.
+- **Finding:** `control_guest_wl/rt()` ignored the ifconfig status returned by `wif_control()`; failed up/down commands were followed by bridge/M2U updates and a false `is_ap_changed` transition, including isolation restart and scheduler logging.
+- **Validation:** GNU89 `-Wall -Wextra -Werror` policy regression under ASan/UBSan + leak detection PASS. Exact-head wireless Actions [42544153924](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42544153924) SUCCESS on `c10eb07e13d3d48a68943b272253cc84d0d419b5`; HTTPD/authentication Actions [42544128087](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42544128087) SUCCESS on `c22eae28906a7a5ab7a76d5c4a3c4431b97aecfa`. Initial wireless attempt [42544128073](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42544128073) FAILED because the renamed test's `main()` still referenced the old function; this test-only defect was corrected by `c10eb07`, then exact-head CI passed.
+- **Remaining risks:** no full RC production object, MIPS/uClibc, firmware/TRX, live radio or hardware validation. Remaining `wif_control()` startup/stop consumers in AP/WDS/APCLI/iNIC lifecycle need review; Wireless remains AUDITING. Firewall/NAT and FULLCONENAT multi-netns notifier ownership remain open.
+- **Next:** inspect `start_wifi_ap_wl/rt()` and `start_wifi_apcli_wl/rt()` for bridge/state publication after failed ifconfig; review WDS/iNIC/stop callers afterward, then rotate to another user-space module.
+
+---
+

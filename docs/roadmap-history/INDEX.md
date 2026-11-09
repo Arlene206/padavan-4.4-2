@@ -80,3 +80,9 @@
 | Archive file | Sections | Date order | Bytes | Git blob SHA |
 |---|---:|---|---:|---|
 | `docs/roadmap-history/2026/11/part-013.md` | 5 | superseded current dashboard | 9484 | `e107b3056199ef2ac6270e8ecbf288ad8f965e84` |
+
+- **Current dashboard archive:** superseded root roadmap blob `b977a92d3ecea43a06e9310c55b2c50908ef06f7` is preserved byte-for-byte as `docs/roadmap-history/2026/11/part-014.md`.
+
+| Archive file | Sections | Date order | Bytes | Git blob SHA |
+|---|---:|---|---:|---|
+| `docs/roadmap-history/2026/11/part-014.md` | 5 | superseded current dashboard | 8857 | `b977a92d3ecea43a06e9310c55b2c50908ef06f7` |

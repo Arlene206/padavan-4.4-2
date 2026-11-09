@@ -1,3 +1,16 @@
+## 2026-11-09 13:04 CST — Serialize storage hotplug and safe-removal operations
+
+- **Base main SHA:** `b0eecff6e22d056ea144595fa69ceeac1bf1aa83`.
+- **Implementation commit:** `5d5b61cfc9d5dd3bca237ff4be31eb0118da1dfb` — introduce a process-shared `storage` fcntl lock around SD/MMC hotplug add/remove, manual safe removal, eject-all and PID 1 ejected-device cleanup. Preserve per-device locks and acquire the shared lock after them; release in reverse order.
+- **Regression correction commit:** `cb70977f05b3d7d64dcabf5c02247bda05969f35` — correct the storage policy include terminator and refine the source contract to distinguish the early per-device-lock error release from the normal reverse-order cleanup.
+- **Changed paths:** `trunk/user/rc/src/hotplug_stor.c`, `trunk/user/rc/src/services_stor.c`, new `trunk/user/rc/src/storage_operation_lock.h` and `trunk/user/rc/src/tests/storage_operation_lock.c`, `.github/workflows/storage-hotplug-stability.yml`, `.github/workflows/httpd-security.yml`.
+- **Finding:** `mdev_sd_main()` / `mdev_mmc_main()` used different `/var/lock/<device>.lock` identities for a disk and its partitions (for example `sda` versus `sda1`); `safe_remove_stor_device()`, eject-all and PID 1 ejected cleanup had no common serialization. Concurrent add/remove and eject flows could inspect and mutate storage topology concurrently. The shared lock uses the existing `file_lock()` ABI. Its same-process re-entry guard makes a nested public `umount_ejected()` unsafe, so the operation body is now `umount_ejected_locked()` behind a locking public wrapper; safe removal invokes the locked helper while already holding the lock.
+- **Validation:** exact-head USB storage Actions [42564939868](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42564939868), HTTPD/security Actions [42564939905](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42564939905), and AI handoff documentation contract [42564939843](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42564939843) all **SUCCESS** on `cb70977`. The storage job compiled and ran the new GNU89 `-Wall -Wextra -Werror` fork-based lock regression against the repository's `bin_sem_asus.c`; the competing process was blocked for 2,000 ms. HTTPD/security completed all 39 validation steps. The first implementation attempt [42564591289](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42564591289) and [42564591242](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42564591242) failed on a source-contract ordering assumption and a malformed include; both were corrected before the successful exact-head reruns.
+- **Validation boundary / residuals:** no full RC production object, MIPS/uClibc build, firmware/TRX build, live filesystem test or physical router test. The existing `automount.sh` mountpoint flock remains a separate label/mountpoint-ownership guard; direct shell-side mount/unmount/swap entrypoints and all callers still need auditing to prove they cannot bypass the operation lock.
+- **Next:** inventory every direct caller of `/sbin/automount.sh`, mount/unmount and swapon/swapoff paths; verify which callers already execute beneath the new `storage` lock and identify any bypass without creating nested-lock deadlocks. Then continue disk/partition notification ordering and per-device lock scope. Keep FULLCONENAT mapping-table namespace isolation as a separate P2 security/stability task.
+
+---
+
 ## 2026-11-09 12:31 CST — Record green storage eject and repository security regressions
 
 - **Source change:** `7fee5c1fc589dc98c3333dd4e052d28881b8756a` — stage a complete partition inventory before ejected-device unmounts and propagate cleanup errors into PID 1 notification completion.
@@ -173,6 +186,9 @@
 - **Scope:** documentation/governance only; no firmware source, MIPS build, firmware image or hardware test is changed or claimed.
 - **Resulting commit:** THIS COMMIT; fetch live `main` during the next recovery to obtain the exact SHA.
 
+
+---
+
 ## 2026-11-09 09:58 CST — Include the active USB NDIS interface in WAN teardown verification
 
 - **Base main SHA:** `d324ce8e26f6f730aa36d311c8d51c701879edcc`.
@@ -236,19 +252,6 @@
 - **Finding:** AP and APCLI startup ignored the return from `ifconfig up`. When it failed, code still attempted bridge attachment and M2U, and APCLI also attempted `ApCliAutoConnect`, leaving software bridge/configuration state inconsistent with the actual interface transition.
 - **Validation:** L1 source/call-order preflight PASS for all seven updated gates. L2 host policy regression compiled with GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` and leak detection; executable PASS. New exact-head Actions on `abe6bfc750dda173e4cc25866b3e6f43ad12b21b` is **NOT VERIFIED**: combined-status returned no rows and the available workflow-run query exposes pull_request-triggered runs only, not push-triggered runs. Do not treat Actions as passed until inspected on GitHub.
 - **Validation boundary / remaining risks:** no production RC translation-unit/object build, MIPS/uClibc build, complete firmware/TRX, live AP/APCLI/WDS transition or hardware validation. Wireless remains **AUDITING**. WDS start callers, iNIC main boot/disable sequencing, stop callers and residual driver/association/switch consumers remain open.
-
----
-
-## 2026-11-09 09:13 CST — Keep guest AP scheduler and bridge state behind successful ifconfig
-
-- **Base main SHA:** `74ee602e37e5596927023360a375cd882cf7ad11`.
-- **Implementation/test/workflow commit:** `c22eae28906a7a5ab7a76d5c4a3c4431b97aecfa` — add a checked `wif_control_success()` wrapper and stop guest AP control from publishing ON/OFF, bridge membership, M2U or isolation changes after a failed interface up/down command.
-- **Regression correction:** `c10eb07e13d3d48a68943b272253cc84d0d419b5` — correct the test `main()` call after renaming the interface-failure regression function.
-- **Changed paths:** `trunk/user/rc/src/net_wifi.c`, `trunk/user/rc/src/tests/wireless_radio_policy.c`, `.github/workflows/wireless-radio-state.yml`.
-- **Finding:** `control_guest_wl/rt()` ignored the ifconfig status returned by `wif_control()`; failed up/down commands were followed by bridge/M2U updates and a false `is_ap_changed` transition, including isolation restart and scheduler logging.
-- **Validation:** GNU89 `-Wall -Wextra -Werror` policy regression under ASan/UBSan + leak detection PASS. Exact-head wireless Actions [42544153924](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42544153924) SUCCESS on `c10eb07e13d3d48a68943b272253cc84d0d419b5`; HTTPD/authentication Actions [42544128087](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42544128087) SUCCESS on `c22eae28906a7a5ab7a76d5c4a3c4431b97aecfa`. Initial wireless attempt [42544128073](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42544128073) FAILED because the renamed test's `main()` still referenced the old function; this test-only defect was corrected by `c10eb07`, then exact-head CI passed.
-- **Remaining risks:** no full RC production object, MIPS/uClibc, firmware/TRX, live radio or hardware validation. Remaining `wif_control()` startup/stop consumers in AP/WDS/APCLI/iNIC lifecycle need review; Wireless remains AUDITING. Firewall/NAT and FULLCONENAT multi-netns notifier ownership remain open.
-- **Next:** inspect `start_wifi_ap_wl/rt()` and `start_wifi_apcli_wl/rt()` for bridge/state publication after failed ifconfig; review WDS/iNIC/stop callers afterward, then rotate to another user-space module.
 
 ---
 
