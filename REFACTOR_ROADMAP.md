@@ -1,3 +1,14 @@
+## 2026-11-09 09:13 CST — Gate guest AP scheduler and bridge changes on interface-command success
+
+- **Module / priority:** RC Wireless guest AP scheduler and bridge lifecycle; P2 false-state publication / retry reliability. Wireless remains **AUDITING**.
+- **Source paths / responsibilities:** `trunk/user/rc/src/net_wifi.c` — `wif_control()`, `wif_control_success()`, `control_guest_wl()`, `control_guest_rt()`; `trunk/user/rc/src/rc.c` guest scheduler/manual dispatch; `rc.h` public control declarations.
+- **Finding:** both guest control functions previously ignored `wif_control()`'s ifconfig result, then changed bridge membership/M2U, marked `is_ap_changed`, restarted isolation and could log a scheduler transition even when the interface command failed.
+- **Fix:** commit `c22eae28906a7a5ab7a76d5c4a3c4431b97aecfa` adds a logging status-check wrapper and returns before publishing up/down scheduler or bridge state on failure. Test-call correction: `c10eb07e13d3d48a68943b272253cc84d0d419b5`.
+- **Validation:** local GNU89 warnings-as-errors policy regression with ASan/UBSan/leak detection PASS; exact-head wireless Actions [42544153924](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42544153924) SUCCESS on `c10eb07e13d3d48a68943b272253cc84d0d419b5`; HTTPD/authentication regression [42544128087](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42544128087) SUCCESS on `c22eae28906a7a5ab7a76d5c4a3c4431b97aecfa`. Initial workflow attempt [42544128073](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42544128073) failed only because the test rename left a stale `main()` reference; the next commit corrected it and exact-head CI passed.
+- **Validation limits / next:** full production RC object, MIPS/uClibc, firmware/TRX, live radio and hardware remain NOT RUN. Overall Wireless is not closed: audit remaining `wif_control()` consumers in AP/WDS/APCLI/iNIC start/stop paths for failure-before-bridge/state ordering, then rotate to DNS/DHCP or another high-risk unaudited user-space module. FULLCONENAT multi-netns ownership remains a separate Firewall/NAT risk.
+
+---
+
 ## 2026-11-09 09:04 CST — Gate wireless radio-state publication on successful driver/restart operations
 
 - **Module / priority:** RC wireless radio-control lifecycle; P2 state consistency and retry reliability. Wireless remains **AUDITING**. This extends the whole-userland audit without treating adjacent prior ioctl/parser fixes as subsystem closure.
