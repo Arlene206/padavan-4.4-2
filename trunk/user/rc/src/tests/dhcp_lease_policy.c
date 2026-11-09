@@ -39,6 +39,22 @@ main(void)
 	assert(dhcp_lease_ipv4_list_first("", first, sizeof(first)) == 0);
 	assert(dhcp_lease_ipv4_list_first("192.0.2.1,198.51.100.2", first, sizeof(first)) == -1);
 
+	assert(!dhcp_lease_router_is_changed("192.0.2.1",
+		"192.0.2.1 198.51.100.2", first, sizeof(first)));
+	assert(dhcp_lease_router_is_changed("192.0.2.1", NULL,
+		first, sizeof(first)));
+	assert(first[0] == '\0');
+	assert(!dhcp_lease_router_is_changed("", NULL, first, sizeof(first)));
+	assert(dhcp_lease_router_is_changed("192.0.2.1", "",
+		first, sizeof(first)));
+	assert(first[0] == '\0');
+	assert(dhcp_lease_router_is_changed("192.0.2.1", "198.51.100.1",
+		first, sizeof(first)));
+	assert(strcmp(first, "198.51.100.1") == 0);
+	assert(dhcp_lease_router_is_changed("192.0.2.1", "invalid",
+		first, sizeof(first)));
+	assert(first[0] == '\0');
+
 	assert(dhcp_lease_decimal_is_valid("1500", 576, 1500, &number) && number == 1500);
 	assert(dhcp_lease_decimal_is_valid("0", 0, INT_MAX, &number) && number == 0);
 	assert(!dhcp_lease_decimal_is_valid("-1", 0, INT_MAX, &number));

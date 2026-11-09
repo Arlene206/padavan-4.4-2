@@ -2798,10 +2798,10 @@ zcip_viptv_bound(char *man_ifname)
 static int
 udhcpc_renew(char *wan_ifname)
 {
-	char *param, *value, *router_value, *lease_dns, *lease_wins, *lease_domain;
+	char *param, *value, *lease_dns, *lease_wins, *lease_domain;
 	char tmp[100], prefix[16], log_prefix[32], gateway_buf[INET_ADDRSTRLEN];
 	unsigned int parsed_value;
-	int unit, is_man, is_changed, route_result;
+	int unit, is_man, is_changed;
 
 	unit = get_wan_unit(wan_ifname);
 	is_man = is_ifunit_man(wan_ifname, unit);
@@ -2821,15 +2821,11 @@ udhcpc_renew(char *wan_ifname)
 		return udhcpc_bound(wan_ifname, 1);
 
 	value = getenv("router");
-	if (value) {
-		route_result = dhcp_lease_ipv4_list_first(trim_r(value),
-			gateway_buf, sizeof(gateway_buf));
-		router_value = (route_result > 0) ? gateway_buf : "";
-		if (route_result < 0)
-			logmessage(log_prefix, "invalid DHCP router option on %s; refreshing lease state", wan_ifname);
-		if (nvram_invmatch(strcat_r(prefix, "gateway", tmp), router_value))
-			return udhcpc_bound(wan_ifname, 1);
-	}
+	if (dhcp_lease_router_is_changed(
+		nvram_safe_get(strcat_r(prefix, "gateway", tmp)),
+		value ? trim_r(value) : NULL,
+		gateway_buf, sizeof(gateway_buf)))
+		return udhcpc_bound(wan_ifname, 1);
 
 	value = getenv("ip");
 	if (!value || nvram_invmatch(strcat_r(prefix, "ipaddr", tmp), trim_r(value)))
@@ -2917,10 +2913,9 @@ udhcpc_renew(char *wan_ifname)
 static int
 udhcpc_viptv_renew(char *man_ifname)
 {
-	char *value, *gateway_value;
+	char *value;
 	char tmp[100], prefix[16], gateway_buf[INET_ADDRSTRLEN];
 	unsigned int parsed_value;
-	int route_result;
 
 	strcpy(prefix, "manv_");
 
@@ -2929,13 +2924,9 @@ udhcpc_viptv_renew(char *man_ifname)
 		return udhcpc_viptv_bound(man_ifname, 1);
 
 	value = getenv("router");
-	if (value) {
-		route_result = dhcp_lease_ipv4_list_first(trim_r(value),
-			gateway_buf, sizeof(gateway_buf));
-		gateway_value = (route_result > 0) ? gateway_buf : "";
-		if (nvram_invmatch("manv_gateway", gateway_value))
-			return udhcpc_viptv_bound(man_ifname, 1);
-	}
+	if (dhcp_lease_router_is_changed(nvram_safe_get("manv_gateway"),
+		value ? trim_r(value) : NULL, gateway_buf, sizeof(gateway_buf)))
+		return udhcpc_viptv_bound(man_ifname, 1);
 
 	value = getenv("ip");
 	if (value && nvram_invmatch("manv_ipaddr", trim_r(value)))

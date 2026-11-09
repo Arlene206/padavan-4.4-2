@@ -1735,7 +1735,10 @@ jobs:
           assert "dhcp_lease_ipv4_text_is_valid" in policy
           assert "dhcp_lease_netmask_is_valid" in policy
           assert "dhcp_lease_ipv4_list_first" in policy
+          assert "dhcp_lease_router_is_changed" in policy
           assert "dhcp_lease_decimal_is_valid" in policy
+          assert "dhcp_lease_router_is_changed" in test
+          assert "dhcp_lease_router_is_changed(\"192.0.2.1\", NULL" in test
           assert "dhcp_lease_route_destination_is_valid(ipaddr, (unsigned int)parsed_bits)" in wan
           assert "dhcp_lease_route_text_is_safe" in policy
           for payload in ("192.0.2.1;reboot", "255.0.255.0", "192.0.2.0/24\\nCOMMIT"):
@@ -1763,6 +1766,22 @@ jobs:
           renew_end = wan.index("udhcpc_leasefail(", renew_start)
           renew = wan[renew_start:renew_end]
           assert renew.count("dhcp_lease_route_text_is_safe(value)") >= 6
+          wan_router_start = renew.index('value = getenv("router");')
+          wan_router_end = renew.index('value = getenv("ip");', wan_router_start)
+          wan_router = renew[wan_router_start:wan_router_end]
+          assert "dhcp_lease_router_is_changed(" in wan_router
+          assert "value ? trim_r(value) : NULL" in wan_router
+          assert "if (value)" not in wan_router
+
+          tv_renew_start = wan.index("udhcpc_viptv_renew(char *man_ifname)")
+          tv_renew_end = wan.index("udhcpc_leasefail(", tv_renew_start)
+          tv_renew = wan[tv_renew_start:tv_renew_end]
+          tv_router_start = tv_renew.index('value = getenv("router");')
+          tv_router_end = tv_renew.index('value = getenv("ip");', tv_router_start)
+          tv_router = tv_renew[tv_router_start:tv_router_end]
+          assert "dhcp_lease_router_is_changed(" in tv_router
+          assert "value ? trim_r(value) : NULL" in tv_router
+          assert "if (value)" not in tv_router
           assert "dnsmasq domain-specific server routing too" in renew
           assert 'refresh_resolvconf_nonfatal("WAN DHCP renewal", 0);' in renew
           assert "int\ndel_dhcp_routes_by_prefix" in wan

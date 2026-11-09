@@ -133,6 +133,21 @@ dhcp_lease_ipv4_list_first(const char *value, char *out, size_t out_size)
 	return 1;
 }
 
+/* A missing or withdrawn DHCP router option is equivalent to an empty
+ * gateway. Compare the normalized first router against the stored lease so
+ * renewal callbacks do not preserve a gateway that the server removed. */
+static int
+dhcp_lease_router_is_changed(const char *stored_gateway,
+                             const char *router_option,
+                             char *next_gateway, size_t next_gateway_size)
+{
+	if (dhcp_lease_ipv4_list_first(router_option,
+	                               next_gateway, next_gateway_size) < 0)
+		next_gateway[0] = '\0';
+
+	return strcmp(stored_gateway ? stored_gateway : "", next_gateway) != 0;
+}
+
 /* Strict decimal parser: no signs, whitespace, suffixes or overflow. */
 static int
 dhcp_lease_decimal_is_valid(const char *value, unsigned int minimum,
