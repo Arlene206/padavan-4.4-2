@@ -31,7 +31,7 @@ def read_bytes(rel: str) -> bytes:
 
 
 def git_blob_sha(data: bytes) -> str:
-    header = f"blob {len(data)}\\0".encode("ascii")
+    header = b"blob " + str(len(data)).encode("ascii") + bytes((0,))
     return hashlib.sha1(header + data).hexdigest()
 
 
@@ -109,11 +109,11 @@ def main() -> None:
             fail(f"protocol is missing mandatory governance rule: {required}")
     if "20–119" not in protocol or "20–119" not in bootstrap:
         fail("protocol/bootstrap must define the 20–119 root log window")
-    if "Do not create routine handoff archive copies" not in protocol:
-        fail("protocol must prohibit routine handoff archive snapshots")
-    if "Do not create routine roadmap archive copies" not in protocol:
-        fail("protocol must prohibit routine roadmap archive snapshots")
-    if "Do not create new snapshots for ordinary edits" not in bootstrap:
+    if "routine archive copies are prohibited" not in protocol:
+        fail("protocol must prohibit routine handoff/roadmap archive snapshots")
+    if "do not create new handoff or roadmap snapshot archives" not in protocol:
+        fail("protocol must prohibit new routine handoff/roadmap snapshots")
+    if "do not add new snapshots for ordinary edits" not in bootstrap:
         fail("bootstrap must prohibit routine handoff/roadmap snapshots")
 
     for heading in (
@@ -127,7 +127,7 @@ def main() -> None:
     if "## Whole-repository module status" not in roadmap or "AUDITING" not in roadmap:
         fail("roadmap does not contain a current module status dashboard")
 
-    log_count = len(re.findall(r"(?m)^## \\d{4}-\\d{2}-\\d{2}\\b", log))
+    log_count = len(re.findall(r"(?m)^## [0-9]{4}-[0-9]{2}-[0-9]{2}", log))
     if log_count < LOG_RETAIN:
         fail(f"dev_log.md must retain at least {LOG_RETAIN} complete newest entries; found {log_count}")
     if log_count >= LOG_ROTATE_AT:
@@ -142,7 +142,7 @@ def main() -> None:
         )
 
     log_files = check_archive_index(
-        "docs/dev-log/INDEX.md", "docs/dev-log", rb"^## \\d{4}-\\d{2}-\\d{2}\\b"
+        "docs/dev-log/INDEX.md", "docs/dev-log", rb"^## [0-9]{4}-[0-9]{2}-[0-9]{2}"
     )
     hand_files = check_archive_index(
         "docs/handoffs/INDEX.md", "docs/handoffs", rb"^## "
