@@ -11,7 +11,7 @@
 | `docs/dev-log/2026/11/part-002.md` | 275 | 2026-11-06 → 2026-11-08 | 357977 | `164858e25153406e26e3f2b9bb6f3904557d5cda` |
 | `docs/dev-log/2026/11/part-003.md` | 78 | 2026-11-08 → 2026-11-09 | 216933 | `f5e28c56ef9055a12f1b0ce7bc9ebd6fbc438233` |
 | `docs/dev-log/2026/11/part-004.md` | 1 | 2026-11-09 → 2026-11-09 | 2653 | `f7016653093548013d8197b6925e7a69cc7b24db` |
-| `docs/dev-log/2026/11/part-005.md` | 8 | 2026-11-09 → 2026-11-09 | 27999 | `5b1bf116cbfd753648a615067be44e71e251b512` |
+| `docs/dev-log/2026/11/part-005.md` | 9 | 2026-11-09 → 2026-11-09 | 32176 | `911239139d04cfa0a89d7e4105df1f2f9898bcd0` |
 
 
 - **Post-migration rotation:** the first evicted root-window record is preserved verbatim in `part-003.md`; its original root source blob was `733d3c678575611642b3f69fe4cfe5e19ece9b57`.
@@ -35,3 +35,5 @@
 - **Rolling-window continuation:** the 2026-11-09 08:24 CST safe storage-removal inventory record evicted at this rotation is appended after the 08:14 CST NFS inventory record in part-005.
 
 - **Rolling-window continuation:** the 2026-11-09 08:56 CST FULLCONENAT garbage-collection record evicted at this rotation is appended after the 08:24 CST safe-removal inventory record in part-005.
+
+- **Rolling-window continuation:** the 2026-11-09 09:04 CST wireless radio-state record evicted at this rotation is appended after the 08:56 CST FULLCONENAT garbage-collection record in part-005.
