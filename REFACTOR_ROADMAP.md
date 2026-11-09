@@ -5,15 +5,15 @@
 ## Current source / CI checkpoint
 
 - Repository: Arlene206/padavan-4.4-2 (maintained fork).
-- Current source/test head: c2706ac972970bd325b3b9ebb9bd5311f49125f8.
-- Exact-head USB storage regression [42570160275](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42570160275) PASS and AI handoff docs [42570160219](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42570160219) PASS on c2706ac.
+- Latest source/test checkpoint: `6175e15b0ce153f5829ea2324e7fb9acb909906e`. Later documentation-only commits may advance `main`; refetch live HEAD before writes.
+- Exact source/test-head HTTPD Authentication and Security Regression [42571973359](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42571973359) PASS and AI handoff docs [42571973171](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42571973171) PASS on `6175e15`. USB storage [42570160275](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42570160275) passed on the earlier storage source checkpoint `c2706ac`.
 - Validation limit: source review and host/Actions only. No production MIPS/uClibc objects, firmware/TRX or live hardware tests.
 
 ## Whole-repository module status
 
 | Module | Status | Verified bounded work | Open reliability / security work |
 |---|---|---|---|
-| LAN DHCP client / AP-mode lease | PARTIAL / AUDITING | Required IP/netmask validation; optional router/DNS/WINS/domain normalization; withdrawn option clearing; changed-gateway delete before lease publication, ESRCH benign and hard errors fail closed. | BusyBox waits for DHCP event scripts but ignores child exit status. Bound/deconfig transaction; stale route identity on failed cleanup; interface fallback status; resolver staging/write errors; leasefail/NAK policy. |
+| LAN DHCP client / AP-mode lease | PARTIAL / AUDITING | Required IP/netmask validation; optional router/DNS/WINS/domain normalization; withdrawn option clearing; changed-gateway delete before lease publication; fail-closed deconfig route/interface/resolver checks gate temporary-state reset; ESRCH benign. | BusyBox waits for DHCP event scripts but ignores child exit status. Remaining bound transaction: interface `ifconfig`, gateway `route_add`, resolver publication/close failures and last-known-good rollback; leasefail/NAK policy. |
 | WAN DHCP / route lifecycle | PARTIAL / AUDITING | Lease option validation, route-text safety, route operation error propagation and selected WAN teardown gates. | Broader callback, multi-WAN and route reconciliation audit. |
 | DNSMasq / resolver / DHCP files | PARTIAL / AUDITING | Safe staged publication, no-follow lease file validation, domain validation, resolver refresh failure contracts and generated-file trust checks. | Daemon lifecycle, option ownership, DNS update and restart/stop error propagation. |
 | USB / storage / hotplug / filesystem | PARTIAL / AUDITING | Full partition inventory staging, swapoff-before-unmount, operation-wide storage lock, deferred-start retry, Optware lifecycle locking and nonblocking teardown try-lock to avoid lock inversion. | opt-umount stop-hook / second umount status propagation; broader in-tree caller-graph test draft not yet in CI; external scripts, filesystem runtime and hardware. |
@@ -27,7 +27,7 @@
 
 ## Priority queue
 
-1. P1/P2 — LAN DHCP transaction. The BusyBox udhcpc script runner is synchronous but ignores child exit status. Trace bound/deconfig ordering; preserve the old gateway identity when route deletion fails; make interface/resolver side effects checked and coherent; add host regression.
+1. P1/P2 — Complete LAN DHCP bound transaction. Deconfig now aborts on a failed recorded-gateway delete (except ESRCH), static `ifconfig`, or resolver lock/open/close error and does not reset temporary lease identity until success. Next make bound `ifconfig` / `route_add` / resolver publication checked and coherent with the last-known-good lease despite BusyBox ignoring callback exit status.
 2. P2 — Optware safe-eject error propagation. Check every S??* stop return and both /opt umount attempts; propagate failure to the C caller so it never treats incomplete Optware teardown as complete. Keep the try-lock nonblocking below storage.lock.
 3. P2 — Storage caller-graph regression. Revalidate the drafted whole-callgraph Python contract and add it with mountpoint and lifecycle lock tests to storage-hotplug-stability.yml.
 4. P2 — Cross-module rotation. After DHCP/storage bounded work, rotate to another userland area (FTP/Samba/account or add-on services). Do not get stuck in SkipDBv2, HTTPD, storage or DHCP.
@@ -47,8 +47,8 @@
 
 | Level | Evidence | Limits |
 |---|---|---|
-| L1 source review | PASS for AP DHCP input checks, changed-gateway delete-before-publish policy and bounded storage/Optware caller + lock-order review. | Does not establish complete bound/deconfig recovery or external custom-script behavior. |
-| L2 host / Actions | Storage [42570160275](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42570160275) and docs [42570160219](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42570160219) PASS on c2706ac. | The draft Python caller-graph check and Optware error-return fix remain open. |
+| L1 source review | PASS for AP DHCP input checks, changed-gateway delete-before-publish and deconfig fail-closed route/interface/resolver checks, plus bounded storage/Optware caller and lock-order review. | Does not establish complete bound-side-effect recovery or external custom-script behavior. |
+| L2 host / Actions | HTTPD/DHCP [42571973359](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42571973359) and docs [42571973171](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42571973171) PASS on `6175e15`; storage [42570160275](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42570160275) PASS on `c2706ac`. | The Actions run compiles the policy test and checks source ordering, but does not compile the full `net_lan.c`; caller-graph check and Optware error-return fix remain open. |
 | L3 MIPS/uClibc / production objects / firmware/TRX | NOT VERIFIED. | Full build phase required. |
 | L4 live router / DHCP churn / storage hotplug / physical hardware | NOT VERIFIED. | Requires device validation. |
 

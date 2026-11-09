@@ -108,3 +108,10 @@
 | Archive file | Sections | Date order | Bytes | Git blob SHA |
 |---|---:|---|---:|---|
 | `docs/handoffs/archive/2026/11/part-016.md` | 7 | superseded active checkpoint | 9705 | `f929460c541c8303a29ae2a086986fd1e2e175f4` |
+
+
+- **Current checkpoint archive:** superseded root handoff blob `6071ca33d72cb436375b90537abafac2f598ba44` is preserved byte-for-byte as `docs/handoffs/archive/2026/11/part-017.md`.
+
+| Archive file | Sections | Date order | Bytes | Git blob SHA |
+|---|---:|---|---:|---|
+| `docs/handoffs/archive/2026/11/part-017.md` | 7 | superseded active checkpoint | 11093 | `6071ca33d72cb436375b90537abafac2f598ba44` |
