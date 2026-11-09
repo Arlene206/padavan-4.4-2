@@ -1284,16 +1284,17 @@ is_ifunit_modem(char *wan_ifname, int unit)
 	return 0;
 }
 
-static void
+static int
 add_man_gateway_routes(char *man_ifname, int unit, int metric)
 {
 	int is_man_dns_auto, is_modem_active, wan_proto;
+	int status = 0, route_status;
 	char *next, *man_gate, *man_addr, *man_mask, *man_dns;
 	char word[100];
 
 	man_gate = nvram_safe_get("wanx_gateway");
 	if (!is_valid_ipv4(man_gate))
-		return;
+		return 0;
 
 	wan_proto = get_wan_proto(unit);
 	is_modem_active = get_usb_modem_wan(unit);
@@ -1303,49 +1304,95 @@ add_man_gateway_routes(char *man_ifname, int unit, int metric)
 	man_mask = nvram_safe_get("wanx_netmask");
 	man_dns  = nvram_safe_get("wanx_dns");
 
+	/*
+	 * Do not blindly roll back successful additions after a later failure:
+	 * the kernel route operation cannot distinguish a route created here
+	 * from an identical route already owned by another path. Continue all
+	 * attempts, report the first error, and let matching teardown remove the
+	 * scoped route set.
+	 */
 	/* if the gateway is out of the subnet */
-	if (!is_same_subnet(man_gate, man_addr, man_mask))
-		route_add(man_ifname, metric, man_gate, NULL, "255.255.255.255");
+	if (!is_same_subnet(man_gate, man_addr, man_mask)) {
+		route_status = route_add(man_ifname, metric, man_gate, NULL, "255.255.255.255");
+		status = route_status_accumulate(status, route_status);
+		if (route_status != 0)
+			logmessage(LOGNAME, "failed to add MAN gateway host route %s on %s (error=%d)",
+				   man_gate, man_ifname, route_status);
+	}
 
 	/* default route via default gateway */
-	route_add(man_ifname, metric, "0.0.0.0", man_gate, "0.0.0.0");
+	route_status = route_add(man_ifname, metric, "0.0.0.0", man_gate, "0.0.0.0");
+	status = route_status_accumulate(status, route_status);
+	if (route_status != 0)
+		logmessage(LOGNAME, "failed to add MAN default route via %s on %s (error=%d)",
+			   man_gate, man_ifname, route_status);
 
 	/* ... and to dns servers as well for demand ppp to work */
 	if (is_man_dns_auto && !is_modem_active && wan_proto != IPV4_WAN_PROTO_PPPOE) {
 		foreach(word, man_dns, next) {
 			if (is_valid_ipv4(word) && inet_addr(word) != inet_addr(man_gate) &&
-			   !is_same_subnet(word, man_addr, man_mask))
-				route_add(man_ifname, metric, word, man_gate, "255.255.255.255");
+			    !is_same_subnet(word, man_addr, man_mask)) {
+				route_status = route_add(man_ifname, metric, word, man_gate, "255.255.255.255");
+				status = route_status_accumulate(status, route_status);
+				if (route_status != 0)
+					logmessage(LOGNAME, "failed to add MAN DNS route %s via %s on %s (error=%d)",
+						   word, man_gate, man_ifname, route_status);
+			}
 		}
 	}
+
+	return status;
 }
 
-void
-man_up(char *man_ifname, int unit, int is_static)
+static int
+man_up_internal(char *man_ifname, int unit, int is_static)
 {
+	int status = 0, route_status;
+
 	logmessage(LOGNAME, "%s %s (%s)", "MAN", "up", man_ifname);
 
 	/* setup static wan routes via physical device */
-	add_static_man_routes(man_ifname);
+	route_status = add_static_man_routes(man_ifname);
+	status = route_status_accumulate(status, route_status);
+	if (route_status != 0)
+		logmessage(LOGNAME, "failed to add static MAN routes on %s (error=%d)",
+			   man_ifname, route_status);
 
 	if (!is_static) {
 		/* and routes supplied via DHCP */
-		add_dhcp_routes_by_prefix("wanx_", man_ifname, 0);
+		route_status = add_dhcp_routes_by_prefix("wanx_", man_ifname, 0);
+		status = route_status_accumulate(status, route_status);
+		if (route_status != 0)
+			logmessage(LOGNAME, "failed to add DHCP MAN routes on %s (error=%d)",
+				   man_ifname, route_status);
 	}
 
 	/* and default route (metric 2) */
-	add_man_gateway_routes(man_ifname, unit, 2);
+	route_status = add_man_gateway_routes(man_ifname, unit, 2);
+	status = route_status_accumulate(status, route_status);
 
 	if (!is_static) {
 		/* A resolver refresh error must not tear down this live link. */
 		refresh_resolvconf_nonfatal("MAN up", 0);
-		
+
 		/* re-start firewall */
 		notify_rc("restart_firewall_wan");
 	}
 
 	/* start multicast router */
 	start_igmpproxy(man_ifname);
+
+	return status;
+}
+
+void
+man_up(char *man_ifname, int unit, int is_static)
+{
+	int status = man_up_internal(man_ifname, unit, is_static);
+
+	if (status != 0)
+		logmessage(LOGNAME, "MAN route setup incomplete on %s (error=%d)",
+			   man_ifname, status);
 }
 
 static int
@@ -1448,12 +1495,13 @@ man_down(char *man_ifname, int unit)
 			   man_ifname, status);
 }
 
-void
-wan_up(char *wan_ifname, int unit, int is_static)
+static int
+wan_up_internal(char *wan_ifname, int unit, int is_static)
 {
 	char wan_cnt[32], *wan_addr, *wan_mask, *wan_gate;
 	const char *script_postw = SCRIPT_POST_WAN;
 	int wan_proto, modem_unit_id;
+	int status = 0, route_status;
 
 	logmessage(LOGNAME, "%s %s (%s)", "WAN", "up", wan_ifname);
 
@@ -1481,13 +1529,23 @@ wan_up(char *wan_ifname, int unit, int is_static)
 	/* Set default route to gateway if specified (for NDIS or IPoE) */
 	if (wan_gate && ppp_ifindex(wan_ifname) < 0) {
 		/* if the gateway is out of the subnet */
-		if (!is_same_subnet(wan_gate, wan_addr, wan_mask))
-			route_add(wan_ifname, 1, wan_gate, NULL, "255.255.255.255");
+		if (!is_same_subnet(wan_gate, wan_addr, wan_mask)) {
+			route_status = route_add(wan_ifname, 1, wan_gate, NULL, "255.255.255.255");
+			status = route_status_accumulate(status, route_status);
+			if (route_status != 0)
+				logmessage(LOGNAME, "failed to add WAN gateway host route %s on %s (error=%d)",
+					   wan_gate, wan_ifname, route_status);
+		}
 	}
 
 	/* default route via default gateway */
-	if (wan_gate)
-		route_add(wan_ifname, 1, "0.0.0.0", wan_gate, "0.0.0.0");
+	if (wan_gate) {
+		route_status = route_add(wan_ifname, 1, "0.0.0.0", wan_gate, "0.0.0.0");
+		status = route_status_accumulate(status, route_status);
+		if (route_status != 0)
+			logmessage(LOGNAME, "failed to add WAN default route via %s on %s (error=%d)",
+				   wan_gate, wan_ifname, route_status);
+	}
 
 #if 0
 	/* hack: avoid routing cycles, when both peer and server has the same IP (for PPTP or L2TP) */
@@ -1498,20 +1556,33 @@ wan_up(char *wan_ifname, int unit, int is_static)
 	}
 #endif
 
-	/* Install interface dependent static routes */
-	add_static_wan_routes(wan_ifname);
+	/* Install interface dependent static routes. Keep attempting later setup
+	 * steps after an individual route failure and preserve the first status. */
+	route_status = add_static_wan_routes(wan_ifname);
+	status = route_status_accumulate(status, route_status);
+	if (route_status != 0)
+		logmessage(LOGNAME, "failed to add static WAN routes on %s (error=%d)",
+			   wan_ifname, route_status);
 
 	/* Add static MAN routes (for IPoE) */
 	if (!modem_unit_id && (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC || wan_proto == IPV4_WAN_PROTO_IPOE_DHCP)) {
 		nvram_set_temp("wanx_gateway", (wan_gate) ? wan_gate : "0.0.0.0");
-		add_static_man_routes(wan_ifname);
+		route_status = add_static_man_routes(wan_ifname);
+		status = route_status_accumulate(status, route_status);
+		if (route_status != 0)
+			logmessage(LOGNAME, "failed to add static MAN routes on %s (error=%d)",
+				   wan_ifname, route_status);
 	}
 
 	/* Add dynamic routes supplied via DHCP (for NDIS or IPoE Auto) */
 	if ((modem_unit_id == 2) || (!modem_unit_id && wan_proto == IPV4_WAN_PROTO_IPOE_DHCP)) {
 		char prefix[16];
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
-		add_dhcp_routes_by_prefix(prefix, wan_ifname, 0);
+		route_status = add_dhcp_routes_by_prefix(prefix, wan_ifname, 0);
+		status = route_status_accumulate(status, route_status);
+		if (route_status != 0)
+			logmessage(LOGNAME, "failed to add DHCP WAN routes on %s (error=%d)",
+				   wan_ifname, route_status);
 	}
 
 #if defined (USE_IPV6)
@@ -1565,6 +1636,17 @@ wan_up(char *wan_ifname, int unit, int is_static)
 		{doSystem("/usr/bin/zerotier.sh start");}
 	if (nvram_match("pppoemwan_enable", "1"))
 		{doSystem("/usr/bin/detect.sh");}
+	return status;
+}
+
+void
+wan_up(char *wan_ifname, int unit, int is_static)
+{
+	int status = wan_up_internal(wan_ifname, unit, is_static);
+
+	if (status != 0)
+		logmessage(LOGNAME, "WAN route setup incomplete on %s (error=%d)",
+			   wan_ifname, status);
 }
 
 static int
@@ -2517,11 +2599,12 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	unsigned int parsed_value;
 	int unit, is_man, is_changed, i_err, has_gateway, lease_dur, dhcp_mtu;
 	int wan_proto, modem_unit_id, route_result, route_metric;
-	int interface_status, rollback_status;
+	int interface_status, rollback_status, route_setup_status;
 	struct wan_dhcp_interface_context interface_context;
 
 	unit = get_wan_unit(wan_ifname);
 	is_man = is_ifunit_man(wan_ifname, unit);
+	route_setup_status = 0;
 
 	if (is_man) {
 		strcpy(prefix, "wanx_");
@@ -2731,14 +2814,19 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 			udhcpc_state, wan_ifname, wan_ip, wan_gw, lease_dur);
 
 		if (is_man)
-			man_up(wan_ifname, unit, 0);
+			route_setup_status = man_up_internal(wan_ifname, unit, 0);
 		else
-			wan_up(wan_ifname, unit, 0);
+			route_setup_status = wan_up_internal(wan_ifname, unit, 0);
+
+		if (route_setup_status != 0)
+			logmessage(log_prefix,
+				   "%s (%s) accepted but route setup is incomplete (error=%d)",
+				   udhcpc_state, wan_ifname, route_setup_status);
 	}
 
 	nvram_set_int_temp(strcat_r(prefix, "err", tmp), i_err);
 
-	return 0;
+	return route_setup_status;
 }
 
 static int

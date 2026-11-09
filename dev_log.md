@@ -1,3 +1,17 @@
+## 2026-11-10 05:11 CST (UTC+8) — Propagate MAN/WAN route-add failures through up paths
+
+- **Base main SHA:** `639ebbdedca75d1938e7d280108d146d05e2e479`; active branch: `main`.
+- **Recovered exact-head Actions:** WAN interface teardown [42698031149], AI handoff docs [42698030922], WAN route status [42698030798], HTTPD security [42698030765], and WAN DHCP callback [42698030655] all completed SUCCESS on exact SHA `639ebbdedca75d1938e7d280108d146d05e2e479`.
+- **Finding:** `add_man_gateway_routes()` discarded the MAN gateway host/default/DNS `route_add()` results. `wan_up()` discarded its direct host/default route results and ignored the int status already returned by static WAN, static MAN and DHCP route helpers. `man_up()` likewise ignored the static MAN, DHCP MAN and gateway helper statuses. Thus an accepted lease or an "up" callback could silently report successful route setup after one or more route operations failed.
+- **Fix:** convert MAN gateway route installation to a private status-returning helper; add private `man_up_internal()` and `wan_up_internal()` aggregators; preserve the existing public void APIs as logging wrappers. Every direct and helper route-add status is accumulated without short-circuiting later route attempts or service startup. `udhcpc_bound()` now calls the private helper, logs an accepted lease with incomplete route setup, and returns the route status.
+- **Rollback decision:** do not delete earlier successful additions after a later error. The route ioctl does not identify whether an identical route pre-existed or was installed by this invocation, so blind rollback could remove another path's valid route. Keep the accepted lease/interface state, expose the first error, and leave cleanup to the matching teardown/retry lifecycle.
+- **Changed paths:** `trunk/user/rc/src/net_wan.c`; `.github/workflows/wan-route-status.yml`; `SESSION_HANDOFF.md`; `REFACTOR_ROADMAP.md`; this root log record.
+- **Validation:** L1 source/control-flow review and local structural checks of transformed functions PASS. The exact-head route workflow's GNU89 ASan/UBSan policy regression and extended semantic source contract are PENDING for THIS commit; dependent workflow results must also be checked on its exact SHA. No production RC object, MIPS/uClibc, complete firmware/TRX or hardware test is claimed.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** reconcile exact-head Actions; then finish the bounded BusyBox leasefail/NAK/expiry/renew/SIGUSR2 callback-state review before rotating to Samba and other userland modules.
+
+---
+
 ## 2026-11-10 04:59 CST (UTC+8) — Brace MAN DNS route teardown status handling under its predicate
 
 - **Base main SHA:** `ca94b95812ba8eace9162279b268a54184e9f7bc`; active branch: `main`.

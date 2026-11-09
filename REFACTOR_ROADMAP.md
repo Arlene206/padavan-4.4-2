@@ -1,18 +1,21 @@
 ## Current source / CI checkpoint
 
 - Repository: Arlene206/padavan-4.4-2; maintained fork only.
-- Base main SHA for THIS MAN DNS conditional correction: `ca94b95812ba8eace9162279b268a54184e9f7bc`; active branch `main`; only `main` exists, no remote checkpoint branch.
-- The preceding WAN/MAN route teardown status implementation on `ca94b95812ba8eace9162279b268a54184e9f7bc` passed its exact-head WAN route [42697380249], WAN teardown [42697380232], HTTPD [42697380274], WAN DHCP [42697380012], and AI docs [42697379978] Actions. All completed SUCCESS.
-- Source review found that the new MAN DNS status aggregation was not braced with the existing multi-condition predicate: in non-matching DNS iterations, it could aggregate/log stale `route_status` despite not performing a route delete. THIS correction encloses the delete, status aggregation and error log within the predicate block and updates the route source contract to verify that structure.
-- The MAN off-subnet gateway route identity fix and WAN/MAN route-delete status aggregation remain; BusyBox still discards callback exit codes, so event logs are required.
-- Next P2 focus after validation: audit route-add error propagation / rollback in `add_man_gateway_routes()`, `wan_up()` and `man_up()`; then move coverage beyond WAN into Samba and other userland reliability domains.
-- Root `dev_log.md` will contain 76 /119 records after THIS entry; no archive rotation is due.
+- Base main SHA for THIS MAN/WAN route-add error propagation: `639ebbdedca75d1938e7d280108d146d05e2e479`; active branch `main`; only `main` exists, with no remote checkpoint branch.
+- Exact-head Actions on base SHA `639ebbdedca75d1938e7d280108d146d05e2e479`: WAN teardown [42698031149], AI handoff docs [42698030922], WAN route status [42698030798], HTTPD security [42698030765], and WAN DHCP callback [42698030655] all completed SUCCESS. The route helper sanitizer test, semantic contracts and documentation validator ran successfully.
+- Route-add defect: direct MAN gateway host/default/DNS additions and direct WAN gateway host/default additions discarded `route_add()` results; `man_up()` / `wan_up()` also discarded status returned by static and DHCP route helpers.
+- THIS change uses private status-returning up helpers, keeps the first route error while continuing all configured route attempts and subsequent service startup, logs each failed operation, and preserves public void wrappers. The DHCP bound/renew callback consumes the private status and logs/returns it.
+- No destructive partial-route rollback is attempted: a failed add does not identify whether an identical kernel route was already present and owned by another path. Keep the accepted interface/lease state, expose the error and rely on the existing matching teardown/next renewal path rather than deleting routes without ownership proof.
+- The MAN DNS teardown conditional correction and prior route-delete propagation remain intact.
+- New code's focused exact-head WAN route workflow and dependent callback/docs checks are PENDING until reconciled on THIS commit SHA.
+- WAN remains PARTIAL / AUDITING; BusyBox callback-state semantics and broader userland coverage remain open. Root `dev_log.md` will have 77 /119 complete records after THIS entry; no archive rotation is due.
+
 ## Whole-repository module status
 
 | Module | Status | Verified bounded work | Open reliability / security work |
 |---|---|---|---|
 | LAN DHCP client / AP-mode lease | PARTIAL / AUDITING | Required IP/netmask validation; optional router/DNS/WINS/domain normalization; withdrawn option clearing; changed-gateway delete-before-publish; fail-closed deconfig cleanup; bound/renew checked address/route/resolver transaction with rollback and last-known-good lease fields preserved. Exact-head GNU89 host/source regression PASS on `70415484275e9c542be3d45b8bad807fb6a09591`. | BusyBox discards event-script exit status; leasefail/NAK/release state handling, retry semantics and live DHCP transitions remain open. |
-| WAN DHCP / route lifecycle | PARTIAL / AUDITING | Lease validation and route-text safety; checked interface apply/rollback; MAN off-subnet gateway route deletion retains old lease identity. MAN/WAN route-delete/helper results are accumulated and returned/logged without short-circuiting; THIS correction braces the MAN DNS delete/status/log operations under the full input predicate and adds a source assertion. | Parent exact-head Actions all green; THIS corrective SHA pending inspection; route-add failures/rollback in MAN/WAN up paths; BusyBox ignores callback status; broader callback semantics remain open. |
+| WAN DHCP / route lifecycle | PARTIAL / AUDITING | Lease validation and interface apply/rollback; MAN off-subnet gateway deletion retains old lease identity; MAN/WAN route teardown status is accumulated; direct MAN/WAN gateway/DNS additions and static/DHCP helper results now propagate through private up helpers, log failures and preserve public void wrappers; DHCP bound/renew reports route setup status. | THIS add-route exact-head workflow pending; BusyBox discards callback status; leasefail/NAK/expiry/renew/SIGUSR2 semantics, PPP/multi-WAN and IPv6 callback lifecycle remain open; target route reconciliation not verified. |
 | DNSMasq / resolver / DHCP files | PARTIAL / AUDITING | Safe staged publication, no-follow lease file validation, domain validation, resolver refresh failure contracts and generated-file trust checks. | Daemon lifecycle, option ownership, DNS update and restart/stop error propagation. |
 | USB / storage / hotplug / filesystem | PARTIAL / AUDITING | Full partition/ejected inventory staging, swapoff-before-unmount gates, operation-wide storage lock, Optware startup supervision/rollback, and checked removable-storage teardown. The internal MTD/UBI path reports actual `opt-mount.sh` status, retries with monotonic exponential backoff, and tracks/cancels its worker process group. Samba and vsftpd stop failures now participate in `stop_stor_apps()`; the safe-removal callers abort before unmount when any required storage service does not stop. | No production RC object/MIPS build; target filesystem and real hardware behavior remain unverified. |
 | Firewall / NAT / Netfilter | AUDITING | Firewall restore failure handling, IPv6 table setup and bounded FULLCONENAT worker/notifier registration error handling. Namespace/zone identity is stored and enforced for IPv4/IPv6 mappings and dying-tuple GC; notifier lifecycle, host policy and exact-head semantic contracts pass on `bc99b6801c44f55e13dc0214336408f712e0abf8`. | Full kernel/MIPS object compile and broader firewall/NAT audit remain open. |
@@ -27,11 +30,11 @@
 
 ## Priority queue
 
-1. P2 — Reconcile the parent WAN/MAN route teardown status Actions and THIS DNS-conditional correction on the exact new main SHA; require all applicable WAN/HTTPD/docs checks to pass.
-2. P2 — Audit ignored route-add results and partial-install rollback in `add_man_gateway_routes()`, `wan_up()` and `man_up()`.
-3. P2 — Finish the bounded BusyBox leasefail/NAK/renew/SIGUSR2 callback-state review without changing ignored callback-exit semantics absent a demonstrated defect.
-4. P2 — Reassess Samba same-boot passdb/config publication and the next whole-userland reliability/security items; retain FULLCONENAT kernel/MIPS build and FTP realpath-to-syscall TOCTOU in the queue.
-5. P2 — Keep NFS async durability, AUTH_SYS/root-squash and external mounts as separate evidence-backed compatibility decisions.
+1. P2 — Reconcile THIS MAN/WAN route-add propagation and the focused exact-head Actions on the new SHA.
+2. P2 — Complete the bounded BusyBox DHCP callback-state review (leasefail, accepted NAK/deconfig, lease expiry, renew, SIGUSR2/release-on-quit) without changing ignored exit-status semantics absent a demonstrated state defect.
+3. P2 — Rotate outside WAN: inspect Samba same-boot passdb/config publication and then the next highest-risk stability issue in the whole-userland ledger.
+4. P2 — Keep FTP realpath-to-syscall TOCTOU, FULLCONENAT kernel/MIPS target build, and NFS async/AUTH_SYS/root-squash/external-mount compatibility decisions visible.
+
 ## Working rules
 
 - Trace complete caller/callee paths, state changes, error returns and cleanup before editing.
@@ -47,10 +50,10 @@
 
 | Level | Evidence | Limits |
 |---|---|---|
-| L1 source review | PASS for the MAN off-subnet gateway host-route dependency and deconfig ordering fix, downstream semantic contracts updated for the internal helper split, WAN DHCP bound callback input checks/address-before-state/rollback and NFS custom-export trust boundary. FULLCONENAT namespace/zone identity and cleanup ordering reviewed. | Wider WAN teardown route status, firewall/NAT, NFS compatibility and other module audits remain open. |
-| L2 host / Actions | Exact SHA `5718821e4b566fea1856945c322899b5145c995c`: WAN DHCP [42694649038], WAN teardown [42694649527], AI docs [42694649648] SUCCESS; WAN route [42694649350] and HTTPD [42694649091] failed at stale source-body contracts after refactor. THIS workflow correction and exact-head reruns PENDING. The prior `bf802...` and `b6c1...` evidence remains limited to those exact base SHAs. | No production RC object build, MIPS/uClibc, firmware/TRX, live ioctl failure injection or router test. |
-| L3 MIPS/uClibc / production objects / firmware/TRX | NOT VERIFIED. | Full target build phase required. |
-| L4 storage eject, live Samba/NFS/NAT/DHCP behavior / physical router | NOT VERIFIED. | Requires target-device validation. |
+| L1 source review | PASS for route-add result propagation through MAN/WAN up paths, first-error retention without short-circuiting, per-operation logging, DHCP callback result handling, and public void API preservation. | Accepted DHCP lease is retained when route installation partially fails; target route reconciliation remains unverified. |
+| L2 host / Actions | Base SHA `639ebbdedca75d1938e7d280108d146d05e2e479`: WAN route [42698030798], WAN teardown [42698031149], DHCP callback [42698030655], HTTPD [42698030765], and AI docs [42698030922] SUCCESS. THIS code commit's focused GNU89 sanitizer and semantic route-add contract is PENDING exact-head CI. | Parent Actions do not validate THIS code. |
+| L3 MIPS/uClibc production objects / firmware/TRX | NOT VERIFIED. | Full target build phase required. |
+| L4 storage, DHCP, WAN route reconciliation and physical router | NOT VERIFIED. | Requires target-device validation. |
 
 ## Handoff requirements
 

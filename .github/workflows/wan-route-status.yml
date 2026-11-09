@@ -123,6 +123,48 @@ jobs:
           assert "wan_down_internal(wan_ifname, unit, is_static)" in public_wan_down
           assert "WAN route teardown incomplete" in public_wan_down
 
+          gateway_add = body(wan, "add_man_gateway_routes(char *man_ifname, int unit, int metric)")
+          assert "static int" + chr(10) + "add_man_gateway_routes(" in wan
+          assert gateway_add.count("route_status = route_add(") == 3
+          assert gateway_add.count("route_status_accumulate(status, route_status)") == 3
+          assert gateway_add.count("route_add(") == 3
+          assert "return status;" in gateway_add
+          assert "failed to add MAN gateway host route" in gateway_add
+          assert "failed to add MAN default route" in gateway_add
+          assert "failed to add MAN DNS route" in gateway_add
+
+          man_up = body(wan, "man_up_internal(char *man_ifname, int unit, int is_static)")
+          assert "static int" + chr(10) + "man_up_internal(" in wan
+          assert man_up.count("route_status_accumulate(status, route_status)") == 3
+          assert "route_status = add_static_man_routes(man_ifname);" in man_up
+          assert 'route_status = add_dhcp_routes_by_prefix("wanx_", man_ifname, 0);' in man_up
+          assert "route_status = add_man_gateway_routes(man_ifname, unit, 2);" in man_up
+          assert "return status;" in man_up
+          public_man_up = body(wan, "man_up(char *man_ifname, int unit, int is_static)")
+          assert "man_up_internal(man_ifname, unit, is_static)" in public_man_up
+          assert "MAN route setup incomplete" in public_man_up
+          assert "void man_up(char *man_ifname, int unit, int is_static);" in header
+
+          wan_up = body(wan, "wan_up_internal(char *wan_ifname, int unit, int is_static)")
+          assert "static int" + chr(10) + "wan_up_internal(" in wan
+          assert wan_up.count("route_status_accumulate(status, route_status)") == 5
+          assert wan_up.count("route_add(") == wan_up.count("route_status = route_add(") == 2
+          assert "route_status = add_static_wan_routes(wan_ifname);" in wan_up
+          assert "route_status = add_static_man_routes(wan_ifname);" in wan_up
+          assert "route_status = add_dhcp_routes_by_prefix(prefix, wan_ifname, 0);" in wan_up
+          assert "return status;" in wan_up
+          public_wan_up = body(wan, "wan_up(char *wan_ifname, int unit, int is_static)")
+          assert "wan_up_internal(wan_ifname, unit, is_static)" in public_wan_up
+          assert "WAN route setup incomplete" in public_wan_up
+          assert "void wan_up(char *wan_ifname, int unit, int is_static);" in header
+
+          bound = body(wan, "udhcpc_bound(char *wan_ifname, int is_renew_mode)")
+          assert "int interface_status, rollback_status, route_setup_status;" in bound
+          assert "route_setup_status = man_up_internal(wan_ifname, unit, 0);" in bound
+          assert "route_setup_status = wan_up_internal(wan_ifname, unit, 0);" in bound
+          assert "accepted but route setup is incomplete" in bound
+          assert "return route_setup_status;" in bound
+
           deconfig = body(wan, "udhcpc_deconfig(char *wan_ifname, int is_zcip)")
           assert "cleanup_status = man_down_internal(wan_ifname, unit, reset_man_address)" in deconfig
           assert "cleanup_status = wan_down_internal(wan_ifname, unit, 0)" in deconfig
