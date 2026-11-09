@@ -133,7 +133,9 @@ jobs:
           acl_upload = function_body(vsftpd_acl, "asus_check_permission_upload(")
           acl_directory = function_body(vsftpd_acl, "asus_check_permission_directory(")
           acl_visible = function_body(vsftpd_acl, "int asus_check_file_visible(")
-          assert upload.index("asus_check_permission_upload(p_sess, p_filename)") < upload.index("str_create(")
+          assert "asus_open_upload_path(p_sess, p_filename" in upload
+          assert "asus_cleanup_failed_upload(upload_parent_fd, upload_leaf, new_file_fd)" in upload
+          assert "str_create(" not in upload
           assert "asus_check_permission_path(p_sess, PERM_WRITE, &p_sess->ftp_arg_str)" in mkd
           assert "asus_check_permission_path(p_sess, PERM_DELETE, &p_sess->ftp_arg_str)" in rmd
           assert "asus_check_permission_path(p_sess, PERM_DELETE, &p_sess->ftp_arg_str)" in dele
@@ -160,6 +162,18 @@ jobs:
           assert "asus_check_permission(p_sess, PERM_READ)" not in directory
           assert "ftp_acl_path_resolve_existing_parent" in acl_path_policy
           assert "ftp_acl_path_resolve_write_parent" in acl_path_policy
+          assert "ftp_acl_path_open_directory" in acl_path_policy
+          assert "openat(dir_fd, name" in acl_path_policy
+          assert "O_NOFOLLOW" in acl_path_policy
+          assert "fstatat(dir_fd, leaf" in acl_path_policy
+          assert "unlinkat(dir_fd, leaf" in acl_path_policy
+          assert "openat(parent_fd, p_leaf, flags, mode)" in vsftpd_acl
+          assert "ftp_acl_path_unlink_opened_entry" in vsftpd_acl
+          assert "O_NOFOLLOW" in vsftpd_acl
+          assert "O_CLOEXEC" in vsftpd_acl
+          assert "directory descriptor did not stay on original share" in acl_path_test
+          assert "O_NOFOLLOW accepted a substituted final symlink" in acl_path_test
+          assert "cleanup removed a replacement upload entry" in acl_path_test
           assert "lstat(path, &st)" in acl_path_policy
           assert "ftp_acl_path_resolve_directory" in acl_path_policy
           assert "cross-share symlink" in acl_path_test

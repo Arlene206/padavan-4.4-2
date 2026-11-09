@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 #ifndef PATH_MAX
 #define PATH_MAX 4096
 #endif
@@ -113,6 +115,177 @@ ftp_acl_path_resolve_write_parent(const char *path, char *resolved_parent,
     return -1;
   return ftp_acl_path_resolve_parent(path, parent, sizeof(parent),
                                      resolved_parent, resolved_size);
+}
+
+
+/*
+ * Split a file entry into its parent and final component. The leaf is kept
+ * separate so subsequent operations can be relative to an opened directory.
+ */
+static int
+ftp_acl_path_split_entry(const char *path, char *parent, size_t parent_size,
+                         char *leaf, size_t leaf_size)
+{
+  size_t length, base_offset, base_length, parent_length;
+  const char *slash;
+  if (!path || !*path || !parent || !leaf ||
+      parent_size == 0 || leaf_size == 0)
+    return -1;
+  length = strlen(path);
+  if (length >= PATH_MAX)
+    return -1;
+  while (length > 1 && path[length - 1] == '/')
+    --length;
+  if (length == 1 && path[0] == '/')
+    return -1;
+  slash = NULL;
+  {
+    size_t index = length;
+    while (index > 0) {
+      --index;
+      if (path[index] == '/') {
+        slash = path + index;
+        break;
+      }
+    }
+  }
+  if (!slash) {
+    base_offset = 0;
+    parent_length = 1;
+    if (parent_size < 2)
+      return -1;
+    parent[0] = '.';
+    parent[1] = '\0';
+  } else {
+    base_offset = (size_t)(slash - path) + 1;
+    parent_length = (slash == path) ? 1 : (size_t)(slash - path);
+    if (parent_length >= parent_size)
+      return -1;
+    memcpy(parent, path, parent_length);
+    parent[parent_length] = '\0';
+  }
+  base_length = length - base_offset;
+  if (base_length == 0 || base_length >= leaf_size)
+    return -1;
+  if ((base_length == 1 && path[base_offset] == '.') ||
+      (base_length == 2 && path[base_offset] == '.' &&
+       path[base_offset + 1] == '.'))
+    return -1;
+  memcpy(leaf, path + base_offset, base_length);
+  leaf[base_length] = '\0';
+  return 0;
+}
+
+/*
+ * Open an absolute canonical directory one component at a time. O_PATH keeps
+ * this usable for write-only directories while providing a stable dirfd.
+ * O_NOFOLLOW rejects a component substituted with a symlink after realpath().
+ */
+static int
+ftp_acl_path_open_directory(const char *path)
+{
+  int dir_fd, next_fd;
+  const char *component;
+  char name[PATH_MAX];
+  size_t path_length;
+  if (!path || path[0] != '/')
+    return -1;
+  path_length = strlen(path);
+  if (path_length == 0 || path_length >= PATH_MAX)
+    return -1;
+  dir_fd = open("/", O_PATH | O_DIRECTORY | O_CLOEXEC);
+  if (dir_fd < 0)
+    return -1;
+  component = path + 1;
+  while (*component) {
+    const char *end = component;
+    size_t name_length;
+    while (*end && *end != '/')
+      ++end;
+    name_length = (size_t)(end - component);
+    if (name_length == 0 || name_length >= sizeof(name) ||
+        (name_length == 1 && component[0] == '.') ||
+        (name_length == 2 && component[0] == '.' && component[1] == '.')) {
+      close(dir_fd);
+      errno = EINVAL;
+      return -1;
+    }
+    memcpy(name, component, name_length);
+    name[name_length] = '\0';
+    next_fd = openat(dir_fd, name,
+                     O_PATH | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+    if (next_fd < 0) {
+      int saved_errno = errno;
+      close(dir_fd);
+      errno = saved_errno;
+      return -1;
+    }
+    close(dir_fd);
+    dir_fd = next_fd;
+    component = (*end == '/') ? end + 1 : end;
+  }
+  return dir_fd;
+}
+
+/*
+ * Resolve the effective upload target before splitting it. Existing final
+ * symlinks retain legacy write-through behavior, but the canonical target
+ * leaf is later opened with O_NOFOLLOW. Missing leaves are allowed only if
+ * their parent resolves. Do not cleanup through a final symlink alias.
+ */
+static int
+ftp_acl_path_resolve_write_entry(const char *path, char *resolved_parent,
+                                 size_t resolved_size, char *leaf,
+                                 size_t leaf_size, int *cleanup_allowed)
+{
+  char target[PATH_MAX], parent[PATH_MAX];
+  struct stat st;
+  int lstat_result, saved_errno;
+  if (!path || !*path || !resolved_parent || resolved_size < PATH_MAX ||
+      !leaf || leaf_size == 0 || !cleanup_allowed ||
+      ftp_acl_path_is_internal_metadata(path) || strlen(path) >= PATH_MAX)
+    return -1;
+  *cleanup_allowed = 0;
+  if (realpath(path, target) != NULL) {
+    if (ftp_acl_path_is_internal_metadata(target) ||
+        ftp_acl_path_split_entry(target, parent, sizeof(parent),
+                                 leaf, leaf_size) != 0 ||
+        realpath(parent, resolved_parent) == NULL)
+      return -1;
+    lstat_result = lstat(path, &st);
+    if (lstat_result == 0 && !S_ISLNK(st.st_mode))
+      *cleanup_allowed = 1;
+    return 0;
+  }
+  saved_errno = errno;
+  if (saved_errno != ENOENT || lstat(path, &st) == 0 || errno != ENOENT)
+    return -1;
+  if (ftp_acl_path_split_entry(path, parent, sizeof(parent),
+                               leaf, leaf_size) != 0 ||
+      realpath(parent, resolved_parent) == NULL)
+    return -1;
+  *cleanup_allowed = 1;
+  return 0;
+}
+
+/*
+ * This prevents cleanup from deleting a different inode that was already
+ * installed at the upload leaf before the identity check. Linux 4.4 has no
+ * unlink-by-file-descriptor operation, so the final fstatat()/unlinkat()
+ * name pair remains best-effort against concurrent writers in the same dir.
+ */
+static int
+ftp_acl_path_unlink_opened_entry(int dir_fd, const char *leaf, int file_fd)
+{
+  struct stat opened, current;
+  if (dir_fd < 0 || !leaf || !*leaf || file_fd < 0 ||
+      fstat(file_fd, &opened) != 0 ||
+      !S_ISREG(opened.st_mode) ||
+      fstatat(dir_fd, leaf, &current, AT_SYMLINK_NOFOLLOW) != 0 ||
+      !S_ISREG(current.st_mode) ||
+      opened.st_dev != current.st_dev || opened.st_ino != current.st_ino)
+    return -1;
+  return unlinkat(dir_fd, leaf, 0);
 }
 
 static int

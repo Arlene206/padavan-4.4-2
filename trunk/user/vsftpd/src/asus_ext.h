@@ -1,6 +1,11 @@
 #ifndef ASUS_EXT_H
 #define ASUS_EXT_H
 
+#include <limits.h>
+#ifndef PATH_MAX
+#define PATH_MAX 4096
+#endif
+
 struct mystr;
 struct passwd;
 struct vsf_session;
@@ -17,6 +22,12 @@ int asus_check_permission_existing_path(struct vsf_session* p_sess, int perm,
                                         const struct mystr* p_path_str);
 int asus_check_permission_upload(struct vsf_session* p_sess,
                                  const struct mystr* p_path_str);
+int asus_open_upload_path(struct vsf_session* p_sess,
+                          const struct mystr* p_path_str, int exclusive,
+                          unsigned int mode, int* p_parent_fd,
+                          char* p_leaf, unsigned int leaf_size,
+                          int* p_cleanup_allowed);
+int asus_cleanup_failed_upload(int parent_fd, const char* leaf, int file_fd);
 int asus_check_permission_directory(struct vsf_session* p_sess,
                                     const struct mystr* p_path_str);
 int asus_check_file_visible(struct vsf_session* p_sess, const struct mystr* p_filename_str);

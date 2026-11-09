@@ -5,6 +5,8 @@
  * postlogin.c
  */
 
+#include <limits.h>
+
 #include "postlogin.h"
 #include "session.h"
 #include "oneprocess.h"
@@ -1036,6 +1038,9 @@ handle_upload_common(struct vsf_session* p_sess, int is_append, int is_unique)
   struct vsf_transfer_ret trans_ret;
   int new_file_fd;
   int remote_fd;
+  int upload_parent_fd = -1;
+  int cleanup_allowed = 0;
+  char upload_leaf[PATH_MAX];
   int success = 0;
   int created = 0;
   int do_truncate = 0;
@@ -1060,23 +1065,18 @@ handle_upload_common(struct vsf_session* p_sess, int is_append, int is_unique)
     vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
     return;
   }
-  if (!asus_check_permission_upload(p_sess, p_filename))
-  {
-    vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
-    return;
-  }
-  /* NOTE - actual file permissions will be governed by the tunable umask */
-  /* XXX - do we care about race between create and chown() of anonymous
-   * upload?
-   */
+  /* Open relative to the ACL-checked, pinned parent directory. */
   if (is_unique || (p_sess->is_anonymous && !tunable_anon_other_write_enable))
   {
-    new_file_fd = str_create_exclusive(p_filename);
+    new_file_fd = asus_open_upload_path(
+      p_sess, p_filename, 1, tunable_file_open_mode, &upload_parent_fd,
+      upload_leaf, sizeof(upload_leaf), &cleanup_allowed);
   }
   else
   {
-    /* For non-anonymous, allow open() to overwrite or append existing files */
-    new_file_fd = str_create(p_filename);
+    new_file_fd = asus_open_upload_path(
+      p_sess, p_filename, 0, tunable_file_open_mode, &upload_parent_fd,
+      upload_leaf, sizeof(upload_leaf), &cleanup_allowed);
     if (!is_append && offset == 0)
     {
       do_truncate = 1;
@@ -1185,11 +1185,17 @@ handle_upload_common(struct vsf_session* p_sess, int is_append, int is_unique)
 port_pasv_cleanup_out:
   port_cleanup(p_sess);
   pasv_cleanup(p_sess);
-  if (tunable_delete_failed_uploads && created && !success)
+  if (tunable_delete_failed_uploads && created && !success &&
+      cleanup_allowed)
   {
-    str_unlink(p_filename);
+    (void) asus_cleanup_failed_upload(upload_parent_fd, upload_leaf,
+                                      new_file_fd);
   }
   vsf_sysutil_close(new_file_fd);
+  if (upload_parent_fd != -1)
+  {
+    vsf_sysutil_close(upload_parent_fd);
+  }
 }
 
 static void

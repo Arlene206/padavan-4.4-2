@@ -1,4 +1,8 @@
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE 1
+#endif
+
 #include "asus_ext.h"
 #include "ftp_acl_path_policy.h"
 #include "session.h"
@@ -13,6 +17,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <limits.h>
+#include <fcntl.h>
+#include <errno.h>
 #include <pwd.h>
 #include <sys/param.h>
 #include <sys/stat.h>
@@ -332,6 +338,55 @@ asus_check_permission_upload(struct vsf_session* p_sess,
 					 sizeof(resolved_parent)) != 0)
 		return 0;
 	return asus_check_permission_at(p_sess, PERM_WRITE, resolved_parent);
+}
+
+
+int
+asus_open_upload_path(struct vsf_session* p_sess,
+                      const struct mystr* p_path_str, int exclusive,
+                      unsigned int mode, int* p_parent_fd, char* p_leaf,
+                      unsigned int leaf_size, int* p_cleanup_allowed)
+{
+  char resolved_parent[PATH_MAX];
+  int parent_fd, file_fd, flags, saved_errno;
+  if (!p_sess || !p_path_str || !p_parent_fd || !p_leaf ||
+      leaf_size == 0 || !p_cleanup_allowed) {
+    errno = EINVAL;
+    return -1;
+  }
+  *p_parent_fd = -1;
+  *p_cleanup_allowed = 0;
+  p_leaf[0] = '\0';
+  if (ftp_acl_path_resolve_write_entry(str_getbuf(p_path_str),
+                                       resolved_parent,
+                                       sizeof(resolved_parent),
+                                       p_leaf, leaf_size,
+                                       p_cleanup_allowed) != 0 ||
+      !asus_check_permission_at(p_sess, PERM_WRITE, resolved_parent)) {
+    errno = EACCES;
+    return -1;
+  }
+  parent_fd = ftp_acl_path_open_directory(resolved_parent);
+  if (parent_fd < 0)
+    return -1;
+  flags = O_WRONLY | O_NONBLOCK | O_CREAT | O_NOFOLLOW | O_CLOEXEC;
+  if (exclusive)
+    flags |= O_EXCL | O_APPEND;
+  file_fd = openat(parent_fd, p_leaf, flags, mode);
+  if (file_fd < 0) {
+    saved_errno = errno;
+    close(parent_fd);
+    errno = saved_errno;
+    return -1;
+  }
+  *p_parent_fd = parent_fd;
+  return file_fd;
+}
+
+int
+asus_cleanup_failed_upload(int parent_fd, const char* leaf, int file_fd)
+{
+  return ftp_acl_path_unlink_opened_entry(parent_fd, leaf, file_fd);
 }
 
 int
