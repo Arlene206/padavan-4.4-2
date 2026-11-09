@@ -47,6 +47,7 @@
 #include "ftp_share_policy.h"
 #include "ftp_config_file.h"
 #include "storage_mount_inventory_policy.h"
+#include "storage_optware_start_policy.h"
 #include "storage_ejected_inventory_policy.h"
 #include "storage_nfs_export_policy.h"
 #include "switch.h"
@@ -67,6 +68,8 @@ spindown_hdd(char *sd_dev)
 	argv[2] = NULL;
 	_eval(argv, NULL, 0, NULL);
 }
+
+static int storage_optware_result_fd = -1;
 
 static int
 is_valid_storage_device(const char *devname)
@@ -94,10 +97,10 @@ storage_has_mounted_devices(const char *operation)
 	if (!storage_mount_inventory_is_complete(mount_count)) {
 		logmessage("Storage", "cannot determine mounted storage from %s while %s; refusing storage-dependent service start",
 			   PROC_MOUNTS_FILE, operation);
-		return 0;
+		return -1;
 	}
 
-	return storage_mount_inventory_has_mounts(mount_count);
+	return storage_mount_inventory_has_mounts(mount_count) ? 1 : 0;
 }
 
 #if defined (APP_FTPD)
@@ -2243,13 +2246,102 @@ start_stor_apps(void)
 }
 
 static int
+storage_optware_start_result_read(void)
+{
+	unsigned char child_status = 1;
+	ssize_t bytes_read;
+	int result;
+
+	if (storage_optware_result_fd < 0)
+		return STORAGE_OPTWARE_START_CHILD_NONE;
+
+	do {
+		bytes_read = read(storage_optware_result_fd, &child_status,
+				  sizeof(child_status));
+	} while (bytes_read < 0 && errno == EINTR);
+
+	if (bytes_read < 0) {
+		if (errno == EAGAIN || errno == EWOULDBLOCK)
+			return STORAGE_OPTWARE_START_CHILD_RUNNING;
+		logmessage("Storage", "cannot read deferred Optware startup result (errno %d)", errno);
+		bytes_read = 0;
+	}
+
+	result = storage_optware_start_decode_result((int)bytes_read,
+						     (int)child_status);
+	close(storage_optware_result_fd);
+	storage_optware_result_fd = -1;
+
+	return result;
+}
+
+static int
+storage_optware_start_async(void)
+{
+	int pipe_fd[2], flags, command_status;
+	unsigned char child_result;
+	ssize_t written;
+	pid_t child;
+
+	/* A live result channel owns this single startup attempt. */
+	if (storage_optware_result_fd >= 0)
+		return -1;
+
+	if (pipe(pipe_fd) != 0) {
+		logmessage("Storage", "cannot create deferred Optware startup result pipe (errno %d)", errno);
+		return -1;
+	}
+
+	flags = fcntl(pipe_fd[0], F_GETFL, 0);
+	if (flags < 0 || fcntl(pipe_fd[0], F_SETFL, flags | O_NONBLOCK) != 0)
+		goto failed;
+	flags = fcntl(pipe_fd[1], F_GETFD);
+	if (flags < 0 || fcntl(pipe_fd[1], F_SETFD, flags | FD_CLOEXEC) != 0)
+		goto failed;
+
+	child = fork();
+	if (child < 0)
+		goto failed;
+
+	if (child == 0) {
+		close(pipe_fd[0]);
+		command_status = system("/usr/bin/opt-start.sh");
+		child_result = (command_status != -1 &&
+				WIFEXITED(command_status) &&
+				WEXITSTATUS(command_status) == 0) ? 0 : 1;
+		do {
+			written = write(pipe_fd[1], &child_result, sizeof(child_result));
+		} while (written < 0 && errno == EINTR);
+		close(pipe_fd[1]);
+		/* Wake PID 1 after publishing the result; SIGCHLD remains safely reaped there. */
+		(void)kill(1, SIGALRM);
+		_exit(child_result == 0 ? 0 : 1);
+	}
+
+	close(pipe_fd[1]);
+	storage_optware_result_fd = pipe_fd[0];
+	logmessage("Storage", "started deferred Optware service startup (pid %d)", (int)child);
+	return 0;
+
+failed:
+	logmessage("Storage", "cannot launch deferred Optware startup worker (errno %d)", errno);
+	close(pipe_fd[0]);
+	close(pipe_fd[1]);
+	return -1;
+}
+
+static int
 try_start_stor_apps(void)
 {
 	int storage_lock;
+	int mounted_devices;
+	int need_optware;
+	int child_result;
 
 	/*
-	 * Safe removal stops these services while holding the same operation
-	 * lock. Serialize deferred startup with that stop/unmount transaction.
+	 * Serialize integrated storage-service startup with safe removal, but do
+	 * not run the external Optware hooks under storage.lock. Their worker owns
+	 * only the separate Optware lifecycle lock after this lock is released.
 	 */
 	storage_lock = storage_operation_lock_acquire(file_lock);
 	if (storage_lock == -1) {
@@ -2257,14 +2349,60 @@ try_start_stor_apps(void)
 		return -1;
 	}
 
-	if (storage_has_mounted_devices("starting storage applications")) {
-		start_stor_apps();
-		if (nvram_get_int("usb_opt_start"))
-			system("/usr/bin/opt-start.sh &");
+	mounted_devices = storage_has_mounted_devices("starting storage applications");
+	if (mounted_devices < 0) {
+		file_unlock(storage_lock);
+		return -1;
 	}
 
+	if (mounted_devices == 0) {
+		child_result = storage_optware_start_result_read();
+		if (child_result == STORAGE_OPTWARE_START_CHILD_RUNNING) {
+			file_unlock(storage_lock);
+			return 1;
+		}
+
+		/* A complete empty inventory makes any old hotplug request stale. */
+		nvram_set_int_temp("usb_hotplug_ms", 0);
+		nvram_set_int_temp("usb_opt_start", 0);
+		file_unlock(storage_lock);
+		return 0;
+	}
+
+	/*
+	 * This event flag covers the integrated RC services only. Clear it after
+	 * one complete inventory/start attempt so Optware retries do not rerun
+	 * Samba/NFS/FTP and other integrated storage services every five seconds.
+	 */
+	if (nvram_match("usb_hotplug_ms", "1")) {
+		start_stor_apps();
+		nvram_set_int_temp("usb_hotplug_ms", 0);
+	}
+	need_optware = nvram_get_int("usb_opt_start");
+
+	/* External init scripts must never inherit storage.lock. */
 	file_unlock(storage_lock);
-	return 0;
+
+	child_result = storage_optware_start_result_read();
+	if (child_result == STORAGE_OPTWARE_START_CHILD_RUNNING)
+		return 1;
+	if (child_result == STORAGE_OPTWARE_START_CHILD_SUCCESS) {
+		if (need_optware)
+			nvram_set_int_temp("usb_opt_start", 0);
+		return 0;
+	}
+	if (child_result == STORAGE_OPTWARE_START_CHILD_FAILURE) {
+		if (need_optware)
+			logmessage("Storage", "deferred Optware startup failed; preserving pending state for retry");
+		return need_optware ? -1 : 0;
+	}
+
+	if (!need_optware)
+		return 0;
+	if (storage_optware_start_async() != 0)
+		return -1;
+
+	return 1;
 }
 
 void
@@ -2274,16 +2412,14 @@ on_deferred_hotplug_dev(void)
 	int plug_modem = 0;
 	int unplug_modem = 0;
 #endif
+	int storage_start_result;
 
-	if (nvram_match("usb_hotplug_ms", "1"))
-	{
-		if (try_start_stor_apps() == 0) {
-			nvram_set_int_temp("usb_hotplug_ms", 0);
-			nvram_set_int_temp("usb_opt_start", 0);
-		} else {
-			/* Keep the pending flags and retry if the lock file was unavailable. */
+	if (nvram_match("usb_hotplug_ms", "1") ||
+	    nvram_match("usb_opt_start", "1") ||
+	    storage_optware_result_fd >= 0) {
+		storage_start_result = try_start_stor_apps();
+		if (storage_start_result != 0)
 			alarm(5);
-		}
 	}
 
 #if defined (USE_USB_SUPPORT)

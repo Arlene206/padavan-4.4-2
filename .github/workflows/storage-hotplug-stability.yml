@@ -18,6 +18,8 @@ on:
       - "trunk/user/optware/opt-mount.sh"
       - "trunk/user/rc/src/tests/storage_operation_lock.c"
       - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/storage_optware_start_policy.h"
+      - "trunk/user/rc/src/tests/storage_optware_start_policy.c"
       - "trunk/user/shared/src/shutils.h"
       - "trunk/user/rc/src/storage_ejected_inventory_policy.h"
       - "trunk/user/rc/src/tests/storage_ejected_inventory_policy.c"
@@ -44,6 +46,8 @@ on:
       - "trunk/user/optware/opt-mount.sh"
       - "trunk/user/rc/src/tests/storage_operation_lock.c"
       - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/storage_optware_start_policy.h"
+      - "trunk/user/rc/src/tests/storage_optware_start_policy.c"
       - "trunk/user/shared/src/shutils.h"
       - "trunk/user/rc/src/storage_ejected_inventory_policy.h"
       - "trunk/user/rc/src/tests/storage_ejected_inventory_policy.c"
@@ -90,6 +94,14 @@ jobs:
             trunk/user/shared/src/bin_sem_asus.c \
             -o /tmp/storage-operation-lock
           /tmp/storage-operation-lock
+      - name: Compile and run deferred Optware child-result regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/storage_optware_start_policy.c \
+            -o /tmp/storage-optware-start-policy
+          /tmp/storage-optware-start-policy
       - name: Verify whole storage caller graph, operation locks and failure propagation
         run: |
           python3 - <<'PY'
@@ -98,6 +110,8 @@ jobs:
           rc_dir = Path("trunk/user/rc/src")
           storage = (rc_dir / "services_stor.c").read_text()
           policy = (rc_dir / "storage_ejected_inventory_policy.h").read_text()
+          optware_policy = (rc_dir / "storage_optware_start_policy.h").read_text()
+          optware_policy_test = (rc_dir / "tests/storage_optware_start_policy.c").read_text()
           rc = (rc_dir / "rc.c").read_text()
           workflow = Path(".github/workflows/storage-hotplug-stability.yml").read_text()
           nfs_script = Path("trunk/user/nfs-utils/nfsd.sh").read_text()
@@ -209,14 +223,54 @@ jobs:
           assert "refusing fallback unmount" in remove_all
           assert remove_all.count("file_unlock(storage_lock);") == 2
 
+          # Deferred removable-storage startup preserves a tri-state inventory,
+          # separates integrated app work from Optware work, and observes the
+          # external worker's real exit result without blocking PID 1.
+          inventory_gate = function_body(storage, "storage_has_mounted_devices(")
+          assert "storage_mount_inventory_is_complete(mount_count)" in inventory_gate
+          assert "return -1;" in inventory_gate
+          assert "storage_mount_inventory_has_mounts(mount_count) ? 1 : 0" in inventory_gate
           deferred_start = function_body(storage, "try_start_stor_apps(void)")
           assert deferred_start.index("storage_operation_lock_acquire(file_lock)") < deferred_start.index("storage_has_mounted_devices(")
           assert deferred_start.index("storage_has_mounted_devices(") < deferred_start.index("start_stor_apps();")
-          assert deferred_start.index("start_stor_apps();") < deferred_start.index("file_unlock(storage_lock);")
+          assert deferred_start.index("start_stor_apps();") < deferred_start.index('nvram_set_int_temp("usb_hotplug_ms", 0)')
+          assert deferred_start.rindex("file_unlock(storage_lock);") < deferred_start.index("storage_optware_start_async();")
+          assert "STORAGE_OPTWARE_START_CHILD_SUCCESS" in deferred_start
+          success_gate = deferred_start.index("if (child_result == STORAGE_OPTWARE_START_CHILD_SUCCESS)")
+          assert deferred_start.index('nvram_set_int_temp("usb_opt_start", 0);', success_gate) > success_gate
+          assert "STORAGE_OPTWARE_START_CHILD_FAILURE" in deferred_start
+          assert "preserving pending state for retry" in deferred_start
+          assert 'system("/usr/bin/opt-start.sh &")' not in deferred_start
+
+          child_reader = function_body(storage, "storage_optware_start_result_read(void)")
+          assert "read(storage_optware_result_fd" in child_reader
+          assert "EAGAIN" in child_reader and "STORAGE_OPTWARE_START_CHILD_RUNNING" in child_reader
+          assert "storage_optware_start_decode_result" in child_reader
+          child_launcher = function_body(storage, "storage_optware_start_async(void)")
+          assert "storage_optware_result_fd >= 0" in child_launcher
+          assert "pipe(pipe_fd)" in child_launcher and "O_NONBLOCK" in child_launcher
+          assert "FD_CLOEXEC" in child_launcher
+          assert "child = fork();" in child_launcher
+          assert 'system("/usr/bin/opt-start.sh")' in child_launcher
+          assert "WIFEXITED(command_status)" in child_launcher
+          assert "write(pipe_fd[1]" in child_launcher
+          assert "kill(1, SIGALRM)" in child_launcher
+
           deferred_event = function_body(storage, "on_deferred_hotplug_dev(void)")
-          assert "if (try_start_stor_apps() == 0)" in deferred_event
-          assert deferred_event.index("try_start_stor_apps()") < deferred_event.index('nvram_set_int_temp("usb_hotplug_ms", 0)')
+          assert 'nvram_match("usb_hotplug_ms", "1")' in deferred_event
+          assert 'nvram_match("usb_opt_start", "1")' in deferred_event
+          assert "storage_optware_result_fd >= 0" in deferred_event
+          assert "if (storage_start_result != 0)" in deferred_event
           assert "alarm(5);" in deferred_event
+
+          assert "STORAGE_OPTWARE_START_CHILD_RUNNING" in optware_policy
+          assert "STORAGE_OPTWARE_START_CHILD_SUCCESS" in optware_policy
+          assert "STORAGE_OPTWARE_START_CHILD_FAILURE" in optware_policy
+          assert "bytes_read != 1" in optware_policy
+          assert "decode_result(-1, 0)" in optware_policy_test
+          assert "decode_result(1, 0)" in optware_policy_test
+          assert "decode_result(1, 1)" in optware_policy_test
+          assert "decode_result(0, 0)" in optware_policy_test
 
           assert "flock 9" in opt_lock and "flock -n 9" in opt_lock
           assert 'exec 9>>"$optware_lock_file"' in opt_lock
@@ -451,6 +505,8 @@ jobs:
               "trunk/user/optware/opt-mount.sh",
               "trunk/user/nfs-utils/nfsd.sh",
               "trunk/user/rc/src/rc.h",
+              "trunk/user/rc/src/storage_optware_start_policy.h",
+              "trunk/user/rc/src/tests/storage_optware_start_policy.c",
           ):
               assert push_filters.count(path) == 1
               assert pr_filters.count(path) == 1

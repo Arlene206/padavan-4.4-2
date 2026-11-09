@@ -1,3 +1,17 @@
+## 2026-11-09 19:45 CST (UTC+8) — Preserve deferred USB Optware startup result and retry state
+
+- **Base main SHA:** `6ae43a6a71e05bf5aeba47516b1c4b193c75075e`; resulting commit: THIS COMMIT.
+- **Recovered exact-head CI:** the previous MTD/UBI and RWFS source-contract task is complete: storage [42609876845](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42609876845) and AI handoff docs [42609876722](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42609876722) both SUCCESS on the exact full SHA `6ae43a6a71e05bf5aeba47516b1c4b193c75075e`. All storage workflow steps and the documentation/archive validator passed.
+- **Finding:** `storage_has_mounted_devices()` conflated incomplete `/proc/mounts` reads with a complete empty inventory. The deferred handler also treated successful background launch as successful Optware startup, cleared both pending NVRAM flags without observing hook exit status, and repeated integrated service startup on retries.
+- **Fix:** preserve the inventory's three-state result; keep both pending flags on incomplete inventory; clear the one-shot `usb_hotplug_ms` flag only after integrated services have been started against a complete mounted inventory; run `opt-start.sh` in a single asynchronous worker only after releasing `storage.lock`; deliver its actual exit result through a nonblocking pipe and SIGALRM wakeup; clear `usb_opt_start` only after child success, retain it and retry after child failure/EOF, and suppress duplicate worker launches while the result channel is open.
+- **Regression:** add a GNU89 `-Wall -Wextra -Werror` unit test for child-result decoding and source contracts for inventory tri-state, lock release before fork, close-on-exec pipe writer, real wait-status decoding, child result publication, retry flag ordering, and symmetric push/PR path filters. The policy unit test compiled and passed locally in a scratch directory.
+- **Changed paths:** `trunk/user/rc/src/services_stor.c`, new `trunk/user/rc/src/storage_optware_start_policy.h`, new `trunk/user/rc/src/tests/storage_optware_start_policy.c`, `.github/workflows/storage-hotplug-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+- **Verification boundary:** L1 source/lock-order review PASS; local GNU89 child-result policy test PASS. Exact-head storage and AI-doc Actions for THIS commit are pending at creation. No full local checkout/full-source build, production RC object, MIPS/uClibc object, firmware/TRX, external hook failure/hang injection, removable-media stress or physical-router test is claimed.
+- **Next:** reconcile the new exact-head storage/docs workflows. If green, audit the separate asynchronous boot-time `start_rwfs_optware()` result/retry path in `common_ex.c`.
+
+
+---
+
 ## 2026-11-09 19:03 CST — Correct RWFS failure-gate source-contract search offset
 
 - **Base main SHA:** `d225e9e1e09e56b79c6b00b46e61d2e0a08b6166`; resulting workflow-validation checkpoint: THIS COMMIT.
