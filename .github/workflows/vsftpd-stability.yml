@@ -133,7 +133,7 @@ jobs:
           assert "asus_check_permission_path(p_sess, PERM_WRITE" in rnto
           assert rnto.index("PERM_DELETE") < rnto.index("PERM_WRITE") < rnto.index("str_rename(")
           assert '"../shareB/file"' in acl_path_test
-          assert '"symlinked parent was not canonicalized"' in acl_path_test
+          assert "symlinked parent was not canonicalized" in acl_path_test
           policy_fn = function_body(daemon_policy, "ftp_daemon_wait_for_stable_presence(")
           assert "ops->is_running(context, daemon)" in policy_fn
           assert "ops->sleep_us(context, 500000U)" in policy_fn

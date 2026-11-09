@@ -1,3 +1,13 @@
+## 2026-11-10 01:09 CST (UTC+8) — Relax FTP ACL diagnostic source-contract assertion
+
+- **Base main SHA:** `9133aba76e4de64b8e1fa19e743ce3d95716aad6`; resulting commit: THIS COMMIT.
+- **Exact-head parent Actions:** AI handoff docs [42661398097] SUCCESS. vsftpd [42661398024] compiled and ran all three GNU89 host regression binaries successfully, including the ACL path-parent test, but failed in the following Python source-contract step.
+- **Root cause:** the contract required adjacent double quotes around a diagnostic substring; the C diagnostic contains an escaped newline before the closing quote, so the quoted exact substring did not exist in source text.
+- **Correction:** assert the diagnostic phrase without coupling the check to its surrounding C quotes or escaped newline. No production code or runtime regression behavior changes.
+- **Next:** verify exact-head vsftpd and AI handoff Actions for THIS source-contract correction, then continue the remaining FTP path-command ACL audit in `SESSION_HANDOFF.md`.
+
+---
+
 ## 2026-11-10 01:05 CST (UTC+8) — Avoid libc header shadowing in FTP path regression build
 
 - **Base main SHA:** `a36c2aa14804e9a8eb45f367672d52cf1f306912`; resulting commit: THIS COMMIT.

@@ -1,9 +1,9 @@
 ## Current source / CI checkpoint
 
 - Repository: `Arlene206/padavan-4.4-2`; maintained fork only.
-- Base `main` SHA for THIS vsftpd regression include-path correction: `a36c2aa14804e9a8eb45f367672d52cf1f306912`; only `main` exists and there is no separate checkpoint branch.
-- Parent exact-head AI handoff docs [42660622526] passed. vsftpd [42660622353] failed at the added test compile because `-I trunk/user/vsftpd/src` shadowed libc's `<features.h>` with the project-local header; the test compile now uses `-iquote`, and the helper passed a local shadow-header regression.
-- The path-scoped RNFR/RNTO ACL change remains the active security work; source/destination parent ACL mapping, absolute RNFR pinning and source/destination permission checks are already committed on this parent.
+- Base `main` SHA for THIS vsftpd source-contract correction: `9133aba76e4de64b8e1fa19e743ce3d95716aad6`; only `main` exists and there is no separate checkpoint branch.
+- Parent AI handoff docs [42661398097] passed. The vsftpd host compile and all three regression binaries passed on [42661398024]; only a brittle quoted diagnostic source-contract assertion failed. THIS patch changes only that assertion to match the phrase independently of escaped-newline formatting.
+- The RNFR/RNTO path-scoped ACL production change remains unchanged; canonical parent mapping, absolute RNFR pinning and source/destination permission checks are already committed.
 - `dev_init.sh` mounts `/etc` as tmpfs. Samba config/passdb files under `/etc` are volatile and recreated at boot; a persistent power-loss journal in that mount cannot be durable. Same-boot abrupt process termination remains a separate, lower-priority recovery question.
 - NFS generated defaults retain `secure,no_root_squash,async`; the custom override path accepts only direct regular files or symlinks to regular files and permits generated fallback only on `ENOENT`. Root-squash, AUTH_SYS trust, custom override content/ACL bypass, durability and external-mount policy remain open.
 
@@ -49,7 +49,7 @@
 | Level | Evidence | Limits |
 |---|---|---|
 | L1 source review | PASS for FTP lifecycle status propagation and the RNFR/RNTO ACL correction, including canonical parent resolution and source/destination permission revalidation. | No live FTP session or hardware behavior claimed. |
-| L2 host / Actions | The helper passed a GNU89 warnings-as-errors host run with a source-local `features.h` shadow fixture and quote-only include search. Parent AI docs [42660622526] passed; vsftpd [42660622353] exposed the initial `-I`/libc header collision and is corrected on this head. New exact-head Actions are pending. | No production vsftpd object, MIPS/uClibc build, firmware/TRX or router test claimed. |
+| L2 host / Actions | All three GNU89 host regression binaries passed on parent vsftpd [42661398024]; the only failed step was a brittle Python diagnostic-string assertion. THIS patch changes only that match; parent AI docs [42661398097] passed. New exact-head Actions are pending. | No production vsftpd object, MIPS/uClibc build, firmware/TRX or router test claimed. |
 | L3 MIPS/uClibc / production objects / firmware/TRX | NOT VERIFIED. | Full target build phase required. |
 | L4 storage eject, live Samba/WINS behavior / physical router | NOT VERIFIED. | Requires target-device validation. |
 

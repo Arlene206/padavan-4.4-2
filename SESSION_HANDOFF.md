@@ -1,15 +1,15 @@
 ## Current repository state
 
 - Maintained fork: `Arlene206/padavan-4.4-2`; never substitute the upstream repository.
-- Base `main` SHA for THIS vsftpd path-scoped rename-ACL follow-up: `a36c2aa14804e9a8eb45f367672d52cf1f306912`; active branch is `main`. Only `main` exists; there is no separate checkpoint branch.
-- Root `dev_log.md` contains 62 complete newest-first records after the CI compile-flag correction entry; it remains below the 384 KiB early-rotation target.
+- Base `main` SHA for THIS vsftpd source-contract correction: `9133aba76e4de64b8e1fa19e743ce3d95716aad6`; active branch is `main`. Only `main` exists; there is no separate checkpoint branch.
+- Root `dev_log.md` contains 63 complete newest-first records after this correction entry and remains below the 384 KiB early-rotation target.
 
 ## Latest verified parent checkpoint
 
-The immediate parent `a36c2aa14804e9a8eb45f367672d52cf1f306912` has two exact-head Actions, both carrying the matching full `head_sha`:
+The immediate parent `9133aba76e4de64b8e1fa19e743ce3d95716aad6` has two exact-head Actions, both carrying the matching full `head_sha`:
 
-- AI handoff documentation contract [42660622526] — SUCCESS; handoff/roadmap and archive integrity checks passed.
-- vsftpd configuration publication stability [42660622353] — FAILURE at the new test compile step. The existing configuration and daemon-policy GNU89 regressions passed first. Root cause: `-I trunk/user/vsftpd/src` caused the local vsftpd `features.h` to shadow glibc's system `<features.h>`; this follow-up changes it to GCC's quote-only `-iquote` include path. Reproduced locally with an intentional `features.h` shadow fixture; helper regression then passed. New exact-head Actions for this correction are pending.
+- AI handoff documentation contract [42661398097] — SUCCESS; handoff/roadmap and archive integrity checks passed.
+- vsftpd configuration publication stability [42661398024] — FAILED at Python source-contract line 76 after all three GNU89 host regression binaries passed. The assertion expected a quoted diagnostic literal, but its newline is escaped before the closing quote. THIS patch changes it to match the diagnostic phrase independently of quote/newline formatting.
 
 ## Work completed in THIS patch
 
@@ -20,7 +20,7 @@ The immediate parent `a36c2aa14804e9a8eb45f367672d52cf1f306912` has two exact-he
 - Added a bounded parent-path helper that resolves the source/destination parent with `realpath()`, so relative traversal and symlinked parent directories map to the canonical share before applying the existing ACL policy.
 - `RNFR` now stores an absolute source path and checks source-parent delete permission. `RNTO` rechecks source delete permission and checks destination-parent write permission before rename.
 - Added GNU89 host regression coverage for relative/absolute parent extraction, `..` traversal, symlink canonicalization, root/trailing slash, empty/undersized buffers and missing parents. Extended workflow compile/run, source contracts and push/PR path filters.
-- CI follow-up: the first run exposed the source-directory `-I` versus libc `features.h` name collision; the test now uses `-iquote`, preventing project headers from shadowing system headers.
+- CI follow-up: the first run exposed the source-directory `-I` versus libc `features.h` collision; switching to `-iquote` resolved it. The next run compiled and passed all three host regression binaries, then exposed an over-strict quoted diagnostic source-contract assertion. THIS patch relaxes only that assertion.
 
 ## Active task
 
@@ -33,7 +33,7 @@ The immediate parent `a36c2aa14804e9a8eb45f367672d52cf1f306912` has two exact-he
 | Level | Status |
 |---|---|
 | L1 source review | PASS for the RNFR/RNTO source/destination ACL gap, absolute RNFR path pinning, canonical parent mapping and fail-closed path-resolution errors. |
-| L2 host / Actions | The standalone path-parent helper/test compiled with `cc -std=gnu89 -Wall -Wextra -Werror -iquote ...` and passed locally, including a fixture containing a competing source-local `features.h`. Parent AI docs [42660622526] passed; parent vsftpd [42660622353] failed only because the initial workflow used `-I` and is corrected in THIS follow-up. New exact-head Actions are pending. |
+| L2 host / Actions | The standalone path-parent helper/test compiled with GNU89 warnings-as-errors and quote-only include lookup. Parent AI docs [42661398097] passed; parent vsftpd [42661398024] passed all three host regression binaries but failed the strict diagnostic-string source contract. This patch changes only that assertion; exact-head Actions for this SHA are pending. |
 | L3 MIPS/uClibc / production vsftpd object / firmware/TRX | NOT VERIFIED. |
 | L4 live FTP cross-share rename, authentication/ACL/chroot, storage hot-unplug and router validation | NOT VERIFIED. |
 
