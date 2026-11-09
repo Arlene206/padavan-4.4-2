@@ -1,3 +1,25 @@
+## 2026-11-09 12:05 CST (UTC+8) — Reconcile withdrawn DHCP router options during renewal
+
+- **Base main SHA:** `d96f8df72fe36afcd7875d30ca70228151085a83`; **implementation commit:** `4e9614b5b40ff602423da3488d1aa6dfe859d4d4`.
+- **Repository:** maintained fork `Arlene206/padavan-4.4-2`.
+- **Finding:** BusyBox udhcpc exports only DHCP options present in the ACK. A server that withdraws option 3 (Router) on renewal leaves `getenv("router") == NULL`. The old WAN and IPTV renew callbacks guarded router comparison with `if (value)`, so neither reconciled a withdrawn gateway and the old default route could survive.
+- **Fix:** add `dhcp_lease_router_is_changed()` to `dhcp_lease_policy.h`, normalizing missing/empty router options to an empty gateway; invoke it unconditionally from WAN and IPTV renew callbacks in `net_wan.c`. A changed/withdrawn router enters the existing bound path, which removes old lease routes and clears the gateway. Add host cases for absent, empty, unchanged, changed and invalid options; extend workflow source contracts for both callers.
+- **Exact-head verification:** [AI handoff contract 42559613261](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42559613261), [WAN teardown 42559613131](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42559613131), [HTTPD/DHCP regression 42559613119](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42559613119) and [WAN route status 42559612983](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42559612983) all SUCCESS on exact implementation SHA `4e9614b5b40ff602423da3488d1aa6dfe859d4d4`. The HTTPD job's DHCP policy test and normalization/renew source-contract step both reported OK.
+- **Verification boundary:** L1/L2 PASS for this scoped path. MIPS/uClibc RC/full firmware (L3) and router DHCP withdrawal/route behavior (L4) NOT VERIFIED.
+- **Next:** verify the AI handoff contract on the new governance/archive commit's exact SHA, then rotate to USB/storage hotplug caller/concurrency audit. Keep DHCP LAN and deconfig/leasefail/NAK/release coverage open.
+
+---
+
+## 2026-11-09 12:04 CST (UTC+8) — Restore canonical roadmap archive shard and repair archive inventory
+
+- **Repository:** `Arlene206/padavan-4.4-2`.
+- **Recovery:** the prior handoff referenced `docs/roadmap-history/2026/11/part-008.md`, but that canonical path was absent. Recovered the exact Git blob `622163bfb030d1d7fbdf7e4bc844a14ace7df1d0` from its misplaced nested copy and restored the standard indexed path in commit `8bcde43b62bd8c2116a2023ee48c3cdc04ee61a3`.
+- **Correction:** the misplaced nested duplicate was not indexed and caused the follow-up archive inventory check to fail. Removed only `docs/roadmap-history/archive/2026/11/part-008.md` in commit `d96f8df72fe36afcd7875d30ca70228151085a83`; the canonical standard-path archive remained intact and byte-identical.
+- **Verification:** [AI handoff contract 42559250321](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42559250321) SUCCESS on exact correction SHA `d96f8df72fe36afcd7875d30ca70228151085a83`; log confirms `root log=20 entries; archive shards: dev-log=5, handoff=9, roadmap=8`.
+- **Next:** preserve the archive/index invariant during this checkpoint rotation; always compare archive inventory with index rows, not only blob contents.
+
+---
+
 ## 2026-11-09 11:40 CST (UTC+8) — Restore required handoff verification heading after contract failure
 
 - **Base main SHA:** `0810b15526a7c6c7b7ba5980679c62fd522f481a`; resulting documentation-only commit: THIS COMMIT.
@@ -107,7 +129,6 @@
 - **Automation:** add `scripts/check_ai_handoff_docs.py` and the `AI handoff documentation contract` workflow. Its exact-HEAD result is PENDING until retrieved.
 - **Scope:** documentation/governance only; no firmware source, MIPS build, firmware image or hardware test is changed or claimed.
 - **Resulting commit:** THIS COMMIT; fetch live `main` during the next recovery to obtain the exact SHA.
-
 
 ## 2026-11-09 09:58 CST — Include the active USB NDIS interface in WAN teardown verification
 
@@ -244,39 +265,6 @@
 - **Recovered handoff status:** PPP callback generation fencing, which the preceding handoff still listed as next, was already implemented in main. The launch path writes the RC-owned `ipparam` generation, IPv4/IPv6 callbacks compare under the state-file lock, and WAN stop invalidates before termination. The current exact-head Actions workflow compiled both generation/identity tests and passed their source-wiring contracts; do not duplicate this work.
 - **Validation boundary:** L1 source/control-flow review and L2 exact-head Actions PASS. No full production `services_stor.c` object, MIPS/uClibc, complete firmware/TRX, live NFS mount/export integration or physical hardware validation was run. USB/storage remains AUDITING.
 - **Next:** audit whether sequential per-partition `umount_dev()` calls inside `umount_stor_path()` can produce partial safe removal if a later complete-inventory read/parse/close fails after an earlier partition has been unmounted. Stage the whole target mount set before side effects only if the source trace confirms the failure window; include swap ordering in the preflight review.
-
----
-
-## 2026-11-09 07:41 CST — Validate Clause 22 MII CLI and propagate MDIO timeout errors
-
-- **Base main SHA:** `55b3f7f7fb80416f9f416958b24786c8e44cc303`.
-- **Implementation commit:** `02a475df6bc5dfbcae2f02fedae2799fedb2aff4` — strict, option-order-independent Clause 22 MII CLI parser; zero-initialized ioctl requests; PHY/register/value range and read/write mode validation; validation before socket open; checked socket/ioctl/close status; preserved MT7628 page-select conditional flow; propagated MDIO timeout as `-EIO` through both RAETH ioctl handlers.
-- **Workflow assertion correction:** `018c81e51466c4c8d07d80981ce5527be8316892` — replace over-escaped Python regex expressions in the new Clause 22 source-contract step with exact source-string checks.
-- **Finding / source trace:** `mii_mgr.c` previously parsed the register before it necessarily knew the selected PHY, so PHY 31's hexadecimal register path changed with the order of `-p` and `-r`. It also accepted unchecked numeric inputs, did not enforce a complete/mutually exclusive read/write request, used uninitialized ioctl fields, opened a socket before validation, ignored close failures, and could lose an MT7628 page-select ioctl error. Linux 4.4 `mii_mgr_read()` / `mii_mgr_write()` return 1 on success and 0 on MDIO timeout; `virtualif_ioctl()` and `ei_ioctl()` in `raether.c` ignored that return value. A failed read could therefore copy stale data and a failed write/read ioctl could still return success.
-- **Fix details:** all integer arguments use end-pointer/ERANGE/bounds validation; PHY is 0..31; Clause 22 PHY-31 register addressing uses base 16 and 0..65535 on MT7621/MT7530, while ordinary PHY register inputs remain decimal 0..31; write values are 16-bit hexadecimal. The parser rejects incomplete, duplicate/conflicting, negative, overflowing and trailing-junk inputs before socket creation; zeroes request structures; preserves the legacy `-t` no-op and no-argument help; the MT7628 page selector is validated and its failure is not masked by the normal operation. Both kernel ioctl handlers translate a failed `mii_mgr_read/write` operation to `-EIO`, and the read result is copied only after success.
-- **Changed paths:** `trunk/user/utils/src/switch/mii_mgr.c`; new `trunk/user/utils/src/switch/tests/mii_mgr_cli.c`; `trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.c`; `.github/workflows/switch-cli-stability.yml`.
-- **Local host checks:** GNU89 `-Wall -Wextra -Werror` MII utility object compile and ASan/UBSan + leak-detection regression PASS for MT7621 and MT7628 conditional parser paths. These checks used a temporary userspace RA ioctl header matching the repository's seven-`__u32` data layout; they are not a production MIPS or kernel build.
-- **Exact-head GitHub Actions:** initial run [42536327821](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42536327821) FAILED on `02a475df6bc5dfbcae2f02fedae2799fedb2aff4` only because the new Python source-contract regular expression was over-escaped; the prior steps, including the Clause 45 host compile/regression, passed. After workflow-only correction, [42536358028](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42536358028) completed **SUCCESS** on exact head `018c81e51466c4c8d07d80981ce5527be8316892`; all job steps passed, including MII production-source host object compilation against the real repository RAETH header, sanitizer parser regression and driver ioctl result contracts.
-- **Earlier status reconciliation:** the preceding Clause 45 handoff and dev-log entry had recorded its new Actions run as pending; the push run is now confirmed SUCCESS: [42535695517](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42535695517), exact SHA `dea77de9896bbf4be067029609099b4020c53e3b`.
-- **Validation boundary:** L1 driver-return/call-path review PASS; L2 host/Actions PASS. Complete `raether.c` kernel object/module build, MIPS/uClibc cross-build, firmware/TRX, live MDIO operation/timeout test and physical switch/router validation NOT RUN. Switch CLI/register utilities remain AUDITING.
-- **Next:** rotate to WAN/PPP lifecycle rather than continue to monopolize the switch surface: trace pppd callback spawn/stop/restart and state mutation across `net_ppp.c`, `net_wan.c`, and `net_wan6.c`; prove whether stale IPv4/IPv6 callbacks can mutate state after disconnect/replacement; then add a session-generation fence plus a host regression only if source tracing proves the race.
-
----
-
-## 2026-11-09 07:33 CST — Fix Clause 45 switch CLI argument parsing and error handling
-
-- **Base main SHA:** `9538f00039085416aab7345829b5c18c1a72d20a` (recovered handoff checkpoint).
-- **Implementation commit:** `c584d5cad454b8f58b8218d9d109b09f9394ac8f` — remove the Clause 45 `-d` option fall-through into `-r`; add strict numeric parsing, required-option validation, zero-initialized ioctl state, pre-socket validation and operational failure reporting.
-- **Regression commit:** `3c727259a28515e6a18b7bc8e8b4d94e2cfe4477` — add `trunk/user/utils/src/switch/tests/mii_mgr_cl45_cli.c` for option-order equivalence, read/write mode validation, field bounds, negative/trailing-junk values and missing/conflicting options.
-- **Workflow commit:** `91e1d3d47b898ca3649d65c0b5f6e85db1f2bcfa` — extend `.github/workflows/switch-cli-stability.yml` to host-compile the checked-in Clause 45 utility with GNU89 warnings-as-errors and run the parser regression with ASan/UBSan/leak detection.
-- **Workflow contract correction:** `dea77de9896bbf4be067029609099b4020c53e3b` — scope push/pull_request path assertions to the workflow trigger filter block, avoiding false counts from the test-step paths.
-- **Finding / source trace:** current production switch tool Makefile target includes `mii_mgr_cl45.c`; its old `case 'd'` lacked a `break` and executed the `case 'r'` assignment with the device-address `optarg`. With `-r 0x4 -d 0x5`, the ioctl request therefore sent register `0x5` instead of `0x4`. Linux 4.4 RAETH `RAETH_MII_READ_CL45/WRITE_CL45` dispatch consumes `port_num`, `dev_addr`, `reg_addr` from the shared `ra_mii_ioctl_data` object, confirming the affected fields and ioctl path.
-- **Fix details:** isolate the `-d` and `-r` assignments; parse all hex arguments with end-pointer and ERANGE checks; bound port/DEVAD to 0..31 and register/write-value to 0..65535; reject negative, partial, overflow, missing and conflicting inputs; require a value for write and disallow it for read; zero the ioctl structure and `ifreq`; preserve the existing base-16 syntax, `-t` no-op and successful no-argument/`-?` help; validate before socket creation; return failure on socket/ioctl failure and surface close failure only when no earlier operation failed.
-- **Changed paths:** `trunk/user/utils/src/switch/mii_mgr_cl45.c`; `trunk/user/utils/src/switch/tests/mii_mgr_cl45_cli.c`; `.github/workflows/switch-cli-stability.yml`.
-- **Local host checks:** GNU89 `-Wall -Wextra -Werror` utility object compile PASS; GNU89 `-Wall -Wextra -Werror` parser regression under ASan/UBSan + leak detection PASS, output: `mii_mgr_cl45 argument parsing, ordering and range checks: PASS`. These local checks used a temporary copy of the implementation and a minimal userspace `ra_ioctl.h` matching the repository's seven-`__u32` ioctl structure; they were not an actual repository checkout or target build.
-- **GitHub Actions:** expanded push and pull_request path triggers include both changed source/test files. The intended host object/test steps are attached to exact code/workflow head `dea77de9896bbf4be067029609099b4020c53e3b`. At this log update, the exact push-triggered run ID/URL and conclusion were not exposed by the connected Actions interface; `get_commit_combined_status` returned no status contexts and the commit-run lookup is PR-triggered only. Record **PENDING / NOT VERIFIED** until the run is directly inspected. Previous `switch_gsw.c` source-contract Actions run [42534963105](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42534963105) remains SUCCESS on its exact SHA `e2d94abcec416d9394aa82a3ade72d4af5657451`.
-- **Validation boundary:** L1 source/driver-ABI review PASS; L2 local host-copy compile + focused ASan/UBSan parser regression PASS; new exact-head Actions result PENDING / NOT VERIFIED. No production MIPS/uClibc compile, full firmware/TRX, live Clause 45 ioctl/register access or physical switch/router tests were run. Switch utilities remain AUDITING.
-- **Next:** verify Actions on `dea77de9896bbf4be067029609099b4020c53e3b`; then continue the switch-tool rotation with `mii_mgr.c` numeric parsing, mode/required-option checks, ioctl and close error propagation plus remaining `switch_gsw.c` input/register sequencing. Do not close Switch, Firewall/NAT or Wireless from this bounded task.
 
 ---
 
