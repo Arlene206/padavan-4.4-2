@@ -1,68 +1,61 @@
-# Current Session Handoff — Padavan 4.4
-
-> One actionable checkpoint. Existing historical snapshots remain immutable and indexed. Always fetch live main, all branches and exact-head Actions on takeover.
-
 ## Current repository state
 
 - Maintained fork: `Arlene206/padavan-4.4-2`; do not substitute the upstream repository.
-- Base `main` SHA for THIS custom NFS override fail-closed change: `a753c86b1f6329e4f9ac8e73ccfcb97f0a14865d`; active branch: `main`. The remote branch list contained only `main`; no separate checkpoint branch existed at recovery.
-- The preceding generated NFS source-port correction is complete on exact SHA `a753c86b1f6329e4f9ac8e73ccfcb97f0a14865d`. All six runs completed SUCCESS and every full `head_sha` exactly matched:
-  - Storage [42631443686](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42631443686).
-  - NFS [42631443757](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42631443757).
-  - vsftpd [42631443784](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42631443784).
-  - Samba [42631443514](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42631443514).
-  - AI handoff docs [42631443719](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42631443719).
-  - HTTPD [42631443747](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42631443747).
-- The preceding NFS correction changed only the generated defaults from `async,insecure,no_root_squash,no_subtree_check` to `async,secure,no_root_squash,no_subtree_check`. It retains `no_root_squash` for existing root-client compatibility but restores the kernel's reserved-source-port check. This is not AUTH_SYS authentication or root-squash protection.
-- NFS is built/configured as NFSv2/v3 AUTH_SYS; NFSv4, GSS and Kerberos are disabled. Linux 4.4 `nfsd_setuser()` accepts client UID/GID and remaps UID/GID 0 only under `NFSEXP_ROOTSQUASH`; `nfsd_setuser_and_check_port()` rejects unprivileged source ports unless `NFSEXP_INSECURE_PORT` is set.
-- Existing valid `/etc/storage/exports` is a complete authoritative export configuration linked to `/etc/exports`; it bypasses generated LAN/VPN ACL and local-media path restrictions and must be treated as trusted root configuration.
-- No full firmware build or physical-router validation is claimed.
+- Base `main` SHA for THIS Samba passdb/configuration consistency change: `90e6c14d835216f06163f1347c0d5d8a3a465484`; active branch `main`. Only `main` exists; no separate checkpoint branch.
+- The preceding custom NFS exports-path fail-closed change is complete on exact SHA `90e6c14d835216f06163f1347c0d5d8a3a465484`. All six latest Actions completed SUCCESS and every full `head_sha` exactly matched:
+- Samba config [42635610400](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42635610400): **SUCCESS**.
+- vsftpd [42635610401](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42635610401): **SUCCESS**.
+- USB storage [42635610419](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42635610419): **SUCCESS**.
+- AI handoff docs [42635610461](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42635610461): **SUCCESS**.
+- NFS [42635610314](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42635610314): **SUCCESS**.
+- HTTPD/security [42635610731](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42635610731): **SUCCESS**.
+- The NFS fix permits generated exports only when `lstat("/etc/storage/exports")` reports `ENOENT`; direct regular files and symlinks to regular files remain authoritative; dangling links, inaccessible entries and non-regular paths fail closed before generated exports are staged. The NFS workflow rechecked RC status propagation and GNU89 policy.
+- Generated NFS exports require `secure` source ports while retaining `no_root_squash` and `async`; root-squash compatibility, custom override authority/content validation, durability and external-mount policy remain separate open items. No firmware build or hardware validation is claimed.
 
 ## Active task
 
 ### Fail closed on an invalid custom NFS exports path
 
-P2 reliability/security. In `services_stor.c::write_nfsd_exports()`, the old `check_if_file_exist()` helper followed symlinks with `stat()` and returned false for both an absent path and an existing non-regular/unresolvable path. A dangling `/etc/storage/exports` symlink, directory, FIFO, device, or inaccessible path could therefore be mistaken for “no custom configuration”; the writer then generated broader default media exports instead of refusing to start/reload NFS.
+P2 reliability/security. In `services_stor.c::write_nfsd_exports()`, the old `check_if_file_exist()` helper followed symlinks with `stat()` and returned false for both an absent path and an existing non-regular/unresolvable path. A dangling `/etc/storage/exports` symlink, directory, FIFO, device, or inaccessible path could therefore be mistaken for “no custom configuration”; the ## Active task
+
+### Keep Samba passdb and share configuration consistent on credential or config failure
+
+P2 stability/security. In `run_samba()`, `write_smb_conf()` atomically published the new `/etc/smb.conf` **before** account provisioning. For Samba 3.6.25, `smbpasswd` writes into a staged `/etc/samba/.smbpasswd.*` and the old `smbpasswd` is intentionally preserved if any configured account fails. One invalid password, duplicate username or failed `smbpasswd` could therefore leave the new share ACL/config on disk while the old passdb remains active; a running daemon is not reloaded on that error, and the persisted pair is inconsistent for the next service start.
 
 ### Implementation in THIS commit
 
-- Classify the path with `lstat()`; follow it with `stat()` only when the entry is a symlink.
-- Permit generated defaults only when `lstat()` fails specifically with `ENOENT`.
-- Accept a direct regular file or a symlink whose target is regular. Fail closed on other `lstat` errors, dangling/looping symlinks, symlinks to non-regular targets, and direct non-regular entries.
-- Return before reading `/proc/mounts` or staging `/etc/exports` on invalid path state, preserving the previously published NFS configuration. The existing valid-override symlink publication remains unchanged.
-- Add GNU89 classification cases for absent, permission/parent errors, direct regular file, symlink to regular file, dangling/error symlink, symlink to non-regular target, and direct non-regular entry. Extend the NFS workflow's source contract.
-- Root-squash remains a separate compatibility decision: the current automount policy gives FAT/exFAT/NTFS/HFS broad `umask=0` access, while ext2/3/4 retain POSIX ownership/mode semantics. Enabling root-squash can therefore change root-client writes and access to root-owned ext files; do not silently change it.
-- Keep `async` unchanged in this bounded fix. It trades write durability under power loss/device failure against throughput; a separate evidence/benchmark-backed decision is required.
-- Generated exports still target supported local block-device filesystems mounted under `/media/`; external/network mounts require an explicit trusted custom export file. `nfsd.sh` checks `exportfs -r` and reports start/reload failures; malformed regular custom-file contents are not auto-replaced by defaults.
+- Move Samba share-config publication until after all configured credentials have been provisioned successfully to the private staged passdb.
+- Snapshot the previous private passdb with a same-directory hard link before replacing it. This preserves the original inode, mode and contents without copying credential hashes into a second file.
+- Publish the fully provisioned passdb first, then publish the generated smb.conf using the existing same-directory staged/atomic writer.
+- If smb.conf generation/publication fails, restore the previous passdb from the snapshot (or remove a new first-run database) before returning without daemon reload. If restoration itself fails, log a CRITICAL error and retain the snapshot pathname for manual recovery.
+- Add GNU89 filesystem tests for snapshot/restore of an existing passdb, rollback of a first-run database, and rejection of non-regular/symlink database paths. Extend the Samba workflow to compile/run the tests and enforce production caller ordering.
+- This is rollback for normal error returns, not a power-failure-atomic transaction across two files. A reset between passdb rename and smb.conf publication can leave the rollback snapshot; startup journal recovery remains a follow-up.
 
 ### Files changed
 
 - `trunk/user/rc/src/services_stor.c`
-- `trunk/user/rc/src/storage_nfs_export_policy.h`
-- `trunk/user/rc/src/tests/storage_nfs_export_policy.c`
-- `.github/workflows/nfsd-start-stability.yml`
+- `trunk/user/rc/src/samba_passdb_policy.h`
+- `trunk/user/rc/src/tests/samba_passdb_policy.c`
+- `.github/workflows/samba-share-stability.yml`
 - `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`
 
-## Verification boundary
+### Verification boundary
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for the old false/absent conflation and new fail-closed state matrix. The implementation preserves direct and symlink-to-regular custom files and does not stage generated exports for invalid path states. |
-| L2 host / Actions | Focused standalone GNU89 classification regression compiled with `-Wall -Wextra -Werror` and passed. Full repository policy test, NFS workflow source contract, HTTPD dependent contract and AI documentation workflow are pending on THIS commit's exact SHA. No full local checkout or complete production source compilation is claimed. |
-| L3 MIPS/uClibc / production RC object / full firmware/TRX | NOT VERIFIED. |
-| L4 NFS client behavior, filesystem permissions, storage failure recovery / physical router | NOT VERIFIED. |
+| L1 source review | PASS for deferred config publication, private passdb snapshot and rollback ordering. Credential failures leave both active files untouched; ordinary config I/O failures attempt to restore the old passdb before service reload. |
+| L2 host / Actions | Base SHA `90e6c14d835216f06163f1347c0d5d8a3a465484` exact-head Samba [42635610400], NFS [42635610314], HTTPD [42635610731], storage [42635610419], vsftpd [42635610401] and AI docs [42635610461] all SUCCESS with matching full `head_sha`. THIS commit's GNU89 passdb snapshot/restore regression and Samba source contract are pending exact-head Actions. |
+| L3 MIPS/uClibc / production RC object / firmware/TRX | NOT VERIFIED. |
+| L4 live Samba authentication/reload, interruption between the two file updates and physical router | NOT VERIFIED. |
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, all branches and Actions for THIS commit's exact full SHA. Confirm NFS, HTTPD, storage and AI docs runs, inspect job conclusions and ensure each `head_sha` exactly matches.
-2. If green, rotate to Samba passdb/account mutation consistency: trace account create/change/delete callers, plaintext credential handling, private passdb replacement/rollback, partial failure and service reload state. Avoid repeating the completed write-only ACL or config-publication fixes.
-3. Keep the following NFS follow-ups distinct and open: custom regular-file content/error recovery, `async` durability versus throughput, `no_root_squash` compatibility/opt-in migration, authoritative override ACL/path bypass, and support expectations for external mounts.
-4. Continue afterward with vsftpd authentication/ACL/path confinement/stop lifecycle; preserve DHCP leasefail/NAK/release callback semantics and FULLCONENAT namespace ownership in the global audit queue.
+1. Fetch live `main`, all branches and Actions for THIS commit's exact full SHA. Inspect the Samba passdb/config transaction job and HTTPD-dependent Samba account contracts; confirm every full `head_sha`.
+2. If green, audit crash/power-loss recovery for the short interval after `smbpasswd` rename and before smb.conf publication. The snapshot is retained only when ordinary rollback fails; consider a durable journal/recovery gate before making any stronger atomicity claim.
+3. Continue the Samba reload boundary: `doSystem(killall -SIGHUP)` and `eval(/sbin/smbd|nmbd)` statuses are ignored; trace their callers/stop semantics and add postcondition checks without duplicating completed ACL/config staging fixes.
+4. Then rotate to vsftpd authentication/ACL/path confinement/stop lifecycle; preserve NFS custom-export content/ACL override and durability, DHCP leasefail/NAK/release, and FULLCONENAT namespace ownership in the broader userland queue.
 
-## Documentation maintenance
-
-- `SESSION_HANDOFF.md` and `REFACTOR_ROADMAP.md` are live single-copy documents. Update in place only when their checkpoint, evidence, priorities or next action materially changes; use Git history for prior versions.
-- `dev_log.md` accumulates newest-first entries from 20 to 119. When the next entry would make 120, archive the oldest 100 complete records verbatim and retain the newest 20. If the 384 KiB target is exceeded earlier, batch-archive complete old entries while retaining the newest 20. Hard limit: 512 KiB.
+ed earlier, batch-archive complete old entries while retaining the newest 20. Hard limit: 512 KiB.
 - Existing `docs/handoffs/archive/` and `docs/roadmap-history/` snapshots and indexes are legacy history. Keep them byte-for-byte intact.
 - Do not mechanically update all documents or create docs-only commits merely to record completed CI. Update only the records whose facts changed.
 - Run `python3 scripts/check_ai_handoff_docs.py` when a full local checkout is available. GitHub Actions is authoritative for the exact pushed SHA.

@@ -9,6 +9,8 @@ on:
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/samba_config_file.h"
       - "trunk/user/rc/src/tests/samba_config_file.c"
+      - "trunk/user/rc/src/samba_passdb_policy.h"
+      - "trunk/user/rc/src/tests/samba_passdb_policy.c"
   pull_request:
     paths:
       - ".github/workflows/samba-share-stability.yml"
@@ -17,6 +19,8 @@ on:
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/samba_config_file.h"
       - "trunk/user/rc/src/tests/samba_config_file.c"
+      - "trunk/user/rc/src/samba_passdb_policy.h"
+      - "trunk/user/rc/src/tests/samba_passdb_policy.c"
 
 jobs:
   samba-config:
@@ -31,6 +35,11 @@ jobs:
             trunk/user/rc/src/tests/samba_config_file.c \
             -o /tmp/samba-config-file
           /tmp/samba-config-file
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/samba_passdb_policy.c \
+            -o /tmp/samba-passdb-policy
+          /tmp/samba-passdb-policy
       - name: Verify Samba config staging and service failure gates
         run: |
           python3 - <<'PY'
@@ -102,6 +111,25 @@ jobs:
           assert "samba_config_file_publish(&fp, staged, target) == 0" in test
           assert "samba_config_file_publish(&fp, staged, directory_target) != 0" in test
           assert "samba_config_file_discard(&fp, staged)" in test
+          run_samba = function_body(stor, "void run_samba(void)")
+          assert run_samba.index("samba_run_smbpasswd(") < run_samba.index("samba_backup_private_passdb(")
+          assert run_samba.index("if (credential_failed)") < run_samba.index("samba_backup_private_passdb(")
+          assert run_samba.index("samba_backup_private_passdb(") < run_samba.index('rename(staged_passdb, "/etc/samba/smbpasswd")')
+          assert run_samba.index('rename(staged_passdb, "/etc/samba/smbpasswd")') < run_samba.index("write_smb_conf() != 0")
+          assert "samba_restore_private_passdb(passdb_backup" in run_samba
+          assert "existing passdb and configuration were preserved" in run_samba
+          assert "CRITICAL: Samba config publication failed and passdb rollback also failed" in run_samba
+          passdb_policy = Path("trunk/user/rc/src/samba_passdb_policy.h").read_text()
+          passdb_test = Path("trunk/user/rc/src/tests/samba_passdb_policy.c").read_text()
+          backup_fn = function_body(passdb_policy, "samba_passdb_backup_file(")
+          restore_fn = function_body(passdb_policy, "samba_passdb_restore_file(")
+          assert "lstat(passdb_path, &st)" in backup_fn
+          assert "S_ISREG(st.st_mode)" in backup_fn
+          assert "link(passdb_path, backup_path)" in backup_fn
+          assert "rename(backup_path, passdb_path)" in restore_fn
+          assert 'unlink(passdb_path) == 0 || errno == ENOENT' in restore_fn
+          assert "samba_passdb_backup_file(passdb, backup_template" in passdb_test
+          assert "samba_passdb_restore_file(passdb, backup, had_original)" in passdb_test
           assert 'fopen("/dev/full", "w")' in test
 
           print("Samba share config publication and reload failure gates: PASS")

@@ -1,3 +1,17 @@
+## 2026-11-09 22:20 CST (UTC+8) — Defer Samba share config until passdb provisioning succeeds
+
+- **Base main SHA:** `90e6c14d835216f06163f1347c0d5d8a3a465484`; resulting commit: THIS COMMIT.
+- **Recovered exact-head CI:** the preceding NFS custom override fail-closed commit passed all six workflows on matching exact `head_sha=90e6c14d835216f06163f1347c0d5d8a3a465484`: Samba config [42635610400](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42635610400), vsftpd [42635610401](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42635610401), USB storage [42635610419](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42635610419), AI handoff docs [42635610461](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42635610461), NFS [42635610314](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42635610314), and HTTPD/security [42635610731](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42635610731).
+- **Finding:** `run_samba()` atomically published the new `/etc/smb.conf` before validating/provisioning all NVRAM credentials. On Samba 3.6.25 the passdb is separately staged and the previous database is preserved when a later credential fails, so the new share ACL/config could be left on disk with the old passdb while daemon reload is skipped.
+- **Fix:** finish all account writes to the private staged passdb first. Only then snapshot the previous `/etc/samba/smbpasswd` with a same-directory hard link, atomically replace it, and publish the newly generated smb.conf through the existing staged writer. If config generation/publication fails, restore the old passdb (or remove a new first-run DB); preserve and log the recovery snapshot if rollback itself fails. A passdb rename failure leaves old smb.conf untouched.
+- **Regression:** extend `samba_passdb_policy.h` and its GNU89 test for hard-link snapshot/restore, first-run cleanup, and non-regular/symlink target rejection. Extend `samba-share-stability.yml` to compile/run those cases and assert source order: credential provisioning -> passdb snapshot/replace -> config publication -> daemon reload.
+- **Limit:** this is rollback on normal error returns, not a power-loss-atomic two-file transaction. A reset between the passdb replacement and smb.conf publication may leave the hidden rollback snapshot; interrupted-transaction startup recovery remains a follow-up. Live daemon reload/signal command status propagation also remains open.
+- **Changed paths:** `trunk/user/rc/src/services_stor.c`, `trunk/user/rc/src/samba_passdb_policy.h`, `trunk/user/rc/src/tests/samba_passdb_policy.c`, `.github/workflows/samba-share-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+- **Validation:** L1 caller-order and rollback-flow review PASS. GNU89 host regression and exact-head Samba/HTTPD Actions are pending for THIS commit. No full local repository compile, MIPS/uClibc production object, firmware/TRX or router test is claimed.
+- **Next:** reconcile exact-head Samba/HTTPD workflows; then consider startup recovery for interrupted passdb/config updates and check daemon SIGHUP/start status/postconditions before rotating to vsftpd.
+
+---
+
 ## 2026-11-09 22:18 CST (UTC+8) — Fail closed on invalid custom NFS exports paths
 
 - **Base main SHA:** `a753c86b1f6329e4f9ac8e73ccfcb97f0a14865d`; resulting commit: THIS COMMIT.

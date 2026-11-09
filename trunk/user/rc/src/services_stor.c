@@ -380,6 +380,23 @@ samba_prepare_private_passdb(char *staged_path, size_t staged_path_size)
 
 	return 0;
 }
+
+static int
+samba_backup_private_passdb(char *backup_path, size_t backup_path_size,
+                            int *had_original)
+{
+	return samba_passdb_backup_file(
+		"/etc/samba/smbpasswd",
+		"/etc/samba/.passdb-rollback.XXXXXX",
+		backup_path, backup_path_size, had_original);
+}
+
+static int
+samba_restore_private_passdb(const char *backup_path, int had_original)
+{
+	return samba_passdb_restore_file(
+		"/etc/samba/smbpasswd", backup_path, had_original);
+}
 #endif
 
 int
@@ -798,7 +815,7 @@ stop_samba(int force_stop)
 void run_samba(void)
 {
 	int sh_num, has_nmbd, has_smbd, i, j;
-	int credential_failed = 0;
+	int credential_failed = 0, saved_errno;
 	char tmpuser[40], tmp2[40];
 #if defined (APP_SMBD36)
 	char staged_passdb[128];
@@ -822,11 +839,6 @@ void run_samba(void)
 		/* Preserve the account database; clear only volatile TDB/staging files. */
 		doSystem("rm -f %s %s", "/etc/samba/*.tdb", "/etc/samba/.smbpasswd.*");
 		clean_smbd_trash();
-	}
-
-	if (write_smb_conf() != 0) {
-		logmessage("Samba Server", "configuration generation failed; service was not reloaded");
-		return;
 	}
 
 #if defined (APP_SMBD36)
@@ -870,14 +882,64 @@ void run_samba(void)
 	}
 
 #if defined (APP_SMBD36)
-	if (credential_failed || rename(staged_passdb, "/etc/samba/smbpasswd") != 0) {
+	if (credential_failed) {
 		unlink(staged_passdb);
-		logmessage("Samba Server", "credential provisioning failed; existing passdb was preserved");
+		logmessage("Samba Server", "credential provisioning failed; existing passdb and configuration were preserved");
 		return;
+	}
+
+	/*
+	 * Retain the prior passdb inode until the matching smb.conf has committed.
+	 * Config I/O errors restore the old database before any daemon HUP/start.
+	 */
+	{
+		char passdb_backup[128];
+		int passdb_had_original = 0;
+
+		if (samba_backup_private_passdb(passdb_backup, sizeof(passdb_backup),
+						&passdb_had_original) != 0) {
+			saved_errno = errno ? errno : EIO;
+			unlink(staged_passdb);
+			logmessage("Samba Server", "unable to snapshot existing passdb; service was not reloaded (errno %d)",
+				   saved_errno);
+			errno = saved_errno;
+			return;
+		}
+		if (rename(staged_passdb, "/etc/samba/smbpasswd") != 0) {
+			saved_errno = errno ? errno : EIO;
+			unlink(staged_passdb);
+			if (passdb_had_original)
+				unlink(passdb_backup);
+			logmessage("Samba Server", "unable to publish staged passdb; previous configuration was preserved (errno %d)",
+				   saved_errno);
+			errno = saved_errno;
+			return;
+		}
+
+		if (write_smb_conf() != 0) {
+			saved_errno = errno ? errno : EIO;
+			if (samba_restore_private_passdb(passdb_backup,
+							 passdb_had_original) != 0) {
+				logmessage("Samba Server", "CRITICAL: Samba config publication failed and passdb rollback also failed; recovery snapshot remains at %s (errno %d)",
+					   passdb_backup, errno ? errno : EIO);
+			}
+			logmessage("Samba Server", "configuration publication failed; service was not reloaded (errno %d)",
+				   saved_errno);
+			errno = saved_errno;
+			return;
+		}
+
+		if (passdb_had_original && unlink(passdb_backup) != 0)
+			logmessage("Samba Server", "Samba passdb committed but old snapshot cleanup failed: %s",
+				   passdb_backup);
 	}
 #else
 	if (credential_failed) {
 		logmessage("Samba Server", "credential provisioning failed; Samba was not reloaded");
+		return;
+	}
+	if (write_smb_conf() != 0) {
+		logmessage("Samba Server", "configuration generation failed; service was not reloaded");
 		return;
 	}
 #endif
