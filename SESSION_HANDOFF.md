@@ -5,9 +5,9 @@
 ## Current repository state
 
 - Repository: Arlene206/padavan-4.4-2; maintained fork only.
-- Latest source/test checkpoint: `c42ce06cfc784e64bb71e44088423abc144e2cd6` — LAN DHCP deconfig fail-closed handling plus atomic resolver staging. Documentation-only commits may advance main; always fetch live HEAD at takeover. Documentation-only commits may advance main after this checkpoint; always fetch live HEAD at takeover.
+- Latest source/test checkpoint: `c42ce06cfc784e64bb71e44088423abc144e2cd6` — LAN DHCP deconfig fail-closed handling plus atomic resolver staging. Documentation-only commits may advance main; always fetch live HEAD at takeover.
 - Remote branch inventory immediately before this refresh contained only main; recheck at next takeover.
-- Exact source/test-head HTTPD Authentication and Security Regression [42572938754](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42572938754) SUCCESS and AI handoff documentation contract [42572938846](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42572938846), both on `c42ce06cfc784e64bb71e44088423abc144e2cd6`. The storage hotplug regression [42570160275](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42570160275) passed on the earlier storage source checkpoint `c2706ac`. Storage run [42570160275](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42570160275) remains a passing exact-head test for the earlier storage source batch `c2706ac`.
+- Exact source/test-head HTTPD Authentication and Security Regression [42572938754](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42572938754) SUCCESS and AI handoff documentation contract [42572938846](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42572938846), both on `c42ce06cfc784e64bb71e44088423abc144e2cd6`. The storage hotplug regression [42570160275](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42570160275) passed on the earlier storage source checkpoint `c2706ac`.
 - Earlier exact-source HTTPD/security [42568701873](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42568701873) SUCCESS on 2c8b5ff; DHCP lease / renewal and HTTPD checks [42568560276](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42568560276) SUCCESS on 2332158. Do not claim these are new exact-head runs on c2706; the exact-head storage and docs runs above are.
 - Validation ceiling: source audit and host/Actions tests only. No complete production RC/BusyBox object build, MIPS/uClibc build, firmware/TRX, live DHCP transition, storage hotplug churn or hardware validation. The exact-head HTTPD workflow compiles/runs the DHCP policy test and evaluates RC source contracts; it does not compile the complete `net_lan.c` production translation unit.
 
@@ -70,7 +70,7 @@ LAN DHCP lifecycle reliability — AP-mode bound/renew input validation, changed
 
 ## Recovery and archive rule
 
-- Superseded root handoff snapshots are preserved byte-for-byte as `docs/handoffs/archive/2026/11/part-016.md` through `part-019.md`; the preceding root handoff blob `883e61791dcf7c65b59dee4ca41887d993c1ade7` is part-019. See `docs/handoffs/INDEX.md`.
+- Superseded root handoff snapshots are preserved byte-for-byte as `docs/handoffs/archive/2026/11/part-016.md` through `part-020.md`; the preceding root handoff blob `c38ab64b10c69b4a302b87ddd2cef796bed4923a` is part-020. See `docs/handoffs/INDEX.md`.
 - Superseded root roadmap snapshots are preserved byte-for-byte as `docs/roadmap-history/2026/11/part-016.md` through `part-018.md`; the preceding root roadmap blob `7fb99941514b3067268e8758ba74cc4da2d22dbf` is part-018. See `docs/roadmap-history/INDEX.md`.
 - The oldest record evicted by this rotation is appended verbatim to `docs/dev-log/2026/11/part-005.md`; see `docs/dev-log/INDEX.md` for exact counts, byte lengths and blob SHA.
 - Root `dev_log.md` retains exactly the newest 20 complete records. Run `python3 scripts/check_ai_handoff_docs.py` and the exact-head docs workflow after each handoff update.
