@@ -1,3 +1,18 @@
+## 2026-11-09 08:14 CST — Require six-field NFS mount records before export publication
+
+- **Base main SHA:** `c06949d9b59a587c728aca2471712aa2becadc8a`.
+- **Implementation commit:** `74eec0dc4b4032a55756eeec82c3e69fe0789be3` — `storage_nfs_export_parse_mount_line()` now requires all six `/proc/mounts` fields, checks numeric dump/pass fields and rejects extra trailing tokens. This prevents a newline-terminated partial or malformed row from being counted as a complete NFS-export inventory record.
+- **Regression correction commit:** `9f26dbd3fe79fcfb987a78cdd1ab5f6eef3b89c3` — correct C test fixtures from literal backslash-n sequences to real newline terminators; add source-contract checks for the six-field parser.
+- **Changed paths:** `trunk/user/rc/src/storage_nfs_export_policy.h`, `trunk/user/rc/src/tests/storage_nfs_export_policy.c`, `.github/workflows/httpd-security.yml`. Existing push and pull_request path filters already include these paths.
+- **Finding / behavior:** the previous NFS parser consumed only device, mountpoint, filesystem and mount-options fields. It did not verify dump/pass fields or reject an additional token. A malformed `/proc/mounts` row could therefore be treated as valid input and allow the staged export file to be published. The writer's existing parse-error gate now rejects these cases, removes the stage file and preserves the previous `/etc/exports`; start/reload failure gates are unchanged.
+- **Regression:** new cases cover complete six-field records, four/five-field truncated records, missing newline, non-decimal dump/pass, extra seventh token, overlong trailing fields and escaped mountpoints. The workflow compiles/runs with `cc -std=gnu89 -Wall -Wextra -Werror` and checks source wiring.
+- **Exact-head Actions:** initial run [42538783198](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42538783198) failed in the NFS policy step because the first test draft encoded a literal backslash-n instead of newline. After the fixture correction, [42538820132](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42538820132) completed **SUCCESS** on exact head `9f26dbd3fe79fcfb987a78cdd1ab5f6eef3b89c3`; all 40 job steps passed, including the NFS GNU89 compile/run, new parser assertions, existing storage checks, and PPP identity/generation checks.
+- **Recovered handoff status:** PPP callback generation fencing, which the preceding handoff still listed as next, was already implemented in main. The launch path writes the RC-owned `ipparam` generation, IPv4/IPv6 callbacks compare under the state-file lock, and WAN stop invalidates before termination. The current exact-head Actions workflow compiled both generation/identity tests and passed their source-wiring contracts; do not duplicate this work.
+- **Validation boundary:** L1 source/control-flow review and L2 exact-head Actions PASS. No full production `services_stor.c` object, MIPS/uClibc, complete firmware/TRX, live NFS mount/export integration or physical hardware validation was run. USB/storage remains AUDITING.
+- **Next:** audit whether sequential per-partition `umount_dev()` calls inside `umount_stor_path()` can produce partial safe removal if a later complete-inventory read/parse/close fails after an earlier partition has been unmounted. Stage the whole target mount set before side effects only if the source trace confirms the failure window; include swap ordering in the preflight review.
+
+---
+
 ## 2026-11-09 07:41 CST — Validate Clause 22 MII CLI and propagate MDIO timeout errors
 
 - **Base main SHA:** `55b3f7f7fb80416f9f416958b24786c8e44cc303`.
