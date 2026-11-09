@@ -2,6 +2,7 @@
 #define PADAVAN_STORAGE_NFS_EXPORT_POLICY_H
 
 #include <arpa/inet.h>
+#include <errno.h>
 #include <netinet/in.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -16,6 +17,25 @@
  */
 #define STORAGE_NFS_EXPORT_DEFAULT_OPTIONS \
 	"async,secure,no_root_squash,no_subtree_check"
+
+/*
+ * Classify the operator's custom exports path.
+ * Return 0 only when lstat reports ENOENT, 1 for a regular file (direct or
+ * symlink target), and -1 for every present-but-invalid or uncertain state.
+ */
+static int
+storage_nfs_export_override_state(int lstat_status, int lstat_errno,
+				  int entry_is_regular, int entry_is_symlink,
+				  int stat_status, int target_is_regular)
+{
+	if (lstat_status != 0)
+		return lstat_errno == ENOENT ? 0 : -1;
+	if (entry_is_regular)
+		return 1;
+	if (entry_is_symlink && stat_status == 0 && target_is_regular)
+		return 1;
+	return -1;
+}
 
 /*
  * Build a canonical IPv4 client network for an NFS export. The legacy

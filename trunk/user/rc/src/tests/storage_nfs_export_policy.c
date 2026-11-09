@@ -20,6 +20,16 @@ main(void)
 	assert(strstr(STORAGE_NFS_EXPORT_DEFAULT_OPTIONS, "insecure") == NULL);
 	assert(strstr(STORAGE_NFS_EXPORT_DEFAULT_OPTIONS, "no_root_squash") != NULL);
 
+	/* Only a missing path permits generated exports; invalid overrides fail closed. */
+	assert(storage_nfs_export_override_state(-1, ENOENT, 0, 0, -1, 0) == 0);
+	assert(storage_nfs_export_override_state(-1, EACCES, 0, 0, -1, 0) == -1);
+	assert(storage_nfs_export_override_state(-1, ENOTDIR, 0, 0, -1, 0) == -1);
+	assert(storage_nfs_export_override_state(0, 0, 1, 0, -1, 0) == 1);
+	assert(storage_nfs_export_override_state(0, 0, 0, 1, 0, 1) == 1);
+	assert(storage_nfs_export_override_state(0, 0, 0, 1, -1, 0) == -1);
+	assert(storage_nfs_export_override_state(0, 0, 0, 1, 0, 0) == -1);
+	assert(storage_nfs_export_override_state(0, 0, 0, 0, -1, 0) == -1);
+
 	/* Canonical IPv4 ACLs must preserve valid CIDR scope exactly. */
 	assert(storage_nfs_export_format_ipv4_acl(
 		"192.168.1.42", "255.255.255.0",
@@ -169,6 +179,6 @@ main(void)
 	assert(!storage_nfs_export_may_start(0, 0));
 	assert(!storage_nfs_export_may_start(1, -1));
 
-	puts("Storage NFS source-port policy, inventory, IPv6 ACL and start gate: PASS");
+	puts("Storage NFS override, source-port policy, inventory, IPv6 ACL and start gate: PASS");
 	return 0;
 }

@@ -925,6 +925,7 @@ static int
 write_nfsd_exports(void)
 {
 	FILE *procpt = NULL, *fp = NULL;
+	struct stat exports_link_info, exports_target_info;
 	char line[512], devname[32], mpname[256], fstype[32], fsmode[256];
 	char acl_lan[32], acl_vpn[32], staged_path[] = "/etc/.exports.XXXXXX";
 	const char *exports_link = "/etc/storage/exports";
@@ -933,6 +934,9 @@ write_nfsd_exports(void)
 	char *nfsmm, *acl_addr, *acl_mask;
 	int fd = -1, read_error, close_error, parse_error = 0;
 	int close_status, output_error = 0, saved_errno = 0;
+	int exports_link_lstat_status, exports_link_stat_status = -1;
+	int exports_link_errno = 0, exports_target_errno = 0;
+	int exports_override_state;
 	int acl_ipv4_status, acl_vpn_status = 0;
 #if defined (USE_IPV6)
 	int ipv6_type, acl_ipv6_status = 0;
@@ -941,11 +945,45 @@ write_nfsd_exports(void)
 #endif
 
 	/*
-	 * Preserve an operator-provided exports file as a symlink, but publish
-	 * the replacement atomically so a failed symlink/rename leaves the old
-	 * NFS configuration intact.
+	 * Only a genuinely absent override permits generated exports. A dangling
+	 * symlink, non-regular target or inaccessible path is an operator error;
+	 * never silently replace that intent with broader generated exports.
 	 */
-	if (check_if_file_exist(exports_link)) {
+	exports_link_lstat_status = lstat(exports_link, &exports_link_info);
+	if (exports_link_lstat_status != 0) {
+		exports_link_errno = errno ? errno : EIO;
+	} else if (S_ISLNK(exports_link_info.st_mode)) {
+		exports_link_stat_status = stat(exports_link, &exports_target_info);
+		if (exports_link_stat_status != 0)
+			exports_target_errno = errno ? errno : EIO;
+	}
+
+	exports_override_state = storage_nfs_export_override_state(
+		exports_link_lstat_status, exports_link_errno,
+		exports_link_lstat_status == 0 && S_ISREG(exports_link_info.st_mode),
+		exports_link_lstat_status == 0 && S_ISLNK(exports_link_info.st_mode),
+		exports_link_stat_status,
+		exports_link_stat_status == 0 && S_ISREG(exports_target_info.st_mode));
+	if (exports_override_state < 0) {
+		if (exports_link_lstat_status != 0)
+			saved_errno = exports_link_errno;
+		else if (S_ISLNK(exports_link_info.st_mode) &&
+			 exports_link_stat_status != 0)
+			saved_errno = exports_target_errno;
+		else
+			saved_errno = EINVAL;
+		logmessage("Storage", "refusing invalid custom NFS exports path %s (errno %d)",
+			   exports_link, saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
+
+	/*
+	 * Preserve a valid operator-provided exports file as a symlink, but
+	 * publish the replacement atomically so a failed symlink/rename leaves
+	 * the old NFS configuration intact.
+	 */
+	if (exports_override_state == 1) {
 		fd = mkstemp(staged_path);
 		if (fd < 0)
 			return -1;

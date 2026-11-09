@@ -129,7 +129,17 @@ jobs:
           assert "async,insecure,no_root_squash,no_subtree_check" not in service
           assert 'strstr(STORAGE_NFS_EXPORT_DEFAULT_OPTIONS, "insecure") == NULL' in policy_test
           assert 'strstr(STORAGE_NFS_EXPORT_DEFAULT_OPTIONS, "no_root_squash") != NULL' in policy_test
-          assert export_writer.index("if (check_if_file_exist(exports_link))") < export_writer.index('procpt = fopen(PROC_MOUNTS_FILE, "r")')
+          assert "lstat(exports_link, &exports_link_info)" in export_writer
+          assert "stat(exports_link, &exports_target_info)" in export_writer
+          assert "storage_nfs_export_override_state" in export_writer
+          assert "check_if_file_exist(exports_link)" not in export_writer
+          assert export_writer.index("storage_nfs_export_override_state") < export_writer.index('procpt = fopen(PROC_MOUNTS_FILE, "r")')
+          assert "refusing invalid custom NFS exports path" in export_writer
+          override_state = function_body(policy, "storage_nfs_export_override_state(")
+          assert "lstat_errno == ENOENT" in override_state
+          assert "entry_is_symlink && stat_status == 0 && target_is_regular" in override_state
+          assert "ENOENT, 0, 0, -1, 0) == 0" in policy_test
+          assert "EACCES, 0, 0, -1, 0) == -1" in policy_test
           assert "symlink(exports_link, staged_path)" in export_writer
           assert "storage_nfs_export_format_ipv4_acl" in export_writer
           assert "acl_ipv4_status < 0" in export_writer
@@ -152,7 +162,7 @@ jobs:
           assert "prefix_length < 48U" in policy
           assert '"64;rw,no_root_squash"' in policy_test
           assert '"2001:db8::1) 0.0.0.0/0(rw)"' in policy_test
-          assert "Storage NFS source-port policy, inventory, IPv6 ACL and start gate: PASS" in policy_test
+          assert "Storage NFS override, source-port policy, inventory, IPv6 ACL and start gate: PASS" in policy_test
 
           push_filters = workflow.split("  push:", 1)[1].split("  pull_request:", 1)[0]
           pr_filters = workflow.split("  pull_request:", 1)[1].split("  workflow_dispatch:", 1)[0]
