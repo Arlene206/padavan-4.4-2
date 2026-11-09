@@ -1,3 +1,17 @@
+## 2026-11-10 00:35 CST (UTC+8) — Propagate vsftpd lifecycle failures into storage safety gates
+
+- **Base main SHA:** `78508d0de29e64952dafe8d5ae2ca30ab6f20f60`; resulting commit: THIS COMMIT.
+- **Recovered exact-head parent Actions:** Samba [42652191209], USB storage [42652191230], NFS [42652191208], HTTPD/security [42652191190], vsftpd [42652191151] and AI handoff docs [42652191260] all completed SUCCESS with exact matching full `head_sha=78508d0de29e64952dafe8d5ae2ca30ab6f20f60`; inspected every job and step.
+- **Finding — storage safety:** `stop_ftp()` discarded `kill_services()` status, and `stop_stor_apps()` ignored FTP stop outcome. Its safe-removal/eject callers already abort unmount on a nonzero `stop_stor_apps()`, but only NFS and Samba failures were previously included. A vsftpd session continuing to serve uploads while its volume was detached could therefore be hidden.
+- **Finding — daemon lifecycle:** `run_ftp()` ignored `eval("/sbin/vsftpd")` and reported no failure when the daemon immediately exited; `restart_ftpd()` ignored stop status and treated negative `storage_has_mounted_devices()` inventory errors as a truthy “mounted” state.
+- **Fix:** return and propagate stop/start/restart status; require a bounded stable process-presence postcondition after startup; treat unknown storage inventory as a hard restart failure; include FTP stop failure in the existing storage removal gate; preserve best-effort stop ordering while preventing unmount after incomplete stop. Propagate results through notification markers, direct RC commands and combined FTP/Samba commands.
+- **Regression:** add a GNU89 callback-driven daemon-presence test for delayed startup, exit during settling, timeout and invalid arguments; extend vsftpd workflow path filters, compile/run and source contracts to cover stop/restart status, daemon postconditions, RC propagation and storage removal gating.
+- **Changed paths:** `trunk/user/rc/src/services_stor.c`, `trunk/user/rc/src/rc.c`, `trunk/user/rc/src/rc.h`, `trunk/user/rc/src/ftp_daemon_policy.h`, `trunk/user/rc/src/tests/ftp_daemon_policy.c`, `.github/workflows/vsftpd-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+- **Validation boundary:** local GNU89 compile/run of the new FTP daemon-presence policy test PASS. Exact-head Actions for THIS commit are pending. No local full repository production build, MIPS/uClibc object, firmware/TRX or router test is claimed.
+- **Next:** verify every exact-head Action; then audit the shipped vsftpd version's authentication, account provisioning, share-mode ACL/anonymous write policy and chroot/path confinement. Do not assume directives are supported without reading the bundled daemon source.
+
+---
+
 ## 2026-11-10 00:12 CST (UTC+8) — Align Samba regression contract with extracted daemon policy
 
 - **Base main SHA:** `ef9217b4af66b81e76b53c21bbb0ac559756fa39`; resulting commit: THIS COMMIT.

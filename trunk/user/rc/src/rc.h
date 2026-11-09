@@ -650,10 +650,10 @@ int restart_dns(void);
 void spindown_hdd(char *sd_dev);
 #if defined (APP_FTPD)
 int is_ftp_run(void);
-void stop_ftp(void);
-void run_ftp(void);
+int stop_ftp(void);
+int run_ftp(void);
 void control_ftp_fw(int is_run_before);
-void restart_ftpd(void);
+int restart_ftpd(void);
 #endif
 #if defined (APP_SMBD)
 int write_smb_conf(void);

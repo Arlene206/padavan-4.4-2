@@ -1133,7 +1133,7 @@ handle_notifications(void)
 #if defined(APP_FTPD)
 		else if (strcmp(entry->d_name, RCN_RESTART_FTPD) == 0)
 		{
-			restart_ftpd();
+			action_result = restart_ftpd();
 		}
 #endif
 #if defined(APP_SMBD)
@@ -1687,7 +1687,11 @@ main(int argc, char **argv)
 		;
 #endif
 #if defined(APP_FTPD)
-		restart_ftpd();
+		{
+			int ftp_status = restart_ftpd();
+			if (ret == 0)
+				ret = ftp_status;
+		}
 #endif
 	}
 #if defined(APP_SMBD)
@@ -1697,7 +1701,7 @@ main(int argc, char **argv)
 #endif
 #if defined(APP_FTPD)
 	else if (!strcmp(base, "run_ftp")) {
-		restart_ftpd();
+		ret = restart_ftpd();
 	}
 #endif
 #if defined(APP_NFSD)
@@ -1727,7 +1731,7 @@ main(int argc, char **argv)
 #endif
 #if defined(APP_FTPD)
 	else if (!strcmp(base, "stop_ftp")) {
-		stop_ftp();
+		ret = stop_ftp();
 	}
 #endif
 #if defined(APP_SMBD)
@@ -1737,12 +1741,14 @@ main(int argc, char **argv)
 #endif
 	else if (!strcmp(base, "stop_ftpsamba")) {
 #if defined(APP_FTPD)
-		stop_ftp();
+		ret = stop_ftp();
 #endif
 #if defined(APP_SMBD)
-		ret = stop_samba(0);
-#else
-		;
+		{
+			int samba_status = stop_samba(0);
+			if (ret == 0)
+				ret = samba_status;
+		}
 #endif
 	}
 #if defined(APP_NFSD)

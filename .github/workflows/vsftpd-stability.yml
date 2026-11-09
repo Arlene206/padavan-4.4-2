@@ -7,12 +7,20 @@ on:
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/ftp_config_file.h"
       - "trunk/user/rc/src/tests/ftp_config_file.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/ftp_daemon_policy.h"
+      - "trunk/user/rc/src/tests/ftp_daemon_policy.c"
   pull_request:
     paths:
       - ".github/workflows/vsftpd-stability.yml"
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/ftp_config_file.h"
       - "trunk/user/rc/src/tests/ftp_config_file.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/ftp_daemon_policy.h"
+      - "trunk/user/rc/src/tests/ftp_daemon_policy.c"
 
 jobs:
   vsftpd-config:
@@ -27,15 +35,24 @@ jobs:
             trunk/user/rc/src/tests/ftp_config_file.c \
             -o /tmp/ftp-config-file
           /tmp/ftp-config-file
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/ftp_daemon_policy.c \
+            -o /tmp/ftp-daemon-policy
+          /tmp/ftp-daemon-policy
       - name: Verify vsftpd configuration publication and startup gates
         run: |
           python3 - <<'PY'
           from pathlib import Path
 
           source = Path("trunk/user/rc/src/services_stor.c").read_text()
+          rc = Path("trunk/user/rc/src/rc.c").read_text()
+          header = Path("trunk/user/rc/src/rc.h").read_text()
           helper = Path("trunk/user/rc/src/ftp_config_file.h").read_text()
           test = Path("trunk/user/rc/src/tests/ftp_config_file.c").read_text()
           workflow = Path(".github/workflows/vsftpd-stability.yml").read_text()
+          daemon_policy = Path("trunk/user/rc/src/ftp_daemon_policy.h").read_text()
+          daemon_test = Path("trunk/user/rc/src/tests/ftp_daemon_policy.c").read_text()
 
           def function_body(text, signature):
               start = text.index(signature)
@@ -67,6 +84,22 @@ jobs:
           failure_return = run.index("return;", failure_gate)
           daemon_start = run.index('eval("/sbin/vsftpd")')
           assert failure_gate < failure_return < daemon_start
+          assert "command_status != 0" in run
+          assert 'ftp_wait_for_daemon("vsftpd") != 0' in run
+
+          wait_fn = function_body(source, "ftp_wait_for_daemon(")
+          assert "ftp_daemon_wait_for_stable_presence(daemon, 30" in wait_fn
+          running_fn = function_body(source, "ftp_daemon_is_running(")
+          sleep_fn = function_body(source, "ftp_daemon_sleep(")
+          assert "pids((char *)daemon) > 0" in running_fn
+          assert "usleep(microseconds)" in sleep_fn
+
+          policy_fn = function_body(daemon_policy, "ftp_daemon_wait_for_stable_presence(")
+          assert "ops->is_running(context, daemon)" in policy_fn
+          assert "ops->sleep_us(context, 500000U)" in policy_fn
+          assert "ops->sleep_us(context, 100000U)" in policy_fn
+          assert "errno = ETIMEDOUT" in policy_fn
+          assert "ftp_daemon_wait_for_stable_presence" in daemon_test
 
           open_fn = function_body(helper, "ftp_config_file_open(")
           publish_fn = function_body(helper, "ftp_config_file_publish(")
@@ -81,6 +114,34 @@ jobs:
           assert 'fopen("/dev/full", "w")' in test
           assert "listen=YES" in test
           assert "ftp_config_file_publish(&fp, staged, target) != 0" in test
+
+          stop = function_body(source, "stop_ftp(void)")
+          assert "status = kill_services(svcs, 3, 1)" in stop
+          assert "return status" in stop
+          restart = function_body(source, "restart_ftpd(void)")
+          assert "stop_status = stop_ftp()" in restart
+          assert "if (stop_status != 0)" in restart
+          assert "mount_status = storage_has_mounted_devices" in restart
+          assert "if (mount_status < 0)" in restart
+          assert "if (mount_status > 0)" in restart
+          assert "start_status = run_ftp()" in restart
+
+          stop_stor = function_body(source, "stop_stor_apps(void)")
+          assert "if (stop_ftp() != 0)" in stop_stor
+          assert "FTP server did not stop cleanly" in stop_stor
+          start_stor = function_body(source, "start_stor_apps(void)")
+          assert "if (run_ftp() != 0)" in start_stor
+
+          ftp_proto = header[header.index("#if defined (APP_FTPD)"):header.index("#endif", header.index("#if defined (APP_FTPD)"))]
+          assert "int stop_ftp(void);" in ftp_proto
+          assert "int run_ftp(void);" in ftp_proto
+          assert "int restart_ftpd(void);" in ftp_proto
+          assert "action_result = restart_ftpd();" in rc
+          assert "ret = restart_ftpd();" in rc
+          assert "ret = stop_ftp();" in rc
+          assert "int ftp_status = restart_ftpd();" in rc
+          assert "ret = ftp_status;" in rc
+          assert "int samba_status = stop_samba(0);" in rc
 
           paths = (
               ".github/workflows/vsftpd-stability.yml",

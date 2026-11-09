@@ -47,6 +47,7 @@
 #include "samba_passdb_policy.h"
 #include "ftp_share_policy.h"
 #include "ftp_config_file.h"
+#include "ftp_daemon_policy.h"
 #include "storage_mount_inventory_policy.h"
 #include "storage_optware_start_policy.h"
 #include "storage_ejected_inventory_policy.h"
@@ -111,11 +112,16 @@ is_ftp_run(void)
 	return (pids("vsftpd")) ? 1 : 0;
 }
 
-void
+int
 stop_ftp(void)
 {
 	char* svcs[] = { "vsftpd", NULL };
-	kill_services(svcs, 3, 1);
+	int status;
+
+	status = kill_services(svcs, 3, 1);
+	if (status != 0)
+		logmessage("FTP server", "vsftpd did not stop cleanly");
+	return status;
 }
 
 int
@@ -199,29 +205,63 @@ write_vsftpd_conf(void)
 	return 0;
 }
 
-void
+static int
+ftp_daemon_is_running(void *context, const char *daemon)
+{
+	(void)context;
+	return pids((char *)daemon) > 0;
+}
+
+static void
+ftp_daemon_sleep(void *context, unsigned int microseconds)
+{
+	(void)context;
+	usleep(microseconds);
+}
+
+static int
+ftp_wait_for_daemon(const char *daemon)
+{
+	static const struct ftp_daemon_wait_ops ops = {
+		ftp_daemon_is_running,
+		ftp_daemon_sleep
+	};
+
+	return ftp_daemon_wait_for_stable_presence(daemon, 30, &ops, NULL);
+}
+
+int
 run_ftp(void)
 {
-	int saved_errno;
+	int saved_errno, command_status;
 
 	if (nvram_match("enable_ftp", "0"))
-		return;
+		return 0;
 
 	if (is_ftp_run())
-		return;
+		return 0;
 
 	if (write_vsftpd_conf() != 0) {
 		saved_errno = errno ? errno : EIO;
 		logmessage("FTP server", "configuration publication failed; startup skipped (errno %d)",
 			   saved_errno);
 		errno = saved_errno;
-		return;
+		return -1;
 	}
 
-	eval("/sbin/vsftpd");
+	command_status = eval("/sbin/vsftpd");
+	if (command_status != 0) {
+		logmessage("FTP server", "vsftpd start command failed (status %d)", command_status);
+		return -1;
+	}
+	if (ftp_wait_for_daemon("vsftpd") != 0) {
+		logmessage("FTP server", "vsftpd did not remain running after startup (errno %d)",
+			   errno ? errno : ETIMEDOUT);
+		return -1;
+	}
 
-	if (is_ftp_run())
-		logmessage("FTP server", "daemon is started");
+	logmessage("FTP server", "daemon is started");
+	return 0;
 }
 
 void
@@ -231,17 +271,31 @@ control_ftp_fw(int is_run_before)
 		restart_firewall();
 }
 
-void
+int
 restart_ftpd(void)
 {
 	int is_run_before = is_ftp_run();
+	int stop_status, mount_status, start_status = 0;
 
-	stop_ftp();
+	stop_status = stop_ftp();
+	if (stop_status != 0) {
+		logmessage("FTP server", "restart aborted because existing daemon did not stop");
+		return stop_status;
+	}
 
-	if (storage_has_mounted_devices("restarting FTP")) {
-		run_ftp();
+	mount_status = storage_has_mounted_devices("restarting FTP");
+	if (mount_status < 0) {
+		logmessage("FTP server", "restart aborted because mounted storage state is unknown");
+		return -1;
+	}
+	if (mount_status > 0) {
+		start_status = run_ftp();
+		if (start_status != 0)
+			return start_status;
 		control_ftp_fw(is_run_before);
 	}
+
+	return start_status;
 }
 #endif
 
@@ -2412,7 +2466,10 @@ stop_stor_apps(void)
 #if defined (APP_FTPD)
 	if (nvram_match("ftpd_wopen", "1"))
 		need_restart_fw |= is_ftp_run();
-	stop_ftp();
+	if (stop_ftp() != 0) {
+		logmessage("Storage", "FTP server did not stop cleanly; storage removal must be aborted");
+		stop_status = -1;
+	}
 #endif
 #if defined (APP_MINIDLNA)
 	stop_dms();
@@ -2441,7 +2498,8 @@ start_stor_apps(void)
 	int need_restart_fw = 0;
 
 #if defined (APP_FTPD)
-	run_ftp();
+	if (run_ftp() != 0)
+		logmessage("Storage", "FTP startup did not reach its daemon postconditions");
 	if (nvram_match("ftpd_wopen", "1"))
 		need_restart_fw |= is_ftp_run();
 #endif
