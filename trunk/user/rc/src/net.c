@@ -36,6 +36,7 @@
 #include <dirent.h>
 
 #include "rc.h"
+#include "route_status_policy.h"
 
 #define SR_BUF_LEN (8192)
 
@@ -112,16 +113,18 @@ control_static_routes(char *ift, char *ifname, int is_add)
 	char *route_buf;
 	char *ipaddr, *netmask, *gateway, *metric, *metric_end;
 	long metric_value;
+	int status = 0, route_status;
 
 	if (is_add && nvram_invmatch("sr_enable_x", "1"))
 		return 0;
-
+	if (!ifname || !*ifname)
+		return EINVAL;
 	route_buf = (char *)malloc(SR_BUF_LEN*sizeof(char));
-	if (!route_buf)
-		return -1;
-
+	if (!route_buf) {
+		logmessage(LOGNAME, "failed to allocate static route list (errno=%d)", ENOMEM);
+		return ENOMEM;
+	}
 	fill_static_routes(route_buf, SR_BUF_LEN, ift);
-
 	foreach(word, route_buf, next) {
 		netmask = word;
 		ipaddr = strsep(&netmask, ":");
@@ -137,22 +140,22 @@ control_static_routes(char *ift, char *ifname, int is_add)
 			continue;
 		if (!is_valid_ipv4(gateway))
 			gateway = nvram_safe_get("wanx_gateway");	// oleg patch
-
 		errno = 0;
 		metric_value = strtol(metric, &metric_end, 10);
 		if (errno == ERANGE || metric_end == metric || *metric_end ||
 		    metric_value < 0 || metric_value >= INT_MAX)
 			continue;
-
-		if (is_add)
-			route_add(ifname, (int)metric_value, ipaddr, gateway, netmask);
-		else
+		route_status = is_add ?
+			route_add(ifname, (int)metric_value, ipaddr, gateway, netmask) :
 			route_del(ifname, (int)metric_value, ipaddr, gateway, netmask);
+		status = route_status_accumulate(status, route_status);
+		if (route_status != 0)
+			logmessage(LOGNAME, "failed to %s static route %s via %s on %s (error=%d)",
+				   is_add ? "add" : "delete", ipaddr, gateway, ifname,
+				   route_status);
 	}
-
 	free(route_buf);
-
-	return 0;
+	return status;
 }
 
 char*

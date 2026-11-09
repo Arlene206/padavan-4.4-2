@@ -1,3 +1,17 @@
+## 2026-11-09 10:34 CST (UTC+8) — Propagate static and DHCP route operation failures
+
+- **Base main SHA:** \`347ab8b0392a3c74d85a230e199c2faae27f646c\`.
+- **Finding:** \`control_static_routes()\` discarded every \`route_add()\` / \`route_del()\` status and returned success; DHCP route setup/removal used a void helper and discarded legacy and RFC3442/Microsoft route failures. DHCP-list allocation failures were also hidden.
+- **Fix:** static and DHCP helpers now return the first nonzero operation status while continuing to attempt every remaining valid route. Both DHCP option lists are handled independently, so one allocation failure does not suppress processing of the other. Public DHCP wrappers now return status; every failed route and allocation is logged. Route deletion remains available when dynamic-route addition is disabled, and WAN/MAN cleanup ordering is preserved.
+- **Changed paths:** \`trunk/user/rc/src/net.c\`, \`net_wan.c\`, \`rc.h\`; new \`route_status_policy.h\`, \`tests/route_status_policy.c\`, and \`.github/workflows/wan-route-status.yml\`.
+- **Validation:** local GNU89 \`-Wall -Wextra -Werror\` regression with ASan/UBSan and leak detection: **PASS**. The regression verifies first-error preservation and that later route operations are still attempted. Workflow source contracts cover static/DHCP wiring, allocation handling, public return types and WAN/MAN delete ordering.
+- **Actions:** exact-head WAN route workflow is **PENDING** at commit creation; reconcile its run ID, conclusion and head SHA during the next recovery. The existing documentation-contract run [42550725545](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42550725545) passed on the pre-change main SHA \`347ab8b0392a3c74d85a230e199c2faae27f646c\`.
+- **Validation boundary:** L1 selected helper/caller review PASS; L2 focused host policy regression PASS. Production RC translation-unit/object, MIPS/uClibc target build, complete firmware/TRX, live route failure injection and physical-router validation are **NOT VERIFIED**.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** reconcile exact-head Actions, then rotate away from WAN to Firewall/NAT lifecycle ownership; do not mark WAN/PPP audited or target-verified.
+
+---
+
 ## 2026-11-09 10:23 CST — Establish durable cross-conversation handoff and bounded project records
 
 - **Base main SHA:** `71de75dd39b2ebc87fa56b1c74ff798cc0e57fdf`.
@@ -251,15 +265,3 @@
 - **Tests:** GNU89 -Wall -Wextra -Werror focused policy regression PASS; GNU89 ASan/UBSan + leak detection PASS.
 - **CI:** corrected run [42525420578](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42525420578), exact head 362bbdba04966521e950cd2d94a461e7bfeb9bc9, IN_PROGRESS at entry time. Recheck before marking complete.
 - **Remaining risk:** full production RC object build, MIPS/uClibc, complete firmware/TRX, real storage/eject path and physical device validation NOT RUN. Next: reconcile exact-head Actions, then continue storage safe-removal caller review.
-
-## 2026-11-09 05:27 CST — Stage complete mount inventory before per-device unmount
-
-- **Base main HEAD:** `e8a67be1c50141330d2389c07f308f1e7e7bbc9b`.
-- **Implementation commit:** `806cd75c89f047b865d9b11677f8a819f12cb936` — `fix(storage): stage complete mount inventory before unmount`.
-- **Module / priority:** USB/storage safe-removal lifecycle; P2 availability and partial-removal prevention.
-- **Finding:** `umount_dev()` ran the optional unmount hook and `umount()` during the `/proc/mounts` read loop. Malformed/truncated records were skipped; read errors were checked only after possible unmounts; `fclose()` status was ignored. A partial or unknown inventory could therefore produce partial device removal.
-- **Fix / changed paths:** `services_stor.c` now stages all matching mounts and gates hook/unmount side effects on complete parsing, successful read and successful close. The shared storage mount parser now requires all six `/proc/mounts` fields, rejects extra fields and retains bounded token/line checks. The regression covers incomplete/missing/extra fields; the Actions contract enforces close/gate-before-hook-before-unmount ordering. Paths: `trunk/user/rc/src/services_stor.c`, `trunk/user/rc/src/storage_ejected_inventory_policy.h`, `trunk/user/rc/src/tests/storage_ejected_inventory_policy.c`, `.github/workflows/httpd-security.yml`.
-- **Tests:** local GNU89 `-Wall -Wextra -Werror` policy regression PASS; local GNU89 ASan/UBSan with leak detection PASS; pre-update source-order/workflow contract checks PASS.
-- **CI:** Actions run [42525261900](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42525261900), exact head `806cd75c89f047b865d9b11677f8a819f12cb936`, **QUEUED/PENDING** when this entry was prepared. Do not mark this commit CI-verified until the exact-head run completes.
-- **Risks / next:** full production RC object build, MIPS/uClibc, firmware/TRX, real hotplug/eject sequence and hardware remain NOT RUN. Continue storage caller review through `umount_stor_path()`, `safe_remove_stor_device()` and `safe_remove_all_stor_devices()` after reconciling the exact-head Actions outcome.
-

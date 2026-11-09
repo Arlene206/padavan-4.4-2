@@ -1,0 +1,111 @@
+name: WAN route operation status regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/wan-route-status.yml"
+      - "trunk/user/rc/src/net.c"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/route_status_policy.h"
+      - "trunk/user/rc/src/tests/route_status_policy.c"
+  pull_request:
+    paths:
+      - ".github/workflows/wan-route-status.yml"
+      - "trunk/user/rc/src/net.c"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/route_status_policy.h"
+      - "trunk/user/rc/src/tests/route_status_policy.c"
+
+jobs:
+  wan-route-status:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile route status regression with sanitizers
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/route_status_policy.c \
+            -o /tmp/route-status-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/route-status-policy
+      - name: Verify route result propagation and cleanup ordering
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          rc = Path("trunk/user/rc/src")
+          net = (rc / "net.c").read_text()
+          wan = (rc / "net_wan.c").read_text()
+          header = (rc / "rc.h").read_text()
+          workflow = Path(".github/workflows/wan-route-status.yml").read_text()
+
+          def body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace + 1:pos]
+              raise AssertionError(f"unterminated function: {signature}")
+
+          assert '#include "route_status_policy.h"' in net
+          assert '#include "route_status_policy.h"' in wan
+          static = body(net, "control_static_routes(char *ift, char *ifname, int is_add)")
+          assert "int status = 0, route_status;" in static
+          assert "route_status = is_add ?" in static
+          assert "status = route_status_accumulate(status, route_status);" in static
+          assert "return status;" in static
+          assert "return 0;" not in static[static.index("foreach("):]
+          assert "route_add(ifname" in static and "route_del(ifname" in static
+
+          dynamic = body(wan, "control_dhcp_routes(char *rt, char *rt_rfc, char *rt_ms,")
+          assert "static int\ncontrol_dhcp_routes(" in wan
+          assert dynamic.count("route_status_accumulate(status, route_status)") == 2
+          assert dynamic.count("strdup(") == 2
+          assert dynamic.count("status = route_status_accumulate(status, ENOMEM);") == 2
+          assert dynamic.count("route_status = is_add ?") == 2
+          assert "return status;" in dynamic and "errno == ERANGE" in dynamic
+          assert "return;" not in dynamic
+
+          wrappers = (
+              ("add_dhcp_routes(char *rt, char *rt_rfc, char *rt_ms, char *ifname, int metric)",
+               "return control_dhcp_routes(rt, rt_rfc, rt_ms, ifname, metric, 1);"),
+              ("add_dhcp_routes_by_prefix(char *prefix, char *ifname, int metric)",
+               "return add_dhcp_routes(rt, rt_rfc, rt_ms, ifname, metric);"),
+              ("del_dhcp_routes_by_prefix(char *prefix, char *ifname, int metric)",
+               "return control_dhcp_routes(rt, rt_rfc, rt_ms, ifname, metric, 0);"),
+          )
+          for signature, expected in wrappers:
+              assert "int\n" + signature in wan
+              assert expected in body(wan, signature)
+              name = signature.split("(")[0]
+              assert "int  " + name in header and "void " + name not in header
+
+          man_down = body(wan, "man_down(char *man_ifname, int unit)")
+          assert man_down.index('del_dhcp_routes_by_prefix("wanx_"') < man_down.index("del_static_man_routes(")
+          assert man_down.index("del_static_man_routes(") < man_down.index('nvram_set_temp("wanx_routes"')
+          wan_down = body(wan, "wan_down(char *wan_ifname, int unit, int is_static)")
+          assert wan_down.index("del_dhcp_routes_by_prefix(prefix") < wan_down.index("del_static_wan_routes(")
+          assert wan_down.index("del_static_wan_routes(") < wan_down.index("control_wan_led_isp_state(0, 0)")
+
+          paths = (
+              ".github/workflows/wan-route-status.yml",
+              "trunk/user/rc/src/net.c",
+              "trunk/user/rc/src/net_wan.c",
+              "trunk/user/rc/src/rc.h",
+              "trunk/user/rc/src/route_status_policy.h",
+              "trunk/user/rc/src/tests/route_status_policy.c",
+          )
+          filters = workflow.split("jobs:", 1)[0]
+          push_filters, pr_filters = filters.split("  pull_request:", 1)
+          for path in paths:
+              assert push_filters.count(path) == 1, f"push path missing/duplicated: {path}"
+              assert pr_filters.count(path) == 1, f"pull_request path missing/duplicated: {path}"
+          print("WAN route result propagation and cleanup ordering contracts: PASS")
+          PY

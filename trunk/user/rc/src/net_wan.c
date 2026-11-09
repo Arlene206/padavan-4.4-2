@@ -31,6 +31,7 @@
 #include <signal.h>
 
 #include "rc.h"
+#include "route_status_policy.h"
 #include "dnsmasq_file.h"
 #include "wan_resolver_refresh_policy.h"
 #include "wan_teardown_policy.h"
@@ -2031,23 +2032,24 @@ update_hosts_router(const char *lan_ipaddr)
 	return 0;
 }
 
-static void
+static int
 control_dhcp_routes(char *rt, char *rt_rfc, char *rt_ms,
                     char *ifname, int metric, int is_add)
 {
 	char *routes, *tmp;
+	const char *classless_routes;
 	struct in_addr mask;
 	char *ipaddr, *gateway, *bits_str, *bits_end;
 	long parsed_bits;
 	int bits;
+	int status = 0, route_status;
 	char netmask[] = "255.255.255.255";
 
 	/* Keep cleanup working even after the dynamic-route option is disabled. */
 	if (is_add && !nvram_match("dr_enable_x", "1"))
-		return;
-
+		return 0;
 	if (!ifname || !*ifname)
-		return;
+		return EINVAL;
 	if (!rt)
 		rt = "";
 	if (!rt_rfc)
@@ -2056,85 +2058,108 @@ control_dhcp_routes(char *rt, char *rt_rfc, char *rt_ms,
 		rt_ms = "";
 
 	/* Legacy destination/gateway pairs. */
-	routes = strdup(rt);
-	for (tmp = routes; tmp && *tmp; ) {
-		ipaddr = strsep(&tmp, "/");
-		gateway = strsep(&tmp, " ");
-		if (gateway && *gateway &&
-		    dhcp_lease_ipv4_is_valid(ipaddr) &&
-		    dhcp_lease_ipv4_is_valid(gateway)) {
-			if (is_add)
-				route_add(ifname, metric, ipaddr, gateway, netmask);
-			else
-				route_del(ifname, metric, ipaddr, gateway, netmask);
+	routes = NULL;
+	if (*rt) {
+		routes = strdup(rt);
+		if (!routes) {
+			status = route_status_accumulate(status, ENOMEM);
+			logmessage(LOGNAME, "failed to copy legacy DHCP routes on %s (errno=%d)",
+				   ifname, ENOMEM);
+		} else {
+			for (tmp = routes; tmp && *tmp; ) {
+				ipaddr = strsep(&tmp, "/");
+				gateway = strsep(&tmp, " ");
+				if (gateway && *gateway &&
+				    dhcp_lease_ipv4_is_valid(ipaddr) &&
+				    dhcp_lease_ipv4_is_valid(gateway)) {
+					route_status = is_add ?
+						route_add(ifname, metric, ipaddr, gateway, netmask) :
+						route_del(ifname, metric, ipaddr, gateway, netmask);
+					status = route_status_accumulate(status, route_status);
+					if (route_status != 0)
+						logmessage(LOGNAME, "failed to %s DHCP route %s via %s on %s (error=%d)",
+							   is_add ? "add" : "delete", ipaddr, gateway,
+							   ifname, route_status);
+				}
+			}
+			free(routes);
 		}
 	}
-	free(routes);
-
 	/* RFC3442 or Microsoft classless static routes. */
-	routes = rt_rfc;
-	if (!*routes)
-		routes = rt_ms;
-	routes = strdup(routes);
-	for (tmp = routes; tmp && *tmp; ) {
-		ipaddr = strsep(&tmp, "/");
-		if (!ipaddr || !tmp || !*tmp)
-			break;
-
-		bits_str = strsep(&tmp, " ");
-		if (!bits_str || !*bits_str || !tmp || !*tmp)
-			break;
-
-		parsed_bits = strtol(bits_str, &bits_end, 10);
-		gateway = strsep(&tmp, " ");
-		if (bits_end == bits_str || *bits_end != '\0' ||
-		    parsed_bits < 0 || parsed_bits > 32 ||
-		    !gateway || !*gateway ||
-		    !dhcp_lease_route_destination_is_valid(ipaddr, (unsigned int)parsed_bits) ||
-		    !dhcp_lease_ipv4_is_valid(gateway))
-			continue;
-
-		bits = (int)parsed_bits;
-		mask.s_addr = (bits == 0) ? 0 : htonl(0xffffffffU << (32 - bits));
-		strcpy(netmask, inet_ntoa(mask));
-		if (is_add)
-			route_add(ifname, metric, ipaddr, gateway, netmask);
-		else
-			route_del(ifname, metric, ipaddr, gateway, netmask);
+	classless_routes = *rt_rfc ? rt_rfc : rt_ms;
+	if (*classless_routes) {
+		routes = strdup(classless_routes);
+		if (!routes) {
+			status = route_status_accumulate(status, ENOMEM);
+			logmessage(LOGNAME, "failed to copy classless DHCP routes on %s (errno=%d)",
+				   ifname, ENOMEM);
+		} else {
+			for (tmp = routes; tmp && *tmp; ) {
+				ipaddr = strsep(&tmp, "/");
+				if (!ipaddr || !tmp || !*tmp)
+					break;
+				bits_str = strsep(&tmp, " ");
+				if (!bits_str || !*bits_str || !tmp || !*tmp)
+					break;
+				errno = 0;
+				parsed_bits = strtol(bits_str, &bits_end, 10);
+				gateway = strsep(&tmp, " ");
+				if (errno == ERANGE || bits_end == bits_str || *bits_end != '\0' ||
+				    parsed_bits < 0 || parsed_bits > 32 ||
+				    !gateway || !*gateway ||
+				    !dhcp_lease_route_destination_is_valid(ipaddr, (unsigned int)parsed_bits) ||
+				    !dhcp_lease_ipv4_is_valid(gateway))
+					continue;
+				bits = (int)parsed_bits;
+				mask.s_addr = (bits == 0) ? 0 : htonl(0xffffffffU << (32 - bits));
+				strcpy(netmask, inet_ntoa(mask));
+				route_status = is_add ?
+					route_add(ifname, metric, ipaddr, gateway, netmask) :
+					route_del(ifname, metric, ipaddr, gateway, netmask);
+				status = route_status_accumulate(status, route_status);
+				if (route_status != 0)
+					logmessage(LOGNAME, "failed to %s DHCP classless route %s/%d via %s on %s (error=%d)",
+						   is_add ? "add" : "delete", ipaddr, bits, gateway,
+						   ifname, route_status);
+			}
+			free(routes);
+		}
 	}
-	free(routes);
+	return status;
 }
 
-void
+int
 add_dhcp_routes(char *rt, char *rt_rfc, char *rt_ms, char *ifname, int metric)
 {
-	control_dhcp_routes(rt, rt_rfc, rt_ms, ifname, metric, 1);
+	return control_dhcp_routes(rt, rt_rfc, rt_ms, ifname, metric, 1);
 }
 
-void
+int
 add_dhcp_routes_by_prefix(char *prefix, char *ifname, int metric)
 {
 	char buf[32];
 	char *rt, *rt_rfc, *rt_ms;
 
+	if (!prefix || !*prefix)
+		return EINVAL;
 	rt     = nvram_safe_get(strcat_r(prefix, "routes", buf));
 	rt_rfc = nvram_safe_get(strcat_r(prefix, "routes_rfc", buf));
 	rt_ms  = nvram_safe_get(strcat_r(prefix, "routes_ms", buf));
-
-	add_dhcp_routes(rt, rt_rfc, rt_ms, ifname, metric);
+	return add_dhcp_routes(rt, rt_rfc, rt_ms, ifname, metric);
 }
 
-void
+int
 del_dhcp_routes_by_prefix(char *prefix, char *ifname, int metric)
 {
 	char buf[32];
 	char *rt, *rt_rfc, *rt_ms;
 
+	if (!prefix || !*prefix)
+		return EINVAL;
 	rt     = nvram_safe_get(strcat_r(prefix, "routes", buf));
 	rt_rfc = nvram_safe_get(strcat_r(prefix, "routes_rfc", buf));
 	rt_ms  = nvram_safe_get(strcat_r(prefix, "routes_ms", buf));
-
-	control_dhcp_routes(rt, rt_rfc, rt_ms, ifname, metric, 0);
+	return control_dhcp_routes(rt, rt_rfc, rt_ms, ifname, metric, 0);
 }
 
 int
