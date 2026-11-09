@@ -7,7 +7,7 @@
 - **Repository:** `Arlene206/padavan-4.4-2`, the maintained fork.
 - **Latest bounded source milestone:** `cb70977f05b3d7d64dcabf5c02247bda05969f35` — operation-wide storage hotplug/safe-removal serialization plus regression-contract corrections. Its implementation commit is `5d5b61cfc9d5dd3bca237ff4be31eb0118da1dfb`.
 - **Branch/checkpoints:** `main`; no separate remote checkpoint branch exists.
-- **Exact-head Actions:** USB storage hotplug stability [42564939868](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42564939868) **SUCCESS**, HTTPD Authentication and Security Regression [42564939905](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42564939905) **SUCCESS**, and AI handoff documentation contract [42564939843](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42564939843) **SUCCESS**, all on exact source head `cb70977`. The storage job compiled and ran the forked-process lock regression; HTTPD/security completed all 39 validation steps.
+- **Exact-head Actions:** USB storage hotplug stability [42564939868](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42564939868) **SUCCESS**, HTTPD Authentication and Security Regression [42564939905](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42564939905) **SUCCESS**, and AI handoff documentation contract [42564939843](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42564939843) **SUCCESS**, all on exact source head `cb70977`. The storage job compiled and ran the forked-process lock regression; HTTPD/security completed all 39 validation steps. The documentation-only snapshot `c2020331b891ed07dd01f729136a5b728fff99f2` then passed its exact-head AI handoff contract [42565709754](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42565709754).
 - **Correction history:** first-pass Actions [42564591289](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42564591289) and [42564591242](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42564591242) failed. The include typo in `services_stor.c` was corrected and the hotplug unlock-order contract now checks the last cleanup unlock (the earlier `file_unlock(isLock)` is the correct early error path). Both workflows passed on `cb70977`.
 
 ## Active task
@@ -49,12 +49,12 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, confirm the current docs snapshot commit and verify the `AI handoff documentation contract` on that exact SHA. Record its run ID and conclusion; the run above is on the parent source SHA, not this new documentation snapshot.
+1. Fetch live `main`, confirm the current docs snapshot commit and verify the `AI handoff documentation contract` on that exact SHA. Record its run ID and conclusion; the previous docs snapshot `c2020331b891ed07dd01f729136a5b728fff99f2` passed run [42565709754](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42565709754), and this handoff refresh will create a newer documentation commit that needs its own exact-head check.
 2. Continue storage caller audit by enumerating every direct call to `/sbin/automount.sh`, `mount`, `umount`, `swapon` and `swapoff`; prove which paths execute under `storage.lock` and identify any direct bypass. Inspect `ejusb/ejata/ejmmc/ejall`, script invocation, PID 1 notification timing and same-process lock re-entry. Avoid introducing nested acquisition of `storage.lock`.
 3. Keep FULLCONENAT mapping-table namespace isolation as a separate P2 task. Its notifier per-net ownership is already fixed; mapping hashes and dying-tuple queue remain module-global. Kernel/MTK/DTS work remains outside the ordinary userspace batch.
 
 ## Recovery and archive rule
 
-- The superseded active handoff is preserved byte-for-byte as `docs/handoffs/archive/2026/11/part-013.md`; the superseded roadmap as `docs/roadmap-history/2026/11/part-014.md`.
+- The superseded active handoff is preserved byte-for-byte as `docs/handoffs/archive/2026/11/part-014.md`; the superseded roadmap remains preserved as `docs/roadmap-history/2026/11/part-014.md`.
 - The 2026-11-09 09:13 CST guest AP scheduler/bridge-state record evicted from the root 20-record window is appended verbatim to `docs/dev-log/2026/11/part-005.md`; its original root source blob is `3bf6391ddb348e17f4c4955ba7658ec5444c8a10`.
 - Root `dev_log.md` retains exactly the newest 20 complete entries. Archive byte counts, heading counts and Git blob SHAs remain authoritative.
