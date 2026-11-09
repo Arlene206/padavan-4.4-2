@@ -895,6 +895,7 @@ lan_down_auto(char *lan_ifname)
 {
 	FILE *fp;
 	char *lan_gateway = nvram_safe_get("lan_gateway_t");
+	char resolv_temp[] = "/etc/resolv.conf.XXXXXX";
 	int route_status = 0, ifconfig_status, resolver_status = 0;
 	int lock, status;
 
@@ -928,8 +929,6 @@ lan_down_auto(char *lan_ifname)
 
 	/* Stage an empty resolver file beside the destination and atomically
 	 * publish it under the same lock used by other resolver writers. */
-	char resolv_temp[] = "/etc/resolv.conf.XXXXXX";
-
 	errno = 0;
 	lock = file_lock("resolv");
 	if (lock < 0) {
