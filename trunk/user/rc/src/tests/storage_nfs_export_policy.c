@@ -38,23 +38,23 @@ main(void)
 		device, sizeof(device), mountpoint, sizeof(mountpoint),
 		fstype, sizeof(fstype), options, sizeof(options)) != 0);
 	assert(storage_nfs_export_parse_mount_line(
-		"/dev/sda1 /media/usb ext4 rw 0\\n", device, sizeof(device),
+		"/dev/sda1 /media/usb ext4 rw 0\n", device, sizeof(device),
 		mountpoint, sizeof(mountpoint), fstype, sizeof(fstype),
 		options, sizeof(options)) != 0);
 	assert(storage_nfs_export_parse_mount_line(
-		"/dev/sda1 /media/usb ext4 rw 0 0\\n", device, sizeof(device),
+		"/dev/sda1 /media/usb ext4 rw 0 0\n", device, sizeof(device),
 		mountpoint, sizeof(mountpoint), fstype, sizeof(fstype),
 		options, sizeof(options)) == 0);
 	assert(storage_nfs_export_parse_mount_line(
-		"/dev/sda1 /media/usb ext4 rw invalid 0\\n", device, sizeof(device),
+		"/dev/sda1 /media/usb ext4 rw invalid 0\n", device, sizeof(device),
 		mountpoint, sizeof(mountpoint), fstype, sizeof(fstype),
 		options, sizeof(options)) != 0);
 	assert(storage_nfs_export_parse_mount_line(
-		"/dev/sda1 /media/usb ext4 rw 0 0 extra\\n", device, sizeof(device),
+		"/dev/sda1 /media/usb ext4 rw 0 0 extra\n", device, sizeof(device),
 		mountpoint, sizeof(mountpoint), fstype, sizeof(fstype),
 		options, sizeof(options)) != 0);
 	assert(storage_nfs_export_parse_mount_line(
-		"/dev/sda1 /media/usb ext4 rw 12345678901234567 0\\n",
+		"/dev/sda1 /media/usb ext4 rw 12345678901234567 0\n",
 		device, sizeof(device), mountpoint, sizeof(mountpoint),
 		fstype, sizeof(fstype), options, sizeof(options)) != 0);
 

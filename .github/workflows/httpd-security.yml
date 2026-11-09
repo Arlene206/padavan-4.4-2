@@ -4259,9 +4259,9 @@ jobs:
           assert "storage_nfs_export_next_token(&cursor, dump_frequency" in policy
           assert "storage_nfs_export_next_token(&cursor, fsck_order" in policy
           assert "storage_nfs_export_next_token(&cursor, trailing" in policy
-          assert 'ext4 rw 0\\\\n' in regression
-          assert 'ext4 rw invalid 0\\\\n' in regression
-          assert 'ext4 rw 0 0 extra\\\\n' in regression
+          assert 'ext4 rw 0\\n' in regression
+          assert 'ext4 rw invalid 0\\n' in regression
+          assert 'ext4 rw 0 0 extra\\n' in regression
           assert "ferror(procpt)" in writer and "fclose(procpt)" in writer
           assert "mkstemp(staged_path)" in writer
           assert "rename(staged_path, exports_file)" in writer
