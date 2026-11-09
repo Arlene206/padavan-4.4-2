@@ -1,3 +1,17 @@
+## 2026-11-09 20:30 CST (UTC+8) — Bound MTD Optware retries and cancel its worker during shutdown
+
+- **Base main SHA:** `652581beb0b71787096a1a74a90a3f6c32ce7cd6`; resulting commit: THIS COMMIT.
+- **Recovered exact-head state:** the previous MTD caller-contract checkpoint passed USB storage [42615347517](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42615347517) and AI handoff docs [42615347722](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42615347722), both with exact `head_sha=652581beb0b71787096a1a74a90a3f6c32ce7cd6`. The remote branch list contained only `main`.
+- **Finding:** boot-time MTD Optware retries were relaunched every five seconds indefinitely after persistent hook failures. The worker inherited PID1's blocked signal mask and signal dispositions: most importantly, PID1's SIGCHLD reaper could reap the shell child used by `system()`, while inherited shutdown handlers did not terminate the worker. No explicit worker-group stop ran before ordinary services were stopped, allowing late startup hooks to race shutdown.
+- **Fix:** retain five-second nonblocking polling but exponentially back off actual relaunch attempts from 5 seconds to a 300-second ceiling using monotonic `uptime()`; reset after successful startup. Give the worker a private process group, reset inherited signal dispositions and unblock its signal mask before `system()`, track the worker PID, and terminate its process group with TERM/KILL from `shutdown_router()` before ordinary service-stop work. Keep external hooks asynchronous and outside `storage.lock`; preserve fail-closed RWFS/UBI teardown.
+- **Regression:** extend the existing GNU89 retry-policy test with the complete backoff sequence and saturation checks. Extend the storage workflow's whole-caller-graph contract to assert worker group/signal isolation, monotonic backoff/reset, PID tracking, SIGCHLD-safe cancellation and shutdown ordering.
+- **Changed paths:** `trunk/user/rc/src/common_ex.c`, `trunk/user/rc/src/rc.c`, `trunk/user/rc/src/rc.h`, `trunk/user/rc/src/storage_optware_start_policy.h`, `trunk/user/rc/src/tests/storage_optware_start_policy.c`, `.github/workflows/storage-hotplug-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+- **Validation boundary:** L1 source/caller review PASS. L2 GNU89 policy compile/run, whole storage caller-graph contract and docs/archive validator are pending exact-head Actions for THIS COMMIT. No local full checkout or production RC build. L3 MIPS/uClibc/firmware and L4 actual UBI hooks, shutdown race injection and router hardware are NOT VERIFIED.
+- **Risk note:** a third-party daemon that deliberately changes process group/session can escape group cancellation; the existing RWFS teardown lock/result gates remain fail-closed if Optware teardown is still busy.
+- **Next:** verify exact-head storage/docs Actions. If green, audit NFS export ACL/permission mapping and external mount lifecycle across `nfsd.sh`, `services_stor.c` and RC safe-removal callers.
+
+---
+
 ## 2026-11-09 20:15 CST (UTC+8) — Remove obsolete MTD fire-and-forget workflow assertion
 
 - **Base main SHA:** `93406e8618deae765a7c9cf6033ce978e58e230a`; resulting commit: THIS COMMIT.

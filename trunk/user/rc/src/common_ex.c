@@ -835,7 +835,38 @@ void umount_rwfs_partition(void)
 
 static int rwfs_optware_result_fd = -1;
 static int rwfs_optware_start_pending = 0;
+static pid_t rwfs_optware_worker_pid = -1;
+static unsigned int rwfs_optware_retry_delay =
+	STORAGE_OPTWARE_RETRY_INITIAL_SECONDS;
+static long rwfs_optware_retry_at = 0;
 static char rwfs_optware_device[16];
+
+static void
+rwfs_optware_schedule_retry(void)
+{
+	if (rwfs_optware_retry_at != 0)
+		return;
+
+	rwfs_optware_retry_at = uptime() + (long)rwfs_optware_retry_delay;
+	rwfs_optware_retry_delay =
+		storage_optware_retry_next_delay(rwfs_optware_retry_delay);
+}
+
+static void
+rwfs_optware_start_reset_child_signals(void)
+{
+	int signal_number;
+	struct sigaction action;
+
+	memset(&action, 0, sizeof(action));
+	action.sa_handler = SIG_DFL;
+	sigemptyset(&action.sa_mask);
+	for (signal_number = 1; signal_number < _NSIG; signal_number++) {
+		if (signal_number == SIGKILL || signal_number == SIGSTOP)
+			continue;
+		(void)sigaction(signal_number, &action, NULL);
+	}
+}
 
 static int
 rwfs_optware_start_result_read(void)
@@ -863,6 +894,7 @@ rwfs_optware_start_result_read(void)
 						     (int)child_status);
 	close(rwfs_optware_result_fd);
 	rwfs_optware_result_fd = -1;
+	rwfs_optware_worker_pid = -1;
 
 	return result;
 }
@@ -905,7 +937,30 @@ rwfs_optware_start_worker(void)
 		goto failed;
 
 	if (child == 0) {
+		sigset_t child_signal_mask;
+
 		close(pipe_fd[0]);
+		if (setpgid(0, 0) != 0) {
+			child_result = 1;
+			do {
+				written = write(pipe_fd[1], &child_result, sizeof(child_result));
+			} while (written < 0 && errno == EINTR);
+			close(pipe_fd[1]);
+			(void)kill(1, SIGALRM);
+			_exit(1);
+		}
+		rwfs_optware_start_reset_child_signals();
+		sigemptyset(&child_signal_mask);
+		if (sigprocmask(SIG_SETMASK, &child_signal_mask, NULL) != 0) {
+			child_result = 1;
+			do {
+				written = write(pipe_fd[1], &child_result, sizeof(child_result));
+			} while (written < 0 && errno == EINTR);
+			close(pipe_fd[1]);
+			(void)kill(1, SIGALRM);
+			_exit(1);
+		}
+
 		command_status = system(command);
 		child_result = (command_status != -1 &&
 				WIFEXITED(command_status) &&
@@ -919,8 +974,12 @@ rwfs_optware_start_worker(void)
 		_exit(child_result == 0 ? 0 : 1);
 	}
 
+	/* Create a private process group so shutdown can stop the whole hook tree. */
+	if (setpgid(child, child) != 0 && errno != EACCES && errno != ESRCH)
+		logmessage(LOGNAME, "cannot set MTD Optware worker process group (errno %d)", errno);
 	close(pipe_fd[1]);
 	rwfs_optware_result_fd = pipe_fd[0];
+	rwfs_optware_worker_pid = child;
 	logmessage(LOGNAME, "started MTD Optware startup worker (pid %d)", (int)child);
 	return 0;
 
@@ -931,7 +990,10 @@ failed:
 	return -1;
 }
 
-/* Called only in PID 1's deferred event loop; never blocks on external hooks. */
+/*
+ * Called only in PID 1's deferred event loop; never blocks on external hooks.
+ * Poll every five seconds, but exponentially back off actual relaunch attempts.
+ */
 int
 retry_rwfs_optware(void)
 {
@@ -945,14 +1007,23 @@ retry_rwfs_optware(void)
 		return 1;
 	if (child_result == STORAGE_OPTWARE_START_CHILD_SUCCESS) {
 		rwfs_optware_start_pending = 0;
+		rwfs_optware_retry_at = 0;
+		rwfs_optware_retry_delay = STORAGE_OPTWARE_RETRY_INITIAL_SECONDS;
 		logmessage(LOGNAME, "MTD Optware startup completed successfully");
 		return 0;
 	}
 	if (child_result == STORAGE_OPTWARE_START_CHILD_FAILURE)
 		logmessage(LOGNAME, "MTD Optware startup failed; preserving pending state for retry");
 
-	if (rwfs_optware_start_worker() != 0)
+	rwfs_optware_schedule_retry();
+	if (uptime() < rwfs_optware_retry_at)
+		return 1;
+
+	rwfs_optware_retry_at = 0;
+	if (rwfs_optware_start_worker() != 0) {
 		logmessage(LOGNAME, "MTD Optware startup worker could not be relaunched; will retry");
+		rwfs_optware_schedule_retry();
+	}
 
 	return 1;
 }
@@ -971,16 +1042,82 @@ void start_rwfs_optware(void)
 	snprintf(rwfs_optware_device, sizeof(rwfs_optware_device),
 		 "/dev/ubi%d_0", mtd_rwfs);
 	rwfs_optware_start_pending = 1;
-	if (rwfs_optware_start_worker() != 0)
+	if (rwfs_optware_start_worker() != 0) {
 		logmessage(LOGNAME, "initial MTD Optware startup launch failed; will retry");
+		rwfs_optware_schedule_retry();
+	}
 	/* Poll the nonblocking result channel even if the worker does not signal. */
 	alarm(5);
+}
+
+/*
+ * Stop the boot worker before ordinary services during shutdown. The worker
+ * and its shell/hooks share a private process group; terminate that group
+ * before stopping router services. RWFS teardown remains the fail-closed
+ * backstop if a hook cannot be stopped or the lifecycle lock stays busy.
+ */
+void
+stop_rwfs_optware(void)
+{
+	sigset_t child_mask, old_mask;
+	pid_t child, waited;
+	int status, group_status;
+
+	rwfs_optware_start_pending = 0;
+	rwfs_optware_retry_at = 0;
+	rwfs_optware_retry_delay = STORAGE_OPTWARE_RETRY_INITIAL_SECONDS;
+
+	sigemptyset(&child_mask);
+	sigaddset(&child_mask, SIGCHLD);
+	if (sigprocmask(SIG_BLOCK, &child_mask, &old_mask) != 0) {
+		logmessage(LOGNAME, "cannot block SIGCHLD while stopping MTD Optware startup (errno %d)", errno);
+		return;
+	}
+
+	child = rwfs_optware_worker_pid;
+	if (child > 0) {
+		do {
+			waited = waitpid(child, &status, WNOHANG);
+		} while (waited < 0 && errno == EINTR);
+
+		if (waited == 0 || waited == child ||
+		    (waited < 0 && errno == ECHILD)) {
+			group_status = kill(-child, SIGTERM);
+			if (group_status != 0 && waited == 0)
+				(void)kill(child, SIGTERM);
+			sleep(1);
+
+			if (waited == 0) {
+				do {
+					waited = waitpid(child, &status, WNOHANG);
+				} while (waited < 0 && errno == EINTR);
+			}
+			if (waited == 0) {
+				if (kill(-child, SIGKILL) != 0)
+					(void)kill(child, SIGKILL);
+			} else {
+				/* The worker may have exited with background hooks still in its group. */
+				(void)kill(-child, SIGKILL);
+			}
+		} else if (waited < 0) {
+			logmessage(LOGNAME, "cannot inspect MTD Optware startup worker (errno %d)", errno);
+		}
+	}
+
+	rwfs_optware_worker_pid = -1;
+	if (rwfs_optware_result_fd >= 0) {
+		close(rwfs_optware_result_fd);
+		rwfs_optware_result_fd = -1;
+	}
+	if (sigprocmask(SIG_SETMASK, &old_mask, NULL) != 0)
+		logmessage(LOGNAME, "cannot restore SIGCHLD mask after stopping MTD Optware startup (errno %d)", errno);
 }
 #else
 inline void mount_rwfs_partition(void) {}
 inline void umount_rwfs_partition(void) {}
 inline void start_rwfs_optware(void) {}
 inline int retry_rwfs_optware(void) { return 0; }
+inline void stop_rwfs_optware(void) {}
 #endif
 
 static int

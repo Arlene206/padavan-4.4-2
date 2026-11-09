@@ -875,6 +875,8 @@ shutdown_router(int level)
 	int is_ap_mode = get_ap_mode();
 	const char *script_name = SCRIPT_SHUTDOWN;
 
+	/* Prevent a late Optware start hook from racing service shutdown. */
+	stop_rwfs_optware();
 	stop_misc();
 
 	if (level < 2)

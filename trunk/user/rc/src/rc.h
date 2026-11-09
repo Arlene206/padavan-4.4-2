@@ -189,6 +189,7 @@ void mount_rwfs_partition(void);
 void umount_rwfs_partition(void);
 void start_rwfs_optware(void);
 int retry_rwfs_optware(void);
+void stop_rwfs_optware(void);
 int kill_services(char* svc_name[], int wtimeout, int forcekill);
 int kill_process_pidfile(char *pidfile, int wtimeout, int forcekill);
 int create_file(const char *fn);

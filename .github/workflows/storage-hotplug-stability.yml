@@ -468,6 +468,17 @@ jobs:
           assert "storage_optware_start_decode_result" in rwfs_result_reader
           rwfs_worker = function_body(common_ex, "rwfs_optware_start_worker(void)")
           assert "pipe(pipe_fd)" in rwfs_worker and "O_NONBLOCK" in rwfs_worker
+          assert "setpgid(0, 0)" in rwfs_worker
+          assert rwfs_worker.index("setpgid(0, 0)") < rwfs_worker.index("system(command)")
+          assert "rwfs_optware_start_reset_child_signals()" in rwfs_worker
+          assert "setpgid(child, child)" in rwfs_worker
+          assert "rwfs_optware_worker_pid = child" in rwfs_worker
+          assert "sigprocmask(SIG_SETMASK, &child_signal_mask, NULL)" in rwfs_worker
+          reset_signals = function_body(common_ex, "rwfs_optware_start_reset_child_signals(void)")
+          assert "SIG_DFL" in reset_signals
+          assert "signal_number < _NSIG" in reset_signals
+          assert "signal_number == SIGKILL || signal_number == SIGSTOP" in reset_signals
+          assert "sigaction(signal_number, &action, NULL)" in reset_signals
           assert "FD_CLOEXEC" in rwfs_worker
           assert "child = fork();" in rwfs_worker
           assert "system(command)" in rwfs_worker
@@ -481,6 +492,27 @@ jobs:
           assert 'doSystem("/usr/bin/opt-mount.sh %s %s &"' not in rwfs_start
           rwfs_retry = function_body(common_ex, "retry_rwfs_optware(void)")
           assert "STORAGE_OPTWARE_START_CHILD_RUNNING" in rwfs_retry
+          assert "rwfs_optware_schedule_retry()" in rwfs_retry
+          assert "uptime() < rwfs_optware_retry_at" in rwfs_retry
+          assert "rwfs_optware_retry_delay = STORAGE_OPTWARE_RETRY_INITIAL_SECONDS" in rwfs_retry
+          retry_schedule = function_body(common_ex, "rwfs_optware_schedule_retry(void)")
+          assert "uptime()" in retry_schedule
+          assert "storage_optware_retry_next_delay" in retry_schedule
+          assert "STORAGE_OPTWARE_RETRY_INITIAL_SECONDS" in optware_policy
+          assert "STORAGE_OPTWARE_RETRY_MAX_SECONDS" in optware_policy
+          assert "retry_next_delay(160U) == 300U" in optware_policy_test
+          assert "retry_next_delay(1000U) == 300U" in optware_policy_test
+
+          stop_worker = function_body(common_ex, "stop_rwfs_optware(void)")
+          assert "rwfs_optware_start_pending = 0" in stop_worker
+          assert "sigprocmask(SIG_BLOCK" in stop_worker
+          assert "waitpid(child, &status, WNOHANG)" in stop_worker
+          assert "kill(-child, SIGTERM)" in stop_worker
+          assert "kill(-child, SIGKILL)" in stop_worker
+          assert "rwfs_optware_result_fd = -1" in stop_worker
+          assert "void stop_rwfs_optware(void);" in rc_header
+          shutdown = function_body(rc, "shutdown_router(int level)")
+          assert shutdown.index("stop_rwfs_optware();") < shutdown.index("stop_misc();")
           assert "STORAGE_OPTWARE_START_CHILD_SUCCESS" in rwfs_retry
           assert "rwfs_optware_start_pending = 0" in rwfs_retry
           assert "STORAGE_OPTWARE_START_CHILD_FAILURE" in rwfs_retry

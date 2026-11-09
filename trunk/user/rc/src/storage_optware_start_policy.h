@@ -21,4 +21,18 @@ storage_optware_start_decode_result(int bytes_read, int child_status)
 		STORAGE_OPTWARE_START_CHILD_FAILURE;
 }
 
+#define STORAGE_OPTWARE_RETRY_INITIAL_SECONDS 5U
+#define STORAGE_OPTWARE_RETRY_MAX_SECONDS 300U
+
+/* Double the retry interval up to five minutes; zero/invalid starts at 5s. */
+static inline unsigned int
+storage_optware_retry_next_delay(unsigned int current_delay)
+{
+	if (current_delay < STORAGE_OPTWARE_RETRY_INITIAL_SECONDS)
+		return STORAGE_OPTWARE_RETRY_INITIAL_SECONDS;
+	if (current_delay >= STORAGE_OPTWARE_RETRY_MAX_SECONDS / 2U)
+		return STORAGE_OPTWARE_RETRY_MAX_SECONDS;
+	return current_delay * 2U;
+}
+
 #endif /* PADAVAN_STORAGE_OPTWARE_START_POLICY_H */
