@@ -929,7 +929,7 @@ write_nfsd_exports(void)
 	char acl_lan[32], acl_vpn[32], staged_path[] = "/etc/.exports.XXXXXX";
 	const char *exports_link = "/etc/storage/exports";
 	const char *exports_file = "/etc/exports";
-	const char *exports_rule = "async,insecure,no_root_squash,no_subtree_check";
+	const char *exports_rule = STORAGE_NFS_EXPORT_DEFAULT_OPTIONS;
 	char *nfsmm, *acl_addr, *acl_mask;
 	int fd = -1, read_error, close_error, parse_error = 0;
 	int close_status, output_error = 0, saved_errno = 0;

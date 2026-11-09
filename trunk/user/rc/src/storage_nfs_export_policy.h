@@ -8,6 +8,16 @@
 #include <string.h>
 
 /*
+ * AUTH_SYS takes numeric UID/GID values from each client request. Keep the
+ * historical no_root_squash mapping for compatibility, but require the
+ * reserved client source-port check: insecure disables it and lets an
+ * unprivileged process on an admitted network claim UID 0. Root-squash is a
+ * separate policy decision because it changes existing root-owned file access.
+ */
+#define STORAGE_NFS_EXPORT_DEFAULT_OPTIONS \
+	"async,secure,no_root_squash,no_subtree_check"
+
+/*
  * Build a canonical IPv4 client network for an NFS export. The legacy
  * ip2class() helper accepts unchecked inet_addr() results and counts every
  * set bit in the netmask, so a non-contiguous mask can become a different,

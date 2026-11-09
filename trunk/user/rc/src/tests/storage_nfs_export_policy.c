@@ -14,6 +14,12 @@ main(void)
 	char ipv6_acl[INET6_ADDRSTRLEN + 4];
 #endif
 
+	/* Keep client source ports privileged without changing legacy root mapping. */
+	assert(strcmp(STORAGE_NFS_EXPORT_DEFAULT_OPTIONS,
+		      "async,secure,no_root_squash,no_subtree_check") == 0);
+	assert(strstr(STORAGE_NFS_EXPORT_DEFAULT_OPTIONS, "insecure") == NULL);
+	assert(strstr(STORAGE_NFS_EXPORT_DEFAULT_OPTIONS, "no_root_squash") != NULL);
+
 	/* Canonical IPv4 ACLs must preserve valid CIDR scope exactly. */
 	assert(storage_nfs_export_format_ipv4_acl(
 		"192.168.1.42", "255.255.255.0",
@@ -163,6 +169,6 @@ main(void)
 	assert(!storage_nfs_export_may_start(0, 0));
 	assert(!storage_nfs_export_may_start(1, -1));
 
-	puts("Storage NFS export inventory, IPv6 ACL and start gate: PASS");
+	puts("Storage NFS source-port policy, inventory, IPv6 ACL and start gate: PASS");
 	return 0;
 }

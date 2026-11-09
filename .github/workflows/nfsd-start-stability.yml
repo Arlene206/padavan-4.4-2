@@ -122,6 +122,15 @@ jobs:
           assert 'NFS daemon reload failed (status %d)' in reload_nfsd
 
           export_writer = function_body(service, "write_nfsd_exports(void)")
+          assert "STORAGE_NFS_EXPORT_DEFAULT_OPTIONS" in export_writer
+          assert "#define STORAGE_NFS_EXPORT_DEFAULT_OPTIONS" in policy
+          assert '"async,secure,no_root_squash,no_subtree_check"' in policy
+          assert "insecure,no_root_squash" not in export_writer
+          assert "async,insecure,no_root_squash,no_subtree_check" not in service
+          assert 'strstr(STORAGE_NFS_EXPORT_DEFAULT_OPTIONS, "insecure") == NULL' in policy_test
+          assert 'strstr(STORAGE_NFS_EXPORT_DEFAULT_OPTIONS, "no_root_squash") != NULL' in policy_test
+          assert export_writer.index("if (check_if_file_exist(exports_link))") < export_writer.index('procpt = fopen(PROC_MOUNTS_FILE, "r")')
+          assert "symlink(exports_link, staged_path)" in export_writer
           assert "storage_nfs_export_format_ipv4_acl" in export_writer
           assert "acl_ipv4_status < 0" in export_writer
           assert "acl_vpn_status < 0" in export_writer
@@ -143,7 +152,7 @@ jobs:
           assert "prefix_length < 48U" in policy
           assert '"64;rw,no_root_squash"' in policy_test
           assert '"2001:db8::1) 0.0.0.0/0(rw)"' in policy_test
-          assert "Storage NFS export inventory, IPv6 ACL and start gate: PASS" in policy_test
+          assert "Storage NFS source-port policy, inventory, IPv6 ACL and start gate: PASS" in policy_test
 
           push_filters = workflow.split("  push:", 1)[1].split("  pull_request:", 1)[0]
           pr_filters = workflow.split("  pull_request:", 1)[1].split("  workflow_dispatch:", 1)[0]
