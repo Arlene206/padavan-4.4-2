@@ -1,3 +1,16 @@
+## 2026-11-09 — Propagate NFS stop failures before storage detach
+
+- **Base main SHA:** `656e9819f1de186767738a6d49aedbd171f26ff0`; resulting commit: THIS COMMIT.
+- **Recovered baseline:** remote branches contained only `main`. HTTPD/security [42594767916](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42594767916) and AI handoff docs [42594767915](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42594767915) passed on exact SHA `656e9819f1de186767738a6d49aedbd171f26ff0`. Prior NFS mount-inventory/restart-preflight work is complete and not repeated.
+- **Finding:** NFS stop previously ignored daemon termination, `exportfs -ua` and pseudo-filesystem unmount results. `etab` removal could erase recovery evidence after an incomplete stop. C `stop_nfsd()` dropped the shell result and storage eject continued to unmount the device.
+- **Implementation:** wait for both `rpc.mountd` and `nfsd`, escalate only after a bounded graceful window, verify exit, check export withdrawal, and use tri-state `/proc/mounts` handling (absent / present / unreadable) for `rpc_pipefs` and `nfsd`. Retain `etab` on failure. Gate shell restart on successful stop; propagate return status through C stop/restart APIs and RC applets/notifications; abort per-device and eject-all removal before unmount while freeing staged data and releasing the storage lock.
+- **Regression coverage:** storage-hotplug workflow now watches `nfsd.sh` and `rc.h`, runs `sh -n`, and checks shell/C/RC propagation plus both safe-eject abort paths and lock cleanup.
+- **Changed paths:** `trunk/user/nfs-utils/nfsd.sh`, `trunk/user/rc/src/services_stor.c`, `trunk/user/rc/src/rc.h`, `trunk/user/rc/src/rc.c`, `.github/workflows/storage-hotplug-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+- **Validation:** source transformations and regression-contract invariants checked against the exact base blobs before creating Git objects. No local checkout is available; no local shell syntax, compiler, Python workflow test or docs-validator run is claimed. Exact-head storage/docs Actions are pending.
+- **Validation boundary:** L1 bounded source review PASS; L2 for this commit PENDING exact-head Actions. No production MIPS/uClibc object, firmware/TRX, live NFS export/stop, USB detach or physical router test.
+- **Next:** reconcile exact-head storage/docs Actions. If green, audit NFS start/reload partial failure and cleanup, then rotate to arbitrary Optware/third-party service hooks and init ordering. Keep Samba account/ACL, vsftpd confinement, DHCP callback state and the separate FULLCONENAT kernel namespace audit open.
+
+---
 ## 2026-11-09 17:35 CST (UTC+8) — Preserve NFS service when mount inventory is incomplete
 
 - **Base main SHA:** `d5cd264e5fda1568d8c1872bac09c0a4ec0da233`; resulting commit: THIS COMMIT.

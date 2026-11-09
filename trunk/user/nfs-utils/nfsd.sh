@@ -53,28 +53,70 @@ func_reload()
 	fi
 }
 
+func_unmount_if_mounted()
+{
+	mountpoint="$1"
+
+	grep -q " $mountpoint " /proc/mounts
+	mount_status=$?
+	if [ "$mount_status" -eq 1 ]; then
+		return 0
+	fi
+	[ "$mount_status" -eq 0 ] || return 1
+
+	umount "$mountpoint" 2>/dev/null || return 1
+	grep -q " $mountpoint " /proc/mounts
+	mount_status=$?
+	[ "$mount_status" -eq 1 ]
+}
+
 func_stop()
 {
-	killall -q rpc.mountd
-	killall -q -2 nfsd
+	status=0
+
+	# Stop rpc.mountd and the kernel NFS server before touching export state.
+	[ -n "`pidof rpc.mountd`" ] && killall -q rpc.mountd
+	[ -n "`pidof nfsd`" ] && killall -q -2 nfsd
 
 	for i in 1 2 3 ; do
-		[ -z "`pidof nfsd`" ] && break
+		[ -z "`pidof rpc.mountd`" ] && [ -z "`pidof nfsd`" ] && break
 		sleep 1
 	done
 
+	# Force termination only after the graceful stop window has expired.
+	[ -n "`pidof rpc.mountd`" ] && killall -q -9 rpc.mountd
 	[ -n "`pidof nfsd`" ] && killall -q -9 nfsd
 
-	if [ -n "`pidof rpcbind`" ] ; then
-		if [ -f /var/lib/nfs/etab ] ; then
-			/sbin/exportfs -ua
-		fi
+	for i in 1 2 3 ; do
+		[ -z "`pidof rpc.mountd`" ] && [ -z "`pidof nfsd`" ] && break
+		sleep 1
+	done
+
+	# Never unexport or detach pseudo-filesystems while either server survives.
+	if [ -n "`pidof rpc.mountd`" ] || [ -n "`pidof nfsd`" ] ; then
+		status=1
 	fi
 
-	umount /var/lib/nfs/rpc_pipefs 2>/dev/null
-	umount /proc/fs/nfsd 2>/dev/null
+	# etab records exported state. Keep it as recovery evidence on any failure.
+	if [ "$status" -eq 0 ] && [ -f /var/lib/nfs/etab ] ; then
+		/sbin/exportfs -ua || status=1
+	fi
 
-	rm -f /var/lib/nfs/etab
+	if [ "$status" -eq 0 ] ; then
+		func_unmount_if_mounted /var/lib/nfs/rpc_pipefs || status=1
+	fi
+	if [ "$status" -eq 0 ] ; then
+		func_unmount_if_mounted /proc/fs/nfsd || status=1
+	fi
+
+	if [ "$status" -eq 0 ] ; then
+		rm -f /var/lib/nfs/etab || status=1
+	fi
+
+	if [ "$status" -ne 0 ] ; then
+		logger -t "NFS server" "stop incomplete; retaining NFS state"
+	fi
+	return "$status"
 }
 
 case "$1" in
@@ -85,7 +127,7 @@ stop)
 	func_stop
 	;;
 restart)
-	func_stop
+	func_stop || exit $?
 	sleep 1
 	func_start
 	;;

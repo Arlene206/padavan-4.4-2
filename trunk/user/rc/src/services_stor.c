@@ -1118,9 +1118,9 @@ void unload_nfsd(void)
 	module_smart_unload("sunrpc", 0);
 }
 
-void stop_nfsd(void)
+int stop_nfsd(void)
 {
-	eval("/usr/bin/nfsd.sh", "stop");
+	return eval("/usr/bin/nfsd.sh", "stop");
 }
 
 void
@@ -1157,22 +1157,22 @@ reload_nfsd(void)
 	eval("/usr/bin/nfsd.sh", "reload");
 }
 
-void restart_nfsd(void)
+int restart_nfsd(void)
 {
 	int mount_count;
 
-	/*
-	 * Do not stop a running NFS service until the mount inventory is known
-	 * to be complete. A transient /proc/mounts error is not an empty disk.
-	 */
+	/* Resolve storage state before stopping a working server. */
 	mount_count = count_stor_mountpoint();
-	if (!storage_mount_inventory_is_complete(mount_count)) {
-		logmessage("Storage", "cannot determine mounted storage from %s during NFS restart; preserving the current NFS service and support state",
+	if (mount_count < 0) {
+		logmessage("Storage", "cannot determine mounted storage from %s during NFS restart; keeping NFS support running",
 			   PROC_MOUNTS_FILE);
-		return;
+		return -1;
 	}
 
-	stop_nfsd();
+	if (stop_nfsd() != 0) {
+		logmessage("Storage", "NFS server stop failed; refusing restart or module unload");
+		return -1;
+	}
 
 	if (nvram_match("nfsd_enable", "1") &&
 	    storage_mount_inventory_has_mounts(mount_count)) {
@@ -1181,6 +1181,8 @@ void restart_nfsd(void)
 	} else {
 		unload_nfsd();
 	}
+
+	return 0;
 }
 #endif
 
@@ -2157,13 +2159,18 @@ umount_stor_path(disk_info_t *disks_info, int port, const char *dev_name, int do
 				      dev_name, do_spindown);
 }
 
-void
+int
 stop_stor_apps(void)
 {
 	int need_restart_fw = 0;
 
+int stop_status = 0;
+
 #if defined (APP_NFSD)
-	stop_nfsd();
+	if (stop_nfsd() != 0) {
+		logmessage("Storage", "NFS server did not stop cleanly; storage removal must be aborted");
+		stop_status = -1;
+	}
 #endif
 #if defined (APP_SMBD)
 	stop_samba(0);
@@ -2190,6 +2197,8 @@ stop_stor_apps(void)
 
 	if (need_restart_fw && nvram_match("fw_enable_x", "1"))
 		restart_firewall();
+
+	return stop_status;
 }
 
 void
@@ -2341,8 +2350,12 @@ safe_remove_stor_device(int port_b, int port_e, const char *dev_name, int do_spi
 	}
 
 	if (has_mounted_port || has_swapon_port) {
-		if (has_mounted_port)
-			stop_stor_apps();
+		if (has_mounted_port && stop_stor_apps() != 0) {
+			logmessage("Storage", "safe removal aborted because NFS could not be stopped");
+			free_disk_data(disks_info);
+			file_unlock(storage_lock);
+			return;
+		}
 
 		/* Stage one inventory for the whole requested port range. */
 		unmount_status = umount_stor_path_range(disks_info, port_b, port_e,
@@ -2383,7 +2396,12 @@ safe_remove_all_stor_devices(int do_spindown)
 		return;
 	}
 
-	stop_stor_apps();
+	if (stop_stor_apps() != 0) {
+		logmessage("Storage", "eject-all aborted because NFS could not be stopped");
+		file_unlock(storage_lock);
+		return;
+	}
+
 	disks_info = read_disk_data();
 	path_status = umount_stor_path(disks_info, 0, NULL, do_spindown);
 	free_disk_data(disks_info);

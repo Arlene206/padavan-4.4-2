@@ -1143,7 +1143,7 @@ handle_notifications(void)
 #if defined(APP_NFSD)
 		else if (strcmp(entry->d_name, RCN_RESTART_NFSD) == 0)
 		{
-			restart_nfsd();
+			action_result = restart_nfsd();
 		}
 #endif
 #if defined(APP_MINIDLNA)
@@ -1745,7 +1745,7 @@ main(int argc, char **argv)
 	}
 #if defined(APP_NFSD)
 	else if (!strcmp(base, "stop_nfsd")) {
-		stop_nfsd();
+		ret = stop_nfsd();
 	}
 #endif
 #if defined(APP_MINIDLNA)

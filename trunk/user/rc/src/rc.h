@@ -662,10 +662,10 @@ void restart_smbd(void);
 #endif
 #if defined (APP_NFSD)
 void unload_nfsd(void);
-void stop_nfsd(void);
+int stop_nfsd(void);
 void run_nfsd(void);
 void reload_nfsd(void);
-void restart_nfsd(void);
+int restart_nfsd(void);
 #endif
 #if defined (APP_MINIDLNA)
 int is_dms_run(void);

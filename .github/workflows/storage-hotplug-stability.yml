@@ -5,6 +5,8 @@ on:
     paths:
       - ".github/workflows/storage-hotplug-stability.yml"
       - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/nfs-utils/nfsd.sh"
       - "trunk/user/rc/src/hotplug_stor.c"
       - "trunk/user/rc/src/storage_operation_lock.h"
       - "trunk/user/rc/src/storage_partition_probe.h"
@@ -27,6 +29,8 @@ on:
     paths:
       - ".github/workflows/storage-hotplug-stability.yml"
       - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/nfs-utils/nfsd.sh"
       - "trunk/user/rc/src/hotplug_stor.c"
       - "trunk/user/rc/src/storage_operation_lock.h"
       - "trunk/user/rc/src/storage_partition_probe.h"
@@ -51,6 +55,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Check NFS service stop script syntax
+        run: sh -n trunk/user/nfs-utils/nfsd.sh
       - name: Verify Optware startup and teardown lock regression
         run: |
           set -eu
@@ -84,6 +90,8 @@ jobs:
           policy = (rc_dir / "storage_ejected_inventory_policy.h").read_text()
           rc = (rc_dir / "rc.c").read_text()
           workflow = Path(".github/workflows/storage-hotplug-stability.yml").read_text()
+          nfs_script = Path("trunk/user/nfs-utils/nfsd.sh").read_text()
+          rc_header = (rc_dir / "rc.h").read_text()
 
           def function_body(text, signature):
               start = text.index(signature)
@@ -178,7 +186,7 @@ jobs:
           safe_remove = function_body(storage, "safe_remove_stor_device(")
           assert safe_remove.index("storage_operation_lock_acquire(file_lock)") < safe_remove.index("read_disk_data()")
           assert "umount_ejected_locked()" in safe_remove
-          assert safe_remove.count("file_unlock(storage_lock);") == 2
+          assert safe_remove.count("file_unlock(storage_lock);") == 3
           assert "umount_ejected();" not in safe_remove
 
           remove_all = function_body(storage, "safe_remove_all_stor_devices(")
@@ -186,7 +194,7 @@ jobs:
           assert "if (path_status == 0)" in remove_all
           assert remove_all.index("if (path_status == 0)") < remove_all.index("fallback_status = umount_all_storage();")
           assert "refusing fallback unmount" in remove_all
-          assert remove_all.count("file_unlock(storage_lock);") == 1
+          assert remove_all.count("file_unlock(storage_lock);") == 2
 
           deferred_start = function_body(storage, "try_start_stor_apps(void)")
           assert deferred_start.index("storage_operation_lock_acquire(file_lock)") < deferred_start.index("storage_has_mounted_devices(")
@@ -283,13 +291,20 @@ jobs:
           assert "skipping all selected unmounts because swapoff did not complete" in path_range
 
           safe_remove = function_body(storage, "safe_remove_stor_device(")
-          assert safe_remove.index("stop_stor_apps();") < safe_remove.index("umount_stor_path_range(")
+          stop_gate = safe_remove.index("if (has_mounted_port && stop_stor_apps() != 0)")
+          stop_abort = safe_remove.index("return;", stop_gate)
+          assert stop_gate < stop_abort < safe_remove.index("umount_stor_path_range(")
+          assert "free_disk_data(disks_info);" in safe_remove[stop_gate:stop_abort]
+          assert "file_unlock(storage_lock);" in safe_remove[stop_gate:stop_abort]
           assert safe_remove.index("umount_stor_path_range(") < safe_remove.index("umount_ejected_locked()")
           assert "unmount_status != 0 || ejected_status != 0" in safe_remove
           assert "mount_count < 0 || unmount_status != 0 || ejected_status != 0" in safe_remove
 
           remove_all = function_body(storage, "safe_remove_all_stor_devices(")
-          assert remove_all.index("stop_stor_apps();") < remove_all.index("read_disk_data()")
+          stop_gate = remove_all.index("if (stop_stor_apps() != 0)")
+          stop_abort = remove_all.index("return;", stop_gate)
+          assert stop_gate < stop_abort < remove_all.index("read_disk_data()")
+          assert "file_unlock(storage_lock);" in remove_all[stop_gate:stop_abort]
           assert remove_all.index("read_disk_data()") < remove_all.index("umount_stor_path(")
           assert "refusing fallback unmount" in remove_all
 
@@ -368,9 +383,34 @@ jobs:
               "trunk/user/scripts/files/sbin/automount.sh",
               "trunk/user/scripts/files/sbin/spindown.sh",
               "trunk/user/optware/opt-mount.sh",
+              "trunk/user/nfs-utils/nfsd.sh",
+              "trunk/user/rc/src/rc.h",
           ):
               assert push_filters.count(path) == 1
               assert pr_filters.count(path) == 1
 
+          # NFS stop must not claim success while daemons, exports or pseudo-mounts remain.
+          nfs_stop = function_body(nfs_script, "func_stop()")
+          nfs_umount = function_body(nfs_script, "func_unmount_if_mounted()")
+          assert "pidof rpc.mountd" in nfs_stop and "pidof nfsd" in nfs_stop
+          assert "killall -q -9 rpc.mountd" in nfs_stop and "killall -q -9 nfsd" in nfs_stop
+          assert 'return "$status"' in nfs_stop
+          assert '"$mount_status" -eq 1' in nfs_umount and '"$mount_status" -eq 0' in nfs_umount
+          assert 'umount "$mountpoint"' in nfs_umount
+          assert nfs_stop.index('/sbin/exportfs -ua') < nfs_stop.index('func_unmount_if_mounted /var/lib/nfs/rpc_pipefs')
+          assert nfs_stop.index('func_unmount_if_mounted /var/lib/nfs/rpc_pipefs') < nfs_stop.index('func_unmount_if_mounted /proc/fs/nfsd')
+          assert nfs_stop.index('func_unmount_if_mounted /proc/fs/nfsd') < nfs_stop.index('rm -f /var/lib/nfs/etab')
+          restart_case = nfs_script[nfs_script.index('restart)'):nfs_script.index('reload)')]
+          assert restart_case.index('func_stop || exit $?') < restart_case.index('func_start')
+          stop_nfsd = function_body(storage, "int stop_nfsd(void)")
+          assert 'return eval("/usr/bin/nfsd.sh", "stop");' in stop_nfsd
+          assert "int stop_nfsd(void);" in rc_header and "int restart_nfsd(void);" in rc_header
+          stop_apps = function_body(storage, "stop_stor_apps(void)")
+          assert "if (stop_nfsd() != 0)" in stop_apps and "return stop_status;" in stop_apps
+          restart_nfsd = function_body(storage, "int restart_nfsd(void)")
+          assert restart_nfsd.index("count_stor_mountpoint()") < restart_nfsd.index("stop_nfsd()")
+          assert 'if (stop_nfsd() != 0)' in restart_nfsd
+          assert restart_nfsd.index('if (stop_nfsd() != 0)') < restart_nfsd.index('run_nfsd();')
+          assert 'action_result = restart_nfsd();' in rc and 'ret = stop_nfsd();' in rc
           print("USB storage hotplug full caller graph, lock ordering and teardown contracts: PASS")
           PY
