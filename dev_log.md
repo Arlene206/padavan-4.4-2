@@ -1,3 +1,16 @@
+## 2026-11-09 21:27 CST (UTC+8) — Correct NFS policy header conditional guard after exact-head compile failure
+
+- **Base main SHA:** `ef1aec7b10389eaf240c20b5e999d80ef48996d1`; resulting commit: THIS COMMIT.
+- **Exact-head Actions:** storage [42624781463](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42624781463), Samba [42624781449](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42624781449), vsftpd [42624781407](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42624781407) and AI docs [42624781292](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42624781292) all SUCCESS on exact SHA. NFS [42624781415](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42624781415) and HTTPD [42624781560](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42624781560) failed during compile of `storage_nfs_export_policy.h`; each run's full `head_sha` matched `ef1aec7b10389eaf240c20b5e999d80ef48996d1`.
+- **Finding:** the new unconditional IPv4 includes and old IPv6-only block left two consecutive `#if defined (USE_IPV6)` openings but only one corresponding close, so the outer include guard was unterminated. NFS shell syntax and lifecycle fixture passed; the HTTPD NFS-policy step was reached after all preceding checks succeeded.
+- **Fix:** remove the duplicate opening conditional only; retain one IPv6 helper guard and the final header include guard. No production ACL algorithm, caller behavior or historic exports options changed.
+- **Changed paths:** `trunk/user/rc/src/storage_nfs_export_policy.h`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+- **Validation:** preprocessor directive balance checked from the fetched exact source (outer include guard and one IPv6 block balanced); NFS/HTTPD Actions compile reruns pending on THIS commit's exact head. No local complete checkout or target build claimed.
+- **Validation boundary:** L3 MIPS/uClibc/production RC object, complete firmware/TRX and L4 physical-router NFS behavior remain NOT VERIFIED.
+- **Next:** reconcile all Actions for THIS exact SHA; only then continue the NFS AUTH_SYS identity, `no_root_squash`, `async`, `insecure`, custom-exports and external-mount audit.
+
+---
+
 ## 2026-11-09 21:20 CST (UTC+8) — Validate NFS LAN and VPN IPv4 export networks
 
 - **Base main SHA:** `3c879e06efa256ffbf376848ad69359a9098330e`; resulting commit: THIS COMMIT.

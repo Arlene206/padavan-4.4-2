@@ -5,49 +5,51 @@
 ## Current repository state
 
 - Maintained fork: `Arlene206/padavan-4.4-2`; do not substitute the upstream repository.
-- Live `main` base for the NFS IPv4 ACL validation fix: `3c879e06efa256ffbf376848ad69359a9098330e`; active branch: `main`; no separate checkpoint branch exists.
-- The preceding storage contract correction is green: USB storage [42623404967](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42623404967) and AI handoff docs [42623405148](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42623405148) both completed SUCCESS with exact `head_sha=3c879e06efa256ffbf376848ad69359a9098330e`. It corrected only the stale caller-graph assertion; no production behavior changed.
-- The NFS exact mount-tuple implementation previously passed NFS daemon start/reload [42622521213](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42622521213) on exact SHA `eb21523750bc3218121f5adf3457c587d8e9a6e0`; NFS production source has not changed since that run. New NFS/storage/HTTPD/docs Actions are required for THIS commit.
-- The dedicated NFS and USB storage caller-graph checks now both cover the exact pseudo-filesystem tuple and checked service stop/reload paths. Keep storage, Samba, FTP and other module coverage rotating.
+- Live `main` base for this preprocessor-guard correction: `ef1aec7b10389eaf240c20b5e999d80ef48996d1`; active branch: `main`; no separate checkpoint branch exists.
+- The IPv4 NFS LAN/VPN ACL formatter and its tests were implemented in `ef1aec7b10389eaf240c20b5e999d80ef48996d1`. Exact-head Actions:
+  - USB storage [42624781463](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42624781463): **SUCCESS**.
+  - Samba [42624781449](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42624781449): **SUCCESS**.
+  - vsftpd [42624781407](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42624781407): **SUCCESS**.
+  - AI handoff docs [42624781292](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42624781292): **SUCCESS**.
+  - NFS daemon lifecycle [42624781415](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42624781415): **FAILURE** at the GNU89 policy compile; NFS shell syntax and start/reload lifecycle fixture passed before it.
+  - HTTPD security [42624781560](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42624781560): **FAILURE** at the shared NFS export policy compile; all preceding HTTPD/storage/etc. checks in that job passed.
+- All six full `head_sha` values exactly matched `ef1aec7b10389eaf240c20b5e999d80ef48996d1`. Failure logs identify a duplicate nested `#if defined (USE_IPV6)` in `storage_nfs_export_policy.h`, leaving the outer header guard unterminated. This is a preprocessing/build-contract defect, not a failing ACL assertion or NFS runtime fixture.
 
 ## Active task
 
-### Reject malformed or non-contiguous IPv4 ACL networks before NFS export publication
+### Finish strict NFS IPv4 LAN/VPN ACL validation and restore the policy header guard
 
-P2 security/reliability. During the NFS root/ACL audit, `write_nfsd_exports()` was found to build both LAN and VPN IPv4 client prefixes with `ip2class()`. That helper uses unchecked `inet_addr()` values and counts all set bits in the mask rather than validating that the mask is a contiguous prefix. The LAN path only called `is_valid_ipv4()`, which checks parseability, not contiguous netmask semantics; the VPN path passed `vpns_vnet` directly without validating it. A non-contiguous LAN mask could therefore be misrepresented as a different CIDR prefix, while malformed VPN network state could produce an unintended ACL. A new NFS-specific formatter rejects invalid input and creates a canonical network prefix.
+P2 security/reliability. `write_nfsd_exports()` previously built LAN and VPN IPv4 ACLs using legacy `ip2class()`, which consumes unchecked `inet_addr()` values and counts all set netmask bits instead of checking for a contiguous prefix. The LAN's existing `is_valid_ipv4()` check validated parseability but not mask contiguity; the VPN path passed the configured network without equivalent validation. This could represent a non-contiguous mask as a different CIDR range.
+
+The strict formatter and fail-closed callers are already in `ef1aec7b10389eaf240c20b5e999d80ef48996d1`, but the first exact-head compile exposed an extra nested IPv6 preprocessor guard introduced alongside the new unconditional IPv4 includes. The corrective commit removes only that redundant opening guard, leaving the existing IPv6 helper block and its closing guard intact.
 
 ### Implementation in THIS commit
 
-- Add a strict dotted-quad IPv4 ACL formatter with canonical network calculation, contiguous-netmask validation, explicit rejection of `/0`, unspecified and all-ones addresses, and truncation checks.
-- Use the same formatter for the configured LAN ACL and every enabled VPN ACL path. Invalid configured networks fail closed before the staged `/etc/exports` file is published; preserve the last known-good exports file.
-- Leave the historical `async,insecure,no_root_squash,no_subtree_check` export options unchanged pending compatibility review. The security fix is limited to reliable, correctly scoped client network ACLs.
-- Extend GNU89 host regression for canonical /24, /32 and /1 networks, non-contiguous masks, /0, malformed/injection-like input, unspecified/broadcast addresses and short output buffers. Extend NFS workflow source contracts to ensure the writer no longer calls the unchecked legacy helper.
+- Remove the duplicate `#if defined (USE_IPV6)` directive in `storage_nfs_export_policy.h`; preserve exactly one guard around the existing IPv6-only helpers and keep the outer include guard balanced.
+- Do not change the IPv4 formatter, LAN/VPN fail-closed export publication, or the historical `async,insecure,no_root_squash,no_subtree_check` option tuple.
 
 ### Files changed
 
 - `trunk/user/rc/src/storage_nfs_export_policy.h`
-- `trunk/user/rc/src/tests/storage_nfs_export_policy.c`
-- `trunk/user/rc/src/services_stor.c`
-- `.github/workflows/nfsd-start-stability.yml`
 - `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`
 
 ### Verification boundary
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for validating both LAN and enabled VPN IPv4 ACLs, rejecting non-contiguous masks and unrestricted /0, canonicalizing the network prefix, and preserving prior exports on validation failure. |
-| L2 host / Actions | Base `3c879e06efa256ffbf376848ad69359a9098330e`: USB storage run 42623404967 and AI docs 42623405148 SUCCESS on exact SHA. Dedicated NFS run 42622521213 SUCCESS on unchanged NFS source at exact SHA `eb21523750bc3218121f5adf3457c587d8e9a6e0`. This commit's GNU89 IPv4/IPv6 policy test, NFS/storage/HTTPD and AI-doc exact-head workflows are pending. |
+| L1 source review | PASS for locating the duplicate nested guard and confirming the corrected preprocessor nesting is balanced; production IPv4 ACL semantics unchanged. |
+| L2 host / Actions | Base `ef1aec7b10389eaf240c20b5e999d80ef48996d1`: storage, Samba, vsftpd and docs passed exact-head Actions. NFS and HTTPD failed at compilation of the same shared header with `unterminated #ifndef`; NFS shell syntax/lifecycle and preceding HTTPD checks passed. This correction's NFS/HTTPD/storage/docs exact-head reruns are pending. |
 | L3 MIPS/uClibc / production RC object / full firmware/TRX | NOT VERIFIED. |
-| L4 actual NFS AUTH_SYS/root mapping, NFS client access control and physical-router export lifecycle | NOT VERIFIED. |
+| L4 NFS AUTH_SYS/root mapping, export permission behavior and physical-router lifecycle | NOT VERIFIED. |
 
-No local complete repository checkout or local build of the production RC object is available. The actual helper/contract regression runs under the repository's GNU89 GitHub Actions; do not claim target compiler or firmware validation. No change is made yet to the legacy root-squash, transport-port or sync/async options; their compatibility and risk remain a separate review item.
+No local complete checkout or target compiler run is claimed. The GitHub Actions GNU89 host compile is the current source-policy validation boundary; production RC object, MIPS/uClibc, firmware/TRX and router testing remain unverified.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, all branches and every Actions run for the resulting full SHA. Verify the dedicated NFS IPv4/IPv6 GNU89 policy test, NFS lifecycle, USB storage caller graph, HTTPD security and AI handoff docs; inspect logs for failures.
-2. A malformed LAN or enabled VPN ACL must prevent `/etc/exports` publication and NFS start/reload. Do not change this to silently omit an invalid ACL or to widen its network.
-3. If green, continue the NFS options/identity compatibility review: `no_root_squash` and AUTH_SYS UID/GID mapping, `async` durability, `insecure` source ports, operator-provided `/etc/storage/exports` override semantics and external-mount behavior. Preserve the existing option tuple until an explicit compatibility decision is supported.
-4. Then rotate to Samba passdb/account mutation, ACL/permission and credential security; keep vsftpd authentication/path confinement, DHCP leasefail/NAK/release callback state, FULLCONENAT queue namespace ownership and cross-module shutdown races open. L3/L4 remain unverified until actual target build and device tests.
+1. Fetch live `main`, all branches and every Actions run for its exact full SHA. Confirm NFS IPv4/IPv6 policy compile, NFS lifecycle, HTTPD's shared NFS policy compile, USB storage caller graph, Samba/vsftpd and AI docs; inspect all failures.
+2. Do not weaken the strict contiguous-mask check, rejection of `/0`, or the fail-closed behavior for malformed LAN/VPN state.
+3. Once all affected Actions are green, resume the NFS export option/identity audit: `no_root_squash` and AUTH_SYS UID/GID mapping, `async` durability, `insecure` client source ports, operator-provided `/etc/storage/exports` override semantics and external-mount support. Keep historical options unchanged until compatibility implications are understood.
+4. Then rotate to Samba passdb/account mutation, ACL/permission and credential security. Keep vsftpd authentication/path confinement, DHCP leasefail/NAK/release callback state, FULLCONENAT queue namespace ownership and cross-module shutdown races open. L3/L4 remain unverified until actual target build and device tests.
 
 ## Documentation maintenance
 

@@ -67,9 +67,6 @@ storage_nfs_export_format_ipv4_acl(const char *address, const char *netmask,
 
 #if defined (USE_IPV6)
 
-
-#if defined (USE_IPV6)
-
 /* Parse a decimal value without accepting signs, whitespace or overflow. */
 static int
 storage_nfs_export_parse_decimal_range(const char *value,
