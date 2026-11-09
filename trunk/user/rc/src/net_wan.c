@@ -1348,8 +1348,8 @@ man_up(char *man_ifname, int unit, int is_static)
 	start_igmpproxy(man_ifname);
 }
 
-void
-man_down(char *man_ifname, int unit)
+static void
+man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)
 {
 	int wan_proto, is_modem_active, is_man_dns_auto;
 	char *next, *man_gate, *man_addr, *man_mask, *man_dns;
@@ -1391,6 +1391,13 @@ man_down(char *man_ifname, int unit)
 	del_dhcp_routes_by_prefix("wanx_", man_ifname, 0);
 	del_static_man_routes(man_ifname);
 
+	/*
+	 * The off-subnet gateway host route above is derived from this lease's
+	 * address and netmask.  Keep the old address until that route is removed.
+	 */
+	if (clear_dhcp_address)
+		nvram_set_temp("wanx_ipaddr", "0.0.0.0");
+
 	nvram_set_temp("wanx_gateway", "");
 	nvram_set_temp("wanx_dns", "");
 	nvram_set_temp("wanx_domain", "");
@@ -1404,6 +1411,12 @@ man_down(char *man_ifname, int unit)
 
 	/* stop multicast router */
 	stop_igmpproxy(man_ifname);
+}
+
+void
+man_down(char *man_ifname, int unit)
+{
+	man_down_internal(man_ifname, unit, 0);
 }
 
 void
@@ -2352,6 +2365,7 @@ static int
 udhcpc_deconfig(char *wan_ifname, int is_zcip)
 {
 	int unit, wan_proto, is_man;
+	int interface_status = 0, reset_man_address = 0;
 	char log_prefix[32], *udhcpc_state;
 
 	unit = get_wan_unit(wan_ifname);
@@ -2370,16 +2384,20 @@ udhcpc_deconfig(char *wan_ifname, int is_zcip)
 	}
 	else
 	{
-		ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
-		
+		interface_status = ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
+		if (interface_status != 0)
+			logmessage(log_prefix, "failed to clear address on %s (error=%d); continuing lease cleanup",
+				   wan_ifname, interface_status);
+
 		if (is_man) {
 			char *man_addr = nvram_safe_get("wanx_ipaddr");
-			
+
 			/* flush conntrack table (only old WAN IP records) */
 			if (is_valid_ipv4(man_addr))
 				flush_conntrack_table(man_addr);
-			
-			nvram_set_temp("wanx_ipaddr", "0.0.0.0");
+
+			/* man_down_internal() needs the old address to remove its host route. */
+			reset_man_address = 1;
 		}
 	}
 
@@ -2387,11 +2405,11 @@ udhcpc_deconfig(char *wan_ifname, int is_zcip)
 		udhcpc_state, wan_ifname);
 
 	if (is_man)
-		man_down(wan_ifname, unit);
+		man_down_internal(wan_ifname, unit, reset_man_address);
 	else
 		wan_down(wan_ifname, unit, 0);
 
-	return 0;
+	return interface_status;
 }
 
 struct wan_dhcp_interface_context {

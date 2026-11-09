@@ -70,6 +70,23 @@ jobs:
           assert "ops->clear_address(context)" in apply_policy
           assert "if (rollback_status)" in apply_policy
 
+          deconfig = body(source, "udhcpc_deconfig(char *wan_ifname, int is_zcip)")
+          assert "interface_status = ifconfig(wan_ifname, IFUP, \"0.0.0.0\", NULL)" in deconfig
+          assert "if (interface_status != 0)" in deconfig
+          assert "continuing lease cleanup" in deconfig
+          assert "man_down_internal(wan_ifname, unit, reset_man_address)" in deconfig
+          assert "return interface_status;" in deconfig
+          assert 'nvram_set_temp("wanx_ipaddr", "0.0.0.0")' not in deconfig
+
+          man_down = body(source, "man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)")
+          old_gateway_route = man_down.index('route_del(man_ifname, 2, man_gate, NULL, "255.255.255.255")')
+          clear_old_address = man_down.index('nvram_set_temp("wanx_ipaddr", "0.0.0.0")')
+          clear_other_state = man_down.index('nvram_set_temp("wanx_gateway", "")')
+          assert old_gateway_route < clear_old_address < clear_other_state
+          assert "if (clear_dhcp_address)" in man_down
+          public_man_down = body(source, "man_down(char *man_ifname, int unit)")
+          assert "man_down_internal(man_ifname, unit, 0)" in public_man_down
+
           paths = (
               ".github/workflows/wan-dhcp-callback-stability.yml",
               "trunk/user/rc/src/net_wan.c",

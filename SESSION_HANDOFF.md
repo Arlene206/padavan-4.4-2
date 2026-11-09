@@ -1,15 +1,15 @@
 ## Current repository state
 
 - Maintained fork: Arlene206/padavan-4.4-2; do not substitute upstream.
-- Base main SHA for THIS edge-case regression and handoff checkpoint correction: `b6c1cdea285b39925c1e9254c7fb325739129491`; active branch main; only main exists; no checkpoint branch.
-- The WAN DHCP callback fix commit `b6c1cdea285b39925c1e9254c7fb325739129491` and every dependent Action below completed SUCCESS on that exact SHA:
-  - WAN DHCP callback policy compile/run and source-order contract [42690381038].
-  - AI handoff documentation validator [42690381155].
-  - WAN route status [42690381079], WAN interface teardown [42690380777], and HTTPD security/DHCP source contract [42690380735].
-- The code fix adds `dhcp_wan_interface_apply()`: candidate WAN addresses are applied before old gateway/DHCP route deletion or primary lease NVRAM publication; failed interface ioctls trigger best-effort restoration of the old address (or a clear when no prior lease was valid), and the callback returns the original error. All five exact-head Actions above passed on `b6c1cdea285b39925c1e9254c7fb325739129491`.
-- THIS follow-up extends the host regression with the first-lease edge case where the initial clear fails and the best-effort rollback clear also fails; it also removes duplicate continuation headings introduced in the prior handoff edit. The new exact-head regression and documentation check are pending.
+- Base main SHA for THIS MAN DHCP deconfig cleanup fix: `bf80204bf59e26f74636e9c75ce52c6d5d652bee`; active branch: `main`. The live branch inventory contains only `main`; no remote checkpoint branch exists.
+- The previous first-lease rollback-failure regression and AI handoff documentation checks both completed SUCCESS on exact SHA `bf80204bf59e26f74636e9c75ce52c6d5d652bee`: WAN DHCP callback [42690696672] and AI handoff docs [42690696645]. The jobs checked out this exact full SHA.
+- WAN DHCP run [42690696672] compiled and ran the GNU89 interface rollback regression, then passed the source-order, rollback and complete push/pull_request path-filter assertions. AI docs run [42690696645] passed `scripts/check_ai_handoff_docs.py` (root log 72/119; archive inventories valid).
+- THIS batch fixes a MAN DHCP deconfig route leak: `man_up()` adds a host route for an off-subnet gateway based on `wanx_ipaddr` and `wanx_netmask`, but `udhcpc_deconfig()` previously replaced `wanx_ipaddr` with `0.0.0.0` before calling `man_down()`. Consequently, `man_down()` could no longer recognize/delete that gateway host route. The new internal teardown keeps the old address until the route-removal phase completes, then clears it before resolver/firewall refresh; the public `man_down()` wrapper preserves its existing behavior for other callers.
+- Deconfig now captures the interface-clear status, logs failures, continues best-effort route/state cleanup, and returns that status. BusyBox's bundled `udhcp_run_script()` currently ignores `spawn_and_wait()`'s status, so this makes the failure observable but does not change BusyBox's internal state transition.
+- Callback audit: `leasefail` currently does no state mutation; NAK logs the event and BusyBox invokes deconfig for an already-bound lease (but not initial REQUESTING); SIGUSR2 / release-on-quit use the deconfig callback, not a distinct release script. BusyBox's `spawn_and_wait()` result is discarded. Continue to treat those semantics deliberately rather than changing BusyBox callback behavior without a demonstrated requirement.
+- Still open in WAN teardown: `man_down()` and `wan_down()` discard the results from gateway/DHCP/static route deletions even though the underlying helpers return status. Audit retry/reconciliation and state-publication ordering before changing that behavior.
 - NFS custom-export provenance review found no untrusted/local-account writer. `/etc` is tmpfs; `/etc/storage` is root-managed persistent MTD content; web restore requires authenticated privileged access. The RC writer accepts regular files or symlinks to regular files, falls back only on ENOENT, and fails closed otherwise. `nfsd.sh` propagates `exportfs -r` failure. No NFS code change was justified; async durability, AUTH_SYS/no_root_squash and external mounts remain separate compatibility decisions.
-- Root `dev_log.md` has 72 /119 complete newest-first records after THIS entry; no archive rotation is due.
+- Root `dev_log.md` will contain 73 /119 complete newest-first records after THIS entry; no archive rotation is due.
 
 ## Completed FULLCONENAT namespace / zone work
 
@@ -32,24 +32,25 @@
 
 ## Active task
 
-1. Verify THIS follow-up WAN DHCP edge-case regression and AI handoff documentation checks against the exact resulting main SHA. Inspect every step.
-2. If green, continue WAN DHCP event-state review at `udhcpc_deconfig()`, leasefail/NAK/release handling and BusyBox's ignored callback exit status. Separately inspect remaining route-delete/add result handling; do not repeat the interface-apply transaction.
-3. Keep NFS async durability, AUTH_SYS/root-squash and external mounts as separate compatibility decisions. Retain Samba same-boot file publication and FTP realpath-to-syscall TOCTOU in the wider queue.
+1. Reconcile THIS MAN DHCP deconfig cleanup regression and AI handoff documentation workflow against the exact resulting main SHA. Inspect every step and require both checks to pass on the same SHA.
+2. If green, audit `man_down()` / `wan_down()` route-delete and route-add result propagation. The underlying DHCP/static route helpers return status, but teardown currently discards it before clearing lease state; design best-effort cleanup and state reconciliation without leaving stale routes unreported.
+3. Finish the bounded WAN callback review: confirm BusyBox's ignored script status, initial-discovery leasefail, NAK/deconfig, lease expiry, repeated renew and SIGUSR2 release semantics. Preserve the MAN off-subnet route fix and existing bound rollback behavior.
+4. Keep NFS async durability/AUTH_SYS/root-squash/external mounts, Samba same-boot passdb/config recovery, FULLCONENAT target build, and FTP realpath-to-syscall TOCTOU visible in the wider whole-userland queue.
 
 ## Verification boundary
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for WAN DHCP bound callback input checks, candidate interface-before-state ordering, rollback path and NFS custom-export trust boundary. Prior FULLCONENAT namespace/zone review remains PASS. |
-| L2 host / Actions | Exact SHA `b6c1cdea285b39925c1e9254c7fb325739129491`: WAN DHCP [42690381038], AI docs [42690381155], WAN route [42690381079], WAN teardown [42690380777] and HTTPD [42690380735] all SUCCESS. THIS added first-lease rollback-failure test and documentation correction are PENDING on the resulting exact HEAD. |
+| L1 source review | PASS for the MAN off-subnet gateway route lifecycle diagnosis and bounded deconfig ordering change: the prior lease address now remains available through the old gateway host-route deletion; failed interface clear is logged/returned while cleanup continues. Previous WAN bound transaction/rollback and NFS custom-export trust-boundary reviews remain PASS. |
+| L2 host / Actions | Exact SHA `bf80204bf59e26f74636e9c75ce52c6d5d652bee`: WAN DHCP callback [42690696672] and AI handoff docs [42690696645] SUCCESS; job logs confirm matching full checkout SHA. THIS MAN deconfig source-contract extension and documentation update are PENDING exact resulting HEAD. |
 | L3 production RC object, MIPS/uClibc kernel object, full firmware/TRX | NOT VERIFIED. |
-| L4 target router DHCP failure injection, route reconciliation, storage/NFS behavior | NOT VERIFIED. |
+| L4 target router DHCP release/NAK/lease-expiry, failed ioctl and route reconciliation behavior | NOT VERIFIED. |
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, branches/checkpoints and recent Actions; confirm the exact full SHA for THIS follow-up commit.
-2. Inspect the WAN DHCP callback regression and AI handoff docs run. Require both to pass on the same SHA, and inspect logs.
-3. Then audit `udhcpc_deconfig()`, leasefail/NAK/release callback handling and remaining WAN route-delete/add status propagation. Preserve the existing bound transaction/rollback ordering.
+1. Fetch live `main`, branch/checkpoint inventory and recent Actions; verify the exact resulting SHA for THIS MAN DHCP deconfig change.
+2. Inspect the WAN DHCP callback regression and AI handoff docs Actions for that exact SHA. Confirm GNU89 compile/run and every semantic/docs step; do not count the base SHA runs as validation of THIS patch.
+3. Then trace the return values from `route_del()`, `del_dhcp_routes_by_prefix()` and `del_static_man_routes()` through `man_down()` / `wan_down()`; decide how to report accumulated errors while still attempting all required teardown. Preserve old lease inputs until all matching old routes have been attempted.
 
 ## Continuation rules
 

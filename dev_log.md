@@ -1,3 +1,17 @@
+## 2026-11-10 04:30 CST (UTC+8) — Keep MAN DHCP lease identity through gateway route cleanup
+
+- **Base main SHA:** `bf80204bf59e26f74636e9c75ce52c6d5d652bee`; active branch: `main`.
+- **Recovered exact-head Actions:** the preceding first-lease rollback-failure regression [42690696672] and AI handoff docs [42690696645] both completed SUCCESS on the exact same full SHA `bf80204bf59e26f74636e9c75ce52c6d5d652bee`. The WAN job compiled/ran the GNU89 interface rollback test and passed the callback ordering/rollback/path-filter source contract. The docs job passed handoff, roadmap, log-window and archive-inventory validation.
+- **Finding:** `add_man_gateway_routes()` adds a host route for an off-subnet MAN gateway based on the current `wanx_ipaddr`/`wanx_netmask`. On lease loss, `udhcpc_deconfig()` set `wanx_ipaddr=0.0.0.0` before `man_down()`; the latter then failed its old-lease subnet check and skipped deletion of that host route.
+- **Fix:** split the existing teardown into a private `man_down_internal()` with an explicit address-reset flag. The DHCP deconfig path preserves the old address through gateway, DHCP and static MAN route removal, invalidates it afterward, and does so before resolver/firewall refresh. The public `man_down()` entry point retains its prior semantics. Deconfig also logs and returns a failed interface-clear status while continuing best-effort route cleanup.
+- **Callback audit:** BusyBox's `udhcp_run_script()` discards `spawn_and_wait()` status. `leasefail` is the initial discovery retry-exhaustion callback; NAK is followed by deconfig for a previously bound state; SIGUSR2/release-on-quit use deconfig directly, not a separate release script. No BusyBox behavior change is made.
+- **Changed paths:** `trunk/user/rc/src/net_wan.c`; `.github/workflows/wan-dhcp-callback-stability.yml`; `SESSION_HANDOFF.md`; `REFACTOR_ROADMAP.md`; this root log record.
+- **Validation:** L1 source/caller review confirms the off-subnet gateway host-route is created and deleted from the same lease address/netmask identity, and the revised order retains that identity through teardown. The workflow now asserts MAN host-route deletion before address invalidation and checks interface-clear error propagation. Exact-head WAN callback and docs Actions for THIS commit are **PENDING**. No local full RC compile, MIPS/uClibc object, firmware/TRX or hardware test is claimed.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** reconcile the exact-head WAN DHCP callback and AI docs Actions; then propagate and reconcile route-delete statuses through MAN/WAN teardown without skipping remaining cleanup.
+
+---
+
 ## 2026-11-10 04:11 CST (UTC+8) — Cover first-lease WAN DHCP rollback failure and repair handoff checkpoint headings
 
 - **Base main SHA:** `b6c1cdea285b39925c1e9254c7fb325739129491`; active branch: `main`.
