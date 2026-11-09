@@ -1,3 +1,15 @@
+## 2026-11-10 06:46 CST (UTC+8) — Make FTP upload source contract robust to multiline calls
+
+- **Base main SHA:** `9d538991d0644d3393aed62cef09fce89ca86774`; active branch: `main`.
+- **CI review:** VSFTPD regression [42714075313] compiled and executed the GNU89 host policy test successfully (step 3), then failed in the source-contract step at Python line 76. The contract searched for a one-line `asus_open_upload_path(p_sess, p_filename` string, while the production call intentionally breaks after the opening parenthesis. This is a brittle source assertion, not a host C regression failure. AI handoff documentation [42714075402] completed SUCCESS on the exact base SHA.
+- **Correction:** make the workflow assert the helper call and both exclusive/non-exclusive arguments independently across lines. Also repair missing line breaks in the current handoff/roadmap checkpoint paragraphs discovered during this reconciliation, and clarify exact prior CI evidence.
+- **Changed paths:** `.github/workflows/vsftpd-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and this log.
+- **Validation:** L1 source/contract review PASS. The prior host regression step on [42714075313] PASS; its overall workflow FAILED in the brittle source-contract assertion. Actions for THIS commit are PENDING exact SHA. No target MIPS/uClibc build or hardware test is claimed.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** reconcile the exact-head VSFTPD and docs Actions. If the regression is green, continue the active FTP TOCTOU audit with RETR/SIZE and file mutation/listing paths; preserve the known non-atomic cleanup limitation.
+
+---
+
 ## 2026-11-10 06:39 CST (UTC+8) — Anchor FTP uploads to an ACL-authorized directory descriptor
 
 - **Base main SHA:** `6b4b62e61ee13c7882579648c395fee8acc6ebbf`; active branch: `main`; no remote checkpoint branch.

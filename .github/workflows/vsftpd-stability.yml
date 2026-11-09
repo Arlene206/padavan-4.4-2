@@ -133,8 +133,11 @@ jobs:
           acl_upload = function_body(vsftpd_acl, "asus_check_permission_upload(")
           acl_directory = function_body(vsftpd_acl, "asus_check_permission_directory(")
           acl_visible = function_body(vsftpd_acl, "int asus_check_file_visible(")
-          assert "asus_open_upload_path(p_sess, p_filename" in upload
-          assert "asus_cleanup_failed_upload(upload_parent_fd, upload_leaf, new_file_fd)" in upload
+          assert "asus_open_upload_path(" in upload
+          assert "p_sess, p_filename, 1," in upload
+          assert "p_sess, p_filename, 0," in upload
+          assert "asus_cleanup_failed_upload(upload_parent_fd, upload_leaf," in upload
+          assert "new_file_fd);" in upload
           assert "str_create(" not in upload
           assert "asus_check_permission_path(p_sess, PERM_WRITE, &p_sess->ftp_arg_str)" in mkd
           assert "asus_check_permission_path(p_sess, PERM_DELETE, &p_sess->ftp_arg_str)" in rmd
