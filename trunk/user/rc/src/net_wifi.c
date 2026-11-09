@@ -29,6 +29,7 @@
 
 #include "rc.h"
 #include "wireless_restart_policy.h"
+#include "wireless_radio_policy.h"
 #include "switch.h"
 #include "gpio_pins.h"
 #include <gpioutils.h>
@@ -59,35 +60,43 @@ mlme_state_rt(int is_on)
 	nvram_set_int("mlme_radio_rt", is_on);
 }
 
-void
-mlme_radio_wl(int is_on)
+static int
+mlme_radio_wl_apply(int is_on)
 {
 #if BOARD_HAS_5G_RADIO
 	const char *wifname = find_wlan_if_up(1);
+	int ret;
 
 	if (!wifname)
-		return;
+		return 0;
 
-	doSystem("iwpriv %s set %s=%d", wifname, "RadioOn", (is_on) ? 1 : 0);
+	ret = doSystem("iwpriv %s set %s=%d", wifname, "RadioOn", (is_on) ? 1 : 0);
+	if (!wireless_radio_status_success(ret)) {
+		logmessage(LOGNAME, "5GHz RadioOn=%d failed (status %d)", (is_on) ? 1 : 0, ret);
+		return 0;
+	}
 #endif
 	mlme_state_wl(is_on);
-
 	LED_CONTROL(LED_SW5G, (is_on) ? LED_ON : LED_OFF);
-
+	return 1;
 }
 
-void
-mlme_radio_rt(int is_on)
+static int
+mlme_radio_rt_apply(int is_on)
 {
 	const char *wifname = find_wlan_if_up(0);
+	int ret;
 
 	if (!wifname)
-		return;
+		return 0;
 
-	doSystem("iwpriv %s set %s=%d", wifname, "RadioOn", (is_on) ? 1 : 0);
+	ret = doSystem("iwpriv %s set %s=%d", wifname, "RadioOn", (is_on) ? 1 : 0);
+	if (!wireless_radio_status_success(ret)) {
+		logmessage(LOGNAME, "2.4GHz RadioOn=%d failed (status %d)", (is_on) ? 1 : 0, ret);
+		return 0;
+	}
 
 	mlme_state_rt(is_on);
-
 	LED_CONTROL(LED_SW2G, (is_on) ? LED_ON : LED_OFF);
 
 #if defined(USE_RT3352_MII)
@@ -99,6 +108,19 @@ mlme_radio_rt(int is_on)
 	// isolation iNIC port from all LAN ports
 	phy_isolate_inic((is_on) ? 0 : 1);
 #endif
+	return 1;
+}
+
+void
+mlme_radio_wl(int is_on)
+{
+	(void)mlme_radio_wl_apply(is_on);
+}
+
+void
+mlme_radio_rt(int is_on)
+{
+	(void)mlme_radio_rt_apply(is_on);
 }
 
 int
@@ -964,22 +986,20 @@ control_radio_wl(int radio_on, int manual)
 	{
 		if (!is_radio_on_wl()) {
 #if defined(USE_IWPRIV_RADIO_5G)
-			mlme_radio_wl(1);
+			is_radio_changed = mlme_radio_wl_apply(1);
 #else
-			restart_wifi_wl(1, 0);
+			is_radio_changed = wireless_radio_status_success(restart_wifi_wl(1, 0));
 #endif
-			is_radio_changed = 1;
 		}
 	}
 	else
 	{
 		if (is_radio_on_wl()) {
 #if defined(USE_IWPRIV_RADIO_5G)
-			mlme_radio_wl(0);
+			is_radio_changed = mlme_radio_wl_apply(0);
 #else
-			restart_wifi_wl(0, 0);
+			is_radio_changed = wireless_radio_status_success(restart_wifi_wl(0, 0));
 #endif
-			is_radio_changed = 1;
 		}
 	}
 
@@ -999,22 +1019,20 @@ control_radio_rt(int radio_on, int manual)
 	{
 		if (!is_radio_on_rt()) {
 #if defined(USE_IWPRIV_RADIO_2G) || defined(USE_RT3352_MII)
-			mlme_radio_rt(1);
+			is_radio_changed = mlme_radio_rt_apply(1);
 #else
-			restart_wifi_rt(1, 0);
+			is_radio_changed = wireless_radio_status_success(restart_wifi_rt(1, 0));
 #endif
-			is_radio_changed = 1;
 		}
 	}
 	else
 	{
 		if (is_radio_on_rt()) {
 #if defined(USE_IWPRIV_RADIO_2G) || defined(USE_RT3352_MII)
-			mlme_radio_rt(0);
+			is_radio_changed = mlme_radio_rt_apply(0);
 #else
-			restart_wifi_rt(0, 0);
+			is_radio_changed = wireless_radio_status_success(restart_wifi_rt(0, 0));
 #endif
-			is_radio_changed = 1;
 		}
 	}
 
