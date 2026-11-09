@@ -261,7 +261,11 @@ jobs:
           assert rnto.index("vsf_access_check_file(") < rnto.index("prepend_path_to_filename(&p_sess->ftp_arg_str)")
           assert "asus_rename_path(p_sess, &p_sess->rnfr_filename_str" in rnto
           assert "str_rename(" not in rnto
-          assert rnto.index("asus_rename_path(") < rnto.index("str_free(&p_sess->rnfr_filename_str)")
+          permission_denial = rnto[rnto.index("if (!vsf_access_check_file("):
+                                  rnto.index("prepend_path_to_filename(&p_sess->ftp_arg_str)")]
+          assert permission_denial.index("str_free(&p_sess->rnfr_filename_str)") < permission_denial.index("vsf_cmdio_write(") < permission_denial.index("return;")
+          rename_attempt = rnto.index("asus_rename_path(")
+          assert rename_attempt < rnto.rindex("str_free(&p_sess->rnfr_filename_str)")
           assert "str_free(&p_sess->rnfr_filename_str)" in rnto
           assert "ftp_acl_path_resolve_rename_entry" in rename_path
           assert "ftp_acl_path_open_verified_directory(source_parent)" in rename_path

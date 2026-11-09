@@ -1,3 +1,16 @@
+## 2026-11-10 07:51 CST (UTC+8) — Correct RNFR/RNTO state-clear source contract
+
+- **Base main SHA:** `2953898fb09e4d5535fd0628bb3c74bb8b21a831`; remote branches: `main` only.
+- **Recovered exact-head results:** RNFR/RNTO VSFTPD run [42724086864] and AI handoff docs [42724086704] both targeted this exact SHA. The VSFTPD GNU89 compile/run step completed successfully, including the descriptor-relative rename policy tests; its following Python source-contract step failed at the assertion requiring `asus_rename_path()` to precede the first `str_free(&rnfr_filename_str)`.
+- **Failure analysis:** `handle_rnto()` deliberately clears the pending RNFR source in the earlier destination `vsf_access_check_file()` denial branch, before replying and returning; after an allowed rename attempt it clears the same state again after `asus_rename_path()`. The code ordering is correct for both outcomes; the workflow incorrectly treated the first cleanup as the only cleanup.
+- **Correction:** change the workflow contract to inspect the denial block and assert clear-before-rejection, then use `rindex()` to assert the post-rename cleanup follows the actual `asus_rename_path()` call. Production C and host policy test sources are unchanged.
+- **Changed paths:** `.github/workflows/vsftpd-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and this log.
+- **Validation:** L1 workflow/source review PASS. Base exact-head GNU89 host compile/run PASS; the complete base VSFTPD workflow was FAIL only at the stale semantic source assertion. AI docs passed exact SHA `2953898fb09e4d5535fd0628bb3c74bb8b21a831`. Corrected VSFTPD and docs Actions are pending for THIS resulting commit. No local checkout/compiler/docs checker was available; L3 MIPS/uClibc and L4 hardware validation remain NOT VERIFIED.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** reconcile the corrected VSFTPD and AI docs runs on the exact resulting SHA. If both pass, begin the LIST/NLST/STAT directory traversal/recursion audit; retain MDTM/SITE CHMOD, upload cleanup race, DHCP/FULLCONENAT/NFS and target/device validation as open work.
+
+---
+
 ## 2026-11-10 07:29 CST (UTC+8) — Anchor FTP RNFR/RNTO to two ACL-authorized directory descriptors
 
 - **Base main SHA:** `9b6c65686ad95295fd456e074292638a6c9ccf92`; remote branches: `main` only, no checkpoint branch.
