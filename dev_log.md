@@ -1,3 +1,14 @@
+## 2026-11-09 12:27 CST — Correct staged eject CI contracts and archive index byte counts
+
+- **Base main SHA:** `fdd00a4893d40225105bb7521691dbd2621351fd`.
+- **Workflow correction:** THIS COMMIT — update the second legacy safe-eject contract block to check the operation-wide partition snapshot, instead of the removed per-mount `procpt2` scan.
+- **Documentation correction:** the prior archive-index update recorded the superseded handoff and roadmap lengths as 15 bytes because the index generator measured the wrapper object rather than its `content`. The original Git blob references and archived bytes were preserved; the indexed sizes are corrected here to 6,377 and 8,180 bytes.
+- **Exact-head CI at the base:** HTTPD regression [42561802353](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42561802353) failed at the second, still-stale `ejected_body` assertion block; AI handoff contract [42561802333](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42561802333) failed on the two incorrect archive byte counts. The focused USB hotplug workflow [42561240425](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42561240425) passed on code head `7fee5c1fc589dc98c3333dd4e052d28881b8756a`.
+- **Validation boundary:** implementation regression remains L2 PASS on its exact source SHA; this follow-up corrects CI/index metadata and awaits exact-head reruns. No MIPS/uClibc firmware or physical USB validation is claimed.
+- **Next:** verify HTTPD security and AI handoff contracts on the exact resulting main SHA. Once green, resume the storage add/remove concurrency and per-device lock audit.
+
+---
+
 ## 2026-11-09 12:20 CST — Align the storage CI contract with staged eject inventory
 
 - **Base main SHA:** `7fee5c1fc589dc98c3333dd4e052d28881b8756a`.
@@ -243,20 +254,6 @@
 - **Exact code/test/workflow HEAD:** 27d2e373224d2dc6bdb37e8937f53cd4a4e0a946. The GitHub connector returned no commit status rows and its workflow-run listing is limited to PR-triggered runs, so the push-triggered wireless-radio-state Actions result/run ID is **NOT VERIFIED**; inspect it before starting unrelated work.
 - **Validation boundary / residuals:** no full production net_wifi.c RC object, MIPS/uClibc build, firmware/TRX, live AP/STA/WDS transition or physical-router test was run. The auxiliary RT3352 TxPower command remains best-effort as before. wif_control() callers still need systematic review for ignored ifconfig failures; switch link/speed and other Wireless/driver consumers remain open. Firewall/NAT remains **AUDITING**, including the separate FULLCONENAT global notifier/reference-count versus per-net namespace ownership question.
 - **Next:** first resolve exact-head Actions for 27d2e373224d2dc6bdb37e8937f53cd4a4e0a946 using the wireless-radio-state.yml workflow. If green, continue the Wireless lifecycle rotation at wif_control() and its interface start/stop callers, proving whether ignored interface-up/down failures can be published as active radio/bridge state; otherwise fix the workflow/source failure first.
-
----
-
-## 2026-11-09 08:56 CST — Require working FULLCONENAT garbage collection before accepting rules
-
-- **Module / priority:** Linux Netfilter xt_FULLCONENAT; P2 connection-lifecycle and kernel-memory stability. Firewall/NAT and Netfilter extension coverage remain **AUDITING**.
-- **Recovered IPv6 audit result:** traced ip6_tables.c table-provider autoload and error return, ip6table_nat.c per-net registration/four-hook setup and unwind, xt_check_target() negative checkentry propagation, and the ULA FULLCONENAT rule through firewall_ex.c. The IPv6 NAT writer is void and does not return its local apply result, but the shared restore transaction records command failure; start_firewall_ex() checks transaction status immediately after ip6t_nat_rules() and aborts/rolls back. No defect was proven in that IPv6 table/restore propagation path, so it was left unchanged.
-- **Confirmed defect:** fullconenat_tg_init() logged create_singlethread_workqueue() failure but still registered IPv4/IPv6 targets. ct_event_cb() allocates and links a tuple_list item for each destroyed UDP connection, but schedules reclamation only when wq != NULL; without the worker those queued allocations had no normal-path consumer and could accumulate until module unload. Separately, fullconenat_tg_check() ignored nf_ct_netns_get() and conntrack notifier registration errors (including the legacy notifier's -EBUSY), accepted a target even when destroy events could not be observed, and left mapping cleanup unavailable. Module init also leaked its newly created workqueue if xt_register_targets() failed.
-- **Implementation:** 11cc2d984254c0dd8534ef90a3bd8fd2bed1ea2a refuses to register targets unless the GC workqueue exists; if target registration fails, it destroys the workqueue, clears wq, and returns the original error. fullconenat_tg_check() now propagates netns acquisition and notifier-registration errors, releases the netns reference on notifier failure, and increments tg_refer_count only after successful notifier registration.
-- **Changed paths:** trunk/linux-4.4.x/net/netfilter/xt_FULLCONENAT.c; new .github/workflows/fullconenat-lifecycle.yml.
-- **Regression workflow corrections:** 27e25ffc7c243b5e9712da24339c389352f761b5 corrected initial regex escaping and source locators; 6d09cd03d4f1b8ff147748890bbee35583ad22f0, a1e4fc862b503fa343068e355839b447b75f2ab0, and b63d863b8afeac8c9fa8012403becb9b312c8607 corrected source-contract locators for the worker definition, legacy notifier implementation and multiline xtables registration definition. The first four Actions attempts failed only in this newly added static test's assertion/locator code, not in a kernel build. The corrected exact-head workflow passed.
-- **Exact-head Actions:** https://github.com/Arlene206/padavan-4.4-2/actions/runs/42542694771 completed **SUCCESS** on exact code/test/workflow SHA b63d863b8afeac8c9fa8012403becb9b312c8607; checkout and the FULLCONENAT/IPv6 restore source-contract step passed.
-- **Validation boundary:** L1 source and error-path review PASS; L2 exact-head GitHub Actions source-contract PASS. No Linux 4.4 kernel object/module build, MIPS/uClibc build, full firmware/TRX, live conntrack/NAT traffic, namespace concurrency or hardware test was run. A separate residual remains to audit: the module-global tg_refer_count/notifier state versus the per-network-namespace notifier API; this bounded fix does not claim multi-netns correctness.
-- **Next rotation:** leave Firewall/NAT AUDITING, not closed. Rotate to remaining Wireless/driver call-site coverage across net_wifi.c, ralink.c and switch link/speed consumers; do not repeat the fixed ralink.c::wl_ioctl() wrapper or the completed iwlib.c/iwlist.c scan-parser bounds. Trace returned lengths, ioctl error propagation and state-publication ordering, prove one new defect before patching, and keep expanding the wider userland inventory.
 
 ---
 

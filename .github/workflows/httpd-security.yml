@@ -2036,16 +2036,17 @@ jobs:
           end = source.index("\nstruct storage_unmount_mount_entry", start)
           ejected_body = source[start:end]
           assert "storage_ejected_parse_mount_line" in ejected_body
-          assert "storage_ejected_partition_matches" in ejected_body
+          assert "storage_stage_ejected_partitions(&partitions)" in ejected_body
+          assert "storage_ejected_partition_is_active(entry->device + 5," in ejected_body
+          assert "procpt2" not in ejected_body
+          assert "fopen(PROC_PARTITIONS_FILE" not in ejected_body
           assert "mount_read_error = ferror(procpt)" in ejected_body
           assert "mount_close_error = (fclose(procpt) != 0)" in ejected_body
-          assert "partition_read_error = ferror(procpt2)" in ejected_body
-          assert "partition_close_error = (fclose(procpt2) != 0)" in ejected_body
           assert "storage_ejected_inventory_complete(mount_read_error" in ejected_body
-          assert "storage_ejected_may_unmount(active, partition_read_error" in ejected_body
-          assert ejected_body.index("mount_close_error = (fclose(procpt) != 0)") < ejected_body.index("umount(entry->mountpoint)")
-          assert ejected_body.index("partition_close_error = (fclose(procpt2) != 0)") < ejected_body.index("umount(entry->mountpoint)")
+          assert ejected_body.index("mount_close_error = (fclose(procpt) != 0)") < ejected_body.index("storage_stage_ejected_partitions(&partitions)")
+          assert ejected_body.index("storage_stage_ejected_partitions(&partitions)") < ejected_body.index("umount(entry->mountpoint)")
           assert "free_storage_ejected_mounts(head)" in ejected_body
+          assert "free_storage_ejected_partitions(partitions)" in ejected_body
 
           start = source.index("static int\nstorage_stage_unmount_mounts(")
           end = source.index("\nstatic int\nstorage_unmount_staged_disk_mounts", start)
