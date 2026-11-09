@@ -1723,7 +1723,7 @@ umount_ejected_locked(void)
 {
 	FILE *procpt;
 	char line[512], devname[32], mpname[256];
-	int active, result, saved_errno;
+	int active, result, saved_errno, hook_status;
 	int mount_read_error, mount_close_error, mount_parse_error;
 	struct storage_ejected_mount_entry *head, *tail, *entry;
 	struct storage_ejected_partition_entry *partitions = NULL;
@@ -1797,6 +1797,15 @@ umount_ejected_locked(void)
 							     partitions);
 		if (active)
 			continue;
+
+		hook_status = eval("/usr/bin/opt-umount.sh", entry->device,
+				   entry->mountpoint);
+		if (hook_status != 0) {
+			logmessage("Storage", "refusing to unmount ejected device %s from %s because Optware teardown failed (status %d)",
+				   entry->device, entry->mountpoint, hook_status);
+			result = -1;
+			continue;
+		}
 
 		if (umount(entry->mountpoint) != 0) {
 			saved_errno = errno;
@@ -1935,9 +1944,12 @@ storage_unmount_staged_disk_mounts(const char *disk,
 
 		hook_status = eval("/usr/bin/opt-umount.sh", entry->device,
 				   entry->mountpoint);
-		if (hook_status != 0)
-			logmessage("Storage", "optional unmount hook returned %d for %s at %s",
-				   hook_status, entry->device, entry->mountpoint);
+		if (hook_status != 0) {
+			logmessage("Storage", "refusing to unmount %s from %s because Optware teardown failed (status %d)",
+				   entry->device, entry->mountpoint, hook_status);
+			result = -1;
+			continue;
+		}
 		if (umount(entry->mountpoint) != 0) {
 			logmessage("Storage", "failed to unmount %s from %s (errno %d)",
 				   entry->device, entry->mountpoint, errno);
@@ -2162,15 +2174,29 @@ start_stor_apps(void)
 		restart_firewall();
 }
 
-static void
+static int
 try_start_stor_apps(void)
 {
-	// start apps if needed
+	int storage_lock;
+
+	/*
+	 * Safe removal stops these services while holding the same operation
+	 * lock. Serialize deferred startup with that stop/unmount transaction.
+	 */
+	storage_lock = storage_operation_lock_acquire(file_lock);
+	if (storage_lock == -1) {
+		logmessage("Storage", "cannot acquire storage operation lock; deferring storage application startup");
+		return -1;
+	}
+
 	if (storage_has_mounted_devices("starting storage applications")) {
 		start_stor_apps();
 		if (nvram_get_int("usb_opt_start"))
 			system("/usr/bin/opt-start.sh &");
 	}
+
+	file_unlock(storage_lock);
+	return 0;
 }
 
 void
@@ -2183,9 +2209,13 @@ on_deferred_hotplug_dev(void)
 
 	if (nvram_match("usb_hotplug_ms", "1"))
 	{
-		nvram_set_int_temp("usb_hotplug_ms", 0);
-		try_start_stor_apps();
-		nvram_set_int_temp("usb_opt_start", 0);
+		if (try_start_stor_apps() == 0) {
+			nvram_set_int_temp("usb_hotplug_ms", 0);
+			nvram_set_int_temp("usb_opt_start", 0);
+		} else {
+			/* Keep the pending flags and retry if the lock file was unavailable. */
+			alarm(5);
+		}
 	}
 
 #if defined (USE_USB_SUPPORT)
@@ -2304,9 +2334,16 @@ safe_remove_all_stor_devices(int do_spindown)
 	disks_info = read_disk_data();
 	path_status = umount_stor_path(disks_info, 0, NULL, do_spindown);
 	free_disk_data(disks_info);
-	fallback_status = umount_all_storage();
-	if (path_status != 0)
-		logmessage("Storage", "per-device unmount pass was incomplete; fallback cleanup was attempted");
+	if (path_status == 0) {
+		fallback_status = umount_all_storage();
+	} else {
+		/*
+		 * The per-device pass also runs the Optware stop hook. Do not let
+		 * the generic fallback bypass a failed hook and detach a live /opt.
+		 */
+		fallback_status = -1;
+		logmessage("Storage", "per-device unmount pass was incomplete; refusing fallback unmount to preserve active storage state");
+	}
 	if (fallback_status != 0)
 		logmessage("Storage", "one or more storage mounts or swap devices could not be released");
 	restore_home_dir();

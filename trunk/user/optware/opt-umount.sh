@@ -5,12 +5,24 @@ self_name="opt-umount.sh"
 # check params
 [ -z "$1" ] || [ -z "$2" ] && exit 1
 
-# check /opt already unmounted
-mountpoint -q /opt || exit 0
+. /sbin/optware_lifecycle_lock.sh || exit 1
+if ! optware_lifecycle_lock_acquire; then
+	logger -t "${self_name}" "cannot acquire Optware lifecycle lock; refusing unmount"
+	exit 1
+fi
+
+# Recheck /opt while holding the same lock as opt-start.sh.
+if ! mountpoint -q /opt ; then
+	optware_lifecycle_lock_release
+	exit 0
+fi
 
 # check is this partition mounted to /opt
 mountres=`grep ' /opt ' /proc/mounts | grep $1`
-[ -z "$mountres" ] && exit 0
+if [ -z "$mountres" ]; then
+	optware_lifecycle_lock_release
+	exit 0
+fi
 
 logger -t "${self_name}" "started [$@]"
 
@@ -25,7 +37,7 @@ killall -q mc
 if [ -d /opt/etc/init.d ] ; then
 	for i in `ls -r /opt/etc/init.d/S??* 2>/dev/null` ; do
 		[ ! -x "${i}" ] && continue
-		${i} stop
+		${i} stop 9>&-
 	done
 fi
 
@@ -45,9 +57,11 @@ rm -f /etc/localtime
 sync
 
 # unbinding
-umount /opt
+umount /opt 9>&-
 if [ $? -ne 0 ] ; then
 	logger -t "${self_name}" "umount /opt FAILED! Device is busy?"
 	sleep 1
-	umount /opt 2>/dev/null
+	umount /opt 2>/dev/null 9>&-
 fi
+
+optware_lifecycle_lock_release

@@ -11,6 +11,10 @@ on:
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/storage_ejected_inventory_policy.h"
       - "trunk/user/rc/src/tests/storage_ejected_inventory_policy.c"
+      - "trunk/user/scripts/tests/optware_lifecycle_lock.sh"
+      - "trunk/user/scripts/files/sbin/optware_lifecycle_lock.sh"
+      - "trunk/user/optware/opt-umount.sh"
+      - "trunk/user/optware/opt-start.sh"
   pull_request:
     paths:
       - ".github/workflows/storage-hotplug-stability.yml"
@@ -21,12 +25,20 @@ on:
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/storage_ejected_inventory_policy.h"
       - "trunk/user/rc/src/tests/storage_ejected_inventory_policy.c"
+      - "trunk/user/scripts/tests/optware_lifecycle_lock.sh"
+      - "trunk/user/scripts/files/sbin/optware_lifecycle_lock.sh"
+      - "trunk/user/optware/opt-umount.sh"
+      - "trunk/user/optware/opt-start.sh"
 
 jobs:
   storage-hotplug:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Verify Optware startup and teardown lock regression
+        run: |
+          set -eu
+          sh trunk/user/scripts/tests/optware_lifecycle_lock.sh
       - name: Compile and run storage eject inventory regression
         run: |
           set -eu
@@ -113,6 +125,10 @@ jobs:
           hotplug = (rc_dir / "hotplug_stor.c").read_text()
           lock_policy = (rc_dir / "storage_operation_lock.h").read_text()
           lock_test = (rc_dir / "tests/storage_operation_lock.c").read_text()
+          opt_start = Path("trunk/user/optware/opt-start.sh").read_text()
+          opt_umount = Path("trunk/user/optware/opt-umount.sh").read_text()
+          opt_lock = Path("trunk/user/scripts/files/sbin/optware_lifecycle_lock.sh").read_text()
+          opt_lock_test = Path("trunk/user/scripts/tests/optware_lifecycle_lock.sh").read_text()
 
           assert '#define STORAGE_OPERATION_LOCK_TAG "storage"' in lock_policy
           assert "storage_operation_lock_acquire(file_lock)" in lock_test
@@ -138,8 +154,37 @@ jobs:
 
           remove_all = function_body(storage, "safe_remove_all_stor_devices(")
           assert remove_all.index("storage_operation_lock_acquire(file_lock)") < remove_all.index("read_disk_data()")
-          assert remove_all.index("umount_all_storage()") < remove_all.index("file_unlock(storage_lock);")
+          assert "if (path_status == 0)" in remove_all
+          assert remove_all.index("if (path_status == 0)") < remove_all.index("fallback_status = umount_all_storage();")
+          assert "refusing fallback unmount" in remove_all
           assert remove_all.count("file_unlock(storage_lock);") == 1
 
-          print("USB storage hotplug staging and completion contracts: PASS")
+          deferred_start = function_body(storage, "try_start_stor_apps(void)")
+          assert deferred_start.index("storage_operation_lock_acquire(file_lock)") < deferred_start.index("storage_has_mounted_devices(")
+          assert deferred_start.index("storage_has_mounted_devices(") < deferred_start.index("start_stor_apps();")
+          assert deferred_start.index("start_stor_apps();") < deferred_start.index("file_unlock(storage_lock);")
+          deferred_event = function_body(storage, "on_deferred_hotplug_dev(void)")
+          assert "if (try_start_stor_apps() == 0)" in deferred_event
+          assert deferred_event.index("try_start_stor_apps()") < deferred_event.index('nvram_set_int_temp("usb_hotplug_ms", 0)')
+          assert "alarm(5);" in deferred_event
+
+          assert "flock 9" in opt_lock and 'exec 9>>"$optware_lock_file"' in opt_lock
+          assert "optware_lifecycle_lock_acquire" in opt_lock_test
+          assert opt_start.index("optware_lifecycle_lock_acquire") < opt_start.index("mountpoint -q /opt")
+          assert opt_start.index("mountpoint -q /opt") < opt_start.index("start 9>&-")
+          assert opt_start.index("start 9>&-") < opt_start.rindex("optware_lifecycle_lock_release")
+          assert opt_umount.index("optware_lifecycle_lock_acquire") < opt_umount.index("mountpoint -q /opt")
+          assert opt_umount.index("stop 9>&-") < opt_umount.index("umount /opt")
+          assert opt_umount.index("umount /opt") < opt_umount.rindex("optware_lifecycle_lock_release")
+
+          for path in (
+              "trunk/user/optware/opt-start.sh",
+              "trunk/user/optware/opt-umount.sh",
+              "trunk/user/scripts/files/sbin/optware_lifecycle_lock.sh",
+              "trunk/user/scripts/tests/optware_lifecycle_lock.sh",
+          ):
+              assert push_filters.count(path) == 1
+              assert pr_filters.count(path) == 1
+
+          print("USB storage hotplug, safe-unmount and deferred Optware lifecycle contracts: PASS")
           PY

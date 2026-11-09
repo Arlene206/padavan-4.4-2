@@ -1942,8 +1942,9 @@ jobs:
           unmount = service[unmount_start:unmount_end]
           assert "storage_ejected_mount_matches_disk(entry->device, disk)" in unmount
           assert 'eval("/usr/bin/opt-umount.sh", entry->device' in unmount
-          assert "if (umount(entry->mountpoint) != 0)" in unmount
-          assert unmount.index("eval(\"/usr/bin/opt-umount.sh\"") < unmount.index("if (umount(entry->mountpoint) != 0)")
+          assert "if (hook_status != 0)" in unmount
+          assert "result = -1;" in unmount and "continue;" in unmount
+          assert unmount.index("eval(\"/usr/bin/opt-umount.sh\"") < unmount.index("if (hook_status != 0)") < unmount.index("if (umount(entry->mountpoint) != 0)")
           assert unmount.index("if (umount(entry->mountpoint) != 0)") < unmount.index("(void)rmdir(entry->mountpoint)")
 
           ejected_start = service.index("umount_ejected_locked(void)")
@@ -1954,9 +1955,12 @@ jobs:
           assert "storage_ejected_partition_is_active(entry->device + 5," in ejected
           assert "procpt2" not in ejected
           assert "fopen(PROC_PARTITIONS_FILE" not in ejected
+          assert 'eval("/usr/bin/opt-umount.sh", entry->device' in ejected
+          assert "if (hook_status != 0)" in ejected
+          assert "continue;" in ejected
           assert "if (umount(entry->mountpoint) != 0)" in ejected
           assert "result = -1;" in ejected and "return result;" in ejected
-          assert ejected.index("storage_stage_ejected_partitions(&partitions)") < ejected.index("if (umount(entry->mountpoint) != 0)")
+          assert ejected.index("storage_stage_ejected_partitions(&partitions)") < ejected.index('eval("/usr/bin/opt-umount.sh"') < ejected.index("if (umount(entry->mountpoint) != 0)")
           assert ejected.index("if (umount(entry->mountpoint) != 0)") < ejected.index("(void)rmdir(entry->mountpoint)")
 
           path_start = service.index("umount_stor_path_range(")
@@ -2002,7 +2006,9 @@ jobs:
           assert "mount_count == 0 && unmount_status == 0 && ejected_status == 0" in safe_remove
           all_remove_start = service.index("safe_remove_all_stor_devices(int do_spindown)")
           all_remove = service[all_remove_start:]
-          assert "fallback_status = umount_all_storage();" in all_remove
+          assert "if (path_status == 0)" in all_remove
+          assert all_remove.index("if (path_status == 0)") < all_remove.index("fallback_status = umount_all_storage();")
+          assert "refusing fallback unmount" in all_remove
           assert "if (fallback_status != 0)" in all_remove
           print("Storage safe removal preflights one complete mount snapshot and all swapoffs before unmount/spindown: OK")
           PY
