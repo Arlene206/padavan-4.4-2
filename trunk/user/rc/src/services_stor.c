@@ -1744,38 +1744,6 @@ umount_ejected(void)
 	return result;
 }
 
-static int
-is_disk_or_partition(const char *candidate, const char *disk, int is_mmc)
-{
-	size_t disk_len;
-
-	if (!candidate || !disk || !*disk)
-		return 0;
-
-	disk_len = strlen(disk);
-	if (strncmp(candidate, disk, disk_len) != 0)
-		return 0;
-
-	candidate += disk_len;
-	if (!*candidate)
-		return 1;
-
-	if (is_mmc) {
-		if (*candidate != 'p')
-			return 0;
-		candidate++;
-	}
-
-	if (!*candidate)
-		return 0;
-	for (; *candidate; candidate++) {
-		if (*candidate < '0' || *candidate > '9')
-			return 0;
-	}
-
-	return 1;
-}
-
 struct storage_unmount_mount_entry {
 	char device[32];
 	char mountpoint[256];
@@ -1794,61 +1762,40 @@ free_storage_unmount_mounts(struct storage_unmount_mount_entry *entry)
 	}
 }
 
+/*
+ * Take one complete storage-mount snapshot for the entire safe-removal
+ * operation. No per-partition hook/unmount may run until this succeeds.
+ */
 static int
-umount_dev(const char *dev_name, int is_root_dev)
+storage_stage_unmount_mounts(struct storage_unmount_mount_entry **staged)
 {
 	FILE *procpt;
 	char line[512], devname[32], mpname[256];
-	int result, hook_status;
 	int mount_read_error, mount_close_error, mount_parse_error;
 	struct storage_unmount_mount_entry *head, *tail, *entry;
 
-	if (!dev_name || !*dev_name)
+	if (!staged) {
+		errno = EINVAL;
 		return -1;
+	}
+	*staged = NULL;
 
 	procpt = fopen(PROC_MOUNTS_FILE, "r");
 	if (!procpt) {
-		logmessage("Storage", "cannot read %s before unmounting %s (errno %d)",
-			   PROC_MOUNTS_FILE, dev_name, errno);
+		logmessage("Storage", "cannot read %s before safe removal (errno %d)",
+			   PROC_MOUNTS_FILE, errno);
 		return -1;
 	}
 
-	/*
-	 * Stage every matching mount before running hooks or unmounting. A
-	 * malformed/truncated row, read/close error, or allocation failure makes
-	 * the target inventory uncertain, so no mount side effect is permitted.
-	 */
 	head = tail = NULL;
 	mount_parse_error = 0;
 	while (fgets(line, sizeof(line), procpt)) {
-		int is_our_dev = 0;
-
 		if (storage_ejected_parse_mount_line(line, devname, sizeof(devname),
 						     mpname, sizeof(mpname)) != 0) {
 			mount_parse_error = 1;
 			break;
 		}
-		if (strncmp(devname, "/dev/sd", 7) == 0) {
-			if (is_root_dev) {
-				if (is_disk_or_partition(devname + 5, dev_name, 0))
-					is_our_dev = 1;
-			} else {
-				if (strcmp(devname + 5, dev_name) == 0)
-					is_our_dev = 1;
-			}
-		}
-#if defined (USE_MMC_SUPPORT)
-		else if (strncmp(devname, "/dev/mmcblk", 11) == 0) {
-			if (is_root_dev) {
-				if (is_disk_or_partition(devname + 5, dev_name, 1))
-					is_our_dev = 1;
-			} else {
-				if (!strcmp(devname + 5, dev_name))
-					is_our_dev = 1;
-			}
-		}
-#endif
-		if (!is_our_dev)
+		if (!is_valid_storage_device(devname))
 			continue;
 
 		entry = (struct storage_unmount_mount_entry *)malloc(sizeof(*entry));
@@ -1871,15 +1818,32 @@ umount_dev(const char *dev_name, int is_root_dev)
 	if (!storage_ejected_inventory_complete(mount_read_error,
 						mount_close_error,
 						mount_parse_error)) {
-		logmessage("Storage", "incomplete %s before unmounting %s (read error=%d, close error=%d, malformed/truncated row or allocation failure=%d); leaving mounts untouched",
-			   PROC_MOUNTS_FILE, dev_name, mount_read_error,
+		logmessage("Storage", "incomplete %s before safe removal (read error=%d, close error=%d, malformed/truncated row or allocation failure=%d); leaving mounts untouched",
+			   PROC_MOUNTS_FILE, mount_read_error,
 			   mount_close_error, mount_parse_error);
 		free_storage_unmount_mounts(head);
 		return -1;
 	}
 
+	*staged = head;
+	return 0;
+}
+
+static int
+storage_unmount_staged_disk_mounts(const char *disk,
+				   struct storage_unmount_mount_entry *mounts)
+{
+	struct storage_unmount_mount_entry *entry;
+	int result, hook_status;
+
+	if (!disk || !*disk)
+		return -1;
+
 	result = 0;
-	for (entry = head; entry; entry = entry->next) {
+	for (entry = mounts; entry; entry = entry->next) {
+		if (!storage_ejected_mount_matches_disk(entry->device, disk))
+			continue;
+
 		hook_status = eval("/usr/bin/opt-umount.sh", entry->device,
 				   entry->mountpoint);
 		if (hook_status != 0)
@@ -1892,10 +1856,8 @@ umount_dev(const char *dev_name, int is_root_dev)
 		} else {
 			(void)rmdir(entry->mountpoint);
 		}
-		/* A partition can have more than one mount; inspect all entries. */
 	}
 
-	free_storage_unmount_mounts(head);
 	return result;
 }
 
@@ -1945,61 +1907,100 @@ count_stor_mountpoint(void)
 	return storage_mount_inventory_result(count, 0);
 }
 
-int
-umount_stor_path(disk_info_t *disks_info, int port, const char *dev_name, int do_spindown)
+static int
+umount_stor_path_range(disk_info_t *disks_info, int port_b, int port_e,
+		       int filter_ports, const char *dev_name, int do_spindown)
 {
 	disk_info_t *follow_disk;
 	partition_info_t *follow_partition;
-	int result, disk_status, swap_status, saved_errno;
+	struct storage_unmount_mount_entry *mounts;
+	int result, swapoff_status, swap_status, disk_status, saved_errno;
 
 	if (!disks_info) {
 		logmessage("Storage", "cannot inspect storage topology before safe removal");
 		return -1;
 	}
 
+	/*
+	 * Validate one mount inventory for every selected disk before changing
+	 * swap or mount state; later partitions must not trigger late reads.
+	 */
+	if (storage_stage_unmount_mounts(&mounts) != 0)
+		return -1;
+
+	/*
+	 * Resolve all selected swaps before unmounting any selected disk. A
+	 * later unknown/failed swap record must not follow an earlier unmount.
+	 */
+	swapoff_status = 0;
+	for (follow_disk = disks_info; follow_disk != NULL; follow_disk = follow_disk->next) {
+		if (filter_ports &&
+		    ((int)follow_disk->port_root < port_b ||
+		     (int)follow_disk->port_root > port_e))
+			continue;
+		if (dev_name &&
+		    (!follow_disk->device || strcmp(follow_disk->device, dev_name) != 0))
+			continue;
+
+		for (follow_partition = follow_disk->partitions;
+		     follow_partition != NULL; follow_partition = follow_partition->next) {
+			if (!follow_partition->swapon)
+				continue;
+
+			swap_status = try_device_swapoff(follow_partition->device);
+			if (swap_status != 0) {
+				saved_errno = errno;
+				logmessage("Storage", "failed to disable swap on /dev/%s (status %d, errno %d)",
+					   follow_partition->device ? follow_partition->device : "(unknown)",
+					   swap_status, saved_errno);
+				swapoff_status = -1;
+			}
+		}
+	}
+
+	if (!storage_ejected_may_unmount_device(1, swapoff_status)) {
+		logmessage("Storage", "skipping all selected unmounts because swapoff did not complete");
+		free_storage_unmount_mounts(mounts);
+		return -1;
+	}
+
 	result = 0;
 	for (follow_disk = disks_info; follow_disk != NULL; follow_disk = follow_disk->next) {
-		if (port != 0) {
-			if (follow_disk->port_root != (u16)port)
-				continue;
-		}
-		if (dev_name) {
-			if (!follow_disk->device || strcmp(follow_disk->device, dev_name) != 0)
-				continue;
+		if (filter_ports &&
+		    ((int)follow_disk->port_root < port_b ||
+		     (int)follow_disk->port_root > port_e))
+			continue;
+		if (dev_name &&
+		    (!follow_disk->device || strcmp(follow_disk->device, dev_name) != 0))
+			continue;
+		if (!follow_disk->device || !*follow_disk->device) {
+			logmessage("Storage", "cannot safely remove a disk with no device identity");
+			result = -1;
+			continue;
 		}
 
-		disk_status = 0;
-		for (follow_partition = follow_disk->partitions; follow_partition != NULL; follow_partition = follow_partition->next) {
-			if (follow_partition->swapon) {
-				swap_status = try_device_swapoff(follow_partition->device);
-				if (swap_status != 0) {
-					saved_errno = errno;
-					logmessage("Storage", "failed to disable swap on /dev/%s (status %d, errno %d)",
-						   follow_partition->device ? follow_partition->device : "(unknown)",
-						   swap_status, saved_errno);
-					disk_status = -1;
-				}
-			}
-			if (umount_dev(follow_partition->device, 0) != 0)
-				disk_status = -1;
-		}
-		if (umount_dev(follow_disk->device, 1) != 0)
-			disk_status = -1;
-
-		/* Never issue drive spindown while any swap or mount release failed. */
+		disk_status = storage_unmount_staged_disk_mounts(follow_disk->device, mounts);
 		if (do_spindown && follow_disk->port_root != MMC_VIRT_PORT_ID) {
 			if (disk_status == 0) {
 				spindown_hdd(follow_disk->device);
 			} else {
-				logmessage("Storage", "skipping spindown for %s because swapoff/unmount did not complete",
-					   follow_disk->device ? follow_disk->device : "(unknown)");
+				logmessage("Storage", "skipping spindown for %s because unmount did not complete",
+					   follow_disk->device);
 			}
 		}
 		if (disk_status != 0)
 			result = -1;
 	}
 
+	free_storage_unmount_mounts(mounts);
 	return result;
+}
+
+int
+umount_stor_path(disk_info_t *disks_info, int port, const char *dev_name, int do_spindown)
+{
+	return umount_stor_path_range(disks_info, port, port, port != 0,
+				      dev_name, do_spindown);
 }
 
 void
@@ -2158,34 +2159,30 @@ safe_remove_stor_device(int port_b, int port_e, const char *dev_name, int do_spi
 			has_swapon_port = 1;
 	}
 
-	if (has_mounted_port) {
-		stop_stor_apps();
-		unmount_status = 0;
-		for (port = port_b; port <= port_e; port++) {
-			if (umount_stor_path(disks_info, port, dev_name, do_spindown) != 0)
-				unmount_status = -1;
-		}
-		ejected_status = umount_ejected();
-		if (unmount_status != 0 || ejected_status != 0)
-			logmessage("Storage", "safe removal incomplete; one or more mount/swap releases failed");
-		mount_count = count_stor_mountpoint();
-		if (mount_count > 0) {
-			start_stor_apps();
+	if (has_mounted_port || has_swapon_port) {
+		if (has_mounted_port)
+			stop_stor_apps();
+
+		/* Stage one inventory for the whole requested port range. */
+		unmount_status = umount_stor_path_range(disks_info, port_b, port_e,
+							1, dev_name, do_spindown);
+		if (has_mounted_port) {
+			ejected_status = umount_ejected();
+			if (unmount_status != 0 || ejected_status != 0)
+				logmessage("Storage", "safe removal incomplete; one or more mount/swap releases failed");
+			mount_count = count_stor_mountpoint();
+			if (mount_count > 0) {
+				start_stor_apps();
 #if defined(APP_NFSD)
-		} else if (mount_count == 0 && unmount_status == 0 && ejected_status == 0) {
-			unload_nfsd();
+			} else if (mount_count == 0 && unmount_status == 0 && ejected_status == 0) {
+				unload_nfsd();
 #endif
-		} else if (mount_count < 0 || unmount_status != 0 || ejected_status != 0) {
-			logmessage("Storage", "storage state is uncertain; leaving services stopped rather than assuming eject succeeded");
-		}
-	} else if (has_swapon_port) {
-		unmount_status = 0;
-		for (port = port_b; port <= port_e; port++) {
-			if (umount_stor_path(disks_info, port, dev_name, do_spindown) != 0)
-				unmount_status = -1;
-		}
-		if (unmount_status != 0)
+			} else if (mount_count < 0 || unmount_status != 0 || ejected_status != 0) {
+				logmessage("Storage", "storage state is uncertain; leaving services stopped rather than assuming eject succeeded");
+			}
+		} else if (unmount_status != 0) {
 			logmessage("Storage", "safe removal incomplete; active swap could not be disabled or mounted data could not be unmounted");
+		}
 	}
 
 	free_disk_data(disks_info);

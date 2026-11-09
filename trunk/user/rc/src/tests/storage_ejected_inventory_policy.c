@@ -59,6 +59,25 @@ main(void)
 	assert(storage_ejected_partition_matches("   8  1  976762584 sda1",
 						  "sda1", &matches) != 0);
 
+	assert(storage_ejected_disk_or_partition("sda", "sda", 0));
+	assert(storage_ejected_disk_or_partition("sda1", "sda", 0));
+	assert(storage_ejected_disk_or_partition("sda12", "sda", 0));
+	assert(!storage_ejected_disk_or_partition("sdab1", "sda", 0));
+	assert(!storage_ejected_disk_or_partition("sda1-extra", "sda", 0));
+	assert(storage_ejected_disk_or_partition("sda1", "sda1", 0));
+	assert(storage_ejected_disk_or_partition("mmcblk0", "mmcblk0", 1));
+	assert(storage_ejected_disk_or_partition("mmcblk0p1", "mmcblk0", 1));
+	assert(storage_ejected_disk_or_partition("mmcblk0p12", "mmcblk0", 1));
+	assert(!storage_ejected_disk_or_partition("mmcblk0p", "mmcblk0", 1));
+	assert(!storage_ejected_disk_or_partition("mmcblk01p1", "mmcblk0", 1));
+	assert(storage_ejected_mount_matches_disk("/dev/sda12", "sda"));
+	assert(!storage_ejected_mount_matches_disk("/dev/sdab1", "sda"));
+	assert(storage_ejected_mount_matches_disk("/dev/mmcblk0p1", "mmcblk0"));
+	assert(!storage_ejected_mount_matches_disk("/dev/mmcblk0p1", "mmcblk0p1"));
+	assert(storage_ejected_may_unmount_device(1, 0));
+	assert(!storage_ejected_may_unmount_device(0, 0));
+	assert(!storage_ejected_may_unmount_device(1, -1));
+
 	assert(storage_ejected_inventory_complete(0, 0, 0));
 	assert(!storage_ejected_inventory_complete(1, 0, 0));
 	assert(!storage_ejected_inventory_complete(0, 1, 0));

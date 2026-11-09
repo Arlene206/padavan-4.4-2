@@ -160,4 +160,61 @@ storage_ejected_may_unmount(int active, int read_error, int close_error,
 							     parse_error);
 }
 
+
+/* Match one physical disk and its partition naming scheme without prefix aliases. */
+static int
+storage_ejected_disk_or_partition(const char *candidate, const char *disk,
+				  int is_mmc)
+{
+	size_t disk_len;
+
+	if (!candidate || !disk || !*disk)
+		return 0;
+
+	disk_len = strlen(disk);
+	if (strncmp(candidate, disk, disk_len) != 0)
+		return 0;
+
+	candidate += disk_len;
+	if (!*candidate)
+		return 1;
+
+	if (is_mmc) {
+		if (*candidate != 'p')
+			return 0;
+		candidate++;
+	}
+
+	if (!*candidate)
+		return 0;
+	for (; *candidate; candidate++) {
+		if (*candidate < '0' || *candidate > '9')
+			return 0;
+	}
+
+	return 1;
+}
+
+static int
+storage_ejected_mount_matches_disk(const char *device, const char *disk)
+{
+	if (!device || !disk)
+		return 0;
+
+	if (strncmp(device, "/dev/sd", 7) == 0)
+		return storage_ejected_disk_or_partition(device + 5, disk, 0);
+	if (strncmp(device, "/dev/mmcblk", 11) == 0)
+		return storage_ejected_disk_or_partition(device + 5, disk, 1);
+
+	return 0;
+}
+
+/* Do not unmount unless the mount inventory is complete and all swapoffs pass. */
+static int
+storage_ejected_may_unmount_device(int mount_inventory_complete,
+				   int swapoff_status)
+{
+	return mount_inventory_complete && swapoff_status == 0;
+}
+
 #endif /* PADAVAN_STORAGE_EJECTED_INVENTORY_POLICY_H */

@@ -1982,7 +1982,7 @@ jobs:
           print("Storage mount inventory I/O failures remain distinct from an empty inventory: OK")
           PY
 
-      - name: Verify ejected-storage cleanup fails closed on incomplete inventories
+      - name: Verify safe-removal stages one complete inventory before side effects
         run: |
           set -eu
           cc -std=gnu89 -Wall -Wextra -Werror \
@@ -1998,42 +1998,56 @@ jobs:
           test = Path("trunk/user/rc/src/tests/storage_ejected_inventory_policy.c").read_text()
 
           start = source.index("int\numount_ejected(void)")
-          end = source.index("\nstatic int\nis_disk_or_partition", start)
-          body = source[start:end]
-          assert "storage_ejected_parse_mount_line" in body
-          assert "storage_ejected_partition_matches" in body
-          assert "mount_read_error = ferror(procpt)" in body
-          assert "mount_close_error = (fclose(procpt) != 0)" in body
-          assert "partition_read_error = ferror(procpt2)" in body
-          assert "partition_close_error = (fclose(procpt2) != 0)" in body
-          assert "storage_ejected_inventory_complete(mount_read_error" in body
-          assert "storage_ejected_may_unmount(active, partition_read_error" in body
-          assert body.index("mount_close_error = (fclose(procpt) != 0)") < body.index("umount(entry->mountpoint)")
-          assert body.index("partition_close_error = (fclose(procpt2) != 0)") < body.index("umount(entry->mountpoint)")
-          assert "free_storage_ejected_mounts(head)" in body
-          assert "storage_ejected_line_is_complete" in policy
-          assert "length >= token_size" in policy
-          assert "return !read_error && !close_error && !parse_error;" in policy
-          assert "storage_ejected_may_unmount(0, 0, 1, 0)" in test
-          assert "storage_ejected_may_unmount(0, 0, 0, 1)" in test
+          end = source.index("\nstruct storage_unmount_mount_entry", start)
+          ejected_body = source[start:end]
+          assert "storage_ejected_parse_mount_line" in ejected_body
+          assert "storage_ejected_partition_matches" in ejected_body
+          assert "mount_read_error = ferror(procpt)" in ejected_body
+          assert "mount_close_error = (fclose(procpt) != 0)" in ejected_body
+          assert "partition_read_error = ferror(procpt2)" in ejected_body
+          assert "partition_close_error = (fclose(procpt2) != 0)" in ejected_body
+          assert "storage_ejected_inventory_complete(mount_read_error" in ejected_body
+          assert "storage_ejected_may_unmount(active, partition_read_error" in ejected_body
+          assert ejected_body.index("mount_close_error = (fclose(procpt) != 0)") < ejected_body.index("umount(entry->mountpoint)")
+          assert ejected_body.index("partition_close_error = (fclose(procpt2) != 0)") < ejected_body.index("umount(entry->mountpoint)")
+          assert "free_storage_ejected_mounts(head)" in ejected_body
 
-          start = source.index("static int\numount_dev(const char *dev_name")
-          end = source.index("\nint\ncount_stor_mountpoint", start)
-          unmount_body = source[start:end]
-          assert "storage_ejected_parse_mount_line" in unmount_body
-          assert "mount_read_error = ferror(procpt)" in unmount_body
-          assert "mount_close_error = (fclose(procpt) != 0)" in unmount_body
-          assert "storage_ejected_inventory_complete(mount_read_error" in unmount_body
-          assert "mount_parse_error = 1" in unmount_body
-          inventory_gate = unmount_body.index("storage_ejected_inventory_complete(mount_read_error")
-          hook = unmount_body.index('eval("/usr/bin/opt-umount.sh"')
-          unmount = unmount_body.index("umount(entry->mountpoint)")
-          assert unmount_body.index("mount_close_error = (fclose(procpt) != 0)") < inventory_gate
-          assert inventory_gate < hook < unmount
-          assert "free_storage_unmount_mounts(head)" in unmount_body
+          start = source.index("static int\nstorage_stage_unmount_mounts(")
+          end = source.index("\nstatic int\nstorage_unmount_staged_disk_mounts", start)
+          stage_body = source[start:end]
+          assert "storage_ejected_parse_mount_line" in stage_body
+          assert "mount_read_error = ferror(procpt)" in stage_body
+          assert "mount_close_error = (fclose(procpt) != 0)" in stage_body
+          assert "storage_ejected_inventory_complete(mount_read_error" in stage_body
+          assert stage_body.index("mount_close_error = (fclose(procpt) != 0)") < stage_body.index("storage_ejected_inventory_complete(")
+          assert stage_body.index("storage_ejected_inventory_complete(") < stage_body.index("*staged = head")
+          assert "free_storage_unmount_mounts(head)" in stage_body
+
+          start = source.index("static int\numount_stor_path_range(")
+          end = source.index("\nint\numount_stor_path(", start)
+          range_body = source[start:end]
+          assert range_body.count("storage_stage_unmount_mounts(&mounts)") == 1
+          assert range_body.index("storage_stage_unmount_mounts(&mounts)") < range_body.index("try_device_swapoff(")
+          swap_gate = range_body.index("storage_ejected_may_unmount_device(1, swapoff_status)")
+          disk_unmount = range_body.index("storage_unmount_staged_disk_mounts(follow_disk->device, mounts)")
+          assert range_body.index("try_device_swapoff(") < swap_gate < disk_unmount
+          assert "free_storage_unmount_mounts(mounts)" in range_body
+
+          start = source.index("void\nsafe_remove_stor_device(")
+          end = source.index("\nvoid\nsafe_remove_all_stor_devices", start)
+          safe_body = source[start:end]
+          assert safe_body.count("umount_stor_path_range(") == 1
+          assert "for (port = port_b; port <= port_e; port++)" not in safe_body
+          assert "safe removal incomplete" in safe_body
+
+          assert "storage_ejected_mount_matches_disk" in policy
+          assert "storage_ejected_disk_or_partition" in policy
+          assert "storage_ejected_may_unmount_device" in policy
+          assert 'storage_ejected_mount_matches_disk("/dev/sda12", "sda")' in test
+          assert "storage_ejected_may_unmount_device(1, -1)" in test
           assert "six fields" in policy
           assert 'ext4 rw 0\\n' in test and 'ext4\\n' in test
-          print("Ejected and per-device storage inventories stage complete records before unmount side effects: OK")
+          print("Safe-removal inventory, swap gate and single-snapshot source contracts: OK")
           PY
 
       - name: Verify storage swap inventory distinguishes inactive, active and unknown
