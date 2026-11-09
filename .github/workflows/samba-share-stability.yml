@@ -150,8 +150,8 @@ jobs:
           assert "samba_config_transaction_lock_acquire(" in transaction
           assert "Abrupt exit after both renames" in transaction_test
           assert "partial rollback can be retried" in transaction_test
-          writer = function_body(stor, "static int write_smb_conf_unlocked(void)")
-          public_writer = function_body(stor, "int write_smb_conf(void)")
+          writer = function_body(stor, "write_smb_conf_unlocked(void)")
+          public_writer = function_body(stor, "write_smb_conf(void)")
           assert "samba_config_file_publish(&fp, staged_path, SAMBA_CONF)" in writer
           assert "samba_config_transaction_lock_acquire(" in public_writer
           assert "samba_config_transaction_recover(" in public_writer
