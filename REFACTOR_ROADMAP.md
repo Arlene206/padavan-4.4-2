@@ -1,11 +1,11 @@
 ## Current source / CI checkpoint
 
 - Repository: `Arlene206/padavan-4.4-2`; maintained fork only.
-- Base `main` SHA for THIS vsftpd lifecycle correction: `78508d0de29e64952dafe8d5ae2ca30ab6f20f60`; only `main` exists and there is no separate checkpoint branch.
-Parent `78508d0de29e64952dafe8d5ae2ca30ab6f20f60` has six exact-head Actions, all completed SUCCESS with matching full `head_sha`: Samba [42652191209], USB storage [42652191230], NFS [42652191208], HTTPD/security [42652191190], vsftpd [42652191151] and AI docs [42652191260]. The Samba workflow compiled/ran config, passdb and daemon-presence tests and passed the full semantic contract; the docs workflow validated the live handoff/roadmap/log integrity.
+- Base `main` SHA for THIS vsftpd lifecycle and regression-contract correction: `af76d3b551a9161d1b10ecb1d33dc3cb27d49839`; only `main` exists and there is no separate checkpoint branch.
+- Parent `af76d3b551a9161d1b10ecb1d33dc3cb27d49839` triggered seven exact-head Actions with matching full `head_sha`: Samba [42653764405], USB storage [42653764334], NFS [42653764330], WAN route [42653764278] and AI docs [42653764298] passed. FTP [42653764423] compiled/ran both GNU89 tests but a stale `return;` source assertion failed; HTTPD [42653764345] had a stale FTP-config slice boundary after insertion of the wait adapter. Both test contracts are corrected in THIS follow-up.
 - The preceding daemon-lifecycle SHA `30432e4636c5b00c96cb8918caaebe37b133a28c` passed Samba, NFS, USB storage, vsftpd and WAN route; its stale HTTPD signature and handoff-heading contracts were repaired on the parent above.
 - The preceding Samba/storage patch carries Samba stop failures into safe-removal gates, rejects unknown mount inventory during Samba restart and checks WINS-only nmbd status; all six affected exact-head Actions on the parent above are green.
-- THIS change carries vsftpd stop failures into the storage safe-removal gate, checks FTP start command status and bounded presence, and propagates restart/stop results through RC and storage callers. Exact-head Actions for THIS change are pending.
+- The FTP lifecycle implementation on the parent carries vsftpd stop failures into storage safe-removal gates, checks start command status and bounded presence, rejects unknown mount inventory and propagates results through RC callers. THIS follow-up only corrects the two stale test-contract assumptions described above; exact-head Actions for THIS follow-up are pending.
 - `dev_init.sh` mounts `/etc` as tmpfs. Samba config/passdb files under `/etc` are volatile and recreated at boot; a persistent power-loss journal in that mount cannot be durable. Same-boot abrupt process termination remains a separate, lower-priority recovery question.
 - NFS generated defaults retain `secure,no_root_squash,async`; the custom override path accepts only direct regular files or symlinks to regular files and permits generated fallback only on `ENOENT`. Root-squash, AUTH_SYS trust, custom override content/ACL bypass, durability and external-mount policy remain open.
 
@@ -29,7 +29,7 @@ Parent `78508d0de29e64952dafe8d5ae2ca30ab6f20f60` has six exact-head Actions, al
 
 ## Priority queue
 
-1. P2 — Verify THIS vsftpd lifecycle correction on exact-head vsftpd, Samba, HTTPD, storage, NFS and AI handoff Actions; inspect each job and full `head_sha`.
+1. P2 — Verify THIS vsftpd regression-contract correction on exact-head vsftpd, Samba, HTTPD, storage, NFS, WAN route and AI handoff Actions; inspect each job and full `head_sha`.
 2. P2 — Audit bundled vsftpd authentication/account provisioning, share-mode ACL semantics, anonymous write/delete exposure, chroot/path confinement and symlink traversal.
 3. P2 — Reassess whether a small same-boot recovery mechanism is justified for abrupt process termination during passdb/config publication. `/etc` is tmpfs, so persistent power-loss journaling is not applicable.
 4. P2 — Keep NFS `async` durability, root-squash compatibility, trusted custom override content/ACL bypass, and external mounts as explicit open risks.
@@ -51,7 +51,7 @@ Parent `78508d0de29e64952dafe8d5ae2ca30ab6f20f60` has six exact-head Actions, al
 | Level | Evidence | Limits |
 |---|---|---|
 | L1 source review | PASS for Samba and FTP stop-result propagation into storage removal, fail-closed tri-state storage gating, WINS-only and vsftpd command results, bounded daemon-presence postconditions and RC status propagation. | No live process/hardware behavior claimed. |
-| L2 host / Actions | The parent `78508d0de29e64952dafe8d5ae2ca30ab6f20f60` has six exact-head Actions all SUCCESS with matching full `head_sha`. The FTP GNU89 daemon-presence regression was compiled and passed locally from the exact helper/test content; exact-head Actions for THIS FTP change are pending. | No production RC object, MIPS/uClibc build, firmware/TRX or device test claimed. |
+| L2 host / Actions | The parent `af76d3b551a9161d1b10ecb1d33dc3cb27d49839` has five of seven exact-head Actions green; FTP [42653764423] and HTTPD [42653764345] failed only on stale test-contract assumptions, while both FTP GNU89 host tests compiled and passed. Those source contracts are corrected here; exact-head Actions for THIS follow-up are pending. | No production RC object, MIPS/uClibc build, firmware/TRX or device test claimed. |
 | L3 MIPS/uClibc / production objects / firmware/TRX | NOT VERIFIED. | Full target build phase required. |
 | L4 storage eject, live Samba/WINS behavior / physical router | NOT VERIFIED. | Requires target-device validation. |
 

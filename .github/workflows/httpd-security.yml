@@ -2398,7 +2398,7 @@ jobs:
           # Preserve supported UI modes; corrupted values must not fall
           # through to anonymous-enabled FTP mode.
           ftp_start = source.index("write_vsftpd_conf(void)")
-          ftp_end = source.index(chr(10) + "void" + chr(10) + "run_ftp", ftp_start)
+          ftp_end = source.index(chr(10) + "static int" + chr(10) + "ftp_daemon_is_running", ftp_start)
           ftp_config = source[ftp_start:ftp_end]
           assert 'ftp_share_mode_normalize(nvram_get_int("st_ftp_mode"))' in ftp_config
           assert 'fprintf(fp, "anonymous_enable=%s\\n", (i_ftp_mode == 2) ? "NO" : "YES");' in ftp_config

@@ -81,7 +81,7 @@ jobs:
 
           run = function_body(source, "run_ftp(")
           failure_gate = run.index("if (write_vsftpd_conf() != 0)")
-          failure_return = run.index("return;", failure_gate)
+          failure_return = run.index("return -1;", failure_gate)
           daemon_start = run.index('eval("/sbin/vsftpd")')
           assert failure_gate < failure_return < daemon_start
           assert "command_status != 0" in run
@@ -148,6 +148,10 @@ jobs:
               "trunk/user/rc/src/services_stor.c",
               "trunk/user/rc/src/ftp_config_file.h",
               "trunk/user/rc/src/tests/ftp_config_file.c",
+              "trunk/user/rc/src/rc.c",
+              "trunk/user/rc/src/rc.h",
+              "trunk/user/rc/src/ftp_daemon_policy.h",
+              "trunk/user/rc/src/tests/ftp_daemon_policy.c",
           )
           filters = workflow.split("jobs:", 1)[0]
           push_filters, pr_filters = filters.split("  pull_request:", 1)

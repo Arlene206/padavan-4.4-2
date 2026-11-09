@@ -1,3 +1,16 @@
+## 2026-11-10 00:46 CST (UTC+8) — Repair stale FTP source contracts after lifecycle API change
+
+- **Base main SHA:** `af76d3b551a9161d1b10ecb1d33dc3cb27d49839`; resulting commit: THIS COMMIT.
+- **Exact-head parent Actions:** Samba [42653764405], USB storage [42653764334], NFS [42653764330], WAN route [42653764278] and AI docs [42653764298] completed SUCCESS with matching full `head_sha=af76d3b551a9161d1b10ecb1d33dc3cb27d49839`.
+- **Finding — vsftpd CI:** both GNU89 host tests (atomic config publication and bounded daemon presence) compiled and passed. The semantic workflow still searched for the old void-function `return;` after config failure; `run_ftp()` now correctly returns `-1`, causing a stale-contract false negative.
+- **Finding — HTTPD CI:** the FTP trust-boundary contract sliced source from `write_vsftpd_conf()` up to the former adjacent `void run_ftp` signature. The inserted daemon wait adapter changed that adjacency, so the source range lookup failed even though the banner guard remained in place.
+- **Fix:** update the FTP assertion to require `return -1;`; terminate the HTTPD FTP-config slice at the new runtime adapter; extend vsftpd filter coverage to all changed RC, policy and test files. No production service logic changed in this corrective commit.
+- **Changed paths:** `.github/workflows/vsftpd-stability.yml`, `.github/workflows/httpd-security.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+- **Validation boundary:** parent exact-head logs confirm both FTP GNU89 tests PASS and the remaining failures were Python source-contract lookups. New exact-head Actions are pending. No MIPS/production RC build, firmware/TRX or router test is claimed.
+- **Next:** verify all exact-head Actions. If green, continue source review of the bundled vsftpd authentication/account, share-mode ACL, anonymous write/delete and chroot/path boundaries.
+
+---
+
 ## 2026-11-10 00:35 CST (UTC+8) — Propagate vsftpd lifecycle failures into storage safety gates
 
 - **Base main SHA:** `78508d0de29e64952dafe8d5ae2ca30ab6f20f60`; resulting commit: THIS COMMIT.
