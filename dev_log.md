@@ -1,3 +1,17 @@
+## 2026-11-09 09:30 CST — Fail safe when RT3352 iNIC interface startup fails
+
+- **Base main SHA:** `12e4053c07b7f08d3f7b91baa8b5bf37d06df097`.
+- **Code commit:** `159c396bbd208d55abee3108b9e1ea4d79ea1394` — `start_inic_mii()` now checks the `rai0` interface-up result through `wif_control_success()`. On failure it removes any stale bridge membership, attempts switch-port isolation and RGMII disable, asserts the iNIC reset GPIO, logs the failure, and returns before iNIC parameter updates, RadioOn commands, or bridge-add publication.
+- **Shutdown behavior:** the explicit `inic_disable` branch checks/logs `rai0` interface-down failure but deliberately does not return early. It still attempts bridge removal, iNIC-port isolation, RGMII disable and reset assertion in that order; isolation/disable failures are logged without skipping the reset step.
+- **Finding / risk addressed:** the previous RT3352 MII startup discarded `ifconfig rai0 up` status and continued through iNIC configuration, de-isolation/RadioOn selection and `br0` attachment. A failed interface transition could therefore leave switch/bridge state published for an unusable interface. The disable branch also discarded the interface-down result without diagnostics.
+- **Changed paths:** `trunk/user/rc/src/net_wifi.c`; `.github/workflows/wireless-radio-state.yml`.
+- **Regression/workflow commit:** `4bed634294b80416ca5c17adbcaca026ee0d6d94` adds source-order contracts for the failed-start gate, bridge removal/isolation/RGMII-disable/reset recovery order, suppression of later parameter/RadioOn/bridge-add effects, and the fail-safe disable sequence after a failed interface-down.
+- **Validation:** L1 fetched-source review and source-order preflight PASS. Exact-head GitHub Actions [run 42545914009](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42545914009) completed **SUCCESS** on `4bed634294b80416ca5c17adbcaca026ee0d6d94`; job compiled `tests/wireless_radio_policy.c` with `cc -std=gnu89 -Wall -Wextra -Werror`, ran it, and passed the expanded Python source-contract checks. Code-only head [run 42545882789](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42545882789) also completed SUCCESS on `159c396bbd208d55abee3108b9e1ea4d79ea1394`.
+- **Validation boundary / remaining risks:** no production RC translation-unit/object build, MIPS/uClibc build, complete firmware/TRX, live RT3352 MII transition, switch failure injection, or physical-router validation. This run did not execute ASan/UBSan. `check_inic_mii_rebooted()` still ignores its guest-interface up result; `stop_wifi_all_wl/rt()` still ignore down results and unconditionally switch the band LED off. These are separate open follow-ups; Wireless remains **AUDITING**. Firewall/NAT remains **AUDITING**, including FULLCONENAT notifier/reference-count versus per-net namespace ownership.
+- **Next rotation:** move to the P1 WAN/PPP lifecycle ledger item in `trunk/user/rc/src/net_wan.c::stop_wan()`: trace the ignored `killall -SIGUSR2 udhcpc` result and the subsequent 300ms wait/service teardown, then check interface/static-route command-status propagation. Keep the wireless residuals queued; do not let this module monopolize development.
+
+---
+
 ## 2026-11-09 09:23 CST — Gate WDS bridge attachment on successful interface-up commands
 
 - **Base main SHA:** `771430b44511920b63a9091c264ebc44b52db054`.
