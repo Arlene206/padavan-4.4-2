@@ -1177,29 +1177,35 @@ static unsigned int fullconenat_tg(struct sk_buff *skb, const struct xt_action_p
 
 static int fullconenat_tg_check(const struct xt_tgchk_param *par)
 {
-  nf_ct_netns_get(par->net, par->family);
+  int ret;
+
+  ret = nf_ct_netns_get(par->net, par->family);
+  if (ret < 0)
+    return ret;
 
   mutex_lock(&nf_ct_net_event_lock);
 
-  tg_refer_count++;
-
-  pr_debug("xt_FULLCONENAT: fullconenat_tg_check(): tg_refer_count is now %d\n", tg_refer_count);
-
-  if (tg_refer_count == 1) {
+  if (tg_refer_count == 0) {
 #ifdef CONFIG_NF_CONNTRACK_CHAIN_EVENTS
     ct_event_notifier.notifier_call = ct_event_cb;
 #else
     ct_event_notifier.fcn = ct_event_cb;
 #endif
 
-    if (nf_conntrack_register_notifier(par->net, &ct_event_notifier) == 0) {
-      ct_event_notifier_registered = 1;
-      pr_debug("xt_FULLCONENAT: fullconenat_tg_check(): ct_event_notifier registered\n");
-    } else {
-      printk("xt_FULLCONENAT: warning: failed to register a conntrack notifier. Disable active GC for mappings.\n");
+    ret = nf_conntrack_register_notifier(par->net, &ct_event_notifier);
+    if (ret != 0) {
+      printk("xt_FULLCONENAT: error: conntrack notifier registration failed (%d); rejecting target\n", ret);
+      mutex_unlock(&nf_ct_net_event_lock);
+      nf_ct_netns_put(par->net, par->family);
+      return ret;
     }
 
+    ct_event_notifier_registered = 1;
+    pr_debug("xt_FULLCONENAT: fullconenat_tg_check(): ct_event_notifier registered\n");
   }
+
+  tg_refer_count++;
+  pr_debug("xt_FULLCONENAT: fullconenat_tg_check(): tg_refer_count is now %d\n", tg_refer_count);
 
   mutex_unlock(&nf_ct_net_event_lock);
 
@@ -1262,12 +1268,22 @@ static struct xt_target tg_reg[] __read_mostly = {
 
 static int __init fullconenat_tg_init(void)
 {
+  int ret;
+
   wq = create_singlethread_workqueue("xt_FULLCONENAT");
   if (wq == NULL) {
-    printk("xt_FULLCONENAT: warning: failed to create workqueue\n");
+    printk("xt_FULLCONENAT: error: failed to create garbage-collection workqueue\n");
+    return -ENOMEM;
   }
 
-  return xt_register_targets(tg_reg, ARRAY_SIZE(tg_reg));
+  ret = xt_register_targets(tg_reg, ARRAY_SIZE(tg_reg));
+  if (ret != 0) {
+    destroy_workqueue(wq);
+    wq = NULL;
+    return ret;
+  }
+
+  return 0;
 }
 
 static void fullconenat_tg_exit(void)

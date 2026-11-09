@@ -1,0 +1,128 @@
+name: FULLCONENAT lifecycle regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/fullconenat-lifecycle.yml"
+      - "trunk/linux-4.4.x/net/netfilter/xt_FULLCONENAT.c"
+      - "trunk/linux-4.4.x/net/netfilter/x_tables.c"
+      - "trunk/linux-4.4.x/net/netfilter/nf_conntrack_ecache.c"
+      - "trunk/linux-4.4.x/net/ipv6/netfilter/ip6_tables.c"
+      - "trunk/linux-4.4.x/net/ipv6/netfilter/ip6table_nat.c"
+      - "trunk/user/rc/src/firewall_ex.c"
+      - "trunk/user/rc/src/firewall_restore_transaction.h"
+  pull_request:
+    paths:
+      - ".github/workflows/fullconenat-lifecycle.yml"
+      - "trunk/linux-4.4.x/net/netfilter/xt_FULLCONENAT.c"
+      - "trunk/linux-4.4.x/net/netfilter/x_tables.c"
+      - "trunk/linux-4.4.x/net/netfilter/nf_conntrack_ecache.c"
+      - "trunk/linux-4.4.x/net/ipv6/netfilter/ip6_tables.c"
+      - "trunk/linux-4.4.x/net/ipv6/netfilter/ip6table_nat.c"
+      - "trunk/user/rc/src/firewall_ex.c"
+      - "trunk/user/rc/src/firewall_restore_transaction.h"
+
+jobs:
+  fullconenat-lifecycle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify FULLCONENAT cleanup prerequisites and error propagation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          root = Path(".")
+          kernel = root / "trunk/linux-4.4.x/net/netfilter"
+          ipv6 = root / "trunk/linux-4.4.x/net/ipv6/netfilter"
+          rc = root / "trunk/user/rc/src"
+
+          fullcone = (kernel / "xt_FULLCONENAT.c").read_text()
+          xtables = (kernel / "x_tables.c").read_text()
+          ecache = (kernel / "nf_conntrack_ecache.c").read_text()
+          ip6_tables = (ipv6 / "ip6_tables.c").read_text()
+          ip6_nat = (ipv6 / "ip6table_nat.c").read_text()
+          firewall = (rc / "firewall_ex.c").read_text()
+          transaction = (rc / "firewall_restore_transaction.h").read_text()
+
+          def function_body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace + 1:pos]
+              raise AssertionError(f"unterminated function: {signature}")
+
+          # The GC worker is the only normal-path consumer of the pending
+          # conntrack-destroy list. Never register a target without this worker.
+          init = function_body(fullcone, "static int __init fullconenat_tg_init(void)")
+          assert init.index("create_singlethread_workqueue") < init.index("if (wq == NULL)")
+          assert re.search(r"if\\s*\\(wq\\s*==\\s*NULL\\)\\s*\\{[^{}]*return -ENOMEM;", init, re.S)
+          assert init.index("return -ENOMEM;") < init.index("xt_register_targets")
+          assert "ret = xt_register_targets(tg_reg, ARRAY_SIZE(tg_reg));" in init
+          registration_failure = init[init.index("if (ret != 0)"):]
+          assert registration_failure.index("destroy_workqueue(wq)") < registration_failure.index("wq = NULL;") < registration_failure.index("return ret;")
+          assert "return xt_register_targets(" not in init
+
+          callback = function_body(fullcone, "static int ct_event_cb(")
+          worker = function_body(fullcone, "static void gc_worker(")
+          assert "list_add(&(dying_tuple_item->list), &dying_tuple_list);" in callback
+          assert "if (wq != NULL)" in callback and "queue_delayed_work(wq, &gc_worker_wk" in callback
+          assert "handle_dying_tuples();" in worker
+
+          # Both netns acquisition and destroy-notifier registration must be
+          # successful before the xt target is accepted and reference-counted.
+          check = function_body(fullcone, "static int fullconenat_tg_check(")
+          get_at = check.index("ret = nf_ct_netns_get(par->net, par->family);")
+          get_error_at = check.index("if (ret < 0)", get_at)
+          lock_at = check.index("mutex_lock(&nf_ct_net_event_lock);")
+          register_at = check.index("ret = nf_conntrack_register_notifier(par->net, &ct_event_notifier);")
+          register_error_at = check.index("if (ret != 0)", register_at)
+          registered_at = check.index("ct_event_notifier_registered = 1;", register_error_at)
+          refcount_at = check.index("tg_refer_count++;")
+          assert get_at < get_error_at < lock_at < register_at < register_error_at < registered_at < refcount_at
+          assert "return ret;" in check[get_error_at:lock_at]
+          notifier_failure = check[register_error_at:registered_at]
+          assert "mutex_unlock(&nf_ct_net_event_lock);" in notifier_failure
+          assert "nf_ct_netns_put(par->net, par->family);" in notifier_failure
+          assert "return ret;" in notifier_failure
+          assert "failed to register a conntrack notifier. Disable active GC" not in check
+
+          # The 4.4 notifier provider can reject an already-owned per-net
+          # notifier; xtables propagates negative checkentry results.
+          notifier = function_body(ecache, "int nf_conntrack_register_notifier(struct net *net,")
+          assert "ret = -EBUSY;" in notifier
+          xt_check = function_body(xtables, "int xt_check_target(")
+          assert "if (ret < 0)" in xt_check and "return ret;" in xt_check
+          register_targets = function_body(xtables, "int xt_register_targets(")
+          assert "xt_unregister_targets(target, i);" in register_targets
+          assert "return err;" in register_targets
+
+          # Confirm the IPv6 table-provider and hook-registration failures
+          # reach userspace, then remain inside the RC's shared rollback.
+          replace = function_body(ip6_tables, "static int __do_replace(")
+          assert 'try_then_request_module(xt_find_table_lock(net, AF_INET6, name)' in replace
+          assert "ret = t ? PTR_ERR(t) : -ENOENT;" in replace
+          nat_init = function_body(ip6_nat, "static int __init ip6table_nat_init(void)")
+          assert "err = nf_register_hooks(nf_nat_ipv6_ops, ARRAY_SIZE(nf_nat_ipv6_ops));" in nat_init
+          assert nat_init.index("unregister_pernet_subsys(&ip6table_nat_net_ops);") < nat_init.index("return err;")
+
+          nat_writer = function_body(firewall, "ip6t_nat_rules(char *man_if)")
+          assert 'firewall_apply_core_restore("IPv6 NAT restore", "ip6tables", "nat", ipt_file);' in nat_writer
+          assert "-A POSTROUTING -s fc00:101:101::1/64 -j FULLCONENAT" in nat_writer
+          rebuild = function_body(firewall, "start_firewall_ex(void)")
+          nat_call = rebuild.index("ip6t_nat_rules(man_if);")
+          nat_gate = rebuild.index("if (!firewall_restore_transaction_ok(&firewall_core_restore_transaction))", nat_call)
+          assert nat_call < nat_gate
+          apply = function_body(transaction, "firewall_restore_transaction_apply(")
+          assert "if (command_fn(family, table, rule_path, 0, context) != 0)" in apply
+          assert "firewall_restore_transaction_abort(tx, command_fn, remove_fn, context);" in apply
+
+          print("FULLCONENAT GC prerequisite, notifier error propagation, IPv6 restore rollback contracts: PASS")
+          PY
