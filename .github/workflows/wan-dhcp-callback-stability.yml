@@ -60,7 +60,13 @@ jobs:
           assert "failed to restore previous DHCP address" in callback
           assert "ifconfig(wan_ifname" not in callback
           assert callback.index("wan_dhcp_interface_clear(&interface_context)") < old_routes
-          assert callback.index('nvram_set_temp(strcat_r(prefix, "gateway", tmp), gateway_buf)') < callback.index("wan_up(wan_ifname, unit, 0)")
+          gateway_state = callback.index('nvram_set_temp(strcat_r(prefix, "gateway", tmp), gateway_buf)')
+          wan_route_setup = callback.index("route_setup_status = wan_up_internal(wan_ifname, unit, 0)")
+          man_route_setup = callback.index("route_setup_status = man_up_internal(wan_ifname, unit, 0)")
+          assert gateway_state < wan_route_setup
+          assert "accepted but route setup is incomplete" in callback
+          assert "return route_setup_status;" in callback
+          assert man_route_setup < callback.index("nvram_set_int_temp(strcat_r(prefix, \"err\", tmp), i_err)")
 
           apply_policy = body(policy, "dhcp_wan_interface_apply(")
           assert "ops->clear_address(context)" in apply_policy

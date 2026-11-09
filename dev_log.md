@@ -1,3 +1,16 @@
+## 2026-11-10 05:25 CST (UTC+8) — Align DHCP callback regression with status-returning WAN/MAN up helpers
+
+- **Base main SHA:** `38a86273a44bc481666674606979321701703f71`; active branch: `main`.
+- **Exact-head Actions inspected:** WAN route [42703179674], AI handoff docs [42703179667], WAN teardown [42703179436], and HTTPD security [42703179416] SUCCESS. WAN DHCP callback [42703179710] failed in its source-contract step after its GNU89 interface transaction compile/run step passed.
+- **Failure analysis:** the DHCP contract still required `udhcpc_bound()` to call the public `wan_up()` wrapper. The new route-add change deliberately calls `wan_up_internal()` / `man_up_internal()` instead, so that the callback can consume and return the route setup status while the public void APIs remain compatible. The failure was a stale ordering assertion, not a production source compile error.
+- **Correction:** update the callback contract to assert that the stored DHCP gateway is published before the internal up call, that both WAN/MAN private results are captured, and that `udhcpc_bound()` returns `route_setup_status`. The production C source is unchanged in THIS follow-up.
+- **Changed paths:** `.github/workflows/wan-dhcp-callback-stability.yml`; `SESSION_HANDOFF.md`; `REFACTOR_ROADMAP.md`; this root log record.
+- **Validation:** L1 review of the contract change complete. The new DHCP callback workflow and docs check are pending exact resulting SHA; do not treat the prior failed run as green. No production object, MIPS/uClibc build, full firmware or hardware test is claimed.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** inspect all exact-head Actions after this test-only correction; then finish the bounded BusyBox DHCP callback-state review and broaden to Samba/other userland modules.
+
+---
+
 ## 2026-11-10 05:11 CST (UTC+8) — Propagate MAN/WAN route-add failures through up paths
 
 - **Base main SHA:** `639ebbdedca75d1938e7d280108d146d05e2e479`; active branch: `main`.

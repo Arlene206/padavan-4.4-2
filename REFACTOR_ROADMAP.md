@@ -1,14 +1,12 @@
 ## Current source / CI checkpoint
 
 - Repository: Arlene206/padavan-4.4-2; maintained fork only.
-- Base main SHA for THIS MAN/WAN route-add error propagation: `639ebbdedca75d1938e7d280108d146d05e2e479`; active branch `main`; only `main` exists, with no remote checkpoint branch.
-- Exact-head Actions on base SHA `639ebbdedca75d1938e7d280108d146d05e2e479`: WAN teardown [42698031149], AI handoff docs [42698030922], WAN route status [42698030798], HTTPD security [42698030765], and WAN DHCP callback [42698030655] all completed SUCCESS. The route helper sanitizer test, semantic contracts and documentation validator ran successfully.
-- Route-add defect: direct MAN gateway host/default/DNS additions and direct WAN gateway host/default additions discarded `route_add()` results; `man_up()` / `wan_up()` also discarded status returned by static and DHCP route helpers.
-- THIS change uses private status-returning up helpers, keeps the first route error while continuing all configured route attempts and subsequent service startup, logs each failed operation, and preserves public void wrappers. The DHCP bound/renew callback consumes the private status and logs/returns it.
-- No destructive partial-route rollback is attempted: a failed add does not identify whether an identical kernel route was already present and owned by another path. Keep the accepted interface/lease state, expose the error and rely on the existing matching teardown/next renewal path rather than deleting routes without ownership proof.
-- The MAN DNS teardown conditional correction and prior route-delete propagation remain intact.
-- New code's focused exact-head WAN route workflow and dependent callback/docs checks are PENDING until reconciled on THIS commit SHA.
-- WAN remains PARTIAL / AUDITING; BusyBox callback-state semantics and broader userland coverage remain open. Root `dev_log.md` will have 77 /119 complete records after THIS entry; no archive rotation is due.
+- Live main SHA: `38a86273a44bc481666674606979321701703f71`; parent `639ebbdedca75d1938e7d280108d146d05e2e479`; active branch `main`; no remote checkpoint branch.
+- MAN/WAN route-add propagation is committed in `38a86273a44bc481666674606979321701703f71`: direct gateway host/default/DNS and static/DHCP route helper errors are retained/logged; later route attempts and service setup continue; public void APIs remain; DHCP bound logs and returns the status.
+- Exact-head Actions: WAN route [42703179674], AI docs [42703179667], WAN teardown [42703179436], and HTTPD [42703179416] SUCCESS. DHCP callback [42703179710] failed at its semantic source contract after the GNU89 host transaction test passed: the assertion expected the old public `wan_up()` call, while `udhcpc_bound()` now calls `wan_up_internal()` / `man_up_internal()` to consume their result.
+- THIS change updates the DHCP workflow contract to verify that new internal-call ordering and returned status. Exact-head reruns are pending; parent run results are not evidence for this follow-up.
+- The DHCP callback status is still discarded by BusyBox `udhcp_run_script()`; complete the bounded callback-state review before any semantics change. Then broaden governance beyond WAN to Samba and other userland modules.
+- Root `dev_log.md` has 78 /119 complete records after THIS entry; no archive rotation is due.
 
 ## Whole-repository module status
 
@@ -30,9 +28,9 @@
 
 ## Priority queue
 
-1. P2 — Reconcile THIS MAN/WAN route-add propagation and the focused exact-head Actions on the new SHA.
-2. P2 — Complete the bounded BusyBox DHCP callback-state review (leasefail, accepted NAK/deconfig, lease expiry, renew, SIGUSR2/release-on-quit) without changing ignored exit-status semantics absent a demonstrated state defect.
-3. P2 — Rotate outside WAN: inspect Samba same-boot passdb/config publication and then the next highest-risk stability issue in the whole-userland ledger.
+1. P2 — Reconcile THIS stale DHCP callback source-contract correction on its exact resulting SHA; require all affected Actions to pass.
+2. P2 — Finish BusyBox leasefail/NAK/deconfig/expiry/renew/SIGUSR2 callback-state review without changing ignored callback status absent a demonstrated defect.
+3. P2 — Move beyond WAN: audit Samba same-boot passdb/config publication and continue the whole-userland stability/security ledger.
 4. P2 — Keep FTP realpath-to-syscall TOCTOU, FULLCONENAT kernel/MIPS target build, and NFS async/AUTH_SYS/root-squash/external-mount compatibility decisions visible.
 
 ## Working rules
@@ -50,10 +48,10 @@
 
 | Level | Evidence | Limits |
 |---|---|---|
-| L1 source review | PASS for route-add result propagation through MAN/WAN up paths, first-error retention without short-circuiting, per-operation logging, DHCP callback result handling, and public void API preservation. | Accepted DHCP lease is retained when route installation partially fails; target route reconciliation remains unverified. |
-| L2 host / Actions | Base SHA `639ebbdedca75d1938e7d280108d146d05e2e479`: WAN route [42698030798], WAN teardown [42698031149], DHCP callback [42698030655], HTTPD [42698030765], and AI docs [42698030922] SUCCESS. THIS code commit's focused GNU89 sanitizer and semantic route-add contract is PENDING exact-head CI. | Parent Actions do not validate THIS code. |
+| L1 source review | PASS for MAN/WAN route-add propagation and DHCP callback consumption/return. | No production RC target object compiled. |
+| L2 host / Actions | Exact SHA `38a86273a44bc481666674606979321701703f71`: WAN route [42703179674], WAN teardown [42703179436], HTTPD [42703179416], and AI docs [42703179667] SUCCESS. DHCP [42703179710] host transaction test PASS; source-contract check needs updated assertion for status-returning internal up helper. THIS test correction awaits exact-head run. | Do not report the DHCP workflow fully green until rerun. |
 | L3 MIPS/uClibc production objects / firmware/TRX | NOT VERIFIED. | Full target build phase required. |
-| L4 storage, DHCP, WAN route reconciliation and physical router | NOT VERIFIED. | Requires target-device validation. |
+| L4 DHCP/WAN route reconciliation and physical router | NOT VERIFIED. | Requires target-device validation. |
 
 ## Handoff requirements
 

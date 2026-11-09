@@ -1,14 +1,13 @@
 ## Current repository state
 
 - Maintained fork: Arlene206/padavan-4.4-2; work only on this fork.
-- Live baseline for THIS change: `639ebbdedca75d1938e7d280108d146d05e2e479`; active branch `main`. Remote branch enumeration contains only `main`; no checkpoint branch exists.
-- Exact-head recovery for the completed MAN DNS conditional correction on `639ebbdedca75d1938e7d280108d146d05e2e479`: WAN interface teardown [42698031149], AI handoff docs [42698030922], WAN route status [42698030798], HTTPD security [42698030765], and WAN DHCP callback [42698030655] all completed SUCCESS with matching full `head_sha`. Relevant compile, sanitizer, semantic, and documentation steps all passed.
-- The DNS teardown predicate correction is complete: route deletion, error accumulation and logging are enclosed by the full eligibility condition; the route workflow asserts this structure.
-- Active code task for THIS commit: propagate route-add failures through `add_man_gateway_routes()`, `man_up()`, and `wan_up()`. The direct MAN/WAN gateway host/default/DNS additions and the existing static/DHCP helper results were previously discarded by their callers.
-- Implementation shape: private int-returning `man_up_internal()` / `wan_up_internal()` and `add_man_gateway_routes()`; retain the existing public void APIs as logging wrappers. `udhcpc_bound()` calls the private helpers, logs accepted leases with incomplete route setup, and returns the aggregate route status. All route attempts and subsequent service startup continue after the first route failure.
-- Do not blindly roll back successful additions after a later failure: the kernel route operation cannot identify whether an identical route pre-existed or was created by this pass. Preserve the accepted DHCP lease and report the first failure; existing scoped teardown remains responsible for route cleanup.
-- BusyBox `udhcp_run_script()` still discards callback status; operational logs remain essential. L3 production RC/MIPS/uClibc/firmware and L4 device validation are not established.
-- Root `dev_log.md` contains 76 complete records before THIS commit; the new record makes 77 /119. No archive rotation is due.
+- Live `main` SHA: `38a86273a44bc481666674606979321701703f71`; parent: `639ebbdedca75d1938e7d280108d146d05e2e479`. Remote branch list contains only `main`; no checkpoint branch exists.
+- The route-add propagation commit `38a86273a44bc481666674606979321701703f71` is published. It adds private status-returning MAN/WAN up helpers, propagates direct and static/DHCP helper route-add errors without short-circuiting, preserves the public void APIs, and makes `udhcpc_bound()` log/return the route-setup status. It intentionally avoids blind route rollback because route ownership cannot be inferred from an add failure.
+- Exact-head Actions on `38a86273a44bc481666674606979321701703f71`: WAN route operation status [42703179674], AI handoff docs [42703179667], WAN interface teardown [42703179436], and HTTPD security [42703179416] completed SUCCESS.
+- WAN DHCP callback [42703179710] is FAILURE, but its GNU89 interface transaction compile/run step passed. The subsequent source-contract step failed because it still searched for `wan_up(wan_ifname, unit, 0)`; this change correctly calls `wan_up_internal()` / `man_up_internal()` to capture the route status. The failure is a stale test assertion, not evidence of a production compile failure. THIS commit updates that assertion and adds checks for status capture/return; exact-head rerun is pending.
+- BusyBox `udhcp_run_script()` continues to discard callback status; logs remain the operational failure channel. The callback-state review is still open.
+- L3 production RC/MIPS/uClibc/firmware and L4 physical router validation are not established.
+- Root `dev_log.md` currently has 77 complete records; THIS contract-correction entry makes 78 /119. No archive rotation is due.
 
 ## Completed FULLCONENAT namespace / zone work
 
@@ -31,25 +30,24 @@
 
 ## Active task
 
-1. Reconcile the new route-add status propagation commit on its exact live `main` SHA. Inspect WAN route status, WAN DHCP callback, HTTPD security, and AI handoff Actions; verify every run's `head_sha` matches exactly.
-2. Then complete the bounded BusyBox DHCP callback state audit: initial `leasefail`, accepted NAK followed by deconfig, lease expiry, renew/repeated renew, and SIGUSR2/release-on-quit. Trace how `udhcp_run_script()` discards child status and do not change that legacy behavior without a demonstrated state defect.
-3. Move the next code round outside WAN into the highest-value remaining userland stability item, starting with Samba same-boot passdb/config publication and continuing the repository-wide priority queue. Keep FTP realpath-to-syscall TOCTOU, FULLCONENAT target build, and NFS compatibility questions visible.
-4. Preserve the L3 full target build and L4 router tests as later consolidated project milestones; do not claim them from host/Actions results.
+1. Reconcile THIS DHCP callback contract correction on the resulting exact `main` SHA. Require the DHCP interface transaction compile/run and full source-order assertions to pass, along with WAN route, WAN teardown, HTTPD and AI handoff workflows; compare each run's `head_sha`.
+2. Once green, finish the bounded BusyBox DHCP callback audit: initial `leasefail`, accepted NAK followed by deconfig, lease expiry, renew/repeated renew, and SIGUSR2/release-on-quit. Trace how `udhcp_run_script()` discards child status; do not change that legacy behavior absent a demonstrated lifecycle/state defect.
+3. Rotate out of WAN after that bounded review. Start with Samba same-boot passdb/config publication, then the next most consequential stability/security item from the whole-userland governance ledger. Keep FTP realpath-to-syscall TOCTOU, FULLCONENAT target build, and NFS compatibility questions visible.
 
 ## Verification boundary
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for MAN gateway host/default/DNS route-add status accumulation, WAN gateway host/default and static/DHCP route helper propagation, public void API preservation, continued cleanup/service setup, and DHCP callback route-status reporting. |
-| L2 host / Actions | Base SHA `639ebbdedca75d1938e7d280108d146d05e2e479`: WAN teardown [42698031149], AI docs [42698030922], WAN route status [42698030798], HTTPD [42698030765], and WAN DHCP callback [42698030655] all SUCCESS. THIS route-add change's focused GNU89 sanitizer and semantic source-contract Action is PENDING on its resulting SHA. |
-| L3 production RC object, MIPS/uClibc objects, full firmware/TRX | NOT VERIFIED. |
+| L1 source review | PASS for MAN/WAN direct and helper route-add aggregation, first-error retention without short-circuiting, logging, public void API preservation, and DHCP bound status capture/return. |
+| L2 host / Actions | Exact SHA `38a86273a44bc481666674606979321701703f71`: WAN route [42703179674], AI docs [42703179667], WAN teardown [42703179436], and HTTPD [42703179416] SUCCESS. DHCP [42703179710] host transaction compile/run PASS; semantic source-order check failed only on its obsolete `wan_up()` call assertion. THIS correction is pending exact-head rerun. |
+| L3 production RC object, MIPS/uClibc objects, complete firmware/TRX | NOT VERIFIED. |
 | L4 router route reconciliation, DHCP failure/release behavior, and hardware | NOT VERIFIED. |
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, enumerate branches, and inspect Actions. Require the WAN route operation status workflow and all other triggered workflows to match the exact resulting SHA and pass; inspect failed job logs if any.
-2. After exact-head green, inspect BusyBox DHCP callback transitions at the concrete `udhcp_run_script()` call sites for `leasefail`, NAK/deconfig, expiry, renew, and SIGUSR2/release-on-quit. Determine whether callback status discard creates a reproducible state/lifecycle defect before proposing a behavior change.
-3. When that review is closed, rotate outside WAN: begin Samba same-boot passdb/config publication review, then the next highest-risk item in the whole-userland ledger. Keep FTP path TOCTOU, FULLCONENAT target compile, and NFS compatibility decisions explicit.
+1. Fetch live `main`, branch list and Actions. Confirm the new DHCP workflow commit's exact `head_sha`; require its updated callback-ordering assertion and every triggered workflow to complete SUCCESS.
+2. Then inspect BusyBox's actual `udhcp_run_script()` dispatch/callers for `leasefail`, NAK/deconfig, expiry, renew, and SIGUSR2/release-on-quit. Determine whether discarded callback status causes a reproducible transition defect before changing behavior.
+3. When callback review is complete, move outside WAN to Samba same-boot passdb/config publication, then continue the whole-userland priority queue. Keep FTP path TOCTOU, FULLCONENAT target build, and NFS compatibility visible.
 
 ## Continuation rules
 
