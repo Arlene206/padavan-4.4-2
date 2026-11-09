@@ -400,7 +400,7 @@ jobs:
           # and must not unmount or detach UBI underneath a running startup hook.
           rwfs_stop = function_body(common_ex, "void umount_rwfs_partition(void)")
           rwfs_hook = rwfs_stop.index('doSystem("/usr/bin/opt-umount.sh %s %s", "/dev/ubi", mp_rwfs)')
-          rwfs_hook_gate = rwfs_stop.index("if (doSystem(", rwfs_hook)
+          rwfs_hook_gate = rwfs_stop.index("if (doSystem(")
           rwfs_hook_abort = rwfs_stop.index("return;", rwfs_hook_gate)
           rwfs_umount = rwfs_stop.index("umount(mp_rwfs)")
           rwfs_detach = rwfs_stop.index('doSystem("ubidetach -p /dev/mtd%d 2>/dev/null", mtd_rwfs)')

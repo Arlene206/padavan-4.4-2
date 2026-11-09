@@ -1,3 +1,14 @@
+## 2026-11-09 19:03 CST — Correct RWFS failure-gate source-contract search offset
+
+- **Base main SHA:** `d225e9e1e09e56b79c6b00b46e61d2e0a08b6166`; resulting workflow-validation checkpoint: THIS COMMIT.
+- **Exact-head Actions:** storage [42609330908](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42609330908) passed NFS/Optware shell syntax, Optware lock/teardown/startup host regressions and GNU89 storage tests, then failed only in the final caller-graph Python contract at line 309. The lookup searched for `if (doSystem(` starting after the matched `doSystem` call, even though the `if` token precedes it. Docs [42609330808](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42609330808) SUCCESS on the same SHA.
+- **Correction:** start the `if (doSystem(` lookup at the RWFS function body. The checks still require its failure return to precede RWFS unmount and UBI detach. No production source or tested behavior changed.
+- **Changed paths:** `.github/workflows/storage-hotplug-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+- **Verification boundary:** base shell/runtime/GNU89 checks passed; final source contract failed only at this offset. Exact-head Actions pending for THIS commit. No local test/build or target runtime claimed.
+- **Next:** reconcile exact-head storage/docs Actions. When green, resume the documented USB deferred Optware child result/retry audit; inspect alarm callback/signal delivery and child ownership before changing NVRAM flag semantics.
+
+---
+
 ## 2026-11-09 19:00 CST — Correct MTD branch anchor in storage source contract
 
 - **Base main SHA:** `b13ca6b46e0bef9474ee6744cf4f7f1734aadc97`; resulting validation checkpoint: THIS COMMIT.

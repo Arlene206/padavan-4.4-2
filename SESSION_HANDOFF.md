@@ -5,9 +5,9 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; maintained fork only.
-- Base main SHA for THIS storage source-contract correction: `b13ca6b46e0bef9474ee6744cf4f7f1734aadc97`; resulting commit: THIS COMMIT.
-- Exact-head Actions on the base were reconciled: USB storage hotplug regression [42608853044](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42608853044) FAILED only in the final whole-caller-graph Python source contract; its Optware MTD shell syntax, lock regression, teardown regression, startup/rollback regression and GNU89 storage tests all PASSED. The failure was `ValueError: substring not found` at the new assertion's line 294, which expected an `if [ -n "$mtd_device" ] ; then` marker not present in the valid source branch. AI handoff docs [42608852967](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42608852967) SUCCESS on the same full SHA.
-- The production MTD/UBI lifecycle change is in `b13ca6b`; THIS commit only corrects the source-contract anchor to use the existing MTD branch comment. No production behavior or regression guarantee is weakened.
+- Base main SHA for THIS RWFS source-contract correction: `d225e9e1e09e56b79c6b00b46e61d2e0a08b6166`; resulting commit: THIS COMMIT.
+- Exact-head Actions on the base: USB storage hotplug regression [42609330908](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42609330908) FAILED only in the final whole-caller-graph Python source contract; MTD shell syntax, Optware lock/teardown/startup host regressions and GNU89 storage tests all PASSED. AI handoff docs [42609330808](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42609330808) SUCCESS on the same full SHA.
+- The production MTD/UBI lifecycle fix remains in `b13ca6b46e0bef9474ee6744cf4f7f1734aadc97`. The first test correction fixed the branch marker; the second failure was the test's `rwfs_stop.index("if (doSystem(", rwfs_hook)` starting search after the `if` keyword that precedes the matched `doSystem` call. THIS change corrects that search offset only; production behavior and other contract checks remain unchanged.
 - The remote branch inventory contained only `main`; no separate checkpoint branch was present.
 
 ## Active task
@@ -37,7 +37,7 @@ The shutdown caller `umount_rwfs_partition()` now aborts before RWFS unmount/UBI
 | Level | Status |
 |---|---|
 | L1 source review | PASS for the MTD/UBI caller trace, no-storage-lock startup context, lifecycle-lock acquisition before bind/start, shared supervisor wiring, explicit lock release, and shutdown failure gates before unmount/detach. |
-| L2 host / Actions | On base SHA `b13ca6b46e0bef9474ee6744cf4f7f1734aadc97`, storage [42608853044](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42608853044) passed MTD shell syntax, lock/teardown/startup host regressions and GNU89 storage tests, then failed the final source contract at its MTD branch marker; AI docs [42608852967](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42608852967) SUCCESS. THIS correction fixes that marker; exact-head storage/docs runs are pending. |
+| L2 host / Actions | On base SHA `d225e9e1e09e56b79c6b00b46e61d2e0a08b6166`, storage [42609330908](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42609330908) passed MTD shell syntax, lock/teardown/startup host regressions and GNU89 storage tests, then failed the final Python source contract at the RWFS `if (doSystem(` token search; docs [42609330808](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42609330808) SUCCESS. THIS changes only the contract's search offset; exact-head storage/docs runs pending. |
 | L3 MIPS/uClibc / production objects / firmware/TRX | NOT VERIFIED. |
 | L4 real Optware filesystem/service startup, concurrent shutdown/eject, external hook behavior / physical router | NOT VERIFIED. |
 

@@ -50,7 +50,7 @@
 | Level | Evidence | Limits |
 |---|---|---|
 | L1 source review | PASS for the removable and internal MTD/UBI startup caller contexts, shared lifecycle lock/supervisor integration, and RWFS shutdown fail-closed gates. | Deferred child result/retry semantics, NFS export ACL/permissions, external mounts and target-specific behavior remain open. |
-| L2 host / Actions | On base SHA `b13ca6b46e0bef9474ee6744cf4f7f1734aadc97`, storage [42608853044](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42608853044) passed every syntax/runtime/GNU89 step and failed only the new Python source contract's branch-marker lookup; docs [42608852967](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42608852967) SUCCESS. THIS assertion-only correction awaits exact-head storage/docs Actions. No full local checkout or production build. |
+| L2 host / Actions | On base SHA `d225e9e1e09e56b79c6b00b46e61d2e0a08b6166`, storage [42609330908](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42609330908) passed all syntax/runtime/GNU89 checks and failed only at the RWFS source-contract search offset; docs [42609330808](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42609330808) SUCCESS. THIS assertion-only correction awaits exact-head storage/docs Actions. No full local checkout or production build. |
 | L3 MIPS/uClibc / production objects / firmware/TRX | NOT VERIFIED. | Full target build phase required. |
 | L4 live NFS export/stop, USB eject, filesystem integration / physical router | NOT VERIFIED. | Requires target-device validation. |
 
