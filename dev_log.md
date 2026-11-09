@@ -1,3 +1,14 @@
+## 2026-11-09 19:00 CST — Correct MTD branch anchor in storage source contract
+
+- **Base main SHA:** `b13ca6b46e0bef9474ee6744cf4f7f1734aadc97`; resulting validation checkpoint: THIS COMMIT.
+- **Exact-head Actions:** storage regression [42608853044](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42608853044) passed `opt-mount.sh` syntax, Optware lock, teardown-status, startup/rollback and GNU89 storage tests, then failed only in the final caller-graph Python contract. The traceback was `ValueError: substring not found` at line 294: the assertion looked for an explicit `if [ -n "$mtd_device" ] ; then`, while the production source represents its MTD branch as the `else` of the removable-device check. AI docs [42608852967](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42608852967) SUCCESS on the same full SHA.
+- **Correction:** anchor the MTD-specific source contract to the existing explanatory branch comment. Preserve all checks that the shared lock is sourced/acquired before /opt mount and bind, common supervised hooks run, and the lock is released. No production assertion or lifecycle behavior is weakened.
+- **Changed paths:** `.github/workflows/storage-hotplug-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+- **Verification boundary:** this is a test-contract-only correction. Base Actions establish that shell syntax, existing Optware regressions and storage GNU89 tests pass; the new static contract did not reach its new RWFS/MTD assertions. Exact-head storage/docs Actions are pending for THIS commit. No local build/test, production MIPS object, firmware/TRX, UBI runtime or device test is claimed.
+- **Next:** reconcile exact-head storage/docs results. If green, continue the deferred USB `opt-start.sh` result/retry redesign in `services_stor.c`; audit async result/retry for the boot-time `start_rwfs_optware()` caller separately.
+
+---
+
 ## 2026-11-09 18:57 CST — Serialize internal MTD Optware startup and fail closed on RWFS teardown
 
 - **Base main SHA:** `0ae74382cdeb593770ef609f7685f36d28ee46f8`; resulting implementation/test/docs checkpoint: THIS COMMIT.

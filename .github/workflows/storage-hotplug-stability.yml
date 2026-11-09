@@ -386,7 +386,7 @@ jobs:
           # Internal MTD/UBI startup runs from start_rwfs_optware() in the
           # boot path without storage.lock. It must take the shared lifecycle
           # lock before binding /opt and use the same failure-aware supervisor.
-          mtd_branch = opt_mount.index('if [ -n "$mtd_device" ] ; then')
+          mtd_branch = opt_mount.index("# Internal MTD/UBI startup is not covered by the removable-storage caller.")
           assert opt_mount.index(". /sbin/optware_lifecycle_lock.sh", mtd_branch) < opt_mount.index("optware_lifecycle_lock_acquire", mtd_branch)
           assert opt_mount.index("optware_lifecycle_lock_acquire", mtd_branch) < opt_mount.index("mountpoint -q /opt")
           assert opt_mount.index("optware_lifecycle_lock_acquire", mtd_branch) < opt_mount.index('mount -o bind "$2/opt" /opt')
