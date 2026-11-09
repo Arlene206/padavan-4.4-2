@@ -100,47 +100,74 @@ storage_ejected_decimal_token(const char *token)
 	return 1;
 }
 
-/* Parse /proc/partitions and report an exact device-name match. */
+/* Parse one complete /proc/partitions row: 1=data, 0=header/blank, -1=invalid. */
 static int
-storage_ejected_partition_matches(const char *line, const char *expected_device,
-				  int *matches)
+storage_ejected_parse_partition_line(const char *line, char *device,
+				     size_t device_size)
 {
-	char major[16], minor[16], blocks[32], name[32];
+	static const char *const header[] = { "minor", "#blocks", "name" };
 	const char *cursor;
-	int status;
+	char major[16], minor[16], blocks[32], ignored[32];
+	int status, i;
 
-	if (!matches || !expected_device || !*expected_device ||
+	if (!device || device_size == 0 ||
 	    !storage_ejected_line_is_complete(line))
 		return -1;
 
-	*matches = 0;
+	device[0] = '\0';
 	cursor = line;
-
 	status = storage_ejected_next_token(&cursor, major, sizeof(major));
 	if (status == 0)
 		return 0;
 	if (status != 1)
 		return -1;
 
-	/* The first line of /proc/partitions is a textual column header. */
-	if (strcmp(major, "major") == 0)
-		return 0;
+	if (strcmp(major, "major") == 0) {
+		for (i = 0; i < 3; i++) {
+			if (storage_ejected_next_token(&cursor, ignored,
+						       sizeof(ignored)) != 1 ||
+			    strcmp(ignored, header[i]) != 0)
+				return -1;
+		}
+		return storage_ejected_next_token(&cursor, ignored,
+						  sizeof(ignored)) == 0 ? 0 : -1;
+	}
+
 	if (!storage_ejected_decimal_token(major))
 		return -1;
-
 	status = storage_ejected_next_token(&cursor, minor, sizeof(minor));
 	if (status != 1 || !storage_ejected_decimal_token(minor))
 		return -1;
-
 	status = storage_ejected_next_token(&cursor, blocks, sizeof(blocks));
 	if (status != 1 || !storage_ejected_decimal_token(blocks))
 		return -1;
-
-	status = storage_ejected_next_token(&cursor, name, sizeof(name));
+	status = storage_ejected_next_token(&cursor, device, device_size);
 	if (status != 1)
 		return -1;
 
-	*matches = (strcmp(name, expected_device) == 0);
+	if (storage_ejected_next_token(&cursor, ignored, sizeof(ignored)) != 0) {
+		device[0] = '\0';
+		return -1;
+	}
+
+	return 1;
+}
+
+static int
+storage_ejected_partition_matches(const char *line, const char *expected_device,
+				  int *matches)
+{
+	char device[32];
+	int status;
+
+	if (!matches || !expected_device || !*expected_device)
+		return -1;
+	*matches = 0;
+	status = storage_ejected_parse_partition_line(line, device, sizeof(device));
+	if (status < 0)
+		return -1;
+	if (status == 1)
+		*matches = (strcmp(device, expected_device) == 0);
 	return 0;
 }
 

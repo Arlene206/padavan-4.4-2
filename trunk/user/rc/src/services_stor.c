@@ -1619,6 +1619,95 @@ free_storage_ejected_mounts(struct storage_ejected_mount_entry *entry)
 	}
 }
 
+struct storage_ejected_partition_entry {
+	char device[32];
+	struct storage_ejected_partition_entry *next;
+};
+
+static void
+free_storage_ejected_partitions(struct storage_ejected_partition_entry *entry)
+{
+	struct storage_ejected_partition_entry *next;
+	while (entry) {
+		next = entry->next;
+		free(entry);
+		entry = next;
+	}
+}
+
+/* Stage a complete partition inventory before any ejected mount is changed. */
+static int
+storage_stage_ejected_partitions(struct storage_ejected_partition_entry **staged)
+{
+	FILE *procpt;
+	char line[512], device[32];
+	int parse_status, parse_error, read_error, close_status, close_error;
+	struct storage_ejected_partition_entry *head, *tail, *entry;
+
+	if (!staged) {
+		errno = EINVAL;
+		return -1;
+	}
+	*staged = NULL;
+	procpt = fopen(PROC_PARTITIONS_FILE, "r");
+	if (!procpt) {
+		logmessage("Storage", "cannot read %s before ejected-device cleanup (errno %d)",
+			   PROC_PARTITIONS_FILE, errno);
+		return -1;
+	}
+
+	head = tail = NULL;
+	parse_error = 0;
+	while (fgets(line, sizeof(line), procpt)) {
+		parse_status = storage_ejected_parse_partition_line(line, device,
+								    sizeof(device));
+		if (parse_status < 0) {
+			parse_error = 1;
+			break;
+		}
+		if (parse_status == 0)
+			continue;
+		entry = (struct storage_ejected_partition_entry *)malloc(sizeof(*entry));
+		if (!entry) {
+			parse_error = 1;
+			break;
+		}
+		strcpy(entry->device, device);
+		entry->next = NULL;
+		if (tail)
+			tail->next = entry;
+		else
+			head = entry;
+		tail = entry;
+	}
+
+	read_error = ferror(procpt);
+	close_status = fclose(procpt);
+	close_error = (close_status != 0);
+	if (!storage_ejected_inventory_complete(read_error, close_error, parse_error)) {
+		logmessage("Storage", "incomplete %s before ejected-device cleanup (read error=%d, close error=%d, malformed/truncated row or allocation failure=%d); leaving mounts untouched",
+			   PROC_PARTITIONS_FILE, read_error, close_error, parse_error);
+		free_storage_ejected_partitions(head);
+		return -1;
+	}
+	*staged = head;
+	return 0;
+}
+
+static int
+storage_ejected_partition_is_active(const char *device,
+				    const struct storage_ejected_partition_entry *entries)
+{
+	const struct storage_ejected_partition_entry *entry;
+	if (!device || !*device)
+		return 0;
+	for (entry = entries; entry; entry = entry->next) {
+		if (strcmp(entry->device, device) == 0)
+			return 1;
+	}
+	return 0;
+}
+
 static void
 restore_home_dir(void)
 {
@@ -1631,13 +1720,12 @@ restore_home_dir(void)
 int
 umount_ejected(void)
 {
-	FILE *procpt, *procpt2;
+	FILE *procpt;
 	char line[512], devname[32], mpname[256];
 	int active, result, saved_errno;
 	int mount_read_error, mount_close_error, mount_parse_error;
-	int partition_read_error, partition_close_error, partition_parse_error;
-	int matches;
 	struct storage_ejected_mount_entry *head, *tail, *entry;
+	struct storage_ejected_partition_entry *partitions = NULL;
 
 	head = tail = NULL;
 	procpt = fopen(PROC_MOUNTS_FILE, "r");
@@ -1691,43 +1779,23 @@ umount_ejected(void)
 		return -1;
 	}
 
+	if (!head) {
+		restore_home_dir();
+		return 0;
+	}
+
+	if (storage_stage_ejected_partitions(&partitions) != 0) {
+		free_storage_ejected_mounts(head);
+		restore_home_dir();
+		return -1;
+	}
+
 	result = 0;
 	for (entry = head; entry; entry = entry->next) {
-		procpt2 = fopen(PROC_PARTITIONS_FILE, "r");
-		if (!procpt2) {
-			saved_errno = errno;
-			logmessage("Storage", "cannot read %s while checking ejected device %s (errno %d)",
-				   PROC_PARTITIONS_FILE, entry->device, saved_errno);
-			result = -1;
+		active = storage_ejected_partition_is_active(entry->device + 5,
+							     partitions);
+		if (active)
 			continue;
-		}
-
-		active = 0;
-		partition_parse_error = 0;
-		while (fgets(line, sizeof(line), procpt2)) {
-			if (storage_ejected_partition_matches(line, entry->device + 5,
-							      &matches) != 0) {
-				partition_parse_error = 1;
-				break;
-			}
-			if (matches)
-				active = 1;
-		}
-		partition_read_error = ferror(procpt2);
-		partition_close_error = (fclose(procpt2) != 0);
-		if (!storage_ejected_may_unmount(active, partition_read_error,
-						 partition_close_error,
-						 partition_parse_error)) {
-			if (partition_read_error || partition_close_error ||
-			    partition_parse_error) {
-				logmessage("Storage", "incomplete %s while checking ejected device %s (read error=%d, close error=%d, malformed/truncated row=%d)",
-					   PROC_PARTITIONS_FILE, entry->device,
-					   partition_read_error, partition_close_error,
-					   partition_parse_error);
-				result = -1;
-			}
-			continue;
-		}
 
 		if (umount(entry->mountpoint) != 0) {
 			saved_errno = errno;
@@ -1740,6 +1808,7 @@ umount_ejected(void)
 	}
 
 	free_storage_ejected_mounts(head);
+	free_storage_ejected_partitions(partitions);
 	restore_home_dir();
 	return result;
 }

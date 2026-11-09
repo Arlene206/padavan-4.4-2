@@ -7,7 +7,7 @@
 int
 main(void)
 {
-	char device[32], mountpoint[256], long_mount[512];
+	char device[32], mountpoint[256], long_mount[512], partition_name[32];
 	int matches;
 
 	assert(storage_ejected_line_is_complete("/dev/sda1 /media/usb ext4 rw 0 0\n"));
@@ -41,6 +41,24 @@ main(void)
 	strcpy(long_mount + strlen(long_mount), " ext4 rw 0 0\n");
 	assert(storage_ejected_parse_mount_line(long_mount, device, sizeof(device),
 						 mountpoint, sizeof(mountpoint)) != 0);
+
+	assert(storage_ejected_parse_partition_line("major minor  #blocks  name\n",
+						     partition_name, sizeof(partition_name)) == 0);
+	assert(storage_ejected_parse_partition_line("\n", partition_name,
+						     sizeof(partition_name)) == 0);
+	assert(storage_ejected_parse_partition_line("   8  1  976762584 sda1\n",
+						     partition_name, sizeof(partition_name)) == 1);
+	assert(strcmp(partition_name, "sda1") == 0);
+	assert(storage_ejected_parse_partition_line("   x  1  976762584 sda1\n",
+						     partition_name, sizeof(partition_name)) == -1);
+	assert(storage_ejected_parse_partition_line("   8  1  976762584 sda1",
+						     partition_name, sizeof(partition_name)) == -1);
+	assert(storage_ejected_parse_partition_line(
+		"   8  1  976762584 sda1 extra\n", partition_name,
+		sizeof(partition_name)) == -1);
+	assert(storage_ejected_parse_partition_line(
+		"major minor  #blocks  name extra\n", partition_name,
+		sizeof(partition_name)) == -1);
 
 	assert(storage_ejected_partition_matches("major minor  #blocks  name\n",
 						  "sda1", &matches) == 0);

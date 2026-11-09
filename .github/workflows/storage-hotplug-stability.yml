@@ -1,0 +1,100 @@
+name: USB storage hotplug stability regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/storage-hotplug-stability.yml"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/storage_ejected_inventory_policy.h"
+      - "trunk/user/rc/src/tests/storage_ejected_inventory_policy.c"
+  pull_request:
+    paths:
+      - ".github/workflows/storage-hotplug-stability.yml"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/storage_ejected_inventory_policy.h"
+      - "trunk/user/rc/src/tests/storage_ejected_inventory_policy.c"
+
+jobs:
+  storage-hotplug:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run storage eject inventory regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/storage_ejected_inventory_policy.c \
+            -o /tmp/storage-ejected-inventory
+          /tmp/storage-ejected-inventory
+      - name: Verify whole-operation inventory staging and notification failure propagation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          rc_dir = Path("trunk/user/rc/src")
+          storage = (rc_dir / "services_stor.c").read_text()
+          policy = (rc_dir / "storage_ejected_inventory_policy.h").read_text()
+          rc = (rc_dir / "rc.c").read_text()
+          workflow = Path(".github/workflows/storage-hotplug-stability.yml").read_text()
+
+          def function_body(text, signature):
+              start = text.index(signature)
+              brace = text.index("{", start)
+              depth = 0
+              for pos in range(brace, len(text)):
+                  if text[pos] == "{":
+                      depth += 1
+                  elif text[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return text[brace + 1:pos]
+              raise AssertionError(f"unterminated function: {signature}")
+
+          stage = function_body(storage, "storage_stage_ejected_partitions(")
+          assert "fopen(PROC_PARTITIONS_FILE" in stage
+          assert "storage_ejected_parse_partition_line(" in stage
+          assert "ferror(procpt)" in stage
+          assert "fclose(procpt)" in stage
+          assert "storage_ejected_inventory_complete(" in stage
+          assert "free_storage_ejected_partitions(head)" in stage
+
+          eject = function_body(storage, "umount_ejected(void)")
+          stage_call = "storage_stage_ejected_partitions(&partitions)"
+          unmount_loop = "for (entry = head; entry; entry = entry->next)"
+          assert eject.index(stage_call) < eject.index(unmount_loop)
+          assert "fopen(PROC_PARTITIONS_FILE" not in eject
+          assert "storage_ejected_partition_is_active(entry->device + 5," in eject
+          assert "umount(entry->mountpoint)" in eject
+
+          parse = function_body(policy, "storage_ejected_parse_partition_line(")
+          assert "storage_ejected_line_is_complete(line)" in parse
+          assert "storage_ejected_decimal_token(major)" in parse
+          assert "storage_ejected_decimal_token(minor)" in parse
+          assert "storage_ejected_decimal_token(blocks)" in parse
+
+          notifications = function_body(rc, "handle_notifications(void)")
+          unplug = 'else if (!strcmp(entry->d_name, "on_unplug_mass_storage"))'
+          assert unplug in notifications
+          unplug_body = notifications[notifications.index(unplug):]
+          assert "action_result = umount_ejected();" in unplug_body
+          assert "Notification %s failed; completion marker retained" in notifications
+          assert "Wireless notification %s failed" not in notifications
+
+          paths = (
+              ".github/workflows/storage-hotplug-stability.yml",
+              "trunk/user/rc/src/rc.c",
+              "trunk/user/rc/src/services_stor.c",
+              "trunk/user/rc/src/storage_ejected_inventory_policy.h",
+              "trunk/user/rc/src/tests/storage_ejected_inventory_policy.c",
+          )
+          filters = workflow.split("jobs:", 1)[0]
+          push_filters, pr_filters = filters.split("  pull_request:", 1)
+          for path in paths:
+              assert push_filters.count(path) == 1
+              assert pr_filters.count(path) == 1
+
+          print("USB storage hotplug staging and completion contracts: PASS")
+          PY

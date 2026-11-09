@@ -5,57 +5,55 @@
 ## Current repository state
 
 - **Repository:** `Arlene206/padavan-4.4-2`, the maintained fork.
-- **Source milestone:** `4e9614b5b40ff602423da3488d1aa6dfe859d4d4` — DHCP router-option withdrawal is reconciled on renewal for WAN and IPTV.
-- **Documentation baseline:** source commit above; this commit rotates the compact handoff/roadmap/log and archives their superseded versions.
-- **Branch/checkpoints:** `main`; no separate remote checkpoint branch was present.
-- **Exact-head source verification on the source milestone:** AI handoff contract [42559613261](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42559613261), WAN interface teardown [42559613131](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42559613131), HTTPD Authentication and Security [42559613119](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42559613119), and WAN route operation status [42559612983](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42559612983) all completed **SUCCESS** on exactly `4e9614b5b40ff602423da3488d1aa6dfe859d4d4`.
+- **Source milestone:** THIS COMMIT — storage eject cleanup now stages a complete partition inventory before unmounting and propagates cleanup errors into PID 1 notification completion.
+- **Documentation baseline:** THIS COMMIT; superseded active handoff/roadmap snapshots and the evicted development-log record are archived and indexed in this change.
+- **Branch/checkpoints:** `main`; no separate remote checkpoint branch was present at the recovery baseline.
+- **Base main SHA:** `692b7b2372dd4ccabab879a53ddcd78aad69e751`.
 
 ## Active task
 
-**DHCP WAN/IPTV renewal router withdrawal — implemented and L2 verified; DNS/DHCP subsystem remains PARTIAL / AUDITING.**
+**USB storage eject inventory consistency and error propagation — implemented; exact-head regression pending.**
 
-Root cause:
-- BusyBox `udhcpc` builds its script environment from DHCP options actually present in the ACK. When DHCP option 3 (Router) is omitted during a renewal, the `router` environment variable is absent rather than present as an empty string.
-- The previous `udhcpc_renew()` and `udhcpc_viptv_renew()` compared the gateway only inside `if (getenv("router"))`. A server-side router withdrawal therefore bypassed lease reconciliation and could leave the previous gateway/default route active.
+Caller and lifecycle trace:
+- `mdev_sd_main()` / `mdev_mmc_main()` call `notify_rc("on_unplug_mass_storage")` for whole-disk removal. PID 1 consumes the notification in `handle_notifications()` and calls `umount_ejected()`.
+- `umount_ejected()` collected a complete `/proc/mounts` inventory before side effects, but reopened `/proc/partitions` for every staged mount entry. A later partition-inventory failure could occur after earlier mountpoints had already been unmounted, creating partial cleanup within one eject event.
+- The PID 1 notification branch ignored the integer result from `umount_ejected()`; the common notification-completion logic could therefore remove the incomplete marker even when cleanup failed.
 
-Implementation in `4e9614b5b40ff602423da3488d1aa6dfe859d4d4`:
-1. Added `dhcp_lease_router_is_changed()` in `trunk/user/rc/src/dhcp_lease_policy.h`. It normalizes a missing/empty router option to an empty gateway, validates and selects the first router address, then compares it with the saved gateway.
-2. Updated WAN and IPTV renew callbacks in `trunk/user/rc/src/net_wan.c` to run this comparison unconditionally, including when `getenv("router") == NULL`. A withdrawal now enters the existing bound/reconciliation path, which removes the previous lease-derived default/host routes and clears the stale gateway.
-3. Extended `tests/dhcp_lease_policy.c` for absent, empty, unchanged, changed and invalid router-option cases.
-4. Extended the HTTPD/DHCP workflow's source contracts to guard both WAN and IPTV renewal call paths and ensure neither remains conditional on the variable being present.
-
-Exact L2 evidence:
-- HTTPD job step **Verify DHCP lease input and renewal reconciliation** passed on the exact code SHA. Logs report `DHCP lease input policy regression: OK` and `DHCP lease normalization, route reconciliation, and resolver refresh contracts: OK`.
-- The four exact-head Actions listed above all passed. These checks cover the host policy regression, source contracts, WAN teardown, route status and documentation contract; they do not replace target-router validation.
+Implementation in THIS COMMIT:
+1. Added a strict `storage_ejected_parse_partition_line()` contract for complete `/proc/partitions` records. It accepts the validated heading and blank lines, requires numeric major/minor/block fields, a bounded device token, exactly four fields and a terminating newline.
+2. Added one operation-wide `/proc/partitions` staging pass in `services_stor.c`. Read, parse, close or allocation failure aborts before any ejected mount is unmounted. The cleanup loop uses the validated snapshot and no longer reopens procfs per mount.
+3. Changed the PID 1 `on_unplug_mass_storage` branch to assign `action_result = umount_ejected()`; failed cleanup retains the incomplete notification marker and is logged as a failed notification rather than falsely completing.
+4. Extended `storage_ejected_inventory_policy.c` and added `.github/workflows/storage-hotplug-stability.yml` for GNU89 host regression and source-order contracts.
 
 ## Other open repository work
 
-- **USB / storage / hotplug — PARTIAL / AUDITING:** mount/swap inventories, safe-eject and NFS export have bounded tests; caller-wide ordering, concurrent hot-unplug and filesystem runtime remain open.
-- **Firewall / NAT — AUDITING:** FULLCONENAT notifier ownership is per-network-namespace, but mapping hashes and the dying-tuple queue remain module-global and are not namespace-keyed. IPv4/IPv6 writer parity, rollback and runtime are open.
+- **USB / storage / hotplug — PARTIAL / AUDITING:** this round closes the per-mount partition-rescan failure window and discarded-notification-result gap. Caller-wide serialization, hotplug add/remove interleaving, per-device lock identity, filesystem runtime and target hardware remain open.
+- **Firewall / NAT — AUDITING:** FULLCONENAT notifier ownership is per-network-namespace, but mapping hashes and the dying-tuple queue remain module-global and are not namespace-keyed. IPv4/IPv6 writer parity, rollback and runtime remain open.
 - **DNS / DHCP / resolver — PARTIAL / AUDITING:** WAN/IPTV lease validation, route reconciliation, resolver refresh and DHCPv6 DUID file handling have bounded evidence. LAN DHCP input handling, deconfig/leasefail/NAK/decline/release semantics, error propagation and runtime integration remain open.
-- **WAN / PPP / routing — PARTIAL / AUDITING:** selected route-result propagation and WAN teardown failure gates have exact-head host evidence; broader PPP and runtime routing remain open.
+- **WAN / PPP / routing — PARTIAL / AUDITING:** selected route-result propagation and WAN stop/teardown failure gates have exact-head host evidence; broader PPP and runtime routing remain open.
 - **Wireless — PARTIAL / AUDITING:** radio-state, bridge-up and RT3352 iNIC lifecycle paths have bounded evidence; other board-conditional paths and concurrent restart/stop remain open.
-- **HTTPD / CGI / authentication, NVRAM persistence, init/service lifecycle, switch/PHY/MDIO, USB/storage, FTP/Samba/NFS/accounts and integrated third-party userland:** remain governed as separate open areas in `REFACTOR_ROADMAP.md`. No subsystem is declared complete by this bounded DHCP fix.
+- **HTTPD / CGI / authentication, NVRAM persistence, init/service lifecycle, switch/PHY/MDIO, FTP/Samba/NFS/accounts and integrated third-party userland:** remain separate open areas in `REFACTOR_ROADMAP.md`. No subsystem is declared complete by this storage fix.
 
 ## Verification boundary
 
 | Level | Status |
 |---|---|
-| L1 source/caller review | PASS for the BusyBox missing-option contract and WAN/IPTV router withdrawal call paths. |
-| L2 host regression / GitHub Actions | PASS on exact source SHA `4e9614b5b40ff602423da3488d1aa6dfe859d4d4`; see run IDs above. |
+| L1 source/caller review | PASS for the whole-disk remove → PID 1 notification → ejected-mount cleanup path, the inventory failure window and error-result propagation. |
+| L2 host regression / GitHub Actions | PENDING for THIS COMMIT: storage partition parser/test, source-order contract and exact-head AI documentation contract. |
 | L3 MIPS/uClibc RC compile and complete firmware/TRX | **NOT VERIFIED**. |
-| L4 flash/boot, DHCP server withdrawal, route table and physical router behavior | **NOT VERIFIED**. |
+| L4 flash/boot, real USB disconnect/eject, mount teardown and physical router behavior | **NOT VERIFIED**. |
 
-No production MIPS/uClibc compile, full firmware image, live network route test or physical-router test is claimed. The documentation contract for this archival rotation must also be fetched and checked against the resulting live `main` SHA.
+No production MIPS/uClibc compile, full firmware image, live filesystem integration or physical-router test is claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, all three root governance files and their archive indexes. Check the newest **AI handoff documentation contract** run against that exact SHA; do not rely on the source-SHA result above if `main` has moved.
-2. If the documentation contract passes, continue whole-repository stability work with **USB/storage hotplug caller and concurrency audit**, starting at `trunk/user/rc/src/hotplug_stor.c`, `hotplug_usb.c`, `services_stor.c` and the storage inventory/eject helpers. Trace actual callers and ordering before choosing one concrete stale-state, ignored-error or race defect; implement a bounded fix and host regression.
-3. Keep FULLCONENAT mapping-table namespace isolation as a separate P2 security/stability audit. Do not claim it is fixed by the notifier per-net change, and respect the project rule that kernel/MTK/DTS work is outside the ordinary user-space repair batch.
+1. Fetch live `main`, root governance files and all three archive indexes. Check the **USB storage hotplug stability regression** and **AI handoff documentation contract** against that exact SHA; do not rely on stale or queued runs.
+2. Record exact commit/run IDs and PASS/FAIL in a documentation-only follow-up if needed. If a workflow fails, fix the failing source/test first and keep the handoff honest.
+3. Continue the global storage caller/concurrency audit: trace disk/partition add/remove event ordering, `file_lock()` identity and scope, `safe_remove_usb_device()`, `safe_remove_stor_device()`, `ejusb/ejata/ejmmc` entry points and overlapping safe-eject requests. Pick one demonstrated defect for the next bounded fix.
+4. Keep FULLCONENAT mapping-table namespace isolation as a separate P2 security/stability task. Do not conflate it with the completed notifier per-net ownership change; kernel/MTK/DTS changes remain outside the ordinary user-space repair batch.
 
 ## Recovery and archive rule
 
-- The superseded handoff is preserved byte-for-byte as `docs/handoffs/archive/2026/11/part-008.md` and indexed in the same commit.
-- `REFACTOR_ROADMAP.md` and `dev_log.md` remain compact dashboards/windows; superseded snapshots and evicted complete records are preserved in their indexed archive shards.
-- At the next milestone, archive the active handoff and roadmap exactly before replacing them; keep exactly the newest 20 complete records in root `dev_log.md`.
+- The superseded handoff is preserved byte-for-byte as `docs/handoffs/archive/2026/11/part-009.md`; the superseded roadmap is preserved byte-for-byte as `docs/roadmap-history/2026/11/part-010.md`.
+- The superseded 08:14 CST NFS record evicted from the root rolling window is appended verbatim to `docs/dev-log/2026/11/part-005.md`.
+- Root `dev_log.md` retains exactly the newest 20 complete records, newest first. Historical snapshots/records stay indexed and byte-preserved.

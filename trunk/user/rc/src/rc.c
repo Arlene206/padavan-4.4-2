@@ -1121,7 +1121,7 @@ handle_notifications(void)
 		}
 		else if (!strcmp(entry->d_name, "on_unplug_mass_storage"))
 		{
-			umount_ejected();
+			action_result = umount_ejected();
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_HDDTUNE) == 0)
 		{
@@ -1540,9 +1540,9 @@ handle_notifications(void)
 		 * Retain the incomplete marker only when another safe request
 		 * for this event was queued while the current action was running.
 		 */
-		/* Keep the in-flight marker after a failed wireless operation. */
+		/* Keep the in-flight marker after any failed notification operation. */
 		if (action_result < 0) {
-			logmessage(LOGNAME, "Wireless notification %s failed; completion marker retained", entry->d_name);
+			logmessage(LOGNAME, "Notification %s failed; completion marker retained", entry->d_name);
 		} else if (rc_notify_queue_marker_is_safe_at(queue_fd, entry->d_name, 0) != 0) {
 			unlinkat(queue_fd, entry->d_name, 0);
 			unlinkat(incomplete_dir_fd, entry->d_name, 0);
