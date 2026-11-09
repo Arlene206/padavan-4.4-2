@@ -3,10 +3,10 @@
 > **Current dashboard only.** Historical roadmap snapshots are preserved verbatim in [the roadmap history index](docs/roadmap-history/INDEX.md). A bounded fix does not prove module completion. Re-fetch live `main` before trusting any SHA.
 
 - **Repository:** `Arlene206/padavan-4.4-2`
-- **Baseline for this round:** `347ab8b0392a3c74d85a230e199c2faae27f646c`.
-- **Latest bounded code change:** THIS COMMIT — static/DHCP route result aggregation and propagation.
-- **Last verified prior code SHA:** `8a02953fb60cced248254df86feca85e8bc42d10`; WAN run 42548284186 and HTTPD/service run 42548284184 succeeded on that exact code SHA.
-- **Pre-change governance HEAD:** `347ab8b0392a3c74d85a230e199c2faae27f646c`; documentation-contract run 42550725545 SUCCESS. New route workflow result is PENDING until exact-head Actions is fetched.
+- **Code baseline for current route fix:** `6f4b55e88a553e8bf6ae6f3b41c59963335eb787`.
+- **Latest bounded code change:** static/DHCP route operation result aggregation and reporting.
+- **Exact code-head evidence:** WAN route regression [42552840579](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42552840579), WAN teardown [42552840447](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42552840447), and AI handoff docs [42552840438](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42552840438) SUCCESS on `6f4b55e88a553e8bf6ae6f3b41c59963335eb787`.
+- **Known workflow contract correction:** broad HTTPD run [42552840406](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42552840406) failed in an existing DHCP lease assertion after the intentional DHCP route wrapper return-type/branch-shape change; the DHCP lease C regression passed. `.github/workflows/httpd-security.yml` is corrected in this follow-up; exact-head rerun is PENDING.
 
 ## Status semantics
 
@@ -14,49 +14,43 @@
 - `NOT AUDITED` — inventoried but no meaningful audit completed.
 - `AUDITING` — ongoing; bounded findings/fixes do not close the module.
 - `PARTIAL / AUDITING` — substantial scoped work exists; important paths remain open.
-- `AUDITED — FINDINGS` / `AUDITED — NO FINDINGS` — defined scope reviewed; scope must be named.
-- `FIXED — NOT VERIFIED`, `HOST VERIFIED`, `TARGET BUILD VERIFIED`, `HARDWARE VERIFIED` — evidence for the named change/scope only.
 
 ## Whole-repository module status
 
-| Module / scope | Current status | Evidence / completed bounded work | Next audit action |
+| Module / area | Status | Evidence already established | Open coverage / next boundary |
 |---|---|---|---|
-| HTTPD / HTTPS / authentication / sessions | AUDITING | Basic-auth parsing, selected privileged CGI/ASP gates, upload/archive handling and duplicate MTK/RTL switch status backend have scoped source/host/Actions evidence. | CSRF, Origin/Referer, logout, ACL, same-NAT session ownership, TLS/archive behavior and request-to-shell/filesystem sinks. |
-| CGI / ASP / templates / command dispatch | AUDITING | apply.cgi/update.cgi and selected direct storage mutation routes/callbacks have POST/session gates and source contracts. | Remaining callback arguments, output encoding and eval/_eval/doSystem/file sinks; confirm every mutation path. |
-| WAN / PPP / routing / IPv6 | PARTIAL / AUDITING | PPP callback identity, demand startup failure, service-stop fence, management/physical/USB NDIS teardown and static/DHCP route first-error aggregation have bounded source/host-contract evidence. | Keep WAN open; review lifecycle callers further only if a concrete downstream state inconsistency is demonstrated. Continue the broader PPP/DHCP/WAN runtime audit after rotating to Firewall/NAT. |
-| DNS / DHCP / resolver | PARTIAL / AUDITING | Resolver caller inventory and DNSMasq reload status have bounded exact-head evidence; DNS config publication has staged/atomic work. | Upstream snapshot transactionality, parser/rebinding, reload/recovery and live service behavior. |
-| Firewall / NAT / QoS / VPN | AUDITING | Core restore rollback, VPN lease locking, Adbyby staging, FULLCONENAT GC readiness, xt_webstr parsing and schedule guards have scoped regressions. | Independent IPv4/IPv6 writers, rollback/hook ordering, IPv6 parity and FULLCONENAT namespace/notifier ownership. |
-| Wireless management / MTK / AP/APCLI/WDS | AUDITING | Ralink config/restart, ioctl, scan bounds, radio state, AP/APCLI/WDS bridge publication and RT3352 iNIC startup have bounded host/Actions evidence. | `check_inic_mii_rebooted()` guest-up and `stop_wifi_all_wl/rt()` down-result/LED gates; supplicant/driver callers. |
-| Switch / PHY / MDIO / register utilities | AUDITING | Switch CLI argument/failure reporting and Clause 22/45 parsing/MDIO timeout paths have scoped host tests and exact-head Actions. | Cross-tree status API consumers and remaining utility/register partial-sequence/timeout propagation. |
-| NVRAM / configuration persistence / restore | AUDITING | Profile I/O, dirty-state commit durability, startup/reset gates and all-column group deletion have scoped regression evidence. | Low-level close errors, legacy read ambiguity, restore transactionality and atomic backup/temp migration. |
-| USB / storage / mount / hotplug / NFS exports | AUDITING | Modem-node metadata, partition probes, mount/swap inventory, safe-eject staging, NFS parser and export publication have scoped host/Actions evidence. | Operation-wide unmount ordering, all-device preflight, swap interaction and independent hotplug lifecycle. |
-| FTP / Samba / file sharing | AUDITING | FTP worker/mode controls, Samba identity/token validation, credential handoff and staged passdb handling have scoped evidence. | ACL inheritance, non-APP_SMBD36 compatibility, NFS semantics, FTP identity/chroot/anonymous-write/umask and external callers. |
-| Init / services / PID 1 / process lifecycle | AUDITING | Signal-context deferral, service-stop escalation and survivor checks have scoped host/Actions evidence. | All-caller start/stop results, watchdog/PID ownership, dependency ordering, shutdown and target BusyBox semantics. |
-| IPC / shared helpers / common libraries | PARTIAL INVENTORY — NOT AUDITED | Some shared helper contracts are used by bounded RC/HTTPD fixes; no whole shared-layer audit is claimed. | Inventory public helpers/FIFOs/notify paths and callers; inspect framing, ownership, races and error propagation. |
-| Third-party integrated userland / local patches | NOT INVENTORIED | Historical fixes exist in selected vendored services and packages. | Full inventory from build manifests, patch queues and init/config consumers; prioritize exposed/high-failure lifecycle paths. |
-| Build / CI / firmware delivery | AUDITING | Focused GNU89 host regressions and exact-head Actions are used for bounded fixes. | Maintain CI contracts; schedule MIPS/uClibc build, complete image/TRX generation and artifact inspection as consolidated milestones. |
+| WAN / PPP / routing / IPv6 | PARTIAL / AUDITING | PPP callback identity, demand startup failure, service-stop fence, management/physical/USB NDIS teardown and static/DHCP route first-error aggregation have bounded source/host/Actions evidence. | Keep WAN open; review lifecycle callers further only if a concrete downstream state inconsistency is demonstrated. Broader PPP/DHCP/WAN runtime and target behavior remain open. |
+| Wireless management / driver / iNIC / WDS | PARTIAL / AUDITING | Radio-state publication, AP/APCLI/WDS bridge-up gates and RT3352 iNIC startup recovery have bounded host/Actions evidence. | Guest-interface-up handling in `check_inic_mii_rebooted()`; interface-down and LED publication in `stop_wifi_all_wl/rt()`; driver/switch consumer coverage. |
+| Firewall / NAT / Netfilter / IPv6 | AUDITING | IPv4/IPv6 restore transaction and FULLCONENAT GC/notifier-registration error paths have scoped evidence; parser hardening exists for `xt_webstr`. | FULLCONENAT global notifier/reference-count versus per-net namespace ownership; independently prove IPv4/IPv6 writer/hook parity, rollback completeness and module unload safety. |
+| DNS / DHCP / resolver | PARTIAL / AUDITING | DNSMasq staging/restart, lease input normalization, DHCPv6 DUID file and WAN resolver refresh have bounded evidence. | Resolver snapshot transactionality, remaining parser/rebinding controls, DHCP renew/decline/release error handling and runtime integration. |
+| USB / storage / hotplug / filesystem | PARTIAL / AUDITING | Mount/swap inventories are staged before selected removal; safe-eject and NFS export parsers have bounded tests. | Operation-wide caller coverage, hot-unplug races, filesystem runtime and NFS integration; target/hardware validation. |
+| HTTPD / CGI / authentication / sessions | PARTIAL / AUDITING | Auth/route access, same-NAT session ownership and selected CSRF/Origin checks have source-contract coverage. | Whole CGI inventory, request-to-shell/filesystem sinks, logout/session lifecycle, TLS/archive and remaining ACL surfaces. |
+| Switch / PHY / MDIO / utilities | PARTIAL / AUDITING | Clause 22/45 CLI parsing and selected ioctl error propagation have host/Actions evidence. | Cross-tree caller inventory, PHY sequencing, target builds and live register failure paths. |
+| NVRAM / configuration persistence | PARTIAL / AUDITING | Default restore, erase durability, group compaction and file staging have selected fail-closed contracts. | Whole call graph and power-loss/flash wear/atomicity coverage. |
+| Init / service lifecycle / PID 1 | PARTIAL / AUDITING | Bounded service termination, signal deferral/reaping and WAN stop fences have regression contracts. | Process ownership, respawn races, shutdown ordering and all service dependency paths. |
+| FTP / Samba / NFS / accounts | PARTIAL / AUDITING | Passdb/share staging, account identity boundaries and export inventory have selected tests. | Whole input surfaces, privilege boundary and runtime filesystem semantics. |
+| Shared / third-party userland / kernel integration | NOT INVENTORIED / AUDITING | Selected parser/ABI/lifecycle fixes across integrated components. | Complete package/source inventory; no subsystem closure claim. |
 
-## Highest-priority queue
+## Current priority queue
 
 1. **P1/P2 — Firewall/NAT lifecycle ownership:** prove or clear FULLCONENAT global notifier/reference-count versus per-net namespace ownership, including registration failure, event delivery and unload cleanup. Independently review IPv4/IPv6 writer and rollback ordering.
 2. **P2 — Wireless interface-state residuals:** guest-interface-up result in `check_inic_mii_rebooted()`; interface-down and LED publication in `stop_wifi_all_wl/rt()`.
 3. **P2 — WAN route lifecycle follow-up:** route helpers now return/log first errors while continuing all operations; keep WAN PARTIAL / AUDITING and revisit callers only for a demonstrated downstream inconsistency.
-4. **P1/P2 — Switch status contract:** cross-tree return conventions and consumers of PHY status APIs; retain the kernel/user ABI boundary.
-5. **Whole-userland rotation:** storage/hotplug, init/process lifecycle, NVRAM restore, HTTPD/session/CSRF, FTP/Samba/NFS, DNS and shared infrastructure. Re-rank using current evidence after each bounded task.
+4. **P2 — DNS/DHCP:** resolver snapshots, route/option source completeness and DHCP client lifecycle.
+5. **P2 — USB/storage:** hotplug concurrency, mount inventory call-graph completeness and filesystem runtime behavior.
 
-## Verification status
+## Verification matrix
 
-| Level | State | Rule |
+| Level | Evidence status | Limitation |
 |---|---|---|
-| L1 static/source review | PASS for recorded bounded changes, including current route result aggregation | Do not extend one finding to an unaudited caller/module. |
-| L2 host regression / Actions | Prior WAN/HTTPD runs PASS on `8a02953...`; route helper host regression PASS; new route workflow PENDING at commit creation | Reconcile exact head SHA and run ID before marking the current round Actions-verified. |
-| L3 MIPS/uClibc + complete firmware artifact | NOT VERIFIED | No target build/image claim until produced and inspected. |
-| L4 XY-C1 or other target hardware | NOT VERIFIED | No flash/boot/runtime claim until physically tested. |
+| L1 static/source review | PASS for recorded bounded changes, including current route result aggregation | Do not extend a finding to an unaudited caller/module. |
+| L2 host regression / Actions | Route sanitizer regression and route source contracts PASS on `6f4b55e88a553e8bf6ae6f3b41c59963335eb787`; prior WAN teardown and documentation workflows PASS on that exact SHA. HTTPD workflow contract correction is PENDING exact-head rerun. | Record every workflow failure and correction; source contracts are not production target builds. |
+| L3 MIPS/uClibc and complete firmware | NOT VERIFIED | Schedule the integrated build after core source governance is substantially complete. |
+| L4 hardware/flash/boot/runtime | NOT VERIFIED | Requires router testing; do not infer from host tests. |
 
-## Whole-tree audit discipline
+## Governance
 
-- Source inventory must come from actual tree/build manifests/init scripts/call graphs, not only this list.
-- Mark an area closed only when defined scope and callers are reviewed; a host test verifies only the covered policy/source contract.
-- Keep security review active in parallel with stability work. P0 critical security, corruption, boot or severe outage findings override ordinary work.
-- Do not repeatedly expand a recently polished area while higher-risk modules remain unaudited.
-- For earlier evidence, use [roadmap history](docs/roadmap-history/INDEX.md), [handoff history](docs/handoffs/INDEX.md) and [dev-log archive](docs/dev-log/INDEX.md).
+- Root handoff/roadmap/log remain compact; historical versions are byte-preserved and indexed under `docs/`.
+- Root `dev_log.md` holds exactly the newest 20 complete entries; archive shards are split only between complete dated records and stay below 512 KiB.
+- `scripts/check_ai_handoff_docs.py` and the `AI handoff documentation contract` workflow are authoritative for byte counts, Git blob hashes and record counts.
+- Re-fetch main and exact-head Actions at every GPT handoff; never infer success from queued or stale results.

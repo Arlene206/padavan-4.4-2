@@ -1765,13 +1765,13 @@ jobs:
           assert renew.count("dhcp_lease_route_text_is_safe(value)") >= 6
           assert "dnsmasq domain-specific server routing too" in renew
           assert 'refresh_resolvconf_nonfatal("WAN DHCP renewal", 0);' in renew
-          assert "void\ndel_dhcp_routes_by_prefix" in wan
-          assert "void del_dhcp_routes_by_prefix(char *prefix, char *ifname, int metric);" in header
+          assert "int\ndel_dhcp_routes_by_prefix" in wan
+          assert "int  del_dhcp_routes_by_prefix(char *prefix, char *ifname, int metric);" in header
 
           route_start = wan.index("control_dhcp_routes(")
           route_end = wan.index("int\nadd_static_wan_routes(", route_start)
           route_body = wan[route_start:route_end]
-          assert "if (is_add)" in route_body and "route_del(ifname, metric" in route_body
+          assert "route_status = is_add ?" in route_body and "route_del(ifname, metric" in route_body
           assert "if (is_add && !nvram_match(\"dr_enable_x\", \"1\"))" in route_body
           assert 'del_dhcp_routes_by_prefix("manv_", man_ifname, 0);' in wan
           assert 'del_dhcp_routes_by_prefix("manv_", man_ifname, 0);' in wan[wan.index("udhcpc_viptv_main("):]

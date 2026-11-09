@@ -1,3 +1,17 @@
+## 2026-11-09 10:47 CST (UTC+8) — Reconcile WAN route Actions and correct dependent HTTPD contract
+
+- **Base main SHA:** `6f4b55e88a553e8bf6ae6f3b41c59963335eb787`.
+- **Route implementation CI:** [WAN route operation status regression 42552840579](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42552840579) completed SUCCESS on exact `6f4b55e88a553e8bf6ae6f3b41c59963335eb787`; sanitizer regression and source/caller contract both passed.
+- **Additional exact-head checks:** WAN interface teardown run 42552840447 and AI handoff documentation run 42552840438 both completed SUCCESS on exact `6f4b55e88a553e8bf6ae6f3b41c59963335eb787`.
+- **Recovered cross-workflow failure:** HTTPD run 42552840406 failed in its existing DHCP lease source-contract Python step after the route API changed from `void` to `int` and from a literal `if (is_add)` branch to the equivalent checked ternary. The DHCP lease C policy regression itself passed. This was a stale workflow expectation, not a production compile or runtime finding.
+- **Correction:** `.github/workflows/httpd-security.yml` now checks the int-returning DHCP delete wrapper/prototype and ternary add/delete selection. The corrected workflow is included in this follow-up commit; rerun on its exact HEAD is PENDING.
+- **Documentation:** handoff/roadmap now record the exact run outcomes and next Firewall/NAT task. Previous root checkpoint/dashboard are preserved byte-identically in indexed archives; root log remains a 20-entry window.
+- **Validation boundary:** route host sanitizer regression and exact-head route Actions PASS; exact-head WAN teardown and documentation-contract Actions PASS. Corrected HTTPD Actions PENDING. No production RC object, MIPS/uClibc, firmware/TRX or hardware test.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** verify corrected HTTPD and AI handoff workflows against exact main HEAD, then begin FULLCONENAT per-net notifier/reference-count lifecycle audit.
+
+---
+
 ## 2026-11-09 10:34 CST (UTC+8) — Propagate static and DHCP route operation failures
 
 - **Base main SHA:** \`347ab8b0392a3c74d85a230e199c2faae27f646c\`.
@@ -255,13 +269,3 @@
 - **Exact-head Actions:** run [42525420578](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42525420578), exact head 362bbdba04966521e950cd2d94a461e7bfeb9bc9, completed **SUCCESS (40/40 steps)**. New ejected-storage complete-inventory policy regression/source contract and prior safe-eject/spindown contract all passed.
 - **Host tests:** GNU89 -Wall -Wextra -Werror focused policy regression PASS; GNU89 ASan/UBSan with leak detection PASS.
 - **Remaining:** production RC object compile, MIPS/uClibc, full firmware/TRX, USB/NFS integration and hardware validation NOT RUN. Continue by auditing libdisk umount_all_storage() and safe_remove_stor_device()/safe_remove_all_stor_devices() global fallback behavior.
-
-## 2026-11-09 05:29 CST — Correct safe-eject regression contract after staged unmount change
-
-- **Base main HEAD:** 8eb1f3e64092d5f7469c9732b18d586dc890af97.
-- **Workflow correction commit:** 362bbdba04966521e950cd2d94a461e7bfeb9bc9 — test(storage): align safe-eject contract with staged mount entries.
-- **Recovered CI failure:** run [42525261900](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42525261900), exact head 806cd75c89f047b865d9b11677f8a819f12cb936, failed because the pre-existing safe-eject source contract still required the old umount(mpname) call while the new staged-list implementation uses umount(entry->mountpoint). It stopped the workflow before the subsequent new ejected-inventory validation steps; this was a stale assertion, not a compiler or regression-test failure.
-- **Correction:** .github/workflows/httpd-security.yml now asserts the staged mountpoint unmount and staged rmdir call, retaining the result error-path check.
-- **Tests:** GNU89 -Wall -Wextra -Werror focused policy regression PASS; GNU89 ASan/UBSan + leak detection PASS.
-- **CI:** corrected run [42525420578](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42525420578), exact head 362bbdba04966521e950cd2d94a461e7bfeb9bc9, IN_PROGRESS at entry time. Recheck before marking complete.
-- **Remaining risk:** full production RC object build, MIPS/uClibc, complete firmware/TRX, real storage/eject path and physical device validation NOT RUN. Next: reconcile exact-head Actions, then continue storage safe-removal caller review.
