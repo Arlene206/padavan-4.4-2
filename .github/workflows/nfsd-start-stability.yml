@@ -64,11 +64,24 @@ jobs:
                           return source[start:index + 1]
               raise AssertionError("unterminated function: " + signature)
 
+          mount_status = function_body(script, "func_mount_status()")
+          assert 'awk -v mountpoint="$expected_mountpoint"' in mount_status
+          assert "$2 == mountpoint" in mount_status
+          assert "$1 == expected_source && $3 == filesystem" in mount_status
+          assert "entry_count == 1 && expected_count == 1" in mount_status
+          assert 'case "$mount_result" in' in mount_status
           mount = function_body(script, "func_mount_if_needed()")
-          assert 'grep -q " $mountpoint " /proc/mounts' in mount
-          assert 'case "$mount_status" in' in mount
-          assert "0)" in mount and "1)" in mount and "*)" in mount
-          assert "return 1" in mount
+          assert 'func_mount_status "$mountpoint" "$filesystem" "$source"' in mount
+          assert 'mount -t "$filesystem" "$source" "$mountpoint"' in mount
+          assert "refusing conflicting or unreadable mount state" in mount
+          assert "mount command did not publish the expected" in mount
+          unmount = function_body(script, "func_unmount_if_mounted()")
+          assert 'func_mount_status "$mountpoint" "$filesystem" "$source"' in unmount
+          assert "refusing to unmount conflicting or unreadable mount state" in unmount
+          assert 'umount "$mountpoint" 2>/dev/null || return 1' in unmount
+          stop = function_body(script, "func_stop()")
+          assert 'func_unmount_if_mounted /var/lib/nfs/rpc_pipefs rpc_pipefs rpc_pipefs' in stop
+          assert 'func_unmount_if_mounted /proc/fs/nfsd nfsd nfsd' in stop
 
           start = function_body(script, "func_start()")
           for command in (
@@ -133,5 +146,9 @@ jobs:
               assert push_filters.count(path) == 1
               assert pr_filters.count(path) == 1
 
+          lifecycle_test = Path("trunk/user/nfs-utils/tests/nfsd_start_lifecycle.sh").read_text()
+          assert "conflicting nfsd mount tuple" in lifecycle_test
+          assert "conflicting rpc_pipefs mount tuple" in lifecycle_test
+          assert "duplicate nfsd mountpoint entries" in lifecycle_test
           print("NFS start/reload command status, cleanup and RC caller contracts: PASS")
           PY

@@ -1,12 +1,52 @@
 #!/bin/sh
 
+# Return 0 when exactly the expected source/filesystem is mounted at the
+# path, 1 when the path is unused, and 2 for conflicts or inventory errors.
+func_mount_status()
+{
+	expected_mountpoint="$1"
+	expected_filesystem="$2"
+	expected_source="$3"
+
+	mount_result=$(awk -v mountpoint="$expected_mountpoint" \
+		-v filesystem="$expected_filesystem" \
+		-v expected_source="$expected_source" '
+		$2 == mountpoint {
+			entry_count++
+			if ($1 == expected_source && $3 == filesystem)
+				expected_count++
+		}
+		END {
+			if (entry_count == 0)
+				print "absent"
+			else if (entry_count == 1 && expected_count == 1)
+				print "present"
+			else
+				print "conflict"
+		}' /proc/mounts)
+	awk_status=$?
+	[ "$awk_status" -eq 0 ] || return 2
+
+	case "$mount_result" in
+	present)
+		return 0
+		;;
+	absent)
+		return 1
+		;;
+	*)
+		return 2
+		;;
+	esac
+}
+
 func_mount_if_needed()
 {
 	mountpoint="$1"
 	filesystem="$2"
 	source="$3"
 
-	grep -q " $mountpoint " /proc/mounts
+	func_mount_status "$mountpoint" "$filesystem" "$source"
 	mount_status=$?
 	case "$mount_status" in
 	0)
@@ -14,13 +54,17 @@ func_mount_if_needed()
 		;;
 	1)
 		mount -t "$filesystem" "$source" "$mountpoint" || return 1
+		func_mount_status "$mountpoint" "$filesystem" "$source"
+		mount_status=$?
+		[ "$mount_status" -eq 0 ] && return 0
+		logger -t "NFS server" "mount command did not publish the expected $filesystem mount at $mountpoint"
+		return 1
 		;;
 	*)
+		logger -t "NFS server" "refusing conflicting or unreadable mount state at $mountpoint"
 		return 1
 		;;
 	esac
-
-	return 0
 }
 
 func_start()
@@ -164,16 +208,25 @@ func_reload()
 func_unmount_if_mounted()
 {
 	mountpoint="$1"
+	filesystem="$2"
+	source="$3"
 
-	grep -q " $mountpoint " /proc/mounts
+	func_mount_status "$mountpoint" "$filesystem" "$source"
 	mount_status=$?
-	if [ "$mount_status" -eq 1 ]; then
+	case "$mount_status" in
+	0)
+		;;
+	1)
 		return 0
-	fi
-	[ "$mount_status" -eq 0 ] || return 1
+		;;
+	*)
+		logger -t "NFS server" "refusing to unmount conflicting or unreadable mount state at $mountpoint"
+		return 1
+		;;
+	esac
 
 	umount "$mountpoint" 2>/dev/null || return 1
-	grep -q " $mountpoint " /proc/mounts
+	func_mount_status "$mountpoint" "$filesystem" "$source"
 	mount_status=$?
 	[ "$mount_status" -eq 1 ]
 }
@@ -211,10 +264,10 @@ func_stop()
 	fi
 
 	if [ "$status" -eq 0 ] ; then
-		func_unmount_if_mounted /var/lib/nfs/rpc_pipefs || status=1
+		func_unmount_if_mounted /var/lib/nfs/rpc_pipefs rpc_pipefs rpc_pipefs || status=1
 	fi
 	if [ "$status" -eq 0 ] ; then
-		func_unmount_if_mounted /proc/fs/nfsd || status=1
+		func_unmount_if_mounted /proc/fs/nfsd nfsd nfsd || status=1
 	fi
 
 	if [ "$status" -eq 0 ] ; then

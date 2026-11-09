@@ -5,34 +5,28 @@
 ## Current repository state
 
 - Maintained fork: `Arlene206/padavan-4.4-2`; do not substitute the upstream repository.
-- Base main SHA for this NFS IPv6 export ACL hardening: `5faded68510e91fb526dea6ab3ebd34b5d9dc252`; resulting commit: THIS COMMIT.
-- At recovery, only remote branch was `main`.
-- The preceding MTD Optware retry/shutdown fix `5faded68510e91fb526dea6ab3ebd34b5d9dc252` passed on its exact full SHA:
-  - USB storage/hotplug [42618640557](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42618640557) SUCCESS.
-  - AI handoff docs [42618640385](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42618640385) SUCCESS.
-  - Samba [42618640482](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42618640482) SUCCESS.
-  - WAN route [42618640381](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42618640381) SUCCESS.
-  - HTTPD [42618640379](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42618640379) SUCCESS.
-- All five runs' full `head_sha` values matched the preceding main SHA. The MTD work was completed and is no longer the active task.
+- Base main SHA for this NFS mountpoint lifecycle fix: `363f2e4101bd8087e25710e875a4719023af6637`; resulting commit: THIS COMMIT.
+- Live branch inventory before this change: only `main`; current base main SHA was fetched directly from GitHub.
+- The preceding IPv6 export ACL hardening commit `363f2e4101bd8087e25710e875a4719023af6637` passed all six exact-head Actions: NFS [42620760496](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42620760496), USB storage [42620760576](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42620760576), HTTPD [42620760658](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42620760658), vsftpd [42620760715](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42620760715), AI handoff docs [42620760726](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42620760726), and Samba [42620760733](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42620760733). Every full `head_sha` exactly matched the base SHA.
+- The IPv6 ACL validation task is complete; this round rotates within NFS to its pseudo-filesystem mount lifecycle.
 
 ## Active task
 
-### Validate IPv6 client ACL data before publishing NFS exports
+### Refuse conflicting or ambiguous NFS pseudo-filesystem mountpoints
 
-P2 security/reliability. `write_nfsd_exports()` previously interpolated raw NVRAM `ip6_lan_addr` and `ip6_lan_size` values directly into `/etc/exports`. IPv6 parsing elsewhere in `net6.c` validates the address, but the NFS export writer bypassed it. Malformed values could produce invalid exports or inject NFS export syntax into the staged file.
+P2 stability. `nfsd.sh` previously used `grep -q " $mountpoint " /proc/mounts` for both startup and teardown. It checked only the path, not the mounted source or filesystem type. A foreign filesystem at `/proc/fs/nfsd` or `/var/lib/nfs/rpc_pipefs` could be accepted as the NFS pseudo-filesystem; shutdown/rollback could then unmount that unrelated filesystem. Duplicate/stacked entries were also treated as an ordinary single mount.
 
 ### Implementation in THIS commit
 
-- Add a bounded policy helper, compiled only with `USE_IPV6`, that parses the address with `inet_pton(AF_INET6)`, emits canonical text using `inet_ntop(AF_INET6)`, and accepts only decimal LAN prefix lengths 48–64, matching `reset_lan6_vars()`'s established range.
-- Preserve the optional CIDR suffix accepted by the existing IPv6 parser, but use the separate `ip6_lan_size` value as the authoritative NFS export prefix.
-- Emit only the canonical validated `address/prefix` string. An empty address remains “no IPv6 ACL”; malformed non-empty IPv6 configuration aborts publication, removes the staged temporary file and leaves the previous `/etc/exports` intact.
-- Add GNU89 host regression cases for canonicalization, optional CIDR input, absent ACL, prefix bounds, malformed addresses and export-syntax injection payloads. Extend the focused NFS Action to compile/run the policy and assert the production writer never interpolates raw NVRAM fields.
+- Add a shared exact-tuple inventory helper that matches `/proc/mounts` fields by literal mountpoint, expected source and filesystem type using AWK field equality, not a regular-expression grep.
+- Treat an unused mountpoint as absent, exactly one matching row as mounted, and mismatched/duplicate rows or inventory-command errors as conflicts. Refuse to mount over a conflict.
+- After a successful mount command, re-read `/proc/mounts` and require the expected tuple to have appeared. During stop/rollback, unmount only one exact expected tuple, then verify the mountpoint is empty; preserve any foreign or ambiguous entry and return failure.
+- Extend the NFS lifecycle fixture so mocked mounts record the actual source/type. Add wrong-source, wrong-filesystem and stacked-mount cases; extend the workflow source contract to verify exact tuple matching and guarded teardown.
 
 ### Files changed
 
-- `trunk/user/rc/src/services_stor.c`
-- `trunk/user/rc/src/storage_nfs_export_policy.h`
-- `trunk/user/rc/src/tests/storage_nfs_export_policy.c`
+- `trunk/user/nfs-utils/nfsd.sh`
+- `trunk/user/nfs-utils/tests/nfsd_start_lifecycle.sh`
 - `.github/workflows/nfsd-start-stability.yml`
 - `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`
 
@@ -40,19 +34,19 @@ P2 security/reliability. `write_nfsd_exports()` previously interpolated raw NVRA
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for NVRAM-to-export validation, canonical output, allowed prefix range and fail-closed staged-file cleanup. The custom operator exports symlink path remains a separate intentional override. |
-| L2 host / Actions | PENDING for THIS COMMIT's NFS GNU89 IPv6 policy compile/run, export-writer/source contracts, existing NFS start/reload shell regression, storage/HTTPD caller contracts and AI handoff-doc validator. The exact base SHA `5faded68510e91fb526dea6ab3ebd34b5d9dc252` passed the five Actions listed above. |
+| L1 source review | PASS for literal mountpoint/source/filesystem matching, ambiguous-entry rejection, post-mount verification, and fail-closed teardown that preserves foreign/stacked mounts. |
+| L2 host / Actions | Local focused shell regressions for absent/correct/wrong-source/wrong-type/duplicate tuples and guarded unmount passed. The NFS start/reload fixture and source-contract workflow, plus AI handoff documentation validation, are PENDING for THIS COMMIT's exact head. The base SHA `363f2e4101bd8087e25710e875a4719023af6637` passed all six Actions listed above. |
 | L3 MIPS/uClibc / production RC object / full firmware/TRX | NOT VERIFIED. |
-| L4 Actual NFSv3/v4 IPv6 client access, UID/GID/root mapping, exports reload and removable-disk lifecycle on router hardware | NOT VERIFIED. |
+| L4 NFS mount-stack behavior on the router, NFS client interoperability, storage removal and physical router lifecycle | NOT VERIFIED. |
 
-No production C object, MIPS/uClibc, full firmware/TRX, live NFS exportfs, NFS client interoperability or physical-router test is claimed. NFS still uses the existing hardcoded `async,insecure,no_root_squash,no_subtree_check` options; do not change these defaults without a separate compatibility/permission analysis.
+No complete local checkout, production RC object, MIPS/uClibc build, complete firmware/TRX or physical-router test is claimed. The mount inventory check and subsequent mount/unmount are not an atomic kernel transaction; the reserved NFS mountpoints and source/type tuple are fixed, and conflicts fail closed. Existing export options `async,insecure,no_root_squash,no_subtree_check` remain unchanged pending the separate compatibility/permission audit.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, all branches and latest Actions. Match the NFS start/export, USB storage, HTTPD and AI docs runs to THIS commit's exact full SHA; inspect every job and failing step.
-2. Fix any exact-head regression before selecting a different task. Do not weaken address parsing or the fail-closed publication contract.
-3. Once green, continue the NFS audit with root UID/GID and export permission semantics (`no_root_squash`, AUTH_SYS, `async`, `insecure`), and trace intended external-mount export support. Review `nfsd.sh`'s `grep`-based mountpoint matching for exact-path/regex false matches. Preserve existing user compatibility unless behavior is explicitly configured and tested.
-4. Keep Samba passdb/account/ACL/credential security, vsftpd authentication/ACL/path confinement, DHCP leasefail/NAK/release callback state, FULLCONENAT queue namespace ownership and cross-module shutdown races open. L3/L4 remain unverified until target build and device tests actually run.
+1. Fetch live `main`, all branches and the latest NFS/AI Actions. Match each run's `head_sha` to THIS commit's exact full SHA and inspect all test steps; fix any failure before moving on.
+2. Do not weaken the exact mount tuple, duplicate-entry rejection or fail-closed unmount contract if a workflow catches a regression.
+3. Once green, finish the NFS root UID/GID/export permission and security review (`no_root_squash`, AUTH_SYS, `async`, `insecure`), custom exports override semantics and external-mount support. Keep the existing options unchanged until compatibility impact is demonstrated.
+4. Then rotate to Samba passdb/account mutation, ACL/permission and credential security. Keep vsftpd authentication/path confinement, DHCP leasefail/NAK/release callback state, FULLCONENAT namespace ownership and cross-module shutdown races open. L3/L4 remain unverified until target build and device tests actually run.
 
 ## Documentation maintenance
 

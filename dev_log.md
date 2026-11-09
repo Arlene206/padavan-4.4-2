@@ -1,3 +1,18 @@
+## 2026-11-09 21:01 CST (UTC+8) — Verify exact NFS pseudo-filesystem mounts before startup and teardown
+
+- **Base main SHA:** `363f2e4101bd8087e25710e875a4719023af6637`; resulting commit: THIS COMMIT.
+- **Recovered exact-head CI:** the preceding IPv6 export ACL commit passed NFS [42620760496](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42620760496), USB storage [42620760576](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42620760576), HTTPD [42620760658](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42620760658), vsftpd [42620760715](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42620760715), AI docs [42620760726](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42620760726), and Samba [42620760733](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42620760733); all six exact `head_sha` fields matched the full SHA.
+- **Finding:** `func_mount_if_needed()` and `func_unmount_if_mounted()` in `nfsd.sh` searched only for the mountpoint text. They could accept an unrelated source/filesystem as the nfsd or rpc_pipefs pseudo-filesystem and could unmount that unrelated filesystem during rollback or stop. Multiple stacked mount entries were also treated as a simple present mount.
+- **Fix:** add an exact `/proc/mounts` tuple check for source, mountpoint and filesystem type; distinguish absent from exactly one expected row and reject mismatched/duplicate/error states. Refuse to mount over a conflict, verify the expected entry after mount, only unmount an exact single expected tuple, and require the mountpoint to be empty afterwards.
+- **Regression:** update the NFS lifecycle fixture's mount mock to record the real `mount -t filesystem source mountpoint` tuple. Add wrong-source, wrong-filesystem and duplicate/stacked mount cases, assert conflicts are preserved and never unmounted, and extend the NFS workflow source contract to cover exact field equality and guarded teardown.
+- **Changed paths:** `trunk/user/nfs-utils/nfsd.sh`, `trunk/user/nfs-utils/tests/nfsd_start_lifecycle.sh`, `.github/workflows/nfsd-start-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+- **Validation:** local shell regressions PASS for absent, expected, wrong-source, wrong-filesystem, prefix-neighbor and duplicate mount entries; guarded mount/unmount simulation PASS. The full repository NFS workflow and AI docs/archive validator are PENDING on THIS exact commit.
+- **Validation boundary:** L1 focused source review PASS. The test harness does not execute on the actual router mount namespace; MIPS/uClibc production RC build, complete firmware/TRX, real mount-stack behavior and L4 hardware validation are NOT VERIFIED.
+- **Remaining risks:** check-to-mount/unmount races are not made atomic by this shell-level check. Only the reserved fixed NFS pseudo-filesystem mountpoints are covered. Historic NFS export options and root identity semantics remain unchanged and need a separate compatibility/security audit.
+- **Next:** verify NFS lifecycle and AI documentation Actions on the exact resulting SHA. If green, continue the NFS root UID/GID/export permission review (`no_root_squash`, AUTH_SYS, `async`, `insecure`), custom exports override and external-mount behavior.
+
+---
+
 ## 2026-11-09 20:51 CST (UTC+8) — Validate IPv6 LAN ACL before publishing NFS exports
 
 - **Base main SHA:** `5faded68510e91fb526dea6ab3ebd34b5d9dc252`; resulting commit: THIS COMMIT.

@@ -60,7 +60,7 @@ case "$name" in
 		[ "$FAIL_COMMAND" != "$name" ] || exit 17
 		case "$name" in
 			mount)
-				printf 'mock %s nfsd rw 0 0\n' "$4" >> "$MOUNTS_FILE"
+				printf '%s %s %s rw 0 0\n' "$3" "$4" "$2" >> "$MOUNTS_FILE"
 				;;
 			umount)
 				awk -v path="$1" '$2 != path' "$MOUNTS_FILE" > "$MOUNTS_FILE.tmp"
@@ -173,7 +173,7 @@ assert_command exportfs
 }
 
 reset_fixture
-printf 'mock %s nfsd rw 0 0\n' "$tmp_dir/proc/fs/nfsd" > "$MOUNTS_FILE"
+printf 'nfsd %s nfsd rw 0 0\n' "$tmp_dir/proc/fs/nfsd" > "$MOUNTS_FILE"
 status=$(run_command mount "" start)
 assert_failed "$status" "rpc_pipefs mount failure"
 assert_command mount
@@ -321,6 +321,50 @@ mountd_line=$(grep -n '^rpc.mountd ' "$COMMAND_LOG" | cut -d: -f1)
 }
 [ -f "$STATE_DIR/nfsd" ] && [ -f "$STATE_DIR/rpc.mountd" ] || {
 	echo "NFS start returned success without both daemons" >&2
+	exit 1
+}
+
+# An unrelated filesystem at the reserved nfsd mountpoint must not be
+# accepted as the control filesystem or removed during startup rollback.
+reset_fixture
+printf 'unrelated-source %s ext4 rw 0 0\n' "$tmp_dir/proc/fs/nfsd" > "$MOUNTS_FILE"
+status=$(run_command "" "" start)
+assert_failed "$status" "conflicting nfsd mount tuple"
+assert_no_command mount
+assert_no_command umount
+grep -q "^unrelated-source $tmp_dir/proc/fs/nfsd ext4 " "$MOUNTS_FILE" || {
+	echo "conflicting nfsd mount was not preserved" >&2
+	exit 1
+}
+
+# A correct nfsd mount plus a conflicting rpc_pipefs mount must fail closed;
+# rollback must not unmount either unrelated or stacked mount state.
+reset_fixture
+printf 'nfsd %s nfsd rw 0 0\n' "$tmp_dir/proc/fs/nfsd" > "$MOUNTS_FILE"
+printf 'unrelated-source %s rpc_pipefs rw 0 0\n' "$tmp_dir/var/lib/nfs/rpc_pipefs" >> "$MOUNTS_FILE"
+status=$(run_command "" "" start)
+assert_failed "$status" "conflicting rpc_pipefs mount tuple"
+assert_no_command mount
+assert_no_command umount
+grep -q "^unrelated-source $tmp_dir/var/lib/nfs/rpc_pipefs rpc_pipefs " "$MOUNTS_FILE" || {
+	echo "conflicting rpc_pipefs mount was not preserved" >&2
+	exit 1
+}
+grep -q "^nfsd $tmp_dir/proc/fs/nfsd nfsd " "$MOUNTS_FILE" || {
+	echo "valid nfsd control mount was unexpectedly detached after rollback conflict" >&2
+	exit 1
+}
+
+# Duplicate/stacked entries are ambiguous even when one row looks correct.
+reset_fixture
+printf 'nfsd %s nfsd rw 0 0\n' "$tmp_dir/proc/fs/nfsd" > "$MOUNTS_FILE"
+printf 'nfsd %s nfsd ro 0 0\n' "$tmp_dir/proc/fs/nfsd" >> "$MOUNTS_FILE"
+status=$(run_command "" "" start)
+assert_failed "$status" "duplicate nfsd mountpoint entries"
+assert_no_command mount
+assert_no_command umount
+[ "$(wc -l < "$MOUNTS_FILE" | tr -d ' ')" -eq 2 ] || {
+	echo "ambiguous stacked nfsd mount entries were modified" >&2
 	exit 1
 }
 
