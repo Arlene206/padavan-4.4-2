@@ -22,6 +22,13 @@ main(void)
 	assert(dhcp_lease_route_delete_is_ok(0));
 	assert(dhcp_lease_route_delete_is_ok(ESRCH));
 	assert(!dhcp_lease_route_delete_is_ok(EIO));
+	assert(dhcp_lease_deconfig_status(0, 0, 0) == 0);
+	assert(dhcp_lease_deconfig_status(ESRCH, 0, 0) == 0);
+	assert(dhcp_lease_deconfig_status(EIO, 0, 0) == EIO);
+	assert(dhcp_lease_deconfig_status(0, EIO, 0) == EIO);
+	assert(dhcp_lease_deconfig_status(0, -1, 0) == -1);
+	assert(dhcp_lease_deconfig_status(0, 0, ENOSPC) == ENOSPC);
+	assert(dhcp_lease_deconfig_status(EIO, EIO, ENOSPC) == EIO);
 	assert(!dhcp_lease_route_destination_is_valid("192.0.2.0", 33));
 	assert(!dhcp_lease_ipv4_is_valid("192.0.2.1;reboot"));
 	assert(!dhcp_lease_ipv4_is_valid("192.0.2.1\n"));

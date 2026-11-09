@@ -157,6 +157,19 @@ dhcp_lease_route_delete_is_ok(int status)
 	return status == 0 || status == ESRCH;
 }
 
+/* Deconfig may publish static LAN state only after the old DHCP route is
+ * absent and both interface and resolver cleanup have completed. */
+static inline int
+dhcp_lease_deconfig_status(int route_status, int ifconfig_status,
+			   int resolver_status)
+{
+	if (!dhcp_lease_route_delete_is_ok(route_status))
+		return route_status;
+	if (ifconfig_status != 0)
+		return ifconfig_status;
+	return resolver_status;
+}
+
 /* Strict decimal parser: no signs, whitespace, suffixes or overflow. */
 static inline int
 dhcp_lease_decimal_is_valid(const char *value, unsigned int minimum,

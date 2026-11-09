@@ -889,32 +889,82 @@ lan_up_auto(char *lan_ifname, char *lan_gateway, char *lan_dname)
 	notify_run_detect_internet(2);
 }
 
-static void
+static int
 lan_down_auto(char *lan_ifname)
 {
 	FILE *fp;
 	char *lan_gateway = nvram_safe_get("lan_gateway_t");
+	int route_status = 0, ifconfig_status, resolver_status = 0;
+	int lock, status;
 
+	/*
+	 * Remove the recorded DHCP default route before replacing the interface
+	 * address. A failed delete must keep the old lease fields intact so a
+	 * later callback still knows which route needs reconciliation.
+	 */
+	if (is_valid_ipv4(lan_gateway)) {
+		route_status = route_del(lan_ifname, 0, "0.0.0.0",
+					 lan_gateway, "0.0.0.0");
+		status = dhcp_lease_deconfig_status(route_status, 0, 0);
+		if (status != 0) {
+			logmessage("DHCP LAN Client",
+				   "failed to remove previous gateway route on %s during deconfig (status=%d); retaining lease state",
+				   lan_ifname, status);
+			return status;
+		}
+	}
+
+	ifconfig_status = ifconfig(lan_ifname, IFUP,
+				   nvram_safe_get("lan_ipaddr"),
+				   nvram_safe_get("lan_netmask"));
+	status = dhcp_lease_deconfig_status(route_status, ifconfig_status, 0);
+	if (status != 0) {
+		logmessage("DHCP LAN Client",
+			   "failed to restore static LAN address on %s during deconfig (status=%d); retaining lease state",
+			   lan_ifname, status);
+		return status;
+	}
+
+	/* Clear resolv.conf under the same lock used by other resolver writers. */
+	errno = 0;
+	lock = file_lock("resolv");
+	if (lock < 0) {
+		resolver_status = errno ? errno : EIO;
+	} else {
+		errno = 0;
+		fp = fopen(DNS_RESOLV_CONF, "w+");
+		if (!fp) {
+			resolver_status = errno ? errno : EIO;
+		} else {
+			errno = 0;
+			if (fclose(fp) != 0)
+				resolver_status = errno ? errno : EIO;
+		}
+		file_unlock(lock);
+	}
+	status = dhcp_lease_deconfig_status(route_status, ifconfig_status,
+					    resolver_status);
+	if (status != 0) {
+		logmessage("DHCP LAN Client",
+			   "failed to clear LAN resolver state during deconfig (status=%d); retaining lease identity",
+			   status);
+		return status;
+	}
+
+	/* Do not pause detection or overwrite the last DHCP gateway identity
+	 * until every required cleanup step has completed successfully. */
 	notify_pause_detect_internet();
-
-	/* Remove default route to gateway if specified */
-	if (is_valid_ipv4(lan_gateway))
-		route_del(lan_ifname, 0, "0.0.0.0", lan_gateway, "0.0.0.0");
-
-	/* Clear resolv.conf */
-	fp = fopen(DNS_RESOLV_CONF, "w+");
-	if (fp)
-		fclose(fp);
-
-	/* fill XXX_t fields */
 	update_lan_status(0);
 
 #if defined(APP_SMBD)
 	/* update SMB fastpath owner address */
 	config_smb_fastpath(1);
 #endif
+
+	return 0;
 }
 
+static int
 void 
 update_lan_status(int is_auto)
 {
@@ -937,17 +987,20 @@ update_lan_status(int is_auto)
 	}
 }
 
-static int 
+static int
 udhcpc_lan_deconfig(char *lan_ifname)
 {
-	ifconfig(lan_ifname, IFUP,
-		 nvram_safe_get("lan_ipaddr"),
-		 nvram_safe_get("lan_netmask"));
+	int status;
 
-	lan_down_auto(lan_ifname);
-	
+	status = lan_down_auto(lan_ifname);
+	if (status != 0) {
+		logmessage("DHCP LAN Client",
+			   "%s: deconfig incomplete on %s (status=%d); preserving previous lease identity",
+			   udhcpc_lan_state, lan_ifname, status);
+		return status;
+	}
+
 	logmessage("DHCP LAN Client", "%s: lease is lost", udhcpc_lan_state);
-
 	return 0;
 }
 
