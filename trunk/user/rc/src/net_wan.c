@@ -1391,12 +1391,13 @@ man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)
 				    inet_addr(word) != inet_addr(man_gate) &&
 				    dhcp_lease_ipv4_is_valid(man_addr) &&
 				    dhcp_lease_netmask_is_valid(man_mask) &&
-				    !is_same_subnet(word, man_addr, man_mask))
+				    !is_same_subnet(word, man_addr, man_mask)) {
 					route_status = route_del(man_ifname, 2, word, man_gate, "255.255.255.255");
 					status = route_status_accumulate(status, route_status);
 					if (route_status != 0)
 						logmessage(LOGNAME, "failed to delete MAN DNS route %s via %s on %s (error=%d)",
 							   word, man_gate, man_ifname, route_status);
+				}
 			}
 		}
 	}

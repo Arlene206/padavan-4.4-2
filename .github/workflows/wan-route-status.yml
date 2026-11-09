@@ -88,6 +88,12 @@ jobs:
               assert "int  " + name in header and "void " + name not in header
 
           man_down = body(wan, "man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)")
+          dns_loop_start = man_down.index("foreach(word, man_dns, next)")
+          dns_loop_end = man_down.index("\n\t\t\t}", dns_loop_start)
+          dns_loop = man_down[dns_loop_start:dns_loop_end]
+          assert '!is_same_subnet(word, man_addr, man_mask)) {' in dns_loop
+          assert 'route_status = route_del(man_ifname, 2, word, man_gate, "255.255.255.255");' in dns_loop
+          assert 'status = route_status_accumulate(status, route_status);' in dns_loop
           assert "static int\nman_down_internal(" in wan
           assert "int status = 0, route_status;" in man_down
           assert man_down.count("route_status = route_del(") == 3

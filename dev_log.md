@@ -1,3 +1,15 @@
+## 2026-11-10 04:59 CST (UTC+8) — Brace MAN DNS route teardown status handling under its predicate
+
+- **Base main SHA:** `ca94b95812ba8eace9162279b268a54184e9f7bc`; active branch: `main`.
+- **Prior exact-head validation:** `ca94b95812ba8eace9162279b268a54184e9f7bc` WAN route [42697380249], WAN interface teardown [42697380232], HTTPD [42697380274], WAN DHCP callback [42697380012] and AI docs [42697379978] all completed SUCCESS.
+- **Review correction:** source review found that the MAN DNS conditional retained its original single-statement form while the new status aggregation/logging statements were inserted below it without braces. Those statements could execute for non-matching DNS entries, reusing a previous `route_status` despite not performing a route delete.
+- **Fix:** add braces around the complete DNS host-route delete, status accumulation and per-operation failure log. Extend the WAN route-status source contract to require this multi-condition block to own all three operations.
+- **Changed paths:** `trunk/user/rc/src/net_wan.c`; `.github/workflows/wan-route-status.yml`; `SESSION_HANDOFF.md`; `REFACTOR_ROADMAP.md`; this root log record.
+- **Validation:** L1 control-flow review complete. All five parent exact-head Actions above are green. THIS corrective route/DHCP/teardown/HTTPD/docs Actions are pending exact-head SHA. No production RC object, target build or hardware test is claimed.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** inspect all applicable exact-head Actions; once green, review MAN/WAN route additions and then broaden whole-userland governance coverage.
+
+---
 ## 2026-11-10 04:55 CST (UTC+8) — Propagate MAN/WAN route teardown failures without short-circuiting cleanup
 
 - **Base main SHA:** `19b3ce5dc958a3a1594cf18baa9aaba96e55b806`; active branch: `main`.
