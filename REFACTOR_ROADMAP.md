@@ -1,7 +1,7 @@
 ## Current source / CI checkpoint
 
 - Repository: `Arlene206/padavan-4.4-2`; maintained fork only; branch inventory contains `main` only, with no remote checkpoint branch.
-- Current main checkpoint before this test-contract correction: `6f15ad9a2580f9d0bba16447d61d315d5e8eb4e3` (RETR/SIZE descriptor-relative implementation); remote branch inventory contains `main` only.
+- Current main checkpoint before this workflow-contract correction: `4c0d2d8acd9f16c175037a64e4f05494ec7e565f` (RETR/SIZE descriptor-relative implementation plus corrected symlink errno test); remote branch inventory contains `main` only.
 - Samba same-boot paired passdb/config transaction implementation: `1a7097ace2e6c689cb7e92cd10055967d99fe143`. The fix adds PREPARED/COMMITTED journal recovery and a shared process-scoped writer lock for `run_samba()`, public `write_smb_conf()`, and WINS `start_wins()`.
 - Samba host transaction tests and source-order contract [42708213921] completed SUCCESS on exact SHA `e9a93eb84ac9f95447150869fab7e0ae1c2da9ff`. The new GNU89 test covers interrupted publication, committed cleanup, missing-original restore, rollback retry and symlink rejection.
 - Dependent HTTPD/Samba trust-boundary suite [42708503436] and AI handoff documentation validation [42708503300] completed SUCCESS on exact SHA `258532a78922549698bc6d9b869c7777f8f4ac05`. The HTTPD workflow extractor now targets the unlocked config generator rather than the public lock wrapper.
@@ -49,7 +49,7 @@
 | Level | Evidence | Limits |
 |---|---|---|
 | L1 source review | PASS for the bounded BusyBox DHCP event-state review, Samba paired passdb/config publication, FTP upload dirfd anchoring, and RETR/SIZE descriptor-open control flow in THIS COMMIT. | Remaining FTP mutation/listing/metadata path syscalls and global module audits remain open. |
-| L2 host / Actions | VSFTPD [42720752045] on exact SHA `6f15ad9a2580f9d0bba16447d61d315d5e8eb4e3` compiled the GNU89 host suite and passed config/daemon tests, then failed one ACL-path assertion that expected `ELOOP` rather than the helper's deliberate `EINVAL` rejection from `fstatat(AT_SYMLINK_NOFOLLOW)`. AI docs [42720752091] passed on that SHA. Corrected test/source contracts are pending in THIS COMMIT. | Host regression does not replace target compilation or hardware testing. |
+| L2 host / Actions | VSFTPD [42720948938] on exact SHA `4c0d2d8acd9f16c175037a64e4f05494ec7e565f` compiled the GNU89 host suite and passed all three executions, including ACL path regression, then failed in the Python semantic source contract because the SIZE ordering assertion still expected the removed path-based ACL/stat sequence. AI docs [42720949030] passed on that SHA. THIS COMMIT corrects the order assertion and target-classifier count. | Host regression does not replace target compilation or hardware testing. |
 | L3 MIPS/uClibc production objects / firmware/TRX | NOT VERIFIED. | Full target build phase required. |
 | L4 router/SMB/DHCP behavior and physical hardware | NOT VERIFIED. | Requires target-device validation. |
 

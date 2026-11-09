@@ -166,7 +166,7 @@ jobs:
           assert "existing-file open escaped the pinned directory" in acl_path_test
           assert "can_write ? PERM_WRITE : PERM_READ" in mdtm
           assert "asus_check_permission_existing_path(p_sess, PERM_WRITE" in chmod
-          assert size.index("asus_check_permission_existing_path(") < size.index("str_stat(")
+          assert size.index("asus_open_existing_path(") < size.index("vsf_sysutil_fstat(")
           assert mdtm.index("asus_check_permission_existing_path(") < mdtm.index("vsf_sysutil_setmodtime(")
           assert chmod.index("asus_check_permission_existing_path(") < chmod.index("str_chmod(")
           assert "ftp_acl_path_is_internal_metadata(str_getbuf(p_path_str))" in acl_path
@@ -175,7 +175,7 @@ jobs:
           assert "ftp_acl_path_is_internal_metadata(str_getbuf(p_path_str))" in acl_directory
           assert "ftp_acl_path_is_internal_metadata(p_filename)" in acl_visible
           assert "ftp_acl_path_is_internal_metadata" in acl_path_policy
-          assert acl_path_policy.count("ftp_acl_path_is_internal_metadata(target)") == 3
+          assert acl_path_policy.count("ftp_acl_path_is_internal_metadata(target)") == 4
           assert "reserved metadata file or symlink alias was accepted" in acl_path_test
           assert "ftp_acl_path_is_internal_metadata" in vsftpd_acl
           assert "ftp_acl_path_is_internal_metadata(p_filename)" in vsftpd_acl

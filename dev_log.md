@@ -1,3 +1,15 @@
+## 2026-11-10 06:59 CST (UTC+8) — Refresh the FTP semantic contract for descriptor-based SIZE
+
+- **Base main SHA:** `4c0d2d8acd9f16c175037a64e4f05494ec7e565f`.
+- **CI review:** VSFTPD run [42720948938] completed GNU89 host compilation and all three test executions successfully, including the updated ACL path regression. The workflow then failed in its Python source contract: the SIZE ordering check still searched for the removed `asus_check_permission_existing_path()` and `str_stat()` sequence. The new implementation correctly uses `asus_open_existing_path()` followed by `vsf_sysutil_fstat()`. AI handoff validation [42720949030] completed SUCCESS on the exact base SHA.
+- **Correction:** update the SIZE ordering contract to compare descriptor open before `fstat`, and update the internal-metadata canonical-target count from three to four because the new existing-entry resolver performs the additional fail-closed canonical-target check.
+- **Changed paths:** `.github/workflows/vsftpd-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and this log.
+- **Validation:** host compile/test execution PASS on the preceding exact SHA; semantic source contract failed on stale assertions, which are corrected in THIS COMMIT. Exact-head Actions are pending. L3 target build and L4 hardware validation remain NOT VERIFIED.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** reconcile the exact-head regression and docs runs. If both pass, continue with descriptor-relative DELE/RMD/MKD/RNTO while keeping LIST/NLST, MDTM/SITE CHMOD and upload-cleanup race items open.
+
+---
+
 ## 2026-11-10 06:58 CST (UTC+8) — Correct the FTP final-symlink regression expectation
 
 - **Base main SHA:** `6f15ad9a2580f9d0bba16447d61d315d5e8eb4e3`.
