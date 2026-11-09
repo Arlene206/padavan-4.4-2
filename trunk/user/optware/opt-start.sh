@@ -27,11 +27,12 @@ logger -t "${self_name}" "call /opt/etc/init.d"
 # extend path to /opt
 export PATH=/opt/sbin:/opt/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-# start all services S* in /opt/etc/init.d
-for i in `ls /opt/etc/init.d/S??* 2>/dev/null` ; do
-	[ ! -x "${i}" ] && continue
-	${i} start 9>&-
-done
+# Start services in order and undo partial startup if any hook fails.
+if ! optware_lifecycle_start_services /opt/etc/init.d; then
+	logger -t "${self_name}" "Optware service startup failed; see hook and rollback errors"
+	optware_lifecycle_lock_release
+	exit 1
+fi
 
 # install and update ipkg/opkg in background
 if [ "$optw_enable" == "1" ] ; then
@@ -55,3 +56,4 @@ elif [ "$optw_enable" == "2" ] ; then
 fi
 
 optware_lifecycle_lock_release
+exit 0
