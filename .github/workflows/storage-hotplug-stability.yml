@@ -6,6 +6,7 @@ on:
       - ".github/workflows/storage-hotplug-stability.yml"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/common_ex.c"
+      - "trunk/user/rc/src/init.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/nfs-utils/nfsd.sh"
       - "trunk/user/rc/src/hotplug_stor.c"
@@ -34,6 +35,7 @@ on:
       - ".github/workflows/storage-hotplug-stability.yml"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/common_ex.c"
+      - "trunk/user/rc/src/init.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/nfs-utils/nfsd.sh"
       - "trunk/user/rc/src/hotplug_stor.c"
@@ -117,6 +119,7 @@ jobs:
           nfs_script = Path("trunk/user/nfs-utils/nfsd.sh").read_text()
           rc_header = (rc_dir / "rc.h").read_text()
           common_ex = (rc_dir / "common_ex.c").read_text()
+          init_source = (rc_dir / "init.c").read_text()
 
           def function_body(text, signature):
               start = text.index(signature)
@@ -457,6 +460,39 @@ jobs:
 
           # Shutdown must honor opt-umount's nonblocking lifecycle-lock result
           # and must not unmount or detach UBI underneath a running startup hook.
+          # Internal MTD/UBI startup reports the real opt-mount result and
+          # retries from PID 1's deferred alarm loop without blocking it.
+          rwfs_result_reader = function_body(common_ex, "rwfs_optware_start_result_read(void)")
+          assert "read(rwfs_optware_result_fd" in rwfs_result_reader
+          assert "EAGAIN" in rwfs_result_reader
+          assert "storage_optware_start_decode_result" in rwfs_result_reader
+          rwfs_worker = function_body(common_ex, "rwfs_optware_start_worker(void)")
+          assert "pipe(pipe_fd)" in rwfs_worker and "O_NONBLOCK" in rwfs_worker
+          assert "FD_CLOEXEC" in rwfs_worker
+          assert "child = fork();" in rwfs_worker
+          assert "system(command)" in rwfs_worker
+          assert "WIFEXITED(command_status)" in rwfs_worker
+          assert "write(pipe_fd[1]" in rwfs_worker
+          assert "kill(1, SIGALRM)" in rwfs_worker
+          rwfs_start = function_body(common_ex, "void start_rwfs_optware(void)")
+          assert "rwfs_optware_start_pending = 1" in rwfs_start
+          assert "rwfs_optware_start_worker()" in rwfs_start
+          assert "alarm(5);" in rwfs_start
+          assert 'doSystem("/usr/bin/opt-mount.sh %s %s &"' not in rwfs_start
+          rwfs_retry = function_body(common_ex, "retry_rwfs_optware(void)")
+          assert "STORAGE_OPTWARE_START_CHILD_RUNNING" in rwfs_retry
+          assert "STORAGE_OPTWARE_START_CHILD_SUCCESS" in rwfs_retry
+          assert "rwfs_optware_start_pending = 0" in rwfs_retry
+          assert "STORAGE_OPTWARE_START_CHILD_FAILURE" in rwfs_retry
+          assert "rwfs_optware_start_worker()" in rwfs_retry
+          assert "return 1;" in rwfs_retry
+          alarm_event = init_source.index("if (signal_state.alarm_pending)")
+          retry_call = init_source.index("retry_rwfs_optware()", alarm_event)
+          deferred_call = init_source.index("on_deferred_hotplug_dev()", alarm_event)
+          assert retry_call < deferred_call
+          assert "if (router_ready && retry_rwfs_optware() != 0)" in init_source
+          assert "int retry_rwfs_optware(void);" in rc_header
+
           rwfs_stop = function_body(common_ex, "void umount_rwfs_partition(void)")
           rwfs_hook = rwfs_stop.index('doSystem("/usr/bin/opt-umount.sh %s %s", "/dev/ubi", mp_rwfs)')
           rwfs_hook_gate = rwfs_stop.index("if (doSystem(")

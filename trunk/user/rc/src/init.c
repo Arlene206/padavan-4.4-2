@@ -551,6 +551,10 @@ init_main_loop(void)
 		/* Handle SIGALRM signal */
 		if (signal_state.alarm_pending) {
 			signal_state.alarm_pending = 0;
+#if defined (USE_NAND_FLASH)
+			if (router_ready && retry_rwfs_optware() != 0)
+				alarm(5);
+#endif
 #if defined (USE_USB_SUPPORT) || defined (USE_STORAGE)
 			if (router_ready)
 				on_deferred_hotplug_dev();

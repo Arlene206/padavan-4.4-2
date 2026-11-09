@@ -5,9 +5,10 @@
 ## Current source / CI checkpoint
 
 - Repository: `Arlene206/padavan-4.4-2`; maintained fork only.
-- Base main SHA for THIS deferred Optware source-contract correction: `a154f30da5d0eac2d3923d221c39eeb8295965f2`; resulting commit: THIS COMMIT. Only remote branch is `main`.
-- Parent commit `a154f30da5d0eac2d3923d221c39eeb8295965f2` contains the deferred USB result/retry implementation. On this exact SHA, storage [42612494953](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42612494953) passed all shell/host/GNU89 regressions and failed only the final source contract at stdin line 129. AI docs [42612494818](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42612494818), Samba [42612494997](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42612494997), vsftpd [42612494935](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42612494935), NFS [42612494823](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42612494823), and HTTPD [42612494815](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42612494815) all SUCCESS.
-- THIS commit corrects the contract to search from the inventory assignment, check the mounted-branch flag clear after the service-start call, and search the async launch token without a semicolon assumption. Production code remains unchanged. Exact-head storage/docs results pending.
+- Base main SHA for THIS MTD boot-time Optware result/retry fix: `19c1627490ec550b74b2deb3e19e8965d4374406`; resulting commit: THIS COMMIT. Only remote branch is `main`.
+- The deferred removable-USB Optware result/retry implementation is green on exact SHA `19c1627490ec550b74b2deb3e19e8965d4374406`: storage [42613569550](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42613569550) SUCCESS (all 11 steps); AI handoff docs [42613569474](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42613569474) SUCCESS.
+- Samba [42612494997](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42612494997), vsftpd [42612494935](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42612494935), NFS [42612494823](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42612494823), and HTTPD [42612494815](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42612494815) were also SUCCESS on the immediately preceding production SHA `a154f30da5d0eac2d3923d221c39eeb8295965f2`.
+- THIS commit closes the separate MTD boot result gap: child exit is reported through a nonblocking pipe; PID1's alarm loop polls and retries without running the Optware hook synchronously. Exact-head storage/docs Actions are pending at commit creation.
 
 
 ## Whole-repository module status
@@ -30,7 +31,7 @@
 
 ## Priority queue
 
-1. P2 — Re-run the deferred USB Optware result/retry whole-caller-graph contract after correcting its inventory/start-call ordering anchor; confirm storage and AI handoff-doc Actions on exact HEAD.
+1. P2 — Verify THIS MTD boot-time Optware result/retry worker on exact-head storage and AI handoff-doc Actions; inspect PID1 alarm integration, pipe ownership, and source contracts.
 2. P2 — Audit the asynchronous boot-time `start_rwfs_optware()` → `opt-mount.sh ... &` result path in `common_ex.c`; decide on safe status/retry handling without holding `storage.lock`.
 3. P2 — Continue NFS export ACL/permission mapping and external mount lifecycle; continue Samba passdb/account mutation, ACL/permission and credential audit; continue vsftpd authentication/ACL/path-confinement/stop lifecycle review.
 4. P2/P3 — Preserve DHCP leasefail/accepted-NAK/release state semantics and BusyBox callback status handling; keep FULLCONENAT mapping-hash and dying-tuple queue namespace ownership as a separate kernel audit.

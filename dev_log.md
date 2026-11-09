@@ -1,3 +1,17 @@
+## 2026-11-09 20:08 CST (UTC+8) — Track and retry internal MTD/UBI Optware boot startup
+
+- **Base main SHA:** `19c1627490ec550b74b2deb3e19e8965d4374406`; resulting commit: THIS COMMIT.
+- **Recovered exact-head verification:** prior removable USB deferred startup fix is complete: storage [42613569550](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42613569550) and AI handoff docs [42613569474](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42613569474) both SUCCESS on full SHA `19c1627490ec550b74b2deb3e19e8965d4374406`; all 11 storage steps and the handoff/archive validator passed.
+- **Finding:** boot-time `start_rwfs_optware()` still used `doSystem("... opt-mount.sh ... &")`, which only reports background launch and discards the actual MTD Optware startup exit status. There was no retry mechanism if the script's later mount/lock/hook path failed.
+- **Fix:** retain asynchronous startup but track a worker using a nonblocking pipe; the worker waits for the real `opt-mount.sh` status, writes a one-byte result and signals PID1. Add a retry/poll function and call it from PID1's deferred SIGALRM event, rearming five-second polling while running or after failure. Share the existing Optware child-result decoder, use close-on-exec on the writer, and provide a no-NAND stub. PID1 never waits synchronously for external hooks.
+- **Regression:** extend the storage workflow's symmetric push/PR filters and whole-caller-graph source contract to check MTD result reader, worker descriptor flags, fork/exit decoding, result publication, pending-state transitions, retry, and PID1 event-loop caller.
+- **Changed paths:** `trunk/user/rc/src/common_ex.c`, `trunk/user/rc/src/init.c`, `trunk/user/rc/src/rc.h`, `.github/workflows/storage-hotplug-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+- **Validation boundary:** L1 source review PASS. Prior USB storage+docs Actions are green on the exact base. THIS commit's exact-head storage/docs Actions pending. No full local checkout, production RC object, MIPS/uClibc, firmware/TRX, real NAND/UBI or physical-router test claimed.
+- **Next:** reconcile exact-head storage/docs workflows; then scrutinize persistent-failure retry cadence and shutdown while the lifecycle lock is held.
+
+
+---
+
 ## 2026-11-09 19:52 CST (UTC+8) — Correct deferred Optware caller-graph assertion anchors
 
 - **Base main SHA:** `a154f30da5d0eac2d3923d221c39eeb8295965f2`; resulting commit: THIS COMMIT.

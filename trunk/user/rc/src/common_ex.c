@@ -33,6 +33,9 @@
 #include <arpa/inet.h>
 #include <dirent.h>
 #include <fcntl.h>
+#include <sys/wait.h>
+
+#include "storage_optware_start_policy.h"
 
 #include <ralink_priv.h>
 #include <flash_mtd.h>
@@ -830,26 +833,154 @@ void umount_rwfs_partition(void)
 		logmessage(LOGNAME, "failed to detach RWFS UBI volume on MTD%d", mtd_rwfs);
 }
 
+static int rwfs_optware_result_fd = -1;
+static int rwfs_optware_start_pending = 0;
+static char rwfs_optware_device[16];
+
+static int
+rwfs_optware_start_result_read(void)
+{
+	unsigned char child_status = 1;
+	ssize_t bytes_read;
+	int result;
+
+	if (rwfs_optware_result_fd < 0)
+		return STORAGE_OPTWARE_START_CHILD_NONE;
+
+	do {
+		bytes_read = read(rwfs_optware_result_fd, &child_status,
+				  sizeof(child_status));
+	} while (bytes_read < 0 && errno == EINTR);
+
+	if (bytes_read < 0) {
+		if (errno == EAGAIN || errno == EWOULDBLOCK)
+			return STORAGE_OPTWARE_START_CHILD_RUNNING;
+		logmessage(LOGNAME, "cannot read MTD Optware startup result (errno %d)", errno);
+		bytes_read = 0;
+	}
+
+	result = storage_optware_start_decode_result((int)bytes_read,
+						     (int)child_status);
+	close(rwfs_optware_result_fd);
+	rwfs_optware_result_fd = -1;
+
+	return result;
+}
+
+static int
+rwfs_optware_start_worker(void)
+{
+	int pipe_fd[2], flags, command_status, command_len;
+	char command[128];
+	unsigned char child_result;
+	ssize_t written;
+	pid_t child;
+
+	/* The parent owns at most one outstanding MTD startup result channel. */
+	if (rwfs_optware_result_fd >= 0)
+		return 0;
+
+	command_len = snprintf(command, sizeof(command),
+			       "/usr/bin/opt-mount.sh %s %s",
+			       rwfs_optware_device, MP_MTD_RWFS);
+	if (command_len < 0 || command_len >= (int)sizeof(command)) {
+		logmessage(LOGNAME, "MTD Optware startup command is too long");
+		return -1;
+	}
+
+	if (pipe(pipe_fd) != 0) {
+		logmessage(LOGNAME, "cannot create MTD Optware result pipe (errno %d)", errno);
+		return -1;
+	}
+
+	flags = fcntl(pipe_fd[0], F_GETFL, 0);
+	if (flags < 0 || fcntl(pipe_fd[0], F_SETFL, flags | O_NONBLOCK) != 0)
+		goto failed;
+	flags = fcntl(pipe_fd[1], F_GETFD);
+	if (flags < 0 || fcntl(pipe_fd[1], F_SETFD, flags | FD_CLOEXEC) != 0)
+		goto failed;
+
+	child = fork();
+	if (child < 0)
+		goto failed;
+
+	if (child == 0) {
+		close(pipe_fd[0]);
+		command_status = system(command);
+		child_result = (command_status != -1 &&
+				WIFEXITED(command_status) &&
+				WEXITSTATUS(command_status) == 0) ? 0 : 1;
+		do {
+			written = write(pipe_fd[1], &child_result, sizeof(child_result));
+		} while (written < 0 && errno == EINTR);
+		close(pipe_fd[1]);
+		/* Wake PID 1 only after the actual opt-mount result is published. */
+		(void)kill(1, SIGALRM);
+		_exit(child_result == 0 ? 0 : 1);
+	}
+
+	close(pipe_fd[1]);
+	rwfs_optware_result_fd = pipe_fd[0];
+	logmessage(LOGNAME, "started MTD Optware startup worker (pid %d)", (int)child);
+	return 0;
+
+failed:
+	logmessage(LOGNAME, "cannot launch MTD Optware startup worker (errno %d)", errno);
+	close(pipe_fd[0]);
+	close(pipe_fd[1]);
+	return -1;
+}
+
+/* Called only in PID 1's deferred event loop; never blocks on external hooks. */
+int
+retry_rwfs_optware(void)
+{
+	int child_result;
+
+	if (!rwfs_optware_start_pending)
+		return 0;
+
+	child_result = rwfs_optware_start_result_read();
+	if (child_result == STORAGE_OPTWARE_START_CHILD_RUNNING)
+		return 1;
+	if (child_result == STORAGE_OPTWARE_START_CHILD_SUCCESS) {
+		rwfs_optware_start_pending = 0;
+		logmessage(LOGNAME, "MTD Optware startup completed successfully");
+		return 0;
+	}
+	if (child_result == STORAGE_OPTWARE_START_CHILD_FAILURE)
+		logmessage(LOGNAME, "MTD Optware startup failed; preserving pending state for retry");
+
+	if (rwfs_optware_start_worker() != 0)
+		logmessage(LOGNAME, "MTD Optware startup worker could not be relaunched; will retry");
+
+	return 1;
+}
+
 void start_rwfs_optware(void)
 {
 	int mtd_rwfs;
-	char dev_ubi[16];
-	const char *mp_rwfs = MP_MTD_RWFS;
 
-	if (!check_if_dir_exist(mp_rwfs))
+	if (rwfs_optware_start_pending || !check_if_dir_exist(MP_MTD_RWFS))
 		return;
 
 	mtd_rwfs = mtd_dev_idx(MTD_PART_NAME_RWFS);
 	if (mtd_rwfs < 3)
 		return;
 
-	snprintf(dev_ubi, sizeof(dev_ubi), "/dev/ubi%d_0", mtd_rwfs);
-	doSystem("/usr/bin/opt-mount.sh %s %s &", dev_ubi, mp_rwfs);
+	snprintf(rwfs_optware_device, sizeof(rwfs_optware_device),
+		 "/dev/ubi%d_0", mtd_rwfs);
+	rwfs_optware_start_pending = 1;
+	if (rwfs_optware_start_worker() != 0)
+		logmessage(LOGNAME, "initial MTD Optware startup launch failed; will retry");
+	/* Poll the nonblocking result channel even if the worker does not signal. */
+	alarm(5);
 }
 #else
 inline void mount_rwfs_partition(void) {}
 inline void umount_rwfs_partition(void) {}
 inline void start_rwfs_optware(void) {}
+inline int retry_rwfs_optware(void) { return 0; }
 #endif
 
 static int
