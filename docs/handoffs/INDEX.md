@@ -100,4 +100,4 @@
 
 | Archive file | Sections | Date order | Bytes | Git blob SHA |
 |---|---:|---|---:|---|
-| `docs/handoffs/archive/2026/11/part-015.md` | 7 | superseded active checkpoint | 8523 | `eaf2d4ca708c08f79cf412df91d39a52dc8be1ae` |
+| `docs/handoffs/archive/2026/11/part-015.md` | 6 | superseded active checkpoint | 8523 | `eaf2d4ca708c08f79cf412df91d39a52dc8be1ae` |
