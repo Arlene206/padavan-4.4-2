@@ -5,17 +5,28 @@
 ## Current repository state
 
 - Repository: Arlene206/padavan-4.4-2; maintained fork only.
-- Latest source/test checkpoint: THIS COMMIT — expanded the storage-hotplug CI source contract from selected locks to the in-tree mdev → storage operation lock → automount/Optware, swapoff, safe-eject/global cleanup, spindown and RC entry-point caller graph. The preceding source/test head `2b3a2d19d76399199d8d813fe96260b0a0910368` contains the exact-head verified Optware stop-hook and /opt unmount error-propagation fix. Always resolve this checkpoint's full SHA from live main.
+- Latest source/test checkpoint: THIS COMMIT — vsftpd now stages generated /etc/vsftpd.conf beside the destination, checks formatting/flush/close, atomically renames only a complete file, and prevents daemon startup when publication fails. Base source/test SHA: 85591fa3ea404728bc47a24c4d018148fa974295; resolve this commit's full SHA from live main on the next recovery.
 - Remote branch inventory at this recovery contained only main; no remote checkpoint branch exists. Recheck at next takeover.
-- Previous checkpoint `2b3a2d19d76399199d8d813fe96260b0a0910368`: storage-hotplug regression [42579502834](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42579502834) SUCCESS and AI handoff docs [42579502689](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42579502689) SUCCESS, both verified on that exact full `head_sha`. This commit changes the storage workflow and handoff; its exact-head runs must be queried live and never inferred from the prior checkpoint.
-- Earlier exact-source HTTPD/security [42568701873](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42568701873) SUCCESS on 2c8b5ff; DHCP lease / renewal and HTTPD checks [42568560276](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42568560276) SUCCESS on 2332158. Do not claim these are new exact-head runs on c2706; the exact-head storage and docs runs above are.
-- Validation ceiling: source audit and host/Actions tests only. No complete production RC/BusyBox object build, MIPS/uClibc build, firmware/TRX, live DHCP transition, storage hotplug churn or hardware validation. The exact-head HTTPD workflow compiles/runs the DHCP policy test and evaluates RC source contracts; it does not compile the complete `net_lan.c` production translation unit.
+- The preceding storage caller-graph checkpoint 85591fa3ea404728bc47a24c4d018148fa974295: USB storage regression [42582582537](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42582582537) SUCCESS and AI handoff docs [42582582507](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42582582507), both on exact full head_sha 85591fa3ea404728bc47a24c4d018148fa974295.
+- The new vsftpd host regression and AI handoff documentation workflow are triggered by THIS COMMIT; their exact resulting head_sha, run IDs and conclusions must be fetched live. Do not infer their status from the preceding green checkpoint.
+- Validation ceiling: this round adds a focused GNU89 host regression and source contract. No complete production RC/vsftpd object build, MIPS/uClibc build, firmware/TRX, live FTP login/transfer or hardware validation is claimed.
 
 ## Active task
 
-The bounded USB storage caller-graph source contract is now added to `.github/workflows/storage-hotplug-stability.yml`. It is CI coverage only; no production C/shell changes were required in this checkpoint. Keep storage PARTIAL / AUDITING pending external-script, target-filesystem and hardware validation.
+The previous USB storage caller-graph source-contract milestone is complete. Its exact-head storage and documentation Actions passed on 85591fa3ea404728bc47a24c4d018148fa974295. This round's bounded vsftpd generated-configuration publication fix is included in THIS COMMIT; the new exact-head vsftpd and documentation Actions must be reconciled during the next recovery.
 
-Next development rotation: begin a fresh reliability/security audit of `vsftpd` and its RC/UI/start-stop configuration path; inspect the full caller graph and select one concrete bug before modifying. Do not repeat HTTPD/SkipDB/storage work merely for convenience. Keep DHCP leasefail/accepted-NAK/release semantics (BusyBox discards callback status) as a separate userland queue item and FULLCONENAT namespace ownership as a separate kernel audit.
+### Completed vsftpd configuration reliability fix
+
+- Reviewed the APP_FTPD launch/stop path in trunk/user/rc/src/services_stor.c, RC event dispatch in trunk/user/rc/src/rc.c, exported declarations in rc.h, build inclusion in trunk/user/Makefile and the package Makefiles, and the FTP UI in trunk/user/www/n56u_ribbon_fixed/Advanced_AiDisk_ftp.asp.
+- Confirmed defect: write_vsftpd_conf() opened /etc/vsftpd.conf with "w", immediately truncating the last usable config, ignored all fprintf()/flush/close failures, returned no status, and run_ftp() launched vsftpd regardless. A full/read-only filesystem or late write/close error could therefore leave and launch against a partial configuration.
+- Fix in THIS COMMIT: use mkstemp() in the destination directory, set the generated file mode, stream the complete configuration to the temporary file, check stream error/flush/close, then atomically rename() it over the destination. Any staging/write/close/rename failure discards the temporary file and preserves the prior config. write_vsftpd_conf() now returns status and run_ftp() skips daemon startup on failure.
+- New ftp_config_file.c GNU89 regression covers successful replacement and mode, /dev/full buffered-write failure, failed staging open, truncated staging path and preservation of the last-known-good content. The new workflow also asserts the config publication ordering and daemon-start gate. This regression has not yet been run locally; exact-head Actions are pending at commit creation.
+- The focused audit did not establish a further credential/path-confinement bypass. Keep FTP authentication, ACL, path-confinement and stop/lifecycle behavior PARTIAL / AUDITING; this one fix does not close the service audit.
+- Validation boundary: no production RC/vsftpd objects, MIPS/uClibc, firmware/TRX, real FTP login/transfer, storage-unplug concurrency or hardware check.
+
+### Next development rotation
+
+After exact-head Actions for THIS COMMIT pass, rotate away from storage/HTTPD to Samba/account/NFS/add-on service lifecycle and permission/error paths. Preserve the DHCP leasefail/accepted-NAK/release callback semantics as a separate userland task, and FULLCONENAT mapping namespace/queue ownership as a separate kernel audit.
 
 ### DHCP changes already completed
 
@@ -60,18 +71,18 @@ Next development rotation: begin a fresh reliability/security audit of `vsftpd` 
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for AP DHCP validation and transactional bound/deconfig route-address-resolver handling; PASS for Optware teardown failure propagation and the reviewed in-tree storage caller/lock-order graph. |
-| L2 host / GitHub Actions | Prior storage regression [42579502834](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42579502834) and AI handoff docs [42579502689](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42579502689) PASS on exact SHA `2b3a2d19d76399199d8d813fe96260b0a0910368`. This checkpoint extends the storage source-contract caller graph; query Actions by this commit's full `head_sha` during every recovery. No local checkout was available to run the new inline Python contract independently. |
+| L1 source review | PASS for the vsftpd generated-config staging/flush/close/atomic-rename control flow and the daemon-start failure gate; previous PASS evidence for AP DHCP transactions and the reviewed in-tree storage caller/lock-order graph remains bounded to those scopes. |
+| L2 host / GitHub Actions | Previous storage regression [42582582537](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42582582537) and AI handoff docs [42582582507](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42582582507) PASS on exact SHA 85591fa3ea404728bc47a24c4d018148fa974295. The vsftpd GNU89 host regression/source-contract workflow and AI handoff documentation check for THIS COMMIT are PENDING exact-head reconciliation. No local checkout was available for running the C regression or documentation validator independently. |
 | L3 MIPS/uClibc / production objects / firmware/TRX | NOT VERIFIED. |
-| L4 live DHCP churn / storage hotplug / physical router | NOT VERIFIED. |
+| L4 live FTP login/transfer / storage churn / physical router | NOT VERIFIED. |
 
 ## Exact first action for the next GPT
 
-1. Fetch live main, all remote branches and exact-head Actions; inspect the storage-hotplug caller-graph and AI handoff-doc runs for THIS COMMIT using the full `head_sha`.
-2. If either exact-head run failed, inspect its logs and fix only the actual assertion/contract regression. Do not claim target build or hardware results.
-3. Rotate to `vsftpd`: inspect its service launch/stop, configuration generation, credentials/permissions, path confinement, and RC/UI entry points; select and test one bounded stability/security bug before editing.
+1. Fetch live main, all remote branches and Actions; inspect the vsftpd configuration publication regression and AI handoff-documentation runs for THIS COMMIT, matching each run's full head_sha to the current main SHA.
+2. If either exact-head run failed, inspect its job/step logs and correct only the demonstrated test/source-contract or implementation defect. Do not claim target build or hardware results.
+3. Once the exact-head checks pass, rotate to Samba/accounts/NFS/add-on services and select one concrete P2 reliability/security defect from launch/stop, configuration, permission or error-propagation paths. The broader FTP credential/ACL/path-confinement/service-lifecycle audit remains open.
 4. Preserve open DHCP leasefail/accepted-NAK/release behavior and BusyBox's discarded callback status as a separate task; do not rely on callback return-code-only handling.
-5. Keep FULLCONENAT mapping namespace/dying-tuple queue isolation as a separate kernel audit. No full MIPS/uClibc, firmware/TRX or hardware validation has been performed.
+5. Keep FULLCONENAT mapping namespace/dying-tuple queue isolation as a separate kernel audit. No full MIPS/uClibc build, firmware/TRX or hardware validation has been performed.
 
 ## Documentation maintenance
 

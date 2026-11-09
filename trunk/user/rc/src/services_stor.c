@@ -42,6 +42,7 @@
 #include "samba_share_policy.h"
 #include "samba_passdb_policy.h"
 #include "ftp_share_policy.h"
+#include "ftp_config_file.h"
 #include "storage_mount_inventory_policy.h"
 #include "storage_ejected_inventory_policy.h"
 #include "storage_nfs_export_policy.h"
@@ -110,16 +111,17 @@ stop_ftp(void)
 	kill_services(svcs, 3, 1);
 }
 
-void
+int
 write_vsftpd_conf(void)
 {
-	FILE *fp;
+	FILE *fp = NULL;
+	char staged_path[64];
 	int i_maxuser, i_ftp_mode;
 	const char *banner_product;
 
-	fp=fopen("/etc/vsftpd.conf", "w");
-	if (!fp)
-		return;
+	if (ftp_config_file_open("/etc/vsftpd.conf", staged_path,
+				 sizeof(staged_path), &fp) != 0)
+		return -1;
 
 	banner_product = nvram_safe_get("productid");
 	if (!samba_conf_text_is_safe(banner_product) || !*banner_product)
@@ -184,19 +186,30 @@ write_vsftpd_conf(void)
 	fprintf(fp, "max_per_ip=%d\n", i_maxuser);
 	fprintf(fp, "ftpd_banner=Welcome to %s FTP service.\n", banner_product);
 	
-	fclose(fp);
+	if (ftp_config_file_publish(&fp, staged_path, "/etc/vsftpd.conf") != 0)
+		return;
+
+	return 0;
 }
 
 void
 run_ftp(void)
 {
-	if (nvram_match("enable_ftp", "0")) 
+	int saved_errno;
+
+	if (nvram_match("enable_ftp", "0"))
 		return;
 
 	if (is_ftp_run())
 		return;
 
-	write_vsftpd_conf();
+	if (write_vsftpd_conf() != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage("FTP server", "configuration publication failed; startup skipped (errno %d)",
+			   saved_errno);
+		errno = saved_errno;
+		return;
+	}
 
 	eval("/sbin/vsftpd");
 

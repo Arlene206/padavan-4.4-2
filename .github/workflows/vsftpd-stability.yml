@@ -1,0 +1,94 @@
+name: vsftpd configuration publication stability regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/vsftpd-stability.yml"
+      - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/ftp_config_file.h"
+      - "trunk/user/rc/src/tests/ftp_config_file.c"
+  pull_request:
+    paths:
+      - ".github/workflows/vsftpd-stability.yml"
+      - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/ftp_config_file.h"
+      - "trunk/user/rc/src/tests/ftp_config_file.c"
+
+jobs:
+  vsftpd-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run vsftpd configuration publication regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/ftp_config_file.c \
+            -o /tmp/ftp-config-file
+          /tmp/ftp-config-file
+      - name: Verify vsftpd configuration publication and startup gates
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/user/rc/src/services_stor.c").read_text()
+          helper = Path("trunk/user/rc/src/ftp_config_file.h").read_text()
+          test = Path("trunk/user/rc/src/tests/ftp_config_file.c").read_text()
+          workflow = Path(".github/workflows/vsftpd-stability.yml").read_text()
+
+          def function_body(text, signature):
+              start = text.index(signature)
+              brace = text.index("{", start)
+              depth = 0
+              for pos in range(brace, len(text)):
+                  if text[pos] == "{":
+                      depth += 1
+                  elif text[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return text[brace + 1:pos]
+              raise AssertionError(f"unterminated function: {signature}")
+
+          config = function_body(source, "write_vsftpd_conf(")
+          assert "ftp_config_file_open(" in config
+          assert "ftp_config_file_publish(" in config
+          assert config.index("ftp_config_file_open(") < config.index("fprintf(")
+          assert config.index("fprintf(") < config.index("ftp_config_file_publish(")
+          assert 'fopen("/etc/vsftpd.conf", "w")' not in config
+          assert "return -1;" in config
+
+          run = function_body(source, "run_ftp(")
+          failure_gate = run.index("if (write_vsftpd_conf() != 0)")
+          failure_return = run.index("return;", failure_gate)
+          daemon_start = run.index('eval("/sbin/vsftpd")')
+          assert failure_gate < failure_return < daemon_start
+
+          open_fn = function_body(helper, "ftp_config_file_open(")
+          publish_fn = function_body(helper, "ftp_config_file_publish(")
+          for token in ("mkstemp(", "fchmod(", "fdopen("):
+              assert token in open_fn
+          for token in ("ferror(fp)", "fflush(fp)", "fclose(fp)",
+                        "rename(staged_path, target_path)", "unlink(staged_path)"):
+              assert token in publish_fn
+          assert publish_fn.index("fflush(fp)") < publish_fn.index("rename(")
+          assert publish_fn.index("if (fclose(fp) != 0)") < publish_fn.index("rename(")
+
+          assert 'fopen("/dev/full", "w")' in test
+          assert "listen=YES" in test
+          assert "ftp_config_file_publish(&fp, staged, target) != 0" in test
+
+          paths = (
+              ".github/workflows/vsftpd-stability.yml",
+              "trunk/user/rc/src/services_stor.c",
+              "trunk/user/rc/src/ftp_config_file.h",
+              "trunk/user/rc/src/tests/ftp_config_file.c",
+          )
+          filters = workflow.split("jobs:", 1)[0]
+          push_filters, pr_filters = filters.split("  pull_request:", 1)
+          for path in paths:
+              assert push_filters.count(path) == 1
+              assert pr_filters.count(path) == 1
+
+          print("vsftpd generated-config publication and startup gate contracts: PASS")
+          PY

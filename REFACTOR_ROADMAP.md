@@ -5,9 +5,9 @@
 ## Current source / CI checkpoint
 
 - Repository: Arlene206/padavan-4.4-2 (maintained fork).
-- Latest source/test checkpoint: THIS COMMIT — extended storage-hotplug CI source contracts across the in-tree mdev/automount/swap/safe-eject/spindown/RC caller graph. Previous exact-head storage/docs checks passed on `2b3a2d19d76399199d8d813fe96260b0a0910368`; always query this commit's own Actions by full `head_sha`.
-- Previous storage hotplug [42579502834](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42579502834) and AI handoff docs [42579502689](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42579502689) PASS on exact prior SHA `2b3a2d19d76399199d8d813fe96260b0a0910368`. This commit extends the storage source contract; inspect its exact-head Actions live.
-- Validation limit: source review and host/Actions only. No production MIPS/uClibc objects, firmware/TRX or live hardware tests.
+- Latest source/test checkpoint: THIS COMMIT — vsftpd generated /etc/vsftpd.conf is staged, fully checked and atomically published; FTP daemon startup now fails closed when publication fails. Base SHA: 85591fa3ea404728bc47a24c4d018148fa974295; reconcile this commit's exact-head workflows live.
+- Previous storage caller-graph USB regression [42582582537](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42582582537) and AI handoff docs [42582582507](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42582582507) PASS on exact SHA 85591fa3ea404728bc47a24c4d018148fa974295. New vsftpd/doc Actions are PENDING at commit creation.
+- Validation limit: focused source review and host regression only. No production MIPS/uClibc objects, firmware/TRX, live FTP behavior or hardware tests.
 
 ## Whole-repository module status
 
@@ -22,13 +22,13 @@
 | HTTPD / CGI / authentication | PARTIAL / AUDITING | Authentication, disclosure, safe publication, NVRAM restore and CGI policy checks have recent Actions. | Whole-route input, authorization and error-path inventory. |
 | NVRAM / persistence / startup | PARTIAL / AUDITING | Atomic publication and restore failure gates. | Remaining direct callers, flash recovery and board variants. |
 | Switch / PHY / MDIO / link state | PARTIAL / AUDITING | Selected ioctl propagation, PVID/link retry, CLI ordering and MDIO timeout checks. | Other board drivers and live hardware behavior. |
-| NFS / Samba / FTP / accounts / add-ons | AUDITING | NFS mount inventory and selected Samba/account boundary checks. | Permissions, command injection, service failure and external script lifecycle. |
+| NFS / Samba / FTP / accounts / add-ons | AUDITING | NFS mount inventory and selected Samba/account boundary checks; vsftpd generated-config publication now uses checked same-directory staging and atomic replacement, with FTP startup gated on success (new exact-head regression pending). | Broader FTP credential/ACL/path-confinement and stop lifecycle; Samba/NFS permissions, command injection, service failures and external script lifecycle. |
 | Init / PID 1 / service supervision | AUDITING | Notification deferral, child reaping and selected start/stop failure gates. | Cross-module ordering, shutdown races and package supervision. |
 
 ## Priority queue
 
-1. P2 — Begin a new `vsftpd` reliability/security audit across service launch/stop, generated configuration, credentials/permissions and path confinement; pick one bounded fix with a host/source regression.
-2. P2 — Continue broad userland rotation through Samba/accounts/NFS/add-on services; do not remain concentrated in HTTPD, SkipDB or storage.
+1. P2 — Rotate to Samba/accounts/NFS/add-on services; audit launch/stop, generated configuration, permissions and failure propagation, selecting one bounded stability/security defect.
+2. P2 — Continue the broader vsftpd audit of credential handling, share ACLs, path confinement and stop/lifecycle behavior; the atomic config-publication fix does not close FTP.
 3. P2/P3 — Continue LAN DHCP leasefail, accepted-NAK and release state semantics; account for BusyBox discarding callback exit status. Target/live DHCP validation remains outstanding.
 4. Separate kernel task — FULLCONENAT mapping-hash and dying-tuple queue namespace ownership. Keep it separate from userland work.
 
@@ -47,8 +47,8 @@
 
 | Level | Evidence | Limits |
 |---|---|---|
-| L1 source review | PASS for DHCP input/transactional cleanup and Optware teardown failure propagation; PASS for the reviewed in-tree SD/MMC hotplug, mountpoint/storage lock ordering, swapoff gates, safe-eject/global cleanup, spindown and RC entry graph. | Does not establish complete bound-side-effect recovery or external custom-script behavior. |
-| L2 host / Actions | Previous storage and docs Actions [42579502834](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42579502834) / [42579502689](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42579502689) PASS on exact SHA `2b3a2d19d76399199d8d813fe96260b0a0910368`. This commit adds the complete caller-graph source contract; inspect storage/docs Actions for its exact full SHA. | Source contracts and host unit tests do not compile the complete target userland or verify external scripts/filesystem/hardware behavior. |
+| L1 source review | PASS for DHCP input/transactional cleanup and Optware teardown failure propagation; PASS for the reviewed in-tree SD/MMC hotplug caller/lock graph; PASS for vsftpd staged config publication and daemon-start failure gate. | Does not establish complete bound-side-effect recovery or external custom-script behavior. |
+| L2 host / Actions | Storage caller-graph and docs Actions [42582582537](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42582582537) / [42582582507](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42582582507) PASS on exact SHA 85591fa3ea404728bc47a24c4d018148fa974295. The vsftpd GNU89 host regression/source contract and docs check added in THIS COMMIT are PENDING exact-head reconciliation. | Source contracts and host unit tests do not compile the complete target userland or verify external scripts/filesystem/hardware behavior. |
 | L3 MIPS/uClibc / production objects / firmware/TRX | NOT VERIFIED. | Full build phase required. |
 | L4 live router / DHCP churn / storage hotplug / physical hardware | NOT VERIFIED. | Requires device validation. |
 

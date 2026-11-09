@@ -1,3 +1,14 @@
+## 2026-11-09 16:25 CST (UTC+8) — Atomically publish generated vsftpd configuration
+
+- **Base main SHA:** `85591fa3ea404728bc47a24c4d018148fa974295`; resulting commit: THIS COMMIT.
+- **Module / priority:** vsftpd generated configuration and service startup, P2 stability with security implications; broader FTP audit remains AUDITING.
+- **Finding:** write_vsftpd_conf() opened /etc/vsftpd.conf directly with "w", truncating the last working configuration before generation completed. It ignored all fprintf()/flush/close failures and returned no status; run_ftp() launched vsftpd regardless. A full/read-only filesystem or late write/close failure could leave the daemon reading a partial or empty configuration.
+- **Fix:** add ftp_config_file.h to create a same-directory mkstemp() staging file, set its mode, and publish only after stream-error, flush and close checks succeed. A single rename() atomically replaces the destination; failure discards the staged file and retains the previous config. write_vsftpd_conf() now returns status and run_ftp() logs and skips daemon startup when publication fails.
+- **Changed paths:** .github/workflows/vsftpd-stability.yml, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md, dev_log.md, trunk/user/rc/src/services_stor.c, new trunk/user/rc/src/ftp_config_file.h, and new trunk/user/rc/src/tests/ftp_config_file.c.
+- **Regression:** add GNU89 -Wall -Wextra -Werror host coverage for successful atomic replacement/file mode, buffered write failure injected with /dev/full, failed staging open, pathname truncation and preservation of last-known-good config. Workflow source contracts check publication ordering, required output/close checks, daemon-start gating and complete push/PR path filters. No local checkout was available, so the C test and Python source contract were not run locally; exact-head Actions are PENDING.
+- **Validation boundary:** L1 selected caller/config control-flow review PASS. No production RC/vsftpd object build, MIPS/uClibc, firmware/TRX, real FTP login/transfer or hardware validation.
+- **Next:** reconcile the vsftpd stability and AI handoff Actions on THIS COMMIT's exact full head_sha; then rotate to Samba/accounts/NFS/add-on service reliability/security. Keep the broader FTP credential/ACL/path audit open.
+
 ## 2026-11-09 — Extend USB storage hotplug caller-graph regression
 
 - **Base main SHA:** `2b3a2d19d76399199d8d813fe96260b0a0910368`; resulting source/test checkpoint: THIS COMMIT.
