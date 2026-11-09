@@ -2,16 +2,17 @@
 
 - Maintained fork: `Arlene206/padavan-4.4-2`; work only on this repository.
 - Branch inventory at takeover: `main` only; no remote checkpoint branch. No force-pushes were used.
-- Current main checkpoint before this workflow-contract correction: `4c0d2d8acd9f16c175037a64e4f05494ec7e565f` (RETR/SIZE descriptor-relative implementation plus corrected symlink errno test); remote branches: `main` only; no checkpoint branch.
+- Current main baseline for this bounded DELE/RMD slice: `bfd883ad75d5579c54922432a597efcade5a7509`; RETR/SIZE descriptor anchoring, GNU89 host tests, semantic source contract and AI-doc workflow are all green on this exact SHA. Remote branches: `main` only; no checkpoint branch.
 - Samba production implementation commit: `1a7097ace2e6c689cb7e92cd10055967d99fe143` (parent `6b44e023c2f669865fc8b5cb5425d824b8335d8b`). Follow-up commits updated the Samba and HTTPD semantic workflow extractors after initial assertions still referenced the previous writer layout.
 - Exact Actions evidence:
   - Samba share configuration regression [42708213921] completed SUCCESS on exact SHA `e9a93eb84ac9f95447150869fab7e0ae1c2da9ff`. GNU89 host compilation/execution passed for config-file, passdb policy, the new paired transaction, and daemon policy tests; the full Samba source-order contract also passed.
   - HTTPD Authentication/Security regression [42708503436] completed SUCCESS on exact SHA `258532a78922549698bc6d9b869c7777f8f4ac05`, including Samba share/ACL trust-boundary checks and the updated unlocked-writer source extractor.
   - AI handoff documentation validation [42708503300] completed SUCCESS on exact SHA `258532a78922549698bc6d9b869c7777f8f4ac05`.
   - VSFTPD run [42720948938] on exact SHA `4c0d2d8acd9f16c175037a64e4f05494ec7e565f` completed GNU89 host compilation and all three host test executions successfully, including the new ACL-path regression, then failed in the Python semantic source contract at the stale SIZE ordering assertion (`size.index()` still expected the removed path-based check/stat calls). AI handoff docs [42720949030] completed SUCCESS on that exact SHA. THIS COMMIT also updates the stale source-order assertion and the metadata-target classifier count (now four after the added canonical-target check).
+  - Final RETR/SIZE exact-head regression [42721150755] and AI handoff docs [42721150532] both completed SUCCESS on exact SHA `bfd883ad75d5579c54922432a597efcade5a7509`; GNU89 host tests and the descriptor-based source contract both passed.
   - Initial attempts on `1a7097a...` failed only in stale semantic workflow extractors; the new transaction host test itself passed. The assertions were corrected and later exact-SHA runs above passed. Do not report the initial failures as green.
 - The exact-head DHCP callback and handoff checks on `6b44e023c2f669865fc8b5cb5425d824b8335d8b` were already SUCCESS: WAN DHCP callback [42703609156] and AI handoff docs [42703609087].
-- Root `dev_log.md` has 83 complete records before this follow-up; this milestone makes 84/119. No archive rotation is due.
+- Root `dev_log.md` has 84 complete records before this bounded DELE/RMD slice; this milestone makes 85/119. No archive rotation is due.
 - L3 production RC/MIPS/uClibc/firmware builds and L4 physical router validation are NOT VERIFIED.
 
 ## Completed DHCP callback and BusyBox event-state review
@@ -57,29 +58,36 @@
 - Changed source/test paths: `trunk/user/rc/src/services_stor.c`, `trunk/user/rc/src/services_ex.c`, `trunk/user/rc/src/samba_config_transaction.h`, `trunk/user/rc/src/tests/samba_config_transaction.c`, `trunk/user/rc/src/samba_passdb_policy.h`; updated `.github/workflows/samba-share-stability.yml` and dependent `.github/workflows/httpd-security.yml` static contracts.
 - Exact successful Samba host/source regression: [42708213921] on `e9a93eb84ac9f95447150869fab7e0ae1c2da9ff`. Exact successful dependent HTTPD suite: [42708503436] on `258532a78922549698bc6d9b869c7777f8f4ac05`. No full target build or router test is claimed.
 
+## Completed FTP descriptor-relative DELE/RMD (bounded mutation slice)
+
+- Finding: DELE and RMD authorized the canonical parent through `asus_check_permission_path()`, then called `str_unlink(path)` / `str_rmdir(path)`. Replacing a parent component after ACL approval could redirect the mutation to another share.
+- Fix: `asus_remove_path()` resolves and pins the canonical parent directory, performs the existing per-share DELETE ACL check while holding the directory descriptor, revalidates the canonical path against the pinned device/inode, then calls `unlinkat()` relative to that descriptor.
+- Semantics: DELE uses no `unlinkat` flags and removes the final symlink entry itself; RMD uses `AT_REMOVEDIR` and refuses a final symlink rather than following its target. Reserved metadata leaf names are rejected. DELE trailing-slash behavior remains rejected as `ENOTDIR`.
+- Regression: host policy tests cover symlink-entry deletion without deleting its target, RMD refusing a symlink to a directory, successful empty-directory removal, reserved metadata denial, and parent path identity mismatch after a symlink substitution. GNU89 test and exact-head workflow remain pending for this commit.
+- Remaining FTP work: MKD and RNFR/RNTO still use path-based mutation; LIST/NLST recursive traversal and MDTM/SITE CHMOD also remain open. The upload cleanup check/unlink pair is still non-atomic on Linux 4.4.
+
 ## Active task
 
-1. The current bounded fix is RETR/SIZE descriptor-relative open/stat. It resolves existing final symlinks to their canonical target, pins the canonical parent with a verified dirfd, rechecks parent identity across the share ACL decision, and opens only the same regular-file inode with `openat(O_NOFOLLOW)`. SIZE uses an `O_PATH` descriptor so it does not newly require read permission on the file itself.
-2. After this slice is exact-head green, continue FTP pathname TOCTOU work with descriptor-relative DELE/RMD/MKD/RNTO operations while preserving parent-versus-target ACL semantics. Then cover LIST/NLST recursion; MDTM and SITE CHMOD remain path-based metadata operations.
-3. The earlier STOR/APPE/STOU cleanup `fstatat`/`unlinkat` pair remains non-atomic against a concurrent same-directory writer on Linux 4.4; preserve this limitation. FTP target config pins uClibc-ng 1.0.51/Linux 4.4, but no L3 target compile has been performed.
-4. Keep IPTV DHCP callback status-loss, FULLCONENAT target kernel/MIPS build, and NFS `async`/AUTH_SYS/root-squash/external-mount compatibility questions in the global priority queue.
+1. Reconcile this commit's VSFTPD host regression/source-contract and AI-doc Actions against the exact resulting SHA. No local checkout was available; no local host compile or docs checker is claimed.
+2. After green exact-head Actions, convert MKD to a descriptor-relative `mkdirat()` path and continue RNFR/RNTO with pinned source/destination parent descriptors plus ACL checks and `renameat()`, preserving RNFR CWD pinning and overwrite behavior deliberately.
+3. Then audit LIST/NLST/STAT path traversal and recursion; `handle_mdtm()` and `handle_site_chmod()` still perform path-based metadata syscalls and must remain explicitly open.
+4. Preserve the non-atomic STOR/APPE/STOU cleanup `fstatat`/`unlinkat` limitation on Linux 4.4. L3 target build and L4 hardware validation remain NOT VERIFIED.
+5. Keep IPTV DHCP callback status-loss, FULLCONENAT target kernel/MIPS build, and NFS `async`/AUTH_SYS/root-squash/external-mount compatibility questions in the cross-module queue.
 
 ## Verification boundary
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for the bounded BusyBox DHCP event-state review, Samba paired publication/recovery, FTP upload dirfd anchoring, and RETR/SIZE descriptor-open control flow. |
-| L2 host / GitHub Actions | VSFTPD host compile and all three test executions passed on exact SHA `4c0d2d8acd9f16c175037a64e4f05494ec7e565f`; its semantic source contract then failed because the SIZE ordering assertion still expected the removed path-based ACL/stat sequence. AI-doc validation [42720949030] passed on that SHA. The corrected order assertion and metadata-target count (4) in THIS COMMIT are pending. |
+| L1 source review | PASS for the bounded FTP DELE/RMD descriptor-relative design and its no-follow final-entry semantics; other FTP mutation/listing/metadata paths remain open. |
+| L2 host / GitHub Actions | Prior RETR/SIZE host regression/source contract [42721150755] and AI handoff docs [42721150532] passed on exact SHA `bfd883ad75d5579c54922432a597efcade5a7509`. DELE/RMD GNU89 regression and source contract, plus AI docs, are pending for THIS commit. No local checkout/compiler or local docs checker was available. |
 | L3 production RC/MIPS/uClibc/firmware builds and artifact validation | NOT VERIFIED. |
 | L4 physical router behavior and hardware | NOT VERIFIED. |
-
-
+ 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, branch list and Actions for the exact head; reconcile this errno-expectation correction's VSFTPD and AI-doc runs by exact `head_sha`.
-2. If green, implement the next bounded FTP descriptor-relative mutation slice for DELE/RMD/MKD/RNTO while preserving existing ACL semantics; then assess LIST/NLST recursion.
-3. Keep `handle_mdtm()` and `handle_site_chmod()` explicitly open as path-based operations, and preserve the non-atomic upload cleanup race plus IPTV DHCP callback, FULLCONENAT target-build and NFS compatibility follow-ups.
-
+1. Fetch live `main`, remote branches and Actions; verify this commit's VSFTPD and AI-doc runs against its exact `head_sha`.
+2. If green, continue with descriptor-relative MKD (`mkdirat`) and then RNFR/RNTO (`renameat`) while preserving source/destination DELETE/WRITE ACL semantics and RNFR CWD pinning. Add deterministic host regressions before modifying production flow.
+3. Keep LIST/NLST/STAT recursive traversal, MDTM/SITE CHMOD, upload cleanup race, IPTV DHCP callback, FULLCONENAT target object, and NFS compatibility explicitly open.
 
 ## Continuation rules
 

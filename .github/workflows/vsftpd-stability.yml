@@ -127,6 +127,7 @@ jobs:
           dele = function_body(vsftpd_postlogin, "static void\nhandle_dele")
           retr = function_body(vsftpd_postlogin, "static void\nhandle_retr")
           existing_open = function_body(vsftpd_acl, "asus_open_existing_path(")
+          remove_path = function_body(vsftpd_acl, "asus_remove_path(")
           directory = function_body(vsftpd_postlogin, "static void\nhandle_dir_common")
           acl_at = function_body(vsftpd_acl, "asus_check_permission_at(")
           acl_path = function_body(vsftpd_acl, "asus_check_permission_path(")
@@ -141,8 +142,12 @@ jobs:
           assert "new_file_fd);" in upload
           assert "str_create(" not in upload
           assert "asus_check_permission_path(p_sess, PERM_WRITE, &p_sess->ftp_arg_str)" in mkd
-          assert "asus_check_permission_path(p_sess, PERM_DELETE, &p_sess->ftp_arg_str)" in rmd
-          assert "asus_check_permission_path(p_sess, PERM_DELETE, &p_sess->ftp_arg_str)" in dele
+          assert "asus_remove_path(p_sess, &p_sess->ftp_arg_str, 1," in rmd
+          assert "str_rmdir(" not in rmd
+          assert "permission_denied" in rmd
+          assert "asus_remove_path(p_sess, &p_sess->ftp_arg_str, 0," in dele
+          assert "str_unlink(" not in dele
+          assert "permission_denied" in dele
           assert "asus_open_existing_path(p_sess, PERM_READ" in retr
           assert "&p_sess->ftp_arg_str, 0," in retr
           assert "str_open(" not in retr
@@ -156,7 +161,15 @@ jobs:
           assert "ftp_acl_path_open_verified_directory" in existing_open
           assert "asus_check_permission_at(p_sess, perm, resolved_parent)" in existing_open
           assert "ftp_acl_path_open_existing_file(parent_fd, leaf, stat_only)" in existing_open
+          assert "ftp_acl_path_split_entry" in remove_path
+          assert "ftp_acl_path_resolve_parent" in remove_path
+          assert "ftp_acl_path_open_verified_directory" in remove_path
+          assert "asus_check_permission_at(p_sess, PERM_DELETE, resolved_parent)" in remove_path
+          assert "ftp_acl_path_verify_directory_identity(resolved_parent, parent_fd)" in remove_path
+          assert "ftp_acl_path_remove_entry(parent_fd, leaf, remove_directory)" in remove_path
           assert "ftp_acl_path_open_existing_file" in acl_path_policy
+          assert "ftp_acl_path_verify_directory_identity" in acl_path_policy
+          assert "unlinkat(dir_fd, leaf, remove_directory ? AT_REMOVEDIR : 0)" in acl_path_policy
           assert "fstatat(dir_fd, leaf, &expected, AT_SYMLINK_NOFOLLOW)" in acl_path_policy
           assert "O_PATH : (O_RDONLY | O_NONBLOCK)" in acl_path_policy
           assert "expected.st_ino != opened.st_ino" in acl_path_policy
@@ -164,6 +177,11 @@ jobs:
           assert "stat-only descriptor did not pin the regular target" in acl_path_test
           assert "existing-file helper did not reject a substituted final symlink" in acl_path_test
           assert "existing-file open escaped the pinned directory" in acl_path_test
+          assert "DELE removed symlink target instead of link entry" in acl_path_test
+          assert "RMD followed or removed a final directory symlink" in acl_path_test
+          assert "RMD could not remove an empty directory entry" in acl_path_test
+          assert "descriptor-relative removal accepted reserved metadata" in acl_path_test
+          assert "directory identity check accepted a substituted parent" in acl_path_test
           assert "can_write ? PERM_WRITE : PERM_READ" in mdtm
           assert "asus_check_permission_existing_path(p_sess, PERM_WRITE" in chmod
           assert size.index("asus_open_existing_path(") < size.index("vsf_sysutil_fstat(")

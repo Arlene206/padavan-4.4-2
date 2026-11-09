@@ -287,6 +287,31 @@ ftp_acl_path_open_verified_directory(const char *path)
   return dir_fd;
 }
 
+
+/*
+ * Revalidate that a canonical parent pathname still names the pinned
+ * directory after the share ACL check. This closes parent rename/symlink
+ * substitution between authorization and unlinkat().
+ */
+static int
+ftp_acl_path_verify_directory_identity(const char *path, int dir_fd)
+{
+  struct stat expected, opened;
+  if (!path || dir_fd < 0) {
+    errno = EINVAL;
+    return -1;
+  }
+  if (stat(path, &expected) != 0 || fstat(dir_fd, &opened) != 0)
+    return -1;
+  if (!S_ISDIR(opened.st_mode) ||
+      expected.st_dev != opened.st_dev ||
+      expected.st_ino != opened.st_ino) {
+    errno = ESTALE;
+    return -1;
+  }
+  return 0;
+}
+
 /*
  * Open only a regular file below a pinned directory. O_NOFOLLOW prevents a
  * final-component symlink substitution; comparing the directory entry with
@@ -399,6 +424,27 @@ ftp_acl_path_resolve_directory(const char *path, char *resolved,
   if (!path || !*path || !resolved || resolved_size < PATH_MAX)
     return -1;
   return realpath(path, resolved) == NULL ? -1 : 0;
+}
+
+
+/*
+ * Remove a leaf from an already-authorized directory. unlinkat() with no
+ * flags preserves DELE's unlink-the-symlink behavior; AT_REMOVEDIR preserves
+ * RMD's non-following directory semantics.
+ */
+static int
+ftp_acl_path_remove_entry(int dir_fd, const char *leaf, int remove_directory)
+{
+  if (dir_fd < 0 || !leaf || !*leaf || strchr(leaf, '/') ||
+      strcmp(leaf, ".") == 0 || strcmp(leaf, "..") == 0) {
+    errno = EINVAL;
+    return -1;
+  }
+  if (ftp_acl_path_is_internal_metadata(leaf)) {
+    errno = EACCES;
+    return -1;
+  }
+  return unlinkat(dir_fd, leaf, remove_directory ? AT_REMOVEDIR : 0);
 }
 
 #endif /* FTP_ACL_PATH_POLICY_H */

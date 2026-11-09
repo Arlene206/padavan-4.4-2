@@ -346,6 +346,72 @@ asus_check_permission_upload(struct vsf_session* p_sess,
  * directory identity is checked again after the ACL lookup, so a concurrent
  * parent rename cannot redirect the final open to another share.
  */
+
+/*
+ * Authorize and remove an entry relative to a pinned canonical parent.
+ * Final symlinks are deliberately not resolved: DELE removes the link entry,
+ * while RMD uses AT_REMOVEDIR and therefore refuses a symlink.
+ */
+int
+asus_remove_path(struct vsf_session* p_sess, const struct mystr* p_path_str,
+                 int remove_directory, int* p_permission_denied)
+{
+  char lexical_parent[PATH_MAX], resolved_parent[PATH_MAX], leaf[PATH_MAX];
+  const char* path;
+  unsigned int path_length;
+  int parent_fd, retval, saved_errno;
+  if (!p_sess || !p_path_str || !p_permission_denied) {
+    errno = EINVAL;
+    return -1;
+  }
+  *p_permission_denied = 0;
+  path = str_getbuf(p_path_str);
+  path_length = str_getlen(p_path_str);
+  if (!remove_directory && path_length > 0 && path[path_length - 1] == '/') {
+    errno = ENOTDIR;
+    return -1;
+  }
+  if (ftp_acl_path_is_internal_metadata(path)) {
+    errno = EACCES;
+    *p_permission_denied = 1;
+    return -1;
+  }
+  if (ftp_acl_path_split_entry(path, lexical_parent, sizeof(lexical_parent),
+                               leaf, sizeof(leaf)) != 0) {
+    errno = EINVAL;
+    return -1;
+  }
+  if (ftp_acl_path_resolve_parent(path, lexical_parent,
+                                  sizeof(lexical_parent), resolved_parent,
+                                  sizeof(resolved_parent)) != 0) {
+    *p_permission_denied = 1;
+    return -1;
+  }
+  parent_fd = ftp_acl_path_open_verified_directory(resolved_parent);
+  if (parent_fd < 0) {
+    *p_permission_denied = 1;
+    return -1;
+  }
+  if (!asus_check_permission_at(p_sess, PERM_DELETE, resolved_parent)) {
+    close(parent_fd);
+    errno = EACCES;
+    *p_permission_denied = 1;
+    return -1;
+  }
+  if (ftp_acl_path_verify_directory_identity(resolved_parent, parent_fd) != 0) {
+    saved_errno = errno;
+    close(parent_fd);
+    errno = saved_errno;
+    *p_permission_denied = 1;
+    return -1;
+  }
+  retval = ftp_acl_path_remove_entry(parent_fd, leaf, remove_directory);
+  saved_errno = errno;
+  close(parent_fd);
+  errno = saved_errno;
+  return retval;
+}
+
 int
 asus_open_existing_path(struct vsf_session* p_sess, int perm,
                         const struct mystr* p_path_str, int stat_only,

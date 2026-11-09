@@ -1,3 +1,18 @@
+## 2026-11-10 07:00 CST (UTC+8) — Anchor FTP DELE and RMD to pinned parent descriptors
+
+- **Base main SHA:** `bfd883ad75d5579c54922432a597efcade5a7509`; branch inventory at start of slice: `main` only.
+- **Recovered exact-head CI:** RETR/SIZE VSFTPD regression [42721150755] and AI handoff docs [42721150532] both completed SUCCESS on the exact base SHA. The descriptor-based SIZE source-order and reserved-metadata contracts are green.
+- **Finding:** `handle_dele()` and `handle_rmd()` checked DELETE permission against a canonicalized parent path, then called `str_unlink(path)` / `str_rmdir(path)`. A parent component swapped after ACL approval could redirect the mutation.
+- **Fix:** add `asus_remove_path()`: split the final leaf without resolving it, resolve and pin the canonical parent directory, perform the existing per-share DELETE ACL check while holding the dirfd, compare the canonical path's current dev/inode against the pinned descriptor, then call `unlinkat()` relative to that descriptor.
+- **Compatibility:** DELE uses `unlinkat(..., 0)`, which removes a final symlink entry itself; RMD uses `unlinkat(..., AT_REMOVEDIR)` and refuses final symlinks. Metadata leaves are rejected. DELE trailing slashes fail with `ENOTDIR`, preserving the legacy path syscall behavior.
+- **Regression:** GNU89 path-policy coverage adds symlink-target preservation for DELE, RMD refusal of a directory symlink, empty-directory removal, reserved-metadata rejection and deterministic parent-path identity mismatch after symlink substitution. Workflow semantic checks require both handlers to use the wrapper and prohibit the prior pathname syscalls.
+- **Changed paths:** `trunk/user/vsftpd/src/ftp_acl_path_policy.h`, `asus_ext.c`, `asus_ext.h`, `postlogin.c`, `tests/ftp_acl_path_policy.c`, `.github/workflows/vsftpd-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and this log.
+- **Validation:** L1 source and control-flow review PASS. Exact-head GNU89 path-policy regression, VSFTPD source-contract and AI-doc Actions are PENDING for THIS COMMIT. No local checkout/compiler or local docs checker was available. L3 target build and L4 device testing remain NOT VERIFIED.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** reconcile exact-head Actions; if green, convert MKD to `mkdirat()`, then make RNFR/RNTO descriptor-relative with explicit source-delete and destination-write ACL checks. LIST/NLST/STAT recursion and MDTM/SITE CHMOD remain open.
+
+---
+
 ## 2026-11-10 06:59 CST (UTC+8) — Refresh the FTP semantic contract for descriptor-based SIZE
 
 - **Base main SHA:** `4c0d2d8acd9f16c175037a64e4f05494ec7e565f`.

@@ -65,8 +65,9 @@ main(void)
   char rollback_path[PATH_MAX], rollback_saved[PATH_MAX];
   char tiny[2];
   int cleanup_allowed, dir_fd, race_fd, rollback_fd, replacement_fd;
-  int existing_dir_fd, existing_file_fd;
+  int existing_dir_fd, existing_file_fd, remove_parent_fd;
   char existing_leaf[PATH_MAX], readback[16];
+  char remove_link[PATH_MAX], remove_dir_link[PATH_MAX], empty_dir[PATH_MAX];
   ssize_t read_length;
   struct stat st, canonical_st;
   char *created;
@@ -133,13 +134,55 @@ main(void)
   checked_path(dir_alias, sizeof(dir_alias), a, "directory-link");
   checked_path(metadata_file, sizeof(metadata_file), root, ".__alice_var.txt");
   checked_path(metadata_alias, sizeof(metadata_alias), a, "metadata-alias");
+  checked_path(remove_link, sizeof(remove_link), a, "remove-link");
+  checked_path(remove_dir_link, sizeof(remove_dir_link), a, "remove-dir-link");
+  checked_path(empty_dir, sizeof(empty_dir), a, "empty-dir");
   create_fixture_file(file_a);
   create_fixture_file(file_b);
   create_fixture_file(metadata_file);
   if (mkdir(dir_b, 0700) || symlink(file_b, link_file) ||
       symlink("/no-such-ftp-acl-target", broken_link) ||
-      symlink(dir_b, dir_alias) || symlink(metadata_file, metadata_alias)) {
-    perror("create symlink fixtures"); return 1;
+      symlink(dir_b, dir_alias) || symlink(metadata_file, metadata_alias) ||
+      symlink(file_b, remove_link) || symlink(dir_b, remove_dir_link) ||
+      mkdir(empty_dir, 0700)) {
+    perror("create symlink/removal fixtures"); return 1;
+  }
+  /*
+   * DELE must unlink the final symlink itself; RMD must not follow a symlink
+   * to a directory. The same helper also supports removing an empty directory.
+   */
+  remove_parent_fd = ftp_acl_path_open_verified_directory(a);
+  if (remove_parent_fd < 0 ||
+      ftp_acl_path_remove_entry(remove_parent_fd, "remove-link", 0) != 0 ||
+      lstat(remove_link, &st) == 0 || stat(file_b, &st) != 0) {
+    fprintf(stderr, "DELE removed symlink target instead of link entry\n");
+    return 1;
+  }
+  errno = 0;
+  if (ftp_acl_path_remove_entry(remove_parent_fd, "remove-dir-link", 1) == 0 ||
+      lstat(remove_dir_link, &st) != 0 || stat(dir_b, &st) != 0) {
+    fprintf(stderr, "RMD followed or removed a final directory symlink\n");
+    return 1;
+  }
+  if (ftp_acl_path_remove_entry(remove_parent_fd, "remove-dir-link", 0) != 0 ||
+      lstat(remove_dir_link, &st) == 0) {
+    fprintf(stderr, "DELE could not remove the directory symlink entry\n");
+    return 1;
+  }
+  if (ftp_acl_path_remove_entry(remove_parent_fd, "empty-dir", 1) != 0 ||
+      lstat(empty_dir, &st) == 0) {
+    fprintf(stderr, "RMD could not remove an empty directory entry\n");
+    return 1;
+  }
+  errno = 0;
+  if (ftp_acl_path_remove_entry(remove_parent_fd, ".__alice_var.txt", 0) == 0 ||
+      errno != EACCES) {
+    fprintf(stderr, "descriptor-relative removal accepted reserved metadata\n");
+    return 1;
+  }
+  if (close(remove_parent_fd) != 0) {
+    perror("close removal fixture directory");
+    return 1;
   }
   if (ftp_acl_path_resolve_existing_parent(file_a, resolved, sizeof(resolved)) ||
       strcmp(resolved, a)) {
@@ -234,6 +277,12 @@ main(void)
   dir_fd = ftp_acl_path_open_verified_directory(a);
   if (dir_fd < 0 || rename(a, held_a) || symlink(b, a)) {
     perror("pin authorized upload directory");
+    return 1;
+  }
+  errno = 0;
+  if (ftp_acl_path_verify_directory_identity(a, dir_fd) == 0 ||
+      errno != ESTALE) {
+    fprintf(stderr, "directory identity check accepted a substituted parent\n");
     return 1;
   }
   race_fd = openat(dir_fd, "dirfd-created.txt",
