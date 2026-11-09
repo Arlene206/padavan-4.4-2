@@ -938,3 +938,12 @@
 - **Tests:** GNU89 -Wall -Wextra -Werror focused policy regression PASS; GNU89 ASan/UBSan + leak detection PASS.
 - **CI:** corrected run [42525420578](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42525420578), exact head 362bbdba04966521e950cd2d94a461e7bfeb9bc9, IN_PROGRESS at entry time. Recheck before marking complete.
 - **Remaining risk:** full production RC object build, MIPS/uClibc, complete firmware/TRX, real storage/eject path and physical device validation NOT RUN. Next: reconcile exact-head Actions, then continue storage safe-removal caller review.
+
+## 2026-11-09 05:30 CST — Verify staged per-device unmount on corrected exact-head CI
+
+- **Implementation commit:** 806cd75c89f047b865d9b11677f8a819f12cb936 — fix(storage): stage complete mount inventory before unmount.
+- **Workflow correction:** 362bbdba04966521e950cd2d94a461e7bfeb9bc9 — test(storage): align safe-eject contract with staged mount entries.
+- **CI history:** run 42525261900 on 806cd75c89f047b865d9b11677f8a819f12cb936 failed in a stale pre-existing source assertion expecting umount(mpname), which no longer matched the staged-list code. Corrected contract now targets umount(entry->mountpoint) and its rmdir/error ordering.
+- **Exact-head Actions:** run [42525420578](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42525420578), exact head 362bbdba04966521e950cd2d94a461e7bfeb9bc9, completed **SUCCESS (40/40 steps)**. New ejected-storage complete-inventory policy regression/source contract and prior safe-eject/spindown contract all passed.
+- **Host tests:** GNU89 -Wall -Wextra -Werror focused policy regression PASS; GNU89 ASan/UBSan with leak detection PASS.
+- **Remaining:** production RC object compile, MIPS/uClibc, full firmware/TRX, USB/NFS integration and hardware validation NOT RUN. Continue by auditing libdisk umount_all_storage() and safe_remove_stor_device()/safe_remove_all_stor_devices() global fallback behavior.

@@ -1,12 +1,12 @@
 # Padavan 4.4 — Whole-Repository Modernization Roadmap
 
-> **Current dashboard only.** Historical roadmap snapshots are preserved verbatim in [the roadmap history index](docs/roadmap-history/INDEX.md). A bounded fix does not prove module completion. Re-fetch live `main` before trusting any SHA.
+> **Current dashboard only.** Historical snapshots are preserved verbatim in [the roadmap history index](docs/roadmap-history/INDEX.md). A bounded fix does not prove module completion. Re-fetch live `main` before trusting any SHA.
 
 - **Repository:** `Arlene206/padavan-4.4-2`
-- **Code baseline for current route fix:** `6f4b55e88a553e8bf6ae6f3b41c59963335eb787`.
-- **Latest bounded code change:** static/DHCP route operation result aggregation and reporting.
-- **Exact code-head evidence:** WAN route regression [42552840579](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42552840579), WAN teardown [42552840447](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42552840447), and AI handoff docs [42552840438](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42552840438) SUCCESS on `6f4b55e88a553e8bf6ae6f3b41c59963335eb787`.
-- **Known workflow contract correction:** broad HTTPD run [42552840406](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42552840406) failed in an existing DHCP lease assertion after the intentional DHCP route wrapper return-type/branch-shape change; the DHCP lease C regression passed. `.github/workflows/httpd-security.yml` is corrected in this follow-up; exact-head rerun is PENDING.
+- **Route implementation commit:** `6f4b55e88a553e8bf6ae6f3b41c59963335eb787`.
+- **Route workflow:** [42552840579](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42552840579) SUCCESS on exact code SHA `6f4b55e88a553e8bf6ae6f3b41c59963335eb787`.
+- **WAN teardown workflow:** [42552840447](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42552840447) SUCCESS on that exact code SHA.
+- **HTTPD contract correction commit:** `3e1be8adf8ac531581fa6e505da36c0e5e1e5966`; corrected full regression [42553153266](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42553153266) SUCCESS and documentation contract [42553153260](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42553153260) SUCCESS on exact `3e1be8adf8ac531581fa6e505da36c0e5e1e5966`. The earlier HTTPD run 42552840406 failed only because the old contract expected the void DHCP wrapper/branch shape; its C DHCP lease policy test passed, and the updated contract now passes.
 
 ## Status semantics
 
@@ -44,7 +44,7 @@
 | Level | Evidence status | Limitation |
 |---|---|---|
 | L1 static/source review | PASS for recorded bounded changes, including current route result aggregation | Do not extend a finding to an unaudited caller/module. |
-| L2 host regression / Actions | Route sanitizer regression and route source contracts PASS on `6f4b55e88a553e8bf6ae6f3b41c59963335eb787`; prior WAN teardown and documentation workflows PASS on that exact SHA. HTTPD workflow contract correction is PENDING exact-head rerun. | Record every workflow failure and correction; source contracts are not production target builds. |
+| L2 host regression / Actions | Route sanitizer/source contracts PASS on `6f4b55e88a553e8bf6ae6f3b41c59963335eb787`; WAN teardown PASS on the same SHA; corrected HTTPD and docs workflows PASS on `3e1be8adf8ac531581fa6e505da36c0e5e1e5966`. | Final documentation-only commit still requires exact-head handoff-contract reconciliation; none of these host checks are production target builds. |
 | L3 MIPS/uClibc and complete firmware | NOT VERIFIED | Schedule the integrated build after core source governance is substantially complete. |
 | L4 hardware/flash/boot/runtime | NOT VERIFIED | Requires router testing; do not infer from host tests. |
 

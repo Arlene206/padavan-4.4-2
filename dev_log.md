@@ -1,3 +1,17 @@
+## 2026-11-09 11:08 CST (UTC+8) — Confirm exact-head route, teardown, HTTPD and handoff CI
+
+- **Base main SHA:** `3e1be8adf8ac531581fa6e505da36c0e5e1e5966`.
+- **Route code CI:** WAN route operation status regression [42552840579](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42552840579) SUCCESS on exact implementation SHA `6f4b55e88a553e8bf6ae6f3b41c59963335eb787`; sanitizer helper regression and route source/caller contract passed.
+- **WAN teardown CI:** [42552840447](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42552840447) SUCCESS on that same implementation SHA.
+- **Documentation at route implementation SHA:** [42552840438](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42552840438) SUCCESS.
+- **Cross-workflow stale assertion:** HTTPD run 42552840406 first failed because an existing DHCP lease source contract still expected a void route-delete wrapper and an `if (is_add)` branch. Its DHCP lease C regression passed. The contract was updated in `.github/workflows/httpd-security.yml`; corrected HTTPD run [42553153266](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42553153266) and documentation run [42553153260](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42553153260) both SUCCESS on exact SHA `3e1be8adf8ac531581fa6e505da36c0e5e1e5966`; all HTTPD workflow steps passed.
+- **Handoff:** root status records both the route implementation and the cross-workflow contract correction; the prior handoff/dashboard are archived byte-identically. New root log is still the newest 20 records.
+- **Validation boundary:** L1 source review PASS; L2 helper sanitizer, route workflow, WAN teardown, corrected HTTPD and pre-final docs workflow PASS. The final documentation-only commit's handoff-contract run must be reconciled against its exact HEAD. Production RC object, MIPS/uClibc, complete firmware/TRX, live route failure injection and hardware remain NOT VERIFIED.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** verify the final handoff-contract Actions run against exact main, then start the bounded FULLCONENAT namespace/notifier ownership audit. Do not repeat the route status fix.
+
+---
+
 ## 2026-11-09 10:47 CST (UTC+8) — Reconcile WAN route Actions and correct dependent HTTPD contract
 
 - **Base main SHA:** `6f4b55e88a553e8bf6ae6f3b41c59963335eb787`.
@@ -260,12 +274,3 @@
 - **Caller scope:** inspected rc.c ejata/ejmmc/ejall mappings and hotplug_stor.c/hotplug_usb.c direct occurrences. This is not a whole-tree reference closure.
 - **Remaining validation:** production libdisk/RC object build, MIPS/uClibc, full firmware/TRX, real swapoff/unmount, NFS integration and hardware NOT RUN. Storage stays AUDITING.
 - **Next:** rotate to IPv6 Firewall/NAT parity/failure handling per roadmap; trace ruleset writers, startup gates, restart/rollback and failure propagation against IPv4 before selecting a concrete bug.
-
-## 2026-11-09 05:30 CST — Verify staged per-device unmount on corrected exact-head CI
-
-- **Implementation commit:** 806cd75c89f047b865d9b11677f8a819f12cb936 — fix(storage): stage complete mount inventory before unmount.
-- **Workflow correction:** 362bbdba04966521e950cd2d94a461e7bfeb9bc9 — test(storage): align safe-eject contract with staged mount entries.
-- **CI history:** run 42525261900 on 806cd75c89f047b865d9b11677f8a819f12cb936 failed in a stale pre-existing source assertion expecting umount(mpname), which no longer matched the staged-list code. Corrected contract now targets umount(entry->mountpoint) and its rmdir/error ordering.
-- **Exact-head Actions:** run [42525420578](https://github.com/Arlene206/padavan-4.4-2/actions/runs/42525420578), exact head 362bbdba04966521e950cd2d94a461e7bfeb9bc9, completed **SUCCESS (40/40 steps)**. New ejected-storage complete-inventory policy regression/source contract and prior safe-eject/spindown contract all passed.
-- **Host tests:** GNU89 -Wall -Wextra -Werror focused policy regression PASS; GNU89 ASan/UBSan with leak detection PASS.
-- **Remaining:** production RC object compile, MIPS/uClibc, full firmware/TRX, USB/NFS integration and hardware validation NOT RUN. Continue by auditing libdisk umount_all_storage() and safe_remove_stor_device()/safe_remove_all_stor_devices() global fallback behavior.
