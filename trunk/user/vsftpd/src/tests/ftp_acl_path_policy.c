@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <limits.h>
 #include "ftp_acl_path_policy.h"
+#include "ftp_listing_policy.h"
 
 
 static void
@@ -98,6 +99,16 @@ main(void)
       ftp_acl_path_parent(NULL, parent, sizeof(parent)) == 0 ||
       ftp_acl_path_parent("/long/path", tiny, sizeof(tiny)) == 0) {
     fprintf(stderr, "invalid path/buffer accepted\n"); return 1;
+  }
+  if (vsf_listing_entry_limit_reached(
+          VSF_LISTING_MAX_ENTRIES_PER_DIR - 1, 0) ||
+      !vsf_listing_entry_limit_reached(VSF_LISTING_MAX_ENTRIES_PER_DIR, 0) ||
+      !vsf_listing_entry_limit_reached(0, VSF_LISTING_MAX_ENTRIES_TOTAL) ||
+      vsf_listing_depth_limit_reached(VSF_LISTING_MAX_DEPTH - 1, 1) ||
+      !vsf_listing_depth_limit_reached(VSF_LISTING_MAX_DEPTH, 1) ||
+      vsf_listing_depth_limit_reached(VSF_LISTING_MAX_DEPTH, 0)) {
+    fprintf(stderr, "FTP listing resource limits are inconsistent\n");
+    return 1;
   }
   if (!getcwd(cwd, sizeof(cwd)) || !(created = mkdtemp(template))) {
     perror("prepare fixture"); return 1;

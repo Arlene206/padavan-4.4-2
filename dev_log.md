@@ -1,3 +1,16 @@
+## 2026-11-10 08:35 CST (UTC+8) — Bound FTP recursive listing depth and retained entry memory
+
+- **Base main SHA:** `3a998e5de9c0b5b127a92d24f6453bed581fd92d`; VSFTPD regression [42727139083] and AI handoff docs [42727139346] both completed SUCCESS on that exact SHA; remote branch inventory was `main` only.
+- **Finding:** `transfer_dir_internal()` recursively retained every ancestor `subdir_list` and also kept each fully formatted `dir_list` alive while descending. Client-controlled `LIST -R` had no explicit depth/total-entry bound. Generic `str_list.c` allows up to ten million nodes before `die()`, far above a useful router FTP listing safety boundary.
+- **Fix:** introduce `ftp_listing_policy.h` with 32 recursion levels, 4096 accepted entries per directory and 32768 total accepted entries per transfer. `vsf_ls_populate_dir_list()` now counts accepted (post-filter/visibility/stat) entries and returns failure at either entry limit; `transfer_dir_internal()` propagates the failure, rejects further recursion when the depth bound is reached and child directories remain, and frees each formatted parent `dir_list` before descending. This caps the retained ancestor subdirectory lists and avoids silently returning an incomplete listing.
+- **Regression:** the GNU89 host policy test checks just-below/at per-directory and total entry limits, just-below/at recursion depth, and no false depth failure for a leaf. Workflow semantic checks bind the constants and policy functions to the actual `ls.c` accounting and `ftpdataio.c` recursion/freeing paths.
+- **Changed paths:** `trunk/user/vsftpd/src/ftp_listing_policy.h` (new), `ftpdataio.c`, `ls.c`, `ls.h`, `tests/ftp_acl_path_policy.c`, `ftp_acl_path_policy.h` (comment placement correction), `.github/workflows/vsftpd-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and this log.
+- **Validation:** L1 source/control-flow review PASS. Prior listing-base visibility VSFTPD run [42727139083] and AI docs [42727139346] passed exact base SHA `3a998e5de9c0b5b127a92d24f6453bed581fd92d`. THIS GNU89 host policy regression/source contract and AI-doc Actions are pending on the exact resulting SHA. No local checkout/compiler was available; L3 MIPS/uClibc and L4 hardware remain NOT VERIFIED.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** reconcile exact-head Actions; then review FTP STAT/LIST/NLST output/error/sort/filter compatibility under the new caps and continue MDTM/SITE CHMOD and upload cleanup hardening. Keep DHCP/FULLCONENAT/NFS and target/device validation open.
+
+---
+
 ## 2026-11-10 08:26 CST (UTC+8) — Bind FTP listing visibility to the actual listing base
 
 - **Base main SHA:** `9ec4f037172c6aaa4af7dd32860705f152e9c9a8`; only remote branch is `main`, no checkpoint branch.

@@ -9,6 +9,7 @@ on:
       - "trunk/user/vsftpd/src/postlogin.c"
       - "trunk/user/vsftpd/src/ftp_acl_path_policy.h"
       - "trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c"
+      - "trunk/user/vsftpd/src/ftp_listing_policy.h"
       - "trunk/user/vsftpd/src/ftpdataio.c"
       - "trunk/user/vsftpd/src/sysutil.c"
       - "trunk/user/vsftpd/src/sysutil.h"
@@ -30,6 +31,7 @@ on:
       - "trunk/user/vsftpd/src/postlogin.c"
       - "trunk/user/vsftpd/src/ftp_acl_path_policy.h"
       - "trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c"
+      - "trunk/user/vsftpd/src/ftp_listing_policy.h"
       - "trunk/user/vsftpd/src/ftpdataio.c"
       - "trunk/user/vsftpd/src/sysutil.c"
       - "trunk/user/vsftpd/src/sysutil.h"
@@ -84,6 +86,7 @@ jobs:
           vsftpd_acl_header = Path("trunk/user/vsftpd/src/asus_ext.h").read_text()
           vsftpd_postlogin = Path("trunk/user/vsftpd/src/postlogin.c").read_text()
           vsftpd_dataio = Path("trunk/user/vsftpd/src/ftpdataio.c").read_text()
+          vsftpd_listing_policy = Path("trunk/user/vsftpd/src/ftp_listing_policy.h").read_text()
           vsftpd_sysutil = Path("trunk/user/vsftpd/src/sysutil.c").read_text()
           vsftpd_sysutil_header = Path("trunk/user/vsftpd/src/sysutil.h").read_text()
           vsftpd_ls = Path("trunk/user/vsftpd/src/ls.c").read_text()
@@ -153,6 +156,8 @@ jobs:
           child_open = function_body(acl_path_policy, "ftp_acl_path_open_child_directory(")
           child_verify = function_body(acl_path_policy, "ftp_acl_path_verify_child_directory(")
           recursive_list = function_body(vsftpd_dataio, "transfer_dir_internal(struct vsf_session* p_sess")
+          resolve_listing_base = function_body(vsftpd_acl, "asus_resolve_listing_base(")
+          child_path = function_body(acl_path_policy, "ftp_acl_path_build_child_path(")
           sys_fdopendir = function_body(vsftpd_sysutil, "vsf_sysutil_fdopendir(")
           sys_dirfd = function_body(vsftpd_sysutil, "vsf_sysutil_dirfd(")
           sys_lstatat = function_body(vsftpd_sysutil, "vsf_sysutil_lstatat(")
@@ -218,6 +223,31 @@ jobs:
           assert "str_readlink(&s_temp_str, &s_next_path_and_filename_str)" not in listing_entries
           assert "descriptor-relative lstat did not preserve symlink entry identity" in acl_path_test
           assert "descriptor-relative readlink returned the wrong target" in acl_path_test
+          assert "resolved_parent[0] != '/'" in child_path
+          assert "strchr(leaf, '/')" in child_path
+          assert "ftp_acl_path_resolve_directory(str_getbuf(p_base_dir_str), resolved_base" in resolve_listing_base
+          assert "ftp_acl_path_verify_directory_identity(resolved_base, directory_fd)" in resolve_listing_base
+          assert "ftp_acl_path_build_child_path(resolved_base, p_filename, fullpath" in acl_visible
+          assert "fstatat(directory_fd, p_filename, &entry_stat, 0)" in acl_visible
+          assert "str_getcwd(&p_sess->cwd_str)" not in acl_visible
+          assert "asus_resolve_listing_base(p_base_dir_str, dir_fd, resolved_base" in listing_entries
+          assert "asus_check_file_visible(p_sess, resolved_base, dir_fd" in listing_entries
+          assert "listing child path did not honor the canonical base" in acl_path_test
+          assert "#define VSF_LISTING_MAX_DEPTH 32U" in vsftpd_listing_policy
+          assert "#define VSF_LISTING_MAX_ENTRIES_PER_DIR 4096U" in vsftpd_listing_policy
+          assert "#define VSF_LISTING_MAX_ENTRIES_TOTAL 32768U" in vsftpd_listing_policy
+          assert "#define vsf_listing_entry_limit_reached(entries_in_dir, entries_total)" in vsftpd_listing_policy
+          assert "entries_in_dir) >= VSF_LISTING_MAX_ENTRIES_PER_DIR" in vsftpd_listing_policy
+          assert "entries_total) >= VSF_LISTING_MAX_ENTRIES_TOTAL" in vsftpd_listing_policy
+          assert "#define vsf_listing_depth_limit_reached(depth, child_directories)" in vsftpd_listing_policy
+          assert "depth) >= VSF_LISTING_MAX_DEPTH" in vsftpd_listing_policy
+          assert "vsf_listing_entry_limit_reached(entries_in_dir, *p_total_entries)" in listing_entries
+          assert "(*p_total_entries)++" in listing_entries
+          assert "vsf_listing_depth_limit_reached(depth" in recursive_list
+          assert "depth + 1, p_total_entries" in recursive_list
+          assert recursive_list.index("write_dir_list(p_sess, &dir_list, target)") < recursive_list.index("str_list_free(&dir_list)", recursive_list.index("write_dir_list(p_sess, &dir_list, target)")) < recursive_list.index("for (subdir_index")
+          assert "vsf_ls_populate_dir_list(" in recursive_list and ") != 0" in recursive_list
+          assert "FTP listing resource limits are inconsistent" in acl_path_test
           assert "asus_check_permission_open_directory(" in directory
           assert "asus_open_existing_path(p_sess, PERM_READ" in size
           assert "&p_sess->ftp_arg_str, 1," in size

@@ -18,13 +18,14 @@
 
 /* Padavan */
 #include "asus_ext.h"
+#include "ftp_listing_policy.h"
 
 static void build_dir_line(struct mystr* p_str,
                            const struct mystr* p_filename_str,
                            const struct vsf_sysutil_statbuf* p_stat,
                            long curr_time);
 
-void
+int
 vsf_ls_populate_dir_list(struct vsf_session* p_sess,
                          struct mystr_list* p_list,
                          struct mystr_list* p_subdir_list,
@@ -32,7 +33,7 @@ vsf_ls_populate_dir_list(struct vsf_session* p_sess,
                          const struct mystr* p_base_dir_str,
                          const struct mystr* p_option_str,
                          const struct mystr* p_filter_str,
-                         int is_verbose)
+                         int is_verbose, unsigned int* p_total_entries)
 {
   struct mystr dirline_str = INIT_MYSTR;
   struct mystr normalised_base_dir_str = INIT_MYSTR;
@@ -43,6 +44,7 @@ vsf_ls_populate_dir_list(struct vsf_session* p_sess,
   int F_option;
   int do_stat = 0;
   int dir_fd = -1;
+  unsigned int entries_in_dir = 0;
   char resolved_base[VSFTP_PATH_MAX];
   long curr_time = 0;
   loc_result = str_locate_char(p_option_str, 'a');
@@ -67,6 +69,8 @@ vsf_ls_populate_dir_list(struct vsf_session* p_sess,
   {
     do_stat = 1;
   }
+  if (!p_total_entries)
+    return -1;
   dir_fd = vsf_sysutil_dirfd(p_dir);
   if (vsf_sysutil_retval_is_error(dir_fd) ||
       asus_resolve_listing_base(p_base_dir_str, dir_fd, resolved_base,
@@ -220,11 +224,19 @@ vsf_ls_populate_dir_list(struct vsf_session* p_sess,
         p_sort_str = &s_temp_str;
         p_sort_subdir_str = &s_temp_str;
       }
+      if (vsf_listing_entry_limit_reached(entries_in_dir, *p_total_entries))
+      {
+        str_free(&dirline_str);
+        str_free(&normalised_base_dir_str);
+        return -1;
+      }
       str_list_add(p_list, &dirline_str, p_sort_str);
       if (p_subdir_list != 0 && vsf_sysutil_statbuf_is_dir(s_p_statbuf))
       {
         str_list_add(p_subdir_list, &s_next_filename_str, p_sort_subdir_str);
       }
+      entries_in_dir++;
+      (*p_total_entries)++;
     }
   } /* END: while(1) */
   str_list_sort(p_list, r_option);
@@ -234,6 +246,7 @@ vsf_ls_populate_dir_list(struct vsf_session* p_sess,
   }
   str_free(&dirline_str);
   str_free(&normalised_base_dir_str);
+  return 0;
 }
 
 int

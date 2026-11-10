@@ -30,6 +30,7 @@
 #include "ssl.h"
 #include "readwrite.h"
 #include "asus_ext.h"
+#include "ftp_listing_policy.h"
 #include "privsock.h"
 
 static void init_data_sock_params(struct vsf_session* p_sess, int sock_fd);
@@ -47,7 +48,8 @@ static void handle_io(int retval, int fd, void* p_private);
 static int transfer_dir_internal(
   struct vsf_session* p_sess, int is_control, struct vsf_sysutil_dir* p_dir,
   const struct mystr* p_base_dir_str, const struct mystr* p_option_str,
-  const struct mystr* p_filter_str, int is_verbose);
+  const struct mystr* p_filter_str, int is_verbose, unsigned int depth,
+  unsigned int* p_total_entries);
 static int write_dir_list(struct vsf_session* p_sess,
                           struct mystr_list* p_dir_list,
                           enum EVSFRWTarget target);
@@ -300,8 +302,10 @@ vsf_ftpdataio_transfer_dir(struct vsf_session* p_sess, int is_control,
                            const struct mystr* p_filter_str,
                            int is_verbose)
 {
+  unsigned int total_entries = 0;
   return transfer_dir_internal(p_sess, is_control, p_dir, p_base_dir_str,
-                               p_option_str, p_filter_str, is_verbose);
+                               p_option_str, p_filter_str, is_verbose, 0,
+                               &total_entries);
 }
 
 static int
@@ -310,7 +314,8 @@ transfer_dir_internal(struct vsf_session* p_sess, int is_control,
                       const struct mystr* p_base_dir_str,
                       const struct mystr* p_option_str,
                       const struct mystr* p_filter_str,
-                      int is_verbose)
+                      int is_verbose, unsigned int depth,
+                      unsigned int* p_total_entries)
 {
   struct mystr_list dir_list = INIT_STRLIST;
   struct mystr_list subdir_list = INIT_STRLIST;
@@ -327,8 +332,25 @@ transfer_dir_internal(struct vsf_session* p_sess, int is_control,
   {
     p_subdir_list = &subdir_list;
   }
-  vsf_ls_populate_dir_list(p_sess, &dir_list, p_subdir_list, p_dir, p_base_dir_str,
-                           p_option_str, p_filter_str, is_verbose);
+  if (vsf_ls_populate_dir_list(p_sess, &dir_list, p_subdir_list,
+                                  p_dir, p_base_dir_str, p_option_str,
+                                  p_filter_str, is_verbose,
+                                  p_total_entries) != 0)
+  {
+    str_list_free(&dir_list);
+    str_list_free(&subdir_list);
+    str_free(&dir_prefix_str);
+    return -1;
+  }
+  if (p_subdir_list &&
+      vsf_listing_depth_limit_reached(depth,
+                                      str_list_get_length(&subdir_list)))
+  {
+    str_list_free(&dir_list);
+    str_list_free(&subdir_list);
+    str_free(&dir_prefix_str);
+    return -1;
+  }
   if (p_subdir_list)
   {
     int retval;
@@ -344,6 +366,8 @@ transfer_dir_internal(struct vsf_session* p_sess, int is_control,
   {
     failed = write_dir_list(p_sess, &dir_list, target);
   }
+  /* The formatted entry list is no longer needed while descending. */
+  str_list_free(&dir_list);
   /* Recurse into the subdirectories if required... */
   if (!failed)
   {
@@ -389,7 +413,8 @@ transfer_dir_internal(struct vsf_session* p_sess, int is_control,
         break;
       }
       retval = transfer_dir_internal(p_sess, is_control, p_subdir, &sub_str,
-                                     p_option_str, p_filter_str, is_verbose);
+                                     p_option_str, p_filter_str, is_verbose,
+                                     depth + 1, p_total_entries);
       vsf_sysutil_closedir(p_subdir);
       if (retval != 0)
       {

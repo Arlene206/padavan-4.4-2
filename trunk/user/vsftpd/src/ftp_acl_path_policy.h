@@ -566,10 +566,6 @@ ftp_acl_path_resolve_directory(const char *path, char *resolved,
 
 
 /*
- * Create a directory entry under an already-authorized, pinned parent.
- * The final component is never re-resolved after the WRITE ACL check.
- */
-/*
  * Build a child pathname from an already-canonical listing directory. The
  * base is resolved once per directory, not once per entry, to avoid adding
  * realpath()/stat overhead to large listings.
@@ -596,6 +592,10 @@ ftp_acl_path_build_child_path(const char *resolved_parent, const char *leaf,
   return 0;
 }
 
+/*
+ * Create a directory entry under an already-authorized, pinned parent.
+ * The final component is never re-resolved after the WRITE ACL check.
+ */
 static int
 ftp_acl_path_make_directory_at(int dir_fd, const char *leaf,
                                unsigned int mode)
