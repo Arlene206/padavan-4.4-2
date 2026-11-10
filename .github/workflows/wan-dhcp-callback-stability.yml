@@ -208,10 +208,10 @@ jobs:
           dhcp6_start = body(wan6_source, "start_dhcp6c(char *wan_ifname)")
           assert '#include "dhcp6c_config_file.h"' in wan6_source
           assert 'fopen(conf_file, "w")' not in dhcp6_start
-          assert "dhcp6_config_file_open_staged(staged_path, &fp)" in dhcp6_start
-          assert "dhcp6_config_file_publish(fp, staged_path, conf_file)" in dhcp6_start
-          assert dhcp6_start.index("dhcp6_config_file_open_staged") < dhcp6_start.index('fprintf(fp, "interface %s')
-          assert dhcp6_start.index("dhcp6_config_file_publish") < dhcp6_start.index('eval("/sbin/dhcp6c"')
+          assert "dhcp6c_config_file_open_staged(staged_path, &fp)" in dhcp6_start
+          assert "dhcp6c_config_file_publish(fp, staged_path, conf_file)" in dhcp6_start
+          assert dhcp6_start.index("dhcp6c_config_file_open_staged") < dhcp6_start.index('fprintf(fp, "interface %s')
+          assert dhcp6_start.index("dhcp6c_config_file_publish") < dhcp6_start.index('eval("/sbin/dhcp6c"')
           assert "fd = mkstemp(staged_path)" in config_policy
           assert 'fdopen(fd, "w")' in config_policy
           assert "ferror(stream)" in config_policy and "fflush(stream)" in config_policy

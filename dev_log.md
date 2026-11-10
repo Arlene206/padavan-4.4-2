@@ -1,3 +1,12 @@
+## 2026-11-10 13:00 CST (UTC+8) — Correct DHCPv6 publication source-contract symbol
+
+- **Base main SHA:** `cc94bb7f7701b21f779442202d716bf06a3c81c8`. The AI handoff documentation [42757775127] and HTTPD security regression [42757774680] both completed SUCCESS on this exact SHA. WAN DHCP callback run [42757774679] compiled and passed all three host regressions, including `DHCPv6 config private staging, atomic replacement and failure cleanup: PASS`, but its final Python source-contract step failed.
+- **CI diagnosis:** the new source contract used `dhcp6_config_file_*` (missing the `c`) while production helper symbols are named `dhcp6c_config_file_*`. The failing assertion was a workflow-test typo, not a C compile/test or runtime result failure.
+- **Fix in THIS COMMIT:** correct all four helper symbol references (open, publish and ordering checks) in `.github/workflows/wan-dhcp-callback-stability.yml`. No production behavior is changed.
+- **Validation boundary:** the three GNU89 WAN host tests passed on base SHA `cc94bb7f7701b21f779442202d716bf06a3c81c8`; the WAN workflow as a whole did NOT pass on that SHA because the source-contract typo above. Corrected workflow and AI-doc checks remain pending on THIS resulting SHA. No MIPS/uClibc, firmware/TRX or physical-router validation is claimed.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** inspect exact-head WAN DHCP and AI handoff Actions and logs. Once green, continue the PPP IPv6 callback result-propagation audit; keep NFS export compatibility questions separate.
+
 ## 2026-11-10 12:45 CST (UTC+8) — Atomically publish DHCPv6 client configuration
 
 - **Base main SHA:** `7fe64406495562776d7e9b43dbc7ff1d008744ca`. All eight exact-head Actions completed SUCCESS: WAN route status [42757304251], NFS start/reload [42757304659], wireless [42757304333], Samba [42757304347], HTTPD security [42757304270], AI handoff docs [42757304335], storage hotplug [42757304305], and vsftpd [42757304349]. NFS policy, shell lifecycle, RC caller contracts and the 113-record handoff checker all passed on that exact SHA.
