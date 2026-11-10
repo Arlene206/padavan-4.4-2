@@ -43,6 +43,8 @@ log() {
 	echo "$(date "+%Y-%m-%d %H:%M:%S") $@" >> "/tmp/ssrplus.log"
 }
 
+. /usr/bin/shadowsocks_process_lifecycle.sh || exit 1
+
 find_bin() {
 	case "$1" in
 	ss) ret="/usr/bin/ss-redir" ;;
@@ -550,10 +552,14 @@ ssp_start() {
 
 # ========== 关闭 SS ==========
 ssp_close() {
+	# Do not tear down firewall/configuration state while a proxy process can
+	# still be running and consuming it.
+	if ! kill_process; then
+		log "Proxy process stop incomplete; preserving Shadowsocks firewall and cgroup state"
+		return 1
+	fi
 	rm -rf /tmp/cdn
 	$SS_RULES -f
-	kill -9 $(ps | grep ss-monitor | grep -v grep | awk '{print $1}') >/dev/null 2>&1
-	kill_process
 	cgroups_cleanup
 	sed -i '/no-resolv/d' /etc/storage/dnsmasq/dnsmasq.conf
 	sed -i '/server=127.0.0.1/d' /etc/storage/dnsmasq/dnsmasq.conf
@@ -568,6 +574,7 @@ ssp_close() {
 	if [ "$pppoemwan" = 0 ]; then
 		/usr/bin/detect.sh
 	fi
+	return 0
 }
 
 
@@ -580,89 +587,14 @@ clear_iptable() {
 }
 
 kill_process() {
-	v2ray_process=$(pidof v2ray || pidof xray)
-	if [ -n "$v2ray_process" ]; then
-		log "关闭 V2Ray 进程..."
-		killall v2ray xray >/dev/null 2>&1
-		kill -9 "$v2ray_process" >/dev/null 2>&1
-	fi
-
-	ssredir=$(pidof ss-redir)
-	if [ -n "$ssredir" ]; then
-		log "关闭 ss-redir 进程..."
-		killall ss-redir >/dev/null 2>&1
-		kill -9 "$ssredir" >/dev/null 2>&1
-	fi
-
-	rssredir=$(pidof ssr-redir)
-	if [ -n "$rssredir" ]; then
-		log "关闭 ssr-redir 进程..."
-		killall ssr-redir >/dev/null 2>&1
-		kill -9 "$rssredir" >/dev/null 2>&1
-	fi
-
-	sslocal_process=$(pidof ss-local)
-	if [ -n "$sslocal_process" ]; then
-		log "关闭 ss-local 进程..."
-		killall ss-local >/dev/null 2>&1
-		kill -9 "$sslocal_process" >/dev/null 2>&1
-	fi
-
-	trojandir=$(pidof trojan)
-	if [ -n "$trojandir" ]; then
-		log "关闭 trojan 进程..."
-		killall trojan >/dev/null 2>&1
-		kill -9 "$trojandir" >/dev/null 2>&1
-	fi
-	
-	ipt2socks_process=$(pidof ipt2socks)
-	if [ -n "$ipt2socks_process" ]; then
-		log "关闭 ipt2socks 进程..."
-		killall ipt2socks >/dev/null 2>&1
-		kill -9 "$ipt2socks_process" >/dev/null 2>&1
-	fi
-
-	socks5_process=$(pidof srelay)
-	if [ -n "$socks5_process" ]; then
-		log "关闭 socks5 进程..."
-		killall srelay >/dev/null 2>&1
-		kill -9 "$socks5_process" >/dev/null 2>&1
-	fi
-
-	ssrs_process=$(pidof ssr-server)
-	if [ -n "$ssrs_process" ]; then
-		log "关闭 ssr-server 进程..."
-		killall ssr-server >/dev/null 2>&1
-		kill -9 "$ssrs_process" >/dev/null 2>&1
-	fi
-
-	cnd_process=$(pidof chinadns-ng)
-	if [ -n "$cnd_process" ]; then
-		log "关闭 chinadns-ng 进程..."
-		killall chinadns-ng >/dev/null 2>&1
-		kill -9 "$cnd_process" >/dev/null 2>&1
-	fi
-
-	dns2tcp_process=$(pidof dns2tcp)
-	if [ -n "$dns2tcp_process" ]; then
-		log "关闭 dns2tcp 进程..."
-		killall dns2tcp >/dev/null 2>&1
-		kill -9 "$dns2tcp_process" >/dev/null 2>&1
-	fi
-
-	dnsproxy_process=$(pidof dnsproxy)
-	if [ -n "$dnsproxy_process" ]; then
-		log "关闭 dnsproxy 进程..."
-		killall dnsproxy >/dev/null 2>&1
-		kill -9 "$dnsproxy_process" >/dev/null 2>&1
-	fi
-	
-	microsocks_process=$(pidof microsocks)
-	if [ -n "$microsocks_process" ]; then
-		log "关闭 socks5 服务端进程..."
-		killall microsocks >/dev/null 2>&1
-		kill -9 "$microsocks_process" >/dev/null 2>&1
-	fi
+	local status=0
+	ss_stop_process_pattern '/usr/bin/ss-monitor' || status=1
+	ss_stop_named_processes \
+		v2ray xray \
+		ss-redir ssr-redir ss-local \
+		trojan ipt2socks srelay ssr-server \
+		chinadns-ng dns2tcp dnsproxy microsocks || status=1
+	return "$status"
 }
 
 # ========== 启用备用服务器 ==========
@@ -688,16 +620,22 @@ start)
 	echo 3 > /proc/sys/vm/drop_caches
 	;;
 stop)
-	ssp_close
+	if ! ssp_close; then
+		exit 1
+	fi
 	echo 3 > /proc/sys/vm/drop_caches
 	;;
 restart)
-	ssp_close
+	if ! ssp_close; then
+		exit 1
+	fi
 	ssp_start
 	echo 3 > /proc/sys/vm/drop_caches
 	;;
 reserver)
-	ssp_close
+	if ! ssp_close; then
+		exit 1
+	fi
 	ressp
 	echo 3 > /proc/sys/vm/drop_caches
 	;;

@@ -1,25 +1,26 @@
 ## Current repository state
 
-- Maintained fork: Arlene206/padavan-4.4-2; work only on this repository. Base main SHA for this bounded task: `b59a2495573594fa777ea42a878fc4fffe17fd91` (parent `494724569dfb66cd562a7f928375cc103f233361`); only remote branch is `main`, with no checkpoint branch.
-- **Previous exact-head CI:** HTTPD security [42867164461] and AI handoff documentation [42867164263] both completed SUCCESS on `b59a2495573594fa777ea42a878fc4fffe17fd91`; every job step was inspected. The predecessor HTTPD run [42866667652] failed only at the stale firmware-stop source contract, now corrected and green on the exact base SHA.
-- **RC-core lifecycle coverage:** VPN server callbacks acquire lifecycle before lease locking and authenticate inherited `PPPD_PID`, `getppid()` and the root-owned no-follow per-interface pidfile. WAN PPP/full teardown, L2TP WAN stop/config/start, VPN-client start/restart, public xl2tpd start and firmware PPP/L2TP shutdown use the same lifecycle barrier; internal callers use non-recursive `*_locked` helpers.
-- **New shell-hook finding:** `trunk/user/pppoe/mwan.sh` is installed as `/usr/bin/mwan.sh`. Its sole in-repository caller is `launch_wan_pppd_locked()`, but the public `launch_wan_pppd()` wrapper previously bypassed the VPN lifecycle lock for every non-L2TP protocol. When multi-WAN was enabled, the shell hook used `killall pppd` and later SIGKILLed a stale `pidof` snapshot, so this process-control path could race the VPN callback barrier and had a PID-reuse hazard.
-- **Fix in THIS COMMIT:** multi-WAN PPPoE/PPTP launch now takes the VPN lifecycle barrier; the RC locked helper invalidates the WAN callback generation and performs a bounded, status-checked `kill_services(pppd, 5, 1)` before invoking `mwan.sh`. A failed stop aborts the launch. The shell hook rejects direct invocation and no longer performs PPPD termination. Ordinary non-multi-WAN non-L2TP startup retains its previous fast path; L2TP remains locked.
-- **Validation boundary:** L1 source/caller review PASS. The VPN lifecycle GNU89 lock and callback-identity regressions plus the expanded semantic source contract run in the dedicated Actions workflow; exact-head VPN/AI Actions for THIS COMMIT are pending. No full RC translation-unit compile, production MIPS/uClibc object, firmware/TRX or L3/L4 router test is claimed.
-- Root `dev_log.md` will contain 55 complete newest-first records after this update; no archive rotation or `docs/dev-log/INDEX.md` update is due.
-- **Open:** continue the whole-tree shell/add-on/package PPPD/PPTP/L2TP process-control inventory beyond `mwan.sh`; then arrange production MIPS/uClibc and router callback/stop/restart evidence. FTP failed-upload cleanup TOCTOU remains OPEN/BLOCKED; NFS client compatibility, FULLCONENAT target build, watchdog target timing, OpenVPN and board compatibility remain unverified.
+- Maintained fork: Arlene206/padavan-4.4-2; work only on this repository. Exact current main before THIS COMMIT: `32f7940a6a27a53a8986345dfd21fe7fc51a41da` (parent `b59a2495573594fa777ea42a878fc4fffe17fd91`). Recovery found only `main`; no remote checkpoint branch exists.
+- **Previous exact-head Actions:** on `32f7940a6a27a53a8986345dfd21fe7fc51a41da`, VPN lifecycle [42873811973], AI handoff [42873812043], HTTPD security [42873812024], WAN DHCP callback [42873812303] and WAN route status [42873812403] all SUCCESS. Every job/step was inspected; all steps in all five runs succeeded.
+- **VPN process-hook audit:** the RC core lifecycle barrier now covers VPN callbacks, WAN teardown, L2TP transport changes, VPN client start/restart, firmware-wide PPP/L2TP stop and the installed PPPoE multi-WAN hook. The ROMFS-installed `pppoe/mwan.sh` has a single in-tree RC caller; the new `--rc-lifecycle-locked` handoff ensures only the locked C path can start it, and RC performs checked PPPD stop before invoking it. The reviewed PPTP/xl2tpd distro init examples are not installed by their package ROMFS Makefiles. The reviewed OpenVPN cert helper and storage-config script do not start/stop PPPD/PPTP/L2TP. External user-provided Optware `/opt/etc/init.d` scripts are outside this repository and cannot be inventoried here; continue the broader add-on lifecycle sweep rather than claiming global closure.
+- **New cross-module finding:** shipped optional Shadowsocks runtime `trunk/user/shadowsocks/scripts/shadowsocks.sh` captured proxy PIDs with `pidof`, sent TERM with `killall`, then immediately sent SIGKILL to the old numeric snapshot. If a process exited and the PID was reused, shutdown could kill an unrelated process. The `ss-monitor` shell script was separately terminated from a `ps | grep` PID snapshot.
+- **Fix in THIS COMMIT:** add a shared POSIX-shell lifecycle helper. Named proxy daemons are TERM'd by process name, given a shared bounded three-second grace period, re-enumerated by name before KILL and checked again after escalation. The script monitor is handled with BusyBox `pgrep/pkill -f` against its installed command path, avoiding a retained PID list. All process groups are verified absent; if any remain, `ssp_close()` returns failure and preserves firewall/config/cgroup state, while `stop`, `restart` and `reserver` abort rather than proceeding with a partial stop.
+- **Regression added:** mocked-process shell test covers no-op, graceful TERM, KILL escalation and still-running failure for both named daemons and the script monitor. Source contract checks bounded ordering, ROMFS helper installation, fail-closed caller behavior and BusyBox PGREP/PKILL defaults/full-command-line matching. Exact-head Actions for THIS COMMIT are pending.
+- **Validation boundary:** L1 source/caller review PASS. No local full checkout or independent host test run is claimed; the new workflow will run shell syntax checks, the mocked-process regression and source contract. No RC translation-unit build, production MIPS/uClibc object, firmware/TRX or L3/L4 router test is claimed.
+- Root `dev_log.md` will contain 56 complete newest-first records after this update; no archive rotation or `docs/dev-log/INDEX.md` update is due.
+- **Open:** inspect every step of the exact resulting Shadowsocks lifecycle and AI documentation Actions. Continue the add-on service inventory, starting with Optware `K95aria2` and `K95transmission`, whose stop functions also retain `pidof` snapshots across TERM. Preserve the FTP failed-upload cleanup TOCTOU as OPEN/BLOCKED, NFS client compatibility, FULLCONENAT target compile, target VPN/OpenVPN behavior and board validation gaps.
 
 ## Active task
 
-- Reconcile the exact resulting main SHA's VPN lifecycle and AI handoff Actions, inspecting every job and step. Then finish the remaining shell/add-on/package hook inventory for direct PPPD pidfile kills and PPTP/L2TP daemon start/stop operations outside the audited RC-core call paths.
-- Keep target MIPS/uClibc, firmware/TRX and L4 router claims separate from host/Actions evidence. Retain the FTP cleanup TOCTOU and NFS compatibility blockers.
+- Verify the exact resulting main SHA and inspect all jobs/steps in the Shadowsocks lifecycle and AI handoff Actions. The test must demonstrate TERM exit without stale-PID escalation, bounded name-based KILL, and explicit failure when a daemon remains active.
+- Then audit actual Optware/package installation and caller paths for `K95aria2` and `K95transmission` stale PID termination. Preserve process ownership and existing service semantics; do not patch examples until their runtime wiring is proved.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, record its exact SHA/parent and verify the remote branch/checkpoint inventory.
-2. Inspect all jobs and steps for the VPN lifecycle and AI handoff Actions on that exact SHA.
-3. Continue the whole-tree shell/add-on/package search; `pppoe/mwan.sh` is now covered by the RC lifecycle barrier and must not be counted as an open bypass. Trace any remaining `pppd`, `pptpd`, `xl2tpd`, `l2tpd`, pidfile and broad kill helpers to their callers before changing code.
-4. Keep MIPS/uClibc objects, firmware/TRX and L4 router behavior NOT VERIFIED until actually tested; preserve the FTP failed-upload cleanup TOCTOU and NFS compatibility limitations.
+1. Fetch live `main`, record exact SHA/parent, and confirm branch/checkpoint inventory.
+2. Inspect every step in the Shadowsocks lifecycle and AI handoff Actions on that exact SHA; do not substitute a parent-SHA success.
+3. Trace Optware `K95aria2` and `K95transmission` through `opt-start.sh`, package installation and stop callers; prove the PID-snapshot race and choose a bounded, fail-closed fix with a mocked shell regression.
+4. Keep MIPS/uClibc objects, full firmware/TRX and L4 router behavior NOT VERIFIED until actually tested. Retain FTP cleanup TOCTOU and NFS compatibility boundaries.
 
 ## PID 1 notification queue batch fairness
 
@@ -146,16 +147,11 @@
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for miniupnpd writer/launch ordering, atomic replacement and temporary-file cleanup/preservation flow. |
-| L2 host / Actions | Base SHA fb864bc0db8f48eec828abaeb0aeaa2b91ae3aa7: miniupnpd [42816429073], Samba [42816429069] and HTTPD [42816429055] SUCCESS; AI docs [42816429042] FAILED because this handoff omitted required heading ## Active task. Expanded rename-failure GNU89 and ASan/UBSan tests PASS locally. Corrective exact-head Actions pending. |
+| L1 source review | PASS for the installed Shadowsocks process inventory, name-based TERM/KILL sequencing, bounded waits, monitor command-line matching and stop-failure gates. |
+| L2 host / Actions | Exact parent SHA `32f7940a6a27a53a8986345dfd21fe7fc51a41da`: VPN [42873811973], AI docs [42873812043], HTTPD [42873812024], WAN DHCP [42873812303] and WAN route [42873812403] all SUCCESS, every step inspected. Shadowsocks/AI exact-head Actions for THIS COMMIT are pending. |
 | L3 production RC/MIPS/uClibc objects, complete firmware/TRX and artifact inspection | NOT VERIFIED. |
-| L4 physical router boot, UPnP/NAT-PMP mapping and WAN-change behavior | NOT VERIFIED. |
+| L4 physical router boot, Shadowsocks add-on stop/restart, WAN/VPN and callback races | NOT VERIFIED. |
 
-## Exact first action for the next GPT
-
-1. Fetch live main and branch inventory; assert the exact SHA after this follow-up commit.
-2. Inspect every job and step for exact-head miniupnpd regression, AI handoff docs, and any dependent Samba/HTTPD Actions. The previous AI docs run failed because the handoff lacked ## Active task; verify all required governance headings now pass.
-3. If green, rotate to an under-covered userland package and trace lifecycle/error paths before editing. Keep miniupnpd target daemon/firewall/WAN behavior, FTP cleanup TOCTOU, NFS compatibility, VPN callback fencing, FULLCONENAT, wireless variants and all L3/L4 checks open until evidence closes them.
 
 ## Continuation rules
 

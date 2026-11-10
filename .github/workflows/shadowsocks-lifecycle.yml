@@ -1,0 +1,43 @@
+name: Shadowsocks proxy process lifecycle regression
+
+on:
+  push:
+    paths:
+      - 'trunk/user/shadowsocks/scripts/shadowsocks.sh'
+      - 'trunk/user/shadowsocks/scripts/shadowsocks_process_lifecycle.sh'
+      - 'trunk/user/shadowsocks/tests/process_lifecycle.sh'
+      - 'trunk/user/shadowsocks/Makefile'
+      - 'trunk/user/busybox/busybox-1.24.x/procps/Config.src'
+      - 'trunk/user/busybox/busybox-1.24.x/procps/pgrep.c'
+      - 'scripts/check_shadowsocks_lifecycle.py'
+      - '.github/workflows/shadowsocks-lifecycle.yml'
+  pull_request:
+    paths:
+      - 'trunk/user/shadowsocks/scripts/shadowsocks.sh'
+      - 'trunk/user/shadowsocks/scripts/shadowsocks_process_lifecycle.sh'
+      - 'trunk/user/shadowsocks/tests/process_lifecycle.sh'
+      - 'trunk/user/shadowsocks/Makefile'
+      - 'trunk/user/busybox/busybox-1.24.x/procps/Config.src'
+      - 'trunk/user/busybox/busybox-1.24.x/procps/pgrep.c'
+      - 'scripts/check_shadowsocks_lifecycle.py'
+      - '.github/workflows/shadowsocks-lifecycle.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shadowsocks-lifecycle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Check shell syntax
+        run: |
+          sh -n trunk/user/shadowsocks/scripts/shadowsocks.sh
+          sh -n trunk/user/shadowsocks/scripts/shadowsocks_process_lifecycle.sh
+          sh -n trunk/user/shadowsocks/tests/process_lifecycle.sh
+      - name: Run bounded process lifecycle regression
+        run: sh trunk/user/shadowsocks/tests/process_lifecycle.sh
+      - name: Verify Shadowsocks shutdown ordering and ROMFS integration
+        run: python3 scripts/check_shadowsocks_lifecycle.py

@@ -1,3 +1,16 @@
+## 2026-11-11 02:25 CST (UTC+8) — Remove stale PID snapshots from Shadowsocks shutdown
+
+- **Base main SHA:** `32f7940a6a27a53a8986345dfd21fe7fc51a41da`; exact-head VPN [42873811973], AI docs [42873812043], HTTPD [42873812024], WAN DHCP [42873812303] and WAN route [42873812403] all SUCCESS with every job/step inspected. Only remote branch is `main`; no checkpoint branch exists.
+- **Cross-module finding:** optional installed Shadowsocks `shadowsocks.sh::kill_process()` saved numeric PID lists before `killall` sent TERM, then immediately sent SIGKILL to the old numbers. A fast exit followed by PID reuse could terminate an unrelated process. `ss-monitor` was separately selected with `ps | grep` and killed using an expanded PID snapshot. The script also continued deleting firewall/config/cgroup state even if process termination had not been verified.
+- **Fix:** add an installed POSIX-shell lifecycle helper. Proxy processes are TERM'd by name, share a bounded three-second grace period, are freshly re-enumerated by name before KILL, and are checked once more after escalation. The monitor script is matched by its exact installed command path using target BusyBox `pgrep/pkill -f`, not a retained PID array. If any process remains, `ssp_close()` fails before firewall/config/cgroup cleanup; `stop`, `restart` and `reserver` abort on that failure.
+- **Regression:** mocked command fixtures cover already-absent process, clean TERM exit (no needless KILL), forced KILL success, and post-KILL survivor failure for both normal process names and the monitor script. The workflow also runs three shell syntax checks and a Python source/ROMFS/BusyBox feature contract.
+- **VPN hook audit continuation:** reviewed deployed PPPoE multi-WAN hook, package Makefiles and candidate runtime scripts; no other in-repository deployed PPPD/PPTP/XL2TPD process-control hook was identified in the reviewed paths. Vendored PPTP/xl2tpd init examples are not installed; external Optware user hooks remain outside the repository. Next audit `K95aria2` / `K95transmission`, both containing their own stale `pidof` snapshot followed by KILL.
+- **Validation:** L1 source review PASS. Exact-head Shadowsocks and AI Actions for THIS COMMIT are pending. No local full-checkout shell execution, target BusyBox binary test, production MIPS/uClibc object, firmware/TRX or L4 router test is claimed.
+- **Root log:** 55 complete newest-first records before this entry; 56 after. No archive rotation or `docs/dev-log/INDEX.md` update is due.
+- **Next:** inspect every step in exact-head Shadowsocks and AI docs runs; then trace Optware script installation and service callers before editing either daemon's stop sequence.
+
+---
+
 ## 2026-11-11 01:45 CST (UTC+8) — Serialize multi-WAN PPPD cleanup with the VPN lifecycle barrier
 
 - **Base main SHA:** `b59a2495573594fa777ea42a878fc4fffe17fd91`; previous exact-head HTTPD security [42867164461] and AI handoff documentation [42867164263] both completed SUCCESS, and every job step was inspected. Only remote branch is `main`; no checkpoint branch exists.
