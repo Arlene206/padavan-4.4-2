@@ -73,7 +73,7 @@ ordered(s,["vpn_server_lifecycle_lock_acquire()","if (lock_fd < 0)","start_vpn_s
 require("return -1;" in s and "gen_vpns_pppd_options(i_type)" in sp,"start wrapper/private helper incomplete")
 ordered(t,["vpn_server_lifecycle_lock_acquire()","if (lock_fd < 0)","return;","stop_vpn_server_locked()","vpn_server_lifecycle_lock_release(lock_fd)"],"stop")
 require("kill_services(svcs, 5, 1)" in tp,"private stop helper lost daemon stop")
-ordered(r,["vpn_server_lifecycle_lock_acquire()","if (lock_fd < 0)","return;","stop_vpn_server_locked()","start_vpn_server_locked()","restart_firewall()","safe_start_xl2tpd()","vpn_server_lifecycle_lock_release(lock_fd)"],"restart")
+ordered(r,["vpn_server_lifecycle_lock_acquire()","if (lock_fd < 0)","return;","stop_vpn_server_locked()","start_vpn_server_locked()","restart_firewall()","safe_start_xl2tpd_locked()","vpn_server_lifecycle_lock_release(lock_fd)"],"restart")
 require("stop_vpn_server();" not in r and "start_vpn_server();" not in r,"restart must use private non-recursive helpers")
 require("reload_nfsd();" in r,"restart lost conditional NFS reload")
 ordered(a,["vpn_server_lifecycle_lock_acquire()","if (lock_fd < 0)","return;","reapply_vpn_server_locked()","vpn_server_lifecycle_lock_release(lock_fd)"],"reapply")

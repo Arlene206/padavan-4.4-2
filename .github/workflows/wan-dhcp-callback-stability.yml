@@ -358,7 +358,7 @@ jobs:
           assert wan6_down.index("stop_status = stop_dhcp6c();") < wan6_down.index("if (ipv6_type == IPV6_DISABLED)")
           assert "if (stop_status != 0)" in wan6_down
           assert wan6_down.index("return stop_status;") < wan6_down.index("control_if_ipv6_radv(")
-          stop_wan = body(source, "stop_wan(void)")
+          stop_wan = body(source, "stop_wan_locked(void)")
           assert "if (is_wan_ipv6_type_sit() != 1)" in stop_wan
           stop_ipv6 = stop_wan.index("ipv6_status = wan6_down(man_ifname, unit);")
           assert stop_ipv6 < stop_wan.index("return -1;", stop_ipv6) < stop_wan.index('if (pids("udhcpc"))')
@@ -524,7 +524,7 @@ jobs:
           down_return = ipv6_down.index("return ipv6_status;", down_unlock)
           assert down_start < down_unlock < down_return
 
-          stop_wan = body(source, "stop_wan(void)")
+          stop_wan = body(source, "stop_wan_locked(void)")
           assert "ipv6_status = wan6_down(man_ifname, unit);" in stop_wan
           assert "if (ipv6_status != 0)" in stop_wan
           assert "skipping final WAN state clear" in stop_wan

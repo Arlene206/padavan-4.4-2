@@ -58,7 +58,7 @@ jobs:
           assert adapter.index("if (ret != 0)") < adapter.index('logmessage(')
           assert adapter.index('logmessage(') < adapter.rindex("return ret;")
 
-          stop = function_body(source, "stop_wan(void)")
+          stop = function_body(source, "stop_wan_locked(void)")
           service_gate = 'kill_services(svcs_wan, 3, 1)'
           teardown = "ifdown_status = wan_teardown_ifdown_interfaces("
           failure_gate = "if (ifdown_status != 0)"

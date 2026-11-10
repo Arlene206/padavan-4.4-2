@@ -1755,8 +1755,8 @@ jobs:
 
           assert "ppp_config_line_value_copy" in value_policy
           assert "ppp_config_line_value_copy" in value_test
-          xl_start = ppp.index("safe_start_xl2tpd(void)")
-          xl_end = ppp.index("\n#if defined (APP_RPL2TP)\nstatic int\nstart_rpl2tp", xl_start)
+          xl_start = ppp.index("safe_start_xl2tpd_locked(void)")
+          xl_end = ppp.index("\nint\nsafe_start_xl2tpd(void)", xl_start)
           xl2tp = ppp[xl_start:xl_end]
           for value_copy in (
               "ppp_config_line_value_copy(get_our_hostname(), hostname, sizeof(hostname))",
@@ -4321,8 +4321,8 @@ jobs:
           assert "service_lifecycle_stop(svc_name, wtimeout, forcekill, &ops, NULL)" in common
           assert "service stop incomplete: %s remains active" in common
 
-          stop_ppp = body(wan, "stop_wan_ppp(void)")
-          stop_wan = body(wan, "stop_wan(void)")
+          stop_ppp = body(wan, "stop_wan_ppp_locked(void)")
+          stop_wan = body(wan, "stop_wan_locked(void)")
           full_restart = body(wan, "full_restart_wan(void)")
           reconnect = body(wan, "try_wan_reconnect(int try_use_modem, long pause_in_seconds)")
           manual_disconnect = body(wan, "manual_wan_disconnect(void)")
@@ -4356,7 +4356,7 @@ jobs:
           assert "int stop_wan(void);" in header
           assert "int stop_misc(void);" in header
 
-          launch_pppd = body(ppp, "launch_wan_pppd(int unit, int wan_proto)")
+          launch_pppd = body(ppp, "launch_wan_pppd_locked(int unit, int wan_proto)")
           l2tp_stop = body(launch_pppd, "if (wan_proto == IPV4_WAN_PROTO_L2TP)")
           launch_phase = launch_pppd[launch_pppd.index("errno = 0;"):]
           l2tp_start = body(launch_phase, "if (wan_proto == IPV4_WAN_PROTO_L2TP)")
@@ -4366,14 +4366,14 @@ jobs:
           assert "errno = EBUSY;" in stop_failure and "return -1;" in stop_failure
           assert "refusing L2TP WAN launch: %s did not stop" in stop_failure
           assert launch_pppd.index("ppp_options_file_open(options)") < launch_pppd.index("ppp_options_file_finish(fp, options)")
-          assert launch_pppd.index("ppp_options_file_finish(fp, options)") < launch_pppd.index("safe_start_xl2tpd()")
+          assert launch_pppd.index("ppp_options_file_finish(fp, options)") < launch_pppd.index("safe_start_xl2tpd_locked()")
           assert "kill_services(svcs, 5, 1);" not in launch_pppd
           if '#if defined (APP_RPL2TP)' in l2tp_stop:
               assert l2tp_stop.index('use_rpl2tp = nvram_match("wan_l2tpd", "1")') < l2tp_stop.index("kill_services(svcs, 5, 1)")
               assert 'svcs[0] = "l2tpd";' in l2tp_stop and 'svcs[0] = "xl2tpd";' in l2tp_stop
               assert l2tp_start.index("if (use_rpl2tp)") < l2tp_start.index("start_rpl2tp(unit)")
               assert l2tp_start.index('nvram_set_int_temp("l2tp_wan_t", 0);') < l2tp_start.index("start_rpl2tp(unit)")
-          assert l2tp_start.index('nvram_set_int_temp("l2tp_wan_t", 1);') < l2tp_start.index("safe_start_xl2tpd()")
+          assert l2tp_start.index('nvram_set_int_temp("l2tp_wan_t", 1);') < l2tp_start.index("safe_start_xl2tpd_locked()")
           print("Service termination, WAN stop gates and L2TP transport startup contracts: OK")
           PY
 
