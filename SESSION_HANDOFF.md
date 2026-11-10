@@ -1,19 +1,21 @@
 ## Current repository state
 
-- Maintained fork: Arlene206/padavan-4.4-2; work only on this repository. The latest production-code checkpoint is `2e76b75663fd07cc48a5483de3db32b6ae7e727f` (`fix(rc): defer watchdog signal work to main loop`). The branch inventory contains only `main`; no remote checkpoint branch exists. Never force-push.
-- Watchdog task completed: handlers for SIGALRM/SIGHUP/SIGUSR1/SIGTERM now only record `sig_atomic_t` events; a blocked-snapshot/`sigsuspend()` loop dispatches NTP, Wi-Fi and service work in normal context, prioritizes TERM and performs cleanup outside signal context. The existing 10-second timer and notification APIs are preserved.
-- Exact-head validation on `2e76b75663fd07cc48a5483de3db32b6ae7e727f`: watchdog signal lifecycle regression [42842873696] SUCCESS and AI handoff documentation contract [42842872808] SUCCESS. Both runs matched this exact SHA; every job step was inspected and completed successfully.
-- Root `dev_log.md` has 50 complete newest-first records. No archive rotation or INDEX update is due. The immediately following checkpoint commit updates this live handoff only; it does not change production code.
-- Open boundaries: VPN in-flight PPP callback fencing; FTP failed-upload cleanup TOCTOU; NFS export/client compatibility; FULLCONENAT target build; watchdog target timing/service behavior; MIPS/uClibc, firmware/TRX and L4 router validation.
+- Maintained fork: Arlene206/padavan-4.4-2; work only on this repository. The latest production-code commit is `a58fa5f853bf7691773d1af7314474173c703bbf` (`fix(vpn): fence in-flight server callbacks by pppd session`); the workflow-only shell-continuation correction is `edb48202232e444d4fcc8d6d7233b06ae7c23dcd`. Before this handoff update, main was exactly `edb48202232e444d4fcc8d6d7233b06ae7c23dcd`. Only remote branch is `main`; no checkpoint branch exists. Never force-push.
+- VPN callback fix: `ipup_vpns_main()` and `ipdown_vpns_main()` now acquire the VPN lifecycle lock before the lease lock and retain it across firewall/lease mutation, route and balancing changes, bcrelay changes and the existing user hook. They accept a callback only when inherited `PPPD_PID`, `getppid()` and the validated root-owned `/var/run/<ifname>.pid` agree; stale/orphaned callbacks are ignored. The existing PPP `ipparam` argument and user-hook argv contract are unchanged.
+- Source evidence: this fork's pppd sets `PPPD_PID`, writes the per-interface pidfile, and executes IP-up/IP-down scripts asynchronously. The lifecycle-first lock ordering lets teardown finish before a waiting old callback checks identity; the old script then fails because it is no longer a child of the named pppd process.
+- Exact-head validation on `edb48202232e444d4fcc8d6d7233b06ae7c23dcd`: VPN lifecycle/callback regression [42860098709] SUCCESS and AI handoff documentation contract [42860098645] SUCCESS; every job step was inspected. The VPN run compiled and ran both GNU89 host tests and passed the semantic caller/pppd integration contract. Dependent HTTPD security workflow [42859923066] also passed on production-code SHA `a58fa5f853bf7691773d1af7314474173c703bbf`. The first VPN run exposed a doubled shell line-continuation escape; the workflow was corrected in `edb4820` and the corrected exact-head run passed.
+- Root `dev_log.md` has 51 complete newest-first records after the current entry. No archive rotation or INDEX update is due. No production MIPS/uClibc RC object, firmware/TRX or L3/L4 router behavior is verified.
+- Open boundaries: audit any PPPD/PPTP stop paths outside the lifecycle-locked public APIs; validate callback fencing on production MIPS/uClibc and router hardware; FTP failed-upload cleanup TOCTOU; NFS client compatibility; FULLCONENAT target build; watchdog target timing/service behavior; broader module and L3/L4 validation.
 
 ## Active task
 
-- Begin the VPN in-flight PPP callback fencing audit. Trace callback and lease-lock lifetimes against daemon stop/restart; determine whether a callback already in progress can publish stale state into a newer session; preserve the existing VPN server lifecycle serialization. Do not assume the lifecycle lock alone fences callbacks.
+- Continue the VPN lifecycle audit beyond the bounded callback fix: trace every PPPD/PPTP/L2TP server start/stop/kill path and determine whether any caller can bypass the lifecycle lock. Then arrange target MIPS/uClibc compilation and router-side callback/stop/restart validation. Do not claim target behavior from host tests.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, confirm it descends from production-code SHA `2e76b75663fd07cc48a5483de3db32b6ae7e727f`, and inspect the current VPN lifecycle lock, PPP callback and lease/state publication call graph.
-2. Prove the callback-vs-stop/restart ordering before editing. If a bounded fix is justified, add a GNU89 host regression and exact-head semantic Actions; retain FTP TOCTOU, NFS compatibility, FULLCONENAT target build and L3/L4 validation as open work.
+1. Fetch live `main` and verify its exact parent chain from the callback-fence commit. Search the entire repository for PPPD pidfile kills, `pptpd`/`xl2tpd` stops, and direct VPN start/stop entry points; map each caller to the lifecycle-lock boundary.
+2. Review the callback identity gate against the target's `_PATH_VARRUN`, pidfile ownership/mode and pppd process semantics; obtain a production MIPS/uClibc RC build and device stop/restart test before closing the VPN task.
+3. Keep FTP upload-cleanup TOCTOU, NFS client compatibility, FULLCONENAT target build and L3/L4 validation open.
 
 ## PID 1 notification queue batch fairness
 
