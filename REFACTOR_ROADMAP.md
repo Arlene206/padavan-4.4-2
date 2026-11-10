@@ -8,7 +8,7 @@
 - Dependent HTTPD/Samba trust-boundary suite [42708503436] and AI handoff documentation validation [42708503300] completed SUCCESS on exact SHA `258532a78922549698bc6d9b869c7777f8f4ac05`. The HTTPD workflow extractor now targets the unlocked config generator rather than the public lock wrapper.
 - The earlier BusyBox DHCP callback state audit is complete; no applet behavior change was justified because the inspected status-discard contract did not demonstrate a client state-transition defect. The WAN callback source-contract correction is green on exact SHA `6b44e023c2f669865fc8b5cb5425d824b8335d8b` (DHCP [42703609156], docs [42703609087]).
 - Initial Samba/HTTPD workflow attempts on the implementation head failed in stale semantic source extractors; later exact-SHA runs above passed after the test assertions were updated. Do not count the initial failed runs as green.
-- Root `dev_log.md` contains 107 complete newest-first records after this entry and remains below the 119-record / 384 KiB thresholds. No archive rotation is due.
+- Root `dev_log.md` contains 108 complete newest-first records and remains below the 119-record / 384 KiB early-rotation thresholds. No archive rotation is due.
 
 ## Whole-repository module status
 
@@ -51,7 +51,7 @@
 | Level | Evidence | Limits |
 |---|---|---|
 | L1 source review | PASS for FTP descriptor-relative path reads/mutations, recursive listing and MDTM/SITE CHMOD metadata updates; an inode-replacement regression now covers metadata operations on a pinned descriptor. Upload cleanup's validation-to-unlink interval remains a known TOCTOU limitation; no atomicity claim. Also PASS for IPTV DHCP/static-IPTV and ZeroConf WAN callback lifecycle, DNSMasq lease-file applicability and wireless shutdown/startup failure propagation. |
-| L2 host / Actions | Base SHA `c5ec0e4c0d33e53f784a06763d479cddbc35dcbd`: AI docs [42747120963] and HTTPD [42747121115] SUCCESS. THIS COMMIT's VSFTPD GNU89 policy suite (including inode-pinned MDTM/CHMOD replacement test), source-contract checks and updated AI handoff validation are pending exact-head Actions. No production MIPS/uClibc compile, firmware or device test. |
+| L2 host / Actions | Base SHA `c5ec0e4c0d33e53f784a06763d479cddbc35dcbd`: AI docs [42747120963] and HTTPD [42747121115] SUCCESS. VSFTPD exact-head run [42749731924] compiled and passed the GNU89 inode-pinned metadata host regression, then failed at a whitespace-sensitive MDTM source assertion; corrected in THIS FOLLOW-UP. Re-run VSFTPD semantic checks and updated AI handoff docs pending exact-head Actions. No target MIPS/uClibc compile, firmware or device test. |
 | L3 MIPS/uClibc production objects / firmware/TRX | NOT VERIFIED. | Full target build phase required. |
 | L4 router/SMB/DHCP behavior and physical hardware | NOT VERIFIED. | Requires target-device validation. |
 

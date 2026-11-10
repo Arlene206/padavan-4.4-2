@@ -1,3 +1,12 @@
+## 2026-11-10 11:34 CST (UTC+8) — Correct a formatting-sensitive MDTM workflow assertion
+
+- **Base main SHA:** `07ba33d7ffd92dbaee037ca35d4f20f051070153`. The first VSFTPD workflow run [42749731924] compiled and executed the GNU89 host regression successfully, including the new pinned-inode metadata replacement case. The Python source-contract step then failed at its assertion requiring the literal substring `vsf_sysutil_setmodtime_fd(opened_file`; the production call intentionally placed the descriptor argument on the next line.
+- **Correction:** make the source contract assert the function name and the following `opened_file, modtime, tunable_use_localtime` argument independently. This validates the same descriptor relationship without coupling to line wrapping. No production code changed in this follow-up.
+- **Validation:** the prior host binary result is PASS on `07ba33d7ffd92dbaee037ca35d4f20f051070153`; the corrected Python semantic contract and updated AI handoff check are pending on THIS resulting SHA.
+- **Next:** reconcile exact-head VSFTPD and AI docs Actions, then return to the still-open upload-cleanup check/unlink race. Do not claim the race is closed.
+
+---
+
 ## 2026-11-10 11:20 CST (UTC+8) — Move FTP MDTM and SITE CHMOD metadata to pinned descriptors
 
 - **Base main SHA:** `c5ec0e4c0d33e53f784a06763d479cddbc35dcbd`. AI handoff docs [42747120963] and HTTPD authentication/disclosure regression [42747121115] completed SUCCESS on this exact base SHA.

@@ -90,15 +90,15 @@
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for MDTM descriptor-relative ACL/open/fstat/futimes ordering; PASS for SITE CHMOD descriptor-relative ACL/open/fchmod ordering; PASS for recoverable syscall error paths and the inode-replacement regression design. Upload cleanup retains an unresolved check/unlink race. |
-| L2 host / Actions | Base SHA `c5ec0e4c0d33e53f784a06763d479cddbc35dcbd`: AI handoff docs [42747120963] and HTTPD security [42747121115] completed SUCCESS. THIS COMMIT's VSFTPD GNU89 host binary, descriptor-metadata replacement regression and source-contract checks are pending exact-head Actions; AI docs check is also pending for the changed handoff. |
+| L1 source review | PASS for MDTM descriptor-relative ACL/open/fstat/futimes ordering; PASS for SITE CHMOD descriptor-relative ACL/open/fchmod ordering; PASS for recoverable syscall error paths and inode-replacement regression design. Upload cleanup still has an unresolved check/unlink race. |
+| L2 host / Actions | Base SHA `c5ec0e4c0d33e53f784a06763d479cddbc35dcbd`: AI handoff docs [42747120963] and HTTPD security [42747121115] SUCCESS. VSFTPD workflow on `07ba33d7ffd92dbaee037ca35d4f20f051070153`: GNU89 host binary passed (including pinned-inode replacement regression); Python source contract stopped on a formatting-sensitive expectation for the new two-line MDTM `futimes` call. The workflow assertion is corrected in THIS FOLLOW-UP; re-run exact-head checks are pending. |
 | L3 production RC/MIPS/uClibc/firmware builds | NOT VERIFIED. |
 | L4 physical router behavior | NOT VERIFIED. |
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, confirm its exact SHA and branch/checkpoint inventory, then inspect all Actions whose `head_sha` exactly matches it. Confirm VSFTPD host test (including the descriptor-pinning regression), Python source contract and AI handoff docs; inspect complete logs for every failure.
-2. If exact-head Actions are green, perform a focused Linux 4.4 source audit of `ftp_acl_path_unlink_opened_entry()`: determine which renameat2 flags/syscalls exist in this tree and the matching MIPS/uClibc headers/runtime. The current check-then-`unlinkat` sequence still has a TOCTOU window. Implement a fail-closed, tested bounded design only after verifying target support; otherwise preserve the honest limitation.
-3. Keep FULLCONENAT target kernel/MIPS build, NFS compatibility, wireless bridge membership idempotency, PPP/IPv6 callback lifecycle and L3/L4 validation visible.
+1. Fetch live `main` and inspect all Actions tied to its exact SHA. Confirm the VSFTPD source-contract rerun succeeds after the formatting-independent assertion, and confirm AI handoff docs; inspect all failure logs.
+2. If green, investigate `ftp_acl_path_unlink_opened_entry()` and prove Linux 4.4 / target MIPS-uClibc support before changing the check-then-`unlinkat` cleanup window. No atomicity claim until the replacement race is closed by a supported mechanism or cleanup fails closed.
+3. Keep FULLCONENAT target MIPS compilation, NFS compatibility, bridge membership idempotency, PPP/IPv6 callback lifecycle, and L3/L4 validation visible.
 
 ## Continuation rules
 

@@ -322,7 +322,8 @@ jobs:
           assert "can_write ? PERM_WRITE : PERM_READ" in mdtm
           assert "can_write ? 0 : 1" in mdtm
           assert "vsf_sysutil_fstat(opened_file" in mdtm
-          assert "vsf_sysutil_setmodtime_fd(opened_file" in mdtm
+          assert "vsf_sysutil_setmodtime_fd(" in mdtm
+          assert "opened_file, modtime, tunable_use_localtime" in mdtm
           assert "vsf_sysutil_setmodtime(" not in mdtm
           assert "asus_open_existing_path(" in chmod
           assert "p_sess, PERM_WRITE, &s_chmod_file_str, 0," in chmod
