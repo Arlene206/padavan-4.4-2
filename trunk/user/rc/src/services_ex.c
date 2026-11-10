@@ -34,6 +34,7 @@
 
 #include "rc.h"
 #include "dnsmasq_file.h"
+#include "dnsmasq_lifecycle_lock.h"
 #include "dnsmasq_restart_policy.h"
 #include "samba_config_value_policy.h"
 #if defined(APP_SMBD) || defined(APP_NMBD)
@@ -609,28 +610,41 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 	return 0;
 }
 
+/*
+ * The *_locked entry points are for callers already holding the DNSMasq
+ * lifecycle lock (currently full_restart_lan). Public RC APIs acquire the
+ * cross-process lock before process checks, config publication, stop, launch
+ * or cache reload.
+ */
+static int
+dnsmasq_lifecycle_lock_finish(int lock_fd, int operation_status, const char *operation)
+{
+	int lock_errno;
+	if (dnsmasq_lifecycle_lock_release(lock_fd) == 0)
+		return operation_status;
+	lock_errno = errno ? errno : EIO;
+	logmessage(LOGNAME, "cannot release DNSMasq lifecycle lock after %s (errno=%d)",
+		   operation, lock_errno);
+	return operation_status != 0 ? operation_status : lock_errno;
+}
+
 int
-start_dns_dhcpd(int is_ap_mode)
+start_dns_dhcpd_locked(int is_ap_mode)
 {
 	int service_enabled = 0;
 	int status;
-
-	/* Do not publish over a live daemon's configuration or spawn a duplicate. */
 	if (!dnsmasq_start_policy_should_launch(is_dns_dhcpd_run())) {
 		logmessage(LOGNAME, "refusing DNSMasq start while a previous instance is active");
 		return EBUSY;
 	}
-
 	status = prepare_dns_dhcpd(is_ap_mode, &service_enabled);
 	if (status != 0 || !service_enabled)
 		return status;
-
-	/* Close the preparation window if another caller started the service. */
+	/* Retain a second guard against launchers that do not participate in this lock. */
 	if (!dnsmasq_start_policy_should_launch(is_dns_dhcpd_run())) {
 		logmessage(LOGNAME, "refusing duplicate DNSMasq launch after configuration preparation");
 		return EBUSY;
 	}
-
 	status = eval("/usr/sbin/dnsmasq");
 	if (status != 0)
 		logmessage(LOGNAME, "cannot launch DNSMasq after configuration publication (status=%d)", status);
@@ -638,31 +652,56 @@ start_dns_dhcpd(int is_ap_mode)
 }
 
 int
-stop_dns_dhcpd(void)
+start_dns_dhcpd(int is_ap_mode)
+{
+	int lock_fd, status, lock_errno;
+	lock_fd = dnsmasq_lifecycle_lock_acquire();
+	if (lock_fd < 0) {
+		lock_errno = errno ? errno : EIO;
+		logmessage(LOGNAME, "cannot acquire DNSMasq lifecycle lock; refusing start (errno=%d)", lock_errno);
+		return lock_errno;
+	}
+	status = start_dns_dhcpd_locked(is_ap_mode);
+	return dnsmasq_lifecycle_lock_finish(lock_fd, status, "start");
+}
+
+int
+stop_dns_dhcpd_locked(void)
 {
 	char* svcs[] = { "dnsmasq", NULL };
 	int status;
-
 	status = kill_services(svcs, 3, 1);
 	if (dnsmasq_stop_policy_should_clear_arp(status))
 		arpbind_clear();
 	else
 		logmessage(LOGNAME, "DNSMasq did not stop cleanly; retaining static ARP bindings");
-
 	return status;
 }
 
 int
-restart_dhcpd(void)
+stop_dns_dhcpd(void)
+{
+	int lock_fd, status, lock_errno;
+	lock_fd = dnsmasq_lifecycle_lock_acquire();
+	if (lock_fd < 0) {
+		lock_errno = errno ? errno : EIO;
+		logmessage(LOGNAME, "cannot acquire DNSMasq lifecycle lock; refusing stop (errno=%d)", lock_errno);
+		return lock_errno;
+	}
+	status = stop_dns_dhcpd_locked();
+	return dnsmasq_lifecycle_lock_finish(lock_fd, status, "stop");
+}
+
+static int
+restart_dhcpd_locked(void)
 {
 	int was_running = is_dns_dhcpd_run();
 	int service_enabled = 0;
 	int prepare_status;
 	int stop_status;
+	int still_running;
 	int launch_status;
 	enum dnsmasq_restart_action action;
-
-	/* Prepare generated inputs while the current daemon is still untouched. */
 	prepare_status = prepare_dns_dhcpd(get_ap_mode(), &service_enabled);
 	action = dnsmasq_restart_policy_action(was_running, prepare_status, service_enabled);
 	if (action == DNSMASQ_RESTART_KEEP_RUNNING) {
@@ -671,17 +710,15 @@ restart_dhcpd(void)
 	}
 	if (action == DNSMASQ_RESTART_ABORT)
 		return prepare_status;
-
-	stop_status = stop_dns_dhcpd();
-	/* A stop error or a surviving process forbids launching a second instance. */
-	if (stop_status != 0 || is_dns_dhcpd_run()) {
+	stop_status = stop_dns_dhcpd_locked();
+	still_running = is_dns_dhcpd_run();
+	if (stop_status != 0 || still_running) {
 		logmessage(LOGNAME, "DNSMasq stop incomplete (status=%d, running=%d); refusing duplicate launch",
-			   stop_status, is_dns_dhcpd_run());
+			   stop_status, still_running);
 		return EBUSY;
 	}
 	if (action == DNSMASQ_RESTART_STOP_ONLY)
 		return 0;
-
 	launch_status = eval("/usr/sbin/dnsmasq");
 	if (launch_status != 0)
 		logmessage(LOGNAME, "DNSMasq restart launch failed (status=%d); no unvalidated fallback attempted", launch_status);
@@ -689,12 +726,34 @@ restart_dhcpd(void)
 }
 
 int
+restart_dhcpd(void)
+{
+	int lock_fd, status, lock_errno;
+	lock_fd = dnsmasq_lifecycle_lock_acquire();
+	if (lock_fd < 0) {
+		lock_errno = errno ? errno : EIO;
+		logmessage(LOGNAME, "cannot acquire DNSMasq lifecycle lock; refusing restart (errno=%d)", lock_errno);
+		return lock_errno;
+	}
+	status = restart_dhcpd_locked();
+	return dnsmasq_lifecycle_lock_finish(lock_fd, status, "restart");
+}
+
+int
 restart_dns(void)
 {
+	int lock_fd, status, lock_errno;
+	lock_fd = dnsmasq_lifecycle_lock_acquire();
+	if (lock_fd < 0) {
+		lock_errno = errno ? errno : EIO;
+		logmessage(LOGNAME, "cannot acquire DNSMasq lifecycle lock; refusing cache reload (errno=%d)", lock_errno);
+		return lock_errno;
+	}
 	if (!is_dns_dhcpd_run())
-		return -1;
-
-	return doSystem("killall %s %s", "-SIGHUP", "dnsmasq");
+		status = -1;
+	else
+		status = doSystem("killall %s %s", "-SIGHUP", "dnsmasq");
+	return dnsmasq_lifecycle_lock_finish(lock_fd, status, "cache reload");
 }
 
 ///////////////////////////////////////////////////////////////////////

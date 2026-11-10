@@ -8,6 +8,9 @@ on:
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c_common.c"
       - "trunk/user/rc/src/net.c"
       - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/dnsmasq_lifecycle_lock.h"
+      - "trunk/user/rc/src/tests/dnsmasq_lifecycle_lock.c"
       - "trunk/user/shared/src/nvram_linux.h"
       - "trunk/user/shared/src/nvram_linux.c"
       - "trunk/user/rc/src/tests/nvram_restore_policy.c"
@@ -231,6 +234,9 @@ on:
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c_common.c"
       - "trunk/user/rc/src/net.c"
       - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/dnsmasq_lifecycle_lock.h"
+      - "trunk/user/rc/src/tests/dnsmasq_lifecycle_lock.c"
       - "trunk/user/shared/src/nvram_linux.h"
       - "trunk/user/rc/src/switch_status_policy.h"
       - "trunk/user/rc/src/tests/switch_status_policy.c"
@@ -1363,6 +1369,11 @@ jobs:
           /tmp/dnsmasq_restart_policy
           cc -std=gnu89 -Wall -Wextra -Werror \
             -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/dnsmasq_lifecycle_lock.c \
+            -o /tmp/dnsmasq_lifecycle_lock
+          /tmp/dnsmasq_lifecycle_lock
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
             trunk/user/rc/src/tests/wan_resolver_refresh_policy.c \
             -o /tmp/wan_resolver_refresh_policy
           /tmp/wan_resolver_refresh_policy
@@ -1387,8 +1398,60 @@ jobs:
           workflow = Path(".github/workflows/httpd-security.yml").read_text()
           restart_policy = Path("trunk/user/rc/src/dnsmasq_restart_policy.h").read_text()
           restart_test = Path("trunk/user/rc/src/tests/dnsmasq_restart_policy.c").read_text()
+          lifecycle_lock = Path("trunk/user/rc/src/dnsmasq_lifecycle_lock.h").read_text()
+          lifecycle_lock_test = Path("trunk/user/rc/src/tests/dnsmasq_lifecycle_lock.c").read_text()
+
+          def function_body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
 
           assert '#include "dnsmasq_file.h"' in service
+          assert '#include "dnsmasq_lifecycle_lock.h"' in service and '#include "dnsmasq_lifecycle_lock.h"' in net_lan
+          assert 'DNSMASQ_LIFECYCLE_LOCK_FILE "/tmp/.dnsmasq.lifecycle.lock"' in lifecycle_lock
+          assert "DNSMASQ_LIFECYCLE_LOCK_WAIT_SECONDS 10" in lifecycle_lock
+          assert "F_SETLK" in lifecycle_lock and "O_NOFOLLOW" in lifecycle_lock
+          assert "st.st_uid != geteuid()" in lifecycle_lock and "st.st_nlink != 1" in lifecycle_lock
+          assert "F_UNLCK" in lifecycle_lock and "attempt++ >= wait_seconds" in lifecycle_lock
+          assert "errno = EBUSY" in lifecycle_lock
+          assert "fork()" in lifecycle_lock_test and "dnsmasq_lifecycle_lock_acquire_path(lock_path, 0)" in lifecycle_lock_test
+          assert "errno == EBUSY" in lifecycle_lock_test and "DNSMasq lifecycle lock policy: PASS" in lifecycle_lock_test
+
+          start_public = function_body(service, "start_dns_dhcpd(int is_ap_mode)")
+          start_locked = function_body(service, "start_dns_dhcpd_locked(int is_ap_mode)")
+          stop_public = function_body(service, "stop_dns_dhcpd(void)")
+          stop_locked = function_body(service, "stop_dns_dhcpd_locked(void)")
+          restart_public = function_body(service, "restart_dhcpd(void)")
+          restart_locked = function_body(service, "restart_dhcpd_locked(void)")
+          reload_public = function_body(service, "restart_dns(void)")
+          assert start_public.index("dnsmasq_lifecycle_lock_acquire()") < start_public.index("start_dns_dhcpd_locked(is_ap_mode)")
+          assert "dnsmasq_lifecycle_lock_finish" in start_public
+          assert "dnsmasq_start_policy_should_launch(is_dns_dhcpd_run())" in start_locked
+          assert 'eval("/usr/sbin/dnsmasq")' in start_locked
+          assert stop_public.index("dnsmasq_lifecycle_lock_acquire()") < stop_public.index("stop_dns_dhcpd_locked()")
+          assert "dnsmasq_lifecycle_lock_finish" in stop_public
+          assert "kill_services(svcs, 3, 1)" in stop_locked
+          assert "dnsmasq_stop_policy_should_clear_arp(status)" in stop_locked and "arpbind_clear()" in stop_locked
+          assert restart_public.index("dnsmasq_lifecycle_lock_acquire()") < restart_public.index("restart_dhcpd_locked()")
+          assert "dnsmasq_lifecycle_lock_finish" in restart_public
+          assert restart_locked.index("prepare_dns_dhcpd") < restart_locked.index("stop_dns_dhcpd_locked()")
+          assert "still_running = is_dns_dhcpd_run();" in restart_locked
+          assert "if (stop_status != 0 || still_running)" in restart_locked
+          assert restart_locked.index("if (stop_status != 0 || still_running)") < restart_locked.index('eval("/usr/sbin/dnsmasq")')
+          assert reload_public.index("dnsmasq_lifecycle_lock_acquire()") < reload_public.index('doSystem("killall %s %s", "-SIGHUP", "dnsmasq")')
+          assert "dnsmasq_lifecycle_lock_finish" in reload_public
+          assert "int start_dns_dhcpd_locked(int is_ap_mode);" in rc_header
+          assert "int stop_dns_dhcpd_locked(void);" in rc_header
+          assert 'strcmp(entry->d_name, RCN_RESTART_DHCPD) == 0' in rc_main
+          assert 'else if (!strcmp(base, "restart_dhcpd"))' in rc_main
           assert 'fp[2] = dnsmasq_file_open(hosts_static_path);' in service
           assert 'dnsmasq_file_publish(fp[i], hosts_static_path,' in service
           assert '"/tmp/hosts.static", 0644)' in service
@@ -1476,9 +1539,9 @@ jobs:
           assert 'fopen(DNS_SERVERS_FILE, "w")' not in service
           assert 'create_file(DHCPD_LEASE_FILE)' not in service
           dnsmasq_prepare = service.index("prepare_dns_dhcpd(int is_ap_mode")
-          dnsmasq_start = service.index("\nint\nstart_dns_dhcpd", dnsmasq_prepare)
-          dnsmasq_stop = service.index("\nint\nstop_dns_dhcpd", dnsmasq_start)
-          dnsmasq_restart_start = service.index("\nint\nrestart_dhcpd", dnsmasq_stop)
+          dnsmasq_start = service.index("\nint\nstart_dns_dhcpd_locked", dnsmasq_prepare)
+          dnsmasq_stop = service.index("\nint\nstop_dns_dhcpd_locked", dnsmasq_start)
+          dnsmasq_restart_start = service.index("\nstatic int\nrestart_dhcpd_locked", dnsmasq_stop)
           dnsmasq_prepare_body = service[dnsmasq_prepare:dnsmasq_start]
           dnsmasq_start_body = service[dnsmasq_start:dnsmasq_stop]
           dnsmasq_stop_body = service[dnsmasq_stop:dnsmasq_restart_start]
@@ -1517,23 +1580,25 @@ jobs:
           lan_start = net_lan.index("full_restart_lan(void)")
           lan_end = net_lan.index("\n}\n", lan_start)
           lan_restart_body = net_lan[lan_start:lan_end]
-          assert "dnsmasq_stop_status = stop_dns_dhcpd();" in lan_restart_body
+          assert "dnsmasq_stop_status = stop_dns_dhcpd_locked();" in lan_restart_body
           assert "if (dnsmasq_stop_status == 0)" in lan_restart_body
-          assert "start_dns_dhcpd(is_ap_mode)" in lan_restart_body
-          assert lan_restart_body.index("if (dnsmasq_stop_status == 0)") < lan_restart_body.index("start_dns_dhcpd(is_ap_mode)")
+          assert "start_dns_dhcpd_locked(is_ap_mode)" in lan_restart_body
+          assert lan_restart_body.index("dnsmasq_lifecycle_lock_acquire()") < lan_restart_body.index("stop_dns_dhcpd_locked()")
+          assert lan_restart_body.index("if (dnsmasq_stop_status == 0)") < lan_restart_body.index("start_dns_dhcpd_locked(is_ap_mode)")
           assert "DNSMasq restart skipped because the previous process did not stop" in lan_restart_body
 
           assert "DNSMASQ_RESTART_KEEP_RUNNING" in restart_policy and "DNSMASQ_RESTART_ABORT" in restart_policy
           assert "prepare_status != 0" in restart_policy
-          dnsmasq_restart = service.index("\nint\nrestart_dhcpd(void)")
-          dnsmasq_restart_end = service.index("\nint\nrestart_dns", dnsmasq_restart)
+          dnsmasq_restart = service.index("\nstatic int\nrestart_dhcpd_locked(void)")
+          dnsmasq_restart_end = service.index("\nint\nrestart_dhcpd(void)", dnsmasq_restart)
           dnsmasq_restart_body = service[dnsmasq_restart:dnsmasq_restart_end]
           assert dnsmasq_restart_body.index("prepare_dns_dhcpd") < dnsmasq_restart_body.index("dnsmasq_restart_policy_action")
           assert dnsmasq_restart_body.index("dnsmasq_restart_policy_action") < dnsmasq_restart_body.index("stop_dns_dhcpd")
           assert "DNSMASQ_RESTART_KEEP_RUNNING" in dnsmasq_restart_body
           assert "DNSMASQ_RESTART_ABORT" in dnsmasq_restart_body
-          stop_call = dnsmasq_restart_body.index("stop_status = stop_dns_dhcpd();")
-          post_stop_check = dnsmasq_restart_body.index("if (stop_status != 0 || is_dns_dhcpd_run())", stop_call)
+          stop_call = dnsmasq_restart_body.index("stop_status = stop_dns_dhcpd_locked();")
+          assert "still_running = is_dns_dhcpd_run();" in dnsmasq_restart_body
+          post_stop_check = dnsmasq_restart_body.index("if (stop_status != 0 || still_running)", stop_call)
           assert stop_call < post_stop_check < dnsmasq_restart_body.index('eval("/usr/sbin/dnsmasq")')
           assert dnsmasq_restart_body.count('eval("/usr/sbin/dnsmasq")') == 1
           assert "no unvalidated fallback attempted" in dnsmasq_restart_body
@@ -1547,6 +1612,10 @@ jobs:
           pr_paths = workflow.split("  pull_request:\n    paths:\n", 1)[1].split("  workflow_dispatch:", 1)[0]
           for changed in (
               "trunk/user/rc/src/services_ex.c",
+              "trunk/user/rc/src/net_lan.c",
+              "trunk/user/rc/src/rc.h",
+              "trunk/user/rc/src/dnsmasq_lifecycle_lock.h",
+              "trunk/user/rc/src/tests/dnsmasq_lifecycle_lock.c",
               "trunk/user/rc/src/tests/dnsmasq_file.c",
               "trunk/user/rc/src/dnsmasq_restart_policy.h",
               "trunk/user/rc/src/tests/dnsmasq_restart_policy.c",

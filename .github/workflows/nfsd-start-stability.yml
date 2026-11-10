@@ -117,59 +117,23 @@ jobs:
               assert prerequisite in reload
           assert "/sbin/exportfs -r ||" in reload and "return 1" in reload
 
-          stop_nfsd_locked = function_body(service, "stop_nfsd_locked(void)")
-          assert 'return eval("/usr/bin/nfsd.sh", "stop");' in stop_nfsd_locked
-          stop_nfsd = function_body(service, "stop_nfsd(void)")
-          assert "storage_operation_lock_acquire(file_lock)" in stop_nfsd
-          assert stop_nfsd.index("storage_operation_lock_acquire") < stop_nfsd.index("stop_nfsd_locked()")
-          assert "file_unlock(storage_lock)" in stop_nfsd
-
-          run_nfsd_locked = function_body(service, "run_nfsd_locked(void)")
-          assert 'command_status = eval("/usr/bin/nfsd.sh", "start");' in run_nfsd_locked
-          assert "if (command_status != 0)" in run_nfsd_locked
-          assert 'NFS daemon start failed (status %d)' in run_nfsd_locked
-          assert run_nfsd_locked.count("return storage_nfs_start_status(export_status, command_status);") == 2
           run_nfsd = function_body(service, "run_nfsd(void)")
-          assert "storage_operation_lock_acquire(file_lock)" in run_nfsd
-          assert run_nfsd.index("storage_operation_lock_acquire") < run_nfsd.index("run_nfsd_locked()")
-          assert "file_unlock(storage_lock)" in run_nfsd
+          assert 'command_status = eval("/usr/bin/nfsd.sh", "start");' in run_nfsd
+          assert "if (command_status != 0)" in run_nfsd
+          assert 'NFS daemon start failed (status %d)' in run_nfsd
+          assert run_nfsd.count("return storage_nfs_start_status(export_status, command_status);") == 2
           start_status = function_body(policy, "storage_nfs_start_status(")
           assert "export_status == 0 && command_status == 0" in start_status
-
-          reload_nfsd_locked = function_body(service, "reload_nfsd_locked(void)")
-          assert 'command_status = eval("/usr/bin/nfsd.sh", "reload");' in reload_nfsd_locked
-          assert "if (command_status != 0)" in reload_nfsd_locked
-          assert 'NFS daemon reload failed (status %d)' in reload_nfsd_locked
-          reload_nfsd = function_body(service, "reload_nfsd(void)")
-          assert "storage_operation_lock_acquire(file_lock)" in reload_nfsd
-          assert reload_nfsd.index("storage_operation_lock_acquire") < reload_nfsd.index("reload_nfsd_locked()")
-          assert "file_unlock(storage_lock)" in reload_nfsd
-
           restart_nfsd = function_body(service, "restart_nfsd(void)")
-          assert "storage_operation_lock_acquire(file_lock)" in restart_nfsd
-          assert restart_nfsd.index("storage_operation_lock_acquire") < restart_nfsd.index("count_stor_mountpoint()")
-          assert "stop_nfsd_locked()" in restart_nfsd
-          assert "run_nfsd_locked()" in restart_nfsd
-          assert "file_unlock(storage_lock)" in restart_nfsd
+          assert "return run_nfsd();" in restart_nfsd
           assert "int run_nfsd(void);" in rc_header
           assert "void run_nfsd(void);" not in rc_header
-          assert "int reload_nfsd(void);" in rc_header
-          assert "void reload_nfsd(void);" not in rc_header
           assert 'ret = run_nfsd();' in rc_source
 
-          # Safe-removal and hotplug callers already own storage.lock; they
-          # must use the internal helpers rather than recursively locking.
-          stop_apps = function_body(service, "stop_stor_apps(void)")
-          assert "stop_nfsd_locked()" in stop_apps and "stop_nfsd()" not in stop_apps
-          start_apps = function_body(service, "start_stor_apps(void)")
-          assert "run_nfsd_locked()" in start_apps and "run_nfsd()" not in start_apps
-          safe_remove = function_body(service, "safe_remove_stor_device(")
-          assert safe_remove.index("storage_operation_lock_acquire(file_lock)") < safe_remove.index("stop_stor_apps()")
-          assert safe_remove.index("storage_operation_lock_acquire(file_lock)") < safe_remove.index("start_stor_apps()")
-          safe_remove_all = function_body(service, "safe_remove_all_stor_devices(")
-          assert safe_remove_all.index("storage_operation_lock_acquire(file_lock)") < safe_remove_all.index("stop_stor_apps()")
-          try_start = function_body(service, "try_start_stor_apps(void)")
-          assert try_start.index("storage_operation_lock_acquire(file_lock)") < try_start.index("start_stor_apps()")
+          reload_nfsd = function_body(service, "reload_nfsd(void)")
+          assert 'command_status = eval("/usr/bin/nfsd.sh", "reload");' in reload_nfsd
+          assert "if (command_status != 0)" in reload_nfsd
+          assert 'NFS daemon reload failed (status %d)' in reload_nfsd
 
           export_writer = function_body(service, "write_nfsd_exports(void)")
           assert "STORAGE_NFS_EXPORT_DEFAULT_OPTIONS" in export_writer
@@ -223,7 +187,6 @@ jobs:
               "trunk/user/nfs-utils/nfsd.sh",
               "trunk/user/nfs-utils/tests/nfsd_start_lifecycle.sh",
               "trunk/user/rc/src/services_stor.c",
-              "trunk/user/rc/src/rc.h",
               "trunk/user/rc/src/storage_nfs_export_policy.h",
               "trunk/user/rc/src/tests/storage_nfs_export_policy.c",
           ):

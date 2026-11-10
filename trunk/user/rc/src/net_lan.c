@@ -34,6 +34,7 @@
 #include "dnsmasq_domain_policy.h"
 #include "dhcp_lease_policy.h"
 #include "dnsmasq_file.h"
+#include "dnsmasq_lifecycle_lock.h"
 #include "switch.h"
 #include "switch_status_policy.h"
 #include <gpioutils.h>
@@ -697,10 +698,20 @@ void
 full_restart_lan(void)
 {
 	int is_wan_err = 0, is_lan_stp = 0;
-	int is_ap_mode = get_ap_mode();
-	int log_remote = nvram_invmatch("log_ipaddr", "");
+	int is_ap_mode, log_remote;
+	int dnsmasq_lock, dnsmasq_lock_errno;
 	int dnsmasq_stop_status, dnsmasq_start_status;
 
+	/* Serialize LAN teardown/reconfiguration with independent DNSMasq RC applets. */
+	dnsmasq_lock = dnsmasq_lifecycle_lock_acquire();
+	if (dnsmasq_lock < 0) {
+		dnsmasq_lock_errno = errno ? errno : EIO;
+		logmessage(LOGNAME, "cannot acquire DNSMasq lifecycle lock; refusing LAN restart (errno=%d)",
+			   dnsmasq_lock_errno);
+		return;
+	}
+	is_ap_mode = get_ap_mode();
+	log_remote = nvram_invmatch("log_ipaddr", "");
 	if (!is_ap_mode) {
 		is_wan_err = get_wan_unit_value_int(0, "err");
 		is_lan_stp = nvram_get_int("lan_stp");
@@ -715,7 +726,7 @@ full_restart_lan(void)
 	stop_networkmap();
 	stop_upnp();
 	stop_vpn_server();
-	dnsmasq_stop_status = stop_dns_dhcpd();
+	dnsmasq_stop_status = stop_dns_dhcpd_locked();
 	stop_lan(is_ap_mode);
 
 	reset_lan_vars();
@@ -743,7 +754,7 @@ full_restart_lan(void)
 
 	/* Never start a second DNSMasq while the previous process survived stop. */
 	if (dnsmasq_stop_status == 0) {
-		dnsmasq_start_status = start_dns_dhcpd(is_ap_mode);
+		dnsmasq_start_status = start_dns_dhcpd_locked(is_ap_mode);
 		if (dnsmasq_start_status != 0)
 			logmessage(LOGNAME, "DNSMasq restart after LAN reconfiguration failed (status=%d)",
 				   dnsmasq_start_status);
@@ -751,7 +762,12 @@ full_restart_lan(void)
 		logmessage(LOGNAME, "DNSMasq restart skipped because the previous process did not stop (status=%d)",
 			   dnsmasq_stop_status);
 	}
-
+	/* Release before later WAN/VPN work can request a DNS cache reload. */
+	if (dnsmasq_lifecycle_lock_release(dnsmasq_lock) != 0) {
+		dnsmasq_lock_errno = errno ? errno : EIO;
+		logmessage(LOGNAME, "cannot release DNSMasq lifecycle lock after LAN restart (errno=%d)",
+			   dnsmasq_lock_errno);
+	}
 	if (!is_ap_mode) {
 		if (is_lan_stp) {
 			br_set_stp(IFNAME_BR, 1);

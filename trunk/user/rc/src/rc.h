@@ -622,7 +622,11 @@ int fill_dnsmasq_servers(void);
 int is_dns_dhcpd_run(void);
 int is_dhcpd_enabled(int is_ap_mode);
 int start_dns_dhcpd(int is_ap_mode);
+/* Caller must already hold dnsmasq_lifecycle_lock_acquire(). */
+int start_dns_dhcpd_locked(int is_ap_mode);
 int stop_dns_dhcpd(void);
+/* Caller must already hold dnsmasq_lifecycle_lock_acquire(). */
+int stop_dns_dhcpd_locked(void);
 #if defined (APP_SMBD) || defined (APP_NMBD)
 int write_smb_conf_header(FILE *fp);
 int stop_nmbd(void);
