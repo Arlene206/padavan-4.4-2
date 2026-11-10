@@ -1306,6 +1306,15 @@ vsf_sysutil_lstat(const char* p_name, struct vsf_sysutil_statbuf** p_ptr)
   return lstat(p_name, (struct stat*) (*p_ptr));
 }
 
+int
+vsf_sysutil_lstatat(int dir_fd, const char* p_name,
+                    struct vsf_sysutil_statbuf** p_ptr)
+{
+  vsf_sysutil_alloc_statbuf(p_ptr);
+  return fstatat(dir_fd, p_name, (struct stat*) (*p_ptr),
+                 AT_SYMLINK_NOFOLLOW);
+}
+
 void
 vsf_sysutil_dir_stat(const struct vsf_sysutil_dir* p_dir,
                      struct vsf_sysutil_statbuf** p_ptr)
@@ -1585,6 +1594,23 @@ vsf_sysutil_readlink(const char* p_filename, char* p_dest, unsigned int bufsiz)
     return retval;
   }
   /* Ensure buffer is NULL terminated; readlink(2) doesn't do that */
+  p_dest[retval] = '\0';
+  return retval;
+}
+
+int
+vsf_sysutil_readlinkat(int dir_fd, const char* p_filename,
+                       char* p_dest, unsigned int bufsiz)
+{
+  int retval;
+  if (dir_fd < 0 || bufsiz == 0) {
+    errno = EINVAL;
+    return -1;
+  }
+  retval = readlinkat(dir_fd, p_filename, p_dest, bufsiz - 1);
+  if (retval < 0)
+    return retval;
+  /* Keep the sysstr wrapper's string-buffer contract. */
   p_dest[retval] = '\0';
   return retval;
 }

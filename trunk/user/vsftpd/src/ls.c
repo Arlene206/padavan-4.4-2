@@ -42,6 +42,7 @@ vsf_ls_populate_dir_list(struct vsf_session* p_sess,
   int t_option;
   int F_option;
   int do_stat = 0;
+  int dir_fd = -1;
   long curr_time = 0;
   loc_result = str_locate_char(p_option_str, 'a');
   a_option = loc_result.found;
@@ -64,6 +65,16 @@ vsf_ls_populate_dir_list(struct vsf_session* p_sess,
   if (is_verbose || t_option || F_option || p_subdir_list != 0)
   {
     do_stat = 1;
+  }
+  if (do_stat)
+  {
+    dir_fd = vsf_sysutil_dirfd(p_dir);
+    if (vsf_sysutil_retval_is_error(dir_fd))
+    {
+      str_free(&dirline_str);
+      str_free(&normalised_base_dir_str);
+      return;
+    }
   }
   /* If the filter starts with a . then implicitly enable -a */
   if (!str_isempty(p_filter_str) && str_get_char_at(p_filter_str, 0) == '.')
@@ -134,9 +145,7 @@ vsf_ls_populate_dir_list(struct vsf_session* p_sess,
         continue;
       }
     }
-    /* Calculate the full path (relative to CWD) for lstat() and
-     * output purposes
-     */
+    /* Calculate the display path (relative to CWD) for NLST output. */
     str_copy(&s_next_path_and_filename_str, &normalised_base_dir_str);
     str_append_str(&s_next_path_and_filename_str, &s_next_filename_str);
     if (do_stat)
@@ -145,7 +154,7 @@ vsf_ls_populate_dir_list(struct vsf_session* p_sess,
        * directory entry may have gone away whilst we read it, so
        * ignore failure to stat
        */
-      int retval = str_lstat(&s_next_path_and_filename_str, &s_p_statbuf);
+      int retval = str_lstatat(dir_fd, &s_next_filename_str, &s_p_statbuf);
       if (vsf_sysutil_retval_is_error(retval))
       {
         continue;
@@ -159,7 +168,7 @@ vsf_ls_populate_dir_list(struct vsf_session* p_sess,
       if (vsf_sysutil_statbuf_is_symlink(s_p_statbuf))
       {
         static struct mystr s_temp_str;
-        int retval = str_readlink(&s_temp_str, &s_next_path_and_filename_str);
+        int retval = str_readlinkat(&s_temp_str, dir_fd, &s_next_filename_str);
         if (retval == 0 && !str_isempty(&s_temp_str))
         {
           str_append_text(&s_final_file_str, " -> ");

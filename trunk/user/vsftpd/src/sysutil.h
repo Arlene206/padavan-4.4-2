@@ -113,6 +113,8 @@ int vsf_sysutil_write_loop(const int fd, const void* p_buf, unsigned int size);
 struct vsf_sysutil_statbuf;
 int vsf_sysutil_stat(const char* p_name, struct vsf_sysutil_statbuf** p_ptr);
 int vsf_sysutil_lstat(const char* p_name, struct vsf_sysutil_statbuf** p_ptr);
+int vsf_sysutil_lstatat(int dir_fd, const char* p_name,
+                        struct vsf_sysutil_statbuf** p_ptr);
 void vsf_sysutil_fstat(int fd, struct vsf_sysutil_statbuf** p_ptr);
 void vsf_sysutil_dir_stat(const struct vsf_sysutil_dir* p_dir,
                           struct vsf_sysutil_statbuf** p_ptr);
@@ -142,6 +144,8 @@ void vsf_sysutil_fchown(const int fd, const int uid, const int gid);
 void vsf_sysutil_fchmod(const int fd, unsigned int mode);
 int vsf_sysutil_readlink(const char* p_filename, char* p_dest,
                          unsigned int bufsiz);
+int vsf_sysutil_readlinkat(int dir_fd, const char* p_filename,
+                           char* p_dest, unsigned int bufsiz);
 
 /* Get / unget various locks. Lock gets are blocking. Write locks are
  * exclusive; read locks are shared.

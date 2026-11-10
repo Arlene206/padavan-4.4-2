@@ -1,3 +1,17 @@
+## 2026-11-10 08:19 CST (UTC+8) — Resolve LIST entry metadata relative to the enumerated directory
+
+- **Base main SHA:** `4cf4f33894658e8f23495f6fff65066143f767dd`.
+- **Recovered exact-head evidence:** recursive listing VSFTPD regression [42725894055] and AI handoff docs [42725893729] both completed SUCCESS on exact SHA `4cf4f33894658e8f23495f6fff65066143f767dd`. The GNU89 workflow compiled and executed the FTP ACL policy suite and passed the semantic source contract after the fixture/assertion correction.
+- **Finding:** `vsf_ls_populate_dir_list()` enumerated names from an already-open `DIR*`, but performed subsequent per-entry metadata operations with `str_lstat(base/name)` and `str_readlink(base/name)`. If the base pathname were renamed or replaced after opening, LIST could report type/metadata/link targets from a different directory than the one whose entries were enumerated.
+- **Fix:** add `vsf_sysutil_lstatat()` (uses `fstatat(..., AT_SYMLINK_NOFOLLOW)`), `vsf_sysutil_readlinkat()`, and matching `str_lstatat()` / `str_readlinkat()` wrappers. `ls.c` obtains the listing directory fd once and uses the entry leaf with those wrappers for both type metadata and symlink-target formatting. NLST's display path remains unchanged; only metadata lookup becomes descriptor-relative.
+- **Regression:** extend the host policy fixture to verify that descriptor-relative `fstatat()` retains symlink-entry identity and `readlinkat()` returns the link target. Extend exact-source semantic checks and push/PR path filters for `ls.c`, `sysstr.c` and `sysstr.h`.
+- **Changed paths:** `trunk/user/vsftpd/src/sysutil.c`, `sysutil.h`, `sysstr.c`, `sysstr.h`, `ls.c`, `tests/ftp_acl_path_policy.c`, `.github/workflows/vsftpd-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and this log.
+- **Validation:** L1 source/control-flow review PASS. Prior recursive-listing VSFTPD host/source-contract run [42725894055] and AI docs [42725893729] passed exact base SHA `4cf4f33894658e8f23495f6fff65066143f767dd`. THIS per-entry metadata GNU89 host regression/source contract and AI-doc Actions are pending on the exact resulting SHA. No local checkout/compiler was available; L3 MIPS/uClibc and L4 hardware remain NOT VERIFIED.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** reconcile exact-head Actions, then fix listing-base visibility resolution and define host-testable recursion resource bounds. Keep MDTM/SITE CHMOD, upload cleanup, DHCP/FULLCONENAT/NFS and target/device validation open.
+
+---
+
 ## 2026-11-10 08:11 CST (UTC+8) — Repair recursive-listing regression fixture and workflow contract
 
 - **Base main SHA:** `2db271ad5e46fc3128f1599d8102dab7fabb582e`.

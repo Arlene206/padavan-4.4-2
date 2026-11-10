@@ -9,6 +9,8 @@ struct vsf_sysutil_user;
 
 void str_getcwd(struct mystr* p_str);
 int str_readlink(struct mystr* p_str, const struct mystr* p_filename_str);
+int str_readlinkat(struct mystr* p_str, int dir_fd,
+                   const struct mystr* p_filename_str);
 int str_write_loop(const struct mystr* p_str, const int fd);
 int str_read_loop(struct mystr* p_str, const int fd);
 int str_mkdir(const struct mystr* p_str, const unsigned int mode);
@@ -26,6 +28,8 @@ int str_create_exclusive(const struct mystr* p_str);
 int str_chmod(const struct mystr* p_str, unsigned int mode);
 int str_stat(const struct mystr* p_str, struct vsf_sysutil_statbuf** p_ptr);
 int str_lstat(const struct mystr* p_str, struct vsf_sysutil_statbuf** p_ptr);
+int str_lstatat(int dir_fd, const struct mystr* p_filename_str,
+                struct vsf_sysutil_statbuf** p_ptr);
 int str_rename(const struct mystr* p_from_str, const struct mystr* p_to_str);
 struct vsf_sysutil_dir* str_opendir(const struct mystr* p_str);
 void str_next_dirent(struct mystr* p_filename_str,

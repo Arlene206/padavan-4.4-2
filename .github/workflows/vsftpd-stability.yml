@@ -12,6 +12,9 @@ on:
       - "trunk/user/vsftpd/src/ftpdataio.c"
       - "trunk/user/vsftpd/src/sysutil.c"
       - "trunk/user/vsftpd/src/sysutil.h"
+      - "trunk/user/vsftpd/src/ls.c"
+      - "trunk/user/vsftpd/src/sysstr.c"
+      - "trunk/user/vsftpd/src/sysstr.h"
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/ftp_config_file.h"
       - "trunk/user/rc/src/tests/ftp_config_file.c"
@@ -30,6 +33,9 @@ on:
       - "trunk/user/vsftpd/src/ftpdataio.c"
       - "trunk/user/vsftpd/src/sysutil.c"
       - "trunk/user/vsftpd/src/sysutil.h"
+      - "trunk/user/vsftpd/src/ls.c"
+      - "trunk/user/vsftpd/src/sysstr.c"
+      - "trunk/user/vsftpd/src/sysstr.h"
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/ftp_config_file.h"
       - "trunk/user/rc/src/tests/ftp_config_file.c"
@@ -80,6 +86,9 @@ jobs:
           vsftpd_dataio = Path("trunk/user/vsftpd/src/ftpdataio.c").read_text()
           vsftpd_sysutil = Path("trunk/user/vsftpd/src/sysutil.c").read_text()
           vsftpd_sysutil_header = Path("trunk/user/vsftpd/src/sysutil.h").read_text()
+          vsftpd_ls = Path("trunk/user/vsftpd/src/ls.c").read_text()
+          vsftpd_sysstr = Path("trunk/user/vsftpd/src/sysstr.c").read_text()
+          vsftpd_sysstr_header = Path("trunk/user/vsftpd/src/sysstr.h").read_text()
           acl_path_policy = Path("trunk/user/vsftpd/src/ftp_acl_path_policy.h").read_text()
           acl_path_test = Path("trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c").read_text()
 
@@ -146,6 +155,11 @@ jobs:
           recursive_list = function_body(vsftpd_dataio, "transfer_dir_internal(struct vsf_session* p_sess")
           sys_fdopendir = function_body(vsftpd_sysutil, "vsf_sysutil_fdopendir(")
           sys_dirfd = function_body(vsftpd_sysutil, "vsf_sysutil_dirfd(")
+          sys_lstatat = function_body(vsftpd_sysutil, "vsf_sysutil_lstatat(")
+          sys_readlinkat = function_body(vsftpd_sysutil, "vsf_sysutil_readlinkat(")
+          str_lstatat = function_body(vsftpd_sysstr, "str_lstatat(")
+          str_readlinkat = function_body(vsftpd_sysstr, "str_readlinkat(")
+          listing_entries = function_body(vsftpd_ls, "vsf_ls_populate_dir_list(")
           directory = function_body(vsftpd_postlogin, "static void\nhandle_dir_common")
           acl_at = function_body(vsftpd_acl, "asus_check_permission_at(")
           acl_path = function_body(vsftpd_acl, "asus_check_permission_path(")
@@ -192,6 +206,18 @@ jobs:
           assert "vsf_sysutil_fdopendir(int fd)" in vsftpd_sysutil_header
           assert "recursive child open did not pin the direct directory" in acl_path_test
           assert "recursive child open followed a substituted directory symlink" in acl_path_test
+          assert "vsf_sysutil_lstatat(dir_fd, str_getbuf(p_filename_str), p_ptr)" in str_lstatat
+          assert "fstatat(dir_fd, p_name, (struct stat*) (*p_ptr)" in sys_lstatat
+          assert "AT_SYMLINK_NOFOLLOW" in sys_lstatat
+          assert "readlinkat(dir_fd, p_filename, p_dest, bufsiz - 1)" in sys_readlinkat
+          assert "p_dest[retval] = '\\0'" in sys_readlinkat
+          assert "vsf_sysutil_readlinkat(dir_fd, str_getbuf(p_filename_str)" in str_readlinkat
+          assert "str_lstatat(dir_fd, &s_next_filename_str, &s_p_statbuf)" in listing_entries
+          assert "str_readlinkat(&s_temp_str, dir_fd, &s_next_filename_str)" in listing_entries
+          assert "str_lstat(&s_next_path_and_filename_str" not in listing_entries
+          assert "str_readlink(&s_temp_str, &s_next_path_and_filename_str)" not in listing_entries
+          assert "descriptor-relative lstat did not preserve symlink entry identity" in acl_path_test
+          assert "descriptor-relative readlink returned the wrong target" in acl_path_test
           assert "asus_check_permission_open_directory(" in directory
           assert "asus_open_existing_path(p_sess, PERM_READ" in size
           assert "&p_sess->ftp_arg_str, 1," in size

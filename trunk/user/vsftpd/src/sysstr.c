@@ -102,6 +102,13 @@ str_lstat(const struct mystr* p_str, struct vsf_sysutil_statbuf** p_ptr)
 }
 
 int
+str_lstatat(int dir_fd, const struct mystr* p_filename_str,
+            struct vsf_sysutil_statbuf** p_ptr)
+{
+  return vsf_sysutil_lstatat(dir_fd, str_getbuf(p_filename_str), p_ptr);
+}
+
+int
 str_create_exclusive(const struct mystr* p_str)
 {
   return vsf_sysutil_create_file_exclusive(str_getbuf(p_str));
@@ -157,6 +164,28 @@ str_readlink(struct mystr* p_str, const struct mystr* p_filename_str)
   /* Note: readlink(2) does not NULL terminate, but our wrapper does */
   retval = vsf_sysutil_readlink(str_getbuf(p_filename_str), p_readlink_buf,
                                 VSFTP_PATH_MAX);
+  if (vsf_sysutil_retval_is_error(retval))
+  {
+    return retval;
+  }
+  str_alloc_text(p_str, p_readlink_buf);
+  return 0;
+}
+
+int
+str_readlinkat(struct mystr* p_str, int dir_fd,
+               const struct mystr* p_filename_str)
+{
+  static char* p_readlink_buf;
+  int retval;
+  if (p_readlink_buf == 0)
+  {
+    vsf_secbuf_alloc(&p_readlink_buf, VSFTP_PATH_MAX);
+  }
+  /* In case readlinkat() fails */
+  str_empty(p_str);
+  retval = vsf_sysutil_readlinkat(dir_fd, str_getbuf(p_filename_str),
+                                  p_readlink_buf, VSFTP_PATH_MAX);
   if (vsf_sysutil_retval_is_error(retval))
   {
     return retval;

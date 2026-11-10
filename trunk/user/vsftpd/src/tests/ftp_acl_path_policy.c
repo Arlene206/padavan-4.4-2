@@ -69,12 +69,13 @@ main(void)
   int child_parent_fd, child_dir_fd;
   int rename_source_fd, rename_destination_fd;
   char existing_leaf[PATH_MAX], readback[16];
+  char link_target[PATH_MAX];
   char remove_link[PATH_MAX], remove_dir_link[PATH_MAX], empty_dir[PATH_MAX];
   char rename_source[PATH_MAX], rename_destination[PATH_MAX];
   char rename_link[PATH_MAX], rename_link_destination[PATH_MAX];
   char rename_dir[PATH_MAX], rename_dir_link[PATH_MAX];
   char rename_parent_a[PATH_MAX], rename_parent_b[PATH_MAX];
-  ssize_t read_length;
+  ssize_t read_length, link_target_length;
   struct stat st, canonical_st;
   char *created;
 
@@ -153,6 +154,30 @@ main(void)
       mkdir(empty_dir, 0700)) {
     perror("create symlink/removal fixtures"); return 1;
   }
+  /*
+   * LIST metadata must be obtained relative to the directory descriptor:
+   * lstat semantics retain symlink identity and readlinkat sees its target.
+   */
+  child_parent_fd = ftp_acl_path_open_verified_directory(a);
+  if (child_parent_fd < 0 ||
+      fstatat(child_parent_fd, "cross-share-link", &st,
+              AT_SYMLINK_NOFOLLOW) != 0 || !S_ISLNK(st.st_mode)) {
+    fprintf(stderr, "descriptor-relative lstat did not preserve symlink entry identity\n");
+    return 1;
+  }
+  link_target_length = readlinkat(child_parent_fd, "cross-share-link",
+                                  link_target, sizeof(link_target) - 1);
+  if (link_target_length < 0 ||
+      (size_t) link_target_length >= sizeof(link_target)) {
+    fprintf(stderr, "descriptor-relative readlink failed\n");
+    return 1;
+  }
+  link_target[link_target_length] = '\0';
+  if (strcmp(link_target, file_b) != 0 || close(child_parent_fd) != 0) {
+    fprintf(stderr, "descriptor-relative readlink returned the wrong target\n");
+    return 1;
+  }
+
   /*
    * Recursive listing must open direct child directories through the pinned
    * parent and must not follow a directory symlink substituted for a child.
