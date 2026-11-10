@@ -29,6 +29,7 @@
 #include "firewall_ppp_interface_policy.h"
 #include "vpn_server_lease_policy.h"
 #include "vpn_server_lease_lock.h"
+#include "vpn_server_lifecycle_lock.h"
 
 #define VPNS_LOG_NAME		"VPN server"
 #define VPNS_PPP_UP_SCRIPT	"/tmp/ppp/ip-up.vpns"
@@ -303,8 +304,8 @@ gen_vpns_pppd_options(int vpns_type)
 	return 0;
 }
 
-int
-start_vpn_server(void)
+static int
+start_vpn_server_locked(void)
 {
 	FILE *fp;
 	int i, i_type, i_vuse;
@@ -399,8 +400,33 @@ start_vpn_server(void)
 	return 0;
 }
 
-void
-stop_vpn_server(void)
+int
+start_vpn_server(void)
+{
+	int lock_fd, result, saved_errno;
+
+	lock_fd = vpn_server_lifecycle_lock_acquire();
+	if (lock_fd < 0) {
+		logmessage(VPNS_LOG_NAME, "cannot lock VPN server lifecycle for start (errno=%d)", errno);
+		return -1;
+	}
+	result = start_vpn_server_locked();
+	saved_errno = errno;
+	if (vpn_server_lifecycle_lock_release(lock_fd) != 0) {
+		int release_errno = errno ? errno : EIO;
+		logmessage(VPNS_LOG_NAME, "cannot release VPN server lifecycle lock after start (errno=%d)", release_errno);
+		if (result == 0) {
+			result = -1;
+			saved_errno = release_errno;
+		}
+	}
+	if (result != 0 && saved_errno != 0)
+		errno = saved_errno;
+	return result;
+}
+
+static void
+stop_vpn_server_locked(void)
 {
 	int i;
 	char pppd_pid[32];
@@ -433,29 +459,55 @@ stop_vpn_server(void)
 }
 
 void
-restart_vpn_server(void)
+stop_vpn_server(void)
 {
-	if (get_ap_mode())
+	int lock_fd;
+
+	lock_fd = vpn_server_lifecycle_lock_acquire();
+	if (lock_fd < 0) {
+		logmessage(VPNS_LOG_NAME, "cannot lock VPN server lifecycle for stop (errno=%d)", errno);
 		return;
-
-	xl2tpd_killed_vpns = 0;
-
-	stop_vpn_server();
-	start_vpn_server();
-
-	restart_firewall();
-
-#if defined(APP_NFSD)
-	reload_nfsd();
-#endif
-
-	/* restore L2TP WAN client or L2TP VPNC */
-	if (xl2tpd_killed_vpns && (nvram_match("l2tp_wan_t", "1") || nvram_match("l2tp_cli_t", "1")))
-		safe_start_xl2tpd();
+	}
+	stop_vpn_server_locked();
+	if (vpn_server_lifecycle_lock_release(lock_fd) != 0)
+		logmessage(VPNS_LOG_NAME, "cannot release VPN server lifecycle lock after stop (errno=%d)", errno);
 }
 
 void
-reapply_vpn_server(void)
+restart_vpn_server(void)
+{
+	int lock_fd, start_status;
+
+	if (get_ap_mode())
+		return;
+	lock_fd = vpn_server_lifecycle_lock_acquire();
+	if (lock_fd < 0) {
+		logmessage(VPNS_LOG_NAME, "cannot lock VPN server lifecycle for restart (errno=%d)", errno);
+		return;
+	}
+
+	xl2tpd_killed_vpns = 0;
+	/* Keep teardown, config publication and service restoration atomic across
+	 * independent RC applets and PID 1 notifications. */
+	stop_vpn_server_locked();
+	start_status = start_vpn_server_locked();
+	if (start_status != 0)
+		logmessage(VPNS_LOG_NAME, "VPN server restart failed (status=%d, errno=%d)", start_status, errno);
+
+	restart_firewall();
+#if defined(APP_NFSD)
+	reload_nfsd();
+#endif
+	/* Restore L2TP WAN client/VPNC before releasing the lifecycle lock. */
+	if (xl2tpd_killed_vpns && (nvram_match("l2tp_wan_t", "1") || nvram_match("l2tp_cli_t", "1")))
+		safe_start_xl2tpd();
+
+	if (vpn_server_lifecycle_lock_release(lock_fd) != 0)
+		logmessage(VPNS_LOG_NAME, "cannot release VPN server lifecycle lock after restart (errno=%d)", errno);
+}
+
+static void
+reapply_vpn_server_locked(void)
 {
 	int i_type;
 
@@ -469,6 +521,21 @@ reapply_vpn_server(void)
 	else
 #endif
 		gen_vpns_pppd_options(i_type);
+}
+
+void
+reapply_vpn_server(void)
+{
+	int lock_fd;
+
+	lock_fd = vpn_server_lifecycle_lock_acquire();
+	if (lock_fd < 0) {
+		logmessage(VPNS_LOG_NAME, "cannot lock VPN server lifecycle for reapply (errno=%d)", errno);
+		return;
+	}
+	reapply_vpn_server_locked();
+	if (vpn_server_lifecycle_lock_release(lock_fd) != 0)
+		logmessage(VPNS_LOG_NAME, "cannot release VPN server lifecycle lock after reapply (errno=%d)", errno);
 }
 
 static int

@@ -1,3 +1,15 @@
+## 2026-11-10 20:12 CST (UTC+8) — Serialize VPN server lifecycle across RC callers
+
+- **Base main SHA:** `0dbc2f614f47c7e8d53f303b6fd3065b3863a59e`; only remote branch is `main`, with no checkpoint. Prior PID 1 notification task is closed: queue run [42811368029] and AI handoff docs [42811367804] both SUCCESS on that exact SHA; all job steps inspected.
+- **Finding:** PID 1 dispatches `RCN_RESTART_VPNSVR` and `RCN_REAPPLY_VPNSVR`; WINS notification also reapplies settings. A separate direct RC restart applet exists, and normal service startup/shutdown invokes start/stop. Independent processes had no shared lifecycle barrier. Concurrent calls could interleave daemon teardown, PPP config/chap-secrets publication, lease clearing, firewall restart and L2TP restoration. The current VPN lease lock only protects individual client lease/firewall inventory operations.
+- **Fix:** add root-private stable-inode `/tmp/.vpns.lifecycle.lock` using `O_NOFOLLOW`, regular-file/owner/mode/link-count validation, bounded EINTR-aware nonblocking `fcntl(F_SETLK)` and explicit release status. Public start/stop/reapply take the lock; restart holds it across stop→start→firewall/NFS post-work→L2TP restoration. Private `*_locked` helpers prevent recursive acquisition; public signatures and call sites stay intact.
+- **Regression:** GNU89 host test covers lock inode/mode, cross-process exclusion, fail-closed contention, symlink/hardlink/directory rejection and release/reacquisition. Python semantic contract checks wrapper/restart order, PID 1/direct RC/service caller wiring and workflow path filters. New path-filtered Actions workflow compiles/runs both.
+- **Changed paths:** `trunk/user/rc/src/vpn_server.c`, new lifecycle header/test, new `scripts/check_vpn_server_lifecycle.py`, new VPN workflow, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log. Root log had 43 records and has 44; no rotation/INDEX update is due.
+- **Validation:** L1 source/caller review PASS. Standalone lock test compiled with `cc -std=gnu89 -Wall -Wextra -Werror` and printed `VPN server lifecycle lock policy: PASS`. VPN semantic contract and AI docs are pending exact-head Actions. No full RC host compile, production MIPS/uClibc object, firmware/TRX or L4 router test is claimed.
+- **Boundary:** lifecycle lock serializes separate RC processes; PPP callbacks retain the independent lease lock. This does not claim to fence all callbacks already in flight. FTP cleanup TOCTOU remains OPEN/BLOCKED; NFS compatibility and FULLCONENAT/wireless/WAN target gaps remain open.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** inspect VPN lifecycle and AI handoff workflows on the exact resulting main SHA, including every job step. If green, rotate to the next repository-wide stability defect.
+
 ## 2026-11-10 19:53 CST (UTC+8) — Correct PID 1 queue source-contract cleanup ordering
 
 - Base main SHA: `54abd9e392532488466f03fc0b355a82be2fde50`.

@@ -1,12 +1,11 @@
 ## Current source / CI checkpoint
 
-- Repository: `Arlene206/padavan-4.4-2`; maintained fork only. Baseline main before THIS COMMIT is `bff7da0ce69ef6f789460afd75e47a4b5e2166c5`; only remote branch is main, with no checkpoint branch.
-- Exact-head Actions on base SHA `bff7da0ce69ef6f789460afd75e47a4b5e2166c5`: NFS [42810176922], USB storage [42810176909] and AI handoff docs [42810176971] all SUCCESS after inspecting every job step. The preceding DNSMasq lifecycle commit passed HTTPD [42809128510] and AI docs [42809128546]; its NFS/storage workflow assertions were restored before this base SHA.
-- NFS lifecycle serialization remains implemented: public run/stop/reload wrappers use the storage safe-removal lock; restart holds it over mount inventory, stop and optional run/unload; hotplug/removal callers use internal locked helpers. The two dependent workflow contracts pass again on exact SHA `bff7da0ce69ef6f789460afd75e47a4b5e2166c5`.
-- The DNSMasq lifecycle lock landed in the preceding commit: public start/stop/restart/cache-reload APIs and full LAN stop/reconfigure/start use a bounded stable-inode cross-process fcntl lock. HTTPD [42809128510] passed the GNU89 lock regression and semantic contract on its exact SHA; target MIPS/uClibc and L4 behavior remain unverified.
-- WAN DHCP/PPP publication, callback fencing, teardown and route status are failure-gated; PPP demand readiness checks preset-route completion and exact Linux 4.4 FIB duplicate semantics. WAN callback/startup identity remains logical unit 0 only.
-- FTP upload parent identity is pinned before ACL evaluation. Failed-upload cleanup's separate `fstatat()` → `unlinkat()` race remains OPEN/BLOCKED; Linux 4.4 has no inode-conditional unlink and no safe workaround is established.
-- Root `dev_log.md` has 42 complete newest-first records after THIS COMMIT; no archive rotation or INDEX update is due. The 100 older records remain in `docs/dev-log/2026/11/part-006.md` (239599 UTF-8 bytes).
+- Repository: `Arlene206/padavan-4.4-2`; maintained fork only.
+- **Live main baseline before THIS COMMIT:** `0dbc2f614f47c7e8d53f303b6fd3065b3863a59e`; only remote branch is `main`, with no checkpoint branch.
+- Prior PID 1 queue task is closed: stability run [42811368029] and AI handoff docs [42811367804] both SUCCESS on that exact SHA; every job step inspected.
+- Current round adds cross-process VPN server lifecycle serialization for PID 1 reapply/restart notifications, a direct RC restart applet and normal service start/stop callers.
+- Local VPN lifecycle lock GNU89 regression PASS. Exact-head VPN semantic contract and AI docs Actions for THIS COMMIT pending. Production RC host build, target MIPS/uClibc, firmware/TRX and L4 remain NOT VERIFIED.
+- Root `dev_log.md` has 43 complete entries before THIS COMMIT and will have 44 after this milestone; no rotation or INDEX update is due.
 
 ## Whole-repository module status
 
@@ -22,17 +21,19 @@
 | NVRAM / persistence / startup | PARTIAL / AUDITING | Atomic publication and restore failure gates. | Remaining direct callers, flash recovery and board variants. |
 | Switch / PHY / MDIO / link state | PARTIAL / AUDITING | Selected ioctl propagation, PVID/link retry, CLI ordering and MDIO timeout checks. | Other board drivers and live hardware behavior. |
 | Samba share service / accounts | PARTIAL / AUDITING | Generated smb.conf staging/atomic publication, folder inventory/read errors fail closed, mode-4 write-only ACL generation, credential staging and ordinary-error rollback; required smbd/nmbd command and process-presence postconditions; stop-status propagation into storage removal; WINS lifecycle checks. Same-boot paired passdb/config transaction now uses PREPARED/COMMITTED snapshots, idempotent rollback/recovery and a shared writer lock; GNU89 host crash-recovery tests and exact-head Samba/HTTPD Actions PASS. | Live authentication/reload compatibility and target build/device behavior remain unverified; volatile /etc journal is not a power-loss guarantee. |
+| VPN server / PPTP / L2TP / OpenVPN | PARTIAL / AUDITING | PID 1 restart/reapply notifications, WINS reapply, direct RC restart applet and normal service start/stop can overlap. THIS COMMIT adds a stable-inode process lock around start/stop/restart/reapply; restart holds stop→start→firewall/NFS/L2TP restoration together. GNU89 lock test and semantic caller/order contract added; exact-head Actions pending. | Interactions with in-flight PPP callbacks, PPTP/L2TP/OpenVPN live behavior, target build and board compatibility remain unaudited/unverified. |
 | FTP service / vsftpd | PARTIAL / AUDITING | Upload/RETR/SIZE, DELE/RMD, MKD, RNFR/RNTO, recursive LIST/NLST/STAT, MDTM and SITE CHMOD now use descriptor-relative ACL/open/metadata operations. Upload parent directory identity is pinned before share-ACL lookup and revalidated afterward; a real-directory substitution regression is added; recursion bounded to depth 32 / 4096 entries per directory / 32768 total. ACL config reader rejects blocking/symlink/non-regular/oversized inputs. STAT distinguishes complete versus failed/unavailable listings while retaining the 213 multiline terminator. MDTM uses pinned-fd `fstat/futimes`; CHMOD uses pinned-fd `fchmod`; the vsftpd configuration publication stability regression passed on exact SHA `822edf9d46a2f369a63eae0bcc1bb49f326c29e1` [42752774671]. | Upload cleanup still has a check/unlink race between inode validation and `unlinkat`; auth/account/anonymous compatibility and MIPS/uClibc runtime remain unverified. |
 | Init / PID 1 / service supervision | PARTIAL / AUDITING | Notification deferral, child reaping, selected start/stop failure gates, and MTD Optware worker signal reset/cancellation. THIS COMMIT preserves the ten-entry notification bound and re-sends SIGUSR1 only when a safe queue marker remains after a full batch, preventing coalesced-signal backlog starvation; GNU89 policy plus existing queue-marker trust-boundary regression are included. | Cross-module ordering, other package supervision, and MIPS/uClibc PID 1 live behavior remain open. |
 
 ## Priority queue
 
-1. P2 — Complete FULLCONENAT target kernel/MIPS object validation; the newly explicit `NF_CONNTRACK_EVENTS` prerequisite and its source contract prevent an unsupported notifier configuration, but host namespace/zone tests still do not substitute for target compilation.
-2. P2 — Resolve the FTP upload-cleanup check/unlink race through a broader safe upload-publication/serialization design. Linux 4.4 `renameat2` support alone does not make expected-inode deletion atomic; do not add an unsafe exchange/quarantine workaround.
-3. P2 — Resolve NFS `async` durability/throughput, AUTH_SYS/root-squash migration and external-mount compatibility decisions. The in-tree NFS lifecycle race with safe storage removal is fixed by sharing the operation lock; no export-policy migration is justified without client evidence.
-4. P2 — Validate the new DNSMasq cross-process lifecycle lock on production MIPS/uClibc and during L4 LAN-reconfiguration/DHCP concurrency; host process-lock tests do not substitute for target runtime evidence.
-5. P2 — Validate the idempotent bridge-add and bulk-detach behavior on the MIPS target and across board variants; host policy/source contracts do not prove live bridge ioctl behavior.
-6. P2 — Validate WAN PPP demand-mode route readiness, persistent reconnect and callback recovery on MIPS/uClibc and router hardware. Source/host checks now gate preset-route failure and document the retained-partial-route retry path; they do not prove L3/L4 runtime.
+1. P2 — Validate VPN lifecycle locking and daemon/callback behavior on production MIPS/uClibc and router hardware; host locking tests do not prove target service behavior.
+2. P2 — Complete FULLCONENAT target kernel/MIPS object validation.
+3. P2 — Resolve FTP upload-cleanup TOCTOU only through a proved staged-publication design preserving STOR/APPE/REST/STOU and filesystem semantics.
+4. P2 — Resolve NFS `async` durability, AUTH_SYS/root-squash and external-mount compatibility only with client evidence.
+5. P2 — Validate DNSMasq cross-process lock on production MIPS/uClibc and during live LAN/DHCP concurrency.
+6. P2 — Validate wireless bulk detach/bridge ownership across target board variants.
+7. P2 — Validate WAN PPP reconnect, callback recovery and IPv6 rollback on target; WAN scope remains unit 0.
 
 ## Working rules
 
@@ -49,14 +50,8 @@
 
 | Level | Evidence | Limits |
 |---|---|---|
-| L1 source review | PASS for NFS and DNSMasq lifecycle serialization, FTP descriptor-relative path operations and pre-ACL upload-parent pinning, WAN DHCP/PPP publication and route-state gates, and PID 1 signal-mask/notification-queue call-path review. FTP failed-upload cleanup's final inode-check/unlink gap remains OPEN/BLOCKED. |
-| L2 host / Actions | Exact base SHA `bff7da0ce69ef6f789460afd75e47a4b5e2166c5`: NFS [42810176922], USB storage [42810176909] and AI docs [42810176971] all SUCCESS. The PID 1 notification batch policy and existing queue-marker regression are queued for compile/run in the new exact-head workflow; full RC compile, target MIPS/uClibc, firmware/TRX and L4 router tests are NOT VERIFIED. |
-| L3 MIPS/uClibc production objects / firmware/TRX | NOT VERIFIED. | Full target build phase required. |
-| L4 router/SMB/DHCP behavior and physical hardware | NOT VERIFIED. | Requires target-device validation. |
+| L1 source review | PASS for VPN server cross-process caller paths and lifecycle lock boundaries; DNSMasq/NFS lifecycle serialization; FTP descriptor-relative access and upload-parent pinning; WAN DHCP/PPP status gates; PID 1 queue requeue. FTP final inode-check/unlink gap remains OPEN/BLOCKED. | VPN fix does not claim to fence callbacks already running before stop or prove live target behavior. |
+| L2 host / Actions | VPN lock helper GNU89 test passed locally with `-Wall -Wextra -Werror`; exact-head VPN semantic workflow and AI docs are pending on THIS COMMIT. PID 1 [42811368029] and AI docs [42811367804] SUCCESS on base SHA `0dbc2f614f47c7e8d53f303b6fd3065b3863a59e`. | No full RC host build; no target MIPS/uClibc, firmware/TRX or L4 router test. |
+| L3 MIPS/uClibc production objects / firmware/TRX | NOT VERIFIED. | Consolidated target build remains required. |
+| L4 router/SMB/DHCP/VPN and physical hardware | NOT VERIFIED. | Requires target-device validation. |
 
-## Handoff requirements
-
-- SESSION_HANDOFF.md is the only actionable continuation point.
-- Update the handoff only when resumable work/checkpoint/next action changes or before stopping; update the roadmap only when module status/evidence/priorities change; record coherent milestones in dev_log.md.
-- Keep 20–119 complete records in root dev_log.md. At 120 records, batch-archive the oldest 100 and retain the newest 20; also honor the 384 KiB target and 512 KiB hard limit.
-- Recheck main, checkpoint branches and exact-head Actions on every takeover.
