@@ -1,3 +1,16 @@
+## 2026-11-11 05:23 CST (UTC+8) — Correct exact-head workflow census for WAN teardown checkpoint
+
+- **Code-bearing commit:** `5e215b5e694488793d86ec984af6ea109f977fce`; documentation closeout parent `f1c92f623a6192aeb391e30b23468c8c48dec5ef`. The initial head-SHA Actions response omitted one run while the workflow index was still populating; a branch-scoped query followed by an exact-SHA query returned the complete census of 9.
+- **Corrected exact-head result:** all 9 workflows on code SHA `5e215b5e694488793d86ec984af6ea109f977fce` completed SUCCESS: WAN DHCP callback [42903822810], VPN lifecycle [42903822831], AI handoff docs [42903823036], WAN teardown [42903823098], detect_link [42903822824], HTTPD security [42903823335], detect_internet [42903823353], WAN ARP [42903822903], and WAN route status [42903822863]. Every job and step was inspected; the previously omitted WAN DHCP callback workflow compiled and ran all seven regression binaries and passed the callback-publication source contract.
+- **Documentation closeout validation:** exact docs SHA `f1c92f623a6192aeb391e30b23468c8c48dec5ef` passed AI handoff docs [42904140039]. The job log reported `AI handoff documentation check: PASS (root log=70/119 entries, batch=100, retain=20, legacy/current archives: dev-log=6, handoff=22, roadmap=18)`.
+- **Correction:** this record supersedes the preceding checkpoint's initial eight-workflow census; the code-bearing SHA had nine, all successful. Source changes are unchanged.
+- **Changed paths in THIS COMMIT:** `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and this log. This correction is necessary so the recoverable checkpoint contains the complete exact-SHA run inventory.
+- **Root log:** 70 complete newest-first records before this entry; 71 after. Below rotation thresholds; no archive or INDEX update.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** continue whole-repository P2 reliability/security audit. Trace FTP STOR/APPE/REST/STOU lifecycle and cleanup TOCTOU before any fix; keep it OPEN/BLOCKED unless a complete staged-publication design is proven.
+
+---
+
 ## 2026-11-11 05:20 CST (UTC+8) — Reconcile WAN bridge teardown Actions and close the checkpoint
 
 - **Code-bearing commit:** `5e215b5e694488793d86ec984af6ea109f977fce`, parent `d9bf7a52cbf684ddb6b196016e429bbb5c01a19c`. THIS COMMIT only records the completed validation and the next handoff; it does not change firmware source.

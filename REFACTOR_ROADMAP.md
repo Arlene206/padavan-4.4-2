@@ -1,10 +1,10 @@
 ## Current source / CI checkpoint
 
 - Repository: `Arlene206/padavan-4.4-2`; last code-bearing main checkpoint `5e215b5e694488793d86ec984af6ea109f977fce`, parent `d9bf7a52cbf684ddb6b196016e429bbb5c01a19c`. THIS COMMIT is a documentation-only closeout of the validation results; remote branch inventory remains only `main`, with no checkpoint branch.
-- On exact code SHA `5e215b5e694488793d86ec984af6ea109f977fce`, all 8 triggered workflows completed SUCCESS: VPN lifecycle [42903822831], AI docs [42903823036], WAN teardown [42903823098], detect_link [42903822824], HTTPD security [42903823335], detect_internet [42903823353], WAN ARP [42903822903], and WAN route status [42903822863]. Every job/step was inspected. WAN teardown GNU89 compile/run succeeded and the source contract printed PASS. AI docs check printed `PASS (root log=69/119 entries, batch=100, retain=20, legacy/current archives: dev-log=6, handoff=22, roadmap=18)`.
+- On exact code SHA `5e215b5e694488793d86ec984af6ea109f977fce`, all 9 triggered workflows completed SUCCESS: WAN DHCP callback [42903822810], VPN lifecycle [42903822831], AI docs [42903823036], WAN teardown [42903823098], detect_link [42903822824], HTTPD security [42903823335], detect_internet [42903823353], WAN ARP [42903822903], and WAN route status [42903822863]. Every job/step was inspected. WAN teardown GNU89 compile/run and the source contract passed; WAN DHCP callback also ran all seven regression binaries and passed its source contract. AI docs passed with root log 69/119. The subsequent documentation closeout SHA `f1c92f623a6192aeb391e30b23468c8c48dec5ef` passed AI docs [42904140039], with root log 70/119 and archive integrity PASS.
 - DDNS applet return propagation remains verified green on exact SHA `d9bf7a52cbf684ddb6b196016e429bbb5c01a19c` [42895344137, 42895344037].
 - WAN bridge disassembly now aggregates the return status from bridge-down, bulk port detach and bridge deletion; a failed port detach prevents deletion of that bridge, and `full_restart_wan()` aborts before LAN bridge reconfiguration or `start_wan()`. The dedicated GNU89 errno/ioctl policy regression and source contracts passed on the exact code SHA.
-- Root `dev_log.md` contained 69 complete newest-first records before THIS COMMIT and will contain 70 afterward. No archive rotation or INDEX update is due.
+- Root `dev_log.md` contained 70 complete newest-first records before THIS COMMIT and will contain 71 afterward. No archive rotation or INDEX update is due.
 
 ## Whole-repository module status
 
