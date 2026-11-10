@@ -30,6 +30,7 @@
 #include "vpn_server_lease_policy.h"
 #include "vpn_server_lease_lock.h"
 #include "vpn_server_lifecycle_lock.h"
+#include "vpn_server_callback_policy.h"
 
 #define VPNS_LOG_NAME		"VPN server"
 #define VPNS_PPP_UP_SCRIPT	"/tmp/ppp/ip-up.vpns"
@@ -538,6 +539,118 @@ reapply_vpn_server(void)
 		logmessage(VPNS_LOG_NAME, "cannot release VPN server lifecycle lock after reapply (errno=%d)", errno);
 }
 
+
+/* The pppd callback is accepted only while its daemon is still the direct
+ * parent and its per-interface pid file names that same process. An orphaned
+ * callback waits for lifecycle teardown, then fails this identity check. */
+static int
+vpns_callback_session_is_current(const char *ifname)
+{
+	const char *pid_text;
+	pid_t callback_pid, parent_pid, pidfile_pid;
+	char pidfile[64], pid_text_file[32];
+	int fd = -1, result = -1, saved_errno;
+	struct stat st;
+	size_t used = 0;
+	ssize_t count;
+
+	if (!firewall_ppp_interface_is_safe(ifname, VPN_SERVER_PPP_UNIT)) {
+		errno = EINVAL;
+		return -1;
+	}
+	pid_text = safe_getenv("PPPD_PID");
+	if (vpn_server_callback_pid_parse(pid_text, &callback_pid) != 0)
+		return 0;
+
+	parent_pid = getppid();
+	if (!vpn_server_callback_pids_match(callback_pid, parent_pid, callback_pid))
+		return 0;
+
+	if (snprintf(pidfile, sizeof(pidfile), "/var/run/%s.pid", ifname) < 0) {
+		errno = EINVAL;
+		return -1;
+	}
+	fd = open(pidfile, O_RDONLY | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK);
+	if (fd < 0)
+		return -1;
+	if (fstat(fd, &st) != 0)
+		goto failed;
+	if (!S_ISREG(st.st_mode) || st.st_uid != 0 || st.st_nlink != 1 ||
+	    (st.st_mode & 022) != 0) {
+		errno = EPERM;
+		goto failed;
+	}
+
+	for (;;) {
+		count = read(fd, pid_text_file + used,
+			     sizeof(pid_text_file) - 1 - used);
+		if (count < 0) {
+			if (errno == EINTR)
+				continue;
+			goto failed;
+		}
+		if (count == 0)
+			break;
+		used += (size_t)count;
+		if (used >= sizeof(pid_text_file) - 1) {
+			errno = EOVERFLOW;
+			goto failed;
+		}
+	}
+	if (used < 2 || pid_text_file[used - 1] != '\n') {
+		errno = EINVAL;
+		goto failed;
+	}
+	pid_text_file[--used] = '\0';
+	if (vpn_server_callback_pid_parse(pid_text_file, &pidfile_pid) != 0)
+		goto failed;
+	result = vpn_server_callback_pids_match(callback_pid, parent_pid,
+						pidfile_pid);
+
+	if (close(fd) != 0) {
+		errno = errno ? errno : EIO;
+		return -1;
+	}
+	return result;
+
+failed:
+	saved_errno = errno ? errno : EIO;
+	(void)close(fd);
+	errno = saved_errno;
+	return -1;
+}
+
+/* The lifecycle lock remains held across all callback side effects. */
+static int
+vpns_callback_lifecycle_enter(const char *ifname, int *lifecycle_fd)
+{
+	int fd, current, saved_errno;
+
+	if (!lifecycle_fd) {
+		errno = EINVAL;
+		return -1;
+	}
+	*lifecycle_fd = -1;
+	fd = vpn_server_lifecycle_lock_acquire();
+	if (fd < 0)
+		return -1;
+	current = vpns_callback_session_is_current(ifname);
+	if (current != 1) {
+		saved_errno = errno ? errno : EIO;
+		if (vpn_server_lifecycle_lock_release(fd) != 0) {
+			logmessage(VPNS_LOG_NAME,
+				   "cannot release VPN lifecycle lock after callback identity rejection (errno=%d)",
+				   errno ? errno : EIO);
+			return -1;
+		}
+		if (current < 0)
+			errno = saved_errno;
+		return current;
+	}
+	*lifecycle_fd = fd;
+	return 1;
+}
+
 static int
 vpns_firewall_permission(char *ifname, int add)
 {
@@ -760,7 +873,7 @@ vpns_route_to_remote_lan(const char *cname, char *ifname, char *gw, int add)
 int
 ipup_vpns_main(int argc, char **argv)
 {
-	int i_cast, i_vuse, lock_fd, firewall_status;
+	int i_cast, i_vuse, lock_fd, firewall_status, lifecycle_fd, callback_state;
 	int cleanup_failed = 0, saved_errno, record_length;
 	char *peer_name;
 	char lease_record[VPN_SERVER_LEASE_LINE_SIZE];
@@ -774,9 +887,19 @@ ipup_vpns_main(int argc, char **argv)
 		logmessage(VPNS_LOG_NAME, "rejecting VPN up event with invalid PPP interface token");
 		return -1;
 	}
+	callback_state = vpns_callback_lifecycle_enter(argv[1], &lifecycle_fd);
+	if (callback_state <= 0) {
+		if (callback_state == 0)
+			logmessage(VPNS_LOG_NAME, "ignoring stale VPN up callback for %s", argv[1]);
+		else
+			logmessage(VPNS_LOG_NAME, "cannot authenticate VPN up callback for %s (errno=%d)",
+				   argv[1], errno ? errno : EIO);
+		return callback_state == 0 ? 0 : -1;
+	}
 	peer_name = safe_getenv("PEERNAME");
 	if (!peer_name || !*peer_name) {
 		logmessage(VPNS_LOG_NAME, "rejecting VPN up event without a peer name");
+		(void)vpn_server_lifecycle_lock_release(lifecycle_fd);
 		return -1;
 	}
 	record_length = snprintf(lease_record, sizeof(lease_record), "%s %s %s %s\n",
@@ -787,6 +910,7 @@ ipup_vpns_main(int argc, char **argv)
 	    strcmp(lease_ifname, argv[1]) != 0) {
 		logmessage(VPNS_LOG_NAME, "rejecting malformed VPN lease record for %s", argv[1]);
 		errno = EINVAL;
+		(void)vpn_server_lifecycle_lock_release(lifecycle_fd);
 		return -1;
 	}
 	logmessage(VPNS_LOG_NAME, "peer %s (%s) connected - ifname: %s, local IP: %s",
@@ -795,7 +919,10 @@ ipup_vpns_main(int argc, char **argv)
 
 	lock_fd = vpn_server_lease_lock_acquire(VPN_SERVER_LEASE_LOCK_FILE);
 	if (lock_fd < 0) {
-		logmessage(VPNS_LOG_NAME, "cannot lock VPN lease inventory for connection (errno=%d)", errno);
+		saved_errno = errno ? errno : EIO;
+		logmessage(VPNS_LOG_NAME, "cannot lock VPN lease inventory for connection (errno=%d)", saved_errno);
+		(void)vpn_server_lifecycle_lock_release(lifecycle_fd);
+		errno = saved_errno;
 		return -1;
 	}
 	firewall_status = vpns_firewall_permission(argv[1], 1);
@@ -803,6 +930,8 @@ ipup_vpns_main(int argc, char **argv)
 		saved_errno = errno ? errno : EIO;
 		if (vpn_server_lease_lock_release(lock_fd) != 0)
 			logmessage(VPNS_LOG_NAME, "cannot release VPN lease lock after firewall-add failure (errno=%d)", errno);
+		if (vpn_server_lifecycle_lock_release(lifecycle_fd) != 0)
+			logmessage(VPNS_LOG_NAME, "cannot release VPN lifecycle lock after firewall-add failure (errno=%d)", errno);
 		errno = saved_errno;
 		return -1;
 	}
@@ -812,6 +941,8 @@ ipup_vpns_main(int argc, char **argv)
 			logmessage(VPNS_LOG_NAME, "cannot roll back VPN firewall permission for %s", argv[1]);
 		if (vpn_server_lease_lock_release(lock_fd) != 0)
 			logmessage(VPNS_LOG_NAME, "cannot release VPN lease lock after append failure (errno=%d)", errno);
+		if (vpn_server_lifecycle_lock_release(lifecycle_fd) != 0)
+			logmessage(VPNS_LOG_NAME, "cannot release VPN lifecycle lock after append failure (errno=%d)", errno);
 		errno = saved_errno;
 		logmessage(VPNS_LOG_NAME, "cannot persist VPN lease record for %s (errno=%d)", argv[1], saved_errno);
 		return -1;
@@ -844,6 +975,10 @@ ipup_vpns_main(int argc, char **argv)
 		};
 		_eval(hook_argv, NULL, 0, NULL);
 	}
+	if (vpn_server_lifecycle_lock_release(lifecycle_fd) != 0) {
+		logmessage(VPNS_LOG_NAME, "cannot release VPN lifecycle lock after connection callback (errno=%d)", errno);
+		cleanup_failed = 1;
+	}
 	return cleanup_failed ? -1 : 0;
 }
 
@@ -851,7 +986,7 @@ int
 ipdown_vpns_main(int argc, char **argv)
 {
 	int i_clients = 0, firewall_status = -1, lease_status = -1;
-	int cleanup_failed = 0, lock_fd;
+	int cleanup_failed = 0, lock_fd, lifecycle_fd, callback_state;
 	char *peer_name;
 	char *svcs[] = { "bcrelay", NULL };
 	const char *script_name = VPN_SERVER_UPDOWN_SCRIPT;
@@ -861,6 +996,15 @@ ipdown_vpns_main(int argc, char **argv)
 	if (!firewall_ppp_interface_is_safe(argv[1], VPN_SERVER_PPP_UNIT)) {
 		logmessage(VPNS_LOG_NAME, "rejecting VPN down event with invalid PPP interface token");
 		return -1;
+	}
+	callback_state = vpns_callback_lifecycle_enter(argv[1], &lifecycle_fd);
+	if (callback_state <= 0) {
+		if (callback_state == 0)
+			logmessage(VPNS_LOG_NAME, "ignoring stale VPN down callback for %s", argv[1]);
+		else
+			logmessage(VPNS_LOG_NAME, "cannot authenticate VPN down callback for %s (errno=%d)",
+				   argv[1], errno ? errno : EIO);
+		return callback_state == 0 ? 0 : -1;
 	}
 	peer_name = safe_getenv("PEERNAME");
 	logmessage(VPNS_LOG_NAME, "peer %s (%s) disconnected", argv[6], peer_name);
@@ -896,6 +1040,10 @@ ipdown_vpns_main(int argc, char **argv)
 	if (((lease_status == 0 && i_clients == 0) ||
 	     nvram_get_int("vpns_cast") == 0) && pids(svcs[0]))
 		kill_services(svcs, 3, 1);
+	if (vpn_server_lifecycle_lock_release(lifecycle_fd) != 0) {
+		logmessage(VPNS_LOG_NAME, "cannot release VPN lifecycle lock after disconnect callback (errno=%d)", errno);
+		cleanup_failed = 1;
+	}
 	return cleanup_failed ? -1 : 0;
 }
 

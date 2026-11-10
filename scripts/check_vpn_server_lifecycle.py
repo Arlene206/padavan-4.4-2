@@ -46,6 +46,10 @@ services=read("trunk/user/rc/src/services.c")
 makefile=read("trunk/user/rc/src/Makefile")
 workflow=read(".github/workflows/vpn-server-stability.yml")
 test=read("trunk/user/rc/src/tests/vpn_server_lifecycle_lock.c")
+callback_policy=read("trunk/user/rc/src/vpn_server_callback_policy.h")
+callback_test=read("trunk/user/rc/src/tests/vpn_server_callback_policy.c")
+pppd_ipcp=read("trunk/user/pppd/ppp-2.4.7/pppd/ipcp.c")
+pppd_main=read("trunk/user/pppd/ppp-2.4.7/pppd/main.c")
 require('#include "vpn_server_lifecycle_lock.h"' in vpn,"missing lifecycle lock include")
 require("vpn_server.o" in makefile,"vpn_server.o missing from RC build")
 for t in ("O_NOFOLLOW","O_CLOEXEC","fstat(fd, &st)","S_ISREG(st.st_mode)",
@@ -85,4 +89,44 @@ for p in ("trunk/user/rc/src/vpn_server.c","trunk/user/rc/src/vpn_server_lifecyc
           "scripts/check_vpn_server_lifecycle.py",".github/workflows/vpn-server-stability.yml"):
     require(p in workflow,f"workflow path filter missing {p}")
 require("fork()" in test and "errno==EBUSY" in test.replace(" ",""),"cross-process contention regression missing")
-print("VPN server lifecycle source contract: PASS")
+
+# In-flight PPP callbacks must share the lifecycle critical section and prove
+# that their pppd parent and per-interface pidfile still identify one session.
+for t in ("PPPD_PID", "getppid()", "/var/run/%s.pid", "O_NOFOLLOW",
+          "O_CLOEXEC", "S_ISREG(st.st_mode)", "st.st_uid != 0",
+          "st.st_nlink != 1", "(st.st_mode & 022) != 0",
+          "vpn_server_callback_pids_match"):
+    require(t in vpn,f"callback identity gate missing {t}")
+for t in ("vpn_server_callback_pid_parse", "vpn_server_callback_pids_match",
+          "callback_pid == parent_pid", "parent_pid == pidfile_pid"):
+    require(t in callback_policy,f"callback policy missing {t}")
+up=body(vpn,"ipup_vpns_main(int argc, char **argv)")
+down=body(vpn,"ipdown_vpns_main(int argc, char **argv)")
+ordered(up,["vpns_callback_lifecycle_enter(argv[1], &lifecycle_fd)",
+            "vpn_server_lease_lock_acquire(VPN_SERVER_LEASE_LOCK_FILE)",
+            "vpns_firewall_permission(argv[1], 1)",
+            "append_vpns_lease_record",
+            "vpns_route_to_remote_lan(peer_name, argv[1], NULL, 1)",
+            "set_vpn_balancing(argv[1], 1)",
+            "_eval(hook_argv, NULL, 0, NULL)",
+            "vpn_server_lifecycle_lock_release(lifecycle_fd)"],"VPN up callback")
+ordered(down,["vpns_callback_lifecycle_enter(argv[1], &lifecycle_fd)",
+              "vpn_server_lease_lock_acquire(VPN_SERVER_LEASE_LOCK_FILE)",
+              "vpns_firewall_permission(argv[1], 0)",
+              "vpns_prune_lease_file",
+              "vpns_route_to_remote_lan(peer_name, argv[1], NULL, 0)",
+              "_eval(hook_argv, NULL, 0, NULL)",
+              "vpn_server_lifecycle_lock_release(lifecycle_fd)"],"VPN down callback")
+require("ipcp_script(path_ipup, 0)" in pppd_ipcp and
+        "ipcp_script(path_ipdown, 0)" in pppd_ipcp,
+        "pppd callback scripts must remain asynchronous when taking lifecycle lock")
+require("argv[6] = ipparam" in pppd_ipcp,"pppd ipparam ABI changed")
+require('script_setenv("PPPD_PID", numbuf, 1)' in pppd_main and
+        "create_pidfile(getpid())" in pppd_main and
+        "_PATH_VARRUN, ifname" in pppd_main,
+        "pppd parent/pidfile identity source changed")
+require("expect_invalid" in callback_test and
+        "vpn_server_callback_pids_match" in callback_test,
+        "callback regression lacks parser/session coverage")
+
+print("VPN server lifecycle and callback source contract: PASS")
