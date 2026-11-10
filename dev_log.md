@@ -1,3 +1,18 @@
+## 2026-11-11 03:50 CST (UTC+8) — Pin MT7621 MIPS endian and SoC config for FULLCONENAT object build
+
+- **Base main SHA:** `c74e256629e4541f0669d5653a6e20b9bf8ee5e1`; parent `3e54ab47e1770990bd146f928d8facd2d4da1f5a`. The exact-head FULLCONENAT lifecycle run [42888855204] and AI handoff docs run [42888855429] were inspected in full.
+- **Actions result:** FULLCONENAT notifier ownership/cleanup, GNU89 namespace/zone regression, namespace/zone semantic contracts and the new cross-family tuple debug-format contract all passed. AI docs passed with root log 59/119, batch 100, retain 20 and archive inventory `dev-log=6, handoff=22, roadmap=18`. Only the new MIPS object step failed.
+- **Failure evidence:** the official 44.9 MiB mipsel-musl toolchain downloaded and Kconfig setup completed, but Kbuild stopped while preparing `scripts/mod/empty.o` with `mipsel-linux-musl-gcc: error: may not use both -EB and -EL`. `xt_FULLCONENAT.o` was never compiled. This is a config/setup failure, not evidence of a FULLCONENAT C source compile failure.
+- **Root cause analysis:** the selected `mt7621_defconfig` omits explicit `RALINK`, `SOC_MT7621`, `CPU_LITTLE_ENDIAN` and `CPU_MIPS32_R2` selections. The MIPS Kconfig endian choice lists big endian first; the architecture Makefile adds `-EB` when `CONFIG_CPU_BIG_ENDIAN` is selected with the mipsel compiler, while the fork's kernel Makefile already supplies `-EL`. The architecture configuration therefore needs to be pinned rather than relying on that generic defconfig's defaults.
+- **Fix in THIS COMMIT:** `scripts/build_fullconenat_mips_object.sh` now enables Ralink + SOC_MT7621 + CPU_LITTLE_ENDIAN + CPU_MIPS32_R2, checks the four expected symbols after `olddefconfig`, and asserts `CONFIG_CPU_BIG_ENDIAN=y` is absent. It retains all prior conntrack event, IPv6 NAT, FULLCONENAT module, target object and ELF header checks. No production behavior or compiler flags are weakened.
+- **Changed paths:** `scripts/build_fullconenat_mips_object.sh`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log.
+- **Validation:** the script/config correction has been source-reviewed only. The exact previous run proves every FULLCONENAT pre-build regression and AI docs passed but the target object did not build. New exact-head FULLCONENAT and AI docs Actions are pending; no local MIPS toolchain/clone, target object, full kernel image, firmware/TRX or L4 test is claimed.
+- **Root log:** 59 complete newest-first records before this entry; 60 after. No archive rotation or `docs/dev-log/INDEX.md` update is due.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** inspect every job step and full log in the corrected exact-head FULLCONENAT and AI docs Actions. Verify explicit MT7621/little-endian/MIPS32r2 settings and a real ELF32 little-endian MIPS `xt_FULLCONENAT.o`. If it still fails, fix the actual target-build problem without removing the object check. After green, move to the next repository-wide stability/security item; keep FTP upload-cleanup TOCTOU OPEN/BLOCKED until safe publication is proved.
+
+---
+
 ## 2026-11-11 03:34 CST (UTC+8) — Remove FULLCONENAT cross-family debug buffer race and add target object build
 
 - **Base main SHA:** `3e54ab47e1770990bd146f928d8facd2d4da1f5a`; previous exact-head USB storage hotplug [42885189119] and AI handoff [42885189024] both completed SUCCESS on this SHA. Every job, step and full log was inspected. The Optware lifecycle, storage inventory/lock/deferred-child policy regressions and AI documentation/archive checker all passed.

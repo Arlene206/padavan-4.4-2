@@ -22,6 +22,10 @@ command -v readelf >/dev/null 2>&1 || {
   cd "$kernel_dir"
   make ARCH=mips CROSS_COMPILE="$cross_prefix" mt7621_defconfig
   bash scripts/config --file .config \
+    --enable RALINK \
+    --enable SOC_MT7621 \
+    --enable CPU_LITTLE_ENDIAN \
+    --enable CPU_MIPS32_R2 \
     --enable NETFILTER_ADVANCED \
     --enable IPV6 \
     --enable NF_CONNTRACK_EVENTS \
@@ -29,6 +33,13 @@ command -v readelf >/dev/null 2>&1 || {
     --module NETFILTER_XT_TARGET_FULLCONENAT
   make ARCH=mips CROSS_COMPILE="$cross_prefix" olddefconfig
 
+  # mt7621_defconfig omits its Ralink SoC and byte-order choices. Pin them
+  # explicitly so arch/mips does not add -EB beside the project's -EL.
+  grep -qx 'CONFIG_RALINK=y' .config
+  grep -qx 'CONFIG_SOC_MT7621=y' .config
+  grep -qx 'CONFIG_CPU_LITTLE_ENDIAN=y' .config
+  grep -qx 'CONFIG_CPU_MIPS32_R2=y' .config
+  ! grep -qx 'CONFIG_CPU_BIG_ENDIAN=y' .config
   grep -qx 'CONFIG_NF_CONNTRACK_EVENTS=y' .config
   grep -qx 'CONFIG_NF_NAT_IPV6=m' .config
   grep -qx 'CONFIG_NETFILTER_XT_TARGET_FULLCONENAT=m' .config
