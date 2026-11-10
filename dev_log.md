@@ -1,3 +1,16 @@
+## 2026-11-11 01:50 CST (UTC+8) — Update firmware-stop lifecycle contract after helper refactor
+
+- **Base main SHA:** `494724569dfb66cd562a7f928375cc103f233361`; production fix `bb515ef8d8bd4ddf6109d690fd12601835f07a24`; prior source-contract alignment `58bcdbdf4a72bb10503540380762cf47b4f8c336`.
+- **CI result:** the direct PPP credential/source-slice contract now passes on the current HTTPD umbrella run; the next “bounded service termination and WAN stop failure gates” step then found one obsolete assertion. It expected `if (kill_services(svcs, 6, 1) != 0)` directly inside `flash_firmware()`. The production code now takes the VPN lifecycle lock, records the broad PPP stop status, releases the lock, and aborts if the stop or lock operation fails.
+- **Fix:** update the HTTPD workflow to assert lifecycle acquire → broad PPP/L2TP stop → lifecycle release → stop failure gate, plus the fail-closed lock-acquisition log. Existing checks for `stop_misc()` failure and safe-storage teardown ordering remain.
+- **Exact-head evidence:** on `494724569dfb66cd562a7f928375cc103f233361`, AI handoff [42866667515] SUCCESS; HTTPD [42866667652] failed only at step 36. Its previous 35 steps succeeded, including PPP credential-file confidentiality. On exact SHA `58bcdbdf4a72bb10503540380762cf47b4f8c336`, VPN [42866039620], WAN teardown [42866039417], WAN DHCP [42866039364], WAN route [42866039509] and AI handoff [42866039416] SUCCESS. This commit's HTTPD/AI exact-head reruns are pending.
+- **Changed paths:** `.github/workflows/httpd-security.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log.
+- **Root log:** 53 complete newest-first records before this entry; 54 after. No rotation or INDEX update is due.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** inspect the exact-head HTTPD and AI docs jobs, then complete the shell/add-on/package whole-tree PPPD/PPTP/L2TP process-control sweep. Target MIPS/uClibc, firmware/TRX and router runtime remain unverified; retain FTP cleanup TOCTOU, NFS compatibility, FULLCONENAT target and OpenVPN/board work.
+
+---
+
 ## 2026-11-11 01:42 CST (UTC+8) — Reconcile VPN lifecycle refactor source contracts
 
 - **Base main SHA:** `bb515ef8d8bd4ddf6109d690fd12601835f07a24`; follow-up semantic-contract alignment SHA `58bcdbdf4a72bb10503540380762cf47b4f8c336`.

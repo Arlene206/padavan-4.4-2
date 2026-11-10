@@ -4348,7 +4348,13 @@ jobs:
           stop_misc = body(services, "stop_misc(void)")
           assert "return kill_services(svcs, 3, 1);" in stop_misc
           flash = body(rc, "flash_firmware(void)")
-          assert "if (kill_services(svcs, 6, 1) != 0)" in flash
+          assert "vpn_server_lifecycle_lock_acquire()" in flash
+          stop_ppp_services = flash.index("stop_status = kill_services(svcs, 6, 1);")
+          release_lifecycle_lock = flash.index("release_status = vpn_server_lifecycle_lock_release(lock_fd);")
+          stop_failure_gate = flash.index("if (stop_status != 0)")
+          assert flash.index("vpn_server_lifecycle_lock_acquire()") < stop_ppp_services < release_lifecycle_lock < stop_failure_gate
+          assert "if (release_status != 0)" in flash
+          assert "firmware update aborted: cannot lock VPN server lifecycle" in flash
           assert "if (stop_misc() != 0)" in flash
           assert flash.index("if (stop_misc() != 0)") < flash.index("safe_remove_all_stor_devices(0)")
 
