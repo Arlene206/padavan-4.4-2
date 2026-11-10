@@ -1844,7 +1844,7 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 	return status;
 }
 
-void
+int
 wan_down(char *wan_ifname, int unit, int is_static)
 {
 	int status = wan_down_internal(wan_ifname, unit, is_static);
@@ -1852,6 +1852,7 @@ wan_down(char *wan_ifname, int unit, int is_static)
 	if (status != 0)
 		logmessage(LOGNAME, "WAN route teardown incomplete on %s (error=%d)",
 			   wan_ifname, status);
+	return status;
 }
 
 void

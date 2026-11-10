@@ -1,3 +1,14 @@
+## 2026-11-10 16:25 CST (UTC+8) — Propagate PPP ip-down teardown and route-restoration status
+
+- **Base main SHA:** `46ff803fa89e2cce4477a031743de5267f58bcaa`; exact-head WAN route-status [42781506450] and AI docs [42781506510] SUCCESS. The preceding PPP ip-up route propagation had passed WAN DHCP callback [42781067412] and all six GNU89 regressions on parent SHA `5cca0b23...`.
+- **Finding:** `ipdown_main()` ignored the status returned internally by `wan_down_internal()` because public `wan_down()` returned `void`. It also called `preset_wan_ppp_routes()`, which ignored the default-route `route_add()` and `add_static_wan_routes()` statuses. The callback then returned success after its session lock was released even if route teardown or primary/static route restoration failed.
+- **Fix:** make `wan_down()` return the aggregated teardown status and `preset_wan_ppp_routes()` return the first error while continuing later restoration attempts. PPP ip-down aggregates teardown and restoration results, logs incomplete cleanup/restoration, releases the callback lock, and returns that result; callback unlock failure takes precedence through `route_status_finish()`.
+- **Regression:** extend the existing GNU89 route-status policy test for normal completion, first error, later error, and unlock-failure precedence. Extend the WAN route-status workflow to compile this test and assert wrapper prototypes/status returns, both restore operations, and `ipdown_main()` teardown → restore → aggregate → unlock → return ordering.
+- **Changed paths:** `trunk/user/rc/src/rc.h`, `net_wan.c`, `net_ppp.c`, `route_status_policy.h`, `tests/route_status_policy.c`, `.github/workflows/wan-route-status.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and this log. Root log has 30 headings before this entry and 31 after; no rotation or INDEX update is due.
+- **Validation:** L1 review confirms existing `wan_down_internal()` and `add_static_wan_routes()` already return status; previous exact-head WAN route-status [42781506450] and AI docs [42781506510] passed. New GNU89 sanitizer regression and source-contract Actions on THIS resulting SHA are pending. No full RC/MIPS/uClibc build, firmware/TRX or L4 router test is claimed.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** verify WAN route-status and AI docs on the exact resulting SHA; then continue the per-unit PPP route inventory/ownership and reconnect restoration audit.
+
 ## 2026-11-10 16:15 CST (UTC+8) — Correct WAN route-status workflow for int-returning wan_up
 
 - **Base main SHA:** `5cca0b23d451aa0a54a2f2cbe5d7aa97844167d2`. WAN DHCP callback [42781067412] and AI docs [42781067434] SUCCESS; HTTPD [42781067355], NFS [42781067360], vsftpd [42781067366], WAN teardown [42781067367], Samba [42781067444], wireless [42781067579] and storage [42781067668] also SUCCESS.

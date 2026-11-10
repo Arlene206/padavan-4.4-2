@@ -6,6 +6,7 @@ on:
       - ".github/workflows/wan-route-status.yml"
       - "trunk/user/rc/src/net.c"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/net_ppp.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/route_status_policy.h"
       - "trunk/user/rc/src/tests/route_status_policy.c"
@@ -14,6 +15,7 @@ on:
       - ".github/workflows/wan-route-status.yml"
       - "trunk/user/rc/src/net.c"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/net_ppp.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/route_status_policy.h"
       - "trunk/user/rc/src/tests/route_status_policy.c"
@@ -38,6 +40,7 @@ jobs:
           rc = Path("trunk/user/rc/src")
           net = (rc / "net.c").read_text()
           wan = (rc / "net_wan.c").read_text()
+          ppp = (rc / "net_ppp.c").read_text()
           header = (rc / "rc.h").read_text()
           workflow = Path(".github/workflows/wan-route-status.yml").read_text()
 
@@ -160,6 +163,33 @@ jobs:
           assert "int wan_up(char *wan_ifname, int unit, int is_static);" in header
           assert "void wan_up(char *wan_ifname, int unit, int is_static);" not in header
 
+          public_wan_down = body(wan, "wan_down(char *wan_ifname, int unit, int is_static)")
+          assert "wan_down_internal(wan_ifname, unit, is_static)" in public_wan_down
+          assert "return status;" in public_wan_down
+          assert "int wan_down(char *wan_ifname, int unit, int is_static);" in header
+          assert "void wan_down(char *wan_ifname, int unit, int is_static);" not in header
+
+          assert '#include "route_status_policy.h"' in ppp
+          preset = body(ppp, "preset_wan_ppp_routes(char *ppp_ifname, int unit)")
+          assert "int status = 0, route_status;" in preset
+          assert "route_status = route_add(ppp_ifname, 1," in preset
+          assert "route_status = add_static_wan_routes(ppp_ifname);" in preset
+          assert preset.count("route_status_accumulate(status, route_status)") == 2
+          assert "return status;" in preset
+          assert "int preset_wan_ppp_routes(char *ppp_ifname, int unit);" in header
+          assert "void preset_wan_ppp_routes(char *ppp_ifname, int unit);" not in header
+
+          ipdown = body(ppp, "ipdown_main(int argc, char **argv)")
+          down_teardown = ipdown.index("teardown_status = wan_down(ppp_ifname, unit, 0);")
+          down_restore = ipdown.index("restore_status = preset_wan_ppp_routes(ppp_ifname, unit);")
+          down_accumulate = ipdown.index("route_status = route_status_accumulate(teardown_status, restore_status);")
+          down_unlock = ipdown.index("unlock_status = ppp_wan_session_state_unlock(callback_fd);")
+          down_finish = ipdown.index("return route_status_finish(route_status, unlock_status);")
+          assert down_teardown < down_restore < down_accumulate < down_unlock < down_finish
+          assert "Disconnected but WAN route cleanup/restoration is incomplete" in ipdown
+          finish_status = body((rc / "route_status_policy.h").read_text(), "route_status_finish(")
+          assert "return unlock_status ? unlock_status : operation_status;" in finish_status
+
           bound = body(wan, "udhcpc_bound(char *wan_ifname, int is_renew_mode)")
           assert "int interface_status, rollback_status, route_setup_status;" in bound
           assert "route_setup_status = man_up_internal(wan_ifname, unit, 0);" in bound
@@ -176,6 +206,7 @@ jobs:
               ".github/workflows/wan-route-status.yml",
               "trunk/user/rc/src/net.c",
               "trunk/user/rc/src/net_wan.c",
+              "trunk/user/rc/src/net_ppp.c",
               "trunk/user/rc/src/rc.h",
               "trunk/user/rc/src/route_status_policy.h",
               "trunk/user/rc/src/tests/route_status_policy.c",

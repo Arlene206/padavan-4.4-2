@@ -32,5 +32,10 @@ main(void)
 	assert(attempts == sizeof(no_errors) / sizeof(no_errors[0]));
 	assert(route_status_accumulate(EIO, 0) == EIO);
 	assert(route_status_accumulate(EIO, EPERM) == EIO);
+	assert(route_status_finish(0, 0) == 0);
+	assert(route_status_finish(EIO, 0) == EIO);
+	assert(route_status_finish(0, -1) == -1);
+	assert(route_status_finish(EIO, -1) == -1);
+	assert(route_status_finish(route_status_accumulate(EIO, ENETUNREACH), 0) == EIO);
 	return 0;
 }

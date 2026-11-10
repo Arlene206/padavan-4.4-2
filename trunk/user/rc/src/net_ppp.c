@@ -33,6 +33,7 @@
 #include <ctype.h>
 
 #include "rc.h"
+#include "route_status_policy.h"
 #include "ppp_options_file.h"
 #include "ppp_option_value_policy.h"
 #include "ppp_callback_identity_policy.h"
@@ -866,15 +867,28 @@ invalid_options:
 	errno = saved_errno;
 	return -1;
 }
-void
+int
 preset_wan_ppp_routes(char *ppp_ifname, int unit)
 {
-	/* Set default route to gateway if specified */
-	if (get_wan_unit_value_int(unit, "primary") == 1)
-		route_add(ppp_ifname, 1, "0.0.0.0", "0.0.0.0", "0.0.0.0");
+	int status = 0, route_status;
 
-	/* Install interface dependent static routes */
-	add_static_wan_routes(ppp_ifname);
+	/* Set default route to gateway if specified. */
+	if (get_wan_unit_value_int(unit, "primary") == 1) {
+		route_status = route_add(ppp_ifname, 1, "0.0.0.0", "0.0.0.0", "0.0.0.0");
+		status = route_status_accumulate(status, route_status);
+		if (route_status != 0)
+			logmessage(LOGNAME, "failed to restore PPP default route on %s (error=%d)",
+				   ppp_ifname, route_status);
+	}
+
+	/* Continue installing interface-dependent routes after a prior failure. */
+	route_status = add_static_wan_routes(ppp_ifname);
+	status = route_status_accumulate(status, route_status);
+	if (route_status != 0)
+		logmessage(LOGNAME, "failed to restore PPP static routes on %s (error=%d)",
+			   ppp_ifname, route_status);
+
+	return status;
 }
 
 int
@@ -1015,7 +1029,8 @@ ipup_main(int argc, char **argv)
 int
 ipdown_main(int argc, char **argv)
 {
-	int unit, ppp_idx;
+	int unit, ppp_idx, teardown_status, restore_status;
+	int route_status, unlock_status;
 	int callback_fd, callback_state;
 	char *ppp_ifname = safe_getenv("IFNAME");
 	char *ppp_linkname = safe_getenv("LINKNAME");
@@ -1034,15 +1049,19 @@ ipdown_main(int argc, char **argv)
 
 	umask(0000);
 
-	wan_down(ppp_ifname, unit, 0);
+	teardown_status = wan_down(ppp_ifname, unit, 0);
+	restore_status = preset_wan_ppp_routes(ppp_ifname, unit);
+	route_status = route_status_accumulate(teardown_status, restore_status);
 
-	preset_wan_ppp_routes(ppp_ifname, unit);
+	if (route_status != 0)
+		logmessage(get_wan_unit_value(unit, "proto_t"),
+			   "Disconnected but WAN route cleanup/restoration is incomplete (status=%d)",
+			   route_status);
+	else
+		logmessage(get_wan_unit_value(unit, "proto_t"), "Disconnected");
 
-	logmessage(get_wan_unit_value(unit, "proto_t"), "Disconnected");
-
-	if (ppp_wan_session_state_unlock(callback_fd) != 0)
-		return -1;
-	return 0;
+	unlock_status = ppp_wan_session_state_unlock(callback_fd);
+	return route_status_finish(route_status, unlock_status);
 }
 
 #if defined (USE_IPV6)
