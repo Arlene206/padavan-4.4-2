@@ -943,7 +943,7 @@ static const struct ppp_wan_ipup_ops ppp_wan_ipup_ops = {
 int
 ipup_main(int argc, char **argv)
 {
-	int unit, ppp_idx, interface_status;
+	int unit, ppp_idx, interface_status, route_status, unlock_status;
 	int callback_fd, callback_state;
 	struct ppp_wan_ipup_context interface_context;
 	char buf[256], *value;
@@ -997,15 +997,19 @@ ipup_main(int argc, char **argv)
 	}
 	set_wan_unit_value(unit, "dns", buf);
 
-	wan_up(ppp_ifname, unit, 0);
+	route_status = wan_up(ppp_ifname, unit, 0);
 
 	set_pppoe_balancing();
 
-	logmessage(get_wan_unit_value(unit, "proto_t"), "Connected");
+	if (route_status != 0)
+		logmessage(get_wan_unit_value(unit, "proto_t"),
+			   "Connected but WAN route setup is incomplete (status=%d)",
+			   route_status);
+	else
+		logmessage(get_wan_unit_value(unit, "proto_t"), "Connected");
 
-	if (ppp_wan_session_state_unlock(callback_fd) != 0)
-		return -1;
-	return 0;
+	unlock_status = ppp_wan_session_state_unlock(callback_fd);
+	return ppp_wan_ipup_finish_status(route_status, unlock_status);
 }
 
 int

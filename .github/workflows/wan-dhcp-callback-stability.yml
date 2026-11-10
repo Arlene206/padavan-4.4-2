@@ -391,14 +391,26 @@ jobs:
           ipup_configure = ipup.index("ppp_wan_ipup_apply_address(")
           ipup_identity = ipup.index('set_wan_unit_value(unit, "ifname_t", ppp_ifname)')
           ipup_gateway = ipup.index('set_wan_unit_value(unit, "gateway", value)')
-          ipup_routes = ipup.index("wan_up(ppp_ifname, unit, 0)")
+          ipup_routes = ipup.index("route_status = wan_up(ppp_ifname, unit, 0)")
           assert ipup_configure < ipup_identity < ipup_gateway < ipup_routes
+          wan_up_wrapper = body(source, "wan_up(char *wan_ifname, int unit, int is_static)")
+          assert "int status = wan_up_internal(wan_ifname, unit, is_static);" in wan_up_wrapper
+          assert "return status;" in wan_up_wrapper
+          assert "int wan_up(char *wan_ifname, int unit, int is_static);" in rc_header
+          assert "void wan_up(char *wan_ifname, int unit, int is_static);" not in rc_header
+          ipup_unlock = ipup.index("unlock_status = ppp_wan_session_state_unlock(callback_fd);", ipup_routes)
+          ipup_result = ipup.index("return ppp_wan_ipup_finish_status(route_status, unlock_status);", ipup_unlock)
+          assert ipup_routes < ipup_unlock < ipup_result
+          assert "Connected but WAN route setup is incomplete" in ipup
+          finish = body(ipup_policy, "ppp_wan_ipup_finish_status(")
+          assert "if (unlock_status != 0)" in finish and "return route_status;" in finish
           assert "refusing PPP ip-up state publication" in ipup
           assert ipup.index("ppp_wan_session_state_unlock(callback_fd)") < ipup.index("return interface_status;")
           for case in (
               "test_success_applies_before_publishing",
               "test_interface_failure_preserves_published_state",
               "test_invalid_input_has_no_side_effects",
+              "test_route_setup_error_is_returned_after_unlock",
           ):
               assert case in ipup_test
 

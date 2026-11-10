@@ -1,3 +1,14 @@
+## 2026-11-10 16:10 CST (UTC+8) — Propagate PPP ip-up WAN route setup failures
+
+- **Base main SHA:** `1bad9f2b20060fc541d015d5c8f9ec01ed87a3c0`; exact-head WAN callback [42779510969] and AI handoff docs [42779510911] both SUCCESS, including all six WAN GNU89 host binaries. HTTPD security [42778351811] passed on parent SHA `5cbc71d8...`; the HTTPD workflow was unchanged by the immediately preceding WAN/docs-only commit.
+- **Finding:** `wan_up_internal()` already accumulates IPv4 route-add and IPv6 startup status, but its public `wan_up()` wrapper returned `void` and dropped that result after logging. PPP `ipup_main()` called that wrapper after applying and publishing the interface address, gateway and DNS, then returned success after unlocking regardless of route setup failure. A failed default/host route could therefore leave the PPP callback reporting success.
+- **Fix:** change `wan_up()` and its public prototype to return the existing aggregated status. Update PPP `ipup_main()` to capture it, distinguish connected-with-incomplete-routing in the log, release the callback-session lock, and return the route status. Unlock failure takes precedence and is returned instead. The static-IP WAN caller intentionally remains best-effort; the public wrapper still logs any route failure.
+- **Regression:** extend the existing GNU89 PPP ip-up policy test to cover no error, route failure, unlock failure and unlock-failure precedence. Extend the WAN workflow semantic contract to verify the int prototype/definition, wrapper status return, callback status capture, unlock-before-return ordering and the new regression case.
+- **Changed paths:** `trunk/user/rc/src/rc.h`, `net_wan.c`, `net_ppp.c`, `ppp_wan_ipup_policy.h`, `tests/ppp_wan_ipup_policy.c`, `.github/workflows/wan-dhcp-callback-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and this log. Root log has 28 records before this entry and 29 after it; no rotation or INDEX update is due.
+- **Validation:** source review confirmed the only production callsites are PPP ip-up and static-WAN startup; static startup retains wrapper diagnostics while PPP now surfaces the return status. Exact-head GNU89/semantic Actions for THIS commit are pending. No full checkout build, RC/MIPS/uClibc target object, firmware/TRX or L4 device test is claimed.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** reconcile WAN callback and AI docs on the exact resulting SHA. If green, continue the bounded PPP ip-down per-unit route inventory/deletion/restoration and reconnect-ownership audit.
+
 ## 2026-11-10 16:00 CST (UTC+8) — Align WAN teardown contracts with callback-fence fail-closed behavior
 
 - **Base main SHA:** `0dbba04376d467d8b822d5249be934dccb3491f5`; WAN callback [42778786415] and AI docs [42778786370] were the exact-head runs. The six WAN GNU89 host regressions passed; the source contract then failed on its legacy direct-return expectation for `stop_dhcp6c()`.

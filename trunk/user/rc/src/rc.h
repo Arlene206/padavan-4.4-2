@@ -277,7 +277,7 @@ void start_wan(void);
 int stop_wan(void);
 void man_up(char *man_ifname, int unit, int is_static);
 void man_down(char *man_ifname, int unit);
-void wan_up(char *wan_ifname, int unit, int is_static);
+int wan_up(char *wan_ifname, int unit, int is_static);
 void wan_down(char *wan_ifname, int unit, int is_static);
 void select_usb_modem_to_wan(void);
 void full_restart_wan(void);

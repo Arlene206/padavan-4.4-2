@@ -85,12 +85,22 @@ test_invalid_input_has_no_side_effects(void)
 	assert(fake.netmask[0] == '\0');
 }
 
+static void
+test_route_setup_error_is_returned_after_unlock(void)
+{
+	assert(ppp_wan_ipup_finish_status(0, 0) == 0);
+	assert(ppp_wan_ipup_finish_status(EIO, 0) == EIO);
+	assert(ppp_wan_ipup_finish_status(0, -1) == -1);
+	assert(ppp_wan_ipup_finish_status(EIO, -1) == -1);
+}
+
 int
 main(void)
 {
 	test_success_applies_before_publishing();
 	test_interface_failure_preserves_published_state();
 	test_invalid_input_has_no_side_effects();
-	puts("PPP ip-up address publication regression: PASS");
+	test_route_setup_error_is_returned_after_unlock();
+	puts("PPP ip-up address and route status regression: PASS");
 	return 0;
 }

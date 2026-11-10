@@ -1722,7 +1722,7 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 	return status;
 }
 
-void
+int
 wan_up(char *wan_ifname, int unit, int is_static)
 {
 	int status = wan_up_internal(wan_ifname, unit, is_static);
@@ -1730,6 +1730,7 @@ wan_up(char *wan_ifname, int unit, int is_static)
 	if (status != 0)
 		logmessage(LOGNAME, "WAN route setup incomplete on %s (error=%d)",
 			   wan_ifname, status);
+	return status;
 }
 
 static int

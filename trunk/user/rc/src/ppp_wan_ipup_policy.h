@@ -34,4 +34,16 @@ ppp_wan_ipup_apply_address(const char *ipaddr, const char *netmask,
 	return 0;
 }
 
+/*
+ * Keep the WAN route-setup error observable to the caller, but never report
+ * success when releasing the callback-session lock itself failed.
+ */
+static inline int
+ppp_wan_ipup_finish_status(int route_status, int unlock_status)
+{
+	if (unlock_status != 0)
+		return unlock_status;
+	return route_status;
+}
+
 #endif /* PPP_WAN_IPUP_POLICY_H */
