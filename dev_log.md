@@ -1,3 +1,13 @@
+## 2026-11-10 15:55 CST (UTC+8) — Scope DHCPv6 stop-unlock source contract to successful path
+
+- **Base main SHA:** `5cbc71d860abfd1bd00cf47a6b490bd4446db123`. Exact-head HTTPD security [42778351811] and AI handoff docs [42778351698] passed.
+- **Finding:** WAN callback run [42778351636] compiled and passed all six GNU89 host regressions. The first `ULONG_MAX` helper-scope assertion also passed after the prior correction. The semantic contract then failed at line 234 because its first `dhcp6c_callback_session_unlock(session_fd)` occurrence is the intentional error branch used if generation advancement fails; the success-path unlock follows the daemon termination call.
+- **Fix:** locate the unlock occurrence after `stop_kill` before asserting lock → generation advance → daemon stop → unlock ordering. This reflects the two distinct control-flow paths without weakening failure-path coverage.
+- **Changed paths:** `.github/workflows/wan-dhcp-callback-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and this log. No firmware C changes, archive rotation or INDEX update.
+- **Validation:** failure point reproduced from exact-head run [42778351636]; all six host regression binaries passed. The corrected source contract and AI docs on THIS resulting SHA are pending. No local full-checkout run, target MIPS/uClibc object, firmware/TRX or L4 test is claimed.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** verify WAN callback and AI handoff docs on the exact resulting SHA; if green, proceed to the WAN route-status/PPP ip-down ownership audit, beginning with the `wan_up()` return boundary.
+
 ## 2026-11-10 15:45 CST (UTC+8) — Correct exact-head WAN callback and HTTPD stop-gate contracts
 
 - **Base main SHA:** `b8613b08fef80e9a1eb6b684ac4abdc4d2a95158`; only remote branch was `main`. AI handoff docs [42776419895], WAN route [42776419776] and WAN teardown [42776419751] completed SUCCESS on that exact SHA.

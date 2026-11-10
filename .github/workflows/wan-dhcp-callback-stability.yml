@@ -346,7 +346,7 @@ jobs:
           stop_lock = stop_dhcp6.index("dhcp6c_callback_session_lock(")
           stop_advance = stop_dhcp6.index("dhcp6c_callback_session_advance(")
           stop_kill = stop_dhcp6.index("kill_services(svcs, 3, 1)")
-          stop_unlock = stop_dhcp6.index("dhcp6c_callback_session_unlock(session_fd)")
+          stop_unlock = stop_dhcp6.index("dhcp6c_callback_session_unlock(session_fd)", stop_kill)
           assert stop_lock < stop_advance < stop_kill < stop_unlock
 
           wan6_up = body(wan6_source, "int wan6_up(char *wan_ifname, int unit)")
