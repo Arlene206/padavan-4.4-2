@@ -1,19 +1,19 @@
 ## Current repository state
 
-- Maintained fork: Arlene206/padavan-4.4-2; work only on this repository. Base main SHA for THIS COMMIT: `1e780fa229d1dd6c6c1fa3f40866ae96e6d36ea4`; only remote branch is `main`, with no checkpoint branch. Never force-push.
-- Previous task closed: detect_link signal deferral. Exact-head detect_link regression [42832758674], AI handoff docs [42832758587] and dependent HTTPD security [42832758639] all completed SUCCESS on `1e780fa229d1dd6c6c1fa3f40866ae96e6d36ea4`; every job and step was inspected.
-- THIS COMMIT defers watchdog timer, timezone and Wi-Fi notification work out of signal context. Handlers only record `sig_atomic_t` events; a blocked-snapshot/`sigsuspend()` loop dispatches service checks in normal context, preserves control-before-timer order, and performs TERM cleanup outside the handler. GNU89/ASan/UBSan policy test passed locally; exact-head watchdog and AI handoff Actions are pending.
-- Root `dev_log.md` has 49 complete records before THIS COMMIT; this milestone makes 50. No archive rotation or INDEX update is due.
+- Maintained fork: Arlene206/padavan-4.4-2; work only on this repository. The latest production-code checkpoint is `2e76b75663fd07cc48a5483de3db32b6ae7e727f` (`fix(rc): defer watchdog signal work to main loop`). The branch inventory contains only `main`; no remote checkpoint branch exists. Never force-push.
+- Watchdog task completed: handlers for SIGALRM/SIGHUP/SIGUSR1/SIGTERM now only record `sig_atomic_t` events; a blocked-snapshot/`sigsuspend()` loop dispatches NTP, Wi-Fi and service work in normal context, prioritizes TERM and performs cleanup outside signal context. The existing 10-second timer and notification APIs are preserved.
+- Exact-head validation on `2e76b75663fd07cc48a5483de3db32b6ae7e727f`: watchdog signal lifecycle regression [42842873696] SUCCESS and AI handoff documentation contract [42842872808] SUCCESS. Both runs matched this exact SHA; every job step was inspected and completed successfully.
+- Root `dev_log.md` has 50 complete newest-first records. No archive rotation or INDEX update is due. The immediately following checkpoint commit updates this live handoff only; it does not change production code.
 - Open boundaries: VPN in-flight PPP callback fencing; FTP failed-upload cleanup TOCTOU; NFS export/client compatibility; FULLCONENAT target build; watchdog target timing/service behavior; MIPS/uClibc, firmware/TRX and L4 router validation.
 
 ## Active task
 
-- Reconcile the exact-head watchdog signal regression and AI handoff Actions. If green, continue the VPN in-flight PPP callback fencing audit: trace callback/lease locking against stop/restart, prove or reject existing lock coverage, and preserve the established server lifecycle serialization.
+- Begin the VPN in-flight PPP callback fencing audit. Trace callback and lease-lock lifetimes against daemon stop/restart; determine whether a callback already in progress can publish stale state into a newer session; preserve the existing VPN server lifecycle serialization. Do not assume the lifecycle lock alone fences callbacks.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect every job and step in the exact-head watchdog signal and AI handoff Actions for THIS COMMIT; match each run to the exact resulting SHA and fix any failure first.
-2. If green, begin the VPN callback-fencing audit from the existing VPN lifecycle/lease lock boundaries. Keep FTP upload-cleanup TOCTOU, NFS compatibility, FULLCONENAT target compilation and L3/L4 gaps open.
+1. Fetch live `main`, confirm it descends from production-code SHA `2e76b75663fd07cc48a5483de3db32b6ae7e727f`, and inspect the current VPN lifecycle lock, PPP callback and lease/state publication call graph.
+2. Prove the callback-vs-stop/restart ordering before editing. If a bounded fix is justified, add a GNU89 host regression and exact-head semantic Actions; retain FTP TOCTOU, NFS compatibility, FULLCONENAT target build and L3/L4 validation as open work.
 
 ## PID 1 notification queue batch fairness
 
