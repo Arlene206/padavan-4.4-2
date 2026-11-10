@@ -1,3 +1,18 @@
+## 2026-11-11 04:20 CST (UTC+8) — Restore single-copy project configure flow and retain FULLCONENAT prerequisite
+
+- **Base main SHA:** `af657721328f6a1af62a62e4631028a77df9b982`; parent `7b833db52deddb0c2404c77c3e1ab87cdfac5d85`. Only remote branch is `main`; no checkpoint branch.
+- **Previous exact-head result:** FULLCONENAT [42891865785] and AI docs [42891866252] both SUCCESS. The FULLCONENAT workflow passed notifier lifecycle, GNU89 namespace/zone regression and source contracts, cross-family debug-format contract, pinned toolchain checksum, actual XY-C1 `trunk/configure`, post-`olddefconfig` assertions, and `CC net/netfilter/xt_FULLCONENAT.o`. readelf reported `ELF32`, `2's complement, little endian`, `MIPS R3000`; the production config asserted `CPU_MIPS32_R2=y`. The AI docs checker accepted 63/119 root records.
+- **Source-integrity finding:** `trunk/configure` at the base was 507 lines, versus 316 in its original pre-integration parent. A complete copy of the SQM, CPU OC, USB, FAT/EXT, XFRM, IPSET/QOS, NFSD/NFSC/CIFS and USB-audio feature logic remained duplicated. Repeating those feature mutations can make product config depend on duplicated control flow, so this was corrected despite the previous target object pass.
+- **Fix in THIS COMMIT:** restore exact original `trunk/configure` blob `baf36e2e3c393307e04e5510d7e20a44119a9187` and add one bounded conditional directly before its original SQM section. When the selected board kernel config sets `CONFIG_NETFILTER_XT_TARGET_FULLCONENAT=y` or `=m`, call the existing helper to enable `CONFIG_NF_CONNTRACK_EVENTS`. This keeps the Kconfig prerequisite enabled independently of SQM and preserves every original board-feature section exactly once/in its original order. Expected result is 322 lines.
+- **Regression:** the FULLCONENAT workflow now runs `bash -n trunk/configure`, verifies each key project configuration section heading occurs exactly once, and proves the FULLCONENAT event gate appears before and outside the optional SQM block. The actual XY-C1 config, Kconfig assertions, MIPS object build and ELF checks remain unchanged and must rerun on this exact source.
+- **Changed paths:** `trunk/configure`, `.github/workflows/fullconenat-lifecycle.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log.
+- **Validation:** previous exact-head MIPS object/ELF and all FULLCONENAT/AI docs steps passed on the prior duplicated script. The corrected configure uniqueness/dependency regression, generated XY-C1 config, MIPS object recompile and AI docs are pending. No full kernel image, firmware/TRX, uClibc runtime or L4 router test is claimed.
+- **Root log:** 64 complete newest-first records before this entry; 65 after. No archive rotation or `docs/dev-log/INDEX.md` update is due.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** inspect every job step and complete log in exact-head FULLCONENAT and AI docs Actions. Confirm the 322-line configure uniqueness contract, SQM-independent conntrack event setting, XY-C1 post-`olddefconfig` values, and actual MIPS object ELF header. Once green, resume repository-wide P2 stability/security work outside Netfilter; FTP cleanup TOCTOU remains OPEN/BLOCKED until safe staged publication is proved.
+
+---
+
 ## 2026-11-11 04:08 CST (UTC+8) — Complete production XY-C1 FULLCONENAT MIPS32r2 object validation
 
 - **Validated code SHA:** 7b833db52deddb0c2404c77c3e1ab87cdfac5d85; parent f2a3c1b8dd454c747e1d4c8cd21e60afb2f0d9e0. Both exact-head Actions passed: FULLCONENAT lifecycle [42891865785] and AI handoff docs [42891866252].

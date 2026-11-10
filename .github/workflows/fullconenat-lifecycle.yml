@@ -374,6 +374,75 @@ jobs:
           print("FULLCONENAT concurrent IPv4/IPv6 debug formatting contract: PASS")
           PY
 
+      - name: Validate configure feature sections and FULLCONENAT/SQM independence
+        run: |
+          bash -n trunk/configure
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/configure").read_text()
+          markers = (
+              "######################### FULLCONENAT",
+              "############################# SQM",
+              "########################### CPU EREQ",
+              "############################# FAT",
+              "############################ exFAT",
+              "############################# EXT2",
+              "############################# EXT3",
+              "############################# EXT4",
+              "############################# XFS",
+              "############################# FUSE",
+              "############################# SWAP",
+              "############################# NFSD",
+              "############################# UVC",
+              "############################# HID",
+              "############################# UART",
+              "############################# XFRM",
+              "############################ IPSET",
+              "############################# QOS",
+              "############################# IFB",
+              "############################# NFSC",
+              "############################# CIFS",
+              "############################# USB AUDIO",
+          )
+          for marker in markers:
+              assert source.count(marker) == 1, f"duplicate or missing section: {marker}"
+
+          fullcone = source.index("######################### FULLCONENAT")
+          sqm = source.index("############################# SQM")
+          block = source[fullcone:sqm]
+          assert 'CONFIG_NETFILTER_XT_TARGET_FULLCONENAT=y        run: |
+          set -eu
+          archive="$RUNNER_TEMP/mipsel-linux-musl.tar.xz"
+          toolchain_root="$RUNNER_TEMP/fullconenat-mipsel-linux-musl"
+          curl -fL --retry 3 \
+            "https://github.com/Arlene206/padavan-4.4-2/releases/download/toolchain/mipsel-linux-musl.tar.xz" \
+            -o "$archive"
+          printf '%s  %s\n' '7c1dc5c5ed6c3b86fa5baf7e2832309e1ce21434e1e6dae491f838c95f3a6863' "$archive" | sha256sum -c -
+          mkdir -p "$toolchain_root"
+          tar -xJf "$archive" -C "$toolchain_root"
+          MIPS_TOOLCHAIN_ROOT="$toolchain_root" \
+            scripts/build_fullconenat_mips_object.sh
+ in block
+          assert 'CONFIG_NETFILTER_XT_TARGET_FULLCONENAT=m        run: |
+          set -eu
+          archive="$RUNNER_TEMP/mipsel-linux-musl.tar.xz"
+          toolchain_root="$RUNNER_TEMP/fullconenat-mipsel-linux-musl"
+          curl -fL --retry 3 \
+            "https://github.com/Arlene206/padavan-4.4-2/releases/download/toolchain/mipsel-linux-musl.tar.xz" \
+            -o "$archive"
+          printf '%s  %s\n' '7c1dc5c5ed6c3b86fa5baf7e2832309e1ce21434e1e6dae491f838c95f3a6863' "$archive" | sha256sum -c -
+          mkdir -p "$toolchain_root"
+          tar -xJf "$archive" -C "$toolchain_root"
+          MIPS_TOOLCHAIN_ROOT="$toolchain_root" \
+            scripts/build_fullconenat_mips_object.sh
+ in block
+          assert 'func_enable_kernel_param "CONFIG_NF_CONNTRACK_EVENTS"' in block
+          assert 'if [ "$CONFIG_FIRMWARE_INCLUDE_SQM" = "y" ]; then' not in block
+          assert 'if [ "$CONFIG_FIRMWARE_INCLUDE_SQM" = "y" ]; then' in source[sqm:]
+          print("Project configure uniqueness and FULLCONENAT/SQM dependency contract: PASS")
+          PY
+
       - name: Build FULLCONENAT for MT7621 MIPS32r2
         run: |
           set -eu

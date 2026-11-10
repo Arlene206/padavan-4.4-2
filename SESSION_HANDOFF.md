@@ -1,78 +1,27 @@
 ## Current repository state
 
-- Maintained fork: Arlene206/padavan-4.4-2; operate only on this fork. Base main SHA before THIS COMMIT: 7b833db52deddb0c2404c77c3e1ab87cdfac5d85, parent f2a3c1b8dd454c747e1d4c8cd21e60afb2f0d9e0. Remote branch inventory: only main; no checkpoint branch.
-- **Recovered prior unfinished task — COMPLETE:** exact-head FULLCONENAT lifecycle run [42891865785] and AI handoff docs run [42891866252] both completed SUCCESS on the code SHA above. The complete FULLCONENAT job was inspected; all seven substantive steps passed.
-- **Target object evidence:** the pinned MIPS musl toolchain checksum passed; bash -n trunk/configure passed; the real XY-C1 product template and trunk/configure path ran with SQM disabled; olddefconfig retained RALINK=y, RALINK_MT7621=y, SOC_MT7621=y, CPU_LITTLE_ENDIAN=y, CPU_MIPS32_R2=y, NF_CONNTRACK_EVENTS=y, NF_NAT_IPV6=m and NETFILTER_XT_TARGET_FULLCONENAT=y. Kbuild emitted CC net/netfilter/xt_FULLCONENAT.o. readelf verified ELF32 and little-endian data; e_machine reports MIPS (displayed by this binutils as MIPS R3000), while the kernel config explicitly selects MIPS32r2.
-- **Production configuration fix:** trunk/configure now enables NF_CONNTRACK_EVENTS whenever a selected board kernel config enables FULLCONENAT, independently of optional SQM. This closes the XY-C1 non-SQM config gap where FULLCONENAT was selected but its Kconfig prerequisite was disabled.
-- **Kbuild reliability fix:** the two build-dir and two target-dir single-object rule variables in trunk/linux-4.4.x/Makefile now use deferred (=) expansion. Their expressions reference automatic variables ($@/$<), so the prior immediate (:=) expansion lost the target directory and made direct single-object builds fail with obj empty. The exact target-object CI now exercises and passes this rule.
-- **Netfilter source fix:** the shared IPv4/IPv6 FULLCONENAT tuple debug buffer was removed because the address families used different locks around the same global diagnostic storage. Source/lifecycle/namespace/zone/debug-format regressions all pass.
-- **Validation boundary:** the verified result is one production XY-C1 FULLCONENAT MIPS32r2 translation unit plus the stated config and ELF properties. It is not a complete kernel build, other board/ABI matrix, firmware/TRX, full userland, uClibc runtime, or physical router L3/L4 result.
-- Root dev_log.md contained 63 complete newest-first records before this commit and will contain 64 after it; no archive rotation or docs/dev-log/INDEX.md update is due.
+- Maintained fork: `Arlene206/padavan-4.4-2`; operate only on this fork. Base `main` SHA before THIS COMMIT: `af657721328f6a1af62a62e4631028a77df9b982`, parent `7b833db52deddb0c2404c77c3e1ab87cdfac5d85`. Remote branch inventory contains only `main`; no checkpoint branch exists.
+- **Recovered FULLCONENAT task — complete on code SHA:** exact-head FULLCONENAT run [42891865785] and AI docs [42891866252] both SUCCESS on `7b833db52deddb0c2404c77c3e1ab87cdfac5d85`. The job compiled `net/netfilter/xt_FULLCONENAT.o` with the pinned MIPS toolchain; readelf verified ELF32, little-endian, MIPS. The XY-C1 template had SQM disabled but the generated kernel config retained conntrack events and FULLCONENAT. This is a bounded object result, not a full kernel or firmware build.
+- **Remaining source-integrity defect found during follow-up audit:** `trunk/configure` at `af657721328f6a1af62a62e4631028a77df9b982` still contained 507 lines, compared with 316 lines in its pre-integration parent. A duplicated block of SQM, CPU, USB, filesystem and networking feature mutations remained even after the syntax-only repair. The duplicate copy could cause repeated feature changes and was not left in production.
+- **Fix in THIS COMMIT:** restore the exact original 316-line `trunk/configure` from blob `baf36e2e3c393307e04e5510d7e20a44119a9187`; insert only one FULLCONENAT dependency gate immediately before the original SQM block. When the selected board kernel config enables FULLCONENAT (`y` or `m`), enable `CONFIG_NF_CONNTRACK_EVENTS` regardless of SQM. Preserve every existing board-feature section exactly once and in its previous order; resulting file length is 322 lines.
+- **Regression added in THIS COMMIT:** the FULLCONENAT workflow runs `bash -n trunk/configure`, asserts principal project configuration sections occur exactly once, and verifies the FULLCONENAT prerequisite gate appears before and outside the SQM conditional. The existing XY-C1 product-config and MIPS object/ELF checks remain active.
+- **Validated Kbuild correction:** the kernel Makefile's four `build-dir`/`target-dir` expressions now use deferred expansion for automatic variables. Exact-head run [42891865785] verified the direct object target compiles successfully.
+- **Previous production source fix:** the shared IPv4/IPv6 FULLCONENAT tuple debug buffer was removed because the two packet-family locks did not serialize shared storage; source and workflow contracts pass.
+- **Validation boundary:** prior exact-head FULLCONENAT and AI docs Actions both passed. THIS COMMIT's configure uniqueness/dependency contract, XY-C1 config rerun, MIPS object recompile and AI docs are pending exact-head Actions. No full kernel image, firmware/TRX, userland, production uClibc/BusyBox runtime or L4 router result is claimed.
+- Root `dev_log.md` contained 64 complete newest-first records before this commit and will contain 65 after; no archive rotation or `docs/dev-log/INDEX.md` update is due.
 
 ## Active task
 
-- Resume repository-wide P2 stability/security coverage outside Netfilter. Start with the DNSMasq/RC lifecycle boundary: review cross-process lock callers, daemon stop/start postconditions, failure rollback and BusyBox ash/uClibc-specific process/status assumptions; choose one concrete reproducible gap and add a bounded GNU89/host regression. Defer production uClibc/firmware/router validation to the planned final target phase.
-- Keep FTP failed-upload cleanup TOCTOU OPEN/BLOCKED: Linux 4.4 lacks inode-conditional unlink, and no staged-publication design has yet been proven across STOR/APPE/REST/STOU and filesystem semantics. Do not add a check/unlink workaround and claim atomicity. Keep NFS policy changes blocked on real client evidence.
-- Other open items remain wireless bridge/board detach, WAN reconnect/IPv6 rollback and production RC MIPS/uClibc/lifecycle coverage. Continue to broaden beyond SkipDBv2, HTTPD and Netfilter.
+- Reconcile exact-head FULLCONENAT lifecycle and AI docs Actions. Confirm the restored 322-line configure file has no duplicate feature sections, enables conntrack events for FULLCONENAT even with SQM disabled, passes XY-C1 post-`olddefconfig` assertions and still compiles the actual MIPS object with the expected ELF header.
+- After green, resume repository-wide P2 stability/security coverage outside Netfilter. The next source audit is DNSMasq/RC lifecycle cross-process lock callers, daemon stop/start postconditions, failure rollback and BusyBox ash/uClibc process/status assumptions.
+- Keep FTP failed-upload cleanup TOCTOU OPEN/BLOCKED until a staged-publication design proves safety across STOR/APPE/REST/STOU and filesystems. NFS export/client semantics still need real client evidence; wireless detach and WAN reconnect/IPv6 rollback remain open.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main, exact SHA/parent, remote branch inventory and Actions runs; confirm the source-code validation SHA remains an ancestor of main.
-2. Inspect the full recent FULLCONENAT and AI handoff logs if needed; do not repeat their completed work. The validated code SHA is 7b833db52deddb0c2404c77c3e1ab87cdfac5d85, with FULLCONENAT [42891865785] and AI docs [42891866252] both SUCCESS.
-3. Begin the DNSMasq/RC lifecycle source audit from the roadmap's verified cross-process lock contract. Trace each public caller and daemon/process postcondition before changing code; create one focused host regression for any confirmed gap.
-4. Keep full firmware/TRX and L4 behavior explicitly unverified; keep FTP cleanup TOCTOU blocked pending a proved staged-publication design and NFS compatibility pending client evidence.
-
-## Active task
-
-- Reconcile the exact-head FULLCONENAT and AI handoff Actions. Confirm the direct single-object Kbuild rule now passes the correct directory/target to scripts/Makefile.build, then verify xt_FULLCONENAT.o is a real ELF32 little-endian MIPS object.
-- Inspect the entire failed/successful job logs rather than relying on step names. Do not replace the single-target build with a source-only test or silently build a different file.
-- After this target object is proven, continue the repository-wide P2 stability/security queue: FTP failed-upload cleanup TOCTOU remains OPEN/BLOCKED pending a proven staged-publication design; NFS export/client semantics need real client evidence; DNSMasq/RC production MIPS/uClibc lifecycle concurrency, wireless board detach and WAN reconnect/IPv6 rollback remain open.
-
-## Exact first action for the next GPT
-
-1. Fetch live main, record exact SHA and parent, and check remote branch/checkpoint inventory.
-2. Inspect all jobs, steps and complete logs in the exact-head FULLCONENAT and AI docs runs. Confirm Kbuild reached CC net/netfilter/xt_FULLCONENAT.o and readelf reports ELF32/little-endian/MIPS.
-3. If successful, record only this bounded XY-C1 MIPS32r2 target-object/config/toolchain result—not a complete kernel, firmware/TRX, uClibc, or router result. If it fails, diagnose the actual next Kbuild/compiler error without weakening the target.
-4. Resume the highest-value repository-wide P2 item. FTP upload-cleanup TOCTOU stays OPEN/BLOCKED until an unlink-safe staged-publication design is proven; NFS compatibility and L4 behavior remain unverified.
-
-## Active task
-
-- Reconcile exact-head FULLCONENAT and AI handoff Actions. First confirm bash -n trunk/configure passes and the XY-C1 non-SQM project configuration generates CONFIG_NF_CONNTRACK_EVENTS=y while retaining CONFIG_NETFILTER_XT_TARGET_FULLCONENAT=y. Then inspect the complete Kbuild log and verify the real xt_FULLCONENAT.o ELF32/little-endian/MIPS header.
-- If configuration or compilation fails, fix the actual source/build issue without weakening checks, bypassing trunk/configure, or substituting a source-only contract for the target object build.
-- After exact-head CI is green, continue the repository-wide priority queue: FTP failed-upload cleanup TOCTOU remains OPEN/BLOCKED pending a proven staged-publication design; NFS export/client semantics need real client evidence; DNSMasq/RC production MIPS/uClibc lifecycle concurrency, wireless board detach and WAN reconnect/IPv6 rollback remain open. Keep coverage moving beyond Netfilter.
-
-## Exact first action for the next GPT
-
-1. Fetch live main, record exact SHA/parent and verify the remote branch/checkpoint inventory.
-2. Inspect every job, step and complete log for the exact-head FULLCONENAT and AI docs runs. Confirm the shell syntax check and production XY-C1 configuration assertions, then verify the target object's ELF header.
-3. If green, record only the bounded XY-C1 MIPS32r2 FULLCONENAT object/config/toolchain result—not a full kernel, firmware/TRX, uClibc or L4 router result. If not, diagnose and fix the exact next failure.
-4. Continue the highest-value repository-wide P2 stability/security item. Keep FTP upload-cleanup TOCTOU OPEN/BLOCKED until a staged-publication design proves unlink safety; NFS compatibility and L4 device behavior remain unverified.
-
-## Active task
-
-- Reconcile the exact resulting `main` SHA and inspect every job, step and complete log in the FULLCONENAT lifecycle and AI handoff Actions. The MIPS helper must execute the actual XY-C1 `trunk/configure` path with SQM disabled, retain FULLCONENAT after `olddefconfig`, and compile `xt_FULLCONENAT.o` as ELF32, little-endian, MIPS.
-- If the target fails, inspect the actual Kconfig/build command and fix the root cause without weakening the production configuration assertions, skipping the translation-unit build, or suppressing compiler flags.
-- After exact-head CI is green, continue the repository-wide priority queue: FTP failed-upload cleanup TOCTOU remains OPEN/BLOCKED pending a proven staged-publication design; NFS export/client semantics need real client evidence; DNSMasq/RC production MIPS/uClibc lifecycle concurrency, wireless board detach and WAN reconnect/IPv6 rollback remain open. Keep coverage moving beyond Netfilter.
-
-## Exact first action for the next GPT
-
-1. Fetch live `main`, record its exact SHA/parent and recheck the remote branch/checkpoint inventory.
-2. Inspect all jobs, steps and logs in the exact-head FULLCONENAT and AI docs Actions. Confirm the generated XY-C1 config keeps `CONFIG_NETFILTER_XT_TARGET_FULLCONENAT=y` with `CONFIG_NF_CONNTRACK_EVENTS=y`, and confirm the actual target object ELF header.
-3. If the object compiles, record only the bounded XY-C1 MIPS32r2 FULLCONENAT object/config/toolchain result—not a full kernel, firmware/TRX, uClibc, or router result. Otherwise fix the actual next failure without weakening the checks.
-4. Continue with the highest-value whole-repository P2 stability/security item. Keep FTP cleanup TOCTOU OPEN/BLOCKED until an unlink-safe publication design is proven. NFS compatibility and L4 device behavior remain unverified.
-
-## Active task
-
-- Reconcile the exact resulting `main` SHA and inspect every job, step and log in the corrected FULLCONENAT and AI handoff Actions. Confirm the generated MT7621 config selects Ralink/MT7621/MIPS32r2/little-endian with no big-endian symbol, then confirm the real `xt_FULLCONENAT.o` compiles and has an ELF32, little-endian, MIPS header.
-- Do not mask the endian conflict or drop the real target compile. If this compile still fails, diagnose the next actual Kbuild/toolchain error and fix it while retaining all target checks.
-- After exact-head CI is green, continue the repository-wide priority queue: FTP failed-upload cleanup TOCTOU remains OPEN/BLOCKED pending a proven staged-publication design; NFS export/client semantics need real client evidence; DNSMasq/RC production MIPS/uClibc lifecycle concurrency, wireless board detach and WAN reconnect/IPv6 rollback remain open. Keep coverage moving beyond Netfilter.
-
-## Exact first action for the next GPT
-
-1. Fetch live `main`, record exact SHA and parent, and recheck remote branch/checkpoint inventory.
-2. Inspect all jobs, steps and logs in exact-head FULLCONENAT run [pending] and AI docs run [pending]. Confirm the corrected Kconfig selections and actual target object result, not merely that the helper was invoked.
-3. If the object compiles, record that only the selected MT7621 MIPS32r2 FULLCONENAT translation unit/config/toolchain is validated—not the complete kernel or firmware. If it fails, inspect the exact command and error and fix the real issue without weakening the target check.
-4. Continue with the next highest-value whole-repository P2 stability/security item. Keep FTP cleanup TOCTOU OPEN/BLOCKED until an unlink-safe publication design is demonstrated. NFS compatibility, BusyBox ash, production uClibc, full firmware/TRX and L4 behavior remain unverified.
+1. Fetch live `main`, record exact SHA/parent and check branches/checkpoints.
+2. Inspect all job steps/full logs in the exact-head FULLCONENAT and AI docs Actions. Confirm configure uniqueness and SQM-independent dependency checks, generated XY-C1 Kconfig values, target object compile and readelf header.
+3. Record only the bounded XY-C1 MIPS32r2 target-object/config/toolchain result; do not claim a full kernel/firmware/TRX or L4 result.
+4. Continue the whole-repository P2 audit outside Netfilter, starting with DNSMasq/RC lifecycle. Keep FTP cleanup TOCTOU OPEN/BLOCKED and NFS compatibility pending evidence.
 
 ## PID 1 notification queue batch fairness
 
