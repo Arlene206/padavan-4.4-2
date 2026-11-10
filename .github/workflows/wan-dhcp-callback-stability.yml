@@ -9,6 +9,7 @@ on:
       - "trunk/user/rc/src/tests/dhcp_wan_interface_policy.c"
       - "trunk/user/rc/src/wan_viptv_static_policy.h"
       - "trunk/user/rc/src/tests/wan_viptv_static_policy.c"
+      - "trunk/user/busybox/busybox-1.24.x/networking/zcip.c"
   pull_request:
     paths:
       - ".github/workflows/wan-dhcp-callback-stability.yml"
@@ -17,6 +18,7 @@ on:
       - "trunk/user/rc/src/tests/dhcp_wan_interface_policy.c"
       - "trunk/user/rc/src/wan_viptv_static_policy.h"
       - "trunk/user/rc/src/tests/wan_viptv_static_policy.c"
+      - "trunk/user/busybox/busybox-1.24.x/networking/zcip.c"
 
 jobs:
   wan-dhcp-callback:
@@ -125,13 +127,64 @@ jobs:
           assert "accepted but route setup is incomplete" in viptv_bound
           assert "return route_setup_status;" in viptv_bound
 
-          viptv_deconfig = body(source, "udhcpc_viptv_main(int argc, char **argv)")
+          viptv_deconfig = body(source, "manv_route_deconfig(char *man_ifname)")
           assert 'route_result = del_dhcp_routes_by_prefix("manv_"' in viptv_deconfig
           assert 'route_result = route_del(man_ifname, 10' in viptv_deconfig
           assert viptv_deconfig.count("route_status = route_status_accumulate(route_status, route_result);") == 2
           assert viptv_deconfig.index("if (route_status == 0)") < viptv_deconfig.index('nvram_set_temp("manv_gateway", "")')
           assert "preserving route inventory" in viptv_deconfig
-          assert "ret = route_status;" in viptv_deconfig
+          assert 'ret = manv_route_deconfig(man_ifname)' in body(source, "udhcpc_viptv_main(int argc, char **argv)")
+
+          man_down = body(source, "man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)")
+          state_gate = man_down.index("if (status == 0)")
+          clear_address = man_down.index('nvram_set_temp("wanx_ipaddr", "0.0.0.0")')
+          clear_gateway = man_down.index('nvram_set_temp("wanx_gateway", "")')
+          assert state_gate < clear_address < clear_gateway
+          assert "preserving lease and route inventory" in man_down
+
+          man_deconfig = body(source, "udhcpc_deconfig(char *wan_ifname, int is_zcip)")
+          assert "reset_man_address = (interface_status == 0)" in man_deconfig
+          assert man_deconfig.index('interface_status = ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL)') < man_deconfig.index("reset_man_address = (interface_status == 0)")
+
+          zcip_bound = body(source, "zcip_bound(char *man_ifname)")
+          assert zcip_bound.index('value = getenv("ip")') < zcip_bound.index("dhcp_lease_ipv4_is_valid(ip)") < zcip_bound.index("dhcp_wan_interface_apply(")
+          assert 'snprintf(old_ip, sizeof(old_ip), "%s", nvram_safe_get("wanx_ipaddr"))' in zcip_bound
+          assert 'snprintf(old_mask, sizeof(old_mask), "%s", nvram_safe_get("wanx_netmask"))' in zcip_bound
+          assert zcip_bound.index("dhcp_wan_interface_apply(") < zcip_bound.index('nvram_set_temp(strcat_r(prefix, "ipaddr", tmp), ip)') < zcip_bound.index("man_up_internal(")
+          assert "failed to restore previous ZeroConf WAN address" in zcip_bound
+          assert "return route_setup_status;" in zcip_bound
+          assert "ifconfig(" not in zcip_bound and "man_up(" not in zcip_bound
+
+          zcip_viptv_bound = body(source, "zcip_viptv_bound(char *man_ifname)")
+          assert zcip_viptv_bound.index('value = getenv("ip")') < zcip_viptv_bound.index("dhcp_lease_ipv4_is_valid(ip)") < zcip_viptv_bound.index("dhcp_wan_interface_apply(")
+          assert 'snprintf(old_ip, sizeof(old_ip), "%s", nvram_safe_get("manv_ipaddr"))' in zcip_viptv_bound
+          assert 'snprintf(old_mask, sizeof(old_mask), "%s", nvram_safe_get("manv_netmask"))' in zcip_viptv_bound
+          assert zcip_viptv_bound.index("dhcp_wan_interface_apply(") < zcip_viptv_bound.index('nvram_set_temp(strcat_r(prefix, "ipaddr", tmp), ip)') < zcip_viptv_bound.index("start_igmpproxy(man_ifname)")
+          assert "ifconfig(" not in zcip_viptv_bound
+
+          manv_deconfig = body(source, "manv_route_deconfig(char *man_ifname)")
+          assert 'route_result = del_dhcp_routes_by_prefix("manv_", man_ifname, 0)' in manv_deconfig
+          assert 'route_result = route_del(man_ifname, 10' in manv_deconfig
+          assert manv_deconfig.count("route_status = route_status_accumulate(route_status, route_result);") == 2
+          assert manv_deconfig.index("if (route_status == 0)") < manv_deconfig.index('nvram_set_temp("manv_gateway", "")')
+          assert "preserving route inventory" in manv_deconfig
+
+          zcip_deconfig = body(source, "zcip_viptv_deconfig(char *man_ifname)")
+          assert 'interface_status = ifconfig(man_ifname, IFUP, "0.0.0.0", NULL)' in zcip_deconfig
+          assert "route_status = manv_route_deconfig(man_ifname)" in zcip_deconfig
+          assert zcip_deconfig.index("interface_status == 0 && route_status == 0") < zcip_deconfig.index('nvram_set_temp("manv_ipaddr", "0.0.0.0")')
+          assert "stop_igmpproxy(man_ifname)" in zcip_deconfig
+          assert "return route_status_accumulate(interface_status, route_status)" in zcip_deconfig
+          assert 'ret = zcip_viptv_deconfig(man_ifname)' in body(source, "zcip_viptv_main(int argc, char **argv)")
+
+          zcip_viptv_start = body(source, "start_zcip_viptv(char *man_ifname)")
+          assert '"/sbin/zcip", "-q", man_ifname, SCRIPT_ZCIP_VIPTV' in zcip_viptv_start
+          busybox_source = Path("trunk/user/busybox/busybox-1.24.x/networking/zcip.c").read_text()
+          zcip_applet = body(busybox_source, "zcip_main(int argc UNUSED_PARAM, char **argv)")
+          config_callback = zcip_applet.index('run(argv, "config", chosen_nip)')
+          quit_after_config = zcip_applet.index("if (QUIT)", config_callback)
+          monitor_state = zcip_applet.index("timeout_ms = -1; // never timeout in monitor state", quit_after_config)
+          assert config_callback < quit_after_config < monitor_state
 
           assert '#include "wan_viptv_static_policy.h"' in source
           static_start = body(source, "launch_viptv_wan(void)")
@@ -185,6 +238,7 @@ jobs:
               "trunk/user/rc/src/tests/dhcp_wan_interface_policy.c",
               "trunk/user/rc/src/wan_viptv_static_policy.h",
               "trunk/user/rc/src/tests/wan_viptv_static_policy.c",
+              "trunk/user/busybox/busybox-1.24.x/networking/zcip.c",
           )
           filters = workflow.split("jobs:", 1)[0]
           push_filters, pr_filters = filters.split("  pull_request:", 1)

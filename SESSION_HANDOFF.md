@@ -2,10 +2,11 @@
 
 - Maintained fork: `Arlene206/padavan-4.4-2`; work only on this repository.
 - Branch inventory at takeover: `main` only; no remote checkpoint branch. No force-pushes were used.
-- **Last reconciled main SHA:** `875f85edd72362c54b9aa373b6e451adba27e345`. It fixes the HTTPD wireless restart source-contract token after the AP/WDS/APCLI status-propagation change. HTTPD security [42742135752] and AI handoff documentation [42742135820] both completed SUCCESS on this exact SHA. On parent SHA `4cb9d3dc4d2644e02dd03e717eb5f019c7a28c42`, Wireless radio state [42741673513], USB storage [42741673496], WAN route status [42741673402], vsftpd [42741673364] and Samba [42741673346] also completed SUCCESS.
+- **Last reconciled main SHA:** `ea9c91531e9611a8fc4bf227137c3ea6aa3f5ed5`. Static-IP IPTV startup is green on this exact SHA: WAN DHCP callback [42744955204], WAN teardown [42744955205], WAN route status [42744955153], HTTPD security [42744955208], and AI handoff docs [42744955469] all completed SUCCESS. The WAN callback run compiled/executed both GNU89 regressions and passed the production source-order contract.
 - **Resolved failure:** HTTPD [42741673534] failed in a stale Python extractor, not production code. The current workflow now checks the status-gated startup expression; its exact-head rerun [42742135752] is green.
-- **Current development slice:** harden the static-IP IPTV branch in `launch_viptv_wan()`. Address-interface failure must not publish `manv_*` state or start multicast; default-route failure must be returned while retaining the address/gateway source state for later teardown. Invalid static address/netmask must not fall through to launching the DHCP IPTV client. The GNU89 policy regression and workflow source contract are added in THIS COMMIT; reconcile exact-head WAN, HTTPD and AI-doc Actions before the next change.
-- **Next after validation:** audit `zcip_bound()`, `zcip_viptv_bound()`, `zcip_main()` and `zcip_viptv_main()` for ZeroConf interface status propagation and deconfig cleanup. In particular, trace the IPTV no-op `deconfig` path, multicast shutdown, `manv_*` state retention, and MAN resolver/route cleanup. Keep this separate from the current static-IP startup transaction.
+- **Current development slice:** transactional ZeroConf WAN/IPTV callbacks and retry-safe MAN/IPTV deconfiguration. Validate input before touching state; apply addresses through the checked WAN DHCP rollback helper; publish only after interface success; return MAN route-add failures; retain MAN lease/route inventory on incomplete teardown; do not discard the old MAN address identity if interface clear fails. Defensive IPTV ZeroConf deconfig now clears address/routes and stops multicast, but the normal launcher keeps BusyBox `zcip -q`, which exits after `config` before monitor/deconfig. The expanded GNU89 and BusyBox lifecycle source contract plus docs validation are pending on THIS commit.
+- **Next after validation:** move out of WAN callback work. Continue FTP MDTM/SITE CHMOD descriptor-relative metadata authorization and the Linux 4.4 upload-cleanup check/unlink race review; keep FULLCONENAT target object build and NFS compatibility queued.
+
 - Samba production implementation commit: `1a7097ace2e6c689cb7e92cd10055967d99fe143` (parent `6b44e023c2f669865fc8b5cb5425d824b8335d8b`). Follow-up commits updated the Samba and HTTPD semantic workflow extractors after initial assertions still referenced the previous writer layout.
 - Exact Actions evidence:
   - FIFO fixture teardown correction [42730772799] and AI handoff docs [42730772420] both completed SUCCESS on exact SHA `edd8688641cd5bb6fcefea325880f7c4c56aa511`; the three GNU89 host tests and Python semantic contract all passed.
@@ -20,7 +21,7 @@
   - RNFR/RNTO rename commit `2953898fb09e4d5535fd0628bb3c74bb8b21a831` had an intermediate source-contract assertion defect after its GNU89 host suites passed. The corrected denial/post-rename cleanup contract and descriptor-relative rename regression completed SUCCESS on exact SHA `5ca27e7c420284f1ac21362e28566cfb56a693f1` (VSFTPD [42724420056], AI docs [42724420034]). Later recursive listing and per-entry metadata regressions passed on their exact SHAs.
   - Initial attempts on `1a7097a...` failed only in stale semantic workflow extractors; the new transaction host test itself passed. The assertions were corrected and later exact-SHA runs above passed. Do not report the initial failures as green.
 - The exact-head DHCP callback and handoff checks on `6b44e023c2f669865fc8b5cb5425d824b8335d8b` were already SUCCESS: WAN DHCP callback [42703609156] and AI handoff docs [42703609087].
-- Root `dev_log.md` contains 101 complete newest-first records after the static-IP IPTV startup entry and remains below the 119-record / 384 KiB early-rotation thresholds; no archive rotation is due.
+- Root `dev_log.md` contains 104 complete newest-first records after this ZeroConf entry and remains below the 119-record / 384 KiB early-rotation thresholds; no archive rotation is due.
 - L3 production RC/MIPS/uClibc/firmware builds and L4 physical router validation are NOT VERIFIED.
 
 ## Completed DHCP callback and BusyBox event-state review
@@ -94,26 +95,26 @@
 
 ## Active task
 
-1. **Production wireless change is committed in parent `4cb9d3dc4d2644e02dd03e717eb5f019c7a28c42`.** AP/WDS/APCLI helpers now return status; AP/APCLI and RT3352 iNIC bring-up errors propagate; WDS continues trying all configured interfaces while retaining a sticky failure; DBDC restart rollback also unwinds the first radio's 802.1X helper. The raw bridge-add result is not yet promoted to a failure.
-2. **This follow-up corrects a stale cross-workflow assertion.** HTTPD security run [42741673534] on exact SHA `4cb9d3dc4d2644e02dd03e717eb5f019c7a28c42` passed the preceding wireless configuration preflight test but failed at `restart.index(start_call)` because the old test searched for a direct call ending in `;`. The production code now invokes the helper as a status gate (`if (start_wifi_ap_wl(radio_on) < 0 || ...`); the HTTPD workflow has been updated to assert the guarded call. This follow-up's exact-head HTTPD and AI handoff Actions are pending.
-3. **Bridge attachment audit boundary.** Linux 4.4 `br_add_if()` returns `-EBUSY` whenever the interface already has a master, including an existing port on the same bridge. `stop_wifi_all_*()` lowers interfaces without detaching all AP/WDS/APCLI bridge ports. Do not interpret raw `SIOCBRADDIF` duplicate-add errors as attach failure until an idempotent bridge membership/master query exists.
-4. **Next subsystem:** once all exact-head Actions are green, switch to `trunk/user/rc/src/net_wan.c` and trace static-IP IPTV / ZeroConf callback address, route, resolver and rollback status. Do not remain in wireless for another round absent a newly reproduced P0/P1 defect.
-5. Keep FULLCONENAT target kernel/MIPS compilation, FTP MDTM/SITE CHMOD and upload-cleanup race, NFS compatibility, and L3/L4 validation visible.
+1. **Completed in THIS COMMIT — ZeroConf WAN/IPTV address transactions.** Both callbacks reject missing/invalid `ip` before side effects, snapshot the prior IP/netmask, use `dhcp_wan_interface_apply()` for checked clear/set with best-effort restoration, and publish `wanx_*` / `manv_*` state only after the interface accepts the new link-local address. WAN ZeroConf calls `man_up_internal()` and returns route setup status instead of hiding it via `man_up()`.
+2. **Retry-safe WAN MAN teardown.** `man_down_internal()` clears old IP/gateway/DNS/domain/DHCP-route inventory only after every route deletion succeeds; otherwise it logs and preserves source state for a later retry. The MAN deconfig caller marks the old address clearable only when interface-clear ioctl succeeds.
+3. **Defensive IPTV ZeroConf deconfig.** Share IPTV route teardown through `manv_route_deconfig()`; defensive ZCIP deconfig checks interface clear, retains `manv_ipaddr` until address and route cleanup both succeed, stops multicast, and returns the first error. The current IPTV launcher uses BusyBox `zcip -q`, which exits immediately after `config` before entering monitor/deconfig. This boundary was inspected and retained; no unmanaged persistent worker was introduced.
+4. **Exact-head L2 validation is pending.** The WAN callback workflow must compile/run the GNU89 address transaction regression and pass the extended ZeroConf/MAN teardown/BusyBox source contract; AI handoff documentation must also pass on the exact new SHA. Do not treat parent SHA `ea9c91531e9611a8fc4bf227137c3ea6aa3f5ed5` Actions [42744955204] [42744955205] [42744955153] [42744955208] [42744955469] as validation for THIS change.
+5. After all exact-head workflows pass, leave WAN callback work for now and continue the bounded FTP MDTM/SITE CHMOD descriptor-relative metadata and upload-cleanup race review. Keep FULLCONENAT target compilation, NFS compatibility, wireless bridge membership idempotency, and L3/L4 limits visible.
 
 ## Verification boundary
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for AP/WDS/APCLI startup error propagation, WDS all-interface attempts with sticky failure, iNIC failed-start reporting, restart rollback and 802.1X gating. The HTTPD failure was isolated to an obsolete source-extractor token; the preceding wireless config-preflight semantic test passed. |
-| L2 host / Actions | Parent SHA `4cb9d3dc4d2644e02dd03e717eb5f019c7a28c42`: Wireless radio state [42741673513], AI handoff [42741673482], USB storage [42741673496], WAN route [42741673402], vsftpd [42741673364] and Samba [42741673346] SUCCESS. HTTPD [42741673534] FAILED in the legacy guarded-start call extractor. THIS follow-up's HTTPD source-contract and AI handoff Actions are pending exact-head validation. |
+| L1 source review | PASS for validate-before-side-effects, address apply/rollback, publish-after-apply, MAN route-status return, retry-preserving MAN lease/route inventory, interface-clear-gated address clearing, and defensive IPTV ZeroConf deconfig. BusyBox 1.24 `zcip -q` config/exit ordering was inspected and preserved. |
+| L2 host / Actions | Parent SHA `ea9c91531e9611a8fc4bf227137c3ea6aa3f5ed5`: WAN DHCP [42744955204], teardown [42744955205], route [42744955153], HTTPD [42744955208], and AI docs [42744955469] all SUCCESS. THIS commit's GNU89 transaction regression, extended semantic source contract and AI docs validation are pending exact-head checks. No local checkout/compiler run. |
 | L3 production RC/MIPS/uClibc/firmware builds | NOT VERIFIED. |
 | L4 physical router behavior | NOT VERIFIED. |
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, confirm the exact SHA and remote branch inventory, then inspect every Actions run whose `head_sha` equals the new main SHA. Confirm HTTPD security's wireless preflight step and AI handoff documentation validation; inspect full logs for any failure.
-2. If exact-head Actions are green, rotate to static-IP IPTV / ZeroConf callback lifecycle in `net_wan.c`. Trace callers, address/route/resolver operations, error propagation, rollback and state publication before editing.
-3. Preserve the bridge-add idempotency finding, FULLCONENAT target compile, FTP metadata/upload cleanup, NFS compatibility and L3/L4 limits.
+1. Fetch live `main`, verify exact SHA and remote branch inventory, then filter Actions by that exact `head_sha`. Check WAN DHCP callback host/source tests, HTTPD and AI handoff documentation; inspect each failed step rather than inferring from the run conclusion.
+2. If all exact-head Actions pass, move beyond WAN callback work and inspect `trunk/user/vsftpd/src/asus_ext.c`, `postlogin.c`, `sysutil.c` and FTP path-policy helpers for the remaining MDTM/SITE CHMOD descriptor-relative authorization gap and Linux 4.4 upload-cleanup check/unlink race. Select one bounded fix with a host regression.
+3. Keep FULLCONENAT target kernel/MIPS compilation, NFS compatibility, wireless bridge membership idempotency, and production RC/firmware plus L4 router validation boundaries visible.
 
 ## Continuation rules
 

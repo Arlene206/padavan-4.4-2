@@ -1465,6 +1465,7 @@ man_up(char *man_ifname, int unit, int is_static)
 }
 
 static int
+static int
 man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)
 {
 	int wan_proto, is_modem_active, is_man_dns_auto;
@@ -1473,7 +1474,6 @@ man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)
 	char word[100];
 
 	logmessage(LOGNAME, "%s %s (%s)", "MAN", "down", man_ifname);
-
 	man_gate = nvram_safe_get("wanx_gateway");
 	man_addr = nvram_safe_get("wanx_ipaddr");
 	man_mask = nvram_safe_get("wanx_netmask");
@@ -1482,75 +1482,57 @@ man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)
 	is_modem_active = get_usb_modem_wan(unit);
 	is_man_dns_auto = (get_wan_unit_value_int(unit, "dnsenable_x") > 0) ? 1 : 0;
 
-	/* Remove the gateway and any off-subnet host routes from the old lease. */
 	if (dhcp_lease_ipv4_is_valid(man_gate)) {
-		if (dhcp_lease_ipv4_is_valid(man_addr) &&
-		    dhcp_lease_netmask_is_valid(man_mask) &&
+		if (dhcp_lease_ipv4_is_valid(man_addr) && dhcp_lease_netmask_is_valid(man_mask) &&
 		    !is_same_subnet(man_gate, man_addr, man_mask)) {
 			route_status = route_del(man_ifname, 2, man_gate, NULL, "255.255.255.255");
 			status = route_status_accumulate(status, route_status);
 			if (route_status != 0)
-				logmessage(LOGNAME, "failed to delete MAN gateway host route %s on %s (error=%d)",
-					   man_gate, man_ifname, route_status);
+				logmessage(LOGNAME, "failed to delete MAN gateway host route %s on %s (error=%d)", man_gate, man_ifname, route_status);
 		}
 		route_status = route_del(man_ifname, 2, "0.0.0.0", man_gate, "0.0.0.0");
 		status = route_status_accumulate(status, route_status);
 		if (route_status != 0)
-			logmessage(LOGNAME, "failed to delete MAN default route via %s on %s (error=%d)",
-				   man_gate, man_ifname, route_status);
-
-		/* Match the conditional DNS host routes installed by man_up(). */
-		if (is_man_dns_auto && !is_modem_active &&
-		    wan_proto != IPV4_WAN_PROTO_PPPOE) {
+			logmessage(LOGNAME, "failed to delete MAN default route via %s on %s (error=%d)", man_gate, man_ifname, route_status);
+		if (is_man_dns_auto && !is_modem_active && wan_proto != IPV4_WAN_PROTO_PPPOE) {
 			foreach(word, man_dns, next) {
-				if (is_valid_ipv4(word) &&
-				    inet_addr(word) != inet_addr(man_gate) &&
-				    dhcp_lease_ipv4_is_valid(man_addr) &&
-				    dhcp_lease_netmask_is_valid(man_mask) &&
+				if (is_valid_ipv4(word) && inet_addr(word) != inet_addr(man_gate) &&
+				    dhcp_lease_ipv4_is_valid(man_addr) && dhcp_lease_netmask_is_valid(man_mask) &&
 				    !is_same_subnet(word, man_addr, man_mask)) {
 					route_status = route_del(man_ifname, 2, word, man_gate, "255.255.255.255");
 					status = route_status_accumulate(status, route_status);
 					if (route_status != 0)
-						logmessage(LOGNAME, "failed to delete MAN DNS route %s via %s on %s (error=%d)",
-							   word, man_gate, man_ifname, route_status);
+						logmessage(LOGNAME, "failed to delete MAN DNS route %s via %s on %s (error=%d)", word, man_gate, man_ifname, route_status);
 				}
 			}
 		}
 	}
 
-	/* Remove DHCP and static MAN routes before discarding their source data. */
 	route_status = del_dhcp_routes_by_prefix("wanx_", man_ifname, 0);
 	status = route_status_accumulate(status, route_status);
 	if (route_status != 0)
-		logmessage(LOGNAME, "failed to delete DHCP MAN routes on %s (error=%d)",
-			   man_ifname, route_status);
+		logmessage(LOGNAME, "failed to delete DHCP MAN routes on %s (error=%d)", man_ifname, route_status);
 	route_status = del_static_man_routes(man_ifname);
 	status = route_status_accumulate(status, route_status);
 	if (route_status != 0)
-		logmessage(LOGNAME, "failed to delete static MAN routes on %s (error=%d)",
-			   man_ifname, route_status);
+		logmessage(LOGNAME, "failed to delete static MAN routes on %s (error=%d)", man_ifname, route_status);
 
-	/*
-	 * The off-subnet gateway host route above is derived from this lease's
-	 * address and netmask.  Keep the old address until that route is removed.
-	 */
-	if (clear_dhcp_address)
-		nvram_set_temp("wanx_ipaddr", "0.0.0.0");
+	if (status == 0) {
+		if (clear_dhcp_address)
+			nvram_set_temp("wanx_ipaddr", "0.0.0.0");
+		nvram_set_temp("wanx_gateway", "");
+		nvram_set_temp("wanx_dns", "");
+		nvram_set_temp("wanx_domain", "");
+		nvram_set_temp("wanx_routes", "");
+		nvram_set_temp("wanx_routes_ms", "");
+		nvram_set_temp("wanx_routes_rfc", "");
+	} else {
+		logmessage(LOGNAME, "MAN route teardown incomplete on %s (error=%d); preserving lease and route inventory", man_ifname, status);
+	}
 
-	nvram_set_temp("wanx_gateway", "");
-	nvram_set_temp("wanx_dns", "");
-	nvram_set_temp("wanx_domain", "");
-	nvram_set_temp("wanx_routes", "");
-	nvram_set_temp("wanx_routes_ms", "");
-	nvram_set_temp("wanx_routes_rfc", "");
-
-	/* Refresh both DNS snapshots; keep the link if publication fails. */
 	refresh_resolvconf_nonfatal("MAN down", 0);
 	notify_rc("restart_firewall_wan");
-
-	/* stop multicast router */
 	stop_igmpproxy(man_ifname);
-
 	return status;
 }
 
@@ -2609,7 +2591,7 @@ udhcpc_deconfig(char *wan_ifname, int is_zcip)
 				flush_conntrack_table(man_addr);
 
 			/* man_down_internal() needs the old address to remove its host route. */
-			reset_man_address = 1;
+			reset_man_address = (interface_status == 0);
 		}
 	}
 
@@ -3099,64 +3081,89 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 }
 
 static int
+static int
 zcip_bound(char *man_ifname)
 {
 	char *value, *ip;
 	char tmp[100], prefix[16];
-	int unit;
+	char old_ip[INET_ADDRSTRLEN], old_mask[INET_ADDRSTRLEN];
 	char *zeroconf_mask = "255.255.0.0";
+	int unit, interface_status, rollback_status, route_setup_status;
+	struct wan_dhcp_interface_context interface_context;
 
-	unit = get_wan_unit(man_ifname);
+	value = getenv("ip");
+	if (!value) {
+		logmessage(LOGNAME, "ZeroConf received no address on %s", man_ifname);
+		return EINVAL;
+	}
+	ip = trim_r(value);
+	if (!dhcp_lease_ipv4_is_valid(ip)) {
+		logmessage(LOGNAME, "ZeroConf rejected invalid address on %s", man_ifname);
+		return EINVAL;
+	}
+	snprintf(old_ip, sizeof(old_ip), "%s", nvram_safe_get("wanx_ipaddr"));
+	snprintf(old_mask, sizeof(old_mask), "%s", nvram_safe_get("wanx_netmask"));
+	interface_context.ifname = man_ifname;
+	interface_status = dhcp_wan_interface_apply(old_ip, old_mask, ip, zeroconf_mask, 1,
+		&wan_dhcp_interface_ops, &interface_context, &rollback_status);
+	if (interface_status != 0) {
+		logmessage(LOGNAME, "failed to apply ZeroConf address on %s (error=%d)", man_ifname, interface_status);
+		if (rollback_status != 0)
+			logmessage(LOGNAME, "failed to restore previous ZeroConf WAN address on %s (error=%d)", man_ifname, rollback_status);
+		return interface_status;
+	}
 
 	strcpy(prefix, "wanx_");
-
-	ifconfig(man_ifname, IFUP, "0.0.0.0", NULL);
-
 	nvram_set_temp(strcat_r(prefix, "netmask", tmp), zeroconf_mask);
 	nvram_set_temp(strcat_r(prefix, "gateway", tmp), "");
 	nvram_set_temp(strcat_r(prefix, "dns", tmp), "");
+	nvram_set_temp(strcat_r(prefix, "ipaddr", tmp), ip);
 
-	if ((value = getenv("ip"))) {
-		ip = trim_r(value);
-		if (!dhcp_lease_ipv4_is_valid(ip)) {
-			logmessage(LOGNAME, "ZeroConf rejected invalid address on %s", man_ifname);
-			return EINVAL;
-		}
-		nvram_set_temp(strcat_r(prefix, "ipaddr", tmp), ip);
-		ifconfig(man_ifname, IFUP, ip, zeroconf_mask);
-		
-		man_up(man_ifname, unit, 0);
-	}
-
-	return 0;
+	unit = get_wan_unit(man_ifname);
+	route_setup_status = man_up_internal(man_ifname, unit, 0);
+	if (route_setup_status != 0)
+		logmessage(LOGNAME, "ZeroConf address on %s is active but MAN route setup is incomplete (error=%d)", man_ifname, route_setup_status);
+	return route_setup_status;
 }
 
+static int
 static int
 zcip_viptv_bound(char *man_ifname)
 {
 	char *value, *ip;
 	char tmp[100], prefix[16];
+	char old_ip[INET_ADDRSTRLEN], old_mask[INET_ADDRSTRLEN];
 	char *zeroconf_mask = "255.255.0.0";
+	int interface_status, rollback_status;
+	struct wan_dhcp_interface_context interface_context;
 
-	strcpy(prefix, "manv_");
-
-	ifconfig(man_ifname, IFUP, "0.0.0.0", NULL);
-
-	nvram_set_temp(strcat_r(prefix, "netmask", tmp), zeroconf_mask);
-	nvram_set_temp(strcat_r(prefix, "gateway", tmp), "");
-
-	if ((value = getenv("ip"))) {
-		ip = trim_r(value);
-		if (!dhcp_lease_ipv4_is_valid(ip)) {
-			logmessage(LOGNAME, "ZeroConf IPTV rejected invalid address on %s", man_ifname);
-			return EINVAL;
-		}
-		nvram_set_temp(strcat_r(prefix, "ipaddr", tmp), ip);
-		ifconfig(man_ifname, IFUP, ip, zeroconf_mask);
-		
-		start_igmpproxy(man_ifname);
+	value = getenv("ip");
+	if (!value) {
+		logmessage(LOGNAME, "ZeroConf IPTV received no address on %s", man_ifname);
+		return EINVAL;
+	}
+	ip = trim_r(value);
+	if (!dhcp_lease_ipv4_is_valid(ip)) {
+		logmessage(LOGNAME, "ZeroConf IPTV rejected invalid address on %s", man_ifname);
+		return EINVAL;
+	}
+	snprintf(old_ip, sizeof(old_ip), "%s", nvram_safe_get("manv_ipaddr"));
+	snprintf(old_mask, sizeof(old_mask), "%s", nvram_safe_get("manv_netmask"));
+	interface_context.ifname = man_ifname;
+	interface_status = dhcp_wan_interface_apply(old_ip, old_mask, ip, zeroconf_mask, 1,
+		&wan_dhcp_interface_ops, &interface_context, &rollback_status);
+	if (interface_status != 0) {
+		logmessage(LOGNAME, "failed to apply ZeroConf IPTV address on %s (error=%d)", man_ifname, interface_status);
+		if (rollback_status != 0)
+			logmessage(LOGNAME, "failed to restore previous ZeroConf IPTV address on %s (error=%d)", man_ifname, rollback_status);
+		return interface_status;
 	}
 
+	strcpy(prefix, "manv_");
+	nvram_set_temp(strcat_r(prefix, "netmask", tmp), zeroconf_mask);
+	nvram_set_temp(strcat_r(prefix, "gateway", tmp), "");
+	nvram_set_temp(strcat_r(prefix, "ipaddr", tmp), ip);
+	start_igmpproxy(man_ifname);
 	return 0;
 }
 
@@ -3391,45 +3398,46 @@ udhcpc_main(int argc, char **argv)
 }
 
 int
+static int
+manv_route_deconfig(char *man_ifname)
+{
+	char old_gateway[INET_ADDRSTRLEN];
+	int route_status = 0, route_result;
+
+	snprintf(old_gateway, sizeof(old_gateway), "%s", nvram_safe_get("manv_gateway"));
+	route_result = del_dhcp_routes_by_prefix("manv_", man_ifname, 0);
+	route_status = route_status_accumulate(route_status, route_result);
+	if (route_result != 0)
+		logmessage(LOGNAME, "failed to delete IPTV DHCP routes on %s (error=%d)", man_ifname, route_result);
+	if (dhcp_lease_ipv4_is_valid(old_gateway)) {
+		route_result = route_del(man_ifname, 10, "0.0.0.0", old_gateway, "0.0.0.0");
+		route_status = route_status_accumulate(route_status, route_result);
+		if (route_result != 0)
+			logmessage(LOGNAME, "failed to delete IPTV default route via %s (error=%d)", old_gateway, route_result);
+	}
+	if (route_status == 0) {
+		nvram_set_temp("manv_gateway", "");
+		nvram_set_temp("manv_routes", "");
+		nvram_set_temp("manv_routes_ms", "");
+		nvram_set_temp("manv_routes_rfc", "");
+	} else {
+		logmessage(LOGNAME, "IPTV DHCP route teardown incomplete on %s (error=%d); preserving route inventory", man_ifname, route_status);
+	}
+	return route_status;
+}
+
+int
 udhcpc_viptv_main(int argc, char **argv)
 {
-	int ret = 0, route_status = 0, route_result;
+	int ret = 0;
 	char *man_ifname = safe_getenv("interface");
 
 	if (argc<2 || !argv[1] || strlen(man_ifname) < 1)
 		return EINVAL;
-
 	umask(0000);
-
-	if (!strcmp(argv[1], "deconfig")) {
-		char old_gateway[INET_ADDRSTRLEN];
-
-		snprintf(old_gateway, sizeof(old_gateway), "%s", nvram_safe_get("manv_gateway"));
-		route_result = del_dhcp_routes_by_prefix("manv_", man_ifname, 0);
-		route_status = route_status_accumulate(route_status, route_result);
-		if (route_result != 0)
-			logmessage(LOGNAME, "failed to delete IPTV DHCP routes on %s (error=%d)",
-				man_ifname, route_result);
-		if (dhcp_lease_ipv4_is_valid(old_gateway)) {
-			route_result = route_del(man_ifname, 10, "0.0.0.0", old_gateway, "0.0.0.0");
-			route_status = route_status_accumulate(route_status, route_result);
-			if (route_result != 0)
-				logmessage(LOGNAME, "failed to delete IPTV default route via %s (error=%d)",
-					old_gateway, route_result);
-		}
-
-		if (route_status == 0) {
-			nvram_set_temp("manv_gateway", "");
-			nvram_set_temp("manv_routes", "");
-			nvram_set_temp("manv_routes_ms", "");
-			nvram_set_temp("manv_routes_rfc", "");
-		} else {
-			logmessage(LOGNAME,
-				"IPTV DHCP route teardown incomplete on %s (error=%d); preserving route inventory",
-				man_ifname, route_status);
-		}
-		ret = route_status;
-	} else if (!strcmp(argv[1], "bound"))
+	if (!strcmp(argv[1], "deconfig"))
+		ret = manv_route_deconfig(man_ifname);
+	else if (!strcmp(argv[1], "bound"))
 		ret = udhcpc_viptv_bound(man_ifname, 0);
 	else if (!strcmp(argv[1], "renew"))
 		ret = udhcpc_viptv_renew(man_ifname);
@@ -3437,7 +3445,6 @@ udhcpc_viptv_main(int argc, char **argv)
 		ret = udhcpc_viptv_leasefail(man_ifname);
 	else if (!strcmp(argv[1], "nak"))
 		ret = udhcpc_viptv_noack(man_ifname);
-
 	return ret;
 }
 
@@ -3461,6 +3468,25 @@ zcip_main(int argc, char **argv)
 }
 
 int
+static int
+zcip_viptv_deconfig(char *man_ifname)
+{
+	int interface_status, route_status;
+
+	interface_status = ifconfig(man_ifname, IFUP, "0.0.0.0", NULL);
+	if (interface_status != 0)
+		logmessage(LOGNAME, "failed to clear ZeroConf IPTV address on %s (error=%d)", man_ifname, interface_status);
+	route_status = manv_route_deconfig(man_ifname);
+	if (interface_status == 0 && route_status == 0) {
+		nvram_set_temp("manv_ipaddr", "0.0.0.0");
+	} else {
+		logmessage(LOGNAME, "ZeroConf IPTV deconfig incomplete on %s (interface=%d route=%d); preserving address identity", man_ifname, interface_status, route_status);
+	}
+	stop_igmpproxy(man_ifname);
+	return route_status_accumulate(interface_status, route_status);
+}
+
+int
 zcip_viptv_main(int argc, char **argv)
 {
 	int ret = 0;
@@ -3468,14 +3494,11 @@ zcip_viptv_main(int argc, char **argv)
 
 	if (argc<2 || !argv[1] || strlen(man_ifname) < 1)
 		return EINVAL;
-
 	umask(0000);
-
 	if (!strcmp(argv[1], "deconfig"))
-		ret = 0;
+		ret = zcip_viptv_deconfig(man_ifname);
 	else if (!strcmp(argv[1], "config"))
 		ret = zcip_viptv_bound(man_ifname);
-
 	return ret;
 }
 
