@@ -45,6 +45,7 @@
 #include "nvram_linux.h"
 #include "netutils.h"
 #include "shutils.h"
+#include "bridge_membership_policy.h"
 
 static int
 copy_ifname(char *dest, size_t dest_size, const char *ifname)
@@ -744,10 +745,39 @@ br_add_del_bridge(const char *brname, int is_add)
 	return ret;
 }
 
+/*
+ * Return 1 when the interface is already a port of this bridge, 0 when it is
+ * not, and -1 when the kernel cannot provide a reliable membership snapshot.
+ * Linux 4.4 caps BRCTL_GET_PORT_LIST at BR_MAX_PORTS (1024).
+ */
+static int
+bridge_has_ifindex(int sockfd, const char *brname, int ifindex)
+{
+	struct ifreq bridge_ifr;
+	int ifindices[BRIDGE_PORT_LIST_CAPACITY] = {0};
+	unsigned long args[4] = {
+		BRCTL_GET_PORT_LIST,
+		(unsigned long)ifindices,
+		BRIDGE_PORT_LIST_CAPACITY,
+		0
+	};
+
+	memset(&bridge_ifr, 0, sizeof(bridge_ifr));
+	if (copy_ifname(bridge_ifr.ifr_name, sizeof(bridge_ifr.ifr_name), brname) < 0) {
+		errno = EINVAL;
+		return -1;
+	}
+	bridge_ifr.ifr_data = (char *)args;
+	if (ioctl(sockfd, SIOCDEVPRIVATE, &bridge_ifr) < 0)
+		return -1;
+
+	return bridge_port_list_contains(ifindices, BRIDGE_PORT_LIST_CAPACITY, ifindex);
+}
+
 int
 br_add_del_if(const char *brname, const char *ifname, int is_add)
 {
-	int sockfd, ret;
+	int sockfd, ret, membership, saved_errno;
 	struct ifreq ifr;
 
 	if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
@@ -767,7 +797,36 @@ br_add_del_if(const char *brname, const char *ifname, int is_add)
 		close(sockfd);
 		return -1;
 	}
+
+	/*
+	 * SIOCBRADDIF returns -EBUSY when a device already has a master,
+	 * including this bridge. Make retries idempotent, but fail closed if the
+	 * membership inventory cannot be read.
+	 */
+	if (is_add) {
+		membership = bridge_has_ifindex(sockfd, brname, ifr.ifr_ifindex);
+		if (membership < 0) {
+			saved_errno = errno;
+			close(sockfd);
+			errno = saved_errno;
+			return -1;
+		}
+		if (membership > 0) {
+			close(sockfd);
+			return 0;
+		}
+	}
+
 	ret = ioctl(sockfd, (is_add) ? SIOCBRADDIF : SIOCBRDELIF, &ifr);
+	if (is_add && ret < 0 && errno == EBUSY) {
+		/* Another caller may have attached this port to the same bridge. */
+		saved_errno = errno;
+		membership = bridge_has_ifindex(sockfd, brname, ifr.ifr_ifindex);
+		if (membership > 0)
+			ret = 0;
+		else
+			errno = saved_errno;
+	}
 
 	close(sockfd);
 

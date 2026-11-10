@@ -5,6 +5,9 @@ on:
     paths:
       - ".github/workflows/wireless-radio-state.yml"
       - "trunk/user/rc/src/net_wifi.c"
+      - "trunk/user/shared/src/netutils.c"
+      - "trunk/user/shared/src/bridge_membership_policy.h"
+      - "trunk/user/shared/src/tests/bridge_membership_policy.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/wireless_radio_policy.h"
       - "trunk/user/rc/src/tests/wireless_radio_policy.c"
@@ -13,6 +16,9 @@ on:
     paths:
       - ".github/workflows/wireless-radio-state.yml"
       - "trunk/user/rc/src/net_wifi.c"
+      - "trunk/user/shared/src/netutils.c"
+      - "trunk/user/shared/src/bridge_membership_policy.h"
+      - "trunk/user/shared/src/tests/bridge_membership_policy.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/wireless_radio_policy.h"
       - "trunk/user/rc/src/tests/wireless_radio_policy.c"
@@ -31,6 +37,11 @@ jobs:
             trunk/user/rc/src/tests/wireless_radio_policy.c \
             -o /tmp/wireless-radio-policy
           /tmp/wireless-radio-policy
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/shared/src \
+            trunk/user/shared/src/tests/bridge_membership_policy.c \
+            -o /tmp/bridge-membership-policy
+          /tmp/bridge-membership-policy
           python3 - <<'PY'
           from pathlib import Path
 
@@ -38,6 +49,9 @@ jobs:
           rc = root / "trunk/user/rc/src"
           source = (rc / "net_wifi.c").read_text()
           workflow = Path(".github/workflows/wireless-radio-state.yml").read_text()
+          shared = root / "trunk/user/shared/src"
+          netutils_source = (shared / "netutils.c").read_text()
+          bridge_policy_header = (shared / "bridge_membership_policy.h").read_text()
 
           def function_body(text, signature):
               start = text.index(signature)
@@ -256,6 +270,28 @@ jobs:
           busy_return = bridge_add.index("return -EBUSY;", master_gate)
           assert master_gate < busy_return
 
+          # Same-bridge additions are idempotent; a port attached to a
+          # different bridge must continue to fail with the kernel error.
+          assert '#include "bridge_membership_policy.h"' in netutils_source
+          assert "BRIDGE_PORT_LIST_CAPACITY 1024" in bridge_policy_header
+          assert "bridge_port_list_contains" in bridge_policy_header
+          membership_query = function_body(
+              netutils_source,
+              "bridge_has_ifindex(int sockfd, const char *brname, int ifindex)")
+          assert "BRCTL_GET_PORT_LIST" in membership_query
+          assert "SIOCDEVPRIVATE" in membership_query
+          assert "bridge_port_list_contains(ifindices, BRIDGE_PORT_LIST_CAPACITY, ifindex)" in membership_query
+          add_if = function_body(
+              netutils_source,
+              "br_add_del_if(const char *brname, const char *ifname, int is_add)")
+          assert add_if.count("bridge_has_ifindex(sockfd, brname, ifr.ifr_ifindex)") == 2
+          assert add_if.index("if (is_add)") < add_if.index("bridge_has_ifindex(")
+          assert add_if.index("bridge_has_ifindex(") < add_if.index("ret = ioctl(sockfd, (is_add) ? SIOCBRADDIF")
+          assert "if (membership < 0)" in add_if
+          assert "if (membership > 0)" in add_if
+          assert "ret < 0 && errno == EBUSY" in add_if
+          assert add_if.rindex("bridge_has_ifindex(") > add_if.index("errno == EBUSY")
+
           # The periodic iNIC health check must retain the guest-up result.
           inic_check = function_body(source, "check_inic_mii_rebooted(void)")
           guest_gate = "if (!is_interface_up(IFNAME_INIC_GUEST) && is_guest_allowed_rt())"
@@ -354,6 +390,9 @@ jobs:
           paths = (
               ".github/workflows/wireless-radio-state.yml",
               "trunk/user/rc/src/net_wifi.c",
+              "trunk/user/shared/src/netutils.c",
+              "trunk/user/shared/src/bridge_membership_policy.h",
+              "trunk/user/shared/src/tests/bridge_membership_policy.c",
               "trunk/user/rc/src/rc.h",
               "trunk/user/rc/src/wireless_radio_policy.h",
               "trunk/user/rc/src/tests/wireless_radio_policy.c",

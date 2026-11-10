@@ -1,3 +1,13 @@
+## 2026-11-10 12:10 CST (UTC+8) — Make bridge attachment idempotent
+
+- Reconciled FULLCONENAT on exact main SHA `15f350ab9397a60ab23ce854be7ee54191861a71`: lifecycle regression [42753842579] and AI handoff documentation contract [42753842498] both completed SUCCESS. The notifier dependency/Kconfig and Makefile mapping source contract passed.
+- Wireless source review confirmed `br_add_del_if()` in `trunk/user/shared/src/netutils.c` previously issued `SIOCBRADDIF` directly. Linux 4.4 `br_add_if()` returns `-EBUSY` for any existing master, including the same bridge; the existing wireless workflow already captured this kernel behavior and the need for a membership query.
+- Fix: add `bridge_has_ifindex()` using the bridge's `BRCTL_GET_PORT_LIST` interface and the complete 1024-port Linux 4.4 capacity. `br_add_del_if()` now returns success when the interface is already on the requested bridge, fails closed if the membership query fails, and rechecks after `-EBUSY` so a concurrent same-bridge add is treated as success while a different bridge remains a conflict.
+- Regression: add a GNU89 policy test for first/middle/last membership entries, misses, empty/null lists and invalid indices. Extend `wireless-radio-state.yml` to compile/run it and enforce source-order/error-handling/path-filter contracts. The new host test and workflow run are pending exact-head Actions on THIS COMMIT.
+- NFS compatibility review remains non-behavior-changing: `async` durability/throughput and AUTH_SYS/root-squash/external-mount defaults require client compatibility evidence; no blanket export-default change was justified. Target wireless runtime and MIPS/uClibc build remain unverified.
+- L3 environment blocker persists: x86_64 host, no MIPS/uClibc cross compiler, and no DNS resolution to obtain a local repository checkout. FTP upload cleanup check/unlink TOCTOU, PPP/IPv6 lifecycle and L4 device behavior remain open.
+- Next: reconcile wireless membership and AI-doc Actions at the exact new SHA; then validate the bridge ioctl path on a MIPS target when the matching toolchain/checkout becomes available.
+
 ## 2026-11-10 12:05 CST (UTC+8) — Gate FULLCONENAT on conntrack events
 
 - Reconciled the previous DNSMasq start/stop lifecycle task against live `main` SHA `822edf9d46a2f369a63eae0bcc1bb49f326c29e1`. The only branch is `main`; no remote checkpoint branch exists. Seven Actions on this exact SHA completed successfully: wireless `42752774665`, Samba `42752774488`, vsftpd `42752774671`, WAN route `42752774448`, AI handoff docs `42752774483`, HTTPD/DNSMasq security `42752774480`, and USB storage `42752774476`.

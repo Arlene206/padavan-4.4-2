@@ -2,12 +2,12 @@
 
 - Maintained fork: `Arlene206/padavan-4.4-2`; work only on this repository.
 - Branch inventory: `main` only; no remote checkpoint branch. No force-pushes.
-- **Last fully reconciled main SHA:** `822edf9d46a2f369a63eae0bcc1bb49f326c29e1`. Seven Actions completed SUCCESS on this exact SHA: wireless [42752774665], Samba [42752774488], vsftpd [42752774671], WAN route [42752774448], AI handoff docs [42752774483], HTTPD/DNSMasq security [42752774480], and USB storage [42752774476].
-- **Completed previous slice:** DNSMasq start/stop status propagation and LAN relaunch gating are now reconciled; the latest exact-head HTTPD/DNSMasq semantic and AI handoff contracts passed.
-- **Current development slice:** correct FULLCONENAT's Kconfig build prerequisite. `xt_FULLCONENAT.c` unconditionally registers a conntrack destroy notifier; `nf_conntrack_ecache.h` exposes `struct nf_ct_event_notifier` and `nf_conntrack_register_notifier()` only under `CONFIG_NF_CONNTRACK_EVENTS`, while the target option previously depended only on `NF_NAT`. THIS COMMIT makes the dependency explicit and extends the lifecycle regression to check the dependency and Makefile object wiring. The new commit's Actions are pending exact-head reconciliation.
+- **Last fully reconciled main SHA:** `15f350ab9397a60ab23ce854be7ee54191861a71`. FULLCONENAT lifecycle regression [42753842579] and AI handoff documentation contract [42753842498] both completed SUCCESS on this exact SHA.
+- **Completed previous slices:** DNSMasq start/stop status propagation and LAN relaunch gating passed exact-head HTTPD/DNSMasq and AI docs Actions on `822edf9d46a2f369a63eae0bcc1bb49f326c29e1`; FULLCONENAT now explicitly depends on `NF_CONNTRACK_EVENTS`, and its Kconfig/Makefile source contract passed on `15f350ab9397a60ab23ce854be7ee54191861a71`.
+- **Current development slice:** make wireless bridge attachment idempotent. `br_add_del_if()` previously called `SIOCBRADDIF` directly, so Linux 4.4's `-EBUSY` for a port that already has any master made same-bridge retries indistinguishable from a different-master conflict. THIS COMMIT queries `BRCTL_GET_PORT_LIST` for the full 1024-port Linux 4.4 limit, returns success for existing same-bridge membership, and rechecks after `-EBUSY` for a concurrent same-bridge add. The new GNU89 membership test and source contract are pending exact-head reconciliation.
 - **Known open issue:** FTP upload cleanup still has a check-then-`unlinkat` window after inode identity validation. Linux 4.4 and MIPS O32 provide `renameat2` (`__NR_renameat2 = 4351`), but exchange/no-replace operations cannot condition a rename or unlink on the expected device/inode. No safe atomic quarantine was established; retain the documented best-effort behavior and do not claim the race is closed.
-- **Next after exact-head reconciliation:** verify the FULLCONENAT lifecycle workflow and AI handoff docs on the resulting commit SHA. Then complete target kernel/MIPS object validation when the MIPS/uClibc toolchain is available; otherwise record the blocker precisely and move to the NFS compatibility review. Keep idempotent wireless bridge membership, PPP/IPv6 callback lifecycle and L3/L4 validation visible.
-- Root `dev_log.md` contains 110 complete newest-first records after this entry and remains below the 119-record / 384 KiB early-rotation thresholds; no archive rotation is due.
+- **Next after exact-head reconciliation:** verify the wireless membership GNU89 regression, source contract and AI docs on the resulting SHA. Then arrange MIPS/uClibc target validation when a full checkout/toolchain is available. Preserve NFS `async`/AUTH_SYS/root-squash/external-mount compatibility decisions without changing defaults absent a compatibility matrix. Keep PPP/IPv6 callback lifecycle and L3/L4 validation visible.
+- Root `dev_log.md` contains 111 complete newest-first records after this entry and remains below the 119-record / 384 KiB early-rotation thresholds; no archive rotation is due.
 - L3 production RC/MIPS/uClibc objects, firmware/TRX and L4 physical-router validation remain NOT VERIFIED.
 
 ## Completed DHCP callback and BusyBox event-state review
@@ -81,26 +81,26 @@
 
 ## Active task
 
-1. **FULLCONENAT Kconfig notifier dependency.** The target code uses the conntrack event notifier on both notifier API variants. In Linux 4.4, `struct nf_ct_event_notifier` and `nf_conntrack_register_notifier()` are declared only under `CONFIG_NF_CONNTRACK_EVENTS`; the previous target Kconfig option depended only on `NF_NAT`. This allowed a configuration in which the target could be selected without the notifier declarations it requires. The current commit adds `depends on NF_NAT && NF_CONNTRACK_EVENTS` and adds lifecycle-workflow assertions for that dependency and the `xt_FULLCONENAT.o` Makefile mapping.
-2. **Validation boundary.** The existing namespace/zone GNU89 host regression was reproduced locally with `cc -std=gnu89 -Wall -Wextra -Werror`; it printed `FULLCONENAT namespace/zone context regression: PASS`. The new Kconfig/workflow assertions have not yet run on the resulting commit; wait for exact-head FULLCONENAT lifecycle and AI docs Actions. No target kernel object or firmware build has been performed.
-3. **L3 blocker.** This host is `x86_64`; `mipsel-linux-gcc`, `mipsel-linux-uclibc-gcc`, `mips-linux-gnu-gcc` and `mipsel-openwrt-linux-gcc` are absent. `git ls-remote` also failed because the host cannot resolve `github.com`, so there is no local full checkout/build tree. Do not present host policy/source contracts as target compilation. Resume L3 when the repository checkout and matching MIPS/uClibc toolchain are available.
-4. **Next bounded review if the toolchain remains unavailable:** inspect NFS export durability/throughput (`async`), AUTH_SYS/root-squash compatibility, and external-mount behavior without changing compatibility defaults absent evidence. Then return to the already-documented idempotent wireless bridge membership/master-query work.
-5. **Unresolved security issue:** FTP failed-upload cleanup still has a check-then-`unlinkat()` replacement race after inode identity validation; no safe Linux 4.4/MIPS O32 atomic expected-inode removal was established.
+1. **Idempotent bridge membership.** The Linux 4.4 bridge returns `-EBUSY` from `br_add_if()` whenever a device already has a master, including the target bridge. `br_add_del_if()` used to issue `SIOCBRADDIF` without checking whether the interface was already a port of that same bridge. The current change queries `BRCTL_GET_PORT_LIST` (full 1024-port kernel limit), treats a match as success, and rechecks after `-EBUSY` to resolve a same-bridge concurrent add while preserving different-bridge conflicts.
+2. **Validation boundary.** A new GNU89 host regression covers membership list matches, misses, empty/null lists and invalid indices. The wireless workflow also checks the preflight query, error handling, same-bridge idempotence, the `-EBUSY` recheck and workflow path filters. The candidate commit's wireless and AI-doc Actions are pending exact-head reconciliation. No live bridge ioctl or target wireless behavior is claimed.
+3. **L3 blocker.** This host is `x86_64`; `mipsel-linux-gcc`, `mipsel-linux-uclibc-gcc`, `mips-linux-gnu-gcc` and `mipsel-openwrt-linux-gcc` are absent. `git ls-remote` also failed because the host cannot resolve `github.com`; there is no full local checkout/build tree. Target RC/kernel objects and firmware remain NOT VERIFIED.
+4. **Compatibility review kept unchanged.** NFS export defaults and operator-provided exports are not being altered without a client compatibility/durability matrix; `async`, AUTH_SYS/root-squash and external mounts remain explicit review topics.
+5. **Other open items.** FTP failed-upload cleanup still has a check-then-`unlinkat()` replacement race; PPP/IPv6 callback lifecycle, other-bridge wireless membership behavior, board-specific iNIC behavior and L4 router testing remain open.
 
 ## Verification boundary
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for DNSMasq duplicate-start/stop-status control flow, FULLCONENAT notifier/Kconfig prerequisite review, and FTP MDTM/SITE CHMOD descriptor-relative work. FTP upload-cleanup check/unlink race remains OPEN; `renameat2` does not close it. |
-| L2 host / Actions | Local GNU89 FULLCONENAT namespace/zone policy test: PASS. Exact HEAD `822edf9d46a2f369a63eae0bcc1bb49f326c29e1`: seven Actions, including HTTPD/DNSMasq, vsftpd and AI handoff docs, all SUCCESS. New FULLCONENAT lifecycle/Kconfig and AI docs Actions are PENDING on the candidate commit. |
+| L1 source review | PASS for DNSMasq lifecycle gating, FULLCONENAT notifier/Kconfig prerequisite, wireless bridge membership preflight/recheck, and FTP MDTM/SITE CHMOD descriptor-relative work. FTP upload-cleanup check/unlink race remains OPEN; `renameat2` does not close it. |
+| L2 host / Actions | Local GNU89 FULLCONENAT namespace/zone and bridge membership policy tests: PASS. FULLCONENAT lifecycle [42753842579] and AI docs [42753842498] both SUCCESS on exact SHA `15f350ab9397a60ab23ce854be7ee54191861a71`. Wireless membership and AI docs Actions for THIS COMMIT are pending exact-head reconciliation. |
 | L3 production RC/MIPS/uClibc/firmware builds | NOT VERIFIED. |
 | L4 physical router behavior | NOT VERIFIED. |
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, confirm its exact SHA and inspect every Action run tied to it. First verify FULLCONENAT lifecycle regression and AI handoff docs for the candidate commit; inspect logs, not just conclusions.
-2. If green, arrange the matching MIPS/uClibc cross compiler and a complete build checkout, then compile the target kernel object with the Padavan kernel configuration. The present execution host has no MIPS compiler and no network-resolvable Git remote; L3 remains BLOCKED, not passed.
-3. If the L3 environment remains unavailable, continue the NFS compatibility review without changing `async`/root-squash defaults, then resume bridge membership idempotency with a membership/master query and regression. Keep FTP cleanup TOCTOU, PPP/IPv6 and L4 device validation visible.
+1. Fetch live `main`, confirm the exact SHA, and inspect all Actions tied to it. Verify the wireless bridge membership workflow and AI handoff docs; inspect job logs for failures.
+2. If green, perform target MIPS/uClibc validation of the `netutils.c` bridge ioctl path when the complete checkout/toolchain is available. Confirm behavior for an existing same-bridge port and for a port mastered by another bridge; host policy tests do not replace this.
+3. Keep NFS `async` durability/AUTH_SYS/root-squash/external-mount compatibility under review without changing defaults absent compatibility evidence. Continue PPP/IPv6 callback audits and preserve FTP cleanup TOCTOU as OPEN.
 
 ## Continuation rules
 
