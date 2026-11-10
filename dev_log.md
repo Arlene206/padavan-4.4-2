@@ -1,3 +1,16 @@
+## 2026-11-10 11:05 CST (UTC+8) — Correct HTTPD DHCP contract for shared IPTV route cleanup
+
+- **Base main SHA:** `e79e88c011dca8c1a046b1df945cd57f300ff3f4`; remote branches: `main` only.
+- **Exact-head Actions:** WAN callback [42746555691], WAN teardown [42746555514], WAN route [42746555502], and AI handoff docs [42746555591] completed SUCCESS. HTTPD [42746555780] failed only at `Verify DHCP lease input and renewal reconciliation`, Python line 155. Its preceding production/policy compile and test plus all earlier checks passed.
+- **Failure analysis:** the stale contract required `del_dhcp_routes_by_prefix("manv_", ...)` to appear after `udhcpc_viptv_main()`. The ZeroConf work intentionally factored DHCP/IPTV route inventory cleanup into the earlier shared `manv_route_deconfig()` helper, and the dispatcher delegates to it. This is a test-extractor assumption mismatch, not a demonstrated production defect.
+- **Fix:** update `.github/workflows/httpd-security.yml` to check the shared helper implementation contains the DHCP route deletion and that `udhcpc_viptv_main()` calls the helper. No production source changes in this follow-up.
+- **Changed paths:** `.github/workflows/httpd-security.yml`; `SESSION_HANDOFF.md`; `REFACTOR_ROADMAP.md`; this log.
+- **Validation:** assertion replacement reviewed against the exact helper/caller layout. The corrected HTTPD workflow and AI handoff docs are pending Actions on THIS resulting SHA; no new host binary or production target compile was run locally.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** inspect exact-head HTTPD + AI docs Actions. Once green, begin FTP MDTM/SITE CHMOD descriptor-relative authorization and upload-cleanup race audit; retain FULLCONENAT MIPS, NFS, bridge membership and L3/L4 limits.
+
+---
+
 ## 2026-11-10 10:47 CST (UTC+8) — Make ZeroConf WAN/IPTV callbacks transactional and teardown retry-safe
 
 - **Base main SHA:** `ea9c91531e9611a8fc4bf227137c3ea6aa3f5ed5`; remote branches: `main` only, no checkpoint branch.
