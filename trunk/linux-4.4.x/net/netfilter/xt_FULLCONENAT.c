@@ -153,8 +153,6 @@ static void gc_worker(struct work_struct *work);
 static struct workqueue_struct *wq __read_mostly = NULL;
 static DECLARE_DELAYED_WORK(gc_worker_wk, gc_worker);
 
-static char tuple_tmp_string[512];
-
 static void
 fullconenat_context_from_zone(struct fullconenat_namespace_context *context,
                               struct net *net,
@@ -180,14 +178,6 @@ fullconenat_context_from_ct(struct fullconenat_namespace_context *context,
 }
 
 #if IS_ENABLED(CONFIG_NF_NAT_IPV6) || (IS_ENABLED(CONFIG_IPV6) && LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0))
-/* non-atomic: can only be called serially within lock zones. */
-static char* nf_ct_stringify_tuple6(const struct nf_conntrack_tuple *t) {
-  snprintf(tuple_tmp_string, sizeof(tuple_tmp_string), "[%pI6c]:%hu -> [%pI6c]:%hu",
-         &t->src.u3.ip6, be16_to_cpu(t->src.u.all),
-         &t->dst.u3.ip6, be16_to_cpu(t->dst.u.all));
-  return tuple_tmp_string;
-}
-
 static struct nat_mapping6* allocate_mapping6(const union nf_inet_addr *int_addr, const uint16_t int_port, const uint16_t port, const union nf_inet_addr *addr, const struct fullconenat_namespace_context *context) {
   struct nat_mapping6 *p_new;
   u32 hash_src;
@@ -310,7 +300,11 @@ static int check_mapping6(struct nat_mapping6* mapping, const struct fullconenat
 #endif
 
     if (tuple_hash == NULL) {
-      pr_debug("xt_FULLCONENAT: check_mapping6(): tuple %s dying/unconfirmed. free this tuple.\n", nf_ct_stringify_tuple6(&original_tuple_item->tuple));
+      pr_debug("xt_FULLCONENAT: check_mapping6(): tuple [%pI6c]:%hu -> [%pI6c]:%hu dying/unconfirmed. free this tuple.\n",
+               &original_tuple_item->tuple.src.u3.ip6,
+               be16_to_cpu(original_tuple_item->tuple.src.u.all),
+               &original_tuple_item->tuple.dst.u3.ip6,
+               be16_to_cpu(original_tuple_item->tuple.dst.u.all));
 
       list_del(&original_tuple_item->node);
       kfree(original_tuple_item);
@@ -505,7 +499,12 @@ static unsigned int fullconenat_tg6(struct sk_buff *skb, const struct xt_action_
       newrange.min_proto.udp.port = cpu_to_be16(mapping->int_port);
       newrange.max_proto = newrange.min_proto;
 
-      pr_debug("xt_FULLCONENAT: <INBOUND DNAT> %s ==> [%pI6c]:%d\n", nf_ct_stringify_tuple6(ct_tuple_origin), &mapping->int_addr, mapping->int_port);
+      pr_debug("xt_FULLCONENAT: <INBOUND DNAT> [%pI6c]:%hu -> [%pI6c]:%hu ==> [%pI6c]:%d\n",
+               &ct_tuple_origin->src.u3.ip6,
+               be16_to_cpu(ct_tuple_origin->src.u.all),
+               &ct_tuple_origin->dst.u3.ip6,
+               be16_to_cpu(ct_tuple_origin->dst.u.all),
+               &mapping->int_addr, mapping->int_port);
 
       ret = nf_nat_setup_info(ct, &newrange, HOOK2MANIP(xt_hooknum(par)));
 
@@ -597,7 +596,11 @@ static unsigned int fullconenat_tg6(struct sk_buff *skb, const struct xt_action_
     /* this is the resulted mapped port. */
     port = be16_to_cpu((ct_tuple->dst).u.udp.port);
 
-    pr_debug("xt_FULLCONENAT: <OUTBOUND SNAT> %s ==> %d\n", nf_ct_stringify_tuple6(ct_tuple_origin), port);
+    pr_debug("xt_FULLCONENAT: <OUTBOUND SNAT> [%pI6c]:%hu -> [%pI6c]:%hu ==> %d\n",
+               &ct_tuple_origin->src.u3.ip6,
+               be16_to_cpu(ct_tuple_origin->src.u.all),
+               &ct_tuple_origin->dst.u3.ip6,
+               be16_to_cpu(ct_tuple_origin->dst.u.all), port);
 
     /* save the mapping information into our mapping table */
     mapping = src_mapping;
@@ -616,14 +619,6 @@ static unsigned int fullconenat_tg6(struct sk_buff *skb, const struct xt_action_
   return ret;
 }
 #endif
-
-/* non-atomic: can only be called serially within lock zones. */
-static char* nf_ct_stringify_tuple(const struct nf_conntrack_tuple *t) {
-  snprintf(tuple_tmp_string, sizeof(tuple_tmp_string), "%pI4:%hu -> %pI4:%hu",
-         &t->src.u3.ip, be16_to_cpu(t->src.u.all),
-         &t->dst.u3.ip, be16_to_cpu(t->dst.u.all));
-  return tuple_tmp_string;
-}
 
 static struct nat_mapping* allocate_mapping(const __be32 int_addr, const uint16_t int_port, const uint16_t port, const int ifindex, const struct fullconenat_namespace_context *context) {
   struct nat_mapping *p_new;
@@ -819,7 +814,11 @@ static int check_mapping(struct nat_mapping* mapping, const struct fullconenat_n
 #endif
 
     if (tuple_hash == NULL) {
-      pr_debug("xt_FULLCONENAT: check_mapping(): tuple %s dying/unconfirmed. free this tuple.\n", nf_ct_stringify_tuple(&original_tuple_item->tuple));
+      pr_debug("xt_FULLCONENAT: check_mapping(): tuple %pI4:%hu -> %pI4:%hu dying/unconfirmed. free this tuple.\n",
+               &original_tuple_item->tuple.src.u3.ip,
+               be16_to_cpu(original_tuple_item->tuple.src.u.all),
+               &original_tuple_item->tuple.dst.u3.ip,
+               be16_to_cpu(original_tuple_item->tuple.dst.u.all));
 
       list_del(&original_tuple_item->node);
       kfree(original_tuple_item);
@@ -893,8 +892,11 @@ static void handle_dying_tuples(void) {
         original_tuple_item = list_entry(iter_2, struct nat_mapping_original_tuple, node);
 
         if (nf_ct_tuple_equal(&original_tuple_item->tuple, &(item->tuple_original))) {
-          pr_debug("xt_FULLCONENAT: handle_dying_tuples(): tuple %s expired. free this tuple.\n",
-            nf_ct_stringify_tuple6(&original_tuple_item->tuple));
+          pr_debug("xt_FULLCONENAT: handle_dying_tuples(): tuple [%pI6c]:%hu -> [%pI6c]:%hu expired. free this tuple.\n",
+                   &original_tuple_item->tuple.src.u3.ip6,
+                   be16_to_cpu(original_tuple_item->tuple.src.u.all),
+                   &original_tuple_item->tuple.dst.u3.ip6,
+                   be16_to_cpu(original_tuple_item->tuple.dst.u.all));
           list_del(&original_tuple_item->node);
           kfree(original_tuple_item);
           (mapping6->refer_count)--;
@@ -939,8 +941,11 @@ static void handle_dying_tuples(void) {
       original_tuple_item = list_entry(iter_2, struct nat_mapping_original_tuple, node);
 
       if (nf_ct_tuple_equal(&original_tuple_item->tuple, &(item->tuple_original))) {
-        pr_debug("xt_FULLCONENAT: handle_dying_tuples(): tuple %s expired. free this tuple.\n",
-          nf_ct_stringify_tuple(&original_tuple_item->tuple));
+        pr_debug("xt_FULLCONENAT: handle_dying_tuples(): tuple %pI4:%hu -> %pI4:%hu expired. free this tuple.\n",
+                 &original_tuple_item->tuple.src.u3.ip,
+                 be16_to_cpu(original_tuple_item->tuple.src.u.all),
+                 &original_tuple_item->tuple.dst.u3.ip,
+                 be16_to_cpu(original_tuple_item->tuple.dst.u.all));
         list_del(&original_tuple_item->node);
         kfree(original_tuple_item);
         (mapping->refer_count)--;
@@ -1185,7 +1190,12 @@ static unsigned int fullconenat_tg(struct sk_buff *skb, const struct xt_action_p
       newrange.min_proto.udp.port = cpu_to_be16(mapping->int_port);
       newrange.max_proto = newrange.min_proto;
 
-      pr_debug("xt_FULLCONENAT: <INBOUND DNAT> %s ==> %pI4:%d\n", nf_ct_stringify_tuple(ct_tuple_origin), &mapping->int_addr, mapping->int_port);
+      pr_debug("xt_FULLCONENAT: <INBOUND DNAT> %pI4:%hu -> %pI4:%hu ==> %pI4:%d\n",
+               &ct_tuple_origin->src.u3.ip,
+               be16_to_cpu(ct_tuple_origin->src.u.all),
+               &ct_tuple_origin->dst.u3.ip,
+               be16_to_cpu(ct_tuple_origin->dst.u.all),
+               &mapping->int_addr, mapping->int_port);
 
       ret = nf_nat_setup_info(ct, &newrange, HOOK2MANIP(xt_hooknum(par)));
 
@@ -1259,7 +1269,11 @@ static unsigned int fullconenat_tg(struct sk_buff *skb, const struct xt_action_p
     /* this is the resulted mapped port. */
     port = be16_to_cpu((ct_tuple->dst).u.udp.port);
 
-    pr_debug("xt_FULLCONENAT: <OUTBOUND SNAT> %s ==> %d\n", nf_ct_stringify_tuple(ct_tuple_origin), port);
+    pr_debug("xt_FULLCONENAT: <OUTBOUND SNAT> %pI4:%hu -> %pI4:%hu ==> %d\n",
+               &ct_tuple_origin->src.u3.ip,
+               be16_to_cpu(ct_tuple_origin->src.u.all),
+               &ct_tuple_origin->dst.u3.ip,
+               be16_to_cpu(ct_tuple_origin->dst.u.all), port);
 
     /* save the mapping information into our mapping table */
     mapping = src_mapping;

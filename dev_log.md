@@ -1,3 +1,17 @@
+## 2026-11-11 03:34 CST (UTC+8) — Remove FULLCONENAT cross-family debug buffer race and add target object build
+
+- **Base main SHA:** `3e54ab47e1770990bd146f928d8facd2d4da1f5a`; previous exact-head USB storage hotplug [42885189119] and AI handoff [42885189024] both completed SUCCESS on this SHA. Every job, step and full log was inspected. The Optware lifecycle, storage inventory/lock/deferred-child policy regressions and AI documentation/archive checker all passed.
+- **Finding:** `xt_FULLCONENAT.c` routed IPv4 and IPv6 tuple strings through one global `tuple_tmp_string[512]`. IPv4 packet processing uses `fullconenat_lock`; IPv6 processing uses the separate `fullconenat6_lock`. These locks do not serialize cross-family accesses to the same buffer, so concurrent debug logging could overwrite a tuple string while another caller formats/prints it. No NAT mapping-state corruption was demonstrated; impact is debug-diagnostic integrity.
+- **Fix:** remove the shared buffer and both family formatter helpers. Existing `pr_debug()` sites now pass tuple address and port fields directly to the kernel format specifiers (`%pI4` / `%pI6c`), preserving family-specific output while eliminating mutable shared state. Because formatting remains in the `pr_debug()` argument list, disabled debug logging does not execute the removed formatting work.
+- **Target validation feasibility:** confirmed the repository's `toolchain` release provides `mipsel-linux-musl.tar.xz` (47,147,316 bytes); `mt7621_defconfig` is available and the kernel Makefile targets MIPS32r2, little-endian, ABI32. Added `scripts/build_fullconenat_mips_object.sh` to configure conntrack events, IPv6 NAT and FULLCONENAT, build only `net/netfilter/xt_FULLCONENAT.o`, and verify ELF32/little-endian/MIPS. The FULLCONENAT workflow downloads the existing toolchain release and runs this helper; both push and PR path filters include the helper. A source contract also rejects the shared formatter and verifies direct v4/v6 tuple logging.
+- **Changed paths:** `trunk/linux-4.4.x/net/netfilter/xt_FULLCONENAT.c`, `scripts/build_fullconenat_mips_object.sh`, `.github/workflows/fullconenat-lifecycle.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log.
+- **Validation:** L1 source/lock review PASS. Existing host namespace-policy binary and full FULLCONENAT semantic workflow remain enabled. Exact-head FULLCONENAT Actions (including the new MIPS object build) and AI docs are pending on THIS COMMIT. No local full checkout or target compiler was available; no local cross compile, complete kernel image, firmware/TRX or L4 test is claimed.
+- **Root log:** 58 complete newest-first records before this entry; 59 after. No archive rotation or `docs/dev-log/INDEX.md` update is due.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** inspect every step and full log in exact-head FULLCONENAT lifecycle and AI docs Actions. The MIPS job must verify the actual MT7621 object is ELF32 little-endian MIPS. If green, continue the repository-wide P2 queue; preserve FTP upload cleanup TOCTOU as OPEN/BLOCKED until a staged-publication design proves safe. Full kernel/firmware/TRX, uClibc, board variants and L4 behavior remain unverified.
+
+---
+
 ## 2026-11-11 03:10 CST (UTC+8) — Preserve Optware service hook pathnames during teardown
 
 - **Base main SHA:** `1f7b3f2a568d8b6c8327206fe6111ce4e49dfbfa`; parent `405a6c14d6fda41e8e1b776a832328f2a58eacb7`. The only remote branch is `main`; no checkpoint branch exists.

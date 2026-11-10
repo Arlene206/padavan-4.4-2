@@ -7,6 +7,7 @@ on:
       - "trunk/linux-4.4.x/net/netfilter/Kconfig"
       - "trunk/linux-4.4.x/net/netfilter/Makefile"
       - "trunk/linux-4.4.x/net/netfilter/xt_FULLCONENAT.c"
+      - "scripts/build_fullconenat_mips_object.sh"
       - "trunk/linux-4.4.x/net/netfilter/fullconenat_namespace_policy.h"
       - "trunk/linux-4.4.x/net/netfilter/tests/fullconenat_namespace_policy.c"
       - "trunk/linux-4.4.x/net/netfilter/x_tables.c"
@@ -23,6 +24,7 @@ on:
       - "trunk/linux-4.4.x/net/netfilter/Kconfig"
       - "trunk/linux-4.4.x/net/netfilter/Makefile"
       - "trunk/linux-4.4.x/net/netfilter/xt_FULLCONENAT.c"
+      - "scripts/build_fullconenat_mips_object.sh"
       - "trunk/linux-4.4.x/net/netfilter/fullconenat_namespace_policy.h"
       - "trunk/linux-4.4.x/net/netfilter/tests/fullconenat_namespace_policy.c"
       - "trunk/linux-4.4.x/net/netfilter/x_tables.c"
@@ -343,3 +345,36 @@ jobs:
           assert sync < purge_at < free < put
           print("FULLCONENAT IPv4/IPv6 namespace and conntrack-zone ownership contracts: PASS")
           PY
+
+      - name: Verify FULLCONENAT packet-family debug formatting is concurrency-safe
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/net/netfilter/xt_FULLCONENAT.c").read_text()
+          assert "tuple_tmp_string" not in source, "shared IPv4/IPv6 log buffer returned"
+          assert "nf_ct_stringify_tuple" not in source, "shared formatter helper returned"
+          for fragment in (
+              "check_mapping6(): tuple [%pI6c]:%hu -> [%pI6c]:%hu dying/unconfirmed.",
+              "check_mapping(): tuple %pI4:%hu -> %pI4:%hu dying/unconfirmed.",
+              "<INBOUND DNAT> [%pI6c]:%hu -> [%pI6c]:%hu ==> [%pI6c]:%d",
+              "<OUTBOUND SNAT> [%pI6c]:%hu -> [%pI6c]:%hu ==> %d",
+              "<INBOUND DNAT> %pI4:%hu -> %pI4:%hu ==> %pI4:%d",
+              "<OUTBOUND SNAT> %pI4:%hu -> %pI4:%hu ==> %d",
+          ):
+              assert fragment in source, f"missing direct tuple formatting: {fragment}"
+          print("FULLCONENAT concurrent IPv4/IPv6 debug formatting contract: PASS")
+          PY
+
+      - name: Build FULLCONENAT for MT7621 MIPS32r2
+        run: |
+          set -eu
+          archive="$RUNNER_TEMP/mipsel-linux-musl.tar.xz"
+          toolchain_root="$RUNNER_TEMP/fullconenat-mipsel-linux-musl"
+          curl -fL --retry 3 \
+            "https://github.com/Arlene206/padavan-4.4-2/releases/download/toolchain/mipsel-linux-musl.tar.xz" \
+            -o "$archive"
+          mkdir -p "$toolchain_root"
+          tar -xJf "$archive" -C "$toolchain_root"
+          MIPS_TOOLCHAIN_ROOT="$toolchain_root" \
+            scripts/build_fullconenat_mips_object.sh
