@@ -1,3 +1,18 @@
+## 2026-11-11 03:10 CST (UTC+8) — Preserve Optware service hook pathnames during teardown
+
+- **Base main SHA:** `1f7b3f2a568d8b6c8327206fe6111ce4e49dfbfa`; parent `405a6c14d6fda41e8e1b776a832328f2a58eacb7`. The only remote branch is `main`; no checkpoint branch exists.
+- **Previous unfinished task closed:** exact-head Shadowsocks lifecycle [42879041009] and AI handoff docs [42879041085] both completed SUCCESS on the base SHA. Every job step and full log was inspected. Shell syntax, mocked process lifecycle, BusyBox `pgrep/pkill -f` source capability and AI handoff record/archive validation all passed.
+- **K95 trace result:** `K95aria2` and `K95transmission` are present in the source tree, but `trunk/user/optware/Makefile` does not ROMFS-install them. Firmware `opt-start.sh` / MTD `opt-mount.sh` dispatch only `S??*`; the shared `optware_lifecycle_stop_services()` also scans only `S??*`. The firmware's integrated Aria2/Transmission RC paths call `/usr/bin/aria.sh` and `/usr/bin/transmission.sh`, not K95. No in-tree install/caller was found. External user Optware deployment is not established, so no changes were made to those K scripts.
+- **New stability defect:** teardown used `ls -r` command substitution followed by an unquoted `for` expansion. Whitespace in an init-hook pathname split the path into multiple words; no actual stop hook ran, yet the dispatcher could return success and let `opt-umount.sh` proceed to detach `/opt`. This is a data/lifecycle integrity risk because the corresponding service may still use files on the mount.
+- **Fix:** build a reverse-order list by prepending each complete `S??*` pathname to shell positional parameters, then iterate/invoke through quoted `"$@"`. The helper keeps continuing after individual stop failures and propagates the aggregate status to the existing unmount gate. The teardown mock now includes successful and failing service names containing spaces; the storage workflow also checks the implementation contract and rejects `ls -r`.
+- **Changed paths:** `trunk/user/scripts/files/sbin/optware_lifecycle_lock.sh`, `trunk/user/scripts/tests/optware_lifecycle_teardown.sh`, `.github/workflows/storage-hotplug-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log.
+- **Validation:** L1 source/caller and lock/unmount ordering review PASS. The changed Optware teardown shell regression, whole storage caller/source contract and AI handoff docs are configured for exact-head Actions and pending on THIS COMMIT. No local full checkout/independent shell execution, target BusyBox ash, MIPS/uClibc objects, firmware/TRX or L4 device test is claimed.
+- **Root log:** 57 complete newest-first records before this entry; 58 after. No archive rotation or `docs/dev-log/INDEX.md` update is due.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** inspect all steps/logs in exact-head USB storage hotplug and AI docs Actions. If green, move to FULLCONENAT target kernel/MIPS object validation feasibility and continue the repository-wide priority queue. Keep external K95 usage, FTP cleanup TOCTOU, NFS client compatibility, target MIPS/uClibc, firmware/TRX and L4 device behavior explicitly open.
+
+---
+
 ## 2026-11-11 02:43 CST (UTC+8) — Correct BusyBox pgrep source-contract matcher
 
 - **Base main SHA:** `405a6c14d6fda41e8e1b776a832328f2a58eacb7`; parent `32f7940a6a27a53a8986345dfd21fe7fc51a41da`.

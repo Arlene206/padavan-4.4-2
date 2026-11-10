@@ -43,9 +43,9 @@ cat > "$tmpdir/services-fail/S01-first" <<'MOCK'
 printf 'S01-first\n' >> "$SERVICE_LOG"
 exit 0
 MOCK
-cat > "$tmpdir/services-fail/S02-fail" <<'MOCK'
+cat > "$tmpdir/services-fail/S02 fail with space" <<'MOCK'
 #!/bin/sh
-printf 'S02-fail\n' >> "$SERVICE_LOG"
+printf 'S02 fail with space\n' >> "$SERVICE_LOG"
 exit 1
 MOCK
 cat > "$tmpdir/services-fail/S03-last" <<'MOCK'
@@ -58,9 +58,9 @@ cat > "$tmpdir/services-ok/S01-first" <<'MOCK'
 printf 'S01-first\n' >> "$SERVICE_LOG"
 exit 0
 MOCK
-cat > "$tmpdir/services-ok/S02-last" <<'MOCK'
+cat > "$tmpdir/services-ok/S02 last with space" <<'MOCK'
 #!/bin/sh
-printf 'S02-last\n' >> "$SERVICE_LOG"
+printf 'S02 last with space\n' >> "$SERVICE_LOG"
 exit 0
 MOCK
 chmod +x "$tmpdir"/services-fail/S??* "$tmpdir"/services-ok/S??*
@@ -73,7 +73,7 @@ if optware_lifecycle_stop_services "$tmpdir/services-fail"; then
 	echo "service stop failure was not propagated" >&2
 	exit 1
 fi
-expected=$(printf 'S03-last\nS02-fail\nS01-first')
+expected=$(printf 'S03-last\nS02 fail with space\nS01-first')
 [ "$(cat "$SERVICE_LOG")" = "$expected" ] || {
 	echo "failed service did not preserve reverse order / continue attempts" >&2
 	exit 1
@@ -84,7 +84,7 @@ if ! optware_lifecycle_stop_services "$tmpdir/services-ok"; then
 	echo "successful service stop set returned failure" >&2
 	exit 1
 fi
-expected=$(printf 'S02-last\nS01-first')
+expected=$(printf 'S02 last with space\nS01-first')
 [ "$(cat "$SERVICE_LOG")" = "$expected" ] || {
 	echo "successful service stop order mismatch" >&2
 	exit 1

@@ -104,17 +104,16 @@ optware_lifecycle_stop_services()
 		return 1
 	fi
 
-	# An empty init.d directory is valid. If scripts exist but the directory
-	# cannot be enumerated, fail closed rather than treating it as empty.
-	set -- "$_optware_service_dir"/S??*
-	[ -e "$1" ] || return 0
-	_optware_service_list=`ls -r "$_optware_service_dir"/S??* 2>/dev/null` || {
-		logger -t "opt-umount.sh" "cannot enumerate Optware service scripts" || :
-		return 1
-	}
+	# Keep reverse S??* startup order without parsing ls output. Prepending
+	# complete pathnames to positional parameters preserves spaces/newlines.
+	set --
+	for _optware_service in "$_optware_service_dir"/S??*; do
+		[ -e "$_optware_service" ] || continue
+		[ -f "$_optware_service" ] && [ -x "$_optware_service" ] || continue
+		set -- "$_optware_service" "$@"
+	done
 
-	for _optware_service in $_optware_service_list; do
-		[ -x "$_optware_service" ] || continue
+	for _optware_service in "$@"; do
 		if ! "$_optware_service" stop 9>&-; then
 			logger -t "opt-umount.sh" "service stop failed: $_optware_service" || :
 			_optware_stop_failed=1

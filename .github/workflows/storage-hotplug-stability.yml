@@ -314,6 +314,15 @@ jobs:
           assert opt_umount.index("optware_lifecycle_umount_opt") < opt_umount.rindex("optware_lifecycle_lock_release")
 
           assert "optware_lifecycle_stop_services()" in opt_lock
+          stop_helper_pos = opt_lock.index("optware_lifecycle_stop_services()")
+          stop_helper_end = opt_lock.index("# Retry one failed /opt unmount", stop_helper_pos)
+          stop_helper = opt_lock[stop_helper_pos:stop_helper_end]
+          assert 'for _optware_service in "$_optware_service_dir"/S??*; do' in stop_helper
+          assert 'set -- "$_optware_service" "$@"' in stop_helper
+          assert 'for _optware_service in "$@"; do' in stop_helper
+          assert "ls -r " not in stop_helper
+          assert "S02 fail with space" in opt_teardown_test
+          assert "S02 last with space" in opt_teardown_test
           assert 'return "$_optware_stop_failed"' in opt_lock
           assert "optware_lifecycle_umount_opt()" in opt_lock
           assert "if umount /opt 9>&-; then" in opt_lock

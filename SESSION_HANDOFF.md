@@ -1,26 +1,24 @@
 ## Current repository state
 
-- Maintained fork: Arlene206/padavan-4.4-2; work only on this repository. Exact current main before THIS COMMIT: `405a6c14d6fda41e8e1b776a832328f2a58eacb7` (parent `32f7940a6a27a53a8986345dfd21fe7fc51a41da`). Recovery found only `main`; no remote checkpoint branch exists.
-- **Previous exact-head Actions:** on parent `32f7940a6a27a53a8986345dfd21fe7fc51a41da`, VPN lifecycle [42873811973], AI handoff [42873812043], HTTPD security [42873812024], WAN DHCP callback [42873812303] and WAN route status [42873812403] all SUCCESS; every job/step was inspected. On `405a6c1`, AI handoff [42878125712] also SUCCESS with every step green.
-- **Shadowsocks validation finding:** exact-head lifecycle run [42878125728] passed all shell syntax checks and the mocked process regression (graceful TERM, KILL escalation and still-running failure), but its Python source contract failed on one over-specific escaped-whitespace match against BusyBox `pgrep.c`. The target source documents full-command-line `-f` matching; manual source-contract evaluation found the other assertions true. This follow-up checks the documented capability text rather than source whitespace. New exact-head run is pending.
-- **VPN process-hook audit:** the RC core lifecycle barrier covers VPN callbacks, WAN teardown, L2TP transport changes, VPN client start/restart, firmware-wide PPP/L2TP stop and the installed PPPoE multi-WAN hook. The ROMFS-installed `pppoe/mwan.sh` has a single in-tree RC caller; the `--rc-lifecycle-locked` handoff ensures only the locked C path can start it, and RC performs checked PPPD stop before invoking it. Reviewed PPTP/xl2tpd distro init examples are not installed by their package ROMFS Makefiles. Reviewed OpenVPN cert helper and storage-config script do not start/stop PPPD/PPTP/L2TP. External user-provided Optware `/opt/etc/init.d` scripts are outside this repository; continue the broader add-on lifecycle sweep rather than claiming global closure.
-- **Cross-module fix in main:** optional installed Shadowsocks `shadowsocks.sh` used to retain `pidof` output across TERM and immediately KILL the stale numeric PID list; `ss-monitor` was selected with a `ps | grep` PID snapshot. The new helper sends TERM by process name, waits a bounded three seconds, fresh-matches by `pidof` or BusyBox `pgrep/pkill -f` before KILL, then verifies the postcondition. If any daemon remains, `ssp_close()` preserves firewall/config/cgroup state and stop/restart/reserver abort.
-- **Current correction in THIS COMMIT:** relax only the BusyBox source-contract assertion to match its documented full-command-line `-f` capability; do not change runtime process-stop behavior unless a real behavioral failure is found.
-- **Validation boundary:** L1 source review PASS. The first exact-head Shadowsocks run's shell syntax and mocked-process steps passed; the source-contract step failed only on the formatting assertion above. AI docs passed on `405a6c1`. This correction's exact-head Shadowsocks and AI runs are pending. No production BusyBox/MIPS/uClibc object, firmware/TRX or L3/L4 router test is claimed.
-- Root `dev_log.md` will contain 57 complete newest-first records after this update; no archive rotation or `docs/dev-log/INDEX.md` update is due.
-- **Open:** inspect every step of the corrected exact-head Shadowsocks and AI documentation Actions. Continue the add-on service inventory, starting with Optware `K95aria2` and `K95transmission`, whose stop functions also retain `pidof` snapshots across TERM. Preserve FTP failed-upload cleanup TOCTOU as OPEN/BLOCKED, NFS client compatibility, FULLCONENAT target compile, target VPN/OpenVPN behavior and board validation gaps.
+- Maintained fork: `Arlene206/padavan-4.4-2`; operate only on this fork. Base `main` SHA before THIS COMMIT: `1f7b3f2a568d8b6c8327206fe6111ce4e49dfbfa`, parent `405a6c14d6fda41e8e1b776a832328f2a58eacb7`. The only remote branch is `main`; no checkpoint branch exists.
+- **Recovered unfinished task — CI closed:** exact-head Shadowsocks lifecycle run [42879041009] and AI handoff documentation run [42879041085] both completed SUCCESS on `1f7b3f2a568d8b6c8327206fe6111ce4e49dfbfa`. Every job step was inspected. The Shadowsocks job passed all three `sh -n` checks, mocked process lifecycle regression and BusyBox source/ROMFS contract. The AI docs job passed `scripts/check_ai_handoff_docs.py` with 57/119 root records, 100-record batches and 20 retained records.
+- **Optware K95 installation/caller audit:** `K95aria2` and `K95transmission` are tracked under `trunk/user/optware/`, but `trunk/user/optware/Makefile` does not ROMFS-install either file. `opt-start.sh` and internal MTD `opt-mount.sh` dispatch only `S??*`; `opt-umount.sh` calls the shared stop dispatcher, which also scans only `S??*`. No in-tree copy or caller for either `K95*` file was found. The firmware's own Aria2/Transmission paths use `/usr/bin/aria.sh` and `/usr/bin/transmission.sh` via `services_stor.c`, not these K scripts. External user-provisioned Optware init trees are outside this source proof; do not change K95 behavior without evidence they are installed and called on target.
+- **New source finding:** `optware_lifecycle_stop_services()` built a reversed list using `ls -r` command substitution and an unquoted `for` list. A hook such as `/opt/etc/init.d/S02 with space` was split into words; each fragment failed `-x`, so its stop hook was skipped while the helper could still return success. `opt-umount.sh` would then continue toward swapoff and `umount /opt`, risking detachment while that service remained active. The startup dispatcher already preserves spaces/newlines via quoted positional arguments, and its test already covers a spaced name.
+- **Fix in THIS COMMIT:** construct the stop list from the `S??*` shell glob by prepending complete paths to positional parameters, then invoke via quoted `"$@"`; preserve reverse startup order, stop-failure aggregation and the /opt unmount gate. The teardown test now exercises successful and failing hook names with spaces. The storage workflow source contract asserts the filename-safe implementation and rejects the old `ls -r` path.
+- **Validation boundary:** L1 caller/source review PASS for the K95 non-install finding and the Optware teardown defect/fix. The changed shell regression and storage hotplug semantic contract are configured in exact-head Actions and are pending for THIS COMMIT. No local full checkout, target BusyBox ash behavior, production MIPS/uClibc objects, firmware/TRX or L4 device behavior is claimed.
+- Root `dev_log.md` will contain 58 complete newest-first records after this commit; no archive rotation or `docs/dev-log/INDEX.md` update is due.
 
 ## Active task
 
-- Verify the exact resulting main SHA and inspect all jobs/steps in the corrected Shadowsocks lifecycle and AI handoff Actions. The source contract must verify BusyBox PGREP/PKILL defaults and full-command-line `-f` matching without depending on literal source whitespace.
-- Then audit actual Optware package installation and caller paths for `K95aria2` and `K95transmission` stale PID termination. Prove process ownership and runtime wiring before changing the stop sequence.
+- Reconcile the exact resulting `main` SHA and inspect every job and step in the USB storage hotplug stability and AI handoff documentation Actions. The teardown regression must pass both spaced-name success and fail/continue cases; the semantic contract must verify reverse-order positional collection, quoting and absence of `ls -r`.
+- Once exact-head Actions are green, move beyond Optware into the next highest-value item in the repository governance queue (FULLCONENAT target build feasibility / kernel object validation, then other open module risks). Keep external K95 deployment unverified unless target/user Optware evidence is supplied.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, record exact SHA/parent and verify branch/checkpoint inventory.
-2. Inspect every step in the corrected Shadowsocks lifecycle and AI handoff Actions on that exact SHA; the previous failed run [42878125728] is not a success.
-3. Trace Optware `K95aria2` and `K95transmission` through `opt-start.sh`, package installation and stop callers; if actually deployed, implement a bounded fail-closed stop helper and mocked shell regression without changing package semantics.
-4. Keep production MIPS/uClibc objects, full firmware/TRX and L4 router behavior NOT VERIFIED until actually tested. Retain FTP cleanup TOCTOU and NFS compatibility boundaries.
+1. Fetch live `main`, record exact SHA/parent and recheck branch/checkpoint inventory.
+2. Inspect all jobs, steps and logs for the exact-head `storage-hotplug-stability` and `ai-handoff-docs` runs. Do not treat previous SHA results as evidence for THIS COMMIT.
+3. If CI is green, proceed to the FULLCONENAT kernel/MIPS object validation feasibility and broader repository governance queue; do not drift back into SkipDBv2/HTTPD without a higher-priority finding.
+4. Retain FTP upload-cleanup TOCTOU as OPEN/BLOCKED; NFS compatibility, production MIPS/uClibc, firmware/TRX, VPN/WAN runtime and L4 hardware behavior remain unverified.
 
 ## PID 1 notification queue batch fairness
 
@@ -147,11 +145,10 @@
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for Shadowsocks name-based/pattern-based stop ordering, bounded waits, fresh process matching and failure gates. |
-| L2 host / Actions | Parent `32f7940a6a27a53a8986345dfd21fe7fc51a41da`: VPN [42873811973], AI docs [42873812043], HTTPD [42873812024], WAN DHCP [42873812303] and WAN route [42873812403] all SUCCESS, all steps inspected. On `405a6c1`, AI docs [42878125712] SUCCESS; Shadowsocks [42878125728] failed only in the Python source-contract step after shell syntax and mocked-process steps passed. Corrected exact-head reruns pending. |
+| L1 source review | PASS for the exact K95 installation/caller trace and the Optware stop-hook pathname/reverse-order source correction. |
+| L2 host / Actions | Base SHA `1f7b3f2a568d8b6c8327206fe6111ce4e49dfbfa`: Shadowsocks [42879041009] and AI handoff docs [42879041085] SUCCESS, every job/step inspected. THIS COMMIT's storage hotplug regression/source contract and AI handoff docs are pending exact-head Actions. |
 | L3 production BusyBox/MIPS/uClibc objects, full firmware/TRX and artifact inspection | NOT VERIFIED. |
-| L4 physical router, Shadowsocks stop/restart concurrency, WAN/VPN callbacks | NOT VERIFIED. |
-
+| L4 physical router, removable-storage eject with live Optware services, Aria2/Transmission and WAN/VPN runtime | NOT VERIFIED. |
 
 ## Continuation rules
 
