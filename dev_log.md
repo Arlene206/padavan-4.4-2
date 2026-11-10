@@ -1,3 +1,17 @@
+## 2026-11-11 04:26 CST (UTC+8) — Repair FULLCONENAT workflow insertion after malformed CI definition
+
+- **Base main SHA:** `952040daea8f43b01ec3dc37510c57af3c7070b7`; parent `af657721328f6a1af62a62e4631028a77df9b982`. Only remote branch is `main`.
+- **Actions on the base:** lifecycle workflow run [42893148880] was marked failure before any jobs were created; GitHub returned an empty job list and the workflow run name was the YAML file path. Inspection of the committed workflow text found the target build's `run: |` body spliced into two Python assertion lines, so no shell/config/compile test executed. AI docs run [42893151242] passed its archive/handoff validator (root log 65/119).
+- **Production config source remains intact:** `trunk/configure` at the base is 322 lines, restored to its 316-line parent plus one FULLCONENAT guard enabling conntrack events for target `y`/`m` independent of SQM. Its key feature headings occur once in the source inspected.
+- **Fix in THIS COMMIT:** rebuild `.github/workflows/fullconenat-lifecycle.yml` from the previous valid workflow version and insert the config uniqueness/dependency check by line-array insertion before the MIPS build step. The source contract avoids interpolated string patterns and checks all 22 unique feature headings, `bash -n`, and that the FULLCONENAT gate is outside the SQM block. The existing XY-C1 config and actual `xt_FULLCONENAT.o`/ELF test remain intact.
+- **Changed paths:** `.github/workflows/fullconenat-lifecycle.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log.
+- **Validation:** reviewed the generated workflow line-by-line to ensure the Python assertions and MIPS build step are separate YAML commands. This commit's workflow parser, configure contract, XY-C1 post-config assertions, MIPS object compile and AI docs are pending exact-head Actions. No new object build is claimed.
+- **Root log:** 65 complete newest-first records before this entry; 66 after. No archive rotation or `docs/dev-log/INDEX.md` update is due.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** inspect exact-head FULLCONENAT and AI docs Actions; confirm a real job is created and all configure/object steps execute. If the restored config and MIPS object pass, continue the DNSMasq/RC lifecycle audit outside Netfilter. FTP cleanup TOCTOU stays OPEN/BLOCKED until safe staged publication is proved.
+
+---
+
 ## 2026-11-11 04:20 CST (UTC+8) — Restore single-copy project configure flow and retain FULLCONENAT prerequisite
 
 - **Base main SHA:** `af657721328f6a1af62a62e4631028a77df9b982`; parent `7b833db52deddb0c2404c77c3e1ab87cdfac5d85`. Only remote branch is `main`; no checkpoint branch.
