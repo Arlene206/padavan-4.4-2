@@ -28,12 +28,16 @@
 #include <sys/stat.h>
 #include <stdint.h>
 #include <fcntl.h>
+#include <limits.h>
+#include <sys/select.h>
 
 #include <bsd_queue.h>
 #include <rstats.h>
 
 #include "rc.h"
 #include "switch.h"
+#include "rstats_file_policy.h"
+#include "rstats_signal_policy.h"
 
 #define SMIN		60
 #define SHOUR		(60 * 60)
@@ -115,9 +119,7 @@ static long g_uptime_now = 0;
 static long g_uptime_old = 0;
 static long g_store_cntr = 0;
 
-static volatile sig_atomic_t gothup = 0;
-static volatile sig_atomic_t gotusr1 = 0;
-static volatile sig_atomic_t gotusr2 = 0;
+static volatile sig_atomic_t rstats_pending_events = 0;
 
 // ===========================================
 
@@ -134,17 +136,11 @@ static int f_read(const char *path, void *buffer, int max)
 
 static int f_write(const char *path, const void *buffer, int len)
 {
-	int fd;
-	int r = -1;
-	mode_t m;
-
-	m = umask(0);
-	if ((fd = open(path, O_WRONLY|O_CREAT|O_TRUNC, 0666)) >= 0) {
-		r = write(fd, buffer, len);
-		close(fd);
+	if (len < 0) {
+		errno = EINVAL;
+		return -1;
 	}
-	umask(m);
-	return r;
+	return rstats_file_write_atomic(path, buffer, (size_t) len);
 }
 
 static int alloc_rstats(void)
@@ -244,7 +240,8 @@ static void save_history_raw(long ticks)
 				continue;
 			snprintf(h_path, sizeof(h_path), "%s/%s.%s", "/etc/storage", "rstats-history", g_history_desc[i].ifdesc);
 		}
-		f_write(h_path, &g_history[i], sizeof(history_t));
+		if (f_write(h_path, &g_history[i], sizeof(history_t)) != 0)
+			perror("rstats: failed to publish history");
 	}
 
 	if (ticks < 1 || rstats_stored < 2)
@@ -285,7 +282,7 @@ static void save_speed_json(long next_time)
 	uint64_t total;
 	uint32_t tnow, tmax;
 	char ch, *netdev, *netdev_1st;
-	const char *fn_tmp = RSTATS_JS_SPEED ".tmp";
+	char fn_tmp[PATH_MAX];
 
 	if (next_time < 1)
 		next_time = 1;
@@ -311,7 +308,7 @@ static void save_speed_json(long next_time)
 
 	tail = g_speed_list.tail;
 
-	fp = fopen(fn_tmp, "w");
+	fp = rstats_file_open_stream(RSTATS_JS_SPEED, fn_tmp, sizeof(fn_tmp));
 	if (!fp)
 		return;
 
@@ -345,9 +342,8 @@ static void save_speed_json(long next_time)
 	fprintf(fp, "%s\n};\n", (i > 0) ? " }" : "");
 	fprintf(fp, "data_period = %d;\npoll_next = %ld;\n", RSTATS_INTERVAL, next_time);
 
-	fclose(fp);
-
-	rename(fn_tmp, RSTATS_JS_SPEED);
+	if (rstats_file_publish_stream(fp, fn_tmp, RSTATS_JS_SPEED) != 0)
+		perror("rstats: failed to publish speed history");
 }
 
 static void save_data_js(FILE *fp, const history_t *ph, int mode)
@@ -385,7 +381,7 @@ static void save_history_json(long next_time)
 	int i, wan_idx;
 	char *netdev;
 	const history_t *ph;
-	const char *fn_tmp = RSTATS_JS_HISTORY ".tmp";
+	char fn_tmp[PATH_MAX];
 
 	if (next_time < 1)
 		next_time = 1;
@@ -404,7 +400,7 @@ static void save_history_json(long next_time)
 
 	ph = &g_history[wan_idx];
 
-	fp = fopen(fn_tmp, "w");
+	fp = rstats_file_open_stream(RSTATS_JS_HISTORY, fn_tmp, sizeof(fn_tmp));
 	if (fp) {
 		fprintf(fp, "\nnetdev = '%s';\n", g_history_desc[wan_idx].ifdesc);
 		fprintf(fp, "netdevs = [");
@@ -419,8 +415,8 @@ static void save_history_json(long next_time)
 		save_data_js(fp, ph, DAILY);
 		save_data_js(fp, ph, MONTHLY);
 		fprintf(fp, "poll_next = %ld;\n", next_time);
-		fclose(fp);
-		rename(fn_tmp, RSTATS_JS_HISTORY);
+		if (rstats_file_publish_stream(fp, fn_tmp, RSTATS_JS_HISTORY) != 0)
+			perror("rstats: failed to publish history view");
 	}
 }
 
@@ -639,22 +635,7 @@ static void process_rstats(void)
 
 static void catch_sig_rstats(int sig)
 {
-	switch (sig) {
-	case SIGTERM:
-		save_history_raw(0);
-		free_rstats();
-		exit(0);
-		break;
-	case SIGHUP:
-		gothup = 1;
-		break;
-	case SIGUSR1:
-		gotusr1 = 1;
-		break;
-	case SIGUSR2:
-		gotusr2 = 1;
-		break;
-	}
+	rstats_record_signal(&rstats_pending_events, sig);
 }
 
 void notify_rstats_time(void)
@@ -667,32 +648,68 @@ int rstats_main(int argc, char *argv[])
 	FILE *fp;
 	pid_t pid;
 	struct sigaction sa;
+	sigset_t managed_signals, original_mask, wait_mask;
 	long z;
+	int stopping = 0;
+	int exit_status = 0;
+	sig_atomic_t events;
+
+	(void) argc;
+	(void) argv;
+
+	/*
+	 * Keep service signals blocked during normal work. pselect() atomically
+	 * exposes them while waiting and restores the blocked mask before event
+	 * dispatch, so handlers never perform I/O, allocation or cleanup.
+	 */
+	sigemptyset(&managed_signals);
+	sigaddset(&managed_signals, SIGHUP);
+	sigaddset(&managed_signals, SIGUSR1);
+	sigaddset(&managed_signals, SIGUSR2);
+	sigaddset(&managed_signals, SIGTERM);
+	if (sigprocmask(SIG_BLOCK, &managed_signals, &original_mask) < 0) {
+		perror("rstats: block signals");
+		return 1;
+	}
 
 	memset(&sa, 0, sizeof(sa));
 	sa.sa_handler = catch_sig_rstats;
-	sigemptyset(&sa.sa_mask);
-	sigaddset(&sa.sa_mask, SIGTERM);
-	sigaction(SIGHUP, &sa, NULL);
-	sigaction(SIGUSR1, &sa, NULL);
-	sigaction(SIGUSR2, &sa, NULL);
-	sigaction(SIGTERM, &sa, NULL);
+	sa.sa_mask = managed_signals;
+	if (sigaction(SIGHUP, &sa, NULL) < 0 ||
+	    sigaction(SIGUSR1, &sa, NULL) < 0 ||
+	    sigaction(SIGUSR2, &sa, NULL) < 0 ||
+	    sigaction(SIGTERM, &sa, NULL) < 0) {
+		int saved_errno = errno;
+		(void) sigprocmask(SIG_SETMASK, &original_mask, NULL);
+		errno = saved_errno;
+		perror("rstats: install signal handlers");
+		return 1;
+	}
 
 	memset(&sa, 0, sizeof(sa));
 	sa.sa_handler = SIG_IGN;
 	sigemptyset(&sa.sa_mask);
-	sigaction(SIGPIPE, &sa, NULL);
+	if (sigaction(SIGPIPE, &sa, NULL) < 0) {
+		int saved_errno = errno;
+		(void) sigprocmask(SIG_SETMASK, &original_mask, NULL);
+		errno = saved_errno;
+		perror("rstats: ignore SIGPIPE");
+		return 1;
+	}
 
 	printf("rstats\nCopyright (C) 2006-2009 Jonathan Zarate\n\n");
 
 	if (daemon(0, 0) < 0) {
+		int saved_errno = errno;
+		(void) sigprocmask(SIG_SETMASK, &original_mask, NULL);
+		errno = saved_errno;
 		perror("daemon");
-		exit(errno);
+		return saved_errno;
 	}
 
 	if (alloc_rstats() < 0) {
 		free_rstats();
-		exit(1);
+		return 1;
 	}
 
 	pid = getpid();
@@ -714,28 +731,54 @@ int rstats_main(int argc, char *argv[])
 	g_uptime_now = z;
 	g_uptime_old = z;
 
-	while (1) {
+	while (!stopping) {
 		while (g_uptime_now < z) {
-			sleep(z - g_uptime_now);
-			if (gothup) {
+			struct timespec timeout;
+			long wait_seconds = z - g_uptime_now;
+
+			wait_mask = original_mask;
+			sigdelset(&wait_mask, SIGHUP);
+			sigdelset(&wait_mask, SIGUSR1);
+			sigdelset(&wait_mask, SIGUSR2);
+			sigdelset(&wait_mask, SIGTERM);
+			timeout.tv_sec = wait_seconds;
+			timeout.tv_nsec = 0;
+
+			if (pselect(0, NULL, NULL, NULL, &timeout, &wait_mask) < 0 &&
+			    errno != EINTR) {
+				perror("rstats: wait for events");
+				exit_status = 1;
+				stopping = 1;
+				break;
+			}
+
+			events = rstats_take_pending_events(&rstats_pending_events);
+			if (events & RSTATS_PENDING_TERMINATE) {
+				stopping = 1;
+				break;
+			}
+			if (events & RSTATS_PENDING_TIME_REFRESH)
 				setenv_tz();
-				gothup = 0;
-			}
-			if (gotusr1) {
+			if (events & RSTATS_PENDING_SPEED_EXPORT)
 				save_speed_json(z - uptime());
-				gotusr1 = 0;
-			}
-			if (gotusr2) {
+			if (events & RSTATS_PENDING_HISTORY_EXPORT)
 				save_history_json(z - uptime());
-				gotusr2 = 0;
-			}
+
 			g_uptime_now = uptime();
 		}
+
+		if (stopping)
+			break;
 		process_rstats();
 		z += RSTATS_INTERVAL;
 	}
 
+	if (stopping)
+		save_history_raw(0);
 	free_rstats();
 
-	return 0;
+	if (sigprocmask(SIG_SETMASK, &original_mask, NULL) < 0 && exit_status == 0)
+		exit_status = 1;
+
+	return exit_status;
 }
