@@ -1,3 +1,17 @@
+## 2026-11-11 05:20 CST (UTC+8) — Reconcile WAN bridge teardown Actions and close the checkpoint
+
+- **Code-bearing commit:** `5e215b5e694488793d86ec984af6ea109f977fce`, parent `d9bf7a52cbf684ddb6b196016e429bbb5c01a19c`. THIS COMMIT only records the completed validation and the next handoff; it does not change firmware source.
+- **Exact-head Actions:** all 8 workflows triggered on code SHA `5e215b5e694488793d86ec984af6ea109f977fce` completed SUCCESS: VPN lifecycle [42903822831], AI handoff docs [42903823036], WAN teardown [42903823098], detect_link [42903822824], HTTPD security [42903823335], detect_internet [42903823353], WAN ARP [42903822903], and WAN route status [42903822863]. All job and step conclusions were checked.
+- **WAN regression details:** the exact-head WAN job [42903823098] compiled `wan_teardown_policy.c` with `cc -std=gnu89 -Wall -Wextra -Werror`, executed the binary successfully, and completed the source contract with `WAN interface teardown status propagation contracts: PASS`. The source contract checks positive-errno/negative-ioctl normalization, port-detach error gating of bridge deletion, and abort-before-LAN/WAN restart ordering.
+- **Handoff validation:** exact-head AI docs [42903823036] ran `scripts/check_ai_handoff_docs.py` and printed `PASS (root log=69/119 entries, batch=100, retain=20, legacy/current archives: dev-log=6, handoff=22, roadmap=18)`.
+- **Previous task status:** DDNS applet status propagation remains green on exact SHA `d9bf7a52cbf684ddb6b196016e429bbb5c01a19c` [42895344137, 42895344037]. WAN bridge teardown is complete at the code-bearing SHA above. Neither change has MIPS/uClibc, BusyBox ash, full firmware/TRX or physical L4 validation.
+- **Changed paths in THIS COMMIT:** `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and this log. This documentation closeout is needed to replace the previously-pending test state with exact run evidence and a new resumable task; no archive or INDEX updates are due.
+- **Root log:** 69 complete newest-first records before this entry; 70 after, below rotation thresholds.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** start a whole-repository stability/security audit. Prioritize the OPEN/BLOCKED FTP failed-upload cleanup TOCTOU: trace STOR/APPE/REST/STOU and determine whether safe staged publication is provable across inode/parent replacement and filesystem semantics. Do not ship an incomplete check-then-unlink workaround. If the semantics cannot be proven, keep FTP blocked and select another source/host-testable P2 reliability defect.
+
+---
+
 ## 2026-11-11 05:11 CST (UTC+8) — Fail closed when WAN bridge disassembly is incomplete
 
 - **Base main SHA:** `d9bf7a52cbf684ddb6b196016e429bbb5c01a19c`; parent `491901f298aff09f1db95ca6d0ab8303a409b82d`. Remote branch inventory: only `main`; no checkpoint branch.
