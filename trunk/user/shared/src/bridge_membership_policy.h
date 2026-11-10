@@ -22,4 +22,16 @@ bridge_port_list_contains(const int *ifindices, unsigned int count, int ifindex)
 	return 0;
 }
 
+static inline int
+bridge_cleanup_should_set_interface_down(int do_if_down, int interface_is_up)
+{
+	return do_if_down && interface_is_up;
+}
+
+static inline int
+bridge_cleanup_status_update(int current_status, int operation_status)
+{
+	return (operation_status < 0) ? -1 : current_status;
+}
+
 #endif

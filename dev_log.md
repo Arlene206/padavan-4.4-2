@@ -1,3 +1,12 @@
+## 2026-11-10 12:15 CST (UTC+8) — Harden bulk bridge teardown
+
+- Reconciled the same-bridge attachment change on exact main SHA `5c78797b19e93beaa0bc313a69bbf37cb724b274`: wireless radio state regression [42754624074] and AI handoff docs [42754624181] both completed SUCCESS. This confirmed the 1024-entry bridge membership query, duplicate-add preflight, `-EBUSY` recheck, GNU89 policy test and source contract.
+- Follow-up review found `br_del_all_ifs()` had three correctness gaps: its userland `BR_MAX_IF` was only 32 despite Linux 4.4's bridge port cap of 1024; it ignored `SIOCBRDELIF` errors and returned success; and it brought ports down whenever either `do_if_down` or `do_if_rem` was set, conflating the two controls.
+- Fix in THIS COMMIT: use `BRIDGE_PORT_LIST_CAPACITY` for full enumeration; record per-port detach success and skip follow-up operations on ports that remain attached; aggregate detach/name/flags/down ioctl failures into the return status; and only clear `IFF_UP` when `do_if_down` is explicitly requested. Removal-only no longer forces an interface down.
+- Regression: extend the GNU89 policy test for down-flag gating and failure aggregation. Extend the wireless workflow source contract for full capacity, successful-detach gating, status propagation and flag semantics. Local compile/run printed `Bridge membership and cleanup policy regression: PASS`; exact-head GitHub Actions pending.
+- L3 remains blocked by the x86_64 host, absent MIPS/uClibc cross compiler and unavailable GitHub DNS. No target kernel/firmware/router result is claimed. NFS compatibility defaults remain unchanged pending client evidence; FTP cleanup TOCTOU, PPP/IPv6 and L4 remain open.
+- Next: reconcile wireless regression and AI docs on the exact candidate SHA; then validate bulk detach and master ownership behavior on a MIPS target or continue NFS compatibility/PPP-IPv6 source audits without changing defaults.
+
 ## 2026-11-10 12:10 CST (UTC+8) — Make bridge attachment idempotent
 
 - Reconciled FULLCONENAT on exact main SHA `15f350ab9397a60ab23ce854be7ee54191861a71`: lifecycle regression [42753842579] and AI handoff documentation contract [42753842498] both completed SUCCESS. The notifier dependency/Kconfig and Makefile mapping source contract passed.

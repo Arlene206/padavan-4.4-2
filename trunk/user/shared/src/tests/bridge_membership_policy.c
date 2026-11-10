@@ -32,6 +32,19 @@ main(void)
 	expect_membership(ifindices, BRIDGE_PORT_LIST_CAPACITY, 0, 0, "zero interface index");
 	expect_membership(ifindices, BRIDGE_PORT_LIST_CAPACITY, -1, 0, "negative interface index");
 
-	puts("Bridge membership policy regression: PASS");
+	if (bridge_cleanup_should_set_interface_down(0, 1) != 0 ||
+	    bridge_cleanup_should_set_interface_down(1, 0) != 0 ||
+	    bridge_cleanup_should_set_interface_down(1, 1) != 1) {
+		fprintf(stderr, "bridge cleanup down-flag policy mismatch\n");
+		return 1;
+	}
+	if (bridge_cleanup_status_update(0, 0) != 0 ||
+	    bridge_cleanup_status_update(0, -1) != -1 ||
+	    bridge_cleanup_status_update(-1, 0) != -1) {
+		fprintf(stderr, "bridge cleanup error aggregation mismatch\n");
+		return 1;
+	}
+
+	puts("Bridge membership and cleanup policy regression: PASS");
 	return 0;
 }

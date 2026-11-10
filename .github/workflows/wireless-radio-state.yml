@@ -292,6 +292,23 @@ jobs:
           assert "ret < 0 && errno == EBUSY" in add_if
           assert add_if.rindex("bridge_has_ifindex(") > add_if.index("errno == EBUSY")
 
+          # Bulk bridge teardown must report failures and respect the separate
+          # do_if_down and do_if_rem controls.
+          cleanup = function_body(
+              netutils_source,
+              "br_del_all_ifs(const char *brname, int do_if_down, int do_if_rem)")
+          assert "BRIDGE_PORT_LIST_CAPACITY" in cleanup
+          assert "unsigned char detached[BRIDGE_PORT_LIST_CAPACITY]" in cleanup
+          assert "ret = ioctl(sockfd, SIOCBRDELIF, &ifr)" in cleanup
+          assert "status = bridge_cleanup_status_update(status, ret)" in cleanup
+          assert cleanup.index("if (ret < 0)") < cleanup.index("detached[i] = 1;")
+          assert "if (!detached[i])" in cleanup
+          assert "if (do_if_down)" in cleanup
+          assert "bridge_cleanup_should_set_interface_down(" in cleanup
+          assert "return status;" in cleanup
+          assert cleanup.index("if (!detached[i])") < cleanup.index("SIOCGIFNAME")
+          assert cleanup.index("if (do_if_down)") < cleanup.index("SIOCGIFFLAGS")
+
           # The periodic iNIC health check must retain the guest-up result.
           inic_check = function_body(source, "check_inic_mii_rebooted(void)")
           guest_gate = "if (!is_interface_up(IFNAME_INIC_GUEST) && is_guest_allowed_rt())"

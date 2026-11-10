@@ -836,11 +836,16 @@ br_add_del_if(const char *brname, const char *ifname, int is_add)
 int
 br_del_all_ifs(const char *brname, int do_if_down, int do_if_rem)
 {
-#define BR_MAX_IF	32
 	struct ifreq ifr;
-	int i, sockfd;
-	int ifindices[BR_MAX_IF] = {0};
-	unsigned long args[4] = { BRCTL_GET_PORT_LIST, (unsigned long)ifindices, BR_MAX_IF, 0 };
+	int i, sockfd, ret, status = 0;
+	int ifindices[BRIDGE_PORT_LIST_CAPACITY] = {0};
+	unsigned char detached[BRIDGE_PORT_LIST_CAPACITY] = {0};
+	unsigned long args[4] = {
+		BRCTL_GET_PORT_LIST,
+		(unsigned long)ifindices,
+		BRIDGE_PORT_LIST_CAPACITY,
+		0
+	};
 
 	if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
 		return -1;
@@ -856,29 +861,41 @@ br_del_all_ifs(const char *brname, int do_if_down, int do_if_rem)
 		return -1;
 	}
 
-	ifr.ifr_data = NULL;
-
-	for (i = 0; i < BR_MAX_IF; i++) {
+	for (i = 0; i < BRIDGE_PORT_LIST_CAPACITY; i++) {
 		if (!ifindices[i])
 			continue;
+		ifr.ifr_data = NULL;
 		ifr.ifr_ifindex = ifindices[i];
-		ioctl(sockfd, SIOCBRDELIF, &ifr);
+		ret = ioctl(sockfd, SIOCBRDELIF, &ifr);
+		status = bridge_cleanup_status_update(status, ret);
+		if (ret < 0)
+			continue;
+		detached[i] = 1;
 	}
 
 	if (do_if_down || do_if_rem) {
-		for (i = 0; i < BR_MAX_IF; i++) {
-			if (!ifindices[i])
+		for (i = 0; i < BRIDGE_PORT_LIST_CAPACITY; i++) {
+			if (!detached[i])
 				continue;
 			memset(&ifr, 0, sizeof(ifr));
 			ifr.ifr_ifindex = ifindices[i];
-			if (ioctl(sockfd, SIOCGIFNAME, &ifr) < 0)
+			ret = ioctl(sockfd, SIOCGIFNAME, &ifr);
+			status = bridge_cleanup_status_update(status, ret);
+			if (ret < 0)
 				continue;
-			if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) < 0)
-				continue;
-			if (ifr.ifr_flags & IFF_UP) {
-				ifr.ifr_flags &= ~(IFF_UP);
-				if (ioctl(sockfd, SIOCSIFFLAGS, &ifr) < 0)
+			if (do_if_down) {
+				ret = ioctl(sockfd, SIOCGIFFLAGS, &ifr);
+				status = bridge_cleanup_status_update(status, ret);
+				if (ret < 0)
 					continue;
+				if (bridge_cleanup_should_set_interface_down(
+						do_if_down, (ifr.ifr_flags & IFF_UP) != 0)) {
+					ifr.ifr_flags &= ~(IFF_UP);
+					ret = ioctl(sockfd, SIOCSIFFLAGS, &ifr);
+					status = bridge_cleanup_status_update(status, ret);
+					if (ret < 0)
+						continue;
+				}
 			}
 			if (do_if_rem && strcmp(ifr.ifr_name, IFNAME_LAN))
 				vconfig_del_if(ifr.ifr_name);
@@ -887,7 +904,7 @@ br_del_all_ifs(const char *brname, int do_if_down, int do_if_rem)
 
 	close(sockfd);
 
-	return 0;
+	return status;
 }
 
 void
