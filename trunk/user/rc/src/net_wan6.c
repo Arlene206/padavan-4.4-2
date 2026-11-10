@@ -440,7 +440,12 @@ int wan6_up(char *wan_ifname, int unit)
 	if (ipv6_type == IPV6_DISABLED)
 		return 0;
 
-	stop_dhcp6c();
+	dhcp6_status = stop_dhcp6c();
+	if (dhcp6_status != 0) {
+		logmessage("WAN IPv6", "failed to stop previous DHCPv6 client on %s (status=%d)",
+			   wan_ifname, dhcp6_status);
+		return dhcp6_status;
+	}
 
 	build_dns6_var();
 
@@ -496,16 +501,19 @@ int wan6_up(char *wan_ifname, int unit)
 	return 0;
 }
 
-void wan6_down(char *wan_ifname, int unit)
+int wan6_down(char *wan_ifname, int unit)
 {
-	int ipv6_type;
+	int ipv6_type, stop_status;
 	char *wan6_ifname;
 
 	ipv6_type = get_ipv6_type();
 	if (ipv6_type == IPV6_DISABLED)
-		return;
+		return 0;
 
-	stop_dhcp6c();
+	stop_status = stop_dhcp6c();
+	if (stop_status != 0)
+		logmessage("WAN IPv6", "DHCPv6 client did not stop cleanly on %s (status=%d)",
+			   wan_ifname, stop_status);
 	control_if_ipv6_radv(wan_ifname, 0);
 	control_if_ipv6_autoconf(wan_ifname, 0);
 
@@ -531,6 +539,8 @@ void wan6_down(char *wan_ifname, int unit)
 
 	// clear DNS6 for resolv.conf
 	set_wan_unit_value(unit, "dns6", "");
+
+	return stop_status;
 }
 
 int dhcp6c_main(int argc, char **argv)
@@ -701,10 +711,10 @@ int start_dhcp6c(char *wan_ifname)
 	return eval("/sbin/dhcp6c", "-D", "LL", wan_ifname);
 }
 
-void stop_dhcp6c(void)
+int stop_dhcp6c(void)
 {
 	char *svcs[] = { "dhcp6c", NULL };
-	kill_services(svcs, 3, 1);
+	return kill_services(svcs, 3, 1);
 }
 
 #endif

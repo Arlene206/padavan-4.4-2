@@ -379,10 +379,10 @@ char *get_wan_addr6_host(char *p_addr6s);
 void start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4, char *wan_gate4, char *wan_addr6);
 void stop_sit_tunnel(void);
 int wan6_up(char *wan_ifname, int unit);
-void wan6_down(char *wan_ifname, int unit);
+int wan6_down(char *wan_ifname, int unit);
 int dhcp6c_main(int argc, char **argv);
 int start_dhcp6c(char *wan_ifname);
-void stop_dhcp6c(void);
+int stop_dhcp6c(void);
 
 /* net_ppp.c */
 int ipv6up_main(int argc, char **argv);

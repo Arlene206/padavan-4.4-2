@@ -1037,7 +1037,7 @@ ipv6up_main(int argc, char **argv)
 int
 ipv6down_main(int argc, char **argv)
 {
-	int unit, ppp_idx;
+	int unit, ppp_idx, ipv6_status;
 	int callback_fd, callback_state;
 	char *ppp_ifname = safe_getenv("IFNAME");
 	char *ppp_linkname = safe_getenv("LINKNAME");
@@ -1060,13 +1060,13 @@ ipv6down_main(int argc, char **argv)
 
 	umask(0000);
 
-	wan6_down(ppp_ifname, unit);
+	ipv6_status = wan6_down(ppp_ifname, unit);
 
 	refresh_resolvconf_nonfatal("PPP IPv6 down", 0);
 
 	if (ppp_wan_session_state_unlock(callback_fd) != 0)
 		return -1;
-	return 0;
+	return ipv6_status;
 }
 #endif
 

@@ -244,6 +244,39 @@ jobs:
           callback_return = ipv6_up.index("return ipv6_status;", unlock_status)
           assert callback_start < unlock_status < callback_return
 
+          # DHCPv6 teardown must report a failed client stop without skipping
+          # the remaining interface cleanup.
+          stop_client = body(wan6_source, "stop_dhcp6c(void)")
+          assert "return kill_services(svcs, 3, 1);" in stop_client
+          assert "int stop_dhcp6c(void)" in wan6_source
+          assert "int stop_dhcp6c(void);" in rc_header
+
+          wan6_up = body(wan6_source, "wan6_up(char *wan_ifname, int unit)")
+          assert "dhcp6_status = stop_dhcp6c();" in wan6_up
+          assert "if (dhcp6_status != 0)" in wan6_up
+
+          wan6_down = body(wan6_source, "wan6_down(char *wan_ifname, int unit)")
+          assert "int wan6_down(char *wan_ifname, int unit)" in wan6_source
+          assert "stop_status = stop_dhcp6c();" in wan6_down
+          assert "return stop_status;" in wan6_down
+          assert "clear_if_route6(wan6_ifname);" in wan6_down
+          assert "clear_if_addr6(wan6_ifname);" in wan6_down
+          assert "int wan6_down(char *wan_ifname, int unit);" in rc_header
+
+          ipv6_down = body(ppp_source, "ipv6down_main(int argc, char **argv)")
+          down_start = ipv6_down.index("ipv6_status = wan6_down(ppp_ifname, unit);")
+          down_unlock = ipv6_down.index("ppp_wan_session_state_unlock(callback_fd)", down_start)
+          down_return = ipv6_down.index("return ipv6_status;", down_unlock)
+          assert down_start < down_unlock < down_return
+
+          stop_wan = body(source, "stop_wan(void)")
+          assert "ipv6_status = wan6_down(man_ifname, unit);" in stop_wan
+          assert "if (ipv6_status != 0)" in stop_wan
+          assert "skipping final WAN state clear" in stop_wan
+          wan_down_internal = body(source, "wan_down_internal(char *wan_ifname, int unit, int is_static)")
+          assert "ipv6_status = wan6_down(wan_ifname, unit);" in wan_down_internal
+          assert "status = route_status_accumulate(status, ipv6_status);" in wan_down_internal
+
           launch_wanx = body(source, "launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)")
           assert "int ipv6_status = wan6_up(man_ifname, unit);" in launch_wanx
           assert "WAN physical IPv6 setup incomplete" in launch_wanx

@@ -1,3 +1,14 @@
+## 2026-11-10 13:45 CST (UTC+8) — Propagate DHCPv6 client teardown failures
+
+- **Base main SHA:** `118db7691f9dfb0389151236f5ad4e8e10bbdb18`. All ten exact-head Actions completed SUCCESS: WAN DHCP callback [42758479890], AI handoff docs [42758480028], WAN route [42758479837], storage hotplug [42758479898], WAN teardown [42758480112], HTTPD security [42758480227], NFS start/reload [42758480113], vsftpd [42758480121], Samba [42758479866], and wireless [42758479880]. The WAN job passed the three GNU89 host regressions and full PPP start-status source contracts.
+- **Finding:** `stop_dhcp6c()` returned void and discarded `kill_services()` failure. Consequently `wan6_down()` cleared interface state and `ipv6down_main()` reported success even if the DHCPv6 process remained alive. `wan6_up()` also attempted a new client start without confirming the previous instance had stopped.
+- **Fix in THIS COMMIT:** return the `kill_services()` status from `stop_dhcp6c()`; make `wan6_up()` stop before reconfiguration/start and abort on an unclean stop; make `wan6_down()` return the stop status while continuing remaining interface/route/address cleanup; propagate the result through PPP IPv6-down after releasing its session lock. Non-PPP WAN teardown logs/aggregates the error, and full `stop_wan()` preserves final WAN state rather than clearing it when IPv6 teardown is incomplete. Update public declarations.
+- **Regression contract:** extend the WAN DHCP callback workflow to verify checked daemon stop, callback result propagation, continued interface cleanup, non-PPP teardown aggregation and the final state-clear gate.
+- **Changed paths:** `trunk/user/rc/src/net_wan6.c`, `trunk/user/rc/src/net_ppp.c`, `trunk/user/rc/src/net_wan.c`, `trunk/user/rc/src/rc.h`, `.github/workflows/wan-dhcp-callback-stability.yml`, `dev_log.md`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`.
+- **Validation boundary:** base SHA `118db7691f9dfb0389151236f5ad4e8e10bbdb18` passed all ten exact-head Actions. The new teardown propagation contracts are pending on THIS resulting SHA; no target DHCPv6 daemon, PPP live session, MIPS/uClibc object, firmware/TRX or physical-router behavior is claimed.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** inspect exact-head WAN DHCP callback and AI handoff Actions, including logs. If green, continue review of PPP callback session fencing/reentrancy and remaining IPv6 route/RA teardown error surfaces.
+
 ## 2026-11-10 13:20 CST (UTC+8) — Propagate DHCPv6 startup errors through PPP IPv6 callback
 
 - **Base main SHA:** `501c16b5fef342d60f85ce75e7b46205eda3b61f`. The corrected WAN DHCP callback workflow [42758063814] and AI handoff documentation contract [42758063796] both completed SUCCESS on this exact SHA. The WAN job passed all three GNU89 host regressions and the full Python source-contract step.

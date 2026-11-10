@@ -1246,6 +1246,9 @@ int
 stop_wan(void)
 {
 	int unit, wan_proto, ifdown_status;
+#if defined (USE_IPV6)
+	int ipv6_status = 0;
+#endif
 	char *man_ifname;
 	char *usbnet_ifname;
 	char* svcs_ppp[] = {
@@ -1277,8 +1280,12 @@ stop_wan(void)
 		return -1;
 	}
 #if defined (USE_IPV6)
-	if (is_wan_ipv6_type_sit() == 0)
-		wan6_down(man_ifname, unit);
+	if (is_wan_ipv6_type_sit() == 0) {
+		ipv6_status = wan6_down(man_ifname, unit);
+		if (ipv6_status != 0)
+			logmessage(LOGNAME, "WAN IPv6 teardown incomplete on %s (status=%d)",
+				   man_ifname, ipv6_status);
+	}
 #endif
 	if (pids("udhcpc")) {
 		doSystem("killall %s %s", "-SIGUSR2", "udhcpc");
@@ -1308,6 +1315,12 @@ stop_wan(void)
 		logmessage(LOGNAME, "WAN interface shutdown incomplete; skipping final WAN state clear");
 		return -1;
 	}
+#if defined (USE_IPV6)
+	if (ipv6_status != 0) {
+		logmessage(LOGNAME, "WAN IPv6 teardown incomplete; skipping final WAN state clear");
+		return -1;
+	}
+#endif
 	clear_wan_state();
 	control_wan_led_isp_state(0, 0);
 	return 0;
@@ -1723,6 +1736,9 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 	const char *script_postw = SCRIPT_POST_WAN;
 	int wan_proto, modem_unit_id;
 	int status = 0, route_status;
+#if defined (USE_IPV6)
+	int ipv6_status;
+#endif
 
 	logmessage(LOGNAME, "%s %s (%s)", "WAN", "down", wan_ifname);
 
@@ -1734,8 +1750,13 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 		notify_rc("stop_vpn_client");
 
 #if defined (USE_IPV6)
-	if (is_wan_ipv6_type_sit() == 1)
-		wan6_down(wan_ifname, unit);
+	if (is_wan_ipv6_type_sit() == 1) {
+		ipv6_status = wan6_down(wan_ifname, unit);
+		status = route_status_accumulate(status, ipv6_status);
+		if (ipv6_status != 0)
+			logmessage(LOGNAME, "WAN IPv6 teardown incomplete on %s (status=%d)",
+				   wan_ifname, ipv6_status);
+	}
 #endif
 
 	wan_proto = get_wan_proto(unit);

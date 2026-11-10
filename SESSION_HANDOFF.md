@@ -2,13 +2,13 @@
 
 - Maintained fork: `Arlene206/padavan-4.4-2`; work only on this repository.
 - Branch inventory: `main` only; no remote checkpoint branch. No force-pushes.
-- **Last fully reconciled main SHA:** `501c16b5fef342d60f85ce75e7b46205eda3b61f`. Corrected WAN DHCP callback workflow [42758063814] and AI handoff documentation contract [42758063796] both completed SUCCESS. The WAN job passed all three GNU89 regressions and the full source-contract step.
-- **Current branch head at handoff:** `501c16b5fef342d60f85ce75e7b46205eda3b61f`. The DHCPv6 publication fix and corrected workflow source contract are fully reconciled; the earlier source-contract typo and failure on parent SHA `cc94bb7f7701b21f779442202d716bf06a3c81c8` are resolved by the passing exact-head run [42758063814].
+- **Last fully reconciled main SHA:** `118db7691f9dfb0389151236f5ad4e8e10bbdb18`. All ten exact-head Actions completed SUCCESS: WAN DHCP callback [42758479890], AI handoff docs [42758480028], WAN route [42758479837], storage hotplug [42758479898], WAN teardown [42758480112], HTTPD security [42758480227], NFS lifecycle [42758480113], vsftpd [42758480121], Samba [42758479866], and wireless [42758479880].
+- **Current branch head at handoff:** `118db7691f9dfb0389151236f5ad4e8e10bbdb18`. DHCPv6 config publication and PPP IPv6-up result propagation are verified by the WAN job and AI docs on this exact SHA. All ten Actions listed above passed.
 - **Completed previous slices:** DNSMasq start/stop status propagation and LAN relaunch gating passed exact-head HTTPD/DNSMasq and AI docs Actions on `822edf9d46a2f369a63eae0bcc1bb49f326c29e1`; FULLCONENAT's `NF_CONNTRACK_EVENTS` Kconfig dependency passed lifecycle and AI docs Actions on `15f350ab9397a60ab23ce854be7ee54191861a71`; bridge membership preflight/recheck passed on `5c78797b19e93beaa0bc313a69bbf37cb724b274`; bulk bridge teardown passed on `af3e41e72bb10d073bd7be1486b05266f2d53355`; NFS startup status now propagates through restart and RC notification callers and passed NFS lifecycle/policy/contracts plus AI docs on exact SHA `7fe64406495562776d7e9b43dbc7ff1d008744ca`.
-- **Current development slice:** propagate DHCPv6 startup errors through PPP IPv6-up. `wan6_up()` now returns the result of `start_dhcp6c()` rather than discarding it; the no-feature-configured path is normalized to success (0); `ipv6up_main()` returns the DHCPv6 status after releasing the callback session lock. Non-PPP WAN setup callers log the status, and `wan_up_internal()` accumulates it with existing route status. The WAN workflow now checks these propagation paths; exact-head checks are pending.
+- **Current development slice:** propagate DHCPv6 client-stop failures through IPv6 teardown. `stop_dhcp6c()` now returns `kill_services()` status; `wan6_up()` refuses to start a new client if the prior instance did not stop cleanly; `wan6_down()` returns that status while continuing interface/route/address cleanup; `ipv6down_main()` returns it after releasing the callback lock. Non-PPP teardown logs/aggregates the error and `stop_wan()` skips final WAN state clearing when IPv6 teardown remains incomplete. Exact-head workflow contracts are pending.
 - **Known open issue:** FTP upload cleanup still has a check-then-`unlinkat` window after inode identity validation. Linux 4.4 and MIPS O32 provide `renameat2` (`__NR_renameat2 = 4351`), but exchange/no-replace operations cannot condition a rename or unlink on the expected device/inode. No safe atomic quarantine was established; retain the documented best-effort behavior and do not claim the race is closed.
-- **Next after exact-head reconciliation:** verify WAN DHCP/PPP IPv6 callback source contracts, all three GNU89 host regressions and AI docs on the exact resulting SHA, inspecting logs. If green, continue audit of IPv6 teardown/status handling and PPP callback session concurrency; keep NFS `async`/AUTH_SYS/root-squash/external-mount compatibility evidence separate. Keep MIPS/uClibc L3 and physical L4 validation visible.
-- Root `dev_log.md` contains 116 complete newest-first records after this entry and remains below the 119-record / 384 KiB early-rotation thresholds; no archive rotation is due.
+- **Next after exact-head reconciliation:** verify the DHCPv6 stop-status contracts, all three WAN GNU89 regressions and AI docs on the exact resulting SHA. If green, continue PPP callback session fencing/reentrancy review and the remaining IPv6 RA/route teardown error surfaces; keep NFS export compatibility evidence separate. Keep MIPS/uClibc L3 and physical L4 validation visible.
+- Root `dev_log.md` contains 117 complete newest-first records after this entry and remains below the 119-record / 384 KiB early-rotation thresholds; no archive rotation is due.
 - L3 production RC/MIPS/uClibc objects, firmware/TRX and L4 physical-router validation remain NOT VERIFIED.
 
 ## Completed DHCP callback and BusyBox event-state review
@@ -82,26 +82,26 @@
 
 ## Active task
 
-1. **PPP IPv6 startup status propagation.** `start_dhcp6c()` returns failure when private config publication or `dhcp6c` launch fails. Previously `wan6_up()` discarded it and `ipv6up_main()` reported success. The current change returns int from `wan6_up()`, propagates the DHCPv6 status, treats "no client features configured" as no-op success, and returns the status from the PPP callback after releasing the session lock.
-2. **Other WAN callers.** Non-PPP startup paths now log `wan6_up()` failures; `wan_up_internal()` accumulates the IPv6 status with route errors. The WAN DHCP workflow adds source contracts and path filters for `net_ppp.c` and `rc.h`. Exact-head WAN and AI-doc Actions are pending.
-3. **Completed DHCPv6 config publication.** Same-directory `mkstemp` staging (0600), write/flush/close checks and atomic rename passed all three GNU89 WAN host regressions plus complete source contracts on exact SHA `501c16b5fef342d60f85ce75e7b46205eda3b61f` [42758063814]; AI docs [42758063796] also passed. The earlier contract typo on parent SHA `cc94bb7f7701b21f779442202d716bf06a3c81c8` was corrected.
-4. **Completed NFS start result.** `run_nfsd()` reports export-generation and daemon-start errors; restart and direct RC notification callers propagate them. NFS run [42757304659] and AI docs [42757304335] passed on exact SHA `7fe64406495562776d7e9b43dbc7ff1d008744ca`.
-5. **L3 blocker.** This host is `x86_64`; MIPS cross compilers are absent and no full build checkout/toolchain is available. Target RC/kernel objects and firmware remain NOT VERIFIED.
-6. **Other open items.** FTP failed-upload cleanup retains a check-then-`unlinkat()` replacement race; NFS `async`/AUTH_SYS/root-squash compatibility, IPv6 teardown status, PPP callback concurrency, board-specific iNIC behavior and physical L4 tests remain open.
+1. **IPv6 teardown status propagation.** `stop_dhcp6c()` now returns `kill_services()` status. `wan6_down()` reports a failed client stop while continuing the remaining interface/route/address cleanup; the PPP IPv6-down callback returns this status only after releasing the callback lock.
+2. **WAN teardown gates.** `wan6_up()` aborts reconfiguration/start if a previous DHCPv6 client could not be stopped. Non-PPP `wan_down_internal()` aggregates status; `stop_wan()` logs and skips final WAN state clearing after an IPv6 teardown failure. Public declarations are updated. WAN workflow source contracts are pending exact-head reconciliation.
+3. **Completed PPP IPv6-up status.** `wan6_up()` returns DHCPv6 startup status; `ipv6up_main()` reports it after releasing the lock. The no-client-features path returns success; non-PPP callers log or aggregate status. WAN run [42758479890] and AI docs [42758480028] passed on exact SHA `118db7691f9dfb0389151236f5ad4e8e10bbdb18`.
+4. **Completed DHCPv6 config publication.** Private 0600 same-directory staging, flush/close checks and atomic rename passed all three WAN GNU89 host regressions plus source contracts on `118db7691f9dfb0389151236f5ad4e8e10bbdb18`.
+5. **Completed NFS start result.** `run_nfsd()` reports export-generation and daemon-start errors; restart and direct RC notification callers propagate them. NFS run [42758480113] and AI docs [42758480028] passed on `118db7691f9dfb0389151236f5ad4e8e10bbdb18`.
+6. **L3/L4 boundary and open work.** No MIPS/uClibc production build, firmware/TRX or physical router tests. FTP upload cleanup retains a check/unlink race; NFS durability/AUTH_SYS/root-squash compatibility, PPP callback concurrency, remaining IPv6 RA/route teardown status and board-specific behavior remain open.
 
 ## Verification boundary
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for NFS startup status and DHCPv6 atomic config publication. PPP callback status propagation source review is complete; exact-head contract tests pending. DNSMasq lifecycle, FULLCONENAT prerequisite, wireless bridge add/teardown and FTP descriptor-relative MDTM/SITE CHMOD work remain reviewed. FTP upload-cleanup race stays OPEN. |
-| L2 host / Actions | Exact SHA `501c16b5fef342d60f85ce75e7b46205eda3b61f`: WAN DHCP [42758063814] and AI docs [42758063796] both SUCCESS, including three GNU89 WAN regressions and source contracts. The PPP status-propagation changes in THIS COMMIT are pending exact-head Actions. |
+| L1 source review | PASS for DHCPv6 private publication, PPP IPv6-up result propagation and the new stop-status propagation path. FTP upload-cleanup inode-check/unlink race remains OPEN; other prior DNSMasq, FULLCONENAT, wireless and NFS source reviews remain recorded. |
+| L2 host / Actions | Exact SHA `118db7691f9dfb0389151236f5ad4e8e10bbdb18`: all ten Actions SUCCESS. WAN DHCP job [42758479890] passed all three GNU89 WAN tests and the start-status contracts; AI docs [42758480028] passed. The new IPv6-down/stop-status contracts in THIS COMMIT are pending. |
 | L3 production RC/MIPS/uClibc/firmware builds | NOT VERIFIED. |
 | L4 physical router behavior | NOT VERIFIED. |
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, confirm the exact SHA, and inspect WAN DHCP callback plus AI handoff Actions. Verify `wan6_up()` returns DHCPv6 startup errors, `ipv6up_main()` returns them after unlocking, and non-PPP callers log/aggregate the result.
-2. If green, continue IPv6 down/teardown status handling and PPP callback session concurrency review. Keep NFS export durability/auth compatibility evidence separate.
+1. Fetch live `main`, confirm exact SHA, and inspect WAN DHCP callback plus AI handoff Actions. Verify `stop_dhcp6c()` returns process-stop failure, `wan6_down()` continues interface cleanup but reports failure, and `ipv6down_main()` forwards it after unlock.
+2. If green, continue PPP callback-session fencing/reentrancy review and inspect IPv6 RA/route/address cleanup helpers for silent failures. Preserve NFS `async` / AUTH_SYS / root-squash compatibility review separately.
 3. Keep MIPS/uClibc L3 build, PPP live session, DHCPv6 daemon and physical-router L4 behavior explicitly NOT VERIFIED.
 
 ## Continuation rules
