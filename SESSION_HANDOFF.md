@@ -2,9 +2,10 @@
 
 - Maintained fork: `Arlene206/padavan-4.4-2`; work only on this repository.
 - Branch inventory at takeover: `main` only; no remote checkpoint branch. No force-pushes were used.
-- Current main baseline for FTP ACL configuration-file reader hardening: `633aa2a4ed39a436ecd820adf1ac1e86ab272c03`; VSFTPD stability run [42728161936] and AI handoff documentation [42728162030] both completed SUCCESS on this exact SHA. The return-contract semantic assertion passed. Remote branches: `main` only; no checkpoint branch.
+- Current main baseline for FTP ACL configuration-file reader hardening: `cd3d66c4687d8e207ce293c088f2920b1ccc7a6d`; VSFTPD run [42728646505] FAILED on this exact SHA during host regression fixture cleanup (`remove fixture: Directory not empty`), while AI handoff documentation [42728646431] completed SUCCESS. The ACL-path test added a FIFO but omitted its unlink before removing the temporary share directory. Remote branches: `main` only; no checkpoint branch.
 - Samba production implementation commit: `1a7097ace2e6c689cb7e92cd10055967d99fe143` (parent `6b44e023c2f669865fc8b5cb5425d824b8335d8b`). Follow-up commits updated the Samba and HTTPD semantic workflow extractors after initial assertions still referenced the previous writer layout.
 - Exact Actions evidence:
+  - Latest ACL config reader head `cd3d66c4687d8e207ce293c088f2920b1ccc7a6d`: VSFTPD [42728646505] FAILED in the final ACL-path fixture teardown after the first two host binaries passed; AI docs [42728646431] SUCCESS on the same exact SHA. The production reader implementation was not identified as the failure; the FIFO test fixture remained in `shareA` and caused `rmdir()` to fail.
   - Samba share configuration regression [42708213921] completed SUCCESS on exact SHA `e9a93eb84ac9f95447150869fab7e0ae1c2da9ff`. GNU89 host compilation/execution passed for config-file, passdb policy, the new paired transaction, and daemon policy tests; the full Samba source-order contract also passed.
   - HTTPD Authentication/Security regression [42708503436] completed SUCCESS on exact SHA `258532a78922549698bc6d9b869c7777f8f4ac05`, including Samba share/ACL trust-boundary checks and the updated unlocked-writer source extractor.
   - AI handoff documentation validation [42708503300] completed SUCCESS on exact SHA `258532a78922549698bc6d9b869c7777f8f4ac05`.
@@ -80,23 +81,24 @@
 ## Active task
 
 1. FTP RNFR/RNTO descriptor-relative rename, recursive LIST/NLST/STAT ACL-bound directory traversal, per-entry `fstatat()`/`readlinkat()`, actual-listing-base visibility, and bounded recursion (depth 32, 4096 entries/directory, 32768 total) are implemented.
-2. The resource-bound commit's follow-up return-contract correction is committed at `633aa2a4ed39a436ecd820adf1ac1e86ab272c03`: the early `dirfd()`/base-resolution failure in non-void `vsf_ls_populate_dir_list()` now returns `-1`, and the workflow rejects bare `return;` in that function. VSFTPD [42728161936] and AI docs [42728162030] both completed SUCCESS on this exact SHA. Note the workflow still does not compile production `ls.c`.
-3. THIS commit hardens the Asus FTP ACL config reader `read_file_to_buffer()`. It previously did `stat(path)` then blocking `fopen(path)`, ignored the `stat()` result/type, and only checked `st_size` after opening. A FIFO at the reserved per-account ACL config path can block the FTP process before the size check; a pathname swap can also disconnect the size check from the opened object. The new bounded regular-file opener uses `O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC`, verifies the opened fd with `fstat()`, rejects non-regular/empty/oversized files, and reads at most the opened size with EINTR handling and a post-read size consistency check. Host tests cover regular file, FIFO, symlink and size limit.
-4. After exact-head Actions pass, review FTP STAT/LIST/NLST output/error/sort/filter compatibility at the configured listing caps; then continue MDTM/SITE CHMOD descriptor-relative metadata and the Linux 4.4 upload cleanup check/unlink race. Keep IPTV DHCP callback status, FULLCONENAT target build, NFS compatibility and L3/L4 validation open.
+2. The Asus FTP ACL config reader hardening is implemented in `cd3d66c4687d8e207ce293c088f2920b1ccc7a6d`: `ftp_acl_path_open_bounded_regular_file()` uses `O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC`, verifies the opened fd with `fstat()`, accepts only nonempty regular files within 16 MiB, and `read_file_to_buffer()` performs bounded EINTR-safe reads plus a final size consistency check.
+3. Exact-head VSFTPD run [42728646505] failed during the host test's final temporary-directory cleanup with `remove fixture: Directory not empty`. The ACL-path regression had created `acl-config-fifo` to verify nonblocking FIFO rejection but did not unlink it before `rmdir(shareA)`. The first two host binaries passed; the workflow stopped before its Python semantic source-contract step. AI docs [42728646431] passed on the same exact SHA.
+4. THIS follow-up adds `unlink(fifo_file)` to the fixture teardown; no production code behavior changes. Exact-head VSFTPD and documentation Actions for THIS commit must be reconciled.
+5. After both Actions pass, review FTP STAT/LIST/NLST output, error, sorting and filtering compatibility at the configured bounds; then continue MDTM/SITE CHMOD descriptor-relative metadata and the Linux 4.4 upload-cleanup check/unlink race. Keep IPTV DHCP callback status, FULLCONENAT target build, NFS compatibility and L3/L4 validation open.
 
 ## Verification boundary
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for upload/RETR/SIZE descriptor anchoring, DELE/RMD `unlinkat()`, MKD `mkdirat()`, RNFR/RNTO `renameat()`, top-level/recursive listing ACL-to-dirfd identity, no-follow child READ ACL, per-entry `fstatat()`/`readlinkat()`, listing-base visibility, and bounded recursive entry/depth accounting. THIS ACL config reader hardening has source-level review and standalone policy fixture coverage pending. |
-| L2 host / Actions | VSFTPD [42728161936] and AI docs [42728162030] both SUCCESS on exact SHA `633aa2a4ed39a436ecd820adf1ac1e86ab272c03`; source contract now checks the non-void return. Workflow does not compile production `ls.c` or `asus_ext.c`. THIS FIFO/symlink/bounded-reader regression and source contract are pending. |
+| L1 source review | PASS for upload/RETR/SIZE descriptor anchoring, DELE/RMD `unlinkat()`, MKD `mkdirat()`, RNFR/RNTO `renameat()`, top-level/recursive listing ACL-to-dirfd identity, no-follow child READ ACL, per-entry `fstatat()`/`readlinkat()`, listing-base visibility, bounded recursive entry/depth accounting, and the ACL config reader's no-follow/nonblocking bounded regular-file handling. |
+| L2 host / Actions | Latest base SHA `cd3d66c4687d8e207ce293c088f2920b1ccc7a6d`: VSFTPD [42728646505] FAILED at final FIFO fixture cleanup; the preceding FTP config-file and daemon-policy host binaries passed, and the ACL-path test reached teardown. AI docs [42728646431] SUCCESS on the same exact SHA. THIS cleanup correction's exact-head VSFTPD and docs results are pending. Workflow does not compile production `ls.c` or `asus_ext.c`. |
 | L3 production RC/MIPS/uClibc/firmware builds | NOT VERIFIED. |
 | L4 physical router behavior | NOT VERIFIED. |
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, branches and Actions; reconcile this ACL config reader hardening against its exact `head_sha`, inspect GNU89 host fixture steps and semantic assertions.
-2. If both pass, review FTP STAT/LIST/NLST output/error/sort/filter behavior under the listing caps; then address MDTM/SITE CHMOD path-based metadata and upload cleanup race without weakening Linux 4.4 compatibility.
+1. Fetch live `main` and inspect VSFTPD plus AI handoff Actions for the exact new commit SHA; confirm the FIFO fixture cleanup passes and the Python semantic source contract runs to completion.
+2. If both pass, review FTP STAT/LIST/NLST output/error/sort/filter compatibility under the listing caps, then continue MDTM/SITE CHMOD descriptor-relative metadata and the upload cleanup race.
 3. Keep IPTV DHCP callback status, FULLCONENAT target build, NFS compatibility and L3/L4 validation open.
 
 ## Continuation rules

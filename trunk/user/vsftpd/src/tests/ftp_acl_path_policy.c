@@ -642,7 +642,7 @@ main(void)
     return 1;
   }
 
-  if (unlink(metadata_alias) || unlink(metadata_file) ||
+  if (unlink(fifo_file) || unlink(metadata_alias) || unlink(metadata_file) ||
       unlink(dir_alias) || unlink(broken_link) || unlink(link_file) ||
       unlink(file_a) || unlink(file_b) || rmdir(dir_b) ||
       unlink(alias) || rmdir(a) || rmdir(b) || rmdir(root)) {

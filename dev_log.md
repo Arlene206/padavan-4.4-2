@@ -1,3 +1,15 @@
+## 2026-11-10 08:42 CST (UTC+8) — Remove the FTP ACL FIFO fixture during teardown
+
+- **Base main SHA:** `cd3d66c4687d8e207ce293c088f2920b1ccc7a6d`; VSFTPD run [42728646505] FAILED and AI handoff docs [42728646431] completed SUCCESS on this exact SHA.
+- **Failure analysis:** the new ACL-path fixture created `acl-config-fifo` and correctly rejected it without blocking, but the final cleanup chain omitted that FIFO before removing `shareA`. The Actions log reports `remove fixture: Directory not empty`; the preceding FTP config-file and daemon-policy binaries passed. The workflow stopped before the Python semantic source-contract step.
+- **Fix:** add `unlink(fifo_file)` to the fixture teardown before `rmdir(a)`. This is a test-fixture lifecycle correction; no production behavior is changed.
+- **Changed paths:** `trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and this log.
+- **Validation:** L1 review confirms the FIFO is removed before its parent directory. Exact-head VSFTPD regression and AI handoff documentation Actions are triggered by THIS commit and remain pending at commit creation. No local checkout/compiler or local docs checker was available. Production `asus_ext.c` is not compiled by the workflow; L3 MIPS/uClibc and L4 hardware remain NOT VERIFIED.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** reconcile both Actions on the exact new SHA. If green, audit FTP STAT/LIST/NLST output compatibility under the configured bounds, then continue MDTM/SITE CHMOD and the upload cleanup race.
+
+---
+
 ## 2026-11-10 08:52 CST (UTC+8) — Reject blocking and substituted FTP ACL config files
 
 - **Base main SHA:** `633aa2a4ed39a436ecd820adf1ac1e86ab272c03`; VSFTPD run [42728161936] and AI handoff docs [42728162030] both completed SUCCESS on this exact SHA. The prior non-void listing return contract passed.
