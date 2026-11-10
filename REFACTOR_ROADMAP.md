@@ -1,11 +1,12 @@
 ## Current source / CI checkpoint
 
-- Repository: Arlene206/padavan-4.4-2; maintained fork only. Base `main` SHA before THIS COMMIT: `c74e256629e4541f0669d5653a6e20b9bf8ee5e1`, parent `3e54ab47e1770990bd146f928d8facd2d4da1f5a`. Only remote branch was `main`; no checkpoint branch existed.
-- Prior exact-head USB storage [42885189119] and AI docs [42885189024] were SUCCESS on `3e54ab47e1770990bd146f928d8facd2d4da1f5a`.
-- On `c74e256629e4541f0669d5653a6e20b9bf8ee5e1`, FULLCONENAT source/notifier/namespace/zone/host/debug-format checks passed [42888855204], and AI handoff docs passed [42888855429]. The MIPS object step did **not** build `xt_FULLCONENAT.o`: Kbuild stopped at `scripts/mod/empty.o` with the compiler error `may not use both -EB and -EL`.
-- Cause: `mt7621_defconfig` did not explicitly select Ralink/MT7621/little-endian/MIPS32r2; the MIPS endian Kconfig default conflicted with the project's little-endian toolchain flags. THIS COMMIT pins `RALINK=y`, `SOC_MT7621=y`, `CPU_LITTLE_ENDIAN=y`, `CPU_MIPS32_R2=y`, asserts big endian is unset, then repeats the same target object compile and ELF verification. Exact-head Actions pending.
-- The production FULLCONENAT change removes a shared IPv4/IPv6 tuple debug buffer accessed under different family locks. Host/source contracts passed on the previous exact head.
-- Root `dev_log.md` will contain 60 complete newest-first records; no archive rotation or INDEX update is due. No MIPS object, full kernel image, firmware/TRX or L4 router result has passed yet.
+- Repository: Arlene206/padavan-4.4-2; maintained fork only. Base `main` SHA before THIS COMMIT: `af06d61dbd6bfdd7f29734be49fc154997fbad89`, parent `c74e256629e4541f0669d5653a6e20b9bf8ee5e1`. Remote branch inventory: only `main`; no checkpoint branch.
+- Exact-head FULLCONENAT run [42889848145] passed the notifier lifecycle, namespace/zone GNU89 regression, ownership contracts and cross-family debug-format contracts, but its target build helper stopped at post-Kconfig assertions and never compiled `xt_FULLCONENAT.o`. AI handoff docs [42889848204] were SUCCESS on the same SHA.
+- The generic `mt7621_defconfig` fixture was unsuitable: the MIPS Kconfig system/endianness choices had inherited generic defaults and were being overridden through appended `scripts/config` entries. This produced choice-state warnings and an early helper exit, rather than a target compiler failure.
+- **Additional production integration defect:** the XY-C1 board kernel config enables FULLCONENAT but disables conntrack events; the XY-C1 product template disables SQM, while the existing `trunk/configure` enabled conntrack events only when SQM was enabled. Since FULLCONENAT's Kconfig dependency is `NF_NAT && NF_CONNTRACK_EVENTS`, the normal XY-C1 non-SQM config could silently drop the firewall target at `olddefconfig`.
+- THIS COMMIT makes `trunk/configure` enable conntrack events whenever the selected board kernel config selects FULLCONENAT. The MIPS helper now uses the real XY-C1 product template and `trunk/configure` pipeline, then verifies the production SoC/endianness/CPU and FULLCONENAT prerequisites before compiling the target object. The workflow path filters cover the helper's actual config inputs and the toolchain archive SHA-256 is checked. Exact-head Actions pending.
+- The prior source fix removes the shared IPv4/IPv6 FULLCONENAT tuple debug buffer; its source contract and the notifier/namespace/zone contracts passed on the previous head.
+- Root `dev_log.md` contained 60 complete newest-first records before this commit and will contain 61 after. No archive rotation or INDEX update is due. No MIPS object, full kernel image, firmware/TRX or L4 router result is yet validated.
 
 ## Whole-repository module status
 

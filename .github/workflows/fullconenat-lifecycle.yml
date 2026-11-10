@@ -8,6 +8,9 @@ on:
       - "trunk/linux-4.4.x/net/netfilter/Makefile"
       - "trunk/linux-4.4.x/net/netfilter/xt_FULLCONENAT.c"
       - "scripts/build_fullconenat_mips_object.sh"
+      - "trunk/configure"
+      - "trunk/configs/templates/XY-C1.config"
+      - "trunk/configs/boards/XY-C1/kernel-4.4.x.config"
       - "trunk/linux-4.4.x/net/netfilter/fullconenat_namespace_policy.h"
       - "trunk/linux-4.4.x/net/netfilter/tests/fullconenat_namespace_policy.c"
       - "trunk/linux-4.4.x/net/netfilter/x_tables.c"
@@ -25,6 +28,9 @@ on:
       - "trunk/linux-4.4.x/net/netfilter/Makefile"
       - "trunk/linux-4.4.x/net/netfilter/xt_FULLCONENAT.c"
       - "scripts/build_fullconenat_mips_object.sh"
+      - "trunk/configure"
+      - "trunk/configs/templates/XY-C1.config"
+      - "trunk/configs/boards/XY-C1/kernel-4.4.x.config"
       - "trunk/linux-4.4.x/net/netfilter/fullconenat_namespace_policy.h"
       - "trunk/linux-4.4.x/net/netfilter/tests/fullconenat_namespace_policy.c"
       - "trunk/linux-4.4.x/net/netfilter/x_tables.c"
@@ -374,6 +380,7 @@ jobs:
           curl -fL --retry 3 \
             "https://github.com/Arlene206/padavan-4.4-2/releases/download/toolchain/mipsel-linux-musl.tar.xz" \
             -o "$archive"
+          printf '%s  %s\n' '7c1dc5c5ed6c3b86fa5baf7e2832309e1ce21434e1e6dae491f838c95f3a6863' "$archive" | sha256sum -c -
           mkdir -p "$toolchain_root"
           tar -xJf "$archive" -C "$toolchain_root"
           MIPS_TOOLCHAIN_ROOT="$toolchain_root" \
