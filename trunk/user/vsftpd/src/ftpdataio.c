@@ -29,6 +29,7 @@
 #include "ls.h"
 #include "ssl.h"
 #include "readwrite.h"
+#include "asus_ext.h"
 #include "privsock.h"
 
 static void init_data_sock_params(struct vsf_session* p_sess, int sock_fd);
@@ -352,8 +353,9 @@ transfer_dir_internal(struct vsf_session* p_sess, int is_control,
     for (subdir_index = 0; subdir_index < num_subdirs; subdir_index++)
     {
       int retval;
+      int child_fd, permission_denied = 0;
       struct vsf_sysutil_dir* p_subdir;
-      const struct mystr* p_subdir_str = 
+      const struct mystr* p_subdir_str =
         str_list_get_pstr(&subdir_list, subdir_index);
       if (str_equal_text(p_subdir_str, ".") ||
           str_equal_text(p_subdir_str, ".."))
@@ -363,10 +365,19 @@ transfer_dir_internal(struct vsf_session* p_sess, int is_control,
       str_copy(&sub_str, p_base_dir_str);
       str_append_char(&sub_str, '/');
       str_append_str(&sub_str, p_subdir_str);
-      p_subdir = str_opendir(&sub_str);
+      child_fd = asus_open_subdirectory_path(
+          p_sess, vsf_sysutil_dirfd(p_dir), p_base_dir_str, p_subdir_str,
+          &permission_denied);
+      if (child_fd < 0)
+      {
+        /* Unreadable, ACL-denied, replaced or gone missing - skip it. */
+        continue;
+      }
+      p_subdir = vsf_sysutil_fdopendir(child_fd);
       if (p_subdir == 0)
       {
-        /* Unreadable, gone missing, etc. - no matter */
+        /* fdopendir() does not consume fd on failure. */
+        vsf_sysutil_close(child_fd);
         continue;
       }
       str_alloc_text(&dir_prefix_str, "\r\n");

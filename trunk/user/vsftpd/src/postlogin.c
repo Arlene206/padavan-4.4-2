@@ -886,8 +886,8 @@ handle_dir_common(struct vsf_session* p_sess, int full_details, int stat_cmd)
     p_dir = str_opendir(&s_dir_name_str);
   }
   /* Check the directory actually opened, not the session CWD. */
-  if (p_dir != 0 && !asus_check_permission_directory(p_sess,
-                                                       &s_dir_name_str))
+  if (p_dir != 0 && !asus_check_permission_open_directory(
+          p_sess, &s_dir_name_str, vsf_sysutil_dirfd(p_dir)))
   {
     vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
     goto dir_close_out;

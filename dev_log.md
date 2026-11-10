@@ -1,3 +1,17 @@
+## 2026-11-10 08:05 CST (UTC+8) — Bind recursive FTP listing to ACL-checked directory descriptors
+
+- **Base main SHA:** `5ca27e7c420284f1ac21362e28566cfb56a693f1`; remote branches: `main` only, no checkpoint branch.
+- **Recovered exact-head evidence:** RNFR/RNTO VSFTPD regression [42724420056] and AI handoff docs [42724420034] both completed SUCCESS on this exact SHA. The two-parent `renameat()` implementation and corrected source-order contract are green.
+- **Finding:** `handle_dir_common()` opened the requested directory with path-based `opendir()` and then checked READ ACL against a separately resolved pathname without proving both names identified the same directory. More critically, `transfer_dir_internal()` recursively reopened every discovered subdirectory with path-based `opendir(base/leaf)` and performed no READ ACL check for that child. A writable directory entry replaced between enumeration and recursion could redirect the recursive listing through a symlink into another share; the opened object was not bound to the parent directory originally enumerated.
+- **Fix:** top-level LIST/NLST/STAT now verifies the opened `DIR*` descriptor identity against its canonical ACL path before and after the READ check. Add `ftp_acl_path_open_child_directory()` using `openat(parent_fd, leaf, O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC)`, then compare the opened child with `fstatat(parent_fd, leaf, AT_SYMLINK_NOFOLLOW)`. `asus_open_subdirectory_path()` canonicalizes/verifies the parent path, checks the child READ ACL, then revalidates both parent and child identities. Recursive transfer uses `fdopendir()` on this authorized descriptor rather than `str_opendir(path)`.
+- **Regression:** GNU89 path-policy tests now verify direct-child directory open/inode identity and reject an ordinary directory symlink as a recursive child. The semantic workflow checks top-level directory-fd ACL binding, no-follow child open, post-open child identity, per-child ACL, fdopendir wiring, and both push/PR path filters for the added production files.
+- **Changed paths:** `trunk/user/vsftpd/src/ftp_acl_path_policy.h`, `asus_ext.c`, `asus_ext.h`, `postlogin.c`, `ftpdataio.c`, `sysutil.c`, `sysutil.h`, `tests/ftp_acl_path_policy.c`, `.github/workflows/vsftpd-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and this log.
+- **Validation:** L1 source/control-flow review PASS. Base RNFR/RNTO workflows above passed exact SHA `5ca27e7c420284f1ac21362e28566cfb56a693f1`. THIS commit's GNU89 host regression/source contract and AI-doc Actions are pending on its exact resulting SHA; no local checkout/compiler/docs checker was available. L3 MIPS/uClibc target build and L4 hardware validation remain NOT VERIFIED.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** reconcile exact-head VSFTPD and AI-doc Actions; then continue the residual `ls.c` per-entry `lstat()`/`readlink()`, listing-base/session-CWD visibility and recursion-resource audit. Keep MDTM/SITE CHMOD, upload cleanup, DHCP/FULLCONENAT/NFS and L3/L4 open.
+
+---
+
 ## 2026-11-10 07:51 CST (UTC+8) — Correct RNFR/RNTO state-clear source contract
 
 - **Base main SHA:** `2953898fb09e4d5535fd0628bb3c74bb8b21a831`; remote branches: `main` only.

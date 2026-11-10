@@ -41,6 +41,13 @@ int asus_open_upload_path(struct vsf_session* p_sess,
                           char* p_leaf, unsigned int leaf_size,
                           int* p_cleanup_allowed);
 int asus_cleanup_failed_upload(int parent_fd, const char* leaf, int file_fd);
+int asus_check_permission_open_directory(struct vsf_session* p_sess,
+                                     const struct mystr* p_path_str,
+                                     int directory_fd);
+int asus_open_subdirectory_path(struct vsf_session* p_sess, int parent_fd,
+                                const struct mystr* p_parent_path_str,
+                                const struct mystr* p_leaf_str,
+                                int* p_permission_denied);
 int asus_check_permission_directory(struct vsf_session* p_sess,
                                     const struct mystr* p_path_str);
 int asus_check_file_visible(struct vsf_session* p_sess, const struct mystr* p_filename_str);

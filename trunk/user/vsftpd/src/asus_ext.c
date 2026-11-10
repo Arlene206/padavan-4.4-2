@@ -685,6 +685,90 @@ asus_check_permission_directory(struct vsf_session* p_sess,
 	return asus_check_permission_at(p_sess, PERM_READ, resolved);
 }
 
+int
+asus_check_permission_open_directory(struct vsf_session* p_sess,
+                                     const struct mystr* p_path_str,
+                                     int directory_fd)
+{
+  char resolved[PATH_MAX];
+  if (!p_path_str || directory_fd < 0 ||
+      ftp_acl_path_is_internal_metadata(str_getbuf(p_path_str)) ||
+      ftp_acl_path_resolve_directory(str_getbuf(p_path_str), resolved,
+                                     sizeof(resolved)) != 0 ||
+      ftp_acl_path_verify_directory_identity(resolved, directory_fd) != 0)
+    return 0;
+  if (tunable_chroot_local_user &&
+      (!p_sess || !asus_check_permission_at(p_sess, PERM_READ, resolved)))
+    return 0;
+  return ftp_acl_path_verify_directory_identity(resolved, directory_fd) == 0;
+}
+
+int
+asus_open_subdirectory_path(struct vsf_session* p_sess, int parent_fd,
+                            const struct mystr* p_parent_path_str,
+                            const struct mystr* p_leaf_str,
+                            int* p_permission_denied)
+{
+  char resolved_parent[PATH_MAX], child_path[PATH_MAX];
+  const char* leaf;
+  int child_fd, path_length, saved_errno;
+  if (!p_sess || parent_fd < 0 || !p_parent_path_str || !p_leaf_str ||
+      !p_permission_denied) {
+    errno = EINVAL;
+    return -1;
+  }
+  *p_permission_denied = 0;
+  leaf = str_getbuf(p_leaf_str);
+  if (!*leaf || strchr(leaf, '/') || strcmp(leaf, ".") == 0 ||
+      strcmp(leaf, "..") == 0) {
+    errno = EINVAL;
+    return -1;
+  }
+  if (ftp_acl_path_is_internal_metadata(leaf)) {
+    errno = EACCES;
+    *p_permission_denied = 1;
+    return -1;
+  }
+  if (ftp_acl_path_resolve_directory(str_getbuf(p_parent_path_str),
+                                     resolved_parent,
+                                     sizeof(resolved_parent)) != 0 ||
+      ftp_acl_path_verify_directory_identity(resolved_parent, parent_fd) != 0) {
+    *p_permission_denied = 1;
+    return -1;
+  }
+
+  child_fd = ftp_acl_path_open_child_directory(parent_fd, leaf);
+  if (child_fd < 0)
+    return -1;
+
+  if (strcmp(resolved_parent, "/") == 0)
+    path_length = snprintf(child_path, sizeof(child_path), "/%s", leaf);
+  else
+    path_length = snprintf(child_path, sizeof(child_path), "%s/%s",
+                           resolved_parent, leaf);
+  if (path_length < 0 || (size_t) path_length >= sizeof(child_path)) {
+    close(child_fd);
+    errno = ENAMETOOLONG;
+    return -1;
+  }
+
+  if (!asus_check_permission_at(p_sess, PERM_READ, child_path)) {
+    close(child_fd);
+    errno = EACCES;
+    *p_permission_denied = 1;
+    return -1;
+  }
+  if (ftp_acl_path_verify_directory_identity(resolved_parent, parent_fd) != 0 ||
+      ftp_acl_path_verify_child_directory(parent_fd, leaf, child_fd) != 0) {
+    saved_errno = errno;
+    close(child_fd);
+    errno = saved_errno;
+    *p_permission_denied = 1;
+    return -1;
+  }
+  return child_fd;
+}
+
 int asus_check_file_visible(struct vsf_session* p_sess, const struct mystr* p_filename_str)
 {
 	int i_layer, i_user_right, i_result;

@@ -66,6 +66,7 @@ main(void)
   char tiny[2];
   int cleanup_allowed, dir_fd, race_fd, rollback_fd, replacement_fd;
   int existing_dir_fd, existing_file_fd, remove_parent_fd;
+  int child_parent_fd, child_dir_fd;
   int rename_source_fd, rename_destination_fd;
   char existing_leaf[PATH_MAX], readback[16];
   char remove_link[PATH_MAX], remove_dir_link[PATH_MAX], empty_dir[PATH_MAX];
@@ -152,6 +153,43 @@ main(void)
       mkdir(empty_dir, 0700)) {
     perror("create symlink/removal fixtures"); return 1;
   }
+  /*
+   * Recursive listing must open direct child directories through the pinned
+   * parent and must not follow a directory symlink substituted for a child.
+   */
+  child_parent_fd = ftp_acl_path_open_verified_directory(b);
+  child_dir_fd = child_parent_fd < 0 ? -1 :
+      ftp_acl_path_open_child_directory(child_parent_fd, "subdir");
+  if (child_dir_fd < 0 || fstat(child_dir_fd, &st) != 0 ||
+      stat(dir_b, &canonical_st) != 0 || !S_ISDIR(st.st_mode) ||
+      st.st_dev != canonical_st.st_dev || st.st_ino != canonical_st.st_ino) {
+    fprintf(stderr, "recursive child open did not pin the direct directory\n");
+    return 1;
+  }
+  if (close(child_dir_fd) != 0 || close(child_parent_fd) != 0) {
+    perror("close recursive child directory fixture");
+    return 1;
+  }
+  child_parent_fd = ftp_acl_path_open_verified_directory(a);
+  if (child_parent_fd < 0) {
+    perror("open recursive symlink parent");
+    return 1;
+  }
+  child_dir_fd = ftp_acl_path_open_child_directory(child_parent_fd,
+                                                    "directory-link");
+  if (child_dir_fd >= 0) {
+    close(child_dir_fd);
+    close(child_parent_fd);
+    fprintf(stderr, "recursive child open followed a substituted directory symlink\n");
+    return 1;
+  }
+  if (close(child_parent_fd) != 0) {
+    perror("close recursive symlink parent");
+    return 1;
+  }
+
+  /*
+   * DELE must unlink the final symlink itself; RMD must not follow a symlink
   /*
    * DELE must unlink the final symlink itself; RMD must not follow a symlink
    * to a directory. The same helper also supports removing an empty directory.

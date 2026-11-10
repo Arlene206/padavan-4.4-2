@@ -388,6 +388,67 @@ ftp_acl_path_verify_directory_identity(const char *path, int dir_fd)
 }
 
 /*
+ * Verify that a child name still refers to the directory held by child_fd.
+ * AT_SYMLINK_NOFOLLOW rejects a name swapped to a symlink after openat().
+ */
+static int
+ftp_acl_path_verify_child_directory(int parent_fd, const char *leaf,
+                                    int child_fd)
+{
+  struct stat opened, current;
+  if (parent_fd < 0 || child_fd < 0 || !leaf || !*leaf ||
+      strchr(leaf, '/') || strcmp(leaf, ".") == 0 ||
+      strcmp(leaf, "..") == 0) {
+    errno = EINVAL;
+    return -1;
+  }
+  if (ftp_acl_path_is_internal_metadata(leaf)) {
+    errno = EACCES;
+    return -1;
+  }
+  if (fstat(child_fd, &opened) != 0 ||
+      fstatat(parent_fd, leaf, &current, AT_SYMLINK_NOFOLLOW) != 0)
+    return -1;
+  if (!S_ISDIR(opened.st_mode) || !S_ISDIR(current.st_mode) ||
+      opened.st_dev != current.st_dev || opened.st_ino != current.st_ino) {
+    errno = ESTALE;
+    return -1;
+  }
+  return 0;
+}
+
+/*
+ * Open a direct child directory relative to its already-pinned parent.
+ * O_NOFOLLOW prevents recursive LIST from descending through a substituted
+ * symlink; the post-open inode comparison rejects a swapped directory entry.
+ */
+static int
+ftp_acl_path_open_child_directory(int parent_fd, const char *leaf)
+{
+  int child_fd, saved_errno;
+  if (parent_fd < 0 || !leaf || !*leaf || strchr(leaf, '/') ||
+      strcmp(leaf, ".") == 0 || strcmp(leaf, "..") == 0) {
+    errno = EINVAL;
+    return -1;
+  }
+  if (ftp_acl_path_is_internal_metadata(leaf)) {
+    errno = EACCES;
+    return -1;
+  }
+  child_fd = openat(parent_fd, leaf,
+                    O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+  if (child_fd < 0)
+    return -1;
+  if (ftp_acl_path_verify_child_directory(parent_fd, leaf, child_fd) != 0) {
+    saved_errno = errno;
+    close(child_fd);
+    errno = saved_errno;
+    return -1;
+  }
+  return child_fd;
+}
+
+/*
  * Open only a regular file below a pinned directory. O_NOFOLLOW prevents a
  * final-component symlink substitution; comparing the directory entry with
  * the returned descriptor rejects a replacement between fstatat() and openat().

@@ -69,6 +69,8 @@ int vsf_sysutil_rename(const char* p_from, const char* p_to);
 
 struct vsf_sysutil_dir;
 struct vsf_sysutil_dir* vsf_sysutil_opendir(const char* p_dirname);
+struct vsf_sysutil_dir* vsf_sysutil_fdopendir(int fd);
+int vsf_sysutil_dirfd(const struct vsf_sysutil_dir* p_dir);
 void vsf_sysutil_closedir(struct vsf_sysutil_dir* p_dir);
 const char* vsf_sysutil_next_dirent(struct vsf_sysutil_dir* p_dir);
 

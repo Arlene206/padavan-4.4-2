@@ -9,6 +9,9 @@ on:
       - "trunk/user/vsftpd/src/postlogin.c"
       - "trunk/user/vsftpd/src/ftp_acl_path_policy.h"
       - "trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c"
+      - "trunk/user/vsftpd/src/ftpdataio.c"
+      - "trunk/user/vsftpd/src/sysutil.c"
+      - "trunk/user/vsftpd/src/sysutil.h"
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/ftp_config_file.h"
       - "trunk/user/rc/src/tests/ftp_config_file.c"
@@ -24,6 +27,9 @@ on:
       - "trunk/user/vsftpd/src/postlogin.c"
       - "trunk/user/vsftpd/src/ftp_acl_path_policy.h"
       - "trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c"
+      - "trunk/user/vsftpd/src/ftpdataio.c"
+      - "trunk/user/vsftpd/src/sysutil.c"
+      - "trunk/user/vsftpd/src/sysutil.h"
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/ftp_config_file.h"
       - "trunk/user/rc/src/tests/ftp_config_file.c"
@@ -71,6 +77,9 @@ jobs:
           vsftpd_acl = Path("trunk/user/vsftpd/src/asus_ext.c").read_text()
           vsftpd_acl_header = Path("trunk/user/vsftpd/src/asus_ext.h").read_text()
           vsftpd_postlogin = Path("trunk/user/vsftpd/src/postlogin.c").read_text()
+          vsftpd_dataio = Path("trunk/user/vsftpd/src/ftpdataio.c").read_text()
+          vsftpd_sysutil = Path("trunk/user/vsftpd/src/sysutil.c").read_text()
+          vsftpd_sysutil_header = Path("trunk/user/vsftpd/src/sysutil.h").read_text()
           acl_path_policy = Path("trunk/user/vsftpd/src/ftp_acl_path_policy.h").read_text()
           acl_path_test = Path("trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c").read_text()
 
@@ -130,6 +139,13 @@ jobs:
           remove_path = function_body(vsftpd_acl, "asus_remove_path(")
           make_directory_path = function_body(vsftpd_acl, "asus_make_directory_path(")
           rename_path = function_body(vsftpd_acl, "asus_rename_path(")
+          open_subdirectory = function_body(vsftpd_acl, "asus_open_subdirectory_path(")
+          open_list_directory = function_body(vsftpd_acl, "asus_check_permission_open_directory(")
+          child_open = function_body(acl_path_policy, "ftp_acl_path_open_child_directory(")
+          child_verify = function_body(acl_path_policy, "ftp_acl_path_verify_child_directory(")
+          recursive_list = function_body(vsftpd_dataio, "transfer_dir_internal(struct vsf_session* p_sess")
+          sys_fdopendir = function_body(vsftpd_sysutil, "vsf_sysutil_fdopendir(")
+          sys_dirfd = function_body(vsftpd_sysutil, "vsf_sysutil_dirfd(")
           directory = function_body(vsftpd_postlogin, "static void\nhandle_dir_common")
           acl_at = function_body(vsftpd_acl, "asus_check_permission_at(")
           acl_path = function_body(vsftpd_acl, "asus_check_permission_path(")
@@ -155,7 +171,28 @@ jobs:
           assert "asus_open_existing_path(p_sess, PERM_READ" in retr
           assert "&p_sess->ftp_arg_str, 0," in retr
           assert "str_open(" not in retr
-          assert "asus_check_permission_directory(p_sess" in directory
+          assert "asus_check_permission_open_directory(" in directory
+          assert "vsf_sysutil_dirfd(p_dir)" in directory
+          assert "ftp_acl_path_verify_directory_identity(resolved, directory_fd)" in open_list_directory
+          assert "asus_check_permission_at(p_sess, PERM_READ, resolved)" in open_list_directory
+          assert "ftp_acl_path_open_child_directory(parent_fd, leaf)" in open_subdirectory
+          assert "asus_check_permission_at(p_sess, PERM_READ, child_path)" in open_subdirectory
+          assert "ftp_acl_path_verify_directory_identity(resolved_parent, parent_fd)" in open_subdirectory
+          assert "ftp_acl_path_verify_child_directory(parent_fd, leaf, child_fd)" in open_subdirectory
+          assert "openat(parent_fd, leaf" in child_open
+          assert "O_NOFOLLOW" in child_open
+          assert "fstatat(parent_fd, leaf, &current, AT_SYMLINK_NOFOLLOW)" in child_verify
+          assert "fstat(child_fd, &opened)" in child_verify
+          assert "vsf_sysutil_dirfd(p_dir)" in recursive_list
+          assert "asus_open_subdirectory_path(" in recursive_list
+          assert "vsf_sysutil_fdopendir(child_fd)" in recursive_list
+          assert "str_opendir(&sub_str)" not in recursive_list
+          assert "fdopendir(fd)" in sys_fdopendir
+          assert "dirfd((DIR*) p_dir)" in sys_dirfd
+          assert "vsf_sysutil_fdopendir(int fd)" in vsftpd_sysutil_header
+          assert "recursive child open did not pin the direct directory" in acl_path_test
+          assert "recursive child open followed a substituted directory symlink" in acl_path_test
+          assert "asus_check_permission_open_directory(" in directory
           assert "asus_open_existing_path(p_sess, PERM_READ" in size
           assert "&p_sess->ftp_arg_str, 1," in size
           assert "str_stat(" not in size

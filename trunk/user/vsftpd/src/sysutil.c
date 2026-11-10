@@ -10,6 +10,9 @@
  * dependencies on libc or syscalls.
  */
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE 1
+#endif
 #define PRIVATE_HANDS_OFF_syscall_retval syscall_retval
 #define PRIVATE_HANDS_OFF_exit_status exit_status
 #include "sysutil.h"
@@ -995,6 +998,22 @@ struct vsf_sysutil_dir*
 vsf_sysutil_opendir(const char* p_dirname)
 {
   return (struct vsf_sysutil_dir*) opendir(p_dirname);
+}
+
+struct vsf_sysutil_dir*
+vsf_sysutil_fdopendir(int fd)
+{
+  return (struct vsf_sysutil_dir*) fdopendir(fd);
+}
+
+int
+vsf_sysutil_dirfd(const struct vsf_sysutil_dir* p_dir)
+{
+  if (!p_dir) {
+    errno = EINVAL;
+    return -1;
+  }
+  return dirfd((DIR*) p_dir);
 }
 
 void
