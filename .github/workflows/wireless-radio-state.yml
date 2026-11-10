@@ -8,6 +8,7 @@ on:
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/wireless_radio_policy.h"
       - "trunk/user/rc/src/tests/wireless_radio_policy.c"
+      - "trunk/linux-4.4.x/net/bridge/br_if.c"
   pull_request:
     paths:
       - ".github/workflows/wireless-radio-state.yml"
@@ -15,6 +16,7 @@ on:
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/wireless_radio_policy.h"
       - "trunk/user/rc/src/tests/wireless_radio_policy.c"
+      - "trunk/linux-4.4.x/net/bridge/br_if.c"
 
 jobs:
   wireless-radio-state:
@@ -122,11 +124,24 @@ jobs:
               body = function_body(source, name + "(int radio_on)")
               for gate, effects in gates:
                   gate_pos = body.index(gate)
-                  failure_return = body.index("return;", gate_pos)
+                  failure_return = body.index("return -EIO;", gate_pos)
                   for effect in effects:
                       effect_pos = body.index(effect, gate_pos)
                       assert gate_pos < failure_return < effect_pos, (
                           f"{name}: failed interface-up may still reach {effect}"
+                      )
+
+          for name in ("start_wifi_apcli_wl", "start_wifi_apcli_rt"):
+              body = function_body(source, name + "(int radio_on)")
+              for mode in (3, 1):
+                  command = ('doSystem("iwpriv %s set %s=%d", ifname_apcli, '
+                             '"ApCliAutoConnect", ' + str(mode) + ')')
+                  if command in body:
+                      checked = "wireless_radio_status_success(" + command + ")"
+                      assert checked in body, f"{name}: AutoConnect command status is discarded"
+                      checked_pos = body.index(checked)
+                      assert checked_pos < body.index("return -EIO;", checked_pos), (
+                          f"{name}: AutoConnect failure must be returned to the restart"
                       )
 
           for name, ifnames in (
@@ -140,17 +155,29 @@ jobs:
               )),
           ):
               body = function_body(source, name + "(int radio_on)")
-              assert "return;" not in body, f"{name}: one WDS failure must not block remaining WDS interfaces"
+              assert "return;" not in body and "return -EIO;" not in body, (
+                  f"{name}: one WDS failure must not block remaining WDS interfaces"
+              )
+              interface_positions = []
               for ifname in ifnames:
-                  gate = "if (wif_control_success(" + ifname + ", 1))"
-                  assert gate in body, f"{name}: missing successful interface-up gate for {ifname}"
+                  gate = "interface_started = wif_control_success(" + ifname + ", 1);"
+                  assert gate in body, f"{name}: missing interface-up status capture for {ifname}"
                   gate_pos = body.index(gate)
+                  interface_positions.append(gate_pos)
+                  aggregate = "all_started = wireless_radio_startup_status(all_started, interface_started);"
+                  assert aggregate in body, f"{name}: failed {ifname} status is not aggregated"
+                  aggregate_pos = body.index(aggregate, gate_pos)
+                  assert gate_pos < aggregate_pos
                   bridge = "br_add_del_if(IFNAME_BR, " + ifname + ", 1)"
                   if bridge in body:
-                      bridge_pos = body.index(bridge, gate_pos)
-                      assert gate_pos < bridge_pos, (
-                          f"{name}: {ifname} may be attached to bridge after failed interface-up"
+                      bridge_pos = body.index(bridge, aggregate_pos)
+                      assert aggregate_pos < bridge_pos, (
+                          f"{name}: {ifname} bridge add must follow its checked interface-up"
                       )
+              assert interface_positions == sorted(interface_positions), (
+                  f"{name}: all configured WDS interfaces must be attempted in order"
+              )
+              assert "return wireless_radio_startup_result(all_started);" in body
 
           # RT3352 iNIC startup must not continue publishing bridge/radio
           # state when rai0 fails to transition up. Recovery must isolate,
@@ -159,7 +186,7 @@ jobs:
           startup_gate = "if (!wif_control_success(ifname_inic, 1))"
           assert startup_gate in inic, "start_inic_mii: missing checked rai0 interface-up gate"
           gate_pos = inic.index(startup_gate)
-          failure_return = inic.index("return;", gate_pos)
+          failure_return = inic.index("return -EIO;", gate_pos)
           failure_path = inic[gate_pos:failure_return]
           recovery_steps = (
               "br_add_del_if(IFNAME_BR, ifname_inic, 0)",
@@ -180,6 +207,54 @@ jobs:
               assert failure_return < inic.index(effect, gate_pos), (
                   f"start_inic_mii: failed rai0 startup may still reach {effect}"
               )
+
+          assert "return 0;" in inic, "start_inic_mii: successful/disabled path must return success"
+          ap_rt = function_body(source, "start_wifi_ap_rt(int radio_on)")
+          assert "if (start_inic_mii() < 0)" in ap_rt, (
+              "start_wifi_ap_rt must propagate an iNIC interface-up failure"
+          )
+          assert 'nvram_get_int("inic_disable") != 1 && is_guest_allowed_rt()' in ap_rt, (
+              "a deliberately disabled iNIC must not be treated as a failed guest-AP start"
+          )
+          assert 'start_inicd() != 0' in ap_rt, (
+              "iNIC health monitor startup failure must remain visible in the log"
+          )
+
+          for name, helpers, own_auth, peer_helpers, peer_auth, own_stop, peer_stop in (
+              ("restart_wifi_wl",
+               ("start_wifi_ap_wl(radio_on)", "start_wifi_wds_wl(radio_on)", "start_wifi_apcli_wl(radio_on)"),
+               "start_8021x_wl()",
+               ("start_wifi_ap_rt(rt_radio_on)", "start_wifi_wds_rt(rt_radio_on)", "start_wifi_apcli_rt(rt_radio_on)"),
+               "start_8021x_rt()", "stop_wifi_all_wl()", "stop_wifi_all_rt()"),
+              ("restart_wifi_rt",
+               ("start_wifi_ap_rt(radio_on)", "start_wifi_wds_rt(radio_on)", "start_wifi_apcli_rt(radio_on)"),
+               "start_8021x_rt()",
+               ("start_wifi_ap_wl(wl_radio_on)", "start_wifi_wds_wl(wl_radio_on)", "start_wifi_apcli_wl(wl_radio_on)"),
+               "start_8021x_wl()", "stop_wifi_all_rt()", "stop_wifi_all_wl()"),
+          ):
+              body = function_body(source, name + "(int radio_on, int need_reload_conf)")
+              first = helpers[0]
+              gate = "if (" + first + " < 0 ||"
+              assert gate in body, f"{name}: startup helper failures must gate authentication startup"
+              own_auth_pos = body.index(own_auth)
+              assert body.index(gate) < own_auth_pos
+              assert body.index(own_stop + " < 0", body.index(gate)) < body.index("return -1;", body.index(gate))
+              peer_gate = "if (" + peer_helpers[0] + " < 0 ||"
+              assert peer_gate in body, f"{name}: DBDC peer startup failures must be propagated"
+              peer_pos = body.index(peer_gate)
+              peer_failure = body.index("return -1;", peer_pos)
+              auth_cleanup = "stop_8021x_" + ("wl" if name == "restart_wifi_wl" else "rt") + "();"
+              assert peer_pos < body.index(auth_cleanup, peer_pos) < peer_failure
+              assert body.index(peer_stop + " < 0", peer_pos) < peer_failure
+
+          # A raw bridge-add ioctl cannot safely be treated as a failure
+          # until membership is checked: Linux 4.4 returns -EBUSY when the
+          # interface already has a master, including an existing bridge port.
+          bridge_source = (root / "trunk/linux-4.4.x/net/bridge/br_if.c").read_text()
+          bridge_add = function_body(bridge_source, "br_add_if(struct net_bridge *br, struct net_device *dev)")
+          master_gate = bridge_add.index("if (netdev_master_upper_dev_get(dev))")
+          busy_return = bridge_add.index("return -EBUSY;", master_gate)
+          assert master_gate < busy_return
 
           # The periodic iNIC health check must retain the guest-up result.
           inic_check = function_body(source, "check_inic_mii_rebooted(void)")
@@ -282,6 +357,7 @@ jobs:
               "trunk/user/rc/src/rc.h",
               "trunk/user/rc/src/wireless_radio_policy.h",
               "trunk/user/rc/src/tests/wireless_radio_policy.c",
+              "trunk/linux-4.4.x/net/bridge/br_if.c",
           )
           filters = workflow.split("jobs:", 1)[0]
           push_filters, pr_filters = filters.split("  pull_request:", 1)

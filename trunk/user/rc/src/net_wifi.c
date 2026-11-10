@@ -312,7 +312,7 @@ update_inic_mii(void)
 #endif
 }
 
-static void
+static int
 start_inic_mii(void)
 {
 	const char *ifname_inic = IFNAME_INIC_MAIN;
@@ -340,7 +340,7 @@ start_inic_mii(void)
 				logmessage(LOGNAME, "failed to disable iNIC RGMII after %s startup failure", ifname_inic);
 			cpu_gpio_set_pin(1, 0);
 			logmessage(LOGNAME, "iNIC startup aborted: failed to bring %s up", ifname_inic);
-			return;
+			return -EIO;
 		}
 		
 		/* update some iNIC params */
@@ -376,6 +376,8 @@ start_inic_mii(void)
 		
 		logmessage(LOGNAME, "iNIC module disabled! (NVRAM %s=1)", "inic_disable");
 	}
+
+	return 0;
 }
 
 void
@@ -509,7 +511,7 @@ stop_wifi_all_rt(void)
 	return wireless_radio_shutdown_result(all_stopped);
 }
 
-void 
+int 
 start_wifi_ap_wl(int radio_on)
 {
 #if BOARD_HAS_5G_RADIO
@@ -528,22 +530,24 @@ start_wifi_ap_wl(int radio_on)
 	if (radio_on && i_mode_x != 1 && i_mode_x != 3)
 	{
 		if (!wif_control_success(IFNAME_5G_MAIN, 1))
-			return;
+			return -EIO;
 		br_add_del_if(IFNAME_BR, IFNAME_5G_MAIN, 1);
 		wif_control_m2u(1, IFNAME_5G_MAIN);
 		
 		if (is_guest_allowed_wl())
 		{
 			if (!wif_control_success(IFNAME_5G_GUEST, 1))
-				return;
+				return -EIO;
 			br_add_del_if(IFNAME_BR, IFNAME_5G_GUEST, 1);
 			wif_control_m2u(1, IFNAME_5G_GUEST);
 		}
 	}
 #endif
+
+	return 0;
 }
 
-void 
+int 
 start_wifi_ap_rt(int radio_on)
 {
 	int i_mode_x = get_mode_radio_rt();
@@ -567,44 +571,52 @@ start_wifi_ap_rt(int radio_on)
 
 #if defined(USE_RT3352_MII)
 	// iNIC_mii driver always needed rai0 first before use other interfaces (boot firmware)
-	start_inic_mii();
+	if (start_inic_mii() < 0) {
+		logmessage(LOGNAME, "2.4GHz iNIC startup failed");
+		return -EIO;
+	}
 
 	// check Radio enabled and check not WDS only, not ApCli only
-	if (radio_on && i_mode_x != 1 && i_mode_x != 3 && is_guest_allowed_rt())
+	if (radio_on && i_mode_x != 1 && i_mode_x != 3 &&
+	    nvram_get_int("inic_disable") != 1 && is_guest_allowed_rt())
 	{
 		if (!wif_control_success(IFNAME_INIC_GUEST, 1))
-			return;
+			return -EIO;
 		if (!is_ap_mode)
 			br_add_del_if(IFNAME_BR, IFNAME_INIC_GUEST_VLAN, 1);
 	}
 
 	// start iNIC_mii checking daemon
-	if (nvram_get_int("inic_disable") != 1)
-		start_inicd();
+	if (nvram_get_int("inic_disable") != 1 && start_inicd() != 0)
+		logmessage(LOGNAME, "failed to start iNIC health monitor");
 #else
 	// check Radio enabled and check not WDS only, not ApCli only
 	if (radio_on && i_mode_x != 1 && i_mode_x != 3)
 	{
 		if (!wif_control_success(IFNAME_2G_MAIN, 1))
-			return;
+			return -EIO;
 		br_add_del_if(IFNAME_BR, IFNAME_2G_MAIN, 1);
 		wif_control_m2u(0, IFNAME_2G_MAIN);
 		
 		if (is_guest_allowed_rt())
 		{
 			if (!wif_control_success(IFNAME_2G_GUEST, 1))
-				return;
+				return -EIO;
 			br_add_del_if(IFNAME_BR, IFNAME_2G_GUEST, 1);
 			wif_control_m2u(0, IFNAME_2G_GUEST);
 		}
 	}
 #endif
+
+	return 0;
 }
 
-void
+int
 start_wifi_wds_wl(int radio_on)
 {
+	int all_started = 1;
 #if BOARD_HAS_5G_RADIO
+	int interface_started;
 	int i_mode_x = get_mode_radio_wl();
 
 	if (radio_on && (i_mode_x == 1 || i_mode_x == 2))
@@ -615,22 +627,30 @@ start_wifi_wds_wl(int radio_on)
 			i_wds_num = nvram_wlan_get_int(1, "wdsnum_x");
 		
 		if (i_wds_num > 3) {
-			if (wif_control_success(IFNAME_5G_WDS3, 1))
-			br_add_del_if(IFNAME_BR, IFNAME_5G_WDS3, 1);
+			interface_started = wif_control_success(IFNAME_5G_WDS3, 1);
+			all_started = wireless_radio_startup_status(all_started, interface_started);
+			if (interface_started)
+				br_add_del_if(IFNAME_BR, IFNAME_5G_WDS3, 1);
 		}
 		
 		if (i_wds_num > 2) {
-			if (wif_control_success(IFNAME_5G_WDS2, 1))
-			br_add_del_if(IFNAME_BR, IFNAME_5G_WDS2, 1);
+			interface_started = wif_control_success(IFNAME_5G_WDS2, 1);
+			all_started = wireless_radio_startup_status(all_started, interface_started);
+			if (interface_started)
+				br_add_del_if(IFNAME_BR, IFNAME_5G_WDS2, 1);
 		}
 		
 		if (i_wds_num > 1) {
-			if (wif_control_success(IFNAME_5G_WDS1, 1))
-			br_add_del_if(IFNAME_BR, IFNAME_5G_WDS1, 1);
+			interface_started = wif_control_success(IFNAME_5G_WDS1, 1);
+			all_started = wireless_radio_startup_status(all_started, interface_started);
+			if (interface_started)
+				br_add_del_if(IFNAME_BR, IFNAME_5G_WDS1, 1);
 		}
 		
-		if (wif_control_success(IFNAME_5G_WDS0, 1))
-		br_add_del_if(IFNAME_BR, IFNAME_5G_WDS0, 1);
+		interface_started = wif_control_success(IFNAME_5G_WDS0, 1);
+		all_started = wireless_radio_startup_status(all_started, interface_started);
+		if (interface_started)
+			br_add_del_if(IFNAME_BR, IFNAME_5G_WDS0, 1);
 	}
 	else
 	{
@@ -640,11 +660,16 @@ start_wifi_wds_wl(int radio_on)
 		br_add_del_if(IFNAME_BR, IFNAME_5G_WDS0, 0);
 	}
 #endif
+
+	return wireless_radio_startup_result(all_started);
 }
 
-void
+int
 start_wifi_wds_rt(int radio_on)
 {
+	int all_started = 1;
+	int interface_started;
+
 	int i_mode_x = get_mode_radio_rt();
 
 	if (radio_on && (i_mode_x == 1 || i_mode_x == 2))
@@ -655,32 +680,40 @@ start_wifi_wds_rt(int radio_on)
 			i_wds_num = nvram_wlan_get_int(0, "wdsnum_x");
 		
 		if (i_wds_num > 3) {
-			if (wif_control_success(IFNAME_2G_WDS3, 1)) {
+			interface_started = wif_control_success(IFNAME_2G_WDS3, 1);
+			all_started = wireless_radio_startup_status(all_started, interface_started);
+			if (interface_started) {
 #if !defined(USE_RT3352_MII)
-			br_add_del_if(IFNAME_BR, IFNAME_2G_WDS3, 1);
+				br_add_del_if(IFNAME_BR, IFNAME_2G_WDS3, 1);
 #endif
-		}
+			}
 		}
 		
 		if (i_wds_num > 2) {
-			if (wif_control_success(IFNAME_2G_WDS2, 1)) {
+			interface_started = wif_control_success(IFNAME_2G_WDS2, 1);
+			all_started = wireless_radio_startup_status(all_started, interface_started);
+			if (interface_started) {
 #if !defined(USE_RT3352_MII)
-			br_add_del_if(IFNAME_BR, IFNAME_2G_WDS2, 1);
+				br_add_del_if(IFNAME_BR, IFNAME_2G_WDS2, 1);
 #endif
-		}
+			}
 		}
 		
 		if (i_wds_num > 1) {
-			if (wif_control_success(IFNAME_2G_WDS1, 1)) {
+			interface_started = wif_control_success(IFNAME_2G_WDS1, 1);
+			all_started = wireless_radio_startup_status(all_started, interface_started);
+			if (interface_started) {
 #if !defined(USE_RT3352_MII)
-			br_add_del_if(IFNAME_BR, IFNAME_2G_WDS1, 1);
+				br_add_del_if(IFNAME_BR, IFNAME_2G_WDS1, 1);
 #endif
-		}
+			}
 		}
 		
-		if (wif_control_success(IFNAME_2G_WDS0, 1)) {
+		interface_started = wif_control_success(IFNAME_2G_WDS0, 1);
+		all_started = wireless_radio_startup_status(all_started, interface_started);
+		if (interface_started) {
 #if !defined(USE_RT3352_MII)
-		br_add_del_if(IFNAME_BR, IFNAME_2G_WDS0, 1);
+			br_add_del_if(IFNAME_BR, IFNAME_2G_WDS0, 1);
 #endif
 		}
 	}
@@ -693,9 +726,11 @@ start_wifi_wds_rt(int radio_on)
 		br_add_del_if(IFNAME_BR, IFNAME_2G_WDS0, 0);
 	}
 #endif
+
+	return wireless_radio_startup_result(all_started);
 }
 
-void
+int
 start_wifi_apcli_wl(int radio_on)
 {
 #if BOARD_HAS_5G_RADIO
@@ -705,17 +740,23 @@ start_wifi_apcli_wl(int radio_on)
 	if (radio_on && (i_mode_x == 3 || i_mode_x == 4) && (strlen(nvram_wlan_get(1, "sta_ssid")) > 0))
 	{
 		if (!wif_control_success(ifname_apcli, 1))
-			return;
+			return -EIO;
 		br_add_del_if(IFNAME_BR, ifname_apcli, !is_apcli_wisp_wl() || get_ap_mode());
 		if (nvram_wlan_get_int(1, "sta_auto"))
 #if defined (USE_WID_5G) && (USE_WID_5G==7615 || USE_WID_5G==7915)
 		{
-			doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliAutoConnect", 3);
+			if (!wireless_radio_status_success(doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliAutoConnect", 3))) {
+			logmessage(LOGNAME, "failed to configure APCLI auto-connect on %s", ifname_apcli);
+			return -EIO;
+		}
 			logmessage(LOGNAME, "Set ApCliAutoConnect to 3");
 		}
 #else
 		{
-			doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliAutoConnect", 1);
+			if (!wireless_radio_status_success(doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliAutoConnect", 1))) {
+			logmessage(LOGNAME, "failed to configure APCLI auto-connect on %s", ifname_apcli);
+			return -EIO;
+		}
 			logmessage(LOGNAME, "Set ApCliAutoConnect to 1");
 		}
 #endif
@@ -725,9 +766,11 @@ start_wifi_apcli_wl(int radio_on)
 		br_add_del_if(IFNAME_BR, ifname_apcli, 0);
 	}
 #endif
+
+	return 0;
 }
 
-void
+int
 start_wifi_apcli_rt(int radio_on)
 {
 	const char *ifname_apcli = IFNAME_2G_APCLI;
@@ -736,18 +779,24 @@ start_wifi_apcli_rt(int radio_on)
 	if (radio_on && (i_mode_x == 3 || i_mode_x == 4) && (strlen(nvram_wlan_get(0, "sta_ssid")) > 0))
 	{
 		if (!wif_control_success(ifname_apcli, 1))
-			return;
+			return -EIO;
 #if !defined(USE_RT3352_MII)
 		br_add_del_if(IFNAME_BR, ifname_apcli, !is_apcli_wisp_rt() || get_ap_mode());
 		if (nvram_wlan_get_int(0, "sta_auto"))
 #if defined (USE_WID_2G) && (USE_WID_2G==7615 || USE_WID_2G==7915)
 		{
-			doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliAutoConnect", 3);
+			if (!wireless_radio_status_success(doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliAutoConnect", 3))) {
+			logmessage(LOGNAME, "failed to configure APCLI auto-connect on %s", ifname_apcli);
+			return -EIO;
+		}
 			logmessage(LOGNAME, "Set ApCliAutoConnect to 3");
 		}
 #else
 		{
-			doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliAutoConnect", 1);
+			if (!wireless_radio_status_success(doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliAutoConnect", 1))) {
+			logmessage(LOGNAME, "failed to configure APCLI auto-connect on %s", ifname_apcli);
+			return -EIO;
+		}
 			logmessage(LOGNAME, "Set ApCliAutoConnect to 1");
 		}
 #endif
@@ -759,6 +808,8 @@ start_wifi_apcli_rt(int radio_on)
 		br_add_del_if(IFNAME_BR, ifname_apcli, 0);
 	}
 #endif
+
+	return 0;
 }
 
 void
@@ -837,9 +888,14 @@ restart_wifi_wl(int radio_on, int need_reload_conf)
 	if (need_reload_conf)
 		nvram_set_int_temp("reload_svc_wl", 1);
 
-	start_wifi_ap_wl(radio_on);
-	start_wifi_wds_wl(radio_on);
-	start_wifi_apcli_wl(radio_on);
+	if (start_wifi_ap_wl(radio_on) < 0 ||
+	    start_wifi_wds_wl(radio_on) < 0 ||
+	    start_wifi_apcli_wl(radio_on) < 0) {
+		logmessage(LOGNAME, "5GHz wireless startup incomplete; rolling back interfaces");
+		if (stop_wifi_all_wl() < 0)
+			logmessage(LOGNAME, "5GHz wireless startup rollback was incomplete");
+		return -1;
+	}
 
 	start_8021x_wl();
 #if defined (BOARD_MT7615_DBDC) || defined (BOARD_MT7915_DBDC)
@@ -847,9 +903,17 @@ restart_wifi_wl(int radio_on, int need_reload_conf)
 		int rt_radio_on = get_enabled_radio_rt();
 		if (rt_radio_on)
 			rt_radio_on = is_radio_allowed_rt();
-		start_wifi_ap_rt(rt_radio_on);
-		start_wifi_wds_rt(rt_radio_on);
-		start_wifi_apcli_rt(rt_radio_on);
+		if (start_wifi_ap_rt(rt_radio_on) < 0 ||
+		    start_wifi_wds_rt(rt_radio_on) < 0 ||
+		    start_wifi_apcli_rt(rt_radio_on) < 0) {
+			logmessage(LOGNAME, "DBDC 2.4GHz startup incomplete; rolling back both radios");
+			stop_8021x_wl();
+			if (stop_wifi_all_rt() < 0)
+				logmessage(LOGNAME, "DBDC 2.4GHz startup rollback was incomplete");
+			if (stop_wifi_all_wl() < 0)
+				logmessage(LOGNAME, "DBDC 5GHz startup rollback was incomplete");
+			return -1;
+		}
 
 		start_8021x_rt();
 	}
@@ -895,9 +959,14 @@ restart_wifi_rt(int radio_on, int need_reload_conf)
 	if (need_reload_conf)
 		nvram_set_int_temp("reload_svc_rt", 1);
 
-	start_wifi_ap_rt(radio_on);
-	start_wifi_wds_rt(radio_on);
-	start_wifi_apcli_rt(radio_on);
+	if (start_wifi_ap_rt(radio_on) < 0 ||
+	    start_wifi_wds_rt(radio_on) < 0 ||
+	    start_wifi_apcli_rt(radio_on) < 0) {
+		logmessage(LOGNAME, "2.4GHz wireless startup incomplete; rolling back interfaces");
+		if (stop_wifi_all_rt() < 0)
+			logmessage(LOGNAME, "2.4GHz wireless startup rollback was incomplete");
+		return -1;
+	}
 
 	start_8021x_rt();
 #if defined (BOARD_MT7615_DBDC) || defined (BOARD_MT7915_DBDC)
@@ -905,9 +974,17 @@ restart_wifi_rt(int radio_on, int need_reload_conf)
 		int wl_radio_on = get_enabled_radio_wl();
 		if (wl_radio_on)
 			wl_radio_on = is_radio_allowed_wl();
-		start_wifi_ap_wl(wl_radio_on);
-		start_wifi_wds_wl(wl_radio_on);
-		start_wifi_apcli_wl(wl_radio_on);
+		if (start_wifi_ap_wl(wl_radio_on) < 0 ||
+		    start_wifi_wds_wl(wl_radio_on) < 0 ||
+		    start_wifi_apcli_wl(wl_radio_on) < 0) {
+			logmessage(LOGNAME, "DBDC 5GHz startup incomplete; rolling back both radios");
+			stop_8021x_rt();
+			if (stop_wifi_all_wl() < 0)
+				logmessage(LOGNAME, "DBDC 5GHz startup rollback was incomplete");
+			if (stop_wifi_all_rt() < 0)
+				logmessage(LOGNAME, "DBDC 2.4GHz startup rollback was incomplete");
+			return -1;
+		}
 
 		start_8021x_wl();
 	}

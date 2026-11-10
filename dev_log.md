@@ -1,3 +1,16 @@
+## 2026-11-10 09:48 CST (UTC+8) — Propagate wireless AP/WDS/APCLI startup failures
+
+- **Base main SHA:** `1de8fe9466a5df0273d42551e1d54312ed087f46`. The exact-head Samba [42736815814], vsftpd [42736815815], HTTPD [42736815819], USB storage [42736815820], wireless shutdown [42736815829], WAN route [42736815917] and AI handoff [42736816088] workflows all completed SUCCESS on that base SHA.
+- **Finding:** the six `start_wifi_ap_*`, `start_wifi_wds_*` and `start_wifi_apcli_*` helpers returned `void`. AP/APCLI helpers silently returned after failed `ifconfig up`; WDS helpers skipped only the affected bridge-add command and discarded the interface-up failure. Both restart paths then started 802.1X and reported success even when an interface did not come up. The RT3352 MII helper similarly hid failed `rai0` startup from the 2.4GHz caller.
+- **Fix:** change the six helper APIs to return status. AP/APCLI interface-up and APCLI AutoConnect command failures now return `-EIO`; WDS helpers preserve a sticky aggregate error while continuing to attempt every configured interface. RT3352 MII startup returns a failure on unsuccessful `rai0` bring-up, and the intentionally disabled iNIC path skips guest startup rather than being misclassified as a device fault. The restart callers gate 802.1X startup and return failure after best-effort interface rollback; a DBDC peer failure also stops the already-started local 802.1X process and rolls back both radios. A failed `inicd` health-monitor launch is logged without taking otherwise functioning 2.4GHz service offline.
+- **Bridge attachment audit:** do not propagate raw add ioctl errors yet. `br_add_del_if()` returns the raw `SIOCBRADDIF` result, while this repository's Linux 4.4 `br_add_if()` returns `-EBUSY` whenever `netdev_master_upper_dev_get(dev)` is non-NULL, even if the interface is already attached to the same bridge. Wireless stop only lowers interfaces and leaves existing AP/WDS/APCLI bridge membership in place; direct status checking would falsely fail ordinary repeated starts. A later bridge-focused change needs an idempotent membership/master query and dedicated regression before these results can be trusted.
+- **Regression:** extend the GNU89 warnings-as-errors policy test for sticky startup aggregation and success/error conversion. Extend the wireless source contract for all AP/APCLI error returns, AutoConnect failures, WDS full-attempt order, iNIC propagation, DBDC rollback and authentication gates; include Linux 4.4 bridge source in path filters and assert the `-EBUSY` behavior.
+- **Changed paths:** `trunk/user/rc/src/net_wifi.c`; `trunk/user/rc/src/rc.h`; `trunk/user/rc/src/wireless_radio_policy.h`; `trunk/user/rc/src/tests/wireless_radio_policy.c`; `.github/workflows/wireless-radio-state.yml`; `SESSION_HANDOFF.md`; `REFACTOR_ROADMAP.md`; this log.
+- **Validation:** L1 source/control-flow review PASS. The policy binary and Python source/kernel contract are configured in the exact-head GitHub Actions workflow but are pending on THIS resulting SHA. The AI handoff documentation check is also pending. No local checkout was available for independent execution; no RC/MIPS/uClibc object, firmware/TRX or L4 device validation is claimed.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** reconcile all workflows against the exact resulting main SHA. If green, rotate to static-IP IPTV/ZeroConf callback lifecycle in `net_wan.c`. Keep FULLCONENAT target compilation, FTP MDTM/SITE CHMOD and upload-cleanup race, NFS compatibility, idempotent bridge membership and L3/L4 validation open.
+
+---
 ## 2026-11-10 09:16 CST (UTC+8) — Propagate incomplete wireless shutdown into restart policy
 
 - **Base main SHA:** `e1f27e5a5fb607a6ca8177c6cf1f220dc3515e7e`. HTTPD/DNSMasq generated-file regression [42735569321], AI handoff documentation [42735569423] and Samba config regression [42735569085] all completed SUCCESS on that exact SHA.
@@ -1296,4 +1309,3 @@
 - **Validation boundary / remaining risks:** no production RC translation-unit/object build, MIPS/uClibc build, complete firmware/TRX, live DHCP client/interface failure injection, USB modem runtime or physical-router validation. Static and DHCP route add/delete result propagation remains open; Wireless still has the separate iNIC reboot/stop residuals; Firewall/NAT and the wider WAN/PPP audit remain open.
 
 ---
-

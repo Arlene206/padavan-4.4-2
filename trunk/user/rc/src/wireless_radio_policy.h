@@ -30,4 +30,21 @@ wireless_radio_shutdown_result(int all_stopped)
 	return all_stopped ? 0 : -EIO;
 }
 
+/*
+ * Preserve an incomplete interface-up result while WDS startup continues
+ * attempting the remaining configured interfaces.
+ */
+static inline int
+wireless_radio_startup_status(int all_started, int start_succeeded)
+{
+	return all_started && start_succeeded;
+}
+
+/* Convert the aggregate startup result to the RC restart convention. */
+static inline int
+wireless_radio_startup_result(int all_started)
+{
+	return all_started ? 0 : -EIO;
+}
+
 #endif /* WIRELESS_RADIO_POLICY_H */

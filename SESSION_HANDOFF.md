@@ -2,7 +2,8 @@
 
 - Maintained fork: `Arlene206/padavan-4.4-2`; work only on this repository.
 - Branch inventory at takeover: `main` only; no remote checkpoint branch. No force-pushes were used.
-- Current exact main checkpoint at takeover: `e1f27e5a5fb607a6ca8177c6cf1f220dc3515e7e`; branch inventory remains `main` only (no remote checkpoint branch). DNSMasq lease-file applicability gating is committed at this SHA. Exact-head Actions all SUCCESS: Samba config regression [42735569085], HTTPD/DNSMasq generated-file trust regression [42735569321], and AI handoff documentation [42735569423].
+- **Base main SHA for this batch:** `1de8fe9466a5df0273d42551e1d54312ed087f46`. This is the exact `main` HEAD after the wireless shutdown-result fix. The seven exact-head Actions all completed SUCCESS on this SHA: Samba [42736815814], vsftpd [42736815815], HTTPD [42736815819], USB storage [42736815820], wireless radio state [42736815829], WAN route status [42736815917], and AI handoff docs [42736816088].
+- **Current change:** AP/WDS/APCLI startup status propagation and DBDC rollback are included in THIS COMMIT. Verify the resulting live `main` SHA and its Actions before continuing; do not infer a result from this base SHA.
 - Samba production implementation commit: `1a7097ace2e6c689cb7e92cd10055967d99fe143` (parent `6b44e023c2f669865fc8b5cb5425d824b8335d8b`). Follow-up commits updated the Samba and HTTPD semantic workflow extractors after initial assertions still referenced the previous writer layout.
 - Exact Actions evidence:
   - FIFO fixture teardown correction [42730772799] and AI handoff docs [42730772420] both completed SUCCESS on exact SHA `edd8688641cd5bb6fcefea325880f7c4c56aa511`; the three GNU89 host tests and Python semantic contract all passed.
@@ -17,7 +18,7 @@
   - RNFR/RNTO rename commit `2953898fb09e4d5535fd0628bb3c74bb8b21a831` had an intermediate source-contract assertion defect after its GNU89 host suites passed. The corrected denial/post-rename cleanup contract and descriptor-relative rename regression completed SUCCESS on exact SHA `5ca27e7c420284f1ac21362e28566cfb56a693f1` (VSFTPD [42724420056], AI docs [42724420034]). Later recursive listing and per-entry metadata regressions passed on their exact SHAs.
   - Initial attempts on `1a7097a...` failed only in stale semantic workflow extractors; the new transaction host test itself passed. The assertions were corrected and later exact-SHA runs above passed. Do not report the initial failures as green.
 - The exact-head DHCP callback and handoff checks on `6b44e023c2f669865fc8b5cb5425d824b8335d8b` were already SUCCESS: WAN DHCP callback [42703609156] and AI handoff docs [42703609087].
-- Root `dev_log.md` contains 99 complete newest-first records after the current DNSMasq entry and remains below the 119-record / 384 KiB early-rotation thresholds; no archive rotation is due.
+- Root `dev_log.md` contains 101 complete newest-first records after this wireless startup entry and remains below the 119-record / 384 KiB early-rotation thresholds; no archive rotation is due.
 - L3 production RC/MIPS/uClibc/firmware builds and L4 physical router validation are NOT VERIFIED.
 
 ## Completed DHCP callback and BusyBox event-state review
@@ -91,28 +92,26 @@
 
 ## Active task
 
-1. **Current fix:** prevent a wireless restart from continuing after one or more interfaces fail to stop. The shutdown helpers already aggregated every interface-down result but only used it to preserve the LED; callers discarded that aggregate and proceeded with authentication shutdown / replacement startup. The new code makes both shutdown functions return an RC error on incomplete shutdown and gates both single-radio and DBDC restart paths before stopping 802.1X or launching replacement interfaces.
-2. Reconcile the wireless-radio-state workflow and AI handoff Actions on the exact resulting SHA. The GNU89 policy test must prove incomplete shutdown is negative status; the semantic contract must prove both current and DBDC peer stop gates occur before authentication teardown and interface startup.
-3. If green, continue the wireless lifecycle audit for startup-helper return-value loss and bridge attachment status; do not assume the shutdown fix covers partial AP/WDS/APCLI startup. Then rotate to another subsystem from the governance ledger rather than staying on Wi-Fi.
-4. Keep static-IP IPTV/ZeroConf, FTP MDTM/SITE CHMOD and Linux 4.4 upload-cleanup race, FULLCONENAT target kernel/MIPS compile, NFS compatibility decisions, and L3/L4 validation visible.
-
+1. **Completed in THIS COMMIT — propagate wireless startup failures.** The six AP/WDS/APCLI startup helpers now return status instead of silently discarding interface-up failures. AP and APCLI helpers return `-EIO` on failed interface-up; APCLI automatic-connect command failures also propagate. The WDS helpers attempt every configured interface while retaining a sticky aggregate failure. RT3352 MII startup reports a failed `rai0` bring-up to the 2.4GHz helper; the deliberately disabled iNIC path remains an intentional success and does not try to start the guest interface. Restart functions stop before starting 802.1X when any helper fails and attempt radio-interface rollback; DBDC peer failure also stops the already-started local 802.1X helper and rolls back both radios.
+2. **Bridge attachment audit boundary.** Do not treat raw `br_add_del_if(..., 1)` errors as startup failures yet. It returns the Linux bridge ioctl status; the repository's Linux 4.4 `br_add_if()` returns `-EBUSY` whenever the interface already has a master, including an interface already attached to the same bridge. The wireless stop helpers lower interfaces but do not detach all AP/WDS/APCLI bridge ports, so a normal restart can re-add an existing member. The regression workflow now checks this kernel behavior. A future change needs an idempotent bridge-membership/master query before bridge-add results can safely participate in startup status.
+3. **Exact-head validation for THIS COMMIT is pending.** The policy binary is compiled as GNU89 with warnings-as-errors in Actions; the source contract checks AP/APCLI error returns, WDS sticky aggregation and full-attempt order, iNIC failure propagation, DBDC rollback/authentication ordering, and the Linux bridge `-EBUSY` contract. Do not claim this workflow passed until the exact resulting HEAD has completed successfully.
+4. **Next subsystem:** after reconciling the new exact-head Actions, rotate to `trunk/user/rc/src/net_wan.c` and trace static-IP IPTV / ZeroConf callback address, route, resolver and rollback status. Do not stay on Wi-Fi for another round unless a newly reproduced P0/P1 issue appears.
+5. Keep FULLCONENAT target kernel/MIPS compilation, FTP MDTM/SITE CHMOD and upload-cleanup race, NFS compatibility, and L3/L4 validation visible.
 
 ## Verification boundary
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for IPTV DHCP interface/route status propagation; PASS for DNSMasq lease-file feature gating and staged-config cleanup; PASS for wireless shutdown result aggregation and restart stop-before-authentication/start ordering. |
-| L2 host / Actions | DNSMasq parent SHA `e1f27e5a5fb607a6ca8177c6cf1f220dc3515e7e`: HTTPD/DNSMasq [42735569321], AI docs [42735569423] and Samba config [42735569085] all SUCCESS. THIS wireless GNU89 shutdown-policy test, wireless semantic source contract and AI handoff validation are pending on the resulting SHA. No production `net_wifi.c` MIPS/uClibc object is compiled by these workflows. |
+| L1 source review | PASS for AP/WDS/APCLI startup error propagation, WDS all-interface attempts with sticky failure, iNIC failed-start reporting, restart rollback and 802.1X gating. Bridge-add ioctl semantics were audited; raw add errors are intentionally not promoted until membership is queried idempotently. |
+| L2 host / Actions | Base SHA `1de8fe9466a5df0273d42551e1d54312ed087f46`: all seven Actions [42736815814] [42736815815] [42736815819] [42736815820] [42736815829] [42736815917] [42736816088] completed SUCCESS on that exact SHA. THIS COMMIT's GNU89 wireless policy test, wireless source/kernel semantic contract and AI handoff validation are pending on the resulting SHA. No local checkout was available for independent execution. |
 | L3 production RC/MIPS/uClibc/firmware builds | NOT VERIFIED. |
 | L4 physical router behavior | NOT VERIFIED. |
 
-
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, confirm the exact SHA and remote branch inventory, then reconcile wireless radio-state and AI handoff Actions against that SHA. Verify the GNU89 shutdown-result policy test and DBDC source-order assertions.
-2. If green, continue the AP/WDS/APCLI startup-helper status-propagation and bridge attachment result audit; establish a concrete failure path before changing code, then rotate to another subsystem.
-3. Keep static-IP IPTV/ZeroConf, FTP MDTM/SITE CHMOD and Linux 4.4 upload-cleanup race, FULLCONENAT target kernel/MIPS validation, NFS compatibility and L3/L4 validation visible.
-
+1. Fetch live `main`, confirm the exact SHA and all remote branches/checkpoints, then inspect every GitHub Actions run whose `head_sha` exactly matches the new main SHA. Inspect failed job steps rather than relying only on run titles.
+2. If wireless policy/source-contract and AI handoff Actions are green, switch to `net_wan.c` static-IP IPTV / ZeroConf callback lifecycle. Trace callers, address/route/resolver operations, failure rollback and state publication before editing.
+3. Preserve the bridge-add idempotency finding, FULLCONENAT target compile, FTP metadata/upload cleanup, NFS compatibility and L3/L4 limits in the whole-repository ledger.
 
 ## Continuation rules
 

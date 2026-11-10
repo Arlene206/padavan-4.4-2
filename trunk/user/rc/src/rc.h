@@ -444,12 +444,12 @@ void check_inic_mii_rebooted(void);
 #endif
 void update_vga_clamp_wl(int first_call);
 void update_vga_clamp_rt(int first_call);
-void start_wifi_ap_wl(int radio_on);
-void start_wifi_ap_rt(int radio_on);
-void start_wifi_wds_wl(int radio_on);
-void start_wifi_wds_rt(int radio_on);
-void start_wifi_apcli_wl(int radio_on);
-void start_wifi_apcli_rt(int radio_on);
+int start_wifi_ap_wl(int radio_on);
+int start_wifi_ap_rt(int radio_on);
+int start_wifi_wds_wl(int radio_on);
+int start_wifi_wds_rt(int radio_on);
+int start_wifi_apcli_wl(int radio_on);
+int start_wifi_apcli_rt(int radio_on);
 void reconnect_apcli(const char *ifname_apcli, int force);
 int  is_need_8021x(char *auth_mode);
 void start_8021x_wl(void);
