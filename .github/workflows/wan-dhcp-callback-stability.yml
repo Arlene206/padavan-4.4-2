@@ -13,6 +13,8 @@ on:
       - "trunk/user/shared/src/shutils.c"
       - "trunk/user/shared/src/file_write_status.h"
       - "trunk/user/rc/src/net_ppp.c"
+      - "trunk/user/rc/src/ppp_wan_ipup_policy.h"
+      - "trunk/user/rc/src/tests/ppp_wan_ipup_policy.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/dhcp6c_config_file.h"
       - "trunk/user/rc/src/tests/dhcp6c_config_file.c"
@@ -33,6 +35,8 @@ on:
       - "trunk/user/shared/src/shutils.c"
       - "trunk/user/shared/src/file_write_status.h"
       - "trunk/user/rc/src/net_ppp.c"
+      - "trunk/user/rc/src/ppp_wan_ipup_policy.h"
+      - "trunk/user/rc/src/tests/ppp_wan_ipup_policy.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/dhcp6c_config_file.h"
       - "trunk/user/rc/src/tests/dhcp6c_config_file.c"
@@ -79,6 +83,14 @@ jobs:
             trunk/user/rc/src/tests/file_write_status.c \
             -o /tmp/file-write-status
           /tmp/file-write-status
+      - name: Compile and run PPP IPv4 callback publication regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/ppp_wan_ipup_policy.c \
+            -o /tmp/ppp-wan-ipup-policy
+          /tmp/ppp-wan-ipup-policy
       - name: Verify WAN callback applies interface before publishing lease state
         run: |
           python3 - <<'PY'
@@ -100,6 +112,8 @@ jobs:
           config_test = (rc / "tests/dhcp6c_config_file.c").read_text()
           policy = (rc / "dhcp_wan_interface_policy.h").read_text()
           workflow = Path(".github/workflows/wan-dhcp-callback-stability.yml").read_text()
+          ipup_policy = (rc / "ppp_wan_ipup_policy.h").read_text()
+          ipup_test = (rc / "tests/ppp_wan_ipup_policy.c").read_text()
 
           def body(text, signature):
               start = text.index(signature)
@@ -254,6 +268,32 @@ jobs:
           assert "umask(0000)" in config_test
           assert "failed rename" in config_test
           assert "atomic replacement" in config_test
+
+          # PPP ip-up must apply the interface address successfully before
+          # replacing the last-known-good WAN lease and publishing callback state.
+          assert '#include "ppp_wan_ipup_policy.h"' in ppp_source
+          ipup_apply = body(ipup_policy, "ppp_wan_ipup_apply_address(")
+          assert ipup_apply.index("ops->set_interface_address(context, ipaddr, netmask)") < ipup_apply.index("ops->publish_address(context, ipaddr, netmask)")
+          assert "if (status != 0)\n\t\treturn status;" in ipup_apply
+          ipup_set = body(ppp_source, "ppp_wan_ipup_set_interface_address(")
+          ipup_publish = body(ppp_source, "ppp_wan_ipup_publish_address(")
+          assert "return ifconfig(context->ifname, IFUP" in ipup_set
+          assert 'set_wan_unit_value(context->unit, "ipaddr"' in ipup_publish
+          assert 'set_wan_unit_value(context->unit, "netmask"' in ipup_publish
+          ipup = body(ppp_source, "ipup_main(int argc, char **argv)")
+          ipup_configure = ipup.index("ppp_wan_ipup_apply_address(")
+          ipup_identity = ipup.index('set_wan_unit_value(unit, "ifname_t", ppp_ifname)')
+          ipup_gateway = ipup.index('set_wan_unit_value(unit, "gateway", value)')
+          ipup_routes = ipup.index("wan_up(ppp_ifname, unit, 0)")
+          assert ipup_configure < ipup_identity < ipup_gateway < ipup_routes
+          assert "refusing PPP ip-up state publication" in ipup
+          assert ipup.index("ppp_wan_session_state_unlock(callback_fd)") < ipup.index("return interface_status;")
+          for case in (
+              "test_success_applies_before_publishing",
+              "test_interface_failure_preserves_published_state",
+              "test_invalid_input_has_no_side_effects",
+          ):
+              assert case in ipup_test
 
           # Propagate DHCPv6 client startup failure through PPP's IPv6-up hook.
           wan6_up = body(wan6_source, "wan6_up(char *wan_ifname, int unit)")
@@ -434,6 +474,8 @@ jobs:
               "trunk/user/shared/src/file_write_status.h",
               "trunk/user/rc/src/net_wan6.c",
               "trunk/user/rc/src/net_ppp.c",
+              "trunk/user/rc/src/ppp_wan_ipup_policy.h",
+              "trunk/user/rc/src/tests/ppp_wan_ipup_policy.c",
               "trunk/user/rc/src/rc.h",
               "trunk/user/rc/src/dhcp6c_config_file.h",
               "trunk/user/rc/src/tests/dhcp6c_config_file.c",

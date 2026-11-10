@@ -2,12 +2,19 @@
 
 - Maintained fork: `Arlene206/padavan-4.4-2`; work only on this repository.
 - Branch inventory: `main` only; no remote checkpoint branch. No force-pushes.
-- **Last verified production-code SHA:** `21854daf2df32e8020ac582b293668bfbf755d90` (parent/base `cd3cf8438e28694ffb0f00b1ad9cdd871b1439e2`, whose WAN [42760927729] and AI docs [42760927859] Actions passed). On `21854daf`, the four WAN GNU89 host binaries passed, but WAN source-contract [42768294852] failed at stale assertions expecting the old `dhcp6_status` variable; AI docs [42768294647] and the seven other subsystem workflows all succeeded. THIS COMMIT updates only those stale semantic assertions plus resumable records; resolve its full SHA from live `main` on the next recovery.
+- **Last verified main SHA before THIS COMMIT:** `02452ac97d143f61a180a8a1f77740e156b3dae2`. Exact-head WAN callback [42768770801] and AI handoff docs [42768770808] both completed SUCCESS; the WAN job passed its four GNU89 regressions and the full source-semantic contract, while the docs job validated the live handoff/roadmap and log archive integrity. The bounded PPP ip-up change below is the next commit and awaits exact-head Actions. No remote checkpoint branch exists.
 - **Prior exact-head evidence:** on `febac337d73e7d197ed950e94f308e4c066907b6`, the four WAN GNU89 tests passed; HTTPD security [42760357682], AI docs [42760357696], WAN route [42760357470], NFS [42760357384], storage [42760357751], Samba [42760357403], vsftpd [42760357409] and wireless [42760357782] succeeded. WAN source contract [42760357637] exposed the first stale assertion and was then corrected.
-- **Current code slice:** common `fput_string()` exposes buffered write/close errors; DHCPv6 private config is atomically published; PPP callback start/stop status propagates through IPv6 callbacks; `wan6_down()` aggregates teardown failures; native-static/native-DHCP and SIT IPv6 startup now check critical proc/sys, link, address, route and client operations and return failure instead of reporting a false success. Startup rollback is best-effort and remains subject to target runtime validation.
-- **Log rotation:** root `dev_log.md` now keeps 23 complete newest-first entries; no rotation is due. The 100 older records remain oldest-first in `docs/dev-log/2026/11/part-006.md` (239599 UTF-8 bytes), with the index synchronized.
+- **Current code slice:** common `fput_string()` exposes buffered write/close errors; DHCPv6 private config is atomically published; PPP callback start/stop status propagates through IPv6 callbacks; `wan6_down()` aggregates teardown failures; native-static/native-DHCP and SIT IPv6 startup now check critical proc/sys, link, address, route and client operations and return failure instead of reporting a false success. The PPP IPv4 ip-up callback now applies its interface address before publishing ipaddr/netmask or the interface identity; an ifconfig failure returns without replacing the last-known-good NVRAM lease. Startup rollback is best-effort and remains subject to target runtime validation.
+- **Log rotation:** root `dev_log.md` now keeps 24 complete newest-first entries; no rotation is due. The 100 older records remain oldest-first in `docs/dev-log/2026/11/part-006.md` (239599 UTF-8 bytes), with the index synchronized.
 - **Known open issue:** FTP upload cleanup still has a check-then-`unlinkat` window after inode identity validation. Linux 4.4/MIPS O32 `renameat2` exchange/no-replace cannot atomically condition on expected inode; do not claim closure.
 - L3 production RC/MIPS/uClibc objects, firmware/TRX and L4 physical-router validation remain NOT VERIFIED.
+
+## PPP IPv4 ip-up address publication gate (bounded slice)
+
+- **Finding:** ipup_main() previously ignored the return value from ifconfig() and immediately replaced the saved WAN ipaddr/netmask, then published interface identity, gateway and DNS and proceeded to route setup. An address-configuration error could therefore leave NVRAM claiming a lease that this callback had failed to apply.
+- **Fix:** ppp_wan_ipup_apply_address() now calls the interface operation first and publishes the new address/netmask only after success. ipup_main() propagates the original interface error, releases the callback-session lock and skips interface identity, gateway/DNS and route publication on failure. The lock still spans the validation, interface operation and successful publication path.
+- **Regression:** a new GNU89 host policy test covers configure-before-publish ordering, a failed interface operation preserving an existing published address, and invalid-input no-side-effects. The test compiled with cc -std=gnu89 -Wall -Wextra -Werror and ran locally with PASS. The WAN workflow now compiles/runs this test and checks the source ordering; exact-head Actions for THIS COMMIT are pending.
+- **Scope boundary:** this fixes the IPv4 address-publication gate only. It does not yet propagate wan_up() route-setup status through the legacy void wrapper, prove DHCPv6 script callbacks are fenced against late events, or close the remaining PPP/multi-WAN route ownership and restart-recovery audit. No target MIPS/uClibc build or router test is claimed.
 
 ## Completed native-static/native-DHCP and SIT IPv6 startup status propagation
 
@@ -89,25 +96,23 @@
 
 ## Active task
 
-1. **Exact-head reconciliation.** The IPv6 production-code commit `21854daf2df32e8020ac582b293668bfbf755d90` passed all four WAN GNU89 binaries; WAN semantic run [42768294852] failed only at stale `dhcp6_status` source assertions. AI docs [42768294647] and seven other subsystem runs succeeded. THIS COMMIT corrects the two legacy expectations; verify WAN and AI runs on its exact SHA.
-2. **PPP / multi-WAN state transitions.** The per-session file lock spans callback generation validation and mutation, but cross-unit interactions, callback ordering during WAN restart, route ownership and partial IPv6/PPP failure recovery remain open. Trace callers and state transitions before editing.
+1. **Exact-head reconciliation.** Baseline main SHA `02452ac97d143f61a180a8a1f77740e156b3dae2` has exact-head WAN callback [42768770801] and AI docs [42768770808] SUCCESS. THIS COMMIT adds the PPP IPv4 ip-up address-publication gate and its GNU89 regression; verify both affected Actions on the exact resulting SHA before treating this slice as CI-closed.
+2. **PPP / multi-WAN state transitions.** The completed bounded slice no longer publishes a new IPv4 lease when ifconfig() fails, but wan_up() remains a void wrapper that logs route setup failures. Continue tracing callback ordering and route ownership. In particular, inspect how /sbin/dhcp6c launches dhcp6c.script, whether script children can outlive stop_dhcp6c()/WAN restart, and whether an old event can update delegated-prefix/DNS state after a new session starts. Prove the process/argument semantics before changing callback fencing. Cross-unit behavior and partial IPv6/PPP recovery remain open.
 3. **Project-wide open issues.** FTP upload cleanup TOCTOU, NFS `async`/AUTH_SYS/root-squash compatibility, FULLCONENAT target object build, wireless board-variant bridge behavior, and L3/L4 validation remain open. Do not cycle back to already-closed bounded slices without new evidence.
-
 ## Verification boundary
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for the new checked IPv6 startup/teardown control flow and proc/sys wrapper propagation. Startup cleanup is best-effort; target behavior and preservation of pre-existing LAN/static addresses on injected failures remain unverified. FTP upload-cleanup inode-check/unlink race remains OPEN. |
-| L2 host / Actions | On code SHA `21854daf2df32e8020ac582b293668bfbf755d90`, all four WAN GNU89 binaries passed; source-semantic step [42768294852] failed at stale status-variable assertions. AI docs [42768294647] plus HTTPD/NFS/storage/Samba/vsftpd/WAN-route/wireless runs all SUCCESS. THIS COMMIT updates the assertions; exact-head WAN and AI reruns pending. No local full-checkout test run. |
+| L1 source review | PASS for checked IPv6 startup/teardown control flow and proc/sys wrapper propagation, plus the new PPP IPv4 ip-up apply-before-publish policy. Startup cleanup is best-effort; PPP policy host coverage confirms failure-gated publication but does not establish target pppd behavior. FTP upload-cleanup inode-check/unlink race remains OPEN. |
+| L2 host / Actions | Baseline code SHA `02452ac97d143f61a180a8a1f77740e156b3dae2`: exact-head WAN [42768770801] and AI docs [42768770808] SUCCESS. The PPP ip-up GNU89 policy regression compiled and ran locally PASS; its full WAN workflow/source contract and AI handoff validation are pending on THIS resulting SHA. No local full-checkout test run. |
 | L3 production RC/MIPS/uClibc/firmware builds | NOT VERIFIED. |
 | L4 physical router behavior | NOT VERIFIED. |
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, confirm exact SHA, and inspect the WAN DHCP callback and AI handoff Actions on that exact SHA, including job steps/logs.
-2. If both pass, begin a bounded PPP/multi-WAN state-transition audit across callback generation fencing, `ipv6up_main()` / `ipv6down_main()`, `wan6_up()` / `wan6_down()`, and WAN unit/route publication. Avoid redoing the completed IPv6 status-propagation slice unless new evidence identifies a gap.
+1. Fetch live `main`, confirm its exact SHA, and inspect the WAN DHCP callback and AI handoff Actions on that exact SHA, including job steps/logs. The baseline `02452ac97d143f61a180a8a1f77740e156b3dae2` is green; THIS COMMIT's new PPP ip-up GNU89 regression and expanded source contract must also pass on its exact head.
+2. If both pass, continue the bounded PPP/multi-WAN audit: trace DHCPv6 script execution and stop/restart races before deciding whether dhcp6c_main() needs stale-event fencing; then review the wan_up() void-status boundary, ip-down route restoration and per-session route ownership. Do not re-run the completed IPv6 startup/teardown slice without new evidence.
 3. Keep FULLCONENAT target kernel/MIPS build, FTP upload cleanup TOCTOU, NFS compatibility, wireless board variants, production RC/MIPS/uClibc/firmware and physical-router L4 explicitly open/NOT VERIFIED.
-
 ## Continuation rules
 
 - `SESSION_HANDOFF.md` is the sole actionable continuation point; update only when resumable work/checkpoint/next action materially changes.

@@ -37,6 +37,7 @@
 #include "ppp_option_value_policy.h"
 #include "ppp_callback_identity_policy.h"
 #include "ppp_callback_generation_policy.h"
+#include "ppp_wan_ipup_policy.h"
 
 #define PPP_WAN_SESSION_STATE_FILE "/tmp/ppp/wan-session.state"
 #define PPP_WAN_SESSION_LOCK_ATTEMPTS 500
@@ -908,11 +909,43 @@ is_valid_wan_ppp_idx(int ifindex)
 	return 1;
 }
 
+struct ppp_wan_ipup_context {
+	char *ifname;
+	int unit;
+};
+
+static int
+ppp_wan_ipup_set_interface_address(void *opaque, const char *ipaddr,
+				   const char *netmask)
+{
+	struct ppp_wan_ipup_context *context =
+		(struct ppp_wan_ipup_context *)opaque;
+
+	return ifconfig(context->ifname, IFUP, (char *)ipaddr, (char *)netmask);
+}
+
+static void
+ppp_wan_ipup_publish_address(void *opaque, const char *ipaddr,
+			     const char *netmask)
+{
+	struct ppp_wan_ipup_context *context =
+		(struct ppp_wan_ipup_context *)opaque;
+
+	set_wan_unit_value(context->unit, "ipaddr", (char *)ipaddr);
+	set_wan_unit_value(context->unit, "netmask", (char *)netmask);
+}
+
+static const struct ppp_wan_ipup_ops ppp_wan_ipup_ops = {
+	ppp_wan_ipup_set_interface_address,
+	ppp_wan_ipup_publish_address
+};
+
 int
 ipup_main(int argc, char **argv)
 {
-	int unit, ppp_idx;
+	int unit, ppp_idx, interface_status;
 	int callback_fd, callback_state;
+	struct ppp_wan_ipup_context interface_context;
 	char buf[256], *value;
 	char *ppp_ifname = safe_getenv("IFNAME");
 	char *ppp_linkname = safe_getenv("LINKNAME");
@@ -930,17 +963,25 @@ ipup_main(int argc, char **argv)
 	if (callback_state <= 0)
 		return callback_state == 0 ? 0 : -1;
 
-	/* update ifname_t */
-	set_wan_unit_value(unit, "ifname_t", ppp_ifname);
-
 	umask(0000);
 
 	if ((value = getenv("IPLOCAL"))) {
-		ifconfig(ppp_ifname, IFUP, value, ppp_mask);
-		
-		set_wan_unit_value(unit, "ipaddr", value);
-		set_wan_unit_value(unit, "netmask", ppp_mask);
+		interface_context.ifname = ppp_ifname;
+		interface_context.unit = unit;
+		interface_status = ppp_wan_ipup_apply_address(
+			value, ppp_mask, &ppp_wan_ipup_ops, &interface_context);
+		if (interface_status != 0) {
+			logmessage(LOGNAME,
+				   "refusing PPP ip-up state publication on %s after address configuration failed (status=%d)",
+				   ppp_ifname, interface_status);
+			if (ppp_wan_session_state_unlock(callback_fd) != 0)
+				return -1;
+			return interface_status;
+		}
 	}
+
+	/* Publish the interface identity only after its address is applied. */
+	set_wan_unit_value(unit, "ifname_t", ppp_ifname);
 
 	if ((value = getenv("IPREMOTE")))
 		set_wan_unit_value(unit, "gateway", value);

@@ -1,3 +1,14 @@
+## 2026-11-10 14:30 CST (UTC+8) — Gate PPP ip-up lease publication on interface success
+
+- **Base main SHA:** `02452ac97d143f61a180a8a1f77740e156b3dae2`. WAN DHCP callback [42768770801] and AI handoff docs [42768770808] both completed SUCCESS on that exact base SHA.
+- **Finding:** `ipup_main()` ignored the `ifconfig()` result, then unconditionally published the PPP interface's new `ipaddr`/`netmask` and continued publishing `ifname_t`, gateway/DNS and route state. A failed address operation could leave NVRAM describing a lease that the callback did not successfully apply.
+- **Fix:** add `ppp_wan_ipup_policy.h` with an apply-before-publish operation contract. The production adapter reports the actual `ifconfig()` status; the callback preserves the prior address state and returns that error after releasing the PPP callback-session lock. Interface identity, gateway/DNS and route publication are skipped on the failed-address path.
+- **Regression:** add `tests/ppp_wan_ipup_policy.c` for success ordering, interface failure preserving the previously published address, and invalid-input no-side-effects. Add its GNU89 compile/run step and source-order/path-filter contracts to `.github/workflows/wan-dhcp-callback-stability.yml`.
+- **Changed paths:** `trunk/user/rc/src/net_ppp.c`, new `trunk/user/rc/src/ppp_wan_ipup_policy.h`, new `trunk/user/rc/src/tests/ppp_wan_ipup_policy.c`, `.github/workflows/wan-dhcp-callback-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log. No archive rotation or INDEX change is due.
+- **Validation:** local host test compiled with `cc -std=gnu89 -Wall -Wextra -Werror` and ran PASS. The expanded workflow has not run on THIS resulting SHA yet; exact-head WAN and AI docs Actions are pending. No full RC/MIPS/uClibc, firmware/TRX, live PPP/DHCPv6 session or L4 router validation is claimed.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** verify WAN and AI handoff Actions on the exact resulting SHA. If green, continue the PPP/multi-WAN audit by tracing DHCPv6 script child lifetime and stop/restart ordering, then review the `wan_up()` route-status boundary and ip-down route restoration. Keep FTP cleanup TOCTOU, NFS compatibility, FULLCONENAT target build, wireless board variants and L3/L4 validation open.
+
 ## 2026-11-10 14:00 CST (UTC+8) — Align IPv6 WAN source contract with returned startup status
 
 - **Base main SHA:** `21854daf2df32e8020ac582b293668bfbf755d90`. Exact-head WAN run [42768294852] compiled and passed all four GNU89 host regression binaries; its Python source-contract step then stopped at a stale assertion expecting the former local variable name `dhcp6_status` and direct `return dhcp6_status`. The revised `wan6_up()` intentionally uses the common `status` plus `WAN6_NATIVE_CHECK(start_dhcp6c(...))` to share failure rollback. This was a test-contract mismatch, not a C compile/test failure.
