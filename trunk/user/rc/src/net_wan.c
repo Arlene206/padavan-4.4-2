@@ -31,6 +31,7 @@
 #include <signal.h>
 
 #include "rc.h"
+#include "vpn_server_lifecycle_lock.h"
 #include "route_status_policy.h"
 #include "dnsmasq_file.h"
 #include "wan_resolver_refresh_policy.h"
@@ -1209,7 +1210,7 @@ start_wan(void)
 }
 
 static int
-stop_wan_ppp(void)
+stop_wan_ppp_locked(void)
 {
 	char* svcs_ppp[] = {
 		"ip-up", "ip-down",
@@ -1253,8 +1254,8 @@ static const struct wan_teardown_interface_ops wan_teardown_ifdown_ops = {
 	wan_teardown_ifdown_interface
 };
 
-int
-stop_wan(void)
+static int
+stop_wan_locked(void)
 {
 	int unit, wan_proto, ifdown_status;
 #if defined (USE_IPV6)
@@ -1338,6 +1339,45 @@ stop_wan(void)
 	clear_wan_state();
 	control_wan_led_isp_state(0, 0);
 	return 0;
+}
+
+static int
+run_wan_stop_under_vpn_lifecycle_lock(int (*operation)(void), const char *name)
+{
+	int lock_fd, result, saved_errno;
+
+	lock_fd = vpn_server_lifecycle_lock_acquire();
+	if (lock_fd < 0) {
+		logmessage(LOGNAME, "refusing %s: cannot lock VPN server lifecycle (errno=%d)",
+			   name, errno);
+		return -1;
+	}
+	result = operation();
+	saved_errno = errno;
+	if (vpn_server_lifecycle_lock_release(lock_fd) != 0) {
+		int release_errno = errno ? errno : EIO;
+		logmessage(LOGNAME, "cannot release VPN server lifecycle lock after %s (errno=%d)",
+			   name, release_errno);
+		if (result == 0) {
+			result = -1;
+			saved_errno = release_errno;
+		}
+	}
+	if (result != 0 && saved_errno)
+		errno = saved_errno;
+	return result;
+}
+
+static int
+stop_wan_ppp(void)
+{
+	return run_wan_stop_under_vpn_lifecycle_lock(stop_wan_ppp_locked, "WAN PPP stop");
+}
+
+int
+stop_wan(void)
+{
+	return run_wan_stop_under_vpn_lifecycle_lock(stop_wan_locked, "WAN stop");
 }
 
 static int

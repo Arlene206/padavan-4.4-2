@@ -33,6 +33,7 @@
 #include <ctype.h>
 
 #include "rc.h"
+#include "vpn_server_lifecycle_lock.h"
 #include "route_status_policy.h"
 #include "ppp_options_file.h"
 #include "ppp_option_value_policy.h"
@@ -280,7 +281,7 @@ get_wan_ppp_peer(int unit)
 }
 
 int
-safe_start_xl2tpd(void)
+safe_start_xl2tpd_locked(void)
 {
 	FILE *fp;
 	int unit;
@@ -446,6 +447,32 @@ safe_start_xl2tpd(void)
 	return 1;
 }
 
+int
+safe_start_xl2tpd(void)
+{
+	int lock_fd, result, saved_errno;
+
+	lock_fd = vpn_server_lifecycle_lock_acquire();
+	if (lock_fd < 0) {
+		logmessage(LOGNAME, "cannot lock VPN server lifecycle for L2TP daemon start (errno=%d)", errno);
+		return -1;
+	}
+	result = safe_start_xl2tpd_locked();
+	saved_errno = errno;
+	if (vpn_server_lifecycle_lock_release(lock_fd) != 0) {
+		int release_errno = errno ? errno : EIO;
+		logmessage(LOGNAME, "cannot release VPN server lifecycle lock after L2TP daemon start (errno=%d)",
+			   release_errno);
+		if (result >= 0) {
+			result = -1;
+			saved_errno = release_errno;
+		}
+	}
+	if (result < 0 && saved_errno)
+		errno = saved_errno;
+	return result;
+}
+
 #if defined (APP_RPL2TP)
 static int
 start_rpl2tp(int unit)
@@ -575,8 +602,8 @@ ppp_options_write_text(FILE *fp, const char *value, char *buf, size_t buf_size)
 	return 0;
 }
 
-int
-launch_wan_pppd(int unit, int wan_proto)
+static int
+launch_wan_pppd_locked(int unit, int wan_proto)
 {
 	FILE *fp;
 	int auth_type, mtu, mru, mtu_max, mru_max, mtu_def, mru_def;
@@ -837,7 +864,7 @@ launch_wan_pppd(int unit, int wan_proto)
 #endif
 		{
 			nvram_set_int_temp("l2tp_wan_t", 1);
-			launch_status = safe_start_xl2tpd();
+			launch_status = safe_start_xl2tpd_locked();
 		}
 	} else {
 		if (nvram_match("pppoemwan_enable", "1"))
@@ -867,6 +894,40 @@ invalid_options:
 	errno = saved_errno;
 	return -1;
 }
+int
+launch_wan_pppd(int unit, int wan_proto)
+{
+	int lock_fd, result, saved_errno;
+
+	if (unit < 0)
+		return -1;
+	if (wan_proto != IPV4_WAN_PROTO_L2TP)
+		return launch_wan_pppd_locked(unit, wan_proto);
+
+	/* L2TP shares xl2tpd with the VPN server. Keep transport stop,
+	 * PPP option publication and daemon restart in one lifecycle section. */
+	lock_fd = vpn_server_lifecycle_lock_acquire();
+	if (lock_fd < 0) {
+		logmessage(LOGNAME, "cannot lock VPN server lifecycle for WAN L2TP launch (errno=%d)",
+			   errno);
+		return -1;
+	}
+	result = launch_wan_pppd_locked(unit, wan_proto);
+	saved_errno = errno;
+	if (vpn_server_lifecycle_lock_release(lock_fd) != 0) {
+		int release_errno = errno ? errno : EIO;
+		logmessage(LOGNAME, "cannot release VPN server lifecycle lock after WAN L2TP launch (errno=%d)",
+			   release_errno);
+		if (result == 0) {
+			result = -1;
+			saved_errno = release_errno;
+		}
+	}
+	if (result != 0 && saved_errno)
+		errno = saved_errno;
+	return result;
+}
+
 int
 preset_wan_ppp_routes(char *ppp_ifname, int unit)
 {

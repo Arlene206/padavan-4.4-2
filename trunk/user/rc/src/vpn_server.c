@@ -390,7 +390,7 @@ start_vpn_server_locked(void)
 	if (i_type == 1) {
 		nvram_set_int_temp("l2tp_srv_t", 1);
 		
-		safe_start_xl2tpd();
+		safe_start_xl2tpd_locked();
 	} else {
 		nvram_set_int_temp("l2tp_srv_t", 0);
 		
@@ -501,7 +501,7 @@ restart_vpn_server(void)
 #endif
 	/* Restore L2TP WAN client/VPNC before releasing the lifecycle lock. */
 	if (xl2tpd_killed_vpns && (nvram_match("l2tp_wan_t", "1") || nvram_match("l2tp_cli_t", "1")))
-		safe_start_xl2tpd();
+		safe_start_xl2tpd_locked();
 
 	if (vpn_server_lifecycle_lock_release(lock_fd) != 0)
 		logmessage(VPNS_LOG_NAME, "cannot release VPN server lifecycle lock after restart (errno=%d)", errno);

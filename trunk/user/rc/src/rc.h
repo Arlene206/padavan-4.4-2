@@ -325,6 +325,8 @@ int start_zcip_viptv(char *man_ifname);
 
 /* net_ppp.c */
 int  safe_start_xl2tpd(void);
+/* Caller must hold vpn_server_lifecycle_lock before using this helper. */
+int  safe_start_xl2tpd_locked(void);
 char *safe_pppd_line(const char *line, char *buf, size_t buf_size);
 int  launch_wan_pppd(int unit, int wan_proto);
 int  invalidate_wan_ppp_callback_session(void);

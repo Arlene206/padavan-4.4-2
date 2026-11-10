@@ -43,6 +43,9 @@ vpn=read("trunk/user/rc/src/vpn_server.c")
 lock=read("trunk/user/rc/src/vpn_server_lifecycle_lock.h")
 rc=read("trunk/user/rc/src/rc.c")
 services=read("trunk/user/rc/src/services.c")
+net_ppp=read("trunk/user/rc/src/net_ppp.c")
+net_wan=read("trunk/user/rc/src/net_wan.c")
+vpn_client=read("trunk/user/rc/src/vpn_client.c")
 makefile=read("trunk/user/rc/src/Makefile")
 workflow=read(".github/workflows/vpn-server-stability.yml")
 test=read("trunk/user/rc/src/tests/vpn_server_lifecycle_lock.c")
@@ -89,6 +92,67 @@ for p in ("trunk/user/rc/src/vpn_server.c","trunk/user/rc/src/vpn_server_lifecyc
           "scripts/check_vpn_server_lifecycle.py",".github/workflows/vpn-server-stability.yml"):
     require(p in workflow,f"workflow path filter missing {p}")
 require("fork()" in test and "errno==EBUSY" in test.replace(" ",""),"cross-process contention regression missing")
+
+# Every RC path that starts/stops the shared PPP/L2TP transport must
+# participate in the same lifecycle barrier as server callbacks.
+safe_start=body(net_ppp,"safe_start_xl2tpd(void)")
+safe_start_locked=body(net_ppp,"safe_start_xl2tpd_locked(void)")
+ordered(safe_start,["vpn_server_lifecycle_lock_acquire()",
+                    "safe_start_xl2tpd_locked()",
+                    "vpn_server_lifecycle_lock_release(lock_fd)"],"public xl2tpd start")
+require('eval("/usr/sbin/xl2tpd"' in safe_start_locked,
+        "locked xl2tpd starter lost daemon launch")
+wan_launch=body(net_ppp,"launch_wan_pppd(int unit, int wan_proto)")
+wan_launch_locked=body(net_ppp,"launch_wan_pppd_locked(int unit, int wan_proto)")
+ordered(wan_launch,["if (unit < 0)",
+                    "if (wan_proto != IPV4_WAN_PROTO_L2TP)",
+                    "vpn_server_lifecycle_lock_acquire()",
+                    "launch_wan_pppd_locked(unit, wan_proto)",
+                    "vpn_server_lifecycle_lock_release(lock_fd)"],"WAN L2TP launch")
+require("kill_services(svcs, 5, 1)" in wan_launch_locked and
+        "safe_start_xl2tpd_locked()" in wan_launch_locked,
+        "WAN L2TP stop/config/start must remain in one locked helper")
+
+client_start=body(vpn_client,"start_vpn_client(void)")
+client_start_locked=body(vpn_client,"start_vpn_client_locked(void)")
+ordered(client_start,["vpn_server_lifecycle_lock_acquire()",
+                      "start_vpn_client_locked()",
+                      "vpn_server_lifecycle_lock_release(lock_fd)"],"VPN client start")
+require("safe_start_xl2tpd_locked()" in client_start_locked,
+        "L2TP client must use the non-recursive locked daemon starter")
+client_restart=body(vpn_client,"restart_vpn_client(void)")
+client_restart_locked=body(vpn_client,"restart_vpn_client_locked(void)")
+ordered(client_restart,["vpn_server_lifecycle_lock_acquire()",
+                        "restart_vpn_client_locked()",
+                        "vpn_server_lifecycle_lock_release(lock_fd)"],"VPN client restart")
+ordered(client_restart_locked,["stop_vpn_client_force()",
+                               "stop_vpn_client()",
+                               "start_vpn_client_locked()",
+                               "safe_start_xl2tpd_locked()"],"VPN client shared-daemon restart")
+
+wan_stop_lock=body(net_wan,"run_wan_stop_under_vpn_lifecycle_lock(int (*operation)(void), const char *name)")
+ordered(wan_stop_lock,["vpn_server_lifecycle_lock_acquire()",
+                       "result = operation()",
+                       "vpn_server_lifecycle_lock_release(lock_fd)"],"WAN stop lock")
+wan_ppp_stop=body(net_wan,"stop_wan_ppp_locked(void)")
+wan_full_stop=body(net_wan,"stop_wan_locked(void)")
+for name,part in (("WAN PPP stop",wan_ppp_stop),("WAN full stop",wan_full_stop)):
+    require("stop_vpn_client();" in part and "kill_services(svcs_ppp, 6, 1)" in part,
+            f"{name} must stop shared PPP services inside the lock-owning wrapper")
+require("run_wan_stop_under_vpn_lifecycle_lock(stop_wan_ppp_locked" in net_wan and
+        "run_wan_stop_under_vpn_lifecycle_lock(stop_wan_locked" in net_wan,
+        "both WAN teardown entry points must use the lifecycle barrier")
+
+firmware=body(rc,"flash_firmware(void)")
+ordered(firmware,["vpn_server_lifecycle_lock_acquire()",
+                  "kill_services(svcs, 6, 1)",
+                  "vpn_server_lifecycle_lock_release(lock_fd)",
+                  "if (stop_status != 0)",
+                  "stop_misc()"],"firmware PPP stop")
+require("firmware update aborted: cannot lock VPN server lifecycle" in firmware,
+        "firmware shutdown must fail closed on lifecycle lock failure")
+require("safe_start_xl2tpd_locked();" in body(vpn,"start_vpn_server_locked(void)"),
+        "server start must use non-recursive locked L2TP helper")
 
 # In-flight PPP callbacks must share the lifecycle critical section and prove
 # that their pppd parent and per-interface pidfile still identify one session.

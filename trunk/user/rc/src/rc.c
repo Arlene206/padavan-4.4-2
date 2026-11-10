@@ -45,6 +45,7 @@
 #include "rc.h"
 #include "firewall_startup_policy.h"
 #include "rc_nvram_policy.h"
+#include "vpn_server_lifecycle_lock.h"
 #include "rc_notify_batch_policy.h"
 #include <rc_notify_queue.h>
 #include "gpio_pins.h"
@@ -511,9 +512,31 @@ flash_firmware(void)
 {
 	const char *script_name = SCRIPT_SHUTDOWN;
 	char* svcs[] = { "l2tpd", "xl2tpd", "pppd", "wpa_cli", "wpa_supplicant", NULL };
+	int lock_fd, stop_status, release_status, saved_errno;
 
-	if (kill_services(svcs, 6, 1) != 0) {
+	/* PPPD callback children share this lock; stop only after in-flight
+	 * VPN callbacks have completed, then stale children fail PID identity. */
+	lock_fd = vpn_server_lifecycle_lock_acquire();
+	if (lock_fd < 0) {
+		logmessage(LOGNAME, "firmware update aborted: cannot lock VPN server lifecycle (errno=%d)", errno);
+		return;
+	}
+	stop_status = kill_services(svcs, 6, 1);
+	saved_errno = errno;
+	release_status = vpn_server_lifecycle_lock_release(lock_fd);
+	if (release_status != 0) {
+		int release_errno = errno ? errno : EIO;
+		logmessage(LOGNAME, "firmware update cannot release VPN server lifecycle lock (errno=%d)",
+			   release_errno);
+		if (stop_status == 0) {
+			stop_status = -1;
+			saved_errno = release_errno;
+		}
+	}
+	if (stop_status != 0) {
 		logmessage(LOGNAME, "firmware update aborted: L2TP/PPP/wireless services did not stop");
+		if (saved_errno)
+			errno = saved_errno;
 		return;
 	}
 	if (stop_misc() != 0) {

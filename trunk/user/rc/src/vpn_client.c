@@ -27,6 +27,7 @@
 #include <fcntl.h>
 
 #include "rc.h"
+#include "vpn_server_lifecycle_lock.h"
 
 #define VPNC_LOG_NAME		"VPN client"
 #define VPNC_PPP_LINK_NAME	"vpnc"
@@ -58,8 +59,8 @@ get_xl2tpd_vpnc_active(void)
 		 nvram_match("l2tp_cli_t", "1"));
 }
 
-int
-start_vpn_client(void)
+static int
+start_vpn_client_locked(void)
 {
 	FILE *fp;
 	int i_type, i_mppe, i_auth;
@@ -193,7 +194,7 @@ start_vpn_client(void)
 	{
 		nvram_set_int_temp("l2tp_cli_t", 1);
 		
-		if (safe_start_xl2tpd() != 0)
+		if (safe_start_xl2tpd_locked() != 0)
 			control_xl2tpd("c", "VPNC");
 	}
 	else
@@ -204,6 +205,32 @@ start_vpn_client(void)
 	}
 
 	return 0;
+}
+
+int
+start_vpn_client(void)
+{
+	int lock_fd, result, saved_errno;
+
+	lock_fd = vpn_server_lifecycle_lock_acquire();
+	if (lock_fd < 0) {
+		logmessage(VPNC_LOG_NAME, "cannot lock VPN server lifecycle for client start (errno=%d)", errno);
+		return -1;
+	}
+	result = start_vpn_client_locked();
+	saved_errno = errno;
+	if (vpn_server_lifecycle_lock_release(lock_fd) != 0) {
+		int release_errno = errno ? errno : EIO;
+		logmessage(VPNC_LOG_NAME, "cannot release VPN server lifecycle lock after client start (errno=%d)",
+			   release_errno);
+		if (result >= 0) {
+			result = -1;
+			saved_errno = release_errno;
+		}
+	}
+	if (result < 0 && saved_errno)
+		errno = saved_errno;
+	return result;
 }
 
 void
@@ -238,8 +265,8 @@ stop_vpn_client_force(void)
 	}
 }
 
-void
-restart_vpn_client(void)
+static void
+restart_vpn_client_locked(void)
 {
 	if (get_ap_mode())
 		return;
@@ -252,13 +279,29 @@ restart_vpn_client(void)
 	restore_dns_from_vpnc();
 
 	sleep(1);
-	start_vpn_client();
+	start_vpn_client_locked();
 
 	restart_firewall();
 
 	/* restore L2TP WAN client or L2TP VPNS */
 	if (xl2tpd_killed_vpnc && (nvram_match("l2tp_wan_t", "1") || nvram_match("l2tp_srv_t", "1")))
-		safe_start_xl2tpd();
+		safe_start_xl2tpd_locked();
+}
+
+void
+restart_vpn_client(void)
+{
+	int lock_fd;
+
+	lock_fd = vpn_server_lifecycle_lock_acquire();
+	if (lock_fd < 0) {
+		logmessage(VPNC_LOG_NAME, "cannot lock VPN server lifecycle for client restart (errno=%d)", errno);
+		return;
+	}
+	restart_vpn_client_locked();
+	if (vpn_server_lifecycle_lock_release(lock_fd) != 0)
+		logmessage(VPNC_LOG_NAME, "cannot release VPN server lifecycle lock after client restart (errno=%d)",
+			   errno);
 }
 
 void
