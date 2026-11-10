@@ -699,6 +699,7 @@ full_restart_lan(void)
 	int is_wan_err = 0, is_lan_stp = 0;
 	int is_ap_mode = get_ap_mode();
 	int log_remote = nvram_invmatch("log_ipaddr", "");
+	int dnsmasq_stop_status, dnsmasq_start_status;
 
 	if (!is_ap_mode) {
 		is_wan_err = get_wan_unit_value_int(0, "err");
@@ -714,7 +715,7 @@ full_restart_lan(void)
 	stop_networkmap();
 	stop_upnp();
 	stop_vpn_server();
-	stop_dns_dhcpd();
+	dnsmasq_stop_status = stop_dns_dhcpd();
 	stop_lan(is_ap_mode);
 
 	reset_lan_vars();
@@ -740,8 +741,16 @@ full_restart_lan(void)
 	config_smb_fastpath(1);
 #endif
 
-	/* restart dns relay and dhcp server */
-	start_dns_dhcpd(is_ap_mode);
+	/* Never start a second DNSMasq while the previous process survived stop. */
+	if (dnsmasq_stop_status == 0) {
+		dnsmasq_start_status = start_dns_dhcpd(is_ap_mode);
+		if (dnsmasq_start_status != 0)
+			logmessage(LOGNAME, "DNSMasq restart after LAN reconfiguration failed (status=%d)",
+				   dnsmasq_start_status);
+	} else {
+		logmessage(LOGNAME, "DNSMasq restart skipped because the previous process did not stop (status=%d)",
+			   dnsmasq_stop_status);
+	}
 
 	if (!is_ap_mode) {
 		if (is_lan_stp) {

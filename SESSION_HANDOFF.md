@@ -1,12 +1,12 @@
 ## Current repository state
 
 - Maintained fork: `Arlene206/padavan-4.4-2`; work only on this repository.
-- Branch inventory at the latest takeover: `main` only, no remote checkpoint branch. No force-pushes are used.
-- **Last fully reconciled main SHA:** `c5ec0e4c0d33e53f784a06763d479cddbc35dcbd`. AI handoff docs [42747120963] and HTTPD authentication/disclosure policy [42747121115] both completed SUCCESS on this exact SHA; the HTTPD job's host regressions and semantic source checks were green.
-- **Current development slice:** make FTP `MDTM` and `SITE CHMOD` descriptor-relative after ACL resolution. Both handlers now obtain a pinned regular-file descriptor through `asus_open_existing_path()`; MDTM reads metadata with `fstat` and writes timestamps with `futimes(fd)`; CHMOD applies `fchmod(fd)`. New recoverable sysutil wrappers preserve FTP error responses instead of terminating the process. A host regression pins an existing file, renames its directory entry, creates a replacement at the same name, and verifies descriptor metadata operations affect only the original inode. The VSFTPD GNU89 and semantic Actions are pending on THIS COMMIT.
-- **Known open issue:** upload failure cleanup still has a check-then-`unlinkat` window after inode identity validation. The existing regression catches replacement before validation, not the inter-operation race. Do not describe it as atomically solved. Audit Linux 4.4 capabilities and design a fail-closed bounded cleanup change separately.
-- **Next after exact-head reconciliation:** inspect and address the upload cleanup race. Then resume the global P2 queue with FULLCONENAT target kernel/MIPS object validation, NFS compatibility and idempotent wireless bridge membership. PPP/IPv6 callback lifecycle and all L3/L4 device validation remain visible.
-- Root `dev_log.md` contains 107 complete newest-first records and remains below the 119-record / 384 KiB early-rotation thresholds; no archive rotation is due.
+- Branch inventory: `main` only; no remote checkpoint branch. No force-pushes.
+- **Last fully reconciled main SHA:** `df0dfaeb6ebfb4c6b6a45ebb847a159b4d621eea`. VSFTPD stability [42750028174] and AI handoff docs [42750028154] both completed SUCCESS on this exact SHA; the pinned-descriptor MDTM/SITE CHMOD host regression and semantic contract were green.
+- **Current development slice:** prevent DNSMasq duplicate starts after incomplete stop. `start_dns_dhcpd()` checks process inventory before generated configuration publication and again before launch; `stop_dns_dhcpd()` returns `kill_services()` status and preserves static ARP bindings on stop failure; `restart_dhcpd()` and `full_restart_lan()` gate replacement launch on a confirmed stop. The isolated GNU89 policy regression passed locally; HTTPD/DNSMasq semantic and AI-doc Actions are pending on THIS COMMIT.
+- **Known open issue:** FTP upload cleanup still has a check-then-`unlinkat` window after inode identity validation. Linux 4.4 and MIPS O32 provide `renameat2` (`__NR_renameat2 = 4351`), but exchange/no-replace operations cannot condition a rename or unlink on the expected device/inode. No safe atomic quarantine was established; retain the documented best-effort behavior and do not claim the race is closed.
+- **Next after exact-head reconciliation:** verify DNSMasq/HTTPD and AI handoff Actions on the exact new SHA. Then move to FULLCONENAT target kernel/MIPS object validation, followed by NFS compatibility and idempotent wireless bridge membership. Keep PPP/IPv6 callback lifecycle and L3/L4 validation visible.
+- Root `dev_log.md` contains 109 complete newest-first records after this entry and remains below the 119-record / 384 KiB early-rotation thresholds; no archive rotation is due.
 - L3 production RC/MIPS/uClibc objects, firmware/TRX and L4 physical-router validation remain NOT VERIFIED.
 
 ## Completed DHCP callback and BusyBox event-state review
@@ -80,25 +80,25 @@
 
 ## Active task
 
-1. **FTP MDTM / SITE CHMOD descriptor-relative metadata slice.** Keep `vsf_access_check_file()` deny-file filtering, then resolve share ACLs and pin the existing regular file with `asus_open_existing_path()`. MDTM now fstats the pinned descriptor and changes timestamps with `vsf_sysutil_setmodtime_fd()`; SITE CHMOD changes mode with recoverable `vsf_sysutil_fchmod_ret()`. The handlers no longer authorize one pathname and mutate a separately re-resolved path.
-2. **Host regression:** the VSFTPD path-policy binary now pins a file through `ftp_acl_path_open_existing_file()`, renames that entry, creates a replacement at the original leaf, and verifies descriptor-based mode/mtime changes stay with the original inode. Workflow semantic assertions cover both handler call paths and sysutil declarations/implementations.
-3. **Validation pending:** run `.github/workflows/vsftpd-stability.yml` and AI handoff docs against the exact resulting `main` SHA. The base c5 SHA's docs and HTTPD Actions are green; do not count them as validation for this commit.
-4. **Next bounded task:** audit `asus_cleanup_failed_upload()` / `ftp_acl_path_unlink_opened_entry()`. The current inode comparison protects against replacement before validation but cannot close the race between `fstatat()` and `unlinkat()`. Check Linux 4.4 renameat2/syscall and uClibc availability before choosing an atomic quarantine or fail-closed fallback. Keep the race open until proven.
-5. Keep FULLCONENAT target kernel/MIPS object validation, NFS compatibility, bridge membership idempotency, PPP/IPv6 callback lifecycle and L3/L4 validation in the global queue.
+1. **DNSMasq start/stop lifecycle failure propagation.** `start_dns_dhcpd()` refuses to publish or launch when an earlier `dnsmasq` process is already present, with a second process-inventory check after configuration preparation. `stop_dns_dhcpd()` returns `kill_services()` status and clears static ARP bindings only after a confirmed stop. `restart_dhcpd()` gates launch on both stop status and process inventory; `full_restart_lan()` skips DNSMasq restart when the previous instance did not stop. The pure policy test adds launch and ARP-clear decision cases.
+2. **Validation:** isolated GNU89 host regression compiled with `-Wall -Wextra -Werror` and printed `DNSMasq restart policy: PASS`. The exact resulting HEAD must still run `.github/workflows/httpd-security.yml` and the AI handoff docs workflow. No full production `services_ex.c` / `net_lan.c` compilation has been performed.
+3. **FTP cleanup audit result:** `ftp_acl_path_unlink_opened_entry()` still compares `fstatat()` identity before `unlinkat()`, leaving a narrow replacement race. Linux 4.4 has `renameat2` and MIPS O32 syscall number 4351, but `RENAME_EXCHANGE` / `RENAME_NOREPLACE` do not provide expected-inode conditional removal; an exchange-based quarantine would move an arbitrary replacement and introduce another namespace race. No safe atomic fix was justified. Preserve this as an explicit limitation.
+4. **Next bounded task:** after exact-head Actions reconciliation, complete FULLCONENAT target kernel/MIPS object validation (or document the precise toolchain blocker), then return to NFS compatibility and idempotent wireless bridge membership. Keep PPP/IPv6 lifecycle and L3/L4 device validation in the global queue.
 
 ## Verification boundary
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for MDTM descriptor-relative ACL/open/fstat/futimes ordering; PASS for SITE CHMOD descriptor-relative ACL/open/fchmod ordering; PASS for recoverable syscall error paths and inode-replacement regression design. Upload cleanup still has an unresolved check/unlink race. |
-| L2 host / Actions | Base SHA `c5ec0e4c0d33e53f784a06763d479cddbc35dcbd`: AI handoff docs [42747120963] and HTTPD security [42747121115] SUCCESS. VSFTPD workflow on `07ba33d7ffd92dbaee037ca35d4f20f051070153`: GNU89 host binary passed (including pinned-inode replacement regression); Python source contract stopped on a formatting-sensitive expectation for the new two-line MDTM `futimes` call. The workflow assertion is corrected in THIS FOLLOW-UP; re-run exact-head checks are pending. |
+| L1 source review | PASS for DNSMasq duplicate-start/stop-status control flow and FTP MDTM/SITE CHMOD descriptor-relative work. FTP upload-cleanup check/unlink race remains OPEN; `renameat2` does not close it. |
+| L2 host / Actions | Local isolated GNU89 DNSMasq policy test: PASS. Previous exact HEAD `df0dfaeb6ebfb4c6b6a45ebb847a159b4d621eea`: VSFTPD [42750028174] and AI docs [42750028154] SUCCESS. This commit's HTTPD/DNSMasq and AI docs Actions are PENDING exact-head reconciliation. |
 | L3 production RC/MIPS/uClibc/firmware builds | NOT VERIFIED. |
 | L4 physical router behavior | NOT VERIFIED. |
+
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect all Actions tied to its exact SHA. Confirm the VSFTPD source-contract rerun succeeds after the formatting-independent assertion, and confirm AI handoff docs; inspect all failure logs.
-2. If green, investigate `ftp_acl_path_unlink_opened_entry()` and prove Linux 4.4 / target MIPS-uClibc support before changing the check-then-`unlinkat` cleanup window. No atomicity claim until the replacement race is closed by a supported mechanism or cleanup fails closed.
-3. Keep FULLCONENAT target MIPS compilation, NFS compatibility, bridge membership idempotency, PPP/IPv6 callback lifecycle, and L3/L4 validation visible.
+1. Fetch live `main` and inspect every Action run tied to its exact SHA. Confirm the DNSMasq GNU89 regression and full HTTPD semantic contract pass; inspect logs for failures, then confirm AI handoff docs.
+2. If green, start FULLCONENAT target kernel/MIPS object validation. FTP upload-cleanup remains open because Linux 4.4 renameat2 primitives do not offer expected-inode conditional unlink.
+3. Keep NFS compatibility, wireless bridge membership idempotency, PPP/IPv6 callback lifecycle and L3/L4 validation visible.
 
 ## Continuation rules
 

@@ -3,6 +3,20 @@
 
 /* Separate preparation from stop/launch so failed refreshes cannot take down
  * an already healthy daemon, and disabled service configurations stop cleanly. */
+/* Start only when no previous daemon is present. */
+static int
+dnsmasq_start_policy_should_launch(int daemon_running)
+{
+	return !daemon_running;
+}
+
+/* Static ARP bindings are removed only after the daemon stop is confirmed. */
+static int
+dnsmasq_stop_policy_should_clear_arp(int stop_status)
+{
+	return stop_status == 0;
+}
+
 enum dnsmasq_restart_action {
 	DNSMASQ_RESTART_ABORT = 0,
 	DNSMASQ_RESTART_KEEP_RUNNING,

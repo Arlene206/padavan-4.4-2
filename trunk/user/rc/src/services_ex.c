@@ -615,9 +615,21 @@ start_dns_dhcpd(int is_ap_mode)
 	int service_enabled = 0;
 	int status;
 
+	/* Do not publish over a live daemon's configuration or spawn a duplicate. */
+	if (!dnsmasq_start_policy_should_launch(is_dns_dhcpd_run())) {
+		logmessage(LOGNAME, "refusing DNSMasq start while a previous instance is active");
+		return EBUSY;
+	}
+
 	status = prepare_dns_dhcpd(is_ap_mode, &service_enabled);
 	if (status != 0 || !service_enabled)
 		return status;
+
+	/* Close the preparation window if another caller started the service. */
+	if (!dnsmasq_start_policy_should_launch(is_dns_dhcpd_run())) {
+		logmessage(LOGNAME, "refusing duplicate DNSMasq launch after configuration preparation");
+		return EBUSY;
+	}
 
 	status = eval("/usr/sbin/dnsmasq");
 	if (status != 0)
@@ -625,14 +637,19 @@ start_dns_dhcpd(int is_ap_mode)
 	return status;
 }
 
-void
+int
 stop_dns_dhcpd(void)
 {
 	char* svcs[] = { "dnsmasq", NULL };
+	int status;
 
-	kill_services(svcs, 3, 1);
+	status = kill_services(svcs, 3, 1);
+	if (dnsmasq_stop_policy_should_clear_arp(status))
+		arpbind_clear();
+	else
+		logmessage(LOGNAME, "DNSMasq did not stop cleanly; retaining static ARP bindings");
 
-	arpbind_clear();
+	return status;
 }
 
 int
@@ -641,6 +658,7 @@ restart_dhcpd(void)
 	int was_running = is_dns_dhcpd_run();
 	int service_enabled = 0;
 	int prepare_status;
+	int stop_status;
 	int launch_status;
 	enum dnsmasq_restart_action action;
 
@@ -654,10 +672,11 @@ restart_dhcpd(void)
 	if (action == DNSMASQ_RESTART_ABORT)
 		return prepare_status;
 
-	stop_dns_dhcpd();
-	/* Refuse another launch if a failed stop left the previous process alive. */
-	if (is_dns_dhcpd_run()) {
-		logmessage(LOGNAME, "DNSMasq is still running after stop request; refusing duplicate launch");
+	stop_status = stop_dns_dhcpd();
+	/* A stop error or a surviving process forbids launching a second instance. */
+	if (stop_status != 0 || is_dns_dhcpd_run()) {
+		logmessage(LOGNAME, "DNSMasq stop incomplete (status=%d, running=%d); refusing duplicate launch",
+			   stop_status, is_dns_dhcpd_run());
 		return EBUSY;
 	}
 	if (action == DNSMASQ_RESTART_STOP_ONLY)

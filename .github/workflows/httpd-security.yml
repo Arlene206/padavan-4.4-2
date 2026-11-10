@@ -1371,6 +1371,7 @@ jobs:
 
           service = Path("trunk/user/rc/src/services_ex.c").read_text()
           net_wan = Path("trunk/user/rc/src/net_wan.c").read_text()
+          net_lan = Path("trunk/user/rc/src/net_lan.c").read_text()
           net_ppp = Path("trunk/user/rc/src/net_ppp.c").read_text()
           net_wan6 = Path("trunk/user/rc/src/net_wan6.c").read_text()
           vpn_client = Path("trunk/user/rc/src/vpn_client.c").read_text()
@@ -1476,9 +1477,11 @@ jobs:
           assert 'create_file(DHCPD_LEASE_FILE)' not in service
           dnsmasq_prepare = service.index("prepare_dns_dhcpd(int is_ap_mode")
           dnsmasq_start = service.index("\nint\nstart_dns_dhcpd", dnsmasq_prepare)
-          dnsmasq_stop = service.index("\nvoid\nstop_dns_dhcpd", dnsmasq_start)
+          dnsmasq_stop = service.index("\nint\nstop_dns_dhcpd", dnsmasq_start)
+          dnsmasq_restart_start = service.index("\nint\nrestart_dhcpd", dnsmasq_stop)
           dnsmasq_prepare_body = service[dnsmasq_prepare:dnsmasq_start]
           dnsmasq_start_body = service[dnsmasq_start:dnsmasq_stop]
+          dnsmasq_stop_body = service[dnsmasq_stop:dnsmasq_restart_start]
           lease_gate = dnsmasq_prepare_body.index("if (dnsmasq_lease_file_required(is_dhcp_used))")
           lease_check = dnsmasq_prepare_body.index("dnsmasq_lease_file_ensure(DHCPD_LEASE_FILE)")
           lease_directive = dnsmasq_prepare_body.index('fprintf(fp, "dhcp-leasefile=%s\\n", DHCPD_LEASE_FILE);')
@@ -1498,7 +1501,27 @@ jobs:
           assert 'fopen("/etc/dnsmasq.conf", "w")' not in dnsmasq_prepare_body
           assert 'cannot publish DNSMasq configuration' in dnsmasq_prepare_body
           assert "prepare_dns_dhcpd(is_ap_mode, &service_enabled)" in dnsmasq_start_body
-          assert dnsmasq_start_body.index("prepare_dns_dhcpd") < dnsmasq_start_body.index('eval("/usr/sbin/dnsmasq")')
+          assert dnsmasq_start_body.count("dnsmasq_start_policy_should_launch(is_dns_dhcpd_run())") == 2
+          assert dnsmasq_start_body.index("dnsmasq_start_policy_should_launch") < dnsmasq_start_body.index("prepare_dns_dhcpd")
+          assert dnsmasq_start_body.rindex("dnsmasq_start_policy_should_launch") < dnsmasq_start_body.index('eval("/usr/sbin/dnsmasq")')
+          assert "refusing DNSMasq start while a previous instance is active" in dnsmasq_start_body
+          assert "refusing duplicate DNSMasq launch after configuration preparation" in dnsmasq_start_body
+          assert "status = kill_services(svcs, 3, 1);" in dnsmasq_stop_body
+          assert "dnsmasq_stop_policy_should_clear_arp(status)" in dnsmasq_stop_body
+          assert dnsmasq_stop_body.index("dnsmasq_stop_policy_should_clear_arp") < dnsmasq_stop_body.index("arpbind_clear()")
+          assert "return status;" in dnsmasq_stop_body
+          assert "DNSMasq did not stop cleanly; retaining static ARP bindings" in dnsmasq_stop_body
+          assert "dnsmasq_start_policy_should_launch" in restart_policy
+          assert "dnsmasq_stop_policy_should_clear_arp" in restart_policy
+
+          lan_start = net_lan.index("full_restart_lan(void)")
+          lan_end = net_lan.index("\n}\n", lan_start)
+          lan_restart_body = net_lan[lan_start:lan_end]
+          assert "dnsmasq_stop_status = stop_dns_dhcpd();" in lan_restart_body
+          assert "if (dnsmasq_stop_status == 0)" in lan_restart_body
+          assert "start_dns_dhcpd(is_ap_mode)" in lan_restart_body
+          assert lan_restart_body.index("if (dnsmasq_stop_status == 0)") < lan_restart_body.index("start_dns_dhcpd(is_ap_mode)")
+          assert "DNSMasq restart skipped because the previous process did not stop" in lan_restart_body
 
           assert "DNSMASQ_RESTART_KEEP_RUNNING" in restart_policy and "DNSMASQ_RESTART_ABORT" in restart_policy
           assert "prepare_status != 0" in restart_policy
@@ -1509,12 +1532,13 @@ jobs:
           assert dnsmasq_restart_body.index("dnsmasq_restart_policy_action") < dnsmasq_restart_body.index("stop_dns_dhcpd")
           assert "DNSMASQ_RESTART_KEEP_RUNNING" in dnsmasq_restart_body
           assert "DNSMASQ_RESTART_ABORT" in dnsmasq_restart_body
-          stop_call = dnsmasq_restart_body.index("stop_dns_dhcpd();")
-          post_stop_check = dnsmasq_restart_body.index("if (is_dns_dhcpd_run())", stop_call)
+          stop_call = dnsmasq_restart_body.index("stop_status = stop_dns_dhcpd();")
+          post_stop_check = dnsmasq_restart_body.index("if (stop_status != 0 || is_dns_dhcpd_run())", stop_call)
           assert stop_call < post_stop_check < dnsmasq_restart_body.index('eval("/usr/sbin/dnsmasq")')
           assert dnsmasq_restart_body.count('eval("/usr/sbin/dnsmasq")') == 1
           assert "no unvalidated fallback attempted" in dnsmasq_restart_body
           assert "refusing duplicate launch" in dnsmasq_restart_body
+          assert "stop incomplete (status=%d, running=%d)" in dnsmasq_restart_body
           assert "DNSMasq restart policy: PASS" in restart_test
           assert 'config_fail_template' in test
           assert 'dnsmasq_file_publish(fp, config_fail_template, config_destination, 0644) == -1' in test
