@@ -190,8 +190,6 @@ main(void)
 
   /*
    * DELE must unlink the final symlink itself; RMD must not follow a symlink
-  /*
-   * DELE must unlink the final symlink itself; RMD must not follow a symlink
    * to a directory. The same helper also supports removing an empty directory.
    */
   remove_parent_fd = ftp_acl_path_open_verified_directory(a);

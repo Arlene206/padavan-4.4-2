@@ -1,3 +1,15 @@
+## 2026-11-10 08:11 CST (UTC+8) — Repair recursive-listing regression fixture and workflow contract
+
+- **Base main SHA:** `2db271ad5e46fc3128f1599d8102dab7fabb582e`.
+- **Exact-head evidence:** VSFTPD run [42725673947] targeted this SHA and failed in the first GNU89 compile/run step. Compiler output identified `-Werror=comment` at the new fixture block: the insertion retained the first two lines of an existing comment, then re-emitted its opener. Consequently none of the host binaries ran and the Python semantic contract was skipped. AI handoff docs [42725673900] passed on the same exact SHA.
+- **Correction:** remove the duplicated comment opener from `ftp_acl_path_policy.c`. Static review also caught a second stale workflow assertion comparing the LIST authorization point against the old `asus_check_permission_directory()`; update it to the new descriptor-bound `asus_check_permission_open_directory()`.
+- **Changed paths:** `trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c`, `.github/workflows/vsftpd-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and this log.
+- **Validation:** source diff/L1 review PASS. The previous VSFTPD host regression is FAIL before executing tests; AI docs passed. THIS corrected exact-head host regression, semantic source contract and AI-doc Actions are pending. No claim of host-test success is made for the previous SHA. L3 MIPS/uClibc and L4 hardware validation remain NOT VERIFIED.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** inspect exact-head Actions for THIS correction. On success, resume the remaining `ls.c` per-entry metadata and recursion resource audit; leave MDTM/SITE CHMOD, upload cleanup, DHCP/FULLCONENAT/NFS and target/device validation open.
+
+---
+
 ## 2026-11-10 08:05 CST (UTC+8) — Bind recursive FTP listing to ACL-checked directory descriptors
 
 - **Base main SHA:** `5ca27e7c420284f1ac21362e28566cfb56a693f1`; remote branches: `main` only, no checkpoint branch.

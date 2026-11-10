@@ -255,7 +255,7 @@ jobs:
           assert "ftp_acl_path_is_internal_metadata" in vsftpd_acl
           assert "ftp_acl_path_is_internal_metadata(p_filename)" in vsftpd_acl
           assert "reserved FTP metadata classification failed" in acl_path_test
-          assert directory.index("asus_check_permission_directory(") < directory.index("get_remote_transfer_fd(")
+          assert directory.index("asus_check_permission_open_directory(") < directory.index("get_remote_transfer_fd(")
           assert "asus_check_permission(p_sess, PERM_READ)" not in directory
           assert "ftp_acl_path_resolve_existing_parent" in acl_path_policy
           assert "ftp_acl_path_resolve_write_parent" in acl_path_policy

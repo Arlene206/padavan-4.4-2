@@ -49,7 +49,7 @@
 | Level | Evidence | Limits |
 |---|---|---|
 | L1 source review | PASS for the bounded DHCP/Samba/FTP upload, RETR/SIZE, DELE/RMD, MKD and RNFR/RNTO hardening, plus this round's top-level listing identity binding and no-follow, ACL-checked recursive child opens. | `ls.c` entry metadata path syscalls and wider listing visibility/resource audit remain open. |
-| L2 host / Actions | RNFR/RNTO VSFTPD and AI-doc runs [42724420056] [42724420034] completed SUCCESS on exact SHA `5ca27e7c420284f1ac21362e28566cfb56a693f1`. THIS recursive listing host/source-contract and AI-doc Actions are pending. | Host regressions do not replace target compilation or hardware testing. |
+| L2 host / Actions | Recursive listing VSFTPD run [42725673947] on exact SHA `2db271ad5e46fc3128f1599d8102dab7fabb582e` failed at GNU89 compilation because of a duplicated opening comment in the new host fixture; tests and source contract did not run. AI docs [42725673900] passed. THIS fixture/workflow correction and exact reruns are pending. | Host regressions do not replace target compilation or hardware testing. |
 | L3 MIPS/uClibc production objects / firmware/TRX | NOT VERIFIED. | Full target build phase required. |
 | L4 router/SMB/DHCP behavior and physical hardware | NOT VERIFIED. | Requires target-device validation. |
 
