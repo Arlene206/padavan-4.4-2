@@ -1,3 +1,14 @@
+## 2026-11-10 19:53 CST (UTC+8) — Correct PID 1 queue source-contract cleanup ordering
+
+- Base main SHA: `54abd9e392532488466f03fc0b355a82be2fde50`.
+- Exact-head results on the base: NFS [42811050072], USB storage [42811049953], HTTPD [42811049923], Samba [42811049999], vsftpd [42811049936] and AI docs [42811049997] completed SUCCESS. PID 1 queue workflow [42811049932] compiled and ran its GNU89 batch-policy and existing queue-marker regressions successfully.
+- Failure diagnosis: the PID 1 semantic contract compared the requeue block with the first `closedir(directory)` occurrence. The function has earlier cleanup calls on setup-error paths, so this assertion failed even though the requeue code is correctly before the final stream cleanup.
+- Correction: compare the requeue block with the final `closedir(directory)` in the extracted function body. Production C and test logic are unchanged.
+- Changed paths: the PID 1 workflow, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and this log. Root log had 42 complete newest-first headings before this entry and has 43; no archive rotation or INDEX update is due.
+- Validation: both GNU89 test steps passed on base SHA `54abd9e392532488466f03fc0b355a82be2fde50`; only the source-contract assertion needed this fix. Exact-head workflow rerun is pending. No full RC host compile, production MIPS/uClibc object, firmware/TRX or L4 router test is claimed.
+- Resulting commit: THIS COMMIT.
+- Next: inspect exact-head PID 1 queue and AI handoff Actions. Then choose a new host-verifiable stability defect from the repository-wide governance ledger.
+
 ## 2026-11-10 19:50 CST (UTC+8) — Requeue remaining PID 1 notification batches
 
 - Base main SHA: `bff7da0ce69ef6f789460afd75e47a4b5e2166c5`; the only remote branch is main. Exact-head NFS [42810176922], USB storage [42810176909] and AI handoff docs [42810176971] all completed SUCCESS, with each job step inspected.

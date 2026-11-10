@@ -83,7 +83,7 @@ jobs:
           assert "rc_notify_queue_marker_is_safe_at(queue_fd, pending_entry->d_name, 0) == 0" in handler
           assert "rc_notify_batch_should_requeue(i, queue_pending, stop_handle)" in handler
           assert "kill(1, SIGUSR1)" in handler
-          assert handler.index("rc_notify_batch_should_requeue") < handler.index("closedir(directory)")
+          assert handler.index("rc_notify_batch_should_requeue") < handler.rindex("closedir(directory)")
           assert "return !stop_handle && queue_pending" in policy
           assert "assert(rc_notify_batch_should_requeue(10, 1, 0))" in test
           assert "assert(!rc_notify_batch_should_requeue(10, 1, 1))" in test
