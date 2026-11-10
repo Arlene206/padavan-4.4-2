@@ -1,3 +1,17 @@
+## 2026-11-11 04:06 CST (UTC+8) — Fix Kbuild automatic-variable expansion for single-object targets
+
+- **Base main SHA:** f2a3c1b8dd454c747e1d4c8cd21e60afb2f0d9e0; parent aba91fcc9c94acd5e663dd00701e66a9caf3bdd1. Only remote branch: main.
+- **Exact-head Actions:** FULLCONENAT [42891285917] passed notifier/lifecycle checks, the GNU89 namespace/zone regression and contracts, concurrent IPv4/IPv6 debug-format contract, pinned toolchain archive SHA-256, bash -n trunk/configure, actual XY-C1 configure execution and all post-olddefconfig configuration assertions. AI docs [42891286096] passed.
+- **Failure evidence:** the direct object request stopped with scripts/Makefile.build:77 'kbuild: Makefile.build is included improperly' followed by 'No rule to make target xt_FULLCONENAT.o'. There was no C compiler diagnostic and no target object.
+- **Root cause:** in the 4.4 kernel top-level Makefile, build-dir and target-dir were assigned with := even though their expressions reference automatic variables $@/$<. Immediate expansion occurs before the single-object pattern recipe has an automatic target, leaving empty paths/obj. The upstream Linux v4.4 Makefile uses recursive = assignments for these same four lines.
+- **Fix:** change both branches' build-dir and target-dir assignments from := to =. This restores deferred expansion for all matching .o/.s single-file Kbuild rules rather than bypassing the real target or replacing it with a directory-wide/source-only check. Add the top-level kernel Makefile to the FULLCONENAT workflow path filters.
+- **Retained integration fixes:** configure enables NF_CONNTRACK_EVENTS based on the selected FULLCONENAT target independently of SQM; helper runs the real XY-C1 template/configure path, verifies board/CPU/endian/NAT/conntrack options, compiles xt_FULLCONENAT.o and validates ELF attributes. The preceding toolchain artifact SHA-256 check passed.
+- **Changed paths:** trunk/linux-4.4.x/Makefile, .github/workflows/fullconenat-lifecycle.yml, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and this log.
+- **Validation:** exact-head source and project-config stages passed; the target translation unit remains uncompiled until the single-object Kbuild rule is fixed and rerun. No full kernel, firmware/TRX or L4 router result is claimed.
+- **Root log:** 62 complete newest-first records before this entry; 63 after. No archive rotation or docs/dev-log/INDEX.md update is due.
+- **Next:** inspect every job, step and complete log on the new exact main SHA. Confirm the direct Kbuild request reaches CC net/netfilter/xt_FULLCONENAT.o and readelf reports ELF32/little-endian/MIPS. After success, resume repository-wide P2 stability/security work; keep FTP cleanup TOCTOU OPEN/BLOCKED pending unlink-safe staged publication.
+
+---
 ## 2026-11-11 04:02 CST (UTC+8) — Repair FULLCONENAT project-config shell integration
 
 - **Base main SHA:** aba91fcc9c94acd5e663dd00701e66a9caf3bdd1; parent af06d61dbd6bfdd7f29734be49fc154997fbad89. Only remote branch: main.

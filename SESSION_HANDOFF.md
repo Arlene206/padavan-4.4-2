@@ -1,13 +1,26 @@
 ## Current repository state
 
-- Maintained fork: Arlene206/padavan-4.4-2; operate only on this fork. Base main SHA before THIS COMMIT: aba91fcc9c94acd5e663dd00701e66a9caf3bdd1, parent af06d61dbd6bfdd7f29734be49fc154997fbad89. Remote branch inventory: only main; no checkpoint branch.
-- Exact-head Actions reconciled: FULLCONENAT run [42890657858] failed in the MIPS object step; AI handoff docs [42890657824] completed SUCCESS on the base SHA. Toolchain archive download and pinned SHA-256 verification passed. Notifier lifecycle, namespace/zone regression and contracts, and IPv4/IPv6 debug-format contract all passed. The production target object was not built.
-- Failure cause: the target helper reached ./configure, but Bash reported line 336: unexpected EOF while looking for matching single quote. The new FULLCONENAT conditional had been split at its kernel-config argument and a trailing fragment remained at the end of the script. This is a shell syntax defect in the just-added config integration, not a target compiler error.
-- Production configuration finding retained: XY-C1 enables CONFIG_NETFILTER_XT_TARGET_FULLCONENAT=y while its tracked board kernel config disables conntrack events; its product template sets SQM to n. FULLCONENAT Kconfig depends on NF_CONNTRACK_EVENTS, so the project configure path must enable events whenever the selected board config enables FULLCONENAT, independently of SQM.
-- Fix in THIS COMMIT: repair the conditional as two explicit, quoted grep -q matches for =y or =m, remove the stray suffix, and run bash -n ./configure before the target helper invokes it. The helper otherwise keeps the actual XY-C1 product config, production board/endianness assertions, MIPS object build and ELF verification; no build assertion is weakened.
-- Previous production change: remove the FULLCONENAT shared IPv4/IPv6 tuple debug buffer protected by two different locks. Its direct-format regression passed on the previous exact head.
-- Validation: exact-head semantic/source checks and toolchain SHA-256 passed; the project configure syntax check now precedes actual configure execution. THIS COMMIT's FULLCONENAT MIPS object and AI docs exact-head Actions are pending. No target object, full kernel image, firmware/TRX or L4 router result is claimed.
-- Root dev_log.md contained 61 complete newest-first records before this commit and will contain 62 after it; no archive rotation or docs/dev-log/INDEX.md update is due.
+- Maintained fork: Arlene206/padavan-4.4-2; operate only on this fork. Base main SHA before THIS COMMIT: f2a3c1b8dd454c747e1d4c8cd21e60afb2f0d9e0, parent aba91fcc9c94acd5e663dd00701e66a9caf3bdd1. Remote branch inventory: only main; no checkpoint branch.
+- **Exact-head Actions reconciled:** FULLCONENAT run [42891285917] passed the notifier lifecycle, namespace/zone regression and contracts, cross-family debug-format contract, pinned toolchain SHA-256 verification, bash syntax check, production trunk/configure execution and all XY-C1 config assertions. It then failed during the direct target-object request before compiling xt_FULLCONENAT.o. AI handoff docs [42891286096] completed SUCCESS on this exact SHA.
+- **Kbuild root cause:** the kernel top-level Makefile calculated build-dir and target-dir with immediate assignments (:=) while their values depend on automatic variable $@ (and, for external modules, $<). Immediate expansion occurs before the single-object pattern rule has an automatic target, leaving the directory/object arguments empty. The submake consequently included scripts/Makefile.build without obj and reported 'kbuild: Makefile.build is included improperly' / 'No rule to make target xt_FULLCONENAT.o'. The upstream Linux v4.4 rule uses recursive '=' assignments for these four expressions.
+- **Fix in THIS COMMIT:** change the two build-dir and two target-dir assignments to recursive '=' so automatic variables are evaluated when the .o/.s pattern recipe runs. The existing FULLCONENAT MIPS helper retains the real XY-C1 product configuration and direct production translation-unit target; the lifecycle workflow now watches the top-level kernel Makefile.
+- **Production configuration fix retained:** trunk/configure enables NF_CONNTRACK_EVENTS whenever the selected board kernel config enables FULLCONENAT, independently of SQM. The helper proves this on the XY-C1 template, whose SQM option is disabled but whose board config enables FULLCONENAT.
+- **Previous source fix retained:** the shared IPv4/IPv6 FULLCONENAT tuple debug buffer was removed because the two address families used separate locks around the same shared storage.
+- **Validation:** on the exact previous head, semantic/source checks, archive integrity, project configure syntax and configuration assertions all passed. The direct Kbuild single-object request exposed the Makefile rule bug; no target object or ELF header was produced. The updated object build and AI docs Actions are pending on the new exact head. No full kernel image, firmware/TRX or L4 router result is claimed.
+- Root dev_log.md contained 62 complete newest-first records before this commit and will contain 63 after it; no archive rotation or docs/dev-log/INDEX.md update is due.
+
+## Active task
+
+- Reconcile the exact-head FULLCONENAT and AI handoff Actions. Confirm the direct single-object Kbuild rule now passes the correct directory/target to scripts/Makefile.build, then verify xt_FULLCONENAT.o is a real ELF32 little-endian MIPS object.
+- Inspect the entire failed/successful job logs rather than relying on step names. Do not replace the single-target build with a source-only test or silently build a different file.
+- After this target object is proven, continue the repository-wide P2 stability/security queue: FTP failed-upload cleanup TOCTOU remains OPEN/BLOCKED pending a proven staged-publication design; NFS export/client semantics need real client evidence; DNSMasq/RC production MIPS/uClibc lifecycle concurrency, wireless board detach and WAN reconnect/IPv6 rollback remain open.
+
+## Exact first action for the next GPT
+
+1. Fetch live main, record exact SHA and parent, and check remote branch/checkpoint inventory.
+2. Inspect all jobs, steps and complete logs in the exact-head FULLCONENAT and AI docs runs. Confirm Kbuild reached CC net/netfilter/xt_FULLCONENAT.o and readelf reports ELF32/little-endian/MIPS.
+3. If successful, record only this bounded XY-C1 MIPS32r2 target-object/config/toolchain result—not a complete kernel, firmware/TRX, uClibc, or router result. If it fails, diagnose the actual next Kbuild/compiler error without weakening the target.
+4. Resume the highest-value repository-wide P2 item. FTP upload-cleanup TOCTOU stays OPEN/BLOCKED until an unlink-safe staged-publication design is proven; NFS compatibility and L4 behavior remain unverified.
 
 ## Active task
 

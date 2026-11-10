@@ -1619,12 +1619,12 @@ tools/%: FORCE
 #  build-dir  => directory in kernel source tree to use
 
 ifeq ($(KBUILD_EXTMOD),)
-        build-dir  := $(patsubst %/,%,$(dir $@))
-        target-dir := $(dir $@)
+        build-dir  = $(patsubst %/,%,$(dir $@))
+        target-dir = $(dir $@)
 else
         zap-slash=$(filter-out .,$(patsubst %/,%,$(dir $@)))
-        build-dir  := $(KBUILD_EXTMOD)$(if $(zap-slash),/$(zap-slash))
-        target-dir := $(if $(KBUILD_EXTMOD),$(dir $<),$(dir $@))
+        build-dir  = $(KBUILD_EXTMOD)$(if $(zap-slash),/$(zap-slash))
+        target-dir = $(if $(KBUILD_EXTMOD),$(dir $<),$(dir $@))
 endif
 
 %.s: %.c prepare scripts FORCE
