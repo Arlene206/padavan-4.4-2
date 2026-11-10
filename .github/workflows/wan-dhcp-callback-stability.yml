@@ -7,12 +7,16 @@ on:
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/dhcp_wan_interface_policy.h"
       - "trunk/user/rc/src/tests/dhcp_wan_interface_policy.c"
+      - "trunk/user/rc/src/wan_viptv_static_policy.h"
+      - "trunk/user/rc/src/tests/wan_viptv_static_policy.c"
   pull_request:
     paths:
       - ".github/workflows/wan-dhcp-callback-stability.yml"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/dhcp_wan_interface_policy.h"
       - "trunk/user/rc/src/tests/dhcp_wan_interface_policy.c"
+      - "trunk/user/rc/src/wan_viptv_static_policy.h"
+      - "trunk/user/rc/src/tests/wan_viptv_static_policy.c"
 
 jobs:
   wan-dhcp-callback:
@@ -27,6 +31,14 @@ jobs:
             trunk/user/rc/src/tests/dhcp_wan_interface_policy.c \
             -o /tmp/dhcp-wan-interface-policy
           /tmp/dhcp-wan-interface-policy
+      - name: Compile and run static IPTV startup status regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/wan_viptv_static_policy.c \
+            -o /tmp/wan-viptv-static-policy
+          /tmp/wan-viptv-static-policy
       - name: Verify WAN callback applies interface before publishing lease state
         run: |
           python3 - <<'PY'
@@ -121,11 +133,58 @@ jobs:
           assert "preserving route inventory" in viptv_deconfig
           assert "ret = route_status;" in viptv_deconfig
 
+          assert '#include "wan_viptv_static_policy.h"' in source
+          static_start = body(source, "launch_viptv_wan(void)")
+          static_policy = body((rc / "wan_viptv_static_policy.h").read_text(),
+                               "wan_viptv_static_start(")
+          assert "if (viptv_mode == 2)" in static_start
+          invalid_static = static_start.index(
+              "if (!is_valid_ipv4(viptv_addr) || !is_valid_ipv4(viptv_mask))")
+          static_call = static_start.index("wan_viptv_static_start(")
+          assert invalid_static < static_call
+          assert "return EINVAL;" in static_start[invalid_static:static_call]
+          assert "return ret;" in static_start[static_call:]
+          assert "wan_viptv_static_start(is_valid_ipv4(viptv_gate)," in static_start
+          assert "IPTV VLAN or service setup incomplete" in source
+
+          set_address = body(source,
+                             "wan_viptv_static_configure_address(void *opaque)")
+          publish_address = body(source,
+                                 "wan_viptv_static_publish_address(void *opaque)")
+          publish_gateway = body(source,
+                                 "wan_viptv_static_publish_gateway(void *opaque)")
+          add_route = body(source,
+                           "wan_viptv_static_add_default_route(void *opaque)")
+          start_multicast = body(source,
+                                 "wan_viptv_static_start_multicast(void *opaque)")
+          assert "ifconfig(context->ifname, IFUP, context->ipaddr, context->netmask)" in set_address
+          assert 'nvram_set_temp("manv_ipaddr", context->ipaddr)' in publish_address
+          assert 'nvram_set_temp("manv_netmask", context->netmask)' in publish_address
+          assert 'nvram_set_temp("manv_gateway"' in publish_gateway
+          assert 'route_add(context->ifname, 10, "0.0.0.0"' in add_route
+          assert "start_igmpproxy(context->ifname)" in start_multicast
+          assert static_policy.index("ops->configure_address(context)") < static_policy.index("ops->publish_address(context)")
+          assert static_policy.index("ops->publish_address(context)") < static_policy.index("ops->publish_gateway(context)")
+          assert static_policy.index("ops->publish_gateway(context)") < static_policy.index("ops->add_default_route(context)")
+          assert static_policy.index("ops->add_default_route(context)") < static_policy.index("ops->start_multicast(context)")
+          assert "if (status != 0)\n\t\treturn status;" in static_policy
+          static_test = (rc / "tests/wan_viptv_static_policy.c").read_text()
+          for case in (
+              "test_address_failure_does_not_publish_or_start_services",
+              "test_successful_start_orders_address_state_route_and_multicast",
+              "test_route_failure_is_reported_after_recovery_state_publication",
+              "test_missing_gateway_skips_default_route",
+              "test_invalid_arguments_fail_before_side_effects",
+          ):
+              assert case in static_test
+
           paths = (
               ".github/workflows/wan-dhcp-callback-stability.yml",
               "trunk/user/rc/src/net_wan.c",
               "trunk/user/rc/src/dhcp_wan_interface_policy.h",
               "trunk/user/rc/src/tests/dhcp_wan_interface_policy.c",
+              "trunk/user/rc/src/wan_viptv_static_policy.h",
+              "trunk/user/rc/src/tests/wan_viptv_static_policy.c",
           )
           filters = workflow.split("jobs:", 1)[0]
           push_filters, pr_filters = filters.split("  pull_request:", 1)

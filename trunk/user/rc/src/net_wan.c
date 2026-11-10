@@ -37,6 +37,7 @@
 #include "wan_teardown_policy.h"
 #include "dhcp_lease_policy.h"
 #include "dhcp_wan_interface_policy.h"
+#include "wan_viptv_static_policy.h"
 #include "switch.h"
 #include "switch_status_policy.h"
 #include <gpioutils.h>
@@ -630,6 +631,70 @@ wait_apcli_connected(const char *ifname, int wait_sec)
 	return 0;
 }
 
+
+struct wan_viptv_static_start_context {
+	char *ifname;
+	char *ipaddr;
+	char *netmask;
+	char *gateway;
+};
+
+static int
+wan_viptv_static_configure_address(void *opaque)
+{
+	struct wan_viptv_static_start_context *context =
+		(struct wan_viptv_static_start_context *)opaque;
+
+	return ifconfig(context->ifname, IFUP, context->ipaddr, context->netmask);
+}
+
+static void
+wan_viptv_static_publish_address(void *opaque)
+{
+	struct wan_viptv_static_start_context *context =
+		(struct wan_viptv_static_start_context *)opaque;
+
+	nvram_set_temp("manv_ipaddr", context->ipaddr);
+	nvram_set_temp("manv_netmask", context->netmask);
+}
+
+static void
+wan_viptv_static_publish_gateway(void *opaque)
+{
+	struct wan_viptv_static_start_context *context =
+		(struct wan_viptv_static_start_context *)opaque;
+
+	nvram_set_temp("manv_gateway",
+		       is_valid_ipv4(context->gateway) ? context->gateway : "");
+}
+
+static int
+wan_viptv_static_add_default_route(void *opaque)
+{
+	struct wan_viptv_static_start_context *context =
+		(struct wan_viptv_static_start_context *)opaque;
+
+	return route_add(context->ifname, 10, "0.0.0.0",
+			 context->gateway, "0.0.0.0");
+}
+
+static void
+wan_viptv_static_start_multicast(void *opaque)
+{
+	struct wan_viptv_static_start_context *context =
+		(struct wan_viptv_static_start_context *)opaque;
+
+	start_igmpproxy(context->ifname);
+}
+
+static const struct wan_viptv_static_ops wan_viptv_static_start_ops = {
+	wan_viptv_static_configure_address,
+	wan_viptv_static_publish_address,
+	wan_viptv_static_publish_gateway,
+	wan_viptv_static_add_default_route,
+	wan_viptv_static_start_multicast
+};
+
 static int
 launch_viptv_wan(void)
 {
@@ -734,24 +799,28 @@ launch_viptv_wan(void)
 	viptv_addr = nvram_safe_get("viptv_ipaddr");
 	viptv_mask = nvram_safe_get("viptv_netmask");
 
-	if (viptv_mode == 2 && is_valid_ipv4(viptv_addr) && is_valid_ipv4(viptv_mask)) {
-		char tmp[32], prefix[8];
-		
-		strcpy(prefix, "manv_");
-		nvram_set_temp(strcat_r(prefix, "ipaddr", tmp), viptv_addr);
-		nvram_set_temp(strcat_r(prefix, "netmask", tmp), viptv_mask);
-		ifconfig(viptv_ifname, IFUP, viptv_addr, viptv_mask);
-		
-		/* default route via default gateway (metric 10) */
-		viptv_gate = nvram_safe_get("viptv_gateway");
-		if (is_valid_ipv4(viptv_gate)) {
-			nvram_set_temp(strcat_r(prefix, "gateway", tmp), viptv_gate);
-			route_add(viptv_ifname, 10, "0.0.0.0", viptv_gate, "0.0.0.0");
+	if (viptv_mode == 2) {
+		struct wan_viptv_static_start_context context;
+
+		if (!is_valid_ipv4(viptv_addr) || !is_valid_ipv4(viptv_mask)) {
+			logmessage(LOGNAME, "rejecting invalid static IPTV address or netmask");
+			return EINVAL;
 		}
-		
-		logmessage(LOGNAME, "%s %s (%s)", "IPTV MAN", "up", viptv_ifname);
-		
-		start_igmpproxy(viptv_ifname);
+
+		viptv_gate = nvram_safe_get("viptv_gateway");
+		context.ifname = viptv_ifname;
+		context.ipaddr = viptv_addr;
+		context.netmask = viptv_mask;
+		context.gateway = viptv_gate;
+
+		ret = wan_viptv_static_start(is_valid_ipv4(viptv_gate),
+					     &wan_viptv_static_start_ops, &context);
+		if (ret != 0)
+			logmessage(LOGNAME, "static IPTV startup incomplete on %s (error=%d)",
+				   viptv_ifname, ret);
+		else
+			logmessage(LOGNAME, "%s %s (%s)", "IPTV MAN", "up", viptv_ifname);
+		return ret;
 	} else if (viptv_mode == 1) {
 		start_zcip_viptv(viptv_ifname);
 	} else {
@@ -932,7 +1001,7 @@ start_wan(void)
 
 	vlan_result = launch_viptv_wan();
 	if (vlan_result != 0)
-		logmessage(LOGNAME, "skipping IPTV VLAN setup after switch PVID failure (%d)", vlan_result);
+		logmessage(LOGNAME, "IPTV VLAN or service setup incomplete (error=%d)", vlan_result);
 
 	config_apcli_wisp();
 
