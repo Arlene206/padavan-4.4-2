@@ -142,6 +142,7 @@ const char* vsf_sysutil_statbuf_get_sortkey_mtime(
 int vsf_sysutil_chmod(const char* p_filename, unsigned int mode);
 void vsf_sysutil_fchown(const int fd, const int uid, const int gid);
 void vsf_sysutil_fchmod(const int fd, unsigned int mode);
+int vsf_sysutil_fchmod_ret(const int fd, unsigned int mode);
 int vsf_sysutil_readlink(const char* p_filename, char* p_dest,
                          unsigned int bufsiz);
 int vsf_sysutil_readlinkat(int dir_fd, const char* p_filename,
@@ -348,6 +349,7 @@ long vsf_sysutil_get_time_usec(void);
 long vsf_sysutil_parse_time(const char* p_text);
 void vsf_sysutil_sleep(double seconds);
 int vsf_sysutil_setmodtime(const char* p_file, long the_time, int is_localtime);
+int vsf_sysutil_setmodtime_fd(int fd, long the_time, int is_localtime);
 
 /* Limits */
 void vsf_sysutil_set_address_space_limit(unsigned long bytes);

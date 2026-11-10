@@ -1524,6 +1524,12 @@ vsf_sysutil_fchmod(const int fd, unsigned int mode)
 }
 
 int
+vsf_sysutil_fchmod_ret(const int fd, unsigned int mode)
+{
+  return fchmod(fd, mode & 0777);
+}
+
+int
 vsf_sysutil_chmod(const char* p_filename, unsigned int mode)
 {
   /* Safety: mask "mode" to just access permissions, e.g. no suid setting! */
@@ -2827,6 +2833,21 @@ vsf_sysutil_setmodtime(const char* p_file, long the_time, int is_localtime)
   new_times.actime = the_time;
   new_times.modtime = the_time;
   return utime(p_file, &new_times);
+}
+
+int
+vsf_sysutil_setmodtime_fd(int fd, long the_time, int is_localtime)
+{
+  struct timeval new_times[2];
+
+  if (!is_localtime)
+  {
+    the_time -= s_timezone;
+  }
+  new_times[0].tv_sec = the_time;
+  new_times[0].tv_usec = 0;
+  new_times[1] = new_times[0];
+  return futimes(fd, new_times);
 }
 
 void

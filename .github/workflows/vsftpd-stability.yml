@@ -318,11 +318,21 @@ jobs:
           assert "renameat allowed a reserved destination leaf" in acl_path_test
           assert "descriptor-relative MKD did not create directory" in acl_path_test
           assert "descriptor-relative MKD accepted reserved metadata" in acl_path_test
+          assert "asus_open_existing_path(p_sess," in mdtm
           assert "can_write ? PERM_WRITE : PERM_READ" in mdtm
-          assert "asus_check_permission_existing_path(p_sess, PERM_WRITE" in chmod
-          assert size.index("asus_open_existing_path(") < size.index("vsf_sysutil_fstat(")
-          assert mdtm.index("asus_check_permission_existing_path(") < mdtm.index("vsf_sysutil_setmodtime(")
-          assert chmod.index("asus_check_permission_existing_path(") < chmod.index("str_chmod(")
+          assert "can_write ? 0 : 1" in mdtm
+          assert "vsf_sysutil_fstat(opened_file" in mdtm
+          assert "vsf_sysutil_setmodtime_fd(opened_file" in mdtm
+          assert "vsf_sysutil_setmodtime(" not in mdtm
+          assert "asus_open_existing_path(" in chmod
+          assert "p_sess, PERM_WRITE, &s_chmod_file_str, 0," in chmod
+          assert "vsf_sysutil_fchmod_ret(opened_file" in chmod
+          assert "str_chmod(" not in chmod
+          assert "int vsf_sysutil_fchmod_ret(const int fd, unsigned int mode);" in vsftpd_sysutil_header
+          assert "int vsf_sysutil_setmodtime_fd(int fd, long the_time, int is_localtime);" in vsftpd_sysutil_header
+          assert "return fchmod(fd, mode & 0777);" in vsftpd_sysutil
+          assert "return futimes(fd, new_times);" in vsftpd_sysutil
+          assert "descriptor metadata mutation followed a replaced pathname" in acl_path_test
           assert "ftp_acl_path_is_internal_metadata(str_getbuf(p_path_str))" in acl_path
           assert "ftp_acl_path_is_internal_metadata(str_getbuf(p_path_str))" in acl_existing
           assert "ftp_acl_path_is_internal_metadata(str_getbuf(p_path_str))" in acl_upload

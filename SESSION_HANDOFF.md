@@ -1,28 +1,13 @@
 ## Current repository state
 
 - Maintained fork: `Arlene206/padavan-4.4-2`; work only on this repository.
-- Branch inventory at takeover: `main` only; no remote checkpoint branch. No force-pushes were used.
-- **Last reconciled main SHA:** `fc0d7b6694a58cd5b396ea2219765803c257913d`. AI handoff documentation [42746896717] passed on this SHA. HTTPD [42746896790] still failed only in `Verify DHCP lease input and renewal reconciliation`: the new assertion tried to call the earlier step's local Python `body()` helper, which is not defined in this independent script block (NameError at line 159). The shared helper implementation check itself passed. The next correction uses a bounded direct source slice for the IPTV dispatcher.
-- **Resolved failure:** HTTPD [42741673534] failed in a stale Python extractor, not production code. The current workflow now checks the status-gated startup expression; its exact-head rerun [42742135752] is green.
-- **Current development slice:** finish the HTTPD source-contract extractor without relying on a Python helper scoped to a different YAML run block. The failed attempt already confirmed the shared `manv_route_deconfig()` definition contains the route deletion; replace the dispatcher `body()` call with a bounded slice from `udhcpc_viptv_main()` up to `zcip_main()`, then rerun HTTPD + docs against the exact new SHA.
-- **Next after validation:** once all exact-head Actions are green, move on to FTP MDTM/SITE CHMOD descriptor-relative metadata authorization and the Linux 4.4 upload-cleanup check/unlink race review.
-
-- Samba production implementation commit: `1a7097ace2e6c689cb7e92cd10055967d99fe143` (parent `6b44e023c2f669865fc8b5cb5425d824b8335d8b`). Follow-up commits updated the Samba and HTTPD semantic workflow extractors after initial assertions still referenced the previous writer layout.
-- Exact Actions evidence:
-  - FIFO fixture teardown correction [42730772799] and AI handoff docs [42730772420] both completed SUCCESS on exact SHA `edd8688641cd5bb6fcefea325880f7c4c56aa511`; the three GNU89 host tests and Python semantic contract all passed.
-  - Latest ACL config reader head `cd3d66c4687d8e207ce293c088f2920b1ccc7a6d`: VSFTPD [42728646505] FAILED in the final ACL-path fixture teardown after the first two host binaries passed; AI docs [42728646431] SUCCESS on the same exact SHA. The production reader implementation was not identified as the failure; the FIFO test fixture remained in `shareA` and caused `rmdir()` to fail.
-  - Samba share configuration regression [42708213921] completed SUCCESS on exact SHA `e9a93eb84ac9f95447150869fab7e0ae1c2da9ff`. GNU89 host compilation/execution passed for config-file, passdb policy, the new paired transaction, and daemon policy tests; the full Samba source-order contract also passed.
-  - HTTPD Authentication/Security regression [42708503436] completed SUCCESS on exact SHA `258532a78922549698bc6d9b869c7777f8f4ac05`, including Samba share/ACL trust-boundary checks and the updated unlocked-writer source extractor.
-  - AI handoff documentation validation [42708503300] completed SUCCESS on exact SHA `258532a78922549698bc6d9b869c7777f8f4ac05`.
-  - VSFTPD run [42720948938] on exact SHA `4c0d2d8acd9f16c175037a64e4f05494ec7e565f` completed GNU89 host compilation and all three host test executions successfully, including the new ACL-path regression, then failed in the Python semantic source contract at the stale SIZE ordering assertion (`size.index()` still expected the removed path-based check/stat calls). AI handoff docs [42720949030] completed SUCCESS on that exact SHA. THIS COMMIT also updates the stale source-order assertion and the metadata-target classifier count (now four after the added canonical-target check).
-  - Final RETR/SIZE exact-head regression [42721150755] and AI handoff docs [42721150532] both completed SUCCESS on exact SHA `bfd883ad75d5579c54922432a597efcade5a7509`; GNU89 host tests and the descriptor-based source contract both passed.
-  - DELE/RMD descriptor-relative mutation regression [42721783706] and AI handoff docs [42721783725] both completed SUCCESS on exact SHA `05c7a13f44e64b4ba81f4af34b1000bb8eb4792e`; GNU89 policy tests and source-contract checks passed.
-  - MKD descriptor-relative creation regression [42722114919] and AI handoff docs [42722114837] both completed SUCCESS on exact SHA `9b6c65686ad95295fd456e074292638a6c9ccf92`; GNU89 host suites and semantic source contract passed.
-  - RNFR/RNTO rename commit `2953898fb09e4d5535fd0628bb3c74bb8b21a831` had an intermediate source-contract assertion defect after its GNU89 host suites passed. The corrected denial/post-rename cleanup contract and descriptor-relative rename regression completed SUCCESS on exact SHA `5ca27e7c420284f1ac21362e28566cfb56a693f1` (VSFTPD [42724420056], AI docs [42724420034]). Later recursive listing and per-entry metadata regressions passed on their exact SHAs.
-  - Initial attempts on `1a7097a...` failed only in stale semantic workflow extractors; the new transaction host test itself passed. The assertions were corrected and later exact-SHA runs above passed. Do not report the initial failures as green.
-- The exact-head DHCP callback and handoff checks on `6b44e023c2f669865fc8b5cb5425d824b8335d8b` were already SUCCESS: WAN DHCP callback [42703609156] and AI handoff docs [42703609087].
-- Root `dev_log.md` contains 104 complete newest-first records after this ZeroConf entry and remains below the 119-record / 384 KiB early-rotation thresholds; no archive rotation is due.
-- L3 production RC/MIPS/uClibc/firmware builds and L4 physical router validation are NOT VERIFIED.
+- Branch inventory at the latest takeover: `main` only, no remote checkpoint branch. No force-pushes are used.
+- **Last fully reconciled main SHA:** `c5ec0e4c0d33e53f784a06763d479cddbc35dcbd`. AI handoff docs [42747120963] and HTTPD authentication/disclosure policy [42747121115] both completed SUCCESS on this exact SHA; the HTTPD job's host regressions and semantic source checks were green.
+- **Current development slice:** make FTP `MDTM` and `SITE CHMOD` descriptor-relative after ACL resolution. Both handlers now obtain a pinned regular-file descriptor through `asus_open_existing_path()`; MDTM reads metadata with `fstat` and writes timestamps with `futimes(fd)`; CHMOD applies `fchmod(fd)`. New recoverable sysutil wrappers preserve FTP error responses instead of terminating the process. A host regression pins an existing file, renames its directory entry, creates a replacement at the same name, and verifies descriptor metadata operations affect only the original inode. The VSFTPD GNU89 and semantic Actions are pending on THIS COMMIT.
+- **Known open issue:** upload failure cleanup still has a check-then-`unlinkat` window after inode identity validation. The existing regression catches replacement before validation, not the inter-operation race. Do not describe it as atomically solved. Audit Linux 4.4 capabilities and design a fail-closed bounded cleanup change separately.
+- **Next after exact-head reconciliation:** inspect and address the upload cleanup race. Then resume the global P2 queue with FULLCONENAT target kernel/MIPS object validation, NFS compatibility and idempotent wireless bridge membership. PPP/IPv6 callback lifecycle and all L3/L4 device validation remain visible.
+- Root `dev_log.md` contains 107 complete newest-first records and remains below the 119-record / 384 KiB early-rotation thresholds; no archive rotation is due.
+- L3 production RC/MIPS/uClibc objects, firmware/TRX and L4 physical-router validation remain NOT VERIFIED.
 
 ## Completed DHCP callback and BusyBox event-state review
 
@@ -95,26 +80,25 @@
 
 ## Active task
 
-1. **ZeroConf production change** remains committed at `e79e88c011dca8c1a046b1df945cd57f300ff3f4`: transactional WAN/IPTV link-local address apply, propagated WAN MAN route status, retry-safe MAN teardown inventory and defensive IPTV ZeroConf deconfig; BusyBox 1.24 `zcip -q` lifecycle was inspected and intentionally left unchanged.
-2. **Exact-head history:** on `e79e88c...`, WAN callback [42746555691], teardown [42746555514], route [42746555502] and AI docs [42746555591] passed. HTTPD [42746555780] failed on an outdated assertion shape. The first contract correction in `fc0d7b6694a58cd5b396ea2219765803c257913d` updated helper/caller expectations; docs [42746896717] passed, but HTTPD [42746896790] then failed at line 159 with `NameError: name 'body' is not defined` because that helper was scoped to a prior independent YAML run block. The shared-helper existence assertion already passed.
-3. **THIS follow-up:** directly slice the `udhcpc_viptv_main()` dispatcher to `zcip_main()`, then assert the dispatcher calls `manv_route_deconfig()`. This is a test-contract-only correction; production code remains unchanged.
-4. **First next action:** inspect exact-head HTTPD + AI handoff documentation Actions. For a red result, retrieve its job logs and address only the failing assertion or production defect actually shown.
-5. After all exact-head Actions pass, start FTP MDTM/SITE CHMOD descriptor-relative metadata authorization and the Linux 4.4 upload-cleanup check/unlink race audit. Keep FULLCONENAT target MIPS build, NFS compatibility, wireless bridge membership and L3/L4 device validation open.
+1. **FTP MDTM / SITE CHMOD descriptor-relative metadata slice.** Keep `vsf_access_check_file()` deny-file filtering, then resolve share ACLs and pin the existing regular file with `asus_open_existing_path()`. MDTM now fstats the pinned descriptor and changes timestamps with `vsf_sysutil_setmodtime_fd()`; SITE CHMOD changes mode with recoverable `vsf_sysutil_fchmod_ret()`. The handlers no longer authorize one pathname and mutate a separately re-resolved path.
+2. **Host regression:** the VSFTPD path-policy binary now pins a file through `ftp_acl_path_open_existing_file()`, renames that entry, creates a replacement at the original leaf, and verifies descriptor-based mode/mtime changes stay with the original inode. Workflow semantic assertions cover both handler call paths and sysutil declarations/implementations.
+3. **Validation pending:** run `.github/workflows/vsftpd-stability.yml` and AI handoff docs against the exact resulting `main` SHA. The base c5 SHA's docs and HTTPD Actions are green; do not count them as validation for this commit.
+4. **Next bounded task:** audit `asus_cleanup_failed_upload()` / `ftp_acl_path_unlink_opened_entry()`. The current inode comparison protects against replacement before validation but cannot close the race between `fstatat()` and `unlinkat()`. Check Linux 4.4 renameat2/syscall and uClibc availability before choosing an atomic quarantine or fail-closed fallback. Keep the race open until proven.
+5. Keep FULLCONENAT target kernel/MIPS object validation, NFS compatibility, bridge membership idempotency, PPP/IPv6 callback lifecycle and L3/L4 validation in the global queue.
 
 ## Verification boundary
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for ZeroConf validate/apply/publish ordering, address rollback, MAN route-status propagation, retry-preserving MAN teardown, interface-clear-gated address identity clearing and defensive IPTV deconfig. BusyBox `zcip -q` lifecycle inspected and intentionally preserved. |
-| L2 host / Actions | On `fc0d7b6694a58cd5b396ea2219765803c257913d`: AI handoff docs [42746896717] SUCCESS. HTTPD [42746896790] FAILED only because the follow-up Python extractor referenced undefined `body()` at line 159; the helper-definition check and all preceding DHCP policy tests passed. The direct-slice fix is pending exact-head validation. |
+| L1 source review | PASS for MDTM descriptor-relative ACL/open/fstat/futimes ordering; PASS for SITE CHMOD descriptor-relative ACL/open/fchmod ordering; PASS for recoverable syscall error paths and the inode-replacement regression design. Upload cleanup retains an unresolved check/unlink race. |
+| L2 host / Actions | Base SHA `c5ec0e4c0d33e53f784a06763d479cddbc35dcbd`: AI handoff docs [42747120963] and HTTPD security [42747121115] completed SUCCESS. THIS COMMIT's VSFTPD GNU89 host binary, descriptor-metadata replacement regression and source-contract checks are pending exact-head Actions; AI docs check is also pending for the changed handoff. |
 | L3 production RC/MIPS/uClibc/firmware builds | NOT VERIFIED. |
 | L4 physical router behavior | NOT VERIFIED. |
-
 ## Exact first action for the next GPT
 
-1. Fetch current `main`, check the exact SHA, and inspect HTTPD security + AI docs Actions. If HTTPD fails, inspect the job log and repair that specific assertion or demonstrated production issue.
-2. Once all exact-head Actions pass, audit `trunk/user/vsftpd/src/postlogin.c`, `asus_ext.c`, `sysutil.c` and FTP ACL path helpers. Prioritize MDTM/SITE CHMOD descriptor-relative authorization and upload cleanup's Linux 4.4 check/unlink race; write a host regression that models replacement between validation and unlink.
-3. Keep FULLCONENAT target kernel/MIPS build, NFS compatibility, wireless bridge membership idempotency and L3/L4 validation boundaries visible.
+1. Fetch live `main`, confirm its exact SHA and branch/checkpoint inventory, then inspect all Actions whose `head_sha` exactly matches it. Confirm VSFTPD host test (including the descriptor-pinning regression), Python source contract and AI handoff docs; inspect complete logs for every failure.
+2. If exact-head Actions are green, perform a focused Linux 4.4 source audit of `ftp_acl_path_unlink_opened_entry()`: determine which renameat2 flags/syscalls exist in this tree and the matching MIPS/uClibc headers/runtime. The current check-then-`unlinkat` sequence still has a TOCTOU window. Implement a fail-closed, tested bounded design only after verifying target support; otherwise preserve the honest limitation.
+3. Keep FULLCONENAT target kernel/MIPS build, NFS compatibility, wireless bridge membership idempotency, PPP/IPv6 callback lifecycle and L3/L4 validation visible.
 
 ## Continuation rules
 

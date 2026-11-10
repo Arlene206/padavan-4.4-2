@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <unistd.h>
 #include <limits.h>
 #include "ftp_acl_path_policy.h"
@@ -69,6 +70,7 @@ main(void)
   int existing_dir_fd, existing_file_fd, remove_parent_fd;
   int child_parent_fd, child_dir_fd;
   int rename_source_fd, rename_destination_fd, metadata_fd;
+  int metadata_original_fd, metadata_replacement_fd, metadata_seed_fd;
   char existing_leaf[PATH_MAX], readback[16];
   char link_target[PATH_MAX];
   char remove_link[PATH_MAX], remove_dir_link[PATH_MAX], empty_dir[PATH_MAX];
@@ -648,12 +650,79 @@ main(void)
     return 1;
   }
 
+  /*
+   * MDTM and SITE CHMOD must mutate the inode authorized at open time.
+   * Pin the original through the existing-file helper, replace its old leaf,
+   * then apply the metadata operations through the pinned descriptor.
+   */
+  existing_dir_fd = ftp_acl_path_open_verified_directory(a);
+  if (existing_dir_fd < 0) {
+    perror("open metadata race directory");
+    return 1;
+  }
+  metadata_seed_fd = openat(existing_dir_fd, "metadata-target",
+      O_CREAT | O_EXCL | O_WRONLY | O_NOFOLLOW | O_CLOEXEC, 0600);
+  if (metadata_seed_fd < 0 ||
+      write(metadata_seed_fd, "original", 8) != 8 ||
+      close(metadata_seed_fd) != 0) {
+    perror("prepare descriptor-relative metadata target");
+    return 1;
+  }
+  metadata_original_fd = ftp_acl_path_open_existing_file(
+      existing_dir_fd, "metadata-target", 0);
+  if (metadata_original_fd < 0 ||
+      renameat(existing_dir_fd, "metadata-target",
+               existing_dir_fd, "metadata-target.saved") != 0) {
+    perror("pin and rename metadata target");
+    return 1;
+  }
+  metadata_replacement_fd = openat(existing_dir_fd, "metadata-target",
+      O_CREAT | O_EXCL | O_RDWR | O_NOFOLLOW | O_CLOEXEC, 0600);
+  if (metadata_replacement_fd < 0 ||
+      write(metadata_replacement_fd, "replacement", 11) != 11 ||
+      fchmod(metadata_replacement_fd, 0600) != 0) {
+    perror("install metadata replacement entry");
+    return 1;
+  }
+  {
+    struct timeval target_times[2];
+    struct stat original_opened, original_named, replacement_named;
+
+    target_times[0].tv_sec = 1234567890;
+    target_times[0].tv_usec = 0;
+    target_times[1] = target_times[0];
+    if (fchmod(metadata_original_fd, 0640) != 0 ||
+        futimes(metadata_original_fd, target_times) != 0 ||
+        fstat(metadata_original_fd, &original_opened) != 0 ||
+        fstatat(existing_dir_fd, "metadata-target.saved", &original_named,
+                AT_SYMLINK_NOFOLLOW) != 0 ||
+        fstatat(existing_dir_fd, "metadata-target", &replacement_named,
+                AT_SYMLINK_NOFOLLOW) != 0 ||
+        original_opened.st_dev != original_named.st_dev ||
+        original_opened.st_ino != original_named.st_ino ||
+        (original_opened.st_mode & 0777) != 0640 ||
+        original_opened.st_mtime != (time_t)1234567890 ||
+        (replacement_named.st_mode & 0777) != 0600 ||
+        replacement_named.st_mtime == (time_t)1234567890) {
+      fprintf(stderr, "descriptor metadata mutation followed a replaced pathname\n");
+      return 1;
+    }
+  }
+  if (close(metadata_original_fd) != 0 ||
+      close(metadata_replacement_fd) != 0 ||
+      unlinkat(existing_dir_fd, "metadata-target", 0) != 0 ||
+      unlinkat(existing_dir_fd, "metadata-target.saved", 0) != 0 ||
+      close(existing_dir_fd) != 0) {
+    perror("clean descriptor metadata fixtures");
+    return 1;
+  }
+
   if (unlink(fifo_file) || unlink(metadata_alias) || unlink(metadata_file) ||
       unlink(dir_alias) || unlink(broken_link) || unlink(link_file) ||
       unlink(file_a) || unlink(file_b) || rmdir(dir_b) ||
       unlink(alias) || rmdir(a) || rmdir(b) || rmdir(root)) {
     perror("remove fixture"); return 1;
   }
-  puts("vsftpd ACL path parent policy: PASS");
+  puts("vsftpd ACL path and descriptor metadata policy: PASS");
   return 0;
 }

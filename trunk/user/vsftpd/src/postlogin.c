@@ -1612,6 +1612,8 @@ handle_site_chmod(struct vsf_session* p_sess, struct mystr* p_arg_str)
   static struct mystr s_chmod_file_str;
   unsigned int perms;
   int retval;
+  int opened_file;
+  int permission_denied = 0;
   if (str_isempty(p_arg_str))
   {
     vsf_cmdio_write(p_sess, FTP_BADCMD, "SITE CHMOD needs 2 arguments.");
@@ -1634,16 +1636,22 @@ handle_site_chmod(struct vsf_session* p_sess, struct mystr* p_arg_str)
     vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
     return;
   }
-  if (!asus_check_permission_existing_path(p_sess, PERM_WRITE,
-                                               &s_chmod_file_str))
+  opened_file = asus_open_existing_path(
+      p_sess, PERM_WRITE, &s_chmod_file_str, 0, &permission_denied);
+  if (opened_file < 0)
   {
-    vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
+    vsf_cmdio_write(p_sess,
+        permission_denied ? FTP_NOPERM : FTP_FILEFAIL,
+        permission_denied ? "Permission denied." :
+                            "SITE CHMOD command failed.");
     return;
   }
-  /* Don't worry - our chmod() implementation only allows 0 - 0777 */
+
+  /* Mutate the authorized inode, not a pathname re-resolved after ACL checks. */
   perms = str_octal_to_uint(p_arg_str);
-  retval = str_chmod(&s_chmod_file_str, perms);
-  if (vsf_sysutil_retval_is_error(retval))
+  retval = vsf_sysutil_fchmod_ret(opened_file, perms);
+  vsf_sysutil_close(opened_file);
+  if (retval != 0)
   {
     vsf_cmdio_write(p_sess, FTP_FILEFAIL, "SITE CHMOD command failed.");
   }
@@ -1688,11 +1696,17 @@ handle_mdtm(struct vsf_session* p_sess)
 {
   static struct mystr s_filename_str;
   static struct vsf_sysutil_statbuf* s_p_statbuf;
+  static struct mystr s_mdtm_res_str;
   int do_write = 0;
   int can_write = 0;
+  int permission_denied = 0;
+  int opened_file = -1;
+  int retval;
   long modtime = 0;
   struct str_locate_result loc = str_locate_char(&p_sess->ftp_arg_str, ' ');
-  int retval = str_stat(&p_sess->ftp_arg_str, &s_p_statbuf);
+
+  /* Preserve the existing timestamp-versus-filename syntax discriminator. */
+  retval = str_stat(&p_sess->ftp_arg_str, &s_p_statbuf);
   if (tunable_mdtm_write && retval != 0 && loc.found &&
       vsf_sysutil_isdigit(str_get_char_at(&p_sess->ftp_arg_str, 0)))
   {
@@ -1714,53 +1728,63 @@ handle_mdtm(struct vsf_session* p_sess)
     vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
     return;
   }
+
   can_write = do_write && tunable_write_enable &&
               (tunable_anon_other_write_enable || !p_sess->is_anonymous);
-  if (!asus_check_permission_existing_path(p_sess,
-          can_write ? PERM_WRITE : PERM_READ, &p_sess->ftp_arg_str))
+  opened_file = asus_open_existing_path(p_sess,
+      can_write ? PERM_WRITE : PERM_READ, &p_sess->ftp_arg_str,
+      can_write ? 0 : 1, &permission_denied);
+  if (opened_file < 0)
   {
-    vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
+    vsf_cmdio_write(p_sess,
+        permission_denied ? FTP_NOPERM : FTP_FILEFAIL,
+        permission_denied ? "Permission denied." :
+        (can_write ? "Could not set file modification time." :
+                     "Could not get file modification time."));
     return;
   }
+
+  vsf_sysutil_fstat(opened_file, &s_p_statbuf);
+  if (!vsf_sysutil_statbuf_is_regfile(s_p_statbuf))
+  {
+    vsf_sysutil_close(opened_file);
+    vsf_cmdio_write(p_sess, FTP_FILEFAIL,
+        can_write ? "Could not set file modification time." :
+                    "Could not get file modification time.");
+    return;
+  }
+
   if (can_write)
   {
-    retval = str_stat(&p_sess->ftp_arg_str, &s_p_statbuf);
-    if (retval != 0 || !vsf_sysutil_statbuf_is_regfile(s_p_statbuf))
+    retval = vsf_sysutil_setmodtime_fd(
+        opened_file, modtime, tunable_use_localtime);
+    vsf_sysutil_close(opened_file);
+    if (retval != 0)
     {
       vsf_cmdio_write(p_sess, FTP_FILEFAIL,
                       "Could not set file modification time.");
     }
     else
     {
-      retval = vsf_sysutil_setmodtime(
-        str_getbuf(&p_sess->ftp_arg_str), modtime, tunable_use_localtime);
-      if (retval != 0)
-      {
-        vsf_cmdio_write(p_sess, FTP_FILEFAIL,
-                        "Could not set file modification time.");
-      }
-      else
-      {
-        vsf_cmdio_write(p_sess, FTP_MDTMOK,
-                        "File modification time set.");
-      }
+      vsf_cmdio_write(p_sess, FTP_MDTMOK,
+                      "File modification time set.");
     }
   }
   else
   {
-    if (retval != 0 || !vsf_sysutil_statbuf_is_regfile(s_p_statbuf))
+    /* Do not reinterpret a disabled timestamp-write request as an MDTM read. */
+    if (do_write)
     {
+      vsf_sysutil_close(opened_file);
       vsf_cmdio_write(p_sess, FTP_FILEFAIL,
                       "Could not get file modification time.");
+      return;
     }
-    else
-    {
-      static struct mystr s_mdtm_res_str;
-      str_alloc_text(&s_mdtm_res_str,
-                     vsf_sysutil_statbuf_get_numeric_date(
-                       s_p_statbuf, tunable_use_localtime));
-      vsf_cmdio_write_str(p_sess, FTP_MDTMOK, &s_mdtm_res_str);
-    }
+    str_alloc_text(&s_mdtm_res_str,
+                   vsf_sysutil_statbuf_get_numeric_date(
+                     s_p_statbuf, tunable_use_localtime));
+    vsf_sysutil_close(opened_file);
+    vsf_cmdio_write_str(p_sess, FTP_MDTMOK, &s_mdtm_res_str);
   }
 }
 

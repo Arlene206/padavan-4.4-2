@@ -1,3 +1,17 @@
+## 2026-11-10 11:20 CST (UTC+8) — Move FTP MDTM and SITE CHMOD metadata to pinned descriptors
+
+- **Base main SHA:** `c5ec0e4c0d33e53f784a06763d479cddbc35dcbd`. AI handoff docs [42747120963] and HTTPD authentication/disclosure regression [42747121115] completed SUCCESS on this exact base SHA.
+- **Finding:** FTP `MDTM` and `SITE CHMOD` checked the configured path filter and share ACL by pathname, then re-resolved the pathname for `utime()` / `chmod()`. A rename/substitution between authorization and mutation could direct metadata changes at a different inode.
+- **Fix:** retain `vsf_access_check_file()` filtering and route MDTM/CHMOD through `asus_open_existing_path()` so share authorization and final regular-file identity are pinned by a descriptor. MDTM reads the opened inode via `fstat()` and sets both timestamps via new `vsf_sysutil_setmodtime_fd()` (`futimes`) while preserving the existing timezone conversion; SITE CHMOD uses new recoverable `vsf_sysutil_fchmod_ret()` instead of path-based `str_chmod()`. Sysutil wrappers return syscall failures for FTP error responses rather than invoking the fatal legacy wrapper. The original MDTM timestamp-write syntax discriminator and disabled-write failure response are retained.
+- **Regression:** extend the GNU89 path-policy host binary: pin an existing file through `ftp_acl_path_open_existing_file()`, rename it away, install a replacement at its former leaf, then apply `fchmod()` and `futimes()` through the pinned descriptor. Verify the original inode/mode/mtime changed and the replacement stayed unchanged. Extend VSFTPD workflow source contracts for both handlers and the sysutil APIs.
+- **Changed paths:** `trunk/user/vsftpd/src/postlogin.c`; `trunk/user/vsftpd/src/sysutil.c`; `trunk/user/vsftpd/src/sysutil.h`; `trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c`; `.github/workflows/vsftpd-stability.yml`; `SESSION_HANDOFF.md`; `REFACTOR_ROADMAP.md`; this log.
+- **Validation:** L1 source/control-flow review PASS. Host regression and semantic checks are wired into the VSFTPD workflow but not yet executed on THIS resulting SHA. No local full source checkout, target MIPS/uClibc build, firmware/TRX build or device test is claimed.
+- **Known limitation intentionally not closed here:** `ftp_acl_path_unlink_opened_entry()` still performs a leaf identity check followed by `unlinkat()`, leaving a narrow replacement race between those operations. The current regression covers replacement before the check only. Audit Linux 4.4 syscall availability and design a separate fail-closed/quarantine change; do not claim unlink-by-inode atomicity.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** reconcile exact-head VSFTPD + AI docs Actions; after green, investigate and safely bound the upload-cleanup race. Keep FULLCONENAT target MIPS, NFS compatibility, bridge idempotency, PPP/IPv6 and L3/L4 validation open.
+
+---
+
 ## 2026-11-10 11:12 CST (UTC+8) — Remove cross-step Python helper dependency from HTTPD DHCP contract
 
 - **Base main SHA:** `fc0d7b6694a58cd5b396ea2219765803c257913d`; remote branches: `main` only.

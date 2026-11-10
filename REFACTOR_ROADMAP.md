@@ -8,7 +8,7 @@
 - Dependent HTTPD/Samba trust-boundary suite [42708503436] and AI handoff documentation validation [42708503300] completed SUCCESS on exact SHA `258532a78922549698bc6d9b869c7777f8f4ac05`. The HTTPD workflow extractor now targets the unlocked config generator rather than the public lock wrapper.
 - The earlier BusyBox DHCP callback state audit is complete; no applet behavior change was justified because the inspected status-discard contract did not demonstrate a client state-transition defect. The WAN callback source-contract correction is green on exact SHA `6b44e023c2f669865fc8b5cb5425d824b8335d8b` (DHCP [42703609156], docs [42703609087]).
 - Initial Samba/HTTPD workflow attempts on the implementation head failed in stale semantic source extractors; later exact-SHA runs above passed after the test assertions were updated. Do not count the initial failed runs as green.
-- Root `dev_log.md` contains 101 complete newest-first records after the AP/WDS/APCLI startup propagation entry and remains below the 119-record / 384 KiB thresholds. No archive rotation is due.
+- Root `dev_log.md` contains 107 complete newest-first records after this entry and remains below the 119-record / 384 KiB thresholds. No archive rotation is due.
 
 ## Whole-repository module status
 
@@ -24,16 +24,16 @@
 | NVRAM / persistence / startup | PARTIAL / AUDITING | Atomic publication and restore failure gates. | Remaining direct callers, flash recovery and board variants. |
 | Switch / PHY / MDIO / link state | PARTIAL / AUDITING | Selected ioctl propagation, PVID/link retry, CLI ordering and MDIO timeout checks. | Other board drivers and live hardware behavior. |
 | Samba share service / accounts | PARTIAL / AUDITING | Generated smb.conf staging/atomic publication, folder inventory/read errors fail closed, mode-4 write-only ACL generation, credential staging and ordinary-error rollback; required smbd/nmbd command and process-presence postconditions; stop-status propagation into storage removal; WINS lifecycle checks. Same-boot paired passdb/config transaction now uses PREPARED/COMMITTED snapshots, idempotent rollback/recovery and a shared writer lock; GNU89 host crash-recovery tests and exact-head Samba/HTTPD Actions PASS. | Live authentication/reload compatibility and target build/device behavior remain unverified; volatile /etc journal is not a power-loss guarantee. |
-| FTP service / vsftpd | PARTIAL / AUDITING | Upload/RETR/SIZE, DELE/RMD, MKD, RNFR/RNTO, recursive LIST/NLST/STAT ACL and metadata operations are descriptor-relative; recursion bounded to depth 32 / 4096 entries per directory / 32768 total. ACL config reader rejects blocking/symlink/non-regular/oversized inputs. STAT distinguishes complete versus failed/unavailable listings while retaining the 213 multiline terminator; exact-head VSFTPD and docs Actions PASS on `a86e2ceab5f6a448acfe82b8f388529a9941c3d3`. | MDTM/SITE CHMOD descriptor-relative metadata and upload cleanup race remain open; auth/account/anonymous compatibility and MIPS/uClibc runtime remain unverified. |
+| FTP service / vsftpd | PARTIAL / AUDITING | Upload/RETR/SIZE, DELE/RMD, MKD, RNFR/RNTO, recursive LIST/NLST/STAT, MDTM and SITE CHMOD now use descriptor-relative ACL/open/metadata operations; recursion bounded to depth 32 / 4096 entries per directory / 32768 total. ACL config reader rejects blocking/symlink/non-regular/oversized inputs. STAT distinguishes complete versus failed/unavailable listings while retaining the 213 multiline terminator. MDTM uses pinned-fd `fstat/futimes`; CHMOD uses pinned-fd `fchmod`; the host replacement regression and semantic contract are pending on THIS COMMIT. | Upload cleanup still has a check/unlink race between inode validation and `unlinkat`; auth/account/anonymous compatibility and MIPS/uClibc runtime remain unverified. |
 | Init / PID 1 / service supervision | AUDITING | Notification deferral, child reaping and selected start/stop failure gates. MTD Optware worker resets inherited PID1 signal dispositions/mask and is cancelled before normal service shutdown. | Cross-module ordering, other package supervision and remaining shutdown races. |
 
 ## Priority queue
 
-1. P2 — Continue FTP MDTM/SITE CHMOD descriptor-relative metadata authorization and the Linux 4.4 upload-cleanup check/unlink race review; keep the race limitation explicit until an atomic or appropriately narrowed cleanup design is proved.
+1. P2 — Audit and close (or explicitly fail closed around) the FTP upload-cleanup check/unlink race; prove Linux 4.4 and target MIPS/uClibc syscall support before adopting an atomic quarantine design.
 2. P2 — Complete FULLCONENAT target kernel/MIPS object validation; host namespace/zone policy tests do not substitute for target compilation.
 3. P2 — Resolve NFS `async` durability/throughput, AUTH_SYS/root-squash migration and external-mount compatibility decisions.
 4. P2 — Return to wireless bridge attachment only with an idempotent membership/master query and regression; do not treat raw duplicate `SIOCBRADDIF` `-EBUSY` as a failed attachment.
-5. P2 — Revisit broader WAN DHCP/PPP callback lifecycle only for a separately reproduced failure; keep BusyBox event-script status handling and IPv6 callback coverage visible.
+5. P2 — Keep PPP/multi-WAN and IPv6 callback lifecycle auditing visible after a separately reproduced defect.
 
 ## Working rules
 
@@ -50,8 +50,8 @@
 
 | Level | Evidence | Limits |
 |---|---|---|
-| L1 source review | PASS for FTP descriptor-relative operations and recursive listing; IPTV DHCP/static-IPTV address and route status; DNSMasq lease-file applicability; wireless shutdown/startup failure propagation; and ZeroConf transaction, MAN route-status propagation, retry-preserving MAN teardown and defensive IPTV deconfig ordering. BusyBox `zcip -q` lifecycle was source-reviewed and deliberately unchanged. | Broader DHCP event-state, PPP/IPv6 callback lifecycle and bridge membership idempotency remain open. |
-| L2 host / Actions | On `e79e88c...`: WAN callback [42746555691], teardown [42746555514], route [42746555502], AI docs [42746555591] SUCCESS; HTTPD [42746555780] stale extractor failure. On `fc0d7b6...`: AI docs [42746896717] SUCCESS; HTTPD [42746896790] extractor NameError (`body()` scope) after helper assertion passed. This follow-up uses bounded dispatcher slice; exact-head validation pending. | No production RC/MIPS/uClibc object build, firmware or device test. |
+| L1 source review | PASS for FTP descriptor-relative path reads/mutations, recursive listing and MDTM/SITE CHMOD metadata updates; an inode-replacement regression now covers metadata operations on a pinned descriptor. Upload cleanup's validation-to-unlink interval remains a known TOCTOU limitation; no atomicity claim. Also PASS for IPTV DHCP/static-IPTV and ZeroConf WAN callback lifecycle, DNSMasq lease-file applicability and wireless shutdown/startup failure propagation. |
+| L2 host / Actions | Base SHA `c5ec0e4c0d33e53f784a06763d479cddbc35dcbd`: AI docs [42747120963] and HTTPD [42747121115] SUCCESS. THIS COMMIT's VSFTPD GNU89 policy suite (including inode-pinned MDTM/CHMOD replacement test), source-contract checks and updated AI handoff validation are pending exact-head Actions. No production MIPS/uClibc compile, firmware or device test. |
 | L3 MIPS/uClibc production objects / firmware/TRX | NOT VERIFIED. | Full target build phase required. |
 | L4 router/SMB/DHCP behavior and physical hardware | NOT VERIFIED. | Requires target-device validation. |
 
