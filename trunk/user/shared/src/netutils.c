@@ -636,7 +636,7 @@ get_interface_addr4(const char *ifname)
 	return ipv4_addr;
 }
 
-void
+int
 set_interface_conf_int(const char *ver, const char *ifname, const char *param, int value)
 {
 	char conf_path[80];
@@ -644,12 +644,20 @@ set_interface_conf_int(const char *ver, const char *ifname, const char *param, i
 
 	if (!is_safe_path_component(ver) ||
 	    !is_safe_path_component(ifname) ||
-	    !is_safe_path_component(param))
-		return;
+	    !is_safe_path_component(param)) {
+		errno = EINVAL;
+		return -1;
+	}
 	path_len = snprintf(conf_path, sizeof(conf_path), "/proc/sys/net/%s/conf/%s/%s", ver, ifname, param);
-	if (path_len < 0 || path_len >= (int)sizeof(conf_path))
-		return;
-	fput_int(conf_path, value);
+	if (path_len < 0) {
+		errno = EIO;
+		return -1;
+	}
+	if (path_len >= (int)sizeof(conf_path)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	return fput_int(conf_path, value);
 }
 
 int

@@ -80,21 +80,14 @@ void control_if_ipv6(const char *ifname, int enable)
 	set_interface_conf_int("ipv6", ifname, "disable_ipv6", (enable) ? 0 : 1);
 }
 
-void control_if_ipv6_autoconf(const char *ifname, int enable)
+int control_if_ipv6_autoconf(const char *ifname, int enable)
 {
-	set_interface_conf_int("ipv6", ifname, "accept_ra_pinfo", (enable) ? 1 : 0);
+	return set_interface_conf_int("ipv6", ifname, "accept_ra_pinfo", (enable) ? 1 : 0);
 }
 
-void control_if_ipv6_radv(const char *ifname, int enable)
+int control_if_ipv6_radv(const char *ifname, int enable)
 {
-	set_interface_conf_int("ipv6", ifname, "accept_ra", (enable) ? 2 : 0);
-#if 0
-	/* this do not needed for kernel >= 3.2 (and patched kernel 3.0) */
-	if (enable) {
-		// Hybrid mode (Router Solicitations are being sent when necessary)
-		set_interface_conf_int("ipv6", ifname, "forwarding", 2);
-	}
-#endif
+	return set_interface_conf_int("ipv6", ifname, "accept_ra", (enable) ? 2 : 0);
 }
 
 void control_if_ipv6_dad(const char *ifname, int enable)
@@ -109,16 +102,26 @@ void control_if_ipv6_privacy(const char *ifname, int enable)
 	set_interface_conf_int("ipv6", ifname, "use_tempaddr", (enable) ? 2 : 0);
 }
 
-void clear_if_addr6(char *ifname)
+int clear_if_addr6(char *ifname)
 {
-	if (is_interface_exist(ifname))
-		doSystem("ip -6 addr flush dev %s scope global", ifname);
+	if (!ifname || !ifname[0]) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (!is_interface_exist(ifname))
+		return 0;
+	return doSystem("ip -6 addr flush dev %s scope global", ifname);
 }
 
-void clear_if_route6(char *ifname)
+int clear_if_route6(char *ifname)
 {
-	if (is_interface_exist(ifname))
-		doSystem("ip -6 route flush dev %s", ifname);
+	if (!ifname || !ifname[0]) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (!is_interface_exist(ifname))
+		return 0;
+	return doSystem("ip -6 route flush dev %s", ifname);
 }
 
 void clear_if_neigh6(char *ifname)

@@ -43,6 +43,7 @@
 
 #include "nvram_linux.h"
 #include "shutils.h"
+#include "file_write_status.h"
 
 /* Activate 64-bit file support on Linux/32bit plus others */
 #define _FILE_OFFSET_BITS 64
@@ -638,16 +639,16 @@ int
 fput_string(const char *name, const char *value)
 {
 	FILE *fp;
+	int saved_errno;
 
 	fp = fopen(name, "w");
-	if (fp) {
-		fputs(value, fp);
-		fclose(fp);
-		return 0;
-	} else {
+	if (!fp) {
+		saved_errno = errno ? errno : EIO;
 		perror(name);
-		return errno;
+		errno = saved_errno;
+		return saved_errno;
 	}
+	return fput_string_stream(fp, value);
 }
 
 int

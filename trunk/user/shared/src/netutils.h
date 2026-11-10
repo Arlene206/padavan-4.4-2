@@ -185,7 +185,7 @@ extern int       set_interface_mtu(const char *ifname, int mtu);
 extern int       get_interface_hwaddr(const char *ifname, unsigned char mac[6]);
 extern int       set_interface_hwaddr(const char *ifname, const char *mac_str);
 extern in_addr_t get_interface_addr4(const char *ifname);
-extern void      set_interface_conf_int(const char *ver, const char *ifname, const char *param, int value);
+extern int       set_interface_conf_int(const char *ver, const char *ifname, const char *param, int value);
 extern int       get_ipv6_type(void);
 
 extern int       vconfig_add_if(const char *ifname, unsigned int vid);

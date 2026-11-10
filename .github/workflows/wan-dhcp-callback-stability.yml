@@ -6,6 +6,12 @@ on:
       - ".github/workflows/wan-dhcp-callback-stability.yml"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_wan6.c"
+      - "trunk/user/rc/src/net6.c"
+      - "trunk/user/rc/src/tests/file_write_status.c"
+      - "trunk/user/shared/src/netutils.c"
+      - "trunk/user/shared/src/netutils.h"
+      - "trunk/user/shared/src/shutils.c"
+      - "trunk/user/shared/src/file_write_status.h"
       - "trunk/user/rc/src/net_ppp.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/dhcp6c_config_file.h"
@@ -20,6 +26,12 @@ on:
       - ".github/workflows/wan-dhcp-callback-stability.yml"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_wan6.c"
+      - "trunk/user/rc/src/net6.c"
+      - "trunk/user/rc/src/tests/file_write_status.c"
+      - "trunk/user/shared/src/netutils.c"
+      - "trunk/user/shared/src/netutils.h"
+      - "trunk/user/shared/src/shutils.c"
+      - "trunk/user/shared/src/file_write_status.h"
       - "trunk/user/rc/src/net_ppp.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/dhcp6c_config_file.h"
@@ -59,6 +71,14 @@ jobs:
             trunk/user/rc/src/tests/dhcp6c_config_file.c \
             -o /tmp/dhcp6c-config-file
           /tmp/dhcp6c-config-file
+      - name: Compile and run shared file write/close status regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/shared/src \
+            trunk/user/rc/src/tests/file_write_status.c \
+            -o /tmp/file-write-status
+          /tmp/file-write-status
       - name: Verify WAN callback applies interface before publishing lease state
         run: |
           python3 - <<'PY'
@@ -69,6 +89,13 @@ jobs:
           wan6_source = (rc / "net_wan6.c").read_text()
           ppp_source = (rc / "net_ppp.c").read_text()
           rc_header = (rc / "rc.h").read_text()
+          net6_source = (rc / "net6.c").read_text()
+          shared = Path("trunk/user/shared/src")
+          netutils_source = (shared / "netutils.c").read_text()
+          netutils_header = (shared / "netutils.h").read_text()
+          shutils_source = (shared / "shutils.c").read_text()
+          file_write_policy = (shared / "file_write_status.h").read_text()
+          file_write_test = (rc / "tests/file_write_status.c").read_text()
           config_policy = (rc / "dhcp6c_config_file.h").read_text()
           config_test = (rc / "tests/dhcp6c_config_file.c").read_text()
           policy = (rc / "dhcp_wan_interface_policy.h").read_text()
@@ -263,6 +290,69 @@ jobs:
           assert "clear_if_addr6(wan6_ifname);" in wan6_down
           assert "int wan6_down(char *wan_ifname, int unit);" in rc_header
 
+          # PPP callbacks hold the cross-process state lock from generation
+          # validation through their complete state mutations.
+          session_lock = body(ppp_source, "ppp_wan_session_state_lock(unsigned long *generation, int allow_empty)")
+          assert "O_NOFOLLOW" in session_lock and "S_ISREG(st.st_mode)" in session_lock
+          assert "file_lock.l_type = F_WRLCK" in session_lock
+          assert "fcntl(fd, F_SETLK, &file_lock)" in session_lock
+          callback_enter = body(ppp_source, "ppp_wan_callback_session_enter(int argc, char **argv, int *state_fd)")
+          assert "argv[6]" in callback_enter and "ppp_callback_generation_matches(argv[6], current)" in callback_enter
+          assert "*state_fd = fd;" in callback_enter
+          generation_change = body(ppp_source, "ppp_wan_session_generation_change(unsigned long *generation_out)")
+          assert "ppp_wan_session_state_lock(&current, 1)" in generation_change
+          assert "ppp_callback_generation_next(current, &next)" in generation_change
+          assert "fsync(fd)" in generation_change
+
+          # Check buffered writes, proc/sys controls and every IPv6 teardown
+          # command through the status returned to wan6_down().
+          write_stream = body(file_write_policy, "fput_string_stream(FILE *stream, const char *value)")
+          assert write_stream.index("fputs(value, stream)") < write_stream.index("fclose(stream)")
+          assert "if (fclose(stream) != 0" in write_stream
+          assert "errno = saved_errno;" in write_stream
+          fput_string = body(shutils_source, "fput_string(const char *name, const char *value)")
+          assert "return fput_string_stream(fp, value);" in fput_string
+          set_conf = body(netutils_source, "set_interface_conf_int(const char *ver, const char *ifname, const char *param, int value)")
+          assert "return fput_int(conf_path, value);" in set_conf
+          assert "errno = EINVAL;" in set_conf and "errno = ENAMETOOLONG;" in set_conf
+          assert "extern int       set_interface_conf_int(" in netutils_header
+
+          radv = body(net6_source, "control_if_ipv6_radv(const char *ifname, int enable)")
+          autoconf = body(net6_source, "control_if_ipv6_autoconf(const char *ifname, int enable)")
+          assert "return set_interface_conf_int(" in radv
+          assert "return set_interface_conf_int(" in autoconf
+          clear_routes = body(net6_source, "clear_if_route6(char *ifname)")
+          clear_addresses = body(net6_source, "clear_if_addr6(char *ifname)")
+          assert "return doSystem(" in clear_routes and "return doSystem(" in clear_addresses
+
+          stop_tunnel = body(wan6_source, "stop_sit_tunnel(void)")
+          assert 'return doSystem("ip tunnel del %s", IFNAME_SIT);' in stop_tunnel
+          assert "int stop_sit_tunnel(void)" in wan6_source
+          assert "int control_if_ipv6_radv(const char *ifname, int enable);" in rc_header
+          assert "int control_if_ipv6_autoconf(const char *ifname, int enable);" in rc_header
+          assert "int clear_if_route6(char *ifname);" in rc_header
+          assert "int clear_if_addr6(char *ifname);" in rc_header
+
+          teardown_ops = (
+              "operation_status = control_if_ipv6_radv(wan_ifname, 0);",
+              "operation_status = control_if_ipv6_autoconf(wan_ifname, 0);",
+              'operation_status = doSystem("ip link set dev %s down", IFNAME_SIT);',
+              "operation_status = clear_if_route6(wan6_ifname);",
+              "operation_status = clear_if_addr6(wan6_ifname);",
+              "operation_status = stop_sit_tunnel();",
+          )
+          teardown_positions = [wan6_down.index(item) for item in teardown_ops]
+          assert teardown_positions == sorted(teardown_positions)
+          assert wan6_down.count("status = route_status_accumulate(status, operation_status);") == 6
+          assert "status = route_status_accumulate(0, stop_status);" in wan6_down
+          dns_clear = wan6_down.index('set_wan_unit_value(unit, "dns6", "");')
+          dns_gate = wan6_down.index("if (status == 0)")
+          assert dns_gate < dns_clear
+          assert "retaining IPv6 DNS state after incomplete teardown" in wan6_down
+          assert "return status;" in wan6_down
+          assert "test_regular_file_write_and_close" in file_write_test
+          assert "test_dev_full_reports_buffered_close_failure" in file_write_test
+
           ipv6_down = body(ppp_source, "ipv6down_main(int argc, char **argv)")
           down_start = ipv6_down.index("ipv6_status = wan6_down(ppp_ifname, unit);")
           down_unlock = ipv6_down.index("ppp_wan_session_state_unlock(callback_fd)", down_start)
@@ -335,6 +425,12 @@ jobs:
           paths = (
               ".github/workflows/wan-dhcp-callback-stability.yml",
               "trunk/user/rc/src/net_wan.c",
+              "trunk/user/rc/src/net6.c",
+              "trunk/user/rc/src/tests/file_write_status.c",
+              "trunk/user/shared/src/netutils.c",
+              "trunk/user/shared/src/netutils.h",
+              "trunk/user/shared/src/shutils.c",
+              "trunk/user/shared/src/file_write_status.h",
               "trunk/user/rc/src/net_wan6.c",
               "trunk/user/rc/src/net_ppp.c",
               "trunk/user/rc/src/rc.h",

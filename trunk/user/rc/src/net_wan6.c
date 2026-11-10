@@ -29,6 +29,7 @@
 #include <net/ethernet.h>
 
 #include "rc.h"
+#include "route_status_policy.h"
 #include "../../shared/src/dhcp6c_duid_file_policy.h"
 #include "dhcp6c_config_file.h"
 
@@ -425,10 +426,11 @@ void start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4, char *wa
 
 	set_vpn_balancing(IFNAME_SIT, 0);
 }
-void stop_sit_tunnel(void)
+int stop_sit_tunnel(void)
 {
 	if (is_interface_exist(IFNAME_SIT))
-		doSystem("ip tunnel del %s", IFNAME_SIT);
+		return doSystem("ip tunnel del %s", IFNAME_SIT);
+	return 0;
 }
 
 int wan6_up(char *wan_ifname, int unit)
@@ -503,7 +505,7 @@ int wan6_up(char *wan_ifname, int unit)
 
 int wan6_down(char *wan_ifname, int unit)
 {
-	int ipv6_type, stop_status;
+	int ipv6_type, stop_status, status, operation_status;
 	char *wan6_ifname;
 
 	ipv6_type = get_ipv6_type();
@@ -514,33 +516,59 @@ int wan6_down(char *wan_ifname, int unit)
 	if (stop_status != 0)
 		logmessage("WAN IPv6", "DHCPv6 client did not stop cleanly on %s (status=%d)",
 			   wan_ifname, stop_status);
-	control_if_ipv6_radv(wan_ifname, 0);
-	control_if_ipv6_autoconf(wan_ifname, 0);
+	status = route_status_accumulate(0, stop_status);
 
-	if (ipv6_type == IPV6_6IN4 || ipv6_type == IPV6_6TO4 || ipv6_type == IPV6_6RD)
-	{
+	operation_status = control_if_ipv6_radv(wan_ifname, 0);
+	status = route_status_accumulate(status, operation_status);
+	if (operation_status != 0)
+		logmessage("WAN IPv6", "failed to disable router advertisements on %s (status=%d)",
+			   wan_ifname, operation_status);
+
+	operation_status = control_if_ipv6_autoconf(wan_ifname, 0);
+	status = route_status_accumulate(status, operation_status);
+	if (operation_status != 0)
+		logmessage("WAN IPv6", "failed to disable address autoconfiguration on %s (status=%d)",
+			   wan_ifname, operation_status);
+
+	if (ipv6_type == IPV6_6IN4 || ipv6_type == IPV6_6TO4 || ipv6_type == IPV6_6RD) {
 		wan6_ifname = IFNAME_SIT;
-		if (is_interface_exist(IFNAME_SIT))
-			doSystem("ip link set dev %s down", IFNAME_SIT);
-	}
-	else
-	{
+		if (is_interface_exist(IFNAME_SIT)) {
+			operation_status = doSystem("ip link set dev %s down", IFNAME_SIT);
+			status = route_status_accumulate(status, operation_status);
+			if (operation_status != 0)
+				logmessage("WAN IPv6", "failed to bring SIT interface down (status=%d)",
+					   operation_status);
+		}
+	} else {
 		wan6_ifname = wan_ifname;
 	}
 
-	// clear WAN routes6
-	clear_if_route6(wan6_ifname);
+	operation_status = clear_if_route6(wan6_ifname);
+	status = route_status_accumulate(status, operation_status);
+	if (operation_status != 0)
+		logmessage("WAN IPv6", "failed to clear routes on %s (status=%d)",
+			   wan6_ifname, operation_status);
 
-	// clear WAN addr6
-	clear_if_addr6(wan6_ifname);
+	operation_status = clear_if_addr6(wan6_ifname);
+	status = route_status_accumulate(status, operation_status);
+	if (operation_status != 0)
+		logmessage("WAN IPv6", "failed to clear addresses on %s (status=%d)",
+			   wan6_ifname, operation_status);
 
-	// delete SIT tunnel
-	stop_sit_tunnel();
+	operation_status = stop_sit_tunnel();
+	status = route_status_accumulate(status, operation_status);
+	if (operation_status != 0)
+		logmessage("WAN IPv6", "failed to remove SIT tunnel (status=%d)",
+			   operation_status);
 
-	// clear DNS6 for resolv.conf
-	set_wan_unit_value(unit, "dns6", "");
+	if (status == 0) {
+		set_wan_unit_value(unit, "dns6", "");
+	} else {
+		logmessage("WAN IPv6", "retaining IPv6 DNS state after incomplete teardown (status=%d)",
+			   status);
+	}
 
-	return stop_status;
+	return status;
 }
 
 int dhcp6c_main(int argc, char **argv)
