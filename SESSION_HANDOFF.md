@@ -1,20 +1,24 @@
 ## Current repository state
 
 - Maintained fork: Arlene206/padavan-4.4-2; work only on this repository.
-- Live main HEAD before THIS COMMIT: fb864bc0db8f48eec828abaeb0aeaa2b91ae3aa7; only remote branch is main, with no checkpoint branch. Never force-push.
-- Last completed task: VPN server lifecycle serialization. Exact-head VPN [42815618568], AI docs [42815618091] and HTTPD [42815618058] all SUCCESS; every step was inspected.
-- Root dev_log.md has 45 complete newest-first records before THIS COMMIT. No archive rotation or INDEX update is due.
-- Previous continuity work remains documented below: PID 1 notification requeue, NFS/DNSMasq lifecycle locks, WAN DHCP/PPP status gates, FTP upload-parent anchoring, VPN lock and miniupnpd config publication.
-- Open boundaries remain explicit: FTP failed-upload cleanup TOCTOU, NFS export/client compatibility, VPN in-flight PPP callback fencing, target MIPS/uClibc and physical-router behavior.
+- Base main SHA for THIS COMMIT: c1bdec32ac2a746288ab4295bda334579a55c249; the only remote branch is main and no checkpoint branch exists. Never force-push.
+- Previous active task closed: miniupnpd final-rename failure coverage and the required handoff headings. Exact-head miniupnpd [42817503339] and AI handoff docs [42817503261] both SUCCESS on c1bdec32ac2a746288ab4295bda334579a55c249; every job and step was inspected.
+- Root dev_log.md has 45 complete newest-first records before THIS COMMIT; this entry makes 46. No archive rotation or INDEX update is due.
+- Previous continuity work remains documented below: PID 1 notification requeue, NFS/DNSMasq lifecycle locks, WAN DHCP/PPP status gates, FTP upload-parent anchoring, VPN lifecycle lock and miniupnpd config publication.
+- Open boundaries remain explicit: FTP failed-upload cleanup TOCTOU, NFS export/client compatibility, VPN in-flight PPP callback fencing, broader WAN monitoring lifecycle, target MIPS/uClibc and physical-router behavior.
 
 ## Active task
 
-- Harden miniupnpd generated-config publication and finish rename-failure regression. Original start_upnp() truncated /etc/miniupnpd.conf directly, ignored fprintf/fclose errors, then launched the daemon.
-- Code commit: fb864bc0db8f48eec828abaeb0aeaa2b91ae3aa7. It stages a unique mode-0600 sibling, checks writer/flush/fsync/close, and uses same-directory rename; failures preserve the previous config and gate launch.
-- Exact-head actions on that commit: miniupnpd [42816429073], Samba [42816429069] and HTTPD [42816429055] SUCCESS. AI docs [42816429042] FAILED because the live handoff omitted required heading ## Active task; inspected job log identifies that exact failure.
-- This follow-up adds deterministic failed-rename coverage: publish against an existing directory, require EISDIR, preserve the directory and verify no temporary sibling remains. It also restores the handoff headings and reconciles current evidence.
-- Local expanded GNU89 -Wall -Wextra -Werror and ASan/UBSan tests both PASS. The production services_ex.c translation unit was not compiled.
-- No MIPS/uClibc object, complete firmware/TRX or L4 router test is claimed.
+- Harden the under-audited WAN gateway ARP monitor in detect_wan.c. The probe previously logged but ignored SO_BINDTODEVICE failure, allowing it to send and receive without the intended interface binding. It also ignored SO_RCVTIMEO failure, while the receive-loop elapsed-time guard only runs after recvfrom returns; a failed timeout setup could therefore leave the daemon blocked indefinitely.
+- Add detect_wan_arp_socket_prepare() to require both interface binding and the one-second receive timeout before any ARP request is sent. Any setup failure closes the socket and returns a failed probe so poll_gateway() retains its bounded retry path. Successful probe ordering and existing DHCP renew semantics remain unchanged.
+- Regression: GNU89 host test injects setsockopt failures for each option, checks bind failure prevents timeout setup, checks timeout failure propagation, validates success ordering/arguments, and rejects invalid inputs. The workflow also checks Linux 4.4 socket-option implementation and the production detect_wan startup/stop/app applet wiring.
+- Local GNU89 -Wall -Wextra -Werror plus ASan/UBSan compile/run: PASS. Exact-head WAN ARP Actions and AI handoff documentation Actions are pending for THIS COMMIT.
+- No full RC production translation-unit, MIPS/uClibc object, firmware/TRX or L4 router behavior is claimed.
+
+## Exact first action for the next GPT
+
+1. Fetch live main and branch inventory, then inspect every step in the exact-head detect-wan-arp-stability and AI handoff Actions for the resulting SHA.
+2. If green, continue broad userland governance rather than returning to a recently hardened module; inspect detect_internet signal/event lifecycle or another low-coverage daemon. Keep the FTP cleanup race, NFS client compatibility, VPN callback fence, FULLCONENAT target compile and L3/L4 gaps open until evidence closes them.
 
 ## PID 1 notification queue batch fairness
 

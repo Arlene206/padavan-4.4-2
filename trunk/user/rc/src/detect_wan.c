@@ -28,6 +28,7 @@
 #include <net/if_arp.h>
 
 #include "rc.h"
+#include "detect_wan_arp_socket_policy.h"
 
 //#define DEBUG		1
 #define MAX_ARP_WAIT	5
@@ -163,9 +164,12 @@ arpping_gateway(int ap_mode)
 
 	strncpy(addr.sa_data, ifname, sizeof(addr.sa_data));
 	strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
-	if (setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, (void *)&ifr, sizeof(ifr)) < 0)
-	{
+	arp_timeout.tv_sec = 1;
+	arp_timeout.tv_usec = 0;
+	if (detect_wan_arp_socket_prepare(s, &ifr, &arp_timeout, setsockopt) < 0) {
 		perror("setsockopt:");
+		close(s);
+		return 0;
 	}
 
 	if (sendto(s, &arp, sizeof(arp), 0, &addr, sizeof(addr)) < 0)
@@ -178,11 +182,7 @@ arpping_gateway(int ap_mode)
 		return 0;
 	}
 
-	arp_timeout.tv_sec = 1;
-	arp_timeout.tv_usec = 0;
-	setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &arp_timeout, sizeof(arp_timeout));
-
-	/* wait arp reply */
+	/* wait arp reply; socket preparation installed a finite timeout above. */
 	rv = 0;
 	timeStart = uptime();
 	for(;;)

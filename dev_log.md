@@ -1,3 +1,15 @@
+## 2026-11-10 20:40 CST (UTC+8) — Fail closed when WAN ARP socket prerequisites fail
+
+- Base main SHA: `c1bdec32ac2a746288ab4295bda334579a55c249`; remote branch inventory contains only main, with no checkpoint branch. The previous miniupnpd follow-up and AI docs exact-head runs [42817503339] and [42817503261] both completed SUCCESS on this base SHA; all jobs and steps were inspected.
+- Finding: `detect_wan.c::arpping_gateway()` logged and ignored `SO_BINDTODEVICE` failure, then sent/received on the unbound raw packet socket. It also ignored `SO_RCVTIMEO` failure. Its elapsed-time guard is checked only after `recvfrom()` returns, so without the one-second socket timeout a transient setup failure could block the WAN gateway monitor indefinitely. The fork's Linux 4.4 `sock_setbindtodevice()` returns `-ENODEV` for an absent interface and sets `sk_bound_dev_if` on success; `sock_setsockopt()` routes `SO_RCVTIMEO` through `sock_set_timeout()`.
+- Fix: add `detect_wan_arp_socket_prepare()` to check interface binding and the one-second receive timeout in order. The production probe requires both before `sendto()`; failure logs the syscall error, closes the descriptor and returns a failed probe, preserving the existing retry/DHCP-renew path. Successful probe behavior and public interfaces are unchanged.
+- Regression: add a GNU89 host test with injected `setsockopt()` failures for each prerequisite, verifies binding failure stops before timeout setup, timeout failure is propagated, success uses the expected interface and timeout, and invalid arguments fail without syscalls. Add a workflow that runs the regression under ASan/UBSan and checks production call ordering, Linux 4.4 socket-option semantics and RC applet/start/stop wiring.
+- Changed paths: `trunk/user/rc/src/detect_wan.c`, new `detect_wan_arp_socket_policy.h`, new `tests/detect_wan_arp_socket_policy.c`, new `.github/workflows/detect-wan-arp-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log. Root log had 45 complete newest-first records and has 46; no archive rotation or INDEX update is due.
+- Validation: local `cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined` compile/run PASS (`WAN ARP socket setup failure policy: PASS`). Exact-head WAN ARP semantic/host regression and AI docs workflow pending. No full RC production translation-unit, MIPS/uClibc object, firmware/TRX or L4 router test is claimed.
+- Resulting commit: THIS COMMIT.
+- Next: inspect every job and step in exact-head WAN ARP and AI handoff Actions; if green, broaden the next source audit to `detect_internet` event/signal lifecycle or another low-coverage userland daemon. Keep FTP failed-upload cleanup TOCTOU, NFS compatibility, VPN in-flight PPP callback fencing, FULLCONENAT target build and all L3/L4 gaps open.
+
+
 ## 2026-11-10 20:12 CST (UTC+8) — Publish miniupnpd configuration atomically
 
 - Base main SHA: `ddcbb795e242f14b8620d77f25843e091c2652c5`; branch inventory remains `main` only, with no remote checkpoint branch.
