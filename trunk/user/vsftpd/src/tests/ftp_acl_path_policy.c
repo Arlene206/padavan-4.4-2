@@ -68,7 +68,7 @@ main(void)
   int cleanup_allowed, dir_fd, race_fd, rollback_fd, replacement_fd;
   int existing_dir_fd, existing_file_fd, remove_parent_fd;
   int child_parent_fd, child_dir_fd;
-  int rename_source_fd, rename_destination_fd;
+  int rename_source_fd, rename_destination_fd, metadata_fd;
   char existing_leaf[PATH_MAX], readback[16];
   char link_target[PATH_MAX];
   char remove_link[PATH_MAX], remove_dir_link[PATH_MAX], empty_dir[PATH_MAX];
@@ -76,6 +76,7 @@ main(void)
   char rename_link[PATH_MAX], rename_link_destination[PATH_MAX];
   char rename_dir[PATH_MAX], rename_dir_link[PATH_MAX];
   char rename_parent_a[PATH_MAX], rename_parent_b[PATH_MAX];
+  char fifo_file[PATH_MAX];
   ssize_t read_length, link_target_length;
   struct stat st, canonical_st;
   char *created;
@@ -176,6 +177,31 @@ main(void)
       symlink(file_b, remove_link) || symlink(dir_b, remove_dir_link) ||
       mkdir(empty_dir, 0700)) {
     perror("create symlink/removal fixtures"); return 1;
+  }
+  checked_path(fifo_file, sizeof(fifo_file), a, "acl-config-fifo");
+  if (mkfifo(fifo_file, 0600) != 0) {
+    perror("create ACL config FIFO fixture"); return 1;
+  }
+  metadata_fd = ftp_acl_path_open_bounded_regular_file(
+      metadata_file, 16 * 1024 * 1024, &st);
+  if (metadata_fd < 0 || !S_ISREG(st.st_mode) || st.st_size <= 0 ||
+      close(metadata_fd) != 0) {
+    fprintf(stderr, "regular ACL config file was not opened and verified\n");
+    return 1;
+  }
+  if (ftp_acl_path_open_bounded_regular_file(
+          fifo_file, 16 * 1024 * 1024, &st) >= 0) {
+    fprintf(stderr, "ACL config FIFO was accepted (or blocked the reader)\n");
+    return 1;
+  }
+  if (ftp_acl_path_open_bounded_regular_file(
+          metadata_alias, 16 * 1024 * 1024, &st) >= 0) {
+    fprintf(stderr, "ACL config symlink was followed\n");
+    return 1;
+  }
+  if (ftp_acl_path_open_bounded_regular_file(metadata_file, 1, &st) >= 0) {
+    fprintf(stderr, "oversized ACL config fixture was accepted\n");
+    return 1;
   }
   /*
    * LIST metadata must be obtained relative to the directory descriptor:

@@ -1,3 +1,16 @@
+## 2026-11-10 08:52 CST (UTC+8) — Reject blocking and substituted FTP ACL config files
+
+- **Base main SHA:** `633aa2a4ed39a436ecd820adf1ac1e86ab272c03`; VSFTPD run [42728161936] and AI handoff docs [42728162030] both completed SUCCESS on this exact SHA. The prior non-void listing return contract passed.
+- **Finding:** `read_file_to_buffer()` performed `stat(target_file)` but ignored its result and type, then called blocking `fopen()` before validating the size. If the reserved `.__<account>_var.txt` ACL config path is a FIFO, opening it can block the FTP process indefinitely; stat/open pathname races also mean the size check does not describe the opened object.
+- **Fix:** add `ftp_acl_path_open_bounded_regular_file()` in the shared path-policy header. It opens with `O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC`, `fstat()`s the returned descriptor, and accepts only nonempty regular files within the supplied bound. Rework `read_file_to_buffer()` to read at most the opened size, retry EINTR, reject short/inconsistent reads, and close/free on every error path.
+- **Regression:** extend GNU89 host policy tests for an accepted regular file, nonblocking FIFO rejection, symlink rejection and an exceeded size bound. Add workflow source assertions for the open flags, fd-based type/size checks, bounded read/EINTR handling and all four fixtures.
+- **Changed paths:** `trunk/user/vsftpd/src/ftp_acl_path_policy.h`, `asus_ext.c`, `tests/ftp_acl_path_policy.c`, `.github/workflows/vsftpd-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and this log.
+- **Validation:** source review PASS. Base exact-head VSFTPD and docs Actions above passed. THIS GNU89 standalone policy regression/source contract and AI-doc validation are pending; workflow does not compile production `asus_ext.c`. L3 MIPS/uClibc and L4 hardware remain NOT VERIFIED.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** reconcile exact-head Actions. Then audit LIST/NLST/STAT output compatibility and finish MDTM/SITE CHMOD descriptor-relative metadata plus upload cleanup race.
+
+---
+
 ## 2026-11-10 08:41 CST (UTC+8) — Propagate recursive listing policy errors with a valid return
 
 - **Base main SHA:** `b8ac678cf872dc36c7ace1d424562c575c0ae365`; VSFTPD regression [42727752390] and AI handoff docs [42727752549] both completed SUCCESS on this exact SHA.

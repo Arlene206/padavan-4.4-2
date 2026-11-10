@@ -158,6 +158,8 @@ jobs:
           recursive_list = function_body(vsftpd_dataio, "transfer_dir_internal(struct vsf_session* p_sess")
           resolve_listing_base = function_body(vsftpd_acl, "asus_resolve_listing_base(")
           child_path = function_body(acl_path_policy, "ftp_acl_path_build_child_path(")
+          bounded_file_open = function_body(acl_path_policy, "ftp_acl_path_open_bounded_regular_file(")
+          acl_file_reader = function_body(vsftpd_acl, "read_file_to_buffer(")
           sys_fdopendir = function_body(vsftpd_sysutil, "vsf_sysutil_fdopendir(")
           sys_dirfd = function_body(vsftpd_sysutil, "vsf_sysutil_dirfd(")
           sys_lstatat = function_body(vsftpd_sysutil, "vsf_sysutil_lstatat(")
@@ -248,6 +250,18 @@ jobs:
           assert recursive_list.index("write_dir_list(p_sess, &dir_list, target)") < recursive_list.index("str_list_free(&dir_list)", recursive_list.index("write_dir_list(p_sess, &dir_list, target)")) < recursive_list.index("for (subdir_index")
           assert "vsf_ls_populate_dir_list(" in recursive_list and ") != 0" in recursive_list
           assert "FTP listing resource limits are inconsistent" in acl_path_test
+          assert "O_NOFOLLOW | O_NONBLOCK" in bounded_file_open
+          assert "O_CLOEXEC" in bounded_file_open
+          assert "fstat(fd, &opened)" in bounded_file_open
+          assert "!S_ISREG(opened.st_mode)" in bounded_file_open
+          assert "opened.st_size > max_size" in bounded_file_open
+          assert "ftp_acl_path_open_bounded_regular_file(" in acl_file_reader
+          assert "read(fd, buffer + read_total, file_size - read_total)" in acl_file_reader
+          assert "errno == EINTR" in acl_file_reader
+          assert "final_stat.st_size != stat_buf.st_size" in acl_file_reader
+          assert "ACL config FIFO was accepted" in acl_path_test
+          assert "ACL config symlink was followed" in acl_path_test
+          assert "oversized ACL config fixture was accepted" in acl_path_test
           assert "return -1;" in listing_entries
           assert "return;" not in listing_entries
           assert "asus_check_permission_open_directory(" in directory

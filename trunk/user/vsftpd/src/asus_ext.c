@@ -133,43 +133,61 @@ int get_mount_layer(const char *basedir, char **mount_path, char **share)
 }
 char* read_file_to_buffer(const char *target_file)
 {
-	FILE *fp;
 	char *buffer;
-	struct stat stat_buf;
-	int i_readed, i_chunk, i_readed_total;
+	struct stat stat_buf, final_stat;
+	size_t file_size, read_total = 0;
+	ssize_t read_size;
+	int fd, saved_errno;
 
-	memset(&stat_buf, 0, sizeof(stat_buf));
-	stat(target_file, &stat_buf);
-
-	fp = fopen(target_file, "r");
-	if (!fp)
+	fd = ftp_acl_path_open_bounded_regular_file(
+	    target_file, 16 * 1024 * 1024, &stat_buf);
+	if (fd < 0)
 		return NULL;
 
-	if (stat_buf.st_size < 1 || stat_buf.st_size > 16*1024*1024) {
-		fclose(fp);
-		return NULL;
-	}
-
-	buffer = (char *)malloc(stat_buf.st_size + 1);
+	file_size = (size_t) stat_buf.st_size;
+	buffer = (char *) malloc(file_size + 1);
 	if (!buffer) {
-		fclose(fp);
+		saved_errno = errno;
+		close(fd);
+		errno = saved_errno;
 		return NULL;
 	}
 
-	i_chunk = MIN(1024, stat_buf.st_size);
-	i_readed_total = 0;
-	while ((i_readed = fread(buffer+i_readed_total, sizeof(char), i_chunk, fp)) > 0) {
-		i_readed_total += i_readed;
-		i_chunk = MIN(1024, stat_buf.st_size - i_readed_total);
-		if (i_chunk < 1)
-			break;
+	while (read_total < file_size) {
+		read_size = read(fd, buffer + read_total, file_size - read_total);
+		if (read_size > 0) {
+			read_total += (size_t) read_size;
+			continue;
+		}
+		if (read_size < 0 && errno == EINTR)
+			continue;
+		if (read_size == 0)
+			errno = EIO;
+		goto read_error;
 	}
 
-	fclose(fp);
+	if (fstat(fd, &final_stat) != 0)
+		goto read_error;
+	if (final_stat.st_size != stat_buf.st_size) {
+		errno = EAGAIN;
+		goto read_error;
+	}
+	if (close(fd) != 0) {
+		saved_errno = errno;
+		free(buffer);
+		errno = saved_errno;
+		return NULL;
+	}
 
-	buffer[i_readed_total] = 0;
-
+	buffer[read_total] = '\0';
 	return buffer;
+
+read_error:
+	saved_errno = errno;
+	close(fd);
+	free(buffer);
+	errno = saved_errno;
+	return NULL;
 }
 
 int get_permission_ftp(const char *account, const char *mount_path, const char *folder)

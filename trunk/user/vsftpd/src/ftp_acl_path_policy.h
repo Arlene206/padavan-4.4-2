@@ -596,6 +596,41 @@ ftp_acl_path_build_child_path(const char *resolved_parent, const char *leaf,
  * Create a directory entry under an already-authorized, pinned parent.
  * The final component is never re-resolved after the WRITE ACL check.
  */
+/*
+ * Open a bounded regular file without following a symlink or blocking on a
+ * FIFO/device node. The returned stat data describes the opened descriptor,
+ * not a separate pathname lookup.
+ */
+static int
+ftp_acl_path_open_bounded_regular_file(const char *path, off_t max_size,
+                                       struct stat *p_stat)
+{
+  struct stat opened;
+  int fd, saved_errno;
+  if (!path || !*path || max_size < 1 || !p_stat) {
+    errno = EINVAL;
+    return -1;
+  }
+  fd = open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK);
+  if (fd < 0)
+    return -1;
+  if (fstat(fd, &opened) != 0)
+    goto open_error;
+  if (!S_ISREG(opened.st_mode) || opened.st_size < 1 ||
+      opened.st_size > max_size) {
+    errno = EINVAL;
+    goto open_error;
+  }
+  *p_stat = opened;
+  return fd;
+
+open_error:
+  saved_errno = errno;
+  close(fd);
+  errno = saved_errno;
+  return -1;
+}
+
 static int
 ftp_acl_path_make_directory_at(int dir_fd, const char *leaf,
                                unsigned int mode)
