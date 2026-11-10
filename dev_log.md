@@ -1,3 +1,15 @@
+## 2026-11-11 07:32 CST (UTC+8) — Align HTTPD PPP recovery contract with miniupnpd stop gate
+
+- Base main SHA: `edf67d1eeb0ee1fc827efa9b89ab6e1846608677`; parent `7f56e1954534d3ff30682f63b2f2bc9ec6c2a2b0`.
+- Exact-head miniupnpd regression [42926853224] and AI handoff docs [42926853196] passed. Of 18 workflows triggered on the base SHA, 17 completed SUCCESS. The HTTPD security umbrella [42926853184] failed at step 17; its PPP C policy binaries passed, but a source assertion still expected the former unchecked `check_upnp_wanif_changed(wan_ifname);` call in the PPP-start-failure restore helper. The new code correctly branches on nonzero stop status and returns before publishing the physical WAN interface and rebuilding firewall state. This is a stale contract, not a production compile/test failure. HTTPD steps 18 onward were skipped as a consequence.
+- Fix in THIS COMMIT: update the HTTPD contract to require the stop-status conditional, the diagnostic, and return before `set_wan_unit_value()` and `start_firewall_ex()`. This makes the cross-workflow PPP recovery assertion encode the new fail-closed behavior rather than reject it.
+- Local ASan/UBSan GNU89 miniupnpd lifecycle policy test remains PASS. New exact-head HTTPD and AI docs runs are pending; miniupnpd exact-head remains green on parent SHA [42926853224].
+- Changed paths: `.github/workflows/httpd-security.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log. No production source changes in this follow-up.
+- Root `dev_log.md`: 77 complete records before this entry; 78 afterward. Still below 120 entries and 384 KiB; no archive or `docs/dev-log/INDEX.md` update is due.
+- Next: inspect the exact-head HTTPD job through its remaining DHCP/storage/Samba/security steps and AI docs check. Then rotate to the firewall/NAT RC orchestration audit. FTP cleanup TOCTOU remains OPEN/BLOCKED; NFS client semantics are evidence-gated; production MIPS/uClibc, full firmware/TRX and L4 remain unverified.
+
+---
+
 ## 2026-11-11 07:30 CST (UTC+8) — Gate miniupnpd stop and WAN-interface transitions on daemon termination
 
 - Base main SHA: `7f56e1954534d3ff30682f63b2f2bc9ec6c2a2b0`; parent `afe8fcb7eeba12932e20e220c848b37e43622c9a`. Only remote branch: `main`; no checkpoint branch.
