@@ -1893,7 +1893,9 @@ jobs:
           manv_deconfig_end = wan.index("udhcpc_viptv_main(int argc, char **argv)", manv_deconfig_start)
           manv_deconfig = wan[manv_deconfig_start:manv_deconfig_end]
           assert 'del_dhcp_routes_by_prefix("manv_", man_ifname, 0);' in manv_deconfig
-          udhcpc_viptv_main = body(wan, "udhcpc_viptv_main(int argc, char **argv)")
+          udhcpc_viptv_main_start = wan.index("udhcpc_viptv_main(int argc, char **argv)")
+          udhcpc_viptv_main_end = wan.index("\nint\nzcip_main(", udhcpc_viptv_main_start)
+          udhcpc_viptv_main = wan[udhcpc_viptv_main_start:udhcpc_viptv_main_end]
           assert "ret = manv_route_deconfig(man_ifname);" in udhcpc_viptv_main
 
           man_start = wan.index("static int\nman_down_internal(")

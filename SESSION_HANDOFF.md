@@ -2,10 +2,10 @@
 
 - Maintained fork: `Arlene206/padavan-4.4-2`; work only on this repository.
 - Branch inventory at takeover: `main` only; no remote checkpoint branch. No force-pushes were used.
-- **Last reconciled main SHA:** `e79e88c011dca8c1a046b1df945cd57f300ff3f4`. Exact-head WAN callback [42746555691], WAN teardown [42746555514], WAN route [42746555502], and AI handoff docs [42746555591] completed SUCCESS. HTTPD [42746555780] failed only in the older DHCP source contract at Python line 155: it expected the IPTV route deletion directly inside `udhcpc_viptv_main()` after cleanup was correctly factored into `manv_route_deconfig()`. The production regression binary and all earlier HTTPD policy steps passed. This follow-up updates the extractor to assert the helper body and caller instead.
+- **Last reconciled main SHA:** `fc0d7b6694a58cd5b396ea2219765803c257913d`. AI handoff documentation [42746896717] passed on this SHA. HTTPD [42746896790] still failed only in `Verify DHCP lease input and renewal reconciliation`: the new assertion tried to call the earlier step's local Python `body()` helper, which is not defined in this independent script block (NameError at line 159). The shared helper implementation check itself passed. The next correction uses a bounded direct source slice for the IPTV dispatcher.
 - **Resolved failure:** HTTPD [42741673534] failed in a stale Python extractor, not production code. The current workflow now checks the status-gated startup expression; its exact-head rerun [42742135752] is green.
-- **Current development slice:** reconcile the HTTPD security workflow's stale DHCP contract after the ZeroConf round. The exact-head failure is an assertion-only mismatch: route deletion now lives in shared `manv_route_deconfig()`, and `udhcpc_viptv_main()` calls that helper. The updated workflow must verify both pieces, then rerun HTTPD and docs on the exact new SHA. Do not change production DHCP code to satisfy the obsolete test shape.
-- **Next after validation:** once all exact-head Actions are green, leave WAN/HTTPD callback work and proceed to FTP MDTM/SITE CHMOD descriptor-relative metadata authorization and the Linux 4.4 upload-cleanup check/unlink race review.
+- **Current development slice:** finish the HTTPD source-contract extractor without relying on a Python helper scoped to a different YAML run block. The failed attempt already confirmed the shared `manv_route_deconfig()` definition contains the route deletion; replace the dispatcher `body()` call with a bounded slice from `udhcpc_viptv_main()` up to `zcip_main()`, then rerun HTTPD + docs against the exact new SHA.
+- **Next after validation:** once all exact-head Actions are green, move on to FTP MDTM/SITE CHMOD descriptor-relative metadata authorization and the Linux 4.4 upload-cleanup check/unlink race review.
 
 - Samba production implementation commit: `1a7097ace2e6c689cb7e92cd10055967d99fe143` (parent `6b44e023c2f669865fc8b5cb5425d824b8335d8b`). Follow-up commits updated the Samba and HTTPD semantic workflow extractors after initial assertions still referenced the previous writer layout.
 - Exact Actions evidence:
@@ -95,26 +95,26 @@
 
 ## Active task
 
-1. **ZeroConf production change is committed at `e79e88c011dca8c1a046b1df945cd57f300ff3f4`.** Both ZeroConf address callbacks validate before side effects and use the checked DHCP address transaction helper; WAN MAN route setup status propagates. MAN teardown retains lease/route inventory when route deletion fails, and the MAN deconfig caller does not discard old address identity if interface clear fails. IPTV ZeroConf defensive deconfig shares the route cleanup helper, checks interface/route teardown, stops multicast and preserves identity on failure. BusyBox 1.24 `zcip -q` exits after config before monitor/deconfig; this behavior remains unchanged.
-2. **Exact-head checks on `e79e88c...`:** WAN callback [42746555691], WAN teardown [42746555514], WAN route [42746555502], and AI docs [42746555591] passed. HTTPD [42746555780] failed only because its legacy Python source assertion expected `del_dhcp_routes_by_prefix("manv_", ...)` text after the `udhcpc_viptv_main()` signature. The new helper moved that call before the main dispatcher. The C production/policy test and all earlier HTTPD steps passed.
-3. **This follow-up commit:** update `.github/workflows/httpd-security.yml` to assert both the `manv_route_deconfig()` implementation and its use by `udhcpc_viptv_main()`. No production code is changed in this assertion correction. New exact-head HTTPD and AI docs Actions are pending.
-4. **First next action:** fetch the new live main SHA and inspect HTTPD security and AI documentation Actions tied to it. If HTTPD remains red, inspect exact failed step/log before modifying source.
-5. After the corrected workflow passes, move on to FTP MDTM/SITE CHMOD descriptor-relative metadata authorization and the Linux 4.4 upload-cleanup race. Keep FULLCONENAT target kernel/MIPS build, NFS compatibility, wireless bridge membership idempotency and L3/L4 validation boundaries visible.
+1. **ZeroConf production change** remains committed at `e79e88c011dca8c1a046b1df945cd57f300ff3f4`: transactional WAN/IPTV link-local address apply, propagated WAN MAN route status, retry-safe MAN teardown inventory and defensive IPTV ZeroConf deconfig; BusyBox 1.24 `zcip -q` lifecycle was inspected and intentionally left unchanged.
+2. **Exact-head history:** on `e79e88c...`, WAN callback [42746555691], teardown [42746555514], route [42746555502] and AI docs [42746555591] passed. HTTPD [42746555780] failed on an outdated assertion shape. The first contract correction in `fc0d7b6694a58cd5b396ea2219765803c257913d` updated helper/caller expectations; docs [42746896717] passed, but HTTPD [42746896790] then failed at line 159 with `NameError: name 'body' is not defined` because that helper was scoped to a prior independent YAML run block. The shared-helper existence assertion already passed.
+3. **THIS follow-up:** directly slice the `udhcpc_viptv_main()` dispatcher to `zcip_main()`, then assert the dispatcher calls `manv_route_deconfig()`. This is a test-contract-only correction; production code remains unchanged.
+4. **First next action:** inspect exact-head HTTPD + AI handoff documentation Actions. For a red result, retrieve its job logs and address only the failing assertion or production defect actually shown.
+5. After all exact-head Actions pass, start FTP MDTM/SITE CHMOD descriptor-relative metadata authorization and the Linux 4.4 upload-cleanup check/unlink race audit. Keep FULLCONENAT target MIPS build, NFS compatibility, wireless bridge membership and L3/L4 device validation open.
 
 ## Verification boundary
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for ZeroConf validate/apply/publish order, address rollback, MAN route-status propagation, retry-preserving MAN teardown, interface-clear-gated address identity clearing, and defensive IPTV deconfig. BusyBox `zcip -q` config/exit order inspected and intentionally preserved. |
-| L2 host / Actions | On `e79e88c011dca8c1a046b1df945cd57f300ff3f4`: WAN callback [42746555691], WAN teardown [42746555514], WAN route [42746555502], AI docs [42746555591] SUCCESS. HTTPD [42746555780] FAILED solely on the stale DHCP source-extractor assertion; production policy binary and prior HTTPD steps passed. Its corrected helper/caller contract is in THIS follow-up and awaits exact-head rerun. |
+| L1 source review | PASS for ZeroConf validate/apply/publish ordering, address rollback, MAN route-status propagation, retry-preserving MAN teardown, interface-clear-gated address identity clearing and defensive IPTV deconfig. BusyBox `zcip -q` lifecycle inspected and intentionally preserved. |
+| L2 host / Actions | On `fc0d7b6694a58cd5b396ea2219765803c257913d`: AI handoff docs [42746896717] SUCCESS. HTTPD [42746896790] FAILED only because the follow-up Python extractor referenced undefined `body()` at line 159; the helper-definition check and all preceding DHCP policy tests passed. The direct-slice fix is pending exact-head validation. |
 | L3 production RC/MIPS/uClibc/firmware builds | NOT VERIFIED. |
 | L4 physical router behavior | NOT VERIFIED. |
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, confirm exact SHA, and inspect HTTPD security plus AI handoff Actions attached to that SHA. If the HTTPD extractor still fails, inspect the full job log and repair the assertion contract only.
-2. When all exact-head Actions pass, start the next bounded task in `trunk/user/vsftpd/src`: audit MDTM/SITE CHMOD descriptor-relative authorization and the Linux 4.4 upload cleanup check/unlink race, including concurrency and symlink replacement; add a host regression before modifying production behavior.
-3. Keep FULLCONENAT target kernel/MIPS compilation, NFS compatibility, wireless bridge membership idempotency, production RC/firmware build and L4 router validation open.
+1. Fetch current `main`, check the exact SHA, and inspect HTTPD security + AI docs Actions. If HTTPD fails, inspect the job log and repair that specific assertion or demonstrated production issue.
+2. Once all exact-head Actions pass, audit `trunk/user/vsftpd/src/postlogin.c`, `asus_ext.c`, `sysutil.c` and FTP ACL path helpers. Prioritize MDTM/SITE CHMOD descriptor-relative authorization and upload cleanup's Linux 4.4 check/unlink race; write a host regression that models replacement between validation and unlink.
+3. Keep FULLCONENAT target kernel/MIPS build, NFS compatibility, wireless bridge membership idempotency and L3/L4 validation boundaries visible.
 
 ## Continuation rules
 

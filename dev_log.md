@@ -1,3 +1,16 @@
+## 2026-11-10 11:12 CST (UTC+8) — Remove cross-step Python helper dependency from HTTPD DHCP contract
+
+- **Base main SHA:** `fc0d7b6694a58cd5b396ea2219765803c257913d`; remote branches: `main` only.
+- **Exact-head Actions:** AI handoff docs [42746896717] completed SUCCESS. HTTPD [42746896790] failed in `Verify DHCP lease input and renewal reconciliation`, Python line 159, with `NameError: name 'body' is not defined`.
+- **Failure analysis:** the prior contract-only correction checked the shared `manv_route_deconfig()` helper implementation successfully, but called `body()` to extract the dispatcher. That helper is defined in a different `run: |` Python process and is not visible in this block. This is test-harness scope, not production C.
+- **Fix:** replace the cross-step helper call with direct bounded slicing from `udhcpc_viptv_main(int argc, char **argv)` to the next `zcip_main()` definition, then verify the shared helper dispatch call. No production code changes.
+- **Changed paths:** `.github/workflows/httpd-security.yml`; `SESSION_HANDOFF.md`; `REFACTOR_ROADMAP.md`; this log.
+- **Validation:** source structure and exact replacement reviewed. Corrected HTTPD contract and AI handoff docs are pending on THIS commit; no local workflow runner or production target build was available.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** reconcile exact-head HTTPD + AI docs Actions. Once green, continue FTP MDTM/SITE CHMOD descriptor-relative authorization and upload-cleanup race analysis; retain FULLCONENAT MIPS, NFS, bridge and L3/L4 targets.
+
+---
+
 ## 2026-11-10 11:05 CST (UTC+8) — Correct HTTPD DHCP contract for shared IPTV route cleanup
 
 - **Base main SHA:** `e79e88c011dca8c1a046b1df945cd57f300ff3f4`; remote branches: `main` only.
