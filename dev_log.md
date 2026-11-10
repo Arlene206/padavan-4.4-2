@@ -1,3 +1,14 @@
+## 2026-11-10 19:45 CST (UTC+8) — Restore NFS and storage lock regression contracts
+
+- **Base main SHA:** `a6e6fbcd9e49dc25f0a3a104db301bbc46f502c2`; remote branches contain only `main`, with no checkpoint branch.
+- **Exact-head Actions:** HTTPD DNSMasq regression [42809128510], AI handoff docs [42809128546], WAN DHCP [42809128548], Samba [42809129260], vsftpd [42809128454], WAN route [42809128476] and wireless [42809128571] completed SUCCESS. NFS [42809128602] and USB storage [42809128591] failed at their final Python source-contract steps; preceding shell syntax/lifecycle and GNU89 policy tests passed.
+- **Failure diagnosis:** the DNSMasq lifecycle commit unintentionally replaced the already-correct NFS workflow assertions for public lock-owning wrappers and private `*_locked` helpers with pre-lock expectations. The storage caller-graph contract likewise expected public NFS calls from already-locked hotplug/removal paths. Production `services_stor.c` still contains the storage lock and internal helper boundaries; this was a regression in the two workflow contracts, not a production NFS/storage failure.
+- **Correction:** restore `.github/workflows/nfsd-start-stability.yml` and `.github/workflows/storage-hotplug-stability.yml` to the exact versions that passed on parent SHA `2d1ea332349ded6ff7c2c0801405f570095800e1`. Preserve the full lock-order and locked-helper assertions; no production C behavior changed.
+- **Changed paths:** the two workflows, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log. Root log had 40 complete newest-first headings before this entry and has 41 after; no archive rotation or INDEX update is due.
+- **Validation:** exact failing step names and the surrounding successful steps were inspected; current production call sites were checked against the restored assertions. Exact-head NFS and storage reruns are pending. The DNSMasq lock regression and HTTPD source contract passed on exact SHA `a6e6fbcd9e49dc25f0a3a104db301bbc46f502c2`. No local checkout test, production RC/MIPS/uClibc build, firmware/TRX or L4 router test is claimed.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** reconcile NFS and storage workflow results on the new exact SHA, including each relevant job step. Once green, choose the next host-verifiable stability item from the whole-repository roadmap; keep NFS client compatibility, DNSMasq target behavior and FTP cleanup TOCTOU open.
+
 ## 2026-11-10 19:44 CST (UTC+8) — Serialize DNSMasq lifecycle across PID 1 and direct RC callers
 
 - **Base main SHA:** `2d1ea332349ded6ff7c2c0801405f570095800e1`; remote branch inventory contains only `main`, with no checkpoint branch. Exact-head Actions on this base all completed SUCCESS: HTTPD [42806093873], USB storage [42806093654], NFS [42806093616] and AI handoff docs [42806093551]. Full jobs and individual steps were inspected.
