@@ -1,3 +1,13 @@
+## 2026-11-10 17:20 CST (UTC+8) — Match PPP fallback source contract to wrapped comment
+
+- **Base main SHA:** `17bd830b9eea7ef9dfed7b5b66e2e5df9b3ae744`. AI handoff documentation contract [42789693179] passed. WAN route sanitizer compile/run passed, but source-semantic run [42789693415] failed again at the adjacent fallback-comment assertion.
+- **Failure diagnosis:** the preceding correction moved the comment search from the extracted helper body to the full `net_wan.c` text, but still searched for the full sentence `A later successful...` as a contiguous substring. The actual comment is line-wrapped after `A later`, with `successful ip-up callback...` on the next source line. The test incorrectly assumed comment formatting and did not indicate a C behavior defect.
+- **Correction:** assert the stable clause `successful ip-up callback may switch the active WAN back to ppp0.` in the source file. Keep semantic checks of fallback implementation body-scoped.
+- **Changed paths:** `.github/workflows/wan-route-status.yml`, `SESSION_HANDOFF.md` and this log. Root log had 34 headings before this entry and 35 after; no rotation or INDEX update is due.
+- **Validation:** exact-head WAN route-status and AI docs Actions are pending. The sanitizer binary compile/run passed on the base SHA; no local checkout, RC/MIPS/uClibc production build, firmware/TRX or L4 test is claimed.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** verify exact-head route-status and AI handoff Actions; then begin the P2 FTP upload-cleanup TOCTOU audit.
+
 ## 2026-11-10 17:15 CST (UTC+8) — Correct PPP demand fallback source-contract scope
 
 - **Base main SHA:** `dc68dbb5313146f17be3e47d0961fcfebd0a80a6`. WAN DHCP callback [42789462027], WAN interface teardown [42789462046], AI handoff docs [42789462238] and HTTPD security [42789462161] all completed SUCCESS. WAN route GNU89 sanitizer compile/run passed; its semantic step failed [42789461902].
