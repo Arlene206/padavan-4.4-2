@@ -1,3 +1,15 @@
+## 2026-11-10 19:50 CST (UTC+8) — Requeue remaining PID 1 notification batches
+
+- Base main SHA: `bff7da0ce69ef6f789460afd75e47a4b5e2166c5`; the only remote branch is main. Exact-head NFS [42810176922], USB storage [42810176909] and AI handoff docs [42810176971] all completed SUCCESS, with each job step inspected.
+- Finding: notify_rc() publishes one safe marker per distinct event and signals PID 1 with SIGUSR1. Standard signals coalesce. handle_notifications() deliberately processes at most ten directory entries, but after a single coalesced wake it returned without checking the remaining queue or rescheduling; more than ten notifications in a burst could therefore remain queued indefinitely.
+- Lifecycle proof: PID 1 blocks SIGUSR1 while checking deferred state and waits with sigsuspend(); the event handler only sets sig_atomic_t state. A SIGUSR1 sent by PID 1 after the handler returns is therefore delivered on the next atomic wait. Per-event incomplete markers are retained on failed actions or if another request for that event was queued while the action ran.
+- Fix: preserve the ten-entry work bound. After a full batch, scan the remaining directory stream for at least one safe regular marker and send PID 1 SIGUSR1 only when pending work is found. Do not self-signal after shutdown/firmware-flash handling; skip unsafe names and log directory-read failures instead of spinning.
+- Regression: add a GNU89 rc_notify_batch_policy test for below-limit, full-batch with/without queued work, and stop suppression. Add a focused workflow compiling/running that policy plus the existing notification-marker trust-boundary regression, and checking source ordering, PID 1 signal wakeup and push/PR path filters.
+- Changed paths: trunk/user/rc/src/rc.c, new rc_notify_batch_policy.h and its host test, new .github/workflows/rc-notification-queue-stability.yml, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md, and this log. Root log had 41 complete newest-first headings before this entry and has 42; no archive rotation or INDEX update is due.
+- Validation: L1 source/call-path review PASS. GNU89 policy compile/run, existing queue-marker regression and semantic contract are pending exact-head Actions. No local full RC compile, production MIPS/uClibc object, firmware/TRX or L4 router test is claimed.
+- Resulting commit: THIS COMMIT.
+- Next: inspect every job step in the PID 1 notification workflow and AI handoff workflow on the exact resulting SHA. If green, select the next stable host-verifiable item from the whole-repository governance ledger; keep target PID 1 runtime and previously blocked FTP cleanup/NFS client-compatibility questions open.
+
 ## 2026-11-10 19:45 CST (UTC+8) — Restore NFS and storage lock regression contracts
 
 - **Base main SHA:** `a6e6fbcd9e49dc25f0a3a104db301bbc46f502c2`; remote branches contain only `main`, with no checkpoint branch.

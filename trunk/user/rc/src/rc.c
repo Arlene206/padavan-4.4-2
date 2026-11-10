@@ -45,6 +45,7 @@
 #include "rc.h"
 #include "firewall_startup_policy.h"
 #include "rc_nvram_policy.h"
+#include "rc_notify_batch_policy.h"
 #include <rc_notify_queue.h>
 #include "gpio_pins.h"
 #include "switch.h"
@@ -928,9 +929,10 @@ shutdown_router(int level)
 void
 handle_notifications(void)
 {
-	int i, stop_handle = 0;
+	int i, stop_handle = 0, queue_pending = 0;
 	int notify_dir_fd, incomplete_dir_fd, queue_fd;
 	DIR *directory;
+	struct dirent *pending_entry;
 
 	notify_dir_fd = rc_notify_queue_open_dir(DIR_RC_NOTIFY, 0);
 	if (notify_dir_fd < 0)
@@ -954,7 +956,7 @@ handle_notifications(void)
 	}
 
 	// handle max 10 requests at once (prevent deadlock)
-	for (i=0; i < 10; i++)
+	for (i = 0; i < RC_NOTIFY_BATCH_LIMIT; i++)
 	{
 		struct dirent *entry;
 		int action_result = 0;
@@ -1552,6 +1554,32 @@ handle_notifications(void)
 		if (stop_handle)
 			break;
 	}
+
+	/*
+	 * Standard signals coalesce. If a burst filled this bounded batch, the
+	 * original SIGUSR1 may already have been consumed; explicitly reschedule
+	 * one more pass when a safe request remains in the queue.
+	 */
+	if (i >= RC_NOTIFY_BATCH_LIMIT && !stop_handle) {
+		for (;;) {
+			errno = 0;
+			pending_entry = readdir(directory);
+			if (!pending_entry) {
+				if (errno != 0)
+					logmessage(LOGNAME, "cannot inspect remaining RC notifications (errno=%d)", errno);
+				break;
+			}
+			if (!rc_notify_event_name_is_safe(pending_entry->d_name))
+				continue;
+			if (rc_notify_queue_marker_is_safe_at(queue_fd, pending_entry->d_name, 0) == 0) {
+				queue_pending = 1;
+				break;
+			}
+		}
+	}
+	if (rc_notify_batch_should_requeue(i, queue_pending, stop_handle) &&
+	    kill(1, SIGUSR1) != 0)
+		logmessage(LOGNAME, "cannot reschedule remaining RC notifications (errno=%d)", errno);
 
 	closedir(directory);
 	close(incomplete_dir_fd);

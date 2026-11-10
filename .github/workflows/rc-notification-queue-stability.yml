@@ -1,0 +1,114 @@
+name: PID 1 notification queue stability regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/rc-notification-queue-stability.yml"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/rc_notify_batch_policy.h"
+      - "trunk/user/rc/src/tests/rc_notify_batch_policy.c"
+      - "trunk/user/rc/src/init.c"
+      - "trunk/user/rc/src/pid1_signal_policy.h"
+      - "trunk/user/shared/src/notify_rc.c"
+      - "trunk/user/shared/src/rc_notify_queue.h"
+      - "trunk/user/shared/src/tests/rc_notify_queue.c"
+  pull_request:
+    paths:
+      - ".github/workflows/rc-notification-queue-stability.yml"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/rc_notify_batch_policy.h"
+      - "trunk/user/rc/src/tests/rc_notify_batch_policy.c"
+      - "trunk/user/rc/src/init.c"
+      - "trunk/user/rc/src/pid1_signal_policy.h"
+      - "trunk/user/shared/src/notify_rc.c"
+      - "trunk/user/shared/src/rc_notify_queue.h"
+      - "trunk/user/shared/src/tests/rc_notify_queue.c"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rc-notification-queue:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run bounded notification batch policy
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/rc_notify_batch_policy.c \
+            -o /tmp/rc-notify-batch-policy
+          /tmp/rc-notify-batch-policy
+      - name: Compile and run notification marker trust-boundary regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/shared/src \
+            trunk/user/shared/src/tests/rc_notify_queue.c \
+            -o /tmp/rc-notify-queue
+          /tmp/rc-notify-queue
+      - name: Verify PID 1 batch fairness, signal wakeup and workflow paths
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          rc = Path("trunk/user/rc/src/rc.c").read_text()
+          policy = Path("trunk/user/rc/src/rc_notify_batch_policy.h").read_text()
+          test = Path("trunk/user/rc/src/tests/rc_notify_batch_policy.c").read_text()
+          init = Path("trunk/user/rc/src/init.c").read_text()
+          notify = Path("trunk/user/shared/src/notify_rc.c").read_text()
+          queue = Path("trunk/user/shared/src/rc_notify_queue.h").read_text()
+          workflow = Path(".github/workflows/rc-notification-queue-stability.yml").read_text()
+
+          def function_body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          handler = function_body(rc, "handle_notifications(void)")
+          assert '#include "rc_notify_batch_policy.h"' in rc
+          assert "#define RC_NOTIFY_BATCH_LIMIT 10" in policy
+          assert "for (i = 0; i < RC_NOTIFY_BATCH_LIMIT; i++)" in handler
+          assert "pending_entry = readdir(directory)" in handler
+          assert "rc_notify_queue_marker_is_safe_at(queue_fd, pending_entry->d_name, 0) == 0" in handler
+          assert "rc_notify_batch_should_requeue(i, queue_pending, stop_handle)" in handler
+          assert "kill(1, SIGUSR1)" in handler
+          assert handler.index("rc_notify_batch_should_requeue") < handler.index("closedir(directory)")
+          assert "return !stop_handle && queue_pending" in policy
+          assert "assert(rc_notify_batch_should_requeue(10, 1, 0))" in test
+          assert "assert(!rc_notify_batch_should_requeue(10, 1, 1))" in test
+          assert "kill(1, SIGUSR1)" in notify
+          assert "rc_notify_queue_touch_at(notify_dir_fd, event_name, 0)" in notify
+          assert "O_NOFOLLOW" in queue and "st.st_nlink != 1" in queue
+          main_loop = function_body(init, "init_main_loop(void)")
+          assert "sigaddset(&wait_mask, SIGUSR1)" in main_loop
+          assert "sigsuspend(&original_mask)" in main_loop
+
+          paths = (
+              ".github/workflows/rc-notification-queue-stability.yml",
+              "trunk/user/rc/src/rc.c",
+              "trunk/user/rc/src/rc_notify_batch_policy.h",
+              "trunk/user/rc/src/tests/rc_notify_batch_policy.c",
+              "trunk/user/rc/src/init.c",
+              "trunk/user/rc/src/pid1_signal_policy.h",
+              "trunk/user/shared/src/notify_rc.c",
+              "trunk/user/shared/src/rc_notify_queue.h",
+              "trunk/user/shared/src/tests/rc_notify_queue.c",
+          )
+          filters = workflow.split("jobs:", 1)[0]
+          push_filters, pr_filters = filters.split("  pull_request:", 1)
+          for path in paths:
+              assert push_filters.count(path) == 1, path
+              assert pr_filters.count(path) == 1, path
+          print("PID 1 notification queue bounded-batch contract: PASS")
+          PY
