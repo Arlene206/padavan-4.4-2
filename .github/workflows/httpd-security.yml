@@ -2141,8 +2141,9 @@ jobs:
           inventory_pos = nfs.index("mount_count = count_stor_mountpoint();")
           guard_pos = nfs.index("if (mount_count < 0)")
           unknown_return_pos = nfs.index("return -1;", guard_pos)
-          stop_pos = nfs.index("if (stop_nfsd() != 0)")
-          assert inventory_pos < guard_pos < unknown_return_pos < stop_pos
+          lock_pos = nfs.index("storage_operation_lock_acquire(file_lock)")
+          stop_pos = nfs.index("if (stop_nfsd_locked() != 0)")
+          assert lock_pos < inventory_pos < guard_pos < unknown_return_pos < stop_pos
           assert stop_pos < nfs.index("storage_mount_inventory_has_mounts(mount_count)")
           assert "keeping NFS support running" in nfs
 
@@ -4470,8 +4471,16 @@ jobs:
               raise AssertionError("unterminated function: " + signature)
 
           writer = body(source, "write_nfsd_exports(void)")
-          starter = body(source, "run_nfsd(void)")
-          reloader = body(source, "reload_nfsd(void)")
+          starter = body(source, "run_nfsd_locked(void)")
+          public_starter = body(source, "run_nfsd(void)")
+          reloader = body(source, "reload_nfsd_locked(void)")
+          public_reloader = body(source, "reload_nfsd(void)")
+          assert "storage_operation_lock_acquire(file_lock)" in public_starter
+          assert public_starter.index("storage_operation_lock_acquire") < public_starter.index("run_nfsd_locked()")
+          assert "file_unlock(storage_lock)" in public_starter
+          assert "storage_operation_lock_acquire(file_lock)" in public_reloader
+          assert public_reloader.index("storage_operation_lock_acquire") < public_reloader.index("reload_nfsd_locked()")
+          assert "file_unlock(storage_lock)" in public_reloader
           assert "storage_nfs_export_parse_mount_line" in writer
           assert "storage_nfs_export_may_publish" in writer
           assert "storage_nfs_export_field_is_decimal" in policy

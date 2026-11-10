@@ -602,15 +602,25 @@ jobs:
           assert nfs_stop.index('func_unmount_if_mounted /proc/fs/nfsd') < nfs_stop.index('rm -f /var/lib/nfs/etab')
           restart_case = nfs_script[nfs_script.index('restart)'):nfs_script.index('reload)')]
           assert restart_case.index('func_stop || exit $?') < restart_case.index('func_start')
+          stop_nfsd_locked = function_body(storage, "stop_nfsd_locked(void)")
+          assert 'return eval("/usr/bin/nfsd.sh", "stop");' in stop_nfsd_locked
           stop_nfsd = function_body(storage, "int stop_nfsd(void)")
-          assert 'return eval("/usr/bin/nfsd.sh", "stop");' in stop_nfsd
+          assert "storage_operation_lock_acquire(file_lock)" in stop_nfsd
+          assert stop_nfsd.index("storage_operation_lock_acquire") < stop_nfsd.index("stop_nfsd_locked()")
+          assert "file_unlock(storage_lock)" in stop_nfsd
           assert "int stop_nfsd(void);" in rc_header and "int restart_nfsd(void);" in rc_header
           stop_apps = function_body(storage, "stop_stor_apps(void)")
-          assert "if (stop_nfsd() != 0)" in stop_apps and "return stop_status;" in stop_apps
+          assert "if (stop_nfsd_locked() != 0)" in stop_apps and "stop_nfsd()" not in stop_apps
+          assert "return stop_status;" in stop_apps
+          run_nfsd_locked = function_body(storage, "run_nfsd_locked(void)")
+          assert 'eval("/usr/bin/nfsd.sh", "start")' in run_nfsd_locked
+          start_apps = function_body(storage, "start_stor_apps(void)")
+          assert "run_nfsd_locked()" in start_apps and "run_nfsd()" not in start_apps
           restart_nfsd = function_body(storage, "int restart_nfsd(void)")
-          assert restart_nfsd.index("count_stor_mountpoint()") < restart_nfsd.index("stop_nfsd()")
-          assert 'if (stop_nfsd() != 0)' in restart_nfsd
-          assert restart_nfsd.index('if (stop_nfsd() != 0)') < restart_nfsd.index('run_nfsd();')
+          assert restart_nfsd.index("storage_operation_lock_acquire(file_lock)") < restart_nfsd.index("count_stor_mountpoint()")
+          assert 'if (stop_nfsd_locked() != 0)' in restart_nfsd
+          assert restart_nfsd.index('if (stop_nfsd_locked() != 0)') < restart_nfsd.index('run_nfsd_locked()')
+          assert "file_unlock(storage_lock)" in restart_nfsd
           assert 'action_result = restart_nfsd();' in rc and 'ret = stop_nfsd();' in rc
           print("USB storage hotplug full caller graph, lock ordering and teardown contracts: PASS")
           PY
