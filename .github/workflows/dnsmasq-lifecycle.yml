@@ -1,0 +1,98 @@
+name: DNSMasq lifecycle stability regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/dnsmasq-lifecycle.yml"
+      - "trunk/user/rc/src/services_ex.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/dnsmasq_restart_policy.h"
+      - "trunk/user/rc/src/tests/dnsmasq_restart_policy.c"
+      - "trunk/user/rc/src/dnsmasq_lifecycle_lock.h"
+      - "trunk/user/rc/src/tests/dnsmasq_lifecycle_lock.c"
+  pull_request:
+    paths:
+      - ".github/workflows/dnsmasq-lifecycle.yml"
+      - "trunk/user/rc/src/services_ex.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/dnsmasq_restart_policy.h"
+      - "trunk/user/rc/src/tests/dnsmasq_restart_policy.c"
+      - "trunk/user/rc/src/dnsmasq_lifecycle_lock.h"
+      - "trunk/user/rc/src/tests/dnsmasq_lifecycle_lock.c"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dnsmasq-lifecycle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run DNSMasq restart policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror             -I trunk/user/rc/src             trunk/user/rc/src/tests/dnsmasq_restart_policy.c             -o "$RUNNER_TEMP/dnsmasq-restart-policy"
+          "$RUNNER_TEMP/dnsmasq-restart-policy"
+      - name: Compile and run DNSMasq cross-process lock regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror             -I trunk/user/rc/src             trunk/user/rc/src/tests/dnsmasq_lifecycle_lock.c             -o "$RUNNER_TEMP/dnsmasq-lifecycle-lock"
+          "$RUNNER_TEMP/dnsmasq-lifecycle-lock"
+      - name: Verify daemon start postconditions and RC exit status propagation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          services = Path("trunk/user/rc/src/services_ex.c").read_text()
+          policy = Path("trunk/user/rc/src/dnsmasq_restart_policy.h").read_text()
+          rc = Path("trunk/user/rc/src/rc.c").read_text()
+          restart_test = Path("trunk/user/rc/src/tests/dnsmasq_restart_policy.c").read_text()
+          workflow = Path(".github/workflows/dnsmasq-lifecycle.yml").read_text()
+
+          def function_body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          start = function_body(services, "start_dns_dhcpd_locked(int is_ap_mode)")
+          restart = function_body(services, "restart_dhcpd_locked(void)")
+          confirm = function_body(services, "dnsmasq_confirm_started(int launch_status)")
+          assert "dnsmasq_confirm_started(launch_status)" in start
+          assert "dnsmasq_confirm_started(launch_status)" in restart
+          assert "eval(\"/usr/sbin/dnsmasq\")" in start
+          assert "eval(\"/usr/sbin/dnsmasq\")" in restart
+          assert "DNSMASQ_START_WAIT_ATTEMPTS" in confirm
+          assert "is_dns_dhcpd_run()" in confirm
+          assert "sleep(1)" in confirm
+          assert "dnsmasq_start_policy_status(launch_status, daemon_running)" in confirm
+          assert "return daemon_running ? 0 : ESRCH;" in policy
+          assert "dnsmasq_start_policy_status(0, 0) == ESRCH" in restart_test
+          assert 'ret = restart_dhcpd();' in rc
+          assert "return ret;" in rc
+
+          paths = (
+              ".github/workflows/dnsmasq-lifecycle.yml",
+              "trunk/user/rc/src/services_ex.c",
+              "trunk/user/rc/src/rc.c",
+              "trunk/user/rc/src/dnsmasq_restart_policy.h",
+              "trunk/user/rc/src/tests/dnsmasq_restart_policy.c",
+              "trunk/user/rc/src/dnsmasq_lifecycle_lock.h",
+              "trunk/user/rc/src/tests/dnsmasq_lifecycle_lock.c",
+          )
+          filters = workflow.split("jobs:", 1)[0]
+          push_filters, pr_filters = filters.split("  pull_request:", 1)
+          for path in paths:
+              assert push_filters.count(path) == 1, path
+              assert pr_filters.count(path) == 1, path
+          print("DNSMasq daemon-start postcondition and RC status propagation contract: PASS")
+          PY
+

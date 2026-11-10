@@ -1,25 +1,24 @@
 ## Current repository state
 
-- Maintained fork: `Arlene206/padavan-4.4-2`; operate only on this fork. Base `main` SHA before THIS COMMIT: `952040daea8f43b01ec3dc37510c57af3c7070b7`, parent `af657721328f6a1af62a62e4631028a77df9b982`. Remote branch inventory contains only `main`; no checkpoint branch exists.
-- **Previously recovered FULLCONENAT task — target build validated:** exact-head run [42891865785] and AI docs [42891866252] both SUCCESS on code SHA `7b833db52deddb0c2404c77c3e1ab87cdfac5d85`. The real `net/netfilter/xt_FULLCONENAT.o` compiled with pinned MIPS toolchain; readelf verified ELF32, little-endian, MIPS, while the production config asserted MIPS32r2 and retained FULLCONENAT/conntrack events with SQM disabled.
-- **Configure cleanup committed in THIS branch:** commit `952040daea8f43b01ec3dc37510c57af3c7070b7` restores `trunk/configure` from its 316-line pre-integration parent and keeps one SQM-independent FULLCONENAT prerequisite gate; resulting file is 322 lines. This removes the duplicate SQM/CPU/USB/filesystem/network feature mutations found in the prior 507-line version.
-- **CI harness issue on the cleanup commit:** run [42893148880] failed before creating any jobs (workflow name appeared as the file path; the fetched YAML contained a malformed inserted step where the target-build shell body was spliced into Python assertions). No test step executed and this is not a production-source result. AI docs run [42893151242] accepted root log 65/119; its validator passed. THIS COMMIT rebuilds the workflow from the previously valid workflow and inserts the configure uniqueness/SQM-independence test as a proper line block. The 322-line source config itself remains intact.
-- **Kbuild and source fixes retained:** single-object Kbuild automatic-variable expressions use deferred expansion; prior target-object pass proves this path. FULLCONENAT no longer shares an IPv4/IPv6 debug tuple buffer across unrelated family locks.
-- **Validation boundary:** the MIPS object pass applies to the prior 507-line configure revision; the corrected 322-line configure and repaired workflow still require a fresh exact-head run. No full kernel image, firmware/TRX, production uClibc/BusyBox runtime or physical L4 router result is claimed.
-- Root `dev_log.md` contained 65 complete newest-first records before this commit and will contain 66 after; no archive rotation or INDEX update is due.
+- Maintained fork: `Arlene206/padavan-4.4-2`; operate only on this fork. Base `main` SHA before THIS COMMIT: `79c60ff47f4a2c94bc4c8e5accfa928a61751d6d`, parent `952040daea8f43b01ec3dc37510c57af3c7070b7`. Only remote branch is `main`; no checkpoint branch exists.
+- **FULLCONENAT/config recovery now green:** exact-head run [42893586034] and AI docs [42893586104] both SUCCESS on `79c60ff47f4a2c94bc4c8e5accfa928a61751d6d`. The restored 322-line configure uniqueness/SQM-independence contract passed; XY-C1 config retained conntrack events and FULLCONENAT after `olddefconfig`; Kbuild compiled `net/netfilter/xt_FULLCONENAT.o` and readelf verified ELF32/little-endian/MIPS. AI docs validated root log 66/119 and archive inventory unchanged.
+- **DNSMasq lifecycle gap:** public start/restart treated `eval("/usr/sbin/dnsmasq") == 0` as successful daemon startup, but `eval()` waits only for the daemonizing launcher. Neither path verified that a non-zombie dnsmasq process remained present after launch. The `restart_dhcpd` applet in `rc.c` also called the int-returning API but discarded its result, so CLI callers could receive default success despite lifecycle errors.
+- **Fix in THIS COMMIT:** after a successful launcher exit, poll the process scanner four times with three one-second intervals; return `ESRCH` if no daemon appears. Preserve the original launcher error. Apply the postcondition to both initial start and restart. The RC applet now assigns the API result to `ret` and propagates it to the caller.
+- **Regression in THIS COMMIT:** extend the policy tests for launch-error preservation, daemon-present success and absent-daemon `ESRCH`. Add a dedicated workflow that compiles/runs GNU89 policy and cross-process lock tests and statically checks both service paths, the bounded wait, applet return propagation and workflow push/PR path filters.
+- **Validation boundary:** DNSMasq GNU89 binaries, source contract and AI docs are pending exact-head Actions. No target MIPS/uClibc RC build, BusyBox ash runtime, full firmware/TRX or router concurrency test is claimed.
+- Root `dev_log.md` contained 66 complete newest-first records before this commit and will contain 67 after; no archive rotation or INDEX update is due.
 
 ## Active task
 
-- Inspect the next exact-head FULLCONENAT workflow and AI docs Actions. Confirm the workflow is parsed and creates its job, the configure uniqueness and shell syntax contract passes, the XY-C1 non-SQM config retains `NF_CONNTRACK_EVENTS` and FULLCONENAT after `olddefconfig`, and Kbuild recompiles `xt_FULLCONENAT.o` with ELF32/little-endian/MIPS.
-- Once green, move beyond Netfilter to the DNSMasq/RC lifecycle audit: cross-process lock callers, daemon stop/start postconditions, rollback paths and BusyBox ash/uClibc status assumptions. Add a bounded GNU89/host regression for any proven gap.
-- Keep FTP failed-upload cleanup TOCTOU OPEN/BLOCKED until safe staged publication is proven across STOR/APPE/REST/STOU and filesystem semantics. NFS export/client behavior requires actual client evidence; wireless detach and WAN reconnect/IPv6 rollback remain open.
+- Inspect exact-head DNSMasq lifecycle and AI docs Actions. Confirm both GNU89 tests compile/run, both start/restart postconditions are asserted, and the RC applet propagates the real status.
+- After green, continue broader stability/security coverage outside Netfilter and DNSMasq. FTP failed-upload cleanup TOCTOU remains OPEN/BLOCKED pending proven staged publication across STOR/APPE/REST/STOU and filesystem semantics; NFS durability/client behavior needs external client evidence; wireless detach and WAN reconnect/IPv6 rollback remain open.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, exact SHA/parent and branches/checkpoints; inspect exact-head FULLCONENAT and AI docs run statuses.
-2. Review all job steps and complete logs. The cleanup commit's failed workflow run [42893148880] created no jobs, so do not treat it as test evidence; the AI docs contract [42893151242] passed.
-3. Confirm the repaired workflow has a real lifecycle job, configure checks pass and the target object is rebuilt/ELF-verified on the 322-line configure source.
-4. When green, proceed to DNSMasq/RC lifecycle P2 audit. Preserve FTP TOCTOU as OPEN/BLOCKED and NFS compatibility as awaiting external-client evidence.
+1. Fetch live `main`, record exact SHA/parent and branch/checkpoint inventory.
+2. Inspect every job step and full log in exact-head DNSMasq lifecycle and AI docs Actions; verify host tests and source contracts.
+3. Record only bounded host/source evidence. Production MIPS/uClibc, BusyBox ash, full firmware/TRX and L4 behavior remain unverified.
+4. Continue repository-wide P2 work. Keep FTP upload cleanup TOCTOU OPEN/BLOCKED until safe staged publication is demonstrated; NFS external-client semantics remain open.
 
 ## PID 1 notification queue batch fairness
 

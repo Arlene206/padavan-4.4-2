@@ -1840,7 +1840,7 @@ main(int argc, char **argv)
 		ret = restart_dns();
 	}
 	else if (!strcmp(base, "restart_dhcpd")) {
-		restart_dhcpd();
+		ret = restart_dhcpd();
 	}
 	else if (!strcmp(base, "restart_vpn_server")) {
 		restart_vpn_server();

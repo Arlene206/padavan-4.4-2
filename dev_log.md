@@ -1,3 +1,18 @@
+## 2026-11-11 04:45 CST (UTC+8) — Verify DNSMasq daemon start postconditions and propagate RC failures
+
+- **Base main SHA:** `79c60ff47f4a2c94bc4c8e5accfa928a61751d6d`; parent `952040daea8f43b01ec3dc37510c57af3c7070b7`. Only remote branch is `main`.
+- **Previous exact-head CI:** FULLCONENAT [42893586034] and AI docs [42893586104] both SUCCESS on `79c60ff47f4a2c94bc4c8e5accfa928a61751d6d`. The restored configure uniqueness/SQM-independent prerequisite contract passed, XY-C1 post-`olddefconfig` retained FULLCONENAT and conntrack events, `CC net/netfilter/xt_FULLCONENAT.o` passed and readelf verified ELF32/little-endian/MIPS. AI docs accepted root log 66/119 and unchanged archive inventory.
+- **DNSMasq finding:** start/restart accepted `eval("/usr/sbin/dnsmasq")`'s exit as proof of service availability. The shared eval macro waits for the launcher child, but dnsmasq daemonizes; this does not prove the detached non-zombie process remains active. Both locked start and restart functions lacked a process-presence postcondition. The direct `restart_dhcpd` applet also discarded the int result from `restart_dhcpd()`, leaving the command result at its zero default and masking lock/stop/launch failures from shell callers.
+- **Fix in THIS COMMIT:** a policy helper preserves nonzero launcher errors and returns `ESRCH` if the launcher succeeds but the process remains absent. Both start and restart poll the existing /proc-based, zombie-excluding process scanner four times, separated by up to three one-second waits, before returning success. The RC applet assigns `ret = restart_dhcpd()` to propagate the real status.
+- **Regression:** test launcher error preservation, live-daemon success, missing-daemon ESRCH and nonzero truthy process state. Add a dedicated workflow to compile/run the GNU89 restart-policy and existing cross-process lock tests with `-Wall -Wextra -Werror`; static contract checks both launch call paths, the bounded polling loop, applet exit propagation and push/PR path filters.
+- **Changed paths:** `trunk/user/rc/src/dnsmasq_restart_policy.h`, `trunk/user/rc/src/tests/dnsmasq_restart_policy.c`, `trunk/user/rc/src/services_ex.c`, `trunk/user/rc/src/rc.c`, new `.github/workflows/dnsmasq-lifecycle.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log.
+- **Validation:** source/API review only for this commit. GNU89 test binaries, workflow source contract and AI docs are pending exact-head Actions. No target MIPS/uClibc RC compile, BusyBox ash runtime, full firmware/TRX or L4 router test is claimed.
+- **Root log:** 66 complete newest-first records before this entry; 67 after. No archive rotation or `docs/dev-log/INDEX.md` update is due.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** inspect every job step and complete log in exact-head DNSMasq and AI docs workflows. Confirm both GNU89 tests compile/run, both start/restart postconditions are exercised/checked and the applet propagates status. Then continue repository-wide P2 stability/security coverage; FTP cleanup TOCTOU remains OPEN/BLOCKED until safe staged publication is demonstrated.
+
+---
+
 ## 2026-11-11 04:26 CST (UTC+8) — Repair FULLCONENAT workflow insertion after malformed CI definition
 
 - **Base main SHA:** `952040daea8f43b01ec3dc37510c57af3c7070b7`; parent `af657721328f6a1af62a62e4631028a77df9b982`. Only remote branch is `main`.

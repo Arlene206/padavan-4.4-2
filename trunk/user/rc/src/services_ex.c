@@ -318,6 +318,31 @@ is_dns_dhcpd_run(void)
 	return pids("dnsmasq");
 }
 
+#define DNSMASQ_START_WAIT_ATTEMPTS	4
+
+static int
+dnsmasq_confirm_started(int launch_status)
+{
+	int attempt;
+	int daemon_running = 0;
+
+	if (launch_status != 0)
+		return dnsmasq_start_policy_status(launch_status, 0);
+
+	/* dnsmasq daemonizes: eval() waits for its launcher, not the daemon child.
+	 * Confirm that the child is visible before reporting a successful start. */
+	for (attempt = 0; attempt < DNSMASQ_START_WAIT_ATTEMPTS; attempt++) {
+		if (is_dns_dhcpd_run()) {
+			daemon_running = 1;
+			break;
+		}
+		if (attempt + 1 < DNSMASQ_START_WAIT_ATTEMPTS)
+			sleep(1);
+	}
+
+	return dnsmasq_start_policy_status(launch_status, daemon_running);
+}
+
 int
 is_dhcpd_enabled(int is_ap_mode)
 {
@@ -634,6 +659,7 @@ start_dns_dhcpd_locked(int is_ap_mode)
 {
 	int service_enabled = 0;
 	int status;
+	int launch_status;
 	if (!dnsmasq_start_policy_should_launch(is_dns_dhcpd_run())) {
 		logmessage(LOGNAME, "refusing DNSMasq start while a previous instance is active");
 		return EBUSY;
@@ -646,9 +672,15 @@ start_dns_dhcpd_locked(int is_ap_mode)
 		logmessage(LOGNAME, "refusing duplicate DNSMasq launch after configuration preparation");
 		return EBUSY;
 	}
-	status = eval("/usr/sbin/dnsmasq");
-	if (status != 0)
-		logmessage(LOGNAME, "cannot launch DNSMasq after configuration publication (status=%d)", status);
+	launch_status = eval("/usr/sbin/dnsmasq");
+	status = dnsmasq_confirm_started(launch_status);
+	if (status != 0) {
+		if (launch_status != 0)
+			logmessage(LOGNAME, "cannot launch DNSMasq after configuration publication (status=%d)", launch_status);
+		else
+			logmessage(LOGNAME, "DNSMasq launch returned success but no running process appeared within %d seconds",
+				   DNSMASQ_START_WAIT_ATTEMPTS - 1);
+	}
 	return status;
 }
 
@@ -702,6 +734,7 @@ restart_dhcpd_locked(void)
 	int stop_status;
 	int still_running;
 	int launch_status;
+	int start_status;
 	enum dnsmasq_restart_action action;
 	prepare_status = prepare_dns_dhcpd(get_ap_mode(), &service_enabled);
 	action = dnsmasq_restart_policy_action(was_running, prepare_status, service_enabled);
@@ -721,9 +754,15 @@ restart_dhcpd_locked(void)
 	if (action == DNSMASQ_RESTART_STOP_ONLY)
 		return 0;
 	launch_status = eval("/usr/sbin/dnsmasq");
-	if (launch_status != 0)
-		logmessage(LOGNAME, "DNSMasq restart launch failed (status=%d); no unvalidated fallback attempted", launch_status);
-	return launch_status;
+	start_status = dnsmasq_confirm_started(launch_status);
+	if (start_status != 0) {
+		if (launch_status != 0)
+			logmessage(LOGNAME, "DNSMasq restart launch failed (status=%d); no unvalidated fallback attempted", launch_status);
+		else
+			logmessage(LOGNAME, "DNSMasq restart returned success but no running process appeared within %d seconds",
+				   DNSMASQ_START_WAIT_ATTEMPTS - 1);
+	}
+	return start_status;
 }
 
 int
