@@ -32,6 +32,7 @@ cp "$project_dir/configs/templates/XY-C1.config" "$project_dir/.config"
 
 (
   cd "$project_dir"
+  bash -n ./configure
   ./configure
 )
 

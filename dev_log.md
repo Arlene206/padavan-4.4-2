@@ -1,3 +1,16 @@
+## 2026-11-11 04:02 CST (UTC+8) — Repair FULLCONENAT project-config shell integration
+
+- **Base main SHA:** aba91fcc9c94acd5e663dd00701e66a9caf3bdd1; parent af06d61dbd6bfdd7f29734be49fc154997fbad89. Only remote branch: main.
+- **Exact-head Actions:** FULLCONENAT [42890657858] passed notifier lifecycle, namespace/zone regression and contracts, cross-family tuple-debug contract, and toolchain archive SHA-256 verification. The target step then failed at ./configure with line 336: unexpected EOF while looking for matching single quote; no target object was built. AI handoff docs [42890657824] passed.
+- **Diagnosis:** inspection of the committed configure script showed the new FULLCONENAT conditional had been split before its kernel-config path argument, leaving a detached suffix at the file end. Bash therefore parsed an unterminated single-quoted grep expression. This is a shell syntax issue, not a Kbuild or C compiler failure.
+- **Fix:** restore the conditional as two explicit quoted grep -q checks for CONFIG_NETFILTER_XT_TARGET_FULLCONENAT=y or =m, enable conntrack events in either case, and remove the detached suffix. The target helper now runs bash -n ./configure before executing the project configuration, so a malformed config script fails at a precise guard.
+- **Production dependency remains:** XY-C1 has FULLCONENAT enabled, events disabled, and SQM disabled. The previous commit changes trunk/configure to enable conntrack events whenever a board kernel config selects FULLCONENAT; the helper uses the actual XY-C1 template/config path and keeps all board/feature/object/ELF checks.
+- **Changed paths:** trunk/configure, scripts/build_fullconenat_mips_object.sh, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and this log.
+- **Validation:** source-level diagnosis completed. Exact-head FULLCONENAT and AI docs runs are pending. No local shell checkout, MIPS object, full kernel image, firmware/TRX or L4 result is claimed.
+- **Root log:** 61 complete newest-first records before this entry; 62 after. No archive rotation or docs/dev-log/INDEX.md update is due.
+- **Next:** inspect every job, step and complete log for the new exact SHA; confirm bash -n and trunk/configure succeed, the non-SQM XY-C1 config retains both conntrack events and FULLCONENAT, and the target object ELF check passes. Continue the P2 queue only after exact-head reconciliation; keep FTP cleanup TOCTOU OPEN/BLOCKED until an unlink-safe staged-publication design is proven.
+
+---
 ## 2026-11-11 03:58 CST (UTC+8) — Derive FULLCONENAT conntrack prerequisite from production board config
 
 - **Base main SHA:** `af06d61dbd6bfdd7f29734be49fc154997fbad89`; parent `c74e256629e4541f0669d5653a6e20b9bf8ee5e1`. Remote branch inventory contained only `main`.
