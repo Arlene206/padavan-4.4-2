@@ -62,17 +62,42 @@ assert_only_target_remains(const char *directory, const char *target_name)
 	assert(count == 1);
 }
 
+static void
+assert_two_targets_remain(const char *directory, const char *first,
+			  const char *second)
+{
+	DIR *dir = opendir(directory);
+	struct dirent *entry;
+	int first_seen = 0, second_seen = 0;
+	assert(dir != NULL);
+	while ((entry = readdir(dir)) != NULL) {
+		if (strcmp(entry->d_name, ".") == 0 ||
+		    strcmp(entry->d_name, "..") == 0)
+			continue;
+		if (strcmp(entry->d_name, first) == 0)
+			first_seen++;
+		else if (strcmp(entry->d_name, second) == 0)
+			second_seen++;
+		else
+			assert(0 && "unexpected temporary file remains");
+	}
+	assert(closedir(dir) == 0);
+	assert(first_seen == 1 && second_seen == 1);
+}
+
 int
 main(void)
 {
 	char directory[] = "/tmp/miniupnpd-config-test.XXXXXX";
 	char path[256];
+	char directory_target[256];
 	struct writer_context context;
 	struct stat st;
 	int status;
 
 	assert(mkdtemp(directory) != NULL);
 	assert(snprintf(path, sizeof(path), "%s/miniupnpd.conf", directory) > 0);
+	assert(snprintf(directory_target, sizeof(directory_target), "%s/directory-target", directory) > 0);
 	write_file(path, "last-good\n");
 
 	context.text = "partial-new-config\n";
@@ -95,7 +120,15 @@ main(void)
 	assert(miniupnpd_config_publish(NULL, write_config, &context) == EINVAL);
 	assert_file_equals(path, "complete-new-config\n");
 
+	/* A failed final rename must preserve its destination and remove the stage. */
+	assert(mkdir(directory_target, 0700) == 0);
+	status = miniupnpd_config_publish(directory_target, write_config, &context);
+	assert(status == EISDIR);
+	assert(stat(directory_target, &st) == 0 && S_ISDIR(st.st_mode));
+	assert_two_targets_remain(directory, "miniupnpd.conf", "directory-target");
+
 	assert(unlink(path) == 0);
+	assert(rmdir(directory_target) == 0);
 	assert(rmdir(directory) == 0);
 	puts("miniupnpd atomic config publication: PASS");
 	return 0;

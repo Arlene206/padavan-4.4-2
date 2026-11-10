@@ -1,15 +1,20 @@
 ## Current repository state
 
-- Maintained fork: `Arlene206/padavan-4.4-2`; work only on this repository.
-- **Live `main` HEAD before THIS COMMIT:** `ddcbb795e242f14b8620d77f25843e091c2652c5`; remote branch inventory contains only `main`, with no checkpoint branch. No force-pushes.
-- **VPN lifecycle handoff task reconciled:** VPN server lifecycle [42815618568], AI handoff docs [42815618091] and dependent HTTPD security [42815618058] all completed SUCCESS on this exact SHA. Every job and step was inspected. The cross-process lock and wrappers are now present; the documented in-flight PPP callback boundary remains open.
-- Root `dev_log.md` contains 44 complete newest-first records before THIS COMMIT; this milestone appends record 45. No archive rotation or INDEX update is due.
-- Previous continuity work remains: DNSMasq and NFS lifecycle serialization; WAN DHCP/PPP callback and route-status gates; FTP upload-parent pinning; PID 1 notification backlog requeue; VPN server lifecycle lock. Preserve their documented validation boundaries.
-- **Active stability finding — miniupnpd configuration publication:** `start_upnp()` truncates `/etc/miniupnpd.conf` with `fopen(..., "w")`, ignores `fprintf()` and `fclose()` errors, then starts miniupnpd. ENOSPC or an I/O error can destroy the last known-good config while still launching the daemon.
-- **Bounded fix in THIS COMMIT:** stage the generated config in a unique mode-0600 sibling file; check writer, flush, EINTR-aware fsync and close; atomically rename only after complete success. On failure unlink the temporary file, preserve the previous config and do not launch miniupnpd. No protocol/config fields are changed.
-- **Regression:** GNU89 test checks failed-writer preservation, temporary cleanup, successful replacement/mode and invalid inputs. Path-filtered Actions adds the host test plus production writer/start-order semantic assertions.
-- **Validation so far:** standalone helper test passed under GNU89 warnings-as-errors and under ASan/UBSan. The RC production translation unit has not been compiled. Exact-head miniupnpd and AI documentation Actions are pending after this commit. No L3 MIPS/uClibc object, firmware/TRX or L4 router test is claimed.
-- **First next action:** inspect every job step in the exact-head miniupnpd config-publication and AI handoff Actions. If green, choose a fresh host-verifiable stability item in another under-covered userland module.
+- Maintained fork: Arlene206/padavan-4.4-2; work only on this repository.
+- Live main HEAD before THIS COMMIT: fb864bc0db8f48eec828abaeb0aeaa2b91ae3aa7; only remote branch is main, with no checkpoint branch. Never force-push.
+- Last completed task: VPN server lifecycle serialization. Exact-head VPN [42815618568], AI docs [42815618091] and HTTPD [42815618058] all SUCCESS; every step was inspected.
+- Root dev_log.md has 45 complete newest-first records before THIS COMMIT. No archive rotation or INDEX update is due.
+- Previous continuity work remains documented below: PID 1 notification requeue, NFS/DNSMasq lifecycle locks, WAN DHCP/PPP status gates, FTP upload-parent anchoring, VPN lock and miniupnpd config publication.
+- Open boundaries remain explicit: FTP failed-upload cleanup TOCTOU, NFS export/client compatibility, VPN in-flight PPP callback fencing, target MIPS/uClibc and physical-router behavior.
+
+## Active task
+
+- Harden miniupnpd generated-config publication and finish rename-failure regression. Original start_upnp() truncated /etc/miniupnpd.conf directly, ignored fprintf/fclose errors, then launched the daemon.
+- Code commit: fb864bc0db8f48eec828abaeb0aeaa2b91ae3aa7. It stages a unique mode-0600 sibling, checks writer/flush/fsync/close, and uses same-directory rename; failures preserve the previous config and gate launch.
+- Exact-head actions on that commit: miniupnpd [42816429073], Samba [42816429069] and HTTPD [42816429055] SUCCESS. AI docs [42816429042] FAILED because the live handoff omitted required heading ## Active task; inspected job log identifies that exact failure.
+- This follow-up adds deterministic failed-rename coverage: publish against an existing directory, require EISDIR, preserve the directory and verify no temporary sibling remains. It also restores the handoff headings and reconciles current evidence.
+- Local expanded GNU89 -Wall -Wextra -Werror and ASan/UBSan tests both PASS. The production services_ex.c translation unit was not compiled.
+- No MIPS/uClibc object, complete firmware/TRX or L4 router test is claimed.
 
 ## PID 1 notification queue batch fairness
 
@@ -136,16 +141,16 @@
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for VPN server cross-process caller inventory, independent RC/PID 1 entry paths, lock-owning wrappers and restart stop→start→firewall/NFS/L2TP critical section. Other findings retain the explicit limits above. |
-| L2 host / Actions | Local VPN lifecycle lock test compiled with GNU89 `-Wall -Wextra -Werror` and printed PASS. VPN semantic contract and AI docs Actions for THIS COMMIT are PENDING exact-head runs. Prior PID 1 [42811368029] and AI docs [42811367804] SUCCESS on exact base SHA `0dbc2f614f47c7e8d53f303b6fd3065b3863a59e`. No full RC host compile is claimed. |
+| L1 source review | PASS for miniupnpd writer/launch ordering, atomic replacement and temporary-file cleanup/preservation flow. |
+| L2 host / Actions | Base SHA fb864bc0db8f48eec828abaeb0aeaa2b91ae3aa7: miniupnpd [42816429073], Samba [42816429069] and HTTPD [42816429055] SUCCESS; AI docs [42816429042] FAILED because this handoff omitted required heading ## Active task. Expanded rename-failure GNU89 and ASan/UBSan tests PASS locally. Corrective exact-head Actions pending. |
 | L3 production RC/MIPS/uClibc objects, complete firmware/TRX and artifact inspection | NOT VERIFIED. |
-| L4 physical router flash/boot and live VPN server/client behavior | NOT VERIFIED. |
+| L4 physical router boot, UPnP/NAT-PMP mapping and WAN-change behavior | NOT VERIFIED. |
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and branch inventory; resolve the source/handoff commit SHA created by THIS COMMIT.
-2. Inspect `.github/workflows/vpn-server-stability.yml` and `ai-handoff-docs.yml` on that exact SHA. Fetch every job and every step. Verify the GNU89 lock regression, complete semantic caller/ordering contract and AI docs archive checks.
-3. If green, select the next high-value stability defect from the global userland ledger, preferably a module not recently modified. Keep FTP cleanup TOCTOU, NFS client compatibility, FULLCONENAT target compile, wireless board variants, WAN target behavior and L3/L4 gaps open unless evidence closes them.
+1. Fetch live main and branch inventory; assert the exact SHA after this follow-up commit.
+2. Inspect every job and step for exact-head miniupnpd regression, AI handoff docs, and any dependent Samba/HTTPD Actions. The previous AI docs run failed because the handoff lacked ## Active task; verify all required governance headings now pass.
+3. If green, rotate to an under-covered userland package and trace lifecycle/error paths before editing. Keep miniupnpd target daemon/firewall/WAN behavior, FTP cleanup TOCTOU, NFS compatibility, VPN callback fencing, FULLCONENAT, wireless variants and all L3/L4 checks open until evidence closes them.
 
 ## Continuation rules
 

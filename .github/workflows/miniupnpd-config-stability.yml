@@ -83,7 +83,8 @@ jobs:
           for token in (
               "context.result = EIO;", '\"last-good\\n\"',
               '\"complete-new-config\\n\"', "assert_only_target_remains",
-              "(st.st_mode & 0777) == 0600",
+              "assert_two_targets_remain", "status == EISDIR",
+              '"directory-target"', "(st.st_mode & 0777) == 0600",
           ):
               assert token in test, token
 
