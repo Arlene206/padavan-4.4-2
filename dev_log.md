@@ -1,3 +1,17 @@
+## 2026-11-11 07:30 CST (UTC+8) — Gate miniupnpd stop and WAN-interface transitions on daemon termination
+
+- Base main SHA: `7f56e1954534d3ff30682f63b2f2bc9ec6c2a2b0`; parent `afe8fcb7eeba12932e20e220c848b37e43622c9a`. Only remote branch: `main`; no checkpoint branch.
+- Recovery: all five exact-head workflows on the base SHA completed SUCCESS: miniupnpd [42921894237], AI handoff docs [42921894354], DNSMasq [42921894227], HTTPD security [42921894242] and Samba [42921894347]. Every job/step was inspected; the miniupnpd policy/config binaries and its source contracts passed, and AI docs accepted root log 76/119 with archive inventory `dev-log=6, handoff=22, roadmap=18`.
+- Finding: `stop_upnp()` discarded `kill_services()` status. `restart_upnp()` could proceed into firewall restart despite incomplete termination; `check_upnp_wanif_changed()` allowed PPP/RAS/IPoE callers and PPP-failure recovery to publish a new WAN interface while the old miniupnpd could remain. `update_upnp()` discarded both the NAT-disabled stop status and the `SIGUSR1` mapping-reload command result.
+- Fix in THIS COMMIT: return and post-check miniupnpd stop status (an unexpected surviving daemon maps to `EBUSY`); block firewall restart unless termination is confirmed; propagate interface-change status and abort all three `start_wan()` interface migrations plus PPP failure restoration before WAN-state/firewall publication; return start/stop/reload status from `update_upnp()` and log the SIGUSR1 error. The successful path retains existing mapping/update behavior.
+- Regression: extend the pure GNU89 lifecycle policy test for launch/stop error preservation and “success but process still present”; extend the miniupnpd workflow source contract to verify restart ordering, NAT stop, reload status and every WAN migration gate. Add `net_wan.c` and `rc.h` to both push and pull_request filters, with exact uniqueness/symmetry assertions.
+- Local validation: `cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer` built the policy regression; execution printed `miniupnpd daemon lifecycle policy: PASS`. Exact-head Actions for THIS COMMIT are pending.
+- Changed paths: `trunk/user/rc/src/services_ex.c`, `trunk/user/rc/src/net_wan.c`, `trunk/user/rc/src/rc.h`, `trunk/user/rc/src/miniupnpd_daemon_policy.h`, `trunk/user/rc/src/tests/miniupnpd_daemon_policy_test.c`, `.github/workflows/miniupnpd-config-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log.
+- Root `dev_log.md`: 76 complete records before this entry; 77 afterward. Below 120-entry and 384 KiB thresholds; no archive or `docs/dev-log/INDEX.md` update is due.
+- Next: inspect every exact-head miniupnpd and AI docs job/step/full log for this commit. Once green, rotate to a separate firewall/NAT RC orchestration audit beginning at `firewall_ex.c`, `firewall_command_status.h` and `firewall_startup_policy.h`. FTP cleanup TOCTOU remains OPEN/BLOCKED; NFS client semantics remain evidence-gated; production MIPS/uClibc, full firmware/TRX and L4 router tests are not claimed.
+
+---
+
 ## 2026-11-11 07:05 CST (UTC+8) — Delay miniupnpd's first child-process probe
 
 - Base main SHA: `afe8fcb7eeba12932e20e220c848b37e43622c9a`; parent `e884b897420320ed25dba245501ba66c8cd39bb0`.

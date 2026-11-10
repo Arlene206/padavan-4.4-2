@@ -14,4 +14,13 @@ miniupnpd_start_policy_status(int launch_status, int daemon_running)
 	return daemon_running ? 0 : ESRCH;
 }
 
+/* Do not proceed with WAN/firewall transitions while the old daemon remains. */
+static int
+miniupnpd_stop_policy_status(int stop_status, int daemon_running)
+{
+	if (stop_status != 0)
+		return stop_status;
+	return daemon_running ? EBUSY : 0;
+}
+
 #endif /* PADAVAN_MINIUPNPD_DAEMON_POLICY_H */

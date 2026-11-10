@@ -1233,47 +1233,65 @@ start_upnp(void)
 	return ret;
 }
 
-void
+int
 stop_upnp(void)
 {
 	char* svcs[] = { "miniupnpd", NULL };
-	kill_services(svcs, 3, 1);
+	int ret;
+
+	ret = kill_services(svcs, 3, 1);
+	ret = miniupnpd_stop_policy_status(ret, is_upnp_run());
+	if (ret != 0)
+		logmessage(LOGNAME, "miniupnpd did not stop cleanly (status %d)", ret);
+
+	return ret;
 }
 
-void
+int
 check_upnp_wanif_changed(char *wan_ifname)
 {
 	if (!is_upnp_run())
-		return;
+		return 0;
 
-	/* restart miniupnpd only if wan interface changed */
+	/* Restart miniupnpd only if the active WAN interface changes. */
 	if (strcmp(wan_ifname, get_wan_unit_value(0, "ifname_t")) != 0)
-		stop_upnp();
+		return stop_upnp();
+
+	return 0;
 }
 
-void
+int
 update_upnp(void)
 {
-	if (!is_upnp_run()) {
-		start_upnp();
-		return;
-	}
+	int ret;
 
-	if (nvram_get_int("wan_nat_x") == 0) {
-		stop_upnp();
-		return;
-	}
+	if (!is_upnp_run())
+		return start_upnp();
 
-	/* update upnp forwards from lease file */
-	if (check_if_file_exist(UPNPD_LEASE_FILE)) {
-		doSystem("killall %s %s", "-SIGUSR1", "miniupnpd");
-	}
+	if (nvram_get_int("wan_nat_x") == 0)
+		return stop_upnp();
+
+	/* Update UPnP forwards from the lease file without changing mapping policy. */
+	if (!check_if_file_exist(UPNPD_LEASE_FILE))
+		return 0;
+
+	ret = doSystem("killall %s %s", "-SIGUSR1", "miniupnpd");
+	if (ret != 0)
+		logmessage(LOGNAME, "miniupnpd mapping reload signal failed (status %d)", ret);
+
+	return ret;
 }
 
 void
 restart_upnp(void)
 {
-	stop_upnp();
+	int ret;
+
+	ret = stop_upnp();
+	if (ret != 0) {
+		logmessage(LOGNAME, "skipping firewall restart because miniupnpd is still active (status %d)", ret);
+		return;
+	}
 
 	/* restart_firewall call update_upnp */
 	restart_firewall();

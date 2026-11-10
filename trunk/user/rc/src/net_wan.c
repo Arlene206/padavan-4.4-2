@@ -974,7 +974,10 @@ restore_wan_after_ppp_start_failure(int unit, char *wan_ifname)
 {
 	/* Restore the physical path while demand PPP is unavailable. A later
 	 * successful ip-up callback may switch the active WAN back to ppp0. */
-	check_upnp_wanif_changed(wan_ifname);
+	if (check_upnp_wanif_changed(wan_ifname) != 0) {
+		logmessage(LOGNAME, "cannot restore WAN after PPP start failure: miniupnpd did not stop");
+		return;
+	}
 	set_wan_unit_value(unit, "ifname_t", wan_ifname);
 	start_firewall_ex();
 }
@@ -1080,7 +1083,10 @@ start_wan(void)
 			{
 				char *ppp_ifname = IFNAME_RAS;
 				
-				check_upnp_wanif_changed(ppp_ifname);
+				if (check_upnp_wanif_changed(ppp_ifname) != 0) {
+				logmessage(LOGNAME, "aborting WAN startup for unit %d: miniupnpd did not stop before interface migration", unit);
+				continue;
+			}
 				set_wan_unit_value(unit, "proto_t", "RAS Modem");
 				set_wan_unit_value(unit, "ifname_t", ppp_ifname);
 				
@@ -1120,7 +1126,10 @@ start_wan(void)
 			else
 				proto_desc = "L2TP";
 			
-			check_upnp_wanif_changed(ppp_ifname);
+			if (check_upnp_wanif_changed(ppp_ifname) != 0) {
+				logmessage(LOGNAME, "aborting WAN startup for unit %d: miniupnpd did not stop before interface migration", unit);
+				continue;
+			}
 			set_wan_unit_value(unit, "proto_t", proto_desc);
 			set_wan_unit_value(unit, "ifname_t", ppp_ifname);
 			
@@ -1163,10 +1172,13 @@ start_wan(void)
 		else if (wan_proto == IPV4_WAN_PROTO_IPOE_DHCP ||
 			 wan_proto == IPV4_WAN_PROTO_IPOE_STATIC)
 		{
-			int wan_auth_mode, wan_err = 0;
+			int wan_auth_mode, wan_err = 0, wan_upnp_status;
 			
 			/* Configure DHCP connection. */
-			check_upnp_wanif_changed(wan_ifname);
+			if (check_upnp_wanif_changed(wan_ifname) != 0) {
+				logmessage(LOGNAME, "aborting WAN startup for unit %d: miniupnpd did not stop before interface migration", unit);
+				continue;
+			}
 			set_wan_unit_value(unit, "proto_t", "IPoE");
 			set_wan_unit_value(unit, "ifname_t", wan_ifname);
 			
@@ -1209,8 +1221,10 @@ start_wan(void)
 			if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC) {
 				if (!wan_err) {
 					wan_up(wan_ifname, unit, 1);
-					/* update UPnP forwards from lease file (after wan up) */
-					update_upnp();
+					/* Update UPnP forwards after WAN setup; do not hide reload failure. */
+					wan_upnp_status = update_upnp();
+					if (wan_upnp_status != 0)
+						logmessage(LOGNAME, "UPnP update incomplete after WAN startup (status=%d)", wan_upnp_status);
 				}
 			} else
 				start_udhcpc_wan(wan_ifname, unit, 0);

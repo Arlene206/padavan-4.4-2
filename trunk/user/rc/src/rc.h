@@ -638,9 +638,9 @@ int restart_nmbd(void);
 #endif
 int is_upnp_run(void);
 int start_upnp(void);
-void stop_upnp(void);
-void check_upnp_wanif_changed(char *wan_ifname);
-void update_upnp(void);
+int stop_upnp(void);
+int check_upnp_wanif_changed(char *wan_ifname);
+int update_upnp(void);
 void restart_upnp(void);
 int ddns_updated_main(int argc, char *argv[]);
 int notify_ddns_update(void);
