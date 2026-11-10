@@ -1,19 +1,19 @@
 ## Current repository state
 
-- Maintained fork: Arlene206/padavan-4.4-2; work only on this repository. Base main SHA for THIS COMMIT: `f32c23201f3338cffa256030a7269c114e70ec68`; only remote branch is `main`, with no checkpoint branch. Never force-push.
-- Previous task closed: detect_internet signal/control dispatch. Exact-head signal regression [42829669707] and AI handoff docs [42829670027] both SUCCESS on `f32c23201f3338cffa256030a7269c114e70ec68`; all job steps were inspected.
-- THIS COMMIT defers detect_link PHY polling, NVRAM/GPIO/LED updates, WAN script execution and modem notifications out of signal context. The handler now records `sig_atomic_t` events; a blocked-snapshot/`sigsuspend()` loop performs work in normal context and gives termination priority. New GNU89/ASan/UBSan and caller/source-contract Actions are pending on THIS resulting SHA.
-- Root `dev_log.md` has 48 complete records before THIS COMMIT; this milestone makes 49. No archive rotation or INDEX update is due.
-- Open boundaries: watchdog signal/event reentrancy; FTP failed-upload cleanup TOCTOU; NFS export/client compatibility; VPN in-flight PPP callback fencing; FULLCONENAT target build; target MIPS/uClibc and L4 router validation.
+- Maintained fork: Arlene206/padavan-4.4-2; work only on this repository. Base main SHA for THIS COMMIT: `1e780fa229d1dd6c6c1fa3f40866ae96e6d36ea4`; only remote branch is `main`, with no checkpoint branch. Never force-push.
+- Previous task closed: detect_link signal deferral. Exact-head detect_link regression [42832758674], AI handoff docs [42832758587] and dependent HTTPD security [42832758639] all completed SUCCESS on `1e780fa229d1dd6c6c1fa3f40866ae96e6d36ea4`; every job and step was inspected.
+- THIS COMMIT defers watchdog timer, timezone and Wi-Fi notification work out of signal context. Handlers only record `sig_atomic_t` events; a blocked-snapshot/`sigsuspend()` loop dispatches service checks in normal context, preserves control-before-timer order, and performs TERM cleanup outside the handler. GNU89/ASan/UBSan policy test passed locally; exact-head watchdog and AI handoff Actions are pending.
+- Root `dev_log.md` has 49 complete records before THIS COMMIT; this milestone makes 50. No archive rotation or INDEX update is due.
+- Open boundaries: VPN in-flight PPP callback fencing; FTP failed-upload cleanup TOCTOU; NFS export/client compatibility; FULLCONENAT target build; watchdog target timing/service behavior; MIPS/uClibc, firmware/TRX and L4 router validation.
 
 ## Active task
 
-- Next module: audit signal/event lifecycle in `trunk/user/rc/src/watchdog.c`. Trace SIGALRM/SIGHUP/SIGUSR1/SIGTERM dispatch, service/process checks, PHY/network calls, storage/time updates, timer rearming, signal masks and notification callers. Determine the smallest safe deferred-dispatch design and GNU89 regression; do not weaken watchdog ordering or retry behavior.
+- Reconcile the exact-head watchdog signal regression and AI handoff Actions. If green, continue the VPN in-flight PPP callback fencing audit: trace callback/lease locking against stop/restart, prove or reject existing lock coverage, and preserve the established server lifecycle serialization.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect every job step in the exact-head detect_link signal regression and AI handoff Actions for THIS COMMIT; reconcile the SHA and fix any failure first.
-2. If green, start the bounded `watchdog.c` signal/event audit described above. Keep FTP upload-cleanup TOCTOU, NFS compatibility, VPN callback fencing, FULLCONENAT target compilation and L3/L4 gaps open.
+1. Fetch live `main` and inspect every job and step in the exact-head watchdog signal and AI handoff Actions for THIS COMMIT; match each run to the exact resulting SHA and fix any failure first.
+2. If green, begin the VPN callback-fencing audit from the existing VPN lifecycle/lease lock boundaries. Keep FTP upload-cleanup TOCTOU, NFS compatibility, FULLCONENAT target compilation and L3/L4 gaps open.
 
 ## PID 1 notification queue batch fairness
 

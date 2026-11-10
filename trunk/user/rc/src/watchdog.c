@@ -34,6 +34,7 @@
 #include <linux/limits.h>
 
 #include "rc.h"
+#include "watchdog_signal_policy.h"
 
 #define WD_NORMAL_PERIOD	10		/* 10s */
 
@@ -62,13 +63,16 @@ static int dnsmasq_missing = 0;
 
 static struct itimerval wd_itv;
 
-static void
+/* Signal handlers only record events; the watchdog loop owns all work. */
+static volatile sig_atomic_t wd_pending_events = 0;
+
+static int
 wd_alarmtimer(unsigned long sec, unsigned long usec)
 {
 	wd_itv.it_value.tv_sec  = sec;
 	wd_itv.it_value.tv_usec = usec;
 	wd_itv.it_interval = wd_itv.it_value;
-	setitimer(ITIMER_REAL, &wd_itv, NULL);
+	return setitimer(ITIMER_REAL, &wd_itv, NULL);
 }
 
 #ifdef HTTPD_CHECK
@@ -424,7 +428,8 @@ svc_timecheck(void)
 				{
 					//logmessage("reboot scheduler", "[%s] The system is going down for reboot\n", __FUNCTION__);
 		            doSystem("/usr/bin/update_dlink.sh %s", "update");
-					sleep(70);
+					if (!(wd_pending_events & WD_PENDING_TERMINATE))
+						sleep(70);
 				}
 			}
 		}
@@ -565,22 +570,36 @@ watchdog_on_sigusr1(void)
 static void
 watchdog_on_timer(void)
 {
-	int is_ap_mode = get_ap_mode();
+	int is_ap_mode;
+
+	if (wd_pending_events & WD_PENDING_TERMINATE)
+		return;
+	is_ap_mode = get_ap_mode();
 
 	/* check for time-dependent services */
 	svc_timecheck();
+	if (wd_pending_events & WD_PENDING_TERMINATE)
+		return;
 
 	/* http server check */
 	httpd_process_check();
+	if (wd_pending_events & WD_PENDING_TERMINATE)
+		return;
 
 	/* DNS/DHCP server check */
 	if (!is_ap_mode)
 		dnsmasq_process_check();
+	if (wd_pending_events & WD_PENDING_TERMINATE)
+		return;
 
 	inet_handler(is_ap_mode);
+	if (wd_pending_events & WD_PENDING_TERMINATE)
+		return;
 
 	/* update kernel timezone daylight */
 	setkernel_tz();
+	if (wd_pending_events & WD_PENDING_TERMINATE)
+		return;
 
 	storage_save_time(10);
 }
@@ -588,23 +607,7 @@ watchdog_on_timer(void)
 static void
 catch_sig_watchdog(int sig)
 {
-	switch (sig)
-	{
-	case SIGALRM:
-		watchdog_on_timer();
-		break;
-	case SIGHUP:
-		watchdog_on_sighup();
-		break;
-	case SIGUSR1:
-		watchdog_on_sigusr1();
-		break;
-	case SIGTERM:
-		remove(WD_PID_FILE);
-		wd_alarmtimer(0, 0);
-		exit(0);
-		break;
-	}
+	watchdog_record_signal(&wd_pending_events, sig);
 }
 
 int
@@ -639,27 +642,68 @@ watchdog_main(int argc, char *argv[])
 {
 	FILE *fp;
 	pid_t pid;
+	int saved_errno = 0;
+	sig_atomic_t events;
+	sigset_t managed_signals, original_mask, dispatch_mask;
 	struct sigaction sa;
+
+	(void)argc;
+	(void)argv;
+
+	sigemptyset(&managed_signals);
+	sigaddset(&managed_signals, SIGALRM);
+	sigaddset(&managed_signals, SIGHUP);
+	sigaddset(&managed_signals, SIGUSR1);
+	sigaddset(&managed_signals, SIGTERM);
+
+	/* Block managed signals before installing handlers or publishing state. */
+	if (sigprocmask(SIG_BLOCK, &managed_signals, &original_mask) < 0) {
+		saved_errno = errno;
+		errno = saved_errno;
+		perror("sigprocmask");
+		return saved_errno;
+	}
+
+	wd_pending_events = 0;
 
 	memset(&sa, 0, sizeof(sa));
 	sa.sa_handler = catch_sig_watchdog;
-	sigemptyset(&sa.sa_mask);
-	sigaddset(&sa.sa_mask, SIGALRM);
-	sigaddset(&sa.sa_mask, SIGHUP);
-	sigaddset(&sa.sa_mask, SIGUSR1);
-	sigaction(SIGHUP, &sa, NULL);
-	sigaction(SIGUSR1, &sa, NULL);
-	sigaction(SIGTERM, &sa, NULL);
-	sigaction(SIGALRM, &sa, NULL);
+	sa.sa_mask = managed_signals;
+	if (sigaction(SIGHUP, &sa, NULL) < 0 ||
+	    sigaction(SIGUSR1, &sa, NULL) < 0 ||
+	    sigaction(SIGTERM, &sa, NULL) < 0 ||
+	    sigaction(SIGALRM, &sa, NULL) < 0) {
+		saved_errno = errno;
+		(void)sigprocmask(SIG_SETMASK, &original_mask, NULL);
+		errno = saved_errno;
+		perror("sigaction");
+		return saved_errno;
+	}
 
 	memset(&sa, 0, sizeof(sa));
 	sa.sa_handler = SIG_IGN;
 	sigemptyset(&sa.sa_mask);
-	sigaction(SIGPIPE, &sa, NULL);
+	if (sigaction(SIGPIPE, &sa, NULL) < 0) {
+		saved_errno = errno;
+		(void)sigprocmask(SIG_SETMASK, &original_mask, NULL);
+		errno = saved_errno;
+		perror("sigaction");
+		return saved_errno;
+	}
+
+	/* Preserve unrelated inherited mask bits while making watchdog signals live. */
+	dispatch_mask = original_mask;
+	sigdelset(&dispatch_mask, SIGALRM);
+	sigdelset(&dispatch_mask, SIGHUP);
+	sigdelset(&dispatch_mask, SIGUSR1);
+	sigdelset(&dispatch_mask, SIGTERM);
 
 	if (daemon(0, 0) < 0) {
+		saved_errno = errno;
+		(void)sigprocmask(SIG_SETMASK, &original_mask, NULL);
+		errno = saved_errno;
 		perror("daemon");
-		exit(errno);
+		return saved_errno;
 	}
 
 	pid = getpid();
@@ -676,11 +720,59 @@ watchdog_main(int argc, char *argv[])
 	nvram_set_int_temp("wd_notify_id", 0);
 
 	/* set timer */
-	wd_alarmtimer(WD_NORMAL_PERIOD, 0);
+	if (wd_alarmtimer(WD_NORMAL_PERIOD, 0) < 0) {
+		saved_errno = errno;
+		goto watchdog_cleanup;
+	}
 
-	/* most of time it goes to sleep */
+	/*
+	 * Signals wake this loop but never perform watchdog work themselves.
+	 * The blocked snapshot plus sigsuspend closes the check/wait race.
+	 */
 	while (1) {
-		pause();
+		events = watchdog_take_pending_events(&wd_pending_events);
+		if (events & WD_PENDING_TERMINATE)
+			break;
+
+		if (events == 0) {
+			if (sigsuspend(&dispatch_mask) < 0 && errno != EINTR) {
+				saved_errno = errno;
+				break;
+			}
+			continue;
+		}
+
+		/* Work runs in ordinary context; handlers may only queue more events. */
+		if (sigprocmask(SIG_SETMASK, &dispatch_mask, NULL) < 0) {
+			saved_errno = errno;
+			break;
+		}
+
+		/* Apply control updates before a timer poll in the same batch. */
+		if (events & WD_PENDING_TIME_REFRESH)
+			watchdog_on_sighup();
+		if (events & WD_PENDING_WIFI_STATE)
+			watchdog_on_sigusr1();
+		if (events & WD_PENDING_TIMER)
+			watchdog_on_timer();
+
+		if (sigprocmask(SIG_BLOCK, &managed_signals, NULL) < 0) {
+			saved_errno = errno;
+			break;
+		}
+	}
+
+watchdog_cleanup:
+	(void)wd_alarmtimer(0, 0);
+	if (remove(WD_PID_FILE) != 0 && errno != ENOENT)
+		logmessage("watchdog", "cannot remove pid file (errno=%d)", errno);
+	if (sigprocmask(SIG_SETMASK, &original_mask, NULL) < 0 && saved_errno == 0)
+		saved_errno = errno;
+
+	if (saved_errno != 0) {
+		errno = saved_errno;
+		perror("watchdog");
+		return saved_errno;
 	}
 
 	return 0;
