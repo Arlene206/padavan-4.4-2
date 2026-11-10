@@ -1,3 +1,13 @@
+## 2026-11-10 14:00 CST (UTC+8) — Align IPv6 WAN source contract with returned startup status
+
+- **Base main SHA:** `21854daf2df32e8020ac582b293668bfbf755d90`. Exact-head WAN run [42768294852] compiled and passed all four GNU89 host regression binaries; its Python source-contract step then stopped at a stale assertion expecting the former local variable name `dhcp6_status` and direct `return dhcp6_status`. The revised `wan6_up()` intentionally uses the common `status` plus `WAN6_NATIVE_CHECK(start_dhcp6c(...))` to share failure rollback. This was a test-contract mismatch, not a C compile/test failure.
+- **Other exact-head Actions:** AI handoff docs [42768294647], HTTPD [42768294615], NFS [42768294855], storage [42768294673], Samba [42768294828], vsftpd [42768294628], WAN route [42768294974] and wireless [42768294638] all SUCCESS on the same base SHA.
+- **Correction:** update the WAN semantic contract to assert the checked start macro and common status flow, and likewise match `status = stop_dhcp6c()` after the function's refactor. Keep callback behavior, four host binaries and the new native/SIT startup assertions intact.
+- **Changed paths:** `.github/workflows/wan-dhcp-callback-stability.yml`, `SESSION_HANDOFF.md` and this log. No production C changes in this contract-only correction; no docs archive or roadmap snapshot changes.
+- **Validation:** the replacement assertions are inspected against the committed function body. The failed WAN contract has not yet been rerun on THIS new commit; exact-head WAN and AI docs runs are pending. L3 target compile and L4 device behavior remain NOT VERIFIED.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** verify WAN callback and AI handoff Actions on THIS exact SHA; on green, resume PPP/multi-WAN lifecycle analysis rather than repeating IPv6 startup work.
+
 ## 2026-11-10 13:59 CST (UTC+8) — Propagate native and SIT IPv6 startup failures
 
 - **Base main SHA:** `cd3cf8438e28694ffb0f00b1ad9cdd871b1439e2`; the preceding WAN callback and AI handoff Actions both completed SUCCESS on that exact SHA (WAN [42760927729], AI docs [42760927859]).

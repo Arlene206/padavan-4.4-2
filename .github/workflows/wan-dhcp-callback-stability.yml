@@ -258,8 +258,8 @@ jobs:
           # Propagate DHCPv6 client startup failure through PPP's IPv6-up hook.
           wan6_up = body(wan6_source, "wan6_up(char *wan_ifname, int unit)")
           assert "int wan6_up(char *wan_ifname, int unit)" in wan6_source
-          assert "dhcp6_status = start_dhcp6c(wan_ifname);" in wan6_up
-          assert "return dhcp6_status;" in wan6_up
+          assert "WAN6_NATIVE_CHECK(start_dhcp6c(wan_ifname)" in wan6_up
+          assert "return status;" in wan6_up
           assert "return 0;" in wan6_up
           assert "if (!wan6_dhcp && !dns6_auto && !lan6_auto)\n\t\treturn 0;" in dhcp6_start
           assert "int wan6_up(char *wan_ifname, int unit);" in rc_header
@@ -279,8 +279,8 @@ jobs:
           assert "int stop_dhcp6c(void);" in rc_header
 
           wan6_up = body(wan6_source, "wan6_up(char *wan_ifname, int unit)")
-          assert "dhcp6_status = stop_dhcp6c();" in wan6_up
-          assert "if (dhcp6_status != 0)" in wan6_up
+          assert "status = stop_dhcp6c();" in wan6_up
+          assert "if (status != 0)" in wan6_up
 
           wan6_down = body(wan6_source, "wan6_down(char *wan_ifname, int unit)")
           assert "int wan6_down(char *wan_ifname, int unit)" in wan6_source

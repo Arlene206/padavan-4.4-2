@@ -2,10 +2,10 @@
 
 - Maintained fork: `Arlene206/padavan-4.4-2`; work only on this repository.
 - Branch inventory: `main` only; no remote checkpoint branch. No force-pushes.
-- **Last verified base SHA:** `cd3cf8438e28694ffb0f00b1ad9cdd871b1439e2`. The WAN callback [42760927729] and AI handoff docs [42760927859] both completed SUCCESS on that exact SHA. This takeover's IPv6 startup correction is the new main commit marked `THIS COMMIT`; resolve its resulting object SHA from the live `main` ref on the next recovery.
+- **Last verified production-code SHA:** `21854daf2df32e8020ac582b293668bfbf755d90` (parent/base `cd3cf8438e28694ffb0f00b1ad9cdd871b1439e2`, whose WAN [42760927729] and AI docs [42760927859] Actions passed). On `21854daf`, the four WAN GNU89 host binaries passed, but WAN source-contract [42768294852] failed at stale assertions expecting the old `dhcp6_status` variable; AI docs [42768294647] and the seven other subsystem workflows all succeeded. THIS COMMIT updates only those stale semantic assertions plus resumable records; resolve its full SHA from live `main` on the next recovery.
 - **Prior exact-head evidence:** on `febac337d73e7d197ed950e94f308e4c066907b6`, the four WAN GNU89 tests passed; HTTPD security [42760357682], AI docs [42760357696], WAN route [42760357470], NFS [42760357384], storage [42760357751], Samba [42760357403], vsftpd [42760357409] and wireless [42760357782] succeeded. WAN source contract [42760357637] exposed the first stale assertion and was then corrected.
 - **Current code slice:** common `fput_string()` exposes buffered write/close errors; DHCPv6 private config is atomically published; PPP callback start/stop status propagates through IPv6 callbacks; `wan6_down()` aggregates teardown failures; native-static/native-DHCP and SIT IPv6 startup now check critical proc/sys, link, address, route and client operations and return failure instead of reporting a false success. Startup rollback is best-effort and remains subject to target runtime validation.
-- **Log rotation:** root `dev_log.md` now keeps 22 complete newest-first entries; no rotation is due. The 100 older records remain oldest-first in `docs/dev-log/2026/11/part-006.md` (239599 UTF-8 bytes), with the index synchronized.
+- **Log rotation:** root `dev_log.md` now keeps 23 complete newest-first entries; no rotation is due. The 100 older records remain oldest-first in `docs/dev-log/2026/11/part-006.md` (239599 UTF-8 bytes), with the index synchronized.
 - **Known open issue:** FTP upload cleanup still has a check-then-`unlinkat` window after inode identity validation. Linux 4.4/MIPS O32 `renameat2` exchange/no-replace cannot atomically condition on expected inode; do not claim closure.
 - L3 production RC/MIPS/uClibc objects, firmware/TRX and L4 physical-router validation remain NOT VERIFIED.
 
@@ -15,7 +15,7 @@
 - `start_sit_tunnel()` now returns status, validates tunnel inputs, checks tunnel/6rd/route/link/IPv6 address/RA operations, best-effort cleans a partially created tunnel and endpoint route, and only publishes derived LAN address state after the setup sequence succeeds.
 - Native-static address/privacy/RA and route operations and native-DHCP fallback-route/privacy/autoconf/RA/client-start operations now propagate failure. Touched state is cleaned best-effort; WAN `ifname6` is published only on complete success.
 - `control_if_ipv6()`, `control_if_ipv6_dad()` and `control_if_ipv6_privacy()` now return proc/sys write status. `rc.h` declarations match all updated definitions, including the SIT helpers.
-- The WAN workflow adds source-semantic checks for checked operation call sites and error/state ordering; four existing GNU89 regression binaries remain in the same job. Exact-head Actions for THIS commit are pending. No target MIPS/uClibc object, firmware/TRX or L4 router test is claimed.
+- The WAN workflow adds source-semantic checks for checked operation call sites and error/state ordering; four existing GNU89 regression binaries passed on `21854daf`, but the source-semantic stage failed at two legacy assertions tied to the former DHCPv6 status variable. THIS COMMIT aligns those assertions with the new common status/macro flow. Its exact-head WAN/AI Actions are pending. No target MIPS/uClibc object, firmware/TRX or L4 router test is claimed.
 - Remaining: verify partial-setup cleanup and IPv6 behavior on target; audit PPP/multi-WAN state transitions next. FTP upload cleanup TOCTOU and NFS compatibility remain open.
 
 ## Completed DHCP callback and BusyBox event-state review
@@ -89,7 +89,7 @@
 
 ## Active task
 
-1. **Exact-head reconciliation.** The base `cd3cf8438e28694ffb0f00b1ad9cdd871b1439e2` WAN callback [42760927729] and AI docs [42760927859] Actions both succeeded. The new IPv6 startup patch is `THIS COMMIT`; its exact-head Actions must be inspected before treating L2 as complete.
+1. **Exact-head reconciliation.** The IPv6 production-code commit `21854daf2df32e8020ac582b293668bfbf755d90` passed all four WAN GNU89 binaries; WAN semantic run [42768294852] failed only at stale `dhcp6_status` source assertions. AI docs [42768294647] and seven other subsystem runs succeeded. THIS COMMIT corrects the two legacy expectations; verify WAN and AI runs on its exact SHA.
 2. **PPP / multi-WAN state transitions.** The per-session file lock spans callback generation validation and mutation, but cross-unit interactions, callback ordering during WAN restart, route ownership and partial IPv6/PPP failure recovery remain open. Trace callers and state transitions before editing.
 3. **Project-wide open issues.** FTP upload cleanup TOCTOU, NFS `async`/AUTH_SYS/root-squash compatibility, FULLCONENAT target object build, wireless board-variant bridge behavior, and L3/L4 validation remain open. Do not cycle back to already-closed bounded slices without new evidence.
 
@@ -98,7 +98,7 @@
 | Level | Status |
 |---|---|
 | L1 source review | PASS for the new checked IPv6 startup/teardown control flow and proc/sys wrapper propagation. Startup cleanup is best-effort; target behavior and preservation of pre-existing LAN/static addresses on injected failures remain unverified. FTP upload-cleanup inode-check/unlink race remains OPEN. |
-| L2 host / Actions | Base SHA `cd3cf8438e28694ffb0f00b1ad9cdd871b1439e2`: WAN callback [42760927729] and AI docs [42760927859] SUCCESS. The new WAN host/source contracts and AI handoff check are pending on THIS resulting SHA. No local full-checkout test run. |
+| L2 host / Actions | On code SHA `21854daf2df32e8020ac582b293668bfbf755d90`, all four WAN GNU89 binaries passed; source-semantic step [42768294852] failed at stale status-variable assertions. AI docs [42768294647] plus HTTPD/NFS/storage/Samba/vsftpd/WAN-route/wireless runs all SUCCESS. THIS COMMIT updates the assertions; exact-head WAN and AI reruns pending. No local full-checkout test run. |
 | L3 production RC/MIPS/uClibc/firmware builds | NOT VERIFIED. |
 | L4 physical router behavior | NOT VERIFIED. |
 
