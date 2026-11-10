@@ -1,3 +1,13 @@
+## 2026-11-10 17:15 CST (UTC+8) — Correct PPP demand fallback source-contract scope
+
+- **Base main SHA:** `dc68dbb5313146f17be3e47d0961fcfebd0a80a6`. WAN DHCP callback [42789462027], WAN interface teardown [42789462046], AI handoff docs [42789462238] and HTTPD security [42789462161] all completed SUCCESS. WAN route GNU89 sanitizer compile/run passed; its semantic step failed [42789461902].
+- **Failure diagnosis:** the new semantic assertion expected the explanatory “later successful ip-up” comment to be inside `restore_wan_after_ppp_start_failure()`'s extracted function body. The comment is intentionally placed immediately above the function declaration, so the assertion was incorrectly scoped; this is a test-contract defect, not a production-source failure.
+- **Correction:** search the `net_wan.c` source text for that adjacent comment while retaining body-scoped assertions for the actual fallback operations (`ifname_t` restoration, firewall rebuild and no pppd termination). No production C behavior changed in this correction.
+- **Changed paths:** `.github/workflows/wan-route-status.yml`, `SESSION_HANDOFF.md` and this log. Root log had 33 headings before this entry and 34 after; no rotation or INDEX update is due.
+- **Validation:** exact-head route-status rerun and AI docs validation are pending. No local checkout, production RC/MIPS/uClibc build, firmware/TRX or L4 test is claimed.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** verify the corrected exact-head WAN route-status and AI handoff workflows, then proceed to the P2 FTP upload-cleanup TOCTOU audit.
+
 ## 2026-11-10 17:10 CST (UTC+8) — Gate PPP demand readiness on preset-route success
 
 - **Base main SHA:** `199e05732b7d310c55f0be5ab3d8c984962a4a93`. Exact-head WAN route-status [42786625044], WAN DHCP callback [42786625040], AI handoff docs [42786625245] and HTTPD security [42786625307] all completed SUCCESS. Main is the only remote branch; no checkpoint branch exists.

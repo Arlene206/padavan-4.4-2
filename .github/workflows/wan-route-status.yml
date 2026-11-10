@@ -242,7 +242,7 @@ jobs:
           assert 'set_wan_unit_value(unit, "ifname_t", wan_ifname);' in demand_restore
           assert "start_firewall_ex();" in demand_restore
           assert "kill_services(" not in demand_restore
-          assert "A later successful ip-up callback may switch the active WAN back to ppp0." in demand_restore
+          assert "A later successful ip-up callback may switch the active WAN back to ppp0." in wan
 
           ppp_launch = body(ppp, "launch_wan_pppd(int unit, int wan_proto)")
           assert 'fprintf(fp, "demand\\n");' in ppp_launch
