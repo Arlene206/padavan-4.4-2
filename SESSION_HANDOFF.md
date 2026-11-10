@@ -1,24 +1,20 @@
 ## Current repository state
 
 - Maintained fork: Arlene206/padavan-4.4-2; work only on this repository.
-- Base main SHA for THIS COMMIT: c1bdec32ac2a746288ab4295bda334579a55c249; the only remote branch is main and no checkpoint branch exists. Never force-push.
-- Previous active task closed: miniupnpd final-rename failure coverage and the required handoff headings. Exact-head miniupnpd [42817503339] and AI handoff docs [42817503261] both SUCCESS on c1bdec32ac2a746288ab4295bda334579a55c249; every job and step was inspected.
-- Root dev_log.md has 45 complete newest-first records before THIS COMMIT; this entry makes 46. No archive rotation or INDEX update is due.
-- Previous continuity work remains documented below: PID 1 notification requeue, NFS/DNSMasq lifecycle locks, WAN DHCP/PPP status gates, FTP upload-parent anchoring, VPN lifecycle lock and miniupnpd config publication.
-- Open boundaries remain explicit: FTP failed-upload cleanup TOCTOU, NFS export/client compatibility, VPN in-flight PPP callback fencing, broader WAN monitoring lifecycle, target MIPS/uClibc and physical-router behavior.
+- Base main SHA for THIS COMMIT: `8ba94ea89a373bf4afa93a5d4a2187a059882fd5`; only remote branch is `main`, with no checkpoint branch. Never force-push.
+- Previous task closed: WAN gateway ARP socket prerequisite handling. Exact-head WAN ARP [42819898452] and AI handoff docs [42819898490] both SUCCESS on `8ba94ea89a373bf4afa93a5d4a2187a059882fd5`; all job steps were inspected.
+- THIS COMMIT moves `detect_internet` timer, activity, pause/resume and termination work out of signal handlers. Its new host policy regression passed locally with GNU89 warnings-as-errors and ASan/UBSan; exact-head semantic and documentation Actions are pending.
+- Root `dev_log.md` has 46 complete records before THIS COMMIT; this milestone makes 47. No archive rotation or INDEX update is due.
+- Open boundaries remain explicit: `detect_link` and watchdog signal/event behavior, FTP failed-upload cleanup TOCTOU, NFS export/client compatibility, VPN in-flight PPP callback fencing, FULLCONENAT target build, and target MIPS/uClibc plus L4 router validation.
 
 ## Active task
 
-- Harden the under-audited WAN gateway ARP monitor in detect_wan.c. The probe previously logged but ignored SO_BINDTODEVICE failure, allowing it to send and receive without the intended interface binding. It also ignored SO_RCVTIMEO failure, while the receive-loop elapsed-time guard only runs after recvfrom returns; a failed timeout setup could therefore leave the daemon blocked indefinitely.
-- Add detect_wan_arp_socket_prepare() to require both interface binding and the one-second receive timeout before any ARP request is sent. Any setup failure closes the socket and returns a failed probe so poll_gateway() retains its bounded retry path. Successful probe ordering and existing DHCP renew semantics remain unchanged.
-- Regression: GNU89 host test injects setsockopt failures for each option, checks bind failure prevents timeout setup, checks timeout failure propagation, validates success ordering/arguments, and rejects invalid inputs. The workflow also checks Linux 4.4 socket-option implementation and the production detect_wan startup/stop/app applet wiring.
-- Local GNU89 -Wall -Wextra -Werror plus ASan/UBSan compile/run: PASS. Exact-head WAN ARP Actions and AI handoff documentation Actions are pending for THIS COMMIT.
-- No full RC production translation-unit, MIPS/uClibc object, firmware/TRX or L4 router behavior is claimed.
+- Next module: audit the signal/event lifecycle in `trunk/user/rc/src/detect_link.c`. Trace SIGALRM/SIGHUP/SIGUSR1 handling, the timer-driven PHY queries and LED/WAN notification side effects, the callers of reset/LED/stop operations, and the signal mask. Determine the smallest safe main-context dispatch fix and add a GNU89 regression/semantic contract. Do not assume the `detect_internet` design can be copied without checking the separate PHY/link-state invariants.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and branch inventory, then inspect every step in the exact-head detect-wan-arp-stability and AI handoff Actions for the resulting SHA.
-2. If green, continue broad userland governance rather than returning to a recently hardened module; inspect detect_internet signal/event lifecycle or another low-coverage daemon. Keep the FTP cleanup race, NFS client compatibility, VPN callback fence, FULLCONENAT target compile and L3/L4 gaps open until evidence closes them.
+1. Fetch live `main`, branch inventory and exact-head detect-internet signal plus AI handoff Actions; inspect every job step and reconcile the SHA. Fix any relevant failure before selecting another module.
+2. If green, continue the `detect_link.c` signal/event lifecycle audit described above. Keep the FTP cleanup race, NFS client compatibility, VPN callback fence, FULLCONENAT target compile and L3/L4 gaps open.
 
 ## PID 1 notification queue batch fairness
 

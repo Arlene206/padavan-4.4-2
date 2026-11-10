@@ -26,6 +26,7 @@
 #include <sys/time.h>
 
 #include "rc.h"
+#include "detect_internet_signal_policy.h"
 #include <gpioutils.h>
 
 #define DI_MAX_HOSTS	6
@@ -45,6 +46,8 @@ static long                  di_time_diff_state;
 static long                  di_time_fail_event;
 static volatile sig_atomic_t di_pause_received = 0;
 static struct itimerval      di_itv;
+static volatile sig_atomic_t di_pending_events;
+static volatile sig_atomic_t di_pending_control = DI_CONTROL_NONE;
 
 static void
 di_alarmtimer(unsigned long sec)
@@ -214,6 +217,10 @@ di_on_timer(void)
 	long now;
 	unsigned long period_next;
 
+	/* A paused/stopping monitor must not publish a late probe result. */
+	if (di_pause_received)
+		return;
+
 	/* check last user activity */
 	if (di_poll_mode == 0) {
 		if ((unsigned long)(uptime() - di_time_last_activity) > 60) {
@@ -230,6 +237,10 @@ di_on_timer(void)
 
 	if (di_is_ap_mode || has_wan_ip4(0))
 		link_error = di_connect_to_host(&di_host_sa[i], nvram_safe_get_int("di_timeout", 3, 1, 10));
+
+	/* SIGUSR2/SIGTERM may interrupt the bounded connect/select operation. */
+	if (di_pause_received)
+		return;
 
 	di_host_ok[i] = (link_error == 0) ? 1 : 0;
 	di_host_next = (di_host_next + 1) % di_host_total;
@@ -325,27 +336,8 @@ di_on_sigusr2(void)
 static void
 catch_sig_detect_internet(int sig)
 {
-	switch (sig)
-	{
-	case SIGALRM:
-		di_on_timer();
-		break;
-	case SIGHUP:
-		di_update_last_activity();
-		break;
-	case SIGUSR1:
-		di_on_sigusr1();
-		break;
-	case SIGUSR2:
-		di_on_sigusr2();
-		break;
-	case SIGTERM:
-		di_pause_received = 1;
-		remove(DI_PID_FILE);
-		di_alarmtimer(0);
-		exit(0);
-		break;
-	}
+	detect_internet_record_signal(&di_pending_events, &di_pending_control,
+				       &di_pause_received, sig);
 }
 
 void
@@ -395,6 +387,8 @@ detect_internet_main(int argc, char *argv[])
 	FILE *fp;
 	pid_t pid;
 	int c, auto_run_time = 0;
+	int saved_errno;
+	sigset_t managed_signals, original_mask, wait_mask, run_mask;
 	struct sigaction sa;
 
 	// usage : detect_internet -a X
@@ -408,26 +402,57 @@ detect_internet_main(int argc, char *argv[])
 		}
 	}
 
+	/*
+	 * Keep all monitor signals blocked while taking pending work. The
+	 * handler only records sig_atomic_t flags; all NVRAM, socket, timer,
+	 * process and script operations run later in normal process context.
+	 */
+	sigemptyset(&managed_signals);
+	sigaddset(&managed_signals, SIGHUP);
+	sigaddset(&managed_signals, SIGUSR1);
+	sigaddset(&managed_signals, SIGUSR2);
+	sigaddset(&managed_signals, SIGALRM);
+	sigaddset(&managed_signals, SIGTERM);
+	if (sigprocmask(SIG_BLOCK, &managed_signals, &original_mask) < 0) {
+		perror("sigprocmask");
+		return errno;
+	}
+
+	wait_mask = original_mask;
+	run_mask = original_mask;
+	sigdelset(&wait_mask, SIGHUP);
+	sigdelset(&wait_mask, SIGUSR1);
+	sigdelset(&wait_mask, SIGUSR2);
+	sigdelset(&wait_mask, SIGALRM);
+	sigdelset(&wait_mask, SIGTERM);
+	sigdelset(&run_mask, SIGHUP);
+	sigdelset(&run_mask, SIGUSR1);
+	sigdelset(&run_mask, SIGUSR2);
+	sigdelset(&run_mask, SIGALRM);
+	sigdelset(&run_mask, SIGTERM);
+
 	memset(&sa, 0, sizeof(sa));
 	sa.sa_handler = catch_sig_detect_internet;
-	sigemptyset(&sa.sa_mask);
-	sigaddset(&sa.sa_mask, SIGHUP);
-	sigaddset(&sa.sa_mask, SIGUSR1);
-	sigaddset(&sa.sa_mask, SIGALRM);
-	sigaction(SIGHUP, &sa, NULL);
-	sigaction(SIGUSR1, &sa, NULL);
-	sigaction(SIGUSR2, &sa, NULL);
-	sigaction(SIGALRM, &sa, NULL);
-	sigaction(SIGTERM, &sa, NULL);
+	sa.sa_mask = managed_signals;
+	if (sigaction(SIGHUP, &sa, NULL) < 0 ||
+	    sigaction(SIGUSR1, &sa, NULL) < 0 ||
+	    sigaction(SIGUSR2, &sa, NULL) < 0 ||
+	    sigaction(SIGALRM, &sa, NULL) < 0 ||
+	    sigaction(SIGTERM, &sa, NULL) < 0)
+		goto signal_setup_failed;
 
 	memset(&sa, 0, sizeof(sa));
 	sa.sa_handler = SIG_IGN;
 	sigemptyset(&sa.sa_mask);
-	sigaction(SIGPIPE, &sa, NULL);
+	if (sigaction(SIGPIPE, &sa, NULL) < 0)
+		goto signal_setup_failed;
 
 	if (daemon(0, 0) < 0) {
+		saved_errno = errno;
+		(void)sigprocmask(SIG_SETMASK, &original_mask, NULL);
+		errno = saved_errno;
 		perror("daemon");
-		exit(errno);
+		return saved_errno;
 	}
 
 	pid = getpid();
@@ -441,6 +466,8 @@ detect_internet_main(int argc, char *argv[])
 		fclose(fp);
 	}
 
+	di_pending_events = 0;
+	di_pending_control = DI_CONTROL_NONE;
 	nvram_set_int_temp("di_notify_delay", 0);
 
 	di_pause_received = (auto_run_time > 0) ? 0 : 1;
@@ -452,10 +479,81 @@ detect_internet_main(int argc, char *argv[])
 	if (auto_run_time > 0)
 		di_alarmtimer(auto_run_time);
 
-	while (1) {
-		pause();
+	for (;;) {
+		sig_atomic_t events, control;
+
+		/* Managed signals are blocked here, so snapshot-and-clear is atomic. */
+		events = di_pending_events;
+		control = di_pending_control;
+		di_pending_events = 0;
+		di_pending_control = DI_CONTROL_NONE;
+
+		if (!events && control == DI_CONTROL_NONE) {
+			if (sigsuspend(&wait_mask) < 0 && errno != EINTR) {
+				saved_errno = errno;
+				di_alarmtimer(0);
+				if (remove(DI_PID_FILE) != 0 && errno != ENOENT)
+					logmessage("detect_internet", "cannot remove pid file (errno=%d)", errno);
+				(void)sigprocmask(SIG_SETMASK, &original_mask, NULL);
+				errno = saved_errno;
+				perror("sigsuspend");
+				return saved_errno;
+			}
+			continue;
+		}
+
+		/* Allow a control signal to interrupt a bounded network probe. */
+		if (sigprocmask(SIG_SETMASK, &run_mask, NULL) < 0) {
+			saved_errno = errno;
+			di_alarmtimer(0);
+			if (remove(DI_PID_FILE) != 0 && errno != ENOENT)
+				logmessage("detect_internet", "cannot remove pid file (errno=%d)", errno);
+			(void)sigprocmask(SIG_SETMASK, &original_mask, NULL);
+			errno = saved_errno;
+			perror("sigprocmask");
+			return saved_errno;
+		}
+
+		/* Termination wins over any queued refresh or timer tick. */
+		if (events & DI_PENDING_TERMINATE) {
+			di_alarmtimer(0);
+			if (remove(DI_PID_FILE) != 0 && errno != ENOENT)
+				logmessage("detect_internet", "cannot remove pid file (errno=%d)", errno);
+			if (sigprocmask(SIG_SETMASK, &original_mask, NULL) < 0)
+				logmessage("detect_internet", "cannot restore signal mask during shutdown (errno=%d)", errno);
+			return 0;
+		}
+
+		if (control == DI_CONTROL_PAUSE)
+			di_on_sigusr2();
+		else if (control == DI_CONTROL_RESUME)
+			di_on_sigusr1();
+
+		if (events & DI_PENDING_ACTIVITY)
+			di_update_last_activity();
+
+		/* A pre-resume SIGALRM must not bypass the requested notify delay. */
+		if ((events & DI_PENDING_TIMER) &&
+		    control != DI_CONTROL_RESUME && !di_pause_received)
+			di_on_timer();
+
+		if (sigprocmask(SIG_BLOCK, &managed_signals, NULL) < 0) {
+			saved_errno = errno;
+			di_alarmtimer(0);
+			if (remove(DI_PID_FILE) != 0 && errno != ENOENT)
+				logmessage("detect_internet", "cannot remove pid file (errno=%d)", errno);
+			(void)sigprocmask(SIG_SETMASK, &original_mask, NULL);
+			errno = saved_errno;
+			perror("sigprocmask");
+			return saved_errno;
+		}
 	}
 
-	return 0;
+signal_setup_failed:
+	saved_errno = errno;
+	(void)sigprocmask(SIG_SETMASK, &original_mask, NULL);
+	errno = saved_errno;
+	perror("sigaction");
+	return saved_errno;
 }
 

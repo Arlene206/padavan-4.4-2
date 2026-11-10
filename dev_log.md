@@ -1,3 +1,16 @@
+## 2026-11-10 21:50 CST (UTC+8) — Defer detect_internet work out of signal context
+
+- Base main SHA: `8ba94ea89a373bf4afa93a5d4a2187a059882fd5`; remote branch inventory contains only `main`, with no checkpoint branch. The preceding WAN gateway ARP regression [42819898452] and AI handoff contract [42819898490] both completed SUCCESS on this exact base SHA; every job step was inspected.
+- Finding: `detect_internet` ran the full probe, NVRAM updates, LED operations, RC notifications and custom internet-state script directly from SIGALRM/SIGUSR signal handlers. The handlers' mask omitted SIGUSR2 and SIGTERM, so those control handlers could nest inside the long-running probe/state-publication handler. This exposed non-async-signal-safe library/service work to reentrancy and allowed pause/stop to race with publication.
+- Fix: signal handlers now only record `sig_atomic_t` event/control state. The daemon blocks managed signals for atomic snapshot/clear, waits with `sigsuspend()`, and dispatches probe, activity, pause/resume and termination work in normal process context. SIGUSR2/SIGTERM set the pause fence immediately so an interrupted bounded connect cannot publish a late probe result. A pending pre-resume timer tick is discarded so the requested notify delay is preserved.
+- Regression: add a GNU89 policy test for deferred timer/activity events, standard-signal coalescing, latest pause/resume control, sticky termination priority and invalid inputs. Add an exact-head Actions workflow that runs ASan/UBSan and checks signal masks, lost-wakeup-safe wait/dispatch order, the WAN/LAN call paths, and the existing RC applet/build wiring.
+- Changed paths: `trunk/user/rc/src/detect_internet.c`, new `detect_internet_signal_policy.h`, new `tests/detect_internet_signal_policy.c`, new `.github/workflows/detect-internet-signal-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log. Root log had 46 complete newest-first records and has 47; no archive rotation or INDEX update is due.
+- Validation: local `cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined` compile/run PASS (`detect_internet signal deferral policy: PASS`). The exact-head source-semantic Actions and AI handoff documentation check are pending for THIS COMMIT. L1 signal/call-path review PASS. No full RC translation-unit, MIPS/uClibc object, firmware/TRX or L4 router behavior is claimed.
+- Resulting commit: THIS COMMIT.
+- Next: inspect every job/step in the exact-head detect-internet signal workflow and AI handoff workflow. If green, rotate to the under-audited `detect_link.c` signal/event lifecycle; keep FTP failed-upload cleanup TOCTOU, NFS compatibility, VPN callback fencing, FULLCONENAT target compile, and all L3/L4 gaps open.
+
+---
+
 ## 2026-11-10 20:40 CST (UTC+8) — Fail closed when WAN ARP socket prerequisites fail
 
 - Base main SHA: `c1bdec32ac2a746288ab4295bda334579a55c249`; remote branch inventory contains only main, with no checkpoint branch. The previous miniupnpd follow-up and AI docs exact-head runs [42817503339] and [42817503261] both completed SUCCESS on this base SHA; all jobs and steps were inspected.
