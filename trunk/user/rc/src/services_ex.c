@@ -349,13 +349,6 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 	netmask = nvram_safe_get("lan_netmask");
 	domain  = nvram_safe_get("lan_domain");
 
-	/* Preserve valid leases, but never follow a symlink or write through a hardlink. */
-	if (dnsmasq_lease_file_ensure(DHCPD_LEASE_FILE) != 0) {
-		saved_errno = errno ? errno : EIO;
-		logmessage(LOGNAME, "refusing unsafe DNSMasq lease file (errno=%d)", saved_errno);
-		return saved_errno;
-	}
-
 	/* create /etc/ethers */
 	fill_static_ethers(ipaddr, netmask);
 
@@ -495,7 +488,7 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 		if (i_verbose == 0 || i_verbose == 2)
 			fprintf(fp, "quiet-dhcp\n");
 		
-		is_dhcp_used |= 0x1;
+		is_dhcp_used |= DNSMASQ_DHCP_FEATURE_LEASES;
 	}
 
 #if defined (USE_IPV6)
@@ -507,7 +500,7 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 			fprintf(fp, "quiet-ra\n");
 		fprintf(fp, "ra-param=%s,%d,%d\n", IFNAME_BR, 30, 1800);
 		
-		is_dhcp_used |= 0x2;
+		is_dhcp_used |= DNSMASQ_DHCP_FEATURE_RA;
 		
 		if (i_dhcp6s_mode == 0) {
 			int i_pref_lifetime = 600;
@@ -562,12 +555,23 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 			if (i_verbose == 0 || i_verbose == 1)
 				fprintf(fp, "quiet-dhcp6\n");
 			
-			is_dhcp_used |= 0x1;
+			is_dhcp_used |= DNSMASQ_DHCP_FEATURE_LEASES;
 		}
 	}
 #endif
 
-	if (is_dhcp_used & 0x1) {
+	if (dnsmasq_lease_file_required(is_dhcp_used)) {
+		/* Only validate/create the lease path when this configuration will
+		 * actually make dnsmasq open it. DNS-only and RA-only modes do not. */
+		if (dnsmasq_lease_file_ensure(DHCPD_LEASE_FILE) != 0) {
+			saved_errno = errno ? errno : EIO;
+			if (fclose(fp) != 0)
+				logmessage(LOGNAME, "error closing DNSMasq staging file after lease-path rejection (errno=%d)", errno ? errno : EIO);
+			dnsmasq_file_discard(config_path);
+			logmessage(LOGNAME, "refusing DNSMasq lease configuration with unsafe lease file (errno=%d)", saved_errno);
+			errno = saved_errno;
+			return saved_errno;
+		}
 		fprintf(fp, "dhcp-hostsfile=%s\n", DHCPD_HOSTS_DIR);
 		fprintf(fp, "dhcp-leasefile=%s\n", DHCPD_LEASE_FILE);
 		fprintf(fp, "dhcp-authoritative\n");

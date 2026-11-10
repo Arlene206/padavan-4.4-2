@@ -2,7 +2,7 @@
 
 - Maintained fork: `Arlene206/padavan-4.4-2`; work only on this repository.
 - Branch inventory at takeover: `main` only; no remote checkpoint branch. No force-pushes were used.
-- Current verified main baseline at takeover: `a86e2ceab5f6a448acfe82b8f388529a9941c3d3`; VSFTPD [42731280222] and AI handoff docs [42731280294] both completed SUCCESS on this exact SHA. Both jobs passed against this precise HEAD; branch inventory is `main` only, with no remote checkpoint branch. This commit resumes directly from that verified point.
+- Current exact main checkpoint at takeover: `186d3e6a2a392c21045aced3a3754073853c4c2e`; default branch is `main`, and the remote branch inventory contains only `main` (no checkpoint branch). IPTV DHCP interface/route status propagation is committed at this SHA. Five exact-head Actions are green: WAN DHCP callback [42733942876], WAN route status [42733942923], WAN interface teardown [42733942837], HTTPD security [42733942826], and AI handoff validation [42733942873].
 - Samba production implementation commit: `1a7097ace2e6c689cb7e92cd10055967d99fe143` (parent `6b44e023c2f669865fc8b5cb5425d824b8335d8b`). Follow-up commits updated the Samba and HTTPD semantic workflow extractors after initial assertions still referenced the previous writer layout.
 - Exact Actions evidence:
   - FIFO fixture teardown correction [42730772799] and AI handoff docs [42730772420] both completed SUCCESS on exact SHA `edd8688641cd5bb6fcefea325880f7c4c56aa511`; the three GNU89 host tests and Python semantic contract all passed.
@@ -14,10 +14,10 @@
   - Final RETR/SIZE exact-head regression [42721150755] and AI handoff docs [42721150532] both completed SUCCESS on exact SHA `bfd883ad75d5579c54922432a597efcade5a7509`; GNU89 host tests and the descriptor-based source contract both passed.
   - DELE/RMD descriptor-relative mutation regression [42721783706] and AI handoff docs [42721783725] both completed SUCCESS on exact SHA `05c7a13f44e64b4ba81f4af34b1000bb8eb4792e`; GNU89 policy tests and source-contract checks passed.
   - MKD descriptor-relative creation regression [42722114919] and AI handoff docs [42722114837] both completed SUCCESS on exact SHA `9b6c65686ad95295fd456e074292638a6c9ccf92`; GNU89 host suites and semantic source contract passed.
-  - RNFR/RNTO rename commit `2953898fb09e4d5535fd0628bb3c74bb8b21a831`: VSFTPD regression [42724086864] failed only in its Python source contract at the RNTO cleanup-order assertion; its preceding GNU89 compile/run step passed all host suites. The contract used the first `str_free()` as if it were the post-rename cleanup, overlooking the earlier intentional clear in the destination permission-denial branch. AI docs [42724086704] passed on the same exact SHA. THIS follow-up corrects the contract to assert both branches explicitly; exact-head reruns are pending.
+  - RNFR/RNTO rename commit `2953898fb09e4d5535fd0628bb3c74bb8b21a831` had an intermediate source-contract assertion defect after its GNU89 host suites passed. The corrected denial/post-rename cleanup contract and descriptor-relative rename regression completed SUCCESS on exact SHA `5ca27e7c420284f1ac21362e28566cfb56a693f1` (VSFTPD [42724420056], AI docs [42724420034]). Later recursive listing and per-entry metadata regressions passed on their exact SHAs.
   - Initial attempts on `1a7097a...` failed only in stale semantic workflow extractors; the new transaction host test itself passed. The assertions were corrected and later exact-SHA runs above passed. Do not report the initial failures as green.
 - The exact-head DHCP callback and handoff checks on `6b44e023c2f669865fc8b5cb5425d824b8335d8b` were already SUCCESS: WAN DHCP callback [42703609156] and AI handoff docs [42703609087].
-- Root `dev_log.md` contains 98 complete newest-first records after THIS round's entry and remains below the 119-record / 384 KiB early-rotation thresholds; no archive rotation is due.
+- Root `dev_log.md` contains 99 complete newest-first records after the current DNSMasq entry and remains below the 119-record / 384 KiB early-rotation thresholds; no archive rotation is due.
 - L3 production RC/MIPS/uClibc/firmware builds and L4 physical router validation are NOT VERIFIED.
 
 ## Completed DHCP callback and BusyBox event-state review
@@ -68,39 +68,47 @@
 - Finding: DELE and RMD authorized the canonical parent through `asus_check_permission_path()`, then called `str_unlink(path)` / `str_rmdir(path)`. Replacing a parent component after ACL approval could redirect the mutation to another share.
 - Fix: `asus_remove_path()` resolves and pins the canonical parent directory, performs the existing per-share DELETE ACL check while holding the directory descriptor, revalidates the canonical path against the pinned device/inode, then calls `unlinkat()` relative to that descriptor.
 - Semantics: DELE uses no `unlinkat` flags and removes the final symlink entry itself; RMD uses `AT_REMOVEDIR` and refuses a final symlink rather than following its target. Reserved metadata leaf names are rejected. DELE trailing-slash behavior remains rejected as `ENOTDIR`.
-- Regression: host policy tests cover symlink-entry deletion without deleting its target, RMD refusing a symlink to a directory, successful empty-directory removal, reserved metadata denial, and parent path identity mismatch after a symlink substitution. GNU89 test and exact-head workflow remain pending for this commit.
-- Remaining FTP work: MKD and RNFR/RNTO still use path-based mutation; LIST/NLST recursive traversal and MDTM/SITE CHMOD also remain open. The upload cleanup check/unlink pair is still non-atomic on Linux 4.4.
+- Regression: host policy tests cover symlink-entry deletion without deleting its target, RMD refusing a symlink to a directory, successful empty-directory removal, reserved metadata denial, and parent path identity mismatch after a symlink substitution. GNU89 host policy/source-contract and AI docs completed SUCCESS on exact SHA `05c7a13f44e64b4ba81f4af34b1000bb8eb4792e` (VSFTPD [42721783706], docs [42721783725]).
+- Remaining FTP work: descriptor-relative MKD, RNFR/RNTO and bounded recursive LIST/NLST/STAT are complete. MDTM/SITE CHMOD descriptor-relative metadata review and the upload cleanup check/unlink race remain open; the latter is not atomic on Linux 4.4.
 
 ## Completed FTP descriptor-relative MKD (bounded creation slice)
 
 - Finding: `handle_mkd()` checked WRITE permission against the canonical parent path, then invoked path-based `str_mkdir()`; a parent component could be swapped after ACL approval.
 - Fix: `asus_make_directory_path()` splits the leaf, resolves and pins the canonical parent, checks WRITE ACL with the parent descriptor held, verifies the same parent device/inode after authorization, and creates via `mkdirat()`.
 - Compatibility: keeps parent-directory WRITE ACL semantics, mode `0777` subject to the existing process umask, and FTP NOPERM versus FILEFAIL responses. Reserved metadata leaves remain blocked.
-- Regression: host policy tests create and inspect a directory using the pinned parent fd and assert reserved metadata cannot be created. Exact-head GNU89 test/source-contract and AI docs are pending for this commit.
+- Regression: host policy tests create and inspect a directory using the pinned parent fd and assert reserved metadata cannot be created. GNU89 host policy/source-contract and AI docs completed SUCCESS on exact SHA `9b6c65686ad95295fd456e074292638a6c9ccf92` (VSFTPD [42722114919], docs [42722114837]).
 - RNFR/RNTO remain a separate two-path rename transaction and are not included in this slice.
+
+
+## Completed DNSMasq lease-file applicability fix
+
+- **Finding:** `prepare_dns_dhcpd()` unconditionally validated/created `/tmp/dnsmasq.leases` before it knew whether the generated configuration would contain `dhcp-leasefile`. DNS-only router configurations and AP-mode RA-only configurations do not consume this path; nevertheless a stale symlink, hardlink, FIFO or other unsafe object made preparation fail. During restart, the existing fail-safe policy then kept the already-running daemon alive (or aborted a first start) even though no lease database was needed.
+- **Fix in THIS commit:** represent the DHCP lease and RA feature bits explicitly; gate `dnsmasq_lease_file_ensure()` on the finalized lease-using DHCP feature bit immediately before emitting `dhcp-leasefile`. On rejection, close and discard the staged main configuration and return the saved error. DNS-only and RA-only configurations no longer depend on an unused lease path; configurations that use the lease database remain fail-closed.
+- **Regression:** extend the existing GNU89 DNSMasq file host test with no-feature, RA-only, lease-using and combined-flag cases. Extend the HTTPD security workflow's semantic contract to prove the lease-path check is inside the actual lease-feature gate, precedes the config directive, and discards the staged configuration on failure. Exact-head Actions for THIS commit are pending at commit creation.
+- **Changed paths:** `trunk/user/rc/src/services_ex.c`, `trunk/user/rc/src/dnsmasq_file.h`, `trunk/user/rc/src/tests/dnsmasq_file.c`, `.github/workflows/httpd-security.yml`, this handoff, the roadmap and `dev_log.md`.
+- **Validation boundary:** L1 source review PASS. The GNU89 host test, semantic source contract and AI handoff validator are pending on the resulting exact SHA. No local checkout was available; L3 production RC/MIPS/uClibc and L4 hardware remain NOT VERIFIED.
 
 ## Active task
 
-1. The previous FTP STAT completion fix is verified on exact SHA `a86e2ceab5f6a448acfe82b8f388529a9941c3d3`: VSFTPD [42731280222] and AI handoff docs [42731280294] both SUCCESS. STAT keeps the 213 multiline terminator and distinguishes successful completion from unavailable/incomplete output.
-2. **IPTV DHCP callback status-loss finding:** `udhcpc_viptv_bound()` ignored interface address ioctl results, route deletion/addition statuses and overwrote old route metadata before proving old-route cleanup succeeded. The `deconfig` branch also discarded route deletion failures and unconditionally erased route inventory.
-3. **Fix in THIS commit:** use the existing DHCP WAN interface apply/rollback policy for IPTV address updates; snapshot old IP/netmask/gateway; remove previous gateway and DHCP routes before publishing new `manv_*` lease state; restore the old address and preserve old route inventory when cleanup fails; aggregate and log new DHCP/default-route setup errors. Deconfig only clears route metadata after all required deletions succeed and returns the first error.
-4. **Regression:** extend `.github/workflows/wan-dhcp-callback-stability.yml` with semantic source-order assertions for IPTV address rollback, route teardown/publication order, route setup aggregation and deconfig inventory retention. The existing GNU89 interface-transaction and route-status policy binaries provide the host-side policy coverage. Exact-head Actions for THIS commit are pending at commit creation.
-5. Keep the separate static-IP IPTV startup and ZeroConf callback status checks queued; rotate next to a different user-space subsystem after this bounded callback change. FTP MDTM/SITE CHMOD and upload cleanup race, FULLCONENAT target build, NFS compatibility and L3/L4 validation remain open.
+1. Reconcile the DNSMasq generated-file/security workflow and AI handoff validation on the exact SHA produced by THIS commit. Verify the GNU89 DNSMasq file test, including DNS-only/RA-only lease-file gating, and the complete semantic source-order contract.
+2. If green, rotate to a different subsystem: audit wireless driver/interface start, stop and bridge publication paths (begin with `trunk/user/rc/src/net_wifi.c` and `ralink.c`) for a concrete status-loss or stale-state stability defect. Trace callers and cleanup before changing code; do not assume the roadmap summary proves a defect.
+3. Keep separate static-IP IPTV/ZeroConf callback work, FTP MDTM/SITE CHMOD and the Linux 4.4 non-atomic upload-cleanup race, FULLCONENAT target kernel/MIPS compilation, NFS compatibility decisions and L3/L4 validation visible.
+
 
 ## Verification boundary
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for the IPTV DHCP callback's interface apply/rollback, delete-before-publish old-route handling, new route error aggregation and deconfig route-inventory retention; previous FTP STAT control-flow review remains complete. |
-| L2 host / Actions | Parent SHA `a86e2ceab5f6a448acfe82b8f388529a9941c3d3`: VSFTPD [42731280222] and AI docs [42731280294] both SUCCESS. THIS IPTV DHCP source-contract checks and path-filtered Actions are pending on the resulting SHA. The host interface policy binary tests the shared apply/rollback helper; no production `net_wan.c` object is compiled by these workflows. |
+| L1 source review | PASS for IPTV DHCP interface apply/rollback, route teardown-before-publication, route-result propagation and deconfig inventory retention; PASS for the DNSMasq lease-file applicability gate and its staged-config failure cleanup. |
+| L2 host / Actions | IPTV parent SHA `186d3e6a2a392c21045aced3a3754073853c4c2e`: WAN DHCP [42733942876], WAN route [42733942923], WAN teardown [42733942837], HTTPD security [42733942826] and AI docs [42733942873] all SUCCESS. THIS DNSMasq GNU89 host test, semantic source contract and AI docs checks are pending on the resulting SHA. These workflows do not compile production `services_ex.c` for MIPS/uClibc. |
 | L3 production RC/MIPS/uClibc/firmware builds | NOT VERIFIED. |
 | L4 physical router behavior | NOT VERIFIED. |
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and reconcile every workflow triggered by the IPTV callback paths against the exact resulting SHA, especially WAN DHCP callback, WAN route status and AI handoff documentation. Confirm the GNU89 host binaries and IPTV source-order contract pass.
-2. If green, rotate to a different user-space subsystem and select a concrete stability issue from the whole-repository governance ledger (DNSMasq/resolver lifecycle is a current candidate); do not extend the FTP-only streak. Static-IP IPTV startup and ZeroConf callbacks remain separate queued work.
-3. Keep FTP MDTM/SITE CHMOD and upload cleanup race, FULLCONENAT target kernel/MIPS validation, NFS compatibility, and L3/L4 validation visible.
+1. Fetch live `main`, confirm there is no unreviewed remote checkpoint, and reconcile the HTTPD security/DNSMasq and AI handoff Actions against the exact resulting SHA. The first run must prove the GNU89 DNSMasq host binary and the source-contract assertions pass.
+2. If green, rotate to the wireless driver/interface lifecycle audit in `net_wifi.c` and `ralink.c`; establish one concrete failure-propagation or stale-state defect before editing.
+3. Keep static-IP IPTV/ZeroConf, FTP MDTM/SITE CHMOD and upload-cleanup race, FULLCONENAT target kernel/MIPS validation, NFS compatibility and L3/L4 validation visible.
 
 ## Continuation rules
 

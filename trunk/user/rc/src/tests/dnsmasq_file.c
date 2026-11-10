@@ -48,6 +48,13 @@ main(void)
 	assert(!dnsmasq_valid_server_domain("evil.example\nserver=//203.0.113.9#"));
 	assert(!dnsmasq_valid_server_domain("evil.example\raddress=/blocked.test/127.0.0.1"));
 
+	/* DNS-only and RA-only modes do not use the lease database. */
+	assert(!dnsmasq_lease_file_required(0));
+	assert(!dnsmasq_lease_file_required(DNSMASQ_DHCP_FEATURE_RA));
+	assert(dnsmasq_lease_file_required(DNSMASQ_DHCP_FEATURE_LEASES));
+	assert(dnsmasq_lease_file_required(DNSMASQ_DHCP_FEATURE_LEASES |
+					 DNSMASQ_DHCP_FEATURE_RA));
+
 	assert(mkdtemp(directory) != NULL);
 	assert(snprintf(sentinel, sizeof(sentinel), "%s/sentinel", directory) > 0);
 	assert(snprintf(destination, sizeof(destination), "%s/dnsmasq.servers", directory) > 0);

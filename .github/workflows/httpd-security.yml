@@ -1479,6 +1479,17 @@ jobs:
           dnsmasq_stop = service.index("\nvoid\nstop_dns_dhcpd", dnsmasq_start)
           dnsmasq_prepare_body = service[dnsmasq_prepare:dnsmasq_start]
           dnsmasq_start_body = service[dnsmasq_start:dnsmasq_stop]
+          lease_gate = dnsmasq_prepare_body.index("if (dnsmasq_lease_file_required(is_dhcp_used))")
+          lease_check = dnsmasq_prepare_body.index("dnsmasq_lease_file_ensure(DHCPD_LEASE_FILE)")
+          lease_directive = dnsmasq_prepare_body.index('fprintf(fp, "dhcp-leasefile=%s\\n", DHCPD_LEASE_FILE);')
+          assert lease_gate < lease_check < lease_directive
+          assert dnsmasq_prepare_body.count("dnsmasq_lease_file_ensure(DHCPD_LEASE_FILE)") == 1
+          assert "dnsmasq_file_discard(config_path)" in dnsmasq_prepare_body[lease_gate:lease_directive]
+          assert "dnsmasq_lease_file_required" in helper
+          assert "DNSMASQ_DHCP_FEATURE_LEASES" in helper and "DNSMASQ_DHCP_FEATURE_RA" in helper
+          assert "DNSMASQ_DHCP_FEATURE_LEASES" in dnsmasq_prepare_body
+          assert "DNSMASQ_DHCP_FEATURE_RA" in dnsmasq_prepare_body
+          assert "assert(!dnsmasq_lease_file_required(DNSMASQ_DHCP_FEATURE_RA))" in test
           assert 'char config_path[] = "/etc/dnsmasq.conf.XXXXXX";' in dnsmasq_prepare_body
           assert 'fp = dnsmasq_file_open(config_path);' in dnsmasq_prepare_body
           assert 'dnsmasq_file_publish(fp, config_path, "/etc/dnsmasq.conf", 0644)' in dnsmasq_prepare_body

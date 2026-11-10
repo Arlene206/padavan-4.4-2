@@ -1,3 +1,16 @@
+## 2026-11-10 09:15 CST (UTC+8) — Gate DNSMasq lease-file validation on actual DHCP lease use
+
+- **Base main SHA:** `186d3e6a2a392c21045aced3a3754073853c4c2e`. WAN DHCP callback [42733942876], WAN route status [42733942923], WAN interface teardown [42733942837], HTTPD security [42733942826] and AI handoff validation [42733942873] all completed SUCCESS on that exact parent SHA.
+- **Finding:** `prepare_dns_dhcpd()` unconditionally validated/created `/tmp/dnsmasq.leases` before the DHCP feature flags were known. DNS-only router mode and AP-mode RA-only mode can generate a valid dnsmasq configuration without a `dhcp-leasefile` directive, yet an unrelated stale symlink, hardlink, FIFO or non-regular lease-path object made preparation fail. The restart policy then preserved a running daemon (or aborted first start) even though the service did not consume that file.
+- **Fix:** define the DHCP lease/RA feature bits and gate `dnsmasq_lease_file_ensure()` on the finalized lease-using feature bit, immediately before writing the matching `dhcp-leasefile` directive. On rejection, close and discard the staged configuration and return the saved error. DNS-only and RA-only paths bypass an unused lease file; configurations that actually use DHCP leases retain the existing fail-closed symlink/hardlink/FIFO checks.
+- **Regression:** extend the existing GNU89 DNSMasq file test for no-feature, RA-only, lease-using and combined flags. Extend the HTTPD security semantic contract to verify that the lease-file check is guarded, precedes the config directive, and discards the staged main configuration on failure.
+- **Changed paths:** `trunk/user/rc/src/services_ex.c`; `trunk/user/rc/src/dnsmasq_file.h`; `trunk/user/rc/src/tests/dnsmasq_file.c`; `.github/workflows/httpd-security.yml`; `SESSION_HANDOFF.md`; `REFACTOR_ROADMAP.md`; this log.
+- **Validation:** L1 control-flow review PASS. GNU89 host execution, HTTPD/DNSMasq semantic source contract and AI handoff validation are pending on THIS resulting SHA. No local clone/compiler was available for an independent host run; production RC/MIPS/uClibc and firmware builds and L4 router tests are NOT VERIFIED.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** reconcile the DNSMasq and AI handoff Actions on the exact resulting SHA. If green, rotate to the wireless driver/interface start-stop and bridge-state lifecycle audit; inspect `net_wifi.c` and `ralink.c` for a concrete failure-propagation or stale-state defect before editing. Keep static-IP IPTV/ZeroConf, FTP MDTM/SITE CHMOD and upload-cleanup race, FULLCONENAT target validation, NFS compatibility and L3/L4 open.
+
+---
+
 ## 2026-11-10 09:03 CST (UTC+8) — Propagate IPTV DHCP callback interface and route failures
 
 - **Base main SHA:** `a86e2ceab5f6a448acfe82b8f388529a9941c3d3`; VSFTPD [42731280222] and AI handoff docs [42731280294] both completed SUCCESS on that exact SHA.

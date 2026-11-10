@@ -10,6 +10,17 @@
 #include <unistd.h>
 #include "dnsmasq_domain_policy.h"
 
+/* Bit flags mirror the service options emitted below.  Only DHCP modes that
+ * emit dhcp-leasefile make the persistent lease path part of startup. */
+#define DNSMASQ_DHCP_FEATURE_LEASES 0x01
+#define DNSMASQ_DHCP_FEATURE_RA     0x02
+
+static int
+dnsmasq_lease_file_required(int dhcp_features)
+{
+	return (dhcp_features & DNSMASQ_DHCP_FEATURE_LEASES) != 0;
+}
+
 /* Build a complete replacement beside its destination; never truncate a
  * predictable shared-/tmp pathname or follow a pre-existing destination link. */
 static FILE *
