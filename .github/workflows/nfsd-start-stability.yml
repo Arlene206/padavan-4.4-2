@@ -197,5 +197,5 @@ jobs:
           assert "conflicting nfsd mount tuple" in lifecycle_test
           assert "conflicting rpc_pipefs mount tuple" in lifecycle_test
           assert "duplicate nfsd mountpoint entries" in lifecycle_test
-          print("NFS start/reload command status, cleanup and RC caller contracts: PASS")
+          print("NFS start/reload status, storage-lock serialization and caller contracts: PASS")
           PY

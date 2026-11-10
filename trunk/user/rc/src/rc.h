@@ -666,7 +666,7 @@ int restart_smbd(void);
 void unload_nfsd(void);
 int stop_nfsd(void);
 int run_nfsd(void);
-void reload_nfsd(void);
+int reload_nfsd(void);
 int restart_nfsd(void);
 #endif
 #if defined (APP_MINIDLNA)

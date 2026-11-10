@@ -1462,13 +1462,36 @@ void unload_nfsd(void)
 	module_smart_unload("sunrpc", 0);
 }
 
-int stop_nfsd(void)
+/*
+ * The storage lock is also the safe-removal barrier. The *_locked helpers
+ * are only for callers which already hold it (hotplug startup/removal and
+ * restart_nfsd); public RC applets acquire it themselves. This prevents a
+ * standalone run_nfsd/stop_nfsd command from restarting the export server
+ * while another process is unmounting its backing device.
+ */
+static int
+stop_nfsd_locked(void)
 {
 	return eval("/usr/bin/nfsd.sh", "stop");
 }
 
-int
-run_nfsd(void)
+int stop_nfsd(void)
+{
+	int storage_lock, status;
+
+	storage_lock = storage_operation_lock_acquire(file_lock);
+	if (storage_lock < 0) {
+		logmessage("Storage", "cannot acquire storage operation lock; refusing NFS stop");
+		return -1;
+	}
+
+	status = stop_nfsd_locked();
+	file_unlock(storage_lock);
+	return status;
+}
+
+static int
+run_nfsd_locked(void)
 {
 	int export_status;
 	int command_status = -1;
@@ -1489,52 +1512,96 @@ run_nfsd(void)
 	return storage_nfs_start_status(export_status, command_status);
 }
 
-void
-reload_nfsd(void)
+int
+run_nfsd(void)
+{
+	int storage_lock, status;
+
+	storage_lock = storage_operation_lock_acquire(file_lock);
+	if (storage_lock < 0) {
+		logmessage("Storage", "cannot acquire storage operation lock; refusing NFS start");
+		return -1;
+	}
+
+	status = run_nfsd_locked();
+	file_unlock(storage_lock);
+	return status;
+}
+
+static int
+reload_nfsd_locked(void)
 {
 	int export_status;
 	int command_status;
 
 	if (nvram_invmatch("nfsd_enable", "1"))
-		return;
+		return 0;
 
 	export_status = write_nfsd_exports();
 	if (!storage_nfs_export_may_start(1, export_status)) {
 		logmessage("Storage", "NFS reload skipped because exports could not be generated safely");
-		return;
+		return -1;
 	}
 
 	command_status = eval("/usr/bin/nfsd.sh", "reload");
 	if (command_status != 0)
 		logmessage("Storage", "NFS daemon reload failed (status %d)", command_status);
+
+	return command_status == 0 ? 0 : -1;
+}
+
+int
+reload_nfsd(void)
+{
+	int storage_lock, status;
+
+	storage_lock = storage_operation_lock_acquire(file_lock);
+	if (storage_lock < 0) {
+		logmessage("Storage", "cannot acquire storage operation lock; refusing NFS reload");
+		return -1;
+	}
+
+	status = reload_nfsd_locked();
+	file_unlock(storage_lock);
+	return status;
 }
 
 int restart_nfsd(void)
 {
-	int mount_count;
+	int storage_lock, mount_count, status;
 
-	/* Resolve storage state before stopping a working server. */
+	/* Serialize inventory, stop and restart with safe storage removal. */
+	storage_lock = storage_operation_lock_acquire(file_lock);
+	if (storage_lock < 0) {
+		logmessage("Storage", "cannot acquire storage operation lock; refusing NFS restart");
+		return -1;
+	}
+
 	mount_count = count_stor_mountpoint();
 	if (mount_count < 0) {
 		logmessage("Storage", "cannot determine mounted storage from %s during NFS restart; keeping NFS support running",
 			   PROC_MOUNTS_FILE);
+		file_unlock(storage_lock);
 		return -1;
 	}
 
-	if (stop_nfsd() != 0) {
+	if (stop_nfsd_locked() != 0) {
 		logmessage("Storage", "NFS server stop failed; refusing restart or module unload");
+		file_unlock(storage_lock);
 		return -1;
 	}
 
 	if (nvram_match("nfsd_enable", "1") &&
 	    storage_mount_inventory_has_mounts(mount_count)) {
 		sleep(1);
-		return run_nfsd();
+		status = run_nfsd_locked();
 	} else {
 		unload_nfsd();
+		status = 0;
 	}
 
-	return 0;
+	file_unlock(storage_lock);
+	return status;
 }
 #endif
 
@@ -2519,7 +2586,7 @@ stop_stor_apps(void)
 	int stop_status = 0;
 
 #if defined (APP_NFSD)
-	if (stop_nfsd() != 0) {
+	if (stop_nfsd_locked() != 0) {
 		logmessage("Storage", "NFS server did not stop cleanly; storage removal must be aborted");
 		stop_status = -1;
 	}
@@ -2575,7 +2642,8 @@ start_stor_apps(void)
 		logmessage("Storage", "Samba startup did not reach its daemon postconditions");
 #endif
 #if defined (APP_NFSD)
-	run_nfsd();
+	if (run_nfsd_locked() != 0)
+		logmessage("Storage", "NFS startup did not complete successfully");
 #endif
 #if defined (APP_MINIDLNA)
 	run_dms(0);
