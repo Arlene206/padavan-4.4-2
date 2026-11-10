@@ -1828,7 +1828,7 @@ main(int argc, char **argv)
 	}
 #endif
 	else if (!strcmp(base, "start_ddns")) {
-		start_ddns(1);
+		ret = start_ddns(1);
 	}
 	else if (!strcmp(base, "stop_wan")) {
 		notify_rc("manual_wan_disconnect");

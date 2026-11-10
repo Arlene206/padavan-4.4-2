@@ -1,3 +1,17 @@
+## 2026-11-11 04:55 CST (UTC+8) — Propagate DDNS startup failure through RC applet
+
+- **Base main SHA:** `491901f298aff09f1db95ca6d0ab8303a409b82d`; parent `79c60ff47f4a2c94bc4c8e5accfa928a61751d6d`. Only remote branch: `main`; no checkpoint branch.
+- **Previous exact-head Actions:** DNSMasq lifecycle [42894824097] and AI docs [42894823854] both SUCCESS on `491901f298aff09f1db95ca6d0ab8303a409b82d`. The GNU89 restart-policy binary passed (`DNSMasq restart policy: PASS`), the fork-based lock binary passed (`DNSMasq lifecycle lock policy: PASS`), and the postcondition/RC status source contract passed. AI docs accepted root log 67/119, batch 100, retain 20 and archive inventory `dev-log=6, handoff=22, roadmap=18`. All 14 workflows triggered on the same SHA completed successfully.
+- **Finding:** `rc.h` declares `int start_ddns(int clear_cache)`; `services_ex.c` returns `-1` when AP mode or DDNS-disabled, and otherwise returns the `eval("/bin/inadyn", ...)` exit status. The `start_ddns` applet in `rc.c` called `start_ddns(1)` without assigning its return to `ret`. As `rc_main` returns `ret` and initializes it to zero, failed DDNS starts were reported as successful to shell callers.
+- **Fix in THIS COMMIT:** change the applet to `ret = start_ddns(1)`, preserving its API's existing result without changing DDNS launch policy or behavior. Extend the existing RC workflow contract to check the int prototype and return propagation; add `rc.h` to push/PR path filters.
+- **Changed paths:** `trunk/user/rc/src/rc.c`, `.github/workflows/dnsmasq-lifecycle.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log.
+- **Validation:** declaration/definition and dropped-status call path were source-verified. Exact-head GNU89 tests, combined DNSMasq/DDNS RC source contract and AI docs are pending. No target MIPS/uClibc RC build, BusyBox ash runtime, full firmware/TRX or L4 device test is claimed.
+- **Root log:** 67 complete newest-first records before this entry; 68 after. No archive rotation or `docs/dev-log/INDEX.md` update is due.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** inspect all jobs, steps and full logs in exact-head DNSMasq/RC and AI docs workflows; verify both existing host tests and source assertions for `start_ddns` and `restart_dhcpd`. Then continue whole-repository P2 stability/security work, preserving FTP cleanup TOCTOU as OPEN/BLOCKED and NFS client compatibility as requiring external evidence.
+
+---
+
 ## 2026-11-11 04:45 CST (UTC+8) — Verify DNSMasq daemon start postconditions and propagate RC failures
 
 - **Base main SHA:** `79c60ff47f4a2c94bc4c8e5accfa928a61751d6d`; parent `952040daea8f43b01ec3dc37510c57af3c7070b7`. Only remote branch is `main`.

@@ -6,6 +6,7 @@ on:
       - ".github/workflows/dnsmasq-lifecycle.yml"
       - "trunk/user/rc/src/services_ex.c"
       - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/dnsmasq_restart_policy.h"
       - "trunk/user/rc/src/tests/dnsmasq_restart_policy.c"
       - "trunk/user/rc/src/dnsmasq_lifecycle_lock.h"
@@ -15,6 +16,7 @@ on:
       - ".github/workflows/dnsmasq-lifecycle.yml"
       - "trunk/user/rc/src/services_ex.c"
       - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/dnsmasq_restart_policy.h"
       - "trunk/user/rc/src/tests/dnsmasq_restart_policy.c"
       - "trunk/user/rc/src/dnsmasq_lifecycle_lock.h"
@@ -76,6 +78,9 @@ jobs:
           assert "dnsmasq_start_policy_status(launch_status, daemon_running)" in confirm
           assert "return daemon_running ? 0 : ESRCH;" in policy
           assert "dnsmasq_start_policy_status(0, 0) == ESRCH" in restart_test
+          rc_header = Path("trunk/user/rc/src/rc.h").read_text()
+          assert "int start_ddns(int clear_cache);" in rc_header
+          assert 'ret = start_ddns(1);' in rc
           assert 'ret = restart_dhcpd();' in rc
           assert "return ret;" in rc
 
@@ -93,6 +98,6 @@ jobs:
           for path in paths:
               assert push_filters.count(path) == 1, path
               assert pr_filters.count(path) == 1, path
-          print("DNSMasq daemon-start postcondition and RC status propagation contract: PASS")
+          print("DNSMasq postconditions and RC service status propagation contract: PASS")
           PY
 
