@@ -1,10 +1,10 @@
 ## Current source / CI checkpoint
 
 - Repository: `Arlene206/padavan-4.4-2`; maintained fork only; `main` only, no remote checkpoint branch.
-- Exact base SHA for current CI review: `febac337d73e7d197ed950e94f308e4c066907b6`. Eight of nine path-filtered Actions passed; WAN callback run [42760357637] failed at one stale source assertion (`return stop_status;` versus aggregated `return status;`). Its four GNU89 host regression steps all passed. The other exact-head successes are HTTPD [42760357682], AI docs [42760357696], WAN route [42760357470], NFS [42760357384], storage [42760357751], Samba [42760357403], vsftpd [42760357409] and wireless [42760357782].
-- THIS COMMIT corrects that stale contract and verifies the DHCPv6 stop status is accumulated. IPv6 teardown implementation now reports sysctl/RA/autoconf, route/address flush, SIT link-down and tunnel deletion failures, preserving DNS6 state on incomplete cleanup. Corrected WAN/AI exact-head Actions pending.
-- FTP upload-cleanup race remains open: Linux 4.4 `renameat2` exchange/no-replace does not atomically condition cleanup on the expected inode; current `fstatat()` / `unlinkat()` remains best effort.
-- Root `dev_log.md` retains 20 newest complete records; the oldest 100 from the threshold-triggering rotation are preserved in `docs/dev-log/2026/11/part-006.md` and indexed.
+- Base SHA `c8f211f8e707bcf946a0134594d185d6df1c2b30`: all four WAN GNU89 regressions passed, but WAN source contract [42760706847] matched the wrong `fclose()` in an invalid-input branch. AI-doc archive check [42760706676] found part-006 byte count mismatch (239333 characters vs 239599 UTF-8 bytes). Both contracts are corrected in THIS COMMIT; exact-head reruns pending.
+- IPv6 teardown source now propagates buffered stdio/proc-sys/RA/autoconf/route/address/SIT failures through `wan6_down()`, preserving DNS6 state on incomplete cleanup. WAN native startup and PPP/multi-WAN paths remain an open review area.
+- FTP upload-cleanup race remains open: Linux 4.4 `renameat2` exchange/no-replace does not atomically condition cleanup on expected inode; `fstatat()`/`unlinkat()` remains best effort.
+- Root `dev_log.md` contains 21 newest-first records; the 100 older records are preserved in indexed part-006 (239599 UTF-8 bytes).
 
 ## Whole-repository module status
 

@@ -308,7 +308,7 @@ jobs:
           # Check buffered writes, proc/sys controls and every IPv6 teardown
           # command through the status returned to wan6_down().
           write_stream = body(file_write_policy, "fput_string_stream(FILE *stream, const char *value)")
-          assert write_stream.index("fputs(value, stream)") < write_stream.index("fclose(stream)")
+          assert write_stream.index("if (fputs(value, stream) == EOF)") < write_stream.index("if (fclose(stream) != 0")
           assert "if (fclose(stream) != 0" in write_stream
           assert "errno = saved_errno;" in write_stream
           fput_string = body(shutils_source, "fput_string(const char *name, const char *value)")

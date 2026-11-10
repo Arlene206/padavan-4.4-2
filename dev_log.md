@@ -1,3 +1,12 @@
+## 2026-11-10 15:00 CST (UTC+8) — Correct UTF-8 archive size and stdio source-order contracts
+
+- **Base main SHA:** `c8f211f8e707bcf946a0134594d185d6df1c2b30`. The WAN callback Action [42760706847] re-ran all four GNU89 regressions successfully, then failed at an overbroad source-order assertion: it compared the first textual `fclose()` (the invalid-input cleanup branch) with `fputs()`, rather than checking the actual write/close error branches. THIS COMMIT scopes the order check to `if (fputs(...) == EOF)` and `if (fclose(...) != 0)`; no C code change.
+- **Archive contract finding:** AI docs Action [42760706676] found that the part-006 index recorded JavaScript UTF-16 code units (239333) instead of UTF-8 bytes (239599). THIS COMMIT corrects the byte count; the 100 records remain byte-identical and ordered oldest-first. The root log retains 20 records and part-006 contains 100 records.
+- **Validation:** on base SHA `c8f211f8e707bcf946a0134594d185d6df1c2b30`, all four WAN GNU89 host tests SUCCESS, including regular-file write/close and `/dev/full` buffered-close detection. WAN source-contract and AI archive-integrity runs failed only at the two identified contract-metadata assertions. Both are corrected; exact-head WAN and AI-doc reruns pending.
+- **Changed paths:** `.github/workflows/wan-dhcp-callback-stability.yml`, `docs/dev-log/INDEX.md`, this root `dev_log.md`, `SESSION_HANDOFF.md` and `REFACTOR_ROADMAP.md`.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** verify both affected workflows on the exact resulting SHA. If green, continue reviewing IPv6 startup/SIT publication and PPP/multi-WAN lifecycle errors, without claiming L3/L4 validation.
+
 ## 2026-11-10 14:45 CST (UTC+8) — Correct IPv6 teardown aggregate-status source contract
 
 - **Base main SHA:** `febac337d73e7d197ed950e94f308e4c066907b6`. The WAN DHCP callback workflow [42760357637] failed only in the Python source contract: an older assertion still expected `return stop_status;`, while the new aggregated teardown correctly returns `status`. The failure was at the stale assertion after the WAN IPv4/DHCP, IPTV, DHCPv6 config and new shared file-write GNU89 regressions had all compiled and passed. Eight other Actions (HTTPD security [42760357682], AI handoff docs [42760357696], WAN route [42760357470], NFS [42760357384], storage [42760357751], Samba [42760357403], vsftpd [42760357409] and wireless [42760357782]) completed SUCCESS on this exact SHA.

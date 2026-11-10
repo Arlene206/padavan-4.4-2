@@ -12,7 +12,7 @@
 | `docs/dev-log/2026/11/part-003.md` | 78 | 2026-11-08 → 2026-11-09 | 216933 | `f5e28c56ef9055a12f1b0ce7bc9ebd6fbc438233` |
 | `docs/dev-log/2026/11/part-004.md` | 1 | 2026-11-09 → 2026-11-09 | 2653 | `f7016653093548013d8197b6925e7a69cc7b24db` |
 | `docs/dev-log/2026/11/part-005.md` | 14 | 2026-11-09 → 2026-11-09 | 46475 | `175b66ce369f061c4ee8b872c3fc01f73032d28b` |
-| `docs/dev-log/2026/11/part-006.md` | 100 | 2026-11-09 → 2026-11-10 | 239333 | `453c9e3b28f0513581df22967f622690b79b0875` |
+| `docs/dev-log/2026/11/part-006.md` | 100 | 2026-11-09 → 2026-11-10 | 239599 | `453c9e3b28f0513581df22967f622690b79b0875` |
 
 
 - **Post-migration rotation:** the first evicted root-window record is preserved verbatim in `part-003.md`; its original root source blob was `733d3c678575611642b3f69fe4cfe5e19ece9b57`.
