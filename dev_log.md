@@ -1,3 +1,14 @@
+## 2026-11-11 06:50 CST (UTC+8) — Correct the miniupnpd source-contract assertion
+
+- Base main SHA: `690fb429e70b9b1b420d0c69b72f27293cbcdce9`; parent `644735078f026164da3950f8b0addff438ee066f`.
+- Exact-head workflow inventory on that SHA: AI handoff docs [42919412587] SUCCESS, DNSMasq lifecycle [42919412639] SUCCESS, Samba share config [42919412522] SUCCESS, miniupnpd config/lifecycle [42919412667] FAILURE, HTTPD security [42919412750] IN_PROGRESS at initial job inspection. The failed miniupnpd job had already compiled and passed both the original atomic-config regression and new GNU89 daemon-policy regression.
+- Failure analysis: the miniupnpd source-contract assertion at inline Python line 40 expected `return miniupnpd_confirm_started(ret);`. The implementation correctly stores the result in `ret`, logs the failed postcondition, and then returns `ret`; the assertion was stale, not the product logic. The correction now asserts `ret = miniupnpd_confirm_started(ret);` so the contract checks the actual status/log/return path.
+- This commit changes `.github/workflows/miniupnpd-config-stability.yml` and updates the live handoff/roadmap/log with the failure cause, existing passing binaries and exact-SHA rerun requirement. No production source behavior changes in this correction.
+- Root `dev_log.md`: 73 records before, 74 after; no archive rotation or `docs/dev-log/INDEX.md` update is due.
+- Next: query Actions for exact resulting SHA; inspect every step and full log for miniupnpd, AI docs, DNSMasq, Samba and HTTPD. Do not claim this workflow green until the assertion rerun succeeds. Then continue miniupnpd stop-status/WAN-interface/mapping lifecycle review, followed by another userland subsystem. FTP upload cleanup remains OPEN/BLOCKED; no MIPS/uClibc/full firmware/L4 test is claimed.
+
+---
+
 ## 2026-11-11 06:40 CST (UTC+8) — Confirm miniupnpd survives daemonizing launch
 
 - Base main SHA: `644735078f026164da3950f8b0addff438ee066f`; parent `4117c03938920f83494d96714264637cb4d3c809`. Remote inventory: only `main`, no checkpoint branch.

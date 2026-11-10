@@ -87,7 +87,7 @@ jobs:
           assert "if (ret != 0)" in start
           assert "miniupnpd configuration publication failed" in start
           assert 'fopen("/etc/miniupnpd.conf", "w")' not in start
-          assert "return miniupnpd_confirm_started(ret);" in start
+          assert "ret = miniupnpd_confirm_started(ret);" in start
           confirm = function_body(service, "miniupnpd_confirm_started(int launch_status)")
           assert "MINIUPNPD_START_WAIT_ATTEMPTS" in confirm
           assert "is_upnp_run()" in confirm
