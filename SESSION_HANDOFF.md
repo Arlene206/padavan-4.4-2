@@ -2,10 +2,10 @@
 
 - Maintained fork: `Arlene206/padavan-4.4-2`; work only on this repository.
 - Branch inventory: `main` only; no remote checkpoint branch. No force-pushes.
-- **Live main baseline before THIS COMMIT:** `46ff803fa89e2cce4477a031743de5267f58bcaa`; exact-head WAN route-status [42781506450] and AI docs [42781506510] SUCCESS after correcting the stale `void wan_up()` prototype assertion. The PPP ip-up route-status change was validated by WAN DHCP callback [42781067412] and its GNU89 regression/semantic checks on parent SHA `5cca0b23...`. All other workflows triggered on `5cca0b23...` also succeeded. THIS COMMIT propagates PPP ip-down teardown and route-restoration failures through its script exit status; exact-head reruns are pending.
+- **Live main HEAD:** `6b2c99f15396a09b6b5b4814701fe9d127703770`; branch inventory remains `main` only. Exact-head WAN route-status [42782613046], WAN DHCP callback [42782612561] and AI handoff docs [42782612736] all SUCCESS. The route-status sanitizer regression and semantic contract passed, including PPP ip-down teardown → route restoration → status aggregation → callback unlock → return checks. HTTPD [42782612673], NFS [42782612616], vsftpd [42782612994], WAN teardown [42782612550], Samba [42782612679], wireless [42782612766] and USB storage [42782612407] also SUCCESS on the same SHA.
 - **Prior exact-head evidence:** on `febac337d73e7d197ed950e94f308e4c066907b6`, the four WAN GNU89 tests passed; HTTPD security [42760357682], AI docs [42760357696], WAN route [42760357470], NFS [42760357384], storage [42760357751], Samba [42760357403], vsftpd [42760357409] and wireless [42760357782] succeeded. WAN source contract [42760357637] exposed the first stale assertion and was then corrected.
-- **Current code slice:** WAN DHCP/PPP address publication is failure-gated; DHCPv6 callbacks are generation-fenced by interface/token and cross-process lock, with fail-closed stop/teardown. `wan_up()` returns aggregated route status through PPP ip-up after callback-lock release; exact-head route-status and AI checks passed on `46ff803f...`. This COMMIT also makes PPP ip-down report `wan_down_internal()` teardown status plus default/static route-restoration status, while unlock errors take precedence. New GNU89 and semantic validation is pending.
-- **Log rotation:** root `dev_log.md` has 30 complete newest-first headings before THIS COMMIT and will have 31 after its record is appended; no rotation or INDEX update is due. The 100 older records remain oldest-first in `docs/dev-log/2026/11/part-006.md` (239599 UTF-8 bytes).
+- **Current code slice:** WAN DHCP/PPP address publication is failure-gated; DHCPv6 callbacks are generation-fenced by interface/token and cross-process lock, with fail-closed stop/teardown. `wan_up()` returns aggregated route status through PPP ip-up; `wan_down()` and `preset_wan_ppp_routes()` return teardown/restoration errors; PPP `ipdown_main()` aggregates them and returns after callback unlock, with unlock failure precedence. Exact-head WAN route sanitizer, WAN DHCP GNU89/source contracts, AI docs and all other triggered workflows passed on `6b2c99f1...`.
+- **Log rotation:** root `dev_log.md` has 31 complete newest-first headings; no rotation or INDEX update is due. The 100 older records remain oldest-first in `docs/dev-log/2026/11/part-006.md` (239599 UTF-8 bytes).
 - **Known open issue:** FTP upload cleanup still has a check-then-`unlinkat` window after inode identity validation. Linux 4.4/MIPS O32 `renameat2` exchange/no-replace cannot atomically condition on expected inode; do not claim closure.
 - L3 production RC/MIPS/uClibc objects, firmware/TRX and L4 physical-router validation remain NOT VERIFIED.
 
@@ -104,24 +104,23 @@
 
 ## Active task
 
-1. **Verify this PPP ip-down status propagation slice.** Baseline `46ff803fa89e2cce4477a031743de5267f58bcaa` passed exact-head WAN route-status [42781506450] and AI docs [42781506510]. Source review found `ipdown_main()` discarded `wan_down()` teardown errors and `preset_wan_ppp_routes()` silently discarded default/static route restoration errors; THIS COMMIT returns the first route error after trying both cleanup/restoration stages and releasing the callback lock (unlock failure takes precedence). Exact-head route sanitizer and semantic contract are pending.
-2. **Next bounded task — PPP ip-down per-unit route ownership.** After Actions are green, inspect `preset_wan_ppp_routes()`, `wan_down_internal()`, `del_static_wan_routes()`, route-key prefixes and PPP reconnect ordering. Verify one PPP unit cannot delete or revive another unit's routes; add a focused policy regression and source contract for a concrete defect.
-3. **Open issues:** FTP upload-cleanup TOCTOU; NFS `async`/AUTH_SYS/root-squash compatibility; FULLCONENAT target kernel/MIPS object; wireless bridge variants; SIT/native IPv6 rollback on target; L3/L4 validation. Keep NOT VERIFIED.
+1. **Next bounded task — PPP ip-down per-unit route ownership and reconnect recovery.** The latest bounded return-status slices are committed and validated on exact SHA `6b2c99f15396a09b6b5b4814701fe9d127703770`: WAN route-status sanitizer/semantic [42782613046], WAN DHCP callback GNU89/semantic [42782612561], AI docs [42782612736], and the other eight triggered Actions all SUCCESS. Inspect `preset_wan_ppp_routes()`, `wan_down_internal()`, `del_static_wan_routes()`, route key/prefix construction and PPP reconnect ordering. Establish whether a PPP unit can delete or resurrect another unit's routes or leave stale inventory. Pick one source-demonstrable defect and add a focused regression/source contract.
+2. **Open project-wide issues:** FTP upload-cleanup TOCTOU; NFS `async` durability and AUTH_SYS/root-squash compatibility; FULLCONENAT target kernel/MIPS object; wireless bridge variants; SIT/native IPv6 rollback on target; and L3/L4 validation. Keep all NOT VERIFIED until target evidence.
 
 ## Verification boundary
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for aggregated WAN teardown status, default/static PPP route restoration status, first-error preservation and callback-unlock precedence by source inspection. |
-| L2 host / Actions | Exact base SHA `46ff803fa89e2cce4477a031743de5267f58bcaa`: WAN route-status [42781506450] and AI docs [42781506510] SUCCESS; the PPP ip-up route-status code was covered by WAN DHCP callback [42781067412] on parent SHA `5cca0b23...`. THIS COMMIT extends route-status tests and source checks to PPP ip-down; exact-head reruns pending. |
+| L1 source review | PASS for WAN DHCP/PPP address-before-publish, DHCPv6 generation fencing and fail-closed teardown, PPP ip-up route-status return, and PPP ip-down teardown/restoration status propagation with unlock precedence. |
+| L2 host / Actions | Exact main SHA `6b2c99f15396a09b6b5b4814701fe9d127703770`: WAN route-status sanitizer + semantic [42782613046], WAN DHCP callback GNU89 + semantic [42782612561], AI docs [42782612736], HTTPD [42782612673], NFS [42782612616], vsftpd [42782612994], WAN teardown [42782612550], Samba [42782612679], wireless [42782612766] and USB storage [42782612407] all SUCCESS. |
 | L3 production RC/MIPS/uClibc/firmware builds | NOT VERIFIED. |
 | L4 physical router behavior | NOT VERIFIED. |
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` HEAD and verify the WAN route-status sanitizer and semantic Actions, plus AI docs, on the exact resulting SHA. Check that both `wan_down()` and `preset_wan_ppp_routes()` return status, that ip-down tries restoration after teardown, and that callback unlock failure takes precedence.
-2. Then audit PPP route ownership across units and reconnects: route keys/prefixes, primary-default reinstallation, static route lifecycle, delete/restore scope and per-unit state retention. Implement one bounded evidence-backed defect with host regression and source contract.
-3. Preserve FTP TOCTOU, NFS compatibility, FULLCONENAT target build, wireless variants, IPv6 target rollback and L3/L4 validation as open/NOT VERIFIED.
+1. Fetch live `main` HEAD and branch inventory. Then trace `ipdown_main()`, `preset_wan_ppp_routes()`, `wan_down_internal()` and `del_static_wan_routes()` across logical WAN units. Compare the route-key prefixes used at install, delete and restore boundaries.
+2. Look specifically for cross-unit route deletion, use of global route inventories where per-unit keys are required, stale PPP route resurrection on reconnect, and route-status loss. Reproduce one concrete defect with a policy-level GNU89 test and exact source contract before changing production logic.
+3. Keep FTP upload-cleanup TOCTOU, NFS compatibility, FULLCONENAT target build, wireless board variants, target IPv6 rollback and L3/L4 validation open/NOT VERIFIED.
 
 ## Continuation rules
 
