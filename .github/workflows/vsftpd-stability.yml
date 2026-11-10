@@ -250,6 +250,13 @@ jobs:
           assert recursive_list.index("write_dir_list(p_sess, &dir_list, target)") < recursive_list.index("str_list_free(&dir_list)", recursive_list.index("write_dir_list(p_sess, &dir_list, target)")) < recursive_list.index("for (subdir_index")
           assert "vsf_ls_populate_dir_list(" in recursive_list and ") != 0" in recursive_list
           assert "FTP listing resource limits are inconsistent" in acl_path_test
+          assert "FTP STAT completion message policy failed" in acl_path_test
+          assert "VSF_LISTING_STAT_COMPLETE_TEXT" in vsftpd_listing_policy
+          assert "End of status (listing unavailable or incomplete)" in vsftpd_listing_policy
+          assert "retval = -1;" in directory
+          assert "retval == 0 ? VSF_LISTING_STAT_COMPLETE_TEXT" in directory
+          assert "VSF_LISTING_STAT_INCOMPLETE_TEXT" in directory
+          assert directory.index("if (p_dir != 0 && dir_allow_read)") < directory.index("else if (stat_cmd)") < directory.index("retval = -1;")
           assert "O_NOFOLLOW | O_NONBLOCK" in bounded_file_open
           assert "O_CLOEXEC" in bounded_file_open
           assert "fstat(fd, &opened)" in bounded_file_open

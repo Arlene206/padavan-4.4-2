@@ -111,6 +111,12 @@ main(void)
     fprintf(stderr, "FTP listing resource limits are inconsistent\n");
     return 1;
   }
+  if (strcmp(VSF_LISTING_STAT_COMPLETE_TEXT, "End of status") != 0 ||
+      strcmp(VSF_LISTING_STAT_INCOMPLETE_TEXT,
+             "End of status (listing unavailable or incomplete)") != 0) {
+    fprintf(stderr, "FTP STAT completion message policy failed\n");
+    return 1;
+  }
   if (!getcwd(cwd, sizeof(cwd)) || !(created = mkdtemp(template))) {
     perror("prepare fixture"); return 1;
   }

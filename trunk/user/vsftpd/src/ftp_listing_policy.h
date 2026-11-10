@@ -10,6 +10,14 @@
 #define VSF_LISTING_MAX_ENTRIES_PER_DIR 4096U
 #define VSF_LISTING_MAX_ENTRIES_TOTAL 32768U
 
+/*
+ * STAT uses a multiline 213 reply. Keep the terminating code stable, but
+ * make a partial or unavailable listing explicit in its final text.
+ */
+#define VSF_LISTING_STAT_COMPLETE_TEXT "End of status"
+#define VSF_LISTING_STAT_INCOMPLETE_TEXT \
+  "End of status (listing unavailable or incomplete)"
+
 #define vsf_listing_entry_limit_reached(entries_in_dir, entries_total) \
   ((entries_in_dir) >= VSF_LISTING_MAX_ENTRIES_PER_DIR || \
    (entries_total) >= VSF_LISTING_MAX_ENTRIES_TOTAL)

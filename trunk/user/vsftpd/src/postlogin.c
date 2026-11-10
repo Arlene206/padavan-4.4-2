@@ -32,6 +32,7 @@
 
 /* Padavan */
 #include "asus_ext.h"
+#include "ftp_listing_policy.h"
 
 /* Private local functions */
 static void handle_pwd(struct vsf_session* p_sess);
@@ -922,6 +923,11 @@ handle_dir_common(struct vsf_session* p_sess, int full_details, int stat_cmd)
                                         &s_dir_name_str, &s_option_str,
                                         &s_filter_str, full_details);
   }
+  else if (stat_cmd)
+  {
+    /* Do not report an unavailable STAT listing as a complete empty result. */
+    retval = -1;
+  }
   if (!stat_cmd)
   {
     if (vsf_ftpdataio_dispose_transfer_fd(p_sess) != 1 && retval == 0)
@@ -931,7 +937,13 @@ handle_dir_common(struct vsf_session* p_sess, int full_details, int stat_cmd)
   }
   if (stat_cmd)
   {
-    vsf_cmdio_write(p_sess, FTP_STATFILE_OK, "End of status");
+    /*
+     * Preserve the 213 multiline terminator while surfacing a failed or
+     * resource-capped listing instead of claiming it completed normally.
+     */
+    vsf_cmdio_write(p_sess, FTP_STATFILE_OK,
+                    retval == 0 ? VSF_LISTING_STAT_COMPLETE_TEXT :
+                                  VSF_LISTING_STAT_INCOMPLETE_TEXT);
   }
   else if (retval != 0)
   {

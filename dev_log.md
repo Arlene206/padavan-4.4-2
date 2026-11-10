@@ -1,3 +1,16 @@
+## 2026-11-10 08:49 CST (UTC+8) — Report incomplete FTP STAT directory listings accurately
+
+- **Base main SHA:** `edd8688641cd5bb6fcefea325880f7c4c56aa511`; VSFTPD [42730772799] and AI handoff docs [42730772420] both completed SUCCESS on this exact SHA. The FIFO cleanup correction passed all three GNU89 host policy binaries and the full Python semantic source contract.
+- **Finding:** `handle_dir_common()` always sent `213 End of status` for STAT after starting a multiline reply, regardless of the return from `vsf_ftpdataio_transfer_dir()`. A recursive LIST/STAT depth or entry-cap abort (and other transfer errors) was thus presented as a completed listing. A missing/unopenable directory or an anonymous directory rejected by `anon_world_readable_only` also left `retval == 0` and produced the same success wording.
+- **Fix:** retain the 213 completion code required to terminate the multiline response, but select a clearly incomplete/unavailable final text when listing transfer failed or the directory could not be listed. Successful STAT retains the existing final text. No LIST/NLST data-channel response behavior is changed.
+- **Regression:** extend the GNU89 ACL/listing policy fixture to verify complete/incomplete response text constants; extend the VSFTPD semantic workflow to assert failure propagation, unavailable-path handling and conditional final response selection.
+- **Changed paths:** `trunk/user/vsftpd/src/postlogin.c`; `trunk/user/vsftpd/src/ftp_listing_policy.h`; `trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c`; `.github/workflows/vsftpd-stability.yml`; `SESSION_HANDOFF.md`; `REFACTOR_ROADMAP.md`; this log.
+- **Validation:** L1 control-flow review PASS. The base VSFTPD and docs Actions cited above are green on the exact parent SHA. THIS GNU89 host test, Python semantic contract and AI docs checks are pending on the resulting SHA. The workflow does not compile production `postlogin.c`; no MIPS/uClibc object, firmware/TRX or router hardware test is claimed.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** reconcile exact-head Actions. If green, shift the next batch to IPTV DHCP callback route/interface status propagation in `trunk/user/rc/src/net_wan.c`; keep remaining FTP metadata and upload-cleanup work queued.
+
+---
+
 ## 2026-11-10 08:42 CST (UTC+8) — Remove the FTP ACL FIFO fixture during teardown
 
 - **Base main SHA:** `cd3d66c4687d8e207ce293c088f2920b1ccc7a6d`; VSFTPD run [42728646505] FAILED and AI handoff docs [42728646431] completed SUCCESS on this exact SHA.
