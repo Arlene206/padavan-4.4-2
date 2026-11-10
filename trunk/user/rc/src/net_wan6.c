@@ -30,6 +30,7 @@
 
 #include "rc.h"
 #include "../../shared/src/dhcp6c_duid_file_policy.h"
+#include "dhcp6c_config_file.h"
 
 #if defined (USE_IPV6)
 
@@ -559,11 +560,12 @@ int start_dhcp6c(char *wan_ifname)
 	FILE *fp;
 	int duid_fd;
 	int wan6_dhcp, dns6_auto, lan6_auto, sla_id, sla_len;
-	int duid_error;
+	int duid_error, saved_errno;
 	unsigned int ia_id;
 	unsigned char ea[ETHER_ADDR_LEN];
 	const char *conf_file = "/etc/dhcp6c.conf";
 	const char *duid_file = "/tmp/dhcp6c_duid";
+	char staged_path[] = "/etc/.dhcp6c.conf.XXXXXX";
 
 	wan6_dhcp = nvram_get_int("ip6_wan_dhcp");
 	dns6_auto = nvram_get_int("ip6_dns_auto");
@@ -640,9 +642,11 @@ int start_dhcp6c(char *wan_ifname)
 		}
 	}
 
-	fp = fopen(conf_file, "w");
-	if (!fp) {
-		perror(conf_file);
+	if (dhcp6c_config_file_open_staged(staged_path, &fp) != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage("DHCPv6 WAN Client",
+			   "cannot safely stage client configuration (errno=%d)", saved_errno);
+		errno = saved_errno;
 		return -1;
 	}
 
@@ -678,7 +682,13 @@ int start_dhcp6c(char *wan_ifname)
 			sla_len
 		);
 
-	fclose(fp);
+	if (dhcp6c_config_file_publish(fp, staged_path, conf_file) != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage("DHCPv6 WAN Client",
+			   "cannot publish complete client configuration (errno=%d)", saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
 
 	logmessage("DHCPv6 WAN Client", "starting on wan (%s) ...", wan_ifname);
 

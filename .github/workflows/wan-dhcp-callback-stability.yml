@@ -5,6 +5,9 @@ on:
     paths:
       - ".github/workflows/wan-dhcp-callback-stability.yml"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/net_wan6.c"
+      - "trunk/user/rc/src/dhcp6c_config_file.h"
+      - "trunk/user/rc/src/tests/dhcp6c_config_file.c"
       - "trunk/user/rc/src/dhcp_wan_interface_policy.h"
       - "trunk/user/rc/src/tests/dhcp_wan_interface_policy.c"
       - "trunk/user/rc/src/wan_viptv_static_policy.h"
@@ -14,6 +17,9 @@ on:
     paths:
       - ".github/workflows/wan-dhcp-callback-stability.yml"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/net_wan6.c"
+      - "trunk/user/rc/src/dhcp6c_config_file.h"
+      - "trunk/user/rc/src/tests/dhcp6c_config_file.c"
       - "trunk/user/rc/src/dhcp_wan_interface_policy.h"
       - "trunk/user/rc/src/tests/dhcp_wan_interface_policy.c"
       - "trunk/user/rc/src/wan_viptv_static_policy.h"
@@ -41,6 +47,14 @@ jobs:
             trunk/user/rc/src/tests/wan_viptv_static_policy.c \
             -o /tmp/wan-viptv-static-policy
           /tmp/wan-viptv-static-policy
+      - name: Compile and run DHCPv6 config publication regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/dhcp6c_config_file.c \
+            -o /tmp/dhcp6c-config-file
+          /tmp/dhcp6c-config-file
       - name: Verify WAN callback applies interface before publishing lease state
         run: |
           python3 - <<'PY'
@@ -48,6 +62,9 @@ jobs:
 
           rc = Path("trunk/user/rc/src")
           source = (rc / "net_wan.c").read_text()
+          wan6_source = (rc / "net_wan6.c").read_text()
+          config_policy = (rc / "dhcp6c_config_file.h").read_text()
+          config_test = (rc / "tests/dhcp6c_config_file.c").read_text()
           policy = (rc / "dhcp_wan_interface_policy.h").read_text()
           workflow = Path(".github/workflows/wan-dhcp-callback-stability.yml").read_text()
 
@@ -186,6 +203,25 @@ jobs:
           monitor_state = zcip_applet.index("timeout_ms = -1; // never timeout in monitor state", quit_after_config)
           assert config_callback < quit_after_config < monitor_state
 
+          # DHCPv6 client configuration is staged privately and published only
+          # after complete write/flush/close; startup must follow the rename.
+          dhcp6_start = body(wan6_source, "start_dhcp6c(char *wan_ifname)")
+          assert '#include "dhcp6c_config_file.h"' in wan6_source
+          assert 'fopen(conf_file, "w")' not in dhcp6_start
+          assert "dhcp6_config_file_open_staged(staged_path, &fp)" in dhcp6_start
+          assert "dhcp6_config_file_publish(fp, staged_path, conf_file)" in dhcp6_start
+          assert dhcp6_start.index("dhcp6_config_file_open_staged") < dhcp6_start.index('fprintf(fp, "interface %s')
+          assert dhcp6_start.index("dhcp6_config_file_publish") < dhcp6_start.index('eval("/sbin/dhcp6c"')
+          assert "fd = mkstemp(staged_path)" in config_policy
+          assert 'fdopen(fd, "w")' in config_policy
+          assert "ferror(stream)" in config_policy and "fflush(stream)" in config_policy
+          assert "fclose(stream)" in config_policy and "rename(staged_path, target_path)" in config_policy
+          assert "unlink(staged_path)" in config_policy
+          assert "assert((st.st_mode & 0777) == 0600)" in config_test
+          assert "umask(0000)" in config_test
+          assert "failed rename" in config_test
+          assert "atomic replacement" in config_test
+
           assert '#include "wan_viptv_static_policy.h"' in source
           static_start = body(source, "launch_viptv_wan(void)")
           static_policy = body((rc / "wan_viptv_static_policy.h").read_text(),
@@ -234,6 +270,9 @@ jobs:
           paths = (
               ".github/workflows/wan-dhcp-callback-stability.yml",
               "trunk/user/rc/src/net_wan.c",
+              "trunk/user/rc/src/net_wan6.c",
+              "trunk/user/rc/src/dhcp6c_config_file.h",
+              "trunk/user/rc/src/tests/dhcp6c_config_file.c",
               "trunk/user/rc/src/dhcp_wan_interface_policy.h",
               "trunk/user/rc/src/tests/dhcp_wan_interface_policy.c",
               "trunk/user/rc/src/wan_viptv_static_policy.h",
