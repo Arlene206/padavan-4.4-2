@@ -1,25 +1,23 @@
 ## Current repository state
 
-- Maintained fork: `Arlene206/padavan-4.4-2`; operate only on this fork. Base `main` SHA before THIS COMMIT: `491901f298aff09f1db95ca6d0ab8303a409b82d`, parent `79c60ff47f4a2c94bc4c8e5accfa928a61751d6d`. Remote branch inventory contained only `main`; no checkpoint branch.
-- **DNSMasq lifecycle change is green:** exact-head DNSMasq workflow [42894824097] and AI docs [42894823854] both SUCCESS on `491901f298aff09f1db95ca6d0ab8303a409b82d`. GNU89 restart policy test, fork-based cross-process lifecycle lock test, and source contracts passed. The contract verified the four-check/three-second daemon-presence postcondition in start and restart and RC `restart_dhcpd` error propagation. AI docs validated root log 67/119 and archive integrity.
-- All 14 workflow runs triggered on this exact SHA completed SUCCESS, including the USB storage, NFS, vsftpd, miniupnpd, Samba, VPN, PID 1, WAN ARP, watchdog, detect-link/internet, HTTPD security, DNSMasq and docs regressions.
-- **New RC applet status bug found:** `rc.h` declares `start_ddns(int clear_cache)` as returning `int`, and `services_ex.c` returns `-1` for AP/disabled state or the `inadyn` `eval()` status. However, the `start_ddns` applet branch in `rc.c` discarded that value while `rc_main` returned its default `ret=0`; shell callers therefore could receive false success on DDNS startup failure.
-- **Fix in THIS COMMIT:** assign `ret = start_ddns(1)`; extend the existing RC applet source contract to confirm the int prototype and return propagation. Add `rc.h` to push/PR filters.
-- **Prior completed fix:** DNSMasq start/restart now preserve launcher errors and require a live non-zombie process after bounded polling; `restart_dhcpd` applet propagates its return status. The earlier FULLCONENAT shared IPv4/IPv6 debug buffer race fix and XY-C1 MIPS32r2 object validation are also complete at their documented exact SHAs.
-- **Validation boundary:** this DDNS applet correction and its exact-head source contract/docs rerun are pending. DNSMasq host/lock/source checks are green, but no production MIPS/uClibc RC build, BusyBox ash runtime, complete firmware/TRX or physical L4 test is claimed.
-- Root `dev_log.md` contained 67 complete newest-first records before this commit and will contain 68 after; no archive rotation or INDEX update is due.
+- Maintained fork: `Arlene206/padavan-4.4-2`; operate only on this fork. Live `main` is `d9bf7a52cbf684ddb6b196016e429bbb5c01a19c`, parent `491901f298aff09f1db95ca6d0ab8303a409b82d`. Exhausted remote branch inventory contains only `main`; there is no remote checkpoint branch.
+- **Previous DDNS RC applet fix is verified:** the `start_ddns` applet now returns the result of `start_ddns(1)` rather than falsely returning success. On exact SHA `d9bf7a52cbf684ddb6b196016e429bbb5c01a19c`, all 13 push-triggered Actions workflows completed SUCCESS. DNSMasq lifecycle [42895344137] and AI handoff docs [42895344037] are both SUCCESS; their job steps and complete logs were inspected. GNU89 DNSMasq restart-policy and cross-process lock tests, DNSMasq start/restart postconditions, DDNS and DHCP restart applet status assertions all passed. AI docs accepted root log 68/119 and archive inventory unchanged.
+- **New WAN bridge teardown gap:** `disassembly_bridges_wan()` in `net_wan.c` discarded the results from bridge-down, `br_del_all_ifs()` and bridge deletion. The shared helper already reports per-port detach/interface-down failures, but the caller ignored them and `full_restart_wan()` continued into LAN bridge setup and `start_wan()`; partial cleanup could leave stale bridge membership.
+- **Fix in THIS COMMIT:** aggregate all nonzero bridge cleanup results (including positive errno returns from `ifconfig`); attempt best-effort cleanup across the bridge set; do not delete an individual bridge when its port teardown failed; and make `full_restart_wan()` log and abort before LAN bridge reconfiguration or WAN startup if any bridge teardown failed. Extend the WAN teardown GNU89 policy regression and source contracts for errno/ioctl status aggregation and restart gating.
+- **Validation boundary:** this bridge teardown correction and its exact-head WAN teardown/docs workflows are pending. The previous exact-head checks are host-side only. No production MIPS/uClibc RC compile, BusyBox ash runtime, complete firmware/TRX or physical L4 device test is claimed.
+- Root `dev_log.md` contained 68 complete newest-first records before THIS COMMIT and will contain 69 after; it remains below rotation thresholds, so no archive or INDEX update is due.
 
 ## Active task
 
-- Reconcile exact-head DNSMasq lifecycle and AI docs Actions after the DDNS return-propagation change. Confirm the existing GNU89 tests still pass and the static contract verifies both `ret = start_ddns(1)` and `ret = restart_dhcpd()`.
-- Then continue the whole-repository P2 audit beyond DNSMasq/Netfilter. FTP failed-upload cleanup TOCTOU remains OPEN/BLOCKED pending a proven staged-publication design across STOR/APPE/REST/STOU and filesystem semantics; NFS durability/client semantics require external client evidence; wireless detach and WAN reconnect/IPv6 rollback remain open.
+- Reconcile the exact-head WAN interface teardown and AI handoff docs Actions after this bridge-cleanup change. Confirm the new GNU89 regression covers both errno-positive and ioctl-negative failures; verify failed port detachment skips bridge deletion and `full_restart_wan()` aborts before LAN/WAN reconfiguration.
+- After green, continue the whole-repository P2 stability/security audit. FTP failed-upload cleanup TOCTOU remains OPEN/BLOCKED until a proven staged-publication design covers STOR/APPE/REST/STOU and filesystem semantics. NFS durability and AUTH_SYS/root-squash/external-mount behavior require real client evidence. Wireless bulk detach/bridge ownership still needs target board validation; WAN PPP/IPv6 reconnect and rollback remain open.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, record exact SHA/parent and branch/checkpoint inventory.
-2. Inspect all jobs, steps and full logs in exact-head DNSMasq lifecycle and AI docs Actions; verify policy/lock binaries and both RC status-propagation assertions.
-3. Treat current evidence as bounded host/source only. Production MIPS/uClibc, BusyBox ash, full firmware/TRX and L4 remain unverified.
-4. Resume repository-wide P2 stability/security work. Keep FTP cleanup TOCTOU OPEN/BLOCKED until safe staged publication is proven; NFS external-client semantics remain open.
+1. Fetch live `main`, record its exact SHA/parent and exhaust the remote branch/checkpoint inventory before editing.
+2. Inspect every job/step and the full logs for the exact-head WAN teardown and AI handoff docs runs. Reconcile the GNU89 test and source assertions against the same SHA.
+3. Keep the evidence level bounded to source/host/Actions; production MIPS/uClibc, BusyBox ash, full firmware/TRX and physical L4 behavior remain unverified.
+4. Resume whole-repository P2 reliability work; preserve FTP cleanup TOCTOU as OPEN/BLOCKED and NFS external-client compatibility as evidence-gated.
 
 ## PID 1 notification queue batch fairness
 

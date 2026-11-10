@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <errno.h>
 #include <stddef.h>
 #include <string.h>
 #include "wan_teardown_policy.h"
@@ -96,6 +97,16 @@ test_invalid_required_inputs_fail_without_side_effects(void)
 	assert(context.calls == 0);
 }
 
+static void
+test_status_update_handles_errno_and_ioctl_failures(void)
+{
+	assert(wan_teardown_status_update(0, 0) == 0);
+	assert(wan_teardown_status_update(0, EIO) == -1);
+	assert(wan_teardown_status_update(0, -1) == -1);
+	assert(wan_teardown_status_update(-1, 0) == -1);
+	assert(wan_teardown_status_update(-1, EIO) == -1);
+}
+
 int
 main(void)
 {
@@ -105,5 +116,6 @@ main(void)
 	test_second_or_third_failure_is_reported();
 	test_duplicate_names_are_attempted_once();
 	test_invalid_required_inputs_fail_without_side_effects();
+	test_status_update_handles_errno_and_ioctl_failures();
 	return 0;
 }

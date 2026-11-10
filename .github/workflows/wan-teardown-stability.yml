@@ -77,6 +77,31 @@ jobs:
           assert "ifconfig(man_ifname, 0," not in stop
           assert "ifconfig(IFNAME_WAN, 0," not in stop
 
+          # Failed bridge cleanup must prevent a WAN restart from publishing
+          # a new LAN/WAN topology against ports that may still be attached.
+          bridge_cleanup = function_body(source, "disassembly_bridges_wan(void)")
+          assert "int i, ret, status = 0;" in bridge_cleanup
+          assert "ret = ifconfig(br_ifname, 0, NULL, NULL);" in bridge_cleanup
+          assert "ret = br_del_all_ifs(br_ifname, 1, 1);" in bridge_cleanup
+          assert "ret = br_add_del_bridge(br_ifname, 0);" in bridge_cleanup
+          assert bridge_cleanup.count("wan_teardown_status_update(status, ret)") == 3
+          assert "return status;" in bridge_cleanup
+          detach_pos = bridge_cleanup.index("ret = br_del_all_ifs(")
+          failed_detach = bridge_cleanup.index("if (ret != 0)", detach_pos)
+          skip_remove = bridge_cleanup.index("continue;", failed_detach)
+          remove_bridge = bridge_cleanup.index("ret = br_add_del_bridge(", failed_detach)
+          assert detach_pos < failed_detach < skip_remove < remove_bridge
+
+          full_restart = function_body(source, "full_restart_wan(void)")
+          gate = "if (disassembly_bridges_wan() != 0)"
+          gate_pos = full_restart.index(gate)
+          abort_pos = full_restart.index("return;", gate_pos)
+          lan_config_pos = full_restart.index("config_soft_bridge_lan();")
+          wan_start_pos = full_restart.index("start_wan();")
+          assert gate_pos < abort_pos < lan_config_pos < wan_start_pos
+          policy = (rc / "wan_teardown_policy.h").read_text()
+          assert "operation_status != 0" in policy
+
           paths = (
               ".github/workflows/wan-teardown-stability.yml",
               "trunk/user/rc/src/net_wan.c",

@@ -8,6 +8,16 @@ struct wan_teardown_interface_ops {
 };
 
 /*
+ * Network helpers use both ioctl-style (-1) and errno-valued failures.
+ * Any nonzero operation status means the teardown is incomplete.
+ */
+static inline int
+wan_teardown_status_update(int current_status, int operation_status)
+{
+	return (operation_status != 0) ? -1 : current_status;
+}
+
+/*
  * Attempt every distinct interface even after an earlier failure.  Callers
  * must not publish WAN-down state unless the complete teardown succeeds.
  * The USB network name is optional because most WAN modes have no NDIS link.

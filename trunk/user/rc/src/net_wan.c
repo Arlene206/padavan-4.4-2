@@ -338,10 +338,10 @@ config_soft_bridge_lan(void)
 	brport_set_m2u(wired_ifname, (igmp_snoop && wired_m2u == 1) ? 1 : 0);
 }
 
-static void
+static int
 disassembly_bridges_wan(void)
 {
-	int i;
+	int i, ret, status = 0;
 	char br_ifname[16];
 
 	/* disassembly all wan bridges brwan5..brwan0 */
@@ -349,10 +349,29 @@ disassembly_bridges_wan(void)
 		snprintf(br_ifname, sizeof(br_ifname), "%s%d", BRPREFIX_WAN, i);
 		if (!is_interface_exist(br_ifname))
 			continue;
-		ifconfig(br_ifname, 0, NULL, NULL);
-		br_del_all_ifs(br_ifname, 1, 1);
-		br_add_del_bridge(br_ifname, 0);
+
+		ret = ifconfig(br_ifname, 0, NULL, NULL);
+		status = wan_teardown_status_update(status, ret);
+		if (ret != 0)
+			logmessage(LOGNAME, "WAN bridge %s shutdown failed (status=%d)",
+				   br_ifname, ret);
+
+		ret = br_del_all_ifs(br_ifname, 1, 1);
+		status = wan_teardown_status_update(status, ret);
+		if (ret != 0) {
+			logmessage(LOGNAME, "WAN bridge %s port teardown incomplete (status=%d)",
+				   br_ifname, ret);
+			continue;
+		}
+
+		ret = br_add_del_bridge(br_ifname, 0);
+		status = wan_teardown_status_update(status, ret);
+		if (ret != 0)
+			logmessage(LOGNAME, "WAN bridge %s removal failed (status=%d)",
+				   br_ifname, ret);
 	}
+
+	return status;
 }
 
 static void
@@ -1926,7 +1945,10 @@ full_restart_wan(void)
 	notify_reset_detect_link();
 	switch_config_vlan(0);
 #if defined (USE_GMAC2_TO_GPHY) || defined (USE_GMAC2_TO_GSW)
-	disassembly_bridges_wan();
+	if (disassembly_bridges_wan() != 0) {
+		logmessage(LOGNAME, "aborting full WAN restart because WAN bridge teardown failed");
+		return;
+	}
 	config_soft_bridge_lan();
 #endif
 	start_wan();

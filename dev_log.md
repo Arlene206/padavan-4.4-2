@@ -1,3 +1,18 @@
+## 2026-11-11 05:11 CST (UTC+8) — Fail closed when WAN bridge disassembly is incomplete
+
+- **Base main SHA:** `d9bf7a52cbf684ddb6b196016e429bbb5c01a19c`; parent `491901f298aff09f1db95ca6d0ab8303a409b82d`. Remote branch inventory: only `main`; no checkpoint branch.
+- **Recovery / previous exact-head CI:** all 13 push-triggered workflows on `d9bf7a52cbf684ddb6b196016e429bbb5c01a19c` completed SUCCESS. DNSMasq lifecycle [42895344137] and AI docs [42895344037] both passed. Their job steps and complete logs were inspected; GNU89 DNSMasq restart-policy and fork-based lifecycle-lock tests, daemon postconditions and `start_ddns`/`restart_dhcpd` RC status assertions passed. AI docs validated root log 68/119 and archive integrity.
+- **Finding:** `disassembly_bridges_wan()` discarded bridge-down, `br_del_all_ifs()` and bridge-delete results. The shared bulk-detach helper can return a failure when port operations do not complete, but the caller ignored it and `full_restart_wan()` proceeded into LAN bridge setup and `start_wan()`. A failed detach could therefore leave stale bridge membership while the restart republished WAN state.
+- **Fix in THIS COMMIT:** make `disassembly_bridges_wan()` return aggregate status; treat both positive errno-style failures from `ifconfig()` and negative ioctl failures as incomplete; continue best-effort cleanup across bridge instances; skip deletion of an individual bridge whose port cleanup failed; and abort `full_restart_wan()` before LAN bridge setup/WAN startup on any teardown error.
+- **Regression:** extend `wan_teardown_policy.h`/`wan_teardown_policy.c` to cover positive errno, negative ioctl and sticky failure aggregation. Extend `wan-teardown-stability.yml` source contracts to verify every teardown result is captured, bridge deletion is skipped after incomplete port detach, and the full restart aborts before new LAN/WAN setup.
+- **Changed paths:** `trunk/user/rc/src/net_wan.c`, `trunk/user/rc/src/wan_teardown_policy.h`, `trunk/user/rc/src/tests/wan_teardown_policy.c`, `.github/workflows/wan-teardown-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log.
+- **Validation:** exact-head WAN teardown and AI docs Actions pending. No production MIPS/uClibc RC build, BusyBox ash, complete firmware/TRX or L4 test is claimed.
+- **Root log:** 68 complete newest-first records before this entry; 69 after. Below byte/entry rotation thresholds; archives and `docs/dev-log/INDEX.md` remain unchanged.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** inspect every job/step and full logs in exact-head WAN teardown and AI docs workflows; verify the errno/ioctl policy binary and early-abort source contract. Then continue whole-repository P2 stability/security work, retaining FTP cleanup TOCTOU as OPEN/BLOCKED and NFS client compatibility as evidence-gated.
+
+---
+
 ## 2026-11-11 04:55 CST (UTC+8) — Propagate DDNS startup failure through RC applet
 
 - **Base main SHA:** `491901f298aff09f1db95ca6d0ab8303a409b82d`; parent `79c60ff47f4a2c94bc4c8e5accfa928a61751d6d`. Only remote branch: `main`; no checkpoint branch.
