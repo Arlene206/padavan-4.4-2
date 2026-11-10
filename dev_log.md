@@ -1,3 +1,14 @@
+## 2026-11-10 13:20 CST (UTC+8) — Propagate DHCPv6 startup errors through PPP IPv6 callback
+
+- **Base main SHA:** `501c16b5fef342d60f85ce75e7b46205eda3b61f`. The corrected WAN DHCP callback workflow [42758063814] and AI handoff documentation contract [42758063796] both completed SUCCESS on this exact SHA. The WAN job passed all three GNU89 host regressions and the full Python source-contract step.
+- **Finding:** `wan6_up()` discarded the return status from `start_dhcp6c()`, while `ipv6up_main()` always returned success after an IPv6-up callback. A failed staged config publication or failed `dhcp6c` launch therefore disappeared at the PPP callback boundary. The "no DHCPv6 features configured" case returned 1, which would be indistinguishable from a startup failure after propagation.
+- **Fix in THIS COMMIT:** change `wan6_up()` to return int, propagate `start_dhcp6c()` errors, log incomplete DHCPv6 start, and normalize the no-client-configured path to success (0). `ipv6up_main()` now returns the startup result after successfully releasing the PPP session lock. The non-PPP WAN launch callers log the failure, and `wan_up_internal()` aggregates it with existing route status. Update `rc.h`.
+- **Regression contract:** extend `.github/workflows/wan-dhcp-callback-stability.yml` to trigger on `net_ppp.c` / `rc.h` changes and verify the status flow from `start_dhcp6c()` through `wan6_up()` into the PPP callback, along with non-PPP caller handling.
+- **Changed paths:** `trunk/user/rc/src/net_wan6.c`, `trunk/user/rc/src/net_ppp.c`, `trunk/user/rc/src/net_wan.c`, `trunk/user/rc/src/rc.h`, `.github/workflows/wan-dhcp-callback-stability.yml`, `dev_log.md`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`.
+- **Validation boundary:** base SHA `501c16b5fef342d60f85ce75e7b46205eda3b61f` passed DHCPv6 atomic-publication, WAN interface rollback, and static IPTV host regressions plus WAN callback source contracts and AI docs. The new PPP status-propagation source contract is pending on THIS resulting SHA. No MIPS/uClibc target object, PPP live session, dhcp6c daemon or physical router behavior is claimed.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** inspect exact-head WAN DHCP and AI handoff Actions. If green, continue review of IPv6 teardown/status paths and PPP callback session concurrency; keep NFS export compatibility evidence separate.
+
 ## 2026-11-10 13:00 CST (UTC+8) — Correct DHCPv6 publication source-contract symbol
 
 - **Base main SHA:** `cc94bb7f7701b21f779442202d716bf06a3c81c8`. The AI handoff documentation [42757775127] and HTTPD security regression [42757774680] both completed SUCCESS on this exact SHA. WAN DHCP callback run [42757774679] compiled and passed all three host regressions, including `DHCPv6 config private staging, atomic replacement and failure cleanup: PASS`, but its final Python source-contract step failed.

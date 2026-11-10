@@ -431,14 +431,14 @@ void stop_sit_tunnel(void)
 		doSystem("ip tunnel del %s", IFNAME_SIT);
 }
 
-void wan6_up(char *wan_ifname, int unit)
+int wan6_up(char *wan_ifname, int unit)
 {
-	int ipv6_type, allow_ra;
+	int ipv6_type, allow_ra, dhcp6_status;
 	char *wan_addr6, *wan_gate6, *wan_addr4, *wan_gate4;
 
 	ipv6_type = get_ipv6_type();
 	if (ipv6_type == IPV6_DISABLED)
-		return;
+		return 0;
 
 	stop_dhcp6c();
 
@@ -485,9 +485,15 @@ void wan6_up(char *wan_ifname, int unit)
 			control_if_ipv6_radv(wan_ifname, 1);
 			/* wait for interface ready */
 			sleep(2);
-			start_dhcp6c(wan_ifname);
+			dhcp6_status = start_dhcp6c(wan_ifname);
+			if (dhcp6_status != 0) {
+				logmessage("WAN IPv6", "DHCPv6 client startup failed on %s (status=%d)",
+					   wan_ifname, dhcp6_status);
+				return dhcp6_status;
+			}
 		}
 	}
+	return 0;
 }
 
 void wan6_down(char *wan_ifname, int unit)
@@ -572,7 +578,7 @@ int start_dhcp6c(char *wan_ifname)
 	lan6_auto = nvram_get_int("ip6_lan_auto");
 
 	if (!wan6_dhcp && !dns6_auto && !lan6_auto)
-		return 1;
+		return 0; /* No DHCPv6 client work is configured. */
 
 	ia_id = 0;
 	sla_id = 1;

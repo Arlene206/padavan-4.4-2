@@ -880,8 +880,12 @@ launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)
 	}
 
 #if defined (USE_IPV6)
-	if (is_wan_ipv6_type_sit() == 0 && !is_wan_ipv6_if_ppp())
-		wan6_up(man_ifname, unit);
+	if (is_wan_ipv6_type_sit() == 0 && !is_wan_ipv6_if_ppp()) {
+		int ipv6_status = wan6_up(man_ifname, unit);
+		if (ipv6_status != 0)
+			logmessage(LOGNAME, "WAN physical IPv6 setup incomplete on %s (status=%d)",
+				   man_ifname, ipv6_status);
+	}
 #endif
 }
 
@@ -1180,8 +1184,12 @@ start_wan(void)
 			} else
 				start_udhcpc_wan(wan_ifname, unit, 0);
 #if defined (USE_IPV6)
-			if (is_wan_ipv6_type_sit() == 0)
-				wan6_up(wan_ifname, unit);
+			if (is_wan_ipv6_type_sit() == 0) {
+				int ipv6_status = wan6_up(wan_ifname, unit);
+				if (ipv6_status != 0)
+					logmessage(LOGNAME, "WAN IPv6 setup incomplete on %s (status=%d)",
+						   wan_ifname, ipv6_status);
+			}
 #endif
 		}
 	}
@@ -1553,6 +1561,9 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 	const char *script_postw = SCRIPT_POST_WAN;
 	int wan_proto, modem_unit_id;
 	int status = 0, route_status;
+#if defined (USE_IPV6)
+	int ipv6_status;
+#endif
 
 	logmessage(LOGNAME, "%s %s (%s)", "WAN", "up", wan_ifname);
 
@@ -1637,8 +1648,13 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 	}
 
 #if defined (USE_IPV6)
-	if (is_wan_ipv6_type_sit() == 1)
-		wan6_up(wan_ifname, unit);
+	if (is_wan_ipv6_type_sit() == 1) {
+		ipv6_status = wan6_up(wan_ifname, unit);
+		status = route_status_accumulate(status, ipv6_status);
+		if (ipv6_status != 0)
+			logmessage(LOGNAME, "WAN IPv6 tunnel setup incomplete on %s (status=%d)",
+				   wan_ifname, ipv6_status);
+	}
 #endif
 
 	/* Resolver refresh failure is non-fatal to the established WAN link. */

@@ -6,6 +6,8 @@ on:
       - ".github/workflows/wan-dhcp-callback-stability.yml"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_wan6.c"
+      - "trunk/user/rc/src/net_ppp.c"
+      - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/dhcp6c_config_file.h"
       - "trunk/user/rc/src/tests/dhcp6c_config_file.c"
       - "trunk/user/rc/src/dhcp_wan_interface_policy.h"
@@ -18,6 +20,8 @@ on:
       - ".github/workflows/wan-dhcp-callback-stability.yml"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_wan6.c"
+      - "trunk/user/rc/src/net_ppp.c"
+      - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/dhcp6c_config_file.h"
       - "trunk/user/rc/src/tests/dhcp6c_config_file.c"
       - "trunk/user/rc/src/dhcp_wan_interface_policy.h"
@@ -63,6 +67,8 @@ jobs:
           rc = Path("trunk/user/rc/src")
           source = (rc / "net_wan.c").read_text()
           wan6_source = (rc / "net_wan6.c").read_text()
+          ppp_source = (rc / "net_ppp.c").read_text()
+          rc_header = (rc / "rc.h").read_text()
           config_policy = (rc / "dhcp6c_config_file.h").read_text()
           config_test = (rc / "tests/dhcp6c_config_file.c").read_text()
           policy = (rc / "dhcp_wan_interface_policy.h").read_text()
@@ -222,6 +228,32 @@ jobs:
           assert "failed rename" in config_test
           assert "atomic replacement" in config_test
 
+          # Propagate DHCPv6 client startup failure through PPP's IPv6-up hook.
+          wan6_up = body(wan6_source, "wan6_up(char *wan_ifname, int unit)")
+          assert "int wan6_up(char *wan_ifname, int unit)" in wan6_source
+          assert "dhcp6_status = start_dhcp6c(wan_ifname);" in wan6_up
+          assert "return dhcp6_status;" in wan6_up
+          assert "return 0;" in wan6_up
+          assert "if (!wan6_dhcp && !dns6_auto && !lan6_auto)\n\t\treturn 0;" in dhcp6_start
+          assert "int wan6_up(char *wan_ifname, int unit);" in rc_header
+          assert "void wan6_up(char *wan_ifname, int unit);" not in rc_header
+
+          ipv6_up = body(ppp_source, "ipv6up_main(int argc, char **argv)")
+          callback_start = ipv6_up.index("ipv6_status = wan6_up(ppp_ifname, unit);")
+          unlock_status = ipv6_up.index("ppp_wan_session_state_unlock(callback_fd)", callback_start)
+          callback_return = ipv6_up.index("return ipv6_status;", unlock_status)
+          assert callback_start < unlock_status < callback_return
+
+          launch_wanx = body(source, "launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)")
+          assert "int ipv6_status = wan6_up(man_ifname, unit);" in launch_wanx
+          assert "WAN physical IPv6 setup incomplete" in launch_wanx
+          start_wan = body(source, "start_wan(void)")
+          assert "int ipv6_status = wan6_up(wan_ifname, unit);" in start_wan
+          assert "WAN IPv6 setup incomplete" in start_wan
+          wan_up_internal = body(source, "wan_up_internal(char *wan_ifname, int unit, int is_static)")
+          assert "ipv6_status = wan6_up(wan_ifname, unit);" in wan_up_internal
+          assert "status = route_status_accumulate(status, ipv6_status);" in wan_up_internal
+
           assert '#include "wan_viptv_static_policy.h"' in source
           static_start = body(source, "launch_viptv_wan(void)")
           static_policy = body((rc / "wan_viptv_static_policy.h").read_text(),
@@ -271,6 +303,8 @@ jobs:
               ".github/workflows/wan-dhcp-callback-stability.yml",
               "trunk/user/rc/src/net_wan.c",
               "trunk/user/rc/src/net_wan6.c",
+              "trunk/user/rc/src/net_ppp.c",
+              "trunk/user/rc/src/rc.h",
               "trunk/user/rc/src/dhcp6c_config_file.h",
               "trunk/user/rc/src/tests/dhcp6c_config_file.c",
               "trunk/user/rc/src/dhcp_wan_interface_policy.h",
