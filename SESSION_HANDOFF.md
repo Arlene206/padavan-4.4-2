@@ -2,7 +2,7 @@
 
 - Maintained fork: `Arlene206/padavan-4.4-2`; work only on this repository.
 - Branch inventory at takeover: `main` only; no remote checkpoint branch. No force-pushes were used.
-- Current main baseline for FTP recursive listing resource bounds: `3a998e5de9c0b5b127a92d24f6453bed581fd92d`; VSFTPD regression [42727139083] and AI handoff docs [42727139346] both completed SUCCESS on this exact SHA. Descriptor-relative listing metadata and actual-listing-base visibility are verified. Remote branches: `main` only; no checkpoint branch.
+- Current main baseline for recursive listing return-contract correction: `b8ac678cf872dc36c7ace1d424562c575c0ae365`; VSFTPD regression [42727752390] and AI handoff docs [42727752549] both completed SUCCESS on this exact SHA. Host policy fixtures and semantic source contract passed; the workflow did not compile production `ls.c`. Remote branches: `main` only; no checkpoint branch.
 - Samba production implementation commit: `1a7097ace2e6c689cb7e92cd10055967d99fe143` (parent `6b44e023c2f669865fc8b5cb5425d824b8335d8b`). Follow-up commits updated the Samba and HTTPD semantic workflow extractors after initial assertions still referenced the previous writer layout.
 - Exact Actions evidence:
   - Samba share configuration regression [42708213921] completed SUCCESS on exact SHA `e9a93eb84ac9f95447150869fab7e0ae1c2da9ff`. GNU89 host compilation/execution passed for config-file, passdb policy, the new paired transaction, and daemon policy tests; the full Samba source-order contract also passed.
@@ -79,30 +79,27 @@
 
 ## Active task
 
-1. RNFR/RNTO descriptor-relative rename and its corrected source-contract workflow are complete. VSFTPD regression [42724420056] and AI handoff docs [42724420034] passed on exact SHA `5ca27e7c420284f1ac21362e28566cfb56a693f1`.
-2. Recursive LIST/NLST/STAT traversal now pins top-level ACL decisions to the opened `DIR*` and recursively opens direct children with `openat(O_NOFOLLOW|O_DIRECTORY)`, verifies their inode identity, checks each child's READ ACL, and transfers ownership to `fdopendir()`. The final corrected exact-head VSFTPD host/source-contract run [42725894055] and AI docs [42725893729] both passed on `4cf4f33894658e8f23495f6fff65066143f767dd`.
-3. THIS commit closes the next directory-entry race: `ls.c` previously used full-path `lstat()` and `readlink()` after `readdir()`, allowing a replaced base pathname to redirect metadata lookup away from the enumerated directory. It now uses `fstatat(dirfd, leaf, AT_SYMLINK_NOFOLLOW)` and `readlinkat(dirfd, leaf)` through sysutil/sysstr wrappers. Host policy regression checks descriptor-relative symlink identity and target retrieval.
-4. Listing-base visibility fix is complete. `asus_resolve_listing_base()` canonicalizes the explicit listing base once per opened directory and verifies it matches the `DIR*` fd; `asus_check_file_visible()` now uses that base rather than session CWD, joins validated leaf names, and checks mount/share directory entries with `fstatat()`. Exact-head VSFTPD regression [42727139083] and AI handoff docs [42727139346] both passed on `3a998e5de9c0b5b127a92d24f6453bed581fd92d`.
-5. THIS commit bounds client-controlled recursive listing: maximum depth 32, 4096 accepted entries per directory and 32768 total entries per transfer; it returns an error rather than silently truncating when a bound is exceeded, and frees each formatted parent-directory entry list before descending. Host tests cover the boundary predicates.
-6. After exact-head Actions pass, continue reviewing LIST/NLST/STAT output/error compatibility and the broader `str_list` allocation paths. Then tackle remaining MDTM/SITE CHMOD descriptor-relative metadata, upload cleanup race, IPTV DHCP callback status, FULLCONENAT target build, NFS compatibility and L3/L4 validation.
-
+1. RNFR/RNTO descriptor-relative rename and its corrected source-contract workflow are complete. VSFTPD regression [42724420056] and AI handoff docs [42724420034] passed on exact SHA `5ca27e7c420284f1ac21362bb3c74bb8b21a831`.
+2. Recursive LIST/NLST/STAT traversal pins top-level ACL decisions to the opened `DIR*` and recursively opens direct children with `openat(O_NOFOLLOW|O_DIRECTORY)`, inode verification, per-child READ ACL and `fdopendir()`. Exact-head VSFTPD host/source contract [42725894055] and AI docs [42725893729] passed on `4cf4f33894658e8f23495f6fff65066143f767dd`.
+3. Per-entry LIST metadata uses `fstatat(dirfd, leaf, AT_SYMLINK_NOFOLLOW)` and `readlinkat(dirfd, leaf)`; exact-head VSFTPD regression [42726427585] and AI docs [42726427801] passed on `9ec4f037172c6aaa4af7dd32860705f152e9c9a8`.
+4. Listing-base visibility is resolved from the explicit listing path and verified against the opened `DIR*`; exact-head VSFTPD [42727139083] and AI docs [42727139346] both passed on `3a998e5de9c0b5b127a92d24f6453bed581fd92d`.
+5. Recursive listing is bounded to 32 levels, 4096 accepted entries per directory and 32768 total entries per transfer; overflow/depth violations abort rather than silently truncate, and the formatted parent entry list is freed before descending. Resource-policy host tests and source-contract checks passed on exact SHA `b8ac678cf872dc36c7ace1d424562c575c0ae365` (VSFTPD [42727752390], AI docs [42727752549]). L1 review then caught a missing `return -1` in the newly non-void `vsf_ls_populate_dir_list()` error path. The base workflow does not compile production `ls.c`; THIS commit corrects the return and adds an explicit source contract for non-void returns.
+6. After exact-head Actions pass, review LIST/NLST/STAT output/error/sort/filter compatibility under the new caps and the broader `str_list` allocation paths. Then tackle remaining MDTM/SITE CHMOD descriptor-relative metadata, upload cleanup race, IPTV DHCP callback status, FULLCONENAT target build, NFS compatibility and L3/L4 validation.
 
 ## Verification boundary
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for upload/RETR/SIZE descriptor anchoring, DELE/RMD `unlinkat()`, MKD `mkdirat()`, two-parent RNFR/RNTO `renameat()`, top-level and recursive listing ACL-to-dirfd identity, no-follow per-child READ ACL opens, per-entry `fstatat()`/`readlinkat()`, and listing-base visibility based on the opened directory. THIS round adds bounded recursive depth/entry accounting and releases parent output lists before descent. |
-| L2 host / Actions | VSFTPD regression [42727139083] and AI-doc validation [42727139346] both completed SUCCESS on exact SHA `3a998e5de9c0b5b127a92d24f6453bed581fd92d`. GNU89 host policy binaries and semantic source contract passed. THIS bounded recursive listing host tests/source contract and AI-doc Actions are pending. |
+| L1 source review | PASS for upload/RETR/SIZE descriptor anchoring, DELE/RMD `unlinkat()`, MKD `mkdirat()`, two-parent RNFR/RNTO `renameat()`, top-level and recursive listing ACL-to-dirfd identity, no-follow per-child READ ACL opens, per-entry `fstatat()`/`readlinkat()`, listing-base visibility based on opened directory, and resource/depth accounting with parent list release. THIS return-contract correction is a source-level review item. |
+| L2 host / Actions | VSFTPD [42727752390] and AI docs [42727752549] both completed SUCCESS on exact SHA `b8ac678cf872dc36c7ace1d424562c575c0ae365`. The GNU89 workflow ran standalone host policy fixtures and semantic source contract; it did not compile production `ls.c`. THIS non-void return correction and explicit workflow check are pending. |
 | L3 production RC/MIPS/uClibc/firmware builds | NOT VERIFIED. |
 | L4 physical router behavior | NOT VERIFIED. |
 
-
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, remote branches and Actions; reconcile the bounded recursive LIST commit against its exact resulting `head_sha`, including GNU89 host tests and semantic source assertions.
-2. If both pass, review the FTP STAT/LIST/NLST error behavior and sorting/filter compatibility at the new bounds; continue with MDTM/SITE CHMOD path-based metadata and the Linux 4.4 upload cleanup check/unlink race.
+1. Fetch live `main`, remote branches and Actions; reconcile this return-contract correction against its exact resulting `head_sha`. Confirm the workflow checks the `int` return path as well as the host policy boundary tests.
+2. If both pass, review FTP STAT/LIST/NLST error behavior and sorting/filter compatibility at the new bounds; continue with MDTM/SITE CHMOD path-based metadata and the Linux 4.4 upload cleanup check/unlink race.
 3. Keep IPTV DHCP callback status, FULLCONENAT target build, NFS compatibility and L3/L4 validation open.
-
 
 ## Continuation rules
 

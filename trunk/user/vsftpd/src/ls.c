@@ -78,7 +78,7 @@ vsf_ls_populate_dir_list(struct vsf_session* p_sess,
   {
     str_free(&dirline_str);
     str_free(&normalised_base_dir_str);
-    return;
+    return -1;
   }
   /* If the filter starts with a . then implicitly enable -a */
   if (!str_isempty(p_filter_str) && str_get_char_at(p_filter_str, 0) == '.')

@@ -248,6 +248,8 @@ jobs:
           assert recursive_list.index("write_dir_list(p_sess, &dir_list, target)") < recursive_list.index("str_list_free(&dir_list)", recursive_list.index("write_dir_list(p_sess, &dir_list, target)")) < recursive_list.index("for (subdir_index")
           assert "vsf_ls_populate_dir_list(" in recursive_list and ") != 0" in recursive_list
           assert "FTP listing resource limits are inconsistent" in acl_path_test
+          assert "return -1;" in listing_entries
+          assert "return;" not in listing_entries
           assert "asus_check_permission_open_directory(" in directory
           assert "asus_open_existing_path(p_sess, PERM_READ" in size
           assert "&p_sess->ftp_arg_str, 1," in size

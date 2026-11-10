@@ -1,3 +1,15 @@
+## 2026-11-10 08:41 CST (UTC+8) — Propagate recursive listing policy errors with a valid return
+
+- **Base main SHA:** `b8ac678cf872dc36c7ace1d424562c575c0ae365`; VSFTPD regression [42727752390] and AI handoff docs [42727752549] both completed SUCCESS on this exact SHA.
+- **Review finding:** the bounded-entry change converted `vsf_ls_populate_dir_list()` from `void` to `int`, but the early error path for `dirfd()`/listing-base resolution still used a bare `return;`. The current workflow does not compile production `ls.c`, so the exact-host Actions could not catch this C return-type defect.
+- **Correction:** return `-1` after releasing the local listing strings on directory-fd/base-resolution failure; extend the workflow semantic contract to require a value return and reject bare `return;` in the now-non-void listing function.
+- **Validation boundary:** base exact-head Actions passed the standalone GNU89 policy fixtures and semantic source contract, but no production `ls.c` compilation was performed. THIS corrected exact-head Actions are pending. L3 MIPS/uClibc and L4 hardware remain NOT VERIFIED.
+- **Changed paths:** `trunk/user/vsftpd/src/ls.c`, `.github/workflows/vsftpd-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and this log.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** reconcile exact-head Actions and then audit LIST/NLST/STAT output/error/sort/filter compatibility at the resource limits; continue MDTM/SITE CHMOD and upload cleanup hardening.
+
+---
+
 ## 2026-11-10 08:35 CST (UTC+8) — Bound FTP recursive listing depth and retained entry memory
 
 - **Base main SHA:** `3a998e5de9c0b5b127a92d24f6453bed581fd92d`; VSFTPD regression [42727139083] and AI handoff docs [42727139346] both completed SUCCESS on that exact SHA; remote branch inventory was `main` only.
