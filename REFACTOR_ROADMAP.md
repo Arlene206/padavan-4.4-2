@@ -1,11 +1,11 @@
 ## Current source / CI checkpoint
 
 - Repository: `Arlene206/padavan-4.4-2`; maintained fork only; `main` only, no remote checkpoint branch.
-- Live main baseline SHA `5cbc71d860abfd1bd00cf47a6b490bd4446db123`; exact-head HTTPD [42778351811] and AI docs [42778351698] SUCCESS. WAN callback [42778351636] compiled and passed all six GNU89 binaries but its semantic contract failed at line 234 because the first matching callback-session unlock is intentionally in the advance-failure branch. The helper-scope assertion now passes. THIS COMMIT changes the lookup to the first unlock after the `kill_services()` call; exact-head WAN rerun pending.
-- IPv6 teardown propagates buffered stdio/proc-sys/RA/autoconf/route/address/SIT failures through `wan6_down()`, preserving DNS6 state on incomplete teardown. SIT/native-static/native-DHCP startup checks critical operations and delays `ifname6` publication until success; rollback remains best-effort.
-- PPP IPv4 ip-up applies the interface address before publishing WAN `ipaddr`/`netmask`; failed `ifconfig()` skips later WAN identity, gateway/DNS and route publication. Its GNU89 regression passed; PPP route-status propagation and per-unit route ownership remain next.
+- Live main baseline SHA `0dbba04376d467d8b822d5249be934dccb3491f5`; WAN callback [42778786415] and AI docs [42778786370] are the exact-head checks. All six GNU89 binaries passed; the semantic script failed on a stale DHCPv6 stop direct-return assumption, with two following outdated teardown assertions identified. HTTPD [42778351811] passed on parent SHA `5cbc71d8...`. THIS COMMIT aligns the remaining WAN contracts to production fail-closed behavior.
+- IPv6 teardown fences callbacks before interface changes, preserves DNS6 state on incomplete cleanup, and SIT WAN-down aborts before IPv4 route deletion when IPv6 teardown fails. Target rollback behavior remains unverified.
+- PPP IPv4 ip-up applies its address before lease publication; route setup still crosses a void `wan_up()` wrapper and the callback currently reports no route failure. This is the next candidate fix after exact-head Actions pass.
 - FTP upload-cleanup race remains open: Linux 4.4 `renameat2` exchange/no-replace does not atomically condition cleanup on expected inode; `fstatat()`/`unlinkat()` remains best effort.
-- Root `dev_log.md` contains 27 newest-first record headings after THIS COMMIT entry; no rotation is due. The 100 older records remain preserved in indexed part-006 (239599 UTF-8 bytes).
+- Root `dev_log.md` contains 28 newest-first record headings after THIS COMMIT entry; no rotation is due.
 
 ## Whole-repository module status
 
@@ -48,7 +48,7 @@
 | Level | Evidence | Limits |
 |---|---|---|
 | L1 source review | PASS for FTP descriptor-relative path reads/mutations, recursive listing and MDTM/SITE CHMOD metadata updates; an inode-replacement regression covers metadata operations on a pinned descriptor. DNSMasq start/stop status propagation and relaunch gating are source-reviewed. IPv6 SIT/native startup and teardown critical operations now return errors and gate state publication; rollback remains best-effort. PPP IPv4 ip-up now gates WAN lease publication on successful interface configuration. FTP upload cleanup's validation-to-unlink interval remains a known TOCTOU limitation. |
-| L2 host / Actions | Baseline SHA `5cbc71d860abfd1bd00cf47a6b490bd4446db123`: six WAN GNU89 host binaries PASS; generation helper assertion PASS; WAN contract [42778351636] FAIL at line 234 due to selecting the early-error unlock; HTTPD [42778351811] and AI docs [42778351698] SUCCESS. Workflow correction in THIS COMMIT is pending exact-head rerun. No full local checkout run, target MIPS/uClibc compile, firmware or device test. |
+| L2 host / Actions | Baseline SHA `0dbba04376d467d8b822d5249be934dccb3491f5`: six WAN GNU89 binaries PASS; WAN contract [42778786415] FAIL at line 308 on stale DHCPv6 direct-return expectation; AI docs [42778786370] SUCCESS. HTTPD security [42778351811] SUCCESS on parent SHA `5cbc71d8...`. Contract correction in THIS COMMIT pending exact-head. No full local checkout run, target MIPS/uClibc compile, firmware or device test. |
 | L3 MIPS/uClibc production objects / firmware/TRX | NOT VERIFIED. | Full target build phase required. |
 | L4 router/SMB/DHCP behavior and physical hardware | NOT VERIFIED. | Requires target-device validation. |
 

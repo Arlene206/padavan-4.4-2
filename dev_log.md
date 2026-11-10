@@ -1,3 +1,13 @@
+## 2026-11-10 16:00 CST (UTC+8) — Align WAN teardown contracts with callback-fence fail-closed behavior
+
+- **Base main SHA:** `0dbba04376d467d8b822d5249be934dccb3491f5`; WAN callback [42778786415] and AI docs [42778786370] were the exact-head runs. The six WAN GNU89 host regressions passed; the source contract then failed on its legacy direct-return expectation for `stop_dhcp6c()`.
+- **Review:** current `stop_dhcp6c()` advances the callback generation while holding the session lock, attempts daemon termination, unlocks and combines stop/unlock status. `wan6_down()` fails closed before IPv6 interface teardown when this fence/stop fails. For SIT WAN-down, `wan_down_internal()` returns the IPv6 error before deleting IPv4 WAN routes; it does not accumulate the IPv6 error and continue.
+- **Fix:** assert the actual generation-advance → stop → unlock → status-return ordering; assert stop failure returns before touching IPv6 addresses/routes; assert SIT teardown failure returns before IPv4 DHCP-route cleanup. Remove obsolete expectations of direct `return kill_services()` and continued teardown after a failed callback fence.
+- **Changed paths:** `.github/workflows/wan-dhcp-callback-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and this log. No firmware C changes; no archive rotation/INDEX update.
+- **Validation:** all six GNU89 WAN host binaries passed on SHA `0dbba043...`; previous helper-scope and stop-unlock-order assertions passed. Failure location and source paths were verified from run [42778786415]. Revised WAN semantic contract and AI docs on THIS resulting SHA are pending. No target MIPS/uClibc, firmware or L4 validation claimed.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** verify exact-head WAN and AI docs. If green, implement the concrete PPP `ipup_main()` → void `wan_up()` route-status propagation gap, then continue per-unit `ip-down` route ownership.
+
 ## 2026-11-10 15:55 CST (UTC+8) — Scope DHCPv6 stop-unlock source contract to successful path
 
 - **Base main SHA:** `5cbc71d860abfd1bd00cf47a6b490bd4446db123`. Exact-head HTTPD security [42778351811] and AI handoff docs [42778351698] passed.
