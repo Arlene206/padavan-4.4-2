@@ -1,3 +1,14 @@
+## 2026-11-10 10:19 CST (UTC+8) — Correct HTTPD wireless preflight contract for status-gated startup
+
+- **Base main SHA:** `4cb9d3dc4d2644e02dd03e717eb5f019c7a28c42`, the AP/WDS/APCLI startup-failure propagation commit. Exact-head Wireless [42741673513], AI handoff docs [42741673482], USB storage [42741673496], WAN route status [42741673402], vsftpd [42741673364] and Samba [42741673346] completed SUCCESS.
+- **Failure found:** HTTPD security [42741673534] passed its GNU89 policy tests and the wireless configuration preflight source check, then failed in its subsequent legacy Python extractor. The extractor called `restart.index("start_wifi_ap_wl(radio_on);")`; the updated restart code correctly places the helper within `if (start_wifi_ap_wl(radio_on) < 0 || ...)`, so the literal no longer exists. The observed exception was `ValueError: substring not found`, not a production-code or preflight-order failure.
+- **Correction:** update the HTTPD workflow's ordering contract to locate the status-gated AP helper expression (`if (... < 0 ||`) for each radio. The assertion still proves configuration generation precedes stop, and that the reload marker remains after shutdown and before startup.
+- **Changed paths:** `.github/workflows/httpd-security.yml`; `SESSION_HANDOFF.md`; `REFACTOR_ROADMAP.md`; this log.
+- **Validation:** exact base SHA and all seven run outcomes above were inspected; the wireless GNU89 policy/semantic test and AI handoff docs both passed on exact SHA `4cb9d3dc4d2644e02dd03e717eb5f019c7a28c42`. THIS correction's HTTPD security and AI documentation Actions are pending on its resulting SHA. No MIPS/uClibc, firmware/TRX or router-device validation is claimed.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** verify all Actions on the exact resulting SHA. If green, rotate to static-IP IPTV/ZeroConf callback lifecycle in `net_wan.c`; keep the bridge idempotency caveat, FULLCONENAT target compile, FTP metadata/upload cleanup, NFS and L3/L4 validation open.
+
+---
 ## 2026-11-10 09:48 CST (UTC+8) — Propagate wireless AP/WDS/APCLI startup failures
 
 - **Base main SHA:** `1de8fe9466a5df0273d42551e1d54312ed087f46`. The exact-head Samba [42736815814], vsftpd [42736815815], HTTPD [42736815819], USB storage [42736815820], wireless shutdown [42736815829], WAN route [42736815917] and AI handoff [42736816088] workflows all completed SUCCESS on that base SHA.

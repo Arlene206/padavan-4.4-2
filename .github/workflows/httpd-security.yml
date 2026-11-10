@@ -846,7 +846,7 @@ jobs:
                   ("stop_8021x_wl();", "stop_wifi_all_wl();",
                    "stop_8021x_rt();", "stop_wifi_all_rt();"),
                   'nvram_set_int_temp("reload_svc_wl", 1);',
-                  "start_wifi_ap_wl(radio_on);",
+                  "if (start_wifi_ap_wl(radio_on) < 0 ||",
               ),
               (
                   body(wifi, "restart_wifi_rt(int radio_on, int need_reload_conf)"),
@@ -854,7 +854,7 @@ jobs:
                   ("stop_8021x_rt();", "stop_wifi_all_rt();",
                    "stop_8021x_wl();", "stop_wifi_all_wl();"),
                   'nvram_set_int_temp("reload_svc_rt", 1);',
-                  "start_wifi_ap_rt(radio_on);",
+                  "if (start_wifi_ap_rt(radio_on) < 0 ||",
               ),
           )
           for restart, preflight, stop_calls, reload_flag, start_call in restarts:
