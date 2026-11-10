@@ -8,6 +8,8 @@ on:
       - "trunk/user/nfs-utils/nfsd.sh"
       - "trunk/user/nfs-utils/tests/nfsd_start_lifecycle.sh"
       - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/storage_nfs_export_policy.h"
       - "trunk/user/rc/src/tests/storage_nfs_export_policy.c"
   pull_request:
@@ -16,6 +18,8 @@ on:
       - "trunk/user/nfs-utils/nfsd.sh"
       - "trunk/user/nfs-utils/tests/nfsd_start_lifecycle.sh"
       - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/storage_nfs_export_policy.h"
       - "trunk/user/rc/src/tests/storage_nfs_export_policy.c"
   workflow_dispatch:
@@ -47,6 +51,8 @@ jobs:
 
           script = Path("trunk/user/nfs-utils/nfsd.sh").read_text()
           service = Path("trunk/user/rc/src/services_stor.c").read_text()
+          rc_source = Path("trunk/user/rc/src/rc.c").read_text()
+          rc_header = Path("trunk/user/rc/src/rc.h").read_text()
           policy = Path("trunk/user/rc/src/storage_nfs_export_policy.h").read_text()
           policy_test = Path("trunk/user/rc/src/tests/storage_nfs_export_policy.c").read_text()
           workflow = Path(".github/workflows/nfsd-start-stability.yml").read_text()
@@ -115,6 +121,14 @@ jobs:
           assert 'command_status = eval("/usr/bin/nfsd.sh", "start");' in run_nfsd
           assert "if (command_status != 0)" in run_nfsd
           assert 'NFS daemon start failed (status %d)' in run_nfsd
+          assert run_nfsd.count("return storage_nfs_start_status(export_status, command_status);") == 2
+          start_status = function_body(policy, "storage_nfs_start_status(")
+          assert "export_status == 0 && command_status == 0" in start_status
+          restart_nfsd = function_body(service, "restart_nfsd(void)")
+          assert "return run_nfsd();" in restart_nfsd
+          assert "int run_nfsd(void);" in rc_header
+          assert "void run_nfsd(void);" not in rc_header
+          assert 'ret = run_nfsd();' in rc_source
 
           reload_nfsd = function_body(service, "reload_nfsd(void)")
           assert 'command_status = eval("/usr/bin/nfsd.sh", "reload");' in reload_nfsd
@@ -163,6 +177,8 @@ jobs:
           assert '"64;rw,no_root_squash"' in policy_test
           assert '"2001:db8::1) 0.0.0.0/0(rw)"' in policy_test
           assert "Storage NFS override, source-port policy, inventory, IPv6 ACL and start gate: PASS" in policy_test
+          assert "storage_nfs_start_status(-1, 0) == -1" in policy_test
+          assert "storage_nfs_start_status(0, 17) == -1" in policy_test
 
           push_filters = workflow.split("  push:", 1)[1].split("  pull_request:", 1)[0]
           pr_filters = workflow.split("  pull_request:", 1)[1].split("  workflow_dispatch:", 1)[0]

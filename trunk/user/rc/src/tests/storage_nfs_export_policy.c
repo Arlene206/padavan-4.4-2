@@ -179,6 +179,12 @@ main(void)
 	assert(!storage_nfs_export_may_start(0, 0));
 	assert(!storage_nfs_export_may_start(1, -1));
 
+	/* RC callers must observe export-generation and daemon-start failures. */
+	assert(storage_nfs_start_status(0, 0) == 0);
+	assert(storage_nfs_start_status(-1, 0) == -1);
+	assert(storage_nfs_start_status(0, 17) == -1);
+	assert(storage_nfs_start_status(-1, 17) == -1);
+
 	puts("Storage NFS override, source-port policy, inventory, IPv6 ACL and start gate: PASS");
 	return 0;
 }

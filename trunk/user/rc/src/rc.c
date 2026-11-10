@@ -1706,7 +1706,7 @@ main(int argc, char **argv)
 #endif
 #if defined(APP_NFSD)
 	else if (!strcmp(base, "run_nfsd")) {
-		run_nfsd();
+		ret = run_nfsd();
 	}
 #endif
 #if defined(APP_MINIDLNA)

@@ -314,4 +314,10 @@ storage_nfs_export_may_start(int enabled, int export_status)
 	return enabled && export_status == 0;
 }
 
+static int
+storage_nfs_start_status(int export_status, int command_status)
+{
+	return (export_status == 0 && command_status == 0) ? 0 : -1;
+}
+
 #endif /* PADAVAN_STORAGE_NFS_EXPORT_POLICY_H */

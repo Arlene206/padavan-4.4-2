@@ -665,7 +665,7 @@ int restart_smbd(void);
 #if defined (APP_NFSD)
 void unload_nfsd(void);
 int stop_nfsd(void);
-void run_nfsd(void);
+int run_nfsd(void);
 void reload_nfsd(void);
 int restart_nfsd(void);
 #endif

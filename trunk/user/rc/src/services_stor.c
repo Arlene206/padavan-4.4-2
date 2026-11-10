@@ -1467,24 +1467,26 @@ int stop_nfsd(void)
 	return eval("/usr/bin/nfsd.sh", "stop");
 }
 
-void
+int
 run_nfsd(void)
 {
 	int export_status;
-	int command_status;
+	int command_status = -1;
 
 	if (nvram_invmatch("nfsd_enable", "1"))
-		return;
+		return 0;
 
 	export_status = write_nfsd_exports();
 	if (!storage_nfs_export_may_start(1, export_status)) {
 		logmessage("Storage", "NFS start skipped because exports could not be generated safely");
-		return;
+		return storage_nfs_start_status(export_status, command_status);
 	}
 
 	command_status = eval("/usr/bin/nfsd.sh", "start");
 	if (command_status != 0)
 		logmessage("Storage", "NFS daemon start failed (status %d)", command_status);
+
+	return storage_nfs_start_status(export_status, command_status);
 }
 
 void
@@ -1527,7 +1529,7 @@ int restart_nfsd(void)
 	if (nvram_match("nfsd_enable", "1") &&
 	    storage_mount_inventory_has_mounts(mount_count)) {
 		sleep(1);
-		run_nfsd();
+		return run_nfsd();
 	} else {
 		unload_nfsd();
 	}

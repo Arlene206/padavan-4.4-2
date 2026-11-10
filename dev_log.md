@@ -1,3 +1,14 @@
+## 2026-11-10 12:31 CST (UTC+8) — Propagate NFS daemon start failures to RC callers
+
+- **Base main SHA:** `af3e41e72bb10d073bd7be1486b05266f2d53355`. The previous bulk bridge teardown task is reconciled: Wireless radio state regression [42755033050] and AI handoff documentation contract [42755032979] both completed SUCCESS on this exact SHA. The wireless job ran the GNU89 bridge membership/cleanup policy regression and source contracts; the docs job passed with 112/119 root records.
+- **Finding:** `run_nfsd()` discarded export-generation and `nfsd.sh start` failures because it returned `void`. Consequently, `restart_nfsd()` reported success after a failed daemon start, and direct `run_nfsd` notification dispatch left its result initialized to success. RC callers could not distinguish an unavailable NFS service from a successful start.
+- **Fix in THIS COMMIT:** return an explicit 0/-1 status from `run_nfsd()`; map export-generation and daemon-start failures to -1 with a host-testable policy helper; propagate the result through `restart_nfsd()` and direct RC notification dispatch. Extend NFS workflow path filters and source contracts to cover `rc.c` and `rc.h`.
+- **Regression:** add policy assertions for successful start, export-generation failure, daemon-start failure and combined failure. The NFS workflow continues to run shell lifecycle rollback/start/reload tests, GNU89 IPv4/IPv6 policy tests and RC caller contracts. Exact-head NFS and AI-doc Actions are pending.
+- **Changed paths:** `trunk/user/rc/src/services_stor.c`, `trunk/user/rc/src/rc.c`, `trunk/user/rc/src/rc.h`, `trunk/user/rc/src/storage_nfs_export_policy.h`, `trunk/user/rc/src/tests/storage_nfs_export_policy.c`, `.github/workflows/nfsd-start-stability.yml`, `dev_log.md`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`.
+- **Validation boundary:** L1 source review of the NFS return path and existing shell lifecycle is complete; the new host/workflow regression has not yet executed on THIS resulting SHA. No production RC/MIPS/uClibc object, complete firmware/TRX or physical-router behavior is claimed.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** inspect the NFS daemon-start workflow and AI handoff documentation workflow on the exact resulting main SHA, including job logs. Then keep NFS `async`/AUTH_SYS/root-squash compatibility evidence separate from this status fix; continue PPP/multi-WAN and IPv6 callback lifecycle audit without changing export defaults absent compatibility evidence.
+
 ## 2026-11-10 12:15 CST (UTC+8) — Harden bulk bridge teardown
 
 - Reconciled the same-bridge attachment change on exact main SHA `5c78797b19e93beaa0bc313a69bbf37cb724b274`: wireless radio state regression [42754624074] and AI handoff docs [42754624181] both completed SUCCESS. This confirmed the 1024-entry bridge membership query, duplicate-add preflight, `-EBUSY` recheck, GNU89 policy test and source contract.
