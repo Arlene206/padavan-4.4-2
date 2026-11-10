@@ -1,20 +1,20 @@
 ## Current repository state
 
 - Maintained fork: Arlene206/padavan-4.4-2; work only on this repository.
-- Base main SHA for THIS COMMIT: `8ba94ea89a373bf4afa93a5d4a2187a059882fd5`; only remote branch is `main`, with no checkpoint branch. Never force-push.
-- Previous task closed: WAN gateway ARP socket prerequisite handling. Exact-head WAN ARP [42819898452] and AI handoff docs [42819898490] both SUCCESS on `8ba94ea89a373bf4afa93a5d4a2187a059882fd5`; all job steps were inspected.
-- THIS COMMIT moves `detect_internet` timer, activity, pause/resume and termination work out of signal handlers. Its new host policy regression passed locally with GNU89 warnings-as-errors and ASan/UBSan; exact-head semantic and documentation Actions are pending.
-- Root `dev_log.md` has 46 complete records before THIS COMMIT; this milestone makes 47. No archive rotation or INDEX update is due.
-- Open boundaries remain explicit: `detect_link` and watchdog signal/event behavior, FTP failed-upload cleanup TOCTOU, NFS export/client compatibility, VPN in-flight PPP callback fencing, FULLCONENAT target build, and target MIPS/uClibc plus L4 router validation.
+- Base main SHA for THIS COMMIT: `89bd55dfc4b27f9aebfaf2da138ec276b020e9bf`; only remote branch is `main`, with no checkpoint branch. Never force-push.
+- The initial `detect_internet` signal-deferral commit and AI handoff contract both passed exact-head Actions [42828915497] and [42828915453] on `89bd55dfc4b27f9aebfaf2da138ec276b020e9bf`; every step was inspected.
+- THIS follow-up keeps pause/resume transitions under the managed-signal block and only unmasks for the bounded timer probe. The exact-head strengthened semantic and AI documentation Actions for THIS COMMIT are pending.
+- Root `dev_log.md` has 47 complete records before THIS COMMIT; this follow-up makes 48. No archive rotation or INDEX update is due.
+- Open boundaries: `detect_link` and watchdog signal/event behavior, FTP failed-upload cleanup TOCTOU, NFS export/client compatibility, VPN in-flight PPP callback fencing, FULLCONENAT target build, and target MIPS/uClibc plus L4 router validation.
 
 ## Active task
 
-- Next module: audit the signal/event lifecycle in `trunk/user/rc/src/detect_link.c`. Trace SIGALRM/SIGHUP/SIGUSR1 handling, the timer-driven PHY queries and LED/WAN notification side effects, the callers of reset/LED/stop operations, and the signal mask. Determine the smallest safe main-context dispatch fix and add a GNU89 regression/semantic contract. Do not assume the `detect_internet` design can be copied without checking the separate PHY/link-state invariants.
+- Next module: audit the signal/event lifecycle in `trunk/user/rc/src/detect_link.c`. Trace SIGALRM/SIGHUP/SIGUSR1 handling, timer-driven PHY queries and LED/WAN notification side effects, reset/LED/stop callers, and the signal mask. Do not copy the `detect_internet` implementation without checking separate PHY/link-state invariants.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, branch inventory and exact-head detect-internet signal plus AI handoff Actions; inspect every job step and reconcile the SHA. Fix any relevant failure before selecting another module.
-2. If green, continue the `detect_link.c` signal/event lifecycle audit described above. Keep the FTP cleanup race, NFS client compatibility, VPN callback fence, FULLCONENAT target compile and L3/L4 gaps open.
+1. Fetch live `main` and inspect every job step in the exact-head detect-internet signal and AI handoff Actions for THIS COMMIT; reconcile the exact SHA and fix any failure first.
+2. If green, continue the `detect_link.c` signal/event lifecycle audit. Keep the FTP cleanup race, NFS client compatibility, VPN callback fence, FULLCONENAT target compile and L3/L4 gaps open.
 
 ## PID 1 notification queue batch fairness
 

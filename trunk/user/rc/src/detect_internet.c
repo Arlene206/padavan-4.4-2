@@ -502,18 +502,6 @@ detect_internet_main(int argc, char *argv[])
 			continue;
 		}
 
-		/* Allow a control signal to interrupt a bounded network probe. */
-		if (sigprocmask(SIG_SETMASK, &run_mask, NULL) < 0) {
-			saved_errno = errno;
-			di_alarmtimer(0);
-			if (remove(DI_PID_FILE) != 0 && errno != ENOENT)
-				logmessage("detect_internet", "cannot remove pid file (errno=%d)", errno);
-			(void)sigprocmask(SIG_SETMASK, &original_mask, NULL);
-			errno = saved_errno;
-			perror("sigprocmask");
-			return saved_errno;
-		}
-
 		/* Termination wins over any queued refresh or timer tick. */
 		if (events & DI_PENDING_TERMINATE) {
 			di_alarmtimer(0);
@@ -532,10 +520,25 @@ detect_internet_main(int argc, char *argv[])
 		if (events & DI_PENDING_ACTIVITY)
 			di_update_last_activity();
 
-		/* A pre-resume SIGALRM must not bypass the requested notify delay. */
+		/*
+		 * Apply pause/resume while managed signals remain blocked. Only
+		 * unblock for the bounded probe so SIGUSR2/SIGTERM can interrupt
+		 * select without racing a newer control request against resume.
+		 */
 		if ((events & DI_PENDING_TIMER) &&
-		    control != DI_CONTROL_RESUME && !di_pause_received)
+		    control != DI_CONTROL_RESUME && !di_pause_received) {
+			if (sigprocmask(SIG_SETMASK, &run_mask, NULL) < 0) {
+				saved_errno = errno;
+				di_alarmtimer(0);
+				if (remove(DI_PID_FILE) != 0 && errno != ENOENT)
+					logmessage("detect_internet", "cannot remove pid file (errno=%d)", errno);
+				(void)sigprocmask(SIG_SETMASK, &original_mask, NULL);
+				errno = saved_errno;
+				perror("sigprocmask");
+				return saved_errno;
+			}
 			di_on_timer();
+		}
 
 		if (sigprocmask(SIG_BLOCK, &managed_signals, NULL) < 0) {
 			saved_errno = errno;

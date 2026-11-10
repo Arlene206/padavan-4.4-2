@@ -1,3 +1,16 @@
+## 2026-11-10 21:57 CST (UTC+8) — Serialize detect_internet control transitions against signal arrivals
+
+- Base main SHA: `89bd55dfc4b27f9aebfaf2da138ec276b020e9bf`; exact-head signal lifecycle [42828915497] and AI handoff docs [42828915453] both SUCCESS on this base SHA, with every job step inspected.
+- Follow-up review found a narrow control-order race in the first dispatch version: it unblocked SIGUSR1/SIGUSR2 before applying the snapshotted resume/pause request. A newer pause could be delivered during `di_on_sigusr1()` and then be overwritten by that older resume's `di_pause_received = 0`.
+- Correction: keep all managed signals blocked while applying the selected pause/resume and activity events. Unblock them only immediately around `di_on_timer()`, where SIGUSR2/SIGTERM must interrupt the bounded `select()`; re-block immediately after the probe returns. Thus a newer control request cannot be lost while an older request is being applied, while stop/pause still interrupts an in-flight probe.
+- Regression contract now requires control application before signal unmask and timer dispatch, followed by re-blocking. The GNU89 policy regression continues to cover last-delivered control, immediate pause fencing and sticky termination priority.
+- Changed paths: `trunk/user/rc/src/detect_internet.c`, `.github/workflows/detect-internet-signal-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log. Root log had 47 complete records before this entry and has 48; no archive rotation or INDEX update is due.
+- Validation: the GNU89 policy regression passed locally with `-Wall -Wextra -Werror -fsanitize=address,undefined` on the preceding commit. The strengthened exact-head source contract and AI handoff Actions are pending on THIS COMMIT. No full RC translation-unit, MIPS/uClibc object, firmware/TRX or L4 router behavior is claimed.
+- Resulting commit: THIS COMMIT.
+- Next: inspect every job/step in the exact-head detect-internet signal and AI handoff Actions. If green, continue the broader event-lifecycle audit in `detect_link.c`; keep FTP cleanup TOCTOU, NFS compatibility, VPN callback fencing, FULLCONENAT target compile and L3/L4 gaps open.
+
+---
+
 ## 2026-11-10 21:50 CST (UTC+8) — Defer detect_internet work out of signal context
 
 - Base main SHA: `8ba94ea89a373bf4afa93a5d4a2187a059882fd5`; remote branch inventory contains only `main`, with no checkpoint branch. The preceding WAN gateway ARP regression [42819898452] and AI handoff contract [42819898490] both completed SUCCESS on this exact base SHA; every job step was inspected.
@@ -5,7 +18,7 @@
 - Fix: signal handlers now only record `sig_atomic_t` event/control state. The daemon blocks managed signals for atomic snapshot/clear, waits with `sigsuspend()`, and dispatches probe, activity, pause/resume and termination work in normal process context. SIGUSR2/SIGTERM set the pause fence immediately so an interrupted bounded connect cannot publish a late probe result. A pending pre-resume timer tick is discarded so the requested notify delay is preserved.
 - Regression: add a GNU89 policy test for deferred timer/activity events, standard-signal coalescing, latest pause/resume control, sticky termination priority and invalid inputs. Add an exact-head Actions workflow that runs ASan/UBSan and checks signal masks, lost-wakeup-safe wait/dispatch order, the WAN/LAN call paths, and the existing RC applet/build wiring.
 - Changed paths: `trunk/user/rc/src/detect_internet.c`, new `detect_internet_signal_policy.h`, new `tests/detect_internet_signal_policy.c`, new `.github/workflows/detect-internet-signal-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log. Root log had 46 complete newest-first records and has 47; no archive rotation or INDEX update is due.
-- Validation: local `cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined` compile/run PASS (`detect_internet signal deferral policy: PASS`). The exact-head source-semantic Actions and AI handoff documentation check are pending for THIS COMMIT. L1 signal/call-path review PASS. No full RC translation-unit, MIPS/uClibc object, firmware/TRX or L4 router behavior is claimed.
+- Validation: local `cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined` compile/run PASS (`detect_internet signal deferral policy: PASS`). Exact-head detect-internet signal [42828915497] and AI handoff docs [42828915453] both SUCCESS on `89bd55dfc4b27f9aebfaf2da138ec276b020e9bf`; every job step was inspected. L1 signal/call-path review PASS. No full RC translation-unit, MIPS/uClibc object, firmware/TRX or L4 router behavior is claimed.
 - Resulting commit: THIS COMMIT.
 - Next: inspect every job/step in the exact-head detect-internet signal workflow and AI handoff workflow. If green, rotate to the under-audited `detect_link.c` signal/event lifecycle; keep FTP failed-upload cleanup TOCTOU, NFS compatibility, VPN callback fencing, FULLCONENAT target compile, and all L3/L4 gaps open.
 

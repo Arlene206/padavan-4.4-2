@@ -82,12 +82,15 @@ jobs:
           assert "sigsuspend(&wait_mask)" in main
           assert "sigprocmask(SIG_SETMASK, &run_mask, NULL)" in main
           assert "sigprocmask(SIG_BLOCK, &managed_signals, NULL)" in main
-          dispatch = main.index("sigprocmask(SIG_SETMASK, &run_mask, NULL)")
-          terminate = main.index("if (events & DI_PENDING_TERMINATE)", dispatch)
+          terminate = main.index("if (events & DI_PENDING_TERMINATE)")
           pause = main.index("di_on_sigusr2();", terminate)
           resume = main.index("di_on_sigusr1();", pause)
-          timer_dispatch = main.index("di_on_timer();", resume)
-          assert dispatch < terminate < pause < resume < timer_dispatch
+          timer_condition = main.index("if ((events & DI_PENDING_TIMER)", resume)
+          unmask = main.index("sigprocmask(SIG_SETMASK, &run_mask, NULL)", timer_condition)
+          timer_dispatch = main.index("di_on_timer();", unmask)
+          reblock = main.index("sigprocmask(SIG_BLOCK, &managed_signals, NULL)", timer_dispatch)
+          assert terminate < pause < resume < timer_condition < unmask < timer_dispatch < reblock
+          assert main.index("sigprocmask(SIG_BLOCK, &managed_signals, &original_mask)") < terminate
           assert "control != DI_CONTROL_RESUME && !di_pause_received" in main
 
           timer = body(detect, "di_on_timer(void)")
