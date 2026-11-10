@@ -285,7 +285,8 @@ jobs:
           wan6_down = body(wan6_source, "wan6_down(char *wan_ifname, int unit)")
           assert "int wan6_down(char *wan_ifname, int unit)" in wan6_source
           assert "stop_status = stop_dhcp6c();" in wan6_down
-          assert "return stop_status;" in wan6_down
+          assert "return status;" in wan6_down
+          assert "status = route_status_accumulate(0, stop_status);" in wan6_down
           assert "clear_if_route6(wan6_ifname);" in wan6_down
           assert "clear_if_addr6(wan6_ifname);" in wan6_down
           assert "int wan6_down(char *wan_ifname, int unit);" in rc_header

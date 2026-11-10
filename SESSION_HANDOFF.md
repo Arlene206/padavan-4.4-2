@@ -2,14 +2,12 @@
 
 - Maintained fork: `Arlene206/padavan-4.4-2`; work only on this repository.
 - Branch inventory: `main` only; no remote checkpoint branch. No force-pushes.
-- **Source-wide Actions baseline:** `2305fe3c75eff2729bd6a15d65a4ce12568f4ca1`; nine of ten path-filtered workflows passed. The sole HTTPD failure was its stale exact-count assertion for `stop_wan()` (four versus five failure returns).
-- **Current exact main SHA:** `9fa1aef299cdf40234ed4301474c3da533828aa7`. HTTPD security [42759077537] and AI handoff docs [42759079245] both completed SUCCESS on this exact SHA. The one-commit delta from the baseline changed only the HTTPD workflow contract and live documentation; the other nine workflow results remain on the source-identical baseline.
+- **Last exact main SHA:** `febac337d73e7d197ed950e94f308e4c066907b6`. Eight of nine path-filtered Actions completed SUCCESS on this exact SHA. The WAN DHCP callback run [42760357637] failed only at one stale Python contract expecting `return stop_status;` after `wan6_down()` began returning the aggregated `status`. All four GNU89 host regression steps, including the new shared file-write/close test, passed before the source contract stopped at that assertion.
+- **Previous reconciled baseline:** `9fa1aef299cdf40234ed4301474c3da533828aa7`; HTTPD security [42759077537] and AI handoff docs [42759079245] passed exact-head. The prior DHCPv6 stop-status task and HTTPD fail-closed assertion are complete.
 - **Completed previous slices:** DNSMasq start/stop status propagation and LAN relaunch gating passed on `822edf9d46a2f369a63eae0bcc1bb49f326c29e1`; FULLCONENAT's `NF_CONNTRACK_EVENTS` dependency passed on `15f350ab9397a60ab23ce854be7ee54191861a71`; bridge membership idempotency passed on `5c78797b19e93beaa0bc313a69bbf37cb724b274`; bulk bridge teardown passed on `af3e41e72bb10d073bd7be1486b05266f2d53355`; NFS start failure propagation passed on `7fe64406495562776d7e9b43dbc7ff1d008744ca`.
-- **Previous active task reconciled:** the DHCPv6 stop-status change and HTTPD source-contract correction are now validated. PPP callback source review confirms the per-session file lock is held across each callback and generation changes serialize invalidation; no separate lock-order defect was established in this bounded review.
-- **Current development slice:** propagate IPv6 teardown helper failures instead of silently reporting success. The previous `set_interface_conf_int()`, IPv6 RA/autoconf controls and route/address flush helpers returned `void`; the common `fput_string()` also ignored buffered `fputs()` and `fclose()` errors. THIS COMMIT returns these statuses through the sysctl/cleanup wrappers, aggregates RA/autoconf, SIT down/deletion, route flush and address flush results in `wan6_down()`, and retains `dns6` state whenever teardown is incomplete.
+- **Current code slice:** `set_interface_conf_int()` and common `fput_string()` now expose proc/sys write/close failures; IPv6 RA/autoconf controls, route/address flushes and SIT tunnel deletion return their real status; `wan6_down()` aggregates all teardown errors and retains DNS6 state on incomplete cleanup. The host regressions passed; one stale source-contract assertion is corrected in THIS COMMIT.
 - **Known open issue:** FTP upload cleanup still has a check-then-`unlinkat` window after inode identity validation. Linux 4.4 and MIPS O32 `renameat2` exchange/no-replace operations do not make expected-inode deletion atomic; do not claim this race is closed.
-- **Next after exact-head reconciliation:** verify the WAN DHCP callback GNU89 regression and full IPv6 cleanup source contract plus AI handoff validation on THIS resulting SHA. If green, continue auditing IPv6 startup/SIT route publication status and PPP multi-WAN callback interactions. Keep NFS export compatibility evidence separate.
-- Root `dev_log.md` contains 119 complete newest-first records after this entry and remains below the 384 KiB early-rotation threshold; no archive rotation is due.
+- **Log rotation:** root `dev_log.md` now retains exactly 20 complete newest-first records; the 100 older complete records are preserved oldest-first in `docs/dev-log/2026/11/part-006.md`, indexed in `docs/dev-log/INDEX.md`.
 - L3 production RC/MIPS/uClibc objects, firmware/TRX and L4 physical-router validation remain NOT VERIFIED.
 
 ## Completed DHCP callback and BusyBox event-state review
@@ -83,11 +81,11 @@
 
 ## Active task
 
-1. **IPv6 teardown status propagation.** `net6.c` RA/autoconf and route/address cleanup wrappers now return the underlying proc/sysctl or `doSystem()` status. `set_interface_conf_int()` forwards `fput_int()`; `fput_string()` now detects both buffered write and close failures.
-2. **Ordered best-effort cleanup.** `wan6_down()` continues all teardown operations while preserving the first error: DHCPv6 client stop, RA disable, autoconfiguration disable, SIT link-down when relevant, route flush, address flush and SIT tunnel deletion. It clears the saved `dns6` value only after every operation succeeds, so resolver state is not discarded after incomplete teardown.
-3. **Regression.** THIS COMMIT adds a GNU89 file-write/close test (including `/dev/full` buffered close failure) and source contracts for the sysctl/cleanup result chain and DNS6 retention. Exact-head Actions are pending.
-4. **PPP callback fence review.** The bounded review confirms `F_WRLCK` is held for the full callback, callback generation is compared while locked, and generation invalidation takes the same lock before changing the token. No independent concurrency defect was reproduced; multi-WAN interactions remain open.
-5. **Other open items.** FTP upload-cleanup check/unlink TOCTOU, NFS `async`/AUTH_SYS/root-squash compatibility, IPv6 startup/SIT setup status, MIPS target behavior and L4 router validation remain open.
+1. **Source-contract correction.** The first exact-head WAN run [42760357637] reached all four GNU89 test successes, then failed because an older assertion still expected `return stop_status;`. The implementation now correctly returns the first accumulated failure as `status`; THIS COMMIT updates the assertion and explicitly verifies the stop status is accumulated before cleanup results.
+2. **IPv6 teardown implementation.** RA/autoconf proc/sys writes, route/address flushes and SIT link-down/tunnel deletion now return status. `wan6_down()` attempts all operations, preserves the first nonzero result and clears `dns6` only if teardown succeeds.
+3. **Exact SHA evidence:** base `febac337d73e7d197ed950e94f308e4c066907b6`: WAN DHCP host regression steps 3–6 SUCCESS, source contract failed at the stale return assertion; the other eight path-filtered Actions SUCCESS (HTTPD [42760357682], AI docs [42760357696], WAN route [42760357470], NFS [42760357384], storage [42760357751], Samba [42760357403], vsftpd [42760357409], wireless [42760357782]). Corrected WAN and AI-doc exact-head checks are pending.
+4. **PPP callback fence review:** same per-session file lock spans generation verification through all callback mutations; invalidation acquires that lock before changing the token. No independent lock-order bug found in the bounded review; multi-WAN transitions remain open.
+5. **Other open items:** FTP upload-cleanup check/unlink TOCTOU, NFS `async`/AUTH_SYS/root-squash compatibility, native-static/native-DHCP IPv6 startup/SIT setup status, MIPS target behavior and L4 router validation remain open.
 
 ## Verification boundary
 
@@ -100,15 +98,15 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, confirm the exact SHA and inspect the WAN DHCP callback and AI handoff Actions. Verify the GNU89 shared-write regression and all new IPv6 cleanup contracts passed on that exact SHA.
-2. If green, trace `start_sit_tunnel()` and native-static/native-DHCP `wan6_up()` for route/address/sysctl status propagation, then review PPP/multi-WAN transitions without changing protocol defaults.
+1. Fetch live `main`, confirm exact SHA and inspect WAN DHCP callback plus AI handoff Actions. Confirm the corrected contract checks `return status;` and that the new IPv6 teardown aggregate, DNS6 retention and GNU89 file-write regression pass.
+2. If green, audit `start_sit_tunnel()` and native-static/native-DHCP `wan6_up()` for ignored route/address/sysctl statuses, then continue PPP/multi-WAN state transition review.
 3. Keep MIPS/uClibc L3 firmware build, live PPP/DHCPv6 behavior and physical-router L4 explicitly NOT VERIFIED.
 
 ## Continuation rules
 
 - `SESSION_HANDOFF.md` is the sole actionable continuation point; update only when resumable work/checkpoint/next action materially changes.
 - Update `REFACTOR_ROADMAP.md` only when module status/evidence/priorities materially change.
-- Root `dev_log.md` keeps 20–119 complete records newest first; at 120, archive the oldest 100 verbatim and retain newest 20. Use 384 KiB as early-rotation target and 512 KiB as hard limit.
+- Root `dev_log.md` keeps 20–119 complete records newest first; at 120, archive the oldest 100 verbatim and retain newest 20. Archive shards and INDEX must be updated in the same commit. Use 384 KiB as early-rotation target and 512 KiB as hard limit.
 - Preserve archive snapshots/indexes byte-for-byte; do not add routine archive snapshots or docs-only commits.
 - Run `scripts/check_ai_handoff_docs.py` only with a full local checkout; exact-head Actions are authoritative for the pushed SHA.
 - Recheck live `main`, branches and exact-head Actions on every takeover. Never force-push. Do not claim target builds or device tests without evidence.
