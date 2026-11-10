@@ -34,12 +34,20 @@ test_shutdown_failure_is_sticky(void)
 	return all_stopped;
 }
 
+static int
+test_incomplete_shutdown_is_reported(void)
+{
+	return wireless_radio_shutdown_result(1) != 0 ||
+	       wireless_radio_shutdown_result(0) >= 0;
+}
+
 int
 main(void)
 {
 	if (test_success_is_published() ||
 	    test_interface_failures_are_not_published() ||
-	    test_shutdown_failure_is_sticky()) {
+	    test_shutdown_failure_is_sticky() ||
+	    test_incomplete_shutdown_is_reported()) {
 		fprintf(stderr, "Wireless interface status policy: FAIL\n");
 		return 1;
 	}

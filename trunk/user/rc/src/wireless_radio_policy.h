@@ -1,6 +1,8 @@
 #ifndef WIRELESS_RADIO_POLICY_H
 #define WIRELESS_RADIO_POLICY_H
 
+#include <errno.h>
+
 /*
  * A radio operation is considered successful only when the driver command or
  * the enclosing restart transaction returns the conventional zero status.
@@ -19,6 +21,13 @@ static inline int
 wireless_radio_shutdown_status(int all_stopped, int stop_succeeded)
 {
 	return all_stopped && stop_succeeded;
+}
+
+/* Convert the aggregate stop result to the RC restart convention. */
+static inline int
+wireless_radio_shutdown_result(int all_stopped)
+{
+	return all_stopped ? 0 : -EIO;
 }
 
 #endif /* WIRELESS_RADIO_POLICY_H */

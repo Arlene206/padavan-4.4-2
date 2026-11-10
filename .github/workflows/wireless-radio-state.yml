@@ -5,12 +5,14 @@ on:
     paths:
       - ".github/workflows/wireless-radio-state.yml"
       - "trunk/user/rc/src/net_wifi.c"
+      - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/wireless_radio_policy.h"
       - "trunk/user/rc/src/tests/wireless_radio_policy.c"
   pull_request:
     paths:
       - ".github/workflows/wireless-radio-state.yml"
       - "trunk/user/rc/src/net_wifi.c"
+      - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/wireless_radio_policy.h"
       - "trunk/user/rc/src/tests/wireless_radio_policy.c"
 
@@ -226,6 +228,31 @@ jobs:
           assert rt_stop.count("LED_CONTROL(LED_SW2G, LED_OFF);") == 1
           assert "shutdown incomplete; retaining radio LED state" in rt_stop
 
+          assert "return wireless_radio_shutdown_result(all_stopped);" in wl_stop
+          assert "return wireless_radio_shutdown_result(all_stopped);" in rt_stop
+
+          for name, own_stop, peer_stop, own_auth, peer_auth, first_start in (
+              ("restart_wifi_wl", "stop_wifi_all_wl", "stop_wifi_all_rt",
+               "stop_8021x_wl", "stop_8021x_rt", "start_wifi_ap_wl"),
+              ("restart_wifi_rt", "stop_wifi_all_rt", "stop_wifi_all_wl",
+               "stop_8021x_rt", "stop_8021x_wl", "start_wifi_ap_rt"),
+          ):
+              body = function_body(source, name + "(int radio_on, int need_reload_conf)")
+              own_gate = "if (" + own_stop + "() < 0)"
+              assert own_gate in body, f"{name}: own-radio shutdown failure is not propagated"
+              own_pos = body.index(own_gate)
+              own_failure = body.index("return -1;", own_pos)
+              own_auth_pos = body.index(own_auth + "()")
+              start_pos = body.index(first_start + "(")
+              assert own_pos < own_failure < own_auth_pos < start_pos
+              peer_gate = "if (" + peer_stop + "() < 0)"
+              assert peer_gate in body, f"{name}: DBDC peer stop failure is not propagated"
+              peer_pos = body.index(peer_gate)
+              peer_failure = body.index("return -1;", peer_pos)
+              peer_auth_pos = body.index(peer_auth + "()")
+              assert peer_pos < peer_failure < peer_auth_pos < start_pos
+
+
           # The explicit inic_disable path is fail-safe: a failed ifconfig
           # down must not prevent bridge removal, isolation, RGMII disable,
           # or reset assertion.
@@ -252,6 +279,7 @@ jobs:
           paths = (
               ".github/workflows/wireless-radio-state.yml",
               "trunk/user/rc/src/net_wifi.c",
+              "trunk/user/rc/src/rc.h",
               "trunk/user/rc/src/wireless_radio_policy.h",
               "trunk/user/rc/src/tests/wireless_radio_policy.c",
           )

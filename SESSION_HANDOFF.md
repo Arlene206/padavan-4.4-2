@@ -2,7 +2,7 @@
 
 - Maintained fork: `Arlene206/padavan-4.4-2`; work only on this repository.
 - Branch inventory at takeover: `main` only; no remote checkpoint branch. No force-pushes were used.
-- Current exact main checkpoint at takeover: `186d3e6a2a392c21045aced3a3754073853c4c2e`; default branch is `main`, and the remote branch inventory contains only `main` (no checkpoint branch). IPTV DHCP interface/route status propagation is committed at this SHA. Five exact-head Actions are green: WAN DHCP callback [42733942876], WAN route status [42733942923], WAN interface teardown [42733942837], HTTPD security [42733942826], and AI handoff validation [42733942873].
+- Current exact main checkpoint at takeover: `e1f27e5a5fb607a6ca8177c6cf1f220dc3515e7e`; branch inventory remains `main` only (no remote checkpoint branch). DNSMasq lease-file applicability gating is committed at this SHA. Exact-head Actions all SUCCESS: Samba config regression [42735569085], HTTPD/DNSMasq generated-file trust regression [42735569321], and AI handoff documentation [42735569423].
 - Samba production implementation commit: `1a7097ace2e6c689cb7e92cd10055967d99fe143` (parent `6b44e023c2f669865fc8b5cb5425d824b8335d8b`). Follow-up commits updated the Samba and HTTPD semantic workflow extractors after initial assertions still referenced the previous writer layout.
 - Exact Actions evidence:
   - FIFO fixture teardown correction [42730772799] and AI handoff docs [42730772420] both completed SUCCESS on exact SHA `edd8688641cd5bb6fcefea325880f7c4c56aa511`; the three GNU89 host tests and Python semantic contract all passed.
@@ -80,35 +80,39 @@
 - RNFR/RNTO remain a separate two-path rename transaction and are not included in this slice.
 
 
+
 ## Completed DNSMasq lease-file applicability fix
 
-- **Finding:** `prepare_dns_dhcpd()` unconditionally validated/created `/tmp/dnsmasq.leases` before it knew whether the generated configuration would contain `dhcp-leasefile`. DNS-only router configurations and AP-mode RA-only configurations do not consume this path; nevertheless a stale symlink, hardlink, FIFO or other unsafe object made preparation fail. During restart, the existing fail-safe policy then kept the already-running daemon alive (or aborted a first start) even though no lease database was needed.
-- **Fix in THIS commit:** represent the DHCP lease and RA feature bits explicitly; gate `dnsmasq_lease_file_ensure()` on the finalized lease-using DHCP feature bit immediately before emitting `dhcp-leasefile`. On rejection, close and discard the staged main configuration and return the saved error. DNS-only and RA-only configurations no longer depend on an unused lease path; configurations that use the lease database remain fail-closed.
-- **Regression:** extend the existing GNU89 DNSMasq file host test with no-feature, RA-only, lease-using and combined-flag cases. Extend the HTTPD security workflow's semantic contract to prove the lease-path check is inside the actual lease-feature gate, precedes the config directive, and discards the staged configuration on failure. Exact-head Actions for THIS commit are pending at commit creation.
-- **Changed paths:** `trunk/user/rc/src/services_ex.c`, `trunk/user/rc/src/dnsmasq_file.h`, `trunk/user/rc/src/tests/dnsmasq_file.c`, `.github/workflows/httpd-security.yml`, this handoff, the roadmap and `dev_log.md`.
-- **Validation boundary:** L1 source review PASS. The GNU89 host test, semantic source contract and AI handoff validator are pending on the resulting exact SHA. No local checkout was available; L3 production RC/MIPS/uClibc and L4 hardware remain NOT VERIFIED.
+- **Finding:** `prepare_dns_dhcpd()` previously validated/created `/tmp/dnsmasq.leases` before knowing whether the generated configuration would contain `dhcp-leasefile`. DNS-only and AP-mode RA-only configurations do not consume this path, but an unrelated unsafe stale path could block DNS service preparation.
+- **Fix:** DHCP lease and RA feature bits are explicit; `dnsmasq_lease_file_ensure()` runs only when the finalized DHCP feature flags require the lease database, immediately before emitting `dhcp-leasefile`. On error, the staged config is closed/discarded and the original error returned. Lease-using DHCP remains fail-closed.
+- **Regression:** GNU89 host tests cover no-feature, RA-only, lease-using and combined feature flags. HTTPD generated-file contract asserts the gate, source ordering and staged-config cleanup.
+- **Exact-head validation:** commit `e1f27e5a5fb607a6ca8177c6cf1f220dc3515e7e`: HTTPD/DNSMasq generated trust-boundary regression [42735569321] SUCCESS (including the GNU89 test binary and full source semantic contract); AI handoff docs [42735569423] SUCCESS; Samba config regression [42735569085] SUCCESS. All three runs used this exact SHA.
+- **Limit:** no local checkout was available for independent test execution; no production RC/MIPS/uClibc or L4 router validation is claimed.
 
 ## Active task
 
-1. Reconcile the DNSMasq generated-file/security workflow and AI handoff validation on the exact SHA produced by THIS commit. Verify the GNU89 DNSMasq file test, including DNS-only/RA-only lease-file gating, and the complete semantic source-order contract.
-2. If green, rotate to a different subsystem: audit wireless driver/interface start, stop and bridge publication paths (begin with `trunk/user/rc/src/net_wifi.c` and `ralink.c`) for a concrete status-loss or stale-state stability defect. Trace callers and cleanup before changing code; do not assume the roadmap summary proves a defect.
-3. Keep separate static-IP IPTV/ZeroConf callback work, FTP MDTM/SITE CHMOD and the Linux 4.4 non-atomic upload-cleanup race, FULLCONENAT target kernel/MIPS compilation, NFS compatibility decisions and L3/L4 validation visible.
+1. **Current fix:** prevent a wireless restart from continuing after one or more interfaces fail to stop. The shutdown helpers already aggregated every interface-down result but only used it to preserve the LED; callers discarded that aggregate and proceeded with authentication shutdown / replacement startup. The new code makes both shutdown functions return an RC error on incomplete shutdown and gates both single-radio and DBDC restart paths before stopping 802.1X or launching replacement interfaces.
+2. Reconcile the wireless-radio-state workflow and AI handoff Actions on the exact resulting SHA. The GNU89 policy test must prove incomplete shutdown is negative status; the semantic contract must prove both current and DBDC peer stop gates occur before authentication teardown and interface startup.
+3. If green, continue the wireless lifecycle audit for startup-helper return-value loss and bridge attachment status; do not assume the shutdown fix covers partial AP/WDS/APCLI startup. Then rotate to another subsystem from the governance ledger rather than staying on Wi-Fi.
+4. Keep static-IP IPTV/ZeroConf, FTP MDTM/SITE CHMOD and Linux 4.4 upload-cleanup race, FULLCONENAT target kernel/MIPS compile, NFS compatibility decisions, and L3/L4 validation visible.
 
 
 ## Verification boundary
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for IPTV DHCP interface apply/rollback, route teardown-before-publication, route-result propagation and deconfig inventory retention; PASS for the DNSMasq lease-file applicability gate and its staged-config failure cleanup. |
-| L2 host / Actions | IPTV parent SHA `186d3e6a2a392c21045aced3a3754073853c4c2e`: WAN DHCP [42733942876], WAN route [42733942923], WAN teardown [42733942837], HTTPD security [42733942826] and AI docs [42733942873] all SUCCESS. THIS DNSMasq GNU89 host test, semantic source contract and AI docs checks are pending on the resulting SHA. These workflows do not compile production `services_ex.c` for MIPS/uClibc. |
+| L1 source review | PASS for IPTV DHCP interface/route status propagation; PASS for DNSMasq lease-file feature gating and staged-config cleanup; PASS for wireless shutdown result aggregation and restart stop-before-authentication/start ordering. |
+| L2 host / Actions | DNSMasq parent SHA `e1f27e5a5fb607a6ca8177c6cf1f220dc3515e7e`: HTTPD/DNSMasq [42735569321], AI docs [42735569423] and Samba config [42735569085] all SUCCESS. THIS wireless GNU89 shutdown-policy test, wireless semantic source contract and AI handoff validation are pending on the resulting SHA. No production `net_wifi.c` MIPS/uClibc object is compiled by these workflows. |
 | L3 production RC/MIPS/uClibc/firmware builds | NOT VERIFIED. |
 | L4 physical router behavior | NOT VERIFIED. |
 
+
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, confirm there is no unreviewed remote checkpoint, and reconcile the HTTPD security/DNSMasq and AI handoff Actions against the exact resulting SHA. The first run must prove the GNU89 DNSMasq host binary and the source-contract assertions pass.
-2. If green, rotate to the wireless driver/interface lifecycle audit in `net_wifi.c` and `ralink.c`; establish one concrete failure-propagation or stale-state defect before editing.
-3. Keep static-IP IPTV/ZeroConf, FTP MDTM/SITE CHMOD and upload-cleanup race, FULLCONENAT target kernel/MIPS validation, NFS compatibility and L3/L4 validation visible.
+1. Fetch live `main`, confirm the exact SHA and remote branch inventory, then reconcile wireless radio-state and AI handoff Actions against that SHA. Verify the GNU89 shutdown-result policy test and DBDC source-order assertions.
+2. If green, continue the AP/WDS/APCLI startup-helper status-propagation and bridge attachment result audit; establish a concrete failure path before changing code, then rotate to another subsystem.
+3. Keep static-IP IPTV/ZeroConf, FTP MDTM/SITE CHMOD and Linux 4.4 upload-cleanup race, FULLCONENAT target kernel/MIPS validation, NFS compatibility and L3/L4 validation visible.
+
 
 ## Continuation rules
 

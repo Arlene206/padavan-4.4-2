@@ -439,11 +439,11 @@ update_vga_clamp_rt(int first_call)
 #endif
 }
 
-void 
+int
 stop_wifi_all_wl(void)
 {
-#if BOARD_HAS_5G_RADIO
 	int all_stopped = 1;
+#if BOARD_HAS_5G_RADIO
 
 	// Attempt every interface even after one failure; the LED is a state report.
 	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_5G_APCLI, 0));
@@ -463,9 +463,10 @@ stop_wifi_all_wl(void)
 	else
 		logmessage(LOGNAME, "5GHz shutdown incomplete; retaining radio LED state");
 #endif
+	return wireless_radio_shutdown_result(all_stopped);
 }
 
-void 
+int
 stop_wifi_all_rt(void)
 {
 	int all_stopped = 1;
@@ -504,6 +505,8 @@ stop_wifi_all_rt(void)
 		LED_CONTROL(LED_SW2G, LED_OFF);
 	else
 		logmessage(LOGNAME, "2.4GHz shutdown incomplete; retaining radio LED state");
+
+	return wireless_radio_shutdown_result(all_stopped);
 }
 
 void 
@@ -813,14 +816,22 @@ restart_wifi_wl(int radio_on, int need_reload_conf)
 		logmessage(LOGNAME, "Wireless restart aborted: failed to generate 5GHz configuration");
 		return -1;
 	}
-	stop_8021x_wl();
-
-	stop_wifi_all_wl();
+	if (stop_wifi_all_wl() < 0) {
+		logmessage(LOGNAME, "5GHz wireless restart aborted: previous interfaces did not all stop");
+		return -1;
+	}
 #if defined (BOARD_MT7615_DBDC) || defined (BOARD_MT7915_DBDC)
 	if (need_reload_conf) {
-		stop_8021x_rt();
-		stop_wifi_all_rt();
+		if (stop_wifi_all_rt() < 0) {
+			logmessage(LOGNAME, "dual-band wireless restart aborted: 2.4GHz interfaces did not all stop");
+			return -1;
+		}
 	}
+#endif
+	stop_8021x_wl();
+#if defined (BOARD_MT7615_DBDC) || defined (BOARD_MT7915_DBDC)
+	if (need_reload_conf)
+		stop_8021x_rt();
 #endif
 
 	if (need_reload_conf)
@@ -863,14 +874,22 @@ restart_wifi_rt(int radio_on, int need_reload_conf)
 		logmessage(LOGNAME, "Wireless restart aborted: failed to generate 2.4GHz configuration");
 		return -1;
 	}
-	stop_8021x_rt();
-
-	stop_wifi_all_rt();
+	if (stop_wifi_all_rt() < 0) {
+		logmessage(LOGNAME, "2.4GHz wireless restart aborted: previous interfaces did not all stop");
+		return -1;
+	}
 #if defined (BOARD_MT7615_DBDC) || defined (BOARD_MT7915_DBDC)
 	if (need_reload_conf) {
-		stop_8021x_wl();
-		stop_wifi_all_wl();
+		if (stop_wifi_all_wl() < 0) {
+			logmessage(LOGNAME, "dual-band wireless restart aborted: 5GHz interfaces did not all stop");
+			return -1;
+		}
 	}
+#endif
+	stop_8021x_rt();
+#if defined (BOARD_MT7615_DBDC) || defined (BOARD_MT7915_DBDC)
+	if (need_reload_conf)
+		stop_8021x_wl();
 #endif
 
 	if (need_reload_conf)

@@ -1,13 +1,13 @@
 ## Current source / CI checkpoint
 
 - Repository: `Arlene206/padavan-4.4-2`; maintained fork only; branch inventory contains `main` only, with no remote checkpoint branch.
-- Current exact main checkpoint at takeover: `186d3e6a2a392c21045aced3a3754073853c4c2e`; remote inventory is `main` only. IPTV DHCP callback, WAN route status, WAN interface teardown, HTTPD security and AI handoff Actions [42733942876] [42733942923] [42733942837] [42733942826] [42733942873] all completed SUCCESS on this exact SHA. THIS round adds DNSMasq lease-file applicability gating.
+- Current exact main checkpoint at takeover: `e1f27e5a5fb607a6ca8177c6cf1f220dc3515e7e`; branch inventory remains `main` only. DNSMasq lease-file applicability gating, HTTPD/DNSMasq generated-file trust, Samba config regression and AI handoff Actions [42735569321] [42735569085] [42735569423] all completed SUCCESS on this exact SHA. THIS round adds wireless shutdown-result propagation.
 - Samba same-boot paired passdb/config transaction implementation: `1a7097ace2e6c689cb7e92cd10055967d99fe143`. The fix adds PREPARED/COMMITTED journal recovery and a shared process-scoped writer lock for `run_samba()`, public `write_smb_conf()`, and WINS `start_wins()`.
 - Samba host transaction tests and source-order contract [42708213921] completed SUCCESS on exact SHA `e9a93eb84ac9f95447150869fab7e0ae1c2da9ff`. The new GNU89 test covers interrupted publication, committed cleanup, missing-original restore, rollback retry and symlink rejection.
 - Dependent HTTPD/Samba trust-boundary suite [42708503436] and AI handoff documentation validation [42708503300] completed SUCCESS on exact SHA `258532a78922549698bc6d9b869c7777f8f4ac05`. The HTTPD workflow extractor now targets the unlocked config generator rather than the public lock wrapper.
 - The earlier BusyBox DHCP callback state audit is complete; no applet behavior change was justified because the inspected status-discard contract did not demonstrate a client state-transition defect. The WAN callback source-contract correction is green on exact SHA `6b44e023c2f669865fc8b5cb5425d824b8335d8b` (DHCP [42703609156], docs [42703609087]).
 - Initial Samba/HTTPD workflow attempts on the implementation head failed in stale semantic source extractors; later exact-SHA runs above passed after the test assertions were updated. Do not count the initial failed runs as green.
-- Root `dev_log.md` contains 99 complete newest-first records after the DNSMasq lease-file entry and remains below the 119-record / 384 KiB thresholds. No archive rotation is due.
+- Root `dev_log.md` contains 100 complete newest-first records after the wireless shutdown propagation entry and remains below the 119-record / 384 KiB thresholds. No archive rotation is due.
 
 ## Whole-repository module status
 
@@ -18,7 +18,7 @@
 | DNSMasq / resolver / DHCP files | PARTIAL / AUDITING | Safe staged publication, no-follow lease file validation, domain validation, resolver refresh failure contracts and generated-file trust checks. Lease-file initialization is gated by finalized DHCP feature flags: DNS-only and RA-only configurations do not depend on an unused `/tmp/dnsmasq.leases` path, while lease-using DHCP configurations still fail closed. GNU89 regression and semantic source contract are pending on this round's exact SHA. | Remaining daemon lifecycle, generated-option ownership, DNS update and restart/stop error propagation; MIPS/uClibc production RC build remains unverified. |
 | USB / storage / hotplug / filesystem | PARTIAL / AUDITING | Full partition/ejected inventory staging, swapoff-before-unmount gates, operation-wide storage lock, Optware startup supervision/rollback, and checked removable-storage teardown. The internal MTD/UBI path reports actual `opt-mount.sh` status, retries with monotonic exponential backoff, and tracks/cancels its worker process group. Samba and vsftpd stop failures now participate in `stop_stor_apps()`; the safe-removal callers abort before unmount when any required storage service does not stop. | No production RC object/MIPS build; target filesystem and real hardware behavior remain unverified. |
 | Firewall / NAT / Netfilter | AUDITING | Firewall restore failure handling, IPv6 table setup and bounded FULLCONENAT worker/notifier registration error handling. Namespace/zone identity is stored and enforced for IPv4/IPv6 mappings and dying-tuple GC; notifier lifecycle, host policy and exact-head semantic contracts pass on `bc99b6801c44f55e13dc0214336408f712e0abf8`. | Full kernel/MIPS object compile and broader firewall/NAT audit remain open. |
-| Wireless / Wi-Fi drivers | PARTIAL / AUDITING | Selected ioctl checks, scan bounds, config preflight, radio-state publication and AP/APCLI/WDS bridge gates. | Remaining iNIC/board-specific/concurrent lifecycle and live radio behavior. |
+| Wireless / Wi-Fi drivers | PARTIAL / AUDITING | Selected ioctl checks, scan bounds, atomic configuration publication, config preflight and radio-state publication gates. Shutdown now aggregates interface-down failures and aborts single-radio/DBDC restart before 802.1X teardown or replacement startup if any old interface remains. GNU89 shutdown-result regression and exact-head source contract pending. | Startup-helper failures remain hidden by void AP/WDS/APCLI helpers; bridge attachment command results, iNIC/board-specific concurrency and live radio behavior remain open. L3 target build/device behavior unverified. |
 | HTTPD / CGI / authentication | PARTIAL / AUDITING | Authentication, disclosure, safe publication, NVRAM restore and CGI policy checks have recent Actions. | Whole-route input, authorization and error-path inventory. |
 | NVRAM / persistence / startup | PARTIAL / AUDITING | Atomic publication and restore failure gates. | Remaining direct callers, flash recovery and board variants. |
 | Switch / PHY / MDIO / link state | PARTIAL / AUDITING | Selected ioctl propagation, PVID/link retry, CLI ordering and MDIO timeout checks. | Other board drivers and live hardware behavior. |
@@ -28,10 +28,10 @@
 
 ## Priority queue
 
-1. P2 — Reconcile this round's DNSMasq lease-file applicability regression and AI handoff Actions on its exact resulting SHA. The GNU89 host test must cover DNS-only, RA-only and lease-using feature combinations; the semantic contract must bind the check to the actual `dhcp-leasefile` directive and preserve staged-config cleanup on failure. If green, rotate to a different subsystem.
-2. P2 — Wireless driver/interface lifecycle: audit `net_wifi.c` and `ralink.c` start/stop, bridge attachment and state-publication ordering; identify one concrete failure-propagation or stale-state defect before changing code.
-3. P2 — Complete FULLCONENAT target kernel/MIPS object validation; host namespace/zone policy tests do not substitute for target compilation.
-4. P2 — Keep NFS `async` durability/throughput, AUTH_SYS/root-squash migration and external-mount compatibility decisions visible; retain FTP MDTM/SITE CHMOD and upload-cleanup race in the backlog.
+1. P2 — Reconcile wireless shutdown-result propagation on this exact SHA: policy test must return negative status for incomplete shutdown; source contract must prove current and DBDC peer stop gates precede 802.1X teardown/replacement start. If green, continue AP/WDS/APCLI startup-helper status and bridge-operation audit.
+2. P2 — Complete FULLCONENAT target kernel/MIPS object validation; host namespace/zone policy tests do not substitute for target compilation.
+3. P2 — Keep static-IP IPTV/ZeroConf callbacks, FTP MDTM/SITE CHMOD and upload-cleanup race visible.
+4. P2 — Keep NFS `async` durability/throughput, AUTH_SYS/root-squash migration and external-mount compatibility decisions visible.
 
 ## Working rules
 
@@ -48,8 +48,8 @@
 
 | Level | Evidence | Limits |
 |---|---|---|
-| L1 source review | PASS for FTP descriptor-relative operations, bounded recursive ACL listing and STAT completion semantics; PASS for IPTV DHCP callback interface rollback/route status propagation and DNSMasq lease-file usage gating with staged-config cleanup. | FTP metadata/upload cleanup follow-ups and separate IPTV static/ZeroConf status paths remain open. |
-| L2 host / Actions | IPTV callback parent SHA `186d3e6a2a392c21045aced3a3754073853c4c2e`: WAN DHCP [42733942876], WAN route [42733942923], WAN teardown [42733942837], HTTPD security [42733942826] and AI docs [42733942873] all SUCCESS. THIS DNSMasq GNU89 host test, HTTPD semantic source contract and AI handoff validation are pending on the resulting SHA. The workflow does not compile production `services_ex.c` for MIPS/uClibc. |
+| L1 source review | PASS for FTP descriptor-relative operations and recursive listing; PASS for IPTV DHCP callback interface/route status; PASS for DNSMasq lease-file feature gating; PASS for wireless stop-before-restart ordering and DBDC peer-stop gates. |
+| L2 host / Actions | DNSMasq parent SHA `e1f27e5a5fb607a6ca8177c6cf1f220dc3515e7e`: HTTPD/DNSMasq [42735569321], AI handoff [42735569423] and Samba [42735569085] all SUCCESS. THIS wireless GNU89 policy test, source contract and AI handoff validation pending on resulting SHA; workflows do not compile production `net_wifi.c` for MIPS/uClibc. |
 | L3 MIPS/uClibc production objects / firmware/TRX | NOT VERIFIED. | Full target build phase required. |
 | L4 router/SMB/DHCP behavior and physical hardware | NOT VERIFIED. | Requires target-device validation. |
 

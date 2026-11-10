@@ -1,3 +1,16 @@
+## 2026-11-10 09:16 CST (UTC+8) — Propagate incomplete wireless shutdown into restart policy
+
+- **Base main SHA:** `e1f27e5a5fb607a6ca8177c6cf1f220dc3515e7e`. HTTPD/DNSMasq generated-file regression [42735569321], AI handoff documentation [42735569423] and Samba config regression [42735569085] all completed SUCCESS on that exact SHA.
+- **Finding:** `stop_wifi_all_wl()` and `stop_wifi_all_rt()` already aggregated per-interface down-command failures to retain the radio LED, but returned `void`. Both `restart_wifi_wl()` and `restart_wifi_rt()` discarded that aggregate and continued stopping 802.1X services and launching replacement interfaces. In DBDC builds the peer-radio shutdown result was also ignored. An interface that resisted shutdown could therefore coexist with a newly published wireless configuration while the restart API returned success.
+- **Fix:** both shutdown functions now return an RC-style negative error for an incomplete stop. The single-radio and DBDC restart paths gate 802.1X teardown and replacement-interface startup on successful shutdown of the current and, where applicable, peer radio. The shutdown helper still attempts every interface and preserves the LED state on any failure. Public declarations were updated.
+- **Regression:** GNU89 policy regression covers success-to-zero and incomplete-shutdown-to-`-EIO`. The wireless source contract checks both radio shutdown gates and DBDC peer ordering; `rc.h` was added to push/PR path filters.
+- **Changed paths:** `trunk/user/rc/src/net_wifi.c`; `trunk/user/rc/src/rc.h`; `trunk/user/rc/src/wireless_radio_policy.h`; `trunk/user/rc/src/tests/wireless_radio_policy.c`; `.github/workflows/wireless-radio-state.yml`; `SESSION_HANDOFF.md`; `REFACTOR_ROADMAP.md`; this log.
+- **Validation:** L1 source review PASS. Exact-head GNU89 policy test, wireless restart semantic contract and AI handoff validation are pending on THIS resulting SHA. No local checkout was available for independent execution; production RC/MIPS/uClibc build and L4 radio/device behavior are NOT VERIFIED.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** reconcile wireless radio-state and AI handoff Actions against the exact resulting SHA. If green, continue AP/WDS/APCLI startup-helper status propagation and bridge attachment result auditing, then rotate to another subsystem. Static-IP IPTV/ZeroConf, FTP metadata/upload-cleanup race, FULLCONENAT target validation, NFS compatibility and L3/L4 remain open.
+
+---
+
 ## 2026-11-10 09:15 CST (UTC+8) — Gate DNSMasq lease-file validation on actual DHCP lease use
 
 - **Base main SHA:** `186d3e6a2a392c21045aced3a3754073853c4c2e`. WAN DHCP callback [42733942876], WAN route status [42733942923], WAN interface teardown [42733942837], HTTPD security [42733942826] and AI handoff validation [42733942873] all completed SUCCESS on that exact parent SHA.
