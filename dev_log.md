@@ -1,3 +1,17 @@
+## 2026-11-10 09:03 CST (UTC+8) — Propagate IPTV DHCP callback interface and route failures
+
+- **Base main SHA:** `a86e2ceab5f6a448acfe82b8f388529a9941c3d3`; VSFTPD [42731280222] and AI handoff docs [42731280294] both completed SUCCESS on that exact SHA.
+- **Finding:** `udhcpc_viptv_bound()` discarded `ifconfig()`, `route_del()`, `del_dhcp_routes_by_prefix()`, `add_dhcp_routes()` and default `route_add()` results. It could publish a replacement `manv_*` lease/route inventory while old routes remained, or report a bound lease despite interface/route setup failure. The IPTV `deconfig` branch also erased gateway/route metadata regardless of cleanup result.
+- **Fix:** reuse the existing DHCP WAN address apply/rollback policy for IPTV; snapshot old address/netmask/gateway; verify the candidate address before route mutation; aggregate old default/DHCP route deletion before publishing new state; restore the old address and retain its route inventory if teardown fails; aggregate/log new route-add failures. Deconfig now clears route inventory only when all requested deletions succeed and returns the first error.
+- **Regression:** extend the existing GNU89 WAN interface-policy workflow with IPTV source-order checks for address rollback, delete-before-publish, route-add propagation and deconfig inventory retention. The existing route-status policy test verifies first-error preservation while continuing subsequent operations.
+- **BusyBox boundary:** the prior bounded applet audit established that `udhcp_run_script()` deliberately ignores the script's exit status. This change does not alter BusyBox state transitions; callback logs and retained NVRAM route inventory are the observable failure/recovery signals.
+- **Changed paths:** `trunk/user/rc/src/net_wan.c`; `.github/workflows/wan-dhcp-callback-stability.yml`; `SESSION_HANDOFF.md`; `REFACTOR_ROADMAP.md`; this log.
+- **Validation:** L1 source review PASS. The current parent SHA's VSFTPD and documentation Actions are green. THIS host-policy and IPTV semantic source-contract Actions are pending on the resulting SHA; the workflow does not compile production `net_wan.c`. No MIPS/uClibc object, firmware/TRX or router hardware result is claimed.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** reconcile every Actions workflow triggered by the exact new SHA. If green, rotate to a different subsystem and trace a bounded DNSMasq/resolver lifecycle stability candidate; keep static-IP IPTV/ZeroConf, FTP metadata/upload cleanup, FULLCONENAT target build, NFS and L3/L4 work open.
+
+---
+
 ## 2026-11-10 08:49 CST (UTC+8) — Report incomplete FTP STAT directory listings accurately
 
 - **Base main SHA:** `edd8688641cd5bb6fcefea325880f7c4c56aa511`; VSFTPD [42730772799] and AI handoff docs [42730772420] both completed SUCCESS on this exact SHA. The FIFO cleanup correction passed all three GNU89 host policy binaries and the full Python semantic source contract.

@@ -2,7 +2,7 @@
 
 - Maintained fork: `Arlene206/padavan-4.4-2`; work only on this repository.
 - Branch inventory at takeover: `main` only; no remote checkpoint branch. No force-pushes were used.
-- Current verified main baseline: `edd8688641cd5bb6fcefea325880f7c4c56aa511`; VSFTPD [42730772799] and AI handoff docs [42730772420] both completed SUCCESS on this exact SHA. All three GNU89 host policy binaries passed, including ACL-path fixture teardown, and the full semantic source contract passed. Remote branches: `main` only; no checkpoint branch.
+- Current verified main baseline at takeover: `a86e2ceab5f6a448acfe82b8f388529a9941c3d3`; VSFTPD [42731280222] and AI handoff docs [42731280294] both completed SUCCESS on this exact SHA. Both jobs passed against this precise HEAD; branch inventory is `main` only, with no remote checkpoint branch. This commit resumes directly from that verified point.
 - Samba production implementation commit: `1a7097ace2e6c689cb7e92cd10055967d99fe143` (parent `6b44e023c2f669865fc8b5cb5425d824b8335d8b`). Follow-up commits updated the Samba and HTTPD semantic workflow extractors after initial assertions still referenced the previous writer layout.
 - Exact Actions evidence:
   - FIFO fixture teardown correction [42730772799] and AI handoff docs [42730772420] both completed SUCCESS on exact SHA `edd8688641cd5bb6fcefea325880f7c4c56aa511`; the three GNU89 host tests and Python semantic contract all passed.
@@ -17,7 +17,7 @@
   - RNFR/RNTO rename commit `2953898fb09e4d5535fd0628bb3c74bb8b21a831`: VSFTPD regression [42724086864] failed only in its Python source contract at the RNTO cleanup-order assertion; its preceding GNU89 compile/run step passed all host suites. The contract used the first `str_free()` as if it were the post-rename cleanup, overlooking the earlier intentional clear in the destination permission-denial branch. AI docs [42724086704] passed on the same exact SHA. THIS follow-up corrects the contract to assert both branches explicitly; exact-head reruns are pending.
   - Initial attempts on `1a7097a...` failed only in stale semantic workflow extractors; the new transaction host test itself passed. The assertions were corrected and later exact-SHA runs above passed. Do not report the initial failures as green.
 - The exact-head DHCP callback and handoff checks on `6b44e023c2f669865fc8b5cb5425d824b8335d8b` were already SUCCESS: WAN DHCP callback [42703609156] and AI handoff docs [42703609087].
-- Root `dev_log.md` currently contains 97 complete newest-first records after this round's new record and remains below the 119-record / 384 KiB rotation thresholds; no archive rotation is due.
+- Root `dev_log.md` contains 98 complete newest-first records after THIS round's entry and remains below the 119-record / 384 KiB early-rotation thresholds; no archive rotation is due.
 - L3 production RC/MIPS/uClibc/firmware builds and L4 physical router validation are NOT VERIFIED.
 
 ## Completed DHCP callback and BusyBox event-state review
@@ -25,7 +25,7 @@
 - The previously unfinished DHCP callback source-contract correction is reconciled on exact SHA `6b44e023c2f669865fc8b5cb5425d824b8335d8b`: the GNU89 interface transaction regression and callback source-order contract passed [42703609156]; the handoff contract passed [42703609087].
 - Completed a bounded review of BusyBox `udhcp_run_script()` dispatch and callers for initial `leasefail`, accepted NAK, lease expiry, renew/repeated renew, SIGUSR2 and release-on-quit.
 - The applet deliberately ignores `spawn_and_wait()` callback status. Inspected transitions invoke deconfig for lease expiry and release paths; a matching NAK deconfigures only a previously bound state, not the initial REQUESTING state. Retry exhaustion routes to `leasefail`; SIGUSR2/release-on-quit use the release path. No reproducible BusyBox protocol-state defect was established, so no behavior-changing BusyBox patch was justified.
-- Follow-up observation outside this bounded applet audit: the IPTV DHCP callback path in `trunk/user/rc/src/net_wan.c` appears to discard some route/interface operation statuses. It remains a separate queued review and was not changed in this round.
+- Follow-up finding and fix in THIS commit: `udhcpc_viptv_bound()` discarded address ioctl and old/new route operation results, then replaced the prior `manv_*` route inventory even when old-route cleanup failed. The IPTV `deconfig` dispatch also cleared gateway and route source fields regardless of teardown results. The callback now applies/rolls back the address through the existing WAN interface transaction policy, deletes old routes before publishing new lease state, restores the previous address and retains route inventory when teardown fails, reports new route setup failures, and preserves deconfig route inventory unless cleanup succeeds. BusyBox's deliberate disregard of DHCP script exit status remains unchanged; callback logs and retained NVRAM route inventory are the observable recovery evidence. Static-IP IPTV startup and ZeroConf callback operations remain outside this bounded change.
 
 ## Completed FULLCONENAT namespace / zone work
 
@@ -81,26 +81,26 @@
 
 ## Active task
 
-1. FTP RNFR/RNTO descriptor-relative rename, recursive LIST/NLST/STAT ACL-bound directory traversal, per-entry `fstatat()`/`readlinkat()`, actual-listing-base visibility, and bounded recursion (depth 32, 4096 entries/directory, 32768 total) are implemented.
-2. Asus FTP ACL configuration reads reject FIFO/device/symlink and oversized files using a nonblocking no-follow descriptor, fd-based type/size validation and bounded EINTR-safe reads. The FIFO fixture cleanup correction is complete: VSFTPD [42730772799] and AI docs [42730772420] both SUCCESS on exact SHA `edd8688641cd5bb6fcefea325880f7c4c56aa511`.
-3. **Finding — STAT falsely reported completion:** `handle_dir_common()` unconditionally emitted `213 End of status` even when `vsf_ftpdataio_transfer_dir()` returned an error (including recursive depth/entry-limit abort), or when the requested directory was unavailable / rejected by `anon_world_readable_only`. The client could therefore treat a partial or empty failed STAT listing as complete.
-4. **Fix in THIS commit:** retain the RFC-style 213 multiline terminator, but choose an explicit `End of status (listing unavailable or incomplete)` final text on a failed transfer or unavailable directory. A successful STAT retains the legacy `End of status` text. Add GNU89 host assertions for both message constants and workflow source-order assertions for failure propagation.
-5. Once the exact-head VSFTPD and AI docs Actions pass, rotate away from FTP to the IPTV DHCP callback route/interface status-loss review in `trunk/user/rc/src/net_wan.c`. Keep FTP MDTM/SITE CHMOD descriptor-relative metadata, upload cleanup race, FULLCONENAT target build, NFS compatibility and L3/L4 validation queued.
+1. The previous FTP STAT completion fix is verified on exact SHA `a86e2ceab5f6a448acfe82b8f388529a9941c3d3`: VSFTPD [42731280222] and AI handoff docs [42731280294] both SUCCESS. STAT keeps the 213 multiline terminator and distinguishes successful completion from unavailable/incomplete output.
+2. **IPTV DHCP callback status-loss finding:** `udhcpc_viptv_bound()` ignored interface address ioctl results, route deletion/addition statuses and overwrote old route metadata before proving old-route cleanup succeeded. The `deconfig` branch also discarded route deletion failures and unconditionally erased route inventory.
+3. **Fix in THIS commit:** use the existing DHCP WAN interface apply/rollback policy for IPTV address updates; snapshot old IP/netmask/gateway; remove previous gateway and DHCP routes before publishing new `manv_*` lease state; restore the old address and preserve old route inventory when cleanup fails; aggregate and log new DHCP/default-route setup errors. Deconfig only clears route metadata after all required deletions succeed and returns the first error.
+4. **Regression:** extend `.github/workflows/wan-dhcp-callback-stability.yml` with semantic source-order assertions for IPTV address rollback, route teardown/publication order, route setup aggregation and deconfig inventory retention. The existing GNU89 interface-transaction and route-status policy binaries provide the host-side policy coverage. Exact-head Actions for THIS commit are pending at commit creation.
+5. Keep the separate static-IP IPTV startup and ZeroConf callback status checks queued; rotate next to a different user-space subsystem after this bounded callback change. FTP MDTM/SITE CHMOD and upload cleanup race, FULLCONENAT target build, NFS compatibility and L3/L4 validation remain open.
 
 ## Verification boundary
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for FTP upload/RETR/SIZE descriptor anchoring, DELE/RMD `unlinkat()`, MKD `mkdirat()`, RNFR/RNTO `renameat()`, top-level/recursive listing ACL-to-dirfd identity, no-follow child READ ACL, per-entry `fstatat()`/`readlinkat()`, opened-base visibility, bounded recursion and explicit STAT incomplete/unavailable completion text on transfer failure. |
-| L2 host / Actions | FIFO fixture correction [42730772799] and AI docs [42730772420] both SUCCESS on exact SHA `edd8688641cd5bb6fcefea325880f7c4c56aa511`. THIS STAT completion behavior's GNU89 host fixture, semantic source contract and AI docs validation are pending at commit creation. Workflow does not compile production `postlogin.c`. |
+| L1 source review | PASS for the IPTV DHCP callback's interface apply/rollback, delete-before-publish old-route handling, new route error aggregation and deconfig route-inventory retention; previous FTP STAT control-flow review remains complete. |
+| L2 host / Actions | Parent SHA `a86e2ceab5f6a448acfe82b8f388529a9941c3d3`: VSFTPD [42731280222] and AI docs [42731280294] both SUCCESS. THIS IPTV DHCP source-contract checks and path-filtered Actions are pending on the resulting SHA. The host interface policy binary tests the shared apply/rollback helper; no production `net_wan.c` object is compiled by these workflows. |
 | L3 production RC/MIPS/uClibc/firmware builds | NOT VERIFIED. |
 | L4 physical router behavior | NOT VERIFIED. |
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and reconcile VSFTPD plus AI handoff Actions against the exact resulting SHA; confirm the new STAT incomplete/unavailable message contract and all three GNU89 host tests pass.
-2. If green, shift to the IPTV DHCP callback route/interface status-loss item in `trunk/user/rc/src/net_wan.c`, tracing BusyBox callback semantics and every caller before editing. Do not stay on FTP for the next batch.
-3. Keep FTP MDTM/SITE CHMOD and upload cleanup race, FULLCONENAT target build, NFS compatibility, and L3/L4 validation queued.
+1. Fetch live `main` and reconcile every workflow triggered by the IPTV callback paths against the exact resulting SHA, especially WAN DHCP callback, WAN route status and AI handoff documentation. Confirm the GNU89 host binaries and IPTV source-order contract pass.
+2. If green, rotate to a different user-space subsystem and select a concrete stability issue from the whole-repository governance ledger (DNSMasq/resolver lifecycle is a current candidate); do not extend the FTP-only streak. Static-IP IPTV startup and ZeroConf callbacks remain separate queued work.
+3. Keep FTP MDTM/SITE CHMOD and upload cleanup race, FULLCONENAT target kernel/MIPS validation, NFS compatibility, and L3/L4 validation visible.
 
 ## Continuation rules
 

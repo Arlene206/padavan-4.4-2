@@ -2835,8 +2835,11 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 	char *value, *lan_ip, *lan_nm, *ip, *nm, *gw, *rt, *rt_ms, *rt_rfc;
 	char log_prefix[32], *udhcpc_state;
 	char gateway_buf[INET_ADDRSTRLEN], old_gateway[INET_ADDRSTRLEN];
+	char old_ip[INET_ADDRSTRLEN], old_mask[INET_ADDRSTRLEN];
 	unsigned int parsed_value;
-	int lease_dur, is_changed, i_err, dhcp_mtu, route_result;
+	int lease_dur, is_changed, i_err, dhcp_mtu, mtu_seen, route_result;
+	int interface_status, rollback_status, route_status, route_setup_status;
+	struct wan_dhcp_interface_context interface_context;
 
 	snprintf(log_prefix, sizeof(log_prefix), "%s %s Client", "DHCP", "IPTV");
 	udhcpc_state = (is_renew_mode) ? "renew" : "bound";
@@ -2850,6 +2853,13 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 			udhcpc_state, man_ifname);
 		return EINVAL;
 	}
+
+	/* Keep the previous lease identity until its route set is removed. */
+	snprintf(old_gateway, sizeof(old_gateway), "%s", nvram_safe_get("manv_gateway"));
+	snprintf(old_ip, sizeof(old_ip), "%s", nvram_safe_get("manv_ipaddr"));
+	snprintf(old_mask, sizeof(old_mask), "%s", nvram_safe_get("manv_netmask"));
+	interface_context.ifname = man_ifname;
+	is_changed = strcmp(old_ip, ip) != 0;
 
 	gateway_buf[0] = '\0';
 	value = getenv("router");
@@ -2882,6 +2892,7 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 
 	lease_dur = 0;
 	dhcp_mtu = 0;
+	mtu_seen = 0;
 	value = getenv("lease");
 	if (value) {
 		value = trim_r(value);
@@ -2892,69 +2903,130 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 	}
 	value = getenv("mtu");
 	if (value) {
+		mtu_seen = 1;
 		value = trim_r(value);
 		if (!dhcp_lease_decimal_is_valid(value, 576U, 1500U, &parsed_value)) {
 			dhcp_mtu = 0;
-			nvram_set_int_temp("manv_mtu", 0);
 			logmessage(log_prefix, "ignoring invalid DHCP MTU on %s", man_ifname);
 		} else {
 			dhcp_mtu = (int)parsed_value;
-			nvram_set_int_temp("manv_mtu", dhcp_mtu);
 		}
 	}
 
-	/* Remove old lease-derived routes before overwriting their only record. */
-	snprintf(old_gateway, sizeof(old_gateway), "%s", nvram_safe_get("manv_gateway"));
-	if (dhcp_lease_ipv4_is_valid(old_gateway))
-		route_del(man_ifname, 10, "0.0.0.0", old_gateway, "0.0.0.0");
-	del_dhcp_routes_by_prefix("manv_", man_ifname, 0);
+	lan_ip = nvram_safe_get("lan_ipaddr");
+	lan_nm = nvram_safe_get("lan_netmask");
+	i_err = 0;
+	if (is_same_subnet2(ip, lan_ip, nm, lan_nm)) {
+		if (!is_renew_mode) {
+			interface_status = wan_dhcp_interface_clear(&interface_context);
+			if (interface_status != 0) {
+				logmessage(log_prefix,
+					"failed to clear conflicting IPTV DHCP address on %s (error=%d)",
+					man_ifname, interface_status);
+				return interface_status;
+			}
+		}
 
-	is_changed = nvram_invmatch("manv_ipaddr", ip);
+		i_err = 1;
+		logmessage(log_prefix,
+			"%s (%s). ERROR! Obtained IP [%s/%s] in LAN subnet [%s/%s]. Need change LAN subnet!",
+			udhcpc_state, man_ifname, ip, nm, lan_ip, lan_nm);
+	} else {
+		/*
+		 * Do not publish a lease or discard old routes until the new
+		 * interface address is confirmed. Restore the last-known-good
+		 * address if either address operation fails.
+		 */
+		interface_status = dhcp_wan_interface_apply(
+			old_ip, old_mask, ip, nm, is_changed,
+			&wan_dhcp_interface_ops, &interface_context, &rollback_status);
+		if (interface_status != 0) {
+			logmessage(log_prefix,
+				"failed to apply IPTV DHCP address on %s (error=%d); preserving previous lease and routes",
+				man_ifname, interface_status);
+			if (rollback_status != 0)
+				logmessage(log_prefix,
+					"failed to restore previous IPTV DHCP address on %s (error=%d)",
+					man_ifname, rollback_status);
+			return interface_status;
+		}
+	}
+
+	/*
+	 * Remove the old route inventory before replacing its NVRAM source data.
+	 * If teardown is incomplete, restore the old address and retain that
+	 * inventory so a later cleanup still knows which routes to remove.
+	 */
+	route_status = 0;
+	if (dhcp_lease_ipv4_is_valid(old_gateway)) {
+		route_result = route_del(man_ifname, 10, "0.0.0.0", old_gateway, "0.0.0.0");
+		route_status = route_status_accumulate(route_status, route_result);
+		if (route_result != 0)
+			logmessage(log_prefix, "failed to delete previous IPTV default route via %s (error=%d)",
+				old_gateway, route_result);
+	}
+	route_result = del_dhcp_routes_by_prefix("manv_", man_ifname, 0);
+	route_status = route_status_accumulate(route_status, route_result);
+	if (route_result != 0)
+		logmessage(log_prefix, "failed to delete previous IPTV DHCP routes on %s (error=%d)",
+			man_ifname, route_result);
+
+	if (route_status != 0) {
+		if (dhcp_lease_ipv4_is_valid(old_ip) && dhcp_lease_netmask_is_valid(old_mask))
+			rollback_status = wan_dhcp_interface_set(&interface_context, old_ip, old_mask);
+		else
+			rollback_status = wan_dhcp_interface_clear(&interface_context);
+		logmessage(log_prefix,
+			"previous IPTV route teardown incomplete on %s (error=%d); preserving previous lease and route inventory",
+			man_ifname, route_status);
+		if (rollback_status != 0)
+			logmessage(log_prefix,
+				"failed to restore previous IPTV address on %s after route teardown failure (error=%d)",
+				man_ifname, rollback_status);
+		return route_status;
+	}
+
 	nvram_set_temp("manv_ipaddr", ip);
 	nvram_set_temp("manv_netmask", nm);
 	nvram_set_temp("manv_gateway", gw);
 	nvram_set_temp("manv_routes", rt);
 	nvram_set_temp("manv_routes_ms", rt_ms);
 	nvram_set_temp("manv_routes_rfc", rt_rfc);
+	if (mtu_seen)
+		nvram_set_int_temp("manv_mtu", dhcp_mtu);
 
-	lan_ip = nvram_safe_get("lan_ipaddr");
-	lan_nm = nvram_safe_get("lan_netmask");
-
-	i_err = 0;
-	if (is_same_subnet2(ip, lan_ip, nm, lan_nm)) {
-		if (!is_renew_mode)
-			ifconfig(man_ifname, IFUP, "0.0.0.0", NULL);
-
-		i_err = 1;
-
-		logmessage(log_prefix,
-			"%s (%s). ERROR! Obtained IP [%s/%s] in LAN subnet [%s/%s]. Need change LAN subnet!",
-			udhcpc_state, man_ifname, ip, nm, lan_ip, lan_nm);
-	} else {
-		if (is_changed)
-			ifconfig(man_ifname, IFUP, "0.0.0.0", NULL);
-
+	route_setup_status = 0;
+	if (!i_err) {
 		if (!is_renew_mode && dhcp_mtu >= 1300 && dhcp_mtu < 1500)
 			set_interface_mtu(man_ifname, dhcp_mtu);
-
-		ifconfig(man_ifname, IFUP, ip, nm);
 
 		logmessage(log_prefix,
 			"%s (%s), IP: %s, GW: %s, lease time: %d",
 			udhcpc_state, man_ifname, ip, gw, lease_dur);
 
-		if (*rt || *rt_rfc || *rt_ms)
-			add_dhcp_routes(rt, rt_rfc, rt_ms, man_ifname, 0);
+		if (*rt || *rt_rfc || *rt_ms) {
+			route_result = add_dhcp_routes(rt, rt_rfc, rt_ms, man_ifname, 0);
+			route_setup_status = route_status_accumulate(route_setup_status, route_result);
+		}
 
-		/* default route via IPTV gateway (metric 10) */
-		if (dhcp_lease_ipv4_is_valid(gw))
-			route_add(man_ifname, 10, "0.0.0.0", gw, "0.0.0.0");
+		/* Default route via IPTV gateway (metric 10). */
+		if (dhcp_lease_ipv4_is_valid(gw)) {
+			route_result = route_add(man_ifname, 10, "0.0.0.0", gw, "0.0.0.0");
+			route_setup_status = route_status_accumulate(route_setup_status, route_result);
+			if (route_result != 0)
+				logmessage(log_prefix, "failed to add IPTV default route via %s (error=%d)",
+					gw, route_result);
+		}
 
+		if (route_setup_status != 0)
+			logmessage(log_prefix,
+				"%s (%s) accepted but route setup is incomplete (error=%d)",
+				udhcpc_state, man_ifname, route_setup_status);
 		start_igmpproxy(man_ifname);
 	}
 
 	nvram_set_int_temp("manv_err", i_err);
-	return 0;
+	return route_setup_status;
 }
 
 static int
@@ -3252,7 +3324,7 @@ udhcpc_main(int argc, char **argv)
 int
 udhcpc_viptv_main(int argc, char **argv)
 {
-	int ret = 0;
+	int ret = 0, route_status = 0, route_result;
 	char *man_ifname = safe_getenv("interface");
 
 	if (argc<2 || !argv[1] || strlen(man_ifname) < 1)
@@ -3261,15 +3333,33 @@ udhcpc_viptv_main(int argc, char **argv)
 	umask(0000);
 
 	if (!strcmp(argv[1], "deconfig")) {
-		char *old_gateway = nvram_safe_get("manv_gateway");
-		del_dhcp_routes_by_prefix("manv_", man_ifname, 0);
-		if (dhcp_lease_ipv4_is_valid(old_gateway))
-			route_del(man_ifname, 10, "0.0.0.0", old_gateway, "0.0.0.0");
-		nvram_set_temp("manv_gateway", "");
-		nvram_set_temp("manv_routes", "");
-		nvram_set_temp("manv_routes_ms", "");
-		nvram_set_temp("manv_routes_rfc", "");
-		ret = 0;
+		char old_gateway[INET_ADDRSTRLEN];
+
+		snprintf(old_gateway, sizeof(old_gateway), "%s", nvram_safe_get("manv_gateway"));
+		route_result = del_dhcp_routes_by_prefix("manv_", man_ifname, 0);
+		route_status = route_status_accumulate(route_status, route_result);
+		if (route_result != 0)
+			logmessage(LOGNAME, "failed to delete IPTV DHCP routes on %s (error=%d)",
+				man_ifname, route_result);
+		if (dhcp_lease_ipv4_is_valid(old_gateway)) {
+			route_result = route_del(man_ifname, 10, "0.0.0.0", old_gateway, "0.0.0.0");
+			route_status = route_status_accumulate(route_status, route_result);
+			if (route_result != 0)
+				logmessage(LOGNAME, "failed to delete IPTV default route via %s (error=%d)",
+					old_gateway, route_result);
+		}
+
+		if (route_status == 0) {
+			nvram_set_temp("manv_gateway", "");
+			nvram_set_temp("manv_routes", "");
+			nvram_set_temp("manv_routes_ms", "");
+			nvram_set_temp("manv_routes_rfc", "");
+		} else {
+			logmessage(LOGNAME,
+				"IPTV DHCP route teardown incomplete on %s (error=%d); preserving route inventory",
+				man_ifname, route_status);
+		}
+		ret = route_status;
 	} else if (!strcmp(argv[1], "bound"))
 		ret = udhcpc_viptv_bound(man_ifname, 0);
 	else if (!strcmp(argv[1], "renew"))

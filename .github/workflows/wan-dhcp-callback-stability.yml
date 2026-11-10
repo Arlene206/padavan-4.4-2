@@ -94,6 +94,33 @@ jobs:
           public_man_down = body(source, "man_down(char *man_ifname, int unit)")
           assert "man_down_internal(man_ifname, unit, 0)" in public_man_down
 
+          viptv_bound = body(source, "udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)")
+          assert "dhcp_wan_interface_apply(" in viptv_bound
+          assert 'snprintf(old_ip, sizeof(old_ip), "%s", nvram_safe_get("manv_ipaddr"))' in viptv_bound
+          assert 'snprintf(old_mask, sizeof(old_mask), "%s", nvram_safe_get("manv_netmask"))' in viptv_bound
+          assert "interface_status = wan_dhcp_interface_clear(&interface_context)" in viptv_bound
+          assert "failed to clear conflicting IPTV DHCP address" in viptv_bound
+          assert "failed to apply IPTV DHCP address" in viptv_bound
+          assert "failed to restore previous IPTV DHCP address" in viptv_bound
+          assert viptv_bound.index("dhcp_wan_interface_apply(") < viptv_bound.index('route_result = route_del(man_ifname, 10')
+          assert viptv_bound.index('route_result = del_dhcp_routes_by_prefix("manv_"') < viptv_bound.index('nvram_set_temp("manv_ipaddr", ip)')
+          assert viptv_bound.count("route_status = route_status_accumulate(route_status, route_result);") == 2
+          assert "preserving previous lease and route inventory" in viptv_bound
+          assert "return route_status;" in viptv_bound
+          assert "route_result = add_dhcp_routes(rt, rt_rfc, rt_ms, man_ifname, 0);" in viptv_bound
+          assert "route_result = route_add(man_ifname, 10" in viptv_bound
+          assert viptv_bound.count("route_setup_status = route_status_accumulate(route_setup_status, route_result);") == 2
+          assert "accepted but route setup is incomplete" in viptv_bound
+          assert "return route_setup_status;" in viptv_bound
+
+          viptv_deconfig = body(source, "udhcpc_viptv_main(int argc, char **argv)")
+          assert 'route_result = del_dhcp_routes_by_prefix("manv_"' in viptv_deconfig
+          assert 'route_result = route_del(man_ifname, 10' in viptv_deconfig
+          assert viptv_deconfig.count("route_status = route_status_accumulate(route_status, route_result);") == 2
+          assert viptv_deconfig.index("if (route_status == 0)") < viptv_deconfig.index('nvram_set_temp("manv_gateway", "")')
+          assert "preserving route inventory" in viptv_deconfig
+          assert "ret = route_status;" in viptv_deconfig
+
           paths = (
               ".github/workflows/wan-dhcp-callback-stability.yml",
               "trunk/user/rc/src/net_wan.c",
