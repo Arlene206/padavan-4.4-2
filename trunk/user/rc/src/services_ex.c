@@ -36,6 +36,7 @@
 #include "dnsmasq_file.h"
 #include "dnsmasq_lifecycle_lock.h"
 #include "dnsmasq_restart_policy.h"
+#include "miniupnpd_config_file.h"
 #include "samba_config_value_policy.h"
 #if defined(APP_SMBD) || defined(APP_NMBD)
 #include "samba_config_file.h"
@@ -998,16 +999,101 @@ is_upnp_run(void)
 	return pids("miniupnpd");
 }
 
+struct miniupnpd_config_data {
+	const char *wan_ifname;
+	const char *lan_url;
+	const char *proto_upnp;
+	const char *proto_npmp;
+	const char *secured;
+	const char *lan_class;
+	int clean_min;
+	int clean_int;
+	int iport_min;
+	int iport_max;
+	int eport_min;
+	int eport_max;
+	uint8_t lan_mac[6];
+};
+
+static int
+miniupnpd_write_config(FILE *fp, void *opaque)
+{
+	struct miniupnpd_config_data *config = (struct miniupnpd_config_data *)opaque;
+
+	if (fprintf(fp, "# automatically generated\n") < 0)
+		return errno ? errno : EIO;
+	if (fprintf(fp,
+		"ext_ifname=%s\n"
+		"listening_ip=%s\n"
+		"port=%d\n"
+		"enable_upnp=%s\n"
+		"enable_natpmp=%s\n"
+		"upnp_forward_chain=%s\n"
+		"upnp_nat_chain=%s\n"
+		"upnp_nat_postrouting_chain=%s\n"
+		"secure_mode=%s\n"
+		"lease_file=%s\n"
+		"presentation_url=http://%s/\n"
+		"system_uptime=yes\n"
+		"notify_interval=%d\n"
+		"clean_ruleset_interval=%d\n"
+		"clean_ruleset_threshold=%d\n"
+		"uuid=75802409-bccb-40e7-8e6c-%02x%02x%02x%02x%02x%02x\n"
+		"friendly_name=%s\n"
+		"manufacturer_name=%s\n"
+		"manufacturer_url=%s\n"
+		"model_name=%s\n"
+		"model_description=%s\n"
+		"model_url=%s\n"
+		"model_number=%s\n"
+		"serial=%s\n"
+		"bitrate_up=%d\n"
+		"bitrate_down=%d\n"
+		"allow %d-%d %s %d-%d\n"
+		"deny 0-65535 0.0.0.0/0 0-65535\n",
+		config->wan_ifname,
+		IFNAME_BR, /*lan_addr, lan_mask,*/
+		0,
+		config->proto_upnp,
+		config->proto_npmp,
+		MINIUPNPD_CHAIN_IP4_FORWARD,
+		MINIUPNPD_CHAIN_IP4_NAT,
+		MINIUPNPD_CHAIN_IP4_NAT_POST,
+		config->secured,
+		UPNPD_LEASE_FILE,
+		config->lan_url,
+		60,
+		config->clean_int,
+		config->clean_min,
+		config->lan_mac[0], config->lan_mac[1], config->lan_mac[2],
+		config->lan_mac[3], config->lan_mac[4], config->lan_mac[5],
+		BOARD_DESC,
+		BOARD_VENDOR_NAME,
+		BOARD_VENDOR_URL,
+		"Wireless Router",
+		BOARD_DESC,
+		BOARD_MODEL_URL,
+		BOARD_NAME,
+		"1.0",
+		100000000,
+		100000000,
+		config->eport_min, config->eport_max, config->lan_class,
+		config->iport_min, config->iport_max) < 0)
+		return errno ? errno : EIO;
+
+	return 0;
+}
+
 int
 start_upnp(void)
 {
-	FILE *fp;
 	int ret, i_proto_use, i_clean_min, i_clean_int, i_iports[2], i_eports[2];
 	char *lan_addr, *lan_mask, *lan_url, *proto_upnp, *proto_npmp, *secured;
 	char var[100];
 	char wan_ifname[16];
 	char lan_class[24];
 	uint8_t lan_mac[16];
+	struct miniupnpd_config_data config;
 
 	if (!nvram_get_int("upnp_enable_x") || !nvram_get_int("wan_nat_x") || get_ap_mode())
 		return 0;
@@ -1054,69 +1140,27 @@ start_upnp(void)
 
 	secured = (nvram_get_int("upnp_secure")) ? "yes" : "no";
 
-	/* Write configuration file */
-	if (!(fp = fopen("/etc/miniupnpd.conf", "w"))) {
-		return errno;
+	memset(&config, 0, sizeof(config));
+	config.wan_ifname = wan_ifname;
+	config.lan_url = lan_url;
+	config.proto_upnp = proto_upnp;
+	config.proto_npmp = proto_npmp;
+	config.secured = secured;
+	config.lan_class = lan_class;
+	config.clean_min = i_clean_min;
+	config.clean_int = i_clean_int;
+	config.iport_min = i_iports[0];
+	config.iport_max = i_iports[1];
+	config.eport_min = i_eports[0];
+	config.eport_max = i_eports[1];
+	memcpy(config.lan_mac, lan_mac, sizeof(config.lan_mac));
+
+	ret = miniupnpd_config_publish("/etc/miniupnpd.conf",
+				       miniupnpd_write_config, &config);
+	if (ret != 0) {
+		logmessage(LOGNAME, "miniupnpd configuration publication failed (status %d)", ret);
+		return ret;
 	}
-
-	fprintf(fp, "# automatically generated\n");
-	fprintf(fp,
-		"ext_ifname=%s\n"
-		"listening_ip=%s\n"
-		"port=%d\n"
-		"enable_upnp=%s\n"
-		"enable_natpmp=%s\n"
-		"upnp_forward_chain=%s\n"
-		"upnp_nat_chain=%s\n"
-		"upnp_nat_postrouting_chain=%s\n"
-		"secure_mode=%s\n"
-		"lease_file=%s\n"
-		"presentation_url=http://%s/\n"
-		"system_uptime=yes\n"
-		"notify_interval=%d\n"
-		"clean_ruleset_interval=%d\n"
-		"clean_ruleset_threshold=%d\n"
-		"uuid=75802409-bccb-40e7-8e6c-%02x%02x%02x%02x%02x%02x\n"
-		"friendly_name=%s\n"
-		"manufacturer_name=%s\n"
-		"manufacturer_url=%s\n"
-		"model_name=%s\n"
-		"model_description=%s\n"
-		"model_url=%s\n"
-		"model_number=%s\n"
-		"serial=%s\n"
-		"bitrate_up=%d\n"
-		"bitrate_down=%d\n"
-		"allow %d-%d %s %d-%d\n"
-		"deny 0-65535 0.0.0.0/0 0-65535\n",
-		wan_ifname,
-		IFNAME_BR, /*lan_addr, lan_mask,*/
-		0,
-		proto_upnp,
-		proto_npmp,
-		MINIUPNPD_CHAIN_IP4_FORWARD,
-		MINIUPNPD_CHAIN_IP4_NAT,
-		MINIUPNPD_CHAIN_IP4_NAT_POST,
-		secured,
-		UPNPD_LEASE_FILE,
-		lan_url,
-		60,
-		i_clean_int,
-		i_clean_min,
-		lan_mac[0], lan_mac[1], lan_mac[2], lan_mac[3], lan_mac[4], lan_mac[5],
-		BOARD_DESC,
-		BOARD_VENDOR_NAME,
-		BOARD_VENDOR_URL,
-		"Wireless Router",
-		BOARD_DESC,
-		BOARD_MODEL_URL,
-		BOARD_NAME,
-		"1.0",
-		100000000,
-		100000000,
-		i_eports[0], i_eports[1], lan_class, i_iports[0], i_iports[1]);
-
-	fclose(fp);
 
 	return eval("/usr/bin/miniupnpd");
 }

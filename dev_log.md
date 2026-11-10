@@ -1,3 +1,15 @@
+## 2026-11-10 20:12 CST (UTC+8) — Publish miniupnpd configuration atomically
+
+- Base main SHA: `ddcbb795e242f14b8620d77f25843e091c2652c5`; branch inventory remains `main` only, with no remote checkpoint branch.
+- Exact-head prerequisite checks: VPN server lifecycle [42815618568], AI handoff docs [42815618091] and dependent HTTPD security [42815618058] completed SUCCESS on this base SHA; every job step was inspected.
+- Finding: `start_upnp()` opened `/etc/miniupnpd.conf` directly with `fopen(..., "w")`, ignored both `fprintf()` results and the `fclose()` result, then unconditionally launched miniupnpd. An ENOSPC or other write/close error could truncate the last usable configuration and still start the daemon with incomplete settings.
+- Fix: generate into a unique mode-0600 temporary file in the target directory; check the writer result, `fflush()`, EINTR-aware `fsync()` and `fclose()`; publish only via same-directory `rename()`. Every failure removes the temporary file and preserves the previous config. The UPnP writer checks both formatted writes, logs a publication failure and gates daemon launch on successful atomic publication.
+- Regression: add a GNU89 host test for partial-writer failure preserving the last-good file, temporary-file cleanup, successful replacement/mode 0600, and invalid arguments. Add a focused GitHub Actions workflow with the host regression, production writer/start-order contracts, and push/PR path filters.
+- Changed paths: `trunk/user/rc/src/miniupnpd_config_file.h`, `trunk/user/rc/src/services_ex.c`, `trunk/user/rc/src/tests/miniupnpd_config_file.c`, `.github/workflows/miniupnpd-config-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log. Root log had 44 complete newest-first records and has 45; no archive rotation or INDEX update is due.
+- Validation: local `cc -std=gnu89 -Wall -Wextra -Werror` compile/run PASS, then ASan/UBSan compile/run PASS (`miniupnpd atomic config publication: PASS`). The production RC translation unit was not compiled; semantic contract and AI handoff validation are pending Actions on the resulting exact SHA. No MIPS/uClibc production object, firmware/TRX or L4 router test is claimed.
+- Resulting commit: THIS COMMIT.
+- Next: inspect every job step in the exact-head miniupnpd config-publication and AI handoff Actions. If green, continue with a fresh host-verifiable stability audit in another under-covered userland package; keep target MIPS/uClibc, firmware/TRX and L4 behavior explicitly unverified.
+
 ## 2026-11-10 20:12 CST (UTC+8) — Serialize VPN server lifecycle across RC callers
 
 - **Base main SHA:** `0dbc2f614f47c7e8d53f303b6fd3065b3863a59e`; only remote branch is `main`, with no checkpoint. Prior PID 1 notification task is closed: queue run [42811368029] and AI handoff docs [42811367804] both SUCCESS on that exact SHA; all job steps inspected.
