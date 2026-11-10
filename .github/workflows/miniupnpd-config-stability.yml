@@ -12,16 +12,16 @@ on:
       - "trunk/user/rc/src/tests/miniupnpd_daemon_policy_test.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/daemonize.c"
-      - "trunk/user/rc/src/miniupnpd_daemon_policy.h"
-      - "trunk/user/rc/src/tests/miniupnpd_daemon_policy_test.c"
-      - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd.c"
-      - "trunk/user/miniupnpd/miniupnpd-2.x/daemonize.c"
   pull_request:
     paths:
       - ".github/workflows/miniupnpd-config-stability.yml"
       - "trunk/user/rc/src/services_ex.c"
       - "trunk/user/rc/src/miniupnpd_config_file.h"
       - "trunk/user/rc/src/tests/miniupnpd_config_file.c"
+      - "trunk/user/rc/src/miniupnpd_daemon_policy.h"
+      - "trunk/user/rc/src/tests/miniupnpd_daemon_policy_test.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/daemonize.c"
   workflow_dispatch:
 
 permissions:

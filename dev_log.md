@@ -1,3 +1,14 @@
+## 2026-11-11 06:55 CST (UTC+8) — Repair miniupnpd workflow path-filter symmetry
+
+- Base main SHA: `e884b897420320ed25dba245501ba66c8cd39bb0`; parent `690fb429e70b9b1b420d0c69b72f27293cbcdce9`.
+- Exact-head miniupnpd rerun [42919991850] compiled and ran both atomic-config and daemon-start GNU89 regression binaries successfully. Its source contract then failed at the path-filter count assertion: the new daemon source/helper/test paths had been duplicated in the `push` filter and omitted from `pull_request`. The AI handoff workflow [42919991880] passed on the same SHA.
+- Fix in THIS COMMIT: normalize both path lists so all eight watched paths (workflow, service source, config helper/test, daemon policy/helper test, miniupnpd.c and daemonize.c) occur exactly once under both `push` and `pull_request`. Production code and C regression sources are unchanged in this correction.
+- Pre-commit static preflight: checked C source/test tokens, the daemon-parent-success/child-continuation code path, source confirmation ordering, atomic config invariants and unique symmetric push/PR path counts. All preflight assertions passed before writing this commit.
+- Root `dev_log.md`: 74 records before, 75 after; no archive rotation or index update is due.
+- Next: inspect exact-head miniupnpd and AI handoff workflow results and every step/log. Do not claim green until the corrected path-filter assertion completes. Then trace miniupnpd stop-status propagation, WAN interface migration, restart ordering and SIGUSR1 mapping reload status before rotating to another userland subsystem. FTP TOCTOU remains OPEN/BLOCKED; no target MIPS/uClibc, full firmware/TRX or physical L4 test is claimed.
+
+---
+
 ## 2026-11-11 06:50 CST (UTC+8) — Correct the miniupnpd source-contract assertion
 
 - Base main SHA: `690fb429e70b9b1b420d0c69b72f27293cbcdce9`; parent `644735078f026164da3950f8b0addff438ee066f`.
