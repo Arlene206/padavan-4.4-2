@@ -1,20 +1,19 @@
 ## Current repository state
 
-- Maintained fork: Arlene206/padavan-4.4-2; work only on this repository.
-- Base main SHA for THIS COMMIT: `89bd55dfc4b27f9aebfaf2da138ec276b020e9bf`; only remote branch is `main`, with no checkpoint branch. Never force-push.
-- The initial `detect_internet` signal-deferral commit and AI handoff contract both passed exact-head Actions [42828915497] and [42828915453] on `89bd55dfc4b27f9aebfaf2da138ec276b020e9bf`; every step was inspected.
-- THIS follow-up keeps pause/resume transitions under the managed-signal block and only unmasks for the bounded timer probe. The exact-head strengthened semantic and AI documentation Actions for THIS COMMIT are pending.
-- Root `dev_log.md` has 47 complete records before THIS COMMIT; this follow-up makes 48. No archive rotation or INDEX update is due.
-- Open boundaries: `detect_link` and watchdog signal/event behavior, FTP failed-upload cleanup TOCTOU, NFS export/client compatibility, VPN in-flight PPP callback fencing, FULLCONENAT target build, and target MIPS/uClibc plus L4 router validation.
+- Maintained fork: Arlene206/padavan-4.4-2; work only on this repository. Base main SHA for THIS COMMIT: `f32c23201f3338cffa256030a7269c114e70ec68`; only remote branch is `main`, with no checkpoint branch. Never force-push.
+- Previous task closed: detect_internet signal/control dispatch. Exact-head signal regression [42829669707] and AI handoff docs [42829670027] both SUCCESS on `f32c23201f3338cffa256030a7269c114e70ec68`; all job steps were inspected.
+- THIS COMMIT defers detect_link PHY polling, NVRAM/GPIO/LED updates, WAN script execution and modem notifications out of signal context. The handler now records `sig_atomic_t` events; a blocked-snapshot/`sigsuspend()` loop performs work in normal context and gives termination priority. New GNU89/ASan/UBSan and caller/source-contract Actions are pending on THIS resulting SHA.
+- Root `dev_log.md` has 48 complete records before THIS COMMIT; this milestone makes 49. No archive rotation or INDEX update is due.
+- Open boundaries: watchdog signal/event reentrancy; FTP failed-upload cleanup TOCTOU; NFS export/client compatibility; VPN in-flight PPP callback fencing; FULLCONENAT target build; target MIPS/uClibc and L4 router validation.
 
 ## Active task
 
-- Next module: audit the signal/event lifecycle in `trunk/user/rc/src/detect_link.c`. Trace SIGALRM/SIGHUP/SIGUSR1 handling, timer-driven PHY queries and LED/WAN notification side effects, reset/LED/stop callers, and the signal mask. Do not copy the `detect_internet` implementation without checking separate PHY/link-state invariants.
+- Next module: audit signal/event lifecycle in `trunk/user/rc/src/watchdog.c`. Trace SIGALRM/SIGHUP/SIGUSR1/SIGTERM dispatch, service/process checks, PHY/network calls, storage/time updates, timer rearming, signal masks and notification callers. Determine the smallest safe deferred-dispatch design and GNU89 regression; do not weaken watchdog ordering or retry behavior.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect every job step in the exact-head detect-internet signal and AI handoff Actions for THIS COMMIT; reconcile the exact SHA and fix any failure first.
-2. If green, continue the `detect_link.c` signal/event lifecycle audit. Keep the FTP cleanup race, NFS client compatibility, VPN callback fence, FULLCONENAT target compile and L3/L4 gaps open.
+1. Fetch live `main` and inspect every job step in the exact-head detect_link signal regression and AI handoff Actions for THIS COMMIT; reconcile the SHA and fix any failure first.
+2. If green, start the bounded `watchdog.c` signal/event audit described above. Keep FTP upload-cleanup TOCTOU, NFS compatibility, VPN callback fencing, FULLCONENAT target compilation and L3/L4 gaps open.
 
 ## PID 1 notification queue batch fairness
 

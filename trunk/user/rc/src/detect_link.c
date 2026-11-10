@@ -35,6 +35,7 @@
 #include "rc.h"
 #include "switch.h"
 #include "switch_status_policy.h"
+#include "detect_link_signal_policy.h"
 #include "gpio_pins.h"
 
 #define DL_POLL_INTERVAL	2 /* every 2 seconds  */
@@ -44,6 +45,9 @@ static unsigned long dl_counter_total = 0;
 static unsigned long dl_counter_wan_down = 0;
 static unsigned long dl_counter_dhcpc_renew = 0;
 static unsigned long dl_counter_modem_check = 0;
+
+/* Signal handlers only publish pending events; the main loop owns all work. */
+static volatile sig_atomic_t dl_pending_events = 0;
 
 static int dl_status_wan = 0;
 static int dl_status_wan_old = 0;
@@ -332,23 +336,7 @@ dl_update_leds(void)
 static void
 catch_sig_detect_link(int sig)
 {
-	switch (sig)
-	{
-	case SIGALRM:
-		dl_on_timer();
-		break;
-	case SIGHUP:
-		dl_update_leds();
-		break;
-	case SIGUSR1:
-		dl_reset_state();
-		break;
-	case SIGTERM:
-		remove(DL_PID_FILE);
-		dl_alarmtimer(0);
-		exit(0);
-		break;
-	}
+	detect_link_record_signal(&dl_pending_events, sig);
 }
 
 void
@@ -397,28 +385,69 @@ detect_link_main(int argc, char *argv[])
 {
 	FILE *fp;
 	pid_t pid;
+	int saved_errno;
+	sig_atomic_t events;
+	sigset_t managed_signals, original_mask, wait_mask;
 	struct sigaction sa;
+
+	(void)argc;
+	(void)argv;
+
+	sigemptyset(&managed_signals);
+	sigaddset(&managed_signals, SIGALRM);
+	sigaddset(&managed_signals, SIGHUP);
+	sigaddset(&managed_signals, SIGUSR1);
+	sigaddset(&managed_signals, SIGTERM);
+
+	/*
+	 * Keep monitor signals blocked while the main loop snapshots and
+	 * dispatches events. sigsuspend() atomically opens the wait window.
+	 */
+	if (sigprocmask(SIG_BLOCK, &managed_signals, &original_mask) < 0) {
+		perror("sigprocmask");
+		return errno;
+	}
+
+	dl_pending_events = 0;
 
 	memset(&sa, 0, sizeof(sa));
 	sa.sa_handler = catch_sig_detect_link;
-	sigemptyset(&sa.sa_mask);
-	sigaddset(&sa.sa_mask, SIGHUP);
-	sigaddset(&sa.sa_mask, SIGUSR1);
-	sigaddset(&sa.sa_mask, SIGALRM);
-	sigaction(SIGHUP, &sa, NULL);
-	sigaction(SIGUSR1, &sa, NULL);
-	sigaction(SIGALRM, &sa, NULL);
-	sigaction(SIGTERM, &sa, NULL);
+	sa.sa_mask = managed_signals;
+	if (sigaction(SIGHUP, &sa, NULL) < 0 ||
+	    sigaction(SIGUSR1, &sa, NULL) < 0 ||
+	    sigaction(SIGALRM, &sa, NULL) < 0 ||
+	    sigaction(SIGTERM, &sa, NULL) < 0) {
+		saved_errno = errno;
+		(void)sigprocmask(SIG_SETMASK, &original_mask, NULL);
+		errno = saved_errno;
+		perror("sigaction");
+		return saved_errno;
+	}
 
 	memset(&sa, 0, sizeof(sa));
 	sa.sa_handler = SIG_IGN;
 	sigemptyset(&sa.sa_mask);
-	sigaction(SIGPIPE, &sa, NULL);
-	sigaction(SIGUSR2, &sa, NULL);
+	if (sigaction(SIGPIPE, &sa, NULL) < 0 ||
+	    sigaction(SIGUSR2, &sa, NULL) < 0) {
+		saved_errno = errno;
+		(void)sigprocmask(SIG_SETMASK, &original_mask, NULL);
+		errno = saved_errno;
+		perror("sigaction");
+		return saved_errno;
+	}
+
+	wait_mask = original_mask;
+	sigdelset(&wait_mask, SIGALRM);
+	sigdelset(&wait_mask, SIGHUP);
+	sigdelset(&wait_mask, SIGUSR1);
+	sigdelset(&wait_mask, SIGTERM);
 
 	if (daemon(0, 0) < 0) {
+		saved_errno = errno;
+		(void)sigprocmask(SIG_SETMASK, &original_mask, NULL);
+		errno = saved_errno;
 		perror("daemon");
-		exit(errno);
+		exit(saved_errno);
 	}
 
 	pid = getpid();
@@ -427,7 +456,7 @@ detect_link_main(int argc, char *argv[])
 	oom_score_adjust(pid, OOM_SCORE_ADJ_MIN);
 
 	/* write pid */
-	if ((fp=fopen(DL_PID_FILE, "w"))!=NULL) {
+	if ((fp = fopen(DL_PID_FILE, "w")) != NULL) {
 		fprintf(fp, "%d", pid);
 		fclose(fp);
 	}
@@ -436,9 +465,43 @@ detect_link_main(int argc, char *argv[])
 	dl_alarmtimer(DL_POLL_INTERVAL);
 
 	while (1) {
-		pause();
+		/*
+		 * Signals queued during dispatch remain pending while blocked.
+		 * sigsuspend() both opens the signal window and waits atomically.
+		 */
+		if (sigsuspend(&wait_mask) < 0 && errno != EINTR) {
+			saved_errno = errno;
+			dl_alarmtimer(0);
+			if (remove(DL_PID_FILE) != 0 && errno != ENOENT)
+				logmessage("detect_link", "cannot remove pid file (errno=%d)", errno);
+			(void)sigprocmask(SIG_SETMASK, &original_mask, NULL);
+			errno = saved_errno;
+			perror("sigsuspend");
+			return saved_errno;
+		}
+
+		events = detect_link_take_pending_events(&dl_pending_events);
+
+		/* Stop wins over refresh and timer work. */
+		if (events & DL_PENDING_TERMINATE) {
+			dl_alarmtimer(0);
+			if (remove(DL_PID_FILE) != 0 && errno != ENOENT)
+				logmessage("detect_link", "cannot remove pid file (errno=%d)", errno);
+			(void)sigprocmask(SIG_SETMASK, &original_mask, NULL);
+			return 0;
+		}
+
+		/* Re-read topology before applying a queued poll to old state. */
+		if (events & DL_PENDING_RESET)
+			dl_reset_state();
+
+		if (events & DL_PENDING_TIMER)
+			dl_on_timer();
+
+		/* Refresh LEDs from the latest cached link state. */
+		if (events & DL_PENDING_LED_REFRESH)
+			dl_update_leds();
 	}
 
 	return 0;
 }
-

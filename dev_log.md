@@ -1,3 +1,18 @@
+## 2026-11-10 22:03 CST (UTC+8) — Defer detect_link PHY and LED work out of signal context
+
+- **Base main SHA:** `f32c23201f3338cffa256030a7269c114e70ec68`. The preceding detect_internet signal lifecycle regression [42829669707] and AI handoff documentation contract [42829670027] both completed SUCCESS on this exact base SHA; all job steps were inspected.
+- **Finding:** `catch_sig_detect_link()` directly ran PHY/link polling, NVRAM updates, LED/GPIO operations, WAN scripts and modem notifications from SIGALRM; SIGHUP directly refreshed LEDs; SIGUSR1 reset monitor state; SIGTERM removed the PID file, stopped the timer and called `exit()`. These non-async-signal-safe operations could re-enter shared daemon state, and SIGTERM was absent from the other handlers' mask so it could interrupt an in-progress update.
+- **Fix:** add `detect_link_signal_policy.h` with `sig_atomic_t` event recording and an atomic snapshot/clear helper. Block SIGALRM/SIGHUP/SIGUSR1/SIGTERM before installing handlers; handlers only OR their event bit. The main loop uses `sigsuspend()` to avoid the pause/signal lost-wakeup window, snapshots while managed signals are blocked, gives termination priority, then applies reset, timer and LED refresh in normal process context. Cleanup now runs in ordinary context and restores the inherited signal mask before return.
+- **Ordering:** topology reset precedes a queued timer poll; LED refresh follows the poll so it reads the latest cached link state. Periodic timer behavior and the existing SIGUSR1/SIGHUP/SIGTERM caller interfaces remain unchanged.
+- **Regression:** new GNU89 policy coverage checks event mapping, repeated standard-signal coalescing, sticky termination, and snapshot/clear. The dedicated Actions workflow compiles/runs it under ASan/UBSan and verifies handler purity, block/sigsuspend/wakeup ordering, stop priority, event dispatch ordering, WAN/LAN/reset/LED/stop callers, multicall registration and push/PR path filters.
+- **Changed paths:** `trunk/user/rc/src/detect_link.c`, new `trunk/user/rc/src/detect_link_signal_policy.h`, new `trunk/user/rc/src/tests/detect_link_signal_policy.c`, new `.github/workflows/detect-link-signal-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log.
+- **Validation:** L1 source/caller/control-flow review PASS. No local checkout was available, so the new GNU89 binary and source contract were not run locally; exact-head detect_link and AI handoff Actions are pending on THIS COMMIT. No full RC translation-unit, MIPS/uClibc object, firmware/TRX or L4 router validation is claimed.
+- **Root log:** 48 complete newest-first records before this entry; 49 after. No rotation or INDEX update is due.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** reconcile the exact-head detect_link regression and AI handoff Actions. If green, audit `trunk/user/rc/src/watchdog.c` signal/event dispatch: its SIGALRM/SIGHUP/SIGUSR1 handlers currently invoke full watchdog work directly; trace service-check and storage/time side effects and design a bounded GNU89 regression before editing. Keep FTP upload-cleanup TOCTOU, NFS client compatibility, VPN callback fencing, FULLCONENAT target compile and all L3/L4 gaps open.
+
+---
+
 ## 2026-11-10 21:57 CST (UTC+8) — Serialize detect_internet control transitions against signal arrivals
 
 - Base main SHA: `89bd55dfc4b27f9aebfaf2da138ec276b020e9bf`; exact-head signal lifecycle [42828915497] and AI handoff docs [42828915453] both SUCCESS on this base SHA, with every job step inspected.

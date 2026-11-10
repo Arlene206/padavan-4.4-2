@@ -1,9 +1,9 @@
 ## Current source / CI checkpoint
 
-- Repository: Arlene206/padavan-4.4-2; maintained fork only. Base main SHA for THIS COMMIT: `89bd55dfc4b27f9aebfaf2da138ec276b020e9bf`; only remote branch is main, with no checkpoint branch.
-- Initial `detect_internet` signal deferral is reconciled: exact-head signal regression [42828915497] and AI handoff docs [42828915453] SUCCESS on `89bd55dfc4b27f9aebfaf2da138ec276b020e9bf`; all job steps inspected.
-- THIS follow-up serializes pause/resume application while managed signals remain blocked and only unmasks around the timer probe. The strengthened source contract checks that newer pause/stop requests cannot be overwritten by an older resume action. Exact-head follow-up semantic and AI docs Actions pending.
-- Root `dev_log.md` has 48 complete newest-first records; no archive rotation or INDEX update is due. Existing archive shards remain unchanged.
+- Repository: Arlene206/padavan-4.4-2; maintained fork only. Base main SHA for THIS COMMIT: `f32c23201f3338cffa256030a7269c114e70ec68`; only remote branch is main, with no checkpoint branch.
+- Previous detect_internet signal/control follow-up is reconciled: exact-head signal regression [42829669707] and AI handoff docs [42829670027] SUCCESS on `f32c23201f3338cffa256030a7269c114e70ec68`; all job steps inspected.
+- THIS COMMIT moves detect_link signal handling to `sig_atomic_t` event recording and blocked-snapshot/`sigsuspend()` dispatch. PHY polling, NVRAM/GPIO/LED work, WAN scripts and modem notifications now run in normal context; GNU89 ASan/UBSan and semantic/caller Actions are pending on THIS exact SHA.
+- Root `dev_log.md` has 49 complete newest-first records; no archive rotation or INDEX update is due. Existing archive shards remain unchanged.
 - Full RC/MIPS/uClibc objects, firmware/TRX, and L4 router behavior remain NOT VERIFIED.
 
 ## Whole-repository module status
@@ -11,7 +11,7 @@
 | Module | Status | Verified bounded work | Open reliability / security work |
 |---|---|---|---|
 | LAN DHCP client / AP-mode lease | PARTIAL / AUDITING | Required IP/netmask validation; optional router/DNS/WINS/domain normalization; withdrawn option clearing; changed-gateway delete-before-publish; fail-closed deconfig cleanup; bound/renew checked address/route/resolver transaction with rollback and last-known-good lease fields preserved. Exact-head GNU89 host/source regression PASS on `70415484275e9c542be3d45b8bad807fb6a09591`. | BusyBox discards event-script exit status; leasefail/NAK/release state handling, retry semantics and live DHCP transitions remain open. |
-| WAN link / gateway monitoring | PARTIAL / AUDITING | `detect_wan` gateway ARP probe requires checked `SO_BINDTODEVICE` and one-second `SO_RCVTIMEO`; exact-head GNU89/ASan/UBSan and Linux 4.4 source contract PASS on `8ba94ea89a373bf4afa93a5d4a2187a059882fd5` [42819898452]. `detect_internet` defers signal work to normal context via `sig_atomic_t` event recording and blocked-signal snapshot/`sigsuspend()`; follow-up keeps control transitions blocked and unmasks only for the bounded probe. Initial exact-head regression/docs runs PASS [42828915497, 42828915453]; follow-up Actions pending. | `detect_link` signal-context event dispatch, watchdog reentrancy, AP/WAN topology and live interface behavior remain unaudited; MIPS/uClibc and L4 behavior unverified. |
+| WAN link / gateway monitoring | PARTIAL / AUDITING | `detect_wan` gateway ARP probe requires checked `SO_BINDTODEVICE` and one-second `SO_RCVTIMEO`; exact-head GNU89/ASan/UBSan and Linux 4.4 socket-option contract PASS on `8ba94ea89a373bf4afa93a5d4a2187a059882fd5` [42819898452]. `detect_internet` defers signal work through `sig_atomic_t` recording and blocked-signal snapshot/`sigsuspend()`; both follow-up Actions PASS on `f32c23201f3338cffa256030a7269c114e70ec68` [42829669707, 42829670027]. THIS COMMIT similarly defers `detect_link` PHY/LED/NVRAM/service work; exact-head regression/docs Actions pending. | Watchdog signal-handler reentrancy, AP/WAN topology, live interface behavior and MIPS/uClibc/L4 behavior remain open. |
 | WAN DHCP / route lifecycle | PARTIAL / AUDITING | Lease validation/address rollback, MAN/WAN route status, IPTV lease inventory retention, DHCPv6 private 0600 config, PPP IPv6 start/stop propagation, generation-fenced fail-closed DHCPv6 stop/teardown, checked SIT/native IPv6 startup, PPP ip-up address-before-publish and ip-up/ip-down route-status propagation, and idempotent static-route/PPP preset adds for exact Linux 4.4 FIB duplicates. PPP demand startup now checks preset-route status before readiness, with a GNU89 policy regression and source contracts for the persistent-demand fallback/retry path; exact-head Actions pending. | WAN runtime remains unit-0 only; cross-unit isolation is not claimed. BusyBox callback exit-status discard, NFS compatibility, target IPv6 rollback, PPP callback/runtime on target and L3/L4 remain open. |
 | DNSMasq / resolver / DHCP files | PARTIAL / AUDITING | Safe staged publication, no-follow lease file validation, domain validation, resolver refresh failure contracts and generated-file trust checks. Lease-file initialization is gated by finalized DHCP feature flags. Start/restart preserve the previous daemon on preparation failure, stop status gates relaunch, and incomplete stop retains static ARP. Public lifecycle/cache-reload APIs and full LAN reconfiguration now share a bounded, stable-inode cross-process lock with internal `*_locked` helpers. The fork-based GNU89 lock regression and HTTPD DNSMasq semantic contract passed on exact SHA `a6e6fbcd9e49dc25f0a3a104db301bbc46f502c2` [42809128510]; AI handoff docs [42809128546] also passed. | Production MIPS/uClibc RC build, firmware and L4 router concurrency remain unverified. FTP failed-upload cleanup's inode-check/`unlinkat()` interval remains OPEN/BLOCKED. |
 | USB / storage / hotplug / filesystem | PARTIAL / AUDITING | Full partition/ejected inventory staging, swapoff-before-unmount gates, operation-wide storage lock, Optware startup supervision/rollback, and checked removable-storage teardown, NFS export ACL/inventory validation and pseudo-filesystem mount identity checks. NFS public run/stop/reload wrappers use the same storage lock as safe removal; `restart_nfsd()` holds it from inventory through stop and optional restart/unload. Hotplug/removal callers use internal locked helpers. Samba and vsftpd stop failures also gate safe removal. | NFS `async` durability and AUTH_SYS/root-squash/external-mount compatibility still require client evidence. Exact-head NFS [42809128602] and USB storage [42809128591] failed only because the workflows regressed to pre-lock source assertions; this commit restores the previously green assertions and exact-head reruns are pending. No production RC/MIPS build or target filesystem/hardware behavior is verified. |
@@ -29,13 +29,14 @@
 
 ## Priority queue
 
-1. P2 — Validate VPN lifecycle locking and daemon/callback behavior on production MIPS/uClibc and router hardware; host locking tests do not prove target service behavior.
-2. P2 — Complete FULLCONENAT target kernel/MIPS object validation.
-3. P2 — Resolve FTP upload-cleanup TOCTOU only through a proved staged-publication design preserving STOR/APPE/REST/STOU and filesystem semantics.
-4. P2 — Resolve NFS `async` durability, AUTH_SYS/root-squash and external-mount compatibility only with client evidence.
-5. P2 — Validate DNSMasq cross-process lock on production MIPS/uClibc and during live LAN/DHCP concurrency.
-6. P2 — Validate wireless bulk detach/bridge ownership across target board variants.
-7. P2 — Validate WAN PPP reconnect, callback recovery and IPv6 rollback on target; WAN scope remains unit 0.
+1. P2 — Audit and defer `watchdog.c` SIGALRM/SIGHUP/SIGUSR1/SIGTERM service, PHY, timezone and storage work out of signal context; preserve timer/retry ordering and add GNU89 regression plus exact-head semantic coverage.
+2. P2 — Validate VPN lifecycle locking and daemon/callback behavior on production MIPS/uClibc and router hardware; host locking tests do not prove target service behavior.
+3. P2 — Complete FULLCONENAT target kernel/MIPS object validation.
+4. P2 — Resolve FTP upload-cleanup TOCTOU only through a proved staged-publication design preserving STOR/APPE/REST/STOU and filesystem semantics.
+5. P2 — Resolve NFS `async` durability, AUTH_SYS/root-squash and external-mount compatibility only with client evidence.
+6. P2 — Validate DNSMasq cross-process lock on production MIPS/uClibc and during live LAN/DHCP concurrency.
+7. P2 — Validate wireless bulk detach/bridge ownership across target board variants.
+8. P2 — Validate WAN PPP reconnect, callback recovery and IPv6 rollback on target; WAN scope remains unit 0.
 
 ## Working rules
 
@@ -52,8 +53,8 @@
 
 | Level | Evidence | Limits |
 |---|---|---|
-| L1 source review | PASS for miniupnpd writer/daemon-launch gate, atomic replacement and temporary-file cleanup; WAN gateway ARP socket binding/timeout fail-closed ordering; VPN caller inventory and lock boundaries; DNSMasq/NFS lifecycle serialization; FTP upload-parent anchoring; WAN callback/status gates; PID 1 notification requeue. FTP final unlink TOCTOU remains OPEN/BLOCKED. | Host checks do not prove target daemon behavior or filesystem power-loss semantics. |
-| L2 host / Actions | Exact base SHA c1bdec32ac2a746288ab4295bda334579a55c249: miniupnpd [42817503339] and AI docs [42817503261] SUCCESS, every step inspected. WAN ARP socket-policy GNU89 warnings-as-errors and ASan/UBSan host regression PASS locally; exact-head WAN ARP and AI docs runs for THIS COMMIT pending. | No full RC host build; no MIPS/uClibc, firmware/TRX or L4 router test. |
+| L1 source review | PASS for miniupnpd writer/daemon-launch gate, atomic replacement and temporary-file cleanup; WAN gateway ARP socket binding/timeout fail-closed ordering; VPN caller inventory and lock boundaries; DNSMasq/NFS lifecycle serialization; FTP upload-parent anchoring; WAN callback/status gates; PID 1 notification requeue; detect_link signal-handler purity, blocked snapshot and normal-context event ordering. FTP final unlink TOCTOU remains OPEN/BLOCKED. | Host checks do not prove target daemon behavior or filesystem power-loss semantics. |
+| L2 host / Actions | Exact-head detect_internet signal regression [42829669707] and AI docs [42829670027] SUCCESS on `f32c23201f3338cffa256030a7269c114e70ec68`, every step inspected. New detect_link GNU89 ASan/UBSan host test and semantic/caller Actions are pending on THIS COMMIT. Earlier miniupnpd [42817503339]/AI docs [42817503261] and WAN ARP host regression remain recorded. | No full RC host build; no MIPS/uClibc, firmware/TRX or L4 router test. |
 | L3 MIPS/uClibc production objects / firmware/TRX | NOT VERIFIED. | Consolidated target build remains required. |
 | L4 router/SMB/DHCP/VPN and physical hardware | NOT VERIFIED. | Requires target-device validation. |
 
