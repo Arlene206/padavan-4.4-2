@@ -6,6 +6,12 @@ on:
       - ".github/workflows/wan-dhcp-callback-stability.yml"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_wan6.c"
+      - "trunk/user/rc/src/common_ex.c"
+      - "trunk/user/busybox/busybox-1.24.x/libbb/vfork_daemon_rexec.c"
+      - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c_script.c"
+      - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c.c"
+      - "trunk/user/rc/src/tests/dhcp6c_callback_generation.c"
+      - "trunk/user/rc/src/dhcp6c_callback_generation_policy.h"
       - "trunk/user/rc/src/net6.c"
       - "trunk/user/rc/src/tests/file_write_status.c"
       - "trunk/user/shared/src/netutils.c"
@@ -28,6 +34,12 @@ on:
       - ".github/workflows/wan-dhcp-callback-stability.yml"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_wan6.c"
+      - "trunk/user/rc/src/common_ex.c"
+      - "trunk/user/busybox/busybox-1.24.x/libbb/vfork_daemon_rexec.c"
+      - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c_script.c"
+      - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c.c"
+      - "trunk/user/rc/src/tests/dhcp6c_callback_generation.c"
+      - "trunk/user/rc/src/dhcp6c_callback_generation_policy.h"
       - "trunk/user/rc/src/net6.c"
       - "trunk/user/rc/src/tests/file_write_status.c"
       - "trunk/user/shared/src/netutils.c"
@@ -91,6 +103,14 @@ jobs:
             trunk/user/rc/src/tests/ppp_wan_ipup_policy.c \
             -o /tmp/ppp-wan-ipup-policy
           /tmp/ppp-wan-ipup-policy
+      - name: Compile and run DHCPv6 callback generation/stop fencing regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/dhcp6c_callback_generation.c \
+            -o /tmp/dhcp6c-callback-generation
+          /tmp/dhcp6c-callback-generation
       - name: Verify WAN callback applies interface before publishing lease state
         run: |
           python3 - <<'PY'
@@ -114,6 +134,12 @@ jobs:
           workflow = Path(".github/workflows/wan-dhcp-callback-stability.yml").read_text()
           ipup_policy = (rc / "ppp_wan_ipup_policy.h").read_text()
           ipup_test = (rc / "tests/ppp_wan_ipup_policy.c").read_text()
+          dhcp6_callback_policy = (rc / "dhcp6c_callback_generation_policy.h").read_text()
+          dhcp6_callback_test = (rc / "tests/dhcp6c_callback_generation.c").read_text()
+          dhcp6_client_source = Path("trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c.c").read_text()
+          dhcp6_script_source = Path("trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c_script.c").read_text()
+          busybox_spawn_source = Path("trunk/user/busybox/busybox-1.24.x/libbb/vfork_daemon_rexec.c").read_text()
+          common_ex_source = Path("trunk/user/rc/src/common_ex.c").read_text()
 
           def body(text, signature):
               start = text.index(signature)
@@ -268,6 +294,85 @@ jobs:
           assert "umask(0000)" in config_test
           assert "failed rename" in config_test
           assert "atomic replacement" in config_test
+
+          # The WIDE DHCPv6 script is a separate synchronous child. The
+          # dhcp6c daemon can be killed while its rc child is still waiting;
+          # generation fencing must reject that child after stop/restart.
+          script_runner = body(dhcp6_script_source, "int dhcp6_script(")
+          fill_env = body(dhcp6_script_source, "char **fill_envp_client6(")
+          spawn_wait = body(busybox_spawn_source, "spawn_and_wait(char **argv)")
+          spawn_child = body(busybox_spawn_source, "pid_t FAST_FUNC spawn(char **argv)")
+          assert "spawn_and_wait(argv)" in script_runner
+          assert "putenv(*curr++)" in fill_env and '"interface=%s"' in fill_env
+          assert "rc = spawn(argv);" in spawn_wait and "return wait4pid(rc);" in spawn_wait
+          assert "BB_EXECVP(argv[0], argv)" in spawn_child
+          signal_adapter = body(common_ex_source, "service_lifecycle_send_signal(void *context")
+          assert 'doSystem("killall %s %s"' in signal_adapter
+          assert 'signal_option = "-SIGKILL"' in signal_adapter
+
+          callback_policy = body(dhcp6_callback_policy, "dhcp6c_callback_session_lock(")
+          callback_writer = body(dhcp6_callback_policy, "dhcp6c_callback_session_write(")
+          assert "O_NOFOLLOW" in callback_policy and "S_ISREG(st.st_mode)" in callback_policy
+          assert "st.st_uid != geteuid()" in callback_policy and "st.st_nlink != 1" in callback_policy
+          assert "FD_CLOEXEC" in callback_policy and "fcntl(fd, F_SETLK, &file_lock)" in callback_policy
+          assert "if (allow_empty)" in callback_policy
+          assert "fd = open(path, O_RDWR | O_NOFOLLOW | O_NONBLOCK);" in callback_policy
+          assert "fsync(fd)" in callback_writer
+          assert "current == ULONG_MAX" in callback_policy
+          callback = body(wan6_source, "int dhcp6c_main(int argc, char **argv)")
+          callback_lock = callback.index("dhcp6c_callback_session_lock(")
+          callback_validate = callback.index("dhcp6c_callback_generation_matches(")
+          callback_lan = callback.index("store_lan_addr6(")
+          callback_dns = callback.index("store_wan_dns6(")
+          callback_unlock = callback.index("dhcp6c_callback_session_unlock(callback_fd)", callback_dns)
+          assert callback_lock < callback_validate < callback_lan < callback_dns < callback_unlock
+          assert 'getenv("interface")' in callback
+          assert "DHCP6C_CALLBACK_GENERATION_ENV" in callback
+          assert "DHCP6C_CALLBACK_IFNAME_ENV" in callback
+
+          start_dhcp6 = body(wan6_source, "int start_dhcp6c(char *wan_ifname)")
+          start_lock = start_dhcp6.index("dhcp6c_callback_session_lock(")
+          start_advance = start_dhcp6.index("dhcp6c_callback_session_advance(")
+          start_config = start_dhcp6.index("dhcp6c_config_file_open_staged(")
+          start_env = start_dhcp6.index("setenv(DHCP6C_CALLBACK_GENERATION_ENV")
+          start_eval = start_dhcp6.index('eval("/sbin/dhcp6c"')
+          start_unset = start_dhcp6.index("unsetenv(DHCP6C_CALLBACK_IFNAME_ENV)", start_eval)
+          assert start_lock < start_advance < start_config < start_env < start_eval < start_unset
+          assert "strlen(wan_ifname) >= IFNAMSIZ" in start_dhcp6
+          assert "goto session_failed;" in start_dhcp6
+          stop_dhcp6 = body(wan6_source, "int stop_dhcp6c(void)")
+          stop_lock = stop_dhcp6.index("dhcp6c_callback_session_lock(")
+          stop_advance = stop_dhcp6.index("dhcp6c_callback_session_advance(")
+          stop_kill = stop_dhcp6.index("kill_services(svcs, 3, 1)")
+          stop_unlock = stop_dhcp6.index("dhcp6c_callback_session_unlock(session_fd)")
+          assert stop_lock < stop_advance < stop_kill < stop_unlock
+
+          wan6_up = body(wan6_source, "int wan6_up(char *wan_ifname, int unit)")
+          assert wan6_up.index("status = stop_dhcp6c();") < wan6_up.index("if (ipv6_type == IPV6_DISABLED)")
+          native_failure = wan6_up[wan6_up.index("native_failed:"):]
+          assert "return operation_status;" in native_failure
+          assert native_failure.index("return operation_status;") < native_failure.index("if (radv_touched)")
+          wan6_down = body(wan6_source, "int wan6_down(char *wan_ifname, int unit)")
+          assert wan6_down.index("stop_status = stop_dhcp6c();") < wan6_down.index("if (ipv6_type == IPV6_DISABLED)")
+          assert "if (stop_status != 0)" in wan6_down
+          assert wan6_down.index("return stop_status;") < wan6_down.index("control_if_ipv6_radv(")
+          stop_wan = body(source, "stop_wan(void)")
+          assert "if (is_wan_ipv6_type_sit() != 1)" in stop_wan
+          stop_ipv6 = stop_wan.index("ipv6_status = wan6_down(man_ifname, unit);")
+          assert stop_ipv6 < stop_wan.index("return -1;", stop_ipv6) < stop_wan.index('if (pids("udhcpc"))')
+          wan_down_internal = body(source, "wan_down_internal(char *wan_ifname, int unit, int is_static)")
+          wan6_down_call = wan_down_internal.index("ipv6_status = wan6_down(wan_ifname, unit);")
+          assert "return ipv6_status;" in wan_down_internal[wan6_down_call:]
+          assert wan_down_internal.index("return ipv6_status;", wan6_down_call) < wan_down_internal.index("del_dhcp_routes_by_prefix")
+
+          for case in (
+              "test_strict_generation_parsing_and_interface_identity",
+              "test_generation_overflow_and_format",
+              "test_callback_does_not_create_missing_generation_file",
+              "test_symlink_state_file_is_rejected",
+              "test_stop_invalidation_rejects_waiting_old_callback",
+          ):
+              assert case in dhcp6_callback_test
 
           # PPP ip-up must apply the interface address successfully before
           # replacing the last-known-good WAN lease and publishing callback state.
@@ -473,6 +578,12 @@ jobs:
               "trunk/user/shared/src/shutils.c",
               "trunk/user/shared/src/file_write_status.h",
               "trunk/user/rc/src/net_wan6.c",
+              "trunk/user/rc/src/dhcp6c_callback_generation_policy.h",
+              "trunk/user/rc/src/tests/dhcp6c_callback_generation.c",
+              "trunk/user/rc/src/common_ex.c",
+              "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c.c",
+              "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c_script.c",
+              "trunk/user/busybox/busybox-1.24.x/libbb/vfork_daemon_rexec.c",
               "trunk/user/rc/src/net_ppp.c",
               "trunk/user/rc/src/ppp_wan_ipup_policy.h",
               "trunk/user/rc/src/tests/ppp_wan_ipup_policy.c",

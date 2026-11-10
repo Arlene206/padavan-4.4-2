@@ -27,13 +27,33 @@
 #include <netinet/in.h>
 #include <net/route.h>
 #include <net/ethernet.h>
+#include <net/if.h>
 
 #include "rc.h"
 #include "route_status_policy.h"
 #include "../../shared/src/dhcp6c_duid_file_policy.h"
 #include "dhcp6c_config_file.h"
+#include "dhcp6c_callback_generation_policy.h"
 
 #if defined (USE_IPV6)
+
+#define DHCP6C_CALLBACK_STATE_FILE "/tmp/dhcp6c-callback.state"
+#define DHCP6C_CALLBACK_GENERATION_ENV "DHCP6C_CALLBACK_GENERATION"
+#define DHCP6C_CALLBACK_IFNAME_ENV "DHCP6C_CALLBACK_IFNAME"
+
+static int
+dhcp6c_callback_session_advance(int fd, unsigned long *generation)
+{
+	unsigned long next;
+
+	if (!generation ||
+	    dhcp6c_callback_generation_next(*generation, &next) != 0)
+		return -1;
+	if (dhcp6c_callback_session_write(fd, next) != 0)
+		return -1;
+	*generation = next;
+	return 0;
+}
 
 static int
 format_ipv4_literal(const char *input, char *output, size_t output_size)
@@ -589,15 +609,14 @@ int wan6_up(char *wan_ifname, int unit)
 	}
 
 	ipv6_type = get_ipv6_type();
-	if (ipv6_type == IPV6_DISABLED)
-		return 0;
-
 	status = stop_dhcp6c();
 	if (status != 0) {
 		logmessage("WAN IPv6", "failed to stop previous DHCPv6 client on %s (status=%d)",
 			   wan_ifname, status);
 		return status;
 	}
+	if (ipv6_type == IPV6_DISABLED)
+		return 0;
 
 	build_dns6_var();
 
@@ -719,9 +738,11 @@ int wan6_up(char *wan_ifname, int unit)
 native_failed:
 	if (dhcp6_start_attempted) {
 		operation_status = stop_dhcp6c();
-		if (operation_status != 0)
+		if (operation_status != 0) {
 			logmessage("WAN IPv6", "failed to stop partially started DHCPv6 client (status=%d)",
 				   operation_status);
+			return operation_status;
+		}
 	}
 	if (radv_touched) {
 		operation_status = control_if_ipv6_radv(wan_ifname, 0);
@@ -764,17 +785,20 @@ int wan6_down(char *wan_ifname, int unit)
 	int ipv6_type, stop_status, status, operation_status;
 	char *wan6_ifname;
 
+	stop_status = stop_dhcp6c();
+	if (stop_status != 0) {
+		logmessage("WAN IPv6", "refusing IPv6 teardown while DHCPv6 client/callback remains active on %s (status=%d)",
+			   wan_ifname ? wan_ifname : "(unknown)", stop_status);
+		return stop_status;
+	}
 	ipv6_type = get_ipv6_type();
 	if (ipv6_type == IPV6_DISABLED)
 		return 0;
 
-	stop_status = stop_dhcp6c();
-	if (stop_status != 0)
-		logmessage("WAN IPv6", "DHCPv6 client did not stop cleanly on %s (status=%d)",
-			   wan_ifname, stop_status);
-	status = route_status_accumulate(0, stop_status);
+	status = 0;
 
 	operation_status = control_if_ipv6_radv(wan_ifname, 0);
+
 	status = route_status_accumulate(status, operation_status);
 	if (operation_status != 0)
 		logmessage("WAN IPv6", "failed to disable router advertisements on %s (status=%d)",
@@ -830,14 +854,39 @@ int wan6_down(char *wan_ifname, int unit)
 int dhcp6c_main(int argc, char **argv)
 {
 	int ipv6_type, dns6_auto, lan6_auto;
+	int callback_fd, unlock_status;
+	unsigned long generation;
 	char *dns6_new, *lan_addr6_new;
 	char addr6s[INET6_ADDRSTRLEN + 5];
+	const char *callback_generation, *expected_ifname, *callback_ifname;
 
-//	char *wan_ifname = safe_getenv("interface");
+	(void)argc;
+	(void)argv;
+	callback_generation = getenv(DHCP6C_CALLBACK_GENERATION_ENV);
+	expected_ifname = getenv(DHCP6C_CALLBACK_IFNAME_ENV);
+	callback_ifname = getenv("interface");
+
+	callback_fd = dhcp6c_callback_session_lock(DHCP6C_CALLBACK_STATE_FILE,
+						    &generation, 0);
+	if (callback_fd < 0) {
+		logmessage("DHCPv6 WAN Client",
+			   "refusing callback: session lock unavailable (errno=%d)",
+			   errno ? errno : EIO);
+		return -1;
+	}
+	if (!dhcp6c_callback_generation_matches(callback_generation, generation,
+						expected_ifname, callback_ifname)) {
+		logmessage("DHCPv6 WAN Client", "ignoring stale callback on %s",
+			   callback_ifname ? callback_ifname : "(unknown)");
+		unlock_status = dhcp6c_callback_session_unlock(callback_fd);
+		return unlock_status == 0 ? 0 : -1;
+	}
 
 	ipv6_type = get_ipv6_type();
-	if (ipv6_type != IPV6_NATIVE_DHCP6)
-		return 0;
+	if (ipv6_type != IPV6_NATIVE_DHCP6) {
+		unlock_status = dhcp6c_callback_session_unlock(callback_fd);
+		return unlock_status == 0 ? 0 : -1;
+	}
 
 	lan6_auto = nvram_get_int("ip6_lan_auto");
 	if (lan6_auto) {
@@ -852,20 +901,28 @@ int dhcp6c_main(int argc, char **argv)
 			refresh_resolvconf_nonfatal("DHCPv6 DNS update", 0);
 	}
 
-	return 0;
+	unlock_status = dhcp6c_callback_session_unlock(callback_fd);
+	return unlock_status == 0 ? 0 : -1;
 }
 
 int start_dhcp6c(char *wan_ifname)
 {
 	FILE *fp;
-	int duid_fd;
+	int duid_fd, session_fd, start_status, unlock_status;
 	int wan6_dhcp, dns6_auto, lan6_auto, sla_id, sla_len;
-	int duid_error, saved_errno;
+	int duid_error, saved_errno, generation_active;
 	unsigned int ia_id;
+	unsigned long generation;
 	unsigned char ea[ETHER_ADDR_LEN];
 	const char *conf_file = "/etc/dhcp6c.conf";
 	const char *duid_file = "/tmp/dhcp6c_duid";
 	char staged_path[] = "/etc/.dhcp6c.conf.XXXXXX";
+	char generation_text[sizeof(unsigned long) * CHAR_BIT + 2];
+
+	if (!wan_ifname || !wan_ifname[0] || strlen(wan_ifname) >= IFNAMSIZ) {
+		errno = EINVAL;
+		return -1;
+	}
 
 	wan6_dhcp = nvram_get_int("ip6_wan_dhcp");
 	dns6_auto = nvram_get_int("ip6_dns_auto");
@@ -873,6 +930,22 @@ int start_dhcp6c(char *wan_ifname)
 
 	if (!wan6_dhcp && !dns6_auto && !lan6_auto)
 		return 0; /* No DHCPv6 client work is configured. */
+
+	session_fd = dhcp6c_callback_session_lock(DHCP6C_CALLBACK_STATE_FILE,
+						  &generation, 1);
+	if (session_fd < 0) {
+		logmessage("DHCPv6 WAN Client",
+			   "cannot lock callback session before startup (errno=%d)",
+			   errno ? errno : EIO);
+		return -1;
+	}
+	generation_active = 0;
+	if (dhcp6c_callback_session_advance(session_fd, &generation) != 0)
+		goto session_failed;
+	generation_active = 1;
+	if (dhcp6c_callback_generation_format(generation, generation_text,
+					      sizeof(generation_text)) != 0)
+		goto session_failed;
 
 	ia_id = 0;
 	sla_id = 1;
@@ -893,7 +966,7 @@ int start_dhcp6c(char *wan_ifname)
 
 		/* create DUID from WAN MAC */
 		duid_len = sizeof(duid3) + ETHER_ADDR_LEN;
-		duid3.type = htons(3);		/* DUID-LL */
+		duid3.type = htons(3);	/* DUID-LL */
 		duid3.hwtype = htons(1);	/* Ethernet */
 
 		/* /tmp is shared-writable: never reopen this pathname with
@@ -903,7 +976,7 @@ int start_dhcp6c(char *wan_ifname)
 			logmessage("DHCPv6 WAN Client",
 				   "cannot remove stale DUID file (errno=%d)", duid_error);
 			errno = duid_error;
-			return -1;
+			goto session_failed;
 		}
 
 		duid_fd = dhcp6c_duid_open_create(duid_file);
@@ -912,7 +985,7 @@ int start_dhcp6c(char *wan_ifname)
 			logmessage("DHCPv6 WAN Client",
 				   "cannot safely create DUID file (errno=%d)", duid_error);
 			errno = duid_error;
-			return -1;
+			goto session_failed;
 		}
 
 		fp = fdopen(duid_fd, "wb");
@@ -923,7 +996,7 @@ int start_dhcp6c(char *wan_ifname)
 			logmessage("DHCPv6 WAN Client",
 				   "cannot open DUID stream (errno=%d)", duid_error);
 			errno = duid_error;
-			return -1;
+			goto session_failed;
 		}
 
 		duid_done = 0;
@@ -938,7 +1011,7 @@ int start_dhcp6c(char *wan_ifname)
 			logmessage("DHCPv6 WAN Client",
 				   "incomplete DUID file write (errno=%d)", duid_error);
 			errno = duid_error;
-			return -1;
+			goto session_failed;
 		}
 	}
 
@@ -947,7 +1020,7 @@ int start_dhcp6c(char *wan_ifname)
 		logmessage("DHCPv6 WAN Client",
 			   "cannot safely stage client configuration (errno=%d)", saved_errno);
 		errno = saved_errno;
-		return -1;
+		goto session_failed;
 	}
 
 	fprintf(fp, "interface %s {\n", wan_ifname);
@@ -987,18 +1060,98 @@ int start_dhcp6c(char *wan_ifname)
 		logmessage("DHCPv6 WAN Client",
 			   "cannot publish complete client configuration (errno=%d)", saved_errno);
 		errno = saved_errno;
-		return -1;
+		goto session_failed;
 	}
 
-	logmessage("DHCPv6 WAN Client", "starting on wan (%s) ...", wan_ifname);
+	if (setenv(DHCP6C_CALLBACK_GENERATION_ENV, generation_text, 1) != 0)
+		goto session_failed;
+	if (setenv(DHCP6C_CALLBACK_IFNAME_ENV, wan_ifname, 1) != 0)
+		goto session_failed;
 
-	return eval("/sbin/dhcp6c", "-D", "LL", wan_ifname);
+	logmessage("DHCPv6 WAN Client", "starting on wan (%s) ...", wan_ifname);
+	start_status = eval("/sbin/dhcp6c", "-D", "LL", wan_ifname);
+	saved_errno = errno;
+	if (unsetenv(DHCP6C_CALLBACK_IFNAME_ENV) != 0 ||
+	    unsetenv(DHCP6C_CALLBACK_GENERATION_ENV) != 0) {
+		if (start_status == 0)
+			start_status = -1;
+		if (saved_errno == 0)
+			saved_errno = errno ? errno : EIO;
+	}
+	if (start_status != 0) {
+		if (dhcp6c_callback_session_advance(session_fd, &generation) != 0)
+			logmessage("DHCPv6 WAN Client",
+				   "cannot invalidate failed client start (errno=%d)", errno ? errno : EIO);
+		unlock_status = dhcp6c_callback_session_unlock(session_fd);
+		if (unlock_status != 0)
+			logmessage("DHCPv6 WAN Client",
+				   "cannot release callback session lock after start failure (errno=%d)",
+				   errno ? errno : EIO);
+		if (saved_errno)
+			errno = saved_errno;
+		return start_status;
+	}
+
+	unlock_status = dhcp6c_callback_session_unlock(session_fd);
+	if (unlock_status != 0) {
+		logmessage("DHCPv6 WAN Client",
+			   "cannot release callback session lock after client start (errno=%d)",
+			   errno ? errno : EIO);
+		return -1;
+	}
+	return 0;
+
+session_failed:
+	saved_errno = errno ? errno : EIO;
+	(void)unsetenv(DHCP6C_CALLBACK_IFNAME_ENV);
+	(void)unsetenv(DHCP6C_CALLBACK_GENERATION_ENV);
+	if (generation_active &&
+	    dhcp6c_callback_session_advance(session_fd, &generation) != 0)
+		logmessage("DHCPv6 WAN Client",
+			   "cannot invalidate failed startup generation (errno=%d)", errno ? errno : EIO);
+	unlock_status = dhcp6c_callback_session_unlock(session_fd);
+	if (unlock_status != 0)
+		logmessage("DHCPv6 WAN Client",
+			   "cannot release callback session lock after startup failure (errno=%d)",
+			   errno ? errno : EIO);
+	errno = saved_errno;
+	return -1;
 }
 
 int stop_dhcp6c(void)
 {
 	char *svcs[] = { "dhcp6c", NULL };
-	return kill_services(svcs, 3, 1);
+	unsigned long generation;
+	int session_fd, stop_status, unlock_status, saved_errno;
+
+	session_fd = dhcp6c_callback_session_lock(DHCP6C_CALLBACK_STATE_FILE,
+						  &generation, 1);
+	if (session_fd < 0) {
+		logmessage("DHCPv6 WAN Client",
+			   "cannot lock callback session before stop (errno=%d)",
+			   errno ? errno : EIO);
+		return -1;
+	}
+	if (dhcp6c_callback_session_advance(session_fd, &generation) != 0) {
+		saved_errno = errno ? errno : EIO;
+		(void)dhcp6c_callback_session_unlock(session_fd);
+		logmessage("DHCPv6 WAN Client",
+			   "cannot invalidate callback session before stop (errno=%d)", saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
+
+	/* Waiting callback children now see the new generation after this lock
+	 * is released; killall only targets dhcp6c, not its synchronous rc child. */
+	stop_status = kill_services(svcs, 3, 1);
+	unlock_status = dhcp6c_callback_session_unlock(session_fd);
+	if (stop_status == 0 && unlock_status != 0)
+		stop_status = unlock_status;
+	if (stop_status != 0)
+		logmessage("DHCPv6 WAN Client",
+			   "client stop or callback-lock release incomplete (status=%d)",
+			   stop_status);
+	return stop_status;
 }
 
 #endif
