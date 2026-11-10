@@ -42,5 +42,10 @@ main(void)
 	assert(route_status_idempotent_add(EIO) == EIO);
 	assert(route_status_idempotent_add(ENETUNREACH) == ENETUNREACH);
 	assert(route_status_accumulate(EIO, route_status_idempotent_add(EEXIST)) == EIO);
+	assert(route_status_demand_ready(0) == 1);
+	assert(route_status_demand_ready(EIO) == 0);
+	assert(route_status_demand_ready(ENETUNREACH) == 0);
+	assert(route_status_demand_ready(-1) == 0);
+	assert(route_status_demand_ready(route_status_idempotent_add(EEXIST)) == 1);
 	return 0;
 }

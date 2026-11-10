@@ -892,7 +892,7 @@ launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)
 static int
 wait_ppp_up(char *ppp_ifname, int unit)
 {
-	int timeout, sockfd;
+	int timeout, sockfd, route_status;
 	struct ifreq ifr;
 	char *ppp_gate;
 
@@ -929,7 +929,18 @@ wait_ppp_up(char *ppp_ifname, int unit)
 	close(sockfd);
 
 	/* Preset routes so that traffic can be sent to proper pppx even before the link is brought up. */
-	preset_wan_ppp_routes(ppp_ifname, unit);
+	route_status = preset_wan_ppp_routes(ppp_ifname, unit);
+	if (!route_status_demand_ready(route_status)) {
+		logmessage(LOGNAME, "PPP demand route preinstallation incomplete on %s (status=%d)",
+			   ppp_ifname, route_status);
+		/*
+		 * A failed batch can still have installed some routes. Do not blindly
+		 * delete the configured set: EEXIST-normalized entries may predate this
+		 * attempt. Demand pppd remains persistent; a later ip-up callback retries
+		 * wan_up() route setup after start_wan() restores physical WAN publication.
+		 */
+		return 0;
+	}
 
 	/* Stimulate link up */
 	if (is_valid_ipv4(ppp_gate))
@@ -1124,7 +1135,7 @@ start_wan(void)
 			
 			/* Pretend that the WAN interface is up */
 			if (i_demand && !wait_ppp_up(ppp_ifname, unit)) {
-				logmessage(LOGNAME, "aborting WAN PPP startup for unit %d because the demand interface did not become ready", unit);
+				logmessage(LOGNAME, "aborting WAN PPP startup for unit %d because the demand interface or route setup is incomplete", unit);
 				restore_wan_after_ppp_start_failure(unit, wan_ifname);
 				continue;
 			}

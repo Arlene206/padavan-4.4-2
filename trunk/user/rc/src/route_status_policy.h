@@ -29,4 +29,11 @@ route_status_idempotent_add(int operation_status)
 {
 	return operation_status == EEXIST ? 0 : operation_status;
 }
+
+/* Demand PPP is ready for traffic only after its complete preset route set. */
+static inline int
+route_status_demand_ready(int route_status)
+{
+	return route_status == 0;
+}
 #endif
