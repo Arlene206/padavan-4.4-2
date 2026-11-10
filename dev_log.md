@@ -1,3 +1,14 @@
+## 2026-11-10 15:45 CST (UTC+8) — Correct exact-head WAN callback and HTTPD stop-gate contracts
+
+- **Base main SHA:** `b8613b08fef80e9a1eb6b684ac4abdc4d2a95158`; only remote branch was `main`. AI handoff docs [42776419895], WAN route [42776419776] and WAN teardown [42776419751] completed SUCCESS on that exact SHA.
+- **WAN CI diagnosis:** run [42776419753] compiled and passed all six GNU89 regression binaries, including PPP ip-up publication and DHCPv6 generation/late-child fencing. Its semantic contract then failed at Python line 205 because `current == ULONG_MAX` was searched inside `dhcp6c_callback_session_lock()`, although the condition belongs to `dhcp6c_callback_generation_next()`.
+- **HTTPD CI diagnosis:** run [42776419785] passed its preceding policy and source checks, then failed because the service-stop contract expected five `return -1;` branches in `stop_wan()`; the current source has six after adding the DHCPv6 callback-fencing failure gate.
+- **Fix:** extract and validate the generation-increment helper separately in the WAN contract. Update the HTTPD expected return count and assert that the explicit callback-fencing guard occurs before WAN-service termination and interface teardown. No firmware C behavior is changed.
+- **Changed paths:** `.github/workflows/wan-dhcp-callback-stability.yml`, `.github/workflows/httpd-security.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and this log. No archive rotation or INDEX update is due.
+- **Validation:** all six host regression binaries passed on base SHA `b8613b08fef80e9a1eb6b684ac4abdc4d2a95158`; exact-head WAN and HTTPD source-contract failures were inspected from job logs. The revised workflow contracts and AI handoff check on THIS resulting SHA are pending. No local full-checkout run, target MIPS/uClibc object, firmware/TRX or L4 test is claimed.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** inspect WAN callback, HTTPD security and AI handoff documentation Actions on the exact resulting main SHA. If green, proceed to the PPP/multi-WAN route-status and ip-down per-unit ownership audit; keep all documented FTP/NFS/FULLCONENAT/wireless/L3/L4 gaps open.
+
 ## 2026-11-10 14:30 CST (UTC+8) — Gate PPP ip-up lease publication on interface success
 
 ## 2026-11-10 15:20 CST (UTC+8) — Fence DHCPv6 script children across WAN session changes

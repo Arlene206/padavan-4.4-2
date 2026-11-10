@@ -318,7 +318,9 @@ jobs:
           assert "if (allow_empty)" in callback_policy
           assert "fd = open(path, O_RDWR | O_NOFOLLOW | O_NONBLOCK);" in callback_policy
           assert "fsync(fd)" in callback_writer
-          assert "current == ULONG_MAX" in callback_policy
+          callback_next = body(dhcp6_callback_policy, "dhcp6c_callback_generation_next(")
+          assert "current == ULONG_MAX" in callback_next
+          assert "*next_out = current + 1UL;" in callback_next
           callback = body(wan6_source, "int dhcp6c_main(int argc, char **argv)")
           callback_lock = callback.index("dhcp6c_callback_session_lock(")
           callback_validate = callback.index("dhcp6c_callback_generation_matches(")
