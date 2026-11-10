@@ -449,5 +449,103 @@ jobs:
               assert push_filters.count(path) == 1, f"push path missing/duplicated: {path}"
               assert pr_filters.count(path) == 1, f"pull_request path missing/duplicated: {path}"
 
+
+          # IPv6 start-up paths must propagate every critical syscall / command result.
+          assert "int control_if_ipv6(const char *ifname, int enable)" in net6_source
+          assert "int control_if_ipv6_dad(const char *ifname, int enable)" in net6_source
+          assert "int control_if_ipv6_privacy(const char *ifname, int enable)" in net6_source
+          assert "return set_interface_conf_int(\"ipv6\", ifname, \"disable_ipv6\"" in body(net6_source, "control_if_ipv6(const char *ifname, int enable)")
+          dad_policy = body(net6_source, "control_if_ipv6_dad(const char *ifname, int enable)")
+          assert "accept_dad" in dad_policy and "dad_transmits" in dad_policy
+          assert "return status;" in dad_policy
+          assert "return set_interface_conf_int(\"ipv6\", ifname, \"use_tempaddr\"" in body(net6_source, "control_if_ipv6_privacy(const char *ifname, int enable)")
+          assert "int control_if_ipv6(const char *ifname, int enable);" in rc_header
+          assert "int control_if_ipv6_dad(const char *ifname, int enable);" in rc_header
+          assert "int control_if_ipv6_privacy(const char *ifname, int enable);" in rc_header
+          assert "int start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4, char *wan_gate4, char *wan_addr6);" in rc_header
+          assert "int stop_sit_tunnel(void);" in rc_header
+          assert "void start_sit_tunnel(" not in rc_header
+          assert "void stop_sit_tunnel(void);" not in rc_header
+
+          sit_start = body(wan6_source, "int start_sit_tunnel(int ipv6_type, char *wan_ifname")
+          assert "WAN6_SIT_CHECK(" in sit_start
+          for operation in (
+              "ip tunnel del %s",
+              "ip tunnel add %s mode sit",
+              "ip tunnel 6rd dev %s",
+              "route_add(wan_ifname, 0, sit_ep",
+              "control_if_ipv6_radv(IFNAME_SIT, 0)",
+              "ip link set mtu %d dev %s up",
+              "control_if_ipv6(IFNAME_SIT, 1)",
+              "clear_if_addr6(IFNAME_SIT)",
+              "ip -6 addr add %s dev %s",
+              "ip -6 route add default dev %s metric %d",
+              "ip -6 route add default via %s dev %s metric %d",
+              "clear_if_addr6(IFNAME_BR)",
+              "route_del(wan_ifname, 0, sit_ep",
+              "stop_sit_tunnel()",
+          ):
+              assert operation in sit_start, f"unchecked/missing SIT operation: {operation}"
+          assert "int start_sit_tunnel(" in wan6_source
+          assert "if (wan_route_added)" in sit_start
+          assert "if (tunnel_created)" in sit_start
+          assert sit_start.index("route_add(wan_ifname, 0, sit_ep") < sit_start.index("ip -6 addr add %s dev %s")
+          assert sit_start.index("ip -6 route add default") < sit_start.index("store_lan_addr6(lan_addr6s)")
+
+          native_start = body(wan6_source, "int wan6_up(char *wan_ifname, int unit)")
+          assert "WAN6_NATIVE_CHECK(" in native_start
+          assert "status = start_sit_tunnel(" in native_start
+          assert native_start.index("status = start_sit_tunnel(") < native_start.index('set_wan_unit_value(unit, "ifname6", IFNAME_SIT)')
+          for operation in (
+              "control_if_ipv6_dad(IFNAME_BR, 1)",
+              "control_if_ipv6_dad(wan_ifname, 1)",
+              "control_if_ipv6_privacy(wan_ifname, 0)",
+              "control_if_ipv6_radv(wan_ifname, 0)",
+              "clear_if_addr6(wan_ifname)",
+              "ip -6 addr add %s dev %s",
+              "ip -6 route add %s dev %s",
+              "ip -6 route add default via %s metric %d",
+              "ip -6 route add default dev %s metric %d",
+              "control_if_ipv6_autoconf(wan_ifname, allow_ra)",
+              "control_if_ipv6_radv(wan_ifname, 1)",
+              "start_dhcp6c(wan_ifname)",
+          ):
+              assert operation in native_start, f"unchecked/missing native IPv6 operation: {operation}"
+          assert "native_failed:" in native_start
+          assert "failed to stop partially started DHCPv6 client" in native_start
+          assert "clear_if_route6(wan_ifname)" in native_start
+          assert "clear_if_addr6(wan_ifname)" in native_start
+          assert 'set_wan_unit_value(unit, "ifname6", wan_ifname);' in native_start
+          assert native_start.index("WAN6_NATIVE_CHECK(start_dhcp6c(wan_ifname)") < native_start.index('set_wan_unit_value(unit, "ifname6", wan_ifname);')
+
+          # Require each high-risk side effect to be inside the status-gating
+          # macro, not merely present somewhere in a function body.
+          for marker in (
+              'WAN6_SIT_CHECK(doSystem("ip tunnel del %s"',
+              'WAN6_SIT_CHECK(doSystem("ip tunnel add %s mode sit',
+              'WAN6_SIT_CHECK(doSystem("ip tunnel 6rd dev %s',
+              "WAN6_SIT_CHECK(route_add(wan_ifname, 0, sit_ep",
+              "WAN6_SIT_CHECK(control_if_ipv6_radv(IFNAME_SIT, 0)",
+              'WAN6_SIT_CHECK(doSystem("ip link set mtu %d dev %s up"',
+              "WAN6_SIT_CHECK(control_if_ipv6(IFNAME_SIT, 1)",
+              "WAN6_SIT_CHECK(clear_if_addr6(IFNAME_SIT)",
+              'WAN6_SIT_CHECK(doSystem("ip -6 addr add %s dev %s"',
+          ):
+              assert marker in sit_start, f"SIT operation not status-gated: {marker}"
+          for marker in (
+              "WAN6_NATIVE_CHECK(control_if_ipv6_privacy(wan_ifname, 0)",
+              "WAN6_NATIVE_CHECK(control_if_ipv6_radv(wan_ifname, 0)",
+              "WAN6_NATIVE_CHECK(clear_if_addr6(wan_ifname)",
+              'WAN6_NATIVE_CHECK(doSystem("ip -6 addr add %s dev %s"',
+              'WAN6_NATIVE_CHECK(doSystem("ip -6 route add %s dev %s"',
+              'WAN6_NATIVE_CHECK(doSystem("ip -6 route add default via %s metric %d"',
+              'WAN6_NATIVE_CHECK(doSystem("ip -6 route add default dev %s metric %d"',
+              "WAN6_NATIVE_CHECK(control_if_ipv6_privacy(wan_ifname,",
+              "WAN6_NATIVE_CHECK(control_if_ipv6_autoconf(wan_ifname, allow_ra)",
+              "WAN6_NATIVE_CHECK(control_if_ipv6_radv(wan_ifname, 1)",
+              "WAN6_NATIVE_CHECK(start_dhcp6c(wan_ifname)",
+          ):
+              assert marker in native_start, f"native IPv6 operation not status-gated: {marker}"
+
           print("WAN DHCP callback ordering and rollback contracts: PASS")
           PY

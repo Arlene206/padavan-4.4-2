@@ -273,86 +273,148 @@ char *get_wan_addr6_host(char *p_addr6s)
 	return NULL;
 }
 
-void start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4, char *wan_gate4, char *wan_addr6)
+#define WAN6_SIT_CHECK(operation, description) do { \
+	status = (operation); \
+	if (status != 0) { \
+		failure = (description); \
+		goto failed; \
+	} \
+} while (0)
+
+int start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4,
+		     char *wan_gate4, char *wan_addr6)
 {
-	int sit_ttl, sit_mtu, size4, size6;
+	int sit_ttl, sit_mtu, size4, size6, status, cleanup_status;
+	int tunnel_created, wan_route_added, written;
 	char *sit_remote, *sit_relay, *sit_ep, *wan_gate6;
 	char wan_addr4_text[INET_ADDRSTRLEN];
 	char sit_remote_text[INET_ADDRSTRLEN];
 	char sit_relay_text[INET_ADDRSTRLEN];
 	char wan_gate6_text[INET6_ADDRSTRLEN];
+	char generated_gate6_text[INET6_ADDRSTRLEN];
 	char addr6s[INET6_ADDRSTRLEN + 5];
-	struct in_addr addr4;
-	struct in6_addr addr6;
+	char lan_addr6s[INET6_ADDRSTRLEN + 5];
+	char sit_6rd_prefix[INET6_ADDRSTRLEN + 5];
+	char sit_6rd_relay_prefix[32];
+	struct in_addr addr4, net4;
+	struct in6_addr addr6, net6, lan_addr6;
+	const char *failure = "invalid parameters";
 
-	if (format_ipv4_literal(wan_addr4, wan_addr4_text, sizeof(wan_addr4_text)) < 0)
-		return;
-	inet_pton(AF_INET, wan_addr4_text, &addr4);
-
-	size4 = 0;
-	memset(&addr6, 0, sizeof(addr6));
-	size6 = ipv6_from_string(wan_addr6, &addr6);
-
+	status = -1;
+	tunnel_created = 0;
+	wan_route_added = 0;
 	sit_ep = NULL;
 	sit_relay = "";
 	sit_remote = "any";
+	wan_gate6 = "";
+	generated_gate6_text[0] = '\0';
+	lan_addr6s[0] = '\0';
+	sit_6rd_prefix[0] = '\0';
+	sit_6rd_relay_prefix[0] = '\0';
+
+	if (!wan_ifname || !*wan_ifname ||
+	    format_ipv4_literal(wan_addr4, wan_addr4_text,
+				 sizeof(wan_addr4_text)) < 0 ||
+	    inet_pton(AF_INET, wan_addr4_text, &addr4) != 1) {
+		errno = EINVAL;
+		logmessage("WAN IPv6", "invalid IPv4 endpoint for SIT tunnel");
+		return -1;
+	}
+
+	memset(&addr6, 0, sizeof(addr6));
+	size6 = ipv6_from_string(wan_addr6, &addr6);
+	size4 = 0;
+
 	if (ipv6_type == IPV6_6IN4) {
-		if (size6 < 0 ||
+		if (!wan_addr6 || !*wan_addr6 || size6 < 0 ||
 		    format_ipv4_literal(nvram_safe_get("ip6_6in4_remote"),
-				       sit_remote_text, sizeof(sit_remote_text)) < 0)
-			return;
+				       sit_remote_text, sizeof(sit_remote_text)) < 0) {
+			errno = EINVAL;
+			return -1;
+		}
 		sit_remote = sit_remote_text;
 		sit_ep = sit_remote_text;
+		wan_gate6 = get_wan_unit_value(0, "gate6");
+		if (*wan_gate6) {
+			if (format_ipv6_literal(wan_gate6, wan_gate6_text,
+						sizeof(wan_gate6_text), 0) < 0) {
+				errno = EINVAL;
+				return -1;
+			}
+			wan_gate6 = wan_gate6_text;
+		}
 	} else if (ipv6_type == IPV6_6TO4) {
 		if (format_ipv4_literal(nvram_safe_get("ip6_6to4_relay"),
-				       sit_relay_text, sizeof(sit_relay_text)) < 0)
-			return;
+				       sit_relay_text, sizeof(sit_relay_text)) < 0) {
+			errno = EINVAL;
+			return -1;
+		}
 		sit_relay = sit_relay_text;
 		sit_ep = sit_relay_text;
 		size6 = 16;
 		memset(&addr6, 0, sizeof(addr6));
 		addr6.s6_addr16[0] = htons(0x2002);
-		ipv6_to_ipv4_map(&addr6, size6, &addr4, 0);
+		if (ipv6_to_ipv4_map(&addr6, size6, &addr4, 0) <= 0) {
+			errno = EINVAL;
+			return -1;
+		}
 		addr6.s6_addr16[7] = htons(0x0001);
+		written = snprintf(generated_gate6_text, sizeof(generated_gate6_text),
+				   "::%s", sit_relay);
+		if (written < 0 || (size_t)written >= sizeof(generated_gate6_text)) {
+			errno = ENAMETOOLONG;
+			return -1;
+		}
+		wan_gate6 = generated_gate6_text;
+
+		memset(&lan_addr6, 0, sizeof(lan_addr6));
+		lan_addr6.s6_addr16[0] = htons(0x2002);
+		if (ipv6_to_ipv4_map(&lan_addr6, 16, &addr4, 0) <= 0) {
+			errno = EINVAL;
+			return -1;
+		}
+		lan_addr6.s6_addr16[3] = htons(0x0001);
+		lan_addr6.s6_addr16[7] = htons(0x0001);
+		if (!inet_ntop(AF_INET6, &lan_addr6, lan_addr6s, INET6_ADDRSTRLEN))
+			return -1;
+		{
+			size_t used = strlen(lan_addr6s);
+			size_t available = sizeof(lan_addr6s) - used;
+			written = snprintf(lan_addr6s + used, available, "/64");
+			if (written < 0 || (size_t)written >= available) {
+				errno = ENAMETOOLONG;
+				return -1;
+			}
+		}
 	} else if (ipv6_type == IPV6_6RD) {
-		if (size6 < 0)
-			return;
+		if (!wan_addr6 || !*wan_addr6 || size6 < 0) {
+			errno = EINVAL;
+			return -1;
+		}
 		size4 = get_wan_unit_value_int(0, "6rd_size");
 		if (size4 < 0 || size4 > 32 ||
 		    size6 + 32 - size4 > 128 ||
 		    format_ipv4_literal(get_wan_unit_value(0, "6rd_relay"),
-				       sit_relay_text, sizeof(sit_relay_text)) < 0)
-			return;
+				       sit_relay_text, sizeof(sit_relay_text)) < 0) {
+			errno = EINVAL;
+			return -1;
+		}
 		sit_relay = sit_relay_text;
 		sit_ep = sit_relay_text;
-	} else {
-		return;
-	}
 
-	sit_mtu = nvram_get_int("ip6_sit_mtu");
-	sit_ttl = nvram_get_int("ip6_sit_ttl");
-	if (sit_mtu < 1280) sit_mtu = 1280;
-	if (sit_ttl < 1) sit_ttl = 1;
-	if (sit_ttl > 255) sit_ttl = 255;
-
-	if (is_interface_exist(IFNAME_SIT))
-		doSystem("ip tunnel del %s", IFNAME_SIT);
-
-	doSystem("ip tunnel %s %s mode sit remote %s local %s ttl %d",
-		 "add", IFNAME_SIT, sit_remote, wan_addr4_text, sit_ttl);
-
-	if (ipv6_type == IPV6_6RD) {
-		struct in_addr net4;
-		struct in6_addr net6;
-		char sit_6rd_prefix[INET6_ADDRSTRLEN + 5], sit_6rd_relay_prefix[32];
-
-		memcpy(&net6, &addr6, sizeof(addr6));
+		memcpy(&net6, &addr6, sizeof(net6));
 		ipv6_to_net(&net6, size6);
 		if (!inet_ntop(AF_INET6, &net6, sit_6rd_prefix, INET6_ADDRSTRLEN))
-			return;
-		snprintf(sit_6rd_prefix + strlen(sit_6rd_prefix),
-			 sizeof(sit_6rd_prefix) - strlen(sit_6rd_prefix), "/%d", size6);
-
+			return -1;
+		{
+			size_t used = strlen(sit_6rd_prefix);
+			size_t available = sizeof(sit_6rd_prefix) - used;
+			written = snprintf(sit_6rd_prefix + used, available, "/%d", size6);
+			if (written < 0 || (size_t)written >= available) {
+				errno = ENAMETOOLONG;
+				return -1;
+			}
+		}
 		strcpy(sit_6rd_relay_prefix, "0.0.0.0/0");
 		if (size4 > 0) {
 			net4.s_addr = addr4.s_addr & htonl(0xffffffffUL << (32 - size4));
@@ -360,72 +422,142 @@ void start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4, char *wa
 				 "%s/%d", inet_ntoa(net4), size4);
 		}
 
-		doSystem("ip tunnel 6rd dev %s 6rd-prefix %s 6rd-relay_prefix %s",
-			 IFNAME_SIT, sit_6rd_prefix, sit_6rd_relay_prefix);
-
-		ipv6_to_ipv4_map(&addr6, size6, &addr4, size4);
-		addr6.s6_addr16[7] = htons(0x0001);
-	}
-
-	/* direct route to SIT IPv4 endpoint via WAN dgw */
-	route_add(wan_ifname, 0, sit_ep, wan_gate4, "255.255.255.255");
-
-	/* WAN IPv6 address */
-	if (!inet_ntop(AF_INET6, &addr6, addr6s, INET6_ADDRSTRLEN))
-		return;
-	if (size6 > 0)
-		snprintf(addr6s + strlen(addr6s), sizeof(addr6s) - strlen(addr6s), "/%d", size6);
-
-	control_if_ipv6_radv(IFNAME_SIT, 0);
-	doSystem("ip link set mtu %d dev %s up", sit_mtu, IFNAME_SIT);
-	control_if_ipv6(IFNAME_SIT, 1);
-	clear_if_addr6(IFNAME_SIT);
-	doSystem("ip -6 addr add %s dev %s", addr6s, IFNAME_SIT);
-
-	/* WAN IPv6 gateway (auto-generate for 6to4/6rd) */
-	if (ipv6_type == IPV6_6TO4 || ipv6_type == IPV6_6RD) {
-		snprintf(addr6s, sizeof(addr6s), "::%s", sit_relay);
-		wan_gate6 = addr6s;
-		doSystem("ip -6 route add default dev %s metric %d", IFNAME_SIT, 2048);
+		memcpy(&lan_addr6, &addr6, sizeof(lan_addr6));
+		if (ipv6_to_ipv4_map(&lan_addr6, size6, &addr4, size4) <= 0) {
+			errno = EINVAL;
+			return -1;
+		}
+		lan_addr6.s6_addr16[7] = htons(0x0001);
+		if (!inet_ntop(AF_INET6, &lan_addr6, lan_addr6s, INET6_ADDRSTRLEN))
+			return -1;
+		{
+			size_t used = strlen(lan_addr6s);
+			size_t available = sizeof(lan_addr6s) - used;
+			written = snprintf(lan_addr6s + used, available, "/64");
+			if (written < 0 || (size_t)written >= available) {
+				errno = ENAMETOOLONG;
+				return -1;
+			}
+		}
+		written = snprintf(generated_gate6_text, sizeof(generated_gate6_text),
+				   "::%s", sit_relay);
+		if (written < 0 || (size_t)written >= sizeof(generated_gate6_text)) {
+			errno = ENAMETOOLONG;
+			return -1;
+		}
+		wan_gate6 = generated_gate6_text;
 	} else {
-		wan_gate6 = get_wan_unit_value(0, "gate6");
-		if (*wan_gate6) {
-			if (format_ipv6_literal(wan_gate6, wan_gate6_text,
-						sizeof(wan_gate6_text), 0) < 0)
-				wan_gate6 = "";
-			else
-				wan_gate6 = wan_gate6_text;
+		errno = EINVAL;
+		return -1;
+	}
+
+	sit_mtu = nvram_get_int("ip6_sit_mtu");
+	sit_ttl = nvram_get_int("ip6_sit_ttl");
+	if (sit_mtu < 1280)
+		sit_mtu = 1280;
+	if (sit_ttl < 1)
+		sit_ttl = 1;
+	if (sit_ttl > 255)
+		sit_ttl = 255;
+
+	if (is_interface_exist(IFNAME_SIT))
+		WAN6_SIT_CHECK(doSystem("ip tunnel del %s", IFNAME_SIT),
+			       "remove previous SIT tunnel");
+
+	WAN6_SIT_CHECK(doSystem("ip tunnel add %s mode sit remote %s local %s ttl %d",
+				IFNAME_SIT, sit_remote, wan_addr4_text, sit_ttl),
+		       "create SIT tunnel");
+	tunnel_created = 1;
+
+	if (ipv6_type == IPV6_6RD)
+		WAN6_SIT_CHECK(doSystem("ip tunnel 6rd dev %s 6rd-prefix %s 6rd-relay_prefix %s",
+					IFNAME_SIT, sit_6rd_prefix, sit_6rd_relay_prefix),
+			       "configure 6rd tunnel");
+
+	/* Route the IPv4 tunnel endpoint through the physical WAN first. */
+	WAN6_SIT_CHECK(route_add(wan_ifname, 0, sit_ep, wan_gate4,
+				 "255.255.255.255"), "route SIT IPv4 endpoint");
+	wan_route_added = 1;
+
+	if (!inet_ntop(AF_INET6, &addr6, addr6s, INET6_ADDRSTRLEN)) {
+		status = -1;
+		failure = "format SIT WAN IPv6 address";
+		goto failed;
+	}
+	if (size6 > 0) {
+		size_t used = strlen(addr6s);
+		size_t available = sizeof(addr6s) - used;
+		written = snprintf(addr6s + used, available, "/%d", size6);
+		if (written < 0 || (size_t)written >= available) {
+			status = -1;
+			errno = ENAMETOOLONG;
+			failure = "format SIT WAN IPv6 prefix";
+			goto failed;
 		}
 	}
+
+	WAN6_SIT_CHECK(control_if_ipv6_radv(IFNAME_SIT, 0),
+		       "disable SIT router advertisements");
+	WAN6_SIT_CHECK(doSystem("ip link set mtu %d dev %s up", sit_mtu, IFNAME_SIT),
+		       "bring SIT interface up");
+	WAN6_SIT_CHECK(control_if_ipv6(IFNAME_SIT, 1),
+		       "enable IPv6 on SIT interface");
+	WAN6_SIT_CHECK(clear_if_addr6(IFNAME_SIT),
+		       "clear stale SIT IPv6 addresses");
+	WAN6_SIT_CHECK(doSystem("ip -6 addr add %s dev %s", addr6s, IFNAME_SIT),
+		       "add SIT WAN IPv6 address");
+
+	if (ipv6_type == IPV6_6TO4 || ipv6_type == IPV6_6RD)
+		WAN6_SIT_CHECK(doSystem("ip -6 route add default dev %s metric %d",
+					IFNAME_SIT, 2048), "add SIT fallback default route");
+
 	if (*wan_gate6)
-		doSystem("ip -6 route add default via %s dev %s metric %d",
-			 wan_gate6, IFNAME_SIT, 1);
+		WAN6_SIT_CHECK(doSystem("ip -6 route add default via %s dev %s metric %d",
+					wan_gate6, IFNAME_SIT, 1), "add SIT IPv6 default gateway");
 
-	/* LAN IPv6 address (auto-generate for 6to4/6rd) */
-	if (ipv6_type == IPV6_6TO4 || ipv6_type == IPV6_6RD) {
-		memset(&addr6, 0, sizeof(addr6));
-		if (ipv6_type == IPV6_6TO4) {
-			addr6.s6_addr16[0] = htons(0x2002);
-			ipv6_to_ipv4_map(&addr6, 16, &addr4, 0);
-			addr6.s6_addr16[3] = htons(0x0001);
-			addr6.s6_addr16[7] = htons(0x0001);
-		} else {
-			ipv6_from_string(wan_addr6, &addr6);
-			ipv6_to_ipv4_map(&addr6, size6, &addr4, size4);
-			addr6.s6_addr16[7] = htons(0x0001);
-		}
-
-		if (!inet_ntop(AF_INET6, &addr6, addr6s, INET6_ADDRSTRLEN))
-			return;
-		snprintf(addr6s + strlen(addr6s), sizeof(addr6s) - strlen(addr6s), "/64");
-
-		clear_if_addr6(IFNAME_BR);
-		doSystem("ip -6 addr add %s dev %s", addr6s, IFNAME_BR);
-		store_lan_addr6(addr6s);
+	/* Publish a derived LAN address only after tunnel and routes are ready. */
+	if (*lan_addr6s) {
+		WAN6_SIT_CHECK(clear_if_addr6(IFNAME_BR),
+			       "clear previous LAN IPv6 address");
+		WAN6_SIT_CHECK(doSystem("ip -6 addr add %s dev %s",
+					lan_addr6s, IFNAME_BR), "add derived LAN IPv6 address");
+		store_lan_addr6(lan_addr6s);
 	}
 
 	set_vpn_balancing(IFNAME_SIT, 0);
+	return 0;
+
+failed:
+	if (wan_route_added) {
+		cleanup_status = route_del(wan_ifname, 0, sit_ep, wan_gate4,
+					   "255.255.255.255");
+		if (cleanup_status != 0)
+			logmessage("WAN IPv6", "failed to roll back SIT endpoint route (status=%d)",
+				   cleanup_status);
+	}
+	if (tunnel_created) {
+		cleanup_status = doSystem("ip link set dev %s down", IFNAME_SIT);
+		if (cleanup_status != 0)
+			logmessage("WAN IPv6", "failed to lower incomplete SIT tunnel (status=%d)",
+				   cleanup_status);
+		cleanup_status = clear_if_route6(IFNAME_SIT);
+		if (cleanup_status != 0)
+			logmessage("WAN IPv6", "failed to clear incomplete SIT routes (status=%d)",
+				   cleanup_status);
+		cleanup_status = clear_if_addr6(IFNAME_SIT);
+		if (cleanup_status != 0)
+			logmessage("WAN IPv6", "failed to clear incomplete SIT addresses (status=%d)",
+				   cleanup_status);
+		cleanup_status = stop_sit_tunnel();
+		if (cleanup_status != 0)
+			logmessage("WAN IPv6", "failed to remove incomplete SIT tunnel (status=%d)",
+				   cleanup_status);
+	}
+	logmessage("WAN IPv6", "SIT startup failed at %s (status=%d)",
+		   failure, status);
+	return status ? status : -1;
 }
+#undef WAN6_SIT_CHECK
 int stop_sit_tunnel(void)
 {
 	if (is_interface_exist(IFNAME_SIT))
@@ -433,75 +565,199 @@ int stop_sit_tunnel(void)
 	return 0;
 }
 
+#define WAN6_NATIVE_CHECK(operation, description) do { \
+	status = (operation); \
+	if (status != 0) { \
+		failure = (description); \
+		goto native_failed; \
+	} \
+} while (0)
+
 int wan6_up(char *wan_ifname, int unit)
 {
-	int ipv6_type, allow_ra, dhcp6_status;
+	int ipv6_type, allow_ra, status, operation_status;
+	int routes_touched, addresses_touched, radv_touched;
+	int autoconf_touched, privacy_touched, dhcp6_start_attempted;
 	char *wan_addr6, *wan_gate6, *wan_addr4, *wan_gate4;
+	char addr6_text[INET6_ADDRSTRLEN + 5];
+	char gate6_text[INET6_ADDRSTRLEN];
+	const char *failure = "invalid parameters";
+
+	if (!wan_ifname || !*wan_ifname || unit < 0) {
+		errno = EINVAL;
+		return -1;
+	}
 
 	ipv6_type = get_ipv6_type();
 	if (ipv6_type == IPV6_DISABLED)
 		return 0;
 
-	dhcp6_status = stop_dhcp6c();
-	if (dhcp6_status != 0) {
+	status = stop_dhcp6c();
+	if (status != 0) {
 		logmessage("WAN IPv6", "failed to stop previous DHCPv6 client on %s (status=%d)",
-			   wan_ifname, dhcp6_status);
-		return dhcp6_status;
+			   wan_ifname, status);
+		return status;
 	}
 
 	build_dns6_var();
 
-	control_if_ipv6_dad(IFNAME_BR, 1);
+	status = control_if_ipv6_dad(IFNAME_BR, 1);
+	if (status != 0) {
+		logmessage("WAN IPv6", "failed to configure bridge DAD on %s (status=%d)",
+			   IFNAME_BR, status);
+		return status;
+	}
 
-	if (ipv6_type == IPV6_6IN4 || ipv6_type == IPV6_6TO4 || ipv6_type == IPV6_6RD) {
-		set_wan_unit_value(unit, "ifname6", IFNAME_SIT);
-		
+	if (ipv6_type == IPV6_6IN4 || ipv6_type == IPV6_6TO4 ||
+	    ipv6_type == IPV6_6RD) {
 		wan_addr4 = get_wan_unit_value(unit, "ipaddr");
 		wan_gate4 = get_wan_unit_value(unit, "gateway");
 		wan_addr6 = get_wan_unit_value(unit, "addr6");
 		if (!is_valid_ipv4(wan_gate4))
 			wan_gate4 = NULL;
-		start_sit_tunnel(ipv6_type, wan_ifname, wan_addr4, wan_gate4, wan_addr6);
-	} else {
-		set_wan_unit_value(unit, "ifname6", wan_ifname);
-		
-		control_if_ipv6_dad(wan_ifname, 1);
-		
-		if (ipv6_type == IPV6_NATIVE_STATIC) {
-			char addr6_text[INET6_ADDRSTRLEN + 5];
-			char gate6_text[INET6_ADDRSTRLEN];
 
-			wan_addr6 = get_wan_unit_value(unit, "addr6");
-			wan_gate6 = get_wan_unit_value(unit, "gate6");
-			control_if_ipv6_privacy(wan_ifname, 0);
-			control_if_ipv6_radv(wan_ifname, 0);
-			clear_if_addr6(wan_ifname);
-			if (*wan_addr6 &&
-			    format_ipv6_literal(wan_addr6, addr6_text, sizeof(addr6_text), 1) == 0)
-				doSystem("ip -6 addr add %s dev %s", addr6_text, wan_ifname);
-			if (*wan_gate6 &&
-			    format_ipv6_literal(wan_gate6, gate6_text, sizeof(gate6_text), 0) == 0) {
-				doSystem("ip -6 route add %s dev %s", gate6_text, wan_ifname);
-				doSystem("ip -6 route add default via %s metric %d", gate6_text, 1);
-			}
-		} else {
-			doSystem("ip -6 route add default dev %s metric %d", wan_ifname, 2048);
-			allow_ra = nvram_invmatch("ip6_wan_dhcp", "1");
-			control_if_ipv6_privacy(wan_ifname, allow_ra && nvram_match("ip6_wan_priv", "1"));
-			control_if_ipv6_autoconf(wan_ifname, allow_ra);
-			control_if_ipv6_radv(wan_ifname, 1);
-			/* wait for interface ready */
-			sleep(2);
-			dhcp6_status = start_dhcp6c(wan_ifname);
-			if (dhcp6_status != 0) {
-				logmessage("WAN IPv6", "DHCPv6 client startup failed on %s (status=%d)",
-					   wan_ifname, dhcp6_status);
-				return dhcp6_status;
-			}
+		status = start_sit_tunnel(ipv6_type, wan_ifname, wan_addr4,
+					  wan_gate4, wan_addr6);
+		if (status != 0) {
+			logmessage("WAN IPv6", "SIT setup incomplete on %s (status=%d)",
+				   wan_ifname, status);
+			return status;
 		}
+		set_wan_unit_value(unit, "ifname6", IFNAME_SIT);
+		return 0;
 	}
+
+	status = control_if_ipv6_dad(wan_ifname, 1);
+	if (status != 0) {
+		logmessage("WAN IPv6", "failed to configure DAD on %s (status=%d)",
+			   wan_ifname, status);
+		return status;
+	}
+
+	routes_touched = 0;
+	addresses_touched = 0;
+	radv_touched = 0;
+	autoconf_touched = 0;
+	privacy_touched = 0;
+	dhcp6_start_attempted = 0;
+
+	if (ipv6_type == IPV6_NATIVE_STATIC) {
+		wan_addr6 = get_wan_unit_value(unit, "addr6");
+		wan_gate6 = get_wan_unit_value(unit, "gate6");
+		if (!wan_addr6 || !*wan_addr6 ||
+		    format_ipv6_literal(wan_addr6, addr6_text,
+					 sizeof(addr6_text), 1) < 0) {
+			errno = EINVAL;
+			status = -1;
+			failure = "invalid native static IPv6 address";
+			goto native_failed;
+		}
+		if (*wan_gate6 &&
+		    format_ipv6_literal(wan_gate6, gate6_text,
+					 sizeof(gate6_text), 0) < 0) {
+			errno = EINVAL;
+			status = -1;
+			failure = "invalid native static IPv6 gateway";
+			goto native_failed;
+		}
+
+		privacy_touched = 1;
+		WAN6_NATIVE_CHECK(control_if_ipv6_privacy(wan_ifname, 0),
+				  "disable native static privacy addresses");
+		radv_touched = 1;
+		WAN6_NATIVE_CHECK(control_if_ipv6_radv(wan_ifname, 0),
+				  "disable native static router advertisements");
+
+		addresses_touched = 1;
+		WAN6_NATIVE_CHECK(clear_if_addr6(wan_ifname),
+				  "clear previous native static IPv6 addresses");
+		WAN6_NATIVE_CHECK(doSystem("ip -6 addr add %s dev %s",
+					   addr6_text, wan_ifname),
+				  "add native static IPv6 address");
+
+		if (*wan_gate6) {
+			routes_touched = 1;
+			WAN6_NATIVE_CHECK(doSystem("ip -6 route add %s dev %s",
+						   gate6_text, wan_ifname),
+					  "add native static on-link gateway route");
+			WAN6_NATIVE_CHECK(doSystem("ip -6 route add default via %s metric %d",
+						   gate6_text, 1),
+					  "add native static default route");
+		}
+	} else if (ipv6_type == IPV6_NATIVE_DHCP6) {
+		routes_touched = 1;
+		WAN6_NATIVE_CHECK(doSystem("ip -6 route add default dev %s metric %d",
+					   wan_ifname, 2048),
+				  "add native DHCPv6 fallback default route");
+		allow_ra = nvram_invmatch("ip6_wan_dhcp", "1");
+		privacy_touched = 1;
+		WAN6_NATIVE_CHECK(control_if_ipv6_privacy(wan_ifname,
+							 allow_ra && nvram_match("ip6_wan_priv", "1")),
+				  "configure native DHCPv6 privacy addresses");
+		autoconf_touched = 1;
+		WAN6_NATIVE_CHECK(control_if_ipv6_autoconf(wan_ifname, allow_ra),
+				  "configure native DHCPv6 autoconfiguration");
+		radv_touched = 1;
+		WAN6_NATIVE_CHECK(control_if_ipv6_radv(wan_ifname, 1),
+				  "enable native DHCPv6 router advertisements");
+
+		/* Wait for the interface to become ready before launching dhcp6c. */
+		sleep(2);
+		dhcp6_start_attempted = 1;
+		WAN6_NATIVE_CHECK(start_dhcp6c(wan_ifname),
+				  "start native DHCPv6 client");
+	} else {
+		errno = EINVAL;
+		status = -1;
+		failure = "unsupported IPv6 WAN type";
+		goto native_failed;
+	}
+
+	set_wan_unit_value(unit, "ifname6", wan_ifname);
 	return 0;
+
+native_failed:
+	if (dhcp6_start_attempted) {
+		operation_status = stop_dhcp6c();
+		if (operation_status != 0)
+			logmessage("WAN IPv6", "failed to stop partially started DHCPv6 client (status=%d)",
+				   operation_status);
+	}
+	if (radv_touched) {
+		operation_status = control_if_ipv6_radv(wan_ifname, 0);
+		if (operation_status != 0)
+			logmessage("WAN IPv6", "failed to roll back router advertisement setting (status=%d)",
+				   operation_status);
+	}
+	if (autoconf_touched) {
+		operation_status = control_if_ipv6_autoconf(wan_ifname, 0);
+		if (operation_status != 0)
+			logmessage("WAN IPv6", "failed to roll back autoconfiguration setting (status=%d)",
+				   operation_status);
+	}
+	if (privacy_touched) {
+		operation_status = control_if_ipv6_privacy(wan_ifname, 0);
+		if (operation_status != 0)
+			logmessage("WAN IPv6", "failed to roll back privacy setting (status=%d)",
+				   operation_status);
+	}
+	if (routes_touched) {
+		operation_status = clear_if_route6(wan_ifname);
+		if (operation_status != 0)
+			logmessage("WAN IPv6", "failed to clear partially configured routes (status=%d)",
+				   operation_status);
+	}
+	if (addresses_touched) {
+		operation_status = clear_if_addr6(wan_ifname);
+		if (operation_status != 0)
+			logmessage("WAN IPv6", "failed to clear partially configured addresses (status=%d)",
+				   operation_status);
+	}
+	logmessage("WAN IPv6", "native startup failed at %s on %s (status=%d)",
+		   failure, wan_ifname, status);
+	return status ? status : -1;
 }
+#undef WAN6_NATIVE_CHECK
 
 int wan6_down(char *wan_ifname, int unit)
 {

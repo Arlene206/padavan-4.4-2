@@ -75,9 +75,9 @@ void control_if_ipv6_all(int enable)
 	}
 }
 
-void control_if_ipv6(const char *ifname, int enable)
+int control_if_ipv6(const char *ifname, int enable)
 {
-	set_interface_conf_int("ipv6", ifname, "disable_ipv6", (enable) ? 0 : 1);
+	return set_interface_conf_int("ipv6", ifname, "disable_ipv6", (enable) ? 0 : 1);
 }
 
 int control_if_ipv6_autoconf(const char *ifname, int enable)
@@ -90,16 +90,23 @@ int control_if_ipv6_radv(const char *ifname, int enable)
 	return set_interface_conf_int("ipv6", ifname, "accept_ra", (enable) ? 2 : 0);
 }
 
-void control_if_ipv6_dad(const char *ifname, int enable)
+int control_if_ipv6_dad(const char *ifname, int enable)
 {
-	set_interface_conf_int("ipv6", ifname, "accept_dad", (enable) ? 1 : 0);
-	if (enable)
-		set_interface_conf_int("ipv6", ifname, "dad_transmits", (strcmp(ifname, IFNAME_BR) == 0) ? 2 : 1);
+	int status, operation_status;
+
+	status = set_interface_conf_int("ipv6", ifname, "accept_dad", (enable) ? 1 : 0);
+	if (enable) {
+		operation_status = set_interface_conf_int("ipv6", ifname, "dad_transmits",
+						  (strcmp(ifname, IFNAME_BR) == 0) ? 2 : 1);
+		if (status == 0)
+			status = operation_status;
+	}
+	return status;
 }
 
-void control_if_ipv6_privacy(const char *ifname, int enable)
+int control_if_ipv6_privacy(const char *ifname, int enable)
 {
-	set_interface_conf_int("ipv6", ifname, "use_tempaddr", (enable) ? 2 : 0);
+	return set_interface_conf_int("ipv6", ifname, "use_tempaddr", (enable) ? 2 : 0);
 }
 
 int clear_if_addr6(char *ifname)
