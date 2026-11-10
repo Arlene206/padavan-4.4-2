@@ -4259,7 +4259,9 @@ jobs:
           assert "if (kill_services(svcs_ppp, 6, 1) != 0)" in stop_ppp
           assert stop_ppp.index("return -1;") < stop_ppp.index("clear_wan_state();")
           assert stop_wan.count("if (kill_services(") == 2
-          assert stop_wan.count("return -1;") == 4
+          assert stop_wan.count("return -1;") == 5
+          assert "if (ipv6_status != 0)" in stop_wan
+          assert stop_wan.index("if (ipv6_status != 0)") < stop_wan.index("clear_wan_state();")
           assert "if (ifdown_status != 0)" in stop_wan
           assert stop_wan.index("if (ifdown_status != 0)") < stop_wan.index("clear_wan_state();")
           assert stop_wan.index("invalidate_wan_ppp_callback_session()") < stop_wan.index("kill_services(svcs_ppp, 6, 1)")

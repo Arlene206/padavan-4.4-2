@@ -1,3 +1,12 @@
+## 2026-11-10 14:00 CST (UTC+8) — Align HTTPD WAN-stop contract with IPv6 teardown gate
+
+- **Base main SHA:** `2305fe3c75eff2729bd6a15d65a4ce12568f4ca1`. The WAN DHCP callback [42758809581], WAN interface teardown [42758810024] and AI handoff documentation [42758809710] Actions all completed SUCCESS. The teardown job passed its new stop-status contracts; the WAN job passed its three GNU89 host regressions and PPP callback contracts. Nine of ten Actions passed on this SHA.
+- **CI diagnosis:** HTTPD security action [42758809701] failed only in its existing "bounded service termination and WAN stop failure gates" Python contract: it asserted exactly four `return -1;` branches in `stop_wan()`. The new explicit IPv6 teardown gate correctly adds a fifth return-before-state-clear branch; this is a stale contract count, not a C or runtime test failure.
+- **Fix in THIS COMMIT:** update `.github/workflows/httpd-security.yml` to expect five failure returns and explicitly assert the IPv6 teardown failure gate precedes `clear_wan_state()`. No production behavior changes.
+- **Validation boundary:** the new DHCPv6 teardown code and WAN source contracts passed on base SHA `2305fe3c75eff2729bd6a15d65a4ce12568f4ca1`; the HTTPD workflow contract correction and full exact-head rerun are pending. No MIPS/uClibc build, firmware/TRX or physical-router behavior is claimed.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** inspect exact-head HTTPD security, WAN DHCP, WAN teardown and AI handoff Actions. If green, continue PPP callback fencing/reentrancy and remaining IPv6 route/RA cleanup audit.
+
 ## 2026-11-10 13:45 CST (UTC+8) — Propagate DHCPv6 client teardown failures
 
 - **Base main SHA:** `118db7691f9dfb0389151236f5ad4e8e10bbdb18`. All ten exact-head Actions completed SUCCESS: WAN DHCP callback [42758479890], AI handoff docs [42758480028], WAN route [42758479837], storage hotplug [42758479898], WAN teardown [42758480112], HTTPD security [42758480227], NFS start/reload [42758480113], vsftpd [42758480121], Samba [42758479866], and wireless [42758479880]. The WAN job passed the three GNU89 host regressions and full PPP start-status source contracts.
