@@ -46,8 +46,8 @@ jobs:
             trunk/user/rc/src/tests/vpn_server_lifecycle_lock.c \
             -o /tmp/vpn_server_lifecycle_lock
           /tmp/vpn_server_lifecycle_lock
-          cc -std=gnu89 -Wall -Wextra -Werror -Itrunk/user/rc/src \\
-            trunk/user/rc/src/tests/vpn_server_callback_policy.c \\
+          cc -std=gnu89 -Wall -Wextra -Werror -Itrunk/user/rc/src \
+            trunk/user/rc/src/tests/vpn_server_callback_policy.c \
             -o /tmp/vpn_server_callback_policy
           /tmp/vpn_server_callback_policy
       - name: Verify VPN lifecycle serialization and caller integration
