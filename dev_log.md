@@ -1,3 +1,16 @@
+## 2026-11-11 01:42 CST (UTC+8) — Reconcile VPN lifecycle refactor source contracts
+
+- **Base main SHA:** `bb515ef8d8bd4ddf6109d690fd12601835f07a24`; follow-up semantic-contract alignment SHA `58bcdbdf4a72bb10503540380762cf47b4f8c336`.
+- **CI finding:** the new production implementation correctly moved WAN teardown, L2TP launch and xl2tpd configuration into explicit `*_locked` helper bodies while adding lock-owning public wrappers. Several existing workflow contracts still extracted the old public-function body or sliced it using the former function boundary. The first exact-head run therefore produced false red source-contract failures even though the VPN lifecycle lock and callback-identity GNU89 binaries passed.
+- **Contract corrections:** the VPN server restart assertion now expects the internal `safe_start_xl2tpd_locked()` call. WAN teardown and WAN DHCP contracts now inspect `stop_wan_locked()`; WAN route checks inspect `launch_wan_pppd_locked()`. The HTTPD umbrella's service and PPP credential contracts inspect the locked WAN/launch helpers instead of public wrappers. THIS COMMIT also updates the remaining direct substring slices to terminate at the new locked-helper/wrapper boundaries.
+- **Exact-head validation on `58bcdbdf4a72bb10503540380762cf47b4f8c336`:** VPN [42866039620], WAN teardown [42866039417], WAN DHCP [42866039364], WAN route [42866039509] and AI handoff [42866039416] all SUCCESS. HTTPD security [42866039575] failed in its PPP source-slice step because it still selected the public `stop_wan_ppp()` wrapper and expected the old `int stop_wan()` boundary; all earlier HTTPD steps succeeded. The current workflow update fixes that last contract mismatch; exact-head rerun is pending. On production SHA `bb515ef8d8bd4ddf6109d690fd12601835f07a24`, 11 other triggered stability workflows completed SUCCESS. No C translation-unit compile or production firmware/target test is claimed.
+- **Changed paths:** `.github/workflows/httpd-security.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log.
+- **Root log:** 52 complete newest-first records before this entry; 53 after. No rotation or INDEX update is due.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** inspect the exact-head HTTPD and AI handoff reruns, then finish the whole-tree shell/add-on/package PPPD/PPTP/L2TP process-control sweep. Keep MIPS/uClibc/device validation, FTP cleanup TOCTOU, NFS compatibility, FULLCONENAT target build and OpenVPN/board behavior open.
+
+---
+
 ## 2026-11-11 01:09 CST (UTC+8) — Serialize external PPP/L2TP lifecycle stop paths
 
 - **Base main SHA:** `4141b1cf72e7e4890b3328287b7dc752e6b6dc4c`; remote branch inventory contains only `main`, with no checkpoint branch.

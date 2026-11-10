@@ -1744,12 +1744,12 @@ jobs:
               body = ppp[start:end]
               assert body.index("ppp_wan_callback_session_enter") < body.index(first_effect)
 
-          stop_ppp_start = wan.index("stop_wan_ppp(void)")
-          stop_ppp_end = wan.index("\nint\nstop_wan(void)", stop_ppp_start)
+          stop_ppp_start = wan.index("stop_wan_ppp_locked(void)")
+          stop_ppp_end = wan.index("\nstatic int\nwan_teardown_ifdown_interface", stop_ppp_start)
           stop_ppp_body = wan[stop_ppp_start:stop_ppp_end]
           assert stop_ppp_body.index("invalidate_wan_ppp_callback_session()") < stop_ppp_body.index("kill_services(svcs_ppp")
-          stop_wan_start = wan.index("stop_wan(void)")
-          stop_wan_end = wan.index("\nstatic int\nget_wan_unit", stop_wan_start)
+          stop_wan_start = wan.index("stop_wan_locked(void)")
+          stop_wan_end = wan.index("\nstatic int\nrun_wan_stop_under_vpn_lifecycle_lock", stop_wan_start)
           stop_wan_body = wan[stop_wan_start:stop_wan_end]
           assert stop_wan_body.index("invalidate_wan_ppp_callback_session()") < stop_wan_body.index("kill_services(svcs_ppp")
 
