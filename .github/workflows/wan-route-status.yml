@@ -5,6 +5,9 @@ on:
     paths:
       - ".github/workflows/wan-route-status.yml"
       - "trunk/user/rc/src/net.c"
+      - "trunk/linux-4.4.x/net/ipv4/fib_trie.c"
+      - "trunk/linux-4.4.x/net/ipv4/fib_semantics.c"
+      - "trunk/linux-4.4.x/net/ipv4/fib_frontend.c"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_ppp.c"
       - "trunk/user/rc/src/rc.h"
@@ -14,6 +17,9 @@ on:
     paths:
       - ".github/workflows/wan-route-status.yml"
       - "trunk/user/rc/src/net.c"
+      - "trunk/linux-4.4.x/net/ipv4/fib_trie.c"
+      - "trunk/linux-4.4.x/net/ipv4/fib_semantics.c"
+      - "trunk/linux-4.4.x/net/ipv4/fib_frontend.c"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_ppp.c"
       - "trunk/user/rc/src/rc.h"
@@ -42,6 +48,10 @@ jobs:
           wan = (rc / "net_wan.c").read_text()
           ppp = (rc / "net_ppp.c").read_text()
           header = (rc / "rc.h").read_text()
+          policy = (rc / "route_status_policy.h").read_text()
+          fib_trie = Path("trunk/linux-4.4.x/net/ipv4/fib_trie.c").read_text()
+          fib_semantics = Path("trunk/linux-4.4.x/net/ipv4/fib_semantics.c").read_text()
+          fib_frontend = Path("trunk/linux-4.4.x/net/ipv4/fib_frontend.c").read_text()
           workflow = Path(".github/workflows/wan-route-status.yml").read_text()
 
           def body(source, signature):
@@ -66,6 +76,37 @@ jobs:
           assert "return status;" in static
           assert "return 0;" not in static[static.index("foreach("):]
           assert "route_add(ifname" in static and "route_del(ifname" in static
+          add_selector = static.index("route_status = is_add ?")
+          normalize_add = static.index("route_status = route_status_idempotent_add(route_status);")
+          accumulate_add = static.index("status = route_status_accumulate(status, route_status);", normalize_add)
+          assert add_selector < normalize_add < accumulate_add
+          assert "if (is_add)" in static[add_selector:normalize_add]
+          idempotent_add = body(policy, "route_status_idempotent_add(")
+          assert "return operation_status == EEXIST ? 0 : operation_status;" in idempotent_add
+
+          route_manip = body(net, "route_manip(int cmd, char *ifname, int metric, char *dst, char *gateway, char *genmask)")
+          route_add = body(net, "route_add(char *ifname, int metric, char *dst, char *gateway, char *genmask)")
+          assert "saved_errno = errno;" in route_manip and "return saved_errno;" in route_manip
+          assert "route_manip(SIOCADDRT, ifname" in route_add
+
+          # Linux 4.4's SIOCADDRT path returns EEXIST only for an identical FIB route.
+          rtentry_config = body(fib_frontend, "rtentry_to_fib_config(struct net *net, int cmd, struct rtentry *rt,")
+          assert "cfg->fc_nlflags = NLM_F_CREATE;" in rtentry_config
+          assert "NLM_F_EXCL" not in rtentry_config
+          ioctl_path = body(fib_frontend, "ip_rt_ioctl(struct net *net, unsigned int cmd, void __user *arg)")
+          assert "err = fib_table_insert(tb, &cfg);" in ioctl_path and "return err;" in ioctl_path
+          fib_insert = body(fib_trie, "fib_table_insert(struct fib_table *tb, struct fib_config *cfg)")
+          assert "err = -EEXIST;" in fib_insert
+          same_type = fib_insert.index("fa->fa_type == cfg->fc_type &&")
+          same_info = fib_insert.index("fa->fa_info == fi", same_type)
+          duplicate_match = fib_insert.index("if (fa_match)", same_info)
+          duplicate_exit = fib_insert.index("goto out;", duplicate_match)
+          assert same_type < same_info < duplicate_match < duplicate_exit
+          fib_find = body(fib_semantics, "fib_find_info(const struct fib_info *nfi)")
+          assert "nfi->fib_priority == fi->fib_priority" in fib_find
+          assert "nh_comp(fi, nfi) == 0" in fib_find
+          fib_create = body(fib_semantics, "fib_create_info(struct fib_config *cfg)")
+          assert "ofi = fib_find_info(fi);" in fib_create and "return ofi;" in fib_create
 
           dynamic = body(wan, "control_dhcp_routes(char *rt, char *rt_rfc, char *rt_ms,")
           assert "static int\ncontrol_dhcp_routes(" in wan
@@ -173,6 +214,7 @@ jobs:
           preset = body(ppp, "preset_wan_ppp_routes(char *ppp_ifname, int unit)")
           assert "int status = 0, route_status;" in preset
           assert "route_status = route_add(ppp_ifname, 1," in preset
+          assert "route_status = route_status_idempotent_add(route_status);" in preset
           assert "route_status = add_static_wan_routes(ppp_ifname);" in preset
           assert preset.count("route_status_accumulate(status, route_status)") == 2
           assert "return status;" in preset
@@ -205,6 +247,9 @@ jobs:
           paths = (
               ".github/workflows/wan-route-status.yml",
               "trunk/user/rc/src/net.c",
+              "trunk/linux-4.4.x/net/ipv4/fib_trie.c",
+              "trunk/linux-4.4.x/net/ipv4/fib_semantics.c",
+              "trunk/linux-4.4.x/net/ipv4/fib_frontend.c",
               "trunk/user/rc/src/net_wan.c",
               "trunk/user/rc/src/net_ppp.c",
               "trunk/user/rc/src/rc.h",

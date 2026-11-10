@@ -875,6 +875,7 @@ preset_wan_ppp_routes(char *ppp_ifname, int unit)
 	/* Set default route to gateway if specified. */
 	if (get_wan_unit_value_int(unit, "primary") == 1) {
 		route_status = route_add(ppp_ifname, 1, "0.0.0.0", "0.0.0.0", "0.0.0.0");
+		route_status = route_status_idempotent_add(route_status);
 		status = route_status_accumulate(status, route_status);
 		if (route_status != 0)
 			logmessage(LOGNAME, "failed to restore PPP default route on %s (error=%d)",

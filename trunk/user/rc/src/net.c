@@ -148,6 +148,8 @@ control_static_routes(char *ift, char *ifname, int is_add)
 		route_status = is_add ?
 			route_add(ifname, (int)metric_value, ipaddr, gateway, netmask) :
 			route_del(ifname, (int)metric_value, ipaddr, gateway, netmask);
+		if (is_add)
+			route_status = route_status_idempotent_add(route_status);
 		status = route_status_accumulate(status, route_status);
 		if (route_status != 0)
 			logmessage(LOGNAME, "failed to %s static route %s via %s on %s (error=%d)",
