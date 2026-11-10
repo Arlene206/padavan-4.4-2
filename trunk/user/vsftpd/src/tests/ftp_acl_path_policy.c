@@ -146,6 +146,18 @@ main(void)
   checked_path(empty_dir, sizeof(empty_dir), a, "empty-dir");
   create_fixture_file(file_a);
   create_fixture_file(file_b);
+  if (chdir(b) ||
+      ftp_acl_path_build_child_path(a, "owned.txt", resolved, sizeof(resolved)) != 0 ||
+      strcmp(resolved, file_a) != 0 ||
+      ftp_acl_path_build_child_path(a, "../owned.txt", resolved,
+                                    sizeof(resolved)) == 0 ||
+      ftp_acl_path_build_child_path(a, "bad/name", resolved,
+                                    sizeof(resolved)) == 0 ||
+      chdir(cwd) != 0) {
+    fprintf(stderr, "listing child path did not honor the canonical base or accepted traversal\n");
+    return 1;
+  }
+
   create_fixture_file(metadata_file);
   if (mkdir(dir_b, 0700) || symlink(file_b, link_file) ||
       symlink("/no-such-ftp-acl-target", broken_link) ||

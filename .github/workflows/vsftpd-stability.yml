@@ -135,7 +135,7 @@ jobs:
           acl_existing = function_body(vsftpd_acl, "asus_check_permission_existing_path(")
           acl_upload = function_body(vsftpd_acl, "asus_check_permission_upload(")
           acl_directory = function_body(vsftpd_acl, "asus_check_permission_directory(")
-          acl_visible = function_body(vsftpd_acl, "int asus_check_file_visible(")
+          acl_visible = function_body(vsftpd_acl, "asus_check_file_visible(")
           size = function_body(vsftpd_postlogin, "static void\nhandle_size")
           mdtm = function_body(vsftpd_postlogin, "static void\nhandle_mdtm")
           chmod = function_body(vsftpd_postlogin, "static void\nhandle_site_chmod")
@@ -166,7 +166,7 @@ jobs:
           acl_existing = function_body(vsftpd_acl, "asus_check_permission_existing_path(")
           acl_upload = function_body(vsftpd_acl, "asus_check_permission_upload(")
           acl_directory = function_body(vsftpd_acl, "asus_check_permission_directory(")
-          acl_visible = function_body(vsftpd_acl, "int asus_check_file_visible(")
+          acl_visible = function_body(vsftpd_acl, "asus_check_file_visible(")
           assert "asus_open_upload_path(" in upload
           assert "p_sess, p_filename, 1," in upload
           assert "p_sess, p_filename, 0," in upload

@@ -769,92 +769,93 @@ asus_open_subdirectory_path(struct vsf_session* p_sess, int parent_fd,
   return child_fd;
 }
 
-int asus_check_file_visible(struct vsf_session* p_sess, const struct mystr* p_filename_str)
+int
+asus_resolve_listing_base(const struct mystr* p_base_dir_str, int directory_fd,
+                          char* resolved_base, size_t resolved_size)
 {
-	int i_layer, i_user_right, i_result;
-	char *mount_path = NULL, *share_name = NULL;
-	const char *p_filename, *p_fullpath;
+  if (!p_base_dir_str || directory_fd < 0 || !resolved_base ||
+      ftp_acl_path_resolve_directory(str_getbuf(p_base_dir_str), resolved_base,
+                                     resolved_size) != 0 ||
+      ftp_acl_path_verify_directory_identity(resolved_base, directory_fd) != 0)
+    return -1;
+  return 0;
+}
 
-	if (str_isempty(p_filename_str))
-		return 0;
+int
+asus_check_file_visible(struct vsf_session* p_sess,
+                        const char* resolved_base, int directory_fd,
+                        const struct mystr* p_filename_str)
+{
+  int i_layer, i_user_right, i_result;
+  char fullpath[PATH_MAX];
+  char *mount_path = NULL, *share_name = NULL;
+  const char *p_filename;
+  struct stat entry_stat;
 
-	p_filename = str_getbuf(p_filename_str);
-	if (ftp_acl_path_is_internal_metadata(p_filename))
-		return 0;
-	if (!tunable_chroot_local_user)
-		return 1;
-	if (!p_sess)
-		return 0;
+  if (!p_filename_str || str_isempty(p_filename_str))
+    return 0;
+  p_filename = str_getbuf(p_filename_str);
+  if (ftp_acl_path_is_internal_metadata(p_filename))
+    return 0;
+  if (!tunable_chroot_local_user)
+    return 1;
+  if (!p_sess || directory_fd < 0 || !resolved_base || resolved_base[0] != '/')
+    return 0;
+  if (!strcmp(p_filename, ".") || !strcmp(p_filename, ".."))
+    return 1;
 
-	if (!strcmp(p_filename, ".") || !strcmp(p_filename, ".."))
-		return 1;
+  if (ftp_acl_path_build_child_path(resolved_base, p_filename, fullpath,
+                                    sizeof(fullpath)) != 0)
+    return 0;
 
-	str_getcwd(&p_sess->cwd_str);
-	if (!str_equal_text(&p_sess->cwd_str, "/"))
-		str_append_char(&p_sess->cwd_str, '/');
-	str_append_str(&p_sess->cwd_str, p_filename_str);
-	p_fullpath = str_getbuf(&p_sess->cwd_str);
+  i_result = 1;
+  i_layer = get_mount_layer(fullpath, &mount_path, &share_name);
+  if (i_layer < 0) {
+    i_result = 0;
+    goto free_and_exit;
+  }
+  if (mount_path && test_if_hidden_share(mount_path)) {
+    i_result = 0;
+    goto free_and_exit;
+  }
 
-	i_result = 1;
-	i_layer = get_mount_layer(p_fullpath, &mount_path, &share_name);
-	if (i_layer < 0) {
-		i_result = 0;
-		goto free_and_exit;
-	}
-
-	if (mount_path && test_if_hidden_share(mount_path)) {
-		i_result = 0;
-		goto free_and_exit;
-	}
-
-	if(i_layer == MOUNT_LAYER){
-		if(!test_if_dir_stat(p_fullpath)){
-			i_result = 0;
-			goto free_and_exit;
-		}
-	}
-	else if(i_layer == SHARE_LAYER){
-		const char *account_ftp;
-		
-		if(test_if_System_folder(p_filename)){
-			i_result = 0;
-			goto free_and_exit;
-		}
-		
-		if(!strncmp(p_filename, ".__", 3)){
-			i_result = 0;
-			goto free_and_exit;
-		}
-		
-		if(p_sess->is_anonymous){
-			if (p_sess->st_ftp_mode == 1)
-				goto free_and_exit;
-			account_ftp = FTP_ANONYMOUS_USER;
-		}
-		else{
-			account_ftp = str_getbuf(&p_sess->user_str);
-		}
-		
-		if(!test_if_dir_stat(p_fullpath)){
-			i_result = 0;
-			goto free_and_exit;
-		}
-		
-		i_user_right = get_permission_ftp(account_ftp, mount_path, share_name);
-		if (i_user_right < 1) {
-			i_result = 0;
-			goto free_and_exit;
-		}
-	}
+  if (i_layer == MOUNT_LAYER) {
+    if (fstatat(directory_fd, p_filename, &entry_stat, 0) != 0 ||
+        !S_ISDIR(entry_stat.st_mode)) {
+      i_result = 0;
+      goto free_and_exit;
+    }
+  } else if (i_layer == SHARE_LAYER) {
+    const char *account_ftp;
+    if (test_if_System_folder(p_filename) || !strncmp(p_filename, ".__", 3)) {
+      i_result = 0;
+      goto free_and_exit;
+    }
+    if (fstatat(directory_fd, p_filename, &entry_stat, 0) != 0 ||
+        !S_ISDIR(entry_stat.st_mode)) {
+      i_result = 0;
+      goto free_and_exit;
+    }
+    if (p_sess->is_anonymous) {
+      if (p_sess->st_ftp_mode == 1)
+        goto free_and_exit;
+      account_ftp = FTP_ANONYMOUS_USER;
+    } else {
+      account_ftp = str_getbuf(&p_sess->user_str);
+    }
+    i_user_right = get_permission_ftp(account_ftp, mount_path, share_name);
+    if (i_user_right < 1) {
+      i_result = 0;
+      goto free_and_exit;
+    }
+  }
 
 free_and_exit:
-
-	if (mount_path)
-		free(mount_path);
-	if (share_name)
-		free(share_name);
-
-	return i_result;
+  if (mount_path)
+    free(mount_path);
+  if (share_name)
+    free(share_name);
+  return i_result;
 }
 
 struct passwd *asus_getpwnam(const char *name)

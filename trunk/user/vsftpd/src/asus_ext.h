@@ -50,7 +50,12 @@ int asus_open_subdirectory_path(struct vsf_session* p_sess, int parent_fd,
                                 int* p_permission_denied);
 int asus_check_permission_directory(struct vsf_session* p_sess,
                                     const struct mystr* p_path_str);
-int asus_check_file_visible(struct vsf_session* p_sess, const struct mystr* p_filename_str);
+int asus_resolve_listing_base(const struct mystr* p_base_dir_str,
+                          int directory_fd, char* resolved_base,
+                          size_t resolved_size);
+int asus_check_file_visible(struct vsf_session* p_sess,
+                            const char* resolved_base, int directory_fd,
+                            const struct mystr* p_filename_str);
 int asus_check_auth(struct mystr* p_user_str, const struct mystr* p_pass_str);
 struct passwd *asus_getpwnam(const char *name);
 

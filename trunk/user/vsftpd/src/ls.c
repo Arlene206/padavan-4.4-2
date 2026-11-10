@@ -43,6 +43,7 @@ vsf_ls_populate_dir_list(struct vsf_session* p_sess,
   int F_option;
   int do_stat = 0;
   int dir_fd = -1;
+  char resolved_base[VSFTP_PATH_MAX];
   long curr_time = 0;
   loc_result = str_locate_char(p_option_str, 'a');
   a_option = loc_result.found;
@@ -66,15 +67,14 @@ vsf_ls_populate_dir_list(struct vsf_session* p_sess,
   {
     do_stat = 1;
   }
-  if (do_stat)
+  dir_fd = vsf_sysutil_dirfd(p_dir);
+  if (vsf_sysutil_retval_is_error(dir_fd) ||
+      asus_resolve_listing_base(p_base_dir_str, dir_fd, resolved_base,
+                                sizeof(resolved_base)) != 0)
   {
-    dir_fd = vsf_sysutil_dirfd(p_dir);
-    if (vsf_sysutil_retval_is_error(dir_fd))
-    {
-      str_free(&dirline_str);
-      str_free(&normalised_base_dir_str);
-      return;
-    }
+    str_free(&dirline_str);
+    str_free(&normalised_base_dir_str);
+    return;
   }
   /* If the filter starts with a . then implicitly enable -a */
   if (!str_isempty(p_filter_str) && str_get_char_at(p_filter_str, 0) == '.')
@@ -112,7 +112,8 @@ vsf_ls_populate_dir_list(struct vsf_session* p_sess,
       break;
     }
     /* Padavan */
-    if (!asus_check_file_visible(p_sess, &s_next_filename_str))
+    if (!asus_check_file_visible(p_sess, resolved_base, dir_fd,
+                                 &s_next_filename_str))
       continue;
     {
       unsigned int len = str_getlen(&s_next_filename_str);

@@ -1,3 +1,17 @@
+## 2026-11-10 08:26 CST (UTC+8) — Bind FTP listing visibility to the actual listing base
+
+- **Base main SHA:** `9ec4f037172c6aaa4af7dd32860705f152e9c9a8`; only remote branch is `main`, no checkpoint branch.
+- **Recovered exact-head evidence:** VSFTPD stability regression [42726427585] and AI handoff docs [42726427801] both completed SUCCESS on this exact SHA. GNU89 host policy suites and the semantic source contract passed, including descriptor-relative LIST metadata.
+- **Finding:** `vsf_ls_populate_dir_list()` passed only each entry leaf to `asus_check_file_visible()`. That helper rebuilt the full path from process CWD. Thus `LIST /mnt` while CWD was elsewhere, and recursive listing of a child directory, could classify the name against the wrong path; hidden-share/system-folder and share ACL boundary filtering could be inconsistent with the directory whose entries were actually read.
+- **Fix:** add `ftp_acl_path_build_child_path()` to join a validated leaf to an already-canonical base. `asus_resolve_listing_base()` canonicalizes the explicit `p_base_dir_str` once per opened directory and verifies it matches the `DIR*` fd. Listing passes that canonical base and fd into `asus_check_file_visible()`; the helper no longer calls `getcwd()`, retains hidden-share/system-folder/share-right checks, and uses `fstatat(dirfd, leaf, 0)` for the mount/share directory-entry type checks. This also avoids repeating `realpath()` for every entry.
+- **Regression:** host policy fixture switches CWD to share B while building a child path under share A, verifies the resulting path still refers to A's entry, and rejects slash/traversal leaves. Semantic source contract asserts one base resolution per listing, fd identity verification, no CWD dependency in the visibility helper, and the resolved-base/dirfd call chain.
+- **Changed paths:** `trunk/user/vsftpd/src/ftp_acl_path_policy.h`, `asus_ext.c`, `asus_ext.h`, `ls.c`, `tests/ftp_acl_path_policy.c`, `.github/workflows/vsftpd-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and this log.
+- **Validation:** L1 source/control-flow review PASS. Base per-entry metadata VSFTPD run [42726427585] and AI docs [42726427801] passed exact SHA `9ec4f037172c6aaa4af7dd32860705f152e9c9a8`. THIS change's GNU89 host regression/source contract and AI-doc Actions are pending on its resulting exact SHA. No local checkout/compiler was available; L3 MIPS/uClibc and L4 hardware remain NOT VERIFIED.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** reconcile exact-head Actions; then audit recursive LIST resource/descriptor/memory bounds and option/filter compatibility. Keep MDTM/SITE CHMOD, upload cleanup, DHCP/FULLCONENAT/NFS and target/device validation open.
+
+---
+
 ## 2026-11-10 08:19 CST (UTC+8) — Resolve LIST entry metadata relative to the enumerated directory
 
 - **Base main SHA:** `4cf4f33894658e8f23495f6fff65066143f767dd`.

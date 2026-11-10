@@ -3,6 +3,7 @@
 #include <limits.h>
 #include <stddef.h>
 #include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <sys/stat.h>
@@ -568,6 +569,33 @@ ftp_acl_path_resolve_directory(const char *path, char *resolved,
  * Create a directory entry under an already-authorized, pinned parent.
  * The final component is never re-resolved after the WRITE ACL check.
  */
+/*
+ * Build a child pathname from an already-canonical listing directory. The
+ * base is resolved once per directory, not once per entry, to avoid adding
+ * realpath()/stat overhead to large listings.
+ */
+static int
+ftp_acl_path_build_child_path(const char *resolved_parent, const char *leaf,
+                              char *child_path, size_t child_size)
+{
+  int length;
+  if (!resolved_parent || resolved_parent[0] != '/' || !leaf || !*leaf ||
+      strchr(leaf, '/') || strcmp(leaf, ".") == 0 ||
+      strcmp(leaf, "..") == 0 || !child_path || child_size == 0) {
+    errno = EINVAL;
+    return -1;
+  }
+  if (strcmp(resolved_parent, "/") == 0)
+    length = snprintf(child_path, child_size, "/%s", leaf);
+  else
+    length = snprintf(child_path, child_size, "%s/%s", resolved_parent, leaf);
+  if (length < 0 || (size_t) length >= child_size) {
+    errno = ENAMETOOLONG;
+    return -1;
+  }
+  return 0;
+}
+
 static int
 ftp_acl_path_make_directory_at(int dir_fd, const char *leaf,
                                unsigned int mode)
