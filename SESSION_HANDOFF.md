@@ -1,26 +1,26 @@
 ## Current repository state
 
-- Maintained fork: Arlene206/padavan-4.4-2; work only on this repository. Exact current main before THIS COMMIT: `32f7940a6a27a53a8986345dfd21fe7fc51a41da` (parent `b59a2495573594fa777ea42a878fc4fffe17fd91`). Recovery found only `main`; no remote checkpoint branch exists.
-- **Previous exact-head Actions:** on `32f7940a6a27a53a8986345dfd21fe7fc51a41da`, VPN lifecycle [42873811973], AI handoff [42873812043], HTTPD security [42873812024], WAN DHCP callback [42873812303] and WAN route status [42873812403] all SUCCESS. Every job/step was inspected; all steps in all five runs succeeded.
-- **VPN process-hook audit:** the RC core lifecycle barrier now covers VPN callbacks, WAN teardown, L2TP transport changes, VPN client start/restart, firmware-wide PPP/L2TP stop and the installed PPPoE multi-WAN hook. The ROMFS-installed `pppoe/mwan.sh` has a single in-tree RC caller; the new `--rc-lifecycle-locked` handoff ensures only the locked C path can start it, and RC performs checked PPPD stop before invoking it. The reviewed PPTP/xl2tpd distro init examples are not installed by their package ROMFS Makefiles. The reviewed OpenVPN cert helper and storage-config script do not start/stop PPPD/PPTP/L2TP. External user-provided Optware `/opt/etc/init.d` scripts are outside this repository and cannot be inventoried here; continue the broader add-on lifecycle sweep rather than claiming global closure.
-- **New cross-module finding:** shipped optional Shadowsocks runtime `trunk/user/shadowsocks/scripts/shadowsocks.sh` captured proxy PIDs with `pidof`, sent TERM with `killall`, then immediately sent SIGKILL to the old numeric snapshot. If a process exited and the PID was reused, shutdown could kill an unrelated process. The `ss-monitor` shell script was separately terminated from a `ps | grep` PID snapshot.
-- **Fix in THIS COMMIT:** add a shared POSIX-shell lifecycle helper. Named proxy daemons are TERM'd by process name, given a shared bounded three-second grace period, re-enumerated by name before KILL and checked again after escalation. The script monitor is handled with BusyBox `pgrep/pkill -f` against its installed command path, avoiding a retained PID list. All process groups are verified absent; if any remain, `ssp_close()` returns failure and preserves firewall/config/cgroup state, while `stop`, `restart` and `reserver` abort rather than proceeding with a partial stop.
-- **Regression added:** mocked-process shell test covers no-op, graceful TERM, KILL escalation and still-running failure for both named daemons and the script monitor. Source contract checks bounded ordering, ROMFS helper installation, fail-closed caller behavior and BusyBox PGREP/PKILL defaults/full-command-line matching. Exact-head Actions for THIS COMMIT are pending.
-- **Validation boundary:** L1 source/caller review PASS. No local full checkout or independent host test run is claimed; the new workflow will run shell syntax checks, the mocked-process regression and source contract. No RC translation-unit build, production MIPS/uClibc object, firmware/TRX or L3/L4 router test is claimed.
-- Root `dev_log.md` will contain 56 complete newest-first records after this update; no archive rotation or `docs/dev-log/INDEX.md` update is due.
-- **Open:** inspect every step of the exact resulting Shadowsocks lifecycle and AI documentation Actions. Continue the add-on service inventory, starting with Optware `K95aria2` and `K95transmission`, whose stop functions also retain `pidof` snapshots across TERM. Preserve the FTP failed-upload cleanup TOCTOU as OPEN/BLOCKED, NFS client compatibility, FULLCONENAT target compile, target VPN/OpenVPN behavior and board validation gaps.
+- Maintained fork: Arlene206/padavan-4.4-2; work only on this repository. Exact current main before THIS COMMIT: `405a6c14d6fda41e8e1b776a832328f2a58eacb7` (parent `32f7940a6a27a53a8986345dfd21fe7fc51a41da`). Recovery found only `main`; no remote checkpoint branch exists.
+- **Previous exact-head Actions:** on parent `32f7940a6a27a53a8986345dfd21fe7fc51a41da`, VPN lifecycle [42873811973], AI handoff [42873812043], HTTPD security [42873812024], WAN DHCP callback [42873812303] and WAN route status [42873812403] all SUCCESS; every job/step was inspected. On `405a6c1`, AI handoff [42878125712] also SUCCESS with every step green.
+- **Shadowsocks validation finding:** exact-head lifecycle run [42878125728] passed all shell syntax checks and the mocked process regression (graceful TERM, KILL escalation and still-running failure), but its Python source contract failed on one over-specific escaped-whitespace match against BusyBox `pgrep.c`. The target source documents full-command-line `-f` matching; manual source-contract evaluation found the other assertions true. This follow-up checks the documented capability text rather than source whitespace. New exact-head run is pending.
+- **VPN process-hook audit:** the RC core lifecycle barrier covers VPN callbacks, WAN teardown, L2TP transport changes, VPN client start/restart, firmware-wide PPP/L2TP stop and the installed PPPoE multi-WAN hook. The ROMFS-installed `pppoe/mwan.sh` has a single in-tree RC caller; the `--rc-lifecycle-locked` handoff ensures only the locked C path can start it, and RC performs checked PPPD stop before invoking it. Reviewed PPTP/xl2tpd distro init examples are not installed by their package ROMFS Makefiles. Reviewed OpenVPN cert helper and storage-config script do not start/stop PPPD/PPTP/L2TP. External user-provided Optware `/opt/etc/init.d` scripts are outside this repository; continue the broader add-on lifecycle sweep rather than claiming global closure.
+- **Cross-module fix in main:** optional installed Shadowsocks `shadowsocks.sh` used to retain `pidof` output across TERM and immediately KILL the stale numeric PID list; `ss-monitor` was selected with a `ps | grep` PID snapshot. The new helper sends TERM by process name, waits a bounded three seconds, fresh-matches by `pidof` or BusyBox `pgrep/pkill -f` before KILL, then verifies the postcondition. If any daemon remains, `ssp_close()` preserves firewall/config/cgroup state and stop/restart/reserver abort.
+- **Current correction in THIS COMMIT:** relax only the BusyBox source-contract assertion to match its documented full-command-line `-f` capability; do not change runtime process-stop behavior unless a real behavioral failure is found.
+- **Validation boundary:** L1 source review PASS. The first exact-head Shadowsocks run's shell syntax and mocked-process steps passed; the source-contract step failed only on the formatting assertion above. AI docs passed on `405a6c1`. This correction's exact-head Shadowsocks and AI runs are pending. No production BusyBox/MIPS/uClibc object, firmware/TRX or L3/L4 router test is claimed.
+- Root `dev_log.md` will contain 57 complete newest-first records after this update; no archive rotation or `docs/dev-log/INDEX.md` update is due.
+- **Open:** inspect every step of the corrected exact-head Shadowsocks and AI documentation Actions. Continue the add-on service inventory, starting with Optware `K95aria2` and `K95transmission`, whose stop functions also retain `pidof` snapshots across TERM. Preserve FTP failed-upload cleanup TOCTOU as OPEN/BLOCKED, NFS client compatibility, FULLCONENAT target compile, target VPN/OpenVPN behavior and board validation gaps.
 
 ## Active task
 
-- Verify the exact resulting main SHA and inspect all jobs/steps in the Shadowsocks lifecycle and AI handoff Actions. The test must demonstrate TERM exit without stale-PID escalation, bounded name-based KILL, and explicit failure when a daemon remains active.
-- Then audit actual Optware/package installation and caller paths for `K95aria2` and `K95transmission` stale PID termination. Preserve process ownership and existing service semantics; do not patch examples until their runtime wiring is proved.
+- Verify the exact resulting main SHA and inspect all jobs/steps in the corrected Shadowsocks lifecycle and AI handoff Actions. The source contract must verify BusyBox PGREP/PKILL defaults and full-command-line `-f` matching without depending on literal source whitespace.
+- Then audit actual Optware package installation and caller paths for `K95aria2` and `K95transmission` stale PID termination. Prove process ownership and runtime wiring before changing the stop sequence.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, record exact SHA/parent, and confirm branch/checkpoint inventory.
-2. Inspect every step in the Shadowsocks lifecycle and AI handoff Actions on that exact SHA; do not substitute a parent-SHA success.
-3. Trace Optware `K95aria2` and `K95transmission` through `opt-start.sh`, package installation and stop callers; prove the PID-snapshot race and choose a bounded, fail-closed fix with a mocked shell regression.
-4. Keep MIPS/uClibc objects, full firmware/TRX and L4 router behavior NOT VERIFIED until actually tested. Retain FTP cleanup TOCTOU and NFS compatibility boundaries.
+1. Fetch live `main`, record exact SHA/parent and verify branch/checkpoint inventory.
+2. Inspect every step in the corrected Shadowsocks lifecycle and AI handoff Actions on that exact SHA; the previous failed run [42878125728] is not a success.
+3. Trace Optware `K95aria2` and `K95transmission` through `opt-start.sh`, package installation and stop callers; if actually deployed, implement a bounded fail-closed stop helper and mocked shell regression without changing package semantics.
+4. Keep production MIPS/uClibc objects, full firmware/TRX and L4 router behavior NOT VERIFIED until actually tested. Retain FTP cleanup TOCTOU and NFS compatibility boundaries.
 
 ## PID 1 notification queue batch fairness
 
@@ -147,10 +147,10 @@
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for the installed Shadowsocks process inventory, name-based TERM/KILL sequencing, bounded waits, monitor command-line matching and stop-failure gates. |
-| L2 host / Actions | Exact parent SHA `32f7940a6a27a53a8986345dfd21fe7fc51a41da`: VPN [42873811973], AI docs [42873812043], HTTPD [42873812024], WAN DHCP [42873812303] and WAN route [42873812403] all SUCCESS, every step inspected. Shadowsocks/AI exact-head Actions for THIS COMMIT are pending. |
-| L3 production RC/MIPS/uClibc objects, complete firmware/TRX and artifact inspection | NOT VERIFIED. |
-| L4 physical router boot, Shadowsocks add-on stop/restart, WAN/VPN and callback races | NOT VERIFIED. |
+| L1 source review | PASS for Shadowsocks name-based/pattern-based stop ordering, bounded waits, fresh process matching and failure gates. |
+| L2 host / Actions | Parent `32f7940a6a27a53a8986345dfd21fe7fc51a41da`: VPN [42873811973], AI docs [42873812043], HTTPD [42873812024], WAN DHCP [42873812303] and WAN route [42873812403] all SUCCESS, all steps inspected. On `405a6c1`, AI docs [42878125712] SUCCESS; Shadowsocks [42878125728] failed only in the Python source-contract step after shell syntax and mocked-process steps passed. Corrected exact-head reruns pending. |
+| L3 production BusyBox/MIPS/uClibc objects, full firmware/TRX and artifact inspection | NOT VERIFIED. |
+| L4 physical router, Shadowsocks stop/restart concurrency, WAN/VPN callbacks | NOT VERIFIED. |
 
 
 ## Continuation rules

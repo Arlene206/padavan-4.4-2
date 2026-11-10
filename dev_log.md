@@ -1,3 +1,14 @@
+## 2026-11-11 02:43 CST (UTC+8) — Correct BusyBox pgrep source-contract matcher
+
+- **Base main SHA:** `405a6c14d6fda41e8e1b776a832328f2a58eacb7`; parent `32f7940a6a27a53a8986345dfd21fe7fc51a41da`.
+- **Exact-head validation:** Shadowsocks lifecycle run [42878125728] completed with shell syntax checks PASS and mocked process lifecycle regression PASS; the final Python source contract failed on a brittle escaped-whitespace expectation for BusyBox `pgrep.c`. The target source includes PGREP/PKILL defaults and `-f` full-command-line support; manual evaluation found this formatting assertion was the sole failing condition. AI handoff docs [42878125712] completed SUCCESS, every step passed.
+- **Correction:** assert the documented `Match against entire command line` capability text (both pgrep/pkill usage entries) instead of depending on source tab escaping. No runtime shell/C behavior changed.
+- **Validation:** correction committed with a new exact-head Shadowsocks workflow run configured; its result is pending. No local full-checkout test, target BusyBox binary, MIPS/uClibc object, firmware/TRX or L4 router test is claimed.
+- **Root log:** 56 complete newest-first records before this entry; 57 after. No archive rotation or `docs/dev-log/INDEX.md` update is due.
+- **Next:** inspect every step in corrected exact-head Shadowsocks and AI docs Actions. Then audit Optware `K95aria2` / `K95transmission` installation and stop callers before changing their PID-snapshot teardown.
+
+---
+
 ## 2026-11-11 02:25 CST (UTC+8) — Remove stale PID snapshots from Shadowsocks shutdown
 
 - **Base main SHA:** `32f7940a6a27a53a8986345dfd21fe7fc51a41da`; exact-head VPN [42873811973], AI docs [42873812043], HTTPD [42873812024], WAN DHCP [42873812303] and WAN route [42873812403] all SUCCESS with every job/step inspected. Only remote branch is `main`; no checkpoint branch exists.

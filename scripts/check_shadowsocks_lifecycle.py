@@ -64,7 +64,7 @@ require('[ "$ss_wait_count" -lt 3 ]' in helper and
         "process shutdown waits must remain bounded")
 require("config PGREP\n\tbool \"pgrep\"\n\tdefault y" in busybox_config and
         "config PKILL\n\tbool \"pkill\"\n\tdefault y" in busybox_config and
-        '"\\n\\t-f\\tMatch against entire command line"' in busybox_pgrep,
+        busybox_pgrep.count("Match against entire command line") >= 2,
         "target BusyBox must include full-command-line pgrep/pkill")
 
 close = script[script.index("ssp_close() {"):script.index("\n\n\nclear_iptable() {")]
