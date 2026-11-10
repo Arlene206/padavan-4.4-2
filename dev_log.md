@@ -1,3 +1,17 @@
+## 2026-11-11 06:40 CST (UTC+8) — Confirm miniupnpd survives daemonizing launch
+
+- Base main SHA: `644735078f026164da3950f8b0addff438ee066f`; parent `4117c03938920f83494d96714264637cb4d3c809`. Remote inventory: only `main`, no checkpoint branch.
+- Exact-head recovery: AI handoff docs [42909833406], RStats stability [42909833356] and HTTPD security [42909833649] all completed SUCCESS on SHA `644735078f026164da3950f8b0addff438ee066f`. Every job and step plus full job logs were inspected. AI docs reported root log 72/119 and archive inventory dev-log=6, handoff=22, roadmap=18.
+- Finding: `miniupnpd.c` invokes `daemon(0, 0)` / `daemonize()` during initialization. The fork-based `daemonize.c` parent exits with status 0 while the child continues in `main()` and opens HTTP/SSDP sockets later. RC `eval("/usr/bin/miniupnpd")` waits on the launcher parent; previously `start_upnp()` returned that success without checking that the detached child remained present. A child that exited during subsequent socket initialization could therefore be reported as a successful UPnP start.
+- Fix in THIS COMMIT: add `miniupnpd_daemon_policy.h` and `miniupnpd_confirm_started()`. Preserve a nonzero launcher status; after a zero parent exit, check `is_upnp_run()` for up to four attempts with at most three one-second sleeps. If the daemon remains absent, return `ESRCH` and log the failed postcondition. This checks process presence only, not socket readiness or functional mappings.
+- Regression: add `tests/miniupnpd_daemon_policy_test.c` for launch-error preservation, absent-child `ESRCH`, and process-present success. Extend `.github/workflows/miniupnpd-config-stability.yml` to compile/run the GNU89 test and verify the production confirmation loop, daemon-parent success exit/child continuation, call ordering, and push/PR filters.
+- Changed paths: `trunk/user/rc/src/services_ex.c`, new `trunk/user/rc/src/miniupnpd_daemon_policy.h`, new `trunk/user/rc/src/tests/miniupnpd_daemon_policy_test.c`, `.github/workflows/miniupnpd-config-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log.
+- Local validation: compiled the new policy regression with `cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined`; execution printed `miniupnpd daemon startup policy: PASS`. The exact-head miniupnpd Actions and AI handoff documentation check for THIS COMMIT are pending.
+- Root `dev_log.md`: 72 complete newest-first records before this entry; 73 after. Below rotation thresholds; no archive or `docs/dev-log/INDEX.md` update is due.
+- Next: inspect every step and full log in exact-head miniupnpd configuration/lifecycle and AI handoff Actions. Then audit the related stop boundary: `stop_upnp()` discards `kill_services()` status, `restart_upnp()` can continue into firewall restart after incomplete termination, WAN-interface-change callers do not gate on stop completion, and `update_upnp()` ignores the SIGUSR1 reload result. Trace all callers before changing status propagation or mapping semantics; then rotate to another userland module. Keep FTP upload cleanup TOCTOU OPEN/BLOCKED, NFS/client and board behavior evidence-gated, and L3/L4 validation unclaimed.
+
+---
+
 ## 2026-11-11 05:38 CST (UTC+8) — Preserve RStats history and defer signal cleanup to normal context
 
 - Base main SHA: `4117c03938920f83494d96714264637cb4d3c809`; parent `f1c92f623a6192aeb391e30b23468c8c48dec5ef`. Branch inventory: only `main`, no remote checkpoint branch. The exact base-head AI handoff documentation run [42904441433] completed SUCCESS.

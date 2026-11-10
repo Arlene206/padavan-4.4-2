@@ -8,6 +8,14 @@ on:
       - "trunk/user/rc/src/services_ex.c"
       - "trunk/user/rc/src/miniupnpd_config_file.h"
       - "trunk/user/rc/src/tests/miniupnpd_config_file.c"
+      - "trunk/user/rc/src/miniupnpd_daemon_policy.h"
+      - "trunk/user/rc/src/tests/miniupnpd_daemon_policy_test.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/daemonize.c"
+      - "trunk/user/rc/src/miniupnpd_daemon_policy.h"
+      - "trunk/user/rc/src/tests/miniupnpd_daemon_policy_test.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/daemonize.c"
   pull_request:
     paths:
       - ".github/workflows/miniupnpd-config-stability.yml"
@@ -30,6 +38,13 @@ jobs:
             trunk/user/rc/src/tests/miniupnpd_config_file.c \
             -o /tmp/miniupnpd_config_file
           /tmp/miniupnpd_config_file
+      - name: Compile and run miniupnpd daemon startup policy
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -Itrunk/user/rc/src \
+            trunk/user/rc/src/tests/miniupnpd_daemon_policy_test.c \
+            -o /tmp/miniupnpd_daemon_policy
+          /tmp/miniupnpd_daemon_policy
       - name: Verify UPnP writer error propagation and daemon start gate
         run: |
           python3 - <<'PY'
@@ -38,6 +53,10 @@ jobs:
           service = Path("trunk/user/rc/src/services_ex.c").read_text()
           helper = Path("trunk/user/rc/src/miniupnpd_config_file.h").read_text()
           test = Path("trunk/user/rc/src/tests/miniupnpd_config_file.c").read_text()
+          policy = Path("trunk/user/rc/src/miniupnpd_daemon_policy.h").read_text()
+          daemon_test = Path("trunk/user/rc/src/tests/miniupnpd_daemon_policy_test.c").read_text()
+          daemon_source = Path("trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd.c").read_text()
+          daemonizer = Path("trunk/user/miniupnpd/miniupnpd-2.x/daemonize.c").read_text()
           workflow = Path(".github/workflows/miniupnpd-config-stability.yml").read_text()
 
           def function_body(source, signature):
@@ -68,6 +87,24 @@ jobs:
           assert "if (ret != 0)" in start
           assert "miniupnpd configuration publication failed" in start
           assert 'fopen("/etc/miniupnpd.conf", "w")' not in start
+          assert "return miniupnpd_confirm_started(ret);" in start
+          confirm = function_body(service, "miniupnpd_confirm_started(int launch_status)")
+          assert "MINIUPNPD_START_WAIT_ATTEMPTS" in confirm
+          assert "is_upnp_run()" in confirm
+          assert "sleep(1)" in confirm
+          assert "miniupnpd_start_policy_status(launch_status, daemon_running)" in confirm
+          assert "return daemon_running ? 0 : ESRCH;" in policy
+          assert "miniupnpd_start_policy_status(0, 0) == ESRCH" in daemon_test
+          assert "miniupnpd_start_policy_status(EIO, 1) == EIO" in daemon_test
+          assert "miniupnpd daemon startup policy: PASS" in daemon_test
+          assert "pid = daemonize();" in daemon_source
+          assert "daemon(0, 0)" in daemon_source
+          daemon_child = daemonizer.split("/* child process */", 1)[1].split("/* parent process */", 1)[0]
+          daemon_parent = daemonizer.split("/* parent process */", 1)[1]
+          assert "return pid;" in daemon_child
+          assert "exit(0);" in daemon_parent
+          main = function_body(daemon_source, "main(int argc, char * * argv)")
+          assert main.index("if(init(argc, argv, &v) != 0)") < main.index("OpenAndConfHTTPSocket")
           assert "fclose(fp)" not in start
 
           assert "mkstemp(temporary_path)" in helper
@@ -95,9 +132,13 @@ jobs:
               "trunk/user/rc/src/services_ex.c",
               "trunk/user/rc/src/miniupnpd_config_file.h",
               "trunk/user/rc/src/tests/miniupnpd_config_file.c",
+              "trunk/user/rc/src/miniupnpd_daemon_policy.h",
+              "trunk/user/rc/src/tests/miniupnpd_daemon_policy_test.c",
+              "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd.c",
+              "trunk/user/miniupnpd/miniupnpd-2.x/daemonize.c",
           ):
               assert push_filters.count(path) == 1
               assert pr_filters.count(path) == 1
 
-          print("miniupnpd config publication, write-error and launch-gate contracts: PASS")
+          print("miniupnpd config publication, daemon startup postcondition and source contracts: PASS")
           PY

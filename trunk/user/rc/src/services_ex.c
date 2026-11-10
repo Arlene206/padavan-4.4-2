@@ -37,6 +37,7 @@
 #include "dnsmasq_lifecycle_lock.h"
 #include "dnsmasq_restart_policy.h"
 #include "miniupnpd_config_file.h"
+#include "miniupnpd_daemon_policy.h"
 #include "samba_config_value_policy.h"
 #if defined(APP_SMBD) || defined(APP_NMBD)
 #include "samba_config_file.h"
@@ -1038,6 +1039,29 @@ is_upnp_run(void)
 	return pids("miniupnpd");
 }
 
+static int
+miniupnpd_confirm_started(int launch_status)
+{
+	int attempt;
+	int daemon_running = 0;
+
+	if (launch_status != 0)
+		return miniupnpd_start_policy_status(launch_status, 0);
+
+	/* miniupnpd daemonizes: eval() observes the successful parent exit,
+	 * while the child may still fail during later socket initialization. */
+	for (attempt = 0; attempt < MINIUPNPD_START_WAIT_ATTEMPTS; attempt++) {
+		if (is_upnp_run()) {
+			daemon_running = 1;
+			break;
+		}
+		if (attempt + 1 < MINIUPNPD_START_WAIT_ATTEMPTS)
+			sleep(1);
+	}
+
+	return miniupnpd_start_policy_status(launch_status, daemon_running);
+}
+
 struct miniupnpd_config_data {
 	const char *wan_ifname;
 	const char *lan_url;
@@ -1201,7 +1225,11 @@ start_upnp(void)
 		return ret;
 	}
 
-	return eval("/usr/bin/miniupnpd");
+	ret = eval("/usr/bin/miniupnpd");
+	ret = miniupnpd_confirm_started(ret);
+	if (ret != 0)
+		logmessage(LOGNAME, "miniupnpd failed to remain active after start (status %d)", ret);
+	return ret;
 }
 
 void
