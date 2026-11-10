@@ -849,7 +849,7 @@ config NETFILTER_XT_TARGET_NETMAP
 
 config NETFILTER_XT_TARGET_FULLCONENAT
   tristate '"FULLCONENAT" target support'
-  depends on NF_NAT
+  depends on NF_NAT && NF_CONNTRACK_EVENTS
   ---help---
   Full Cone NAT
 

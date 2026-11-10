@@ -2,11 +2,12 @@
 
 - Maintained fork: `Arlene206/padavan-4.4-2`; work only on this repository.
 - Branch inventory: `main` only; no remote checkpoint branch. No force-pushes.
-- **Last fully reconciled main SHA:** `df0dfaeb6ebfb4c6b6a45ebb847a159b4d621eea`. VSFTPD stability [42750028174] and AI handoff docs [42750028154] both completed SUCCESS on this exact SHA; the pinned-descriptor MDTM/SITE CHMOD host regression and semantic contract were green.
-- **Current development slice:** prevent DNSMasq duplicate starts after incomplete stop. `start_dns_dhcpd()` checks process inventory before generated configuration publication and again before launch; `stop_dns_dhcpd()` returns `kill_services()` status and preserves static ARP bindings on stop failure; `restart_dhcpd()` and `full_restart_lan()` gate replacement launch on a confirmed stop. The isolated GNU89 policy regression passed locally; HTTPD/DNSMasq semantic and AI-doc Actions are pending on THIS COMMIT.
+- **Last fully reconciled main SHA:** `822edf9d46a2f369a63eae0bcc1bb49f326c29e1`. Seven Actions completed SUCCESS on this exact SHA: wireless [42752774665], Samba [42752774488], vsftpd [42752774671], WAN route [42752774448], AI handoff docs [42752774483], HTTPD/DNSMasq security [42752774480], and USB storage [42752774476].
+- **Completed previous slice:** DNSMasq start/stop status propagation and LAN relaunch gating are now reconciled; the latest exact-head HTTPD/DNSMasq semantic and AI handoff contracts passed.
+- **Current development slice:** correct FULLCONENAT's Kconfig build prerequisite. `xt_FULLCONENAT.c` unconditionally registers a conntrack destroy notifier; `nf_conntrack_ecache.h` exposes `struct nf_ct_event_notifier` and `nf_conntrack_register_notifier()` only under `CONFIG_NF_CONNTRACK_EVENTS`, while the target option previously depended only on `NF_NAT`. THIS COMMIT makes the dependency explicit and extends the lifecycle regression to check the dependency and Makefile object wiring. The new commit's Actions are pending exact-head reconciliation.
 - **Known open issue:** FTP upload cleanup still has a check-then-`unlinkat` window after inode identity validation. Linux 4.4 and MIPS O32 provide `renameat2` (`__NR_renameat2 = 4351`), but exchange/no-replace operations cannot condition a rename or unlink on the expected device/inode. No safe atomic quarantine was established; retain the documented best-effort behavior and do not claim the race is closed.
-- **Next after exact-head reconciliation:** verify DNSMasq/HTTPD and AI handoff Actions on the exact new SHA. Then move to FULLCONENAT target kernel/MIPS object validation, followed by NFS compatibility and idempotent wireless bridge membership. Keep PPP/IPv6 callback lifecycle and L3/L4 validation visible.
-- Root `dev_log.md` contains 109 complete newest-first records after this entry and remains below the 119-record / 384 KiB early-rotation thresholds; no archive rotation is due.
+- **Next after exact-head reconciliation:** verify the FULLCONENAT lifecycle workflow and AI handoff docs on the resulting commit SHA. Then complete target kernel/MIPS object validation when the MIPS/uClibc toolchain is available; otherwise record the blocker precisely and move to the NFS compatibility review. Keep idempotent wireless bridge membership, PPP/IPv6 callback lifecycle and L3/L4 validation visible.
+- Root `dev_log.md` contains 110 complete newest-first records after this entry and remains below the 119-record / 384 KiB early-rotation thresholds; no archive rotation is due.
 - L3 production RC/MIPS/uClibc objects, firmware/TRX and L4 physical-router validation remain NOT VERIFIED.
 
 ## Completed DHCP callback and BusyBox event-state review
@@ -80,25 +81,26 @@
 
 ## Active task
 
-1. **DNSMasq start/stop lifecycle failure propagation.** `start_dns_dhcpd()` refuses to publish or launch when an earlier `dnsmasq` process is already present, with a second process-inventory check after configuration preparation. `stop_dns_dhcpd()` returns `kill_services()` status and clears static ARP bindings only after a confirmed stop. `restart_dhcpd()` gates launch on both stop status and process inventory; `full_restart_lan()` skips DNSMasq restart when the previous instance did not stop. The pure policy test adds launch and ARP-clear decision cases.
-2. **Validation:** isolated GNU89 host regression compiled with `-Wall -Wextra -Werror` and printed `DNSMasq restart policy: PASS`. The exact resulting HEAD must still run `.github/workflows/httpd-security.yml` and the AI handoff docs workflow. No full production `services_ex.c` / `net_lan.c` compilation has been performed.
-3. **FTP cleanup audit result:** `ftp_acl_path_unlink_opened_entry()` still compares `fstatat()` identity before `unlinkat()`, leaving a narrow replacement race. Linux 4.4 has `renameat2` and MIPS O32 syscall number 4351, but `RENAME_EXCHANGE` / `RENAME_NOREPLACE` do not provide expected-inode conditional removal; an exchange-based quarantine would move an arbitrary replacement and introduce another namespace race. No safe atomic fix was justified. Preserve this as an explicit limitation.
-4. **Next bounded task:** after exact-head Actions reconciliation, complete FULLCONENAT target kernel/MIPS object validation (or document the precise toolchain blocker), then return to NFS compatibility and idempotent wireless bridge membership. Keep PPP/IPv6 lifecycle and L3/L4 device validation in the global queue.
+1. **FULLCONENAT Kconfig notifier dependency.** The target code uses the conntrack event notifier on both notifier API variants. In Linux 4.4, `struct nf_ct_event_notifier` and `nf_conntrack_register_notifier()` are declared only under `CONFIG_NF_CONNTRACK_EVENTS`; the previous target Kconfig option depended only on `NF_NAT`. This allowed a configuration in which the target could be selected without the notifier declarations it requires. The current commit adds `depends on NF_NAT && NF_CONNTRACK_EVENTS` and adds lifecycle-workflow assertions for that dependency and the `xt_FULLCONENAT.o` Makefile mapping.
+2. **Validation boundary.** The existing namespace/zone GNU89 host regression was reproduced locally with `cc -std=gnu89 -Wall -Wextra -Werror`; it printed `FULLCONENAT namespace/zone context regression: PASS`. The new Kconfig/workflow assertions have not yet run on the resulting commit; wait for exact-head FULLCONENAT lifecycle and AI docs Actions. No target kernel object or firmware build has been performed.
+3. **L3 blocker.** This host is `x86_64`; `mipsel-linux-gcc`, `mipsel-linux-uclibc-gcc`, `mips-linux-gnu-gcc` and `mipsel-openwrt-linux-gcc` are absent. `git ls-remote` also failed because the host cannot resolve `github.com`, so there is no local full checkout/build tree. Do not present host policy/source contracts as target compilation. Resume L3 when the repository checkout and matching MIPS/uClibc toolchain are available.
+4. **Next bounded review if the toolchain remains unavailable:** inspect NFS export durability/throughput (`async`), AUTH_SYS/root-squash compatibility, and external-mount behavior without changing compatibility defaults absent evidence. Then return to the already-documented idempotent wireless bridge membership/master-query work.
+5. **Unresolved security issue:** FTP failed-upload cleanup still has a check-then-`unlinkat()` replacement race after inode identity validation; no safe Linux 4.4/MIPS O32 atomic expected-inode removal was established.
 
 ## Verification boundary
 
 | Level | Status |
 |---|---|
-| L1 source review | PASS for DNSMasq duplicate-start/stop-status control flow and FTP MDTM/SITE CHMOD descriptor-relative work. FTP upload-cleanup check/unlink race remains OPEN; `renameat2` does not close it. |
-| L2 host / Actions | Local isolated GNU89 DNSMasq policy test: PASS. Previous exact HEAD `df0dfaeb6ebfb4c6b6a45ebb847a159b4d621eea`: VSFTPD [42750028174] and AI docs [42750028154] SUCCESS. This commit's HTTPD/DNSMasq and AI docs Actions are PENDING exact-head reconciliation. |
+| L1 source review | PASS for DNSMasq duplicate-start/stop-status control flow, FULLCONENAT notifier/Kconfig prerequisite review, and FTP MDTM/SITE CHMOD descriptor-relative work. FTP upload-cleanup check/unlink race remains OPEN; `renameat2` does not close it. |
+| L2 host / Actions | Local GNU89 FULLCONENAT namespace/zone policy test: PASS. Exact HEAD `822edf9d46a2f369a63eae0bcc1bb49f326c29e1`: seven Actions, including HTTPD/DNSMasq, vsftpd and AI handoff docs, all SUCCESS. New FULLCONENAT lifecycle/Kconfig and AI docs Actions are PENDING on the candidate commit. |
 | L3 production RC/MIPS/uClibc/firmware builds | NOT VERIFIED. |
 | L4 physical router behavior | NOT VERIFIED. |
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect every Action run tied to its exact SHA. Confirm the DNSMasq GNU89 regression and full HTTPD semantic contract pass; inspect logs for failures, then confirm AI handoff docs.
-2. If green, start FULLCONENAT target kernel/MIPS object validation. FTP upload-cleanup remains open because Linux 4.4 renameat2 primitives do not offer expected-inode conditional unlink.
-3. Keep NFS compatibility, wireless bridge membership idempotency, PPP/IPv6 callback lifecycle and L3/L4 validation visible.
+1. Fetch live `main`, confirm its exact SHA and inspect every Action run tied to it. First verify FULLCONENAT lifecycle regression and AI handoff docs for the candidate commit; inspect logs, not just conclusions.
+2. If green, arrange the matching MIPS/uClibc cross compiler and a complete build checkout, then compile the target kernel object with the Padavan kernel configuration. The present execution host has no MIPS compiler and no network-resolvable Git remote; L3 remains BLOCKED, not passed.
+3. If the L3 environment remains unavailable, continue the NFS compatibility review without changing `async`/root-squash defaults, then resume bridge membership idempotency with a membership/master query and regression. Keep FTP cleanup TOCTOU, PPP/IPv6 and L4 device validation visible.
 
 ## Continuation rules
 

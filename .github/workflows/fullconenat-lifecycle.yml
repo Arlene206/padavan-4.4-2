@@ -4,6 +4,8 @@ on:
   push:
     paths:
       - ".github/workflows/fullconenat-lifecycle.yml"
+      - "trunk/linux-4.4.x/net/netfilter/Kconfig"
+      - "trunk/linux-4.4.x/net/netfilter/Makefile"
       - "trunk/linux-4.4.x/net/netfilter/xt_FULLCONENAT.c"
       - "trunk/linux-4.4.x/net/netfilter/fullconenat_namespace_policy.h"
       - "trunk/linux-4.4.x/net/netfilter/tests/fullconenat_namespace_policy.c"
@@ -18,6 +20,8 @@ on:
   pull_request:
     paths:
       - ".github/workflows/fullconenat-lifecycle.yml"
+      - "trunk/linux-4.4.x/net/netfilter/Kconfig"
+      - "trunk/linux-4.4.x/net/netfilter/Makefile"
       - "trunk/linux-4.4.x/net/netfilter/xt_FULLCONENAT.c"
       - "trunk/linux-4.4.x/net/netfilter/fullconenat_namespace_policy.h"
       - "trunk/linux-4.4.x/net/netfilter/tests/fullconenat_namespace_policy.c"
@@ -50,6 +54,8 @@ jobs:
           xtables = (kernel / "x_tables.c").read_text()
           ecache = (kernel / "nf_conntrack_ecache.c").read_text()
           conntrack_netns = (root / "trunk/linux-4.4.x/include/net/netns/conntrack.h").read_text()
+          netfilter_kconfig = (kernel / "Kconfig").read_text()
+          netfilter_makefile = (kernel / "Makefile").read_text()
           ip_tables = (root / "trunk/linux-4.4.x/net/ipv4/netfilter/ip_tables.c").read_text()
           ip6_tables = (ipv6 / "ip6_tables.c").read_text()
           ip6_nat = (ipv6 / "ip6table_nat.c").read_text()
@@ -68,6 +74,20 @@ jobs:
                       if depth == 0:
                           return source[brace + 1:pos]
               raise AssertionError(f"unterminated function: {signature}")
+
+          # FULLCONENAT registers the conntrack destroy notifier unconditionally.
+          # The notifier type and API exist only with CONFIG_NF_CONNTRACK_EVENTS.
+          # Kconfig must prevent selecting the target without that capability.
+          target_config = re.search(
+              r"(?ms)^config NETFILTER_XT_TARGET_FULLCONENAT\s*\n(.*?)(?=^config |\Z)",
+              netfilter_kconfig)
+          assert target_config, "missing FULLCONENAT Kconfig option"
+          assert re.search(
+              r"(?m)^[ \t]*depends on NF_NAT[ \t]*&&[ \t]*NF_CONNTRACK_EVENTS[ \t]*$",
+              target_config.group(1)), "FULLCONENAT must require conntrack events"
+          assert re.search(
+              r"(?m)^obj-\$\(CONFIG_NETFILTER_XT_TARGET_FULLCONENAT\)[ \t]*\+=[ \t]*xt_FULLCONENAT\.o[ \t]*$",
+              netfilter_makefile), "FULLCONENAT Kconfig option is not wired to its object"
 
           # The GC worker is the only normal-path consumer of the pending
           # conntrack-destroy list. Never register a target without this worker.
