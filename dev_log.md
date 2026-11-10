@@ -1,3 +1,13 @@
+## 2026-11-10 16:15 CST (UTC+8) — Correct WAN route-status workflow for int-returning wan_up
+
+- **Base main SHA:** `5cca0b23d451aa0a54a2f2cbe5d7aa97844167d2`. WAN DHCP callback [42781067412] and AI docs [42781067434] SUCCESS; HTTPD [42781067355], NFS [42781067360], vsftpd [42781067366], WAN teardown [42781067367], Samba [42781067444], wireless [42781067579] and storage [42781067668] also SUCCESS.
+- **Finding:** the new PPP route-status propagation code was present and its WAN DHCP workflow compiled/passed all six GNU89 regressions, including the added route/unlock precedence cases. The independent WAN route-status workflow [42781067530] also compiled and passed its sanitizer-based route-policy regression, but its semantic check failed at line 123 because it still required `void wan_up(...)` in `rc.h`.
+- **Fix:** update the route-status contract to require the int-returning public prototype, reject the stale void declaration, and explicitly verify the public wrapper returns the `wan_up_internal()` status it already logs.
+- **Changed paths:** `.github/workflows/wan-route-status.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and this log. No C source changes, archive rotation or INDEX update.
+- **Validation:** exact-head SHA `5cca0b23...` has WAN DHCP callback and all other listed workflows SUCCESS except the route-status semantic step; that step's sanitizer compile/run passed before the stale prototype assertion. The corrected workflow and AI handoff check on THIS resulting SHA are pending.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** verify WAN route-status, WAN DHCP callback and AI docs on the exact new head; then resume PPP ip-down per-unit route ownership and reconnect restoration.
+
 ## 2026-11-10 16:10 CST (UTC+8) — Propagate PPP ip-up WAN route setup failures
 
 - **Base main SHA:** `1bad9f2b20060fc541d015d5c8f9ec01ed87a3c0`; exact-head WAN callback [42779510969] and AI handoff docs [42779510911] both SUCCESS, including all six WAN GNU89 host binaries. HTTPD security [42778351811] passed on parent SHA `5cbc71d8...`; the HTTPD workflow was unchanged by the immediately preceding WAN/docs-only commit.

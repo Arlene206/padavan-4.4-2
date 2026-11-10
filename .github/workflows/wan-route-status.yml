@@ -156,7 +156,9 @@ jobs:
           public_wan_up = body(wan, "wan_up(char *wan_ifname, int unit, int is_static)")
           assert "wan_up_internal(wan_ifname, unit, is_static)" in public_wan_up
           assert "WAN route setup incomplete" in public_wan_up
-          assert "void wan_up(char *wan_ifname, int unit, int is_static);" in header
+          assert "return status;" in public_wan_up
+          assert "int wan_up(char *wan_ifname, int unit, int is_static);" in header
+          assert "void wan_up(char *wan_ifname, int unit, int is_static);" not in header
 
           bound = body(wan, "udhcpc_bound(char *wan_ifname, int is_renew_mode)")
           assert "int interface_status, rollback_status, route_setup_status;" in bound
