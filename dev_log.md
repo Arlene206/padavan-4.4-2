@@ -1,3 +1,14 @@
+## 2026-11-11 07:05 CST (UTC+8) — Delay miniupnpd's first child-process probe
+
+- Base main SHA: `afe8fcb7eeba12932e20e220c848b37e43622c9a`; parent `e884b897420320ed25dba245501ba66c8cd39bb0`.
+- Exact-head miniupnpd config/lifecycle regression [42920711495] and AI handoff documentation check [42920711494] both completed SUCCESS. Every job step and the complete job logs were inspected. The workflow reported atomic config publication PASS, daemon startup policy PASS, daemonization/source-order contract PASS, and AI docs root log 75/119 plus archive inventory PASS.
+- Code review identified a race in the first implementation: because the daemonizing parent exits immediately after fork, the RC caller's first process probe could run while the child is still inside its later HTTP/SSDP socket initialization. A same-tick process-presence check could therefore observe a live-but-not-yet-ready child.
+- Fix in THIS COMMIT: insert a one-second startup grace after a successful launcher-parent exit and before the first `is_upnp_run()` probe; retain the bounded four-attempt probe window and launcher-error preservation. Extend the source contract to require the first grace sleep to precede the first process probe. The postcondition still means process presence after the grace period, not a proof of functional sockets or live mappings.
+- Root `dev_log.md`: 75 records before, 76 after; no archive rotation or index update is due.
+- Next: inspect every exact-SHA miniupnpd and AI docs job step and log. Then review stop-status propagation, WAN-interface transition ordering and SIGUSR1 mapping reload handling. FTP upload cleanup remains OPEN/BLOCKED; production MIPS/uClibc, complete firmware/TRX and physical L4 testing remain unverified.
+
+---
+
 ## 2026-11-11 06:55 CST (UTC+8) — Repair miniupnpd workflow path-filter symmetry
 
 - Base main SHA: `e884b897420320ed25dba245501ba66c8cd39bb0`; parent `690fb429e70b9b1b420d0c69b72f27293cbcdce9`.

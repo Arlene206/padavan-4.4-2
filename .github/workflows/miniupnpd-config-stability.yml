@@ -92,6 +92,7 @@ jobs:
           assert "MINIUPNPD_START_WAIT_ATTEMPTS" in confirm
           assert "is_upnp_run()" in confirm
           assert "sleep(1)" in confirm
+          assert confirm.index("sleep(1)") < confirm.index("is_upnp_run()")
           assert "miniupnpd_start_policy_status(launch_status, daemon_running)" in confirm
           assert "return daemon_running ? 0 : ESRCH;" in policy
           assert "miniupnpd_start_policy_status(0, 0) == ESRCH" in daemon_test

@@ -1048,8 +1048,9 @@ miniupnpd_confirm_started(int launch_status)
 	if (launch_status != 0)
 		return miniupnpd_start_policy_status(launch_status, 0);
 
-	/* miniupnpd daemonizes: eval() observes the successful parent exit,
-	 * while the child may still fail during later socket initialization. */
+	/* Let the detached child finish its immediate socket initialization before
+	 * the first process-presence probe; the parent has already exited 0. */
+	sleep(1);
 	for (attempt = 0; attempt < MINIUPNPD_START_WAIT_ATTEMPTS; attempt++) {
 		if (is_upnp_run()) {
 			daemon_running = 1;
