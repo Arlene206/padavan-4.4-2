@@ -1,3 +1,16 @@
+## 2026-11-11 04:08 CST (UTC+8) — Complete production XY-C1 FULLCONENAT MIPS32r2 object validation
+
+- **Validated code SHA:** 7b833db52deddb0c2404c77c3e1ab87cdfac5d85; parent f2a3c1b8dd454c747e1d4c8cd21e60afb2f0d9e0. Both exact-head Actions passed: FULLCONENAT lifecycle [42891865785] and AI handoff docs [42891866252].
+- **FULLCONENAT Actions:** every step passed, including notifier lifecycle, GNU89 namespace/zone regression and contracts, cross-family debug-format contract, toolchain archive SHA-256, bash syntax check, project configuration generation, Kconfig assertions, and the target object build.
+- **Production configuration verified:** the XY-C1 product template disables SQM, yet trunk/configure enabled NF_CONNTRACK_EVENTS because the board kernel config selects FULLCONENAT. After olddefconfig the helper asserted RALINK=y, RALINK_MT7621=y, SOC_MT7621=y, CPU_LITTLE_ENDIAN=y, CPU_MIPS32_R2=y, NF_CONNTRACK_EVENTS=y, NF_NAT_IPV6=m and NETFILTER_XT_TARGET_FULLCONENAT=y.
+- **Target object evidence:** Kbuild logged CC net/netfilter/xt_FULLCONENAT.o and the helper reported FULLCONENAT XY-C1 MIPS32r2 IPv4/IPv6 object build: PASS. readelf reported Class ELF32, Data 2's complement little endian, Machine MIPS R3000. The MIPS32r2 CPU selection is established by the asserted production .config. This is one translation-unit/config/toolchain proof, not a full kernel/firmware/target runtime result.
+- **Kbuild fix validated:** changing build-dir/target-dir from := to = fixes automatic-variable expansion for direct single-object rules; the same direct target that previously reached Makefile.build with obj empty now compiles successfully.
+- **Changed source in the validated chain:** trunk/configure (FULLCONENAT conntrack prerequisite independent of SQM), scripts/build_fullconenat_mips_object.sh (actual XY-C1 config path), .github/workflows/fullconenat-lifecycle.yml (toolchain checksum and config path triggers), trunk/linux-4.4.x/Makefile (single-object Kbuild auto-variable expansion).
+- **Next:** continue repository-wide P2 coverage outside Netfilter, beginning with DNSMasq/RC cross-process lifecycle and process-state/error rollback audit plus a host-reproducible regression for any confirmed gap. Keep FTP cleanup TOCTOU OPEN/BLOCKED until safe staged publication is proved; NFS compatibility still requires client evidence.
+- **Root log:** 63 complete newest-first records before this entry; 64 after. No archive rotation or docs/dev-log/INDEX.md update is due.
+- **Validation boundary:** no complete kernel, all-board/ABI matrix, firmware/TRX, production uClibc/BusyBox runtime, flash/boot, or physical L3/L4 router test has been performed.
+
+---
 ## 2026-11-11 04:06 CST (UTC+8) — Fix Kbuild automatic-variable expansion for single-object targets
 
 - **Base main SHA:** f2a3c1b8dd454c747e1d4c8cd21e60afb2f0d9e0; parent aba91fcc9c94acd5e663dd00701e66a9caf3bdd1. Only remote branch: main.
