@@ -562,6 +562,16 @@ main(void)
     fprintf(stderr, "directory identity check accepted a substituted parent\n");
     return 1;
   }
+  if (unlink(a) != 0 || mkdir(a, 0700) != 0) {
+    perror("replace pinned upload parent with a real directory");
+    return 1;
+  }
+  errno = 0;
+  if (ftp_acl_path_verify_directory_identity(a, dir_fd) == 0 ||
+      errno != ESTALE) {
+    fprintf(stderr, "directory identity check accepted a real-directory substitute\n");
+    return 1;
+  }
   race_fd = openat(dir_fd, "dirfd-created.txt",
                    O_CREAT | O_EXCL | O_WRONLY | O_NOFOLLOW | O_CLOEXEC,
                    0600);
@@ -645,7 +655,7 @@ main(void)
       unlinkat(dir_fd, "rollback.saved", 0) != 0 ||
       unlinkat(dir_fd, "dirfd-created.txt", 0) != 0 ||
       unlinkat(dir_fd, "race-link", 0) != 0 ||
-      close(dir_fd) != 0 || unlink(a) != 0 || rename(held_a, a) != 0) {
+      close(dir_fd) != 0 || rmdir(a) != 0 || rename(held_a, a) != 0) {
     perror("restore descriptor race fixtures");
     return 1;
   }

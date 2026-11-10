@@ -148,6 +148,7 @@ jobs:
           dele = function_body(vsftpd_postlogin, "static void\nhandle_dele")
           retr = function_body(vsftpd_postlogin, "static void\nhandle_retr")
           existing_open = function_body(vsftpd_acl, "asus_open_existing_path(")
+          upload_open = function_body(vsftpd_acl, "asus_open_upload_path(")
           remove_path = function_body(vsftpd_acl, "asus_remove_path(")
           make_directory_path = function_body(vsftpd_acl, "asus_make_directory_path(")
           rename_path = function_body(vsftpd_acl, "asus_rename_path(")
@@ -175,6 +176,10 @@ jobs:
           acl_directory = function_body(vsftpd_acl, "asus_check_permission_directory(")
           acl_visible = function_body(vsftpd_acl, "asus_check_file_visible(")
           assert "asus_open_upload_path(" in upload
+          assert upload_open.index("ftp_acl_path_open_verified_directory(resolved_parent)") < upload_open.index("asus_check_permission_at(p_sess, PERM_WRITE, resolved_parent)")
+          assert upload_open.index("asus_check_permission_at(p_sess, PERM_WRITE, resolved_parent)") < upload_open.index("ftp_acl_path_verify_directory_identity(resolved_parent, parent_fd)")
+          assert upload_open.index("ftp_acl_path_verify_directory_identity(resolved_parent, parent_fd)") < upload_open.index("openat(parent_fd, p_leaf, flags, mode)")
+          assert "stat(resolved_parent, &expected_parent)" not in upload_open
           assert "p_sess, p_filename, 1," in upload
           assert "p_sess, p_filename, 0," in upload
           assert "asus_cleanup_failed_upload(upload_parent_fd, upload_leaf," in upload
@@ -309,6 +314,7 @@ jobs:
           assert "RMD could not remove an empty directory entry" in acl_path_test
           assert "descriptor-relative removal accepted reserved metadata" in acl_path_test
           assert "directory identity check accepted a substituted parent" in acl_path_test
+          assert "directory identity check accepted a real-directory substitute" in acl_path_test
           assert "rename resolver followed an ordinary final symlink" in acl_path_test
           assert "rename resolver did not follow trailing-slash directory link" in acl_path_test
           assert "cross-directory renameat or overwrite semantics failed" in acl_path_test

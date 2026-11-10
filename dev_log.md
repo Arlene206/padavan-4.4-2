@@ -1,3 +1,14 @@
+## 2026-11-10 17:27 CST (UTC+8) — Pin FTP upload parent before ACL authorization
+
+- **Base main SHA:** `08d8447c1148e11cc6e61014ed530a28e278b7a6`. WAN route operation status regression [42789892266] and AI handoff documentation contract [42789892131] both passed on this exact baseline.
+- **Finding:** `asus_open_upload_path()` resolved the upload parent, evaluated the share ACL, and only afterward captured the pathname's inode with `stat()` and opened the directory. A concurrent replacement of the canonical parent with another real directory during ACL lookup would therefore make the later stat/open comparison self-consistent while binding the upload to a directory that was not the one present when authorization began.
+- **Fix:** open and verify the resolved parent before the ACL check; after ACL evaluation, compare the canonical pathname with the already-pinned descriptor and fail closed on mismatch. The final `openat()` uses only that pinned descriptor. Error paths close the descriptor while preserving the relevant errno.
+- **Regression:** extend the host ACL-path test to replace the pinned parent first with a symlink and then with a different real directory; both must fail identity verification with `ESTALE`. Extend the vsftpd stability workflow source contract to require pin → ACL → identity recheck → `openat()` ordering and reject the previous late-stat pattern.
+- **Changed paths:** `trunk/user/vsftpd/src/asus_ext.c`, `trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c`, `.github/workflows/vsftpd-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and this log. Root log had 35 complete newest-first headings before this entry and 36 after; no rotation or INDEX update is due.
+- **Validation:** the baseline WAN route and AI docs runs passed. Exact-head vsftpd GNU89 host tests/source contract and AI docs Actions are pending. No local checkout or local host compile was performed; no production RC/MIPS/uClibc object, firmware/TRX or L4 router test is claimed.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** verify exact-head vsftpd-stability and AI docs Actions, then continue the explicitly unresolved failed-upload cleanup fstatat/unlinkat TOCTOU audit. Do not claim that this parent-identity fix closes that separate leaf-cleanup race.
+
 ## 2026-11-10 17:20 CST (UTC+8) — Match PPP fallback source contract to wrapped comment
 
 - **Base main SHA:** `17bd830b9eea7ef9dfed7b5b66e2e5df9b3ae744`. AI handoff documentation contract [42789693179] passed. WAN route sanitizer compile/run passed, but source-semantic run [42789693415] failed again at the adjacent fallback-comment assertion.

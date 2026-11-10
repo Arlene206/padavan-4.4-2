@@ -626,7 +626,6 @@ asus_open_upload_path(struct vsf_session* p_sess,
                       unsigned int leaf_size, int* p_cleanup_allowed)
 {
   char resolved_parent[PATH_MAX];
-  struct stat expected_parent, opened_parent;
   int parent_fd, file_fd, flags, saved_errno;
   if (!p_sess || !p_path_str || !p_parent_fd || !p_leaf ||
       leaf_size == 0 || !p_cleanup_allowed) {
@@ -640,31 +639,27 @@ asus_open_upload_path(struct vsf_session* p_sess,
                                        resolved_parent,
                                        sizeof(resolved_parent),
                                        p_leaf, leaf_size,
-                                       p_cleanup_allowed) != 0 ||
-      !asus_check_permission_at(p_sess, PERM_WRITE, resolved_parent)) {
-    errno = EACCES;
+                                       p_cleanup_allowed) != 0)
     return -1;
-  }
+
   /*
-   * Bind the pinned descriptor to the same directory object observed after
-   * path resolution and ACL evaluation; fail closed on a directory swap.
+   * Pin the resolved parent before evaluating the share ACL. Revalidate the
+   * pathname after the ACL lookup so a directory replacement during that
+   * lookup cannot authorize a different directory at the same pathname.
    */
-  if (stat(resolved_parent, &expected_parent) != 0)
-    return -1;
-  parent_fd = ftp_acl_path_open_directory(resolved_parent);
+  parent_fd = ftp_acl_path_open_verified_directory(resolved_parent);
   if (parent_fd < 0)
     return -1;
-  if (fstat(parent_fd, &opened_parent) != 0) {
-    saved_errno = errno;
+  if (!asus_check_permission_at(p_sess, PERM_WRITE, resolved_parent)) {
+    saved_errno = EACCES;
     close(parent_fd);
     errno = saved_errno;
     return -1;
   }
-  if (!S_ISDIR(opened_parent.st_mode) ||
-      expected_parent.st_dev != opened_parent.st_dev ||
-      expected_parent.st_ino != opened_parent.st_ino) {
+  if (ftp_acl_path_verify_directory_identity(resolved_parent, parent_fd) != 0) {
+    saved_errno = errno;
     close(parent_fd);
-    errno = ESTALE;
+    errno = saved_errno;
     return -1;
   }
   flags = O_WRONLY | O_NONBLOCK | O_CREAT | O_NOFOLLOW | O_CLOEXEC;
