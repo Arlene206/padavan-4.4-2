@@ -616,6 +616,7 @@ launch_wan_pppd_locked(int unit, int wan_proto)
 	const char *failed_option = "unknown";
 	char options[64], tmp[256];
 	char *svcs[] = { NULL, NULL };
+	char *svcs_pppd[] = { "pppd", NULL };
 
 	if (unit < 0)
 		return -1;
@@ -647,6 +648,21 @@ launch_wan_pppd_locked(int unit, int wan_proto)
 		if (kill_services(svcs, 5, 1) != 0) {
 			saved_errno = EBUSY;
 			logmessage(LOGNAME, "refusing L2TP WAN launch: %s did not stop", svcs[0]);
+			errno = saved_errno;
+			return -1;
+		}
+	}
+
+	/*
+	 * Multi-WAN startup replaces all current PPP sessions. Keep this broad
+	 * process stop under the VPN lifecycle barrier: VPN server callbacks and
+	 * server start/stop use the same lock and must not overlap the kill.
+	 */
+	if (wan_proto != IPV4_WAN_PROTO_L2TP &&
+	    nvram_match("pppoemwan_enable", "1")) {
+		if (kill_services(svcs_pppd, 5, 1) != 0) {
+			saved_errno = EBUSY;
+			logmessage(LOGNAME, "refusing multi-WAN PPP launch: pppd did not stop");
 			errno = saved_errno;
 			return -1;
 		}
@@ -868,7 +884,7 @@ launch_wan_pppd_locked(int unit, int wan_proto)
 		}
 	} else {
 		if (nvram_match("pppoemwan_enable", "1"))
-			launch_status = doSystem("/usr/bin/mwan.sh");
+			launch_status = doSystem("/usr/bin/mwan.sh --rc-lifecycle-locked");
 		else
 			launch_status = eval("/usr/sbin/pppd", "file", options);
 	}
@@ -901,14 +917,18 @@ launch_wan_pppd(int unit, int wan_proto)
 
 	if (unit < 0)
 		return -1;
-	if (wan_proto != IPV4_WAN_PROTO_L2TP)
+	/* Ordinary single-WAN PPPoE/PPTP launch has no shared-process stop. */
+	if (wan_proto != IPV4_WAN_PROTO_L2TP &&
+	    !nvram_match("pppoemwan_enable", "1"))
 		return launch_wan_pppd_locked(unit, wan_proto);
 
-	/* L2TP shares xl2tpd with the VPN server. Keep transport stop,
-	 * PPP option publication and daemon restart in one lifecycle section. */
+	/*
+	 * L2TP shares xl2tpd with the VPN server; multi-WAN also stops all pppd
+	 * sessions from mwan.sh. Both paths must hold the common lifecycle lock.
+	 */
 	lock_fd = vpn_server_lifecycle_lock_acquire();
 	if (lock_fd < 0) {
-		logmessage(LOGNAME, "cannot lock VPN server lifecycle for WAN L2TP launch (errno=%d)",
+		logmessage(LOGNAME, "cannot lock VPN server lifecycle for WAN PPP launch (errno=%d)",
 			   errno);
 		return -1;
 	}
@@ -916,7 +936,7 @@ launch_wan_pppd(int unit, int wan_proto)
 	saved_errno = errno;
 	if (vpn_server_lifecycle_lock_release(lock_fd) != 0) {
 		int release_errno = errno ? errno : EIO;
-		logmessage(LOGNAME, "cannot release VPN server lifecycle lock after WAN L2TP launch (errno=%d)",
+		logmessage(LOGNAME, "cannot release VPN server lifecycle lock after WAN PPP launch (errno=%d)",
 			   release_errno);
 		if (result == 0) {
 			result = -1;

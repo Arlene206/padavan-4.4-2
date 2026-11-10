@@ -1,3 +1,17 @@
+## 2026-11-11 01:45 CST (UTC+8) — Serialize multi-WAN PPPD cleanup with the VPN lifecycle barrier
+
+- **Base main SHA:** `b59a2495573594fa777ea42a878fc4fffe17fd91`; previous exact-head HTTPD security [42867164461] and AI handoff documentation [42867164263] both completed SUCCESS, and every job step was inspected. Only remote branch is `main`; no checkpoint branch exists.
+- **Finding/call graph:** `trunk/user/pppoe/Makefile` installs `mwan.sh` as `/usr/bin/mwan.sh`. Its sole in-repository caller is `net_ppp.c::launch_wan_pppd_locked()`, reached from `net_wan.c` during WAN PPP startup. The public `launch_wan_pppd()` wrapper previously returned directly for every non-L2TP protocol before acquiring the VPN lifecycle lock. With `pppoemwan_enable=1`, the shell hook used `killall pppd` and later SIGKILLed a saved `pidof pppd` snapshot; this broad process stop could race VPN server callbacks and the saved PID could be reused during the delay.
+- **Fix:** multi-WAN PPPoE/PPTP startup now takes the VPN lifecycle barrier, while ordinary non-multi-WAN non-L2TP startup retains its previous fast path and L2TP remains locked. After invalidating the WAN callback generation, the RC helper uses bounded `kill_services(svcs_pppd, 5, 1)` and fails closed if any PPPD remains; only then does it publish options and invoke the multi-WAN shell helper. `mwan.sh` now rejects standalone invocation and no longer performs direct PPPD kills or acts on a stale PID snapshot.
+- **Regression:** extend `scripts/check_vpn_server_lifecycle.py` to assert lock acquisition for the multi-WAN branch, callback-generation fencing → checked PPPD stop → shell launch order, stop failure gating and absence of direct PPPD kills in `mwan.sh`. Add the shell hook to the dedicated VPN workflow's push/PR path filters.
+- **Changed paths:** `trunk/user/rc/src/net_ppp.c`, `trunk/user/pppoe/mwan.sh`, `scripts/check_vpn_server_lifecycle.py`, `.github/workflows/vpn-server-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log.
+- **Validation:** L1 source/caller/lock-boundary review PASS. Existing GNU89 lifecycle-lock and callback-identity binaries plus the expanded source contract are configured in the exact-head VPN Actions; that run and the AI handoff documentation run are pending on THIS COMMIT. No local RC translation-unit compile, MIPS/uClibc object, firmware/TRX or L4 router test is claimed.
+- **Root log:** 54 complete newest-first records before this entry; 55 after. No archive rotation or `docs/dev-log/INDEX.md` update is due.
+- **Resulting commit:** THIS COMMIT.
+- **Next:** inspect every job and step in the exact-head VPN lifecycle and AI handoff Actions. Then complete the remaining shell/add-on/package PPPD/PPTP/L2TP process-control inventory beyond `mwan.sh`; retain MIPS/uClibc, firmware/TRX, router, FTP cleanup TOCTOU, NFS compatibility, FULLCONENAT, OpenVPN and board gaps.
+
+---
+
 ## 2026-11-11 01:50 CST (UTC+8) — Update firmware-stop lifecycle contract after helper refactor
 
 - **Base main SHA:** `494724569dfb66cd562a7f928375cc103f233361`; production fix `bb515ef8d8bd4ddf6109d690fd12601835f07a24`; prior source-contract alignment `58bcdbdf4a72bb10503540380762cf47b4f8c336`.

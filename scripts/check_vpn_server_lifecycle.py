@@ -44,6 +44,7 @@ lock=read("trunk/user/rc/src/vpn_server_lifecycle_lock.h")
 rc=read("trunk/user/rc/src/rc.c")
 services=read("trunk/user/rc/src/services.c")
 net_ppp=read("trunk/user/rc/src/net_ppp.c")
+mwan=read("trunk/user/pppoe/mwan.sh")
 net_wan=read("trunk/user/rc/src/net_wan.c")
 vpn_client=read("trunk/user/rc/src/vpn_client.c")
 makefile=read("trunk/user/rc/src/Makefile")
@@ -89,6 +90,7 @@ require("stop_vpn_server();" in body(services,"stop_services(int stopall)"),"ser
 for p in ("trunk/user/rc/src/vpn_server.c","trunk/user/rc/src/vpn_server_lifecycle_lock.h",
           "trunk/user/rc/src/tests/vpn_server_lifecycle_lock.c","trunk/user/rc/src/rc.c",
           "trunk/user/rc/src/services.c","trunk/user/rc/src/rc.h",
+          "trunk/user/pppoe/mwan.sh",
           "scripts/check_vpn_server_lifecycle.py",".github/workflows/vpn-server-stability.yml"):
     require(p in workflow,f"workflow path filter missing {p}")
 require("fork()" in test and "errno==EBUSY" in test.replace(" ",""),"cross-process contention regression missing")
@@ -105,13 +107,28 @@ require('eval("/usr/sbin/xl2tpd"' in safe_start_locked,
 wan_launch=body(net_ppp,"launch_wan_pppd(int unit, int wan_proto)")
 wan_launch_locked=body(net_ppp,"launch_wan_pppd_locked(int unit, int wan_proto)")
 ordered(wan_launch,["if (unit < 0)",
-                    "if (wan_proto != IPV4_WAN_PROTO_L2TP)",
+                    "if (wan_proto != IPV4_WAN_PROTO_L2TP &&",
+                    '!nvram_match("pppoemwan_enable", "1"))',
+                    "return launch_wan_pppd_locked(unit, wan_proto)",
                     "vpn_server_lifecycle_lock_acquire()",
                     "launch_wan_pppd_locked(unit, wan_proto)",
-                    "vpn_server_lifecycle_lock_release(lock_fd)"],"WAN L2TP launch")
+                    "vpn_server_lifecycle_lock_release(lock_fd)"],"WAN L2TP/multi-WAN launch")
 require("kill_services(svcs, 5, 1)" in wan_launch_locked and
         "safe_start_xl2tpd_locked()" in wan_launch_locked,
         "WAN L2TP stop/config/start must remain in one locked helper")
+ordered(wan_launch_locked,["ppp_wan_session_generation_change(&callback_generation)",
+                           'nvram_match("pppoemwan_enable", "1")',
+                           "kill_services(svcs_pppd, 5, 1)",
+                           'doSystem("/usr/bin/mwan.sh --rc-lifecycle-locked")'],
+        "multi-WAN PPP stop before helper launch")
+require("refusing multi-WAN PPP launch: pppd did not stop" in wan_launch_locked and
+        "EBUSY" in wan_launch_locked,
+        "multi-WAN PPP launch must fail closed if the previous pppd processes remain")
+require("killall pppd" not in mwan and "pidof pppd" not in mwan and
+        'kill -9 "$pppd_process"' not in mwan,
+        "mwan.sh must not kill pppd outside the lifecycle-locked RC caller")
+require('"$1" != "--rc-lifecycle-locked"' in mwan,
+        "mwan.sh must reject direct startup without the RC lifecycle handoff")
 
 client_start=body(vpn_client,"start_vpn_client(void)")
 client_start_locked=body(vpn_client,"start_vpn_client_locked(void)")

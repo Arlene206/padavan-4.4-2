@@ -1,4 +1,12 @@
-#/bin/sh
+#!/bin/sh
+
+# This helper is an RC-internal continuation: the caller owns the shared VPN
+# lifecycle barrier and has already stopped PPPD with a checked postcondition.
+if [ "$#" -ne 1 ] || [ "$1" != "--rc-lifecycle-locked" ]; then
+	logger -t "MWAN" "refusing direct launch; use the RC WAN PPP lifecycle path"
+	exit 1
+fi
+
 
 sync="$(nvram get pppoesync_enable)"
 PPP_NUM="$(nvram get pppoe_num)"
@@ -23,10 +31,8 @@ do
         ifconfig macvlan"$i" hw ether $(echo $(cat /sys/class/net/"$ethname"/address|awk -F ":" '{print $1":"$2":"$3":"$4":"$5":" }')$(echo "" | awk -F ":" '{printf("%X\n", 16+i);}' i="$i"))
         ifconfig macvlan"$i" up
 done
-pppd_process=$(pidof pppd)
-killall pppd >/dev/null 2>&1
-sleep 3
-kill -9 "$pppd_process" >/dev/null 2>&1
+# Existing PPPD sessions were stopped by the RC caller under the VPN
+# lifecycle barrier. Never re-kill a saved pidof snapshot here.
 
 for i in $(seq 1 $PPP_NUM)
 do
