@@ -1,3 +1,18 @@
+## 2026-11-12 02:02 CST (UTC+8) — Close OpenVPN primary config and atomically publish client CCD files
+
+- Base main SHA: 023d4bc4a5fbc37c93dfb6b0f8958f9ea771e030; parent 6fb66775a0e750953e75f36e37ac4354751dedac.
+- Closed primary OpenVPN server/client configuration atomic publication L1/L2 on exact SHA 6fb66775a0e750953e75f36e37ac4354751dedac: OpenVPN [43073255439], AI docs [43073255430] and HTTPD [43073255419] all SUCCESS. Both GNU89 -Wall -Wextra -Werror ASan/UBSan/leak binaries and complete source/workflow contracts printed PASS. Full logs and every step inspected; docs validator root log=34/119, archives=7/22/18.
+- Whole-module review of vpn_openvpn.c found per-client CCD files still used fopen("w+") on the live path, ignored fprintf/fclose failures and chmodded the file after close.
+- THIS COMMIT changes openvpn_create_server_acl() to validate the CCD root with lstat (rejecting symlink/non-directory), stage each per-client CCD beside its destination using openvpn_config_file_open(), and publish with the checked openvpn_config_file_publish(). Overlong paths, stage errors and publish errors fail the ACL generation.
+- The server config caller now propagates ACL failure: closes and unlinks its unpublished primary config stage and returns nonzero before daemon startup. Each CCD file retains its previous complete version when its own staging/publish operation fails.
+- Scope limitation: multiple CCD files publish sequentially, so this is not a whole-directory transaction; stale CCD files for deleted clients are not reconciled.
+- Exact-head OpenVPN [43073850268], AI docs [43073850351] and HTTPD umbrella [43073850247] on THIS COMMIT all SUCCESS. Every step and full logs inspected. Credential/config GNU89 sanitizer binaries PASS; extended source checker includes CCD directory, atomic stage/publish and primary config fail-closed call chain. Docs validator root log=34/119, archives=7/22/18.
+- Next audit found VPN lease callbacks still have a destructive failure path: disconnect opens source and fixed /tmp temp independently; source-open failure plus successful temp-open can replace the live lease file with empty content, while read errors/writes/close/rename are unchecked. Connect append similarly ignores write/close failures. This is the next P2 stability task.
+- Root dev_log.md grows 34→35 complete records; no rotation or INDEX update due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- Next GPT: repair fail-closed same-directory lease snapshot update, add GNU89 malformed-line/source-open/read/write/close/rename failure tests and inspect callback concurrency. FTP TOCTOU remains OPEN/BLOCKED; NFS needs real-client evidence; MIPS/uClibc, firmware/TRX and L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-12 01:57 CST (UTC+8) — Fix OpenVPN source-checker C signature newline escapes
 
 - Base main SHA: 6e52bb21f55099b61b1bc9627b23c6ec0a1b8ea7; parent d5b5ff7ed841ea12af2eda604580722e49bf7436.
