@@ -1,24 +1,23 @@
 ## Current repository state
 
-- Maintained fork: Arlene206/padavan-4.4-2; active branch: main. Base before THIS COMMIT: d35c5b8e3363db8b4a680e91a080ef7a7b7e0c0f; parent: 847b7980835d98ee240f16fcf4453c66ad5fcbcb. Remote branch inventory at recovery: main only; no separate checkpoint branch.
-- DDNS/Inadyn credential confidentiality slice is closed at exact SHA d35c5b8e3363db8b4a680e91a080ef7a7b7e0c0f: Inadyn private-0600 staging regression, DDNS credential publication/source contract and DNSMasq daemon postcondition/RC status checks all PASS in DNSMasq workflow [42977832958], steps 3–7. AI handoff docs [42977832951] PASS with root log 94/119 and archive counts dev-log=6, handoff=22, roadmap=18.
-- New P2 watchdog stability finding: refresh_ntp() ignored kill_services({"ntpd"}, 3, 1) and launched another ntpd -qt even when the shared lifecycle stop had exhausted TERM, KILL and its bounded post-KILL wait while ntpd remained visible in the process inventory. This can leave multiple clock-adjustment processes active concurrently. The shared kill_services() correctly propagates service_lifecycle_stop() failure; the caller dropped it.
-- Fix in THIS COMMIT: capture the stop status and refuse to advance NTP server selection or start a new one-shot ntpd unless termination status is zero. Log and return the incomplete-stop status before reading/advancing the server index. Add a GNU89 policy regression, an integration/call-path source contract, and extend the existing watchdog signal workflow to test the shared service lifecycle postcondition and keep symmetric push/PR path filters.
-- Changed paths: trunk/user/rc/src/watchdog.c, new watchdog_ntp_policy.h and test, new scripts/check_watchdog_ntp_lifecycle.py, .github/workflows/watchdog-signal-stability.yml, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and dev_log.md.
-- Root dev_log.md: 94 complete records before THIS COMMIT, 95 after; below 120-entry / 384 KiB rotation triggers and 512 KiB hard limit. No archive or docs/dev-log/INDEX.md update is due.
-- Open items: FTP upload-cleanup TOCTOU remains OPEN/BLOCKED; NFS export/client durability and AUTH_SYS/root-squash remain evidence-gated; target MIPS/uClibc, full firmware/TRX, BusyBox ash and L4 router behavior remain NOT VERIFIED.
+- Maintained fork: Arlene206/padavan-4.4-2; active branch: `main`. Base before THIS COMMIT: `a6c425e800473c3cad3761da39e8599004717964`; parent: `d35c5b8e3363db8b4a680e91a080ef7a7b7e0c0f`. Remote inventory at recovery: `main` only; no separate checkpoint branch.
+- Closed previous task: watchdog NTP stop-before-start at exact SHA `a6c425e800473c3cad3761da39e8599004717964`. Watchdog signal/lifecycle regression [42979417134] and AI handoff documentation contract [42979417173] both completed SUCCESS on that exact head. The watchdog job's GNU89/ASan/UBSan signal deferral, NTP stop-before-start, service lifecycle and source/caller contracts all passed; docs validation passed with root log 95/119 and archive counts dev-log=6, handoff=22, roadmap=18. No separate commit status rows were reported.
+- Selected new P2 stability defect: `start_gpio_btn()` treated a successful `eval("/sbin/gpio_btn")` wait status as proof that the detached daemon had initialized. `_eval()` waits for the exec'd launcher; `btn_main()` then daemonizes and the child may fail in netlink socket/bind/receive-timeout initialization. Those child-side failures can therefore occur after the launcher already exited successfully, leaving startup falsely reported as successful.
+- Fix in THIS COMMIT: after successful launcher exit, wait one second and perform four bounded process-presence checks using the existing `pids("gpio_btn")` inventory. Preserve nonzero launcher status, return `ESRCH` if the daemon does not remain present, and log failures. An already-running daemon remains a no-op success. Button event, key-duration, LED and action semantics are unchanged.
+- Changed paths: `trunk/user/rc/src/gpio_btn.c`, new `gpio_btn_daemon_policy.h` and GNU89 test, new `scripts/check_gpio_btn_lifecycle.py`, new `.github/workflows/gpio-btn-lifecycle.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and `dev_log.md`.
+- Root `dev_log.md`: 95 complete records before THIS COMMIT, 96 after; current file is below the 384 KiB rotation target and 512 KiB hard limit. No archive or index rotation is due.
+- Open items retained: FTP upload-cleanup check/unlink TOCTOU remains OPEN/BLOCKED pending a proved staged-publication/unlink design; NFS export/client durability and AUTH_SYS/root-squash remain evidence-gated; target MIPS/uClibc, full firmware/TRX, BusyBox ash and L4 router behavior remain NOT VERIFIED.
 
 ## Active task
 
-- Verify the new NTP stop-before-start GNU89 regression, shared service lifecycle regression, complete source/call-path/path-filter contract and AI handoff docs on the exact resulting main SHA. Inspect every job, step and full log.
-- If green, close this watchdog NTP slice and select another distinct subsystem stability issue from the repository-wide ledger. Do not revisit the closed DDNS/Inadyn, WDM/NDIS or OpenVPN credential work.
+- Verify the GPIO button startup postcondition GNU89 regression, semantic source/call-path contract, symmetric workflow path filters and AI handoff documentation on the exact resulting main SHA. Inspect each job, step and full log.
+- The NTP task is closed; do not reopen the Inadyn/DDNS, WDM/NDIS or OpenVPN credential tasks. GPIO button event parser, board-specific uevents and physical LED/key timing are not claimed fully audited by this bounded daemon-start fix.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and remote branch inventory; verify exact resulting SHA and parent.
-2. Query all Actions for that exact SHA. Inspect watchdog signal/NTP job steps and AI docs. Require both GNU89 binaries, C-source call-path assertions, service-stop return semantics, symmetric path filters, and docs validation with root log 95/119 and archives 6/22/18.
-3. If green, rotate to another subsystem. Preserve FTP cleanup TOCTOU OPEN/BLOCKED, NFS external-evidence boundaries and explicit target L3/L4 limits.
-
+1. Fetch live main, parent commit and remote branch inventory; resolve THIS COMMIT to its exact SHA and confirm no concurrent main update was overwritten.
+2. Query every Actions run for that exact SHA. Inspect the GPIO daemon regression and AI handoff jobs end-to-end. Require the GNU89 ASan/UBSan policy binary, _eval/daemon/pids source contract, bounded retry/failure return, symmetric push/pull_request path filters and docs check all PASS.
+3. If green, close this bounded GPIO startup task and rotate to the next highest-risk global ledger item. Keep FTP cleanup TOCTOU OPEN/BLOCKED, NFS external-client evidence gates and L3/L4 NOT VERIFIED boundaries intact.
 
 ## PID 1 notification queue batch fairness
 

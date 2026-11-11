@@ -14,6 +14,7 @@
 
 #include "rc.h"
 #include "gpio_pins.h"
+#include "gpio_btn_daemon_policy.h"
 #include <gpioutils.h>
 
 #ifdef GPIO_BTN_DBG
@@ -281,10 +282,32 @@ static void btn_ev_handle(btn_event *ev)
 }
 int start_gpio_btn(void)
 {
+	int launch_status;
+	int status;
+	int attempt;
+
 	if (pids("gpio_btn"))
 		return 0;
 
-	return eval("/sbin/gpio_btn");
+	launch_status = eval("/sbin/gpio_btn");
+	if (launch_status != 0) {
+		status = gpio_btn_start_policy_status(launch_status, pids("gpio_btn"));
+		logmessage("gpio_btn", "Failed to launch button service (status=%d)", status);
+		return status;
+	}
+
+	/* eval() waits for the daemonizing launcher, not the detached child. */
+	sleep(1);
+	for (attempt = 0; attempt < GPIO_BTN_START_WAIT_ATTEMPTS; attempt++) {
+		status = gpio_btn_start_policy_status(launch_status, pids("gpio_btn"));
+		if (status == 0)
+			return 0;
+		if (attempt + 1 < GPIO_BTN_START_WAIT_ATTEMPTS)
+			sleep(1);
+	}
+
+	logmessage("gpio_btn", "Button daemon did not remain running after startup");
+	return status;
 }
 
 int btn_main(int argc, char *argv[])

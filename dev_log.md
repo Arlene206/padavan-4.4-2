@@ -1,3 +1,18 @@
+## 2026-11-11 (UTC+8) — Verify GPIO button daemon startup postcondition
+
+- Base main SHA: a6c425e800473c3cad3761da39e8599004717964; parent `d35c5b8e3363db8b4a680e91a080ef7a7b7e0c0f`; remote branch inventory: `main` only.
+- Closed the preceding watchdog NTP stop-before-start task on exact SHA `a6c425e800473c3cad3761da39e8599004717964`: watchdog signal/lifecycle workflow [42979417134] and AI handoff documentation [42979417173] both completed SUCCESS. The watchdog job compiled and ran the GNU89/ASan/UBSan signal deferral, NTP stop-before-start and service-lifecycle regressions, and passed the full source/caller contract. The docs job validated root log 95/119 and indexed archive counts 6/22/18.
+- New P2 finding in the GPIO button service: `start_gpio_btn()` relied only on `eval("/sbin/gpio_btn")` status. `eval()` waits for the initial exec'd rc launcher; `btn_main()` calls `daemon(0, 0)` before creating/binding/configuring its netlink uevent socket. A child-side socket/bind/timeout failure can therefore happen after the launcher has already exited successfully, so the service startup call can falsely report success and the subsequent boot flow has no immediate failure signal.
+- Fix in THIS COMMIT: add `gpio_btn_daemon_policy.h`; after a successful launcher status, `start_gpio_btn()` waits one second and checks `pids("gpio_btn")` up to four times with bounded one-second gaps. Nonzero launcher status is preserved; a missing daemon returns `ESRCH`; both failure paths are logged. The already-running fast path and button event/timing/action behavior are unchanged.
+- Regression and workflow: new GNU89 test covers present/missing daemon and launcher-error propagation. The dedicated workflow checks the source chain through `eval/_eval`, `daemon()`, netlink initialization, process-name matching, RC caller, declarations/build/package wiring and symmetric push/PR filters. Exact-head Actions are pending.
+- Changed paths: `trunk/user/rc/src/gpio_btn.c`, `trunk/user/rc/src/gpio_btn_daemon_policy.h`, `trunk/user/rc/src/tests/gpio_btn_daemon_policy.c`, `scripts/check_gpio_btn_lifecycle.py`, `.github/workflows/gpio-btn-lifecycle.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log.
+- Local validation: isolated GNU89 host policy binary compiled with `-Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer` and ran with PASS in the development container. The repository clone is unavailable in this runtime, so no full RC build or local whole-repository docs validator is claimed. Exact-head Actions remain the integration/source-contract authority.
+- Root log: 95 complete records before this entry, 96 after; file remains below the 384 KiB rotation target and 512 KiB hard limit; no archive or `docs/dev-log/INDEX.md` update is due.
+- Resulting commit: THIS COMMIT.
+- Next: inspect the GPIO button workflow and AI docs on the exact resulting main SHA, including every job step and full log. Do not claim target MIPS/uClibc, full firmware/TRX, BusyBox ash or L4 button behavior. FTP upload-cleanup TOCTOU remains OPEN/BLOCKED; NFS client semantics remain evidence-gated.
+
+---
+
 ## 2026-11-11 (UTC+8) — Prevent overlapping watchdog NTP one-shot processes
 
 - Base main SHA: d35c5b8e3363db8b4a680e91a080ef7a7b7e0c0f; parent 847b7980835d98ee240f16fcf4453c66ad5fcbcb; remote branch inventory: main only.
