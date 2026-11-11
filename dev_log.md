@@ -1,3 +1,14 @@
+## 2026-11-11 09:55 CST (UTC+8) — Align HTTPD firewall startup contract with NAT prerequisite
+
+- Base main SHA: `cd14b6e9a1858b5e894d7cb613affd6dce624d84`; parent `2ce57f74b55cb4abd04d6d1133920db6c676a15e`. The only remote branch was `main`; no checkpoint branch existed.
+- Exact-head Actions: the dedicated Firewall Startup regression [42940461165] and AI handoff docs [42940461379] passed. Thirteen other module workflows also passed. HTTPD [42940461177] was the sole failure among 15 runs: all its C firewall command-status, startup-policy and restore-transaction binaries passed, but its source contract still searched for the former four-argument policy-test calls. It failed at source-contract line 121 in step 29; steps 30–39 were skipped. This was a stale test contract caused by the six-argument policy extension, not a product C regression.
+- Fix in THIS FOLLOW-UP: update HTTPD's firewall source contract to require the six-argument IPv4/IPv6 and NAT-enabled failure test cases, verify the NAT restore prerequisite in the policy, and enforce NVRAM capture-before-restore plus NAT restore status forwarding into the router-mode WAN gate. Remove an existing duplicate `rc.c` trigger path from each push/PR filter; its other `rc.c` entry remains present once in each.
+- Root `dev_log.md`: 79 complete newest-first records before this entry; 80 afterward. Still below 120-entry, 384 KiB early-rotation and 512 KiB hard limits; no archive or `docs/dev-log/INDEX.md` update is due.
+- Changed paths: `.github/workflows/httpd-security.yml`, `SESSION_HANDOFF.md` and this log. No roadmap priority/status change is required for this CI-contract-only follow-up.
+- Next: query Actions by the exact resulting SHA, inspect every job/step and full logs for the HTTPD umbrella and AI handoff docs. The dedicated Firewall Startup workflow already passed on parent SHA `cd14b6e9a1858b5e894d7cb613affd6dce624d84`; the corrected umbrella must pass before continuing the wider `firewall_ex.c` transaction and extension-hook audit. FTP cleanup remains OPEN/BLOCKED; NFS client semantics remain evidence-gated; production MIPS/uClibc, firmware/TRX and L4 router behavior remain unverified.
+
+---
+
 ## 2026-11-11 09:13 CST (UTC+8) — Gate WAN startup on required NAT baseline restore
 
 - Base main SHA: `2ce57f74b55cb4abd04d6d1133920db6c676a15e`; parent `edf67d1eeb0ee1fc827efa9b89ab6e1846608677`. Remote branch inventory contained only `main`; no checkpoint branch existed.

@@ -212,7 +212,6 @@ on:
       - "trunk/user/rc/src/tests/firewall_adbyby_restore_policy.c"
       - "trunk/user/rc/src/tests/firewall_restore_transaction.c"
       - "trunk/user/shared/src/shutils.c"
-      - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/tests/pid1_signal_policy.c"
       - "trunk/user/rc/src/pid1_signal_policy.h"
       - "trunk/user/rc/src/init.c"
@@ -436,7 +435,6 @@ on:
       - "trunk/user/rc/src/tests/firewall_adbyby_restore_policy.c"
       - "trunk/user/rc/src/tests/firewall_restore_transaction.c"
       - "trunk/user/shared/src/shutils.c"
-      - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/tests/pid1_signal_policy.c"
       - "trunk/user/rc/src/pid1_signal_policy.h"
       - "trunk/user/rc/src/init.c"
@@ -2887,10 +2885,13 @@ jobs:
           assert "cleanup_failed" in transaction_helper
           assert "typedef int (*firewall_restore_remove_fn)" in transaction_helper
           assert "firewall_restore_transaction_finish" in transaction_test
-          # Initial boot must not expose WAN until restrictive filters are installed.
+          # Initial boot must not expose WAN until required NAT and filter rules are installed.
           assert "firewall_startup_policy_allows_wan" in startup_policy
-          assert "firewall_startup_policy_allows_wan(1, 0, 1, -1)" in startup_test
-          assert "firewall_startup_policy_allows_wan(0, -1, 1, -1)" in startup_test
+          assert "if (nat_required && nat_restore_status != 0)" in startup_policy
+          assert "firewall_startup_policy_allows_wan(1, 0, 1, -1, 0, 0)" in startup_test
+          assert "firewall_startup_policy_allows_wan(0, -1, 1, -1, 0, -1)" in startup_test
+          assert "firewall_startup_policy_allows_wan(0, -1, 0, -1, 1, -1)" in startup_test
+          assert "firewall_startup_policy_allows_wan(0, -1, 0, -1, 1, 1)" in startup_test
           assert "int ipt_nat_default(void);" in rc_header
           assert "int ipt_filter_default(void);" in rc_header
           assert "int ip6t_filter_default(void);" in rc_header
@@ -2902,7 +2903,10 @@ jobs:
           boot_start = rc_source.index("if (!is_ap_mode) {", rc_source.index("start_dns_dhcpd(is_ap_mode);"))
           boot_end = rc_source.index("start_services_once(is_ap_mode);", boot_start)
           boot = rc_source[boot_start:boot_end]
+          assert 'nat_required = nvram_match("wan_nat_x", "1");' in boot
+          assert boot.index("nat_required = nvram_match") < boot.index("nat_restore_status = ipt_nat_default();")
           assert "nat_restore_status = ipt_nat_default();" in boot
+          assert "nat_required," in boot and "nat_restore_status))" in boot
           assert "ipv4_filter_status = ipt_filter_default();" in boot
           assert "ipv6_filter_status = ip6t_filter_default();" in boot
           assert "get_ipv6_type() != IPV6_DISABLED" in boot
