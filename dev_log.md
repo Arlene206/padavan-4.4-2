@@ -1,3 +1,17 @@
+## 2026-11-11 20:08 CST (UTC+8) — Correct the storage caller-graph swapoff assertion
+
+- Base main SHA: 14e22191f48c9ad6f3804729ab502ac81670a30b; parent 2968bb70c97e13f405389795628184f804abcf5d; branch inventory remains main only.
+- Exact-head Actions: storage run [43017000972] completed FAILURE in the final “Verify whole storage caller graph, operation locks and failure propagation” step. The Optware teardown/helper syntax step and the entire Optware teardown regression step both PASSED. The failure was a stale source assertion at Python line 227 that still searched for the removed literal `swapoff /opt/.swap`; the implementation now calls `optware_lifecycle_swapoff_file /opt/.swap`. The traceback was `ValueError: substring not found`, not a product regression failure.
+- Infosvr [43017000995] and AI handoff docs [43017000981] both completed SUCCESS on exact SHA 14e22191f48c9ad6f3804729ab502ac81670a30b; all steps passed, including the GNU89 ASan/UBSan infosvr policy test and documentation archive validator.
+- THIS COMMIT updates the older whole-caller source contract to locate the explicit helper invocation, retaining the required ordering after service-stop failure handling and before the /opt unmount gate. No production source or shell regression behavior changes in this correction.
+- Validation boundary: L1 source review unchanged; new Optware syntax and teardown host regression steps passed on 14e22191f48c9ad6f3804729ab502ac81670a30b. Matching target BusyBox ash, MIPS/uClibc objects, complete firmware/TRX and L4 hardware remain NOT VERIFIED. Corrected exact-head storage/docs Actions pending.
+- Root dev_log.md had 109 complete records before this entry and has 110 afterward. Below rotation thresholds; archive inventory remains dev-log=6, handoff=22, roadmap=18; no archive/index change is due.
+- Changed paths: .github/workflows/storage-hotplug-stability.yml, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and dev_log.md.
+- Resulting commit: THIS COMMIT.
+- Next: inspect corrected exact-head storage and AI docs Actions, including full logs and every step. If green, continue matching BusyBox ash and lifecycle lock/fd/caller audit rather than claiming L3/L4 completion.
+
+---
+
 ## 2026-11-11 19:24 CST (UTC+8) — Fail closed when Optware swap release is uncertain
 
 - Base main SHA: 2968bb70c97e13f405389795628184f804abcf5d; parent d2edf2dd08c85e0413f6469e2dccc6fa5a2df26a; branch inventory: main only, no remote checkpoint. Storage [43009772930] and AI docs [43009772871] both passed on this exact base SHA.

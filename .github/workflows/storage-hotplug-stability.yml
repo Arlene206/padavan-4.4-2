@@ -350,7 +350,7 @@ jobs:
           stop_gate = "if ! optware_lifecycle_stop_services /opt/etc/init.d; then"
           stop_gate_pos = opt_umount.index(stop_gate)
           stop_abort_pos = opt_umount.index("exit 1", stop_gate_pos)
-          swapoff_pos = opt_umount.index("swapoff /opt/.swap")
+          swapoff_pos = opt_umount.index("if ! optware_lifecycle_swapoff_file /opt/.swap; then")
           unmount_gate = "if ! optware_lifecycle_umount_opt; then"
           unmount_gate_pos = opt_umount.index(unmount_gate)
           unmount_abort_pos = opt_umount.index("exit 1", unmount_gate_pos)
