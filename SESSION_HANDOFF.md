@@ -1,24 +1,24 @@
 ## Current repository state
 
-- Maintained fork: Arlene206/padavan-4.4-2; active branch: main. Base before THIS FOLLOW-UP: c26125ca58ffdcd5f164efafc18df2420e7be2de, parent 8672476ac3544922bc97bad56b12a883bb8cb88a. Remote branches at base: main only.
-- USB modem RAS credentials are now routed through the shared PPP no-follow 0600 writer; WAN and RAS startup validate callback/peer directories. The committed regression is present in the live tree at blob 55230ce50d0a7aaaa0b3ed04747d863500a30cd3; exact fetch confirms it includes umask(0000) and the legacy 0666 mode assertion.
-- Exact-head Actions on c26125ca58ffdcd5f164efafc18df2420e7be2de: AI handoff docs [42954884367] SUCCESS (root log 86/119); HTTPD [42954884275] FAILED at step 17, Verify PPP credential-file confidentiality. On this SHA the PPP GNU89 test compiled and executed, directory-only helper -Werror compile succeeded, option value regression passed, callback identity and generation tests passed, and the new USB RAS/WAN permission source assertions passed. Failure occurred later in an older PPP demand-mode source contract: it searched for the old function boundary "
-static void
-create_cb_links" to delimit wait_ppp_up(), but this change intentionally changed create_cb_links() to static int. The log reports ValueError: substring not found at embedded Python line 166. This is another stale test-boundary string, not a runtime regression.
-- THIS FOLLOW-UP corrects that boundary marker to static int. No production code or test semantics are changed by this commit.
-- Root dev_log.md: 86 complete records before THIS FOLLOW-UP; 87 afterward, below the 120-entry / 384 KiB rotation triggers and the 512 KiB hard limit. No archive/index update is due.
-- Other open items: FTP upload-cleanup TOCTOU OPEN/BLOCKED pending a semantics-preserving design; NFS durability/AUTH_SYS/root-squash/external-mount semantics are evidence-gated; wireless variants, target PPP reconnect/IPv6, BusyBox ash, and router hardware remain unverified. No production MIPS/uClibc object, firmware/TRX or L4 result is claimed.
+- Maintained fork: Arlene206/padavan-4.4-2; active branch: main. Base before THIS COMMIT: e22c339dc8f04eb965cc19d36f9a2a0bec594e65, parent c26125ca58ffdcd5f164efafc18df2420e7be2de. Remote branches at the base: main only; no separate checkpoint branch.
+- Recovered the prior active PPP/RAS follow-up. On exact SHA e22c339dc8f04eb965cc19d36f9a2a0bec594e65, HTTPD Authentication/Security [42955374938] and AI handoff docs [42955374897] both completed SUCCESS. The HTTPD job passed all 39 steps, including step 17 (PPP credential-file confidentiality) and downstream demand-mode/source contracts; AI docs confirmed root log 87/119 and archive inventory dev-log=6, handoff=22, roadmap=18. The PPP/RAS task is closed; do not repeat it.
+- The repository-roadmap Shadowsocks lifecycle follow-up is also green on exact code SHA 1f7b3f2a568d8b6c8327206fe6111ce4e49dfbfa: lifecycle Actions [42879041009] and AI docs [42879041085] completed SUCCESS. The mock regression reported graceful TERM, fresh-name KILL escalation and stuck-process postcondition PASS; the source contract and docs validator passed. This is host/source evidence only, not target BusyBox/MIPS/device validation.
+- Finding in OpenVPN client auth: openvpn_create_client_secret() used fopen(secret_file, "w+"), wrote the username/password, closed the stream, then chmodded the path to 0600. A newly created file inherits 0644 under umask 0022, or 0666 under PID 1's umask(0000); /etc/openvpn/client is created 0755. Credentials were exposed during the creation-to-chmod interval. The writer also swallowed open/write/close/chmod failures, allowing client setup to continue without a verified credential file.
+- Fix in THIS COMMIT: stage credentials with mkstemp in the destination directory, validate the descriptor, enforce mode 0600 before writing, check write/flush/fsync/close, and atomically rename into place. openvpn_create_client_secret() now returns status; client configuration creation fails before opening/publishing the config when secure credential publication fails, preventing OpenVPN startup with missing or partially written credentials.
+- Regression: new GNU89 host test reproduces the legacy 0666 creation mode under umask(0000), then checks atomic owner-only replacement, inode replacement, symlink replacement without touching its target, and failure cleanup/last-good preservation when rename cannot replace a directory. The isolated ASan/UBSan build with -Wall -Wextra -Werror and leak detection passed. A dedicated path-filtered Actions workflow runs this test and its source/workflow contract.
+- Root dev_log.md: 87 complete records before THIS COMMIT; 88 afterward, below 120-entry / 384 KiB rotation triggers and 512 KiB hard limit. No archive or docs/dev-log/INDEX.md update is due.
+- Other open items: FTP upload-cleanup TOCTOU OPEN/BLOCKED pending a semantics-preserving design; NFS durability/AUTH_SYS/root-squash/external-mount semantics remain evidence-gated; wireless variants, WAN PPP reconnect/IPv6 rollback, BusyBox ash and router hardware remain unverified. No production MIPS/uClibc object, full firmware/TRX or L4 result is claimed.
 
 ## Active task
 
-- Verify the final HTTPD PPP credential workflow after changing the wait_ppp_up() source-boundary marker to static int. The regression test and directory-only helper compile have already passed on parent c26125ca58ffdcd5f164efafc18df2420e7be2de; rerun all source contracts against the final exact head and inspect the AI docs result.
+- Verify the OpenVPN client credential staging fix on the final exact main SHA. Ensure the dedicated OpenVPN credential workflow runs both the GNU89 ASan/UBSan regression and source/workflow contract, and inspect the AI handoff docs validator on the same exact SHA.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and remote branches; verify exact SHA and parent after THIS FOLLOW-UP.
-2. Query all Actions for the resulting SHA, inspect every job/step and full log. Ensure HTTPD step 17 passes to completion and AI docs confirms root log 87/119.
-3. If green, close the bounded RAS credential fix and move to a different high-priority whole-userland stability issue; do not continue to polish PPP/HTTPD.
-4. No target MIPS/uClibc, firmware/TRX, BusyBox ash or L4 hardware validation is implied.
+1. Fetch live main and remote branches; verify the exact new SHA and parent after THIS COMMIT.
+2. Query all Actions for that exact SHA. Inspect every job, step and full log for the OpenVPN client credential staging workflow and AI handoff docs; confirm the host regression, source contract and docs check all pass and the docs validator reports root log 88/119.
+3. If green, close the OpenVPN credential confidentiality fix and move to a different high-priority userland module. Do not repeat PPP/RAS, HTTPD or Shadowsocks work.
+4. Keep target MIPS/uClibc, BusyBox ash, full firmware/TRX and L4 hardware verification explicitly NOT VERIFIED.
 
 ## PID 1 notification queue batch fairness
 

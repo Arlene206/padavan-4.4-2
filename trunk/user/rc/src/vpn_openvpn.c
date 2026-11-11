@@ -30,6 +30,7 @@
 #include <time.h>
 
 #include "rc.h"
+#include "openvpn_client_secret_file.h"
 
 #define OPENVPN_EXE		"/usr/sbin/openvpn"
 #define COMMON_TEMP_DIR		"/tmp/openvpn"
@@ -115,22 +116,22 @@ openvpn_check_key(const char *key_name, int is_server)
 	return 1;
 }
 
-static void
+static int
 openvpn_create_client_secret(const char *secret_name)
 {
-	FILE *fp;
 	char secret_file[64];
+	int path_len;
 
-	snprintf(secret_file, sizeof(secret_file), "%s/%s", CLIENT_ROOT_DIR, secret_name);
-
-	fp = fopen(secret_file, "w+");
-	if (fp) {
-		fprintf(fp, "%s\n", nvram_safe_get("vpnc_user"));
-		fprintf(fp, "%s\n", nvram_safe_get("vpnc_pass"));
-		fclose(fp);
-		
-		chmod(secret_file, 0600);
+	path_len = snprintf(secret_file, sizeof(secret_file), "%s/%s",
+			    CLIENT_ROOT_DIR, secret_name);
+	if (path_len < 0 || (size_t)path_len >= sizeof(secret_file)) {
+		errno = ENAMETOOLONG;
+		return -1;
 	}
+
+	return openvpn_client_secret_publish(secret_file,
+					     nvram_safe_get("vpnc_user"),
+					     nvram_safe_get("vpnc_pass"));
 }
 
 static int
@@ -660,6 +661,14 @@ openvpn_create_client_conf(const char *conf_file, int is_tun)
 	if (i_prot != i_prot_ori)
 		nvram_set_int("vpnc_ov_prot", i_prot);
 
+	/* Publish auth credentials privately before writing a config that uses them. */
+	if (i_auth == 1 && openvpn_create_client_secret("secret") != 0) {
+		logmessage(CLIENT_LOG_NAME,
+			   "Unable to publish VPN client credentials (errno=%d).",
+			   errno ? errno : EIO);
+		return 1;
+	}
+
 	fp = fopen(conf_file, "w+");
 	if (!fp)
 		return 1;
@@ -690,10 +699,8 @@ openvpn_create_client_conf(const char *conf_file, int is_tun)
 	openvpn_add_cipher(fp, nvram_get_int("vpnc_ov_ciph"), nvram_get("vpnc_ov_ncp_clist"));
 	openvpn_add_compress(fp, nvram_get_int("vpnc_ov_compress"), 0);
 
-	if (i_auth == 1) {
+	if (i_auth == 1)
 		fprintf(fp, "auth-user-pass %s\n", "secret");
-		openvpn_create_client_secret("secret");
-	}
 
 	if (nvram_match("vpnc_dgw", "1"))
 		fprintf(fp, "redirect-gateway def1 bypass-dhcp\n");
