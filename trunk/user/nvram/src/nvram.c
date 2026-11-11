@@ -39,6 +39,7 @@
 #include <nvram_linux.h>
 
 #include "nvram_profile_policy.h"
+#include "nvram_cli_policy.h"
 
 static void usage(void)
 {
@@ -290,28 +291,52 @@ main(int argc, char **argv)
 		else if (!strcmp(*argv, "settmp")) {
 			if (*++argv) {
 				char buf[1024];
-				strncpy(value = buf, *argv, sizeof(buf)-1);
-				name = strsep(&value, "=");
-				nvram_set_temp(name, value);
+				if (nvram_cli_parse_assignment(buf, sizeof(buf), *argv,
+						NVRAM_MAX_PARAM_LEN - 1,
+						NVRAM_MAX_VALUE_LEN - 1,
+						&name, &value) < 0) {
+					fprintf(stderr, "Invalid NVRAM assignment; expected name=value.\n");
+					if (ret == 0)
+						ret = -1;
+				} else if (nvram_set_temp(name, value) < 0 && ret == 0) {
+					ret = -1;
+				}
+			} else if (ret == 0) {
+				ret = -1;
 			}
 		}
 		else if (!strcmp(*argv, "set")) {
 			if (*++argv) {
 				char buf[1024];
-				strncpy(value = buf, *argv, sizeof(buf)-1);
-				name = strsep(&value, "=");
-				nvram_set(name, value);
+				if (nvram_cli_parse_assignment(buf, sizeof(buf), *argv,
+						NVRAM_MAX_PARAM_LEN - 1,
+						NVRAM_MAX_VALUE_LEN - 1,
+						&name, &value) < 0) {
+					fprintf(stderr, "Invalid NVRAM assignment; expected name=value.\n");
+					if (ret == 0)
+						ret = -1;
+				} else if (nvram_set(name, value) < 0 && ret == 0) {
+					ret = -1;
+				}
+			} else if (ret == 0) {
+				ret = -1;
 			}
 		}
 		else if (!strcmp(*argv, "unset")) {
-			if (*++argv)
-				nvram_unset(*argv);
+			if (*++argv) {
+				if (nvram_unset(*argv) < 0 && ret == 0)
+					ret = -1;
+			} else if (ret == 0) {
+				ret = -1;
+			}
 		}
 		else if (!strcmp(*argv, "clear")) {
-			nvram_clear();
+			if (nvram_clear() < 0 && ret == 0)
+				ret = -1;
 		}
 		else if (!strcmp(*argv, "commit")) {
-			nvram_commit();
+			if (nvram_commit() < 0 && ret == 0)
+				ret = -1;
 			break;
 		}
 		else if (!strcmp(*argv, "save")) {

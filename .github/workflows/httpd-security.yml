@@ -42,6 +42,8 @@ on:
       - "trunk/user/nvram/src/nvram.c"
       - "trunk/user/nvram/src/nvram_profile_policy.h"
       - "trunk/user/nvram/src/tests/nvram_profile_policy.c"
+      - "trunk/user/nvram/src/nvram_cli_policy.h"
+      - "trunk/user/nvram/src/tests/nvram_cli_policy.c"
       - "trunk/user/httpd/src/httpd.c"
       - "trunk/user/httpd/src/ej.c"
       - "trunk/user/httpd/src/aidisk.c"
@@ -267,6 +269,8 @@ on:
       - "trunk/user/nvram/src/nvram.c"
       - "trunk/user/nvram/src/nvram_profile_policy.h"
       - "trunk/user/nvram/src/tests/nvram_profile_policy.c"
+      - "trunk/user/nvram/src/nvram_cli_policy.h"
+      - "trunk/user/nvram/src/tests/nvram_cli_policy.c"
       - "trunk/user/httpd/src/httpd.c"
       - "trunk/user/httpd/src/ej.c"
       - "trunk/user/httpd/src/web_ex.c"
@@ -582,10 +586,31 @@ jobs:
             trunk/user/nvram/src/tests/nvram_profile_policy.c \
             -o /tmp/nvram_profile_policy
           /tmp/nvram_profile_policy
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/nvram/src \
+            trunk/user/nvram/src/tests/nvram_cli_policy.c \
+            -o /tmp/nvram_cli_policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/nvram_cli_policy
           python3 - <<'PY'
           from pathlib import Path
 
           source = Path("trunk/user/nvram/src/nvram.c").read_text()
+          assignment = source.split("/* NVRAM utility */", 1)[1]
+          settmp = assignment.split('else if (!strcmp(*argv, "settmp"))', 1)[1].split(
+              'else if (!strcmp(*argv, "set"))', 1
+          )[0]
+          set_command = assignment.split('else if (!strcmp(*argv, "set"))', 1)[1].split(
+              'else if (!strcmp(*argv, "unset"))', 1
+          )[0]
+          assert "nvram_cli_parse_assignment" in settmp
+          assert "nvram_set_temp(name, value) < 0" in settmp
+          assert "nvram_cli_parse_assignment" in set_command
+          assert "nvram_set(name, value) < 0" in set_command
+          assert "nvram_unset(*argv) < 0" in assignment
+          assert "nvram_clear() < 0" in assignment
+          assert "nvram_commit() < 0" in assignment
+          assert "strncpy(value = buf" not in assignment
+
           save = source.split("static int nvram_save(char *file)", 1)[1].split(
               "static int nvram_restore(char *file)", 1
           )[0]
@@ -622,9 +647,12 @@ jobs:
               "trunk/user/nvram/src/nvram.c",
               "trunk/user/nvram/src/nvram_profile_policy.h",
               "trunk/user/nvram/src/tests/nvram_profile_policy.c",
+              "trunk/user/nvram/src/nvram_cli_policy.h",
+              "trunk/user/nvram/src/tests/nvram_cli_policy.c",
           ):
               needle = f'      - "{path}"'
               assert needle in push_paths and needle in pr_paths
+          print("NVRAM CLI assignment bounds and mutation error propagation: OK")
           print("NVRAM profile read/write bounds, validation-before-clear and CI path wiring: OK")
           PY
 
