@@ -2,10 +2,10 @@
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2; branch: main; only remote branch observed before THIS COMMIT is main; no checkpoint branch.
-- Base main SHA for THIS COMMIT: 65119b857a7684974caf2ae0e13d8112a0e035bd (parent 947ee69cfbda917ec1728cdde39a00b6a7726eeb). Resolve the resulting SHA from live main after publication.
-- Bootstrap recovery completed in required order: AI_BOOTSTRAP_PROMPT.md, AI_DEVELOPMENT_PROTOCOL.md, live main ref, current handoff, roadmap, newest dev-log records, archive index, branch inventory and exact-head Actions.
-- Root dev_log.md had 104 complete newest-first records before THIS COMMIT and has 105 afterward. Archive inventory remains dev-log=6, handoff=22, roadmap=18; no rotation/index update is due.
+- Repository: Arlene206/padavan-4.4-2; branch: main; latest branch inventory contains main only; no remote checkpoint branch.
+- Base main SHA for THIS COMMIT: a3ee4d0e628434b1e16171f457afa0791c84f7a3 (parent 65119b857a7684974caf2ae0e13d8112a0e035bd). Resolve the resulting SHA from live main after publication.
+- Bootstrap recovery completed in required order: AI_BOOTSTRAP_PROMPT.md, AI_DEVELOPMENT_PROTOCOL.md, live main ref, current handoff, roadmap, newest dev-log records, archive index, branch inventory and exact-head Actions. All 25 Actions runs on the recovered HEAD completed successfully.
+- Root dev_log.md had 105 complete newest-first records before THIS COMMIT and has 106 afterward. Archive inventory remains dev-log=6, handoff=22, roadmap=18; no rotation/index update is due.
 
 ## Closed task — NVRAM HDR2 profile-save atomic publication
 
@@ -27,23 +27,27 @@
 - Receive-buffer initialization, actual UDP byte count, base/extended prefix checks and malformed local MAC fail-closed behavior are CLOSED at L2. Infosvr MIPS/uClibc object, firmware/TRX and live packet interoperability remain NOT VERIFIED.
 - Separate P2 follow-up remains open: infosvr catch_sig_infosvr(SIGTERM) calls resource cleanup and exit() inside signal context. It has not been changed by the packet parsing fix.
 
-## Active task — BusyBox crond detached-daemon startup and restart safety (P2 reliability)
+## Closed task — BusyBox crond detached-daemon startup and restart safety (P2 reliability)
+
+- Fix commit a3ee4d0e628434b1e16171f457afa0791c84f7a3; exact-head Crond lifecycle [42999257797] and AI handoff docs [42999257844] both SUCCESS. All 25 Actions runs for this SHA completed successfully; every job step and the Crond/docs full logs were inspected.
+- GNU89 -Wall -Wextra -Werror ASan/UBSan regression printed `crond daemon startup and restart policy: PASS`; source checker printed `crond daemon startup, stop-before-start and RC call-path contracts: PASS`. Docs validator reported root log=105/119 and archive inventory 6/22/18.
+- RC now propagates bounded stop status, refuses restart until the old scheduler is confirmed gone, verifies a live non-zombie detached daemon after the BusyBox launcher parent exits, and retains failed notification completion markers for retry. Live cron execution and target runtime remain unverified.
+
+## Active task — BusyBox udhcpc event-script failure gating (P2 network reliability)
 
 ### Source and call-path evidence
 
-- RC lifecycle: trunk/user/rc/src/services.c, trunk/user/rc/src/rc.h and trunk/user/rc/src/rc.c; shared stop gate: trunk/user/rc/src/common_ex.c and service_lifecycle_policy.h.
-- BusyBox implementation: trunk/user/busybox/busybox-1.24.x/miscutils/crond.c; daemonizer: trunk/user/busybox/busybox-1.24.x/libbb/vfork_daemon_rexec.c; process inventory: trunk/user/shared/src/pids.c.
-- In RC, start_crond() called _eval() and treated its status as scheduler readiness. _eval() forks and waits for its direct child. BusyBox crond then daemonizes: its original parent exits successfully immediately after fork_or_rexec(); the detached child only afterward runs setsid(), changes to the crontab directory, rescans jobs and writes /var/run/crond.pid. A child-side startup failure after parent exit is therefore invisible to _eval().
-- stop_crond() discarded the result from kill_services(); restart_crond() always started another scheduler. A process surviving the bounded TERM/KILL stop could overlap the replacement and run cron jobs twice.
-- THIS COMMIT returns stop status, refuses to restart unless the old scheduler is confirmed gone, and adds an initial grace plus bounded checks for a live non-zombie pids("crond") process after launcher exit. It preserves the existing disabled-service return of 1. RC notification callers propagate negative restart failures so the completion marker is retained for retry; initial crontab regeneration logs a failed restart.
-- A GNU89 policy header/test, source/call-path checker and dedicated path-filtered workflow cover the RC integration, bounded lifecycle helper, /proc matching and BusyBox parent/child initialization order.
+- Production client: `trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcpc.c`; status contract: `trunk/user/busybox/busybox-1.24.x/libbb/vfork_daemon_rexec.c` and `include/libbb.h`; RC callbacks: `trunk/user/rc/src/net_wan.c`.
+- `spawn_and_wait()` returns `wait4pid()` status, including normal nonzero exits and signal termination. `udhcp_run_script()` previously discarded that result. On DHCPACK, the client then moved to BOUND, refreshed its lease timer and published the ACK address regardless of whether the RC `bound`/`renew` callback had configured the interface, routes and resolver successfully.
+- THIS COMMIT returns and logs event-script status, gates BOUND/address/renewed-timer publication on successful `bound`/`renew` execution, retries an initial selected DHCP request after the configured retry interval, and preserves an existing lease's original expiry deadline while charging failed renewal script runtime against it. If callback execution reaches/passes that deadline, the normal lease-expiry path runs instead of extending the lease.
+- Added a GNU89 policy header and five-case regression for initial acquisition retry, renewal deadline preservation, callback-overrun expiry, exact-deadline expiry and already-expired leases; a source/caller contract checker verifies the actual BusyBox return semantics and gate ordering; a path-filtered dedicated Actions workflow runs both.
 
 ## Verification boundary
 
-- Local host regression: cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer; run with ASAN_OPTIONS=detect_leaks=1: PASS, output crond daemon startup and restart policy: PASS.
-- L1 source review: PASS for _eval() wait semantics, BusyBox parent/child order, non-zombie process postcondition, stop-before-start gate and RC notification error propagation.
-- Exact-head Crond workflow, RC-related umbrella workflows and AI docs validation are pending for the resulting commit. Inspect every job/step and full log; do not close L2 before exact-SHA checks are green.
-- Production MIPS/uClibc RC object, full firmware/TRX, actual cron job scheduling and L4 router behavior remain NOT VERIFIED.
+- L1 source review: PASS for BusyBox `spawn_and_wait()` return semantics, event-script result retention, ACK publication ordering and retry/lease-deadline handling; RC DHCP callbacks return their setup status to the BusyBox event script.
+- Local policy reproduction: GNU89 -Wall -Wextra -Werror ASan/UBSan run across the five retry/deadline cases passed. The repository's committed dedicated test and source checker are pending exact-head Actions.
+- Exact-head udhcpc script-status workflow and AI handoff docs validation are pending for THIS COMMIT. Inspect every step and full log before closing the task.
+- Production MIPS/uClibc BusyBox object, full firmware/TRX, live IPv4 DHCP transitions, DHCPv6 behavior and L4 router operation remain NOT VERIFIED.
 
 ## Other open governance-ledger risks
 
@@ -57,10 +61,10 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch live main SHA, parent and branch inventory. Confirm THIS COMMIT is still the live head before relying on this handoff.
-2. Query Actions for that exact SHA. Inspect every step and complete logs for Crond daemon lifecycle stability regression, AI handoff documentation contract, and any other workflow triggered by the RC paths. Require the GNU89 ASan/UBSan policy binary, detached daemon/stop-before-start/caller contract and docs archive validator to pass on the same SHA.
+1. Fetch live main SHA, parent and branch inventory; confirm THIS COMMIT is still the live head before relying on this handoff.
+2. Query Actions for that exact SHA. Inspect every step and complete logs for the dedicated udhcpc event-script status workflow and AI handoff documentation contract, plus any other triggered WAN/HTTPD umbrella. Require the GNU89 ASan/UBSan policy binary, BusyBox `spawn_and_wait()` result contract, ACK state-publication gate, five retry/deadline cases and docs archive validator to pass on the same SHA.
 3. If any exact-head job fails, inspect the full log and repair the implementation or contract; do not mark the task closed.
-4. If green, close this crond slice and choose the next under-covered module from the whole-repository ledger. Keep FTP TOCTOU, NFS client evidence and the separate infosvr SIGTERM issue visible; avoid immediate returns to NVRAM, HTTPD, SkipDBv2, networkmap or infosvr packet parsing.
+4. If green, close this DHCP callback slice and select the next under-covered module from the whole-repository ledger. Keep FTP upload TOCTOU, NFS client evidence, wireless/WAN target behavior and the separate infosvr SIGTERM issue visible; continue rotating across userland rather than returning to SkipDBv2 or HTTPD by default.
 
 ## Documentation and verification rules
 

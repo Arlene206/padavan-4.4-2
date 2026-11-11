@@ -24,6 +24,7 @@
 #include "common.h"
 #include "dhcpd.h"
 #include "dhcpc.h"
+#include "udhcpc_script_policy.h"
 
 #include <netinet/if_ether.h>
 #include <linux/filter.h>
@@ -560,10 +561,11 @@ static char **fill_envp(struct dhcp_packet *packet)
 }
 
 /* Call a script with a par file and env vars */
-static void udhcp_run_script(struct dhcp_packet *packet, const char *name)
+static int udhcp_run_script(struct dhcp_packet *packet, const char *name)
 {
 	char **envp, **curr;
 	char *argv[3];
+	int status;
 
 	envp = fill_envp(packet);
 
@@ -572,13 +574,16 @@ static void udhcp_run_script(struct dhcp_packet *packet, const char *name)
 	argv[0] = (char*) client_config.script;
 	argv[1] = (char*) name;
 	argv[2] = NULL;
-	spawn_and_wait(argv);
+	status = spawn_and_wait(argv);
+	if (status != 0)
+		bb_error_msg("DHCP event script %s failed with status %d", name, status);
 
 	for (curr = envp; *curr; curr++) {
 		log2(" %s", *curr);
 		bb_unsetenv_and_free(*curr);
 	}
 	free(envp);
+	return status;
 }
 
 
@@ -1745,9 +1750,12 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 		case REBINDING:
 			if (*message == DHCPACK) {
 				unsigned start;
+				unsigned script_elapsed;
 				uint32_t lease_seconds;
 				struct in_addr temp_addr;
 				uint8_t *temp;
+				const char *script_name;
+				int script_status;
 
 				temp = udhcp_get_option32(&packet, DHCP_LEASE_TIME);
 				if (!temp) {
@@ -1798,15 +1806,24 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 					}
 				}
 #endif
-				/* enter bound state */
 				temp_addr.s_addr = packet.yiaddr;
-				bb_info_msg("Lease of %s obtained, lease time %u",
+				bb_info_msg("DHCPACK for %s, lease time %u",
 					inet_ntoa(temp_addr), (unsigned)lease_seconds);
-				requested_ip = packet.yiaddr;
 
+				script_name = state == REQUESTING ? "bound" : "renew";
 				start = monotonic_sec();
-				udhcp_run_script(&packet, state == REQUESTING ? "bound" : "renew");
-				already_waited_sec = (unsigned)monotonic_sec() - start;
+				script_status = udhcp_run_script(&packet, script_name);
+				script_elapsed = (unsigned)monotonic_sec() - start;
+				if (script_status != 0) {
+					bb_error_msg("not committing DHCP lease after %s script failure",
+						script_name);
+					udhcp_script_failure_prepare_retry(state == REQUESTING,
+						tryagain_timeout, script_elapsed, &timeout,
+						&already_waited_sec, &packet_num);
+					continue;
+				}
+
+				already_waited_sec = script_elapsed;
 				timeout = lease_seconds / 2;
 				rebind_timeout = timeout / 8;
 				if ((unsigned)timeout < already_waited_sec) {
@@ -1814,6 +1831,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 					timeout = already_waited_sec = 0;
 				}
 
+				requested_ip = packet.yiaddr;
 				state = BOUND;
 				change_listen_mode(LISTEN_NONE);
 				if (opt & OPT_q) { /* quit after lease */

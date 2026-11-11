@@ -1,3 +1,19 @@
+## 2026-11-11 18:08 CST (UTC+8) — Preserve udhcpc event-script status and gate DHCP lease publication
+
+- Base main SHA: a3ee4d0e628434b1e16171f457afa0791c84f7a3; parent 65119b857a7684974caf2ae0e13d8112a0e035bd; branch inventory: main only, no remote checkpoint.
+- Closed the previous BusyBox crond detached-daemon lifecycle task on exact SHA a3ee4d0e628434b1e16171f457afa0791c84f7a3: Crond workflow [42999257797] and AI docs [42999257844] both SUCCESS. All 25 Actions runs on that SHA completed successfully; every job step and the relevant full logs were inspected. Crond GNU89 ASan/UBSan regression and RC/BusyBox source contracts passed.
+- Selected the LAN DHCP client callback-status issue from the cross-repository governance ledger. The fix is in BusyBox udhcpc rather than the previously touched SkipDBv2, HTTPD or RC-only code.
+- Root cause: BusyBox `spawn_and_wait()` returns `wait4pid()` status, but `udhcp_run_script()` discarded it. On DHCPACK, udhcpc then advanced to BOUND, published the new requested address and refreshed the lease timer even if the RC `bound`/`renew` callback returned an error while applying the address/routes/resolver.
+- THIS COMMIT changes the event runner to return and log its script result. DHCPACK processing now gates address/BOUND/renewal-timer publication on callback success. A failed initial bound callback retries the same selected request after the configured retry interval. A failed renewal preserves the pre-existing lease deadline, charges callback runtime against that deadline and lets the normal expiry path run if the callback consumed the remaining lease.
+- Added `udhcpc_script_policy.h` plus a five-case GNU89 host test for initial retry, renewal deadline preservation, callback overrun, exact expiry and an already expired lease. Added a source/caller checker confirming the actual `spawn_and_wait()` contract, ACK gate order, policy integration and symmetric path filters; added dedicated path-filtered Actions workflow.
+- Local host policy reproduction: GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer`, leak detection enabled; PASS for all five retry/deadline cases. The committed repository harness and source checker remain pending exact-head Actions.
+- Changed paths: BusyBox `dhcpc.c`, new DHCP retry policy header/test, new source checker and workflow, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log. No archive/index change is due.
+- Root `dev_log.md`: 105 complete records before this entry; 106 afterward. The file remains below the 120-record / 384 KiB rotation triggers and the 512 KiB hard cap; archive inventory remains 6/22/18.
+- Resulting commit: THIS COMMIT.
+- Next: inspect all exact-head jobs and full logs for the dedicated udhcpc event-script status regression and AI handoff docs; also inspect any triggered WAN/HTTPD umbrellas. Require the sanitizer policy test, actual BusyBox script-result and DHCPACK source contracts, and docs validator to pass on this exact SHA. Production MIPS/uClibc BusyBox object, firmware/TRX, DHCPv6 and L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-11 17:55 CST (UTC+8) — Gate crond lifecycle on detached process readiness and confirmed stop
 
 - Base main SHA: 65119b857a7684974caf2ae0e13d8112a0e035bd; parent 947ee69cfbda917ec1728cdde39a00b6a7726eeb; branch inventory: main only, no remote checkpoint.
