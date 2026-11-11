@@ -34,7 +34,31 @@ case "$UMOUNT_MODE:$count" in
 	*) exit 2 ;;
 esac
 MOCK
-chmod +x "$tmpdir/bin/logger" "$tmpdir/bin/sleep" "$tmpdir/bin/umount"
+cat > "$tmpdir/bin/swapoff" <<'MOCK'
+#!/bin/sh
+[ "$1" = "/opt/.swap" ] || exit 2
+if flock -n 9 2>/dev/null; then
+	echo "swapoff inherited Optware lifecycle lock fd 9" >&2
+	exit 90
+fi
+printf '%s\n' "$1" >> "$SWAPOFF_LOG"
+case "$SWAPOFF_MODE" in
+	success)
+		printf 'Filename Type Size Used Priority\n' > "$SWAPS_FILE"
+		exit 0
+		;;
+	fail)
+		exit 1
+		;;
+	remain)
+		exit 0
+		;;
+	*)
+		exit 2
+		;;
+esac
+MOCK
+chmod +x "$tmpdir/bin/logger" "$tmpdir/bin/sleep" "$tmpdir/bin/umount" "$tmpdir/bin/swapoff"
 PATH="$tmpdir/bin:$PATH"
 export PATH
 
@@ -66,6 +90,9 @@ MOCK
 chmod +x "$tmpdir"/services-fail/S??* "$tmpdir"/services-ok/S??*
 
 . "$helper"
+
+LOCK_FILE="$tmpdir/optware-lifecycle.lock"
+optware_lifecycle_lock_acquire "$LOCK_FILE"
 
 SERVICE_LOG="$tmpdir/service.log"
 export SERVICE_LOG
@@ -119,6 +146,96 @@ run_umount_test success 0 1
 run_umount_test retry 0 2
 run_umount_test fail 1 2
 
+# Swap release is based on an exact /proc/swaps entry, not file existence or
+# a path prefix. Unknown or malformed inventory and failed swapoff are fatal.
+SWAPS_FILE="$tmpdir/proc-swaps"
+SWAPOFF_LOG="$tmpdir/swapoff.log"
+export SWAPS_FILE SWAPOFF_LOG
+swap_header='Filename Type Size Used Priority'
+: > "$SWAPOFF_LOG"
+printf '%s\n' "$swap_header" > "$SWAPS_FILE"
+SWAPOFF_MODE=fail
+export SWAPOFF_MODE
+if ! optware_lifecycle_swapoff_file /opt/.swap "$SWAPS_FILE"; then
+	echo "inactive swap file was treated as a teardown failure" >&2
+	exit 1
+fi
+[ ! -s "$SWAPOFF_LOG" ] || {
+	echo "inactive swap file unexpectedly invoked swapoff" >&2
+	exit 1
+}
+
+printf '%s\n' "$swap_header" '/opt/.swap.old file 1024 0 -2' > "$SWAPS_FILE"
+if ! optware_lifecycle_swapoff_file /opt/.swap "$SWAPS_FILE"; then
+	echo "swap path prefix was mistaken for the exact swap file" >&2
+	exit 1
+fi
+[ ! -s "$SWAPOFF_LOG" ] || {
+	echo "prefix-only swap entry unexpectedly invoked swapoff" >&2
+	exit 1
+}
+
+printf '%s\n' "$swap_header" '/opt/.swap file 1024 1 -2' > "$SWAPS_FILE"
+SWAPOFF_MODE=success
+export SWAPOFF_MODE
+if ! optware_lifecycle_swapoff_file /opt/.swap "$SWAPS_FILE"; then
+	echo "successful swapoff and inactive postcondition were rejected" >&2
+	exit 1
+fi
+[ "$(wc -l < "$SWAPOFF_LOG")" -eq 1 ] || {
+	echo "active swap was not released exactly once" >&2
+	exit 1
+}
+[ "$(cat "$SWAPS_FILE")" = "$swap_header" ] || {
+	echo "successful swapoff mock did not publish the inactive inventory" >&2
+	exit 1
+}
+
+: > "$SWAPOFF_LOG"
+printf '%s\n' "$swap_header" '/opt/.swap file 1024 1 -2' > "$SWAPS_FILE"
+SWAPOFF_MODE=fail
+export SWAPOFF_MODE
+if optware_lifecycle_swapoff_file /opt/.swap "$SWAPS_FILE"; then
+	echo "swapoff command failure was reported as success" >&2
+	exit 1
+fi
+[ "$(wc -l < "$SWAPOFF_LOG")" -eq 1 ] || {
+	echo "active swapoff failure was not attempted exactly once" >&2
+	exit 1
+}
+
+: > "$SWAPOFF_LOG"
+printf '%s\n' "$swap_header" '/opt/.swap file 1024 1 -2' > "$SWAPS_FILE"
+SWAPOFF_MODE=remain
+export SWAPOFF_MODE
+if optware_lifecycle_swapoff_file /opt/.swap "$SWAPS_FILE"; then
+	echo "swap remaining active after a successful command was accepted" >&2
+	exit 1
+fi
+
+: > "$SWAPOFF_LOG"
+rm -f "$SWAPS_FILE"
+SWAPOFF_MODE=success
+export SWAPOFF_MODE
+if optware_lifecycle_swapoff_file /opt/.swap "$SWAPS_FILE"; then
+	echo "unreadable swap inventory was treated as inactive" >&2
+	exit 1
+fi
+[ ! -s "$SWAPOFF_LOG" ] || {
+	echo "swapoff was attempted without a readable inventory" >&2
+	exit 1
+}
+
+printf '%s\n' "$swap_header" '/opt/.swap file invalid used -2' > "$SWAPS_FILE"
+if optware_lifecycle_swapoff_file /opt/.swap "$SWAPS_FILE"; then
+	echo "malformed swap inventory was treated as inactive" >&2
+	exit 1
+fi
+[ ! -s "$SWAPOFF_LOG" ] || {
+	echo "swapoff was attempted with a malformed inventory" >&2
+	exit 1
+}
+
 # Missing service directories fail closed, while an existing empty init.d
 # directory is a valid installation with no registered services.
 if optware_lifecycle_stop_services "$tmpdir/missing"; then
@@ -131,4 +248,5 @@ if ! optware_lifecycle_stop_services "$tmpdir/services-empty"; then
 	exit 1
 fi
 
-echo "Optware teardown aggregates service-stop failures and propagates /opt unmount retry status: PASS"
+optware_lifecycle_lock_release
+echo "Optware teardown, exact swap inventory, and fail-closed swapoff policy: PASS"

@@ -44,10 +44,12 @@ if [ -d /opt/etc/init.d ] ; then
 	fi
 fi
 
-# check swap file exist
-if [ -f /opt/.swap ] ; then
-	swapoff /opt/.swap 2>/dev/null
-	[ $? -eq 0 ] && logger -t "${self_name}" "Deactivate swap file /opt/.swap SUCCESS!"
+# Do not change home/localtime or unmount /opt until swap release is
+# confirmed from a complete /proc/swaps inventory.
+if ! optware_lifecycle_swapoff_file /opt/.swap; then
+	logger -t "${self_name}" "cannot confirm /opt/.swap is inactive; refusing cleanup and unmount"
+	optware_lifecycle_lock_release
+	exit 1
 fi
 
 # restore home

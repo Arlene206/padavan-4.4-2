@@ -1,3 +1,18 @@
+## 2026-11-11 19:24 CST (UTC+8) — Fail closed when Optware swap release is uncertain
+
+- Base main SHA: 2968bb70c97e13f405389795628184f804abcf5d; parent d2edf2dd08c85e0413f6469e2dccc6fa5a2df26a; branch inventory: main only, no remote checkpoint. Storage [43009772930] and AI docs [43009772871] both passed on this exact base SHA.
+- Recovered the active Optware/storage lifecycle task and traced the installed firmware path: the Optware ROMFS Makefile installs opt-umount.sh, while the scripts package publishes the shared lifecycle helper consumed at /sbin/optware_lifecycle_lock.sh.
+- Finding: opt-umount.sh ignored swapoff /opt/.swap failure and continued with /home/admin and /etc/localtime cleanup plus /opt unmount. File existence was used as a proxy for activation, and no postcondition proved the swap entry had disappeared.
+- THIS COMMIT adds an exact-entry /proc/swaps reader to the shared lifecycle helper. It validates the header and complete records, including read/close errors; distinguishes active, inactive and unknown inventory; attempts swapoff only for the exact active /opt/.swap path; requires command success and re-reads /proc/swaps to confirm that the entry disappeared. Unknown/malformed inventory, swapoff failure or a still-active entry now blocks home/localtime cleanup and /opt unmount. Awk, swapoff and logger child processes close lifecycle fd 9.
+- Regression: extend optware_lifecycle_teardown.sh with inactive, prefix-only, successful deactivation, command-failure, still-active, missing-inventory, malformed-inventory and lock-fd inheritance cases. The storage workflow adds syntax checks and a semantic source-order contract for the early failure gate.
+- Validation: L1 source review PASS. Host shell regression and exact-head storage/AI docs Actions are pending for THIS COMMIT. The regression uses host sh; matching target BusyBox ash, production MIPS/uClibc, complete firmware/TRX and L4 hardware remain NOT VERIFIED.
+- Root dev_log.md: 108 complete records before this entry; 109 afterward. Below the 120-record / 384 KiB rotation triggers and 512 KiB hard cap; archive inventory remains dev-log=6, handoff=22, roadmap=18; no archive/index update is due.
+- Changed paths: trunk/user/scripts/files/sbin/optware_lifecycle_lock.sh, trunk/user/optware/opt-umount.sh, trunk/user/scripts/tests/optware_lifecycle_teardown.sh, .github/workflows/storage-hotplug-stability.yml, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and dev_log.md.
+- Resulting commit: THIS COMMIT.
+- Next: inspect the exact-head storage and AI handoff workflow jobs/full logs; require all swap inventory regression cases and the unmount-order contract to pass. Then locate the matching firmware BusyBox ash implementation/runtime for the remaining lock and descriptor-inheritance audit.
+
+---
+
 ## 2026-11-11 18:40 CST (UTC+8) — Gate storage removal on every mounted-media daemon stop result
 
 - Base main SHA: f986ed961bbe14a8db4bc8d99219e5a1a1330826; parent 17b4583ce0511a3cbbd02cef18024fe7b30110e7; branch inventory: main only, no remote checkpoint. Exact-base AI docs [43004194407] and infosvr packet stability [43004194313] both SUCCESS; complete logs inspected.

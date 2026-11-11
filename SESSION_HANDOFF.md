@@ -3,9 +3,9 @@
 ## Current repository state
 
 - Repository: Arlene206/padavan-4.4-2; branch: main; latest branch inventory contains main only; no remote checkpoint branch.
-- Base main SHA for THIS COMMIT: f986ed961bbe14a8db4bc8d99219e5a1a1330826 (parent 17b4583ce0511a3cbbd02cef18024fe7b30110e7). Resolve the resulting SHA from live main after publication.
-- Bootstrap recovery completed in required order: AI_BOOTSTRAP_PROMPT.md, AI_DEVELOPMENT_PROTOCOL.md, live main ref, current handoff, roadmap, newest dev-log records, archive index, branch inventory and exact-head Actions. Current main f986ed961bbe14a8db4bc8d99219e5a1a1330826 has only the main branch and no remote checkpoint; AI docs [43004194407] and infosvr packet stability [43004194313] both completed SUCCESS on that exact SHA. Every job step and complete log was inspected.
-- Root dev_log.md had 107 complete newest-first records before THIS COMMIT and has 108 afterward. Archive inventory remains dev-log=6, handoff=22, roadmap=18; no rotation/index update is due.
+- Base main SHA for THIS COMMIT: 2968bb70c97e13f405389795628184f804abcf5d (parent d2edf2dd08c85e0413f6469e2dccc6fa5a2df26a). Resolve the resulting SHA from live main after publication.
+- Bootstrap recovery completed in required order: AI_BOOTSTRAP_PROMPT.md, AI_DEVELOPMENT_PROTOCOL.md, live main ref, current handoff, roadmap, newest 20 complete dev-log records, archive index, branch inventory and exact-head Actions. Live main 2968bb70c97e13f405389795628184f804abcf5d has only the main branch and no remote checkpoint. Storage [43009772930] and AI docs [43009772871] both completed SUCCESS on that exact SHA; every job step and complete log was inspected.
+- Root dev_log.md had 108 complete newest-first records before THIS COMMIT and has 109 afterward. Archive inventory remains dev-log=6, handoff=22, roadmap=18; no rotation/index update is due.
 
 ## Closed task — NVRAM HDR2 profile-save atomic publication
 
@@ -46,28 +46,34 @@
 - Actual firmware path was traced: trunk/user/optware/Makefile installs opt-start/opt-mount/opt-umount but not K95aria2/K95transmission; the in-tree firmware Aria/Transmission integration is separate, through RC service commands and /usr/bin/aria.sh plus /usr/bin/transmission.sh. scripts/Makefile copies scripts/files into ROMFS, including /sbin/optware_lifecycle_lock.sh.
 - Found a fail-open eject gap: stop_stor_apps() propagated NFS, Samba and FTP failures but ignored MiniDLNA, Firefly, Transmission and Aria stop outcomes. Their wrappers discarded kill_services()/eval() status and did not verify daemon absence.
 - THIS COMMIT changes those four wrappers to return failure unless the stop command succeeded and the daemon is no longer observable. stop_stor_apps() now aborts eject on any failure, and manual restart callers refuse to relaunch over a daemon that did not stop. storage_service_stop_policy.h and a five-case GNU89 regression cover this postcondition.
-- Local GNU89 -Wall -Wextra -Werror ASan/UBSan policy regression passed. Exact-head storage Actions are pending publication; no matching target BusyBox ash, MIPS/uClibc object, full firmware/TRX or L4 behavior is claimed.
+- The GNU89 -Wall -Wextra -Werror ASan/UBSan policy regression passed before publication. The workflow command-continuation correction is on main SHA 2968bb70c97e13f405389795628184f804abcf5d; storage [43009772930] and AI docs [43009772871] both completed SUCCESS on that exact SHA. Every job step passed. No matching target BusyBox ash, MIPS/uClibc object, full firmware/TRX or L4 behavior is claimed.
 
 ## Active task — Optware/storage teardown under BusyBox ash (P2 reliability)
 
-### Remaining scope and verified caller facts
+### Completed slice — fail-closed /opt swap deactivation
 
-- Removable-storage safe removal owns storage.lock before stop_stor_apps() and the checked opt-umount hook; opt-umount acquires the separate Optware lifecycle lock nonblocking, preserving the lock order. MTD/RWFS teardown checks opt-umount status before filesystem unmount and UBI detach.
-- K95 scripts are source-side optional hooks, not the in-tree firmware dispatcher path. Keep them distinct from built-in Aria/Transmission RC integration.
-- opt-umount.sh attempts swapoff /opt/.swap but does not propagate failure before home/localtime cleanup and /opt unmount. The later checked umount prevents falsely reporting success for a still-busy /opt mount, but active swap verification and early failure gating remain open.
-- BusyBox ash lock acquire/release, concurrent start/stop, descriptor inheritance and target filesystem behavior have not been exercised using a matching target shell. Host sh results are not target ash evidence.
+- Active firmware paths were confirmed: `trunk/user/optware/Makefile` installs `opt-umount.sh`; `trunk/user/scripts/Makefile` publishes the shared lifecycle helper consumed at `/sbin/optware_lifecycle_lock.sh`. The Optware teardown hook is called from storage and RWFS removal paths that check its exit status.
+- Finding: `opt-umount.sh` called `swapoff /opt/.swap` but ignored failure and proceeded to rewrite `/home/admin`, remove `/etc/localtime`, and attempt `/opt` unmount. File existence was used as a proxy for activation, and no postcondition proved the swap entry had disappeared.
+- THIS COMMIT adds an exact-entry `/proc/swaps` reader to the shared lifecycle helper. Return states distinguish active, inactive, and malformed/unreadable inventory; the header and complete records are validated, including read and close errors. For an exact active `/opt/.swap` entry, teardown requires a successful `swapoff` command and a second complete inventory proving that the entry disappeared. A still-active entry, command failure, read failure or close failure blocks all home/localtime cleanup and `/opt` unmount; the caller releases lifecycle fd 9 and returns failure. Child awk, swapoff and logger processes close fd 9.
+- `optware_lifecycle_teardown.sh` adds host shell cases for inactive and prefix-only entries (no command), successful deactivation, command failure, a still-active postcondition, missing inventory, malformed inventory and lock-fd inheritance. The storage workflow adds shell syntax checks and a source-order/fail-closed contract. Exact-head Actions for THIS COMMIT are pending; matching target BusyBox ash behavior remains NOT VERIFIED.
+
+### Remaining active scope
+
+- Prove BusyBox ash lock acquire/release, descriptor inheritance, concurrent start/stop and command semantics using the matching BusyBox implementation only if it is available. Host `sh` regressions are not target ash evidence.
+- Re-run the complete Optware/storage caller graph and lock-order review after the swapoff gate. Keep MTD/RWFS teardown, removable-storage ejection and daemon stop status linked to the hook's exit result.
+- Keep FTP upload-cleanup TOCTOU OPEN/BLOCKED, NFS client semantics evidence-gated, wireless/WAN target behavior NOT VERIFIED, and the separate infosvr SIGTERM cleanup-in-handler issue visible in the whole-repository ledger.
 
 ### Exact next investigation
 
-1. Fetch live main SHA, parent and branch inventory, then inspect exact-head Actions before editing.
-2. Add a fail-closed swapoff policy for /opt/.swap: distinguish an inactive swap file from an active entry in /proc/swaps, propagate unreadable inventory and swapoff failure, and prevent home/localtime cleanup plus /opt unmount whenever release is uncertain. Add active/inactive/failure host regressions.
-3. Re-run the whole Optware/storage caller graph and lock-order review. Use BusyBox ash only if a matching BusyBox implementation is actually available; otherwise leave target ash evidence explicitly NOT VERIFIED.
-4. Keep FTP upload-cleanup TOCTOU OPEN/BLOCKED, NFS client semantics, wireless/WAN target behavior and the separate infosvr SIGTERM cleanup-in-handler risk visible in the global ledger. Continue rotating across userland modules rather than defaulting back to SkipDBv2 or HTTPD.
+1. Fetch the exact live main SHA and inspect the storage and AI docs Actions run IDs, jobs and full logs for THIS COMMIT; require the swap inventory regression and source-order contract to pass on that SHA.
+2. Locate the exact BusyBox version/configuration used by the firmware build and determine whether a corresponding `ash` executable can be run in the development environment. If not available, leave target ash behavior NOT VERIFIED rather than substituting host `sh`.
+3. Continue the actual in-firmware teardown graph: inspect opt-start/opt-mount/opt-umount entrypoints, startup rollback, MTD worker shutdown, storage lock ordering, fd 9 inheritance and every caller's failure gate. Fix only a demonstrated remaining defect.
+4. Once this active storage slice is closed or explicitly blocked by unavailable target evidence, rotate to the highest-priority unfinished module in the global roadmap; do not default back to SkipDBv2 or HTTPD.
 
 ## Verification boundary
 
-- L1 source review: PASS for BusyBox udhcpc event-status/lease-publication gating and storage-backed daemon stop command/process-absence gating for MiniDLNA, Firefly, Transmission and Aria.
-- L2 exact-head: udhcpc [43002980464], infosvr packet regression [43002980467] and AI docs [43002980526] all SUCCESS on 17b4583ce0511a3cbbd02cef18024fe7b30110e7. On current base f986ed961bbe14a8db4bc8d99219e5a1a1330826, infosvr [43004194313] and AI docs [43004194407] also SUCCESS. The new storage daemon stop policy test passed locally under GNU89 ASan/UBSan; exact-head storage Actions for THIS COMMIT are pending.
+- L1 source review: PASS for BusyBox udhcpc event-status/lease-publication gating, storage-backed daemon stop command/process-absence gating for MiniDLNA/Firefly/Transmission/Aria, and the Optware exact-/proc/swaps gate before home/localtime cleanup and /opt unmount.
+- L2 exact-head: udhcpc [43002980464], infosvr packet regression [43002980467] and AI docs [43002980526] all SUCCESS on 17b4583ce0511a3cbbd02cef18024fe7b30110e7. Storage [43009772930] and AI docs [43009772871] both SUCCESS on base 2968bb70c97e13f405389795628184f804abcf5d. The Optware swapoff regression and exact-head storage/docs Actions for THIS COMMIT are PENDING; host `sh` is not matching target ash evidence.
 - Production MIPS/uClibc objects, complete firmware/TRX, live DHCP v4/v6 behavior, matching target BusyBox ash and L4 router behavior remain NOT VERIFIED.
 
 ## Other open governance-ledger risks
@@ -81,11 +87,11 @@
 7. All complete MIPS/uClibc builds, firmware/TRX inspection and physical-router flash/boot remain NOT VERIFIED.
 
 ## Exact first action for the next GPT
+1. Fetch the live main SHA, parent and branch inventory, then inspect storage-hotplug and AI handoff Actions for the exact head; require the swapoff regression, source-order contract and docs validation to pass.
+2. Locate the exact firmware BusyBox version/configuration and determine whether its matching ash can be executed here. Do not treat host `sh` as target ash evidence.
+3. Continue the active Optware/storage lock and teardown caller audit: fd 9 inheritance, concurrent start/stop, MTD worker shutdown, all opt-umount failure gates, and target shell semantics.
+4. Once this bounded slice is closed or explicitly blocked, select the next highest-priority unfinished module from `REFACTOR_ROADMAP.md`; preserve FTP TOCTOU and other target-only risks as open.
 
-1. Fetch live main SHA, parent and branch inventory; confirm the documentation closeout commit for this session is still the exact main head.
-2. Start the Optware/storage lifecycle investigation. Resolve the real ROMFS/install paths and in-firmware entrypoints for K95 Optware, Aria2/Transmission, hotplug and storage teardown; do not rely on unverified K95 caller assumptions.
-3. Trace lock ownership, descriptor lifetime, start/stop races, partial-start rollback, swapoff and /opt unmount failure propagation across the complete active caller graph. Add focused host-side regression coverage and use BusyBox ash only when the tested shell is demonstrably the matching implementation.
-4. Fix a proven defect in a focused code/test commit. Keep FTP upload TOCTOU OPEN/BLOCKED, NFS client compatibility evidence, wireless and WAN target behavior, and the separate infosvr SIGTERM cleanup-in-handler issue visible in the whole-repository ledger. Do not drift back to SkipDBv2 or HTTPD by default.
 
 ## Documentation and verification rules
 

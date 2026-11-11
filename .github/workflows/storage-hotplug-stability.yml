@@ -73,6 +73,11 @@ jobs:
         run: sh -n trunk/user/nfs-utils/nfsd.sh
       - name: Check Optware MTD startup script syntax
         run: sh -n trunk/user/optware/opt-mount.sh
+      - name: Check Optware teardown and lifecycle helper syntax
+        run: |
+          set -eu
+          sh -n trunk/user/optware/opt-umount.sh
+          sh -n trunk/user/scripts/files/sbin/optware_lifecycle_lock.sh
       - name: Verify Optware startup and teardown lock regression
         run: |
           set -eu
@@ -467,6 +472,32 @@ jobs:
           assert 'if [ "$ID_FS_TYPE" == "swap" ]' in automount
           assert 'if swapon "$dev_full" ; then' in automount
           assert opt_mount.index('mount -o bind "$2/opt" /opt') < opt_mount.index("swapon /opt/.swap")
+
+          # Swap-off status and the exact /proc/swaps postcondition gate
+          # every destructive Optware teardown step.
+          assert "_optware_lifecycle_swap_is_active()" in opt_lock
+          assert "getline line < procfile" in opt_lock
+          assert "read_status < 0" in opt_lock
+          assert "close_status != 0" in opt_lock
+          assert "records == 0 || invalid" in opt_lock
+          assert "9>&-" in opt_lock[opt_lock.index("_optware_lifecycle_swap_is_active()"):opt_lock.index("# Retry one failed /opt unmount")]
+          swapoff_helper = opt_lock[opt_lock.index("optware_lifecycle_swapoff_file()"):]
+          swapoff_call = swapoff_helper.index('if ! swapoff "$_optware_swap_path" 9>&- 2>/dev/null; then')
+          post_inventory_check = swapoff_helper.index('if _optware_lifecycle_swap_is_active', swapoff_call)
+          assert swapoff_call < post_inventory_check
+          assert "if ! optware_lifecycle_swapoff_file /opt/.swap; then" in opt_umount
+          swap_gate = opt_umount.index("if ! optware_lifecycle_swapoff_file /opt/.swap; then")
+          swap_failure = opt_umount[swap_gate:opt_umount.index("\nfi", swap_gate)]
+          assert "optware_lifecycle_lock_release" in swap_failure and "exit 1" in swap_failure
+          home_restore = opt_umount.index("# restore home", swap_gate)
+          localtime_cleanup = opt_umount.index("rm -f /etc/localtime", swap_gate)
+          opt_unmount = opt_umount.index("optware_lifecycle_umount_opt", swap_gate)
+          assert swap_gate < home_restore < localtime_cleanup < opt_unmount
+          assert "swapoff /opt/.swap" not in opt_umount
+          assert "swapoff inherited Optware lifecycle lock fd 9" in opt_teardown_test
+          assert "SWAPOFF_MODE=fail" in opt_teardown_test
+          assert "unreadable swap inventory was treated as inactive" in opt_teardown_test
+          assert "swap remaining active after a successful command" in opt_teardown_test
 
           # Internal MTD/UBI startup runs from start_rwfs_optware() in the
           # boot path without storage.lock. It must take the shared lifecycle

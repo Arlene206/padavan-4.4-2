@@ -123,6 +123,88 @@ optware_lifecycle_stop_services()
 	return "$_optware_stop_failed"
 }
 
+# Return 0 when the exact path is active, 1 when inactive, and 2 when the
+# procfs inventory is unreadable or malformed. Never interpret an unknown
+# inventory as proof that a swap file is inactive.
+_optware_lifecycle_swap_is_active()
+{
+	[ "$#" -eq 2 ] || return 2
+
+	awk -v wanted="$1" -v procfile="$2" '
+	BEGIN {
+		while ((read_status = (getline line < procfile)) > 0) {
+			records++
+			$0 = line
+			if (records == 1) {
+				if (NF != 5 || $1 != "Filename" || $2 != "Type" ||
+				    $3 != "Size" || $4 != "Used" || $5 != "Priority")
+					invalid = 1
+				continue
+			}
+
+			if (NF != 5 || ($2 != "file" && $2 != "partition") ||
+			    $3 !~ /^[0-9]+$/ || $4 !~ /^[0-9]+$/ ||
+			    $5 !~ /^-?[0-9]+$/) {
+				invalid = 1
+				continue
+			}
+			if ($1 == wanted) {
+				if (found)
+					invalid = 1
+				found = 1
+			}
+		}
+		if (read_status < 0)
+			invalid = 1
+		close_status = close(procfile)
+		if (close_status != 0)
+			invalid = 1
+		if (records == 0 || invalid)
+			exit 2
+		if (found)
+			exit 0
+		exit 1
+	}' 9>&- 2>/dev/null
+}
+
+# Release one exact swap path and verify that it disappeared from a complete
+# /proc/swaps snapshot. A successful swapoff command alone is not sufficient.
+# The optional inventory path exists only for the host regression harness.
+optware_lifecycle_swapoff_file()
+{
+	[ "$#" -ge 1 ] && [ "$#" -le 2 ] && [ -n "$1" ] || return 1
+	_optware_swap_path=$1
+	_optware_swaps_file=${2:-/proc/swaps}
+
+	if _optware_lifecycle_swap_is_active "$_optware_swap_path" "$_optware_swaps_file"; then
+		if ! swapoff "$_optware_swap_path" 9>&- 2>/dev/null; then
+			logger -t "opt-umount.sh" "swapoff failed for $_optware_swap_path" 9>&- || :
+			return 1
+		fi
+
+		if _optware_lifecycle_swap_is_active "$_optware_swap_path" "$_optware_swaps_file"; then
+			logger -t "opt-umount.sh" "swap remains active after swapoff: $_optware_swap_path" 9>&- || :
+			return 1
+		else
+			_optware_swap_state=$?
+			if [ "$_optware_swap_state" -ne 1 ]; then
+				logger -t "opt-umount.sh" "cannot verify swap release for $_optware_swap_path" 9>&- || :
+				return 1
+			fi
+		fi
+
+		logger -t "opt-umount.sh" "Deactivate swap file $_optware_swap_path SUCCESS!" 9>&- || :
+		return 0
+	else
+		_optware_swap_state=$?
+		if [ "$_optware_swap_state" -eq 1 ]; then
+			return 0
+		fi
+		logger -t "opt-umount.sh" "cannot read a complete swap inventory; refusing to unmount $_optware_swap_path" 9>&- || :
+		return 1
+	fi
+}
+
 # Retry one failed /opt unmount, but never report success when both attempts
 # fail. Keep fd 9 closed in child processes so they cannot inherit the lock.
 optware_lifecycle_umount_opt()
