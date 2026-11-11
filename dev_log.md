@@ -1,3 +1,18 @@
+## 2026-11-11 (UTC+8) — Prevent overlapping watchdog NTP one-shot processes
+
+- Base main SHA: d35c5b8e3363db8b4a680e91a080ef7a7b7e0c0f; parent 847b7980835d98ee240f16fcf4453c66ad5fcbcb; remote branch inventory: main only.
+- Closed the preceding Inadyn/DDNS credential-publication task on exact SHA d35c5b8e3363db8b4a680e91a080ef7a7b7e0c0f: DNSMasq workflow [42977832958] steps 3–7 all passed, including the private-0600 ASan/UBSan regression, credential/start/SIGHUP source contract, DNSMasq daemon postcondition and RC status propagation. AI docs [42977832951] passed with root log 94/119 and archives dev-log=6, handoff=22, roadmap=18.
+- Finding: watchdog refresh_ntp() called kill_services(svcs, 3, 1) but discarded its result, then started another /usr/sbin/ntpd -qt. The shared service lifecycle routine sends TERM, waits a bounded interval, escalates to KILL, waits a further bounded three seconds and returns failure if the process remains in inventory. Ignoring that status allowed a new time-adjustment process to overlap an old stubborn/uninterruptible ntpd.
+- Fix in THIS COMMIT: capture the stop result and launch only when it is zero. On incomplete stop, log and return the status before reading/advancing the NTP server index or calling eval(). Success-path server selection, sync arguments and timer cadence are unchanged.
+- Regression: new GNU89 host policy test covers successful stop and several nonzero/error outcomes. The existing watchdog workflow also compiles the shared service lifecycle regression and runs a source/call-path contract proving kill_services() returns the bounded lifecycle result, the gate precedes server rotation/launch, and push/PR filters cover the helper, tests and dependencies.
+- Changed paths: watchdog.c, new watchdog_ntp_policy.h, new tests/watchdog_ntp_policy.c, new scripts/check_watchdog_ntp_lifecycle.py, .github/workflows/watchdog-signal-stability.yml, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and this log.
+- Validation: source review traced refresh_ntp -> kill_services -> service_lifecycle_stop -> bounded inventory check. New GNU89 regression and exact-head Actions are pending; existing service lifecycle unit cases cover stubborn process and negative stop outcomes. No MIPS/uClibc RC object, full firmware/TRX or L4 router result claimed.
+- Root dev_log.md: 94 complete records before this entry, 95 after; file remains below 384 KiB and 512 KiB limits; no archive or index rotation due.
+- Resulting commit: THIS COMMIT.
+- Next: inspect exact-head watchdog signal/NTP and AI docs jobs; confirm both regression binaries, all C-source contracts and docs counts pass. Then rotate to another subsystem. FTP cleanup TOCTOU remains OPEN/BLOCKED; NFS external client evidence remains required.
+
+---
+
 ## 2026-11-11 (UTC+8) — Make DNSMasq source-contract extraction aware of C literals
 
 - Base main SHA: 847b7980835d98ee240f16fcf4453c66ad5fcbcb; parent 3ebf4c34c59b7966c54b35ea079a94ee630039f8; remote branch inventory: main only.

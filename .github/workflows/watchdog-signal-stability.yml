@@ -5,6 +5,12 @@ on:
     paths:
       - ".github/workflows/watchdog-signal-stability.yml"
       - "trunk/user/rc/src/watchdog.c"
+      - "trunk/user/rc/src/watchdog_ntp_policy.h"
+      - "trunk/user/rc/src/tests/watchdog_ntp_policy.c"
+      - "trunk/user/rc/src/common_ex.c"
+      - "trunk/user/rc/src/service_lifecycle_policy.h"
+      - "trunk/user/rc/src/tests/service_lifecycle_policy.c"
+      - "scripts/check_watchdog_ntp_lifecycle.py"
       - "trunk/user/rc/src/watchdog_signal_policy.h"
       - "trunk/user/rc/src/tests/watchdog_signal_policy.c"
       - "trunk/user/rc/src/rc.c"
@@ -17,6 +23,12 @@ on:
     paths:
       - ".github/workflows/watchdog-signal-stability.yml"
       - "trunk/user/rc/src/watchdog.c"
+      - "trunk/user/rc/src/watchdog_ntp_policy.h"
+      - "trunk/user/rc/src/tests/watchdog_ntp_policy.c"
+      - "trunk/user/rc/src/common_ex.c"
+      - "trunk/user/rc/src/service_lifecycle_policy.h"
+      - "trunk/user/rc/src/tests/service_lifecycle_policy.c"
+      - "scripts/check_watchdog_ntp_lifecycle.py"
       - "trunk/user/rc/src/watchdog_signal_policy.h"
       - "trunk/user/rc/src/tests/watchdog_signal_policy.c"
       - "trunk/user/rc/src/rc.c"
@@ -42,6 +54,21 @@ jobs:
             trunk/user/rc/src/tests/watchdog_signal_policy.c \
             -o /tmp/watchdog-signal-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/watchdog-signal-policy
+      - name: Compile and run NTP stop-before-start and shared service lifecycle regressions
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/watchdog_ntp_policy.c \
+            -o /tmp/watchdog-ntp-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/watchdog-ntp-policy
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/service_lifecycle_policy.c \
+            -o /tmp/service-lifecycle-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/service-lifecycle-policy
+      - name: Verify NTP stop-before-start integration and service lifecycle return path
+        run: python3 scripts/check_watchdog_ntp_lifecycle.py
       - name: Verify deferred dispatch, signal masks and caller wiring
         run: |
           python3 - <<'PY'

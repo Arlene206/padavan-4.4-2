@@ -35,6 +35,7 @@
 
 #include "rc.h"
 #include "watchdog_signal_policy.h"
+#include "watchdog_ntp_policy.h"
 
 #define WD_NORMAL_PERIOD	10		/* 10s */
 
@@ -168,10 +169,17 @@ static int
 refresh_ntp(void)
 {
 	int result = 0;
+	int stop_status;
 	char *svcs[] = { "ntpd", NULL };
 	char *ntp_addr[2], *ntp_server;
 
-	kill_services(svcs, 3, 1);
+	stop_status = kill_services(svcs, 3, 1);
+	if (!watchdog_ntp_refresh_should_launch(stop_status)) {
+		logmessage("NTP Client",
+			   "Previous ntpd instance did not stop (status %d); refusing overlapping synchronization",
+			   stop_status);
+		return stop_status;
+	}
 
 	ntp_addr[0] = nvram_safe_get("ntp_server0");
 	ntp_addr[1] = nvram_safe_get("ntp_server1");

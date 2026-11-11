@@ -1,23 +1,23 @@
 ## Current repository state
 
-- Maintained fork: Arlene206/padavan-4.4-2; active branch: main. Base before THIS COMMIT: 847b7980835d98ee240f16fcf4453c66ad5fcbcb; parent: 3ebf4c34c59b7966c54b35ea079a94ee630039f8. Remote branch inventory: main only; no separate checkpoint branch.
-- The previous Inadyn credential-publication commit first exposed a real missing function-closing brace in `write_inadyn_conf()`; that source boundary was repaired in base 847b7980835d98ee240f16fcf4453c66ad5fcbcb. Exact-head regression/source verification now shows the GNU89 ASan/UBSan Inadyn publication test passes and all source files reach the DDNS source-contract step, but that step still fails because its brace-only Python extractor mistakes the literal `{` in Inadyn's `fprintf("provider %s:1 {\\n", ...)` format string for a C block opener.
-- Exact-head Actions on 847b7980835d98ee240f16fcf4453c66ad5fcbcb: DNSMasq restart policy, cross-process lock and Inadyn private-0600 ASan/UBSan tests all PASS (workflow [42977559811], steps 3–5); step 6 fails only at naive function extraction; step 7 is consequently skipped. AI handoff docs [42977559759] PASS with root log 93/119 and archive counts dev-log=6, handoff=22, roadmap=18. miniupnpd [42977560149], Samba [42977559725] and HTTPD [42977559911] also PASS.
-- Fix in THIS COMMIT: make both inline C-function extractors in `.github/workflows/dnsmasq-lifecycle.yml` ignore C strings, character literals, block comments and line comments while balancing braces. Add a fixture for quoted/commented braces. No production source or host-test behavior changes.
-- Changed paths: `.github/workflows/dnsmasq-lifecycle.yml`, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and dev_log.md.
-- Root dev_log.md: 93 complete records before THIS COMMIT, 94 after; file is below 384 KiB and the 512 KiB hard limit. No archive or `docs/dev-log/INDEX.md` update is due.
-- Open items: FTP upload-cleanup TOCTOU remains OPEN/BLOCKED; NFS external client/export semantics remain evidence-gated; target MIPS/uClibc, firmware/TRX, BusyBox ash and L4 behavior remain NOT VERIFIED.
+- Maintained fork: Arlene206/padavan-4.4-2; active branch: main. Base before THIS COMMIT: d35c5b8e3363db8b4a680e91a080ef7a7b7e0c0f; parent: 847b7980835d98ee240f16fcf4453c66ad5fcbcb. Remote branch inventory at recovery: main only; no separate checkpoint branch.
+- DDNS/Inadyn credential confidentiality slice is closed at exact SHA d35c5b8e3363db8b4a680e91a080ef7a7b7e0c0f: Inadyn private-0600 staging regression, DDNS credential publication/source contract and DNSMasq daemon postcondition/RC status checks all PASS in DNSMasq workflow [42977832958], steps 3–7. AI handoff docs [42977832951] PASS with root log 94/119 and archive counts dev-log=6, handoff=22, roadmap=18.
+- New P2 watchdog stability finding: refresh_ntp() ignored kill_services({"ntpd"}, 3, 1) and launched another ntpd -qt even when the shared lifecycle stop had exhausted TERM, KILL and its bounded post-KILL wait while ntpd remained visible in the process inventory. This can leave multiple clock-adjustment processes active concurrently. The shared kill_services() correctly propagates service_lifecycle_stop() failure; the caller dropped it.
+- Fix in THIS COMMIT: capture the stop status and refuse to advance NTP server selection or start a new one-shot ntpd unless termination status is zero. Log and return the incomplete-stop status before reading/advancing the server index. Add a GNU89 policy regression, an integration/call-path source contract, and extend the existing watchdog signal workflow to test the shared service lifecycle postcondition and keep symmetric push/PR path filters.
+- Changed paths: trunk/user/rc/src/watchdog.c, new watchdog_ntp_policy.h and test, new scripts/check_watchdog_ntp_lifecycle.py, .github/workflows/watchdog-signal-stability.yml, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and dev_log.md.
+- Root dev_log.md: 94 complete records before THIS COMMIT, 95 after; below 120-entry / 384 KiB rotation triggers and 512 KiB hard limit. No archive or docs/dev-log/INDEX.md update is due.
+- Open items: FTP upload-cleanup TOCTOU remains OPEN/BLOCKED; NFS export/client durability and AUTH_SYS/root-squash remain evidence-gated; target MIPS/uClibc, full firmware/TRX, BusyBox ash and L4 router behavior remain NOT VERIFIED.
 
 ## Active task
 
-- Verify the C-aware DDNS/DNSMasq source-contract parser, Inadyn writer/start/SIGHUP gates, and the later DNSMasq daemon postcondition + RC status-propagation step, together with AI handoff docs, on the exact resulting main SHA. Inspect every job, step and full log.
-- If all DNSMasq steps 3–7 and docs are green, close the DDNS credential-publication slice and rotate to a different whole-repository stability issue. Preserve FTP cleanup TOCTOU and NFS evidence gates.
+- Verify the new NTP stop-before-start GNU89 regression, shared service lifecycle regression, complete source/call-path/path-filter contract and AI handoff docs on the exact resulting main SHA. Inspect every job, step and full log.
+- If green, close this watchdog NTP slice and select another distinct subsystem stability issue from the repository-wide ledger. Do not revisit the closed DDNS/Inadyn, WDM/NDIS or OpenVPN credential work.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and remote branch inventory; verify exact SHA and parent.
-2. Query all Actions for that SHA. Inspect DNSMasq from step 1 through step 7 and AI docs. Require the three GNU89 tests, C-aware source contract, daemon postconditions/RC status propagation, and docs archive validator all PASS; docs should report root log 94/119 and archives 6/22/18.
-3. If green, select a different subsystem stability issue from the full module ledger. Keep target MIPS/uClibc, firmware/TRX and L3/L4 limits explicit.
+1. Fetch live main and remote branch inventory; verify exact resulting SHA and parent.
+2. Query all Actions for that exact SHA. Inspect watchdog signal/NTP job steps and AI docs. Require both GNU89 binaries, C-source call-path assertions, service-stop return semantics, symmetric path filters, and docs validation with root log 95/119 and archives 6/22/18.
+3. If green, rotate to another subsystem. Preserve FTP cleanup TOCTOU OPEN/BLOCKED, NFS external-evidence boundaries and explicit target L3/L4 limits.
 
 
 ## PID 1 notification queue batch fairness
