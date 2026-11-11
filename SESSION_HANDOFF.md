@@ -2,11 +2,10 @@
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2; branch: main; latest branch inventory contains main only; no remote checkpoint branch.
-- Base main SHA for THIS COMMIT: `21badf5dab5bc73f2768ccdbc381dcc70f6dcc0d` (parent `abff1ed57217c1fe482bf80c2c419dde66437bf0`). Resolve the resulting SHA from live main after publication.
-- Bootstrap recovery completed in required order: AI_BOOTSTRAP_PROMPT.md, AI_DEVELOPMENT_PROTOCOL.md, live main ref, current handoff, roadmap, newest 20 complete dev-log records, archive index, branch inventory and exact-head Actions. On exact SHA `21badf5dab5bc73f2768ccdbc381dcc70f6dcc0d`, infosvr [43041511033] and AI docs [43041510759] passed; storage [43041510879] passed steps 3–8 but failed in the ash lock regression on BusyBox `sleep 0.1`. Every step and complete available logs were inspected.
-- Root dev_log.md has 115 complete newest-first records before THIS COMMIT and will have 116 afterward, below the 120-record / 384 KiB rotation triggers and 512 KiB hard cap. Archive inventory remains dev-log=6, handoff=22, roadmap=18; no rotation/index update is due.
-
+- Repository: Arlene206/padavan-4.4-2; branch: main; live branch inventory contains main only; no remote checkpoint branch.
+- Base main SHA for THIS COMMIT: `02907c582c716a49c6255d2c06cbad429f5a3260` (parent `21badf5dab5bc73f2768ccdbc381dcc70f6dcc0d`). The live ref and commit tree were rechecked before editing; resolve and verify the resulting SHA after publication.
+- Exact-head Actions on base SHA `02907c582c716a49c6255d2c06cbad429f5a3260`: AI handoff documentation [43042263966], infosvr packet/signal lifecycle [43042263817], and USB storage hotplug [43042263807] all completed SUCCESS. Every job step and each complete log were inspected. Storage built/linked firmware-source BusyBox 1.24.2 and passed the ash lock, teardown, startup/rollback, eject inventory, deferred-child result, daemon-stop postcondition and full caller-graph/lock-order tests (steps 9–13).
+- Root dev_log.md has 116 complete newest-first records before THIS COMMIT and will have 117 afterward, below the 120-record / 384 KiB rotation triggers and 512 KiB hard cap. Archive inventory remains dev-log=6, handoff=22, roadmap=18; no rotation/index update is due.
 ## Closed task — NVRAM HDR2 profile-save atomic publication
 
 - Commit ce7efad34dbd81097d923f9568f0ae9946694b58; exact-head HTTPD [42992756073] and AI docs [42992755926] both SUCCESS. All 39 HTTPD job steps passed.
@@ -78,46 +77,46 @@
 - AI docs validator printed \`AI handoff documentation check: PASS (root log=111/119 entries, batch=100, retain=20, legacy/current archives: dev-log=6, handoff=22, roadmap=18)\`.
 - This closes the bounded source/L2 slice only. Production MIPS/uClibc object, complete firmware/TRX, target daemon signal timing and L4 router behavior remain NOT VERIFIED.
 
-## Active task — Complete Optware lifecycle tests under the matching firmware BusyBox ash 1.24.2 (P2)
+## Closed task — Optware lifecycle validation under firmware-matched BusyBox ash 1.24.2 (P2; L1/L2 complete, target L3/L4 open)
 
-### Exact-head Actions reviewed
+- The previously active task is now closed at L1/L2 on exact main SHA `02907c582c716a49c6255d2c06cbad429f5a3260`. Storage workflow [43042263807] completed SUCCESS; all 15 job steps passed and the complete log was inspected.
+- The workflow built and linked the repository's BusyBox 1.24.2 source/config, exercised direct ash/awk/flock behavior and production-script ash syntax, then passed the lifecycle lock contention/release, teardown status propagation, startup supervision/rollback, ejected-device inventory, deferred Optware child-result/retry, storage daemon stop postcondition and whole caller-graph/lock-order checks (steps 9–13). The earlier unsupported fractional `sleep 0.1` was replaced by the BusyBox-compatible bounded integer poll in commit `02907c582c716a49c6255d2c06cbad429f5a3260`.
+- Infosvr [43042263817] and AI handoff docs [43042263966] also completed SUCCESS on that exact SHA. The infosvr packet and SIGTERM deferral regressions/source contracts passed; documentation validation reported root log=116/119 and archives dev-log=6, handoff=22, roadmap=18.
+- This closes the bounded host/Actions slice only. Production MIPS/uClibc BusyBox, matching target router ash timing, complete firmware/TRX and L4 hotplug/device behavior remain NOT VERIFIED. NFS client semantics remain evidence-blocked.
 
-- Live main at recovery: `21badf5dab5bc73f2768ccdbc381dcc70f6dcc0d`; remote branch inventory contains only `main`, with no checkpoint.
-- Storage workflow [43041510879] completed FAILURE on that exact SHA. Steps 3–8 passed. Step 9 built and linked BusyBox 1.24.2; direct ash/awk execution, descriptor-backed `flock -n 9` / `flock -u 9` smoke, production-script ash syntax checks and the revised lock-test startup all passed far enough to enter the bounded lock-wait poll.
-- The remaining exact failure is `sleep: invalid number '0.1'`. BusyBox 1.24.2's sleep applet accepts integer intervals; the lock regression's 0.1-second poll was written against the host shell's sleep. This is another host-vs-firmware applet compatibility issue in the test, not a production lifecycle failure.
-- The prior `command -v flock` mismatch is resolved: the test no longer relies on optional `CONFIG_ASH_CMDCMD`. Do not enable that feature just for CI.
-- Infosvr [43041511033] SUCCESS: GNU89 ASan/UBSan packet and SIGTERM policy tests and source contract passed. AI docs [43041510759] SUCCESS: root log 115/119, archives dev-log=6, handoff=22, roadmap=18.
+## Active task — Keep core firewall snapshots bound to their private staged inode (P2 robustness/security)
 
-### Fix in THIS COMMIT
+### Finding and implementation in THIS COMMIT
 
-- Change the lock regression's polling interval to integer `sleep 1` and reduce the attempt ceiling from 50 to 5, keeping a bounded ~4-second failure window. This is supported by BusyBox 1.24.2 and avoids substituting the host sleep applet.
-- No production lifecycle implementation or firmware BusyBox configuration is changed.
+- `firewall_snapshot_core_table()` created a mode-0600 file with `mkstemp()`, closed the descriptor, and then invoked `iptables-save` through shell output redirection to the pathname. That performed a second pathname lookup rather than writing to the exact inode created and secured by `mkstemp()`; a concurrent pathname replacement/removal could redirect or lose the snapshot.
+- THIS COMMIT retains the descriptor across `doSystem()`, explicitly clears `FD_CLOEXEC` so the system(3) shell inherits it, and uses POSIX descriptor redirection (`>&fd`) for stdout. The descriptor is checked on close; the pathname remains available for the later `iptables-restore` and transaction cleanup.
+- A new GNU89 ASan/UBSan host regression creates a 0600 staged file, unlinks its pathname, then writes through the inherited descriptor using the same shell redirection form. It verifies the data lands in the still-open inode. The HTTPD umbrella compiles/runs this regression and checks that production code no longer redirects to the pathname. A standalone host probe passed before publication; exact-head Actions are pending.
 
 ### Exact next action
 
-- Fetch the resulting live main SHA. Inspect storage, infosvr and AI handoff docs Actions on that exact SHA, every step and complete logs.
-- Require BusyBox build/link, direct applet smoke, all production-script ash syntax checks, lock contention/release, teardown status, startup supervision/rollback, and storage policy/caller-graph regressions (steps 9–13) to pass.
-- Keep production MIPS/uClibc objects, complete firmware/TRX, matching router BusyBox runtime and L4 hotplug/lock timing NOT VERIFIED. FTP upload-cleanup TOCTOU remains OPEN/BLOCKED absent a Linux 4.4-safe semantics-preserving design.
+- Fetch the resulting live main SHA and confirm it descends from `02907c582c716a49c6255d2c06cbad429f5a3260`. Inspect the HTTPD authentication/security umbrella and AI handoff documentation workflow on that exact SHA, including every step and complete logs.
+- Require the descriptor-writer GNU89 ASan/UBSan regression and its source/path-filter contract to pass; also verify the existing firewall transaction, command-status, startup and add-on restore checks in the same HTTPD job. Require the AI handoff validator to pass with root log=117/119 and archive counts 6/22/18.
+- If green, close this bounded descriptor-writer slice at L2 and rotate to a different evidence-actionable userland module; do not remain in Firewall. Keep FTP cleanup TOCTOU explicitly OPEN/BLOCKED until a Linux 4.4-safe design preserves STOR/APPE/REST/STOU and parent/inode semantics. Production MIPS/uClibc, firmware/TRX and L4 remain NOT VERIFIED.
 
 ## Verification boundary
 
-- L1 source/config review: PASS for DHCPACK event-status/lease-publication gating, storage-backed daemon stop postconditions, Optware exact-/proc/swaps fail-closed teardown and lock ordering, infosvr SIGTERM deferral/normal-context cleanup. The previous optional `command -v` test mismatch has been removed. The current storage failure is only the test harness's fractional sleep interval, unsupported by BusyBox 1.24.2.
-- L2: on exact SHA `21badf5dab5bc73f2768ccdbc381dcc70f6dcc0d`, infosvr [43041511033] and AI docs [43041510759] passed. Storage [43041510879] passed steps 3–8, BusyBox 1.24.2 build/link, direct ash/awk/flock smoke, production-script ash syntax and the command-builtin-free lock-test entry; the test then failed at `sleep 0.1` (`sleep: invalid number '0.1'`). Teardown/startup under ash and storage steps 10–13 remain pending. THIS COMMIT switches to integer sleep with a bounded poll; exact-head storage/docs reruns are pending.
-- Production MIPS/uClibc objects, complete firmware/TRX, live DHCP v4/v6 behavior, matching target BusyBox ash 1.24.2 and L4 router behavior remain NOT VERIFIED.
-
+- L1 source review: PASS for the BusyBox 1.24.2 Optware lock/teardown/startup path, storage daemon stop postconditions, infosvr packet bounds/SIGTERM deferral, and descriptor-bound firewall snapshot writing/close/error cleanup. The firewall writer's path is still retained for subsequent restore/cleanup; only the output write is descriptor-relative.
+- L2 host / Actions: on exact SHA `02907c582c716a49c6255d2c06cbad429f5a3260`, storage [43042263807], infosvr [43042263817] and AI handoff docs [43042263966] all completed SUCCESS. Storage step 9 built/linked BusyBox 1.24.2; lock/teardown/startup and storage steps 10–13 passed. The firewall descriptor-writer regression and source contract added in THIS COMMIT require exact-resulting-SHA HTTPD and AI-docs runs.
+- L3 MIPS/uClibc production objects / complete firmware/TRX: NOT VERIFIED for the current RC/firewall/storage changes. Existing historical FULLCONENAT object evidence is separately recorded; it does not establish a full firmware build.
+- L4 router / physical hardware: NOT VERIFIED. No live firewall rollback, storage hotplug, wireless, WAN or other router behavior is claimed.
 ## Other open governance-ledger risks
 
 1. FTP failed-upload cleanup TOCTOU — P2 OPEN/BLOCKED. Linux 4.4 has no inode-conditional unlink-by-fd: fstatat() followed by unlinkat() still deletes whichever inode owns the name at unlink time. rename/exchange is not a conditional inode compare, and staged publication would change existing STOR/APPE/REST visibility and overwrite semantics. Do not patch without a proved design preserving STOR/APPE/REST/STOU, parent/inode safety and supported filesystem behavior.
 2. NFS async durability, AUTH_SYS/root-squash and external mount compatibility — P2 OPEN; require real client evidence.
 3. Wireless bulk detach / bridge ownership across board variants — target validation open.
 4. WAN PPP reconnect, callback recovery and IPv6 rollback — target behavior NOT VERIFIED.
-5. Optware lock/fd/concurrent start-stop behavior — BusyBox 1.24.2 build/link, descriptor-lock smoke and syntax checks pass; the first ash regression exposed an unsupported fractional sleep argument. THIS COMMIT uses integer sleep and a bounded retry count. Exact-head ash regressions remain pending. Production MIPS/uClibc and router runtime remain NOT VERIFIED.
+5. Optware lock/fd/concurrent start-stop behavior — BusyBox 1.24.2 build/link, ash lock/teardown/startup and storage caller-graph L2 tests now pass on exact SHA `02907c582c716a49c6255d2c06cbad429f5a3260`; production MIPS/uClibc and real router runtime remain NOT VERIFIED.
 6. FULLCONENAT board/kernel/ABI coverage — prior object evidence is not a full firmware build.
 7. All complete MIPS/uClibc builds, firmware/TRX inspection and physical-router flash/boot remain NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` SHA and confirm it descends from this commit; inspect storage [USB storage hotplug stability regression], infosvr [infosvr packet and signal lifecycle stability regression] and AI handoff docs Actions on that exact SHA, every job step and complete logs.
-2. Require the integer-sleep BusyBox ash lock regression to pass, then verify the teardown-status and startup-supervision/rollback tests under the same BusyBox ash. Confirm storage steps 10–13 (GNU89 policy binaries and full caller graph/locks/failure propagation) all pass.
-3. If further shell/app applet incompatibilities appear, keep the test matched to the firmware BusyBox configuration and fix the narrow assumption; do not switch back to host shell applets or enable extra firmware features solely to mask the mismatch.
-4. Once exact-head L2 is green, close this bounded Optware host-shell slice and rotate to the next evidence-actionable repository-wide stability item. FTP upload-cleanup TOCTOU remains OPEN/BLOCKED without a proved Linux 4.4-compatible design. Production MIPS/uClibc, full firmware/TRX and L4 remain NOT VERIFIED.
+1. Fetch live `main` SHA and verify it descends from the commit that adds descriptor-bound firewall snapshot output. Inspect the HTTPD Authentication and Security Regression and AI handoff documentation workflows on that exact SHA, including every job step and complete logs.
+2. Require the new `firewall_snapshot_fd.c` GNU89 ASan/UBSan regression, production source contract and push/pull_request path filters to pass. Confirm the existing firewall transaction rollback/cleanup, command-status, startup and add-on hook checks remain green.
+3. If those exact-head checks pass, close the bounded firewall writer slice at L2 and rotate to a different evidence-actionable subsystem. Do not remain focused on Firewall; prioritize a concrete userland stability defect with a host-testable caller/lifecycle boundary.
+4. Keep FTP upload-cleanup TOCTOU OPEN/BLOCKED until a Linux 4.4-safe design proves inode/parent safety and preserves STOR/APPE/REST/STOU behavior. NFS external-client semantics, target MIPS/uClibc, full firmware/TRX and L4 remain NOT VERIFIED.

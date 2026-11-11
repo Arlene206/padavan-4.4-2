@@ -148,7 +148,7 @@ firewall_snapshot_core_table(const char *family, const char *table,
 			     char *path, size_t path_size, void *context)
 {
 	char operation[128];
-	int length, fd, status, saved_errno;
+	int length, fd, fd_flags, status, saved_errno;
 
 	(void)context;
 	if (!path || path_size == 0) {
@@ -179,18 +179,33 @@ firewall_snapshot_core_table(const char *family, const char *table,
 		errno = saved_errno;
 		return -1;
 	}
-	if (close(fd) != 0) {
+	fd_flags = fcntl(fd, F_GETFD, 0);
+	if (fd_flags < 0 ||
+	    fcntl(fd, F_SETFD, fd_flags & ~FD_CLOEXEC) != 0) {
 		saved_errno = errno;
+		close(fd);
 		snprintf(operation, sizeof(operation), "Firewall %s %s snapshot", family, table);
 		firewall_snapshot_remove_incomplete(operation, path);
-		logmessage(LOGNAME, "%s: cannot close private snapshot (errno=%d)", operation, saved_errno);
+		logmessage(LOGNAME, "%s: cannot prepare private snapshot writer (errno=%d)",
+			   operation, saved_errno);
 		errno = saved_errno;
 		return -1;
 	}
 	snprintf(operation, sizeof(operation), "Firewall %s %s snapshot", family, table);
-	status = doSystem("%s-save -t %s > %s", family, table, path);
-	if (!firewall_command_status_ok(status)) {
+	/* Keep mkstemp's inode open across system(); the shell duplicates this
+	 * descriptor instead of reopening a pathname in the shared /tmp directory. */
+	status = doSystem("%s-save -t %s >&%d", family, table, fd);
+	if (!firewall_command_status_ok(status))
 		firewall_log_command_failure(operation, status);
+	if (close(fd) != 0) {
+		saved_errno = errno;
+		firewall_snapshot_remove_incomplete(operation, path);
+		logmessage(LOGNAME, "%s: cannot close private snapshot after writer (errno=%d)",
+			   operation, saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
+	if (!firewall_command_status_ok(status)) {
 		firewall_snapshot_remove_incomplete(operation, path);
 		return -1;
 	}

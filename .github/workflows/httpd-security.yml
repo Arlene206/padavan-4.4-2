@@ -216,6 +216,7 @@ on:
       - "trunk/user/rc/src/firewall_adbyby_restore_policy.h"
       - "trunk/user/rc/src/tests/firewall_adbyby_restore_policy.c"
       - "trunk/user/rc/src/tests/firewall_restore_transaction.c"
+      - "trunk/user/rc/src/tests/firewall_snapshot_fd.c"
       - "trunk/user/shared/src/shutils.c"
       - "trunk/user/rc/src/tests/pid1_signal_policy.c"
       - "trunk/user/rc/src/pid1_signal_policy.h"
@@ -444,6 +445,7 @@ on:
       - "trunk/user/rc/src/firewall_adbyby_restore_policy.h"
       - "trunk/user/rc/src/tests/firewall_adbyby_restore_policy.c"
       - "trunk/user/rc/src/tests/firewall_restore_transaction.c"
+      - "trunk/user/rc/src/tests/firewall_snapshot_fd.c"
       - "trunk/user/shared/src/shutils.c"
       - "trunk/user/rc/src/tests/pid1_signal_policy.c"
       - "trunk/user/rc/src/pid1_signal_policy.h"
@@ -2869,6 +2871,10 @@ jobs:
             trunk/user/rc/src/tests/firewall_restore_transaction.c \
             -o /tmp/firewall_restore_transaction
           /tmp/firewall_restore_transaction
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            trunk/user/rc/src/tests/firewall_snapshot_fd.c \
+            -o "$RUNNER_TEMP/firewall_snapshot_fd"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/firewall_snapshot_fd"
           python3 - <<'PY'
           import re
           from pathlib import Path
@@ -2885,11 +2891,13 @@ jobs:
           adbyby_policy = Path("trunk/user/rc/src/firewall_adbyby_restore_policy.h").read_text()
           adbyby_policy_test = Path("trunk/user/rc/src/tests/firewall_adbyby_restore_policy.c").read_text()
           shutils = Path("trunk/user/shared/src/shutils.c").read_text()
+          workflow = Path(".github/workflows/httpd-security.yml").read_text()
 
           # doSystem() returns system(3)'s encoded wait status, not a plain
           # shell exit code. Require every built-in and add-on restore to be
           # wrapped so failures are visible in the router log.
           assert "return system(cmd_buf);" in shutils
+          assert workflow.count('"trunk/user/rc/src/tests/firewall_snapshot_fd.c"') == 2
           assert '#include "firewall_command_status.h"' in firewall
           assert "WIFEXITED(status)" in status_helper
           assert "WEXITSTATUS(status)" in status_helper
@@ -2905,7 +2913,30 @@ jobs:
           assert "firewall_restore_transaction_prepare_reset" in firewall
           assert "firewall_restore_transaction_abort(" in firewall
           assert "Firewall rollback incomplete; recovery snapshot retained" in firewall
-          assert 'doSystem("%s-save -t %s > %s", family, table, path)' in firewall
+          def function_body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          snapshot_writer = function_body(firewall, "firewall_snapshot_core_table(")
+          writer_command = 'status = doSystem("%s-save -t %s >&%d", family, table, fd);'
+          assert "fd = mkstemp(path);" in snapshot_writer
+          assert "fcntl(fd, F_GETFD, 0)" in snapshot_writer
+          assert "fcntl(fd, F_SETFD, fd_flags & ~FD_CLOEXEC)" in snapshot_writer
+          assert writer_command in snapshot_writer
+          writer_position = snapshot_writer.index(writer_command)
+          close_position = snapshot_writer.index("if (close(fd) != 0)", writer_position)
+          assert writer_position < close_position
+          assert 'doSystem("%s-save -t %s > %s", family, table, path)' not in snapshot_writer
+          assert "firewall_snapshot_remove_incomplete(operation, path);" in snapshot_writer
           assert 'doSystem("%s-restore %s", family, path)' in firewall
           core_restore_calls = re.findall(
               r'firewall_apply_core_restore\("[^"]+ restore",\s*"(?:ip6tables|iptables)",\s*"(?:filter|nat|mangle|raw)",\s*ipt_file\)',
