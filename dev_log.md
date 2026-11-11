@@ -1,3 +1,18 @@
+## 2026-11-11 15:39 CST (UTC+8) — Defer RT3352 iNIC health and cleanup work out of signal context
+
+- Base main SHA: a07d9a3ad3d9568a9088af2de3601f79d672649d; parent 006efd3eb3939f6a1081e7c2a84618ac6377a15a. Remote branch inventory: main only.
+- Closed the previous GPIO/SkipDBv2 verification task on exact base SHA a07d9a3ad3d9568a9088af2de3601f79d672649d. GPIO [42982741220] and AI docs [42982741251] completed SUCCESS; SkipDBv2 [42982741286] completed SUCCESS with XY-C1 integration contracts, all targets built and CTest 57/57 passed. Docs validator reported root log 97/119 and archives 6/22/18. Latest-per-workflow scan found no latest pending or failed runs among 26 workflows.
+- Finding: catch_sig_inicd() directly invoked check_inic_mii_rebooted() on SIGALRM. That call path uses NVRAM, interface probes, wireless ioctl/control and logging. SIGTERM removed the PID file, stopped the timer and called exit(). These operations are not async-signal-safe; when the signal interrupts stdio, allocator, NVRAM or driver-control code they can re-enter unsafe state and hang/corrupt the daemon.
+- Fix in THIS COMMIT: handlers only coalesce SIGALRM/SIGTERM into volatile sig_atomic_t event bits. The daemon blocks both managed signals when snapshotting/clearing flags, and uses sigsuspend() to atomically unmask them during wait so a signal between the flag check and sleep cannot be lost. sigpending() detects a co-pending SIGTERM that is still kernel-pending after SIGALRM returned from sigsuspend(), preserving stop precedence before the poll callback. Wireless recovery, timer disable and PID-file removal run in normal process context; timer setup failure is checked and unwound.
+- Regression: new GNU89 policy test covers signal mapping, unknown-signal ignore, repeated SIGALRM coalescing, combined poll/stop state, stop precedence, event snapshot clearing and NULL storage. The source contract checks handler purity, blocked-snapshot/pending-SIGTERM/sigsuspend ordering, normal-context recovery and cleanup, timer error handling, conditional RT3352 applet/header/Makefile/ROMFS integration and symmetric push/PR filters.
+- Changed paths: trunk/user/rc/src/inicd.c, new inicd_signal_policy.h, new tests/inicd_signal_policy.c, new scripts/check_inicd_signals.py, new .github/workflows/inicd-signal-stability.yml, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and this log.
+- Validation: GNU89 -Wall -Wextra -Werror ASan/UBSan policy binary compiled and ran locally: PASS. Pre-commit source/call-path/build filter checks were exercised using GitHub source contents. Exact-head GNU89 sanitizer policy regression, source contract and AI docs Actions pending. No production RT3352 MIPS/uClibc build, full firmware/TRX or real-router L4 test is claimed.
+- Root dev_log.md: 97 complete entries before this record; 98 after. Below 120 records and 384 KiB trigger; no archive or docs/dev-log/INDEX.md update is due.
+- Resulting commit: THIS COMMIT.
+- Next: inspect every job/step/full log for exact-head iNIC signal and AI docs workflows. If green, close this signal-context slice and rotate to another under-covered userland module. FTP cleanup TOCTOU remains OPEN/BLOCKED; NFS semantics and target L3/L4 remain evidence-gated.
+
+---
+
 ## 2026-11-11 (UTC+8) — Repair GPIO lifecycle contract and SkipDBv2 host-test compile gate
 
 - Base main SHA: 006efd3eb3939f6a1081e7c2a84618ac6377a15a; parent `a6c425e800473c3cad3761da39e8599004717964`; remote branch inventory: `main` only.

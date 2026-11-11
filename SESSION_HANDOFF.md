@@ -1,25 +1,27 @@
 ## Current repository state
 
-- Maintained fork: Arlene206/padavan-4.4-2; active branch: `main`. Base before THIS COMMIT: `006efd3eb3939f6a1081e7c2a84618ac6377a15a`; parent: `a6c425e800473c3cad3761da39e8599004717964`. Remote branch inventory at last exact check: `main` only; no separate checkpoint branch.
-- Closed preceding task: watchdog NTP stop-before-start on exact SHA `a6c425e800473c3cad3761da39e8599004717964`. Watchdog signal/lifecycle regression [42979417134] and AI handoff docs [42979417173] both SUCCESS; GNU89/ASan/UBSan signal, NTP and shared lifecycle tests plus the full source/caller contract passed; docs check confirmed root log 95/119 and archives 6/22/18.
-- GPIO button stability fix is in the base commit `006efd3eb3939f6a1081e7c2a84618ac6377a15a`: `start_gpio_btn()` now waits after daemonizing `eval()` and checks process presence in a bounded four-attempt loop, propagates launch errors, returns `ESRCH` if the daemon is absent and logs failure. The isolated GNU89/ASan/UBSan policy test passed on exact SHA `006efd3eb3939f6a1081e7c2a84618ac6377a15a`.
-- Exact-head Actions for `006efd3eb3939f6a1081e7c2a84618ac6377a15a`: GPIO workflow [42981514461] FAILED only in the Python source-contract assertion at line 81, which searched for the loop condition after the loop body; the compiled policy test passed. AI docs [42981514314] SUCCESS, root log 96/119 and archives 6/22/18. SkipDBv2 workflow [42981514471] passed its XY-C1 firmware integration contract but its unrelated host test build failed because `convert_utf8_bounds.c` used `true`/`false` without including `<stdbool.h>`. The SkipDB test source blob is identical to the pre-GPIO parent, confirming this was a pre-existing dormant host-test issue newly exposed by the GPIO RC path filter.
-- Fixes in THIS COMMIT: correct the GPIO contract to check loop declaration before body and assert launcher-error handling within its branch; add the missing standard boolean include to the SkipDB UTF-8 host regression so the path-triggered build can proceed.
-- Changed paths in this follow-up: `scripts/check_gpio_btn_lifecycle.py`, `trunk/user/skipdbv2/skipdbv2/tests/convert_utf8_bounds.c`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and `dev_log.md`. The GPIO production code is unchanged from `006efd3eb3939f6a1081e7c2a84618ac6377a15a`.
-- Root `dev_log.md`: 96 complete records before THIS COMMIT, 97 after; below the 384 KiB target and 512 KiB hard limit. No archive or index rotation is due.
-- Open items retained: FTP upload-cleanup check/unlink TOCTOU remains OPEN/BLOCKED; NFS export/client durability and AUTH_SYS/root-squash remain evidence-gated; target MIPS/uClibc, full firmware/TRX, BusyBox ash and L4 router behavior remain NOT VERIFIED.
+- Maintained fork: Arlene206/padavan-4.4-2; active branch: main. Live base main SHA before THIS COMMIT: a07d9a3ad3d9568a9088af2de3601f79d672649d; parent: 006efd3eb3939f6a1081e7c2a84618ac6377a15a. Remote branch inventory: main only; no checkpoint branch.
+- Closed the prior GPIO + path-triggered SkipDBv2 verification task on exact base SHA a07d9a3ad3d9568a9088af2de3601f79d672649d:
+  - GPIO run 42982741220 completed SUCCESS; GNU89/ASan/UBSan policy test and full launcher/uevent/caller source contract both PASS.
+  - SkipDBv2 run 42982741286 completed SUCCESS; XY-C1 firmware integration source checks PASS; all SkipDBv2 targets built; CTest 57/57 passed.
+  - AI handoff docs run 42982741251 completed SUCCESS; root log=97/119 and archive counts dev-log=6, handoff=22, roadmap=18.
+  - Latest-per-workflow scan returned 26 workflows, with no latest workflow pending or failed. Only main branch exists.
+- New P2 reliability finding in the RT3352 MII iNIC health monitor (trunk/user/rc/src/inicd.c): SIGALRM called check_inic_mii_rebooted(), which performs NVRAM reads, interface probes, wireless ioctls and logging, directly from asynchronous signal context. SIGTERM removed the PID file, disabled the interval timer and called exit() in its handler. These non-async-signal-safe operations can re-enter libc/driver code interrupted mid-operation and hang or corrupt monitor state.
+- Fix in THIS COMMIT: handlers now only record coalesced SIGALRM/SIGTERM bits in volatile sig_atomic_t. Both managed signals are blocked while taking/clearing an event snapshot; sigpending() also catches a co-pending SIGTERM not yet dispatched by the kernel, so shutdown takes precedence over a poll. sigsuspend() atomically unmasks while sleeping, closing the lost-wakeup window. Wireless recovery and timer/PID cleanup move to ordinary process context; timer initialization failure is surfaced.
+- Changed paths: trunk/user/rc/src/inicd.c, new inicd_signal_policy.h, new tests/inicd_signal_policy.c, new scripts/check_inicd_signals.py, new .github/workflows/inicd-signal-stability.yml, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md, and dev_log.md.
+- Validation before push: GNU89 policy test compiled and ran locally under -Wall -Wextra -Werror + ASan/UBSan; pre-commit source/call-path/build contract was independently exercised using GitHub source contents. Exact-head Actions and docs validation pending. No production RT3352 MIPS/uClibc object, complete firmware/TRX or physical iNIC recovery is claimed.
+- Open blockers unchanged: FTP upload-cleanup check/unlink TOCTOU remains OPEN/BLOCKED; NFS durability/AUTH_SYS/root-squash needs external-client evidence; target BusyBox ash, L3 target builds and L4 hardware remain NOT VERIFIED.
 
 ## Active task
 
-- Re-run the GPIO daemon startup policy binary and corrected source/call-path contract, and verify the path-triggered SkipDBv2 host build plus AI docs on the exact resulting main SHA. Inspect every job, step and complete failure/success logs.
-- The previous run's GPIO source-contract failure was a test-order assertion defect, not a production failure. The SkipDBv2 build failure was in a host regression source unchanged since the prior main SHA; the include-only correction should be verified by the actual target workflow. Do not claim that the full SkipDBv2 regression passed until exact-head Actions confirms it.
-- Once these workflows pass, close the bounded GPIO startup slice and rotate to the next high-value item in the whole-repository ledger. Do not reopen NTP, DDNS/Inadyn, WDM/NDIS or OpenVPN credential slices.
+- Verify the iNIC signal deferral policy under GNU89 + ASan/UBSan and the complete source contract on the exact resulting main SHA. Inspect every job, step and full log.
+- Validate handler purity, SIGALRM coalescing, SIGTERM precedence including a simultaneously kernel-pending SIGTERM, blocked-mask/sigsuspend lost-wakeup safety, normal-context recovery/cleanup, and the conditional RT3352 applet/header/build/ROMFS caller chain with symmetric push/PR path filters.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and branch inventory; confirm the resulting SHA and parent.
-2. Query all Actions for that exact SHA. Inspect GPIO, SkipDBv2 and AI docs jobs end-to-end. Require GPIO GNU89/ASan/UBSan and source contract PASS; SkipDBv2 integration, all-target build and CTest PASS; and AI docs PASS with root log 97/119 and archives 6/22/18.
-3. If green, continue whole-repository stability rotation. Preserve FTP cleanup TOCTOU OPEN/BLOCKED, NFS client-evidence gates, and explicit L3/L4 NOT VERIFIED status.
+1. Fetch live main HEAD, parent and branch inventory; reconcile the code commit SHA.
+2. Query Actions for that exact SHA, then inspect the iNIC signal workflow and AI docs workflow job/step results and complete logs. Require the GNU89 sanitizer policy regression, source/call-path/build contract, and docs validator (root log 98/119; archives 6/22/18) to pass.
+3. If green, close the iNIC signal-context slice and resume global ledger rotation outside the heavily worked SkipDBv2/HTTPD surfaces. Preserve FTP TOCTOU and NFS evidence blockers; do not claim L3/L4 validation.
 
 ## PID 1 notification queue batch fairness
 
