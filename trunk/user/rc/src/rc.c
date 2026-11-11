@@ -840,12 +840,14 @@ init_router(void)
 
 	if (!is_ap_mode) {
 		int nat_restore_status;
+		int nat_required;
 		int ipv4_filter_status;
 		int ipv6_filter_status = 0;
 		int firewall_enabled;
 		int ipv6_filter_required = 0;
 
 		firewall_enabled = nvram_match("fw_enable_x", "1");
+		nat_required = nvram_match("wan_nat_x", "1");
 		nat_restore_status = ipt_nat_default();
 		ipv4_filter_status = ipt_filter_default();
 #if defined (USE_IPV6)
@@ -853,13 +855,16 @@ init_router(void)
 		ipv6_filter_status = ip6t_filter_default();
 #endif
 		if (nat_restore_status != 0)
-			logmessage(LOGNAME, "Initial IPv4 NAT rules were not applied; checking filter safety before WAN startup");
+			logmessage(LOGNAME, "Initial IPv4 NAT table restore failed (NAT enabled=%d)",
+				   nat_required);
 
 		if (!firewall_startup_policy_allows_wan(firewall_enabled,
 							ipv4_filter_status,
 							ipv6_filter_required,
-							ipv6_filter_status)) {
-			logmessage(LOGNAME, "Blocking WAN startup: restrictive IPv4/IPv6 firewall filters could not be verified");
+							ipv6_filter_status,
+							nat_required,
+							nat_restore_status)) {
+			logmessage(LOGNAME, "Blocking WAN startup: required NAT table or restrictive IPv4/IPv6 firewall filters could not be verified");
 			set_ipv4_forward(0);
 #if defined (USE_IPV6)
 			if (ipv6_filter_required)

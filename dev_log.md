@@ -1,3 +1,17 @@
+## 2026-11-11 09:13 CST (UTC+8) — Gate WAN startup on required NAT baseline restore
+
+- Base main SHA: `2ce57f74b55cb4abd04d6d1133920db6c676a15e`; parent `edf67d1eeb0ee1fc827efa9b89ab6e1846608677`. Remote branch inventory contained only `main`; no checkpoint branch existed.
+- Exact-head recovery on the base SHA: AI handoff documentation [42927598317] and HTTPD Authentication/Security [42927598350] both completed SUCCESS. All 39 HTTPD steps passed, including the formerly skipped DHCP, storage, Samba, firewall-hook, PPP, PID1 and NFS checks. The docs checker reported root log 78/119 and archive inventory `dev-log=6, handoff=22, roadmap=18`.
+- Finding: router-mode startup called `ipt_nat_default()`, saved its status, and logged a failure, but `firewall_startup_policy_allows_wan()` ignored it. When `wan_nat_x=1`, a failed default NAT-table restore therefore did not prevent `start_wan()`, including when packet filtering was explicitly disabled.
+- Fix in THIS COMMIT: capture whether NAT is required and pass that plus the default NAT restore status into the startup policy. Any nonzero NAT restore status blocks WAN startup when NAT is enabled; a failed restore of the unused baseline is non-blocking when NAT is explicitly disabled. Existing enabled-firewall IPv4 and active-IPv6 filter gates are retained. The startup diagnostic now identifies a failed NAT baseline.
+- Regression: extend `firewall_startup_policy.c` for NAT enabled/disabled, firewall enabled/disabled, negative and positive nonzero failures, and IPv4/IPv6 filter requirements. Add `.github/workflows/firewall-startup-stability.yml` with GNU89/ASan/UBSan execution and source-order plus push/PR path-filter assertions.
+- Local L2: copied the updated helper/test to a temporary host directory; `cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer` compiled it, and ASan leak-detection execution passed. The full repository clone was unavailable because GitHub DNS resolution failed; no full source-contract or local documentation-check result is claimed.
+- Changed paths: `trunk/user/rc/src/rc.c`, `trunk/user/rc/src/firewall_startup_policy.h`, `trunk/user/rc/src/tests/firewall_startup_policy.c`, `.github/workflows/firewall-startup-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log. No other archive or module files changed.
+- Root `dev_log.md`: 78 complete records before this entry; 79 afterward. The 120-entry and 384 KiB rotation thresholds are not reached; no `docs/dev-log/INDEX.md` update is due.
+- Next: inspect the exact resulting main SHA, every job/step and full logs for the new firewall startup and AI handoff workflows. If green, continue the wider firewall/NAT transaction cleanup and extension-hook status audit. FTP upload cleanup remains OPEN/BLOCKED; NFS client semantics remain evidence-gated; production MIPS/uClibc, full firmware/TRX and L4 router testing remain unverified.
+
+---
+
 ## 2026-11-11 07:32 CST (UTC+8) — Align HTTPD PPP recovery contract with miniupnpd stop gate
 
 - Base main SHA: `edf67d1eeb0ee1fc827efa9b89ab6e1846608677`; parent `7f56e1954534d3ff30682f63b2f2bc9ec6c2a2b0`.
