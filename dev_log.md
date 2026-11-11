@@ -1,3 +1,14 @@
+## 2026-11-11 — Correct firewall CI path-filter contract after exact-head regression
+
+- Base main SHA: `42800e0caaf90e0230f4e30d268e8301d0da2d70`; parent `02907c582c716a49c6255d2c06cbad429f5a3260`. Main ref was rechecked before editing.
+- Exact-head FULLCONENAT [43052866763] and infosvr [43052866751] both completed SUCCESS on `42800e0caaf90e0230f4e30d268e8301d0da2d70`. HTTPD umbrella [43052866810] completed FAILURE at its Python source contract. The new `firewall_snapshot_fd.c` binary itself printed `firewall snapshot descriptor writer inheritance: PASS`; command-status, startup-policy and firewall transaction regression binaries preceding the checker ran without reported failure.
+- Failure cause: `workflow.count('"trunk/user/rc/src/tests/firewall_snapshot_fd.c"') == 2` counted two push/PR path entries plus the checker assertion's own quoted path literal, so actual count was three. This was a test-contract defect, not a production firewall writer failure.
+- THIS COMMIT replaces the self-referential count with independent parsing/assertions for the push and pull_request path blocks and separately confirms the firewall regression step references the test source. Production `firewall_ex.c` and the C regression are unchanged.
+- The AI handoff docs run [43052866839] was still in progress when this correction was prepared. All exact-head jobs for the resulting SHA must be inspected before closing the task.
+- Scope: `.github/workflows/httpd-security.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`. Root log moves from 117 to 118 complete newest-first records; no archive rotation or index update is due. This is a CI-contract correction attached to the in-flight code task, not a standalone docs-only commit.
+- Target boundary: L3 MIPS/uClibc, complete firmware/TRX and L4 remain NOT VERIFIED. FTP upload-cleanup TOCTOU remains OPEN/BLOCKED pending a proved Linux 4.4-safe design.
+- Next GPT: verify the new main SHA's HTTPD and AI docs Actions in full; require the corrected path contract and descriptor-writer regression to pass, then rotate to a different userland subsystem.
+
 ## 2026-11-11 — Close BusyBox ash lifecycle gate and bind firewall snapshots to their staged descriptor
 
 - Base main SHA: `02907c582c716a49c6255d2c06cbad429f5a3260`; parent `21badf5dab5bc73f2768ccdbc381dcc70f6dcc0d`. Branch inventory: `main` only, no remote checkpoint.

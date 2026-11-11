@@ -2897,7 +2897,13 @@ jobs:
           # shell exit code. Require every built-in and add-on restore to be
           # wrapped so failures are visible in the router log.
           assert "return system(cmd_buf);" in shutils
-          assert workflow.count('"trunk/user/rc/src/tests/firewall_snapshot_fd.c"') == 2
+          test_path = "trunk/user/rc/src/tests/firewall_snapshot_fd.c"
+          push_paths = workflow.split("  pull_request:", 1)[0]
+          pull_paths = workflow.split("  workflow_dispatch:", 1)[0].split("  pull_request:", 1)[1]
+          assert push_paths.count('      - "' + test_path + '"') == 1
+          assert pull_paths.count('      - "' + test_path + '"') == 1
+          firewall_step = workflow[workflow.index("Check firewall command status reporting"):]
+          assert test_path in firewall_step
           assert '#include "firewall_command_status.h"' in firewall
           assert "WIFEXITED(status)" in status_helper
           assert "WEXITSTATUS(status)" in status_helper

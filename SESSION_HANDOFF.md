@@ -3,9 +3,11 @@
 ## Current repository state
 
 - Repository: Arlene206/padavan-4.4-2; branch: main; live branch inventory contains main only; no remote checkpoint branch.
-- Base main SHA for THIS COMMIT: `02907c582c716a49c6255d2c06cbad429f5a3260` (parent `21badf5dab5bc73f2768ccdbc381dcc70f6dcc0d`). The live ref and commit tree were rechecked before editing; resolve and verify the resulting SHA after publication.
-- Exact-head Actions on base SHA `02907c582c716a49c6255d2c06cbad429f5a3260`: AI handoff documentation [43042263966], infosvr packet/signal lifecycle [43042263817], and USB storage hotplug [43042263807] all completed SUCCESS. Every job step and each complete log were inspected. Storage built/linked firmware-source BusyBox 1.24.2 and passed the ash lock, teardown, startup/rollback, eject inventory, deferred-child result, daemon-stop postcondition and full caller-graph/lock-order tests (steps 9–13).
-- Root dev_log.md has 116 complete newest-first records before THIS COMMIT and will have 117 afterward, below the 120-record / 384 KiB rotation triggers and 512 KiB hard cap. Archive inventory remains dev-log=6, handoff=22, roadmap=18; no rotation/index update is due.
+- Base main SHA for THIS COMMIT: `42800e0caaf90e0230f4e30d268e8301d0da2d70` (parent `02907c582c716a49c6255d2c06cbad429f5a3260`). The live ref and exact commit ancestry were rechecked before editing; verify the new SHA after publication.
+- Exact-head Actions on `42800e0caaf90e0230f4e30d268e8301d0da2d70`: FULLCONENAT [43052866763] and infosvr packet/signal lifecycle [43052866751] completed SUCCESS. HTTPD umbrella [43052866810] completed FAILURE at the Python source checker because its new path-filter assertion counted the assertion's own quoted path literal (expected 2, actual 3); the new descriptor-inheritance GNU89 ASan/UBSan binary itself printed PASS, as did the earlier policy binaries in that step. AI docs [43052866839] was still in progress when this correction was prepared. The full HTTPD log was inspected.
+- THIS COMMIT corrects the workflow contract to inspect push and pull_request path blocks independently, avoiding self-counting. The descriptor-bound production writer and host regression are unchanged from `42800e0caaf90e0230f4e30d268e8301d0da2d70`.
+- Root dev_log.md has 117 complete newest-first records before THIS COMMIT and will have 118 afterward, below the 120-record / 384 KiB rotation triggers and 512 KiB hard cap. Archive inventory remains dev-log=6, handoff=22, roadmap=18; no rotation/index update is due.
+
 ## Closed task — NVRAM HDR2 profile-save atomic publication
 
 - Commit ce7efad34dbd81097d923f9568f0ae9946694b58; exact-head HTTPD [42992756073] and AI docs [42992755926] both SUCCESS. All 39 HTTPD job steps passed.
@@ -84,19 +86,24 @@
 - Infosvr [43042263817] and AI handoff docs [43042263966] also completed SUCCESS on that exact SHA. The infosvr packet and SIGTERM deferral regressions/source contracts passed; documentation validation reported root log=116/119 and archives dev-log=6, handoff=22, roadmap=18.
 - This closes the bounded host/Actions slice only. Production MIPS/uClibc BusyBox, matching target router ash timing, complete firmware/TRX and L4 hotplug/device behavior remain NOT VERIFIED. NFS client semantics remain evidence-blocked.
 
-## Active task — Keep core firewall snapshots bound to their private staged inode (P2 robustness/security)
+## Active task — Verify descriptor-bound core firewall snapshot writing (P2 robustness/security)
 
-### Finding and implementation in THIS COMMIT
+### Production finding and fix
 
-- `firewall_snapshot_core_table()` created a mode-0600 file with `mkstemp()`, closed the descriptor, and then invoked `iptables-save` through shell output redirection to the pathname. That performed a second pathname lookup rather than writing to the exact inode created and secured by `mkstemp()`; a concurrent pathname replacement/removal could redirect or lose the snapshot.
-- THIS COMMIT retains the descriptor across `doSystem()`, explicitly clears `FD_CLOEXEC` so the system(3) shell inherits it, and uses POSIX descriptor redirection (`>&fd`) for stdout. The descriptor is checked on close; the pathname remains available for the later `iptables-restore` and transaction cleanup.
-- A new GNU89 ASan/UBSan host regression creates a 0600 staged file, unlinks its pathname, then writes through the inherited descriptor using the same shell redirection form. It verifies the data lands in the still-open inode. The HTTPD umbrella compiles/runs this regression and checks that production code no longer redirects to the pathname. A standalone host probe passed before publication; exact-head Actions are pending.
+- Commit `42800e0caaf90e0230f4e30d268e8301d0da2d70` keeps the mode-0600 `mkstemp()` descriptor open across `doSystem()`, clears `FD_CLOEXEC` explicitly, and directs `iptables-save` stdout to the inherited descriptor (`>&fd`) instead of reopening the shared-`/tmp` pathname. The descriptor is checked on close; the pathname remains for later `iptables-restore` and transaction cleanup.
+- New `tests/firewall_snapshot_fd.c` creates a 0600 snapshot, unlinks its pathname, then uses a shell subprocess to write through the inherited descriptor and verifies bytes on the still-open inode. The exact GNU89 ASan/UBSan binary passed on run [43052866810].
+
+### Exact-head CI finding and correction in THIS COMMIT
+
+- HTTPD umbrella [43052866810] on exact SHA `42800e0caaf90e0230f4e30d268e8301d0da2d70` failed only in the source-contract Python checker. The new assertion expected the quoted test pathname twice, but the workflow text also contained the assertion's own quoted literal, making the actual count three. The test binary printed `firewall snapshot descriptor writer inheritance: PASS`; the transaction/status/startup policy binaries preceding the checker also ran without reported failure.
+- THIS COMMIT replaces the self-referential count with independent assertions that the test is listed exactly once in the push path block and once in the pull_request block, and that the firewall CI step references the test source. Production code and the C regression are unchanged.
+- FULLCONENAT [43052866763] and infosvr [43052866751] completed SUCCESS on `42800e0caaf90e0230f4e30d268e8301d0da2d70`; AI docs [43052866839] was still in progress when the correction was prepared.
 
 ### Exact next action
 
-- Fetch the resulting live main SHA and confirm it descends from `02907c582c716a49c6255d2c06cbad429f5a3260`. Inspect the HTTPD authentication/security umbrella and AI handoff documentation workflow on that exact SHA, including every step and complete logs.
-- Require the descriptor-writer GNU89 ASan/UBSan regression and its source/path-filter contract to pass; also verify the existing firewall transaction, command-status, startup and add-on restore checks in the same HTTPD job. Require the AI handoff validator to pass with root log=117/119 and archive counts 6/22/18.
-- If green, close this bounded descriptor-writer slice at L2 and rotate to a different evidence-actionable userland module; do not remain in Firewall. Keep FTP cleanup TOCTOU explicitly OPEN/BLOCKED until a Linux 4.4-safe design preserves STOR/APPE/REST/STOU and parent/inode semantics. Production MIPS/uClibc, firmware/TRX and L4 remain NOT VERIFIED.
+- Fetch the resulting live main SHA and verify ancestry from `42800e0caaf90e0230f4e30d268e8301d0da2d70`. Inspect the retriggered HTTPD Authentication and Security Regression and AI handoff documentation workflows on that exact SHA, every job step and complete logs.
+- Require the descriptor-writer GNU89 ASan/UBSan regression, independent push/pull path assertions, all existing firewall transaction/command-status/startup/add-on contracts and AI docs validator to pass. If any fail, fix the actual failing contract and rerun on the exact new SHA.
+- Once L2 is green, close this bounded writer slice and rotate to a different evidence-actionable userland subsystem. Do not remain focused on Firewall. FTP upload-cleanup TOCTOU remains OPEN/BLOCKED until a Linux 4.4-safe design preserves STOR/APPE/REST/STOU and parent/inode semantics. Production MIPS/uClibc, firmware/TRX and L4 remain NOT VERIFIED.
 
 ## Verification boundary
 
@@ -116,7 +123,7 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` SHA and verify it descends from the commit that adds descriptor-bound firewall snapshot output. Inspect the HTTPD Authentication and Security Regression and AI handoff documentation workflows on that exact SHA, including every job step and complete logs.
-2. Require the new `firewall_snapshot_fd.c` GNU89 ASan/UBSan regression, production source contract and push/pull_request path filters to pass. Confirm the existing firewall transaction rollback/cleanup, command-status, startup and add-on hook checks remain green.
-3. If those exact-head checks pass, close the bounded firewall writer slice at L2 and rotate to a different evidence-actionable subsystem. Do not remain focused on Firewall; prioritize a concrete userland stability defect with a host-testable caller/lifecycle boundary.
-4. Keep FTP upload-cleanup TOCTOU OPEN/BLOCKED until a Linux 4.4-safe design proves inode/parent safety and preserves STOR/APPE/REST/STOU behavior. NFS external-client semantics, target MIPS/uClibc, full firmware/TRX and L4 remain NOT VERIFIED.
+1. Fetch live `main` SHA and confirm it descends from `42800e0caaf90e0230f4e30d268e8301d0da2d70`. Inspect the new exact-head HTTPD Authentication and Security Regression and AI handoff documentation runs, including every step and complete logs.
+2. Require `firewall_snapshot_fd.c` to pass under GNU89 ASan/UBSan, verify the independent push/pull path filters and the complete existing firewall transaction, status, startup and add-on source contracts.
+3. If the exact-head HTTPD/docs checks are green, close descriptor-bound snapshot output at L2 and rotate to another evidence-actionable userland subsystem. Do not remain in Firewall.
+4. Keep FTP upload-cleanup TOCTOU OPEN/BLOCKED until a Linux 4.4-safe design proves inode/parent safety and preserves STOR/APPE/REST/STOU. NFS external-client semantics, target MIPS/uClibc, full firmware/TRX and L4 remain NOT VERIFIED.
