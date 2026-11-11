@@ -667,6 +667,14 @@ start_httpd(int restart_fw)
 	}
 #endif
 
+	if (!httpd_start_can_launch(pids("httpd"))) {
+		nvram_set_int_temp("httpd_started", 1);
+		logmessage(LOGNAME, "HTTPD is already running; refusing duplicate launch");
+		return EBUSY;
+	}
+	/* Clear a stale status only after confirming no HTTPD process exists. */
+	nvram_set_int_temp("httpd_started", 0);
+
 	launch_status = _eval(httpd_argv, NULL, 0, NULL);
 	if (launch_status != 0) {
 		logmessage(LOGNAME, "HTTPD launcher failed: %d", launch_status);

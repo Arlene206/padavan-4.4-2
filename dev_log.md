@@ -1,3 +1,12 @@
+## 2026-11-12 00:55 CST (UTC+8) — Prevent duplicate HTTPD launches on an already-running daemon
+
+- Base main SHA: `1c4b9fe85df1ea2a8d9ec83035ea6cc295059b01`; parent `fb0e0a50f7a20d1cd18bd1841f03b0e25a019786`. The branch ref was rechecked before editing; main remains the only branch.
+- Follow-up review of the HTTPD lifecycle fix found that a direct repeated `start_httpd()` call could still launch a second copy even though restart callers now stop first. The service entry point now checks `pids("httpd")` before `_eval()`: an existing daemon is marked started and returns `EBUSY`; a stale started flag is cleared only when process absence has been confirmed.
+- Added `httpd_start_can_launch()` and regression cases for absent versus already-present processes. The GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer` test printed `HTTPD daemon startup, duplicate-launch, stop-state and restart policy: PASS`.
+- Updated the dedicated HTTPD workflow's source contract to require the pre-launch guard and state-reset ordering. Exact-head HTTPD and AI handoff Actions are pending; the preceding SHA's corresponding runs were queued at last inspection and are not claimed as passed.
+- SESSION_HANDOFF and REFACTOR_ROADMAP were refreshed in place with the exact active task, verification boundary and next-GPT actions. Root `dev_log.md` grows from 20 to 21 records, below its 119-entry rotation threshold; existing archive parts remain unchanged.
+- The PID 1 mdev fsync task remains L1/L2 CLOSED on exact SHA `fb0e0a50f7a20d1cd18bd1841f03b0e25a019786`. FTP cleanup TOCTOU remains OPEN/BLOCKED; production MIPS/uClibc objects, complete firmware/TRX and L4 router behavior remain NOT VERIFIED.
+
 ## 2026-11-12 00:20 CST (UTC+8) — Gate HTTPD service state on daemon lifecycle postconditions
 
 - Base main SHA: `fb0e0a50f7a20d1cd18bd1841f03b0e25a019786`; parent `9eaf81cc6eef88f87ca44ffe10dc574a2e988250`. Main was rechecked before preparing this commit; the branch inventory remains main only.

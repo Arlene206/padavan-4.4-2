@@ -67,6 +67,10 @@ jobs:
           stop = body(services, "stop_httpd(void)")
           restart = body(services, "restart_httpd(void)")
 
+          assert "httpd_start_can_launch(pids(\"httpd\"))" in start
+          assert start.index("httpd_start_can_launch(pids(\"httpd\"))") < start.index("launch_status = _eval(httpd_argv, NULL, 0, NULL);")
+          assert 'nvram_set_int_temp("httpd_started", 0)' in start
+          assert start.index('nvram_set_int_temp("httpd_started", 0)') < start.index("launch_status = _eval(httpd_argv, NULL, 0, NULL);")
           assert "launch_status = _eval(httpd_argv, NULL, 0, NULL);" in start
           assert "return httpd_start_postcondition(launch_status, 0);" in start
           assert 'httpd_start_postcondition(launch_status, pids("httpd"))' in start
@@ -89,7 +93,9 @@ jobs:
           assert "int stop_httpd(void);" in header
           assert "int restart_httpd(void);" in header
           assert "HTTPD_START_PROBE_ATTEMPTS 4" in policy
+          assert "httpd_start_can_launch" in policy
           assert "httpd_start_postcondition" in test
+          assert "httpd_start_can_launch" in test
           assert "httpd_restart_can_start" in test
 
           push_marker = workflow.index("  pull_request:")

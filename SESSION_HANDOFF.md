@@ -3,11 +3,12 @@
 ## Current repository state
 
 - Repository: Arlene206/padavan-4.4-2; branch: main; live branch inventory contains main only; no remote checkpoint branch.
-- Base main SHA for THIS COMMIT: `fb0e0a50f7a20d1cd18bd1841f03b0e25a019786` (parent `9eaf81cc6eef88f87ca44ffe10dc574a2e988250`). The live ref and parent ancestry were rechecked immediately before preparing this commit; verify the resulting exact SHA and Actions after publication.
-- The previous PID 1 mdev fsync task is L1/L2 CLOSED on exact SHA `fb0e0a50f7a20d1cd18bd1841f03b0e25a019786`: mdev workflow [43055641071], infosvr regression [43055640661], and AI handoff docs [43055640617] all completed SUCCESS. The injected two-EINTR plus real-fsync publication regression and source contracts passed; docs validation reported root log=119/119 and archives dev-log=6, handoff=22, roadmap=18.
-- THIS COMMIT addresses a P2 HTTPD daemon-lifecycle reliability defect. Startup previously ignored `_eval()` failure and published `httpd_started=1` without checking for a live detached child; stop cleared state before confirming process exit; restart launched unconditionally after a failed stop. The new implementation preserves launcher errors, requires bounded process-presence confirmation, clears state only after a confirmed stop, and refuses restart while the prior process remains.
-- A focused GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` policy regression passed locally. The dedicated HTTPD daemon lifecycle workflow and exact-head AI handoff validation for THIS COMMIT are pending; do not claim Actions success until inspected on the resulting SHA.
-- Root dev_log.md had 119 complete records before THIS COMMIT. Adding this record reaches the 120-record threshold, so the oldest 100 complete records are archived verbatim in part-007 and the newest 20 remain in the root. Archive inventory becomes dev-log=7, handoff=22, roadmap=18; existing archive shards remain unchanged.
+- Base main SHA for THIS COMMIT: `1c4b9fe85df1ea2a8d9ec83035ea6cc295059b01` (parent `fb0e0a50f7a20d1cd18bd1841f03b0e25a019786`). The live ref and parent ancestry were rechecked immediately before preparing this commit; verify the new exact SHA and all triggered Actions.
+- The preceding PID 1 mdev fsync task is L1/L2 CLOSED on exact SHA `fb0e0a50f7a20d1cd18bd1841f03b0e25a019786`: mdev workflow [43055641071], infosvr regression [43055640661], and AI handoff docs [43055640617] all completed SUCCESS. The injected two-EINTR plus real-fsync publication regression and source contracts passed.
+- The previous HTTPD lifecycle change is on SHA `1c4b9fe85df1ea2a8d9ec83035ea6cc295059b01`. Its dedicated workflow [43061951696] and AI handoff documentation run [43061951564] were queued when last inspected; do not claim those runs or the new exact-head runs as passed without checking them.
+- THIS COMMIT adds an idempotency guard to HTTPD startup: an already-present daemon now blocks a duplicate launcher and restores the started flag; when process absence is confirmed, a stale started flag is cleared before a fresh launch. The prior change continues to preserve launcher errors, verify the detached child, gate stop-state clearing on confirmed exit, and refuse restart after failed stop.
+- The expanded GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` policy regression passed locally, including the duplicate-launch cases. The current exact-head HTTPD lifecycle and AI handoff Actions are pending.
+- Root `dev_log.md` had 20 entries before THIS COMMIT and retains 21 afterward; no new log rotation is due. The dev-log archive inventory remains 7 shards; handoff=22 and roadmap=18.
 
 ## Closed task — NVRAM HDR2 profile-save atomic publication
 
@@ -95,23 +96,31 @@
 
 ## Closed task — Retry interrupted PID 1 mdev configuration fsync (P2 boot/hotplug reliability)
 
-- Exact SHA `fb0e0a50f7a20d1cd18bd1841f03b0e25a019786`: mdev workflow [43055641071], infosvr [43055640661], and AI handoff docs [43055640617] all completed SUCCESS. All exact-head checks were inspected; docs validation reported root log=119/119 and archive counts dev-log=6, handoff=22, roadmap=18.
-- `init_mdev_config_publish()` now retries staged-file `fsync()` only for EINTR; non-EINTR failures remain fail-closed. The regression injected two EINTR results before real fsync and required success after exactly three attempts. GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` and source contracts passed.
-- L1/L2 is closed. Production MIPS/uClibc object, complete firmware/TRX, BusyBox target behavior and L4 router hotplug remain NOT VERIFIED.
+- Exact SHA `fb0e0a50f7a20d1cd18bd1841f03b0e25a019786`: mdev [43055641071], infosvr [43055640661], and AI handoff docs [43055640617] all completed SUCCESS. The injected two-EINTR plus real-fsync GNU89 ASan/UBSan regression and source contracts passed.
+- `init_mdev_config_publish()` retries staged-file `fsync()` only for EINTR; all other errors remain fail-closed. L1/L2 is closed; production MIPS/uClibc, complete firmware/TRX, BusyBox target behavior and L4 hotplug remain NOT VERIFIED.
 
-## Active task — HTTPD daemon startup/stop/restart postconditions (P2 stability)
+## Active task — HTTPD daemon lifecycle and duplicate-launch prevention (P2 stability)
 
 ### Finding and implementation in THIS COMMIT
 
-- `start_httpd()` ignored the return from `_eval()`, then set `httpd_started=1` and could reopen firewall ports even when fork/exec failed or when the detached daemon did not remain present.
-- `stop_httpd()` set `httpd_started=0` before calling `kill_services()` and discarded the bounded stop result. The shared lifecycle helper already returns failure if HTTPD remains present after TERM/KILL waits. `restart_httpd()` nevertheless always launched a replacement, allowing a duplicate while the old process survived.
-- THIS COMMIT changes the start/stop/restart APIs to return status. Startup preserves launcher errors and verifies `pids("httpd")` using bounded polling before publishing state or restarting firewall. Stop only clears the flag after `kill_services()` confirms exit. Restart refuses to launch if stop failed.
-- New `httpd_daemon_policy.h` and its GNU89 regression cover launcher failure, absent/live detached child, stop-state publication and restart gating. The local ASan/UBSan regression printed `HTTPD daemon startup, stop-state and restart policy: PASS`. ## Verification boundary
+- `start_httpd()` previously discarded `_eval()` status, published `httpd_started=1` without confirming a detached daemon, and could reopen firewall ports after a failed launch or immediate child exit.
+- `stop_httpd()` previously cleared `httpd_started` before calling `kill_services()` and ignored whether the daemon actually exited. `restart_httpd()` then launched a replacement regardless, risking a duplicate.
+- The preceding commit changed HTTPD APIs to return status, preserved launcher errors, polled for a live child before publishing started state/firewall access, gated state clearing on a successful stop, and refused restart when stop failed.
+- THIS COMMIT adds a pre-launch `pids("httpd")` guard: an already-running daemon sets the started flag and returns `EBUSY` rather than spawning a duplicate; only a confirmed-absent process permits clearing a stale flag and proceeding to `_eval()`.
+- The policy regression now covers launch failure, existing-process duplicate prevention, detached-child presence, stop-state publication and restart gating. Local GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` output: `HTTPD daemon startup, duplicate-launch, stop-state and restart policy: PASS`. The dedicated workflow checks the integration ordering and watches every production/helper/test/workflow path.
 
-- L1 source review: PASS for HTTPD launcher error propagation, bounded detached-child presence check, state publication only after startup confirmation, stop-status-gated state clearing and restart gating. PID 1 mdev EINTR-only fsync retry is L1/L2 closed on exact SHA `fb0e0a50f7a20d1cd18bd1841f03b0e25a019786`.
-- L2 host / Actions: HTTPD daemon policy GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` passed locally. THIS COMMIT's dedicated HTTPD lifecycle and AI handoff documentation exact-head Actions are pending. Prior exact SHA `fb0e0a50f7a20d1cd18bd1841f03b0e25a019786`: mdev [43055641071], infosvr [43055640661] and AI docs [43055640617] all SUCCESS.
-- L3 MIPS/uClibc production objects / complete firmware/TRX: NOT VERIFIED for the current HTTPD/RC and earlier storage, firewall and PID 1 changes. Prior FULLCONENAT object evidence is separately recorded; it is not a full firmware build.
-- L4 router / physical hardware: NOT VERIFIED. No live HTTPD socket readiness, router stop/restart behavior, mdev hotplug, firewall rollback, storage, wireless or WAN behavior is claimed.
+### Exact next action
+
+- Fetch the resulting live main SHA; confirm it is a fast-forward child of `1c4b9fe85df1ea2a8d9ec83035ea6cc295059b01`. Inspect the exact-head `HTTPD daemon lifecycle stability` and `AI handoff documentation contract` runs, including all job steps and full logs. Also inspect the previous SHA `43061951696` / `43061951564` runs if they complete; never substitute old-head evidence for current-head checks.
+- Require the duplicate-start guard, launch-error propagation, detached-child postcondition, stop-before-start gate, policy regression and source/path-filter contract to pass. Require the docs validator to report root log=21/119 and archives dev-log=7, handoff=22, roadmap=18.
+- On exact-head green, close the bounded HTTPD L2 slice and continue whole-userland stability review beyond HTTPD/PID 1. FTP failed-upload cleanup TOCTOU remains OPEN/BLOCKED pending a Linux 4.4-safe design preserving STOR/APPE/REST/STOU and parent/inode semantics. Production MIPS/uClibc, full firmware/TRX and L4 remain NOT VERIFIED.
+
+## Verification boundary
+
+- L1 source review: PASS for HTTPD launch error propagation, no-duplicate preflight, bounded detached-child presence confirmation, start-state publication only after proof, stop-state clearing only after confirmed exit and restart gating. PID 1 mdev fsync EINTR retry remains L1/L2 closed on exact SHA `fb0e0a50f7a20d1cd18bd1841f03b0e25a019786`.
+- L2 host / Actions: expanded HTTPD policy regression passed locally under GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined`. The current SHA's dedicated HTTPD lifecycle and AI docs Actions are pending. Prior HTTPD SHA `1c4b9fe85df1ea2a8d9ec83035ea6cc295059b01` had its exact-head runs queued when last inspected; those results are not yet confirmed.
+- L3 MIPS/uClibc objects / complete firmware/TRX: NOT VERIFIED for current HTTPD/RC, storage, firewall and PID 1 changes. Prior FULLCONENAT object evidence is not a complete firmware build.
+- L4 router / physical hardware: NOT VERIFIED. No live HTTPD socket readiness or router stop/restart result is claimed.
 
 
 ## Other open governance-ledger risks
@@ -126,7 +135,7 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, confirm the exact resulting SHA descends from `fb0e0a50f7a20d1cd18bd1841f03b0e25a019786`, and inspect the HTTPD daemon lifecycle plus AI handoff documentation workflows on that exact SHA, including every step and full logs.
-2. Confirm the ASan/UBSan policy regression and source contracts pass; inspect launcher error handling, daemon-presence confirmation, state publication/clearing and stop-before-start behavior.
-3. If exact-head Actions are green, close the HTTPD L2 slice and select the next evidence-actionable stability issue across the userland governance ledger. Do not repeat completed PID 1 or HTTPD work.
-4. FTP upload-cleanup TOCTOU remains OPEN/BLOCKED pending a Linux 4.4-safe design preserving STOR/APPE/REST/STOU and parent/inode semantics. NFS client semantics, target MIPS/uClibc, full firmware/TRX and L4 remain NOT VERIFIED.
+1. Fetch the live `main` SHA and confirm it descends from `1c4b9fe85df1ea2a8d9ec83035ea6cc295059b01`. Inspect the exact-head HTTPD daemon lifecycle and AI handoff documentation runs, all job steps and full logs; also inspect earlier HTTPD/doc runs [43061951696] and [43061951564] if they finish.
+2. Verify the duplicate-launch preflight, status-preserving `_eval()`, bounded process confirmation, state publication ordering, stop-status handling and restart gate. Confirm policy test output is PASS and docs validation reports root log=21/119, archives 7/22/18.
+3. If exact-head Actions are green, close HTTPD L2 and move to a different evidence-actionable whole-userland stability issue. Do not repeat completed PID 1 or HTTPD tasks.
+4. FTP upload-cleanup TOCTOU remains OPEN/BLOCKED until a Linux 4.4-safe solution preserves STOR/APPE/REST/STOU and parent/inode semantics. NFS external client semantics, target MIPS/uClibc, full firmware/TRX and L4 remain NOT VERIFIED.
