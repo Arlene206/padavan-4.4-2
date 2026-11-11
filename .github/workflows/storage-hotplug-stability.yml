@@ -111,9 +111,9 @@ jobs:
       - name: Compile and run storage daemon stop postcondition regression
         run: |
           set -eu
-          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \\
-            -I trunk/user/rc/src \\
-            trunk/user/rc/src/tests/storage_service_stop_policy.c \\
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/storage_service_stop_policy.c \
             -o /tmp/storage-service-stop-policy
           /tmp/storage-service-stop-policy
       - name: Verify whole storage caller graph, operation locks and failure propagation
