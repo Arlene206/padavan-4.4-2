@@ -1,3 +1,16 @@
+## 2026-11-12 01:29 CST (UTC+8) — Prevent DNSMasq DHCP pools from including the router LAN address
+
+- Base main SHA: `c2e1c85517ed2dcbe094ed43e3cae18d7af4d972`; parent `e6801775fc3af56dd084321eca9376899b2e7d76`. Main was re-fetched before preparing this commit; it remains the only remote branch.
+- Closed DNS Forwarder L1/L2 on exact SHA `c2e1c85517ed2dcbe094ed43e3cae18d7af4d972`: workflow [43066687882], AI docs [43066687814] and infosvr [43066687818] all SUCCESS. The non-root-CWD relative-path failure/absolute-path success regression, service/ROMFS/execvp contracts and ten exact-once symmetric path filters passed; docs validator reported root log=26/119 and archive inventory=7/22/18.
+- DNSMasq audit found `simple_dhcp_range()` computed its fallback as network+1 through broadcast-1. For a common `192.168.1.1/24` LAN that includes the router's own address as a DHCP candidate. `chk_valid_subnet_pool()` only checked subnet membership, so it accepted ranges including the router, network/broadcast endpoints and reversed ranges.
+- THIS COMMIT adds `dnsmasq_dhcp_range_policy.h` and its GNU89 sanitizer regression. The policy validates contiguous usable masks and interval ordering, excludes network/broadcast/router addresses, and chooses the larger contiguous side around the router for fallback. /31, /32, non-contiguous and zero masks fail closed.
+- `prepare_dns_dhcpd()` now validates/fixes the DHCP range before generated host/ARP files are touched. If LAN IP/netmask cannot produce a safe range, preparation returns EINVAL before those side effects; the existing DNSMasq restart policy preserves a running daemon when preparation fails.
+- Local host test compiled and passed under GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer`: `DNSMasq DHCP pool conflict policy: PASS`. This is the standalone policy test only; production RC cross-build and the full workflow are not yet verified.
+- DNSMasq lifecycle workflow now compiles/runs the new regression and checks helper integration, early fail-closed ordering, parser/source contracts and exact-once symmetric push/pull_request filters. Exact-head DNSMasq and AI docs Actions are pending.
+- Root `dev_log.md` contained 26 complete records and now contains 27; no rotation or archive INDEX update is due. Existing archive shards/indexes remain unchanged.
+- Next GPT: fetch the resulting exact main SHA; inspect DNSMasq lifecycle and AI docs runs, all steps and full logs. Require DHCP range policy, restart policy, cross-process lock, Inadyn sanitizer regression, corrected parser/source checks and docs validator (root log=27/119, archives=7/22/18) to pass. Production MIPS/uClibc, firmware/TRX and L4 remain NOT VERIFIED.
+
+---
 ## 2026-11-12 01:16 CST (UTC+8) — Correct DNS Forwarder CWD regression fixture line endings
 
 - Base main SHA: `e6801775fc3af56dd084321eca9376899b2e7d76`; parent `31578abaefe5b2838b7c825460e21e730176b563`.

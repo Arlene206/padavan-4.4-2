@@ -34,6 +34,7 @@
 
 #include "rc.h"
 #include "dnsmasq_file.h"
+#include "dnsmasq_dhcp_range_policy.h"
 #include "inadyn_config_file.h"
 #include "dnsmasq_lifecycle_lock.h"
 #include "dnsmasq_restart_policy.h"
@@ -54,32 +55,37 @@
 #define UPNPD_LEASE_FILE	"/tmp/miniupnpd.leases"
 #define INADYN_USER_DIR		"/etc/storage/inadyn"
 
-static void
+static int
 simple_dhcp_range(const char *ip, char *dip1, char *dip2, const char *mask)
 {
 	struct in_addr ina;
-	unsigned int new_start, new_end, lip, lmask;
+	uint32_t new_start, new_end;
 
-	lip   = ntohl(inet_addr(ip));
-	lmask = ntohl(inet_addr(mask));
-
-	new_start = (lip & lmask) | 1;
-	new_end = (lip & lmask) | (~lmask - 1);
+	if (!is_valid_ipv4(ip) || !is_valid_ipv4(mask) ||
+	    !dnsmasq_dhcp_range_default_pool(ntohl(inet_addr_safe(ip)),
+					     ntohl(inet_addr_safe(mask)),
+					     &new_start, &new_end))
+		return 0;
 
 	ina.s_addr = htonl(new_start);
 	strcpy(dip1, inet_ntoa(ina));
 	ina.s_addr = htonl(new_end);
 	strcpy(dip2, inet_ntoa(ina));
+	return 1;
 }
 
 static int
 chk_valid_subnet_pool(const char *ip, char *dip1, char *dip2, const char *mask)
 {
-	if (!is_same_subnet(ip, dip1, mask) || !is_same_subnet(ip, dip2, mask)) {
-		simple_dhcp_range(ip, dip1, dip2, mask);
+	if (is_valid_ipv4(ip) && is_valid_ipv4(mask) &&
+	    is_valid_ipv4(dip1) && is_valid_ipv4(dip2) &&
+	    dnsmasq_dhcp_range_pool_is_valid(ntohl(inet_addr_safe(ip)),
+					     ntohl(inet_addr_safe(mask)),
+					     ntohl(inet_addr_safe(dip1)),
+					     ntohl(inet_addr_safe(dip2))))
 		return 0;
-	}
-	return 1;
+
+	return simple_dhcp_range(ip, dip1, dip2, mask) ? 1 : -1;
 }
 
 static void
@@ -359,7 +365,7 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 {
 	FILE *fp;
 	int i_verbose, i_dhcp_enable, is_dhcp_used, is_dns_used;
-	int saved_errno, validation_errno;
+	int saved_errno, validation_errno, pool_status;
 	char config_path[] = "/etc/dnsmasq.conf.XXXXXX";
 	char dhcp_start[32], dhcp_end[32], dns_all[64], dnsv6[40];
 	char *ipaddr, *netmask, *gw, *dns1, *dns2, *dns3, *wins, *domain, *dns6, *dns61;
@@ -377,6 +383,23 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 	ipaddr  = nvram_safe_get("lan_ipaddr");
 	netmask = nvram_safe_get("lan_netmask");
 	domain  = nvram_safe_get("lan_domain");
+
+	/* Validate the DHCP pool before changing generated host/ARP files. */
+	if (i_dhcp_enable) {
+		snprintf(dhcp_start, sizeof(dhcp_start), "%s", nvram_safe_get("dhcp_start"));
+		snprintf(dhcp_end, sizeof(dhcp_end), "%s", nvram_safe_get("dhcp_end"));
+		pool_status = chk_valid_subnet_pool(ipaddr, dhcp_start, dhcp_end, netmask);
+		if (pool_status < 0) {
+			logmessage(LOGNAME, "refusing DNSMasq DHCP configuration with invalid LAN IPv4 subnet");
+			errno = EINVAL;
+			return EINVAL;
+		}
+		if (pool_status > 0) {
+			nvram_set("dhcp_start", dhcp_start);
+			nvram_set("dhcp_end", dhcp_end);
+			logmessage(LOGNAME, "adjusted DHCP pool to exclude the router LAN address");
+		}
+	}
 
 	/* create /etc/ethers */
 	fill_static_ethers(ipaddr, netmask);
@@ -456,14 +479,6 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 
 	is_dhcp_used = 0;
 	if (i_dhcp_enable) {
-		snprintf(dhcp_start, sizeof(dhcp_start), "%s", nvram_safe_get("dhcp_start"));
-		snprintf(dhcp_end, sizeof(dhcp_end), "%s", nvram_safe_get("dhcp_end"));
-		
-		if (!chk_valid_subnet_pool(ipaddr, dhcp_start, dhcp_end, netmask)) {
-			nvram_set("dhcp_start", dhcp_start);
-			nvram_set("dhcp_end", dhcp_end);
-		}
-		
 		fprintf(fp, "dhcp-range=set:%s,%s,%s,%s,%d\n",
 			DHCPD_RANGE_DEF_TAG, dhcp_start, dhcp_end, netmask, nvram_get_int("dhcp_lease"));
 		

@@ -12,6 +12,8 @@ on:
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/dnsmasq_restart_policy.h"
       - "trunk/user/rc/src/tests/dnsmasq_restart_policy.c"
+      - "trunk/user/rc/src/dnsmasq_dhcp_range_policy.h"
+      - "trunk/user/rc/src/tests/dnsmasq_dhcp_range_policy.c"
       - "trunk/user/rc/src/dnsmasq_lifecycle_lock.h"
       - "trunk/user/rc/src/tests/dnsmasq_lifecycle_lock.c"
   pull_request:
@@ -25,6 +27,8 @@ on:
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/dnsmasq_restart_policy.h"
       - "trunk/user/rc/src/tests/dnsmasq_restart_policy.c"
+      - "trunk/user/rc/src/dnsmasq_dhcp_range_policy.h"
+      - "trunk/user/rc/src/tests/dnsmasq_dhcp_range_policy.c"
       - "trunk/user/rc/src/dnsmasq_lifecycle_lock.h"
       - "trunk/user/rc/src/tests/dnsmasq_lifecycle_lock.c"
   workflow_dispatch:
@@ -42,6 +46,14 @@ jobs:
           set -eu
           cc -std=gnu89 -Wall -Wextra -Werror             -I trunk/user/rc/src             trunk/user/rc/src/tests/dnsmasq_restart_policy.c             -o "$RUNNER_TEMP/dnsmasq-restart-policy"
           "$RUNNER_TEMP/dnsmasq-restart-policy"
+      - name: Compile and run DNSMasq DHCP range conflict regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/dnsmasq_dhcp_range_policy.c \
+            -o "$RUNNER_TEMP/dnsmasq-dhcp-range-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/dnsmasq-dhcp-range-policy"
       - name: Compile and run DNSMasq cross-process lock regression
         run: |
           set -eu
@@ -172,6 +184,8 @@ jobs:
               "trunk/user/rc/src/rc.h",
               "trunk/user/rc/src/dnsmasq_restart_policy.h",
               "trunk/user/rc/src/tests/dnsmasq_restart_policy.c",
+              "trunk/user/rc/src/dnsmasq_dhcp_range_policy.h",
+              "trunk/user/rc/src/tests/dnsmasq_dhcp_range_policy.c",
               "trunk/user/rc/src/dnsmasq_lifecycle_lock.h",
               "trunk/user/rc/src/tests/dnsmasq_lifecycle_lock.c",
           )
@@ -193,6 +207,8 @@ jobs:
           rc = Path("trunk/user/rc/src/rc.c").read_text()
           restart_test = Path("trunk/user/rc/src/tests/dnsmasq_restart_policy.c").read_text()
           workflow = Path(".github/workflows/dnsmasq-lifecycle.yml").read_text()
+          range_policy = Path("trunk/user/rc/src/dnsmasq_dhcp_range_policy.h").read_text()
+          range_test = Path("trunk/user/rc/src/tests/dnsmasq_dhcp_range_policy.c").read_text()
 
           def function_body(source, signature):
               start = source.index(signature)
@@ -255,12 +271,31 @@ jobs:
           assert 'ret = restart_dhcpd();' in rc
           assert "return ret;" in rc
 
+          simple_range = function_body(services, "simple_dhcp_range(")
+          pool_check = function_body(services, "chk_valid_subnet_pool(")
+          prepare = function_body(services, "prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)")
+          assert '#include "dnsmasq_dhcp_range_policy.h"' in services
+          assert "dnsmasq_dhcp_range_default_pool" in simple_range
+          assert "dnsmasq_dhcp_range_pool_is_valid" in pool_check
+          assert "simple_dhcp_range(ip, dip1, dip2, mask) ? 1 : -1" in pool_check
+          assert prepare.index("chk_valid_subnet_pool") < prepare.index("fill_static_ethers")
+          assert "pool_status < 0" in prepare and "return EINVAL;" in prepare
+          assert "pool_status > 0" in prepare
+          assert 'nvram_set("dhcp_start", dhcp_start)' in prepare
+          assert "hostmask >= 3U" in range_policy
+          assert "lan_ip >= pool_start && lan_ip <= pool_end" in range_policy
+          for test_case in ("test_configured_pool_conflicts", "test_default_pool_excludes_router", "test_invalid_subnets_fail_closed"):
+              assert test_case in range_test
+          print("DNSMasq DHCP pool/router-address exclusion source contract: PASS")
+
           paths = (
               ".github/workflows/dnsmasq-lifecycle.yml",
               "trunk/user/rc/src/services_ex.c",
               "trunk/user/rc/src/rc.c",
               "trunk/user/rc/src/dnsmasq_restart_policy.h",
               "trunk/user/rc/src/tests/dnsmasq_restart_policy.c",
+              "trunk/user/rc/src/dnsmasq_dhcp_range_policy.h",
+              "trunk/user/rc/src/tests/dnsmasq_dhcp_range_policy.c",
               "trunk/user/rc/src/dnsmasq_lifecycle_lock.h",
               "trunk/user/rc/src/tests/dnsmasq_lifecycle_lock.c",
           )

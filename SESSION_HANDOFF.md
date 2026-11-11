@@ -3,14 +3,14 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; branch `main`; only remote branch is `main`; no checkpoint branch.
-- Base main SHA for THIS COMMIT: `e6801775fc3af56dd084321eca9376899b2e7d76` (parent `31578abaefe5b2838b7c825460e21e730176b563`).
-- HTTPD daemon lifecycle/duplicate-launch remains L1/L2 CLOSED on exact SHA `65f070aa3dfaa73154d3ab1ecb03d82a17abc388`: HTTPD lifecycle [43063659893], security umbrella [43063082646] and AI docs [43063659714] SUCCESS.
-- GPIO short-press timing is L1/L2 CLOSED on exact SHA `31578abaefe5b2838b7c825460e21e730176b563`: GPIO [43065042288], AI docs [43065042295] and infosvr [43065042298] all SUCCESS; startup/timing binaries, source/caller/path contracts and docs archive validation passed.
-- DNS Forwarder production change and workflow are on base SHA `e6801775fc3af56dd084321eca9376899b2e7d76`. Its first exact-head run [43066299135] failed in the CWD fixture: the relative pathname correctly failed, but the generated temporary shell script contained literal backslash-n text rather than line breaks, so the absolute fixture execution also returned ENOENT. This is a test-fixture construction error, not a demonstrated product-code failure. AI docs [43066299302] passed (root log=25/119; archives 7/22/18). Other exact-head networkmap, GPIO, VPN server, WAN ARP, HTTPD lifecycle/security, detect_link, infosvr, watchdog and crond workflows passed. SkipDBv2 [43066299131] was still in progress at last inspection; do not claim it green without checking.
-- THIS COMMIT fixes the Python fixture to write a valid two-line executable and compare its marker without an escaped newline. The RC absolute launcher path is unchanged. Exact-head DNS Forwarder and docs reruns are required.
-- Root `dev_log.md` moves from 25 to 26 complete records; no rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
-- FTP upload-cleanup TOCTOU remains P2 OPEN/BLOCKED; NFS needs external-client evidence. Production MIPS/uClibc, complete firmware/TRX and physical router behavior remain NOT VERIFIED.
-
+- Base main SHA for THIS COMMIT: `c2e1c85517ed2dcbe094ed43e3cae18d7af4d972` (parent `e6801775fc3af56dd084321eca9376899b2e7d76`).
+- HTTPD daemon lifecycle/duplicate-launch remains L1/L2 CLOSED on exact SHA `65f070aa3dfaa73154d3ab1ecb03d82a17abc388`: lifecycle [43063659893], security umbrella [43063082646] and AI docs [43063659714] all SUCCESS.
+- GPIO short-press timing remains L1/L2 CLOSED on exact SHA `31578abaefe5b2838b7c825460e21e730176b563`: GPIO [43065042288], docs [43065042295] and infosvr [43065042298] all SUCCESS.
+- DNS Forwarder caller-CWD defect and regression are L1/L2 CLOSED on exact SHA `c2e1c85517ed2dcbe094ed43e3cae18d7af4d972`: DNS Forwarder [43066687882], AI docs [43066687814] and infosvr [43066687818] all SUCCESS. CWD regression, RC/ROMFS/execvp source contracts and ten exact-once symmetric path filters passed. Docs validator reported root log=26/119 and archive counts dev-log=7, handoff=22, roadmap=18.
+- THIS COMMIT fixes DNSMasq DHCP pool validation. The previous fallback began at network+1 and could include the router LAN address (for example, `192.168.1.1` on a common `/24`); configured-pool validation only checked subnet membership and did not exclude the router, network or broadcast addresses. New policy validates masks/order, excludes those addresses, and chooses the larger contiguous side when generating a fallback pool. Invalid LAN subnets fail closed before generated host/ARP file side effects.
+- A standalone GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` host regression passed locally for configured conflicts, fallback ranges (router .1/.127/.254 and /30), invalid masks, /31-/32 and null outputs. Full DNSMasq workflow and exact-head docs Actions are pending; no local full repository checkout is available.
+- Root `dev_log.md` grows from 26 to 27 complete records; no rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- FTP upload-cleanup TOCTOU remains P2 OPEN/BLOCKED; NFS still needs external-client evidence. Production MIPS/uClibc, complete firmware/TRX and physical router behavior remain NOT VERIFIED.
 ## Closed task — NVRAM HDR2 profile-save atomic publication
 
 - Commit ce7efad34dbd81097d923f9568f0ae9946694b58; exact-head HTTPD [42992756073] and AI docs [42992755926] both SUCCESS. All 39 HTTPD job steps passed.
@@ -117,29 +117,36 @@
 - The first CI run correctly exposed duplicated timing paths in push and missing pull_request entries; commit `31578aba...` corrected the filters. This bounded GPIO timing L2 slice is CLOSED.
 - Production MIPS/uClibc, physical button/LED/uevent behavior, full firmware/TRX and L4 remain NOT VERIFIED.
 
-## Active task — Repair DNS Forwarder CWD regression fixture and verify the absolute launcher (P2 reliability)
+## Closed task — DNS Forwarder caller-CWD-independent launcher (P2 reliability; L1/L2 complete)
+
+- Production fix SHA: `e6801775fc3af56dd084321eca9376899b2e7d76`; fixture line-ending correction SHA: `c2e1c85517ed2dcbe094ed43e3cae18d7af4d972`.
+- RC startup now calls the ROMFS-installed `/usr/bin/dns-forwarder.sh` instead of the CWD-relative slash-containing `usr/bin/dns-forwarder.sh`. The relative name failed from an unrelated working directory because `eval()` delegates to `execvp()` and a slash-containing name is not PATH-searched.
+- Exact-head DNS Forwarder [43066687882], AI docs [43066687814] and infosvr [43066687818] all SUCCESS on `c2e1c85517ed2dcbe094ed43e3cae18d7af4d972`. The CWD behavior regression, service/installer/execvp source contracts, ten exact-once push/pull_request filters and docs validator passed; docs reported root log=26/119 and archive inventory 7/22/18.
+- L1/L2 slice CLOSED. Production MIPS/uClibc, daemon readiness/live forwarding and L3/L4 router validation remain NOT VERIFIED.
+
+## Active task — Prevent DNSMasq DHCP pools from including the router address (P2 LAN reliability)
 
 ### Finding and implementation in THIS COMMIT
 
-- The product fix on `e6801775fc3af56dd084321eca9376899b2e7d76` is unchanged: `start_dnsforwarder()` now passes `/usr/bin/dns-forwarder.sh`, matching the ROMFS installation path and the stop handler.
-- Exact-head DNS workflow [43066299135] failed inside the new regression after the relative slash-containing path correctly raised ENOENT. The follow-up absolute temporary executable also raised ENOENT because the Python fixture wrote literal backslash-n sequences into its shebang/script instead of real line terminators.
-- All source/ROMFS/caller/execvp checks preceding the fixture ran without assertion failure. The observed failure is confined to test fixture construction; the absolute production launcher change is not yet L2-verified.
-- AI docs [43066299302] SUCCESS on `e6801775fc3af56dd084321eca9376899b2e7d76` with root log=25/119 and archives 7/22/18. Networkmap [43066300888], GPIO [43066298902], VPN server [43066299119], WAN ARP [43066298966], HTTPD lifecycle [43066299031], HTTPD security [43066299164], detect_link [43066299084], infosvr [43066298895], watchdog [43066298861] and crond [43066299440] also SUCCESS. SkipDBv2 [43066299131] was still running when checked.
-- THIS COMMIT corrects the fixture to write a valid executable with actual line terminators; production service code and the CWD assertion remain unchanged.
+- `simple_dhcp_range()` previously computed the fallback pool as `network+1` through `broadcast-1`. On a common `192.168.1.1/24` LAN this included `192.168.1.1`, the router's own address, as a DHCP candidate.
+- `chk_valid_subnet_pool()` previously checked only that both endpoints belonged to the LAN subnet. It accepted reversed ranges, network/broadcast endpoints, non-contiguous masks and configured intervals containing the router address.
+- THIS COMMIT adds a pure DHCP-range policy helper and sanitizer regression. Configured ranges must be ordered, inside usable subnet addresses and exclude the router. Fallback generation selects the larger contiguous side of the usable subnet around the router so it never includes the router address. /31, /32, non-contiguous and zero masks fail closed.
+- `prepare_dns_dhcpd()` now validates/fixes the range before generated host/ARP files are touched. If the LAN IP/netmask cannot form a safe DHCP subnet, preparation returns `EINVAL` before those side effects, preserving the last-known-good service through the existing restart policy.
+- Local GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` policy test PASS (configured conflicts, fallback selection, /30 and invalid subnet cases). Exact-head DNSMasq workflow and AI docs validation are pending.
 
 ### Exact next action
 
-- Fetch live `main`; inspect the corrected DNS Forwarder launch-path and AI handoff docs Actions on that exact SHA, every job step and full logs.
-- Require relative slash-containing launch to fail outside `/`, absolute fixture execution to succeed and write the expected marker, all service/ROMFS/execvp assertions, ten exact-once symmetric push/pull_request paths and docs validator (root log=26/119; archives=7/22/18) to PASS.
-- On exact-head green, close DNS Forwarder L2 and rotate to another evidence-actionable whole-userland reliability defect. FTP cleanup TOCTOU remains OPEN/BLOCKED; NFS needs real-client evidence; MIPS/uClibc, full firmware/TRX and L4 remain NOT VERIFIED.
+- Fetch live `main`; inspect DNSMasq lifecycle and AI handoff documentation Actions on that exact SHA, every job step and full logs.
+- Require the new DHCP pool policy binary, DNSMasq parser/source contracts (including step 6), restart/lock/Inadyn regressions and exact-once push/pull_request filters to pass. Docs validator should report root log=27/119 and archives dev-log=7, handoff=22, roadmap=18.
+- On exact-head green, close this bounded DNSMasq L2 slice and rotate to another actionable whole-userland stability defect. Do not revisit the closed HTTPD, GPIO or DNS Forwarder slices.
+- FTP cleanup TOCTOU remains OPEN/BLOCKED pending a Linux 4.4-safe design preserving STOR/APPE/REST/STOU; NFS needs real-client evidence. Production MIPS/uClibc, firmware/TRX and L4 remain NOT VERIFIED.
 
 ## Verification boundary
 
-- L1 source review: PASS for the DNS Forwarder absolute ROMFS launcher path and RC start/stop/restart wiring. The first exact-head CWD regression exposed a fixture formatting defect; this commit corrects the fixture. The complete CWD regression is not yet PASS.
-- L2 host / Actions: DNS Forwarder [43066299135] FAILED on exact SHA `e6801775fc3af56dd084321eca9376899b2e7d76` only at temporary absolute-fixture execution (FileNotFoundError caused by malformed script line endings). AI docs [43066299302] SUCCESS with root log=25/119 and archives=7/22/18. Networkmap [43066300888], GPIO [43066298902], VPN server [43066299119], WAN ARP [43066298966], HTTPD lifecycle [43066299031], HTTPD security [43066299164], detect_link [43066299084], infosvr [43066298895], watchdog [43066298861] and crond [43066299440] SUCCESS. SkipDBv2 [43066299131] was in progress at last inspection.
-- L3 production MIPS/uClibc RC objects / complete firmware/TRX: NOT VERIFIED for DNS Forwarder or prior GPIO, storage, firewall and PID 1 changes.
-- L4 router / physical hardware: NOT VERIFIED. No live DNS forwarding, actual daemon readiness, physical key/LED or router behavior is claimed.
-
+- L1 source review: PASS for DNSMasq range policy design and integration. Configured and fallback pools exclude the router LAN address, network and broadcast endpoints; invalid/non-contiguous or too-small subnets fail closed before generated host/ARP side effects.
+- L2 host / Actions: local GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` DHCP range policy test PASS. DNSMasq lifecycle workflow (parser/source contracts, restart/lock/Inadyn regressions and exact-once path filters) and AI docs Actions are pending on THIS COMMIT's resulting SHA. DNS Forwarder [43066687882], docs [43066687814] and infosvr [43066687818] all SUCCESS on exact parent SHA `c2e1c85517ed2dcbe094ed43e3cae18d7af4d972`.
+- L3 production MIPS/uClibc RC object / full firmware/TRX: NOT VERIFIED for DNSMasq, DHCP pool integration or prior userland changes.
+- L4 router / hardware: NOT VERIFIED. No live DHCP offer/lease renewal, client conflict test, DNSMasq readiness or physical-router behavior is claimed.
 ## Other open governance-ledger risks
 
 1. FTP failed-upload cleanup TOCTOU — P2 OPEN/BLOCKED. Linux 4.4 has no inode-conditional unlink-by-fd: fstatat() followed by unlinkat() still deletes whichever inode owns the name at unlink time. rename/exchange is not a conditional inode compare, and staged publication would change existing STOR/APPE/REST visibility and overwrite semantics. Do not patch without a proved design preserving STOR/APPE/REST/STOU, parent/inode safety and supported filesystem behavior.
@@ -152,7 +159,7 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and confirm its exact SHA descends from `e6801775fc3af56dd084321eca9376899b2e7d76`. Inspect corrected DNS Forwarder and AI docs Actions on that exact SHA, every step and full logs.
-2. Require the relative-path ENOENT/absolute-path success fixture, ROMFS/RC/execvp assertions, ten exact-once symmetric workflow path filters, and docs validator root log=26/119 with archives=7/22/18.
-3. If DNS Forwarder and docs exact-head Actions pass, close L2 and rotate to a distinct actionable userland stability risk; otherwise repair the specific exact-head failure.
-4. FTP cleanup TOCTOU remains OPEN/BLOCKED until a proven Linux 4.4-safe inode/parent approach preserves STOR/APPE/REST/STOU. NFS client evidence, target MIPS/uClibc, full firmware/TRX and L4 remain NOT VERIFIED.
+1. Fetch live `main`, verify its exact SHA descends from `c2e1c85517ed2dcbe094ed43e3cae18d7af4d972`, and inspect DNSMasq lifecycle plus AI handoff documentation Actions on that exact SHA, every step and full logs.
+2. Require DHCP pool policy regression (router address at first/middle/last, /30, network/broadcast, interval ordering and invalid masks), DNSMasq restart/lock/Inadyn binaries, step-6 parser/source contracts and exact-once symmetric event filters to pass. Docs validator should report root log=27/119 and archive inventory 7/22/18.
+3. If exact-head DNSMasq/docs Actions are green, close L2 and rotate to another actionable whole-userland stability defect. If red, fix the exact-head failure before rotating.
+4. FTP upload-cleanup TOCTOU stays OPEN/BLOCKED until a proven Linux 4.4-safe inode/parent design preserves STOR/APPE/REST/STOU. NFS external-client evidence, target MIPS/uClibc, full firmware/TRX and L4 remain NOT VERIFIED.
