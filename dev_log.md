@@ -1,3 +1,13 @@
+## 2026-11-12 01:10 CST (UTC+8) — Correct HTTPD lifecycle source-contract publication ordering
+
+- Base main SHA: `d002eba06a914d75ac79b20867dbd3cdb6f416ca`; parent `1c4b9fe85df1ea2a8d9ec83035ea6cc295059b01`. Main was rechecked before editing; branch inventory remains main only.
+- Exact-head HTTPD run [43063082671] on this SHA compiled the GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` policy binary and printed `HTTPD daemon startup, duplicate-launch, stop-state and restart policy: PASS`. The Python integration checker then failed at its start-state ordering assertion: it compared the post-probe state publication against the first `httpd_started=1`, which is the valid pre-existing-daemon branch. This was a checker false positive, not a failed policy regression.
+- Exact-head AI handoff validation [43063082981] passed and printed `AI handoff documentation check: PASS (root log=21/119 entries, batch=100, retain=20, legacy/current archives: dev-log=7, handoff=22, roadmap=18)`.
+- THIS COMMIT changes the checker to locate the successful-start `httpd_started=1` only after the detached-child probe loop begins, then assert it follows the successful process-presence branch and precedes firewall restart. The production HTTPD source and policy regression are unchanged in this corrective slice.
+- Exact-head HTTPD lifecycle and AI docs Actions for THIS COMMIT are pending. Do not claim the source contract as passing until the corrected workflow completes on the new SHA.
+- Root `dev_log.md` grows from 21 to 22 records, well below the rotation threshold. Existing archive shards/index remain unchanged (dev-log=7, handoff=22, roadmap=18).
+- The previous SHA already contains the HTTPD launch/stop/restart fix and duplicate-launch preflight. Production MIPS/uClibc, full firmware/TRX, target HTTPD socket readiness, cross-process simultaneous-start locking and L4 remain NOT VERIFIED. FTP cleanup TOCTOU remains OPEN/BLOCKED.
+
 ## 2026-11-12 00:55 CST (UTC+8) — Prevent duplicate HTTPD launches on an already-running daemon
 
 - Base main SHA: `1c4b9fe85df1ea2a8d9ec83035ea6cc295059b01`; parent `fb0e0a50f7a20d1cd18bd1841f03b0e25a019786`. The branch ref was rechecked before editing; main remains the only branch.

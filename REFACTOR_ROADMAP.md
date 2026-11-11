@@ -1,10 +1,11 @@
 ## Current source / CI checkpoint
 
-- Base main SHA for THIS COMMIT: `1c4b9fe85df1ea2a8d9ec83035ea6cc295059b01` (parent `fb0e0a50f7a20d1cd18bd1841f03b0e25a019786`). Main was rechecked immediately before preparing the commit; only main exists and no remote checkpoint branch is present.
-- PID 1 mdev staged-file fsync retry remains L1/L2 CLOSED on exact SHA `fb0e0a50f7a20d1cd18bd1841f03b0e25a019786`: mdev [43055641071], infosvr [43055640661] and AI docs [43055640617] completed SUCCESS.
-- The preceding HTTPD lifecycle change on `1c4b9fe85df1ea2a8d9ec83035ea6cc295059b01` fixes launch/stop/restart postconditions. Its HTTPD and AI docs runs were queued at last inspection. THIS COMMIT additionally blocks duplicate launch when `pids("httpd")` finds an existing daemon, sets the started flag to match that confirmed process, and clears stale state only after confirming absence. Expanded local GNU89 ASan/UBSan policy regression PASS; current exact-head Actions pending.
-- Root `dev_log.md` is 21/119 records; no rotation is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
-- FTP upload-cleanup TOCTOU remains P2 OPEN/BLOCKED; do not replace the race with an unsafe `fstatat()/unlinkat()` pre-check. Production MIPS/uClibc, complete firmware/TRX and L4 router behavior remain NOT VERIFIED.
+- Base main SHA for THIS COMMIT: `d002eba06a914d75ac79b20867dbd3cdb6f416ca` (parent `1c4b9fe85df1ea2a8d9ec83035ea6cc295059b01`). Main was rechecked immediately before editing; only main exists.
+- PID 1 mdev fsync EINTR retry remains L1/L2 CLOSED on exact SHA `fb0e0a50f7a20d1cd18bd1841f03b0e25a019786`, with exact-head mdev, infosvr and AI docs Actions all SUCCESS.
+- HTTPD lifecycle policy regression on `d002eba06a914d75ac79b20867dbd3cdb6f416ca` passed; AI handoff docs [43063082981] SUCCESS (root log=21/119, archives=7/22/18). HTTPD workflow [43063082671] passed its GNU89 ASan/UBSan binary and failed only its Python source-contract ordering assertion: the search matched the intentional already-running branch's `httpd_started=1` instead of the normal launch publication. THIS COMMIT scopes that check to the post-probe region. Exact-head correction Actions pending.
+- HTTPD implementation prevents observed duplicate launches, propagates launcher errors, gates state publication on detached-child presence, clears state only after confirmed stop and refuses restart after failed stop. Cross-process simultaneous-start serialization is not claimed.
+- Root `dev_log.md` grows from 21 to 22 entries; no rotation due. Archive inventory remains 7/22/18.
+- FTP upload cleanup TOCTOU remains P2 OPEN/BLOCKED; no unsafe check-then-unlink workaround. MIPS/uClibc, complete firmware/TRX and L4 are NOT VERIFIED.
 
 ## Whole-repository module status
 
@@ -36,12 +37,12 @@
 
 ## Priority queue
 
-1. P2 — Verify the HTTPD daemon startup/stop/restart and duplicate-launch postconditions plus exact-head HTTPD lifecycle / AI handoff Actions on THIS COMMIT's resulting SHA; if green, close L2 and rotate to another actionable userland subsystem.
-2. P2 OPEN/BLOCKED — FTP failed-upload cleanup TOCTOU: no patch until a Linux 4.4-safe design proves inode/parent safety and preserves STOR/APPE/REST/STOU behavior.
-3. P2 — Resolve NFS async durability, AUTH_SYS/root-squash and external-mount compatibility only with real client evidence.
-4. P2 — Validate wireless bulk detach/bridge ownership across target board variants.
-5. P2 — Validate WAN PPP reconnect, callback recovery and IPv6 rollback on target; WAN scope remains unit 0.
-6. P2 — Production MIPS/uClibc and L4 validation for host-verified Optware/storage, firewall and current RC changes.
+1. P2 — Verify the corrected HTTPD daemon lifecycle source contract and exact-head HTTPD / AI docs Actions; if green, close L2 and continue elsewhere in the userland.
+2. P2 OPEN/BLOCKED — FTP failed-upload cleanup TOCTOU: no patch until Linux 4.4-safe inode/parent semantics preserve STOR/APPE/REST/STOU.
+3. P2 — NFS async durability, AUTH_SYS/root-squash and external mount compatibility require real-client evidence.
+4. P2 — Wireless bulk detach / bridge ownership across board variants needs target validation.
+5. P2 — WAN PPP reconnect, callback recovery and IPv6 rollback require target validation.
+6. P2 — Production MIPS/uClibc and L4 validation for host-verified Optware/storage, firewall and RC changes.
 
 
 ## Working rules
