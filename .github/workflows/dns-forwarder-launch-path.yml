@@ -1,0 +1,38 @@
+name: DNS Forwarder launch path stability regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/dns-forwarder-launch-path.yml"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/init.c"
+      - "trunk/user/shared/src/shutils.c"
+      - "trunk/user/shared/src/shutils.h"
+      - "trunk/user/dns-forwarder/Makefile"
+      - "trunk/user/dns-forwarder/dns-forwarder.sh"
+      - "scripts/check_dns_forwarder_launch.py"
+  pull_request:
+    paths:
+      - ".github/workflows/dns-forwarder-launch-path.yml"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/init.c"
+      - "trunk/user/shared/src/shutils.c"
+      - "trunk/user/shared/src/shutils.h"
+      - "trunk/user/dns-forwarder/Makefile"
+      - "trunk/user/dns-forwarder/dns-forwarder.sh"
+      - "scripts/check_dns_forwarder_launch.py"
+
+permissions:
+  contents: read
+
+jobs:
+  dns-forwarder-launch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify DNS Forwarder launch path and caller-independent execution
+        run: python3 scripts/check_dns_forwarder_launch.py

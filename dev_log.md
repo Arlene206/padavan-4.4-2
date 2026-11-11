@@ -1,3 +1,15 @@
+## 2026-11-12 01:11 CST (UTC+8) — Make DNS Forwarder startup path CWD-independent
+
+- Base main SHA: `31578abaefe5b2838b7c825460e21e730176b563`; parent `54504272e2c4ca0f7783ba78aa52a2bfe212de1c`. Main is the only branch; no remote checkpoint.
+- Closed GPIO short-press timing L1/L2 on exact SHA `31578abaefe5b2838b7c825460e21e730176b563`: GPIO [43065042288], AI docs [43065042295] and infosvr [43065042298] all SUCCESS. Startup/timing GNU89 ASan/UBSan binaries and source/caller/path contracts passed; docs validator reported root log=24/119 and archive inventory=7/22/18.
+- Audited DNS Forwarder service startup: `start_dnsforwarder()` passed `usr/bin/dns-forwarder.sh`, but ROMFS installs the launcher as `/usr/bin/dns-forwarder.sh`. The slash-containing relative pathname is resolved by `execvp()` from CWD, not via PATH; non-root CWD callers therefore receive ENOENT. PID 1's normal `chdir("/")` currently masks the dependency in known boot flow.
+- THIS COMMIT changes the RC start invocation to the absolute installed path and adds `scripts/check_dns_forwarder_launch.py` plus `.github/workflows/dns-forwarder-launch-path.yml`. The regression proves relative-path failure/absolute-path success from an unrelated CWD and checks service start/stop/restart wiring, ROMFS destination, `eval()`/`execvp()` use and ten exact-once symmetric workflow filters.
+- Local repository checkout is unavailable; the new Python regression/source contract is NOT RUN locally. Exact-head DNS Forwarder and AI docs Actions are required for L2.
+- Root `dev_log.md` contained 24 complete records before this entry and contains 25 now; no rotation or archive INDEX update is due. Archive shards/indexes remain unchanged.
+- Next GPT: fetch resulting live `main`; inspect exact-head DNS Forwarder and AI docs Actions, all job steps and full logs. Require CWD regression, source/ROMFS/caller checks, symmetric path filters and docs validator (root log=25/119, archives=7/22/18) to pass. On green, close DNS Forwarder L2 and rotate to another whole-userland stability defect. Production MIPS/uClibc, full firmware/TRX and L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-11 — Fix GPIO timing workflow path-filter symmetry
 
 - Base main SHA: `54504272e2c4ca0f7783ba78aa52a2bfe212de1c`; parent `65f070aa3dfaa73154d3ab1ecb03d82a17abc388`. Main was rechecked before this commit; only main exists.

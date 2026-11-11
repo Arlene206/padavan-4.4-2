@@ -3,11 +3,13 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; branch `main`; the only remote branch is `main`, with no checkpoint branch.
-- Base main SHA for THIS COMMIT: `54504272e2c4ca0f7783ba78aa52a2bfe212de1c` (parent `65f070aa3dfaa73154d3ab1ecb03d82a17abc388`).
-- HTTPD daemon lifecycle/duplicate-launch is L1/L2 CLOSED on exact SHA `65f070aa3dfaa73154d3ab1ecb03d82a17abc388`: HTTPD lifecycle [43063659893], security umbrella [43063082646], AI docs [43063659714] and infosvr [43063659718] all SUCCESS; all six dedicated, 41 umbrella and seven documentation steps passed.
-- GPIO short-press code and both GNU89 ASan/UBSan binaries passed on exact SHA `54504272e2c4ca0f7783ba78aa52a2bfe212de1c`. Its source checker correctly failed because the workflow accidentally duplicated the timing header/test paths in `push` while omitting them from `pull_request`; this COMMIT normalizes both filters to exactly one occurrence of each.
-- AI docs [43064587290] and infosvr [43064587210] passed on `54504272...`; docs validator reported root log=23/119 and archives dev-log=7, handoff=22, roadmap=18. GPIO workflow [43064587271] failed only the path-count assertion after both sanitizer binaries passed. Corrected exact-head GPIO/docs Actions are pending.
-- Root `dev_log.md` grows 23→24 records; no rotation due. Archive inventory remains 7/22/18. Production MIPS/uClibc, full firmware/TRX and physical router behavior remain NOT VERIFIED.
+- Base main SHA for THIS COMMIT: `31578abaefe5b2838b7c825460e21e730176b563` (parent `54504272e2c4ca0f7783ba78aa52a2bfe212de1c`).
+- HTTPD daemon lifecycle/duplicate-launch remains L1/L2 CLOSED on exact SHA `65f070aa3dfaa73154d3ab1ecb03d82a17abc388`: HTTPD lifecycle [43063659893], security umbrella [43063082646] and AI docs [43063659714] all SUCCESS.
+- GPIO short-press timing is L1/L2 CLOSED on exact SHA `31578abaefe5b2838b7c825460e21e730176b563`: GPIO workflow [43065042288], AI docs [43065042295] and infosvr [43065042298] all SUCCESS. Startup/timing policy binaries, source/caller/path contracts and archive validation passed; docs reported root log=24/119 and archive counts 7/22/18.
+- THIS COMMIT removes a DNS Forwarder startup path's hidden current-working-directory dependency. The old slash-containing relative path `usr/bin/dns-forwarder.sh` does not use PATH lookup; `execvp()` resolves it from the caller CWD. ROMFS installs the launcher at `/usr/bin/dns-forwarder.sh`. PID 1 currently calls `chdir("/")` before normal router startup, masking the dependency for known boot calls; the absolute path makes the service robust to other caller working directories.
+- THIS COMMIT adds a CWD-behavior regression, RC/ROMFS/execvp source contracts and a dedicated exact-once symmetric push/pull_request workflow. Exact-head DNS Forwarder and AI docs Actions are pending. No local repository checkout is available, so local execution is not claimed.
+- Root `dev_log.md` grows from 24 to 25 complete records; no rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- FTP upload-cleanup TOCTOU remains P2 OPEN/BLOCKED; NFS external-client evidence remains required. Production MIPS/uClibc, complete firmware/TRX and physical router behavior remain NOT VERIFIED.
 
 ## Closed task — NVRAM HDR2 profile-save atomic publication
 
@@ -107,25 +109,35 @@
 - The previous source-check failure on `d002eba06a914d75ac79b20867dbd3cdb6f416ca` was correctly diagnosed as a false positive: the checker compared the normal launch publication with an earlier valid duplicate-daemon branch. `65f070aa...` scopes its check to the post-probe normal-launch path and passes.
 - Bounded HTTPD service-state behavior is L1/L2 CLOSED. Process presence is not socket/readiness proof; simultaneous cross-process startup locking, target MIPS/uClibc, full firmware/TRX and L4 router behavior remain open/unverified.
 
-## Active task — GPIO button hold timing and workflow contract (P2 input reliability)
+## Closed task — GPIO short-press timing and workflow contract (P2 input reliability; L1/L2 complete)
 
-- `btn_update_press_count()` starts at count 1 and advances each 100 ms, so 700–799 ms maps to count 8 and 800 ms maps to count 9. The former `count < CANCEL_COUNT` gate (`CANCEL_COUNT=8`, documented as 800 ms) dropped the complete 700–799 ms WPS/FN short-action interval.
-- Production code now centralizes monotonic elapsed-time conversion and short/long/reset predicates in `gpio_btn_timing_policy.h`. Counts 1–8 dispatch short actions, count 9 does not; >3 s long and >5 s reset boundaries are unchanged. Socket timeout and accounting share the 100 ms quantum.
-- Both GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` startup and timing binaries passed locally and on exact SHA `54504272e2c4ca0f7783ba78aa52a2bfe212de1c`. The Python checker then failed because that SHA's push path list contained each new timing path twice and pull_request contained none.
-- THIS COMMIT removes duplicate push entries and adds each timing source exactly once to both push and pull_request. The checker continues to require exactly one occurrence in each filter.
+- Production timing correction: commit `54504272e2c4ca0f7783ba78aa52a2bfe212de1c`; workflow symmetry correction: commit `31578abaefe5b2838b7c825460e21e730176b563`.
+- The hold counter begins at count 1 and advances each 100 ms. Counts 1–8 include the full 700–799 ms short-press interval; count 9 excludes 800 ms. Existing >3 s long and >5 s reset thresholds remain unchanged.
+- GPIO workflow [43065042288], AI docs [43065042295] and infosvr [43065042298] all SUCCESS on exact SHA `31578abaefe5b2838b7c825460e21e730176b563`. Startup/timing GNU89 ASan/UBSan binaries, source/caller contracts and exact-once path-filter checks passed. Docs validator reported root log=24/119 and archive counts 7/22/18.
+- The first CI run correctly exposed duplicated timing paths in push and missing pull_request entries; commit `31578aba...` corrected the filters. This bounded GPIO timing L2 slice is CLOSED.
+- Production MIPS/uClibc, physical button/LED/uevent behavior, full firmware/TRX and L4 remain NOT VERIFIED.
+
+## Active task — Remove DNS Forwarder startup's caller-CWD dependency (P2 reliability)
+
+### Finding and implementation in THIS COMMIT
+
+- `start_dnsforwarder()` passed `"usr/bin/dns-forwarder.sh"` to `eval()`, while the package installs the launcher at `/usr/bin/dns-forwarder.sh`.
+- `eval()` builds argv and delegates to `_eval()`; `_eval()` calls `execvp(argv[0], argv)`. Because the old pathname contains a slash, it is resolved relative to the caller's current working directory, not searched through PATH. A caller outside `/` therefore fails to execute the script.
+- Normal PID 1 startup currently executes `chdir("/")` before router initialization, masking this dependency in the known boot path. This change removes that implicit requirement; no existing boot outage is claimed.
+- THIS COMMIT changes the start invocation to the same absolute path already used by stop and installed by ROMFS. It adds a temporary-executable CWD regression plus service/caller/installer/execvp source contracts and exact-once symmetric workflow path filters.
 
 ### Exact next action
 
-- Fetch the resulting main SHA and inspect GPIO startup/timing plus AI docs Actions, every job step and full logs.
-- Require both sanitizer binaries, 700/799 ms inclusion, 800 ms exclusion, unchanged 3 s/5 s thresholds, production source integration, one occurrence per push/pull_request path and docs validation (root log=24/119; archive counts 7/22/18) to PASS.
-- On exact-head green, close this bounded L2 timing slice and rotate to a different userland reliability issue. FTP cleanup TOCTOU remains OPEN/BLOCKED; NFS remains external-evidence gated; MIPS/uClibc and L4 remain NOT VERIFIED.
+- Fetch live `main`; inspect the DNS Forwarder launch-path and AI handoff documentation Actions on that exact SHA, every step and full logs.
+- Require the non-root-CWD regression (old relative path fails, absolute path succeeds), service/ROMFS/execvp contracts, all ten paths exactly once in both push and pull_request filters, and docs validator (root log=25/119; archives 7/22/18) to PASS.
+- On exact-head green, close this bounded L2 slice and select another actionable whole-userland reliability issue. FTP cleanup TOCTOU remains OPEN/BLOCKED, NFS requires real client evidence, and production MIPS/uClibc/full firmware/TRX/L4 remain NOT VERIFIED.
 
 ## Verification boundary
 
-- L1 source review: PASS for HTTPD launch error/duplicate/stop/restart postconditions, and GPIO count-8 short-action inclusion with count 9 excluded at 800 ms; long and reset thresholds remain >3 s and >5 s.
-- L2 host / Actions: HTTPD lifecycle [43063659893], security umbrella [43063082646], AI docs [43063659714] and infosvr [43063659718] all SUCCESS on `65f070aa3dfaa73154d3ab1ecb03d82a17abc388`. On GPIO source SHA `54504272e2c4ca0f7783ba78aa52a2bfe212de1c`, both startup/timing sanitizer binaries passed, but source checker failed because path filters were asymmetric. AI docs [43064587290] and infosvr [43064587210] passed; root log=23/119. Corrected exact-head GPIO/docs Actions pending.
-- L3 production MIPS/uClibc object / full firmware/TRX: NOT VERIFIED for GPIO and current RC, storage, firewall and PID 1 changes.
-- L4 physical router: NOT VERIFIED. No live key/LED, uevent ordering/loss, router behavior or HTTPD socket-readiness result is claimed.
+- L1 source review: PASS for HTTPD launch/stop/restart postconditions, GPIO timing boundaries, and DNS Forwarder absolute launch path. The CWD-independence fixture and source contracts are present but not yet executed by exact-head Actions.
+- L2 host / Actions: HTTPD lifecycle [43063659893], security umbrella [43063082646] and docs [43063659714] SUCCESS on `65f070aa3dfaa73154d3ab1ecb03d82a17abc388`. GPIO [43065042288], docs [43065042295] and infosvr [43065042298] all SUCCESS on `31578abaefe5b2838b7c825460e21e730176b563`; the GPIO sanitizer binaries and source/path contracts passed. DNS Forwarder exact-head workflow/docs Actions are pending.
+- L3 production MIPS/uClibc RC objects / complete firmware/TRX: NOT VERIFIED for DNS Forwarder or prior GPIO, storage, firewall and PID 1 changes.
+- L4 router / physical hardware: NOT VERIFIED. No live DNS forwarding, daemon readiness, physical key/LED or other router behavior is claimed.
 
 ## Other open governance-ledger risks
 
@@ -139,7 +151,7 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, confirm it descends from `54504272e2c4ca0f7783ba78aa52a2bfe212de1c`, and inspect exact-head GPIO startup/timing and AI docs Actions, all steps and full logs.
-2. Require both sanitizer binaries, the 700/799 ms included and 800 ms excluded boundary, unchanged 3 s/5 s thresholds, source integration, exactly one timing path in each push/pull_request filter, and docs validation (root 24/119; archives 7/22/18).
-3. If green, close this bounded GPIO L2 timing slice and move to a different whole-userland stability issue. Do not revisit closed PID 1 or HTTPD work.
-4. FTP failed-upload cleanup TOCTOU remains OPEN/BLOCKED until a Linux 4.4-safe inode/parent design preserves STOR/APPE/REST/STOU. NFS needs real client evidence; MIPS/uClibc, full firmware/TRX and L4 remain NOT VERIFIED.
+1. Fetch live `main`, confirm the current exact SHA descends from `31578abaefe5b2838b7c825460e21e730176b563`, and inspect exact-head DNS Forwarder launch-path and AI docs Actions, every step and full logs.
+2. Require the CWD fixture (relative slash-containing path fails outside root; absolute path succeeds), RC/ROMFS/execvp contracts, ten watched paths exactly once in both push and pull_request filters, and docs validator root log=25/119 with archives=7/22/18.
+3. If exact-head Actions are green, close DNS Forwarder L2 and rotate to another actionable whole-userland stability defect. Do not revisit closed GPIO, HTTPD or PID 1 work.
+4. FTP cleanup TOCTOU remains OPEN/BLOCKED until a proved Linux 4.4-safe inode/parent design preserves STOR/APPE/REST/STOU; NFS needs client evidence; production MIPS/uClibc, full firmware/TRX and L4 remain NOT VERIFIED.
