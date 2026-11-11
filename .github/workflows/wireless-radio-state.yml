@@ -342,14 +342,17 @@ jobs:
           assert stop_helper.index("if (ret != 0)") < stop_helper.rindex("return 1;")
 
           def assert_shutdown_calls(body, interfaces):
+              normalized = " ".join(body.split())
               calls = []
               for ifname, bridge_ifname in interfaces:
                   call = ("all_stopped = wireless_radio_shutdown_status(all_stopped, "
                           "wireless_stop_interface(" + ifname + ", " + bridge_ifname + "));")
-                  assert call in body, f"shutdown must stop and detach {ifname} ({bridge_ifname})"
-                  calls.append(body.index(call))
+                  normalized_call = " ".join(call.split())
+                  assert normalized_call in normalized, (
+                      f"shutdown must stop and detach {ifname} ({bridge_ifname})")
+                  calls.append(normalized.index(normalized_call))
               assert calls == sorted(calls), "shutdown must attempt every required interface in order"
-              assert "wif_control_success(" not in body, "stop path bypasses bridge-detach helper"
+              assert "wif_control_success(" not in normalized, "stop path bypasses bridge-detach helper"
 
           wl_stop = function_body(source, "stop_wifi_all_wl(void)")
           assert "int all_stopped = 1;" in wl_stop

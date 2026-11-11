@@ -3,11 +3,11 @@
 ## Current repository state
 
 - Repository: Arlene206/padavan-4.4-2; branch main; only remote branch is main; no checkpoint branch.
-- Base main SHA for THIS COMMIT: 55740d3491fba908416b930664143943b5acca1a (parent c22542d36e9de26780b338267f41a91d99aaf34a).
+- Base main SHA for THIS COMMIT: dfd4e4711cf53620b7be75c9f65d430154249fc8 (parent 55740d3491fba908416b930664143943b5acca1a).
 - The preceding WAN bridge VLAN teardown task is L1/L2 CLOSED on exact SHA 55740d3491fba908416b930664143943b5acca1a: wireless [43069624285], AI docs [43069624357], infosvr [43069624265] and WAN callback [43069624334] all SUCCESS; all steps and full logs inspected.
 - The WAN fix preserves physical/LAN bridge ports, selects VLAN ports, and propagates failed vconfig_del_if() status through br_del_all_ifs(), WAN bridge disassembly and full restart.
-- THIS COMMIT addresses the next active P2 wireless lifecycle task: bring each radio interface down, detach its corresponding bridge port, aggregate both results, and make bridge add/delete membership idempotent.
-- Root dev_log.md grows 28→29 complete records; no rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- The active P2 wireless lifecycle change is committed at dfd4e4711cf53620b7be75c9f65d430154249fc8; its first wireless CI run exposed a whitespace-sensitive source-check false negative, now corrected in THIS COMMIT: bring each radio interface down, detach its corresponding bridge port, aggregate both results, and make bridge add/delete membership idempotent.
+- Root dev_log.md grows 29→30 complete records; no rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
 - FTP upload-cleanup TOCTOU remains P2 OPEN/BLOCKED; NFS still requires external-client evidence. Production MIPS/uClibc, full firmware/TRX and physical router behavior remain NOT VERIFIED.
 
 ## Closed task — NVRAM HDR2 profile-save atomic publication
@@ -149,7 +149,7 @@
 ### Exact next action
 
 - Inspect wireless radio-state and AI handoff documentation Actions on the resulting exact main SHA; verify all steps and full logs.
-- Require GNU89 -Wall -Wextra -Werror membership regression, all helper/membership source contracts, symmetric workflow filters and AI docs validator (root log=29/119; archives=7/22/18) to pass.
+- The first wireless run passed both GNU89 policy binaries but failed a source checker because it matched a split-line MII shutdown call literally; THIS COMMIT normalizes whitespace without relaxing call/order semantics. Require the corrected GNU89 membership regression, helper/membership source contracts, symmetric workflow filters and AI docs validator (root log=30/119; archives=7/22/18) to pass.
 - Then arrange target MIPS/uClibc and board-variant validation for bridge-port teardown, especially RT3352 MII/iNIC and DBDC. FTP cleanup TOCTOU remains OPEN/BLOCKED; NFS still requires real-client evidence; WAN PPP/IPv6, complete firmware/TRX and L4 remain NOT VERIFIED.
 
 ## Verification boundary
@@ -172,6 +172,6 @@
 ## Exact first action for the next GPT
 
 1. Fetch live main, confirm its exact SHA and inspect the wireless radio-state and AI handoff-doc Actions tied to it. Inspect every job step and the complete logs.
-2. Require the GNU89 membership policy regression, bridge add/delete idempotence checks, all 5GHz / generic 2.4GHz / RT3352 MII stop mappings, shutdown failure aggregation and symmetric workflow filters to pass on that exact SHA. AI docs must validate root log=29/119 and archives=7/22/18.
+2. Require the GNU89 membership policy regression, bridge add/delete idempotence checks, all 5GHz / generic 2.4GHz / RT3352 MII stop mappings, shutdown failure aggregation and symmetric workflow filters to pass on that exact SHA. AI docs must validate root log=30/119 and archives=7/22/18.
 3. If green, close the bounded Wi-Fi bridge-detach slice at L2. Then prioritize target MIPS/uClibc/board validation when a complete checkout/toolchain is available; do not claim L3/L4 from host Actions.
 4. FTP failed-upload cleanup TOCTOU remains OPEN/BLOCKED until a proven Linux 4.4-safe inode/parent approach preserves STOR/APPE/REST/STOU. NFS external-client evidence, WAN PPP/IPv6, firmware/TRX and L4 remain NOT VERIFIED.

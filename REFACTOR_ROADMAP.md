@@ -1,10 +1,10 @@
 ## Current source / CI checkpoint
 
-- Base main SHA for THIS COMMIT: 55740d3491fba908416b930664143943b5acca1a (parent c22542d36e9de26780b338267f41a91d99aaf34a). Only remote branch is main; no checkpoint branch.
+- Base main SHA for THIS COMMIT: dfd4e4711cf53620b7be75c9f65d430154249fc8 (parent 55740d3491fba908416b930664143943b5acca1a). Only remote branch is main; no checkpoint branch.
 - DNSMasq DHCP pool/router-address exclusion remains L1/L2 CLOSED on exact SHA c22542d36e9de26780b338267f41a91d99aaf34a: DNSMasq [43069047780], AI docs [43069047752], HTTPD [43069047723], infosvr [43069047578], Samba [43069047831] and miniupnpd [43069047633] SUCCESS.
 - WAN bridge VLAN teardown failure propagation is L1/L2 CLOSED on exact SHA 55740d3491fba908416b930664143943b5acca1a: wireless [43069624285], AI docs [43069624357], infosvr [43069624265] and WAN callback [43069624334] all SUCCESS. GNU89 VLAN-selection/status regression and source contract passed; docs validator reported root log=28/119 and archives=7/22/18.
-- THIS COMMIT fixes a P2 Wi-Fi lifecycle gap: stop_wifi_all_wl()/stop_wifi_all_rt() now detach the corresponding bridge port only after interface-down succeeds, including WDS ports and both RT3352 MII iNIC bridge ports. br_add_del_if() checks membership before add and delete and resolves only verified same-bridge EBUSY/EINVAL races. GNU89 policy cases and workflow source contracts are pending exact-head Actions.
-- Root dev_log.md grows 28→29 records; no rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- THIS COMMIT fixes a P2 Wi-Fi lifecycle gap: stop_wifi_all_wl()/stop_wifi_all_rt() now detach the corresponding bridge port only after interface-down succeeds, including WDS ports and both RT3352 MII iNIC bridge ports. br_add_del_if() checks membership before add and delete and resolves only verified same-bridge EBUSY/EINVAL races. GNU89 policy binaries passed on dfd4e4711cf53620b7be75c9f65d430154249fc8; the first workflow then exposed a whitespace-sensitive MII source assertion. THIS COMMIT normalizes whitespace in that checker; corrected exact-head Actions are pending.
+- Root dev_log.md grows 29→30 records; no rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
 - FTP upload-cleanup TOCTOU remains P2 OPEN/BLOCKED; do not use unsafe check-then-unlink. NFS external-client behavior remains evidence-gated. Production MIPS/uClibc, complete firmware/TRX and L4 router behavior remain NOT VERIFIED.
 
 ## Whole-repository module status
@@ -38,7 +38,7 @@
 
 ## Priority queue
 
-1. P2 — Verify this COMMIT's Wi-Fi shutdown/bridge detach fix on exact-head wireless and AI docs Actions; then plan MIPS/uClibc and board-variant validation for RT3352 MII/DBDC.
+1. P2 — Verify corrected Wi-Fi shutdown/bridge detach checker and AI docs on exact head; the prior wireless binaries passed but a split-line MII source call tripped a whitespace-sensitive assertion. Then plan MIPS/uClibc and board-variant validation for RT3352 MII/DBDC.
 2. P2 OPEN/BLOCKED — FTP failed-upload cleanup TOCTOU: no patch until a Linux 4.4-safe design proves inode/parent safety and preserves STOR/APPE/REST/STOU.
 3. P2 — Resolve NFS async durability, AUTH_SYS/root-squash and external mount compatibility only with real client evidence.
 4. P2 — Validate shared bridge detach/membership and VLAN ioctl paths on MIPS/uClibc and across target board variants; host policy tests do not prove live kernel behavior.

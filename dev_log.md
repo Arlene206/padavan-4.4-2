@@ -1,3 +1,15 @@
+## 2026-11-12 01:43 CST (UTC+8) — Make Wi-Fi teardown source contract formatting-agnostic
+
+- Base main SHA: dfd4e4711cf53620b7be75c9f65d430154249fc8; parent 55740d3491fba908416b930664143943b5acca1a.
+- The first exact-head wireless run [43070659944] compiled and ran both GNU89 regression binaries successfully, including "Bridge membership and teardown policy regression: PASS". Its source contract then failed only because RT3352 MII intentionally split a shutdown call across two C source lines, while the checker compared a single-line literal. The failure was a checker formatting false negative, not a C compile or policy-test failure.
+- Corrected the existing wireless workflow checker to normalize whitespace before verifying each exact interface-to-bridge call and ordering. This keeps semantic assertions strict while accepting legal C formatting.
+- The same SHA's WAN callback [43070660302], watchdog [43070659777] and infosvr [43070659762] suites passed. AI docs [43070659951], iNIC [43070659826] and HTTPD umbrella [43070659716] were still running at the time inspected; they are not recorded as passed here.
+- Corrected exact-head wireless/docs Actions are pending. The wireless lifecycle task remains open until the corrected workflow and docs validator pass on the same resulting SHA.
+- Root dev_log.md grows 29→30 complete records; no rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- Next GPT: inspect every job step and full logs for exact-head wireless, AI docs, and all other triggered workflows. Require corrected GNU89 bridge policy/source contract plus docs root log=30/119 and archives=7/22/18. MIPS/uClibc, firmware/TRX and L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-12 01:40 CST (UTC+8) — Detach Wi-Fi bridge ports during radio shutdown
 
 - Base main SHA: 55740d3491fba908416b930664143943b5acca1a; parent c22542d36e9de26780b338267f41a91d99aaf34a. main remained the only remote branch.
