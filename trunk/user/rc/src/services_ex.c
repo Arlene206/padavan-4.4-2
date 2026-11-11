@@ -1491,72 +1491,71 @@ write_inadyn_conf(const char *conf_file)
 		errno = saved_errno;
 		return 0;
 	}
-	{
-		if (strlen(wan_ifname) > 0)
-			fprintf(fp, "iface = %s\n", wan_ifname);
-		fprintf(fp, "period = %d\n", i_ddns_period);
-		fprintf(fp, "forced-update = %d\n", i_ddns_forced);
-		fprintf(fp, "allow-ipv6 = %s\n", i_ddns_ipv6 ? "true" : "false");
-		fprintf(fp, "secure-ssl = false\n");
-		fprintf(fp, "broken-rtc = true\n");
+	if (strlen(wan_ifname) > 0)
+		fprintf(fp, "iface = %s\n", wan_ifname);
+	fprintf(fp, "period = %d\n", i_ddns_period);
+	fprintf(fp, "forced-update = %d\n", i_ddns_forced);
+	fprintf(fp, "allow-ipv6 = %s\n", i_ddns_ipv6 ? "true" : "false");
+	fprintf(fp, "secure-ssl = false\n");
+	fprintf(fp, "broken-rtc = true\n");
 
-		/* DDNS 1*/
-		if (strcmp(ddns1_svc, "custom") == 0) {
-			fprintf(fp, "custom %s:1 {\n", "http_srv_basic_auth");
-		} else {
-			fprintf(fp, "provider %s:1 {\n", ddns1_svc);
+	/* DDNS 1*/
+	if (strcmp(ddns1_svc, "custom") == 0) {
+		fprintf(fp, "custom %s:1 {\n", "http_srv_basic_auth");
+	} else {
+		fprintf(fp, "provider %s:1 {\n", ddns1_svc);
+	}
+	fprintf(fp, "  ssl = %s\n", i_ddns1_ssl ? "true" : "false");
+	fprintf(fp, "  wildcard = %s\n", nvram_get_int("ddns_wildcard_x") ? "true" : "false");
+	if (strlen(ddns1_user) > 0)
+		fprintf(fp, "  username = \"%s\"\n", ddns1_user);
+	if (strlen(ddns1_pass) > 0)
+		fprintf(fp, "  password = \"%s\"\n", ddns1_pass);
+	if (ddns1_svr && *ddns1_svr && ddns1_url && *ddns1_url) {
+		/* custom ddns server */
+		fprintf(fp, "  ddns-server = \"%s\"\n", ddns1_svr);
+		fprintf(fp, "  ddns-path = \"/%s\"\n", ddns1_url);
+	}
+	if (i_ddns_source == 0 && strlen(checkip_urls[i_ddns1_checkip].server) > 0) {
+		fprintf(fp, "  checkip-server = \"%s\"\n", checkip_urls[i_ddns1_checkip].server);
+		fprintf(fp, "  checkip-path = \"%s\"\n", checkip_urls[i_ddns1_checkip].path);
+		fprintf(fp, "  checkip-ssl = \"%s\"\n", checkip_urls[i_ddns1_checkip].ssl ? "true" : "false");
+	}
+	fprintf(fp, "  hostname = { \"%s\" }\n", ddns1_hname[0]);
+	if (strlen(ddns1_hname[1]) > 2)
+		fprintf(fp, "  hostname += { \"%s\" }\n", ddns1_hname[1]);
+	if (strlen(ddns1_hname[2]) > 2)
+		fprintf(fp, "  hostname += { \"%s\" }\n", ddns1_hname[2]);
+	fprintf(fp, "}\n");
+
+	/* DDNS 2*/
+	if (ddns2_svc) {
+		fprintf(fp, "provider %s:2 {\n", ddns2_svc);
+		fprintf(fp, "  ssl = %s\n", nvram_get_int("ddns2_ssl") ? "true" : "false");
+		fprintf(fp, "  wildcard = %s\n", nvram_get_int("ddns2_wildcard_x") ? "true" : "false");
+		if (i_ddns_source == 0 && strlen(checkip_urls[i_ddns2_checkip].server) > 0) {
+			fprintf(fp, "  checkip-server = \"%s\"\n", checkip_urls[i_ddns2_checkip].server);
+			fprintf(fp, "  checkip-path = \"%s\"\n", checkip_urls[i_ddns2_checkip].path);
+			fprintf(fp, "  checkip-ssl = \"%s\"\n", checkip_urls[i_ddns2_checkip].ssl ? "true" : "false");
 		}
-		fprintf(fp, "  ssl = %s\n", i_ddns1_ssl ? "true" : "false");
-		fprintf(fp, "  wildcard = %s\n", nvram_get_int("ddns_wildcard_x") ? "true" : "false");
-		if (strlen(ddns1_user) > 0)
-			fprintf(fp, "  username = \"%s\"\n", ddns1_user);
-		if (strlen(ddns1_pass) > 0)
-			fprintf(fp, "  password = \"%s\"\n", ddns1_pass);
-		if (ddns1_svr && *ddns1_svr && ddns1_url && *ddns1_url) {
-			/* custom ddns server */
-			fprintf(fp, "  ddns-server = \"%s\"\n", ddns1_svr);
-			fprintf(fp, "  ddns-path = \"/%s\"\n", ddns1_url);
-		}
-		if (i_ddns_source == 0 && strlen(checkip_urls[i_ddns1_checkip].server) > 0) {
-			fprintf(fp, "  checkip-server = \"%s\"\n", checkip_urls[i_ddns1_checkip].server);
-			fprintf(fp, "  checkip-path = \"%s\"\n", checkip_urls[i_ddns1_checkip].path);
-			fprintf(fp, "  checkip-ssl = \"%s\"\n", checkip_urls[i_ddns1_checkip].ssl ? "true" : "false");
-		}
-		fprintf(fp, "  hostname = { \"%s\" }\n", ddns1_hname[0]);
-		if (strlen(ddns1_hname[1]) > 2)
-			fprintf(fp, "  hostname += { \"%s\" }\n", ddns1_hname[1]);
-		if (strlen(ddns1_hname[2]) > 2)
-			fprintf(fp, "  hostname += { \"%s\" }\n", ddns1_hname[2]);
+		if (strlen(ddns2_user) > 0)
+			fprintf(fp, "  username = \"%s\"\n", ddns2_user);
+		if (strlen(ddns2_pass) > 0)
+			fprintf(fp, "  password = \"%s\"\n", ddns2_pass);
+		fprintf(fp, "  hostname = \"%s\"\n", ddns2_hname);
 		fprintf(fp, "}\n");
+	}
 
-		/* DDNS 2*/
-		if (ddns2_svc) {
-			fprintf(fp, "provider %s:2 {\n", ddns2_svc);
-			fprintf(fp, "  ssl = %s\n", nvram_get_int("ddns2_ssl") ? "true" : "false");
-			fprintf(fp, "  wildcard = %s\n", nvram_get_int("ddns2_wildcard_x") ? "true" : "false");
-			if (i_ddns_source == 0 && strlen(checkip_urls[i_ddns2_checkip].server) > 0) {
-				fprintf(fp, "  checkip-server = \"%s\"\n", checkip_urls[i_ddns2_checkip].server);
-				fprintf(fp, "  checkip-path = \"%s\"\n", checkip_urls[i_ddns2_checkip].path);
-				fprintf(fp, "  checkip-ssl = \"%s\"\n", checkip_urls[i_ddns2_checkip].ssl ? "true" : "false");
-			}
-			if (strlen(ddns2_user) > 0)
-				fprintf(fp, "  username = \"%s\"\n", ddns2_user);
-			if (strlen(ddns2_pass) > 0)
-				fprintf(fp, "  password = \"%s\"\n", ddns2_pass);
-			fprintf(fp, "  hostname = \"%s\"\n", ddns2_hname);
-			fprintf(fp, "}\n");
-		}
+	load_user_config(fp, INADYN_USER_DIR, "inadyn.conf", NULL);
 
-		load_user_config(fp, INADYN_USER_DIR, "inadyn.conf", NULL);
+	if (inadyn_config_file_publish(fp, staged_path, conf_file) != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(LOGNAME, "cannot publish Inadyn configuration (errno=%d)", saved_errno);
+		errno = saved_errno;
+		return 0;
+	}
 
-		if (inadyn_config_file_publish(fp, staged_path, conf_file) != 0) {
-			saved_errno = errno ? errno : EIO;
-			logmessage(LOGNAME, "cannot publish Inadyn configuration (errno=%d)", saved_errno);
-			errno = saved_errno;
-			return 0;
-		}
-
-		return 1;
+	return 1;
 }
 
 int

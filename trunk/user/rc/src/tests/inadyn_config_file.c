@@ -127,7 +127,7 @@ main(void)
 	staged_path[0] = 'x';
 	errno = 0;
 	assert(inadyn_config_file_open(NULL, staged_path, sizeof(staged_path)) == NULL);
-	assert(errno == EINVAL && staged_path[0] == 'x');
+	assert(errno == EINVAL && staged_path[0] == '\0');
 
 	assert(umask(old_umask) == 0000);
 	assert(unlink(config) == 0);

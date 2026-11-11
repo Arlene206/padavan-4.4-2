@@ -25,11 +25,15 @@ inadyn_config_file_open(const char *destination, char *staged_path,
 	struct stat st;
 	FILE *fp;
 
-	if (!destination || !destination[0] || !staged_path || staged_path_size == 0) {
+	if (!staged_path || staged_path_size == 0) {
 		errno = EINVAL;
 		return NULL;
 	}
 	staged_path[0] = '\0';
+	if (!destination || !destination[0]) {
+		errno = EINVAL;
+		return NULL;
+	}
 
 	path_length = snprintf(staged_path, staged_path_size, "%s.tmp.XXXXXX",
 	                       destination);

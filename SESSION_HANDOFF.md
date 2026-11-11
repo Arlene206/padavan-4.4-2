@@ -1,23 +1,23 @@
 ## Current repository state
 
-- Maintained fork: Arlene206/padavan-4.4-2; active branch: main. Base before THIS COMMIT: 54efbf7892bed290bde81e3eec89d907e9adfa0e; parent: e0e5a368f35a90e084c31c74dd0f65c43c1f01f8. Remote branch inventory: main only; no checkpoint branch.
-- Previous GPT task closed: WDM/NDIS control-node identity is implemented at exact source SHA f06807f5b7efb59d7760fda0756f64ea01ddf00b. Dedicated USB modem regression/source contract [42972870550] and docs [42972870467] passed there. Dependent HTTPD contract and AI docs both passed on exact main SHA 54efbf7892bed290bde81e3eec89d907e9adfa0e: HTTPD [42973652085] (all 39 steps, including USB metadata step 19) and docs [42973652062] (root log 91/119; archives dev-log=6, handoff=22, roadmap=18). Multi-modem target behavior remains unverified.
-- New finding: PID 1 calls `umask(0000)` in `init_main_loop()`, then handles `RCN_RESTART_DDNS` in-process. `write_inadyn_conf()` used `fopen("/etc/inadyn.conf", "w")` and wrote DDNS usernames/passwords, so the generated credential-bearing config could be created as mode 0666. It also ignored stream write/close failures; both DDNS start and live-daemon SIGHUP paths ignored its return status.
-- Fix in THIS COMMIT: publish Inadyn config using private same-directory `mkstemp` staging, enforce owner-only 0600 before writing, check flush/error/fsync/close, then atomically rename. Start and SIGHUP paths now fail closed if config publication fails, preserving the last-known-good file and preventing a daemon reload of a partial config.
-- Changed paths: `trunk/user/rc/src/services_ex.c`, new `inadyn_config_file.h` and `tests/inadyn_config_file.c`, `.github/workflows/dnsmasq-lifecycle.yml`, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and dev_log.md.
-- Root dev_log.md: 91 complete records before THIS COMMIT, 92 after; below 120-entry / 384 KiB rotation triggers and 512 KiB hard limit. No archive or `docs/dev-log/INDEX.md` update is due.
+- Maintained fork: Arlene206/padavan-4.4-2; active branch: main. Base before THIS COMMIT: 3ebf4c34c59b7966c54b35ea079a94ee630039f8; parent: 54efbf7892bed290bde81e3eec89d907e9adfa0e. Remote branch inventory: main only; no checkpoint branch.
+- Previous code change introduced the private atomic Inadyn config publisher and zero-umask regression. On exact SHA 3ebf4c34c59b7966c54b35ea079a94ee630039f8, the new GNU89 ASan/UBSan host test passed step 5 of DNSMasq workflow [42976668482], but step 6's source-contract parser failed because the edited `write_inadyn_conf()` lacked its function-closing brace. This was a production-source syntax defect discovered by the contract; no target build was claimed.
+- Other exact-head evidence on 3ebf4c34c59b7966c54b35ea079a94ee630039f8: HTTPD [42976668472], miniupnpd [42976668474], Samba [42976668592] and AI docs [42976668461] all SUCCESS. AI docs reported root log 92/119 and archive inventory dev-log=6, handoff=22, roadmap=18.
+- Fix in THIS COMMIT: remove the unnecessary inner block and restore the writer's function boundary; make invalid helper arguments clear the staging path; assert that behavior in the regression. No change to the confidentiality/atomic-rename design.
+- Changed paths: `trunk/user/rc/src/services_ex.c`, `inadyn_config_file.h`, `tests/inadyn_config_file.c`, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and dev_log.md.
+- Root dev_log.md: 92 complete records before THIS COMMIT, 93 after; below 120-entry / 384 KiB rotation triggers and 512 KiB hard limit. No archive or `docs/dev-log/INDEX.md` update is due.
 - Open items: FTP upload-cleanup TOCTOU remains OPEN/BLOCKED pending a semantics-preserving unlink design; NFS client/export durability and AUTH_SYS/root-squash remain evidence-gated; MIPS/uClibc full firmware/TRX, BusyBox ash and L4 hardware behavior remain NOT VERIFIED.
 
 ## Active task
 
-- Verify the private Inadyn configuration regression and production source contract, plus the existing DNSMasq lifecycle and AI handoff workflows, against the exact resulting main SHA. Inspect every job, step and full log.
-- If green, close this DDNS credential-publication slice and continue to a different whole-repository stability issue; do not return to the completed USB WDM/NDIS or OpenVPN credential work. Preserve FTP TOCTOU and NFS external-evidence boundaries.
+- Re-run and inspect the complete DNSMasq lifecycle workflow, including the Inadyn GNU89 ASan/UBSan regression and source-contract parser, plus AI docs on the exact resulting main SHA.
+- The initial Inadyn host regression already passed on parent SHA 3ebf4c34c59b7966c54b35ea079a94ee630039f8; the only failure was the missing closing brace caught by the source-contract step. If exact-head Actions pass, close this slice and rotate to another whole-repository issue. Do not repeat the already-closed WDM/NDIS or OpenVPN credential fixes.
 
 ## Exact first action for the next GPT
 
 1. Fetch live main, parent and remote branch inventory; verify the exact resulting SHA.
-2. Query all Actions for that SHA. Inspect the new Inadyn regression/source-contract step in DNSMasq lifecycle, the existing DNSMasq restart/lock tests and AI docs. Confirm docs validation reports root log 92/119 and unchanged archive inventory.
-3. If green, rotate to another module from the whole-repository ledger. Keep FTP cleanup OPEN/BLOCKED, NFS client evidence-gated, and MIPS/uClibc/firmware/TRX/L4 testing explicitly unverified.
+2. Query all Actions for that SHA. Inspect every DNSMasq job step/full log and AI docs validator. Confirm root log 93/119 and unchanged archive inventory.
+3. If green, choose a distinct subsystem task. Keep FTP cleanup OPEN/BLOCKED, NFS client evidence-gated, and MIPS/uClibc/firmware/TRX/L4 testing explicitly unverified.
 
 ## PID 1 notification queue batch fairness
 

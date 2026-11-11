@@ -1,3 +1,16 @@
+## 2026-11-11 (UTC+8) — Restore Inadyn writer function boundary after exact-head contract failure
+
+- Base main SHA: 3ebf4c34c59b7966c54b35ea079a94ee630039f8; parent: 54efbf7892bed290bde81e3eec89d907e9adfa0e. Remote branch inventory: main only.
+- Exact-base Actions: the Inadyn GNU89 ASan/UBSan host regression passed DNSMasq workflow [42976668482] step 5, proving zero-umask mode 0666 reproduction, private 0600 publication, atomic replacement, symlink-target preservation, abort and rename-failure cleanup. Step 6 then failed its source parser because the modified `write_inadyn_conf()` lacked the function-closing brace. HTTPD [42976668472], miniupnpd [42976668474], Samba [42976668592] and AI docs [42976668461] all passed on the same SHA; docs reported root log 92/119.
+- Fix in THIS COMMIT: remove the unnecessary inner block, restore the proper function boundary and clear the caller's staging path when `inadyn_config_file_open()` rejects invalid destination arguments. Extend the host regression to assert that error-path contract. The private atomic publication design and DDNS start/SIGHUP gates are otherwise unchanged.
+- Changed paths: `trunk/user/rc/src/services_ex.c`, `trunk/user/rc/src/inadyn_config_file.h`, `trunk/user/rc/src/tests/inadyn_config_file.c`, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and this log.
+- Validation: exact-base ASan/UBSan test PASS; exact-base source contract found the syntax boundary defect. This follow-up awaits exact-head DNSMasq and AI docs Actions. No production MIPS/uClibc compile, full firmware/TRX, BusyBox ash, or L4 DDNS runtime is claimed.
+- Root dev_log.md: 92 complete records before this entry; 93 after. Below 120-entry / 384 KiB rotation triggers and 512 KiB hard limit; no archive or `docs/dev-log/INDEX.md` update is due.
+- Resulting commit: THIS COMMIT.
+- Next: inspect exact-head DNSMasq lifecycle test/source contract and AI docs logs; confirm all tests and docs validation pass. Then select a different subsystem. FTP cleanup TOCTOU remains OPEN/BLOCKED; NFS external client evidence remains required.
+
+---
+
 ## 2026-11-11 (UTC+8) — Publish Inadyn DDNS credentials through private atomic staging
 
 - Base main SHA: 54efbf7892bed290bde81e3eec89d907e9adfa0e; parent: e0e5a368f35a90e084c31c74dd0f65c43c1f01f8. Remote branch inventory: main only; no checkpoint branch.
