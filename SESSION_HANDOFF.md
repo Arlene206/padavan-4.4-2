@@ -1,23 +1,23 @@
 ## Current repository state
 
-- Maintained fork: Arlene206/padavan-4.4-2; active branch: main. Base before THIS COMMIT: e0e5a368f35a90e084c31c74dd0f65c43c1f01f8; parent: f06807f5b7efb59d7760fda0756f64ea01ddf00b. Remote branch inventory: main only, no separate checkpoint branch.
-- USB WDM/NDIS physical-identity implementation remains at parent SHA f06807f5b7efb59d7760fda0756f64ea01ddf00b. Dedicated USB modem workflow [42972870550] passed its GNU89 host regression and WDM/NDIS source contract; AI docs [42972870467] passed and confirmed root log 89/119, archives dev-log=6, handoff=22, roadmap=18.
-- Dependent HTTPD umbrella run [42973352522] passed all preceding regression steps including the USB modem metadata host binary, then failed at step 19's Python contract. The first correction moved the range assertion to the shared policy header, but the follow-up assertion still wrongly required the validator identifier text to be in `modem_node_file.h`; that file only includes `modem_node_identity_policy.h`. This is another stale source assertion, not a production regression.
-- Fix in THIS COMMIT: assert that `modem_node_file.h` includes `modem_node_identity_policy.h`, and assert the devnum range in the shared policy header. No production source or host-test behavior changes.
-- Changed paths: `.github/workflows/httpd-security.yml`, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and dev_log.md.
-- Root dev_log.md: 90 complete records before THIS COMMIT, 91 after; below 120-entry / 384 KiB rotation triggers and 512 KiB hard limit. No archive or docs/dev-log/INDEX.md update is due.
-- Open items: FTP upload-cleanup TOCTOU remains OPEN/BLOCKED; NFS client/export semantics remain evidence-gated; target MIPS/uClibc, complete firmware/TRX, BusyBox ash and L4 router behavior remain NOT VERIFIED.
+- Maintained fork: Arlene206/padavan-4.4-2; active branch: main. Base before THIS COMMIT: 54efbf7892bed290bde81e3eec89d907e9adfa0e; parent: e0e5a368f35a90e084c31c74dd0f65c43c1f01f8. Remote branch inventory: main only; no checkpoint branch.
+- Previous GPT task closed: WDM/NDIS control-node identity is implemented at exact source SHA f06807f5b7efb59d7760fda0756f64ea01ddf00b. Dedicated USB modem regression/source contract [42972870550] and docs [42972870467] passed there. Dependent HTTPD contract and AI docs both passed on exact main SHA 54efbf7892bed290bde81e3eec89d907e9adfa0e: HTTPD [42973652085] (all 39 steps, including USB metadata step 19) and docs [42973652062] (root log 91/119; archives dev-log=6, handoff=22, roadmap=18). Multi-modem target behavior remains unverified.
+- New finding: PID 1 calls `umask(0000)` in `init_main_loop()`, then handles `RCN_RESTART_DDNS` in-process. `write_inadyn_conf()` used `fopen("/etc/inadyn.conf", "w")` and wrote DDNS usernames/passwords, so the generated credential-bearing config could be created as mode 0666. It also ignored stream write/close failures; both DDNS start and live-daemon SIGHUP paths ignored its return status.
+- Fix in THIS COMMIT: publish Inadyn config using private same-directory `mkstemp` staging, enforce owner-only 0600 before writing, check flush/error/fsync/close, then atomically rename. Start and SIGHUP paths now fail closed if config publication fails, preserving the last-known-good file and preventing a daemon reload of a partial config.
+- Changed paths: `trunk/user/rc/src/services_ex.c`, new `inadyn_config_file.h` and `tests/inadyn_config_file.c`, `.github/workflows/dnsmasq-lifecycle.yml`, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and dev_log.md.
+- Root dev_log.md: 91 complete records before THIS COMMIT, 92 after; below 120-entry / 384 KiB rotation triggers and 512 KiB hard limit. No archive or `docs/dev-log/INDEX.md` update is due.
+- Open items: FTP upload-cleanup TOCTOU remains OPEN/BLOCKED pending a semantics-preserving unlink design; NFS client/export durability and AUTH_SYS/root-squash remain evidence-gated; MIPS/uClibc full firmware/TRX, BusyBox ash and L4 hardware behavior remain NOT VERIFIED.
 
 ## Active task
 
-- Verify the corrected HTTPD modem source contract and AI handoff docs on the exact resulting main SHA. The dedicated USB modem workflow on the unchanged source SHA f06807f5b7efb59d7760fda0756f64ea01ddf00b already passed; verify HTTPD and docs reruns on the new SHA.
-- If the corrected HTTPD step 19 and AI docs both pass, close the WDM/NDIS identity slice and rotate to a different whole-repository stability issue. Do not repeat OpenVPN, PPP/RAS or HTTPD production fixes. Keep FTP cleanup TOCTOU OPEN/BLOCKED until a semantics-preserving design is proven.
+- Verify the private Inadyn configuration regression and production source contract, plus the existing DNSMasq lifecycle and AI handoff workflows, against the exact resulting main SHA. Inspect every job, step and full log.
+- If green, close this DDNS credential-publication slice and continue to a different whole-repository stability issue; do not return to the completed USB WDM/NDIS or OpenVPN credential work. Preserve FTP TOCTOU and NFS external-evidence boundaries.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and remote branches; verify exact SHA and parent.
-2. Query all Actions for that exact SHA; inspect every job, step and full HTTPD/AI docs log. Confirm step 19 passes and docs validator reports root log 91/119.
-3. If green, choose the next stability bug from the whole-repository ledger; keep FTP cleanup TOCTOU, NFS client evidence and target L3/L4 validation explicit.
+1. Fetch live main, parent and remote branch inventory; verify the exact resulting SHA.
+2. Query all Actions for that SHA. Inspect the new Inadyn regression/source-contract step in DNSMasq lifecycle, the existing DNSMasq restart/lock tests and AI docs. Confirm docs validation reports root log 92/119 and unchanged archive inventory.
+3. If green, rotate to another module from the whole-repository ledger. Keep FTP cleanup OPEN/BLOCKED, NFS client evidence-gated, and MIPS/uClibc/firmware/TRX/L4 testing explicitly unverified.
 
 ## PID 1 notification queue batch fairness
 

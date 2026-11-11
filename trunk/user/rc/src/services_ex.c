@@ -34,6 +34,7 @@
 
 #include "rc.h"
 #include "dnsmasq_file.h"
+#include "inadyn_config_file.h"
 #include "dnsmasq_lifecycle_lock.h"
 #include "dnsmasq_restart_policy.h"
 #include "miniupnpd_config_file.h"
@@ -1424,6 +1425,8 @@ static int
 write_inadyn_conf(const char *conf_file)
 {
 	FILE *fp;
+	char staged_path[PATH_MAX];
+	int saved_errno;
 	int i_max, i_ddns_source, i_ddns_period, i_ddns_forced, i_ddns_ipv6;
 	int i_ddns1_ssl, i_ddns1_checkip;
 	int i_ddns2_ssl, i_ddns2_checkip;
@@ -1481,8 +1484,14 @@ write_inadyn_conf(const char *conf_file)
 	ddns2_user  = nvram_safe_get("ddns2_user");
 	ddns2_pass  = nvram_safe_get("ddns2_pass");
 
-	fp = fopen(conf_file, "w");
-	if (fp) {
+	fp = inadyn_config_file_open(conf_file, staged_path, sizeof(staged_path));
+	if (!fp) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(LOGNAME, "cannot stage Inadyn configuration (errno=%d)", saved_errno);
+		errno = saved_errno;
+		return 0;
+	}
+	{
 		if (strlen(wan_ifname) > 0)
 			fprintf(fp, "iface = %s\n", wan_ifname);
 		fprintf(fp, "period = %d\n", i_ddns_period);
@@ -1539,13 +1548,15 @@ write_inadyn_conf(const char *conf_file)
 		}
 
 		load_user_config(fp, INADYN_USER_DIR, "inadyn.conf", NULL);
-		
-		fclose(fp);
-		
-		return 1;
-	}
 
-	return 0;
+		if (inadyn_config_file_publish(fp, staged_path, conf_file) != 0) {
+			saved_errno = errno ? errno : EIO;
+			logmessage(LOGNAME, "cannot publish Inadyn configuration (errno=%d)", saved_errno);
+			errno = saved_errno;
+			return 0;
+		}
+
+		return 1;
 }
 
 int
@@ -1568,7 +1579,8 @@ start_ddns(int clear_cache)
 
 	mkdir(DDNS_CACHE_DIR, 0777);
 
-	write_inadyn_conf(DDNS_CONF_FILE);
+	if (!write_inadyn_conf(DDNS_CONF_FILE))
+		return -1;
 
 	startup_delay = (!is_ntpc_updated()) ? "30" : "3";
 
@@ -1586,7 +1598,8 @@ int
 notify_ddns_update(void)
 {
 	if (pids("inadyn")) {
-		write_inadyn_conf(DDNS_CONF_FILE);
+		if (!write_inadyn_conf(DDNS_CONF_FILE))
+			return -1;
 		return doSystem("killall %s %s", "-SIGHUP", "inadyn");
 	}
 

@@ -1,3 +1,18 @@
+## 2026-11-11 (UTC+8) — Publish Inadyn DDNS credentials through private atomic staging
+
+- Base main SHA: 54efbf7892bed290bde81e3eec89d907e9adfa0e; parent: e0e5a368f35a90e084c31c74dd0f65c43c1f01f8. Remote branch inventory: main only; no checkpoint branch.
+- Previous handoff task closed: WDM/NDIS physical identity implementation at source SHA f06807f5b7efb59d7760fda0756f64ea01ddf00b passed dedicated regression/source contract [42972870550] and docs [42972870467]. Corrected HTTPD contract [42973652085] and AI handoff docs [42973652062] both passed on exact base main SHA 54efbf7892bed290bde81e3eec89d907e9adfa0e; HTTPD completed all 39 named steps and docs reported root log 91/119, archive inventory dev-log=6, handoff=22, roadmap=18.
+- Finding: PID 1 sets `umask(0000)` in `init_main_loop()` and handles DDNS restart notifications in-process. `write_inadyn_conf()` opened `/etc/inadyn.conf` with `fopen(..., "w")`, then wrote primary/secondary DDNS usernames and passwords. Under that zero umask, a newly created file could be mode 0666, disclosing and allowing modification of stored DDNS credentials. The writer also ignored fprintf/flush/close failures; `start_ddns()` and the running-daemon SIGHUP path ignored its result.
+- Fix in THIS COMMIT: add a same-directory `mkstemp` publisher that validates the staged inode, forces mode 0600 before writing, checks stream error/flush/fsync/close, and atomically renames only a complete config. Start and SIGHUP paths now require successful publication; failed generation keeps the previous config and does not launch/reload inadyn.
+- Regression: new GNU89 ASan/UBSan host test reproduces the old 0666 zero-umask mode and checks 0600 publication, fresh inode, symlink replacement without modifying the symlink target, partial-build abort, rename-failure cleanup and last-known-good preservation. DNSMasq lifecycle workflow adds the regression and semantic contracts for PID 1's zero umask, both DDNS publication gates and symmetric push/PR path filters.
+- Changed paths: `trunk/user/rc/src/services_ex.c`, new `trunk/user/rc/src/inadyn_config_file.h`, new `trunk/user/rc/src/tests/inadyn_config_file.c`, `.github/workflows/dnsmasq-lifecycle.yml`, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and this log.
+- Validation: L1 source/call-path review PASS. Exact-head GNU89 ASan/UBSan regression and DNSMasq lifecycle/docs Actions are pending. No local full checkout, production MIPS/uClibc object, firmware/TRX, BusyBox ash runtime or L4 DDNS router behavior is claimed.
+- Root dev_log.md: 91 complete records before this entry; 92 afterward. Below 120-entry / 384 KiB rotation triggers and 512 KiB hard limit; no archive or `docs/dev-log/INDEX.md` update is due.
+- Resulting commit: THIS COMMIT.
+- Next: inspect every exact-head DNSMasq lifecycle and AI docs job/step/full log; confirm the Inadyn host regression, publication/start/reload source contract and docs archive integrity all pass. Then move to another module. FTP cleanup TOCTOU remains OPEN/BLOCKED; NFS external client compatibility remains evidence-gated.
+
+---
+
 ## 2026-11-11 (UTC+8) — Correct the HTTPD USB identity header-boundary assertion
 
 - Base main SHA: e0e5a368f35a90e084c31c74dd0f65c43c1f01f8; parent f06807f5b7efb59d7760fda0756f64ea01ddf00b; remote branch inventory: main only.
