@@ -3,9 +3,9 @@
 ## Current repository state
 
 - Repository: Arlene206/padavan-4.4-2; branch: main; latest branch inventory contains main only; no remote checkpoint branch.
-- Base main SHA for THIS COMMIT: `abff1ed57217c1fe482bf80c2c419dde66437bf0` (parent `c4afed88518d2c4a9dc8c4e4dc2d0f2f129996f4`). Resolve the resulting SHA from live main after publication.
-- Bootstrap recovery completed in required order: AI_BOOTSTRAP_PROMPT.md, AI_DEVELOPMENT_PROTOCOL.md, live main ref, current handoff, roadmap, newest 20 complete dev-log records, archive index, branch inventory and exact-head Actions. On exact SHA `abff1ed57217c1fe482bf80c2c419dde66437bf0`, udhcpc [43040638862], infosvr [43040638851] and AI docs [43040638793] passed; storage [43040639192] passed steps 3–8 and the BusyBox build/ash/awk/flock smoke plus script syntax checks, but failed in the BusyBox ash lock regression. Every step and complete available log was inspected.
-- Root dev_log.md has 114 complete newest-first records before THIS COMMIT and will have 115 afterward, below the 120-record / 384 KiB rotation triggers and 512 KiB hard cap. Archive inventory remains dev-log=6, handoff=22, roadmap=18; no rotation/index update is due.
+- Base main SHA for THIS COMMIT: `21badf5dab5bc73f2768ccdbc381dcc70f6dcc0d` (parent `abff1ed57217c1fe482bf80c2c419dde66437bf0`). Resolve the resulting SHA from live main after publication.
+- Bootstrap recovery completed in required order: AI_BOOTSTRAP_PROMPT.md, AI_DEVELOPMENT_PROTOCOL.md, live main ref, current handoff, roadmap, newest 20 complete dev-log records, archive index, branch inventory and exact-head Actions. On exact SHA `21badf5dab5bc73f2768ccdbc381dcc70f6dcc0d`, infosvr [43041511033] and AI docs [43041510759] passed; storage [43041510879] passed steps 3–8 but failed in the ash lock regression on BusyBox `sleep 0.1`. Every step and complete available logs were inspected.
+- Root dev_log.md has 115 complete newest-first records before THIS COMMIT and will have 116 afterward, below the 120-record / 384 KiB rotation triggers and 512 KiB hard cap. Archive inventory remains dev-log=6, handoff=22, roadmap=18; no rotation/index update is due.
 
 ## Closed task — NVRAM HDR2 profile-save atomic publication
 
@@ -82,28 +82,27 @@
 
 ### Exact-head Actions reviewed
 
-- Live main at recovery: `abff1ed57217c1fe482bf80c2c419dde66437bf0`; remote branch inventory contains only `main`, with no checkpoint.
-- Storage workflow [43040639192] completed FAILURE on that exact SHA. Steps 3–8 passed. Step 9 built and linked BusyBox 1.24.2; direct ash and awk executions, descriptor-backed `flock -n 9` / `flock -u 9` smoke, and production-script `ash -n` checks passed. The first lifecycle test then exited with `flock is required for this regression`.
-- The precise cause is the test's preliminary `command -v flock` check. The firmware-derived BusyBox config has `CONFIG_ASH_CMDCMD` disabled (the oldconfig log confirms the option was left unset), so this ash build does not provide the optional `command` builtin used by that guard. The later real `flock` operation is the meaningful requirement; the guard is incompatible with the exact shell configuration and must be removed. Lock/teardown/startup behavior under ash has not yet been completed.
-- UdHCPC [43040638862] SUCCESS: GNU89 ASan/UBSan retry-policy binary and corrected event-script/lease-state source contract passed.
-- Infosvr [43040638851] SUCCESS: packet initialization/bounds and SIGTERM deferral ASan/UBSan policy tests plus semantic source contract passed.
-- AI handoff docs [43040638793] SUCCESS. Validator reported root log 114/119 and archives dev-log=6, handoff=22, roadmap=18.
+- Live main at recovery: `21badf5dab5bc73f2768ccdbc381dcc70f6dcc0d`; remote branch inventory contains only `main`, with no checkpoint.
+- Storage workflow [43041510879] completed FAILURE on that exact SHA. Steps 3–8 passed. Step 9 built and linked BusyBox 1.24.2; direct ash/awk execution, descriptor-backed `flock -n 9` / `flock -u 9` smoke, production-script ash syntax checks and the revised lock-test startup all passed far enough to enter the bounded lock-wait poll.
+- The remaining exact failure is `sleep: invalid number '0.1'`. BusyBox 1.24.2's sleep applet accepts integer intervals; the lock regression's 0.1-second poll was written against the host shell's sleep. This is another host-vs-firmware applet compatibility issue in the test, not a production lifecycle failure.
+- The prior `command -v flock` mismatch is resolved: the test no longer relies on optional `CONFIG_ASH_CMDCMD`. Do not enable that feature just for CI.
+- Infosvr [43041511033] SUCCESS: GNU89 ASan/UBSan packet and SIGTERM policy tests and source contract passed. AI docs [43041510759] SUCCESS: root log 115/119, archives dev-log=6, handoff=22, roadmap=18.
 
 ### Fix in THIS COMMIT
 
-- Remove only the non-portable `command -v flock` preflight from `optware_lifecycle_lock.sh`. Its first lock acquisition already executes `flock 9`; the dedicated CI smoke also proves the actual BusyBox applet can acquire/release a descriptor lock.
-- Do not enable `CONFIG_ASH_CMDCMD` merely to accommodate the test. Keep the host ash feature set matched to the firmware board config. No production lifecycle code changes are intended.
+- Change the lock regression's polling interval to integer `sleep 1` and reduce the attempt ceiling from 50 to 5, keeping a bounded ~4-second failure window. This is supported by BusyBox 1.24.2 and avoids substituting the host sleep applet.
+- No production lifecycle implementation or firmware BusyBox configuration is changed.
 
 ### Exact next action
 
-- Fetch the resulting live main SHA. Inspect storage and AI handoff docs Actions on that exact SHA, every job step and complete logs; confirm the udhcpc and infosvr workflows remain green for the same commit.
-- Require all three Optware lock/teardown/startup regressions to complete under BusyBox ash, followed by storage policy binaries and the whole caller-graph/lock/failure-propagation source contract (steps 10–13).
+- Fetch the resulting live main SHA. Inspect storage, infosvr and AI handoff docs Actions on that exact SHA, every step and complete logs.
+- Require BusyBox build/link, direct applet smoke, all production-script ash syntax checks, lock contention/release, teardown status, startup supervision/rollback, and storage policy/caller-graph regressions (steps 9–13) to pass.
 - Keep production MIPS/uClibc objects, complete firmware/TRX, matching router BusyBox runtime and L4 hotplug/lock timing NOT VERIFIED. FTP upload-cleanup TOCTOU remains OPEN/BLOCKED absent a Linux 4.4-safe semantics-preserving design.
 
 ## Verification boundary
 
-- L1 source review: PASS for BusyBox udhcpc event-status/lease-publication gating, storage-backed daemon stop postconditions, Optware exact-/proc/swaps fail-closed teardown and caller/lock-order graph, and infosvr SIGTERM deferral/normal-context cleanup. The remaining storage failure is isolated to the lock regression's optional `command -v` preflight; the firmware BusyBox ash configuration disables that builtin. THIS COMMIT removes the test-only assumption while leaving the actual lock checks intact.
-- L2: on exact SHA `abff1ed57217c1fe482bf80c2c419dde66437bf0`, udhcpc [43040638862], infosvr [43040638851] and AI docs [43040638793] passed. Storage [43040639192] passed POSIX-shell syntax/lock/teardown/startup steps 3–8, BusyBox 1.24.2 build/link, direct ash/awk/flock smoke and `ash -n` script checks; the first under-ash lifecycle regression stopped at `command -v flock` because `CONFIG_ASH_CMDCMD` is disabled. Teardown/startup under ash and storage steps 10–13 therefore remain pending. New exact-head storage/docs verification is pending.
+- L1 source/config review: PASS for DHCPACK event-status/lease-publication gating, storage-backed daemon stop postconditions, Optware exact-/proc/swaps fail-closed teardown and lock ordering, infosvr SIGTERM deferral/normal-context cleanup. The previous optional `command -v` test mismatch has been removed. The current storage failure is only the test harness's fractional sleep interval, unsupported by BusyBox 1.24.2.
+- L2: on exact SHA `21badf5dab5bc73f2768ccdbc381dcc70f6dcc0d`, infosvr [43041511033] and AI docs [43041510759] passed. Storage [43041510879] passed steps 3–8, BusyBox 1.24.2 build/link, direct ash/awk/flock smoke, production-script ash syntax and the command-builtin-free lock-test entry; the test then failed at `sleep 0.1` (`sleep: invalid number '0.1'`). Teardown/startup under ash and storage steps 10–13 remain pending. THIS COMMIT switches to integer sleep with a bounded poll; exact-head storage/docs reruns are pending.
 - Production MIPS/uClibc objects, complete firmware/TRX, live DHCP v4/v6 behavior, matching target BusyBox ash 1.24.2 and L4 router behavior remain NOT VERIFIED.
 
 ## Other open governance-ledger risks
@@ -112,13 +111,13 @@
 2. NFS async durability, AUTH_SYS/root-squash and external mount compatibility — P2 OPEN; require real client evidence.
 3. Wireless bulk detach / bridge ownership across board variants — target validation open.
 4. WAN PPP reconnect, callback recovery and IPv6 rollback — target behavior NOT VERIFIED.
-5. Optware lock/fd/concurrent start-stop behavior — BusyBox 1.24.2 build/link, descriptor-lock smoke and ash syntax checks now pass; the lock script's `command -v` preflight failed because firmware ash disables CONFIG_ASH_CMDCMD. This commit removes that test-only optional-builtin dependency; exact-head ash regressions remain pending. Production MIPS/uClibc and router runtime remain NOT VERIFIED.
+5. Optware lock/fd/concurrent start-stop behavior — BusyBox 1.24.2 build/link, descriptor-lock smoke and syntax checks pass; the first ash regression exposed an unsupported fractional sleep argument. THIS COMMIT uses integer sleep and a bounded retry count. Exact-head ash regressions remain pending. Production MIPS/uClibc and router runtime remain NOT VERIFIED.
 6. FULLCONENAT board/kernel/ABI coverage — prior object evidence is not a full firmware build.
 7. All complete MIPS/uClibc builds, firmware/TRX inspection and physical-router flash/boot remain NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` SHA and confirm it descends from this commit; inspect storage [USB storage hotplug stability regression] and AI handoff docs Actions on that exact SHA, every job step and complete logs; confirm udhcpc [BusyBox udhcpc event script status stability regression] and infosvr [infosvr packet and signal lifecycle stability regression] remain green on the same SHA.
-2. Require the BusyBox 1.24.2 ash run to pass lock contention/release, teardown-status and startup-supervision/rollback regressions; then require storage steps 10–13 (GNU89 policy tests and full caller graph/locks/failure propagation) to pass.
-3. If an ash failure remains, preserve the firmware-derived shell configuration and diagnose the exact missing feature/behavior. Do not enable optional shell builtins solely to appease the host test.
+1. Fetch live `main` SHA and confirm it descends from this commit; inspect storage [USB storage hotplug stability regression], infosvr [infosvr packet and signal lifecycle stability regression] and AI handoff docs Actions on that exact SHA, every job step and complete logs.
+2. Require the integer-sleep BusyBox ash lock regression to pass, then verify the teardown-status and startup-supervision/rollback tests under the same BusyBox ash. Confirm storage steps 10–13 (GNU89 policy binaries and full caller graph/locks/failure propagation) all pass.
+3. If further shell/app applet incompatibilities appear, keep the test matched to the firmware BusyBox configuration and fix the narrow assumption; do not switch back to host shell applets or enable extra firmware features solely to mask the mismatch.
 4. Once exact-head L2 is green, close this bounded Optware host-shell slice and rotate to the next evidence-actionable repository-wide stability item. FTP upload-cleanup TOCTOU remains OPEN/BLOCKED without a proved Linux 4.4-compatible design. Production MIPS/uClibc, full firmware/TRX and L4 remain NOT VERIFIED.

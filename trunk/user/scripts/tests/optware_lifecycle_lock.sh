@@ -44,11 +44,11 @@ while [ ! -f "$tmpdir/nonblocking-refused" ]; do
 		exit 1
 	fi
 	attempt=$((attempt + 1))
-	if [ "$attempt" -ge 50 ]; then
+	if [ "$attempt" -ge 5 ]; then
 		echo "nonblocking Optware lock attempt did not return promptly" >&2
 		exit 1
 	fi
-	sleep 0.1
+	sleep 1
 done
 
 sleep 1

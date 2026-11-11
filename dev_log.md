@@ -1,3 +1,18 @@
+## 2026-11-11 22:47 CST (UTC+8) — Use BusyBox 1.24.2-compatible integer sleep in the lock regression
+
+- Base main SHA: `21badf5dab5bc73f2768ccdbc381dcc70f6dcc0d`; parent `abff1ed57217c1fe482bf80c2c419dde66437bf0`; remote branch inventory: `main` only, no checkpoint.
+- Exact-head Actions: infosvr [43041511033] SUCCESS and AI handoff docs [43041510759] SUCCESS; storage [43041510879] FAILURE. The documentation check reported root log=115/119 and archives dev-log=6, handoff=22, roadmap=18.
+- Storage steps 3–8 passed. Step 9 built and linked BusyBox 1.24.2; direct ash/awk execution, descriptor-backed `flock -n 9` / `flock -u 9` smoke and the production Optware script ash syntax checks passed. Removing the unsupported `command -v` preflight allowed the lock regression to advance further.
+- New exact failure: `sleep: invalid number '0.1'` from `optware_lifecycle_lock.sh`. The script polls for the nonblocking lock result at 100 ms intervals, but the firmware-matched BusyBox 1.24.2 sleep applet accepts integer intervals. The POSIX shell version of the same test passed earlier because it used the host sleep implementation; the matching BusyBox regression correctly exposed the difference.
+- Fix in THIS COMMIT: use `sleep 1` and reduce the retry ceiling from 50 to 5, keeping the wait bounded at about four seconds while remaining compatible with the actual firmware applet. No production lifecycle code or tracked BusyBox config changed.
+- Validation boundary: L1 compatibility diagnosis PASS. On the base SHA, BusyBox 1.24.2 build/link, direct applet smoke, syntax checks and the three preceding POSIX-shell regressions passed. The under-ash lock test reached the polling loop but did not finish; teardown/startup under ash and storage steps 10–13 were skipped. Exact-head storage/docs reruns for THIS COMMIT are pending. No local checkout, target MIPS/uClibc build, full firmware/TRX or L4 router test is claimed.
+- Changed paths: `trunk/user/scripts/tests/optware_lifecycle_lock.sh`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log.
+- Root dev_log.md had 115 complete newest-first records before this entry and has 116 afterward; archives remain dev-log=6, handoff=22, roadmap=18. No archive/index rotation is due.
+- Resulting commit: THIS COMMIT.
+- Next: inspect the exact resulting main SHA's storage, infosvr and AI docs Actions. Require all under-ash Optware lifecycle regressions and storage steps 10–13 to pass; keep production MIPS/uClibc, firmware/TRX and L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-11 22:43 CST (UTC+8) — Remove optional ash command-builtin dependency from Optware lock regression
 
 - Base main SHA: `abff1ed57217c1fe482bf80c2c419dde66437bf0`; parent `c4afed88518d2c4a9dc8c4e4dc2d0f2f129996f4`; remote branches: `main` only, no checkpoint.
