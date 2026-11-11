@@ -34,6 +34,8 @@ def ordered(source: str, tokens: tuple[str, ...], label: str) -> None:
 source = read("trunk/user/rc/src/vpn_openvpn.c")
 helper = read("trunk/user/rc/src/openvpn_client_secret_file.h")
 test = read("trunk/user/rc/src/tests/openvpn_client_secret_file.c")
+config_helper = read("trunk/user/rc/src/openvpn_config_file.h")
+config_test = read("trunk/user/rc/src/tests/openvpn_config_file.c")
 workflow = read(".github/workflows/openvpn-client-secret.yml")
 
 assert '#include "openvpn_client_secret_file.h"' in source
@@ -63,6 +65,37 @@ ordered(helper, [
 ], "private staging and atomic credential publication")
 assert "unlink(staged_path)" in helper and "errno = saved_errno" in helper
 assert "O_TRUNC" not in helper
+
+for signature, label in (
+    ("static int\\nopenvpn_create_server_conf", "server"),
+    ("static int\\nopenvpn_create_client_conf", "client"),
+):
+    config_body = body(source, signature)
+    assert "openvpn_config_file_open(conf_file" in config_body, label
+    assert "openvpn_config_file_publish(&fp, staged_conf, conf_file, 0644)" in config_body, label
+    assert 'fopen(conf_file, "w+")' not in config_body, label
+    assert "chmod(conf_file, 0644)" not in config_body, label
+
+ordered(config_helper, [
+    "fd = mkstemp(staged_path)",
+    "fstat(fd, &st)",
+    "fchmod(fd, S_IRUSR | S_IWUSR)",
+    'fp = fdopen(fd, "w")',
+    "fflush(fp)",
+    "ferror(fp)",
+    "sync_result = fsync(fd)",
+    "fchmod(fd, mode)",
+    "fclose(fp)",
+    "rename(staged_path, path)",
+], "private staged atomic OpenVPN configuration publication")
+assert "unlink(staged_path)" in config_helper
+assert "errno = saved_errno" in config_helper
+assert "RLIMIT_FSIZE" in config_test and "write_errno == EFBIG" in config_test
+assert "staged_stat.st_mode & 0777" in config_test
+assert "after.st_mode & 0777" in config_test
+assert "before.st_ino != after.st_ino" in config_test
+assert "last-good-config" in config_test
+
 assert "assert((before.st_mode & 0777) == 0666)" in test
 assert "assert((after.st_mode & 0777) == 0600)" in test
 assert 'count_staged_files(directory, "blocked.tmp.") == 0' in test
@@ -70,7 +103,9 @@ assert 'count_staged_files(directory, "blocked.tmp.") == 0' in test
 paths = (
     "trunk/user/rc/src/vpn_openvpn.c",
     "trunk/user/rc/src/openvpn_client_secret_file.h",
+    "trunk/user/rc/src/openvpn_config_file.h",
     "trunk/user/rc/src/tests/openvpn_client_secret_file.c",
+    "trunk/user/rc/src/tests/openvpn_config_file.c",
     "scripts/check_openvpn_client_secret.py",
     ".github/workflows/openvpn-client-secret.yml",
 )

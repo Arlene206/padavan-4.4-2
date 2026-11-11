@@ -1,3 +1,16 @@
+## 2026-11-12 01:47 CST (UTC+8) — Make OpenVPN server/client configuration publication atomic
+
+- Base main SHA: `8c715b2b156b6c40627d026a84007eb4059a76c6`.
+- Closed the preceding Wi-Fi shutdown bridge-detach task on that exact SHA: wireless [43070956995], AI docs [43070956985], infosvr [43070957210] all SUCCESS. Every job step and full log inspected. GNU89 wireless status policy, bridge membership/teardown regression and complete radio/membership source contracts all PASS; docs validator root log=30/119, archives=7/22/18. The earlier dfd4 failure was a multiline-string checker defect, corrected and green on 8c715.
+- OpenVPN audit found both server and client config generators truncating live files with `fopen("w+")`, ignoring write/close/chmod errors and returning success; their start callers could therefore launch against an empty/partial config and destroy last-good state.
+- Fix: new shared same-directory `mkstemp` writer verifies regular file owner/link count and keeps the stage 0600 while generating. Publication checks flush/ferror, EINTR-safe fsync, applies final mode 0644 only after data sync, fsyncs again, checks close, then atomically renames. Failure removes the stage, preserves errno and old destination, and is propagated by both config generators to existing startup gates.
+- New GNU89 ASan/UBSan regression covers private staged mode/final mode under umask 0000, live old config before rename, RLIMIT_FSIZE EFBIG flush failure, stage cleanup, symlink replacement, rename failure and invalid/short paths. Standalone test passed: `OpenVPN config atomic publication and failure preservation: PASS`. OpenVPN workflow now compiles it and source-checks both server/client integrations; exact-head Actions pending. No complete target build claimed.
+- Per-client CCD files and VPN lease snapshots remain separately unaudited. File fsync plus rename is not a parent-directory durability guarantee.
+- Root `dev_log.md` grows 30→31 complete entries; no rotation or INDEX update due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- Next GPT: inspect OpenVPN credential/config and AI docs Actions on resulting exact main SHA; all steps/full logs. Require both sanitizer tests, RLIMIT_FSIZE failure injection, preservation/cleanup, server/client source contracts, exact-once symmetric path filters and docs root log=31/119, archives=7/22/18. Then audit CCD and VPN lease snapshots. FTP TOCTOU remains OPEN/BLOCKED; NFS needs client evidence; MIPS/uClibc, firmware/TRX and L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-12 01:43 CST (UTC+8) — Make Wi-Fi teardown source contract formatting-agnostic
 
 - Base main SHA: dfd4e4711cf53620b7be75c9f65d430154249fc8; parent 55740d3491fba908416b930664143943b5acca1a.

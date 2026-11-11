@@ -31,6 +31,7 @@
 
 #include "rc.h"
 #include "openvpn_client_secret_file.h"
+#include "openvpn_config_file.h"
 
 #define OPENVPN_EXE		"/usr/sbin/openvpn"
 #define COMMON_TEMP_DIR		"/tmp/openvpn"
@@ -426,6 +427,7 @@ static int
 openvpn_create_server_conf(const char *conf_file, int is_tun)
 {
 	FILE *fp;
+	char staged_conf[128];
 	int i, i_prot, i_prot_ori, i_atls, i_tcv2, i_rdgw, i_dhcp, i_items;
 	unsigned int laddr, lmask;
 	char *lanip, *lannm, *wins, *dns1, *dns2;
@@ -480,7 +482,8 @@ openvpn_create_server_conf(const char *conf_file, int is_tun)
 	if (i_prot != i_prot_ori)
 		nvram_set_int("vpns_ov_prot", i_prot);
 
-	fp = fopen(conf_file, "w+");
+	fp = openvpn_config_file_open(conf_file, staged_conf,
+				       sizeof(staged_conf));
 	if (!fp)
 		return 1;
 
@@ -596,9 +599,14 @@ openvpn_create_server_conf(const char *conf_file, int is_tun)
 
 	load_user_config(fp, SERVER_CERT_DIR, "server.conf", forbidden_list);
 
-	fclose(fp);
-
-	chmod(conf_file, 0644);
+	if (openvpn_config_file_publish(&fp, staged_conf, conf_file, 0644) != 0) {
+		int saved_errno = errno ? errno : EIO;
+		logmessage(SERVER_LOG_NAME,
+			   "cannot publish OpenVPN server configuration (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return 1;
+	}
 
 	return 0;
 }
@@ -607,6 +615,7 @@ static int
 openvpn_create_client_conf(const char *conf_file, int is_tun)
 {
 	FILE *fp;
+	char staged_conf[128];
 	int i, i_prot, i_prot_ori, i_auth, i_atls;
 	const char *p_peer, *p_prot;
 
@@ -669,7 +678,8 @@ openvpn_create_client_conf(const char *conf_file, int is_tun)
 		return 1;
 	}
 
-	fp = fopen(conf_file, "w+");
+	fp = openvpn_config_file_open(conf_file, staged_conf,
+				       sizeof(staged_conf));
 	if (!fp)
 		return 1;
 
@@ -716,9 +726,14 @@ openvpn_create_client_conf(const char *conf_file, int is_tun)
 
 	load_user_config(fp, CLIENT_CERT_DIR, "client.conf", forbidden_list);
 
-	fclose(fp);
-
-	chmod(conf_file, 0644);
+	if (openvpn_config_file_publish(&fp, staged_conf, conf_file, 0644) != 0) {
+		int saved_errno = errno ? errno : EIO;
+		logmessage(CLIENT_LOG_NAME,
+			   "cannot publish OpenVPN client configuration (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return 1;
+	}
 
 	return 0;
 }

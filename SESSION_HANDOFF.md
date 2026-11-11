@@ -2,13 +2,15 @@
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2; branch main; only remote branch is main; no checkpoint branch.
-- Base main SHA for THIS COMMIT: dfd4e4711cf53620b7be75c9f65d430154249fc8 (parent 55740d3491fba908416b930664143943b5acca1a).
-- The preceding WAN bridge VLAN teardown task is L1/L2 CLOSED on exact SHA 55740d3491fba908416b930664143943b5acca1a: wireless [43069624285], AI docs [43069624357], infosvr [43069624265] and WAN callback [43069624334] all SUCCESS; all steps and full logs inspected.
-- The WAN fix preserves physical/LAN bridge ports, selects VLAN ports, and propagates failed vconfig_del_if() status through br_del_all_ifs(), WAN bridge disassembly and full restart.
-- The active P2 wireless lifecycle change is committed at dfd4e4711cf53620b7be75c9f65d430154249fc8; its first wireless CI run exposed a whitespace-sensitive source-check false negative, now corrected in THIS COMMIT: bring each radio interface down, detach its corresponding bridge port, aggregate both results, and make bridge add/delete membership idempotent.
-- Root dev_log.md grows 29→30 complete records; no rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
-- FTP upload-cleanup TOCTOU remains P2 OPEN/BLOCKED; NFS still requires external-client evidence. Production MIPS/uClibc, full firmware/TRX and physical router behavior remain NOT VERIFIED.
+- Repository: `Arlene206/padavan-4.4-2`; branch `main`; only remote branch is `main`; no checkpoint branch.
+- Base main SHA for THIS COMMIT: `8c715b2b156b6c40627d026a84007eb4059a76c6`.
+- DNS Forwarder caller-CWD-independent launcher is L1/L2 CLOSED on exact SHA `c2e1c85517ed2dcbe094ed43e3cae18d7af4d972`: DNS [43066687882], AI docs [43066687814] and infosvr [43066687818] SUCCESS.
+- DNSMasq DHCP pool/router-address exclusion is L1/L2 CLOSED on exact SHA `c22542d36e9de26780b338267f41a91d99aaf34a`: DNSMasq [43069047780], AI docs [43069047752], HTTPD [43069047723], infosvr [43069047578], Samba [43069047831] and miniupnpd [43069047633] SUCCESS.
+- WAN bridge VLAN deletion failure propagation is L1/L2 CLOSED on exact SHA `55740d3491fba908416b930664143943b5acca1a`: wireless [43069624285], AI docs [43069624357], infosvr [43069624265] and WAN DHCP [43069624334] SUCCESS.
+- Wi-Fi bridge-port detach during radio shutdown is L1/L2 CLOSED on exact SHA `8c715b2b156b6c40627d026a84007eb4059a76c6`: wireless [43070956995], AI docs [43070956985] and infosvr [43070957210] all SUCCESS. Full job steps/logs were inspected; both GNU89 policy regressions and whitespace-normalized radio/membership source contracts passed; docs validator root log=30/119 and archives=7/22/18.
+- THIS COMMIT stages OpenVPN server/client primary config generation beside the live destination, keeps the stage mode 0600 while writing, checks flush/ferror/fsync/mode/close/rename and only then atomically publishes mode 0644. Failure leaves the previous config intact and existing startup callers fail closed.
+- Root `dev_log.md` grows 30→31 complete records; no rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- FTP upload-cleanup TOCTOU remains P2 OPEN/BLOCKED pending a Linux 4.4-safe inode/parent proof; NFS requires real-client evidence. Production MIPS/uClibc, full firmware/TRX and physical-router behavior remain NOT VERIFIED.
 
 ## Closed task — NVRAM HDR2 profile-save atomic publication
 
@@ -136,28 +138,38 @@
 - Caller path from br_del_all_ifs() through disassembly_bridges_wan() to the full-WAN-restart fail-closed gate is source-reviewed. This closes the bounded host/Actions slice at L1/L2 only.
 - Production MIPS/uClibc bridge/VLAN ioctl behavior, full firmware/TRX and physical router WAN teardown remain NOT VERIFIED.
 
-## Active task — Detach Wi-Fi bridge ports during radio shutdown (P2 network stability)
+## Closed task — Detach Wi-Fi bridge ports during radio shutdown (P2 network stability; L1/L2 complete)
+
+- Parent source commit `dfd4e4711cf53620b7be75c9f65d430154249fc8`; checker whitespace correction `8c715b2b156b6c40627d026a84007eb4059a76c6`.
+- Exact-head wireless [43070956995], AI docs [43070956985] and infosvr [43070957210] all SUCCESS; every job step and full logs inspected.
+- Wireless log confirms GNU89 interface status policy, bridge membership/teardown policy and complete radio helper/membership/source contracts all PASS. The prior failure was only an exact-string checker false negative for valid multiline RT3352 MII calls; checker now normalizes whitespace while retaining argument/order assertions.
+- Radio shutdown brings each interface down before detaching its bridge port; aggregates failures and retains LED/restart state on incomplete shutdown. RT3352 MII guest maps to the guest VLAN and iNIC main also detaches. Add/delete membership is idempotent only after complete bridge inventory and verified duplicate-operation races.
+- AI docs validator reports root log=30/119, batch=100, retain=20, archives dev-log=7, handoff=22, roadmap=18.
+- L1/L2 closed. Target MIPS/uClibc, RT3352 MII/iNIC board variants, DBDC and L4 radio behavior remain NOT VERIFIED.
+
+## Active task — Publish OpenVPN server/client configuration atomically and fail closed (P2 reliability)
 
 ### Finding and implementation in THIS COMMIT
 
-- stop_wifi_all_wl() and stop_wifi_all_rt() brought APCLI/WDS/AP interfaces down and aggregated command status, but did not consistently remove those interfaces from br0. A restart that reduced the configured WDS count could leave old WDS ports attached but down; AP/guest mode transitions could also retain stale membership.
-- The RT3352 MII path stopped the iNIC guest interface and detached IFNAME_INIC_GUEST_VLAN, but did not detach IFNAME_INIC_MAIN when it had previously been added for 802.1X.
-- This COMMIT uses wireless_stop_interface(): ifconfig-down must succeed before bridge detach is attempted; either failure marks aggregate shutdown incomplete, while the other interfaces and iNIC isolation/RGMII cleanup are still attempted. The iNIC guest logical interface is mapped to its VLAN bridge port; the main interface is detached too.
-- br_add_del_if() now verifies bridge membership for both add and delete. Already-satisfied requests return success, snapshot failures stay fail-closed, and after add EBUSY / delete EINVAL races a fresh inventory must prove the requested state. A port belonging to another bridge is not removed from that bridge.
-- GNU89 regression adds already-present/already-absent, unknown-inventory and errno race-mapping cases. The wireless workflow checks helper ordering and all radio/iNIC bridge-port mappings, membership preflight/re-query, and restart/shutdown failure propagation.
+- Both `openvpn_create_server_conf()` and `openvpn_create_client_conf()` opened their live destination with `fopen(conf_file, "w+")`, truncating the last usable configuration before the new one was complete. They ignored `fprintf`/custom-config copy, `fclose()` and `chmod()` errors and returned success unconditionally; callers then proceeded to interface setup and daemon launch.
+- New `openvpn_config_file.h` creates a same-directory `mkstemp` staging file, verifies regular-file ownership/link count, keeps it mode 0600 while generating, then checks `fflush`, `ferror`, EINTR-safe `fsync`, final mode 0644, a second `fsync`, `fclose` and atomic `rename`. Failed publication closes/unlinks the stage, restores errno, preserves the prior live config and returns failure so existing start functions stop.
+- Both server and client config generators use the shared helper, log the publication failure and return nonzero. Existing private client credential publication remains unchanged.
+- New GNU89 ASan/UBSan regression covers private stage and final mode under umask 0000, last-good preservation until rename, RLIMIT_FSIZE-induced flush failure, failed-stage cleanup, symlink replacement semantics, rename failure, and invalid/undersized paths. Standalone host test passed with `OpenVPN config atomic publication and failure preservation: PASS`; exact-head Actions are pending.
+- Scope is the primary server/client configuration. Per-client CCD files and VPN lease snapshots are separate future audit items; no parent-directory fsync or power-loss durability claim is made.
 
 ### Exact next action
 
-- Inspect wireless radio-state and AI handoff documentation Actions on the resulting exact main SHA; verify all steps and full logs.
-- The first wireless run passed both GNU89 policy binaries but failed a source checker because it matched a split-line MII shutdown call literally; THIS COMMIT normalizes whitespace without relaxing call/order semantics. Require the corrected GNU89 membership regression, helper/membership source contracts, symmetric workflow filters and AI docs validator (root log=30/119; archives=7/22/18) to pass.
-- Then arrange target MIPS/uClibc and board-variant validation for bridge-port teardown, especially RT3352 MII/iNIC and DBDC. FTP cleanup TOCTOU remains OPEN/BLOCKED; NFS still requires real-client evidence; WAN PPP/IPv6, complete firmware/TRX and L4 remain NOT VERIFIED.
+- Inspect OpenVPN client credential/config regression and AI handoff docs Actions on the resulting exact main SHA; verify every job step and full logs.
+- Require existing private credential test plus the new config GNU89 ASan/UBSan regression, RLIMIT_FSIZE EFBIG failure injection, last-good preservation/stage cleanup, source contracts for both server/client call paths, exact-once symmetric push/PR path filters, and docs validator root log=31/119 with archives=7/22/18 to pass on the same SHA.
+- If green, close this bounded OpenVPN config L2 slice. Then audit OpenVPN per-client CCD and VPN lease snapshot publication. FTP TOCTOU remains OPEN/BLOCKED until a Linux 4.4-safe inode/parent approach proves STOR/APPE/REST/STOU preservation; NFS requires client evidence; target MIPS/uClibc, full firmware/TRX and L4 remain NOT VERIFIED.
 
 ## Verification boundary
 
-- L1 source review: PASS for WAN VLAN deletion failure propagation and Wi-Fi shutdown ordering/membership ownership. The wireless caller chain aggregates interface-down and bridge-detach errors, then blocks restart on incomplete shutdown.
-- L2 host / Actions: WAN VLAN fix exact SHA 55740d3491fba908416b930664143943b5acca1a passed wireless [43069624285], AI docs [43069624357], infosvr [43069624265] and WAN callback [43069624334]. This COMMIT's new Wi-Fi membership regression and source contracts are pending.
-- L3 production MIPS/uClibc objects / complete firmware/TRX: NOT VERIFIED for bridge membership ioctls, iNIC MII, DBDC and radio lifecycle.
-- L4 router / physical hardware: NOT VERIFIED. No live WLAN forwarding, WAN VLAN ioctl or physical-radio behavior is claimed.
+- L1 source review: PASS for both OpenVPN server/client writers now staging beside destination and returning failure on publication error; existing start callers gate interface creation/daemon launch on the writer result.
+- L2 host: standalone GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` config publication test PASS. RLIMIT_FSIZE injected EFBIG during flush, and prior config remained intact with stage removed. Prior Wi-Fi interface-state and bridge membership/teardown regressions and source contracts are L2 CLOSED on exact SHA `8c715b2b156b6c40627d026a84007eb4059a76c6`.
+- L2 Actions: OpenVPN credential/config and AI docs Actions for THIS COMMIT are pending; do not close OpenVPN config until all steps and full logs are inspected. Wi-Fi [43070956995], docs [43070956985], infosvr [43070957210] were all SUCCESS.
+- L3 production MIPS/uClibc RC objects / complete firmware/TRX: NOT VERIFIED.
+- L4 router / physical hardware: NOT VERIFIED. No live OpenVPN daemon start, authentication handshake or physical-router behavior is claimed.
 
 ## Other open governance-ledger risks
 
@@ -171,7 +183,7 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch live main, confirm its exact SHA and inspect the wireless radio-state and AI handoff-doc Actions tied to it. Inspect every job step and the complete logs.
-2. Require the GNU89 membership policy regression, bridge add/delete idempotence checks, all 5GHz / generic 2.4GHz / RT3352 MII stop mappings, shutdown failure aggregation and symmetric workflow filters to pass on that exact SHA. AI docs must validate root log=30/119 and archives=7/22/18.
-3. If green, close the bounded Wi-Fi bridge-detach slice at L2. Then prioritize target MIPS/uClibc/board validation when a complete checkout/toolchain is available; do not claim L3/L4 from host Actions.
-4. FTP failed-upload cleanup TOCTOU remains OPEN/BLOCKED until a proven Linux 4.4-safe inode/parent approach preserves STOR/APPE/REST/STOU. NFS external-client evidence, WAN PPP/IPv6, firmware/TRX and L4 remain NOT VERIFIED.
+1. Fetch live `main`, confirm its exact SHA and inspect OpenVPN client credential/config plus AI handoff docs Actions; inspect every job step and full logs.
+2. Require the pre-existing private credential GNU89 ASan/UBSan test and new config publication test, RLIMIT_FSIZE EFBIG flush failure, 0600 staging / 0644 final mode, last-good preservation, failed-stage cleanup, server/client source call-path contracts, exact-once symmetric push/PR filters and docs validator root log=31/119, archives=7/22/18 to pass on one exact SHA.
+3. If green, close this bounded OpenVPN config L2 slice. Next audit per-client CCD and VPN lease snapshot publication. Do not claim parent-directory power-loss durability from file fsync/rename alone.
+4. FTP cleanup TOCTOU stays OPEN/BLOCKED until a proven Linux 4.4-safe inode/parent design preserves STOR/APPE/REST/STOU. NFS durability/AUTH_SYS/root-squash requires real client evidence. Production MIPS/uClibc, full firmware/TRX and L4 remain NOT VERIFIED.
