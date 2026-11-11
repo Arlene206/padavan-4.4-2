@@ -73,14 +73,55 @@ jobs:
               start = source.index(signature)
               brace = source.index("{", start)
               depth = 0
-              for pos in range(brace, len(source)):
-                  if source[pos] == "{":
-                      depth += 1
-                  elif source[pos] == "}":
-                      depth -= 1
-                      if depth == 0:
-                          return source[brace + 1:pos]
+              pos = brace
+              state = "code"
+              while pos < len(source):
+                  ch = source[pos]
+                  next_ch = source[pos + 1] if pos + 1 < len(source) else ""
+                  if state == "code":
+                      if ch == '"':
+                          state = "string"
+                      elif ch == "'":
+                          state = "char"
+                      elif ch == "/" and next_ch == "*":
+                          state = "block_comment"
+                          pos += 1
+                      elif ch == "/" and next_ch == "/":
+                          state = "line_comment"
+                          pos += 1
+                      elif ch == "{":
+                          depth += 1
+                      elif ch == "}":
+                          depth -= 1
+                          if depth == 0:
+                              return source[brace + 1:pos]
+                  elif state == "string" or state == "char":
+                      if ch == "\\":
+                          pos += 1
+                      elif state == "string" and ch == '"':
+                          state = "code"
+                      elif state == "char" and ch == "'":
+                          state = "code"
+                  elif state == "block_comment":
+                      if ch == "*" and next_ch == "/":
+                          state = "code"
+                          pos += 1
+                  elif state == "line_comment" and ch == "\n":
+                      state = "code"
+                  pos += 1
               raise AssertionError("unterminated function: " + signature)
+
+          parser_fixture = r'''
+          int parser_fixture(void) {
+              const char *config = "provider sample {";
+              /* Braces in comments are not syntax: { } */
+              if (config) { return '}'; } // nor is this {
+              return 0;
+          }
+          '''
+          parser_body = function_body(parser_fixture, "parser_fixture(void)")
+          assert 'const char *config = "provider sample {";' in parser_body
+          assert "if (config) { return '}'; }" in parser_body
 
           writer = function_body(services, "write_inadyn_conf(const char *conf_file)")
           assert "inadyn_config_file_open(conf_file, staged_path, sizeof(staged_path))" in writer
@@ -157,13 +198,42 @@ jobs:
               start = source.index(signature)
               brace = source.index("{", start)
               depth = 0
-              for pos in range(brace, len(source)):
-                  if source[pos] == "{":
-                      depth += 1
-                  elif source[pos] == "}":
-                      depth -= 1
-                      if depth == 0:
-                          return source[brace + 1:pos]
+              pos = brace
+              state = "code"
+              while pos < len(source):
+                  ch = source[pos]
+                  next_ch = source[pos + 1] if pos + 1 < len(source) else ""
+                  if state == "code":
+                      if ch == '"':
+                          state = "string"
+                      elif ch == "'":
+                          state = "char"
+                      elif ch == "/" and next_ch == "*":
+                          state = "block_comment"
+                          pos += 1
+                      elif ch == "/" and next_ch == "/":
+                          state = "line_comment"
+                          pos += 1
+                      elif ch == "{":
+                          depth += 1
+                      elif ch == "}":
+                          depth -= 1
+                          if depth == 0:
+                              return source[brace + 1:pos]
+                  elif state == "string" or state == "char":
+                      if ch == "\\":
+                          pos += 1
+                      elif state == "string" and ch == '"':
+                          state = "code"
+                      elif state == "char" and ch == "'":
+                          state = "code"
+                  elif state == "block_comment":
+                      if ch == "*" and next_ch == "/":
+                          state = "code"
+                          pos += 1
+                  elif state == "line_comment" and ch == "\n":
+                      state = "code"
+                  pos += 1
               raise AssertionError("unterminated function: " + signature)
 
           start = function_body(services, "start_dns_dhcpd_locked(int is_ap_mode)")

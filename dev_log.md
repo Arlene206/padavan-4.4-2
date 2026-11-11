@@ -1,3 +1,17 @@
+## 2026-11-11 (UTC+8) — Make DNSMasq source-contract extraction aware of C literals
+
+- Base main SHA: 847b7980835d98ee240f16fcf4453c66ad5fcbcb; parent 3ebf4c34c59b7966c54b35ea079a94ee630039f8; remote branch inventory: main only.
+- The preceding exact-head run found and fixed a genuine missing function-closing brace in `write_inadyn_conf()`. On current base 847b7980835d98ee240f16fcf4453c66ad5fcbcb, the GNU89 ASan/UBSan Inadyn publication regression, DNSMasq restart-policy test and cross-process lifecycle-lock test all pass (workflow [42977559811], steps 3–5). The fixed production function is now syntactically closed.
+- Step 6 still failed at the same `function_body()` extraction: its naive counter interprets the literal opening brace in `fprintf(fp, "provider %s:1 {\\n", ...)` as C block syntax. The writer's real closing brace is present; this remaining failure is a brittle test-parser defect, not a production source syntax error. Step 7 was skipped. AI docs [42977559759] passed and verified 93/119; miniupnpd [42977560149], Samba [42977559725] and HTTPD [42977559911] were successful on the same exact SHA.
+- Fix in THIS COMMIT: both inline source-contract extractors in `.github/workflows/dnsmasq-lifecycle.yml` now distinguish code, strings, character literals, block comments and line comments while balancing braces. Added an embedded fixture for quoted and commented braces. No production source or host-test logic changes.
+- Changed paths: `.github/workflows/dnsmasq-lifecycle.yml`, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and this log.
+- Validation: the equivalent C-aware scanner fixture passed a local Python check; the exact-head host binaries and unrelated CI workflows are evidenced above. Corrected DNSMasq steps 3–7 and docs rerun remain pending. No full RC build, target MIPS/uClibc, firmware/TRX or L4 device behavior is claimed.
+- Root dev_log.md: 93 complete records before this entry, 94 after; 240,376 bytes before this entry, below the 384 KiB / 512 KiB limits. No archive or index rotation due.
+- Resulting commit: THIS COMMIT.
+- Next: inspect the full exact-head DNSMasq lifecycle and AI docs logs. Require restart policy, cross-process lock, Inadyn ASan/UBSan, C-aware DDNS semantic contract, DNSMasq daemon start postconditions/RC return propagation and docs validation all PASS. Then rotate to a separate subsystem stability issue. Keep FTP cleanup TOCTOU OPEN/BLOCKED and NFS client evidence gates intact.
+
+---
+
 ## 2026-11-11 (UTC+8) — Restore Inadyn writer function boundary after exact-head contract failure
 
 - Base main SHA: 3ebf4c34c59b7966c54b35ea079a94ee630039f8; parent: 54efbf7892bed290bde81e3eec89d907e9adfa0e. Remote branch inventory: main only.
