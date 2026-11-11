@@ -117,7 +117,7 @@ with tempfile.TemporaryDirectory(prefix="dns-forwarder-cwd-") as tmp:
     fake_script.parent.mkdir(parents=True)
     marker = root / "invoked"
     fake_script.write_text(
-        '#!/bin/sh\\nprintf "%s\\n" "$1" > "$MARKER"\\n',
+        '#!/bin/sh\nprintf "%s" "$1" > "$MARKER"\n',
         encoding="utf-8",
     )
     fake_script.chmod(0o755)
@@ -143,7 +143,7 @@ with tempfile.TemporaryDirectory(prefix="dns-forwarder-cwd-") as tmp:
         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
     )
     assert result.returncode == 0, result.stderr.decode(errors="replace")
-    assert marker.read_text(encoding="utf-8") == "start\\n"
+    assert marker.read_text(encoding="utf-8") == "start"
 
 print("DNS Forwarder launch path working-directory regression: PASS")
 print("DNS Forwarder service, installer and execvp source contracts: PASS")

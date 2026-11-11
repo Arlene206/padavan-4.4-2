@@ -1,3 +1,16 @@
+## 2026-11-12 01:16 CST (UTC+8) — Correct DNS Forwarder CWD regression fixture line endings
+
+- Base main SHA: `e6801775fc3af56dd084321eca9376899b2e7d76`; parent `31578abaefe5b2838b7c825460e21e730176b563`.
+- Exact-head DNS Forwarder workflow [43066299135] failed during its temporary executable test. The old relative slash-containing path correctly returned ENOENT from the unrelated CWD, but the subsequent absolute-path run also returned ENOENT because the fixture wrote literal `\\n` sequences into the fake shell script instead of actual line terminators.
+- AI handoff docs [43066299302] passed on this base (root log=25/119; archives=7/22/18). Networkmap [43066300888], GPIO [43066298902], VPN server [43066299119], WAN ARP [43066298966], HTTPD lifecycle [43066299031], HTTPD security [43066299164], detect_link [43066299084], infosvr [43066298895], watchdog [43066298861] and crond [43066299440] passed. SkipDBv2 [43066299131] remained in progress at last inspection.
+- THIS COMMIT makes the test fixture write a valid executable with actual newline terminators and checks the marker as `start`. The production RC absolute path, relative-path failure assertion, source/installer contracts and workflow filters remain unchanged.
+- This is a regression-test harness correction; no product-code failure was demonstrated. Exact-head DNS Forwarder and docs reruns remain required before L2 closure.
+- Local checkout is unavailable. The corrected script was reviewed, and its temporary shell fixture behavior was independently exercised with an equivalent host snippet (PASS); the complete repository checker is not claimed locally.
+- Root `dev_log.md` moves 25→26 complete entries; no rotation or INDEX update is due. Archive shards/indexes remain unchanged.
+- Next GPT: inspect corrected DNS Forwarder and AI docs Actions on the resulting exact main SHA, all steps/full logs. Require relative CWD failure, absolute execution success, RC/ROMFS/execvp contracts, ten symmetric exact-once filters and docs root log=26/119, archives=7/22/18. Production MIPS/uClibc, firmware/TRX and L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-12 01:11 CST (UTC+8) — Make DNS Forwarder startup path CWD-independent
 
 - Base main SHA: `31578abaefe5b2838b7c825460e21e730176b563`; parent `54504272e2c4ca0f7783ba78aa52a2bfe212de1c`. Main is the only branch; no remote checkpoint.
