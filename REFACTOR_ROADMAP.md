@@ -1,12 +1,13 @@
 ## Current source / CI checkpoint
 
-- Base main SHA for THIS COMMIT: `8c715b2b156b6c40627d026a84007eb4059a76c6`; only remote branch is `main`, no checkpoint branch.
+- Base main SHA for THIS COMMIT: `d65a890e11712db880c09b48e05215a691118ab6` (parent `8c715b2b156b6c40627d026a84007eb4059a76c6`); only remote branch is `main`, no checkpoint branch.
 - DNS Forwarder CWD-independent launcher L1/L2 CLOSED on `c2e1c85517ed2dcbe094ed43e3cae18d7af4d972`: DNS [43066687882], docs [43066687814], infosvr [43066687818] all SUCCESS.
 - DNSMasq DHCP pool/router-address exclusion L1/L2 CLOSED on `c22542d36e9de26780b338267f41a91d99aaf34a`: DNSMasq [43069047780], docs [43069047752], HTTPD [43069047723], infosvr [43069047578], Samba [43069047831], miniupnpd [43069047633] all SUCCESS.
 - WAN bridge VLAN deletion failure propagation L1/L2 CLOSED on `55740d3491fba908416b930664143943b5acca1a`: wireless [43069624285], docs [43069624357], infosvr [43069624265], WAN callback [43069624334] all SUCCESS.
 - Wi-Fi radio shutdown bridge detach L1/L2 CLOSED on exact `8c715b2b156b6c40627d026a84007eb4059a76c6`: wireless [43070956995], docs [43070956985], infosvr [43070957210] all SUCCESS. All steps/full logs inspected; two GNU89 policies and complete radio/membership source contracts PASS; docs root log=30/119, archives=7/22/18.
 - THIS COMMIT fixes OpenVPN server/client primary config publication: same-directory stage, mode 0600 during generation, checked flush/fsync/final mode/fsync/close/rename, and last-good preservation/fail-closed startup. New GNU89 ASan/UBSan RLIMIT_FSIZE failure-injection test and source/workflow contracts added; exact-head Actions pending.
-- Root `dev_log.md` grows 30→31 entries; no rotation or INDEX update due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- The first exact-head OpenVPN run [43071668469] passed the credential regression but failed config-test compilation: four YAML lines had two trailing backslashes, and ld reported `cannot find \\`; the config binary/source contract did not run. THIS COMMIT corrects the four shell continuations; rerun workflow/docs Actions on the resulting exact SHA.
+- Root `dev_log.md` grows 31→32 entries; no rotation or INDEX update due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
 - FTP cleanup TOCTOU remains OPEN/BLOCKED; NFS external-client behavior remains evidence-gated. Production MIPS/uClibc, complete firmware/TRX and L4 remain NOT VERIFIED.
 
 ## Whole-repository module status
@@ -40,7 +41,7 @@
 
 ## Priority queue
 
-1. P2 — Verify OpenVPN server/client config atomic-publication fix on exact head: credential + config GNU89 ASan/UBSan tests, RLIMIT_FSIZE flush failure/last-good preservation, source contracts and docs Actions.
+1. P2 — Re-run corrected OpenVPN server/client config atomic-publication workflow on exact head: credential + config GNU89 ASan/UBSan tests, RLIMIT_FSIZE flush failure/last-good preservation, source contracts and docs Actions.
 2. P2 OPEN/BLOCKED — FTP failed-upload cleanup TOCTOU: no patch until a Linux 4.4-safe inode/parent design proves safety and preserves STOR/APPE/REST/STOU.
 3. P2 — Resolve NFS async durability, AUTH_SYS/root-squash and external-mount compatibility only with real client evidence.
 4. P2 — Audit OpenVPN per-client CCD and VPN lease snapshot publication for checked write/close and last-good semantics.

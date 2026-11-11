@@ -1,3 +1,15 @@
+## 2026-11-12 01:51 CST (UTC+8) — Correct OpenVPN config regression shell continuations
+
+- Base main SHA: d65a890e11712db880c09b48e05215a691118ab6; parent 8c715b2b156b6c40627d026a84007eb4059a76c6.
+- Inspected exact-head Actions for d65a890e11712db880c09b48e05215a691118ab6. OpenVPN run [43071668469] failed at step 4; credential step 3 printed "OpenVPN client credential staging policy: PASS". The config compile command had two literal trailing backslashes on each of four continuation lines; the shell passed a backslash argument to the linker, which reported "ld: cannot find backslash input". The config binary and source-contract step did not run.
+- Other exact-head runs passed: AI handoff docs [43071668470], HTTPD authentication/security umbrella [43071668464] and infosvr [43071668500]. Every job step in those runs completed SUCCESS; full logs showed no test errors.
+- THIS COMMIT corrects only the four config compiler line continuations to one backslash each. Production source was not changed in response to this workflow syntax failure.
+- Exact-head corrected OpenVPN and docs Actions are pending. No claim is made that the failed config binary ran.
+- Root dev_log.md grows 31→32 complete records; no rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- Next GPT: inspect exact-head OpenVPN workflow and AI-doc workflow, every step/full log; require credential and config GNU89 -Wall -Wextra -Werror ASan/UBSan/leak regressions, source contract, and docs root log=32/119 with archives=7/22/18. MIPS/uClibc, full firmware/TRX and L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-12 01:47 CST (UTC+8) — Make OpenVPN server/client configuration publication atomic
 
 - Base main SHA: `8c715b2b156b6c40627d026a84007eb4059a76c6`.
