@@ -1,3 +1,16 @@
+## 2026-11-11 17:38 CST (UTC+8) — Restore required verification-boundary heading and guard handoff contract
+
+- Base main SHA: `947ee69cfbda917ec1728cdde39a00b6a7726eeb`; parent `8ec8198c4564e57cd3956ea675e343bc35098e72`.
+- Infosvr code/source-contract workflow [42997353568] completed SUCCESS on exact base SHA `947ee69cfbda917ec1728cdde39a00b6a7726eeb`. Full logs confirmed `infosvr packet initialization and length policy: PASS` and `infosvr packet receive and bounds source contracts: PASS`.
+- AI docs run [42997352476] failed on that same base because the live handoff lacked the validator-mandated `## Verification boundary` heading. This was a documentation-structure defect, not a C regression or production failure.
+- THIS COMMIT restores the required section with explicit local/CI/target evidence boundaries, updates the roadmap and next-step state, and adds checker assertions for all four mandatory handoff headings. The infosvr workflow now path-filters `SESSION_HANDOFF.md` on push and pull_request because the source contract reads it.
+- No application source changed in this correction; the prior commit contains the packet fix and local test. This correction repairs the mandatory validator contract and makes that contract executable in the infosvr checker. Exact-head reruns remain pending; do not describe [42997352476] as green.
+- Root `dev_log.md`: 103 records before this entry; 104 afterward. Below the 120-record / 384 KiB rotation triggers and 512 KiB hard cap; archive shards/indexes remain untouched.
+- Resulting commit: THIS COMMIT.
+- Next: inspect both infosvr and AI docs workflows, every step and full logs, on the exact resulting main SHA. Require sanitizer test, packet source/ABI checks, required handoff sections and archive validator to pass; then select another user-space service. MIPS/uClibc, firmware/TRX and L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-11 17:31 CST (UTC+8) — Harden infosvr UDP receive-buffer initialization and wire-prefix validation
 
 - Base main SHA: `8ec8198c4564e57cd3956ea675e343bc35098e72`; parent `a73ca2221712f16dd5aa4bab450eed18a6cd3f92`; branch inventory was `main` only, no checkpoint.

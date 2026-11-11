@@ -59,6 +59,15 @@ policy = read("trunk/user/infosvr/src/infosvr_packet_policy.h")
 test = read("trunk/user/infosvr/src/tests/infosvr_packet_policy.c")
 ibox = read("trunk/user/shared/src/include/ibox.h")
 workflow = read(".github/workflows/infosvr-packet-stability.yml")
+handoff = read("SESSION_HANDOFF.md")
+
+for required_heading in (
+    "## Current repository state",
+    "## Active task",
+    "## Verification boundary",
+    "## Exact first action for the next GPT",
+):
+    assert required_heading in handoff, required_heading
 
 for token in ("memset(packet, 0, size)", "errno = EINVAL",
               "received >= required", "required != 0"):
@@ -110,6 +119,7 @@ for token in (
 
 paths = (
     ".github/workflows/infosvr-packet-stability.yml",
+    "SESSION_HANDOFF.md",
     "scripts/check_infosvr_packets.py",
     "trunk/user/infosvr/src/infosvr.c",
     "trunk/user/infosvr/src/asus.c",

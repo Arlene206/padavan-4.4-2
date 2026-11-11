@@ -3,7 +3,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; branch: `main`; last verified remote inventory contained only `main`, no checkpoint branch.
-- Base main SHA for THIS COMMIT: `8ec8198c4564e57cd3956ea675e343bc35098e72`; parent `a73ca2221712f16dd5aa4bab450eed18a6cd3f92`. Resolve the resulting SHA from live `main` after publication.
+- Base main SHA for THIS COMMIT: `947ee69cfbda917ec1728cdde39a00b6a7726eeb`; parent `8ec8198c4564e57cd3956ea675e343bc35098e72`. Resolve the resulting SHA from live `main` after publication.
 - Bootstrap recovery completed in order: `AI_BOOTSTRAP_PROMPT.md`, `AI_DEVELOPMENT_PROTOCOL.md`, live main ref, this handoff, roadmap, newest root dev-log records, archive index, branch inventory and exact-SHA Actions.
 - Root `dev_log.md`: 102 complete newest-first records before THIS COMMIT, 103 after. Current archive inventory: dev-log=6, handoff=22, roadmap=18. No rotation/index change is due.
 
@@ -40,8 +40,12 @@
 - Added `infosvr_packet_policy.h`, a GNU89 regression, a source/ABI contract checker and a dedicated push/PR workflow. Test covers complete-buffer zeroing, short-packet zero tail, NULL/zero-size error, truncated/full base header and truncated/full extended MAC prefix.
 - Local isolated `-std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer` test passed: `infosvr packet initialization and length policy: PASS`.
 - L1 source review: PASS for receive initialization, byte-count propagation and packet bounds.
-- Exact-head infosvr regression workflow and AI docs are PENDING on THIS COMMIT.
-- Infosvr production MIPS/uClibc object, full firmware/TRX and L4 packet interoperability remain NOT VERIFIED. The old SIGTERM handler still calls cleanup/exit in signal context; keep that as a separate follow-up defect rather than mixing it into this packet parsing fix.
+## Verification boundary
+
+- Local isolated GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer` regression passed with leak detection: `infosvr packet initialization and length policy: PASS`.
+- Exact-head infosvr workflow [42997353568] completed SUCCESS on base SHA `947ee69cfbda917ec1728cdde39a00b6a7726eeb`; full logs show both packet initialization/length test and UDP receive/source contract PASS.
+- AI docs run [42997352476] FAILED on that base because this handoff draft omitted the validator-required `## Verification boundary` heading. This is a handoff-contract issue, not a source/test failure. THIS COMMIT restores the exact heading and adds a regression assertion/path filter for all required handoff headings; both workflows rerun on the resulting exact head.
+- Infosvr production MIPS/uClibc object, complete firmware/TRX and L4 packet interoperability remain NOT VERIFIED. The old SIGTERM handler still performs cleanup/exit in signal context; track separately rather than mixing it into this bounded packet parsing fix.
 
 ## Other open governance-ledger risks
 
