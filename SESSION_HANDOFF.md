@@ -3,9 +3,9 @@
 ## Current repository state
 
 - Repository: Arlene206/padavan-4.4-2; branch: main; latest branch inventory contains main only; no remote checkpoint branch.
-- Base main SHA for THIS COMMIT: 17b4583ce0511a3cbbd02cef18024fe7b30110e7 (parent a3ee4d0e628434b1e16171f457afa0791c84f7a3). Resolve the resulting SHA from live main after publication.
-- Bootstrap recovery completed in required order: AI_BOOTSTRAP_PROMPT.md, AI_DEVELOPMENT_PROTOCOL.md, live main ref, current handoff, roadmap, newest dev-log records, archive index, branch inventory and exact-head Actions. The udhcpc, infosvr packet and AI docs workflows on 17b4583ce0511a3cbbd02cef18024fe7b30110e7 all completed successfully; every step and full log was inspected.
-- Root dev_log.md had 106 complete newest-first records before THIS COMMIT and has 107 afterward. Archive inventory remains dev-log=6, handoff=22, roadmap=18; no rotation/index update is due.
+- Base main SHA for THIS COMMIT: f986ed961bbe14a8db4bc8d99219e5a1a1330826 (parent 17b4583ce0511a3cbbd02cef18024fe7b30110e7). Resolve the resulting SHA from live main after publication.
+- Bootstrap recovery completed in required order: AI_BOOTSTRAP_PROMPT.md, AI_DEVELOPMENT_PROTOCOL.md, live main ref, current handoff, roadmap, newest dev-log records, archive index, branch inventory and exact-head Actions. Current main f986ed961bbe14a8db4bc8d99219e5a1a1330826 has only the main branch and no remote checkpoint; AI docs [43004194407] and infosvr packet stability [43004194313] both completed SUCCESS on that exact SHA. Every job step and complete log was inspected.
+- Root dev_log.md had 107 complete newest-first records before THIS COMMIT and has 108 afterward. Archive inventory remains dev-log=6, handoff=22, roadmap=18; no rotation/index update is due.
 
 ## Closed task — NVRAM HDR2 profile-save atomic publication
 
@@ -41,27 +41,34 @@
 - BusyBox now retains/logs event-script exit status and gates DHCPACK BOUND/address/lease-timer publication on successful bound/renew; initial acquisition retries after callback failure, while failed renewals retain the old expiry deadline and charge script runtime against it.
 - L2 host/Actions verification is CLOSED for this slice. Production MIPS/uClibc BusyBox object, complete firmware/TRX, live DHCP transitions, DHCPv6 and L4 router operation remain NOT VERIFIED. Other leasefail/NAK/deconfig/release event-state semantics remain open.
 
-## Active task — Optware/storage lifecycle under BusyBox ash (P2 reliability)
+## Closed task slice — storage-backed daemon stop-status propagation (P2 reliability)
 
-### Scope and known repository facts
+- Actual firmware path was traced: trunk/user/optware/Makefile installs opt-start/opt-mount/opt-umount but not K95aria2/K95transmission; the in-tree firmware Aria/Transmission integration is separate, through RC service commands and /usr/bin/aria.sh plus /usr/bin/transmission.sh. scripts/Makefile copies scripts/files into ROMFS, including /sbin/optware_lifecycle_lock.sh.
+- Found a fail-open eject gap: stop_stor_apps() propagated NFS, Samba and FTP failures but ignored MiniDLNA, Firefly, Transmission and Aria stop outcomes. Their wrappers discarded kill_services()/eval() status and did not verify daemon absence.
+- THIS COMMIT changes those four wrappers to return failure unless the stop command succeeded and the daemon is no longer observable. stop_stor_apps() now aborts eject on any failure, and manual restart callers refuse to relaunch over a daemon that did not stop. storage_service_stop_policy.h and a five-case GNU89 regression cover this postcondition.
+- Local GNU89 -Wall -Wextra -Werror ASan/UBSan policy regression passed. Exact-head storage Actions are pending publication; no matching target BusyBox ash, MIPS/uClibc object, full firmware/TRX or L4 behavior is claimed.
 
-- The storage governance ledger records full partition/ejected inventory staging, swapoff-before-unmount gates, an operation-wide storage lock, Optware startup supervision/rollback and checked removable-storage teardown. Recent changes to K95 Optware hooks preserve full hook pathnames and reverse startup order.
-- Existing source review records that K95 Optware hook files are not ROMFS-installed or invoked by the in-tree S??* lifecycle dispatcher; firmware Aria2/Transmission integration uses separate RC scripts. Do not assume K95 is an active production caller without proving its install path.
-- Target-specific behavior remains unverified: BusyBox ash lock acquisition/release, concurrent start/stop, partial Optware startup rollback, service-stop failure propagation, swapoff and /opt unmount ordering.
+## Active task — Optware/storage teardown under BusyBox ash (P2 reliability)
 
-### Next investigation
+### Remaining scope and verified caller facts
 
-- Trace the actual firmware installation and invocation paths for K95 hooks, Aria2/Transmission RC scripts, storage hotplug handlers and the shared operation lock. Identify which callers actually own the lock and which teardown path can reach umount /opt.
-- Review complete startup/stop/rollback call graphs, pathname handling, lock descriptor lifetime and all failure returns before editing. Reconcile the prior "not ROMFS-installed" note against any changed packaging or script installation rules.
-- Add focused host-side shell/source regressions for the actual active path; use BusyBox ash execution only when a matching host/target shell is available. Do not report host POSIX-shell checks as target BusyBox ash evidence.
-- Fix a concrete lifecycle defect if one is demonstrated; otherwise document the exact missing target evidence without manufacturing a source change.
+- Removable-storage safe removal owns storage.lock before stop_stor_apps() and the checked opt-umount hook; opt-umount acquires the separate Optware lifecycle lock nonblocking, preserving the lock order. MTD/RWFS teardown checks opt-umount status before filesystem unmount and UBI detach.
+- K95 scripts are source-side optional hooks, not the in-tree firmware dispatcher path. Keep them distinct from built-in Aria/Transmission RC integration.
+- opt-umount.sh attempts swapoff /opt/.swap but does not propagate failure before home/localtime cleanup and /opt unmount. The later checked umount prevents falsely reporting success for a still-busy /opt mount, but active swap verification and early failure gating remain open.
+- BusyBox ash lock acquire/release, concurrent start/stop, descriptor inheritance and target filesystem behavior have not been exercised using a matching target shell. Host sh results are not target ash evidence.
+
+### Exact next investigation
+
+1. Fetch live main SHA, parent and branch inventory, then inspect exact-head Actions before editing.
+2. Add a fail-closed swapoff policy for /opt/.swap: distinguish an inactive swap file from an active entry in /proc/swaps, propagate unreadable inventory and swapoff failure, and prevent home/localtime cleanup plus /opt unmount whenever release is uncertain. Add active/inactive/failure host regressions.
+3. Re-run the whole Optware/storage caller graph and lock-order review. Use BusyBox ash only if a matching BusyBox implementation is actually available; otherwise leave target ash evidence explicitly NOT VERIFIED.
+4. Keep FTP upload-cleanup TOCTOU OPEN/BLOCKED, NFS client semantics, wireless/WAN target behavior and the separate infosvr SIGTERM cleanup-in-handler risk visible in the global ledger. Continue rotating across userland modules rather than defaulting back to SkipDBv2 or HTTPD.
 
 ## Verification boundary
 
-- L1 source review: PASS for the BusyBox spawn_and_wait() event result, DHCPACK lease-state publication gate, initial retry and renewal deadline accounting.
-- L2 exact-head: udhcpc [43002980464], infosvr packet regression [43002980467] and AI docs [43002980526] all SUCCESS on exact SHA 17b4583ce0511a3cbbd02cef18024fe7b30110e7. The udhcpc GNU89 ASan/UBSan policy test and source checker passed; docs archive validator passed with root log=106/119 and archive inventory 6/22/18. Every step and complete log was inspected.
-- Production MIPS/uClibc BusyBox object, complete firmware/TRX, live DHCP v4/v6 behavior and L4 router behavior remain NOT VERIFIED.
-- Optware/ash next task is at investigation stage. No target BusyBox ash or router filesystem behavior is claimed.
+- L1 source review: PASS for BusyBox udhcpc event-status/lease-publication gating and storage-backed daemon stop command/process-absence gating for MiniDLNA, Firefly, Transmission and Aria.
+- L2 exact-head: udhcpc [43002980464], infosvr packet regression [43002980467] and AI docs [43002980526] all SUCCESS on 17b4583ce0511a3cbbd02cef18024fe7b30110e7. On current base f986ed961bbe14a8db4bc8d99219e5a1a1330826, infosvr [43004194313] and AI docs [43004194407] also SUCCESS. The new storage daemon stop policy test passed locally under GNU89 ASan/UBSan; exact-head storage Actions for THIS COMMIT are pending.
+- Production MIPS/uClibc objects, complete firmware/TRX, live DHCP v4/v6 behavior, matching target BusyBox ash and L4 router behavior remain NOT VERIFIED.
 
 ## Other open governance-ledger risks
 

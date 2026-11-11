@@ -53,6 +53,7 @@
 #include "storage_optware_start_policy.h"
 #include "storage_ejected_inventory_policy.h"
 #include "storage_nfs_export_policy.h"
+#include "storage_service_stop_policy.h"
 #include "switch.h"
 
 void
@@ -1674,14 +1675,21 @@ int is_dms_run(void)
 	return (pids("minidlnad")) ? 1 : 0;
 }
 
-void stop_dms(void)
+int stop_dms(void)
 {
 	char* svcs[] = { "minidlnad", NULL };
+	int command_status;
 
 	if (!is_dms_support())
-		return;
+		return 0;
 
-	kill_services(svcs, 5, 1);
+	command_status = kill_services(svcs, 5, 1);
+	if (storage_service_stop_complete(command_status, is_dms_run()) != 0) {
+		logmessage("MiniDLNA", "daemon did not stop cleanly");
+		return -1;
+	}
+
+	return 0;
 }
 
 void update_minidlna_conf(const char *link_path, const char *conf_path)
@@ -1799,7 +1807,10 @@ void run_dms(int force_rescan)
 
 void restart_dms(int force_rescan)
 {
-	stop_dms();
+	if (stop_dms() != 0) {
+		logmessage("MiniDLNA", "restart aborted because the existing daemon did not stop");
+		return;
+	}
 	if (storage_has_mounted_devices("restarting DLNA"))
 		run_dms(force_rescan);
 }
@@ -1819,14 +1830,21 @@ int is_itunes_run(void)
 	return (pids("mt-daapd")) ? 1 : 0;
 }
 
-void stop_itunes(void)
+int stop_itunes(void)
 {
 	char* svcs[] = { "mt-daapd", NULL };
+	int command_status;
 
 	if (!is_itunes_support())
-		return;
+		return 0;
 
-	kill_services(svcs, 5, 1);
+	command_status = kill_services(svcs, 5, 1);
+	if (storage_service_stop_complete(command_status, is_itunes_run()) != 0) {
+		logmessage("Firefly", "daemon did not stop cleanly");
+		return -1;
+	}
+
+	return 0;
 }
 
 static void 
@@ -1940,7 +1958,10 @@ void run_itunes(void)
 
 void restart_itunes(void)
 {
-	stop_itunes();
+	if (stop_itunes() != 0) {
+		logmessage("Firefly", "restart aborted because the existing daemon did not stop");
+		return;
+	}
 	if (storage_has_mounted_devices("restarting Firefly"))
 		run_itunes();
 }
@@ -1960,15 +1981,20 @@ int is_torrent_run(void)
 	return (pids("transmission-daemon")) ? 1 : 0;
 }
 
-void stop_torrent(void)
+int stop_torrent(void)
 {
-	if (!is_torrent_support())
-		return;
+	int command_status;
 
-	if (!is_torrent_run())
-		return;
+	if (!is_torrent_support() || !is_torrent_run())
+		return 0;
 
-	eval("/usr/bin/transmission.sh", "stop");
+	command_status = eval("/usr/bin/transmission.sh", "stop");
+	if (storage_service_stop_complete(command_status, is_torrent_run()) != 0) {
+		logmessage("Transmission", "daemon did not stop cleanly");
+		return -1;
+	}
+
+	return 0;
 }
 
 void run_torrent(void)
@@ -2000,7 +2026,10 @@ void restart_torrent(void)
 	int is_run_before = is_torrent_run();
 	int is_run_after;
 
-	stop_torrent();
+	if (stop_torrent() != 0) {
+		logmessage("Transmission", "restart aborted because the existing daemon did not stop");
+		return;
+	}
 	if (storage_has_mounted_devices("restarting Transmission"))
 		run_torrent();
 
@@ -2025,15 +2054,20 @@ int is_aria_run(void)
 	return (pids("aria2c")) ? 1 : 0;
 }
 
-void stop_aria(void)
+int stop_aria(void)
 {
-	if (!is_aria_support())
-		return;
+	int command_status;
 
-	if (!is_aria_run())
-		return;
+	if (!is_aria_support() || !is_aria_run())
+		return 0;
 
-	eval("/usr/bin/aria.sh", "stop");
+	command_status = eval("/usr/bin/aria.sh", "stop");
+	if (storage_service_stop_complete(command_status, is_aria_run()) != 0) {
+		logmessage("Aria", "daemon did not stop cleanly");
+		return -1;
+	}
+
+	return 0;
 }
 
 void run_aria(void)
@@ -2065,7 +2099,10 @@ void restart_aria(void)
 	int is_run_before = is_aria_run();
 	int is_run_after;
 
-	stop_aria();
+	if (stop_aria() != 0) {
+		logmessage("Aria", "restart aborted because the existing daemon did not stop");
+		return;
+	}
 	if (storage_has_mounted_devices("restarting Aria"))
 		run_aria();
 
@@ -2606,18 +2643,30 @@ stop_stor_apps(void)
 	}
 #endif
 #if defined (APP_MINIDLNA)
-	stop_dms();
+	if (stop_dms() != 0) {
+		logmessage("Storage", "storage removal must be aborted because MiniDLNA did not stop");
+		stop_status = -1;
+	}
 #endif
 #if defined (APP_FIREFLY)
-	stop_itunes();
+	if (stop_itunes() != 0) {
+		logmessage("Storage", "storage removal must be aborted because Firefly did not stop");
+		stop_status = -1;
+	}
 #endif
 #if defined (APP_TRMD)
 	need_restart_fw |= is_torrent_run();
-	stop_torrent();
+	if (stop_torrent() != 0) {
+		logmessage("Storage", "storage removal must be aborted because Transmission did not stop");
+		stop_status = -1;
+	}
 #endif
 #if defined (APP_ARIA)
 	need_restart_fw |= is_aria_run();
-	stop_aria();
+	if (stop_aria() != 0) {
+		logmessage("Storage", "storage removal must be aborted because Aria did not stop");
+		stop_status = -1;
+	}
 #endif
 
 	if (need_restart_fw && nvram_match("fw_enable_x", "1"))

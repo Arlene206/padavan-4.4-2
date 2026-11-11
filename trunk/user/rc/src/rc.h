@@ -678,27 +678,27 @@ int restart_nfsd(void);
 #if defined (APP_MINIDLNA)
 int is_dms_run(void);
 void update_minidlna_conf(const char *link_path, const char *conf_path);
-void stop_dms(void);
+int stop_dms(void);
 void run_dms(int force_rescan);
 void restart_dms(int force_rescan);
 #endif
 #if defined (APP_FIREFLY)
 int is_itunes_run(void);
-void stop_itunes(void);
+int stop_itunes(void);
 void run_itunes(void);
 void restart_itunes(void);
 #endif
 #if defined (APP_TRMD)
 int is_torrent_run(void);
 int is_torrent_support(void);
-void stop_torrent(void);
+int stop_torrent(void);
 void run_torrent(void);
 void restart_torrent(void);
 #endif
 #if defined (APP_ARIA)
 int is_aria_run(void);
 int is_aria_support(void);
-void stop_aria(void);
+int stop_aria(void);
 void run_aria(void);
 void restart_aria(void);
 #endif

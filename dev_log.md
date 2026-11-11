@@ -1,3 +1,16 @@
+## 2026-11-11 18:40 CST (UTC+8) — Gate storage removal on every mounted-media daemon stop result
+
+- Base main SHA: f986ed961bbe14a8db4bc8d99219e5a1a1330826; parent 17b4583ce0511a3cbbd02cef18024fe7b30110e7; branch inventory: main only, no remote checkpoint. Exact-base AI docs [43004194407] and infosvr packet stability [43004194313] both SUCCESS; complete logs inspected.
+- Traced the installed firmware path rather than treating K95 hooks as live callers. trunk/user/optware/Makefile installs opt-start/opt-mount/opt-umount but not K95aria2/K95transmission; scripts/Makefile publishes the shared /sbin lifecycle helper. Built-in Aria/Transmission use separate RC scripts and services_stor.c callers.
+- Found that stop_stor_apps() propagated NFS/Samba/FTP failures but ignored MiniDLNA, Firefly, Transmission and Aria stop outcomes. The four stop wrappers discarded kill_services()/eval() status and did not confirm process absence, so safe removal could continue with a storage-backed daemon still observable.
+- Changed each stop wrapper to return failure unless both the stop command succeeds and the daemon-absence postcondition holds. stop_stor_apps() now blocks removal on all four failures; manual restart callers also refuse to start over a daemon that failed to stop. Added a reusable GNU89 policy helper and a five-case regression.
+- Host test: GNU89 -Wall -Wextra -Werror ASan/UBSan policy binary printed 'storage daemon stop postcondition policy: PASS'. Exact-head storage Actions are pending for THIS COMMIT; no target BusyBox ash, MIPS/uClibc, firmware/TRX or L4 result is claimed.
+- Remaining next slice: opt-umount.sh ignores swapoff /opt/.swap failure before home/localtime cleanup and /opt unmount; add active/inactive /proc/swaps and swapoff-failure coverage, then continue matching-shell lock verification.
+- Root dev_log.md: 107 complete newest-first records before this entry; 108 afterward. Below 120-record / 384 KiB rotation triggers and 512 KiB hard cap. Archive inventory remains dev-log=6, handoff=22, roadmap=18; no archive/index update is due.
+- Changed paths: .github/workflows/storage-hotplug-stability.yml, trunk/user/rc/src/services_stor.c, trunk/user/rc/src/rc.h, trunk/user/rc/src/storage_service_stop_policy.h, trunk/user/rc/src/tests/storage_service_stop_policy.c, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and dev_log.md.
+- Resulting commit: THIS COMMIT.
+
+---
 ## 2026-11-11 18:18 CST (UTC+8) — Close udhcpc callback gate and hand off Optware lifecycle audit
 
 - Base main SHA: 17b4583ce0511a3cbbd02cef18024fe7b30110e7; parent a3ee4d0e628434b1e16171f457afa0791c84f7a3; branch inventory: main only, no remote checkpoint.

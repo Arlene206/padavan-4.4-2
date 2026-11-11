@@ -21,6 +21,8 @@ on:
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/storage_optware_start_policy.h"
       - "trunk/user/rc/src/tests/storage_optware_start_policy.c"
+      - "trunk/user/rc/src/storage_service_stop_policy.h"
+      - "trunk/user/rc/src/tests/storage_service_stop_policy.c"
       - "trunk/user/shared/src/shutils.h"
       - "trunk/user/rc/src/storage_ejected_inventory_policy.h"
       - "trunk/user/rc/src/tests/storage_ejected_inventory_policy.c"
@@ -50,6 +52,8 @@ on:
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/storage_optware_start_policy.h"
       - "trunk/user/rc/src/tests/storage_optware_start_policy.c"
+      - "trunk/user/rc/src/storage_service_stop_policy.h"
+      - "trunk/user/rc/src/tests/storage_service_stop_policy.c"
       - "trunk/user/shared/src/shutils.h"
       - "trunk/user/rc/src/storage_ejected_inventory_policy.h"
       - "trunk/user/rc/src/tests/storage_ejected_inventory_policy.c"
@@ -104,6 +108,14 @@ jobs:
             trunk/user/rc/src/tests/storage_optware_start_policy.c \
             -o /tmp/storage-optware-start-policy
           /tmp/storage-optware-start-policy
+      - name: Compile and run storage daemon stop postcondition regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \\
+            -I trunk/user/rc/src \\
+            trunk/user/rc/src/tests/storage_service_stop_policy.c \\
+            -o /tmp/storage-service-stop-policy
+          /tmp/storage-service-stop-policy
       - name: Verify whole storage caller graph, operation locks and failure propagation
         run: |
           python3 - <<'PY'
@@ -114,6 +126,8 @@ jobs:
           policy = (rc_dir / "storage_ejected_inventory_policy.h").read_text()
           optware_policy = (rc_dir / "storage_optware_start_policy.h").read_text()
           optware_policy_test = (rc_dir / "tests/storage_optware_start_policy.c").read_text()
+          storage_stop_policy = (rc_dir / "storage_service_stop_policy.h").read_text()
+          storage_stop_test = (rc_dir / "tests/storage_service_stop_policy.c").read_text()
           rc = (rc_dir / "rc.c").read_text()
           workflow = Path(".github/workflows/storage-hotplug-stability.yml").read_text()
           nfs_script = Path("trunk/user/nfs-utils/nfsd.sh").read_text()
@@ -621,6 +635,32 @@ jobs:
           stop_apps = function_body(storage, "stop_stor_apps(void)")
           assert "if (stop_nfsd_locked() != 0)" in stop_apps and "stop_nfsd()" not in stop_apps
           assert "return stop_status;" in stop_apps
+          assert "storage_service_stop_complete" in storage_stop_policy
+          for stop_name, running_check, command in (
+              ("stop_dms", "is_dms_run", "kill_services"),
+              ("stop_itunes", "is_itunes_run", "kill_services"),
+              ("stop_torrent", "is_torrent_run", "eval"),
+              ("stop_aria", "is_aria_run", "eval"),
+          ):
+              stop_body = function_body(storage, "int " + stop_name + "(void)")
+              assert "storage_service_stop_complete(command_status, " + running_check + "())" in stop_body
+              assert command in stop_body
+              assert "return -1;" in stop_body and "return 0;" in stop_body
+              assert "if (" + stop_name + "() != 0)" in stop_apps
+              assert "int " + stop_name + "(void);" in rc_header
+          assert "successful stop" in storage_stop_test
+          assert "command failure" in storage_stop_test
+          assert "daemon remains" in storage_stop_test
+          assert "negative process query" in storage_stop_test
+          for restart_name, stop_name, start_name in (
+              ("restart_dms", "stop_dms", "run_dms"),
+              ("restart_itunes", "stop_itunes", "run_itunes"),
+              ("restart_torrent", "stop_torrent", "run_torrent"),
+              ("restart_aria", "stop_aria", "run_aria"),
+          ):
+              restart_body = function_body(storage, restart_name + "(")
+              assert "if (" + stop_name + "() != 0)" in restart_body
+              assert restart_body.index(stop_name + "() != 0") < restart_body.index(start_name + "(")
           run_nfsd_locked = function_body(storage, "run_nfsd_locked(void)")
           assert 'eval("/usr/bin/nfsd.sh", "start")' in run_nfsd_locked
           start_apps = function_body(storage, "start_stor_apps(void)")
