@@ -1,6 +1,7 @@
 #ifndef _BRIDGE_MEMBERSHIP_POLICY_H
 #define _BRIDGE_MEMBERSHIP_POLICY_H
 
+#include <errno.h>
 #include <string.h>
 
 /*
@@ -22,6 +23,25 @@ bridge_port_list_contains(const int *ifindices, unsigned int count, int ifindex)
 			return 1;
 	}
 	return 0;
+}
+
+static inline int
+bridge_membership_request_satisfied(int is_add, int membership)
+{
+	if (membership < 0)
+		return 0;
+
+	return is_add ? (membership > 0) : (membership == 0);
+}
+
+/*
+ * Linux 4.4 reports EBUSY for a duplicate add and EINVAL when a delete
+ * races with another detach or the port is not owned by this bridge.
+ */
+static inline int
+bridge_membership_race_is_idempotent(int is_add, int error_number)
+{
+	return is_add ? (error_number == EBUSY) : (error_number == EINVAL);
 }
 
 static inline int

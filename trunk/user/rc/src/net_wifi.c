@@ -66,6 +66,29 @@ wif_control_success(const char *wifname, int is_up)
 	return 1;
 }
 
+/*
+ * Keep an interface in its current bridge while it is still up. Once the
+ * driver accepted the down request, detach its LAN bridge port as part of
+ * the same shutdown result so restart cannot inherit stale WDS/AP memberships.
+ */
+static int
+wireless_stop_interface(const char *ifname, const char *bridge_ifname)
+{
+	int ret;
+
+	if (!wif_control_success(ifname, 0))
+		return 0;
+
+	ret = br_add_del_if(IFNAME_BR, bridge_ifname, 0);
+	if (ret != 0) {
+		logmessage(LOGNAME, "%s: failed to detach %s from %s after shutdown (status=%d)",
+			   __func__, bridge_ifname, IFNAME_BR, ret);
+		return 0;
+	}
+
+	return 1;
+}
+
 void
 mlme_state_wl(int is_on)
 {
@@ -447,18 +470,18 @@ stop_wifi_all_wl(void)
 	int all_stopped = 1;
 #if BOARD_HAS_5G_RADIO
 
-	// Attempt every interface even after one failure; the LED is a state report.
-	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_5G_APCLI, 0));
+	/* Attempt every interface even after one failure; the LED is a state report. */
+	all_stopped = wireless_radio_shutdown_status(all_stopped, wireless_stop_interface(IFNAME_5G_APCLI, IFNAME_5G_APCLI));
 
-	// stop WDS (4 interfaces)
-	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_5G_WDS3, 0));
-	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_5G_WDS2, 0));
-	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_5G_WDS1, 0));
-	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_5G_WDS0, 0));
+	/* stop WDS (4 interfaces) */
+	all_stopped = wireless_radio_shutdown_status(all_stopped, wireless_stop_interface(IFNAME_5G_WDS3, IFNAME_5G_WDS3));
+	all_stopped = wireless_radio_shutdown_status(all_stopped, wireless_stop_interface(IFNAME_5G_WDS2, IFNAME_5G_WDS2));
+	all_stopped = wireless_radio_shutdown_status(all_stopped, wireless_stop_interface(IFNAME_5G_WDS1, IFNAME_5G_WDS1));
+	all_stopped = wireless_radio_shutdown_status(all_stopped, wireless_stop_interface(IFNAME_5G_WDS0, IFNAME_5G_WDS0));
 
-	// stop AP (guest + main)
-	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_5G_GUEST, 0));
-	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_5G_MAIN, 0));
+	/* stop AP (guest + main) */
+	all_stopped = wireless_radio_shutdown_status(all_stopped, wireless_stop_interface(IFNAME_5G_GUEST, IFNAME_5G_GUEST));
+	all_stopped = wireless_radio_shutdown_status(all_stopped, wireless_stop_interface(IFNAME_5G_MAIN, IFNAME_5G_MAIN));
 
 	if (all_stopped)
 		LED_CONTROL(LED_SW5G, LED_OFF);
@@ -476,31 +499,32 @@ stop_wifi_all_rt(void)
 #if defined(USE_RT3352_MII)
 	stop_inicd();
 
-	/* Isolate the iNIC path, then stop the interfaces started by start_inic_mii(). */
+	/* Isolate the iNIC path, then stop and detach each started bridge port. */
 	if (phy_isolate_inic(1) != 0) {
 		logmessage(LOGNAME, "failed to isolate iNIC during 2.4GHz shutdown");
 		all_stopped = 0;
 	}
-	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_INIC_GUEST, 0));
-	br_add_del_if(IFNAME_BR, IFNAME_INIC_GUEST_VLAN, 0);
-	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_INIC_MAIN, 0));
+	all_stopped = wireless_radio_shutdown_status(all_stopped,
+		wireless_stop_interface(IFNAME_INIC_GUEST, IFNAME_INIC_GUEST_VLAN));
+	all_stopped = wireless_radio_shutdown_status(all_stopped,
+		wireless_stop_interface(IFNAME_INIC_MAIN, IFNAME_INIC_MAIN));
 	if (phy_disable_inic(1) != 0) {
 		logmessage(LOGNAME, "failed to disable iNIC RGMII during 2.4GHz shutdown");
 		all_stopped = 0;
 	}
 #else
 	// stop ApCli
-	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_2G_APCLI, 0));
+	all_stopped = wireless_radio_shutdown_status(all_stopped, wireless_stop_interface(IFNAME_2G_APCLI, IFNAME_2G_APCLI));
 
 	// stop WDS (4 interfaces)
-	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_2G_WDS3, 0));
-	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_2G_WDS2, 0));
-	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_2G_WDS1, 0));
-	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_2G_WDS0, 0));
+	all_stopped = wireless_radio_shutdown_status(all_stopped, wireless_stop_interface(IFNAME_2G_WDS3, IFNAME_2G_WDS3));
+	all_stopped = wireless_radio_shutdown_status(all_stopped, wireless_stop_interface(IFNAME_2G_WDS2, IFNAME_2G_WDS2));
+	all_stopped = wireless_radio_shutdown_status(all_stopped, wireless_stop_interface(IFNAME_2G_WDS1, IFNAME_2G_WDS1));
+	all_stopped = wireless_radio_shutdown_status(all_stopped, wireless_stop_interface(IFNAME_2G_WDS0, IFNAME_2G_WDS0));
 
 	// stop AP (guest + main)
-	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_2G_GUEST, 0));
-	all_stopped = wireless_radio_shutdown_status(all_stopped, wif_control_success(IFNAME_2G_MAIN, 0));
+	all_stopped = wireless_radio_shutdown_status(all_stopped, wireless_stop_interface(IFNAME_2G_GUEST, IFNAME_2G_GUEST));
+	all_stopped = wireless_radio_shutdown_status(all_stopped, wireless_stop_interface(IFNAME_2G_MAIN, IFNAME_2G_MAIN));
 #endif
 
 	if (all_stopped)

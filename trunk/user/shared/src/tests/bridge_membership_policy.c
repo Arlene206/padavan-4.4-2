@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "bridge_membership_policy.h"
@@ -10,6 +11,28 @@ expect_membership(const int *ifindices, unsigned int count, int ifindex,
 
 	if (actual != expected) {
 		fprintf(stderr, "%s: expected %d got %d\n", label, expected, actual);
+		exit(1);
+	}
+}
+
+static void
+expect_membership_request(int is_add, int membership, int expected, const char *label)
+{
+	int actual = bridge_membership_request_satisfied(is_add, membership);
+
+	if (actual != expected) {
+		fprintf(stderr, "%s: expected %d got %d\\n", label, expected, actual);
+		exit(1);
+	}
+}
+
+static void
+expect_membership_race(int is_add, int error_number, int expected, const char *label)
+{
+	int actual = bridge_membership_race_is_idempotent(is_add, error_number);
+
+	if (actual != expected) {
+		fprintf(stderr, "%s: expected %d got %d\\n", label, expected, actual);
 		exit(1);
 	}
 }
@@ -43,6 +66,18 @@ main(void)
 	expect_membership(NULL, BRIDGE_PORT_LIST_CAPACITY, 3, 0, "missing port list");
 	expect_membership(ifindices, BRIDGE_PORT_LIST_CAPACITY, 0, 0, "zero interface index");
 	expect_membership(ifindices, BRIDGE_PORT_LIST_CAPACITY, -1, 0, "negative interface index");
+
+	/* The requested membership state is idempotent in both directions. */
+	expect_membership_request(1, 1, 1, "add already present");
+	expect_membership_request(1, 0, 0, "add missing");
+	expect_membership_request(1, -1, 0, "add unknown inventory");
+	expect_membership_request(0, 0, 1, "delete already absent");
+	expect_membership_request(0, 1, 0, "delete still present");
+	expect_membership_request(0, -1, 0, "delete unknown inventory");
+	expect_membership_race(1, EBUSY, 1, "duplicate add race");
+	expect_membership_race(0, EINVAL, 1, "duplicate delete race");
+	expect_membership_race(1, EINVAL, 0, "add unexpected EINVAL");
+	expect_membership_race(0, EBUSY, 0, "delete unexpected EBUSY");
 
 	expect_remove_vlan(0, "eth2.35", "br0", 0, "removal disabled");
 	expect_remove_vlan(1, "br0", "br0", 0, "LAN bridge preserved");

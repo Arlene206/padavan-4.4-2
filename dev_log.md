@@ -1,3 +1,17 @@
+## 2026-11-12 01:40 CST (UTC+8) — Detach Wi-Fi bridge ports during radio shutdown
+
+- Base main SHA: 55740d3491fba908416b930664143943b5acca1a; parent c22542d36e9de26780b338267f41a91d99aaf34a. main remained the only remote branch.
+- Closed the preceding WAN bridge VLAN teardown task on exact SHA 55740d3491fba908416b930664143943b5acca1a: wireless bridge/VLAN regression [43069624285], AI handoff docs [43069624357], infosvr packet/signal [43069624265] and WAN callback umbrella [43069624334] all SUCCESS. Each job checked out the exact SHA; all steps passed. The bridge GNU89 -Wall -Wextra -Werror regression printed "Bridge membership and teardown policy regression: PASS"; source contracts printed "Wireless driver/restart failure state-publication contracts: PASS"; docs validator reported root log=28/119 and archives=7/22/18.
+- New Wi-Fi lifecycle audit found stop_wifi_all_wl() and stop_wifi_all_rt() brought APCLI/WDS/AP/iNIC interfaces down but did not consistently detach their bridge ports. The RT3352 MII branch detached only the guest VLAN and left the conditional iNIC main port behind. When WDS configuration shrank, stale WDS bridge membership could survive a restart because only currently configured WDS ports were brought back up.
+- Fix: introduce one stop helper that requires successful interface-down before bridge detach and reports either failure into aggregate shutdown status. Map the iNIC guest interface to its VLAN bridge port; detach the iNIC main port too. Restart remains fail-closed when a down or detach operation fails, while shutdown continues attempting remaining interfaces.
+- Bridge membership requests are now idempotent for both add and delete. Query the complete Linux 4.4 bridge-port inventory before either ioctl; fail closed when inventory is unavailable; after add EBUSY or delete EINVAL, re-query and accept only if the requested state is now satisfied. A port owned by another bridge is not detached from that bridge.
+- GNU89 bridge policy regression now covers add/delete already-satisfied states, unavailable inventory and duplicate-operation race errno mapping. The wireless Actions source contract verifies shutdown ordering, the iNIC guest-VLAN mapping, iNIC main detach, both bridge-membership directions and fail-closed restart propagation.
+- Exact-head wireless and AI docs Actions for THIS COMMIT are pending. No complete local checkout, MIPS/uClibc production object, full firmware/TRX or L4 router behavior is claimed.
+- Root dev_log.md grows 28→29 complete records; no rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- Next GPT: inspect the wireless radio-state and AI handoff-doc Actions on the exact resulting main SHA, every job step and full logs. Require GNU89 policy regression and lifecycle/membership contracts plus docs validator root log=29/119, archives=7/22/18 to pass. MIPS/uClibc and target board/iNIC bridge behavior remain NOT VERIFIED.
+
+---
+
 ## 2026-11-12 01:35 CST (UTC+8) — Propagate VLAN deletion failures during WAN bridge teardown
 
 - Base main SHA: `c22542d36e9de26780b338267f41a91d99aaf34a`; parent `c2e1c85517ed2dcbe094ed43e3cae18d7af4d972`.

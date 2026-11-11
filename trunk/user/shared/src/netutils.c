@@ -807,30 +807,29 @@ br_add_del_if(const char *brname, const char *ifname, int is_add)
 	}
 
 	/*
-	 * SIOCBRADDIF returns -EBUSY when a device already has a master,
-	 * including this bridge. Make retries idempotent, but fail closed if the
-	 * membership inventory cannot be read.
+	 * Treat an already-satisfied request as success for both add and delete.
+	 * A complete inventory is required: do not guess when the bridge query
+	 * fails, and never detach a port from a different bridge.
 	 */
-	if (is_add) {
-		membership = bridge_has_ifindex(sockfd, brname, ifr.ifr_ifindex);
-		if (membership < 0) {
-			saved_errno = errno;
-			close(sockfd);
-			errno = saved_errno;
-			return -1;
-		}
-		if (membership > 0) {
-			close(sockfd);
-			return 0;
-		}
+	membership = bridge_has_ifindex(sockfd, brname, ifr.ifr_ifindex);
+	if (membership < 0) {
+		saved_errno = errno;
+		close(sockfd);
+		errno = saved_errno;
+		return -1;
+	}
+	if (bridge_membership_request_satisfied(is_add, membership)) {
+		close(sockfd);
+		return 0;
 	}
 
 	ret = ioctl(sockfd, (is_add) ? SIOCBRADDIF : SIOCBRDELIF, &ifr);
-	if (is_add && ret < 0 && errno == EBUSY) {
-		/* Another caller may have attached this port to the same bridge. */
+	if (ret < 0 && bridge_membership_race_is_idempotent(is_add, errno)) {
+		/* A concurrent caller may have completed the same operation. */
 		saved_errno = errno;
 		membership = bridge_has_ifindex(sockfd, brname, ifr.ifr_ifindex);
-		if (membership > 0)
+		if (membership >= 0 &&
+		    bridge_membership_request_satisfied(is_add, membership))
 			ret = 0;
 		else
 			errno = saved_errno;

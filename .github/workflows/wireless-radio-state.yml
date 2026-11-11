@@ -285,12 +285,13 @@ jobs:
               netutils_source,
               "br_add_del_if(const char *brname, const char *ifname, int is_add)")
           assert add_if.count("bridge_has_ifindex(sockfd, brname, ifr.ifr_ifindex)") == 2
-          assert add_if.index("if (is_add)") < add_if.index("bridge_has_ifindex(")
-          assert add_if.index("bridge_has_ifindex(") < add_if.index("ret = ioctl(sockfd, (is_add) ? SIOCBRADDIF")
+          assert "membership = bridge_has_ifindex(sockfd, brname, ifr.ifr_ifindex)" in add_if
+          assert add_if.index("membership = bridge_has_ifindex(") < add_if.index("ret = ioctl(sockfd, (is_add) ? SIOCBRADDIF")
           assert "if (membership < 0)" in add_if
-          assert "if (membership > 0)" in add_if
-          assert "ret < 0 && errno == EBUSY" in add_if
-          assert add_if.rindex("bridge_has_ifindex(") > add_if.index("errno == EBUSY")
+          assert "bridge_membership_request_satisfied(is_add, membership)" in add_if
+          assert "bridge_membership_race_is_idempotent(is_add, errno)" in add_if
+          assert "if (ret < 0 && bridge_membership_race_is_idempotent(is_add, errno))" in add_if
+          assert add_if.rindex("bridge_has_ifindex(") > add_if.index("bridge_membership_race_is_idempotent(is_add, errno)")
 
           # Bulk bridge teardown must report failures and respect the separate
           # do_if_down and do_if_rem controls.
@@ -328,21 +329,38 @@ jobs:
           assert inic_check.index(guest_gate) < inic_check.index("wif_control_success(IFNAME_INIC_GUEST, 1)")
           assert "deferred until the next health check" in inic_check
 
+          stop_helper = function_body(
+              source,
+              "wireless_stop_interface(const char *ifname, const char *bridge_ifname)")
+          down_gate = "if (!wif_control_success(ifname, 0))"
+          detach_call = "ret = br_add_del_if(IFNAME_BR, bridge_ifname, 0)"
+          assert down_gate in stop_helper
+          assert detach_call in stop_helper
+          assert stop_helper.index(down_gate) < stop_helper.index(detach_call)
+          assert stop_helper.index(detach_call) < stop_helper.index("if (ret != 0)")
+          assert "failed to detach %s from %s after shutdown" in stop_helper
+          assert stop_helper.index("if (ret != 0)") < stop_helper.rindex("return 1;")
+
           def assert_shutdown_calls(body, interfaces):
               calls = []
-              for ifname in interfaces:
+              for ifname, bridge_ifname in interfaces:
                   call = ("all_stopped = wireless_radio_shutdown_status(all_stopped, "
-                          "wif_control_success(" + ifname + ", 0));")
-                  assert call in body, f"shutdown must check {ifname}"
+                          "wireless_stop_interface(" + ifname + ", " + bridge_ifname + "));")
+                  assert call in body, f"shutdown must stop and detach {ifname} ({bridge_ifname})"
                   calls.append(body.index(call))
               assert calls == sorted(calls), "shutdown must attempt every required interface in order"
+              assert "wif_control_success(" not in body, "stop path bypasses bridge-detach helper"
 
           wl_stop = function_body(source, "stop_wifi_all_wl(void)")
           assert "int all_stopped = 1;" in wl_stop
           assert_shutdown_calls(wl_stop, (
-              "IFNAME_5G_APCLI", "IFNAME_5G_WDS3", "IFNAME_5G_WDS2",
-              "IFNAME_5G_WDS1", "IFNAME_5G_WDS0", "IFNAME_5G_GUEST",
-              "IFNAME_5G_MAIN",
+              ("IFNAME_5G_APCLI", "IFNAME_5G_APCLI"),
+              ("IFNAME_5G_WDS3", "IFNAME_5G_WDS3"),
+              ("IFNAME_5G_WDS2", "IFNAME_5G_WDS2"),
+              ("IFNAME_5G_WDS1", "IFNAME_5G_WDS1"),
+              ("IFNAME_5G_WDS0", "IFNAME_5G_WDS0"),
+              ("IFNAME_5G_GUEST", "IFNAME_5G_GUEST"),
+              ("IFNAME_5G_MAIN", "IFNAME_5G_MAIN"),
           ))
           assert wl_stop.index("if (all_stopped)") < wl_stop.index("LED_CONTROL(LED_SW5G, LED_OFF);")
           assert wl_stop.count("LED_CONTROL(LED_SW5G, LED_OFF);") == 1
@@ -354,13 +372,19 @@ jobs:
           mii_else = rt_stop.index("#else", mii_start)
           mii_branch = rt_stop[mii_start:mii_else]
           generic_branch = rt_stop[mii_else:]
-          assert_shutdown_calls(mii_branch, ("IFNAME_INIC_GUEST", "IFNAME_INIC_MAIN"))
+          assert_shutdown_calls(mii_branch, (
+              ("IFNAME_INIC_GUEST", "IFNAME_INIC_GUEST_VLAN"),
+              ("IFNAME_INIC_MAIN", "IFNAME_INIC_MAIN"),
+          ))
           assert "phy_isolate_inic(1)" in mii_branch and "phy_disable_inic(1)" in mii_branch
-          assert "IFNAME_INIC_GUEST_VLAN, 0" in mii_branch
           assert_shutdown_calls(generic_branch, (
-              "IFNAME_2G_APCLI", "IFNAME_2G_WDS3", "IFNAME_2G_WDS2",
-              "IFNAME_2G_WDS1", "IFNAME_2G_WDS0", "IFNAME_2G_GUEST",
-              "IFNAME_2G_MAIN",
+              ("IFNAME_2G_APCLI", "IFNAME_2G_APCLI"),
+              ("IFNAME_2G_WDS3", "IFNAME_2G_WDS3"),
+              ("IFNAME_2G_WDS2", "IFNAME_2G_WDS2"),
+              ("IFNAME_2G_WDS1", "IFNAME_2G_WDS1"),
+              ("IFNAME_2G_WDS0", "IFNAME_2G_WDS0"),
+              ("IFNAME_2G_GUEST", "IFNAME_2G_GUEST"),
+              ("IFNAME_2G_MAIN", "IFNAME_2G_MAIN"),
           ))
           assert rt_stop.index("if (all_stopped)") < rt_stop.index("LED_CONTROL(LED_SW2G, LED_OFF);")
           assert rt_stop.count("LED_CONTROL(LED_SW2G, LED_OFF);") == 1

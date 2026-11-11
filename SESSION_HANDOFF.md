@@ -2,13 +2,12 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; branch `main`; only remote branch is `main`; no checkpoint branch.
-- Base main SHA for THIS COMMIT: `c22542d36e9de26780b338267f41a91d99aaf34a` (parent `c2e1c85517ed2dcbe094ed43e3cae18d7af4d972`).
-- DNS Forwarder caller-CWD independence is L1/L2 CLOSED on exact SHA `c2e1c85517ed2dcbe094ed43e3cae18d7af4d972`: DNS [43066687882], AI docs [43066687814] and infosvr [43066687818] all SUCCESS.
-- DNSMasq DHCP pool/router-address exclusion is L1/L2 CLOSED on exact SHA `c22542d36e9de26780b338267f41a91d99aaf34a`: DNSMasq lifecycle [43069047780] and AI docs [43069047752] SUCCESS; HTTPD umbrella [43069047723], infosvr [43069047578], Samba [43069047831] and miniupnpd [43069047633] also SUCCESS. All job steps and full DNSMasq/docs logs were inspected; DHCP pool, restart, lock, Inadyn, parser/source and docs archive contracts passed (root log=27/119; archives=7/22/18).
-- THIS COMMIT fixes a remaining shared-network teardown gap: `br_del_all_ifs()` ignored `vconfig_del_if()` failure while removing WAN bridge VLAN ports. Its caller `disassembly_bridges_wan()` aggregates this return and gates bridge removal; full WAN restart aborts on failed bridge teardown.
-- The fix deletes only dotted VLAN interface names (excluding `IFNAME_LAN` and ordinary physical ports) and includes the `vconfig_del_if()` ioctl result in the existing bridge cleanup status.
-- Root `dev_log.md` grows from 27 to 28 complete records; no rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- Repository: Arlene206/padavan-4.4-2; branch main; only remote branch is main; no checkpoint branch.
+- Base main SHA for THIS COMMIT: 55740d3491fba908416b930664143943b5acca1a (parent c22542d36e9de26780b338267f41a91d99aaf34a).
+- The preceding WAN bridge VLAN teardown task is L1/L2 CLOSED on exact SHA 55740d3491fba908416b930664143943b5acca1a: wireless [43069624285], AI docs [43069624357], infosvr [43069624265] and WAN callback [43069624334] all SUCCESS; all steps and full logs inspected.
+- The WAN fix preserves physical/LAN bridge ports, selects VLAN ports, and propagates failed vconfig_del_if() status through br_del_all_ifs(), WAN bridge disassembly and full restart.
+- THIS COMMIT addresses the next active P2 wireless lifecycle task: bring each radio interface down, detach its corresponding bridge port, aggregate both results, and make bridge add/delete membership idempotent.
+- Root dev_log.md grows 28→29 complete records; no rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
 - FTP upload-cleanup TOCTOU remains P2 OPEN/BLOCKED; NFS still requires external-client evidence. Production MIPS/uClibc, full firmware/TRX and physical router behavior remain NOT VERIFIED.
 
 ## Closed task — NVRAM HDR2 profile-save atomic publication
@@ -29,7 +28,6 @@
 - Exact-head infosvr packet workflow [42997959662] and AI docs [42997959722] both SUCCESS on 65119b857a7684974caf2ae0e13d8112a0e035bd; every job step and full log inspected.
 - GNU89 ASan/UBSan test printed infosvr packet initialization and length policy: PASS; source checker printed infosvr packet receive and bounds source contracts: PASS; docs validator printed root log=104/119, batch=100, retain=20 and archive counts 6/22/18.
 - Receive-buffer initialization, actual UDP byte count, base/extended prefix checks and malformed local MAC fail-closed behavior are CLOSED at L2. Infosvr MIPS/uClibc object, firmware/TRX and live packet interoperability remain NOT VERIFIED.
-- Separate P2 follow-up remains open: infosvr catch_sig_infosvr(SIGTERM) calls resource cleanup and exit() inside signal context. It has not been changed by the packet parsing fix.
 
 ## Closed task — BusyBox crond detached-daemon startup and restart safety (P2 reliability)
 
@@ -131,29 +129,35 @@
 - AI docs job: all seven steps succeeded. Validator reported root log=27/119 and archive inventory dev-log=7, handoff=22, roadmap=18. Full logs were inspected; no test failure was found.
 - This closes the DHCP pool/router-address exclusion slice at L1/L2 only. Production MIPS/uClibc build, complete firmware/TRX, live lease allocation and L4 router behavior remain NOT VERIFIED.
 
-## Active task — Propagate VLAN deletion failures during WAN bridge teardown (P2 reliability)
+## Closed task — Propagate VLAN deletion failures during WAN bridge teardown (P2 reliability; L1/L2 complete)
+
+- Exact main SHA 55740d3491fba908416b930664143943b5acca1a: wireless bridge/VLAN regression [43069624285], AI handoff docs [43069624357], infosvr packet/signal [43069624265] and WAN callback umbrella [43069624334] all SUCCESS. Every job checked out the exact SHA; all steps passed and full logs were inspected.
+- GNU89 bridge membership/teardown regression printed "Bridge membership and teardown policy regression: PASS". The source contract printed "Wireless driver/restart failure state-publication contracts: PASS", including VLAN selection and propagation of vconfig_del_if() failure into br_del_all_ifs(). AI docs validator reported root log=28/119, archives=dev-log 7 / handoff 22 / roadmap 18.
+- Caller path from br_del_all_ifs() through disassembly_bridges_wan() to the full-WAN-restart fail-closed gate is source-reviewed. This closes the bounded host/Actions slice at L1/L2 only.
+- Production MIPS/uClibc bridge/VLAN ioctl behavior, full firmware/TRX and physical router WAN teardown remain NOT VERIFIED.
+
+## Active task — Detach Wi-Fi bridge ports during radio shutdown (P2 network stability)
 
 ### Finding and implementation in THIS COMMIT
 
-- `br_del_all_ifs()` already accumulated bridge detach, interface lookup and requested interface-down ioctl failures. But its `do_if_rem` branch called `vconfig_del_if(ifr.ifr_name)` and discarded the return value, then returned the previous status.
-- `vconfig_del_if()` returns the `SIOCSIFVLAN/DEL_VLAN_CMD` ioctl result. The actual caller `disassembly_bridges_wan()` invokes `br_del_all_ifs(br_ifname, 1, 1)`, aggregates its status and skips bridge deletion on error; `full_restart_wan()` aborts when WAN bridge teardown fails. The ignored result therefore bypassed an existing fail-closed gate and could leave a detached-but-still-existing VLAN interface while teardown appeared complete.
-- This COMMIT restricts VLAN deletion to dotted interface names, preserving `IFNAME_LAN` and ordinary physical bridge ports. A failed VLAN delete is passed through `bridge_cleanup_status_update()`, so the existing WAN bridge and full-restart gates receive the failure.
-- The GNU89 bridge regression now covers VLAN selection, removal disabled, LAN/physical-port exclusions and null/empty names. The existing wireless/shared-network workflow adds source contracts proving the `vconfig_del_if()` return reaches the teardown status.
-- Standalone GNU89 policy regression built with `-Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer` and printed `Bridge membership and teardown policy regression: PASS`. No complete local repository checkout, full repository checker or production target build is claimed.
+- stop_wifi_all_wl() and stop_wifi_all_rt() brought APCLI/WDS/AP interfaces down and aggregated command status, but did not consistently remove those interfaces from br0. A restart that reduced the configured WDS count could leave old WDS ports attached but down; AP/guest mode transitions could also retain stale membership.
+- The RT3352 MII path stopped the iNIC guest interface and detached IFNAME_INIC_GUEST_VLAN, but did not detach IFNAME_INIC_MAIN when it had previously been added for 802.1X.
+- This COMMIT uses wireless_stop_interface(): ifconfig-down must succeed before bridge detach is attempted; either failure marks aggregate shutdown incomplete, while the other interfaces and iNIC isolation/RGMII cleanup are still attempted. The iNIC guest logical interface is mapped to its VLAN bridge port; the main interface is detached too.
+- br_add_del_if() now verifies bridge membership for both add and delete. Already-satisfied requests return success, snapshot failures stay fail-closed, and after add EBUSY / delete EINVAL races a fresh inventory must prove the requested state. A port belonging to another bridge is not removed from that bridge.
+- GNU89 regression adds already-present/already-absent, unknown-inventory and errno race-mapping cases. The wireless workflow checks helper ordering and all radio/iNIC bridge-port mappings, membership preflight/re-query, and restart/shutdown failure propagation.
 
 ### Exact next action
 
-- Inspect the wireless bridge/membership/teardown and AI handoff docs Actions on the resulting exact main SHA, every job step and full logs.
-- Require the GNU89 sanitizer regression, VLAN/non-VLAN/LAN selection cases, source contract proving `vconfig_del_if()` status reaches `br_del_all_ifs()`, and docs validator (root log=28/119; archives=7/22/18) to PASS.
-- If exact-head L2 is green, arrange target MIPS/uClibc bridge detach/VLAN ioctl validation when a complete checkout/toolchain is available. FTP cleanup TOCTOU remains OPEN/BLOCKED; NFS needs real-client evidence; WAN PPP/IPv6 interactions, firmware/TRX and L4 remain NOT VERIFIED.
+- Inspect wireless radio-state and AI handoff documentation Actions on the resulting exact main SHA; verify all steps and full logs.
+- Require GNU89 -Wall -Wextra -Werror membership regression, all helper/membership source contracts, symmetric workflow filters and AI docs validator (root log=29/119; archives=7/22/18) to pass.
+- Then arrange target MIPS/uClibc and board-variant validation for bridge-port teardown, especially RT3352 MII/iNIC and DBDC. FTP cleanup TOCTOU remains OPEN/BLOCKED; NFS still requires real-client evidence; WAN PPP/IPv6, complete firmware/TRX and L4 remain NOT VERIFIED.
 
 ## Verification boundary
 
-- L1 source review: PASS for the DNSMasq router-address exclusion gate and the WAN bridge VLAN deletion selection/status path. The caller chain is traced through `disassembly_bridges_wan()` and the full WAN restart fail-closed gate.
-- L2 host / Actions: standalone GNU89 `-Wall -Wextra -Werror` ASan/UBSan bridge membership/teardown policy regression PASS. Exact-head wireless and AI-doc Actions for THIS COMMIT are pending; do not mark VLAN failure propagation L2-closed until every step and full logs are inspected.
-- L2 DNSMasq closure: exact SHA `c22542d36e9de26780b338267f41a91d99aaf34a`; DNSMasq [43069047780], AI docs [43069047752], HTTPD umbrella [43069047723], infosvr [43069047578], Samba [43069047831] and miniupnpd [43069047633] all SUCCESS.
-- L3 production MIPS/uClibc RC objects / complete firmware/TRX: NOT VERIFIED for bridge/VLAN teardown and previous target-bound slices.
-- L4 router / physical hardware: NOT VERIFIED. No live WAN VLAN deletion, bridge ioctl, DHCP allocation, or physical router behavior is claimed.
+- L1 source review: PASS for WAN VLAN deletion failure propagation and Wi-Fi shutdown ordering/membership ownership. The wireless caller chain aggregates interface-down and bridge-detach errors, then blocks restart on incomplete shutdown.
+- L2 host / Actions: WAN VLAN fix exact SHA 55740d3491fba908416b930664143943b5acca1a passed wireless [43069624285], AI docs [43069624357], infosvr [43069624265] and WAN callback [43069624334]. This COMMIT's new Wi-Fi membership regression and source contracts are pending.
+- L3 production MIPS/uClibc objects / complete firmware/TRX: NOT VERIFIED for bridge membership ioctls, iNIC MII, DBDC and radio lifecycle.
+- L4 router / physical hardware: NOT VERIFIED. No live WLAN forwarding, WAN VLAN ioctl or physical-radio behavior is claimed.
 
 ## Other open governance-ledger risks
 
@@ -167,7 +171,7 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, confirm its exact SHA and inspect the wireless bridge/membership/teardown and AI handoff docs Actions tied to it. Inspect every job step and full logs.
-2. Require VLAN selection, failed-`vconfig_del_if()` return propagation, the GNU89 ASan/UBSan policy regression, existing bridge membership/bulk teardown contracts, and docs validator root log=28/119 with archives=7/22/18 to pass on the same exact SHA.
-3. If green, close this bounded VLAN teardown slice at L2. Next arrange target MIPS/uClibc validation of bridge detach and VLAN ioctl behavior when a complete checkout/toolchain is available; otherwise retain the precise blocker.
-4. FTP failed-upload cleanup TOCTOU remains OPEN/BLOCKED until a proven Linux 4.4-safe inode/parent approach preserves STOR/APPE/REST/STOU. NFS durability/AUTH_SYS/root-squash/external mounts require client evidence; WAN PPP/IPv6, full firmware/TRX and L4 remain NOT VERIFIED.
+1. Fetch live main, confirm its exact SHA and inspect the wireless radio-state and AI handoff-doc Actions tied to it. Inspect every job step and the complete logs.
+2. Require the GNU89 membership policy regression, bridge add/delete idempotence checks, all 5GHz / generic 2.4GHz / RT3352 MII stop mappings, shutdown failure aggregation and symmetric workflow filters to pass on that exact SHA. AI docs must validate root log=29/119 and archives=7/22/18.
+3. If green, close the bounded Wi-Fi bridge-detach slice at L2. Then prioritize target MIPS/uClibc/board validation when a complete checkout/toolchain is available; do not claim L3/L4 from host Actions.
+4. FTP failed-upload cleanup TOCTOU remains OPEN/BLOCKED until a proven Linux 4.4-safe inode/parent approach preserves STOR/APPE/REST/STOU. NFS external-client evidence, WAN PPP/IPv6, firmware/TRX and L4 remain NOT VERIFIED.
