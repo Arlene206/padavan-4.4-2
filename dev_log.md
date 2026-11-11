@@ -1,3 +1,16 @@
+## 2026-11-12 02:11 CST (UTC+8) — Fix OpenVPN lease snapshot parser newline scanset
+
+- Base main SHA: 9cc9df9b4269561402b90bd4ccf3b26bc9b3cd0a; parent 9c550fe2492c9299b73aa0ca972f2349fb998207.
+- Exact-head OpenVPN run [43074827945] on the base SHA passed the credential-staging and primary-config atomic-publication ASan/UBSan regressions, then failed the new lease-snapshot policy regression at test line 50 while copying a two-row inventory. The source-contract step was skipped because the policy binary aborted.
+- The parser used the C format scanset `%63[^\\n]`, whose double-escaped newline excluded both a backslash and the ordinary character `n`; the valid peer name `phone` was truncated and rejected. This commit changes the scanset to `%63[^\n]` at the C-source level (one backslash escape), excluding only newline.
+- Recompiled the current helper and unchanged regression with `cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer`; the local test printed `OpenVPN server lease snapshot parsing and filtering policy: PASS`.
+- Exact-base AI documentation run [43074827991] SUCCESS and reported root log=35/119, archives dev-log=7 / handoff=22 / roadmap=18. HTTPD umbrella [43074827969] SUCCESS; all 39 job steps passed. The corrected OpenVPN workflow and docs Actions for this commit remain pending.
+- Cross-module lifecycle synchronization is not closed: the new OpenVPN callback writer locks `/tmp/vpns.leases.lock` (lease path plus `.lock`), while `vpn_server.c` lifecycle clear/PPP callback code uses `/tmp/.vpns.leases.lock`. These are separate lock domains and may not serialize concurrent startup/stop clearing with OpenVPN callbacks. Keep this as the next audit; do not claim whole VPN lease lifecycle consistency.
+- Root `dev_log.md` grows 35→36 complete records; no rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- Next GPT: inspect exact-head OpenVPN and AI docs Actions, every step/full log; require all three OpenVPN regressions plus the source/workflow contracts and docs validator root log=36/119, archives=7/22/18. Then resolve the lock-domain mismatch with an ownership/permission design proven for the OpenVPN `user nobody` process and root lifecycle clear; add concurrency and failure-preservation coverage. FTP cleanup TOCTOU remains OPEN/BLOCKED; NFS requires client evidence; MIPS/uClibc, firmware/TRX and L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-12 02:02 CST (UTC+8) — Close OpenVPN primary config and atomically publish client CCD files
 
 - Base main SHA: 023d4bc4a5fbc37c93dfb6b0f8958f9ea771e030; parent 6fb66775a0e750953e75f36e37ac4354751dedac.

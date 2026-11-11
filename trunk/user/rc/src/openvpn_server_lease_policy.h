@@ -16,7 +16,7 @@ openvpn_server_lease_parse_line(const char *line, char ifname[16],
 		errno = EINVAL;
 		return -1;
 	}
-	fields = sscanf(line, "%15s %63s %63s %63[^\\n]%n",
+	fields = sscanf(line, "%15s %63s %63s %63[^\n]%n",
 			ifname, addr_l, addr_r, peer_name, &consumed);
 	if (fields != 4 || (line[consumed] != '\0' && line[consumed] != '\n')) {
 		errno = EINVAL;
