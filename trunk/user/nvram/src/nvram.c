@@ -39,6 +39,7 @@
 #include <nvram_linux.h>
 
 #include "nvram_profile_policy.h"
+#include "nvram_profile_file.h"
 #include "nvram_cli_policy.h"
 
 static void usage(void)
@@ -88,71 +89,60 @@ static int is_sys_param(char *p)
 
 static int nvram_save(char *file)
 {
-	FILE *fp;
-	char *name, *buf;
-	unsigned long count, filelen, i, padding_len;
-	unsigned char rand, padding[1024];
+    char *name, *buf;
+    unsigned long count, filelen, i, padding_len;
+    unsigned char random_value, padding[1024];
+    unsigned char header[NVRAM_PROFILE_HEADER_SIZE];
+    int result;
 
-	buf = malloc(NVRAM_SPACE);
-	if (!buf) {
-		perror ("Out of memory!\n");
-		return -1;
-	}
+    buf = malloc(NVRAM_SPACE);
+    if (!buf) {
+        perror ("Out of memory!\n");
+        return -1;
+    }
 
-	buf[0] = 0;
-	if (nvram_getall(buf, NVRAM_SPACE, 0) < 0 ||
-	    !nvram_profile_payload_valid((unsigned char *)buf, NVRAM_SPACE,
-					 NVRAM_MAX_PARAM_LEN-1, NVRAM_MAX_VALUE_LEN-1)) {
-		free(buf);
-		return -1;
-	}
+    buf[0] = 0;
+    if (nvram_getall(buf, NVRAM_SPACE, 0) < 0 ||
+        !nvram_profile_payload_valid((unsigned char *)buf, NVRAM_SPACE,
+                                     NVRAM_MAX_PARAM_LEN-1, NVRAM_MAX_VALUE_LEN-1)) {
+        free(buf);
+        return -1;
+    }
 
-	count = 0;
-	for (name = buf; *name; name += strlen(name) + 1)
-		count += strlen(name) + 1;
+    count = 0;
+    for (name = buf; *name; name += strlen(name) + 1)
+        count += strlen(name) + 1;
 
-	filelen = count + (1024 - count % 1024);
-	if (filelen > 0xffffffUL) {
-		free(buf);
-		return -1;
-	}
-	rand = get_rand() % 30;
+    filelen = count + (1024 - count % 1024);
+    if (filelen > 0xffffffUL) {
+        free(buf);
+        return -1;
+    }
+    random_value = get_rand() % 30;
 
-	for (i = 0; i < count; i++)
-	{
-		if (buf[i] == 0)
-			buf[i] = 0xfd + get_rand() % 3;
-		else
-			buf[i] = 0xff - buf[i] + rand;
-	}
+    for (i = 0; i < count; i++)
+    {
+        if (buf[i] == 0)
+            buf[i] = 0xfd + get_rand() % 3;
+        else
+            buf[i] = 0xff - buf[i] + random_value;
+    }
 
-	/* Every padding sentinel decodes to NUL; avoid opening urandom per byte. */
-	memset(padding, 0xfd, sizeof(padding));
-	padding_len = filelen - count;
+    /* Every padding sentinel decodes to NUL; avoid opening urandom per byte. */
+    memset(padding, 0xfd, sizeof(padding));
+    padding_len = filelen - count;
 
-	fp = fopen(file, "wb");
-	if (fp == NULL) {
-		free(buf);
-		return -1;
-	}
+    /* HDR2 stores the length as three little-endian bytes on every host. */
+    memcpy(header, NVRAM_PROFILE_HDR2, 4);
+    header[4] = (unsigned char)(filelen & 0xffUL);
+    header[5] = (unsigned char)((filelen >> 8) & 0xffUL);
+    header[6] = (unsigned char)((filelen >> 16) & 0xffUL);
+    header[7] = random_value;
 
-	if (fwrite(NVRAM_PROFILE_HDR2, 1, 4, fp) != 4 ||
-	    fwrite(&filelen, 1, 3, fp) != 3 ||
-	    fwrite(&rand, 1, 1, fp) != 1 ||
-	    fwrite(buf, 1, count, fp) != count ||
-	    fwrite(padding, 1, padding_len, fp) != padding_len) {
-		fclose(fp);
-		free(buf);
-		return -1;
-	}
-
-	if (fclose(fp) != 0) {
-		free(buf);
-		return -1;
-	}
-
-	free(buf);
-	return 0;
+    result = nvram_profile_write_atomic(file, header, sizeof(header),
+                                        buf, count, padding, padding_len);
+    free(buf);
+    return result;
 }
 
 static int nvram_restore(char *file)

@@ -1,26 +1,26 @@
 ## Current repository state
 
-- Maintained fork: Arlene206/padavan-4.4-2; active branch: main. Live base main SHA before THIS COMMIT: 78e31e4738db0dd7685b2560e431236c5474eed1; parent: a07d9a3ad3d9568a9088af2de3601f79d672649d. Remote branch inventory: main only; no checkpoint branch.
-- Closed the prior GPIO + path-triggered SkipDBv2 verification task on exact ancestor SHA a07d9a3ad3d9568a9088af2de3601f79d672649d:
-  - GPIO run 42982741220 completed SUCCESS; GNU89/ASan/UBSan policy test and full launcher/uevent/caller source contract both PASS.
-  - SkipDBv2 run 42982741286 completed SUCCESS; XY-C1 firmware integration source checks PASS; all SkipDBv2 targets built; CTest 57/57 passed.
-  - AI docs run 42982741251 completed SUCCESS; root log=97/119 and archives dev-log=6, handoff=22, roadmap=18. Latest-per-workflow scan at that SHA had 26 workflows and no latest pending/failed runs.
-- New P2 reliability finding in RT3352 MII iNIC daemon: SIGALRM called check_inic_mii_rebooted(), which performs NVRAM reads, interface probes, wireless ioctls and logging, directly from asynchronous signal context. SIGTERM removed the PID file, disabled the interval timer and called exit() in its handler.
-- Code fix committed at 78e31e4738db0dd7685b2560e431236c5474eed1: event-only SIGALRM/SIGTERM handlers, blocked event snapshot, pending-SIGTERM check (a second standard signal may still be kernel-pending after sigsuspend wakes on SIGALRM), atomic sigsuspend wait, and normal-context recovery/timer/PID cleanup. GNU89 sanitizer policy test is locally PASS.
-- First exact-head iNIC Actions attempt [42986118876] failed at its compile step because the test source is in src/tests but the new header is in src and the workflow omitted the src include directory. This is a workflow-only correction in THIS COMMIT: add -Itrunk/user/rc/src before compiling. The source-contract step was skipped because compilation failed; it is not yet verified by Actions. AI docs workflow [42986118867] passed and reported root log=98/119, archives 6/22/18.
-- Changed in THIS COMMIT: .github/workflows/inicd-signal-stability.yml, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and dev_log.md. The iNIC C implementation and regression source remain those in 78e31e4.
-- No production RT3352 MIPS/uClibc object, complete firmware/TRX or physical iNIC recovery is claimed. FTP upload-cleanup check/unlink TOCTOU remains OPEN/BLOCKED; NFS durability/AUTH_SYS/root-squash needs external-client evidence; target BusyBox ash, L3 target builds and L4 hardware remain NOT VERIFIED.
+- Maintained fork: Arlene206/padavan-4.4-2; active branch: main. Base main SHA before THIS COMMIT: 534e4e38ed5e729af845d7ad69bb84d8b96a5c47; parent: 78e31e4738db0dd7685b2560e431236c5474eed1. Remote branch inventory: main only; no checkpoint branch.
+- Closed the previous active RT3352 MII iNIC signal-context task on exact SHA 534e4e38ed5e729af845d7ad69bb84d8b96a5c47:
+  - iNIC run 42986576875 completed SUCCESS. Its GNU89 + ASan/UBSan compile/run printed `iNIC signal deferral policy: PASS`; the complete daemon signal/caller contract printed `iNIC signal deferral and daemon lifecycle source contracts: PASS`.
+  - AI handoff docs run 42986576922 completed SUCCESS on the same SHA; the checker reported root log=99/119 and archive inventory dev-log=6, handoff=22, roadmap=18.
+- New P2 NVRAM persistence finding: `nvram_save()` opened the published backup path with `fopen("wb")`; a short write, ENOSPC or close error could leave the only profile truncated even though the command returned failure. The in-tree HTTPD export caller uses the private `/tmp/.httpd-private/settings_d.prf` path and unlinks it before invoking the CLI.
+- Fix in THIS COMMIT: stage the unchanged HDR2 profile stream in a same-directory `mkstemp()` file, force mode 0600 before writing, complete all segments across short writes/EINTR, fsync and check close, then atomically rename. Reject a pre-existing symlink or non-regular destination; on any pre-publication failure remove the staging file and retain an existing regular profile. HDR2's three-byte length is written explicitly little-endian.
+- Regression: new `nvram_profile_file.h` / `tests/nvram_profile_file.c` exercise successful byte-exact publication, owner-only permissions, short-write/EINTR retry, write/fchmod/fsync/close/rename failures, old-profile preservation, staging cleanup and symlink/non-regular rejection. The isolated GNU89 ASan/UBSan test passed locally: `NVRAM profile atomic publication: PASS`. HTTPD security umbrella and AI docs checks are wired for exact-head Actions and remain pending.
+- Changed paths: `trunk/user/nvram/src/nvram.c`, new `nvram_profile_file.h`, new `tests/nvram_profile_file.c`, `.github/workflows/httpd-security.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log.
+- Validation boundary: L1 source review and isolated L2 host regression PASS. No production MIPS/uClibc NVRAM object, full firmware/TRX, directory-entry power-loss durability, or L4 router validation is claimed. The writer fsyncs the file but does not fsync its parent directory.
+- Root `dev_log.md`: 99 complete newest-first records before THIS COMMIT; 100 afterward. Below rotation thresholds; legacy archives and `docs/dev-log/INDEX.md` remain unchanged.
 
 ## Active task
 
-- Rerun the iNIC GNU89 + ASan/UBSan policy regression and the complete source/call-path/build contract on the exact resulting main SHA after adding the missing include path.
-- Inspect every job, step and full log. Require both iNIC regression steps and AI docs to pass on that exact SHA; confirm docs root log=99/119 and archives 6/22/18.
+- Verify the NVRAM atomic profile-save GNU89 sanitizer regression, the full HTTPD NVRAM read/write/caller source contract, and AI handoff documentation on the exact resulting main SHA.
+- Inspect every job, step and complete log. Require both the HTTPD security umbrella and AI handoff docs runs to complete SUCCESS on that exact SHA; confirm the new test binary prints `NVRAM profile atomic publication: PASS`, existing NVRAM profile/CLI checks still pass, the private HTTPD export path contract passes, and docs report root log=100/119 with archive counts 6/22/18.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main HEAD, parent and branch inventory; reconcile the workflow correction commit SHA.
-2. Query Actions for that exact SHA; inspect the iNIC job (compile/run and source contract) and AI docs job step summaries and complete logs. Confirm the compiler command has -Itrunk/user/rc/src, both iNIC steps pass, and docs validator reports root log 99/119 with archive counts 6/22/18.
-3. If green, close the iNIC signal-context slice and resume global ledger rotation outside the heavily worked SkipDBv2/HTTPD surfaces. Preserve FTP TOCTOU and NFS evidence blockers; do not claim L3/L4 validation.
+1. Fetch live `main` HEAD, parent and branch inventory; reconcile the NVRAM code commit SHA and confirm no newer commit superseded it.
+2. Query GitHub Actions for that exact SHA. Inspect every step and full log for HTTPD Authentication/Security and AI handoff docs; verify the new atomic-save test plus all existing NVRAM/HTTPD contracts, and docs integrity.
+3. If green, close the NVRAM profile-save slice and select a different userland subsystem from the global governance ledger. Keep FTP failed-upload cleanup TOCTOU OPEN/BLOCKED, NFS compatibility evidence-gated, and L3/L4 validation unclaimed.
 
 ## PID 1 notification queue batch fairness
 

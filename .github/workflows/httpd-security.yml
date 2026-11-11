@@ -41,6 +41,8 @@ on:
       - "trunk/user/wireless-tools/src/iwlist.c"
       - "trunk/user/nvram/src/nvram.c"
       - "trunk/user/nvram/src/nvram_profile_policy.h"
+      - "trunk/user/nvram/src/nvram_profile_file.h"
+      - "trunk/user/nvram/src/tests/nvram_profile_file.c"
       - "trunk/user/nvram/src/tests/nvram_profile_policy.c"
       - "trunk/user/nvram/src/nvram_cli_policy.h"
       - "trunk/user/nvram/src/tests/nvram_cli_policy.c"
@@ -269,6 +271,8 @@ on:
       - "trunk/user/rc/src/net_wifi.c"
       - "trunk/user/nvram/src/nvram.c"
       - "trunk/user/nvram/src/nvram_profile_policy.h"
+      - "trunk/user/nvram/src/nvram_profile_file.h"
+      - "trunk/user/nvram/src/tests/nvram_profile_file.c"
       - "trunk/user/nvram/src/tests/nvram_profile_policy.c"
       - "trunk/user/nvram/src/nvram_cli_policy.h"
       - "trunk/user/nvram/src/tests/nvram_cli_policy.c"
@@ -590,6 +594,11 @@ jobs:
           /tmp/nvram_profile_policy
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
             -I trunk/user/nvram/src \
+            trunk/user/nvram/src/tests/nvram_profile_file.c \
+            -o /tmp/nvram_profile_file
+          ASAN_OPTIONS=detect_leaks=1 /tmp/nvram_profile_file
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/nvram/src \
             trunk/user/nvram/src/tests/nvram_cli_policy.c \
             -o /tmp/nvram_cli_policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/nvram_cli_policy
@@ -622,9 +631,35 @@ jobs:
 
           assert "nvram_getall(buf, NVRAM_SPACE, 0) < 0" in save
           assert "nvram_profile_payload_valid" in save
-          assert "fwrite(NVRAM_PROFILE_HDR2" in save
-          assert "fwrite(padding, 1, padding_len, fp) != padding_len" in save
-          assert "fclose(fp) != 0" in save
+          assert '#include "nvram_profile_file.h"' in source
+          assert "nvram_profile_write_atomic(file, header, sizeof(header)," in save
+          assert "buf, count, padding, padding_len);" in save
+          assert "fwrite(" not in save
+          assert 'fopen(file, "wb")' not in save
+          assert "header[4] = (unsigned char)(filelen & 0xffUL);" in save
+          assert "header[5] = (unsigned char)((filelen >> 8) & 0xffUL);" in save
+          assert "header[6] = (unsigned char)((filelen >> 16) & 0xffUL);" in save
+
+          profile_file = Path("trunk/user/nvram/src/nvram_profile_file.h").read_text()
+          for token in (
+              "lstat(path, &existing)", "S_ISREG(existing.st_mode)",
+              "ops->mkstemp_fn(temporary)", "ops->fchmod_fn(fd, 0600)",
+              "errno == EINTR", "ops->fsync_fn(fd)", "ops->close_fn(fd)",
+              "ops->rename_fn(temporary, path)", "ops->unlink_fn(temporary)",
+          ):
+              assert token in profile_file
+
+          httpd_source = Path("trunk/user/httpd/src/web_ex.c").read_text()
+          download = httpd_source.split("static void\ndo_nvram_file(", 1)[1].split(
+              "\nstatic void\ndo_storage_file(", 1
+          )[0]
+          httpd_header = Path("trunk/user/httpd/src/httpd.h").read_text()
+          assert '"/tmp/.httpd-private/settings_d.prf"' in httpd_header
+          assert download.index("unlink(nvram_file);") < download.index(
+              'eval("/usr/sbin/nvram", "save", nvram_file)'
+          ) < download.index("do_file(nvram_file, stream)") < download.rindex(
+              "unlink(nvram_file);"
+          )
 
           header_check = restore.index("nvram_profile_parse_header")
           payload_read = restore.index("fread(buf")
@@ -649,6 +684,8 @@ jobs:
               "trunk/user/nvram/src/nvram.c",
               "trunk/user/nvram/src/nvram_profile_policy.h",
               "trunk/user/nvram/src/tests/nvram_profile_policy.c",
+              "trunk/user/nvram/src/nvram_profile_file.h",
+              "trunk/user/nvram/src/tests/nvram_profile_file.c",
               "trunk/user/nvram/src/nvram_cli_policy.h",
               "trunk/user/nvram/src/tests/nvram_cli_policy.c",
           ):
@@ -656,6 +693,7 @@ jobs:
               assert needle in push_paths and needle in pr_paths
           print("NVRAM CLI assignment bounds and mutation error propagation: OK")
           print("NVRAM profile read/write bounds, validation-before-clear and CI path wiring: OK")
+          print("NVRAM profile atomic publication and private HTTPD export path: OK")
           PY
 
       - name: Verify RC NVRAM default restore and erase durability
