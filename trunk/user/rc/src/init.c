@@ -39,6 +39,7 @@
 #include "rc.h"
 #include "gpio_pins.h"
 #include "pid1_signal_policy.h"
+#include "init_mdev_config_file.h"
 
 #define CONSOLE_TERMINAL	"vt100"
 #define INIT_HOME_PATH		"/home/root"
@@ -388,47 +389,69 @@ init_nodes(void)
 #endif
 }
 
-static void
+static int
 init_mdev(void)
 {
-	FILE *fp;
+	FILE *fp = NULL;
+	char staged_path[PATH_MAX];
 	const char *mdev_conf = "/etc/mdev.conf";
+	int ret;
+	int hotplug_result;
+	int hotplug_errno;
 
-	unlink(mdev_conf);
-
-	fp = fopen(mdev_conf, "w");
-	if (fp) {
-		fprintf(fp, "%s\n", "# <device regex> <uid>:<gid> <octal permissions> [<@|$|*> <command>]");
-#if defined (USE_MMC_SUPPORT)
-		fprintf(fp, "%s 0:0 0660 %s/sbin/%s $MDEV $ACTION\n", "mmcblk[0-9]",  "*", "mdev_mmc");
-		fprintf(fp, "%s 0:0 0660 %s/sbin/%s $MDEV $ACTION\n", "mmcblk[0-9]p[0-9]", "*", "mdev_mmc");
-#endif
-#if defined (USE_BLK_DEV_SD)
-		fprintf(fp, "%s 0:0 0660 %s/sbin/%s $MDEV $ACTION\n", "sd[a-z]",      "*", "mdev_sd");
-		fprintf(fp, "%s 0:0 0660 %s/sbin/%s $MDEV $ACTION\n", "sd[a-z][0-9]", "*", "mdev_sd");
-#endif
-#if defined (USE_USB_SUPPORT)
-		fprintf(fp, "%s 0:0 0660 %s/sbin/%s $MDEV $ACTION\n", "usb/lp[0-9]",  "*", "mdev_lp");
-		fprintf(fp, "%s 0:0 0660 %s/sbin/%s $MDEV $ACTION\n", "sg[0-9]",      "@", "mdev_sg");
-		fprintf(fp, "%s 0:0 0660 %s/sbin/%s $MDEV $ACTION\n", "sr[0-9]",      "@", "mdev_sr");
-		fprintf(fp, "%s 0:0 0660 %s/sbin/%s $MDEV $ACTION\n", "weth[0-9]",    "*", "mdev_net");
-		fprintf(fp, "%s 0:0 0660 %s/sbin/%s $MDEV $ACTION\n", "wwan[0-9]",    "*", "mdev_net");
-		fprintf(fp, "%s 0:0 0660 %s/sbin/%s $MDEV $ACTION\n", "cdc-wdm[0-9]", "*", "mdev_wdm");
-		fprintf(fp, "%s 0:0 0660 %s/sbin/%s $MDEV $ACTION\n", "ttyUSB[0-9]",  "*", "mdev_tty");
-		fprintf(fp, "%s 0:0 0660 %s/sbin/%s $MDEV $ACTION\n", "ttyACM[0-9]",  "*", "mdev_tty");
-		fprintf(fp, "%s 0:0 %s\n", "video[0-9]", "0660");
-#endif
-		fprintf(fp, "%s 0:0 %s\n", "null", "0666");
-		fprintf(fp, "%s 0:0 %s\n", "zero", "0666");
-		fprintf(fp, "%s 0:0 %s\n", "full", "0666");
-		fprintf(fp, "%s 0:0 %s\n", "random", "0666");
-		fprintf(fp, "%s 0:0 %s\n", "urandom", "0444");
-		fclose(fp);
+	ret = init_mdev_config_open(mdev_conf, staged_path,
+				    sizeof(staged_path), &fp);
+	if (ret != 0) {
+		logmessage(LOGNAME, "Failed to stage mdev configuration: %s",
+			   strerror(-ret));
+		return ret;
 	}
 
-	fput_string("/proc/sys/kernel/hotplug", "/sbin/mdev");
-}
+	fprintf(fp, "%s\n", "# <device regex> <uid>:<gid> <octal permissions> [<@|$|*> <command>]");
+#if defined (USE_MMC_SUPPORT)
+	fprintf(fp, "%s 0:0 0660 %s/sbin/%s $MDEV $ACTION\n", "mmcblk[0-9]",  "*", "mdev_mmc");
+	fprintf(fp, "%s 0:0 0660 %s/sbin/%s $MDEV $ACTION\n", "mmcblk[0-9]p[0-9]", "*", "mdev_mmc");
+#endif
+#if defined (USE_BLK_DEV_SD)
+	fprintf(fp, "%s 0:0 0660 %s/sbin/%s $MDEV $ACTION\n", "sd[a-z]",      "*", "mdev_sd");
+	fprintf(fp, "%s 0:0 0660 %s/sbin/%s $MDEV $ACTION\n", "sd[a-z][0-9]", "*", "mdev_sd");
+#endif
+#if defined (USE_USB_SUPPORT)
+	fprintf(fp, "%s 0:0 0660 %s/sbin/%s $MDEV $ACTION\n", "usb/lp[0-9]",  "*", "mdev_lp");
+	fprintf(fp, "%s 0:0 0660 %s/sbin/%s $MDEV $ACTION\n", "sg[0-9]",      "@", "mdev_sg");
+	fprintf(fp, "%s 0:0 0660 %s/sbin/%s $MDEV $ACTION\n", "sr[0-9]",      "@", "mdev_sr");
+	fprintf(fp, "%s 0:0 0660 %s/sbin/%s $MDEV $ACTION\n", "weth[0-9]",    "*", "mdev_net");
+	fprintf(fp, "%s 0:0 0660 %s/sbin/%s $MDEV $ACTION\n", "wwan[0-9]",   "*", "mdev_net");
+	fprintf(fp, "%s 0:0 0660 %s/sbin/%s $MDEV $ACTION\n", "cdc-wdm[0-9]", "*", "mdev_wdm");
+	fprintf(fp, "%s 0:0 0660 %s/sbin/%s $MDEV $ACTION\n", "ttyUSB[0-9]",  "*", "mdev_tty");
+	fprintf(fp, "%s 0:0 0660 %s/sbin/%s $MDEV $ACTION\n", "ttyACM[0-9]",  "*", "mdev_tty");
+	fprintf(fp, "%s 0:0 %s\n", "video[0-9]", "0660");
+#endif
+	fprintf(fp, "%s 0:0 %s\n", "null", "0666");
+	fprintf(fp, "%s 0:0 %s\n", "zero", "0666");
+	fprintf(fp, "%s 0:0 %s\n", "full", "0666");
+	fprintf(fp, "%s 0:0 %s\n", "random", "0666");
+	fprintf(fp, "%s 0:0 %s\n", "urandom", "0444");
 
+	ret = init_mdev_config_publish(&fp, staged_path, mdev_conf);
+	if (ret != 0) {
+		logmessage(LOGNAME, "Failed to publish mdev configuration (%s); staging path: %s",
+			   strerror(-ret), staged_path);
+		return ret;
+	}
+
+	errno = 0;
+	hotplug_result = fput_string("/proc/sys/kernel/hotplug", "/sbin/mdev");
+	if (hotplug_result != 0) {
+		hotplug_errno = (hotplug_result > 0) ? hotplug_result :
+				((errno > 0) ? errno : EIO);
+		logmessage(LOGNAME, "Failed to activate mdev kernel hotplug handler: %s",
+			   strerror(hotplug_errno));
+		return -hotplug_errno;
+	}
+
+	return 0;
+}
 static void
 init_sysctl(void)
 {
@@ -471,7 +494,8 @@ init_main_loop(void)
 	system("dev_init.sh -l");
 #endif
 	init_nodes();
-	init_mdev();
+	if (init_mdev() != 0)
+		logmessage(LOGNAME, "mdev initialization failed; hotplug handling may be unavailable");
 	init_sysctl();
 
 	/* Setup console */

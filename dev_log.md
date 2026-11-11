@@ -1,3 +1,17 @@
+## 2026-11-11 (UTC+8) — Protect PID 1 mdev hotplug policy from unprivileged modification
+
+- Base main SHA: `59b12c5908ef3f530cb59bb6bfa3415433042042`; parent `78e92f40707350fcac658fdac5007e07c7e3eaa8`. Remote branch inventory: only `main`; no checkpoint branch.
+- Exact-head recovery on the base SHA: HTTPD Authentication/Security [42943224849], AI handoff documentation [42943225048] and FULLCONENAT lifecycle [42943224877] all completed SUCCESS. HTTPD job [130269744804] passed all steps including the partial firewall snapshot cleanup regression/source contract; AI docs [130269744683] reported root log 81/119 and archives dev-log=6, handoff=22, roadmap=18. FULLCONENAT job [130269744615] passed its targeted XY-C1 MT7621 MIPS32r2 object compile; this is not a full firmware build.
+- Finding: PID 1 sets `umask(0000)`, then `init_mdev()` unlinked `/etc/mdev.conf` and recreated it using `fopen(..., "w")`, creating a mode-0666 policy. BusyBox mdev accepts optional command rules in this file and executes the command via `system()`; the kernel hotplug handler points to `/sbin/mdev`. A local unprivileged writer could therefore inject a command into the root hotplug path.
+- Fix in THIS COMMIT: stage the policy in a same-directory `mkstemp()` file, explicitly set mode 0644, check stream error/flush/fsync/close and atomically rename on success. The last-good policy remains in place on any pre-publication or rename failure. Kernel hotplug activation is attempted only after the config is published successfully; failure is returned and logged, and PID 1 logs initialization failure.
+- Regression: new `init_mdev_config_file.h` and `tests/init_mdev_config_file.c` provide a GNU89 host test. Under `umask(0000)` it verifies staging mode 0644, the old file remains visible before rename, successful replacement, and preservation of an existing destination directory/sentinel plus staging-file cleanup when rename fails. Compiled with `-Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer`; execution printed `PID 1 mdev config private staging and atomic publication: PASS`.
+- Changed paths: `trunk/user/rc/src/init.c`, new `init_mdev_config_file.h`, new `tests/init_mdev_config_file.c`, new `.github/workflows/init-mdev-security.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log.
+- Validation boundary: local isolated L2 helper/test only; exact-head PID 1 mdev security, HTTPD security (also triggered by `init.c`) and AI handoff docs Actions are pending. No full local checkout, production MIPS/uClibc RC object, BusyBox mdev runtime, full firmware/TRX or L4 router test is claimed.
+- Root `dev_log.md`: 81 complete records before this entry; 82 after. Below 120-entry and 384 KiB rotation thresholds; no archive or `docs/dev-log/INDEX.md` update is due.
+- Next: query all Actions for the exact resulting main SHA; inspect every job/step and full logs for PID 1 mdev security, HTTPD Authentication/Security and AI docs. Then continue the global audit in a different userland module. FTP cleanup TOCTOU remains OPEN/BLOCKED; NFS semantics remain evidence-gated.
+
+---
+
 ## 2026-11-11 10:26 CST (UTC+8) — Retain and retry failed partial firewall snapshot cleanup
 
 - Base main SHA: `78e92f40707350fcac658fdac5007e07c7e3eaa8`; parent `cd14b6e9a1858b5e894d7cb613affd6dce624d84`. Remote branch inventory contained only `main`; there was no checkpoint branch.
