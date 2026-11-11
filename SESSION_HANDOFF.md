@@ -1,25 +1,24 @@
 ## Current repository state
 
-- Maintained fork: `Arlene206/padavan-4.4-2`; active branch: `main`. Base main before THIS FOLLOW-UP: `cd49190971966cb4e8cf90d2713d12f37ff77dcb`, parent `637786f2c0ec3c9a27c533e2ea8bbf8696e8efdd`. Remote branches at base: `main` only.
-- The USB modem RAS peer confidentiality fix is committed on base `cd49190971966cb4e8cf90d2713d12f37ff77dcb`: `net_wan.c` validates `/tmp/ppp` and `PPP_PEERS_DIR` before publishing callbacks, and `usb_modem.c` uses the shared no-follow 0600 peer writer with checked completion. Its GNU89 zero-umask PPP options regression compiled under `-Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer` and passed locally.
-- Exact-head Actions for `cd49190971966cb4e8cf90d2713d12f37ff77dcb`: AI handoff docs [42952636603] SUCCESS; nine of ten workflow runs completed SUCCESS, including WAN callback state, WAN route status, WAN teardown, VPN lifecycle, miniupnpd publication, gateway ARP, detect_link and detect_internet stability. HTTPD Authentication/Security [42952636704] FAILED at step 10 `Verify switch port-byte ioctl errors and output publication`, before the PPP step ran. Full log shows the stale `start_wan` contract used the first `return;` in the function and expected it after `remove_cb_links()`; the new fail-closed PPP-directory preflight intentionally returns before VLAN setup. This is a source-contract ordering mismatch, not a production test failure. The HTTPD step list and full failure log were inspected; other workflow logs still require exact-head review after this follow-up.
-- An additional host compile check including `ppp_options_file.h` while using only `ppp_options_directory_ready()` exposed `-Wunused-function` diagnostics for the unused static open/finish helpers under `-Wall -Wextra -Werror`. THIS FOLLOW-UP changes the header-local helpers to `static inline`, adds an equivalent workflow compile-only guard, and scopes the HTTPD WAN ordering contract to the post-VLAN error branch while separately checking that the early directory gate precedes VLAN setup.
-- The full GNU89 PPP options test, including the new `umask(0000)` reproduction, passed locally under ASan/UBSan; a directory-only header consumer also compiles with `-Wall -Wextra -Werror` after the inline adjustment. The exact changed source/test/workflow state must still pass the resulting main SHA Actions.
-- Changed paths in THIS FOLLOW-UP: `trunk/user/rc/src/ppp_options_file.h`, `.github/workflows/httpd-security.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and `dev_log.md`.
-- Root `dev_log.md`: 84 complete records before THIS FOLLOW-UP; 85 afterward, below the 120-entry / 384 KiB rotation triggers and 512 KiB hard limit. No archive or index update is due.
-- Other open items: FTP upload cleanup TOCTOU remains OPEN/BLOCKED; NFS durability/AUTH_SYS/root-squash/external-mount semantics remain evidence-gated; wireless variants, target PPP reconnect/IPv6, BusyBox ash and router behavior remain unverified.
+- Maintained fork: Arlene206/padavan-4.4-2; active branch: main. Base main before THIS FOLLOW-UP: 8672476ac3544922bc97bad56b12a883bb8cb88a, parent cd49190971966cb4e8cf90d2713d12f37ff77dcb. Remote branches at base: main only.
+- The USB modem RAS credential hardening is in the parent chain: net_wan.c validates /tmp/ppp and PPP_PEERS_DIR before publishing callbacks; usb_modem.c uses the shared no-follow 0600 peer writer with checked completion.
+- The original regression was added on parent cd49190971966cb4e8cf90d2713d12f37ff77dcb as test blob 55230ce50d0a7aaaa0b3ed04747d863500a30cd3 and passed locally under GNU89 -Wall -Wextra -Werror with ASan/UBSan. A prior follow-up changed the PPP helper header to static inline (fixing directory-only -Werror unused-function warnings) and corrected the WAN source-order contract; both are retained.
+- Exact-head Actions on 8672476ac3544922bc97bad56b12a883bb8cb88a: AI handoff docs [42954003436] SUCCESS and HTTPD Authentication/Security [42954003789] FAILED in step 17, Verify PPP credential-file confidentiality. The directory-only header compile step ran successfully and the earlier stale start_wan contract was fixed. The Python source contract failed at line 31 because the follow-up tree assembly accidentally used the pre-regression tests/ subtree, dropping the modified ppp_options_file.c; consequently the workflow's required umask(0000) and old-mode assertions were not present in the checked-out test. The failure was a Git tree composition error, not a failing runtime permission assertion. Exact HTTPD log and step list were inspected.
+- THIS FOLLOW-UP restores the complete regression-bearing tests/ subtree from the parent that contains the correct ppp_options_file.c blob, without adding the helper header under tests/. Handoff, roadmap and log record the corrective integration and keep the task open until exact-head Actions pass.
+- Root dev_log.md: 85 complete records before THIS FOLLOW-UP; 86 afterward, below 120-entry / 384 KiB rotation thresholds and the 512 KiB hard limit. No archive or index update is due.
+- Other open items: FTP upload cleanup TOCTOU remains OPEN/BLOCKED; NFS durability/AUTH_SYS/root-squash/external-mount semantics remain evidence-gated; wireless variants, target PPP reconnect/IPv6, BusyBox ash and router behavior remain unverified. No production MIPS/uClibc, complete firmware/TRX or L4 hardware validation is claimed.
 
 ## Active task
 
-- Finish the USB modem RAS credential exposure hardening by verifying the follow-up exact-head HTTPD and AI docs Actions. Confirm the new directory-only helper compile step runs and the corrected WAN startup contract passes.
-- Inspect every job/step and full logs for all workflow runs triggered on the resulting SHA, not only the HTTPD run. Do not treat the nine green runs on parent `cd49190971966cb4e8cf90d2713d12f37ff77dcb` as evidence for a later SHA.
+- Restore the PPP zero-umask test source in the live trunk/user/rc/src/tests subtree and verify the exact-head HTTPD PPP credential confidentiality step (including directory-only compile, full GNU89 regression, and all source contracts) plus the AI docs workflow.
+- Inspect every job/step/full log for each workflow run on the resulting SHA. After this regression is green, continue with a different high-priority module from the global userland ledger; do not repeat the closed NVRAM CLI slice.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and remote branches; verify the exact resulting SHA and parent after THIS FOLLOW-UP.
-2. Query every Actions run for that exact SHA. Inspect all jobs/steps and full logs; confirm HTTPD PPP credential confidentiality and AI handoff docs passed, plus all path-triggered companion workflows.
-3. If green, update this checkpoint's active state and continue with the highest-value unfinished stability defect from the whole-userland ledger, rotating away from PPP/HTTPD.
-4. No production MIPS/uClibc object, full firmware/TRX, BusyBox ash or L4 router result is implied.
+1. Fetch live main, confirm exact SHA/parent and enumerate remote branches.
+2. Query all Actions for that SHA; inspect the complete HTTPD and AI docs job steps/logs, ensuring tests/ppp_options_file.c includes the zero-umask test and the HTTPD PPP step passes.
+3. If all exact-head checks pass, record closure in the current checkpoint on a future substantive update and select the next stability defect from the whole-repository roadmap, rotating away from PPP/HTTPD.
+4. Do not claim MIPS/uClibc target object, full firmware/TRX, BusyBox ash or router hardware validation.
 
 ## PID 1 notification queue batch fairness
 

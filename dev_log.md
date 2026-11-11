@@ -1,3 +1,15 @@
+## 2026-11-11 (UTC+8) — Restore USB RAS zero-umask regression in live source tree
+
+- Base main SHA: 8672476ac3544922bc97bad56b12a883bb8cb88a; parent cd49190971966cb4e8cf90d2713d12f37ff77dcb.
+- Exact-head AI handoff docs [42954003436] passed. HTTPD [42954003789] passed steps 1–16, including switch/WAN source contracts, then failed in PPP credential step 17 at Python source assertion line 31. The new directory-only header compile had succeeded. The source contract failure showed the checked-out tests/ppp_options_file.c did not contain the zero-umask regression even though that regression had been committed in the parent.
+- Root cause: when assembling the previous follow-up's Git tree, the tests/ directory was rebuilt from the original pre-regression subtree, inadvertently reverting ppp_options_file.c. This was a tree-composition integration defect; the failure did not indicate a failing permission runtime assertion. The original modified test blob 55230ce50d0a7aaaa0b3ed04747d863500a30cd3 remains available in parent cd49190971966cb4e8cf90d2713d12f37ff77dcb.
+- THIS FOLLOW-UP restores the complete regression-bearing tests/ subtree from that parent, while retaining the static inline helper warning fix and corrected HTTPD source contract. No test semantics are weakened.
+- Changed paths: trunk/user/rc/src/tests/ppp_options_file.c through tree restoration, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md, and this log.
+- Root dev_log.md: 85 records before this entry; 86 after, below rotation thresholds. No archive/index update is due.
+- Next: inspect the exact resulting main SHA and all Actions jobs/steps/full logs. Confirm HTTPD PPP credential step and AI documentation check pass with the restored test file. Keep target MIPS/uClibc, firmware/TRX and L4 hardware validation separate.
+
+---
+
 ## 2026-11-11 (UTC+8) — Reconcile PPP RAS preflight source contract and header-only compile warnings
 
 - Base main SHA: `cd49190971966cb4e8cf90d2713d12f37ff77dcb`; parent `637786f2c0ec3c9a27c533e2ea8bbf8696e8efdd`.
