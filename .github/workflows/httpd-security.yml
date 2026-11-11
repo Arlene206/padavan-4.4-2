@@ -2106,7 +2106,7 @@ jobs:
               assert handler.index("modem_node_usb_identity_is_valid") < handler.index(
                   "modem_node_file_write(MODEM_NODE_DIR, device_name, node_data)")
               assert "modem_node_file_remove(MODEM_NODE_DIR, device_name);" in handler
-          assert "modem_node_usb_identity_is_valid" in helper
+          assert '#include "modem_node_identity_policy.h"' in helper
           assert "devnum >= 1 && devnum <= 127" in identity_policy
           assert "USB parent topology is not ready" in net_handler
           assert "USB interface topology is not ready" in tty_handler

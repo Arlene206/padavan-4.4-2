@@ -1,3 +1,17 @@
+## 2026-11-11 (UTC+8) — Correct the HTTPD USB identity header-boundary assertion
+
+- Base main SHA: e0e5a368f35a90e084c31c74dd0f65c43c1f01f8; parent f06807f5b7efb59d7760fda0756f64ea01ddf00b; remote branch inventory: main only.
+- Exact-head actions on base e0e5a368f35a90e084c31c74dd0f65c43c1f01f8: AI handoff docs [42973352256] completed SUCCESS and confirmed root log 90/119. HTTPD [42973352522] passed steps 3–18, including PPP credential checks and the USB modem metadata GNU89 host regression; step 19 then failed on a Python source assertion.
+- Failure analysis: the first stale assertion expected `devnum >= 1 && devnum <= 127` in `modem_node_file.h`; the first correction moved it to `modem_node_identity_policy.h`. The next assertion still required the function name `modem_node_usb_identity_is_valid` in `modem_node_file.h`, but the latter only includes the shared policy header. The policy function is intentionally defined in the shared header and included by the metadata writer and consumer. This is a contract-location mismatch, not a C compilation or host regression failure.
+- Fix in THIS COMMIT: assert that `modem_node_file.h` includes `modem_node_identity_policy.h`; keep the numeric range check against the shared policy header. No production source or regression behavior changes.
+- Changed paths: `.github/workflows/httpd-security.yml`, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and this log.
+- Validation: full HTTPD job log inspected; all steps before step 19 passed and the isolated USB modem binary printed PASS. AI docs on base SHA passed. Corrected HTTPD contract and this entry's docs validator are pending on THIS resulting SHA. No target MIPS/uClibc, full firmware/TRX or L4 modem test is claimed.
+- Root dev_log.md: 90 complete records before this entry; 91 after. Below all rotation limits; no archive or index update is due.
+- Resulting commit: THIS COMMIT.
+- Next: inspect HTTPD and AI handoff Actions on the exact resulting main SHA. Confirm step 19 and docs pass; then close this bounded source-contract follow-up and select a different stability issue from the repository-wide ledger. FTP cleanup TOCTOU remains OPEN/BLOCKED; NFS semantics remain evidence-gated.
+
+---
+
 ## 2026-11-11 (UTC+8) — Align HTTPD USB modem contract with shared identity policy
 
 - Base main SHA: f06807f5b7efb59d7760fda0756f64ea01ddf00b; parent 89818c2d114b57c964ec816a96d25c908e174877; remote branch inventory: main only.
