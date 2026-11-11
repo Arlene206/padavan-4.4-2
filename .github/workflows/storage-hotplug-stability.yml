@@ -128,14 +128,20 @@ jobs:
 
           make -C "$busybox_dir" -j2 busybox
           test -x "$busybox_bin"
-          for applet in ash awk flock; do
-            "$busybox_bin" --list | grep -Fx "$applet" >/dev/null
-          done
+          # Exercise required applets directly. Do not infer functionality
+          # from the human-readable --list output.
           "$busybox_bin" ash -c 'test "$((2 + 2))" -eq 4'
+          "$busybox_bin" awk 'BEGIN { exit 0 }'
 
           runtime_dir=$(mktemp -d)
           trap 'rm -rf "$runtime_dir"' EXIT
           mkdir -p "$runtime_dir/bin"
+          : > "$runtime_dir/flock-smoke.lock"
+          (
+            exec 9>>"$runtime_dir/flock-smoke.lock"
+            "$busybox_bin" flock -n 9
+            "$busybox_bin" flock -u 9
+          )
           for applet in awk cat chmod dirname flock grep mkdir rm sleep wc; do
             ln -s "$busybox_bin" "$runtime_dir/bin/$applet"
           done

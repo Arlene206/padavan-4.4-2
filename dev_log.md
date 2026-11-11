@@ -1,3 +1,19 @@
+## 2026-11-11 22:34 CST (UTC+8) — Make BusyBox 1.24.2 applet validation behavioral and repair the DHCP source contract
+
+- Base main SHA: `c4afed88518d2c4a9dc8c4e4dc2d0f2f129996f4`; parent `de95a41f5c95bf6543c78cd05a4ca3228e4af7a8`; remote branch inventory: `main` only, no checkpoint.
+- Exact-head Actions reviewed on the base: storage [43036593168] FAILURE; udhcpc [43036593353] FAILURE; AI handoff docs [43036593178] SUCCESS; infosvr packet/signal [43036593109] SUCCESS. Every job's steps and complete logs were inspected.
+- Storage steps 3–8 passed the NFS/Optware syntax checks and existing lock, teardown and startup POSIX-shell regressions. Step 9 successfully configured, compiled and linked BusyBox 1.24.2 after the preceding DHCP helper spelling and host-glibc `stime()` problems were corrected. It then failed at the `busybox --list` applet-presence assertion for `flock`, before the regressions ran under the built ash. The firmware config contains `CONFIG_FLOCK=y`, the disposable host config verifies it, and the build log compiled `util-linux/flock.o`.
+- Correction in THIS COMMIT: replace the text-list probe with direct ash and awk execution plus an actual descriptor-backed BusyBox flock acquire/release smoke test. Preserve CONFIG_FLOCK=y and all firmware applet selection; do not relax the requirement.
+- The udhcpc GNU89 ASan/UBSan policy binary passed. Its Python checker then failed because it searched for `udhcp_script_failure_prepare_retry`; the real static-inline declaration and production call are `udhcpc_script_failure_prepare_retry`. THIS COMMIT corrects only the stale source-contract spelling; no DHCP runtime implementation changes.
+- AI docs validated root log=113/119 with archives dev-log=6, handoff=22, roadmap=18. Infosvr packet initialization, SIGTERM deferral sanitizer tests and source contract all passed on the same base SHA.
+- Validation boundary: L1 diagnosis/source review PASS. No local checkout was available, so local tests and the whole-repository docs validator were NOT RUN. The BusyBox host build/link passed in Actions, but none of the Optware regressions under the built ash ran on the base SHA because the applet gate stopped the step. New exact-head storage, udhcpc and docs Actions are pending. This is not a production MIPS/uClibc build, full firmware/TRX or L4 router test.
+- Changed paths: `.github/workflows/storage-hotplug-stability.yml`, `scripts/check_udhcpc_script_status.py`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log.
+- Root dev_log.md had 113 complete newest-first records before this entry and has 114 afterward; archive inventory remains dev-log=6, handoff=22, roadmap=18. No archive/index rotation is due.
+- Resulting commit: THIS COMMIT.
+- Next: inspect the exact resulting main SHA's storage, udhcpc and AI docs Actions, every step and full logs. Require the BusyBox 1.24.2 binary and applet smoke tests, all three Optware lifecycle regressions under ash, storage steps 10–13, the udhcpc sanitizer/source contracts and docs validator to pass. Keep production MIPS/uClibc, firmware/TRX, real router ash/runtime and L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-11 (UTC+8) — Repair the BusyBox host ash build exposed by Optware lifecycle validation
 
 - Base main SHA: `de95a41f5c95bf6543c78cd05a4ca3228e4af7a8`; parent `2c769eac12cfdcb597644ebcf9c65b51423c8e4d`; remote branches: main only, no checkpoint.

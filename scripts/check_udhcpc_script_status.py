@@ -79,7 +79,7 @@ nak_start = dhcpc.index("if (*message == DHCPNAK)", ack_start)
 ack = dhcpc[ack_start:nak_start]
 script_call = ack.index("script_status = udhcp_run_script")
 failure_gate = ack.index("if (script_status != 0)", script_call)
-retry = ack.index("udhcp_script_failure_prepare_retry", failure_gate)
+retry = ack.index("udhcpc_script_failure_prepare_retry", failure_gate)
 retry_continue = ack.index("continue;", retry)
 bound_publish = ack.index("state = BOUND;", retry_continue)
 assert script_call < failure_gate < retry < retry_continue < bound_publish
