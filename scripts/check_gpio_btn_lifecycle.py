@@ -55,6 +55,8 @@ def function_body(source, signature):
 gpio = read("trunk/user/rc/src/gpio_btn.c")
 policy = read("trunk/user/rc/src/gpio_btn_daemon_policy.h")
 test = read("trunk/user/rc/src/tests/gpio_btn_daemon_policy.c")
+timing_policy = read("trunk/user/rc/src/gpio_btn_timing_policy.h")
+timing_test = read("trunk/user/rc/src/tests/gpio_btn_timing_policy.c")
 services = read("trunk/user/rc/src/services.c")
 header = read("trunk/user/rc/src/rc.h")
 dispatcher = read("trunk/user/rc/src/rc.c")
@@ -66,6 +68,7 @@ package_makefile = read("trunk/user/rc/Makefile")
 workflow = read(".github/workflows/gpio-btn-lifecycle.yml")
 
 assert '#include "gpio_btn_daemon_policy.h"' in gpio
+assert '#include "gpio_btn_timing_policy.h"' in gpio
 assert "#define GPIO_BTN_START_WAIT_ATTEMPTS 4" in policy
 assert "return launch_status;" in policy
 assert "return daemon_running ? 0 : ESRCH;" in policy
@@ -97,6 +100,7 @@ socket_init = function_body(gpio, "static int btn_uevent_init(void)")
 assert "socket(PF_NETLINK" in socket_init
 assert "bind(fd," in socket_init
 assert "setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO" in socket_init
+assert "tv.tv_usec = GPIO_BTN_HOLD_INTERVAL_US;" in socket_init
 assert "exit(1);" in socket_init
 assert "exit(EXIT_FAILURE);" in socket_init
 
@@ -127,11 +131,43 @@ for marker in (
 ):
     assert marker in test, marker
 
+# The initial press is tick one: include the full 700-799 ms bucket and exclude 800 ms.
+assert "#define GPIO_BTN_HOLD_INTERVAL_US 100000" in timing_policy
+assert "#define GPIO_BTN_SHORT_MAX_COUNT 8" in timing_policy
+update = function_body(gpio, "static void btn_update_press_count")
+assert "gpio_btn_elapsed_count(sec, nsec)" in update
+assert "gpio_btn_reset_press_count(count)" in update
+assert "gpio_btn_long_press_count(count)" in update
+press = function_body(gpio, "static void btn_ev_handle")
+assert "gpio_btn_elapsed_count(0, 0)" in press
+release = function_body(gpio, "static void btn_released_handle")
+assert "gpio_btn_short_press_count(count)" in release
+assert "gpio_btn_long_press_count(count)" in release
+assert "gpio_btn_reset_press_count(count)" in release
+assert "CANCEL_COUNT" not in gpio and "LONG_COUNT" not in gpio and "RESET_COUNT" not in gpio
+for marker in (
+    "test_short_press_deadline",
+    "699999999LL",
+    "700000000LL",
+    "799999999LL",
+    "800000000LL",
+    "gpio_btn_elapsed_count(2, 999999999LL)",
+    "gpio_btn_elapsed_count(3, 0)",
+    "gpio_btn_elapsed_count(4, 999999999LL)",
+    "gpio_btn_elapsed_count(5, 0)",
+    "test_clock_delta_normalization_and_saturation",
+    "GPIO button hold timing and threshold policy: PASS",
+):
+    assert marker in timing_test, marker
+assert "gpio_btn_timing_policy.c" in workflow
+
 paths = (
     ".github/workflows/gpio-btn-lifecycle.yml",
     "trunk/user/rc/src/gpio_btn.c",
     "trunk/user/rc/src/gpio_btn_daemon_policy.h",
     "trunk/user/rc/src/tests/gpio_btn_daemon_policy.c",
+    "trunk/user/rc/src/gpio_btn_timing_policy.h",
+    "trunk/user/rc/src/tests/gpio_btn_timing_policy.c",
     "trunk/user/rc/src/rc.c",
     "trunk/user/rc/src/rc.h",
     "trunk/user/rc/src/services.c",
@@ -149,4 +185,4 @@ for path in paths:
     assert push_filters.count(quoted) == 1, "push path count: " + path
     assert pr_filters.count(quoted) == 1, "pull_request path count: " + path
 
-print("GPIO button daemon startup and launcher postcondition contracts: PASS")
+print("GPIO button daemon startup, hold timing and caller postcondition contracts: PASS")

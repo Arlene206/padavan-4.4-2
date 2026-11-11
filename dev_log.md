@@ -1,3 +1,17 @@
+## 2026-11-11 — Correct the GPIO short-press 800 ms boundary
+
+- Base main SHA: `65f070aa3dfaa73154d3ab1ecb03d82a17abc388`; parent `d002eba06a914d75ac79b20867dbd3cdb6f416ca`. Main was rechecked before creating this commit; it is the only remote branch.
+- Closed the resumed HTTPD daemon lifecycle task on the base SHA. HTTPD lifecycle [43063659893], HTTPD security umbrella [43063082646], AI handoff docs [43063659714] and infosvr signal/packet regression [43063659718] all SUCCESS. Dedicated HTTPD job 6/6 steps, umbrella 41/41 and docs 7/7; source contract printed PASS. Docs validator reported root log=22/119 and archives dev-log=7, handoff=22, roadmap=18.
+- Found a separate front-panel timing defect in `trunk/user/rc/src/gpio_btn.c`: the initial press count is 1 and updates in 100 ms quanta (`floor(elapsed_ms / 100) + 1`). Thus 700–799 ms maps to count 8, but `btn_released_handle()` required `count < CANCEL_COUNT`, with `CANCEL_COUNT=8` described as 800 ms. The entire 700–799 ms WPS/FN short-action interval was suppressed.
+- THIS COMMIT centralizes elapsed monotonic-time conversion and short/long/reset threshold predicates in `gpio_btn_timing_policy.h`. Short actions include counts 1–8 and exclude count 9 at 800 ms; >3 s long and >5 s reset thresholds are preserved. Receive timeout and hold-count accounting share the same 100 ms constant.
+- New GNU89 regression covers 0/699/700/799/800 ms, 2999/3000 ms, 4999/5000 ms, negative-delta normalization and `INT_MAX` saturation. Local `-Wall -Wextra -Werror -fsanitize=address,undefined` with leak detection passed: `GPIO button hold timing and threshold policy: PASS`.
+- Existing GPIO lifecycle Actions now compile/run both startup and timing policy binaries and statically check source integration, threshold boundaries, and symmetric push/pull_request path filters. Exact-head GPIO and AI docs Actions for THIS COMMIT are pending.
+- Changed: `gpio_btn.c`, new timing policy header/test, `.github/workflows/gpio-btn-lifecycle.yml`, `scripts/check_gpio_btn_lifecycle.py`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and root `dev_log.md`. Root log grows 22→23 entries; no archive rotation/index update due.
+- Validation boundary: L1 source review and isolated L2 GNU89 ASan/UBSan timing policy pass locally. No target MIPS/uClibc object, full firmware/TRX, actual key/LED/uevent or L4 router result is claimed. FTP cleanup TOCTOU remains OPEN/BLOCKED and NFS remains external-evidence gated.
+- Next GPT: fetch the resulting main SHA; inspect exact-head GPIO startup/timing and AI docs Actions including every step/full logs. Require 700/799 ms inclusion, 800 ms exclusion, unchanged 3 s/5 s limits, source integration, both binaries, path filters and docs validator (root 23/119, archives 7/22/18) to PASS. Then close this L2 slice and rotate to a new whole-userland issue.
+
+---
+
 ## 2026-11-12 01:10 CST (UTC+8) — Correct HTTPD lifecycle source-contract publication ordering
 
 - Base main SHA: `d002eba06a914d75ac79b20867dbd3cdb6f416ca`; parent `1c4b9fe85df1ea2a8d9ec83035ea6cc295059b01`. Main was rechecked before editing; branch inventory remains main only.
