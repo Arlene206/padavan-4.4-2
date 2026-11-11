@@ -48,8 +48,9 @@ assert 'nvram_safe_get("vpnc_pass")' in secret_writer
 client_conf = body(source, "static int\nopenvpn_create_client_conf")
 secret_gate = 'if (i_auth == 1 && openvpn_create_client_secret("secret") != 0)'
 assert secret_gate in client_conf
-assert client_conf.index(secret_gate) < client_conf.index('fp = fopen(conf_file, "w+")')
-assert client_conf.index("return 1;", client_conf.index(secret_gate)) < client_conf.index('fp = fopen(conf_file, "w+")')
+config_open = "fp = openvpn_config_file_open(conf_file"
+assert client_conf.index(secret_gate) < client_conf.index(config_open)
+assert client_conf.index("return 1;", client_conf.index(secret_gate)) < client_conf.index(config_open)
 assert 'fprintf(fp, "auth-user-pass %s\\n", "secret");' in client_conf
 assert client_conf.count('openvpn_create_client_secret("secret")') == 1
 

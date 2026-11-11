@@ -1,3 +1,16 @@
+## 2026-11-12 01:55 CST (UTC+8) — Align OpenVPN fail-closed source contract with staged config writer
+
+- Base main SHA: d5b5ff7ed841ea12af2eda604580722e49bf7436; parent d65a890e11712db880c09b48e05215a691118ab6.
+- Exact-head OpenVPN run [43072227995] checked out this SHA. Both GNU89 -Wall -Wextra -Werror ASan/UBSan/leak binaries passed: "OpenVPN client credential staging policy: PASS" and "OpenVPN config atomic publication and failure preservation: PASS".
+- The remaining source-contract step failed with ValueError at line 51 because an older assertion still searched for fp = fopen(conf_file, "w+"). The same source had intentionally migrated client config creation to openvpn_config_file_open(), so the test boundary was stale; the other source assertions already require staged open and atomic publish.
+- Exact-head AI handoff docs [43072228055] and infosvr [43072227944] both SUCCESS. Docs validator reported root log=32/119 and archives dev-log=7, handoff=22, roadmap=18. Every job step passed; full logs showed no test errors.
+- THIS COMMIT changes the client fail-closed ordering assertion to require credential publication and its failure return before openvpn_config_file_open(). No production code changed for this checker failure.
+- Corrected OpenVPN and docs Actions for THIS COMMIT are pending. The previous run's two host test binaries passed; its source checker did not pass.
+- Root dev_log.md grows 32→33 complete records; no rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- Next GPT: inspect corrected OpenVPN credential/config and AI-doc Actions, every step/full logs. Require both GNU89 sanitizer regressions and source contracts plus docs root log=33/119, archives=7/22/18. MIPS/uClibc, firmware/TRX and L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-12 01:51 CST (UTC+8) — Correct OpenVPN config regression shell continuations
 
 - Base main SHA: d65a890e11712db880c09b48e05215a691118ab6; parent 8c715b2b156b6c40627d026a84007eb4059a76c6.

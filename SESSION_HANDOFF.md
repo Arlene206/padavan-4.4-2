@@ -3,14 +3,15 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; branch `main`; only remote branch is `main`; no checkpoint branch.
-- Base main SHA for THIS COMMIT: `d65a890e11712db880c09b48e05215a691118ab6` (parent `8c715b2b156b6c40627d026a84007eb4059a76c6`).
+- Base main SHA for THIS COMMIT: `d5b5ff7ed841ea12af2eda604580722e49bf7436` (parent `d65a890e11712db880c09b48e05215a691118ab6`).
 - DNS Forwarder caller-CWD-independent launcher is L1/L2 CLOSED on exact SHA `c2e1c85517ed2dcbe094ed43e3cae18d7af4d972`: DNS [43066687882], AI docs [43066687814] and infosvr [43066687818] SUCCESS.
 - DNSMasq DHCP pool/router-address exclusion is L1/L2 CLOSED on exact SHA `c22542d36e9de26780b338267f41a91d99aaf34a`: DNSMasq [43069047780], AI docs [43069047752], HTTPD [43069047723], infosvr [43069047578], Samba [43069047831] and miniupnpd [43069047633] SUCCESS.
 - WAN bridge VLAN deletion failure propagation is L1/L2 CLOSED on exact SHA `55740d3491fba908416b930664143943b5acca1a`: wireless [43069624285], AI docs [43069624357], infosvr [43069624265] and WAN DHCP [43069624334] SUCCESS.
 - Wi-Fi bridge-port detach during radio shutdown is L1/L2 CLOSED on exact SHA `8c715b2b156b6c40627d026a84007eb4059a76c6`: wireless [43070956995], AI docs [43070956985] and infosvr [43070957210] all SUCCESS. Full job steps/logs were inspected; both GNU89 policy regressions and whitespace-normalized radio/membership source contracts passed; docs validator root log=30/119 and archives=7/22/18.
 - THIS COMMIT stages OpenVPN server/client primary config generation beside the live destination, keeps the stage mode 0600 while writing, checks flush/ferror/fsync/mode/close/rename and only then atomically publishes mode 0644. Failure leaves the previous config intact and existing startup callers fail closed.
 - Exact-head OpenVPN run [43071668469] passed the credential regression but failed config-test compile at step 4: four YAML compiler lines ended in two backslashes, so ld received a literal backslash input and reported `cannot find \\`. The config binary and source-contract step did not run. Docs [43071668470], HTTPD [43071668464] and infosvr [43071668500] all passed on that SHA. THIS COMMIT fixes the four shell continuations; corrected exact-head OpenVPN/docs runs are pending.
-- Root `dev_log.md` grows 31→32 complete records; no rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- On exact SHA `d5b5ff7ed841ea12af2eda604580722e49bf7436`, corrected shell continuations allowed both GNU89 sanitizer binaries to PASS, but the OpenVPN source-contract step failed at line 51 because it still searched for the obsolete `fp = fopen(conf_file, "w+")` boundary. `openvpn_create_client_conf()` now opens via `openvpn_config_file_open()`. Docs [43072228055] and infosvr [43072227944] passed on d5b5ff7. THIS COMMIT updates the fail-closed ordering assertion to the staged-config open call; corrected exact-head OpenVPN/docs runs are pending.
+- Root `dev_log.md` grows 32→33 complete records; no rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
 - FTP upload-cleanup TOCTOU remains P2 OPEN/BLOCKED pending a Linux 4.4-safe inode/parent proof; NFS requires real-client evidence. Production MIPS/uClibc, full firmware/TRX and physical-router behavior remain NOT VERIFIED.
 
 ## Closed task — NVRAM HDR2 profile-save atomic publication
@@ -185,6 +186,6 @@
 ## Exact first action for the next GPT
 
 1. Fetch live main and remote branches; verify exact SHA and parent after THIS COMMIT.
-2. Query all Actions for that exact SHA. Inspect every step and full log for OpenVPN credential/config and AI docs. Require both GNU89 ASan/UBSan/leak regression binaries, RLIMIT_FSIZE failure injection, last-good preservation/stage cleanup, source contract and docs validator root log=32/119, archives=7/22/18.
-3. If green, close the bounded OpenVPN server/client config L2 slice. Then audit per-client CCD and VPN lease snapshot publication; do not assume primary config correctness covers those separate write paths.
+2. Inspect OpenVPN credential/config and AI docs Actions on that exact SHA, every job step and full log. Require both GNU89 ASan/UBSan/leak binaries, RLIMIT_FSIZE failure injection, last-good preservation/stage cleanup, and the source contract with credential failure ordered before openvpn_config_file_open(); docs validator must report root log=33/119 and archives=7/22/18.
+3. If green, close the bounded OpenVPN server/client config L2 slice. Then audit per-client CCD and VPN lease snapshot publication; primary config validation does not cover those separate write paths.
 4. FTP upload-cleanup TOCTOU remains OPEN/BLOCKED until a proven Linux 4.4-safe inode/parent design preserves STOR/APPE/REST/STOU. NFS needs external-client evidence; production MIPS/uClibc, full firmware/TRX and L4 remain NOT VERIFIED.
