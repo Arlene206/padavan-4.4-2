@@ -145,6 +145,7 @@ on:
       - "trunk/user/rc/src/hotplug_usb.c"
       - "trunk/user/rc/src/usb_modem.c"
       - "trunk/user/rc/src/modem_node_file.h"
+      - "trunk/user/rc/src/modem_node_identity_policy.h"
       - "trunk/user/rc/src/tests/modem_node_file.c"
       - "trunk/user/rc/src/hotplug_stor.c"
       - "trunk/user/rc/src/storage_partition_probe.h"
@@ -370,6 +371,7 @@ on:
       - "trunk/user/rc/src/hotplug_usb.c"
       - "trunk/user/rc/src/usb_modem.c"
       - "trunk/user/rc/src/modem_node_file.h"
+      - "trunk/user/rc/src/modem_node_identity_policy.h"
       - "trunk/user/rc/src/tests/modem_node_file.c"
       - "trunk/user/rc/src/hotplug_stor.c"
       - "trunk/user/rc/src/storage_partition_probe.h"
@@ -2080,6 +2082,7 @@ jobs:
           hotplug = Path("trunk/user/rc/src/hotplug_usb.c").read_text()
           reader = Path("trunk/user/rc/src/usb_modem.c").read_text()
           helper = Path("trunk/user/rc/src/modem_node_file.h").read_text()
+          identity_policy = Path("trunk/user/rc/src/modem_node_identity_policy.h").read_text()
           regression = Path("trunk/user/rc/src/tests/modem_node_file.c").read_text()
           assert '#include "modem_node_file.h"' in hotplug
           assert hotplug.count("modem_node_file_write(MODEM_NODE_DIR, device_name, node_data)") == 3
@@ -2103,7 +2106,8 @@ jobs:
               assert handler.index("modem_node_usb_identity_is_valid") < handler.index(
                   "modem_node_file_write(MODEM_NODE_DIR, device_name, node_data)")
               assert "modem_node_file_remove(MODEM_NODE_DIR, device_name);" in handler
-          assert "devnum >= 1 && devnum <= 127" in helper
+          assert "modem_node_usb_identity_is_valid" in helper
+          assert "devnum >= 1 && devnum <= 127" in identity_policy
           assert "USB parent topology is not ready" in net_handler
           assert "USB interface topology is not ready" in tty_handler
           assert "symlink(outside_file, link_path)" in regression

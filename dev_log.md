@@ -1,3 +1,17 @@
+## 2026-11-11 (UTC+8) — Align HTTPD USB modem contract with shared identity policy
+
+- Base main SHA: f06807f5b7efb59d7760fda0756f64ea01ddf00b; parent 89818c2d114b57c964ec816a96d25c908e174877; remote branch inventory: main only.
+- Exact-head Actions on the USB WDM/NDIS fix SHA f06807f5b7efb59d7760fda0756f64ea01ddf00b: dedicated USB modem identity workflow [42972870550] and AI handoff docs [42972870467] completed SUCCESS. The modem metadata regression and new WDM/NDIS physical-identity source contract passed; docs validator reported root log 89/119 and archives dev-log=6, handoff=22, roadmap=18.
+- The dependent HTTPD umbrella workflow [42972870511] passed its GNU89 modem metadata binary, then failed at step 19's Python source contract. Root cause: the existing contract searched for `devnum >= 1 && devnum <= 127` in `modem_node_file.h`, but the new implementation intentionally extracted the validator into `modem_node_identity_policy.h` for shared use by metadata publication and NDIS selection. No production source or host regression failure was reported.
+- Fix in THIS COMMIT: the HTTPD contract now reads the extracted identity policy header and validates that it is included by the metadata writer header; add the new identity header to both HTTPD push and pull_request path filters. No production C behavior changes.
+- Changed paths: `.github/workflows/httpd-security.yml`, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and this log.
+- Validation: exact-base HTTPD, USB modem and AI docs jobs/logs were inspected. The modem workflow and AI docs passed; the HTTPD stale-contract failure and exact failing assertion were isolated. Corrected HTTPD source contract and the updated docs validator are pending on THIS resulting SHA. No target MIPS/uClibc build, full firmware/TRX, BusyBox ash or L4 modem test is claimed.
+- Root dev_log.md: 89 complete records before this entry; 90 after. Below entry/byte rotation thresholds; no archive/index update is due.
+- Resulting commit: THIS COMMIT.
+- Next: inspect HTTPD, USB modem identity and AI handoff docs Actions against the exact resulting main SHA; confirm all three pass before closing this follow-up. The WDM/NDIS implementation itself passed its own dedicated exact-head workflow. FTP upload-cleanup TOCTOU remains OPEN/BLOCKED; NFS client compatibility remains evidence-gated.
+
+---
+
 ## 2026-11-11 (UTC+8) — Bind USB WWAN control nodes to their physical modem
 
 - Base main SHA: 89818c2d114b57c964ec816a96d25c908e174877; parent e22c339dc8f04eb965cc19d36f9a2a0bec594e65. Remote branch inventory: main only, no checkpoint branch.
