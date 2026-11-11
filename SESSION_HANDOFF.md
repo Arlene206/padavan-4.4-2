@@ -2,13 +2,13 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; branch `main`; the branch inventory contains only `main`, with no remote checkpoint branch.
-- Base main SHA for THIS COMMIT: `65f070aa3dfaa73154d3ab1ecb03d82a17abc388` (parent `d002eba06a914d75ac79b20867dbd3cdb6f416ca`).
-- The HTTPD daemon lifecycle/duplicate-launch task is L1/L2 CLOSED on exact SHA `65f070aa3dfaa73154d3ab1ecb03d82a17abc388`: dedicated HTTPD lifecycle [43063659893], HTTPD security umbrella [43063082646] and AI handoff docs [43063659714] all SUCCESS. The dedicated lifecycle job passed all six steps including GNU89 ASan/UBSan policy binary and branch-aware source/path contract. The umbrella passed all 41 steps. The exact-head docs validator passed with root log=22/119 and archives dev-log=7, handoff=22, roadmap=18. infosvr regression [43063659718] also passed all six steps.
-- THIS COMMIT addresses a separate GPIO front-panel timing defect: the hold counter begins at 1, making elapsed 700–799 ms map to count 8; the old strict `count < 8` condition dropped that whole short-action bucket despite the 800 ms comment. The shared 100 ms timing policy now accepts counts 1–8 and excludes count 9 at 800 ms, preserving the 3 s long-press and 5 s reset thresholds.
-- Local GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` timing regression with leak detection passed. The exact-head GPIO lifecycle and AI docs Actions for THIS COMMIT are pending.
-- Root `dev_log.md` had 22 complete entries at the base and will have 23; no rotation is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
-- Production MIPS/uClibc RC object, complete firmware/TRX and physical router behavior remain NOT VERIFIED. FTP upload cleanup TOCTOU remains OPEN/BLOCKED; NFS external-client evidence remains required.
+- Repository: `Arlene206/padavan-4.4-2`; branch `main`; the only remote branch is `main`, with no checkpoint branch.
+- Base main SHA for THIS COMMIT: `54504272e2c4ca0f7783ba78aa52a2bfe212de1c` (parent `65f070aa3dfaa73154d3ab1ecb03d82a17abc388`).
+- HTTPD daemon lifecycle/duplicate-launch is L1/L2 CLOSED on exact SHA `65f070aa3dfaa73154d3ab1ecb03d82a17abc388`: HTTPD lifecycle [43063659893], security umbrella [43063082646], AI docs [43063659714] and infosvr [43063659718] all SUCCESS; all six dedicated, 41 umbrella and seven documentation steps passed.
+- GPIO short-press code and both GNU89 ASan/UBSan binaries passed on exact SHA `54504272e2c4ca0f7783ba78aa52a2bfe212de1c`. Its source checker correctly failed because the workflow accidentally duplicated the timing header/test paths in `push` while omitting them from `pull_request`; this COMMIT normalizes both filters to exactly one occurrence of each.
+- AI docs [43064587290] and infosvr [43064587210] passed on `54504272...`; docs validator reported root log=23/119 and archives dev-log=7, handoff=22, roadmap=18. GPIO workflow [43064587271] failed only the path-count assertion after both sanitizer binaries passed. Corrected exact-head GPIO/docs Actions are pending.
+- Root `dev_log.md` grows 23→24 records; no rotation due. Archive inventory remains 7/22/18. Production MIPS/uClibc, full firmware/TRX and physical router behavior remain NOT VERIFIED.
+
 ## Closed task — NVRAM HDR2 profile-save atomic publication
 
 - Commit ce7efad34dbd81097d923f9568f0ae9946694b58; exact-head HTTPD [42992756073] and AI docs [42992755926] both SUCCESS. All 39 HTTPD job steps passed.
@@ -107,28 +107,25 @@
 - The previous source-check failure on `d002eba06a914d75ac79b20867dbd3cdb6f416ca` was correctly diagnosed as a false positive: the checker compared the normal launch publication with an earlier valid duplicate-daemon branch. `65f070aa...` scopes its check to the post-probe normal-launch path and passes.
 - Bounded HTTPD service-state behavior is L1/L2 CLOSED. Process presence is not socket/readiness proof; simultaneous cross-process startup locking, target MIPS/uClibc, full firmware/TRX and L4 router behavior remain open/unverified.
 
-## Active task — Correct GPIO short-press cutoff at the 800 ms boundary (P2 input reliability)
+## Active task — GPIO button hold timing and workflow contract (P2 input reliability)
 
-### Finding and implementation in THIS COMMIT
-
-- `btn_update_press_count()` initializes a held button at count 1 and advances once per elapsed 100 ms: `floor(elapsed_ms / 100) + 1`. As a result, 700–799 ms maps to count 8 and 800 ms maps to count 9.
-- `btn_released_handle()` previously dispatched a short WPS/FN action only for `count > 0 && count < CANCEL_COUNT`, while `CANCEL_COUNT=8` was documented as 800 ms. The complete 700–799 ms bucket was therefore suppressed.
-- THIS COMMIT centralizes elapsed monotonic-time conversion and short/long/reset threshold predicates in `gpio_btn_timing_policy.h`. Short actions accept counts 1–8 and exclude count 9 at 800 ms. Existing >3 s long-press and >5 s reset boundaries are preserved. The daemon receive timeout now shares the same 100 ms quantum.
-- Added a standalone GNU89 regression for 0, 699, 700, 799 and 800 ms, 2999/3000 ms, 4999/5000 ms, negative clock-delta normalization and `INT_MAX` saturation. Local `-Wall -Wextra -Werror -fsanitize=address,undefined` with leak detection: PASS (`GPIO button hold timing and threshold policy: PASS`).
-- The existing GPIO lifecycle workflow now compiles/runs both startup and timing policy regressions and checks production integration, all threshold boundaries and symmetric push/pull_request path filters. Exact-head GPIO and AI docs Actions are pending.
+- `btn_update_press_count()` starts at count 1 and advances each 100 ms, so 700–799 ms maps to count 8 and 800 ms maps to count 9. The former `count < CANCEL_COUNT` gate (`CANCEL_COUNT=8`, documented as 800 ms) dropped the complete 700–799 ms WPS/FN short-action interval.
+- Production code now centralizes monotonic elapsed-time conversion and short/long/reset predicates in `gpio_btn_timing_policy.h`. Counts 1–8 dispatch short actions, count 9 does not; >3 s long and >5 s reset boundaries are unchanged. Socket timeout and accounting share the 100 ms quantum.
+- Both GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` startup and timing binaries passed locally and on exact SHA `54504272e2c4ca0f7783ba78aa52a2bfe212de1c`. The Python checker then failed because that SHA's push path list contained each new timing path twice and pull_request contained none.
+- THIS COMMIT removes duplicate push entries and adds each timing source exactly once to both push and pull_request. The checker continues to require exactly one occurrence in each filter.
 
 ### Exact next action
 
-- Fetch the resulting live `main` SHA; inspect the GPIO startup/timing and AI handoff docs Actions on that exact SHA, including every job step and full logs.
-- Require both GNU89 ASan/UBSan binaries, 700/799 ms short-action inclusion, 800 ms exclusion, unchanged 3 s/5 s thresholds, shared timer/source integration, source checker and symmetric push/pull_request path filters to pass. Docs validator should report root log=23/119 and archives dev-log=7, handoff=22, roadmap=18.
-- On exact-head green, close only this L2 timing slice and rotate to another evidence-actionable userland reliability risk. FTP cleanup TOCTOU remains OPEN/BLOCKED; NFS remains external-evidence gated; target MIPS/uClibc and L4 remain NOT VERIFIED.
+- Fetch the resulting main SHA and inspect GPIO startup/timing plus AI docs Actions, every job step and full logs.
+- Require both sanitizer binaries, 700/799 ms inclusion, 800 ms exclusion, unchanged 3 s/5 s thresholds, production source integration, one occurrence per push/pull_request path and docs validation (root log=24/119; archive counts 7/22/18) to PASS.
+- On exact-head green, close this bounded L2 timing slice and rotate to a different userland reliability issue. FTP cleanup TOCTOU remains OPEN/BLOCKED; NFS remains external-evidence gated; MIPS/uClibc and L4 remain NOT VERIFIED.
 
 ## Verification boundary
 
-- L1 source review: PASS for HTTPD `_eval()` error propagation, duplicate-launch preflight, detached-child presence confirmation, normal start-state publication only after proof, stop-state clearing only after confirmed exit and restart gating. GPIO source review confirms count 8 is the complete 700–799 ms bucket and the old `< 8` predicate excluded it; THIS COMMIT uses a shared policy helper and keeps all thresholds consistent.
-- L2 host / Actions: HTTPD lifecycle [43063659893], security umbrella [43063082646], AI docs [43063659714] and infosvr [43063659718] all SUCCESS on exact SHA `65f070aa3dfaa73154d3ab1ecb03d82a17abc388`; all job steps and complete logs inspected. THIS COMMIT's isolated GNU89 ASan/UBSan GPIO timing regression passed locally. Exact-head GPIO lifecycle and AI docs Actions are pending.
-- L3 production MIPS/uClibc RC object / complete firmware/TRX: NOT VERIFIED for GPIO and current RC, storage, firewall and PID 1 changes. Prior FULLCONENAT object evidence is not a complete firmware build.
-- L4 router / physical hardware: NOT VERIFIED. No live key/LED, uevent ordering/loss, router networking, HTTPD socket readiness or other device behavior is claimed.
+- L1 source review: PASS for HTTPD launch error/duplicate/stop/restart postconditions, and GPIO count-8 short-action inclusion with count 9 excluded at 800 ms; long and reset thresholds remain >3 s and >5 s.
+- L2 host / Actions: HTTPD lifecycle [43063659893], security umbrella [43063082646], AI docs [43063659714] and infosvr [43063659718] all SUCCESS on `65f070aa3dfaa73154d3ab1ecb03d82a17abc388`. On GPIO source SHA `54504272e2c4ca0f7783ba78aa52a2bfe212de1c`, both startup/timing sanitizer binaries passed, but source checker failed because path filters were asymmetric. AI docs [43064587290] and infosvr [43064587210] passed; root log=23/119. Corrected exact-head GPIO/docs Actions pending.
+- L3 production MIPS/uClibc object / full firmware/TRX: NOT VERIFIED for GPIO and current RC, storage, firewall and PID 1 changes.
+- L4 physical router: NOT VERIFIED. No live key/LED, uevent ordering/loss, router behavior or HTTPD socket-readiness result is claimed.
 
 ## Other open governance-ledger risks
 
@@ -142,7 +139,7 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, confirm it descends from `65f070aa3dfaa73154d3ab1ecb03d82a17abc388`, and inspect exact-head GPIO startup/timing and AI docs Actions, every job step and full logs.
-2. Require startup/timing GNU89 ASan/UBSan tests, short-action inclusion through 799 ms, exclusion at 800 ms, unchanged 3 s/5 s thresholds, source integration, symmetric workflow filters and docs validation (root log=23/119; archive inventory 7/22/18) to pass.
-3. If green, close the bounded GPIO L2 timing slice and rotate to another evidence-actionable issue from the whole-userland ledger. Do not revisit already closed PID 1 or HTTPD work.
-4. FTP failed-upload cleanup TOCTOU remains OPEN/BLOCKED until a Linux 4.4-safe inode/parent design preserves STOR/APPE/REST/STOU; NFS requires real-client evidence. Production MIPS/uClibc, full firmware/TRX and L4 remain NOT VERIFIED.
+1. Fetch live `main`, confirm it descends from `54504272e2c4ca0f7783ba78aa52a2bfe212de1c`, and inspect exact-head GPIO startup/timing and AI docs Actions, all steps and full logs.
+2. Require both sanitizer binaries, the 700/799 ms included and 800 ms excluded boundary, unchanged 3 s/5 s thresholds, source integration, exactly one timing path in each push/pull_request filter, and docs validation (root 24/119; archives 7/22/18).
+3. If green, close this bounded GPIO L2 timing slice and move to a different whole-userland stability issue. Do not revisit closed PID 1 or HTTPD work.
+4. FTP failed-upload cleanup TOCTOU remains OPEN/BLOCKED until a Linux 4.4-safe inode/parent design preserves STOR/APPE/REST/STOU. NFS needs real client evidence; MIPS/uClibc, full firmware/TRX and L4 remain NOT VERIFIED.

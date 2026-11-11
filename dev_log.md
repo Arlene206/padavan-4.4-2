@@ -1,3 +1,16 @@
+## 2026-11-11 — Fix GPIO timing workflow path-filter symmetry
+
+- Base main SHA: `54504272e2c4ca0f7783ba78aa52a2bfe212de1c`; parent `65f070aa3dfaa73154d3ab1ecb03d82a17abc388`. Main was rechecked before this commit; only main exists.
+- Exact-head GPIO workflow [43064587271] compiled and ran both GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` binaries successfully: daemon startup policy PASS and hold-timing threshold policy PASS. Its source checker then failed at `push path count: trunk/user/rc/src/gpio_btn_timing_policy.h`.
+- Root cause: an earlier string replacement matched the old path pair inside its expanded replacement before reaching the `pull_request` block. As a result, both new timing paths appeared twice in push and zero times in pull_request; the checker correctly rejected this.
+- THIS COMMIT normalizes both workflow event-filter sections explicitly, placing each timing header/test path exactly once in push and once in pull_request. The source checker keeps strict count assertions.
+- AI docs [43064587290] passed on the base (root log=23/119, archive counts dev-log=7, handoff=22, roadmap=18); infosvr [43064587210] also passed. Corrected exact-head GPIO/docs Actions remain pending.
+- Root dev_log grows 23→24 records, below the 120-entry rotation threshold; archive index/shards remain unchanged.
+- Validation boundary: exact-parent local/CI startup and timing sanitizer binaries PASS; no exact-head source-contract pass yet. MIPS/uClibc, full firmware/TRX, live GPIO/LED/uevent and L4 remain NOT VERIFIED. FTP cleanup TOCTOU remains OPEN/BLOCKED; NFS evidence-gated.
+- Next GPT: inspect exact-head corrected GPIO and AI docs Actions, all steps/full logs. Require both binaries, source integration, exact-once symmetric filters and docs validator (root log=24/119, archives 7/22/18) to pass; then close L2 and move across the whole-userland ledger.
+
+---
+
 ## 2026-11-11 — Correct the GPIO short-press 800 ms boundary
 
 - Base main SHA: `65f070aa3dfaa73154d3ab1ecb03d82a17abc388`; parent `d002eba06a914d75ac79b20867dbd3cdb6f416ca`. Main was rechecked before creating this commit; it is the only remote branch.
