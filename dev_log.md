@@ -1,3 +1,19 @@
+## 2026-11-11 (UTC+8) — Update PPP demand-mode test boundary after callback setup return-type change
+
+- Base main SHA: c26125ca58ffdcd5f164efafc18df2420e7be2de; parent 8672476ac3544922bc97bad56b12a883bb8cb88a.
+- Exact-head AI docs [42954884367] passed and verified root log 86/119. HTTPD [42954884275] step 17 compiled and ran tests/ppp_options_file.c (including zero-umask regression), compiled the directory-only header consumer with -Werror, and passed PPP value, callback identity/generation, plus USB RAS/WAN directory/writer contracts. It failed later at embedded Python line 166 with ValueError: substring not found.
+- Root cause: the existing PPP demand-mode contract delimited wait_ppp_up() using the pre-change text "
+static void
+create_cb_links"; the function now correctly has return type static int because WAN startup must reject unsafe directory setup. This was a stale function-boundary contract, not an implementation/runtime failure.
+- THIS FOLLOW-UP changes only that contract delimiter to "
+static int
+create_cb_links". No production source or test semantics changed.
+- Changed paths: .github/workflows/httpd-security.yml, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md, and this log.
+- Root dev_log.md: 86 complete records before this entry; 87 after, below rotation thresholds. No archive/index update is due.
+- Next: inspect every job/step/full log for the exact resulting SHA. HTTPD step 17 must finish past all PPP demand-mode contracts and downstream checks; verify AI docs on the final head. Do not claim target MIPS/uClibc, firmware/TRX or L4 hardware validation.
+
+---
+
 ## 2026-11-11 (UTC+8) — Restore USB RAS zero-umask regression in live source tree
 
 - Base main SHA: 8672476ac3544922bc97bad56b12a883bb8cb88a; parent cd49190971966cb4e8cf90d2713d12f37ff77dcb.

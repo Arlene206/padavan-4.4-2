@@ -1,24 +1,24 @@
 ## Current repository state
 
-- Maintained fork: Arlene206/padavan-4.4-2; active branch: main. Base main before THIS FOLLOW-UP: 8672476ac3544922bc97bad56b12a883bb8cb88a, parent cd49190971966cb4e8cf90d2713d12f37ff77dcb. Remote branches at base: main only.
-- The USB modem RAS credential hardening is in the parent chain: net_wan.c validates /tmp/ppp and PPP_PEERS_DIR before publishing callbacks; usb_modem.c uses the shared no-follow 0600 peer writer with checked completion.
-- The original regression was added on parent cd49190971966cb4e8cf90d2713d12f37ff77dcb as test blob 55230ce50d0a7aaaa0b3ed04747d863500a30cd3 and passed locally under GNU89 -Wall -Wextra -Werror with ASan/UBSan. A prior follow-up changed the PPP helper header to static inline (fixing directory-only -Werror unused-function warnings) and corrected the WAN source-order contract; both are retained.
-- Exact-head Actions on 8672476ac3544922bc97bad56b12a883bb8cb88a: AI handoff docs [42954003436] SUCCESS and HTTPD Authentication/Security [42954003789] FAILED in step 17, Verify PPP credential-file confidentiality. The directory-only header compile step ran successfully and the earlier stale start_wan contract was fixed. The Python source contract failed at line 31 because the follow-up tree assembly accidentally used the pre-regression tests/ subtree, dropping the modified ppp_options_file.c; consequently the workflow's required umask(0000) and old-mode assertions were not present in the checked-out test. The failure was a Git tree composition error, not a failing runtime permission assertion. Exact HTTPD log and step list were inspected.
-- THIS FOLLOW-UP restores the complete regression-bearing tests/ subtree from the parent that contains the correct ppp_options_file.c blob, without adding the helper header under tests/. Handoff, roadmap and log record the corrective integration and keep the task open until exact-head Actions pass.
-- Root dev_log.md: 85 complete records before THIS FOLLOW-UP; 86 afterward, below 120-entry / 384 KiB rotation thresholds and the 512 KiB hard limit. No archive or index update is due.
-- Other open items: FTP upload cleanup TOCTOU remains OPEN/BLOCKED; NFS durability/AUTH_SYS/root-squash/external-mount semantics remain evidence-gated; wireless variants, target PPP reconnect/IPv6, BusyBox ash and router behavior remain unverified. No production MIPS/uClibc, complete firmware/TRX or L4 hardware validation is claimed.
+- Maintained fork: Arlene206/padavan-4.4-2; active branch: main. Base before THIS FOLLOW-UP: c26125ca58ffdcd5f164efafc18df2420e7be2de, parent 8672476ac3544922bc97bad56b12a883bb8cb88a. Remote branches at base: main only.
+- USB modem RAS credentials are now routed through the shared PPP no-follow 0600 writer; WAN and RAS startup validate callback/peer directories. The committed regression is present in the live tree at blob 55230ce50d0a7aaaa0b3ed04747d863500a30cd3; exact fetch confirms it includes umask(0000) and the legacy 0666 mode assertion.
+- Exact-head Actions on c26125ca58ffdcd5f164efafc18df2420e7be2de: AI handoff docs [42954884367] SUCCESS (root log 86/119); HTTPD [42954884275] FAILED at step 17, Verify PPP credential-file confidentiality. On this SHA the PPP GNU89 test compiled and executed, directory-only helper -Werror compile succeeded, option value regression passed, callback identity and generation tests passed, and the new USB RAS/WAN permission source assertions passed. Failure occurred later in an older PPP demand-mode source contract: it searched for the old function boundary "
+static void
+create_cb_links" to delimit wait_ppp_up(), but this change intentionally changed create_cb_links() to static int. The log reports ValueError: substring not found at embedded Python line 166. This is another stale test-boundary string, not a runtime regression.
+- THIS FOLLOW-UP corrects that boundary marker to static int. No production code or test semantics are changed by this commit.
+- Root dev_log.md: 86 complete records before THIS FOLLOW-UP; 87 afterward, below the 120-entry / 384 KiB rotation triggers and the 512 KiB hard limit. No archive/index update is due.
+- Other open items: FTP upload-cleanup TOCTOU OPEN/BLOCKED pending a semantics-preserving design; NFS durability/AUTH_SYS/root-squash/external-mount semantics are evidence-gated; wireless variants, target PPP reconnect/IPv6, BusyBox ash, and router hardware remain unverified. No production MIPS/uClibc object, firmware/TRX or L4 result is claimed.
 
 ## Active task
 
-- Restore the PPP zero-umask test source in the live trunk/user/rc/src/tests subtree and verify the exact-head HTTPD PPP credential confidentiality step (including directory-only compile, full GNU89 regression, and all source contracts) plus the AI docs workflow.
-- Inspect every job/step/full log for each workflow run on the resulting SHA. After this regression is green, continue with a different high-priority module from the global userland ledger; do not repeat the closed NVRAM CLI slice.
+- Verify the final HTTPD PPP credential workflow after changing the wait_ppp_up() source-boundary marker to static int. The regression test and directory-only helper compile have already passed on parent c26125ca58ffdcd5f164efafc18df2420e7be2de; rerun all source contracts against the final exact head and inspect the AI docs result.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main, confirm exact SHA/parent and enumerate remote branches.
-2. Query all Actions for that SHA; inspect the complete HTTPD and AI docs job steps/logs, ensuring tests/ppp_options_file.c includes the zero-umask test and the HTTPD PPP step passes.
-3. If all exact-head checks pass, record closure in the current checkpoint on a future substantive update and select the next stability defect from the whole-repository roadmap, rotating away from PPP/HTTPD.
-4. Do not claim MIPS/uClibc target object, full firmware/TRX, BusyBox ash or router hardware validation.
+1. Fetch live main and remote branches; verify exact SHA and parent after THIS FOLLOW-UP.
+2. Query all Actions for the resulting SHA, inspect every job/step and full log. Ensure HTTPD step 17 passes to completion and AI docs confirms root log 87/119.
+3. If green, close the bounded RAS credential fix and move to a different high-priority whole-userland stability issue; do not continue to polish PPP/HTTPD.
+4. No target MIPS/uClibc, firmware/TRX, BusyBox ash or L4 hardware validation is implied.
 
 ## PID 1 notification queue batch fairness
 
