@@ -1,3 +1,17 @@
+## 2026-11-11 16:20 CST (UTC+8) — Correct iNIC host regression header search path after exact-head CI failure
+
+- Base main SHA: 78e31e4738db0dd7685b2560e431236c5474eed1; parent a07d9a3ad3d9568a9088af2de3601f79d672649d.
+- Exact-head AI handoff docs run [42986118867] passed, root log=98/119 and archives dev-log=6, handoff=22, roadmap=18.
+- Exact-head iNIC workflow [42986118876] failed in step 3 before compiling the policy test: tests/inicd_signal_policy.c includes inicd_signal_policy.h, but the header is one directory above in src/. Quoted-include search starts in src/tests and did not find the sibling header. This was a test command include-path defect, not a C assertion or daemon source failure. The Python source-contract step was skipped on that failed job and remains unverified.
+- THIS COMMIT adds -Itrunk/user/rc/src to the GNU89 sanitizer compile command so the source test resolves the same header used by inicd.c. No production source or runtime policy was changed in this follow-up.
+- Changed paths: .github/workflows/inicd-signal-stability.yml, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and this log.
+- Local verification already performed for the policy code: cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer compiled the event-policy test and it printed iNIC signal deferral policy: PASS. The source/call-path/build filter contract also passed a pre-commit check using live repository source. Exact-head rerun pending; do not mark iNIC slice closed until both workflow steps pass.
+- Root dev_log.md: 98 complete entries before this record; 99 after. Below the 120-entry / 384 KiB rotation trigger; no archive or INDEX update is due.
+- Resulting commit: THIS COMMIT.
+- Next: inspect exact-head iNIC and AI docs workflows, every step and full logs. The iNIC test build must show the new -I path and both test steps PASS. No target MIPS/uClibc, firmware/TRX or L4 claim.
+
+---
+
 ## 2026-11-11 15:39 CST (UTC+8) — Defer RT3352 iNIC health and cleanup work out of signal context
 
 - Base main SHA: a07d9a3ad3d9568a9088af2de3601f79d672649d; parent 006efd3eb3939f6a1081e7c2a84618ac6377a15a. Remote branch inventory: main only.

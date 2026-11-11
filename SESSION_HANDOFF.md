@@ -1,26 +1,25 @@
 ## Current repository state
 
-- Maintained fork: Arlene206/padavan-4.4-2; active branch: main. Live base main SHA before THIS COMMIT: a07d9a3ad3d9568a9088af2de3601f79d672649d; parent: 006efd3eb3939f6a1081e7c2a84618ac6377a15a. Remote branch inventory: main only; no checkpoint branch.
-- Closed the prior GPIO + path-triggered SkipDBv2 verification task on exact base SHA a07d9a3ad3d9568a9088af2de3601f79d672649d:
+- Maintained fork: Arlene206/padavan-4.4-2; active branch: main. Live base main SHA before THIS COMMIT: 78e31e4738db0dd7685b2560e431236c5474eed1; parent: a07d9a3ad3d9568a9088af2de3601f79d672649d. Remote branch inventory: main only; no checkpoint branch.
+- Closed the prior GPIO + path-triggered SkipDBv2 verification task on exact ancestor SHA a07d9a3ad3d9568a9088af2de3601f79d672649d:
   - GPIO run 42982741220 completed SUCCESS; GNU89/ASan/UBSan policy test and full launcher/uevent/caller source contract both PASS.
   - SkipDBv2 run 42982741286 completed SUCCESS; XY-C1 firmware integration source checks PASS; all SkipDBv2 targets built; CTest 57/57 passed.
-  - AI handoff docs run 42982741251 completed SUCCESS; root log=97/119 and archive counts dev-log=6, handoff=22, roadmap=18.
-  - Latest-per-workflow scan returned 26 workflows, with no latest workflow pending or failed. Only main branch exists.
-- New P2 reliability finding in the RT3352 MII iNIC health monitor (trunk/user/rc/src/inicd.c): SIGALRM called check_inic_mii_rebooted(), which performs NVRAM reads, interface probes, wireless ioctls and logging, directly from asynchronous signal context. SIGTERM removed the PID file, disabled the interval timer and called exit() in its handler. These non-async-signal-safe operations can re-enter libc/driver code interrupted mid-operation and hang or corrupt monitor state.
-- Fix in THIS COMMIT: handlers now only record coalesced SIGALRM/SIGTERM bits in volatile sig_atomic_t. Both managed signals are blocked while taking/clearing an event snapshot; sigpending() also catches a co-pending SIGTERM not yet dispatched by the kernel, so shutdown takes precedence over a poll. sigsuspend() atomically unmasks while sleeping, closing the lost-wakeup window. Wireless recovery and timer/PID cleanup move to ordinary process context; timer initialization failure is surfaced.
-- Changed paths: trunk/user/rc/src/inicd.c, new inicd_signal_policy.h, new tests/inicd_signal_policy.c, new scripts/check_inicd_signals.py, new .github/workflows/inicd-signal-stability.yml, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md, and dev_log.md.
-- Validation before push: GNU89 policy test compiled and ran locally under -Wall -Wextra -Werror + ASan/UBSan; pre-commit source/call-path/build contract was independently exercised using GitHub source contents. Exact-head Actions and docs validation pending. No production RT3352 MIPS/uClibc object, complete firmware/TRX or physical iNIC recovery is claimed.
-- Open blockers unchanged: FTP upload-cleanup check/unlink TOCTOU remains OPEN/BLOCKED; NFS durability/AUTH_SYS/root-squash needs external-client evidence; target BusyBox ash, L3 target builds and L4 hardware remain NOT VERIFIED.
+  - AI docs run 42982741251 completed SUCCESS; root log=97/119 and archives dev-log=6, handoff=22, roadmap=18. Latest-per-workflow scan at that SHA had 26 workflows and no latest pending/failed runs.
+- New P2 reliability finding in RT3352 MII iNIC daemon: SIGALRM called check_inic_mii_rebooted(), which performs NVRAM reads, interface probes, wireless ioctls and logging, directly from asynchronous signal context. SIGTERM removed the PID file, disabled the interval timer and called exit() in its handler.
+- Code fix committed at 78e31e4738db0dd7685b2560e431236c5474eed1: event-only SIGALRM/SIGTERM handlers, blocked event snapshot, pending-SIGTERM check (a second standard signal may still be kernel-pending after sigsuspend wakes on SIGALRM), atomic sigsuspend wait, and normal-context recovery/timer/PID cleanup. GNU89 sanitizer policy test is locally PASS.
+- First exact-head iNIC Actions attempt [42986118876] failed at its compile step because the test source is in src/tests but the new header is in src and the workflow omitted the src include directory. This is a workflow-only correction in THIS COMMIT: add -Itrunk/user/rc/src before compiling. The source-contract step was skipped because compilation failed; it is not yet verified by Actions. AI docs workflow [42986118867] passed and reported root log=98/119, archives 6/22/18.
+- Changed in THIS COMMIT: .github/workflows/inicd-signal-stability.yml, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and dev_log.md. The iNIC C implementation and regression source remain those in 78e31e4.
+- No production RT3352 MIPS/uClibc object, complete firmware/TRX or physical iNIC recovery is claimed. FTP upload-cleanup check/unlink TOCTOU remains OPEN/BLOCKED; NFS durability/AUTH_SYS/root-squash needs external-client evidence; target BusyBox ash, L3 target builds and L4 hardware remain NOT VERIFIED.
 
 ## Active task
 
-- Verify the iNIC signal deferral policy under GNU89 + ASan/UBSan and the complete source contract on the exact resulting main SHA. Inspect every job, step and full log.
-- Validate handler purity, SIGALRM coalescing, SIGTERM precedence including a simultaneously kernel-pending SIGTERM, blocked-mask/sigsuspend lost-wakeup safety, normal-context recovery/cleanup, and the conditional RT3352 applet/header/build/ROMFS caller chain with symmetric push/PR path filters.
+- Rerun the iNIC GNU89 + ASan/UBSan policy regression and the complete source/call-path/build contract on the exact resulting main SHA after adding the missing include path.
+- Inspect every job, step and full log. Require both iNIC regression steps and AI docs to pass on that exact SHA; confirm docs root log=99/119 and archives 6/22/18.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main HEAD, parent and branch inventory; reconcile the code commit SHA.
-2. Query Actions for that exact SHA, then inspect the iNIC signal workflow and AI docs workflow job/step results and complete logs. Require the GNU89 sanitizer policy regression, source/call-path/build contract, and docs validator (root log 98/119; archives 6/22/18) to pass.
+1. Fetch live main HEAD, parent and branch inventory; reconcile the workflow correction commit SHA.
+2. Query Actions for that exact SHA; inspect the iNIC job (compile/run and source contract) and AI docs job step summaries and complete logs. Confirm the compiler command has -Itrunk/user/rc/src, both iNIC steps pass, and docs validator reports root log 99/119 with archive counts 6/22/18.
 3. If green, close the iNIC signal-context slice and resume global ledger rotation outside the heavily worked SkipDBv2/HTTPD surfaces. Preserve FTP TOCTOU and NFS evidence blockers; do not claim L3/L4 validation.
 
 ## PID 1 notification queue batch fairness
