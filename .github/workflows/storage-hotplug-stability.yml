@@ -32,6 +32,10 @@ on:
       - "trunk/user/scripts/files/sbin/optware_lifecycle_lock.sh"
       - "trunk/user/optware/opt-umount.sh"
       - "trunk/user/optware/opt-start.sh"
+      - "trunk/configs/boards/busybox.config"
+      - "trunk/configure"
+      - "trunk/user/busybox/Makefile"
+      - "trunk/user/busybox/busybox-1.24.x/**"
   pull_request:
     paths:
       - ".github/workflows/storage-hotplug-stability.yml"
@@ -63,6 +67,10 @@ on:
       - "trunk/user/scripts/files/sbin/optware_lifecycle_lock.sh"
       - "trunk/user/optware/opt-umount.sh"
       - "trunk/user/optware/opt-start.sh"
+      - "trunk/configs/boards/busybox.config"
+      - "trunk/configure"
+      - "trunk/user/busybox/Makefile"
+      - "trunk/user/busybox/busybox-1.24.x/**"
 
 jobs:
   storage-hotplug:
@@ -90,6 +98,54 @@ jobs:
         run: |
           set -eu
           sh trunk/user/scripts/tests/optware_lifecycle_startup.sh
+
+      - name: Build firmware BusyBox 1.24.2 and run Optware lifecycle regressions under ash
+        run: |
+          set -eu
+          busybox_dir=trunk/user/busybox/busybox-1.24.x
+          busybox_bin="$PWD/$busybox_dir/busybox"
+
+          # Use the same common configuration copied by trunk/configure.
+          cp trunk/configs/boards/busybox.config "$busybox_dir/.config"
+          make -C "$busybox_dir" oldconfig </dev/null
+
+          for feature in CONFIG_ASH CONFIG_FEATURE_SH_IS_ASH CONFIG_AWK CONFIG_FLOCK \
+                         CONFIG_CAT CONFIG_CHMOD CONFIG_DIRNAME CONFIG_GREP CONFIG_MKDIR \
+                         CONFIG_RM CONFIG_SLEEP CONFIG_WC; do
+            if ! grep -qx "$feature=y" "$busybox_dir/.config"; then
+              echo "Required firmware BusyBox feature is disabled: $feature" >&2
+              exit 1
+            fi
+          done
+
+          make -C "$busybox_dir" -j2 busybox
+          test -x "$busybox_bin"
+          for applet in ash awk flock; do
+            "$busybox_bin" --list | grep -Fx "$applet" >/dev/null
+          done
+          "$busybox_bin" ash -c 'test "$((2 + 2))" -eq 4'
+
+          runtime_dir=$(mktemp -d)
+          trap 'rm -rf "$runtime_dir"' EXIT
+          mkdir -p "$runtime_dir/bin"
+          for applet in awk cat chmod dirname flock grep mkdir rm sleep wc; do
+            ln -s "$busybox_bin" "$runtime_dir/bin/$applet"
+          done
+          ln -s "$busybox_bin" "$runtime_dir/bin/sh"
+          export PATH="$runtime_dir/bin:$PATH"
+          export OPTWARE_TEST_SHELL="$runtime_dir/bin/sh"
+
+          # mktemp is intentionally supplied by the runner: it is disabled in
+          # firmware config. Tested shell and lifecycle applets resolve from
+          # the BusyBox 1.24.2 applet directory above.
+          "$busybox_bin" ash -n trunk/user/optware/opt-mount.sh
+          "$busybox_bin" ash -n trunk/user/optware/opt-umount.sh
+          "$busybox_bin" ash -n trunk/user/optware/opt-start.sh
+          "$busybox_bin" ash -n trunk/user/scripts/files/sbin/optware_lifecycle_lock.sh
+
+          "$busybox_bin" ash trunk/user/scripts/tests/optware_lifecycle_lock.sh
+          "$busybox_bin" ash trunk/user/scripts/tests/optware_lifecycle_teardown.sh
+          "$busybox_bin" ash trunk/user/scripts/tests/optware_lifecycle_startup.sh
       - name: Compile and run storage eject inventory regression
         run: |
           set -eu
@@ -215,6 +271,9 @@ jobs:
           opt_teardown_test = Path("trunk/user/scripts/tests/optware_lifecycle_teardown.sh").read_text()
           opt_startup_test = Path("trunk/user/scripts/tests/optware_lifecycle_startup.sh").read_text()
           shutils = Path("trunk/user/shared/src/shutils.h").read_text()
+          busybox_package = Path("trunk/user/busybox/Makefile").read_text()
+          busybox_config = Path("trunk/configs/boards/busybox.config").read_text()
+          busybox_configure = Path("trunk/configure").read_text()
 
           assert '#define STORAGE_OPERATION_LOCK_TAG "storage"' in lock_policy
           assert "storage_operation_lock_acquire(file_lock)" in lock_test
@@ -702,5 +761,34 @@ jobs:
           assert restart_nfsd.index('if (stop_nfsd_locked() != 0)') < restart_nfsd.index('run_nfsd_locked()')
           assert "file_unlock(storage_lock)" in restart_nfsd
           assert 'action_result = restart_nfsd();' in rc and 'ret = stop_nfsd();' in rc
+          # The CI ash binary is built from the same version/config used by firmware.
+          assert "PKG_VERSION:=1.24" in busybox_package
+          assert "SRC_DIR=./busybox-1.24.x" in busybox_package
+          assert "# Busybox version: 1.24.2" in busybox_config
+          for feature in ("CONFIG_ASH", "CONFIG_FEATURE_SH_IS_ASH", "CONFIG_AWK", "CONFIG_FLOCK"):
+              assert f"{feature}=y" in busybox_config
+          assert 'busybox_id="1.24.x"' in busybox_configure
+          assert 'busybox_cf="$ROOTDIR/configs/boards/busybox.config"' in busybox_configure
+          assert 'cp -fL "$busybox_cf" "$busybox_tf"' in busybox_configure
+          for feature in ("CONFIG_ASH", "CONFIG_FEATURE_SH_IS_ASH", "CONFIG_AWK", "CONFIG_FLOCK"):
+              assert f'func_disable_busybox_param "{feature}"' not in busybox_configure
+
+          # Child service fixtures must execute under the tested ash binary too.
+          for opt_test in (opt_teardown_test, opt_startup_test):
+              assert "OPTWARE_TEST_SHELL" in opt_test
+              assert "write_mock" in opt_test
+              assert "printf '#!%s" in opt_test
+              assert 'cat > "$tmpdir/' not in opt_test
+
+          busybox_paths = (
+              "trunk/configs/boards/busybox.config",
+              "trunk/configure",
+              "trunk/user/busybox/Makefile",
+              "trunk/user/busybox/busybox-1.24.x/**",
+          )
+          for path in busybox_paths:
+              assert push_filters.count(path) == 1
+              assert pr_filters.count(path) == 1
+
           print("USB storage hotplug full caller graph, lock ordering and teardown contracts: PASS")
           PY

@@ -9,19 +9,35 @@ cleanup()
 	rm -rf "$tmpdir"
 }
 trap cleanup 0 HUP INT TERM
+# Generate child fixtures with the same shell interpreter as this regression.
+mock_shell=${OPTWARE_TEST_SHELL:-/bin/sh}
+case "$mock_shell" in
+	/*) ;;
+	*) echo "OPTWARE_TEST_SHELL must be an absolute path" >&2; exit 1 ;;
+esac
+[ -x "$mock_shell" ] || {
+	echo "OPTWARE_TEST_SHELL is not executable: $mock_shell" >&2
+	exit 1
+}
+write_mock()
+{
+	mock_path=$1
+	{
+		printf '#!%s\n' "$mock_shell"
+		cat
+	} > "$mock_path"
+	chmod +x "$mock_path"
+}
 
 mkdir -p "$tmpdir/bin" "$tmpdir/services-fail" "$tmpdir/services-ok"
 
-cat > "$tmpdir/bin/logger" <<'MOCK'
-#!/bin/sh
+write_mock "$tmpdir/bin/logger" <<'MOCK'
 exit 0
 MOCK
-cat > "$tmpdir/bin/sleep" <<'MOCK'
-#!/bin/sh
+write_mock "$tmpdir/bin/sleep" <<'MOCK'
 exit 0
 MOCK
-cat > "$tmpdir/bin/umount" <<'MOCK'
-#!/bin/sh
+write_mock "$tmpdir/bin/umount" <<'MOCK'
 count=0
 [ ! -f "$UMOUNT_LOG" ] || count=$(cat "$UMOUNT_LOG")
 count=$((count + 1))
@@ -34,8 +50,7 @@ case "$UMOUNT_MODE:$count" in
 	*) exit 2 ;;
 esac
 MOCK
-cat > "$tmpdir/bin/swapoff" <<'MOCK'
-#!/bin/sh
+write_mock "$tmpdir/bin/swapoff" <<'MOCK'
 [ "$1" = "/opt/.swap" ] || exit 2
 if flock -n 9 2>/dev/null; then
 	echo "swapoff inherited Optware lifecycle lock fd 9" >&2
@@ -62,28 +77,23 @@ chmod +x "$tmpdir/bin/logger" "$tmpdir/bin/sleep" "$tmpdir/bin/umount" "$tmpdir/
 PATH="$tmpdir/bin:$PATH"
 export PATH
 
-cat > "$tmpdir/services-fail/S01-first" <<'MOCK'
-#!/bin/sh
+write_mock "$tmpdir/services-fail/S01-first" <<'MOCK'
 printf 'S01-first\n' >> "$SERVICE_LOG"
 exit 0
 MOCK
-cat > "$tmpdir/services-fail/S02 fail with space" <<'MOCK'
-#!/bin/sh
+write_mock "$tmpdir/services-fail/S02 fail with space" <<'MOCK'
 printf 'S02 fail with space\n' >> "$SERVICE_LOG"
 exit 1
 MOCK
-cat > "$tmpdir/services-fail/S03-last" <<'MOCK'
-#!/bin/sh
+write_mock "$tmpdir/services-fail/S03-last" <<'MOCK'
 printf 'S03-last\n' >> "$SERVICE_LOG"
 exit 0
 MOCK
-cat > "$tmpdir/services-ok/S01-first" <<'MOCK'
-#!/bin/sh
+write_mock "$tmpdir/services-ok/S01-first" <<'MOCK'
 printf 'S01-first\n' >> "$SERVICE_LOG"
 exit 0
 MOCK
-cat > "$tmpdir/services-ok/S02 last with space" <<'MOCK'
-#!/bin/sh
+write_mock "$tmpdir/services-ok/S02 last with space" <<'MOCK'
 printf 'S02 last with space\n' >> "$SERVICE_LOG"
 exit 0
 MOCK

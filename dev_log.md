@@ -1,3 +1,18 @@
+## 2026-11-11 (UTC+8) — Exercise Optware lifecycle with firmware BusyBox ash 1.24.2
+
+- Base main SHA: \`2c769eac12cfdcb597644ebcf9c65b51423c8e4d\`; parent \`4ec9d637ca7daaff93296c494467b6e88c528311\`; branch inventory: main only, no remote checkpoint.
+- Closed the previous GPT's active ASUS infosvr SIGTERM task at exact-head L2. Infosvr packet/signal workflow [43024714802] and AI handoff docs [43024714674] both completed SUCCESS on exact SHA \`2c769eac12cfdcb597644ebcf9c65b51423c8e4d\`; all job steps and complete logs were inspected. GNU89 ASan/UBSan packet and signal tests plus the UDP/SIGTERM source contract printed PASS; docs validator reported 111/119 records and archives 6/22/18. Production MIPS/uClibc, firmware/TRX and L4 signal behavior remain NOT VERIFIED.
+- Investigated the separately tracked FTP failed-upload cleanup TOCTOU. On Linux 4.4, \`fstatat()\` followed by \`unlinkat()\` cannot atomically bind the unlink to the previously checked inode. \`renameat2()\` exchange/no-replace operations are not conditional inode comparisons; staging would require a wider upload-publication redesign and has unresolved STOR/APPE/REST visibility/overwrite semantics. No unsafe patch was made; the issue remains P2 OPEN/BLOCKED pending a proved compatible design.
+- Selected the next evidence-actionable storage item: prior Optware lock/teardown/startup regressions ran under host \`/bin/sh\`, and their child fixture shebangs were hard-coded. That did not exercise the exact firmware BusyBox shell and applet implementation. Firmware selects BusyBox 1.24.2 and enables ash, awk and flock in the common config.
+- THIS COMMIT makes the lifecycle teardown/startup fixture writer honor \`OPTWARE_TEST_SHELL\` (default \`/bin/sh\`) and updates the storage workflow to host-build the exact BusyBox 1.24.2 source using the firmware common config. CI verifies ash/awk/flock and required lifecycle applets, syntax-checks Optware production scripts with ash, then runs lock, teardown and startup regressions under that binary. Child mock hooks use the same ash shebang; BusyBox awk/flock resolve through applet symlinks. Path filters cover the firmware BusyBox config, configure selector, package Makefile and pinned source tree for both push and pull_request.
+- Evidence boundary: source/build selection is L1 reviewed; exact BusyBox 1.24.2 host build and ash L2 execution are pending the resulting exact-head Actions. This is not a production MIPS/uClibc binary, complete firmware/TRX build, target kernel test or L4 router result.
+- Root dev_log.md had 111 complete newest-first records before this entry and has 112 afterward. At 290,184 bytes before the entry, it remains below the 384 KiB rotation target and 512 KiB hard cap; archive inventory remains dev-log=6, handoff=22, roadmap=18. No archive or index update is due.
+- Changed paths: \`trunk/user/scripts/tests/optware_lifecycle_teardown.sh\`, \`trunk/user/scripts/tests/optware_lifecycle_startup.sh\`, \`.github/workflows/storage-hotplug-stability.yml\`, \`SESSION_HANDOFF.md\`, \`REFACTOR_ROADMAP.md\` and this log.
+- Resulting commit: THIS COMMIT.
+- Next: fetch the resulting main SHA; inspect the exact-head storage and AI docs workflows, every job step and full log. Require the BusyBox 1.24.2 host build, applet checks, ash syntax checks and all three lifecycle regressions to pass. Keep MIPS/uClibc, complete firmware/TRX and L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-11 20:21 CST (UTC+8) — Defer infosvr SIGTERM cleanup out of signal context
 
 - Base main SHA: 4ec9d637ca7daaff93296c494467b6e88c528311; parent 14e22191f48c9ad6f3804729ab502ac81670a30b; branch inventory: main only, no remote checkpoint.

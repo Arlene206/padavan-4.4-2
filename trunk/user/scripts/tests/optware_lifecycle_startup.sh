@@ -10,10 +10,28 @@ cleanup()
 	rm -rf "$tmpdir"
 }
 trap cleanup 0 HUP INT TERM
+# Generate child fixtures with the same shell interpreter as this regression.
+mock_shell=${OPTWARE_TEST_SHELL:-/bin/sh}
+case "$mock_shell" in
+	/*) ;;
+	*) echo "OPTWARE_TEST_SHELL must be an absolute path" >&2; exit 1 ;;
+esac
+[ -x "$mock_shell" ] || {
+	echo "OPTWARE_TEST_SHELL is not executable: $mock_shell" >&2
+	exit 1
+}
+write_mock()
+{
+	mock_path=$1
+	{
+		printf '#!%s\n' "$mock_shell"
+		cat
+	} > "$mock_path"
+	chmod +x "$mock_path"
+}
 
 mkdir -p "$tmpdir/bin" "$tmpdir/services-ok" "$tmpdir/services-fail" "$tmpdir/services-empty"
-cat > "$tmpdir/bin/logger" <<'MOCK'
-#!/bin/sh
+write_mock "$tmpdir/bin/logger" <<'MOCK'
 exit 0
 MOCK
 chmod +x "$tmpdir/bin/logger"
@@ -27,8 +45,7 @@ optware_lifecycle_lock_acquire "$lock_file"
 EVENTS_FILE="$tmpdir/events"
 export EVENTS_FILE
 
-cat > "$tmpdir/services-ok/S01-first" <<'HOOK'
-#!/bin/sh
+write_mock "$tmpdir/services-ok/S01-first" <<'HOOK'
 case "$1" in
 start)
 	printf 'S01-first start\n' >> "$EVENTS_FILE"
@@ -41,8 +58,7 @@ stop) printf 'S01-first stop\n' >> "$EVENTS_FILE" ;;
 *) exit 2 ;;
 esac
 HOOK
-cat > "$tmpdir/services-ok/S02 with space" <<'HOOK'
-#!/bin/sh
+write_mock "$tmpdir/services-ok/S02 with space" <<'HOOK'
 case "$1" in
 start)
 	printf 'S02 with space start\n' >> "$EVENTS_FILE"
@@ -55,8 +71,7 @@ stop) printf 'S02 with space stop\n' >> "$EVENTS_FILE" ;;
 *) exit 2 ;;
 esac
 HOOK
-cat > "$tmpdir/services-ok/S03-not-executable" <<'HOOK'
-#!/bin/sh
+write_mock "$tmpdir/services-ok/S03-not-executable" <<'HOOK'
 printf 'non-executable hook ran\n' >> "$EVENTS_FILE"
 HOOK
 chmod +x "$tmpdir/services-ok/S01-first" "$tmpdir/services-ok/S02 with space"
@@ -73,24 +88,21 @@ expected=$(printf 'S01-first start\nS02 with space start')
 }
 
 : > "$EVENTS_FILE"
-cat > "$tmpdir/services-fail/S01-first" <<'HOOK'
-#!/bin/sh
+write_mock "$tmpdir/services-fail/S01-first" <<'HOOK'
 case "$1" in
 start) printf 'S01-first start\n' >> "$EVENTS_FILE" ;;
 stop) printf 'S01-first stop\n' >> "$EVENTS_FILE" ;;
 *) exit 2 ;;
 esac
 HOOK
-cat > "$tmpdir/services-fail/S02 failing hook" <<'HOOK'
-#!/bin/sh
+write_mock "$tmpdir/services-fail/S02 failing hook" <<'HOOK'
 case "$1" in
 start) printf 'S02 failing hook start\n' >> "$EVENTS_FILE"; exit 1 ;;
 stop) printf 'S02 failing hook stop\n' >> "$EVENTS_FILE"; exit 1 ;;
 *) exit 2 ;;
 esac
 HOOK
-cat > "$tmpdir/services-fail/S03-not-started" <<'HOOK'
-#!/bin/sh
+write_mock "$tmpdir/services-fail/S03-not-started" <<'HOOK'
 printf 'S03 should not start\n' >> "$EVENTS_FILE"
 exit 0
 HOOK
