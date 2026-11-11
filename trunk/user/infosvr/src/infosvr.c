@@ -32,6 +32,7 @@
 
 #include <ibox.h>
 #include "infosvr.h"
+#include "infosvr_packet_policy.h"
 
 #define SRV_ADDR INADDR_ANY
 #define CLN_ADDR INADDR_BROADCAST
@@ -77,15 +78,21 @@ error:
 
 int read_packet(int fd, void *packet, int size)
 {
-	struct sockaddr_in addr;
-	int addrlen = sizeof(addr);
-	int res = 0;
+	int res;
 
-	memset(packet, 0, sizeof(*packet));
-	while ((res = recvfrom(fd, packet, size, 0, (struct sockaddr *)&addr , &addrlen)) < 0 && errno == EINTR)
-		continue;
+	if (size <= 0) {
+		errno = EINVAL;
+		return -1;
+	}
 
-	return (res == size);
+	if (infosvr_packet_buffer_prepare(packet, (size_t)size) < 0)
+		return -1;
+
+	do {
+		res = recvfrom(fd, packet, (size_t)size, 0, NULL, NULL);
+	} while (res < 0 && errno == EINTR);
+
+	return res;
 }
 
 int send_packet(int fd, void *packet, int size)
@@ -103,15 +110,24 @@ int send_packet(int fd, void *packet, int size)
 	return res;
 }
 
-void *process_packet(int fd, void *packet, char *ifname)
+void *process_packet(int fd, void *packet, int packet_len, char *ifname)
 {
 	static char packet_res[512] = {0};
 	IBOX_COMM_PKT_HDR_EX *hdr = packet;
 	IBOX_COMM_PKT_RES_EX *hdr_res = (IBOX_COMM_PKT_RES_EX *) &packet_res;
 	PKT_GET_INFO *info;
 
+	if (packet_len < 0 ||
+	    !infosvr_packet_length_valid((size_t)packet_len, sizeof(IBOX_COMM_PKT_HDR)))
+		return NULL;
+
 	if (hdr->ServiceID != NET_SERVICE_ID_IBOX_INFO ||
 	    hdr->PacketType != NET_PACKET_TYPE_CMD)
+		return NULL;
+
+	if (hdr->OpCode != NET_CMD_ID_GETINFO && hdr->OpCode != NET_CMD_ID_GETINFO_MANU &&
+	    !infosvr_packet_length_valid((size_t)packet_len,
+					 offsetof(IBOX_COMM_PKT_HDR_EX, Password)))
 		return NULL;
 
 	if (hdr->OpCode != NET_CMD_ID_GETINFO && hdr->OpCode != NET_CMD_ID_GETINFO_MANU &&
@@ -125,7 +141,8 @@ void *process_packet(int fd, void *packet, char *ifname)
 
 	if (hdr->OpCode != NET_CMD_ID_GETINFO && hdr->OpCode != NET_CMD_ID_GETINFO_MANU) {
 		unsigned char hwaddr[6];
-		get_hwaddr(ifname, hwaddr, sizeof(hwaddr));
+		if (!get_hwaddr(ifname, hwaddr, sizeof(hwaddr)))
+			return NULL;
 		if (memcmp(hdr->MacAddress, hwaddr, sizeof(hdr_res->MacAddress)) == 0)
 			return NULL;
 		hdr_res->Info = hdr->Info;
@@ -224,10 +241,11 @@ int main(int argc, char *argv[])
 		if (res == 0 || !FD_ISSET(g_fd4, &active_rfds))
 			continue;
 		
-		if (read_packet(g_fd4, packet, sizeof(packet)) < 0)
+		res = read_packet(g_fd4, packet, sizeof(packet));
+		if (res < (int)sizeof(IBOX_COMM_PKT_HDR))
 			continue;
-		
-		reply = process_packet(g_fd4, packet, ifname);
+
+		reply = process_packet(g_fd4, packet, res, ifname);
 		if (reply)
 			send_packet(g_fd4, reply, sizeof(packet));
 	}

@@ -63,10 +63,10 @@ char *get_netmask(char *ifname, void *buf, int size)
 unsigned char *get_hwaddr(char *ifname, void *buf, int size)
 {
 	char *macaddr = nvram_safe_get("il0macaddr");
-	if (strlen(macaddr) == 0)
+
+	if (!buf || size < 6 || !macaddr[0] || !ether_atoe(macaddr, buf))
 		return NULL;
 
-	ether_atoe(macaddr, buf);
 	return buf;
 }
 

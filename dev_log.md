@@ -1,3 +1,19 @@
+## 2026-11-11 17:31 CST (UTC+8) — Harden infosvr UDP receive-buffer initialization and wire-prefix validation
+
+- Base main SHA: `8ec8198c4564e57cd3956ea675e343bc35098e72`; parent `a73ca2221712f16dd5aa4bab450eed18a6cd3f92`; branch inventory was `main` only, no checkpoint.
+- Closed networkmap signal-context work on exact base SHA `8ec8198c4564e57cd3956ea675e343bc35098e72`: workflow [42996232222] and AI docs [42996232115] both SUCCESS. Complete logs inspected; GNU89 ASan/UBSan test and signal/lifecycle/handler-registration source contract passed; docs reported root log=102/119 and archive inventory 6/22/18. The earlier [42995791241] docs failure on parent SHA was the missing heading, corrected in the current base and rerun green.
+- New P2 reliability/security finding in the independent ASUS `infosvr` discovery daemon. `read_packet()` used `sizeof(*packet)` where `packet` is `void *`; GNU89's `sizeof(void)` extension is one byte, confirmed with a host compiler. Thus only the first byte of the 512-byte stack packet buffer was cleared. Short UDP datagrams left the remaining bytes indeterminate. In addition, `read_packet()` returned a boolean `0/1`, while main tested it for `< 0`, so incomplete datagrams continued into `process_packet()`. The parser then dereferenced base/extended wire fields without the actual received size.
+- Fix in THIS COMMIT: zero the complete supplied receive capacity; return actual `recvfrom()` byte count/error; reject packets shorter than the base IBOX header; pass actual received length into `process_packet()`; validate the extended prefix up to `offsetof(IBOX_COMM_PKT_HDR_EX, Password)` before reading MAC; and fail closed when the NVRAM hardware address is missing/invalid rather than comparing an uninitialized local buffer.
+- Regression: new GNU89 test covers all-byte zeroing including unused tail, short-packet deterministic padding, NULL/zero-size errors and base/extended prefix boundaries. New source checker verifies helper integration, actual-byte propagation, base/extended guards, safe MAC conversion and symmetric workflow push/PR filters.
+- Local compile/run: GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer`; ASan leak detection enabled. Output: `infosvr packet initialization and length policy: PASS`.
+- Exact-head infosvr workflow and AI docs are pending. No production MIPS/uClibc infosvr object, complete firmware/TRX or L4 packet interoperability test is claimed. Separate follow-up: infosvr SIGTERM handler still does cleanup/exit in signal context; this packet parsing change intentionally does not combine that lifecycle fix.
+- Changed paths: `infosvr.c`, `asus.c`, new packet policy header/test, new source checker/workflow, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log.
+- Root `dev_log.md`: 102 complete entries before this record; 103 afterward. Below 120-entry / 384 KiB rotation triggers and 512 KiB hard limit; no archive or index update is due.
+- Resulting commit: THIS COMMIT.
+- Next: verify the exact resulting main SHA and all job steps/full logs for infosvr packet regression and AI docs. Require sanitizer test, receive/parser/ABI contract and docs validator to pass on that exact SHA; then select another under-covered user-space module.
+
+---
+
 ## 2026-11-11 17:21 CST (UTC+8) — Repair handoff contract and extend networkmap signal lifecycle coverage
 
 - Base main SHA: `a73ca2221712f16dd5aa4bab450eed18a6cd3f92`; parent `ce7efad34dbd81097d923f9568f0ae9946694b58`.
