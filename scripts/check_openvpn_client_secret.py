@@ -93,6 +93,24 @@ assert "unlink(staged_conf)" in server_body[server_body.index(acl_gate):]
 assert server_body.index("return 1;", server_body.index(acl_gate)) < server_body.index(
     "openvpn_config_file_publish(&fp, staged_conf, conf_file, 0644)")
 
+lease_lock = body(source, "static int\nopenvpn_server_lease_lock")
+lease_update = body(source, "static int\nopenvpn_server_lease_update")
+lease_connect = body(source, "static void\non_server_client_connect")
+lease_disconnect = body(source, "static void\non_server_client_disconnect")
+assert "O_NOFOLLOW" in lease_lock and "O_CLOEXEC" in lease_lock
+assert "fstat(lock_fd, &st)" in lease_lock and "st.st_nlink != 1" in lease_lock
+assert "F_SETLKW" in lease_lock and "EINTR" in lease_lock
+assert lease_update.index('source = fopen(path, "r")') < lease_update.index(
+    "openvpn_config_file_open(path, staged_path")
+assert "if (!source && (!is_add || errno != ENOENT))" in lease_update
+assert "openvpn_server_lease_copy(source, stage" in lease_update
+assert "fclose(source)" in lease_update
+assert "openvpn_config_file_publish(&stage, staged_path, path, 0644)" in lease_update
+assert "unlink(staged_path)" in lease_update
+assert "openvpn_server_lease_update(VPN_SERVER_LEASE_FILE, 1" in lease_connect
+assert "openvpn_server_lease_update(VPN_SERVER_LEASE_FILE, 0" in lease_disconnect
+assert 'fopen(clients_l2, "w")' not in source
+assert "rename(clients_l2, clients_l1)" not in source
 ordered(config_helper, [
     "fd = mkstemp(staged_path)",
     "fstat(fd, &st)",

@@ -32,6 +32,7 @@
 #include "rc.h"
 #include "openvpn_client_secret_file.h"
 #include "openvpn_config_file.h"
+#include "openvpn_server_lease_policy.h"
 
 #define OPENVPN_EXE		"/usr/sbin/openvpn"
 #define COMMON_TEMP_DIR		"/tmp/openvpn"
@@ -821,10 +822,124 @@ openvpn_tunif_stop(const char *ifname)
 	}
 }
 
+static int
+openvpn_server_lease_lock(const char *lease_path)
+{
+	char lock_path[256];
+	struct stat st;
+	struct flock lock;
+	int lock_fd, path_len, lock_result;
+
+	path_len = snprintf(lock_path, sizeof(lock_path), "%s.lock", lease_path);
+	if (path_len < 0 || path_len >= (int)sizeof(lock_path)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	lock_fd = open(lock_path, O_CREAT | O_RDWR | O_NOFOLLOW | O_CLOEXEC, 0600);
+	if (lock_fd < 0)
+		return -1;
+	if (fstat(lock_fd, &st) != 0)
+		goto failed;
+	if (!S_ISREG(st.st_mode) || st.st_uid != geteuid() || st.st_nlink != 1) {
+		errno = EPERM;
+		goto failed;
+	}
+	if (fchmod(lock_fd, 0600) != 0)
+		goto failed;
+	memset(&lock, 0, sizeof(lock));
+	lock.l_type = F_WRLCK;
+	lock.l_whence = SEEK_SET;
+	do {
+		lock_result = fcntl(lock_fd, F_SETLKW, &lock);
+	} while (lock_result < 0 && errno == EINTR);
+	if (lock_result < 0)
+		goto failed;
+	return lock_fd;
+
+failed:
+	{
+		int saved_errno = errno ? errno : EIO;
+		close(lock_fd);
+		errno = saved_errno;
+	}
+	return -1;
+}
+
+static int
+openvpn_server_lease_update(const char *path, int is_add,
+			    const char *ifname, const char *peer_addr_l,
+			    const char *peer_addr_r, const char *common_name)
+{
+	FILE *source = NULL, *stage = NULL;
+	char staged_path[256];
+	int lock_fd = -1, saved_errno;
+	int trailing_newline = 1;
+
+	staged_path[0] = '\0';
+	if (!path || !path[0] || !ifname || !ifname[0] ||
+	    !peer_addr_l || !peer_addr_l[0] || !peer_addr_r || !peer_addr_r[0] ||
+	    !common_name || !common_name[0] ||
+	    strlen(ifname) >= 16 || strlen(peer_addr_l) >= 64 ||
+	    strlen(peer_addr_r) >= 64 || strlen(common_name) >= 64 ||
+	    strpbrk(ifname, " \t\r\n") ||
+	    strpbrk(peer_addr_l, " \t\r\n") ||
+	    strpbrk(peer_addr_r, " \t\r\n") ||
+	    strpbrk(common_name, "\r\n")) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	lock_fd = openvpn_server_lease_lock(path);
+	if (lock_fd < 0)
+		return -1;
+	source = fopen(path, "r");
+	if (!source && (!is_add || errno != ENOENT))
+		goto failed;
+	stage = openvpn_config_file_open(path, staged_path, sizeof(staged_path));
+	if (!stage)
+		goto failed;
+
+	if (source) {
+		if (openvpn_server_lease_copy(source, stage, peer_addr_l, peer_addr_r,
+					      !is_add, &trailing_newline) != 0)
+			goto failed;
+		if (fclose(source) != 0) {
+			source = NULL;
+			if (!errno)
+				errno = EIO;
+			goto failed;
+		}
+		source = NULL;
+	}
+	if (is_add) {
+		if (!trailing_newline && fputc('\n', stage) == EOF)
+			goto failed;
+		if (fprintf(stage, "%s %s %s %s\n", ifname, peer_addr_l,
+			    peer_addr_r, common_name) < 0)
+			goto failed;
+	}
+	if (openvpn_config_file_publish(&stage, staged_path, path, 0644) != 0)
+		goto failed;
+	close(lock_fd);
+	return 0;
+
+failed:
+	saved_errno = errno ? errno : EIO;
+	if (source)
+		(void)fclose(source);
+	if (stage)
+		(void)fclose(stage);
+	if (staged_path[0])
+		(void)unlink(staged_path);
+	if (lock_fd >= 0)
+		close(lock_fd);
+	errno = saved_errno;
+	return -1;
+}
+
 static void
 on_server_client_connect(int is_tun)
 {
-	FILE *fp;
 	char *common_name = safe_getenv("common_name");
 	char *peer_addr_r = safe_getenv("trusted_ip");
 	char *peer_addr_l = safe_getenv("ifconfig_pool_remote_ip");
@@ -835,19 +950,14 @@ on_server_client_connect(int is_tun)
 	if (!is_valid_ipv4(peer_addr_r))
 		peer_addr_r = safe_getenv("trusted_ip6");
 #endif
-
 	if (strlen(dev_ifname) == 0)
 		dev_ifname = (is_tun) ? IFNAME_SERVER_TUN : IFNAME_SERVER_TAP;
-
 	logmessage(SERVER_LOG_NAME, "peer %s (%s) connected - local IP: %s",
 		peer_addr_r, common_name, peer_addr_l);
-
-	fp = fopen(VPN_SERVER_LEASE_FILE, "a+");
-	if (fp) {
-		fprintf(fp, "%s %s %s %s\n", "-", peer_addr_l, peer_addr_r, common_name);
-		fclose(fp);
-	}
-
+	if (openvpn_server_lease_update(VPN_SERVER_LEASE_FILE, 1, dev_ifname,
+					peer_addr_l, peer_addr_r, common_name) != 0)
+		logmessage(SERVER_LOG_NAME, "failed to update connected-client lease inventory (errno=%d)",
+			   errno);
 	if (check_if_file_exist(script_name)) {
 		char *hook_argv[] = {
 			(char *)script_name, "up", dev_ifname, peer_addr_l, peer_addr_r, common_name, NULL
@@ -859,10 +969,6 @@ on_server_client_connect(int is_tun)
 static void
 on_server_client_disconnect(int is_tun)
 {
-	FILE *fp1, *fp2;
-	char ifname[16], addr_l[64], addr_r[64], peer_name[64];
-	char *clients_l1 = VPN_SERVER_LEASE_FILE;
-	char *clients_l2 = "/tmp/.vpns.leases";
 	char *common_name = safe_getenv("common_name");
 	char *peer_addr_r = safe_getenv("trusted_ip");
 	char *peer_addr_l = safe_getenv("ifconfig_pool_remote_ip");
@@ -875,32 +981,14 @@ on_server_client_disconnect(int is_tun)
 	if (!is_valid_ipv4(peer_addr_r))
 		peer_addr_r = safe_getenv("trusted_ip6");
 #endif
-
 	if (strlen(dev_ifname) == 0)
 		dev_ifname = (is_tun) ? IFNAME_SERVER_TUN : IFNAME_SERVER_TAP;
-
 	logmessage(SERVER_LOG_NAME, "peer %s (%s) disconnected, sent: %llu KB, received: %llu KB",
 		peer_addr_r, common_name, llsent / 1024, llrecv / 1024);
-
-	fp1 = fopen(clients_l1, "r");
-	fp2 = fopen(clients_l2, "w");
-	if (fp1) {
-		while(fscanf(fp1, "%15s %63s %63s %63[^\n]\n", ifname, addr_l, addr_r, peer_name) == 4) {
-			if (strcmp(peer_addr_r, addr_r) != 0 || strcmp(peer_addr_l, addr_l) != 0) {
-				if (fp2)
-					fprintf(fp2, "%s %s %s %s\n", ifname, addr_l, addr_r, peer_name);
-			}
-		}
-		
-		fclose(fp1);
-	}
-
-	if (fp2) {
-		fclose(fp2);
-		rename(clients_l2, clients_l1);
-		unlink(clients_l2);
-	}
-
+	if (openvpn_server_lease_update(VPN_SERVER_LEASE_FILE, 0, dev_ifname,
+					peer_addr_l, peer_addr_r, common_name) != 0)
+		logmessage(SERVER_LOG_NAME, "failed to prune disconnected-client lease inventory (errno=%d)",
+			   errno);
 	if (check_if_file_exist(script_name)) {
 		char *hook_argv[] = {
 			(char *)script_name, "down", dev_ifname, peer_addr_l, peer_addr_r, common_name, NULL
