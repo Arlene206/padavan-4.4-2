@@ -502,9 +502,9 @@ void stop_sshd(void);
 void start_sshd(void);
 void restart_sshd(void);
 #endif
-void start_httpd(int restart_fw);
-void stop_httpd(void);
-void restart_httpd(void);
+int start_httpd(int restart_fw);
+int stop_httpd(void);
+int restart_httpd(void);
 int start_lltd(void);
 void stop_lltd(void);
 void restart_lltd(void);

@@ -26,6 +26,7 @@
 
 #include "rc.h"
 #include "crond_daemon_policy.h"
+#include "httpd_daemon_policy.h"
 
 void
 stop_syslogd(void)
@@ -608,10 +609,11 @@ void restart_frp(void){
 }
 #endif
 
-void
+int
 start_httpd(int restart_fw)
 {
 	int http_proto, argv_index, http_port, restart_fw_need;
+	int launch_status, attempt, status;
 	char http_port_s[8];
 #if defined (SUPPORT_HTTPS)
 	char https_port_s[8];
@@ -639,12 +641,12 @@ start_httpd(int restart_fw)
 			http_port = 80;
 			nvram_set_int("http_lanport", http_port);
 		}
-		
+
 		sprintf(http_port_s, "%d", http_port);
-		
+
 		httpd_argv[argv_index++] = "-p";
 		httpd_argv[argv_index++] = http_port_s;
-		
+
 		restart_fw_need |= nvram_get_int("misc_http_x");
 	}
 
@@ -655,37 +657,78 @@ start_httpd(int restart_fw)
 			https_port = 443;
 			nvram_set_int("https_lport", https_port);
 		}
-		
+
 		sprintf(https_port_s, "%d", https_port);
-		
+
 		httpd_argv[argv_index++] = "-s";
 		httpd_argv[argv_index++] = https_port_s;
-		
+
 		restart_fw_need |= nvram_get_int("https_wopen");
 	}
 #endif
 
-	_eval(httpd_argv, NULL, 0, NULL);
+	launch_status = _eval(httpd_argv, NULL, 0, NULL);
+	if (launch_status != 0) {
+		logmessage(LOGNAME, "HTTPD launcher failed: %d", launch_status);
+		return httpd_start_postcondition(launch_status, 0);
+	}
+
+	/*
+	 * HTTPD can daemonize after _eval()'s launcher exits. Publish service
+	 * state and open firewall ports only after the child remains observable.
+	 */
+	sleep(HTTPD_START_INITIAL_WAIT_SECONDS);
+	status = -1;
+	for (attempt = 0; attempt < HTTPD_START_PROBE_ATTEMPTS; attempt++) {
+		status = httpd_start_postcondition(launch_status, pids("httpd"));
+		if (status == 0)
+			break;
+
+		if (attempt + 1 < HTTPD_START_PROBE_ATTEMPTS)
+			sleep(HTTPD_START_RETRY_WAIT_SECONDS);
+	}
+
+	if (status != 0) {
+		logmessage(LOGNAME, "HTTPD daemon did not remain running after launch");
+		return status;
+	}
 
 	nvram_set_int_temp("httpd_started", 1);
 
 	if (restart_fw && restart_fw_need && nvram_match("fw_enable_x", "1"))
 		restart_firewall();
+
+	return 0;
 }
 
-void
+int
 stop_httpd(void)
 {
-	nvram_set_int_temp("httpd_started", 0);
 	char* svcs[] = { "httpd", NULL };
-	kill_services(svcs, 3, 1);
+	int stop_status = kill_services(svcs, 3, 1);
+
+	if (!httpd_stop_policy_publish_stopped(stop_status)) {
+		logmessage(LOGNAME, "HTTPD did not stop cleanly; retaining service state (status=%d)",
+			   stop_status);
+		return stop_status;
+	}
+
+	nvram_set_int_temp("httpd_started", 0);
+	return 0;
 }
 
-void
+int
 restart_httpd(void)
 {
-	stop_httpd();
-	start_httpd(1);
+	int stop_status = stop_httpd();
+
+	if (!httpd_restart_can_start(stop_status)) {
+		logmessage(LOGNAME, "refusing HTTPD restart: previous daemon did not stop (status=%d)",
+			   stop_status);
+		return stop_status;
+	}
+
+	return start_httpd(1);
 }
 
 void
