@@ -1,3 +1,18 @@
+## 2026-11-11 20:21 CST (UTC+8) — Defer infosvr SIGTERM cleanup out of signal context
+
+- Base main SHA: 4ec9d637ca7daaff93296c494467b6e88c528311; parent 14e22191f48c9ad6f3804729ab502ac81670a30b; branch inventory: main only, no remote checkpoint.
+- Resumed the previous handoff's Optware/storage investigation. The corrected exact-head storage [43017662766], infosvr packet [43017662767] and AI docs [43017662804] runs all completed SUCCESS on 4ec9d637ca7daaff93296c494467b6e88c528311; every step and complete log was inspected. The storage swapoff regression and full caller-graph/lock/failure contract now pass. The target source is BusyBox 1.24.2 with ash selected and required applets configured, but the matching executable is not available here; host BusyBox 1.37.0 is not target ash evidence. Storage is closed at L1/L2 and explicitly blocked at target-runtime level.
+- After closing that bounded source/L2 slice, rotated to the separate P2 infosvr daemon lifecycle risk. Finding: catch_sig_infosvr(SIGTERM) called res_cleanup() (close/remove) and exit() in signal context. The old main loop used an unbounded select() and read_packet() retried every EINTR, so a flag-only handler without bounded waits would retain a check-to-block shutdown race.
+- THIS COMMIT makes the handler a single sig_atomic_t stop-flag store, installs SIGTERM through checked sigaction() with SA_RESTART disabled, adds one-second select(), SO_RCVTIMEO and SO_SNDTIMEO bounds, stops receive/send EINTR retries after shutdown, and performs socket/PID cleanup only after the main loop observes the flag. The descriptor cleanup predicate now correctly accepts fd 0.
+- Regression: add a GNU89 ASan/UBSan policy test for the stop flag/coalescing and timeout constants; extend the infosvr source checker to enforce handler purity, sigaction/no-restart ordering, bounded waits, stop observation and main-context cleanup; update the existing path-filtered workflow for push and pull_request.
+- Validation boundary: L1 source review PASS. The isolated signal policy test passed locally with GNU89 -Wall -Wextra -Werror -fsanitize=address,undefined and leak detection. The updated source-contract script and exact-head infosvr/AI docs Actions are pending for the resulting SHA. Target MIPS/uClibc, actual BusyBox ash 1.24.2, complete firmware/TRX and L4 signal timing remain NOT VERIFIED.
+- Root dev_log.md had 110 complete newest-first records before this entry and has 111 afterward. Below the 120-record / 384 KiB rotation triggers and 512 KiB hard cap; archive inventory remains dev-log=6, handoff=22, roadmap=18; no archive/index update is due.
+- Changed paths: trunk/user/infosvr/src/infosvr.c, new signal policy header/test, scripts/check_infosvr_packets.py, .github/workflows/infosvr-packet-stability.yml, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and dev_log.md.
+- Resulting commit: THIS COMMIT.
+- Next: fetch resulting main SHA; inspect every infosvr and AI docs job step/full log; require the signal policy sanitizer regression and all signal/source contracts to pass before closing L2 and rotating to the next global governance item.
+
+---
+
 ## 2026-11-11 20:08 CST (UTC+8) — Correct the storage caller-graph swapoff assertion
 
 - Base main SHA: 14e22191f48c9ad6f3804729ab502ac81670a30b; parent 2968bb70c97e13f405389795628184f804abcf5d; branch inventory remains main only.

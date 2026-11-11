@@ -33,18 +33,21 @@
 #include <ibox.h>
 #include "infosvr.h"
 #include "infosvr_packet_policy.h"
+#include "infosvr_signal_policy.h"
 
 #define SRV_ADDR INADDR_ANY
 #define CLN_ADDR INADDR_BROADCAST
 
 static const char* g_pidfile = "/var/run/infosvr.pid";
 static int g_fd4 = -1;
+static volatile sig_atomic_t g_stop_requested = 0;
 
 int open_socket4(char *ifname)
 {
 	const int int_1 = 1;
 	struct sockaddr_in addr;
 	struct ifreq ifr;
+	struct timeval receive_timeout;
 	int fd;
 
 	if ((fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
@@ -59,6 +62,16 @@ int open_socket4(char *ifname)
 		goto error;
 
 	if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, (char *)&int_1, sizeof(int_1)) < 0)
+		goto error;
+
+	/* Bound recvfrom() too: a stop signal can arrive just before the call. */
+	receive_timeout.tv_sec = INFOSVR_SOCKET_TIMEOUT_SECONDS;
+	receive_timeout.tv_usec = 0;
+	if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, (char *)&receive_timeout,
+		       sizeof(receive_timeout)) < 0)
+		goto error;
+	if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, (char *)&receive_timeout,
+		       sizeof(receive_timeout)) < 0)
 		goto error;
 
 	memset(&addr, 0, sizeof(addr));
@@ -85,12 +98,18 @@ int read_packet(int fd, void *packet, int size)
 		return -1;
 	}
 
+	if (INFOSVR_SIGNAL_STOP_PENDING(g_stop_requested)) {
+		errno = EINTR;
+		return -1;
+	}
+
 	if (infosvr_packet_buffer_prepare(packet, (size_t)size) < 0)
 		return -1;
 
 	do {
 		res = recvfrom(fd, packet, (size_t)size, 0, NULL, NULL);
-	} while (res < 0 && errno == EINTR);
+	} while (res < 0 && errno == EINTR &&
+		 !INFOSVR_SIGNAL_STOP_PENDING(g_stop_requested));
 
 	return res;
 }
@@ -104,7 +123,13 @@ int send_packet(int fd, void *packet, int size)
 	addr.sin_addr.s_addr = htonl(CLN_ADDR);
 	addr.sin_port = htons(IBOX_CLI_PORT);
 
-	while ((res = sendto(fd, packet, size, 0, (struct sockaddr *)&addr, sizeof(addr))) < 0 && errno == EINTR)
+	if (INFOSVR_SIGNAL_STOP_PENDING(g_stop_requested)) {
+		errno = EINTR;
+		return -1;
+	}
+
+	while ((res = sendto(fd, packet, size, 0, (struct sockaddr *)&addr, sizeof(addr))) < 0 &&
+	       errno == EINTR && !INFOSVR_SIGNAL_STOP_PENDING(g_stop_requested))
 		continue;
 
 	return res;
@@ -172,7 +197,7 @@ void *process_packet(int fd, void *packet, int packet_len, char *ifname)
 
 void res_cleanup(void)
 {
-	if (g_fd4 > 0) {
+	if (g_fd4 >= 0) {
 		close(g_fd4);
 		g_fd4 = -1;
 	}
@@ -181,11 +206,8 @@ void res_cleanup(void)
 
 static void catch_sig_infosvr(int sig)
 {
-	if (sig == SIGTERM)
-	{
-		res_cleanup();
-		exit(0);
-	}
+	(void)sig;
+	INFOSVR_SIGNAL_REQUEST_STOP(g_stop_requested);
 }
 
 int main(int argc, char *argv[])
@@ -194,6 +216,8 @@ int main(int argc, char *argv[])
 	char packet[512], *reply, *ifname;
 	int max_fd, res;
 	fd_set rfds, active_rfds;
+	struct timeval select_timeout;
+	struct sigaction sigterm_action;
 
 	if (!argv[1]) {
 		fprintf(stderr, "usage: %s {ifname}\n", argv[0]);
@@ -210,7 +234,17 @@ int main(int argc, char *argv[])
 
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGHUP,  SIG_IGN);
-	signal(SIGTERM, catch_sig_infosvr);
+	memset(&sigterm_action, 0, sizeof(sigterm_action));
+	sigterm_action.sa_handler = catch_sig_infosvr;
+	/* Do not SA_RESTART select()/recvfrom(); the main loop must see SIGTERM. */
+	sigterm_action.sa_flags = 0;
+	if (sigemptyset(&sigterm_action.sa_mask) != 0 ||
+	    sigaction(SIGTERM, &sigterm_action, NULL) != 0) {
+		perror("sigaction");
+		close(g_fd4);
+		g_fd4 = -1;
+		return 1;
+	}
 
 	if (daemon(0, 0) < 0) {
 		close(g_fd4);
@@ -229,23 +263,30 @@ int main(int argc, char *argv[])
 	FD_SET(g_fd4, &rfds);
 	max_fd = g_fd4;
 
-	while (1) {
+	while (!INFOSVR_SIGNAL_STOP_PENDING(g_stop_requested)) {
 		active_rfds = rfds;
-		while ((res = select(max_fd + 1, &active_rfds, NULL, NULL, NULL)) < 0 && 
-		       (errno == EINTR || errno == EAGAIN))
+		/* select() mutates timeval; reset it for each bounded wait. */
+		select_timeout.tv_sec = INFOSVR_SELECT_TIMEOUT_SECONDS;
+		select_timeout.tv_usec = 0;
+		res = select(max_fd + 1, &active_rfds, NULL, NULL, &select_timeout);
+		if (INFOSVR_SIGNAL_STOP_PENDING(g_stop_requested))
+			break;
+		if (res < 0 && (errno == EINTR || errno == EAGAIN))
 			continue;
-		
 		if (res < 0)
 			break;
-		
 		if (res == 0 || !FD_ISSET(g_fd4, &active_rfds))
 			continue;
-		
+
 		res = read_packet(g_fd4, packet, sizeof(packet));
+		if (INFOSVR_SIGNAL_STOP_PENDING(g_stop_requested))
+			break;
 		if (res < (int)sizeof(IBOX_COMM_PKT_HDR))
 			continue;
 
 		reply = process_packet(g_fd4, packet, res, ifname);
+		if (INFOSVR_SIGNAL_STOP_PENDING(g_stop_requested))
+			break;
 		if (reply)
 			send_packet(g_fd4, reply, sizeof(packet));
 	}
