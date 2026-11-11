@@ -1,3 +1,15 @@
+## 2026-11-11 — Close firewall snapshot writer L2 and retry interrupted PID 1 mdev fsync
+
+- Base main SHA: `9eaf81cc6eef88f87ca44ffe10dc574a2e988250`; parent `42800e0caaf90e0230f4e30d268e8301d0da2d70`. Branch inventory remains main only, without a remote checkpoint.
+- Firewall descriptor-bound snapshot task is L1/L2 CLOSED on exact SHA `9eaf81cc6eef88f87ca44ffe10dc574a2e988250`: HTTPD [43053436665], infosvr [43053436537] and AI handoff docs [43053436425] all completed SUCCESS. The new descriptor-inheritance GNU89 ASan/UBSan regression printed PASS; transaction/status/startup binaries and corrected push/pull workflow path assertions passed; docs validator reported root log=118/119, archive counts dev-log=6, handoff=22, roadmap=18.
+- New PID 1 mdev stability finding: `init_mdev_config_publish()` treated a single `fsync()` EINTR as a permanent failure, deleted the staged policy, and caused `init_mdev()` to return before kernel hotplug activation. A transient signal could leave this boot without the intended /etc/mdev.conf hotplug rules.
+- THIS COMMIT retries file `fsync()` only for EINTR; other failures still fail closed. The host regression injects two EINTR returns before the real `fsync()`, requiring success after exactly three calls. Existing 0644 mode, old-policy preservation, atomic rename, and failed-publication cleanup checks remain.
+- Local GNU89 `-Wall -Wextra -Werror` ASan/UBSan regression with leak detection passed: private staging + atomic publication + EINTR-safe fsync.
+- Exact-head PID 1 mdev workflow and AI docs validator are pending on the resulting SHA; no repository Actions pass is claimed yet.
+- Scope: `init_mdev_config_file.h`, `tests/init_mdev_config_file.c`, `.github/workflows/init-mdev-security.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`. Root log moves from 118 to 119 entries; archive rotation/index update is not due.
+- Target boundary: production MIPS/uClibc, full firmware/TRX, BusyBox mdev/ash target and actual USB/storage/network hotplug L4 remain NOT VERIFIED. FTP cleanup TOCTOU stays OPEN/BLOCKED.
+- Next GPT: inspect exact-resulting-SHA mdev security and AI docs Actions in full; require the injected EINTR regression and source/path checks to pass, then rotate to another userland subsystem.
+
 ## 2026-11-11 — Correct firewall CI path-filter contract after exact-head regression
 
 - Base main SHA: `42800e0caaf90e0230f4e30d268e8301d0da2d70`; parent `02907c582c716a49c6255d2c06cbad429f5a3260`. Main ref was rechecked before editing.

@@ -3,10 +3,10 @@
 ## Current repository state
 
 - Repository: Arlene206/padavan-4.4-2; branch: main; live branch inventory contains main only; no remote checkpoint branch.
-- Base main SHA for THIS COMMIT: `42800e0caaf90e0230f4e30d268e8301d0da2d70` (parent `02907c582c716a49c6255d2c06cbad429f5a3260`). The live ref and exact commit ancestry were rechecked before editing; verify the new SHA after publication.
-- Exact-head Actions on `42800e0caaf90e0230f4e30d268e8301d0da2d70`: FULLCONENAT [43052866763] and infosvr packet/signal lifecycle [43052866751] completed SUCCESS. HTTPD umbrella [43052866810] completed FAILURE at the Python source checker because its new path-filter assertion counted the assertion's own quoted path literal (expected 2, actual 3); the new descriptor-inheritance GNU89 ASan/UBSan binary itself printed PASS, as did the earlier policy binaries in that step. AI docs [43052866839] was still in progress when this correction was prepared. The full HTTPD log was inspected.
-- THIS COMMIT corrects the workflow contract to inspect push and pull_request path blocks independently, avoiding self-counting. The descriptor-bound production writer and host regression are unchanged from `42800e0caaf90e0230f4e30d268e8301d0da2d70`.
-- Root dev_log.md has 117 complete newest-first records before THIS COMMIT and will have 118 afterward, below the 120-record / 384 KiB rotation triggers and 512 KiB hard cap. Archive inventory remains dev-log=6, handoff=22, roadmap=18; no rotation/index update is due.
+- Base main SHA for THIS COMMIT: `9eaf81cc6eef88f87ca44ffe10dc574a2e988250` (parent `42800e0caaf90e0230f4e30d268e8301d0da2d70`). Live ref and ancestry were rechecked immediately before editing; verify exact resulting SHA after publication.
+- Previous descriptor-bound firewall snapshot task is now L1/L2 CLOSED on exact SHA `9eaf81cc6eef88f87ca44ffe10dc574a2e988250`: HTTPD [43053436665], infosvr [43053436537], and AI handoff docs [43053436425] all completed SUCCESS. The firewall snapshot FD inheritance GNU89 ASan/UBSan regression printed PASS, existing transaction/status/startup checks passed, and docs validator reported root log=118/119 with archives dev-log=6, handoff=22, roadmap=18.
+- New task in THIS COMMIT: make PID 1's `/etc/mdev.conf` staged-file `fsync()` retry on EINTR rather than treating a transient interruption as a fatal publication failure. An injected two-EINTR GNU89 ASan/UBSan regression passed locally; exact-head mdev and AI-docs Actions are pending.
+- Root dev_log.md has 118 complete newest-first records before THIS COMMIT and will have 119 afterward, below the 120-record / 384 KiB rotation triggers and 512 KiB hard cap. Archive inventory remains dev-log=6, handoff=22, roadmap=18; no rotation or index update is due.
 
 ## Closed task — NVRAM HDR2 profile-save atomic publication
 
@@ -86,31 +86,33 @@
 - Infosvr [43042263817] and AI handoff docs [43042263966] also completed SUCCESS on that exact SHA. The infosvr packet and SIGTERM deferral regressions/source contracts passed; documentation validation reported root log=116/119 and archives dev-log=6, handoff=22, roadmap=18.
 - This closes the bounded host/Actions slice only. Production MIPS/uClibc BusyBox, matching target router ash timing, complete firmware/TRX and L4 hotplug/device behavior remain NOT VERIFIED. NFS client semantics remain evidence-blocked.
 
-## Active task — Verify descriptor-bound core firewall snapshot writing (P2 robustness/security)
+## Closed task — Descriptor-bound core firewall snapshot writing (P2 robustness/security; L1/L2 complete, L3/L4 open)
 
-### Production finding and fix
+- `firewall_snapshot_core_table()` now keeps the mode-0600 `mkstemp()` descriptor open across `doSystem()`, clears `FD_CLOEXEC`, and directs `iptables-save` stdout to the inherited descriptor instead of reopening a shared-`/tmp` pathname.
+- On exact SHA `9eaf81cc6eef88f87ca44ffe10dc574a2e988250`, HTTPD [43053436665], infosvr [43053436537] and AI handoff docs [43053436425] all completed SUCCESS. The descriptor writer regression printed PASS; transaction/status/startup policy binaries and the corrected push/pull path checker passed. Docs validator reported root log=118/119 and archives dev-log=6, handoff=22, roadmap=18.
+- This closes only the L1/L2 host/Actions slice. Production MIPS/uClibc, full firmware/TRX and router L4 remain NOT VERIFIED.
 
-- Commit `42800e0caaf90e0230f4e30d268e8301d0da2d70` keeps the mode-0600 `mkstemp()` descriptor open across `doSystem()`, clears `FD_CLOEXEC` explicitly, and directs `iptables-save` stdout to the inherited descriptor (`>&fd`) instead of reopening the shared-`/tmp` pathname. The descriptor is checked on close; the pathname remains for later `iptables-restore` and transaction cleanup.
-- New `tests/firewall_snapshot_fd.c` creates a 0600 snapshot, unlinks its pathname, then uses a shell subprocess to write through the inherited descriptor and verifies bytes on the still-open inode. The exact GNU89 ASan/UBSan binary passed on run [43052866810].
+## Active task — Retry interrupted PID 1 mdev configuration fsync (P2 boot/hotplug reliability)
 
-### Exact-head CI finding and correction in THIS COMMIT
+### Finding and implementation in THIS COMMIT
 
-- HTTPD umbrella [43052866810] on exact SHA `42800e0caaf90e0230f4e30d268e8301d0da2d70` failed only in the source-contract Python checker. The new assertion expected the quoted test pathname twice, but the workflow text also contained the assertion's own quoted literal, making the actual count three. The test binary printed `firewall snapshot descriptor writer inheritance: PASS`; the transaction/status/startup policy binaries preceding the checker also ran without reported failure.
-- THIS COMMIT replaces the self-referential count with independent assertions that the test is listed exactly once in the push path block and once in the pull_request block, and that the firewall CI step references the test source. Production code and the C regression are unchanged.
-- FULLCONENAT [43052866763] and infosvr [43052866751] completed SUCCESS on `42800e0caaf90e0230f4e30d268e8301d0da2d70`; AI docs [43052866839] was still in progress when the correction was prepared.
+- `init_mdev_config_publish()` previously called `fsync(fileno(fp))` once. An EINTR was treated as a permanent publication error: the staged file was deleted, the prior `/etc/mdev.conf` remained, and `init_mdev()` returned before activating `/proc/sys/kernel/hotplug`. A transient signal could therefore leave PID 1 without the intended hotplug policy for that boot.
+- THIS COMMIT retries the file fsync only when it fails with EINTR; all other errors still fail closed, close the stream and discard the incomplete stage. The destination is still replaced only after successful flush/fsync/close.
+- The host regression injects two consecutive EINTR results before delegating to real `fsync()`, then requires publication to succeed after exactly three attempts. Existing private-mode, old-file preservation, atomic rename, and failed-publication cleanup checks remain in the same GNU89 ASan/UBSan test.
+- Local GNU89 `-Wall -Wextra -Werror` ASan/UBSan regression passed with leak detection. Exact-head mdev workflow and AI handoff-doc Actions are pending.
 
 ### Exact next action
 
-- Fetch the resulting live main SHA and verify ancestry from `42800e0caaf90e0230f4e30d268e8301d0da2d70`. Inspect the retriggered HTTPD Authentication and Security Regression and AI handoff documentation workflows on that exact SHA, every job step and complete logs.
-- Require the descriptor-writer GNU89 ASan/UBSan regression, independent push/pull path assertions, all existing firewall transaction/command-status/startup/add-on contracts and AI docs validator to pass. If any fail, fix the actual failing contract and rerun on the exact new SHA.
-- Once L2 is green, close this bounded writer slice and rotate to a different evidence-actionable userland subsystem. Do not remain focused on Firewall. FTP upload-cleanup TOCTOU remains OPEN/BLOCKED until a Linux 4.4-safe design preserves STOR/APPE/REST/STOU and parent/inode semantics. Production MIPS/uClibc, firmware/TRX and L4 remain NOT VERIFIED.
+- Fetch the resulting live main SHA and confirm ancestry from `9eaf81cc6eef88f87ca44ffe10dc574a2e988250`. Inspect the PID 1 mdev hotplug security workflow and AI handoff documentation workflow on that exact SHA, every job step and complete logs.
+- Require the injected two-EINTR retry test, normal real-fsync publication, old-policy retention on rename failure, private 0644 stage, hotplug activation ordering and the complete mdev source/path-filter checker to pass; docs validator must report root log=119/119 and archive counts 6/22/18.
+- If green, close this narrow L2 slice and continue whole-userland auditing outside Firewall/PID 1. Keep FTP upload-cleanup TOCTOU OPEN/BLOCKED until a Linux 4.4-safe design preserves STOR/APPE/REST/STOU and parent/inode semantics. Production MIPS/uClibc, firmware/TRX and L4 remain NOT VERIFIED.
 
 ## Verification boundary
 
-- L1 source review: PASS for the BusyBox 1.24.2 Optware lock/teardown/startup path, storage daemon stop postconditions, infosvr packet bounds/SIGTERM deferral, and descriptor-bound firewall snapshot writing/close/error cleanup. The firewall writer's path is still retained for subsequent restore/cleanup; only the output write is descriptor-relative.
-- L2 host / Actions: on exact SHA `02907c582c716a49c6255d2c06cbad429f5a3260`, storage [43042263807], infosvr [43042263817] and AI handoff docs [43042263966] all completed SUCCESS. Storage step 9 built/linked BusyBox 1.24.2; lock/teardown/startup and storage steps 10–13 passed. The firewall descriptor-writer regression and source contract added in THIS COMMIT require exact-resulting-SHA HTTPD and AI-docs runs.
-- L3 MIPS/uClibc production objects / complete firmware/TRX: NOT VERIFIED for the current RC/firewall/storage changes. Existing historical FULLCONENAT object evidence is separately recorded; it does not establish a full firmware build.
-- L4 router / physical hardware: NOT VERIFIED. No live firewall rollback, storage hotplug, wireless, WAN or other router behavior is claimed.
+- L1 source review: PASS for the BusyBox 1.24.2 Optware lock/teardown/startup path, storage daemon stop postconditions, infosvr packet bounds/SIGTERM deferral, descriptor-bound firewall snapshot output, and EINTR-only retry for PID 1 mdev staged-file fsync. The mdev path still fails closed on non-EINTR fsync errors and preserves the old published config.
+- L2 host / Actions: exact SHA `9eaf81cc6eef88f87ca44ffe10dc574a2e988250` has HTTPD [43053436665], infosvr [43053436537], and AI docs [43053436425] all SUCCESS; descriptor writer regression printed PASS and docs root log=118/119, archives=6/22/18. The mdev two-EINTR regression passed locally under GNU89 ASan/UBSan; THIS COMMIT's exact-head mdev/docs runs are pending.
+- L3 MIPS/uClibc production objects / complete firmware/TRX: NOT VERIFIED for current RC, firewall, PID 1 and storage changes. Prior FULLCONENAT object evidence is separately recorded; it is not a full firmware build.
+- L4 router / physical hardware: NOT VERIFIED. No live mdev hotplug, firewall rollback, storage, wireless, WAN or other router behavior is claimed.
 ## Other open governance-ledger risks
 
 1. FTP failed-upload cleanup TOCTOU — P2 OPEN/BLOCKED. Linux 4.4 has no inode-conditional unlink-by-fd: fstatat() followed by unlinkat() still deletes whichever inode owns the name at unlink time. rename/exchange is not a conditional inode compare, and staged publication would change existing STOR/APPE/REST visibility and overwrite semantics. Do not patch without a proved design preserving STOR/APPE/REST/STOU, parent/inode safety and supported filesystem behavior.
@@ -123,7 +125,7 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` SHA and confirm it descends from `42800e0caaf90e0230f4e30d268e8301d0da2d70`. Inspect the new exact-head HTTPD Authentication and Security Regression and AI handoff documentation runs, including every step and complete logs.
-2. Require `firewall_snapshot_fd.c` to pass under GNU89 ASan/UBSan, verify the independent push/pull path filters and the complete existing firewall transaction, status, startup and add-on source contracts.
-3. If the exact-head HTTPD/docs checks are green, close descriptor-bound snapshot output at L2 and rotate to another evidence-actionable userland subsystem. Do not remain in Firewall.
-4. Keep FTP upload-cleanup TOCTOU OPEN/BLOCKED until a Linux 4.4-safe design proves inode/parent safety and preserves STOR/APPE/REST/STOU. NFS external-client semantics, target MIPS/uClibc, full firmware/TRX and L4 remain NOT VERIFIED.
+1. Fetch the live `main` SHA and verify it descends from `9eaf81cc6eef88f87ca44ffe10dc574a2e988250`. Inspect the exact-head PID 1 mdev hotplug security workflow and AI handoff docs run, including every job step and complete logs.
+2. Require the GNU89 ASan/UBSan regression to survive two injected EINTR returns and succeed on the third real fsync, while non-EINTR failures remain fail-closed. Verify private-stage permissions, atomic publication, old-file retention, activation ordering and workflow path contracts.
+3. If exact-head mdev/docs Actions pass, close this bounded L2 slice and rotate to a different evidence-actionable userland subsystem. Do not stay focused on Firewall or PID 1.
+4. FTP upload-cleanup TOCTOU remains OPEN/BLOCKED pending a Linux 4.4-safe design that preserves STOR/APPE/REST/STOU and parent/inode semantics. NFS client semantics, target MIPS/uClibc, full firmware/TRX and L4 remain NOT VERIFIED.

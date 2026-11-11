@@ -9,6 +9,10 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#ifndef INIT_MDEV_CONFIG_FSYNC
+#define INIT_MDEV_CONFIG_FSYNC(fd) fsync(fd)
+#endif
+
 /* Open a private same-directory staging file for the root-owned mdev policy. */
 static inline int
 init_mdev_config_open(const char *path, char *staged_path,
@@ -66,6 +70,7 @@ init_mdev_config_publish(FILE **stream, const char *staged_path,
 {
     FILE *fp;
     int saved_errno = 0;
+    int sync_result;
 
     if (!stream || !*stream || !staged_path || !*staged_path ||
         !path || !*path)
@@ -78,8 +83,13 @@ init_mdev_config_publish(FILE **stream, const char *staged_path,
         saved_errno = errno ? errno : EIO;
     if (!saved_errno && fflush(fp) != 0)
         saved_errno = errno ? errno : EIO;
-    if (!saved_errno && fsync(fileno(fp)) < 0)
-        saved_errno = errno ? errno : EIO;
+    if (!saved_errno) {
+        do {
+            sync_result = INIT_MDEV_CONFIG_FSYNC(fileno(fp));
+        } while (sync_result < 0 && errno == EINTR);
+        if (sync_result < 0)
+            saved_errno = errno ? errno : EIO;
+    }
     if (fclose(fp) != 0 && !saved_errno)
         saved_errno = errno ? errno : EIO;
     if (!saved_errno && rename(staged_path, path) < 0)

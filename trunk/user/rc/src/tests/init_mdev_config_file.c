@@ -7,6 +7,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+static int injected_fsync(int fd);
+#define INIT_MDEV_CONFIG_FSYNC(fd) injected_fsync(fd)
 #include "../init_mdev_config_file.h"
 
 #define CHECK(condition) do { \
@@ -16,6 +18,21 @@
         return 1; \
     } \
 } while (0)
+
+static int fsync_calls;
+static int fsync_interruptions_remaining;
+
+static int
+injected_fsync(int fd)
+{
+    fsync_calls++;
+    if (fsync_interruptions_remaining > 0) {
+        fsync_interruptions_remaining--;
+        errno = EINTR;
+        return -1;
+    }
+    return fsync(fd);
+}
 
 static int
 write_text_file(const char *path, const char *text)
@@ -62,6 +79,7 @@ main(void)
     FILE *fp = NULL;
     struct stat st;
     mode_t old_umask;
+    int calls_before_publish;
 
     old_umask = umask(0000);
     CHECK(mkdtemp(directory) != NULL);
@@ -77,7 +95,11 @@ main(void)
     CHECK(file_equals(path, "old-policy\n"));
     CHECK(fputs("new-policy\n", fp) >= 0);
     CHECK(file_equals(path, "old-policy\n"));
+    fsync_interruptions_remaining = 2;
+    calls_before_publish = fsync_calls;
     CHECK(init_mdev_config_publish(&fp, staged_path, path) == 0);
+    CHECK(fsync_calls - calls_before_publish == 3);
+    CHECK(fsync_interruptions_remaining == 0);
     CHECK(fp == NULL);
     CHECK(file_equals(path, "new-policy\n"));
     CHECK(access(staged_path, F_OK) != 0 && errno == ENOENT);
@@ -97,6 +119,6 @@ main(void)
     CHECK(rmdir(directory) == 0);
     umask(old_umask);
 
-    puts("PID 1 mdev config private staging and atomic publication: PASS");
+    puts("PID 1 mdev config private staging, atomic publication and EINTR-safe fsync: PASS");
     return 0;
 }

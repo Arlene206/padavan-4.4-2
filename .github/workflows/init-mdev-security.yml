@@ -67,12 +67,15 @@ jobs:
           assert "mdev initialization failed; hotplug handling may be unavailable" in main_loop
 
           for token in ("mkstemp(", "fchmod(fd, 0644)", 'fdopen(fd, "w")',
-                        "ferror(fp)", "fflush(fp)", "fsync(fileno(fp))",
+                        "ferror(fp)", "fflush(fp)", "INIT_MDEV_CONFIG_FSYNC(fileno(fp))",
+                        "while (sync_result < 0 && errno == EINTR)",
                         "fclose(fp)", "rename(staged_path, path)", "unlink(staged_path)"):
               assert token in helper, token
           for token in ("umask(0000)", "st_mode & 0777", "0644",
                         "old-policy", "new-policy", "blocked_path",
-                        "preserve", "init_mdev_config_publish"):
+                        "preserve", "init_mdev_config_publish",
+                        "fsync_interruptions_remaining = 2",
+                        "fsync_calls - calls_before_publish == 3"):
               assert token in test, token
 
           paths = (
