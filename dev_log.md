@@ -1,3 +1,17 @@
+## 2026-11-11 17:21 CST (UTC+8) — Repair handoff contract and extend networkmap signal lifecycle coverage
+
+- Base main SHA: `a73ca2221712f16dd5aa4bab450eed18a6cd3f92`; parent `ce7efad34dbd81097d923f9568f0ae9946694b58`.
+- Closed the previous NVRAM HDR2 atomic-save task before opening this slice: exact-head HTTPD security [42992756073] and AI docs [42992755926] both SUCCESS on `ce7efad34dbd81097d923f9568f0ae9946694b58`. All 39 HTTPD steps passed, including the new profile atomic writer, original NVRAM profile/CLI policy tests, RC restore durability and HTTPD private export caller contract. Docs validator reported 100/119 records and archive counts 6/22/18.
+- Networkmap signal fix from parent SHA `a73ca2221712f16dd5aa4bab450eed18a6cd3f92` passed its exact-head dedicated workflow [42995791190]: GNU89 `-Wall -Wextra -Werror` ASan/UBSan test printed `networkmap signal deferral policy: PASS`; source/lifecycle/build contract printed `networkmap signal deferral and lifecycle source contracts: PASS`.
+- AI docs run [42995791241] on that same parent SHA failed at its first section assertion: the consolidated `SESSION_HANDOFF.md` had renamed the exact required heading `## Current repository state`. This is a handoff-validator contract failure, not a production or test failure. THIS COMMIT restores all exact required headings (`Current repository state`, `Active task`, `Verification boundary`, `Exact first action for the next GPT`) and keeps the checkpoint text intact.
+- Additional checker coverage asserts SIGUSR1/SIGTERM handlers are installed before daemonization and before the event loop begins; this guards the lifecycle boundary where process signal handling becomes active. The changed checker path also re-triggers the networkmap source/test workflow alongside the docs workflow.
+- Changed paths: `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`, `scripts/check_networkmap_signals.py`.
+- Root dev_log.md: 101 complete entries before this record; 102 after. Below 120/384 KiB rotation triggers and 512 KiB hard limit; no archive or INDEX update is due.
+- Resulting commit: THIS COMMIT.
+- Next: inspect every step and full log for the networkmap and AI docs workflows on the exact resulting main SHA. Require the existing signal policy test, expanded signal-install ordering source contract, handoff required sections and archive validator all PASS; only then close the networkmap slice. L3/L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-11 17:16 CST (UTC+8) — Defer networkmap daemon signal handling and cleanup to main loop
 
 - Base main SHA: `ce7efad34dbd81097d923f9568f0ae9946694b58`; parent: `534e4e38ed5e729af845d7ad69bb84d8b96a5c47`. Only remote branch was `main`; no checkpoint branch.

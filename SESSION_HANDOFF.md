@@ -1,6 +1,6 @@
 # Padavan 4.4 — Live session handoff
 
-## Live source state
+## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; active branch: `main`; remote branch inventory before THIS COMMIT: `main` only, no remote checkpoint branch.
 - Base main SHA for THIS COMMIT: `ce7efad34dbd81097d923f9568f0ae9946694b58` (parent `534e4e38ed5e729af845d7ad69bb84d8b96a5c47`). Resolve the resulting SHA from the live branch after publication.
@@ -15,7 +15,9 @@
 - AI docs step passed: root log=100/119, batch=100, retain=20, archive counts dev-log=6, handoff=22, roadmap=18.
 - NVRAM atomic profile-save slice is CLOSED at L2 host/Actions. The helper fsyncs file content before rename but does not fsync the parent directory; directory-entry power-loss durability is not claimed. Production MIPS/uClibc object, full firmware/TRX and L4 remain NOT VERIFIED.
 
-## Active task — networkmap signal-side cleanup / scan-state race (P2 reliability)
+## Active task
+
+### Networkmap signal-side cleanup / scan-state race (P2 reliability)
 
 ### Source and call-path evidence
 
@@ -26,12 +28,12 @@
 - Shutdown observes `daemon_exit` in the existing ARP receive loop. `nmap_init()` sets `SO_RCVTIMEO` to 60ms for a bounded small subnet scan or 2 seconds otherwise; full-scan completion also sets the two-second timeout. The signal does not invoke cleanup directly.
 - Added policy header/test, static source/caller/build contract and dedicated workflow. Push and PR filters watch all production dependencies, RC lifecycle wiring, tests, checker and workflow.
 
-### Validation state
+## Verification boundary
 
 - Local GNU89 compile: `cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer`; binary run with `ASAN_OPTIONS=detect_leaks=1`: PASS, output `networkmap signal deferral policy: PASS`.
 - Test covers SIGUSR1 refresh-only mapping, repeated-request coalescing, SIGTERM exit flag, ignored other signals, single-consumption semantics, preservation of an already-blocked signal mask, pending SIGUSR1 delivery after unmasking, and NULL input rejection.
 - L1 source review: PASS for handler purity and normal-context event/cleanup boundary.
-- Exact-head networkmap workflow and AI docs: PENDING on THIS COMMIT. No Actions result may be inferred before inspection.
+- Exact-head networkmap workflow [42995791190] completed SUCCESS on source SHA `a73ca2221712f16dd5aa4bab450eed18a6cd3f92`; both GNU89 sanitizer regression and source/lifecycle/build contract passed. AI docs run [42995791241] failed because the consolidated handoff omitted the validator-required `## Current repository state` heading. THIS COMMIT restores the required section structure and adds a source contract requiring SIGUSR1/SIGTERM handlers to be installed before daemonization; both workflows rerun on the resulting exact head.
 - L3 production MIPS/uClibc networkmap object, full firmware/TRX and L4 network discovery/termination behavior: NOT VERIFIED.
 
 ## Other open governance-ledger risks
@@ -44,7 +46,7 @@
 6. FULLCONENAT/kernel/board coverage — prior XY-C1 object evidence is not a full firmware build.
 7. All full-firmware MIPS/uClibc builds, firmware/TRX inspection and physical router flash/boot remain NOT VERIFIED.
 
-## Exact first action for next GPT
+## Exact first action for the next GPT
 
 1. Fetch live `main` SHA, parent and branch inventory. Confirm THIS COMMIT is still the live main head; never push using the stale base.
 2. Query Actions for that exact SHA. Inspect every step and complete logs for `networkmap signal lifecycle stability regression` and `AI handoff documentation contract`. Require the GNU89 ASan/UBSan policy test, the signal/call-path/build/path-filter checker and docs validator to pass on the exact same SHA. Expected docs result: root log=101/119, archive counts dev-log=6, handoff=22, roadmap=18.

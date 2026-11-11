@@ -98,6 +98,10 @@ assert "if (sigprocmask(SIG_SETMASK" in take
 assert "*refresh_requested = 1;" in take[restore:]
 
 main = function_body(source, "main(int argc, char *argv[])")
+usr1_install = main.index("signal(SIGUSR1, sig_refresh);")
+term_install = main.index("signal(SIGTERM, sig_exit);")
+daemonize = main.index("daemon(0, 0)")
+assert usr1_install < term_install < daemonize < main.index("while (!daemon_exit)")
 loop = main.index("while (!daemon_exit)")
 consume = main.index("networkmap_signal_take_refresh(&networkmap_refresh_requested)", loop)
 mask_failure = main.index("if (refresh < 0)", consume)
