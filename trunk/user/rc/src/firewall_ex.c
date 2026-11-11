@@ -126,6 +126,23 @@ typedef struct {
 	const char *operation;
 } firewall_restore_command_context_t;
 
+static void
+firewall_snapshot_remove_incomplete(const char *operation, char *path)
+{
+	int saved_errno;
+
+	if (!path || !*path)
+		return;
+	if (unlink(path) == 0 || errno == ENOENT) {
+		path[0] = '\0';
+		return;
+	}
+	saved_errno = errno;
+	logmessage(LOGNAME, "%s: cannot remove incomplete private snapshot %s (errno=%d)",
+		   operation, path, saved_errno);
+	errno = saved_errno;
+}
+
 static int
 firewall_snapshot_core_table(const char *family, const char *table,
 			     char *path, size_t path_size, void *context)
@@ -156,18 +173,16 @@ firewall_snapshot_core_table(const char *family, const char *table,
 	if (fchmod(fd, S_IRUSR | S_IWUSR) != 0) {
 		saved_errno = errno;
 		close(fd);
-		unlink(path);
-		path[0] = '\0';
 		snprintf(operation, sizeof(operation), "Firewall %s %s snapshot", family, table);
+		firewall_snapshot_remove_incomplete(operation, path);
 		logmessage(LOGNAME, "%s: cannot secure private snapshot (errno=%d)", operation, saved_errno);
 		errno = saved_errno;
 		return -1;
 	}
 	if (close(fd) != 0) {
 		saved_errno = errno;
-		unlink(path);
-		path[0] = '\0';
 		snprintf(operation, sizeof(operation), "Firewall %s %s snapshot", family, table);
+		firewall_snapshot_remove_incomplete(operation, path);
 		logmessage(LOGNAME, "%s: cannot close private snapshot (errno=%d)", operation, saved_errno);
 		errno = saved_errno;
 		return -1;
@@ -176,8 +191,7 @@ firewall_snapshot_core_table(const char *family, const char *table,
 	status = doSystem("%s-save -t %s > %s", family, table, path);
 	if (!firewall_command_status_ok(status)) {
 		firewall_log_command_failure(operation, status);
-		unlink(path);
-		path[0] = '\0';
+		firewall_snapshot_remove_incomplete(operation, path);
 		return -1;
 	}
 	return 0;

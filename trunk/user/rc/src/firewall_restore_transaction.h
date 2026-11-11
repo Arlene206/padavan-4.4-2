@@ -4,6 +4,7 @@
 #include <string.h>
 
 #define FIREWALL_RESTORE_TX_MAX_SNAPSHOTS 8
+#define FIREWALL_RESTORE_TX_MAX_CLEANUP_PATHS 8
 #define FIREWALL_RESTORE_TX_FAMILY_SIZE 12
 #define FIREWALL_RESTORE_TX_TABLE_SIZE 16
 #define FIREWALL_RESTORE_TX_PATH_SIZE 256
@@ -21,6 +22,8 @@ typedef struct {
 	int cleanup_failed;
 	size_t snapshot_count;
 	firewall_restore_snapshot_t snapshots[FIREWALL_RESTORE_TX_MAX_SNAPSHOTS];
+	size_t cleanup_path_count;
+	char cleanup_paths[FIREWALL_RESTORE_TX_MAX_CLEANUP_PATHS][FIREWALL_RESTORE_TX_PATH_SIZE];
 } firewall_restore_transaction_t;
 
 typedef int (*firewall_restore_snapshot_fn)(const char *, const char *, char *, size_t, void *);
@@ -106,31 +109,71 @@ firewall_restore_transaction_rollback_failed(const firewall_restore_transaction_
  * Remove completed snapshots without forgetting paths that could not be
  * unlinked. Failed rollback snapshots never enter this cleanup path.
  */
+/* Partial snapshots are cleanup-only: never replay them as rollback sources. */
+static int
+firewall_restore_transaction_retain_cleanup_path(firewall_restore_transaction_t *tx,
+						 const char *path)
+{
+	size_t i;
+
+	if (!tx || !firewall_restore_transaction_path_is_safe(path))
+		return -1;
+	for (i = 0; i < tx->snapshot_count; ++i)
+		if (strcmp(tx->snapshots[i].path, path) == 0)
+			return 0;
+	for (i = 0; i < tx->cleanup_path_count; ++i)
+		if (strcmp(tx->cleanup_paths[i], path) == 0)
+			return 0;
+	if (tx->cleanup_path_count >= FIREWALL_RESTORE_TX_MAX_CLEANUP_PATHS) {
+		tx->cleanup_failed = 1;
+		return -1;
+	}
+	strncpy(tx->cleanup_paths[tx->cleanup_path_count], path,
+		sizeof(tx->cleanup_paths[tx->cleanup_path_count]) - 1);
+	tx->cleanup_paths[tx->cleanup_path_count][
+		sizeof(tx->cleanup_paths[tx->cleanup_path_count]) - 1] = '\0';
+	++tx->cleanup_path_count;
+	return 0;
+}
+
 static int
 firewall_restore_transaction_cleanup_snapshots(firewall_restore_transaction_t *tx,
 						firewall_restore_remove_fn remove_fn,
 						void *context)
 {
-	size_t i, retained;
+	size_t i, retained_snapshots, retained_cleanup_paths;
 	int failed;
 
 	if (!tx)
 		return -1;
-	if (tx->snapshot_count && !remove_fn) {
+	if ((tx->snapshot_count || tx->cleanup_path_count) && !remove_fn) {
 		tx->cleanup_failed = 1;
 		return -1;
 	}
-	retained = 0;
+	retained_snapshots = 0;
 	failed = 0;
 	for (i = 0; i < tx->snapshot_count; ++i) {
 		if (remove_fn(tx->snapshots[i].path, context) != 0) {
-			if (retained != i)
-				tx->snapshots[retained] = tx->snapshots[i];
-			++retained;
+			if (retained_snapshots != i)
+				tx->snapshots[retained_snapshots] = tx->snapshots[i];
+			++retained_snapshots;
 			failed = 1;
 		}
 	}
-	tx->snapshot_count = retained;
+	tx->snapshot_count = retained_snapshots;
+
+	retained_cleanup_paths = 0;
+	for (i = 0; i < tx->cleanup_path_count; ++i) {
+		if (remove_fn(tx->cleanup_paths[i], context) != 0) {
+			if (retained_cleanup_paths != i)
+				memcpy(tx->cleanup_paths[retained_cleanup_paths],
+				       tx->cleanup_paths[i],
+				       sizeof(tx->cleanup_paths[retained_cleanup_paths]));
+			++retained_cleanup_paths;
+			failed = 1;
+		}
+	}
+	tx->cleanup_path_count = retained_cleanup_paths;
 	tx->cleanup_failed = failed;
 	return failed ? -1 : 0;
 }
@@ -147,10 +190,10 @@ firewall_restore_transaction_prepare_reset(firewall_restore_transaction_t *tx,
 {
 	if (!tx || tx->rollback_failed)
 		return -1;
-	if (tx->snapshot_count &&
+	if ((tx->snapshot_count || tx->cleanup_path_count) &&
 	    firewall_restore_transaction_cleanup_snapshots(tx, remove_fn, context) != 0)
 		return -1;
-	if (tx->snapshot_count)
+	if (tx->snapshot_count || tx->cleanup_path_count)
 		return -1;
 
 	firewall_restore_transaction_reset(tx);
@@ -234,8 +277,14 @@ firewall_restore_transaction_apply(firewall_restore_transaction_t *tx,
 				for (i = 0; i < tx->snapshot_count; ++i)
 					if (strcmp(tx->snapshots[i].path, snapshot_path) == 0)
 						break;
-				if (i == tx->snapshot_count)
-					remove_fn(snapshot_path, context);
+				if (i == tx->snapshot_count) {
+					for (i = 0; i < tx->cleanup_path_count; ++i)
+						if (strcmp(tx->cleanup_paths[i], snapshot_path) == 0)
+							break;
+					if (i == tx->cleanup_path_count &&
+					    remove_fn(snapshot_path, context) != 0)
+						(void)firewall_restore_transaction_retain_cleanup_path(tx, snapshot_path);
+				}
 			}
 			(void)firewall_restore_transaction_abort(tx, command_fn, remove_fn, context);
 			return -1;

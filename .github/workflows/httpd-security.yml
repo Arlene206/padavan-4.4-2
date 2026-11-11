@@ -2879,6 +2879,11 @@ jobs:
           assert "test_snapshot_failure_rolls_back_prior_tables" in transaction_test
           assert "test_rollback_failure_retains_snapshots" in transaction_test
           assert "test_cleanup_failure_retains_snapshot_for_retry" in transaction_test
+          assert "test_partial_snapshot_cleanup_failure_is_retryable" in transaction_test
+          assert "cleanup_path_count" in transaction_helper
+          assert "firewall_restore_transaction_retain_cleanup_path" in transaction_helper
+          assert "firewall_snapshot_remove_incomplete(operation, path);" in firewall
+          assert "cannot remove incomplete private snapshot" in firewall
           assert "test_abort_cleanup_failure_is_retryable" in transaction_test
           assert "test_prepare_reset_refuses_cleanup_failure_then_retries" in transaction_test
           assert "test_prepare_reset_preserves_failed_rollback_recovery_set" in transaction_test

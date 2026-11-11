@@ -1,3 +1,16 @@
+## 2026-11-11 10:26 CST (UTC+8) — Retain and retry failed partial firewall snapshot cleanup
+
+- Base main SHA: `78e92f40707350fcac658fdac5007e07c7e3eaa8`; parent `cd14b6e9a1858b5e894d7cb613affd6dce624d84`. Remote branch inventory contained only `main`; there was no checkpoint branch.
+- Exact-head baseline CI: on `cd14b6e9a1858b5e894d7cb613affd6dce624d84`, dedicated Firewall Startup [42940461165] passed while HTTPD [42940461177] failed only at stale four-argument static assertions (14/15 total workflows passed). The follow-up contract correction `78e92f40707350fcac658fdac5007e07c7e3eaa8` passed exact-head HTTPD [42941550684] and AI docs [42941550656]. All HTTPD steps passed; docs check reported root log 80/119 and archives `dev-log=6, handoff=22, roadmap=18`.
+- Finding: `firewall_snapshot_core_table()` attempted to unlink a partial file on `fchmod()`, `close()` or `*-save` failure, but cleared `path` even if unlink failed. `firewall_restore_transaction_apply()` also ignored the result of its cleanup retry. Thus a private partial snapshot could be orphaned without any path in transaction state for later cleanup.
+- Fix in THIS COMMIT: preserve callback path on unlink failure; record failed partial cleanup separately from rollback snapshots; retry cleanup during abort/finish and `prepare_reset()`. Incomplete files are cleanup-only and cannot be passed to rollback restore. Add GNU89 regression `test_partial_snapshot_cleanup_failure_is_retryable`, simulating a partial snapshot, failed removal, successful rollback of prior state and successful later cleanup retry. Extend HTTPD static contract to require callback preservation and the regression.
+- No local complete checkout was available; no local compile/test result is claimed for this new transaction regression. It must pass through exact-resulting-SHA HTTPD Actions before this slice is considered complete.
+- Root `dev_log.md`: 80 complete newest-first entries before this record; 81 afterward. Still below 120-entry and 384 KiB rotation thresholds and 512 KiB hard limit; no archive or `docs/dev-log/INDEX.md` update is due.
+- Changed paths: `trunk/user/rc/src/firewall_ex.c`, `trunk/user/rc/src/firewall_restore_transaction.h`, `trunk/user/rc/src/tests/firewall_restore_transaction.c`, `.github/workflows/httpd-security.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log.
+- Next: exact-head check every Actions run/job/step and full logs. Verify the new partial-snapshot cleanup regression passes. If green, rotate to another module rather than continue a long firewall-only audit. FTP cleanup remains OPEN/BLOCKED and NFS semantics remain evidence-gated; MIPS/uClibc, firmware/TRX and L4 router behavior remain unverified.
+
+---
+
 ## 2026-11-11 09:55 CST (UTC+8) — Align HTTPD firewall startup contract with NAT prerequisite
 
 - Base main SHA: `cd14b6e9a1858b5e894d7cb613affd6dce624d84`; parent `2ce57f74b55cb4abd04d6d1133920db6c676a15e`. The only remote branch was `main`; no checkpoint branch existed.

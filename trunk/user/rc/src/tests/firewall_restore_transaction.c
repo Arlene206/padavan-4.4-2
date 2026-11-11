@@ -13,6 +13,7 @@ typedef struct {
 	char fail_rollback_family[16], fail_rollback_table[16];
 	char fail_remove_path[FIREWALL_RESTORE_TX_PATH_SIZE];
 	int remove_attempt_count;
+	int partial_snapshot_failure;
 } test_context_t;
 
 static void
@@ -35,6 +36,11 @@ test_snapshot(const char *family, const char *table, char *path,
 	int n;
 	if (strcmp(t->fail_snapshot_family, family) == 0 &&
 	    strcmp(t->fail_snapshot_table, table) == 0) {
+		if (t->partial_snapshot_failure) {
+			n = snprintf(path, path_size, "/tmp/snapshot-%d", t->path_sequence++);
+			assert(n > 0 && (size_t)n < path_size);
+			record_call(t, "snapshot-partial", family, table, path);
+		}
 		record_call(t, "snapshot-fail", family, table, "");
 		return -1;
 	}
@@ -137,6 +143,39 @@ test_snapshot_failure_rolls_back_prior_tables(void)
 	assert(t.apply_count == 1 && t.rollback_count == 1 && t.remove_count == 1);
 	assert(strcmp(t.calls[3], "rollback:iptables:filter:/tmp/snapshot-0") == 0);
 	assert(tx.snapshot_count == 0);
+}
+
+static void
+test_partial_snapshot_cleanup_failure_is_retryable(void)
+{
+	firewall_restore_transaction_t tx;
+	test_context_t t = {0};
+
+	firewall_restore_transaction_reset(&tx);
+	assert(firewall_restore_transaction_apply(&tx, "iptables", "filter", "/tmp/filter.rules",
+		test_snapshot, test_command, test_remove, &t) == 0);
+
+	strcpy(t.fail_snapshot_family, "iptables");
+	strcpy(t.fail_snapshot_table, "nat");
+	t.partial_snapshot_failure = 1;
+	strcpy(t.fail_remove_path, "/tmp/snapshot-1");
+	assert(firewall_restore_transaction_apply(&tx, "iptables", "nat", "/tmp/nat.rules",
+		test_snapshot, test_command, test_remove, &t) == -1);
+
+	/* The prior table was restored; the incomplete snapshot is cleanup-only. */
+	assert(!firewall_restore_transaction_rollback_failed(&tx));
+	assert(tx.snapshot_count == 0 && tx.cleanup_path_count == 1);
+	assert(tx.cleanup_failed);
+	assert(strcmp(tx.cleanup_paths[0], "/tmp/snapshot-1") == 0);
+	assert(t.rollback_count == 1 && t.remove_count == 1);
+	assert(t.remove_attempt_count == 3);
+
+	/* A later rebuild must retry the orphan cleanup before resetting state. */
+	t.fail_remove_path[0] = '\0';
+	assert(firewall_restore_transaction_prepare_reset(&tx, test_remove, &t) == 0);
+	assert(tx.snapshot_count == 0 && tx.cleanup_path_count == 0);
+	assert(!tx.cleanup_failed && !tx.failed);
+	assert(t.remove_attempt_count == 4 && t.remove_count == 2);
 }
 
 static void
@@ -283,6 +322,7 @@ main(void)
 	test_cleanup_failure_retains_snapshot_for_retry();
 	test_abort_cleanup_failure_is_retryable();
 	test_prepare_reset_refuses_cleanup_failure_then_retries();
+	test_partial_snapshot_cleanup_failure_is_retryable();
 	test_prepare_reset_preserves_failed_rollback_recovery_set();
 	test_success();
 	test_apply_failure_reverse_rollback();
