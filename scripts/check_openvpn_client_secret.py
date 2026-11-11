@@ -77,6 +77,22 @@ for signature, label in (
     assert 'fopen(conf_file, "w+")' not in config_body, label
     assert "chmod(conf_file, 0644)" not in config_body, label
 
+ccd_body = body(source, "static int\nopenvpn_create_server_acl")
+server_body = body(source, "static int\nopenvpn_create_server_conf")
+assert "lstat(vpns_ccd, &ccd_stat)" in ccd_body
+assert "!S_ISDIR(ccd_stat.st_mode)" in ccd_body
+assert "openvpn_config_file_open(ccf, staged_ccf" in ccd_body
+assert "openvpn_config_file_publish(&fp_ccf, staged_ccf, ccf, 0644)" in ccd_body
+assert 'fopen(ccf, "w+")' not in ccd_body
+assert "chmod(ccf, 0644)" not in ccd_body
+acl_gate = 'if (!openvpn_create_server_acl(fp, "ccd", vnet, vmsk))'
+assert acl_gate in server_body
+assert server_body.index(acl_gate) < server_body.index(
+    "openvpn_config_file_publish(&fp, staged_conf, conf_file, 0644)")
+assert "unlink(staged_conf)" in server_body[server_body.index(acl_gate):]
+assert server_body.index("return 1;", server_body.index(acl_gate)) < server_body.index(
+    "openvpn_config_file_publish(&fp, staged_conf, conf_file, 0644)")
+
 ordered(config_helper, [
     "fd = mkstemp(staged_path)",
     "fstat(fd, &st)",

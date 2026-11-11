@@ -218,15 +218,37 @@ openvpn_safe_path_component(const char *name)
 	return 1;
 }
 
-static void
+static int
 openvpn_create_server_acl(FILE *fp, const char *ccd, unsigned int vnet, unsigned int vmsk)
 {
-	int i, i_max;
+	int i, i_max, ccd_len;
 	char *acl_user, *acl_rnet, *acl_rmsk;
 	char acl_user_var[16], acl_rnet_var[16], acl_rmsk_var[16], vpns_ccd[64];
+	struct stat ccd_stat;
 
-	snprintf(vpns_ccd, sizeof(vpns_ccd), "%s/%s", SERVER_ROOT_DIR, ccd);
-	mkdir(vpns_ccd, 0755);
+	ccd_len = snprintf(vpns_ccd, sizeof(vpns_ccd), "%s/%s", SERVER_ROOT_DIR, ccd);
+	if (ccd_len < 0 || ccd_len >= (int)sizeof(vpns_ccd)) {
+		errno = ENAMETOOLONG;
+		return 0;
+	}
+	if (mkdir(vpns_ccd, 0755) != 0 && errno != EEXIST) {
+		logmessage(SERVER_LOG_NAME,
+			   "cannot create client-config directory %s (errno=%d)",
+			   vpns_ccd, errno);
+		return 0;
+	}
+	if (lstat(vpns_ccd, &ccd_stat) != 0) {
+		logmessage(SERVER_LOG_NAME,
+			   "cannot inspect client-config directory %s (errno=%d)",
+			   vpns_ccd, errno);
+		return 0;
+	}
+	if (!S_ISDIR(ccd_stat.st_mode)) {
+		errno = ENOTDIR;
+		logmessage(SERVER_LOG_NAME,
+			   "client-config path is not a directory: %s", vpns_ccd);
+		return 0;
+	}
 
 	i_max = nvram_get_int("vpns_num_x");
 	if (i_max > MAX_CLIENTS_NUM)
@@ -242,35 +264,47 @@ openvpn_create_server_acl(FILE *fp, const char *ccd, unsigned int vnet, unsigned
 		if (openvpn_safe_path_component(acl_user) &&
 		    is_valid_ipv4(acl_rnet) && is_valid_ipv4(acl_rmsk)) {
 			FILE *fp_ccf;
-			char ccf[80];
+			char ccf[80], staged_ccf[128];
 			int ccf_len;
-			
+
 			ccf_len = snprintf(ccf, sizeof(ccf), "%s/%s", vpns_ccd, acl_user);
-			if (ccf_len < 0 || ccf_len >= (int)sizeof(ccf))
-				continue;
-			fp_ccf = fopen(ccf, "w+");
-			if (fp_ccf) {
+			if (ccf_len < 0 || ccf_len >= (int)sizeof(ccf)) {
+				errno = ENAMETOOLONG;
+				logmessage(SERVER_LOG_NAME,
+					   "client-config path too long for user entry %d", i);
+				return 0;
+			}
+			fp_ccf = openvpn_config_file_open(ccf, staged_ccf, sizeof(staged_ccf));
+			if (!fp_ccf) {
+				logmessage(SERVER_LOG_NAME,
+					   "cannot stage client-config file %s (errno=%d)", ccf, errno);
+				return 0;
+			}
+			{
 				char acl_addr_var[16];
 				struct in_addr pool_in;
 				unsigned int vp_a;
-				
+
 				snprintf(acl_addr_var, sizeof(acl_addr_var), "vpns_addr_x%d", i);
 				vp_a = (unsigned int)nvram_get_int(acl_addr_var);
-				
-				if (vp_a > 1 && vp_a < 255 ) {
+				if (vp_a > 1 && vp_a < 255) {
 					pool_in.s_addr = htonl((vnet & vmsk) | vp_a);
-					fprintf(fp_ccf, "ifconfig-push %s %s\n", inet_ntoa(pool_in), VPN_SERVER_SUBNET_MASK);
-					fprintf(fp, "route %s %s %s\n", acl_rnet, acl_rmsk, inet_ntoa(pool_in));
+					fprintf(fp_ccf, "ifconfig-push %s %s\n",
+						inet_ntoa(pool_in), VPN_SERVER_SUBNET_MASK);
+					fprintf(fp, "route %s %s %s\n",
+						acl_rnet, acl_rmsk, inet_ntoa(pool_in));
 				}
-				
 				fprintf(fp_ccf, "iroute %s %s\n", acl_rnet, acl_rmsk);
-				
-				fclose(fp_ccf);
-				
-				chmod(ccf, 0644);
+			}
+			if (openvpn_config_file_publish(&fp_ccf, staged_ccf, ccf, 0644) != 0) {
+				logmessage(SERVER_LOG_NAME,
+					   "cannot publish client-config file %s (errno=%d)", ccf, errno);
+				return 0;
 			}
 		}
 	}
+
+	return 1;
 }
 
 static void
@@ -502,7 +536,17 @@ openvpn_create_server_conf(const char *conf_file, int is_tun)
 		fprintf(fp, "server %s %s\n", inet_ntoa(pool_in), VPN_SERVER_SUBNET_MASK);
 		fprintf(fp, "client-config-dir %s\n", "ccd");
 		
-		openvpn_create_server_acl(fp, "ccd", vnet, vmsk);
+		if (!openvpn_create_server_acl(fp, "ccd", vnet, vmsk)) {
+			int saved_errno = errno ? errno : EIO;
+
+			if (fclose(fp) != 0)
+				logmessage(SERVER_LOG_NAME, "failed to close staged server config after CCD error");
+			fp = NULL;
+			if (unlink(staged_conf) != 0 && errno != ENOENT)
+				logmessage(SERVER_LOG_NAME, "failed to remove staged server config after CCD error");
+			errno = saved_errno;
+			return 1;
+		}
 		
 		pool_in.s_addr = htonl(laddr & lmask);
 		fprintf(fp, "push \"route %s %s\"\n", inet_ntoa(pool_in), lannm);
