@@ -883,7 +883,8 @@ init_router(void)
 
 	if (init_crontab()) {
 		write_storage_to_mtd();
-		restart_crond();
+		if (restart_crond() < 0)
+			logmessage(LOGNAME, "crond restart after initial crontab update failed");
 	}
 	// system ready
 	nvram_set_int("ntp_ready", 0);
@@ -1380,7 +1381,7 @@ handle_notifications(void)
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_CROND) == 0)
 		{
-			restart_crond();
+			action_result = restart_crond();
 		}
 		else if (strcmp(entry->d_name, RCN_REAPPLY_VPNSVR) == 0)
 		{
@@ -1473,7 +1474,8 @@ handle_notifications(void)
 			notify_watchdog_time();
 			notify_rstats_time();
 			start_logger(0);
-			restart_crond();
+			if (restart_crond() < 0)
+				action_result = -1;
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_SYSCTL) == 0)
 		{

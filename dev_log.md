@@ -1,3 +1,19 @@
+## 2026-11-11 17:55 CST (UTC+8) — Gate crond lifecycle on detached process readiness and confirmed stop
+
+- Base main SHA: 65119b857a7684974caf2ae0e13d8112a0e035bd; parent 947ee69cfbda917ec1728cdde39a00b6a7726eeb; branch inventory: main only, no remote checkpoint.
+- Closed the previous infosvr packet parsing task on exact SHA 65119b857a7684974caf2ae0e13d8112a0e035bd: packet workflow [42997959662] and AI handoff docs [42997959722] both SUCCESS. All steps and complete logs inspected; GNU89 ASan/UBSan packet policy test, UDP/source-boundary contract and docs archive/heading validator passed. Root log=104/119; archive counts 6/22/18.
+- Selected BusyBox crond as the next P2 reliability issue from the broader RC/userland lifecycle inventory.
+- Root cause: RC _eval() forks and waits for the BusyBox launcher process, but crond_main() daemonizes before child xchdir(), crontab rescan and pidfile publication. The launcher parent exits successfully immediately after forking, so RC could report success even if the detached scheduler failed during initialization.
+- A second lifecycle defect discarded kill_services() status in stop_crond(); restart_crond() then launched another scheduler unconditionally. If the previous process remained after bounded TERM/KILL, duplicate cron jobs could run.
+- Fix in THIS COMMIT: return the shared stop result, gate restart on confirmed process exit, and add an initial grace plus bounded checks for a live non-zombie pids("crond") process after the daemonizing parent exits. Preserve disabled-service return value 1. Propagate negative restart failures from RC notification dispatch so the in-flight completion marker remains for retry; log failure after initial crontab regeneration.
+- Host regression: GNU89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer, run with leak detection; PASS, output crond daemon startup and restart policy: PASS. New source checker covers BusyBox fork/parent/child ordering, pid matching/zombie exclusion, lifecycle return propagation, all RC call sites and symmetric workflow filters.
+- Changed paths: new crond workflow, policy header and test, source checker, services.c, rc.c, rc.h, this handoff, roadmap and this log. No archive/index rotation is due.
+- Root dev_log.md: 104 complete records before this entry; 105 afterward, below the 120-entry/384 KiB rotation triggers and 512 KiB hard cap. Archives remain 6/22/18.
+- Resulting commit: THIS COMMIT.
+- Next: inspect all exact-head jobs/full logs for Crond lifecycle and AI docs, plus any path-triggered RC umbrellas. Require GNU89 sanitizer regression, source/caller contract and docs validator to pass on the same SHA. Production MIPS/uClibc, full firmware/TRX, live cron execution and L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-11 17:38 CST (UTC+8) — Restore required verification-boundary heading and guard handoff contract
 
 - Base main SHA: `947ee69cfbda917ec1728cdde39a00b6a7726eeb`; parent `8ec8198c4564e57cd3956ea675e343bc35098e72`.

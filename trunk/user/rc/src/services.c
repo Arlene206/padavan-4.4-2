@@ -25,6 +25,7 @@
 #include <sys/types.h>
 
 #include "rc.h"
+#include "crond_daemon_policy.h"
 
 void
 stop_syslogd(void)
@@ -101,11 +102,11 @@ restart_infosvr(void)
 	start_infosvr();
 }
 
-void
+int
 stop_crond(void)
 {
 	char* svcs[] = { "crond", NULL };
-	kill_services(svcs, 3, 1);
+	return kill_services(svcs, 3, 1);
 }
 
 int
@@ -116,6 +117,7 @@ start_crond(void)
 		NULL,			/* -d8 */
 		NULL
 	};
+	int launch_status, attempt, status;
 
 	if (nvram_invmatch("crond_enable", "1"))
 		return 1;
@@ -125,14 +127,43 @@ start_crond(void)
 
 	setenv_tz();
 
-	return _eval(crond_argv, NULL, 0, NULL);
+	/*
+	 * BusyBox crond exits its launcher successfully after forking. The
+	 * detached child still has to enter the spool directory, scan jobs
+	 * and publish its pidfile, so _eval() alone is not a daemon postcondition.
+	 */
+	launch_status = _eval(crond_argv, NULL, 0, NULL);
+	if (launch_status != 0) {
+		logmessage(LOGNAME, "crond launcher failed: %d", launch_status);
+		return crond_start_postcondition(launch_status, 0);
+	}
+
+	sleep(CROND_START_INITIAL_WAIT_SECONDS);
+	status = -1;
+	for (attempt = 0; attempt < CROND_START_PROBE_ATTEMPTS; attempt++) {
+		status = crond_start_postcondition(launch_status, pids("crond"));
+		if (status == 0)
+			return 0;
+
+		if (attempt + 1 < CROND_START_PROBE_ATTEMPTS)
+			sleep(CROND_START_RETRY_WAIT_SECONDS);
+	}
+
+	logmessage(LOGNAME, "crond daemon did not remain running after launch");
+	return status;
 }
 
-void
+int
 restart_crond(void)
 {
-	stop_crond();
-	start_crond();
+	int stop_status = stop_crond();
+
+	if (!crond_restart_can_start(stop_status)) {
+		logmessage(LOGNAME, "refusing crond restart: previous daemon did not stop");
+		return stop_status;
+	}
+
+	return start_crond();
 }
 
 int
