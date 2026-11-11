@@ -1084,9 +1084,14 @@ jobs:
           assert "return 0;" in launch_iptv
 
           start_wan = body(net_wan, "start_wan(void)")
-          assert start_wan.index("vlan_result = config_vinet_wan()") < start_wan.index("remove_cb_links();")
-          assert start_wan.index("remove_cb_links();") < start_wan.index("return;")
-          assert start_wan.index("vlan_result = config_vinet_wan()") < start_wan.index("launch_viptv_wan()")
+          callback_setup = start_wan.index("if (create_cb_links() != 0)")
+          config_start = start_wan.index("vlan_result = config_vinet_wan()")
+          remove_links = start_wan.index("remove_cb_links();", config_start)
+          return_after_config = start_wan.index("return;", config_start)
+          assert callback_setup < config_start
+          assert start_wan.index("return;", callback_setup) < config_start
+          assert config_start < remove_links < return_after_config
+          assert config_start < start_wan.index("launch_viptv_wan()")
 
           hnat_update = body(net, "hwnat_configure(int wan_vid)")
           assert hnat_update.index("if (wan_vid < 0)") < hnat_update.index('module_param_set_int("hw_nat", "wan_vid", wan_vid)')
@@ -1671,6 +1676,16 @@ jobs:
             trunk/user/rc/src/tests/ppp_options_file.c \
             -o /tmp/ppp_options_file
           /tmp/ppp_options_file
+          cat > /tmp/ppp_options_directory_only.c <<'EOF'
+          #include "ppp_options_file.h"
+          int main(void)
+          {
+              return ppp_options_directory_ready("/tmp/ppp-options-directory-only");
+          }
+          EOF
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src -c /tmp/ppp_options_directory_only.c \
+            -o /tmp/ppp_options_directory_only.o
           cc -std=gnu89 -Wall -Wextra -Werror \
             -I trunk/user/rc/src \
             trunk/user/rc/src/tests/ppp_option_value_policy.c \

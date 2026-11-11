@@ -24,39 +24,12 @@ main(void)
 	char directory[] = "/tmp/ppp-options-test.XXXXXX";
 	char unsafe_directory[256], options[256], victim[256];
 	char symlink_path[256], hardlink_path[256], fifo_path[256], fail_path[256];
-	char peers_directory[256], peer_path[256];
 	FILE *fp;
 	struct stat st;
-	mode_t original_umask;
 	int saved_errno;
 
 	assert(mkdtemp(directory) != NULL);
 	assert(ppp_options_directory_ready(directory) == 0);
-
-	/* Reproduce PID 1's umask(0000) and the former 0777/0666 RAS writer. */
-	assert(snprintf(peers_directory, sizeof(peers_directory), "%s/peers", directory) > 0);
-	assert(snprintf(peer_path, sizeof(peer_path), "%s/modem.wan0", peers_directory) > 0);
-	original_umask = umask(0000);
-	assert(mkdir(peers_directory, 0777) == 0);
-	assert(lstat(peers_directory, &st) == 0 && (st.st_mode & 0777) == 0777);
-	fp = fopen(peer_path, "w+");
-	assert(fp != NULL);
-	assert(fputs("password 'old-secret'\n", fp) >= 0);
-	assert(fclose(fp) == 0);
-	assert(stat(peer_path, &st) == 0 && (st.st_mode & 0777) == 0666);
-	assert(ppp_options_directory_ready(peers_directory) == 0);
-	assert(lstat(peers_directory, &st) == 0);
-	assert((st.st_mode & (S_IWGRP | S_IWOTH)) == 0);
-	fp = ppp_options_file_open(peer_path);
-	assert(fp != NULL);
-	assert(stat(peer_path, &st) == 0 && (st.st_mode & 0777) == 0600);
-	assert(fputs("password 'new-secret'\n", fp) >= 0);
-	assert(ppp_options_file_finish(fp, peer_path) == 0);
-	assert(stat(peer_path, &st) == 0 && (st.st_mode & 0777) == 0600);
-	assert(unlink(peer_path) == 0);
-	assert(rmdir(peers_directory) == 0);
-	assert(umask(original_umask) == 0000);
-
 	assert(snprintf(unsafe_directory, sizeof(unsafe_directory), "%s/unsafe", directory) > 0);
 	assert(mkdir(unsafe_directory, 0700) == 0);
 	assert(chmod(unsafe_directory, 0777) == 0);

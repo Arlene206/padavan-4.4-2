@@ -11,7 +11,7 @@
 
 /* The directory must never be a symlink, a non-directory or writable by
  * another uid. Repair permissive mode on a root-owned directory in /tmp. */
-static int
+static inline int
 ppp_options_directory_ready(const char *directory)
 {
 	struct stat st;
@@ -48,7 +48,7 @@ ppp_options_directory_ready(const char *directory)
 }
 
 /* Tighten/validate an old file before opening it for truncation. */
-static int
+static inline int
 ppp_options_path_ready(const char *path)
 {
 	struct stat st;
@@ -81,7 +81,7 @@ ppp_options_path_ready(const char *path)
 }
 
 /* Make credential files private before truncation or writing any secret. */
-static FILE *
+static inline FILE *
 ppp_options_file_open(const char *path)
 {
 	int fd, saved_errno;
@@ -133,7 +133,7 @@ ppp_options_file_open(const char *path)
 	return fp;
 }
 
-static int
+static inline int
 ppp_options_file_finish(FILE *fp, const char *path)
 {
 	int failed = 0, saved_errno = 0;

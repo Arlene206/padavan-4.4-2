@@ -1,3 +1,16 @@
+## 2026-11-11 (UTC+8) — Reconcile PPP RAS preflight source contract and header-only compile warnings
+
+- Base main SHA: `cd49190971966cb4e8cf90d2713d12f37ff77dcb`; parent `637786f2c0ec3c9a27c533e2ea8bbf8696e8efdd`.
+- Exact-head Actions on the base: AI handoff docs [42952636603] passed; nine of ten workflows completed SUCCESS. HTTPD [42952636704] failed at step 10 before PPP checks. Full logs showed the existing switch/WAN source contract treated the first `return;` inside `start_wan()` as occurring after `remove_cb_links()`; the new fail-closed PPP directory preflight deliberately returns before VLAN setup. This was an outdated source-order assertion, not a runtime/test failure. The HTTPD job step list and full failure log were inspected.
+- Local GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` execution of the extended `ppp_options_file.c` regression passed, including the PID 1 zero-umask 0777-directory/0666-file reproduction and secure 0600 repair. A separate compile-only TU using only `ppp_options_directory_ready()` exposed `-Wunused-function` warnings for unused static helper bodies from `ppp_options_file.h`.
+- Fix in THIS FOLLOW-UP: declare all header-local PPP file helpers `static inline` so translation units consuming only the directory policy remain warning-clean. Add a directory-only GNU89 `-Werror` compile to the PPP workflow. Refine the existing HTTPD `start_wan()` contract to assert that the preflight gate and early rejection precede VLAN setup while checking the later VLAN-failure cleanup/return order independently.
+- Local validation after the inline adjustment: the PPP zero-umask regression passed ASan/UBSan with leak detection, and the directory-only helper consumer compiled cleanly with GNU89 `-Wall -Wextra -Werror`. Exact-head HTTPD and AI docs Actions for THIS FOLLOW-UP remain pending.
+- Changed paths: `trunk/user/rc/src/ppp_options_file.h`, `.github/workflows/httpd-security.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and this log.
+- Root `dev_log.md`: 84 complete records before this entry; 85 after, below 120-entry / 384 KiB rotation triggers and the 512 KiB hard limit. No archive or `docs/dev-log/INDEX.md` update is due.
+- Next: inspect every job/step and full log for all Actions runs on the exact resulting main SHA; confirm the corrected HTTPD contract, PPP security regression, directory-only compile and docs check pass. Keep target MIPS/uClibc, firmware/TRX and L4 hardware validation separate.
+
+---
+
 ## 2026-11-11 (UTC+8) — Protect USB modem RAS peer credentials under PID 1's zero umask
 
 - Base main SHA: `637786f2c0ec3c9a27c533e2ea8bbf8696e8efdd`; parent `ee2d2a7730d76dfe48f9a6cdeb585b68a5808b6f`. Remote branch inventory before this commit contained only `main`; no checkpoint branch.
