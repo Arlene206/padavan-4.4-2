@@ -1,24 +1,27 @@
 ## Current repository state
 
-- Maintained fork: Arlene206/padavan-4.4-2; active branch: main. Base before THIS COMMIT: e22c339dc8f04eb965cc19d36f9a2a0bec594e65, parent c26125ca58ffdcd5f164efafc18df2420e7be2de. Remote branches at the base: main only; no separate checkpoint branch.
-- Recovered the prior active PPP/RAS follow-up. On exact SHA e22c339dc8f04eb965cc19d36f9a2a0bec594e65, HTTPD Authentication/Security [42955374938] and AI handoff docs [42955374897] both completed SUCCESS. The HTTPD job passed all 39 steps, including step 17 (PPP credential-file confidentiality) and downstream demand-mode/source contracts; AI docs confirmed root log 87/119 and archive inventory dev-log=6, handoff=22, roadmap=18. The PPP/RAS task is closed; do not repeat it.
-- The repository-roadmap Shadowsocks lifecycle follow-up is also green on exact code SHA 1f7b3f2a568d8b6c8327206fe6111ce4e49dfbfa: lifecycle Actions [42879041009] and AI docs [42879041085] completed SUCCESS. The mock regression reported graceful TERM, fresh-name KILL escalation and stuck-process postcondition PASS; the source contract and docs validator passed. This is host/source evidence only, not target BusyBox/MIPS/device validation.
-- Finding in OpenVPN client auth: openvpn_create_client_secret() used fopen(secret_file, "w+"), wrote the username/password, closed the stream, then chmodded the path to 0600. A newly created file inherits 0644 under umask 0022, or 0666 under PID 1's umask(0000); /etc/openvpn/client is created 0755. Credentials were exposed during the creation-to-chmod interval. The writer also swallowed open/write/close/chmod failures, allowing client setup to continue without a verified credential file.
-- Fix in THIS COMMIT: stage credentials with mkstemp in the destination directory, validate the descriptor, enforce mode 0600 before writing, check write/flush/fsync/close, and atomically rename into place. openvpn_create_client_secret() now returns status; client configuration creation fails before opening/publishing the config when secure credential publication fails, preventing OpenVPN startup with missing or partially written credentials.
-- Regression: new GNU89 host test reproduces the legacy 0666 creation mode under umask(0000), then checks atomic owner-only replacement, inode replacement, symlink replacement without touching its target, and failure cleanup/last-good preservation when rename cannot replace a directory. The isolated ASan/UBSan build with -Wall -Wextra -Werror and leak detection passed. A dedicated path-filtered Actions workflow runs this test and its source/workflow contract.
-- Root dev_log.md: 87 complete records before THIS COMMIT; 88 afterward, below 120-entry / 384 KiB rotation triggers and 512 KiB hard limit. No archive or docs/dev-log/INDEX.md update is due.
-- Other open items: FTP upload-cleanup TOCTOU OPEN/BLOCKED pending a semantics-preserving design; NFS durability/AUTH_SYS/root-squash/external-mount semantics remain evidence-gated; wireless variants, WAN PPP reconnect/IPv6 rollback, BusyBox ash and router hardware remain unverified. No production MIPS/uClibc object, full firmware/TRX or L4 result is claimed.
+- Maintained fork: Arlene206/padavan-4.4-2; active branch: main. Base before THIS COMMIT: 89818c2d114b57c964ec816a96d25c908e174877; parent: e22c339dc8f04eb965cc19d36f9a2a0bec594e65. Remote branch inventory: main only, no separate checkpoint branch.
+- Recovered the prior OpenVPN client-credential P1 task. On exact SHA 89818c2d114b57c964ec816a96d25c908e174877, OpenVPN client credential staging [42958792598], HTTPD Authentication/Security [42958792601] and AI handoff docs [42958792611] all completed SUCCESS. The OpenVPN credential regression and source/workflow contract passed; HTTPD passed all 39 steps; docs confirmed root log 88/119 and archive inventory dev-log=6, handoff=22, roadmap=18. OpenVPN and its earlier PPP/RAS dependency are closed; do not repeat them.
+- New P2 stability finding: USB NDIS modem selection passed the first `cdc-wdm` metadata record to QMI/MBIM/NCM without checking that it belonged to the selected `wwanX/wethX` interface. On systems with multiple USB modems, a WAN attach/detach could therefore issue control commands to the wrong physical modem.
+- Fix in THIS COMMIT: classify `cdc-wdm` nodes and resolve their `/sys/class/usbmisc` device path; publish validated physical USB port ID plus devnum from WDM hotplug; strictly parse and match both identity fields against the selected NDIS interface before choosing the control node. Missing, malformed or mismatched identity fails closed for WDM selection; same-device TTY fallback is retained.
+- Regression: extend the existing GNU89 modem metadata writer test with positive/negative physical identity matches. The isolated GNU89 -Wall -Wextra -Werror ASan/UBSan run of that test passed locally; the dedicated Actions workflow adds the same binary plus production source/path-filter contracts. Exact resulting-head Actions must be inspected.
+- Changed paths: libdisk device classification and sysfs resolution; RC WDM hotplug and NDIS control selection; shared modem identity policy; existing modem metadata regression; new USB modem identity workflow; SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and dev_log.md.
+- Root dev_log.md: 88 complete records before THIS COMMIT, 89 after. Below 120-entry / 384 KiB rotation triggers and 512 KiB hard limit; no archive or docs/dev-log/INDEX.md update is due.
+- Other open items: FTP upload-cleanup TOCTOU remains OPEN/BLOCKED pending a semantics-preserving design; NFS durability/AUTH_SYS/root-squash/external-mount semantics remain evidence-gated; wireless board variants, WAN PPP reconnect/IPv6 rollback and Optware BusyBox ash behavior need target evidence. No production MIPS/uClibc object, full firmware/TRX or L4 router result is claimed.
 
 ## Active task
 
-- Verify the OpenVPN client credential staging fix on the final exact main SHA. Ensure the dedicated OpenVPN credential workflow runs both the GNU89 ASan/UBSan regression and source/workflow contract, and inspect the AI handoff docs validator on the same exact SHA.
+- Verify the USB modem identity workflow and AI handoff docs on the exact resulting main SHA. Inspect every job, step and full log; confirm the GNU89 ASan/UBSan regression and WDM/NDIS source/path-filter contract pass on that same SHA.
+- If green, close this bounded WDM identity slice and rotate to another repository-wide reliability issue; do not repeat OpenVPN, PPP/RAS or HTTPD fixes. Keep FTP cleanup TOCTOU blocked until an atomic/supported design is proven.
+- L3 MIPS/uClibc build, full firmware/TRX, BusyBox ash and L4 router/hardware behavior remain NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and remote branches; verify the exact new SHA and parent after THIS COMMIT.
-2. Query all Actions for that exact SHA. Inspect every job, step and full log for the OpenVPN client credential staging workflow and AI handoff docs; confirm the host regression, source contract and docs check all pass and the docs validator reports root log 88/119.
-3. If green, close the OpenVPN credential confidentiality fix and move to a different high-priority userland module. Do not repeat PPP/RAS, HTTPD or Shadowsocks work.
-4. Keep target MIPS/uClibc, BusyBox ash, full firmware/TRX and L4 hardware verification explicitly NOT VERIFIED.
+1. Fetch live main and remote branches; compare the resulting SHA to THIS COMMIT and inspect all Actions attached to that exact SHA.
+2. Inspect each USB modem identity and AI docs workflow job/step/full log. If any contract fails, trace whether the assertion or production behavior is wrong before changing it.
+3. If both are green, record closure in the conversation and select a different module using the whole-repository roadmap; retain FTP upload-cleanup TOCTOU as OPEN/BLOCKED and NFS client compatibility as evidence-gated.
+
+## PID 1 notification queue batch fairness
 
 ## PID 1 notification queue batch fairness
 

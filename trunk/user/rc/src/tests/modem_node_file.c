@@ -24,6 +24,11 @@ main(void)
 	assert(!modem_node_usb_identity_is_valid("1-1", 0));
 	assert(!modem_node_usb_identity_is_valid("1-1", -1));
 	assert(!modem_node_usb_identity_is_valid("1-1", 128));
+	assert(modem_node_usb_identity_matches("1-1", 7, "1-1", 7));
+	assert(!modem_node_usb_identity_matches("1-1", 7, "1-2", 7));
+	assert(!modem_node_usb_identity_matches("1-1", 7, "1-1", 8));
+	assert(!modem_node_usb_identity_matches("1-1", 0, "1-1", 0));
+	assert(!modem_node_usb_identity_matches(NULL, 7, "1-1", 7));
 	assert(modem_node_name_is_safe("ttyUSB0"));
 	assert(modem_node_name_is_safe("ttyACM12"));
 	assert(modem_node_name_is_safe("cdc-wdm0"));
@@ -94,6 +99,6 @@ main(void)
 	rmdir(outside);
 	rmdir(directory);
 	rmdir(root);
-	puts("USB modem node private metadata staging: PASS");
+	puts("USB modem node identity and private metadata staging: PASS");
 	return 0;
 }

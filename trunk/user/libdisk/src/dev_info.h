@@ -13,7 +13,8 @@ enum {
 	DEVICE_TYPE_USB_HUB,
 	DEVICE_TYPE_PRINTER,
 	DEVICE_TYPE_MODEM_TTY,
-	DEVICE_TYPE_MODEM_ETH
+	DEVICE_TYPE_MODEM_ETH,
+	DEVICE_TYPE_MODEM_WDM
 };
 
 extern int   get_device_type_by_device(const char *device_name);

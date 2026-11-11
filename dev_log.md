@@ -1,3 +1,18 @@
+## 2026-11-11 (UTC+8) — Bind USB WWAN control nodes to their physical modem
+
+- Base main SHA: 89818c2d114b57c964ec816a96d25c908e174877; parent e22c339dc8f04eb965cc19d36f9a2a0bec594e65. Remote branch inventory: main only, no checkpoint branch.
+- Recovered and closed the prior OpenVPN client-credential task on exact SHA 89818c2d114b57c964ec816a96d25c908e174877: OpenVPN credential staging [42958792598], HTTPD Authentication/Security [42958792601] and AI handoff docs [42958792611] all completed SUCCESS. HTTPD passed all 39 steps; AI docs reported root log 88/119 and archive inventory dev-log=6, handoff=22, roadmap=18.
+- Finding: `mdev_wdm_main()` published every `cdc-wdmN` node with `devnum=0` and no physical port identity. `ndis_control_network()` then selected the first WDM record without checking which `wwanX/wethX` interface was being configured. With multiple USB modems, QMI/MBIM/NCM control requests could target a different physical modem from the selected NDIS data interface.
+- Fix: append `DEVICE_TYPE_MODEM_WDM` (preserving existing enum values), resolve the WDM `/sys/class/usbmisc/<node>/device` sysfs path with the same bounded retry used by other modem class links, and publish validated `portid` plus current USB `devnum` from the WDM hotplug handler. Add one shared identity policy and a strict metadata reader that rejects malformed/duplicate/truncated records and requires exact port+devnum equality with the selected NDIS interface before it can use a WDM control node. Preserve same-device TTY fallback; do not choose an arbitrary WDM node when identity is unavailable.
+- Regression: extend `tests/modem_node_file.c` with same-identity positive case and wrong-port, wrong-devnum and invalid-devnum negative cases. The isolated GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` test with ASan leak detection passed locally: `USB modem node identity and private metadata staging: PASS`. New path-filtered workflow additionally compiles/runs it and checks the production classification, sysfs resolution, hotplug publication, strict reader, NDIS selection and push/PR filters.
+- Changed paths: `trunk/user/libdisk/src/dev_info.c`, `dev_info.h`, `usb_info.c`; `trunk/user/rc/src/hotplug_usb.c`, `usb_modem.c`, `modem_node_file.h`, new `modem_node_identity_policy.h`, `tests/modem_node_file.c`; new `.github/workflows/usb-modem-identity-stability.yml`; `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log.
+- Validation boundary: L1 source/call-path review PASS; the isolated metadata/identity policy host binary passed locally. The dedicated workflow's full production source contract and AI handoff docs check must be inspected on the exact resulting SHA. No complete libdisk/RC translation-unit build, production MIPS/uClibc object, firmware/TRX, multiple-modem router test or L4 hardware result is claimed.
+- Root dev_log.md: 88 complete records before this entry; 89 after. Below the 120-entry / 384 KiB rotation triggers and 512 KiB hard limit; no archive or docs/dev-log/INDEX.md update is due.
+- Resulting commit: THIS COMMIT.
+- Next: inspect all exact-head USB modem identity and AI handoff Actions jobs/steps/full logs; if green, close this bounded slice and select a different whole-repository stability issue. FTP upload-cleanup TOCTOU remains OPEN/BLOCKED; NFS client semantics remain evidence-gated.
+
+---
+
 ## 2026-11-11 (UTC+8) — Publish OpenVPN client credentials privately and atomically
 
 - Base main SHA: e22c339dc8f04eb965cc19d36f9a2a0bec594e65; parent c26125ca58ffdcd5f164efafc18df2420e7be2de. Remote branch inventory at base: main only, no separate checkpoint.

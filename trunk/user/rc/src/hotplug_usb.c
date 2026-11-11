@@ -219,10 +219,11 @@ int mdev_sr_main(int argc, char **argv)
 	return 0;
 }
 
-int mdev_wdm_main(int argc, char **argv)
+int
+mdev_wdm_main(int argc, char **argv)
 {
-	int isLock, data_len;
-	char node_data[64];
+	int isLock, devnum, data_len;
+	char usb_port_id[64], node_data[128];
 	char *device_name, *action;
 
 	if (argc != 3){
@@ -246,15 +247,33 @@ int mdev_wdm_main(int argc, char **argv)
 
 	// If remove the device?
 	if (!get_hotplug_action(action)){
-		modem_node_file_remove(MODEM_NODE_DIR, device_name);
+		(void)modem_node_file_remove(MODEM_NODE_DIR, device_name);
 		goto out_unlock;
 	}
 
-	// Publish root-managed metadata through a private staging file.
-	data_len = snprintf(node_data, sizeof(node_data), "pref=%d\ndevnum=%d\n", 1, 0);
+	/* Resolve the physical USB identity before publishing the WDM control node. */
+	usb_port_id[0] = '\0';
+	if (!get_usb_port_by_device(device_name, usb_port_id, sizeof(usb_port_id))) {
+		usb_dbg("(%s): USB parent topology is not ready; refusing WDM metadata.\n", device_name);
+		(void)modem_node_file_remove(MODEM_NODE_DIR, device_name);
+		goto out_unlock;
+	}
+	usb_port_id[sizeof(usb_port_id) - 1] = '\0';
+	devnum = get_usb_devnum(usb_port_id);
+	if (!modem_node_usb_identity_is_valid(usb_port_id, devnum)) {
+		usb_dbg("(%s): USB device number is invalid; refusing WDM metadata.\n", device_name);
+		(void)modem_node_file_remove(MODEM_NODE_DIR, device_name);
+		goto out_unlock;
+	}
+
+	// Publish root-managed metadata through atomic replacement.
+	data_len = snprintf(node_data, sizeof(node_data),
+			    "pref=%d\ndevnum=%d\nportid=%s\n",
+			    1, devnum, usb_port_id);
 	if (data_len < 0 || data_len >= (int)sizeof(node_data) ||
 	    modem_node_file_write(MODEM_NODE_DIR, device_name, node_data) != 0) {
-		usb_dbg("(%s): Failed to publish modem node metadata.\n", device_name);
+		usb_dbg("(%s): Failed to publish WDM node metadata.\n", device_name);
+		(void)modem_node_file_remove(MODEM_NODE_DIR, device_name);
 		goto out_unlock;
 	}
 

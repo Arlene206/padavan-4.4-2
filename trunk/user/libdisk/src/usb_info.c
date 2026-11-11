@@ -118,6 +118,19 @@ char *get_usb_path_by_device(const char *device_name, char *buf, const int buf_s
 		}
 	}
 	else
+	if(device_type == DEVICE_TYPE_MODEM_WDM){
+		path_len = snprintf(device_path, sizeof(device_path), "%s/%s/device", SYS_PRINTER, device_name);
+		if (path_len < 0 || path_len >= (int)sizeof(device_path))
+			return NULL;
+		if(realpath(device_path, resolved_path) == NULL){
+			sleep(1); // WDM class links can appear after the mdev event.
+			if(realpath(device_path, resolved_path) == NULL){
+				usb_dbg("(%s)(2/2): Fail to get WDM link: %s.\n", device_name, device_path);
+				return NULL;
+			}
+		}
+	}
+	else
 		return NULL;
 
 	resolved_len = strlen(resolved_path);

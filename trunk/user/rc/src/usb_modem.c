@@ -32,6 +32,7 @@
 
 #include "rc.h"
 #include "ppp_options_file.h"
+#include "modem_node_identity_policy.h"
 
 #define MODEM_SCRIPTS_DIR	"/etc_ro"
 #define MAX_USB_NODE		(15)
@@ -196,6 +197,98 @@ find_modem_node(const char* pattern, int fetch_pref, int fetch_devnum, int fetch
 	if (fetch_index >= 0 && node_valid_last >= 0)
 		return node_valid_last;
 	
+	return -1;
+}
+
+static int
+find_modem_node_by_usb_identity(const char *pattern,
+				const char *expected_port_id,
+				int expected_devnum)
+{
+	FILE *fp;
+	int i, node_devnum, have_devnum, have_port_id, read_error;
+	long parsed_devnum;
+	char *endptr;
+	char node_fname[64], node_port_id[64], buf[96], *newline;
+	size_t port_len;
+	int path_len;
+
+	if (!modem_node_usb_identity_is_valid(expected_port_id, expected_devnum))
+		return -1;
+
+	for (i = 0; i < MAX_USB_NODE; i++) {
+		path_len = snprintf(node_fname, sizeof(node_fname), "%s/%s%d",
+				    MODEM_NODE_DIR, pattern, i);
+		if (path_len < 0 || path_len >= (int)sizeof(node_fname))
+			return -1;
+
+		fp = fopen(node_fname, "r");
+		if (!fp)
+			continue;
+
+		node_devnum = 0;
+		have_devnum = 0;
+		have_port_id = 0;
+		read_error = 0;
+		node_port_id[0] = '\0';
+
+		while (fgets(buf, sizeof(buf), fp) != NULL) {
+			newline = strpbrk(buf, "\r\n");
+			if (!newline) {
+				read_error = 1;
+				break;
+			}
+			*newline = '\0';
+
+			if (!strncmp(buf, "devnum=", 7)) {
+				const char *digit;
+				if (have_devnum || !buf[7]) {
+					read_error = 1;
+					break;
+				}
+				for (digit = buf + 7; *digit; digit++) {
+					if (*digit < '0' || *digit > '9') {
+						read_error = 1;
+						break;
+					}
+				}
+				if (read_error)
+					break;
+				errno = 0;
+				parsed_devnum = strtol(buf + 7, &endptr, 10);
+				if (errno != 0 || *endptr || parsed_devnum < 1 ||
+				    parsed_devnum > 127) {
+					read_error = 1;
+					break;
+				}
+				node_devnum = (int)parsed_devnum;
+				have_devnum = 1;
+			} else if (!strncmp(buf, "portid=", 7)) {
+				if (have_port_id) {
+					read_error = 1;
+					break;
+				}
+				port_len = strlen(buf + 7);
+				if (port_len == 0 || port_len >= sizeof(node_port_id)) {
+					read_error = 1;
+					break;
+				}
+				memcpy(node_port_id, buf + 7, port_len + 1);
+				have_port_id = 1;
+			}
+		}
+
+		if (ferror(fp))
+			read_error = 1;
+		if (fclose(fp) != 0)
+			read_error = 1;
+
+		if (!read_error && have_devnum && have_port_id &&
+		    modem_node_usb_identity_matches(expected_port_id, expected_devnum,
+					    node_port_id, node_devnum))
+			return i;
+	}
+
 	return -1;
 }
 
@@ -512,24 +605,35 @@ ndis_control_network(char *ndis_ifname, int devnum, int is_start)
 {
 	int valid_node;
 	char control_node_wdm[16] = {0}, control_node_tty[16] = {0};
+	char ndis_port_id[64] = {0};
 
-	/* check wdm device */
-	valid_node = find_modem_node("cdc-wdm", 0, 0, -1, NULL); // todo (need devnode for cdc-wdm)
-	if (valid_node >= 0)
-		sprintf(control_node_wdm, "cdc-wdm%d", valid_node);
+	/*
+	 * A WDM node is usable only when its published physical parent and USB
+	 * address match the selected NDIS interface; never take the first WDM
+	 * device on a multi-modem hub.
+	 */
+	if (get_usb_port_by_device(ndis_ifname, ndis_port_id, sizeof(ndis_port_id))) {
+		ndis_port_id[sizeof(ndis_port_id) - 1] = '\0';
+		valid_node = find_modem_node_by_usb_identity("cdc-wdm",
+						       ndis_port_id, devnum);
+		if (valid_node >= 0)
+			snprintf(control_node_wdm, sizeof(control_node_wdm),
+				 "cdc-wdm%d", valid_node);
+	}
 
-	/* check tty device */
+	/* check matching TTY device */
 	valid_node = get_modem_node("ttyUSB", devnum, NULL);
 	if (valid_node >= 0)
-		sprintf(control_node_tty, "ttyUSB%d", valid_node);
+		snprintf(control_node_tty, sizeof(control_node_tty),
+			 "ttyUSB%d", valid_node);
 
 	if (strlen(control_node_wdm) > 0) {
 		if (is_usbnet_has_module(ndis_ifname, "qmi_wwan"))
 			return qmi_control_network(control_node_wdm, is_start);
-		
+
 		if (is_usbnet_has_module(ndis_ifname, "cdc_mbim"))
 			return mbim_control_network(control_node_wdm, is_start);
-		
+
 		if (is_usbnet_has_module(ndis_ifname, "huawei_cdc_ncm"))
 			return ncm_control_network(control_node_wdm, is_start);
 	}
@@ -537,7 +641,7 @@ ndis_control_network(char *ndis_ifname, int devnum, int is_start)
 	if (strlen(control_node_tty) > 0) {
 		if (is_usbnet_has_module(ndis_ifname, "cdc_ncm"))
 			return ncm_control_network(control_node_tty, is_start);
-		
+
 		if (is_usbnet_has_module(ndis_ifname, "sierra_net"))
 			return sierra_control_network(control_node_tty, is_start);
 	}

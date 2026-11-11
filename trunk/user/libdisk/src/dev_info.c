@@ -43,6 +43,9 @@ int get_device_type_by_device(const char *device_name)
 	if (isSerialNode(device_name) || isACMNode(device_name))
 		return DEVICE_TYPE_MODEM_TTY;
 
+	if (isWDMNode(device_name))
+		return DEVICE_TYPE_MODEM_WDM;
+
 	if (is_usbnet_interface(device_name))
 		return DEVICE_TYPE_MODEM_ETH;
 #endif

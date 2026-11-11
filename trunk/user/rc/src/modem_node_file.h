@@ -10,6 +10,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "modem_node_identity_policy.h"
+
 /*
  * USB hotplug handlers run as root. Their metadata directory must never be
  * a symlink or a directory owned/writable by an untrusted local account.
@@ -38,17 +40,6 @@ modem_node_dir_prepare(const char *directory)
 		return -1;
 
 	return 0;
-}
-
-/*
- * A USB address of zero is only the enumeration default, not a stable device
- * identity. NDIS interfaces use it to select their matching control TTY, so
- * incomplete topology must not be published as a preferred node.
- */
-static int
-modem_node_usb_identity_is_valid(const char *port_id, int devnum)
-{
-	return port_id && *port_id && devnum >= 1 && devnum <= 127;
 }
 
 /* Kernel device names become leaf filenames, never relative paths. */
