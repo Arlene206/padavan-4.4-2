@@ -3,14 +3,14 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; branch `main`; only remote branch is `main`; no checkpoint branch.
-- Base main SHA for THIS COMMIT: `c2e1c85517ed2dcbe094ed43e3cae18d7af4d972` (parent `e6801775fc3af56dd084321eca9376899b2e7d76`).
-- HTTPD daemon lifecycle/duplicate-launch remains L1/L2 CLOSED on exact SHA `65f070aa3dfaa73154d3ab1ecb03d82a17abc388`: lifecycle [43063659893], security umbrella [43063082646] and AI docs [43063659714] all SUCCESS.
-- GPIO short-press timing remains L1/L2 CLOSED on exact SHA `31578abaefe5b2838b7c825460e21e730176b563`: GPIO [43065042288], docs [43065042295] and infosvr [43065042298] all SUCCESS.
-- DNS Forwarder caller-CWD defect and regression are L1/L2 CLOSED on exact SHA `c2e1c85517ed2dcbe094ed43e3cae18d7af4d972`: DNS Forwarder [43066687882], AI docs [43066687814] and infosvr [43066687818] all SUCCESS. CWD regression, RC/ROMFS/execvp source contracts and ten exact-once symmetric path filters passed. Docs validator reported root log=26/119 and archive counts dev-log=7, handoff=22, roadmap=18.
-- THIS COMMIT fixes DNSMasq DHCP pool validation. The previous fallback began at network+1 and could include the router LAN address (for example, `192.168.1.1` on a common `/24`); configured-pool validation only checked subnet membership and did not exclude the router, network or broadcast addresses. New policy validates masks/order, excludes those addresses, and chooses the larger contiguous side when generating a fallback pool. Invalid LAN subnets fail closed before generated host/ARP file side effects.
-- A standalone GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` host regression passed locally for configured conflicts, fallback ranges (router .1/.127/.254 and /30), invalid masks, /31-/32 and null outputs. Full DNSMasq workflow and exact-head docs Actions are pending; no local full repository checkout is available.
-- Root `dev_log.md` grows from 26 to 27 complete records; no rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
-- FTP upload-cleanup TOCTOU remains P2 OPEN/BLOCKED; NFS still needs external-client evidence. Production MIPS/uClibc, complete firmware/TRX and physical router behavior remain NOT VERIFIED.
+- Base main SHA for THIS COMMIT: `c22542d36e9de26780b338267f41a91d99aaf34a` (parent `c2e1c85517ed2dcbe094ed43e3cae18d7af4d972`).
+- DNS Forwarder caller-CWD independence is L1/L2 CLOSED on exact SHA `c2e1c85517ed2dcbe094ed43e3cae18d7af4d972`: DNS [43066687882], AI docs [43066687814] and infosvr [43066687818] all SUCCESS.
+- DNSMasq DHCP pool/router-address exclusion is L1/L2 CLOSED on exact SHA `c22542d36e9de26780b338267f41a91d99aaf34a`: DNSMasq lifecycle [43069047780] and AI docs [43069047752] SUCCESS; HTTPD umbrella [43069047723], infosvr [43069047578], Samba [43069047831] and miniupnpd [43069047633] also SUCCESS. All job steps and full DNSMasq/docs logs were inspected; DHCP pool, restart, lock, Inadyn, parser/source and docs archive contracts passed (root log=27/119; archives=7/22/18).
+- THIS COMMIT fixes a remaining shared-network teardown gap: `br_del_all_ifs()` ignored `vconfig_del_if()` failure while removing WAN bridge VLAN ports. Its caller `disassembly_bridges_wan()` aggregates this return and gates bridge removal; full WAN restart aborts on failed bridge teardown.
+- The fix deletes only dotted VLAN interface names (excluding `IFNAME_LAN` and ordinary physical ports) and includes the `vconfig_del_if()` ioctl result in the existing bridge cleanup status.
+- Root `dev_log.md` grows from 27 to 28 complete records; no rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- FTP upload-cleanup TOCTOU remains P2 OPEN/BLOCKED; NFS still requires external-client evidence. Production MIPS/uClibc, full firmware/TRX and physical router behavior remain NOT VERIFIED.
+
 ## Closed task — NVRAM HDR2 profile-save atomic publication
 
 - Commit ce7efad34dbd81097d923f9568f0ae9946694b58; exact-head HTTPD [42992756073] and AI docs [42992755926] both SUCCESS. All 39 HTTPD job steps passed.
@@ -124,29 +124,37 @@
 - Exact-head DNS Forwarder [43066687882], AI docs [43066687814] and infosvr [43066687818] all SUCCESS on `c2e1c85517ed2dcbe094ed43e3cae18d7af4d972`. The CWD behavior regression, service/installer/execvp source contracts, ten exact-once push/pull_request filters and docs validator passed; docs reported root log=26/119 and archive inventory 7/22/18.
 - L1/L2 slice CLOSED. Production MIPS/uClibc, daemon readiness/live forwarding and L3/L4 router validation remain NOT VERIFIED.
 
-## Active task — Prevent DNSMasq DHCP pools from including the router address (P2 LAN reliability)
+## Closed task — Prevent DNSMasq DHCP pools from including the router LAN address (P2 LAN reliability; L1/L2 complete)
+
+- Exact main SHA `c22542d36e9de26780b338267f41a91d99aaf34a`: DNSMasq lifecycle [43069047780] and AI handoff docs [43069047752] both completed SUCCESS. HTTPD authentication/security [43069047723], infosvr packet/signal [43069047578], Samba config [43069047831] and miniupnpd config [43069047633] also completed SUCCESS.
+- DNSMasq lifecycle job: all ten steps succeeded. GNU89 restart policy, DHCP pool conflict/range policy, cross-process lifecycle lock, and private atomic Inadyn configuration regressions passed; DNSMasq parser/source, generated DHCP file ordering, daemon postcondition and RC status propagation contracts passed.
+- AI docs job: all seven steps succeeded. Validator reported root log=27/119 and archive inventory dev-log=7, handoff=22, roadmap=18. Full logs were inspected; no test failure was found.
+- This closes the DHCP pool/router-address exclusion slice at L1/L2 only. Production MIPS/uClibc build, complete firmware/TRX, live lease allocation and L4 router behavior remain NOT VERIFIED.
+
+## Active task — Propagate VLAN deletion failures during WAN bridge teardown (P2 reliability)
 
 ### Finding and implementation in THIS COMMIT
 
-- `simple_dhcp_range()` previously computed the fallback pool as `network+1` through `broadcast-1`. On a common `192.168.1.1/24` LAN this included `192.168.1.1`, the router's own address, as a DHCP candidate.
-- `chk_valid_subnet_pool()` previously checked only that both endpoints belonged to the LAN subnet. It accepted reversed ranges, network/broadcast endpoints, non-contiguous masks and configured intervals containing the router address.
-- THIS COMMIT adds a pure DHCP-range policy helper and sanitizer regression. Configured ranges must be ordered, inside usable subnet addresses and exclude the router. Fallback generation selects the larger contiguous side of the usable subnet around the router so it never includes the router address. /31, /32, non-contiguous and zero masks fail closed.
-- `prepare_dns_dhcpd()` now validates/fixes the range before generated host/ARP files are touched. If the LAN IP/netmask cannot form a safe DHCP subnet, preparation returns `EINVAL` before those side effects, preserving the last-known-good service through the existing restart policy.
-- Local GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` policy test PASS (configured conflicts, fallback selection, /30 and invalid subnet cases). Exact-head DNSMasq workflow and AI docs validation are pending.
+- `br_del_all_ifs()` already accumulated bridge detach, interface lookup and requested interface-down ioctl failures. But its `do_if_rem` branch called `vconfig_del_if(ifr.ifr_name)` and discarded the return value, then returned the previous status.
+- `vconfig_del_if()` returns the `SIOCSIFVLAN/DEL_VLAN_CMD` ioctl result. The actual caller `disassembly_bridges_wan()` invokes `br_del_all_ifs(br_ifname, 1, 1)`, aggregates its status and skips bridge deletion on error; `full_restart_wan()` aborts when WAN bridge teardown fails. The ignored result therefore bypassed an existing fail-closed gate and could leave a detached-but-still-existing VLAN interface while teardown appeared complete.
+- This COMMIT restricts VLAN deletion to dotted interface names, preserving `IFNAME_LAN` and ordinary physical bridge ports. A failed VLAN delete is passed through `bridge_cleanup_status_update()`, so the existing WAN bridge and full-restart gates receive the failure.
+- The GNU89 bridge regression now covers VLAN selection, removal disabled, LAN/physical-port exclusions and null/empty names. The existing wireless/shared-network workflow adds source contracts proving the `vconfig_del_if()` return reaches the teardown status.
+- Standalone GNU89 policy regression built with `-Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer` and printed `Bridge membership and teardown policy regression: PASS`. No complete local repository checkout, full repository checker or production target build is claimed.
 
 ### Exact next action
 
-- Fetch live `main`; inspect DNSMasq lifecycle and AI handoff documentation Actions on that exact SHA, every job step and full logs.
-- Require the new DHCP pool policy binary, DNSMasq parser/source contracts (including step 6), restart/lock/Inadyn regressions and exact-once push/pull_request filters to pass. Docs validator should report root log=27/119 and archives dev-log=7, handoff=22, roadmap=18.
-- On exact-head green, close this bounded DNSMasq L2 slice and rotate to another actionable whole-userland stability defect. Do not revisit the closed HTTPD, GPIO or DNS Forwarder slices.
-- FTP cleanup TOCTOU remains OPEN/BLOCKED pending a Linux 4.4-safe design preserving STOR/APPE/REST/STOU; NFS needs real-client evidence. Production MIPS/uClibc, firmware/TRX and L4 remain NOT VERIFIED.
+- Inspect the wireless bridge/membership/teardown and AI handoff docs Actions on the resulting exact main SHA, every job step and full logs.
+- Require the GNU89 sanitizer regression, VLAN/non-VLAN/LAN selection cases, source contract proving `vconfig_del_if()` status reaches `br_del_all_ifs()`, and docs validator (root log=28/119; archives=7/22/18) to PASS.
+- If exact-head L2 is green, arrange target MIPS/uClibc bridge detach/VLAN ioctl validation when a complete checkout/toolchain is available. FTP cleanup TOCTOU remains OPEN/BLOCKED; NFS needs real-client evidence; WAN PPP/IPv6 interactions, firmware/TRX and L4 remain NOT VERIFIED.
 
 ## Verification boundary
 
-- L1 source review: PASS for DNSMasq range policy design and integration. Configured and fallback pools exclude the router LAN address, network and broadcast endpoints; invalid/non-contiguous or too-small subnets fail closed before generated host/ARP side effects.
-- L2 host / Actions: local GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` DHCP range policy test PASS. DNSMasq lifecycle workflow (parser/source contracts, restart/lock/Inadyn regressions and exact-once path filters) and AI docs Actions are pending on THIS COMMIT's resulting SHA. DNS Forwarder [43066687882], docs [43066687814] and infosvr [43066687818] all SUCCESS on exact parent SHA `c2e1c85517ed2dcbe094ed43e3cae18d7af4d972`.
-- L3 production MIPS/uClibc RC object / full firmware/TRX: NOT VERIFIED for DNSMasq, DHCP pool integration or prior userland changes.
-- L4 router / hardware: NOT VERIFIED. No live DHCP offer/lease renewal, client conflict test, DNSMasq readiness or physical-router behavior is claimed.
+- L1 source review: PASS for the DNSMasq router-address exclusion gate and the WAN bridge VLAN deletion selection/status path. The caller chain is traced through `disassembly_bridges_wan()` and the full WAN restart fail-closed gate.
+- L2 host / Actions: standalone GNU89 `-Wall -Wextra -Werror` ASan/UBSan bridge membership/teardown policy regression PASS. Exact-head wireless and AI-doc Actions for THIS COMMIT are pending; do not mark VLAN failure propagation L2-closed until every step and full logs are inspected.
+- L2 DNSMasq closure: exact SHA `c22542d36e9de26780b338267f41a91d99aaf34a`; DNSMasq [43069047780], AI docs [43069047752], HTTPD umbrella [43069047723], infosvr [43069047578], Samba [43069047831] and miniupnpd [43069047633] all SUCCESS.
+- L3 production MIPS/uClibc RC objects / complete firmware/TRX: NOT VERIFIED for bridge/VLAN teardown and previous target-bound slices.
+- L4 router / physical hardware: NOT VERIFIED. No live WAN VLAN deletion, bridge ioctl, DHCP allocation, or physical router behavior is claimed.
+
 ## Other open governance-ledger risks
 
 1. FTP failed-upload cleanup TOCTOU — P2 OPEN/BLOCKED. Linux 4.4 has no inode-conditional unlink-by-fd: fstatat() followed by unlinkat() still deletes whichever inode owns the name at unlink time. rename/exchange is not a conditional inode compare, and staged publication would change existing STOR/APPE/REST visibility and overwrite semantics. Do not patch without a proved design preserving STOR/APPE/REST/STOU, parent/inode safety and supported filesystem behavior.
@@ -159,7 +167,7 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, verify its exact SHA descends from `c2e1c85517ed2dcbe094ed43e3cae18d7af4d972`, and inspect DNSMasq lifecycle plus AI handoff documentation Actions on that exact SHA, every step and full logs.
-2. Require DHCP pool policy regression (router address at first/middle/last, /30, network/broadcast, interval ordering and invalid masks), DNSMasq restart/lock/Inadyn binaries, step-6 parser/source contracts and exact-once symmetric event filters to pass. Docs validator should report root log=27/119 and archive inventory 7/22/18.
-3. If exact-head DNSMasq/docs Actions are green, close L2 and rotate to another actionable whole-userland stability defect. If red, fix the exact-head failure before rotating.
-4. FTP upload-cleanup TOCTOU stays OPEN/BLOCKED until a proven Linux 4.4-safe inode/parent design preserves STOR/APPE/REST/STOU. NFS external-client evidence, target MIPS/uClibc, full firmware/TRX and L4 remain NOT VERIFIED.
+1. Fetch live `main`, confirm its exact SHA and inspect the wireless bridge/membership/teardown and AI handoff docs Actions tied to it. Inspect every job step and full logs.
+2. Require VLAN selection, failed-`vconfig_del_if()` return propagation, the GNU89 ASan/UBSan policy regression, existing bridge membership/bulk teardown contracts, and docs validator root log=28/119 with archives=7/22/18 to pass on the same exact SHA.
+3. If green, close this bounded VLAN teardown slice at L2. Next arrange target MIPS/uClibc validation of bridge detach and VLAN ioctl behavior when a complete checkout/toolchain is available; otherwise retain the precise blocker.
+4. FTP failed-upload cleanup TOCTOU remains OPEN/BLOCKED until a proven Linux 4.4-safe inode/parent approach preserves STOR/APPE/REST/STOU. NFS durability/AUTH_SYS/root-squash/external mounts require client evidence; WAN PPP/IPv6, full firmware/TRX and L4 remain NOT VERIFIED.

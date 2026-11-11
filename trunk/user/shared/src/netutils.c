@@ -905,8 +905,10 @@ br_del_all_ifs(const char *brname, int do_if_down, int do_if_rem)
 						continue;
 				}
 			}
-			if (do_if_rem && strcmp(ifr.ifr_name, IFNAME_LAN))
-				vconfig_del_if(ifr.ifr_name);
+			if (bridge_cleanup_should_remove_vlan(do_if_rem, ifr.ifr_name, IFNAME_LAN)) {
+				ret = vconfig_del_if(ifr.ifr_name);
+				status = bridge_cleanup_status_update(status, ret);
+			}
 		}
 	}
 

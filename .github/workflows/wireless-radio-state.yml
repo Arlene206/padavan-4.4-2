@@ -308,6 +308,16 @@ jobs:
           assert "return status;" in cleanup
           assert cleanup.index("if (!detached[i])") < cleanup.index("SIOCGIFNAME")
           assert cleanup.index("if (do_if_down)") < cleanup.index("SIOCGIFFLAGS")
+          assert "bridge_cleanup_should_remove_vlan(do_if_rem, ifr.ifr_name, IFNAME_LAN)" in cleanup
+          vlan_remove_pos = cleanup.index("ret = vconfig_del_if(ifr.ifr_name);")
+          vlan_status_pos = cleanup.index(
+              "status = bridge_cleanup_status_update(status, ret);", vlan_remove_pos)
+          assert vlan_remove_pos < vlan_status_pos, (
+              "failed VLAN deletion must be included in bridge teardown status")
+          vlan_delete = function_body(
+              netutils_source, "vconfig_del_if(const char *vifname)")
+          assert "ret = ioctl(sockfd, SIOCSIFVLAN, &ifr)" in vlan_delete
+          assert "return ret;" in vlan_delete
 
           # The periodic iNIC health check must retain the guest-up result.
           inic_check = function_body(source, "check_inic_mii_rebooted(void)")

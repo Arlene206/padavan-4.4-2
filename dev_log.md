@@ -1,3 +1,17 @@
+## 2026-11-12 01:35 CST (UTC+8) — Propagate VLAN deletion failures during WAN bridge teardown
+
+- Base main SHA: `c22542d36e9de26780b338267f41a91d99aaf34a`; parent `c2e1c85517ed2dcbe094ed43e3cae18d7af4d972`.
+- Closed the preceding DNSMasq DHCP pool task on that exact SHA: DNSMasq lifecycle [43069047780], AI docs [43069047752], HTTPD umbrella [43069047723], infosvr [43069047578], Samba [43069047831] and miniupnpd [43069047633] all SUCCESS. Every DNSMasq/docs step and full logs were inspected; DHCP policy, restart, lifecycle lock, Inadyn, parser/source and docs validator (27/119; archives 7/22/18) passed.
+- New whole-network teardown review found `br_del_all_ifs()` discarded `vconfig_del_if()` return status. The WAN caller `disassembly_bridges_wan()` aggregates that result, skips bridge deletion on failure, and the full WAN restart aborts when bridge teardown fails; ignoring VLAN-delete errors bypassed that existing fail-closed gate and could leave a stale VLAN interface.
+- Fix: select only dotted VLAN interface names (preserving `IFNAME_LAN` and ordinary physical ports), check `vconfig_del_if()`, and aggregate the result via `bridge_cleanup_status_update()`.
+- Regression: extend the existing GNU89 bridge membership/cleanup test with VLAN selection, removal-disabled, LAN/physical-port, null/empty-name and cleanup-status cases. Extend the existing workflow source contract to require the selected VLAN delete result to reach `br_del_all_ifs()` status.
+- Local standalone policy regression compiled with `cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer` and printed `Bridge membership and teardown policy regression: PASS`. No complete local checkout, whole-repository checker or production target build is claimed.
+- Exact-head wireless and AI docs Actions are pending on THIS COMMIT. L3 MIPS/uClibc bridge/VLAN ioctl behavior, complete firmware/TRX and L4 router behavior remain NOT VERIFIED.
+- Root `dev_log.md` moves 27→28 complete entries; no rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- Next GPT: inspect wireless bridge/membership/teardown and AI docs Actions on the exact resulting main SHA, all steps/full logs. On green, close this bounded L2 slice; target MIPS/uClibc bridge/VLAN validation remains blocked pending checkout/toolchain. FTP cleanup TOCTOU remains OPEN/BLOCKED; NFS still requires external-client evidence.
+
+---
+
 ## 2026-11-12 01:29 CST (UTC+8) — Prevent DNSMasq DHCP pools from including the router LAN address
 
 - Base main SHA: `c2e1c85517ed2dcbe094ed43e3cae18d7af4d972`; parent `e6801775fc3af56dd084321eca9376899b2e7d76`. Main was re-fetched before preparing this commit; it remains the only remote branch.

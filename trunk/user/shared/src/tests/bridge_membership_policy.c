@@ -14,6 +14,18 @@ expect_membership(const int *ifindices, unsigned int count, int ifindex,
 	}
 }
 
+static void
+expect_remove_vlan(int do_if_rem, const char *ifname, const char *lan_ifname,
+		   int expected, const char *label)
+{
+	int actual = bridge_cleanup_should_remove_vlan(do_if_rem, ifname, lan_ifname);
+
+	if (actual != expected) {
+		fprintf(stderr, "%s: expected %d got %d\\n", label, expected, actual);
+		exit(1);
+	}
+}
+
 int
 main(void)
 {
@@ -32,6 +44,13 @@ main(void)
 	expect_membership(ifindices, BRIDGE_PORT_LIST_CAPACITY, 0, 0, "zero interface index");
 	expect_membership(ifindices, BRIDGE_PORT_LIST_CAPACITY, -1, 0, "negative interface index");
 
+	expect_remove_vlan(0, "eth2.35", "br0", 0, "removal disabled");
+	expect_remove_vlan(1, "br0", "br0", 0, "LAN bridge preserved");
+	expect_remove_vlan(1, "eth2", "br0", 0, "physical port preserved");
+	expect_remove_vlan(1, "eth2.35", "br0", 1, "VLAN port selected");
+	expect_remove_vlan(1, NULL, "br0", 0, "missing interface name");
+	expect_remove_vlan(1, "", "br0", 0, "empty interface name");
+
 	if (bridge_cleanup_should_set_interface_down(0, 1) != 0 ||
 	    bridge_cleanup_should_set_interface_down(1, 0) != 0 ||
 	    bridge_cleanup_should_set_interface_down(1, 1) != 1) {
@@ -45,6 +64,6 @@ main(void)
 		return 1;
 	}
 
-	puts("Bridge membership and cleanup policy regression: PASS");
+	puts("Bridge membership and teardown policy regression: PASS");
 	return 0;
 }
