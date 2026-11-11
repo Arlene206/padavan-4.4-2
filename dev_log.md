@@ -1,3 +1,19 @@
+## 2026-11-11 17:16 CST (UTC+8) — Defer networkmap daemon signal handling and cleanup to main loop
+
+- Base main SHA: `ce7efad34dbd81097d923f9568f0ae9946694b58`; parent: `534e4e38ed5e729af845d7ad69bb84d8b96a5c47`. Only remote branch was `main`; no checkpoint branch.
+- Closed the previously pending NVRAM profile-save task on exact head `ce7efad34dbd81097d923f9568f0ae9946694b58`: HTTPD Authentication/Security [42992756073] and AI handoff docs [42992755926] both completed SUCCESS. Every one of the 39 HTTPD job steps succeeded. Full logs confirm `NVRAM profile policy: PASS`, `NVRAM profile atomic publication: PASS`, `NVRAM CLI assignment policy: PASS`, RC NVRAM persistence checks, private HTTPD export path, and the rest of the selected HTTPD/storage/wireless contracts. Docs validation reported root log=100/119 and archives dev-log=6, handoff=22, roadmap=18.
+- New P2 reliability finding in `trunk/user/networkmap/src/networkmap.c`: SIGTERM called `clear_resources()` and `exit(0)` from the handler. The cleanup closes the ARP socket, frees the client list, writes NVRAM and removes the PID file, risking re-entry into libc/allocator/NVRAM state. SIGUSR1 also directly changed `networkmap_fullscan` and `scan_now` while the main loop used them. `function.c` declares `extern unsigned int scan_now`, so the previous volatile definition was inconsistent.
+- Fix in THIS COMMIT: both handlers now expand a macro to direct `volatile sig_atomic_t` flag assignments only; no helper function or cleanup routine runs in signal context. The main loop temporarily blocks SIGUSR1 while snapshotting/clearing the refresh flag and restores the caller's previous mask, so a new pending signal is delivered on the next pass. Refresh flags/counters and all resource cleanup are applied only in normal process context. `scan_now` declaration now matches its non-volatile extern.
+- Regression: new GNU89 ASan/UBSan test covers refresh/exit mapping, coalescing, ignored signals, exactly-once consumption, already-blocked mask preservation, pending SIGUSR1 delivery and NULL input. New source checker verifies handler purity, mask/snapshot/restore order, receive timeout, main-context cleanup, networkmap build/package wiring, RC lifecycle and symmetric push/PR path filters.
+- Local test rerun using the final macro-based header: `cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer`; run with `ASAN_OPTIONS=detect_leaks=1`: `networkmap signal deferral policy: PASS`.
+- Exact-head networkmap and AI docs workflows are pending; do not claim them before inspecting their complete logs. No full networkmap production object, MIPS/uClibc image, firmware/TRX or router test is claimed.
+- Changed paths: `trunk/user/networkmap/src/networkmap.c`, new policy header/test, new source checker/workflow, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log.
+- Root `dev_log.md`: 100 complete records before this entry; 101 after. Below 120-record / 384 KiB rotation triggers and 512 KiB hard cap; no archive or index update is due.
+- Resulting commit: THIS COMMIT.
+- Next: inspect exact resulting main SHA and every job step/full log for the networkmap signal regression and AI docs. Require sanitizer test, signal/call-path/package/source contract and docs validator to pass on that same SHA; then rotate to an under-covered userland service.
+
+---
+
 ## 2026-11-11 16:50 CST (UTC+8) — Publish NVRAM backup profiles atomically
 
 - Base main SHA: `534e4e38ed5e729af845d7ad69bb84d8b96a5c47`; parent `78e31e4738db0dd7685b2560e431236c5474eed1`. Remote branch inventory contained only `main`; no checkpoint branch.

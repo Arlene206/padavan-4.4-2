@@ -22,6 +22,7 @@
 #include <bin_sem_asus.h>
 
 #include "networkmap.h"
+#include "networkmap_signal_policy.h"
 
 #define MAX_SUBNET_SCAN		(24) /* 23..24 */
 #define NUM_CLIENTS_SCAN	(1U << (32U - MAX_SUBNET_SCAN))
@@ -32,12 +33,13 @@ static unsigned char my_hwaddr[8];
 static struct in_addr my_ipaddr;
 static struct in_addr my_ipmask;
 
-volatile unsigned int scan_now = 0;
+unsigned int scan_now = 0;
 static unsigned int scan_max = NUM_CLIENTS_SCAN - 1;
 static unsigned int scan_net = 0xC0A80A00;
 static volatile int scan_block = 0;
-static volatile int networkmap_fullscan = 1;
-static volatile int daemon_exit = 0;
+static int networkmap_fullscan = 1;
+static volatile sig_atomic_t daemon_exit = 0;
+static volatile sig_atomic_t networkmap_refresh_requested = 0;
 
 /******** Build ARP Socket Function *********/
 static int arp_sockfd = -1;
@@ -198,17 +200,13 @@ clear_resources(void)
 static void
 sig_refresh(int sig)
 {
-	networkmap_fullscan = 1;
-	scan_now = 0;
+	networkmap_signal_record(&networkmap_refresh_requested, &daemon_exit, sig);
 }
 
 static void
 sig_exit(int sig)
 {
-	daemon_exit = 1;
-	clear_resources();
-
-	exit(0);
+	networkmap_signal_record(&networkmap_refresh_requested, &daemon_exit, sig);
 }
 
 static void
@@ -716,7 +714,7 @@ nmap_iterate(void)
 int main(int argc, char *argv[])
 {
 	FILE *fp;
-	int c, no_daemon = 0, do_wait = 0;
+	int c, no_daemon = 0, do_wait = 0, exit_status = 0;
 
 	SLIST_INIT(&net_clients.head);
 	net_clients.count = 0;
@@ -770,11 +768,26 @@ int main(int argc, char *argv[])
 
 	nmap_init();
 
-	while (!daemon_exit)
-		nmap_iterate();
+	while (!daemon_exit) {
+		int refresh = networkmap_signal_take_refresh(&networkmap_refresh_requested);
+
+		if (refresh < 0) {
+			perror("networkmap signal mask");
+			exit_status = 1;
+			break;
+		}
+
+		if (refresh) {
+			networkmap_fullscan = 1;
+			scan_now = 0;
+		}
+
+		if (!daemon_exit)
+			nmap_iterate();
+	}
 
 	clear_resources();
 
-	return 0;
+	return exit_status;
 }
 

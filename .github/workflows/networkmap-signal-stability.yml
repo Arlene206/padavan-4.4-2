@@ -1,0 +1,54 @@
+name: networkmap signal lifecycle stability regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/networkmap-signal-stability.yml"
+      - "scripts/check_networkmap_signals.py"
+      - "trunk/user/networkmap/src/networkmap.c"
+      - "trunk/user/networkmap/src/networkmap_signal_policy.h"
+      - "trunk/user/networkmap/src/tests/networkmap_signal_policy.c"
+      - "trunk/user/networkmap/src/function.c"
+      - "trunk/user/networkmap/src/networkmap.h"
+      - "trunk/user/networkmap/src/Makefile"
+      - "trunk/user/networkmap/Makefile"
+      - "trunk/user/Makefile"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/Makefile"
+  pull_request:
+    paths:
+      - ".github/workflows/networkmap-signal-stability.yml"
+      - "scripts/check_networkmap_signals.py"
+      - "trunk/user/networkmap/src/networkmap.c"
+      - "trunk/user/networkmap/src/networkmap_signal_policy.h"
+      - "trunk/user/networkmap/src/tests/networkmap_signal_policy.c"
+      - "trunk/user/networkmap/src/function.c"
+      - "trunk/user/networkmap/src/networkmap.h"
+      - "trunk/user/networkmap/src/Makefile"
+      - "trunk/user/networkmap/Makefile"
+      - "trunk/user/Makefile"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/Makefile"
+
+permissions:
+  contents: read
+
+jobs:
+  networkmap-signal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run GNU89 networkmap signal deferral regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/networkmap/src \
+            trunk/user/networkmap/src/tests/networkmap_signal_policy.c \
+            -o /tmp/networkmap-signal-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/networkmap-signal-policy
+      - name: Verify networkmap signal deferral and lifecycle contracts
+        run: python3 scripts/check_networkmap_signals.py
