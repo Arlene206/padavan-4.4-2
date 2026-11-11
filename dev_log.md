@@ -1,3 +1,18 @@
+## 2026-11-11 (UTC+8) — Repair GPIO lifecycle contract and SkipDBv2 host-test compile gate
+
+- Base main SHA: 006efd3eb3939f6a1081e7c2a84618ac6377a15a; parent `a6c425e800473c3cad3761da39e8599004717964`; remote branch inventory: `main` only.
+- Exact-base Actions review: GPIO startup workflow [42981514461] compiled and ran its GNU89/ASan/UBSan policy regression successfully, then failed in `scripts/check_gpio_btn_lifecycle.py` because its assertion looked for the `for` loop condition after the body expression. This is a source-contract test bug; the production `start_gpio_btn()` source passed the compiler-independent review.
+- AI documentation workflow [42981514314] completed SUCCESS and validated root log 96/119 plus archives dev-log=6, handoff=22, roadmap=18.
+- The GPIO RC source is also an explicit path input to `.github/workflows/skipdbv2-regression.yml`. That exact-base workflow [42981514471] passed the XY-C1 firmware integration contract, but the host build failed compiling `tests/convert_utf8_bounds.c`: `true` and `false` were undeclared. The source file blob `ece2c8f34e113ce0e534d37f5bea693f2899f916` is identical on the previous main parent `a6c425e800473c3cad3761da39e8599004717964`, confirming a pre-existing test-source defect exposed by this path-triggered run, not a GPIO code runtime regression.
+- Fixes in THIS COMMIT: move the source contract's loop-condition lookup before its body probe and assert the launch-error branch explicitly preserves the policy status; add `#include <stdbool.h>` to the SkipDBv2 UTF-8 regression test so its `true`/`false` arguments are declared.
+- Changed paths: `scripts/check_gpio_btn_lifecycle.py`, `trunk/user/skipdbv2/skipdbv2/tests/convert_utf8_bounds.c`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log. No production GPIO or SkipDBv2 library implementation changed.
+- Validation: the GPIO policy binary itself passed in Actions [42981514461] step 3; docs validation passed [42981514314]. The corrected Python contract and full SkipDB build/CTest have not yet run on the new source. No production MIPS/uClibc object, firmware/TRX or L4 hardware validation is claimed.
+- Root log: 96 complete records before this entry, 97 after; below 384 KiB and 512 KiB limits; no archive/index rotation due.
+- Resulting commit: THIS COMMIT.
+- Next: verify GPIO [source-contract], SkipDBv2 [integration + all-target build + CTest], and AI docs on the exact resulting SHA; inspect every step and log. If green, close GPIO startup and continue the whole-repository stability queue. FTP cleanup TOCTOU remains OPEN/BLOCKED; NFS external-client evidence remains required.
+
+---
+
 ## 2026-11-11 (UTC+8) — Verify GPIO button daemon startup postcondition
 
 - Base main SHA: a6c425e800473c3cad3761da39e8599004717964; parent `d35c5b8e3363db8b4a680e91a080ef7a7b7e0c0f`; remote branch inventory: `main` only.

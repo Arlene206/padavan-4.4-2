@@ -78,9 +78,12 @@ grace = start.index("sleep(1);", launch_error)
 first_probe = start.index(
     'gpio_btn_start_policy_status(launch_status, pids("gpio_btn"))', grace
 )
-retry = start.index("attempt < GPIO_BTN_START_WAIT_ATTEMPTS", first_probe)
-assert existing < launch < launch_error < grace < first_probe < retry
-assert 'return gpio_btn_start_policy_status(launch_status, pids("gpio_btn"));' in start
+retry = start.index("attempt < GPIO_BTN_START_WAIT_ATTEMPTS", launch_error)
+launcher_failure = function_body(start, "if (launch_status != 0)")
+assert existing < launch < launch_error < grace < retry < first_probe
+assert 'status = gpio_btn_start_policy_status(launch_status, pids("gpio_btn"));' in launcher_failure
+assert "return status;" in launcher_failure
+assert "attempt + 1 < GPIO_BTN_START_WAIT_ATTEMPTS" in start[first_probe:]
 assert "if (status == 0)" in start
 assert "return status;" in start
 assert "daemon did not remain running" in start
