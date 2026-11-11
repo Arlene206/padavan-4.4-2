@@ -1,3 +1,17 @@
+## 2026-11-11 18:18 CST (UTC+8) — Close udhcpc callback gate and hand off Optware lifecycle audit
+
+- Base main SHA: 17b4583ce0511a3cbbd02cef18024fe7b30110e7; parent a3ee4d0e628434b1e16171f457afa0791c84f7a3; branch inventory: main only, no remote checkpoint.
+- Closed the DHCP callback-status fix at L2 on its exact code SHA. Dedicated udhcpc workflow [43002980464], path-triggered infosvr packet regression [43002980467] and AI handoff documentation validation [43002980526] all completed SUCCESS on 17b4583ce0511a3cbbd02cef18024fe7b30110e7. Every job/step and complete log was inspected.
+- The committed udhcpc GNU89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer test printed "udhcpc script failure retry policy: PASS"; source checker printed "udhcpc event-script status and lease-state source contracts: PASS". AI docs validator printed "AI handoff documentation check: PASS (root log=106/119 entries, batch=100, retain=20, legacy/current archives: dev-log=6, handoff=22, roadmap=18)".
+- L2 closure applies only to the bound/renew DHCPACK callback gate and retry/deadline policy. Production MIPS/uClibc BusyBox object, full firmware/TRX, live v4/v6 DHCP transitions and router behavior remain NOT VERIFIED. Other event-state semantics are still open.
+- Selected the next cross-repository P2 investigation: Optware/storage lifecycle under BusyBox ash. Prior review notes K95 hooks are not ROMFS-installed/invoked by the in-tree S?? dispatcher, while built-in Aria2/Transmission use separate RC scripts. The next pass must prove active installation/call paths before treating K95 code as production behavior.
+- Next task: inventory actual hook/RC/hotplug entrypoints; trace operation-lock ownership and descriptor lifetime, Optware startup/rollback/stop status, swapoff and /opt unmount ordering; add focused host regressions for the active path. Use BusyBox ash only when the shell implementation being tested is available and matched; do not substitute host POSIX shell claims for target ash evidence.
+- Root dev_log.md: 106 complete records before this entry; 107 afterward. Below the 120-record / 384 KiB rotation triggers and 512 KiB hard cap. Archive inventory remains dev-log=6, handoff=22, roadmap=18; no archive/index changes are due.
+- Changed paths: SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and this log only. This is a state-transition closeout and next-task handoff after exact-head verification, not a code-verification-only note.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-11 18:08 CST (UTC+8) — Preserve udhcpc event-script status and gate DHCP lease publication
 
 - Base main SHA: a3ee4d0e628434b1e16171f457afa0791c84f7a3; parent 65119b857a7684974caf2ae0e13d8112a0e035bd; branch inventory: main only, no remote checkpoint.
