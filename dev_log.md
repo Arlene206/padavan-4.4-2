@@ -1,3 +1,18 @@
+## 2026-11-11 22:43 CST (UTC+8) — Remove optional ash command-builtin dependency from Optware lock regression
+
+- Base main SHA: `abff1ed57217c1fe482bf80c2c419dde66437bf0`; parent `c4afed88518d2c4a9dc8c4e4dc2d0f2f129996f4`; remote branches: `main` only, no checkpoint.
+- Exact-head Actions reviewed on the base: udhcpc [43040638862] SUCCESS; infosvr [43040638851] SUCCESS; AI handoff docs [43040638793] SUCCESS; storage [43040639192] FAILURE. The udhcpc GNU89 ASan/UBSan binary and corrected source contract passed; infosvr packet/SIGTERM sanitizer binaries and source contract passed; docs validator reported root log=114/119 and archive inventory dev-log=6, handoff=22, roadmap=18.
+- Storage steps 3–8 passed. Step 9 successfully built/linked BusyBox 1.24.2; direct ash and awk calls, descriptor-backed `flock -n 9` / `flock -u 9` smoke, and all production-script ash syntax checks passed. The first lock regression then failed at its preflight `command -v flock`.
+- Root cause: the exact firmware-derived BusyBox config disables `CONFIG_ASH_CMDCMD`; the oldconfig transcript confirms the optional ash `command` builtin was left unset. The regression harness incorrectly depended on `command -v`, even though the actual lock helper and the preceding binary smoke exercise the real flock applet. No production lifecycle function was implicated.
+- Fix in THIS COMMIT: remove only that optional-builtin guard from `optware_lifecycle_lock.sh`. The real lifecycle lock acquisition remains the fail-closed test; do not enable CONFIG_ASH_CMDCMD just for the host test and do not change firmware config.
+- Validation boundary: L1 source/config diagnosis PASS. On the base SHA the BusyBox host build/link, direct ash/awk/flock smoke and shell syntax checks passed. The ash lock/teardown/startup functional regressions did not complete: the first stopped at the optional command-builtin guard, and later ash tests plus storage steps 10–13 were skipped. This commit's exact-head storage/docs Actions are pending. No local repository checkout was available; no local rerun, production MIPS/uClibc build, full firmware/TRX or L4 router test is claimed.
+- Changed paths: `trunk/user/scripts/tests/optware_lifecycle_lock.sh`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log.
+- Root dev_log.md had 114 complete newest-first records before this entry and has 115 afterward; archives remain dev-log=6, handoff=22, roadmap=18. No archive/index rotation is due.
+- Resulting commit: THIS COMMIT.
+- Next: reconcile storage and docs Actions on the exact resulting main SHA. Require all three Optware lifecycle regressions under BusyBox ash and storage steps 10–13 to pass; keep target MIPS/uClibc, full firmware/TRX, real router behavior and L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-11 22:34 CST (UTC+8) — Make BusyBox 1.24.2 applet validation behavioral and repair the DHCP source contract
 
 - Base main SHA: `c4afed88518d2c4a9dc8c4e4dc2d0f2f129996f4`; parent `de95a41f5c95bf6543c78cd05a4ca3228e4af7a8`; remote branch inventory: `main` only, no checkpoint.

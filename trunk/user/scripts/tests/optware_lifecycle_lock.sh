@@ -1,10 +1,9 @@
 #!/bin/sh
 set -eu
 
-if ! command -v flock >/dev/null 2>&1; then
-	echo "flock is required for this regression" >&2
-	exit 1
-fi
+# Do not probe with `command -v`: firmware ash may have CONFIG_ASH_CMDCMD
+# disabled. The first lock acquisition below exercises the required flock
+# applet directly and fails if the command is unavailable.
 
 script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 helper="$script_dir/../files/sbin/optware_lifecycle_lock.sh"
