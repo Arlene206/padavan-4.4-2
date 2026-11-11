@@ -1691,6 +1691,7 @@ jobs:
 
           ppp = Path("trunk/user/rc/src/net_ppp.c").read_text()
           wan = Path("trunk/user/rc/src/net_wan.c").read_text()
+          modem = Path("trunk/user/rc/src/usb_modem.c").read_text()
           helper = Path("trunk/user/rc/src/ppp_options_file.h").read_text()
           test = Path("trunk/user/rc/src/tests/ppp_options_file.c").read_text()
           value_policy = Path("trunk/user/rc/src/ppp_option_value_policy.h").read_text()
@@ -1716,6 +1717,23 @@ jobs:
           assert 'assert(ppp_options_file_open(symlink_path) == NULL)' in test
           assert 'assert(ppp_options_file_open(hardlink_path) == NULL)' in test
           assert 'assert(ppp_options_file_open(fifo_path) == NULL)' in test
+          assert "original_umask = umask(0000);" in test
+          assert "(st.st_mode & 0777) == 0666" in test
+          assert '(st.st_mode & (S_IWGRP | S_IWOTH)) == 0' in test
+
+          assert '#include "ppp_options_file.h"' in modem
+          assert "ppp_options_file_open(call_path)" in modem
+          assert "ppp_options_file_finish(fp, call_path)" in modem
+          assert 'fopen(call_path, "w+")' not in modem
+          assert 'mkdir_if_none(PPP_PEERS_DIR, "777")' not in modem
+          assert 'ppp_options_directory_ready("/tmp/ppp")' in modem
+          assert "ppp_options_directory_ready(PPP_PEERS_DIR)" in modem
+          assert '#include "ppp_options_file.h"' in wan
+          assert 'ppp_options_directory_ready("/tmp/ppp")' in wan
+          assert "ppp_options_directory_ready(PPP_PEERS_DIR)" in wan
+          assert 'mkdir("/tmp/ppp", 0777)' not in wan
+          assert 'mkdir(PPP_PEERS_DIR, 0777)' not in wan
+          assert "if (create_cb_links() != 0)" in wan
 
           assert '#include "ppp_option_value_policy.h"' in ppp
           assert "ppp_option_text_escape(line, buf, buf_size)" in ppp

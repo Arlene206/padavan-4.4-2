@@ -31,6 +31,7 @@
 #include <disk_share.h>
 
 #include "rc.h"
+#include "ppp_options_file.h"
 
 #define MODEM_SCRIPTS_DIR	"/etc_ro"
 #define MAX_USB_NODE		(15)
@@ -69,7 +70,7 @@ write_pppd_ras_conf(const char* call_path, const char *modem_node, int unit)
 	if (!get_modem_vid_pid(modem_node, &vid, &pid))
 		return 0;
 
-	if (!(fp = fopen(call_path, "w+")))
+	if (!(fp = ppp_options_file_open(call_path)))
 		return 0;
 
 	modem_type = nvram_get_int("modem_type");
@@ -134,7 +135,8 @@ write_pppd_ras_conf(const char* call_path, const char *modem_node, int unit)
 	fprintf(fp, "%s \"/bin/comgt -d /dev/%s -s %s/ppp/3g/%s\"\n", "connect", modem_node, MODEM_SCRIPTS_DIR, connect);
 	fprintf(fp, "%s \"/bin/comgt -d /dev/%s -s %s/ppp/3g/%s\"\n", "disconnect", modem_node, MODEM_SCRIPTS_DIR, "Generic_disconn.scr");
 
-	fclose(fp);
+	if (ppp_options_file_finish(fp, call_path) != 0)
+		return 0;
 
 	return 1;
 }
@@ -720,24 +722,32 @@ launch_wan_modem_ras(int unit)
 	char node_name[16] = {0};
 	char call_file[16];
 	char call_path[32];
+	int saved_errno;
 
 	snprintf(call_file, sizeof(call_file), "modem.wan%d", unit);
 	snprintf(call_path, sizeof(call_path), "%s/%s", PPP_PEERS_DIR, call_file);
 
-	mkdir_if_none(PPP_PEERS_DIR, "777");
-	unlink(call_path);
+	/* Fail closed even when this entry point is called outside start_wan(). */
+	if (ppp_options_directory_ready("/tmp/ppp") != 0 ||
+	    ppp_options_directory_ready(PPP_PEERS_DIR) != 0) {
+		saved_errno = errno ? errno : EPERM;
+		logmessage(LOGNAME, "refusing USB modem RAS peer file in unsafe directory (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return 1;
+	}
 
 	if (get_modem_node_ras(node_name, NULL)) {
 		if (write_pppd_ras_conf(call_path, node_name, unit)) {
-			
 			logmessage(LOGNAME, "select RAS modem interface %s to pppd", node_name);
-			
 			return eval("/usr/sbin/pppd", "call", call_file);
 		}
 	}
 
+	/* Never leave a stale peer with old credentials available for a later call. */
+	if (unlink(call_path) != 0 && errno != ENOENT)
+		logmessage(LOGNAME, "cannot remove stale USB modem RAS peer file (errno=%d)", errno);
 	logmessage(LOGNAME, "unable to open RAS modem script!");
-
 	return 1;
 }
 

@@ -31,6 +31,7 @@
 #include <signal.h>
 
 #include "rc.h"
+#include "ppp_options_file.h"
 #include "vpn_server_lifecycle_lock.h"
 #include "route_status_policy.h"
 #include "dnsmasq_file.h"
@@ -982,11 +983,20 @@ restore_wan_after_ppp_start_failure(int unit, char *wan_ifname)
 	start_firewall_ex();
 }
 
-static void
+static int
 create_cb_links(void)
 {
-	mkdir("/tmp/ppp", 0777);
-	mkdir(PPP_PEERS_DIR, 0777);
+	int saved_errno;
+
+	/* PID 1 uses umask(0000); keep callback paths non-writable by other uids. */
+	if (ppp_options_directory_ready("/tmp/ppp") != 0 ||
+	    ppp_options_directory_ready(PPP_PEERS_DIR) != 0) {
+		saved_errno = errno ? errno : EPERM;
+		logmessage(LOGNAME, "refusing WAN startup: unsafe PPP callback/peer directory (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
 	
 	symlink("/sbin/rc", "/tmp/ppp/ip-up");
 	symlink("/sbin/rc", "/tmp/ppp/ip-down");
@@ -1000,6 +1010,8 @@ create_cb_links(void)
 	symlink("/sbin/rc", "/tmp/ppp/ipv6-down");
 	symlink("/sbin/rc", SCRIPT_DHCP6C_WAN);
 #endif
+
+	return 0;
 }
 
 static void
@@ -1027,8 +1039,12 @@ start_wan(void)
 	int vlan_result;
 	char *wan_ifname;
 
-	/* Create links */
-	create_cb_links();
+	/* Secure PPP callback/peer storage before publishing callback links. */
+	if (create_cb_links() != 0) {
+		logmessage(LOGNAME, "aborting WAN startup: PPP callback/peer directory setup failed (errno=%d)",
+			   errno ? errno : EIO);
+		return;
+	}
 
 	vlan_result = config_vinet_wan();
 	if (vlan_result != 0) {

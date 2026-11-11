@@ -1,3 +1,17 @@
+## 2026-11-11 (UTC+8) — Protect USB modem RAS peer credentials under PID 1's zero umask
+
+- Base main SHA: `637786f2c0ec3c9a27c533e2ea8bbf8696e8efdd`; parent `ee2d2a7730d76dfe48f9a6cdeb585b68a5808b6f`. Remote branch inventory before this commit contained only `main`; no checkpoint branch.
+- Exact-head recovery on the base SHA: HTTPD Authentication/Security [42949569471] and AI handoff docs [42949569346] both completed SUCCESS. HTTPD passed all 39 steps, including the NVRAM CLI GNU89 ASan/UBSan regression and semantic/path contracts. The docs validator reported root log 83/119 and archive inventory `dev-log=6, handoff=22, roadmap=18`; the previous NVRAM CLI task is closed.
+- Finding: PID 1 sets `umask(0000)`. WAN callback setup used `mkdir("/tmp/ppp", 0777)` and `mkdir(PPP_PEERS_DIR, 0777)`; USB RAS `write_pppd_ras_conf()` then used `fopen(call_path, "w+")` (creation mode 0666 under that umask) and persisted NVRAM-derived modem username/password. The peer directory/file were accessible to local unprivileged users, exposing credentials and allowing local modification of pppd's call options.
+- Fix in THIS COMMIT: reuse the audited `ppp_options_directory_ready()` helper to validate and remove group/world write access from `/tmp/ppp` and `PPP_PEERS_DIR` before publishing callback links; abort WAN start if directory setup fails. The USB RAS launcher independently applies the same gates, then writes through `ppp_options_file_open()/finish()` (no-follow, regular file, euid owner, single link, fchmod 0600 before truncate, checked flush/close). Remove stale peer config only after directory validation and after modem discovery/write failure; eliminate unlink-before-open.
+- Regression: extend `tests/ppp_options_file.c` to run with `umask(0000)`, reproduce the legacy 0777 directory/0666 file modes, and verify directory repair plus secure 0600 peer replacement. Extend HTTPD's existing PPP credential workflow contract to assert both secure RAS writer wiring and WAN callback-directory gates. Existing path filters already include `net_wan.c`, `usb_modem.c`, the helper/test and workflow in push and pull_request.
+- Changed paths: `trunk/user/rc/src/net_wan.c`, `trunk/user/rc/src/usb_modem.c`, `trunk/user/rc/src/tests/ppp_options_file.c`, `.github/workflows/httpd-security.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and this log.
+- Validation boundary: base-SHA exact Actions are recorded above; THIS COMMIT's GNU89 regression and exact-head HTTPD/AI docs still require execution/verification. No complete local checkout, production MIPS/uClibc object, firmware/TRX, BusyBox or L4 router test is claimed.
+- Root `dev_log.md`: 83 complete records before this entry; 84 after. Below 120-entry / 384 KiB rotation triggers and 512 KiB hard limit; no archive or `docs/dev-log/INDEX.md` update is due.
+- Next: inspect the exact resulting main SHA and every job/step/full log for HTTPD Authentication/Security and AI handoff docs; verify the PPP zero-umask test and RAS source contract actually passed. If green, select another subsystem from the global roadmap. FTP upload cleanup remains OPEN/BLOCKED; NFS client compatibility remains evidence-gated; target MIPS/uClibc, firmware/TRX and L4 checks remain unverified.
+
+---
+
 ## 2026-11-11 (UTC+8) — Validate NVRAM CLI assignments and surface mutation failures
 
 - Base main SHA: `ee2d2a7730d76dfe48f9a6cdeb585b68a5808b6f`; parent `59b12c5908ef3f530cb59bb6bfa3415433042042`. Remote branch inventory before this commit contained only `main`; no checkpoint branch.
