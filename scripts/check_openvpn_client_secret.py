@@ -68,8 +68,8 @@ assert "unlink(staged_path)" in helper and "errno = saved_errno" in helper
 assert "O_TRUNC" not in helper
 
 for signature, label in (
-    ("static int\\nopenvpn_create_server_conf", "server"),
-    ("static int\\nopenvpn_create_client_conf", "client"),
+    ("static int\nopenvpn_create_server_conf", "server"),
+    ("static int\nopenvpn_create_client_conf", "client"),
 ):
     config_body = body(source, signature)
     assert "openvpn_config_file_open(conf_file" in config_body, label

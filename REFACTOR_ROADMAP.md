@@ -1,6 +1,6 @@
 ## Current source / CI checkpoint
 
-- Base main SHA for THIS COMMIT: `d5b5ff7ed841ea12af2eda604580722e49bf7436` (parent `d65a890e11712db880c09b48e05215a691118ab6`); only remote branch is `main`, no checkpoint branch.
+- Base main SHA for THIS COMMIT: `6e52bb21f55099b61b1bc9627b23c6ec0a1b8ea7` (parent `d5b5ff7ed841ea12af2eda604580722e49bf7436`); only remote branch is `main`, no checkpoint branch.
 - DNS Forwarder CWD-independent launcher L1/L2 CLOSED on `c2e1c85517ed2dcbe094ed43e3cae18d7af4d972`: DNS [43066687882], docs [43066687814], infosvr [43066687818] all SUCCESS.
 - DNSMasq DHCP pool/router-address exclusion L1/L2 CLOSED on `c22542d36e9de26780b338267f41a91d99aaf34a`: DNSMasq [43069047780], docs [43069047752], HTTPD [43069047723], infosvr [43069047578], Samba [43069047831], miniupnpd [43069047633] all SUCCESS.
 - WAN bridge VLAN deletion failure propagation L1/L2 CLOSED on `55740d3491fba908416b930664143943b5acca1a`: wireless [43069624285], docs [43069624357], infosvr [43069624265], WAN callback [43069624334] all SUCCESS.
@@ -8,7 +8,8 @@
 - THIS COMMIT fixes OpenVPN server/client primary config publication: same-directory stage, mode 0600 during generation, checked flush/fsync/final mode/fsync/close/rename, and last-good preservation/fail-closed startup. New GNU89 ASan/UBSan RLIMIT_FSIZE failure-injection test and source/workflow contracts added; exact-head Actions pending.
 - The first exact-head OpenVPN run [43071668469] passed the credential regression but failed config-test compilation: four YAML lines had two trailing backslashes, and ld reported `cannot find \\`; the config binary/source contract did not run. THIS COMMIT corrects the four shell continuations; rerun workflow/docs Actions on the resulting exact SHA.
 - On exact SHA `d5b5ff7ed841ea12af2eda604580722e49bf7436`, both GNU89 sanitizer binaries passed, but the source checker failed because its client-config order assertion still searched for `fopen(conf_file, "w+")` after migration to `openvpn_config_file_open()`. THIS COMMIT updates that stale boundary; rerun OpenVPN and docs Actions on exact head.
-- Root `dev_log.md` grows 32→33 entries; no rotation or INDEX update due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- On `6e52bb21f55099b61b1bc9627b23c6ec0a1b8ea7`, both sanitizer tests passed but source checker failed at line 74 because Python C-signature literals searched for literal backslash-n. THIS COMMIT fixes those two escapes; exact-head rerun pending.
+- Root `dev_log.md` grows 33→34 entries; no rotation or INDEX update due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
 - FTP cleanup TOCTOU remains OPEN/BLOCKED; NFS external-client behavior remains evidence-gated. Production MIPS/uClibc, complete firmware/TRX and L4 remain NOT VERIFIED.
 
 ## Whole-repository module status

@@ -1,3 +1,16 @@
+## 2026-11-12 01:57 CST (UTC+8) — Fix OpenVPN source-checker C signature newline escapes
+
+- Base main SHA: 6e52bb21f55099b61b1bc9627b23c6ec0a1b8ea7; parent d5b5ff7ed841ea12af2eda604580722e49bf7436.
+- Exact-head OpenVPN run [43072744036] checked out this SHA. Both GNU89 -Wall -Wextra -Werror ASan/UBSan/leak binaries passed: "OpenVPN client credential staging policy: PASS" and "OpenVPN config atomic publication and failure preservation: PASS".
+- The source-contract step failed at line 74 in body(source, signature): two C function signature literals encoded two backslashes before n, so the helper searched for literal backslash-n instead of the newline between return type and function name. No production compile/runtime regression failed; checker stopped before completing source contracts.
+- Exact-head AI handoff docs [43072744011] and infosvr [43072744135] both SUCCESS. Docs validator reported root log=33/119, archives dev-log=7 / handoff=22 / roadmap=18; all steps passed.
+- THIS COMMIT reduces the two Python source literals to one newline escape. No production OpenVPN code changed for this checker defect.
+- Corrected OpenVPN and AI docs Actions remain pending. Do not close the OpenVPN config L2 task until the source checker passes on one exact SHA.
+- Root dev_log.md grows 33→34 complete records; no rotation or INDEX update due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- Next GPT: inspect exact-head OpenVPN credential/config and AI docs Actions, every step/full log. Require both sanitizer tests and source/workflow contracts plus docs root log=34/119 and archive counts 7/22/18. MIPS/uClibc, firmware/TRX and L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-12 01:55 CST (UTC+8) — Align OpenVPN fail-closed source contract with staged config writer
 
 - Base main SHA: d5b5ff7ed841ea12af2eda604580722e49bf7436; parent d65a890e11712db880c09b48e05215a691118ab6.
