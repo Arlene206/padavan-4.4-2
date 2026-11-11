@@ -3,7 +3,7 @@
 ## Current repository state
 
 - Repository: Arlene206/padavan-4.4-2; branch: main; latest branch inventory contains main only; no remote checkpoint branch.
-- Base main SHA for THIS COMMIT: \`2c769eac12cfdcb597644ebcf9c65b51423c8e4d\` (parent \`4ec9d637ca7daaff93296c494467b6e88c528311\`). Resolve the resulting SHA from live main after publication.
+- Base main SHA for THIS COMMIT: \`de95a41f5c95bf6543c78cd05a4ca3228e4af7a8\` (parent \`2c769eac12cfdcb597644ebcf9c65b51423c8e4d\`). Resolve the resulting SHA from live main after publication.
 - Bootstrap recovery completed in required order: AI_BOOTSTRAP_PROMPT.md, AI_DEVELOPMENT_PROTOCOL.md, live main ref, current handoff, roadmap, newest 20 complete dev-log records, archive index, branch inventory and exact-head Actions. The earlier storage source/L2 slice passed on \`4ec9d637ca7daaff93296c494467b6e88c528311\`; the subsequent infosvr signal task and AI docs both passed on exact main \`2c769eac12cfdcb597644ebcf9c65b51423c8e4d\` ([43024714802], [43024714674]). Every step and complete log for the infosvr/docs runs was inspected.
 - Root dev_log.md had 111 complete newest-first records before THIS COMMIT and has 112 afterward. It was 290,184 bytes before this entry; below the 384 KiB rotation target and 512 KiB hard cap. Archive inventory remains dev-log=6, handoff=22, roadmap=18; no rotation/index update is due.
 
@@ -78,29 +78,32 @@
 - AI docs validator printed \`AI handoff documentation check: PASS (root log=111/119 entries, batch=100, retain=20, legacy/current archives: dev-log=6, handoff=22, roadmap=18)\`.
 - This closes the bounded source/L2 slice only. Production MIPS/uClibc object, complete firmware/TRX, target daemon signal timing and L4 router behavior remain NOT VERIFIED.
 
-## Active task — Optware lifecycle under firmware BusyBox ash 1.24.2 (P2 reliability)
+## Active task — Exercise Optware lifecycle under firmware BusyBox ash 1.24.2 (P2 reliability)
 
-### Evidence gap
+### Exact-head failure and diagnosis
 
-- Firmware source is BusyBox 1.24.2, selected through \`trunk/user/busybox/Makefile\`, \`trunk/configure\` and \`trunk/configs/boards/busybox.config\`. The common configuration enables ash (\`CONFIG_ASH\`, \`CONFIG_FEATURE_SH_IS_ASH\`), awk and flock.
-- Prior lifecycle regressions ran through host \`/bin/sh\`; generated service/logger/swapoff/umount fixtures hard-coded \`#!/bin/sh\`. Invoking the test driver with ash alone therefore did not prove that child hooks, BusyBox awk or BusyBox flock ran under the firmware's shell/applet implementations.
-- Matching BusyBox source is present, but the target MIPS/uClibc executable and router runtime are not available in this development environment.
+- Live main at recovery was `de95a41f5c95bf6543c78cd05a4ca3228e4af7a8`; remote branch inventory contained `main` only and no checkpoint.
+- Storage workflow [43028546205] completed FAILURE on that exact SHA. Script syntax checks and the existing lock, teardown and startup regressions (steps 3–8) passed. Step 9 failed while linking the host-built BusyBox 1.24.2 binary.
+- The link log identified a real DHCP source integration defect: `dhcpc.c` called `udhcp_script_failure_prepare_retry()`, but the included `udhcpc_script_policy.h` declares `udhcpc_script_failure_prepare_retry()`. The missing character produced an implicit-declaration warning and undefined-reference link failure.
+- The same host link also exposed the legacy BusyBox `date` applet reference to `stime()`, which current hosted glibc no longer exports. The firmware board config intentionally enables DATE for target uClibc. DATE is unrelated to the ash/awk/flock lifecycle test, so the host workflow now disables it only in the disposable copied `.config`; the tracked firmware config remains unchanged and retains `CONFIG_DATE=y`.
+- Exact-head AI docs [43028546042] and infosvr lifecycle [43028546103] both completed SUCCESS on `de95a41f5c95bf6543c78cd05a4ca3228e4af7a8`. The docs validator reported root log 112/119 and archive inventory dev-log=6, handoff=22, roadmap=18.
 
-### Regression expansion in THIS COMMIT
+### Fixes in THIS COMMIT
 
-- Teardown and startup test fixtures now use \`OPTWARE_TEST_SHELL\` to generate their shebang, defaulting to \`/bin/sh\` for existing host runs.
-- The storage workflow now builds BusyBox 1.24.2 from the firmware source using the same common board configuration, requires the ash/awk/flock and lifecycle utility applets, syntax-checks the active Optware scripts with ash, and runs the lock, teardown and startup regressions under that exact ash binary. Child hooks inherit the tested ash interpreter; BusyBox awk/flock resolve through applet symlinks.
-- This is a source-version-matched Linux host L2 test, not a production MIPS/uClibc build or L4 router test. Exact-head storage and AI docs Actions for THIS COMMIT are pending.
+- Correct the DHCP retry-helper call spelling to match its static-inline declaration. The storage source contract now verifies the include, exact helper call, and declaration so a future mismatch fails before the final link.
+- In the host-only BusyBox build, derive the temporary config from the real board config, disable only CONFIG_DATE to avoid the unrelated host-glibc `stime()` incompatibility, run `oldconfig`, and assert DATE remains disabled. The source contract separately confirms the tracked firmware config still has CONFIG_DATE=y and the required ash/awk/flock settings.
+- This leaves firmware applet selection untouched; the host-built BusyBox is version/source matched for ash and the applets exercised by the Optware lifecycle tests, but is not a production MIPS/uClibc binary.
 
-### Next verification
+### Exact next action
 
-- Fetch the resulting main SHA and inspect every storage and AI docs job step plus complete logs. Require the BusyBox 1.24.2 host build, applet checks, shell syntax and all three lifecycle regressions to pass.
-- Keep target MIPS/uClibc behavior, the actual firmware image and router hotplug/lock timing explicitly NOT VERIFIED.
+- Fetch the resulting live main SHA; inspect the storage workflow and AI handoff documentation Actions on that exact SHA, every step and complete logs.
+- Require BusyBox 1.24.2 to link with the corrected DHCP symbol, verify the required ash/awk/flock and lifecycle applets, then pass the lock, teardown and startup regressions under the built ash.
+- Keep production MIPS/uClibc objects, complete firmware/TRX, actual target BusyBox runtime and L4 router hotplug/lock timing NOT VERIFIED. FTP cleanup TOCTOU remains OPEN/BLOCKED absent a Linux 4.4-safe semantics-preserving design.
 
 ## Verification boundary
 
 - L1 source review: PASS for BusyBox udhcpc event-status/lease-publication gating, storage-backed daemon stop command/process-absence gating for MiniDLNA/Firefly/Transmission/Aria, the Optware exact-/proc/swaps fail-closed gate and caller/lock-order graph, and infosvr SIGTERM deferral with normal-context cleanup.
-- L2: infosvr packet/signal [43024714802] and AI docs [43024714674] both SUCCESS on exact SHA `2c769eac12cfdcb597644ebcf9c65b51423c8e4d`; every step and complete log inspected. Storage teardown/caller graph [43017662766] passed on source SHA `4ec9d637ca7daaff93296c494467b6e88c528311`; its production storage files are unchanged through `2c769eac`. THIS COMMIT adds a host build of the exact BusyBox 1.24.2 source/config and ash-driven Optware regressions; exact-head storage/docs Actions pending.
+- L2: infosvr packet/signal [43024714802] and AI docs [43024714674] passed on exact SHA `2c769eac12cfdcb597644ebcf9c65b51423c8e4d`. On exact main SHA `de95a41f5c95bf6543c78cd05a4ca3228e4af7a8`, AI docs [43028546042] and infosvr [43028546103] SUCCESS, while storage [43028546205] FAILURE at BusyBox host link step 9; steps 3–8 passed. The link exposed the DHCP helper-name mismatch and host-glibc `stime()` issue; THIS COMMIT corrects the symbol and excludes only DATE from the disposable host config. New exact-head storage/docs results are pending.
 - Production MIPS/uClibc objects, complete firmware/TRX, live DHCP v4/v6 behavior, matching target BusyBox ash 1.24.2 and L4 router behavior remain NOT VERIFIED.
 
 ## Other open governance-ledger risks
@@ -114,10 +117,10 @@
 7. All complete MIPS/uClibc builds, firmware/TRX inspection and physical-router flash/boot remain NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Fetch live main SHA; inspect the storage workflow triggered by THIS COMMIT and AI handoff docs, every job step and complete logs.
-2. Require the BusyBox 1.24.2 host build from \`trunk/user/busybox/busybox-1.24.x\`, required applet checks, ash syntax checks, lock/teardown/startup regressions and docs archive validator all to pass on that exact SHA.
-3. If the build fails on the current CI compiler, diagnose the actual BusyBox 1.24.2 host-toolchain incompatibility and fix only the test/build integration without weakening firmware config or claiming a target build.
-4. Even when L2 passes, keep production MIPS/uClibc, full firmware/TRX, actual router ash/runtime and L4 hotplug behavior NOT VERIFIED. FTP cleanup TOCTOU remains OPEN/BLOCKED absent a Linux 4.4-safe semantics-preserving design; then choose the next evidence-actionable global governance item.
+1. Fetch live `main` SHA and verify it descends from this commit; inspect the exact-head storage [USB storage hotplug stability regression] and AI handoff documentation runs, every job step and complete logs.
+2. Confirm the BusyBox 1.24.2 host binary links, required applets are present, Optware production scripts pass ash syntax checks, and lock/teardown/startup regressions pass under the tested ash.
+3. If the build still fails, fix the next real source/host integration failure without changing the tracked firmware BusyBox configuration or weakening tests. Keep target uClibc and L3/L4 claims separate.
+4. If L2 is green, close this bounded Optware host-shell evidence slice and rotate to the next evidence-actionable repository-wide stability item. FTP upload-cleanup TOCTOU remains OPEN/BLOCKED without a proved Linux 4.4-compatible design.
 
 ## Documentation and verification rules
 

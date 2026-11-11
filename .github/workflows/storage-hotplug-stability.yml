@@ -107,7 +107,15 @@ jobs:
 
           # Use the same common configuration copied by trunk/configure.
           cp trunk/configs/boards/busybox.config "$busybox_dir/.config"
+          # BusyBox 1.24.2 date uses legacy stime(), absent from current host glibc.
+          # DATE is unrelated to these lifecycle tests; disable it only in this
+          # disposable host config. The tracked firmware config retains CONFIG_DATE=y.
+          sed -i 's/^CONFIG_DATE=y$/# CONFIG_DATE is not set/' "$busybox_dir/.config"
           make -C "$busybox_dir" oldconfig </dev/null
+          if grep -qx 'CONFIG_DATE=y' "$busybox_dir/.config"; then
+            echo "Host-only BusyBox config unexpectedly re-enabled DATE" >&2
+            exit 1
+          fi
 
           for feature in CONFIG_ASH CONFIG_FEATURE_SH_IS_ASH CONFIG_AWK CONFIG_FLOCK \
                          CONFIG_CAT CONFIG_CHMOD CONFIG_DIRNAME CONFIG_GREP CONFIG_MKDIR \
@@ -274,6 +282,8 @@ jobs:
           busybox_package = Path("trunk/user/busybox/Makefile").read_text()
           busybox_config = Path("trunk/configs/boards/busybox.config").read_text()
           busybox_configure = Path("trunk/configure").read_text()
+          busybox_dhcpc = Path("trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcpc.c").read_text()
+          busybox_udhcpc_policy = Path("trunk/user/busybox/busybox-1.24.x/networking/udhcp/udhcpc_script_policy.h").read_text()
 
           assert '#define STORAGE_OPERATION_LOCK_TAG "storage"' in lock_policy
           assert "storage_operation_lock_acquire(file_lock)" in lock_test
@@ -765,6 +775,12 @@ jobs:
           assert "PKG_VERSION:=1.24" in busybox_package
           assert "SRC_DIR=./busybox-1.24.x" in busybox_package
           assert "# Busybox version: 1.24.2" in busybox_config
+          # Keep the production DHCP retry call linked to its shared policy helper.
+          assert '#include "udhcpc_script_policy.h"' in busybox_dhcpc
+          assert busybox_dhcpc.count("udhcpc_script_failure_prepare_retry(") == 1
+          assert "udhcp_script_failure_prepare_retry(" not in busybox_dhcpc
+          assert "static inline void udhcpc_script_failure_prepare_retry(" in busybox_udhcpc_policy
+          assert "CONFIG_DATE=y" in busybox_config
           for feature in ("CONFIG_ASH", "CONFIG_FEATURE_SH_IS_ASH", "CONFIG_AWK", "CONFIG_FLOCK"):
               assert f"{feature}=y" in busybox_config
           assert 'busybox_id="1.24.x"' in busybox_configure

@@ -1,3 +1,17 @@
+## 2026-11-11 (UTC+8) — Repair the BusyBox host ash build exposed by Optware lifecycle validation
+
+- Base main SHA: `de95a41f5c95bf6543c78cd05a4ca3228e4af7a8`; parent `2c769eac12cfdcb597644ebcf9c65b51423c8e4d`; remote branches: main only, no checkpoint.
+- Exact-head Actions on the base: storage [43028546205] FAILURE, AI handoff docs [43028546042] SUCCESS, infosvr lifecycle [43028546103] SUCCESS. Storage steps 3–8 passed (script syntax plus lock, teardown and startup shell regressions); step 9 failed while linking BusyBox 1.24.2. The complete log showed an undefined reference caused by a misspelled `dhcpc.c` call to `udhcp_script_failure_prepare_retry()`; the header's actual static-inline API is `udhcpc_script_failure_prepare_retry()`.
+- The same host build also linked BusyBox's legacy DATE applet, whose `stime()` reference is not exported by current hosted glibc. This is a host-toolchain mismatch: target firmware uses its own uClibc and deliberately enables DATE. No firmware config change is appropriate for an unrelated ash regression.
+- THIS COMMIT fixes the DHCP helper call spelling and adds a source-contract check that the caller includes and uses the declared policy helper. The storage workflow derives a disposable host `.config` from the tracked board config and disables only CONFIG_DATE before `oldconfig`; it asserts DATE stays disabled in that host copy and separately asserts the tracked board config retains CONFIG_DATE=y. Firmware configuration and applet selection are unchanged; ash/awk/flock and all lifecycle-required applets remain required.
+- Validation boundary: L1 diagnosis and source/config review PASS. No local repository checkout was available, so local host compilation and `scripts/check_ai_handoff_docs.py` were NOT RUN. On the base SHA, the pre-BusyBox shell regressions passed, but the BusyBox link failed as above. Exact-head storage and AI docs Actions for THIS COMMIT are pending. This is not a production MIPS/uClibc build, complete firmware/TRX or L4 router test.
+- Root dev_log.md had 112 complete newest-first records before this entry and has 113 afterward; the existing archive inventory remains dev-log=6, handoff=22, roadmap=18. No archive/index rotation is due.
+- Changed paths: `trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcpc.c`, `.github/workflows/storage-hotplug-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log.
+- Resulting commit: THIS COMMIT.
+- Next: inspect the exact resulting main SHA's storage and AI docs Actions, every job step and complete logs. Require the BusyBox link, required applet checks, ash syntax checks and all three Optware lifecycle regressions to pass. Keep target MIPS/uClibc, firmware/TRX, actual router ash/runtime and L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-11 (UTC+8) — Exercise Optware lifecycle with firmware BusyBox ash 1.24.2
 
 - Base main SHA: \`2c769eac12cfdcb597644ebcf9c65b51423c8e4d\`; parent \`4ec9d637ca7daaff93296c494467b6e88c528311\`; branch inventory: main only, no remote checkpoint.

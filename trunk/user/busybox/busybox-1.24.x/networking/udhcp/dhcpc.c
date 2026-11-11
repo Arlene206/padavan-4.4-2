@@ -1817,7 +1817,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 				if (script_status != 0) {
 					bb_error_msg("not committing DHCP lease after %s script failure",
 						script_name);
-					udhcp_script_failure_prepare_retry(state == REQUESTING,
+					udhcpc_script_failure_prepare_retry(state == REQUESTING,
 						tryagain_timeout, script_elapsed, &timeout,
 						&already_waited_sec, &packet_num);
 					continue;
