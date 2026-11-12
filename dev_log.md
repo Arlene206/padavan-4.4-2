@@ -1,3 +1,12 @@
+## 2026-11-12 15:15 CST (UTC+8) — Align AdGuardHome source contract with reordered stop cleanup
+
+- Base main SHA: `5f7b186b4fdde7af688762463c72bc7699f673d8`. Exact-head checks: AdGuard [43173678041] shell syntax and the complete host regression PASSED, including dnsmasq enable/disable, exact-byte rollback and start/stop fail-closed tests. Its semantic source contract then FAILED only because the checker still required the old stop-failure fixture message after the test assertion was deliberately renamed for the new cleanup order. AI docs [43173678214] and infosvr [43173678040] both SUCCESS; full jobs/logs inspected.
+- Updated `scripts/check_adguardhome_config.py` to assert the current regression message. No production source or behavioral test changed in this correction. The AdGuard workflow rerun on the resulting exact SHA is pending; do not close resolver L2 until its semantic checker passes alongside the host suite and docs contract.
+- Root `dev_log.md` grows 53→54 entries; below rotation thresholds. Archive inventory and `docs/dev-log/INDEX.md` remain unchanged.
+- Next: fetch exact-head workflow runs and inspect all logs; then proceed to BusyBox ash-compatible serialization of concurrent AdGuardHome start/stop/restart callers only after resolver L2 closes.
+
+---
+
 ## 2026-11-12 15:13 CST (UTC+8) — Correct AdGuardHome resolver regression printf fixtures
 
 - Base main SHA: `923363a8e4c630e7f890c3f307561b71b1ae6b33`; this is a test-fixture correction to the resolver transaction batch committed immediately before it.

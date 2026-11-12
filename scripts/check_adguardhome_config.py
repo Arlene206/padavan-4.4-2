@@ -195,7 +195,7 @@ for marker in (
     "startup changed DNS/firewall before config validation",
     "duplicate start changed config/DNS/firewall state or launched again",
     "stop reported success while AdGuardHome remained alive after SIGKILL",
-    "failed stop removed runtime state or traffic redirection",
+    "failed stop removed the workdir or skipped pre-stop resolver cleanup",
     "address-independent IPv4/IPv6 DNS redirects, duplicate cleanup and rollback: PASS",
     "repeated start left duplicate IPv4 redirect rules",
     "redirect rules still depend on enumerated interface address snapshots",
