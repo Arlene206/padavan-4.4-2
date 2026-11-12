@@ -32,21 +32,26 @@ mkdir() {
 tar() {
 	TAR_CALLS=$((TAR_CALLS + 1))
 	case "$MOCK_TAR_MODE" in
-		success|fail-after-extract)
+		success)
 			command mkdir -p "$COPYSCRIPTS_CERT_DIR/certs"
 			printf '%s\n' "test CA bundle" > "$COPYSCRIPTS_CERT_DIR/certs/ca-certificates.crt"
+			return 0
+			;;
+		fail-after-extract)
+			command mkdir -p "$COPYSCRIPTS_CERT_DIR/certs"
+			printf '%s\n' "partial CA bundle" > "$COPYSCRIPTS_CERT_DIR/certs/ca-certificates.crt"
+			return 2
 			;;
 		missing-output)
 			return 0
 			;;
-		fail|fail-after-extract)
+		fail)
 			return 2
 			;;
 		*)
 			return 2
 			;;
 	esac
-	return 0
 }
 
 fail() {
