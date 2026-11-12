@@ -39,8 +39,14 @@ sleep() { :; }
 enc() { printf '%s' "$1"; }
 openssl() {
 	case "$1" in
-		dgst) printf '%s' "raw-signature" ;;
-		base64) printf '%s' "c2ln" ;;
+		dgst)
+			cat >/dev/null
+			printf '%s' "raw-signature"
+			;;
+		base64)
+			cat >/dev/null
+			printf '%s' "c2ln"
+			;;
 		*) return 1 ;;
 	esac
 }
