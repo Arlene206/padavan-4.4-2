@@ -708,7 +708,7 @@ int count_stor_mountpoint(void);
 int umount_stor_path(struct disk_info_t *disks_info, int port, const char *dev_name, int do_spindown);
 int umount_ejected(void);
 void start_stor_apps(void);
-void stop_stor_apps(void);
+int stop_stor_apps(void);
 void on_deferred_hotplug_dev(void);
 void safe_remove_stor_device(int port_b, int port_e, const char *dev_name, int do_spindown);
 void safe_remove_all_stor_devices(int do_spindown);

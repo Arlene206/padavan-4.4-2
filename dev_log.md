@@ -1,3 +1,19 @@
+## 2026-11-13 00:43 CST (UTC+8) — Repair XY-C1 RC ctype/prototype errors and restore Samba host regression
+
+- Base main SHA: `98dedc29c55b2699857c05f3c708188e0f7d56dc`; branch inventory at recovery contained only `main`.
+- Exact-head XY-C1 push run [43259091641], job [131325219123], checked out this SHA. The new Samba shared-header staging regression passed; kernel, BusyBox DHCPv6 and HTTPD work progressed, and the target build reached RC `services_stor.o`. The first causal C errors were: `shutils.h` defined the fallback `isblank(c)` macro before libc `ctype.h` declared `isblank(int)`, causing macro expansion in the system header; and `services_stor.c` implemented `int stop_stor_apps(void)` while `rc.h` declared it `void`. TRX verification and artifact upload were skipped after the build failure.
+- Exact-head HTTPD security run [43259091559], job [131325220100], reached the Samba share host regression and failed because its compile command omitted `-I trunk/user/shared/src/include`, required by the corrected public `<router_account_policy.h>` include. Earlier regression steps passed.
+- THIS COMMIT includes the narrow compile fixes: include system `<ctype.h>` before the shared `isblank` fallback; update the RC declaration to `int stop_stor_apps(void)` matching its implementation and status-checking callers; and add the shared public-header include directory to the first HTTPD Samba host compile.
+- Extended `scripts/check_samba_shared_header.py` to enforce ctype include order, the status-returning RC prototype and XY-C1 path coverage. Extended the storage-hotplug source contract for the prototype and XY-C1 push paths to watch both changed headers. Updated the HTTPD workflow so its missing include-path regression is covered on push.
+- On this base SHA, exact-head AI docs [43259091723], infosvr [43259091710], AdGuardHome [43259091774], AliyunDrive [43259091586] and AliDDNS [43259092023] all SUCCESS. HTTPD and XY-C1 were the two failures being repaired.
+- Full local repository checkout/target cross-build: NOT RUN in this environment. All code, workflow and documentation changes in THIS COMMIT await exact-head push Actions; no TRX or artifact success is claimed. L4 hardware/router validation: NOT VERIFIED.
+- Root `dev_log.md`: 66→67 complete records, below the 120-record rotation threshold and 512 KiB hard cap. Archive inventory remains dev-log=7, handoff=22, roadmap=18; no archive/index rotation is due.
+- Changed paths: `trunk/user/shared/src/shutils.h`, `trunk/user/rc/src/rc.h`, `.github/workflows/httpd-security.yml`, `.github/workflows/xy-c1-firmware-validation.yml`, `.github/workflows/storage-hotplug-stability.yml`, `scripts/check_samba_shared_header.py`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log.
+- Resulting main commit: THIS COMMIT.
+- Next: inspect exact-head XY-C1, HTTPD security, storage-hotplug and AI docs Actions on the resulting main SHA. Fix only the next first-causal XY-C1 build error and repeat until kernel/userspace build, non-empty TRX verification and artifact upload all pass.
+
+---
+
 ## 2026-11-13 00:24 CST (UTC+8) — Repair XY-C1 RC Samba shared-policy header lookup
 
 - Base main SHA: `696278e438243af3ee67ab6e403dc27c7e0753df`.

@@ -19,6 +19,7 @@
 #define _shutils_h_
 
 #include <string.h>
+#include <ctype.h>
 
 #include "defaults.h"
 

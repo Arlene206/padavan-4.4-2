@@ -738,6 +738,8 @@ jobs:
           assert stop_nfsd.index("storage_operation_lock_acquire") < stop_nfsd.index("stop_nfsd_locked()")
           assert "file_unlock(storage_lock)" in stop_nfsd
           assert "int stop_nfsd(void);" in rc_header and "int restart_nfsd(void);" in rc_header
+          assert "int stop_stor_apps(void);" in rc_header
+          assert "void stop_stor_apps(void);" not in rc_header
           stop_apps = function_body(storage, "stop_stor_apps(void)")
           assert "if (stop_nfsd_locked() != 0)" in stop_apps and "stop_nfsd()" not in stop_apps
           assert "return stop_status;" in stop_apps

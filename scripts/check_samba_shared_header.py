@@ -29,6 +29,8 @@ rc_package = read("trunk/user/rc/Makefile")
 rc_source_make = read("trunk/user/rc/src/Makefile")
 user_make = read("trunk/user/Makefile")
 services = read("trunk/user/rc/src/services_stor.c")
+rc_header = read("trunk/user/rc/src/rc.h")
+shutils = read("trunk/user/shared/src/shutils.h")
 workflow = read(".github/workflows/xy-c1-firmware-validation.yml")
 
 require(policy.count("#include <router_account_policy.h>") == 1,
@@ -54,10 +56,19 @@ require(shared_order >= 0 and rc_order >= 0 and shared_order < rc_order,
         "shared package must be built before RC")
 require('#include "samba_share_policy.h"' in services,
         "services_stor.c no longer includes the policy header under test")
+ctype_include = shutils.find("#include <ctype.h>")
+isblank_guard = shutils.find("#ifndef isblank")
+require(ctype_include >= 0 and isblank_guard > ctype_include,
+        "shutils.h must include ctype.h before defining the isblank fallback")
+require("int stop_stor_apps(void);" in rc_header and
+        "void stop_stor_apps(void);" not in rc_header,
+        "rc.h must declare stop_stor_apps with its status-returning int contract")
 
 required_paths = (
     "trunk/user/rc/src/samba_share_policy.h",
     "trunk/user/rc/src/services_stor.c",
+    "trunk/user/rc/src/rc.h",
+    "trunk/user/shared/src/shutils.h",
     "trunk/user/rc/src/Makefile",
     "trunk/user/rc/Makefile",
     "trunk/user/shared/Makefile",

@@ -1,28 +1,27 @@
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; sole authorized development/commit/push branch: `main`. Baseline main SHA for this repair: `696278e438243af3ee67ab6e403dc27c7e0753df`. Re-fetch live `main` before every subsequent write.
-- Repository bootstrap and development protocol were re-read. Remote branch inventory contains only `main`; legacy PR #1 is CLOSED (not merged) after its valid work was ported directly to main. Leave its historical branch untouched/read-only.
-- The active task is the XY-C1 full MIPS firmware build. An older WAN DHCP callback source-contract failure [43233088640] on SHA `4890bd4f800d3d1f1f282061f8fe7ea8e533a969` is separate and must not be conflated with the target build result.
-- Exact-current-main non-target push workflows on baseline `696278e438243af3ee67ab6e403dc27c7e0753df`: AI docs [43252375787], AliyunDrive [43252375740], AliDDNS [43252375645], infosvr [43252375595] and AdGuardHome [43252375581] all SUCCESS. No XY-C1 run was triggered on that SHA because its previous push path filters omitted the RC/shared-header inputs.
-- Latest XY-C1 run before this repair: [43233088562](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43233088562), job [131233221624](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43233088562/job/131233221624), failed on old SHA `4890bd4f800d3d1f1f282061f8fe7ea8e533a969` compiling RC `services_stor.o`. `services_stor.c` includes `samba_share_policy.h`; its relative include to `../../shared/src/include/router_account_policy.h` fails after the RC source is staged under `trunk/build/rc`. The shared package installs the canonical header to `$(STAGING_DIR)/include/shared`, and RC package `TARGET_CFLAGS` provides `-I$(STAGING_DIR)/include/shared`.
+- Repository: `Arlene206/padavan-4.4-2`; sole authorized development/commit/push branch: `main`. Baseline main SHA for this repair batch: `98dedc29c55b2699857c05f3c708188e0f7d56dc`. Re-fetch live `main` before every subsequent write.
+- Remote branch inventory at recovery contained only `main`. Legacy PR #1 is CLOSED (not merged) after its valid work was ported directly to main; leave its retained historical ref untouched/read-only. GPT Session Rotator is immutable and was not changed.
+- The prior Samba shared-header staging correction is confirmed by exact-head XY-C1 run [43259091641]: its GNU89 staged-layout contract passed and the target build progressed through kernel, BusyBox and HTTPD into RC.
+- On baseline SHA `98dedc29c55b2699857c05f3c708188e0f7d56dc`, XY-C1 run [43259091641] / job [131325219123] failed compiling `services_stor.o`. The first C diagnostics were: `shutils.h` defined the `isblank` fallback before `ctype.h` was parsed through `rc.h`, so the macro expanded inside libc's `isblank(int)` declaration; and `services_stor.c` defined `int stop_stor_apps(void)` while `rc.h` still declared `void stop_stor_apps(void)`.
+- The same baseline's HTTPD security run [43259091559] / job [131325220100] failed in the Samba share host regression because its compile command omitted `-I trunk/user/shared/src/include`, although the policy header now correctly includes the staged public `router_account_policy.h`.
+- This repair batch adds the system `ctype.h` include before the fallback macro, aligns the `stop_stor_apps` prototype with its status-returning implementation/callers, supplies the missing HTTPD host include path, and extends the XY-C1 / storage source contracts and target-build path filters.
 
 ## Active task — Complete the XY-C1 target firmware build on main
 
-1. Change the RC Samba share policy header to include the staged public header as `<router_account_policy.h>`; preserve all ACL/account-policy behavior.
-2. Add `scripts/check_samba_shared_header.py`: compile the actual policy header with GNU89 against a staged-layout fixture, and assert the shared-package install target, RC staged include flag, package build order and source dependency.
-3. Extend the push-only XY-C1 workflow to run the contract before the cross-build and trigger on every RC/shared-header input used by the contract.
-4. Commit directly to `main`; match the XY-C1 run's `head_sha` to the exact pushed/current main SHA.
-5. Continue repairing only the next first-causal build error until the MIPS build succeeds, `Verify TRX output` finds one or more non-empty `trunk/images/*.trx` files, and artifact upload succeeds on that same SHA.
-6. Target firmware/TRX/artifact: NOT VERIFIED until exact-head Actions completes. L4 physical router flash/boot: NOT VERIFIED.
+1. Keep the Samba shared account-policy include as `<router_account_policy.h>`; the staged-layout regression already passed on the previous exact head.
+2. Resolve the RC compile blockers without changing runtime behavior: parse system `ctype.h` before the `isblank` fallback macro and declare `stop_stor_apps` as returning `int`, matching its implementation and safe-removal callers.
+3. Keep the host Samba test compiling against the same shared public-header directory used by package staging.
+4. Commit each independent repair directly to `main`; after every push, match the Actions `head_sha` to live `main` and inspect the full job log.
+5. Continue fixing only the next first-causal error until the MIPS target build succeeds, `Verify TRX output` finds at least one non-empty `trunk/images/*.trx`, and artifact upload succeeds on that same exact main SHA.
+6. Physical router flashing/boot remains a separate L4 check and must not be inferred from CI.
 
 ## Verification boundary
 
-- L1 recovery: bootstrap/protocol and required records reviewed; live baseline main SHA `696278e438243af3ee67ab6e403dc27c7e0753df`; remote branch inventory contains only `main`; PR #1 remains closed/not merged; GPT Session Rotator unchanged.
-- L2 exact-baseline non-target push workflows: AI docs [43252375787], AliyunDrive [43252375740], AliDDNS [43252375645], infosvr [43252375595] and AdGuardHome [43252375581] SUCCESS on `696278e438243af3ee67ab6e403dc27c7e0753df`.
-- Previous XY-C1 run [43233088562] / job [131233221624] FAILED on stale SHA `4890bd4f800d3d1f1f282061f8fe7ea8e533a969` at the RC Samba policy-header include. This is not an exact-baseline-main or post-repair result.
-- The source-header correction, staged-layout host compile regression and XY-C1 push path coverage are in the current main repair. Exact-head Actions, MIPS firmware build, non-empty TRX and artifact upload remain PENDING.
-- L4 physical router validation: NOT VERIFIED.
+- L1 recovery: bootstrap/development protocol, handoff, roadmap, dev log and archive index reviewed; live baseline `98dedc29c55b2699857c05f3c708188e0f7d56dc`; only remote development branch is `main`; PR #1 remains closed/not merged; Session Rotator unchanged.
+- L2 baseline Actions: AI docs [43259091723], infosvr [43259091710], AdGuardHome [43259091774], AliyunDrive [43259091586] and AliDDNS [43259092023] SUCCESS on `98dedc29c55b2699857c05f3c708188e0f7d56dc`. XY-C1 [43259091641] and HTTPD security [43259091559] FAILED on that same SHA for the compiler/test causes documented above.
+- The previous Samba staged-header regression passed in the XY-C1 job before the RC compile failure. Full MIPS firmware, non-empty TRX and artifact upload remain NOT VERIFIED. L4 physical router validation remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-Fetch live `main` and the XY-C1 push run triggered by this repair. Confirm its `head_sha` equals current main, inspect the source-contract step and complete build log. If it fails, isolate the first causal error, make one narrow main-only repair and repeat until the target build, non-empty TRX verification and artifact upload all pass. Do not claim L3/L4 before those checks.
+Fetch live `main` and query the XY-C1, HTTPD security, storage-hotplug and AI handoff push runs triggered by this repair. Confirm every run's `head_sha` equals the current main SHA. Inspect the complete logs; if XY-C1 exposes another first-causal error, fix only that issue directly on main and repeat until the MIPS build, non-empty TRX verification and artifact upload all pass.
