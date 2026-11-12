@@ -220,10 +220,59 @@ enc() {
 	echo -n "$1" | urlencode
 }
 
+ALIDDNS_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt"
+
 send_request() {
 	args="AccessKeyId=$aliddns_ak&Action=$1&Format=json&$2&Version=2015-01-09"
 	hash=$(echo -n "GET&%2F&$(enc "$args")" | openssl dgst -sha1 -hmac "$aliddns_sk&" -binary | openssl base64)
-	curl -L -s "http://alidns.aliyuncs.com/?$args&Signature=$(enc "$hash")"
+
+	# The signed query contains credentials. Require a readable trust bundle,
+	# verified HTTPS, a bounded transfer and a 2xx response. Do not follow
+	# redirects: the request must stay on the official AliDNS endpoint.
+	if [ ! -r "$ALIDDNS_CA_BUNDLE" ]; then
+		logger -t "【AliDDNS动态域名】" "CA 证书文件不可读：$ALIDDNS_CA_BUNDLE"
+		return 1
+	fi
+
+	if response=$(curl --fail --silent --show-error \
+		--connect-timeout 5 --max-time 20 --proto '=https' \
+		--cacert "$ALIDDNS_CA_BUNDLE" --write-out '\n%{http_code}' \
+		"https://alidns.aliyuncs.com/?$args&Signature=$(enc "$hash")"); then
+		:
+	else
+		return $?
+	fi
+
+	http_status=$(printf '%s\n' "$response" | tail -n 1)
+	case "$http_status" in
+		2[0-9][0-9]) ;;
+		*)
+			logger -t "【AliDDNS动态域名】" "AliDNS HTTPS 请求返回 HTTP $http_status"
+			return 22
+			;;
+	esac
+
+	printf '%s\n' "$response" | sed '$d'
+}
+
+aliddns_response_ok() {
+	[ -n "$1" ] || return 1
+	case "$1" in
+		\{*) ;;
+		*) return 1 ;;
+	esac
+	printf '%s\n' "$1" | grep -q '"RequestId"[[:space:]]*:'
+	[ $? -eq 0 ] || return 1
+	if printf '%s\n' "$1" | grep -q '"Code"[[:space:]]*:'; then
+		return 1
+	fi
+	return 0
+}
+
+aliddns_update_failed() {
+	nvram set aliddns_last_act="$(date '+%Y-%m-%d %H:%M:%S')   更新失败"
+	logger -t "【AliDDNS动态域名】" "更新失败"
+	return 1
 }
 
 get_recordid() {
@@ -253,7 +302,7 @@ add_record() {
 }
 
 arDdnsInfo() {
-case  $name  in
+case "$name" in
 	  \*)
 		name1=%2A
 		;;
@@ -270,32 +319,48 @@ esac
 	else
 		domain_type="A"
 	fi
-	timestamp=`date -u "+%Y-%m-%dT%H%%3A%M%%3A%SZ"`
-	# 获得域名ID
-	aliddns_record_id=""
-	aliddns_record_id=`query_recordid | get_recordid`
+	timestamp=$(date -u "+%Y-%m-%dT%H%%3A%M%%3A%SZ")
+
+	# A failed lookup must not be confused with a valid empty record set.
+	response=$(query_recordid) || {
+		logger -t "【AliDDNS动态域名】" "查询记录失败，检查 HTTPS、CA 证书和网络"
+		return 1
+	}
+	if ! aliddns_response_ok "$response"; then
+		logger -t "【AliDDNS动态域名】" "AliDNS 返回无效或错误的查询响应"
+		return 1
+	fi
+	aliddns_record_id=$(printf '%s\n' "$response" | get_recordid)
+	[ -n "$aliddns_record_id" ] || return 1
+
 	sleep 1
-	timestamp=`date -u "+%Y-%m-%dT%H%%3A%M%%3A%SZ"`
-	# 获得最后更新IP
-	recordIP=`query_recordInfo $aliddns_record_id | get_recordIP`
-	
+	timestamp=$(date -u "+%Y-%m-%dT%H%%3A%M%%3A%SZ")
+	response=$(query_recordInfo "$aliddns_record_id") || {
+		logger -t "【AliDDNS动态域名】" "查询记录详情失败"
+		return 1
+	}
+	if ! aliddns_response_ok "$response"; then
+		logger -t "【AliDDNS动态域名】" "AliDNS 返回无效或错误的记录详情"
+		return 1
+	fi
+	recordIP=$(printf '%s\n' "$response" | get_recordIP)
+	[ -n "$recordIP" ] || return 1
+
 	if [ "$IPv6" = "1" ]; then
-	echo $recordIP
-	return 0
-	else
-	# Output IP
-	case "$recordIP" in 
+		echo "$recordIP"
+		return 0
+	fi
+
+	case "$recordIP" in
 	[1-9]*)
-		echo $recordIP
+		echo "$recordIP"
 		return 0
 		;;
 	*)
 		echo "Get Record Info Failed!"
-		#logger -t "【AliDDNS动态域名】" "获取记录信息失败！"
 		return 1
 		;;
 	esac
-	fi
 }
 
 # 查询域名地址
@@ -348,7 +413,7 @@ fi
 # 更新记录信息
 # 参数: 主域名 子域名
 arDdnsUpdate() {
-case  $name  in
+case "$name" in
 	  \*)
 		name1=%2A
 		;;
@@ -364,40 +429,66 @@ esac
 	else
 		domain_type="A"
 	fi
-I=3
-aliddns_record_id=""
-while [ "$aliddns_record_id" = "" ] ; do
-	I=$(($I - 1))
-	[ $I -lt 0 ] && break
-	# 获得记录ID
-	timestamp=`date -u "+%Y-%m-%dT%H%%3A%M%%3A%SZ"`
-	aliddns_record_id=`query_recordid | get_recordid`
-	echo "recordID $aliddns_record_id"
-	sleep 1
-done
-	timestamp=`date -u "+%Y-%m-%dT%H%%3A%M%%3A%SZ"`
-if [ "$aliddns_record_id" = "" ] ; then
-	aliddns_record_id=`add_record | get_recordid`
-	echo "added record $aliddns_record_id"
-	logger -t "【AliDDNS动态域名】" "添加的记录  $aliddns_record_id"
-else
-	update_record $aliddns_record_id
-	echo "updated record $aliddns_record_id"
-	logger -t "【AliDDNS动态域名】" "更新的记录  $aliddns_record_id"
-fi
-# save to file
-if [ "$aliddns_record_id" = "" ] ; then
-	# failed
-	nvram set aliddns_last_act="`date "+%Y-%m-%d %H:%M:%S"`   更新失败"
-	logger -t "【AliDDNS动态域名】" "更新失败"
-	return 1
-else
+
+	I=3
+	aliddns_record_id=""
+	query_ok=0
+	while [ "$I" -gt 0 ]; do
+		I=$((I - 1))
+		timestamp=$(date -u "+%Y-%m-%dT%H%%3A%M%%3A%SZ")
+		response=$(query_recordid)
+		request_status=$?
+		query_ok=0
+		if [ "$request_status" -eq 0 ] && aliddns_response_ok "$response"; then
+			query_ok=1
+			aliddns_record_id=$(printf '%s\n' "$response" | get_recordid)
+			echo "recordID $aliddns_record_id"
+			[ -n "$aliddns_record_id" ] && break
+		else
+			logger -t "【AliDDNS动态域名】" "查询记录失败，拒绝在查询错误时添加新记录"
+		fi
+		[ "$I" -gt 0 ] && sleep 1
+	done
+
+	timestamp=$(date -u "+%Y-%m-%dT%H%%3A%M%%3A%SZ")
+	if [ "$query_ok" != "1" ]; then
+		aliddns_update_failed
+		return 1
+	fi
+
+	if [ -z "$aliddns_record_id" ]; then
+		response=$(add_record)
+		request_status=$?
+		if [ "$request_status" -ne 0 ] || ! aliddns_response_ok "$response"; then
+			logger -t "【AliDDNS动态域名】" "添加记录请求失败"
+			aliddns_update_failed
+			return 1
+		fi
+		aliddns_record_id=$(printf '%s\n' "$response" | get_recordid)
+		if [ -z "$aliddns_record_id" ]; then
+			logger -t "【AliDDNS动态域名】" "添加记录响应缺少记录ID"
+			aliddns_update_failed
+			return 1
+		fi
+		echo "added record $aliddns_record_id"
+		logger -t "【AliDDNS动态域名】" "添加的记录  $aliddns_record_id"
+	else
+		response=$(update_record "$aliddns_record_id")
+		request_status=$?
+		if [ "$request_status" -ne 0 ] || ! aliddns_response_ok "$response"; then
+			logger -t "【AliDDNS动态域名】" "更新记录请求失败"
+			aliddns_update_failed
+			return 1
+		fi
+		echo "updated record $aliddns_record_id"
+		logger -t "【AliDDNS动态域名】" "更新的记录  $aliddns_record_id"
+	fi
+
+	# Publish success only after the requested API action succeeds.
 	nvram set aliddns_record_id="$aliddns_record_id"
-	nvram set aliddns_last_act="`date "+%Y-%m-%d %H:%M:%S"`   成功更新：$hostIP"
+	nvram set aliddns_last_act="$(date '+%Y-%m-%d %H:%M:%S')   成功更新：$hostIP"
 	logger -t "【AliDDNS动态域名】" "成功更新： $hostIP"
 	return 0
-fi
-
 }
 
 # 动态检查更新

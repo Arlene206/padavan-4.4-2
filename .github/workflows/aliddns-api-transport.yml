@@ -1,0 +1,56 @@
+name: AliDDNS signed API transport security regression
+
+on:
+  push:
+    paths:
+      - "SESSION_HANDOFF.md"
+      - "REFACTOR_ROADMAP.md"
+      - "dev_log.md"
+      - ".github/workflows/aliddns-api-transport.yml"
+      - "scripts/check_aliddns_api_transport.py"
+      - "trunk/user/aliddns/aliddns.sh"
+      - "trunk/user/aliddns/tests/aliddns_api_transport.sh"
+      - "trunk/user/aliddns/Makefile"
+      - "trunk/user/Makefile"
+      - "trunk/libs/Makefile"
+      - "trunk/libs/libcurl/Makefile"
+      - "trunk/user/scripts/files/etc_ro/certs.tgz"
+      - "trunk/user/scripts/files/usr/bin/copyscripts.sh"
+      - "trunk/user/scripts/files/usr/bin/autostart.sh"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/httpd/src/variables.c"
+  pull_request:
+    paths:
+      - "SESSION_HANDOFF.md"
+      - "REFACTOR_ROADMAP.md"
+      - "dev_log.md"
+      - ".github/workflows/aliddns-api-transport.yml"
+      - "scripts/check_aliddns_api_transport.py"
+      - "trunk/user/aliddns/aliddns.sh"
+      - "trunk/user/aliddns/tests/aliddns_api_transport.sh"
+      - "trunk/user/aliddns/Makefile"
+      - "trunk/user/Makefile"
+      - "trunk/libs/Makefile"
+      - "trunk/libs/libcurl/Makefile"
+      - "trunk/user/scripts/files/etc_ro/certs.tgz"
+      - "trunk/user/scripts/files/usr/bin/copyscripts.sh"
+      - "trunk/user/scripts/files/usr/bin/autostart.sh"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/httpd/src/variables.c"
+
+permissions:
+  contents: read
+
+jobs:
+  aliddns-api-transport:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check AliDDNS shell syntax
+        run: sh -n trunk/user/aliddns/aliddns.sh
+      - name: Run AliDDNS signed API transport regression
+        run: sh trunk/user/aliddns/tests/aliddns_api_transport.sh
+      - name: Verify AliDDNS transport, CA bundle and RC contracts
+        run: python3 scripts/check_aliddns_api_transport.py

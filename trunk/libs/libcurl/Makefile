@@ -36,7 +36,7 @@ CONFIGURE_ARGS += \
 $(eval $(call BuildPackage,curl))
 
 romfs:
-ifeq ($(CONFIG_FIRMWARE_INCLUDE_CURL),y)
+ifneq ($(filter y,$(CONFIG_FIRMWARE_INCLUDE_CURL) $(CONFIG_FIRMWARE_INCLUDE_ALIDDNS)),)
 	$(INSTALL_DIR) $(ROMFSDIR)/usr/bin
 	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/bin/curl $(ROMFSDIR)/usr/bin/
 endif
