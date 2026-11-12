@@ -1,3 +1,18 @@
+## 2026-11-12 09:53 CST (UTC+8) — Harden DDNSTO stop/restart against stale PID signals
+
+- Base main SHA: `9e5351d7f790dca5de5ec2495291fd34edaa658c`; parent `8e1e0c75afd3b95796cd3354d763b90395c9ef05`.
+- Resumed the handoff's whole-tree RC/add-on process-control audit outside the recently covered VPN server and HTTPD paths. Traced the DDNSTO caller chain: RC notification dispatch -> `restart_ddnsto()` -> `stop_ddnsto()/start_ddnsto()` -> ROMFS-installed `/usr/bin/ddnsto.sh`.
+- Found a PID-reuse hazard and restart fail-open: `ddnsto.sh` cached the numeric output of `pidof ddnsto`, sent TERM using `killall ddnsto`, then unconditionally sent SIGKILL to the stale PID list. A process that exited on TERM could have its PID reused by an unrelated program. There was no bounded graceful-stop interval, no daemon-absence postcondition, and start continued even if shutdown could not be confirmed.
+- Replaced the stale numeric signal with a bounded lifecycle: TERM by process name; up to five one-second polls of live `pidof`; only after timeout, SIGKILL through fresh `killall -9 ddnsto` process-name matching; then a second bounded absence check. Failure propagates from stop and prevents start from launching a replacement. No RC API, daemon argument, or ROMFS install change.
+- Added five-case shell regression for no-process stop, graceful exit, TERM timeout/escalation, persistent process failure and start gating; it overrides shell `kill` to catch any numeric stale-PID signal. Added semantic source checker for lifecycle ordering, ROMFS installation, RC caller graph and exact-once symmetric push/pull_request workflow filters.
+- Local host validation in an isolated workspace: `sh -n` passed for the production script and regression; the regression printed `DDNSTO lifecycle stop/start regression: PASS`; `python3 -m py_compile` passed for the source checker. The semantic checker and AI docs validator are scheduled in Actions for this exact new SHA; results must be fetched and inspected before L2 is called closed.
+- The full repository could not be cloned in this environment because container DNS resolution for github.com failed. No local full-tree documentation validator, target BusyBox, MIPS/uClibc build, complete firmware/TRX or router test is claimed.
+- Next work: after exact-head Actions, continue auditing the other optional-service wrappers and their RC callers for bounded process identity/stop, concurrent lifecycle control, file publication and cleanup. FTP upload-cleanup TOCTOU remains P2 OPEN/BLOCKED; NFS requires real-client evidence.
+- Root `dev_log.md` grows 39→40 complete records; no rotation or INDEX update. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- Production MIPS/uClibc, full firmware/TRX and L4 router/hardware behavior remain NOT VERIFIED.
+
+---
+
 ## 2026-11-12 09:39 CST (UTC+8) — Restore required handoff marker and assert symmetric OpenVPN workflow filters
 
 - Base main SHA: `8e1e0c75afd3b95796cd3354d763b90395c9ef05`; parent `d946bb4f6cd305924041665f100900597de05318`.

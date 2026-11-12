@@ -3,7 +3,8 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; branch `main`; only remote branch is `main`; no checkpoint branch.
-- Base main SHA for THIS COMMIT: `8e1e0c75afd3b95796cd3354d763b90395c9ef05` (parent `d946bb4f6cd305924041665f100900597de05318`); only remote branch is `main`, no checkpoint branch.
+- Base main SHA for THIS COMMIT: `9e5351d7f790dca5de5ec2495291fd34edaa658c` (parent `8e1e0c75afd3b95796cd3354d763b90395c9ef05`); only remote branch is `main`, no checkpoint branch.
+- Recovered exact-head CI on that base SHA: VPN [43136063682], infosvr [43136063361] and AI handoff docs [43136063333] all completed SUCCESS. VPN lifecycle/shared-lock/callback contracts, infosvr packet/signal contracts and docs validation passed; docs reported root log=39/119 and archive counts=7/22/18.
 - DNS Forwarder caller-CWD-independent launcher is L1/L2 CLOSED on exact SHA `c2e1c85517ed2dcbe094ed43e3cae18d7af4d972`: DNS [43066687882], AI docs [43066687814] and infosvr [43066687818] SUCCESS.
 - DNSMasq DHCP pool/router-address exclusion is L1/L2 CLOSED on exact SHA `c22542d36e9de26780b338267f41a91d99aaf34a`: DNSMasq [43069047780], AI docs [43069047752], HTTPD [43069047723], infosvr [43069047578], Samba [43069047831] and miniupnpd [43069047633] SUCCESS.
 - WAN bridge VLAN deletion failure propagation is L1/L2 CLOSED on exact SHA `55740d3491fba908416b930664143943b5acca1a`: wireless [43069624285], AI docs [43069624357], infosvr [43069624265] and WAN DHCP [43069624334] SUCCESS.
@@ -18,7 +19,7 @@
 - Lease-source reads use no-follow/nonblocking descriptor opens and fstat trust checks. The record copier rejects embedded NUL, malformed/overlong lines and read errors; publication remains same-directory staged with checked write/flush/fsync/close/rename. Exact-head VPN job [43132697870] passed all steps, including lifecycle, callback identity, shared-lock policy binaries and the semantic source contract. Exact-head AI docs job [43132697890] also passed; its validator reported root log=37/119 and archives=7/22/18.
 - Root and OpenVPN clear paths both unlink the root-owned OpenVPN PID marker before the lease snapshot under the shared lease lock. A callback waiting behind stop therefore fails its parent-PID fence; stale callbacks skip user hooks while ordinary inventory errors remain hook-independent. Target `/tmp`, group/PID ownership and actual daemon-stop timing remain unverified.
 
-- Root `dev_log.md` grows 38→39 complete records; no rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- Root `dev_log.md` grows 39→40 complete records; no rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
 - FTP upload-cleanup TOCTOU remains P2 OPEN/BLOCKED pending a Linux 4.4-safe inode/parent proof; NFS requires real-client evidence. Production MIPS/uClibc, full firmware/TRX and physical-router behavior remain NOT VERIFIED.
 
 ## Closed task — NVRAM HDR2 profile-save atomic publication
@@ -163,18 +164,26 @@
 - Root RC/PPP and dropped-privilege OpenVPN callbacks contend on one root-owned mode-0620 root:nogroup lease lock in APP_OPENVPN builds; PPP-only builds retain a root-private lock. Root and OpenVPN clears remove the daemon PID marker before the lease snapshot while holding that lock. Callbacks verify parent PID after acquiring the lock; stale callbacks cannot restore state or run external hooks.
 - Production MIPS/uClibc, router `/tmp` ownership/sticky-bit behavior, group/PID ownership, live daemon stop timing, OpenVPN authentication, firmware/TRX and L4 remain NOT VERIFIED.
 
-## Active task — Continue whole-tree service/process-control audit (P2 stability)
+## Closed task — DDNSTO stale-PID force-kill race (P2 process reliability; L1 reviewed, L2 host regression added)
 
-- FTP failed-upload cleanup TOCTOU remains P2 OPEN/BLOCKED. Linux 4.4 has no inode-conditional unlink-by-fd; the current fstatat()/unlinkat() pair retains a race against concurrent same-directory writers. Do not patch without a proved Linux 4.4-compatible design preserving STOR/APPE/REST/STOU, ACL/parent pinning and existing overwrite/visibility semantics.
-- Exact SHA `8e1e0c75afd3b95796cd3354d763b90395c9ef05` VPN server workflow [43135536988] passed, including the expanded OpenVPN callback source contract. The docs and infosvr workflows [43135537018] / [43135537134] failed because this handoff heading had been changed from the required `## Active task`; this commit restores that protocol marker. Recheck those exact-head jobs before closing the current CI slice.
-- The immediate next actionable work is the whole-tree RC/add-on process-control and file-publication audit outside VPN/HTTPD: trace stop/start/restart callers, PID-file trust, bounded waits, process identity and fail-closed state publication; select a reproducible stability issue and add a GNU89 host regression plus exact symmetric CI path filters.
-- NFS async durability, AUTH_SYS/root-squash and external mount compatibility remain real-client evidence-gated. Wi-Fi/WAN board-specific bridge behavior remains target validation work.
+- The previous stop path captured `pidof ddnsto` output, sent TERM through `killall ddnsto`, then immediately sent SIGKILL to the cached numeric PID list. If DDNSTO exited after TERM, a reused PID could belong to an unrelated process. The path also had no bounded grace period or process-absence postcondition, and the start path launched a replacement without checking whether the old daemon had actually stopped.
+- `kill_z()` now sends TERM by process name, polls the live `pidof` result for up to five one-second intervals, and only if the daemon remains uses `killall -9 ddnsto` to re-enumerate the current process name before SIGKILL. It then verifies absence with a second bounded wait. No cached numeric PID is signalled. Stop returns failure if the daemon remains; start refuses to launch a replacement when stop cannot be confirmed. The RC API, binary arguments and ROMFS install path are unchanged.
+- Added `trunk/user/ddnsto/tests/ddnsto_lifecycle.sh` for no-process, graceful TERM, bounded KILL escalation, unkillable-process failure and start-gating cases. Added `scripts/check_ddnsto_lifecycle.py` for lifecycle ordering, stale-PID exclusion, ROMFS installation, RC caller wiring and symmetric push/pull_request filters. The isolated host run passed; shell syntax and Python bytecode compilation passed. Exact-head DDNSTO and AI-doc Actions are pending at commit creation.
+- The fix does not serialize simultaneous independent RC/script invocations. Target BusyBox `pidof`/`killall` process visibility and daemon stop timing remain unverified; no L3/L4 claim is made.
+
+## Active task — Continue whole-tree RC/add-on process-control and file-publication audit (P2 stability)
+
+- DDNSTO's stale numeric-PID escalation and stop-before-start gap are now addressed at source/host-test level. After exact-head Actions, continue auditing optional add-ons and shared RC lifecycle code rather than repeating the recently closed VPN/HTTPD/DNS work.
+- Next inspect service wrappers and their callers across remaining user-space packages, including Adbyby, AdGuardHome, AliyunDrive WebDAV, FRP, AliDDNS and ZeroTier. For each, trace all start/stop/restart paths, process identity, concurrent invocations, bounded wait/postconditions, PID/config file trust, firewall/interface cleanup and error propagation. Select one reproducible cross-module bug per round.
+- FTP failed-upload cleanup TOCTOU remains P2 OPEN/BLOCKED: Linux 4.4 has no inode-conditional unlink-by-fd; do not patch without a proved design preserving STOR/APPE/REST/STOU, ACL/parent pinning and overwrite/concurrent-writer semantics. NFS async durability and AUTH_SYS/root-squash remain real-client evidence-gated.
+
 ## Verification boundary
 
-- L1 source review: PASS for the OpenVPN shared root:nogroup lease-lock ownership model, PID-file stop fence, stale callback suppression, lease parser validation/staged publication, root RC caller integration and PPP-only root-private fallback. This is source-level confidence only; target privilege-drop/group database behavior is not proven.
-- L2 exact-head Actions: SHA `d946bb4f6cd305924041665f100900597de05318`: VPN server lifecycle stability [43132697870] and AI handoff documentation [43132697890] both SUCCESS. Full job steps and logs inspected; shared lock/callback policy/source contracts PASS; docs validator root log=37/119 and archives=7/22/18. On subsequent exact SHA `8e1e0c75afd3b95796cd3354d763b90395c9ef05`, VPN server workflow [43135536988] also passed with the extended OpenVPN callback contract; docs/infosvr were blocked only by the removed required handoff heading, restored in the current commit, and must be rechecked on its exact SHA.
-- L3 production MIPS/uClibc objects / complete firmware/TRX: NOT VERIFIED for OpenVPN lease, credential/config/CCD staging, VPN lifecycle or current RC changes.
-- L4 router / physical hardware: NOT VERIFIED. No live OpenVPN server startup, authentication, client network, stop-race or router behavior is claimed.
+- L1 source review: PASS for the DDNSTO service path from the RC notification caller through `restart_ddnsto()`, the `services.c` wrappers and the ROMFS-installed `/usr/bin/ddnsto.sh`; the stale numeric-PID signal is removed, TERM/KILL waits are bounded, the final absence postcondition is checked and replacement startup is gated.
+- L2 host: the isolated POSIX-shell lifecycle regression passed all five scenarios (no process, graceful TERM, TERM timeout plus name-based KILL, process that remains after SIGKILL, and start blocked after failed stop). `sh -n` passed for the service script and regression; `python3 -m py_compile` passed for the semantic checker. The DDNSTO workflow runs the regression and integrated source/path-filter contract on the exact pushed SHA; Actions are pending.
+- The development container could not clone GitHub because DNS resolution for github.com failed. No full local checkout or local run of `scripts/check_ai_handoff_docs.py` was possible; the exact-head AI-doc workflow is required for repository-wide documentation validation.
+- L3 production MIPS/uClibc, target BusyBox/procfs process visibility, actual daemon-stop timing and complete firmware/TRX: NOT VERIFIED.
+- L4 router / physical hardware: NOT VERIFIED.
 
 ## Other open governance-ledger risks
 
@@ -188,9 +197,6 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and confirm the exact current SHA. Inspect exact-head VPN server stability, AI handoff documentation and infosvr packet/signal Actions for the required-heading/path-filter correction, including every step and full logs; require the docs validator to report root log=39/119 and archives=7/22/18.
-2. Continue the whole-tree RC/add-on service process-control and file-publication audit. Keep FTP cleanup TOCTOU OPEN/BLOCKED until a safe Linux 4.4 design is demonstrated; do not claim L3/L4.
-2. Require the shared lock test to pass for POSIX contention, root-owned group-0620 access from nobody, symlink/hardlink/mode rejection and immediate FIFO rejection; require OpenVPN credential/config/lease GNU89 ASan/UBSan tests and both semantic source/workflow checkers to pass. Do not report L2 closed before that evidence.
-3. If L2 passes, continue L3 investigation of production MIPS/uClibc, firmware `/tmp` sticky-root semantics, `SYS_GROUP_NOGROUP` group membership, OpenVPN pidfile owner/mode and stop/child callback timing. L4 remains unverified until router tests.
-4. Continue the whole-repository RC/add-on process and file-publication audit. FTP upload-cleanup TOCTOU remains OPEN/BLOCKED pending Linux 4.4 inode/parent proof; NFS needs real-client evidence.
-
+1. Fetch the live `main` ref and record its exact SHA. Inspect the DDNSTO lifecycle workflow and AI handoff documentation workflow on that exact SHA, including every step and complete logs. Require the host regression and DDNSTO lifecycle/RC/path-filter source contracts to print PASS, and the docs validator to report root log=40/119 with archive counts dev-log=7, handoff=22, roadmap=18. Recheck any additional workflow triggered by the changed paths.
+2. If exact-head L2 passes, continue the whole-tree add-on process-control/file-publication audit. Trace all callers before editing and select a distinct, reproducible next defect; do not assume DDNSTO's process-name approach transfers to services with different daemon or privilege models.
+3. Keep FTP failed-upload cleanup TOCTOU OPEN/BLOCKED pending a Linux 4.4-safe inode/parent proof, NFS durability/auth semantics evidence-gated on real clients, and L3/L4 NOT VERIFIED until production MIPS/uClibc/firmware and router evidence exists.
