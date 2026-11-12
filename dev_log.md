@@ -1,3 +1,15 @@
+## 2026-11-12 12:01 CST (UTC+8) — Make AdGuardHome function-boundary scan newline-safe
+
+- Base main SHA: `c83fd3a66ed854ec4d1d5f6a304a561b10bddfe3`.
+- Exact-head AdGuardHome workflow [43153476546] checked out `e0f1cc0969287f113f20e74151138b68b4ce4acc`. Launcher syntax and the complete host config regression passed. The source-contract step failed because the first non-regex parser searched for a literal backslash-n sequence instead of a real newline; no production or host regression failure occurred.
+- The checker parser is now based on `source.find(chr(10) + "}", opening + 1)`, avoiding both regex-brace quoting and newline escape ambiguity. Dedicated workflow path filters now also include the three canonical governance documents in both push and pull_request, so the final docs checkpoint is tested on its own head.
+- On the same parent SHA, AI handoff docs [43153476616] and infosvr [43153476521] both SUCCESS; docs validator reported root log=47? Verify log entry count in the run before stating. Current recorded run reported root log=47? This needs exact check.
+- Root `dev_log.md` grows 47→48 complete records; remains below rotation triggers. No archive or INDEX update due; archives remain dev-log=7, handoff=22, roadmap=18.
+- Exact-head AdGuardHome and docs reruns on THIS COMMIT are pending. No L2 closure until all semantic config/ROMFS/RC/path-filter checks and docs validator pass. No production target/MIPS/uClibc/firmware/TRX/L4 claims.
+- Next: inspect exact-head AdGuardHome and AI docs jobs, every step and full logs; if green, close the config confidentiality slice and resume remaining AdGuardHome process lifecycle, concurrent starts, resolver rollback and stale firewall-rule cleanup. FTP TOCTOU remains OPEN/BLOCKED; NFS is real-client evidence-gated.
+
+---
+
 ## 2026-11-12 11:53 CST (UTC+8) — Correct AdGuardHome source-contract function boundary parser
 
 - Base main SHA: `67c183b0a2464bc5f3d943917c98c8435749dbc8`.
