@@ -1,16 +1,15 @@
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`. Development and commits remain restricted to `main`; refetch the live head before every write. Latest source/test checkpoint is `f53bdfb13aefa89201481628e6d0bcf07e47c2e5`; this checker/handoff update will be a direct child of that exact SHA. Only `main` is present; legacy PR #1 remains CLOSED/unmerged and GPT Session Rotator remains untouched.
+- Repository: `Arlene206/padavan-4.4-2`. Development and commits remain restricted to `main`; refetch the live head before every write. Latest source/test checkpoint before the current credential-transport fix is `7309ae404e0172edac20ac91d710da74cf39722f`; the new fix and handoff update will be a direct child of that exact SHA. Only `main` is present; legacy PR #1 remains CLOSED/unmerged and GPT Session Rotator remains untouched.
 - Remote branch inventory at this checkpoint contains only `main`. Legacy PR #1 remains CLOSED and unmerged; its useful AliDDNS source/helper/package/host tests were already integrated on main. Do not cherry-pick or reopen it. GPT Session Rotator remains immutable.
 - Recent AliDDNS commit chain: `1931488bc4767b7abcd4710bee3c6fcce00eb65d` implemented exact keeper PID matching and bounded TERM/KILL; `a8e30e38cf2c35387e5c7e409b314eb03f8878dd` is a tree-identical empty commit (no source change); `f19e8e43369d3e3ae9dba507573626960a7e0478` corrected the self-PID test fixture; `c30e9b29abc093963a4276ca22eeb2c7e18f1001` fixed the command-substitution argv-boundary handling and an obsolete HTTPD workflow assertion; `8eec765e9a91c617eb2eb6fab582321a8e04966f` tightened the keeper action to the final argv token and added an extra-argument decoy; `70db3735b4c129622914cee610ac02e8b99fb017` corrected the semantic checker to assert that exact contract.
 - The previous AliyunDrive WebDAV lifecycle task remains L2-closed on exact SHA `18234ff0a41eb5343aaf58207b3cf641bbf4a244`: lifecycle run [43287688178] / job [131425308994] passed bounded stop, duplicate-start/argv integrity, serialized transitions and asynchronous process-presence readiness. This does not prove WebDAV HTTP readiness.
-- Exact latest source/test checkpoint Actions on `f53bdfb13aefa89201481628e6d0bcf07e47c2e5`:
-  - AI handoff docs [43313655530] — SUCCESS.
-  - AliyunDrive WebDAV lifecycle [43313655603] / job [131515924146] — SUCCESS (shell syntax, bounded host lifecycle tests and source/RC/binary environment contract).
-  - infosvr packet/signal lifecycle [43313655609] — SUCCESS.
-  - AliDDNS signed API transport security [43313655587] — SUCCESS.
-  - AdGuardHome config security [43313655487] — SUCCESS.
-  - All five completed SUCCESS on the same exact SHA. This is not a firmware-build or L4 result.
+- Exact latest source/test checkpoint Actions on `7309ae404e0172edac20ac91d710da74cf39722f`:
+  - AliyunDrive WebDAV lifecycle [43318689422] / job [131533341859] — SUCCESS. The job ran shell syntax, installed QEMU, executed the exact bundled MIPSel binary's `--version` and `--help`, ran the bounded lifecycle regression, and ran the source/RC checker.
+  - AI handoff docs [43318689207] / job [131533339554] — SUCCESS; root log=79/119 and archive inventory dev-log=7, handoff=22, roadmap=18.
+  - Both triggered by `push` and completed SUCCESS on this exact SHA. This is not a firmware build or L4 result.
+  - QEMU reported bundled daemon `aliyundrive-webdav 1.2.1`; `--help` explicitly advertises `REFRESH_TOKEN`, `WEBDAV_AUTH_USER`, and `WEBDAV_AUTH_PASSWORD` on the corresponding options. The source checker still reported a false negative because it searched raw ELF bytes; the current commit corrects that evidence path and moves secrets out of argv.
+
 - Earlier checkpoint workflow history (not current-head evidence):
   - AliyunDrive WebDAV lifecycle/source contract: run [43312330424] / job [131511324570] — SUCCESS on `0460f705b6ea3bbe1bcc9cfa61d66b677e5612da`. Shell syntax, bounded stop, duplicate-start/argv integrity, lifecycle lock, asynchronous process-presence startup and RC/source contracts passed. The exact-binary checker warned that the bundled daemon lacks its required credential environment-variable interface; this is not a credential-redaction pass.
   - AI handoff docs: run [43312330419] / job [131511324768] — FAILURE on the same SHA because `SESSION_HANDOFF.md` lacked the required `## Active task` heading; this update restores that section. The rejected env-only trial on `f8fbf44529ed1be8c9b5462e6e219392d6b9a4a9` failed exact-binary capability validation (run [43310466543] / job [131504899043]) and was reverted before this checkpoint.
@@ -22,16 +21,23 @@
 
 ## Active task
 
-AliyunDrive WebDAV refresh-token and WebDAV auth username/password remain visible in daemon argv (`-r`, `-U`, `-W`). The env-only trial at `f8fbf44529ed1be8c9b5462e6e219392d6b9a4a9` was rejected because the exact bundled 3,029,740-byte daemon did not contain `REFRESH_TOKEN`, `WEBDAV_AUTH_USER` or `WEBDAV_AUTH_PASSWORD`; the unsupported launch was reverted in `0460f705b6ea3bbe1bcc9cfa61d66b677e5612da`. No credential privacy fix is claimed.
+AliyunDrive WebDAV refresh-token and WebDAV auth username/password were still passed in daemon argv (`-r`, `-U`, `-W`) on base SHA `7309ae404e0172edac20ac91d710da74cf39722f`. This commit moves the three values to the environment and removes them from argv, based on a direct QEMU probe of the exact packaged daemon.
 
-The exact-head AliyunDrive suite on `f53bdfb13aefa89201481628e6d0bcf07e47c2e5` passed (run [43313655603], job [131515924146]) with an explicit warning. It confirms ELF32 little-endian MIPS (`e_machine=8`). Firmware config in `trunk/config.arch` uses `mips32r2` and `mipsel-linux`; `uclibc-mipsel.config` specifies 32-bit MIPS O32 little-endian. This broad machine/endianness match does not prove the exact ISA flags, ABI marker, dynamic interpreter or runtime compatibility.
+The QEMU workflow on the exact base SHA [43318689422] / job [131533341859] executed the packaged binary successfully:
+- `--version`: `aliyundrive-webdav 1.2.1`.
+- `--help`: all three exact env mappings are advertised: `REFRESH_TOKEN`, `WEBDAV_AUTH_USER`, and `WEBDAV_AUTH_PASSWORD`.
+- The same help output confirms the launcher options `--domain-id`, `--workdir`, `--no-trash`, and `--read-only` are supported.
+- Binary: 3,029,740 bytes, SHA-256 `237c0ab2c14197c5a4e4bd8975f884979a29b35cad31b8e2354e084c19413891`; ELF32 little-endian MIPS32R2, `e_flags=0x70001007`, O32 ABI, no `PT_INTERP` (static executable).
+- Board profile scan: 56 templates; all 56 explicitly set `CONFIG_FIRMWARE_INCLUDE_ALDRIVER=n`; none enabled and none unset. The same optional package installs one shared prebuilt executable.
 
-The package contains one shared prebuilt binary: `trunk/user/aliyundrive-webdav/Makefile` only copies it into ROMFS and has no build recipe. The enabled/disabled/unset profile matrix has not yet been scanned. The next checker scans all `trunk/configs/templates/*.config` files.
+The earlier checker incorrectly equated absence of the three contiguous names in raw ELF bytes with lack of env support. The QEMU-produced help text is the stronger runtime interface evidence. This commit makes the QEMU probe require all three exact `[env: NAME=]` annotations and emit a report containing the executable SHA-256; the source checker accepts that report only when it matches the exact packaged binary. The launcher now invokes the same binary with `REFRESH_TOKEN`, `WEBDAV_AUTH_USER`, and `WEBDAV_AUTH_PASSWORD` as environment assignments. The host lifecycle fixture captures argv and environment separately, checks exact values including spaces/shell metacharacters, and asserts that no credential appears in argv. Normal-domain `--no-trash`/`--read-only` handling, special `--domain-id 99999`, workdir, cache/read-buffer, lock and bounded process-presence startup remain unchanged.
 
-Upstream tag `v1.1.1` resolves to `956cfbcf1237ba2dce0ed28215b735ff821d952e`; its source enables Clap's env feature and declares the three credential environment names. The official release lists MIPSel musl and `mipsel_24kc` assets, but the current binary lacks those strings. Its provenance/version remains unverified; no upstream binary has been substituted.
+**This commit's exact-head validation is PENDING.** It must show QEMU's SHA-bound capability report, shell syntax, environment/argv regression and the source/RC contract all pass before the transport fix is considered L2-closed. The prior env-only trial was reverted because the earlier static byte-string checker produced a false negative; no binary replacement or upstream candidate is needed for this change.
 
-Next: inspect exact ELF `e_flags`, MIPS ISA/ABI marker, `PT_INTERP`, CLI/version strings and SHA-256 through exact-head CI; scan all board templates; compare checksum-verified candidates. Validate target ABI and refresh-token, `domain-id`, workdir, read-only and no-trash behavior before replacing the binary or removing argv credentials. Preserve the lifecycle lock and bounded startup process-presence gate (not HTTP readiness). After this, resume FTP cleanup TOCTOU and FRP/Adbyby whole-tree review.
+Residual security boundary: environment transport removes ordinary `ps`/argv disclosure but does not make secrets inaccessible to privileged root through `/proc/PID/environ`. The existing `--workdir /tmp/aliyundrive-webdav` behavior is intentionally preserved and its token persistence/permissions remain a separate inspection item. Process visibility is still not proof of WebDAV HTTP readiness.
 
+Next after exact-head validation: inspect the daemon's workdir/token-file behavior and process-environment exposure, then resume the FTP upload-cleanup TOCTOU design review. Keep NFS real-client evidence and FRP/Adbyby whole-tree audit in the queue; do not start a binary replacement project or full firmware build for this issue.
+ 
 ## Completed task: AliDDNS lifecycle process identity and bounded stop
 
 Traced the HTTPD `variables.c` → PID 1 `rc.c` → `services.c` → `/usr/bin/aliddns.sh` control route. The previous `kill_ps()` selected processes with broad `ps | grep | awk | eval` matching and sent TERM/KILL without confirming exit.
@@ -46,13 +52,14 @@ Intermediate CI failures were investigated, not hidden: the first regression fai
 
 ## Verification boundary
 
-- L1: bootstrap/protocol, current `main`, handoff, roadmap, root dev log, archive indexes, branch inventory, exact-head Actions, and AliyunDrive launcher/RC/source integration reviewed. Exact bundled ELF is confirmed ELF32 little-endian MIPS at the machine-ID level; credential argv exposure remains OPEN.
-- L2: all five push workflows passed on exact SHA `f53bdfb13aefa89201481628e6d0bcf07e47c2e5`: AI docs [43313655530], AliyunDrive [43313655603] / job [131515924146], infosvr [43313655609], AliDDNS [43313655587], AdGuardHome [43313655487]. AliyunDrive checked shell syntax, lifecycle host tests and source/RC/binary capability contracts. The env-only trial on `f8fb...` failed exact-binary capability and was reverted.
-- The expanded ELF ABI/board-profile checker in this commit is pending its own exact-head Actions; no result is claimed yet.
-- No local full checkout was available; local shell/Python test execution is NOT CLAIMED. Evidence above comes from exact-SHA GitHub Actions.
+- L1: root bootstrap/protocol, current `main`, handoff, roadmap, newest 20 root log entries, archive index, branch inventory and exact-head Actions reviewed. The exact packaged binary has been run under MIPSel QEMU: version 1.2.1, required CLI options present, and all three credential env bindings advertised by its own `--help`. ELF is static ELF32 LE MIPS32R2/O32 (`e_flags=0x70001007`, no `PT_INTERP`); all 56 config templates explicitly disable the add-on.
+- L2 base evidence: exact base SHA `7309ae404e0172edac20ac91d710da74cf39722f`: AliyunDrive [43318689422] / job [131533341859] SUCCESS (QEMU CLI probe, bounded shell lifecycle regression and source/RC contract); AI docs [43318689207] / job [131533339554] SUCCESS.
+- L2 current fix: `THIS COMMIT` — exact-head Actions are pending. No result is claimed until the QEMU SHA-bound env report, shell syntax, updated environment/argv fixture and source checker complete on the new main SHA.
+- No complete local repository checkout was available; no local full-project shell/Python test run is claimed. Evidence above comes from GitHub Actions logs on exact SHAs.
 - L3 full firmware/TRX for current main: NOT VERIFIED. L4 router flashing, boot and runtime: NOT VERIFIED.
-- Residual risk: refresh token and WebDAV username/password remain visible in daemon argv and can be read through process inspection. Linux 4.4 also lacks pidfd, leaving the previously documented narrow keeper PID-reuse window; target BusyBox ash/procfs and hardware behavior remain unverified.
+- Residual risk: environment values remain readable to sufficiently privileged root via `/proc/PID/environ`; `--workdir` token persistence and permissions still need inspection. The Linux 4.4 keeper PID-reuse concern, target BusyBox ash/procfs timing and hardware behavior remain unverified.
 
 ## Exact first action for the next GPT
 
-Fetch live `main` and inspect every workflow by exact SHA. First read the new AliyunDrive checker output for ELF `e_flags`, ISA/ABI marker, `PT_INTERP`, CLI/version strings, SHA-256 and the full board-template ALDRIVER matrix. Compare a checksum-verified MIPSel candidate; prove ABI/loader plus refresh-token, `domain-id`, workdir, read-only and no-trash compatibility before any replacement or launcher edit. Keep argv exposure OPEN until exact-head tests pass. Then resume FTP upload-cleanup TOCTOU, followed by FRP/Adbyby audit; retain NFS real-client evidence requirement and defer full current-main XY-C1/L4 validation until main development is ready.
+Fetch live `main` and inspect the AliyunDrive and AI-docs push runs on the exact resulting SHA. Verify the QEMU helper's SHA-bound capability report lists all three env names and v1.2.1 CLI options, then confirm the host fixture proves exact environment values and zero credential argv leakage. Fix any failed check directly on `main`; do not write a docs-only commit just to record green Actions. If green, inspect `/tmp/aliyundrive-webdav` token persistence and permissions in the daemon behavior before declaring the residual secret-handling review closed; then resume FTP upload-cleanup TOCTOU and rotate through NFS/FRP/Adbyby. Current-main L3 firmware/TRX and L4 hardware validation remain deferred and NOT VERIFIED.
+

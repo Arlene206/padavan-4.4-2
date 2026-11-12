@@ -1,3 +1,18 @@
+## 2026-11-13 06:29 CST (UTC+8) — Correct AliyunDrive credential capability evidence and redact daemon argv
+
+- Base main SHA: `7309ae404e0172edac20ac91d710da74cf39722f`; branch inventory contained only `main`, legacy PR #1 remains closed/unmerged, and GPT Session Rotator was not modified.
+- Exact-base AliyunDrive workflow [43318689422] / job [131533341859] and AI handoff docs [43318689207] / job [131533339554] were SUCCESS on that SHA. QEMU ran the packaged daemon: `aliyundrive-webdav 1.2.1`. Its `--help` explicitly advertised `REFRESH_TOKEN`, `WEBDAV_AUTH_USER`, and `WEBDAV_AUTH_PASSWORD`, plus all existing launcher options (`--domain-id`, `--workdir`, `--no-trash`, `--read-only`).
+- Exact binary evidence: 3,029,740 bytes; SHA-256 `237c0ab2c14197c5a4e4bd8975f884979a29b35cad31b8e2354e084c19413891`; ELF32 little-endian MIPS32R2/O32, `e_flags=0x70001007`, no `PT_INTERP` (static). All 56 board templates explicitly disable the optional AliyunDrive package; one shared executable is installed behind the package gate.
+- Found a false negative in the earlier checker: scanning for contiguous env-name bytes in the ELF did not reflect the CLI's actual Clap env configuration, while QEMU `--help` showed the compiled `[env: NAME=]` mappings. Updated `scripts/test_aliyundrive_webdav_binary.py` to require each mapping and emit a report bound to the binary SHA-256; `scripts/check_aliyundrive_webdav_lifecycle.py` now validates that report instead of raw-string inference.
+- Switched `trunk/user/aliyundrive-webdav/aliyundrive-webdav.sh` to pass refresh token, WebDAV username and password as child-process environment assignments, removing `-r/-U/-W` secret values from argv. Updated `trunk/user/aliyundrive-webdav/tests/aliyundrive_webdav_lifecycle.sh` to independently assert exact environment values, preserve non-secret argv order/quoting and fail on any credential argv leak. Domain-id and optional no-trash/read-only policy remain unchanged.
+- Tests and exact-head validation for THIS COMMIT are PENDING; no local full checkout or local test run is claimed. Base-SHA QEMU/lifecycle/source and docs workflows were green as listed above.
+- Root log count: 79→80 complete records; size remains below 384 KiB and the 512 KiB hard limit. No archive rotation or `docs/dev-log/INDEX.md` change is due; existing log/handoff/roadmap archives remain untouched.
+- Changed paths: QEMU binary probe, lifecycle source checker, AliyunDrive launcher, lifecycle host regression, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and `dev_log.md`. No bundled binary, GPT rotator, or archived snapshot changed.
+- Resulting commit: THIS COMMIT.
+- Next: verify AliyunDrive and AI docs `push` Actions on the resulting exact main SHA. Then inspect `/proc/PID/environ` and `--workdir` token persistence/permissions before closing the residual credential review; proceed to FTP cleanup TOCTOU afterward.
+
+---
+
 ## 2026-11-13 06:12 CST (UTC+8) — Extend AliyunDrive bundled ELF and board-profile audit
 
 - Base main SHA: `f53bdfb13aefa89201481628e6d0bcf07e47c2e5`; only `main` was present. All five exact-head workflows were SUCCESS: AI docs [43313655530], AliyunDrive [43313655603] / job [131515924146], infosvr [43313655609], AliDDNS [43313655587], and AdGuardHome [43313655487].

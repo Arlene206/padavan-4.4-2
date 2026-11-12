@@ -118,8 +118,8 @@ ald_start_unlocked() {
       root="$(nvram get ald_root)"
       domain_id="$(nvram get ald_domain_id)"
 
-      # Keep each NVRAM value as exactly one argv item. Do not let spaces,
-      # wildcard characters or shell metacharacters reshape the daemon argv.
+      # Non-secret NVRAM values stay individually quoted in argv. The bundled
+      # v1.2.1 CLI advertises the credential env bindings verified under MIPSel QEMU.
       set -- -I
       if [ "$domain_id" = "99999" ]; then
         set -- "$@" --domain-id "$domain_id"
@@ -139,8 +139,8 @@ ald_start_unlocked() {
         esac
       fi
 
-      "$ALD_BIN" "$@" --host "$host" --root "$root" -p "$port" \
-        -r "$refresh_token" -U "$auth_user" -W "$auth_password" \
+      REFRESH_TOKEN="$refresh_token" WEBDAV_AUTH_USER="$auth_user" WEBDAV_AUTH_PASSWORD="$auth_password" \
+        "$ALD_BIN" "$@" --host "$host" --root "$root" -p "$port" \
         -S "$read_buf_size" --cache-size "$cache_size" \
         --cache-ttl "$cache_ttl" --workdir "/tmp/$NAME" >/dev/null 2>&1 9>&- &
       if ! ald_wait_started; then

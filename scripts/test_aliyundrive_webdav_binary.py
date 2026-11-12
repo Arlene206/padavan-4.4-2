@@ -2,9 +2,12 @@
 """Run the packaged MIPSel daemon's harmless CLI probes under QEMU."""
 
 from pathlib import Path
+import hashlib
+import json
 import shutil
 import subprocess
 import sys
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 BINARY = ROOT / "trunk/user/aliyundrive-webdav/aliyundrive-webdav"
@@ -48,9 +51,26 @@ def main() -> int:
         raise SystemExit(f"bundled daemon help is missing launcher-required options: {missing}")
 
     env_names = ("REFRESH_TOKEN", "WEBDAV_AUTH_USER", "WEBDAV_AUTH_PASSWORD")
-    advertised_env = [name for name in env_names if name in help_text]
+    advertised_env = [name for name in env_names if f"[env: {name}=]" in help_text]
+    missing_env = [name for name in env_names if name not in advertised_env]
+    if missing_env:
+        raise SystemExit(
+            "bundled daemon --help does not advertise every credential environment option: "
+            + ", ".join(missing_env)
+        )
+    binary_sha256 = hashlib.sha256(BINARY.read_bytes()).hexdigest()
+    report = {
+        "binary_sha256": binary_sha256,
+        "version": version.strip(),
+        "emulator": emulator,
+        "credential_env": advertised_env,
+        "required_options": list(required_options),
+    }
+    report_path = Path(tempfile.gettempdir()) / "padavan-aliyundrive-webdav-capability.json"
+    report_path.write_text(json.dumps(report, sort_keys=True), encoding="utf-8")
     print(f"credential environment names advertised by --help: {advertised_env}")
-    print("AliyunDrive bundled MIPSel --version/--help compatibility: PASS")
+    print(f"QEMU capability report: {report_path}; binary_sha256={binary_sha256}")
+    print("AliyunDrive bundled MIPSel --version/--help and credential-env compatibility: PASS")
     return 0
 
 

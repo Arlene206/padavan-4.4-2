@@ -3,9 +3,11 @@
 
 from pathlib import Path
 import hashlib
+import json
 import re
 import struct
 import sys
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER_PATH = ROOT / "trunk/user/aliyundrive-webdav/aliyundrive-webdav.sh"
@@ -41,8 +43,18 @@ uclibc_config = UCLIBC_CONFIG_PATH.read_text()
 daemon_binary = DAEMON_BINARY_PATH.read_bytes()
 daemon_sha256 = hashlib.sha256(daemon_binary).hexdigest()
 env_names = (b"REFRESH_TOKEN", b"WEBDAV_AUTH_USER", b"WEBDAV_AUTH_PASSWORD")
-missing_env_names = [name.decode("ascii") for name in env_names if name not in daemon_binary]
-daemon_has_env_credentials = not missing_env_names
+capability_report_path = Path(tempfile.gettempdir()) / "padavan-aliyundrive-webdav-capability.json"
+try:
+    capability_report = json.loads(capability_report_path.read_text(encoding="utf-8"))
+except (OSError, json.JSONDecodeError):
+    capability_report = {}
+required_env_names = [name.decode("ascii") for name in env_names]
+reported_env_names = capability_report.get("credential_env", [])
+missing_env_names = [name for name in required_env_names if name not in reported_env_names]
+daemon_has_env_credentials = (
+    capability_report.get("binary_sha256") == daemon_sha256
+    and reported_env_names == required_env_names
+)
 daemon_elf = "unknown"
 daemon_elf_class = None
 daemon_elf_data = None
@@ -101,10 +113,6 @@ daemon_relevant_strings = [
     item for item in daemon_ascii_strings
     if re.search(r"aliyundrive-webdav|refresh-token|auth-user|auth-password|domain-id|workdir|read-only|no-trash|version|WEBDAV_AUTH|REFRESH_TOKEN", item, re.IGNORECASE)
 ][:60]
-daemon_missing_cli_names = [
-    name.decode("ascii") for name in (b"refresh-token", b"auth-user", b"auth-password", b"domain-id", b"workdir")
-    if name not in daemon_binary
-]
 
 board_templates = sorted(BOARD_TEMPLATES_PATH.glob("*.config"))
 board_template_settings = {}
@@ -120,6 +128,10 @@ board_aldriver_unset = sorted(name for name, value in board_template_settings.it
 def require(condition: bool, message: str) -> None:
     if not condition:
         raise SystemExit(f"AliyunDrive WebDAV lifecycle contract: FAIL: {message}")
+
+
+require(daemon_has_env_credentials,
+        "the QEMU --help capability report must match this exact binary SHA and advertise all three credential environment names")
 
 
 def function_body(source: str, signature: str) -> str:
@@ -296,9 +308,12 @@ require("qemu-user" in workflow and "scripts/test_aliyundrive_webdav_binary.py" 
         "workflow must install QEMU and run the bundled daemon CLI probe")
 for option in ("--version", "--help", "--domain-id", "--workdir", "--no-trash", "--read-only"):
     require(option in binary_test, f"QEMU probe missing {option} coverage")
+require('f"[env: {name}=]"' in binary_test and "json.dumps(report" in binary_test
+        and "binary_sha256" in binary_test,
+        "QEMU probe must verify all credential env annotations and publish a SHA-bound capability report")
 print(f"AliyunDrive WebDAV bundled ELF: {daemon_elf}; size={len(daemon_binary)}; sha256={daemon_sha256}")
-print(f"AliyunDrive WebDAV credential env support: {daemon_has_env_credentials}; missing={missing_env_names}")
-print(f"AliyunDrive WebDAV missing CLI string names: {daemon_missing_cli_names}")
+print(f"AliyunDrive WebDAV credential env support (QEMU help, SHA-bound): {daemon_has_env_credentials}; missing={missing_env_names}")
+print(f"AliyunDrive WebDAV QEMU-verified CLI version: {capability_report.get('version', 'unavailable')}")
 print(f"AliyunDrive WebDAV board templates: total={len(board_templates)}; enabled={board_aldriver_enabled}; disabled={board_aldriver_disabled}; unset={board_aldriver_unset}")
 for item in daemon_relevant_strings:
     print(f"  ELF string: {item[:180]}")

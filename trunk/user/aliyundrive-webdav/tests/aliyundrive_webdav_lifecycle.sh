@@ -19,7 +19,8 @@ TEST_TERM_COUNT=0
 TEST_KILL_COUNT=0
 TEST_NUMERIC_KILL=0
 TEST_ARG_LOG="$TEST_DIR/argv.log"
-export TEST_ARG_LOG
+TEST_ENV_LOG="$TEST_DIR/env.log"
+export TEST_ARG_LOG TEST_ENV_LOG
 
 logger() { :; }
 nvram() {
@@ -198,6 +199,11 @@ cat > "$ALD_BIN" <<'MOCK'
 for arg do
   printf '%s\n' "$arg" >> "$TEST_ARG_LOG"
 done
+{
+  printf '%s\n' "${REFRESH_TOKEN-}"
+  printf '%s\n' "${WEBDAV_AUTH_USER-}"
+  printf '%s\n' "${WEBDAV_AUTH_PASSWORD-}"
+} > "$TEST_ENV_LOG"
 if [ ! -e "$TEST_START_FAIL_FILE" ]; then
   : > "$TEST_RUN_MARKER"
 fi
@@ -220,7 +226,7 @@ fi
 }
 rm -f "$TEST_START_FAIL_FILE"
 
-# Argument integrity: each untrusted NVRAM string remains one literal argv item.
+# Credentials must travel only in the environment; other NVRAM values remain exact argv items.
 rm -f "$TEST_RUN_MARKER"
 TEST_RUNNING=0
 TEST_ENABLE=1
@@ -238,12 +244,6 @@ host name *; literal
 /folder with spaces
 -p
 8080
--r
-refresh token with spaces *
--U
-user name
--W
-secret with spaces ; data
 -S
 64
 --cache-size
@@ -254,8 +254,24 @@ secret with spaces ; data
 /tmp/aliyundrive-webdav
 EXPECTED
 cmp -s "$TEST_DIR/expected-argv" "$TEST_ARG_LOG" || {
-  echo "FAIL: NVRAM values were split, globbed or reordered in daemon argv" >&2
+  echo "FAIL: non-secret NVRAM values were split, globbed or reordered in daemon argv" >&2
   diff -u "$TEST_DIR/expected-argv" "$TEST_ARG_LOG" >&2 || :
+  exit 1
+}
+cat > "$TEST_DIR/expected-env" <<'EXPECTED_ENV'
+refresh token with spaces *
+user name
+secret with spaces ; data
+EXPECTED_ENV
+cmp -s "$TEST_DIR/expected-env" "$TEST_ENV_LOG" || {
+  echo "FAIL: credentials were not passed as three exact environment values" >&2
+  diff -u "$TEST_DIR/expected-env" "$TEST_ENV_LOG" >&2 || :
+  exit 1
+}
+! grep -Fq "refresh token with spaces" "$TEST_ARG_LOG" &&
+! grep -Fq "user name" "$TEST_ARG_LOG" &&
+! grep -Fq "secret with spaces" "$TEST_ARG_LOG" || {
+  echo "FAIL: a credential value leaked into daemon argv" >&2
   exit 1
 }
 
@@ -283,10 +299,19 @@ rm -f "$TEST_ARG_LOG" "$TEST_RUN_MARKER"
 start_ald || { echo "FAIL: special-domain start failed" >&2; exit 1; }
 TEST_LAUNCH_PID=$!
 wait "$TEST_LAUNCH_PID"
+cat > "$TEST_DIR/expected-special-env" <<'SPECIAL_ENV'
+token
+user
+pass
+SPECIAL_ENV
 grep -Fqx -- '--domain-id' "$TEST_ARG_LOG" &&
 grep -Fqx -- '99999' "$TEST_ARG_LOG" &&
 ! grep -Fqx -- '--no-trash' "$TEST_ARG_LOG" &&
-! grep -Fqx -- '--read-only' "$TEST_ARG_LOG" || {
+! grep -Fqx -- '--read-only' "$TEST_ARG_LOG" &&
+cmp -s "$TEST_DIR/expected-special-env" "$TEST_ENV_LOG" &&
+! grep -Fqx -- 'token' "$TEST_ARG_LOG" &&
+! grep -Fqx -- 'user' "$TEST_ARG_LOG" &&
+! grep -Fqx -- 'pass' "$TEST_ARG_LOG" || {
   echo "FAIL: special-domain options differ from the existing policy" >&2; exit 1;
 }
 
