@@ -7,6 +7,9 @@ import tarfile
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE_PATH = ROOT / "trunk/user/aliddns/aliddns.sh"
 TEST_PATH = ROOT / "trunk/user/aliddns/tests/aliddns_api_transport.sh"
+IPV4_TEST_PATH = ROOT / "trunk/user/aliddns/tests/aliddns_ipv4_lookup.sh"
+IPV4_HELPER_PATH = ROOT / "trunk/user/aliddns/aliddns-ipv4.sh"
+DDNS_SCRIPT_PATH = ROOT / "trunk/user/aliddns/ddns_script.sh"
 PACKAGE_PATH = ROOT / "trunk/user/aliddns/Makefile"
 USER_MAKEFILE_PATH = ROOT / "trunk/user/Makefile"
 LIBS_MAKEFILE_PATH = ROOT / "trunk/libs/Makefile"
@@ -20,6 +23,9 @@ VARIABLES_PATH = ROOT / "trunk/user/httpd/src/variables.c"
 
 source = SOURCE_PATH.read_text()
 test = TEST_PATH.read_text()
+ipv4_test = IPV4_TEST_PATH.read_text()
+ipv4_helper = IPV4_HELPER_PATH.read_text()
+ddns_script = DDNS_SCRIPT_PATH.read_text()
 package = PACKAGE_PATH.read_text()
 user_makefile = USER_MAKEFILE_PATH.read_text()
 libs_makefile = LIBS_MAKEFILE_PATH.read_text()
@@ -50,6 +56,9 @@ send_request = function_body(source, "send_request() {")
 response_ok = function_body(source, "aliddns_response_ok() {")
 info = function_body(source, "arDdnsInfo() {")
 update = function_body(source, "arDdnsUpdate() {")
+ddns_check = function_body(source, "arDdnsCheck() {")
+nslookup = function_body(source, "arNslookup() {")
+nslookup6 = function_body(source, "arNslookup6() {")
 
 require('ALIDDNS_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt"' in source and
         '--cacert "$ALIDDNS_CA_BUNDLE"' in send_request,
@@ -109,6 +118,61 @@ require('EVM_RESTART_ALIDDNS' in variables and
         'restart_aliddns();' in rc and
         'void restart_aliddns(void)' in services,
         "HTTPD NVRAM changes must continue to reach the existing RC lifecycle wrapper")
+
+ipv4_valid = function_body(source, "aliddns_ipv4_valid() {")
+ipv6_valid = function_body(source, "aliddns_ipv6_valid() {")
+require('ALIDDNS_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt"' in ipv4_helper and
+        '--cacert "$ALIDDNS_CA_BUNDLE"' in ipv4_helper,
+        "public IPv4 helper must use the firmware CA bundle")
+require("https://api.ipify.org" in ipv4_helper and "--proto '=https'" in ipv4_helper and
+        "--ipv4" in ipv4_helper and "--connect-timeout 5" in ipv4_helper and "--max-time 15" in ipv4_helper,
+        "public IPv4 helper must use bounded IPv4-only HTTPS to the plain-text provider")
+require("--write-out '\\n%{http_code}'" in ipv4_helper and '[ "$http_status" = "200" ]' in ipv4_helper,
+        "public IPv4 helper must reject non-200 status and strip the status trailer")
+require("curl -k" not in ipv4_helper and "--insecure" not in ipv4_helper and
+        "--location" not in ipv4_helper and "wget" not in ipv4_helper,
+        "public IPv4 helper must not bypass TLS or follow redirects")
+require("awk -F." in ipv4_helper and "NF != 4" in ipv4_helper and "($i + 0) > 255" in ipv4_helper,
+        "public IPv4 helper must validate four bounded decimal octets")
+require("NR != 1" in ipv4_valid and "NF != 4" in ipv4_valid and
+        "NR != 1" in ipv6_valid and "count >= 8" in ipv6_valid,
+        "AliDDNS must validate exactly one IPv4 or syntactically valid IPv6 address")
+
+require("/usr/bin/aliddns-ipv4.sh" in ddns_script and "arIpAddress6" in ddns_script and
+        "curl -k" not in ddns_script and "--no-check-certificate" not in ddns_script and
+        "http://" not in ddns_script,
+        "stock ROMFS DDNS script must use the secure IPv4 helper and preserve IPv6")
+require("/usr/bin/aliddns-ipv4.sh" in ddns_check and
+        'hostIP=$(/usr/bin/aliddns-ipv4.sh)' in ddns_check and
+        "aliddns_ipv4_valid" in ddns_check and "aliddns_ipv6_valid" in ddns_check,
+        "AliDDNS check must validate custom-script output and fail closed on invalid IPv4/IPv6")
+require("curl" not in nslookup and "wget" not in nslookup and "http://" not in nslookup and
+        "killall" not in nslookup and "killall" not in nslookup6,
+        "DNS fallback must no longer use plaintext HTTP or kill every nslookup process")
+
+initconfig_start = source.find("initconfig () {")
+initconfig_end = source.find("\n}\n\ninitconfig\n", initconfig_start)
+require(initconfig_start >= 0 and initconfig_end > initconfig_start,
+        "could not locate persistent DDNS default-script initializer")
+initconfig_body = source[initconfig_start:initconfig_end]
+require("/usr/bin/aliddns-ipv4.sh" in initconfig_body and
+        "/usr/bin/aliddns-ipv4.sh ppp0" in initconfig_body,
+        "new default persistent script must use helper and retain PPPoE source binding")
+require('if [ ! -s "/etc/storage/ddns_script.sh" ] ; then' in initconfig_body,
+        "existing user-persistent DDNS script must not be overwritten")
+require("curl -k" not in initconfig_body and "--no-check-certificate" not in initconfig_body and
+        "http://" not in initconfig_body,
+        "new persistent default script must not contain insecure public-IP sources")
+require("curl -k" not in source and "--no-check-certificate" not in source and
+        "http://119.29.29.29" not in source,
+        "stock AliDDNS source retains an insecure public-IP or DNS lookup")
+require('$(ROMFSINST) -p +x $(THISDIR)/aliddns-ipv4.sh /usr/bin/aliddns-ipv4.sh' in package,
+        "IPv4 helper must be installed executable in ROMFS")
+require("TLS verification failure was reported as success" in ipv4_test and
+        "multi-line" in ipv4_test and "strict IPv4/IPv6 address validation regression: PASS" in ipv4_test,
+        "public-IP regression must cover transport failures and strict address validation")
+require('IPv4_TEST_PATH' not in checker,
+        "unexpected checker identifier")
 
 with tarfile.open(CERT_ARCHIVE_PATH, "r:gz") as archive:
     members = {

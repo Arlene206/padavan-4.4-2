@@ -275,6 +275,86 @@ aliddns_update_failed() {
 	return 1
 }
 
+aliddns_ipv4_valid() {
+	case "$1" in
+		""|*[!0-9.]*)
+			return 1
+			;;
+	esac
+	printf '%s\n' "$1" | awk -F. '
+		NR != 1 { exit 1 }
+		{
+			if (NF != 4)
+				exit 1
+			for (i = 1; i <= 4; i++) {
+				if ($i !~ /^(0|[1-9][0-9]?[0-9]?)$/ || ($i + 0) > 255)
+					exit 1
+			}
+			valid = 1
+		}
+		END {
+			if (NR != 1 || !valid)
+				exit 1
+		}
+	'
+}
+
+aliddns_ipv6_valid() {
+	case "$1" in
+		""|*[!0-9A-Fa-f:]*)
+			return 1
+			;;
+	esac
+	printf '%s\n' "$1" | awk '
+		function valid_part(part, groups, count, i) {
+			if (part == "")
+				return 0
+			count = split(part, groups, ":")
+			for (i = 1; i <= count; i++) {
+				if (length(groups[i]) < 1 || length(groups[i]) > 4 ||
+				    groups[i] !~ /^[[:xdigit:]]+$/)
+					return 0
+			}
+			return count
+		}
+		{
+			if (NR != 1 || $0 !~ /^[[:xdigit:]:]+$/ || index($0, ":::"))
+				exit 1
+			compression = index($0, "::")
+			count = 0
+			if (compression) {
+				left = substr($0, 1, compression - 1)
+				right = substr($0, compression + 2)
+				if (index(right, "::"))
+					exit 1
+				if (left != "") {
+					n = valid_part(left, left_groups)
+					if (!n)
+						exit 1
+					count += n
+				}
+				if (right != "") {
+					n = valid_part(right, right_groups)
+					if (!n)
+						exit 1
+					count += n
+				}
+				if (count >= 8)
+					exit 1
+			} else {
+				count = valid_part($0, all_groups)
+				if (count != 8)
+					exit 1
+			}
+			valid = 1
+		}
+		END {
+			if (NR != 1 || !valid)
+				exit 1
+		}
+	'
+}
+
 get_recordid() {
 	grep -Eo '"RecordId":"[0-9]+"' | cut -d':' -f2 | tr -d '"' |head -n1
 }
@@ -321,7 +401,6 @@ esac
 	fi
 	timestamp=$(date -u "+%Y-%m-%dT%H%%3A%M%%3A%SZ")
 
-	# A failed lookup must not be confused with a valid empty record set.
 	response=$(query_recordid) || {
 		logger -t "【AliDDNS动态域名】" "查询记录失败，检查 HTTPS、CA 证书和网络"
 		return 1
@@ -331,7 +410,10 @@ esac
 		return 1
 	fi
 	aliddns_record_id=$(printf '%s\n' "$response" | get_recordid)
-	[ -n "$aliddns_record_id" ] || return 1
+	if [ -z "$aliddns_record_id" ]; then
+		# A successful, valid empty result is distinct from a failed query.
+		return 2
+	fi
 
 	sleep 1
 	timestamp=$(date -u "+%Y-%m-%dT%H%%3A%M%%3A%SZ")
@@ -344,70 +426,69 @@ esac
 		return 1
 	fi
 	recordIP=$(printf '%s\n' "$response" | get_recordIP)
-	[ -n "$recordIP" ] || return 1
-
 	if [ "$IPv6" = "1" ]; then
-		echo "$recordIP"
-		return 0
+		aliddns_ipv6_valid "$recordIP" || return 1
+	else
+		aliddns_ipv4_valid "$recordIP" || return 1
 	fi
-
-	case "$recordIP" in
-	[1-9]*)
-		echo "$recordIP"
-		return 0
-		;;
-	*)
-		echo "Get Record Info Failed!"
-		return 1
-		;;
-	esac
+	printf '%s\n' "$recordIP"
+	return 0
 }
 
 # 查询域名地址
 # 参数: 待查询域名
 arNslookup() {
 mkdir -p /tmp/arNslookup
-nslookup $1 | tail -n +3 | grep "Address" | awk '{print $3}'| grep -v ":" | sed -n '1p' > /tmp/arNslookup/$$ &
+lookup_file="/tmp/arNslookup/$"
+nslookup "$1" > "$lookup_file" 2>&1 &
+lookup_pid=$!
 I=5
-while [ ! -s /tmp/arNslookup/$$ ] ; do
-		I=$(($I - 1))
-		[ $I -lt 0 ] && break
-		sleep 1
+while kill -0 "$lookup_pid" 2>/dev/null && [ "$I" -gt 0 ] ; do
+	I=$((I - 1))
+	sleep 1
 done
-killall nslookup
-if [ -s /tmp/arNslookup/$$ ] ; then
-cat /tmp/arNslookup/$$ | sort -u | grep -v "^$"
-rm -f /tmp/arNslookup/$$
-else
-	curltest=`which curl`
-	if [ -z "$curltest" ] || [ ! -s "`which curl`" ] ; then
-		Address="`wget -T 5 -t 3 --no-check-certificate --quiet --output-document=- http://119.29.29.29/d?dn=$1`"
-		if [ $? -eq 0 ]; then
-		echo "$Address" |  sed s/\;/"\n"/g | sed -n '1p' | grep -E -o '([0-9]+\.){3}[0-9]+'
-		fi
-	else
-		Address="`curl -k -s http://119.29.29.29/d?dn=$1`"
-		if [ $? -eq 0 ]; then
-		echo "$Address" |  sed s/\;/"\n"/g | sed -n '1p' | grep -E -o '([0-9]+\.){3}[0-9]+'
-		fi
-	fi
+if kill -0 "$lookup_pid" 2>/dev/null; then
+	kill "$lookup_pid" 2>/dev/null
+	sleep 1
+	kill -9 "$lookup_pid" 2>/dev/null
 fi
+wait "$lookup_pid" 2>/dev/null
+grep "Address" "$lookup_file" | awk '{print $3}' | grep -v ":" | sed -n '1p' > "$lookup_file.result"
+rm -f "$lookup_file"
+if [ -s "$lookup_file.result" ]; then
+	cat "$lookup_file.result"
+	rm -f "$lookup_file.result"
+	return 0
+fi
+rm -f "$lookup_file.result"
+return 1
 }
 
 arNslookup6() {
 mkdir -p /tmp/arNslookup
-nslookup $1 | tail -n +3 | grep "Address" | awk '{print $3}'| grep ":" | sed -n '1p' > /tmp/arNslookup/$$ &
+lookup_file="/tmp/arNslookup/$"
+nslookup "$1" > "$lookup_file" 2>&1 &
+lookup_pid=$!
 I=5
-while [ ! -s /tmp/arNslookup/$$ ] ; do
-		I=$(($I - 1))
-		[ $I -lt 0 ] && break
-		sleep 1
+while kill -0 "$lookup_pid" 2>/dev/null && [ "$I" -gt 0 ] ; do
+	I=$((I - 1))
+	sleep 1
 done
-killall nslookup
-if [ -s /tmp/arNslookup/$$ ] ; then
-	cat /tmp/arNslookup/$$ | sort -u | grep -v "^$"
-	rm -f /tmp/arNslookup/$$
+if kill -0 "$lookup_pid" 2>/dev/null; then
+	kill "$lookup_pid" 2>/dev/null
+	sleep 1
+	kill -9 "$lookup_pid" 2>/dev/null
 fi
+wait "$lookup_pid" 2>/dev/null
+grep "Address" "$lookup_file" | awk '{print $3}' | grep ":" | sed -n '1p' > "$lookup_file.result"
+rm -f "$lookup_file"
+if [ -s "$lookup_file.result" ]; then
+	cat "$lookup_file.result"
+	rm -f "$lookup_file.result"
+	return 0
+fi
+rm -f "$lookup_file.result"
+return 1
 }
 
 # 更新记录信息
@@ -426,8 +507,18 @@ case "$name" in
 esac
 	if [ "$IPv6" = "1" ]; then
 		domain_type="AAAA"
+		aliddns_ipv6_valid "$hostIP" || {
+			logger -t "【AliDDNS动态域名】" "拒绝更新无效的 IPv6 地址"
+			aliddns_update_failed
+			return 1
+		}
 	else
 		domain_type="A"
+		aliddns_ipv4_valid "$hostIP" || {
+			logger -t "【AliDDNS动态域名】" "拒绝更新无效的 IPv4 地址"
+			aliddns_update_failed
+			return 1
+		}
 	fi
 
 	I=3
@@ -484,7 +575,6 @@ esac
 		logger -t "【AliDDNS动态域名】" "更新的记录  $aliddns_record_id"
 	fi
 
-	# Publish success only after the requested API action succeeds.
 	nvram set aliddns_record_id="$aliddns_record_id"
 	nvram set aliddns_last_act="$(date '+%Y-%m-%d %H:%M:%S')   成功更新：$hostIP"
 	logger -t "【AliDDNS动态域名】" "成功更新： $hostIP"
@@ -498,60 +588,61 @@ arDdnsCheck() {
 	#local lastIP
 	source /etc/storage/ddns_script.sh
 	hostIP=$arIpAddress
-	hostIP=`echo $hostIP | head -n1 | cut -d' ' -f1`
-	if [ -z $(echo "$hostIP" | grep : | grep -v "\.") ] && [ "$IPv6" = "1" ] ; then 
-		IPv6=0
-		logger -t "【AliDDNS动态域名】" "错误！$hostIP 获取目前 IPv6 失败，请在脚本更换其他获取地址，保证取得IPv6地址(例如:ff03:0:0:0:0:0:0:c1)"
-		return 1
-	fi
-	if [ "$hostIP"x = "x"  ] ; then
-		curltest=`which curl`
-		if [ -z "$curltest" ] || [ ! -s "`which curl`" ] ; then
-			[ "$hostIP"x = "x"  ] && hostIP=`wget -T 5 -t 3 --no-check-certificate --quiet --output-document=- "http://members.3322.org/dyndns/getip" | grep -E -o '([0-9]+\.){3}[0-9]+' | head -n1 | cut -d' ' -f1`
-			[ "$hostIP"x = "x"  ] && hostIP=`wget -T 5 -t 3 --no-check-certificate --quiet --output-document=- "ip.3322.net" | grep -E -o '([0-9]+\.){3}[0-9]+' | head -n1 | cut -d' ' -f1`
-			[ "$hostIP"x = "x"  ] && hostIP=`wget -T 5 -t 3 --no-check-certificate --quiet --output-document=- "https://www.ipip.net/" | grep "IP地址" | grep -E -o '([0-9]+\.){3}[0-9]+' | head -n1 | cut -d' ' -f1`
-			[ "$hostIP"x = "x"  ] && hostIP=`wget -T 5 -t 3 --no-check-certificate --quiet --output-document=- "http://pv.sohu.com/cityjson?ie=utf-8" | grep -E -o '([0-9]+\.){3}[0-9]+' | head -n1 | cut -d' ' -f1`
-		else
-			[ "$hostIP"x = "x"  ] && hostIP=`curl -L -k -s "http://members.3322.org/dyndns/getip" | grep -E -o '([0-9]+\.){3}[0-9]+' | head -n1 | cut -d' ' -f1`
-			[ "$hostIP"x = "x"  ] && hostIP=`curl -L -k -s ip.3322.net | grep -E -o '([0-9]+\.){3}[0-9]+' | head -n1 | cut -d' ' -f1`
-			[ "$hostIP"x = "x"  ] && hostIP=`curl -L -k -s "https://www.ipip.net" | grep "IP地址" | grep -E -o '([0-9]+\.){3}[0-9]+' | head -n1 | cut -d' ' -f1`
-			[ "$hostIP"x = "x"  ] && hostIP=`curl -L -k -s http://pv.sohu.com/cityjson?ie=utf-8 | grep -E -o '([0-9]+\.){3}[0-9]+' | head -n1 | cut -d' ' -f1`
+
+	if [ "$IPv6" = "1" ]; then
+		if ! aliddns_ipv6_valid "$hostIP"; then
+			logger -t "【AliDDNS动态域名】" "错误！获取到的 IPv6 地址无效或为空"
+			return 1
 		fi
-		if [ "$hostIP"x = "x"  ] ; then
-			logger -t "【AliDDNS动态域名】" "错误！获取目前 IP 失败，请在脚本更换其他获取地址"
+	else
+		if [ -z "$hostIP" ]; then
+			hostIP=$(/usr/bin/aliddns-ipv4.sh) || {
+				logger -t "【AliDDNS动态域名】" "错误！HTTPS 公网 IPv4 获取失败，请检查 CA 证书和网络"
+				return 1
+			}
+		fi
+		if ! aliddns_ipv4_valid "$hostIP"; then
+			logger -t "【AliDDNS动态域名】" "错误！获取到的 IPv4 地址无效"
 			return 1
 		fi
 	fi
-	echo "Updating Domain: ${2}.${1}"
-	echo "hostIP: ${hostIP}"
+
+	echo "Updating Domain: $2.$1"
+	echo "hostIP: $hostIP"
 	lastIP=$(arDdnsInfo "$1 $2")
-	if [ $? -eq 1 ]; then
-		[ "$IPv6" != "1" ] && lastIP=$(arNslookup "${2}.${1}")
-		[ "$IPv6" = "1" ] && lastIP=$(arNslookup6 "${2}.${1}")
+	info_status=$?
+	if [ "$info_status" -eq 2 ]; then
+		# Valid empty AliDNS result: a new record may be created.
+		lastIP=""
+	elif [ "$info_status" -ne 0 ]; then
+		# API failed; compare with the current DNS answer, but never infer
+		# that an unresolved hostname has no record.
+		if [ "$IPv6" != "1" ]; then
+			lastIP=$(arNslookup "$2.$1") || return 1
+			aliddns_ipv4_valid "$lastIP" || return 1
+		else
+			lastIP=$(arNslookup6 "$2.$1") || return 1
+			aliddns_ipv6_valid "$lastIP" || return 1
+		fi
 	fi
-	echo "lastIP: ${lastIP}"
+	echo "lastIP: $lastIP"
 	if [ "$lastIP" != "$hostIP" ] ; then
-		logger -t "【AliDDNS动态域名】" "开始更新 ${2}.${1} 域名 IP 指向"
-		logger -t "【AliDDNS动态域名】" "目前 IP: ${hostIP}"
-		logger -t "【AliDDNS动态域名】" "上次 IP: ${lastIP}"
+		logger -t "【AliDDNS动态域名】" "开始更新 $2.$1 域名 IP 指向"
+		logger -t "【AliDDNS动态域名】" "目前 IP: $hostIP"
+		logger -t "【AliDDNS动态域名】" "上次 IP: $lastIP"
 		sleep 1
-		postRS=$(arDdnsUpdate $1 $2)
-		if [ $? -eq 0 ]; then
-			echo "postRS: ${postRS}"
+		postRS=$(arDdnsUpdate "$1" "$2")
+		update_status=$?
+		if [ "$update_status" -eq 0 ]; then
+			echo "postRS: $postRS"
 			logger -t "【AliDDNS动态域名】" "更新动态DNS记录成功！"
 			return 0
-		else
-			echo ${postRS}
-			logger -t "【AliDDNS动态域名】" "更新动态DNS记录失败！请检查您的网络。"
-			if [ "$IPv6" = "1" ] ; then 
-				IPv6=0
-				logger -t "【AliDDNS动态域名】" "错误！$hostIP 获取目前 IPv6 失败，请在脚本更换其他获取地址，保证取得IPv6地址(例如:ff03:0:0:0:0:0:0:c1)"
-				return 1
-			fi
-			return 1
 		fi
+		echo "$postRS"
+		logger -t "【AliDDNS动态域名】" "更新动态DNS记录失败！请检查您的网络。"
+		return 1
 	fi
-	echo ${lastIP}
+	echo "$lastIP"
 	echo "Last IP is the same as current IP!"
 	return 1
 }
@@ -561,31 +652,14 @@ initconfig () {
 
 if [ ! -s "/etc/storage/ddns_script.sh" ] ; then
 cat > "/etc/storage/ddns_script.sh" <<-\EEE
-# 自行测试哪个代码能获取正确的IP，删除前面的#可生效
 arIpAddress () {
-# IPv4地址获取
-# 获得外网地址
-pppoemwan=`nvram get pppoemwan_enable`
-if [ "$pppoemwan" -ne 0 ]; then
-        curl --interface ppp0 -L -k -s "http://members.3322.org/dyndns/getip" | grep -E -o '([0-9]+\.){3}[0-9]+' | head -n1 | cut -d' ' -f1
-else
-curltest=`which curl`
-if [ -z "$curltest" ] || [ ! -s "`which curl`" ] ; then
-    #wget -T 5 -t 3 --no-check-certificate --quiet --output-document=- "https://www.ipip.net" | grep "IP地址" | grep -E -o '([0-9]+\.){3}[0-9]+' | head -n1 | cut -d' ' -f1
-    wget -T 5 -t 3 --no-check-certificate --quiet --output-document=- "http://members.3322.org/dyndns/getip" | grep -E -o '([0-9]+\.){3}[0-9]+' | head -n1 | cut -d' ' -f1
-    #wget -T 5 -t 3 --no-check-certificate --quiet --output-document=- "ip.3322.net" | grep -E -o '([0-9]+\.){3}[0-9]+' | head -n1 | cut -d' ' -f1
-    #wget -T 5 -t 3 --no-check-certificate --quiet --output-document=- "http://pv.sohu.com/cityjson?ie=utf-8" | grep -E -o '([0-9]+\.){3}[0-9]+' | head -n1 | cut -d' ' -f1
-else
-    #curl -L -k -s "https://www.ipip.net" | grep "IP地址" | grep -E -o '([0-9]+\.){3}[0-9]+' | head -n1 | cut -d' ' -f1
-    curl -L -k -s "http://members.3322.org/dyndns/getip" | grep -E -o '([0-9]+\.){3}[0-9]+' | head -n1 | cut -d' ' -f1
-    #curl -L -k -s ip.3322.net | grep -E -o '([0-9]+\.){3}[0-9]+' | head -n1 | cut -d' ' -f1
-    #curl -L -k -s http://pv.sohu.com/cityjson?ie=utf-8 | grep -E -o '([0-9]+\.){3}[0-9]+' | head -n1 | cut -d' ' -f1
-fi
-fi
+	pppoemwan=$(nvram get pppoemwan_enable)
+	case "$pppoemwan" in
+		""|0) /usr/bin/aliddns-ipv4.sh ;;
+		*) /usr/bin/aliddns-ipv4.sh ppp0 ;;
+	esac
 }
 arIpAddress6 () {
-# IPv6地址获取
-# 因为一般ipv6没有nat ipv6的获得可以本机获得
 ifconfig $(nvram get wan0_ifname_t) | awk '/Global/{print $3}' | awk -F/ '{print $1}'
 }
 if [ "$IPv6" = "1" ] ; then

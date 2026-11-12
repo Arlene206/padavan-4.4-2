@@ -9,7 +9,13 @@ on:
       - ".github/workflows/aliddns-api-transport.yml"
       - "scripts/check_aliddns_api_transport.py"
       - "trunk/user/aliddns/aliddns.sh"
+      - "trunk/user/aliddns/ddns_script.sh"
+      - "trunk/user/aliddns/aliddns-ipv4.sh"
+      - "trunk/user/aliddns/tests/aliddns_ipv4_lookup.sh"
       - "trunk/user/aliddns/tests/aliddns_api_transport.sh"
+      - "trunk/user/aliddns/ddns_script.sh"
+      - "trunk/user/aliddns/aliddns-ipv4.sh"
+      - "trunk/user/aliddns/tests/aliddns_ipv4_lookup.sh"
       - "trunk/user/aliddns/Makefile"
       - "trunk/user/Makefile"
       - "trunk/libs/Makefile"
@@ -28,7 +34,13 @@ on:
       - ".github/workflows/aliddns-api-transport.yml"
       - "scripts/check_aliddns_api_transport.py"
       - "trunk/user/aliddns/aliddns.sh"
+      - "trunk/user/aliddns/ddns_script.sh"
+      - "trunk/user/aliddns/aliddns-ipv4.sh"
+      - "trunk/user/aliddns/tests/aliddns_ipv4_lookup.sh"
       - "trunk/user/aliddns/tests/aliddns_api_transport.sh"
+      - "trunk/user/aliddns/ddns_script.sh"
+      - "trunk/user/aliddns/aliddns-ipv4.sh"
+      - "trunk/user/aliddns/tests/aliddns_ipv4_lookup.sh"
       - "trunk/user/aliddns/Makefile"
       - "trunk/user/Makefile"
       - "trunk/libs/Makefile"
@@ -49,8 +61,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check AliDDNS shell syntax
-        run: sh -n trunk/user/aliddns/aliddns.sh
+        run: |
+          sh -n trunk/user/aliddns/aliddns.sh
+          sh -n trunk/user/aliddns/aliddns-ipv4.sh
+          sh -n trunk/user/aliddns/ddns_script.sh
       - name: Run AliDDNS signed API transport regression
         run: sh trunk/user/aliddns/tests/aliddns_api_transport.sh
+      - name: Run AliDDNS public IPv4 lookup regression
+        run: sh trunk/user/aliddns/tests/aliddns_ipv4_lookup.sh
       - name: Verify AliDDNS transport, CA bundle and RC contracts
         run: python3 scripts/check_aliddns_api_transport.py
