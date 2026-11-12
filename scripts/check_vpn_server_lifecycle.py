@@ -88,9 +88,9 @@ require("fork()" in lease_lock_test and "select(" in lease_lock_test and
         "(st.st_mode & 07777) == 0620" in lease_lock_test and
         "setgid(vpn_group->gr_gid)" in lease_lock_test and
         "setuid(vpn_user->pw_uid)" in lease_lock_test and
-        "#define APP_OPENVPN 1" in lease_lock_test,
-require("mkfifo(path, 0600)" in lease_lock_test and "errno == ENXIO" in lease_lock_test,
-        "shared lock must reject FIFOs without blocking")
+        "#define APP_OPENVPN 1" in lease_lock_test and
+        "mkfifo(path, 0600)" in lease_lock_test and
+        "errno == ENXIO" in lease_lock_test,
         "shared lease lock ownership/contention regression incomplete")
 
 require("attempt++ >= wait_seconds" in lock,"lock retry must be bounded")
