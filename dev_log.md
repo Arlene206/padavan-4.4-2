@@ -1,3 +1,18 @@
+## 2026-11-13 07:48 CST (UTC+8) — Aggregate FRP watchdog restarts across enabled daemons
+
+- Base main SHA: f08e11546b267b717253c0619e7eea86372146fe.
+- Whole-tree audit found that `check_frp()` called `frp_start` separately for each enabled daemon whose PID was not yet visible. `frp_start` runs the shared `frp_script.sh`, which kills both daemons and backgrounds each enabled replacement. If both are still in asynchronous startup, one watchdog pass can invoke it twice and kill/relaunch the first startup.
+- The watchdog now checks both enabled-service states first and issues at most one shared restart per pass. The WAN failure logger was also unreachable after `return 2`; it now runs before the return, and the ping success condition uses POSIX `if` syntax.
+- Added a POSIX-shell host regression that intentionally keeps both PIDs absent after the simulated background start, covering both missing, either missing, already-running, disabled and WAN-down cases. Added symmetric push/pull path triggers and a Python source-contract checker.
+- FTP follow-up review confirmed the documented OPEN/BLOCKED boundary: `ftp_acl_path_unlink_opened_entry()` performs `fstatat()` identity validation followed by `unlinkat()`, leaving a final-name replacement race. Linux 4.4 lacks inode-conditional unlink-by-fd; do not weaken external-writer semantics or claim this closed without a safe design.
+- Local full checkout/host test execution unavailable; the new exact-head FRP workflow is pending. No host/target/build result is claimed.
+- Root log count: 86→87 records, below the 120-record rotation threshold and 384 KiB early-rotation target; archive inventory remains 7/22/18, no archive rotation.
+- Changed paths: `trunk/user/frp/frp.sh`, new FRP host test/workflow/source checker, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log. No binary bundle, branch, PR or GPT Session Rotator changed.
+- Resulting main commit: THIS COMMIT.
+- Next: verify the FRP lifecycle workflow on the exact resulting main SHA, then continue the Adbyby lifecycle/configuration audit; FTP cleanup TOCTOU remains OPEN/BLOCKED pending a race-safe design.
+ 
+---
+
 ## 2026-11-13 07:22 CST (UTC+8) — Synchronize credential/log-filter regression failure marker
 
 - Base main SHA: 6e384bf903ad6b856ed0054fe0f07fc41869798e.

@@ -7,25 +7,30 @@ check_frp ()
 {
 	check_net
 	result_net=$?
-	if [ "$result_net" = "1" ] ;then
-		if [ -z "`pidof frpc`" ] && [ "$frpc_enable" = "1" ];then
-			frp_start
+	if [ "$result_net" = "1" ]; then
+		# frp_script.sh restarts both enabled daemons. Decide once after checking
+		# every enabled service: background startup may not expose either PID yet.
+		need_start=0
+		if [ "$frpc_enable" = "1" ] && [ -z "$(pidof frpc)" ]; then
+			need_start=1
 		fi
-		if [ -z "`pidof frps`" ] && [ "$frps_enable" = "1" ];then
+		if [ "$frps_enable" = "1" ] && [ -z "$(pidof frps)" ]; then
+			need_start=1
+		fi
+		if [ "$need_start" = "1" ]; then
 			frp_start
 		fi
 	fi
+	return 0
 }
 
 check_net() 
 {
-	/bin/ping -c 3 223.5.5.5 -w 5 >/dev/null 2>&1
-	if [ "$?" == "0" ]; then
+	if /bin/ping -c 3 223.5.5.5 -w 5 >/dev/null 2>&1; then
 		return 1
-	else
-		return 2
-		logger -t "frp" "检测到互联网未能成功访问,稍后再尝试启动frp"
 	fi
+	logger -t "frp" "检测到互联网未能成功访问,稍后再尝试启动frp"
+	return 2
 }
 
 frp_start () 

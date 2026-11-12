@@ -1,0 +1,27 @@
+name: FRP asynchronous startup lifecycle regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/frp-lifecycle.yml"
+      - "trunk/user/frp/frp.sh"
+      - "trunk/user/frp/tests/frp_lifecycle.sh"
+      - "scripts/check_frp_lifecycle.py"
+  pull_request:
+    paths:
+      - ".github/workflows/frp-lifecycle.yml"
+      - "trunk/user/frp/frp.sh"
+      - "trunk/user/frp/tests/frp_lifecycle.sh"
+      - "scripts/check_frp_lifecycle.py"
+
+jobs:
+  frp-lifecycle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check FRP launcher shell syntax
+        run: sh -n trunk/user/frp/frp.sh
+      - name: Run asynchronous startup regression
+        run: sh trunk/user/frp/tests/frp_lifecycle.sh
+      - name: Verify FRP supervision source contract
+        run: python3 scripts/check_frp_lifecycle.py
