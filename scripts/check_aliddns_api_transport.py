@@ -236,7 +236,9 @@ require('aliddns_process_args="$(tr ' in keeper_pid_matches and
         '$aliddns_process_args' in keeper_pid_matches and
         '$scriptfilepath' in keeper_pid_matches and
         'keep' in keeper_pid_matches and
-        '"$aliddns_pid" != "$"' in keeper_pid_matches and
+        'case "' + chr(10) + '$aliddns_process_args' + chr(10) + '" in' in keeper_pid_matches and
+        'keep' + chr(10) + '") return 0 ;;' in keeper_pid_matches and
+        '"$aliddns_pid" != "$$"' in keeper_pid_matches and
         'aliddns_proc_root' in keeper_pid_matches,
         "keeper identity must match the exact script-path and final keep argv, excluding the current shell")
 require('for aliddns_cmdline_file in "$aliddns_proc_root"/[0-9]*/cmdline' in find_keeper_pids and
