@@ -8,6 +8,8 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCE_PATH = ROOT / "trunk/user/aliddns/aliddns.sh"
 TEST_PATH = ROOT / "trunk/user/aliddns/tests/aliddns_api_transport.sh"
 IPV4_TEST_PATH = ROOT / "trunk/user/aliddns/tests/aliddns_ipv4_lookup.sh"
+NSLOOKUP_TEST_PATH = ROOT / "trunk/user/aliddns/tests/aliddns_nslookup_lifecycle.sh"
+WORKFLOW_PATH = ROOT / ".github/workflows/aliddns-api-transport.yml"
 IPV4_HELPER_PATH = ROOT / "trunk/user/aliddns/aliddns-ipv4.sh"
 DDNS_SCRIPT_PATH = ROOT / "trunk/user/aliddns/ddns_script.sh"
 PACKAGE_PATH = ROOT / "trunk/user/aliddns/Makefile"
@@ -24,6 +26,8 @@ VARIABLES_PATH = ROOT / "trunk/user/httpd/src/variables.c"
 source = SOURCE_PATH.read_text()
 test = TEST_PATH.read_text()
 ipv4_test = IPV4_TEST_PATH.read_text()
+nslookup_test = NSLOOKUP_TEST_PATH.read_text()
+workflow = WORKFLOW_PATH.read_text()
 ipv4_helper = IPV4_HELPER_PATH.read_text()
 ddns_script = DDNS_SCRIPT_PATH.read_text()
 package = PACKAGE_PATH.read_text()
@@ -57,7 +61,8 @@ response_ok = function_body(source, "aliddns_response_ok() {")
 info = function_body(source, "arDdnsInfo() {")
 update = function_body(source, "arDdnsUpdate() {")
 ddns_check = function_body(source, "arDdnsCheck() {")
-nslookup = function_body(source, "arNslookup() {")
+nslookup = function_body(source, "aliddns_nslookup() {")
+nslookup4 = function_body(source, "arNslookup() {")
 nslookup6 = function_body(source, "arNslookup6() {")
 
 require('ALIDDNS_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt"' in source and
@@ -153,10 +158,23 @@ require("/usr/bin/aliddns-ipv4.sh" in ddns_check and
         "aliddns_ipv4_valid" in ddns_check and "aliddns_ipv6_valid" in ddns_check,
         "AliDDNS check must validate custom-script output and fail closed on invalid IPv4/IPv6")
 require("curl" not in nslookup and "wget" not in nslookup and "http://" not in nslookup and
-        "killall" not in nslookup and "killall" not in nslookup6 and
+        "killall" not in nslookup and
+        'lookup_candidate_dir="/tmp/arNslookup.$.\u0024{lookup_index}"' in nslookup and
+        "umask 077" in nslookup and 'trap \'rm -rf "$lookup_dir"\' 0' in nslookup and
         'lookup_pid=$!' in nslookup and 'kill "$lookup_pid"' in nslookup and
-        'wait "$lookup_pid"' in nslookup and 'I=5' in nslookup,
-        "DNS fallback must avoid plaintext HTTP, target only its child process and stay bounded")
+        'kill -9 "$lookup_pid"' in nslookup and 'wait "$lookup_pid"' in nslookup and
+        "lookup_remaining=5" in nslookup and "lookup_timed_out=1" in nslookup and
+        "aliddns_ipv4_valid" in nslookup and "aliddns_ipv6_valid" in nslookup and
+        'aliddns_nslookup 4 "$1"' in nslookup4 and 'aliddns_nslookup 6 "$1"' in nslookup6,
+        "DNS fallback must isolate scratch paths, reject timeout/failed partial results, validate both families and reap only its child")
+require("concurrent calls share $" in nslookup_test and
+        "timed-out query leaked partial output" in nslookup_test and
+        "timed-out resolver child survived cleanup" in nslookup_test and
+        "unrelated resolver process" in nslookup_test and
+        "invalid IPv4 candidate was not skipped" in nslookup_test and
+        "invalid IPv6 candidate was not skipped" in nslookup_test and
+        "AliDDNS bounded, isolated DNS lookup and strict IPv4/IPv6 lifecycle regression: PASS" in nslookup_test,
+        "DNS lookup host regression must cover concurrency, timeout, cleanup and strict IPv4/IPv6")
 
 initconfig_start = source.find("initconfig () {")
 initconfig_end = source.find("\n}\n\ninitconfig\n", initconfig_start)
