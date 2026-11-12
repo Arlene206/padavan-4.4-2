@@ -452,60 +452,97 @@ esac
 	return 0
 }
 
+# Resolve DNS answers with private per-call state and a bounded child lifecycle.
+# Atomic mkdir allocation avoids $$ collisions without depending on the target
+# BusyBox build's optional mktemp applet.
+aliddns_nslookup() {
+	(
+		lookup_family="$1"
+		lookup_name="$2"
+		[ -n "$lookup_name" ] || exit 1
+
+		lookup_old_umask=$(umask)
+		umask 077
+		lookup_dir=""
+		lookup_index=0
+		while [ "$lookup_index" -lt 100 ]; do
+			lookup_candidate_dir="/tmp/arNslookup.$$.${lookup_index}"
+			if mkdir "$lookup_candidate_dir" 2>/dev/null; then
+				lookup_dir="$lookup_candidate_dir"
+				break
+			fi
+			lookup_index=$((lookup_index + 1))
+		done
+		umask "$lookup_old_umask"
+		[ -n "$lookup_dir" ] || exit 1
+
+		trap 'rm -rf "$lookup_dir"' 0
+		trap 'exit 1' HUP INT TERM
+
+		lookup_file="$lookup_dir/output"
+		nslookup "$lookup_name" > "$lookup_file" 2>&1 &
+		lookup_pid=$!
+		lookup_remaining=5
+		lookup_timed_out=0
+		while [ "$lookup_remaining" -gt 0 ]; do
+			if ! kill -0 "$lookup_pid" 2>/dev/null; then
+				break
+			fi
+			sleep 1
+			lookup_remaining=$((lookup_remaining - 1))
+		done
+
+		if kill -0 "$lookup_pid" 2>/dev/null; then
+			lookup_timed_out=1
+			kill "$lookup_pid" 2>/dev/null || :
+			lookup_grace=1
+			while [ "$lookup_grace" -gt 0 ]; do
+				if ! kill -0 "$lookup_pid" 2>/dev/null; then
+					break
+				fi
+				sleep 1
+				lookup_grace=$((lookup_grace - 1))
+			done
+			if kill -0 "$lookup_pid" 2>/dev/null; then
+				kill -9 "$lookup_pid" 2>/dev/null || :
+			fi
+		fi
+
+		lookup_status=0
+		wait "$lookup_pid" 2>/dev/null || lookup_status=$?
+		if [ "$lookup_timed_out" -ne 0 ] || [ "$lookup_status" -ne 0 ]; then
+			exit 1
+		fi
+
+		case "$lookup_family" in
+			4|6) ;;
+			*) exit 1 ;;
+		esac
+		tail -n +3 "$lookup_file" | awk '$1 == "Address" && NF >= 3 { print $3 }' > "$lookup_dir/candidates"
+		lookup_result=""
+		while IFS= read -r lookup_candidate; do
+			if [ "$lookup_family" = "4" ]; then
+				aliddns_ipv4_valid "$lookup_candidate" || continue
+			else
+				aliddns_ipv6_valid "$lookup_candidate" || continue
+			fi
+			lookup_result="$lookup_candidate"
+			break
+		done < "$lookup_dir/candidates"
+
+		[ -n "$lookup_result" ] || exit 1
+		printf '%s\n' "$lookup_result"
+	)
+}
+
 # 查询域名地址
 # 参数: 待查询域名
 arNslookup() {
-mkdir -p /tmp/arNslookup
-lookup_file="/tmp/arNslookup/$$"
-nslookup "$1" > "$lookup_file" 2>&1 &
-lookup_pid=$!
-I=5
-while kill -0 "$lookup_pid" 2>/dev/null && [ "$I" -gt 0 ] ; do
-	I=$((I - 1))
-	sleep 1
-done
-if kill -0 "$lookup_pid" 2>/dev/null; then
-	kill "$lookup_pid" 2>/dev/null
-	sleep 1
-	kill -9 "$lookup_pid" 2>/dev/null
-fi
-wait "$lookup_pid" 2>/dev/null
-tail -n +3 "$lookup_file" | grep "Address" | awk '{print $3}' | grep -v ":" | sed -n '1p' > "$lookup_file.result"
-rm -f "$lookup_file"
-if [ -s "$lookup_file.result" ]; then
-	cat "$lookup_file.result"
-	rm -f "$lookup_file.result"
-	return 0
-fi
-rm -f "$lookup_file.result"
-return 1
+	aliddns_nslookup 4 "$1"
 }
 
 arNslookup6() {
-mkdir -p /tmp/arNslookup
-lookup_file="/tmp/arNslookup/$$"
-nslookup "$1" > "$lookup_file" 2>&1 &
-lookup_pid=$!
-I=5
-while kill -0 "$lookup_pid" 2>/dev/null && [ "$I" -gt 0 ] ; do
-	I=$((I - 1))
-	sleep 1
-done
-if kill -0 "$lookup_pid" 2>/dev/null; then
-	kill "$lookup_pid" 2>/dev/null
-	sleep 1
-	kill -9 "$lookup_pid" 2>/dev/null
-fi
-wait "$lookup_pid" 2>/dev/null
-tail -n +3 "$lookup_file" | grep "Address" | awk '{print $3}' | grep ":" | sed -n '1p' > "$lookup_file.result"
-rm -f "$lookup_file"
-if [ -s "$lookup_file.result" ]; then
-	cat "$lookup_file.result"
-	rm -f "$lookup_file.result"
-	return 0
-fi
-rm -f "$lookup_file.result"
-return 1
+	aliddns_nslookup 6 "$1"
 }
 
 # 更新记录信息
