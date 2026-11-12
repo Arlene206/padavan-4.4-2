@@ -236,9 +236,10 @@ fi
 [ "$(wc -l < "$TEST_ADG_IPV4_RULES" | tr -d ' ')" = 2 ] || fail "repeated start left duplicate IPv4 redirect rules"
 [ "$(wc -l < "$TEST_ADG_IPV6_RULES" | tr -d ' ')" = 2 ] || fail "repeated start left duplicate IPv6 redirect rules"
 
-# Delete at most 64 duplicates per call, then allow a later cleanup retry.
+# The baseline rule plus 64 additional copies makes 65 total.
+# One bounded cleanup pass must remove 64 and leave exactly one for retry.
 adg_test_duplicate_count=0
-while [ "$adg_test_duplicate_count" -lt 65 ]; do
+while [ "$adg_test_duplicate_count" -lt 64 ]; do
 	printf '%s\n' "$TEST_ADG_V4_TCP_RULE" >> "$TEST_ADG_IPV4_RULES"
 	adg_test_duplicate_count=$((adg_test_duplicate_count + 1))
 done

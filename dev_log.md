@@ -1,3 +1,16 @@
+## 2026-11-12 13:38 CST (UTC+8) — Correct AdGuardHome bounded-cleanup regression fixture
+
+- Base main SHA: `10a65f67d4e78948eb0a1a283088a24d21dfbf34`; parent `e023a2c0497bd386f0964f329462ddb878f24fde`; remote branch inventory contains only `main`, with no checkpoint branch.
+- Exact-head Actions on base SHA `10a65f67d4e78948eb0a1a283088a24d21dfbf34`: AdGuardHome [43162860458] FAILED at the bounded duplicate-cleanup assertion; AI handoff docs [43162860481] and infosvr [43162860639] both SUCCESS. Full job steps/logs inspected. Shell syntax and the secret-config regression passed before the AdGuard test stopped.
+- Root cause was a test-fixture off-by-one, not the production cleanup loop: the fixture already contained the initially installed IPv4 TCP rule, then appended 65 additional copies, creating 66 total. Correct 64-delete behavior therefore left two copies, while the assertion expected one.
+- THIS COMMIT corrects the fixture to append 64 copies to the existing one (65 total), retaining the assertion that the bounded pass reports excess state and leaves exactly one rule for the next retry. Production shell code is unchanged in this correction.
+- The host test was not run from a full repository checkout in this environment. A focused shell reproduction of the 65-total / 64-delete / retry arithmetic passed; this is not a substitute for the repository regression or exact-head Actions.
+- Exact-head AdGuardHome and AI handoff-doc workflows after this fixture correction are pending. Do not close the firewall-cleanup L1/L2 slice until the full regression, semantic source contract and docs validator pass on one exact SHA.
+- Root `dev_log.md` grows 50→51 complete records; below the 120-record / 384 KiB rotation triggers and 512 KiB hard limit. No archive or INDEX update is due; archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- Next: inspect all exact-head Actions for the corrected commit, including every step/full log. If green, close bounded/error-aware firewall cleanup at L1/L2; then resume concurrent AdGuardHome start/stop serialization and transactional `change_dns()` / `del_dns()` rollback. MIPS/uClibc, complete firmware/TRX and L3/L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-12 13:26 CST (UTC+8) — Fail closed on AdGuardHome firewall cleanup errors
 
 - Base main SHA: `e023a2c0497bd386f0964f329462ddb878f24fde`; remote branch inventory contains only `main`. This batch resumes the explicit AdGuardHome follow-up after the address-independent `addrtype LOCAL` redirect slice closed on `9a29d68d96f6546e18a2953633ab7e506d13cdaa`.
