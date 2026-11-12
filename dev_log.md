@@ -1,3 +1,17 @@
+## 2026-11-13 07:22 CST (UTC+8) — Synchronize credential/log-filter regression failure marker
+
+- Base main SHA: 6e384bf903ad6b856ed0054fe0f07fc41869798e.
+- Exact-head AliyunDrive [43327886559] / job [131564888160]: launcher syntax PASS, QEMU exact MIPSel v1.2.1 credential-env capability PASS, and every host test passed: 0700/0600 token storage, owner/symlink/hardlink checks, umask 077, RUST_LOG filter, exact env/no-argv privacy, bounded stop/start, duplicate-start and lock/readiness.
+- The last semantic-checker stage failed because its negative-marker inventory still expected "FAIL: credentials were not passed as three exact environment values"; the strengthened host fixture emits "FAIL: credentials and log filter were not passed as exact environment values". This was a stale marker, not a regression. The checker is updated to require the actual current error wording.
+- Other exact-head Actions all SUCCESS: AI docs [43327886525] / job [131564888272] (root log=85/119, archives 7/22/18); AliDDNS [43327886574] / job [131564887809]; AdGuardHome [43327886676] / job [131564888329]; infosvr [43327886567] / job [131564888347].
+- Exact-head Actions for THIS checker correction are PENDING. No token-at-rest L2 closure until the full checker and all other path workflows pass on the resulting SHA.
+- Root log count: 85→86 records, below the 120-record rotation threshold and 384 KiB early-rotation target; archive inventory remains 7/22/18; no archive/index rotation.
+- Changed paths: AliyunDrive source/RC checker, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md, and this log. No production launcher, host test, bundle, branch, PR or GPT Session Rotator changed.
+- Resulting main commit: THIS COMMIT.
+- Next: rerun exact-head QEMU, host security/lifecycle and source/RC checks; verify all path-triggered actions, then continue FTP cleanup TOCTOU review.
+
+---
+
 ## 2026-11-13 07:12 CST (UTC+8) — Match FD-9 source contract to the background child subshell
 
 - Base main SHA: 2ebbd0eba0bfbdb09ae1361f2194bac600c29b34.

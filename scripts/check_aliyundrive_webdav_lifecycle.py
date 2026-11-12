@@ -283,7 +283,7 @@ for marker in (
     "FAIL: permanently running daemon was reported stopped",
     "FAIL: duplicate start launched or stopped an existing daemon",
     "FAIL: non-secret NVRAM values were split, globbed or reordered in daemon argv",
-    "FAIL: credentials were not passed as three exact environment values",
+    "FAIL: credentials and log filter were not passed as exact environment values",
     "FAIL: a credential value leaked into daemon argv",
     "FAIL: lock contention allowed a lifecycle transition",
     "FAIL: secure workdir creation failed",
