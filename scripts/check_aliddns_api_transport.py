@@ -118,8 +118,9 @@ require('$(ROMFSINST) -p +x $(THISDIR)/aliddns.sh /usr/bin/aliddns.sh' in packag
         'dir_$(CONFIG_FIRMWARE_INCLUDE_ALIDDNS)' in user_makefile,
         "AliDDNS firmware package and feature gate must remain intact")
 
-require('mkdir -p /etc/ssl' in copy_scripts and
-        'tar -xzf /etc_ro/certs.tgz -C /etc/ssl' in copy_scripts and
+require('install_ca_trust_store() {' in copy_scripts and
+        '${COPYSCRIPTS_CERT_ARCHIVE:-/etc_ro/certs.tgz}' in copy_scripts and
+        '${COPYSCRIPTS_CERT_DIR:-/etc/ssl}' in copy_scripts and
         'system("/usr/bin/copyscripts.sh")' in rc and
         'system("/usr/bin/copyscripts.sh &")' not in rc and
         rc.index('system("/usr/bin/copyscripts.sh")') < rc.index('system("/usr/bin/autostart.sh &")'),
@@ -200,6 +201,7 @@ pr_filter_paths = tuple(line.strip() for line in pr_filter_block.splitlines()
 require(push_filter_paths == pr_filter_paths and
         '- "trunk/user/aliddns/tests/aliddns_nslookup_lifecycle.sh"' in push_filter_paths and
         '- "trunk/user/aliddns/tests/aliddns_custom_script_lifecycle.sh"' in push_filter_paths and
+        '- "trunk/user/aliddns/tests/copyscripts_ca_bootstrap.sh"' in push_filter_paths and
         '- "trunk/user/aliddns/aliddns.sh"' in push_filter_paths,
         "AliDDNS push and pull_request filters must symmetrically cover production source and every host test")
 

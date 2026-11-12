@@ -1,3 +1,17 @@
+## 2026-11-12 19:50 CST (UTC+8) — Correct the AliDDNS CA-bootstrap semantic contract
+
+- Base active checkpoint: `fix/aliddns-ca-bundle-bootstrap` at `ff6ef5b58c2915b28b26505ea81ddc2d068e8efd`; live `main` remains `9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74`. PR #1 remains open from the checkpoint branch.
+- Exact-head Actions on the base checkpoint were inspected in full. AliDDNS push [43211331905] and PR [43211341609] both checked out `ff6ef5b58c2915b28b26505ea81ddc2d068e8efd`. Shell syntax plus the signed API, public IPv4, DNS lifecycle, custom-script lifecycle and CA-bootstrap host regressions all passed. The only failed step was semantic contract step #9.
+- Root cause: the checker still required the old inline `mkdir -p /etc/ssl` and literal `tar -xzf /etc_ro/certs.tgz -C /etc/ssl` commands. The production script had correctly moved extraction into `install_ca_trust_store()` and made archive/destination configurable; the subsequent checker section already validates tar failure, readable CA postcondition and RC error propagation. This was a stale test contract, not a production test failure.
+- Updated `scripts/check_aliddns_api_transport.py` to assert the extracted helper, its firmware-default archive/destination and synchronous RC-before-autostart ordering. Also require the new `copyscripts_ca_bootstrap.sh` in the symmetric push/pull-request path filters, so the regression cannot silently stop running.
+- Refreshed `SESSION_HANDOFF.md` with the exact failed run IDs, complete log findings and precise next action. `REFACTOR_ROADMAP.md` does not change: AliDDNS remains P2 / CA bootstrap awaiting exact-head L2.
+- This commit changes the source contract and live recovery evidence only; no additional production behavior or host-test claim is made. No full local checkout is available here, so the full semantic checker and docs validator were NOT run locally. The corrected exact-head AliDDNS and AI-docs Actions are PENDING.
+- Root `dev_log.md` grows 59→60 complete records (previously 153,089 bytes); it remains below the 120-record, 384 KiB early and 512 KiB hard limits. Archive inventory remains dev-log=7, handoff=22, roadmap=18; no rotation or INDEX update is due.
+- Resulting commit: THIS COMMIT.
+- Next: re-fetch the final branch SHA and inspect the exact-head AliDDNS and AI-docs Actions, every step and full log. Require the stale source contract to pass together with all five host regressions before closing AliDDNS CA-bootstrap L2. Keep AccessKeySecret argv exposure and concurrent lifecycle work OPEN; L3/L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-12 19:38 CST (UTC+8) — Make AliDDNS CA trust-store bootstrap fail visibly
 
 - Base live main SHA: `9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74`. This resumes the active AliDDNS L2/security handoff after the main-branch custom-script lifecycle and fixture corrections. The implementation is isolated on `fix/aliddns-ca-bundle-bootstrap`.
