@@ -1,3 +1,18 @@
+## 2026-11-13 02:32 CST (UTC+8) — Isolate the vsftpd header probe from system include lookup
+
+- Base main SHA: \`3086848304e5324d2255ed005f82b7ebc84503ce\`.
+- Exact-head XY-C1 [43270075912] / job [131363959378] passed Samba and DUID staged-header checks, then failed the newly introduced vsftpd public-header probe before starting the target firmware build. Its \`cc\` command used \`-I trunk/user/vsftpd/src\`; the folder contains its own \`features.h\`, so placing it in angle-bracket search order shadowed the host glibc \`features.h\`. The resulting \`__GLIBC_USE\` preprocessing errors are caused by the probe include mode, not by the production header.
+- The previous first causal vsftpd production error was \`asus_ext.h:55:27: unknown type name 'size_t'\`, already fixed with \`#include <stddef.h>\` and validated by the separate vsftpd config workflow [43270075357] PASS.
+- THIS COMMIT changes only the XY-C1 probe search option to GCC \`-iquote trunk/user/vsftpd/src\`; this resolves the quoted project header without exposing the local \`features.h\` to system angle-bracket include lookup. No change is made to the production header.
+- Same-SHA HTTPD [43270075491] and AI handoff docs [43270075268] PASS. Samba and DUID source checks PASS in the XY-C1 run.
+- Target MIPS firmware build was skipped because the host precheck failed; TRX validation/artifact upload NOT VERIFIED. L4 hardware validation NOT VERIFIED.
+- Root \`dev_log.md\`: 69→70 complete records, below 120-record rotation threshold and 384 KiB early-rotation target; no archive/index rotation is due.
+- Changed paths: \`.github/workflows/xy-c1-firmware-validation.yml\`, \`SESSION_HANDOFF.md\`, \`REFACTOR_ROADMAP.md\` and this log.
+- Resulting main commit: THIS COMMIT.
+- Next: check the exact-head XY-C1 push, require all pre-build contracts to pass and continue through build, non-empty TRX validation and artifact upload; repair the next causal failure if one appears.
+
+---
+
 ## 2026-11-13 02:24 CST (UTC+8) — Fix next XY-C1 blocker: vsftpd size_t and DUID contract
 
 - Base main SHA: \`f80a5f6b89d7e7fca7e3f7d2f5fe55413ce409ad\`; branch policy remains main-only.

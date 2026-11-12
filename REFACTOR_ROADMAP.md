@@ -1,11 +1,10 @@
 ## Current source / CI checkpoint
 
-- Live main baseline for this XY-C1 iteration: `f80a5f6b89d7e7fca7e3f7d2f5fe55413ce409ad`. Only `main` is authorized for development, commits and push validation. Remote branch inventory remains main-only; legacy PR #1 is CLOSED (not merged) and its retained historical ref is read-only. GPT Session Rotator remains unchanged.
-- Exact-head XY-C1 push [43266929320] / job [131352848613] FAILED on `f80a5f6b89d7e7fca7e3f7d2f5fe55413ce409ad` at vsftpd `asus_ext.h:55`: public prototype uses `size_t` without including `<stddef.h>`. The build had passed the Samba header contract, the new DUID staged-header GNU89 contract, and the original `net_wan6.o` missing-header blocker before reaching vsftpd.
-- Same-SHA HTTPD security run [43266928890] failed only at a stale source contract that still required `#include "../../shared/src/dhcp6c_duid_file_policy.h"` in `net_wan6.c`. The new source include correctly uses the RC package's staged public header path `#include <dhcp6c_duid_file_policy.h>`; update the test to reflect the correct path and reject the obsolete relative path.
-- AI handoff docs [43266928614] PASSED on `f80a5f6b89d7e7fca7e3f7d2f5fe55413ce409ad`. WAN DHCP callback run [43266928617] retains an unrelated source-contract matcher failure.
-- Current repair adds `<stddef.h>` to vsftpd's public extension header, an isolated GNU89 header self-containment check before the target build, the HTTPD DUID contract correction and XY-C1 push filters for both changed contracts.
-- L3 target firmware, non-empty TRX validation and artifact upload remain NOT VERIFIED; L4 physical flashing/boot remains NOT VERIFIED.
+- Live main baseline for this XY-C1 iteration: `3086848304e5324d2255ed005f82b7ebc84503ce`. Only `main` is authorized for development and push validation. Remote branch inventory remains main-only; legacy PR #1 is CLOSED (not merged) and remains read-only. GPT Session Rotator is unchanged.
+- Exact-head XY-C1 run [43270075912] / job [131363959378] PASSED Samba shared-header and DUID staged-header regressions, but failed the new vsftpd standalone-header probe before the target build. The test used `-I trunk/user/vsftpd/src`, allowing the local `features.h` to shadow glibc's system header. Replace with `-iquote trunk/user/vsftpd/src`. The production `<stddef.h>` addition to `asus_ext.h` is retained.
+- Earlier XY-C1 [43266929320] passed the previous RC missing-header blocker and reached `vsftpd/main.o`, exposing the genuine missing `<stddef.h>` for the `size_t` prototype. That source fix is included in the current base.
+- Same-SHA HTTPD [43270075491], AI docs [43270075268] and vsftpd configuration stability [43270075357] all PASSED.
+- The MIPS target build was not reached on the current SHA; TRX validation and artifact upload remain NOT VERIFIED; L4 hardware flashing/boot remains NOT VERIFIED.
 
 
 ## Whole-repository module status
