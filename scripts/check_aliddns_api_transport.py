@@ -159,7 +159,7 @@ require("/usr/bin/aliddns-ipv4.sh" in ddns_check and
         "AliDDNS check must validate custom-script output and fail closed on invalid IPv4/IPv6")
 require("curl" not in nslookup and "wget" not in nslookup and "http://" not in nslookup and
         "killall" not in nslookup and
-        'lookup_candidate_dir="/tmp/arNslookup.$.${lookup_index}"' in nslookup and
+        'lookup_candidate_dir="/tmp/arNslookup.$$.${lookup_index}"' in nslookup and
         "umask 077" in nslookup and 'trap \'rm -rf "$lookup_dir"\' 0' in nslookup and
         'lookup_pid=$!' in nslookup and 'kill "$lookup_pid"' in nslookup and
         'kill -9 "$lookup_pid"' in nslookup and 'wait "$lookup_pid"' in nslookup and
