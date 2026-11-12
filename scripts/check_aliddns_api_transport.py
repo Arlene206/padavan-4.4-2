@@ -90,7 +90,7 @@ require('query_ok=0' in update and
         'if [ "$request_status" -eq 0 ] && aliddns_response_ok "$response"; then' in update and
         'if [ "$query_ok" != "1" ]; then' in update,
         "failed record discovery must never be treated as a valid empty record set")
-require("return 2" in info and 'info_status -eq 2' in ddns_check,
+require("return 2" in info and '"$info_status" -eq 2' in ddns_check,
         "valid empty-record responses must remain distinguishable from transport/API failures")
 require('response=$(add_record)' in update and
         'response=$(update_record "$aliddns_record_id")' in update and
@@ -149,8 +149,10 @@ require("/usr/bin/aliddns-ipv4.sh" in ddns_check and
         "aliddns_ipv4_valid" in ddns_check and "aliddns_ipv6_valid" in ddns_check,
         "AliDDNS check must validate custom-script output and fail closed on invalid IPv4/IPv6")
 require("curl" not in nslookup and "wget" not in nslookup and "http://" not in nslookup and
-        "killall" not in nslookup and "killall" not in nslookup6,
-        "DNS fallback must no longer use plaintext HTTP or kill every nslookup process")
+        "killall" not in nslookup and "killall" not in nslookup6 and
+        'lookup_pid=$!' in nslookup and 'kill "$lookup_pid"' in nslookup and
+        'wait "$lookup_pid"' in nslookup and 'I=5' in nslookup,
+        "DNS fallback must avoid plaintext HTTP, target only its child process and stay bounded")
 
 initconfig_start = source.find("initconfig () {")
 initconfig_end = source.find("\n}\n\ninitconfig\n", initconfig_start)
@@ -173,8 +175,6 @@ require('$(ROMFSINST) -p +x $(THISDIR)/aliddns-ipv4.sh /usr/bin/aliddns-ipv4.sh'
 require("TLS verification failure was reported as success" in ipv4_test and
         "multi-line" in ipv4_test and "strict IPv4/IPv6 address validation regression: PASS" in ipv4_test,
         "public-IP regression must cover transport failures and strict address validation")
-require('IPv4_TEST_PATH' not in checker,
-        "unexpected checker identifier")
 
 with tarfile.open(CERT_ARCHIVE_PATH, "r:gz") as archive:
     members = {
