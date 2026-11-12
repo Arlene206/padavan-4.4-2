@@ -93,15 +93,19 @@ fi
 ) || fail "chmod failure published a config or leaked its stage"
 
 # If safe config preparation fails, startup must not touch DNS/firewall state.
-ADG_CONFIG_FILE="$TEST_TMP/config-link"
-export ADG_CONFIG_FILE
-change_dns() { echo change_dns >> "$TEST_SIDE_EFFECTS"; }
-set_iptable() { echo set_iptable >> "$TEST_SIDE_EFFECTS"; }
-logger() { return 0; }
-if start_adg; then
-	fail "startup succeeded with a symlink config"
-fi
-[ ! -s "$TEST_SIDE_EFFECTS" ] || fail "startup changed DNS/firewall before config validation"
+# Keep the side-effect mocks scoped so the later firewall regression sources the
+# real set_iptable()/clear_iptable() functions.
+(
+	ADG_CONFIG_FILE="$TEST_TMP/config-link"
+	export ADG_CONFIG_FILE
+	change_dns() { echo change_dns >> "$TEST_SIDE_EFFECTS"; }
+	set_iptable() { echo set_iptable >> "$TEST_SIDE_EFFECTS"; }
+	logger() { return 0; }
+	if start_adg; then
+		exit 1
+	fi
+	[ ! -s "$TEST_SIDE_EFFECTS" ] || exit 1
+) || fail "startup changed DNS/firewall before config validation"
 
 echo "AdGuardHome secret config mode, symlink rejection and atomic publication: PASS"
 
