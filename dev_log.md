@@ -1,3 +1,14 @@
+## 2026-11-12 09:39 CST (UTC+8) — Restore required handoff marker and assert symmetric OpenVPN workflow filters
+
+- Base main SHA: `8e1e0c75afd3b95796cd3354d763b90395c9ef05`; parent `d946bb4f6cd305924041665f100900597de05318`.
+- Exact-head VPN stability [43135536988] passed all steps on the base SHA, including lifecycle lock, callback identity, shared lease lock and expanded OpenVPN callback source contract. AI docs [43135537018] failed because SESSION_HANDOFF.md no longer contained the required literal `## Active task` heading; infosvr source contracts [43135537134] failed on the same missing governance marker after both GNU89 ASan/UBSan packet and signal policy binaries passed. No production infosvr failure occurred.
+- Restored the handoff's mandatory `## Active task` heading for the real next work item, documented the intermediate CI outcome and added an exact-once push/pull_request OpenVPN source-filter assertion to the VPN contract.
+- Recheck the VPN, AI docs and infosvr Actions on this commit's exact SHA. The expected docs validator count is root log=39/119 and archives dev-log=7 / handoff=22 / roadmap=18.
+- FTP failed-upload cleanup remains P2 OPEN/BLOCKED: Linux 4.4 has no inode-conditional unlink-by-fd; do not patch without a proved design preserving STOR/APPE/REST/STOU and safety against concurrent writers. Continue the broader RC/add-on process-control audit after CI.
+- Root dev_log.md grows 38→39 complete records; no rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- Production MIPS/uClibc, full firmware/TRX and L4 router/hardware behavior remain NOT VERIFIED.
+
+---
 ## 2026-11-12 09:35 CST (UTC+8) — Close OpenVPN/RC shared lease race and repair exact-head CI contract
 
 - Base main SHA: `d946bb4f6cd305924041665f100900597de05318`; parent `7213bce03885fac5c83b5c6e06e7eee390c259a2`. This change extends the VPN semantic source contract to inspect vpn_openvpn.c and adds that production source to both push and pull_request filters of the VPN stability workflow.

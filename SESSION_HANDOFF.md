@@ -3,7 +3,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; branch `main`; only remote branch is `main`; no checkpoint branch.
-- Base main SHA for THIS COMMIT: `d946bb4f6cd305924041665f100900597de05318` (parent `7213bce03885fac5c83b5c6e06e7eee390c259a2`); only remote branch is `main`, no checkpoint branch.
+- Base main SHA for THIS COMMIT: `8e1e0c75afd3b95796cd3354d763b90395c9ef05` (parent `d946bb4f6cd305924041665f100900597de05318`); only remote branch is `main`, no checkpoint branch.
 - DNS Forwarder caller-CWD-independent launcher is L1/L2 CLOSED on exact SHA `c2e1c85517ed2dcbe094ed43e3cae18d7af4d972`: DNS [43066687882], AI docs [43066687814] and infosvr [43066687818] SUCCESS.
 - DNSMasq DHCP pool/router-address exclusion is L1/L2 CLOSED on exact SHA `c22542d36e9de26780b338267f41a91d99aaf34a`: DNSMasq [43069047780], AI docs [43069047752], HTTPD [43069047723], infosvr [43069047578], Samba [43069047831] and miniupnpd [43069047633] SUCCESS.
 - WAN bridge VLAN deletion failure propagation is L1/L2 CLOSED on exact SHA `55740d3491fba908416b930664143943b5acca1a`: wireless [43069624285], AI docs [43069624357], infosvr [43069624265] and WAN DHCP [43069624334] SUCCESS.
@@ -18,7 +18,7 @@
 - Lease-source reads use no-follow/nonblocking descriptor opens and fstat trust checks. The record copier rejects embedded NUL, malformed/overlong lines and read errors; publication remains same-directory staged with checked write/flush/fsync/close/rename. Exact-head VPN job [43132697870] passed all steps, including lifecycle, callback identity, shared-lock policy binaries and the semantic source contract. Exact-head AI docs job [43132697890] also passed; its validator reported root log=37/119 and archives=7/22/18.
 - Root and OpenVPN clear paths both unlink the root-owned OpenVPN PID marker before the lease snapshot under the shared lease lock. A callback waiting behind stop therefore fails its parent-PID fence; stale callbacks skip user hooks while ordinary inventory errors remain hook-independent. Target `/tmp`, group/PID ownership and actual daemon-stop timing remain unverified.
 
-- Root `dev_log.md` grows 37→38 complete records; no rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- Root `dev_log.md` grows 38→39 complete records; no rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
 - FTP upload-cleanup TOCTOU remains P2 OPEN/BLOCKED pending a Linux 4.4-safe inode/parent proof; NFS requires real-client evidence. Production MIPS/uClibc, full firmware/TRX and physical-router behavior remain NOT VERIFIED.
 
 ## Closed task — NVRAM HDR2 profile-save atomic publication
@@ -163,15 +163,16 @@
 - Root RC/PPP and dropped-privilege OpenVPN callbacks contend on one root-owned mode-0620 root:nogroup lease lock in APP_OPENVPN builds; PPP-only builds retain a root-private lock. Root and OpenVPN clears remove the daemon PID marker before the lease snapshot while holding that lock. Callbacks verify parent PID after acquiring the lock; stale callbacks cannot restore state or run external hooks.
 - Production MIPS/uClibc, router `/tmp` ownership/sticky-bit behavior, group/PID ownership, live daemon stop timing, OpenVPN authentication, firmware/TRX and L4 remain NOT VERIFIED.
 
-## Next task — Continue whole-tree service/process-control audit (P2 stability)
+## Active task — Continue whole-tree service/process-control audit (P2 stability)
 
 - FTP failed-upload cleanup TOCTOU remains P2 OPEN/BLOCKED. Linux 4.4 has no inode-conditional unlink-by-fd; the current fstatat()/unlinkat() pair retains a race against concurrent same-directory writers. Do not patch without a proved Linux 4.4-compatible design preserving STOR/APPE/REST/STOU, ACL/parent pinning and existing overwrite/visibility semantics.
+- Exact SHA `8e1e0c75afd3b95796cd3354d763b90395c9ef05` VPN server workflow [43135536988] passed, including the expanded OpenVPN callback source contract. The docs and infosvr workflows [43135537018] / [43135537134] failed because this handoff heading had been changed from the required `## Active task`; this commit restores that protocol marker. Recheck those exact-head jobs before closing the current CI slice.
 - The immediate next actionable work is the whole-tree RC/add-on process-control and file-publication audit outside VPN/HTTPD: trace stop/start/restart callers, PID-file trust, bounded waits, process identity and fail-closed state publication; select a reproducible stability issue and add a GNU89 host regression plus exact symmetric CI path filters.
 - NFS async durability, AUTH_SYS/root-squash and external mount compatibility remain real-client evidence-gated. Wi-Fi/WAN board-specific bridge behavior remains target validation work.
 ## Verification boundary
 
 - L1 source review: PASS for the OpenVPN shared root:nogroup lease-lock ownership model, PID-file stop fence, stale callback suppression, lease parser validation/staged publication, root RC caller integration and PPP-only root-private fallback. This is source-level confidence only; target privilege-drop/group database behavior is not proven.
-- L2 exact-head Actions: SHA `d946bb4f6cd305924041665f100900597de05318`: VPN server lifecycle stability [43132697870] and AI handoff documentation [43132697890] both SUCCESS. Full job steps and logs inspected; shared lock/callback policy/source contracts PASS; docs validator root log=37/119 and archives=7/22/18.
+- L2 exact-head Actions: SHA `d946bb4f6cd305924041665f100900597de05318`: VPN server lifecycle stability [43132697870] and AI handoff documentation [43132697890] both SUCCESS. Full job steps and logs inspected; shared lock/callback policy/source contracts PASS; docs validator root log=37/119 and archives=7/22/18. On subsequent exact SHA `8e1e0c75afd3b95796cd3354d763b90395c9ef05`, VPN server workflow [43135536988] also passed with the extended OpenVPN callback contract; docs/infosvr were blocked only by the removed required handoff heading, restored in the current commit, and must be rechecked on its exact SHA.
 - L3 production MIPS/uClibc objects / complete firmware/TRX: NOT VERIFIED for OpenVPN lease, credential/config/CCD staging, VPN lifecycle or current RC changes.
 - L4 router / physical hardware: NOT VERIFIED. No live OpenVPN server startup, authentication, client network, stop-race or router behavior is claimed.
 
@@ -187,7 +188,7 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and confirm the exact current SHA; do not rely on a prior session SHA. Inspect exact-head VPN server stability and AI handoff documentation Actions for the source-contract/path-filter expansion in the current commit, including every step and complete logs. The prior exact-head SHA d946bb4f6cd305924041665f100900597de05318 is already L1/L2 CLOSED.
+1. Fetch live main and confirm the exact current SHA. Inspect exact-head VPN server stability, AI handoff documentation and infosvr packet/signal Actions for the required-heading/path-filter correction, including every step and full logs; require the docs validator to report root log=39/119 and archives=7/22/18.
 2. Continue the whole-tree RC/add-on service process-control and file-publication audit. Keep FTP cleanup TOCTOU OPEN/BLOCKED until a safe Linux 4.4 design is demonstrated; do not claim L3/L4.
 2. Require the shared lock test to pass for POSIX contention, root-owned group-0620 access from nobody, symlink/hardlink/mode rejection and immediate FIFO rejection; require OpenVPN credential/config/lease GNU89 ASan/UBSan tests and both semantic source/workflow checkers to pass. Do not report L2 closed before that evidence.
 3. If L2 passes, continue L3 investigation of production MIPS/uClibc, firmware `/tmp` sticky-root semantics, `SYS_GROUP_NOGROUP` group membership, OpenVPN pidfile owner/mode and stop/child callback timing. L4 remains unverified until router tests.

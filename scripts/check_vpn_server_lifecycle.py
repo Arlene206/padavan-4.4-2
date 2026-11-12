@@ -128,6 +128,11 @@ for p in ("trunk/user/rc/src/vpn_server.c","trunk/user/rc/src/vpn_openvpn.c",
           "trunk/user/pppoe/mwan.sh",
           "scripts/check_vpn_server_lifecycle.py",".github/workflows/vpn-server-stability.yml"):
     require(p in workflow,f"workflow path filter missing {p}")
+push_paths=workflow.split("  push:",1)[1].split("  pull_request:",1)[0]
+pull_paths=workflow.split("  pull_request:",1)[1].split("  workflow_dispatch:",1)[0]
+openvpn_filter="      - 'trunk/user/rc/src/vpn_openvpn.c'"
+require(push_paths.count(openvpn_filter) == 1 and pull_paths.count(openvpn_filter) == 1,
+        "OpenVPN production source path must appear exactly once in push and pull_request filters")
 require("fork()" in test and "errno==EBUSY" in test.replace(" ",""),"cross-process contention regression missing")
 
 # Every RC path that starts/stops the shared PPP/L2TP transport must
