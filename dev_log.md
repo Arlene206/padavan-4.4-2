@@ -1,3 +1,18 @@
+## 2026-11-12 11:21 CST (UTC+8) — Bound ZeroTier interface and NAT-route readiness
+
+- Base main SHA: `1bf8a93bfa47770e8005d5241f7077287c86c4c4`; parent `f39638ac28bae38e6ec8d2694831685b3be98d4e`.
+- Closed the preceding ZeroTier stop/start task on the exact base SHA: ZeroTier lifecycle [43143884566] and AI handoff docs [43143884420] both SUCCESS. Every job step and complete log was inspected; bounded TERM/KILL, stale-numeric-PID exclusion, start gating, persistent-identity preservation, RC/ROMFS integration and docs validation all passed (root log=41/119; archives=7/22/18).
+- Continued the explicitly recorded ZeroTier `rules()` follow-up. Found unbounded waits for the ZeroTier interface and (when NAT is enabled) its kernel route. The route grep demanded two spaces between `dev` and `proto`, while ordinary iproute2 output uses one; a missing route or whitespace mismatch could block RC startup forever. Firewall rules were also partially published before route readiness, and the NAT flag used an unquoted numeric test on potentially empty NVRAM.
+- THIS COMMIT bounds interface and route waits independently to 30 seconds, re-checks the readiness condition at the deadline, matches `zt*` interface names and exact `dev <if> proto kernel` route tokens, validates NAT state, and postpones firewall changes until every required prerequisite is ready. `start_instance()` now attempts daemon cleanup and returns failure if readiness expires. `del_rules()` shares the same token-based route parser.
+- Extended the existing host shell regression with delayed interface/route appearance, no-interface and no-route timeout cases, unrelated interface route filtering, ordinary single-space route output and no-partial-firewall assertions. Extended the existing semantic source checker. Workflow path filters already covered all changed files.
+- Local full checkout is unavailable because container DNS cannot resolve github.com; the updated shell regression, source checker and docs validator were NOT RUN locally. Exact-head ZeroTier and AI-doc Actions are pending.
+- Root `dev_log.md` grows 41→42 complete records, below the 120-entry/384 KiB rotation triggers and 512 KiB hard cap; no archive or INDEX change is due. Archive counts remain dev-log=7, handoff=22, roadmap=18.
+- Production MIPS/uClibc, target BusyBox `ifconfig`/`ip route` behavior, live interface/route readiness, complete firmware/TRX and L4 router behavior remain NOT VERIFIED.
+- Resulting commit: THIS COMMIT.
+- Next: inspect every step and full log for exact-head ZeroTier lifecycle and AI handoff-doc Actions; require the new readiness regressions, source/RC/ROMFS contracts and docs validator (42/119; archives 7/22/18) to pass. Then rotate to another optional user-space service wrapper instead of repeatedly polishing ZeroTier. FTP TOCTOU remains OPEN/BLOCKED; NFS needs real-client evidence.
+
+---
+
 ## 2026-11-12 10:35 CST (UTC+8) — Gate ZeroTier cleanup on confirmed daemon shutdown
 
 - Base main SHA: `f39638ac28bae38e6ec8d2694831685b3be98d4e`; parent `55c88ad2e93874d7fe53520e028b749742a6d144`.

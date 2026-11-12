@@ -6,6 +6,7 @@ PROGCLI=/usr/bin/zerotier-cli
 PROGIDT=/usr/bin/zerotier-idtool
 config_path="/etc/storage/zerotier-one"
 PLANET="/etc/storage/planet"
+ZT_READY_TIMEOUT=30
 start_instance() {
 	cfg="$1"
 	echo $cfg
@@ -67,9 +68,15 @@ start_instance() {
 	add_join $(nvram get zerotier_id)
 
 	$PROG $args $config_path >/dev/null 2>&1 &
-		
-	rules
-	
+
+	if ! rules; then
+		logger -t "zerotier" "ZeroTier接口/路由未在限定时间内就绪，停止本次启动"
+		if ! kill_z; then
+			logger -t "zerotier" "启动失败后仍无法确认ZeroTier进程退出"
+		fi
+		return 1
+	fi
+
 	if [ -n "$moonid" ]; then
 		$PROGCLI -D$config_path orbit $moonid $moonid
 		logger -t "zerotier" "orbit moonid $moonid ok!"
@@ -92,33 +99,103 @@ add_join() {
 }
 
 
-rules() {
-	while [ "$(ifconfig | grep zt | awk '{print $1}')" = "" ]; do
+zerotier_interface_name() {
+	ifconfig | awk '$1 ~ /^zt/ { sub(/:$/, "", $1); print $1; exit }'
+}
+
+zerotier_kernel_route_segment() {
+	[ -n "$1" ] || return 1
+	ip route | awk -v zt_if="$1" '
+	{
+		dev = ""
+		proto = ""
+		for (i = 1; i < NF; i++) {
+			if ($i == "dev")
+				dev = $(i + 1)
+			else if ($i == "proto")
+				proto = $(i + 1)
+		}
+		if (dev == zt_if && proto == "kernel") {
+			print $1
+			exit
+		}
+	}'
+}
+
+zerotier_wait_interface() {
+	zerotier_wait=0
+	while :; do
+		zt0="$(zerotier_interface_name)"
+		if [ -n "$zt0" ]; then
+			printf '%s\n' "$zt0"
+			return 0
+		fi
+		if [ "$zerotier_wait" -ge "$ZT_READY_TIMEOUT" ]; then
+			break
+		fi
 		sleep 1
+		zerotier_wait=$((zerotier_wait + 1))
 	done
-	nat_enable=$(nvram get zerotier_nat)
-	zt0=$(ifconfig | grep zt | awk '{print $1}')
+	return 1
+}
+
+zerotier_wait_route() {
+	zerotier_wait=0
+	while :; do
+		ip_segment="$(zerotier_kernel_route_segment "$1")"
+		if [ -n "$ip_segment" ]; then
+			printf '%s\n' "$ip_segment"
+			return 0
+		fi
+		if [ "$zerotier_wait" -ge "$ZT_READY_TIMEOUT" ]; then
+			break
+		fi
+		sleep 1
+		zerotier_wait=$((zerotier_wait + 1))
+	done
+	return 1
+}
+
+rules() {
+	zt0="$(zerotier_wait_interface)" || {
+		logger -t "zerotier" "等待ZeroTier接口超时"
+		return 1
+	}
+	nat_enable="$(nvram get zerotier_nat)"
+	case "$nat_enable" in
+		"") nat_enable=0 ;;
+		0|1) ;;
+		*)
+			logger -t "zerotier" "无效的ZeroTier NAT配置"
+			return 1
+			;;
+	esac
+	ip_segment=""
+	if [ "$nat_enable" = "1" ]; then
+		ip_segment="$(zerotier_wait_route "$zt0")" || {
+			logger -t "zerotier" "等待ZeroTier内核路由超时"
+			return 1
+		}
+	fi
 	logger -t "zerotier" "zt interface $zt0 is started!"
 	del_rules
-	iptables -A INPUT -i $zt0 -j ACCEPT
-	iptables -A FORWARD -i $zt0 -o $zt0 -j ACCEPT
-	iptables -A FORWARD -i $zt0 -j ACCEPT
-	if [ $nat_enable -eq 1 ]; then
-		iptables -t nat -A POSTROUTING -o $zt0 -j MASQUERADE
-		while [ "$(ip route | grep "dev $zt0  proto kernel" | awk '{print $1}')" = "" ]; do
-		    sleep 1
-		done
-		ip_segment="$(ip route | grep "dev $zt0  proto kernel" | awk '{print $1}')"
-		iptables -t nat -A POSTROUTING -s $ip_segment -j MASQUERADE
+	iptables -A INPUT -i "$zt0" -j ACCEPT
+	iptables -A FORWARD -i "$zt0" -o "$zt0" -j ACCEPT
+	iptables -A FORWARD -i "$zt0" -j ACCEPT
+	if [ "$nat_enable" = "1" ]; then
+		iptables -t nat -A POSTROUTING -o "$zt0" -j MASQUERADE
+		iptables -t nat -A POSTROUTING -s "$ip_segment" -j MASQUERADE
 		zero_route "add"
 	fi
-
+	return 0
 }
 
 
 del_rules() {
-	zt0=$(ifconfig | grep zt | awk '{print $1}')
-	ip_segment=`ip route | grep "dev $zt0  proto kernel" | awk '{print $1}'`
+	if [ -z "$zt0" ]; then
+		zt0="$(zerotier_interface_name)"
+	fi
+	ip_segment="$(zerotier_kernel_route_segment "$zt0")"
 #	iptables -D FORWARD -i $zt0 -j ACCEPT 2>/dev/null
 #	iptables -D FORWARD -o $zt0 -j ACCEPT 2>/dev/null
 #	iptables -D FORWARD -i $zt0 -o $zt0 -j ACCEPT

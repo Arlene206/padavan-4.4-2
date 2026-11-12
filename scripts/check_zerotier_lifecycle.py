@@ -35,6 +35,13 @@ wait_body = function_body(script, "zerotier_wait_stopped()")
 kill_body = function_body(script, "kill_z()")
 start_body = function_body(script, "start_zero()")
 stop_body = function_body(script, "stop_zero()")
+start_instance_body = function_body(script, "start_instance()")
+interface_body = function_body(script, "zerotier_interface_name()")
+route_section = script.split("zerotier_kernel_route_segment() {", 1)[1].split("\nzerotier_wait_interface() {", 1)[0]
+interface_wait_body = function_body(script, "zerotier_wait_interface()")
+route_wait_body = function_body(script, "zerotier_wait_route()")
+rules_section = script.split("rules() {", 1)[1].split("\ndel_rules() {", 1)[0]
+cleanup_section = script.split("del_rules() {", 1)[1].split("\nzero_route() {", 1)[0]
 
 require('while [ "$zerotier_wait" -lt 5 ]; do' in wait_body and
         'pidof zerotier-one' in wait_body and 'sleep 1' in wait_body,
@@ -60,6 +67,38 @@ require(not re.search(r'\bkill\s+-9\s+"?\$zerotier_process', script),
 require('$(pidof zerotier-one)' not in script,
         "numeric pidof snapshots must not be cached")
 
+require("ZT_READY_TIMEOUT=30" in script,
+        "interface and kernel-route readiness must have a bounded 30-second deadline")
+require("ifconfig | awk '$1 ~ /^zt/" in interface_body,
+        "interface discovery must select actual ZeroTier interface names")
+require('awk -v zt_if="$1"' in route_section and
+        'dev == zt_if && proto == "kernel"' in route_section,
+        "kernel route parsing must match exact interface and protocol fields")
+require('while :' in interface_wait_body and
+        'zerotier_interface_name' in interface_wait_body and
+        'sleep 1' in interface_wait_body and
+        'zerotier_wait -ge "$ZT_READY_TIMEOUT"' in interface_wait_body,
+        "interface readiness wait must be bounded and re-check at the deadline")
+require('while :' in route_wait_body and
+        'zerotier_kernel_route_segment "$1"' in route_wait_body and
+        'sleep 1' in route_wait_body and
+        'zerotier_wait -ge "$ZT_READY_TIMEOUT"' in route_wait_body,
+        "kernel-route readiness wait must be bounded and re-check at the deadline")
+require('zerotier_wait_interface' in rules_section and
+        'zerotier_wait_route "$zt0"' in rules_section and
+        rules_section.index('zerotier_wait_route "$zt0"') < rules_section.index('del_rules') <
+        rules_section.index('iptables -A INPUT'),
+        "firewall rules must be published only after interface and required route readiness")
+require('case "$nat_enable" in' in rules_section and
+        '[ "$nat_enable" = "1" ]' in rules_section,
+        "NAT configuration must be handled without an unquoted numeric test")
+require('if ! rules; then' in start_instance_body and
+        start_instance_body.index('if ! rules; then') < start_instance_body.index('if ! kill_z; then') <
+        start_instance_body.index('return 1'),
+        "daemon startup must fail and attempt cleanup when interface/route readiness times out")
+require('zerotier_kernel_route_segment "$zt0"' in cleanup_section,
+        "firewall cleanup must use the same token-based route parser")
+
 require('$(ROMFSINST) -p +x $(THISDIR)/zerotier.sh /usr/bin/zerotier.sh' in makefile,
         "ROMFS must install the exercised ZeroTier launcher")
 require('eval("/usr/bin/zerotier.sh","stop")' in services and
@@ -72,7 +111,8 @@ require('void restart_zerotier(void);' in rc_header and 'restart_zerotier();' in
         "RC declaration and notification caller must remain wired")
 
 for token in ['graceful', '-9-exits', 'stuck', 'start_zero', 'stop_zero',
-              'identity.secret', 'numeric-kill.log', 'five one-second polls']:
+              'identity.secret', 'numeric-kill.log', 'five one-second polls',
+              'interface readiness', 'kernel route', 'single-space']:
     require(token in test, f"regression coverage missing {token}")
 
 paths = [
