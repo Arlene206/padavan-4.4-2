@@ -1,3 +1,17 @@
+## 2026-11-13 06:39 CST (UTC+8) — Repair AliyunDrive semantic checker after credential argv regression update
+
+- Base main SHA: `bf70e759b61e35022aa25bfe89a1c7cb3c0e24c7`; branch inventory remains `main` only.
+- Exact-head AliyunDrive run [43321322383] / job [131542407443] on that SHA: shell syntax PASS; QEMU MIPSel `--version/--help` PASS, SHA-bound report confirmed all three env mappings; host lifecycle stop/start/readiness and environment/argv regression PASS. The final semantic source/RC checker failed on one obsolete required marker: it expected the prior host-test string “NVRAM values ... argv”, while the updated regression now emits “non-secret NVRAM values ... argv” and separate credential-environment/no-leak failure markers. This was a checker-only mismatch, not a launcher/QEMU/host regression failure.
+- Other exact-head push workflows all SUCCESS on `bf70e759b61e35022aa25bfe89a1c7cb3c0e24c7`: AI docs [43321322563] / job [131542407353] (root log=80/119; archives 7/22/18), infosvr [43321322817] / job [131542409055], AliDDNS [43321323446] / job [131542412248], AdGuardHome [43321323806] / job [131542416886]. The AliyunDrive job failure is fully attributed to the stale marker assertion.
+- THIS COMMIT updates `scripts/check_aliyundrive_webdav_lifecycle.py` to assert the new non-secret argv failure message plus explicit credential-env and credential-argv-leak markers. No production source/test behavior changed in this repair.
+- Exact-head reruns for THIS COMMIT are PENDING; no local full checkout or local shell/Python execution is claimed.
+- Root log count: 80→81 entries, under the 120-record and 384 KiB rotation triggers and 512 KiB hard cap. Archive inventory remains dev-log=7, handoff=22, roadmap=18; no rotation or index change is due.
+- Changed paths: lifecycle semantic checker, live handoff, live roadmap, and this log entry. No archive, binary, GPT rotator, branch or PR changed.
+- Resulting commit: THIS COMMIT.
+- Next: inspect the AliyunDrive, AI docs and any other exact-head push workflows on the resulting main SHA. Require QEMU SHA-binding, shell syntax, host environment/argv, and semantic caller/source contracts all PASS before recording L2 closure; then inspect daemon workdir token persistence and permissions.
+
+---
+
 ## 2026-11-13 06:29 CST (UTC+8) — Correct AliyunDrive credential capability evidence and redact daemon argv
 
 - Base main SHA: `7309ae404e0172edac20ac91d710da74cf39722f`; branch inventory contained only `main`, legacy PR #1 remains closed/unmerged, and GPT Session Rotator was not modified.
