@@ -1,3 +1,17 @@
+## 2026-11-12 16:30 CST (UTC+8) — Close AliyunDrive WebDAV bounded stop and argv integrity at L1/L2
+
+- Source/test/checker base SHA: `d8dbb93083f616be8ecfdb84abfb3f104436960d`; the code change was introduced by `bf915c092d4c5478e5a99ed00f796dd78c58756e`, then the sourced-shell test harness was made nounset-safe in `d8dbb93083f616be8ecfdb84abfb3f104436960d`.
+- Audited `trunk/user/aliyundrive-webdav/aliyundrive-webdav.sh` and its RC/UI/ROMFS wiring. The previous `kill_ald()` cached the numeric PID from `pidof`, used `killall` for TERM and then sent SIGKILL to the cached numeric PID immediately. That could target a reused PID after the original process exited and did not prove the daemon had stopped. `start_ald()` also launched duplicates on repeated notifications and expanded NVRAM values unquoted.
+- Replaced shutdown with a bounded five-second TERM grace, a fresh process-name-based `killall -9` escalation and a final process-absence postcondition; persistent processes now return failure. Removed the cached numeric PID path. Start now no-ops when the daemon is already observable and constructs options using positional parameters so host/root/token/user/password/cache values are each passed as one quoted argv item. Preserved the special domain-id 99999 option policy and the existing RC/ROMFS integration.
+- Added POSIX-shell host regression coverage for no-process stop, graceful TERM, TERM timeout followed by name-based KILL, a process surviving SIGKILL, sequential duplicate-start suppression, literal argv values with spaces/wildcards/metacharacters, and the special domain profile. Added semantic source/RC/package/HTTPD producer and symmetric workflow path-filter checks.
+- Exact-head Actions on `d8dbb93083f616be8ecfdb84abfb3f104436960d`: AliyunDrive lifecycle [43182561404] and AI handoff docs [43182561374] both completed SUCCESS. Every step and full job log inspected; checkout `git log -1` matched the exact SHA. Shell syntax, complete host regression and semantic integration contract all PASS. Docs validator reported root log=55/119 before this governance entry and archive inventory dev-log=7, handoff=22, roadmap=18.
+- No full local repository checkout, production toolchain, target BusyBox or router was available. This closes only L1/L2 host/Actions behavior; simultaneous start races, daemon readiness and refresh-token/auth-password visibility in process argv remain open. MIPS/uClibc, firmware/TRX and L3/L4 remain NOT VERIFIED.
+- Changed paths: `trunk/user/aliyundrive-webdav/aliyundrive-webdav.sh`, new `trunk/user/aliyundrive-webdav/tests/aliyundrive_webdav_lifecycle.sh`, new `scripts/check_aliyundrive_webdav_lifecycle.py`, new `.github/workflows/aliyundrive-webdav-lifecycle.yml`; this handoff/roadmap/log update reconciles the active checkpoint and next module.
+- Root `dev_log.md` grows 55→56 complete records, below 120/119 rotation and 384 KiB early target; no archive or INDEX update is due.
+- Next: rotate to AliDDNS. Audit `send_request()` in `trunk/user/aliddns/aliddns.sh`: HMAC-signed API parameters currently travel to `http://alidns.aliyuncs.com`. Confirm HTTPS and target CA-verification support, test certificate failure/downgrade handling, and do not use `-k`. Keep AliyunDrive argv-secret/concurrent-start gaps, FTP TOCTOU and NFS client-evidence blockers visible.
+
+---
+
 ## 2026-11-12 15:22 CST (UTC+8) — Close AdGuardHome resolver transaction at L1/L2
 
 - Exact main SHA: `14d05006beaa930d4870db870b0f7fbc7ff9fb54`; remote branch inventory contains only `main`, no checkpoint branch.
