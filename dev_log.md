@@ -1,3 +1,15 @@
+## 2026-11-12 11:31 CST (UTC+8) — Close ZeroTier readiness lifecycle at exact-head L2
+
+- Base code/test SHA: `3f435a03995afb1130da7d3acfecf65c8531ee9f`; parent `fdf89096d631245efab7534cd399abeb498a0acd`.
+- Exact-head ZeroTier lifecycle [43148551947], AI handoff docs [43148552085] and infosvr packet/signal [43148551957] all completed SUCCESS. Every job step and complete log was inspected; all three checkouts matched the exact code/test SHA.
+- ZeroTier regression output: `ZeroTier bounded stop/start, readiness and persistent-config preservation: PASS`. Semantic checker output: `ZeroTier bounded lifecycle, persistent-config and RC integration contracts: PASS`. The earlier `fdf89096...` checker false negative was corrected; no production-code regression was involved. Docs validator passed at root log=43/119 with archives dev-log=7, handoff=22, roadmap=18.
+- This closes the bounded stop/start and interface/NAT-route readiness slices at L1/L2. L3 production MIPS/uClibc, target BusyBox behavior, live router networking/firewall behavior, complete firmware/TRX and L4 remain NOT VERIFIED.
+- Root `dev_log.md` grows 43→44 complete records, below the rotation threshold; no archive or INDEX change is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- Resulting documentation checkpoint: THIS COMMIT.
+- Next: start whole-tree add-on lifecycle audit at `trunk/user/adguardhome/`, trace complete package/RC callers and process/config/resource lifecycle, select one reproducible stability defect, and add focused host/source-contract coverage. Then rotate to AliyunDrive WebDAV, FRP, AliDDNS or Adbyby. FTP TOCTOU remains OPEN/BLOCKED; NFS needs real-client evidence.
+
+---
+
 ## 2026-11-12 11:26 CST (UTC+8) — Correct ZeroTier readiness source-contract assertions
 
 - Base main SHA: `fdf89096d631245efab7534cd399abeb498a0acd`; parent `1bf8a93bfa47770e8005d5241f7077287c86c4c4`.
