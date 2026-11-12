@@ -176,6 +176,17 @@ require("concurrent calls share $" in nslookup_test and
         "AliDDNS bounded, isolated DNS lookup and strict IPv4/IPv6 lifecycle regression: PASS" in nslookup_test,
         "DNS lookup host regression must cover concurrency, timeout, cleanup and strict IPv4/IPv6")
 
+push_filter_block = workflow.split("  push:\\n    paths:\\n", 1)[1].split("  pull_request:\\n    paths:\\n", 1)[0]
+pr_filter_block = workflow.split("  pull_request:\\n    paths:\\n", 1)[1].split("\\n\\npermissions:", 1)[0]
+push_filter_paths = tuple(line.strip() for line in push_filter_block.splitlines()
+                          if line.strip().startswith('- "'))
+pr_filter_paths = tuple(line.strip() for line in pr_filter_block.splitlines()
+                        if line.strip().startswith('- "'))
+require(push_filter_paths == pr_filter_paths and
+        '      - "trunk/user/aliddns/tests/aliddns_nslookup_lifecycle.sh"' in push_filter_paths and
+        '      - "trunk/user/aliddns/aliddns.sh"' in push_filter_paths,
+        "AliDDNS push and pull_request filters must symmetrically cover production source and every host test")
+
 initconfig_start = source.find("initconfig () {")
 initconfig_end = source.find("\n}\n\ninitconfig\n", initconfig_start)
 require(initconfig_start >= 0 and initconfig_end > initconfig_start,
