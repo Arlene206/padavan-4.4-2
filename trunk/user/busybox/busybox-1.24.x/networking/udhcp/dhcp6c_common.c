@@ -35,7 +35,7 @@
 #include <netdb.h>
 
 #include "dhcp6c.h"
-#include "../../../../shared/src/dhcp6c_duid_file_policy.h"
+#include "dhcp6c_duid_file_policy.h"
 
 
 static int copyin_option(int, struct dhcp6opt *, struct dhcp6opt *,

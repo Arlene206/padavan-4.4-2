@@ -1,3 +1,15 @@
+## 2026-11-12 21:28 CST (UTC+8) — Fix BusyBox DHCPv6 shared-header lookup in staged package builds
+
+- Base main SHA: `b4b8074608aa118c6fdf99e2e70bc0ed6826b1ea`. The first narrow kernel repair compiled successfully: the exact-head XY-C1 log for [43226143358](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43226143358), job [131209716854](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43226143358/job/131209716854), contains `CC net/netfilter/xt_webstr.o` with no IP_OFFSET error. The build proceeded into the BusyBox package.
+- The next first-causal failure was `networking/udhcp/dhcp6c_common.c:38: fatal error: ../../../../shared/src/dhcp6c_duid_file_policy.h: No such file or directory`. The tracked source-relative include was evaluated after `package.mk` copied BusyBox into `trunk/build/busybox-1.24`; that staging directory has no sibling `shared/src`.
+- THIS COMMIT changes the BusyBox source to include the shared policy by basename and adds `-I$(ROOTDIR)/user/shared/src` through the package's existing `EXTRA_CFLAGS` / `MAKE_VARS` mechanism. This preserves one canonical shared header and works from the staged build tree rather than relying on the source checkout's relative depth.
+- The existing HTTPD security contract now checks the basename include, package include search path and symmetric push/PR filters. XY-C1 firmware validation is also triggered by changes to the BusyBox source, package Makefile or shared header.
+- Target compiler / full firmware / host DUID regression: PENDING exact-head Actions. L3 firmware/TRX and artifact: NOT VERIFIED. L4 router validation: NOT VERIFIED.
+- Resulting commit: THIS COMMIT.
+- Next: inspect exact-head XY-C1, HTTPD security and AI docs logs. Confirm BusyBox reaches past `dhcp6c_common.o`; fix only the next first-causal build error and repeat until the firmware/TRX/artifact steps pass.
+
+---
+
 ## 2026-11-12 20:22 CST (UTC+8) — Repair XY-C1 xt_webstr IP_OFFSET kernel-header dependency
 
 - Base main SHA: `9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74`. The failed XY-C1 Firmware Validation run was [43213681479](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43213681479), job [131167417183](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43213681479/job/131167417183), checked out this exact SHA.

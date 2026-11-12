@@ -6,6 +6,7 @@ on:
       - "trunk/user/shared/src/dhcp6c_duid_file_policy.h"
       - "trunk/user/shared/src/tests/dhcp6c_duid_file_policy.c"
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c_common.c"
+      - "trunk/user/busybox/Makefile"
       - "trunk/user/rc/src/net.c"
       - "trunk/user/rc/src/net_lan.c"
       - "trunk/user/rc/src/rc.h"
@@ -237,6 +238,7 @@ on:
       - "trunk/user/shared/src/dhcp6c_duid_file_policy.h"
       - "trunk/user/shared/src/tests/dhcp6c_duid_file_policy.c"
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c_common.c"
+      - "trunk/user/busybox/Makefile"
       - "trunk/user/rc/src/net.c"
       - "trunk/user/rc/src/net_lan.c"
       - "trunk/user/rc/src/rc.h"
@@ -3077,13 +3079,15 @@ jobs:
 
           rc = Path("trunk/user/rc/src/net_wan6.c").read_text()
           busybox = Path("trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c_common.c").read_text()
+          busybox_makefile = Path("trunk/user/busybox/Makefile").read_text()
           policy = Path("trunk/user/shared/src/dhcp6c_duid_file_policy.h").read_text()
           get_duid_start = busybox.index("int get_duid(")
           get_duid_end = busybox.index(chr(10) + "void dhcp6_init_options", get_duid_start)
           get_duid = busybox[get_duid_start:get_duid_end]
 
           assert '#include "../../shared/src/dhcp6c_duid_file_policy.h"' in rc
-          assert '#include "../../../../shared/src/dhcp6c_duid_file_policy.h"' in busybox
+          assert '#include "dhcp6c_duid_file_policy.h"' in busybox
+          assert "EXTRA_CFLAGS += -I$(ROOTDIR)/user/shared/src" in busybox_makefile
           assert "dhcp6c_duid_open_create(duid_file)" in rc
           assert 'fopen(duid_file, "w")' not in rc
           assert "duid_done == 3" in rc
