@@ -11,6 +11,7 @@ mkdir -p "$MOCK_BIN"
 
 # Load only production functions under test; never run router startup code.
 sed -n '/^send_request() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
+sed -n '/^aliddns_hmac_sha1() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^aliddns_response_ok() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^aliddns_update_failed() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^aliddns_ipv4_valid() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
@@ -23,6 +24,13 @@ sed -n '/^get_recordid() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^arDdnsInfo() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^arDdnsUpdate() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 . "$FUNCTIONS"
+
+# Run the real OpenSSL 3 helper in this fixture, not the firmware ROMFS path.
+cc -std=gnu89 -Wall -Wextra -Werror "$SCRIPT_DIR/../src/aliddns-hmac-sha1.c" \
+	-lcrypto -o "$TEST_DIR/aliddns-hmac-sha1"
+aliddns_hmac_sha1() {
+	"$TEST_DIR/aliddns-hmac-sha1"
+}
 
 ALIDDNS_CA_BUNDLE="$TEST_DIR/ca-certificates.crt"
 : > "$ALIDDNS_CA_BUNDLE"
@@ -41,20 +49,6 @@ nvram() {
 }
 sleep() { :; }
 enc() { printf '%s' "$1"; }
-openssl() {
-	case "$1" in
-		dgst)
-			cat >/dev/null
-			printf '%s' "raw-signature"
-			;;
-		base64)
-			cat >/dev/null
-			printf '%s' "c2ln"
-			;;
-		*) return 1 ;;
-	esac
-}
-
 cat > "$MOCK_BIN/curl" <<'MOCK_CURL'
 #!/bin/sh
 printf '%s\n' "$@" > "$CURL_ARGS_LOG"
@@ -152,14 +146,17 @@ grep -Fqx -- '--config' "$CURL_ARGS_LOG" || fail "curl is not reading config fro
 grep -Fqx -- '-' "$CURL_ARGS_LOG" || fail "curl config source is not stdin"
 ! grep -Fq 'AccessKeyId=' "$CURL_ARGS_LOG" || fail "AccessKeyId leaked into curl argv"
 ! grep -Fq 'Signature=' "$CURL_ARGS_LOG" || fail "HMAC signature leaked into curl argv"
-grep -Fqx 'url = "https://alidns.aliyuncs.com/?AccessKeyId=test-access-key&Action=DescribeSubDomainRecords&Format=json&SignatureMethod=HMAC-SHA1&SignatureNonce=nonce&SignatureVersion=1.0&SubDomain=www.example.com&Timestamp=2026-11-12T16%3A30%3A00Z&Type=A&Version=2015-01-09&Signature=c2ln"' "$CURL_CONFIG_LOG" ||
+expected_signing_input='GET&%2F&AccessKeyId=test-access-key&Action=DescribeSubDomainRecords&Format=json&SignatureMethod=HMAC-SHA1&SignatureNonce=nonce&SignatureVersion=1.0&SubDomain=www.example.com&Timestamp=2026-11-12T16%3A30%3A00Z&Type=A&Version=2015-01-09'
+expected_signature=$(printf '%s\000%s' 'test-access-secret&' "$expected_signing_input" | "$TEST_DIR/aliddns-hmac-sha1") ||
+	fail "HMAC helper could not sign the expected canonical request"
+grep -Fqx "url = \"https://alidns.aliyuncs.com/?AccessKeyId=test-access-key&Action=DescribeSubDomainRecords&Format=json&SignatureMethod=HMAC-SHA1&SignatureNonce=nonce&SignatureVersion=1.0&SubDomain=www.example.com&Timestamp=2026-11-12T16%3A30%3A00Z&Type=A&Version=2015-01-09&Signature=$expected_signature\"" "$CURL_CONFIG_LOG" ||
 	fail "signed URL was not passed unchanged through curl stdin"
 ! grep -Fqx -- '-k' "$CURL_ARGS_LOG" || fail "TLS verification bypass was enabled"
 ! grep -Fqx -- '-L' "$CURL_ARGS_LOG" || fail "credential-bearing request follows redirects"
 ! grep -Fqx -- '--location' "$CURL_ARGS_LOG" || fail "credential-bearing request follows redirects"
 url="$(cat "$CURL_CONFIG_LOG")"
 case "$url" in
-	'url = "https://alidns.aliyuncs.com/?AccessKeyId=test-access-key&Action=DescribeSubDomainRecords&Format=json&SignatureMethod=HMAC-SHA1&SignatureNonce=nonce&SignatureVersion=1.0&SubDomain=www.example.com&Timestamp=2026-11-12T16%3A30%3A00Z&Type=A&Version=2015-01-09&Signature=c2ln"')
+	"url = \"https://alidns.aliyuncs.com/?AccessKeyId=test-access-key&Action=DescribeSubDomainRecords&Format=json&SignatureMethod=HMAC-SHA1&SignatureNonce=nonce&SignatureVersion=1.0&SubDomain=www.example.com&Timestamp=2026-11-12T16%3A30%3A00Z&Type=A&Version=2015-01-09&Signature=$expected_signature\"")
 		;;
 	*) fail "signed URL was not passed to curl through the fixed HTTPS config endpoint" ;;
 esac

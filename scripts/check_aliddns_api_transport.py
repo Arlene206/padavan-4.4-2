@@ -10,6 +10,11 @@ TEST_PATH = ROOT / "trunk/user/aliddns/tests/aliddns_api_transport.sh"
 IPV4_TEST_PATH = ROOT / "trunk/user/aliddns/tests/aliddns_ipv4_lookup.sh"
 NSLOOKUP_TEST_PATH = ROOT / "trunk/user/aliddns/tests/aliddns_nslookup_lifecycle.sh"
 CUSTOM_SCRIPT_TEST_PATH = ROOT / "trunk/user/aliddns/tests/aliddns_custom_script_lifecycle.sh"
+CA_BOOTSTRAP_TEST_PATH = ROOT / "trunk/user/aliddns/tests/copyscripts_ca_bootstrap.sh"
+HMAC_TEST_PATH = ROOT / "trunk/user/aliddns/tests/aliddns_hmac_sha1.sh"
+HMAC_SOURCE_PATH = ROOT / "trunk/user/aliddns/src/aliddns-hmac-sha1.c"
+HMAC_MAKEFILE_PATH = ROOT / "trunk/user/aliddns/src/Makefile"
+LIBSSL_MAKEFILE_PATH = ROOT / "trunk/libs/libssl/Makefile"
 WORKFLOW_PATH = ROOT / ".github/workflows/aliddns-api-transport.yml"
 IPV4_HELPER_PATH = ROOT / "trunk/user/aliddns/aliddns-ipv4.sh"
 DDNS_SCRIPT_PATH = ROOT / "trunk/user/aliddns/ddns_script.sh"
@@ -29,6 +34,11 @@ test = TEST_PATH.read_text()
 ipv4_test = IPV4_TEST_PATH.read_text()
 nslookup_test = NSLOOKUP_TEST_PATH.read_text()
 custom_script_test = CUSTOM_SCRIPT_TEST_PATH.read_text()
+ca_bootstrap_test = CA_BOOTSTRAP_TEST_PATH.read_text()
+hmac_test = HMAC_TEST_PATH.read_text()
+hmac_source = HMAC_SOURCE_PATH.read_text()
+hmac_makefile = HMAC_MAKEFILE_PATH.read_text()
+libssl_makefile = LIBSSL_MAKEFILE_PATH.read_text()
 workflow = WORKFLOW_PATH.read_text()
 ipv4_helper = IPV4_HELPER_PATH.read_text()
 ddns_script = DDNS_SCRIPT_PATH.read_text()
@@ -60,6 +70,7 @@ def function_body(text: str, signature: str) -> str:
 
 send_request = function_body(source, "send_request() {")
 response_ok = function_body(source, "aliddns_response_ok() {")
+hmac_helper = function_body(source, "aliddns_hmac_sha1() {")
 info = function_body(source, "arDdnsInfo() {")
 update = function_body(source, "arDdnsUpdate() {")
 ddns_check = function_body(source, "arDdnsCheck() {")
@@ -85,8 +96,44 @@ require("-k" not in send_request and "--insecure" not in send_request and
 require("--config -" in send_request and 'url = "$request_url"' in send_request,
         "credential-bearing AliDNS URL must be delivered through curl stdin rather than argv")
 require('args="AccessKeyId=$aliddns_ak&Action=$1&Format=json&$2&Version=2015-01-09"' in send_request and
-        'hash=$(echo -n "GET&%2F&$(enc "$args")" | openssl dgst -sha1 -hmac "$aliddns_sk&" -binary | openssl base64)' in send_request,
-        "existing RPC parameter ordering and HMAC-SHA1 signature canonicalization must remain unchanged")
+        'signing_input="GET&%2F&$(enc "$args")"' in send_request and
+        'hash=$(printf \'%s\\000%s\' "$aliddns_sk&" "$signing_input" | aliddns_hmac_sha1)' in send_request and
+        "openssl dgst" not in send_request and "-hmac" not in send_request,
+        "API parameters and canonical HMAC-SHA1 bytes must stay unchanged without putting the secret in OpenSSL argv")
+require(hmac_helper.strip() == "/usr/bin/aliddns-hmac-sha1" and
+        "openssl dgst" not in hmac_helper,
+        "HMAC wrapper must invoke exactly the fixed ROMFS helper without exposing the secret in argv")
+require('main(void)' in hmac_source and
+        'EVP_MAC_fetch(NULL, "HMAC", NULL)' in hmac_source and
+        'OSSL_MAC_PARAM_DIGEST' in hmac_source and
+        'EVP_MAC_init(mac_context, key, key_length' in hmac_source and
+        'EVP_MAC_update(mac_context' in hmac_source and
+        'EVP_MAC_final(mac_context' in hmac_source and
+        'EVP_EncodeBlock' in hmac_source and
+        'key_length >= sizeof(key)' in hmac_source and
+        'OPENSSL_cleanse(key, sizeof(key))' in hmac_source,
+        "HMAC helper must stream NUL-framed stdin into OpenSSL 3 EVP_MAC-SHA1, bound/cleanse the key and return base64")
+require('PKG_NAME:=aliddns' in package and
+        'SRC_DIR:=./src' in package and
+        'TARGET_CFLAGS += -I$(STAGING_DIR)/include' in package and
+        'TARGET_LDFLAGS += -L$(STAGING_DIR)/lib' in package and
+        '$(INSTALL_BIN) $(PKG_BUILD_DIR)/aliddns-hmac-sha1 $(ROMFSDIR)/usr/bin/aliddns-hmac-sha1' in package and
+        'all: $(EXEC)' in hmac_makefile and '-lcrypto' in hmac_makefile and
+        'dir_y += libssl' in ' '.join(libs_makefile.split()) and
+        'PKG_VERSION:=3.0.21' in libssl_makefile and
+        'DESTDIR="$(STAGING_DIR)"' in libssl_makefile and
+        'install_sw install_ssldirs' in libssl_makefile,
+        "HMAC helper must build against the staged OpenSSL 3 libcrypto and be installed into ROMFS")
+require('aliddns-hmac-sha1.c' in test and
+        'aliddns_hmac_sha1() {' in test and
+        '$TEST_DIR/aliddns-hmac-sha1' in test and
+        'expected_signature=' in test,
+        "API transport fixture must compile and run the real HMAC helper and check its computed signature")
+require('RFC 2202' in hmac_test and
+        'AccessKeySecret absent from HMAC helper argv and environment: PASS' in hmac_test and
+        'input-boundary regression: PASS' in hmac_test and
+        'openssl dgst -sha1 -hmac' in hmac_test,
+        "HMAC host regression must compare legacy byte output, RFC 2202, process argv/env and failure boundaries")
 
 require('"RequestId"[[:space:]]*:' in response_ok and
         '"Code"[[:space:]]*:' in response_ok,
@@ -116,8 +163,9 @@ require('$(ROMFSINST) -p +x $(THISDIR)/aliddns.sh /usr/bin/aliddns.sh' in packag
         'dir_$(CONFIG_FIRMWARE_INCLUDE_ALIDDNS)' in user_makefile,
         "AliDDNS firmware package and feature gate must remain intact")
 
-require('mkdir -p /etc/ssl' in copy_scripts and
-        'tar -xzf /etc_ro/certs.tgz -C /etc/ssl' in copy_scripts and
+require('install_ca_trust_store() {' in copy_scripts and
+        '${COPYSCRIPTS_CERT_ARCHIVE:-/etc_ro/certs.tgz}' in copy_scripts and
+        '${COPYSCRIPTS_CERT_DIR:-/etc/ssl}' in copy_scripts and
         'system("/usr/bin/copyscripts.sh")' in rc and
         'system("/usr/bin/copyscripts.sh &")' not in rc and
         rc.index('system("/usr/bin/copyscripts.sh")') < rc.index('system("/usr/bin/autostart.sh &")'),
@@ -184,22 +232,23 @@ require("Concurrent calls share " in nslookup_test and "shell descendants" in ns
 
 line_break = chr(10)
 push_trigger = "  push:" + line_break + "    paths:" + line_break
-pull_request_trigger = "  pull_request:" + line_break + "    paths:" + line_break
-require(push_trigger in workflow and pull_request_trigger in workflow,
-        "AliDDNS workflow must define both push and pull_request path filters")
-push_filter_block = workflow.split(push_trigger, 1)[1].split(pull_request_trigger, 1)[0]
-pr_filter_block = workflow.split(pull_request_trigger, 1)[1].split(
+require(push_trigger in workflow and "  pull_request:" not in workflow,
+        "AliDDNS workflow must validate pushed main commits only; PR validation is prohibited")
+push_filter_block = workflow.split(push_trigger, 1)[1].split(
     line_break + line_break + "permissions:", 1
 )[0]
 push_filter_paths = tuple(line.strip() for line in push_filter_block.splitlines()
                           if line.strip().startswith('- "'))
-pr_filter_paths = tuple(line.strip() for line in pr_filter_block.splitlines()
-                        if line.strip().startswith('- "'))
-require(push_filter_paths == pr_filter_paths and
-        '- "trunk/user/aliddns/tests/aliddns_nslookup_lifecycle.sh"' in push_filter_paths and
-        '- "trunk/user/aliddns/tests/aliddns_custom_script_lifecycle.sh"' in push_filter_paths and
-        '- "trunk/user/aliddns/aliddns.sh"' in push_filter_paths,
-        "AliDDNS push and pull_request filters must symmetrically cover production source and every host test")
+require(
+    '- "trunk/user/aliddns/tests/aliddns_nslookup_lifecycle.sh"' in push_filter_paths and
+    '- "trunk/user/aliddns/tests/aliddns_custom_script_lifecycle.sh"' in push_filter_paths and
+    '- "trunk/user/aliddns/tests/copyscripts_ca_bootstrap.sh"' in push_filter_paths and
+    '- "trunk/user/aliddns/tests/aliddns_hmac_sha1.sh"' in push_filter_paths and
+    '- "trunk/user/aliddns/src/aliddns-hmac-sha1.c"' in push_filter_paths and
+    '- "trunk/user/aliddns/src/Makefile"' in push_filter_paths and
+    '- "trunk/user/aliddns/aliddns.sh"' in push_filter_paths,
+    "AliDDNS push trigger must cover production sources, security helpers and every host regression")
+
 
 initconfig_start = source.find("initconfig () {")
 initconfig_end = source.find("\n}\n\ninitconfig\n", initconfig_start)
@@ -219,6 +268,13 @@ require('ddns_script_path="/etc/storage/ddns_script.sh"' in copy_scripts and
         '[ -L "$ddns_script_path" ]' in copy_scripts and
         "cp -rf /etc_ro/ddns_script.sh /etc/storage/" not in copy_scripts,
         "boot-time script seeding must refuse persistent DDNS symlinks")
+ca_install = function_body(copy_scripts, "install_ca_trust_store() {")
+require('if ! tar -xzf "$copyscripts_cert_archive" -C "$copyscripts_cert_dir"; then' in ca_install and
+        'if [ ! -r "$copyscripts_ca_bundle" ]; then' in ca_install and
+        "copyscripts_ca_status=1" in copy_scripts and
+        'exit "$copyscripts_ca_status"' in copy_scripts and
+        'if (system("/usr/bin/copyscripts.sh") != 0)' in rc,
+        "CA extraction must propagate tar and readable-bundle failures to the RC startup caller")
 require("curl -k" not in initconfig_body and "--no-check-certificate" not in initconfig_body and
         "http://" not in initconfig_body,
         "new persistent default script must not contain insecure public-IP sources")
@@ -262,5 +318,11 @@ for marker in (
     "AliDDNS ROMFS template seeding, atomic replacement and symlink rejection regression: PASS",
 ):
     require(marker in custom_script_test, f"custom-script host regression missing result marker: {marker}")
+
+for marker in (
+    "CA trust-store bootstrap success regression: PASS",
+    "CA trust-store bootstrap failure propagation regression: PASS",
+):
+    require(marker in ca_bootstrap_test, f"CA bootstrap regression missing result marker: {marker}")
 
 print("AliDDNS HTTPS transport, firmware trust-store, API status and RC integration contracts: PASS")
