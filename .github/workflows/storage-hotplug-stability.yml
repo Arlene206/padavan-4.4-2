@@ -111,7 +111,15 @@ jobs:
           # DATE is unrelated to these lifecycle tests; disable it only in this
           # disposable host config. The tracked firmware config retains CONFIG_DATE=y.
           sed -i 's/^CONFIG_DATE=y$/# CONFIG_DATE is not set/' "$busybox_dir/.config"
+          # Mirror the firmware package's EXTRA_CFLAGS for the shared DUID header.
+          # This direct host build bypasses package.mk and must provide the same include.
+          sed -i '/^CONFIG_EXTRA_CFLAGS=/d; /^# CONFIG_EXTRA_CFLAGS is not set$/d' "$busybox_dir/.config"
+          printf '%s\n' "CONFIG_EXTRA_CFLAGS=\"-I$PWD/trunk/user/shared/src\"" >> "$busybox_dir/.config"
           make -C "$busybox_dir" oldconfig </dev/null
+          if ! grep -Fqx "CONFIG_EXTRA_CFLAGS=\"-I$PWD/trunk/user/shared/src\"" "$busybox_dir/.config"; then
+            echo "Host BusyBox config lost the shared DUID header include path" >&2
+            exit 1
+          fi
           if grep -qx 'CONFIG_DATE=y' "$busybox_dir/.config"; then
             echo "Host-only BusyBox config unexpectedly re-enabled DATE" >&2
             exit 1
@@ -290,6 +298,8 @@ jobs:
           busybox_configure = Path("trunk/configure").read_text()
           busybox_dhcpc = Path("trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcpc.c").read_text()
           busybox_udhcpc_policy = Path("trunk/user/busybox/busybox-1.24.x/networking/udhcp/udhcpc_script_policy.h").read_text()
+          busybox_dhcp6c_common = Path("trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c_common.c").read_text()
+          busybox_flags = Path("trunk/user/busybox/busybox-1.24.x/Makefile.flags").read_text()
 
           assert '#define STORAGE_OPERATION_LOCK_TAG "storage"' in lock_policy
           assert "storage_operation_lock_acquire(file_lock)" in lock_test
@@ -788,6 +798,16 @@ jobs:
           assert busybox_dhcpc.count("udhcpc_script_failure_prepare_retry(") == 1
           assert "udhcp_script_failure_prepare_retry(" not in busybox_dhcpc
           assert "static inline void udhcpc_script_failure_prepare_retry(" in busybox_udhcpc_policy
+          # DHCPv6 DUID is shared user-space policy; both firmware package and
+          # the standalone host BusyBox build must provide its source include.
+          assert '#include "dhcp6c_duid_file_policy.h"' in busybox_dhcp6c_common
+          assert "EXTRA_CFLAGS += -I$(ROOTDIR)/user/shared/src" in busybox_package
+          assert "CONFIG_EXTRA_CFLAGS" in busybox_flags
+          host_busybox_step = workflow.split("- name: Build firmware BusyBox 1.24.2 and run Optware lifecycle regressions under ash", 1)[1].split("- name: Compile and run storage eject inventory regression", 1)[0]
+          assert "CONFIG_EXTRA_CFLAGS" in host_busybox_step
+          assert "trunk/user/shared/src" in host_busybox_step
+          assert "grep -Fqx" in host_busybox_step
+          assert host_busybox_step.index("CONFIG_EXTRA_CFLAGS") < host_busybox_step.index('make -C "$busybox_dir" -j2 busybox')
           assert "CONFIG_DATE=y" in busybox_config
           for feature in ("CONFIG_ASH", "CONFIG_FEATURE_SH_IS_ASH", "CONFIG_AWK", "CONFIG_FLOCK"):
               assert f"{feature}=y" in busybox_config

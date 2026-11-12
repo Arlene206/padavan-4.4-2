@@ -1,3 +1,16 @@
+## 2026-11-13 02:04 CST (UTC+8) — Repair storage-hotplug host BusyBox shared-header setup
+
+- Base main SHA: `fcdc05e76e6522f9f35b59b71bd222b884cb2ce4`. Exact-head XY-C1 push [43273846470] / job [131376901927] PASSED all header prechecks, the MIPS firmware build, TRX output verification and artifact upload. The uploaded `XY-C1-firmware-fcdc05e76e6522f9f35b59b71bd222b884cb2ce4` artifact is 12,573,414 bytes (SHA-256 `f4adfa9a13224e519cd580946e30e6a3d336b3da410f0842051eb697a7baee08`).
+- Six other exact-head push workflows passed on this SHA: infosvr [43273846610], AliyunDrive [43273846558], AdGuardHome [43273846504], AI handoff docs [43273846442], HTTPD security [43273846549] and AliDDNS [43273846513].
+- Storage-hotplug [43273846489] / job [131376902484] failed in the direct host BusyBox 1.24.2 build at `dhcp6c_common.c:38`: the newly shared `dhcp6c_duid_file_policy.h` is not found. Earlier shell and Optware lifecycle checks passed. The host workflow copies the firmware config then calls BusyBox make directly, bypassing the package.mk `MAKE_VARS` path that supplies production `EXTRA_CFLAGS`; board config currently keeps `CONFIG_EXTRA_CFLAGS=""`.
+- THIS COMMIT gives the disposable host `.config` the same shared source include through `CONFIG_EXTRA_CFLAGS`, verifies Kconfig retained the exact include after `oldconfig`, and extends the semantic contract to check the DHCPv6 source include, production package flag, BusyBox flag mapping and host build propagation. The tracked firmware board config and production BusyBox behavior are unchanged.
+- Changed paths: `.github/workflows/storage-hotplug-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log.
+- Root `dev_log.md`: 71→72 complete records, below the 120-record and 384 KiB archive thresholds; no archive/index rotation is due.
+- Resulting main commit: THIS COMMIT. Exact-head storage-hotplug and AI handoff docs results are pending this commit; target L3 XY-C1 build/TRX/artifact is verified on the base SHA, L4 is NOT VERIFIED.
+- Next: inspect storage-hotplug and AI docs push runs for the exact new main SHA; require the BusyBox host build and every downstream storage regression to pass, then resume whole-tree stability/security triage.
+
+---
+
 ## 2026-11-13 03:01 CST (UTC+8) — Fix BusyBox ROMFS recursive Kbuild header path
 
 - Base main SHA: a3247c882afdc66b781d060b47e4182b9ad197e1; exact-head XY-C1 43270739238 / job 131366274506.
