@@ -23,14 +23,45 @@ adg_remove_redirect_rule()
 {
 	adg_iptables="$1"
 	shift
+	adg_remove_count=0
 
-	# Remove every exact copy; repeated start/stop must be idempotent.
-	while "$adg_iptables" -t nat -C PREROUTING "$@" >/dev/null 2>&1; do
-		if ! "$adg_iptables" -t nat -D PREROUTING "$@" >/dev/null 2>&1; then
-			return 1
-		fi
+	# Bound duplicate cleanup and distinguish "no match" from xtables errors.
+	while [ "$adg_remove_count" -lt 64 ]; do
+		"$adg_iptables" -t nat -C PREROUTING "$@" >/dev/null 2>&1
+		adg_check_status=$?
+		case "$adg_check_status" in
+			0)
+				if ! "$adg_iptables" -t nat -D PREROUTING "$@" >/dev/null 2>&1; then
+					return 1
+				fi
+				adg_remove_count=$((adg_remove_count + 1))
+				;;
+			1)
+				return 0
+				;;
+			*)
+				logger -t "AdGuardHome" "查询DNS重定向规则失败"
+				return "$adg_check_status"
+				;;
+		esac
 	done
-	return 0
+
+	# A 65th duplicate is abnormal; fail closed instead of looping forever.
+	"$adg_iptables" -t nat -C PREROUTING "$@" >/dev/null 2>&1
+	adg_check_status=$?
+	case "$adg_check_status" in
+		0)
+			logger -t "AdGuardHome" "DNS重定向规则数量超过清理上限"
+			return 1
+			;;
+		1)
+			return 0
+			;;
+		*)
+			logger -t "AdGuardHome" "验证DNS重定向清理结果失败"
+			return "$adg_check_status"
+			;;
+	esac
 }
 
 set_iptable()
@@ -54,7 +85,14 @@ set_iptable()
 		fi
 
 		# ip6tables is not installed on IPv6-disabled firmware profiles.
-		if ip6tables -t nat -L PREROUTING -n >/dev/null 2>&1; then
+		# If the binary exists but table probing fails, do not silently publish
+		# an IPv4-only redirect set on a dual-stack firmware.
+		if command -v ip6tables >/dev/null 2>&1; then
+			if ! ip6tables -t nat -L PREROUTING -n >/dev/null 2>&1; then
+				logger -t "AdGuardHome" "检查IPv6 DNS NAT表失败"
+				clear_iptable
+				return 1
+			fi
 			if ! ip6tables -t nat -A PREROUTING -p tcp -m addrtype --dst-type LOCAL ! -d ::1/128 ! -d fe80::/10 --dport 53 -j REDIRECT --to-ports 5335 >/dev/null 2>&1; then
 				logger -t "AdGuardHome" "添加IPv6 TCP DNS重定向失败"
 				clear_iptable
@@ -78,10 +116,16 @@ clear_iptable()
 	adg_remove_redirect_rule iptables -p tcp -m addrtype --dst-type LOCAL ! -d 127.0.0.0/8 --dport 53 -j REDIRECT --to-ports 5335 || adg_cleanup_status=1
 	adg_remove_redirect_rule iptables -p udp -m addrtype --dst-type LOCAL ! -d 127.0.0.0/8 --dport 53 -j REDIRECT --to-ports 5335 || adg_cleanup_status=1
 
-	# Skip the IPv6 family when its nat table is not present in this firmware.
-	if ip6tables -t nat -L PREROUTING -n >/dev/null 2>&1; then
-		adg_remove_redirect_rule ip6tables -p tcp -m addrtype --dst-type LOCAL ! -d ::1/128 ! -d fe80::/10 --dport 53 -j REDIRECT --to-ports 5335 || adg_cleanup_status=1
-		adg_remove_redirect_rule ip6tables -p udp -m addrtype --dst-type LOCAL ! -d ::1/128 ! -d fe80::/10 --dport 53 -j REDIRECT --to-ports 5335 || adg_cleanup_status=1
+	# A missing binary is normal on IPv6-disabled profiles; a present but
+	# unusable nat table is an error and must not be reported as clean.
+	if command -v ip6tables >/dev/null 2>&1; then
+		if ip6tables -t nat -L PREROUTING -n >/dev/null 2>&1; then
+			adg_remove_redirect_rule ip6tables -p tcp -m addrtype --dst-type LOCAL ! -d ::1/128 ! -d fe80::/10 --dport 53 -j REDIRECT --to-ports 5335 || adg_cleanup_status=1
+			adg_remove_redirect_rule ip6tables -p udp -m addrtype --dst-type LOCAL ! -d ::1/128 ! -d fe80::/10 --dport 53 -j REDIRECT --to-ports 5335 || adg_cleanup_status=1
+		else
+			logger -t "AdGuardHome" "检查IPv6 DNS NAT表失败"
+			adg_cleanup_status=1
+		fi
 	fi
 
 	return "$adg_cleanup_status"
@@ -213,8 +257,11 @@ start_adg(){
   fi
   mkdir -p /tmp/AdGuardHome
 	mkdir -p /etc/storage/AdGuardHome
+	if ! set_iptable; then
+		logger -t "AdGuardHome" "DNS 防火墙规则准备失败，取消启动"
+		return 1
+	fi
 	change_dns
-	set_iptable
 	logger -t "AdGuardHome" "启动 AdGuardHome"
 	eval "AdGuardHome -c $adg_file -w /tmp/AdGuardHome -v" &
 }
@@ -257,10 +304,13 @@ stop_adg(){
     return 1
   fi
 
-  # Runtime files and traffic redirection are removed only after process exit.
+  # Preserve service state when exact-rule cleanup cannot be confirmed.
+  if ! clear_iptable; then
+    logger -t "AdGuardHome" "DNS 防火墙规则清理失败，保留运行状态"
+    return 1
+  fi
   rm -rf /tmp/AdGuardHome
   del_dns
-  clear_iptable
 }
 
 case $1 in

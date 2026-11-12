@@ -1,3 +1,16 @@
+## 2026-11-12 13:26 CST (UTC+8) — Fail closed on AdGuardHome firewall cleanup errors
+
+- Base main SHA: `e023a2c0497bd386f0964f329462ddb878f24fde`; remote branch inventory contains only `main`. This batch resumes the explicit AdGuardHome follow-up after the address-independent `addrtype LOCAL` redirect slice closed on `9a29d68d96f6546e18a2953633ab7e506d13cdaa`.
+- Continued the AdGuardHome lifecycle audit. The redirect cleanup loop treated every nonzero `iptables -C` result as “no rule”, although xtables also returns errors for lock contention, unavailable tables or invalid operations. The loop was unbounded under concurrent rule insertion. The launcher also ignored `set_iptable()` failure and proceeded with DNS/daemon startup; stop removed the runtime directory and resolver state before confirming firewall cleanup. IPv6 table probing similarly treated every command failure as an IPv6-disabled profile.
+- Bounded each exact duplicate-removal pass to 64 deletions; status 1 means absent, status 0 means delete, and other statuses now fail. A 65th remaining duplicate is reported as cleanup failure so a later retry can resume. Distinguish an absent `ip6tables` binary from a present binary whose NAT-table probe fails. Startup now requires successful firewall preparation before changing resolver state or launching; stop requires successful firewall cleanup before removing workdir/resolver state.
+- Extended the POSIX-shell mock regression for 65 duplicates and retry, injected `iptables -C` failure, injected IPv6 NAT-list failure during startup with IPv4 rollback, injected IPv6 cleanup-probe failure, start fail-closed behavior and stop cleanup failure retention. Expanded semantic source contracts for bounded cleanup, return-code discrimination, IPv6 command/probe handling and start/stop ordering.
+- Exact-head GitHub Actions for THIS source/test/checker batch are pending; do not claim L1/L2 closure until the exact resulting SHA has both AdGuardHome and AI handoff workflows green and every job step/log inspected. No local full checkout or direct target execution was available in this batch.
+- Open items: concurrent start/stop callers remain unserialized; `change_dns()` / `del_dns()` command status propagation and DNS resolver rollback are not fixed; daemon launch/readiness remains unverified. Production BusyBox ash, MIPS/uClibc, full firmware/TRX and L3/L4 router behavior remain NOT VERIFIED.
+- Root `dev_log.md` grows 49→50 complete records; below the 120-record / 384 KiB rotation triggers. No archive or INDEX update is due; archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- Next: inspect exact-head Actions for this batch, then design bounded serialization for all RC/UI AdGuardHome start/stop callers and implement a safe resolver restore/command-error transaction. After the AdGuardHome lifecycle is covered, rotate to AliyunDrive WebDAV, FRP, AliDDNS or Adbyby. Keep FTP upload-cleanup TOCTOU OPEN/BLOCKED pending Linux 4.4-safe concurrency proof; NFS remains real-client-evidence gated.
+
+---
+
 ## 2026-11-12 13:17 CST (UTC+8) — Make AdGuardHome DNS redirects address-change safe
 
 - Resumed from live main SHA `16ce845f116f271f4c60942a4cd0a272efe81a10`; the remote branch inventory contained only `main`, with no checkpoint branch.

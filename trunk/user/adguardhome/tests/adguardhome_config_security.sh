@@ -116,6 +116,9 @@ TEST_ADG_RULE_LOG="$TEST_TMP/iptables.log"
 TEST_ADG_REDIRECT_MODE=2
 TEST_ADG_IFCONFIG_CALLS=0
 TEST_ADG_FAIL_ADD=
+TEST_ADG_FAIL_CHECK=
+TEST_ADG_IPV6_LIST_CALLS=0
+TEST_ADG_IPV6_LIST_FAIL_ON=0
 TEST_ADG_V4_TCP_RULE='PREROUTING -p tcp -m addrtype --dst-type LOCAL ! -d 127.0.0.0/8 --dport 53 -j REDIRECT --to-ports 5335'
 TEST_ADG_V4_UDP_RULE='PREROUTING -p udp -m addrtype --dst-type LOCAL ! -d 127.0.0.0/8 --dport 53 -j REDIRECT --to-ports 5335'
 TEST_ADG_V6_TCP_RULE='PREROUTING -p tcp -m addrtype --dst-type LOCAL ! -d ::1/128 ! -d fe80::/10 --dport 53 -j REDIRECT --to-ports 5335'
@@ -171,6 +174,9 @@ adg_test_iptables() {
 			return 0
 			;;
 		-C)
+			if [ -n "$TEST_ADG_FAIL_CHECK" ] && [ "$adg_family:$adg_rule" = "$TEST_ADG_FAIL_CHECK" ]; then
+				return 2
+			fi
 			grep -Fqx "$adg_rule" "$adg_state"
 			return $?
 			;;
@@ -198,6 +204,12 @@ iptables() {
 }
 
 ip6tables() {
+	if [ "$1" = -t ] && [ "$2" = nat ] && [ "$3" = -L ]; then
+		TEST_ADG_IPV6_LIST_CALLS=$((TEST_ADG_IPV6_LIST_CALLS + 1))
+		if [ "$TEST_ADG_IPV6_LIST_FAIL_ON" = "$TEST_ADG_IPV6_LIST_CALLS" ]; then
+			return 1
+		fi
+	fi
 	adg_test_iptables ipv6 "$@"
 }
 
@@ -224,6 +236,54 @@ fi
 [ "$(wc -l < "$TEST_ADG_IPV4_RULES" | tr -d ' ')" = 2 ] || fail "repeated start left duplicate IPv4 redirect rules"
 [ "$(wc -l < "$TEST_ADG_IPV6_RULES" | tr -d ' ')" = 2 ] || fail "repeated start left duplicate IPv6 redirect rules"
 
+# Delete at most 64 duplicates per call, then allow a later cleanup retry.
+adg_test_duplicate_count=0
+while [ "$adg_test_duplicate_count" -lt 65 ]; do
+	printf '%s\n' "$TEST_ADG_V4_TCP_RULE" >> "$TEST_ADG_IPV4_RULES"
+	adg_test_duplicate_count=$((adg_test_duplicate_count + 1))
+done
+if clear_iptable; then
+	fail "redirect cleanup ignored the 64-rule safety bound"
+fi
+[ "$(grep -Fxc "$TEST_ADG_V4_TCP_RULE" "$TEST_ADG_IPV4_RULES")" = 1 ] || fail "bounded cleanup did not leave exactly the unprocessed 65th duplicate"
+clear_iptable || fail "bounded duplicate cleanup could not resume"
+[ ! -s "$TEST_ADG_IPV4_RULES" ] && [ ! -s "$TEST_ADG_IPV6_RULES" ] || fail "bounded duplicate cleanup left residual rules"
+
+# An xtables check error is not the same as an absent exact rule.
+if ! set_iptable; then
+	fail "redirect setup before xtables check failure failed"
+fi
+TEST_ADG_FAIL_CHECK="ipv4:$TEST_ADG_V4_TCP_RULE"
+if clear_iptable; then
+	fail "cleanup treated an xtables -C error as an absent rule"
+fi
+[ "$(grep -Fxc "$TEST_ADG_V4_TCP_RULE" "$TEST_ADG_IPV4_RULES")" = 1 ] || fail "failed xtables check deleted the rule without confirmation"
+TEST_ADG_FAIL_CHECK=
+clear_iptable || fail "cleanup did not recover after xtables check error"
+
+# A present but unreadable IPv6 nat table must fail setup and roll IPv4 back.
+TEST_ADG_IPV6_LIST_CALLS=0
+TEST_ADG_IPV6_LIST_FAIL_ON=2
+if set_iptable; then
+	fail "set_iptable ignored an IPv6 NAT table probe failure"
+fi
+[ ! -s "$TEST_ADG_IPV4_RULES" ] && [ ! -s "$TEST_ADG_IPV6_RULES" ] || fail "failed IPv6 table probe left IPv4 startup redirects behind"
+TEST_ADG_IPV6_LIST_FAIL_ON=0
+
+# Cleanup must not treat an IPv6 nat table probe error as an IPv6-disabled profile.
+if ! set_iptable; then
+	fail "redirect setup before IPv6 cleanup probe failure failed"
+fi
+TEST_ADG_IPV6_LIST_CALLS=0
+TEST_ADG_IPV6_LIST_FAIL_ON=1
+if clear_iptable; then
+	fail "clear_iptable ignored an IPv6 NAT table probe failure"
+fi
+[ ! -s "$TEST_ADG_IPV4_RULES" ] || fail "IPv4 cleanup failed before reporting IPv6 probe error"
+[ "$(wc -l < "$TEST_ADG_IPV6_RULES" | tr -d ' ')" = 2 ] || fail "failed IPv6 cleanup probe removed or falsely cleared IPv6 redirect rules"
+TEST_ADG_IPV6_LIST_FAIL_ON=0
+clear_iptable || fail "IPv6 cleanup did not recover after table probe failure"
+
 # Disabling redirect mode must remove all exact rules and publish none.
 TEST_ADG_REDIRECT_MODE=1
 if ! set_iptable; then
@@ -243,6 +303,22 @@ fi
 [ ! -s "$TEST_ADG_IPV4_RULES" ] && [ ! -s "$TEST_ADG_IPV6_RULES" ] || fail "failed IPv6 publication did not roll back IPv4/IPv6 rules"
 TEST_ADG_FAIL_ADD=
 echo "AdGuardHome address-independent IPv4/IPv6 DNS redirects, duplicate cleanup and rollback: PASS"
+
+# A firewall setup error must block resolver mutation and daemon launch.
+(
+	TEST_ADG_START_EFFECTS="$TEST_TMP/start-firewall-failure.log"
+	: > "$TEST_ADG_START_EFFECTS"
+	pidof() { return 1; }
+	getconfig() { adg_file="$TEST_CONFIG"; return 0; }
+	mkdir() { return 0; }
+	set_iptable() { printf 'set_iptable\n' >> "$TEST_ADG_START_EFFECTS"; return 1; }
+	change_dns() { printf 'change_dns\n' >> "$TEST_ADG_START_EFFECTS"; }
+	AdGuardHome() { printf 'launch\n' >> "$TEST_ADG_START_EFFECTS"; }
+	if start_adg; then
+		fail "start_adg ignored a firewall setup failure"
+	fi
+	[ "$(cat "$TEST_ADG_START_EFFECTS")" = set_iptable ] || fail "failed firewall setup changed DNS or launched the daemon"
+) || fail "start firewall fail-closed regression failed"
 
 # Exercise daemon stop/start gates with a process-name-only mock.
 TEST_ADG_STATE="$TEST_TMP/adguardhome.state"
@@ -298,6 +374,7 @@ del_dns() {
 
 clear_iptable() {
 	echo clear_iptable >> "$TEST_ADG_CLEANUP_LOG"
+	[ "${TEST_ADG_CLEAR_FAIL:-0}" = 1 ] && return 1
 	return 0
 }
 
@@ -326,7 +403,7 @@ if ! stop_adg; then
 fi
 [ ! -s "$TEST_ADG_KILL_LOG" ] || fail "no-process stop sent a signal"
 [ ! -s "$TEST_ADG_SLEEP_LOG" ] || fail "no-process stop waited"
-[ "$(cat "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'rm:-rf /tmp/AdGuardHome\ndel_dns\nclear_iptable')" ] || fail "no-process cleanup ordering changed"
+[ "$(cat "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\nrm:-rf /tmp/AdGuardHome\ndel_dns')" ] || fail "no-process cleanup ordering changed"
 
 # A daemon that exits on TERM must not receive SIGKILL.
 : > "$TEST_ADG_KILL_LOG"
@@ -339,7 +416,7 @@ if ! stop_adg; then
 fi
 [ "$(cat "$TEST_ADG_KILL_LOG")" = AdGuardHome ] || fail "graceful stop sent force kill or used unexpected process identity"
 [ ! -s "$TEST_ADG_SLEEP_LOG" ] || fail "graceful daemon exit was not observed immediately"
-[ "$(tail -n 3 "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'rm:-rf /tmp/AdGuardHome\ndel_dns\nclear_iptable')" ] || fail "cleanup did not follow confirmed daemon exit"
+[ "$(tail -n 3 "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\nrm:-rf /tmp/AdGuardHome\ndel_dns')" ] || fail "cleanup did not follow confirmed daemon exit"
 
 # A TERM-resistant daemon is escalated only after five bounded polls.
 : > "$TEST_ADG_KILL_LOG"
@@ -352,7 +429,17 @@ if ! stop_adg; then
 fi
 [ "$(cat "$TEST_ADG_KILL_LOG")" = "$(printf 'AdGuardHome\n-9 AdGuardHome')" ] || fail "stop did not perform TERM then fresh name-based SIGKILL"
 [ "$(wc -l < "$TEST_ADG_SLEEP_LOG" | tr -d ' ')" = 5 ] || fail "TERM grace period was not bounded to five polls"
-[ "$(tail -n 3 "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'rm:-rf /tmp/AdGuardHome\ndel_dns\nclear_iptable')" ] || fail "cleanup did not follow confirmed SIGKILL exit"
+[ "$(tail -n 3 "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\nrm:-rf /tmp/AdGuardHome\ndel_dns')" ] || fail "cleanup did not follow confirmed SIGKILL exit"
+
+# Firewall cleanup failure preserves runtime and resolver state for retry.
+: > "$TEST_ADG_CLEANUP_LOG"
+echo stopped > "$TEST_ADG_STATE"
+TEST_ADG_CLEAR_FAIL=1
+if stop_adg; then
+	fail "stop reported success after firewall cleanup failed"
+fi
+[ "$(cat "$TEST_ADG_CLEANUP_LOG")" = clear_iptable ] || fail "failed firewall cleanup removed runtime state or DNS config"
+TEST_ADG_CLEAR_FAIL=0
 
 # A daemon that survives SIGKILL must retain its workdir and traffic state.
 : > "$TEST_ADG_KILL_LOG"

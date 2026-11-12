@@ -54,9 +54,12 @@ clear_redirect = function_body(script, "clear_iptable()" + chr(10) + "{")
 wait_stopped = function_body(script, "adg_wait_stopped() {")
 stop_daemon = function_body(script, "adg_stop_daemon() {")
 stop = function_body(script, "stop_adg(){")
-require('while "$adg_iptables" -t nat -C PREROUTING "$@"' in remove_redirect and
-        '"$adg_iptables" -t nat -D PREROUTING "$@"' in remove_redirect,
-        "redirect cleanup must remove every exact duplicate and stop on failed deletion")
+require('while [ "$adg_remove_count" -lt 64 ]; do' in remove_redirect and
+        'case "$adg_check_status" in' in remove_redirect and
+        '"$adg_iptables" -t nat -C PREROUTING "$@"' in remove_redirect and
+        '"$adg_iptables" -t nat -D PREROUTING "$@"' in remove_redirect and
+        'return "$adg_check_status"' in remove_redirect,
+        "redirect cleanup must bound duplicate deletion and distinguish absent rules from xtables errors")
 require("if ! clear_iptable; then" in set_redirect and
         "if [ \"$(nvram get adg_redirect)\" = 2 ]; then" in set_redirect,
         "redirect setup must first clear stale rules and respect the configured redirect mode")
@@ -64,6 +67,11 @@ require("-m addrtype --dst-type LOCAL" in set_redirect and
         "! -d 127.0.0.0/8" in set_redirect and
         "! -d ::1/128" in set_redirect and "! -d fe80::/10" in set_redirect,
         "IPv4/IPv6 redirects must follow local route state while excluding loopback/link-local")
+require('command -v ip6tables' in set_redirect and
+        '检查IPv6 DNS NAT表失败' in set_redirect and
+        'command -v ip6tables' in clear_redirect and
+        '检查IPv6 DNS NAT表失败' in clear_redirect,
+        "a missing IPv6 binary may be skipped, but a present/unusable nat table must fail closed")
 require("ifconfig" not in set_redirect and "inet addr" not in set_redirect,
         "redirect setup must not snapshot current addresses into firewall rules")
 require("adg_remove_redirect_rule iptables -p tcp" in clear_redirect and
@@ -116,16 +124,16 @@ require('rm -f "$adg_tmp"' in config and 'return 1' in config,
         "failed staging, chmod or rename must clean up and fail closed")
 require('auth_pass: adguardhome' in config and 'private_key: ""' in config,
         "source contract must recognize secret-bearing config fields")
-require('if ! getconfig; then' in start and
-        start.index('if ! getconfig; then') < start.index('change_dns') <
-        start.index('set_iptable') < start.index('eval "AdGuardHome'),
-        "unsafe config preparation must stop before DNS/firewall changes or launch")
+require('if ! getconfig; then' in start and 'if ! set_iptable; then' in start and
+        start.index('if ! getconfig; then') < start.index('if ! set_iptable; then') <
+        start.index('change_dns') < start.index('eval "AdGuardHome'),
+        "config and firewall failures must stop before resolver changes or daemon launch")
 
 require('if pidof AdGuardHome >/dev/null 2>&1; then' in start and
         start.index('if pidof AdGuardHome') < start.index('getconfig') <
-        start.index('change_dns') < start.index('set_iptable') <
+        start.index('if ! set_iptable; then') < start.index('change_dns') <
         start.index('eval "AdGuardHome'),
-        "duplicate starts must be detected before config, DNS, firewall or daemon side effects")
+        "duplicate starts must be detected before config, firewall, DNS or daemon side effects")
 require('while [ "$adg_wait" -lt 5 ]; do' in wait_stopped and
         'sleep 1' in wait_stopped and 'pidof AdGuardHome' in wait_stopped,
         "daemon absence polling must use the live process name and a five-second bound")
@@ -135,9 +143,10 @@ require(stop_daemon.index('killall AdGuardHome') <
         stop_daemon.rindex('adg_wait_stopped'),
         "daemon stop must verify TERM grace before name-based KILL and post-verify absence")
 require('if ! adg_stop_daemon; then' in stop and
-        stop.index('if ! adg_stop_daemon; then') < stop.index('rm -rf /tmp/AdGuardHome') <
-        stop.index('del_dns') < stop.index('clear_iptable'),
-        "workdir, DNS and firewall cleanup must be gated on confirmed daemon exit")
+        'if ! clear_iptable; then' in stop and
+        stop.index('if ! adg_stop_daemon; then') < stop.index('if ! clear_iptable; then') <
+        stop.index('rm -rf /tmp/AdGuardHome') < stop.index('del_dns'),
+        "workdir and DNS cleanup must wait for confirmed daemon exit and firewall-rule removal")
 require('pidof AdGuardHome' in stop_daemon and 'killall -9 AdGuardHome' in stop_daemon and
         'pidof AdGuardHome' in wait_stopped,
         "stop must re-enumerate the process by name, not cache a numeric PID")
@@ -171,6 +180,12 @@ for marker in (
     "repeated start left duplicate IPv4 redirect rules",
     "redirect rules still depend on enumerated interface address snapshots",
     "failed IPv6 publication did not roll back IPv4/IPv6 rules",
+    "redirect cleanup ignored the 64-rule safety bound",
+    "cleanup treated an xtables -C error as an absent rule",
+    "set_iptable ignored an IPv6 NAT table probe failure",
+    "clear_iptable ignored an IPv6 NAT table probe failure",
+    "stop reported success after firewall cleanup failed",
+    "start_adg ignored a firewall setup failure",
 ):
     require(marker in test, f"host regression missing case: {marker}")
 
@@ -198,4 +213,4 @@ for path in paths:
     require(push.count(token) == 1 and pull.count(token) == 1,
             f"{path} must appear exactly once in push and pull_request path filters")
 
-print("AdGuardHome config privacy, atomic publication and RC integration contracts: PASS")
+print("AdGuardHome config privacy, bounded firewall cleanup and RC integration contracts: PASS")
