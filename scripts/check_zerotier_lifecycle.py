@@ -77,12 +77,12 @@ require('awk -v zt_if="$1"' in route_section and
 require('while :' in interface_wait_body and
         'zerotier_interface_name' in interface_wait_body and
         'sleep 1' in interface_wait_body and
-        'zerotier_wait -ge "$ZT_READY_TIMEOUT"' in interface_wait_body,
+        '"$zerotier_wait" -ge "$ZT_READY_TIMEOUT"' in interface_wait_body,
         "interface readiness wait must be bounded and re-check at the deadline")
 require('while :' in route_wait_body and
         'zerotier_kernel_route_segment "$1"' in route_wait_body and
         'sleep 1' in route_wait_body and
-        'zerotier_wait -ge "$ZT_READY_TIMEOUT"' in route_wait_body,
+        '"$zerotier_wait" -ge "$ZT_READY_TIMEOUT"' in route_wait_body,
         "kernel-route readiness wait must be bounded and re-check at the deadline")
 require('zerotier_wait_interface' in rules_section and
         'zerotier_wait_route "$zt0"' in rules_section and
@@ -92,9 +92,10 @@ require('zerotier_wait_interface' in rules_section and
 require('case "$nat_enable" in' in rules_section and
         '[ "$nat_enable" = "1" ]' in rules_section,
         "NAT configuration must be handled without an unquoted numeric test")
+cleanup_branch = start_instance_body.index('if ! kill_z; then')
+cleanup_failure_return = start_instance_body.index('return 1', cleanup_branch)
 require('if ! rules; then' in start_instance_body and
-        start_instance_body.index('if ! rules; then') < start_instance_body.index('if ! kill_z; then') <
-        start_instance_body.index('return 1'),
+        start_instance_body.index('if ! rules; then') < cleanup_branch < cleanup_failure_return,
         "daemon startup must fail and attempt cleanup when interface/route readiness times out")
 require('zerotier_kernel_route_segment "$zt0"' in cleanup_section,
         "firewall cleanup must use the same token-based route parser")

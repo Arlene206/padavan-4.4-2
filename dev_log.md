@@ -1,3 +1,17 @@
+## 2026-11-12 11:26 CST (UTC+8) — Correct ZeroTier readiness source-contract assertions
+
+- Base main SHA: `fdf89096d631245efab7534cd399abeb498a0acd`; parent `1bf8a93bfa47770e8005d5241f7077287c86c4c4`.
+- Exact-head ZeroTier Actions [43148056612] ran the expanded lifecycle shell regression successfully: delayed interface/route discovery, both 30-second timeout cases, route-interface filtering, normal single-space route text, invalid NAT config rejection and no partial firewall publication all passed. The subsequent semantic checker failed at the readiness-wait source assertion.
+- Root cause was confined to the checker: the production shell correctly compares the quoted variable `"$zerotier_wait"`, while the checker searched for an unquoted substring. Review also found the start-cleanup assertion could choose a prior configuration-generation `return 1`; THIS COMMIT scopes it to the return after the readiness-failure cleanup branch.
+- Exact-head AI handoff docs [43148056614] SUCCESS, validator root log=42/119 and archives=7/22/18. Infosvr packet/signal [43148056670] SUCCESS; both steps and complete logs inspected. No production ZeroTier code or regression changes in this correction.
+- Exact-head ZeroTier and AI docs reruns on THIS COMMIT are pending; do not close readiness L2 until the corrected checker and docs validator pass on one exact SHA.
+- Root `dev_log.md` grows 42→43 complete records, below rotation thresholds; no archive or INDEX change. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- Production MIPS/uClibc, target BusyBox behavior, live route/interface readiness, complete firmware/TRX and L4 remain NOT VERIFIED.
+- Resulting commit: THIS COMMIT.
+- Next: inspect all steps/full logs for exact-head ZeroTier, AI docs and all other triggered Actions. Require readiness host regression, corrected source contract and docs root log=43/119 with archive counts 7/22/18. Then rotate to AdGuardHome/AliyunDrive WebDAV/FRP/AliDDNS/Adbyby. FTP TOCTOU remains OPEN/BLOCKED; NFS needs real-client evidence.
+
+---
+
 ## 2026-11-12 11:21 CST (UTC+8) — Bound ZeroTier interface and NAT-route readiness
 
 - Base main SHA: `1bf8a93bfa47770e8005d5241f7077287c86c4c4`; parent `f39638ac28bae38e6ec8d2694831685b3be98d4e`.
