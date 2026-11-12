@@ -48,7 +48,7 @@ def function_body(source: str, signature: str) -> str:
 
 config = function_body(script, "getconfig(){")
 start = function_body(script, "start_adg(){")
-remove_redirect = function_body(script, "adg_remove_redirect_rule() {")
+remove_redirect = function_body(script, "adg_remove_redirect_rule()" + chr(10) + "{")
 set_redirect = function_body(script, "set_iptable()" + chr(10) + "{")
 clear_redirect = function_body(script, "clear_iptable()" + chr(10) + "{")
 wait_stopped = function_body(script, "adg_wait_stopped() {")
