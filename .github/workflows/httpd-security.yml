@@ -3238,7 +3238,10 @@ jobs:
           assert "printf '#!/bin/sh" in aliddns
           assert ' > "$ALIDDNS_HELPER")' in aliddns
           assert 'chmod 700 "$ALIDDNS_HELPER"' in aliddns
-          assert 'kill_ps "$ALIDDNS_HELPER"' in aliddns
+          # The launcher now terminates only the exact keeper argv and verifies exit.
+          assert "aliddns_stop_keeper" in aliddns
+          assert "aliddns_keeper_pid_matches" in aliddns
+          assert "kill_ps" not in aliddns
           assert "/tmp/script/_aliddns" not in aliddns
           assert "mount -t tmpfs tmpfs /home" in dev_init
           assert "mkdir -p -m 700 /home/root" in dev_init
