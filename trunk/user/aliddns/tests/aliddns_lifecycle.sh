@@ -187,14 +187,14 @@ awk -v signature='aliddns_close () {' '
 PROC_ROOT="$TEST_DIR/proc"
 KILL_LOG="$TEST_DIR/kill.log"
 SLEEP_LOG="$TEST_DIR/sleep.log"
-mkdir -p "$PROC_ROOT/self" "$PROC_ROOT/101" "$PROC_ROOT/102" "$PROC_ROOT/103" "$PROC_ROOT/$"
+mkdir -p "$PROC_ROOT/self" "$PROC_ROOT/101" "$PROC_ROOT/102" "$PROC_ROOT/103" "$PROC_ROOT/$$"
 : > "$PROC_ROOT/self/cmdline"
 scriptfilepath="$TEST_DIR/aliddns.sh"
 ALIDDNS_PROC_ROOT="$PROC_ROOT"
 printf 'sh\000%s\000keep\000' "$scriptfilepath" > "$PROC_ROOT/101/cmdline"
 printf 'sh\000%s\000stop\000' "$scriptfilepath" > "$PROC_ROOT/102/cmdline"
 printf 'sh\000%s-extra\000keep\000' "$scriptfilepath" > "$PROC_ROOT/103/cmdline"
-printf 'sh\000%s\000keep\000' "$scriptfilepath" > "$PROC_ROOT/$/cmdline"
+printf 'sh\000%s\000keep\000' "$scriptfilepath" > "$PROC_ROOT/$$/cmdline"
 
 aliddns_find_keeper_pids
 [ "$ALIDDNS_KEEPER_PIDS" = "101" ] || {
