@@ -176,8 +176,15 @@ require("Concurrent calls share " in nslookup_test and "shell descendants" in ns
         "AliDDNS bounded, isolated DNS lookup and strict IPv4/IPv6 lifecycle regression: PASS" in nslookup_test,
         "DNS lookup host regression must cover concurrency, timeout, cleanup and strict IPv4/IPv6")
 
-push_filter_block = workflow.split("  push:\\n    paths:\\n", 1)[1].split("  pull_request:\\n    paths:\\n", 1)[0]
-pr_filter_block = workflow.split("  pull_request:\\n    paths:\\n", 1)[1].split("\\n\\npermissions:", 1)[0]
+line_break = chr(10)
+push_trigger = "  push:" + line_break + "    paths:" + line_break
+pull_request_trigger = "  pull_request:" + line_break + "    paths:" + line_break
+require(push_trigger in workflow and pull_request_trigger in workflow,
+        "AliDDNS workflow must define both push and pull_request path filters")
+push_filter_block = workflow.split(push_trigger, 1)[1].split(pull_request_trigger, 1)[0]
+pr_filter_block = workflow.split(pull_request_trigger, 1)[1].split(
+    line_break + line_break + "permissions:", 1
+)[0]
 push_filter_paths = tuple(line.strip() for line in push_filter_block.splitlines()
                           if line.strip().startswith('- "'))
 pr_filter_paths = tuple(line.strip() for line in pr_filter_block.splitlines()
