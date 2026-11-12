@@ -2,10 +2,10 @@
 
 start_zero() {
 	logger -t "DDNSTO" "正在启动DDNSTO"
-	kill_z || {
+	if ! kill_z; then
 		logger -t "DDNSTO" "停止旧进程失败，取消启动"
 		return 1
-	}
+	fi
 	/usr/bin/ddnsto -u "$(nvram get ddnsto_id)" >/dev/null 2>&1 &
 
 }
