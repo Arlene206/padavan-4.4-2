@@ -119,7 +119,7 @@ require('PKG_NAME:=aliddns' in package and
         'TARGET_LDFLAGS += -L$(STAGING_DIR)/lib' in package and
         '$(INSTALL_BIN) $(PKG_BUILD_DIR)/aliddns-hmac-sha1 $(ROMFSDIR)/usr/bin/aliddns-hmac-sha1' in package and
         'all: $(EXEC)' in hmac_makefile and '-lcrypto' in hmac_makefile and
-        'dir_y += libssl' in libs_makefile and
+        'dir_y += libssl' in ' '.join(libs_makefile.split()) and
         'PKG_VERSION:=3.0.21' in libssl_makefile and
         'DESTDIR="$(STAGING_DIR)"' in libssl_makefile and
         'install_sw install_ssldirs' in libssl_makefile,

@@ -1,3 +1,16 @@
+## 2026-11-12 20:42 CST (UTC+8) — Make libssl staging contract whitespace-robust
+
+- Base checkpoint: `0133f3722a1f7c0699af548a50b967d79b93895f`.
+- Exact-head AliDDNS push [43222745442] and PR [43222753177] both checked out the expected source/merge SHA. Shell syntax passed. All six host regressions passed: signed API transport with real EVP_MAC helper and computed canonical signature, public IPv4, bounded DNS lifecycle, custom-script lifecycle, CA trust-store bootstrap and HMAC-SHA1 compatibility/process argv-env/input boundaries.
+- The sole failure was the semantic package/source checker: it required literal substring `dir_y += libssl`, but the real `trunk/libs/Makefile` formats the same Make assignment with tab alignment. Full logs show no product or host-test failure.
+- Normalized whitespace in the Makefile before checking the unconditional `dir_y += libssl` entry. No firmware source/build recipe changes.
+- AI docs push/PR on this SHA passed; the current checker-only commit triggers fresh validation.
+- Handoff records the exact false-positive and next verification requirement. Root `dev_log.md` grows 63→64 complete entries; below retention and size thresholds; archive inventory remains 7/22/18. Roadmap unchanged.
+- Resulting commit: THIS COMMIT.
+- Next: inspect corrected exact-head AliDDNS push/PR full logs and AI docs validation. HMAC L2 remains OPEN until all six host regressions and semantic/doc checks pass together. L3 MIPS/uClibc, firmware/TRX and L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-12 20:36 CST (UTC+8) — Tighten HMAC wrapper checker without matching executable basename
 
 - Base checkpoint: `1dd73261cec705335214899a4c5c9fa08b4db579`.
