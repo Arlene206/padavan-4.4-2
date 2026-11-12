@@ -3,7 +3,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; branch `main`; only remote branch is `main`; no checkpoint branch.
-- Base main SHA for THIS COMMIT: `6e5d19556c22f658eea802a36ede63885927f57b` (parent `9cc9df9b4269561402b90bd4ccf3b26bc9b3cd0a`); only remote branch is `main`, no checkpoint branch.
+- Base main SHA for THIS COMMIT: `d946bb4f6cd305924041665f100900597de05318` (parent `7213bce03885fac5c83b5c6e06e7eee390c259a2`); only remote branch is `main`, no checkpoint branch.
 - DNS Forwarder caller-CWD-independent launcher is L1/L2 CLOSED on exact SHA `c2e1c85517ed2dcbe094ed43e3cae18d7af4d972`: DNS [43066687882], AI docs [43066687814] and infosvr [43066687818] SUCCESS.
 - DNSMasq DHCP pool/router-address exclusion is L1/L2 CLOSED on exact SHA `c22542d36e9de26780b338267f41a91d99aaf34a`: DNSMasq [43069047780], AI docs [43069047752], HTTPD [43069047723], infosvr [43069047578], Samba [43069047831] and miniupnpd [43069047633] SUCCESS.
 - WAN bridge VLAN deletion failure propagation is L1/L2 CLOSED on exact SHA `55740d3491fba908416b930664143943b5acca1a`: wireless [43069624285], AI docs [43069624357], infosvr [43069624265] and WAN DHCP [43069624334] SUCCESS.
@@ -13,12 +13,12 @@
 - The completed CCD change on exact SHA `023d4bc4a5fbc37c93dfb6b0f8958f9ea771e030` stages each client file beside its destination, checks atomic publication, rejects a symlink/non-directory CCD root, and blocks primary server-config publication on ACL failure. Each file is atomic, but multi-file directory-wide transactions and stale CCD cleanup remain outside scope.
 
 - OpenVPN lease snapshot parser regression was fixed on exact base SHA `6e5d19556c22f658eea802a36ede63885927f57b`: OpenVPN [43077082467], AI docs [43077082454] and infosvr [43077082525] all SUCCESS. All steps and complete logs were inspected; docs validator reported root log=36/119 and archives=7/22/18.
-- THIS COMMIT reconciles OpenVPN callbacks and root RC/PPP lease mutation on one stable root-owned lock inode at `/tmp/.vpns.leases.shared.lock`. APP_OPENVPN builds prepare mode 0620 for root:`SYS_GROUP_NOGROUP`; nobody callbacks open the same inode write-only. PPP-only builds retain the original root-private lock and do not require the OpenVPN group. The lock helper validates sticky root-owned `/tmp`, rejects symlink/hard-link/non-regular/incorrect-owner/group/mode objects and opens with O_NONBLOCK to reject pre-created FIFOs without hanging.
+- OpenVPN/RC lease serialization is L1/L2 CLOSED on exact SHA `d946bb4f6cd305924041665f100900597de05318`: the shared root:`SYS_GROUP_NOGROUP` mode-0620 inode, PPP-only root-private fallback, sticky root-owned `/tmp` check, no-follow/nonblocking lock open, type/owner/group/mode/link validation and FIFO rejection are covered by VPN stability job [43132697870].
 - A stop-barrier race was found in `kill_process_pidfile()`: after its bounded wait it can send SIGKILL and return without waiting for process exit. Both RC and OpenVPN snapshot-clear paths therefore unlink the root-owned OpenVPN PID marker under the shared lease lock before unlinking the last-good lease snapshot. A waiting orphaned callback can no longer pass the parent-PID fence and republish after the stop clear. Stale callbacks return a distinct status and skip their user hook; ordinary inventory I/O failures remain logged without suppressing configured connect/disconnect hooks.
-- Lease-source reads now use no-follow/nonblocking descriptor opens and fstat trust checks. The record copier rejects embedded NUL, malformed/overlong lines and read errors; publication remains same-directory staged with checked write/flush/fsync/close/rename. Local L1 review is complete; this commit's exact-head Actions are pending.
-- The separate lock-domain gap is addressed at L1 in THIS COMMIT: APP_OPENVPN root RC/PPP clear and nobody OpenVPN callbacks use `/tmp/.vpns.leases.shared.lock` (root:`SYS_GROUP_NOGROUP`, 0620); PPP-only builds retain `/tmp/.vpns.leases.lock`. Root clear unlinks the OpenVPN PID marker before the lease snapshot under this lock, preventing callbacks waiting behind stop from passing the daemon-PID fence. Exact-head OpenVPN/VPN stability/docs Actions are still pending; target `/tmp`, group/PID ownership and daemon-stop behavior remain unverified.
+- Lease-source reads use no-follow/nonblocking descriptor opens and fstat trust checks. The record copier rejects embedded NUL, malformed/overlong lines and read errors; publication remains same-directory staged with checked write/flush/fsync/close/rename. Exact-head VPN job [43132697870] passed all steps, including lifecycle, callback identity, shared-lock policy binaries and the semantic source contract. Exact-head AI docs job [43132697890] also passed; its validator reported root log=37/119 and archives=7/22/18.
+- Root and OpenVPN clear paths both unlink the root-owned OpenVPN PID marker before the lease snapshot under the shared lease lock. A callback waiting behind stop therefore fails its parent-PID fence; stale callbacks skip user hooks while ordinary inventory errors remain hook-independent. Target `/tmp`, group/PID ownership and actual daemon-stop timing remain unverified.
 
-- Root `dev_log.md` grows 36→37 complete records; no rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- Root `dev_log.md` grows 37→38 complete records; no rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
 - FTP upload-cleanup TOCTOU remains P2 OPEN/BLOCKED pending a Linux 4.4-safe inode/parent proof; NFS requires real-client evidence. Production MIPS/uClibc, full firmware/TRX and physical-router behavior remain NOT VERIFIED.
 
 ## Closed task — NVRAM HDR2 profile-save atomic publication
@@ -156,27 +156,22 @@
 - AI docs validator reports root log=30/119, batch=100, retain=20, archives dev-log=7, handoff=22, roadmap=18.
 - L1/L2 closed. Target MIPS/uClibc, RT3352 MII/iNIC board variants, DBDC and L4 radio behavior remain NOT VERIFIED.
 
-## Active task — Close OpenVPN/RC lease serialization and late-callback resurrection (P2 reliability)
+## Closed task — OpenVPN/RC shared lease serialization and late-callback resurrection (P2 reliability; L1/L2 complete)
 
-### Finding and implementation
+- The production implementation landed on exact SHA `7213bce03885fac5c83b5c6e06e7eee390c259a2`; this session repaired its malformed Python source-contract assertion in commit `d946bb4f6cd305924041665f100900597de05318`.
+- Exact-head VPN server lifecycle stability [43132697870] and AI handoff documentation [43132697890] both completed SUCCESS on `d946bb4f6cd305924041665f100900597de05318`. Every step and complete logs were inspected. VPN output: lifecycle lock PASS, callback identity PASS, shared lease lock PASS, lifecycle/callback source contract PASS. Docs validator: root log=37/119, batch=100, retain=20, archives dev-log=7 / handoff=22 / roadmap=18.
+- Root RC/PPP and dropped-privilege OpenVPN callbacks contend on one root-owned mode-0620 root:nogroup lease lock in APP_OPENVPN builds; PPP-only builds retain a root-private lock. Root and OpenVPN clears remove the daemon PID marker before the lease snapshot while holding that lock. Callbacks verify parent PID after acquiring the lock; stale callbacks cannot restore state or run external hooks.
+- Production MIPS/uClibc, router `/tmp` ownership/sticky-bit behavior, group/PID ownership, live daemon stop timing, OpenVPN authentication, firmware/TRX and L4 remain NOT VERIFIED.
 
-- The OpenVPN callback writer and root VPN lifecycle/PPP callbacks previously used different lock inodes. A dropped-privilege OpenVPN script therefore raced the root start/stop snapshot clear.
-- A shared root-owned lock inode is now used by both sides in APP_OPENVPN builds. Root prepares owner/group/mode 0620; OpenVPN hooks running as `nobody:nogroup` acquire the same POSIX record lock. PPP-only builds retain the root-private lock path.
-- The stop helper can return immediately after SIGKILL without waiting for daemon exit. The root clear barrier now unlinks the OpenVPN server PID marker and then the lease snapshot while holding the shared lock. The OpenVPN restart clear does the same. A callback blocked behind the barrier sees no live PID marker and cannot republish.
-- Callback parent-PID validation, no-follow/nonblocking source opens and fstat trust checks reject stale or substituted sources. Lease parsing rejects embedded NUL, malformed/overlong records and read errors before staged publication. Normal lease bookkeeping failures are logged but do not suppress user hooks; callbacks identified as stale after stop skip their hook.
-- Added a GNU89 host regression for stable-inode contention, root-to-nobody group permissions, bad modes, hardlinks, symlinks and FIFO nonblocking rejection; extended parser/PID-fence regression and both source/workflow contracts. The code and tests are committed together with this handoff/roadmap/log update. Do not claim exact-head L2 until Actions finish.
+## Next task — Continue whole-tree service/process-control audit (P2 stability)
 
-### Exact next action
-
-- Fetch live main and confirm the committed SHA. Inspect OpenVPN client-secret, VPN server-stability and AI handoff documentation Actions for that exact SHA, including every job step and complete logs. Require both shared-lock regressions, parser/credential/config GNU89 sanitizer tests, both source/workflow checkers, and docs validator root log=37/119 with archive inventory 7/22/18.
-- If exact-head Actions pass, close L1/L2 for shared lease serialization. Keep production MIPS/uClibc, target `/tmp` + group/PID ownership, daemon-stop timing, real OpenVPN auth and router behavior at L3/L4 NOT VERIFIED until target evidence exists.
-- Continue whole-tree RC/add-on process-control and file-publication audit. FTP cleanup TOCTOU remains P2 OPEN/BLOCKED; NFS remains real-client evidence-gated.
-
+- FTP failed-upload cleanup TOCTOU remains P2 OPEN/BLOCKED. Linux 4.4 has no inode-conditional unlink-by-fd; the current fstatat()/unlinkat() pair retains a race against concurrent same-directory writers. Do not patch without a proved Linux 4.4-compatible design preserving STOR/APPE/REST/STOU, ACL/parent pinning and existing overwrite/visibility semantics.
+- The immediate next actionable work is the whole-tree RC/add-on process-control and file-publication audit outside VPN/HTTPD: trace stop/start/restart callers, PID-file trust, bounded waits, process identity and fail-closed state publication; select a reproducible stability issue and add a GNU89 host regression plus exact symmetric CI path filters.
+- NFS async durability, AUTH_SYS/root-squash and external mount compatibility remain real-client evidence-gated. Wi-Fi/WAN board-specific bridge behavior remains target validation work.
 ## Verification boundary
 
-- L1 source review: PASS for OpenVPN client credential private staging, primary server/client config atomic publication, per-client CCD atomic publication, lease record parsing/staged publication, shared OpenVPN/RC lease lock ownership model and PID-file stop fence. Static review does not prove target init `/tmp` permissions, group database, uClibc behavior or actual process-stop timing.
-- L2 exact prior head: SHA `6e5d19556c22f658eea802a36ede63885927f57b` OpenVPN [43077082467], infosvr [43077082525] and AI docs [43077082454] all SUCCESS; complete job steps and logs inspected. Docs validator root log=36/119, archives=7/22/18. This commit adds a dedicated shared-lock/FIFO/root-to-nobody regression plus cross-module source contracts; its exact-head CI is PENDING.
-- Local GNU89 ASan/UBSan lease-policy and lock tests passed in the preceding implementation slice; final conditional APP_OPENVPN/FIFO extension and exact committed source checks must be confirmed by this commit's Actions before L2 closure.
+- L1 source review: PASS for the OpenVPN shared root:nogroup lease-lock ownership model, PID-file stop fence, stale callback suppression, lease parser validation/staged publication, root RC caller integration and PPP-only root-private fallback. This is source-level confidence only; target privilege-drop/group database behavior is not proven.
+- L2 exact-head Actions: SHA `d946bb4f6cd305924041665f100900597de05318`: VPN server lifecycle stability [43132697870] and AI handoff documentation [43132697890] both SUCCESS. Full job steps and logs inspected; shared lock/callback policy/source contracts PASS; docs validator root log=37/119 and archives=7/22/18.
 - L3 production MIPS/uClibc objects / complete firmware/TRX: NOT VERIFIED for OpenVPN lease, credential/config/CCD staging, VPN lifecycle or current RC changes.
 - L4 router / physical hardware: NOT VERIFIED. No live OpenVPN server startup, authentication, client network, stop-race or router behavior is claimed.
 
@@ -192,7 +187,8 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and confirm the exact current SHA; do not rely on a prior session SHA. Inspect exact-head OpenVPN client-secret, VPN server-stability and AI handoff docs Actions, every job step and complete logs. Docs must report root dev_log=37/119 and archive inventory dev-log=7, handoff=22, roadmap=18.
+1. Fetch live main and confirm the exact current SHA; do not rely on a prior session SHA. Inspect exact-head VPN server stability and AI handoff documentation Actions for the source-contract/path-filter expansion in the current commit, including every step and complete logs. The prior exact-head SHA d946bb4f6cd305924041665f100900597de05318 is already L1/L2 CLOSED.
+2. Continue the whole-tree RC/add-on service process-control and file-publication audit. Keep FTP cleanup TOCTOU OPEN/BLOCKED until a safe Linux 4.4 design is demonstrated; do not claim L3/L4.
 2. Require the shared lock test to pass for POSIX contention, root-owned group-0620 access from nobody, symlink/hardlink/mode rejection and immediate FIFO rejection; require OpenVPN credential/config/lease GNU89 ASan/UBSan tests and both semantic source/workflow checkers to pass. Do not report L2 closed before that evidence.
 3. If L2 passes, continue L3 investigation of production MIPS/uClibc, firmware `/tmp` sticky-root semantics, `SYS_GROUP_NOGROUP` group membership, OpenVPN pidfile owner/mode and stop/child callback timing. L4 remains unverified until router tests.
 4. Continue the whole-repository RC/add-on process and file-publication audit. FTP upload-cleanup TOCTOU remains OPEN/BLOCKED pending Linux 4.4 inode/parent proof; NFS needs real-client evidence.

@@ -119,7 +119,8 @@ require(re.search(r'RCN_RESTART_WINS[\s\S]{0,260}reapply_vpn_server\s*\(\)',rc),
 require(re.search(r'!strcmp\(base,\s*"restart_vpn_server"\)[\s\S]{0,160}restart_vpn_server\s*\(\)',rc),"direct RC applet entry missing")
 require("start_vpn_server();" in body(services,"start_services_once(int is_ap_mode)"),"service start entry missing")
 require("stop_vpn_server();" in body(services,"stop_services(int stopall)"),"service stop entry missing")
-for p in ("trunk/user/rc/src/vpn_server.c","trunk/user/rc/src/vpn_server_lifecycle_lock.h",
+for p in ("trunk/user/rc/src/vpn_server.c","trunk/user/rc/src/vpn_openvpn.c",
+          "trunk/user/rc/src/vpn_server_lifecycle_lock.h",
           "trunk/user/rc/src/vpn_server_lease_lock.h",
           "trunk/user/rc/src/tests/vpn_server_lease_lock.c",
           "trunk/user/rc/src/tests/vpn_server_lifecycle_lock.c","trunk/user/rc/src/rc.c",
@@ -244,4 +245,39 @@ require("expect_invalid" in callback_test and
         "vpn_server_callback_pids_match" in callback_test,
         "callback regression lacks parser/session coverage")
 
+# OpenVPN callbacks run after privilege drop and must serialize against the
+# root RC lease clear on the same inode, with a PID fence checked after lock.
+openvpn=read("trunk/user/rc/src/vpn_openvpn.c")
+require('#include "vpn_server_lease_lock.h"' in openvpn,
+        "OpenVPN callbacks do not include the shared lease lock")
+parent_fence=body(openvpn,"static int\nopenvpn_server_lease_parent_is_current(void)")
+ordered(parent_fence,["parent_pid = getppid()",
+    "open(SERVER_PID_FILE, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC)",
+    "fstat(fd, &st)","S_ISREG(st.st_mode)",
+    "read(fd, pid_text, sizeof(pid_text))","openvpn_server_lease_pid_matches"],
+    "OpenVPN callback daemon identity fence")
+for token in ("st.st_uid != (uid_t)0","st.st_nlink != 1","(st.st_mode & 022) != 0"):
+    require(token in parent_fence,f"OpenVPN PID marker trust validation missing {token}")
+lease_update=body(openvpn,"static int\nopenvpn_server_lease_update(")
+ordered(lease_update,["vpn_server_lease_lock_acquire(VPN_SERVER_LEASE_LOCK_FILE)",
+    "openvpn_server_lease_parent_is_current()",
+    "open(path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC)",
+    "fstat(source_fd, &source_stat)","openvpn_server_lease_copy(" ,
+    "openvpn_config_file_publish(" ,
+    "vpn_server_lease_lock_release(lock_fd)"],"OpenVPN shared-lock lease publication")
+require("stale_callback = 1" in lease_update and "return stale_callback ? -2 : -1" in lease_update,
+        "OpenVPN lease update must distinguish late callbacks from I/O errors")
+for signature,label in (("static void\non_server_client_connect(int is_tun)","connect"),
+                        ("static void\non_server_client_disconnect(int is_tun)","disconnect")):
+    callback=body(openvpn,signature)
+    ordered(callback,["lease_status = openvpn_server_lease_update(",
+        "if (lease_status == -2)","check_if_file_exist(script_name)",
+        "_eval(hook_argv, NULL, 0, NULL)"],f"OpenVPN {label} stale callback hook gate")
+ovpn_clear=body(openvpn,"static int\nopenvpn_server_lease_clear(void)")
+ordered(ovpn_clear,["vpn_server_lease_lock_acquire(VPN_SERVER_LEASE_LOCK_FILE)",
+    "unlink(SERVER_PID_FILE)","unlink(VPN_SERVER_LEASE_FILE)",
+    "vpn_server_lease_lock_release(lock_fd)"],"OpenVPN restart lease clear")
+ovpn_restart=body(openvpn,"void\nrestart_openvpn_server(void)")
+ordered(ovpn_restart,["stop_openvpn_server()","if (openvpn_server_lease_clear() != 0)",
+    "return;","start_openvpn_server()"],"OpenVPN restart stop/fence/start")
 print("VPN server lifecycle and callback source contract: PASS")

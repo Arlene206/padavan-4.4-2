@@ -1,3 +1,14 @@
+## 2026-11-12 09:35 CST (UTC+8) — Close OpenVPN/RC shared lease race and repair exact-head CI contract
+
+- Base main SHA: `d946bb4f6cd305924041665f100900597de05318`; parent `7213bce03885fac5c83b5c6e06e7eee390c259a2`. This change extends the VPN semantic source contract to inspect vpn_openvpn.c and adds that production source to both push and pull_request filters of the VPN stability workflow.
+- Resumed the handoff's P2 OpenVPN/RC shared lease-lock and late-callback stop-fence task. The production implementation already present on the base SHA uses one root-owned 0620 root:nogroup lock in APP_OPENVPN builds, PID-file marker removal before snapshot clear under that lock, post-lock parent-PID validation and stale-callback hook suppression. PPP-only builds retain a root-private lease lock.
+- Fixed a syntax error in scripts/check_vpn_server_lifecycle.py on commit d946bb4f6cd305924041665f100900597de05318: the FIFO and permission assertions had been split into malformed nested require() calls. On that exact SHA, VPN stability [43132697870] and AI docs [43132697890] both passed. Full logs/steps inspected; lifecycle lock, callback identity, shared lease lock, integrated source contract and handoff docs validator all printed PASS (root log=37/119; archives=7/22/18).
+- Added OpenVPN-side integration contracts for PID-file ownership/parent fencing, shared-lock-before-identity-check ordering, no-follow lease reads and staged publication, stale hook suppression, root PID-marker/snapshot clear order, and restart stop/clear/start ordering. The workflow now triggers symmetrically on changes to vpn_openvpn.c; exact-head Actions for this checker expansion are the next required validation.
+- FTP failed-upload cleanup remains P2 OPEN/BLOCKED: Linux 4.4 offers no inode-conditional unlink-by-fd, and the current fstatat()/unlinkat() pair cannot guarantee race-free deletion against non-cooperating writers. Do not patch without a proved design preserving STOR/APPE/REST/STOU behavior. Continue the broader RC/add-on process-control audit after exact-head CI.
+- Root dev_log.md grows 37→38 complete records; no rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- Production MIPS/uClibc object/full firmware/TRX builds, real router OpenVPN authentication/stop timing and all L4 hardware behavior remain NOT VERIFIED.
+
+---
 ## 2026-11-12 08:38 CST (UTC+8) — Unify OpenVPN and RC VPN lease serialization
 
 - Base main SHA: `6e5d19556c22f658eea802a36ede63885927f57b`. Exact-base OpenVPN [43077082467], AI docs [43077082454] and infosvr [43077082525] were SUCCESS; all steps and complete logs were inspected. The docs validator reported root log=36/119 and archives=7/22/18.
