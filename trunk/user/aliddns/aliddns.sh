@@ -124,16 +124,21 @@ aliddns_check () {
 
 aliddns_get_status
 if [ "$aliddns_enable" != "1" ] && [ "$needed_restart" = "1" ] ; then
-	[ ! -z "$(ps -w | grep "$scriptname keep" | grep -v grep )" ] && logger -t "【aliddns动态域名】" "停止 aliddns" && aliddns_close
-	{ kill_ps "$scriptname" exit0; exit 0; }
+	aliddns_find_keeper_pids || return 1
+	[ -z "$ALIDDNS_KEEPER_PIDS" ] || logger -t "【aliddns动态域名】" "停止 aliddns"
+	aliddns_close || return $?
+	return 0
 fi
 if [ "$aliddns_enable" = "1" ] ; then
 	if [ "$needed_restart" = "1" ] ; then
-		aliddns_close
+		aliddns_close || return $?
 		"$scriptfilepath" keep 9>&- &
 		exit 0
 	else
-		[ -z "$(ps -w | grep "$scriptname keep" | grep -v grep )" ] || [ ! -s "`which curl`" ] && aliddns_restart
+		aliddns_find_keeper_pids || return 1
+		if [ -z "$ALIDDNS_KEEPER_PIDS" ] || [ ! -s "`which curl`" ]; then
+			aliddns_restart
+		fi
 	fi
 fi
 }
@@ -153,23 +158,130 @@ fi
 done
 }
 
-kill_ps () {
+# Match only the exact script-path argument followed by the "keep" action.
+# /proc cmdline is NUL-delimited; converting it to lines avoids grep-pattern
+# matches against unrelated commands that merely contain the script name.
+aliddns_keeper_pid_matches() {
+	aliddns_pid="$1"
+	aliddns_proc_root="${2:-${ALIDDNS_PROC_ROOT:-/proc}}"
+	case "$aliddns_pid" in
+		''|*[!0-9]*|0|1) return 1 ;;
+	esac
+	[ "$aliddns_pid" != "$$" ] || return 1
+	[ -n "$scriptfilepath" ] || return 1
+	[ -r "$aliddns_proc_root/$aliddns_pid/cmdline" ] || return 1
 
-COMMAND="$1"
-if [ ! -z "$COMMAND" ] ; then
-	eval $(ps -w | grep "$COMMAND" | grep -v $$ | grep -v grep | awk '{print "kill "$1";";}')
-	eval $(ps -w | grep "$COMMAND" | grep -v $$ | grep -v grep | awk '{print "kill -9 "$1";";}')
-fi
-if [ "$2" == "exit0" ] ; then
-	exit 0
-fi
+	aliddns_process_args="$(tr '\000' '\n' < "$aliddns_proc_root/$aliddns_pid/cmdline")" || return 1
+	case "
+$aliddns_process_args" in
+		*"
+$scriptfilepath
+keep
+"*) return 0 ;;
+	esac
+	return 1
+}
+
+# Keep the discovered PID set stable for this stop attempt. A missing /proc
+# view is an error, not proof that the service is stopped.
+aliddns_find_keeper_pids() {
+	ALIDDNS_KEEPER_PIDS=""
+	aliddns_proc_root="${ALIDDNS_PROC_ROOT:-/proc}"
+	if [ ! -d "$aliddns_proc_root" ] || [ ! -r "$aliddns_proc_root/self/cmdline" ]; then
+		logger -t "AliDDNS" "无法读取 /proc，拒绝确认 keeper 已停止"
+		return 1
+	fi
+
+	for aliddns_cmdline_file in "$aliddns_proc_root"/[0-9]*/cmdline; do
+		[ -r "$aliddns_cmdline_file" ] || continue
+		aliddns_pid="${aliddns_cmdline_file%/cmdline}"
+		aliddns_pid="${aliddns_pid##*/}"
+		if aliddns_keeper_pid_matches "$aliddns_pid" "$aliddns_proc_root"; then
+			if [ -n "$ALIDDNS_KEEPER_PIDS" ]; then
+				ALIDDNS_KEEPER_PIDS="$ALIDDNS_KEEPER_PIDS $aliddns_pid"
+			else
+				ALIDDNS_KEEPER_PIDS="$aliddns_pid"
+			fi
+		fi
+	done
+	return 0
+}
+
+# TERM gets five seconds. Only processes that still have the exact keeper
+# argv are escalated to KILL; two more seconds confirm disappearance. A
+# failed postcondition prevents restart from starting a second keeper.
+aliddns_stop_keeper() {
+	aliddns_proc_root="${ALIDDNS_PROC_ROOT:-/proc}"
+	aliddns_find_keeper_pids || return 1
+	aliddns_stop_pids="$ALIDDNS_KEEPER_PIDS"
+	[ -n "$aliddns_stop_pids" ] || return 0
+
+	for aliddns_pid in $aliddns_stop_pids; do
+		if aliddns_keeper_pid_matches "$aliddns_pid" "$aliddns_proc_root"; then
+			if ! kill -TERM "$aliddns_pid" 2>/dev/null &&
+			   aliddns_keeper_pid_matches "$aliddns_pid" "$aliddns_proc_root"; then
+				logger -t "AliDDNS" "无法向 keeper PID $aliddns_pid 发送 TERM"
+			fi
+		fi
+	done
+
+	aliddns_attempt=0
+	while [ "$aliddns_attempt" -lt 5 ]; do
+		aliddns_remaining_pids=""
+		for aliddns_pid in $aliddns_stop_pids; do
+			if aliddns_keeper_pid_matches "$aliddns_pid" "$aliddns_proc_root"; then
+				aliddns_remaining_pids="$aliddns_remaining_pids $aliddns_pid"
+			fi
+		done
+		[ -z "$aliddns_remaining_pids" ] && return 0
+		sleep 1
+		aliddns_attempt=$((aliddns_attempt + 1))
+	done
+
+	aliddns_remaining_pids=""
+	for aliddns_pid in $aliddns_stop_pids; do
+		if aliddns_keeper_pid_matches "$aliddns_pid" "$aliddns_proc_root"; then
+			aliddns_remaining_pids="$aliddns_remaining_pids $aliddns_pid"
+		fi
+	done
+	for aliddns_pid in $aliddns_remaining_pids; do
+		if aliddns_keeper_pid_matches "$aliddns_pid" "$aliddns_proc_root"; then
+			if ! kill -KILL "$aliddns_pid" 2>/dev/null &&
+			   aliddns_keeper_pid_matches "$aliddns_pid" "$aliddns_proc_root"; then
+				logger -t "AliDDNS" "无法向残留 keeper PID $aliddns_pid 发送 KILL"
+			fi
+		fi
+	done
+
+	aliddns_attempt=0
+	while [ "$aliddns_attempt" -lt 2 ]; do
+		aliddns_remaining_pids=""
+		for aliddns_pid in $aliddns_stop_pids; do
+			if aliddns_keeper_pid_matches "$aliddns_pid" "$aliddns_proc_root"; then
+				aliddns_remaining_pids="$aliddns_remaining_pids $aliddns_pid"
+			fi
+		done
+		[ -z "$aliddns_remaining_pids" ] && return 0
+		sleep 1
+		aliddns_attempt=$((aliddns_attempt + 1))
+	done
+
+	aliddns_remaining_pids=""
+	for aliddns_pid in $aliddns_stop_pids; do
+		if aliddns_keeper_pid_matches "$aliddns_pid" "$aliddns_proc_root"; then
+			aliddns_remaining_pids="$aliddns_remaining_pids $aliddns_pid"
+		fi
+	done
+	if [ -n "$aliddns_remaining_pids" ]; then
+		logger -t "AliDDNS" "keeper 未在有界等待内退出，残留 PID:$aliddns_remaining_pids"
+		return 1
+	fi
+	return 0
 }
 
 aliddns_close () {
 
-kill_ps "$ALIDDNS_HELPER"
-kill_ps "_aliddns.sh"
-kill_ps "$scriptname"
+	aliddns_stop_keeper
 
 }
 
@@ -826,8 +938,9 @@ aliddns_lifecycle_lock_execute() {
 }
 
 aliddns_lifecycle_control_start() {
+	# A new keeper must not overlap a process whose stop postcondition failed.
+	aliddns_close || return $?
 	# Recompute the config digest after closing the prior keeper.
-	aliddns_close
 	nvram set aliddns_status=0 || return $?
 	aliddns_check
 }

@@ -89,6 +89,12 @@ lifecycle_lock_execute = function_body(source, "aliddns_lifecycle_lock_execute()
 lifecycle_control_start = function_body(source, "aliddns_lifecycle_control_start() {")
 lifecycle_locked_action = function_body(source, "aliddns_lifecycle_locked_action() {")
 lifecycle_lock_run = function_body(source, "aliddns_lifecycle_lock_run() {")
+keeper_pid_matches = function_body(source, "aliddns_keeper_pid_matches() {")
+find_keeper_pids = function_body(source, "aliddns_find_keeper_pids() {")
+stop_keeper = function_body(source, "aliddns_stop_keeper() {")
+keeper_close = function_body(source, "aliddns_close () {")
+lifecycle_check = function_body(source, "aliddns_check () {")
+lifecycle_control_start = function_body(source, "aliddns_lifecycle_control_start() {")
 restart_service = function_body(services, "void restart_aliddns(void){")
 
 require('ALIDDNS_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt"' in source and
@@ -224,6 +230,40 @@ require('eval("/usr/bin/aliddns.sh","restart");' in restart_service and
         'stop_aliddns();' not in restart_service and
         'start_aliddns();' not in restart_service,
         "RC restart must be one atomic launcher operation rather than separate stop/start calls")
+
+require('aliddns_process_args="$(tr ' in keeper_pid_matches and
+        '$scriptfilepath' in keeper_pid_matches and
+        'keep' in keeper_pid_matches and
+        '"$aliddns_pid" != "$$"' in keeper_pid_matches and
+        'aliddns_proc_root' in keeper_pid_matches,
+        "keeper identity must match the exact script-path and keep argv, excluding the current shell")
+require('for aliddns_cmdline_file in "$aliddns_proc_root"/[0-9]*/cmdline' in find_keeper_pids and
+        'aliddns_keeper_pid_matches "$aliddns_pid" "$aliddns_proc_root"' in find_keeper_pids and
+        'ALIDDNS_KEEPER_PIDS' in find_keeper_pids and
+        'self/cmdline' in find_keeper_pids,
+        "keeper discovery must enumerate process cmdlines and fail closed without /proc visibility")
+require('kill -TERM "$aliddns_pid"' in stop_keeper and
+        'kill -KILL "$aliddns_pid"' in stop_keeper and
+        'while [ "$aliddns_attempt" -lt 5 ]' in stop_keeper and
+        'while [ "$aliddns_attempt" -lt 2 ]' in stop_keeper and
+        'aliddns_keeper_pid_matches "$aliddns_pid" "$aliddns_proc_root"' in stop_keeper,
+        "keeper stop must revalidate process identity, bound TERM/KILL waits and check disappearance")
+require('aliddns_stop_keeper' in keeper_close and
+        'ps -w' not in source and 'kill_ps' not in source and
+        'eval $(ps' not in source,
+        "AliDDNS close must not use broad ps/grep/eval process selection")
+require('aliddns_find_keeper_pids || return 1' in lifecycle_check and
+        'aliddns_close || return $?' in lifecycle_check and
+        'ps -w' not in lifecycle_check and
+        lifecycle_control_start.index('aliddns_close || return $?') <
+        lifecycle_control_start.index('nvram set aliddns_status=0'),
+        "failed process discovery or stop must prevent the next keeper from starting")
+for marker in (
+    "AliDDNS keeper process identity matches exact script/keep argv: PASS",
+    "AliDDNS keeper stop uses TERM grace then bounded KILL postcondition: PASS",
+    "AliDDNS restart refuses to launch when keeper remains alive: PASS",
+):
+    require(marker in lifecycle_test, f"keeper stop host regression missing marker: {marker}")
 require('CONFIG_FLOCK=y' in busybox_config and
         'fd = xatoi_positive(argv[0]);' in flock_source and
         'if (flock(fd, mode) != 0)' in flock_source,

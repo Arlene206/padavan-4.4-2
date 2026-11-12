@@ -35,6 +35,10 @@ extract_function "aliddns_lifecycle_lock_execute() {"
 extract_function "aliddns_lifecycle_control_start() {"
 extract_function "aliddns_lifecycle_locked_action() {"
 extract_function "aliddns_lifecycle_lock_run() {"
+extract_function "aliddns_keeper_pid_matches() {"
+extract_function "aliddns_find_keeper_pids() {"
+extract_function "aliddns_stop_keeper() {"
+extract_function "aliddns_close () {"
 . "$FUNCTIONS"
 
 logger() {
@@ -170,3 +174,99 @@ aliddns_lifecycle_lock_run check
 printf 'check\n' > "$EXPECTED"
 cmp "$EXPECTED" "$ACTION_LOG"
 echo "AliDDNS restart close/start transaction and locked action dispatch: PASS"
+# Restore the source implementation of aliddns_close after the dispatcher
+# ordering stubs above, then exercise exact /proc argv matching and stop gates.
+CLOSE_FUNCTION="$TEST_DIR/aliddns-close.sh"
+awk -v signature='aliddns_close () {' '
+	$0 == signature { capture = 1 }
+	capture { print }
+	capture && $0 == "}" { exit }
+' "$SOURCE" > "$CLOSE_FUNCTION"
+. "$CLOSE_FUNCTION"
+
+PROC_ROOT="$TEST_DIR/proc"
+KILL_LOG="$TEST_DIR/kill.log"
+SLEEP_LOG="$TEST_DIR/sleep.log"
+mkdir -p "$PROC_ROOT/self" "$PROC_ROOT/101" "$PROC_ROOT/102" "$PROC_ROOT/103" "$PROC_ROOT/$"
+: > "$PROC_ROOT/self/cmdline"
+scriptfilepath="$TEST_DIR/aliddns.sh"
+ALIDDNS_PROC_ROOT="$PROC_ROOT"
+printf 'sh\000%s\000keep\000' "$scriptfilepath" > "$PROC_ROOT/101/cmdline"
+printf 'sh\000%s\000stop\000' "$scriptfilepath" > "$PROC_ROOT/102/cmdline"
+printf 'sh\000%s-extra\000keep\000' "$scriptfilepath" > "$PROC_ROOT/103/cmdline"
+printf 'sh\000%s\000keep\000' "$scriptfilepath" > "$PROC_ROOT/$/cmdline"
+
+aliddns_find_keeper_pids
+[ "$ALIDDNS_KEEPER_PIDS" = "101" ] || {
+	echo "keeper discovery did not require exact script path + keep argv or excluded self" >&2
+	exit 1
+}
+echo "AliDDNS keeper process identity matches exact script/keep argv: PASS"
+
+kill() {
+	printf '%s %s\n' "$1" "$2" >> "$KILL_LOG"
+	case "$MOCK_KILL_BEHAVIOR:$1" in
+		graceful:-TERM|force:-KILL) rm -f "$PROC_ROOT/$2/cmdline" ;;
+	esac
+	return 0
+}
+sleep() {
+	printf '%s\n' "$1" >> "$SLEEP_LOG"
+}
+
+# A cooperative keeper exits after TERM and is never sent KILL.
+: > "$KILL_LOG"
+: > "$SLEEP_LOG"
+MOCK_KILL_BEHAVIOR=graceful
+aliddns_close
+[ ! -e "$PROC_ROOT/101/cmdline" ] || {
+	echo "TERM did not remove the cooperative keeper fixture" >&2
+	exit 1
+}
+[ "$(cat "$KILL_LOG")" = "-TERM 101" ] || {
+	echo "cooperative stop sent an unexpected signal or targeted a decoy" >&2
+	exit 1
+}
+
+# A keeper ignoring TERM is escalated only after the five-second grace period.
+printf 'sh\000%s\000keep\000' "$scriptfilepath" > "$PROC_ROOT/101/cmdline"
+: > "$KILL_LOG"
+: > "$SLEEP_LOG"
+MOCK_KILL_BEHAVIOR=force
+aliddns_stop_keeper
+[ "$(cat "$KILL_LOG")" = "$(printf '%s\n' '-TERM 101' '-KILL 101')" ] || {
+	echo "TERM/KILL escalation did not remain scoped to the exact keeper" >&2
+	exit 1
+}
+[ "$(wc -l < "$SLEEP_LOG" | tr -d ' ')" -eq 5 ] || {
+	echo "TERM grace wait was not bounded to five one-second intervals" >&2
+	exit 1
+}
+echo "AliDDNS keeper stop uses TERM grace then bounded KILL postcondition: PASS"
+
+# An unkillable matching process must fail the close gate; restart must not
+# mutate service state or dispatch a replacement keeper.
+printf 'sh\000%s\000keep\000' "$scriptfilepath" > "$PROC_ROOT/101/cmdline"
+: > "$KILL_LOG"
+: > "$SLEEP_LOG"
+: > "$ACTION_LOG"
+MOCK_KILL_BEHAVIOR=stubborn
+action_status=0
+aliddns_lifecycle_control_start || action_status=$?
+[ "$action_status" -ne 0 ] || {
+	echo "restart accepted a keeper that survived TERM and KILL" >&2
+	exit 1
+}
+[ ! -s "$ACTION_LOG" ] || {
+	echo "restart mutated NVRAM or dispatched start after failed stop" >&2
+	exit 1
+}
+[ "$(cat "$KILL_LOG")" = "$(printf '%s\n' '-TERM 101' '-KILL 101')" ] || {
+	echo "failed stop signalled a process outside the exact keeper identity" >&2
+	exit 1
+}
+[ "$(wc -l < "$SLEEP_LOG" | tr -d ' ')" -eq 7 ] || {
+	echo "failed stop did not enforce its bounded TERM and KILL windows" >&2
+	exit 1
+}
+echo "AliDDNS restart refuses to launch when keeper remains alive: PASS"
