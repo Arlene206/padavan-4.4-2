@@ -169,6 +169,12 @@ EEE
 }
 
 start_adg(){
+  # Avoid duplicate daemon instances and repeated DNS/firewall mutations.
+  if pidof AdGuardHome >/dev/null 2>&1; then
+    logger -t "AdGuardHome" "AdGuardHome 已在运行，跳过重复启动"
+    return 0
+  fi
+
   # Do not alter resolver/firewall state until the credential-bearing config
   # has been validated, privately published and made owner-readable only.
   if ! getconfig; then
@@ -183,10 +189,46 @@ start_adg(){
 	eval "AdGuardHome -c $adg_file -w /tmp/AdGuardHome -v" &
 }
 
+adg_wait_stopped() {
+  adg_wait=0
+  while [ "$adg_wait" -lt 5 ]; do
+    if ! pidof AdGuardHome >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+    adg_wait=$((adg_wait + 1))
+  done
+  if pidof AdGuardHome >/dev/null 2>&1; then
+    return 1
+  fi
+  return 0
+}
+
+adg_stop_daemon() {
+  if ! pidof AdGuardHome >/dev/null 2>&1; then
+    return 0
+  fi
+
+  killall AdGuardHome >/dev/null 2>&1
+  if adg_wait_stopped; then
+    return 0
+  fi
+
+  logger -t "AdGuardHome" "正常停止超时，尝试强制停止"
+  # Re-enumerate by process name; do not signal a stale numeric PID snapshot.
+  killall -9 AdGuardHome >/dev/null 2>&1
+  adg_wait_stopped
+}
+
 stop_adg(){
-  rm -rf /tmp/AdGuardHome
   logger -t "AdGuardHome" "停止 AdGuardHome"
-  killall -9 AdGuardHome
+  if ! adg_stop_daemon; then
+    logger -t "AdGuardHome" "进程仍在运行，保留工作目录和 DNS/防火墙状态"
+    return 1
+  fi
+
+  # Runtime files and traffic redirection are removed only after process exit.
+  rm -rf /tmp/AdGuardHome
   del_dns
   clear_iptable
 }
