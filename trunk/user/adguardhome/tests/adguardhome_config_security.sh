@@ -200,7 +200,7 @@ ip6tables() {
 if ! set_iptable; then
 	fail "initial address-independent IPv4/IPv6 redirect setup failed"
 fi
-[ "$(wc -l < "$TEST_ADG_IPV4_RULES" | tr -d ' ')" = 2 ] || fail "IPv4 redirect setup did not publish exactly two protocol rules"
+[ "$(wc -l < "$TEST_ADG_IPV4_RULES" | tr -d ' ')" = 2 ] || fail "IPv4 redirect setup did not publish exactly two protocol rules (mode=$(nvram get adg_redirect); calls=$(cat "$TEST_ADG_RULE_LOG"); state=$(cat "$TEST_ADG_IPV4_RULES"))"
 [ "$(wc -l < "$TEST_ADG_IPV6_RULES" | tr -d ' ')" = 2 ] || fail "IPv6 redirect setup did not publish exactly two protocol rules"
 grep -Fqx "$TEST_ADG_V4_TCP_RULE" "$TEST_ADG_IPV4_RULES" || fail "IPv4 TCP rule is not route-derived LOCAL"
 grep -Fqx "$TEST_ADG_V4_UDP_RULE" "$TEST_ADG_IPV4_RULES" || fail "IPv4 UDP rule is not route-derived LOCAL"
