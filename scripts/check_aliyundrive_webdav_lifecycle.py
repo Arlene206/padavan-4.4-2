@@ -212,7 +212,7 @@ else:
     print("WARNING: bundled daemon has no compiled credential environment interface; secrets remain in argv until a compatible binary is integrated.")
 
 require('-S "$read_buf_size" --cache-size "$cache_size"' in start and
-        '--cache-ttl "$cache_ttl" --workdir "/tmp/$NAME"' in start,
+        '--cache-ttl "$cache_ttl" --workdir "$ALD_WORK_DIR"' in start,
         "buffer/cache/workdir settings must retain their individually quoted argv values")
 
 require('set -- "$@" --domain-id "$domain_id"' in start and

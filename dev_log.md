@@ -1,3 +1,17 @@
+## 2026-11-13 07:03 CST (UTC+8) — Update source checker for configurable AliyunDrive workdir
+
+- Base main SHA: a67610618da02275f4bad8433e5f6755a7f3d846.
+- Exact-head AliyunDrive run [43326575598] / job [131560419812]: shell syntax and QEMU SHA-bound v1.2.1 credential-env capability PASS. All host regressions passed, including private workdir/token permissions, owner/mode checks, symlink/hardlink rejection, inherited umask 077, RUST_LOG filter, exact env/no-argv credential privacy, bounded stop/start, duplicate-start and lock/readiness.
+- The final source/RC checker failed only because its existing argv contract still required --workdir "/tmp/$NAME" instead of the new configurable --workdir "$ALD_WORK_DIR". This stale static assertion—not launcher behavior or the host fixture—was the only AliyunDrive failure. The source checker is updated to require the actual configured workdir parameter.
+- Exact same-SHA unrelated workflows all SUCCESS: AI docs [43326575671] / job [131560419539] (root log=83/119; archives dev-log=7, handoff=22, roadmap=18), AliDDNS [43326575555] / job [131560419469], AdGuardHome [43326575649] / job [131560419668], infosvr [43326575524] / job [131560419403].
+- Exact-head Actions for THIS checker correction are PENDING; do not claim token-hardening L2 closure until the full source checker succeeds alongside the already-passing host regression and QEMU probe.
+- Root log count: 83→84 records, below the 120-record rotation threshold and 384 KiB early-rotation target; archive inventory remains 7/22/18. No archive/index rotation.
+- Changed paths: AliyunDrive source/RC checker, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and this log. No production launcher, host test, binary, GPT Session Rotator, branch or PR changed.
+- Resulting main commit: THIS COMMIT.
+- Next: inspect all exact-head workflows; verify the source checker, QEMU, host privacy/workdir/umask/lifecycle cases pass together, then proceed to FTP cleanup TOCTOU review.
+
+---
+
 ## 2026-11-13 06:56 CST (UTC+8) — Align workdir argv fixture with isolated test path
 
 - Base main SHA: 2cce075b10faf5b044b5a3b75bb06ae7335dd0af, direct child of the previously green credential-redaction checkpoint dbf15f4bd8472da954a9f5ce68e4b4b57f09f2bb.
