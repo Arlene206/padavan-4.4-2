@@ -1,3 +1,17 @@
+## 2026-11-13 07:12 CST (UTC+8) — Match FD-9 source contract to the background child subshell
+
+- Base main SHA: 2ebbd0eba0bfbdb09ae1361f2194bac600c29b34.
+- Exact-head AliyunDrive run [43327186519] / job [131562505132]: shell syntax and QEMU packaged v1.2.1 credential-env capability PASS; all host tests passed, including private token workdir, 0700/0600 permissions, owner/symlink/hardlink checks, child umask 077, RUST_LOG, exact credential env/no-argv, bounded stop/start, duplicate-start, lock and startup-presence checks.
+- The last source/RC contract failed because the checker still required the prior direct-background string '>/dev/null 2>&1 9>&- &' and did not account for the new background subshell. Production code closes FD 9 with exec 9>&- inside the subshell before starting the daemon, so the daemon cannot keep the lifecycle lock held; the actual group redirection is different. This follow-up updates the source contract to require that early close and the actual child group.
+- Other exact-head Actions all SUCCESS: AI docs [43327186729] / job [131562505235] (root log=84/119, archives 7/22/18), AliDDNS [43327186581] / job [131562504565], AdGuardHome [43327186702] / job [131562504857], infosvr [43327186506] / job [131562504329].
+- Exact-head Actions for THIS COMMIT are PENDING. No token-hardening L2 closure until source/RC checker passes together with the already-passing host/QEMU steps.
+- Root log count: 84→85 entries, below the 120-record rotation threshold and 384 KiB early-rotation target; archive inventory remains 7/22/18; no archive/index rotation.
+- Changed paths: AliyunDrive semantic source/RC checker, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and this log. No production launcher, host fixture, binary, branch, PR or GPT Session Rotator changed.
+- Resulting main commit: THIS COMMIT.
+- Next: verify exact-head AliyunDrive source/RC, QEMU, host security/lifecycle, and all sibling path-triggered Actions; then resume FTP cleanup TOCTOU.
+
+---
+
 ## 2026-11-13 07:03 CST (UTC+8) — Update source checker for configurable AliyunDrive workdir
 
 - Base main SHA: a67610618da02275f4bad8433e5f6755a7f3d846.

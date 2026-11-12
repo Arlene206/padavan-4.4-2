@@ -244,8 +244,9 @@ require('CONFIG_STAT=y' in busybox_config and 'CONFIG_FEATURE_STAT_FORMAT=y' in 
         'OPT_n' in flock_source and 'OPT_u' in flock_source,
         "target BusyBox must include flock with nonblocking and unlock support")
 
-require('>/dev/null 2>&1 9>&- &' in start,
-        "the background daemon must not inherit and retain the lifecycle lock descriptor")
+require('exec 9>&-\n        RUST_LOG=aliyundrive_webdav=warn' in start and
+        '>/dev/null 2>&1 9>&-\n      ) &' in start,
+        "the background child must close the lifecycle lock before daemon exec")
 
 require('kill_ald' in stop_wrapper,
         "the public stop action must propagate the checked kill_ald result")
