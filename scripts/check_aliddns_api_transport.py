@@ -183,8 +183,8 @@ push_filter_paths = tuple(line.strip() for line in push_filter_block.splitlines(
 pr_filter_paths = tuple(line.strip() for line in pr_filter_block.splitlines()
                         if line.strip().startswith('- "'))
 require(push_filter_paths == pr_filter_paths and
-        '      - "trunk/user/aliddns/tests/aliddns_nslookup_lifecycle.sh"' in push_filter_paths and
-        '      - "trunk/user/aliddns/aliddns.sh"' in push_filter_paths,
+        '- "trunk/user/aliddns/tests/aliddns_nslookup_lifecycle.sh"' in push_filter_paths and
+        '- "trunk/user/aliddns/aliddns.sh"' in push_filter_paths,
         "AliDDNS push and pull_request filters must symmetrically cover production source and every host test")
 
 initconfig_start = source.find("initconfig () {")
