@@ -68,7 +68,9 @@ kill() {
   return 1
 }
 
+set -- check
 . "$LAUNCHER"
+set --
 ALD_BIN="$TEST_DIR/mock-aliyundrive-webdav"
 
 # No-process stop is a no-op and must not signal anything.
