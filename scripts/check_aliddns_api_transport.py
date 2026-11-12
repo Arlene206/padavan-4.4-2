@@ -10,6 +10,7 @@ TEST_PATH = ROOT / "trunk/user/aliddns/tests/aliddns_api_transport.sh"
 IPV4_TEST_PATH = ROOT / "trunk/user/aliddns/tests/aliddns_ipv4_lookup.sh"
 NSLOOKUP_TEST_PATH = ROOT / "trunk/user/aliddns/tests/aliddns_nslookup_lifecycle.sh"
 CUSTOM_SCRIPT_TEST_PATH = ROOT / "trunk/user/aliddns/tests/aliddns_custom_script_lifecycle.sh"
+CA_BOOTSTRAP_TEST_PATH = ROOT / "trunk/user/aliddns/tests/copyscripts_ca_bootstrap.sh"
 WORKFLOW_PATH = ROOT / ".github/workflows/aliddns-api-transport.yml"
 IPV4_HELPER_PATH = ROOT / "trunk/user/aliddns/aliddns-ipv4.sh"
 DDNS_SCRIPT_PATH = ROOT / "trunk/user/aliddns/ddns_script.sh"
@@ -29,6 +30,7 @@ test = TEST_PATH.read_text()
 ipv4_test = IPV4_TEST_PATH.read_text()
 nslookup_test = NSLOOKUP_TEST_PATH.read_text()
 custom_script_test = CUSTOM_SCRIPT_TEST_PATH.read_text()
+ca_bootstrap_test = CA_BOOTSTRAP_TEST_PATH.read_text()
 workflow = WORKFLOW_PATH.read_text()
 ipv4_helper = IPV4_HELPER_PATH.read_text()
 ddns_script = DDNS_SCRIPT_PATH.read_text()
@@ -219,6 +221,13 @@ require('ddns_script_path="/etc/storage/ddns_script.sh"' in copy_scripts and
         '[ -L "$ddns_script_path" ]' in copy_scripts and
         "cp -rf /etc_ro/ddns_script.sh /etc/storage/" not in copy_scripts,
         "boot-time script seeding must refuse persistent DDNS symlinks")
+ca_install = function_body(copy_scripts, "install_ca_trust_store() {")
+require('if ! tar -xzf "$copyscripts_cert_archive" -C "$copyscripts_cert_dir"; then' in ca_install and
+        'if [ ! -r "$copyscripts_ca_bundle" ]; then' in ca_install and
+        "copyscripts_ca_status=1" in copy_scripts and
+        'exit "$copyscripts_ca_status"' in copy_scripts and
+        'if (system("/usr/bin/copyscripts.sh") != 0)' in rc,
+        "CA extraction must propagate tar and readable-bundle failures to the RC startup caller")
 require("curl -k" not in initconfig_body and "--no-check-certificate" not in initconfig_body and
         "http://" not in initconfig_body,
         "new persistent default script must not contain insecure public-IP sources")
@@ -262,5 +271,11 @@ for marker in (
     "AliDDNS ROMFS template seeding, atomic replacement and symlink rejection regression: PASS",
 ):
     require(marker in custom_script_test, f"custom-script host regression missing result marker: {marker}")
+
+for marker in (
+    "CA trust-store bootstrap success regression: PASS",
+    "CA trust-store bootstrap failure propagation regression: PASS",
+):
+    require(marker in ca_bootstrap_test, f"CA bootstrap regression missing result marker: {marker}")
 
 print("AliDDNS HTTPS transport, firmware trust-store, API status and RC integration contracts: PASS")
