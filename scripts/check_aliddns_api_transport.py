@@ -9,6 +9,7 @@ SOURCE_PATH = ROOT / "trunk/user/aliddns/aliddns.sh"
 TEST_PATH = ROOT / "trunk/user/aliddns/tests/aliddns_api_transport.sh"
 IPV4_TEST_PATH = ROOT / "trunk/user/aliddns/tests/aliddns_ipv4_lookup.sh"
 NSLOOKUP_TEST_PATH = ROOT / "trunk/user/aliddns/tests/aliddns_nslookup_lifecycle.sh"
+CUSTOM_SCRIPT_TEST_PATH = ROOT / "trunk/user/aliddns/tests/aliddns_custom_script_lifecycle.sh"
 WORKFLOW_PATH = ROOT / ".github/workflows/aliddns-api-transport.yml"
 IPV4_HELPER_PATH = ROOT / "trunk/user/aliddns/aliddns-ipv4.sh"
 DDNS_SCRIPT_PATH = ROOT / "trunk/user/aliddns/ddns_script.sh"
@@ -27,6 +28,7 @@ source = SOURCE_PATH.read_text()
 test = TEST_PATH.read_text()
 ipv4_test = IPV4_TEST_PATH.read_text()
 nslookup_test = NSLOOKUP_TEST_PATH.read_text()
+custom_script_test = CUSTOM_SCRIPT_TEST_PATH.read_text()
 workflow = WORKFLOW_PATH.read_text()
 ipv4_helper = IPV4_HELPER_PATH.read_text()
 ddns_script = DDNS_SCRIPT_PATH.read_text()
@@ -153,10 +155,14 @@ require("/usr/bin/aliddns-ipv4.sh" in ddns_script and "arIpAddress6" in ddns_scr
         "curl -k" not in ddns_script and "--no-check-certificate" not in ddns_script and
         "http://" not in ddns_script,
         "stock ROMFS DDNS script must use the secure IPv4 helper and preserve IPv6")
-require("/usr/bin/aliddns-ipv4.sh" in ddns_check and
+require('ddns_script_path="${ALIDDNS_DDNS_SCRIPT_PATH:-/etc/storage/ddns_script.sh}"' in ddns_check and
+        '[ -L "$ddns_script_path" ]' in ddns_check and
+        'arIpAddress=""' in ddns_check and
+        'if ! . "$ddns_script_path"; then' in ddns_check and
+        "/usr/bin/aliddns-ipv4.sh" in ddns_check and
         'hostIP=$(/usr/bin/aliddns-ipv4.sh)' in ddns_check and
         "aliddns_ipv4_valid" in ddns_check and "aliddns_ipv6_valid" in ddns_check,
-        "AliDDNS check must validate custom-script output and fail closed on invalid IPv4/IPv6")
+        "AliDDNS check must reject symlinks and failed custom-script loads before validating addresses")
 require("curl" not in nslookup and "wget" not in nslookup and "http://" not in nslookup and
         "killall" not in nslookup and
         'lookup_candidate_dir="/tmp/arNslookup.$$.${lookup_index}"' in nslookup and
@@ -191,6 +197,7 @@ pr_filter_paths = tuple(line.strip() for line in pr_filter_block.splitlines()
                         if line.strip().startswith('- "'))
 require(push_filter_paths == pr_filter_paths and
         '- "trunk/user/aliddns/tests/aliddns_nslookup_lifecycle.sh"' in push_filter_paths and
+        '- "trunk/user/aliddns/tests/aliddns_custom_script_lifecycle.sh"' in push_filter_paths and
         '- "trunk/user/aliddns/aliddns.sh"' in push_filter_paths,
         "AliDDNS push and pull_request filters must symmetrically cover production source and every host test")
 
@@ -199,11 +206,19 @@ initconfig_end = source.find("\n}\n\ninitconfig\n", initconfig_start)
 require(initconfig_start >= 0 and initconfig_end > initconfig_start,
         "could not locate persistent DDNS default-script initializer")
 initconfig_body = source[initconfig_start:initconfig_end]
-require("/usr/bin/aliddns-ipv4.sh" in initconfig_body and
-        "/usr/bin/aliddns-ipv4.sh ppp0" in initconfig_body,
-        "new default persistent script must use helper and retain PPPoE source binding")
-require('if [ ! -s "/etc/storage/ddns_script.sh" ] ; then' in initconfig_body,
-        "existing user-persistent DDNS script must not be overwritten")
+require('ddns_template_path="${ALIDDNS_DDNS_TEMPLATE_PATH:-/etc_ro/ddns_script.sh}"' in initconfig_body and
+        'cp "$ddns_template_path" "$ddns_stage_file"' in initconfig_body and
+        'chmod 755 "$ddns_stage_file"' in initconfig_body and
+        'mv -f "$ddns_stage_file" "$ddns_script_path"' in initconfig_body and
+        '[ ! -L "$ddns_script_path" ]' in initconfig_body and
+        "trap \'rm -rf \"$ddns_stage_dir\"\' 0" in initconfig_body,
+        "default initializer must seed the packaged ROMFS template through a private atomic stage and reject symlinks")
+require('$(ROMFSINST) /etc_ro/ddns_script.sh' in package,
+        "packaged DDNS default must be installed read-only in ROMFS")
+require('ddns_script_path="/etc/storage/ddns_script.sh"' in copy_scripts and
+        '[ -L "$ddns_script_path" ]' in copy_scripts and
+        "cp -rf /etc_ro/ddns_script.sh /etc/storage/" not in copy_scripts,
+        "boot-time script seeding must refuse persistent DDNS symlinks")
 require("curl -k" not in initconfig_body and "--no-check-certificate" not in initconfig_body and
         "http://" not in initconfig_body,
         "new persistent default script must not contain insecure public-IP sources")
@@ -239,6 +254,8 @@ for marker in (
     "successful update did not save the record ID",
     "AliDDNS HTTPS-only request, CA verification, timeout and HTTP-status regression: PASS",
     "AliDDNS API failure propagation and update publication regression: PASS",
+    "AliDDNS custom-script source failure and strict address validation regression: PASS",
+    "AliDDNS ROMFS template seeding, atomic replacement and symlink rejection regression: PASS",
 ):
     require(marker in test, f"host regression missing case or result marker: {marker}")
 

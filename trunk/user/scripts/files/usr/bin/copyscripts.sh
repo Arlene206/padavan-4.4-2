@@ -37,9 +37,17 @@ if [ ! -f "/etc/storage/smartdns_custom.conf" ] ; then
 cp -rf /etc_ro/smartdns_custom.conf /etc/storage/
 chmod 755 "/etc/storage/smartdns_custom.conf"
 fi
-if [ ! -f "/etc/storage/ddns_script.sh" ] ; then
-cp -rf /etc_ro/ddns_script.sh /etc/storage/
-chmod 755 "/etc/storage/ddns_script.sh"
+ddns_script_path="/etc/storage/ddns_script.sh"
+if [ -L "$ddns_script_path" ]; then
+	logger -t "启动脚本" "拒绝符号链接形式的 DDNS 地址获取脚本：$ddns_script_path"
+elif [ ! -e "$ddns_script_path" ]; then
+	if cp -f /etc_ro/ddns_script.sh "$ddns_script_path"; then
+		chmod 755 "$ddns_script_path" || logger -t "启动脚本" "DDNS 默认脚本权限设置失败"
+	else
+		logger -t "启动脚本" "DDNS 默认脚本复制失败"
+	fi
+elif [ ! -f "$ddns_script_path" ]; then
+	logger -t "启动脚本" "DDNS 地址获取路径不是普通文件：$ddns_script_path"
 fi
 if [ ! -f "/etc/storage/adbyby_adblack.sh" ] ; then
 cp -rf /etc_ro/adbyby_adblack.sh /etc/storage/
