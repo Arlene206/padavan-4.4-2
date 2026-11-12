@@ -254,9 +254,13 @@ for marker in (
     "successful update did not save the record ID",
     "AliDDNS HTTPS-only request, CA verification, timeout and HTTP-status regression: PASS",
     "AliDDNS API failure propagation and update publication regression: PASS",
+):
+    require(marker in test, f"host regression missing case or result marker: {marker}")
+
+for marker in (
     "AliDDNS custom-script source failure and strict address validation regression: PASS",
     "AliDDNS ROMFS template seeding, atomic replacement and symlink rejection regression: PASS",
 ):
-    require(marker in test, f"host regression missing case or result marker: {marker}")
+    require(marker in custom_script_test, f"custom-script host regression missing result marker: {marker}")
 
 print("AliDDNS HTTPS transport, firmware trust-store, API status and RC integration contracts: PASS")
