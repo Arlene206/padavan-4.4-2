@@ -3,6 +3,8 @@
 NAME=aliyundrive-webdav
 ALD_BIN=/usr/bin/aliyundrive-webdav
 ALD_STOP_WAIT_SECONDS=5
+ALD_START_WAIT_SECONDS=10
+ALD_LOCK_FILE=${ALD_LOCK_FILE:-/var/lock/aliyundrive-webdav.lock}
 
 ald_wait_stopped() {
   ald_wait=0
@@ -20,7 +22,57 @@ ald_wait_stopped() {
   return 0
 }
 
-kill_ald() {
+
+ald_wait_started() {
+  ald_wait=0
+  while [ "$ald_wait" -lt "$ALD_START_WAIT_SECONDS" ]; do
+    if pidof "$NAME" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+    ald_wait=$((ald_wait + 1))
+  done
+
+  if pidof "$NAME" >/dev/null 2>&1; then
+    return 0
+  fi
+  return 1
+}
+
+ald_run_locked() {
+  case "$ALD_LOCK_FILE" in
+    */*)
+      ald_lock_dir=${ALD_LOCK_FILE%/*}
+      [ -n "$ald_lock_dir" ] || ald_lock_dir=/
+      ;;
+    *)
+      ald_lock_dir=.
+      ;;
+  esac
+  if ! mkdir -p "$ald_lock_dir"; then
+    logger -t "阿里云盘" "无法创建生命周期锁目录"
+    return 1
+  fi
+  # Keep one stable inode: never unlink the lock file after releasing it.
+  (umask 077; : >> "$ALD_LOCK_FILE") || {
+    logger -t "阿里云盘" "无法打开生命周期锁文件"
+    return 1
+  }
+  exec 9>>"$ALD_LOCK_FILE"
+  if ! flock -n 9; then
+    exec 9>&-
+    logger -t "阿里云盘" "另一个生命周期操作正在执行"
+    return 1
+  fi
+
+  "$@"
+  ald_status=$?
+  flock -u 9 >/dev/null 2>&1 || :
+  exec 9>&-
+  return "$ald_status"
+}
+
+ald_kill_unlocked() {
   NAME=aliyundrive-webdav
   if ! pidof "$NAME" >/dev/null 2>&1; then
     return 0
@@ -43,7 +95,7 @@ kill_ald() {
   return 1
 }
 
-start_ald() {
+ald_start_unlocked() {
   logger -t "阿里云盘" "正在启动..."
   NAME=aliyundrive-webdav
   enable="$(nvram get aliyundrive_enable)"
@@ -90,12 +142,24 @@ start_ald() {
       "$ALD_BIN" "$@" --host "$host" --root "$root" -p "$port" \
         -r "$refresh_token" -U "$auth_user" -W "$auth_password" \
         -S "$read_buf_size" --cache-size "$cache_size" \
-        --cache-ttl "$cache_ttl" --workdir "/tmp/$NAME" >/dev/null 2>&1 &
+        --cache-ttl "$cache_ttl" --workdir "/tmp/$NAME" >/dev/null 2>&1 9>&- &
+      if ! ald_wait_started; then
+        logger -t "阿里云盘" "启动后未能确认服务进程就绪"
+        return 1
+      fi
       ;;
     *)
-      kill_ald
+      ald_kill_unlocked
       ;;
   esac
+}
+
+kill_ald() {
+  ald_run_locked ald_kill_unlocked
+}
+
+start_ald() {
+  ald_run_locked ald_start_unlocked
 }
 
 stop_ald() {

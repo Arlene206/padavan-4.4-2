@@ -1,26 +1,31 @@
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2. Only `main` is authorized for development, commits and push validation. Current base main SHA for this checkpoint: `fcdc05e76e6522f9f35b59b71bd222b884cb2ce4`; re-fetch live main before every write.
-- Remote branch inventory contains only `main`. Legacy PR #1 is CLOSED (not merged) and remains read-only; no open PRs. GPT Session Rotator remains immutable.
-- The previously active XY-C1 target-build task is now complete at L3 on this exact base SHA. XY-C1 push run [43273846470] / job [131376901927] passed all Samba, DHCPv6 DUID and vsftpd prechecks, the complete MIPS firmware build, TRX output verification and artifact upload. Uploaded artifact `XY-C1-firmware-fcdc05e76e6522f9f35b59b71bd222b884cb2ce4` is 12,573,414 bytes (SHA-256 `f4adfa9a13224e519cd580946e30e6a3d336b3da410f0842051eb697a7baee08`).
-- The BusyBox ROMFS recursive Kbuild fix in this base is confirmed by the successful target build. Six other exact-head checks also passed: infosvr [43273846610], AliyunDrive [43273846558], AdGuardHome [43273846504], AI handoff docs [43273846442], HTTPD security [43273846549] and AliDDNS [43273846513].
-- One relevant exact-head check is red: storage-hotplug [43273846489] / job [131376902484] failed in its standalone host BusyBox 1.24.2 build at `networking/udhcp/dhcp6c_common.c:38`, because that direct build omitted the shared source include path for `dhcp6c_duid_file_policy.h`. All preceding shell/Optware lifecycle regression steps passed; later storage regression steps were skipped after the BusyBox build failure.
-- This is a host workflow integration gap, not evidence of a production firmware build failure: the firmware package Makefile supplies `EXTRA_CFLAGS += -I$(ROOTDIR)/user/shared/src` through package `MAKE_VARS`; the independent CI host build bypasses that package wrapper and had retained an empty `CONFIG_EXTRA_CFLAGS`.
+- Repository: Arlene206/padavan-4.4-2. Only `main` is authorized for development, commits and push validation. Base main SHA for this iteration: `04abdb06ccc82ba6e7ffb65c028a0db3d3889272`; the resulting implementation + regression + governance commit is THIS COMMIT. Re-fetch live `main` before every subsequent write.
+- Remote branch inventory at recovery contained only `main`. Legacy PR #1 is CLOSED (not merged), read-only; no open PRs. GPT Session Rotator remains immutable.
+- The previous active P1 storage-hotplug host BusyBox task is complete. On exact SHA `04abdb06ccc82ba6e7ffb65c028a0db3d3889272`, storage-hotplug push run [43278371123] / job [131392758595] passed the standalone BusyBox 1.24.2 build and every downstream storage regression, including eject inventory, deferred child-result, daemon-stop postcondition and the whole storage caller graph/lock-order checks. AI handoff docs run [43278370932] / job [131392757241] also passed on the same SHA.
+- The prior XY-C1 target firmware milestone remains L3-verified only on `fcdc05e76e6522f9f35b59b71bd222b884cb2ce4`: run [43273846470] / job [131376901927] passed MIPS build, TRX verification and artifact upload. Artifact size 12,573,414 bytes; SHA-256 `f4adfa9a13224e519cd580946e30e6a3d336b3da410f0842051eb697a7baee08`. This result is not a new L3 build on the present code commit. L4 router/hardware validation remains NOT VERIFIED.
 
-## Active task — Repair storage-hotplug host BusyBox shared-header build
+## Active task
 
-1. In `.github/workflows/storage-hotplug-stability.yml`, set the disposable host BusyBox `.config` `CONFIG_EXTRA_CFLAGS` to `-I$PWD/trunk/user/shared/src` before `oldconfig`; assert Kconfig retains that exact setting. Do not modify the tracked firmware board config.
-2. Extend the workflow's semantic contract to require the DHCPv6 common source include, production package include flag, BusyBox `Makefile.flags` config mapping and host-test include propagation.
-3. Push only to `main`; inspect the storage-hotplug and AI handoff documentation runs for the exact resulting `main` SHA. Confirm the BusyBox host build links and the downstream storage tests run; repair the first causal failure if another appears.
-4. Preserve the confirmed XY-C1 L3 result above. L4 physical router flashing/boot is a separate unverified milestone.
+The storage-hotplug host-only include-path blocker is closed at L2 on `04abdb06ccc82ba6e7ffb65c028a0db3d3889272`. This iteration advances whole-repository lifecycle reliability in AliyunDrive WebDAV:
+
+1. Serialize both public start and stop operations through one stable lock file (`/var/lock/aliyundrive-webdav.lock`) and BusyBox `flock -n` on FD 9. Lock contention fails closed; the lock file is never unlinked; the disabled-start path calls the unlocked stop helper to avoid recursive locking.
+2. Keep the lock through the startup check, but close FD 9 in the background daemon so the service cannot retain the lock indefinitely.
+3. After launch, poll `pidof aliyundrive-webdav` for at most 10 seconds and return failure if the daemon never becomes observable. This is a bounded process-presence postcondition, not a WebDAV socket or HTTP health check.
+4. Extend the POSIX-shell regression for concurrent lock contention on both start and stop, successful process appearance, startup timeout/failure, and preserve existing stop escalation, duplicate-start, argv-integrity and special-domain cases. Extend the semantic checker to verify target `CONFIG_FLOCK=y`, BusyBox `flock` nonblocking/unlock support and symmetric workflow path filters.
+
+Changed paths: `trunk/user/aliyundrive-webdav/aliyundrive-webdav.sh`, `trunk/user/aliyundrive-webdav/tests/aliyundrive_webdav_lifecycle.sh`, `scripts/check_aliyundrive_webdav_lifecycle.py`, `.github/workflows/aliyundrive-webdav-lifecycle.yml`, this handoff, roadmap and root development log.
+
+The exact-head AliyunDrive lifecycle and AI handoff docs push runs for THIS COMMIT are pending. Do not claim the new L2 closure until all steps pass on the exact resulting `main` SHA. Refresh the checkpoint in the next ordinary development update; do not create a separate docs-only commit solely to record completed Actions.
 
 ## Verification boundary
 
-- L1 recovery: bootstrap, development protocol, live main, handoff, roadmap, newest dev-log records and archive index reviewed; main-only branch policy confirmed.
-- L2 on `fcdc05e76e6522f9f35b59b71bd222b884cb2ce4`: XY-C1 prechecks and AI docs PASS; infosvr, AliyunDrive, AdGuardHome, HTTPD security and AliDDNS exact-head push workflows PASS. Storage-hotplug FAILS at its standalone host BusyBox build because the test harness does not carry the shared-header CFLAGS. No later storage jobs in that workflow ran.
-- L3 on `fcdc05e76e6522f9f35b59b71bd222b884cb2ce4`: XY-C1 MIPS firmware build PASS; TRX output verification PASS; non-empty 12,573,414-byte Actions artifact uploaded PASS. This validates the XY-C1 build path on this SHA, not every board or module.
-- L4 physical router flashing, boot and runtime behavior: NOT VERIFIED.
+- L1 recovery: bootstrap and development protocol, live main, this handoff, roadmap, newest 20 root log records, archive index and branch/PR policy reviewed.
+- L2 storage: PASS on exact base SHA `04abdb06ccc82ba6e7ffb65c028a0db3d3889272`, storage-hotplug [43278371123] / job [131392758595]; all job steps, including host BusyBox link and downstream storage regressions, SUCCESS. AI docs [43278370932] / job [131392757241] also SUCCESS on that exact SHA.
+- L2 AliyunDrive baseline: prior bounded stop, process-name signaling, sequential duplicate-start and argv-integrity behavior passed exact-head Actions [43182561404] on `d8dbb93083f616be8ecfdb84abfb3f104436960d`. The new cross-process lock and startup-readiness additions are source-reviewed; their exact-head Actions are pending THIS COMMIT.
+- L3: XY-C1 MIPS firmware/TRX/artifact PASS only on `fcdc05e76e6522f9f35b59b71bd222b884cb2ce4`; no firmware build was run for this lifecycle-only change.
+- L4 physical router flashing, boot and runtime behavior: NOT VERIFIED. No local full repository checkout/target build was available in this session; do not report local shell execution.
 
 ## Exact first action for the next GPT
 
-Fetch live `main`; inspect the exact-head storage-hotplug run triggered by this workflow correction and the AI handoff docs run. Require the host BusyBox build and every downstream storage regression to pass; otherwise fix the first causal error directly on `main`.
+Fetch live `main`, then inspect the AliyunDrive lifecycle and AI handoff docs **push** runs whose `head_sha` exactly equals the resulting main SHA. Read every job step and log. Require launcher syntax, the full lifecycle host regression (including both lock-contention cases and readiness timeout), the semantic BusyBox-flock/RC integration contract and the docs archive validator to pass. Repair the first causal failure directly on `main`; do not use a branch or old-SHA result. After that, continue the whole-tree stability/security audit outside this module, prioritizing AliDDNS lifecycle concurrency and the FRP/Adbyby lifecycle/configuration review. Keep AliyunDrive refresh-token/auth-password argv exposure, FTP upload-cleanup TOCTOU, NFS real-client durability/permission evidence and L4 hardware behavior explicitly open.

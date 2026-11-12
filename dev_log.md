@@ -1,3 +1,18 @@
+## 2026-11-13 02:31 CST (UTC+8) — Serialize AliyunDrive lifecycle and gate startup on process visibility
+
+- Base main SHA: `04abdb06ccc82ba6e7ffb65c028a0db3d3889272`. The previous P1 storage-hotplug host BusyBox issue is closed on this exact SHA: run [43278371123] / job [131392758595] passed the host BusyBox 1.24.2 link and every downstream storage regression; AI handoff docs [43278370932] / job [131392757241] also passed. The XY-C1 full MIPS/TRX/artifact milestone remains verified only on `fcdc05e76e6522f9f35b59b71bd222b884cb2ce4`.
+- Whole-tree triage returned to AliyunDrive WebDAV. Its previous bounded stop and sequential duplicate-start checks did not serialize concurrent RC/UI start and stop notifications, and the launch path returned immediately without confirming that the daemon became observable.
+- THIS COMMIT wraps both public start and stop in a nonblocking BusyBox `flock` lock on a stable `/var/lock/aliyundrive-webdav.lock` inode. The lock remains held through the transition and startup check; it is not unlinked, the disabled-start path calls the unlocked stop helper to avoid nested acquisition, and FD 9 is closed in the daemon child to prevent the service retaining the lock.
+- Start now waits at most 10 seconds for `pidof aliyundrive-webdav` and returns failure if no process becomes observable. This is a process-presence postcondition only, not an HTTP/WebDAV readiness probe.
+- Extended the POSIX-shell lifecycle regression with both start and stop lock-contention cases, a valid mock daemon that becomes visible, a launched-but-never-visible timeout case, and the existing stop/duplicate-start/argv/domain-profile coverage. Extended the semantic contract to require target `CONFIG_FLOCK=y`, BusyBox `flock` nonblocking/unlock support and symmetric push/pull workflow coverage for the dependencies.
+- Changed paths: `trunk/user/aliyundrive-webdav/aliyundrive-webdav.sh`, `trunk/user/aliyundrive-webdav/tests/aliyundrive_webdav_lifecycle.sh`, `scripts/check_aliyundrive_webdav_lifecycle.py`, `.github/workflows/aliyundrive-webdav-lifecycle.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log.
+- This session has no local repository checkout, so local `sh -n`, host regression or Python checker execution is NOT CLAIMED. The exact-head AliyunDrive lifecycle and AI handoff documentation push Actions for THIS COMMIT are pending; do not close L2 until both pass and every job step is inspected.
+- Root `dev_log.md`: 72→73 complete records, below the 120-record and 384 KiB archive thresholds; no archive or index rotation is due. Existing archives and `docs/dev-log/INDEX.md` remain unchanged.
+- Resulting main commit: THIS COMMIT. L3 target build and L4 physical-router validation are not part of this lifecycle change; L4 remains NOT VERIFIED.
+- Next: inspect AliyunDrive lifecycle and AI handoff docs push runs whose `head_sha` equals this commit; repair the first causal failure directly on `main`. After L2 closes, continue outside this module with AliDDNS lifecycle concurrency and the whole-tree FRP/Adbyby audit. Keep AliyunDrive argv-secret exposure, FTP TOCTOU and NFS real-client evidence open.
+
+---
+
 ## 2026-11-13 02:04 CST (UTC+8) — Repair storage-hotplug host BusyBox shared-header setup
 
 - Base main SHA: `fcdc05e76e6522f9f35b59b71bd222b884cb2ce4`. Exact-head XY-C1 push [43273846470] / job [131376901927] PASSED all header prechecks, the MIPS firmware build, TRX output verification and artifact upload. The uploaded `XY-C1-firmware-fcdc05e76e6522f9f35b59b71bd222b884cb2ce4` artifact is 12,573,414 bytes (SHA-256 `f4adfa9a13224e519cd580946e30e6a3d336b3da410f0842051eb697a7baee08`).

@@ -14,6 +14,8 @@ RC_PATH = ROOT / "trunk/user/rc/src/rc.c"
 VARIABLES_PATH = ROOT / "trunk/user/httpd/src/variables.c"
 WEB_EX_PATH = ROOT / "trunk/user/httpd/src/web_ex.c"
 WORKFLOW_PATH = ROOT / ".github/workflows/aliyundrive-webdav-lifecycle.yml"
+BUSYBOX_CONFIG_PATH = ROOT / "trunk/configs/boards/busybox.config"
+FLOCK_SOURCE_PATH = ROOT / "trunk/user/busybox/busybox-1.24.x/util-linux/flock.c"
 
 launcher = LAUNCHER_PATH.read_text()
 test = TEST_PATH.read_text()
@@ -24,6 +26,8 @@ rc = RC_PATH.read_text()
 variables = VARIABLES_PATH.read_text()
 web_ex = WEB_EX_PATH.read_text()
 workflow = WORKFLOW_PATH.read_text()
+busybox_config = BUSYBOX_CONFIG_PATH.read_text()
+flock_source = FLOCK_SOURCE_PATH.read_text()
 
 
 def require(condition: bool, message: str) -> None:
@@ -42,8 +46,10 @@ def function_body(source: str, signature: str) -> str:
 
 
 wait_stopped = function_body(launcher, "ald_wait_stopped() {")
-stop = function_body(launcher, "kill_ald() {")
-start = function_body(launcher, "start_ald() {")
+wait_started = function_body(launcher, "ald_wait_started() {")
+lock = function_body(launcher, "ald_run_locked() {")
+stop = function_body(launcher, "ald_kill_unlocked() {")
+start = function_body(launcher, "ald_start_unlocked() {")
 stop_wrapper = function_body(launcher, "stop_ald() {")
 
 require('while [ "$ald_wait" -lt "$ALD_STOP_WAIT_SECONDS" ]; do' in wait_stopped and
@@ -82,6 +88,31 @@ require('set -- "$@" --domain-id "$domain_id"' in start and
         'set -- "$@" --read-only' in start,
         "domain and optional read-only/trash flags must retain the original option policy")
 
+
+require('while [ "$ald_wait" -lt "$ALD_START_WAIT_SECONDS" ]; do' in wait_started and
+        'pidof "$NAME"' in wait_started and 'sleep 1' in wait_started and
+        'return 1' in wait_started and
+        start.index('ald_wait_started') > start.index('"$ALD_BIN"'),
+        "start must wait a bounded interval and fail unless the daemon becomes observable")
+
+require('flock -n 9' in lock and 'flock -u 9' in lock and
+        'exec 9>>"$ALD_LOCK_FILE"' in lock and 'exec 9>&-' in lock and
+        'mkdir -p "$ald_lock_dir"' in lock and
+        'ALD_LOCK_FILE' in launcher and
+        'ald_run_locked ald_kill_unlocked' in launcher and
+        'ald_run_locked ald_start_unlocked' in launcher and
+        'ald_kill_unlocked' in start and
+        'rm -f "$ALD_LOCK_FILE"' not in lock,
+        "start/stop must share a nonblocking stable-inode lock without recursive locking")
+
+require('CONFIG_FLOCK=y' in busybox_config and
+        'nonblock' in flock_source and 'unlock' in flock_source and
+        'OPT_n' in flock_source and 'OPT_u' in flock_source,
+        "target BusyBox must include flock with nonblocking and unlock support")
+
+require('>/dev/null 2>&1 9>&- &' in start,
+        "the background daemon must not inherit and retain the lifecycle lock descriptor")
+
 require('kill_ald' in stop_wrapper,
         "the public stop action must propagate the checked kill_ald result")
 
@@ -117,6 +148,9 @@ for marker in (
     "FAIL: permanently running daemon was reported stopped",
     "FAIL: duplicate start launched or stopped an existing daemon",
     "FAIL: NVRAM values were split, globbed or reordered in daemon argv",
+    "FAIL: lock contention allowed a lifecycle transition",
+    "FAIL: startup timeout was reported successful",
+    "AliyunDrive WebDAV serialized lifecycle lock and startup readiness regression: PASS",
     "AliyunDrive WebDAV bounded stop and process-name signaling regression: PASS",
     "AliyunDrive WebDAV duplicate-start guard and argv integrity regression: PASS",
 ):
@@ -137,6 +171,8 @@ paths = [
     "trunk/user/rc/src/rc.c",
     "trunk/user/httpd/src/variables.c",
     "trunk/user/httpd/src/web_ex.c",
+    "trunk/configs/boards/busybox.config",
+    "trunk/user/busybox/busybox-1.24.x/util-linux/flock.c",
 ]
 push = workflow.split("  push:", 1)[1].split("  pull_request:", 1)[0]
 pull = workflow.split("  pull_request:", 1)[1].split("permissions:", 1)[0]
