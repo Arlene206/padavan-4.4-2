@@ -5,8 +5,8 @@
 - The preceding source-contract false-negative on `fdf89096...` was corrected on `3f435a0...`; latest exact-head semantic checker and host regression both PASS. AI docs validator reported 43/119 and archive inventory 7/22/18.
 - DDNSTO stop/restart remains L1/L2 CLOSED on exact SHA `f39638ac28bae38e6ec8d2694831685b3be98d4e`: DDNSTO [43140910335] and AI docs [43140910294] both SUCCESS.
 - AdGuardHome config confidentiality + sequential daemon lifecycle fix L1/L2 CLOSED on exact SHA `33c1ecaa1d85aa501f51ac0b1cce9c17d7d0a6cf`: AdGuard workflow [43155259286] and AI docs [43155259234] SUCCESS. Config defaults are staged privately and atomically, symlink/non-regular paths rejected, existing/generated files enforced mode 0600, start fails closed; duplicate start no-ops; stop performs bounded TERM→fresh name-based KILL and requires confirmed absence before deleting workdir/DNS/firewall state. Host regression, semantic source/ROMFS/package/RC contracts PASS; docs 47/119; archive inventory 7/22/18.
-- Root `dev_log.md` grows 44→45 complete records; no log rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
-- Next whole-tree add-on audit starts with `trunk/user/adguardhome/`, then rotates across AliyunDrive WebDAV, FRP, AliDDNS and Adbyby. FTP upload-cleanup TOCTOU remains OPEN/BLOCKED pending a Linux 4.4-safe proof; NFS requires external-client evidence. Production MIPS/uClibc, complete firmware/TRX and L4 remain NOT VERIFIED.
+- Root `dev_log.md` grows 47→48 complete records; no log rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- Continue the remaining AdGuardHome audit for concurrent start/stop serialization, address-change-safe IPv4/IPv6 redirects, resolver restoration and cleanup error propagation; then rotate to AliyunDrive WebDAV, FRP, AliDDNS and Adbyby. FTP upload-cleanup TOCTOU remains OPEN/BLOCKED pending a Linux 4.4-safe proof; NFS requires external-client evidence. Production MIPS/uClibc, complete firmware/TRX and L4 remain NOT VERIFIED.
 
 ## Whole-repository module status
 
@@ -45,9 +45,9 @@
 1. P2 — Continue AdGuardHome resolver/firewall lifecycle audit: concurrent start/stop serialization, stale IPv4/IPv6 redirects across address changes, resolver rollback and cleanup error propagation; config confidentiality and sequential duplicate-stop lifecycle slices are L1/L2 closed.
 2. P2 OPEN/BLOCKED — FTP failed-upload cleanup TOCTOU. Linux 4.4 has no inode-conditional unlink-by-fd; do not patch until a design proves race-safe cleanup while preserving STOR/APPE/REST/STOU and concurrent external-writer semantics.
 3. P2 — Rotate the whole-tree RC/add-on lifecycle audit to AliyunDrive WebDAV, FRP, AliDDNS and Adbyby.
-3. P2 — Resolve NFS async durability, AUTH_SYS/root-squash and external-mount compatibility only with real client evidence.
-4. P2 — Validate Wi-Fi bridge detach and WAN bridge/VLAN ioctls on target MIPS/uClibc/board variants, especially RT3352 MII/iNIC and DBDC.
-5. P2 — Complete production MIPS/uClibc build, full firmware/TRX and L4 router/hardware verification; none is claimed from host Actions.
+4. P2 — Resolve NFS async durability, AUTH_SYS/root-squash and external-mount compatibility only with real client evidence.
+5. P2 — Validate Wi-Fi bridge detach and WAN bridge/VLAN ioctls on target MIPS/uClibc/board variants, especially RT3352 MII/iNIC and DBDC.
+6. P2 — Complete production MIPS/uClibc build, full firmware/TRX and L4 router/hardware verification; none is claimed from host Actions.
 
 1. P2 — Verify OpenVPN/RC shared lease serialization and stop-barrier PID fencing on the exact committed SHA. Shared root:nogroup lock, PID marker clear ordering, stale callback rejection, FIFO/permission/contention regression and source contracts are implemented; exact-head OpenVPN/VPN stability/docs Actions and target MIPS/uClibc/real daemon evidence remain pending.
 2. P2 OPEN/BLOCKED — FTP failed-upload cleanup TOCTOU: no patch until Linux 4.4-safe inode/parent proof preserves STOR/APPE/REST/STOU.
