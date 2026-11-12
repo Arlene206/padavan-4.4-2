@@ -26,7 +26,7 @@ def require(condition: bool, message: str) -> None:
 
 
 def function_body(source: str, signature: str) -> str:
-    match = re.search(rf"(?m)^{re.escape(signature)}\s*\{{(.*?)^\}}", source, re.S)
+    match = re.search(rf"(?m)^{re.escape(signature)}[ \t]*\{{(.*?)^[ \t]*\}}", source, re.S)
     require(match is not None, f"missing function {signature}")
     return match.group(1)
 
