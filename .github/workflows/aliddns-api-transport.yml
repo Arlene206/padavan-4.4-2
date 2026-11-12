@@ -16,6 +16,9 @@ on:
       - "trunk/user/aliddns/tests/aliddns_nslookup_lifecycle.sh"
       - "trunk/user/aliddns/tests/aliddns_custom_script_lifecycle.sh"
       - "trunk/user/aliddns/tests/copyscripts_ca_bootstrap.sh"
+      - "trunk/user/aliddns/tests/aliddns_hmac_sha1.sh"
+      - "trunk/user/aliddns/src/aliddns-hmac-sha1.c"
+      - "trunk/user/aliddns/src/Makefile"
       - "trunk/user/aliddns/Makefile"
       - "trunk/user/Makefile"
       - "trunk/libs/Makefile"
@@ -41,6 +44,9 @@ on:
       - "trunk/user/aliddns/tests/aliddns_nslookup_lifecycle.sh"
       - "trunk/user/aliddns/tests/aliddns_custom_script_lifecycle.sh"
       - "trunk/user/aliddns/tests/copyscripts_ca_bootstrap.sh"
+      - "trunk/user/aliddns/tests/aliddns_hmac_sha1.sh"
+      - "trunk/user/aliddns/src/aliddns-hmac-sha1.c"
+      - "trunk/user/aliddns/src/Makefile"
       - "trunk/user/aliddns/Makefile"
       - "trunk/user/Makefile"
       - "trunk/libs/Makefile"
@@ -68,6 +74,7 @@ jobs:
           sh -n trunk/user/aliddns/tests/aliddns_nslookup_lifecycle.sh
           sh -n trunk/user/aliddns/tests/aliddns_custom_script_lifecycle.sh
           sh -n trunk/user/aliddns/tests/copyscripts_ca_bootstrap.sh
+          sh -n trunk/user/aliddns/tests/aliddns_hmac_sha1.sh
           sh -n trunk/user/scripts/files/usr/bin/copyscripts.sh
       - name: Run AliDDNS signed API transport regression
         run: sh trunk/user/aliddns/tests/aliddns_api_transport.sh
@@ -79,5 +86,7 @@ jobs:
         run: sh trunk/user/aliddns/tests/aliddns_custom_script_lifecycle.sh
       - name: Run CA trust-store bootstrap regression
         run: sh trunk/user/aliddns/tests/copyscripts_ca_bootstrap.sh
+      - name: Run AliDDNS HMAC-SHA1 process-argument privacy regression
+        run: sh trunk/user/aliddns/tests/aliddns_hmac_sha1.sh
       - name: Verify AliDDNS transport, CA bundle and RC contracts
         run: python3 scripts/check_aliddns_api_transport.py
