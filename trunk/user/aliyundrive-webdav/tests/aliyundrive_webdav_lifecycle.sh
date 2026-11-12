@@ -83,7 +83,58 @@ set -- check
 . "$LAUNCHER"
 set --
 ALD_BIN="$TEST_DIR/mock-aliyundrive-webdav"
+ALD_WORK_DIR="$TEST_DIR/aliyundrive-webdav-workdir"
+TEST_UMASK_LOG="$TEST_DIR/umask.log"
+export ALD_WORK_DIR TEST_UMASK_LOG
 ALD_START_WAIT_SECONDS=3
+
+# The upstream daemon persists its rotated refresh token using the process
+# umask. Harden existing paths before the daemon can read or replace them.
+ald_secure_workdir || { echo "FAIL: secure workdir creation failed" >&2; exit 1; }
+[ "$(stat -c %a "$ALD_WORK_DIR")" = 700 ] || {
+  echo "FAIL: newly created workdir is not mode 0700" >&2; exit 1;
+}
+chmod 755 "$ALD_WORK_DIR"
+printf '%s' "old-token" > "$ALD_WORK_DIR/refresh_token"
+chmod 644 "$ALD_WORK_DIR/refresh_token"
+ald_secure_workdir || { echo "FAIL: existing workdir hardening failed" >&2; exit 1; }
+[ "$(stat -c %a "$ALD_WORK_DIR")" = 700 ] &&
+[ "$(stat -c %a "$ALD_WORK_DIR/refresh_token")" = 600 ] || {
+  echo "FAIL: existing token path was not reduced to private modes" >&2; exit 1;
+}
+ln "$ALD_WORK_DIR/refresh_token" "$TEST_DIR/token-hardlink"
+if ald_secure_workdir; then
+  echo "FAIL: multiply-linked refresh-token file was accepted" >&2; exit 1;
+fi
+[ "$(stat -c %a "$TEST_DIR/token-hardlink")" = 600 ] || {
+  echo "FAIL: hardlink rejection changed the external file mode" >&2; exit 1;
+}
+rm -f "$TEST_DIR/token-hardlink"
+
+# Reject directory and token symlinks without changing their targets.
+rm -rf "$ALD_WORK_DIR" "$TEST_DIR/workdir-target" "$TEST_DIR/token-target"
+mkdir "$TEST_DIR/workdir-target"
+chmod 755 "$TEST_DIR/workdir-target"
+ln -s "$TEST_DIR/workdir-target" "$ALD_WORK_DIR"
+if ald_secure_workdir; then
+  echo "FAIL: symlink workdir was accepted" >&2; exit 1;
+fi
+[ "$(stat -c %a "$TEST_DIR/workdir-target")" = 755 ] || {
+  echo "FAIL: rejected symlink target was modified" >&2; exit 1;
+}
+rm -f "$ALD_WORK_DIR"
+ald_secure_workdir || { echo "FAIL: secure workdir recreation failed" >&2; exit 1; }
+printf '%s' "external-target" > "$TEST_DIR/token-target"
+chmod 644 "$TEST_DIR/token-target"
+ln -s "$TEST_DIR/token-target" "$ALD_WORK_DIR/refresh_token"
+if ald_secure_workdir; then
+  echo "FAIL: symlink refresh-token file was accepted" >&2; exit 1;
+fi
+[ "$(stat -c %a "$TEST_DIR/token-target")" = 644 ] || {
+  echo "FAIL: rejected token symlink target was modified" >&2; exit 1;
+}
+rm -f "$ALD_WORK_DIR/refresh_token"
+ald_secure_workdir || { echo "FAIL: workdir recovery after rejected symlink failed" >&2; exit 1; }
 
 # Lifecycle transitions are serialized by one stable lock inode.
 exec 8>"$ALD_LOCK_FILE"
@@ -203,7 +254,10 @@ done
   printf '%s\n' "${REFRESH_TOKEN-}"
   printf '%s\n' "${WEBDAV_AUTH_USER-}"
   printf '%s\n' "${WEBDAV_AUTH_PASSWORD-}"
+  printf '%s\n' "${RUST_LOG-}"
 } > "$TEST_ENV_LOG"
+umask > "$TEST_UMASK_LOG"
+: > "$ALD_WORK_DIR/umask-probe"
 if [ ! -e "$TEST_START_FAIL_FILE" ]; then
   : > "$TEST_RUN_MARKER"
 fi
@@ -262,11 +316,19 @@ cat > "$TEST_DIR/expected-env" <<'EXPECTED_ENV'
 refresh token with spaces *
 user name
 secret with spaces ; data
+aliyundrive_webdav=warn
 EXPECTED_ENV
 cmp -s "$TEST_DIR/expected-env" "$TEST_ENV_LOG" || {
-  echo "FAIL: credentials were not passed as three exact environment values" >&2
+  echo "FAIL: credentials and log filter were not passed as exact environment values" >&2
   diff -u "$TEST_DIR/expected-env" "$TEST_ENV_LOG" >&2 || :
   exit 1
+}
+[ "$(cat "$TEST_UMASK_LOG")" = "0077" ] &&
+[ "$(stat -c %a "$ALD_WORK_DIR/umask-probe")" = 600 ] || {
+  echo "FAIL: daemon did not inherit the private workdir umask" >&2; exit 1;
+}
+[ "$(stat -c %a "$ALD_WORK_DIR")" = 700 ] || {
+  echo "FAIL: daemon workdir permissions are not private" >&2; exit 1;
 }
 ! grep -Fq "refresh token with spaces" "$TEST_ARG_LOG" &&
 ! grep -Fq "user name" "$TEST_ARG_LOG" &&
@@ -303,6 +365,7 @@ cat > "$TEST_DIR/expected-special-env" <<'SPECIAL_ENV'
 token
 user
 pass
+aliyundrive_webdav=warn
 SPECIAL_ENV
 grep -Fqx -- '--domain-id' "$TEST_ARG_LOG" &&
 grep -Fqx -- '99999' "$TEST_ARG_LOG" &&
@@ -315,6 +378,7 @@ cmp -s "$TEST_DIR/expected-special-env" "$TEST_ENV_LOG" &&
   echo "FAIL: special-domain options differ from the existing policy" >&2; exit 1;
 }
 
+echo "AliyunDrive WebDAV private token workdir and umask regression: PASS"
 echo "AliyunDrive WebDAV bounded stop and process-name signaling regression: PASS"
 echo "AliyunDrive WebDAV duplicate-start guard and argv integrity regression: PASS"
 echo "AliyunDrive WebDAV serialized lifecycle lock and startup readiness regression: PASS"

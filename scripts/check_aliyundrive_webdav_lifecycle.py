@@ -150,6 +150,24 @@ lock = function_body(launcher, "ald_run_locked() {")
 stop = function_body(launcher, "ald_kill_unlocked() {")
 start = function_body(launcher, "ald_start_unlocked() {")
 stop_wrapper = function_body(launcher, "stop_ald() {")
+workdir = function_body(launcher, "ald_secure_workdir() {")
+
+require('-L "$ALD_WORK_DIR"' in workdir and
+        'stat -c %u "$ALD_WORK_DIR"' in workdir and 'id -u' in workdir and
+        'chmod 700 "$ALD_WORK_DIR"' in workdir and
+        '-L "$ald_token_file"' in workdir and
+        'stat -c %u "$ald_token_file"' in workdir and
+        'stat -c %h "$ald_token_file"' in workdir and
+        'chmod 600 "$ald_token_file"' in workdir and
+        'return 1' in workdir,
+        "refresh-token workdir must reject symlinks, foreign ownership and hardlinks, and enforce private modes")
+
+require('ald_secure_workdir || return 1' in start and
+        start.index('ald_secure_workdir') < start.index('"$ALD_BIN"') and
+        '--workdir "$ALD_WORK_DIR"' in start and
+        'umask 077' in start and 'RUST_LOG=aliyundrive_webdav=warn' in start and
+        'exec 9>&-' in start,
+        "daemon launch must protect token storage, suppress token-bearing INFO logs, and close inherited lifecycle lock")
 
 require('while [ "$ald_wait" -lt "$ALD_STOP_WAIT_SECONDS" ]; do' in wait_stopped and
         'sleep 1' in wait_stopped and 'pidof "$NAME"' in wait_stopped and
@@ -219,7 +237,9 @@ require('flock -n 9' in lock and 'flock -u 9' in lock and
         'rm -f "$ALD_LOCK_FILE"' not in lock,
         "start/stop must share a nonblocking stable-inode lock without recursive locking")
 
-require('CONFIG_FLOCK=y' in busybox_config and
+require('CONFIG_STAT=y' in busybox_config and 'CONFIG_FEATURE_STAT_FORMAT=y' in busybox_config and
+        'CONFIG_ID=y' in busybox_config and 'CONFIG_CHMOD=y' in busybox_config and
+        'CONFIG_MKDIR=y' in busybox_config and 'CONFIG_FLOCK=y' in busybox_config and
         'nonblock' in flock_source and 'unlock' in flock_source and
         'OPT_n' in flock_source and 'OPT_u' in flock_source,
         "target BusyBox must include flock with nonblocking and unlock support")
@@ -265,7 +285,15 @@ for marker in (
     "FAIL: credentials were not passed as three exact environment values",
     "FAIL: a credential value leaked into daemon argv",
     "FAIL: lock contention allowed a lifecycle transition",
+    "FAIL: secure workdir creation failed",
+    "FAIL: existing workdir hardening failed",
+    "FAIL: existing token path was not reduced to private modes",
+    "FAIL: multiply-linked refresh-token file was accepted",
+    "FAIL: symlink workdir was accepted",
+    "FAIL: symlink refresh-token file was accepted",
+    "FAIL: daemon did not inherit the private workdir umask",
     "FAIL: startup timeout was reported successful",
+    "AliyunDrive WebDAV private token workdir and umask regression: PASS",
     "AliyunDrive WebDAV serialized lifecycle lock and startup readiness regression: PASS",
     "AliyunDrive WebDAV bounded stop and process-name signaling regression: PASS",
     "AliyunDrive WebDAV duplicate-start guard and argv integrity regression: PASS",
@@ -319,4 +347,4 @@ print(f"AliyunDrive WebDAV QEMU-verified CLI version: {capability_report.get('ve
 print(f"AliyunDrive WebDAV board templates: total={len(board_templates)}; enabled={board_aldriver_enabled}; disabled={board_aldriver_disabled}; unset={board_aldriver_unset}")
 for item in daemon_relevant_strings:
     print(f"  ELF string: {item[:180]}")
-print("AliyunDrive WebDAV bounded lifecycle, argv integrity and RC integration contracts: PASS")
+print("AliyunDrive WebDAV bounded lifecycle, credential privacy and RC integration contracts: PASS")

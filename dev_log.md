@@ -1,3 +1,18 @@
+## 2026-11-13 06:50 CST (UTC+8) — Harden AliyunDrive persisted refresh-token permissions and suppress token INFO logging
+
+- Base main SHA: dbf15f4bd8472da954a9f5ce68e4b4b57f09f2bb; remote branch inventory contains only main. Credential argv redaction and its full L2 source/host validation are closed on this exact base.
+- Exact-base path workflows all completed SUCCESS: AliyunDrive [43321989293] / job [131544724607]; AI handoff docs [43321989151] / job [131544725051]; AliDDNS [43321989235] / job [131544724203]; AdGuardHome [43321989308] / job [131544724394]; infosvr [43321989090] / job [131544723517]. AliyunDrive QEMU verified bundled daemon 1.2.1 and all three credential env names against binary SHA-256 237c0ab2c14197c5a4e4bd8975f884979a29b35cad31b8e2354e084c19413891.
+- Reviewed exact upstream messense/aliyundrive-webdav v1.2.1 source: src/drive/mod.rs (blob b93f1194a9bc180d70fbd7f93104bd0f6eae60c8) persists rotated tokens with create_dir_all + tokio::fs::write, leaving new-file mode to umask and preserving an existing file's mode; src/main.rs (blob a234d0ee21420294a8f6624d184d25ec0ae696b2) includes the rotated refresh token in an INFO event.
+- Added a fail-closed launcher workdir guard: directory must not be a symlink, must be owned by the invoking UID, and is forced to 0700; an existing token must be a same-owner regular non-symlink file with a single hardlink and is forced to 0600. The daemon child inherits umask 077, and RUST_LOG=aliyundrive_webdav=warn suppresses the upstream token-bearing INFO event while retaining warning/error logs. The child closes inherited FD 9 before exec so the background daemon cannot retain the lifecycle lock.
+- Expanded host tests for fresh and existing permissions, hardlink and symlink rejection, target non-modification, exact credential/log-filter environment, and inherited umask/file mode. The semantic checker requires the launcher security contract and BusyBox STAT, stat-format, ID, CHMOD, and MKDIR applets.
+- Exact-head Actions for THIS COMMIT are PENDING. No local full checkout or local shell/Python execution is claimed; no L2 result is claimed before the full path-triggered workflow finishes on the resulting SHA.
+- Root log count: 81→82 complete records, below the 120-record rotation threshold and 384 KiB early-rotation target; the 512 KiB hard cap is preserved. Archive inventory remains dev-log=7, handoff=22, roadmap=18; no archive or index rotation is due.
+- Changed paths: AliyunDrive launcher, lifecycle host regression, source/RC semantic checker, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md, and this log. No bundled binary, GPT Session Rotator, branch, PR or archived snapshot changed.
+- Resulting main commit: THIS COMMIT.
+- Next: verify every path-triggered workflow on the exact resulting SHA, especially QEMU env capability, private workdir/symlink/hardlink/umask cases, argv privacy and the source/RC checker. If green, resume FTP upload-cleanup TOCTOU design, then NFS client evidence and FRP/Adbyby whole-tree audit.
+
+---
+
 ## 2026-11-13 06:39 CST (UTC+8) — Repair AliyunDrive semantic checker after credential argv regression update
 
 - Base main SHA: `bf70e759b61e35022aa25bfe89a1c7cb3c0e24c7`; branch inventory remains `main` only.
