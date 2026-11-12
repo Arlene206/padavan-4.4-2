@@ -1,3 +1,16 @@
+## 2026-11-12 21:58 CST (UTC+8) — Fix duplicate internal declarations blocking RC target build
+
+- Base main SHA: `10ebefe94bf344d19d8506287125f52333596bde`. Exact-head XY-C1 run [43230552179](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43230552179), job [131224406701](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43230552179/job/131224406701), progressed past the previously fixed kernel, BusyBox DHCPv6 and HTTPD compile blockers. The MIPS kernel completed; `xt_webstr.o`, `dhcp6c_common.o`, `web_ex.o` and the HTTPD link all completed.
+- The next first-causal failure was `trunk/user/rc/src/net_wan.c`: duplicate declaration specifiers at lines 1592, 3230 and 3276 (`static int` repeated), plus lines 3547 and 3617 (`int` followed by `static int`). The affected helpers are referenced only inside this translation unit and have no public header declaration; each should be a single private `static int` definition.
+- THIS COMMIT removes only the redundant declaration specifiers from `man_down_internal()`, `zcip_bound()`, `zcip_viptv_bound()`, `manv_route_deconfig()` and `zcip_viptv_deconfig()`. Their bodies, callback order, return values and WAN state/route behavior are unchanged.
+- The WAN DHCP callback source contract now checks the five private declaration signatures, preventing duplicate specifiers from recurring unnoticed. The XY-C1 validation push trigger now includes `net_wan.c`, ensuring future WAN target-source edits run the complete MIPS firmware build.
+- Prior exact-head HTTPD security [43230551897] and AI handoff docs [43230551924] completed SUCCESS on `10ebefe94bf344d19d8506287125f52333596bde`; the HTTPD security job passed all 40 steps, and the docs validator reported root log=61/119 (archives 7/22/18). This new WAN source contract and RC compile fix await exact-head Actions.
+- Target RC compile / full firmware / TRX / artifact: PENDING exact-head XY-C1 run. L4 router validation: NOT VERIFIED.
+- Resulting commit: THIS COMMIT.
+- Next: inspect exact-head WAN callback, AI docs and XY-C1 runs. Confirm `net_wan.o` compiles, then continue through any remaining first-causal build errors until TRX validation and upload both pass.
+
+---
+
 ## 2026-11-12 21:42 CST (UTC+8) — Make HTTPD NVRAM restore error branch compile with logging macro
 
 - Base main SHA: `e0e53f6d2eb9d5f8836ea7c1335e7c9d76e2faea`. The second XY-C1 retry [43228446974](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43228446974), job [131217642154](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43228446974/job/131217642154), confirmed both preceding fixes: kernel build completed and `net/netfilter/xt_webstr.o` passed; BusyBox staged build compiled `networking/udhcp/dhcp6c_common.o` with the resolved `-I.../trunk/user/shared/src` path. No earlier error remains.

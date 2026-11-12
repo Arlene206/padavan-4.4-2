@@ -8,6 +8,7 @@ on:
       - "trunk/user/busybox/Makefile"
       - "trunk/user/shared/src/dhcp6c_duid_file_policy.h"
       - "trunk/user/httpd/src/web_ex.c"
+      - "trunk/user/rc/src/net_wan.c"
       - ".github/workflows/xy-c1-firmware-validation.yml"
   workflow_dispatch:
 

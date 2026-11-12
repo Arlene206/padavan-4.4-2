@@ -1589,7 +1589,6 @@ man_up(char *man_ifname, int unit, int is_static)
 }
 
 static int
-static int
 man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)
 {
 	int wan_proto, is_modem_active, is_man_dns_auto;
@@ -3227,7 +3226,6 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 }
 
 static int
-static int
 zcip_bound(char *man_ifname)
 {
 	char *value, *ip;
@@ -3272,7 +3270,6 @@ zcip_bound(char *man_ifname)
 	return route_setup_status;
 }
 
-static int
 static int
 zcip_viptv_bound(char *man_ifname)
 {
@@ -3543,7 +3540,6 @@ udhcpc_main(int argc, char **argv)
 	return ret;
 }
 
-int
 static int
 manv_route_deconfig(char *man_ifname)
 {
@@ -3613,7 +3609,6 @@ zcip_main(int argc, char **argv)
 	return ret;
 }
 
-int
 static int
 zcip_viptv_deconfig(char *man_ifname)
 {
