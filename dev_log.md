@@ -1,3 +1,16 @@
+## 2026-11-12 15:22 CST (UTC+8) — Close AdGuardHome resolver transaction at L1/L2
+
+- Exact main SHA: `14d05006beaa930d4870db870b0f7fbc7ff9fb54`; remote branch inventory contains only `main`, no checkpoint branch.
+- Exact-head Actions all SUCCESS: AdGuardHome [43173914321], infosvr [43173914235], AI handoff docs [43173914225]. Every job's steps and full logs were inspected; each checkout's `git log -1` matched the exact SHA.
+- AdGuard workflow passed launcher `sh -n`, all host regressions and semantic source contracts. Output markers: secret config mode/symlink/atomic publication PASS; dnsmasq resolver publication/status/byte-exact rollback PASS; IPv4/IPv6 redirect/dedup/rollback PASS; duplicate-start/bounded-stop PASS; config privacy/bounded firewall cleanup/RC integration contracts PASS. The resolver transaction's earlier host fixture and stale source-checker marker errors were corrected in their follow-up commits.
+- infosvr GNU89 packet/signal regressions and source contracts passed. AI docs validator passed with root log=54/119 and archives dev-log=7, handoff=22, roadmap=18.
+- AdGuardHome resolver enable/disable now uses same-directory staged publication, saves an exact backup, checks dnsmasq reload status, restores and retries the previous file on failure, and propagates errors through start/stop gates. This closes resolver mutation L1/L2 at this exact host/Actions SHA; it does NOT prove target BusyBox, router dnsmasq/firewall runtime, MIPS/uClibc or hardware behavior.
+- Remaining AdGuard audit: concurrent RC/UI start/stop/restart calls remain unserialized. RC wrapper and `RCN_RESTART_ADGUARDHOME` dispatch have been traced, but all UI producers/notifications and a BusyBox ash-compatible lock/stale-owner strategy still need source tracing and proof.
+- Root `dev_log.md` grows 54→55 complete entries; below the 120-record / 384 KiB rotation thresholds and 512 KiB hard limit. No archive or `docs/dev-log/INDEX.md` update is due; archive inventory remains 7/22/18.
+- Next: identify every UI and RC producer of AdGuardHome lifecycle operations, inspect available target lock primitives/build config, then implement bounded cross-process serialization with contention and stale-lock regressions. Preserve failed-state information and avoid unsafe stale-lock reclamation races.
+
+---
+
 ## 2026-11-12 15:15 CST (UTC+8) — Align AdGuardHome source contract with reordered stop cleanup
 
 - Base main SHA: `5f7b186b4fdde7af688762463c72bc7699f673d8`. Exact-head checks: AdGuard [43173678041] shell syntax and the complete host regression PASSED, including dnsmasq enable/disable, exact-byte rollback and start/stop fail-closed tests. Its semantic source contract then FAILED only because the checker still required the old stop-failure fixture message after the test assertion was deliberately renamed for the new cleanup order. AI docs [43173678214] and infosvr [43173678040] both SUCCESS; full jobs/logs inspected.
