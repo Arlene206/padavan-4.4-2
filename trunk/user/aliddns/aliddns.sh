@@ -174,13 +174,14 @@ aliddns_keeper_pid_matches() {
 	aliddns_process_args="$(tr '\000' '\n' < "$aliddns_proc_root/$aliddns_pid/cmdline")" || return 1
 	# Command substitution strips trailing newlines, so append one here
 	# to preserve the final argv boundary when matching the "keep" token.
+	# "keep" must be the final argument, not merely a substring prefix.
 	case "
 $aliddns_process_args
 " in
 		*"
 $scriptfilepath
 keep
-"*) return 0 ;;
+") return 0 ;;
 	esac
 	return 1
 }

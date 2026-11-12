@@ -232,11 +232,13 @@ require('eval("/usr/bin/aliddns.sh","restart");' in restart_service and
         "RC restart must be one atomic launcher operation rather than separate stop/start calls")
 
 require('aliddns_process_args="$(tr ' in keeper_pid_matches and
+        'case "' in keeper_pid_matches and
+        '$aliddns_process_args' in keeper_pid_matches and
         '$scriptfilepath' in keeper_pid_matches and
         'keep' in keeper_pid_matches and
-        '"$aliddns_pid" != "$$"' in keeper_pid_matches and
+        '"$aliddns_pid" != "$"' in keeper_pid_matches and
         'aliddns_proc_root' in keeper_pid_matches,
-        "keeper identity must match the exact script-path and keep argv, excluding the current shell")
+        "keeper identity must match the exact script-path and final keep argv, excluding the current shell")
 require('for aliddns_cmdline_file in "$aliddns_proc_root"/[0-9]*/cmdline' in find_keeper_pids and
         'aliddns_keeper_pid_matches "$aliddns_pid" "$aliddns_proc_root"' in find_keeper_pids and
         'ALIDDNS_KEEPER_PIDS' in find_keeper_pids and
