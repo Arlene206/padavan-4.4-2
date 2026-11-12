@@ -36,7 +36,7 @@ arDdnsInfo() {
 	return 2
 }
 arDdnsUpdate() {
-	printf '%s\n' "$1 $2" >> "$UPDATE_LOG"
+	printf '%s\n' "$1 $2 $hostIP" >> "$UPDATE_LOG"
 	printf '%s\n' "updated"
 	return 0
 }
@@ -47,20 +47,31 @@ fail() {
 info_count() { wc -l < "$INFO_LOG"; }
 update_count() { wc -l < "$UPDATE_LOG"; }
 
+# Expected API status 2 is part of the normal no-record branch; temporarily
+# disable errexit while exercising the production function.
+run_check() {
+	set +e
+	arDdnsCheck "$@"
+	check_status=$?
+	set -e
+	return "$check_status"
+}
+
 # A valid operator script is sourced and its IPv4 value reaches the API update.
 printf '%s\n' "arIpAddress='198.51.100.44'" > "$ALIDDNS_DDNS_SCRIPT_PATH"
 IPv6=0
-if ! arDdnsCheck example.com www >/dev/null 2>&1; then
+if ! run_check example.com www >/dev/null 2>&1; then
 	fail "valid custom IPv4 provider was rejected"
 fi
 [ "$(info_count)" -eq 1 ] || fail "valid custom IPv4 did not reach record comparison"
 [ "$(update_count)" -eq 1 ] || fail "valid custom IPv4 did not reach update"
+grep -Fq "198.51.100.44" "$UPDATE_LOG" || fail "valid IPv4 value was not passed to the update"
 
 # A missing script must not reuse the previous domain's address or reach the API.
 rm -f "$ALIDDNS_DDNS_SCRIPT_PATH"
 before_info="$(info_count)"
 before_update="$(update_count)"
-if arDdnsCheck example.com www >/dev/null 2>&1; then
+if run_check example.com www >/dev/null 2>&1; then
 	fail "missing custom provider file was accepted"
 fi
 [ "$(info_count)" -eq "$before_info" ] || fail "missing source reached record comparison"
@@ -68,7 +79,7 @@ fi
 
 # A provider that assigns an address and then exits unsuccessfully is not trusted.
 printf '%s\n' "arIpAddress='198.51.100.45'" "false" > "$ALIDDNS_DDNS_SCRIPT_PATH"
-if arDdnsCheck example.com www >/dev/null 2>&1; then
+if run_check example.com www >/dev/null 2>&1; then
 	fail "nonzero custom provider was accepted"
 fi
 [ "$(info_count)" -eq "$before_info" ] || fail "failed source reached record comparison"
@@ -76,29 +87,30 @@ fi
 # Strict IPv4/IPv6 validation occurs before the AliDNS record lookup.
 printf '%s\n' "arIpAddress='999.1.1.1'" > "$ALIDDNS_DDNS_SCRIPT_PATH"
 IPv6=0
-if arDdnsCheck example.com www >/dev/null 2>&1; then
+if run_check example.com www >/dev/null 2>&1; then
 	fail "invalid custom IPv4 was accepted"
 fi
 [ "$(info_count)" -eq "$before_info" ] || fail "invalid IPv4 reached record comparison"
 
 printf '%s\n' "arIpAddress='2001:db8:::1'" > "$ALIDDNS_DDNS_SCRIPT_PATH"
 IPv6=1
-if arDdnsCheck example.com www >/dev/null 2>&1; then
+if run_check example.com www >/dev/null 2>&1; then
 	fail "invalid custom IPv6 was accepted"
 fi
 [ "$(info_count)" -eq "$before_info" ] || fail "invalid IPv6 reached record comparison"
 
 printf '%s\n' "arIpAddress='2001:db8::44'" > "$ALIDDNS_DDNS_SCRIPT_PATH"
-if ! arDdnsCheck example.com www >/dev/null 2>&1; then
+if ! run_check example.com www >/dev/null 2>&1; then
 	fail "valid custom IPv6 provider was rejected"
 fi
 [ "$(info_count)" -eq "$((before_info + 1))" ] || fail "valid IPv6 did not reach record comparison"
 [ "$(update_count)" -eq "$((before_update + 1))" ] || fail "valid IPv6 did not reach update"
+grep -Fq "2001:db8::44" "$UPDATE_LOG" || fail "valid IPv6 value was not passed to the update"
 
 # A symlinked script is refused before it can inject a stale address.
 rm -f "$ALIDDNS_DDNS_SCRIPT_PATH"
 ln -s "$TEST_DIR/does-not-exist" "$ALIDDNS_DDNS_SCRIPT_PATH"
-if arDdnsCheck example.com www >/dev/null 2>&1; then
+if run_check example.com www >/dev/null 2>&1; then
 	fail "symlinked custom provider was accepted"
 fi
 [ "$(info_count)" -eq "$((before_info + 1))" ] || fail "symlinked script reached record comparison"
