@@ -10,6 +10,9 @@ TEST_PATH = ROOT / "trunk/user/aliddns/tests/aliddns_api_transport.sh"
 IPV4_TEST_PATH = ROOT / "trunk/user/aliddns/tests/aliddns_ipv4_lookup.sh"
 NSLOOKUP_TEST_PATH = ROOT / "trunk/user/aliddns/tests/aliddns_nslookup_lifecycle.sh"
 CUSTOM_SCRIPT_TEST_PATH = ROOT / "trunk/user/aliddns/tests/aliddns_custom_script_lifecycle.sh"
+LIFECYCLE_TEST_PATH = ROOT / "trunk/user/aliddns/tests/aliddns_lifecycle.sh"
+BUSYBOX_CONFIG_PATH = ROOT / "trunk/configs/boards/busybox.config"
+FLOCK_SOURCE_PATH = ROOT / "trunk/user/busybox/busybox-1.24.x/util-linux/flock.c"
 CA_BOOTSTRAP_TEST_PATH = ROOT / "trunk/user/aliddns/tests/copyscripts_ca_bootstrap.sh"
 HMAC_TEST_PATH = ROOT / "trunk/user/aliddns/tests/aliddns_hmac_sha1.sh"
 HMAC_SOURCE_PATH = ROOT / "trunk/user/aliddns/src/aliddns-hmac-sha1.c"
@@ -34,6 +37,9 @@ test = TEST_PATH.read_text()
 ipv4_test = IPV4_TEST_PATH.read_text()
 nslookup_test = NSLOOKUP_TEST_PATH.read_text()
 custom_script_test = CUSTOM_SCRIPT_TEST_PATH.read_text()
+lifecycle_test = LIFECYCLE_TEST_PATH.read_text()
+busybox_config = BUSYBOX_CONFIG_PATH.read_text()
+flock_source = FLOCK_SOURCE_PATH.read_text()
 ca_bootstrap_test = CA_BOOTSTRAP_TEST_PATH.read_text()
 hmac_test = HMAC_TEST_PATH.read_text()
 hmac_source = HMAC_SOURCE_PATH.read_text()
@@ -77,6 +83,13 @@ ddns_check = function_body(source, "arDdnsCheck() {")
 nslookup = function_body(source, "aliddns_nslookup() {")
 nslookup4 = function_body(source, "arNslookup() {")
 nslookup6 = function_body(source, "arNslookup6() {")
+lifecycle_lock_path = function_body(source, "aliddns_lifecycle_lock_path() {")
+lifecycle_lock_prepare = function_body(source, "aliddns_lifecycle_lock_prepare() {")
+lifecycle_lock_execute = function_body(source, "aliddns_lifecycle_lock_execute() {")
+lifecycle_control_start = function_body(source, "aliddns_lifecycle_control_start() {")
+lifecycle_locked_action = function_body(source, "aliddns_lifecycle_locked_action() {")
+lifecycle_lock_run = function_body(source, "aliddns_lifecycle_lock_run() {")
+restart_service = function_body(services, "void restart_aliddns(void){")
 
 require('ALIDDNS_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt"' in source and
         '--cacert "$ALIDDNS_CA_BUNDLE"' in send_request,
@@ -180,6 +193,48 @@ require('EVM_RESTART_ALIDDNS' in variables and
         'void restart_aliddns(void)' in services,
         "HTTPD NVRAM changes must continue to reach the existing RC lifecycle wrapper")
 
+require("echo /tmp/.aliddns.lifecycle.lock" in lifecycle_lock_path,
+        "AliDDNS lifecycle must use one stable-inode lock path")
+require('[ -L "$aliddns_lock_dir" ]' in lifecycle_lock_prepare and
+        "stat -c '%u %a %h'" in lifecycle_lock_prepare and
+        '[ "$2" != 600 ]' in lifecycle_lock_prepare and
+        '[ "$3" != 1 ]' in lifecycle_lock_prepare and
+        "set -C" in lifecycle_lock_prepare,
+        "AliDDNS lifecycle lock must reject unsafe directories, symlinks, modes and hardlinks")
+require('exec 9>>"$aliddns_lock_file"' in lifecycle_lock_execute and
+        "while ! flock -n 9; do" in lifecycle_lock_execute and
+        '[ "$aliddns_lock_attempt" -ge "$aliddns_wait_seconds" ]' in lifecycle_lock_execute and
+        'exec 9>&-' in lifecycle_lock_execute,
+        "AliDDNS lifecycle operations must share a bounded BusyBox descriptor flock")
+require('start|stop|restart|check' in lifecycle_lock_run and
+        'aliddns_lifecycle_lock_prepare "$aliddns_lock_file"' in lifecycle_lock_run and
+        'aliddns_lifecycle_lock_execute "$aliddns_lock_file"' in lifecycle_lock_run and
+        'aliddns_lifecycle_lock_run "$ACTION"' in source and
+        '"$scriptfilepath" keep 9>&- &' in source and
+        '"$scriptfilepath" start 9>&- &' in source,
+        "public actions must use the lock and detached children must not retain FD 9")
+require('aliddns_close' in lifecycle_control_start and
+        'nvram set aliddns_status=0' in lifecycle_control_start and
+        'aliddns_check' in lifecycle_control_start and
+        'start|restart' in lifecycle_locked_action and
+        'aliddns_lifecycle_control_start' in lifecycle_locked_action and
+        'stop)' in lifecycle_locked_action and 'check)' in lifecycle_locked_action,
+        "AliDDNS start/restart/stop/check must dispatch through the serialized action")
+require('eval("/usr/bin/aliddns.sh","restart");' in restart_service and
+        'stop_aliddns();' not in restart_service and
+        'start_aliddns();' not in restart_service,
+        "RC restart must be one atomic launcher operation rather than separate stop/start calls")
+require('CONFIG_FLOCK=y' in busybox_config and
+        'fd = xatoi_positive(argv[0]);' in flock_source and
+        'if (flock(fd, mode) != 0)' in flock_source,
+        "target BusyBox must provide descriptor-based flock used by AliDDNS")
+for marker in (
+    "AliDDNS lifecycle lock private inode and unsafe-file rejection: PASS",
+    "AliDDNS lifecycle lock contention, bounded failure and descriptor release: PASS",
+    "AliDDNS restart close/start transaction and locked action dispatch: PASS",
+):
+    require(marker in lifecycle_test, f"lifecycle host regression missing marker: {marker}")
+
 ipv4_valid = function_body(source, "aliddns_ipv4_valid() {")
 ipv6_valid = function_body(source, "aliddns_ipv6_valid() {")
 require('ALIDDNS_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt"' in ipv4_helper and
@@ -242,6 +297,9 @@ push_filter_paths = tuple(line.strip() for line in push_filter_block.splitlines(
 require(
     '- "trunk/user/aliddns/tests/aliddns_nslookup_lifecycle.sh"' in push_filter_paths and
     '- "trunk/user/aliddns/tests/aliddns_custom_script_lifecycle.sh"' in push_filter_paths and
+    '- "trunk/user/aliddns/tests/aliddns_lifecycle.sh"' in push_filter_paths and
+    '- "trunk/configs/boards/busybox.config"' in push_filter_paths and
+    '- "trunk/user/busybox/busybox-1.24.x/util-linux/flock.c"' in push_filter_paths and
     '- "trunk/user/aliddns/tests/copyscripts_ca_bootstrap.sh"' in push_filter_paths and
     '- "trunk/user/aliddns/tests/aliddns_hmac_sha1.sh"' in push_filter_paths and
     '- "trunk/user/aliddns/src/aliddns-hmac-sha1.c"' in push_filter_paths and

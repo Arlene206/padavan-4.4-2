@@ -15,6 +15,7 @@ on:
       - "trunk/user/aliddns/tests/aliddns_api_transport.sh"
       - "trunk/user/aliddns/tests/aliddns_nslookup_lifecycle.sh"
       - "trunk/user/aliddns/tests/aliddns_custom_script_lifecycle.sh"
+      - "trunk/user/aliddns/tests/aliddns_lifecycle.sh"
       - "trunk/user/aliddns/tests/copyscripts_ca_bootstrap.sh"
       - "trunk/user/aliddns/tests/aliddns_hmac_sha1.sh"
       - "trunk/user/aliddns/src/aliddns-hmac-sha1.c"
@@ -29,6 +30,8 @@ on:
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/services.c"
       - "trunk/user/httpd/src/variables.c"
+      - "trunk/configs/boards/busybox.config"
+      - "trunk/user/busybox/busybox-1.24.x/util-linux/flock.c"
 permissions:
   contents: read
 
@@ -44,6 +47,7 @@ jobs:
           sh -n trunk/user/aliddns/ddns_script.sh
           sh -n trunk/user/aliddns/tests/aliddns_nslookup_lifecycle.sh
           sh -n trunk/user/aliddns/tests/aliddns_custom_script_lifecycle.sh
+          sh -n trunk/user/aliddns/tests/aliddns_lifecycle.sh
           sh -n trunk/user/aliddns/tests/copyscripts_ca_bootstrap.sh
           sh -n trunk/user/aliddns/tests/aliddns_hmac_sha1.sh
           sh -n trunk/user/scripts/files/usr/bin/copyscripts.sh
@@ -55,6 +59,8 @@ jobs:
         run: sh trunk/user/aliddns/tests/aliddns_nslookup_lifecycle.sh
       - name: Run AliDDNS custom-script lifecycle regression
         run: sh trunk/user/aliddns/tests/aliddns_custom_script_lifecycle.sh
+      - name: Run AliDDNS lifecycle lock regression
+        run: sh trunk/user/aliddns/tests/aliddns_lifecycle.sh
       - name: Run CA trust-store bootstrap regression
         run: sh trunk/user/aliddns/tests/copyscripts_ca_bootstrap.sh
       - name: Run AliDDNS HMAC-SHA1 process-argument privacy regression

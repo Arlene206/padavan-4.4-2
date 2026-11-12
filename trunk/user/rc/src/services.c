@@ -589,8 +589,7 @@ void start_aliddns(void){
 }
 
 void restart_aliddns(void){
-    stop_aliddns();
-	start_aliddns();
+	eval("/usr/bin/aliddns.sh","restart");
 }
 #endif
 

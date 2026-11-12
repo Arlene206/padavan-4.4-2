@@ -103,7 +103,7 @@ if [ "$1" = "x" ] ; then
 	[ -f $relock ] && rm -f $relock
 fi
 nvram set aliddns_status=0
-eval "$scriptfilepath &"
+"$scriptfilepath" start 9>&- &
 exit 0
 }
 
@@ -130,7 +130,7 @@ fi
 if [ "$aliddns_enable" = "1" ] ; then
 	if [ "$needed_restart" = "1" ] ; then
 		aliddns_close
-		eval "$scriptfilepath keep &"
+		"$scriptfilepath" keep 9>&- &
 		exit 0
 	else
 		[ -z "$(ps -w | grep "$scriptname keep" | grep -v grep )" ] || [ ! -s "`which curl`" ] && aliddns_restart
@@ -791,24 +791,168 @@ initconfig () {
 	return "$ddns_init_status"
 }
 
+
+aliddns_lifecycle_lock_path() {
+	echo /tmp/.aliddns.lifecycle.lock
+}
+
+# The lock inode is stable for this boot. Kernel flock state is released with
+# the last descriptor; never unlink a possibly-held lock file.
+aliddns_lifecycle_lock_prepare() {
+	aliddns_lock_file="$1"
+	[ -n "$aliddns_lock_file" ] || return 1
+
+	case "$aliddns_lock_file" in
+		*/*) aliddns_lock_dir="${aliddns_lock_file%/*}" ;;
+		*) aliddns_lock_dir=. ;;
+	esac
+	[ -n "$aliddns_lock_dir" ] || aliddns_lock_dir=/
+	if [ -L "$aliddns_lock_dir" ] || [ ! -d "$aliddns_lock_dir" ]; then
+		logger -t "AliDDNS" "生命周期锁目录不是普通目录"
+		return 1
+	fi
+
+	aliddns_lock_uid="$(id -u)" || return 1
+	aliddns_dir_info="$(stat -c '%u %a' "$aliddns_lock_dir")" || return 1
+	set -- $aliddns_dir_info
+	if [ "$#" -ne 2 ] || [ "$1" != "$aliddns_lock_uid" ]; then
+		logger -t "AliDDNS" "生命周期锁目录所有者不安全"
+		return 1
+	fi
+	aliddns_dir_mode=$((0$2))
+	if [ $((aliddns_dir_mode & 0022)) -ne 0 ] &&
+	   [ $((aliddns_dir_mode & 01000)) -eq 0 ]; then
+		logger -t "AliDDNS" "生命周期锁目录可被其他用户写入且没有sticky保护"
+		return 1
+	fi
+
+	if [ -L "$aliddns_lock_file" ]; then
+		logger -t "AliDDNS" "生命周期锁文件不能是符号链接"
+		return 1
+	fi
+	if [ ! -e "$aliddns_lock_file" ]; then
+		(umask 077; set -C; : > "$aliddns_lock_file") 2>/dev/null || :
+	fi
+	if [ -L "$aliddns_lock_file" ] || [ ! -f "$aliddns_lock_file" ]; then
+		logger -t "AliDDNS" "生命周期锁文件不是普通文件"
+		return 1
+	fi
+
+	aliddns_file_info="$(stat -c '%u %a %h' "$aliddns_lock_file")" || return 1
+	set -- $aliddns_file_info
+	if [ "$#" -ne 3 ] || [ "$1" != "$aliddns_lock_uid" ] ||
+	   [ "$2" != 600 ] || [ "$3" != 1 ]; then
+		logger -t "AliDDNS" "生命周期锁文件权限、所有者或链接数不安全"
+		return 1
+	fi
+	return 0
+}
+
+# FD 9 is reserved by the short-lived launcher. Bounded waiting prevents
+# queued RC notifications from blocking PID 1 indefinitely.
+aliddns_lifecycle_lock_execute() {
+	aliddns_lock_file="$1"
+	aliddns_wait_seconds="$2"
+	shift 2
+	case "$aliddns_wait_seconds" in
+		''|*[!0-9]*) return 1 ;;
+	esac
+	[ "$#" -gt 0 ] || return 1
+
+	if ( : <&9 ) 2>/dev/null || ( : >&9 ) 2>/dev/null; then
+		logger -t "AliDDNS" "生命周期锁FD 9已被占用，拒绝运行"
+		return 1
+	fi
+
+	aliddns_old_umask="$(umask)"
+	umask 077
+	if ! exec 9>>"$aliddns_lock_file"; then
+		umask "$aliddns_old_umask"
+		logger -t "AliDDNS" "无法打开生命周期锁文件"
+		return 1
+	fi
+	umask "$aliddns_old_umask"
+
+	aliddns_lock_attempt=0
+	while ! flock -n 9; do
+		if [ "$aliddns_lock_attempt" -ge "$aliddns_wait_seconds" ]; then
+			exec 9>&-
+			logger -t "AliDDNS" "等待生命周期锁超时"
+			return 1
+		fi
+		aliddns_lock_attempt=$((aliddns_lock_attempt + 1))
+		sleep 1
+	done
+
+	if "$@"; then
+		aliddns_action_status=0
+	else
+		aliddns_action_status=$?
+	fi
+	exec 9>&-
+	return "$aliddns_action_status"
+}
+
+aliddns_lifecycle_control_start() {
+	# Recompute the config digest after closing the prior keeper.
+	aliddns_close
+	nvram set aliddns_status=0 || return $?
+	aliddns_check
+}
+
+aliddns_lifecycle_locked_action() {
+	case "$1" in
+		start|restart)
+			aliddns_lifecycle_control_start
+			;;
+		stop)
+			aliddns_close
+			;;
+		check)
+			aliddns_check
+			;;
+		*)
+			return 2
+			;;
+	esac
+}
+
+aliddns_lifecycle_lock_run() {
+	aliddns_action="$1"
+	aliddns_wait_seconds="${2:-10}"
+	case "$aliddns_action" in
+		start|stop|restart|check) ;;
+		*) return 2 ;;
+	esac
+	case "$aliddns_wait_seconds" in
+		''|*[!0-9]*) return 1 ;;
+	esac
+
+	aliddns_lock_file="$(aliddns_lifecycle_lock_path)" || return 1
+	if ! aliddns_lifecycle_lock_prepare "$aliddns_lock_file"; then
+		logger -t "AliDDNS" "生命周期锁准备失败，取消服务操作"
+		return 1
+	fi
+	command -v flock >/dev/null 2>&1 || {
+		logger -t "AliDDNS" "系统缺少flock，拒绝无锁执行生命周期操作"
+		return 1
+	}
+	aliddns_lifecycle_lock_execute "$aliddns_lock_file" "$aliddns_wait_seconds" \
+		aliddns_lifecycle_locked_action "$aliddns_action"
+}
+
+
 initconfig
 
 case $ACTION in
-start)
-	aliddns_close
-	aliddns_check
-	;;
-check)
-	aliddns_check
-	;;
-stop)
-	aliddns_close
+start|stop|restart|check)
+	aliddns_lifecycle_lock_run "$ACTION"
 	;;
 keep)
 	aliddns_keep
 	;;
 *)
-	aliddns_check
+	aliddns_lifecycle_lock_run check
 	;;
 esac
 
