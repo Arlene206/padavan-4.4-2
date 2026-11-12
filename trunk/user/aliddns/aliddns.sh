@@ -222,10 +222,14 @@ enc() {
 
 ALIDDNS_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt"
 
+aliddns_hmac_sha1() {
+	/usr/bin/aliddns-hmac-sha1
+}
+
 send_request() {
 	args="AccessKeyId=$aliddns_ak&Action=$1&Format=json&$2&Version=2015-01-09"
 	signing_input="GET&%2F&$(enc "$args")"
-	hash=$(printf '%s\000%s' "$aliddns_sk&" "$signing_input" | /usr/bin/aliddns-hmac-sha1) || {
+	hash=$(printf '%s\000%s' "$aliddns_sk&" "$signing_input" | aliddns_hmac_sha1) || {
 		logger -t "【AliDDNS动态域名】" "HMAC-SHA1 签名失败"
 		return 1
 	}

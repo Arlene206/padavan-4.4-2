@@ -70,6 +70,7 @@ def function_body(text: str, signature: str) -> str:
 
 send_request = function_body(source, "send_request() {")
 response_ok = function_body(source, "aliddns_response_ok() {")
+hmac_helper = function_body(source, "aliddns_hmac_sha1() {")
 info = function_body(source, "arDdnsInfo() {")
 update = function_body(source, "arDdnsUpdate() {")
 ddns_check = function_body(source, "arDdnsCheck() {")
@@ -96,9 +97,12 @@ require("--config -" in send_request and 'url = "$request_url"' in send_request,
         "credential-bearing AliDNS URL must be delivered through curl stdin rather than argv")
 require('args="AccessKeyId=$aliddns_ak&Action=$1&Format=json&$2&Version=2015-01-09"' in send_request and
         'signing_input="GET&%2F&$(enc "$args")"' in send_request and
-        'hash=$(printf \'%s\\000%s\' "$aliddns_sk&" "$signing_input" | /usr/bin/aliddns-hmac-sha1)' in send_request and
+        'hash=$(printf \'%s\\000%s\' "$aliddns_sk&" "$signing_input" | aliddns_hmac_sha1)' in send_request and
         "openssl dgst" not in send_request and "-hmac" not in send_request,
         "API parameters and canonical HMAC-SHA1 bytes must stay unchanged without putting the secret in OpenSSL argv")
+require("/usr/bin/aliddns-hmac-sha1" in hmac_helper and
+        "openssl dgst" not in hmac_helper and "-hmac" not in hmac_helper,
+        "HMAC wrapper must invoke the fixed ROMFS helper without exposing the secret in argv")
 require('main(void)' in hmac_source and
         'EVP_MAC_fetch(NULL, "HMAC", NULL)' in hmac_source and
         'OSSL_MAC_PARAM_DIGEST' in hmac_source and
@@ -120,6 +124,11 @@ require('PKG_NAME:=aliddns' in package and
         'DESTDIR="$(STAGING_DIR)"' in libssl_makefile and
         'install_sw install_ssldirs' in libssl_makefile,
         "HMAC helper must build against the staged OpenSSL 3 libcrypto and be installed into ROMFS")
+require('aliddns-hmac-sha1.c' in test and
+        'aliddns_hmac_sha1() {' in test and
+        '$TEST_DIR/aliddns-hmac-sha1' in test and
+        'expected_signature=' in test,
+        "API transport fixture must compile and run the real HMAC helper and check its computed signature")
 require('RFC 2202' in hmac_test and
         'AccessKeySecret absent from HMAC helper argv and environment: PASS' in hmac_test and
         'input-boundary regression: PASS' in hmac_test and

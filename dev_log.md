@@ -1,3 +1,17 @@
+## 2026-11-12 20:28 CST (UTC+8) — Make AliDDNS API fixture exercise the stdin-only HMAC helper
+
+- Base checkpoint: `ef637689ac83b8160a4bf345d4c6a817a37686e4`; live main remains `9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74`.
+- Inspected exact-head AliDDNS push [43219970805] and PR [43219981740] logs. Both checked out the intended SHA/merge commit and passed shell syntax. The first API regression failed with `/usr/bin/aliddns-hmac-sha1: not found`, so later suites and semantic checker were skipped. Root cause: extracted-function fixture did not install the new ROMFS helper; this did not establish a production package installation failure.
+- Added a narrow production `aliddns_hmac_sha1()` wrapper that invokes the fixed `/usr/bin/aliddns-hmac-sha1` ROMFS path. No environment-variable or NVRAM-controlled executable path override was introduced.
+- Updated `tests/aliddns_api_transport.sh` to extract the wrapper, compile the real production C helper into its isolated test directory and override only the wrapper function to invoke that binary. The transport regression now calculates the expected signature from exact canonical bytes and verifies the actual base64 URL value; removed the obsolete OpenSSL mock and fake `c2ln` signature.
+- Updated semantic checker to require the fixed ROMFS wrapper, stdin delegation and a transport fixture that compiles/runs the actual helper and checks the computed signature.
+- This fixes the integration-test fixture only; HMAC framing, EVP_MAC implementation, signing bytes and production ROMFS path do not change. Dedicated HMAC test and remaining host suites have not yet rerun on the corrected SHA.
+- Handoff records exact failure IDs/root cause. Root `dev_log.md` grows 61→62 records, below 120-entry/384 KiB early/512 KiB hard limits. Archive inventory remains 7/22/18; no rotation/INDEX update. Roadmap unchanged.
+- Resulting commit: THIS COMMIT.
+- Next: inspect corrected exact-head AliDDNS push/PR complete job logs and AI docs validator. Require all six host regression suites, semantic source/package/RC checker and docs contract to pass on the same exact SHA before closing HMAC L2. L3 MIPS/uClibc, full firmware/TRX and L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-12 20:20 CST (UTC+8) — Move AliDDNS HMAC-SHA1 secret out of process argv
 
 - Base checkpoint: fix/aliddns-ca-bundle-bootstrap at 1a576c178135aa0c41f11b9eacec78ded195e018; live main at recovery remains 9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74. PR #1 remains open.
