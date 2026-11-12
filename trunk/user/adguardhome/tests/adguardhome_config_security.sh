@@ -141,8 +141,15 @@ sleep() {
 }
 
 rm() {
-	printf 'rm:%s\n' "$*" >> "$TEST_ADG_CLEANUP_LOG"
-	return 0
+	case "$*" in
+		"-rf /tmp/AdGuardHome")
+			printf 'rm:%s\n' "$*" >> "$TEST_ADG_CLEANUP_LOG"
+			return 0
+			;;
+		*)
+			/bin/rm "$@"
+			;;
+	esac
 }
 
 del_dns() {
