@@ -2,7 +2,9 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; default branch: `main`. Current repository HEAD (including governance commits) is `24644dd523f08f9167bd5e713a348e20592a72ab`; latest AliDDNS source/test slice is `6786ad5c89aa4b871f501c72d89ee2c5f8d53be4` and latest checker slice is this commit's parent. Remote branch inventory contains only `main`; no remote checkpoint branch exists. Always re-fetch exact main HEAD, branch inventory and Actions before the next edit.
+- Repository: `Arlene206/padavan-4.4-2`; default branch: `main`. Current main base SHA for the XY-C1 repair is `9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74`; the post-fix commit is THIS COMMIT until the ref update is verified. Remote branches at recovery: `main` and `fix/aliddns-ca-bundle-bootstrap` (`1a576c178135aa0c41f11b9eacec78ded195e018`). No branch was force-updated.
+- Active release blocker: XY-C1 Firmware Validation run [43213681479](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43213681479), job [131167417183](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43213681479/job/131167417183), on base SHA `9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74`. Build failed in Linux 4.4 `net/netfilter/xt_webstr.c:364` because `IP_OFFSET` was used without including its defining kernel-internal `<net/ip.h>`. This checkpoint adds that dependency, an explicit source contract, and push-triggered XY-C1 validation. Do not call the build fixed until exact-head Actions produces and validates a non-empty XY-C1 TRX.
+- Prior AliDDNS active work is parked, not closed: its signed URL/public IPv4/DNS lifecycle changes and unresolved AccessKeySecret argv, CA-extraction postcondition and concurrency follow-ups remain as recorded below. Resume only after the requested XY-C1 build blocker is closed.
 - Prior AliDDNS signed API transport baseline remains L1/L2 CLOSED on exact SHA `c5d33928b7857021b3a1af28b95293ff546a0359`: official AliDNS HTTPS only; explicit packaged CA path; HTTPS-only protocol; redirects disabled; 5-second connect / 20-second total timeout; HTTP 2xx and API RequestId/no-Code validation; API/transport errors do not masquerade as empty record lists or publish false success. Exact-head transport [43192612755] and AI docs [43192618164] were SUCCESS on that older SHA.
 - This session resumed the handoff's AliDDNS discovery/lifecycle follow-ups. Earlier insecure IPv4 public-IP fallbacks were replaced by `trunk/user/aliddns/aliddns-ipv4.sh`, which uses `https://api.ipify.org`, the firmware CA bundle, HTTPS-only curl, IPv4-only mode, bounded timeouts, HTTP 200 and strict IPv4 validation. `ddns_script.sh` default IPv4 path uses this helper and preserves the existing IPv6 path. `initconfig()` writes the stock persistent script only when no non-empty user script exists; customized `/etc/storage/ddns_script.sh` is not overwritten. The stock HTTP / TLS-verification bypass sources were removed from the AliDDNS templates and DNS fallback.
 - Signed API URL exposure was reduced in commit `5157b342e0584404d09b4ce334cd8506c5bb1e1f`: AccessKeyId and HMAC Signature are now passed to curl through stdin via `--config -`, not in curl argv. Quote, backslash, CR, TAB and newline delimiters are rejected before config serialization; host test checks the exact URL in stdin and rejects newline injection. The HMAC AccessKeySecret is STILL passed to `openssl dgst -hmac "$aliddns_sk&"` argv and remains an OPEN process-list/procfs exposure; do not claim it is hidden.
@@ -16,15 +18,16 @@
 - FTP failed-upload cleanup TOCTOU remains P2 OPEN/BLOCKED. Linux 4.4 lacks inode-conditional unlink-by-fd; do not patch without a proof preserving STOR/APPE/REST/STOU and concurrent external-writer semantics. NFS async durability/AUTH_SYS/root-squash remain real-client evidence gated. FRP/Adbyby lifecycle/configuration remain in the whole-tree audit queue.
 - No complete local checkout, production MIPS/uClibc build, full firmware/TRX build or physical router test was run for this session. Target BusyBox/ash/nslookup, boot timing, L3 and L4 behavior remain NOT VERIFIED.
 
-## Active task — Verify AliDDNS L2 and close remaining security/lifecycle gaps
+## Active task — Restore XY-C1 MIPS firmware build and verify complete TRX generation
 
-1. Fetch live `main`, remote branches and exact-head Actions first. The saved SHA above is a handoff point, not authority over newer commits.
-2. Re-run the complete AliDDNS workflow on one exact SHA and inspect every job step/full log. It must cover shell syntax, signed API transport, public IPv4 provider failures, DNS timeout/concurrency tests, semantic source/package/RC contracts and symmetric push/PR path filters. Correct any fixture/checker failures on the same final SHA; do not mark L2 closed until exact-head Actions pass.
-3. Review `scripts/check_aliddns_api_transport.py` and workflow filters in the full repository context. The last checker assertion was corrected to match the exact "Concurrent calls share $$" test label; ensure the complete checker actually executes successfully.
-4. Continue security analysis of AccessKeySecret in the OpenSSL `-hmac` argv. Find a method compatible with the shipped OpenSSL build and BusyBox shell that does not put the secret in process arguments, without changing HMAC-SHA1 bytes or request canonicalization. Add a process-argument regression before changing production behavior.
-5. Audit the synchronous `copyscripts.sh` call and CA extraction postcondition. The shell script currently continues after a failed tar command; determine whether `rc.c` should explicitly require a readable `/etc/ssl/certs/ca-certificates.crt` before proceeding, while preserving existing startup behavior and custom persistent scripts.
-6. Finish AliDDNS start/check/keep/stop concurrency and HTTPD→RC restart lifecycle review. Preserve user-owned `/etc/storage/ddns_script.sh`.
-7. After the AliDDNS batch is genuinely verified, rotate whole-tree work to AliyunDrive concurrent lifecycle/readiness/secret exposure. Then continue FTP TOCTOU only with a proved Linux 4.4-safe design, NFS only with real-client evidence, and FRP/Adbyby lifecycle/configuration.
+1. Fetch live `main` and inspect all Actions runs against the exact head SHA; never use a copied checkpoint SHA as authority.
+2. Resolve the reported compiler error in `trunk/linux-4.4.x/net/netfilter/xt_webstr.c`: `IP_OFFSET` belongs to `<net/ip.h>`, not the UAPI `<linux/ip.h>`. Keep the existing check limited to the fragment-offset bits; do not broaden it to reject first IPv4 fragments.
+3. The active fix adds `#include <net/ip.h>`, checks this dependency through `.github/workflows/xt-webstr-security.yml`, and enables automatic XY-C1 build validation when this source changes. Inspect both workflows' checkout SHAs, every step and full logs.
+4. If the full build exposes another compiler/linker/package blocker, inspect its first causal error and fix only that issue. Repeat until the kernel, userland, firmware assembly and TRX checks all succeed on one exact main SHA; do not mask errors, skip components or claim success from the host parser test.
+5. Require the `Verify TRX output` step to find at least one non-empty `trunk/images/*.trx` and the artifact upload step to succeed. Record the artifact/run link and exact SHA. L4 physical router flashing/boot remains a separate NOT VERIFIED boundary.
+6. Once XY-C1 L3 is closed, return to the parked AliDDNS security/lifecycle handoff; do not silently mark its outstanding items complete.
+
+
 
 ## Verification boundary
 
@@ -33,3 +36,6 @@
 - L2 exact-head Actions: NOT CLOSED on `24644dd523f08f9167bd5e713a348e20592a72ab`. Host test steps passed, but AliDDNS semantic checker failed on its stale path literal and AI docs failed on the missing next-action heading. Rerun both workflows after this fix, inspect full logs and checkout SHA, and do not infer closure from component test successes.
 - L3 production MIPS/uClibc objects and full firmware/TRX: NOT VERIFIED.
 - L4 router/hardware behavior: NOT VERIFIED.
+
+## Exact first action for the next GPT
+Fetch live `main` SHA and all Actions on that SHA; inspect the latest XY-C1 Firmware Validation run and its `Cross-build XY-C1 firmware` job. If failed, open the first compiler/linker error in the complete log and make the next narrow repair before doing unrelated work. Do not claim L3 complete until the exact-head `Verify TRX output` and artifact-upload steps both succeed; then reconcile the parked AliDDNS task.

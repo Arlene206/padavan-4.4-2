@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - "trunk/linux-4.4.x/net/netfilter/xt_webstr.c"
+      - "trunk/linux-4.4.x/include/net/ip.h"
       - "trunk/linux-4.4.x/net/netfilter/xt_webstr_parser_policy.h"
       - "trunk/linux-4.4.x/net/netfilter/tests/xt_webstr_parser_policy.c"
       - "trunk/user/iptables/iptables-1.8.7/extensions/libxt_webstr.c"
@@ -11,6 +12,7 @@ on:
   pull_request:
     paths:
       - "trunk/linux-4.4.x/net/netfilter/xt_webstr.c"
+      - "trunk/linux-4.4.x/include/net/ip.h"
       - "trunk/linux-4.4.x/net/netfilter/xt_webstr_parser_policy.h"
       - "trunk/linux-4.4.x/net/netfilter/tests/xt_webstr_parser_policy.c"
       - "trunk/user/iptables/iptables-1.8.7/extensions/libxt_webstr.c"
@@ -37,6 +39,7 @@ jobs:
           import re
 
           source = Path("trunk/linux-4.4.x/net/netfilter/xt_webstr.c").read_text()
+          kernel_ip = Path("trunk/linux-4.4.x/include/net/ip.h").read_text()
           matcher = source.split("static bool xt_webstr_match", 1)[1].split(
               "static struct xt_match", 1
           )[0]
@@ -48,6 +51,9 @@ jobs:
           ).read_text()
 
           assert re.search(r"static\s+httpinfo_t\s+htinfo\s*;", source) is None
+          assert "#include <net/ip.h>" in source
+          assert re.search(r"^#define IP_OFFSET\s+0x1FFF\b", kernel_ip, re.MULTILINE)
+          assert "if (ntohs(iph->frag_off) & IP_OFFSET)" in matcher
           assert "httpinfo_t *htinfo = NULL" in matcher
           assert "kmalloc(sizeof(*htinfo), GFP_ATOMIC)" in matcher
           assert "kfree(htinfo);" in matcher
@@ -75,5 +81,5 @@ jobs:
           assert "haystack_len < needle_len" in source
           assert "if (len >= sizeof(info->string))" in userspace
           assert "memcpy(info->string, s, len + 1)" in userspace
-          print("xt_webstr per-packet state, IPv6 offsets and input bounds: OK")
+          print("xt_webstr kernel IP_OFFSET dependency, per-packet state, IPv6 offsets and input bounds: OK")
           PY

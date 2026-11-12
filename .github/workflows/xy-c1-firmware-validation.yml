@@ -1,6 +1,10 @@
 name: XY-C1 Firmware Validation
 
 on:
+  push:
+    paths:
+      - "trunk/linux-4.4.x/net/netfilter/xt_webstr.c"
+      - ".github/workflows/xy-c1-firmware-validation.yml"
   workflow_dispatch:
 
 permissions:

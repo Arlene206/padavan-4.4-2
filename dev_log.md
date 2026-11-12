@@ -1,3 +1,15 @@
+## 2026-11-12 20:22 CST (UTC+8) — Repair XY-C1 xt_webstr IP_OFFSET kernel-header dependency
+
+- Base main SHA: `9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74`. The failed XY-C1 Firmware Validation run was [43213681479](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43213681479), job [131167417183](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43213681479/job/131167417183), checked out this exact SHA.
+- The MIPS kernel build stopped at `trunk/linux-4.4.x/net/netfilter/xt_webstr.c:364`: `IP_OFFSET` was undeclared. The symbol is defined as `0x1FFF` in the kernel-internal `include/net/ip.h`; the source included `<linux/ip.h>` (which defines `struct iphdr`) but not the internal header that owns the fragment-offset mask.
+- THIS COMMIT adds the explicit `<net/ip.h>` dependency without changing the existing non-initial IPv4-fragment rejection condition or first-fragment behavior. The Xtables source contract now checks both the include and the canonical kernel definition; its push/PR filters also watch `include/net/ip.h`.
+- The XY-C1 validation workflow now runs on pushes changing `xt_webstr.c` (and its own trigger definition), in addition to manual dispatch. This ensures the actual `mipsel-linux-musl` firmware build and TRX verification execute for this fix.
+- Local full checkout / target compiler execution: NOT RUN. Xtables host regression and semantic contract: PENDING exact-head Actions. XY-C1 L3 build/TRX/artifact: PENDING exact-head Actions. L4 router validation: NOT VERIFIED.
+- Resulting commit: THIS COMMIT.
+- Next: inspect all Xtables and XY-C1 jobs on the exact resulting SHA. If the compiler reveals another genuine blocker, fix that blocker narrowly and repeat; close only after kernel and userspace build, firmware image generation, non-empty TRX validation and artifact upload all succeed. Then reconcile any unrelated triggered workflows.
+
+---
+
 ## 2026-11-12 18:41 CST (UTC+8) — Harden AliDDNS public-IP, signed URL and concurrent DNS lookup paths
 
 - Production/test code SHA is `6786ad5c89aa4b871f501c72d89ee2c5f8d53be4`; the final semantic checker SHA after the exact fixture-label correction is `79b73e050bb00b6d9d2916d3955be9d1b8d95317`. The handoff / roadmap checkpoint refreshes are committed at `a786bd9edfe1440afb67c69e7fe86be7ac5c2703`, `df3acd6bf22ba64478dc94026cb2b8572fb71065`, `db42e82b784578b3a1fb3cfc1cd79a0a3ecfb4a9` and `b7a71a16734ddcef847802b01b3a9e203c365358`. Latest code/test/checker commits in this batch: DNS scratch isolation `95845208777085bc1e736f0c06f159182c336f2a`; DNS regression `cd560bf3f9ccfb497703d14f5f5d61f446cb55e5`; signal-time child reaping `d562108ca744bd73631e985ee1532ea90a552878`; source contract `54bd3e150e2e8faa2a4c15c21964fe24e903aa7c`; workflow coverage `eb403051ddbd6d451998185b1c4206fc4ab2d41f`; path-filter/test fixture follow-ups `999a0c89003456b80788671e28812685aafa226c`, `b396f635f0b4817b2977958b97c0f00007ebc88a`, `241752ae026fc674a10812f53ce4cc32ae111527`, `6786ad5c89aa4b871f501c72d89ee2c5f8d53be4` and final marker-contract commit `79b73e050bb00b6d9d2916d3955be9d1b8d95317`.
