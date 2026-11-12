@@ -477,11 +477,11 @@ aliddns_nslookup() {
 		[ -n "$lookup_dir" ] || exit 1
 
 		trap 'rm -rf "$lookup_dir"' 0
-		trap 'exit 1' HUP INT TERM
 
 		lookup_file="$lookup_dir/output"
 		nslookup "$lookup_name" > "$lookup_file" 2>&1 &
 		lookup_pid=$!
+		trap 'trap "" HUP INT TERM; kill "$lookup_pid" 2>/dev/null || :; sleep 1; if kill -0 "$lookup_pid" 2>/dev/null; then kill -9 "$lookup_pid" 2>/dev/null || :; fi; wait "$lookup_pid" 2>/dev/null || :; exit 1' HUP INT TERM
 		lookup_remaining=5
 		lookup_timed_out=0
 		while [ "$lookup_remaining" -gt 0 ]; do
@@ -510,6 +510,8 @@ aliddns_nslookup() {
 
 		lookup_status=0
 		wait "$lookup_pid" 2>/dev/null || lookup_status=$?
+		trap - HUP INT TERM
+		lookup_pid=""
 		if [ "$lookup_timed_out" -ne 0 ] || [ "$lookup_status" -ne 0 ]; then
 			exit 1
 		fi
