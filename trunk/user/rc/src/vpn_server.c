@@ -164,13 +164,24 @@ static int
 clear_vpns_lease_file(void)
 {
 	int lock_fd, result = 0, saved_errno = 0;
+
 	lock_fd = vpn_server_lease_lock_acquire(VPN_SERVER_LEASE_LOCK_FILE);
 	if (lock_fd < 0)
 		return -1;
+#if defined(APP_OPENVPN)
+	/* Stop may return immediately after SIGKILL. Removing the PID marker
+	 * under the callback lock fences any late, re-parented script. */
+	if (unlink(VPN_SERVER_OPENVPN_PID_FILE) != 0 && errno != ENOENT) {
+		result = -1;
+		saved_errno = errno ? errno : EIO;
+		goto out;
+	}
+#endif
 	if (unlink(VPN_SERVER_LEASE_FILE) != 0 && errno != ENOENT) {
 		result = -1;
 		saved_errno = errno ? errno : EIO;
 	}
+out:
 	if (vpn_server_lease_lock_release(lock_fd) != 0 && result == 0) {
 		result = -1;
 		saved_errno = errno ? errno : EIO;

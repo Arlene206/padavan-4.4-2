@@ -2,6 +2,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/types.h>
 
 #include "openvpn_server_lease_policy.h"
 
@@ -24,6 +25,20 @@ main(void)
 	FILE *source, *destination;
 	int trailing_newline = 0;
 	char long_line[320];
+
+	assert(openvpn_server_lease_pid_matches("4321", 4, (pid_t)4321) == 1);
+	assert(openvpn_server_lease_pid_matches("4321\n", 5, (pid_t)4321) == 1);
+	assert(openvpn_server_lease_pid_matches("4321", 4, (pid_t)4322) == 0);
+	errno = 0;
+	assert(openvpn_server_lease_pid_matches("1", 1, (pid_t)1) == -1);
+	assert(errno == EINVAL);
+	errno = 0;
+	assert(openvpn_server_lease_pid_matches("43x1", 4, (pid_t)4321) == -1);
+	assert(errno == EINVAL);
+	errno = 0;
+	assert(openvpn_server_lease_pid_matches("999999999999999999999999", 24,
+		(pid_t)4321) == -1);
+	assert(errno == ERANGE);
 
 	assert(openvpn_server_lease_line_matches(
 		"tun11 10.8.0.2 198.51.100.7 laptop\n",
@@ -76,7 +91,22 @@ main(void)
 	errno = 0;
 	assert(openvpn_server_lease_copy(source, destination, NULL, NULL, 0,
 		&trailing_newline) == -1);
+	assert(errno == EOVERFLOW);
+	fclose(source);
+	fclose(destination);
+
+	source = tmpfile();
+	destination = tmpfile();
+	assert(source != NULL && destination != NULL);
+	assert(fwrite("tun11 10.8.0.2 198.51.100.7 laptop\0ignored\n", 1,
+		sizeof("tun11 10.8.0.2 198.51.100.7 laptop\0ignored\n") - 1,
+		source) == sizeof("tun11 10.8.0.2 198.51.100.7 laptop\0ignored\n") - 1);
+	rewind(source);
+	errno = 0;
+	assert(openvpn_server_lease_copy(source, destination, NULL, NULL, 0,
+		&trailing_newline) == -1);
 	assert(errno == EINVAL);
+	expect_read(destination, "");
 	fclose(source);
 	fclose(destination);
 

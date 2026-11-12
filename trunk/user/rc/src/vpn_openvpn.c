@@ -33,11 +33,12 @@
 #include "openvpn_client_secret_file.h"
 #include "openvpn_config_file.h"
 #include "openvpn_server_lease_policy.h"
+#include "vpn_server_lease_lock.h"
 
 #define OPENVPN_EXE		"/usr/sbin/openvpn"
 #define COMMON_TEMP_DIR		"/tmp/openvpn"
 
-#define SERVER_PID_FILE		"/var/run/openvpn_svr.pid"
+#define SERVER_PID_FILE		VPN_SERVER_OPENVPN_PID_FILE
 #define SERVER_ROOT_DIR		"/etc/openvpn/server"
 #define SERVER_CERT_DIR		"/etc/storage/openvpn/server"
 #define SERVER_LOG_NAME		"OpenVPN server"
@@ -823,46 +824,53 @@ openvpn_tunif_stop(const char *ifname)
 }
 
 static int
-openvpn_server_lease_lock(const char *lease_path)
+openvpn_server_lease_parent_is_current(void)
 {
-	char lock_path[256];
+	int fd = -1, saved_errno;
+	ssize_t length;
 	struct stat st;
-	struct flock lock;
-	int lock_fd, path_len, lock_result;
+	char pid_text[32];
+	pid_t parent_pid = getppid();
 
-	path_len = snprintf(lock_path, sizeof(lock_path), "%s.lock", lease_path);
-	if (path_len < 0 || path_len >= (int)sizeof(lock_path)) {
-		errno = ENAMETOOLONG;
-		return -1;
+	if (parent_pid <= (pid_t)1) {
+		errno = ESTALE;
+		return 0;
 	}
-	lock_fd = open(lock_path, O_CREAT | O_RDWR | O_NOFOLLOW | O_CLOEXEC, 0600);
-	if (lock_fd < 0)
-		return -1;
-	if (fstat(lock_fd, &st) != 0)
+	fd = open(SERVER_PID_FILE, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC);
+	if (fd < 0)
+		return 0;
+	if (fstat(fd, &st) != 0)
 		goto failed;
-	if (!S_ISREG(st.st_mode) || st.st_uid != geteuid() || st.st_nlink != 1) {
+	if (!S_ISREG(st.st_mode) || st.st_uid != (uid_t)0 ||
+	    st.st_nlink != 1 || (st.st_mode & 022) != 0 || st.st_size <= 0 ||
+	    st.st_size >= (off_t)sizeof(pid_text)) {
 		errno = EPERM;
 		goto failed;
 	}
-	if (fchmod(lock_fd, 0600) != 0)
-		goto failed;
-	memset(&lock, 0, sizeof(lock));
-	lock.l_type = F_WRLCK;
-	lock.l_whence = SEEK_SET;
 	do {
-		lock_result = fcntl(lock_fd, F_SETLKW, &lock);
-	} while (lock_result < 0 && errno == EINTR);
-	if (lock_result < 0)
+		length = read(fd, pid_text, sizeof(pid_text));
+	} while (length < 0 && errno == EINTR);
+	if (length < 0)
 		goto failed;
-	return lock_fd;
-
-failed:
-	{
-		int saved_errno = errno ? errno : EIO;
-		close(lock_fd);
-		errno = saved_errno;
+	if ((off_t)length != st.st_size) {
+		errno = EIO;
+		goto failed;
 	}
-	return -1;
+	if (close(fd) != 0) {
+		fd = -1;
+		if (!errno)
+			errno = EIO;
+		goto failed;
+	}
+	fd = -1;
+	return openvpn_server_lease_pid_matches(pid_text, (size_t)length,
+						parent_pid) == 1;
+failed:
+	saved_errno = errno ? errno : EIO;
+	if (fd >= 0)
+		(void)close(fd);
+	errno = saved_errno;
+	return 0;
 }
 
 static int
@@ -872,8 +880,10 @@ openvpn_server_lease_update(const char *path, int is_add,
 {
 	FILE *source = NULL, *stage = NULL;
 	char staged_path[256];
-	int lock_fd = -1, saved_errno;
+	int lock_fd = -1, source_fd = -1;
+	int saved_errno, stale_callback = 0;
 	int trailing_newline = 1;
+	struct stat source_stat;
 
 	staged_path[0] = '\0';
 	if (!path || !path[0] || !ifname || !ifname[0] ||
@@ -889,12 +899,33 @@ openvpn_server_lease_update(const char *path, int is_add,
 		return -1;
 	}
 
-	lock_fd = openvpn_server_lease_lock(path);
+	lock_fd = vpn_server_lease_lock_acquire(VPN_SERVER_LEASE_LOCK_FILE);
 	if (lock_fd < 0)
 		return -1;
-	source = fopen(path, "r");
-	if (!source && (!is_add || errno != ENOENT))
+
+	/* Check after the shared lock: stop clears under this same inode. A
+	 * re-parented callback cannot publish after the stop path clears it. */
+	if (!openvpn_server_lease_parent_is_current()) {
+		stale_callback = 1;
 		goto failed;
+	}
+	source_fd = open(path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC);
+	if (source_fd < 0 && (!is_add || errno != ENOENT))
+		goto failed;
+	if (source_fd >= 0) {
+		if (fstat(source_fd, &source_stat) != 0)
+			goto failed;
+		if (!S_ISREG(source_stat.st_mode) ||
+		    source_stat.st_uid != geteuid() || source_stat.st_nlink != 1 ||
+		    (source_stat.st_mode & 022) != 0) {
+			errno = EPERM;
+			goto failed;
+		}
+		source = fdopen(source_fd, "r");
+		if (!source)
+			goto failed;
+		source_fd = -1;
+	}
 	stage = openvpn_config_file_open(path, staged_path, sizeof(staged_path));
 	if (!stage)
 		goto failed;
@@ -920,21 +951,27 @@ openvpn_server_lease_update(const char *path, int is_add,
 	}
 	if (openvpn_config_file_publish(&stage, staged_path, path, 0644) != 0)
 		goto failed;
-	close(lock_fd);
+	if (vpn_server_lease_lock_release(lock_fd) != 0) {
+		lock_fd = -1;
+		return -1;
+	}
+	lock_fd = -1;
 	return 0;
 
 failed:
 	saved_errno = errno ? errno : EIO;
 	if (source)
 		(void)fclose(source);
+	if (source_fd >= 0)
+		(void)close(source_fd);
 	if (stage)
 		(void)fclose(stage);
 	if (staged_path[0])
 		(void)unlink(staged_path);
 	if (lock_fd >= 0)
-		close(lock_fd);
+		(void)vpn_server_lease_lock_release(lock_fd);
 	errno = saved_errno;
-	return -1;
+	return stale_callback ? -2 : -1;
 }
 
 static void
@@ -945,6 +982,7 @@ on_server_client_connect(int is_tun)
 	char *peer_addr_l = safe_getenv("ifconfig_pool_remote_ip");
 	char *dev_ifname = safe_getenv("dev");
 	const char *script_name = VPN_SERVER_UPDOWN_SCRIPT;
+	int lease_status;
 
 #if defined (USE_IPV6)
 	if (!is_valid_ipv4(peer_addr_r))
@@ -954,10 +992,16 @@ on_server_client_connect(int is_tun)
 		dev_ifname = (is_tun) ? IFNAME_SERVER_TUN : IFNAME_SERVER_TAP;
 	logmessage(SERVER_LOG_NAME, "peer %s (%s) connected - local IP: %s",
 		peer_addr_r, common_name, peer_addr_l);
-	if (openvpn_server_lease_update(VPN_SERVER_LEASE_FILE, 1, dev_ifname,
-					peer_addr_l, peer_addr_r, common_name) != 0)
-		logmessage(SERVER_LOG_NAME, "failed to update connected-client lease inventory (errno=%d)",
-			   errno);
+	lease_status = openvpn_server_lease_update(VPN_SERVER_LEASE_FILE, 1, dev_ifname,
+					   peer_addr_l, peer_addr_r, common_name);
+	if (lease_status != 0)
+		logmessage(SERVER_LOG_NAME,
+			   "failed to update connected-client lease inventory (status=%d, errno=%d)",
+			   lease_status, errno);
+	/* A callback from a stopped/re-parented daemon is not a live session.
+	 * Ordinary bookkeeping failures must not suppress the configured hook. */
+	if (lease_status == -2)
+		return;
 	if (check_if_file_exist(script_name)) {
 		char *hook_argv[] = {
 			(char *)script_name, "up", dev_ifname, peer_addr_l, peer_addr_r, common_name, NULL
@@ -974,6 +1018,7 @@ on_server_client_disconnect(int is_tun)
 	char *peer_addr_l = safe_getenv("ifconfig_pool_remote_ip");
 	char *dev_ifname = safe_getenv("dev");
 	const char *script_name = VPN_SERVER_UPDOWN_SCRIPT;
+	int lease_status;
 	uint64_t llsent = strtoll(safe_getenv("bytes_sent"), NULL, 10);
 	uint64_t llrecv = strtoll(safe_getenv("bytes_received"), NULL, 10);
 
@@ -985,10 +1030,14 @@ on_server_client_disconnect(int is_tun)
 		dev_ifname = (is_tun) ? IFNAME_SERVER_TUN : IFNAME_SERVER_TAP;
 	logmessage(SERVER_LOG_NAME, "peer %s (%s) disconnected, sent: %llu KB, received: %llu KB",
 		peer_addr_r, common_name, llsent / 1024, llrecv / 1024);
-	if (openvpn_server_lease_update(VPN_SERVER_LEASE_FILE, 0, dev_ifname,
-					peer_addr_l, peer_addr_r, common_name) != 0)
-		logmessage(SERVER_LOG_NAME, "failed to prune disconnected-client lease inventory (errno=%d)",
-			   errno);
+	lease_status = openvpn_server_lease_update(VPN_SERVER_LEASE_FILE, 0, dev_ifname,
+					   peer_addr_l, peer_addr_r, common_name);
+	if (lease_status != 0)
+		logmessage(SERVER_LOG_NAME,
+			   "failed to prune disconnected-client lease inventory (status=%d, errno=%d)",
+			   lease_status, errno);
+	if (lease_status == -2)
+		return;
 	if (check_if_file_exist(script_name)) {
 		char *hook_argv[] = {
 			(char *)script_name, "down", dev_ifname, peer_addr_l, peer_addr_r, common_name, NULL
@@ -1211,14 +1260,52 @@ stop_openvpn_client(void)
 	unlink(vpnc_scr);
 }
 
+static int
+openvpn_server_lease_clear(void)
+{
+	int lock_fd, result = 0, saved_errno = 0;
+
+	lock_fd = vpn_server_lease_lock_acquire(VPN_SERVER_LEASE_LOCK_FILE);
+	if (lock_fd < 0)
+		return -1;
+	/* Remove the daemon identity before the last-good snapshot. A callback
+	 * waiting behind this lock cannot pass the PID-file fence after stop. */
+	if (unlink(SERVER_PID_FILE) != 0 && errno != ENOENT) {
+		result = -1;
+		saved_errno = errno ? errno : EIO;
+		goto out;
+	}
+	if (unlink(VPN_SERVER_LEASE_FILE) != 0 && errno != ENOENT) {
+		result = -1;
+		saved_errno = errno ? errno : EIO;
+	}
+out:
+	if (vpn_server_lease_lock_release(lock_fd) != 0 && result == 0) {
+		result = -1;
+		saved_errno = errno ? errno : EIO;
+	}
+	if (result != 0)
+		errno = saved_errno;
+	return result;
+}
+
 void
 restart_openvpn_server(void)
 {
-	/* Note: SIGHUP is buggy with server drop privilegies */
+	int start_status;
 
+	/* Note: SIGHUP is buggy with server drop privilegies. */
 	stop_openvpn_server();
-	unlink(VPN_SERVER_LEASE_FILE);
-	start_openvpn_server();
+	if (openvpn_server_lease_clear() != 0) {
+		logmessage(SERVER_LOG_NAME,
+			   "cannot clear lease inventory during OpenVPN restart (errno=%d)",
+			   errno);
+		return;
+	}
+	start_status = start_openvpn_server();
+	if (start_status != 0)
+		logmessage(SERVER_LOG_NAME, "OpenVPN server restart failed (status=%d, errno=%d)",
+			   start_status, errno);
 }
 
 int

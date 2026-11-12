@@ -3,6 +3,8 @@ name: VPN server lifecycle stability regression
 on:
   push:
     paths:
+      - 'trunk/user/rc/src/tests/vpn_server_lease_lock.c'
+      - 'trunk/user/rc/src/vpn_server_lease_lock.h'
       - 'trunk/user/rc/src/vpn_server.c'
       - 'trunk/user/rc/src/vpn_server_lifecycle_lock.h'
       - 'trunk/user/rc/src/vpn_server_callback_policy.h'
@@ -21,6 +23,8 @@ on:
       - '.github/workflows/vpn-server-stability.yml'
   pull_request:
     paths:
+      - 'trunk/user/rc/src/tests/vpn_server_lease_lock.c'
+      - 'trunk/user/rc/src/vpn_server_lease_lock.h'
       - 'trunk/user/rc/src/vpn_server.c'
       - 'trunk/user/rc/src/vpn_server_lifecycle_lock.h'
       - 'trunk/user/rc/src/vpn_server_callback_policy.h'
@@ -58,5 +62,11 @@ jobs:
             trunk/user/rc/src/tests/vpn_server_callback_policy.c \
             -o /tmp/vpn_server_callback_policy
           /tmp/vpn_server_callback_policy
+      - name: Compile and run shared lease lock ownership/contention regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/vpn_server_lease_lock.c \
+            -o /tmp/vpn_server_lease_lock
+          /tmp/vpn_server_lease_lock
       - name: Verify VPN lifecycle serialization and caller integration
         run: python3 scripts/check_vpn_server_lifecycle.py

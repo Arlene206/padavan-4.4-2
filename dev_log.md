@@ -1,3 +1,17 @@
+## 2026-11-12 08:38 CST (UTC+8) — Unify OpenVPN and RC VPN lease serialization
+
+- Base main SHA: `6e5d19556c22f658eea802a36ede63885927f57b`. Exact-base OpenVPN [43077082467], AI docs [43077082454] and infosvr [43077082525] were SUCCESS; all steps and complete logs were inspected. The docs validator reported root log=36/119 and archives=7/22/18.
+- Closed the prior separate-lock-domain design gap at source level. APP_OPENVPN builds now use one stable `/tmp/.vpns.leases.shared.lock` inode, prepared by root with owner root, group `SYS_GROUP_NOGROUP`, mode 0620. Dropped-privilege nobody callbacks use the same F_WRLCK inode as root start/stop and PPP lease updates. PPP-only builds retain the previous root-private `/tmp/.vpns.leases.lock` and do not require OpenVPN's group account.
+- The shared lock validates that `/tmp` is a root-owned sticky directory; opens lock files write-only, nonblocking, no-follow and close-on-exec; and verifies regular-file type, owner/group, exact mode and single link. O_NONBLOCK plus a FIFO regression prevents a pre-created FIFO at the predictable lock path from blocking service startup.
+- Found that `kill_process_pidfile()` can return immediately after sending SIGKILL, without waiting for the daemon to exit. Both `vpn_server.c` and the OpenVPN restart-clear path now unlink the root-owned OpenVPN PID marker before unlinking the lease snapshot, while holding the shared lock. A late/re-parented callback waits for the lock, then fails the PID-file/parent identity check and cannot resurrect a cleared snapshot.
+- Moved the shared OpenVPN PID-file constant into `rc.h`; root clear uses it only under `APP_OPENVPN`. Callback handlers distinguish stale-daemon status `-2` (skip the external hook) from ordinary bookkeeping errors (log but still run the configured hook), preserving hook independence from inventory I/O failure.
+- Lease source opens now use O_NONBLOCK/O_NOFOLLOW/O_CLOEXEC and fstat checks for regular type, callback owner and single link. Bytewise copying rejects embedded NUL, malformed or overlong records, and read errors before same-directory staged publication.
+- Added root:nogroup permission/contention coverage that drops a child to nobody, plus mode, symlink, hardlink and FIFO checks. Extended parser regressions for PID mismatch/malformed/overflow, embedded NUL and long records. Added source contracts for root and OpenVPN clear ordering, shared-lock fallback for PPP-only builds, hook behavior and path-filter symmetry. Exact-head Actions for this commit are pending; do not claim L2 closure until their complete logs are inspected.
+- The previously run GNU89 ASan/UBSan lease-policy and lock host tests passed before this final conditional APP_OPENVPN/FIFO extension; final exact-tree host/CI confirmation remains pending. No production MIPS/uClibc build, firmware/TRX build or physical-router test is claimed.
+- Next: inspect exact-head OpenVPN, VPN server stability and AI docs Actions; docs validator must report root log=37/119, archives=7/22/18. If they pass, close L1/L2 and continue production toolchain/target-runtime verification. FTP upload-cleanup TOCTOU remains P2 OPEN/BLOCKED; NFS remains real-client evidence-gated.
+
+---
+
 ## 2026-11-12 02:11 CST (UTC+8) — Fix OpenVPN lease snapshot parser newline scanset
 
 - Base main SHA: 9cc9df9b4269561402b90bd4ccf3b26bc9b3cd0a; parent 9c550fe2492c9299b73aa0ca972f2349fb998207.

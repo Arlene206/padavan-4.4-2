@@ -58,6 +58,7 @@
 #define SCRIPT_OVPN_CLIENT		"ovpnc.script"
 
 #define VPN_SERVER_LEASE_FILE		"/tmp/vpns.leases"
+#define VPN_SERVER_OPENVPN_PID_FILE	"/var/run/openvpn_svr.pid"
 #define VPN_SERVER_SUBNET_MASK		"255.255.255.0"
 #define VPN_SERVER_PPP_UNIT		10
 #define VPN_SERVER_PPPD_OPTIONS		"/tmp/ppp/options.vpns"

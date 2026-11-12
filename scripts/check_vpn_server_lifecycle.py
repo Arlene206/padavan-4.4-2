@@ -40,7 +40,10 @@ def ordered(txt,tokens,label):
         pos=found
 
 vpn=read("trunk/user/rc/src/vpn_server.c")
+rc_header=read("trunk/user/rc/src/rc.h")
 lock=read("trunk/user/rc/src/vpn_server_lifecycle_lock.h")
+lease_lock=read("trunk/user/rc/src/vpn_server_lease_lock.h")
+lease_lock_test=read("trunk/user/rc/src/tests/vpn_server_lease_lock.c")
 rc=read("trunk/user/rc/src/rc.c")
 services=read("trunk/user/rc/src/services.c")
 net_ppp=read("trunk/user/rc/src/net_ppp.c")
@@ -61,6 +64,35 @@ for t in ("O_NOFOLLOW","O_CLOEXEC","fstat(fd, &st)","S_ISREG(st.st_mode)",
           "F_SETLK","VPN_SERVER_LIFECYCLE_LOCK_WAIT_SECONDS","EBUSY","EINTR","EAGAIN"):
     require(t in lock,f"lock helper missing safety property {t}")
 require("unlink(" not in lock and "unlinkat(" not in lock,"stable lock inode may not be unlinked")
+root_lease_clear=body(vpn,"static int\nclear_vpns_lease_file")
+require('#define VPN_SERVER_OPENVPN_PID_FILE' in rc_header,
+        "shared OpenVPN PID-file path is not declared in rc.h")
+ordered(root_lease_clear, [
+    "vpn_server_lease_lock_acquire(VPN_SERVER_LEASE_LOCK_FILE)",
+    "unlink(VPN_SERVER_OPENVPN_PID_FILE)",
+    "unlink(VPN_SERVER_LEASE_FILE)",
+    "vpn_server_lease_lock_release(lock_fd)",
+], "root lease clear removes PID fence before snapshot")
+
+require("#if defined(APP_OPENVPN)" in lease_lock and
+        "#else /* !APP_OPENVPN */" in lease_lock,
+        "PPP-only builds must retain a root-private lease lock")
+for t in ('lstat("/tmp", &tmp_stat)', "tmp_stat.st_uid != (uid_t)0",
+          "S_ISVTX", "O_WRONLY", "O_NOFOLLOW", "O_CLOEXEC"):
+    require(t in lease_lock,f"shared lease lock directory/open safety missing {t}")
+for t in ("getgrnam(SYS_GROUP_NOGROUP)", "fchown(fd, owner_uid, group_gid)",
+          "VPN_SERVER_LEASE_LOCK_MODE", "O_NOFOLLOW", "O_CLOEXEC",
+          "st.st_uid != owner_uid", "st.st_gid != group_gid", "F_SETLKW"):
+    require(t in lease_lock,f"shared lease lock missing {t}")
+require("fork()" in lease_lock_test and "select(" in lease_lock_test and
+        "(st.st_mode & 07777) == 0620" in lease_lock_test and
+        "setgid(vpn_group->gr_gid)" in lease_lock_test and
+        "setuid(vpn_user->pw_uid)" in lease_lock_test and
+        "#define APP_OPENVPN 1" in lease_lock_test,
+require("mkfifo(path, 0600)" in lease_lock_test and "errno == ENXIO" in lease_lock_test,
+        "shared lock must reject FIFOs without blocking")
+        "shared lease lock ownership/contention regression incomplete")
+
 require("attempt++ >= wait_seconds" in lock,"lock retry must be bounded")
 
 s=body(vpn,"start_vpn_server(void)")
@@ -88,6 +120,8 @@ require(re.search(r'!strcmp\(base,\s*"restart_vpn_server"\)[\s\S]{0,160}restart_
 require("start_vpn_server();" in body(services,"start_services_once(int is_ap_mode)"),"service start entry missing")
 require("stop_vpn_server();" in body(services,"stop_services(int stopall)"),"service stop entry missing")
 for p in ("trunk/user/rc/src/vpn_server.c","trunk/user/rc/src/vpn_server_lifecycle_lock.h",
+          "trunk/user/rc/src/vpn_server_lease_lock.h",
+          "trunk/user/rc/src/tests/vpn_server_lease_lock.c",
           "trunk/user/rc/src/tests/vpn_server_lifecycle_lock.c","trunk/user/rc/src/rc.c",
           "trunk/user/rc/src/services.c","trunk/user/rc/src/rc.h",
           "trunk/user/pppoe/mwan.sh",
