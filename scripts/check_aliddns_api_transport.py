@@ -167,7 +167,7 @@ require("curl" not in nslookup and "wget" not in nslookup and "http://" not in n
         "aliddns_ipv4_valid" in nslookup and "aliddns_ipv6_valid" in nslookup and
         'aliddns_nslookup 4 "$1"' in nslookup4 and 'aliddns_nslookup 6 "$1"' in nslookup6,
         "DNS fallback must isolate scratch paths, reject timeout/failed partial results, validate both families and reap only its child")
-require("concurrent calls share $" in nslookup_test and
+require("Concurrent calls share $" in nslookup_test and
         "timed-out query leaked partial output" in nslookup_test and
         "timed-out resolver child survived cleanup" in nslookup_test and
         "unrelated resolver process" in nslookup_test and
