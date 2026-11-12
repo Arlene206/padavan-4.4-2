@@ -32,9 +32,10 @@ busybox_config = BUSYBOX_CONFIG_PATH.read_text()
 flock_source = FLOCK_SOURCE_PATH.read_text()
 daemon_binary = DAEMON_BINARY_PATH.read_bytes()
 env_names = (b"REFRESH_TOKEN", b"WEBDAV_AUTH_USER", b"WEBDAV_AUTH_PASSWORD")
-daemon_has_env_credentials = all(name in daemon_binary for name in env_names)
+missing_env_names = [name.decode("ascii") for name in env_names if name not in daemon_binary]
+daemon_has_env_credentials = not missing_env_names
 daemon_elf = "unknown"
-if daemon_binary[:4] == b"\\x7fELF" and len(daemon_binary) >= 20:
+if daemon_binary[:4] == bytes((0x7F, 0x45, 0x4C, 0x46)) and len(daemon_binary) >= 20:
     elf_class = {1: "ELF32", 2: "ELF64"}.get(daemon_binary[4], "ELF?")
     elf_data = {1: "little-endian", 2: "big-endian"}.get(daemon_binary[5], "unknown-endian")
     byte_order = "<" if daemon_binary[5] == 1 else ">"
@@ -209,5 +210,5 @@ for path in paths:
     require(push.count(token) == 1 and pull.count(token) == 1,
             f"{path} must appear exactly once in push and pull_request path filters")
 
-print(f"AliyunDrive WebDAV bundled daemon binary: {daemon_elf}; environment credential support: {daemon_has_env_credentials}")
+print(f"AliyunDrive WebDAV bundled daemon binary: {daemon_elf}; missing environment names: {missing_env_names}")
 print("AliyunDrive WebDAV bounded lifecycle, argv integrity and RC integration contracts: PASS")
