@@ -10,6 +10,10 @@ services_path = ROOT / "trunk/user/rc/src/services.c"
 rc_header_path = ROOT / "trunk/user/rc/src/rc.h"
 rc_path = ROOT / "trunk/user/rc/src/rc.c"
 workflow_path = ROOT / ".github/workflows/adguardhome-config-security.yml"
+variables_path = ROOT / "trunk/user/httpd/src/variables.c"
+web_ex_path = ROOT / "trunk/user/httpd/src/web_ex.c"
+busybox_config_path = ROOT / "trunk/configs/boards/busybox.config"
+busybox_flock_path = ROOT / "trunk/user/busybox/busybox-1.24.x/util-linux/flock.c"
 kernel_addrtype_path = ROOT / "trunk/linux-4.4.x/net/netfilter/xt_addrtype.c"
 kernel_netfilter_makefile_path = ROOT / "trunk/linux-4.4.x/net/netfilter/Makefile"
 kernel_netfilter_kconfig_path = ROOT / "trunk/linux-4.4.x/net/netfilter/Kconfig"
@@ -24,6 +28,10 @@ services = services_path.read_text()
 rc_header = rc_header_path.read_text()
 rc = rc_path.read_text()
 workflow = workflow_path.read_text()
+variables = variables_path.read_text()
+web_ex = web_ex_path.read_text()
+busybox_config = busybox_config_path.read_text()
+busybox_flock = busybox_flock_path.read_text()
 kernel_addrtype = kernel_addrtype_path.read_text()
 kernel_netfilter_makefile = kernel_netfilter_makefile_path.read_text()
 kernel_netfilter_kconfig = kernel_netfilter_kconfig_path.read_text()
@@ -57,6 +65,11 @@ clear_redirect = function_body(script, "clear_iptable()" + chr(10) + "{")
 wait_stopped = function_body(script, "adg_wait_stopped() {")
 stop_daemon = function_body(script, "adg_stop_daemon() {")
 stop = function_body(script, "stop_adg(){")
+lock_path = function_body(script, "adg_lifecycle_lock_path() {")
+lock_prepare = function_body(script, "adg_lifecycle_lock_prepare() {")
+lock_execute = function_body(script, "adg_lifecycle_lock_execute() {")
+locked_action = function_body(script, "adg_lifecycle_locked_action() {")
+lock_run = function_body(script, "adg_lifecycle_lock_run() {")
 require('while [ "$adg_remove_count" -lt 64 ]; do' in remove_redirect and
         'case "$adg_check_status" in' in remove_redirect and
         '"$adg_iptables" -t nat -C PREROUTING "$@"' in remove_redirect and
@@ -170,6 +183,37 @@ require('if ! clear_iptable; then' in stop and
 require('pidof AdGuardHome' in stop_daemon and 'killall -9 AdGuardHome' in stop_daemon and
         'pidof AdGuardHome' in wait_stopped,
         "stop must re-enumerate the process by name, not cache a numeric PID")
+require('echo /tmp/.adguardhome.lifecycle.lock' in lock_path and
+        'never unlink this file' in script and
+        '[ -L "$adg_lock_file" ]' in lock_prepare and
+        'set -C' in lock_prepare and
+        "stat -c '%u %a %h'" in lock_prepare and
+        '[ "$2" != 600 ]' in lock_prepare and
+        '[ "$3" != 1 ]' in lock_prepare,
+        "lifecycle lock must use a private stable inode and reject symlink, mode and hardlink attacks")
+require('flock -n 9' in lock_execute and
+        'exec 9>>"$adg_lock_file"' in lock_execute and
+        'while ! flock -n 9; do' in lock_execute and
+        '[ "$adg_lock_attempt" -ge "$adg_wait_seconds" ]' in lock_execute and
+        'exec 9>&-' in lock_execute,
+        "lifecycle operations must share a bounded kernel flock and release FD 9 on all outcomes")
+require('if ! stop_adg; then' in locked_action and
+        'if [ "$(nvram get adg_enable)" = 1 ]; then' in locked_action and
+        locked_action.index('if ! stop_adg; then') <
+        locked_action.index('nvram get adg_enable') <
+        locked_action.index('start_adg', locked_action.index('if ! stop_adg; then')),
+        "restart must hold one lock across stop and conditional start")
+require('adg_lifecycle_lock_prepare "$adg_lock_file"' in lock_run and
+        'adg_lifecycle_lock_execute "$adg_lock_file"' in lock_run and
+        'start|stop|restart' in lock_run,
+        "all launcher service actions must pass through the same checked lock")
+require('( exec 9>&-; eval "AdGuardHome -c $adg_file -w /tmp/AdGuardHome -v" ) &' in start and
+        '/sbin/restart_dhcpd 9>&-' in script,
+        "detached AdGuardHome and dnsmasq restarts must not retain the launcher lock descriptor")
+require('CONFIG_FLOCK=y' in busybox_config and
+        'fd = xatoi_positive(argv[0]);' in busybox_flock and
+        'if (flock(fd, mode) != 0)' in busybox_flock,
+        "the common BusyBox target config must build descriptor-mode flock used by the shell launcher")
 
 require('$(INSTALL_BIN) ./adguardhome.sh $(ROMFSDIR)/usr/bin/adguardhome.sh' in package_makefile,
         "ROMFS must install the audited launcher")
@@ -182,6 +226,14 @@ require('eval("/usr/bin/adguardhome.sh","stop")' in services and
         'eval("/usr/bin/adguardhome.sh","start")' in services and
         'restart_adguardhome(void)' in services,
         "RC service wrapper must call the ROMFS-installed launcher")
+require('eval("/usr/bin/adguardhome.sh","restart")' in services and
+        'void restart_adguardhome(void){\n\t/* Keep stop + conditional start inside one launcher lifecycle lock. */' in services,
+        "RC restart wrapper must use one atomic launcher restart instead of separate stop/start locks")
+require('{"adg_enable", "", NULL, EVM_RESTART_ADGUARDHOME}' in variables and
+        '{"AdguardHomeConf",\t\tvariables_AdguardHomeConf}' in variables and
+        'notify_rc(events_desc[i].notify_cmd)' in web_ex and
+        'RCN_RESTART_ADGUARDHOME' in rc and 'restart_adguardhome();' in rc,
+        "AdGuardHome UI NVRAM changes must flow through the RC restart notification")
 require('void restart_adguardhome(void);' in rc_header and
         'RCN_RESTART_ADGUARDHOME' in rc and 'restart_adguardhome();' in rc,
         "RC prototype and notification dispatch must remain connected")
@@ -210,6 +262,11 @@ for marker in (
     "dnsmasq resolver update did not preserve the previous config on failure",
     "start continued after resolver reload failure",
     "stop reported success after resolver removal failed",
+    "lifecycle flock policy, serialization or stale-owner recovery failed",
+    "AdGuardHome lifecycle lock stable inode, permissions and stale-owner recovery: PASS",
+    "AdGuardHome lifecycle lock excludes concurrent transitions and releases after failed actions: PASS",
+    "restart did not keep stop and conditional start in a single locked action",
+    "AdGuardHome restart is a single locked stop/start transaction: PASS",
 ):
     require(marker in test, f"host regression missing case: {marker}")
 
@@ -223,6 +280,10 @@ paths = [
     "trunk/user/rc/src/services.c",
     "trunk/user/rc/src/rc.h",
     "trunk/user/rc/src/rc.c",
+    "trunk/user/httpd/src/variables.c",
+    "trunk/user/httpd/src/web_ex.c",
+    "trunk/configs/boards/busybox.config",
+    "trunk/user/busybox/busybox-1.24.x/util-linux/flock.c",
     "trunk/configs/boards/*/kernel-4.4.x.config",
     "trunk/linux-4.4.x/net/netfilter/xt_addrtype.c",
     "trunk/linux-4.4.x/net/netfilter/Makefile",

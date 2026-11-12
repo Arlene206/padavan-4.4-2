@@ -448,8 +448,8 @@ void start_adguardhome(void){
 }
 
 void restart_adguardhome(void){
-	stop_adguardhome();
-	start_adguardhome();
+	/* Keep stop + conditional start inside one launcher lifecycle lock. */
+	eval("/usr/bin/adguardhome.sh","restart");
 }
 
 #endif

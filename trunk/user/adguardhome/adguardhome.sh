@@ -1,11 +1,159 @@
 #!/bin/sh
 
+adg_lifecycle_lock_path() {
+  echo /tmp/.adguardhome.lifecycle.lock
+}
+
+# Keep the lock inode stable. A stale file is harmless: flock(2) releases the
+# kernel lock when the last descriptor closes, so never unlink this file.
+adg_lifecycle_lock_prepare() {
+  adg_lock_file="$1"
+  [ -n "$adg_lock_file" ] || return 1
+
+  case "$adg_lock_file" in
+    */*) adg_lock_dir="${adg_lock_file%/*}" ;;
+    *) adg_lock_dir=. ;;
+  esac
+  [ -n "$adg_lock_dir" ] || adg_lock_dir=/
+  if [ -L "$adg_lock_dir" ] || [ ! -d "$adg_lock_dir" ]; then
+    logger -t "AdGuardHome" "生命周期锁目录不是普通目录"
+    return 1
+  fi
+
+  adg_lock_uid="$(id -u)" || return 1
+  adg_dir_info="$(stat -c '%u %a' "$adg_lock_dir")" || return 1
+  set -- $adg_dir_info
+  if [ "$#" -ne 2 ] || [ "$1" != "$adg_lock_uid" ]; then
+    logger -t "AdGuardHome" "生命周期锁目录所有者不安全"
+    return 1
+  fi
+  adg_dir_mode=$((0$2))
+  if [ $((adg_dir_mode & 0022)) -ne 0 ] &&
+     [ $((adg_dir_mode & 01000)) -eq 0 ]; then
+    logger -t "AdGuardHome" "生命周期锁目录可被其他用户写入且没有sticky保护"
+    return 1
+  fi
+
+  if [ -L "$adg_lock_file" ]; then
+    logger -t "AdGuardHome" "生命周期锁文件不能是符号链接"
+    return 1
+  fi
+  if [ ! -e "$adg_lock_file" ]; then
+    # noclobber makes first creation exclusive; umask protects the inode.
+    (umask 077; set -C; : > "$adg_lock_file") 2>/dev/null || :
+  fi
+  if [ -L "$adg_lock_file" ] || [ ! -f "$adg_lock_file" ]; then
+    logger -t "AdGuardHome" "生命周期锁文件不是普通文件"
+    return 1
+  fi
+
+  adg_file_info="$(stat -c '%u %a %h' "$adg_lock_file")" || return 1
+  set -- $adg_file_info
+  if [ "$#" -ne 3 ] || [ "$1" != "$adg_lock_uid" ] ||
+     [ "$2" != 600 ] || [ "$3" != 1 ]; then
+    logger -t "AdGuardHome" "生命周期锁文件权限、所有者或链接数不安全"
+    return 1
+  fi
+  return 0
+}
+
+# FD 9 is reserved for this short-lived launcher. BusyBox 1.24 flock supports
+# locking an inherited descriptor; the shell keeps the same open description
+# locked until the action ends. A bounded retry avoids indefinite RC stalls.
+adg_lifecycle_lock_execute() {
+  adg_lock_file="$1"
+  adg_wait_seconds="$2"
+  shift 2
+  case "$adg_wait_seconds" in
+    ''|*[!0-9]*) return 1 ;;
+  esac
+  [ "$#" -gt 0 ] || return 1
+
+  if ( : <&9 ) 2>/dev/null || ( : >&9 ) 2>/dev/null; then
+    logger -t "AdGuardHome" "生命周期锁FD 9已被占用，拒绝运行"
+    return 1
+  fi
+
+  adg_old_umask="$(umask)"
+  umask 077
+  if ! exec 9>>"$adg_lock_file"; then
+    umask "$adg_old_umask"
+    logger -t "AdGuardHome" "无法打开生命周期锁文件"
+    return 1
+  fi
+  umask "$adg_old_umask"
+
+  adg_lock_attempt=0
+  while ! flock -n 9; do
+    if [ "$adg_lock_attempt" -ge "$adg_wait_seconds" ]; then
+      exec 9>&-
+      logger -t "AdGuardHome" "等待生命周期锁超时"
+      return 1
+    fi
+    adg_lock_attempt=$((adg_lock_attempt + 1))
+    sleep 1
+  done
+
+  if "$@"; then
+    adg_action_status=0
+  else
+    adg_action_status=$?
+  fi
+  exec 9>&-
+  return "$adg_action_status"
+}
+
+adg_lifecycle_locked_action() {
+  case "$1" in
+    start)
+      start_adg
+      ;;
+    stop)
+      stop_adg
+      ;;
+    restart)
+      # Stop + optional start is one transaction under one inter-process lock.
+      if ! stop_adg; then
+        return 1
+      fi
+      if [ "$(nvram get adg_enable)" = 1 ]; then
+        start_adg
+      fi
+      ;;
+    *)
+      return 2
+      ;;
+  esac
+}
+
+adg_lifecycle_lock_run() {
+  adg_action="$1"
+  adg_wait_seconds="${2:-10}"
+  case "$adg_action" in
+    start|stop|restart) ;;
+    *) return 2 ;;
+  esac
+  adg_lock_file="$(adg_lifecycle_lock_path)" || return 1
+  if ! adg_lifecycle_lock_prepare "$adg_lock_file"; then
+    logger -t "AdGuardHome" "生命周期锁准备失败，取消服务操作"
+    return 1
+  fi
+  command -v flock >/dev/null 2>&1 || {
+    logger -t "AdGuardHome" "系统缺少flock，拒绝无锁执行生命周期操作"
+    return 1
+  }
+  adg_lifecycle_lock_execute "$adg_lock_file" "$adg_wait_seconds" \
+    adg_lifecycle_locked_action "$adg_action"
+}
+
+
 adg_dnsmasq_config_path() {
   echo /etc/storage/dnsmasq/dnsmasq.conf
 }
 
 adg_restart_dhcpd() {
-  /sbin/restart_dhcpd
+  # The RC helper may detach dnsmasq; do not leak the launcher lock FD.
+  /sbin/restart_dhcpd 9>&-
 }
 
 # Update dnsmasq config by same-directory staging and preserve the exact prior
@@ -348,7 +496,8 @@ start_adg(){
 		return 1
 	fi
 	logger -t "AdGuardHome" "启动 AdGuardHome"
-	eval "AdGuardHome -c $adg_file -w /tmp/AdGuardHome -v" &
+	# The background daemon must not inherit the launcher lock descriptor.
+	( exec 9>&-; eval "AdGuardHome -c $adg_file -w /tmp/AdGuardHome -v" ) &
 }
 
 adg_wait_stopped() {
@@ -402,12 +551,10 @@ stop_adg(){
   rm -rf /tmp/AdGuardHome
 }
 
-case $1 in
-start)
-	start_adg
-	;;
-stop)
-	stop_adg
+case "${1:-}" in
+start|stop|restart)
+	adg_lifecycle_lock_run "$1"
+	exit $?
 	;;
 *)
 	echo "check"

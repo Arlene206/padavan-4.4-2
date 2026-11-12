@@ -169,6 +169,103 @@ echo "AdGuardHome secret config mode, symlink rejection and atomic publication: 
 
 echo "AdGuardHome dnsmasq resolver publication, status and rollback: PASS"
 
+# Exercise the same stable-inode flock protocol used by RC/UI service actions.
+(
+  TEST_ADG_LOCK="$TEST_TMP/.adguardhome.lifecycle.lock"
+  adg_lifecycle_lock_path() { echo "$TEST_ADG_LOCK"; }
+  logger() { return 0; }
+
+  adg_lifecycle_lock_prepare "$TEST_ADG_LOCK" || exit 1
+  [ -f "$TEST_ADG_LOCK" ] && [ ! -L "$TEST_ADG_LOCK" ] || exit 1
+  TEST_ADG_LOCK_INFO="$(stat -c '%u %a %h' "$TEST_ADG_LOCK")"
+  set -- $TEST_ADG_LOCK_INFO
+  [ "$#" = 3 ] && [ "$2" = 600 ] && [ "$3" = 1 ] || exit 1
+  TEST_ADG_LOCK_INODE="$(stat -c '%i' "$TEST_ADG_LOCK")"
+
+  # Refuse a permissive lock and hardlink aliases rather than chmod/follow them.
+  chmod 644 "$TEST_ADG_LOCK"
+  if adg_lifecycle_lock_prepare "$TEST_ADG_LOCK"; then exit 1; fi
+  chmod 600 "$TEST_ADG_LOCK"
+  ln "$TEST_ADG_LOCK" "$TEST_TMP/adguardhome.lifecycle.hardlink"
+  if adg_lifecycle_lock_prepare "$TEST_ADG_LOCK"; then exit 1; fi
+  rm -f "$TEST_TMP/adguardhome.lifecycle.hardlink"
+  printf '%s\n' 'lock-target-unchanged' > "$TEST_TMP/adguardhome.lifecycle.target"
+  ln -s "$TEST_TMP/adguardhome.lifecycle.target" "$TEST_TMP/adguardhome.lifecycle.symlink"
+  if adg_lifecycle_lock_prepare "$TEST_TMP/adguardhome.lifecycle.symlink"; then exit 1; fi
+  grep -Fqx 'lock-target-unchanged' "$TEST_TMP/adguardhome.lifecycle.target" || exit 1
+  rm -f "$TEST_TMP/adguardhome.lifecycle.symlink" "$TEST_TMP/adguardhome.lifecycle.target"
+
+  # FD 9 is a reserved lock descriptor; never replace a caller's open FD.
+  exec 9>"$TEST_TMP/adguardhome.fd9-held"
+  if adg_lifecycle_lock_execute "$TEST_ADG_LOCK" 0 true; then exit 1; fi
+  exec 9>&-
+
+  # A real pair of concurrent processes must execute their critical sections
+  # serially, not interleave stop/start state changes.
+  TEST_ADG_LOCK_LOG="$TEST_TMP/adguardhome.lifecycle.concurrent.log"
+  : > "$TEST_ADG_LOCK_LOG"
+  adg_test_locked_action() {
+    printf 'begin:%s\n' "$1" >> "$TEST_ADG_LOCK_LOG"
+    /bin/sleep 0.25
+    printf 'end:%s\n' "$1" >> "$TEST_ADG_LOCK_LOG"
+    return 0
+  }
+  adg_lifecycle_lock_execute "$TEST_ADG_LOCK" 10 adg_test_locked_action first &
+  TEST_ADG_LOCK_FIRST=$!
+  /bin/sleep 0.05
+  adg_lifecycle_lock_execute "$TEST_ADG_LOCK" 10 adg_test_locked_action second &
+  TEST_ADG_LOCK_SECOND=$!
+  wait "$TEST_ADG_LOCK_FIRST" || exit 1
+  wait "$TEST_ADG_LOCK_SECOND" || exit 1
+  [ "$(cat "$TEST_ADG_LOCK_LOG")" = "$(printf 'begin:first\nend:first\nbegin:second\nend:second')" ] || exit 1
+
+  # An action failure must still close FD 9 and allow the next owner in.
+  adg_test_failed_action() { return 1; }
+  if adg_lifecycle_lock_execute "$TEST_ADG_LOCK" 0 adg_test_failed_action; then exit 1; fi
+  adg_test_ok_action() { return 0; }
+  adg_lifecycle_lock_execute "$TEST_ADG_LOCK" 0 adg_test_ok_action || exit 1
+
+  # Kernel ownership, not a stale PID file, controls reclamation after death.
+  TEST_ADG_LOCK_READY="$TEST_TMP/adguardhome.lifecycle.owner-ready"
+  rm -f "$TEST_ADG_LOCK_READY"
+  (
+    exec 9>>"$TEST_ADG_LOCK"
+    flock -n 9 || exit 1
+    : > "$TEST_ADG_LOCK_READY"
+    exec /bin/sleep 30
+  ) &
+  TEST_ADG_LOCK_OWNER=$!
+  TEST_ADG_LOCK_WAIT=0
+  while [ ! -e "$TEST_ADG_LOCK_READY" ] && [ "$TEST_ADG_LOCK_WAIT" -lt 40 ]; do
+    /bin/sleep 0.05
+    TEST_ADG_LOCK_WAIT=$((TEST_ADG_LOCK_WAIT + 1))
+  done
+  [ -e "$TEST_ADG_LOCK_READY" ] || exit 1
+  if adg_lifecycle_lock_execute "$TEST_ADG_LOCK" 0 adg_test_ok_action; then exit 1; fi
+  kill -9 "$TEST_ADG_LOCK_OWNER" 2>/dev/null || exit 1
+  wait "$TEST_ADG_LOCK_OWNER" 2>/dev/null || :
+  adg_lifecycle_lock_execute "$TEST_ADG_LOCK" 0 adg_test_ok_action || exit 1
+  [ "$(stat -c '%i' "$TEST_ADG_LOCK")" = "$TEST_ADG_LOCK_INODE" ] || exit 1
+) || fail "lifecycle flock policy, serialization or stale-owner recovery failed"
+
+echo "AdGuardHome lifecycle lock stable inode, permissions and stale-owner recovery: PASS"
+echo "AdGuardHome lifecycle lock excludes concurrent transitions and releases after failed actions: PASS"
+
+# Verify restart is serialized as one stop + conditional start operation.
+(
+  TEST_ADG_LOCK="$TEST_TMP/.adguardhome.lifecycle.lock"
+  TEST_ADG_RESTART_LOG="$TEST_TMP/adguardhome-restart.log"
+  : > "$TEST_ADG_RESTART_LOG"
+  stop_adg() { echo stop >> "$TEST_ADG_RESTART_LOG"; }
+  start_adg() { echo start >> "$TEST_ADG_RESTART_LOG"; }
+  nvram() { [ "$1" = get ] && [ "$2" = adg_enable ] || return 1; echo 1; }
+  adg_lifecycle_lock_prepare "$TEST_ADG_LOCK" || exit 1
+  adg_lifecycle_lock_execute "$TEST_ADG_LOCK" 0 adg_lifecycle_locked_action restart || exit 1
+  [ "$(cat "$TEST_ADG_RESTART_LOG")" = "$(printf 'stop\nstart')" ] || exit 1
+) || fail "restart did not keep stop and conditional start in a single locked action"
+
+echo "AdGuardHome restart is a single locked stop/start transaction: PASS"
+
 # Model the v4/v6 PREROUTING rule set without requiring host netfilter privileges.
 TEST_ADG_IPV4_RULES="$TEST_TMP/iptables-v4.rules"
 TEST_ADG_IPV6_RULES="$TEST_TMP/iptables-v6.rules"
