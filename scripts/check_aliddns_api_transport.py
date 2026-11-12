@@ -75,6 +75,8 @@ require("--fail --silent --show-error" in send_request and
 require("-k" not in send_request and "--insecure" not in send_request and
         "curl -L" not in send_request and "--location" not in send_request,
         "signed requests must not disable TLS checks or forward credentials through redirects")
+require("--config -" in send_request and 'url = "$request_url"' in send_request,
+        "credential-bearing AliDNS URL must be delivered through curl stdin rather than argv")
 require('args="AccessKeyId=$aliddns_ak&Action=$1&Format=json&$2&Version=2015-01-09"' in send_request and
         'hash=$(echo -n "GET&%2F&$(enc "$args")" | openssl dgst -sha1 -hmac "$aliddns_sk&" -binary | openssl base64)' in send_request,
         "existing RPC parameter ordering and HMAC-SHA1 signature canonicalization must remain unchanged")
@@ -109,8 +111,10 @@ require('$(ROMFSINST) -p +x $(THISDIR)/aliddns.sh /usr/bin/aliddns.sh' in packag
 
 require('mkdir -p /etc/ssl' in copy_scripts and
         'tar -xzf /etc_ro/certs.tgz -C /etc/ssl' in copy_scripts and
-        'system("/usr/bin/copyscripts.sh &");' in rc,
-        "firmware startup must populate the CA trust store from the packaged certificate archive")
+        'system("/usr/bin/copyscripts.sh")' in rc and
+        'system("/usr/bin/copyscripts.sh &")' not in rc and
+        rc.index('system("/usr/bin/copyscripts.sh")') < rc.index('system("/usr/bin/autostart.sh &")'),
+        "firmware startup must install the CA trust store synchronously before autostart")
 require('if [ $(nvram get aliddns_enable) = 1 ]' in autostart and
         '/usr/bin/aliddns.sh start' in autostart,
         "enabled AliDDNS must retain its existing startup path")

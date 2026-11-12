@@ -27,10 +27,11 @@ sed -n '/^arDdnsUpdate() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 ALIDDNS_CA_BUNDLE="$TEST_DIR/ca-certificates.crt"
 : > "$ALIDDNS_CA_BUNDLE"
 CURL_ARGS_LOG="$TEST_DIR/curl-args.log"
+CURL_CONFIG_LOG="$TEST_DIR/curl-config.log"
 CURL_COUNT_FILE="$TEST_DIR/curl-count"
 NVRAM_LOG="$TEST_DIR/nvram.log"
 : > "$NVRAM_LOG"
-export CURL_ARGS_LOG CURL_COUNT_FILE NVRAM_LOG
+export CURL_ARGS_LOG CURL_CONFIG_LOG CURL_COUNT_FILE NVRAM_LOG
 
 logger() { :; }
 nvram() {
@@ -57,6 +58,7 @@ openssl() {
 cat > "$MOCK_BIN/curl" <<'MOCK_CURL'
 #!/bin/sh
 printf '%s\n' "$@" > "$CURL_ARGS_LOG"
+cat > "$CURL_CONFIG_LOG"
 count=0
 if [ -r "$CURL_COUNT_FILE" ]; then
 	IFS= read -r count < "$CURL_COUNT_FILE"
@@ -146,6 +148,12 @@ grep -Fqx -- '--proto' "$CURL_ARGS_LOG" || fail "curl is missing a protocol allo
 grep -Fqx -- '=https' "$CURL_ARGS_LOG" || fail "curl protocol allowlist is not HTTPS-only"
 grep -Fqx -- '--cacert' "$CURL_ARGS_LOG" || fail "curl is missing the explicit trust bundle"
 grep -Fqx -- "$ALIDDNS_CA_BUNDLE" "$CURL_ARGS_LOG" || fail "curl did not use the configured CA bundle"
+grep -Fqx -- '--config' "$CURL_ARGS_LOG" || fail "curl is not reading config from stdin"
+grep -Fqx -- '-' "$CURL_ARGS_LOG" || fail "curl config source is not stdin"
+! grep -Fq 'AccessKeyId=' "$CURL_ARGS_LOG" || fail "AccessKeyId leaked into curl argv"
+! grep -Fq 'Signature=' "$CURL_ARGS_LOG" || fail "HMAC signature leaked into curl argv"
+grep -Fqx 'url = "https://alidns.aliyuncs.com/?AccessKeyId=test-access-key&Action=DescribeSubDomainRecords&Format=json&SignatureMethod=HMAC-SHA1&SignatureNonce=nonce&SignatureVersion=1.0&SubDomain=www.example.com&Timestamp=2026-11-12T16%3A30%3A00Z&Type=A&Version=2015-01-09&Signature=c2ln"' "$CURL_CONFIG_LOG" ||
+	fail "signed URL was not passed unchanged through curl stdin"
 ! grep -Fqx -- '-k' "$CURL_ARGS_LOG" || fail "TLS verification bypass was enabled"
 ! grep -Fqx -- '-L' "$CURL_ARGS_LOG" || fail "credential-bearing request follows redirects"
 ! grep -Fqx -- '--location' "$CURL_ARGS_LOG" || fail "credential-bearing request follows redirects"
@@ -155,6 +163,14 @@ case "$url" in
 		;;
 	*) fail "signed query was not sent to the fixed HTTPS API endpoint" ;;
 esac
+
+# Config delimiters must not let a NVRAM/API value inject another curl directive.
+count_before="$(cat "$CURL_COUNT_FILE")"
+if send_request "DescribeSubDomainRecords" "SubDomain=bad
+url = \"http://attacker.invalid/"; then
+	fail "curl config newline injection was accepted"
+fi
+[ "$(cat "$CURL_COUNT_FILE")" = "$count_before" ] || fail "curl ran for a config-injection request"
 
 # Missing trust anchors fail before curl is invoked.
 count_before="$(cat "$CURL_COUNT_FILE")"

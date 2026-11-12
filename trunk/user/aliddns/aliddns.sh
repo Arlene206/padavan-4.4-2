@@ -234,10 +234,27 @@ send_request() {
 		return 1
 	fi
 
+	request_url="https://alidns.aliyuncs.com/?$args&Signature=$(enc "$hash")"
+	# curl's process argv must not contain AccessKeyId or the signed URL.
+	# Reject config delimiters/control bytes rather than allowing a value to
+	# inject additional curl config directives through stdin.
+	carriage_return=$(printf '\r')
+	tab=$(printf '\t')
+	case "$request_url" in
+		*'"'*|*'\'*|*'
+'*|*"$carriage_return"*|*"$tab"*)
+			logger -t "【AliDDNS动态域名】" "AliDNS 请求参数包含非法控制字符"
+			return 1
+			;;
+	esac
+
 	if response=$(curl --fail --silent --show-error \
 		--connect-timeout 5 --max-time 20 --proto '=https' \
 		--cacert "$ALIDDNS_CA_BUNDLE" --write-out '\n%{http_code}' \
-		"https://alidns.aliyuncs.com/?$args&Signature=$(enc "$hash")"); then
+		--config - <<EOF
+url = "$request_url"
+EOF
+	); then
 		:
 	else
 		return $?

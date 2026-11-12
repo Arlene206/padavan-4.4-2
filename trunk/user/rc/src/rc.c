@@ -888,7 +888,9 @@ init_router(void)
 	}
 	// system ready
 	nvram_set_int("ntp_ready", 0);
-	system("/usr/bin/copyscripts.sh &");
+	/* Install the firmware CA trust store before autostart can launch AliDDNS. */
+	if (system("/usr/bin/copyscripts.sh") != 0)
+		logmessage(LOGNAME, "startup script/CA trust-store preparation failed");
 	system("/etc/storage/started_script.sh &");
 	system("/usr/bin/autostart.sh &");
 
