@@ -204,6 +204,7 @@ chmod 700 "$ALD_BIN"
 
 # A launched daemon must become observable before start reports success.
 TEST_RUNNING=0
+TEST_ENABLE=1
 TEST_TERM_BEHAVIOR=stuck
 TEST_START_BEHAVIOR=fail
 export TEST_START_BEHAVIOR
@@ -213,7 +214,7 @@ if start_ald; then
   echo "FAIL: startup timeout was reported successful" >&2
   exit 1
 fi
-[ "$TEST_SLEEP_COUNT" -eq "$ALD_START_WAIT_SECONDS" ] && [ ! -e "$TEST_RUN_MARKER" ] || {
+[ -f "$TEST_ARG_LOG" ] && [ "$TEST_SLEEP_COUNT" -eq "$ALD_START_WAIT_SECONDS" ] && [ ! -e "$TEST_RUN_MARKER" ] || {
   echo "FAIL: startup readiness wait was not bounded or did not time out" >&2; exit 1;
 }
 TEST_START_BEHAVIOR=ready

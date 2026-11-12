@@ -1,3 +1,16 @@
+## 2026-11-13 03:05 CST (UTC+8) — Correct AliyunDrive startup-timeout host fixture state
+
+- Base main SHA: `23f39e16d3e06c40078c139289d4407e123529de`. The implementation commit added shared BusyBox-flock serialization for AliyunDrive start/stop and a bounded 10-second process-presence startup postcondition.
+- Exact-head AliyunDrive push run [43285606600] / job [131418092716] checked out this exact SHA. Launcher `sh -n` passed. The lifecycle host regression failed at `startup timeout was reported successful`; semantic source/RC checks were skipped.
+- Root cause is in the new regression fixture, not evidence of a production-source defect: the preceding disabled-service test leaves `TEST_ENABLE=0`, so the startup-timeout scenario followed the disabled stop path and returned success without invoking the mock daemon. The correction explicitly sets `TEST_ENABLE=1` for the timeout case and asserts that the mock argv log is created, exactly the configured poll count elapses and no readiness marker appears.
+- Same-SHA exact-head push workflows completed SUCCESS: AI handoff docs [43285606136], AdGuardHome [43285606409], infosvr [43285605946] and AliDDNS [43285606280]. AliyunDrive L2 remains open until its fresh exact-head lifecycle regression and semantic source contract both pass.
+- The follow-up test-only correction and updated handoff/roadmap/root log are THIS COMMIT. No production launcher change is made in this correction. This environment has no local repository checkout; no local `sh -n`, shell regression or Python checker execution is claimed.
+- Root `dev_log.md`: 73→74 complete records, below the 120-record / 384 KiB archive thresholds; no archive/index rotation is due.
+- XY-C1 L3 evidence remains tied only to `fcdc05e76e6522f9f35b59b71bd222b884cb2ce4`; no firmware/TRX build was run for this lifecycle iteration. L4 remains NOT VERIFIED.
+- Next: inspect exact-head push runs for the new main SHA, especially AliyunDrive lifecycle and AI docs. Require the corrected timeout fixture, all lock/readiness lifecycle cases, the BusyBox-flock/RC semantic contract and archive validator to pass; repair the first causal failure directly on `main`. After closing this regression, continue with AliDDNS lifecycle concurrency and whole-tree FRP/Adbyby audit while keeping argv-secret exposure, FTP TOCTOU and NFS evidence open.
+
+---
+
 ## 2026-11-13 02:31 CST (UTC+8) — Serialize AliyunDrive lifecycle and gate startup on process visibility
 
 - Base main SHA: `04abdb06ccc82ba6e7ffb65c028a0db3d3889272`. The previous P1 storage-hotplug host BusyBox issue is closed on this exact SHA: run [43278371123] / job [131392758595] passed the host BusyBox 1.24.2 link and every downstream storage regression; AI handoff docs [43278370932] / job [131392757241] also passed. The XY-C1 full MIPS/TRX/artifact milestone remains verified only on `fcdc05e76e6522f9f35b59b71bd222b884cb2ce4`.
