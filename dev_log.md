@@ -1,3 +1,17 @@
+## 2026-11-13 06:56 CST (UTC+8) — Align workdir argv fixture with isolated test path
+
+- Base main SHA: 2cce075b10faf5b044b5a3b75bb06ae7335dd0af, direct child of the previously green credential-redaction checkpoint dbf15f4bd8472da954a9f5ce68e4b4b57f09f2bb.
+- Exact-head AliyunDrive run [43325869188] / job [131558034165]: launcher shell syntax PASS; QEMU ran packaged MIPSel daemon 1.2.1 and SHA-bound credential-env capability report PASS. The host fixture reached the argv equality check but compared the test override /tmp/.../aliyundrive-webdav-workdir against a hard-coded /tmp/aliyundrive-webdav expectation. The launcher argument is correct; this is a stale fixture path. The source/RC checker and later umask/env tests were skipped, so no full L2 pass is claimed.
+- On the same exact SHA, AI docs [43325869229] / job [131558034089] passed (root log=82/119; archive inventory 7/22/18); AliDDNS [43325869222] / job [131558033911], AdGuardHome [43325869134] / job [131558033780], and infosvr [43325869414] / job [131558034824] all passed.
+- This follow-up removes the quoted expected-argv heredoc delimiter and interpolates ALD_WORK_DIR, so the test asserts the actual isolated path rather than a production-only hard-coded path. No production launcher behavior changes in this correction.
+- Exact-head AliyunDrive and AI-docs reruns for THIS COMMIT are PENDING; no secure-workdir L2 closure is claimed until the host fixture proceeds through all remaining assertions and the semantic checker passes.
+- Root log count: 82→83 complete entries, below the 120-record rotation threshold and 384 KiB early-rotation target; archive inventory remains dev-log=7, handoff=22, roadmap=18. No archive/index rotation.
+- Changed paths: lifecycle test fixture, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and this log. No production source, bundled binary, GPT Session Rotator, branch or PR changed.
+- Resulting main commit: THIS COMMIT.
+- Next: inspect exact-head AliyunDrive run logs and verify permissions, symlink/hardlink, child umask/RUST_LOG, lifecycle and source/RC checks all pass together.
+
+---
+
 ## 2026-11-13 06:50 CST (UTC+8) — Harden AliyunDrive persisted refresh-token permissions and suppress token INFO logging
 
 - Base main SHA: dbf15f4bd8472da954a9f5ce68e4b4b57f09f2bb; remote branch inventory contains only main. Credential argv redaction and its full L2 source/host validation are closed on this exact base.

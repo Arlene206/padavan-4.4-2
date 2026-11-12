@@ -288,7 +288,7 @@ rm -f "$TEST_START_FAIL_FILE" "$TEST_ARG_LOG" "$TEST_RUN_MARKER"
 start_ald || { echo "FAIL: enabled start failed" >&2; exit 1; }
 TEST_LAUNCH_PID=$!
 wait "$TEST_LAUNCH_PID"
-cat > "$TEST_DIR/expected-argv" <<'EXPECTED'
+cat > "$TEST_DIR/expected-argv" <<EXPECTED
 -I
 --no-trash
 --read-only
@@ -305,7 +305,7 @@ host name *; literal
 --cache-ttl
 300
 --workdir
-/tmp/aliyundrive-webdav
+$ALD_WORK_DIR
 EXPECTED
 cmp -s "$TEST_DIR/expected-argv" "$TEST_ARG_LOG" || {
   echo "FAIL: non-secret NVRAM values were split, globbed or reordered in daemon argv" >&2
