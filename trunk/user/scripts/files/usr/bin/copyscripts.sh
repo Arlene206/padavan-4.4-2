@@ -1,6 +1,30 @@
 #!/bin/sh
-mkdir -p /etc/ssl
-tar -xzf /etc_ro/certs.tgz -C /etc/ssl
+install_ca_trust_store() {
+	copyscripts_cert_archive="${COPYSCRIPTS_CERT_ARCHIVE:-/etc_ro/certs.tgz}"
+	copyscripts_cert_dir="${COPYSCRIPTS_CERT_DIR:-/etc/ssl}"
+	copyscripts_ca_bundle="$copyscripts_cert_dir/certs/ca-certificates.crt"
+
+	if ! mkdir -p "$copyscripts_cert_dir"; then
+		logger -t "启动脚本" "CA 证书目录创建失败：$copyscripts_cert_dir"
+		return 1
+	fi
+	if ! tar -xzf "$copyscripts_cert_archive" -C "$copyscripts_cert_dir"; then
+		logger -t "启动脚本" "CA 证书归档解压失败：$copyscripts_cert_archive"
+		return 1
+	fi
+	if [ ! -r "$copyscripts_ca_bundle" ]; then
+		logger -t "启动脚本" "CA 证书包解压后不可读：$copyscripts_ca_bundle"
+		return 1
+	fi
+	return 0
+}
+
+# Keep unrelated boot-time script seeding intact, but report a broken trust
+# store to rc.c so the failure cannot be mistaken for successful preparation.
+copyscripts_ca_status=0
+if ! install_ca_trust_store; then
+	copyscripts_ca_status=1
+fi
 if [ ! -f "/etc/storage/koolproxy_rules_script.sh" ] ; then
 cp -rf /etc_ro/koolproxy_rules_script.sh /etc/storage/
 chmod 755 "/etc/storage/koolproxy_rules_script.sh"
@@ -115,3 +139,5 @@ mkdir -p /etc/storage/gfwlist
 cp -rf /etc_ro/gfwlist_list.conf /etc/storage/gfwlist/
 chmod 755 "/etc/storage/gfwlist/gfwlist_list.conf"
 fi
+
+exit "$copyscripts_ca_status"
