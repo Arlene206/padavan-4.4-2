@@ -10,6 +10,11 @@ services_path = ROOT / "trunk/user/rc/src/services.c"
 rc_header_path = ROOT / "trunk/user/rc/src/rc.h"
 rc_path = ROOT / "trunk/user/rc/src/rc.c"
 workflow_path = ROOT / ".github/workflows/adguardhome-config-security.yml"
+kernel_addrtype_path = ROOT / "trunk/linux-4.4.x/net/netfilter/xt_addrtype.c"
+kernel_netfilter_makefile_path = ROOT / "trunk/linux-4.4.x/net/netfilter/Makefile"
+kernel_netfilter_kconfig_path = ROOT / "trunk/linux-4.4.x/net/netfilter/Kconfig"
+user_addrtype_path = ROOT / "trunk/user/iptables/iptables-1.8.7/extensions/libxt_addrtype.c"
+iptables_package_makefile_path = ROOT / "trunk/user/iptables/Makefile"
 
 script = script_path.read_text()
 test = test_path.read_text()
@@ -19,6 +24,11 @@ services = services_path.read_text()
 rc_header = rc_header_path.read_text()
 rc = rc_path.read_text()
 workflow = workflow_path.read_text()
+kernel_addrtype = kernel_addrtype_path.read_text()
+kernel_netfilter_makefile = kernel_netfilter_makefile_path.read_text()
+kernel_netfilter_kconfig = kernel_netfilter_kconfig_path.read_text()
+user_addrtype = user_addrtype_path.read_text()
+iptables_package_makefile = iptables_package_makefile_path.read_text()
 
 
 def require(condition: bool, message: str) -> None:
@@ -38,9 +48,56 @@ def function_body(source: str, signature: str) -> str:
 
 config = function_body(script, "getconfig(){")
 start = function_body(script, "start_adg(){")
+remove_redirect = function_body(script, "adg_remove_redirect_rule() {")
+set_redirect = function_body(script, "set_iptable()\n{")
+clear_redirect = function_body(script, "clear_iptable()\n{")
 wait_stopped = function_body(script, "adg_wait_stopped() {")
 stop_daemon = function_body(script, "adg_stop_daemon() {")
 stop = function_body(script, "stop_adg(){")
+require('while "$adg_iptables" -t nat -C PREROUTING "$@"' in remove_redirect and
+        '"$adg_iptables" -t nat -D PREROUTING "$@"' in remove_redirect,
+        "redirect cleanup must remove every exact duplicate and stop on failed deletion")
+require("if ! clear_iptable; then" in set_redirect and
+        "if [ \"$(nvram get adg_redirect)\" = 2 ]; then" in set_redirect,
+        "redirect setup must first clear stale rules and respect the configured redirect mode")
+require("-m addrtype --dst-type LOCAL" in set_redirect and
+        "! -d 127.0.0.0/8" in set_redirect and
+        "! -d ::1/128" in set_redirect and "! -d fe80::/10" in set_redirect,
+        "IPv4/IPv6 redirects must follow local route state while excluding loopback/link-local")
+require("ifconfig" not in set_redirect and "inet addr" not in set_redirect,
+        "redirect setup must not snapshot current addresses into firewall rules")
+require("adg_remove_redirect_rule iptables -p tcp" in clear_redirect and
+        "adg_remove_redirect_rule iptables -p udp" in clear_redirect and
+        "adg_remove_redirect_rule ip6tables -p tcp" in clear_redirect and
+        "adg_remove_redirect_rule ip6tables -p udp" in clear_redirect,
+        "redirect cleanup must cover TCP/UDP in both address families")
+require("clear_iptable" in set_redirect and
+        "IPv6 UDP DNS重定向失败" in set_redirect,
+        "partial redirect publication must roll back both address families")
+
+require('MODULE_ALIAS("ip6t_addrtype")' in kernel_addrtype and
+        '#if IS_ENABLED(CONFIG_IP6_NF_IPTABLES)' in kernel_addrtype and
+        "addrtype_mt6" in kernel_addrtype,
+        "Linux 4.4 addrtype implementation must retain IPv6 matching")
+require("config NETFILTER_XT_MATCH_ADDRTYPE" in kernel_netfilter_kconfig and
+        "obj-$(CONFIG_NETFILTER_XT_MATCH_ADDRTYPE) += xt_addrtype.o" in kernel_netfilter_makefile,
+        "kernel Kconfig/Makefile must build the addrtype match")
+require("--dst-type" in user_addrtype and '"LOCAL"' in user_addrtype,
+        "iptables userspace extension must expose LOCAL addrtype matching")
+require("PKG_VERSION:=1.8.7" in iptables_package_makefile and
+        "xtables-legacy-multi" in iptables_package_makefile,
+        "ROMFS iptables package must install the legacy xtables command family")
+
+board_kernel_configs = sorted((ROOT / "trunk/configs/boards").glob("*/kernel-4.4.x.config"))
+require(bool(board_kernel_configs), "no per-board Linux 4.4 configs were found")
+missing_addrtype = [
+    str(path.relative_to(ROOT)) for path in board_kernel_configs
+    if "CONFIG_NETFILTER_XT_MATCH_ADDRTYPE=y" not in path.read_text()
+    or "CONFIG_IP6_NF_IPTABLES=y" not in path.read_text()
+]
+require(not missing_addrtype,
+        "all board profiles must retain IPv4/IPv6 addrtype support: " + ", ".join(missing_addrtype))
+
 require('adg_file="${ADG_CONFIG_FILE:-/etc/storage/adg.sh}"' in config,
         "testable config path must retain the production default")
 require('if [ -L "$adg_file" ]; then' in config,
@@ -110,6 +167,10 @@ for marker in (
     "duplicate start changed config/DNS/firewall state or launched again",
     "stop reported success while AdGuardHome remained alive after SIGKILL",
     "failed stop removed runtime state or traffic redirection",
+    "address-independent IPv4/IPv6 DNS redirects, duplicate cleanup and rollback: PASS",
+    "repeated start left duplicate IPv4 redirect rules",
+    "redirect rules still depend on enumerated interface address snapshots",
+    "failed IPv6 publication did not roll back IPv4/IPv6 rules",
 ):
     require(marker in test, f"host regression missing case: {marker}")
 
@@ -123,6 +184,12 @@ paths = [
     "trunk/user/rc/src/services.c",
     "trunk/user/rc/src/rc.h",
     "trunk/user/rc/src/rc.c",
+    "trunk/configs/boards/*/kernel-4.4.x.config",
+    "trunk/linux-4.4.x/net/netfilter/xt_addrtype.c",
+    "trunk/linux-4.4.x/net/netfilter/Makefile",
+    "trunk/linux-4.4.x/net/netfilter/Kconfig",
+    "trunk/user/iptables/iptables-1.8.7/extensions/libxt_addrtype.c",
+    "trunk/user/iptables/Makefile",
 ]
 push = workflow.split("  push:", 1)[1].split("  pull_request:", 1)[0]
 pull = workflow.split("  pull_request:", 1)[1].split("permissions:", 1)[0]

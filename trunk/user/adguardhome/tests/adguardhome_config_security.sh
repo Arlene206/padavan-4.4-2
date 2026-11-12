@@ -105,6 +105,141 @@ fi
 
 echo "AdGuardHome secret config mode, symlink rejection and atomic publication: PASS"
 
+# Model the v4/v6 PREROUTING rule set without requiring host netfilter privileges.
+TEST_ADG_IPV4_RULES="$TEST_TMP/iptables-v4.rules"
+TEST_ADG_IPV6_RULES="$TEST_TMP/iptables-v6.rules"
+TEST_ADG_RULE_LOG="$TEST_TMP/iptables.log"
+TEST_ADG_REDIRECT_MODE=2
+TEST_ADG_IFCONFIG_CALLS=0
+TEST_ADG_FAIL_ADD=
+TEST_ADG_V4_TCP_RULE='PREROUTING -p tcp -m addrtype --dst-type LOCAL ! -d 127.0.0.0/8 --dport 53 -j REDIRECT --to-ports 5335'
+TEST_ADG_V4_UDP_RULE='PREROUTING -p udp -m addrtype --dst-type LOCAL ! -d 127.0.0.0/8 --dport 53 -j REDIRECT --to-ports 5335'
+TEST_ADG_V6_TCP_RULE='PREROUTING -p tcp -m addrtype --dst-type LOCAL ! -d ::1/128 ! -d fe80::/10 --dport 53 -j REDIRECT --to-ports 5335'
+TEST_ADG_V6_UDP_RULE='PREROUTING -p udp -m addrtype --dst-type LOCAL ! -d ::1/128 ! -d fe80::/10 --dport 53 -j REDIRECT --to-ports 5335'
+: > "$TEST_ADG_IPV4_RULES"
+: > "$TEST_ADG_IPV6_RULES"
+: > "$TEST_ADG_RULE_LOG"
+
+nvram() {
+	[ "$1" = get ] && [ "$2" = adg_redirect ] || return 1
+	echo "$TEST_ADG_REDIRECT_MODE"
+}
+
+ifconfig() {
+	TEST_ADG_IFCONFIG_CALLS=$((TEST_ADG_IFCONFIG_CALLS + 1))
+	echo "inet addr:$TEST_ADG_IFCONFIG_ADDR"
+}
+
+logger() {
+	return 0
+}
+
+adg_test_iptables() {
+	adg_family="$1"
+	shift
+	case "$adg_family" in
+		ipv4) adg_state="$TEST_ADG_IPV4_RULES" ;;
+		ipv6) adg_state="$TEST_ADG_IPV6_RULES" ;;
+		*) return 1 ;;
+	esac
+
+	printf '%s %s\n' "$adg_family" "$*" >> "$TEST_ADG_RULE_LOG"
+	[ "$1" = -t ] && [ "$2" = nat ] || return 1
+	shift 2
+	adg_operation="$1"
+	shift
+	[ "$1" = PREROUTING ] || return 1
+	adg_rule="$1"
+	shift
+	for adg_arg in "$@"; do
+		adg_rule="$adg_rule $adg_arg"
+	done
+
+	case "$adg_operation" in
+		-L)
+			return 0
+			;;
+		-A)
+			if [ -n "$TEST_ADG_FAIL_ADD" ] && [ "$adg_family:$adg_rule" = "$TEST_ADG_FAIL_ADD" ]; then
+				return 1
+			fi
+			printf '%s\n' "$adg_rule" >> "$adg_state"
+			return 0
+			;;
+		-C)
+			grep -Fqx "$adg_rule" "$adg_state"
+			return $?
+			;;
+		-D)
+			adg_tmp="$adg_state.tmp"
+			if awk -v wanted="$adg_rule" '
+				!removed && $0 == wanted { removed = 1; next }
+				{ print }
+				END { if (!removed) exit 1 }
+			' "$adg_state" > "$adg_tmp"; then
+				mv "$adg_tmp" "$adg_state"
+				return 0
+			fi
+			rm -f "$adg_tmp"
+			return 1
+			;;
+		*)
+			return 1
+			;;
+	esac
+}
+
+iptables() {
+	adg_test_iptables ipv4 "$@"
+}
+
+ip6tables() {
+	adg_test_iptables ipv6 "$@"
+}
+
+if ! set_iptable; then
+	fail "initial address-independent IPv4/IPv6 redirect setup failed"
+fi
+[ "$(wc -l < "$TEST_ADG_IPV4_RULES" | tr -d ' ')" = 2 ] || fail "IPv4 redirect setup did not publish exactly two protocol rules"
+[ "$(wc -l < "$TEST_ADG_IPV6_RULES" | tr -d ' ')" = 2 ] || fail "IPv6 redirect setup did not publish exactly two protocol rules"
+grep -Fqx "$TEST_ADG_V4_TCP_RULE" "$TEST_ADG_IPV4_RULES" || fail "IPv4 TCP rule is not route-derived LOCAL"
+grep -Fqx "$TEST_ADG_V4_UDP_RULE" "$TEST_ADG_IPV4_RULES" || fail "IPv4 UDP rule is not route-derived LOCAL"
+grep -Fqx "$TEST_ADG_V6_TCP_RULE" "$TEST_ADG_IPV6_RULES" || fail "IPv6 TCP rule is not route-derived LOCAL"
+grep -Fqx "$TEST_ADG_V6_UDP_RULE" "$TEST_ADG_IPV6_RULES" || fail "IPv6 UDP rule is not route-derived LOCAL"
+
+# Seed duplicates as if an earlier daemon restart had appended a second copy.
+cp "$TEST_ADG_IPV4_RULES" "$TEST_TMP/iptables-v4.duplicate"
+cp "$TEST_ADG_IPV6_RULES" "$TEST_TMP/iptables-v6.duplicate"
+cat "$TEST_TMP/iptables-v4.duplicate" >> "$TEST_ADG_IPV4_RULES"
+cat "$TEST_TMP/iptables-v6.duplicate" >> "$TEST_ADG_IPV6_RULES"
+TEST_ADG_IFCONFIG_ADDR=198.51.100.2
+if ! set_iptable; then
+	fail "repeated redirect setup failed after simulated interface address change"
+fi
+[ "$TEST_ADG_IFCONFIG_CALLS" = 0 ] || fail "redirect rules still depend on enumerated interface address snapshots"
+[ "$(wc -l < "$TEST_ADG_IPV4_RULES" | tr -d ' ')" = 2 ] || fail "repeated start left duplicate IPv4 redirect rules"
+[ "$(wc -l < "$TEST_ADG_IPV6_RULES" | tr -d ' ')" = 2 ] || fail "repeated start left duplicate IPv6 redirect rules"
+
+# Disabling redirect mode must remove all exact rules and publish none.
+TEST_ADG_REDIRECT_MODE=1
+if ! set_iptable; then
+	fail "redirect-mode transition cleanup failed"
+fi
+[ ! -s "$TEST_ADG_IPV4_RULES" ] || fail "IPv4 redirect rules survived redirect-mode disable"
+[ ! -s "$TEST_ADG_IPV6_RULES" ] || fail "IPv6 redirect rules survived redirect-mode disable"
+clear_iptable || fail "repeated empty redirect cleanup failed"
+[ ! -s "$TEST_ADG_IPV4_RULES" ] && [ ! -s "$TEST_ADG_IPV6_RULES" ] || fail "idempotent redirect cleanup recreated rules"
+
+# A failed IPv6 UDP append must roll back rules already published for both families.
+TEST_ADG_REDIRECT_MODE=2
+TEST_ADG_FAIL_ADD="ipv6:$TEST_ADG_V6_UDP_RULE"
+if set_iptable; then
+	fail "redirect setup succeeded after injected IPv6 UDP rule failure"
+fi
+[ ! -s "$TEST_ADG_IPV4_RULES" ] && [ ! -s "$TEST_ADG_IPV6_RULES" ] || fail "failed IPv6 publication did not roll back IPv4/IPv6 rules"
+TEST_ADG_FAIL_ADD=
+echo "AdGuardHome address-independent IPv4/IPv6 DNS redirects, duplicate cleanup and rollback: PASS"
+
 # Exercise daemon stop/start gates with a process-name-only mock.
 TEST_ADG_STATE="$TEST_TMP/adguardhome.state"
 TEST_ADG_KILL_LOG="$TEST_TMP/adguardhome.kill.log"

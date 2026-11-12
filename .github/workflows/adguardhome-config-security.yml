@@ -15,6 +15,12 @@ on:
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/rc.c"
+      - "trunk/configs/boards/*/kernel-4.4.x.config"
+      - "trunk/linux-4.4.x/net/netfilter/xt_addrtype.c"
+      - "trunk/linux-4.4.x/net/netfilter/Makefile"
+      - "trunk/linux-4.4.x/net/netfilter/Kconfig"
+      - "trunk/user/iptables/iptables-1.8.7/extensions/libxt_addrtype.c"
+      - "trunk/user/iptables/Makefile"
   pull_request:
     paths:
       - "SESSION_HANDOFF.md"
@@ -29,6 +35,12 @@ on:
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/rc.c"
+      - "trunk/configs/boards/*/kernel-4.4.x.config"
+      - "trunk/linux-4.4.x/net/netfilter/xt_addrtype.c"
+      - "trunk/linux-4.4.x/net/netfilter/Makefile"
+      - "trunk/linux-4.4.x/net/netfilter/Kconfig"
+      - "trunk/user/iptables/iptables-1.8.7/extensions/libxt_addrtype.c"
+      - "trunk/user/iptables/Makefile"
 
 permissions:
   contents: read

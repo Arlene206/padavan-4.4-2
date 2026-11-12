@@ -19,42 +19,72 @@ del_dns() {
   /sbin/restart_dhcpd
 }
 
+adg_remove_redirect_rule()
+{
+	adg_iptables="$1"
+	shift
+
+	# Remove every exact copy; repeated start/stop must be idempotent.
+	while "$adg_iptables" -t nat -C PREROUTING "$@" >/dev/null 2>&1; do
+		if ! "$adg_iptables" -t nat -D PREROUTING "$@" >/dev/null 2>&1; then
+			return 1
+		fi
+	done
+	return 0
+}
+
 set_iptable()
 {
-  if [ "$(nvram get adg_redirect)" = 2 ]; then
-    IPS="`ifconfig | grep "inet addr" | grep -v ":127" | grep "Bcast" | awk '{print $2}' | awk -F : '{print $2}'`"
-    for IP in $IPS
-    do
-      iptables -t nat -A PREROUTING -p tcp -d $IP --dport 53 -j REDIRECT --to-ports 5335 >/dev/null 2>&1
-      iptables -t nat -A PREROUTING -p udp -d $IP --dport 53 -j REDIRECT --to-ports 5335 >/dev/null 2>&1
-    done
+	# Route-derived LOCAL matching follows DHCP/PPPoE and IPv6 address changes;
+	# it does not pin rules to a snapshot of interface addresses.
+	if ! clear_iptable; then
+		logger -t "AdGuardHome" "清理旧DNS重定向规则失败"
+		return 1
+	fi
 
-    IPS="`ifconfig | grep "inet6 addr" | grep -v " fe80::" | grep -v " ::1" | grep "Global" | awk '{print $3}'`"
-    for IP in $IPS
-    do
-      ip6tables -t nat -A PREROUTING -p tcp -d $IP --dport 53 -j REDIRECT --to-ports 5335 >/dev/null 2>&1
-      ip6tables -t nat -A PREROUTING -p udp -d $IP --dport 53 -j REDIRECT --to-ports 5335 >/dev/null 2>&1
-    done
-      logger -t "AdGuardHome" "重定向53端口"
-  fi
+	if [ "$(nvram get adg_redirect)" = 2 ]; then
+		if ! iptables -t nat -A PREROUTING -p tcp -m addrtype --dst-type LOCAL ! -d 127.0.0.0/8 --dport 53 -j REDIRECT --to-ports 5335 >/dev/null 2>&1; then
+			logger -t "AdGuardHome" "添加IPv4 TCP DNS重定向失败"
+			return 1
+		fi
+		if ! iptables -t nat -A PREROUTING -p udp -m addrtype --dst-type LOCAL ! -d 127.0.0.0/8 --dport 53 -j REDIRECT --to-ports 5335 >/dev/null 2>&1; then
+			logger -t "AdGuardHome" "添加IPv4 UDP DNS重定向失败"
+			clear_iptable
+			return 1
+		fi
+
+		# ip6tables is not installed on IPv6-disabled firmware profiles.
+		if ip6tables -t nat -L PREROUTING -n >/dev/null 2>&1; then
+			if ! ip6tables -t nat -A PREROUTING -p tcp -m addrtype --dst-type LOCAL ! -d ::1/128 ! -d fe80::/10 --dport 53 -j REDIRECT --to-ports 5335 >/dev/null 2>&1; then
+				logger -t "AdGuardHome" "添加IPv6 TCP DNS重定向失败"
+				clear_iptable
+				return 1
+			fi
+			if ! ip6tables -t nat -A PREROUTING -p udp -m addrtype --dst-type LOCAL ! -d ::1/128 ! -d fe80::/10 --dport 53 -j REDIRECT --to-ports 5335 >/dev/null 2>&1; then
+				logger -t "AdGuardHome" "添加IPv6 UDP DNS重定向失败"
+				clear_iptable
+				return 1
+			fi
+		fi
+		logger -t "AdGuardHome" "重定向53端口"
+	fi
+	return 0
 }
 
 clear_iptable()
 {
-	OLD_PORT="5335"
-	IPS="`ifconfig | grep "inet addr" | grep -v ":127" | grep "Bcast" | awk '{print $2}' | awk -F : '{print $2}'`"
-	for IP in $IPS
-	do
-		iptables -t nat -D PREROUTING -p udp -d $IP --dport 53 -j REDIRECT --to-ports $OLD_PORT >/dev/null 2>&1
-		iptables -t nat -D PREROUTING -p tcp -d $IP --dport 53 -j REDIRECT --to-ports $OLD_PORT >/dev/null 2>&1
-	done
+	adg_cleanup_status=0
 
-	IPS="`ifconfig | grep "inet6 addr" | grep -v " fe80::" | grep -v " ::1" | grep "Global" | awk '{print $3}'`"
-	for IP in $IPS
-	do
-		ip6tables -t nat -D PREROUTING -p udp -d $IP --dport 53 -j REDIRECT --to-ports $OLD_PORT >/dev/null 2>&1
-		ip6tables -t nat -D PREROUTING -p tcp -d $IP --dport 53 -j REDIRECT --to-ports $OLD_PORT >/dev/null 2>&1
-	done
+	adg_remove_redirect_rule iptables -p tcp -m addrtype --dst-type LOCAL ! -d 127.0.0.0/8 --dport 53 -j REDIRECT --to-ports 5335 || adg_cleanup_status=1
+	adg_remove_redirect_rule iptables -p udp -m addrtype --dst-type LOCAL ! -d 127.0.0.0/8 --dport 53 -j REDIRECT --to-ports 5335 || adg_cleanup_status=1
+
+	# Skip the IPv6 family when its nat table is not present in this firmware.
+	if ip6tables -t nat -L PREROUTING -n >/dev/null 2>&1; then
+		adg_remove_redirect_rule ip6tables -p tcp -m addrtype --dst-type LOCAL ! -d ::1/128 ! -d fe80::/10 --dport 53 -j REDIRECT --to-ports 5335 || adg_cleanup_status=1
+		adg_remove_redirect_rule ip6tables -p udp -m addrtype --dst-type LOCAL ! -d ::1/128 ! -d fe80::/10 --dport 53 -j REDIRECT --to-ports 5335 || adg_cleanup_status=1
+	fi
+
+	return "$adg_cleanup_status"
 }
 
 getconfig(){
