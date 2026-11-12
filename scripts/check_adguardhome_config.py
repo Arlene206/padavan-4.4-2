@@ -47,6 +47,9 @@ def function_body(source: str, signature: str) -> str:
 
 
 config = function_body(script, "getconfig(){")
+dns_update = function_body(script, "adg_update_dns_config() {")
+change_dns = function_body(script, "change_dns() {")
+del_dns = function_body(script, "del_dns() {")
 start = function_body(script, "start_adg(){")
 remove_redirect = function_body(script, "adg_remove_redirect_rule()" + chr(10) + "{")
 set_redirect = function_body(script, "set_iptable()" + chr(10) + "{")
@@ -126,8 +129,25 @@ require('auth_pass: adguardhome' in config and 'private_key: ""' in config,
         "source contract must recognize secret-bearing config fields")
 require('if ! getconfig; then' in start and 'if ! set_iptable; then' in start and
         start.index('if ! getconfig; then') < start.index('if ! set_iptable; then') <
-        start.index('change_dns') < start.index('eval "AdGuardHome'),
-        "config and firewall failures must stop before resolver changes or daemon launch")
+        start.index('if ! change_dns; then') < start.index('eval "AdGuardHome'),
+        "config, firewall and resolver failures must stop before daemon launch")
+require('mktemp "${adg_dns_conf}.adg-new.XXXXXX"' in dns_update and
+        'mktemp "${adg_dns_conf}.adg-old.XXXXXX"' in dns_update and
+        'cp -p "$adg_dns_conf" "$adg_dns_tmp"' in dns_update and
+        'cp -p "$adg_dns_conf" "$adg_dns_backup"' in dns_update and
+        'mv -f "$adg_dns_tmp" "$adg_dns_conf"' in dns_update and
+        'if adg_restart_dhcpd; then' in dns_update and
+        'mv -f "$adg_dns_backup" "$adg_dns_conf"' in dns_update and
+        dns_update.index('mv -f "$adg_dns_tmp" "$adg_dns_conf"') <
+        dns_update.index('if adg_restart_dhcpd; then') <
+        dns_update.index('mv -f "$adg_dns_backup" "$adg_dns_conf"'),
+        "resolver updates must stage beside the live file, verify reload and restore the previous file on failure")
+require('adg_update_dns_config enable' in change_dns and 'return 1' in change_dns and
+        'adg_update_dns_config disable' in del_dns,
+        "change_dns/del_dns must propagate resolver transaction failures")
+require('if ! change_dns; then' in start and 'if ! clear_iptable; then' in start and
+        start.index('if ! change_dns; then') < start.index('if ! clear_iptable; then'),
+        "failed resolver setup must roll back firewall rules before daemon launch")
 
 require('if pidof AdGuardHome >/dev/null 2>&1; then' in start and
         start.index('if pidof AdGuardHome') < start.index('getconfig') <
@@ -142,11 +162,11 @@ require(stop_daemon.index('killall AdGuardHome') <
         stop_daemon.index('killall -9 AdGuardHome') <
         stop_daemon.rindex('adg_wait_stopped'),
         "daemon stop must verify TERM grace before name-based KILL and post-verify absence")
-require('if ! adg_stop_daemon; then' in stop and
-        'if ! clear_iptable; then' in stop and
-        stop.index('if ! adg_stop_daemon; then') < stop.index('if ! clear_iptable; then') <
-        stop.index('rm -rf /tmp/AdGuardHome') < stop.index('del_dns'),
-        "workdir and DNS cleanup must wait for confirmed daemon exit and firewall-rule removal")
+require('if ! clear_iptable; then' in stop and
+        'if ! del_dns; then' in stop and 'if ! adg_stop_daemon; then' in stop and
+        stop.index('if ! clear_iptable; then') < stop.index('if ! del_dns; then') <
+        stop.index('if ! adg_stop_daemon; then') < stop.index('rm -rf /tmp/AdGuardHome'),
+        "stop must verify firewall cleanup and resolver reload before stopping daemon and removing its workdir")
 require('pidof AdGuardHome' in stop_daemon and 'killall -9 AdGuardHome' in stop_daemon and
         'pidof AdGuardHome' in wait_stopped,
         "stop must re-enumerate the process by name, not cache a numeric PID")
@@ -186,6 +206,10 @@ for marker in (
     "clear_iptable ignored an IPv6 NAT table probe failure",
     "stop reported success after firewall cleanup failed",
     "start_adg ignored a firewall setup failure",
+    "dnsmasq resolver publication, status and rollback: PASS",
+    "dnsmasq resolver update did not preserve the previous config on failure",
+    "start continued after resolver reload failure",
+    "stop reported success after resolver removal failed",
 ):
     require(marker in test, f"host regression missing case: {marker}")
 

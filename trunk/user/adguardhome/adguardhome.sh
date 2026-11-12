@@ -1,22 +1,101 @@
 #!/bin/sh
 
-change_dns() {
-  if [ "$(nvram get adg_redirect)" = 1 ]; then
-    sed -i '/no-resolv/d' /etc/storage/dnsmasq/dnsmasq.conf
-    sed -i '/server=127.0.0.1/d' /etc/storage/dnsmasq/dnsmasq.conf
-    cat >> /etc/storage/dnsmasq/dnsmasq.conf << EOF
-no-resolv
-server=127.0.0.1#5335
-EOF
-    /sbin/restart_dhcpd
-    logger -t "AdGuardHome" "添加DNS转发到5335端口"
+adg_dnsmasq_config_path() {
+  echo /etc/storage/dnsmasq/dnsmasq.conf
+}
+
+adg_restart_dhcpd() {
+  /sbin/restart_dhcpd
+}
+
+# Update dnsmasq config by same-directory staging and preserve the exact prior
+# file until the daemon has accepted the new configuration.
+adg_update_dns_config() {
+  adg_dns_action="$1"
+  adg_dns_conf="$(adg_dnsmasq_config_path)" || return 1
+
+  if [ -L "$adg_dns_conf" ] || [ ! -f "$adg_dns_conf" ]; then
+    logger -t "AdGuardHome" "DNSMasq配置不是普通文件，拒绝修改"
+    return 1
   fi
+
+  adg_dns_tmp="$(mktemp "${adg_dns_conf}.adg-new.XXXXXX")" || {
+    logger -t "AdGuardHome" "无法创建DNSMasq配置暂存文件"
+    return 1
+  }
+  adg_dns_backup="$(mktemp "${adg_dns_conf}.adg-old.XXXXXX")" || {
+    rm -f "$adg_dns_tmp"
+    logger -t "AdGuardHome" "无法创建DNSMasq配置回滚文件"
+    return 1
+  }
+
+  if ! cp -p "$adg_dns_conf" "$adg_dns_tmp" ||
+     ! cp -p "$adg_dns_conf" "$adg_dns_backup"; then
+    rm -f "$adg_dns_tmp" "$adg_dns_backup"
+    logger -t "AdGuardHome" "备份或暂存DNSMasq配置失败"
+    return 1
+  fi
+
+  case "$adg_dns_action" in
+    enable)
+      if ! sed -i '/^no-resolv[[:space:]]*$/d; /^server=127\.0\.0\.1/d' "$adg_dns_tmp" ||
+         ! printf '%s\n' 'no-resolv' 'server=127.0.0.1#5335' >> "$adg_dns_tmp"; then
+        rm -f "$adg_dns_tmp" "$adg_dns_backup"
+        logger -t "AdGuardHome" "生成AdGuardHome DNSMasq配置失败"
+        return 1
+      fi
+      ;;
+    disable)
+      if ! sed -i '/^no-resolv[[:space:]]*$/d; /^server=127\.0\.0\.1#5335[[:space:]]*$/d' "$adg_dns_tmp"; then
+        rm -f "$adg_dns_tmp" "$adg_dns_backup"
+        logger -t "AdGuardHome" "清理AdGuardHome DNSMasq配置失败"
+        return 1
+      fi
+      ;;
+    *)
+      rm -f "$adg_dns_tmp" "$adg_dns_backup"
+      return 1
+      ;;
+  esac
+
+  if ! mv -f "$adg_dns_tmp" "$adg_dns_conf"; then
+    rm -f "$adg_dns_tmp" "$adg_dns_backup"
+    logger -t "AdGuardHome" "发布DNSMasq配置失败"
+    return 1
+  fi
+
+  if adg_restart_dhcpd; then
+    if ! rm -f "$adg_dns_backup"; then
+      logger -t "AdGuardHome" "删除DNSMasq回滚副本失败"
+    fi
+    return 0
+  fi
+
+  logger -t "AdGuardHome" "DNSMasq重载失败，恢复原配置"
+  if ! mv -f "$adg_dns_backup" "$adg_dns_conf"; then
+    logger -t "AdGuardHome" "恢复DNSMasq原配置失败，保留回滚副本: $adg_dns_backup"
+    rm -f "$adg_dns_tmp"
+    return 1
+  fi
+  rm -f "$adg_dns_tmp"
+  if ! adg_restart_dhcpd; then
+    logger -t "AdGuardHome" "DNSMasq回滚配置重载也失败"
+  fi
+  return 1
+}
+
+change_dns() {
+  [ "$(nvram get adg_redirect)" = 1 ] || return 0
+  if ! adg_update_dns_config enable; then
+    logger -t "AdGuardHome" "添加DNS转发到5335端口失败"
+    return 1
+  fi
+  logger -t "AdGuardHome" "添加DNS转发到5335端口"
+  return 0
 }
 
 del_dns() {
-  sed -i '/no-resolv/d' /etc/storage/dnsmasq/dnsmasq.conf
-  sed -i '/server=127.0.0.1#5335/d' /etc/storage/dnsmasq/dnsmasq.conf
-  /sbin/restart_dhcpd
+  adg_update_dns_config disable
 }
 
 adg_remove_redirect_rule()
@@ -261,7 +340,13 @@ start_adg(){
 		logger -t "AdGuardHome" "DNS 防火墙规则准备失败，取消启动"
 		return 1
 	fi
-	change_dns
+	if ! change_dns; then
+		logger -t "AdGuardHome" "DNSMasq配置或重载失败，取消启动"
+		if ! clear_iptable; then
+			logger -t "AdGuardHome" "DNS失败后的防火墙回滚也失败"
+		fi
+		return 1
+	fi
 	logger -t "AdGuardHome" "启动 AdGuardHome"
 	eval "AdGuardHome -c $adg_file -w /tmp/AdGuardHome -v" &
 }
@@ -299,18 +384,22 @@ adg_stop_daemon() {
 
 stop_adg(){
   logger -t "AdGuardHome" "停止 AdGuardHome"
-  if ! adg_stop_daemon; then
-    logger -t "AdGuardHome" "进程仍在运行，保留工作目录和 DNS/防火墙状态"
-    return 1
-  fi
 
-  # Preserve service state when exact-rule cleanup cannot be confirmed.
+  # Keep the daemon alive until resolver publication/reload is confirmed. On
+  # failure, del_dns() restores the previous file and stop remains retryable.
   if ! clear_iptable; then
     logger -t "AdGuardHome" "DNS 防火墙规则清理失败，保留运行状态"
     return 1
   fi
+  if ! del_dns; then
+    logger -t "AdGuardHome" "DNSMasq配置或重载失败，保留AdGuardHome进程和工作目录"
+    return 1
+  fi
+  if ! adg_stop_daemon; then
+    logger -t "AdGuardHome" "进程仍在运行，保留工作目录"
+    return 1
+  fi
   rm -rf /tmp/AdGuardHome
-  del_dns
 }
 
 case $1 in

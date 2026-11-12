@@ -109,6 +109,65 @@ fi
 
 echo "AdGuardHome secret config mode, symlink rejection and atomic publication: PASS"
 
+# Verify resolver edits are staged, checked and rolled back byte-for-byte when
+# dnsmasq rejects the new configuration.
+(
+  TEST_ADG_DNS_CONFIG="$TEST_TMP/dnsmasq.conf"
+  TEST_DNS_RESTART_CALLS=0
+  TEST_DNS_RESTART_MODE=success
+  adg_dnsmasq_config_path() { echo "$TEST_ADG_DNS_CONFIG"; }
+  adg_restart_dhcpd() {
+    TEST_DNS_RESTART_CALLS=$((TEST_DNS_RESTART_CALLS + 1))
+    case "$TEST_DNS_RESTART_MODE:$TEST_DNS_RESTART_CALLS" in
+      fail-first:1|fail-all:*)
+        return 1
+        ;;
+      *)
+        return 0
+        ;;
+    esac
+  }
+  nvram() {
+    [ "$1" = get ] && [ "$2" = adg_redirect ] || return 1
+    echo 1
+  }
+
+  printf '%s\n' 'domain-needed' 'server=9.9.9.9' 'no-resolv' 'server=127.0.0.1#5353' > "$TEST_ADG_DNS_CONFIG"
+  if ! change_dns; then exit 1; fi
+  [ "$(grep -Fxc 'no-resolv' "$TEST_ADG_DNS_CONFIG")" = 1 ] || exit 1
+  [ "$(grep -Fxc 'server=127.0.0.1#5335' "$TEST_ADG_DNS_CONFIG")" = 1 ] || exit 1
+  ! grep -Fqx 'server=127.0.0.1#5353' "$TEST_ADG_DNS_CONFIG" || exit 1
+  [ "$TEST_DNS_RESTART_CALLS" = 1 ] || exit 1
+
+  TEST_DNS_RESTART_CALLS=0
+  TEST_DNS_RESTART_MODE=success
+  if ! del_dns; then exit 1; fi
+  ! grep -Fqx 'no-resolv' "$TEST_ADG_DNS_CONFIG" || exit 1
+  ! grep -Fqx 'server=127.0.0.1#5335' "$TEST_ADG_DNS_CONFIG" || exit 1
+  [ "$TEST_DNS_RESTART_CALLS" = 1 ] || exit 1
+
+  # A failed enable reload must restore the exact previous resolver bytes and
+  # make a second reload attempt with the restored configuration.
+  printf '%s\n' 'domain-needed' 'no-resolv' 'server=8.8.8.8' > "$TEST_ADG_DNS_CONFIG"
+  cp "$TEST_ADG_DNS_CONFIG" "$TEST_TMP/dns-before-enable-failure"
+  TEST_DNS_RESTART_CALLS=0
+  TEST_DNS_RESTART_MODE=fail-first
+  if change_dns; then exit 1; fi
+  cmp "$TEST_TMP/dns-before-enable-failure" "$TEST_ADG_DNS_CONFIG" || exit 1
+  [ "$TEST_DNS_RESTART_CALLS" = 2 ] || exit 1
+
+  # Failed disable reload likewise restores the active AdGuard resolver.
+  printf '%s\n' 'domain-needed' 'no-resolv' 'server=127.0.0.1#5335' > "$TEST_ADG_DNS_CONFIG"
+  cp "$TEST_ADG_DNS_CONFIG" "$TEST_TMP/dns-before-disable-failure"
+  TEST_DNS_RESTART_CALLS=0
+  TEST_DNS_RESTART_MODE=fail-first
+  if del_dns; then exit 1; fi
+  cmp "$TEST_TMP/dns-before-disable-failure" "$TEST_ADG_DNS_CONFIG" || exit 1
+  [ "$TEST_DNS_RESTART_CALLS" = 2 ] || exit 1
+) || fail "dnsmasq resolver update did not preserve the previous config on failure"
+
+echo "AdGuardHome dnsmasq resolver publication, status and rollback: PASS"
+
 # Model the v4/v6 PREROUTING rule set without requiring host netfilter privileges.
 TEST_ADG_IPV4_RULES="$TEST_TMP/iptables-v4.rules"
 TEST_ADG_IPV6_RULES="$TEST_TMP/iptables-v6.rules"
@@ -321,6 +380,23 @@ echo "AdGuardHome address-independent IPv4/IPv6 DNS redirects, duplicate cleanup
 	[ "$(cat "$TEST_ADG_START_EFFECTS")" = set_iptable ] || fail "failed firewall setup changed DNS or launched the daemon"
 ) || fail "start firewall fail-closed regression failed"
 
+# A resolver publication/reload failure must roll firewall changes back and
+# prevent daemon launch.
+(
+  TEST_ADG_START_EFFECTS="$TEST_TMP/start-dns-failure.log"
+  : > "$TEST_ADG_START_EFFECTS"
+  pidof() { return 1; }
+  getconfig() { return 0; }
+  mkdir() { return 0; }
+  set_iptable() { echo set_iptable >> "$TEST_ADG_START_EFFECTS"; return 0; }
+  change_dns() { echo change_dns >> "$TEST_ADG_START_EFFECTS"; return 1; }
+  clear_iptable() { echo clear_iptable >> "$TEST_ADG_START_EFFECTS"; return 0; }
+  AdGuardHome() { echo launch >> "$TEST_ADG_START_EFFECTS"; }
+  logger() { return 0; }
+  if start_adg; then exit 1; fi
+  [ "$(cat "$TEST_ADG_START_EFFECTS")" = "$(printf 'set_iptable\\nchange_dns\\nclear_iptable')" ] || exit 1
+) || fail "start continued after resolver reload failure"
+
 # Exercise daemon stop/start gates with a process-name-only mock.
 TEST_ADG_STATE="$TEST_TMP/adguardhome.state"
 TEST_ADG_KILL_LOG="$TEST_TMP/adguardhome.kill.log"
@@ -370,6 +446,7 @@ rm() {
 
 del_dns() {
 	echo del_dns >> "$TEST_ADG_CLEANUP_LOG"
+	[ "${TEST_ADG_DEL_DNS_FAIL:-0}" = 1 ] && return 1
 	return 0
 }
 
@@ -404,7 +481,7 @@ if ! stop_adg; then
 fi
 [ ! -s "$TEST_ADG_KILL_LOG" ] || fail "no-process stop sent a signal"
 [ ! -s "$TEST_ADG_SLEEP_LOG" ] || fail "no-process stop waited"
-[ "$(cat "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\nrm:-rf /tmp/AdGuardHome\ndel_dns')" ] || fail "no-process cleanup ordering changed"
+[ "$(cat "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\ndel_dns\nrm:-rf /tmp/AdGuardHome')" ] || fail "no-process cleanup ordering changed"
 
 # A daemon that exits on TERM must not receive SIGKILL.
 : > "$TEST_ADG_KILL_LOG"
@@ -417,7 +494,7 @@ if ! stop_adg; then
 fi
 [ "$(cat "$TEST_ADG_KILL_LOG")" = AdGuardHome ] || fail "graceful stop sent force kill or used unexpected process identity"
 [ ! -s "$TEST_ADG_SLEEP_LOG" ] || fail "graceful daemon exit was not observed immediately"
-[ "$(tail -n 3 "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\nrm:-rf /tmp/AdGuardHome\ndel_dns')" ] || fail "cleanup did not follow confirmed daemon exit"
+[ "$(tail -n 3 "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\ndel_dns\nrm:-rf /tmp/AdGuardHome')" ] || fail "cleanup did not follow confirmed daemon exit"
 
 # A TERM-resistant daemon is escalated only after five bounded polls.
 : > "$TEST_ADG_KILL_LOG"
@@ -430,7 +507,7 @@ if ! stop_adg; then
 fi
 [ "$(cat "$TEST_ADG_KILL_LOG")" = "$(printf 'AdGuardHome\n-9 AdGuardHome')" ] || fail "stop did not perform TERM then fresh name-based SIGKILL"
 [ "$(wc -l < "$TEST_ADG_SLEEP_LOG" | tr -d ' ')" = 5 ] || fail "TERM grace period was not bounded to five polls"
-[ "$(tail -n 3 "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\nrm:-rf /tmp/AdGuardHome\ndel_dns')" ] || fail "cleanup did not follow confirmed SIGKILL exit"
+[ "$(tail -n 3 "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\ndel_dns\nrm:-rf /tmp/AdGuardHome')" ] || fail "cleanup did not follow confirmed SIGKILL exit"
 
 # Firewall cleanup failure preserves runtime and resolver state for retry.
 : > "$TEST_ADG_CLEANUP_LOG"
@@ -441,6 +518,21 @@ if stop_adg; then
 fi
 [ "$(cat "$TEST_ADG_CLEANUP_LOG")" = clear_iptable ] || fail "failed firewall cleanup removed runtime state or DNS config"
 TEST_ADG_CLEAR_FAIL=0
+
+# Resolver update failure must leave the daemon and workdir available for retry.
+: > "$TEST_ADG_KILL_LOG"
+: > "$TEST_ADG_SLEEP_LOG"
+: > "$TEST_ADG_CLEANUP_LOG"
+echo running > "$TEST_ADG_STATE"
+TEST_ADG_MODE=unused
+TEST_ADG_DEL_DNS_FAIL=1
+if stop_adg; then
+  fail "stop reported success after resolver removal failed"
+fi
+[ "$(cat "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\\ndel_dns')" ] || fail "stop removed workdir or stopped the daemon after resolver failure"
+[ ! -s "$TEST_ADG_KILL_LOG" ] || fail "stop signalled AdGuardHome before resolver removal was confirmed"
+[ "$(cat "$TEST_ADG_STATE")" = running ] || fail "resolver failure did not leave the daemon available"
+TEST_ADG_DEL_DNS_FAIL=0
 
 # A daemon that survives SIGKILL must retain its workdir and traffic state.
 : > "$TEST_ADG_KILL_LOG"
@@ -453,6 +545,6 @@ if stop_adg; then
 fi
 [ "$(cat "$TEST_ADG_KILL_LOG")" = "$(printf 'AdGuardHome\n-9 AdGuardHome')" ] || fail "stuck daemon did not receive TERM then name-based SIGKILL"
 [ "$(wc -l < "$TEST_ADG_SLEEP_LOG" | tr -d ' ')" = 10 ] || fail "TERM/KILL waits were not bounded to five polls each"
-[ ! -s "$TEST_ADG_CLEANUP_LOG" ] || fail "failed stop removed runtime state or traffic redirection"
+[ "$(cat "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\\ndel_dns')" ] || fail "failed stop removed the workdir or skipped pre-stop resolver cleanup"
 
 echo "AdGuardHome duplicate-start and bounded stop lifecycle regression: PASS"
