@@ -1,17 +1,17 @@
-## 2026-11-12 22:40 CST (UTC+8) — Port legacy PR #1 AliDDNS security work directly to main
+## 2026-11-12 22:40 CST (UTC+8) — Port and verify legacy PR #1 AliDDNS security work on main
 
-- Base main SHA: `fd9275273c385ec266333fecb813fe7d18c69ecb`. Imported the valid unmerged changes from legacy PR #1 head `ba48e22609e0c81ad757b06756fe91d05f39cbf6` without merging the diverged PR or committing to its branch.
-- Ported CA trust-store setup in `copyscripts.sh`: checked directory creation, tar extraction result and readable CA bundle postcondition; unrelated startup asset seeding is preserved and the copy script propagates CA failure to the existing synchronous RC caller.
-- Ported an OpenSSL 3 EVP_MAC HMAC-SHA1 helper, package/ROMFS integration and `aliddns.sh` wrapper so AccessKeySecret is streamed over stdin rather than passed as an OpenSSL process argument. Added byte-equivalence/RFC 2202, boundary, process argv/environment and CA bootstrap regressions.
-- Ported semantic checker and AliDDNS transport workflow; changed the workflow to push-only and changed the checker to require a main-push trigger with all production/test paths, explicitly rejecting a `pull_request` trigger.
-- No local checkout is available for running host scripts here. Exact-head AliDDNS push Actions and AI docs checks are PENDING for THIS COMMIT. Do not close PR #1 until the imported main content passes its exact-head checks.
-- GPT Session Rotator remains unchanged. Legacy branch `fix/aliddns-ca-bundle-bootstrap` remains read-only and unmodified pending safe PR closure; this connector does not expose a branch-delete operation.
-- Resulting commit: THIS COMMIT.
+- Base main SHA: `fd9275273c385ec266333fecb813fe7d18c69ecb`; resulting main commit: `74b66ff960457379518d13c723c44a3515e6a228`. Imported valid unmerged changes from legacy PR #1 head `ba48e22609e0c81ad757b06756fe91d05f39cbf6` without merging the diverged PR or committing to its branch.
+- Ported CA trust-store setup in `copyscripts.sh`: checked directory creation, tar extraction result and readable CA bundle postcondition; unrelated startup asset seeding is preserved and CA failure propagates to the existing synchronous RC caller.
+- Ported OpenSSL 3 EVP_MAC HMAC-SHA1 helper, package/ROMFS integration and `aliddns.sh` wrapper so AccessKeySecret is streamed over stdin rather than passed as an OpenSSL process argument. Added byte-equivalence/RFC 2202, boundary, process argv/environment and CA bootstrap regressions.
+- Ported semantic checker and AliDDNS transport workflow; workflow is push-only, and checker requires a main-push trigger with all production/test paths while rejecting `pull_request`.
+- Exact-head Actions on main SHA `74b66ff960457379518d13c723c44a3515e6a228`: AliDDNS [43251115223], AI docs [43251115176], infosvr [43251115160], AdGuardHome [43251115222], HTTPD [43251115204] and AliyunDrive [43251115533] all SUCCESS. The AliDDNS job executed all syntax, transport, IPv4, DNS, custom-script, CA-bootstrap, HMAC privacy and semantic-contract steps.
+- PR #1 was closed (not merged) after the import and exact-head checks passed. Closing comment [6828320634](https://github.com/Arlene206/padavan-4.4-2/pull/1#issuecomment-6828320634) documents the port. The legacy branch remains untouched/read-only because no safe branch-delete operation is exposed; no unmerged content was discarded.
+- GPT Session Rotator remained unchanged. Target MIPS/uClibc helper integration, full firmware/TRX and L4 behavior remain NOT VERIFIED.
+- Resulting commit: `74b66ff960457379518d13c723c44a3515e6a228`.
 ## 2026-11-12 22:36 CST (UTC+8) — Restore the required handoff state heading
 
 - Base main SHA: `bb4dd126091d90950206f6d70dd2432a691a9301`; follow-up commit `fd9275273c385ec266333fecb813fe7d18c69ecb` restored the mandatory `## Current repository state` heading that was omitted when the handoff's first state bullet was replaced.
 - The omission caused AI handoff documentation run [43250319806] and infosvr contract run [43250319742] to fail on the prior exact SHA. After the correction, AI docs [43250648231] and infosvr [43250648516] both passed on exact main SHA `fd9275273c385ec266333fecb813fe7d18c69ecb`.
-- The AliDDNS, AdGuardHome and AliyunDrive push checks on that SHA were still in progress at this checkpoint.
 - Resulting commit: `fd9275273c385ec266333fecb813fe7d18c69ecb`.
 ## 2026-11-12 22:31 CST (UTC+8) — Enforce main-only development and push-only validation
 
