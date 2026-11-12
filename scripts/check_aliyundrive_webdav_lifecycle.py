@@ -2,6 +2,8 @@
 """Source and integration contracts for AliyunDrive WebDAV lifecycle safety."""
 
 from pathlib import Path
+import hashlib
+import re
 import struct
 import sys
 
@@ -17,6 +19,9 @@ WEB_EX_PATH = ROOT / "trunk/user/httpd/src/web_ex.c"
 WORKFLOW_PATH = ROOT / ".github/workflows/aliyundrive-webdav-lifecycle.yml"
 BUSYBOX_CONFIG_PATH = ROOT / "trunk/configs/boards/busybox.config"
 FLOCK_SOURCE_PATH = ROOT / "trunk/user/busybox/busybox-1.24.x/util-linux/flock.c"
+ARCH_CONFIG_PATH = ROOT / "trunk/config.arch"
+UCLIBC_CONFIG_PATH = ROOT / "trunk/configs/boards/uclibc-mipsel.config"
+BOARD_TEMPLATES_PATH = ROOT / "trunk/configs/templates"
 DAEMON_BINARY_PATH = ROOT / "trunk/user/aliyundrive-webdav/aliyundrive-webdav"
 
 launcher = LAUNCHER_PATH.read_text()
@@ -30,17 +35,85 @@ web_ex = WEB_EX_PATH.read_text()
 workflow = WORKFLOW_PATH.read_text()
 busybox_config = BUSYBOX_CONFIG_PATH.read_text()
 flock_source = FLOCK_SOURCE_PATH.read_text()
+arch_config = ARCH_CONFIG_PATH.read_text()
+uclibc_config = UCLIBC_CONFIG_PATH.read_text()
 daemon_binary = DAEMON_BINARY_PATH.read_bytes()
+daemon_sha256 = hashlib.sha256(daemon_binary).hexdigest()
 env_names = (b"REFRESH_TOKEN", b"WEBDAV_AUTH_USER", b"WEBDAV_AUTH_PASSWORD")
 missing_env_names = [name.decode("ascii") for name in env_names if name not in daemon_binary]
 daemon_has_env_credentials = not missing_env_names
 daemon_elf = "unknown"
-if daemon_binary[:4] == bytes((0x7F, 0x45, 0x4C, 0x46)) and len(daemon_binary) >= 20:
-    elf_class = {1: "ELF32", 2: "ELF64"}.get(daemon_binary[4], "ELF?")
-    elf_data = {1: "little-endian", 2: "big-endian"}.get(daemon_binary[5], "unknown-endian")
-    byte_order = "<" if daemon_binary[5] == 1 else ">"
-    machine = struct.unpack(f"{byte_order}H", daemon_binary[18:20])[0]
-    daemon_elf = f"{elf_class} {elf_data} e_machine={machine}"
+daemon_elf_class = None
+daemon_elf_data = None
+daemon_elf_type = None
+daemon_elf_machine = None
+daemon_elf_flags = None
+daemon_elf_arch = "unknown"
+daemon_elf_abi = "unknown"
+daemon_elf_interpreter = "not found"
+if daemon_binary[:4] == bytes((0x7F, 0x45, 0x4C, 0x46)) and len(daemon_binary) >= 52:
+    daemon_elf_class = daemon_binary[4]
+    daemon_elf_data = daemon_binary[5]
+    byte_order = "<" if daemon_elf_data == 1 else ">"
+    elf_class_name = {1: "ELF32", 2: "ELF64"}.get(daemon_elf_class, "ELF?")
+    elf_data_name = {1: "little-endian", 2: "big-endian"}.get(daemon_elf_data, "unknown-endian")
+    if daemon_elf_class == 1 and daemon_elf_data in (1, 2):
+        daemon_elf_type, daemon_elf_machine = struct.unpack_from(f"{byte_order}HH", daemon_binary, 16)
+        daemon_elf_flags = struct.unpack_from(f"{byte_order}I", daemon_binary, 36)[0]
+        arch_code = daemon_elf_flags & 0xF0000000
+        daemon_elf_arch = {
+            0x00000000: "MIPS-I", 0x10000000: "MIPS-II",
+            0x20000000: "MIPS-III", 0x30000000: "MIPS-IV",
+            0x40000000: "MIPS-V", 0x50000000: "MIPS32",
+            0x60000000: "MIPS64", 0x70000000: "MIPS32R2",
+            0x80000000: "MIPS64R2", 0x90000000: "MIPS32R6",
+            0xA0000000: "MIPS64R6",
+        }.get(arch_code, f"MIPS-arch-flags-0x{arch_code:08x}")
+        abi_code = daemon_elf_flags & 0x0000F000
+        daemon_elf_abi = {
+            0x00000000: "unspecified", 0x00001000: "O32",
+            0x00002000: "O64", 0x00003000: "EABI32",
+            0x00004000: "EABI64",
+        }.get(abi_code, f"ABI-flags-0x{abi_code:04x}")
+        if daemon_elf_flags & 0x20:
+            daemon_elf_abi += "+ABI2"
+        phoff = struct.unpack_from(f"{byte_order}I", daemon_binary, 28)[0]
+        phentsize, phnum = struct.unpack_from(f"{byte_order}HH", daemon_binary, 42)
+        if phentsize >= 32 and phoff + phentsize * phnum <= len(daemon_binary):
+            for index in range(phnum):
+                phdr = phoff + index * phentsize
+                p_type = struct.unpack_from(f"{byte_order}I", daemon_binary, phdr)[0]
+                if p_type == 3:  # PT_INTERP
+                    p_offset = struct.unpack_from(f"{byte_order}I", daemon_binary, phdr + 4)[0]
+                    p_filesz = struct.unpack_from(f"{byte_order}I", daemon_binary, phdr + 16)[0]
+                    if p_offset + p_filesz <= len(daemon_binary):
+                        daemon_elf_interpreter = daemon_binary[p_offset:p_offset + p_filesz].split(bytes((0,)), 1)[0].decode("ascii", "replace")
+                    break
+    daemon_elf = (
+        f"{elf_class_name} {elf_data_name} e_machine={daemon_elf_machine} "
+        f"e_type={daemon_elf_type} e_flags={f'0x{daemon_elf_flags:08x}' if daemon_elf_flags is not None else 'unknown'} "
+        f"arch={daemon_elf_arch} abi={daemon_elf_abi} interpreter={daemon_elf_interpreter}"
+    )
+
+daemon_ascii_strings = [item.decode("ascii", "replace") for item in re.findall(rb"[\x20-\x7e]{4,}", daemon_binary)]
+daemon_relevant_strings = [
+    item for item in daemon_ascii_strings
+    if re.search(r"aliyundrive-webdav|refresh-token|auth-user|auth-password|domain-id|workdir|read-only|no-trash|version|WEBDAV_AUTH|REFRESH_TOKEN", item, re.IGNORECASE)
+][:60]
+daemon_missing_cli_names = [
+    name.decode("ascii") for name in (b"refresh-token", b"auth-user", b"auth-password", b"domain-id", b"workdir")
+    if name not in daemon_binary
+]
+
+board_templates = sorted(BOARD_TEMPLATES_PATH.glob("*.config"))
+board_template_settings = {}
+for config_path in board_templates:
+    config_text = config_path.read_text()
+    match = re.search(r"(?m)^CONFIG_FIRMWARE_INCLUDE_ALDRIVER=(y|n)$", config_text)
+    board_template_settings[config_path.stem] = match.group(1) if match else "unset"
+board_aldriver_enabled = sorted(name for name, value in board_template_settings.items() if value == "y")
+board_aldriver_disabled = sorted(name for name, value in board_template_settings.items() if value == "n")
+board_aldriver_unset = sorted(name for name, value in board_template_settings.items() if value == "unset")
 
 
 def require(condition: bool, message: str) -> None:
@@ -210,5 +283,17 @@ for path in paths:
     require(push.count(token) == 1 and pull.count(token) == 1,
             f"{path} must appear exactly once in push and pull_request path filters")
 
-print(f"AliyunDrive WebDAV bundled daemon binary: {daemon_elf}; missing environment names: {missing_env_names}")
+require(daemon_elf_class == 1 and daemon_elf_data == 1 and daemon_elf_machine == 8,
+        "bundled daemon must be ELF32 little-endian MIPS for the Padavan toolchain")
+require("CPUFLAGS = -mips32r2 -march=mips32r2" in arch_config and "HOST_TARGET = mipsel-linux" in arch_config,
+        "firmware compiler target changed; re-evaluate bundled daemon compatibility")
+require('TARGET_ARCH="mips"' in uclibc_config and "TARGET_ARCH_BITS=32" in uclibc_config and "CONFIG_MIPS_O32_ABI=y" in uclibc_config and "ARCH_LITTLE_ENDIAN=y" in uclibc_config,
+        "uClibc target is no longer the expected MIPS O32 little-endian ABI")
+require(board_templates, "board template scan found no .config files")
+print(f"AliyunDrive WebDAV bundled ELF: {daemon_elf}; size={len(daemon_binary)}; sha256={daemon_sha256}")
+print(f"AliyunDrive WebDAV credential env support: {daemon_has_env_credentials}; missing={missing_env_names}")
+print(f"AliyunDrive WebDAV missing CLI string names: {daemon_missing_cli_names}")
+print(f"AliyunDrive WebDAV board templates: total={len(board_templates)}; enabled={board_aldriver_enabled}; disabled={board_aldriver_disabled}; unset={board_aldriver_unset}")
+for item in daemon_relevant_strings:
+    print(f"  ELF string: {item[:180]}")
 print("AliyunDrive WebDAV bounded lifecycle, argv integrity and RC integration contracts: PASS")

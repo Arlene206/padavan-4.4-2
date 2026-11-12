@@ -1,3 +1,15 @@
+## 2026-11-13 06:12 CST (UTC+8) — Extend AliyunDrive bundled ELF and board-profile audit
+
+- Base main SHA: `f53bdfb13aefa89201481628e6d0bcf07e47c2e5`; only `main` was present. All five exact-head workflows were SUCCESS: AI docs [43313655530], AliyunDrive [43313655603] / job [131515924146], infosvr [43313655609], AliDDNS [43313655587], and AdGuardHome [43313655487].
+- The packaged 3,029,740-byte binary was previously identified as ELF32 little-endian MIPS (`e_machine=8`). Firmware compiler config says `mips32r2` / `mipsel-linux`, and uClibc config says 32-bit MIPS O32 little-endian. Exact MIPS ISA/ABI flags, PT_INTERP and runtime loader were not yet measured.
+- Extended `scripts/check_aliyundrive_webdav_lifecycle.py` to parse ELF `e_type/e_machine/e_flags`, MIPS ISA and ABI flags, PT_INTERP, binary SHA-256 and bounded printable CLI/version/environment strings. It also scans every `trunk/configs/templates/*.config` and reports enabled/disabled/unset `CONFIG_FIRMWARE_INCLUDE_ALDRIVER` profiles. The checker requires broad ELF32/LE/MIPS compatibility and expected firmware compiler/uClibc target settings; it does not alter credential transport.
+- Updated handoff/roadmap with the latest exact-head green workflows and current open argv disclosure. No binary replacement has been selected or installed. Upstream v1.1.1 source has Clap env support, but the bundled ELF lacks those env names and its source provenance remains unknown.
+- This diagnostic commit's exact-head Actions are pending. No local checkout or local shell/Python execution is claimed; the five green runs above apply to parent `f53...`.
+- Root dev_log count: 78→79, below 120-entry rotation and 384 KiB target. Archive inventory remains dev-log=7, handoff=22, roadmap=18; no shard/index or routine snapshot changes.
+- Next: inspect exact-head e_flags/interpreter/CLI/version output and all board-template settings; compare checksum-verified MIPSel candidates and prove ABI, loader, domain-id, workdir, read-only and no-trash compatibility before changing the installed binary or credential argv.
+
+---
+
 ## 2026-11-13 05:42 CST (UTC+8) — Guard AliyunDrive credential transport against unsupported binary interfaces
 
 - Main/source base: `0460f705b6ea3bbe1bcc9cfa61d66b677e5612da`; development remained on `main`. Only `main` was present in the remote branch inventory; legacy PR #1 remains closed/unmerged and GPT Session Rotator remains unchanged.
