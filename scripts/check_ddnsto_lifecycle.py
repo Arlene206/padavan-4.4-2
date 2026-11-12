@@ -47,7 +47,7 @@ require(kill_body.index('killall ddnsto') < kill_body.index('ddnsto_wait_stopped
 require(kill_body.rfind('ddnsto_wait_stopped') > kill_body.index('killall -9 ddnsto'),
         "force kill must have a bounded process-absence postcondition")
 require('return 1' in kill_body, "failed stop postcondition must propagate failure")
-require('if ! kill_z; then' in start_body and start_body.index('kill_z || {') <
+require('if ! kill_z; then' in start_body and start_body.index('if ! kill_z; then') <
         start_body.index('/usr/bin/ddnsto'), "start must fail closed before launching a replacement")
 require('kill_z' in stop_body, "stop action must propagate kill_z status")
 require(not re.search(r'\bkill\s+-9\s+"?\$ddnsto_process', script),
