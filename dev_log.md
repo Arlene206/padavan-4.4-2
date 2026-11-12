@@ -1,3 +1,15 @@
+## 2026-11-13 03:10 CST (UTC+8) — Make AliyunDrive readiness fixture schedule async daemon
+
+- Base main SHA: `5488ed5adbaf6afb1209014280305cfc093168cd`. The previous exact-head retry [43286837341] / job [131422349252] again passed launcher `sh -n` but failed the lifecycle host regression at `enabled start failed`; source/RC semantic check was skipped.
+- The prior correction had reset `TEST_ENABLE=1`, so the enabled launch path was entered. The remaining fixture defect was its overridden `sleep()`: it only incremented a counter and returned without delaying or yielding, allowing all readiness polls to finish before the asynchronously launched mock shell could create the readiness marker.
+- THIS COMMIT updates only the host regression fixture: the sleep shim now performs a real 50 ms scheduler yield after counting each poll; startup timeout is simulated by an explicit failure-sentinel file rather than an exported mode variable. The test still requires an argv log, exactly the configured bounded poll count and absence of the readiness marker; the normal enabled and special-domain starts can now publish the marker asynchronously.
+- The prior exact-head AI docs [43286837520] and infosvr [43286837409] passed on `5488ed5adbaf6afb1209014280305cfc093168cd`. AdGuardHome [43286837432] and AliDDNS [43286837560] were in progress at last observation; inspect their final status separately.
+- The lifecycle L2 result is still OPEN pending a fresh AliyunDrive push Actions run on THIS COMMIT. This session has no local repository checkout; no local shell syntax, host test or Python checker execution is claimed.
+- Root `dev_log.md`: 74→75 complete records, below the 120-record / 384 KiB archive thresholds. No archive shard or index rotation is due. XY-C1 L3 remains verified only on `fcdc05e76e6522f9f35b59b71bd222b884cb2ce4`; L4 is NOT VERIFIED.
+- Next: inspect exact-head AliyunDrive and AI docs push runs for THIS COMMIT and read complete job logs. Require both start/stop contention cases, startup timeout, successful asynchronous readiness, argv/domain-profile cases and semantic BusyBox-flock/RC checks to pass. Fix any first causal failure on `main`, then resume AliDDNS lifecycle concurrency and FRP/Adbyby review without dropping argv-secret, FTP TOCTOU or NFS evidence items.
+
+---
+
 ## 2026-11-13 03:05 CST (UTC+8) — Correct AliyunDrive startup-timeout host fixture state
 
 - Base main SHA: `23f39e16d3e06c40078c139289d4407e123529de`. The implementation commit added shared BusyBox-flock serialization for AliyunDrive start/stop and a bounded 10-second process-presence startup postcondition.

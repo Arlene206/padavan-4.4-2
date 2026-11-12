@@ -7,8 +7,8 @@ SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 LAUNCHER="$SCRIPT_DIR/../aliyundrive-webdav.sh"
 ALD_LOCK_FILE="$TEST_DIR/aliyundrive-webdav.lock"
 TEST_RUN_MARKER="$TEST_DIR/daemon.running"
-TEST_START_BEHAVIOR=ready
-export TEST_RUN_MARKER TEST_START_BEHAVIOR
+TEST_START_FAIL_FILE="$TEST_DIR/start-fail"
+export TEST_RUN_MARKER TEST_START_FAIL_FILE
 
 TEST_RUNNING=0
 TEST_ENABLE=1
@@ -69,6 +69,8 @@ sleep() {
   if [ "$TEST_TERM_BEHAVIOR" = "after-one-poll" ] && [ "$TEST_SLEEP_COUNT" -eq 1 ]; then
     test_mark_stopped
   fi
+  # Yield to background daemon mocks so the readiness marker can become visible.
+  command sleep 0.05
   return 0
 }
 kill() {
@@ -196,7 +198,7 @@ cat > "$ALD_BIN" <<'MOCK'
 for arg do
   printf '%s\n' "$arg" >> "$TEST_ARG_LOG"
 done
-if [ "$TEST_START_BEHAVIOR" = "ready" ]; then
+if [ ! -e "$TEST_START_FAIL_FILE" ]; then
   : > "$TEST_RUN_MARKER"
 fi
 MOCK
@@ -206,8 +208,7 @@ chmod 700 "$ALD_BIN"
 TEST_RUNNING=0
 TEST_ENABLE=1
 TEST_TERM_BEHAVIOR=stuck
-TEST_START_BEHAVIOR=fail
-export TEST_START_BEHAVIOR
+: > "$TEST_START_FAIL_FILE"
 rm -f "$TEST_RUN_MARKER" "$TEST_ARG_LOG"
 TEST_SLEEP_COUNT=0
 if start_ald; then
@@ -217,16 +218,13 @@ fi
 [ -f "$TEST_ARG_LOG" ] && [ "$TEST_SLEEP_COUNT" -eq "$ALD_START_WAIT_SECONDS" ] && [ ! -e "$TEST_RUN_MARKER" ] || {
   echo "FAIL: startup readiness wait was not bounded or did not time out" >&2; exit 1;
 }
-TEST_START_BEHAVIOR=ready
-export TEST_START_BEHAVIOR
+rm -f "$TEST_START_FAIL_FILE"
 
 # Argument integrity: each untrusted NVRAM string remains one literal argv item.
 rm -f "$TEST_RUN_MARKER"
 TEST_RUNNING=0
 TEST_ENABLE=1
-TEST_START_BEHAVIOR=ready
-export TEST_START_BEHAVIOR
-rm -f "$TEST_ARG_LOG" "$TEST_RUN_MARKER"
+rm -f "$TEST_START_FAIL_FILE" "$TEST_ARG_LOG" "$TEST_RUN_MARKER"
 start_ald || { echo "FAIL: enabled start failed" >&2; exit 1; }
 TEST_LAUNCH_PID=$!
 wait "$TEST_LAUNCH_PID"
