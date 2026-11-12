@@ -2,6 +2,7 @@
 """Source and integration contracts for AliyunDrive WebDAV lifecycle safety."""
 
 from pathlib import Path
+import struct
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -30,6 +31,15 @@ workflow = WORKFLOW_PATH.read_text()
 busybox_config = BUSYBOX_CONFIG_PATH.read_text()
 flock_source = FLOCK_SOURCE_PATH.read_text()
 daemon_binary = DAEMON_BINARY_PATH.read_bytes()
+env_names = (b"REFRESH_TOKEN", b"WEBDAV_AUTH_USER", b"WEBDAV_AUTH_PASSWORD")
+daemon_has_env_credentials = all(name in daemon_binary for name in env_names)
+daemon_elf = "unknown"
+if daemon_binary[:4] == b"\\x7fELF" and len(daemon_binary) >= 20:
+    elf_class = {1: "ELF32", 2: "ELF64"}.get(daemon_binary[4], "ELF?")
+    elf_data = {1: "little-endian", 2: "big-endian"}.get(daemon_binary[5], "unknown-endian")
+    byte_order = "<" if daemon_binary[5] == 1 else ">"
+    machine = struct.unpack(f"{byte_order}H", daemon_binary[18:20])[0]
+    daemon_elf = f"{elf_class} {elf_data} e_machine={machine}"
 
 
 def require(condition: bool, message: str) -> None:
@@ -78,22 +88,27 @@ require('if pidof "$NAME" >/dev/null 2>&1; then' in start and
         '跳过重复启动' in start,
         "duplicate start must exit before reading credentials or launching another daemon")
 
-require('set -- -I' in start and
-        '"$ALD_BIN" "$@" --host "$host" --root "$root" -p "$port"' in start and
-        'REFRESH_TOKEN="$refresh_token"' in start and
-        'WEBDAV_AUTH_USER="$auth_user"' in start and
-        'WEBDAV_AUTH_PASSWORD="$auth_password"' in start and
-        '-r "$refresh_token"' not in start and
-        '-U "$auth_user"' not in start and
-        '-W "$auth_password"' not in start and
-        '-S "$read_buf_size" --cache-size "$cache_size"' in start and
-        '--cache-ttl "$cache_ttl" --workdir "/tmp/$NAME"' in start,
-        "refresh token and WebDAV credentials must use supported environment variables, never argv")
+if daemon_has_env_credentials:
+    require('set -- -I' in start and
+            '"$ALD_BIN" "$@" --host "$host" --root "$root" -p "$port"' in start and
+            'REFRESH_TOKEN="$refresh_token"' in start and
+            'WEBDAV_AUTH_USER="$auth_user"' in start and
+            'WEBDAV_AUTH_PASSWORD="$auth_password"' in start and
+            '-r "$refresh_token"' not in start and
+            '-U "$auth_user"' not in start and
+            '-W "$auth_password"' not in start,
+            "a daemon with compiled env support must receive secrets through env, never argv")
+else:
+    require('-r "$refresh_token" -U "$auth_user" -W "$auth_password"' in start and
+            'REFRESH_TOKEN="$refresh_token"' not in start and
+            'WEBDAV_AUTH_USER="$auth_user"' not in start and
+            'WEBDAV_AUTH_PASSWORD="$auth_password"' not in start,
+            "do not pass unsupported credential environment variables to the bundled daemon")
+    print("WARNING: bundled daemon has no compiled credential environment interface; secrets remain in argv until a compatible binary is integrated.")
 
-require(all(name in daemon_binary for name in (
-            b"REFRESH_TOKEN", b"WEBDAV_AUTH_USER", b"WEBDAV_AUTH_PASSWORD",
-        )),
-        "the exact bundled daemon binary must contain the three compiled Clap environment-variable names")
+require('-S "$read_buf_size" --cache-size "$cache_size"' in start and
+        '--cache-ttl "$cache_ttl" --workdir "/tmp/$NAME"' in start,
+        "buffer/cache/workdir settings must retain their individually quoted argv values")
 
 require('set -- "$@" --domain-id "$domain_id"' in start and
         'set -- "$@" --no-trash' in start and
@@ -159,10 +174,7 @@ for marker in (
     "FAIL: bounded TERM/KILL/absence sequence is incorrect",
     "FAIL: permanently running daemon was reported stopped",
     "FAIL: duplicate start launched or stopped an existing daemon",
-    "FAIL: non-secret NVRAM values were split, globbed or reordered in daemon argv",
-    "FAIL: secret environment values were missing, split or modified",
-    "FAIL: cloud token or WebDAV password leaked into daemon argv",
-    "AliyunDrive WebDAV refresh-token and auth secrets stay out of daemon argv: PASS",
+    "FAIL: NVRAM values were split, globbed or reordered in daemon argv",
     "FAIL: lock contention allowed a lifecycle transition",
     "FAIL: startup timeout was reported successful",
     "AliyunDrive WebDAV serialized lifecycle lock and startup readiness regression: PASS",
@@ -173,11 +185,11 @@ for marker in (
 
 paths = [
     "SESSION_HANDOFF.md",
+    "trunk/user/aliyundrive-webdav/aliyundrive-webdav",
     "REFACTOR_ROADMAP.md",
     "dev_log.md",
     ".github/workflows/aliyundrive-webdav-lifecycle.yml",
     "scripts/check_aliyundrive_webdav_lifecycle.py",
-    "trunk/user/aliyundrive-webdav/aliyundrive-webdav",
     "trunk/user/aliyundrive-webdav/aliyundrive-webdav.sh",
     "trunk/user/aliyundrive-webdav/tests/aliyundrive_webdav_lifecycle.sh",
     "trunk/user/aliyundrive-webdav/Makefile",
@@ -197,4 +209,5 @@ for path in paths:
     require(push.count(token) == 1 and pull.count(token) == 1,
             f"{path} must appear exactly once in push and pull_request path filters")
 
+print(f"AliyunDrive WebDAV bundled daemon binary: {daemon_elf}; environment credential support: {daemon_has_env_credentials}")
 print("AliyunDrive WebDAV bounded lifecycle, argv integrity and RC integration contracts: PASS")

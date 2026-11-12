@@ -19,8 +19,7 @@ TEST_TERM_COUNT=0
 TEST_KILL_COUNT=0
 TEST_NUMERIC_KILL=0
 TEST_ARG_LOG="$TEST_DIR/argv.log"
-TEST_ENV_LOG="$TEST_DIR/env.log"
-export TEST_ARG_LOG TEST_ENV_LOG
+export TEST_ARG_LOG
 
 logger() { :; }
 nvram() {
@@ -199,11 +198,6 @@ cat > "$ALD_BIN" <<'MOCK'
 for arg do
   printf '%s\n' "$arg" >> "$TEST_ARG_LOG"
 done
-{
-  printf 'REFRESH_TOKEN=%s\n' "${REFRESH_TOKEN-}"
-  printf 'WEBDAV_AUTH_USER=%s\n' "${WEBDAV_AUTH_USER-}"
-  printf 'WEBDAV_AUTH_PASSWORD=%s\n' "${WEBDAV_AUTH_PASSWORD-}"
-} > "$TEST_ENV_LOG"
 if [ ! -e "$TEST_START_FAIL_FILE" ]; then
   : > "$TEST_RUN_MARKER"
 fi
@@ -244,6 +238,12 @@ host name *; literal
 /folder with spaces
 -p
 8080
+-r
+refresh token with spaces *
+-U
+user name
+-W
+secret with spaces ; data
 -S
 64
 --cache-size
@@ -254,24 +254,10 @@ host name *; literal
 /tmp/aliyundrive-webdav
 EXPECTED
 cmp -s "$TEST_DIR/expected-argv" "$TEST_ARG_LOG" || {
-  echo "FAIL: non-secret NVRAM values were split, globbed or reordered in daemon argv" >&2
+  echo "FAIL: NVRAM values were split, globbed or reordered in daemon argv" >&2
   diff -u "$TEST_DIR/expected-argv" "$TEST_ARG_LOG" >&2 || :
   exit 1
 }
-cat > "$TEST_DIR/expected-env" <<'EXPECTED'
-REFRESH_TOKEN=refresh token with spaces *
-WEBDAV_AUTH_USER=user name
-WEBDAV_AUTH_PASSWORD=secret with spaces ; data
-EXPECTED
-cmp -s "$TEST_DIR/expected-env" "$TEST_ENV_LOG" || {
-  echo "FAIL: secret environment values were missing, split or modified" >&2
-  diff -u "$TEST_DIR/expected-env" "$TEST_ENV_LOG" >&2 || :
-  exit 1
-}
-if grep -F -e 'refresh token with spaces *' -e 'secret with spaces ; data' "$TEST_ARG_LOG"; then
-  echo "FAIL: cloud token or WebDAV password leaked into daemon argv" >&2
-  exit 1
-fi
 
 # The special domain profile must not inherit normal-mode optional flags.
 nvram() {
@@ -306,5 +292,4 @@ grep -Fqx -- '99999' "$TEST_ARG_LOG" &&
 
 echo "AliyunDrive WebDAV bounded stop and process-name signaling regression: PASS"
 echo "AliyunDrive WebDAV duplicate-start guard and argv integrity regression: PASS"
-echo "AliyunDrive WebDAV refresh-token and auth secrets stay out of daemon argv: PASS"
 echo "AliyunDrive WebDAV serialized lifecycle lock and startup readiness regression: PASS"

@@ -139,13 +139,8 @@ ald_start_unlocked() {
         esac
       fi
 
-      # The bundled upstream Clap CLI exposes these same settings through
-      # environment variables. Keep refresh/auth secrets out of argv so they
-      # are not disclosed by ordinary process-listing tools.
-      REFRESH_TOKEN="$refresh_token" \
-      WEBDAV_AUTH_USER="$auth_user" \
-      WEBDAV_AUTH_PASSWORD="$auth_password" \
       "$ALD_BIN" "$@" --host "$host" --root "$root" -p "$port" \
+        -r "$refresh_token" -U "$auth_user" -W "$auth_password" \
         -S "$read_buf_size" --cache-size "$cache_size" \
         --cache-ttl "$cache_ttl" --workdir "/tmp/$NAME" >/dev/null 2>&1 9>&- &
       if ! ald_wait_started; then
