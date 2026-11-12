@@ -1213,6 +1213,11 @@ jobs:
           watchdog_restart = restore.index('eval("/sbin/watchdog")')
           assert restore_call < commit_call < commit_gate < watchdog_restart
           assert "if (ret == 0)" in restore
+          restore_error = restore.split("if (!httpd_nvram_restore_is_committed", 1)[1].split(
+              "/* The watchdog was stopped for the upload", 1
+          )[0]
+          assert "if (ret != 0) {" in restore_error
+          assert "} else {" in restore_error
           assert 'httpd_log("%s: Unable to persist restored %s profile!"' in restore
           assert "Reboot only after the restored configuration is durably committed" in restore
           assert restore.count("nvram_commit()") == 1
@@ -1229,7 +1234,7 @@ jobs:
           ):
               needle = f'      - "{path}"'
               assert needle in push_paths and needle in pr_paths
-          print("NVRAM restore durability, watchdog recovery, and exact workflow triggers: OK")
+          print("NVRAM restore durability, watchdog recovery, semicolon-safe if/else, and exact workflow triggers: OK")
           PY
 
       - name: Verify NVRAM group compaction fails closed

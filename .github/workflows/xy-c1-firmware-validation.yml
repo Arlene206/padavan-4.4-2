@@ -7,6 +7,7 @@ on:
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c_common.c"
       - "trunk/user/busybox/Makefile"
       - "trunk/user/shared/src/dhcp6c_duid_file_policy.h"
+      - "trunk/user/httpd/src/web_ex.c"
       - ".github/workflows/xy-c1-firmware-validation.yml"
   workflow_dispatch:
 

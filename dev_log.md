@@ -1,3 +1,15 @@
+## 2026-11-12 21:42 CST (UTC+8) — Make HTTPD NVRAM restore error branch compile with logging macro
+
+- Base main SHA: `e0e53f6d2eb9d5f8836ea7c1335e7c9d76e2faea`. The second XY-C1 retry [43228446974](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43228446974), job [131217642154](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43228446974/job/131217642154), confirmed both preceding fixes: kernel build completed and `net/netfilter/xt_webstr.o` passed; BusyBox staged build compiled `networking/udhcp/dhcp6c_common.o` with the resolved `-I.../trunk/user/shared/src` path. No earlier error remains.
+- The next first-causal target compile failure is in `trunk/user/httpd/src/web_ex.c:4681`, inside `do_restore_nv_cgi()`: `httpd_log` is defined in `httpd.h` as a statement-like macro that already emits a trailing semicolon. It was used as the unbraced body of `if (ret != 0)` immediately before `else`; macro expansion introduced an empty statement between the if body and else, producing `expected '}' before 'else'`.
+- THIS COMMIT braces both error-log branches. It does not change restore/commit gating, watchdog recovery, status propagation or reboot behavior. The HTTPD source contract now asserts this semicolon-safe braced if/else shape, and XY-C1 validation also triggers on `web_ex.c` changes.
+- Exact-head prior HTTPD umbrella [43228446901] and AI handoff docs [43228446814] on `e0e53f6d2eb9d5f8836ea7c1335e7c9d76e2faea` completed SUCCESS; HTTPD's DHCPv6 DUID regression and the package include-path contract both printed PASS. Its compiler source now has a new focused assertion.
+- Target compiler / HTTPD object build / full firmware / TRX: PENDING exact-head Actions. L4 router validation: NOT VERIFIED.
+- Resulting commit: THIS COMMIT.
+- Next: inspect exact-head XY-C1, HTTPD security and AI docs. Confirm `web_ex.o` compiles, then proceed through remaining userland packages and firmware image assembly; fix only the next first-causal failure.
+
+---
+
 ## 2026-11-12 21:28 CST (UTC+8) — Fix BusyBox DHCPv6 shared-header lookup in staged package builds
 
 - Base main SHA: `b4b8074608aa118c6fdf99e2e70bc0ed6826b1ea`. The first narrow kernel repair compiled successfully: the exact-head XY-C1 log for [43226143358](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43226143358), job [131209716854](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43226143358/job/131209716854), contains `CC net/netfilter/xt_webstr.o` with no IP_OFFSET error. The build proceeded into the BusyBox package.

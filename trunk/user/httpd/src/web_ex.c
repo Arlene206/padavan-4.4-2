@@ -4676,10 +4676,14 @@ do_restore_nv_cgi(const char *url, FILE *stream)
 			commit_result = nvram_commit();
 
 		if (!httpd_nvram_restore_is_committed(ret, commit_result)) {
-			if (ret != 0)
+			/* httpd_log() expands to a statement with its own semicolon.
+			 * Keep both branches braced so its expansion cannot detach else.
+			 */
+			if (ret != 0) {
 				httpd_log("%s: Unable to extract %s file!", "NVRAM restore", "profile");
-			else
+			} else {
 				httpd_log("%s: Unable to persist restored %s profile!", "NVRAM restore", "configuration");
+			}
 			/* The watchdog was stopped for the upload; restart it on either failure. */
 			eval("/sbin/watchdog");
 			ret = -1;
