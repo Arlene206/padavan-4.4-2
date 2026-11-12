@@ -722,74 +722,6 @@ arDdnsCheck() {
 }
 
 
-initconfig () {
-	ddns_script_path="${ALIDDNS_DDNS_SCRIPT_PATH:-/etc/storage/ddns_script.sh}"
-	ddns_template_path="${ALIDDNS_DDNS_TEMPLATE_PATH:-/etc_ro/ddns_script.sh}"
-	(
-		# Do not follow a persistent-script symlink, including a dangling one.
-		[ ! -L "$ddns_script_path" ] || exit 1
-		if [ -s "$ddns_script_path" ]; then
-			[ -f "$ddns_script_path" ] || exit 1
-			exit 0
-		fi
-		if [ -e "$ddns_script_path" ] && [ ! -f "$ddns_script_path" ]; then
-			exit 1
-		fi
-		[ -f "$ddns_template_path" ] && [ ! -L "$ddns_template_path" ] || exit 1
-		[ -s "$ddns_template_path" ] || exit 1
-
-		case "$ddns_script_path" in
-			*/*)
-				ddns_parent_dir="${ddns_script_path%/*}"
-				[ -n "$ddns_parent_dir" ] || ddns_parent_dir="/"
-				;;
-			*) ddns_parent_dir="." ;;
-		esac
-		[ -d "$ddns_parent_dir" ] || exit 1
-
-		# Allocate a private staging directory atomically on the destination
-		# filesystem; this does not depend on the optional BusyBox mktemp applet.
-		ddns_old_umask=$(umask)
-		umask 077
-		ddns_stage_dir=""
-		ddns_index=0
-		while [ "$ddns_index" -lt 100 ]; do
-			ddns_candidate_dir="$ddns_parent_dir/.ddns_script.$$.${ddns_index}"
-			if mkdir "$ddns_candidate_dir" 2>/dev/null; then
-				ddns_stage_dir="$ddns_candidate_dir"
-				break
-			fi
-			ddns_index=$((ddns_index + 1))
-		done
-		umask "$ddns_old_umask"
-		[ -n "$ddns_stage_dir" ] || exit 1
-		trap 'rm -rf "$ddns_stage_dir"' 0
-		trap 'exit 1' HUP INT TERM
-
-		ddns_stage_file="$ddns_stage_dir/ddns_script.sh"
-		if ! cp "$ddns_template_path" "$ddns_stage_file" ||
-		   ! chmod 755 "$ddns_stage_file" ||
-		   [ ! -s "$ddns_stage_file" ]; then
-			exit 1
-		fi
-
-		# Recheck so a symlink or nonempty operator override wins over staging.
-		[ ! -L "$ddns_script_path" ] || exit 1
-		if [ -s "$ddns_script_path" ]; then
-			[ -f "$ddns_script_path" ] || exit 1
-			exit 0
-		fi
-		if [ -e "$ddns_script_path" ] && [ ! -f "$ddns_script_path" ]; then
-			exit 1
-		fi
-		mv -f "$ddns_stage_file" "$ddns_script_path"
-	)
-	ddns_init_status=$?
-	if [ "$ddns_init_status" -ne 0 ]; then
-		logger -t "【AliDDNS动态域名】" "默认地址获取脚本初始化失败：$ddns_script_path"
-	fi
-	return "$ddns_init_status"
-}
 
 
 aliddns_lifecycle_lock_path() {
@@ -940,7 +872,74 @@ aliddns_lifecycle_lock_run() {
 	aliddns_lifecycle_lock_execute "$aliddns_lock_file" "$aliddns_wait_seconds" \
 		aliddns_lifecycle_locked_action "$aliddns_action"
 }
+initconfig () {
+	ddns_script_path="${ALIDDNS_DDNS_SCRIPT_PATH:-/etc/storage/ddns_script.sh}"
+	ddns_template_path="${ALIDDNS_DDNS_TEMPLATE_PATH:-/etc_ro/ddns_script.sh}"
+	(
+		# Do not follow a persistent-script symlink, including a dangling one.
+		[ ! -L "$ddns_script_path" ] || exit 1
+		if [ -s "$ddns_script_path" ]; then
+			[ -f "$ddns_script_path" ] || exit 1
+			exit 0
+		fi
+		if [ -e "$ddns_script_path" ] && [ ! -f "$ddns_script_path" ]; then
+			exit 1
+		fi
+		[ -f "$ddns_template_path" ] && [ ! -L "$ddns_template_path" ] || exit 1
+		[ -s "$ddns_template_path" ] || exit 1
 
+		case "$ddns_script_path" in
+			*/*)
+				ddns_parent_dir="${ddns_script_path%/*}"
+				[ -n "$ddns_parent_dir" ] || ddns_parent_dir="/"
+				;;
+			*) ddns_parent_dir="." ;;
+		esac
+		[ -d "$ddns_parent_dir" ] || exit 1
+
+		# Allocate a private staging directory atomically on the destination
+		# filesystem; this does not depend on the optional BusyBox mktemp applet.
+		ddns_old_umask=$(umask)
+		umask 077
+		ddns_stage_dir=""
+		ddns_index=0
+		while [ "$ddns_index" -lt 100 ]; do
+			ddns_candidate_dir="$ddns_parent_dir/.ddns_script.$$.${ddns_index}"
+			if mkdir "$ddns_candidate_dir" 2>/dev/null; then
+				ddns_stage_dir="$ddns_candidate_dir"
+				break
+			fi
+			ddns_index=$((ddns_index + 1))
+		done
+		umask "$ddns_old_umask"
+		[ -n "$ddns_stage_dir" ] || exit 1
+		trap 'rm -rf "$ddns_stage_dir"' 0
+		trap 'exit 1' HUP INT TERM
+
+		ddns_stage_file="$ddns_stage_dir/ddns_script.sh"
+		if ! cp "$ddns_template_path" "$ddns_stage_file" ||
+		   ! chmod 755 "$ddns_stage_file" ||
+		   [ ! -s "$ddns_stage_file" ]; then
+			exit 1
+		fi
+
+		# Recheck so a symlink or nonempty operator override wins over staging.
+		[ ! -L "$ddns_script_path" ] || exit 1
+		if [ -s "$ddns_script_path" ]; then
+			[ -f "$ddns_script_path" ] || exit 1
+			exit 0
+		fi
+		if [ -e "$ddns_script_path" ] && [ ! -f "$ddns_script_path" ]; then
+			exit 1
+		fi
+		mv -f "$ddns_stage_file" "$ddns_script_path"
+	)
+	ddns_init_status=$?
+	if [ "$ddns_init_status" -ne 0 ]; then
+		logger -t "【AliDDNS动态域名】" "默认地址获取脚本初始化失败：$ddns_script_path"
+	fi
+	return "$ddns_init_status"
+}
 
 initconfig
 
