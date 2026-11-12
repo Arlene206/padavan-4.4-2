@@ -1,3 +1,19 @@
+## 2026-11-13 03:01 CST (UTC+8) — Fix BusyBox ROMFS recursive Kbuild header path
+
+- Base main SHA: a3247c882afdc66b781d060b47e4182b9ad197e1; exact-head XY-C1 43270739238 / job 131366274506.
+- Samba shared-header, DHCPv6 DUID staged-header and vsftpd self-contained-header checks all passed. The MIPS build compiled RC and vsftpd, progressed into user-space packages, then failed at ROMFS busybox: networking/udhcp/dhcp6c_common.c:38 fatal error: dhcp6c_duid_file_policy.h: No such file or directory.
+- Full job log distinguishes two BusyBox Kbuild invocations. The initial BUILD busybox command included CFLAGS=... -I$(ROOTDIR)/user/shared/src, and dhcp6c_common.o compiled successfully. The later custom romfs recipe called $(MAKE) ... $(MAKE_FLAGS) install without package $(MAKE_VARS); the recursive build lost its CFLAGS/EXTRA_CFLAGS and recompiled without the header path. BusyBox precedes shared in package order, so the source-tree include path is intentional and safer than depending on a not-yet-built staged header.
+- THIS COMMIT prefixes the BusyBox romfs recursive make with +$(MAKE_VARS), preserving CFLAGS on the re-entry while retaining $(ROOTDIR)/user/shared/src include resolution.
+- The DUID regression is strengthened to assert the BusyBox source include, BusyBox-before-shared ordering, shared source include flag, the package.mk MAKE_VARS CFLAGS expansion, the BusyBox romfs propagation and a standalone GNU89 compile through the exact source include directory.
+- The XY-C1 workflow already filters trunk/user/busybox/Makefile and the BusyBox DHCPv6 source, so these changes trigger the next exact-head validation.
+- Target build failure on base SHA; no TRX or artifact success claimed. L4 router validation NOT VERIFIED.
+- Root dev_log.md: 70→71 complete records, still below 120-record and 384 KiB archive thresholds; no archive/index rotation due.
+- Changed paths: trunk/user/busybox/Makefile, scripts/check_dhcp6c_duid_header_staging.py, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and this log.
+- Resulting main commit: THIS COMMIT.
+- Next: verify exact-head XY-C1 DUID/BusyBox/vsftpd prechecks, fix the next first-causal build failure, and continue until firmware build, non-empty TRX verification and artifact upload all pass on one SHA.
+
+---
+
 ## 2026-11-13 02:32 CST (UTC+8) — Isolate the vsftpd header probe from system include lookup
 
 - Base main SHA: \`3086848304e5324d2255ed005f82b7ebc84503ce\`.

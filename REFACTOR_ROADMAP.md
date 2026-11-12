@@ -1,10 +1,10 @@
 ## Current source / CI checkpoint
 
-- Live main baseline for this XY-C1 iteration: `3086848304e5324d2255ed005f82b7ebc84503ce`. Only `main` is authorized for development and push validation. Remote branch inventory remains main-only; legacy PR #1 is CLOSED (not merged) and remains read-only. GPT Session Rotator is unchanged.
-- Exact-head XY-C1 run [43270075912] / job [131363959378] PASSED Samba shared-header and DUID staged-header regressions, but failed the new vsftpd standalone-header probe before the target build. The test used `-I trunk/user/vsftpd/src`, allowing the local `features.h` to shadow glibc's system header. Replace with `-iquote trunk/user/vsftpd/src`. The production `<stddef.h>` addition to `asus_ext.h` is retained.
-- Earlier XY-C1 [43266929320] passed the previous RC missing-header blocker and reached `vsftpd/main.o`, exposing the genuine missing `<stddef.h>` for the `size_t` prototype. That source fix is included in the current base.
-- Same-SHA HTTPD [43270075491], AI docs [43270075268] and vsftpd configuration stability [43270075357] all PASSED.
-- The MIPS target build was not reached on the current SHA; TRX validation and artifact upload remain NOT VERIFIED; L4 hardware flashing/boot remains NOT VERIFIED.
+- Live main baseline for this XY-C1 iteration: a3247c882afdc66b781d060b47e4182b9ad197e1. Only main is authorized for changes and validation. Branch inventory remains main-only; historical closed PR #1 stays read-only; GPT Session Rotator remains immutable.
+- Exact-head XY-C1 43270739238 / job 131366274506 passed Samba, DHCPv6 DUID staged-header and vsftpd standalone-header checks. The MIPS build advanced past RC/IPv6 and vsftpd and reached BusyBox ROMFS install.
+- First target failure: networking/udhcp/dhcp6c_common.c:38 fatal error: dhcp6c_duid_file_policy.h: No such file or directory, on the second Kbuild invocation from BusyBox romfs. The initial package build received -I$(ROOTDIR)/user/shared/src and compiled dhcp6c_common.o; the ROMFS recipe passed MAKE_FLAGS but omitted package MAKE_VARS, dropping CFLAGS/EXTRA_CFLAGS.
+- BusyBox is ordered before shared in trunk/user/Makefile, so it must continue using the canonical source-tree shared header path. The repair propagates +$(MAKE_VARS) into the custom ROMFS recursive make and strengthens the DUID regression to compile the header through the BusyBox source include and assert package/recipe wiring.
+- Build/TRX/artifact verification remain NOT VERIFIED; L4 hardware flashing/boot remains NOT VERIFIED.
 
 
 ## Whole-repository module status

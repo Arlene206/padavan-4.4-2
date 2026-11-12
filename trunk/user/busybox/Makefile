@@ -14,6 +14,7 @@ EXTRA_CFLAGS += -I$(ROOTDIR)/user/shared/src
 $(eval $(call BuildPackage,busybox))
 
 romfs:
+	+$(MAKE_VARS) \
 	$(MAKE) -C $(PKG_BUILD_DIR) \
 		$(MAKE_FLAGS) \
 		CONFIG_PREFIX=$(ROMFSDIR) \
