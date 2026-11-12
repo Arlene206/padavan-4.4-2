@@ -1,3 +1,14 @@
+## 2026-11-12 15:13 CST (UTC+8) — Correct AdGuardHome resolver regression printf fixtures
+
+- Base main SHA: `923363a8e4c630e7f890c3f307561b71b1ae6b33`; this is a test-fixture correction to the resolver transaction batch committed immediately before it.
+- Source review of the new host cases found that three expected-output `printf` formats contained two literal backslashes before `n` instead of the single escape required for newline comparison. This would compare against backslash characters rather than the multi-line mock log. Corrected the expected formats and added a no-op logger mock to keep the resolver regression hermetic on CI hosts.
+- No production source behavior changed in this correction. The exact-byte rollback cases, start firewall rollback/no-launch case and stop fail-closed case remain unchanged; the full AdGuardHome workflow must validate the corrected fixture on one exact SHA.
+- No full local checkout is available here; local shell/regression/docs checks were not run. Exact-head AdGuardHome and AI docs Actions remain pending.
+- Root `dev_log.md` grows 52→53 entries; well below rotation thresholds. Archive inventory and `docs/dev-log/INDEX.md` remain unchanged.
+- Next: inspect the corrected exact-head AdGuardHome regression and AI docs jobs completely; fix any further genuine failures before closing resolver L2. The next implementation after L2 remains cross-process AdGuardHome start/stop serialization across RC/UI callers.
+
+---
+
 ## 2026-11-12 15:08 CST (UTC+8) — Make AdGuardHome resolver updates transactional
 
 - Base main SHA: `31fbec7bf87bf2d8649003f00024ac218de4af59`; remote branches at recovery contained only `main`, with no checkpoint branch.

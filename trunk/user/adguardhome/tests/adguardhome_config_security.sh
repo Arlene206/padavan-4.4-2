@@ -127,6 +127,7 @@ echo "AdGuardHome secret config mode, symlink rejection and atomic publication: 
         ;;
     esac
   }
+  logger() { return 0; }
   nvram() {
     [ "$1" = get ] && [ "$2" = adg_redirect ] || return 1
     echo 1
@@ -394,7 +395,7 @@ echo "AdGuardHome address-independent IPv4/IPv6 DNS redirects, duplicate cleanup
   AdGuardHome() { echo launch >> "$TEST_ADG_START_EFFECTS"; }
   logger() { return 0; }
   if start_adg; then exit 1; fi
-  [ "$(cat "$TEST_ADG_START_EFFECTS")" = "$(printf 'set_iptable\\nchange_dns\\nclear_iptable')" ] || exit 1
+  [ "$(cat "$TEST_ADG_START_EFFECTS")" = "$(printf 'set_iptable\nchange_dns\nclear_iptable')" ] || exit 1
 ) || fail "start continued after resolver reload failure"
 
 # Exercise daemon stop/start gates with a process-name-only mock.
@@ -529,7 +530,7 @@ TEST_ADG_DEL_DNS_FAIL=1
 if stop_adg; then
   fail "stop reported success after resolver removal failed"
 fi
-[ "$(cat "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\\ndel_dns')" ] || fail "stop removed workdir or stopped the daemon after resolver failure"
+[ "$(cat "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\ndel_dns')" ] || fail "stop removed workdir or stopped the daemon after resolver failure"
 [ ! -s "$TEST_ADG_KILL_LOG" ] || fail "stop signalled AdGuardHome before resolver removal was confirmed"
 [ "$(cat "$TEST_ADG_STATE")" = running ] || fail "resolver failure did not leave the daemon available"
 TEST_ADG_DEL_DNS_FAIL=0
@@ -545,6 +546,6 @@ if stop_adg; then
 fi
 [ "$(cat "$TEST_ADG_KILL_LOG")" = "$(printf 'AdGuardHome\n-9 AdGuardHome')" ] || fail "stuck daemon did not receive TERM then name-based SIGKILL"
 [ "$(wc -l < "$TEST_ADG_SLEEP_LOG" | tr -d ' ')" = 10 ] || fail "TERM/KILL waits were not bounded to five polls each"
-[ "$(cat "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\\ndel_dns')" ] || fail "failed stop removed the workdir or skipped pre-stop resolver cleanup"
+[ "$(cat "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\ndel_dns')" ] || fail "failed stop removed the workdir or skipped pre-stop resolver cleanup"
 
 echo "AdGuardHome duplicate-start and bounded stop lifecycle regression: PASS"
