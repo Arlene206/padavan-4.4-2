@@ -173,7 +173,7 @@ require("curl -k" not in source and "--no-check-certificate" not in source and
 require('$(ROMFSINST) -p +x $(THISDIR)/aliddns-ipv4.sh /usr/bin/aliddns-ipv4.sh' in package,
         "IPv4 helper must be installed executable in ROMFS")
 require("TLS verification failure was reported as success" in ipv4_test and
-        "multi-line" in ipv4_test and "strict IPv4/IPv6 address validation regression: PASS" in ipv4_test,
+        "198.51.100.2" in ipv4_test and "strict IPv4/IPv6 address validation regression: PASS" in ipv4_test,
         "public-IP regression must cover transport failures and strict address validation")
 
 with tarfile.open(CERT_ARCHIVE_PATH, "r:gz") as archive:
