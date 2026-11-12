@@ -1,3 +1,18 @@
+## 2026-11-13 02:24 CST (UTC+8) — Fix next XY-C1 blocker: vsftpd size_t and DUID contract
+
+- Base main SHA: \`f80a5f6b89d7e7fca7e3f7d2f5fe55413ce409ad\`; branch policy remains main-only.
+- Exact-head XY-C1 run [43266929320], job [131352848613], on this SHA: Samba shared-header contract PASS; DHCPv6 DUID staged-header GNU89 contract PASS; RC progressed beyond the prior \`net_wan6.o\` missing-header failure. First fatal compile error occurred at \`trunk/build/vsftpd/main.o\`: \`asus_ext.h:55:27: unknown type name 'size_t'\`. The source header used \`size_t\` but included only \`<limits.h>\`; the proper self-contained declaration source is \`<stddef.h>\`.
+- Same-SHA HTTPD security [43266928890] failed at its DUID source contract only: the assertion still expected the superseded relative include in \`net_wan6.c\`. The correct include is now staged-public \`<dhcp6c_duid_file_policy.h>\`; update the assertion and check the obsolete source-relative path is absent.
+- This commit adds \`#include <stddef.h>\` to \`trunk/user/vsftpd/src/asus_ext.h\`, adds a host GNU89 \`-Werror -fsyntax-only\` standalone-header check, adds XY-C1 trigger coverage for the vsftpd header and HTTPD workflow contract, and corrects the HTTPD DUID assertion.
+- AI handoff docs [43266928614] PASS. WAN DHCP [43266928617] remains a separate contract matcher failure.
+- Full XY-C1 build, TRX validation and artifact upload: NOT VERIFIED. The next exact-head push run must pass all three source/header checks and continue through target build. L4 hardware validation: NOT VERIFIED.
+- Root \`dev_log.md\`: 68→69 complete records, below the 120-record rotation threshold and 384 KiB early-rotation target; file remains below the 512 KiB hard cap. Archive inventory remains dev-log=7, handoff=22, roadmap=18; no archive/index rotation is due.
+- Changed paths: \`trunk/user/vsftpd/src/asus_ext.h\`, \`.github/workflows/xy-c1-firmware-validation.yml\`, \`.github/workflows/httpd-security.yml\`, \`SESSION_HANDOFF.md\`, \`REFACTOR_ROADMAP.md\` and this log.
+- Resulting main commit: THIS COMMIT.
+- Next: inspect the exact-head XY-C1 push run for this commit. If another first-causal failure appears, repair it directly on \`main\` and repeat until firmware build, non-empty TRX verification, artifact upload and the HTTPD DUID contract all pass on one exact main SHA.
+
+---
+
 ## 2026-11-13 01:02 CST (UTC+8) — Fix XY-C1 RC IPv6 DUID staged-header lookup
 
 - Base main SHA: \`9a508588a33c220b334d1dd40012eb5fd5ac89ec\`; remote branch inventory contained only \`main\`.

@@ -3091,7 +3091,8 @@ jobs:
           get_duid_end = busybox.index(chr(10) + "void dhcp6_init_options", get_duid_start)
           get_duid = busybox[get_duid_start:get_duid_end]
 
-          assert '#include "../../shared/src/dhcp6c_duid_file_policy.h"' in rc
+          assert '#include <dhcp6c_duid_file_policy.h>' in rc
+          assert '../../shared/src/dhcp6c_duid_file_policy.h' not in rc
           assert '#include "dhcp6c_duid_file_policy.h"' in busybox
           assert "EXTRA_CFLAGS += -I$(ROOTDIR)/user/shared/src" in busybox_makefile
           assert "dhcp6c_duid_open_create(duid_file)" in rc

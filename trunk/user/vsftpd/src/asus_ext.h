@@ -2,6 +2,7 @@
 #define ASUS_EXT_H
 
 #include <limits.h>
+#include <stddef.h>
 #ifndef PATH_MAX
 #define PATH_MAX 4096
 #endif

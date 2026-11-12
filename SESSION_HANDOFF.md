@@ -1,25 +1,26 @@
 ## Current repository state
 
-- Repository: \`Arlene206/padavan-4.4-2\`; sole authorized development/commit/push branch: \`main\`. Baseline main SHA for this repair: \`9a508588a33c220b334d1dd40012eb5fd5ac89ec\`. Re-fetch live \`main\` before every subsequent write.
-- Remote branch inventory at recovery contains only \`main\`. Legacy PR #1 is CLOSED (not merged) after its valid work was ported directly to main; leave its retained historical ref untouched/read-only. GPT Session Rotator is immutable and unchanged.
-- The previous XY-C1 RC storage compile blockers are resolved in \`9a508588a33c220b334d1dd40012eb5fd5ac89ec\`: system \`ctype.h\` is included before the \`isblank\` fallback, \`stop_stor_apps()\` has a matching status-returning declaration, and the Samba shared-header staging regression passes.
-- Exact-head XY-C1 run [43263025719] / job [131339067215] failed on \`9a508588a33c220b334d1dd40012eb5fd5ac89ec\` while compiling RC \`net_wan6.o\`: \`net_wan6.c:34\` includes \`../../shared/src/dhcp6c_duid_file_policy.h\`, a source-tree-relative path that does not exist from the staged RC build directory. The compile command already contains \`-I$(STAGING_DIR)/include/shared\`; the shared package installs its root-level headers there.
-- On the same exact SHA, AI handoff docs [43263025362] and HTTPD security [43263025674] are SUCCESS. Separate unrelated failures remain visible: storage-hotplug [43263025900] fails its standalone BusyBox staged-header build; WAN DHCP [43263025911] fails a source-contract declaration matcher. Do not conflate either with the XY-C1 RC compiler error.
+- Repository: \`Arlene206/padavan-4.4-2\`; only \`main\` may be used for development and validation. Base main SHA for this repair: \`f80a5f6b89d7e7fca7e3f7d2f5fe55413ce409ad\`. Re-fetch live \`main\` before every subsequent write.
+- Remote branch inventory remains main-only. Legacy PR #1 is CLOSED (not merged) after its valid changes were ported to main; leave its historical ref read-only. GPT Session Rotator is immutable and unchanged.
+- Exact-head XY-C1 push run [43266929320] / job [131352848613] ran on \`f80a5f6b89d7e7fca7e3f7d2f5fe55413ce409ad\`. The Samba shared-header regression and new DHCPv6 DUID staged-header GNU89 regression both PASSED. RC compilation passed the previous \`net_wan6.o\` missing-header blocker and progressed through multiple later packages, then failed at the first fatal compiler error in \`trunk/build/vsftpd/main.o\`: \`asus_ext.h:55:27: error: unknown type name 'size_t'\`. \`asus_ext.h\` declared a \`size_t\` parameter but included only \`<limits.h>\`; the direct fix is \`#include <stddef.h>\`.
+- The same SHA's HTTPD security run [43266928890] failed in its Python source contract, not C compilation: it still expected the old source-relative \`#include "../../shared/src/dhcp6c_duid_file_policy.h"\` in \`net_wan6.c\`. The correct staged include is now \`#include <dhcp6c_duid_file_policy.h>\`; update the assertion to match the shipped include and assert the stale relative form is absent.
+- AI handoff documentation run [43266928614] PASSED on \`f80a5f6b89d7e7fca7e3f7d2f5fe55413ce409ad\`. WAN DHCP callback run [43266928617] has a separate source-contract matcher failure; keep it recorded as unrelated follow-up.
+- This repair adds \`<stddef.h>\` to \`trunk/user/vsftpd/src/asus_ext.h\`, adds a standalone GNU89 self-containment probe to XY-C1, updates the HTTPD DUID source contract and makes the XY-C1 push filter trigger on these changed paths.
 
 ## Active task — Complete the XY-C1 target firmware build on main
 
-1. Replace the source-relative DUID policy include in \`trunk/user/rc/src/net_wan6.c\` with \`#include <dhcp6c_duid_file_policy.h>\`, using the already configured staged include directory; do not duplicate the header or weaken the compiler.
-2. Add and run a GNU89 syntax-only regression that copies the canonical shared header into a fixture \`stage/include/shared\` and compiles it through that include path. Assert shared header installation, RC include flags, shared-before-RC package ordering and push path-filter coverage.
-3. Commit directly to \`main\`. Match the next XY-C1 \`push\` run's \`head_sha\` to live \`main\`; inspect the complete job log and fix only the next first-causal build failure.
-4. Continue until the MIPS build completes, \`Verify TRX output\` finds at least one non-empty \`trunk/images/*.trx\`, and artifact upload succeeds on the same exact main SHA.
-5. Physical router flashing/boot is a separate L4 check and must not be inferred from CI. Reconcile the unrelated storage-hotplug and WAN DHCP contract failures after the target-build blocker is closed.
+1. Run the exact-head XY-C1 push for this repair. Require Samba, DUID staged-header and vsftpd standalone header checks to pass.
+2. Inspect the full MIPS build log; fix only the next first-causal compiler, link or image-assembly failure directly on \`main\`.
+3. Continue until the firmware build succeeds, \`Verify TRX output\` finds at least one non-empty \`trunk/images/*.trx\`, and artifact upload succeeds on the same exact \`main\` SHA.
+4. The HTTPD DUID contract change must also pass on the same SHA. Reconcile the separate WAN DHCP matcher issue after the target build is green.
+5. Physical router flashing/boot is a separate L4 check and must not be inferred from CI.
 
 ## Verification boundary
 
-- L1 recovery: bootstrap and development protocol, live main, branch/PR inventory, handoff, roadmap, newest 20 development-log records and archive index reviewed.
-- L2 baseline: XY-C1 [43263025719] FAIL on exact SHA \`9a508588a33c220b334d1dd40012eb5fd5ac89ec\` at \`net_wan6.o\`; prior Samba staging, RC ctype and prototype changes passed their pre-build/source checks. AI docs [43263025362] PASS and HTTPD security [43263025674] PASS on the same SHA. Storage-hotplug [43263025900] and WAN DHCP [43263025911] have separate failures recorded above.
-- L3 target MIPS firmware, non-empty TRX validation and artifact upload: NOT VERIFIED for the current main. L4 physical router flashing/boot: NOT VERIFIED.
+- L1 recovery: bootstrap/development protocol, live main, branch/PR inventory, handoff, roadmap, newest 20 dev-log records and archive index reviewed.
+- L2 on base SHA \`f80a5f6b89d7e7fca7e3f7d2f5fe55413ce409ad\`: XY-C1 [43266929320] FAIL at vsftpd \`asus_ext.h:55\`; Samba and DUID staged-header tests PASS; RC advanced beyond \`net_wan6.o\`. AI docs [43266928614] PASS. HTTPD security [43266928890] FAIL only because its DUID include assertion still expects the previous relative include.
+- L3 MIPS image, non-empty TRX and artifact upload: NOT VERIFIED. L4 physical hardware flashing/boot: NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-Fetch live \`main\`; inspect the exact-head XY-C1 run triggered by the DUID staged-include repair. Confirm its \`head_sha\` equals live \`main\`. If the pre-build staged-header contract passes and the compiler exposes another first-causal error, repair that error directly on \`main\` and repeat until firmware build, non-empty TRX verification and artifact upload all pass.
+Fetch live \`main\`, verify the next XY-C1 \`push\` run's \`head_sha\` equals it, and inspect that run through TRX verification and artifact upload. If another first-causal failure appears, fix it on \`main\` and repeat.
