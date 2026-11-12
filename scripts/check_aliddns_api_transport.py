@@ -100,9 +100,9 @@ require('args="AccessKeyId=$aliddns_ak&Action=$1&Format=json&$2&Version=2015-01-
         'hash=$(printf \'%s\\000%s\' "$aliddns_sk&" "$signing_input" | aliddns_hmac_sha1)' in send_request and
         "openssl dgst" not in send_request and "-hmac" not in send_request,
         "API parameters and canonical HMAC-SHA1 bytes must stay unchanged without putting the secret in OpenSSL argv")
-require("/usr/bin/aliddns-hmac-sha1" in hmac_helper and
-        "openssl dgst" not in hmac_helper and "-hmac" not in hmac_helper,
-        "HMAC wrapper must invoke the fixed ROMFS helper without exposing the secret in argv")
+require(hmac_helper.strip() == "/usr/bin/aliddns-hmac-sha1" and
+        "openssl dgst" not in hmac_helper,
+        "HMAC wrapper must invoke exactly the fixed ROMFS helper without exposing the secret in argv")
 require('main(void)' in hmac_source and
         'EVP_MAC_fetch(NULL, "HMAC", NULL)' in hmac_source and
         'OSSL_MAC_PARAM_DIGEST' in hmac_source and

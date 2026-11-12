@@ -1,3 +1,16 @@
+## 2026-11-12 20:36 CST (UTC+8) — Tighten HMAC wrapper checker without matching executable basename
+
+- Base checkpoint: `1dd73261cec705335214899a4c5c9fa08b4db579`.
+- Exact-head AliDDNS push [43222468654] and PR [43222479134] both checked out the intended SHA. Shell syntax, API transport integration, public IPv4, DNS lifecycle, custom-script lifecycle, CA bootstrap and the dedicated HMAC test all PASS. The dedicated HMAC log confirms the secret is absent from helper `cmdline` and `environ`, byte equivalence with legacy OpenSSL HMAC, RFC 2202 and input-boundary cases.
+- The only remaining failure was semantic checker logic: the new wrapper assertion prohibited substring `-hmac` inside the wrapper body, but the fixed helper filename `aliddns-hmac-sha1` contains that substring. This was a false positive in the checker, not a product or host regression.
+- Changed the wrapper contract to require its stripped function body to equal exactly `/usr/bin/aliddns-hmac-sha1`; the separate `send_request()` contract still forbids OpenSSL CLI and `-hmac` options from the production signing path.
+- AI docs push [43222468588] and PR [43222478828] passed on the predecessor SHA. This commit changes only checker and the corresponding recovery evidence; corrected exact-head Actions are pending.
+- Root `dev_log.md` grows 62→63 complete records, below rotation and size thresholds; archive inventory remains 7/22/18. No roadmap or archive-index update is due.
+- Resulting commit: THIS COMMIT.
+- Next: check exact-head AliDDNS push/PR full logs and AI docs validation. Close HMAC L2 only when all host tests and semantic/docs checks pass on the same SHA. L3 MIPS/uClibc and L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-12 20:28 CST (UTC+8) — Make AliDDNS API fixture exercise the stdin-only HMAC helper
 
 - Base checkpoint: `ef637689ac83b8160a4bf345d4c6a817a37686e4`; live main remains `9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74`.
