@@ -9,6 +9,15 @@ on:
       - "trunk/user/shared/src/dhcp6c_duid_file_policy.h"
       - "trunk/user/httpd/src/web_ex.c"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/samba_share_policy.h"
+      - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/Makefile"
+      - "trunk/user/rc/Makefile"
+      - "trunk/user/shared/Makefile"
+      - "trunk/user/shared/src/Makefile"
+      - "trunk/user/shared/src/include/router_account_policy.h"
+      - "trunk/user/Makefile"
+      - "scripts/check_samba_shared_header.py"
       - ".github/workflows/xy-c1-firmware-validation.yml"
   workflow_dispatch:
 
@@ -57,6 +66,9 @@ jobs:
               fi
             done
           done
+
+      - name: Verify Samba shared-header staging contract
+        run: python3 scripts/check_samba_shared_header.py
 
       - name: Build XY-C1
         run: |

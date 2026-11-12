@@ -1,3 +1,15 @@
+## 2026-11-13 00:24 CST (UTC+8) — Repair XY-C1 RC Samba shared-policy header lookup
+
+- Base main SHA: `696278e438243af3ee67ab6e403dc27c7e0753df`.
+- The latest XY-C1 push run before this repair, [43233088562](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43233088562), checked out `4890bd4f800d3d1f1f282061f8fe7ea8e533a969` and failed while compiling the RC package's `services_stor.o`. That source includes the local `samba_share_policy.h`, whose line 6 referenced `../../shared/src/include/router_account_policy.h`. The RC source is staged under `trunk/build/rc`, so the source-tree-relative path is invalid there.
+- Confirmed the canonical header is installed by the shared package at `$(STAGING_DIR)/include/shared`, and the RC package explicitly adds `-I$(STAGING_DIR)/include/shared` to `TARGET_CFLAGS`. The compiler log showed that exact staged include directory.
+- Change the policy header to include `<router_account_policy.h>`; no account validation, ACL or Samba behavior changes. Add a host GNU89 syntax-only regression that compiles the actual policy header against a fixture matching the staged include layout and checks package installation/build order and RC flags.
+- Extend the push-only XY-C1 workflow to run the regression and trigger on all RC/shared-header inputs involved in the contract.
+- Local full target build: NOT RUN (no full checkout in this environment). The new regression and exact-head MIPS build, non-empty TRX validation and artifact upload are PENDING the push Actions run. L4 hardware/router validation: NOT VERIFIED.
+- Resulting main commit: THIS COMMIT.
+- Next: inspect the XY-C1 run whose `head_sha` equals the resulting main SHA; fix only its next first-causal error and repeat until build, TRX validation and artifact upload all pass.
+---
+
 ## 2026-11-12 22:40 CST (UTC+8) — Port and verify legacy PR #1 AliDDNS security work on main
 
 - Base main SHA: `fd9275273c385ec266333fecb813fe7d18c69ecb`; resulting main commit: `74b66ff960457379518d13c723c44a3515e6a228`. Imported valid unmerged changes from legacy PR #1 head `ba48e22609e0c81ad757b06756fe91d05f39cbf6` without merging the diverged PR or committing to its branch.

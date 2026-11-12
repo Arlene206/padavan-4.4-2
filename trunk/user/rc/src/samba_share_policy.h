@@ -3,7 +3,7 @@
 
 #include <stddef.h>
 #include <string.h>
-#include "../../shared/src/include/router_account_policy.h"
+#include <router_account_policy.h>
 #include "samba_config_value_policy.h"
 /*
  * This firmware maps http_username to UID 0 in /etc/passwd. Anonymous SMB
