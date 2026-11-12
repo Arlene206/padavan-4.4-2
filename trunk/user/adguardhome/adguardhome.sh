@@ -58,9 +58,28 @@ clear_iptable()
 }
 
 getconfig(){
-  adg_file="/etc/storage/adg.sh"
-  if [ ! -f "$adg_file" ] || [ ! -s "$adg_file" ] ; then
-	  cat > "$adg_file" <<-\EEE
+  adg_file="${ADG_CONFIG_FILE:-/etc/storage/adg.sh}"
+
+  # This YAML contains the web UI password and may contain a TLS private key.
+  # Never follow a link or write credentials into a non-regular destination.
+  if [ -L "$adg_file" ]; then
+    logger -t "AdGuardHome" "配置文件是符号链接，拒绝启动"
+    return 1
+  fi
+  if [ -e "$adg_file" ] && [ ! -f "$adg_file" ]; then
+    logger -t "AdGuardHome" "配置文件不是普通文件，拒绝启动"
+    return 1
+  fi
+
+  if [ ! -f "$adg_file" ] || [ ! -s "$adg_file" ]; then
+    # Publish a complete default file from a private same-directory stage.
+    adg_tmp="$(mktemp "${adg_file}.tmp.XXXXXX")" || {
+      logger -t "AdGuardHome" "无法创建私有配置暂存文件"
+      return 1
+    }
+    if ! (
+      umask 077
+      cat > "$adg_tmp" <<-\EEE
 bind_host: 0.0.0.0
 bind_port: 3030
 auth_name: adguardhome
@@ -123,14 +142,41 @@ verbose: false
 schema_version: 3
 
 EEE
-	  chmod 755 "$adg_file"
+    ); then
+      rm -f "$adg_tmp"
+      logger -t "AdGuardHome" "生成默认配置失败"
+      return 1
+    fi
+    if ! chmod 600 "$adg_tmp"; then
+      rm -f "$adg_tmp"
+      logger -t "AdGuardHome" "无法设置默认配置权限"
+      return 1
+    fi
+    if ! mv -f "$adg_tmp" "$adg_file"; then
+      rm -f "$adg_tmp"
+      logger -t "AdGuardHome" "无法发布默认配置"
+      return 1
+    fi
   fi
+
+  # Existing configurations can also contain secrets; repair permissive modes
+  # on every start and fail closed if confidentiality cannot be enforced.
+  if ! chmod 600 "$adg_file"; then
+    logger -t "AdGuardHome" "无法保护配置文件权限，拒绝启动"
+    return 1
+  fi
+  return 0
 }
 
 start_adg(){
+  # Do not alter resolver/firewall state until the credential-bearing config
+  # has been validated, privately published and made owner-readable only.
+  if ! getconfig; then
+    logger -t "AdGuardHome" "配置准备失败，取消启动"
+    return 1
+  fi
   mkdir -p /tmp/AdGuardHome
 	mkdir -p /etc/storage/AdGuardHome
-	getconfig
 	change_dns
 	set_iptable
 	logger -t "AdGuardHome" "启动 AdGuardHome"

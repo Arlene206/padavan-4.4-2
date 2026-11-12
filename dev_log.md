@@ -1,3 +1,16 @@
+## 2026-11-12 11:49 CST (UTC+8) — Protect AdGuardHome configuration secrets with private atomic publication
+
+- Base main SHA: `f8c154c5443514df45c01d8d74ffcb21366b7faf`; remote branch inventory contains only `main`, with no checkpoint branch.
+- Resumed the explicit whole-package AdGuardHome audit from SESSION_HANDOFF. Traced package selection in `trunk/user/Makefile`, package ROMFS install, the full `adguardhome.sh` config/start/stop path, RC service wrappers, stop_services integration and `RCN_RESTART_ADGUARDHOME` dispatch.
+- Found a concrete confidentiality defect: the generated `/etc/storage/adg.sh` contains the AdGuardHome UI `auth_pass` and a TLS `private_key` field, but `getconfig()` created it with mode 0755. Existing operator config files were not tightened on later starts.
+- THIS COMMIT rejects symlink and non-regular config destinations; writes missing/empty defaults to a unique same-directory temporary under `umask 077`; checks staged chmod and atomic rename; cleans failed stages; and enforces mode 0600 for both generated and existing configs. Startup now stops before DNS resolver or iptables side effects when config preparation/protection fails.
+- Added a host regression for generated mode under umask 000, preservation/tightening of existing config, symlink/FIFO rejection, rename/chmod failure cleanup and startup fail-closed ordering. Added a semantic source/ROMFS/package/RC caller contract and symmetric push/pull_request workflow. Exact-head AdGuardHome and AI handoff-doc Actions are pending.
+- Root `dev_log.md` grows 44→45 complete records; below the 120-entry/384 KiB rotation triggers. No archive or INDEX change is due; archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- This is host/source-level confidentiality and publication work only. Production MIPS/uClibc, target BusyBox, live AdGuardHome process/DNS/firewall behavior, complete firmware/TRX and L4 remain NOT VERIFIED.
+- Next: inspect every step and complete log for exact-head AdGuardHome config-security and AI docs Actions; require all config tests, semantic callers, exact-once symmetric filters and docs validator (45/119; archives 7/22/18) to pass. Then continue the separate lifecycle audit: bounded stop, duplicate/concurrent starts, resolver rollback and address-change-safe IPv4/IPv6 PREROUTING cleanup. FTP TOCTOU remains OPEN/BLOCKED; NFS requires real-client evidence.
+
+---
+
 ## 2026-11-12 11:31 CST (UTC+8) — Close ZeroTier readiness lifecycle at exact-head L2
 
 - Base code/test SHA: `3f435a03995afb1130da7d3acfecf65c8531ee9f`; parent `fdf89096d631245efab7534cd399abeb498a0acd`.

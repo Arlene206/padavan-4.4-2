@@ -1,0 +1,40 @@
+name: AdGuardHome config security regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/adguardhome-config-security.yml"
+      - "scripts/check_adguardhome_config.py"
+      - "trunk/user/adguardhome/adguardhome.sh"
+      - "trunk/user/adguardhome/tests/adguardhome_config_security.sh"
+      - "trunk/user/adguardhome/Makefile"
+      - "trunk/user/Makefile"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/rc.c"
+  pull_request:
+    paths:
+      - ".github/workflows/adguardhome-config-security.yml"
+      - "scripts/check_adguardhome_config.py"
+      - "trunk/user/adguardhome/adguardhome.sh"
+      - "trunk/user/adguardhome/tests/adguardhome_config_security.sh"
+      - "trunk/user/adguardhome/Makefile"
+      - "trunk/user/Makefile"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/rc.c"
+
+permissions:
+  contents: read
+
+jobs:
+  adguardhome-config-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check AdGuardHome launcher shell syntax
+        run: sh -n trunk/user/adguardhome/adguardhome.sh
+      - name: Run secret configuration permission and publication regression
+        run: sh trunk/user/adguardhome/tests/adguardhome_config_security.sh
+      - name: Verify AdGuardHome config and RC integration contracts
+        run: python3 scripts/check_adguardhome_config.py

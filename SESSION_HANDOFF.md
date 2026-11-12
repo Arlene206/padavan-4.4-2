@@ -2,32 +2,33 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; branch `main`; code/test SHA for the just-closed ZeroTier readiness slice: `3f435a03995afb1130da7d3acfecf65c8531ee9f` (parent `fdf89096d631245efab7534cd399abeb498a0acd`). Remote branch inventory contains only `main`; no checkpoint branch exists.
-- ZeroTier stop/start and readiness are now L1/L2 CLOSED on exact SHA `3f435a03995afb1130da7d3acfecf65c8531ee9f`: lifecycle [43148551947], AI handoff docs [43148552085] and infosvr packet/signal [43148551957] all completed SUCCESS. All steps and complete logs were inspected; each checkout's `git log -1` matched this SHA.
-- The ZeroTier host regression printed `ZeroTier bounded stop/start, readiness and persistent-config preservation: PASS`; the semantic checker printed `ZeroTier bounded lifecycle, persistent-config and RC integration contracts: PASS`. Docs validator reported root log=43/119 and archives dev-log=7, handoff=22, roadmap=18. The earlier checker false-negative on `fdf89096...` was corrected and the latest exact-head rerun passed.
-- DDNSTO stale-PID stop/restart remains L1/L2 CLOSED on exact SHA `f39638ac28bae38e6ec8d2694831685b3be98d4e`: DDNSTO [43140910335] and AI docs [43140910294] SUCCESS.
-- Root `dev_log.md` has 44 complete records after THIS COMMIT; no rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- Repository: `Arlene206/padavan-4.4-2`; branch `main`; code baseline before THIS COMMIT: `f8c154c5443514df45c01d8d74ffcb21366b7faf`. Remote branch inventory contains only `main`; no checkpoint branch exists.
+- The preceding ZeroTier bounded stop/start and interface/NAT-route readiness work remains L1/L2 CLOSED on exact code/test SHA `3f435a03995afb1130da7d3acfecf65c8531ee9f`: lifecycle [43148551947], AI handoff docs [43148552085] and infosvr [43148551957] all SUCCESS. Current main's doc-only successor `f8c154c5443514df45c01d8d74ffcb21366b7faf` was reconciled; current-head infosvr [43149323346] and AI docs [43149323154] both SUCCESS.
+- Exact-head logs/steps were inspected for all five runs. Current main docs validator reports root log=44/119 and archive inventory dev-log=7, handoff=22, roadmap=18. ZeroTier lifecycle and source/RC/ROMFS contracts remain PASS.
+- AdGuardHome audit traced package selection and ROMFS installation, shell config/start/stop functions, RC service wrappers, stop_services integration and RCN_RESTART_ADGUARDHOME notification dispatch. Found generated `/etc/storage/adg.sh` contains the Web UI password and TLS private-key field but was created with mode 0755; existing configs were never tightened on subsequent starts.
+- THIS COMMIT stages generated defaults with same-directory mktemp under umask 077, rejects symlink/non-regular destinations, checks stage write/chmod/rename, publishes atomically, and enforces mode 0600 for both new and existing configuration files. `start_adg()` now fails closed before DNS/firewall mutation when config protection/publication fails. The new host regression and semantic RC/ROMFS contract workflow are pending exact-head Actions.
+- Root `dev_log.md` has 45 complete records after THIS COMMIT; no rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
 - FTP failed-upload cleanup TOCTOU remains P2 OPEN/BLOCKED pending a Linux 4.4-safe inode/parent proof preserving STOR/APPE/REST/STOU and concurrent external writers. NFS async durability/AUTH_SYS/root-squash remains real-client evidence-gated.
-- The development container has no full repository checkout; source and host regression verification was performed through exact-head GitHub Actions. Production MIPS/uClibc, full firmware/TRX and L4 results remain distinct and unverified.
+- No full local repository checkout was used. Production MIPS/uClibc, complete firmware/TRX, target BusyBox behavior and L4 hardware results remain NOT VERIFIED.
 
-## Active task — Continue whole-tree add-on lifecycle audit: AdGuardHome (P2 stability)
+## Active task — Verify AdGuardHome secret-config publication, then continue its lifecycle audit
 
-- The previously active ZeroTier stop/start and readiness issues are closed at L1/L2 on exact code/test SHA `3f435a03995afb1130da7d3acfecf65c8531ee9f`. Do not repeat that work absent a new P0/P1 finding.
-- The next package path is `trunk/user/adguardhome/` (confirmed in the repository's `trunk/user` directory). Trace its Makefile installation, shell wrappers, all RC callers, process identity, bounded start/stop postconditions, duplicate/concurrent starts, configuration and secret publication, firewall/route/interface cleanup, resource lifetime and error propagation.
-- Choose one concrete, reproducible stability/security defect. Keep the change bounded; add an isolated host regression and source/caller-graph contract, using the existing CI pattern only where useful. Do not infer a bug before examining the full call path.
-- After AdGuardHome, rotate to AliyunDrive WebDAV, FRP, AliDDNS or Adbyby based on the whole-tree inventory; do not stay in one module without a new high-priority finding.
-- FTP failed-upload cleanup TOCTOU remains P2 OPEN/BLOCKED until a Linux 4.4-safe inode/parent design proves preservation of STOR/APPE/REST/STOU and concurrent writers. NFS remains real-client evidence-gated.
+- The bounded AdGuardHome config confidentiality fix is in THIS COMMIT. Inspect the exact-head `.github/workflows/adguardhome-config-security.yml` and AI handoff-doc workflow, including every step and full logs. Require the 0600/default+existing config tests, symlink/FIFO rejection, failed rename/chmod cleanup, startup fail-closed ordering, ROMFS/package/RC caller contracts, symmetric path filters and docs validation to pass on one exact main SHA.
+- On green exact-head evidence, close this config-publication slice at L1/L2. Do not claim production target or router verification.
+- Continue the same whole-package audit without repeating the completed config work: duplicate/concurrent starts, daemon TERM/KILL and bounded stop postconditions, process identity, resolver rollback, duplicate/stale IPv4/IPv6 PREROUTING redirects when addresses change, cleanup errors and RC notification producer/caller chain. Pick the next separately reproducible defect only after tracing all callers.
+- After AdGuardHome, rotate across AliyunDrive WebDAV, FRP, AliDDNS or Adbyby rather than staying in one add-on without a new high-priority finding.
+- FTP failed-upload cleanup TOCTOU remains P2 OPEN/BLOCKED until a Linux 4.4-safe inode/parent design proves STOR/APPE/REST/STOU and concurrent external-writer compatibility. NFS requires real-client evidence.
 
 ## Verification boundary
 
 - ZeroTier stop/start and fail-closed persistent cleanup: L1/L2 CLOSED on `1bf8a93bfa47770e8005d5241f7077287c86c4c4`; lifecycle [43143884566] and docs [43143884420] SUCCESS.
-- ZeroTier interface and NAT-route readiness: L1/L2 CLOSED on exact SHA `3f435a03995afb1130da7d3acfecf65c8531ee9f`; lifecycle [43148551947], AI docs [43148552085] and infosvr [43148551957] all SUCCESS. The lifecycle regression and full source/RC/ROMFS semantic contract both printed PASS; the docs validator passed at 43/119 with archive counts 7/22/18. Every job step/full log was inspected.
-- DDNSTO stop/restart L1/L2 CLOSED on exact SHA `f39638ac28bae38e6ec8d2694831685b3be98d4e`; DDNSTO [43140910335] and docs [43140910294] SUCCESS.
-- No local full clone was used. Host tests and source contracts were executed by Actions; no local test result is claimed.
-- Production MIPS/uClibc, target BusyBox command/output semantics, live router interface/route and firewall state, complete firmware/TRX and L4 physical-router behavior remain NOT VERIFIED.
+- ZeroTier interface and NAT-route readiness: L1/L2 CLOSED on exact SHA `3f435a03995afb1130da7d3acfecf65c8531ee9f`; lifecycle [43148551947], AI docs [43148552085] and infosvr [43148551957] all SUCCESS. Host regression and full source/RC/ROMFS contract passed; docs validator reported 43/119 and archives 7/22/18.
+- Current-head documentation/infosvr checks on `f8c154c5443514df45c01d8d74ffcb21366b7faf`: AI docs [43149323154] and infosvr [43149323346] all SUCCESS; docs validator reported 44/119 and archives 7/22/18.
+- AdGuardHome new regression/source contract are committed in THIS COMMIT; exact-head Actions are pending. No local execution or target result is claimed.
+- Production MIPS/uClibc, target BusyBox runtime, AdGuardHome live resolver/firewall/process behavior, complete firmware/TRX and L4 physical-router behavior remain NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, the remote branch inventory and the newest Actions; record exact SHAs. The ZeroTier L1/L2 evidence is already closed on code SHA `3f435a03995afb1130da7d3acfecf65c8531ee9f` by [43148551947, 43148552085, 43148551957]. If newer code has landed, reconcile before proceeding; do not rerun or reimplement the closed ZeroTier slice without cause.
-2. Begin the next stability audit at `trunk/user/adguardhome/`: read its package Makefile and all scripts, then trace every startup/shutdown/restart path and RC caller before selecting one reproducible bug. Add a focused host regression and semantic source contract; inspect exact-head Actions and persist the changed handoff state.
-3. Keep FTP upload-cleanup TOCTOU OPEN/BLOCKED until a Linux 4.4-safe inode/parent design proves STOR/APPE/REST/STOU and external-writer compatibility. NFS requires real-client evidence; MIPS/uClibc firmware/TRX and L4 remain NOT VERIFIED.
+1. Fetch live `main` and remote branch inventory; record exact SHA and inspect exact-head AdGuardHome lifecycle/security and AI docs workflows, every step and complete logs. The code/test change is THIS COMMIT, based on `f8c154c5443514df45c01d8d74ffcb21366b7faf`; do not rely on ancestor Actions.
+2. If both new regressions and docs validation pass on the same SHA, close config confidentiality at L1/L2 and continue AdGuardHome's remaining lifecycle audit, starting with stop/duplicate/concurrent start behavior and address-change-safe DNS/firewall cleanup. If any check fails, fix only the demonstrated regression and rerun exact-head Actions.
+3. Preserve FTP TOCTOU OPEN/BLOCKED and NFS real-client evidence gate. MIPS/uClibc firmware/TRX and L4 remain NOT VERIFIED.
