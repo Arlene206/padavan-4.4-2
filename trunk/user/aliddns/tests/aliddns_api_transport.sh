@@ -157,11 +157,11 @@ grep -Fqx 'url = "https://alidns.aliyuncs.com/?AccessKeyId=test-access-key&Actio
 ! grep -Fqx -- '-k' "$CURL_ARGS_LOG" || fail "TLS verification bypass was enabled"
 ! grep -Fqx -- '-L' "$CURL_ARGS_LOG" || fail "credential-bearing request follows redirects"
 ! grep -Fqx -- '--location' "$CURL_ARGS_LOG" || fail "credential-bearing request follows redirects"
-url="$(tail -n 1 "$CURL_ARGS_LOG")"
+url="$(cat "$CURL_CONFIG_LOG")"
 case "$url" in
-	https://alidns.aliyuncs.com/?AccessKeyId=test-access-key\&Action=DescribeSubDomainRecords\&Format=json\&SignatureMethod=HMAC-SHA1*Signature=c2ln)
+	'url = "https://alidns.aliyuncs.com/?AccessKeyId=test-access-key&Action=DescribeSubDomainRecords&Format=json&SignatureMethod=HMAC-SHA1&SignatureNonce=nonce&SignatureVersion=1.0&SubDomain=www.example.com&Timestamp=2026-11-12T16%3A30%3A00Z&Type=A&Version=2015-01-09&Signature=c2ln"')
 		;;
-	*) fail "signed query was not sent to the fixed HTTPS API endpoint" ;;
+	*) fail "signed URL was not passed to curl through the fixed HTTPS config endpoint" ;;
 esac
 
 # Config delimiters must not let a NVRAM/API value inject another curl directive.
