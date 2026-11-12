@@ -1,3 +1,13 @@
+## 2026-11-12 22:31 CST (UTC+8) — Enforce main-only development and push-only validation
+
+- Base main SHA: `4890bd4f800d3d1f1f282061f8fe7ea8e533a969`.
+- Updated `AI_BOOTSTRAP_PROMPT.md` and `AI_DEVELOPMENT_PROTOCOL.md`: `main` is the only authorized development/commit/push branch; no feature/fix/temp/checkpoint branches or PR development/validation; every independent fix is committed directly to main; only exact-head `push` Actions validate it; red checks are fixed on main; no force-push/history rewrite; unfinished work is handed off without a branch.
+- Added safe legacy PR #1 handling: inventory and preserve valid unmerged content, port it to main, verify on main, then close the obsolete PR. Explicitly prohibit discarding valid work or continuing to develop on the legacy branch.
+- Declared GPT Session Rotator immutable: preserve its current candidate-SHA, 12-minute quiet-period and de-duplication behavior; do not reset/replay `9d5a5cb` or manually trigger it.
+- Removed the `pull_request` trigger from `.github/workflows/ai-handoff-docs.yml`; documentation validation remains available on `push` to main and manual dispatch. The rotator itself was not modified.
+- Local `scripts/check_ai_handoff_docs.py`: NOT RUN (no local repository checkout). Exact-head AI documentation Actions: PENDING for the resulting main SHA.
+- Current main baseline failures before this governance commit: WAN DHCP source contract [43233088640] fails while locating `static int man_down_internal(`; XY-C1 build [43233088562] fails later at `samba_share_policy.h` include lookup. These remain open and must be resumed on main after this bounded governance change.
+- Resulting commit: THIS COMMIT.
 ## 2026-11-12 21:58 CST (UTC+8) — Fix duplicate internal declarations blocking RC target build
 
 - Base main SHA: `10ebefe94bf344d19d8506287125f52333596bde`. Exact-head XY-C1 run [43230552179](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43230552179), job [131224406701](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43230552179/job/131224406701), progressed past the previously fixed kernel, BusyBox DHCPv6 and HTTPD compile blockers. The MIPS kernel completed; `xt_webstr.o`, `dhcp6c_common.o`, `web_ex.o` and the HTTPD link all completed.

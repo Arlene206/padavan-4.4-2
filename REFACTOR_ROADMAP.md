@@ -1,9 +1,9 @@
 ## Current source / CI checkpoint
 
-- Current main base SHA for the incremental XY-C1 repair is `10ebefe94bf344d19d8506287125f52333596bde`. Exact-head run [43230552179](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43230552179) passed Linux 4.4 kernel compilation, `xt_webstr.o`, BusyBox `dhcp6c_common.o`, HTTPD `web_ex.o` and HTTPD linking. RC `net_wan.o` was the next failure, caused by five duplicate/conflicting declaration specifiers on same-file-only helper definitions. THIS COMMIT leaves one `static int` declaration per helper, adds a WAN declaration source contract and makes XY-C1 push validation trigger on `net_wan.c`.
-- On the previous exact SHA, HTTPD security [43230551897] and AI docs [43230551924] both passed; HTTPD completed all 40 steps, and docs validator accepted root log=61/119 with archive inventory 7/22/18.
-- No full RC/userland completion, firmware assembly, non-empty TRX or artifact has yet passed. The target build remains pending on this fix.
-- AliDDNS remains a parked OPEN task; its OpenSSL AccessKeySecret argv exposure, CA extraction postcondition and lifecycle concurrency are not closed.
+- Current main baseline for this bounded governance migration is `4890bd4f800d3d1f1f282061f8fe7ea8e533a969`. The only authorized development branch is `main`; no new branches/checkpoints or PR workflows are allowed. The AI docs workflow is now push-only; exact-head push CI is authoritative.
+- Exact-head checks on this baseline: AI documentation [43233088451] SUCCESS; AliDDNS transport baseline [43233088663] SUCCESS; WAN DHCP callback [43233088640] FAILURE at the source-contract function locator for `static int man_down_internal(`; XY-C1 target build [43233088562] FAILURE at Samba's staged shared-header path `../../shared/src/include/router_account_policy.h`. Resume these failures on main after the requested PR #1 import and governance checks.
+- Legacy PR #1 remains unmerged and contains valid unmerged AliDDNS CA trust-store error propagation and OpenSSL 3 EVP_MAC HMAC helper work. It must be safely ported to main and tested on an exact main push before the old PR is closed; do not commit to its head or discard any valid content.
+- GPT Session Rotator is out of scope and unchanged. Preserve its current new-main-SHA candidate detection, 12-minute quiet period and same-SHA de-duplication; do not reset/replay `9d5a5cb` or manually trigger it.
 
 ## Whole-repository module status
 

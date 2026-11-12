@@ -6,6 +6,10 @@
 
 This file is the durable source of development rules. Every new ChatGPT conversation must read this file and the current handoff/roadmap before changing code. Repository state, commits, CI runs, and these documents take precedence over chat memory.
 
+## Main-only development and validation invariant
+
+The sole authorized development branch is `main`. Do not create, use, or push any feature/fix/temporary/checkpoint branch; do not create or use pull requests. Complete each independent fix on current `main` and push it directly. Validate through GitHub Actions `push` runs for the exact `main` SHA only. A PR/branch/older-SHA green result never replaces main validation; fix red checks with new main commits. Never force-push or rewrite history. Existing PR #1 is a legacy preservation task: compare it against main, port valid unmerged work to main, verify there, and only then close the obsolete PR. Never delete its unmerged work. Keep GPT Session Rotator unchanged; do not reset its state or replay SHA `9d5a5cb`; allow its current new-main-SHA and 12-minute quiet-period behavior to run naturally.
+
 
 ## 0. Non-negotiable cross-conversation recovery and record governance
 
@@ -140,13 +144,17 @@ Use explicit states such as NOT RUN, PASS, FAIL, BLOCKED, or NOT VERIFIED. A Lev
 
 ## 8. Commits and branch safety
 
-- Prefer a single coherent commit for one bounded module task.
-- Push completed, appropriately validated work to main, unless the repository's current workflow or an existing unfinished task requires a different safe route.
-- Never overwrite a branch head based on stale state. Re-fetch the current ref before updating it.
-- Do not force-push or rewrite published history as a convenience.
-- If work cannot be completed safely in the current conversation, save the exact unfinished state to a clearly named remote checkpoint branch when the available tools support it. Record branch and SHA in SESSION_HANDOFF.md.
-- Never claim a local-only or uncommitted change has been preserved remotely.
-- Do not create a checkpoint merely for a task that has already been coherently completed and committed to main.
+**Only `main` is an authorized development and commit branch.** This is unconditional; an unfinished task, failed CI, missing local checkout, or conversation boundary is not an exception.
+
+- Never create, switch to, push, or commit on feature, fix, temporary, checkpoint, backup, or other branches. Do not create, update, or use pull requests for development or validation.
+- Complete each independent fix on the current `main` HEAD, then commit and push it directly to `main`. Keep each commit coherent and reviewable; do not publish knowingly broken or incomplete production changes merely to preserve a work-in-progress.
+- GitHub Actions must validate the actual `main` commit through its `push` event. Match every relevant run's `head_sha` to the exact pushed commit and live `main` SHA. A green result from a PR, legacy branch, older SHA, or another ref is never a substitute.
+- When a main push fails, inspect the first causal failure and repair it with a new commit directly on `main`; repeat exact-head push validation until the relevant check passes. Never switch refs to obtain a green result.
+- Re-fetch `main` immediately before every write. Use a non-forced fast-forward update tied to the expected parent/head; abort and reconcile if `main` has moved.
+- Never force-push, amend/rewrite published history, reset a published ref, or overwrite an existing commit.
+- If work cannot be safely completed, do not create a checkpoint branch. Record the exact current `main` SHA, completed evidence, uncommitted/persisted state, blocker, and precise next action in `SESSION_HANDOFF.md`. Only claim remote persistence for content actually committed to `main`.
+- Existing non-main refs and PRs are legacy items, not authorized workspaces. Inspect their unmerged changes, preserve and port every valid required change directly to current `main`, verify it there, then close the obsolete PR. Do not discard valid work or continue development on its old branch. Delete an obsolete legacy branch only after the imported content is verified on `main` and a supported safe delete operation is available.
+- **GPT Session Rotator is immutable unless the user explicitly requests a change.** Do not edit its workflow, state, schedule, trigger logic, or candidate records. Let it observe real new `main` SHAs naturally; do not reset/replay an existing SHA or manually trigger a rotation to bypass its existing 12-minute quiet-period behavior.
 
 ## 9. Three canonical project records
 
@@ -196,20 +204,20 @@ Update the handoff in place only when the active task, checkpoint SHA, validatio
 Every new conversation must do this before coding:
 
 1. Read this protocol.
-2. Fetch current main HEAD.
-3. Read SESSION_HANDOFF.md, REFACTOR_ROADMAP.md, and the newest dev_log.md entries.
-4. Inspect remote branches/checkpoints and latest relevant Actions runs.
-5. Compare recorded SHAs with actual GitHub state.
-6. Resume an unfinished task or pending CI before choosing another module.
-7. Only select a new task when the previous task is complete or explicitly closed with a documented reason.
+2. Fetch the live `main` HEAD SHA.
+3. Read `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and the newest `dev_log.md` entries.
+4. Inspect the remote branch inventory only to identify legacy refs; inspect latest Actions runs and match their exact `head_sha`. Inspect open PR #1 (or any remaining legacy PR) only to inventory unmerged work that must be safely ported to `main`.
+5. Compare all recorded SHAs with actual GitHub state.
+6. Resume the exact unfinished `main` task or failed/pending exact-head `push` CI before choosing another task, unless the user explicitly assigns a higher-priority governance task.
+7. Develop and commit only on `main`; do not create or use branches, checkpoint refs, or PRs.
 
-Never rely on hidden memory or the previous chat transcript. GitHub is the project memory.
+Never rely on hidden memory or the previous chat transcript. GitHub is the project memory. A legacy branch/PR is evidence to inspect, not a valid development or CI target.
 
 Before the current conversation's execution/context budget is exhausted:
 - stop starting new modules;
-- finish the current atomic task if safe;
-- otherwise persist unfinished work remotely when possible;
-- append the milestone to `dev_log.md` as part of the coherent commit; update `SESSION_HANDOFF.md` if the resumable task/next action changed; update `REFACTOR_ROADMAP.md` only if repository-wide status or priority changed;
+- finish the current atomic task on `main` if safe;
+- otherwise leave no branch/checkpoint behind; record the exact `main` SHA, validation state, any uncommitted work and exact first next action in the live handoff;
+- append the milestone to `dev_log.md` as part of the coherent main commit; update `SESSION_HANDOFF.md` if the resumable task/next action changed; update `REFACTOR_ROADMAP.md` only if repository-wide status or priority changed;
 - provide the exact next action.
 
 If the available connector cannot perform a needed operation, state that limitation. Do not invent an action or claim success.
