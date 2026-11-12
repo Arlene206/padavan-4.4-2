@@ -1,11 +1,24 @@
+## 2026-11-12 12:31 CST (UTC+8) — Bound AdGuardHome shutdown and prevent sequential duplicate starts
+
+- Base main SHA: `524147c15b9847d4f42186ec444a011f1a8ca47a`; remote branch inventory contains only `main`.
+- Continued the AdGuardHome caller-path audit. `start_adg()` previously relaunched the daemon on every repeated start request; `stop_adg()` removed `/tmp/AdGuardHome` before immediately sending SIGKILL and then always removed DNS/firewall redirection without proving the daemon had exited.
+- Added a process-name preflight so a sequential duplicate start is a successful no-op before config/DNS/firewall/launch side effects. Added bounded five-second TERM polling; if still present, re-enumerated by process name with SIGKILL and required a second bounded absence postcondition. Failed stop now returns nonzero and retains workdir, resolver and firewall state. Cleanup only follows confirmed process absence.
+- Extended the isolated POSIX-shell regression with duplicate-start no-op, no-process cleanup, graceful TERM, TERM-resistant escalation and permanently-stuck daemon cases. The test verifies exactly five TERM polls, ten total polls on persistent failure, process-name-only signaling and fail-closed cleanup. Extended semantic source contracts for caller order and cleanup gates.
+- Exact-head Actions on SHA `33c1ecaa1d85aa501f51ac0b1cce9c17d7d0a6cf`: AdGuardHome [43155259286] and AI docs [43155259234] both SUCCESS. Every job step and full log inspected. Shell syntax, prior config security regression, new duplicate-start/bounded-stop regression and all config/ROMFS/package/RC/path-filter source contracts printed PASS. Docs validator reports root log=47/119 and archive inventory dev-log=7, handoff=22, roadmap=18.
+- Root `dev_log.md` grows 47→48 complete records; below 120-entry/384 KiB rotation triggers. No archive or INDEX update is due.
+- Remaining AdGuardHome work is not closed: starts/stops from concurrent callers are not serialized; IPv4/IPv6 PREROUTING rules are reconstructed from current interface addresses, so address changes and repeated start/cleanup may leave stale or duplicate rules; DNS resolver restoration and cleanup command errors still need audit. Target BusyBox/MIPS behavior, production MIPS/uClibc, firmware/TRX and L4 remain NOT VERIFIED.
+- Next: inspect the complete AdGuardHome firewall/resolver call graph and choose one reproducible stale-rule or rollback defect; add focused host model and exact caller/path contracts. Keep FTP failed-upload TOCTOU OPEN/BLOCKED and NFS real-client-gated; after AdGuardHome rotate to AliyunDrive WebDAV, FRP, AliDDNS or Adbyby.
+
+---
+
 ## 2026-11-12 12:01 CST (UTC+8) — Make AdGuardHome function-boundary scan newline-safe
 
 - Base main SHA: `c83fd3a66ed854ec4d1d5f6a304a561b10bddfe3`.
 - Exact-head AdGuardHome workflow [43153476546] checked out `e0f1cc0969287f113f20e74151138b68b4ce4acc`. Launcher syntax and the complete host config regression passed. The source-contract step failed because the first non-regex parser searched for a literal backslash-n sequence instead of a real newline; no production or host regression failure occurred.
 - The checker parser is now based on `source.find(chr(10) + "}", opening + 1)`, avoiding both regex-brace quoting and newline escape ambiguity. Dedicated workflow path filters now also include the three canonical governance documents in both push and pull_request, so the final docs checkpoint is tested on its own head.
-- On the same parent SHA, AI handoff docs [43153476616] and infosvr [43153476521] both SUCCESS; docs validator reported root log=47? Verify log entry count in the run before stating. Current recorded run reported root log=47? This needs exact check.
-- Root `dev_log.md` grows 47→48 complete records; remains below rotation triggers. No archive or INDEX update due; archives remain dev-log=7, handoff=22, roadmap=18.
-- Exact-head AdGuardHome and docs reruns on THIS COMMIT are pending. No L2 closure until all semantic config/ROMFS/RC/path-filter checks and docs validator pass. No production target/MIPS/uClibc/firmware/TRX/L4 claims.
+- On the same parent SHA, AI handoff docs [43153476616] and infosvr [43153476521] both SUCCESS; docs validator reported root log=46/119 and archives dev-log=7, handoff=22, roadmap=18.
+- Root `dev_log.md` grows 46→47 complete records; remains below rotation triggers. No archive or INDEX update due; archives remain dev-log=7, handoff=22, roadmap=18.
+- The later corrected exact-head reruns passed on SHA `524147c15b9847d4f42186ec444a011f1a8ca47a`: AdGuardHome [43154187156], AI docs [43154187224] and infosvr [43154187170] all SUCCESS; docs validator reported 47/119, archives 7/22/18. The complete AdGuardHome step list and full log were inspected; config regression, syntax and semantic RC/ROMFS/source contracts all printed PASS. No production target/MIPS/uClibc/firmware/TRX/L4 claim.
 - Next: inspect exact-head AdGuardHome and AI docs jobs, every step and full logs; if green, close the config confidentiality slice and resume remaining AdGuardHome process lifecycle, concurrent starts, resolver rollback and stale firewall-rule cleanup. FTP TOCTOU remains OPEN/BLOCKED; NFS is real-client evidence-gated.
 
 ---
