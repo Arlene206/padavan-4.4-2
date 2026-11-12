@@ -16,6 +16,7 @@ WEB_EX_PATH = ROOT / "trunk/user/httpd/src/web_ex.c"
 WORKFLOW_PATH = ROOT / ".github/workflows/aliyundrive-webdav-lifecycle.yml"
 BUSYBOX_CONFIG_PATH = ROOT / "trunk/configs/boards/busybox.config"
 FLOCK_SOURCE_PATH = ROOT / "trunk/user/busybox/busybox-1.24.x/util-linux/flock.c"
+DAEMON_BINARY_PATH = ROOT / "trunk/user/aliyundrive-webdav/aliyundrive-webdav"
 
 launcher = LAUNCHER_PATH.read_text()
 test = TEST_PATH.read_text()
@@ -28,6 +29,7 @@ web_ex = WEB_EX_PATH.read_text()
 workflow = WORKFLOW_PATH.read_text()
 busybox_config = BUSYBOX_CONFIG_PATH.read_text()
 flock_source = FLOCK_SOURCE_PATH.read_text()
+daemon_binary = DAEMON_BINARY_PATH.read_bytes()
 
 
 def require(condition: bool, message: str) -> None:
@@ -78,10 +80,20 @@ require('if pidof "$NAME" >/dev/null 2>&1; then' in start and
 
 require('set -- -I' in start and
         '"$ALD_BIN" "$@" --host "$host" --root "$root" -p "$port"' in start and
-        '-r "$refresh_token" -U "$auth_user" -W "$auth_password"' in start and
+        'REFRESH_TOKEN="$refresh_token"' in start and
+        'WEBDAV_AUTH_USER="$auth_user"' in start and
+        'WEBDAV_AUTH_PASSWORD="$auth_password"' in start and
+        '-r "$refresh_token"' not in start and
+        '-U "$auth_user"' not in start and
+        '-W "$auth_password"' not in start and
         '-S "$read_buf_size" --cache-size "$cache_size"' in start and
         '--cache-ttl "$cache_ttl" --workdir "/tmp/$NAME"' in start,
-        "NVRAM-derived daemon arguments must remain individually quoted argv entries")
+        "refresh token and WebDAV credentials must use supported environment variables, never argv")
+
+require(all(name in daemon_binary for name in (
+            b"REFRESH_TOKEN", b"WEBDAV_AUTH_USER", b"WEBDAV_AUTH_PASSWORD",
+        )),
+        "the exact bundled daemon binary must contain the three compiled Clap environment-variable names")
 
 require('set -- "$@" --domain-id "$domain_id"' in start and
         'set -- "$@" --no-trash' in start and
@@ -147,7 +159,10 @@ for marker in (
     "FAIL: bounded TERM/KILL/absence sequence is incorrect",
     "FAIL: permanently running daemon was reported stopped",
     "FAIL: duplicate start launched or stopped an existing daemon",
-    "FAIL: NVRAM values were split, globbed or reordered in daemon argv",
+    "FAIL: non-secret NVRAM values were split, globbed or reordered in daemon argv",
+    "FAIL: secret environment values were missing, split or modified",
+    "FAIL: cloud token or WebDAV password leaked into daemon argv",
+    "AliyunDrive WebDAV refresh-token and auth secrets stay out of daemon argv: PASS",
     "FAIL: lock contention allowed a lifecycle transition",
     "FAIL: startup timeout was reported successful",
     "AliyunDrive WebDAV serialized lifecycle lock and startup readiness regression: PASS",
@@ -162,6 +177,7 @@ paths = [
     "dev_log.md",
     ".github/workflows/aliyundrive-webdav-lifecycle.yml",
     "scripts/check_aliyundrive_webdav_lifecycle.py",
+    "trunk/user/aliyundrive-webdav/aliyundrive-webdav",
     "trunk/user/aliyundrive-webdav/aliyundrive-webdav.sh",
     "trunk/user/aliyundrive-webdav/tests/aliyundrive_webdav_lifecycle.sh",
     "trunk/user/aliyundrive-webdav/Makefile",
