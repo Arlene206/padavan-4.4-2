@@ -38,6 +38,9 @@ def function_body(source: str, signature: str) -> str:
 
 config = function_body(script, "getconfig(){")
 start = function_body(script, "start_adg(){")
+wait_stopped = function_body(script, "adg_wait_stopped() {")
+stop_daemon = function_body(script, "adg_stop_daemon() {")
+stop = function_body(script, "stop_adg(){")
 require('adg_file="${ADG_CONFIG_FILE:-/etc/storage/adg.sh}"' in config,
         "testable config path must retain the production default")
 require('if [ -L "$adg_file" ]; then' in config,
@@ -61,6 +64,27 @@ require('if ! getconfig; then' in start and
         start.index('set_iptable') < start.index('eval "AdGuardHome'),
         "unsafe config preparation must stop before DNS/firewall changes or launch")
 
+require('if pidof AdGuardHome >/dev/null 2>&1; then' in start and
+        start.index('if pidof AdGuardHome') < start.index('getconfig') <
+        start.index('change_dns') < start.index('set_iptable') <
+        start.index('eval "AdGuardHome'),
+        "duplicate starts must be detected before config, DNS, firewall or daemon side effects")
+require('while [ "$adg_wait" -lt 5 ]; do' in wait_stopped and
+        'sleep 1' in wait_stopped and 'pidof AdGuardHome' in wait_stopped,
+        "daemon absence polling must use the live process name and a five-second bound")
+require(stop_daemon.index('killall AdGuardHome') <
+        stop_daemon.index('adg_wait_stopped') <
+        stop_daemon.index('killall -9 AdGuardHome') <
+        stop_daemon.rindex('adg_wait_stopped'),
+        "daemon stop must verify TERM grace before name-based KILL and post-verify absence")
+require('if ! adg_stop_daemon; then' in stop and
+        stop.index('if ! adg_stop_daemon; then') < stop.index('rm -rf /tmp/AdGuardHome') <
+        stop.index('del_dns') < stop.index('clear_iptable'),
+        "workdir, DNS and firewall cleanup must be gated on confirmed daemon exit")
+require('pidof AdGuardHome' in stop_daemon and 'killall -9 AdGuardHome' in stop_daemon and
+        'pidof AdGuardHome' in wait_stopped,
+        "stop must re-enumerate the process by name, not cache a numeric PID")
+
 require('$(INSTALL_BIN) ./adguardhome.sh $(ROMFSDIR)/usr/bin/adguardhome.sh' in package_makefile,
         "ROMFS must install the audited launcher")
 require('$(INSTALL_BIN) $(PKG_BUILD_DIR)/AdGuardHome $(ROMFSDIR)/usr/bin/AdGuardHome' in package_makefile,
@@ -83,6 +107,9 @@ for marker in (
     "rename failure did not clean the private stage",
     "chmod failure published a config",
     "startup changed DNS/firewall before config validation",
+    "duplicate start changed config/DNS/firewall state or launched again",
+    "stop reported success while AdGuardHome remained alive after SIGKILL",
+    "failed stop removed runtime state or traffic redirection",
 ):
     require(marker in test, f"host regression missing case: {marker}")
 
