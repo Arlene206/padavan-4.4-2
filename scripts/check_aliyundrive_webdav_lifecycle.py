@@ -33,6 +33,7 @@ rc = RC_PATH.read_text()
 variables = VARIABLES_PATH.read_text()
 web_ex = WEB_EX_PATH.read_text()
 workflow = WORKFLOW_PATH.read_text()
+binary_test = (ROOT / "scripts/test_aliyundrive_webdav_binary.py").read_text()
 busybox_config = BUSYBOX_CONFIG_PATH.read_text()
 flock_source = FLOCK_SOURCE_PATH.read_text()
 arch_config = ARCH_CONFIG_PATH.read_text()
@@ -264,6 +265,7 @@ paths = [
     "dev_log.md",
     ".github/workflows/aliyundrive-webdav-lifecycle.yml",
     "scripts/check_aliyundrive_webdav_lifecycle.py",
+    "scripts/test_aliyundrive_webdav_binary.py",
     "trunk/user/aliyundrive-webdav/aliyundrive-webdav.sh",
     "trunk/user/aliyundrive-webdav/tests/aliyundrive_webdav_lifecycle.sh",
     "trunk/user/aliyundrive-webdav/Makefile",
@@ -290,6 +292,10 @@ require("CPUFLAGS = -mips32r2 -march=mips32r2" in arch_config and "HOST_TARGET =
 require('TARGET_ARCH="mips"' in uclibc_config and "TARGET_ARCH_BITS=32" in uclibc_config and "CONFIG_MIPS_O32_ABI=y" in uclibc_config and "ARCH_LITTLE_ENDIAN=y" in uclibc_config,
         "uClibc target is no longer the expected MIPS O32 little-endian ABI")
 require(board_templates, "board template scan found no .config files")
+require("qemu-user" in workflow and "scripts/test_aliyundrive_webdav_binary.py" in workflow,
+        "workflow must install QEMU and run the bundled daemon CLI probe")
+for option in ("--version", "--help", "--domain-id", "--workdir", "--no-trash", "--read-only"):
+    require(option in binary_test, f"QEMU probe missing {option} coverage")
 print(f"AliyunDrive WebDAV bundled ELF: {daemon_elf}; size={len(daemon_binary)}; sha256={daemon_sha256}")
 print(f"AliyunDrive WebDAV credential env support: {daemon_has_env_credentials}; missing={missing_env_names}")
 print(f"AliyunDrive WebDAV missing CLI string names: {daemon_missing_cli_names}")
