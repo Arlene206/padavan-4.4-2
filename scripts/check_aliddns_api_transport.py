@@ -90,6 +90,8 @@ require('query_ok=0' in update and
         'if [ "$request_status" -eq 0 ] && aliddns_response_ok "$response"; then' in update and
         'if [ "$query_ok" != "1" ]; then' in update,
         "failed record discovery must never be treated as a valid empty record set")
+require("return 2" in info and 'info_status -eq 2' in ddns_check,
+        "valid empty-record responses must remain distinguishable from transport/API failures")
 require('response=$(add_record)' in update and
         'response=$(update_record "$aliddns_record_id")' in update and
         update.index('response=$(update_record "$aliddns_record_id")') < update.index('nvram set aliddns_record_id='),

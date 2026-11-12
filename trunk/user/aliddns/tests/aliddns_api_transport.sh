@@ -13,11 +13,14 @@ mkdir -p "$MOCK_BIN"
 sed -n '/^send_request() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^aliddns_response_ok() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^aliddns_update_failed() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
+sed -n '/^aliddns_ipv4_valid() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
+sed -n '/^aliddns_ipv6_valid() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^query_recordid() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^query_recordInfo() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^update_record() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^add_record() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^get_recordid() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
+sed -n '/^arDdnsInfo() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^arDdnsUpdate() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 . "$FUNCTIONS"
 
@@ -200,6 +203,18 @@ arDdnsUpdate || fail "successful update response was rejected"
 [ "$(cat "$CURL_COUNT_FILE")" -eq 2 ] || fail "successful update made an unexpected number of requests"
 grep -Fqx 'aliddns_record_id=123' "$NVRAM_LOG" || fail "successful update did not save the record ID"
 grep -Fq '成功更新：203.0.113.9' "$NVRAM_LOG" || fail "successful update status was not published"
+
+# A valid empty AliDNS result is not the same as a failed lookup.
+reset_scenario add-success
+name="www"
+domain="example.com"
+if arDdnsInfo; then
+	fail "empty record set was reported as an existing address"
+else
+	info_status=$?
+fi
+[ "$info_status" -eq 2 ] || fail "valid empty record set did not return the dedicated status"
+[ "$(cat "$CURL_COUNT_FILE")" -eq 1 ] || fail "empty record check made an unexpected number of requests"
 
 # AddDomainRecord is attempted only after valid, successful empty-record reads.
 reset_scenario add-success
