@@ -31,7 +31,7 @@
 
 #include "rc.h"
 #include "route_status_policy.h"
-#include "../../shared/src/dhcp6c_duid_file_policy.h"
+#include <dhcp6c_duid_file_policy.h>
 #include "dhcp6c_config_file.h"
 #include "dhcp6c_callback_generation_policy.h"
 

@@ -1,3 +1,18 @@
+## 2026-11-13 01:02 CST (UTC+8) — Fix XY-C1 RC IPv6 DUID staged-header lookup
+
+- Base main SHA: \`9a508588a33c220b334d1dd40012eb5fd5ac89ec\`; remote branch inventory contained only \`main\`.
+- Exact-head XY-C1 push run [43263025719], job [131339067215], checked out this SHA. The kernel, BusyBox and HTTPD stages completed; RC compilation reached \`net_wan6.o\` and failed at \`net_wan6.c:34\` because \`../../shared/src/dhcp6c_duid_file_policy.h\` is a source-tree-relative path that is not valid in the staged package tree.
+- Confirmed \`trunk/user/shared/src/Makefile\` installs root-level headers into \`$(DESTDIR)/include/shared\`, the RC package adds \`-I$(STAGING_DIR)/include/shared\`, and \`trunk/user/Makefile\` builds shared before RC. Therefore the narrow fix is to include \`<dhcp6c_duid_file_policy.h>\` from the staged include path; no duplicate header or runtime-policy change is required.
+- THIS COMMIT switches \`net_wan6.c\` to the public staged include name, adds a GNU89 syntax-only regression against a temporary \`stage/include/shared\` layout, and expands XY-C1 push filters to cover the IPv6 RC source and checker. The contract runs before the target build.
+- On the base SHA, AI docs [43263025362] and HTTPD security [43263025674] SUCCESS. Separate failures storage-hotplug [43263025900] and WAN DHCP [43263025911] are unrelated to this target compiler error and remain explicit follow-up CI work.
+- Full local repository checkout/target cross-build: NOT RUN. The new regression and exact-head XY-C1 firmware build, non-empty TRX validation and artifact upload await push Actions. No TRX or artifact success is claimed. L4 hardware/router validation: NOT VERIFIED.
+- Root \`dev_log.md\`: 67→68 complete records, below the 120-record rotation threshold and 384 KiB early-rotation target; file remains below the 512 KiB hard cap. Archive inventory remains dev-log=7, handoff=22, roadmap=18; no archive/index rotation is due.
+- Changed paths: \`trunk/user/rc/src/net_wan6.c\`, new \`scripts/check_dhcp6c_duid_header_staging.py\`, \`.github/workflows/xy-c1-firmware-validation.yml\`, \`SESSION_HANDOFF.md\`, \`REFACTOR_ROADMAP.md\` and this log.
+- Resulting main commit: THIS COMMIT.
+- Next: inspect the exact-head XY-C1 push run for this commit. Require the DUID staged-header regression to pass; then repair only the next first-causal compiler or image-assembly error and continue until build, non-empty TRX validation and artifact upload succeed on one exact main SHA.
+
+---
+
 ## 2026-11-13 00:43 CST (UTC+8) — Repair XY-C1 RC ctype/prototype errors and restore Samba host regression
 
 - Base main SHA: `98dedc29c55b2699857c05f3c708188e0f7d56dc`; branch inventory at recovery contained only `main`.
