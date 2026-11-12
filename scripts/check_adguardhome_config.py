@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import re
 
 ROOT = Path(__file__).resolve().parents[1]
 script_path = ROOT / "trunk/user/adguardhome/adguardhome.sh"
@@ -28,9 +27,13 @@ def require(condition: bool, message: str) -> None:
 
 
 def function_body(source: str, signature: str) -> str:
-    match = re.search(rf"(?m)^{re.escape(signature)}[ \\t]*\\{{(.*?)^[ \\t]*\\}}", source, re.S)
-    require(match is not None, f"missing function {signature}")
-    return match.group(1)
+    start = source.find(signature)
+    require(start >= 0, f"missing function {signature}")
+    opening = source.find("{", start)
+    require(opening >= 0, f"missing opening brace for {signature}")
+    closing = source.find("\\n}", opening + 1)
+    require(closing >= 0, f"missing closing brace for {signature}")
+    return source[opening + 1:closing]
 
 
 config = function_body(script, "getconfig(){")

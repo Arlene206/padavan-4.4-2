@@ -1,3 +1,16 @@
+## 2026-11-12 11:53 CST (UTC+8) — Correct AdGuardHome source-contract function boundary parser
+
+- Base main SHA: `67c183b0a2464bc5f3d943917c98c8435749dbc8`.
+- Exact-head AdGuardHome workflow [43153199422] checked out this SHA. Shell syntax and the complete secret-config host regression passed, including mode 0600, existing-file permission repair, symlink/FIFO rejection, failed rename/chmod cleanup and startup fail-closed ordering.
+- The semantic source-contract step failed before checking integrations because its Python function-boundary regex was over-escaped and failed to locate the existing `getconfig(){` signature. This is a checker parser defect; no production shell or host regression failure occurred.
+- Exact-head AI handoff docs [43153199230] and infosvr packet/signal [43153199055] both SUCCESS. Every step/full log inspected. Docs validator reported root log=45/119 and archives dev-log=7, handoff=22, roadmap=18.
+- THIS COMMIT replaces the brittle escaped regex with explicit signature/opening-brace/column-zero closing-brace boundary extraction. No production code or host regression changed.
+- Corrected AdGuardHome and AI handoff-doc Actions on THIS COMMIT are pending; do not close L2 until the new semantic contract and docs validator pass on this exact SHA.
+- Root `dev_log.md` grows 45→46 complete records; below rotation thresholds. No archive or INDEX update is due; archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- Next: inspect exact-head corrected AdGuardHome and AI docs Actions, every step and complete log. Require config regression, source/caller/ROMFS checks, exact-once symmetric filters and docs root log=46/119, archives=7/22/18. Then continue AdGuardHome bounded stop, duplicate/concurrent start, DNS rollback and address-change cleanup audit. FTP TOCTOU remains OPEN/BLOCKED; NFS needs real-client evidence; MIPS/uClibc, firmware/TRX and L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-12 11:49 CST (UTC+8) — Protect AdGuardHome configuration secrets with private atomic publication
 
 - Base main SHA: `f8c154c5443514df45c01d8d74ffcb21366b7faf`; remote branch inventory contains only `main`, with no checkpoint branch.
