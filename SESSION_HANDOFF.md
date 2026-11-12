@@ -3,8 +3,9 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; branch `main`; only remote branch is `main`; no checkpoint branch.
-- Base main SHA for THIS COMMIT: `9e5351d7f790dca5de5ec2495291fd34edaa658c` (parent `8e1e0c75afd3b95796cd3354d763b90395c9ef05`); only remote branch is `main`, no checkpoint branch.
-- Recovered exact-head CI on that base SHA: VPN [43136063682], infosvr [43136063361] and AI handoff docs [43136063333] all completed SUCCESS. VPN lifecycle/shared-lock/callback contracts, infosvr packet/signal contracts and docs validation passed; docs reported root log=39/119 and archive counts=7/22/18.
+- Base main SHA for THIS COMMIT: `f39638ac28bae38e6ec8d2694831685b3be98d4e` (parent `55c88ad2e93874d7fe53520e028b749742a6d144`); only remote branch is `main`, no checkpoint branch.
+- DDNSTO stale-PID stop/restart L1/L2 is CLOSED on exact SHA `f39638ac28bae38e6ec8d2694831685b3be98d4e`: DDNSTO [43140910335] and AI handoff docs [43140910294] both completed SUCCESS; every step/full log inspected, host lifecycle and RC source contracts PASS, docs validator reported root log=40/119 and archives=7/22/18.
+- This round resumes the whole-tree add-on process-control audit in ZeroTier, outside the recently covered VPN/HTTPD/DNS/Wi-Fi/infosvr paths.
 - DNS Forwarder caller-CWD-independent launcher is L1/L2 CLOSED on exact SHA `c2e1c85517ed2dcbe094ed43e3cae18d7af4d972`: DNS [43066687882], AI docs [43066687814] and infosvr [43066687818] SUCCESS.
 - DNSMasq DHCP pool/router-address exclusion is L1/L2 CLOSED on exact SHA `c22542d36e9de26780b338267f41a91d99aaf34a`: DNSMasq [43069047780], AI docs [43069047752], HTTPD [43069047723], infosvr [43069047578], Samba [43069047831] and miniupnpd [43069047633] SUCCESS.
 - WAN bridge VLAN deletion failure propagation is L1/L2 CLOSED on exact SHA `55740d3491fba908416b930664143943b5acca1a`: wireless [43069624285], AI docs [43069624357], infosvr [43069624265] and WAN DHCP [43069624334] SUCCESS.
@@ -171,18 +172,22 @@
 - Added `trunk/user/ddnsto/tests/ddnsto_lifecycle.sh` for no-process, graceful TERM, bounded KILL escalation, unkillable-process failure and start-gating cases. Added `scripts/check_ddnsto_lifecycle.py` for lifecycle ordering, stale-PID exclusion, ROMFS installation, RC caller wiring and symmetric push/pull_request filters. The isolated host run passed; shell syntax and Python bytecode compilation passed. Exact-head DDNSTO and AI-doc Actions are pending at commit creation.
 - The fix does not serialize simultaneous independent RC/script invocations. Target BusyBox `pidof`/`killall` process visibility and daemon stop timing remain unverified; no L3/L4 claim is made.
 
-## Active task — Continue whole-tree RC/add-on process-control and file-publication audit (P2 stability)
+## Active task — Make ZeroTier stop/start fail closed on confirmed daemon exit (P2 stability)
 
-- DDNSTO's stale numeric-PID escalation and stop-before-start gap are now addressed at source/host-test level. After exact-head Actions, continue auditing optional add-ons and shared RC lifecycle code rather than repeating the recently closed VPN/HTTPD/DNS work.
-- Next inspect service wrappers and their callers across remaining user-space packages, including Adbyby, AdGuardHome, AliyunDrive WebDAV, FRP, AliDDNS and ZeroTier. For each, trace all start/stop/restart paths, process identity, concurrent invocations, bounded wait/postconditions, PID/config file trust, firewall/interface cleanup and error propagation. Select one reproducible cross-module bug per round.
-- FTP failed-upload cleanup TOCTOU remains P2 OPEN/BLOCKED: Linux 4.4 has no inode-conditional unlink-by-fd; do not patch without a proved design preserving STOR/APPE/REST/STOU, ACL/parent pinning and overwrite/concurrent-writer semantics. NFS async durability and AUTH_SYS/root-squash remain real-client evidence-gated.
+- Traced the integrated path: RC notification `RCN_RESTART_ZEROTIER` → `restart_zerotier()` in `services.c` → ROMFS-installed `/usr/bin/zerotier.sh` from the ZeroTier package Makefile. `rc.h` declares the wrapper and `rc.c` dispatches the notification.
+- Found a stale-PID race in `kill_z()`: it captured numeric output from `pidof zerotier-one`, sent TERM with `killall`, then sent SIGKILL to the cached numeric PID. The PID can be reused between those signals. The function had no bounded absence postcondition and its status was ignored by `start_zero()`.
+- Found a destructive stop failure path: `stop_zero()` removed firewall rules and routes, called `kill_z()` without checking its result, then recursively removed `/etc/storage/zerotier-one`. A daemon that survived shutdown could therefore remain active after its routing/firewall state and persistent identity/configuration were removed.
+- THIS COMMIT replaces the cached PID signal with a bounded five-second TERM wait and, only if necessary, a fresh process-name `killall -9 zerotier-one` followed by a second bounded absence check. Start refuses to launch a replacement if absence cannot be confirmed. Stop now preserves firewall/routing state and the persistent config directory on shutdown failure; cleanup runs only after confirmed daemon absence.
+- A focused host shell regression and semantic RC/ROMFS/workflow checker are added. Exact-head ZeroTier and AI handoff Actions must pass before L2 is closed. The source-level change intentionally does not solve ZeroTier's separate unbounded interface/route readiness loops in `rules()`; retain that as a follow-up audit item.
+- FTP failed-upload cleanup TOCTOU remains P2 OPEN/BLOCKED; NFS durability/auth behavior remains real-client evidence-gated.
 
 ## Verification boundary
 
-- L1 source review: PASS for the DDNSTO service path from the RC notification caller through `restart_ddnsto()`, the `services.c` wrappers and the ROMFS-installed `/usr/bin/ddnsto.sh`; the stale numeric-PID signal is removed, TERM/KILL waits are bounded, the final absence postcondition is checked and replacement startup is gated.
-- L2 host: the isolated POSIX-shell lifecycle regression passed all five scenarios (no process, graceful TERM, TERM timeout plus name-based KILL, process that remains after SIGKILL, and start blocked after failed stop). `sh -n` passed for the service script and regression; `python3 -m py_compile` passed for the semantic checker. The DDNSTO workflow runs the regression and integrated source/path-filter contract on the exact pushed SHA; Actions are pending.
-- The development container could not clone GitHub because DNS resolution for github.com failed. No full local checkout or local run of `scripts/check_ai_handoff_docs.py` was possible; the exact-head AI-doc workflow is required for repository-wide documentation validation.
-- L3 production MIPS/uClibc, target BusyBox/procfs process visibility, actual daemon-stop timing and complete firmware/TRX: NOT VERIFIED.
+- DDNSTO L1/L2 CLOSED on exact SHA `f39638ac28bae38e6ec8d2694831685b3be98d4e`: Actions DDNSTO [43140910335] and AI handoff docs [43140910294] both SUCCESS. Full job steps and logs inspected; five lifecycle scenarios and the RC integration contract PASS; docs validator root log=40/119, archives dev-log=7 / handoff=22 / roadmap=18.
+- ZeroTier L1 source review: PASS for the RC notification → services wrapper → ROMFS launcher chain. The stale numeric PID is removed; TERM and forced-stop waits are bounded; start is gated on process absence; persistent network/config cleanup is gated on the same postcondition.
+- ZeroTier L2 host regression and semantic source checker: added in this commit; exact-head Actions pending. No result is claimed until the ZeroTier workflow and AI docs workflow complete on the same SHA.
+- The development container could not clone GitHub because DNS resolution for github.com failed. No complete local checkout or local execution of `scripts/check_ai_handoff_docs.py` is claimed; exact-head GitHub Actions are authoritative for repository integration and documentation validation.
+- L3 production MIPS/uClibc, target BusyBox/procfs behavior, actual ZeroTier daemon stop timing, interface/route readiness, complete firmware/TRX: NOT VERIFIED.
 - L4 router / physical hardware: NOT VERIFIED.
 
 ## Other open governance-ledger risks
@@ -197,6 +202,6 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch the live `main` ref and record its exact SHA. Inspect the DDNSTO lifecycle workflow and AI handoff documentation workflow on that exact SHA, including every step and complete logs. Require the host regression and DDNSTO lifecycle/RC/path-filter source contracts to print PASS, and the docs validator to report root log=40/119 with archive counts dev-log=7, handoff=22, roadmap=18. Recheck any additional workflow triggered by the changed paths.
-2. If exact-head L2 passes, continue the whole-tree add-on process-control/file-publication audit. Trace all callers before editing and select a distinct, reproducible next defect; do not assume DDNSTO's process-name approach transfers to services with different daemon or privilege models.
-3. Keep FTP failed-upload cleanup TOCTOU OPEN/BLOCKED pending a Linux 4.4-safe inode/parent proof, NFS durability/auth semantics evidence-gated on real clients, and L3/L4 NOT VERIFIED until production MIPS/uClibc/firmware and router evidence exists.
+1. Fetch live `main` and record its exact SHA. Inspect ZeroTier lifecycle and AI handoff documentation Actions for that exact SHA, including every job step and complete logs. Require the five process-lifecycle regression scenarios, bounded TERM/KILL waits, start gate, stop-failure preservation of firewall/routes/identity files, RC/ROMFS integration contracts, symmetric path filters and docs validator (root log=41/119, archives dev-log=7, handoff=22, roadmap=18) to pass. Inspect every additional workflow triggered by those paths.
+2. Once exact-head L2 is green, continue the whole-tree add-on audit. The next ZeroTier-specific follow-up is the unbounded network-interface and NAT-route readiness loops in `rules()`; then rotate to another distinct optional-service wrapper (AdGuardHome, AliyunDrive WebDAV, FRP, AliDDNS or Adbyby) rather than repeating ZeroTier.
+3. Keep FTP failed-upload cleanup TOCTOU OPEN/BLOCKED until a Linux 4.4-safe inode/parent design preserves STOR/APPE/REST/STOU and concurrent external writers. NFS remains real-client evidence-gated; L3/L4 remain NOT VERIFIED until production MIPS/uClibc, full firmware/TRX and router evidence exists.

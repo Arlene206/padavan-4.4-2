@@ -150,23 +150,51 @@ zero_route() {
 
 start_zero() {
 	logger -t "zerotier" "正在启动zerotier"
-	kill_z
+	if ! kill_z; then
+		logger -t "zerotier" "旧进程未能确认退出，取消启动"
+		return 1
+	fi
 	start_instance 'zerotier'
-
+}
+zerotier_wait_stopped() {
+	zerotier_wait=0
+	while [ "$zerotier_wait" -lt 5 ]; do
+		if ! pidof zerotier-one >/dev/null 2>&1; then
+			return 0
+		fi
+		sleep 1
+		zerotier_wait=$((zerotier_wait + 1))
+	done
+	if pidof zerotier-one >/dev/null 2>&1; then
+		return 1
+	fi
+	return 0
 }
 kill_z() {
-	zerotier_process=$(pidof zerotier-one)
-	if [ -n "$zerotier_process" ]; then
-		logger -t "zerotier" "关闭进程..."
-		killall zerotier-one >/dev/null 2>&1
-		kill -9 "$zerotier_process" >/dev/null 2>&1
+	if ! pidof zerotier-one >/dev/null 2>&1; then
+		return 0
 	fi
+	logger -t "zerotier" "关闭进程..."
+	killall zerotier-one >/dev/null 2>&1
+	if zerotier_wait_stopped; then
+		return 0
+	fi
+
+	logger -t "zerotier" "进程未响应TERM，尝试强制停止..."
+	# Re-enumerate by process name; never signal a cached numeric PID.
+	killall -9 zerotier-one >/dev/null 2>&1
+	zerotier_wait_stopped
 }
 stop_zero() {
+	# Keep the persistent identity/configuration and live network state intact
+	# unless the daemon is confirmed absent.
+	if ! kill_z; then
+		logger -t "zerotier" "无法确认ZeroTier已停止，保留配置与网络规则"
+		return 1
+	fi
 	del_rules
 	zero_route "del"
-	kill_z
-	rm -rf $config_path
+	rm -rf "$config_path"
 }
 
 #创建moon节点

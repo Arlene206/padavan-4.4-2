@@ -1,3 +1,17 @@
+## 2026-11-12 10:35 CST (UTC+8) — Gate ZeroTier cleanup on confirmed daemon shutdown
+
+- Base main SHA: `f39638ac28bae38e6ec8d2694831685b3be98d4e`; parent `55c88ad2e93874d7fe53520e028b749742a6d144`.
+- Resumed the active whole-tree RC/add-on lifecycle audit after closing DDNSTO on the exact base SHA. DDNSTO [43140910335] and AI handoff docs [43140910294] both completed SUCCESS on `f39638ac28bae38e6ec8d2694831685b3be98d4e`; all steps and full logs were inspected. The five-case DDNSTO lifecycle regression and RC/ROMFS source contract passed; docs validator reported root log=40/119 and archives=7/22/18.
+- Traced ZeroTier notification `RCN_RESTART_ZEROTIER` through `restart_zerotier()`, the service wrappers and ROMFS-installed `/usr/bin/zerotier.sh`. Found that `kill_z()` cached `pidof zerotier-one` numeric PIDs, sent TERM by name, then SIGKILL to the stale numeric snapshot. There was no bounded absence postcondition and `start_zero()` ignored the stop result.
+- Found a destructive stop-failure path: `stop_zero()` removed firewall rules and routes before checking daemon termination, then unconditionally recursively deleted `/etc/storage/zerotier-one`. A surviving daemon could be left running without its network state while its persistent identity/configuration was destroyed.
+- THIS COMMIT adds a five-second live-process TERM wait, fresh process-name SIGKILL escalation and a second bounded absence postcondition. Replacement startup now fails closed when old-daemon absence is unconfirmed. Stop now gates firewall/routing cleanup and persistent config removal on confirmed daemon absence.
+- Added a shell regression for no-process, graceful TERM, TERM-resistant/KILL, still-running daemon, start gating, stop-failure identity/config preservation and successful cleanup ordering. Added semantic RC/ROMFS/source and exact-once symmetric workflow path-filter checks. The ZeroTier and AI-doc workflows must pass on this exact resulting SHA before L2 closure.
+- The container cannot clone GitHub because DNS resolution for github.com failed. No local full checkout, local test execution or repository-wide docs check is claimed. Production MIPS/uClibc, target BusyBox/procfs process visibility, ZeroTier interface/route readiness, firmware/TRX and L4 remain NOT VERIFIED.
+- Root `dev_log.md` grows 40→41 complete records; no rotation or INDEX update is due. Archive inventory remains dev-log=7, handoff=22, roadmap=18.
+- Next: inspect every step/full log for exact-head ZeroTier and AI docs Actions. If green, continue the distinct add-on audit; ZeroTier's unbounded interface and NAT-route readiness loops in `rules()` are the next follow-up. FTP cleanup TOCTOU remains P2 OPEN/BLOCKED; NFS remains real-client evidence-gated.
+
+---
+
 ## 2026-11-12 09:53 CST (UTC+8) — Harden DDNSTO stop/restart against stale PID signals
 
 - Base main SHA: `9e5351d7f790dca5de5ec2495291fd34edaa658c`; parent `8e1e0c75afd3b95796cd3354d763b90395c9ef05`.
