@@ -31,7 +31,7 @@ def function_body(source: str, signature: str) -> str:
     require(start >= 0, f"missing function {signature}")
     opening = source.find("{", start)
     require(opening >= 0, f"missing opening brace for {signature}")
-    closing = source.find("\\n}", opening + 1)
+    closing = source.find(chr(10) + "}", opening + 1)
     require(closing >= 0, f"missing closing brace for {signature}")
     return source[opening + 1:closing]
 
