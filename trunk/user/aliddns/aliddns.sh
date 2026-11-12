@@ -439,7 +439,7 @@ esac
 # 参数: 待查询域名
 arNslookup() {
 mkdir -p /tmp/arNslookup
-lookup_file="/tmp/arNslookup/$"
+lookup_file="/tmp/arNslookup/$$"
 nslookup "$1" > "$lookup_file" 2>&1 &
 lookup_pid=$!
 I=5
@@ -453,7 +453,7 @@ if kill -0 "$lookup_pid" 2>/dev/null; then
 	kill -9 "$lookup_pid" 2>/dev/null
 fi
 wait "$lookup_pid" 2>/dev/null
-tail -n +3 "$lookup_file" | grep "Address" "$lookup_file" | awk '{print $3}' | grep -v ":" | sed -n '1p' > "$lookup_file.result"
+tail -n +3 "$lookup_file" | grep "Address" | awk '{print $3}' | grep -v ":" | sed -n '1p' > "$lookup_file.result"
 rm -f "$lookup_file"
 if [ -s "$lookup_file.result" ]; then
 	cat "$lookup_file.result"
@@ -466,7 +466,7 @@ return 1
 
 arNslookup6() {
 mkdir -p /tmp/arNslookup
-lookup_file="/tmp/arNslookup/$"
+lookup_file="/tmp/arNslookup/$$"
 nslookup "$1" > "$lookup_file" 2>&1 &
 lookup_pid=$!
 I=5
@@ -480,7 +480,7 @@ if kill -0 "$lookup_pid" 2>/dev/null; then
 	kill -9 "$lookup_pid" 2>/dev/null
 fi
 wait "$lookup_pid" 2>/dev/null
-tail -n +3 "$lookup_file" | grep "Address" "$lookup_file" | awk '{print $3}' | grep ":" | sed -n '1p' > "$lookup_file.result"
+tail -n +3 "$lookup_file" | grep "Address" | awk '{print $3}' | grep ":" | sed -n '1p' > "$lookup_file.result"
 rm -f "$lookup_file"
 if [ -s "$lookup_file.result" ]; then
 	cat "$lookup_file.result"
