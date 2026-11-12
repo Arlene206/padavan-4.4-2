@@ -172,7 +172,7 @@ require("curl -k" not in source and "--no-check-certificate" not in source and
         "stock AliDDNS source retains an insecure public-IP or DNS lookup")
 require('$(ROMFSINST) -p +x $(THISDIR)/aliddns-ipv4.sh /usr/bin/aliddns-ipv4.sh' in package,
         "IPv4 helper must be installed executable in ROMFS")
-require('"tls-failure)"' in ipv4_test and '"timeout)"' in ipv4_test and
+require("tls-failure)" in ipv4_test and "timeout)" in ipv4_test and
         "multi-line data" in ipv4_test and
         "strict IPv4/IPv6 address validation regression: PASS" in ipv4_test,
         "public-IP regression must cover transport failures and strict address validation")
