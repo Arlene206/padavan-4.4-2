@@ -266,7 +266,9 @@ jobs:
           assert "errno = saved_errno;" in failure_guard
           assert "return -1;" in failure_guard
           assert "file_unlock(lock)" not in failure_guard
-          assert servers_writer.index("file_unlock(lock);") > servers_writer.index("dnsmasq_file_publish(")
+          publish_call = servers_writer.index("dnsmasq_file_publish(")
+          assert servers_writer.index("file_unlock(lock);", publish_call) > publish_call
+          assert servers_writer.count("file_unlock(lock);") == 3
           assert "dnsmasq_confirm_started(launch_status)" in start
           assert "dnsmasq_confirm_started(launch_status)" in restart
           assert "eval(\"/usr/sbin/dnsmasq\")" in start
