@@ -1,3 +1,17 @@
+## 2026-11-14 05:30 CST (UTC+8) — Reconcile exact main SHA and verify all current push workflows
+
+- Recovered from the live repository after reading the mandatory bootstrap/protocol, live handoff, roadmap and newest 20 complete root dev-log records. Live main is `9eda1297321595f6e17909e0079ec642a1e174e8`, direct parent `300ea7175af6c906b3bac97517f3d270f4af55e2`.
+- Compared `8672afe19c5a9f867f8cf89f8ff626329bcc5341...9eda1297321595f6e17909e0079ec642a1e174e8`: only `SESSION_HANDOFF.md` and `dev_log.md) changed. Compared product source `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f...9eda1297321595f6e17909e0079ec642a1e174e8`: six commits changed only the roadmap, handoff and log; no product source delta.
+- Remote refs: only branch `main`; PR #1 CLOSED / UNMERGED with legacy head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`; prior handoff records its valid CA/HMAC work as ported. `toolchain` tag remains `7f7d3ea41ebdd7eeab8a303f3d4ad8dddb54a8a7`.
+- Enumerated all current exact-head Actions: 5/5 push runs completed SUCCESS, all `head_sha=9eda1297321595f6e17909e0079ec642a1e174e8`: AI docs `43511038469`, NVRAM `43511038548`, AdGuardHome `43511038550`, AliDDNS `43511038565`, AliyunDrive `43511038703`. Every job had no failed/pending steps; NVRAM inventory completed.
+- Re-read `pids.c`, `shutils.h`, `common_ex.c`, `services_ex.c` and `service_lifecycle_policy.h`. Confirmed OOM / `opendir("/proc")` failure is collapsed to an empty list and `pids()` / `pids_main()` report 0; PID-list allocation/growth failure is also mapped to 0. `readdir()==NULL` is treated as EOF without checking `errno`, permitting a partial inventory on read error. Lifecycle policy currently sends TERM before inventory checks and cannot represent UNKNOWN; UNKNOWN must abort before signals, escalation, stop-success, restart or cleanup.
+- Attempted a shallow filtered checkout; it failed because the environment could not resolve `github.com`. GitHub code-search API returned zero matches with `incomplete_results=true`. Full caller inventory is therefore still NOT COMPLETE; no source/test edits were made. L1 partial review; L2 NOT RUN.
+- Product-source L3 remains the exact XY-C1 MIPSel build/TRX/artifact on `691e4d6` (run `43489646254` / job `132107102854`); later six commits are documentation-only. L4 NOT VERIFIED.
+- Changed paths: `SESSION_HANDOFF.md` and `dev_log.md`. Root log 37→38/119; archive inventory unchanged; no rotation/INDEX/roadmap update. This record's resulting SHA: THIS COMMIT.
+- Next: obtain a complete checkout/reliable whole-tree search, enumerate every process inventory and lifecycle-policy caller, then implement and test the checked tri-state API and fail-closed stop policy before migrating DNSMasq and other daemon consumers.
+
+---
+
 ## 2026-11-14 05:30 CST (UTC+8) — Reconcile latest main and preserve process-inventory recovery boundary
 
 - Re-fetched live main as `8672afe19c5a9f867f8cf89f8ff626329bcc5341`; its only parent-range changes from `947d9ce8aa51a8f000bbe3186e03774c226880c2` were documentation files. Refreshed the live handoff in commit `300ea7175af6c906b3bac97517f3d270f4af55e2`.
