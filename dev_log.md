@@ -1,3 +1,15 @@
+## 2026-11-14 05:55 CST (UTC+8) — Reconcile live main and exact-head Actions; preserve process-inventory blocker
+
+- Base main SHA: `068e9896b5d0cff52a560bd4abe75287563f9155` (parent `unknown`). Current branch inventory contains only `main`; legacy PR #1 remains CLOSED / UNMERGED. The current source tree remains unchanged from the L3-verified product-source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`.
+- Exact-head push Actions for the base SHA completed 5/5 SUCCESS with exact `head_sha`: AdGuardHome [43513045226], AliDDNS [43513045288], AliyunDrive [43513044978], AI handoff docs [43513045093], and NVRAM [43513045180]. No infosvr run was returned for this docs-only change set.
+- Reconfirmed the shared process-inventory fail-open path in `pids.c`: initial scan-context allocation / `opendir("/proc")` failure is indistinguishable from an empty list; `readdir()` NULL is accepted as EOF without checking `errno`; PID-list allocation failures also collapse to absence. Existing lifecycle consumers are Boolean and cannot safely represent UNKNOWN.
+- GitHub code search returned no results for the relevant API and lifecycle symbols; recursive repository tree output was truncated before most userland paths. No complete checkout or equivalent whole-tree text search is available. Caller inventory remains incomplete, so no product source or regression was changed; L1 partial, L2 NOT RUN. This deliberately avoids an unsafe API change.
+- Updated only the live handoff and this log. Root log advances 40→41/119; archive inventory remains dev-log=8 / handoff=22 / roadmap=18. No rotation, INDEX, roadmap, or snapshot archive change.
+- Existing product-source L3 XY-C1 MIPSel/TRX evidence remains on `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f` (run `43489646254` / job `132107102854`); L4 router flash/boot remains NOT VERIFIED.
+- Resulting commit: THIS COMMIT. Exact-head Actions for this documentation checkpoint must be checked during the next recovery; no local tests, firmware build, or hardware test are claimed.
+
+---
+
 ## 2026-11-14 05:41 CST (UTC+8) — Reconcile exact-main Actions and preserve process-inventory blocker
 
 - Base main SHA: `118c9655c7d4787f94568c54fc6a8d7838c4ae93`; live main before this checkpoint was `2be039ecc8bfb35203b3a41fda0f47cd4ee95b57`. The intervening commit changed only `SESSION_HANDOFF.md`; product source remains the L3-verified `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f` tree.
