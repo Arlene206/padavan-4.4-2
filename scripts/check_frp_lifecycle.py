@@ -329,8 +329,8 @@ require("frp_client_backup" in publish_pair and "frp_server_backup" in publish_p
         "frp_rollback_config_pair" in publish_pair and
         publish_pair.index("frp_publish_staged_config") < publish_pair.rindex("frp_publish_staged_config"),
         "FRP client/server configs must publish through one pair transaction with rollback")
-require('[ -e "$frp_client_backup" ]' in rollback_pair and
-        '[ -e "$frp_server_backup" ]' in rollback_pair and
+require('[ -n "$frp_client_backup" ] && [ -e "$frp_client_backup" ]' in rollback_pair and
+        '[ -n "$frp_server_backup" ] && [ -e "$frp_server_backup" ]' in rollback_pair and
         "frp_pair_transaction_active=1" in publish_pair and
         "frp_preserve_config_backups=1" in publish_pair and
         "frp_rollback_config_pair" in function_body(frp_template, "frp_cleanup_config_stages()"),
