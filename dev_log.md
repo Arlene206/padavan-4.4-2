@@ -1,3 +1,43 @@
+## 2026-11-13 17:20 CST (UTC+8) — Refresh FRP handoff and roadmap after serialized lifecycle verification
+
+- Recovery followed `AI_BOOTSTRAP_PROMPT.md` and `AI_DEVELOPMENT_PROTOCOL.md` in prescribed order. Re-read current handoff, roadmap, newest 20 root log entries and archive index; recovery HEAD was `b45a624f70e18e45415256092b3c6e6aa978f0f5`, current FRP source/test checkpoint is `7787210e670b74184d0326f1e8e68efa9063c65c`.
+- FRP exact-head push [43399797821] / job [131799522268] and AI handoff [43399798215] / job [131799523616] both SUCCESS on the exact code checkpoint; all job steps/full logs inspected. FRP lifecycle lock, async restart, cron, boot, private config, bounded stop and source/workflow tests pass.
+- Updated the active handoff to mark only the bounded serialization slice L2 closed and set the next task to exact PID/argv identity, bounded startup readiness and process-specific stop outcomes. Updated FRP roadmap status and promoted remaining whole-tree WAN bridge/VLAN, Wi-Fi detach, DHCPv6 and service-supervision work after that bounded slice.
+- Root dev-log adds four records in total (this checkpoint and the three code/test commits): 104→108, under the 120-record rotation and 384 KiB early-rotation thresholds. Archive inventories remain dev-log=7, handoff=22, roadmap=18; no archive/index mutation.
+- No source code is changed in this documentation checkpoint. The exact-head AI documentation workflow for the resulting tree must validate the updated handoff, roadmap and root log. No local test, full firmware/TRX build or hardware test is claimed.
+- Resulting main commit: THIS COMMIT.
+
+---
+
+## 2026-11-13 17:15 CST (UTC+8) — Assert post-action lock release and reject inherited FRP FD 9
+
+- Base main SHA: `1802e0a050b65cf78f25bc979d490e71cf6df359`.
+- The exact-head 1802 FRP regression passed shell syntax and every host fixture, but the semantic checker selected the earlier FD-9 close in the contention-timeout branch when ordering the post-action unlock. This was a checker-ordering defect, not a production lock failure.
+- Changed the source contract to compare against the final `exec 9>&-` after the locked action; extended the host regression to pre-open FD 9 and require the launcher to reject it without running the action.
+- On exact main `7787210e670b74184d0326f1e8e68efa9063c65c`, FRP [43399797821] / job [131799522268] and AI docs [43399798215] / job [131799523616] both SUCCESS. Every checkout SHA matched, all job steps and full logs were inspected. FRP output confirms stable inode, unsafe path, bounded contention, status propagation, inherited-FD and semantic contract PASS; AI docs reports 104/119 root entries and archives 7/22/18.
+- Changed paths: `scripts/check_frp_lifecycle.py` and `trunk/user/frp/tests/frp_lock.sh`; no production behavior change. No firmware/TRX or hardware validation is claimed.
+
+---
+
+## 2026-11-13 17:10 CST (UTC+8) — Repair FRP lifecycle-lock fixture output and RC restart contracts
+
+- Base main SHA: `dccfed4cb318c6babc11da1af7675f5173251658`.
+- The dcc exact-head FRP workflow [43398856615] failed in the new lock regression because over-escaped printf newlines produced a literal backslash-n in the fixture's lock path/output; all earlier FRP shell regressions passed. This was a test-fixture defect.
+- Corrected shell printf strings to emit real newlines and aligned the duplicate C RC checker with the single serialized `frp.sh restart` dispatcher. Production process-control behavior was not changed by this correction commit.
+- On exact main `1802e0a050b65cf78f25bc979d490e71cf6df359`, AI docs [43399117134] / job [131799523616] SUCCESS and FRP [43399116749] reached the final source checker after all host tests passed; the checker then failed on its first-close ordering assertion, corrected by the following commit. Both exact checkouts and all FRP job steps were inspected.
+- Changed paths: `trunk/user/frp/frp.sh`, `trunk/user/frp/tests/frp_lock.sh`, and `scripts/check_frp_lifecycle.py`. No full firmware or router test is claimed.
+
+---
+
+## 2026-11-13 17:08 CST (UTC+8) — Serialize FRP lifecycle operations across RC, cron and watchdog
+
+- Base main SHA: `b45a624f70e18e45415256092b3c6e6aa978f0f5`. Auditing the complete UI/HTTPD/PID1/RC/boot/cron path found that watchdog check, start, stop and RC/UI restart were separate uncoordinated launcher processes; the RC restart released state between stop and start and crontab transactions could overlap.
+- Added a stable private `/tmp/.frp.lifecycle.lock` inode with owner/mode/link/type/path checks, bounded flock, under-lock NVRAM refresh and a common start/stop/restart/watchdog dispatcher. PID1 RC restart now calls one `restart` action; the custom config script closes FD 9 before launching long-lived daemons. Added a dedicated lock regression and workflow/source-contract coverage.
+- Exact dcc source SHA `dccfed4cb318c6babc11da1af7675f5173251658` triggered 18 push workflows: 17 completed SUCCESS; FRP [43398856615] failed in the new lock fixture because of escaped newline/path output. Later exact-head commits corrected the fixture and checker; this failure is not represented as a passing test.
+- Changed paths: `trunk/user/frp/frp.sh`, `trunk/user/rc/src/services.c`, `trunk/user/frp/tests/frp_lock.sh`, `scripts/check_frp_lifecycle.py`, and `.github/workflows/frp-lifecycle.yml`. L2 is claimed only for the final exact SHA 7787210e670b74184d0326f1e8e68efa9063c65c; no full firmware/TRX or router validation.
+
+---
+
 ## 2026-11-13 15:38 CST (UTC+8) — Normalize FRP HTTPD event-map source contract
 
 - Base main SHA: `bec830e987c210f2646cb70525159b314e8c6350`.
