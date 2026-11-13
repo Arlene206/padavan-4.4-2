@@ -277,7 +277,8 @@ echo running > "$TEST_STATE"
 run_action graceful restart || fail "serialized restart failed"
 # The replacement daemon forks asynchronously; wait for its marker with a hard bound.
 restart_attempt=0
-while [ "$(grep -Fxc START "$TEST_OPS" || :)" -ne 1 ] &&
+while { [ "$(grep -Fxc START "$TEST_OPS" || :)" -ne 1 ] ||
+        [ "$(cat "$TEST_STATE")" != running ]; } &&
       [ "$restart_attempt" -lt 100 ]; do
 	/bin/sleep 0.02
 	restart_attempt=$((restart_attempt + 1))
