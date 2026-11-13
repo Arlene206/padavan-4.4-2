@@ -405,6 +405,7 @@ config_soft_bridge_wan(int br_id, int vid, int prio, const char *wan_ifname,
 	int wan_attach_attempted = 0, wan_port_added = 0;
 	int bwan_attach_attempted = 0, bwan_port_added = 0;
 
+	bwan_ifname[0] = '\0';
 	snprintf(br_ifname, sizeof(br_ifname), "%s%d", BRPREFIX_WAN, br_id);
 	bridge_flags = get_interface_flags(br_ifname);
 	if (bridge_flags < 0) {

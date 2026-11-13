@@ -283,7 +283,7 @@ jobs:
           assert "bridge_port_list_contains(ifindices, BRIDGE_PORT_LIST_CAPACITY, ifindex)" in membership_query
           add_if = function_body(
               netutils_source,
-              "br_add_del_if(const char *brname, const char *ifname, int is_add)")
+              "br_add_del_if_internal(const char *brname, const char *ifname, int is_add,")
           assert add_if.count("bridge_has_ifindex(sockfd, brname, ifr.ifr_ifindex)") == 2
           assert "membership = bridge_has_ifindex(sockfd, brname, ifr.ifr_ifindex)" in add_if
           assert add_if.index("membership = bridge_has_ifindex(") < add_if.index("ret = ioctl(sockfd, (is_add) ? SIOCBRADDIF")

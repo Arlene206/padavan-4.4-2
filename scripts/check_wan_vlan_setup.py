@@ -95,7 +95,7 @@ for marker in ("create_vlan_iface(", "br_add_del_if(", "remove_vlan_iface(",
 soft_wan = body(wan, "config_soft_bridge_wan(")
 for marker in ("br_add_del_bridge(", "br_set_stp(", "br_set_fd(",
                "br_set_param_int(", "set_interface_hwaddr(", "set_interface_mtu(",
-               "create_vlan_iface(", "br_add_del_if(", "brport_set_param_int(",
+               "create_vlan_iface_tracked(", "br_add_del_if_tracked(", "brport_set_param_int(",
                "return ifconfig(br_ifname, IFUP"):
     require(marker in soft_wan, f"WAN bridge setup omits {marker}")
 for marker in ("ret = br_add_del_bridge(", "ret = br_set_stp(", "ret = br_set_fd(",
