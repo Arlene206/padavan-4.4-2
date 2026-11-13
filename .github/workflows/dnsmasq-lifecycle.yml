@@ -5,6 +5,8 @@ on:
     paths:
       - ".github/workflows/dnsmasq-lifecycle.yml"
       - "trunk/user/rc/src/services_ex.c"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/net_lan.c"
       - "trunk/user/rc/src/init.c"
       - "trunk/user/rc/src/inadyn_config_file.h"
       - "trunk/user/rc/src/tests/inadyn_config_file.c"
@@ -203,6 +205,8 @@ jobs:
           from pathlib import Path
 
           services = Path("trunk/user/rc/src/services_ex.c").read_text()
+          net_wan = Path("trunk/user/rc/src/net_wan.c").read_text()
+          net_lan = Path("trunk/user/rc/src/net_lan.c").read_text()
           policy = Path("trunk/user/rc/src/dnsmasq_restart_policy.h").read_text()
           rc = Path("trunk/user/rc/src/rc.c").read_text()
           restart_test = Path("trunk/user/rc/src/tests/dnsmasq_restart_policy.c").read_text()
@@ -269,6 +273,33 @@ jobs:
           publish_call = servers_writer.index("dnsmasq_file_publish(")
           assert servers_writer.index("file_unlock(lock);", publish_call) > publish_call
           assert servers_writer.count("file_unlock(lock);") == 3
+
+          wan_resolver = function_body(net_wan, "update_resolvconf(int is_first_run, int do_not_notify)")
+          wan_lock = wan_resolver.index('lock = file_lock("resolv");')
+          wan_failure = wan_resolver.index("if (lock < 0)", wan_lock)
+          wan_open = wan_resolver.index("fp = dnsmasq_file_open(resolv_temp);")
+          assert wan_lock < wan_failure < wan_open
+          wan_guard = wan_resolver[wan_failure:wan_open]
+          assert "saved_errno = errno ? errno : EIO;" in wan_guard
+          assert "errno = saved_errno;" in wan_guard
+          assert "return saved_errno;" in wan_guard
+          assert "file_unlock(lock)" not in wan_guard
+
+          lan_manual = function_body(net_lan, "lan_up_manual(char *lan_ifname, char *lan_dname)")
+          lan_lock = lan_manual.index('lock = file_lock("resolv");')
+          lan_failure = lan_manual.index("if (lock < 0)", lan_lock)
+          lan_route = lan_manual.index("route_add(")
+          lan_open = lan_manual.index('fopen(DNS_RESOLV_CONF, "w+")')
+          assert lan_lock < lan_failure < lan_route < lan_open
+          lan_guard = lan_manual[lan_failure:lan_route]
+          assert "saved_errno = errno ? errno : EIO;" in lan_guard
+          assert "errno = saved_errno;" in lan_guard
+          assert "return;" in lan_guard
+          assert "file_unlock(lock)" not in lan_guard
+
+          lan_auto = function_body(net_lan, "lan_publish_resolver_auto(")
+          assert lan_auto.index('lock = file_lock("resolv");') < lan_auto.index("if (lock < 0)")
+          assert lan_auto.index("if (lock < 0)") < lan_auto.index("dnsmasq_file_open(resolv_temp)")
           assert "dnsmasq_confirm_started(launch_status)" in start
           assert "dnsmasq_confirm_started(launch_status)" in restart
           assert "eval(\"/usr/sbin/dnsmasq\")" in start
@@ -305,6 +336,8 @@ jobs:
           paths = (
               ".github/workflows/dnsmasq-lifecycle.yml",
               "trunk/user/rc/src/services_ex.c",
+              "trunk/user/rc/src/net_wan.c",
+              "trunk/user/rc/src/net_lan.c",
               "trunk/user/rc/src/rc.c",
               "trunk/user/rc/src/dnsmasq_restart_policy.h",
               "trunk/user/rc/src/tests/dnsmasq_restart_policy.c",

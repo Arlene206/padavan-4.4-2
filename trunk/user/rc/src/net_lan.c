@@ -811,17 +811,24 @@ void
 lan_up_manual(char *lan_ifname, char *lan_dname)
 {
 	FILE *fp;
-	int lock;
+	int lock, saved_errno;
 	int dns_count = 0;
 	char *dns_ip, *gateway_ip;
 
 	gateway_ip = nvram_safe_get("lan_gateway");
 
+	lock = file_lock("resolv");
+	if (lock < 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(LOGNAME, "cannot acquire resolver publication lock; refusing manual LAN update (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return;
+	}
+
 	/* Set default route to gateway if specified */
 	if (is_valid_ipv4(gateway_ip))
 		route_add(lan_ifname, 0, "0.0.0.0", gateway_ip, "0.0.0.0");
-
-	lock = file_lock("resolv");
 
 	/* Open resolv.conf */
 	fp = fopen(DNS_RESOLV_CONF, "w+");

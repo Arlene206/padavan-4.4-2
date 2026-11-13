@@ -2692,6 +2692,13 @@ update_resolvconf(int is_first_run, int do_not_notify)
 	}
 
 	lock = file_lock("resolv");
+	if (lock < 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(LOGNAME, "cannot acquire resolver publication lock; refusing update (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return saved_errno;
+	}
 
 	i_pdns = nvram_get_int("vpnc_pdns");
 	dns_static = get_wan_dns_static();
