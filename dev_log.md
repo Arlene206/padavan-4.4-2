@@ -1,3 +1,16 @@
+## 2026-11-14 07:12 CST (UTC+8) — Refresh exact live process-inventory checkpoint
+
+- Recovered the repository using the root bootstrap and full development protocol before considering source changes. Live `main` at start: `a41c997f7252838fbc2d82f58b3be9271e2894a8`; the previous live handoff still named `f79bbc11161109abf8a094f8d0c9fd30bb8c1a0d`. Compare confirmed two commits ahead, zero behind, with only `SESSION_HANDOFF.md` and `dev_log.md` changed. Product source remains at the previously recorded L3 source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`.
+- Branch inventory returned only `main`. No open PR was returned; the legacy PR #1 remains recorded in the live handoff as CLOSED / UNMERGED. No non-main ref was used.
+- Updated `SESSION_HANDOFF.md` in place on `main` as `c430f079d867d95dcb5c18193bc6ba5829948370` to record the actual baseline and pending exact-head CI boundary. This log update is committed directly to `main`; resulting SHA: THIS COMMIT.
+- Exact-head GitHub Actions for `a41c997f7252838fbc2d82f58b3be9271e2894a8` and `c430f079d867d95dcb5c18193bc6ba5829948370` remain NOT VERIFIED. The available workflow-run connector returns only PR-triggered runs (none for these SHAs); no push-run enumeration is exposed. Empty workflow/status responses are not a pass. Inspect Actions by exact `head_sha` and `event=push`.
+- The unfinished P1 shared process-inventory defect remains the exact active task: explicit RUNNING / ABSENT / UNKNOWN semantics across `pids.c`, `shutils.h`, `common_ex.c`, `services_ex.c` and `service_lifecycle_policy.h`; UNKNOWN must block TERM/KILL, false absence, restart and destructive cleanup. Complete caller inventory is still blocked because this runtime has no full checkout or exhaustive repository-content enumeration.
+- No product source or regression tests changed. L1 partial review only; L2 host tests and local `scripts/check_ai_handoff_docs.py` NOT RUN; current exact-head Actions NOT VERIFIED. Existing L3 evidence applies only to source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f` (run `43489646254` / job `132107102854`); L4 router flash/boot NOT VERIFIED.
+- Updated only the handoff and this log; the whole-repository module inventory and priority did not materially change, so `REFACTOR_ROADMAP.md` and `docs/dev-log/INDEX.md` were left untouched. Root log advances 49→50/119; the prior recorded size was 125,069 bytes, below the 384 KiB early-rotation threshold. No rotation or archive copy is due.
+- Exact next action: inspect push Actions for the latest main SHA, obtain a complete checkout or demonstrably exhaustive content enumeration, then enumerate and classify every process scanner/lifecycle caller before implementing the tri-state API and injectable GNU89/`-Werror` regressions. Do not start another module or make an incomplete API migration.
+
+---
+
 ## 2026-11-14 07:08 CST (UTC+8) — Reconcile live main SHA and preserve process-inventory continuation
 
 - Base `main` SHA: `f79bbc11161109abf8a094f8d0c9fd30bb8c1a0d`. The live handoff was materially stale; it is now refreshed in place by `a351306f6d53c461ec1dfd7da372c58a330b6bd9` (handoff only). This log update is a direct fast-forward child on `main`; resulting SHA: THIS COMMIT.
