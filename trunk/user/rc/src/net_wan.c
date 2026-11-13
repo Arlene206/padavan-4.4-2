@@ -40,6 +40,7 @@
 #include "dhcp_lease_policy.h"
 #include "dhcp_wan_interface_policy.h"
 #include "wan_viptv_static_policy.h"
+#include "../../shared/src/bridge_membership_policy.h"
 #include "switch.h"
 #include "switch_status_policy.h"
 #include <gpioutils.h>
@@ -517,12 +518,42 @@ disassembly_bridges_wan(void)
 	return status;
 }
 
+struct soft_bridge_wan_ownership {
+	char bridge_name[16];
+	char wan_ifname[24];
+	char bwan_ifname[24];
+	int bridge_created;
+	int bridge_existed;
+	int bridge_was_up;
+	int bwan_vlan_created;
+	int bwan_vlan_existed;
+	int bwan_vlan_was_up;
+	int wan_port_attach_attempted;
+	int wan_port_added;
+	int wan_port_detached_safe;
+	int bwan_port_attach_attempted;
+	int bwan_port_added;
+	int bwan_port_detached_safe;
+};
+
+struct soft_bridge_other_entry {
+	char port_ifname[24];
+	int port_vlan_created;
+	int port_vlan_existed;
+	int port_vlan_was_up;
+	struct soft_bridge_wan_ownership bridge;
+};
+
 static int
-config_soft_bridge_wan(int br_id, int vid, int prio, const char *wan_ifname,
-		       const char *wan_hwaddr)
+config_soft_bridge_wan_internal(int br_id, int vid, int prio, const char *wan_ifname,
+				const char *wan_hwaddr,
+				struct soft_bridge_wan_ownership *ownership_out)
 {
+	struct soft_bridge_wan_ownership local_ownership;
+	struct soft_bridge_wan_ownership *ownership =
+		ownership_out ? ownership_out : &local_ownership;
 	char br_ifname[16], bwan_ifname[24];
-	int ret, saved_errno, cleanup_ret;
+	int ret, saved_errno, cleanup_ret, bridge_empty;
 	int bridge_flags, bridge_created = 0, bridge_was_up = 0;
 	int bridge_remove_safe = 1;
 	int vlan_flags = -1, vlan_exists = 0, vlan_was_up = 0;
@@ -530,8 +561,13 @@ config_soft_bridge_wan(int br_id, int vid, int prio, const char *wan_ifname,
 	int wan_attach_attempted = 0, wan_port_added = 0;
 	int bwan_attach_attempted = 0, bwan_port_added = 0;
 
+	memset(ownership, 0, sizeof(*ownership));
+	ownership->wan_port_detached_safe = 1;
+	ownership->bwan_port_detached_safe = 1;
 	bwan_ifname[0] = '\0';
 	snprintf(br_ifname, sizeof(br_ifname), "%s%d", BRPREFIX_WAN, br_id);
+	snprintf(ownership->bridge_name, sizeof(ownership->bridge_name), "%s", br_ifname);
+	snprintf(ownership->wan_ifname, sizeof(ownership->wan_ifname), "%s", wan_ifname);
 	bridge_flags = get_interface_flags(br_ifname);
 	if (bridge_flags < 0) {
 		if (errno != ENODEV && errno != ENXIO)
@@ -540,8 +576,11 @@ config_soft_bridge_wan(int br_id, int vid, int prio, const char *wan_ifname,
 		if (ret != 0)
 			return ret;
 		bridge_created = 1;
+		ownership->bridge_created = 1;
 	} else {
+		ownership->bridge_existed = 1;
 		bridge_was_up = (bridge_flags & IFF_UP) != 0;
+		ownership->bridge_was_up = bridge_was_up;
 		ret = ifconfig(br_ifname, 0, NULL, NULL);
 		if (ret != 0)
 			goto rollback;
@@ -573,8 +612,12 @@ config_soft_bridge_wan(int br_id, int vid, int prio, const char *wan_ifname,
 	}
 	vlan_exists = vlan_flags >= 0;
 	vlan_was_up = vlan_exists && ((vlan_flags & IFF_UP) != 0);
+	ownership->bwan_vlan_existed = vlan_exists;
+	ownership->bwan_vlan_was_up = vlan_was_up;
+	snprintf(ownership->bwan_ifname, sizeof(ownership->bwan_ifname), "%s", bwan_ifname);
 	ret = create_vlan_iface_tracked(IFNAME_MAC, vid, prio, -1,
 					wan_hwaddr, 1, &vlan_created);
+	ownership->bwan_vlan_created = vlan_created;
 	if (ret != 0)
 		goto rollback;
 
@@ -583,11 +626,17 @@ config_soft_bridge_wan(int br_id, int vid, int prio, const char *wan_ifname,
 	control_if_ipv6(bwan_ifname, 0);
 #endif
 	wan_attach_attempted = 1;
+	ownership->wan_port_attach_attempted = 1;
+	ownership->wan_port_detached_safe = 0;
 	ret = br_add_del_if_tracked(br_ifname, wan_ifname, 1, &wan_port_added);
+	ownership->wan_port_added = wan_port_added;
 	if (ret != 0)
 		goto rollback;
 	bwan_attach_attempted = 1;
+	ownership->bwan_port_attach_attempted = 1;
+	ownership->bwan_port_detached_safe = 0;
 	ret = br_add_del_if_tracked(br_ifname, bwan_ifname, 1, &bwan_port_added);
+	ownership->bwan_port_added = bwan_port_added;
 	if (ret != 0)
 		goto rollback;
 	if (br_id < 2) {
@@ -620,7 +669,11 @@ rollback:
 			vlan_remove_safe = 0;
 			vlan_restore_safe = 0;
 			bridge_remove_safe = 0;
+		} else {
+			ownership->bwan_port_detached_safe = 1;
 		}
+	} else if (bwan_attach_attempted) {
+		ownership->bwan_port_detached_safe = 0;
 	}
 	if (wan_port_added) {
 		cleanup_ret = br_add_del_if(br_ifname, wan_ifname, 0);
@@ -628,7 +681,11 @@ rollback:
 			logmessage(LOGNAME, "WAN bridge %s rollback could not detach %s (status=%d)",
 				   br_ifname, wan_ifname, cleanup_ret);
 			bridge_remove_safe = 0;
+		} else {
+			ownership->wan_port_detached_safe = 1;
 		}
+	} else if (wan_attach_attempted) {
+		ownership->wan_port_detached_safe = 0;
 	}
 	/*
 	 * A successful idempotent result or a raced attach is not ours to undo.
@@ -641,6 +698,9 @@ rollback:
 	}
 	if (wan_attach_attempted && !wan_port_added && bridge_created)
 		bridge_remove_safe = 0;
+	bridge_remove_safe = bridge_remove_safe &&
+		ownership->wan_port_detached_safe &&
+		ownership->bwan_port_detached_safe;
 
 	if (vlan_created) {
 		if (vlan_remove_safe) {
@@ -662,7 +722,10 @@ rollback:
 	}
 
 	if (bridge_created) {
-		if (bridge_remove_safe) {
+		bridge_empty = br_bridge_is_empty(br_ifname);
+
+		if (bridge_remove_safe &&
+		    bridge_batch_can_remove_created_bridge(bridge_created, bridge_empty)) {
 			cleanup_ret = ifconfig(br_ifname, 0, NULL, NULL);
 			if (cleanup_ret == 0)
 				cleanup_ret = br_add_del_bridge(br_ifname, 0);
@@ -691,10 +754,125 @@ rollback:
 }
 
 static int
+config_soft_bridge_wan(int br_id, int vid, int prio, const char *wan_ifname,
+		       const char *wan_hwaddr)
+{
+	return config_soft_bridge_wan_internal(br_id, vid, prio, wan_ifname,
+					       wan_hwaddr, NULL);
+}
+
+static void
+rollback_soft_bridge_other_entry(struct soft_bridge_other_entry *entry)
+{
+	struct soft_bridge_wan_ownership *bridge = &entry->bridge;
+	int ret, bridge_flags, bridge_empty;
+	int wan_detached_safe, bwan_detached_safe;
+
+	wan_detached_safe = bridge_batch_membership_detached_safe(
+		bridge->wan_port_attach_attempted, bridge->wan_port_added,
+		bridge->wan_port_detached_safe);
+	bwan_detached_safe = bridge_batch_membership_detached_safe(
+		bridge->bwan_port_attach_attempted, bridge->bwan_port_added,
+		bridge->bwan_port_detached_safe);
+
+	/* Reverse attachment order: WAN-side VLAN port was attached last. */
+	if (bridge->bwan_port_added && !bwan_detached_safe) {
+		ret = br_add_del_if(bridge->bridge_name, bridge->bwan_ifname, 0);
+		bwan_detached_safe = (ret == 0);
+		if (ret != 0)
+			logmessage(LOGNAME, "LAN bridge batch rollback could not detach %s (status=%d)",
+				   bridge->bwan_ifname, ret);
+	}
+	if (bridge->wan_port_added && !wan_detached_safe) {
+		ret = br_add_del_if(bridge->bridge_name, bridge->wan_ifname, 0);
+		wan_detached_safe = (ret == 0);
+		if (ret != 0)
+			logmessage(LOGNAME, "LAN bridge batch rollback could not detach %s (status=%d)",
+				   bridge->wan_ifname, ret);
+	}
+
+	/* The WAN-side VLAN is created inside the bridge helper, after the
+	 * caller-side LAN VLAN; remove/restore them in the reverse order. */
+	if (bridge->bwan_vlan_created) {
+		if (bwan_detached_safe) {
+			ret = remove_vlan_iface(bridge->bwan_ifname);
+			if (ret != 0)
+				logmessage(LOGNAME, "LAN bridge batch rollback could not remove WAN-side VLAN %s (status=%d)",
+					   bridge->bwan_ifname, ret);
+		} else {
+			logmessage(LOGNAME, "LAN bridge batch rollback preserved VLAN %s because membership ownership is uncertain",
+				   bridge->bwan_ifname);
+		}
+	} else if (bridge->bwan_vlan_existed) {
+		ret = bridge->bwan_vlan_was_up ?
+			ifconfig(bridge->bwan_ifname, IFUP, "0.0.0.0", NULL) :
+			ifconfig(bridge->bwan_ifname, 0, NULL, NULL);
+		if (ret != 0)
+			logmessage(LOGNAME, "LAN bridge batch rollback could not restore VLAN %s state (status=%d)",
+				   bridge->bwan_ifname, ret);
+	}
+
+	if (entry->port_vlan_created) {
+		if (wan_detached_safe) {
+			ret = remove_vlan_iface(entry->port_ifname);
+			if (ret != 0)
+				logmessage(LOGNAME, "LAN bridge batch rollback could not remove VLAN %s (status=%d)",
+					   entry->port_ifname, ret);
+		} else {
+			logmessage(LOGNAME, "LAN bridge batch rollback preserved VLAN %s because membership ownership is uncertain",
+				   entry->port_ifname);
+		}
+	} else if (entry->port_vlan_existed) {
+		ret = entry->port_vlan_was_up ?
+			ifconfig(entry->port_ifname, IFUP, "0.0.0.0", NULL) :
+			ifconfig(entry->port_ifname, 0, NULL, NULL);
+		if (ret != 0)
+			logmessage(LOGNAME, "LAN bridge batch rollback could not restore VLAN %s state (status=%d)",
+				   entry->port_ifname, ret);
+	}
+	if (bridge->bridge_name[0]) {
+		bridge_flags = get_interface_flags(bridge->bridge_name);
+		if (bridge->bridge_created) {
+			if (bridge_flags >= 0) {
+				bridge_empty = br_bridge_is_empty(bridge->bridge_name);
+				if (bridge_batch_can_remove_created_bridge(1, bridge_empty) &&
+				    wan_detached_safe && bwan_detached_safe) {
+					ret = ifconfig(bridge->bridge_name, 0, NULL, NULL);
+					if (ret == 0)
+						ret = br_add_del_bridge(bridge->bridge_name, 0);
+					if (ret != 0)
+						logmessage(LOGNAME, "LAN bridge batch rollback could not remove bridge %s (status=%d)",
+							   bridge->bridge_name, ret);
+				} else {
+					ret = ifconfig(bridge->bridge_name, 0, NULL, NULL);
+					if (ret != 0)
+						logmessage(LOGNAME, "LAN bridge batch rollback could not keep bridge %s down (status=%d)",
+							   bridge->bridge_name, ret);
+					logmessage(LOGNAME, "LAN bridge batch rollback preserved bridge %s because it is non-empty or its port inventory is unknown",
+						   bridge->bridge_name);
+				}
+			} else if (errno != ENODEV && errno != ENXIO) {
+				logmessage(LOGNAME, "LAN bridge batch rollback could not inspect bridge %s",
+					   bridge->bridge_name);
+			}
+		} else if (bridge->bridge_existed) {
+			ret = bridge->bridge_was_up ?
+				ifconfig(bridge->bridge_name, IFUP, "0.0.0.0", NULL) :
+				ifconfig(bridge->bridge_name, 0, NULL, NULL);
+			if (ret != 0)
+				logmessage(LOGNAME, "LAN bridge batch rollback could not restore bridge %s state (status=%d)",
+					   bridge->bridge_name, ret);
+		}
+	}
+}
+
+static int
 config_soft_bridges_other(int vinet_vid, int viptv_vid, int pvid_wan, const char *wan_hwaddr, int bridge_mode)
 {
+	struct soft_bridge_other_entry entries[4];
+	struct soft_bridge_other_entry *entry;
 	int i, br_id, port_vid[4], port_pri[4] = {0};
-	int ret;
+	int ret, saved_errno, port_flags, entry_count = 0;
 	char port_ifname[24];
 
 	for (i = 0; i < 4; i++)
@@ -742,22 +920,45 @@ config_soft_bridges_other(int vinet_vid, int viptv_vid, int pvid_wan, const char
 	for (i = 0; i < 4; i++) {
 		if (port_vid[i] < 2)
 			continue;
+		entry = &entries[entry_count];
+		memset(entry, 0, sizeof(*entry));
 		snprintf(port_ifname, sizeof(port_ifname), "%s.%d", IFNAME_MAC2, port_vid[i]);
-		ret = create_vlan_iface(IFNAME_MAC2, port_vid[i], port_pri[i], 1500, wan_hwaddr, 1);
+		snprintf(entry->port_ifname, sizeof(entry->port_ifname), "%s", port_ifname);
+		port_flags = get_interface_flags(port_ifname);
+		if (port_flags < 0 && errno != ENODEV && errno != ENXIO) {
+			ret = -1;
+			goto rollback;
+		}
+		entry->port_vlan_existed = port_flags >= 0;
+		entry->port_vlan_was_up = entry->port_vlan_existed && (port_flags & IFF_UP);
+		entry_count++;
+
+		ret = create_vlan_iface_tracked(IFNAME_MAC2, port_vid[i], port_pri[i],
+						1500, wan_hwaddr, 1,
+						&entry->port_vlan_created);
 		if (ret != 0) {
 			logmessage(LOGNAME, "LAN bridge VLAN creation failed for %s (status=%d)",
 				   port_ifname, ret);
-			return ret;
+			goto rollback;
 		}
-		ret = config_soft_bridge_wan(br_id, port_vid[i], port_pri[i], port_ifname, wan_hwaddr);
+		ret = config_soft_bridge_wan_internal(br_id, port_vid[i], port_pri[i],
+						      port_ifname, wan_hwaddr,
+						      &entry->bridge);
 		if (ret != 0) {
 			logmessage(LOGNAME, "LAN bridge setup failed for %s (status=%d)",
 				   port_ifname, ret);
-			return ret;
+			goto rollback;
 		}
 		br_id++;
 	}
 	return 0;
+
+rollback:
+	saved_errno = errno;
+	while (entry_count > 0)
+		rollback_soft_bridge_other_entry(&entries[--entry_count]);
+	errno = saved_errno;
+	return ret;
 }
 #endif
 

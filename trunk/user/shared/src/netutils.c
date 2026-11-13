@@ -782,6 +782,39 @@ bridge_has_ifindex(int sockfd, const char *brname, int ifindex)
 	return bridge_port_list_contains(ifindices, BRIDGE_PORT_LIST_CAPACITY, ifindex);
 }
 
+int
+br_bridge_is_empty(const char *brname)
+{
+	struct ifreq bridge_ifr;
+	int ifindices[BRIDGE_PORT_LIST_CAPACITY] = {0};
+	unsigned long args[4] = {
+		BRCTL_GET_PORT_LIST,
+		(unsigned long)ifindices,
+		BRIDGE_PORT_LIST_CAPACITY,
+		0
+	};
+	int sockfd, ret, saved_errno;
+
+	memset(&bridge_ifr, 0, sizeof(bridge_ifr));
+	if (copy_ifname(bridge_ifr.ifr_name, sizeof(bridge_ifr.ifr_name), brname) < 0) {
+		errno = EINVAL;
+		return -1;
+	}
+	if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+		return -1;
+
+	bridge_ifr.ifr_data = (char *)&args;
+	ret = ioctl(sockfd, SIOCDEVPRIVATE, &bridge_ifr);
+	saved_errno = errno;
+	close(sockfd);
+	if (ret < 0) {
+		errno = saved_errno;
+		return -1;
+	}
+
+	return bridge_port_list_is_empty(ifindices, BRIDGE_PORT_LIST_CAPACITY);
+}
+
 static int
 br_add_del_if_internal(const char *brname, const char *ifname, int is_add,
 		       int *changed_out)

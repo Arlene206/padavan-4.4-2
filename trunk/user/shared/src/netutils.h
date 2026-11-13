@@ -193,6 +193,7 @@ extern int       vconfig_del_if(const char *vifname);
 extern int       vconfig_egress_map(const char *vifname, int skb_prio, int qos_prio);
 
 extern int       br_add_del_bridge(const char *brname, int is_add);
+extern int       br_bridge_is_empty(const char *brname);
 extern int       br_add_del_if(const char *brname, const char *ifname, int is_add);
 extern int       br_add_del_if_tracked(const char *brname, const char *ifname, int is_add, int *changed_out);
 extern int       br_del_all_ifs(const char *brname, int do_if_down, int do_if_rem);

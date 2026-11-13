@@ -4,6 +4,41 @@
 #include "bridge_membership_policy.h"
 
 static void
+expect_port_list_empty(const int *ifindices, unsigned int count, int expected,
+		       const char *label)
+{
+	int actual = bridge_port_list_is_empty(ifindices, count);
+
+	if (actual != expected) {
+		fprintf(stderr, "%s: expected %d got %d\n", label, expected, actual);
+		exit(1);
+	}
+}
+
+static void
+expect_batch_membership_safe(int attempted, int added, int detached, int expected,
+			     const char *label)
+{
+	int actual = bridge_batch_membership_detached_safe(attempted, added, detached);
+
+	if (actual != expected) {
+		fprintf(stderr, "%s: expected %d got %d\n", label, expected, actual);
+		exit(1);
+	}
+}
+
+static void
+expect_batch_bridge_removal(int created, int empty, int expected, const char *label)
+{
+	int actual = bridge_batch_can_remove_created_bridge(created, empty);
+
+	if (actual != expected) {
+		fprintf(stderr, "%s: expected %d got %d\n", label, expected, actual);
+		exit(1);
+	}
+}
+
+static void
 expect_membership(const int *ifindices, unsigned int count, int ifindex,
 		  int expected, const char *label)
 {
@@ -66,6 +101,20 @@ int
 main(void)
 {
 	int ifindices[BRIDGE_PORT_LIST_CAPACITY] = {0};
+	int empty_list[1] = {0};
+
+	expect_port_list_empty(ifindices, BRIDGE_PORT_LIST_CAPACITY, 1, "empty bridge inventory");
+	expect_port_list_empty(NULL, BRIDGE_PORT_LIST_CAPACITY, -1, "unknown bridge inventory");
+	expect_batch_membership_safe(0, 0, 0, 1, "attach not attempted");
+	expect_batch_membership_safe(1, 1, 1, 1, "owned membership detached");
+	expect_batch_membership_safe(1, 1, 0, 0, "owned membership detach failed");
+	expect_batch_membership_safe(1, 0, 1, 0, "idempotent/pre-existing membership not owned");
+	expect_batch_membership_safe(1, 0, 0, 0, "failed or ambiguous attach not assumed detached");
+	expect_batch_bridge_removal(1, 1, 1, "created empty bridge can be removed");
+	expect_batch_bridge_removal(0, 1, 0, "pre-existing bridge is preserved");
+	expect_batch_bridge_removal(1, 0, 0, "created non-empty bridge is preserved");
+	expect_batch_bridge_removal(1, -1, 0, "unknown bridge inventory is preserved");
+	expect_port_list_empty(empty_list, 1, 1, "single empty port inventory");
 
 	ifindices[0] = 3;
 	ifindices[17] = 22;

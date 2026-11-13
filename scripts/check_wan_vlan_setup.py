@@ -110,7 +110,14 @@ require("bridge_rollback_can_remove_created_vlan" in bridge_policy and
         "bridge_rollback_can_remove_created_vlan" in bridge_test and
         "bridge_rollback_can_restore_interface" in bridge_test,
         "LAN bridge rollback ownership gates require host regression coverage")
-soft_wan = body(wan, "config_soft_bridge_wan(")
+soft_wan = body(wan, "config_soft_bridge_wan_internal(")
+require('#include "../../shared/src/bridge_membership_policy.h"' in wan and
+        "config_soft_bridge_wan_internal(" in wan and
+        "config_soft_bridge_wan(" in wan,
+        "WAN bridge transaction policy must be available to the RC batch coordinator")
+require("config_soft_bridge_wan_internal(br_id, vid, prio, wan_ifname," in wan and
+        "wan_hwaddr, NULL);" in wan,
+        "legacy WAN bridge callers must retain the compatibility wrapper")
 for marker in ("br_add_del_bridge(", "br_set_stp(", "br_set_fd(",
                "br_set_param_int(", "set_interface_hwaddr(", "set_interface_mtu(",
                "create_vlan_iface_tracked(", "br_add_del_if_tracked(", "brport_set_param_int(",
@@ -147,13 +154,58 @@ require("else if (bridge_was_up)" in rollback and
 require("saved_errno = errno;" in rollback and
         "errno = saved_errno;\n\treturn ret;" in rollback,
         "rollback must preserve the original setup failure")
+require("ownership->wan_port_added = wan_port_added" in soft_wan and
+        "ownership->bwan_port_added = bwan_port_added" in soft_wan and
+        "ownership->bridge_created = 1" in soft_wan and
+        "ownership->bwan_vlan_created = vlan_created" in soft_wan,
+        "WAN bridge setup must publish per-call bridge, VLAN and membership ownership")
+require("ownership->wan_port_detached_safe = 1" in rollback and
+        "ownership->bwan_port_detached_safe = 1" in rollback and
+        "bridge_batch_can_remove_created_bridge(bridge_created, bridge_empty)" in rollback,
+        "WAN bridge local rollback must report detached memberships and require an empty new bridge")
 
 soft_other = body(wan, "config_soft_bridges_other(")
 require("int\nconfig_soft_bridges_other(" in wan and
-        "ret = create_vlan_iface(" in soft_other and
-        "ret = config_soft_bridge_wan(" in soft_other and
+        "struct soft_bridge_other_entry entries[4];" in soft_other and
+        "create_vlan_iface_tracked(" in soft_other and
+        "config_soft_bridge_wan_internal(" in soft_other and
+        "rollback:" in soft_other and
+        "while (entry_count > 0)" in soft_other and
+        "rollback_soft_bridge_other_entry(&entries[--entry_count])" in soft_other and
+        "errno = saved_errno;" in soft_other and
         "return ret;" in soft_other,
-        "additional LAN bridge VLAN failures must reach primary WAN startup")
+        "additional LAN bridge setup must track and reverse the current batch")
+other_rollback = body(wan, "rollback_soft_bridge_other_entry(")
+require("bridge_batch_membership_detached_safe(" in other_rollback and
+        "br_add_del_if(" in other_rollback and
+        "bridge_batch_can_remove_created_bridge(" in other_rollback and
+        "br_bridge_is_empty(" in other_rollback and
+        "if (entry->port_vlan_created)" in other_rollback and
+        "if (bridge->bwan_vlan_created)" in other_rollback and
+        "bridge->bridge_existed" in other_rollback and
+        "br_del_all_ifs(" not in other_rollback,
+        "batch rollback must detach owned ports, restore reused state and remove only owned empty objects")
+detach_bwan_pos = other_rollback.index("if (bridge->bwan_port_added")
+detach_wan_pos = other_rollback.index("if (bridge->wan_port_added")
+remove_bwan_vlan_pos = other_rollback.index("if (bridge->bwan_vlan_created)")
+remove_port_vlan_pos = other_rollback.index("if (entry->port_vlan_created)")
+remove_bridge_pos = other_rollback.index("if (bridge->bridge_name[0])")
+require(detach_bwan_pos < detach_wan_pos < remove_bwan_vlan_pos <
+        remove_port_vlan_pos < remove_bridge_pos,
+        "batch rollback must compensate ports and VLANs in reverse construction order")
+bridge_empty = body(netutils, "br_bridge_is_empty(")
+require("BRCTL_GET_PORT_LIST" in bridge_empty and
+        "bridge_port_list_is_empty(" in bridge_empty and
+        "return -1;" in bridge_empty and
+        "br_bridge_is_empty(const char *brname)" in netutils_header,
+        "bridge removal must use a complete fail-closed port inventory")
+require("bridge_port_list_is_empty" in bridge_policy and
+        "bridge_batch_membership_detached_safe" in bridge_policy and
+        "bridge_batch_can_remove_created_bridge" in bridge_policy and
+        "expect_port_list_empty(" in bridge_test and
+        "expect_batch_membership_safe(" in bridge_test and
+        "expect_batch_bridge_removal(" in bridge_test,
+        "batch rollback policies need empty/ownership/failure sanitizer regression coverage")
 vinet = body(wan, "config_vinet_wan(void)")
 require("ret = create_vlan_iface(" in vinet and
         "ret = config_soft_bridges_other(" in vinet and
@@ -185,6 +237,7 @@ for path in ("trunk/user/shared/src/netutils.c",
              "trunk/user/shared/src/netutils.h",
              "trunk/user/shared/src/bridge_membership_policy.h",
              "trunk/user/shared/src/tests/bridge_membership_policy.c",
+             "trunk/user/rc/src/net_wan.c",
              "scripts/check_wan_vlan_setup.py"):
     push, pr = workflow.split("  pull_request:", 1)
     require(push.count(f'"{path}"') == 1 and pr.count(f'"{path}"') == 1,

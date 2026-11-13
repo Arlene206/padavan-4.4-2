@@ -11,6 +11,37 @@
 #define BRIDGE_PORT_LIST_CAPACITY 1024
 
 static inline int
+bridge_port_list_is_empty(const int *ifindices, unsigned int count)
+{
+	unsigned int i;
+
+	if (!ifindices)
+		return -1;
+
+	for (i = 0; i < count; ++i) {
+		if (ifindices[i])
+			return 0;
+	}
+	return 1;
+}
+
+static inline int
+bridge_batch_membership_detached_safe(int attach_attempted, int membership_added,
+				      int detach_succeeded)
+{
+	if (!attach_attempted)
+		return 1;
+
+	return membership_added && detach_succeeded;
+}
+
+static inline int
+bridge_batch_can_remove_created_bridge(int created_by_call, int empty_snapshot)
+{
+	return created_by_call && empty_snapshot == 1;
+}
+
+static inline int
 bridge_port_list_contains(const int *ifindices, unsigned int count, int ifindex)
 {
 	unsigned int i;

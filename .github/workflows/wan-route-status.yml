@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/wan-route-status.yml"
       - "trunk/user/rc/src/net.c"
+      - "trunk/user/rc/src/net_wan.c"
       - "scripts/check_wan_vlan_setup.py"
       - "trunk/user/shared/src/netutils.h"
       - "trunk/user/shared/src/netutils.c"
@@ -13,7 +14,6 @@ on:
       - "trunk/linux-4.4.x/net/ipv4/fib_trie.c"
       - "trunk/linux-4.4.x/net/ipv4/fib_semantics.c"
       - "trunk/linux-4.4.x/net/ipv4/fib_frontend.c"
-      - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_ppp.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/route_status_policy.h"
@@ -22,6 +22,7 @@ on:
     paths:
       - ".github/workflows/wan-route-status.yml"
       - "trunk/user/rc/src/net.c"
+      - "trunk/user/rc/src/net_wan.c"
       - "scripts/check_wan_vlan_setup.py"
       - "trunk/user/shared/src/netutils.h"
       - "trunk/user/shared/src/netutils.c"
@@ -30,7 +31,6 @@ on:
       - "trunk/linux-4.4.x/net/ipv4/fib_trie.c"
       - "trunk/linux-4.4.x/net/ipv4/fib_semantics.c"
       - "trunk/linux-4.4.x/net/ipv4/fib_frontend.c"
-      - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_ppp.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/route_status_policy.h"
