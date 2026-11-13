@@ -9,6 +9,12 @@ on:
       - "trunk/user/frp/tests/frp_crontab.sh"
       - "trunk/user/frp/tests/frp_autostart.sh"
       - "trunk/user/scripts/files/usr/bin/autostart.sh"
+      - "trunk/user/frp/frp_script.sh"
+      - "trunk/user/scripts/files/usr/bin/copyscripts.sh"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/httpd/src/variables.c"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_frp.asp"
       - "scripts/check_frp_lifecycle.py"
   pull_request:
     paths:
@@ -18,6 +24,12 @@ on:
       - "trunk/user/frp/tests/frp_crontab.sh"
       - "trunk/user/frp/tests/frp_autostart.sh"
       - "trunk/user/scripts/files/usr/bin/autostart.sh"
+      - "trunk/user/frp/frp_script.sh"
+      - "trunk/user/scripts/files/usr/bin/copyscripts.sh"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/httpd/src/variables.c"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_frp.asp"
       - "scripts/check_frp_lifecycle.py"
 
 jobs:

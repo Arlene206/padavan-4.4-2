@@ -66,15 +66,52 @@ require('FRP_WATCHDOG_CRON=' in source and
         'awk -v managed="$FRP_WATCHDOG_CRON"' in cron,
         "FRP watchdog cleanup must match only its exact managed line")
 start = function_body(source, "frp_start ()")
+disabled_guard = 'if [ "$frpc_enable" = "0" ] && [ "$frps_enable" = "0" ]; then'
+require(disabled_guard in start and
+        start.index(disabled_guard) < start.index("frp_run_script") and
+        "frp_close" in start[start.index(disabled_guard):start.index("frp_run_script")],
+        "a start request with both FRP roles disabled must clean up without running user code")
 require(start.index("frp_run_script") < start.index("frp_manage_watchdog_cron add"),
         "do not publish a watchdog when the configured FRP start script fails")
 close = function_body(source, "frp_close ()")
 require("frp_manage_watchdog_cron remove" in close,
         "disabling both services must remove the exact managed watchdog")
+services = (ROOT / "trunk/user/rc/src/services.c").read_text()
+restart_services = function_body(services, "void restart_frp(void)")
+require(restart_services.index("stop_frp();") < restart_services.index("start_frp();"),
+        "RC restart must stop before starting the FRP launcher")
+require('eval("/usr/bin/frp.sh","stop");' in services and
+        'eval("/usr/bin/frp.sh","start");' in services,
+        "RC stop/start must use the installed FRP launcher")
+rc = (ROOT / "trunk/user/rc/src/rc.c").read_text()
+require('strcmp(entry->d_name, RCN_RESTART_FRP) == 0' in rc and
+        "restart_frp();" in rc,
+        "PID 1 must dispatch the FRP restart notification")
+variables = (ROOT / "trunk/user/httpd/src/variables.c").read_text()
+for marker in ('{"frpc_enable", "", NULL, EVM_RESTART_FRP}',
+               '{"frps_enable", "", NULL, EVM_RESTART_FRP}',
+               '{"scripts.frp_script.sh", "File", NULL, EVM_RESTART_FRP}',
+               '{EVM_RESTART_FRP, EVT_RESTART_FRP, RCN_RESTART_FRP, 0}'):
+    require(marker in variables, f"HTTPD FRP persistence mapping omits {marker}")
+ui = (ROOT / "trunk/user/www/n56u_ribbon_fixed/Advanced_frp.asp").read_text()
+require('value="FrpConf;"' in ui and
+        'name="scripts.frp_script.sh"' in ui and
+        'name="frpc_enable"' in ui and 'name="frps_enable"' in ui,
+        "FRP UI must expose both enable flags and the persisted custom script")
+copy_scripts = (ROOT / "trunk/user/scripts/files/usr/bin/copyscripts.sh").read_text()
+require('cp -rf /etc_ro/frp_script.sh /etc/storage/' in copy_scripts and
+        'chmod 755 "/etc/storage/frp_script.sh"' in copy_scripts,
+        "boot must seed the persistent FRP custom script from its ROMFS template")
+frp_template = (ROOT / "trunk/user/frp/frp_script.sh").read_text()
+require('frpc -c /tmp/frp/myfrpc.ini' in frp_template and
+        'frps -c /tmp/frp/myfrps.ini' in frp_template,
+        "persistent FRP script must retain both client and server launch paths")
 cron_test = (ROOT / "trunk/user/frp/tests/frp_crontab.sh").read_text()
 for marker in ("frp_start", "frp_close", "operator", "path-traversal",
                "symlink crontab", "atomic rename failure", "mode 0600",
-               "failed start script", "overlong username", "Removing a missing watchdog"):
+               "failed start script", "overlong username", "Removing a missing watchdog",
+               "disabled start executed the custom FRP script",
+               "server-only start did not invoke the custom script once"):
     require(marker in cron_test, f"FRP managed crontab regression omits {marker}")
 
 network = function_body(source, "check_net()")
@@ -101,6 +138,12 @@ paths = (
     "trunk/user/frp/tests/frp_crontab.sh",
     "trunk/user/frp/tests/frp_autostart.sh",
     "trunk/user/scripts/files/usr/bin/autostart.sh",
+    "trunk/user/frp/frp_script.sh",
+    "trunk/user/scripts/files/usr/bin/copyscripts.sh",
+    "trunk/user/rc/src/services.c",
+    "trunk/user/rc/src/rc.c",
+    "trunk/user/httpd/src/variables.c",
+    "trunk/user/www/n56u_ribbon_fixed/Advanced_frp.asp",
     "scripts/check_frp_lifecycle.py",
 )
 filters = workflow.split("jobs:", 1)[0]

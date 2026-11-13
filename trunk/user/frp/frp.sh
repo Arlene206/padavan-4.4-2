@@ -104,6 +104,12 @@ frp_manage_watchdog_cron()
 
 frp_start () 
 {
+	if [ "$frpc_enable" = "0" ] && [ "$frps_enable" = "0" ]; then
+		# RC/UI restart still calls start when both roles are disabled.
+		# Reuse stop cleanup and do not publish an idle watchdog or run user code.
+		frp_close
+		return $?
+	fi
 	if ! frp_run_script; then
 		logger -t "frp" "FRP启动脚本执行失败，保留现有crontab。"
 		return 1

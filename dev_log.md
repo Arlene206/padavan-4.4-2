@@ -1,3 +1,18 @@
+## 2026-11-13 15:22 CST (UTC+8) — Avoid idle FRP watchdog when both roles are disabled
+
+- Base main SHA: `c5ee1e4d8afc19a607b93eb40d00e329a63aebb7`; remote branch inventory contains only `main`; legacy PR #1 remains CLOSED/unmerged.
+- Recovered the pending FRP caller-path audit. On the exact base SHA, FRP [43384819463] / job [131750709887], HTTPD security [43384819483] / job [131750710183], AliDDNS [43384819533] / job [131750710147], and AI handoff docs [43384819555] / job [131750710169] all completed SUCCESS on `push` events. Every job checked out the exact SHA and every step/full log was inspected. FRP shell syntax, delayed-PID single dispatch, managed crontab preservation/failure cleanup, client-only/server-only/both-off boot behavior and source contracts passed; AI docs reports 102/119 records and archive inventory 7/22/18.
+- Traced the complete UI/HTTPD/PID1/RC/ROMFS chain: `Advanced_frp.asp` exposes both enable flags and `scripts.frp_script.sh`; `variables_FrpConf` maps them to `EVM_RESTART_FRP`; PID 1 dispatches `RCN_RESTART_FRP`; `services.c::restart_frp()` always invokes stop then start; `copyscripts.sh` seeds the persistent root-run script from the ROMFS template; the watchdog runs `/usr/bin/frp.sh C` via the root crontab.
+- Found a concrete lifecycle leak: when both NVRAM role flags are `0`, an RC/UI restart still invokes `frp_start()`. The previous function nevertheless ran the editable custom script and re-added the per-minute watchdog, leaving an idle cron job with no enabled FRP daemon. THIS COMMIT routes the both-disabled case through `frp_close()` before running user code, so it removes only the exact managed watchdog and preserves operator jobs.
+- Extended the no-network crontab regression to verify both-disabled start does not invoke the custom script or leave the watchdog, preserves an unrelated operator job, server-only start still executes once and publishes one watchdog, and disabling the final role removes only the managed line. Expanded the semantic checker to cover UI → HTTPD persistence → PID 1 → RC restart ordering → script seeding/launch, and added symmetric workflow path filters for each caller/template source.
+- Exact-head Actions for THIS COMMIT are pending inspection. No local full checkout or local shell/Python run was available; no local test execution is claimed. Current main L3 MIPS/uClibc firmware/TRX and L4 router validation remain NOT VERIFIED.
+- Root log count: 102→103 records; 256285-byte baseline is below the 384 KiB size trigger and 512 KiB hard limit. Archive inventory remains 7/22/18; no rotation/index change.
+- Changed paths: `trunk/user/frp/frp.sh`, `trunk/user/frp/tests/frp_crontab.sh`, `scripts/check_frp_lifecycle.py`, `.github/workflows/frp-lifecycle.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and this log.
+- Resulting main commit: THIS COMMIT.
+- Next: inspect every exact-main `push` Action triggered by THIS COMMIT (FRP and AI docs at minimum); verify each run's `head_sha`, checkout, all steps and complete logs. Then continue FRP P2 audit on private config/token storage and lifecycle serialization/stop postconditions, without claiming target behavior from host results.
+
+---
+
 ## 2026-11-13 14:24 CST (UTC+8) — Close Adbyby configured hosts-source download hardening
 
 - Recovered the live main and handoff after the configured /etc/storage/adbyby_host.sh task had already landed. Current validated source/test SHA is 1994f29e9e8180131011fb811bd9f6402e52523f; production implementation is 76f514cb5111c6787c4a6eda325619062845bace, and the tip commit corrects only the regression fixture's custom dnsmasq path.

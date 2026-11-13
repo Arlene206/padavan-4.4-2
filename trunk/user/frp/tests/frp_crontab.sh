@@ -125,4 +125,33 @@ frp_manage_watchdog_cron remove || fail "removing an absent crontab failed"
 [ ! -e "$crontab" ] || fail "remove created an otherwise absent crontab"
 expect_no_stage
 
+# RC/UI restart still reaches frp_start when both roles are disabled. It must
+# not execute the custom script or leave a per-minute watchdog behind.
+frpc_enable=0
+frps_enable=0
+printf '%s\n' 'SHELL=/bin/sh' '*/5 * * * * /usr/local/sbin/operator-job' "$watchdog_line" > "$crontab"
+FRP_RUN_CALLS=0
+frp_start || fail "disabled start failed to clean the watchdog"
+[ "$FRP_RUN_CALLS" -eq 0 ] || fail "disabled start executed the custom FRP script"
+expect_not_has_line "$crontab" "$watchdog_line"
+expect_has_line "$crontab" '*/5 * * * * /usr/local/sbin/operator-job'
+expect_no_stage
+
+# Server-only mode remains a valid start path after the disabled guard.
+frps_enable=1
+FRP_RUN_CALLS=0
+frp_start || fail "server-only start was rejected"
+[ "$FRP_RUN_CALLS" -eq 1 ] || fail "server-only start did not invoke the custom script once"
+[ "$(grep -Fxc "$watchdog_line" "$crontab")" -eq 1 ] ||
+	fail "server-only start did not publish exactly one watchdog"
+
+# Disabling the final role removes only the managed watchdog again.
+frps_enable=0
+FRP_RUN_CALLS=0
+frp_start || fail "disabling the final role failed to clean the watchdog"
+[ "$FRP_RUN_CALLS" -eq 0 ] || fail "disabled restart executed the custom FRP script"
+expect_not_has_line "$crontab" "$watchdog_line"
+expect_has_line "$crontab" '*/5 * * * * /usr/local/sbin/operator-job'
+expect_no_stage
+
 echo "FRP managed watchdog crontab preserves operator jobs and publishes atomically: PASS"
