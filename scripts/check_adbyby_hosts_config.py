@@ -182,7 +182,7 @@ require("adbyby_anti_ad_cache_is_usable" in anti_ad and
 require("curl -k" not in anti_ad and "adbyby_prepare_anti_ad" in anti_ad,
         "anti-AD must not use insecure direct downloads")
 require("adbyby_remove_anti_ad_fragment" in anti_ad and
-        "adbyby_remove_anti_ad_fragment" in anti_ad_remove and
+        'rm -f "$adbyby_remove_file"' in anti_ad_remove and
         "nvram set anti_ad_count=0" in anti_ad,
         "disabling anti-AD must remove the live fragment and reset its count")
 require("adbyby_cleanup_dnsmasq_ad_dir" in del_dns and
