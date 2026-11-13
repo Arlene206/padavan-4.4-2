@@ -770,15 +770,30 @@ jobs:
           assert "command failure" in storage_stop_test
           assert "daemon remains" in storage_stop_test
           assert "negative process query" in storage_stop_test
-          for restart_name, stop_name, start_name in (
-              ("restart_dms", "stop_dms", "run_dms"),
-              ("restart_itunes", "stop_itunes", "run_itunes"),
-              ("restart_torrent", "stop_torrent", "run_torrent"),
-              ("restart_aria", "stop_aria", "run_aria"),
+          for restart_name, stop_name, start_name, operation in (
+              ("restart_dms", "stop_dms", "run_dms", "DLNA"),
+              ("restart_itunes", "stop_itunes", "run_itunes", "Firefly"),
+              ("restart_torrent", "stop_torrent", "run_torrent", "Transmission"),
+              ("restart_aria", "stop_aria", "run_aria", "Aria"),
           ):
               restart_body = function_body(storage, restart_name + "(")
-              assert "if (" + stop_name + "() != 0)" in restart_body
-              assert restart_body.index(stop_name + "() != 0") < restart_body.index(start_name + "(")
+              lock_acquire = restart_body.index("storage_operation_lock_acquire(file_lock)")
+              stop_call = restart_body.index("stop_status = " + stop_name + "()")
+              stop_failure = restart_body.index("if (stop_status != 0)")
+              mount_inventory = restart_body.index('mount_status = storage_has_mounted_devices("restarting ' + operation + '")')
+              start_gate = restart_body.index("if (mount_status > 0)")
+              start_call = restart_body.index(start_name + "(")
+              unlock = restart_body.index("file_unlock(storage_lock);")
+              assert lock_acquire < stop_call < stop_failure < mount_inventory < start_gate < start_call < unlock
+              assert restart_body.index("goto out;", stop_failure) < mount_inventory
+              assert "if (mount_status < 0)" in restart_body
+              assert restart_body.count("file_unlock(storage_lock);") == 1
+              if restart_name in ("restart_dms", "restart_itunes"):
+                  unknown_gate = restart_body.index("if (mount_status < 0)")
+                  assert restart_body.index("goto out;", unknown_gate) < start_gate
+              else:
+                  assert "else if (mount_status < 0)" in restart_body
+                  assert restart_body.index("else if (mount_status < 0)") > start_call
           run_nfsd_locked = function_body(storage, "run_nfsd_locked(void)")
           assert 'eval("/usr/bin/nfsd.sh", "start")' in run_nfsd_locked
           start_apps = function_body(storage, "start_stor_apps(void)")
