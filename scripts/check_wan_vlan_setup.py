@@ -235,13 +235,14 @@ restart = body(wan, "full_restart_wan(void)")
 require("config_soft_bridge_lan() != 0" in restart,
         "full WAN restart must stop when LAN-side VLAN bridge setup fails")
 
+push, pr = workflow.split("  pull_request:", 1)
+pr = pr.split("\\njobs:", 1)[0]
 for path in ("trunk/user/shared/src/netutils.c",
              "trunk/user/shared/src/netutils.h",
              "trunk/user/shared/src/bridge_membership_policy.h",
              "trunk/user/shared/src/tests/bridge_membership_policy.c",
              "trunk/user/rc/src/net_wan.c",
              "scripts/check_wan_vlan_setup.py"):
-    push, pr = workflow.split("  pull_request:", 1)
     require(push.count(f'"{path}"') == 1 and pr.count(f'"{path}"') == 1,
             f"WAN workflow push/PR paths must include {path}")
 require("python3 scripts/check_wan_vlan_setup.py" in workflow,
