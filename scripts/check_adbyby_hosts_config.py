@@ -11,6 +11,7 @@ FIREWALL_TEST = ROOT / "trunk/user/adbyby/tests/firewall_snapshot.sh"
 WORKFLOW = ROOT / ".github/workflows/adbyby-config-stability.yml"
 SERVICE = ROOT / "trunk/user/rc/src/services.c"
 LIFECYCLE_TEST = ROOT / "trunk/user/adbyby/tests/lifecycle_lock.sh"
+RULES_TEST = ROOT / "trunk/user/adbyby/tests/rules_download.sh"
 
 
 def fail(message):
@@ -36,6 +37,7 @@ firewall_test = FIREWALL_TEST.read_text(encoding="utf-8")
 workflow = WORKFLOW.read_text(encoding="utf-8")
 service = SERVICE.read_text(encoding="utf-8")
 lifecycle_test = LIFECYCLE_TEST.read_text(encoding="utf-8")
+rules_test = RULES_TEST.read_text(encoding="utf-8")
 helper = function_body(source, "adbyby_remove_generated_hosts_config")
 hosts_ads = function_body(source, "hosts_ads")
 del_dns = function_body(source, "del_dns")
@@ -43,6 +45,17 @@ lock_prepare = function_body(source, "adbyby_lifecycle_lock_prepare")
 lock_execute = function_body(source, "adbyby_lifecycle_lock_execute")
 locked_action = function_body(source, "adbyby_lifecycle_locked_action")
 lock_run = function_body(source, "adbyby_lifecycle_lock_run")
+valid_md5 = function_body(source, "adbyby_valid_md5")
+md5_file = function_body(source, "adbyby_md5_file")
+manifest_digest = function_body(source, "adbyby_manifest_digest")
+download_https = function_body(source, "adbyby_download_https_200")
+add_rules = function_body(source, "add_rules")
+start = function_body(source, "adbyby_start")
+updater = function_body(source, "adbyby_uprules")
+refresh_match = re.search(r"(?ms)^adbyby_refresh_managed_rules\s*\(\s*\n\((.*?)^\)", source)
+if not refresh_match:
+    fail("missing subshell function adbyby_refresh_managed_rules()")
+refresh_rules = refresh_match.group(1)
 restart_match = re.search(r"(?ms)void\s+restart_adbyby\s*\(\s*void\s*\)\s*\{(.*?)^\}", service)
 if not restart_match:
     fail("missing C function restart_adbyby(void)")
@@ -82,6 +95,41 @@ require("flock -n 9" in lock_execute and "exec 9>&-" in lock_execute,
         "lifecycle lock uses bounded FD locking and closes FD 9")
 require("rm -f" not in lock_prepare,
         "lifecycle lock inode must remain stable")
+require('ADBYBY_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt"' in source,
+        "managed downloads must use the firmware CA bundle compiled into curl")
+require("[[:xdigit:]]" in manifest_digest and r"\\{32\\}" in manifest_digest,
+        "manifest parser must accept only complete hexadecimal MD5 fields")
+require("32" in valid_md5 and "0123456789abcdefABCDEF" in valid_md5,
+        "MD5 values must be exactly 32 hexadecimal characters")
+require("md5sum" in md5_file and "[ ! -L \"$1\" ]" in md5_file and "[ -s \"$1\" ]" in md5_file,
+        "local and staged rules must be regular, non-symlink, non-empty files before hashing")
+for option in ("--cacert", "--fail", "--connect-timeout 5", "--max-time 30",
+               "--retry 3", "--write-out '%{http_code}'", '[ "$adbyby_download_status" = 200 ]'):
+    require(option in download_https, f"managed HTTPS fetch omits {option}")
+require("-k" not in download_https and "--insecure" not in download_https,
+        "managed rule downloads must retain TLS certificate verification")
+require("https://" in download_https and "[ -r \"$ADBYBY_CA_BUNDLE\" ]" in download_https,
+        "managed fetch must reject non-HTTPS URLs and a missing trust store")
+for marker in ("umask 077", "mktemp -d /tmp/adbyby-rules.XXXXXX",
+               "adbyby_rules_cache_is_usable", "adbyby_manifest_digest",
+               "adbyby_lazy_downloaded", "adbyby_video_downloaded",
+               "lazy.previous", "mv -f", "adbyby_keep_stage=1"):
+    require(marker in refresh_rules, f"managed update transaction is missing: {marker}")
+require("return 0" in refresh_rules and "保留现有规则" in refresh_rules,
+        "remote fetch/manifest/digest failures must preserve a usable cached pair")
+require("adbyby_refresh_managed_rules" in add_rules and "return 1" in add_rules,
+        "add_rules must stop processing when no safe managed rule state exists")
+require("if ! add_rules" in start and "return 1" in start,
+        "normal start must not launch the daemon after managed rule preparation fails")
+require("if ! add_rules" in updater and "return 1" in updater,
+        "update/restart must not relaunch after managed rule preparation fails")
+for fixed_path in ("/tmp/local-md5.json", "/tmp/md5.json", "/tmp/lazy.txt", "/tmp/video.txt"):
+    require(fixed_path not in source, f"predictable shared staging path remains: {fixed_path}")
+for marker in ("TLS outage", "redirect", "HTTP failure", "partial/corrupt body",
+               "second rename failure", "Missing CA", 
+               "Adbyby private HTTPS staging, digest validation, cache fallback and publication rollback"):
+    require(marker in rules_test, f"rule download regression misses: {marker}")
+
 require("adbyby_refresh_nvram_state || return 1" in locked_action,
         "NVRAM must refresh after lock acquisition")
 require("updateadb" in lock_run and "restart" in lock_run,
@@ -114,6 +162,7 @@ paths = (
     "trunk/user/adbyby/adbyby.sh",
     "trunk/user/adbyby/tests/hosts_config_preservation.sh",
     "trunk/user/adbyby/tests/lifecycle_lock.sh",
+    "trunk/user/adbyby/tests/rules_download.sh",
     "trunk/user/adbyby/tests/firewall_snapshot.sh",
     "trunk/user/rc/src/services.c",
     "scripts/check_adbyby_hosts_config.py",
@@ -129,8 +178,10 @@ for command in (
     "sh -n trunk/user/adbyby/adbyby.sh",
     "sh -n trunk/user/adbyby/tests/hosts_config_preservation.sh",
     "sh -n trunk/user/adbyby/tests/lifecycle_lock.sh",
+    "sh -n trunk/user/adbyby/tests/rules_download.sh",
     "sh trunk/user/adbyby/tests/hosts_config_preservation.sh",
     "sh trunk/user/adbyby/tests/lifecycle_lock.sh",
+    "sh trunk/user/adbyby/tests/rules_download.sh",
     "sh trunk/user/adbyby/tests/firewall_snapshot.sh",
     "python3 scripts/check_adbyby_hosts_config.py",
 ):

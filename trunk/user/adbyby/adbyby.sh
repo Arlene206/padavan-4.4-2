@@ -4,6 +4,7 @@ ipt_n="iptables -t nat"
 #adbyby_dir="/tmp/adbyby"
 PROG_PATH="/tmp/adbyby"
 DATA_PATH="$PROG_PATH/data"
+ADBYBY_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt"
 WAN_FILE="/etc/storage/dnsmasq-adbyby.d/03-adbyby-ipset.conf"
 
 # Read mutable settings only after the lifecycle lock is held.
@@ -36,7 +37,10 @@ adbyby_start()
 	#/tmp/adbyby/adblock.sh &
 	#fi
 	#/tmp/adbyby/adupdate.sh &
-	add_rules
+	if ! add_rules; then
+		logger -t "adbyby" "规则准备失败，拒绝启动Adbyby。"
+		return 1
+	fi
 	"$PROG_PATH/adbyby" 9>&- >/dev/null 2>&1 &
 	add_dns
 	iptables-save | grep ADBYBY >/dev/null || \
@@ -62,42 +66,174 @@ adbyby_close()
 
 }
 
+adbyby_valid_md5()
+{
+	case "$1" in
+		''|*[!0123456789abcdefABCDEF]*) return 1 ;;
+	esac
+	[ "${#1}" -eq 32 ]
+}
+
+adbyby_md5_file()
+{
+	[ -f "$1" ] && [ ! -L "$1" ] && [ -s "$1" ] || return 1
+	adbyby_md5_output=$(md5sum "$1" 2>/dev/null) || return 1
+	adbyby_md5_value=${adbyby_md5_output%% *}
+	adbyby_valid_md5 "$adbyby_md5_value" || return 1
+	printf '%s\n' "$adbyby_md5_value" | tr 'A-F' 'a-f'
+}
+
+adbyby_manifest_digest()
+{
+	adbyby_manifest_key="$1"
+	adbyby_manifest_file="$2"
+	sed -n "s/.*\"$adbyby_manifest_key\"[[:space:]]*:[[:space:]]*\"\\([[:xdigit:]]\\{32\\}\\)\".*/\\1/p" "$adbyby_manifest_file" |
+		tr 'A-F' 'a-f'
+}
+
+adbyby_download_https_200()
+{
+	adbyby_download_url="$1"
+	adbyby_download_file="$2"
+	case "$adbyby_download_url" in https://*) ;; *) return 1 ;; esac
+	[ -r "$ADBYBY_CA_BUNDLE" ] && [ -s "$ADBYBY_CA_BUNDLE" ] || return 1
+	adbyby_download_status=$(curl --cacert "$ADBYBY_CA_BUNDLE" --fail --silent --show-error \
+		--connect-timeout 5 --max-time 30 --retry 3 \
+		--output "$adbyby_download_file" --write-out '%{http_code}' "$adbyby_download_url") || return 1
+	[ "$adbyby_download_status" = 200 ] && [ -s "$adbyby_download_file" ]
+}
+
+adbyby_rules_cache_is_usable()
+{
+	[ -d "$PROG_PATH" ] && [ ! -L "$PROG_PATH" ] &&
+	[ -d "$DATA_PATH" ] && [ ! -L "$DATA_PATH" ] &&
+	[ -f "$DATA_PATH/lazy.txt" ] && [ ! -L "$DATA_PATH/lazy.txt" ] && [ -s "$DATA_PATH/lazy.txt" ] &&
+	[ -f "$DATA_PATH/video.txt" ] && [ ! -L "$DATA_PATH/video.txt" ] && [ -s "$DATA_PATH/video.txt" ]
+}
+
+# Stage and verify both upstream lists privately. Each published file uses an
+# atomic same-filesystem rename; a failed second rename rolls back the first.
+adbyby_refresh_managed_rules()
+(
+	umask 077
+	[ -d "$PROG_PATH" ] && [ ! -L "$PROG_PATH" ] &&
+	[ -d "$DATA_PATH" ] && [ ! -L "$DATA_PATH" ] || return 1
+	for adbyby_target in "$DATA_PATH/lazy.txt" "$DATA_PATH/video.txt"; do
+		if [ -e "$adbyby_target" ] || [ -L "$adbyby_target" ]; then
+			[ -f "$adbyby_target" ] && [ ! -L "$adbyby_target" ] || return 1
+		fi
+	done
+
+	adbyby_stage_dir=$(mktemp -d /tmp/adbyby-rules.XXXXXX) || return 1
+	adbyby_keep_stage=0
+	trap 'if [ "$adbyby_keep_stage" -eq 0 ]; then rm -rf "$adbyby_stage_dir"; fi' 0
+
+	adbyby_lazy_local=$(adbyby_md5_file "$DATA_PATH/lazy.txt" 2>/dev/null) || adbyby_lazy_local=""
+	adbyby_video_local=$(adbyby_md5_file "$DATA_PATH/video.txt" 2>/dev/null) || adbyby_video_local=""
+	adbyby_cache_ok=0
+	if adbyby_rules_cache_is_usable &&
+	   adbyby_valid_md5 "$adbyby_lazy_local" && adbyby_valid_md5 "$adbyby_video_local"; then
+		adbyby_cache_ok=1
+	fi
+
+	if ! adbyby_download_https_200 \
+		"https://adbyby.coding.net/p/xwhyc-rules/d/xwhyc-rules/git/raw/master/md5.json" \
+		"$adbyby_stage_dir/md5.json"; then
+		if [ "$adbyby_cache_ok" -eq 1 ]; then
+			logger -t "adbyby" "规则清单下载或HTTPS校验失败，保留现有规则。"
+			return 0
+		fi
+		logger -t "adbyby" "规则清单不可用且本地规则不完整，拒绝继续。"
+		return 1
+	fi
+
+	adbyby_lazy_online=$(adbyby_manifest_digest lazy "$adbyby_stage_dir/md5.json")
+	adbyby_video_online=$(adbyby_manifest_digest video "$adbyby_stage_dir/md5.json")
+	if ! adbyby_valid_md5 "$adbyby_lazy_online" ||
+	   ! adbyby_valid_md5 "$adbyby_video_online"; then
+		if [ "$adbyby_cache_ok" -eq 1 ]; then
+			logger -t "adbyby" "规则清单格式或摘要无效，保留现有规则。"
+			return 0
+		fi
+		logger -t "adbyby" "规则清单格式无效且本地规则不完整，拒绝继续。"
+		return 1
+	fi
+
+	if [ "$adbyby_lazy_online" = "$adbyby_lazy_local" ] &&
+	   [ "$adbyby_video_online" = "$adbyby_video_local" ]; then
+		logger -t "adbyby" "规则摘要一致，无需下载。"
+		return 0
+	fi
+
+	if ! adbyby_download_https_200 \
+		"https://adbyby.coding.net/p/xwhyc-rules/d/xwhyc-rules/git/raw/master/lazy.txt" \
+		"$adbyby_stage_dir/lazy.next" ||
+	   ! adbyby_download_https_200 \
+		"https://adbyby.coding.net/p/xwhyc-rules/d/xwhyc-rules/git/raw/master/video.txt" \
+		"$adbyby_stage_dir/video.next"; then
+		if [ "$adbyby_cache_ok" -eq 1 ]; then
+			logger -t "adbyby" "规则文件下载失败，保留现有规则。"
+			return 0
+		fi
+		logger -t "adbyby" "规则文件下载失败且本地规则不完整，拒绝继续。"
+		return 1
+	fi
+
+	adbyby_lazy_downloaded=$(adbyby_md5_file "$adbyby_stage_dir/lazy.next" 2>/dev/null) || adbyby_lazy_downloaded=""
+	adbyby_video_downloaded=$(adbyby_md5_file "$adbyby_stage_dir/video.next" 2>/dev/null) || adbyby_video_downloaded=""
+	if [ "$adbyby_lazy_downloaded" != "$adbyby_lazy_online" ] ||
+	   [ "$adbyby_video_downloaded" != "$adbyby_video_online" ]; then
+		if [ "$adbyby_cache_ok" -eq 1 ]; then
+			logger -t "adbyby" "规则下载摘要不匹配，拒绝发布并保留旧规则。"
+			return 0
+		fi
+		logger -t "adbyby" "规则下载摘要不匹配且无可用旧规则，拒绝继续。"
+		return 1
+	fi
+
+	adbyby_had_lazy=0
+	if [ -e "$DATA_PATH/lazy.txt" ]; then
+		cp -p "$DATA_PATH/lazy.txt" "$adbyby_stage_dir/lazy.previous" || return 1
+		adbyby_had_lazy=1
+	fi
+	if ! mv -f "$adbyby_stage_dir/lazy.next" "$DATA_PATH/lazy.txt"; then
+		logger -t "adbyby" "lazy规则原子发布失败，保留旧规则。"
+		return 1
+	fi
+	if ! mv -f "$adbyby_stage_dir/video.next" "$DATA_PATH/video.txt"; then
+		if [ "$adbyby_had_lazy" -eq 1 ]; then
+			if ! mv -f "$adbyby_stage_dir/lazy.previous" "$DATA_PATH/lazy.txt"; then
+				adbyby_keep_stage=1
+				logger -t "adbyby" "video规则发布及lazy回滚均失败，保留恢复文件：$adbyby_stage_dir"
+				return 1
+			fi
+		else
+			rm -f "$DATA_PATH/lazy.txt"
+		fi
+		logger -t "adbyby" "video规则原子发布失败，已回滚lazy规则。"
+		return 1
+	fi
+
+	if ! printf '%s\n' "$(date '+%Y-%m-%d %H:%M:%S')" > "$PROG_PATH/adbyby.updated"; then
+		logger -t "adbyby" "规则已发布，但更新时间文件写入失败。"
+	fi
+	logger -t "adbyby" "规则文件已通过HTTPS和MD5校验并发布。"
+	return 0
+)
+
 add_rules()
 {
 	logger -t "adbyby" "正在检查规则是否需要更新!"
 	rm -f /tmp/adbyby/data/*.bak
 
-	touch /tmp/local-md5.json && md5sum /tmp/adbyby/data/lazy.txt /tmp/adbyby/data/video.txt > /tmp/local-md5.json
-	touch /tmp/md5.json && curl -k -s -o /tmp/md5.json --connect-timeout 5 --retry 3 https://adbyby.coding.net/p/xwhyc-rules/d/xwhyc-rules/git/raw/master/md5.json
-
-	lazy_local=$(grep 'lazy' /tmp/local-md5.json | awk -F' ' '{print $1}')
-	video_local=$(grep 'video' /tmp/local-md5.json | awk -F' ' '{print $1}')  
-	lazy_online=$(sed  's/":"/\n/g' /tmp/md5.json  |  sed  's/","/\n/g' | sed -n '2p')
-	video_online=$(sed  's/":"/\n/g' /tmp/md5.json  |  sed  's/","/\n/g' | sed -n '4p')
-
-	if [ "$lazy_online"x != "$lazy_local"x -o "$video_online"x != "$video_local"x ]; then
-	echo "MD5 not match! Need update!"
-	logger -t "adbyby" "发现更新的规则,下载规则！"
-	touch /tmp/lazy.txt && curl -k -s -o /tmp/lazy.txt --connect-timeout 5 --retry 3 https://adbyby.coding.net/p/xwhyc-rules/d/xwhyc-rules/git/raw/master/lazy.txt
-	touch /tmp/video.txt && curl -k -s -o /tmp/video.txt --connect-timeout 5 --retry 3 https://adbyby.coding.net/p/xwhyc-rules/d/xwhyc-rules/git/raw/master/video.txt
-	touch /tmp/local-md5.json && md5sum /tmp/lazy.txt /tmp/video.txt > /tmp/local-md5.json
-	lazy_local=$(grep 'lazy' /tmp/local-md5.json | awk -F' ' '{print $1}')
-	video_local=$(grep 'video' /tmp/local-md5.json | awk -F' ' '{print $1}')
-	if [ "$lazy_online"x == "$lazy_local"x -a "$video_online"x == "$video_local"x ]; then
-	echo "New rules MD5 match!"
-	mv /tmp/lazy.txt /tmp/adbyby/data/lazy.txt
-	mv /tmp/video.txt /tmp/adbyby/data/video.txt
-	echo $(date +"%Y-%m-%d %H:%M:%S") > /tmp/adbyby.updated
+	if ! adbyby_refresh_managed_rules; then
+		logger -t "adbyby" "规则校验或发布失败，停止规则处理。"
+		return 1
 	fi
-	else
-	echo "MD5 match! No need to update!"
-	logger -t "adbyby" "没有更新的规则,本次无需更新！"
-	fi
+	logger -t "adbyby" "Adbyby规则更新检查完成"
+	nvram set adbyby_ltime=$(head -1 "$DATA_PATH/lazy.txt" | awk -F' ' '{print $3,$4}')
+	nvram set adbyby_vtime=$(head -1 "$DATA_PATH/video.txt" | awk -F' ' '{print $3,$4}')
 
-	rm -f /tmp/lazy.txt /tmp/video.txt /tmp/local-md5.json /tmp/md5.json
-	logger -t "adbyby" "Adbyby规则更新完成"
-	nvram set adbyby_ltime=`head -1 /tmp/adbyby/data/lazy.txt | awk -F' ' '{print $3,$4}'`
-	nvram set adbyby_vtime=`head -1 /tmp/adbyby/data/video.txt | awk -F' ' '{print $3,$4}'`
 	#nvram set adbyby_rules=`grep -v '^!' /tmp/adbyby/data/rules.txt | wc -l`
 
 	#nvram set adbyby_utime=`cat /tmp/adbyby.updated 2>/dev/null`
@@ -458,7 +594,10 @@ adbyby_uprules()
 	#/tmp/adbyby/adblock.sh &
 	#fi
 	#/tmp/adbyby/adupdate.sh &
-	add_rules
+	if ! add_rules; then
+		logger -t "adbyby" "规则准备失败，保持Adbyby关闭。"
+		return 1
+	fi
 	"$PROG_PATH/adbyby" 9>&- >/dev/null 2>&1 &
 	add_dns
 	iptables-save | grep ADBYBY >/dev/null || \

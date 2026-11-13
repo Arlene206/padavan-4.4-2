@@ -1,3 +1,19 @@
+## 2026-11-13 10:55 CST (UTC+8) — Harden Adbyby managed rule download and publication
+
+- Base main SHA: `ceeb24d6b17e03f1777c240bdf0aca9fa6481194`; live main matched before constructing this change. Only the main branch exists; no checkpoint branch or development PR was created.
+- Recovered the previous task first. On the exact base SHA, Adbyby [43346579501] / job [131627282482] passed shell syntax, managed dnsmasq hosts preservation, lifecycle lock/concurrency/update routing, firewall snapshot regression and the Python source/workflow contract. AdGuardHome [43346579547], AliDDNS [43346579542], AliyunDrive [43346579532], infosvr [43346579502] and AI docs [43346579436] also passed on that same exact SHA; all job steps/logs and checkout SHAs were inspected. This closes the preceding Adbyby lifecycle serialization task at L2.
+- The stock `lazy.txt` / `video.txt` updater used predictable shared files under `/tmp`, disabled certificate validation with `curl -k`, did not require HTTP 200, and could leave the first rule replaced if the second rename failed. THIS COMMIT replaces that flow with a unique mode-0700 staging directory under `/tmp` and `umask 077`; downloads require HTTPS, the firmware CA bundle, curl failure handling, HTTP 200, a five-second connect timeout, a 30-second total timeout and bounded retries. The manifest must contain 32-hex MD5 fields, and both downloaded payloads must match before publication.
+- Remote download/manifest/digest failures retain an existing pair of non-empty regular cache files; with no usable pair, rule preparation returns failure. Start and update/restart now stop before launching the daemon if rule preparation cannot establish a safe state. The two published files use same-filesystem atomic renames; if the second rename fails, the first is rolled back. If rollback itself fails, the private staging directory is retained for recovery. This is not a single crash-atomic two-file transaction.
+- Added `trunk/user/adbyby/tests/rules_download.sh` for valid update, no-op, TLS/CA failure, redirect, HTTP failure, corrupt/partial payload, missing CA/cache and second-rename rollback. Wired shell syntax, host regression, source checker and both push/pull_request path filters.
+- Exact resulting-main Adbyby/AI-doc Actions are PENDING. No host test, semantic checker, target BusyBox/MIPS, full firmware or hardware result is claimed until the exact pushed SHA is inspected. No local full checkout was available in the recovery environment.
+- Scope is the two stock managed rule files only. Legacy third-party rules, `anti_ad_link` and host-list downloads still need a separate follow-up for `curl -k`, URL validation, shared temp paths, bounded size/time and atomic publication.
+- Root log count: 92→93, below the 119-entry / 120-trigger rotation threshold; existing archives remain 7/22/18. No archive or index mutation.
+- Changed paths: `trunk/user/adbyby/adbyby.sh`, new `trunk/user/adbyby/tests/rules_download.sh`, `scripts/check_adbyby_hosts_config.py`, `.github/workflows/adbyby-config-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and `dev_log.md`. No firmware bundle/binary, branch, PR or GPT Session Rotator modification.
+- Resulting main commit: THIS COMMIT.
+- Next: fetch main and inspect the exact-head Adbyby and AI docs workflow logs; repair any failures. Then harden remaining custom-rule, anti-ad and hosts download paths before returning to full FRP caller-path review.
+
+---
+
 ## 2026-11-13 08:46 CST (UTC+8) — Parse C restart contract correctly in Adbyby checker
 
 - Base main SHA: `cb7d3264b6398b0e7025c5ecb041169e0c805884`; live main matched before the change.
