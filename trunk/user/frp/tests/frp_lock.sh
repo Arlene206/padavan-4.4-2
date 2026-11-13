@@ -77,6 +77,14 @@ else
 fi
 [ "$action_status" -eq 7 ] || fail "action failure status was not propagated"
 
+# The launcher reserves FD 9; an inherited descriptor must be rejected.
+exec 9>&1
+if frp_lifecycle_lock_execute "$LOCK_PATH" 0 lock_action; then
+	fail "inherited lock FD 9 was accepted"
+fi
+exec 9>&-
+[ "$ACTION_CALLS" -eq 1 ] || fail "action ran while FD 9 was already occupied"
+
 # A competing launcher owns the same inode. The waiting caller must time out
 # without executing its action or leaving the reserved descriptor open.
 READY="$test_root/holder-ready"

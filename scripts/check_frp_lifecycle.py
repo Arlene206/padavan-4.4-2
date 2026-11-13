@@ -145,7 +145,7 @@ for marker in ("flock -n 9", "frp_lock_wait_seconds", "exec 9>&-",
                "生命周期锁FD 9已被占用", "等待生命周期锁超时"):
     require(marker in lock_execute, f"FRP lifecycle lock execution omits {marker}")
 require(lock_execute.index("flock -n 9") < lock_execute.index('"$@"') <
-        lock_execute.index('exec 9>&-'),
+        lock_execute.rindex('exec 9>&-'),
         "FRP lifecycle lock must enclose the complete operation and release afterward")
 lock_action = function_body(source, "frp_lifecycle_locked_action()")
 require("frp_refresh_nvram_state" in lock_action and
@@ -162,7 +162,7 @@ run_script = function_body(source, "frp_run_script()")
 require('/bin/sh "$frp_script_path" 9>&-' in run_script,
         "operator script and daemon children must not retain the launcher lock descriptor")
 for marker in ("stable private inode", "symlink lock path", "hard-linked lock path",
-               "contended lock action", "action failure status"):
+               "contended lock action", "action failure status", "inherited lock FD 9"):
     require(marker in lock_test, f"FRP lifecycle lock regression omits {marker}")
 
 network = function_body(source, "check_net()")
