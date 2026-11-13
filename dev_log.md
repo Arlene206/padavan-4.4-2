@@ -1,3 +1,16 @@
+## 2026-11-14 07:08 CST (UTC+8) — Reconcile live main SHA and preserve process-inventory continuation
+
+- Base `main` SHA: `f79bbc11161109abf8a094f8d0c9fd30bb8c1a0d`. The live handoff was materially stale; it is now refreshed in place by `a351306f6d53c461ec1dfd7da372c58a330b6bd9` (handoff only). This log update is a direct fast-forward child on `main`; resulting SHA: THIS COMMIT.
+- Re-fetched live repository metadata and branch inventory: default branch `main`, only remote branch `main`. Compare from `64cfa06d16fe966ec0f504373339973968b2fe27` to `f79bbc11161109abf8a094f8d0c9fd30bb8c1a0d` reports two commits ahead, zero behind, and only `SESSION_HANDOFF.md` / `dev_log.md` changes. Product source remains at the recorded L3 source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`.
+- Legacy PR #1 remains CLOSED / UNMERGED per the current checkpoint and prior live record; no non-main branch or PR was used. No valid unmerged PR work was identified for this round.
+- Exact-head Actions for `f79bbc11161109abf8a094f8d0c9fd30bb8c1a0d` and the new documentation commits are NOT VERIFIED. The available workflow-run connector only returns PR-triggered runs and returned none; combined commit status returned no status objects. These empty responses do not establish a pass or failure. The next takeover must inspect Actions for exact `head_sha` and `event=push`, including the AI handoff documentation workflow.
+- Active P1 shared process-inventory failure remains OPEN / NOT FIXED in `pids.c`, `shutils.h`, `common_ex.c`, `services_ex.c`, and `service_lifecycle_policy.h`. Scan initialization/OOM, `/proc` open, `readdir` error and PID-list allocation failure can be collapsed into absence/partial inventory; Boolean lifecycle consumers cannot represent UNKNOWN and stop may signal before inventory is authoritative.
+- No complete checkout or exhaustive caller enumeration was obtained. GitHub code search and truncated tree results are not complete evidence. No product source or regression test was changed; L1 partial source review, L2 host regressions NOT RUN, local `scripts/check_ai_handoff_docs.py` NOT RUN. Existing L3 applies only to source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f` (run `43489646254` / job `132107102854`); L4 router flash/boot NOT VERIFIED.
+- Updated only `SESSION_HANDOFF.md` and this log; whole-repository inventory/priority did not change, so `REFACTOR_ROADMAP.md` and archive index remain untouched. Root log advances 48→49/119; 125,069 bytes before this entry, below the 384 KiB early-rotation trigger and 512 KiB hard limit. No rotation or archive copy is due.
+- Exact next action: obtain an exhaustive checkout/content enumeration; classify every process scanner and lifecycle caller, then implement RUNNING / ABSENT / UNKNOWN propagation and injectable GNU89/`-Werror` regressions. Do not start another module or perform an incomplete API migration.
+
+---
+
 ## 2026-11-14 07:04 CST (UTC+8) — Reconcile live process-inventory handoff and exact-head CI
 
 - Base `main` SHA: `64cfa06d16fe966ec0f504373339973968b2fe27`; direct parent of the handoff commit `1d7e9683ef2daa44ee0978735900cc5f217f9611`. This log commit is a direct fast-forward child on `main`; resulting SHA: THIS COMMIT.
