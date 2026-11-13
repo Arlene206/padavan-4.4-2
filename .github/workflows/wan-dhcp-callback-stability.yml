@@ -326,7 +326,7 @@ jobs:
           assert "putenv(*curr++)" in fill_env and '"interface=%s"' in fill_env
           assert "rc = spawn(argv);" in spawn_wait and "return wait4pid(rc);" in spawn_wait
           assert "BB_EXECVP(argv[0], argv)" in spawn_child
-          reply_handler = body(dhcp6_client_source, "static int client6_recvreply(struct dhcp6_if *")
+          reply_handler = body(dhcp6_client_source, "static int client6_recvreply(struct dhcp6_if *ifp,")
           assert "script_status = dhcp6_script(" in reply_handler
           assert "DHCPv6 configuration script failed to execute" in reply_handler
           assert "DHCPv6 configuration script exited with status %d" in reply_handler
