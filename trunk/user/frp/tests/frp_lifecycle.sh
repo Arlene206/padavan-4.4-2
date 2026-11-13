@@ -40,6 +40,7 @@ add_process()
 	config="$3"
 	mkdir -p "$FRP_PROC_ROOT/$pid"
 	printf '/usr/bin/%s\000-c\000%s\000' "$service" "$config" > "$FRP_PROC_ROOT/$pid/cmdline"
+	ln -s "/usr/bin/$service" "$FRP_PROC_ROOT/$pid/exe"
 }
 remove_process()
 {
@@ -146,8 +147,18 @@ expect_check_start "both services alive" 0
 clear_processes
 mkdir -p "$FRP_PROC_ROOT/401"
 printf '/usr/bin/frpc\000-c\000/tmp/frp/other.ini\000' > "$FRP_PROC_ROOT/401/cmdline"
+ln -s /usr/bin/frpc "$FRP_PROC_ROOT/401/exe"
 LAUNCH_CALLS=0
 expect_check_start "wrong-config process is not alive FRPC" 1
+ 
+# argv[0] can be forged by an unrelated executable; it must not count as FRPC.
+clear_processes
+mkdir -p "$FRP_PROC_ROOT/402"
+printf '/usr/bin/frpc\000-c\000/tmp/frp/myfrpc.ini\000' > "$FRP_PROC_ROOT/402/cmdline"
+ln -s /bin/sleep "$FRP_PROC_ROOT/402/exe"
+LAUNCH_CALLS=0
+expect_check_start "argv-matching impostor executable is not FRPC" 1
+[ -s "$FRP_PROC_ROOT/402/cmdline" ] || fail "impostor process fixture was unexpectedly removed"
 
 clear_processes
 frpc_enable=0

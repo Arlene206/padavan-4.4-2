@@ -50,8 +50,17 @@ frp_service_config_path()
 	esac
 }
 
-# Match the complete argv tuple, not a process comm name. On Linux 4.4 there
+# Match the kernel executable target and complete argv tuple. On Linux 4.4 there
 # is no pidfd; callers re-read cmdline immediately before each PID signal.
+# argv[0] is caller-controlled; bind each service to its installed executable.
+frp_service_executable_path()
+{
+	case "$1" in
+		frpc) printf '%s\n' '/usr/bin/frpc' ;;
+		frps) printf '%s\n' '/usr/bin/frps' ;;
+		*) return 1 ;;
+	esac
+}
 frp_process_matches()
 {
 	frp_match_pid="$1"
@@ -60,6 +69,11 @@ frp_process_matches()
 		''|0|1|*[!0-9]*) return 1 ;;
 	esac
 	frp_match_config=$(frp_service_config_path "$frp_match_service") || return 1
+	frp_match_executable=$(frp_service_executable_path "$frp_match_service") || return 1
+	frp_match_exe_path="$FRP_PROC_ROOT/$frp_match_pid/exe"
+	[ -L "$frp_match_exe_path" ] || return 1
+	frp_match_exe=$(readlink "$frp_match_exe_path" 2>/dev/null) || return 1
+	[ "$frp_match_exe" = "$frp_match_executable" ] || return 1
 	frp_match_cmdline="$FRP_PROC_ROOT/$frp_match_pid/cmdline"
 	[ -r "$frp_match_cmdline" ] && [ -f "$frp_match_cmdline" ] || return 1
 

@@ -44,6 +44,7 @@ add_process()
 	config="$3"
 	mkdir -p "$FRP_PROC_ROOT/$pid"
 	printf '/usr/bin/%s\000-c\000%s\000' "$service" "$config" > "$FRP_PROC_ROOT/$pid/cmdline"
+	ln -s "/usr/bin/$service" "$FRP_PROC_ROOT/$pid/exe"
 }
 remove_process()
 {
@@ -152,13 +153,21 @@ setup_crontab
 clear_processes
 mkdir -p "$FRP_PROC_ROOT/201" "$FRP_PROC_ROOT/202" "$FRP_PROC_ROOT/203"
 printf '/usr/bin/frpc\000-c\000/tmp/frp/operator.ini\000' > "$FRP_PROC_ROOT/201/cmdline"
+ln -s /usr/bin/frpc "$FRP_PROC_ROOT/201/exe"
 printf '/usr/bin/frps\000-c\000/tmp/frp/myfrps.ini\000--unexpected\000' > "$FRP_PROC_ROOT/202/cmdline"
+ln -s /usr/bin/frps "$FRP_PROC_ROOT/202/exe"
 printf '/usr/bin/frpc-wrapper\000-c\000/tmp/frp/myfrpc.ini\000' > "$FRP_PROC_ROOT/203/cmdline"
+ln -s /usr/bin/frpc-wrapper "$FRP_PROC_ROOT/203/exe"
 frp_close || fail "unowned same-name decoys made FRP stop fail"
 [ ! -s "$SIGNAL_LOG" ] || fail "unowned process received a signal"
 process_exists 201 || fail "wrong-config FRPC decoy was altered"
 process_exists 202 || fail "extra-argv FRPS decoy was altered"
 process_exists 203 || fail "wrong-executable FRPC decoy was altered"
+ 
+# An unrelated executable can copy the exact argv tuple; it still is not FRPC.
+printf '/usr/bin/frpc\000-c\000/tmp/frp/myfrpc.ini\000' > "$FRP_PROC_ROOT/204/cmdline"
+ln -s /bin/sleep "$FRP_PROC_ROOT/204/exe"
+process_exists 204 || fail "argv-matching impostor executable was altered"
 [ "$KILLALL_CALLS" -eq 0 ] || fail "name-based killall was invoked"
 
 # Even if cron publication fails, attempt to stop owned daemons and report failure.

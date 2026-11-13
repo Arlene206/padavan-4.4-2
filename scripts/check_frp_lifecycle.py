@@ -186,6 +186,7 @@ for marker in (
     "FRP asynchronous daemon startup uses bounded readiness",
     "Partial startup times out",
     "wrong-config process is not alive FRPC",
+    "argv-matching impostor executable is not FRPC",
 ):
     require(marker in test, f"missing asynchronous lifecycle regression: {marker}")
 
@@ -230,7 +231,12 @@ require("frp_any_running" in source and "frp_service_pids" in source and
         "frp_process_matches" in source and 'kill "-$frp_signal" "$frp_signal_pid"' in source and
         "killall" not in source and "pidof frpc" not in source and "pidof frps" not in source,
         "FRP shutdown and watchdog must use exact argv identity and never broad comm-name signals")
+executable_path = function_body(source, "frp_service_executable_path()")
+require("'/usr/bin/frpc'" in executable_path and "'/usr/bin/frps'" in executable_path,
+        "FRP process identity must bind each role to its installed executable path")
 process_match = function_body(source, "frp_process_matches()")
+               '$FRP_PROC_ROOT/$frp_match_pid/exe', 'readlink "$frp_match_exe_path"',
+               '[ "$frp_match_exe" = "$frp_match_executable" ]',
 for marker in ('$FRP_PROC_ROOT/$frp_match_pid/cmdline', "tr '\\000' '\\n'",
                'sub(/^.*\\//, "", executable)', 'executable != expected',
                '$0 != "-c"', '$0 != config', "NR == 3"):
@@ -259,6 +265,7 @@ require('eval("/usr/bin/frp.sh","restart")' in restart and
 for marker in ("FRPC survived stop", "FRPS survived stop",
                "KILL escalation", "stubborn FRPS", "failed cron removal",
                "five-plus-two poll bound", "same-name decoys",
+               "argv-matching impostor executable",
                "name-based killall was invoked"):
     require(marker in stop_test, f"FRP stop regression omits {marker}")
 
