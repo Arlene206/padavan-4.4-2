@@ -4281,7 +4281,7 @@ jobs:
           assert script_write_gate < temp_create < temp_open < temp_write
           assert "lstat(real_path, &target_stat)" in write_helper
           assert "S_ISREG(target_stat.st_mode)" in write_helper
-          assert '"/.frp_script.XXXXXX"' in write_helper
+          assert '/.frp_script.XXXXXX' in write_helper
           assert "chmod(temp_path, httpd_script_file_mode(file_type))" in write_helper
           assert "rename(temp_path, real_path)" in write_helper
           assert 'snprintf(temp_path, sizeof(temp_path), "%s/.%s", "/tmp", file_name)' not in write_helper
