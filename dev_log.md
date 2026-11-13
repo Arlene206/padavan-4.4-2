@@ -1,3 +1,15 @@
+## 2026-11-14 06:50 CST (UTC+8) — Reconcile process-inventory takeover checkpoint
+
+- Base `main` SHA: `a15a9cb16bbafde1c13638d963d6113014511173` (the preceding checkpoint-refresh commit; product sources unchanged). This documentation reconciliation commit: THIS COMMIT.
+- Re-fetched live refs and confirmed only `main` exists as a branch; legacy PR #1 remains CLOSED / UNMERGED and `toolchain` tag remains unchanged.
+- Exact-head Actions for base SHA `6a59436e0dd8c6a0e75688d77bcab6959cba8db9`: five of six push workflows SUCCESS; NVRAM transaction boundary run `43522368539` remained IN_PROGRESS at inspection. The preceding handoff refresh `a15a9cb` had no Actions run visible at immediate inspection; results must be reconciled by exact `head_sha`, not inferred.
+- Refreshed `SESSION_HANDOFF.md` to record the current live SHA, exact workflow states, known source blob SHAs, and the first action for the next GPT. No production source or tests changed.
+- Shared process inventory remains P1 OPEN / NOT FIXED: scan-context allocation or `/proc` open failure, `readdir()` error and PID-list growth failure can be misreported as absence/partial inventory; lifecycle stop currently signals before authoritative inventory and has no UNKNOWN state. Complete caller inventory is still blocked by unavailable complete checkout and non-exhaustive GitHub search/tree retrieval.
+- Validation: L1 partial source review only; L2 host regressions NOT RUN; local `scripts/check_ai_handoff_docs.py` NOT RUN because no local checkout is available. Exact-head Actions for THIS COMMIT: PENDING; reconcile after push. Existing L3 XY-C1 evidence remains limited to product-source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f` (run `43489646254` / job `132107102854`); L4 NOT VERIFIED.
+- Next: obtain a complete checkout or exhaustive content enumeration; classify all process scanner and lifecycle callers before designing the RUNNING / ABSENT / UNKNOWN API and GNU89/`-Werror` regressions. Do not implement an incomplete caller migration.
+
+---
+
 ## 2026-11-14 06:42 CST (UTC+8) — Correct live handoff checkpoint and record pending exact-head CI
 
 - Base main SHA: 2804237172be23569cfcef68b049d78be44af0d6 (parent ebe8fc50584a51e0ce625f686f2d6e4bcd34529e). The preceding 06:39 docs commit updated roadmap/log but the intended handoff blob was byte-identical; this commit now explicitly advances the live handoff to the current SHA and pending CI state.
