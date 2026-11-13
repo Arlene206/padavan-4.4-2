@@ -8,6 +8,7 @@ on:
       - "trunk/user/rc/src/net_wan6.c"
       - "trunk/user/rc/src/common_ex.c"
       - "trunk/user/busybox/busybox-1.24.x/libbb/vfork_daemon_rexec.c"
+      - "trunk/user/busybox/busybox-1.24.x/libbb/xfuncs.c"
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c_script.c"
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c.c"
       - "trunk/user/rc/src/tests/dhcp6c_callback_generation.c"
@@ -36,6 +37,7 @@ on:
       - "trunk/user/rc/src/net_wan6.c"
       - "trunk/user/rc/src/common_ex.c"
       - "trunk/user/busybox/busybox-1.24.x/libbb/vfork_daemon_rexec.c"
+      - "trunk/user/busybox/busybox-1.24.x/libbb/xfuncs.c"
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c_script.c"
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c.c"
       - "trunk/user/rc/src/tests/dhcp6c_callback_generation.c"
@@ -139,6 +141,7 @@ jobs:
           dhcp6_client_source = Path("trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c.c").read_text()
           dhcp6_script_source = Path("trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c_script.c").read_text()
           busybox_spawn_source = Path("trunk/user/busybox/busybox-1.24.x/libbb/vfork_daemon_rexec.c").read_text()
+          busybox_wait_source = Path("trunk/user/busybox/busybox-1.24.x/libbb/xfuncs.c").read_text()
           common_ex_source = Path("trunk/user/rc/src/common_ex.c").read_text()
 
           def body(text, signature):
@@ -311,10 +314,22 @@ jobs:
           fill_env = body(dhcp6_script_source, "char **fill_envp_client6(")
           spawn_wait = body(busybox_spawn_source, "spawn_and_wait(char **argv)")
           spawn_child = body(busybox_spawn_source, "pid_t FAST_FUNC spawn(char **argv)")
-          assert "spawn_and_wait(argv)" in script_runner
+          assert "status = spawn_and_wait(argv);" in script_runner
+          assert "saved_errno = errno;" in script_runner
+          assert "if (status < 0)\n\t\terrno = saved_errno;" in script_runner
+          assert script_runner.index("status = spawn_and_wait(argv);") < script_runner.index("bb_unsetenv_and_free") < script_runner.index("return status;")
+          assert "return status;" in script_runner
+          wait_child = body(busybox_wait_source, "int FAST_FUNC wait4pid(pid_t pid)")
+          assert "safe_waitpid(pid, &status, 0)" in wait_child
+          assert "WIFEXITED(status)" in wait_child and "return WEXITSTATUS(status);" in wait_child
+          assert "WIFSIGNALED(status)" in wait_child and "WTERMSIG(status) + 0x180" in wait_child
           assert "putenv(*curr++)" in fill_env and '"interface=%s"' in fill_env
           assert "rc = spawn(argv);" in spawn_wait and "return wait4pid(rc);" in spawn_wait
           assert "BB_EXECVP(argv[0], argv)" in spawn_child
+          reply_handler = body(dhcp6_client_source, "static int client6_recvreply(struct dhcp6_if *")
+          assert "script_status = dhcp6_script(" in reply_handler
+          assert "DHCPv6 configuration script failed to execute" in reply_handler
+          assert "DHCPv6 configuration script exited with status %d" in reply_handler
           signal_adapter = body(common_ex_source, "service_lifecycle_send_signal(void *context")
           assert 'doSystem("killall %s %s"' in signal_adapter
           assert 'signal_option = "-SIGKILL"' in signal_adapter
