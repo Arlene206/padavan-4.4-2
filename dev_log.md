@@ -1,3 +1,16 @@
+## 2026-11-14 05:30 CST (UTC+8) — Reconcile latest main and preserve process-inventory recovery boundary
+
+- Re-fetched live main as `8672afe19c5a9f867f8cf89f8ff626329bcc5341`; its only parent-range changes from `947d9ce8aa51a8f000bbe3186e03774c226880c2` were documentation files. Refreshed the live handoff in commit `300ea7175af6c906b3bac97517f3d270f4af55e2`.
+- Remote branches contain only `main`; PR #1 remains CLOSED / UNMERGED. No non-main ref or PR was used.
+- Reconfirmed the shared process scanner failure path and the Boolean lifecycle callback / TERM-KILL escalation hazard. Also identified that `readdir()` EOF is not distinguished from a directory-read error in the current scanner. Whole-tree symbol search is unavailable because GitHub code search returned no indexed results; this must not be interpreted as an exhaustive caller inventory.
+- No product source or tests changed. No local checkout was available; local documentation checker and host regressions NOT RUN. L1 partial source review only; L2 NOT RUN. Existing product-source L3 evidence remains the XY-C1 run `43489646254` on `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`; L4 NOT VERIFIED.
+- For `8672afe19c5a9f867f8cf89f8ff626329bcc5341`, combined status had no entries and the available commit-run wrapper returned no runs (PR-triggered only). Exact-head push Actions are NOT VERIFIED; older-SHA green runs are not substituted.
+- Root log was 36/119 before this entry; this makes 37/119, below rotation thresholds. Archive inventory and roadmap priorities did not change; no archive, INDEX, or roadmap update is due.
+- Changed paths: `SESSION_HANDOFF.md`, `dev_log.md`. Handoff commit: `300ea7175af6c906b3bac97517f3d270f4af55e2`; resulting log commit: THIS COMMIT.
+- Exact first action: obtain a full checkout / reliable whole-tree search, map every process-inventory caller, then implement and regression-test the checked tri-state API and fail-closed lifecycle policy.
+
+---
+
 ## 2026-11-14 05:24 CST (UTC+8) — Reconcile live main and refine process-inventory fail-open continuation
 
 - Re-fetched `refs/heads/main`: baseline exact SHA `947d9ce8aa51a8f000bbe3186e03774c226880c2`, parent `85b06794590a8d3fc7fe4218b2f967493d45d9e3`. The one-commit range is documentation-only; no product-source delta.
