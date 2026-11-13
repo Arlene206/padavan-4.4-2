@@ -1,43 +1,47 @@
 ## Current repository state
 
-## 最近接力状态（2026-11-13）
+## 最近接力状态（2026-11-14）
 
-- 当前 live `main` 精确 HEAD：`3a01511a527d265b40472de603bdaa7249c64b1a`（`fix(infosvr): propagate busy daemon failure to PID 1`），parent 为 `aec7b2ca6d75712f6c18a9712d4478c2c3172070`。本轮仅做仓库状态恢复与治理文档同步，没有改生产源码。
-- refs 已重新核对：远程开发分支只有 `main`；`refs/tags/toolchain` 指向 `7f7d3ea41ebdd7eeab8a303f3d4ad8dddb54a8a7`。PR #1 CLOSED / UNMERGED，head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`、base `9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74`。未创建/移动分支、tag、PR 或 checkpoint ref。
-- 当前 SHA 的全部 21 个 push Actions 均逐一匹配精确 `head_sha=3a01511a527d265b40472de603bdaa7249c64b1a`，21/21 completed success、无失败/待运行；所有触发类型均为 push。相关 job steps 与日志已检查。AI handoff validator 报告 root dev log 24/119 条、legacy archive inventory dev-log=8 / handoff=22 / roadmap=18。
-- NVRAM bounded boundary 在 exact-head workflow 中通过：4179 userland source files；locked adapter 中 25 处 raw ioctl 引用；adapter 外 raw bypass=0；扫描 kernel 44042 source files，外部 kernel API references=0、writer references=0；检查 board configs=57。root:root 0600 device-node policy、共享 userland transaction lock inode/权限/争用/跨进程/crash-release 回归均 PASS。该结论关闭的是受治理的 userland 绕行与共享库事务边界，不代表 kernel API 或非协作外部进程的全局原子性。
-- infosvr 最近两步修正已在当前 SHA 验证：`aec7b2c` 增加停止后进程复查，`3a01511` 保持失败返回为负值，使 PID 1 notification queue 不会把 EBUSY 当作成功确认。精确 run `43464806328` / job `132020959425` 的包长、SIGTERM、stop-before-start、RC failure propagation source contracts 全部通过。
-- Crond 当前 SHA exact-head run `43464806051` / job `132020958331` 通过 GNU89/Werror/ASan/UBSan daemon startup/stop/restart policy 与 RC caller contracts。其它当前 SHA workflow（HTTPD auth/security、FRP、AdGuardHome、Adbyby、AliDDNS、AliyunDrive、VPN、ZeroTier、watchdog、GPIO、networkmap、detect_link、WAN ARP、DNS Forwarder、SkipDBv2 等）也全部在 21/21 汇总内成功。
-- 本次没有当前 HEAD 的完整 MIPS/uClibc firmware/TRX Actions，也没有 L4 实机刷写/启动结果。旧 XY-C1 artifact 对应祖先 SHA `231fa506b898cf629391a6b6846ee36f3a5f78c4`，不能替代当前 `3a01511` 的 L3 证据。未做完整本地 checkout 或本地固件构建。
-- 开发规则继续保持：单一 main、直接 forward commit、CAS 更新 ref、不 force-push/amend、不新建例行 handoff/roadmap archive；根 dev log 当前 24/119 条，未达到轮转阈值，不改 INDEX/archives。
+- 当前 live main HEAD：a7a70397ec9f6458655a7f0520769c5270436258（fix(ci): add NVRAM snapshot policy include path），生产修复提交为 parent d551d765acb3b2810786e64cca72529b7be1397c（fix(nvram): snapshot ioctl values under the driver lock）。a7 只修正新增 host test 的 include 搜索路径，不改生产源码；NVRAM 生产实现及策略测试在 a7 中与 d551 完全相同。
+- 精确 Actions：d551 首轮 NVRAM workflow 曾因测试编译命令缺少 -I trunk/linux-4.4.x/drivers/nvram 而失败，原因是 host test 找不到新头文件，不是内核源码编译失败。随后 a7 修正 workflow；a7 的两个 exact event=push runs（AI handoff docs 43469264009、NVRAM transaction boundary 43469265744）均 COMPLETED / SUCCESS，NVRAM job 132036533462 的全部步骤与完整日志已检查。
+- NVRAM exact a7 scan：userland C/C++ files 4,179、adapter 外 raw ioctl bypass 0；kernel source files 44,044、外部 NVRAM API refs 0、writer refs 0；board config files 57。Snapshot sizing policy、设备节点策略、共享 transaction lock 三组 GNU89/Werror/ASan/UBSan tests 均 PASS；kernel source checker 的 single-value ioctl snapshot contract PASS。
+- refs 重新核对：仅 branch main；refs/tags/toolchain = 7f7d3ea41ebdd7eeab8a303f3d4ad8dddb54a8a7；PR #1 CLOSED / UNMERGED（head ba48e22609e0c81ad757b06756fe91d05f39cbf6）。无其他分支、开放 PR 或新 checkpoint refs；GPT Session Rotator 未触碰。
+- 本轮新完成的是 kernel NVRAM_IOCTL_GET 单值读取的一致性快照修复，范围不等于所有内核/外部 writer 的全局原子性。没有完整 MIPS/uClibc firmware/TRX 构建或实机测试；这些仍放在主体开发后集中执行。
+- 根 dev_log.md 当前 24 条；本轮追加后 25 条，远低于 120-entry / 384 KiB 轮转门槛。不归档、不更新 docs/dev-log/INDEX.md。
 
 ## Active task
 
-下一批优先对 Linux 4.4 NVRAM kernel ioctl 的单值读取并发边界做 L1 审计，确认并修复（若验证成立）`user_nvram_get()` 返回值读取期间的并发修改问题。当前 scanner 已明确提示：`nvram_get(param)` 在 `nvram_lock` 解锁后返回内部值指针，调用方随后才执行 `strlen()` 和 `copy_to_user()`。源码已看到 `_nvram_get()` 返回 `t->value`，`_nvram_set()` / `_nvram_unset()` / `nvram_clear()` 在同一 spinlock 下改变该数据。
-- 目前应将其准确描述为潜在的 unlocked read/write consistency race；**现有证据不足以称为 use-after-free**：值字符串来自 `nvram_values` 长期分配的 slab-like buffer，普通 clear 会重置/清零，而非释放该 buffer；tuple node 本身虽会释放，但 reader 使用的是 `t->value`。仍需确认所有重置/卸载生命周期、值长度边界及所有 writer，再决定安全快照实现，不能把 copy_to_user 放进 spinlock 临界区。
-- 首先检查 `trunk/linux-4.4.x/drivers/nvram/nvram.c` 与 `nvram_linux.c` 中 `_nvram_get`、`_nvram_realloc`、`_nvram_unset`、`_nvram_uninit`、module exit/open refcount 的完整关系；设计在锁内捕获受限快照、锁外 copy_to_user 的实现和并发回归。只有证明存在实际不一致或危险窗口后才改代码。
-- 次级候选：`restart_ftpd()` / `restart_smbd()` 与安全卸载/存储 hotplug 所使用的 storage operation lock 是否存在跨进程竞态。当前只是锁覆盖差异线索，尚未证明实际缺陷；先跟踪通知/CLI/锁顺序，不要预设修复。
+Linux 4.4 NVRAM kernel ioctl 单值读取并发边界已完成 L1/L2 修复并由 exact-main Actions 验证。已确认旧路径 user_nvram_get() 调用 nvram_get(param) 后，内部 nvram_lock 已释放，调用方才执行 strlen() 和 copy_to_user()；并发 set/unset/clear 可改变或重置共享 nvram_values 内容，造成长度与实际复制数据不一致。证据支持 unlocked read/write consistency race，不是已证明的 UAF：普通 clear 重置 backing pool，不释放长期分配的 nvram_values；tuple 生命周期和 module open/exit pin 也已检查。
+
+1. 新增 nvram_value_span() 检查指针位于 pool 边界内；新增 nvram_get_snapshot()，在锁内计算所需长度，解锁后分配缓冲区，再锁内重新解析 key、复核长度并复制一致快照。若值在两次锁区间内增长则最多重试 3 次；pool 无终止符、内存不足、key 已删除或持续竞争分别返回明确错误。整个 copy_to_user() 始终在 spinlock 之外。
+2. user_nvram_get() 已改为只向用户态复制私有快照；不再把 nvram_get() 返回的 pool 指针带到 unlocked 区域。新增 snapshot sizing policy host test，覆盖容量充足、值增长重试、值缩短、pool terminator 边界。
+3. 同步加强 scripts/check_nvram_transaction_boundary.py：检查两阶段 lock/allocate/relock/copy 顺序、bounded retry、无 spinlock 内 copy_to_user、ioctl 使用私有快照、set/unset/clear/commit writer 锁保护、init 在 register 前完成、exit 先 unregister 再释放 pool，以及 module open/release pin。
+4. 生产代码提交 d551d765acb3b2810786e64cca72529b7be1397c；首轮 exact Actions 的 host 编译漏掉头文件 -I 搜索路径，已在 CI-only 后续提交 a7a70397ec9f6458655a7f0520769c5270436258 修正。a7 的 exact NVRAM 与 AI docs push runs 均 PASS，详见 Verification boundary。生产实现无后续更改。
+5. 此修复只覆盖本驱动的 NVRAM_IOCTL_GET 单值 ioctl。导出的 legacy nvram_get() API 仍为返回 pool 指针的接口；本仓库当前扫描未发现其他 kernel caller，但不能据此宣称 out-of-tree 模块或任意外部 writer 自动受到保护。
+6. 下一任务按 roadmap 继续整个用户态服务监督审计：优先追踪 restart_ftpd() / restart_smbd() 与安全卸载、storage hotplug 共用 storage-operation lock 的覆盖范围，验证跨进程调用上下文、锁顺序和 stop/postcondition；这是待证候选，不预设存在 BUG。同步继续 DNS/resolver 和存储服务链路，选取下一个可复现稳定性故障。
 
 ## Completed in this handoff
 
-1. 已恢复并核对 live main `3a01511a527d265b40472de603bdaa7249c64b1a`；确认唯一远程 branch、PR #1 与 toolchain tag 状态。
-2. 对该 SHA 的 21 个 push Actions 全部逐一匹配精确 SHA，21/21 success；核对了关键 job steps 与日志，不使用 parent SHA 测试代替当前结果。
-3. NVRAM root:root 0600 policy、共享 userland transaction lock 和全树边界审计 exact-head PASS；输出 4179/25/0、44042/0/0、57 的准确计数，结论限定在 userland 和扫描器覆盖范围。
-4. infosvr EBUSY 失败负返回修正、crond 生命周期 policy 与 RC contracts 在当前 SHA 的专用 Actions PASS。
-5. 更新 live handoff/roadmap 以反映最新 CI 与下一轮 kernel NVRAM 并发读取审计；未新增 dev-log 记录、archive 或 INDEX 项，因为本次没有独立生产代码提交且根日志远低于轮转阈值。
+1. NVRAM root:root 0600 device-node policy、PID 1 fail-closed setup、shared-userland transaction lock 与 whole-tree raw ioctl boundary audit 在此前 exact SHA 3a01511a527d265b40472de603bdaa7249c64b1a 通过；范围仅限共享 userland wrapper 和扫描覆盖。
+2. infosvr restart stop-before-start 修复：停止状态和 post-stop PID 检查决定是否启动替代进程，EBUSY 返回负值并由 PID 1 ADSC notification 保留失败 completion marker。GNU89 policy 与 RC source contracts 在 exact SHA 3a01511 通过。
+3. Linux 4.4 NVRAM 单值 ioctl 读取 race：nvram_get_snapshot() 锁内长度复核和数据复制、锁外分配、最多三次增长重试、锁外 copy_to_user()；policy test、源代码语义 checker 和全树 API/writer inventory 在 exact a7 SHA PASS。
+4. d551 首轮 NVRAM test workflow 因缺少 include path 失败；a7 增加正确的 -I trunk/linux-4.4.x/drivers/nvram 后，exact NVRAM test 全步骤成功。该失败已在后续 commit 修复，没有隐藏。
+5. 未改变分支/PR/tag/checkpoint；没有改动 docs archive/index，也没有执行本轮完整固件 build 或实机验证。
 
 ## Verification boundary
 
-- Current exact main: `3a01511a527d265b40472de603bdaa7249c64b1a`.
-- Exact-head push Actions: 21/21 SUCCESS。关键 runs：infosvr `43464806328` / job `132020959425`；Crond `43464806051` / job `132020958331`；NVRAM boundary `43464805917` / job `132020957236`；HTTPD Authentication/Security `43464806109`；AI handoff docs `43464806107` / job `132020958837`。完整清单可由 exact SHA Actions API 重新取得。
-- NVRAM audit log：4179 userland files / adapter raw references 25 / external bypass 0；44042 kernel files / API refs 0 / writer refs 0；57 board configs。两个 NVRAM GNU89/Werror host binaries 及测试步骤全成功。scanner 输出的 `user_nvram_get` unlocked pointer follow-up 仍 OPEN，不因 scanner PASS 自动关闭。
-- AI docs exact-head check：root log=24/119，batch=100、retain=20；archive inventory dev-log=8、handoff=22、roadmap=18。没有触发根 dev log 归档。
-- L1/L2 evidence only for current changes. Current-head L3 MIPS/uClibc firmware/TRX and L4 router flash/boot remain NOT VERIFIED. No complete local checkout/build and no physical router test.
-- No branch/PR/tag/checkpoint mutation; existing PR #1 remains closed/unmerged.
+- Live exact main at recovery/documentation base: a7a70397ec9f6458655a7f0520769c5270436258. Production NVRAM snapshot source was introduced by parent d551d765acb3b2810786e64cca72529b7be1397c; a7 changes only the host workflow include path.
+- a7 exact event=push runs: AI handoff documentation 43469264009 SUCCESS; NVRAM transaction boundary 43469265744 / job 132036533462 SUCCESS. Full job steps/log inspected; NVRAM audit steps all success. Earlier d551 HTTPD Authentication/Security run 43468924644 SUCCESS; earlier d551 NVRAM first attempt 43468924620 failed solely at host test compilation because the include search path was missing. Corrected by a7; do not report the first attempt as a code regression.
+- NVRAM test output: NVRAM single-value snapshot sizing policy: PASS; NVRAM device node root ownership, mode and identity policy regression: PASS; NVRAM shared-userland transaction lock inode, contention, symlink, hardlink, cross-process and crash-release regression: PASS; NVRAM kernel single-value ioctl snapshot contract: PASS; final checker reports NVRAM raw-userland boundary, wrapper-lock contracts and kernel caller inventory: PASS.
+- a7 full-tree counts: USERLAND_SOURCE_FILES_SCANNED=4179, RAW_USERLAND_BYPASS_COUNT=0, KERNEL_SOURCE_FILES_SCANNED=44044, KERNEL_NVRAM_API_REFERENCE_COUNT=0, KERNEL_NVRAM_WRITER_REFERENCE_COUNT=0, BOARD_CONFIG_FILES_SCANNED=57. Existing shared adapter has 25 raw ioctl references. The audit does not prove no out-of-tree callers or non-cooperating external writers.
+- The driver snapshot uses fixed-pool pointer-bound checks, lock-protected length capture and second-pass byte copy, heap allocation outside spinlock, three-attempt growth retry and user copy after unlocking. Kernel writer paths set/unset/clear/commit, initialization order, exit unregister/free order and module open/release references were source-checked.
+- Host test compilation/execution uses GNU89, -Wall -Wextra -Werror, ASan/UBSan and leak detection. The full real-source tree scanner and semantic checker ran in exact-head GitHub Actions. No complete local Linux kernel build, MIPS/uClibc firmware/TRX build or L4 router test was performed; current evidence is L1/L2 only.
+- Existing PR #1 remains CLOSED / UNMERGED, only branch main and existing toolchain tag are present; no ref mutation.
 
 ## Exact first action for the next GPT
 
-Re-fetch live `main` and inspect current exact SHA before edits. Then finish the NVRAM kernel read-lifetime audit: inspect the full implementation and callers of `nvram_get()`, `_nvram_get()`, `_nvram_realloc()`, `_nvram_unset()`, `_nvram_uninit()`, module init/exit and ioctl `user_nvram_get()`. Establish whether the unlocked `strlen()` + `copy_to_user()` can observe a concurrently modified/reset value; distinguish stale/inconsistent data from actual freed-memory access. If reproducible, add a bounded snapshot path that copies under the spinlock and performs `copy_to_user()` only after unlocking, with a focused GNU89/kernel-policy regression and exact-head Actions. Do not claim or fix a UAF unless the lifetime proof supports it. After that, investigate (without presuming a bug) the storage-operation-lock coverage around FTP/Samba restart versus safe removal/hotplug.
+Fetch live main and all exact-head push Actions first. Confirm the docs-only handoff refresh is green and root dev-log remains 25/119 with eight existing dev-log archive shards; no archive/index rotation is due. Then resume the repo-wide P2 storage/service supervision candidate: trace restart_ftpd(), restart_smbd(), safe removal, hotplug and NFS/USB operation lock acquisition order across HTTPD/RC/CLI/cron call contexts. Prove or reject cross-process lock gaps before changing code; if no concrete issue exists, rotate through DNS Forwarder/DNSMasq resolver reload and choose another reproducible stability/security defect. Keep FTP cleanup TOCTOU blocked until safe inode-conditional semantics are proven, and NFS durability dependent on real client/storage evidence.
+
 ## Completed task: Adbyby configured hosts-source list / hosts-list download hardening
 
 The end-to-end producer/consumer chain was traced: the ROMFS source template is installed by the Adbyby Makefile, seeded into persistent /etc/storage/adbyby_host.sh by copyscripts.sh, edited by the Adbyby UI textarea through HTTPD persistence, and consumed by the lifecycle-locked runtime on start/update/manual refresh. The former curl -k plus shell-word-split loop and shared /tmp/host.txt output are replaced by quoted per-line HTTPS requests through the shared firmware-CA/HTTP-200/timeout/retry/rate/size policy. Each required source is downloaded into a unique private same-filesystem stage; IPv4/IPv6 address mappings, DNS labels, record and total byte limits are validated; the complete aggregate is deduplicated and atomically published as mode 0644. Any required-source failure preserves a validated last-good cache; without one, no partial file or managed dnsmasq include is enabled. The UI status count follows the published mapping count.
