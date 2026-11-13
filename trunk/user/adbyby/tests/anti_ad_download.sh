@@ -30,8 +30,10 @@ nvram()
             esac
             ;;
         set)
-            [ "$2" = anti_ad_count ] || return 1
-            nvram_count="$3"
+            case "$2" in
+                anti_ad_count=*) nvram_count="${2#*=}" ;;
+                *) return 1 ;;
+            esac
             ;;
         *) return 2 ;;
     esac
