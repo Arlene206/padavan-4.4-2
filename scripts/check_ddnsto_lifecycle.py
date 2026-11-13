@@ -81,7 +81,7 @@ require("ddnsto_lifecycle_lock_prepare" in lock_run_body and
 require("stop_zero || return $?" in locked_action_body and
         'nvram get ddnsto_enable' in locked_action_body and
         "start_zero" in locked_action_body,
-        "restart must retain stop-before-conditional-start under one lock")
+        "start/restart must refresh the enable state while holding one lock")
 require('kill_z' in stop_body, "stop action must propagate kill_z status")
 require(not re.search(r'\bkill\s+-9\s+"?\$ddnsto_process', script),
         "stale pidof snapshot must never be force-signalled")
