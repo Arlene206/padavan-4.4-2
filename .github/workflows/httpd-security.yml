@@ -14,6 +14,8 @@ on:
       - "trunk/user/rc/src/tests/dnsmasq_lifecycle_lock.c"
       - "trunk/user/shared/src/nvram_linux.h"
       - "trunk/user/shared/src/nvram_linux.c"
+      - "trunk/user/shared/src/nvram_transaction_lock.h"
+      - "trunk/user/shared/src/tests/nvram_transaction_lock.c"
       - "trunk/user/rc/src/tests/nvram_restore_policy.c"
       - "trunk/user/rc/src/rc_nvram_policy.h"
       - ".github/workflows/httpd-security.yml"
@@ -265,6 +267,8 @@ on:
       - "trunk/user/wireless-tools/src/iwlib.c"
       - "trunk/user/wireless-tools/src/iwlist.c"
       - "trunk/user/shared/src/nvram_linux.c"
+      - "trunk/user/shared/src/nvram_transaction_lock.h"
+      - "trunk/user/shared/src/tests/nvram_transaction_lock.c"
       - "trunk/user/rc/src/tests/nvram_restore_policy.c"
       - "trunk/user/rc/src/rc_nvram_policy.h"
       - ".github/workflows/httpd-security.yml"
@@ -4825,4 +4829,67 @@ jobs:
               assert pr.count('"' + path + '"') == 1
 
           print("NFS export inventory atomic publication and start/reload failure gates: OK")
+          PY
+
+      - name: Verify NVRAM shared-userland transaction exclusion
+        run: |
+          set -eu
+          cc -D_GNU_SOURCE -std=gnu89 -Wall -Wextra -Werror -g \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/shared/src \
+            trunk/user/shared/src/tests/nvram_transaction_lock.c \
+            -o "$RUNNER_TEMP/nvram_transaction_lock"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/nvram_transaction_lock"
+          python3 - <<'PY'
+          from pathlib import Path
+
+          shared = Path("trunk/user/shared/src/nvram_linux.c").read_text()
+          api = Path("trunk/user/shared/src/nvram_linux.h").read_text()
+          lock = Path("trunk/user/shared/src/nvram_transaction_lock.h").read_text()
+          cli = Path("trunk/user/nvram/src/nvram.c").read_text()
+          workflow = Path(".github/workflows/httpd-security.yml").read_text()
+
+          def body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          assert "flock(fd, operation | LOCK_NB)" in lock
+          assert "lstat(\"/tmp\", &tmp_stat)" in lock
+          assert "O_NOFOLLOW | O_CLOEXEC" in lock and "st.st_nlink != 1" in lock
+          for signature in (
+              "nvram_get_checked(const char *name, char **value)",
+              "nvram_getall(char *buf, int count, int include_temp)",
+              "nvram_set_guarded(const char *name, const char *value, int is_temp)",
+              "nvram_commit(void)",
+              "nvram_clear(void)",
+          ):
+              section = body(shared, signature)
+              assert "nvram_api_lock_acquire" in section
+              assert "nvram_api_lock_finish" in section
+          assert "int\n_nvram_set(" in shared
+          assert "struct nvram_transaction" in api and "nvram_transaction_begin" in api
+          restore = body(cli, "nvram_restore(char *file)")
+          assert restore.index("nvram_transaction_begin") < restore.index("nvram_transaction_getall")
+          assert restore.index("nvram_transaction_getall") < restore.index("nvram_restore_transaction_run")
+          assert "nvram_transaction_end" in restore
+          assert "nvram_transaction_clear" in shared and "nvram_transaction_set" in shared
+          for path in (
+              "trunk/user/shared/src/nvram_transaction_lock.h",
+              "trunk/user/shared/src/tests/nvram_transaction_lock.c",
+          ):
+              push = workflow.split("  pull_request:", 1)[0]
+              pr = workflow.split("  pull_request:", 1)[1].split("  workflow_dispatch:", 1)[0]
+              assert push.count('"' + path + '"') == 1
+              assert pr.count('"' + path + '"') == 1
+
+          print("NVRAM shared-userland API lock and profile-restore transaction source contracts: OK")
           PY
