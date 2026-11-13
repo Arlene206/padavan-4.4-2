@@ -1,3 +1,17 @@
+## 2026-11-13 12:05 CST (UTC+8) — Harden Adbyby third-party rule downloads
+
+- Base main SHA: `42d4af7e6c0ceeb8508f1446b4228068318208dc`; exact-head stock managed-rule downloader is L2 CLOSED on this SHA. All six triggered main push Actions succeeded with every job step/full log and exact checkout SHA inspected: Adbyby [43359578905] / job [131669629305], infosvr [43359578915] / job [131669629661], AdGuardHome [43359578954] / job [131669629841], AI docs [43359579010] / job [131669629883], AliDDNS [43359578908] / job [131669629322] and AliyunDrive [43359578896] / job [131669629383].
+- Cross-module Adbyby audit found NVRAM-configured third-party rules still used `curl -k`, unquoted URL expansion and predictable `/tmp/adbyby/user2.txt`. `add_rules()` also deleted prior `user.txt` and compiled `user.bin` before remote response validation, so transient failures could leave incomplete rules.
+- THIS COMMIT adds strict bounded HTTPS URL validation (no whitespace/userinfo), firmware CA verification, HTTPS-only protocol, exact HTTP 200, bounded connect/total time, retries, transfer rate and max file size plus post-download byte validation. Each URL is passed as one quoted argument and staged in a unique mode-0700 directory. Existing accepted filter-rule syntax is retained. The complete combined user list is published by same-filesystem rename only after successful preparation; failures keep a prior non-empty regular `user.txt`, or fail closed if no last-good list exists. `user.bin` is invalidated only after successful publication.
+- Added `trunk/user/adbyby/tests/external_downloads.sh`; expanded the managed download fixture for shared protocol/rate/size policy; updated source checker and symmetric push/pull workflow path/commands. Exact resulting-main Actions are PENDING. No local checkout or local host/syntax/Python test is claimed; no target BusyBox/MIPS, full firmware/TRX or hardware result is claimed.
+- Anti-ad (`anti_ad_link`) and host-list downloads still contain `curl -k` and fixed destinations; they remain the next separate implementation slice.
+- Root log count: 94→95/119, below 120-entry rotation and 384 KiB early-rotation thresholds; archive inventory remains 7/22/18. No archive/index mutation.
+- Changed paths: `trunk/user/adbyby/adbyby.sh`, `trunk/user/adbyby/tests/rules_download.sh`, new `trunk/user/adbyby/tests/external_downloads.sh`, `scripts/check_adbyby_hosts_config.py`, `.github/workflows/adbyby-config-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and `dev_log.md`. No branch/PR, firmware artifact or GPT Session Rotator change.
+- Resulting main commit: THIS COMMIT.
+- Next: inspect every exact-head Action triggered by this commit; repair failures until Adbyby and all sibling workflows are green. Then apply the hardened publication model to anti-ad and host-list downloads before returning to FRP caller-path review.
+
+---
+
 ## 2026-11-13 11:25 CST (UTC+8) — Fix Adbyby subshell-function contract extractor
 
 - Base main SHA: `e39778793032c5bf87208304a298f6ac8e77bd7a`; live main matched immediately before the correction.

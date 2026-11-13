@@ -91,16 +91,51 @@ adbyby_manifest_digest()
 		tr 'A-F' 'a-f'
 }
 
+adbyby_valid_https_url()
+{
+	adbyby_url="$1"
+	[ -n "$adbyby_url" ] && [ "${#adbyby_url}" -le 2048 ] || return 1
+	adbyby_url_lf='
+'
+	adbyby_url_cr=$(printf '\r')
+	case "$adbyby_url" in
+		https://*) ;;
+		*) return 1 ;;
+	esac
+	case "$adbyby_url" in
+		*' '*|*"$adbyby_url_lf"*|*"$adbyby_url_cr"*) return 1 ;;
+	esac
+	printf '%s\n' "$adbyby_url" | LC_ALL=C grep -Eq \
+		'^https://([A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?|\[[0-9A-Fa-f:]+\])(:[0-9]{1,5})?([/?#][!-~]*)?$' || return 1
+	adbyby_url_authority="${adbyby_url#https://}"
+	adbyby_url_authority="${adbyby_url_authority%%[/?#]*}"
+	case "$adbyby_url_authority" in
+		*..*|*.-*|*-.|.*|*.) return 1 ;;
+	esac
+}
+
 adbyby_download_https_200()
 {
 	adbyby_download_url="$1"
 	adbyby_download_file="$2"
-	case "$adbyby_download_url" in https://*) ;; *) return 1 ;; esac
+	adbyby_download_max_bytes="${3:-16777216}"
+	adbyby_valid_https_url "$adbyby_download_url" || return 1
+	case "$adbyby_download_max_bytes" in
+		''|*[!0123456789]*) return 1 ;;
+	esac
+	[ "$adbyby_download_max_bytes" -gt 0 ] &&
+	[ "$adbyby_download_max_bytes" -le 16777216 ] || return 1
 	[ -r "$ADBYBY_CA_BUNDLE" ] && [ -s "$ADBYBY_CA_BUNDLE" ] || return 1
-	adbyby_download_status=$(curl --cacert "$ADBYBY_CA_BUNDLE" --fail --silent --show-error \
-		--connect-timeout 5 --max-time 30 --retry 3 \
-		--output "$adbyby_download_file" --write-out '%{http_code}' "$adbyby_download_url") || return 1
-	[ "$adbyby_download_status" = 200 ] && [ -s "$adbyby_download_file" ]
+	adbyby_download_status=$(curl --cacert "$ADBYBY_CA_BUNDLE" --proto '=https' \
+		--fail --silent --show-error --connect-timeout 5 --max-time 30 \
+		--retry 3 --limit-rate 512k --max-filesize "$adbyby_download_max_bytes" \
+		--output "$adbyby_download_file" --write-out '%{http_code}' \
+		"$adbyby_download_url") || return 1
+	[ "$adbyby_download_status" = 200 ] || return 1
+	adbyby_download_size=$(wc -c < "$adbyby_download_file" | awk '{print $1}') || return 1
+	case "$adbyby_download_size" in ''|*[!0123456789]*) return 1 ;; esac
+	[ "$adbyby_download_size" -le "$adbyby_download_max_bytes" ] &&
+	[ -s "$adbyby_download_file" ]
 }
 
 adbyby_rules_cache_is_usable()
@@ -221,6 +256,86 @@ adbyby_refresh_managed_rules()
 	return 0
 )
 
+adbyby_user_rules_cache_is_usable()
+{
+	[ -d "$PROG_PATH" ] && [ ! -L "$PROG_PATH" ] &&
+	[ -d "$DATA_PATH" ] && [ ! -L "$DATA_PATH" ] &&
+	[ -f "$DATA_PATH/user.txt" ] && [ ! -L "$DATA_PATH/user.txt" ] &&
+	[ -s "$DATA_PATH/user.txt" ]
+}
+
+adbyby_prepare_user_rules()
+{
+	(
+		umask 077
+		adbyby_prepare_user_rules_transaction
+	)
+}
+
+adbyby_prepare_user_rules_transaction()
+{
+	[ -d "$PROG_PATH" ] && [ ! -L "$PROG_PATH" ] &&
+	[ -d "$DATA_PATH" ] && [ ! -L "$DATA_PATH" ] || return 1
+	if [ -e "$DATA_PATH/user.txt" ] || [ -L "$DATA_PATH/user.txt" ]; then
+		[ -f "$DATA_PATH/user.txt" ] && [ ! -L "$DATA_PATH/user.txt" ] || return 1
+	fi
+
+	adbyby_user_stage_dir=$(mktemp -d /tmp/adbyby-user-rules.XXXXXX) || return 1
+	trap 'rm -rf "$adbyby_user_stage_dir"' 0
+	trap 'exit 1' HUP INT TERM
+	: > "$adbyby_user_stage_dir/user.next" || return 1
+
+	if [ "$adbyby_rules_x" = "1" ]; then
+		adbyby_user_rules_count=$(nvram get adbybyrules_staticnum_x 2>/dev/null) || adbyby_user_rules_count=""
+		case "$adbyby_user_rules_count" in
+			'') adbyby_user_rules_count=0 ;;
+			*[!0123456789]*)
+				logger -t "adbyby" "第三方规则数量无效，拒绝覆盖现有规则。"
+				if adbyby_user_rules_cache_is_usable; then return 0; else return 1; fi
+				;;
+		esac
+		if [ "$adbyby_user_rules_count" -gt 32 ]; then
+			logger -t "adbyby" "第三方规则数量超过安全上限，拒绝覆盖现有规则。"
+			if adbyby_user_rules_cache_is_usable; then return 0; else return 1; fi
+		fi
+
+		adbyby_user_rule_index=0
+		while [ "$adbyby_user_rule_index" -lt "$adbyby_user_rules_count" ]; do
+			adbyby_user_rule_url=$(nvram get "adbybyrules_x$adbyby_user_rule_index" 2>/dev/null) || adbyby_user_rule_url=""
+			adbyby_user_rule_enabled=$(nvram get "adbybyrules_road_x$adbyby_user_rule_index" 2>/dev/null) || adbyby_user_rule_enabled=0
+			case "$adbyby_user_rule_enabled" in
+				''|0) ;;
+				*)
+					adbyby_user_rule_raw="$adbyby_user_stage_dir/rule-$adbyby_user_rule_index.raw"
+					adbyby_user_rule_filtered="$adbyby_user_stage_dir/rule-$adbyby_user_rule_index.filtered"
+					if ! adbyby_download_https_200 "$adbyby_user_rule_url" "$adbyby_user_rule_raw" 1048576; then
+						logger -t "adbyby" "第三方规则下载或校验失败，保留上一次完整规则。"
+						if adbyby_user_rules_cache_is_usable; then return 0; else return 1; fi
+					fi
+					grep -v '^!' "$adbyby_user_rule_raw" | grep -E '^(@@\\||\\||[[:alnum:]])' | sort -u > "$adbyby_user_rule_filtered"
+					if [ ! -s "$adbyby_user_rule_filtered" ]; then
+						logger -t "adbyby" "第三方规则内容为空或格式不受支持，保留上一次完整规则。"
+						if adbyby_user_rules_cache_is_usable; then return 0; else return 1; fi
+					fi
+					cat "$adbyby_user_rule_filtered" >> "$adbyby_user_stage_dir/user.next" || return 1
+					;;
+			esac
+			adbyby_user_rule_index=$((adbyby_user_rule_index + 1))
+		done
+	fi
+
+	if [ -f "$PROG_PATH/rules.txt" ] && [ ! -L "$PROG_PATH/rules.txt" ]; then
+		grep -v '^!' "$PROG_PATH/rules.txt" | grep -v '^$' >> "$adbyby_user_stage_dir/user.next"
+	fi
+	chmod 0644 "$adbyby_user_stage_dir/user.next" || return 1
+	if ! mv -f "$adbyby_user_stage_dir/user.next" "$DATA_PATH/user.txt"; then
+		logger -t "adbyby" "第三方规则发布失败，保留上一次完整规则。"
+		return 1
+	fi
+	rm -f "$DATA_PATH/user.bin"
+	return 0
+}
+
 add_rules()
 {
 	logger -t "adbyby" "正在检查规则是否需要更新!"
@@ -243,27 +358,11 @@ add_rules()
 	grep -v '^!' /etc/storage/adbyby_adesc.sh | grep -v "^$" > $PROG_PATH/adesc.conf
 	grep -v '^!' /etc/storage/adbyby_adhost.sh | grep -v "^$" > $PROG_PATH/adhost.conf
 	logger -t "adbyby" "正在处理规则..."
-	rm -f $DATA_PATH/user.bin
-	rm -f $DATA_PATH/user.txt
-	rulesnum=`nvram get adbybyrules_staticnum_x`
-	if [ $adbyby_rules_x -eq 1 ]; then
-	for i in $(seq 1 $rulesnum)
-	do
-		j=`expr $i - 1`
-		rules_address=`nvram get adbybyrules_x$j`
-		rules_road=`nvram get adbybyrules_road_x$j`
-		if [ $rules_road -ne 0 ]; then
-			logger -t "adbyby" "正在下载和合并第三方规则"
-			curl -k -s -o /tmp/adbyby/user2.txt --connect-timeout 5 --retry 3 $rules_address
-			grep -v '^!' /tmp/adbyby/user2.txt | grep -E '^(@@\||\||[[:alnum:]])' | sort -u | grep -v "^$" >> $DATA_PATH/user3adblocks.txt
-			rm -f /tmp/adbyby/user2.txt
-		fi
-	done
-	grep -v '^!' $DATA_PATH/user3adblocks.txt | grep -v "^$" >> $DATA_PATH/user.txt
-	rm -f $DATA_PATH/user3adblocks.txt
+	if ! adbyby_prepare_user_rules; then
+		logger -t "adbyby" "第三方规则无法安全更新且没有可用缓存，停止规则处理。"
+		return 1
 	fi
-	grep -v ^! $PROG_PATH/rules.txt >> $DATA_PATH/user.txt
-	nvram set adbyby_user=`cat /tmp/adbyby/data/user.txt | wc -l`
+	nvram set adbyby_user="$(wc -l < "$DATA_PATH/user.txt")"
 }
 
 

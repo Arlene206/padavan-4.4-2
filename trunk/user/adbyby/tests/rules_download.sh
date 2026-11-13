@@ -49,15 +49,21 @@ curl()
     output=
     url=
     saw_cacert=0
+    saw_proto=0
     saw_fail=0
     saw_connect_timeout=0
     saw_max_time=0
     saw_retry=0
+    saw_max_filesize=0
+    saw_limit_rate=0
     saw_writeout=0
     while [ "$#" -gt 0 ]; do
         case "$1" in
             --cacert) saw_cacert=1; [ -n "${2:-}" ] || { echo "empty CA path" >> "$test_root/curl-errors"; return 1; }; [ "$2" = "$ADBYBY_CA_BUNDLE" ] || { echo "wrong CA bundle" >> "$test_root/curl-errors"; return 1; }; shift 2 ;;
             --output) output="$2"; shift 2 ;;
+            --proto) [ "$2" = '=https' ] || { echo "wrong curl protocol restriction" >> "$test_root/curl-errors"; return 1; }; saw_proto=1; shift 2 ;;
+            --max-filesize) [ "$2" = 16777216 ] || { echo "wrong max file size" >> "$test_root/curl-errors"; return 1; }; saw_max_filesize=1; shift 2 ;;
+            --limit-rate) [ "$2" = 512k ] || { echo "wrong transfer rate limit" >> "$test_root/curl-errors"; return 1; }; saw_limit_rate=1; shift 2 ;;
             --write-out) [ "$2" = '%{http_code}' ] || { echo "unexpected write-out" >> "$test_root/curl-errors"; return 1; }; saw_writeout=1; shift 2 ;;
             --connect-timeout) [ "$2" = 5 ] || { echo "wrong connect timeout" >> "$test_root/curl-errors"; return 1; }; saw_connect_timeout=1; shift 2 ;;
             --max-time) [ "$2" = 30 ] || { echo "wrong total timeout" >> "$test_root/curl-errors"; return 1; }; saw_max_time=1; shift 2 ;;
@@ -70,9 +76,10 @@ curl()
         esac
     done
     [ -n "$output" ] && [ -n "$url" ] || { echo "missing output or URL" >> "$test_root/curl-errors"; return 1; }
-    [ "$saw_cacert" -eq 1 ] && [ "$saw_fail" -eq 1 ] &&
+    [ "$saw_cacert" -eq 1 ] && [ "$saw_proto" -eq 1 ] && [ "$saw_fail" -eq 1 ] &&
     [ "$saw_connect_timeout" -eq 1 ] && [ "$saw_max_time" -eq 1 ] &&
-    [ "$saw_retry" -eq 1 ] && [ "$saw_writeout" -eq 1 ] || {
+    [ "$saw_retry" -eq 1 ] && [ "$saw_max_filesize" -eq 1 ] &&
+    [ "$saw_limit_rate" -eq 1 ] && [ "$saw_writeout" -eq 1 ] || {
         echo "curl security/timeout policy missing" >> "$test_root/curl-errors"; return 1;
     }
     [ -d "$(dirname "$output")" ] || { echo "staging directory missing" >> "$test_root/curl-errors"; return 1; }
