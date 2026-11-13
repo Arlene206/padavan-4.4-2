@@ -133,27 +133,51 @@ frp_start ()
 	return 0
 }
 
-frp_close () 
+frp_any_running()
 {
-	if [ "$frpc_enable" = "0" ]; then
-		if [ ! -z "`pidof frpc`" ]; then
-		killall -9 frpc frp_script.sh
-		[ -z "`pidof frpc`" ] && logger -t "frp" "已停止 frpc"
-	    fi
+	[ -n "$(pidof frpc)" ] || [ -n "$(pidof frps)" ]
+}
+
+frp_signal_all()
+{
+	killall "-$1" frpc frps >/dev/null 2>&1 || :
+}
+
+frp_wait_stopped()
+{
+	frp_wait_limit="$1"
+	frp_waited=0
+	while [ "$frp_waited" -lt "$frp_wait_limit" ]; do
+		frp_any_running || return 0
+		sleep 1
+		frp_waited=$((frp_waited + 1))
+	done
+	! frp_any_running
+}
+
+frp_close ()
+{
+	frp_close_status=0
+
+	# Remove the watchdog before stopping daemons, regardless of boot-enable
+	# flags. stop_services() also runs during reboot and firmware upgrade.
+	if ! frp_manage_watchdog_cron remove; then
+		logger -t "frp" "无法安全移除FRP watchdog crontab任务。"
+		frp_close_status=1
 	fi
-	if [ "$frps_enable" = "0" ]; then
-		if [ ! -z "`pidof frps`" ]; then
-		killall -9 frps frp_script.sh
-		[ -z "`pidof frps`" ] && logger -t "frp" "已停止 frps"
-	    fi
-	fi
-	if [ "$frpc_enable" = "0" ] && [ "$frps_enable" = "0" ]; then
-		if ! frp_manage_watchdog_cron remove; then
-			logger -t "frp" "无法安全移除FRP watchdog crontab任务。"
-			return 1
+
+	if frp_any_running; then
+		frp_signal_all TERM
+		if ! frp_wait_stopped 5; then
+			frp_signal_all KILL
+			if ! frp_wait_stopped 2; then
+				logger -t "frp" "FRP进程在有界TERM/KILL后仍未退出，停止操作失败。"
+				frp_close_status=1
+			fi
 		fi
-    fi
-	return 0
+	fi
+
+	return "$frp_close_status"
 }
 
 

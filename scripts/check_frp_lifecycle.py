@@ -26,6 +26,8 @@ def require(condition: bool, message: str) -> None:
 
 source = (ROOT / "trunk/user/frp/frp.sh").read_text()
 test = (ROOT / "trunk/user/frp/tests/frp_lifecycle.sh").read_text()
+services = (ROOT / "trunk/user/rc/src/services.c").read_text()
+stop_test = (ROOT / "trunk/user/frp/tests/frp_stop.sh").read_text()
 web_ex = (ROOT / "trunk/user/httpd/src/web_ex.c").read_text()
 script_policy = (ROOT / "trunk/user/httpd/src/httpd_script_policy.h").read_text()
 script_policy_test = (ROOT / "trunk/user/httpd/src/tests/httpd_script_policy.c").read_text()
@@ -147,6 +149,7 @@ paths = (
     "trunk/user/frp/frp.sh",
     "trunk/user/frp/tests/frp_lifecycle.sh",
     "trunk/user/frp/tests/frp_crontab.sh",
+    "trunk/user/frp/tests/frp_stop.sh",
     "trunk/user/frp/tests/frp_autostart.sh",
     "trunk/user/frp/tests/frp_config.sh",
     "trunk/user/scripts/files/usr/bin/autostart.sh",
@@ -170,6 +173,33 @@ require('[ -L "$frp_script_path" ]' in run_script and
         '[ ! -f "$frp_script_path" ]' in run_script and
         '/bin/sh "$frp_script_path"' in run_script,
         "FRP runner must refuse symlink/non-regular custom scripts before root execution")
+
+# Shutdown/reboot must stop both daemons regardless of their enable flags.
+close = function_body(source, "frp_close ()")
+require("frp_manage_watchdog_cron remove" in close and
+        close.index("frp_manage_watchdog_cron remove") < close.index("frp_signal_all TERM") and
+        "frp_wait_stopped 5" in close and
+        "frp_signal_all KILL" in close and "frp_wait_stopped 2" in close and
+        "frp_close_status" in close and "frpc_enable" not in close and
+        "frps_enable" not in close,
+        "FRP close must remove its watchdog and confirm both daemon exits with bounded TERM/KILL, independent of enable flags")
+require("frp_any_running" in source and 'killall "-$1" frpc frps' in source,
+        "FRP shutdown must signal only its daemon processes")
+stop = function_body(services, "void stop_frp(void)")
+start = function_body(services, "void start_frp(void)")
+restart = function_body(services, "void restart_frp(void)")
+require("status != 0" in stop and "FRP stop failed" in stop and
+        "status != 0" in start and "FRP start failed" in start,
+        "RC stop/start wrappers must report FRP command failures")
+require(restart.index('eval("/usr/bin/frp.sh","stop")') <
+        restart.index("if (stop_status != 0)") <
+        restart.index('eval("/usr/bin/frp.sh","start")') and
+        "refusing FRP restart" in restart and "return;" in restart,
+        "RC restart must fail closed when previous FRP daemons do not stop")
+for marker in ("enabled FRPC survived stop", "enabled FRPS survived stop",
+               "KILL escalation", "stubborn FRPS", "cron removal",
+               "five-plus-two poll bound"):
+    require(marker in stop_test, f"FRP stop regression omits {marker}")
 
 # FRP private configuration must not be exposed as a world-readable script.
 require("# The persistent FRP script contains tokens and dashboard credentials." in copy_scripts and

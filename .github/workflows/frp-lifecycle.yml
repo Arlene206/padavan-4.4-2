@@ -9,6 +9,7 @@ on:
       - "trunk/user/frp/tests/frp_crontab.sh"
       - "trunk/user/frp/tests/frp_autostart.sh"
       - "trunk/user/frp/tests/frp_config.sh"
+      - "trunk/user/frp/tests/frp_stop.sh"
       - "trunk/user/scripts/files/usr/bin/autostart.sh"
       - "trunk/user/frp/frp_script.sh"
       - "trunk/user/scripts/files/usr/bin/copyscripts.sh"
@@ -28,6 +29,7 @@ on:
       - "trunk/user/frp/tests/frp_crontab.sh"
       - "trunk/user/frp/tests/frp_autostart.sh"
       - "trunk/user/frp/tests/frp_config.sh"
+      - "trunk/user/frp/tests/frp_stop.sh"
       - "trunk/user/scripts/files/usr/bin/autostart.sh"
       - "trunk/user/frp/frp_script.sh"
       - "trunk/user/scripts/files/usr/bin/copyscripts.sh"
@@ -63,5 +65,9 @@ jobs:
         run: sh -n trunk/user/frp/tests/frp_config.sh
       - name: Run FRP private config regression
         run: sh trunk/user/frp/tests/frp_config.sh
+      - name: Check FRP bounded stop regression shell syntax
+        run: sh -n trunk/user/frp/tests/frp_stop.sh
+      - name: Run FRP bounded stop regression
+        run: sh trunk/user/frp/tests/frp_stop.sh
       - name: Verify FRP supervision source contract
         run: python3 scripts/check_frp_lifecycle.py

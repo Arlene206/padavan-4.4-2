@@ -595,16 +595,33 @@ void restart_aliddns(void){
 
 #if defined(APP_FRP)
 void stop_frp(void){
-	eval("/usr/bin/frp.sh","stop");
+	int status = eval("/usr/bin/frp.sh","stop");
+
+	if (status != 0)
+		logmessage(LOGNAME, "FRP stop failed: %d", status);
 }
 
 void start_frp(void){
-	eval("/usr/bin/frp.sh","start");
+	int status = eval("/usr/bin/frp.sh","start");
+
+	if (status != 0)
+		logmessage(LOGNAME, "FRP start failed: %d", status);
 }
 
 void restart_frp(void){
-	stop_frp();
-	start_frp();
+	int stop_status = eval("/usr/bin/frp.sh","stop");
+	int start_status;
+
+	if (stop_status != 0) {
+		logmessage(LOGNAME,
+			   "refusing FRP restart: previous daemons did not stop (status=%d)",
+			   stop_status);
+		return;
+	}
+
+	start_status = eval("/usr/bin/frp.sh","start");
+	if (start_status != 0)
+		logmessage(LOGNAME, "FRP restart start failed: %d", start_status);
 }
 #endif
 
