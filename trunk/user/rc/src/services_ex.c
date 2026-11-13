@@ -264,6 +264,13 @@ fill_dnsmasq_servers(void)
 	const char *storage_dir = "/etc/storage/dnsmasq";
 
 	lock = file_lock("dservers");
+	if (lock < 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(LOGNAME, "cannot acquire DNS server snapshot lock; refusing publication (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
 
 	fp = dnsmasq_file_open(servers_path);
 	if (!fp) {

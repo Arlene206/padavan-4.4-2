@@ -255,6 +255,18 @@ jobs:
           start = function_body(services, "start_dns_dhcpd_locked(int is_ap_mode)")
           restart = function_body(services, "restart_dhcpd_locked(void)")
           confirm = function_body(services, "dnsmasq_confirm_started(int launch_status)")
+          servers_writer = function_body(services, "fill_dnsmasq_servers(void)")
+          lock_acquire = servers_writer.index('lock = file_lock("dservers");')
+          lock_failure = servers_writer.index("if (lock < 0)", lock_acquire)
+          stage_open = servers_writer.index("fp = dnsmasq_file_open(servers_path);")
+          assert lock_acquire < lock_failure < stage_open
+          failure_guard = servers_writer[lock_failure:stage_open]
+          assert "saved_errno = errno ? errno : EIO;" in failure_guard
+          assert "refusing publication" in failure_guard
+          assert "errno = saved_errno;" in failure_guard
+          assert "return -1;" in failure_guard
+          assert "file_unlock(lock)" not in failure_guard
+          assert servers_writer.index("file_unlock(lock);") > servers_writer.index("dnsmasq_file_publish(")
           assert "dnsmasq_confirm_started(launch_status)" in start
           assert "dnsmasq_confirm_started(launch_status)" in restart
           assert "eval(\"/usr/sbin/dnsmasq\")" in start
