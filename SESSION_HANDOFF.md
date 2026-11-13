@@ -1,3 +1,24 @@
+## Live recovery checkpoint — 2026-11-13 14:48 PST (UTC-8)
+
+> Reconciled live GitHub state for this takeover. No product changes were made: a complete checkout is still unavailable, so the mandatory whole-tree process-API caller inventory cannot be proven.
+
+- Exact live `main` SHA: `86435cd4720ff12f9e3b700dcc76ccd2f28d3f82`; parent: `2804237172be23569cfcef68b049d78be44af0d6`. Compare confirms the intervening commit is documentation-only (`SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`); product sources remain on the previously L3-verified tree `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`.
+- Remote branch inventory: `main` only. Legacy PR #1 remains CLOSED / UNMERGED; `toolchain` tag remains `7f7d3ea41ebdd7eeab8a303f3d4ad8dddb54a8a7`.
+- Exact-main Actions for `86435cd4720ff12f9e3b700dcc76ccd2f28d3f82`: 6/6 completed SUCCESS, all `event=push` with exact matching `head_sha`: AI handoff docs 43521264610; infosvr 43521264595; NVRAM 43521264557; AdGuardHome 43521264706; AliyunDrive 43521264641; AliDDNS 43521264549.
+- Active unfinished task remains shared process-inventory fail-open. Source blobs remain unchanged: `pids.c` `f5092806d6f1a76021643b0af54eb24705cbd8fe`; `shutils.h` `6ccb679cf049374839a0c5de6a543955614dc275`; `common_ex.c` `de5cc703ce1b9e2eb0897dc52ed7e1c5ec15eb97`; `services_ex.c` `8134ee60a84d626785956a073c1c1bde3422d84d`; `service_lifecycle_policy.h` `abe9f77b5354d8a33bce66c2575d1b1d09a2d4e2`.
+- This runtime cannot resolve `github.com`: a fresh shallow clone failed before checkout. GitHub code search is known incomplete, and recursive tree responses were truncated; therefore no complete caller inventory is claimed and no API migration is safe yet. No product source or tests were changed. L1 partial review; L2 host regressions NOT RUN. Existing L3 evidence remains limited to the XY-C1 MIPSel/TRX build at `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f` (run 43489646254 / job 132107102854); L4 NOT VERIFIED.
+- The previous checkpoint's five pending runs for `2804237` have been superseded by six exact-head successful runs on `86435cd`; do not confuse their SHAs.
+
+## Exact first action for the next GPT
+
+1. Re-fetch live `main` and exact-head push Actions before every write.
+2. Obtain a complete source checkout at the live SHA when GitHub DNS/network is available, or establish a demonstrably exhaustive repository content-index route. Do not treat partial code search or truncated trees as exhaustive.
+3. Enumerate every `pids()`, `pids_main()`, `find_pid_by_name()`, `procps_scan()` caller and every lifecycle stop/readiness consumer, including init/shutdown paths and build/test manifests.
+4. Design and implement RUNNING / ABSENT / UNKNOWN semantics covering scan-context OOM, `/proc` open failure, mid-scan `readdir` error, PID-list allocation/growth failure, normal empty inventory, match and per-PID disappearance. UNKNOWN must abort before TERM/KILL, stop-success, restart or destructive cleanup.
+5. Add injectable GNU89/`-Werror` host regressions, migrate only classified consumers, then finish DNSMasq lifecycle audit and rotate to other user-space modules.
+
+---
+
 ## Live recovery checkpoint — 2026-11-14 06:42 CST (UTC+8)
 
 > Exact handoff refresh after the 06:39 documentation commit. Product source remains unchanged; the process-inventory tri-state fix is still blocked on exhaustive caller inventory and host-test execution.
