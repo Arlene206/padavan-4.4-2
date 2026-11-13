@@ -1,3 +1,14 @@
+## 2026-11-14 05:30 CST (UTC+8) — Preserve queued exact-head CI and update the live handoff
+
+- Baseline main `35d891b064c23b8ddd2f380208ad29d5ad1a0fc6` (parent `9eda1297321595f6e17909e0079ec642a1e174e8`) was re-fetched before the documentation checkpoint. The baseline was documentation-only relative to the L3-verified product-source tree `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`.
+- Exact-head push Actions for baseline `35d891b064c23b8ddd2f380208ad29d5ad1a0fc6` were present for six workflows, all matching `event=push` and exact `head_sha`: AdGuardHome `43511558816`, AI docs `43511558811`, AliyunDrive `43511558737`, NVRAM `43511558690`, AliDDNS `43511558686`, infosvr `43511558685`. They were QUEUED at inspection; no success/failure is inferred. Next recovery must inspect their final results.
+- Updated only `SESSION_HANDOFF.md` and `dev_log.md` so the live checkpoint carries the queued CI state, exact baseline SHA and first action. No roadmap change: global module priorities did not change.
+- The shared process-inventory fail-open defect remains open. Scanner OOM/open/read errors and PID-list allocation failures are collapsed into absent/partial inventory; lifecycle policy can send TERM before checking and escalate without UNKNOWN. Full caller inventory is blocked because GitHub code search is incomplete and container DNS prevented checkout. No product source/tests changed; L1 partial, L2 NOT RUN.
+- Root log advances 38→39/119; archive inventory unchanged (dev-log=8 / handoff=22 / roadmap=18). No rotation/INDEX update. This record's resulting commit SHA: THIS COMMIT.
+- Next: verify this documentation commit's exact-head push workflows, then obtain reliable whole-tree search and complete process API caller inventory before implementing the tri-state fix.
+
+---
+
 ## 2026-11-14 05:30 CST (UTC+8) — Reconcile exact main SHA and verify all current push workflows
 
 - Recovered from the live repository after reading the mandatory bootstrap/protocol, live handoff, roadmap and newest 20 complete root dev-log records. Live main is `9eda1297321595f6e17909e0079ec642a1e174e8`, direct parent `300ea7175af6c906b3bac97517f3d270f4af55e2`.
