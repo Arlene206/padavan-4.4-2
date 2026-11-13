@@ -134,10 +134,35 @@ static int invalid_snapshot_test(void)
     }
     return 1;
 }
+static int profile_codec_test(void)
+{
+    static const unsigned char legacy_header[] = {
+        'H', 'D', 'R', '1', 2, 0, 0, 0
+    };
+    unsigned char payload[] = { 0x10, 0xfd };
+    unsigned long file_length = 0;
+    unsigned char random_value = 0;
+    int is_current_format = -1;
+
+    if (!nvram_profile_parse_header(legacy_header, 16, 16, &file_length,
+                                    &random_value, &is_current_format) ||
+        file_length != 2 || random_value != 0 || is_current_format != 0) {
+        fprintf(stderr, "FAIL: profile header parser regression\\n");
+        return 0;
+    }
+    nvram_profile_decode_payload(payload, sizeof(payload), 1);
+    if (payload[0] != 0xf0 || payload[1] != '\\0') {
+        fprintf(stderr, "FAIL: profile payload decoder regression\\n");
+        return 0;
+    }
+    return 1;
+}
+
 int main(void)
 {
-    if (!success_test() || !rollback_test() || !continue_test() ||
-        !clear_failure_test() || !invalid_snapshot_test()) return 1;
-    puts("NVRAM restore transaction and rollback policy: PASS");
+    if (!profile_codec_test() || !success_test() || !rollback_test() ||
+        !continue_test() || !clear_failure_test() || !invalid_snapshot_test())
+        return 1;
+    puts("NVRAM restore transaction and profile codec regression: PASS");
     return 0;
 }
