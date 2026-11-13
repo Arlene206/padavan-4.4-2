@@ -28,6 +28,7 @@ source = (ROOT / "trunk/user/frp/frp.sh").read_text()
 test = (ROOT / "trunk/user/frp/tests/frp_lifecycle.sh").read_text()
 services = (ROOT / "trunk/user/rc/src/services.c").read_text()
 stop_test = (ROOT / "trunk/user/frp/tests/frp_stop.sh").read_text()
+lock_test = (ROOT / "trunk/user/frp/tests/frp_lock.sh").read_text()
 web_ex = (ROOT / "trunk/user/httpd/src/web_ex.c").read_text()
 script_policy = (ROOT / "trunk/user/httpd/src/httpd_script_policy.h").read_text()
 script_policy_test = (ROOT / "trunk/user/httpd/src/tests/httpd_script_policy.c").read_text()
@@ -85,11 +86,11 @@ require("frp_manage_watchdog_cron remove" in close,
         "disabling both services must remove the exact managed watchdog")
 services = (ROOT / "trunk/user/rc/src/services.c").read_text()
 restart_services = function_body(services, "void restart_frp(void)")
-require(restart_services.index('eval("/usr/bin/frp.sh","stop")') <
-        restart_services.index("if (stop_status != 0)") <
-        restart_services.index('eval("/usr/bin/frp.sh","start")') and
-        "refusing FRP restart" in restart_services and "return;" in restart_services,
-        "RC restart must stop before starting and fail closed when stop fails")
+require('eval("/usr/bin/frp.sh","restart")' in restart_services and
+        "FRP restart failed" in restart_services and
+        'eval("/usr/bin/frp.sh","stop")' not in restart_services and
+        'eval("/usr/bin/frp.sh","start")' not in restart_services,
+        "RC restart must delegate stop/start to one serialized launcher action")
 require('eval("/usr/bin/frp.sh","stop")' in services and
         'eval("/usr/bin/frp.sh","start")' in services,
         "RC stop/start must use the installed FRP launcher")
@@ -130,6 +131,40 @@ for marker in ("frp_start", "frp_close", "operator", "path-traversal",
                "server-only start did not invoke the custom script once"):
     require(marker in cron_test, f"FRP managed crontab regression omits {marker}")
 
+
+refresh = function_body(source, "frp_refresh_nvram_state()")
+require('nvram get frpc_enable' in refresh and 'nvram get frps_enable' in refresh and
+        'nvram get http_username' in refresh and '0|1' in refresh,
+        "mutable FRP role and cron state must be read and validated under the lifecycle lock")
+lock_prepare = function_body(source, "frp_lifecycle_lock_prepare()")
+for marker in ("stat -c '%u %a'", "stat -c '%u %a %h'", "set -C",
+               '[ -L "$frp_lock_file" ]', '[ "$2" != 600 ]', '[ "$3" != 1 ]'):
+    require(marker in lock_prepare, f"FRP lifecycle lock path validation omits {marker}")
+lock_execute = function_body(source, "frp_lifecycle_lock_execute()")
+for marker in ("flock -n 9", "frp_lock_wait_seconds", "exec 9>&-",
+               "生命周期锁FD 9已被占用", "等待生命周期锁超时"):
+    require(marker in lock_execute, f"FRP lifecycle lock execution omits {marker}")
+require(lock_execute.index("flock -n 9") < lock_execute.index('"$@"') <
+        lock_execute.index('exec 9>&-'),
+        "FRP lifecycle lock must enclose the complete operation and release afterward")
+lock_action = function_body(source, "frp_lifecycle_locked_action()")
+require("frp_refresh_nvram_state" in lock_action and
+        "frp_close || return $?" in lock_action and
+        "frp_start" in lock_action and "check_frp" in lock_action,
+        "start/stop/restart/watchdog actions must share one refreshed locked dispatcher")
+lock_run = function_body(source, "frp_lifecycle_lock_run()")
+require("frp_lifecycle_lock_prepare" in lock_run and
+        "command -v flock" in lock_run and
+        "frp_lifecycle_lock_execute" in lock_run and
+        "start|stop|restart|C" in lock_run,
+        "every external FRP lifecycle action must fail closed behind the verified flock")
+run_script = function_body(source, "frp_run_script()")
+require('/bin/sh "$frp_script_path" 9>&-' in run_script,
+        "operator script and daemon children must not retain the launcher lock descriptor")
+for marker in ("stable private inode", "symlink lock path", "hard-linked lock path",
+               "contended lock action", "action failure status"):
+    require(marker in lock_test, f"FRP lifecycle lock regression omits {marker}")
+
 network = function_body(source, "check_net()")
 require("if /bin/ping " in network and "== " not in network,
         "WAN probe must use a POSIX if/status check")
@@ -153,6 +188,7 @@ paths = (
     "trunk/user/frp/tests/frp_lifecycle.sh",
     "trunk/user/frp/tests/frp_crontab.sh",
     "trunk/user/frp/tests/frp_stop.sh",
+    "trunk/user/frp/tests/frp_lock.sh",
     "trunk/user/frp/tests/frp_autostart.sh",
     "trunk/user/frp/tests/frp_config.sh",
     "trunk/user/scripts/files/usr/bin/autostart.sh",
@@ -174,7 +210,7 @@ for path in paths:
 run_script = function_body(source, "frp_run_script()")
 require('[ -L "$frp_script_path" ]' in run_script and
         '[ ! -f "$frp_script_path" ]' in run_script and
-        '/bin/sh "$frp_script_path"' in run_script,
+        '/bin/sh "$frp_script_path" 9>&-' in run_script,
         "FRP runner must refuse symlink/non-regular custom scripts before root execution")
 
 # Shutdown/reboot must stop both daemons regardless of their enable flags.

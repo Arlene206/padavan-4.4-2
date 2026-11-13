@@ -609,19 +609,10 @@ void start_frp(void){
 }
 
 void restart_frp(void){
-	int stop_status = eval("/usr/bin/frp.sh","stop");
-	int start_status;
+	int status = eval("/usr/bin/frp.sh","restart");
 
-	if (stop_status != 0) {
-		logmessage(LOGNAME,
-			   "refusing FRP restart: previous daemons did not stop (status=%d)",
-			   stop_status);
-		return;
-	}
-
-	start_status = eval("/usr/bin/frp.sh","start");
-	if (start_status != 0)
-		logmessage(LOGNAME, "FRP restart start failed: %d", start_status);
+	if (status != 0)
+		logmessage(LOGNAME, "FRP restart failed: %d", status);
 }
 #endif
 

@@ -1,7 +1,8 @@
 #!/bin/sh
-frpc_enable=`nvram get frpc_enable`
-frps_enable=`nvram get frps_enable`
-http_username=`nvram get http_username`
+# Mutable NVRAM state is refreshed only after the lifecycle lock is held.
+frpc_enable=
+frps_enable=
+http_username=
 FRP_CRON_ROOT="/etc/storage/cron"
 FRP_CRONTAB_DIR="$FRP_CRON_ROOT/crontabs"
 FRP_WATCHDOG_CRON='*/1 * * * * /bin/sh /usr/bin/frp.sh C >/dev/null 2>&1'
@@ -48,7 +49,7 @@ frp_run_script()
 		logger -t "frp" "无法将FRP配置脚本收紧为仅所有者可访问，拒绝执行。"
 		return 1
 	fi
-	/bin/sh "$frp_script_path"
+	/bin/sh "$frp_script_path" 9>&-
 }
 
 # Add/remove only FRP's exact watchdog entry. Stage outside the crontabs scan
@@ -181,14 +182,161 @@ frp_close ()
 }
 
 
-case $1 in
-start)
-	frp_start
-	;;
-stop)
-	frp_close
-	;;
-C)
-	check_frp
+
+frp_refresh_nvram_state()
+{
+	frpc_enable=$(nvram get frpc_enable) || return 1
+	frps_enable=$(nvram get frps_enable) || return 1
+	http_username=$(nvram get http_username) || return 1
+
+	case "$frpc_enable" in 0|1) ;; *) return 1 ;; esac
+	case "$frps_enable" in 0|1) ;; *) return 1 ;; esac
+	return 0
+}
+
+frp_lifecycle_lock_path()
+{
+	printf '%s\\n' '/tmp/.frp.lifecycle.lock'
+}
+
+# Keep one root-private inode for the entire boot. Never unlink a flock file:
+# replacing it while held would allow another launcher to acquire a second lock.
+frp_lifecycle_lock_prepare()
+{
+	frp_lock_file="$1"
+	[ -n "$frp_lock_file" ] || return 1
+	case "$frp_lock_file" in
+		*/*) frp_lock_dir="${frp_lock_file%/*}" ;;
+		*) frp_lock_dir=. ;;
+	esac
+	[ -n "$frp_lock_dir" ] || frp_lock_dir=/
+
+	if [ -L "$frp_lock_dir" ] || [ ! -d "$frp_lock_dir" ]; then
+		logger -t "frp" "生命周期锁目录不是普通目录。"
+		return 1
+	fi
+	frp_lock_uid=$(id -u) || return 1
+	frp_lock_dir_info=$(stat -c '%u %a' "$frp_lock_dir") || return 1
+	set -- $frp_lock_dir_info
+	if [ "$#" -ne 2 ] || [ "$1" != "$frp_lock_uid" ]; then
+		logger -t "frp" "生命周期锁目录所有者不安全。"
+		return 1
+	fi
+	frp_lock_dir_mode=$((0$2))
+	if [ $((frp_lock_dir_mode & 0022)) -ne 0 ] &&
+	   [ $((frp_lock_dir_mode & 01000)) -eq 0 ]; then
+		logger -t "frp" "生命周期锁目录可被其他用户写入且没有sticky保护。"
+		return 1
+	fi
+
+	if [ -L "$frp_lock_file" ]; then
+		logger -t "frp" "生命周期锁文件不能是符号链接。"
+		return 1
+	fi
+	if [ ! -e "$frp_lock_file" ]; then
+		(umask 077; set -C; : > "$frp_lock_file") 2>/dev/null || :
+	fi
+	if [ -L "$frp_lock_file" ] || [ ! -f "$frp_lock_file" ]; then
+		logger -t "frp" "生命周期锁文件不是普通文件。"
+		return 1
+	fi
+	frp_lock_file_info=$(stat -c '%u %a %h' "$frp_lock_file") || return 1
+	set -- $frp_lock_file_info
+	if [ "$#" -ne 3 ] || [ "$1" != "$frp_lock_uid" ] ||
+	   [ "$2" != 600 ] || [ "$3" != 1 ]; then
+		logger -t "frp" "生命周期锁文件权限、所有者或链接数不安全。"
+		return 1
+	fi
+	return 0
+}
+
+# FD 9 is reserved for this short-lived launcher. A bounded wait keeps PID 1
+# responsive when a watchdog, UI restart and shutdown overlap.
+frp_lifecycle_lock_execute()
+{
+	frp_lock_file="$1"
+	frp_lock_wait_seconds="$2"
+	shift 2
+	case "$frp_lock_wait_seconds" in ''|*[!0-9]*) return 1 ;; esac
+	[ "$#" -gt 0 ] || return 1
+
+	if ( : <&9 ) 2>/dev/null || ( : >&9 ) 2>/dev/null; then
+		logger -t "frp" "生命周期锁FD 9已被占用，拒绝运行。"
+		return 1
+	fi
+	frp_lock_old_umask=$(umask)
+	umask 077
+	if ! exec 9>>"$frp_lock_file"; then
+		umask "$frp_lock_old_umask"
+		logger -t "frp" "无法打开生命周期锁文件。"
+		return 1
+	fi
+	umask "$frp_lock_old_umask"
+
+	frp_lock_attempt=0
+	while ! flock -n 9; do
+		if [ "$frp_lock_attempt" -ge "$frp_lock_wait_seconds" ]; then
+			exec 9>&-
+			logger -t "frp" "等待生命周期锁超时，取消本次操作。"
+			return 1
+		fi
+		frp_lock_attempt=$((frp_lock_attempt + 1))
+		sleep 1
+	done
+
+	if "$@"; then
+		frp_lock_action_status=0
+	else
+		frp_lock_action_status=$?
+	fi
+	exec 9>&-
+	return "$frp_lock_action_status"
+}
+
+frp_lifecycle_locked_action()
+{
+	frp_refresh_nvram_state || {
+		logger -t "frp" "无法读取有效的FRP角色配置，拒绝执行生命周期操作。"
+		return 1
+	}
+	case "$1" in
+		start)
+			frp_start
+			;;
+		stop)
+			frp_close
+			;;
+		restart)
+			frp_close || return $?
+			frp_start
+			;;
+		C)
+			check_frp
+			;;
+		*)
+			return 2
+			;;
+	esac
+}
+
+frp_lifecycle_lock_run()
+{
+	case "$1" in start|stop|restart|C) ;; *) return 2 ;; esac
+	frp_lock_file=$(frp_lifecycle_lock_path) || return 1
+	frp_lifecycle_lock_prepare "$frp_lock_file" || {
+		logger -t "frp" "生命周期锁准备失败，取消FRP操作。"
+		return 1
+	}
+	command -v flock >/dev/null 2>&1 || {
+		logger -t "frp" "系统缺少flock，拒绝无锁执行生命周期操作。"
+		return 1
+	}
+	frp_lifecycle_lock_execute "$frp_lock_file" 30 \
+		frp_lifecycle_locked_action "$1"
+}
+
+case "${1:-}" in
+start|stop|restart|C)
+	frp_lifecycle_lock_run "$1"
 	;;
 esac
