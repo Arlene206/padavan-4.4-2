@@ -238,7 +238,15 @@ echo "DDNSTO stop retains bounded TERM/KILL and fail-closed postconditions: PASS
 : > "$TEST_OPS"
 echo stopped > "$TEST_STATE"
 run_action normal start || fail "initial asynchronous start failed"
-[ "$(cat "$TEST_STATE")" = running ] || fail "mock daemon did not start"
+# Startup is intentionally asynchronous; observe the mock child with a bounded wait.
+start_attempt=0
+while { [ "$(cat "$TEST_STATE")" != running ] || [ ! -s "$TEST_DAEMON_PID" ]; } &&
+      [ "$start_attempt" -lt 100 ]; do
+	/bin/sleep 0.02
+	start_attempt=$((start_attempt + 1))
+done
+[ "$(cat "$TEST_STATE")" = running ] && [ -s "$TEST_DAEMON_PID" ] ||
+	fail "mock daemon did not start within the bounded observation window"
 # The detached child must not retain FD 9 and keep the launcher lock held.
 (
 	exec 8>>"$LOCK_FILE"
