@@ -2,26 +2,27 @@
 
 ## 最近接力状态（2026-11-14）
 
-- 最新 main exact SHA：`691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`，直接父提交 `ed010248a2d1bb073d7c6aa28c3bd9afcda3d07f`；其父提交为 `eb24238333a4424ae6cfb0f807b6ce14fc9223dc`。本次恢复期间 main 已由两个普通 fast-forward 提交推进：`ed01024` 修复 LAN restart 的 DNSMasq 错误传播，`691e4d6` 对齐 HTTPD umbrella 的 source contract。远程仅有 main；PR #1 仍 CLOSED / UNMERGED（head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`），toolchain tag 仍为 `7f7d3ea41ebdd7eeab8a303f3d4ad8dddb54a8a7`。
-- `ed010248` 的生产修复：`full_restart_lan()` 改为返回 DNSMasq lifecycle status；锁获取失败返回 errno，stop 失败时禁止启动第二实例，start 失败保留原始状态，锁释放失败在没有先前错误时也向上传播；PID 1 的 `RCN_RESTART_LAN` 分支通过 `rc_notify_merge_action_result()` 合并结果，避免 DNSMasq 故障被当作 LAN restart 成功而清除 incomplete marker。
-- `691e4d6` 只修改 `.github/workflows/httpd-security.yml`：HTTPD umbrella 将 `rc.c` 纳入 push / pull_request path filters，并将 LAN restart source contract 对齐到 `dnsmasq_status`、`int full_restart_lan()` 及 PID 1 result merge。该提交没有改动生产源码。
-- exact `691e4d6` push Actions 共 3 条：HTTPD Authentication and Security Regression [run `43489646217` / job `132107102491`] SUCCESS；AI docs [run `43489646340` / job `132107103804`] SUCCESS；XY-C1 Firmware Validation [run `43489646254` / job `132107102854`] 在最近一次检查时仍处于 Build XY-C1 / IN_PROGRESS，不能宣称 L3 已完成。
-- exact 生产源码提交 `ed010248` 的 DNSMasq lifecycle workflow [run `43489264442` / job `132105772776`] 全步骤 SUCCESS：GNU89/Werror restart policy、DHCP range、跨进程 lock、private atomic Inadyn publication 及 daemon postcondition / RC result propagation source contract 均 PASS。NVRAM transaction audit [run `43489264608` / job `132105772928`] SUCCESS，日志报告 `RAW_USERLAND_BYPASS_COUNT: 0`，kernel ioctl / caller contract PASS。上述生产源码在 `691e4d6` 中未改变。
-- 已调查 exact `ed010248` 的唯一失败 workflow：HTTPD Authentication and Security Regression [run `43489264377` / job `132105772925`] 在 “Verify DNSMasq generated file trust boundaries” 失败。完整日志显示这是旧 source contract 仍断言 `dnsmasq_stop_status`，而生产函数已改为 `dnsmasq_status`；不是实际 C 编译或运行回归。提交 `691e4d6` 修正断言与路径过滤，exact `691e4d6` 的 HTTPD workflow 已全步骤 SUCCESS。失败有记录，没有隐藏。
-- root `dev_log.md` 当前更新为 33/119 条；archive counts 仍为 dev-log=8 / handoff=22 / roadmap=18。距离 120 条及 384 KiB early-rotation 门槛仍有余量；不轮转、不改 INDEX，不创建 handoff / roadmap snapshot。
-- 当前 exact main 的 XY-C1 build 仍待复核结果；此前更早 SHA 的构建不能替代当前 SHA 的 L3 证据。L4 router flash/boot 仍 NOT VERIFIED。FTP final-name inode-check/unlinkat TOCTOU 仍 OPEN/BLOCKED；NFS AUTH_SYS/root-squash/client durability 仍需要真实客户端与存储设备证据。
+- 最新 main exact SHA：`18561fddd214238dda124e0b8883030081ffca5d`，直接父提交 `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`；`691e4d6` 的直接父提交为生产修复 `ed010248a2d1bb073d7c6aa28c3bd9afcda3d07f`。当前 main 仅有这两个普通 fast-forward 后续提交；`18561f` 为 handoff/roadmap/dev_log checkpoint commit，不改变产品源码。远程只有 main；PR #1 仍 CLOSED / UNMERGED（head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`），toolchain tag 为 `7f7d3ea41ebdd7eeab8a303f3d4ad8dddb54a8a7`。
+- exact main `18561f` push Actions 共 6 条，6/6 COMPLETED / SUCCESS，全部 job steps 成功：AliDDNS [`43490972337 / 132111752193`]、AdGuardHome [`43490972373 / 132111754083`]、infosvr [`43490972566 / 132111752734`]、AliyunDrive [`43490971776 / 132111749721`]、NVRAM [`43490971657 / 132111749337`]、AI docs [`43490971630 / 132111749853`]。AI docs log 在新增本次记录前报告 root log 33/119，archive counts dev-log=8 / handoff=22 / roadmap=18。
+- 当前产品源码 SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f` 的 XY-C1 MIPSel 构建已完成 L3：run `43489646254` / job `132107102854` 的 Build XY-C1、TRX output verification、artifact upload 全部 SUCCESS。TRX 为 12,625,949 bytes；artifact `14069572898`，12,579,578 bytes，SHA-256 `c6581125da108ac1118dfcaf895bcfb2414e09554eb63b96be8bddb369c7b768`。当前 main `18561f` 仅在该已构建源码之上新增文档，因此产品源码与 L3 产物完全相同；L4 router flash/boot 仍 NOT VERIFIED。
+- `ed010248` 的生产修复：`full_restart_lan()` 返回 DNSMasq lifecycle 状态；锁获取失败返回 errno，stop 失败时禁止启动第二实例，start 失败保留原始状态，锁释放失败在无先前错误时也传播；PID 1 的 `RCN_RESTART_LAN` 通过 `rc_notify_merge_action_result()` 合并状态，避免 LAN restart 中 DNSMasq 失败被错误确认成功。
+- `691e4d6` 只修改 `.github/workflows/httpd-security.yml`：将 `rc.c` 纳入 push / pull_request path filters，并把 HTTPD umbrella 的 LAN restart source contract 对齐到 `dnsmasq_status`、`int full_restart_lan()` 和 PID 1 result merge；不改变产品源码。该提交后的 exact HTTPD run [`43489646217 / 132107102491`] SUCCESS。
+- exact `ed010248` DNSMasq lifecycle [`43489264442 / 132105772776`] 与 NVRAM audit [`43489264608 / 132105772928`] SUCCESS。DNSMasq workflow 编译并运行 GNU89/Werror policy tests、DHCP pool / lifecycle lock tests，并通过 full LAN restart / RC notification source contracts；NVRAM log 报告 `RAW_USERLAND_BYPASS_COUNT: 0`。在该 SHA 上曾有一次 HTTPD umbrella stale assertion failure（旧变量 `dnsmasq_stop_status` 与当前源码 `dnsmasq_status` 不匹配），已由 `691e4d6` 修复并在 exact SHA 复跑通过，失败过程没有隐藏。
+- 新发现尚未修复的跨模块稳定性问题：`trunk/user/shared/src/pids.c` 的 `find_pid_by_name()` 在初始 `procps_scan(NULL, ...)` 失败时，仍返回刚分配的空 PID list；`pids()` 因此把扫描上下文分配失败或 `opendir("/proc")` 失败错误映射为 “process absent / 0”。`common_ex.c::service_lifecycle_is_running()` 直接使用 `pids()`，DNSMasq locked stop 也由该回调判断进程是否存活；资源耗尽或 procfs inventory 初始化失败时可能出现 stop 假成功、ARP 清理或重复启动。该问题已从源码路径确认，但当前尚未修改、未添加回归。
+- root dev_log 现为 34/119；本次新增记录后仍远低于 120 条及 384 KiB early-rotation 门槛。Archive counts 保持 dev-log=8 / handoff=22 / roadmap=18；不轮转、不改 INDEX、不创建快照。FTP final-name inode-check/unlinkat TOCTOU 仍 OPEN/BLOCKED；NFS AUTH_SYS/root-squash/client durability 仍需要真实客户端与存储设备证据。
 
 ## Active task
 
-继续 DNSMasq 主体生命周期和全仓用户态治理，不重复本次已经落地的 LAN restart 错误传播。当前已确认的基本锁结构：public `start_dns_dhcpd()` / `stop_dns_dhcpd()` / `restart_dhcpd()` / `restart_dns()` wrapper 获取统一 lifecycle lock 后调用 locked helper；`full_restart_lan()` 自己持锁并调用 `stop_dns_dhcpd_locked()` / `start_dns_dhcpd_locked()`，避免重复获取同一把锁。已追踪 `restart_dhcpd_locked()` 的配置预备、旧进程 stop postcondition、disabled stop-only 和 launch readiness 检查；LAN restart 的 DNSMasq stop/start/lock 错误现在会返回给 PID 1 notification accounting。
+优先治理共享进程 inventory 的 fail-open 缺陷，然后完成 DNSMasq 全生命周期 caller / identity / reap 审计。已确认的具体路径是：`alloc_procps_scan()` 在分配失败或无法打开 `/proc` 时返回 NULL；`procps_scan(NULL, flags)` 随之返回 NULL；`find_pid_by_name()` 的 while 循环直接结束并返回初始空 PID list；`pids()` 将其解释为 0。与此同时，`common_ex.c::service_lifecycle_is_running()` 直接使用 `pids()`，因此 DNSMasq stop 的运行态判断也可能把“无法检查”当成“已停止”。DNSMasq start/readiness 的 `is_dns_dhcpd_run()` 同样基于 `pids()`，资源压力下可能把仍在运行的 daemon 误判为不存在。
 
-下一步先完成 public / locked API 的全量 caller map（包括 `services.c`、`init.c`、HTTPD / RC 通知和任何脚本入口），确认无遗漏的 unlocked call、意外嵌套锁或跨边界生命周期交错；再追踪 `pids("dnsmasq")` 的进程身份准确性、stale PID / 同名进程误匹配、`kill_services()` 的 signal/wait/reap 行为、stop 与 HUP reload 的 postcondition、子进程/FD 清理、临时文件失败清理及配置 rollback。每个疑点必须有具体调用路径和可证伪场景后才改代码并加最小回归。
+下一步：
 
-- 不重复已经完成的 DNSMasq DHCP pool/router exclusion、resolver publication lock fail-closed、public/locked lifecycle lock、daemon launch readiness、restart failed-stop gate、DNS/NMBD notification positive-errno normalization，以及本次 `RCN_RESTART_LAN` 错误结果传播。
-- notification handler 仍只将负 `action_result` 作为保留 marker 条件；新服务若返回正 errno，必须按服务自身契约先归一化。不得把 infosvr/crond 的 disabled/no-op 正返回全局视为失败。
-- DNSMasq 本轮进一步审计未穷尽之前，不把现有 host/source-contract PASS 说成 live lease allocation、目标 BusyBox 运行或实机 DNS ready 的证据。
-- 完成该模块的 caller/identity/reap 深审后，扩展到其他用户态治理台账中的高价值稳定性 / 安全问题，不长期局限 DNSMasq / HTTPD。
-- FTP final-name cleanup inode-check/unlinkat TOCTOU 继续 OPEN/BLOCKED；Linux 4.4 无 inode-conditional unlink-by-fd，未证明竞态安全前不改。NFS AUTH_SYS/root-squash/durability 继续等待真实 client/device evidence。
+1. 设计三态 process inventory contract（running / absent / unknown-error），让 procps scan 初始化失败、目录读取错误及 PID list allocation failure 都保留错误状态；审计所有现有 `pids()` 布尔调用点，避免 unknown 被当成已就绪或已停止。
+2. 将 DNSMasq start/stop/restart/readiness 与 `service_lifecycle_stop()` 改为 fail-closed：unknown 不得允许重复启动、不得确认 stop 成功、不得清除 static ARP。为 scan context OOM、`/proc` open failure、空 inventory、匹配进程和正常无匹配增加可注入 host regressions / GNU89/Werror tests。
+3. 完成 `start_dns_dhcpd()`、`stop_dns_dhcpd()`、`restart_dhcpd()`、`restart_dns()`、locked helpers、`full_restart_lan()` 的全入口 caller map，核对 HTTPD/RC/服务停机路径的持锁边界；再检查 process name / argv identity、stale PID、killall signal、bounded wait/reap、HUP postcondition、FD/temp cleanup 与 config rollback。
+4. 继续将治理扩展到全仓用户态，不能长期局限 DNSMasq/HTTPD。FTP final-name cleanup TOCTOU 与 NFS client semantics 按既有 OPEN/BLOCKED 约束处理。
+
+不要重复 DNSMasq DHCP pool、resolver publication lock、lifecycle lock、failed-stop gate、launch postcondition、notification positive-errno normalization 和 full LAN restart failure propagation；也不要全局把 infosvr/crond 的 disabled/no-op 正返回解释为失败。
 
 ## Completed in this handoff
 
@@ -33,22 +34,22 @@
 
 ## Verification boundary
 
-- 生产代码提交：`ed010248a2d1bb073d7c6aa28c3bd9afcda3d07f`（parent `eb24238333a4424ae6cfb0f807b6ce14fc9223dc`），message `fix(rc): retain DNSMasq failures across LAN restart`。它将 `full_restart_lan()` 返回值改为 int，并将 LAN restart 中 DNSMasq stop/start/lifecycle-lock 的失败结果合并进 PID 1 marker 状态。
-- 当前 main：`691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`（parent `ed010248a2d1bb073d7c6aa28c3bd9afcda3d07f`），message `test(rc): align DNSMasq LAN restart source contract`。该提交只修改 `.github/workflows/httpd-security.yml`，同步 push/pull_request paths 并修复 stale source assertions；生产源码与 ed010248 相同。
-- DNSMasq exact production-source workflow `43489264442 / 132105772776` on `ed010248`: all steps SUCCESS，含 GNU89/Werror policy binaries 与 full LAN restart / RC notification source contract。NVRAM workflow `43489264608 / 132105772928` on `ed010248`: SUCCESS；raw userland bypass count 0，kernel ioctl / caller contract PASS。
-- HTTPD umbrella 在 `ed010248` 的 workflow `43489264377 / 132105772925` 曾失败；完整日志将失败定位为旧断言仍使用 `dnsmasq_stop_status`。`691e4d6` 对齐 checker 后，exact-main HTTPD run `43489646217 / 132107102491` 全步骤 SUCCESS，所有被跳过的后续安全契约步骤也已执行通过。
-- exact-main `691e4d6` AI docs run `43489646340 / 132107103804` SUCCESS，但它验证的是本次 handoff/roadmap/dev_log 修改前的内容；本次文档提交后必须检查新触发的 docs run。
-- exact-main `691e4d6` XY-C1 run `43489646254 / 132107102854` 在最后检查时处于 Build XY-C1 / IN_PROGRESS；TRX verify 与 artifact upload 尚 pending。当前 L3 不能写 PASS；L4 实机刷写 / 启动未执行。
-- 本环境未运行本地目标交叉编译；本轮 host regression、GNU89 编译及源契约证据来自上述 GitHub Actions。不得将 host mocks 当作路由器实测。
-- 本次 root dev_log 将从 32 增至 33 条；index/archive counts 未改变。FTP TOCTOU 和 NFS client semantics 保持 OPEN/BLOCKED。
+- 当前 main `18561fddd214238dda124e0b8883030081ffca5d`（parent `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`）为文档 checkpoint commit；产品源码树与 parent `691e4d6` 完全一致。
+- Exact-main `18561f` push Actions：6/6 SUCCESS，runs `43490972337`, `43490972373`, `43490972566`, `43490971776`, `43490971657`, `43490971630`；全部单 job 的 steps completed success。AI docs [`43490971630 / 132111749853`] 检查此前 33/119 日志时成功；本次再增加一条记录后 validator 将在下一个 docs run 中复核 34/119。
+- Current product source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f` XY-C1 L3：run `43489646254` / job `132107102854`，MIPSel build、TRX verification、artifact upload 全部 SUCCESS。Artifact `14069572898`，12,579,578 bytes，SHA256 `c6581125da108ac1118dfcaf895bcfb2414e09554eb63b96be8bddb369c7b768`；TRX image 12,625,949 bytes。它覆盖当前 main 的全部产品源码；`18561f` 仅改文档，故当前代码可记 L3 VERIFIED。L4 physical router flash/boot NOT VERIFIED。
+- Exact `ed010248` DNSMasq run [`43489264442 / 132105772776`] 与 NVRAM audit [`43489264608 / 132105772928`] SUCCESS。Exact `691e4d6` HTTPD umbrella [`43489646217 / 132107102491`] SUCCESS；此前的 stale source assertion 已修正。
+- 本环境未执行本地交叉编译；L3 是 GitHub Actions 在 exact product-source SHA 上完成的 MIPSel firmware/TRX build。没有执行 L4 router flash/boot。当前新增的 `pids()` fail-open 缺陷仅有源码级证据，尚未修复、未添加 host regression，不得写成已关闭。
+- Root dev_log 从 33 增至 34/119；archive counts dev-log=8 / handoff=22 / roadmap=18。FTP TOCTOU / NFS client durability 仍 OPEN/BLOCKED。
 
 ## Exact first action for the next GPT
 
-1. 重新获取 `refs/heads/main`，确认当前 exact SHA 与 `event=push` 的全部 Actions；首先复核 XY-C1 run `43489646254` 的最终状态、TRX verification 与 artifact digest，并确认是否有比 `691e4d6` 更新的提交。
-2. 完成 DNSMasq 的完整 caller graph：对 `start_dns_dhcpd()`、`stop_dns_dhcpd()`、`restart_dhcpd()`、`restart_dns()`、locked helper 与 `full_restart_lan()` 做全仓检索，记录每个调用者、持锁状态及入口来源；随后检查 `pids()` 进程匹配与 `kill_services()` wait/reap 细节。
-3. 仅在确认具体生产缺陷后，添加 GNU89/Werror / host fixture / exact source contract，按 protocol 在 main 上做普通 fast-forward；按需更新 live handoff、roadmap 和 dev_log。不得再重复本次 full-LAN failure propagation 或 HTTPD stale-contract 修复。
-4. FTP upload final-name TOCTOU 继续 OPEN/BLOCKED；NFS AUTH_SYS/root-squash/durability 等待真实 client/device evidence。没有 exact-source MIPSel/TRX 与真实设备记录时，不写 L3/L4 PASS。
+1. 首先 refresh `refs/heads/main` 和 exact SHA / event=push Actions；确认是否有新提交，以及本次 handoff/doc validator run 是否通过。
+2. 以 `trunk/user/shared/src/pids.c` 为首要任务：实现 process inventory tri-state，覆盖 `alloc_procps_scan()` / 初始 `procps_scan()` 失败与 PID list 分配失败，避免 unknown 被映射为空列表；先审计所有 callers，再选择兼容的 API 迁移方式。
+3. 为失败路径增加可注入 host regression（OOM / failed-open / normal-empty / matched process）和 GNU89/Werror CI；确保 DNSMasq start/readiness 和 service stop 在 unknown 状态下都 fail closed，再审核其他 daemon start guards。
+4. 接着完成 DNSMasq 全 caller map / process identity / stop HUP / wait-reap / fd-temp cleanup；按优先级扩大至其他用户态模块。
+5. 当前产品源码 L3 已在 `691e4d6` 成功，L4 仍 NOT VERIFIED；未实际操作路由器前不得宣称 L4。FTP TOCTOU / NFS client semantics 保持 OPEN/BLOCKED。
 
+## Completed task: DNS Forwarder lifecycle serialization and failure propagation
 ## Completed task: DNS Forwarder lifecycle serialization and failure propagation
 ## Completed task: DNS Forwarder lifecycle serialization and failure propagation
 
