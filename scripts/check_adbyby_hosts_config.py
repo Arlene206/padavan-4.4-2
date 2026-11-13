@@ -13,6 +13,7 @@ SERVICE = ROOT / "trunk/user/rc/src/services.c"
 LIFECYCLE_TEST = ROOT / "trunk/user/adbyby/tests/lifecycle_lock.sh"
 RULES_TEST = ROOT / "trunk/user/adbyby/tests/rules_download.sh"
 EXTERNAL_TEST = ROOT / "trunk/user/adbyby/tests/external_downloads.sh"
+ANTI_AD_TEST = ROOT / "trunk/user/adbyby/tests/anti_ad_download.sh"
 
 
 def fail(message):
@@ -40,6 +41,7 @@ service = SERVICE.read_text(encoding="utf-8")
 lifecycle_test = LIFECYCLE_TEST.read_text(encoding="utf-8")
 rules_test = RULES_TEST.read_text(encoding="utf-8")
 external_test = EXTERNAL_TEST.read_text(encoding="utf-8")
+anti_ad_test = ANTI_AD_TEST.read_text(encoding="utf-8")
 helper = function_body(source, "adbyby_remove_generated_hosts_config")
 hosts_ads = function_body(source, "hosts_ads")
 del_dns = function_body(source, "del_dns")
@@ -56,6 +58,11 @@ add_rules = function_body(source, "add_rules")
 user_cache = function_body(source, "adbyby_user_rules_cache_is_usable")
 prepare_user_rules = function_body(source, "adbyby_prepare_user_rules")
 prepare_user_transaction = function_body(source, "adbyby_prepare_user_rules_transaction")
+anti_ad_validate = function_body(source, "adbyby_validate_dnsmasq_fragment")
+anti_ad_cache = function_body(source, "adbyby_anti_ad_cache_is_usable")
+prepare_anti_ad = function_body(source, "adbyby_prepare_anti_ad")
+prepare_anti_ad_transaction = function_body(source, "adbyby_prepare_anti_ad_transaction")
+anti_ad = function_body(source, "anti_ad")
 start = function_body(source, "adbyby_start")
 updater = function_body(source, "adbyby_uprules")
 refresh_match = re.search(r"(?ms)^adbyby_refresh_managed_rules\(\)[ \t]*\n\((.*?)^\)", source)
@@ -151,6 +158,29 @@ require("adbyby_user_rules_cache_is_usable" in prepare_user_transaction and
         "failed third-party fetches must preserve a last-good user.txt cache")
 require("adbyby_prepare_user_rules_transaction" in prepare_user_rules,
         "user-rule staging must isolate umask and cleanup in a subshell")
+require('ADBYBY_ANTI_AD_FILE="/etc/storage/dnsmasq-adbyby.d/anti-ad-for-dnsmasq.conf"' in source,
+        "anti-AD fragment path must remain the persistent dnsmasq include")
+require("adbyby_valid_https_url" in prepare_anti_ad_transaction and
+        "adbyby_download_https_200" in prepare_anti_ad_transaction and
+        "16777216" in prepare_anti_ad_transaction,
+        "anti-AD must use the shared bounded HTTPS/CA/status downloader")
+require("mktemp -d" in prepare_anti_ad_transaction and
+        "adbyby_anti_ad_dir" in prepare_anti_ad_transaction and
+        "mv -f" in prepare_anti_ad_transaction and "chmod 0644" in prepare_anti_ad_transaction,
+        "anti-AD staging must share the target filesystem and publish by rename")
+require("[ ! -L" in prepare_anti_ad_transaction and "[ ! -L" in anti_ad_cache,
+        "anti-AD must reject symlink and non-regular cache destinations")
+for marker in ("address=", "253", "16777216", "count < 1"):
+    require(marker in anti_ad_validate, f"anti-AD validator omits {marker}")
+require("adbyby_anti_ad_cache_is_usable" in anti_ad and
+        "anti_ad_count" in anti_ad and "保留上一次有效规则" in anti_ad,
+        "anti-AD update failures must retain valid last-good data and count")
+require("curl -k" not in anti_ad and "adbyby_prepare_anti_ad" in anti_ad,
+        "anti-AD must not use insecure direct downloads")
+for marker in ("http_redirect", "malformed", "empty", "Missing CA",
+               "destination symlink", "publication failure", "last-good count",
+               "Adbyby anti-ad HTTPS fragment validation"):
+    require(marker in anti_ad_test, f"anti-AD regression misses: {marker}")
 for marker in ("Query delimiters", "Invalid schemes and whitespace",
                "TLS, redirect and HTTP failures", "Response size", "last-good",
                "Adbyby HTTPS-only third-party URL validation"):
@@ -200,6 +230,7 @@ paths = (
     "trunk/user/adbyby/tests/lifecycle_lock.sh",
     "trunk/user/adbyby/tests/rules_download.sh",
     "trunk/user/adbyby/tests/external_downloads.sh",
+    "trunk/user/adbyby/tests/anti_ad_download.sh",
     "trunk/user/adbyby/tests/firewall_snapshot.sh",
     "trunk/user/rc/src/services.c",
     "scripts/check_adbyby_hosts_config.py",
@@ -217,13 +248,15 @@ for command in (
     "sh -n trunk/user/adbyby/tests/lifecycle_lock.sh",
     "sh -n trunk/user/adbyby/tests/rules_download.sh",
     "sh -n trunk/user/adbyby/tests/external_downloads.sh",
+    "sh -n trunk/user/adbyby/tests/anti_ad_download.sh",
     "sh trunk/user/adbyby/tests/hosts_config_preservation.sh",
     "sh trunk/user/adbyby/tests/lifecycle_lock.sh",
     "sh trunk/user/adbyby/tests/rules_download.sh",
     "sh trunk/user/adbyby/tests/external_downloads.sh",
+    "sh trunk/user/adbyby/tests/anti_ad_download.sh",
     "sh trunk/user/adbyby/tests/firewall_snapshot.sh",
     "python3 scripts/check_adbyby_hosts_config.py",
 ):
     require(command in workflow, f"workflow omits required command: {command}")
 
-print("Adbyby managed and third-party downloads, dnsmasq hosts cleanup and CI integration contracts: PASS")
+print("Adbyby managed, third-party and anti-AD downloads, dnsmasq hosts cleanup and CI integration contracts: PASS")

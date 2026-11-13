@@ -5,6 +5,7 @@ ipt_n="iptables -t nat"
 PROG_PATH="/tmp/adbyby"
 DATA_PATH="$PROG_PATH/data"
 ADBYBY_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt"
+ADBYBY_ANTI_AD_FILE="/etc/storage/dnsmasq-adbyby.d/anti-ad-for-dnsmasq.conf"
 WAN_FILE="/etc/storage/dnsmasq-adbyby.d/03-adbyby-ipset.conf"
 
 # Read mutable settings only after the lifecycle lock is held.
@@ -710,19 +711,102 @@ adbyby_uprules()
 #{
 #	/tmp/adbyby/adblock.sh &
 #}
-anti_ad(){
-anti_ad=`nvram get anti_ad`
-anti_ad_link=`nvram get anti_ad_link`
-nvram set anti_ad_count=0
-if [ "$anti_ad" = "1" ]; then
-curl -k -s -o /etc/storage/dnsmasq-adbyby.d/anti-ad-for-dnsmasq.conf --connect-timeout 5 --retry 3 $anti_ad_link
-if [ ! -f "/etc/storage/dnsmasq-adbyby.d/anti-ad-for-dnsmasq.conf" ]; then
-	logger -t "adbyby" "anti_AD下载失败！"
-else
-	logger -t "adbyby" "anti_AD下载成功,处理中..."
-nvram set anti_ad_count=`grep -v '^#' /etc/storage/dnsmasq-adbyby.d/anti-ad-for-dnsmasq.conf | wc -l`
-fi
-fi
+adbyby_validate_dnsmasq_fragment()
+{
+	adbyby_fragment_file="$1"
+	[ -f "$adbyby_fragment_file" ] && [ ! -L "$adbyby_fragment_file" ] &&
+	[ -s "$adbyby_fragment_file" ] || return 1
+	adbyby_fragment_bytes=$(wc -c < "$adbyby_fragment_file" | awk '{print $1}') || return 1
+	case "$adbyby_fragment_bytes" in ''|*[!0123456789]*) return 1 ;; esac
+	[ "$adbyby_fragment_bytes" -le 16777216 ] || return 1
+	awk '
+		/^#/ { next }
+		/^$/ { next }
+		{
+			if ($0 !~ /^address=\/[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*\/$/) {
+				invalid = 1
+				next
+			}
+			domain = substr($0, 10, length($0) - 10)
+			if (length(domain) > 253 || domain ~ /\.\./ ||
+			    domain ~ /(^|\.)-/ || domain ~ /-(\.|$)/ || domain ~ /\.$/) {
+				invalid = 1
+				next
+			}
+			count++
+		}
+		END {
+			if (invalid || count < 1) exit 1
+			print count
+		}
+	' "$adbyby_fragment_file"
+}
+
+adbyby_anti_ad_cache_is_usable()
+{
+	adbyby_cache_file="$1"
+	[ -f "$adbyby_cache_file" ] && [ ! -L "$adbyby_cache_file" ] &&
+	[ -s "$adbyby_cache_file" ] || return 1
+	adbyby_validate_dnsmasq_fragment "$adbyby_cache_file" >/dev/null
+}
+
+adbyby_prepare_anti_ad()
+{
+	(
+		umask 077
+		adbyby_prepare_anti_ad_transaction "$1" "${2:-$ADBYBY_ANTI_AD_FILE}"
+	)
+}
+
+adbyby_prepare_anti_ad_transaction()
+{
+	adbyby_anti_ad_url="$1"
+	adbyby_anti_ad_file="${2:-$ADBYBY_ANTI_AD_FILE}"
+	adbyby_anti_ad_dir="${adbyby_anti_ad_file%/*}"
+	adbyby_valid_https_url "$adbyby_anti_ad_url" || return 1
+	[ -d "$adbyby_anti_ad_dir" ] && [ ! -L "$adbyby_anti_ad_dir" ] || return 1
+	if [ -e "$adbyby_anti_ad_file" ] || [ -L "$adbyby_anti_ad_file" ]; then
+		[ -f "$adbyby_anti_ad_file" ] && [ ! -L "$adbyby_anti_ad_file" ] || return 1
+	fi
+	# Stage on the same filesystem as the persistent conf-dir target.
+	adbyby_anti_ad_stage_dir=$(mktemp -d "$adbyby_anti_ad_dir/.anti-ad.XXXXXX") || return 1
+	trap 'rm -rf "$adbyby_anti_ad_stage_dir"' 0
+	trap 'exit 1' HUP INT TERM
+	adbyby_anti_ad_download="$adbyby_anti_ad_stage_dir/anti-ad.raw"
+	adbyby_download_https_200 "$adbyby_anti_ad_url" "$adbyby_anti_ad_download" 16777216 || return 1
+	adbyby_anti_ad_count=$(adbyby_validate_dnsmasq_fragment "$adbyby_anti_ad_download") || return 1
+	chmod 0644 "$adbyby_anti_ad_download" || return 1
+	[ -d "$adbyby_anti_ad_dir" ] && [ ! -L "$adbyby_anti_ad_dir" ] || return 1
+	if [ -e "$adbyby_anti_ad_file" ] || [ -L "$adbyby_anti_ad_file" ]; then
+		[ -f "$adbyby_anti_ad_file" ] && [ ! -L "$adbyby_anti_ad_file" ] || return 1
+	fi
+	mv -f "$adbyby_anti_ad_download" "$adbyby_anti_ad_file" || return 1
+	printf '%s\n' "$adbyby_anti_ad_count"
+}
+
+anti_ad()
+{
+	adbyby_anti_ad_enabled=$(nvram get anti_ad 2>/dev/null) || adbyby_anti_ad_enabled=0
+	if [ "$adbyby_anti_ad_enabled" != "1" ]; then
+		nvram set anti_ad_count=0
+		return 0
+	fi
+	adbyby_anti_ad_url=$(nvram get anti_ad_link 2>/dev/null) || adbyby_anti_ad_url=""
+	if adbyby_anti_ad_count=$(adbyby_prepare_anti_ad "$adbyby_anti_ad_url" "$ADBYBY_ANTI_AD_FILE"); then
+		logger -t "adbyby" "anti_AD下载成功，已安全发布规则。"
+	else
+		if adbyby_anti_ad_cache_is_usable "$ADBYBY_ANTI_AD_FILE"; then
+			adbyby_anti_ad_count=$(adbyby_validate_dnsmasq_fragment "$ADBYBY_ANTI_AD_FILE")
+			logger -t "adbyby" "anti_AD更新失败，保留上一次有效规则。"
+		else
+			adbyby_anti_ad_count=0
+			if [ -f "$ADBYBY_ANTI_AD_FILE" ] && [ ! -L "$ADBYBY_ANTI_AD_FILE" ]; then
+				rm -f "$ADBYBY_ANTI_AD_FILE" || logger -t "adbyby" "无法移除无效的anti_AD规则文件。"
+			fi
+			logger -t "adbyby" "anti_AD下载或格式校验失败，未启用无效规则。"
+		fi
+	fi
+	nvram set anti_ad_count="$adbyby_anti_ad_count"
 }
 
 adbyby_remove_generated_hosts_config()
