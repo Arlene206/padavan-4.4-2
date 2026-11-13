@@ -33,12 +33,12 @@ frp_dashboard_user='frp_operator'
 frp_dashboard_password='A9b2C4d6E8f0G1h3J5k7'
 frp_client_tmp=
 frp_server_tmp=
+frp_backup_dir=
 frp_client_backup=
 frp_server_backup=
-frp_client_had_original=0
-frp_server_had_original=0
 frp_client_published=0
 frp_server_published=0
+frp_pair_transaction_active=0
 frp_preserve_config_backups=0
 frp_runtime_dir="$test_root/runtime"
 
@@ -190,6 +190,25 @@ unset -f mv
 [ ! -e "$frp_runtime_dir/myfrps.ini" ] ||
 	fail "rollback left a newly-created server config"
 
+# EXIT cleanup restores a backup when a signal interrupts publication.
+rm -f "$frp_runtime_dir/myfrpc.ini" "$frp_runtime_dir/myfrps.ini"
+frp_backup_dir="$frp_runtime_dir/.frp-config-backup-test"
+mkdir "$frp_backup_dir"
+printf 'recover-after-interrupt\n' > "$frp_backup_dir/client.previous"
+chmod 0600 "$frp_backup_dir/client.previous"
+frp_client_backup="$frp_backup_dir/client.previous"
+frp_server_backup="$frp_backup_dir/server.previous"
+frp_client_tmp="$frp_runtime_dir/.missing-client-stage"
+frp_server_tmp=
+frp_client_published=0
+frp_server_published=0
+frp_pair_transaction_active=1
+frp_preserve_config_backups=1
+frp_cleanup_config_stages
+[ "$(cat "$frp_runtime_dir/myfrpc.ini")" = "recover-after-interrupt" ] ||
+	fail "EXIT cleanup did not restore the interrupted config backup"
+[ ! -e "$frp_backup_dir" ] || fail "successful interrupt recovery left its backup directory"
+
 # Refuse a symlink or non-regular live config target without touching its referent.
 rm -f "$frp_runtime_dir/myfrpc.ini"
 printf 'untouched referent\n' > "$test_root/referent"
@@ -209,5 +228,6 @@ frp_cleanup_config_stages
 echo "FRP private runtime directory and credential config publication: PASS"
 echo "FRP paired second-rename failure restores existing last-good configs: PASS"
 echo "FRP paired second-rename failure removes originally absent configs: PASS"
+echo "FRP interrupted publication restores private backup on EXIT: PASS"
 echo "FRP failed staging/rename preserves last-good config: PASS"
 echo "FRP rejects symlink and non-regular runtime paths: PASS"

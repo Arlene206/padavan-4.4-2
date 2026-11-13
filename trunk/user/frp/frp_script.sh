@@ -11,12 +11,12 @@ frp_dashboard_password='CHANGE_ME_TO_A_UNIQUE_PASSWORD'
 frp_runtime_dir='/tmp/frp'
 frp_client_tmp=
 frp_server_tmp=
+frp_backup_dir=
 frp_client_backup=
 frp_server_backup=
-frp_client_had_original=0
-frp_server_had_original=0
 frp_client_published=0
 frp_server_published=0
+frp_pair_transaction_active=0
 frp_preserve_config_backups=0
 
 frp_validate_credentials()
@@ -288,13 +288,150 @@ frp_publish_enabled_configs()
 	return 0
 }
 
+frp_rollback_config_pair()
+{
+	frp_rollback_status=0
+	frp_client_target="$frp_runtime_dir/myfrpc.ini"
+	frp_server_target="$frp_runtime_dir/myfrps.ini"
+
+	# A backup exists only after the old target was moved. If there was no old
+	# target, a consumed stage plus a new target identifies an interrupted publish.
+	if [ -n "$frp_client_backup" ] && [ -e "$frp_client_backup" ]; then
+		mv -f "$frp_client_backup" "$frp_client_target" || frp_rollback_status=1
+	else
+		if { [ "$frp_client_published" = "1" ] ||
+		     { [ -n "$frp_client_tmp" ] && [ ! -e "$frp_client_tmp" ] && [ -e "$frp_client_target" ]; }; } &&
+		   ! rm -f "$frp_client_target"; then
+			frp_rollback_status=1
+		fi
+	fi
+
+	if [ -n "$frp_server_backup" ] && [ -e "$frp_server_backup" ]; then
+		mv -f "$frp_server_backup" "$frp_server_target" || frp_rollback_status=1
+	else
+		if { [ "$frp_server_published" = "1" ] ||
+		     { [ -n "$frp_server_tmp" ] && [ ! -e "$frp_server_tmp" ] && [ -e "$frp_server_target" ]; }; } &&
+		   ! rm -f "$frp_server_target"; then
+			frp_rollback_status=1
+		fi
+	fi
+
+	frp_pair_transaction_active=0
+	if [ "$frp_rollback_status" != "0" ]; then
+		frp_preserve_config_backups=1
+		logger -t "frp" "FRP配置回滚未完全完成；保留私有备份供恢复。"
+		return 1
+	fi
+	if [ -n "$frp_backup_dir" ]; then
+		if rm -rf "$frp_backup_dir"; then
+			frp_backup_dir=
+			frp_preserve_config_backups=0
+		else
+			frp_preserve_config_backups=1
+			logger -t "frp" "FRP旧配置已恢复，但私有备份目录清理失败。"
+		fi
+	else
+		frp_preserve_config_backups=0
+	fi
+	return 0
+}
+
+# Back up both enabled targets before publishing either replacement. A failed
+# second rename restores the last-good pair; EXIT traps roll back interrupted
+# transactions and retain backups if restoration itself cannot complete.
+frp_publish_enabled_configs()
+{
+	frp_client_target="$frp_runtime_dir/myfrpc.ini"
+	frp_server_target="$frp_runtime_dir/myfrps.ini"
+	frp_backup_dir=
+	frp_client_backup=
+	frp_server_backup=
+	frp_client_published=0
+	frp_server_published=0
+	frp_pair_transaction_active=1
+	frp_preserve_config_backups=1
+
+	if [ "$frpc_enable" = "1" ]; then
+		[ -n "$frp_client_tmp" ] && [ -f "$frp_client_tmp" ] &&
+			[ ! -L "$frp_client_tmp" ] || return 1
+		frp_validate_config_target "$frp_client_target" || return 1
+	fi
+	if [ "$frps_enable" = "1" ]; then
+		[ -n "$frp_server_tmp" ] && [ -f "$frp_server_tmp" ] &&
+			[ ! -L "$frp_server_tmp" ] || return 1
+		frp_validate_config_target "$frp_server_target" || return 1
+	fi
+
+	frp_backup_dir=$(mktemp -d "$frp_runtime_dir/.frp-config-backup.XXXXXX") || {
+		frp_pair_transaction_active=0
+		frp_preserve_config_backups=0
+		return 1
+	}
+	chmod 0700 "$frp_backup_dir" || {
+		rm -rf "$frp_backup_dir"
+		frp_backup_dir=
+		frp_pair_transaction_active=0
+		frp_preserve_config_backups=0
+		return 1
+	}
+	frp_client_backup="$frp_backup_dir/client.previous"
+	frp_server_backup="$frp_backup_dir/server.previous"
+
+	if [ "$frpc_enable" = "1" ] &&
+	   { [ -e "$frp_client_target" ] || [ -L "$frp_client_target" ]; }; then
+		if ! mv -f "$frp_client_target" "$frp_client_backup"; then
+			frp_rollback_config_pair
+			return 1
+		fi
+	fi
+	if [ "$frps_enable" = "1" ] &&
+	   { [ -e "$frp_server_target" ] || [ -L "$frp_server_target" ]; }; then
+		if ! mv -f "$frp_server_target" "$frp_server_backup"; then
+			frp_rollback_config_pair
+			return 1
+		fi
+	fi
+
+	if [ "$frpc_enable" = "1" ]; then
+		if ! frp_publish_staged_config "$frp_client_tmp" "$frp_client_target"; then
+			frp_rollback_config_pair
+			return 1
+		fi
+		frp_client_published=1
+	fi
+	if [ "$frps_enable" = "1" ]; then
+		if ! frp_publish_staged_config "$frp_server_tmp" "$frp_server_target"; then
+			frp_rollback_config_pair
+			return 1
+		fi
+		frp_server_published=1
+	fi
+
+	frp_client_tmp=
+	frp_server_tmp=
+	frp_pair_transaction_active=0
+	if rm -rf "$frp_backup_dir"; then
+		frp_backup_dir=
+		frp_client_backup=
+		frp_server_backup=
+		frp_preserve_config_backups=0
+	else
+		frp_preserve_config_backups=1
+		logger -t "frp" "FRP配置对已发布，但旧备份目录清理失败。"
+	fi
+	return 0
+}
+
 frp_cleanup_config_stages()
 {
+	if [ "$frp_pair_transaction_active" = "1" ]; then
+		frp_rollback_config_pair || :
+	fi
 	[ -z "$frp_client_tmp" ] || rm -f "$frp_client_tmp"
 	[ -z "$frp_server_tmp" ] || rm -f "$frp_server_tmp"
-	if [ "$frp_preserve_config_backups" != "1" ]; then
-		[ -z "$frp_client_backup" ] || rm -f "$frp_client_backup"
-		[ -z "$frp_server_backup" ] || rm -f "$frp_server_backup"
+	if [ "$frp_preserve_config_backups" != "1" ] && [ -n "$frp_backup_dir" ]; then
+		rm -rf "$frp_backup_dir"
+		frp_backup_dir=
 	fi
 }
 

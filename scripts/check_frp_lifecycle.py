@@ -329,13 +329,16 @@ require("frp_client_backup" in publish_pair and "frp_server_backup" in publish_p
         "frp_rollback_config_pair" in publish_pair and
         publish_pair.index("frp_publish_staged_config") < publish_pair.rindex("frp_publish_staged_config"),
         "FRP client/server configs must publish through one pair transaction with rollback")
-require("frp_client_had_original" in rollback_pair and
-        "frp_server_had_original" in rollback_pair and
-        "frp_preserve_config_backups=1" in rollback_pair,
-        "FRP pair rollback must restore old files and preserve backups if recovery fails")
+require('[ -e "$frp_client_backup" ]' in rollback_pair and
+        '[ -e "$frp_server_backup" ]' in rollback_pair and
+        "frp_pair_transaction_active=1" in publish_pair and
+        "frp_preserve_config_backups=1" in publish_pair and
+        "frp_rollback_config_pair" in function_body(frp_template, "frp_cleanup_config_stages()"),
+        "FRP pair rollback and EXIT cleanup must restore old files and retain backups if recovery fails")
 for marker in ("FRP private runtime directory and credential config publication: PASS",
                "FRP paired second-rename failure restores existing last-good configs: PASS",
                "FRP paired second-rename failure removes originally absent configs: PASS",
+               "FRP interrupted publication restores private backup on EXIT: PASS",
                "FRP rejects symlink and non-regular runtime paths: PASS"):
     require(marker in frp_config_test, f"FRP config regression omits {marker}")
 print("FRP asynchronous restart, private credential storage and workflow contracts: PASS")
