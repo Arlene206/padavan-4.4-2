@@ -177,7 +177,7 @@ require("adbyby_anti_ad_cache_is_usable" in anti_ad and
         "anti-AD update failures must retain valid last-good data and count")
 require("curl -k" not in anti_ad and "adbyby_prepare_anti_ad" in anti_ad,
         "anti-AD must not use insecure direct downloads")
-for marker in ("http_redirect", "malformed", "empty", "Missing CA",
+for marker in ("http_redirect", "malformed", "empty", "missing CA bundle",
                "destination symlink", "publication failure", "last-good count",
                "Adbyby anti-ad HTTPS fragment validation"):
     require(marker in anti_ad_test, f"anti-AD regression misses: {marker}")
