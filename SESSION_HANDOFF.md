@@ -1,3 +1,9 @@
+## Current repository state
+
+- Live `main` HEAD: `435913a1244da38ccb722f89df0eb2a5d2648b10` (re-fetched from `refs/heads/main`); branch inventory contains only `main`. Legacy PR #1 is CLOSED / UNMERGED (`ba48e22609e0c81ad757b06756fe91d05f39cbf6`); no PR or non-main branch is used for development.
+- Exact-head `push` Actions on `435913a1244da38ccb722f89df0eb2a5d2648b10`: NVRAM `43525514810`, AdGuardHome `43525514772`, AliyunDrive `43525514717`, and AliDDNS `43525514693` completed SUCCESS. AI handoff documentation `43525514688` FAILED because `scripts/check_ai_handoff_docs.py` requires this section heading. No infosvr run is present for this SHA; the preceding infosvr run `43525494041` on `c430f079d867d95dcb5c18193bc6ba5829948370` failed on the same missing handoff heading, after all three GNU89/ASan/UBSan binaries passed. The separate infosvr checker did not reach its later assertions.
+- This heading repairs the documented schema omission; exact-head Actions for the resulting commit must be checked before claiming the docs/infosvr checks pass. The active P1 process-inventory tri-state work remains blocked pending an exhaustive source checkout/caller inventory. The recursive Git tree API returned `truncated=true` (64,005 entries); this is not exhaustive.
+
 ## Live recovery checkpoint — 2026-11-13 15:12 PST (UTC-8)
 
 > Reconciled live GitHub state for this takeover. The active P1 shared process-inventory tri-state task remains unfinished. No product source or tests were changed: the connected runtime still cannot provide a complete checkout or demonstrably exhaustive repository-wide caller inventory, so an API migration would be unsafe.
