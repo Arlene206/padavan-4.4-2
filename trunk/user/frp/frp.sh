@@ -196,7 +196,7 @@ frp_refresh_nvram_state()
 
 frp_lifecycle_lock_path()
 {
-	printf '%s\\n' '/tmp/.frp.lifecycle.lock'
+	printf '%s\n' '/tmp/.frp.lifecycle.lock'
 }
 
 # Keep one root-private inode for the entire boot. Never unlink a flock file:

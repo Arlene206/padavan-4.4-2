@@ -11,10 +11,10 @@ TEST_HTTP_USERNAME=root
 nvram()
 {
 	case "$2" in
-		frpc_enable) printf '%s\\n' "$TEST_FRPC_ENABLE" ;;
-		frps_enable) printf '%s\\n' "$TEST_FRPS_ENABLE" ;;
-		http_username) printf '%s\\n' "$TEST_HTTP_USERNAME" ;;
-		*) printf '\\n' ;;
+		frpc_enable) printf '%s\n' "$TEST_FRPC_ENABLE" ;;
+		frps_enable) printf '%s\n' "$TEST_FRPS_ENABLE" ;;
+		http_username) printf '%s\n' "$TEST_HTTP_USERNAME" ;;
+		*) printf '\n' ;;
 	esac
 }
 logger() { :; }
@@ -22,7 +22,7 @@ set -- __test_source__
 . "$repo_root/trunk/user/frp/frp.sh" __test_source__
 
 LOCK_PATH="$test_root/.frp.lifecycle.lock"
-frp_lifecycle_lock_path() { printf '%s\\n' "$LOCK_PATH"; }
+frp_lifecycle_lock_path() { printf '%s\n' "$LOCK_PATH"; }
 fail() { echo "FRP lock regression: FAIL: $*" >&2; exit 1; }
 
 command -v flock >/dev/null 2>&1 || fail "host flock command is unavailable"
@@ -35,19 +35,19 @@ frp_lifecycle_lock_prepare "$LOCK_PATH" || fail "existing lock file was rejected
 	fail "lock preparation replaced the stable inode"
 
 # Never follow a symlink, even when its referent is a regular file.
-printf 'untouched\\n' > "$test_root/referent"
+printf 'untouched\n' > "$test_root/referent"
 ln -s "$test_root/referent" "$test_root/symlink.lock"
 LOCK_PATH="$test_root/symlink.lock"
 if frp_lifecycle_lock_prepare "$LOCK_PATH"; then fail "symlink lock path was accepted"; fi
 [ "$(cat "$test_root/referent")" = untouched ] || fail "symlink referent was modified"
 
 # A hard-linked or world-readable lock could split ownership or disclose lock state.
-printf 'lock\\n' > "$test_root/hardlink.lock"
+printf 'lock\n' > "$test_root/hardlink.lock"
 chmod 600 "$test_root/hardlink.lock"
 ln "$test_root/hardlink.lock" "$test_root/second-link"
 LOCK_PATH="$test_root/hardlink.lock"
 if frp_lifecycle_lock_prepare "$LOCK_PATH"; then fail "hard-linked lock path was accepted"; fi
-printf 'lock\\n' > "$test_root/world-readable.lock"
+printf 'lock\n' > "$test_root/world-readable.lock"
 chmod 644 "$test_root/world-readable.lock"
 LOCK_PATH="$test_root/world-readable.lock"
 if frp_lifecycle_lock_prepare "$LOCK_PATH"; then fail "world-readable lock path was accepted"; fi

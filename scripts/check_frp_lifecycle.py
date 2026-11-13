@@ -230,11 +230,11 @@ restart = function_body(services, "void restart_frp(void)")
 require("status != 0" in stop and "FRP stop failed" in stop and
         "status != 0" in start and "FRP start failed" in start,
         "RC stop/start wrappers must report FRP command failures")
-require(restart.index('eval("/usr/bin/frp.sh","stop")') <
-        restart.index("if (stop_status != 0)") <
-        restart.index('eval("/usr/bin/frp.sh","start")') and
-        "refusing FRP restart" in restart and "return;" in restart,
-        "RC restart must fail closed when previous FRP daemons do not stop")
+require('eval("/usr/bin/frp.sh","restart")' in restart and
+        "FRP restart failed" in restart and
+        'eval("/usr/bin/frp.sh","stop")' not in restart and
+        'eval("/usr/bin/frp.sh","start")' not in restart,
+        "RC restart must use the serialized launcher action and preserve the stop-before-start gate")
 for marker in ("enabled FRPC survived stop", "enabled FRPS survived stop",
                "KILL escalation", "stubborn FRPS", "cron removal",
                "five-plus-two poll bound"):
