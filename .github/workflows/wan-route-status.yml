@@ -5,6 +5,9 @@ on:
     paths:
       - ".github/workflows/wan-route-status.yml"
       - "trunk/user/rc/src/net.c"
+      - "scripts/check_wan_vlan_setup.py"
+      - "trunk/user/shared/src/netutils.h"
+      - "trunk/user/shared/src/netutils.c"
       - "trunk/linux-4.4.x/net/ipv4/fib_trie.c"
       - "trunk/linux-4.4.x/net/ipv4/fib_semantics.c"
       - "trunk/linux-4.4.x/net/ipv4/fib_frontend.c"
@@ -17,6 +20,9 @@ on:
     paths:
       - ".github/workflows/wan-route-status.yml"
       - "trunk/user/rc/src/net.c"
+      - "scripts/check_wan_vlan_setup.py"
+      - "trunk/user/shared/src/netutils.h"
+      - "trunk/user/shared/src/netutils.c"
       - "trunk/linux-4.4.x/net/ipv4/fib_trie.c"
       - "trunk/linux-4.4.x/net/ipv4/fib_semantics.c"
       - "trunk/linux-4.4.x/net/ipv4/fib_frontend.c"
@@ -39,6 +45,8 @@ jobs:
             trunk/user/rc/src/tests/route_status_policy.c \
             -o /tmp/route-status-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/route-status-policy
+      - name: Verify WAN VLAN and bridge error propagation
+        run: python3 scripts/check_wan_vlan_setup.py
       - name: Verify route result propagation and cleanup ordering
         run: |
           python3 - <<'PY'

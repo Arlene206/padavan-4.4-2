@@ -311,32 +311,49 @@ get_wan_bridge_iso_mode(int bridge_mode)
 
 #define BRPREFIX_WAN	"brwan"
 
-static void
+static int
 config_soft_bridge_lan(void)
 {
 	char lan_ifname[24];
 	const char *wired_ifname;
 	int igmp_snoop = nvram_get_int("ether_igmp");
 	int wired_m2u = nvram_get_int("ether_m2u");
+	int ret;
 
 	snprintf(lan_ifname, sizeof(lan_ifname), "%s.%d", IFNAME_MAC, 1);
-
 	if (get_wan_bridge_mode() != SWAPI_WAN_BRIDGE_DISABLE) {
-		create_vlan_iface(IFNAME_MAC, 1, -1, -1, nvram_safe_get("lan_hwaddr"), 1);
+		ret = create_vlan_iface(IFNAME_MAC, 1, -1, -1, nvram_safe_get("lan_hwaddr"), 1);
+		if (ret != 0)
+			return ret;
 #if defined (USE_IPV6)
 		control_if_ipv6(lan_ifname, 0);
 #endif
-		br_add_del_if(IFNAME_BR, IFNAME_MAC, 0);
-		br_add_del_if(IFNAME_BR, lan_ifname, 1);
+		ret = br_add_del_if(IFNAME_BR, IFNAME_MAC, 0);
+		if (ret != 0)
+			return ret;
+		ret = br_add_del_if(IFNAME_BR, lan_ifname, 1);
+		if (ret != 0)
+			return ret;
 		wired_ifname = lan_ifname;
 	} else {
-		br_add_del_if(IFNAME_BR, lan_ifname, 0);
-		br_add_del_if(IFNAME_BR, IFNAME_MAC, 1);
-		remove_vlan_iface(lan_ifname);
+		if (is_interface_exist(lan_ifname)) {
+			ret = br_add_del_if(IFNAME_BR, lan_ifname, 0);
+			if (ret != 0)
+				return ret;
+		}
+		ret = br_add_del_if(IFNAME_BR, IFNAME_MAC, 1);
+		if (ret != 0)
+			return ret;
+		ret = remove_vlan_iface(lan_ifname);
+		if (ret != 0)
+			return ret;
 		wired_ifname = IFNAME_MAC;
 	}
-
-	brport_set_m2u(wired_ifname, (igmp_snoop && wired_m2u == 1) ? 1 : 0);
+	ret = brport_set_m2u(wired_ifname, (igmp_snoop && wired_m2u == 1) ? 1 : 0);
+	if (ret != 0)
+		logmessage(LOGNAME, "LAN bridge multicast port setup failed on %s (status=%d)",
+			   wired_ifname, ret);
+	return ret;
 }
 
 static int
@@ -375,61 +392,80 @@ disassembly_bridges_wan(void)
 	return status;
 }
 
-static void
+static int
 config_soft_bridge_wan(int br_id, int vid, int prio, const char *wan_ifname, const char *wan_hwaddr)
 {
 	char br_ifname[16], bwan_ifname[24];
+	int ret;
 
 	snprintf(br_ifname, sizeof(br_ifname), "%s%d", BRPREFIX_WAN, br_id);
-
 	if (!is_interface_exist(br_ifname)) {
-		br_add_del_bridge(br_ifname, 1);
-		br_set_stp(br_ifname, 0);
-		br_set_fd(br_ifname, 2);
-		br_set_param_int(br_ifname, "multicast_snooping", 0);
+		ret = br_add_del_bridge(br_ifname, 1);
+		if (ret != 0)
+			return ret;
+		ret = br_set_stp(br_ifname, 0);
+		if (ret != 0)
+			return ret;
+		ret = br_set_fd(br_ifname, 2);
+		if (ret != 0)
+			return ret;
+		ret = br_set_param_int(br_ifname, "multicast_snooping", 0);
+		if (ret != 0)
+			return ret;
 	} else {
-		ifconfig(br_ifname, 0, NULL, NULL);
+		ret = ifconfig(br_ifname, 0, NULL, NULL);
+		if (ret != 0)
+			return ret;
 	}
-
-	set_interface_hwaddr(br_ifname, wan_hwaddr);
-	set_interface_mtu(br_ifname, 1500);
+	ret = set_interface_hwaddr(br_ifname, wan_hwaddr);
+	if (ret != 0)
+		return ret;
+	ret = set_interface_mtu(br_ifname, 1500);
+	if (ret != 0)
+		return ret;
 
 	snprintf(bwan_ifname, sizeof(bwan_ifname), "%s.%d", IFNAME_MAC, vid);
-	create_vlan_iface(IFNAME_MAC, vid, prio, -1, wan_hwaddr, 1);
+	ret = create_vlan_iface(IFNAME_MAC, vid, prio, -1, wan_hwaddr, 1);
+	if (ret != 0)
+		return ret;
 
 #if defined (USE_IPV6)
 	control_if_ipv6(wan_ifname, 0);
 	control_if_ipv6(bwan_ifname, 0);
 #endif
-	br_add_del_if(br_ifname, wan_ifname, 1);
-	br_add_del_if(br_ifname, bwan_ifname, 1);
-
+	ret = br_add_del_if(br_ifname, wan_ifname, 1);
+	if (ret != 0)
+		return ret;
+	ret = br_add_del_if(br_ifname, bwan_ifname, 1);
+	if (ret != 0)
+		return ret;
 	if (br_id < 2) {
-		/* set isolation for INET and IPTV bridges */
 		if (nvram_get_int("wan_stb_iso") == SWAPI_WAN_BWAN_ISOLATION_BETWEEN) {
-			brport_set_param_int(wan_ifname, "isolate_mode", 1);
-			brport_set_param_int(bwan_ifname, "isolate_mode", 1);
+			ret = brport_set_param_int(wan_ifname, "isolate_mode", 1);
+			if (ret != 0)
+				return ret;
+			ret = brport_set_param_int(bwan_ifname, "isolate_mode", 1);
+			if (ret != 0)
+				return ret;
 		}
 	} else {
 #if defined (USE_IPV6)
 		control_if_ipv6(br_ifname, 0);
 #endif
 	}
-
-	ifconfig(br_ifname, IFUP, "0.0.0.0", NULL);
+	return ifconfig(br_ifname, IFUP, "0.0.0.0", NULL);
 }
 
-static void
+static int
 config_soft_bridges_other(int vinet_vid, int viptv_vid, int pvid_wan, const char *wan_hwaddr, int bridge_mode)
 {
 	int i, br_id, port_vid[4], port_pri[4] = {0};
+	int ret;
 	char port_ifname[24];
 
 	for (i = 0; i < 4; i++)
 		port_vid[i] = -1;
-
-	switch (bridge_mode)
-	{
+	switch (bridge_mode) {
 	case SWAPI_WAN_BRIDGE_LAN1:
 	case SWAPI_WAN_BRIDGE_LAN1_LAN2:
 	case SWAPI_WAN_BRIDGE_LAN1_LAN2_LAN3:
@@ -437,9 +473,7 @@ config_soft_bridges_other(int vinet_vid, int viptv_vid, int pvid_wan, const char
 		port_pri[0] = nvram_get_int("vlan_pri_lan1") & 0x07;
 		break;
 	}
-
-	switch (bridge_mode)
-	{
+	switch (bridge_mode) {
 	case SWAPI_WAN_BRIDGE_LAN2:
 	case SWAPI_WAN_BRIDGE_LAN1_LAN2:
 	case SWAPI_WAN_BRIDGE_LAN1_LAN2_LAN3:
@@ -447,9 +481,7 @@ config_soft_bridges_other(int vinet_vid, int viptv_vid, int pvid_wan, const char
 		port_pri[1] = nvram_get_int("vlan_pri_lan2") & 0x07;
 		break;
 	}
-
-	switch (bridge_mode)
-	{
+	switch (bridge_mode) {
 	case SWAPI_WAN_BRIDGE_LAN3:
 	case SWAPI_WAN_BRIDGE_LAN3_LAN4:
 	case SWAPI_WAN_BRIDGE_LAN1_LAN2_LAN3:
@@ -457,16 +489,13 @@ config_soft_bridges_other(int vinet_vid, int viptv_vid, int pvid_wan, const char
 		port_pri[2] = nvram_get_int("vlan_pri_lan3") & 0x07;
 		break;
 	}
-
-	switch (bridge_mode)
-	{
+	switch (bridge_mode) {
 	case SWAPI_WAN_BRIDGE_LAN4:
 	case SWAPI_WAN_BRIDGE_LAN3_LAN4:
 		port_vid[3] = nvram_get_int("vlan_vid_lan4");
 		port_pri[3] = nvram_get_int("vlan_pri_lan4") & 0x07;
 		break;
 	}
-
 	for (i = 0; i < 4; i++) {
 		if (port_vid[i] < 0)
 			continue;
@@ -475,16 +504,26 @@ config_soft_bridges_other(int vinet_vid, int viptv_vid, int pvid_wan, const char
 		if (port_vid[i] == vinet_vid || port_vid[i] == viptv_vid)
 			port_vid[i] = 0;
 	}
-
 	br_id = 2;
 	for (i = 0; i < 4; i++) {
 		if (port_vid[i] < 2)
 			continue;
 		snprintf(port_ifname, sizeof(port_ifname), "%s.%d", IFNAME_MAC2, port_vid[i]);
-		create_vlan_iface(IFNAME_MAC2, port_vid[i], port_pri[i], 1500, wan_hwaddr, 1);
-		config_soft_bridge_wan(br_id, port_vid[i], port_pri[i], port_ifname, wan_hwaddr);
+		ret = create_vlan_iface(IFNAME_MAC2, port_vid[i], port_pri[i], 1500, wan_hwaddr, 1);
+		if (ret != 0) {
+			logmessage(LOGNAME, "LAN bridge VLAN creation failed for %s (status=%d)",
+				   port_ifname, ret);
+			return ret;
+		}
+		ret = config_soft_bridge_wan(br_id, port_vid[i], port_pri[i], port_ifname, wan_hwaddr);
+		if (ret != 0) {
+			logmessage(LOGNAME, "LAN bridge setup failed for %s (status=%d)",
+				   port_ifname, ret);
+			return ret;
+		}
 		br_id++;
 	}
+	return 0;
 }
 #endif
 
@@ -575,35 +614,68 @@ config_vinet_wan(void)
 	}
 
 	/* always prepare eth3 interface */
-	ifconfig(IFNAME_MAC2, 0, NULL, NULL);
-	set_interface_hwaddr(IFNAME_MAC2, wan_hwaddr);
-	set_interface_mtu(IFNAME_MAC2, 1500);
-	ifconfig(IFNAME_MAC2, IFUP, "0.0.0.0", NULL);
+	ret = ifconfig(IFNAME_MAC2, 0, NULL, NULL);
+	if (ret != 0)
+		return ret;
+	ret = set_interface_hwaddr(IFNAME_MAC2, wan_hwaddr);
+	if (ret != 0)
+		return ret;
+	ret = set_interface_mtu(IFNAME_MAC2, 1500);
+	if (ret != 0)
+		return ret;
+	ret = ifconfig(IFNAME_MAC2, IFUP, "0.0.0.0", NULL);
+	if (ret != 0)
+		return ret;
 #endif
 
 	/* remove previous VLAN interface */
 	vinet_iflast = get_wan_unit_value(0, "viflast");
-	if (*vinet_iflast && strcmp(vinet_iflast, vinet_ifname))
-		remove_vlan_iface(vinet_iflast);
+	if (*vinet_iflast && strcmp(vinet_iflast, vinet_ifname)) {
+		ret = remove_vlan_iface(vinet_iflast);
+		if (ret != 0) {
+			logmessage(LOGNAME, "previous WAN VLAN removal failed for %s (status=%d)",
+				   vinet_iflast, ret);
+			return ret;
+		}
+	}
 
 	/* create VLAN interface for INET */
 	if (is_vlan_ifname) {
 #if defined (USE_IPV6)
 		control_if_ipv6(ifname_wan_cpu, 0);
 #endif
-		create_vlan_iface(ifname_wan_cpu, vlan_vid[0], vlan_pri, 1500, wan_hwaddr, 1);
+		ret = create_vlan_iface(ifname_wan_cpu, vlan_vid[0], vlan_pri, 1500, wan_hwaddr, 1);
+		if (ret != 0) {
+			logmessage(LOGNAME, "WAN VLAN creation failed for %s (status=%d)",
+				   vinet_ifname, ret);
+			return ret;
+		}
 	}
 
-	set_wan_unit_value(0, "viflast", (is_vlan_ifname) ? vinet_ifname : "");
-
 #if defined (USE_GMAC2_TO_GPHY) || defined (USE_GMAC2_TO_GSW)
-	if (bridge_mode != SWAPI_WAN_BRIDGE_DISABLE && is_vlan_filter)
-		config_soft_bridges_other(vlan_vid[0], vlan_vid[1], pvid_wan, wan_hwaddr, bridge_mode);
+	if (bridge_mode != SWAPI_WAN_BRIDGE_DISABLE && is_vlan_filter) {
+		ret = config_soft_bridges_other(vlan_vid[0], vlan_vid[1], pvid_wan, wan_hwaddr, bridge_mode);
+		if (ret != 0)
+			return ret;
+	}
 	if (bridge_mode != SWAPI_WAN_BRIDGE_DISABLE) {
-		config_soft_bridge_wan(0, vlan_vid[0], vlan_pri, vinet_ifname, wan_hwaddr);
+		ret = config_soft_bridge_wan(0, vlan_vid[0], vlan_pri, vinet_ifname, wan_hwaddr);
+		if (ret != 0) {
+			logmessage(LOGNAME, "WAN bridge brwan0 setup failed (status=%d)", ret);
+			return ret;
+		}
 		snprintf(vinet_ifname, sizeof(vinet_ifname), "%s%d", BRPREFIX_WAN, 0);
 	}
 #endif
+
+	if (is_vlan_ifname) {
+		char vlan_iflast[24];
+
+		snprintf(vlan_iflast, sizeof(vlan_iflast), "%s.%d", ifname_wan_cpu, vlan_vid[0]);
+		set_wan_unit_value(0, "viflast", vlan_iflast);
+	} else {
+		set_wan_unit_value(0, "viflast", "");
+	}
 
 #if defined (USE_IPV6)
 	if (get_ipv6_type() != IPV6_DISABLED)
@@ -779,8 +851,11 @@ launch_viptv_wan(void)
 		/* case1: CPU Internet tagged: n, CPU IPTV tagged: n */
 		/* case2: CPU Internet tagged: y, CPU IPTV tagged: y (common VID) */
 		
-		if (*viptv_iflast && strcmp(viptv_iflast, vinet_iflast))
-			remove_vlan_iface(viptv_iflast);
+		if (*viptv_iflast && strcmp(viptv_iflast, vinet_iflast)) {
+			ret = remove_vlan_iface(viptv_iflast);
+			if (ret != 0)
+				return ret;
+		}
 		
 		viptv_ifname[0] = 0;
 		nvram_set_temp("viptv_ifname", viptv_ifname);
@@ -796,25 +871,35 @@ launch_viptv_wan(void)
 	snprintf(viptv_ifname, sizeof(viptv_ifname), "%s.%d", ifname_wan_cpu, vlan_vid[1]);
 
 	/* remove previous VLAN interface */
-	if (*viptv_iflast && strcmp(viptv_iflast, vinet_iflast) && strcmp(viptv_iflast, viptv_ifname))
-		remove_vlan_iface(viptv_iflast);
+	if (*viptv_iflast && strcmp(viptv_iflast, vinet_iflast) && strcmp(viptv_iflast, viptv_ifname)) {
+		ret = remove_vlan_iface(viptv_iflast);
+		if (ret != 0)
+			return ret;
+	}
 
 	wan_hwaddr = nvram_safe_get("wan_hwaddr");
-
-	/* create VLAN interface for IPTV */
-	create_vlan_iface(ifname_wan_cpu, vlan_vid[1], vlan_pri, 1500, wan_hwaddr, 1);
-
-	nvram_set_temp("viptv_ifname", viptv_ifname);
+	ret = create_vlan_iface(ifname_wan_cpu, vlan_vid[1], vlan_pri, 1500, wan_hwaddr, 1);
+	if (ret != 0) {
+		logmessage(LOGNAME, "IPTV VLAN creation failed for %s (status=%d)",
+			   viptv_ifname, ret);
+		return ret;
+	}
 
 #if defined (USE_GMAC2_TO_GPHY) || defined (USE_GMAC2_TO_GSW)
 	if (get_wan_bridge_mode() != SWAPI_WAN_BRIDGE_DISABLE) {
-		config_soft_bridge_wan(1, vlan_vid[1], vlan_pri, viptv_ifname, wan_hwaddr);
+		ret = config_soft_bridge_wan(1, vlan_vid[1], vlan_pri, viptv_ifname, wan_hwaddr);
+		if (ret != 0) {
+			logmessage(LOGNAME, "IPTV bridge brwan1 setup failed (status=%d)", ret);
+			return ret;
+		}
 		snprintf(viptv_ifname, sizeof(viptv_ifname), "%s%d", BRPREFIX_WAN, 1);
 	}
 #endif
 
-	/* disable rp_filter */
-	set_interface_conf_int("ipv4", viptv_ifname, "rp_filter", 0);
+	ret = set_interface_conf_int("ipv4", viptv_ifname, "rp_filter", 0);
+	if (ret != 0)
+		return ret;
+	nvram_set_temp("viptv_ifname", viptv_ifname);
 
 	viptv_mode = nvram_get_int("viptv_mode");
 	viptv_addr = nvram_safe_get("viptv_ipaddr");
@@ -1978,7 +2063,10 @@ full_restart_wan(void)
 		logmessage(LOGNAME, "aborting full WAN restart because WAN bridge teardown failed");
 		return;
 	}
-	config_soft_bridge_lan();
+	if (config_soft_bridge_lan() != 0) {
+		logmessage(LOGNAME, "aborting full WAN restart because LAN bridge VLAN setup failed");
+		return;
+	}
 #endif
 	start_wan();
 	if (nvram_match("l2tp_srv_t", "1"))

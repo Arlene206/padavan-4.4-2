@@ -209,39 +209,84 @@ is_same_subnet2(const char *ip1, const char *ip2, const char *msk1, const char *
 	return (addr1 & mask) == (addr2 & mask);
 }
 
-void
+int
 create_vlan_iface(const char *dev_ifname, int vid, int prio, int mtu, const char *hwaddr, int do_up)
 {
 	char vlan_ifname[24];
+	int ret, saved_errno, created = 0, path_len;
 
-	snprintf(vlan_ifname, sizeof(vlan_ifname), "%s.%d", dev_ifname, vid);
-	if (!is_interface_exist(vlan_ifname))
-		vconfig_add_if(dev_ifname, vid);
-	else
+	if (!dev_ifname || !*dev_ifname || vid < 0 || vid > 4095) {
+		errno = EINVAL;
+		return -1;
+	}
+	path_len = snprintf(vlan_ifname, sizeof(vlan_ifname), "%s.%d", dev_ifname, vid);
+	if (path_len < 0 || path_len >= (int)sizeof(vlan_ifname)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+
+	if (!is_interface_exist(vlan_ifname)) {
+		ret = vconfig_add_if(dev_ifname, (unsigned int)vid);
+		if (ret != 0) {
+			/* A concurrent network transition may have created this exact VLAN. */
+			if (!is_interface_exist(vlan_ifname))
+				return ret;
+		} else {
+			created = 1;
+		}
+	} else {
+		ret = ifconfig(vlan_ifname, 0, NULL, NULL);
+		if (ret != 0)
+			return ret;
+	}
+
+	if (prio >= 0 && prio <= 7) {
+		ret = vconfig_egress_map(vlan_ifname, 0, prio);
+		if (ret != 0)
+			goto fail;
+	}
+	if (mtu >= 1280) {
+		ret = set_interface_mtu(vlan_ifname, mtu);
+		if (ret != 0)
+			goto fail;
+	}
+	if (hwaddr) {
+		ret = set_interface_hwaddr(vlan_ifname, hwaddr);
+		if (ret != 0)
+			goto fail;
+	}
+	if (do_up) {
+		ret = ifconfig(vlan_ifname, IFUP, "0.0.0.0", NULL);
+		if (ret != 0)
+			goto fail;
+	}
+	return 0;
+
+fail:
+	saved_errno = errno;
+	if (created) {
+		/* Roll back only the interface created by this invocation. */
 		ifconfig(vlan_ifname, 0, NULL, NULL);
-
-	if (prio >= 0 && prio <= 7)
-		vconfig_egress_map(vlan_ifname, 0, prio);
-
-	if (mtu >= 1280)
-		set_interface_mtu(vlan_ifname, mtu);
-
-	if (hwaddr)
-		set_interface_hwaddr(vlan_ifname, hwaddr);
-
-	if (do_up)
-		ifconfig(vlan_ifname, IFUP, "0.0.0.0", NULL);
+		vconfig_del_if(vlan_ifname);
+	}
+	errno = saved_errno;
+	return ret;
 }
 
-void
+int
 remove_vlan_iface(const char *vlan_ifname)
 {
-	if (!strstr(vlan_ifname, "."))
-		return;
+	int ret;
+
+	if (!vlan_ifname || !strchr(vlan_ifname, '.'))
+		return 0;
 	if (!is_interface_exist(vlan_ifname))
-		return;
-	ifconfig(vlan_ifname, 0, NULL, NULL);
-	vconfig_del_if(vlan_ifname);
+		return 0;
+
+	ret = ifconfig(vlan_ifname, 0, NULL, NULL);
+	if (ret != 0)
+		return ret;
+	return vconfig_del_if(vlan_ifname);
 }
 
 void

@@ -916,53 +916,71 @@ br_del_all_ifs(const char *brname, int do_if_down, int do_if_rem)
 	return status;
 }
 
-void
+int
 br_set_param_int(const char *brname, const char *param, int value)
 {
 	char bridge_path[80];
 	int path_len;
 
-	if (!is_safe_path_component(brname) || !is_safe_path_component(param))
-		return;
+	if (!is_safe_path_component(brname) || !is_safe_path_component(param)) {
+		errno = EINVAL;
+		return -1;
+	}
 	path_len = snprintf(bridge_path, sizeof(bridge_path), "/sys/class/net/%s/bridge/%s", brname, param);
-	if (path_len < 0 || path_len >= (int)sizeof(bridge_path))
-		return;
-	fput_int(bridge_path, value);
+	if (path_len < 0 || path_len >= (int)sizeof(bridge_path)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	return fput_int(bridge_path, value);
 }
 
-void
+int
 br_set_stp(const char *brname, int stp_state)
 {
-	br_set_param_int(brname, "stp_state", stp_state);
+	return br_set_param_int(brname, "stp_state", stp_state);
 }
 
-void
+int
 br_set_fd(const char *brname, int delay_sec)
 {
-	br_set_param_int(brname, "forward_delay", delay_sec * 100);
+	if (delay_sec < 0 || delay_sec > INT_MAX / 100) {
+		errno = EINVAL;
+		return -1;
+	}
+	return br_set_param_int(brname, "forward_delay", delay_sec * 100);
 }
 
-void
+int
 brport_set_param_int(const char *ifname, const char *param, int value)
 {
 	char brport_path[80];
 	int path_len;
 
-	if (!is_safe_path_component(ifname) || !is_safe_path_component(param))
-		return;
+	if (!is_safe_path_component(ifname) || !is_safe_path_component(param)) {
+		errno = EINVAL;
+		return -1;
+	}
 	path_len = snprintf(brport_path, sizeof(brport_path), "/sys/class/net/%s/brport/%s", ifname, param);
-	if (path_len < 0 || path_len >= (int)sizeof(brport_path))
-		return;
-	fput_int(brport_path, value);
+	if (path_len < 0 || path_len >= (int)sizeof(brport_path)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	return fput_int(brport_path, value);
 }
 
-void
+int
 brport_set_m2u(const char *ifname, int m2u_on)
 {
 	int i_value = (m2u_on) ? 1 : 0;
+	int status = 0, ret;
 
-	brport_set_param_int(ifname, "multicast_fast_leave", i_value);
-	brport_set_param_int(ifname, "multicast_to_unicast", i_value);
+	ret = brport_set_param_int(ifname, "multicast_fast_leave", i_value);
+	if (ret != 0)
+		status = ret;
+	ret = brport_set_param_int(ifname, "multicast_to_unicast", i_value);
+	if (status == 0)
+		status = ret;
+	return status;
 }
 
 int get_ipv6_type(void)

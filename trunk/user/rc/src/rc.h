@@ -208,8 +208,8 @@ char* sanity_hostname(char *hname);
 char* get_our_hostname(void);
 int  is_same_subnet(const char *ip1, const char *ip2, const char *msk);
 int  is_same_subnet2(const char *ip1, const char *ip2, const char *msk1, const char *msk2);
-void create_vlan_iface(const char *dev_ifname, int vid, int prio, int mtu, const char *hwaddr, int do_up);
-void remove_vlan_iface(const char *vlan_ifname);
+int create_vlan_iface(const char *dev_ifname, int vid, int prio, int mtu, const char *hwaddr, int do_up);
+int remove_vlan_iface(const char *vlan_ifname);
 #if defined (APP_XUPNPD)
 void stop_xupnpd(void);
 void start_xupnpd(char *wan_ifname);

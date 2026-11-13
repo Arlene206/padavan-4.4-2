@@ -195,11 +195,11 @@ extern int       vconfig_egress_map(const char *vifname, int skb_prio, int qos_p
 extern int       br_add_del_bridge(const char *brname, int is_add);
 extern int       br_add_del_if(const char *brname, const char *ifname, int is_add);
 extern int       br_del_all_ifs(const char *brname, int do_if_down, int do_if_rem);
-extern void      br_set_param_int(const char *brname, const char *param, int value);
-extern void      br_set_fd(const char *brname, int delay_sec);
-extern void      br_set_stp(const char *brname, int stp_state);
-extern void      brport_set_param_int(const char *ifname, const char *param, int value);
-extern void      brport_set_m2u(const char *ifname, int m2u_on);
+extern int       br_set_param_int(const char *brname, const char *param, int value);
+extern int       br_set_fd(const char *brname, int delay_sec);
+extern int       br_set_stp(const char *brname, int stp_state);
+extern int       brport_set_param_int(const char *ifname, const char *param, int value);
+extern int       brport_set_m2u(const char *ifname, int m2u_on);
 
 extern const char* get_ifname_descriptor(const char* ifname, int ap_mode, int *ifindex, int *wan_no);
 extern uint64_t    get_ifstats_bytes_rx(const char* ifname);
