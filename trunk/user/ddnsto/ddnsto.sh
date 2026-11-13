@@ -148,7 +148,9 @@ ddnsto_lifecycle_lock_execute() {
 ddnsto_lifecycle_locked_action() {
 	case "$1" in
 		start)
-			start_zero
+			if [ "$(nvram get ddnsto_enable)" = "1" ]; then
+				start_zero
+			fi
 			;;
 		stop)
 			stop_zero
