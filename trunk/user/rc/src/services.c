@@ -26,6 +26,7 @@
 
 #include "rc.h"
 #include "crond_daemon_policy.h"
+#include "infosvr_daemon_policy.h"
 #include "httpd_daemon_policy.h"
 
 void
@@ -80,11 +81,11 @@ start_klogd(void)
 	return eval("/sbin/klogd");
 }
 
-void
+int
 stop_infosvr(void)
 {
 	char* svcs[] = { "infosvr", NULL };
-	kill_services(svcs, 3, 1);
+	return kill_services(svcs, 3, 1);
 }
 
 int
@@ -96,11 +97,19 @@ start_infosvr(void)
 	return eval("/usr/sbin/infosvr", IFNAME_BR);
 }
 
-void
+int
 restart_infosvr(void)
 {
-	stop_infosvr();
-	start_infosvr();
+	int stop_status = stop_infosvr();
+	int process_present = pids("infosvr");
+
+	if (!infosvr_restart_can_start(stop_status, process_present)) {
+		logmessage(LOGNAME, "refusing infosvr restart: previous daemon did not stop (status=%d, running=%d)",
+			   stop_status, process_present);
+		return (stop_status != 0) ? stop_status : EBUSY;
+	}
+
+	return start_infosvr();
 }
 
 int

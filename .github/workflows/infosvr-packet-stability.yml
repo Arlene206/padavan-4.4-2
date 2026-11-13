@@ -6,6 +6,12 @@ on:
       - ".github/workflows/infosvr-packet-stability.yml"
       - "SESSION_HANDOFF.md"
       - "scripts/check_infosvr_packets.py"
+      - "scripts/check_infosvr_lifecycle.py"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/infosvr_daemon_policy.h"
+      - "trunk/user/rc/src/tests/infosvr_daemon_policy.c"
       - "trunk/user/infosvr/src/infosvr.c"
       - "trunk/user/infosvr/src/asus.c"
       - "trunk/user/infosvr/src/infosvr_packet_policy.h"
@@ -18,6 +24,12 @@ on:
       - ".github/workflows/infosvr-packet-stability.yml"
       - "SESSION_HANDOFF.md"
       - "scripts/check_infosvr_packets.py"
+      - "scripts/check_infosvr_lifecycle.py"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/infosvr_daemon_policy.h"
+      - "trunk/user/rc/src/tests/infosvr_daemon_policy.c"
       - "trunk/user/infosvr/src/infosvr.c"
       - "trunk/user/infosvr/src/asus.c"
       - "trunk/user/infosvr/src/infosvr_packet_policy.h"
@@ -34,7 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Compile and run GNU89 infosvr packet and signal policy regressions
+      - name: Compile and run GNU89 infosvr packet, signal and RC daemon lifecycle regressions
         run: |
           set -eu
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
@@ -47,5 +59,13 @@ jobs:
             trunk/user/infosvr/src/tests/infosvr_signal_policy.c \
             -o /tmp/infosvr-signal-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/infosvr-signal-policy
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/infosvr_daemon_policy.c \
+            -o /tmp/infosvr-daemon-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/infosvr-daemon-policy
       - name: Verify UDP receive, SIGTERM and request bounds contracts
         run: python3 scripts/check_infosvr_packets.py
+
+      - name: Verify RC infosvr stop-before-start and notification failure propagation
+        run: python3 scripts/check_infosvr_lifecycle.py

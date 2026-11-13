@@ -1379,7 +1379,7 @@ handle_notifications(void)
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_ADSC) == 0)
 		{
-			restart_infosvr();
+			action_result = restart_infosvr();
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_CROND) == 0)
 		{
