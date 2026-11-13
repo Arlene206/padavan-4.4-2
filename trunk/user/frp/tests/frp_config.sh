@@ -176,7 +176,7 @@ MV_CALLS=0
 mv()
 {
 	MV_CALLS=$((MV_CALLS + 1))
-	if [ "$MV_CALLS" -eq 4 ]; then
+	if [ "$MV_CALLS" -eq 2 ]; then
 		return 1
 	fi
 	command mv "$@"
