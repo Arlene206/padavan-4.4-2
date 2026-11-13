@@ -2,6 +2,14 @@
 
 ## 最近接力状态（2026-11-13）
 
+- 代码检查点：`12d100d1d0d0972e708644064f8541ec25418c79`；当前 main HEAD：`28f6b172796659242e0c4d6f093b85f8d6e35dce`。接手时仍应重新读取远程 main，不能假设以上 SHA 保持不变。
+- WAN/LAN VLAN 与软件桥稳定性治理：VLAN 创建/删除及 bridge sysfs 参数返回错误状态；WAN/IPTV/LAN bridge 的 VLAN、端口成员、隔离参数和接口启用检查逐级传播，避免部分拓扑被报告为成功。
+- WAN host workflow：completed/failure; run=43411514756。完整固件交叉编译及实机拓扑测试尚未执行。
+- 下一轮：先核对精确 SHA 的 WAN workflow；继续审查 bridge 创建后部分失败的清理/回滚，再推进 `net_wan6.c` DHCPv6 callback 生命周期与进程清理。
+
+
+## 最近接力状态（2026-11-13）
+
 - 精确代码检查点：`12d100d1d0d0972e708644064f8541ec25418c79`（`fix(wan): propagate VLAN and bridge setup failures`）。接续时仍须先重新读取 `refs/heads/main`，不能假设该 SHA 仍是当前 HEAD。
 - 本轮稳定性治理已扩展到 WAN/LAN VLAN 与软件桥：`create_vlan_iface` / `remove_vlan_iface` 返回失败状态；bridge sysfs helper 暴露写入状态；WAN、IPTV 和 LAN bridge 创建、端口加入、隔离与接口启用逐段检查，并在关键步骤失败时中止配置。
 - WAN VLAN/bridge host workflow state at checkpoint: WAN route operation status regression: completed/failure (43411514756). Do not treat firmware compilation or device validation as complete.
