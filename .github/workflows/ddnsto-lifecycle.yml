@@ -30,6 +30,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Check DDNSTO launcher and regression shell syntax
+        run: |
+          sh -n trunk/user/ddnsto/ddnsto.sh
+          sh -n trunk/user/ddnsto/tests/ddnsto_lifecycle.sh
       - name: Run DDNSTO bounded stop/start lifecycle regression
         run: sh trunk/user/ddnsto/tests/ddnsto_lifecycle.sh
       - name: Verify DDNSTO lifecycle and RC integration contracts
