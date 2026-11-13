@@ -22,6 +22,8 @@ on:
     paths:
       - ".github/workflows/dnsmasq-lifecycle.yml"
       - "trunk/user/rc/src/services_ex.c"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/net_lan.c"
       - "trunk/user/rc/src/init.c"
       - "trunk/user/rc/src/inadyn_config_file.h"
       - "trunk/user/rc/src/tests/inadyn_config_file.c"
