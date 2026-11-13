@@ -65,7 +65,8 @@ frp_run_script()
 	FRP_RUN_CALLS=$((FRP_RUN_CALLS + 1))
 	return "$FRP_RUN_STATUS"
 }
-pidof() { return 1; }
+# This fixture targets cron transactions; exact daemon readiness is covered by frp_lifecycle.sh.
+frp_wait_started() { return 0; }
 fail() { echo "FRP crontab regression: FAIL: $*" >&2; exit 1; }
 watchdog_line='*/1 * * * * /bin/sh /usr/bin/frp.sh C >/dev/null 2>&1'
 expect_has_line()
