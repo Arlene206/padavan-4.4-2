@@ -100,7 +100,7 @@ require('eval("/usr/bin/ddnsto.sh","stop")' not in restart_body and
         "RC must not split DDNSTO restart across independently locked commands")
 require('void restart_ddnsto(void);' in rc_header and 'restart_ddnsto();' in rc,
         "RC declaration / notification caller must remain wired")
-for marker in ("private inode", "unsafe paths", "bounded lock contention",
+for marker in ("private inode", "unsafe paths", "bounds lock contention",
                "inherited FD 9", "concurrent start", "TERM-END",
                "detached daemons do not retain FD 9", "serialized restart",
                "numeric PID signalling"):
