@@ -123,8 +123,9 @@ for option in ("--cacert", "--fail", "--connect-timeout 5", "--max-time 30",
     require(option in download_https, f"managed HTTPS fetch omits {option}")
 require("-k" not in download_https and "--insecure" not in download_https,
         "managed rule downloads must retain TLS certificate verification")
-require("https://" in download_https and "[ -r \"$ADBYBY_CA_BUNDLE\" ]" in download_https,
-        "managed fetch must reject non-HTTPS URLs and a missing trust store")
+require("adbyby_valid_https_url" in download_https and
+        "[ -r \"$ADBYBY_CA_BUNDLE\" ]" in download_https and "[ -s \"$ADBYBY_CA_BUNDLE\" ]" in download_https,
+        "managed fetch must apply the strict HTTPS URL validator and require the firmware trust store")
 for marker in ("umask 077", "mktemp -d /tmp/adbyby-rules.XXXXXX",
                "adbyby_rules_cache_is_usable", "adbyby_manifest_digest",
                "adbyby_lazy_downloaded", "adbyby_video_downloaded",

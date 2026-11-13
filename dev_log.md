@@ -1,3 +1,16 @@
+## 2026-11-13 12:25 CST (UTC+8) — Align Adbyby source checker with shared HTTPS validator
+
+- Base main SHA: `315d738a580e154302dfdd9c57674ee64c3ada36`. Exact-head Actions for the third-party custom-rule change: Adbyby [43362382205] / job [131678687484] FAILED only at the semantic source checker; shell syntax and all five host regressions passed, including URL quoting, invalid URL rejection, TLS/redirect/HTTP fallback, oversized body rejection, last-good preservation and atomic publication. Failure was a stale assertion: it required a literal scheme check inside the managed fetch helper, although URL validation had been centralized in `adbyby_valid_https_url()`; the firmware CA readability checks remained in the shared downloader.
+- The other six exact-315d push Actions all passed: infosvr [43362382242], AdGuardHome [43362382228], AI docs [43362382291], AliDDNS [43362382334], AliyunDrive [43362382226] and HTTPD [43362382225]. Every checkout log confirmed exact SHA `315d738a580e154302dfdd9c57674ee64c3ada36`; HTTPD's 39-step umbrella passed. AI docs reported 95/119 root entries and archives 7/22/18.
+- THIS COMMIT aligns the semantic contract with the implementation: require the shared HTTPS URL validator call and a readable, non-empty firmware CA bundle. No production source or host-test behavior changes.
+- Third-party custom-rule L2 remains pending until exact resulting-main Adbyby checker and all sibling Actions pass. No local checkout or local test execution is claimed.
+- Root log count: 95→96/119, below rotation triggers; archive inventory remains 7/22/18. No archive/index mutation.
+- Changed paths: checker, `SESSION_HANDOFF.md` and this log. No branch/PR, firmware artifact or GPT Session Rotator modification.
+- Resulting main commit: THIS COMMIT.
+- Next: inspect all exact-head Actions. If green, harden remaining anti-ad and hosts-list downloads, then continue FRP caller-path review.
+
+---
+
 ## 2026-11-13 12:05 CST (UTC+8) — Harden Adbyby third-party rule downloads
 
 - Base main SHA: `42d4af7e6c0ceeb8508f1446b4228068318208dc`; exact-head stock managed-rule downloader is L2 CLOSED on this SHA. All six triggered main push Actions succeeded with every job step/full log and exact checkout SHA inspected: Adbyby [43359578905] / job [131669629305], infosvr [43359578915] / job [131669629661], AdGuardHome [43359578954] / job [131669629841], AI docs [43359579010] / job [131669629883], AliDDNS [43359578908] / job [131669629322] and AliyunDrive [43359578896] / job [131669629383].
