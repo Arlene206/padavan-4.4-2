@@ -1,3 +1,25 @@
+## Live recovery checkpoint — 2026-11-14 05:30 CST
+
+> This checkpoint supersedes the 05:24 CST block below. It records recovery against the live main tip; product work remains deliberately unmodified pending a complete caller inventory.
+
+- Live `main` exact SHA at recovery: `8672afe19c5a9f867f8cf89f8ff626329bcc5341`; direct parent `947d9ce8aa51a8f000bbe3186e03774c226880c2`. Compare confirms exactly one documentation-only commit, modifying `SESSION_HANDOFF.md` and `dev_log.md`; no product-source changes.
+- Remote branch inventory: only `main`. PR #1 is CLOSED / UNMERGED (legacy head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`); its valid CA-bootstrap/HMAC work was previously ported to main per its closing comment. No branch or PR used for this round.
+- Actions verification for `8672afe19c5a9f867f8cf89f8ff626329bcc5341`: classic combined commit status returned no status entries; available commit-workflow-run endpoint returned no runs because it only exposes PR-triggered runs. Exact `event=push` Actions therefore remain NOT VERIFIED; do not reuse the older 947d9ce success as evidence for 8672afe.
+- Re-read `trunk/user/shared/src/pids.c` (blob `f5092806d6f1a76021643b0af54eb24705cbd8fe`), `shutils.h` (`6ccb679cf049374839a0c5de6a543955614dc275`), `common_ex.c` (`de5cc703ce1b9e2eb0897dc52ed7e1c5ec15eb97`), `services_ex.c` (`8134ee60a84d626785956a073c1c1bde3422d84d`) and `service_lifecycle_policy.h` (`abe9f77b5354d8a33bce66c2575d1b1d09a2d4e2`). Confirmed the previously identified scan-context / `opendir("/proc")` failure is collapsed into an empty PID list and Boolean false; lifecycle policy's Boolean callback can proceed through TERM/KILL escalation. `procps_scan()` also currently treats `readdir()==NULL` as end-of-scan without checking `errno`; per-PID procfs races must be distinguished from whole-inventory failure.
+- Repository-wide symbol searches for `pids(`, `pids_main(`, `find_pid_by_name(`, `procps_scan(`, `service_lifecycle_is_running` and `is_dns_dhcpd_run` returned no indexed matches. This is an index limitation, not evidence of zero callers. No complete caller inventory can be claimed.
+- No reliable local checkout / whole-repository search or host execution environment is available through the connected GitHub actions. No product source or test was changed. L1 partial source review only; L2 NOT RUN. Existing XY-C1 L3 evidence remains on product-source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f` (run `43489646254`, job `132107102854`); current product source remains unchanged. L4 router flash/boot NOT VERIFIED.
+- Roadmap module priorities did not materially change; its older global dashboard was therefore not mechanically rewritten. Root dev_log currently contains 36 complete records (101,777 bytes); no rotation or INDEX update is due.
+
+## Exact first action for the next GPT
+
+1. Refresh live `main` and retrieve exact-SHA `push` Actions by run listing; the currently available connector's commit-run wrapper is PR-only and cannot establish push validation.
+2. Obtain a full source checkout (or an equivalent reliable repository-wide search mechanism) before editing. Enumerate every `pids()`, `pids_main()`, `find_pid_by_name()` and `procps_scan()` caller plus every process-stop/readiness consumer, including all daemons outside `services_ex.c`.
+3. Design a checked process-inventory API with RUNNING / ABSENT / UNKNOWN, explicitly handling scan-context OOM, `/proc` open failure, `readdir` errors, PID-list growth OOM, and normal per-process disappearance. Keep the legacy Boolean API unchanged until all callers are mapped.
+4. Change lifecycle policy so UNKNOWN aborts before TERM/KILL, successful-stop claims, restart, and destructive cleanup. Add injectable GNU89/`-Werror` host regressions for every error and normal case; wire a focused push workflow without weakening existing checks.
+5. Migrate DNSMasq readiness/start/stop/restart and other identified consumers fail-closed; then continue the DNSMasq identity/HUP/wait-reap/FD/temp/rollback audit and rotate to other userland modules.
+
+---
+
 ## Live recovery checkpoint — 2026-11-14 05:24 CST
 
 > This block supersedes the older 2026-11-14 04:24 CST state below. The prior checkpoint is retained as historical context; do not treat its SHA as live.
