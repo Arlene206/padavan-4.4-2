@@ -755,7 +755,7 @@ jobs:
               return source[start:source.index(end_marker, start)]
 
           restore = body(app, "static int nvram_restore(char *file)", "static int nvram_show(int show_all)")
-          getter = body(shared, "nvram_getall(char *buf, int count, int include_temp)", "int\n_nvram_set(")
+          getter = body(shared, "nvram_getall_unlocked(char *buf, int count, int include_temp)", "int\nnvram_getall(")
           exporter = body(core, "_nvram_getall(char *buf, int count, int include_temp)", "/* Regenerate NVRAM.")
           ioctl_get = body(driver, "user_nvram_get(anvram_ioctl_t __user *nvr)", "static long\ndev_nvram_ioctl")
           transaction_begin = restore.index("nvram_transaction_begin(&transaction)")
@@ -811,7 +811,7 @@ jobs:
                           return source[brace + 1:pos]
               raise AssertionError("unterminated function: " + signature)
 
-          getter = body(nvram, "nvram_get_checked(const char *name, char **value)")
+          getter = body(nvram, "nvram_get_checked_unlocked(const char *name, char **value)")
           restore = body(rc, "nvram_restore_defaults(void)")
           erase = body(rc, "erase_nvram(void)")
           router_init = body(rc, "init_router(void)")
