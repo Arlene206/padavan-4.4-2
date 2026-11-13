@@ -1,3 +1,25 @@
+## Live recovery checkpoint — 2026-11-13 15:04 PST (UTC-8)
+
+> Reconciled live main for this takeover. The prior handoff was stale by two documentation-only commits. The active P1 process-inventory tri-state task is still unfinished; no product source or tests were changed because a complete caller inventory is not available from the current runtime.
+
+- Live `main` SHA: `64cfa06d16fe966ec0f504373339973968b2fe27`; direct parent: `1d7e9683ef2daa44ee0978735900cc5f217f9611`. GitHub compare from the previous handoff baseline `b101e16d6ebedce2dd25ce0f74e83c06157bacab` reports exactly two commits ahead, zero behind, and only `SESSION_HANDOFF.md` / `dev_log.md` changed. The current commit `64cfa06d16fe966ec0f504373339973968b2fe27` is docs-only; product source remains identical to the recorded L3 source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`.
+- Remote branch inventory: `main` only, at the exact SHA above. Legacy PR #1 is CLOSED / UNMERGED (head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`, base `9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74`). No non-main branch or PR was used.
+- Exact-main Actions for `64cfa06d16fe966ec0f504373339973968b2fe27`: five visible `push` runs, all COMPLETED / SUCCESS with exact matching `head_sha`: NVRAM `43523802575`, AliDDNS `43523802455`, AdGuardHome `43523802122`, AliyunDrive `43523802029`, AI handoff docs `43523802010`. Their jobs and every reported step were SUCCESS. No infosvr run for this SHA was present in the first-page run inventory; do not describe this as 6/6. The AI handoff docs workflow validated the then-current records at this SHA.
+- Re-fetched the five active process-inventory files at `64cfa06d16fe966ec0f504373339973968b2fe27`; blobs are unchanged: `pids.c=f5092806d6f1a76021643b0af54eb24705cbd8fe`, `shutils.h=6ccb679cf049374839a0c5de6a543955614dc275`, `common_ex.c=de5cc703ce1b9e2eb0897dc52ed7e1c5ec15eb97`, `services_ex.c=8134ee60a84d626785956a073c1c1bde3422d84d`, `service_lifecycle_policy.h=abe9f77b5354d8a33bce66c2575d1b1d09a2d4e2`.
+- Defect remains confirmed: scan-context OOM and `opendir("/proc")` failure collapse to NULL; `readdir()==NULL` is accepted as EOF without checking `errno`; PID-list allocation/growth failure can be mistaken for an empty list; Boolean `pids()/pids_main()` consumers cannot distinguish UNKNOWN; generic lifecycle stop sends SIGTERM before authoritative inventory and can escalate to SIGKILL.
+- This runtime still has no complete local checkout. GitHub code-search zero results are not exhaustive; the repository's large recursive tree response was truncated. The five relevant source files were re-fetched, but no exhaustive enumeration of all callers, readiness consumers, init/shutdown paths, manifests and tests was achieved. Therefore no API migration or test was attempted. L1 partial source review; L2 host regressions NOT RUN; local `scripts/check_ai_handoff_docs.py` NOT RUN. Existing L3 MIPSel/TRX evidence is only for product source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f` (run `43489646254` / job `132107102854`); L4 router flash/boot NOT VERIFIED.
+- Roadmap priority is unchanged; `REFACTOR_ROADMAP.md` was not rewritten. Root log had 47 complete records before this checkpoint; append this milestone as record 48/119. No archive rotation or INDEX update is due.
+
+## Exact first action for the next GPT
+
+1. Re-fetch live `main`, branches, legacy PR #1 and exact-head `push` Actions before writing.
+2. Obtain a complete checkout at that SHA, or establish a demonstrably exhaustive source enumeration. The existing GitHub search and truncated recursive tree are not acceptable substitutes.
+3. Enumerate and classify every `pids()`, `pids_main()`, `find_pid_by_name()`, `procps_scan()` caller and every service lifecycle/readiness/stop consumer, including init/shutdown paths, build manifests and tests.
+4. Implement explicit RUNNING / ABSENT / UNKNOWN propagation for scan allocation failure, `/proc` open failure, mid-scan `readdir` error, PID-list allocation/growth failure, normal empty inventory, matched process and per-PID disappearance. UNKNOWN must abort before TERM/KILL, successful absence, restart or destructive cleanup.
+5. Add injectable GNU89/`-Werror` regressions, migrate only confirmed consumers, run local documentation validation when a checkout is available, then inspect exact-head main push Actions. Do not select another module until this P1 is safely resolved.
+
+---
+
 ## Live recovery checkpoint — 2026-11-13 14:59 PST (UTC-8)
 
 > Reconciled against live GitHub main and exact-head push Actions. The only intervening commit since the previous handoff baseline is documentation-only. The shared process-inventory tri-state task remains active and blocked on exhaustive caller inventory; no source or test changes are claimed.
