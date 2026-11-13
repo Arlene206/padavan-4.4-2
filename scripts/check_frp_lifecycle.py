@@ -113,8 +113,8 @@ require('cp -f /etc_ro/frp_script.sh "$frp_script_path"' in copy_scripts and
         "boot must seed the persistent FRP script safely and enforce mode 0700")
 frp_template = (ROOT / "trunk/user/frp/frp_script.sh").read_text()
 frp_config_test = (ROOT / "trunk/user/frp/tests/frp_config.sh").read_text()
-require('frpc -c /tmp/frp/myfrpc.ini' in frp_template and
-        'frps -c /tmp/frp/myfrps.ini' in frp_template,
+require('frpc -c "$frp_runtime_dir/myfrpc.ini"' in frp_template and
+        'frps -c "$frp_runtime_dir/myfrps.ini"' in frp_template,
         "persistent FRP script must retain both client and server launch paths")
 cron_test = (ROOT / "trunk/user/frp/tests/frp_crontab.sh").read_text()
 for marker in ("frp_start", "frp_close", "operator", "path-traversal",
