@@ -209,12 +209,15 @@ is_same_subnet2(const char *ip1, const char *ip2, const char *msk1, const char *
 	return (addr1 & mask) == (addr2 & mask);
 }
 
-int
-create_vlan_iface(const char *dev_ifname, int vid, int prio, int mtu, const char *hwaddr, int do_up)
+static int
+create_vlan_iface_internal(const char *dev_ifname, int vid, int prio, int mtu,
+			   const char *hwaddr, int do_up, int *created_out)
 {
 	char vlan_ifname[24];
 	int ret, saved_errno, created = 0, path_len;
 
+	if (created_out)
+		*created_out = 0;
 	if (!dev_ifname || !*dev_ifname || vid < 0 || vid > 4095) {
 		errno = EINVAL;
 		return -1;
@@ -260,6 +263,8 @@ create_vlan_iface(const char *dev_ifname, int vid, int prio, int mtu, const char
 		if (ret != 0)
 			goto fail;
 	}
+	if (created_out)
+		*created_out = created;
 	return 0;
 
 fail:
@@ -271,6 +276,26 @@ fail:
 	}
 	errno = saved_errno;
 	return ret;
+}
+
+int
+create_vlan_iface(const char *dev_ifname, int vid, int prio, int mtu,
+		  const char *hwaddr, int do_up)
+{
+	return create_vlan_iface_internal(dev_ifname, vid, prio, mtu, hwaddr,
+				  do_up, NULL);
+}
+
+int
+create_vlan_iface_tracked(const char *dev_ifname, int vid, int prio, int mtu,
+			  const char *hwaddr, int do_up, int *created_out)
+{
+	if (!created_out) {
+		errno = EINVAL;
+		return -1;
+	}
+	return create_vlan_iface_internal(dev_ifname, vid, prio, mtu, hwaddr,
+				  do_up, created_out);
 }
 
 int

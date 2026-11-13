@@ -393,60 +393,85 @@ disassembly_bridges_wan(void)
 }
 
 static int
-config_soft_bridge_wan(int br_id, int vid, int prio, const char *wan_ifname, const char *wan_hwaddr)
+config_soft_bridge_wan(int br_id, int vid, int prio, const char *wan_ifname,
+		       const char *wan_hwaddr)
 {
 	char br_ifname[16], bwan_ifname[24];
-	int ret;
+	int ret, saved_errno, cleanup_ret;
+	int bridge_flags, bridge_created = 0, bridge_was_up = 0;
+	int bridge_remove_safe = 1;
+	int vlan_flags = -1, vlan_exists = 0, vlan_was_up = 0;
+	int vlan_created = 0, vlan_remove_safe = 1, vlan_restore_safe = 1;
+	int wan_attach_attempted = 0, wan_port_added = 0;
+	int bwan_attach_attempted = 0, bwan_port_added = 0;
 
 	snprintf(br_ifname, sizeof(br_ifname), "%s%d", BRPREFIX_WAN, br_id);
-	if (!is_interface_exist(br_ifname)) {
+	bridge_flags = get_interface_flags(br_ifname);
+	if (bridge_flags < 0) {
+		if (errno != ENODEV && errno != ENXIO)
+			return -1;
 		ret = br_add_del_bridge(br_ifname, 1);
 		if (ret != 0)
 			return ret;
-		ret = br_set_stp(br_ifname, 0);
-		if (ret != 0)
-			return ret;
-		ret = br_set_fd(br_ifname, 2);
-		if (ret != 0)
-			return ret;
-		ret = br_set_param_int(br_ifname, "multicast_snooping", 0);
-		if (ret != 0)
-			return ret;
+		bridge_created = 1;
 	} else {
+		bridge_was_up = (bridge_flags & IFF_UP) != 0;
 		ret = ifconfig(br_ifname, 0, NULL, NULL);
 		if (ret != 0)
-			return ret;
+			goto rollback;
+	}
+
+	if (bridge_created) {
+		ret = br_set_stp(br_ifname, 0);
+		if (ret != 0)
+			goto rollback;
+		ret = br_set_fd(br_ifname, 2);
+		if (ret != 0)
+			goto rollback;
+		ret = br_set_param_int(br_ifname, "multicast_snooping", 0);
+		if (ret != 0)
+			goto rollback;
 	}
 	ret = set_interface_hwaddr(br_ifname, wan_hwaddr);
 	if (ret != 0)
-		return ret;
+		goto rollback;
 	ret = set_interface_mtu(br_ifname, 1500);
 	if (ret != 0)
-		return ret;
+		goto rollback;
 
 	snprintf(bwan_ifname, sizeof(bwan_ifname), "%s.%d", IFNAME_MAC, vid);
-	ret = create_vlan_iface(IFNAME_MAC, vid, prio, -1, wan_hwaddr, 1);
+	vlan_flags = get_interface_flags(bwan_ifname);
+	if (vlan_flags < 0 && errno != ENODEV && errno != ENXIO) {
+		ret = -1;
+		goto rollback;
+	}
+	vlan_exists = vlan_flags >= 0;
+	vlan_was_up = vlan_exists && ((vlan_flags & IFF_UP) != 0);
+	ret = create_vlan_iface_tracked(IFNAME_MAC, vid, prio, -1,
+					wan_hwaddr, 1, &vlan_created);
 	if (ret != 0)
-		return ret;
+		goto rollback;
 
 #if defined (USE_IPV6)
 	control_if_ipv6(wan_ifname, 0);
 	control_if_ipv6(bwan_ifname, 0);
 #endif
-	ret = br_add_del_if(br_ifname, wan_ifname, 1);
+	wan_attach_attempted = 1;
+	ret = br_add_del_if_tracked(br_ifname, wan_ifname, 1, &wan_port_added);
 	if (ret != 0)
-		return ret;
-	ret = br_add_del_if(br_ifname, bwan_ifname, 1);
+		goto rollback;
+	bwan_attach_attempted = 1;
+	ret = br_add_del_if_tracked(br_ifname, bwan_ifname, 1, &bwan_port_added);
 	if (ret != 0)
-		return ret;
+		goto rollback;
 	if (br_id < 2) {
 		if (nvram_get_int("wan_stb_iso") == SWAPI_WAN_BWAN_ISOLATION_BETWEEN) {
 			ret = brport_set_param_int(wan_ifname, "isolate_mode", 1);
 			if (ret != 0)
-				return ret;
+				goto rollback;
 			ret = brport_set_param_int(bwan_ifname, "isolate_mode", 1);
 			if (ret != 0)
-				return ret;
+				goto rollback;
 		}
 	} else {
 #if defined (USE_IPV6)
@@ -454,6 +479,86 @@ config_soft_bridge_wan(int br_id, int vid, int prio, const char *wan_ifname, con
 #endif
 	}
 	return ifconfig(br_ifname, IFUP, "0.0.0.0", NULL);
+
+rollback:
+	saved_errno = errno;
+	/* Detach only memberships actually added by this invocation. */
+	if (bwan_port_added) {
+		cleanup_ret = br_add_del_if(br_ifname, bwan_ifname, 0);
+		if (cleanup_ret != 0) {
+			logmessage(LOGNAME, "WAN bridge %s rollback could not detach %s (status=%d)",
+				   br_ifname, bwan_ifname, cleanup_ret);
+			vlan_remove_safe = 0;
+			vlan_restore_safe = 0;
+			bridge_remove_safe = 0;
+		}
+	}
+	if (wan_port_added) {
+		cleanup_ret = br_add_del_if(br_ifname, wan_ifname, 0);
+		if (cleanup_ret != 0) {
+			logmessage(LOGNAME, "WAN bridge %s rollback could not detach %s (status=%d)",
+				   br_ifname, wan_ifname, cleanup_ret);
+			bridge_remove_safe = 0;
+		}
+	}
+	/*
+	 * A successful idempotent result or a raced attach is not ours to undo.
+	 * Preserve the VLAN/bridge when ownership of an attempted attach is unclear.
+	 */
+	if (bwan_attach_attempted && !bwan_port_added) {
+		vlan_remove_safe = 0;
+		if (bridge_created)
+			bridge_remove_safe = 0;
+	}
+	if (wan_attach_attempted && !wan_port_added && bridge_created)
+		bridge_remove_safe = 0;
+
+	if (vlan_created) {
+		if (vlan_remove_safe) {
+			cleanup_ret = remove_vlan_iface(bwan_ifname);
+			if (cleanup_ret != 0)
+				logmessage(LOGNAME, "WAN bridge %s rollback could not remove VLAN %s (status=%d)",
+					   br_ifname, bwan_ifname, cleanup_ret);
+		} else {
+			logmessage(LOGNAME, "WAN bridge %s rollback preserved VLAN %s because attach ownership is uncertain",
+				   br_ifname, bwan_ifname);
+		}
+	} else if (vlan_exists && vlan_restore_safe) {
+		cleanup_ret = vlan_was_up ?
+			ifconfig(bwan_ifname, IFUP, "0.0.0.0", NULL) :
+			ifconfig(bwan_ifname, 0, NULL, NULL);
+		if (cleanup_ret != 0)
+			logmessage(LOGNAME, "WAN bridge %s rollback could not restore VLAN %s state (status=%d)",
+				   br_ifname, bwan_ifname, cleanup_ret);
+	}
+
+	if (bridge_created) {
+		if (bridge_remove_safe) {
+			cleanup_ret = ifconfig(br_ifname, 0, NULL, NULL);
+			if (cleanup_ret == 0)
+				cleanup_ret = br_add_del_bridge(br_ifname, 0);
+			if (cleanup_ret != 0)
+				logmessage(LOGNAME, "WAN bridge %s rollback could not remove new bridge (status=%d)",
+					   br_ifname, cleanup_ret);
+		} else {
+			cleanup_ret = ifconfig(br_ifname, 0, NULL, NULL);
+			if (cleanup_ret != 0)
+				logmessage(LOGNAME, "WAN bridge %s rollback could not keep incomplete bridge down (status=%d)",
+					   br_ifname, cleanup_ret);
+			logmessage(LOGNAME, "WAN bridge %s retained because rollback could not prove ownership of all ports",
+				   br_ifname);
+		}
+	} else if (bridge_was_up) {
+		cleanup_ret = ifconfig(br_ifname, IFUP, "0.0.0.0", NULL);
+		if (cleanup_ret != 0)
+			logmessage(LOGNAME, "WAN bridge %s rollback could not restore its previous UP state (status=%d)",
+				   br_ifname, cleanup_ret);
+	}
+
+	logmessage(LOGNAME, "WAN bridge %s setup failed (status=%d); rollback attempted",
+		   br_ifname, ret);
+	errno = saved_errno;
+	return ret;
 }
 
 static int

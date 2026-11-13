@@ -782,12 +782,15 @@ bridge_has_ifindex(int sockfd, const char *brname, int ifindex)
 	return bridge_port_list_contains(ifindices, BRIDGE_PORT_LIST_CAPACITY, ifindex);
 }
 
-int
-br_add_del_if(const char *brname, const char *ifname, int is_add)
+static int
+br_add_del_if_internal(const char *brname, const char *ifname, int is_add,
+		       int *changed_out)
 {
 	int sockfd, ret, membership, saved_errno;
 	struct ifreq ifr;
 
+	if (changed_out)
+		*changed_out = 0;
 	if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
 		return -1;
 
@@ -824,6 +827,8 @@ br_add_del_if(const char *brname, const char *ifname, int is_add)
 	}
 
 	ret = ioctl(sockfd, (is_add) ? SIOCBRADDIF : SIOCBRDELIF, &ifr);
+	if (ret == 0 && changed_out)
+		*changed_out = bridge_membership_operation_changed(is_add, membership, ret);
 	if (ret < 0 && bridge_membership_race_is_idempotent(is_add, errno)) {
 		/* A concurrent caller may have completed the same operation. */
 		saved_errno = errno;
@@ -838,6 +843,23 @@ br_add_del_if(const char *brname, const char *ifname, int is_add)
 	close(sockfd);
 
 	return ret;
+}
+
+int
+br_add_del_if(const char *brname, const char *ifname, int is_add)
+{
+	return br_add_del_if_internal(brname, ifname, is_add, NULL);
+}
+
+int
+br_add_del_if_tracked(const char *brname, const char *ifname, int is_add,
+		      int *changed_out)
+{
+	if (!changed_out) {
+		errno = EINVAL;
+		return -1;
+	}
+	return br_add_del_if_internal(brname, ifname, is_add, changed_out);
 }
 
 int

@@ -39,6 +39,17 @@ bridge_membership_request_satisfied(int is_add, int membership)
  * races with another detach or the port is not owned by this bridge.
  */
 static inline int
+bridge_membership_operation_changed(int is_add, int membership_before,
+				    int operation_status)
+{
+	if (operation_status != 0 ||
+	    (membership_before != 0 && membership_before != 1))
+		return 0;
+
+	return is_add ? (membership_before == 0) : (membership_before == 1);
+}
+
+static inline int
 bridge_membership_race_is_idempotent(int is_add, int error_number)
 {
 	return is_add ? (error_number == EBUSY) : (error_number == EINVAL);

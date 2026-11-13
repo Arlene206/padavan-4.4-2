@@ -209,6 +209,7 @@ char* get_our_hostname(void);
 int  is_same_subnet(const char *ip1, const char *ip2, const char *msk);
 int  is_same_subnet2(const char *ip1, const char *ip2, const char *msk1, const char *msk2);
 int create_vlan_iface(const char *dev_ifname, int vid, int prio, int mtu, const char *hwaddr, int do_up);
+int create_vlan_iface_tracked(const char *dev_ifname, int vid, int prio, int mtu, const char *hwaddr, int do_up, int *created_out);
 int remove_vlan_iface(const char *vlan_ifname);
 #if defined (APP_XUPNPD)
 void stop_xupnpd(void);
