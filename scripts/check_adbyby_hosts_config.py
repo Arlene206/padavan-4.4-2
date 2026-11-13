@@ -43,7 +43,10 @@ lock_prepare = function_body(source, "adbyby_lifecycle_lock_prepare")
 lock_execute = function_body(source, "adbyby_lifecycle_lock_execute")
 locked_action = function_body(source, "adbyby_lifecycle_locked_action")
 lock_run = function_body(source, "adbyby_lifecycle_lock_run")
-restart_adbyby = function_body(service, "restart_adbyby")
+restart_match = re.search(r"(?ms)void\s+restart_adbyby\s*\(\s*void\s*\)\s*\{(.*?)^\}", service)
+if not restart_match:
+    fail("missing C function restart_adbyby(void)")
+restart_adbyby = restart_match.group(1)
 
 require("/etc/storage/dnsmasq/dnsmasq.conf" in helper and
         "$PROG_PATH/hosts" in helper,

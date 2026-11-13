@@ -1,3 +1,16 @@
+## 2026-11-13 08:46 CST (UTC+8) — Parse C restart contract correctly in Adbyby checker
+
+- Base main SHA: `cb7d3264b6398b0e7025c5ecb041169e0c805884`; live main matched before the change.
+- After the firewall fixture correction, the exact-head Adbyby workflow [43346210843] / job [131626087357] passed shell syntax and all host regressions: managed dnsmasq preservation, lifecycle locking/concurrency/update routing and firewall snapshot failure-cleanup. Its Python semantic checker then failed only because `function_body()` recognizes shell functions, while `restart_adbyby` is C syntax `void restart_adbyby(void) { ... }`.
+- Replaced that C lookup with a dedicated anchored C-signature regex and explicit missing-function failure. This retains the assertion that RC restart is one `/usr/bin/adbyby.sh restart` invocation.
+- HTTPD authentication umbrella [43346210847] / job [131626087850] passed all 39 steps on the same exact SHA, including the shared firewall regression and add-on firewall hook checks. infosvr [43346210958], AliyunDrive [43346210796], AliDDNS [43346210808], AdGuardHome [43346210772] and AI docs [43346210862] also passed. Every job's steps/logs must be checked again on the resulting exact SHA.
+- Current follow-up Actions are PENDING; do not claim lifecycle L2 until exact-main Adbyby checker and all triggered workflows pass.
+- Root log count: 91→92, below rotation thresholds; archive inventory remains 7/22/18.
+- Changed paths: Adbyby semantic checker, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and dev_log.md. No source implementation change, firmware, branch/PR or GPT Session Rotator change.
+- Resulting main commit: THIS COMMIT.
+- Next: inspect the exact-head Adbyby semantic checker and all triggered workflows; once green, continue private download staging/TLS/integrity.
+
+---
 ## 2026-11-13 08:42 CST (UTC+8) — Align Adbyby firewall fixture with locked NVRAM initialization
 
 - Base main SHA: `c54c6c71b308ef4b188bfd32ea8431e6ae8fa5a0`; initial post-push head matched exactly.
