@@ -1,6 +1,6 @@
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2. Main is exact SHA a8681f65733f08b7c932833fafe99062492f0a2a; development/commits remain main-only. The rechecked remote branch inventory contains only main; no checkpoint branch exists. Legacy PR #1 remains CLOSED/unmerged and useful AliDDNS work is integrated. GPT Session Rotator remains immutable.
+- Repository: Arlene206/padavan-4.4-2. Main is exact SHA b774286064475c5d09c57fe20f342623740df1e8; development/commits remain main-only. The rechecked remote branch inventory contains only main; no checkpoint branch exists. Legacy PR #1 remains CLOSED/unmerged and useful AliDDNS work is integrated. GPT Session Rotator remains immutable.
 - Stock Adbyby managed lazy/video downloader is L2 CLOSED on 42d4af7e6c0ceeb8508f1446b4228068318208dc.
 - NVRAM-configured Adbyby third-party rule downloads are L2 CLOSED on exact main a8681f65733f08b7c932833fafe99062492f0a2a. Implementation commit 315d738a580e154302dfdd9c57674ee64c3ada36; checker-only corrections 267bfb4e2d669c07d0daee918302e8780abc5958 and a8681f65733f08b7c932833fafe99062492f0a2a. Final exact-head Actions all passed and all checkouts matched a8681f65733f08b7c932833fafe99062492f0a2a: Adbyby [43363263383] / job [131681514167], infosvr [43363263454] / job [131681514465], AI docs [43363263378] / job [131681514145], AliDDNS [43363263594] / job [131681514640], AliyunDrive [43363263430] / job [131681513797], AdGuardHome [43363263365] / job [131681513585]. All steps and full logs inspected. Adbyby shell syntax, all five host regressions and source/workflow semantic checker passed; AI docs reports root log 97/119 and archive inventory 7/22/18. AliyunDrive bundled MIPSel daemon was checked under QEMU; this is not target firmware validation.
 - Shared curl options were checked against trunk/libs/libcurl/Makefile: firmware curl version is 8.21.0, supporting HTTPS protocol restriction, maximum file size and rate limits. No full firmware build or router test was run.
@@ -20,7 +20,7 @@ After anti-ad is closed, harden the /etc/storage/adbyby_host.sh source-list / ho
 
 ## Verification boundary
 
-- L1 recovery: bootstrap/protocol order followed; exact main HEAD, remote branches/checkpoints, PR #1, live handoff/roadmap, newest 20 root dev-log entries and archive index inspected. Root log is 97/119, below 120-entry rotation trigger and 384 KiB early-rotation target; archive inventory remains 7/22/18.
+- L1 recovery: bootstrap/protocol order followed; exact main HEAD, remote branches/checkpoints, PR #1, live handoff/roadmap, newest 20 root dev-log entries and archive index inspected. Root log is 98/119, below 120-entry rotation trigger and 384 KiB early-rotation target; archive inventory remains 7/22/18.
 - L2 stock managed Adbyby downloader: CLOSED on 42d4af7e6c0ceeb8508f1446b4228068318208dc; all six exact-head Actions passed.
 - L2 third-party Adbyby rules: CLOSED on exact a8681f65733f08b7c932833fafe99062492f0a2a; all six exact-head Actions above passed. Adbyby logs confirm shell syntax and hosts-preservation, lifecycle-lock, managed-rules, third-party download, firewall snapshot tests, plus semantic checker all PASS. The AI handoff validator passed.
 - No local full repository checkout was available; local sh -n, host tests and source checker are not claimed. Exact verification above is GitHub Actions host-side only.
@@ -28,7 +28,7 @@ After anti-ad is closed, harden the /etc/storage/adbyby_host.sh source-list / ho
 
 ## Exact first action for the next GPT
 
-Fetch live main and record the SHA. Before changing anti-ad behavior, trace every anti_ad_link producer/default/UI field and inspect real documented/sample upstream dnsmasq fragment syntax; keep the accepted grammar compatible with that source. Then implement private same-filesystem staging + shared HTTPS/CA/size/time + full-content validation + atomic rename + last-good behavior, add the no-network fixture and wire the exact host/source checker/workflow. Validate exact-head Actions before proceeding to host-list download hardening. Keep FTP/NFS/FRP and L3/L4 boundaries above intact.
+Fetch live main and record the SHA. Confirm the AI docs validator sees 98/119 complete records. Before changing anti-ad behavior, trace every anti_ad_link producer/default/UI field and inspect real documented/sample upstream dnsmasq fragment syntax; keep the accepted grammar compatible with that source. Then implement private same-filesystem staging + shared HTTPS/CA/size/time + full-content validation + atomic rename + last-good behavior, add the no-network fixture and wire the exact host/source checker/workflow. Validate exact-head Actions before proceeding to host-list download hardening. Keep FTP/NFS/FRP and L3/L4 boundaries above intact.
 
 ## Completed task: Adbyby NVRAM-configured third-party custom rule download
 
