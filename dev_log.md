@@ -1,3 +1,18 @@
+## 2026-11-13 19:48 CST (UTC+8) — Implement ownership-aware WAN soft-bridge rollback phase 1
+
+- Recovery / code baseline: `98079bdb24d4191318ee95ca966835a8a723be95`; all 15 exact-head Actions passed there, including WAN and XY-C1 TRX build.
+- This round's source commits, all on the existing `main`: `ea38b3efc0de62580feed33bf589e1f989fb69a1` adds tracked VLAN creation and bridge-port membership plus `config_soft_bridge_wan()` compensation; `36c7a7984d2c2ca57f1f5169860faddc723d55f5` adds sanitizer tests and source contracts; `fcac7ee169e99393cd3864805dedb76e70ab133f` aligns the WAN/Wireless source contracts and initializes rollback names; `44b0353cd3fc7bfd582e055cc768373819c6c0d2` routes final bridge activation failure through rollback and fixes the Linux 4.4 race-policy comment placement.
+- Ownership is conservative: `create_vlan_iface_tracked()` reports only a fully created VLAN from this invocation; `br_add_del_if_tracked()` reports only an actual successful membership transition, not pre-existing/idempotent or race-completed membership. Rollback detaches owned ports in reverse order, removes only safe owned VLAN/bridge objects, restores observed UP/DOWN state for pre-existing interfaces, preserves primary error/errno, and logs cleanup failures. Ambiguous concurrent ownership intentionally causes preservation rather than destructive cleanup.
+- Added regression cases for ownership decisions; WAN route workflow compiles/runs the policy binary under GNU89, `-Wall -Wextra -Werror`, ASan and UBSan. Source contracts assert tracking publication, rollback ordering, uncertainty guards and final activation cleanup. The same policy test is exercised by Wireless radio regression.
+- Intermediate check run for `36c7...` first failed two static source contracts (old helper names); the test binary itself printed PASS. Contract references were updated in `fcac...`, and exact-head WAN route/Wireless Actions passed. Final activation cleanup was then found in review and fixed in `44b...`.
+- Exact latest code SHA `44b0353cd3fc7bfd582e055cc768373819c6c0d2`: 11/12 push Actions SUCCESS with matching `head_sha` (WAN route [43419600585], Wireless [43419600810], WAN teardown [43419600755], WAN DHCP callback [43419600832], HTTPD [43419600791], AI handoff [43419600775], VPN [43419600653], ARP probe [43419600787], detect-link [43419600637], detect-internet [43419600678], miniupnpd [43419600860]). XY-C1 run [43419600758] / job [131865973911] was still in `Build XY-C1`; its TRX verification/upload remains unverified at this log checkpoint.
+- Still open: LAN bridge handoff compensation in `config_soft_bridge_lan()`; cross-bridge/secondary VLAN batch rollback in `config_soft_bridges_other()`; DHCPv6 callback process supervision in `net_wan6.c`. Return to the wider whole-repo stability/security queue after these bounded networking items.
+- Verification boundary: no full local checkout or local test run was available. Host ASan/UBSan and source contracts were exercised by GitHub Actions. No current-head L3 pass is claimed while XY-C1 is pending; L4 physical router behavior is NOT VERIFIED. The helper's phase-1 rollback does not yet restore all pre-existing bridge attributes (MAC/MTU/STP) or IPv6 side effects.
+- Root log count: 111→112/120 threshold; no archive rotation, INDEX change or unrelated docs-only commit is due.
+- Resulting code checkpoint: `44b0353cd3fc7bfd582e055cc768373819c6c0d2`; handoff/roadmap are refreshed in THIS documentation checkpoint.
+
+---
+
 ## 2026-11-13 18:55 CST (UTC+8) — Repair WAN VLAN compile and regression contracts
 
 - Base main SHA: `38b05ec60d650a8d88074c1c3166678bd7436ba4`; production source baseline commit `28f6b172796659242e0c4d6f093b85f8d6e35dce`.
