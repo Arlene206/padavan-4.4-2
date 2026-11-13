@@ -1,3 +1,15 @@
+## 2026-11-14 00:23 CST (UTC+8) — Pin exact-main NVRAM CI continuation checkpoint
+
+- Live main at recovery: `231fa506b898cf629391a6b6846ee36f3a5f78c4` (`test(ci): fix HTTPD NVRAM contract indentation`). This round updated the live handoff in place at `8036bb29a626e2140abf009e665acad4e0d5d16f` to distinguish the exact main SHA and the remaining verification blocker; no production source, test or workflow code changed.
+- Re-read the active handoff, roadmap, newest root dev-log records and archive index. The recorded NVRAM device-node permission / HTTPD YAML validation task remains open. Do not select a new module before exact-head push checks are reconciled.
+- Remote branch inventory returned only `main`; the next branch page was empty. PR #1 is CLOSED / UNMERGED (head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`, base `9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74`). Compare to current main reports 17 PR-ahead commits, 160 main-ahead commits and 13 changed files. Its closing comment / prior handoff state that valid CA/HMAC work was ported to main. No PR or ref mutation was performed. Tag enumeration is unavailable through the connected actions.
+- Current-SHA CI is **NOT VERIFIED**, not PASS: combined statuses for `231fa506...` were empty, and the available commit-workflow-runs action only returns PR-triggered runs; it returned no run for this SHA. GitHub Actions push-run list / API could not be accessed through the available interface. Older-parent results cannot satisfy exact-head validation.
+- No host tests, Python docs checker, MIPS build, firmware/TRX generation or hardware test were run in this round. No local checkout was available. No L3/L4 claim is made.
+- Changed paths in the two documentation commits: `SESSION_HANDOFF.md` and `dev_log.md`. This entry is part of the dev-log commit: THIS COMMIT. Exact-head AI docs Actions for that resulting SHA: NOT VERIFIED.
+- Next: retrieve all push Actions for exact main SHA `231fa506b898cf629391a6b6846ee36f3a5f78c4`; match `event=push` and exact `head_sha`; inspect HTTPD/NVRAM/docs and relevant sibling workflow jobs and full logs. Repair any causal failure on main before closing the NVRAM task and resuming repository-wide P2 stability work.
+
+---
+
 ## 2026-11-14 00:08 CST (UTC+8) — Repair HTTPD umbrella workflow block indentation
 
 - Base main SHA: ead18adf3dbdf8dd2cf156f889501325bc3b1534. The source-contract update had correct assertions but the newly inserted Python lines after node_policy were missing the YAML run-block indentation. GitHub therefore emitted a zero-job failed workflow run [43459535203] named after the workflow path; it never reached a test step. This was a CI syntax/indentation defect, not a runtime regression.
