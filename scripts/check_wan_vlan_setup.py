@@ -145,9 +145,11 @@ require("if (bwan_attach_attempted && !bwan_port_added)" in rollback and
         "if (vlan_remove_safe)" in rollback,
         "uncertain attachment ownership must prevent VLAN deletion")
 require("if (bridge_created)" in rollback and
-        "if (bridge_remove_safe)" in rollback and
+        "if (bridge_remove_safe &&" in rollback and
+        "bridge_batch_can_remove_created_bridge(bridge_created, bridge_empty)" in rollback and
+        "br_bridge_is_empty(br_ifname)" in rollback and
         "br_add_del_bridge(br_ifname, 0)" in rollback,
-        "new bridge removal must be ownership-gated")
+        "new bridge removal must be ownership-gated by an empty inventory")
 require("else if (bridge_was_up)" in rollback and
         "ifconfig(br_ifname, IFUP" in rollback,
         "pre-existing UP bridge must be restored on failed setup")
