@@ -41,6 +41,10 @@ on:
       - "trunk/user/wireless-tools/src/iwlib.c"
       - "trunk/user/wireless-tools/src/iwlist.c"
       - "trunk/user/nvram/src/nvram.c"
+      - "trunk/user/nvram/src/nvram_restore_transaction.h"
+      - "trunk/user/nvram/src/tests/nvram_restore_transaction.c"
+      - "trunk/linux-4.4.x/drivers/nvram/nvram.c"
+      - "trunk/linux-4.4.x/drivers/nvram/nvram_linux.c"
       - "trunk/user/nvram/src/nvram_profile_policy.h"
       - "trunk/user/nvram/src/nvram_profile_file.h"
       - "trunk/user/nvram/src/tests/nvram_profile_file.c"
@@ -273,6 +277,10 @@ on:
       - "trunk/user/rc/src/tests/wireless_restart_policy.c"
       - "trunk/user/rc/src/net_wifi.c"
       - "trunk/user/nvram/src/nvram.c"
+      - "trunk/user/nvram/src/nvram_restore_transaction.h"
+      - "trunk/user/nvram/src/tests/nvram_restore_transaction.c"
+      - "trunk/linux-4.4.x/drivers/nvram/nvram.c"
+      - "trunk/linux-4.4.x/drivers/nvram/nvram_linux.c"
       - "trunk/user/nvram/src/nvram_profile_policy.h"
       - "trunk/user/nvram/src/nvram_profile_file.h"
       - "trunk/user/nvram/src/tests/nvram_profile_file.c"
@@ -698,6 +706,50 @@ jobs:
           print("NVRAM CLI assignment bounds and mutation error propagation: OK")
           print("NVRAM profile read/write bounds, validation-before-clear and CI path wiring: OK")
           print("NVRAM profile atomic publication and private HTTPD export path: OK")
+          PY
+
+      - name: Verify NVRAM restore failure rollback and complete snapshots
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/nvram/src \
+            trunk/user/nvram/src/tests/nvram_restore_transaction.c \
+            -o /tmp/nvram_restore_transaction
+          ASAN_OPTIONS=detect_leaks=1 /tmp/nvram_restore_transaction
+          python3 - <<'PY'
+          from pathlib import Path
+
+          app = Path("trunk/user/nvram/src/nvram.c").read_text()
+          policy = Path("trunk/user/nvram/src/nvram_restore_transaction.h").read_text()
+          core = Path("trunk/linux-4.4.x/drivers/nvram/nvram.c").read_text()
+          driver = Path("trunk/linux-4.4.x/drivers/nvram/nvram_linux.c").read_text()
+          shared = Path("trunk/user/shared/src/nvram_linux.c").read_text()
+          api = Path("trunk/user/shared/src/nvram_linux.h").read_text()
+          workflow = Path(".github/workflows/httpd-security.yml").read_text()
+
+          def body(source, start_marker, end_marker):
+              start = source.index(start_marker)
+              return source[start:source.index(end_marker, start)]
+
+          restore = body(app, "static int nvram_restore(char *file)", "static int nvram_show(int show_all)")
+          getter = body(shared, "nvram_getall(char *buf, int count, int include_temp)", "int\n_nvram_set(")
+          exporter = body(core, "_nvram_getall(char *buf, int count, int include_temp)", "/* Regenerate NVRAM.")
+          ioctl_get = body(driver, "user_nvram_get(anvram_ioctl_t __user *nvr)", "static long\ndev_nvram_ioctl")
+          assert restore.index("nvram_getall(permanent_snapshot, NVRAM_SPACE, 0)") < restore.index("nvram_restore_transaction_run")
+          assert restore.index("nvram_getall(temporary_snapshot, NVRAM_SPACE, 2)") < restore.index("nvram_restore_transaction_run")
+          assert "previous configuration rollback is incomplete" in restore
+          assert "continue_after_error" in policy and "errno = primary_error;" in policy
+          assert "include_temp == 2 && !t->val_tmp" in exporter and "return -EOVERFLOW;" in exporter
+          assert "nvr->is_temp < 0 || nvr->is_temp > 2" in ioctl_get
+          assert getter.index("ioctl(nvram_fd, NVRAM_IOCTL_GET, &nvr)") < getter.index("close(nvram_fd)")
+          assert "saved_errno = errno;" in getter and "ret = -1;" in getter
+          assert "2=volatile tuples only" in api
+          show = body(app, "static int nvram_show(int show_all)", "/* NVRAM utility */")
+          assert "if (nvram_getall(buf, buf_len, show_all) < 0)" in show
+          push, pull = workflow.split("  pull_request:", 1)
+          for path in ("trunk/user/nvram/src/nvram_restore_transaction.h", "trunk/user/nvram/src/tests/nvram_restore_transaction.c", "trunk/linux-4.4.x/drivers/nvram/nvram.c", "trunk/linux-4.4.x/drivers/nvram/nvram_linux.c"):
+              assert f'"{path}"' in push and f'"{path}"' in pull
+          print("NVRAM restore rollback, complete snapshot, temporary tuple and overflow contracts: PASS")
           PY
 
       - name: Verify RC NVRAM default restore and erase durability

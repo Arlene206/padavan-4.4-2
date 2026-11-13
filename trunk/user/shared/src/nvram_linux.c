@@ -158,11 +158,13 @@ nvram_safe_get_int(const char* name, int val_def, int val_min, int val_max)
 int
 nvram_getall(char *buf, int count, int include_temp)
 {
-	int ret, nvram_fd;
+	int ret, saved_errno = 0, nvram_fd;
 	anvram_ioctl_t nvr;
 
-	if (!buf || count < 1)
-		return 0;
+	if (!buf || count < 1 || include_temp < 0 || include_temp > 2) {
+		errno = EINVAL;
+		return -1;
+	}
 
 	nvram_fd = open(PATH_DEV_NVRAM, O_RDWR);
 	if (nvram_fd < 0) {
@@ -181,11 +183,19 @@ nvram_getall(char *buf, int count, int include_temp)
 	nvr.is_temp = include_temp;
 
 	ret = ioctl(nvram_fd, NVRAM_IOCTL_GET, &nvr);
-	if (ret < 0)
+	if (ret < 0) {
+		saved_errno = errno;
 		perror(PATH_DEV_NVRAM);
-
-	close(nvram_fd);
-
+	}
+	if (close(nvram_fd) < 0) {
+		if (ret == 0) {
+			ret = -1;
+			saved_errno = errno;
+		}
+		perror(PATH_DEV_NVRAM);
+	}
+	if (ret < 0 && saved_errno)
+		errno = saved_errno;
 	return ret;
 }
 

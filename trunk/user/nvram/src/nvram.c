@@ -33,6 +33,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <errno.h>
 
 #include <bcmnvram.h>
 
@@ -41,6 +42,7 @@
 #include "nvram_profile_policy.h"
 #include "nvram_profile_file.h"
 #include "nvram_cli_policy.h"
+#include "nvram_restore_transaction.h"
 
 static void usage(void)
 {
@@ -145,14 +147,34 @@ static int nvram_save(char *file)
     return result;
 }
 
+static int nvram_restore_clear(void *context)
+{
+	(void)context;
+	return nvram_clear();
+}
+static int nvram_restore_set(void *context, const char *name,
+			     const char *value, int is_temporary)
+{
+	(void)context;
+	return is_temporary ? nvram_set_temp(name, value) : nvram_set(name, value);
+}
+static int nvram_restore_should_apply(void *context, const char *name)
+{
+	(void)context;
+	return is_sys_param((char *)name);
+}
 static int nvram_restore(char *file)
 {
 	FILE *fp;
 	unsigned char header[NVRAM_PROFILE_HEADER_SIZE], *buf, rand;
-	char *p, *v;
+	char *permanent_snapshot = NULL, *temporary_snapshot = NULL;
+	const struct nvram_restore_transaction_ops restore_ops = {
+		nvram_restore_clear, nvram_restore_set,
+		nvram_restore_should_apply, NULL
+	};
 	unsigned long count, filelen;
 	unsigned long profile_capacity = (unsigned long)NVRAM_SPACE + 1024UL;
-	int is_current_format, trailing;
+	int is_current_format, trailing, rollback_failed = 0;
 
 	if ((fp = fopen(file, "rb")) == NULL)
 		return -1;
@@ -199,29 +221,48 @@ static int nvram_restore(char *file)
 		return 1;
 	}
 
-	/* Never clear live configuration until the complete profile is validated. */
-	if (nvram_clear() < 0) {
-		free(buf);
+	/* Snapshot both permanent and volatile tuples before the destructive clear. */
+	permanent_snapshot = (char *)malloc(NVRAM_SPACE);
+	temporary_snapshot = (char *)malloc(NVRAM_SPACE);
+	if (!permanent_snapshot || !temporary_snapshot) {
+		free(temporary_snapshot); free(permanent_snapshot); free(buf);
+		return -1;
+	}
+	if (nvram_getall(permanent_snapshot, NVRAM_SPACE, 0) < 0) {
+		free(temporary_snapshot); free(permanent_snapshot); free(buf);
+		return -1;
+	}
+	if (!nvram_profile_payload_valid((unsigned char *)permanent_snapshot,
+					 NVRAM_SPACE, NVRAM_MAX_PARAM_LEN-1,
+					 NVRAM_MAX_VALUE_LEN-1)) {
+		errno = EINVAL;
+		free(temporary_snapshot); free(permanent_snapshot); free(buf);
+		return -1;
+	}
+	if (nvram_getall(temporary_snapshot, NVRAM_SPACE, 2) < 0) {
+		free(temporary_snapshot); free(permanent_snapshot); free(buf);
+		return -1;
+	}
+	if (!nvram_profile_payload_valid((unsigned char *)temporary_snapshot,
+					 NVRAM_SPACE, NVRAM_MAX_PARAM_LEN-1,
+					 NVRAM_MAX_VALUE_LEN-1)) {
+		errno = EINVAL;
+		free(temporary_snapshot); free(permanent_snapshot); free(buf);
 		return -1;
 	}
 
-	p = (char *)buf;
-	while (*p)
-	{
-		v = strchr(p, '=');
-		if (v == NULL) {
-			free(buf);
-			return 1;
-		}
-		*v++ = 0;
-		if (is_sys_param(p) && nvram_set(p, v) < 0) {
-			free(buf);
-			return -1;
-		}
-		p = v + strlen(v) + 1;
+	if (nvram_restore_transaction_run((char *)buf, filelen,
+					  permanent_snapshot, NVRAM_SPACE,
+					  temporary_snapshot, NVRAM_SPACE,
+					  NVRAM_MAX_PARAM_LEN-1, NVRAM_MAX_VALUE_LEN-1,
+					  &restore_ops, &rollback_failed) < 0) {
+		fprintf(stderr, rollback_failed ?
+			"NVRAM restore failed; previous configuration rollback is incomplete\n" :
+			"NVRAM restore failed; previous configuration was restored\n");
+		free(temporary_snapshot); free(permanent_snapshot); free(buf);
+		return -1;
 	}
-
-	free(buf);
+	free(temporary_snapshot); free(permanent_snapshot); free(buf);
 	return 0;
 }
 
@@ -241,7 +282,10 @@ static int nvram_show(int show_all)
 	}
 
 	buf[0] = 0;
-	nvram_getall(buf, buf_len, show_all);
+	if (nvram_getall(buf, buf_len, show_all) < 0) {
+		free(buf);
+		return -1;
+	}
 
 	for (name = buf; *name; name += strlen(name) + 1)
 		puts(name);

@@ -440,6 +440,8 @@ user_nvram_get(anvram_ioctl_t __user *nvr)
 	ret = 0;
 
 	if (param[0] == '\0') {
+		if (nvr->is_temp < 0 || nvr->is_temp > 2)
+			return -EINVAL;
 		if (nvr->len_value < NVRAM_SPACE) {
 			nvr->len_value = NVRAM_SPACE;
 			return -EOVERFLOW;

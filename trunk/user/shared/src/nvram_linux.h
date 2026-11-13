@@ -15,6 +15,7 @@ extern int nvram_get_checked(const char *name, char **value);
 extern char *nvram_safe_get(const char *name);
 extern int nvram_get_int(const char *name);
 extern int nvram_safe_get_int(const char* name, int val_def, int val_min, int val_max);
+/* include_temp: 0=persistent only, 1=all tuples, 2=volatile tuples only. */
 extern int nvram_getall(char *buf, int count, int include_temp);
 
 extern int nvram_set(const char *name, const char *value);

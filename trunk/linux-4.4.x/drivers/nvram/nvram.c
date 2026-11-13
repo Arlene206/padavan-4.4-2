@@ -13,6 +13,7 @@
  */
 
 #include <linux/string.h>
+#include <linux/errno.h>
 #include <nvram/bcmnvram.h>
 
 extern uint8_t _hndcrc8(uint8_t *p, uint nbytes, uint8_t crc);
@@ -193,12 +194,13 @@ _nvram_getall(char *buf, int count, int include_temp)
 	/* Write name=value\0 ... \0\0 */
 	for (i = 0; i < ARRAYSIZE(nvram_hash); i++) {
 		for (t = nvram_hash[i]; t; t = t->next) {
-			if (!include_temp && t->val_tmp)
+			if (include_temp == 0 && t->val_tmp)
 				continue;
-			if ((count - len) > (strlen(t->name) + 1 + strlen(t->value) + 1))
-				len += sprintf(buf + len, "%s=%s", t->name, t->value) + 1;
-			else
-				break;
+			if (include_temp == 2 && !t->val_tmp)
+				continue;
+			if ((count - len) <= (strlen(t->name) + 1 + strlen(t->value) + 1))
+				return -EOVERFLOW;
+			len += sprintf(buf + len, "%s=%s", t->name, t->value) + 1;
 		}
 	}
 
