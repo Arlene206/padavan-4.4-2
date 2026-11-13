@@ -40,6 +40,7 @@
 #include "gpio_pins.h"
 #include "pid1_signal_policy.h"
 #include "init_mdev_config_file.h"
+#include "nvram_device_node_policy.h"
 
 #define CONSOLE_TERMINAL	"vt100"
 #define INIT_HOME_PATH		"/home/root"
@@ -370,10 +371,72 @@ init_time(void)
 	stime(&st);
 }
 
-static void
+static int
+init_nvram_node(void)
+{
+	const dev_t nvram_device = makedev(NVRAM_DEVICE_NODE_MAJOR,
+					   NVRAM_DEVICE_NODE_MINOR);
+	struct stat st;
+	int saved_errno;
+
+	if (mknod(NVRAM_DEVICE_NODE_PATH,
+		  S_IFCHR | NVRAM_DEVICE_NODE_MODE, nvram_device) != 0 &&
+	    errno != EEXIST) {
+		saved_errno = errno;
+		logmessage(LOGNAME, "Failed to create NVRAM device node: %s",
+			   strerror(saved_errno));
+		return -saved_errno;
+	}
+
+	/* Never chmod a symlink, regular file or a different character device. */
+	if (lstat(NVRAM_DEVICE_NODE_PATH, &st) != 0) {
+		saved_errno = errno;
+		logmessage(LOGNAME, "Failed to inspect NVRAM device node: %s",
+			   strerror(saved_errno));
+		return -saved_errno;
+	}
+	if (!S_ISCHR(st.st_mode) || st.st_rdev != nvram_device) {
+		logmessage(LOGNAME,
+			   "Refusing unsafe NVRAM device node (type/device mismatch)");
+		return -EPERM;
+	}
+
+	if ((st.st_uid != (uid_t)0 || st.st_gid != (gid_t)0) &&
+	    chown(NVRAM_DEVICE_NODE_PATH, 0, 0) != 0) {
+		saved_errno = errno;
+		logmessage(LOGNAME, "Failed to set NVRAM device ownership: %s",
+			   strerror(saved_errno));
+		return -saved_errno;
+	}
+	if ((st.st_mode & 07777) != NVRAM_DEVICE_NODE_MODE &&
+	    chmod(NVRAM_DEVICE_NODE_PATH, NVRAM_DEVICE_NODE_MODE) != 0) {
+		saved_errno = errno;
+		logmessage(LOGNAME, "Failed to restrict NVRAM device permissions: %s",
+			   strerror(saved_errno));
+		return -saved_errno;
+	}
+
+	if (lstat(NVRAM_DEVICE_NODE_PATH, &st) != 0) {
+		saved_errno = errno;
+		logmessage(LOGNAME, "Failed to recheck NVRAM device node: %s",
+			   strerror(saved_errno));
+		return -saved_errno;
+	}
+	if (!nvram_device_node_is_secure(&st, nvram_device)) {
+		logmessage(LOGNAME,
+			   "NVRAM device node is not root:root 0600; router start blocked");
+		return -EPERM;
+	}
+
+	return 0;
+}
+
+static int
 init_nodes(void)
 {
-	mknod("/dev/nvram",  S_IFCHR | 0666, makedev(228, 0));
+	int nvram_result;
+
+	nvram_result = init_nvram_node();
 #if defined (USE_HW_NAT)
 	mknod("/dev/hwnat0", S_IFCHR | 0666, makedev(220, 0));
 #endif
@@ -387,7 +450,10 @@ init_nodes(void)
 		mknod("/dev/net/tun", S_IFCHR | 0666, makedev(10, 200));
 	}
 #endif
+
+	return nvram_result;
 }
+
 
 static int
 init_mdev(void)
@@ -481,6 +547,7 @@ init_main_loop(void)
 	pid_t shell_pid = 0;
 	int shutdown_handled = 0;
 	int router_ready;
+	int nvram_node_result;
 	int i;
 	sigset_t wait_mask, original_mask;
 
@@ -493,7 +560,9 @@ init_main_loop(void)
 #else
 	system("dev_init.sh -l");
 #endif
-	init_nodes();
+	nvram_node_result = init_nodes();
+	if (nvram_node_result != 0)
+		logmessage(LOGNAME, "NVRAM device is unavailable or unsafe; router startup remains in recovery mode");
 	if (init_mdev() != 0)
 		logmessage(LOGNAME, "mdev initialization failed; hotplug handling may be unavailable");
 	init_sysctl();
@@ -523,7 +592,7 @@ init_main_loop(void)
 	control_signal(SIGUSR2, SIG_BLOCK);
 
 	/* Router init and start; keep PID 1 in recovery mode on NVRAM failure. */
-	router_ready = (init_router() == 0);
+	router_ready = (nvram_node_result == 0 && init_router() == 0);
 	if (!router_ready)
 		logmessage(LOGNAME, "Router startup failed; console recovery remains available");
 

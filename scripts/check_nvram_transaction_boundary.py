@@ -16,7 +16,7 @@ DRIVER = "trunk/linux-4.4.x/drivers/nvram/nvram_linux.c"
 SOURCE_SUFFIXES = {".c", ".h", ".cc", ".cpp", ".cxx", ".hpp"}
 RAW_PATTERNS = re.compile(
     r"\bNVRAM_IOCTL_(?:GET|SET|COMMIT|CLEAR)\b|"
-    r"/dev\s*/\s*nvram\b|\bPATH_DEV_NVRAM\b"
+    r"/dev\s*/\s*nvram\b|\bPATH_DEV_NVRAM\b|\bNVRAM_DEVICE_NODE_PATH\b"
 )
 KERNEL_API = re.compile(r"\b(nvram_(?:get|getall|set|unset|commit|clear))\s*\(")
 KERNEL_WRITERS = re.compile(r"\b(nvram_(?:set|unset|commit))\s*\(")
@@ -166,6 +166,7 @@ def run() -> int:
     # A raw userland ioctl/device path is allowed only in the locked shared adapter.
     raw_hits: list[tuple[str, int, str]] = []
     adapter_raw_count = 0
+    device_node_path_references = 0
     for path in source_files(USER_ROOT):
         relative = path.relative_to(ROOT).as_posix()
         raw = path.read_text(encoding="utf-8", errors="replace")
@@ -174,8 +175,19 @@ def run() -> int:
         for match in RAW_PATTERNS.finditer(clean):
             line_number = clean.count("\n", 0, match.start()) + 1
             line = lines[line_number - 1].strip()
-            # Header declarations define the ioctl ABI; they are not callers.
+            # ABI/path declarations are definitions, not access sites.
             if re.match(r"#\s*define\s+NVRAM_IOCTL_", line):
+                continue
+            if (
+                relative == "trunk/user/rc/src/nvram_device_node_policy.h"
+                and re.match(r'#\s*define\s+NVRAM_DEVICE_NODE_PATH\s+"/dev/nvram"', line)
+            ):
+                continue
+            if (
+                relative == "trunk/user/rc/src/init.c"
+                and match.group(0) == "NVRAM_DEVICE_NODE_PATH"
+            ):
+                device_node_path_references += 1
                 continue
             if relative == ADAPTER:
                 adapter_raw_count += 1
@@ -261,6 +273,39 @@ def run() -> int:
         failures.append(
             "shared NVRAM lock lost its stable path, no-follow/close-on-exec or bounded flock contract"
         )
+
+    # The privileged device node itself must not grant untrusted processes ioctl access.
+    device_policy_path = ROOT / "trunk/user/rc/src/nvram_device_node_policy.h"
+    init_source_path = ROOT / "trunk/user/rc/src/init.c"
+    device_policy = device_policy_path.read_text(encoding="utf-8", errors="replace")
+    init_source = init_source_path.read_text(encoding="utf-8", errors="replace")
+    if not re.search(r"(?m)^\s*#define\s+NVRAM_DEVICE_NODE_MODE\s+0600\s*$", device_policy):
+        failures.append("NVRAM character device mode is not exactly 0600")
+    try:
+        node_body = extract_function(init_source, "init_nvram_node")
+        compact_node = re.sub(r"\s+", "", node_body)
+        for token in (
+            "mknod(NVRAM_DEVICE_NODE_PATH,S_IFCHR|NVRAM_DEVICE_NODE_MODE,nvram_device)",
+            "lstat(NVRAM_DEVICE_NODE_PATH,&st)",
+            "chown(NVRAM_DEVICE_NODE_PATH,0,0)",
+            "chmod(NVRAM_DEVICE_NODE_PATH,NVRAM_DEVICE_NODE_MODE)",
+            "nvram_device_node_is_secure(&st,nvram_device)",
+        ):
+            if token not in compact_node:
+                failures.append(f"init_nvram_node does not enforce required device-node policy: {token}")
+    except ValueError as error:
+        failures.append(str(error))
+    if device_node_path_references < 5:
+        failures.append("NVRAM device path is not confined to the audited PID 1 setup routine")
+    try:
+        init_nodes_body = re.sub(r"\s+", "", extract_function(init_source, "init_nodes"))
+        if "nvram_result=init_nvram_node()" not in init_nodes_body or "returnnvram_result;" not in init_nodes_body:
+            failures.append("init_nodes does not propagate an NVRAM device setup failure")
+        main_body = re.sub(r"\s+", "", extract_function(init_source, "init_main_loop"))
+        if "router_ready=(nvram_node_result==0&&init_router()==0);" not in main_body:
+            failures.append("PID 1 does not block router startup when the NVRAM device is unsafe")
+    except ValueError as error:
+        failures.append(str(error))
 
     # Verify the one Linux 4.4 NVRAM driver is wired into the common driver tree.
     driver_mk = driver_makefile.read_text(encoding="utf-8", errors="replace")
