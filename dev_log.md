@@ -1,3 +1,14 @@
+## 2026-11-14 05:41 CST (UTC+8) — Reconcile exact-main Actions and preserve process-inventory blocker
+
+- Base main SHA: `118c9655c7d4787f94568c54fc6a8d7838c4ae93`; live main before this checkpoint was `2be039ecc8bfb35203b3a41fda0f47cd4ee95b57`. The intervening commit changed only `SESSION_HANDOFF.md`; product source remains the L3-verified `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f` tree.
+- Exact-head push Actions for `2be039ecc8bfb35203b3a41fda0f47cd4ee95b57` were enumerated and each job/step inspected: infosvr `43511645485` / job `132183116113`, AliDDNS `43511645450` / `132183115493`, AdGuardHome `43511645423` / `132183115311`, NVRAM `43511645411` / `132183115314`, AI handoff docs `43511645365` / `132183116262`, AliyunDrive `43511645354` / `132183116280`; all six are event=push, exact head SHA, COMPLETED / SUCCESS with every step successful. Parent `35d891b064c23b8ddd2f380208ad29d5ad1a0fc6`'s six queued-at-checkpoint runs also resolved SUCCESS.
+- Repository code search returned zero matches for six process API / lifecycle queries, but the index is not a reliable complete inventory. The previous filtered clone was blocked by GitHub DNS. No product source or test files were changed: caller inventory remains incomplete, L1 partial, L2 NOT RUN. Do not implement a shared API migration until every caller and lifecycle consumer is enumerated.
+- Updated only the live handoff and this log to record current SHA, exact-head Actions and the blocker. Root log advances 39→40/119; archive inventory remains dev-log=8 / handoff=22 / roadmap=18. No rotation or INDEX update.
+- Resulting main commit: THIS COMMIT. Exact-head AI docs and relevant push Actions for this documentation commit must be checked during the next recovery; no local test, firmware build or router validation is claimed.
+- Next: obtain a complete checkout or reliable whole-tree search, enumerate every `pids()`, `pids_main()`, `find_pid_by_name()`, `procps_scan()` and service-lifecycle caller, then design tri-state inventory and fail-closed GNU89 regressions.
+
+---
+
 ## 2026-11-14 05:30 CST (UTC+8) — Preserve queued exact-head CI and update the live handoff
 
 - Baseline main `35d891b064c23b8ddd2f380208ad29d5ad1a0fc6` (parent `9eda1297321595f6e17909e0079ec642a1e174e8`) was re-fetched before the documentation checkpoint. The baseline was documentation-only relative to the L3-verified product-source tree `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`.
