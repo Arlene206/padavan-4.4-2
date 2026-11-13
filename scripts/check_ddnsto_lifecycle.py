@@ -76,7 +76,7 @@ require(lock_execute_body.index("flock -n 9") <
 require("ddnsto_lifecycle_lock_prepare" in lock_run_body and
         "command -v flock" in lock_run_body and
         "ddnsto_lifecycle_lock_execute" in lock_run_body and
-        "start|stop|restart" in lock_run_body,
+        "start|stop|restart)" in lock_run_body,
         "all DDNSTO external lifecycle actions must fail closed behind flock")
 require("stop_zero || return $?" in locked_action_body and
         'nvram get ddnsto_enable' in locked_action_body and
