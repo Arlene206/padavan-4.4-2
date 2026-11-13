@@ -32,6 +32,7 @@
 #include <nvram/bcmnvram.h>
 
 #include "nvram.c"
+#include "nvram_snapshot_policy.h"
 
 #define NVRAM_DRIVER_VERSION	"0.08"
 #define PROC_NVRAM_NAME		"nvram"
@@ -256,6 +257,123 @@ nvram_get(const char *name)
 	return value;
 }
 
+/*
+ * Validate that an NVRAM value pointer belongs to the backing pool and
+ * report the maximum readable span while nvram_lock is held.
+ */
+static int
+nvram_value_span(const char *value, size_t *remaining)
+{
+	unsigned long base = (unsigned long)nvram_values;
+	unsigned long address = (unsigned long)value;
+	unsigned long offset;
+
+	if (!value || !remaining || !nvram_values || address < base)
+		return -EIO;
+
+	offset = address - base;
+	if (offset >= NVRAM_VALUES_SPACE)
+		return -EIO;
+
+	*remaining = NVRAM_VALUES_SPACE - (size_t)offset;
+	return 0;
+}
+
+/*
+ * nvram_get() returns a pointer into nvram_values after dropping its lock.
+ * Capture both the length and bytes under nvram_lock; allocate outside the
+ * lock and revalidate before copying so a concurrent writer cannot change
+ * the bytes between strlen() and copy_to_user().
+ */
+static int
+nvram_get_snapshot(const char *name, int capacity, char **snapshot,
+		   int *snapshot_len)
+{
+	int attempt;
+	unsigned long flags;
+
+	if (!name || !snapshot || !snapshot_len || capacity < 1)
+		return -EINVAL;
+
+	*snapshot = NULL;
+	*snapshot_len = 0;
+	if (nvram_major < 0)
+		return -ENOENT;
+
+	for (attempt = 0; attempt < NVRAM_GET_SNAPSHOT_RETRIES; attempt++) {
+		char *value, *copy;
+		size_t remaining, required, probe, observed, copy_len;
+		int ret, decision;
+
+		spin_lock_irqsave(&nvram_lock, flags);
+		value = _nvram_get(name);
+		if (!value) {
+			spin_unlock_irqrestore(&nvram_lock, flags);
+			return -ENOENT;
+		}
+		ret = nvram_value_span(value, &remaining);
+		if (ret) {
+			spin_unlock_irqrestore(&nvram_lock, flags);
+			return ret;
+		}
+		required = strnlen(value, remaining);
+		if (required >= remaining) {
+			spin_unlock_irqrestore(&nvram_lock, flags);
+			return -EOVERFLOW;
+		}
+		required++;
+		if (required > (size_t)capacity) {
+			*snapshot_len = (int)required;
+			spin_unlock_irqrestore(&nvram_lock, flags);
+			return -EOVERFLOW;
+		}
+		spin_unlock_irqrestore(&nvram_lock, flags);
+
+		copy = kmalloc(required, GFP_KERNEL);
+		if (!copy)
+			return -ENOMEM;
+
+		spin_lock_irqsave(&nvram_lock, flags);
+		value = _nvram_get(name);
+		if (!value) {
+			spin_unlock_irqrestore(&nvram_lock, flags);
+			kfree(copy);
+			return -ENOENT;
+		}
+		ret = nvram_value_span(value, &remaining);
+		if (ret) {
+			spin_unlock_irqrestore(&nvram_lock, flags);
+			kfree(copy);
+			return ret;
+		}
+
+		probe = (remaining < required) ? remaining : required;
+		observed = strnlen(value, probe);
+		decision = nvram_snapshot_copy_decision(remaining, required,
+							observed);
+		if (decision == NVRAM_SNAPSHOT_COPY_INVALID) {
+			spin_unlock_irqrestore(&nvram_lock, flags);
+			kfree(copy);
+			return -EOVERFLOW;
+		}
+		if (decision == NVRAM_SNAPSHOT_COPY_RETRY) {
+			spin_unlock_irqrestore(&nvram_lock, flags);
+			kfree(copy);
+			continue;
+		}
+
+		copy_len = observed + 1;
+		memcpy(copy, value, copy_len);
+		spin_unlock_irqrestore(&nvram_lock, flags);
+
+		*snapshot = copy;
+		*snapshot_len = (int)copy_len;
+		return 0;
+	}
+
+	return -EAGAIN;
+}
+
 int
 nvram_getall(char *buf, int count, int include_temp)
 {
@@ -458,19 +576,19 @@ user_nvram_get(anvram_ioctl_t __user *nvr)
 		}
 		kfree(value);
 	} else {
-		value = nvram_get(param);
-		if (value)
-		{
-			len = strlen(value) + 1;
-			if (nvr->len_value < len)
-				ret = -EOVERFLOW;
-			else if (copy_to_user(nvr->value, value, len))
-				ret = -EFAULT;
-			nvr->len_value = len;
-		}
-		else
-		{
+		int capacity = nvr->len_value;
+
+		ret = nvram_get_snapshot(param, capacity, &value, &len);
+		if (ret == -ENOENT) {
 			nvr->len_value = -1;
+			ret = 0;
+		} else if (ret == -EOVERFLOW && len > 0) {
+			nvr->len_value = len;
+		} else if (ret == 0) {
+			nvr->len_value = len;
+			if (copy_to_user(nvr->value, value, len))
+				ret = -EFAULT;
+			kfree(value);
 		}
 	}
 

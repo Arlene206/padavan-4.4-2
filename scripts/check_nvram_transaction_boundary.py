@@ -147,10 +147,12 @@ def run() -> int:
     driver_makefile = ROOT / "trunk/linux-4.4.x/drivers/nvram/Makefile"
     drivers_makefile = ROOT / "trunk/linux-4.4.x/drivers/Makefile"
     bcm_header = ROOT / "trunk/linux-4.4.x/include/nvram/bcmnvram.h"
+    snapshot_policy_path = ROOT / "trunk/linux-4.4.x/drivers/nvram/nvram_snapshot_policy.h"
+    snapshot_test_path = ROOT / "trunk/linux-4.4.x/drivers/nvram/tests/nvram_snapshot_policy.c"
 
     for required_path in (
         adapter_path, lock_path, driver_path, driver_makefile,
-        drivers_makefile, bcm_header
+        drivers_makefile, bcm_header, snapshot_policy_path, snapshot_test_path
     ):
         if not required_path.is_file():
             failures.append(f"required NVRAM source missing: {required_path}")
@@ -357,17 +359,96 @@ def run() -> int:
         print(f"KERNEL_NVRAM_{kind.upper()}_REFERENCE: {path}:{line_number}: {line}")
     print(f"KERNEL_NVRAM_WRITER_REFERENCE_COUNT: {len(kernel_writer_refs)}")
 
-    # Preserve a known candidate as an explicit follow-up, not a false PASS.
+    # Verify the ioctl snapshots the value under nvram_lock and never
+    # carries the pool pointer into strlen/copy_to_user after unlocking.
+    snapshot_policy = snapshot_policy_path.read_text(encoding="utf-8", errors="replace")
+    snapshot_test = snapshot_test_path.read_text(encoding="utf-8", errors="replace")
+    for marker in (
+        "NVRAM_GET_SNAPSHOT_RETRIES 3",
+        "NVRAM_SNAPSHOT_COPY_INVALID",
+        "NVRAM_SNAPSHOT_COPY_READY",
+        "NVRAM_SNAPSHOT_COPY_RETRY",
+        "nvram_snapshot_copy_decision",
+    ):
+        if marker not in snapshot_policy:
+            failures.append("NVRAM snapshot policy is missing " + marker)
+    for marker in (
+        "test_value_that_fits_is_copied",
+        "test_growth_between_sizing_and_copy_retries",
+        "test_shrinkage_between_sizing_and_copy_is_safe",
+        "test_missing_terminator_at_pool_boundary_is_rejected",
+        "NVRAM single-value snapshot sizing policy: PASS",
+    ):
+        if marker not in snapshot_test:
+            failures.append("NVRAM snapshot host regression is missing " + marker)
+
     try:
-        get_body = extract_function(kernel_driver, "user_nvram_get")
-        if "value = nvram_get(param)" in get_body and "copy_to_user" in get_body:
-            print(
-                "KERNEL_FOLLOW_UP: user_nvram_get copies the nvram_get() tuple pointer "
-                "after nvram_get releases nvram_lock; review snapshot lifetime "
-                "against concurrent kernel writers."
+        span_body = extract_function(kernel_driver, "nvram_value_span")
+        for marker in ("nvram_values", "NVRAM_VALUES_SPACE", "return -EIO"):
+            if marker not in span_body:
+                failures.append("NVRAM snapshot pointer-span validation missing " + marker)
+
+        snapshot_body = extract_function(kernel_driver, "nvram_get_snapshot")
+        measure = snapshot_body.index("required = strnlen(value, remaining);")
+        allocate = snapshot_body.index("copy = kmalloc(required, GFP_KERNEL);")
+        unlock_after_measure = snapshot_body.rfind(
+            "spin_unlock_irqrestore(&nvram_lock, flags);", measure, allocate
+        )
+        if unlock_after_measure < 0:
+            raise ValueError("snapshot sizing path does not unlock before allocation")
+        relock = snapshot_body.index(
+            "spin_lock_irqsave(&nvram_lock, flags);", allocate
+        )
+        bounded_copy = snapshot_body.index("memcpy(copy, value, copy_len);")
+        unlock_after_copy = snapshot_body.index(
+            "spin_unlock_irqrestore(&nvram_lock, flags);", bounded_copy
+        )
+        if not (
+            measure < unlock_after_measure < allocate < relock
+            < bounded_copy < unlock_after_copy
+        ):
+            failures.append(
+                "NVRAM snapshot must size under lock, allocate unlocked, "
+                "then revalidate and copy under lock"
             )
-    except ValueError as error:
-        failures.append(str(error))
+        if "NVRAM_GET_SNAPSHOT_RETRIES" not in snapshot_body:
+            failures.append("NVRAM snapshot retry loop is not bounded")
+        if "copy_to_user" in snapshot_body:
+            failures.append("NVRAM snapshot helper must not call copy_to_user under spinlock")
+
+        get_body = extract_function(kernel_driver, "user_nvram_get")
+        snapshot_call = "nvram_get_snapshot(param, capacity, &value, &len)"
+        if snapshot_call not in get_body:
+            failures.append("single-value ioctl does not use the stable snapshot helper")
+        if "value = nvram_get(param)" in get_body:
+            failures.append("single-value ioctl still retains the unlocked nvram_get() pointer")
+        try:
+            copy_to_user = get_body.index("copy_to_user(nvr->value, value, len)")
+            call_at = get_body.index(snapshot_call)
+            if copy_to_user < call_at:
+                failures.append("single-value ioctl copies before obtaining a stable snapshot")
+        except ValueError:
+            failures.append("single-value ioctl does not copy its private snapshot")
+        if "kfree(value)" not in get_body:
+            failures.append("single-value ioctl does not release its private snapshot")
+
+        exit_body = extract_function(kernel_driver, "dev_nvram_exit")
+        unregister = exit_body.index("unregister_chrdev(nvram_major, MTD_NVRAM_NAME);")
+        uninit = exit_body.index("_nvram_uninit();")
+        pool_free = exit_body.index("kfree(nvram_values);")
+        if not unregister < uninit < pool_free:
+            failures.append("NVRAM exit must unregister readers before tearing down the value pool")
+    except (ValueError, IndexError) as error:
+        failures.append("NVRAM snapshot source contract: " + str(error))
+
+    # .owner and explicit open/release references pin the module while ioctl
+    # readers may use nvram_values; the exit path is not a live reader.
+    if "owner:\t\tTHIS_MODULE" not in kernel_driver:
+        failures.append("NVRAM file operations no longer pin the driver module while open")
+    if "try_module_get(THIS_MODULE);" not in kernel_driver or "module_put(THIS_MODULE);" not in kernel_driver:
+        failures.append("NVRAM open/release module reference pairing is missing")
+
+    print("NVRAM kernel single-value ioctl snapshot contract: PASS")
 
     # Report board-specific selectors that change NVRAM MTD geometry.
     board_files = [
