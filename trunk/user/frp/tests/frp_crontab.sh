@@ -25,6 +25,34 @@ FRP_CRON_ROOT="$test_root/cron"
 FRP_CRONTAB_DIR="$FRP_CRON_ROOT/crontabs"
 mkdir -p "$FRP_CRONTAB_DIR"
 http_username=root
+# Verify the production runner never follows a substituted FRP script path.
+FRP_SCRIPT_PATH="$test_root/frp-script.sh"
+FRP_SCRIPT_MARKER="$test_root/script-ran"
+printf 'touch "%s"\n' "$FRP_SCRIPT_MARKER" > "$FRP_SCRIPT_PATH"
+frp_run_script || { echo "FRP script path regression: FAIL: regular script did not run" >&2; exit 1; }
+[ -f "$FRP_SCRIPT_MARKER" ] || {
+	echo "FRP script path regression: FAIL: regular script marker missing" >&2
+	exit 1
+}
+rm -f "$FRP_SCRIPT_MARKER" "$FRP_SCRIPT_PATH"
+ln -s "$test_root/does-not-exist" "$FRP_SCRIPT_PATH"
+if frp_run_script; then
+	echo "FRP script path regression: FAIL: symlink was executed" >&2
+	exit 1
+fi
+[ ! -e "$FRP_SCRIPT_MARKER" ] || {
+	echo "FRP script path regression: FAIL: symlink target was executed" >&2
+	exit 1
+}
+rm -f "$FRP_SCRIPT_PATH"
+mkdir "$FRP_SCRIPT_PATH"
+if frp_run_script; then
+	echo "FRP script path regression: FAIL: directory was accepted as a script" >&2
+	exit 1
+fi
+rmdir "$FRP_SCRIPT_PATH"
+echo "FRP script runner rejects symlink and non-regular targets: PASS"
+
 FRP_RUN_CALLS=0
 FRP_RUN_STATUS=0
 frp_run_script()

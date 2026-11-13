@@ -38,7 +38,12 @@ check_net()
 
 frp_run_script()
 {
-	/etc/storage/frp_script.sh
+	frp_script_path="${FRP_SCRIPT_PATH:-/etc/storage/frp_script.sh}"
+	if [ -L "$frp_script_path" ] || [ ! -f "$frp_script_path" ]; then
+		logger -t "frp" "拒绝执行缺失或非普通文件形式的FRP配置脚本。"
+		return 1
+	fi
+	/bin/sh "$frp_script_path"
 }
 
 # Add/remove only FRP's exact watchdog entry. Stage outside the crontabs scan

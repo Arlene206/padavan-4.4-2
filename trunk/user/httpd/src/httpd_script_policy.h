@@ -14,7 +14,7 @@
 #include <string.h>
 
 /* The FRP script contains daemon tokens and dashboard credentials. */
-static int
+static inline int
 httpd_script_file_type(const char *name)
 {
 	if (name && strcmp(name, "frp_script.sh") == 0)
@@ -23,13 +23,13 @@ httpd_script_file_type(const char *name)
 	return HTTPD_FILE_TYPE_SCRIPT;
 }
 
-static int
+static inline int
 httpd_script_file_mode(int file_type)
 {
 	return (file_type == HTTPD_FILE_TYPE_PRIVATE_SCRIPT) ? 0700 : 0755;
 }
 
-static int
+static inline int
 httpd_script_file_read_allowed(const char *name, int trusted_network)
 {
 	if (name && strcmp(name, "frp_script.sh") == 0)

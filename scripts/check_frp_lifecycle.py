@@ -106,9 +106,11 @@ require('value="FrpConf;"' in ui and
         'name="frpc_enable"' in ui and 'name="frps_enable"' in ui,
         "FRP UI must expose both enable flags and the persisted custom script")
 copy_scripts = (ROOT / "trunk/user/scripts/files/usr/bin/copyscripts.sh").read_text()
-require('cp -rf /etc_ro/frp_script.sh /etc/storage/' in copy_scripts and
-        'chmod 755 "/etc/storage/frp_script.sh"' in copy_scripts,
-        "boot must seed the persistent FRP custom script from its ROMFS template")
+require('cp -f /etc_ro/frp_script.sh "$frp_script_path"' in copy_scripts and
+        'chmod 700 "$frp_script_path"' in copy_scripts and
+        '[ -L "$frp_script_path" ]' in copy_scripts and
+        '[ ! -f "$frp_script_path" ]' in copy_scripts,
+        "boot must seed the persistent FRP script safely and enforce mode 0700")
 frp_template = (ROOT / "trunk/user/frp/frp_script.sh").read_text()
 require('frpc -c /tmp/frp/myfrpc.ini' in frp_template and
         'frps -c /tmp/frp/myfrps.ini' in frp_template,
@@ -116,6 +118,7 @@ require('frpc -c /tmp/frp/myfrpc.ini' in frp_template and
 cron_test = (ROOT / "trunk/user/frp/tests/frp_crontab.sh").read_text()
 for marker in ("frp_start", "frp_close", "operator", "path-traversal",
                "symlink crontab", "atomic rename failure", "mode 0600",
+               "FRP script runner rejects symlink and non-regular targets: PASS",
                "failed start script", "overlong username", "Removing a missing watchdog",
                "disabled start executed the custom FRP script",
                "server-only start did not invoke the custom script once"):
@@ -159,6 +162,12 @@ for path in paths:
     token = f'      - "{path}"'
     require(push_filters.count(token) == 1 and pull_filters.count(token) == 1,
             f"{path} must appear exactly once in push and pull_request path filters")
+
+run_script = function_body(source, "frp_run_script()")
+require('[ -L "$frp_script_path" ]' in run_script and
+        '[ ! -f "$frp_script_path" ]' in run_script and
+        '/bin/sh "$frp_script_path"' in run_script,
+        "FRP runner must refuse symlink/non-regular custom scripts before root execution")
 
 # FRP private configuration must not be exposed as a world-readable script.
 require("# The persistent FRP script contains tokens and dashboard credentials." in copy_scripts and
