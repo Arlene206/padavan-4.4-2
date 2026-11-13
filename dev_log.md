@@ -1,3 +1,15 @@
+## 2026-11-14 00:08 CST (UTC+8) — Repair HTTPD umbrella workflow block indentation
+
+- Base main SHA: ead18adf3dbdf8dd2cf156f889501325bc3b1534. The source-contract update had correct assertions but the newly inserted Python lines after node_policy were missing the YAML run-block indentation. GitHub therefore emitted a zero-job failed workflow run [43459535203] named after the workflow path; it never reached a test step. This was a CI syntax/indentation defect, not a runtime regression.
+- Re-indented every inserted Python source-contract line under the existing run: block. The contract still verifies NVRAM_DEVICE_NODE_MODE 0600, init_nvram_node metadata verification and lstat/chmod calls, init_nodes error propagation, and the PID 1 router_ready gate. New node-policy header and test remain present in push and pull_request path filters.
+- The same SHA's NVRAM audit workflow [43459538956] was still scanning; previous parent SHA 728098a793bdbb072f7c0f4b708d8922a47241c5 passed both NVRAM lock/device-node host regressions and full inventory (4177 userland sources, zero raw bypasses, 44042 kernel sources, zero kernel API refs, 57 board configs).
+- No production runtime files changed in this repair. The previous log rotation to part-008 is complete; root dev_log.md currently retains 20 complete newest-first records and will contain 21 after this entry, within policy. No new archive rotation is due.
+- Exact-head HTTPD, NVRAM boundary, AI docs and sibling Actions for this workflow indentation repair: THIS COMMIT / pending. No local full build, target MIPS compilation, TRX image or hardware test is claimed.
+- Changed paths: .github/workflows/httpd-security.yml, SESSION_HANDOFF.md and dev_log.md. Resulting main commit: THIS COMMIT.
+- Next: inspect full exact-head Actions. Verify HTTPD run gets a real job and passes the updated source contracts; verify NVRAM scan, AI archive integrity and all affected sibling checks. Then close the NVRAM permission fix and return to wider stability coverage.
+
+---
+
 ## 2026-11-14 00:05 CST (UTC+8) — Align HTTPD NVRAM recovery contract with PID 1 access control
 
 - Base main SHA: 728098a793bdbb072f7c0f4b708d8922a47241c5. The new NVRAM security commit's exact-head AI docs [43458726546], NVRAM scan workflow [43458726491 pending at this entry], DNS Forwarder [43458726367], mdev config [43458726816], PID 1 notification queue [43458726842], USB storage [43458726601], AliDDNS [43458726360], AdGuardHome [43458726307], infosvr [43458726538] and AliyunDrive [43458726264] were checked by exact head SHA. All listed completed sibling runs are SUCCESS; NVRAM audit remains pending while its whole-tree scan runs.

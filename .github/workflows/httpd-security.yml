@@ -841,15 +841,15 @@ jobs:
           assert "int init_router(void);" in rc_header
           assert "int erase_nvram(void);" in rc_header
           node_policy = Path("trunk/user/rc/src/nvram_device_node_policy.h").read_text()
-node_setup = body(init, "init_nvram_node(void)")
-node_init = body(init, "init_nodes(void)")
-assert "NVRAM_DEVICE_NODE_MODE 0600" in node_policy
-assert "nvram_device_node_is_secure(&st, nvram_device)" in node_setup
-assert "lstat(NVRAM_DEVICE_NODE_PATH, &st)" in node_setup
-assert "chmod(NVRAM_DEVICE_NODE_PATH, NVRAM_DEVICE_NODE_MODE)" in node_setup
-assert "nvram_result = init_nvram_node();" in node_init
-assert "return nvram_result;" in node_init
-assert "router_ready = (nvram_node_result == 0 && init_router() == 0);" in main_loop
+          node_setup = body(init, "init_nvram_node(void)")
+          node_init = body(init, "init_nodes(void)")
+          assert "NVRAM_DEVICE_NODE_MODE 0600" in node_policy
+          assert "nvram_device_node_is_secure(&st, nvram_device)" in node_setup
+          assert "lstat(NVRAM_DEVICE_NODE_PATH, &st)" in node_setup
+          assert "chmod(NVRAM_DEVICE_NODE_PATH, NVRAM_DEVICE_NODE_MODE)" in node_setup
+          assert "nvram_result = init_nvram_node();" in node_init
+          assert "return nvram_result;" in node_init
+          assert "router_ready = (nvram_node_result == 0 && init_router() == 0);" in main_loop
           assert "if (router_ready)\n\t\t\t\thandle_notifications();" in main_loop
           assert "if (router_ready)\n\t\t\t\ton_deferred_hotplug_dev();" in main_loop
           assert "rc_nvram_policy_read" in policy

@@ -15,13 +15,13 @@
 
 ## Active task
 
-当前 active task 是核验 NVRAM /dev/nvram root-only 权限修复的 exact-main Actions，并处理由其触发的既有 CI source-contract 回归。
+当前 active task 是完成 NVRAM /dev/nvram root:root 0600 安全修复在 main exact SHA 上的验证，并修复既有 HTTPD umbrella source-contract 的 YAML 缩进问题。
 
-1. 当前基线：main SHA 728098a793bdbb072f7c0f4b708d8922a47241c5，仅 main 分支，无 open PR。该 SHA 实施 PID 1 /dev/nvram root:root 0600 + init_router() fail-closed；AI docs、DNS Forwarder、mdev config、PID 1 notification queue、USB storage、AliDDNS、AdGuardHome、infosvr、AliyunDrive 等 sibling Actions 均 exact-head SUCCESS。NVRAM boundary run 43458726491 的两项 C regression 编译与执行均 PASS，whole-tree scanner 仍 in progress，必须核对最终结果。
-2. HTTPD umbrella 43458726361 exact-head 失败只发生在旧 assertion 仍要求 router_ready = (init_router() == 0);。新增 fail-closed 检查使此断言过时；前面的 NVRAM policy / restore rollback tests PASS。当前下一提交更新 .github/workflows/httpd-security.yml，改为断言 device policy mode 0600、PID 1 node validation、init_nodes error propagation、router startup guard，并把新 policy header/test 加入 push/PR path filter，不降低测试强度。
-3. 此提交还执行 dev-log 120-entry batch rotation：新 entry + 原 119 条中最老的 100 条原样移到 docs/dev-log/2026/11/part-008.md，根 dev_log.md 只保留 newest 20，docs/dev-log/INDEX.md 同步登记 count/date/bytes/blob SHA。需要通过 exact-head AI docs workflow 核实 archive integrity 和 root count。
-4. 下一轮第一动作：重新读取 live main/ref inventory，检查新 NVRAM boundary run 和 HTTPD umbrella exact-head logs；确认设备权限策略、transaction lock tests、raw ioctl scanner、kernel caller inventory、board matrix、HTTPD source contracts 和 AI docs 全部 green。若 NVRAM scanner 仍报直接绕过，沿 caller 追踪后实施最小安全修复；若全绿，关闭 NVRAM slice，回到 roadmap 选择 DNS/resolver、crond、storage/service supervision 中最高价值的稳定性 bug。
-5. user_nvram_get() 的 internal tuple pointer unlock-before-copy 仍只是待证候选；Kernel API scan 暂无 external in-tree references，不要猜测性改 Linux 4.4 driver。FTP upload cleanup TOCTOU 仍 BLOCKED；NFS reliability 仍 evidence-gated.
+1. main 基线为 ead18adf3dbdf8dd2cf156f889501325bc3b1534；此前该 SHA 的 NVRAM boundary run 43459538956 和 AI docs run 43459538954 in progress。父 SHA 728098a793bdbb072f7c0f4b708d8922a47241c5 的 NVRAM run 43458726491 已 SUCCESS：锁回归和 device-node policy GNU89/Werror/ASan/UBSan 编译/运行 PASS；完整扫描 4177 userland 源文件，raw bypass 0，44042 kernel 源文件，kernel API external refs 0，57 board config scanned。
+2. HTTPD source contract 的逻辑更新本身正确，但首次提交缺少 YAML block indentation，导致 synthetic zero-job run 43459535203 FAILED，未进入任何 test step。本提交只重新缩进已插入 Python 代码块；断言包括 mode 0600、PID1 node lstat/chmod/身份验证、init_nodes 错误传播和 fail-closed router_ready。header/test 已加入 push + pull_request path filters。
+3. part-008 已保存被轮换的 100 个旧记录，root dev_log.md 保留 newest 20；本次新记录后 root 为 21 条，尚未触发 120-entry 轮换。AI docs 父 SHA 运行曾 SUCCESS；当前提交需要再核查 archive/index。
+4. 下一轮第一动作：重新读 live main、refs、exact SHA Actions。确认新 HTTPD workflow 不再是 zero-job parse error 并执行全套 HTTPD/NVRAM源契约；检查 NVRAM scanner 和 AI docs archive integrity。通过后关闭 NVRAM permission issue，转向 DNS/resolver、crond、storage、PID1 supervision 全仓库稳定性排查。
+5. user_nvram_get() tuple pointer unlock-before-copy 仍只是待证候选，kernel external API refs=0，未修改 kernel。FTP failed-upload cleanup TOCTOU BLOCKED；NFS durability remains evidence-gated.
 ## Completed in this handoff
 
 1. NVRAM cross-call shared-userland transaction lock 与 profile-restore transaction integration 已实施；精确锁测试 GNU89/Werror/ASan/UBSan PASS；生产编译漏 include 已修复。
