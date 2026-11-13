@@ -530,6 +530,8 @@ config_soft_bridges_other(int vinet_vid, int viptv_vid, int pvid_wan, const char
 static int
 config_vinet_wan(void)
 {
+	int ret;
+
 	int vlan_vid[2], vlan_pri, pvid_wan;
 	int is_vlan_filter, is_vlan_ifname;
 	int need_pvid, pvid_result = 0, ret;
@@ -791,6 +793,8 @@ static const struct wan_viptv_static_ops wan_viptv_static_start_ops = {
 static int
 launch_viptv_wan(void)
 {
+	int ret;
+
 	int vlan_vid[2], vlan_pri, pvid_wan = 0;
 	int need_pvid, ret;
 	int is_vlan_filter, viptv_mode;
