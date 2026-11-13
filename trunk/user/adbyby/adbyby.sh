@@ -522,9 +522,16 @@ ip_rule()
 
 add_dns()
 {
-	mkdir -p /etc/storage/dnsmasq-adbyby.d
+	mkdir -p /etc/storage/dnsmasq-adbyby.d || return 1
+	[ -d /etc/storage/dnsmasq-adbyby.d ] && [ ! -L /etc/storage/dnsmasq-adbyby.d ] || {
+		logger -t "adbyby" "Adbyby dnsmasq配置目录不安全。"
+		return 1
+	}
 	mkdir -p /tmp/dnsmasq.d
-	anti_ad
+	if ! anti_ad; then
+		# The optional anti-AD list must not suppress unrelated Adbyby DNS rules.
+		logger -t "adbyby" "anti_AD不可用，继续处理其他dnsmasq规则。"
+	fi
 	block_ios=`nvram get block_ios`
 	block_douyin=`nvram get block_douyin`
 	awk '!/^$/&&!/^#/{printf("ipset=/%s/'"adbyby_esc"'\n",$0)}' $PROG_PATH/adesc.conf > /etc/storage/dnsmasq-adbyby.d/06-dnsmasq.esc
@@ -561,10 +568,12 @@ del_dns()
 	sed -i '/dnsmasq-adbyby/d' /etc/storage/dnsmasq/dnsmasq.conf
 	#sed -i '/tvhosts/d' /etc/storage/dnsmasq/dnsmasq.conf
 	if ! adbyby_remove_generated_hosts_config; then
-	logger -t "adbyby" "移除Adbyby hosts配置失败。"
-fi
+		logger -t "adbyby" "移除Adbyby hosts配置失败。"
+	fi
 	rm -f /tmp/dnsmasq.d/dnsmasq-adbyby.conf
-	rm -f /etc/storage/dnsmasq-adbyby.d/*
+	if ! adbyby_cleanup_dnsmasq_ad_dir "/etc/storage/dnsmasq-adbyby.d"; then
+		logger -t "adbyby" "清理Adbyby dnsmasq规则失败。"
+	fi
 	rm -f /tmp/adbyby_host.conf
 }
 
@@ -720,6 +729,7 @@ adbyby_validate_dnsmasq_fragment()
 	case "$adbyby_fragment_bytes" in ''|*[!0123456789]*) return 1 ;; esac
 	[ "$adbyby_fragment_bytes" -le 16777216 ] || return 1
 	awk '
+		length($0) > 512 { invalid = 1; next }
 		/^#/ { next }
 		/^$/ { next }
 		{
@@ -732,6 +742,12 @@ adbyby_validate_dnsmasq_fragment()
 			    domain ~ /(^|\.)-/ || domain ~ /-(\.|$)/ || domain ~ /\.$/) {
 				invalid = 1
 				next
+			}
+			label_count = split(domain, labels, /\./)
+			for (i = 1; i <= label_count; i++) {
+				if (length(labels[i]) > 63) {
+					invalid = 1
+				}
 			}
 			count++
 		}
@@ -788,7 +804,11 @@ anti_ad()
 {
 	adbyby_anti_ad_enabled=$(nvram get anti_ad 2>/dev/null) || adbyby_anti_ad_enabled=0
 	if [ "$adbyby_anti_ad_enabled" != "1" ]; then
-		nvram set anti_ad_count=0
+		nvram set anti_ad_count=0 || return 1
+		if ! adbyby_remove_anti_ad_fragment "$ADBYBY_ANTI_AD_FILE"; then
+			logger -t "adbyby" "anti_AD已关闭，但无法安全移除旧规则文件。"
+			return 1
+		fi
 		return 0
 	fi
 	adbyby_anti_ad_url=$(nvram get anti_ad_link 2>/dev/null) || adbyby_anti_ad_url=""
@@ -796,18 +816,80 @@ anti_ad()
 		logger -t "adbyby" "anti_AD下载成功，已安全发布规则。"
 	else
 		if adbyby_anti_ad_cache_is_usable "$ADBYBY_ANTI_AD_FILE"; then
-			adbyby_anti_ad_count=$(adbyby_validate_dnsmasq_fragment "$ADBYBY_ANTI_AD_FILE")
+			adbyby_anti_ad_count=$(adbyby_validate_dnsmasq_fragment "$ADBYBY_ANTI_AD_FILE") || return 1
 			logger -t "adbyby" "anti_AD更新失败，保留上一次有效规则。"
 		else
 			adbyby_anti_ad_count=0
-			if [ -f "$ADBYBY_ANTI_AD_FILE" ] && [ ! -L "$ADBYBY_ANTI_AD_FILE" ]; then
-				rm -f "$ADBYBY_ANTI_AD_FILE" || logger -t "adbyby" "无法移除无效的anti_AD规则文件。"
+			if ! adbyby_remove_anti_ad_fragment "$ADBYBY_ANTI_AD_FILE"; then
+				logger -t "adbyby" "无法移除不可信的anti_AD规则目标。"
 			fi
 			logger -t "adbyby" "anti_AD下载或格式校验失败，未启用无效规则。"
 		fi
 	fi
 	nvram set anti_ad_count="$adbyby_anti_ad_count"
 }
+
+adbyby_remove_anti_ad_fragment()
+{
+	adbyby_remove_file="$1"
+	[ -n "$adbyby_remove_file" ] || return 1
+	if [ -L "$adbyby_remove_file" ]; then
+		# unlink the link itself; never follow its referent.
+		rm -f "$adbyby_remove_file"
+		return $?
+	fi
+	[ -e "$adbyby_remove_file" ] || return 0
+	[ ! -d "$adbyby_remove_file" ] || return 1
+	rm -f "$adbyby_remove_file"
+}
+
+adbyby_cleanup_dnsmasq_ad_dir()
+{
+	adbyby_cleanup_dir="$1"
+	[ -n "$adbyby_cleanup_dir" ] || return 1
+	[ ! -L "$adbyby_cleanup_dir" ] || return 1
+	[ -d "$adbyby_cleanup_dir" ] || {
+		[ ! -e "$adbyby_cleanup_dir" ] && return 0
+		return 1
+	}
+
+	adbyby_cleanup_enabled=$(nvram get anti_ad 2>/dev/null) || adbyby_cleanup_enabled=0
+	adbyby_keep_anti_ad=0
+	if [ "$adbyby_cleanup_enabled" = "1" ] &&
+	   adbyby_anti_ad_cache_is_usable "$ADBYBY_ANTI_AD_FILE"; then
+		adbyby_cleanup_count=$(adbyby_validate_dnsmasq_fragment "$ADBYBY_ANTI_AD_FILE") || return 1
+		nvram set anti_ad_count="$adbyby_cleanup_count" || return 1
+		adbyby_keep_anti_ad=1
+	else
+		if ! adbyby_remove_anti_ad_fragment "$ADBYBY_ANTI_AD_FILE"; then
+			logger -t "adbyby" "无法安全移除不可用的anti_AD缓存。"
+			return 1
+		fi
+		nvram set anti_ad_count=0 || return 1
+	fi
+
+	for adbyby_cleanup_entry in "$adbyby_cleanup_dir"/*; do
+		[ -e "$adbyby_cleanup_entry" ] || [ -L "$adbyby_cleanup_entry" ] || continue
+		if [ "$adbyby_cleanup_entry" = "$ADBYBY_ANTI_AD_FILE" ] &&
+		   [ "$adbyby_keep_anti_ad" = "1" ]; then
+			continue
+		fi
+		rm -f "$adbyby_cleanup_entry" || return 1
+	done
+	# Remove abandoned private staging areas left by an unclean process exit.
+	for adbyby_cleanup_stage in "$adbyby_cleanup_dir"/.anti-ad.*; do
+		[ -e "$adbyby_cleanup_stage" ] || [ -L "$adbyby_cleanup_stage" ] || continue
+		if [ -L "$adbyby_cleanup_stage" ]; then
+			rm -f "$adbyby_cleanup_stage" || return 1
+		elif [ -d "$adbyby_cleanup_stage" ]; then
+			rm -rf "$adbyby_cleanup_stage" || return 1
+		else
+			rm -f "$adbyby_cleanup_stage" || return 1
+		fi
+	done
+	return 0
+}
+
 
 adbyby_remove_generated_hosts_config()
 {

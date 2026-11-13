@@ -63,6 +63,10 @@ anti_ad_cache = function_body(source, "adbyby_anti_ad_cache_is_usable")
 prepare_anti_ad = function_body(source, "adbyby_prepare_anti_ad")
 prepare_anti_ad_transaction = function_body(source, "adbyby_prepare_anti_ad_transaction")
 anti_ad = function_body(source, "anti_ad")
+anti_ad_remove = function_body(source, "adbyby_remove_anti_ad_fragment")
+anti_ad_cleanup = function_body(source, "adbyby_cleanup_dnsmasq_ad_dir")
+add_dns = function_body(source, "add_dns")
+del_dns = function_body(source, "del_dns")
 start = function_body(source, "adbyby_start")
 updater = function_body(source, "adbyby_uprules")
 refresh_match = re.search(r"(?ms)^adbyby_refresh_managed_rules\(\)[ \t]*\n\((.*?)^\)", source)
@@ -170,15 +174,31 @@ require("mktemp -d" in prepare_anti_ad_transaction and
         "anti-AD staging must share the target filesystem and publish by rename")
 require("[ ! -L" in prepare_anti_ad_transaction and "[ ! -L" in anti_ad_cache,
         "anti-AD must reject symlink and non-regular cache destinations")
-for marker in ("address=", "253", "16777216", "count < 1"):
+for marker in ("address=", "253", "63", "512", "16777216", "count < 1"):
     require(marker in anti_ad_validate, f"anti-AD validator omits {marker}")
 require("adbyby_anti_ad_cache_is_usable" in anti_ad and
         "anti_ad_count" in anti_ad and "保留上一次有效规则" in anti_ad,
         "anti-AD update failures must retain valid last-good data and count")
 require("curl -k" not in anti_ad and "adbyby_prepare_anti_ad" in anti_ad,
         "anti-AD must not use insecure direct downloads")
-for marker in ("http_redirect", "malformed", "empty", "missing CA bundle",
-               "destination symlink", "publication failure", "last-good count",
+require("adbyby_remove_anti_ad_fragment" in anti_ad and
+        "adbyby_remove_anti_ad_fragment" in anti_ad_remove and
+        "nvram set anti_ad_count=0" in anti_ad,
+        "disabling anti-AD must remove the live fragment and reset its count")
+require("adbyby_cleanup_dnsmasq_ad_dir" in del_dns and
+        "adbyby_anti_ad_cache_is_usable" in anti_ad_cleanup and
+        "ADBYBY_ANTI_AD_FILE" in anti_ad_cleanup and
+        "adbyby_keep_anti_ad" in anti_ad_cleanup,
+        "stop cleanup must retain only a verified enabled anti-AD last-good fragment")
+require("if ! anti_ad; then" in add_dns and
+        "继续处理其他dnsmasq规则" in add_dns and
+        "awk" in add_dns,
+        "optional anti-AD failures must not suppress unrelated Adbyby DNS rules")
+require("rm -f /etc/storage/dnsmasq-adbyby.d/*" not in del_dns,
+        "stop cleanup must not unconditionally delete the anti-AD last-good file")
+for marker in ("http_redirect", "malformed", "bad_label", "empty", "missing CA bundle",
+               "destination symlink", "disabled anti-AD fragment remained active",
+               "enabled last-good", "stop cleanup", "publication failure", "last-good count",
                "Adbyby anti-ad HTTPS fragment validation"):
     require(marker in anti_ad_test, f"anti-AD regression misses: {marker}")
 for marker in ("Query delimiters", "Invalid schemes and whitespace",

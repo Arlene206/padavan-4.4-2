@@ -17,6 +17,7 @@ printf 'test CA bundle\n' > "$ADBYBY_CA_BUNDLE"
 : > "$test_root/curl-errors"
 mock_mode=normal
 publish_failure=0
+anti_ad_enabled=1
 configured_url='https://rules.example/adblock-for-dnsmasq.conf?channel=stable&format=dnsmasq'
 nvram_count=
 nvram()
@@ -24,7 +25,7 @@ nvram()
     case "$1" in
         get)
             case "$2" in
-                anti_ad) printf '1\n' ;;
+                anti_ad) printf '%s\n' "$anti_ad_enabled" ;;
                 anti_ad_link) printf '%s\n' "$configured_url" ;;
                 *) return 1 ;;
             esac
@@ -87,6 +88,7 @@ curl()
     printf '%s\n' "$url" >> "$test_root/curl.log"
     case "$mock_mode" in
         malformed) printf 'conf-file=/etc/passwd\n' > "$output" ;;
+        bad_label) printf 'address=/%064d/\n' 0 > "$output" ;;
         empty) : > "$output" ;;
         oversize) dd if=/dev/zero of="$output" bs=1048576 count=16 2>/dev/null; printf x >> "$output" ;;
         *) valid_fragment > "$output" ;;
@@ -115,7 +117,7 @@ for invalid_url in 'http://rules.example/list.conf' 'https://rules.example/bad p
     [ "$(cat "$ADBYBY_ANTI_AD_FILE")" = "$before" ] || fail "invalid URL changed last-good"
 done
 
-for mode in tls_failure http_redirect http_failure malformed empty; do
+for mode in tls_failure http_redirect http_failure malformed bad_label empty; do
     configured_url='https://rules.example/adblock-for-dnsmasq.conf?channel=stable&format=dnsmasq'
     mock_mode="$mode"
     if adbyby_prepare_anti_ad "$configured_url" "$ADBYBY_ANTI_AD_FILE"; then fail "$mode response was accepted"; fi
@@ -165,6 +167,54 @@ anti_ad || fail "anti_ad wrapper unexpectedly failed"
 rm -f "$ADBYBY_ANTI_AD_FILE"
 if adbyby_prepare_anti_ad "$configured_url" "$ADBYBY_ANTI_AD_FILE"; then fail "invalid source without last-good cache was accepted"; fi
 [ ! -e "$ADBYBY_ANTI_AD_FILE" ] || fail "invalid first-time update left an active file"
+nvram_count=2
+anti_ad || fail "anti-AD wrapper failed without a last-good cache"
+[ "$nvram_count" = 0 ] || fail "anti-AD wrapper kept a nonzero count without a cache"
+
+# The NVRAM toggle must remove the included fragment when anti-AD is disabled.
+mock_mode=normal
+configured_url='https://rules.example/adblock-for-dnsmasq.conf?channel=stable&format=dnsmasq'
+anti_ad || fail "enabled anti-AD could not refresh before disable test"
+anti_ad_enabled=0
+anti_ad || fail "disabling anti-AD failed"
+[ ! -e "$ADBYBY_ANTI_AD_FILE" ] || fail "disabled anti-AD fragment remained active"
+[ "$nvram_count" = 0 ] || fail "disabled anti-AD count was not reset"
+anti_ad_enabled=1
+
+# The wrapper unlinks an unsafe destination symlink without touching its target.
+sentinel="$test_root/anti-ad-wrapper-symlink-target"
+printf 'sentinel\n' > "$sentinel"
+ln -s "$sentinel" "$ADBYBY_ANTI_AD_FILE"
+configured_url='http://rules.example/invalid.conf'
+: > "$test_root/curl.log"
+anti_ad || fail "anti-AD wrapper did not recover from an unsafe symlink"
+[ ! -L "$ADBYBY_ANTI_AD_FILE" ] || fail "anti-AD wrapper left a destination symlink in conf-dir"
+[ "$(cat "$sentinel")" = sentinel ] || fail "anti-AD wrapper followed or modified symlink target"
+[ -z "$(cat "$test_root/curl.log")" ] || fail "unsafe anti-AD symlink reached curl"
+[ "$nvram_count" = 0 ] || fail "unsafe anti-AD symlink retained a nonzero count"
+
+# Unexpected directories are not recursively removed or followed.
+mkdir "$ADBYBY_ANTI_AD_FILE"
+anti_ad || fail "anti-AD wrapper failed on a non-regular target"
+[ -d "$ADBYBY_ANTI_AD_FILE" ] || fail "anti-AD wrapper removed an unexpected directory"
+[ "$nvram_count" = 0 ] || fail "non-regular anti-AD target retained a count"
+rmdir "$ADBYBY_ANTI_AD_FILE"
+
+# Stop cleanup must keep a valid enabled last-good fragment but remove other
+# generated snippets; disabling the feature removes the cached anti-AD file too.
+configured_url='https://rules.example/adblock-for-dnsmasq.conf?channel=stable&format=dnsmasq'
+anti_ad || fail "anti-AD could not seed cleanup test cache"
+cleanup_dir=$(dirname "$ADBYBY_ANTI_AD_FILE")
+printf 'generated rule\n' > "$cleanup_dir/06-dnsmasq.black"
+adbyby_cleanup_dnsmasq_ad_dir "$cleanup_dir" || fail "enabled DNS cleanup failed"
+[ -f "$ADBYBY_ANTI_AD_FILE" ] || fail "enabled last-good anti-AD was removed by stop cleanup"
+[ ! -e "$cleanup_dir/06-dnsmasq.black" ] || fail "generated DNS fragment survived stop cleanup"
+anti_ad_enabled=0
+printf 'generated rule\n' > "$cleanup_dir/06-dnsmasq.black"
+adbyby_cleanup_dnsmasq_ad_dir "$cleanup_dir" || fail "disabled DNS cleanup failed"
+[ ! -e "$ADBYBY_ANTI_AD_FILE" ] || fail "disabled anti-AD cache survived stop cleanup"
+[ ! -e "$cleanup_dir/06-dnsmasq.black" ] || fail "generated DNS fragment survived disabled cleanup"
+[ "$nvram_count" = 0 ] || fail "disabled DNS cleanup left a nonzero anti-AD count"
 
 [ ! -s "$test_root/curl-errors" ] || fail "$(cat "$test_root/curl-errors")"
 echo "Adbyby anti-ad HTTPS fragment validation, private staging, atomic publication and last-good fallback: PASS"
