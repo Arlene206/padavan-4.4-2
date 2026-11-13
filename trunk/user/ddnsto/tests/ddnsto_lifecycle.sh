@@ -283,4 +283,10 @@ run_action graceful restart || fail "disabled restart failed to stop existing da
 [ ! -s "$TEST_OPS" ] || fail "disabled restart launched a replacement"
 [ "$(cat "$TEST_STATE")" = stopped ] || fail "disabled restart left the daemon running"
 
+: > "$TEST_OPS"
+echo stopped > "$TEST_STATE"
+run_action normal start || fail "disabled direct start failed"
+[ ! -s "$TEST_OPS" ] || fail "disabled direct start launched DDNSTO"
+[ "$(cat "$TEST_STATE")" = stopped ] || fail "disabled direct start changed process state"
+
 echo "DDNSTO restart is one serialized stop/start action and honors the disabled state: PASS"
