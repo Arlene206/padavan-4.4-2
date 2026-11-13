@@ -1,3 +1,24 @@
+## Live recovery checkpoint — 2026-11-14 06:42 CST (UTC+8)
+
+> Exact handoff refresh after the 06:39 documentation commit. Product source remains unchanged; the process-inventory tri-state fix is still blocked on exhaustive caller inventory and host-test execution.
+
+- Live main baseline: 2804237172be23569cfcef68b049d78be44af0d6; parent ebe8fc50584a51e0ce625f686f2d6e4bcd34529e. The baseline commit changes REFACTOR_ROADMAP.md and dev_log.md; the intended SESSION_HANDOFF replacement in that commit was byte-identical and did not alter the handoff. This checkpoint corrects the live handoff explicitly. Product sources remain identical to L3-verified SHA 691e4d68a27580d0f053a8b4c9ae7a71bff03e6f.
+- Remote branches: main only. PR #1 CLOSED / UNMERGED; toolchain tag 7f7d3ea41ebdd7eeab8a303f3d4ad8dddb54a8a7.
+- Exact-main Actions for baseline 2804237172be23569cfcef68b049d78be44af0d6: five push runs observed IN_PROGRESS at 06:40 CST — AI docs 43521188485, AliDDNS 43521188466, AliyunDrive 43521188537, AdGuardHome 43521188664, NVRAM 43521188486. No infosvr run was present at inspection. All five have exact head_sha; their final conclusions must be checked on the next recovery. Do not infer success from in-progress status.
+- Active unfinished task remains shared process-inventory fail-open. Source blobs unchanged: pids.c f5092806d6f1a76021643b0af54eb24705cbd8fe; shutils.h 6ccb679cf049374839a0c5de6a543955614dc275; common_ex.c de5cc703ce1b9e2eb0897dc52ed7e1c5ec15eb97; services_ex.c 8134ee60a84d626785956a073c1c1bde3422d84d; service_lifecycle_policy.h abe9f77b5354d8a33bce66c2575d1b1d09a2d4e2.
+- Scan-context OOM, /proc open failure, readdir errors and PID-list allocation/growth failures still collapse into NULL/zero or partial inventory; lifecycle stop sends TERM before reliable inventory and lacks UNKNOWN semantics. Whole-tree caller inventory is NOT COMPLETE. Fresh shallow filtered clone failed before checkout because github.com DNS resolution is unavailable; repository code search is not exhaustive.
+- No product source/test edits or local working changes. L1 partial source review; L2 host regression NOT RUN. L3 XY-C1 MIPSel/TRX remains verified only for product source SHA 691e4d68a27580d0f053a8b4c9ae7a71bff03e6f (run 43489646254 / job 132107102854). L4 router flash/boot NOT VERIFIED.
+- Root dev_log has 43 complete records before this checkpoint; this entry makes 44/119. Archive inventory dev-log=8 / handoff=22 / roadmap=18; no rotation or INDEX update.
+
+## Exact first action for the next GPT
+
+1. Fetch live main and inspect exact-head push Actions for the resulting handoff-refresh commit; also resolve the five 2804237 runs above and note that no infosvr run was present at the prior inspection.
+2. Obtain a complete checkout at the live main SHA or an exhaustive source-index mechanism; do not use incomplete code search or truncated recursive trees as caller-inventory proof.
+3. Enumerate every pids(), pids_main(), find_pid_by_name(), procps_scan() caller and every lifecycle stop/readiness consumer before changing any API.
+4. Implement RUNNING / ABSENT / UNKNOWN inventory semantics with readdir errno and allocation failure propagation; UNKNOWN must abort before TERM/KILL, stop-success, restart, or destructive cleanup.
+5. Add injectable GNU89/-Werror host regressions; migrate confirmed consumers only after caller classification. Then finish DNSMasq lifecycle audit and rotate to other user-space modules.
+
+---
 ## Live recovery checkpoint — 2026-11-14 06:22 CST (UTC+8)
 
 > Reconciled against live GitHub main and exact-head push Actions. This is a documentation-only recovery checkpoint; no product source was changed because the required complete caller inventory and executable host regression remain unavailable.
