@@ -1458,3 +1458,11 @@
 
 ---
 
+### 2026-11-13 — WAN/LAN VLAN 与软件桥错误传播
+
+- Code checkpoint: `12d100d1d0d0972e708644064f8541ec25418c79` — fix(wan): propagate VLAN and bridge setup failures.
+- 将 `create_vlan_iface`、`remove_vlan_iface` 及 bridge sysfs 参数写入改为返回状态；新建 VLAN 后续配置失败时仅回滚本次新建接口，并保留原始错误状态。
+- 将 LAN/WAN/IPTV 软桥及附加 LAN bridge 的 VLAN 创建、bridge 参数、端口加入、隔离和接口启用错误向调用者传播；主 WAN 配置失败不再继续报告成功，IPTV 接口名在配置成功后才发布。
+- 加入 `scripts/check_wan_vlan_setup.py` 并挂入 WAN host workflow，覆盖声明、状态传递和关键调用顺序。
+- CI: WAN route operation status regression: completed/failure (43411514756). 完整固件编译和实机验证未执行。
+- 接续方向：审查 bridge 创建后部分失败的清理策略；随后治理 DHCPv6 callback 生命周期。

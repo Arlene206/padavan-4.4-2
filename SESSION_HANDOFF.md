@@ -1,5 +1,14 @@
 ## Current repository state
 
+## 最近接力状态（2026-11-13）
+
+- 精确代码检查点：`12d100d1d0d0972e708644064f8541ec25418c79`（`fix(wan): propagate VLAN and bridge setup failures`）。接续时仍须先重新读取 `refs/heads/main`，不能假设该 SHA 仍是当前 HEAD。
+- 本轮稳定性治理已扩展到 WAN/LAN VLAN 与软件桥：`create_vlan_iface` / `remove_vlan_iface` 返回失败状态；bridge sysfs helper 暴露写入状态；WAN、IPTV 和 LAN bridge 创建、端口加入、隔离与接口启用逐段检查，并在关键步骤失败时中止配置。
+- WAN VLAN/bridge host workflow state at checkpoint: WAN route operation status regression: completed/failure (43411514756). Do not treat firmware compilation or device validation as complete.
+- 本轮没有执行完整固件交叉编译，也没有实机网络拓扑测试；不能据此宣称运行时 VLAN/桥接组合全部验证完成。
+- 下一轮：先确认上述 workflow 在当前 main SHA 上为成功，再审查失败回滚边界（bridge 已创建后后续端口加入失败的清理策略），并扩展到 `net_wan6.c` 的 DHCPv6 callback 生命周期/进程清理；不重复已完成的 FRP 事务回归。
+
+
 - Repository: `Arlene206/padavan-4.4-2`. FRP source/test checkpoint is `7787210e670b74184d0326f1e8e68efa9063c65c`; the live handoff/roadmap/log were refreshed on docs checkpoint `252f328f48b8e4ee6bf8b9bfdc18ab8bd574311f`. Remote branch inventory remains `main` only; legacy PR #1 is CLOSED/unmerged; GPT Session Rotator and firmware artifacts remain untouched.
 - FRP lifecycle serialization is L2 host/Actions verified on exact code SHA `7787210e670b74184d0326f1e8e68efa9063c65c`: FRP [43399797821] / job [131799522268] and AI handoff [43399798215] / job [131799523616] both SUCCESS. The follow-up documentation checkpoint `252f328f48b8e4ee6bf8b9bfdc18ab8bd574311f` also passed all five triggered push workflows with exact checkout SHA and every step/full log inspected: AI docs [43400944647] / job [131803346333], AliyunDrive [43400944593] / job [131803346122], AliDDNS [43400944683] / job [131803346094], AdGuardHome [43400944684] / job [131803346971], infosvr [43400945908] / job [131803349718]. AI docs reports root log 108/119 and archive inventory 7/22/18.
 - The bounded FRP implementation serializes start, stop, restart and watchdog check through a stable `/tmp/.frp.lifecycle.lock` inode, validates owner/type/mode/link count, bounds flock contention, refreshes NVRAM inside the lock, closes FD 9 before the persistent custom config script, and uses one RC `restart` action. Host regressions cover stable inode, unsafe lock paths, contention, status propagation, inherited FD-9 rejection and lock release. This does not yet close all FRP lifecycle risks below.
