@@ -40,7 +40,7 @@ cat > "$tmp/bin/start-stop-daemon" <<'STUB'
 printf '%s\n' "$*" >> "$FAKE_LAUNCH_LOG"
 ( : >&9 ) 2>/dev/null && exit 97
 [ "${FAKE_START_FAIL:-0}" = 0 ] || exit 23
-[ "${FAKE_START_NO_PID:-0}" = 1 ] || : > "$FAKE_RUNNING_FILE"
+[ "${FAKE_START_NO_PID:-0}" = 1 ] || printf '%s\n' 123 > "$FAKE_RUNNING_FILE"
 exit 0
 STUB
 cat > "$tmp/bin/sleep" <<'STUB'
@@ -92,7 +92,7 @@ run_status 0 stop
 run_status 0 stop
 
 # A failed signal must abort restart rather than launching a second daemon.
-: > "$FAKE_RUNNING_FILE"
+printf '%s\n' 123 > "$FAKE_RUNNING_FILE"
 FAKE_KILL_FAIL=1
 export FAKE_KILL_FAIL
 run_status 1 restart
@@ -114,7 +114,7 @@ run_status 0 restart
 [ "$(launch_count)" = 2 ]
 
 # Disabled restart stops the old process but does not start a new one.
-: > "$FAKE_RUNNING_FILE"
+printf '%s\n' 123 > "$FAKE_RUNNING_FILE"
 FAKE_ENABLED=0
 export FAKE_ENABLED
 run_status 0 restart

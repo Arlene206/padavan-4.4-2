@@ -140,10 +140,13 @@ func_start() {
     return 0
   fi
 
-  if ! start-stop-daemon -S -b -x /usr/bin/dns-forwarder -- \
+  if start-stop-daemon -S -b -x /usr/bin/dns-forwarder -- \
       -b "$bind_address" -p "$bind_port" -s "$server" 9>&-; then
-    logger -t "DNS Forwarder" "daemon launcher failed"
-    return 1
+    :
+  else
+    launch_status=$?
+    logger -t "DNS Forwarder" "daemon launcher failed (status=$launch_status)"
+    return "$launch_status"
   fi
 
   attempt=0

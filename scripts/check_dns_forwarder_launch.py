@@ -66,6 +66,7 @@ shutils = read("trunk/user/shared/src/shutils.c")
 shutils_header = read("trunk/user/shared/src/shutils.h")
 package_makefile = read("trunk/user/dns-forwarder/Makefile")
 launcher_script = read("trunk/user/dns-forwarder/dns-forwarder.sh")
+lifecycle_test = read("trunk/user/dns-forwarder/tests/dns_forwarder_lifecycle.sh")
 workflow = read(".github/workflows/dns-forwarder-launch-path.yml")
 busybox_config = read("trunk/configs/boards/busybox.config")
 assert "CONFIG_FLOCK=y" in busybox_config
@@ -105,6 +106,8 @@ assert "launcher returned success but no daemon appeared" in launcher_script
 assert "restart aborted because stop did not complete" in launcher_script
 assert "nvram get dns_forwarder_enable" in launcher_script
 assert "bind_address=$(nvram get" not in launcher_script[:launcher_script.index("func_start()")]
+assert '[ -s "$FAKE_RUNNING_FILE" ]' in lifecycle_test
+assert lifecycle_test.count('printf \'%s\\n\' 123 > "$FAKE_RUNNING_FILE"') >= 3
 
 # eval() delegates argv[0] to execvp(). A pathname containing a slash is
 # resolved from CWD; PATH search is not performed for this relative pathname.
