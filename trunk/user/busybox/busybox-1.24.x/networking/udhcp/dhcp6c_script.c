@@ -129,17 +129,19 @@ char **fill_envp_client6(struct dhcp6_optinfo *optinfo, const char *ifname)
 int dhcp6_script(const char *scriptpath, char **envp)
 {
 	char *argv[2];
+	int status, saved_errno;
 
 	/* if a script is not specified, do nothing */
-	if (!scriptpath[0])
+	if (!scriptpath || !scriptpath[0])
 		return -2;
 
-	/* launch the script */
+	/* launch the script and retain its exit/signal status */
 	argv[0] = (char *)scriptpath;
 	argv[1] = NULL;
-	spawn_and_wait(argv);
+	status = spawn_and_wait(argv);
+	saved_errno = errno;
 
-	/* free env */
+	/* free env even when spawn or the script fails */
 	if (envp != NULL) {
 		char **curr;
 
@@ -148,5 +150,7 @@ int dhcp6_script(const char *scriptpath, char **envp)
 		}
 		free(envp);
 	}
-	return 0;
+	if (status < 0)
+		errno = saved_errno;
+	return status;
 }
