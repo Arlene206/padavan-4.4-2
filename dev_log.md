@@ -1,3 +1,18 @@
+## 2026-11-13 14:24 CST (UTC+8) — Close Adbyby configured hosts-source download hardening
+
+- Recovered the live main and handoff after the configured /etc/storage/adbyby_host.sh task had already landed. Current validated source/test SHA is 1994f29e9e8180131011fb811bd9f6402e52523f; production implementation is 76f514cb5111c6787c4a6eda325619062845bace, and the tip commit corrects only the regression fixture's custom dnsmasq path.
+- Inspected the failed first exact-source Adbyby run [43377852791] / job [131728447338]: shell syntax and prior tests passed, while the no-cache cleanup assertion used hard-coded /tmp/adbyby/hosts although the helper correctly received the temporary $PROG_PATH/hosts. The fixture correction in 1994f29e9e8180131011fb811bd9f6402e52523f fixes the assertion without changing production behavior.
+- On exact main SHA 1994f29e9e8180131011fb811bd9f6402e52523f, all five triggered workflows completed SUCCESS: Adbyby [43378151993] / job [131729407848], AI handoff docs [43378151976] / job [131729407933], AliyunDrive [43378151941] / job [131729407811], AdGuardHome [43378151961] / job [131729407913], and AliDDNS [43378151950] / job [131729407894]. Every job fetched/checked out this exact SHA, every job step succeeded, and the full logs were inspected. Adbyby shell syntax, all seven regression scripts, configured host-source HTTPS/format/aggregate/cache/atomic-publication test, and producer-chain/source/workflow checker all PASS. AI docs reports 101/119 root records and archive inventory 7/22/18 at this source/test checkpoint.
+- L2 configured hosts-source download is CLOSED. The implementation removes the insecure curl -k, URL word-splitting and shared /tmp/host.txt path; uses quoted bounded firmware-CA HTTPS for every configured source; validates hosts IPv4/IPv6 mappings, DNS labels, record size and aggregate size; stages privately on the target filesystem; atomically publishes the deduplicated complete file; and preserves validated last-good data or fails closed.
+- Changed documents in this follow-up: SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and dev_log.md. The next bounded task is the FRP full RC/UI/cron/shared-script audit. FTP failed-upload cleanup remains OPEN/BLOCKED on Linux 4.4 final-name TOCTOU; NFS requires real-client evidence; current-main L3 MIPS/uClibc firmware/TRX and L4 router remain NOT VERIFIED.
+- The execution environment still has no usable full local repository checkout (GitHub DNS resolution failed); no local shell/Python test is claimed. Network requests were mocked in regression tests; no real external download, full firmware/TRX build or router test was run.
+- Root dev-log count: 101 before this record and 102 afterward; still below 120-entry / 384 KiB early-rotation / 512 KiB hard limits. Archive/index inventory remains dev-log=7, handoff=22, roadmap=18; no rotation or index edit is due.
+- Exact-head AI docs validation for this handoff/roadmap/log update is the next required action; require the resulting documentation SHA and 102/119 root records.
+- Resulting main commit: THIS COMMIT.
+
+---
+
+
 ## 2026-11-13 14:21:06 CST (UTC+8) — Correct Adbyby host-list test fixture path
 
 - Follow-up to implementation commit `76f514cb5111c6787c4a6eda325619062845bace`. The exact-head Adbyby workflow run [43377852791] / job [131728447338] executed shell syntax and all prior regressions successfully, then the new test failed at the no-cache cleanup assertion.
