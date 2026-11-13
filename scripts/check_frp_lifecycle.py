@@ -59,7 +59,7 @@ require("frp_manage_watchdog_cron remove" in close,
 cron_test = (ROOT / "trunk/user/frp/tests/frp_crontab.sh").read_text()
 for marker in ("frp_start", "frp_close", "operator", "path-traversal",
                "symlink crontab", "atomic rename failure", "mode 0600",
-               "failed start script", "overlong username", "removing a missing watchdog"):
+               "failed start script", "overlong username", "Removing a missing watchdog"):
     require(marker in cron_test, f"FRP managed crontab regression omits {marker}")
 
 network = function_body(source, "check_net()")
