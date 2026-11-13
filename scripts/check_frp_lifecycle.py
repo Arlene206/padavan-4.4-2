@@ -85,10 +85,13 @@ require("frp_manage_watchdog_cron remove" in close,
         "disabling both services must remove the exact managed watchdog")
 services = (ROOT / "trunk/user/rc/src/services.c").read_text()
 restart_services = function_body(services, "void restart_frp(void)")
-require(restart_services.index("stop_frp();") < restart_services.index("start_frp();"),
-        "RC restart must stop before starting the FRP launcher")
-require('eval("/usr/bin/frp.sh","stop");' in services and
-        'eval("/usr/bin/frp.sh","start");' in services,
+require(restart_services.index('eval("/usr/bin/frp.sh","stop")') <
+        restart_services.index("if (stop_status != 0)") <
+        restart_services.index('eval("/usr/bin/frp.sh","start")') and
+        "refusing FRP restart" in restart_services and "return;" in restart_services,
+        "RC restart must stop before starting and fail closed when stop fails")
+require('eval("/usr/bin/frp.sh","stop")' in services and
+        'eval("/usr/bin/frp.sh","start")' in services,
         "RC stop/start must use the installed FRP launcher")
 rc = (ROOT / "trunk/user/rc/src/rc.c").read_text()
 require('strcmp(entry->d_name, RCN_RESTART_FRP) == 0' in rc and
