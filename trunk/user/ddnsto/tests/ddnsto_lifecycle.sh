@@ -274,7 +274,11 @@ echo "DDNSTO start/stop operations serialize and detached daemons do not retain 
 : > "$TEST_OPS"
 echo running > "$TEST_STATE"
 run_action graceful restart || fail "serialized restart failed"
-[ "$(grep -Fxc START "$TEST_OPS")" -eq 1 ] || fail "restart did not launch exactly one replacement"
+restart_starts=$(grep -Fxc START "$TEST_OPS" || :)
+if [ "$restart_starts" -ne 1 ]; then
+	echo "restart diagnostics: enabled=$TEST_ENABLE state=$(cat "$TEST_STATE") nvram=$(cat "$TEST_NVRAM_LOG") ops=$(cat "$TEST_OPS")" >&2
+	fail "restart did not launch exactly one replacement"
+fi
 [ "$(cat "$TEST_STATE")" = running ] || fail "restart replacement was not launched"
 TEST_ENABLE=0
 export TEST_ENABLE
