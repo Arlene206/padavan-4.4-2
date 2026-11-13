@@ -326,7 +326,16 @@ jobs:
           assert 'ret = restart_dhcpd();' in rc
           assert "return ret;" in rc
 
+          lan_restart = function_body(net_lan, "full_restart_lan(void)")
+          assert "dnsmasq_status = stop_dns_dhcpd_locked();" in lan_restart
+          assert "dnsmasq_status = dnsmasq_start_status;" in lan_restart
+          assert "return dnsmasq_status;" in lan_restart
+          assert "if (dnsmasq_status == 0)" in lan_restart
+          assert "if (dnsmasq_status == 0)" in lan_restart[
+              lan_restart.index("dnsmasq_lifecycle_lock_release"): ]
+          assert "int full_restart_lan(void);" in rc_header
           notification = function_body(rc, "handle_notifications(void)")
+          assert "rc_notify_merge_action_result(action_result, full_restart_lan())" in notification
           assert notification.count("rc_notify_merge_action_result(action_result, restart_dhcpd())") == 4
           assert notification.count("rc_notify_merge_action_result(action_result, restart_nmbd())") == 2
           assert "restart_dhcpd();" not in notification

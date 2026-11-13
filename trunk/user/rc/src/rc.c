@@ -1041,7 +1041,7 @@ handle_notifications(void)
 		}
 		else if (!strcmp(entry->d_name, RCN_RESTART_LAN))
 		{
-			full_restart_lan();
+			action_result = rc_notify_merge_action_result(action_result, full_restart_lan());
 		}
 		else if (!strcmp(entry->d_name, "stop_whole_wan"))
 		{

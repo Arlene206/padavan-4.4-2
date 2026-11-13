@@ -694,13 +694,13 @@ stop_lan(int is_ap_mode)
 	ifconfig(IFNAME_BR, 0, NULL, NULL);
 }
 
-void 
+int
 full_restart_lan(void)
 {
 	int is_wan_err = 0, is_lan_stp = 0;
 	int is_ap_mode, log_remote;
 	int dnsmasq_lock, dnsmasq_lock_errno;
-	int dnsmasq_stop_status, dnsmasq_start_status;
+	int dnsmasq_status, dnsmasq_start_status;
 
 	/* Serialize LAN teardown/reconfiguration with independent DNSMasq RC applets. */
 	dnsmasq_lock = dnsmasq_lifecycle_lock_acquire();
@@ -708,7 +708,7 @@ full_restart_lan(void)
 		dnsmasq_lock_errno = errno ? errno : EIO;
 		logmessage(LOGNAME, "cannot acquire DNSMasq lifecycle lock; refusing LAN restart (errno=%d)",
 			   dnsmasq_lock_errno);
-		return;
+		return dnsmasq_lock_errno;
 	}
 	is_ap_mode = get_ap_mode();
 	log_remote = nvram_invmatch("log_ipaddr", "");
@@ -726,7 +726,8 @@ full_restart_lan(void)
 	stop_networkmap();
 	stop_upnp();
 	stop_vpn_server();
-	dnsmasq_stop_status = stop_dns_dhcpd_locked();
+	/* Preserve DNSMasq lifecycle errors for PID 1 notification accounting. */
+	dnsmasq_status = stop_dns_dhcpd_locked();
 	stop_lan(is_ap_mode);
 
 	reset_lan_vars();
@@ -753,20 +754,23 @@ full_restart_lan(void)
 #endif
 
 	/* Never start a second DNSMasq while the previous process survived stop. */
-	if (dnsmasq_stop_status == 0) {
+	if (dnsmasq_status == 0) {
 		dnsmasq_start_status = start_dns_dhcpd_locked(is_ap_mode);
+		dnsmasq_status = dnsmasq_start_status;
 		if (dnsmasq_start_status != 0)
 			logmessage(LOGNAME, "DNSMasq restart after LAN reconfiguration failed (status=%d)",
 				   dnsmasq_start_status);
 	} else {
 		logmessage(LOGNAME, "DNSMasq restart skipped because the previous process did not stop (status=%d)",
-			   dnsmasq_stop_status);
+			   dnsmasq_status);
 	}
 	/* Release before later WAN/VPN work can request a DNS cache reload. */
 	if (dnsmasq_lifecycle_lock_release(dnsmasq_lock) != 0) {
 		dnsmasq_lock_errno = errno ? errno : EIO;
 		logmessage(LOGNAME, "cannot release DNSMasq lifecycle lock after LAN restart (errno=%d)",
 			   dnsmasq_lock_errno);
+		if (dnsmasq_status == 0)
+			dnsmasq_status = dnsmasq_lock_errno;
 	}
 	if (!is_ap_mode) {
 		if (is_lan_stp) {
@@ -805,6 +809,9 @@ full_restart_lan(void)
 	/* force httpd logout */
 	system("/usr/bin/iappd.sh restart");
 	doSystem("killall %s %s", "-SIGUSR1", "httpd");
+
+	/* This return value reports the DNSMasq lifecycle portion of the LAN restart. */
+	return dnsmasq_status;
 }
 
 void
