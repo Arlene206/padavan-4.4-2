@@ -1,3 +1,15 @@
+## 2026-11-14 06:22 CST (UTC+8) — Reconcile current main and exact-head Actions; retain process-inventory blocker
+
+- Base main SHA: `e2a227897feb3a558bde056884595bfd0a33ae3a` (parent `068e9896b5d0cff52a560bd4abe75287563f9155`). The branch inventory contains only `main`; legacy PR #1 remains CLOSED / UNMERGED. Compare confirms this recovery is docs-only; product source remains the L3-verified tree `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`.
+- Exact-head `push` Actions for the base SHA completed 6/6 SUCCESS with exact `head_sha`: AI handoff docs [43515146895], infosvr [43515147060], AdGuardHome [43515147012], AliDDNS [43515146982], AliyunDrive [43515146872], and NVRAM [43515147016]. The combined commit-status endpoint returned no status objects.
+- Re-read process scanner, lifecycle policy and known DNSMasq/service consumers. Confirmed NULL/error collapse for scan-context OOM, `/proc` open, `readdir` errors and PID-list allocation; stop policy signals before authoritative inventory and lacks UNKNOWN semantics.
+- Whole-tree caller inventory remains incomplete. GitHub code search returned zero results for six exact API/caller queries, and a shallow clone attempt failed at DNS resolution before checkout. No production or regression changes were made; L1 partial, L2 NOT RUN.
+- Updated only `SESSION_HANDOFF.md` and this log. Root log advances 41→42/119; archive inventory remains dev-log=8 / handoff=22 / roadmap=18. No rotation, INDEX, roadmap or snapshot archive change.
+- Existing product-source L3 XY-C1 MIPSel/TRX evidence remains on `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f` (run `43489646254` / job `132107102854`); L4 router flash/boot remains NOT VERIFIED.
+- Resulting commit: THIS COMMIT. Exact-head Actions for this documentation checkpoint must be verified on the next recovery; no local test, firmware build or hardware test is claimed.
+
+---
+
 ## 2026-11-14 05:55 CST (UTC+8) — Reconcile live main and exact-head Actions; preserve process-inventory blocker
 
 - Base main SHA: `068e9896b5d0cff52a560bd4abe75287563f9155` (parent `unknown`). Current branch inventory contains only `main`; legacy PR #1 remains CLOSED / UNMERGED. The current source tree remains unchanged from the L3-verified product-source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`.
