@@ -40,7 +40,7 @@
 #include "dhcp_lease_policy.h"
 #include "dhcp_wan_interface_policy.h"
 #include "wan_viptv_static_policy.h"
-#include "../../shared/src/bridge_membership_policy.h"
+#include "bridge_membership_policy.h"
 #include "switch.h"
 #include "switch_status_policy.h"
 #include <gpioutils.h>

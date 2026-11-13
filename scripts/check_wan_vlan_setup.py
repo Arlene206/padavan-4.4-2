@@ -111,7 +111,7 @@ require("bridge_rollback_can_remove_created_vlan" in bridge_policy and
         "bridge_rollback_can_restore_interface" in bridge_test,
         "LAN bridge rollback ownership gates require host regression coverage")
 soft_wan = body(wan, "config_soft_bridge_wan_internal(")
-require('#include "../../shared/src/bridge_membership_policy.h"' in wan and
+require('#include "bridge_membership_policy.h"' in wan and
         "config_soft_bridge_wan_internal(" in wan and
         "config_soft_bridge_wan(" in wan,
         "WAN bridge transaction policy must be available to the RC batch coordinator")
