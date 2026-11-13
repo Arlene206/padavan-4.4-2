@@ -1,3 +1,13 @@
+## 2026-11-13 15:22 PST (UTC-8) — Repair required handoff heading after exact-head CI failure
+
+- Re-fetched live `main` at `435913a1244da38ccb722f89df0eb2a5d2648b10`; branch inventory contains only `main`. Legacy PR #1 remains CLOSED / UNMERGED. Recursive Git tree enumeration returned 64,005 entries with `truncated=true`, so it cannot satisfy the exhaustive caller-inventory prerequisite for the active P1 process-inventory API migration.
+- Exact-head `push` runs on `435913a1244da38ccb722f89df0eb2a5d2648b10`: NVRAM `43525514810`, AdGuardHome `43525514772`, AliyunDrive `43525514717`, and AliDDNS `43525514693` SUCCESS; AI handoff docs `43525514688` FAILED because the live handoff omitted required heading `## Current repository state`. The preceding infosvr run `43525494041` on `c430f079d867d95dcb5c18193bc6ba5829948370` compiled and ran all three GNU89/ASan/UBSan regression binaries successfully, then failed its source checker on that same missing heading. No infosvr run exists for the inspected SHA.
+- Restored the required heading in `SESSION_HANDOFF.md` directly on `main` as commit `07caeb90a6ab5707cb8c19e978e09eddd1aad857`. This is a documentation-contract correction only; it does not validate or change product source. Exact-head Actions for this commit are pending inspection.
+- Active P1 shared process-inventory defect remains OPEN / NOT FIXED. No product source or regression test changed. Complete checkout and exhaustive caller inventory remain unavailable; do not perform an unsafe partial tri-state API migration. Existing L3 evidence remains limited to source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`; L4 router flash/boot NOT VERIFIED.
+- Root log advances 50→51/119; no archive rotation or INDEX update is due. The whole-repository module dashboard and task priority did not change, so `REFACTOR_ROADMAP.md` remains untouched. Local documentation validator was not run in this runtime.
+
+---
+
 ## 2026-11-14 07:12 CST (UTC+8) — Refresh exact live process-inventory checkpoint
 
 - Recovered the repository using the root bootstrap and full development protocol before considering source changes. Live `main` at start: `a41c997f7252838fbc2d82f58b3be9271e2894a8`; the previous live handoff still named `f79bbc11161109abf8a094f8d0c9fd30bb8c1a0d`. Compare confirmed two commits ahead, zero behind, with only `SESSION_HANDOFF.md` and `dev_log.md` changed. Product source remains at the previously recorded L3 source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`.
