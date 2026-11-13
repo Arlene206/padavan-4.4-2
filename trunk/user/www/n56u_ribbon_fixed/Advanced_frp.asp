@@ -42,7 +42,10 @@ function initial(){
 
 fill_status(frpc_status());
 fill_status2(frps_status());
-	if (!login_safe())
+	/* FRP configuration includes tokens/passwords: HTTPS from an
+	 * untrusted network is not sufficient to reveal or replace this script.
+	 */
+	if (!login_private_key_access())
 		textarea_scripts_enabled(0);
 }
 
@@ -181,7 +184,7 @@ function done_validating(action){
 										</tr>
 										<tr id="row_post_wan_script">
 											<td colspan="2">
-												<i class="icon-hand-right"></i> <a href="javascript:spoiler_toggle('script2')"><span>frp脚本-请自行配置脚本里的相关参数</span></a>
+												<i class="icon-hand-right"></i> <a href="javascript:spoiler_toggle('script2')"><span>FRP脚本（含密钥，仅LAN/VPN可查看和修改；启用服务前请修改示例Token及Dashboard密码）</span></a>
 												<div id="script2">
 													<textarea rows="18" wrap="off" spellcheck="false" maxlength="314571" class="span12" name="scripts.frp_script.sh" style="font-family:'Courier New'; font-size:12px;"><% nvram_dump("scripts.frp_script.sh",""); %></textarea>
 												</div>

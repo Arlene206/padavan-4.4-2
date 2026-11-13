@@ -452,7 +452,7 @@ write_textarea_to_file(const char* value, const char* dir_name, const char* file
 	FILE *temp_fp;
 	const unsigned char *p;
 	char *extensions;
-	char temp_path[] = "/tmp/httpd-upload-XXXXXX";
+	char temp_path[192] = "/tmp/httpd-upload-XXXXXX";
 	char real_path[128];
 
 	if (!value || !dir_name || !*dir_name || !file_name || !*file_name ||
@@ -471,19 +471,42 @@ write_textarea_to_file(const char* value, const char* dir_name, const char* file
 		    strcmp(extensions, ".pem") == 0)
 			file_type = 2; // this is key/cert
 		else if (strcmp(extensions, ".sh") == 0)
-			file_type = HTTPD_FILE_TYPE_SCRIPT; // this is script
+			file_type = httpd_script_file_type(file_name); // executable script
 	} else {
 		if (strcmp(file_name, "authorized_keys") == 0)
 			file_type = 3; // this is ssh authorized_keys
 	}
 
-	/* Script files become executable root-managed programs. */
-	if (!httpd_script_file_write_allowed(file_type, get_login_safe()))
+	/* Root-managed scripts are writable only from trusted management
+	 * sessions. The FRP script uses the stricter LAN/VPN secret-file policy,
+	 * including when the HTTP session itself is protected by HTTPS.
+	 */
+	if (!httpd_script_file_write_allowed(file_type,
+		file_type == HTTPD_FILE_TYPE_PRIVATE_SCRIPT ?
+		get_login_private_key_access() : get_login_safe()))
 		return 0;
 
 	path_len = snprintf(real_path, sizeof(real_path), "%s/%s", dir_name, file_name);
 	if (path_len < 0 || path_len >= (int)sizeof(real_path))
 		return 0;
+
+	if (file_type == HTTPD_FILE_TYPE_PRIVATE_SCRIPT) {
+		struct stat target_stat;
+
+		/* Do not follow a pre-existing symlink or replace a non-regular file. */
+		if (lstat(real_path, &target_stat) == 0) {
+			if (!S_ISREG(target_stat.st_mode))
+				return 0;
+		} else if (errno != ENOENT) {
+			return 0;
+		}
+
+		/* Stage beside the destination so publication is an atomic rename. */
+		path_len = snprintf(temp_path, sizeof(temp_path),
+				    "%s/.frp_script.XXXXXX", dir_name);
+		if (path_len < 0 || path_len >= (int)sizeof(temp_path))
+			return 0;
+	}
 
 	if (file_type == 2) {
 		if (strlen(value) < 3) {
@@ -520,7 +543,19 @@ write_textarea_to_file(const char* value, const char* dir_name, const char* file
 	}
 
 	ret = 0;
-	if (compare_text_files(real_path, temp_path) != 0) {
+	if (file_type == HTTPD_FILE_TYPE_PRIVATE_SCRIPT) {
+		int content_changed = (compare_text_files(real_path, temp_path) != 0);
+
+		/* mkstemp created a private inode; retain mode 0700 and publish in one
+		 * same-filesystem rename. Re-publish unchanged content too, so legacy
+		 * 0755 copies are corrected without triggering an unnecessary restart.
+		 */
+		if (chmod(temp_path, httpd_script_file_mode(file_type)) == 0 &&
+		    rename(temp_path, real_path) == 0) {
+			ret = content_changed ? 1 : 0;
+			temp_path[0] = '\0';
+		}
+	} else if (compare_text_files(real_path, temp_path) != 0) {
 		if (write_file_dos2unix(value, real_path) == 0) {
 			if (file_type == 3) {
 				chmod(real_path, 0600);
@@ -530,15 +565,16 @@ write_textarea_to_file(const char* value, const char* dir_name, const char* file
 			}
 			else if (file_type == 2)
 				chmod(real_path, 0600);
-			else if (file_type == 1)
-				chmod(real_path, 0755);
+			else if (file_type == HTTPD_FILE_TYPE_SCRIPT)
+				chmod(real_path, httpd_script_file_mode(file_type));
 			else
 				chmod(real_path, 0644);
 			ret = 1;
 		}
 	}
 
-	unlink(temp_path);
+	if (temp_path[0] != '\0')
+		unlink(temp_path);
 
 	return ret;
 }
@@ -888,9 +924,17 @@ dump_file(webs_t wp, char *filename)
 	}
 
 	extensions = strrchr(filename, '.');
-	/* Private keys remain write-only to off-LAN peers, even over HTTPS. */
+	/* Private keys and FRP credentials remain write-only to off-LAN peers,
+	 * even over HTTPS. The FRP script is executable as root and contains tokens.
+	 */
 	if (!get_login_private_key_access() && extensions && strcmp(extensions, ".key") == 0) {
 		return websWrite(wp, "%s", "# !!!This is hidden write-only secret key file!!!\n");
+	}
+	if (strcmp(filename, STORAGE_SCRIPTS_DIR "/frp_script.sh") == 0 &&
+	    !httpd_script_file_read_allowed("frp_script.sh",
+					    get_login_private_key_access())) {
+		return websWrite(wp, "%s",
+				 "# FRP credentials are hidden outside the trusted LAN/VPN.\n");
 	}
 
 	return do_f(filename, wp);
@@ -3386,6 +3430,8 @@ static int login_state_hook(int eid, webs_t wp, int argc, char **argv) {
 	fill_login_ip(s_addr, sizeof(s_addr));
 
 	websWrite(wp, "function login_safe() { return %d; }\n", get_login_safe());
+	websWrite(wp, "function login_private_key_access() { return %d; }\n",
+		  get_login_private_key_access());
 	websWrite(wp, "function login_ip_str() { return ");
 	write_js_string(wp, s_addr);
 	websWrite(wp, "; }\n");

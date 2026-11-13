@@ -37,9 +37,22 @@ if [ ! -f "/etc/storage/ad_config_script.sh" ] ; then
 cp -rf /etc_ro/ad_config_script.sh /etc/storage/
 chmod 755 "/etc/storage/ad_config_script.sh"
 fi
-if [ ! -f "/etc/storage/frp_script.sh" ] ; then
-cp -rf /etc_ro/frp_script.sh /etc/storage/
-chmod 755 "/etc/storage/frp_script.sh"
+# The persistent FRP script contains tokens and dashboard credentials.
+# Keep it private on every boot, including operator-modified existing copies.
+frp_script_path="/etc/storage/frp_script.sh"
+if [ -L "$frp_script_path" ]; then
+	logger -t "启动脚本" "拒绝符号链接形式的 FRP 配置脚本：$frp_script_path"
+elif [ ! -e "$frp_script_path" ]; then
+	if cp -f /etc_ro/frp_script.sh "$frp_script_path"; then
+		chmod 700 "$frp_script_path" ||
+			logger -t "启动脚本" "FRP 配置脚本权限设置失败：$frp_script_path"
+	else
+		logger -t "启动脚本" "FRP 默认配置脚本复制失败：$frp_script_path"
+	fi
+elif [ ! -f "$frp_script_path" ]; then
+	logger -t "启动脚本" "FRP 配置脚本路径不是普通文件：$frp_script_path"
+elif ! chmod 700 "$frp_script_path"; then
+	logger -t "启动脚本" "FRP 配置脚本权限修复失败：$frp_script_path"
 fi
 if [ ! -f "/etc/storage/caddy_script.sh" ] ; then
 cp -rf /etc_ro/caddy_script.sh /etc/storage/

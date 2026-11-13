@@ -9,8 +9,34 @@
 #define HTTPD_SCRIPT_POLICY_H
 
 #define HTTPD_FILE_TYPE_SCRIPT 1
+#define HTTPD_FILE_TYPE_PRIVATE_SCRIPT 4
 
 #include <string.h>
+
+/* The FRP script contains daemon tokens and dashboard credentials. */
+static int
+httpd_script_file_type(const char *name)
+{
+	if (name && strcmp(name, "frp_script.sh") == 0)
+		return HTTPD_FILE_TYPE_PRIVATE_SCRIPT;
+
+	return HTTPD_FILE_TYPE_SCRIPT;
+}
+
+static int
+httpd_script_file_mode(int file_type)
+{
+	return (file_type == HTTPD_FILE_TYPE_PRIVATE_SCRIPT) ? 0700 : 0755;
+}
+
+static int
+httpd_script_file_read_allowed(const char *name, int trusted_network)
+{
+	if (name && strcmp(name, "frp_script.sh") == 0)
+		return trusted_network;
+
+	return 1;
+}
 
 /*
  * Fixed handlers are a deliberately small compatibility surface. They do
@@ -108,7 +134,8 @@ httpd_script_dispatch_allowed(const char *name, int trusted_session)
 static int
 httpd_script_file_write_allowed(int file_type, int trusted_session)
 {
-	return (file_type != HTTPD_FILE_TYPE_SCRIPT || trusted_session);
+	return ((file_type != HTTPD_FILE_TYPE_SCRIPT &&
+		 file_type != HTTPD_FILE_TYPE_PRIVATE_SCRIPT) || trusted_session);
 }
 
 #endif

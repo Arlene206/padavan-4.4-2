@@ -14,6 +14,9 @@ on:
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/httpd/src/variables.c"
+      - "trunk/user/httpd/src/web_ex.c"
+      - "trunk/user/httpd/src/httpd_script_policy.h"
+      - "trunk/user/httpd/src/tests/httpd_script_policy.c"
       - "trunk/user/www/n56u_ribbon_fixed/Advanced_frp.asp"
       - "scripts/check_frp_lifecycle.py"
   pull_request:
@@ -29,6 +32,9 @@ on:
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/httpd/src/variables.c"
+      - "trunk/user/httpd/src/web_ex.c"
+      - "trunk/user/httpd/src/httpd_script_policy.h"
+      - "trunk/user/httpd/src/tests/httpd_script_policy.c"
       - "trunk/user/www/n56u_ribbon_fixed/Advanced_frp.asp"
       - "scripts/check_frp_lifecycle.py"
 

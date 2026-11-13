@@ -43,6 +43,18 @@ main(void)
 
 	assert(!httpd_script_file_write_allowed(HTTPD_FILE_TYPE_SCRIPT, 0));
 	assert(httpd_script_file_write_allowed(HTTPD_FILE_TYPE_SCRIPT, 1));
+	assert(httpd_script_file_type("frp_script.sh") ==
+	       HTTPD_FILE_TYPE_PRIVATE_SCRIPT);
+	assert(httpd_script_file_type("custom.sh") == HTTPD_FILE_TYPE_SCRIPT);
+	assert(!httpd_script_file_write_allowed(
+		HTTPD_FILE_TYPE_PRIVATE_SCRIPT, 0));
+	assert(httpd_script_file_write_allowed(
+		HTTPD_FILE_TYPE_PRIVATE_SCRIPT, 1));
+	assert(httpd_script_file_mode(HTTPD_FILE_TYPE_PRIVATE_SCRIPT) == 0700);
+	assert(httpd_script_file_mode(HTTPD_FILE_TYPE_SCRIPT) == 0755);
+	assert(!httpd_script_file_read_allowed("frp_script.sh", 0));
+	assert(httpd_script_file_read_allowed("frp_script.sh", 1));
+	assert(httpd_script_file_read_allowed("custom.sh", 0));
 
 	/* The complete fixed dispatch surface remains explicit. Side-effecting
 	 * handlers require a trusted session; no-op/read handlers remain

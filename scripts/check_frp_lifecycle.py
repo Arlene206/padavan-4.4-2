@@ -26,6 +26,11 @@ def require(condition: bool, message: str) -> None:
 
 source = (ROOT / "trunk/user/frp/frp.sh").read_text()
 test = (ROOT / "trunk/user/frp/tests/frp_lifecycle.sh").read_text()
+web_ex = (ROOT / "trunk/user/httpd/src/web_ex.c").read_text()
+script_policy = (ROOT / "trunk/user/httpd/src/httpd_script_policy.h").read_text()
+script_policy_test = (ROOT / "trunk/user/httpd/src/tests/httpd_script_policy.c").read_text()
+copy_scripts = (ROOT / "trunk/user/scripts/files/usr/bin/copyscripts.sh").read_text()
+frp_ui = (ROOT / "trunk/user/www/n56u_ribbon_fixed/Advanced_frp.asp").read_text()
 workflow = (ROOT / ".github/workflows/frp-lifecycle.yml").read_text()
 
 check = function_body(source, "check_frp ()")
@@ -155,4 +160,42 @@ for path in paths:
     require(push_filters.count(token) == 1 and pull_filters.count(token) == 1,
             f"{path} must appear exactly once in push and pull_request path filters")
 
-print("FRP asynchronous restart dispatch and workflow contracts: PASS")
+# FRP private configuration must not be exposed as a world-readable script.
+require("# The persistent FRP script contains tokens and dashboard credentials." in copy_scripts and
+        'chmod 700 "$frp_script_path"' in copy_scripts and
+        '[ -L "$frp_script_path" ]' in copy_scripts and
+        '[ ! -f "$frp_script_path" ]' in copy_scripts,
+        "boot must reject unsafe FRP script paths and enforce mode 0700 without overwriting user content")
+require("HTTPD_FILE_TYPE_PRIVATE_SCRIPT" in script_policy and
+        "httpd_script_file_mode" in script_policy and "0700" in script_policy and
+        "httpd_script_file_read_allowed" in script_policy and
+        'strcmp(name, "frp_script.sh")' in script_policy,
+        "HTTPD must apply FRP-specific private-script read, write and mode policy")
+require('httpd_script_file_type(file_name)' in web_ex and
+        'get_login_private_key_access()' in web_ex and
+        'lstat(real_path, &target_stat)' in web_ex and
+        'S_ISREG(target_stat.st_mode)' in web_ex and
+        '".frp_script.XXXXXX"' in web_ex and
+        'chmod(temp_path, httpd_script_file_mode(file_type))' in web_ex and
+        'rename(temp_path, real_path)' in web_ex,
+        "HTTPD must stage FRP script privately, reject symlinks/non-regular targets and atomically publish mode 0700")
+dump = function_body(web_ex, "dump_file(webs_t wp, char *filename)")
+require('STORAGE_SCRIPTS_DIR "/frp_script.sh"' in dump and
+        "httpd_script_file_read_allowed" in dump and
+        "get_login_private_key_access()" in dump,
+        "FRP script dump must hide credentials from off-LAN peers, including HTTPS sessions")
+hook = function_body(web_ex, "static int login_state_hook")
+require("function login_private_key_access()" in hook and
+        "get_login_private_key_access()" in hook,
+        "UI must receive the trusted-network-only secret access state")
+require("login_private_key_access()" in frp_ui and
+        "textarea_scripts_enabled(0)" in frp_ui and
+        "仅LAN/VPN可查看和修改" in frp_ui,
+        "FRP UI must disable the secret script editor outside the trusted LAN/VPN")
+for marker in ("HTTPD_FILE_TYPE_PRIVATE_SCRIPT", "httpd_script_file_type",
+               "httpd_script_file_mode", "httpd_script_file_read_allowed",
+               "frp_script.sh", "0700", "0755"):
+    require(marker in script_policy_test,
+            f"HTTPD policy regression omits FRP private-script contract {marker}")
+
+print("FRP asynchronous restart, private credential storage and workflow contracts: PASS")
