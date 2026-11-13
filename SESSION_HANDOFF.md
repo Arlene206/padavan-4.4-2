@@ -2,33 +2,37 @@
 
 ## 最近接力状态（2026-11-13）
 
-- 已按根目录 `AI_BOOTSTRAP_PROMPT.md`、`AI_DEVELOPMENT_PROTOCOL.md` 的规定顺序恢复。唯一授权分支仍为 `main`；本轮恢复基线为 `98079bdb24d4191318ee95ca966835a8a723be95`。
-- 基线 `98079bdb...` 的 15 个 push Actions 全部以该 SHA 完成 SUCCESS，包含 WAN route/VLAN、WAN teardown、DHCP callback、AI handoff 和 XY-C1。该 SHA 的 XY-C1 run [43414346419] / job [131848343935] 成功生成并上传非空 TRX `TurBoTse-XY-C1-4.4-mipsel-linux-musl-20261113.trx`。
-- 本轮在基线之后形成四个连续 main 提交：`ea38b3efc0de62580feed33bf589e1f989fb69a1`（WAN soft-bridge 回滚初版）、`36c7a7984d2c2ca57f1f5169860faddc723d55f5`（所有权策略回归测试）、`fcac7ee169e99393cd3864805dedb76e70ab133f`（修复 WAN/Wireless 源码契约）、`44b0353cd3fc7bfd582e055cc768373819c6c0d2`（使最终 bridge 激活失败也进入回滚，并整理 Linux 4.4 race 注释）。
-- `36c7...` 的初次精确 SHA 检查曾因新 helper 名称未同步到两个静态源码契约而失败；桥接策略 ASan/UBSan 测试本身已 PASS。随后 `fcac...` 更新 WAN 与 Wireless 契约，`44b...` 又补上最终 `ifconfig(...IFUP...)` 的回滚入口。不要把中间失败记成最新 HEAD 失败，也不要隐去该修复过程。
-- 当前源码检查点：`44b0353cd3fc7bfd582e055cc768373819c6c0d2`。该 SHA 的 12 个 push workflow 中，11 个已经完成 SUCCESS；唯一仍在运行的是 XY-C1 Firmware Validation [43419600758] / job [131865973911]。WAN route [43419600585]、Wireless [43419600810]、WAN teardown [43419600755]、WAN DHCP callback [43419600832]、HTTPD security [43419600791]、AI handoff [43419600775] 等均以完全相同的 `head_sha=44b0353...` 成功。XY-C1 仍须在下一轮核验结束状态和 TRX 输出，当前不可宣称最新 HEAD 已有 L3 成功。
-- 本轮没有创建分支或 PR，没有修改 GPT Session Rotator，也没有触碰固件产物。
+- 已按根目录 `AI_BOOTSTRAP_PROMPT.md`、`AI_DEVELOPMENT_PROTOCOL.md` 的规定顺序恢复。唯一授权开发分支为 `main`；本轮恢复基线是 `98079bdb24d4191318ee95ca966835a8a723be95`。当前 live `main` 精确 SHA：`d9ae3f12cf24e37402cfaa6293f79a1856169061`。
+- 分支核验只看到 `main`；Git refs 还包含既有 `refs/pull/1/head` 和 `refs/tags/toolchain`，本轮没有创建分支、checkpoint ref、tag 或 PR，也未修改 GPT Session Rotator。
+- WAN 软件桥 phase 1 由 `ea38b3efc0de62580feed33bf589e1f989fb69a1`、`36c7a7984d2c2ca57f1f5169860faddc723d55f5`、`fcac7ee169e99393cd3864805dedb76e70ab133f`、`44b0353cd3fc7bfd582e055cc768373819c6c0d2` 连续完成：新增 VLAN / bridge membership 所有权跟踪，`config_soft_bridge_wan()` 失败时仅撤销本次确认创建的对象和 membership，按逆序补偿；归属不明时保留而非误删。
+- 本轮已完成 LAN bridge 单次转换补偿：`8195276a5d20fbca8a51b970f12bf80e900424c1` 实现 `config_soft_bridge_lan()` 的 VLAN / bridge-port 所有权跟踪、错误回滚和原始 errno 保留；`ddf9d691781e648bb19d98891f3fc9b64086f5e0` 删除无用局部变量并调整源码契约；`d9ae3f12cf24e37402cfaa6293f79a1856169061` 修正最后一个 guard 字符串检查。此事务只覆盖本次可证明拥有的 membership 和 VLAN，不代表整个拓扑的全局原子事务。
+- `8195276a` 与 `ddf9d691` 的 WAN route workflow 曾因源码检查器要求不带 guard 的字面子串（如 `if (physical_detached)`），而对实际更严格的条件 `if (physical_detached && vlan_state_safe)` 产生误报；两个版本的 GNU89 sanitizer policy test 均 PASS。最终将检查器改为匹配真实 guard 后，最新 main `d9ae3f12` 的 WAN route workflow [43423405123] / job [131878717264] 全部步骤 SUCCESS，AI handoff contract [43423404888] / job [131878716417] SUCCESS。
+- 精确源码 SHA `ddf9d691781e648bb19d98891f3fc9b64086f5e0` 的 XY-C1 run [43422704135] / job [131876356971] 已 SUCCESS：`Build XY-C1`、`Verify TRX output`、artifact upload 全通过，生成 `trunk/images/TurBoTse-XY-C1-4.4-mipsel-linux-musl-20261113.trx`（约 13 MiB），上传 artifact [14035616020]，最终大小 12,576,776 bytes。当前 `d9ae3f12` 相对该构建 SHA 只再修改 `scripts/check_wan_vlan_setup.py` 的静态检查条件，生产源码未变；因此 MIPS/uClibc 构建证据对应的是相同生产源代码，build 的 workflow SHA 仍明确记录为 `ddf9...`。
+- `ddf9...` 的 11 个 push workflow 中，10 个 SUCCESS，唯一失败是 WAN route 源码检查器的剩余 guard 误报；其余 VPN [43422704132]、WAN teardown [43422704188]、AI docs [43422704130]、miniupnpd [43422704284]、HTTPD [43422704298]、WAN DHCP [43422704133]、detect_link [43422703988]、detect_internet [43422704066]、WAN ARP [43422704025] 和 XY-C1 [43422704135] 均以 `head_sha=ddf9...` 完成 SUCCESS。修正后的 d9 精确 SHA WAN route 与 AI handoff 两个 workflow 均 SUCCESS。
+- XY-C1 build 日志仍含若干非致命工具告警/错误行（例如 groff 缺少 html DESC、部分 curl 404，以及空的 `zerotier-one` / `ddnsto` 输入触发 objcopy/strip “no sections”）；workflow、TRX 验证和 artifact 上传仍 SUCCESS。不要把它描述为零 warning 构建，后续构建可继续追踪这些 ancillary 输出。
+- 根目录 `dev_log.md` 最新记录计数为 112，本轮增加一条后为 113/120；未达到归档阈值，不轮转 archive / INDEX。
 
 ## Active task
 
-继续完成 WAN/LAN 软件桥部分失败的资源回滚，但不要把局部事务误报成整个网络拓扑的原子事务。
+LAN bridge 单次转换补偿已实现并通过当前 host/CI 契约，下一项是处理 `config_soft_bridges_other()` 的跨 bridge 批次回滚；完成后再进入 DHCPv6 callback 子进程生命周期审计，然后回到全仓库稳定性 / 安全治理台账。
 
-1. 已完成阶段一：`config_soft_bridge_wan()` 引入调用方所有权跟踪。新增 `create_vlan_iface_tracked()`，仅在该次调用真正创建且完整配置成功后报告 VLAN 所有权；新增 `br_add_del_if_tracked()`，仅在本次 bridge ioctl 真正改变 membership 时报告所有权，既有 membership 与并发幂等结果都不会被当成自己创建。失败后按反向顺序撤销本次加入的端口；只有确认安全才删除本次 VLAN 和新建 bridge；尽可能恢复原先已存在 bridge/VLAN 的 UP/DOWN 状态；不确定并发归属时保留对象而不是误删。最终 bridge 激活失败现已统一进入 rollback。策略单测已加入 WAN route workflow 的 GNU89 + ASan/UBSan 步骤。
-2. 下一项：修复 `config_soft_bridge_lan()` 的补偿路径。重点是先创建 `eth2.1` 后从 `br0` 摘除物理 `eth2`、再挂入 VLAN 的交接窗口；如果后续加入、移除 VLAN 或 multicast 参数设置失败，需恢复原始 membership 和接口状态，仅撤销本次新建对象，保留既有/并发成员。
-3. 随后处理 `config_soft_bridges_other()` 的批次回滚：某个后续 LAN port VLAN/bridge 创建失败时，按逆序撤销本轮之前成功创建的 `brwan2..5`、`eth3.<vid>` 与对应 WAN VLAN/端口状态；必须跟踪每个对象归属，不能用全桥清空函数误删已有成员。
-4. WAN bridge 两阶段完成后，审计 `net_wan6.c` DHCPv6 callback 子进程监督、PID/代际关联、停止竞态与陈旧 child 清理。然后回到全仓库治理台账，扩大服务生命周期、资源释放、安全配置和错误传播覆盖，避免长期困在网络单模块。
+1. 已完成：`config_soft_bridge_wan()` 使用 `create_vlan_iface_tracked()` 和 `br_add_del_if_tracked()` 跟踪本次创建的 WAN VLAN、bridge 与 ports；在失败时按逆序撤销已确认归属对象，并谨慎恢复预存 bridge/VLAN 的 UP/DOWN。
+2. 已完成：`config_soft_bridge_lan()` 快照 `IFNAME_MAC.1` 初始存在性和 UP 状态；启用时跟踪物理端口摘除与 VLAN port 加入，禁用时跟踪 VLAN 摘除与物理端口加入；M2U 设置和 VLAN 删除失败进入 rollback；仅撤销本次新增 membership，仅在新 VLAN 已确认 detached 时删除，仅在状态安全时恢复旧 VLAN 的 UP/DOWN；错误路径保留原 errno。策略门控已加入 `bridge_membership_policy.h` 和 GNU89 + ASan/UBSan 测试，WAN route 静态契约也覆盖了两种 membership 逆向恢复条件。
+3. 下一项：审计并实现 `config_soft_bridges_other()` 的跨 bridge 批次回滚。当前循环按配置为最多四个 LAN 端口创建 `IFNAME_MAC2.<vid>` VLAN，再调用 `config_soft_bridge_wan(br_id, ...)` 创建对应的 `brwan2..5`、WAN 侧 VLAN 和端口 membership；如果后续迭代失败，函数现在直接 return，之前成功迭代仍留在系统中，外层创建的端口 VLAN 也没有 tracked ownership。需要为整个 batch 记录每次 VLAN / bridge / port 的调用方所有权，并按逆序回滚；必要时让 `config_soft_bridge_wan()` 暴露可选的事务结果结构。不能通过 `br_del_all_ifs()` 清桥来“清理”，因为它会误删预存或并发加入的成员。
+4. 设计测试时覆盖首个/中间/最后迭代失败、复用既有 VLAN、既有 bridge、port 已是成员、并发 idempotent attach、清理失败及原始 errno 保留。只删除本次创建且确认无成员的 bridge/VLAN；归属模糊则保留并记录，不把跨多桥外部副作用宣称为全局原子。
+5. 完成这一有界 WAN bridge 批次后，审计 `net_wan6.c` DHCPv6 callback 子进程的 PID / generation 关联、wait 状态、stop race 和 stale child 清理；随后返回 whole-repository priority queue，继续覆盖其他服务的稳定性 / 安全问题。
 
 ## Verification boundary
 
-- 最新代码 SHA 是 `44b0353cd3fc7bfd582e055cc768373819c6c0d2`。该 SHA 的 12 个 push Actions 中 11 个 SUCCESS；XY-C1 run [43419600758] 尚处于 `Build XY-C1`，TRX 验证与上传步骤仍 pending。请不要把先前 `98079bdb...` 的 L3 成功套用到这次修改上。
-- 最新 WAN route run [43419600585] 的桥接所有权策略 sanitizer 用例输出 `Bridge membership and teardown policy regression: PASS`，源码检查输出 `WAN VLAN and bridge error-propagation contracts: PASS`；Wireless run [43419600810] 的桥接策略共享回归和无线状态契约均通过。WAN DHCP callback、WAN teardown、HTTPD 安全、VPN、ARP socket、detect_link / detect_internet、miniupnpd、AI handoff 均为精确 SHA 成功。
-- 中间提交 `36c7...` 的 WAN/Wireless 源码契约失败已在后续 main 提交修复；当前精确 SHA 的对应两个 workflow 已通过。检查 run 的 `head_sha`，不要只看默认分支上不匹配 SHA 的绿勾。
-- 当前会话没有可用的完整本地 checkout，故没有声称本地主机侧测试执行。Host sanitizer / 静态源码验证来自上述 GitHub Actions。最新 `44b...` 的 XY-C1 MIPS/uClibc 构建仍待结果；L4 实机刷写、启动、LAN/WAN/多桥拓扑测试均 NOT VERIFIED。
-- `config_soft_bridge_wan()` 当前回滚范围是新建对象与本次新增 membership，并尽量恢复接口 UP/DOWN；对预先存在 bridge 的 MAC/MTU/STP 等参数及 IPv6 辅助副作用尚未实现全面恢复。并发归属模糊时有意保留对象并记录日志，这是保守策略，不应误报为完全原子回滚。
+- 当前 live main：`d9ae3f12cf24e37402cfaa6293f79a1856169061`。最新 exact-head host Actions：WAN route [43423405123] / job [131878717264] SUCCESS（GNU89 `-Wall -Wextra -Werror`、ASan/UBSan bridge membership policy binary、WAN VLAN/bridge source contract、route result/cleanup contract 全通过）；AI handoff [43423404888] / job [131878716417] SUCCESS。
+- 生产源码对应的 XY-C1 MIPS/uClibc build 在 `ddf9d691781e648bb19d98891f3fc9b64086f5e0` [43422704135] / job [131876356971] SUCCESS，TRX 验证和 artifact upload 成功。最新 `d9ae3f12` 仅修正 Python 静态源码检查器，无生产 C 源码变化。不要混淆 workflow 的精确 SHA。
+- `ddf9...` 上 WAN route workflow 首次 failure 是 checker 字面匹配不适配实际 guard；其 sanitizer binary 已输出 `Bridge membership and teardown policy regression: PASS`。修正 guard 检查后的 `d9ae...` route workflow完整 SUCCESS。其他 ddf9 Actions（VPN、WAN teardown、AI docs、miniupnpd、HTTPD、WAN DHCP、detect_link、detect_internet、WAN ARP）均 SUCCESS。
+- 本会话没有可用的完整本地 checkout，因此没有声称本地执行过测试。host policy 编译和 sanitizer 输出均来自 GitHub Actions。MIPS/uClibc XY-C1 TRX 构建/验证/上传已在上述 ddf9 生产源码上通过；L4 实机刷写、启动及 LAN/WAN/多桥拓扑行为仍 NOT VERIFIED。
+- 回滚不是完全原子：LAN 路径调用的 `control_if_ipv6(lan_ifname, 0)` 没有对应恢复；`brport_set_m2u()` 若在部分写 sysfs 后失败，没有旧值快照/恢复；复用 VLAN 的 MAC / egress-priority 等属性，以及 WAN 预存 bridge 的 MAC/MTU/STP 属性仍未全面恢复。下一轮不得把现状描述为完全恢复所有接口配置。
 
 ## Exact first action for the next GPT
 
-先获取 live `refs/heads/main` 并记录文档检查点提交后的精确 SHA；检查该 SHA 的 AI handoff documentation contract 和所有被触发 Actions，尤其核对本轮 XY-C1 run [43419600758] 是否已 SUCCESS、`Verify TRX output` 是否成功以及 artifact 是否上传。若 XY-C1 失败，先读该 job 最早的因果错误并修复，不得用旧 SHA 的固件结果替代。随后从 `config_soft_bridge_lan()` 开始，沿用本轮 tracked VLAN / bridge membership API 设计补偿回滚，再做 `config_soft_bridges_other()` 的跨 bridge 批次回滚；每轮源码修改后同步最小必要测试和 workflow 路径，精确 SHA 验证通过后再继续 DHCPv6 child lifecycle 及全仓库优先队列。
+获取 live `refs/heads/main` 并核对精确 SHA；先检查本轮 docs checkpoint 触发的 AI handoff contract。然后从 `config_soft_bridges_other()` 开始：先建立 batch ownership ledger，追踪 `IFNAME_MAC2.<vid>` 的创建标志；再评估把 `config_soft_bridge_wan()` 拆成有兼容 wrapper 的 tracked 变体，向上返回 bridge 创建状态、WAN-side VLAN 创建状态、两端 port membership changed 标志及桥原始 UP 状态。对前面成功的迭代按逆序撤销本次 attach，只有确认 bridge empty 后才移除本次创建的 bridge，最后删除本次创建且 detached 的双侧 VLAN；既有或并发对象全部保留。先补 host policy 测试和 source contract，再实施生产逻辑。完成后严格检查精确 SHA 的 WAN route、WAN teardown、XY-C1 和 AI doc Actions；之后再处理 DHCPv6 child lifecycle 和 whole-tree priority queue。
 
 ## Completed task: Adbyby configured hosts-source list / hosts-list download hardening
 
