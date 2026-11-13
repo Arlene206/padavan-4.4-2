@@ -88,11 +88,13 @@ require('strcmp(entry->d_name, RCN_RESTART_FRP) == 0' in rc and
         "restart_frp();" in rc,
         "PID 1 must dispatch the FRP restart notification")
 variables = (ROOT / "trunk/user/httpd/src/variables.c").read_text()
+variables_normalized = " ".join(variables.split())
 for marker in ('{"frpc_enable", "", NULL, EVM_RESTART_FRP}',
                '{"frps_enable", "", NULL, EVM_RESTART_FRP}',
                '{"scripts.frp_script.sh", "File", NULL, EVM_RESTART_FRP}',
                '{EVM_RESTART_FRP, EVT_RESTART_FRP, RCN_RESTART_FRP, 0}'):
-    require(marker in variables, f"HTTPD FRP persistence mapping omits {marker}")
+    require(" ".join(marker.split()) in variables_normalized,
+            f"HTTPD FRP persistence mapping omits {marker}")
 ui = (ROOT / "trunk/user/www/n56u_ribbon_fixed/Advanced_frp.asp").read_text()
 require('value="FrpConf;"' in ui and
         'name="scripts.frp_script.sh"' in ui and

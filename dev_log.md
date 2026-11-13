@@ -1,3 +1,17 @@
+## 2026-11-13 15:38 CST (UTC+8) — Normalize FRP HTTPD event-map source contract
+
+- Base main SHA: `bec830e987c210f2646cb70525159b314e8c6350`.
+- Exact-head FRP push [43386702735] / job [131756753371] checked out this SHA. Launcher syntax, asynchronous watchdog regression, managed-crontab regression, boot-script syntax, boot-role regression and all shell test steps passed; the final semantic checker failed on one HTTPD event-map assertion.
+- Root cause: `variables.c` formats `{EVM_RESTART_FRP, EVT_RESTART_FRP, RCN_RESTART_FRP, 0}` with tab-separated whitespace; the new source checker required literal single spaces. This was a brittle checker assertion, not a production or regression-test failure.
+- On the same exact SHA, AI docs [43386702613] / job [131756753049] passed (103/119 root records; archives 7/22/18), and all other triggered workflows passed: AliDDNS [43386702607], infosvr [43386702665], AliyunDrive [43386702712] and AdGuardHome [43386702629]. Every run's checkout SHA and every job step/full log were inspected.
+- THIS COMMIT normalizes whitespace in both the actual HTTPD source and expected markers before checking the FRP persistence/event mapping. It does not change production code or regression behavior. The previous handoff's adjacent verification bullets are also separated correctly.
+- Exact-head Actions after THIS COMMIT are pending until inspected. No local full checkout, local test run, full firmware build or router test is claimed.
+- Root log count: 103→104 records; file remains below the 384 KiB target and 512 KiB hard limit; archive inventory remains 7/22/18; no rotation/index change.
+- Changed paths: `scripts/check_frp_lifecycle.py`, `SESSION_HANDOFF.md`, and this log. Resulting main commit: THIS COMMIT.
+- Next: verify all exact-main push Actions triggered by THIS COMMIT, especially FRP source/RC/UI caller-chain and AI handoff documentation. Then continue the FRP private-config/credential-permission and cross-process lifecycle serialization audit.
+
+---
+
 ## 2026-11-13 15:22 CST (UTC+8) — Avoid idle FRP watchdog when both roles are disabled
 
 - Base main SHA: `c5ee1e4d8afc19a607b93eb40d00e329a63aebb7`; remote branch inventory contains only `main`; legacy PR #1 remains CLOSED/unmerged.
