@@ -275,6 +275,13 @@ echo "DDNSTO start/stop operations serialize and detached daemons do not retain 
 : > "$TEST_OPS"
 echo running > "$TEST_STATE"
 run_action graceful restart || fail "serialized restart failed"
+# The replacement daemon forks asynchronously; wait for its marker with a hard bound.
+restart_attempt=0
+while [ "$(grep -Fxc START "$TEST_OPS" || :)" -ne 1 ] &&
+      [ "$restart_attempt" -lt 100 ]; do
+	/bin/sleep 0.02
+	restart_attempt=$((restart_attempt + 1))
+done
 restart_starts=$(grep -Fxc START "$TEST_OPS" || :)
 if [ "$restart_starts" -ne 1 ]; then
 	echo "restart diagnostics: enable_file=$(cat "$TEST_ENABLE_FILE") state=$(cat "$TEST_STATE") nvram=$(cat "$TEST_NVRAM_LOG") ops=$(cat "$TEST_OPS")" >&2
