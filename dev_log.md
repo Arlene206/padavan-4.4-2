@@ -1,3 +1,13 @@
+## 2026-11-14 07:24 CST (UTC+8) — Restore all CI-required live handoff sections
+
+- Exact prior main SHA: `e945db3cca96332a0015a55d68382041358a26f8`. The exact-head documentation run `43526801426` and infosvr run `43526801450` on `0a43156b1ef399804e9c93d3d51e86c16a8552e2` both failed because `SESSION_HANDOFF.md` still lacked `## Active task`; the earlier missing `## Current repository state` had been fixed, exposing the next required heading. The infosvr GNU89/ASan/UBSan binaries themselves passed before its source-contract assertion.
+- Inspected `scripts/check_ai_handoff_docs.py` and `scripts/check_infosvr_packets.py`: both require `## Current repository state`, `## Active task`, `## Verification boundary`, and `## Exact first action for the next GPT`. Restored the two missing sections in `SESSION_HANDOFF.md`, explicitly recording the P1 process-inventory task, exhaustive-inventory blocker, L1/L2/L3/L4 boundaries, and exact CI failures.
+- Handoff correction committed directly to `main` as `0139b786c98f78d3fd656914e1f6f5c8eb65a7aa`. Exact-head `push` Actions for this SHA must be inspected; no pass is claimed yet. Local `scripts/check_ai_handoff_docs.py` was not run because a local checkout is unavailable.
+- No product source or regression test changed. The active P1 process-inventory defect remains open: do not migrate the shared API until every scan/lifecycle caller is exhaustively enumerated. Recursive tree API is truncated and `git clone` failed because the runtime cannot resolve github.com. Existing L3 evidence remains limited to source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`; L4 NOT VERIFIED.
+- Root `dev_log.md` advances 51→52/119. No rotation, INDEX update, or roadmap rewrite is due; global module inventory/priority is unchanged.
+
+---
+
 ## 2026-11-14 07:22 CST (UTC+8) — Repair required handoff heading after exact-head CI failure
 
 - Re-fetched live `main` at `435913a1244da38ccb722f89df0eb2a5d2648b10`; branch inventory contains only `main`. Legacy PR #1 remains CLOSED / UNMERGED. Recursive Git tree enumeration returned 64,005 entries with `truncated=true`, so it cannot satisfy the exhaustive caller-inventory prerequisite for the active P1 process-inventory API migration.
