@@ -15,13 +15,15 @@
 
 ## Active task
 
-当前 active task 是完成 NVRAM /dev/nvram root:root 0600 安全修复在 main exact SHA 上的验证，并修复既有 HTTPD umbrella source-contract 的 YAML 缩进问题。
+当前 active task 仍是完成 NVRAM `/dev/nvram` root:root 0600 安全修复的 exact-main 验证，并确认 HTTPD umbrella YAML 缩进修复恢复了真实 job。**在当前 main SHA 的 push Actions 得到核实前，不启动新模块，也不把 NVRAM slice 标记为关闭。**
 
-1. main 基线为 ead18adf3dbdf8dd2cf156f889501325bc3b1534；此前该 SHA 的 NVRAM boundary run 43459538956 和 AI docs run 43459538954 in progress。父 SHA 728098a793bdbb072f7c0f4b708d8922a47241c5 的 NVRAM run 43458726491 已 SUCCESS：锁回归和 device-node policy GNU89/Werror/ASan/UBSan 编译/运行 PASS；完整扫描 4177 userland 源文件，raw bypass 0，44042 kernel 源文件，kernel API external refs 0，57 board config scanned。
-2. HTTPD source contract 的逻辑更新本身正确，但首次提交缺少 YAML block indentation，导致 synthetic zero-job run 43459535203 FAILED，未进入任何 test step。本提交只重新缩进已插入 Python 代码块；断言包括 mode 0600、PID1 node lstat/chmod/身份验证、init_nodes 错误传播和 fail-closed router_ready。header/test 已加入 push + pull_request path filters。
-3. part-008 已保存被轮换的 100 个旧记录，root dev_log.md 保留 newest 20；本次新记录后 root 为 21 条，尚未触发 120-entry 轮换。AI docs 父 SHA 运行曾 SUCCESS；当前提交需要再核查 archive/index。
-4. 下一轮第一动作：重新读 live main、refs、exact SHA Actions。确认新 HTTPD workflow 不再是 zero-job parse error 并执行全套 HTTPD/NVRAM源契约；检查 NVRAM scanner 和 AI docs archive integrity。通过后关闭 NVRAM permission issue，转向 DNS/resolver、crond、storage、PID1 supervision 全仓库稳定性排查。
-5. user_nvram_get() tuple pointer unlock-before-copy 仍只是待证候选，kernel external API refs=0，未修改 kernel。FTP failed-upload cleanup TOCTOU BLOCKED；NFS durability remains evidence-gated.
+1. 本次接手恢复到 live `main` HEAD `231fa506b898cf629391a6b6846ee36f3a5f78c4`（`test(ci): fix HTTPD NVRAM contract indentation`）。该提交只修复 `.github/workflows/httpd-security.yml` 中 Python `run:` block 的缩进，并刷新 handoff / dev log，没有修改生产运行时代码。
+2. 当前 SHA 必须验证：HTTPD umbrella 应创建真实 job，不能再次出现父 SHA 的 zero-job YAML parse failure（run `43459535203`）；NVRAM boundary workflow 应执行两项 GNU89/Werror/ASan/UBSan policy/lock regression 和 whole-tree scan；AI handoff docs 应核验 part-008、INDEX 与 root log 窗口。父 SHA `ead18adf3dbdf8dd2cf156f889501325bc3b1534` 的 runs `43459538956` / `43459538954` 不可替代当前 SHA 验证。
+3. 当前 CI 状态为 **NOT VERIFIED**，不是 PASS：`get_commit_combined_status` 对当前 SHA 返回空 statuses；可用的 `fetch_commit_workflow_runs` 只列出 PR-triggered runs，对当前 SHA 返回空列表。该接口不提供 push workflow-runs 列表，因此不能据此认定没有运行或已经成功。GitHub Actions 页面/API 在本执行接口中也无法读取。
+4. refs 检查：远程分支分页结果只有 `main`，无额外分支。PR #1 为 CLOSED / UNMERGED，head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`，base `9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74`；与 live main 比较为 diverged（PR ahead 17 / main ahead 160 / 13 changed files）。关闭评论及历史 handoff 记录说明有效 CA/HMAC 工作已直接移植到 main；本轮未操作 PR 或 refs。当前连接器不提供 tag 枚举，历史记录中的 `toolchain` tag 未在本轮重新验证。
+5. NVRAM boundary workflow 当前定义了 lock regression、device-node policy regression 与 `scripts/check_nvram_transaction_boundary.py` 整树扫描，覆盖 userland raw ioctl/device-path bypass、Linux 4.4 NVRAM API caller、common driver wiring、board geometry selectors。此前 SHA `728098a793bdbb072f7c0f4b708d8922a47241c5` 的扫描结果为 4177 userland source files、raw bypass 0、44042 kernel source files、external kernel API references 0、57 board configs；这是父 SHA 的已知证据，不是当前 SHA 的新结果。
+6. 下一轮第一动作：读取当前 SHA `231fa506b898cf629391a6b6846ee36f3a5f78c4` 的全部 push Actions，逐条匹配 `event=push` 与精确 `head_sha`，重点检查 HTTPD、NVRAM boundary、AI handoff docs 和受路径过滤影响的 sibling workflows，读取完整 job steps / logs。若失败，先在 main 修复首个真实原因并重跑 exact-head 验证；全部通过后再关闭 NVRAM permission task，并从 roadmap P2 队列选择 DNS/resolver、crond、storage/PID1 supervision 中最高价值的稳定性缺陷。
+
 ## Completed in this handoff
 
 1. NVRAM cross-call shared-userland transaction lock 与 profile-restore transaction integration 已实施；精确锁测试 GNU89/Werror/ASan/UBSan PASS；生产编译漏 include 已修复。
