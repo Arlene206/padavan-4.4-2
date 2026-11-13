@@ -2,14 +2,14 @@
 
 ## 最近接力状态（2026-11-14）
 
-- 最新 main exact SHA：`18561fddd214238dda124e0b8883030081ffca5d`，直接父提交 `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`；`691e4d6` 的直接父提交为生产修复 `ed010248a2d1bb073d7c6aa28c3bd9afcda3d07f`。当前 main 仅有这两个普通 fast-forward 后续提交；`18561f` 为 handoff/roadmap/dev_log checkpoint commit，不改变产品源码。远程只有 main；PR #1 仍 CLOSED / UNMERGED（head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`），toolchain tag 为 `7f7d3ea41ebdd7eeab8a303f3d4ad8dddb54a8a7`。
-- exact main `18561f` push Actions 共 6 条，6/6 COMPLETED / SUCCESS，全部 job steps 成功：AliDDNS [`43490972337 / 132111752193`]、AdGuardHome [`43490972373 / 132111754083`]、infosvr [`43490972566 / 132111752734`]、AliyunDrive [`43490971776 / 132111749721`]、NVRAM [`43490971657 / 132111749337`]、AI docs [`43490971630 / 132111749853`]。AI docs log 在新增本次记录前报告 root log 33/119，archive counts dev-log=8 / handoff=22 / roadmap=18。
-- 当前产品源码 SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f` 的 XY-C1 MIPSel 构建已完成 L3：run `43489646254` / job `132107102854` 的 Build XY-C1、TRX output verification、artifact upload 全部 SUCCESS。TRX 为 12,625,949 bytes；artifact `14069572898`，12,579,578 bytes，SHA-256 `c6581125da108ac1118dfcaf895bcfb2414e09554eb63b96be8bddb369c7b768`。当前 main `18561f` 仅在该已构建源码之上新增文档，因此产品源码与 L3 产物完全相同；L4 router flash/boot 仍 NOT VERIFIED。
+- 最新 main exact SHA：`85b06794590a8d3fc7fe4218b2f967493d45d9e3`，直接父提交 `18561fddd214238dda124e0b8883030081ffca5d`；`85b0679` 仅更新 SESSION_HANDOFF / REFACTOR_ROADMAP / dev_log，不改变产品源码。此前产品源码提交为 `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`，其父提交为生产修复 `ed010248a2d1bb073d7c6aa28c3bd9afcda3d07f`。远程只有 main；PR #1 CLOSED / UNMERGED（head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`），toolchain tag `7f7d3ea41ebdd7eeab8a303f3d4ad8dddb54a8a7`。
+- Exact-main `85b067` push Actions are 6/6 COMPLETED / SUCCESS (event=push; every `head_sha` exactly matches live main): AI docs [43492884427 / 132118367981], AliyunDrive [43492884404], AliDDNS [43492884384], AdGuardHome [43492884381], infosvr [43492884353] and NVRAM [43492884341]. The AI docs validator passed and reported the pre-entry root log at 34/119; archive counts dev-log=8, handoff=22, roadmap=18.
+- 当前产品源码 SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f` 的 XY-C1 MIPSel 构建已完成 L3：run `43489646254` / job `132107102854` 的 Build XY-C1、TRX output verification、artifact upload 全部 SUCCESS。TRX 为 12,625,949 bytes；artifact `14069572898`，12,579,578 bytes，SHA-256 `c6581125da108ac1118dfcaf895bcfb2414e09554eb63b96be8bddb369c7b768`。当前 main `85b0679` 及其文档祖先 `18561f` 均仅在该已构建源码之上新增文档，因此产品源码与 L3 产物完全相同；L4 router flash/boot 仍 NOT VERIFIED。
 - `ed010248` 的生产修复：`full_restart_lan()` 返回 DNSMasq lifecycle 状态；锁获取失败返回 errno，stop 失败时禁止启动第二实例，start 失败保留原始状态，锁释放失败在无先前错误时也传播；PID 1 的 `RCN_RESTART_LAN` 通过 `rc_notify_merge_action_result()` 合并状态，避免 LAN restart 中 DNSMasq 失败被错误确认成功。
 - `691e4d6` 只修改 `.github/workflows/httpd-security.yml`：将 `rc.c` 纳入 push / pull_request path filters，并把 HTTPD umbrella 的 LAN restart source contract 对齐到 `dnsmasq_status`、`int full_restart_lan()` 和 PID 1 result merge；不改变产品源码。该提交后的 exact HTTPD run [`43489646217 / 132107102491`] SUCCESS。
 - exact `ed010248` DNSMasq lifecycle [`43489264442 / 132105772776`] 与 NVRAM audit [`43489264608 / 132105772928`] SUCCESS。DNSMasq workflow 编译并运行 GNU89/Werror policy tests、DHCP pool / lifecycle lock tests，并通过 full LAN restart / RC notification source contracts；NVRAM log 报告 `RAW_USERLAND_BYPASS_COUNT: 0`。在该 SHA 上曾有一次 HTTPD umbrella stale assertion failure（旧变量 `dnsmasq_stop_status` 与当前源码 `dnsmasq_status` 不匹配），已由 `691e4d6` 修复并在 exact SHA 复跑通过，失败过程没有隐藏。
 - 新发现尚未修复的跨模块稳定性问题：`trunk/user/shared/src/pids.c` 的 `find_pid_by_name()` 在初始 `procps_scan(NULL, ...)` 失败时，仍返回刚分配的空 PID list；`pids()` 因此把扫描上下文分配失败或 `opendir("/proc")` 失败错误映射为 “process absent / 0”。`common_ex.c::service_lifecycle_is_running()` 直接使用 `pids()`，DNSMasq locked stop 也由该回调判断进程是否存活；资源耗尽或 procfs inventory 初始化失败时可能出现 stop 假成功、ARP 清理或重复启动。该问题已从源码路径确认，但当前尚未修改、未添加回归。
-- root dev_log 现为 34/119；本次新增记录后仍远低于 120 条及 384 KiB early-rotation 门槛。Archive counts 保持 dev-log=8 / handoff=22 / roadmap=18；不轮转、不改 INDEX、不创建快照。FTP final-name inode-check/unlinkat TOCTOU 仍 OPEN/BLOCKED；NFS AUTH_SYS/root-squash/client durability 仍需要真实客户端与存储设备证据。
+- root dev_log 现为 35/119；本次新增记录后仍远低于 120 条及 384 KiB early-rotation 门槛。Archive counts 保持 dev-log=8 / handoff=22 / roadmap=18；不轮转、不改 INDEX、不创建快照。FTP final-name inode-check/unlinkat TOCTOU 仍 OPEN/BLOCKED；NFS AUTH_SYS/root-squash/client durability 仍需要真实客户端与存储设备证据。
 
 ## Active task
 
@@ -34,12 +34,12 @@
 
 ## Verification boundary
 
-- 当前 main `18561fddd214238dda124e0b8883030081ffca5d`（parent `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`）为文档 checkpoint commit；产品源码树与 parent `691e4d6` 完全一致。
-- Exact-main `18561f` push Actions：6/6 SUCCESS，runs `43490972337`, `43490972373`, `43490972566`, `43490971776`, `43490971657`, `43490971630`；全部单 job 的 steps completed success。AI docs [`43490971630 / 132111749853`] 检查此前 33/119 日志时成功；本次再增加一条记录后 validator 将在下一个 docs run 中复核 34/119。
+- 当前 main `85b06794590a8d3fc7fe4218b2f967493d45d9e3`（parent `18561fddd214238dda124e0b8883030081ffca5d`）为文档 checkpoint commit；产品源码树仍与 L3 已验证的 `691e4d6` 完全一致。
+- Exact-main `85b0679` push Actions：6/6 SUCCESS，runs `43492884427`, `43492884404`, `43492884384`, `43492884381`, `43492884353`, `43492884341`；AI docs [`43492884427 / 132118367981`] 全部 steps 成功，validator 检查本次记录前的 root log 34/119。
 - Current product source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f` XY-C1 L3：run `43489646254` / job `132107102854`，MIPSel build、TRX verification、artifact upload 全部 SUCCESS。Artifact `14069572898`，12,579,578 bytes，SHA256 `c6581125da108ac1118dfcaf895bcfb2414e09554eb63b96be8bddb369c7b768`；TRX image 12,625,949 bytes。它覆盖当前 main 的全部产品源码；`18561f` 仅改文档，故当前代码可记 L3 VERIFIED。L4 physical router flash/boot NOT VERIFIED。
 - Exact `ed010248` DNSMasq run [`43489264442 / 132105772776`] 与 NVRAM audit [`43489264608 / 132105772928`] SUCCESS。Exact `691e4d6` HTTPD umbrella [`43489646217 / 132107102491`] SUCCESS；此前的 stale source assertion 已修正。
 - 本环境未执行本地交叉编译；L3 是 GitHub Actions 在 exact product-source SHA 上完成的 MIPSel firmware/TRX build。没有执行 L4 router flash/boot。当前新增的 `pids()` fail-open 缺陷仅有源码级证据，尚未修复、未添加 host regression，不得写成已关闭。
-- Root dev_log 从 33 增至 34/119；archive counts dev-log=8 / handoff=22 / roadmap=18。FTP TOCTOU / NFS client durability 仍 OPEN/BLOCKED。
+- Root dev_log 从 34 增至 35/119；archive counts dev-log=8 / handoff=22 / roadmap=18。FTP TOCTOU / NFS client durability 仍 OPEN/BLOCKED。
 
 ## Exact first action for the next GPT
 
