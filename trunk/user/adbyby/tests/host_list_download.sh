@@ -119,11 +119,11 @@ $URL_TWO
 EOF
 }
 write_dnsmasq_config() {
-	cat > "$ADBYBY_HOSTS_CONFIG_FILE" <<'EOF'
-conf-file=/etc/storage/operator.conf
-addn-hosts=/etc/storage/operator-hosts
-addn-hosts=/tmp/adbyby/hosts
-EOF
+	{
+		printf '%s\n' 'conf-file=/etc/storage/operator.conf'
+		printf '%s\n' 'addn-hosts=/etc/storage/operator-hosts'
+		printf 'addn-hosts=%s\n' "$PROG_PATH/hosts"
+	} > "$ADBYBY_HOSTS_CONFIG_FILE"
 }
 assert_no_staging() {
 	for stage in "$PROG_PATH"/.adbyby-hosts.*; do
@@ -142,7 +142,7 @@ grep -Fx "$URL_TWO" "$CURL_LOG" >/dev/null || fail "second source was skipped"
 grep -F '0.0.0.0 ads.example tracker.example' "$PROG_PATH/hosts" >/dev/null || fail "IPv4 hosts mapping missing"
 grep -F '::1 localhost ip6-localhost' "$PROG_PATH/hosts" >/dev/null || fail "IPv6 hosts mapping missing"
 grep -F 'addn-hosts=/etc/storage/operator-hosts' "$ADBYBY_HOSTS_CONFIG_FILE" >/dev/null || fail "operator config line changed"
-[ "$(grep -Fc 'addn-hosts=/tmp/adbyby/hosts' "$ADBYBY_HOSTS_CONFIG_FILE")" -eq 1 ] || fail "managed entry not idempotent"
+[ "$(grep -Fc "addn-hosts=$PROG_PATH/hosts" "$ADBYBY_HOSTS_CONFIG_FILE")" -eq 1 ] || fail "managed entry not idempotent"
 [ "$HOSTS_COUNT" = 4 ] || fail "wrong NVRAM record count"
 [ "$(stat -c '%a' "$PROG_PATH/hosts")" = 644 ] || fail "wrong published file mode"
 GOOD_HOSTS=$(cat "$PROG_PATH/hosts")
@@ -207,7 +207,7 @@ rm -f "$PROG_PATH/hosts"; mock_mode=malformed
 printf '%s\n' "$URL_ONE" > "$ADBYBY_HOST_LIST_FILE"
 if hosts_ads; then fail "malformed source without last-good was accepted"; fi
 [ ! -e "$PROG_PATH/hosts" ] || fail "bad source created a hosts file"
-! grep -F 'addn-hosts=/tmp/adbyby/hosts' "$ADBYBY_HOSTS_CONFIG_FILE" >/dev/null || fail "invalid source left addn-hosts enabled"
+! grep -F "addn-hosts=$PROG_PATH/hosts" "$ADBYBY_HOSTS_CONFIG_FILE" >/dev/null || fail "invalid source left addn-hosts enabled"
 [ "$HOSTS_COUNT" = 0 ] || fail "stale NVRAM count remained"
 
 HOSTS_ENABLED=0; : > "$CURL_LOG"

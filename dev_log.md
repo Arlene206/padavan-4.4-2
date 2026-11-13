@@ -1,3 +1,15 @@
+## 2026-11-13 14:21:06 CST (UTC+8) — Correct Adbyby host-list test fixture path
+
+- Follow-up to implementation commit `76f514cb5111c6787c4a6eda325619062845bace`. The exact-head Adbyby workflow run [43377852791] / job [131728447338] executed shell syntax and all prior regressions successfully, then the new test failed at the no-cache cleanup assertion.
+- Root cause was a test-fixture path mismatch, not the production cleanup: `hosts_ads` correctly passed its temporary `$PROG_PATH/hosts` to the existing exact-line cleanup helper, while the fixture hard-coded `addn-hosts=/tmp/adbyby/hosts`. The helper therefore had no matching line to remove. The regression now writes and asserts the actual temporary path, preserving the same production code and exercising the real cleanup contract.
+- Corrected the checker path tuple's missing comma before the initial commit was published; the committed checker already contains the separated path entries. The first exact-head AI handoff validator passed at run [43377852866] / job [131728447504], root log=100/119 and archive counts 7/22/18.
+- This is a test correction only. No production behavior is changed in this follow-up. Other exact-head Actions from the first commit were still running when inspected; they must be checked again against their own exact SHA before closing the slice.
+- Local checkout remains unavailable due to this execution environment's DNS failure resolving github.com. No local shell/Python result is claimed; no firmware build or router test was run.
+- Root log now has 101/119 records; no rotation is due. The Adbyby host-list regression must be rerun on this commit SHA. If it passes, continue to check every exact-head workflow and then update the live handoff/roadmap to the next FRP RC/UI/cron/shared-script audit.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-13 14:15:28 CST (UTC+8) — Harden configured Adbyby hosts-source downloads
 
 - Base main SHA: `b6dcef4fcf304b0b0d84a47dda2e611f18f2765f`; active branch remains `main`.
