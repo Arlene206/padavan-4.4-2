@@ -28,6 +28,7 @@
 
 #include <bcmnvram.h>
 
+#include "nvram_linux.h"
 #include "nvram_transaction_lock.h"
 
 #define PATH_DEV_NVRAM	"/dev/nvram"
