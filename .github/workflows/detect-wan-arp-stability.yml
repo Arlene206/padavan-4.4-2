@@ -1,0 +1,139 @@
+name: WAN gateway ARP probe socket stability regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/detect-wan-arp-stability.yml"
+      - "trunk/user/rc/src/detect_wan.c"
+      - "trunk/user/rc/src/detect_wan_arp_socket_policy.h"
+      - "trunk/user/rc/src/tests/detect_wan_arp_socket_policy.c"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/Makefile"
+      - "trunk/linux-4.4.x/net/core/sock.c"
+  pull_request:
+    paths:
+      - ".github/workflows/detect-wan-arp-stability.yml"
+      - "trunk/user/rc/src/detect_wan.c"
+      - "trunk/user/rc/src/detect_wan_arp_socket_policy.h"
+      - "trunk/user/rc/src/tests/detect_wan_arp_socket_policy.c"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/Makefile"
+      - "trunk/linux-4.4.x/net/core/sock.c"
+
+permissions:
+  contents: read
+
+jobs:
+  detect-wan-arp-socket:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run GNU89 ARP socket setup regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/detect_wan_arp_socket_policy.c \
+            -o /tmp/detect-wan-arp-socket-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/detect-wan-arp-socket-policy
+      - name: Verify bounded receive and interface binding across the production call path
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          rc = Path("trunk/user/rc/src")
+          detect = (rc / "detect_wan.c").read_text()
+          policy = (rc / "detect_wan_arp_socket_policy.h").read_text()
+          test = (rc / "tests/detect_wan_arp_socket_policy.c").read_text()
+          wan = (rc / "net_wan.c").read_text()
+          services = (rc / "services.c").read_text()
+          dispatcher = (rc / "rc.c").read_text()
+          makefile = (rc / "Makefile").read_text()
+          kernel = Path("trunk/linux-4.4.x/net/core/sock.c").read_text()
+          workflow = Path(".github/workflows/detect-wan-arp-stability.yml").read_text()
+
+          def body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          assert '#include "detect_wan_arp_socket_policy.h"' in detect
+          probe = body(detect, "arpping_gateway(int ap_mode)")
+          setup = probe.index("detect_wan_arp_socket_prepare(s, &ifr, &arp_timeout, setsockopt)")
+          send = probe.index("sendto(", setup)
+          receive = probe.index("recvfrom(", send)
+          assert probe.index("arp_timeout.tv_sec = 1;") < setup < send < receive
+          setup_failure = probe[setup:send]
+          assert "perror(\"setsockopt:\");" in setup_failure
+          assert "close(s);" in setup_failure and "return 0;" in setup_failure
+          assert setup_failure.index("close(s);") < setup_failure.index("return 0;")
+          assert "setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE" not in probe
+          assert "setsockopt(s, SOL_SOCKET, SO_RCVTIMEO" not in probe
+
+          prepare = body(policy, "detect_wan_arp_socket_prepare(")
+          bind_step = prepare.index("SO_BINDTODEVICE")
+          timeout_step = prepare.index("SO_RCVTIMEO")
+          assert bind_step < timeout_step
+          assert prepare.index("return -1;", bind_step) < timeout_step
+          assert prepare.index("return -1;", timeout_step) > timeout_step
+          assert "sizeof(*interface_request)" in prepare
+          assert "sizeof(*receive_timeout)" in prepare
+          assert "errno = EINVAL;" in prepare
+          assert "test_bind_failure_prevents_timeout_setup" in test
+          assert "test_timeout_failure_is_reported" in test
+          assert "test_success_installs_both_prerequisites" in test
+          assert "test_invalid_arguments_fail_without_syscalls" in test
+          assert "SO_RCVTIMEO" in test and "SO_BINDTODEVICE" in test
+
+          # Linux 4.4 binds the socket's ingress device and applies SO_RCVTIMEO
+          # through the checked kernel socket-option dispatch.
+          setsock = body(kernel, "int sock_setsockopt(struct socket *sock, int level, int optname,")
+          bind_device = body(kernel, "sock_setbindtodevice(struct sock *sk,")
+          assert "if (optname == SO_BINDTODEVICE)" in setsock
+          assert "return sock_setbindtodevice(sk, optval, optlen);" in setsock
+          assert "ret = -ENODEV;" in bind_device and "if (!dev)" in bind_device
+          assert "sk->sk_bound_dev_if = index;" in bind_device
+          assert "case SO_RCVTIMEO:" in setsock
+          assert "sock_set_timeout(&sk->sk_rcvtimeo, optval, optlen);" in setsock
+
+          # Confirm the monitor is the DHCP-only WAN gateway checker wired into RC.
+          poll = body(detect, "poll_gateway(void)")
+          failed_probe = poll.index("else if (arpping_gateway(ap_mode))")
+          retry_end = poll.index("if ((count >= MAX_ARP_RETRY)", failed_probe)
+          assert "count++;" in poll[failed_probe:retry_end]
+          assert 'nvram_match("gw_arp_ping", "1")' in wan
+          assert 'eval("detect_wan");' in wan
+          assert '"detect_wan"' in body(services, "stop_misc(void)")
+          assert any('"detect_wan"' in line and 'detect_wan_main' in line for line in dispatcher.splitlines())
+          assert "detect_wan.o" in makefile
+
+          paths = (
+              ".github/workflows/detect-wan-arp-stability.yml",
+              "trunk/user/rc/src/detect_wan.c",
+              "trunk/user/rc/src/detect_wan_arp_socket_policy.h",
+              "trunk/user/rc/src/tests/detect_wan_arp_socket_policy.c",
+              "trunk/user/rc/src/net_wan.c",
+              "trunk/user/rc/src/services.c",
+              "trunk/user/rc/src/rc.c",
+              "trunk/user/rc/src/Makefile",
+              "trunk/linux-4.4.x/net/core/sock.c",
+          )
+          filters = workflow.split("jobs:", 1)[0]
+          push_filters, pr_filters = filters.split("  pull_request:", 1)
+          for path in paths:
+              assert push_filters.count(path) == 1, f"push path missing/duplicated: {path}"
+              assert pr_filters.count(path) == 1, f"pull_request path missing/duplicated: {path}"
+          print("WAN gateway ARP socket binding/timeout contract: PASS")
+          PY

@@ -1,0 +1,131 @@
+name: detect_internet signal lifecycle stability regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/detect-internet-signal-stability.yml"
+      - "trunk/user/rc/src/detect_internet.c"
+      - "trunk/user/rc/src/detect_internet_signal_policy.h"
+      - "trunk/user/rc/src/tests/detect_internet_signal_policy.c"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/Makefile"
+  pull_request:
+    paths:
+      - ".github/workflows/detect-internet-signal-stability.yml"
+      - "trunk/user/rc/src/detect_internet.c"
+      - "trunk/user/rc/src/detect_internet_signal_policy.h"
+      - "trunk/user/rc/src/tests/detect_internet_signal_policy.c"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/Makefile"
+
+permissions:
+  contents: read
+
+jobs:
+  detect-internet-signal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run GNU89 signal deferral policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/detect_internet_signal_policy.c \
+            -o /tmp/detect-internet-signal-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/detect-internet-signal-policy
+      - name: Verify normal-context dispatch, wakeup safety and service wiring
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          rc = Path("trunk/user/rc/src")
+          detect = (rc / "detect_internet.c").read_text()
+          policy = (rc / "detect_internet_signal_policy.h").read_text()
+          test = (rc / "tests/detect_internet_signal_policy.c").read_text()
+          wan = (rc / "net_wan.c").read_text()
+          lan = (rc / "net_lan.c").read_text()
+          dispatcher = (rc / "rc.c").read_text()
+          makefile = (rc / "Makefile").read_text()
+          workflow = Path(".github/workflows/detect-internet-signal-stability.yml").read_text()
+
+          def body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          assert '#include "detect_internet_signal_policy.h"' in detect
+          handler = body(detect, "catch_sig_detect_internet(int sig)")
+          assert "detect_internet_record_signal(&di_pending_events, &di_pending_control" in handler
+          for forbidden in ("di_on_timer(", "di_update_last_activity(", "di_on_sigusr1(",
+                            "di_on_sigusr2(", "di_alarmtimer(", "nvram_", "notify_",
+                            "doSystem(", "remove(", "exit("):
+              assert forbidden not in handler, "signal handler still performs work: " + forbidden
+
+          for signal_name in ("SIGHUP", "SIGUSR1", "SIGUSR2", "SIGALRM", "SIGTERM"):
+              assert f"sigaddset(&managed_signals, {signal_name})" in detect
+          main = body(detect, "detect_internet_main(int argc, char *argv[])")
+          assert main.index("sigprocmask(SIG_BLOCK, &managed_signals, &original_mask)") < main.index("sigaction(SIGHUP")
+          assert "sa.sa_mask = managed_signals;" in main
+          assert "sigsuspend(&wait_mask)" in main
+          assert "sigprocmask(SIG_SETMASK, &run_mask, NULL)" in main
+          assert "sigprocmask(SIG_BLOCK, &managed_signals, NULL)" in main
+          terminate = main.index("if (events & DI_PENDING_TERMINATE)")
+          pause = main.index("di_on_sigusr2();", terminate)
+          resume = main.index("di_on_sigusr1();", pause)
+          timer_condition = main.index("if ((events & DI_PENDING_TIMER)", resume)
+          unmask = main.index("sigprocmask(SIG_SETMASK, &run_mask, NULL)", timer_condition)
+          timer_dispatch = main.index("di_on_timer();", unmask)
+          reblock = main.index("sigprocmask(SIG_BLOCK, &managed_signals, NULL)", timer_dispatch)
+          assert terminate < pause < resume < timer_condition < unmask < timer_dispatch < reblock
+          assert main.index("sigprocmask(SIG_BLOCK, &managed_signals, &original_mask)") < terminate
+          assert "control != DI_CONTROL_RESUME && !di_pause_received" in main
+
+          timer = body(detect, "di_on_timer(void)")
+          connect = timer.index("di_connect_to_host(")
+          pause_fence = timer.index("if (di_pause_received)", connect)
+          publish = timer.index('nvram_set_int_temp("link_internet", link_internet)')
+          assert pause_fence < publish
+          assert "notify_on_internet_state_changed(" in timer
+          wan_notify = body(wan, "notify_on_internet_state_changed(")
+          assert "notify_rc(" in wan_notify and "doSystem(" in wan_notify
+
+          assert "notify_run_detect_internet(" in wan
+          assert "notify_pause_detect_internet(" in wan
+          assert "notify_run_detect_internet(" in lan
+          assert "notify_pause_detect_internet(" in lan
+          assert '"detect_internet"' in dispatcher and "detect_internet_main" in dispatcher
+          assert "detect_internet.o" in makefile
+          for marker in ("DI_PENDING_TIMER", "DI_PENDING_ACTIVITY", "DI_PENDING_TERMINATE",
+                         "DI_CONTROL_RESUME", "DI_CONTROL_PAUSE"):
+              assert marker in policy and marker in test
+
+          paths = (
+              ".github/workflows/detect-internet-signal-stability.yml",
+              "trunk/user/rc/src/detect_internet.c",
+              "trunk/user/rc/src/detect_internet_signal_policy.h",
+              "trunk/user/rc/src/tests/detect_internet_signal_policy.c",
+              "trunk/user/rc/src/net_wan.c",
+              "trunk/user/rc/src/net_lan.c",
+              "trunk/user/rc/src/rc.c",
+              "trunk/user/rc/src/Makefile",
+          )
+          filters = workflow.split("jobs:", 1)[0]
+          push_filters, pr_filters = filters.split("  pull_request:", 1)
+          for path in paths:
+              assert push_filters.count(path) == 1, f"push path missing/duplicated: {path}"
+              assert pr_filters.count(path) == 1, f"pull_request path missing/duplicated: {path}"
+          print("detect_internet signal/context contract: PASS")
+          PY

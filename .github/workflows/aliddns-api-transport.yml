@@ -1,0 +1,69 @@
+name: AliDDNS signed API transport security regression
+
+on:
+  push:
+    paths:
+      - "SESSION_HANDOFF.md"
+      - "REFACTOR_ROADMAP.md"
+      - "dev_log.md"
+      - ".github/workflows/aliddns-api-transport.yml"
+      - "scripts/check_aliddns_api_transport.py"
+      - "trunk/user/aliddns/aliddns.sh"
+      - "trunk/user/aliddns/ddns_script.sh"
+      - "trunk/user/aliddns/aliddns-ipv4.sh"
+      - "trunk/user/aliddns/tests/aliddns_ipv4_lookup.sh"
+      - "trunk/user/aliddns/tests/aliddns_api_transport.sh"
+      - "trunk/user/aliddns/tests/aliddns_nslookup_lifecycle.sh"
+      - "trunk/user/aliddns/tests/aliddns_custom_script_lifecycle.sh"
+      - "trunk/user/aliddns/tests/aliddns_lifecycle.sh"
+      - "trunk/user/aliddns/tests/copyscripts_ca_bootstrap.sh"
+      - "trunk/user/aliddns/tests/aliddns_hmac_sha1.sh"
+      - "trunk/user/aliddns/src/aliddns-hmac-sha1.c"
+      - "trunk/user/aliddns/src/Makefile"
+      - "trunk/user/aliddns/Makefile"
+      - "trunk/user/Makefile"
+      - "trunk/libs/Makefile"
+      - "trunk/libs/libcurl/Makefile"
+      - "trunk/user/scripts/files/etc_ro/certs.tgz"
+      - "trunk/user/scripts/files/usr/bin/copyscripts.sh"
+      - "trunk/user/scripts/files/usr/bin/autostart.sh"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/httpd/src/variables.c"
+      - "trunk/configs/boards/busybox.config"
+      - "trunk/user/busybox/busybox-1.24.x/util-linux/flock.c"
+permissions:
+  contents: read
+
+jobs:
+  aliddns-api-transport:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check AliDDNS shell syntax
+        run: |
+          sh -n trunk/user/aliddns/aliddns.sh
+          sh -n trunk/user/aliddns/aliddns-ipv4.sh
+          sh -n trunk/user/aliddns/ddns_script.sh
+          sh -n trunk/user/aliddns/tests/aliddns_nslookup_lifecycle.sh
+          sh -n trunk/user/aliddns/tests/aliddns_custom_script_lifecycle.sh
+          sh -n trunk/user/aliddns/tests/aliddns_lifecycle.sh
+          sh -n trunk/user/aliddns/tests/copyscripts_ca_bootstrap.sh
+          sh -n trunk/user/aliddns/tests/aliddns_hmac_sha1.sh
+          sh -n trunk/user/scripts/files/usr/bin/copyscripts.sh
+      - name: Run AliDDNS signed API transport regression
+        run: sh trunk/user/aliddns/tests/aliddns_api_transport.sh
+      - name: Run AliDDNS public IPv4 lookup regression
+        run: sh trunk/user/aliddns/tests/aliddns_ipv4_lookup.sh
+      - name: Run AliDDNS DNS lookup lifecycle regression
+        run: sh trunk/user/aliddns/tests/aliddns_nslookup_lifecycle.sh
+      - name: Run AliDDNS custom-script lifecycle regression
+        run: sh trunk/user/aliddns/tests/aliddns_custom_script_lifecycle.sh
+      - name: Run AliDDNS lifecycle lock regression
+        run: sh trunk/user/aliddns/tests/aliddns_lifecycle.sh
+      - name: Run CA trust-store bootstrap regression
+        run: sh trunk/user/aliddns/tests/copyscripts_ca_bootstrap.sh
+      - name: Run AliDDNS HMAC-SHA1 process-argument privacy regression
+        run: sh trunk/user/aliddns/tests/aliddns_hmac_sha1.sh
+      - name: Verify AliDDNS transport, CA bundle and RC contracts
+        run: python3 scripts/check_aliddns_api_transport.py

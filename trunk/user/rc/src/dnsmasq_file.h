@@ -1,0 +1,242 @@
+#ifndef PADAVAN_DNSMASQ_FILE_H
+#define PADAVAN_DNSMASQ_FILE_H
+
+#include <errno.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include "dnsmasq_domain_policy.h"
+
+/* Bit flags mirror the service options emitted below.  Only DHCP modes that
+ * emit dhcp-leasefile make the persistent lease path part of startup. */
+#define DNSMASQ_DHCP_FEATURE_LEASES 0x01
+#define DNSMASQ_DHCP_FEATURE_RA     0x02
+
+static int
+dnsmasq_lease_file_required(int dhcp_features)
+{
+	return (dhcp_features & DNSMASQ_DHCP_FEATURE_LEASES) != 0;
+}
+
+/* Build a complete replacement beside its destination; never truncate a
+ * predictable shared-/tmp pathname or follow a pre-existing destination link. */
+static FILE *
+dnsmasq_file_open(char *path)
+{
+	int fd;
+	FILE *fp;
+	int saved_errno;
+
+	if (!path || !path[0]) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	fd = mkstemp(path);
+	if (fd < 0) {
+		path[0] = '\0';
+		return NULL;
+	}
+
+	fp = fdopen(fd, "w");
+	if (!fp) {
+		saved_errno = errno;
+		close(fd);
+		unlink(path);
+		path[0] = '\0';
+		errno = saved_errno;
+		return NULL;
+	}
+
+	return fp;
+}
+
+static void
+dnsmasq_file_discard(char *path)
+{
+	if (path && path[0]) {
+		unlink(path);
+		path[0] = '\0';
+	}
+}
+
+/* Flush/close the staged file before atomically replacing the published path.
+ * rename() replaces a destination symlink itself; it never follows its target. */
+static int
+dnsmasq_file_publish(FILE *fp, char *path, const char *destination, mode_t mode)
+{
+	int failed = 0;
+	int saved_errno = 0;
+
+	if (!fp || !path || !path[0] || !destination || !destination[0]) {
+		if (fp)
+			fclose(fp);
+		dnsmasq_file_discard(path);
+		errno = EINVAL;
+		return -1;
+	}
+
+	errno = 0;
+	if (fflush(fp) != 0) {
+		failed = 1;
+		saved_errno = errno ? errno : EIO;
+	}
+	if (ferror(fp) && !failed) {
+		failed = 1;
+		saved_errno = errno ? errno : EIO;
+	}
+	if (!failed && fchmod(fileno(fp), mode) != 0) {
+		failed = 1;
+		saved_errno = errno ? errno : EIO;
+	}
+	if (fclose(fp) != 0) {
+		if (!saved_errno)
+			saved_errno = errno ? errno : EIO;
+		failed = 1;
+	}
+
+	if (failed) {
+		dnsmasq_file_discard(path);
+		errno = saved_errno ? saved_errno : EIO;
+		return -1;
+	}
+
+	if (rename(path, destination) != 0) {
+		saved_errno = errno ? errno : EIO;
+		dnsmasq_file_discard(path);
+		errno = saved_errno;
+		return -1;
+	}
+
+	path[0] = '\0';
+	return 0;
+}
+
+/* Validate a last-known-good server file without following the final path. */
+static int
+dnsmasq_file_is_safe_regular(const char *path)
+{
+	struct stat st;
+
+	if (!path || !path[0]) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (lstat(path, &st) != 0)
+		return -1;
+	if (!S_ISREG(st.st_mode)) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (st.st_uid != geteuid()) {
+		errno = EPERM;
+		return -1;
+	}
+	if (st.st_nlink != 1) {
+		errno = EMLINK;
+		return -1;
+	}
+	if (st.st_mode & (S_IWGRP | S_IWOTH)) {
+		errno = EPERM;
+		return -1;
+	}
+
+	return 0;
+}
+
+/* Compare byte-for-byte only after validating both paths.  Any open, read or
+ * close error means "different", so an uncertain comparison cannot suppress
+ * publication of a complete resolver file. */
+static int
+dnsmasq_file_contents_equal(const char *path, const char *staged_path)
+{
+	FILE *current, *staged;
+	int current_char, staged_char;
+	int equal = 1;
+
+	if (dnsmasq_file_is_safe_regular(path) != 0 ||
+	    dnsmasq_file_is_safe_regular(staged_path) != 0)
+		return 0;
+
+	current = fopen(path, "r");
+	if (!current)
+		return 0;
+	staged = fopen(staged_path, "r");
+	if (!staged) {
+		fclose(current);
+		return 0;
+	}
+
+	for (;;) {
+		current_char = fgetc(current);
+		staged_char = fgetc(staged);
+		if (current_char != staged_char) {
+			equal = 0;
+			break;
+		}
+		if (current_char == EOF) {
+			if (ferror(current) || ferror(staged))
+				equal = 0;
+			break;
+		}
+	}
+
+	if (fclose(current) != 0)
+		equal = 0;
+	if (fclose(staged) != 0)
+		equal = 0;
+
+	return equal;
+}
+
+/* dnsmasq opens this predictable lease pathname as part of service startup.
+ * Refuse links, non-regular files and multiply-linked files before changing
+ * permissions; opening never truncates existing lease records. */
+static int
+dnsmasq_lease_file_ensure(const char *path)
+{
+	int fd;
+	int saved_errno;
+	struct stat st;
+	mode_t lease_mode;
+
+	if (!path || !path[0]) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	fd = open(path, O_RDWR | O_CREAT | O_NOFOLLOW | O_NONBLOCK,
+		   S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+	if (fd < 0)
+		return -1;
+
+	if (fstat(fd, &st) != 0) {
+		saved_errno = errno ? errno : EIO;
+		close(fd);
+		errno = saved_errno;
+		return -1;
+	}
+	if (!S_ISREG(st.st_mode) || st.st_uid != geteuid() || st.st_nlink != 1) {
+		close(fd);
+		errno = !S_ISREG(st.st_mode) ? EINVAL :
+			(st.st_uid != geteuid() ? EPERM : EMLINK);
+		return -1;
+	}
+	/* Preserve a restrictive umask/mode while ensuring the owner can maintain leases. */
+	lease_mode = (st.st_mode & (S_IRUSR | S_IRGRP | S_IROTH)) | S_IRUSR | S_IWUSR;
+	if (fchmod(fd, lease_mode) != 0) {
+		saved_errno = errno ? errno : EIO;
+		close(fd);
+		errno = saved_errno;
+		return -1;
+	}
+	if (close(fd) != 0)
+		return -1;
+
+	return 0;
+}
+
+#endif /* PADAVAN_DNSMASQ_FILE_H */

@@ -1,0 +1,116 @@
+name: XY-C1 Firmware Validation
+
+on:
+  push:
+    paths:
+      - "trunk/linux-4.4.x/net/netfilter/xt_webstr.c"
+      - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c_common.c"
+      - "trunk/user/busybox/Makefile"
+      - "trunk/user/shared/src/dhcp6c_duid_file_policy.h"
+      - "trunk/user/httpd/src/web_ex.c"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/net_wan6.c"
+      - "trunk/user/vsftpd/src/asus_ext.h"
+      - ".github/workflows/httpd-security.yml"
+      - "trunk/user/rc/src/samba_share_policy.h"
+      - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/shared/src/shutils.h"
+      - "trunk/user/rc/src/Makefile"
+      - "trunk/user/rc/Makefile"
+      - "trunk/user/shared/Makefile"
+      - "trunk/user/shared/src/Makefile"
+      - "trunk/user/shared/src/include/router_account_policy.h"
+      - "trunk/user/Makefile"
+      - "scripts/check_samba_shared_header.py"
+      - "scripts/check_dhcp6c_duid_header_staging.py"
+      - ".github/workflows/xy-c1-firmware-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  firmware:
+    name: Cross-build XY-C1 firmware
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+
+      - uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
+        with:
+          key: XY-C1-mipsel-linux-musl
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.23.x'
+          check-latest: true
+          cache: false
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            bison flex gperf help2man libtool-bin texinfo python3-docutils autopoint gettext ccache \
+            autoconf automake liblzma-dev libltdl-dev liblzo2-dev
+
+          # Older vendored release tarballs hard-code versioned Autotools
+          # helpers. ubuntu-latest may provide only a newer versioned name.
+          for tool in aclocal automake; do
+            tool_path="$(command -v "$tool")"
+            for version in 1.8 1.16; do
+              versioned_tool="${tool}-${version}"
+              versioned_path="$(command -v "$versioned_tool" 2>/dev/null || true)"
+              # command -v can report a dangling versioned symlink as present.
+              # Test executability and repair the shim when the target is broken.
+              if [ -z "$versioned_path" ] || [ ! -x "$versioned_path" ]; then
+                sudo ln -sfn "$tool_path" "/usr/local/bin/$versioned_tool"
+              fi
+            done
+          done
+
+      - name: Verify Samba shared-header staging contract
+        run: python3 scripts/check_samba_shared_header.py
+
+      - name: Verify DHCPv6 DUID staged-header contract
+        run: python3 scripts/check_dhcp6c_duid_header_staging.py
+
+      - name: Verify vsftpd extension header self-containment
+        run: |
+          printf '%s\n' '#include "asus_ext.h"' | \
+            cc -std=gnu89 -Wall -Wextra -Werror -fsyntax-only \
+              -iquote trunk/user/vsftpd/src -x c -
+
+
+
+      - name: Build XY-C1
+        run: |
+          set -e
+          make XY-C1 TOOLCHAIN=mipsel-linux-musl
+
+      - name: Verify TRX output
+        run: |
+          set -e
+          shopt -s nullglob
+          images=(trunk/images/*.trx)
+          if [ "${#images[@]}" -eq 0 ]; then
+            echo "ERROR: XY-C1 build produced no .trx image."
+            find trunk/images -maxdepth 1 -type f -print 2>/dev/null || true
+            exit 1
+          fi
+          for image in "${images[@]}"; do
+            test -s "$image"
+            ls -lh "$image"
+            file "$image"
+          done
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: XY-C1-firmware-${{ github.sha }}
+          path: trunk/images/*.trx
+          if-no-files-found: error
+          retention-days: 7

@@ -1,0 +1,231 @@
+#include "PortableStrptime.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+int main(void)
+{
+    struct tm parsed;
+    struct tm invalid;
+    char valid[] = "2024-11-06";
+    char truncated[] = "2024-11";
+    char malformed_after_year[] = "2024 x-11-06";
+    char malformed_after_month[] = "2024-11 x";
+    char separated[] = "2024 \t11  06";
+    char separated_format[] = "%Y %m %d";
+    char empty[] = "";
+    char alpha[] = "abc";
+    char high_byte[] = { (char)0xff, '1', '2', '\0' };
+    char high_byte_format[] = { (char)0xff, '\0' };
+    char hour[] = "12";
+    char meridiem_only[] = "PM";
+    char meridiem_only_format[] = "%p";
+    char twelve_am[] = "12 AM";
+    char twelve_pm[] = "12 PM";
+    char one_pm[] = "01 PM";
+    char hour12_format[] = "%I %p";
+    char meridiem_first[] = "PM 01";
+    char meridiem_first_format[] = "%p %I";
+    char format[] = "%Y-%m-%d";
+    char month_format[] = "%M";
+    char second_format[] = "%S";
+    char full_year_format[] = "%Y";
+    char hour_format[] = "%H";
+    char yday_format[] = "%j";
+    char yday_empty[] = "";
+    char yday_space[] = " ";
+    char yday_zero[] = "000";
+    char yday_001[] = "001";
+    char yday_060[] = "060";
+    char yday_366[] = "366";
+    char yday_367[] = "367";
+    char year_format[] = "%y";
+    char year_00[] = "00";
+    char year_68[] = "68";
+    char year_69[] = "69";
+    char year_99[] = "99";
+    char space_day[] = " 6";
+    char space_hour24[] = " 7";
+    char space_hour12[] = " 7";
+    char composite_space_date[] = "Friday, November,  6, 2026";
+    char space_day_format[] = "%e";
+    char space_hour24_format[] = "%k";
+    char space_hour12_format[] = "%l";
+    char composite_date_format[] = "%C";
+    char unsupported_input[] = "opaque";
+    char unsupported_format[] = "%Q";
+    char timezone_input[] = "+0800";
+    char timezone_format[] = "%z";
+
+    memset(&parsed, 0, sizeof(parsed));
+    if (io_strptime(NULL, format, &parsed) != NULL ||
+        io_strptime(valid, NULL, &parsed) != NULL ||
+        io_strptime(valid, format, NULL) != NULL) {
+        fprintf(stderr, "NULL parser arguments were accepted\n");
+        return EXIT_FAILURE;
+    }
+
+    if (NULL == io_strptime(valid, format, &parsed) ||
+        parsed.tm_year != 124 || parsed.tm_mon != 10 || parsed.tm_mday != 6) {
+        fprintf(stderr, "valid date did not parse correctly\n");
+        return EXIT_FAILURE;
+    }
+
+    memset(&invalid, 0, sizeof(invalid));
+    if (io_strptime(unsupported_input, unsupported_format, &invalid) != NULL ||
+        io_strptime(timezone_input, timezone_format, &invalid) != NULL) {
+        fprintf(stderr, "unsupported strptime conversion directive was silently accepted\\n");
+        return EXIT_FAILURE;
+    }
+
+    memset(&invalid, 0, sizeof(invalid));
+    if (io_strptime(malformed_after_year, format, &invalid) != NULL ||
+        io_strptime(malformed_after_month, format, &invalid) != NULL) {
+        fprintf(stderr, "unexpected whitespace skipped required format directives\n");
+        return EXIT_FAILURE;
+    }
+    memset(&parsed, 0, sizeof(parsed));
+    if (io_strptime(separated, separated_format, &parsed) != separated + strlen(separated) ||
+        parsed.tm_year != 124 || parsed.tm_mon != 10 || parsed.tm_mday != 6) {
+        fprintf(stderr, "format whitespace did not consume separated date fields\n");
+        return EXIT_FAILURE;
+    }
+
+    memset(&invalid, 0, sizeof(invalid));
+    if (io_strptime(truncated, format, &invalid) != NULL ||
+        io_strptime(empty, hour_format, &invalid) != NULL ||
+        io_strptime(empty, month_format, &invalid) != NULL ||
+        io_strptime(yday_space, month_format, &invalid) != NULL ||
+        io_strptime(empty, second_format, &invalid) != NULL ||
+        io_strptime(yday_space, second_format, &invalid) != NULL ||
+        io_strptime(empty, full_year_format, &invalid) != NULL ||
+        io_strptime(yday_space, full_year_format, &invalid) != NULL ||
+        io_strptime(empty, year_format, &invalid) != NULL ||
+        io_strptime(yday_space, year_format, &invalid) != NULL ||
+        io_strptime(alpha, month_format, &invalid) != NULL ||
+        io_strptime(high_byte, hour_format, &invalid) != NULL ||
+        io_strptime(hour, high_byte_format, &invalid) != NULL) {
+        fprintf(stderr, "truncated or non-numeric input was accepted\n");
+        return EXIT_FAILURE;
+    }
+
+    memset(&parsed, 0, sizeof(parsed));
+    if (NULL == io_strptime(hour, hour_format, &parsed) || parsed.tm_hour != 12) {
+        fprintf(stderr, "valid hour did not parse correctly\n");
+        return EXIT_FAILURE;
+    }
+
+    {
+        unsigned char before[sizeof(invalid)];
+        memset(&invalid, 0xa5, sizeof(invalid));
+        memcpy(before, &invalid, sizeof(invalid));
+        if (io_strptime(meridiem_only, meridiem_only_format, &invalid) !=
+                meridiem_only + strlen(meridiem_only) ||
+            memcmp(before, &invalid, sizeof(invalid)) != 0) {
+            fprintf(stderr, "standalone meridiem parsing read or modified tm_hour\n");
+            return EXIT_FAILURE;
+        }
+    }
+
+    memset(&parsed, 0, sizeof(parsed));
+    if (io_strptime(twelve_am, hour12_format, &parsed) != twelve_am + strlen(twelve_am) ||
+        parsed.tm_hour != 0) {
+        fprintf(stderr, "12 AM did not convert to hour 0\n");
+        return EXIT_FAILURE;
+    }
+    memset(&parsed, 0, sizeof(parsed));
+    if (io_strptime(twelve_pm, hour12_format, &parsed) != twelve_pm + strlen(twelve_pm) ||
+        parsed.tm_hour != 12) {
+        fprintf(stderr, "12 PM did not remain hour 12\n");
+        return EXIT_FAILURE;
+    }
+    memset(&parsed, 0, sizeof(parsed));
+    if (io_strptime(one_pm, hour12_format, &parsed) != one_pm + strlen(one_pm) ||
+        parsed.tm_hour != 13) {
+        fprintf(stderr, "1 PM did not convert to hour 13\n");
+        return EXIT_FAILURE;
+    }
+    memset(&parsed, 0, sizeof(parsed));
+    if (io_strptime(meridiem_first, meridiem_first_format, &parsed) !=
+            meridiem_first + strlen(meridiem_first) || parsed.tm_hour != 13) {
+        fprintf(stderr, "meridiem parsed before the 12-hour field was not applied\n");
+        return EXIT_FAILURE;
+    }
+
+    memset(&parsed, 0, sizeof(parsed));
+    if (io_strptime(yday_001, yday_format, &parsed) != yday_001 + 3 ||
+        parsed.tm_yday != 0) {
+        fprintf(stderr, "day 001 was not converted to zero-based day 0\n");
+        return EXIT_FAILURE;
+    }
+    if (io_strptime(yday_060, yday_format, &parsed) != yday_060 + 3 ||
+        parsed.tm_yday != 59) {
+        fprintf(stderr, "day 060 was not converted to zero-based day 59\n");
+        return EXIT_FAILURE;
+    }
+    if (io_strptime(yday_366, yday_format, &parsed) != yday_366 + 3 ||
+        parsed.tm_yday != 365) {
+        fprintf(stderr, "day 366 was not converted to zero-based day 365\n");
+        return EXIT_FAILURE;
+    }
+    if (io_strptime(yday_empty, yday_format, &parsed) != NULL ||
+        io_strptime(yday_space, yday_format, &parsed) != NULL ||
+        io_strptime(yday_zero, yday_format, &parsed) != NULL ||
+        io_strptime(yday_367, yday_format, &parsed) != NULL) {
+        fprintf(stderr, "invalid or missing day-of-year input was accepted\n");
+        return EXIT_FAILURE;
+    }
+
+    memset(&parsed, 0, sizeof(parsed));
+    if (io_strptime(year_00, year_format, &parsed) != year_00 + 2 ||
+        parsed.tm_year != 100) {
+        fprintf(stderr, "two-digit year 00 did not map to 2000\\n");
+        return EXIT_FAILURE;
+    }
+    if (io_strptime(year_68, year_format, &parsed) != year_68 + 2 ||
+        parsed.tm_year != 168) {
+        fprintf(stderr, "two-digit year 68 did not map to 2068\\n");
+        return EXIT_FAILURE;
+    }
+    if (io_strptime(year_69, year_format, &parsed) != year_69 + 2 ||
+        parsed.tm_year != 69) {
+        fprintf(stderr, "two-digit year 69 did not map to 1969\\n");
+        return EXIT_FAILURE;
+    }
+    if (io_strptime(year_99, year_format, &parsed) != year_99 + 2 ||
+        parsed.tm_year != 99) {
+        fprintf(stderr, "two-digit year 99 did not map to 1999\\n");
+        return EXIT_FAILURE;
+    }
+
+    memset(&parsed, 0, sizeof(parsed));
+    if (io_strptime(space_day, space_day_format, &parsed) != space_day + 2 ||
+        parsed.tm_mday != 6) {
+        fprintf(stderr, "space-padded day-of-month directive did not parse correctly\n");
+        return EXIT_FAILURE;
+    }
+    memset(&parsed, 0, sizeof(parsed));
+    if (io_strptime(space_hour24, space_hour24_format, &parsed) != space_hour24 + 2 ||
+        parsed.tm_hour != 7) {
+        fprintf(stderr, "space-padded 24-hour directive did not parse correctly\n");
+        return EXIT_FAILURE;
+    }
+    memset(&parsed, 0, sizeof(parsed));
+    if (io_strptime(space_hour12, space_hour12_format, &parsed) != space_hour12 + 2 ||
+        parsed.tm_hour != 7) {
+        fprintf(stderr, "space-padded 12-hour directive did not parse correctly\n");
+        return EXIT_FAILURE;
+    }
+    memset(&parsed, 0, sizeof(parsed));
+    if (io_strptime(composite_space_date, composite_date_format, &parsed) !=
+            composite_space_date + strlen(composite_space_date) ||
+        parsed.tm_wday != 5 || parsed.tm_mon != 10 || parsed.tm_mday != 6 ||
+        parsed.tm_year != 126) {
+        fprintf(stderr, "composite %C date format did not parse its padded day field\n");
+        return EXIT_FAILURE;
+    }
+
+    puts("PortableStrptime boundary test passed");
+    return EXIT_SUCCESS;
+}

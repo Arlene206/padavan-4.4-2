@@ -1,0 +1,28 @@
+include $(ROOTDIR)/rules.mk
+
+PKG_NAME:=libuv
+PKG_VERSION:=1.52.1
+
+PKG_SOURCE:=$(PKG_NAME)-v$(PKG_VERSION).tar.gz
+PKG_SOURCE_URL:=https://dist.libuv.org/dist/v$(PKG_VERSION)/
+PKG_HASH:=66d511b9e6e334c0e62279eb234fbfb2b3110b1479c09b95b44c7afca8cff9e7
+PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-v$(PKG_VERSION)
+
+include $(INCLUDE_DIR)/package.mk
+include $(INCLUDE_DIR)/cmake.mk
+
+CMAKE_OPTIONS += \
+	-DBUILD_TESTING=OFF \
+	-DLIBUV_BUILD_SHARED=ON \
+	-DLIBUV_BUILD_TESTS=OFF \
+	-DLIBUV_BUILD_BENCH=OFF
+
+TARGET_CFLAGS += \
+	-D_LARGEFILE_SOURCE \
+	-D_LARGEFILE64_SOURCE
+
+$(eval $(call BuildPackage,libuv))
+
+romfs:
+	$(INSTALL_DIR) $(ROMFSDIR)/lib
+	$(CP) $(PKG_INSTALL_DIR)/lib/libuv.so* $(ROMFSDIR)/lib/

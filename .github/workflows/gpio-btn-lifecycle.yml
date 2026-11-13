@@ -1,0 +1,64 @@
+name: GPIO button daemon startup and press timing stability regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/gpio-btn-lifecycle.yml"
+      - "trunk/user/rc/src/gpio_btn.c"
+      - "trunk/user/rc/src/gpio_btn_daemon_policy.h"
+      - "trunk/user/rc/src/tests/gpio_btn_daemon_policy.c"
+      - "trunk/user/rc/src/gpio_btn_timing_policy.h"
+      - "trunk/user/rc/src/tests/gpio_btn_timing_policy.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/Makefile"
+      - "trunk/user/rc/Makefile"
+      - "trunk/user/shared/src/pids.c"
+      - "trunk/user/shared/src/shutils.c"
+      - "trunk/user/shared/src/shutils.h"
+      - "scripts/check_gpio_btn_lifecycle.py"
+  pull_request:
+    paths:
+      - ".github/workflows/gpio-btn-lifecycle.yml"
+      - "trunk/user/rc/src/gpio_btn.c"
+      - "trunk/user/rc/src/gpio_btn_daemon_policy.h"
+      - "trunk/user/rc/src/tests/gpio_btn_daemon_policy.c"
+      - "trunk/user/rc/src/gpio_btn_timing_policy.h"
+      - "trunk/user/rc/src/tests/gpio_btn_timing_policy.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/Makefile"
+      - "trunk/user/rc/Makefile"
+      - "trunk/user/shared/src/pids.c"
+      - "trunk/user/shared/src/shutils.c"
+      - "trunk/user/shared/src/shutils.h"
+      - "scripts/check_gpio_btn_lifecycle.py"
+
+permissions:
+  contents: read
+
+jobs:
+  gpio-btn-lifecycle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run GNU89 GPIO button daemon policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/gpio_btn_daemon_policy.c \
+            -o /tmp/gpio-btn-daemon-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/gpio-btn-daemon-policy
+      - name: Compile and run GNU89 GPIO button hold timing regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/gpio_btn_timing_policy.c \
+            -o /tmp/gpio-btn-timing-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/gpio-btn-timing-policy
+      - name: Verify daemon launcher, press timing and caller postconditions
+        run: python3 scripts/check_gpio_btn_lifecycle.py

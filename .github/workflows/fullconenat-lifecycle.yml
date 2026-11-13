@@ -1,0 +1,434 @@
+name: FULLCONENAT lifecycle regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/fullconenat-lifecycle.yml"
+      - "trunk/linux-4.4.x/net/netfilter/Kconfig"
+      - "trunk/linux-4.4.x/net/netfilter/Makefile"
+      - "trunk/linux-4.4.x/net/netfilter/xt_FULLCONENAT.c"
+      - "scripts/build_fullconenat_mips_object.sh"
+      - "trunk/linux-4.4.x/Makefile"
+      - "trunk/configure"
+      - "trunk/configs/templates/XY-C1.config"
+      - "trunk/configs/boards/XY-C1/kernel-4.4.x.config"
+      - "trunk/linux-4.4.x/net/netfilter/fullconenat_namespace_policy.h"
+      - "trunk/linux-4.4.x/net/netfilter/tests/fullconenat_namespace_policy.c"
+      - "trunk/linux-4.4.x/net/netfilter/x_tables.c"
+      - "trunk/linux-4.4.x/net/ipv4/netfilter/ip_tables.c"
+      - "trunk/linux-4.4.x/net/netfilter/nf_conntrack_ecache.c"
+      - "trunk/linux-4.4.x/include/net/netns/conntrack.h"
+      - "trunk/linux-4.4.x/net/ipv6/netfilter/ip6_tables.c"
+      - "trunk/linux-4.4.x/net/ipv6/netfilter/ip6table_nat.c"
+      - "trunk/user/rc/src/firewall_ex.c"
+      - "trunk/user/rc/src/firewall_restore_transaction.h"
+  pull_request:
+    paths:
+      - ".github/workflows/fullconenat-lifecycle.yml"
+      - "trunk/linux-4.4.x/net/netfilter/Kconfig"
+      - "trunk/linux-4.4.x/net/netfilter/Makefile"
+      - "trunk/linux-4.4.x/net/netfilter/xt_FULLCONENAT.c"
+      - "scripts/build_fullconenat_mips_object.sh"
+      - "trunk/linux-4.4.x/Makefile"
+      - "trunk/configure"
+      - "trunk/configs/templates/XY-C1.config"
+      - "trunk/configs/boards/XY-C1/kernel-4.4.x.config"
+      - "trunk/linux-4.4.x/net/netfilter/fullconenat_namespace_policy.h"
+      - "trunk/linux-4.4.x/net/netfilter/tests/fullconenat_namespace_policy.c"
+      - "trunk/linux-4.4.x/net/netfilter/x_tables.c"
+      - "trunk/linux-4.4.x/net/ipv4/netfilter/ip_tables.c"
+      - "trunk/linux-4.4.x/net/netfilter/nf_conntrack_ecache.c"
+      - "trunk/linux-4.4.x/include/net/netns/conntrack.h"
+      - "trunk/linux-4.4.x/net/ipv6/netfilter/ip6_tables.c"
+      - "trunk/linux-4.4.x/net/ipv6/netfilter/ip6table_nat.c"
+      - "trunk/user/rc/src/firewall_ex.c"
+      - "trunk/user/rc/src/firewall_restore_transaction.h"
+
+jobs:
+  fullconenat-lifecycle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify FULLCONENAT per-net notifier ownership and cleanup
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          root = Path(".")
+          kernel = root / "trunk/linux-4.4.x/net/netfilter"
+          ipv6 = root / "trunk/linux-4.4.x/net/ipv6/netfilter"
+          rc = root / "trunk/user/rc/src"
+
+          fullcone = (kernel / "xt_FULLCONENAT.c").read_text()
+          xtables = (kernel / "x_tables.c").read_text()
+          ecache = (kernel / "nf_conntrack_ecache.c").read_text()
+          conntrack_netns = (root / "trunk/linux-4.4.x/include/net/netns/conntrack.h").read_text()
+          netfilter_kconfig = (kernel / "Kconfig").read_text()
+          netfilter_makefile = (kernel / "Makefile").read_text()
+          ip_tables = (root / "trunk/linux-4.4.x/net/ipv4/netfilter/ip_tables.c").read_text()
+          ip6_tables = (ipv6 / "ip6_tables.c").read_text()
+          ip6_nat = (ipv6 / "ip6table_nat.c").read_text()
+          firewall = (rc / "firewall_ex.c").read_text()
+          transaction = (rc / "firewall_restore_transaction.h").read_text()
+
+          def function_body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace + 1:pos]
+              raise AssertionError(f"unterminated function: {signature}")
+
+          # FULLCONENAT registers the conntrack destroy notifier unconditionally.
+          # The notifier type and API exist only with CONFIG_NF_CONNTRACK_EVENTS.
+          # Kconfig must prevent selecting the target without that capability.
+          target_config = re.search(
+              r"(?ms)^config NETFILTER_XT_TARGET_FULLCONENAT\s*\n(.*?)(?=^config |\Z)",
+              netfilter_kconfig)
+          assert target_config, "missing FULLCONENAT Kconfig option"
+          assert re.search(
+              r"(?m)^[ \t]*depends on NF_NAT[ \t]*&&[ \t]*NF_CONNTRACK_EVENTS[ \t]*$",
+              target_config.group(1)), "FULLCONENAT must require conntrack events"
+          assert re.search(
+              r"(?m)^obj-\$\(CONFIG_NETFILTER_XT_TARGET_FULLCONENAT\)[ \t]*\+=[ \t]*xt_FULLCONENAT\.o[ \t]*$",
+              netfilter_makefile), "FULLCONENAT Kconfig option is not wired to its object"
+
+          # The GC worker is the only normal-path consumer of the pending
+          # conntrack-destroy list. Never register a target without this worker.
+          init = function_body(fullcone, "static int __init fullconenat_tg_init(void)")
+          assert init.index("create_singlethread_workqueue") < init.index("if (wq == NULL)")
+          assert re.search(r"if\s*\(wq\s*==\s*NULL\)\s*\{[^{}]*return -ENOMEM;", init, re.S)
+          assert init.index("return -ENOMEM;") < init.index("xt_register_targets")
+          assert "ret = xt_register_targets(tg_reg, ARRAY_SIZE(tg_reg));" in init
+          registration_failure = init[init.index("if (ret != 0)"):]
+          assert registration_failure.index("destroy_workqueue(wq)") < registration_failure.index("wq = NULL;") < registration_failure.index("return ret;")
+          assert "return xt_register_targets(" not in init
+
+          callback_start = fullcone.index("/* conntrack destroy event callback function */")
+          callback_end = fullcone.index("static __be32 get_device_ip(", callback_start)
+          callback = fullcone[callback_start:callback_end]
+          worker = function_body(fullcone, "static void gc_worker(struct work_struct *work) {")
+          assert "list_add(&(dying_tuple_item->list), &dying_tuple_list);" in callback
+          assert "if (wq != NULL)" in callback and "queue_delayed_work(wq, &gc_worker_wk" in callback
+          assert "handle_dying_tuples();" in worker
+
+          # The kernel stores conntrack notifier state inside struct net.
+          # FULLCONENAT must therefore own a distinct notifier and refcount
+          # for every namespace, not one module-global first-user registration.
+          assert "struct atomic_notifier_head nf_conntrack_chain;" in conntrack_netns
+          assert "struct nf_ct_event_notifier __rcu *nf_conntrack_event_cb;" in conntrack_netns
+          registry = re.search(r"struct fullconenat_net_notifier\s*\{(.*?)\};", fullcone, re.S)
+          assert registry
+          assert "struct net *net;" in registry.group(1)
+          assert "unsigned int ref_count;" in registry.group(1)
+          assert "struct notifier_block notifier;" in registry.group(1)
+          assert "struct nf_ct_event_notifier notifier;" in registry.group(1)
+          assert "LIST_HEAD(fullconenat_net_notifiers);" in fullcone
+          assert "tg_refer_count" not in fullcone
+          assert "ct_event_notifier_registered" not in fullcone
+
+          check = function_body(fullcone, "static int fullconenat_tg_check(")
+          get_at = check.index("ret = nf_ct_netns_get(par->net, par->family);")
+          get_error_at = check.index("if (ret < 0)", get_at)
+          lock_at = check.index("mutex_lock(&nf_ct_net_event_lock);")
+          lookup_at = check.index("fullconenat_find_net_notifier(par->net)")
+          alloc_at = check.index("kzalloc(sizeof(*notifier), GFP_KERNEL);")
+          register_at = check.index("ret = nf_conntrack_register_notifier(par->net, &notifier->notifier);")
+          register_error_at = check.index("if (ret != 0)", register_at)
+          add_at = check.index("list_add(&notifier->list, &fullconenat_net_notifiers);")
+          assert get_at < get_error_at < lock_at < lookup_at < alloc_at < register_at < register_error_at < add_at
+          existing_net = check[lookup_at:alloc_at]
+          assert "if (notifier != NULL)" in existing_net
+          assert "notifier->ref_count++;" in existing_net
+          assert "notifier->ref_count == ~0U" in existing_net
+          assert "ret = -EOVERFLOW;" in existing_net
+          assert "ret = -ENOMEM;" in check[alloc_at:register_at]
+          notifier_failure = check[register_error_at:add_at]
+          assert "kfree(notifier);" in notifier_failure
+          assert "goto err_unlock;" in notifier_failure
+          error_unwind = check[check.index("err_unlock:"):]
+          assert "mutex_unlock(&nf_ct_net_event_lock);" in error_unwind
+          assert "nf_ct_netns_put(par->net, par->family);" in error_unwind
+          assert "return ret;" in error_unwind
+
+          destroy = function_body(fullcone, "static void fullconenat_tg_destroy(")
+          destroy_lookup = destroy.index("fullconenat_find_net_notifier(par->net)")
+          destroy_decrement = destroy.index("notifier->ref_count--;")
+          unregister_at = destroy.index("nf_conntrack_unregister_notifier(notifier->net, &notifier->notifier);")
+          remove_at = destroy.index("list_del(&notifier->list);")
+          synchronize_at = destroy.index("synchronize_rcu();")
+          free_at = destroy.index("kfree(notifier);")
+          put_at = destroy.rindex("nf_ct_netns_put(par->net, par->family);")
+          assert destroy_lookup < destroy_decrement < unregister_at < remove_at < synchronize_at < free_at < put_at
+          assert "notifier->ref_count == 0" in destroy
+          assert "unmatched target destroy" in destroy
+          assert "nf_conntrack_unregister_notifier(par->net," not in destroy
+
+          # Table-rule teardown must call the target destructor with the
+          # owning namespace, then drop the target module reference.
+          v4_cleanup = function_body(ip_tables, "cleanup_entry(struct ipt_entry *e, struct net *net)")
+          v4_destroy = v4_cleanup.index("par.target->destroy(&par);")
+          v4_module_put = v4_cleanup.index("module_put(par.target->me);")
+          assert "par.net      = net;" in v4_cleanup
+          assert v4_destroy < v4_module_put
+          v4_unregister = function_body(ip_tables, "void ipt_unregister_table(struct net *net, struct xt_table *table)")
+          assert "cleanup_entry(iter, net);" in v4_unregister
+
+          v6_cleanup = function_body(ip6_tables, "cleanup_entry(struct ip6t_entry *e, struct net *net)")
+          v6_destroy = v6_cleanup.index("par.target->destroy(&par);")
+          v6_module_put = v6_cleanup.index("module_put(par.target->me);")
+          assert "par.net      = net;" in v6_cleanup
+          assert v6_destroy < v6_module_put
+          v6_unregister = function_body(ip6_tables, "void ip6t_unregister_table(struct net *net, struct xt_table *table)")
+          assert "cleanup_entry(iter, net);" in v6_unregister
+
+          # Exercise the intended namespace-local refcount lifecycle: activity
+          # in A must not suppress registration or cleanup in B.
+          active = {}
+          registrations = []
+          def target_check(net):
+              if net not in active:
+                  active[net] = 0
+                  registrations.append(("register", net))
+              active[net] += 1
+          def target_destroy(net):
+              assert active[net] > 0
+              active[net] -= 1
+              if active[net] == 0:
+                  del active[net]
+                  registrations.append(("unregister", net))
+          target_check("net-A")
+          target_check("net-A")
+          target_check("net-B")
+          target_destroy("net-A")
+          assert active == {"net-A": 1, "net-B": 1}
+          target_destroy("net-B")
+          assert active == {"net-A": 1}
+          target_destroy("net-A")
+          assert active == {}
+          assert registrations == [("register", "net-A"), ("register", "net-B"),
+                                   ("unregister", "net-B"), ("unregister", "net-A")]
+
+          # The 4.4 notifier provider can reject an already-owned per-net
+          # notifier; xtables propagates negative checkentry results.
+          notifier = function_body(ecache, "struct nf_ct_event_notifier *new)")
+          assert "ret = -EBUSY;" in notifier
+          xt_check = function_body(xtables, "int xt_check_target(")
+          assert "if (ret < 0)" in xt_check and "return ret;" in xt_check
+          register_targets = function_body(xtables, "xt_register_targets(struct xt_target *target,")
+          assert "xt_unregister_targets(target, i);" in register_targets
+          assert "return err;" in register_targets
+
+          # Confirm the IPv6 table-provider and hook-registration failures
+          # reach userspace, then remain inside the RC's shared rollback.
+          replace = function_body(ip6_tables, "__do_replace(struct net *net,")
+          assert 'try_then_request_module(xt_find_table_lock(net, AF_INET6, name)' in replace
+          assert "ret = t ? PTR_ERR(t) : -ENOENT;" in replace
+          nat_init = function_body(ip6_nat, "static int __init ip6table_nat_init(void)")
+          assert "err = nf_register_hooks(nf_nat_ipv6_ops, ARRAY_SIZE(nf_nat_ipv6_ops));" in nat_init
+          assert nat_init.index("unregister_pernet_subsys(&ip6table_nat_net_ops);") < nat_init.index("return err;")
+
+          nat_writer = function_body(firewall, "ip6t_nat_rules(char *man_if)")
+          assert 'firewall_apply_core_restore("IPv6 NAT restore", "ip6tables", "nat", ipt_file);' in nat_writer
+          assert "-A POSTROUTING -s fc00:101:101::1/64 -j FULLCONENAT" in nat_writer
+          rebuild = function_body(firewall, "start_firewall_ex(void)")
+          nat_call = rebuild.index("ip6t_nat_rules(man_if);")
+          nat_gate = rebuild.index("if (!firewall_restore_transaction_ok(&firewall_core_restore_transaction))", nat_call)
+          assert nat_call < nat_gate
+          apply = function_body(transaction, "firewall_restore_transaction_apply(")
+          assert "if (command_fn(family, table, rule_path, 0, context) != 0)" in apply
+          assert "firewall_restore_transaction_abort(tx, command_fn, remove_fn, context);" in apply
+
+          print("FULLCONENAT GC prerequisite, notifier error propagation, IPv6 restore rollback contracts: PASS")
+          PY
+
+      - name: Build and run namespace and zone identity regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -Itrunk/linux-4.4.x/net/netfilter \
+            trunk/linux-4.4.x/net/netfilter/tests/fullconenat_namespace_policy.c \
+            -o /tmp/fullconenat_namespace_policy_test
+          /tmp/fullconenat_namespace_policy_test
+
+      - name: Verify FULLCONENAT namespace and zone ownership contracts
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          kernel = Path("trunk/linux-4.4.x/net/netfilter")
+          source = (kernel / "xt_FULLCONENAT.c").read_text()
+          policy = (kernel / "fullconenat_namespace_policy.h").read_text()
+          test = (kernel / "tests/fullconenat_namespace_policy.c").read_text()
+
+          def function_body(text, signature):
+              start = text.index(signature)
+              brace = text.index("{", start)
+              depth = 0
+              for pos in range(brace, len(text)):
+                  if text[pos] == "{":
+                      depth += 1
+                  elif text[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return text[brace + 1:pos]
+              raise AssertionError(f"unterminated function: {signature}")
+
+          def struct_body(text, name):
+              match = re.search(
+                  r"\bstruct\s+" + re.escape(name) + r"\s*\{(.*?)\};",
+                  text, re.S)
+              assert match, f"missing struct {name}"
+              return match.group(1)
+
+          for name in ("nat_mapping", "nat_mapping6", "tuple_list"):
+              assert "struct fullconenat_namespace_context context;" in struct_body(source, name)
+          assert "zone_id" in policy and "zone_flags" in policy and "zone_dir" in policy
+          assert "different network namespace" in test
+          assert "different zone id" in test and "different zone flags" in test
+          assert "different zone direction" in test
+
+          for signature in (
+              "static struct nat_mapping* get_mapping_by_ext_port(",
+              "static struct nat_mapping* get_mapping_by_int_src(",
+              "static struct nat_mapping6* get_mapping6_by_ext_port(",
+              "static struct nat_mapping6* get_mapping6_by_int_src(",
+              "static struct nat_mapping6* get_mapping6_by_int_src_inrange(",
+          ):
+              assert "fullconenat_namespace_context_equal" in function_body(source, signature)
+
+          for signature in ("static int check_mapping(", "static int check_mapping6("):
+              check = function_body(source, signature)
+              assert "fullconenat_namespace_context_equal(&mapping->context, context)" in check
+              assert "nf_ct_zone_init(&lookup_zone" in check
+              assert "(struct net *)mapping->context.net" in check
+              assert "mapping->context.zone_id" in check
+              assert "mapping->context.zone_flags" in check
+              assert "mapping->context.zone_dir" in check
+          ipv4_target = function_body(source, "static unsigned int fullconenat_tg(")
+          assert "check_mapping(mapping, &context)" in ipv4_target
+          assert "check_mapping(src_mapping, &context)" in ipv4_target
+          assert "check_mapping(mapping, context)" not in ipv4_target
+          assert "check_mapping(src_mapping, net, zone)" not in ipv4_target
+
+          ipv6_lookup = function_body(source, "static struct nat_mapping6* get_mapping6_by_ext_port(")
+          assert "check_mapping6(p_current, context)" in ipv6_lookup
+          ipv6_target = function_body(source, "static unsigned int fullconenat_tg6(")
+          assert "get_mapping6_by_ext_port(port, ip, &context)" in ipv6_target
+          assert "check_mapping6(src_mapping, &context)" in ipv6_target
+
+          for signature in ("static struct nat_mapping* allocate_mapping(",
+                            "static struct nat_mapping6* allocate_mapping6("):
+              assert "p_new->context = *context;" in function_body(source, signature)
+
+          callback_start = source.index("/* conntrack destroy event callback function */")
+          callback_end = source.index("static __be32 get_device_ip(", callback_start)
+          callback = source[callback_start:callback_end]
+          assert "fullconenat_context_from_ct(&dying_tuple_item->context, ct);" in callback
+          gc = function_body(source, "static void handle_dying_tuples(void)")
+          assert "get_mapping_by_int_src(ip, port, &item->context)" in gc
+          assert "get_mapping6_by_int_src(ip6, port, ext_ip6, &item->context)" in gc
+          assert "get_mapping_by_int_src(ip, port)" not in gc
+          assert "get_mapping6_by_int_src(ip6, port, ext_ip6)" not in gc
+
+          purge = function_body(source, "fullconenat_purge_net(struct net *net)")
+          assert purge.count("fullconenat_namespace_context_belongs_to_net") == 3
+          assert "kill_mapping(mapping)" in purge and "kill_mapping6(mapping6)" in purge
+          assert "list_del(&item->list);" in purge
+          lock6 = purge.index("spin_lock_bh(&fullconenat6_lock)")
+          lock4 = purge.index("spin_lock_bh(&fullconenat_lock)")
+          lockq = purge.index("spin_lock_bh(&dying_tuple_list_lock)")
+          assert lock6 < lock4 < lockq
+          destroy = function_body(source, "static void fullconenat_tg_destroy(")
+          sync = destroy.index("synchronize_rcu();")
+          purge_at = destroy.index("fullconenat_purge_net(par->net);")
+          free = destroy.index("kfree(notifier);", purge_at)
+          put = destroy.rindex("nf_ct_netns_put(par->net, par->family);")
+          assert sync < purge_at < free < put
+          print("FULLCONENAT IPv4/IPv6 namespace and conntrack-zone ownership contracts: PASS")
+          PY
+
+      - name: Verify FULLCONENAT packet-family debug formatting is concurrency-safe
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/net/netfilter/xt_FULLCONENAT.c").read_text()
+          assert "tuple_tmp_string" not in source, "shared IPv4/IPv6 log buffer returned"
+          assert "nf_ct_stringify_tuple" not in source, "shared formatter helper returned"
+          for fragment in (
+              "check_mapping6(): tuple [%pI6c]:%hu -> [%pI6c]:%hu dying/unconfirmed.",
+              "check_mapping(): tuple %pI4:%hu -> %pI4:%hu dying/unconfirmed.",
+              "<INBOUND DNAT> [%pI6c]:%hu -> [%pI6c]:%hu ==> [%pI6c]:%d",
+              "<OUTBOUND SNAT> [%pI6c]:%hu -> [%pI6c]:%hu ==> %d",
+              "<INBOUND DNAT> %pI4:%hu -> %pI4:%hu ==> %pI4:%d",
+              "<OUTBOUND SNAT> %pI4:%hu -> %pI4:%hu ==> %d",
+          ):
+              assert fragment in source, f"missing direct tuple formatting: {fragment}"
+          print("FULLCONENAT concurrent IPv4/IPv6 debug formatting contract: PASS")
+          PY
+
+      - name: Validate configure feature sections and FULLCONENAT/SQM independence
+        run: |
+          bash -n trunk/configure
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/configure").read_text()
+          markers = (
+              "######################### FULLCONENAT",
+              "############################# SQM",
+              "########################### CPU EREQ",
+              "############################# FAT",
+              "############################ exFAT",
+              "############################# EXT2",
+              "############################# EXT3",
+              "############################# EXT4",
+              "############################# XFS",
+              "############################# FUSE",
+              "############################# SWAP",
+              "############################# NFSD",
+              "############################# UVC",
+              "############################# HID",
+              "############################# UART",
+              "############################# XFRM",
+              "############################ IPSET",
+              "############################# QOS",
+              "############################# IFB",
+              "############################# NFSC",
+              "############################# CIFS",
+              "############################# USB AUDIO",
+          )
+          for marker in markers:
+              assert source.count(marker) == 1, f"duplicate or missing section: {marker}"
+
+          fullcone = source.index("######################### FULLCONENAT")
+          sqm = source.index("############################# SQM")
+          block = source[fullcone:sqm]
+          assert "FULLCONENAT=y" in block
+          assert "FULLCONENAT=m" in block
+          assert "CONFIG_NF_CONNTRACK_EVENTS" in block
+          assert 'if [ "$CONFIG_FIRMWARE_INCLUDE_SQM" = "y" ]; then' not in block
+          assert 'if [ "$CONFIG_FIRMWARE_INCLUDE_SQM" = "y" ]; then' in source[sqm:]
+          print("Project configure uniqueness and FULLCONENAT/SQM dependency contract: PASS")
+          PY
+
+      - name: Build FULLCONENAT for MT7621 MIPS32r2
+        run: |
+          set -eu
+          archive="$RUNNER_TEMP/mipsel-linux-musl.tar.xz"
+          toolchain_root="$RUNNER_TEMP/fullconenat-mipsel-linux-musl"
+          curl -fL --retry 3 \
+            "https://github.com/Arlene206/padavan-4.4-2/releases/download/toolchain/mipsel-linux-musl.tar.xz" \
+            -o "$archive"
+          printf '%s  %s\n' '7c1dc5c5ed6c3b86fa5baf7e2832309e1ce21434e1e6dae491f838c95f3a6863' "$archive" | sha256sum -c -
+          mkdir -p "$toolchain_root"
+          tar -xJf "$archive" -C "$toolchain_root"
+          MIPS_TOOLCHAIN_ROOT="$toolchain_root" \
+            scripts/build_fullconenat_mips_object.sh

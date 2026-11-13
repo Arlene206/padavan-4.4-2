@@ -1,0 +1,485 @@
+name: vsftpd configuration publication stability regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/vsftpd-stability.yml"
+      - "trunk/user/vsftpd/src/asus_ext.c"
+      - "trunk/user/vsftpd/src/asus_ext.h"
+      - "trunk/user/vsftpd/src/postlogin.c"
+      - "trunk/user/vsftpd/src/ftp_acl_path_policy.h"
+      - "trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c"
+      - "trunk/user/vsftpd/src/ftp_listing_policy.h"
+      - "trunk/user/vsftpd/src/ftpdataio.c"
+      - "trunk/user/vsftpd/src/sysutil.c"
+      - "trunk/user/vsftpd/src/sysutil.h"
+      - "trunk/user/vsftpd/src/ls.c"
+      - "trunk/user/vsftpd/src/sysstr.c"
+      - "trunk/user/vsftpd/src/sysstr.h"
+      - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/ftp_config_file.h"
+      - "trunk/user/rc/src/tests/ftp_config_file.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/ftp_daemon_policy.h"
+      - "trunk/user/rc/src/tests/ftp_daemon_policy.c"
+  pull_request:
+    paths:
+      - ".github/workflows/vsftpd-stability.yml"
+      - "trunk/user/vsftpd/src/asus_ext.c"
+      - "trunk/user/vsftpd/src/asus_ext.h"
+      - "trunk/user/vsftpd/src/postlogin.c"
+      - "trunk/user/vsftpd/src/ftp_acl_path_policy.h"
+      - "trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c"
+      - "trunk/user/vsftpd/src/ftp_listing_policy.h"
+      - "trunk/user/vsftpd/src/ftpdataio.c"
+      - "trunk/user/vsftpd/src/sysutil.c"
+      - "trunk/user/vsftpd/src/sysutil.h"
+      - "trunk/user/vsftpd/src/ls.c"
+      - "trunk/user/vsftpd/src/sysstr.c"
+      - "trunk/user/vsftpd/src/sysstr.h"
+      - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/ftp_config_file.h"
+      - "trunk/user/rc/src/tests/ftp_config_file.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/ftp_daemon_policy.h"
+      - "trunk/user/rc/src/tests/ftp_daemon_policy.c"
+
+jobs:
+  vsftpd-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run vsftpd configuration publication regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/ftp_config_file.c \
+            -o /tmp/ftp-config-file
+          /tmp/ftp-config-file
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/ftp_daemon_policy.c \
+            -o /tmp/ftp-daemon-policy
+          /tmp/ftp-daemon-policy
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -iquote trunk/user/vsftpd/src \
+            trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c \
+            -o /tmp/ftp-acl-path-policy
+          /tmp/ftp-acl-path-policy
+      - name: Verify vsftpd configuration publication and startup gates
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/user/rc/src/services_stor.c").read_text()
+          rc = Path("trunk/user/rc/src/rc.c").read_text()
+          header = Path("trunk/user/rc/src/rc.h").read_text()
+          helper = Path("trunk/user/rc/src/ftp_config_file.h").read_text()
+          test = Path("trunk/user/rc/src/tests/ftp_config_file.c").read_text()
+          workflow = Path(".github/workflows/vsftpd-stability.yml").read_text()
+          daemon_policy = Path("trunk/user/rc/src/ftp_daemon_policy.h").read_text()
+          daemon_test = Path("trunk/user/rc/src/tests/ftp_daemon_policy.c").read_text()
+          vsftpd_acl = Path("trunk/user/vsftpd/src/asus_ext.c").read_text()
+          vsftpd_acl_header = Path("trunk/user/vsftpd/src/asus_ext.h").read_text()
+          vsftpd_postlogin = Path("trunk/user/vsftpd/src/postlogin.c").read_text()
+          vsftpd_dataio = Path("trunk/user/vsftpd/src/ftpdataio.c").read_text()
+          vsftpd_listing_policy = Path("trunk/user/vsftpd/src/ftp_listing_policy.h").read_text()
+          vsftpd_sysutil = Path("trunk/user/vsftpd/src/sysutil.c").read_text()
+          vsftpd_sysutil_header = Path("trunk/user/vsftpd/src/sysutil.h").read_text()
+          vsftpd_ls = Path("trunk/user/vsftpd/src/ls.c").read_text()
+          vsftpd_sysstr = Path("trunk/user/vsftpd/src/sysstr.c").read_text()
+          vsftpd_sysstr_header = Path("trunk/user/vsftpd/src/sysstr.h").read_text()
+          acl_path_policy = Path("trunk/user/vsftpd/src/ftp_acl_path_policy.h").read_text()
+          acl_path_test = Path("trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c").read_text()
+
+          def function_body(text, signature):
+              start = text.index(signature)
+              brace = text.index("{", start)
+              depth = 0
+              for pos in range(brace, len(text)):
+                  if text[pos] == "{":
+                      depth += 1
+                  elif text[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return text[brace + 1:pos]
+              raise AssertionError(f"unterminated function: {signature}")
+
+          config = function_body(source, "write_vsftpd_conf(")
+          assert "ftp_config_file_open(" in config
+          assert "ftp_config_file_publish(" in config
+          assert config.index("ftp_config_file_open(") < config.index("fprintf(")
+          assert config.index("fprintf(") < config.index("ftp_config_file_publish(")
+          assert 'fopen("/etc/vsftpd.conf", "w")' not in config
+          assert "return -1;" in config
+          publish_gate = config.index('if (ftp_config_file_publish(')
+          publish_error = config.index("return -1;", publish_gate)
+          publish_success = config.index("return 0;", publish_gate)
+          assert publish_gate < publish_error < publish_success
+
+          run = function_body(source, "run_ftp(")
+          failure_gate = run.index("if (write_vsftpd_conf() != 0)")
+          failure_return = run.index("return -1;", failure_gate)
+          daemon_start = run.index('eval("/sbin/vsftpd")')
+          assert failure_gate < failure_return < daemon_start
+          assert "command_status != 0" in run
+          assert 'ftp_wait_for_daemon("vsftpd") != 0' in run
+
+          wait_fn = function_body(source, "ftp_wait_for_daemon(")
+          assert "ftp_daemon_wait_for_stable_presence(daemon, 30" in wait_fn
+          running_fn = function_body(source, "ftp_daemon_is_running(")
+          sleep_fn = function_body(source, "ftp_daemon_sleep(")
+          assert "pids((char *)daemon) > 0" in running_fn
+          assert "usleep(microseconds)" in sleep_fn
+
+          acl_existing = function_body(vsftpd_acl, "asus_check_permission_existing_path(")
+          acl_upload = function_body(vsftpd_acl, "asus_check_permission_upload(")
+          acl_directory = function_body(vsftpd_acl, "asus_check_permission_directory(")
+          acl_visible = function_body(vsftpd_acl, "asus_check_file_visible(")
+          size = function_body(vsftpd_postlogin, "static void\nhandle_size")
+          mdtm = function_body(vsftpd_postlogin, "static void\nhandle_mdtm")
+          chmod = function_body(vsftpd_postlogin, "static void\nhandle_site_chmod")
+          upload = function_body(vsftpd_postlogin, "static void\nhandle_upload_common")
+          mkd = function_body(vsftpd_postlogin, "static void\nhandle_mkd")
+          rmd = function_body(vsftpd_postlogin, "static void\nhandle_rmd")
+          dele = function_body(vsftpd_postlogin, "static void\nhandle_dele")
+          retr = function_body(vsftpd_postlogin, "static void\nhandle_retr")
+          existing_open = function_body(vsftpd_acl, "asus_open_existing_path(")
+          upload_open = function_body(vsftpd_acl, "asus_open_upload_path(")
+          remove_path = function_body(vsftpd_acl, "asus_remove_path(")
+          make_directory_path = function_body(vsftpd_acl, "asus_make_directory_path(")
+          rename_path = function_body(vsftpd_acl, "asus_rename_path(")
+          open_subdirectory = function_body(vsftpd_acl, "asus_open_subdirectory_path(")
+          open_list_directory = function_body(vsftpd_acl, "asus_check_permission_open_directory(")
+          child_open = function_body(acl_path_policy, "ftp_acl_path_open_child_directory(")
+          child_verify = function_body(acl_path_policy, "ftp_acl_path_verify_child_directory(")
+          recursive_list = function_body(vsftpd_dataio, "transfer_dir_internal(struct vsf_session* p_sess")
+          resolve_listing_base = function_body(vsftpd_acl, "asus_resolve_listing_base(")
+          child_path = function_body(acl_path_policy, "ftp_acl_path_build_child_path(")
+          bounded_file_open = function_body(acl_path_policy, "ftp_acl_path_open_bounded_regular_file(")
+          acl_file_reader = function_body(vsftpd_acl, "read_file_to_buffer(")
+          sys_fdopendir = function_body(vsftpd_sysutil, "vsf_sysutil_fdopendir(")
+          sys_dirfd = function_body(vsftpd_sysutil, "vsf_sysutil_dirfd(")
+          sys_lstatat = function_body(vsftpd_sysutil, "vsf_sysutil_lstatat(")
+          sys_readlinkat = function_body(vsftpd_sysutil, "vsf_sysutil_readlinkat(")
+          str_lstatat = function_body(vsftpd_sysstr, "str_lstatat(")
+          str_readlinkat = function_body(vsftpd_sysstr, "str_readlinkat(")
+          listing_entries = function_body(vsftpd_ls, "vsf_ls_populate_dir_list(")
+          directory = function_body(vsftpd_postlogin, "static void\nhandle_dir_common")
+          acl_at = function_body(vsftpd_acl, "asus_check_permission_at(")
+          acl_path = function_body(vsftpd_acl, "asus_check_permission_path(")
+          acl_existing = function_body(vsftpd_acl, "asus_check_permission_existing_path(")
+          acl_upload = function_body(vsftpd_acl, "asus_check_permission_upload(")
+          acl_directory = function_body(vsftpd_acl, "asus_check_permission_directory(")
+          acl_visible = function_body(vsftpd_acl, "asus_check_file_visible(")
+          assert "asus_open_upload_path(" in upload
+          assert upload_open.index("ftp_acl_path_open_verified_directory(resolved_parent)") < upload_open.index("asus_check_permission_at(p_sess, PERM_WRITE, resolved_parent)")
+          assert upload_open.index("asus_check_permission_at(p_sess, PERM_WRITE, resolved_parent)") < upload_open.index("ftp_acl_path_verify_directory_identity(resolved_parent, parent_fd)")
+          assert upload_open.index("ftp_acl_path_verify_directory_identity(resolved_parent, parent_fd)") < upload_open.index("openat(parent_fd, p_leaf, flags, mode)")
+          assert "stat(resolved_parent, &expected_parent)" not in upload_open
+          assert "p_sess, p_filename, 1," in upload
+          assert "p_sess, p_filename, 0," in upload
+          assert "asus_cleanup_failed_upload(upload_parent_fd, upload_leaf," in upload
+          assert "new_file_fd);" in upload
+          assert "str_create(" not in upload
+          assert "asus_make_directory_path(p_sess, &p_sess->ftp_arg_str, 0777," in mkd
+          assert "str_mkdir(" not in mkd
+          assert "permission_denied" in mkd
+          assert "asus_remove_path(p_sess, &p_sess->ftp_arg_str, 1," in rmd
+          assert "str_rmdir(" not in rmd
+          assert "permission_denied" in rmd
+          assert "asus_remove_path(p_sess, &p_sess->ftp_arg_str, 0," in dele
+          assert "str_unlink(" not in dele
+          assert "permission_denied" in dele
+          assert "asus_open_existing_path(p_sess, PERM_READ" in retr
+          assert "&p_sess->ftp_arg_str, 0," in retr
+          assert "str_open(" not in retr
+          assert "asus_check_permission_open_directory(" in directory
+          assert "vsf_sysutil_dirfd(p_dir)" in directory
+          assert "ftp_acl_path_verify_directory_identity(resolved, directory_fd)" in open_list_directory
+          assert "asus_check_permission_at(p_sess, PERM_READ, resolved)" in open_list_directory
+          assert "ftp_acl_path_open_child_directory(parent_fd, leaf)" in open_subdirectory
+          assert "asus_check_permission_at(p_sess, PERM_READ, child_path)" in open_subdirectory
+          assert "ftp_acl_path_verify_directory_identity(resolved_parent, parent_fd)" in open_subdirectory
+          assert "ftp_acl_path_verify_child_directory(parent_fd, leaf, child_fd)" in open_subdirectory
+          assert "openat(parent_fd, leaf" in child_open
+          assert "O_NOFOLLOW" in child_open
+          assert "fstatat(parent_fd, leaf, &current, AT_SYMLINK_NOFOLLOW)" in child_verify
+          assert "fstat(child_fd, &opened)" in child_verify
+          assert "vsf_sysutil_dirfd(p_dir)" in recursive_list
+          assert "asus_open_subdirectory_path(" in recursive_list
+          assert "vsf_sysutil_fdopendir(child_fd)" in recursive_list
+          assert "str_opendir(&sub_str)" not in recursive_list
+          assert "fdopendir(fd)" in sys_fdopendir
+          assert "dirfd((DIR*) p_dir)" in sys_dirfd
+          assert "vsf_sysutil_fdopendir(int fd)" in vsftpd_sysutil_header
+          assert "recursive child open did not pin the direct directory" in acl_path_test
+          assert "recursive child open followed a substituted directory symlink" in acl_path_test
+          assert "vsf_sysutil_lstatat(dir_fd, str_getbuf(p_filename_str), p_ptr)" in str_lstatat
+          assert "fstatat(dir_fd, p_name, (struct stat*) (*p_ptr)" in sys_lstatat
+          assert "AT_SYMLINK_NOFOLLOW" in sys_lstatat
+          assert "readlinkat(dir_fd, p_filename, p_dest, bufsiz - 1)" in sys_readlinkat
+          assert "p_dest[retval] = '\\0'" in sys_readlinkat
+          assert "vsf_sysutil_readlinkat(dir_fd, str_getbuf(p_filename_str)" in str_readlinkat
+          assert "str_lstatat(dir_fd, &s_next_filename_str, &s_p_statbuf)" in listing_entries
+          assert "str_readlinkat(&s_temp_str, dir_fd, &s_next_filename_str)" in listing_entries
+          assert "str_lstat(&s_next_path_and_filename_str" not in listing_entries
+          assert "str_readlink(&s_temp_str, &s_next_path_and_filename_str)" not in listing_entries
+          assert "descriptor-relative lstat did not preserve symlink entry identity" in acl_path_test
+          assert "descriptor-relative readlink returned the wrong target" in acl_path_test
+          assert "resolved_parent[0] != '/'" in child_path
+          assert "strchr(leaf, '/')" in child_path
+          assert "ftp_acl_path_resolve_directory(str_getbuf(p_base_dir_str), resolved_base" in resolve_listing_base
+          assert "ftp_acl_path_verify_directory_identity(resolved_base, directory_fd)" in resolve_listing_base
+          assert "ftp_acl_path_build_child_path(resolved_base, p_filename, fullpath" in acl_visible
+          assert "fstatat(directory_fd, p_filename, &entry_stat, 0)" in acl_visible
+          assert "str_getcwd(&p_sess->cwd_str)" not in acl_visible
+          assert "asus_resolve_listing_base(p_base_dir_str, dir_fd, resolved_base" in listing_entries
+          assert "asus_check_file_visible(p_sess, resolved_base, dir_fd" in listing_entries
+          assert "listing child path did not honor the canonical base" in acl_path_test
+          assert "#define VSF_LISTING_MAX_DEPTH 32U" in vsftpd_listing_policy
+          assert "#define VSF_LISTING_MAX_ENTRIES_PER_DIR 4096U" in vsftpd_listing_policy
+          assert "#define VSF_LISTING_MAX_ENTRIES_TOTAL 32768U" in vsftpd_listing_policy
+          assert "#define vsf_listing_entry_limit_reached(entries_in_dir, entries_total)" in vsftpd_listing_policy
+          assert "entries_in_dir) >= VSF_LISTING_MAX_ENTRIES_PER_DIR" in vsftpd_listing_policy
+          assert "entries_total) >= VSF_LISTING_MAX_ENTRIES_TOTAL" in vsftpd_listing_policy
+          assert "#define vsf_listing_depth_limit_reached(depth, child_directories)" in vsftpd_listing_policy
+          assert "depth) >= VSF_LISTING_MAX_DEPTH" in vsftpd_listing_policy
+          assert "vsf_listing_entry_limit_reached(entries_in_dir, *p_total_entries)" in listing_entries
+          assert "(*p_total_entries)++" in listing_entries
+          assert "vsf_listing_depth_limit_reached(depth" in recursive_list
+          assert "depth + 1, p_total_entries" in recursive_list
+          assert recursive_list.index("write_dir_list(p_sess, &dir_list, target)") < recursive_list.index("str_list_free(&dir_list)", recursive_list.index("write_dir_list(p_sess, &dir_list, target)")) < recursive_list.index("for (subdir_index")
+          assert "vsf_ls_populate_dir_list(" in recursive_list and ") != 0" in recursive_list
+          assert "FTP listing resource limits are inconsistent" in acl_path_test
+          assert "FTP STAT completion message policy failed" in acl_path_test
+          assert "VSF_LISTING_STAT_COMPLETE_TEXT" in vsftpd_listing_policy
+          assert "End of status (listing unavailable or incomplete)" in vsftpd_listing_policy
+          assert "retval = -1;" in directory
+          assert "retval == 0 ? VSF_LISTING_STAT_COMPLETE_TEXT" in directory
+          assert "VSF_LISTING_STAT_INCOMPLETE_TEXT" in directory
+          assert directory.index("if (p_dir != 0 && dir_allow_read)") < directory.index("else if (stat_cmd)") < directory.index("retval = -1;")
+          assert "O_NOFOLLOW | O_NONBLOCK" in bounded_file_open
+          assert "O_CLOEXEC" in bounded_file_open
+          assert "fstat(fd, &opened)" in bounded_file_open
+          assert "!S_ISREG(opened.st_mode)" in bounded_file_open
+          assert "opened.st_size > max_size" in bounded_file_open
+          assert "ftp_acl_path_open_bounded_regular_file(" in acl_file_reader
+          assert "read(fd, buffer + read_total, file_size - read_total)" in acl_file_reader
+          assert "errno == EINTR" in acl_file_reader
+          assert "final_stat.st_size != stat_buf.st_size" in acl_file_reader
+          assert "ACL config FIFO was accepted" in acl_path_test
+          assert "ACL config symlink was followed" in acl_path_test
+          assert "oversized ACL config fixture was accepted" in acl_path_test
+          assert "return -1;" in listing_entries
+          assert "return;" not in listing_entries
+          assert "asus_check_permission_open_directory(" in directory
+          assert "asus_open_existing_path(p_sess, PERM_READ" in size
+          assert "&p_sess->ftp_arg_str, 1," in size
+          assert "str_stat(" not in size
+          assert "vsf_sysutil_fstat(opened_file" in size
+          assert "vsf_sysutil_close(opened_file)" in size
+          assert "ftp_acl_path_resolve_existing_entry" in existing_open
+          assert "ftp_acl_path_open_verified_directory" in existing_open
+          assert "asus_check_permission_at(p_sess, perm, resolved_parent)" in existing_open
+          assert "ftp_acl_path_open_existing_file(parent_fd, leaf, stat_only)" in existing_open
+          assert "ftp_acl_path_split_entry" in remove_path
+          assert "ftp_acl_path_resolve_parent" in remove_path
+          assert "ftp_acl_path_open_verified_directory" in remove_path
+          assert "asus_check_permission_at(p_sess, PERM_DELETE, resolved_parent)" in remove_path
+          assert "ftp_acl_path_verify_directory_identity(resolved_parent, parent_fd)" in remove_path
+          assert "ftp_acl_path_remove_entry(parent_fd, leaf, remove_directory)" in remove_path
+          assert "ftp_acl_path_split_entry" in make_directory_path
+          assert "ftp_acl_path_resolve_parent" in make_directory_path
+          assert "ftp_acl_path_open_verified_directory" in make_directory_path
+          assert "asus_check_permission_at(p_sess, PERM_WRITE, resolved_parent)" in make_directory_path
+          assert "ftp_acl_path_verify_directory_identity(resolved_parent, parent_fd)" in make_directory_path
+          assert "ftp_acl_path_make_directory_at(parent_fd, leaf, mode)" in make_directory_path
+          assert "ftp_acl_path_open_existing_file" in acl_path_policy
+          assert "ftp_acl_path_verify_directory_identity" in acl_path_policy
+          assert "unlinkat(dir_fd, leaf, remove_directory ? AT_REMOVEDIR : 0)" in acl_path_policy
+          assert "mkdirat(dir_fd, leaf, (mode_t)mode)" in acl_path_policy
+          assert "fstatat(dir_fd, leaf, &expected, AT_SYMLINK_NOFOLLOW)" in acl_path_policy
+          assert "O_PATH : (O_RDONLY | O_NONBLOCK)" in acl_path_policy
+          assert "expected.st_ino != opened.st_ino" in acl_path_policy
+          assert "existing final symlink target was not canonicalized" in acl_path_test
+          assert "stat-only descriptor did not pin the regular target" in acl_path_test
+          assert "existing-file helper did not reject a substituted final symlink" in acl_path_test
+          assert "existing-file open escaped the pinned directory" in acl_path_test
+          assert "DELE removed symlink target instead of link entry" in acl_path_test
+          assert "RMD followed or removed a final directory symlink" in acl_path_test
+          assert "RMD could not remove an empty directory entry" in acl_path_test
+          assert "descriptor-relative removal accepted reserved metadata" in acl_path_test
+          assert "directory identity check accepted a substituted parent" in acl_path_test
+          assert "directory identity check accepted a real-directory substitute" in acl_path_test
+          assert "rename resolver followed an ordinary final symlink" in acl_path_test
+          assert "rename resolver did not follow trailing-slash directory link" in acl_path_test
+          assert "cross-directory renameat or overwrite semantics failed" in acl_path_test
+          assert "renameat followed the final symlink instead of moving it" in acl_path_test
+          assert "renameat did not use both pinned parent descriptors" in acl_path_test
+          assert "renameat allowed a reserved source leaf" in acl_path_test
+          assert "renameat allowed a reserved destination leaf" in acl_path_test
+          assert "descriptor-relative MKD did not create directory" in acl_path_test
+          assert "descriptor-relative MKD accepted reserved metadata" in acl_path_test
+          assert "asus_open_existing_path(p_sess," in mdtm
+          assert "can_write ? PERM_WRITE : PERM_READ" in mdtm
+          assert "can_write ? 0 : 1" in mdtm
+          assert "vsf_sysutil_fstat(opened_file" in mdtm
+          assert "vsf_sysutil_setmodtime_fd(" in mdtm
+          assert "opened_file, modtime, tunable_use_localtime" in mdtm
+          assert "vsf_sysutil_setmodtime(" not in mdtm
+          assert "asus_open_existing_path(" in chmod
+          assert "p_sess, PERM_WRITE, &s_chmod_file_str, 0," in chmod
+          assert "vsf_sysutil_fchmod_ret(opened_file" in chmod
+          assert "str_chmod(" not in chmod
+          assert "int vsf_sysutil_fchmod_ret(const int fd, unsigned int mode);" in vsftpd_sysutil_header
+          assert "int vsf_sysutil_setmodtime_fd(int fd, long the_time, int is_localtime);" in vsftpd_sysutil_header
+          assert "return fchmod(fd, mode & 0777);" in vsftpd_sysutil
+          assert "return futimes(fd, new_times);" in vsftpd_sysutil
+          assert "descriptor metadata mutation followed a replaced pathname" in acl_path_test
+          assert "ftp_acl_path_is_internal_metadata(str_getbuf(p_path_str))" in acl_path
+          assert "ftp_acl_path_is_internal_metadata(str_getbuf(p_path_str))" in acl_existing
+          assert "ftp_acl_path_is_internal_metadata(str_getbuf(p_path_str))" in acl_upload
+          assert "ftp_acl_path_is_internal_metadata(str_getbuf(p_path_str))" in acl_directory
+          assert "ftp_acl_path_is_internal_metadata(p_filename)" in acl_visible
+          assert "ftp_acl_path_is_internal_metadata" in acl_path_policy
+          assert acl_path_policy.count("ftp_acl_path_is_internal_metadata(target)") == 4
+          assert "reserved metadata file or symlink alias was accepted" in acl_path_test
+          assert "ftp_acl_path_is_internal_metadata" in vsftpd_acl
+          assert "ftp_acl_path_is_internal_metadata(p_filename)" in vsftpd_acl
+          assert "reserved FTP metadata classification failed" in acl_path_test
+          assert directory.index("asus_check_permission_open_directory(") < directory.index("get_remote_transfer_fd(")
+          assert "asus_check_permission(p_sess, PERM_READ)" not in directory
+          assert "ftp_acl_path_resolve_existing_parent" in acl_path_policy
+          assert "ftp_acl_path_resolve_write_parent" in acl_path_policy
+          assert "ftp_acl_path_open_directory" in acl_path_policy
+          assert "openat(dir_fd, name" in acl_path_policy
+          assert "O_NOFOLLOW" in acl_path_policy
+          assert "fstatat(dir_fd, leaf" in acl_path_policy
+          assert "unlinkat(dir_fd, leaf" in acl_path_policy
+          assert "openat(parent_fd, p_leaf, flags, mode)" in vsftpd_acl
+          assert "stat(resolved_parent, &expected_parent)" in vsftpd_acl
+          assert "fstat(parent_fd, &opened_parent)" in vsftpd_acl
+          assert "expected_parent.st_ino != opened_parent.st_ino" in vsftpd_acl
+          assert "ftp_acl_path_unlink_opened_entry" in vsftpd_acl
+          assert "O_NOFOLLOW" in vsftpd_acl
+          assert "O_CLOEXEC" in vsftpd_acl
+          assert "directory descriptor did not stay on original share" in acl_path_test
+          assert "O_NOFOLLOW accepted a substituted final symlink" in acl_path_test
+          assert "cleanup removed a replacement upload entry" in acl_path_test
+          assert "lstat(path, &st)" in acl_path_policy
+          assert "ftp_acl_path_resolve_directory" in acl_path_policy
+          assert "cross-share symlink" in acl_path_test
+          assert "dangling final symlink accepted" in acl_path_test
+
+          rnfr = function_body(vsftpd_postlogin, "static void\nhandle_rnfr(struct vsf_session* p_sess)\n{")
+          rnto = function_body(vsftpd_postlogin, "static void\nhandle_rnto(struct vsf_session* p_sess)\n{")
+          assert '#include "ftp_acl_path_policy.h"' in vsftpd_acl
+          assert "asus_check_permission_path" in vsftpd_acl_header
+          assert "asus_check_permission_existing_path" in vsftpd_acl_header
+          assert "asus_check_permission_upload" in vsftpd_acl_header
+          assert "asus_check_permission_directory" in vsftpd_acl_header
+          assert "asus_rename_path" in vsftpd_acl_header
+          assert "get_mount_layer(directory" in acl_at
+          assert "ftp_acl_path_resolve_parent(" in acl_path
+          assert "realpath(parent, resolved)" in acl_path_policy
+          assert rnfr.index("resolve_tilde(") < rnfr.index("vsf_access_check_file(")
+          assert rnfr.index("vsf_access_check_file(") < rnfr.index("prepend_path_to_filename(&p_sess->ftp_arg_str)")
+          assert rnfr.index("prepend_path_to_filename(&p_sess->ftp_arg_str)") < rnfr.index("asus_check_permission_path(p_sess, PERM_DELETE")
+          assert rnfr.index("asus_check_permission_path(p_sess, PERM_DELETE") < rnfr.index("str_stat(")
+          assert "str_copy(&p_sess->rnfr_filename_str, &p_sess->ftp_arg_str)" in rnfr
+          assert rnto.index("vsf_access_check_file(") < rnto.index("prepend_path_to_filename(&p_sess->ftp_arg_str)")
+          assert "asus_rename_path(p_sess, &p_sess->rnfr_filename_str" in rnto
+          assert "str_rename(" not in rnto
+          permission_denial = rnto[rnto.index("if (!vsf_access_check_file("):
+                                  rnto.index("prepend_path_to_filename(&p_sess->ftp_arg_str)")]
+          assert permission_denial.index("str_free(&p_sess->rnfr_filename_str)") < permission_denial.index("vsf_cmdio_write(") < permission_denial.index("return;")
+          rename_attempt = rnto.index("asus_rename_path(")
+          assert rename_attempt < rnto.rindex("str_free(&p_sess->rnfr_filename_str)")
+          assert "str_free(&p_sess->rnfr_filename_str)" in rnto
+          assert "ftp_acl_path_resolve_rename_entry" in rename_path
+          assert "ftp_acl_path_open_verified_directory(source_parent)" in rename_path
+          assert "ftp_acl_path_open_verified_directory(destination_parent)" in rename_path
+          assert "asus_check_permission_at(p_sess, PERM_DELETE, source_parent)" in rename_path
+          assert "asus_check_permission_at(p_sess, PERM_WRITE, destination_parent)" in rename_path
+          assert rename_path.index("PERM_DELETE") < rename_path.index("PERM_WRITE") < rename_path.index("ftp_acl_path_rename_entry(")
+          assert rename_path.count("ftp_acl_path_verify_directory_identity(") == 2
+          assert "ftp_acl_path_rename_entry(source_parent_fd, source_leaf" in rename_path
+          assert "return renameat(source_dir_fd, source_leaf" in acl_path_policy
+          assert '"../shareB/file"' in acl_path_test
+          assert "symlinked parent was not canonicalized" in acl_path_test
+          policy_fn = function_body(daemon_policy, "ftp_daemon_wait_for_stable_presence(")
+          assert "ops->is_running(context, daemon)" in policy_fn
+          assert "ops->sleep_us(context, 500000U)" in policy_fn
+          assert "ops->sleep_us(context, 100000U)" in policy_fn
+          assert "errno = ETIMEDOUT" in policy_fn
+          assert "ftp_daemon_wait_for_stable_presence" in daemon_test
+
+          open_fn = function_body(helper, "ftp_config_file_open(")
+          publish_fn = function_body(helper, "ftp_config_file_publish(")
+          for token in ("mkstemp(", "fchmod(", "fdopen("):
+              assert token in open_fn
+          for token in ("ferror(fp)", "fflush(fp)", "fclose(fp)",
+                        "rename(staged_path, target_path)", "unlink(staged_path)"):
+              assert token in publish_fn
+          assert publish_fn.index("fflush(fp)") < publish_fn.index("rename(")
+          assert publish_fn.index("if (fclose(fp) != 0)") < publish_fn.index("rename(")
+
+          assert 'fopen("/dev/full", "w")' in test
+          assert "listen=YES" in test
+          assert "ftp_config_file_publish(&fp, staged, target) != 0" in test
+
+          stop = function_body(source, "stop_ftp(void)")
+          assert "status = kill_services(svcs, 3, 1)" in stop
+          assert "return status" in stop
+          restart = function_body(source, "restart_ftpd(void)")
+          assert "stop_status = stop_ftp()" in restart
+          assert "if (stop_status != 0)" in restart
+          assert "mount_status = storage_has_mounted_devices" in restart
+          assert "if (mount_status < 0)" in restart
+          assert "if (mount_status > 0)" in restart
+          assert "start_status = run_ftp()" in restart
+
+          stop_stor = function_body(source, "stop_stor_apps(void)")
+          assert "if (stop_ftp() != 0)" in stop_stor
+          assert "FTP server did not stop cleanly" in stop_stor
+          start_stor = function_body(source, "start_stor_apps(void)")
+          assert "if (run_ftp() != 0)" in start_stor
+
+          ftp_proto = header[header.index("#if defined (APP_FTPD)"):header.index("#endif", header.index("#if defined (APP_FTPD)"))]
+          assert "int stop_ftp(void);" in ftp_proto
+          assert "int run_ftp(void);" in ftp_proto
+          assert "int restart_ftpd(void);" in ftp_proto
+          assert "action_result = restart_ftpd();" in rc
+          assert "ret = restart_ftpd();" in rc
+          assert "ret = stop_ftp();" in rc
+          assert "int ftp_status = restart_ftpd();" in rc
+          assert "ret = ftp_status;" in rc
+          assert "int samba_status = stop_samba(0);" in rc
+
+          paths = (
+              ".github/workflows/vsftpd-stability.yml",
+              "trunk/user/rc/src/services_stor.c",
+              "trunk/user/rc/src/ftp_config_file.h",
+              "trunk/user/rc/src/tests/ftp_config_file.c",
+              "trunk/user/rc/src/rc.c",
+              "trunk/user/rc/src/rc.h",
+              "trunk/user/rc/src/ftp_daemon_policy.h",
+              "trunk/user/rc/src/tests/ftp_daemon_policy.c",
+              "trunk/user/vsftpd/src/asus_ext.c",
+              "trunk/user/vsftpd/src/asus_ext.h",
+              "trunk/user/vsftpd/src/postlogin.c",
+              "trunk/user/vsftpd/src/ftp_acl_path_policy.h",
+              "trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c",
+          )
+          filters = workflow.split("jobs:", 1)[0]
+          push_filters, pr_filters = filters.split("  pull_request:", 1)
+          for path in paths:
+              assert push_filters.count(path) == 1
+              assert pr_filters.count(path) == 1
+
+          print("vsftpd configuration, lifecycle and path-scoped ACL contracts: PASS")
+          PY

@@ -1,0 +1,70 @@
+name: Adbyby download and dnsmasq configuration stability regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/adbyby-config-stability.yml"
+      - "trunk/user/adbyby/adbyby.sh"
+      - "trunk/user/adbyby/tests/hosts_config_preservation.sh"
+      - "trunk/user/adbyby/tests/lifecycle_lock.sh"
+      - "trunk/user/adbyby/tests/rules_download.sh"
+      - "trunk/user/adbyby/tests/external_downloads.sh"
+      - "trunk/user/adbyby/tests/anti_ad_download.sh"
+      - "trunk/user/adbyby/tests/host_list_download.sh"
+      - "trunk/user/adbyby/adbyby_host.sh"
+      - "trunk/user/adbyby/Makefile"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_adbyby.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/Ad_action.asp"
+      - "trunk/user/httpd/src/variables.c"
+      - "trunk/user/scripts/files/usr/bin/copyscripts.sh"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/adbyby/tests/firewall_snapshot.sh"
+      - "scripts/check_adbyby_hosts_config.py"
+  pull_request:
+    paths:
+      - ".github/workflows/adbyby-config-stability.yml"
+      - "trunk/user/adbyby/adbyby.sh"
+      - "trunk/user/adbyby/tests/hosts_config_preservation.sh"
+      - "trunk/user/adbyby/tests/lifecycle_lock.sh"
+      - "trunk/user/adbyby/tests/rules_download.sh"
+      - "trunk/user/adbyby/tests/external_downloads.sh"
+      - "trunk/user/adbyby/tests/anti_ad_download.sh"
+      - "trunk/user/adbyby/tests/host_list_download.sh"
+      - "trunk/user/adbyby/adbyby_host.sh"
+      - "trunk/user/adbyby/Makefile"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_adbyby.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/Ad_action.asp"
+      - "trunk/user/httpd/src/variables.c"
+      - "trunk/user/scripts/files/usr/bin/copyscripts.sh"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/adbyby/tests/firewall_snapshot.sh"
+      - "scripts/check_adbyby_hosts_config.py"
+
+permissions:
+  contents: read
+
+jobs:
+  adbyby-hosts-config:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Check shell syntax and run Adbyby host regressions
+        run: |
+          set -eu
+          sh -n trunk/user/adbyby/adbyby.sh
+          sh -n trunk/user/adbyby/tests/hosts_config_preservation.sh
+          sh -n trunk/user/adbyby/tests/lifecycle_lock.sh
+          sh -n trunk/user/adbyby/tests/rules_download.sh
+          sh -n trunk/user/adbyby/tests/external_downloads.sh
+          sh -n trunk/user/adbyby/tests/anti_ad_download.sh
+          sh -n trunk/user/adbyby/tests/host_list_download.sh
+          sh trunk/user/adbyby/tests/hosts_config_preservation.sh
+          sh trunk/user/adbyby/tests/lifecycle_lock.sh
+          sh trunk/user/adbyby/tests/rules_download.sh
+          sh trunk/user/adbyby/tests/external_downloads.sh
+          sh trunk/user/adbyby/tests/anti_ad_download.sh
+          sh trunk/user/adbyby/tests/host_list_download.sh
+          sh trunk/user/adbyby/tests/firewall_snapshot.sh
+      - name: Verify Adbyby managed-entry source and workflow contracts
+        run: python3 scripts/check_adbyby_hosts_config.py

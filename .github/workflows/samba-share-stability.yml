@@ -1,0 +1,248 @@
+name: Samba share configuration stability regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/samba-share-stability.yml"
+      - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/services_ex.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/samba_config_file.h"
+      - "trunk/user/rc/src/tests/samba_config_file.c"
+      - "trunk/user/rc/src/samba_passdb_policy.h"
+      - "trunk/user/rc/src/tests/samba_passdb_policy.c"
+      - "trunk/user/rc/src/samba_config_transaction.h"
+      - "trunk/user/rc/src/tests/samba_config_transaction.c"
+      - "trunk/user/rc/src/samba_daemon_policy.h"
+      - "trunk/user/rc/src/tests/samba_daemon_policy.c"
+  pull_request:
+    paths:
+      - ".github/workflows/samba-share-stability.yml"
+      - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/services_ex.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/samba_config_file.h"
+      - "trunk/user/rc/src/tests/samba_config_file.c"
+      - "trunk/user/rc/src/samba_passdb_policy.h"
+      - "trunk/user/rc/src/tests/samba_passdb_policy.c"
+      - "trunk/user/rc/src/samba_config_transaction.h"
+      - "trunk/user/rc/src/tests/samba_config_transaction.c"
+      - "trunk/user/rc/src/samba_daemon_policy.h"
+      - "trunk/user/rc/src/tests/samba_daemon_policy.c"
+
+jobs:
+  samba-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run Samba config publication regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/samba_config_file.c \
+            -o /tmp/samba-config-file
+          /tmp/samba-config-file
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/samba_passdb_policy.c \
+            -o /tmp/samba-passdb-policy
+          /tmp/samba-passdb-policy
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/samba_config_transaction.c \
+            -o /tmp/samba-config-transaction
+          /tmp/samba-config-transaction
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/samba_daemon_policy.c \
+            -o /tmp/samba-daemon-policy
+          /tmp/samba-daemon-policy
+      - name: Verify Samba config staging and service failure gates
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          stor = Path("trunk/user/rc/src/services_stor.c").read_text()
+          services = Path("trunk/user/rc/src/services_ex.c").read_text()
+          header = Path("trunk/user/rc/src/rc.h").read_text()
+          helper = Path("trunk/user/rc/src/samba_config_file.h").read_text()
+          test = Path("trunk/user/rc/src/tests/samba_config_file.c").read_text()
+
+          def function_body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          assert "int write_smb_conf_header(FILE *fp);" in header
+          header_body = function_body(services, "write_smb_conf_header(FILE *fp)")
+          assert "fopen(SAMBA_CONF" not in header_body
+          assert "unlink(SAMBA_CONF)" not in header_body
+          assert "ferror(fp)" in header_body
+
+          smb = function_body(stor, "write_smb_conf_unlocked(void)")
+          assert "samba_config_file_open(SAMBA_CONF" in smb
+          assert "write_smb_conf_header(fp)" in smb
+          assert "samba_config_file_publish(&fp, staged_path, SAMBA_CONF)" in smb
+          assert 'fopen(SAMBA_CONF, "a")' not in smb
+          assert 'fopen(staged_path, "a")' in smb
+          assert "check_existed_share(share, staged_path)" in smb
+          folder_check = smb[smb.index("get_folder_list_in_mount_path("):]
+          folder_check = folder_check[:folder_check.index("for (n = 0")]
+          assert "goto confpage;" in folder_check
+          assert "continue;" not in folder_check
+
+          check = function_body(stor, "check_existed_share(")
+          assert 'fopen(config_path, "r")' in check
+          assert "ferror(tp)" in check
+          assert "fclose(tp)" in check
+
+          wins = function_body(services, "start_wins(void)")
+          assert "samba_config_transaction_lock_acquire(" in wins
+          assert "samba_config_transaction_recover(" in wins
+          assert "samba_config_file_open(SAMBA_CONF" in wins
+          assert "write_smb_conf_header(fp)" in wins
+          assert "samba_config_file_publish(&fp, staged_path, SAMBA_CONF)" in wins
+          assert wins.index("samba_config_file_publish") < wins.index('eval("/sbin/nmbd"')
+
+          restart = function_body(services, "restart_nmbd(void)")
+          assert restart.index("write_smb_conf() != 0") < restart.index("stop_nmbd()")
+          assert restart.index("write_smb_conf() != 0") < restart.index('eval("/sbin/nmbd"')
+          assert restart.index("write_smb_conf() != 0") < restart.index('doSystem("killall %s %s", "-SIGHUP", "smbd")')
+
+          open_fn = function_body(helper, "samba_config_file_open(")
+          publish_fn = function_body(helper, "samba_config_file_publish(")
+          for token in ("mkstemp(", "fchmod(", "fdopen("):
+              assert token in open_fn
+          for token in ("ferror(fp)", "fflush(fp)", "fclose(fp)",
+                        "rename(staged_path, target_path)", "unlink(staged_path)"):
+              assert token in publish_fn
+          assert publish_fn.index("fflush(fp)") < publish_fn.index("rename(")
+          assert publish_fn.index("fclose(fp)") < publish_fn.index("rename(")
+
+          assert "samba_config_file_publish(&fp, staged, target) == 0" in test
+          assert "samba_config_file_publish(&fp, staged, directory_target) != 0" in test
+          assert "samba_config_file_discard(&fp, staged)" in test
+          run_samba = function_body(stor, "int run_samba(void)")
+          assert run_samba.index("samba_config_transaction_lock_acquire(") < run_samba.index("samba_config_transaction_recover(")
+          assert run_samba.index("samba_run_smbpasswd(") < run_samba.index("samba_config_transaction_begin(")
+          assert run_samba.index("if (credential_failed)") < run_samba.index("samba_config_transaction_begin(")
+          assert run_samba.index("samba_config_transaction_begin(") < run_samba.index('rename(staged_passdb, SAMBA_CONFIG_TRANSACTION_PASSDB)')
+          assert run_samba.index('rename(staged_passdb, SAMBA_CONFIG_TRANSACTION_PASSDB)') < run_samba.index("write_smb_conf_unlocked() != 0")
+          assert run_samba.index("write_smb_conf_unlocked() != 0") < run_samba.index("samba_config_transaction_commit(")
+          assert run_samba.index("samba_config_transaction_commit(") < run_samba.index('samba_ensure_daemon("nmbd"')
+          assert "samba_config_transaction_abort(" in run_samba
+          transaction = Path("trunk/user/rc/src/samba_config_transaction.h").read_text()
+          transaction_test = Path("trunk/user/rc/src/tests/samba_config_transaction.c").read_text()
+          cleanup_fn = function_body(transaction, "samba_config_transaction_cleanup(")
+          assert cleanup_fn.index('"state"') < cleanup_fn.index('"passdb.old"')
+          assert "Never delete a snapshot while its marker" in cleanup_fn
+          assert "termination during cleanup" in transaction_test
+          assert "O_NOFOLLOW" in transaction and "st_uid != geteuid()" in transaction
+          assert "PREPARED" in transaction and "COMMITTED" in transaction
+          assert "samba_config_transaction_recover(" in transaction
+          assert "samba_config_transaction_restore_file(" in transaction
+          assert "samba_config_transaction_lock_acquire(" in transaction
+          assert "Abrupt exit after both renames" in transaction_test
+          assert "partial rollback can be retried" in transaction_test
+          writer = function_body(stor, "write_smb_conf_unlocked(void)")
+          public_writer = function_body(stor, "write_smb_conf(void)")
+          assert "samba_config_file_publish(&fp, staged_path, SAMBA_CONF)" in writer
+          assert "samba_config_transaction_lock_acquire(" in public_writer
+          assert "samba_config_transaction_recover(" in public_writer
+          assert "write_smb_conf_unlocked()" in public_writer
+          passdb_policy = Path("trunk/user/rc/src/samba_passdb_policy.h").read_text()
+          passdb_test = Path("trunk/user/rc/src/tests/samba_passdb_policy.c").read_text()
+          backup_fn = function_body(passdb_policy, "samba_passdb_backup_file(")
+          restore_fn = function_body(passdb_policy, "samba_passdb_restore_file(")
+          assert "lstat(passdb_path, &st)" in backup_fn
+          assert "S_ISREG(st.st_mode)" in backup_fn
+          assert "link(passdb_path, backup_path)" in backup_fn
+          assert "rename(backup_path, passdb_path)" in restore_fn
+          assert 'unlink(passdb_path) == 0 || errno == ENOENT' in restore_fn
+          assert "samba_passdb_backup_file(passdb, backup_template" in passdb_test
+          assert "samba_passdb_restore_file(passdb, backup, had_original)" in passdb_test
+          assert 'fopen("/dev/full", "w")' in test
+
+
+          rc = Path("trunk/user/rc/src/rc.c").read_text()
+          wait_fn = function_body(stor, "samba_wait_for_daemon(")
+          ensure_fn = function_body(stor, "samba_ensure_daemon(")
+          assert "samba_daemon_wait_for_stable_presence(daemon, 30" in wait_fn
+          running_fn = function_body(stor, "samba_daemon_is_running(")
+          sleep_fn = function_body(stor, "samba_daemon_sleep(")
+          assert "pids((char *)daemon) > 0" in running_fn
+          assert "usleep(microseconds)" in sleep_fn
+          assert 'doSystem("killall %s %s", "-SIGHUP", daemon)' in ensure_fn
+          assert 'eval(daemon_path, "-D", "-s", "/etc/smb.conf")' in ensure_fn
+          assert "command_status != 0" in ensure_fn
+          assert "samba_wait_for_daemon(daemon) != 0" in ensure_fn
+          run_samba = function_body(stor, "int run_samba(void)")
+          assert 'samba_ensure_daemon("nmbd", has_nmbd)' in run_samba
+          assert 'samba_ensure_daemon("smbd", has_smbd)' in run_samba
+          assert "daemon_failed" in run_samba and "return -1;" in run_samba
+          assert "void run_samba(void);" not in header
+          assert "int run_samba(void);" in header
+          assert "int restart_smbd(void);" in header
+          restart_smbd = function_body(stor, "int restart_smbd(void)")
+          assert "samba_status = run_samba();" in restart_smbd
+          assert "if (samba_status != 0)" in restart_smbd
+          assert "action_result = restart_smbd();" in rc
+          assert 'ret = restart_smbd();' in rc
+          assert "\n\t\t\trestart_smbd();\n" not in rc
+
+          daemon_policy = Path("trunk/user/rc/src/samba_daemon_policy.h").read_text()
+          daemon_test = Path("trunk/user/rc/src/tests/samba_daemon_policy.c").read_text()
+          wait_policy = function_body(daemon_policy, "samba_daemon_wait_for_stable_presence(")
+          assert "ops->is_running(context, daemon)" in wait_policy
+          assert "ops->sleep_us(context, 500000U)" in wait_policy
+          assert "ops->sleep_us(context, 100000U)" in wait_policy
+          assert "errno = ETIMEDOUT" in wait_policy
+          assert "samba_daemon_wait_for_stable_presence" in daemon_test
+
+          stop_samba = function_body(stor, "int\nstop_samba(int force_stop)")
+          assert "stop_status = kill_services(svcs, 5, 1)" in stop_samba
+          assert "if (stop_status != 0)" in stop_samba
+          assert "clean_smbd_trash()" in stop_samba
+          stop_stor = function_body(stor, "int\nstop_stor_apps(void)")
+          assert "if (stop_samba(0) != 0)" in stop_stor
+          assert "Samba server did not stop cleanly" in stop_stor
+          assert "safe removal aborted because one or more required storage services did not stop" in stor
+          restart_smbd = function_body(stor, "int restart_smbd(void)")
+          assert "stop_status = stop_samba(1)" in restart_smbd
+          assert "if (stop_status != 0)" in restart_smbd
+          assert "mount_status = storage_has_mounted_devices" in restart_smbd
+          assert "if (mount_status < 0)" in restart_smbd
+          assert "if (mount_status > 0)" in restart_smbd
+          assert "samba_status = start_wins()" in restart_smbd
+
+          stop_nmbd = function_body(services, "int\nstop_nmbd(void)")
+          assert "status = kill_services(svcs, 3, 1)" in stop_nmbd
+          assert "return status" in stop_nmbd
+          wins = function_body(services, "int\nstart_wins(void)")
+          assert wins.index("samba_config_file_publish") < wins.index('eval("/sbin/nmbd"')
+          assert "command_status != 0" in wins
+          assert 'samba_ex_wait_for_daemon("nmbd") != 0' in wins
+          assert 'doSystem("killall %s %s", "-SIGHUP", "nmbd")' in wins
+          restart_nmbd = function_body(services, "int\nrestart_nmbd(void)")
+          assert restart_nmbd.index("stop_nmbd() != 0") < restart_nmbd.index('eval("/sbin/nmbd"')
+          assert 'samba_ex_wait_for_daemon("nmbd") != 0' in restart_nmbd
+          assert 'doSystem("killall %s %s", "-SIGHUP", "smbd")' in restart_nmbd
+          assert "int start_wins(void);" in header
+          assert "int stop_nmbd(void);" in header
+          assert "int restart_nmbd(void);" in header
+          assert "int stop_samba(int force_stop);" in header
+          assert "ret = stop_samba(0);" in rc
+
+          print("Samba share config publication, daemon lifecycle and storage-stop failure gates: PASS")
+          PY

@@ -1,0 +1,79 @@
+name: FRP asynchronous startup lifecycle regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/frp-lifecycle.yml"
+      - "trunk/user/frp/frp.sh"
+      - "trunk/user/frp/tests/frp_lifecycle.sh"
+      - "trunk/user/frp/tests/frp_crontab.sh"
+      - "trunk/user/frp/tests/frp_autostart.sh"
+      - "trunk/user/frp/tests/frp_config.sh"
+      - "trunk/user/frp/tests/frp_stop.sh"
+      - "trunk/user/frp/tests/frp_lock.sh"
+      - "trunk/user/scripts/files/usr/bin/autostart.sh"
+      - "trunk/user/frp/frp_script.sh"
+      - "trunk/user/scripts/files/usr/bin/copyscripts.sh"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/httpd/src/variables.c"
+      - "trunk/user/httpd/src/web_ex.c"
+      - "trunk/user/httpd/src/httpd_script_policy.h"
+      - "trunk/user/httpd/src/tests/httpd_script_policy.c"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_frp.asp"
+      - "scripts/check_frp_lifecycle.py"
+  pull_request:
+    paths:
+      - ".github/workflows/frp-lifecycle.yml"
+      - "trunk/user/frp/frp.sh"
+      - "trunk/user/frp/tests/frp_lifecycle.sh"
+      - "trunk/user/frp/tests/frp_crontab.sh"
+      - "trunk/user/frp/tests/frp_autostart.sh"
+      - "trunk/user/frp/tests/frp_config.sh"
+      - "trunk/user/frp/tests/frp_stop.sh"
+      - "trunk/user/frp/tests/frp_lock.sh"
+      - "trunk/user/scripts/files/usr/bin/autostart.sh"
+      - "trunk/user/frp/frp_script.sh"
+      - "trunk/user/scripts/files/usr/bin/copyscripts.sh"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/httpd/src/variables.c"
+      - "trunk/user/httpd/src/web_ex.c"
+      - "trunk/user/httpd/src/httpd_script_policy.h"
+      - "trunk/user/httpd/src/tests/httpd_script_policy.c"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_frp.asp"
+      - "scripts/check_frp_lifecycle.py"
+
+jobs:
+  frp-lifecycle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check FRP launcher shell syntax
+        run: sh -n trunk/user/frp/frp.sh
+      - name: Run asynchronous startup regression
+        run: sh trunk/user/frp/tests/frp_lifecycle.sh
+      - name: Check FRP crontab regression shell syntax
+        run: sh -n trunk/user/frp/tests/frp_crontab.sh
+      - name: Run FRP managed crontab regression
+        run: sh trunk/user/frp/tests/frp_crontab.sh
+      - name: Check FRP boot script shell syntax
+        run: sh -n trunk/user/scripts/files/usr/bin/autostart.sh
+      - name: Check FRP boot regression shell syntax
+        run: sh -n trunk/user/frp/tests/frp_autostart.sh
+      - name: Run FRP client/server boot regression
+        run: sh trunk/user/frp/tests/frp_autostart.sh
+      - name: Check FRP private config regression shell syntax
+        run: sh -n trunk/user/frp/tests/frp_config.sh
+      - name: Run FRP private config regression
+        run: sh trunk/user/frp/tests/frp_config.sh
+      - name: Check FRP exact process stop regression shell syntax
+        run: sh -n trunk/user/frp/tests/frp_stop.sh
+      - name: Run FRP exact process identity and bounded stop regression
+        run: sh trunk/user/frp/tests/frp_stop.sh
+      - name: Check FRP lifecycle lock regression shell syntax
+        run: sh -n trunk/user/frp/tests/frp_lock.sh
+      - name: Run FRP lifecycle serialization regression
+        run: sh trunk/user/frp/tests/frp_lock.sh
+      - name: Verify FRP supervision source contract
+        run: python3 scripts/check_frp_lifecycle.py

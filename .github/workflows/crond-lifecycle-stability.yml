@@ -1,0 +1,52 @@
+name: Crond daemon lifecycle stability regression
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/crond-lifecycle-stability.yml"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/crond_daemon_policy.h"
+      - "trunk/user/rc/src/tests/crond_daemon_policy.c"
+      - "trunk/user/rc/src/common_ex.c"
+      - "trunk/user/rc/src/service_lifecycle_policy.h"
+      - "trunk/user/shared/src/pids.c"
+      - "trunk/user/busybox/busybox-1.24.x/miscutils/crond.c"
+      - "trunk/user/busybox/busybox-1.24.x/libbb/vfork_daemon_rexec.c"
+      - "scripts/check_crond_lifecycle.py"
+  pull_request:
+    paths:
+      - ".github/workflows/crond-lifecycle-stability.yml"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/crond_daemon_policy.h"
+      - "trunk/user/rc/src/tests/crond_daemon_policy.c"
+      - "trunk/user/rc/src/common_ex.c"
+      - "trunk/user/rc/src/service_lifecycle_policy.h"
+      - "trunk/user/shared/src/pids.c"
+      - "trunk/user/busybox/busybox-1.24.x/miscutils/crond.c"
+      - "trunk/user/busybox/busybox-1.24.x/libbb/vfork_daemon_rexec.c"
+      - "scripts/check_crond_lifecycle.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  crond-lifecycle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run GNU89 crond daemon lifecycle policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/crond_daemon_policy.c \
+            -o /tmp/crond-daemon-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/crond-daemon-policy
+      - name: Verify detached-daemon, stop-before-start and RC caller contracts
+        run: python3 scripts/check_crond_lifecycle.py

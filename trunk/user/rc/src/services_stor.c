@@ -1,0 +1,3036 @@
+/*
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <signal.h>
+#include <unistd.h>
+#include <errno.h>
+#include <time.h>
+#include <dirent.h>
+#include <syslog.h>
+#include <sys/fcntl.h>
+#include <sys/vfs.h>
+#include <sys/types.h>
+#include <sys/time.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <sys/mount.h>
+#include <net/ethernet.h>
+
+#include <dev_info.h>
+#include <disk_initial.h>
+#include <disk_share.h>
+
+#include "rc.h"
+#include "storage_operation_lock.h"
+#include "samba_share_policy.h"
+#if defined (APP_SMBD)
+#include "samba_config_file.h"
+#include "samba_daemon_policy.h"
+#include "samba_config_transaction.h"
+#endif
+#include "samba_passdb_policy.h"
+#include "ftp_share_policy.h"
+#include "ftp_config_file.h"
+#include "ftp_daemon_policy.h"
+#include "storage_mount_inventory_policy.h"
+#include "storage_optware_start_policy.h"
+#include "storage_ejected_inventory_policy.h"
+#include "storage_nfs_export_policy.h"
+#include "storage_service_stop_policy.h"
+#include "switch.h"
+
+void
+spindown_hdd(char *sd_dev)
+{
+	char *argv[3];
+
+	if (!sd_dev)
+		return;
+
+	if (strncmp(sd_dev, "sd", 2) != 0)
+		return;
+
+	argv[0] = "/sbin/spindown.sh";
+	argv[1] = sd_dev;
+	argv[2] = NULL;
+	_eval(argv, NULL, 0, NULL);
+}
+
+static int storage_optware_result_fd = -1;
+
+static int
+is_valid_storage_device(const char *devname)
+{
+	if (strncmp(devname, "/dev/sd", 7) == 0
+#if defined (USE_MMC_SUPPORT)
+	 || strncmp(devname, "/dev/mmcblk", 11) == 0
+#endif
+	    )
+		return 1;
+
+	return 0;
+}
+
+/*
+ * A failed mount inventory must never be confused with an empty one.
+ * Dependent services stay stopped until /proc/mounts can be read reliably.
+ */
+static int
+storage_has_mounted_devices(const char *operation)
+{
+	int mount_count;
+
+	mount_count = count_stor_mountpoint();
+	if (!storage_mount_inventory_is_complete(mount_count)) {
+		logmessage("Storage", "cannot determine mounted storage from %s while %s; refusing storage-dependent service start",
+			   PROC_MOUNTS_FILE, operation);
+		return -1;
+	}
+
+	return storage_mount_inventory_has_mounts(mount_count) ? 1 : 0;
+}
+
+#if defined (APP_FTPD)
+int
+is_ftp_run(void)
+{
+	return (pids("vsftpd")) ? 1 : 0;
+}
+
+int
+stop_ftp(void)
+{
+	char* svcs[] = { "vsftpd", NULL };
+	int status;
+
+	status = kill_services(svcs, 3, 1);
+	if (status != 0)
+		logmessage("FTP server", "vsftpd did not stop cleanly");
+	return status;
+}
+
+int
+write_vsftpd_conf(void)
+{
+	FILE *fp = NULL;
+	char staged_path[64];
+	int i_maxuser, i_ftp_mode;
+	const char *banner_product;
+
+	if (ftp_config_file_open("/etc/vsftpd.conf", staged_path,
+				 sizeof(staged_path), &fp) != 0)
+		return -1;
+
+	banner_product = nvram_safe_get("productid");
+	if (!samba_conf_text_is_safe(banner_product) || !*banner_product)
+		banner_product = "Padavan";
+
+#if defined (USE_IPV6)
+	if (get_ipv6_type() != IPV6_DISABLED) {
+		fprintf(fp, "listen_ipv6=%s\n", "YES");
+		fprintf(fp, "listen=%s\n", "NO");
+	} else
+#endif
+		fprintf(fp, "listen=%s\n", "YES");
+
+	fprintf(fp, "background=%s\n", "YES");
+	fprintf(fp, "connect_from_port_20=%s\n", "NO");
+	fprintf(fp, "pasv_enable=%s\n", "YES");
+	fprintf(fp, "pasv_min_port=%d\n", nvram_safe_get_int("st_ftp_pmin", 50000, 1, 65535));
+	fprintf(fp, "pasv_max_port=%d\n", nvram_safe_get_int("st_ftp_pmax", 50100, 1, 65535));
+	fprintf(fp, "use_sendfile=%s\n", "YES");
+#if defined (SUPPORT_FTPD_SSL)
+	fprintf(fp, "ssl_enable=%s\n", "NO");
+#endif
+
+	i_ftp_mode = ftp_share_mode_normalize(nvram_get_int("st_ftp_mode"));
+	if (i_ftp_mode == 1 || i_ftp_mode == 3) {
+		fprintf(fp, "local_enable=%s\n", "NO");
+		fprintf(fp, "anonymous_enable=%s\n", "YES");
+		if (i_ftp_mode == 1){
+			fprintf(fp, "anon_upload_enable=%s\n", "YES");
+			fprintf(fp, "anon_mkdir_write_enable=%s\n", "YES");
+			fprintf(fp, "anon_other_write_enable=%s\n", "YES");
+			fprintf(fp, "anon_umask=%s\n", "000");
+		}
+	} else {
+		fprintf(fp, "local_enable=%s\n", "YES");
+		fprintf(fp, "local_umask=%s\n", "000");
+		fprintf(fp, "anonymous_enable=%s\n", (i_ftp_mode == 2) ? "NO" : "YES");
+	}
+
+	if (i_ftp_mode == 3 || i_ftp_mode == 4)
+		fprintf(fp, "anon_max_rate=%u\n", nvram_safe_get_int("st_ftp_anmr", 0, 0, 1000*10) * 1024);
+
+	/* Do not run vsftpd unprivileged workers as root. */
+	fprintf(fp, "nopriv_user=%s\n", "nobody");
+	fprintf(fp, "write_enable=%s\n", "YES");
+	fprintf(fp, "chroot_local_user=%s\n", "YES");
+	fprintf(fp, "allow_writable_root=%s\n", "YES");
+	fprintf(fp, "check_shell=%s\n", "NO");
+	fprintf(fp, "xferlog_enable=%s\n", "NO");
+	fprintf(fp, "syslog_enable=%s\n", (nvram_get_int("st_ftp_log") == 0) ? "NO" : "YES");
+	fprintf(fp, "force_dot_files=%s\n", "YES");
+	fprintf(fp, "dirmessage_enable=%s\n", "YES");
+	fprintf(fp, "hide_ids=%s\n", "YES");
+	fprintf(fp, "utf8=%s\n", "YES");
+	fprintf(fp, "idle_session_timeout=%d\n", 600);
+
+	i_maxuser = nvram_get_int("st_max_user");
+	if (i_maxuser < 1) i_maxuser = 1;
+	if (i_maxuser > MAX_CLIENTS_NUM) i_maxuser = MAX_CLIENTS_NUM;
+
+	fprintf(fp, "max_clients=%d\n", i_maxuser);
+	fprintf(fp, "max_per_ip=%d\n", i_maxuser);
+	fprintf(fp, "ftpd_banner=Welcome to %s FTP service.\n", banner_product);
+	
+	if (ftp_config_file_publish(&fp, staged_path, "/etc/vsftpd.conf") != 0)
+		return -1;
+
+	return 0;
+}
+
+static int
+ftp_daemon_is_running(void *context, const char *daemon)
+{
+	(void)context;
+	return pids((char *)daemon) > 0;
+}
+
+static void
+ftp_daemon_sleep(void *context, unsigned int microseconds)
+{
+	(void)context;
+	usleep(microseconds);
+}
+
+static int
+ftp_wait_for_daemon(const char *daemon)
+{
+	static const struct ftp_daemon_wait_ops ops = {
+		ftp_daemon_is_running,
+		ftp_daemon_sleep
+	};
+
+	return ftp_daemon_wait_for_stable_presence(daemon, 30, &ops, NULL);
+}
+
+int
+run_ftp(void)
+{
+	int saved_errno, command_status;
+
+	if (nvram_match("enable_ftp", "0"))
+		return 0;
+
+	if (is_ftp_run())
+		return 0;
+
+	if (write_vsftpd_conf() != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage("FTP server", "configuration publication failed; startup skipped (errno %d)",
+			   saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
+
+	command_status = eval("/sbin/vsftpd");
+	if (command_status != 0) {
+		logmessage("FTP server", "vsftpd start command failed (status %d)", command_status);
+		return -1;
+	}
+	if (ftp_wait_for_daemon("vsftpd") != 0) {
+		logmessage("FTP server", "vsftpd did not remain running after startup (errno %d)",
+			   errno ? errno : ETIMEDOUT);
+		return -1;
+	}
+
+	logmessage("FTP server", "daemon is started");
+	return 0;
+}
+
+void
+control_ftp_fw(int is_run_before)
+{
+	if (!is_run_before && is_ftp_run() && nvram_match("ftpd_wopen", "1") && nvram_match("fw_enable_x", "1"))
+		restart_firewall();
+}
+
+int
+restart_ftpd(void)
+{
+	int is_run_before = is_ftp_run();
+	int stop_status, mount_status, start_status = 0;
+
+	stop_status = stop_ftp();
+	if (stop_status != 0) {
+		logmessage("FTP server", "restart aborted because existing daemon did not stop");
+		return stop_status;
+	}
+
+	mount_status = storage_has_mounted_devices("restarting FTP");
+	if (mount_status < 0) {
+		logmessage("FTP server", "restart aborted because mounted storage state is unknown");
+		return -1;
+	}
+	if (mount_status > 0) {
+		start_status = run_ftp();
+		if (start_status != 0)
+			return start_status;
+		control_ftp_fw(is_run_before);
+	}
+
+	return start_status;
+}
+#endif
+
+#if defined (APP_SMBD)
+static int
+samba_service_account_is_safe(const char *name)
+{
+	return samba_acl_user_is_safe(name) &&
+	       !router_account_name_is_reserved(name, nvram_safe_get("http_username"));
+}
+static int
+samba_write_all(int fd, const char *data, size_t length)
+{
+	size_t offset = 0;
+	ssize_t written;
+
+	while (offset < length) {
+		written = write(fd, data + offset, length - offset);
+		if (written < 0 && errno == EINTR)
+			continue;
+		if (written <= 0)
+			return -1;
+		offset += (size_t)written;
+	}
+
+	return 0;
+}
+
+/* Pass plaintext credentials only through a private unlinked stdin file. */
+static int
+samba_run_smbpasswd(const char *passdb_path, const char *username,
+		    const char *password)
+{
+	char input_path[] = "/tmp/.smbpasswd-input.XXXXXX";
+	char newline = '\n';
+	int input_fd = -1, status;
+	pid_t child, waited;
+
+	if (!samba_passdb_password_is_safe(password))
+		return -1;
+
+	input_fd = mkstemp(input_path);
+	if (input_fd < 0)
+		return -1;
+
+	if (fchmod(input_fd, 0600) != 0 ||
+	    samba_write_all(input_fd, password, strlen(password)) != 0 ||
+	    samba_write_all(input_fd, &newline, 1) != 0 ||
+	    samba_write_all(input_fd, password, strlen(password)) != 0 ||
+	    samba_write_all(input_fd, &newline, 1) != 0 ||
+	    lseek(input_fd, 0, SEEK_SET) < 0 ||
+	    unlink(input_path) != 0)
+		goto failed;
+
+	child = fork();
+	if (child < 0)
+		goto failed;
+
+	if (child == 0) {
+		if (input_fd != STDIN_FILENO) {
+			if (dup2(input_fd, STDIN_FILENO) < 0)
+				_exit(126);
+			close(input_fd);
+		}
+#if defined (APP_SMBD36)
+		if (passdb_path && *passdb_path)
+			execl("/bin/smbpasswd", "smbpasswd", "-s", "-f",
+			      passdb_path, username, (char *)NULL);
+#else
+		(void)passdb_path;
+#endif
+		execl("/bin/smbpasswd", "smbpasswd", "-s",
+		      username, (char *)NULL);
+		_exit(127);
+	}
+
+	close(input_fd);
+	input_fd = -1;
+
+	do {
+		waited = waitpid(child, &status, 0);
+	} while (waited < 0 && errno == EINTR);
+
+	if (waited != child || !WIFEXITED(status) || WEXITSTATUS(status) != 0)
+		return -1;
+
+	return 0;
+
+failed:
+	if (input_fd >= 0)
+		close(input_fd);
+	unlink(input_path);
+	return -1;
+}
+
+static int
+samba_secure_private_samba_dir(void)
+{
+	struct stat st;
+
+	if (lstat("/etc/samba", &st) != 0 ||
+	    !S_ISDIR(st.st_mode) || st.st_uid != 0)
+		return -1;
+	if (chmod("/etc/samba", 0700) != 0 ||
+	    stat("/etc/samba", &st) != 0 ||
+	    !S_ISDIR(st.st_mode) || st.st_uid != 0 ||
+	    (st.st_mode & 0777) != 0700)
+		return -1;
+
+	return 0;
+}
+
+#if defined (APP_SMBD36)
+static int
+samba_prepare_private_passdb(char *staged_path, size_t staged_path_size)
+{
+	int fd, close_result, path_len;
+
+	path_len = snprintf(staged_path, staged_path_size,
+			    "/etc/samba/.smbpasswd.XXXXXX");
+	if (path_len < 0 || (size_t)path_len >= staged_path_size)
+		return -1;
+
+	fd = mkstemp(staged_path);
+	if (fd < 0)
+		return -1;
+	if (fchmod(fd, 0600) != 0) {
+		close(fd);
+		unlink(staged_path);
+		return -1;
+	}
+	close_result = close(fd);
+	if (close_result != 0) {
+		unlink(staged_path);
+		return -1;
+	}
+
+	return 0;
+}
+
+#endif
+
+int
+check_existed_share(const char *string, const char *config_path)
+{
+	FILE *tp;
+	char buf[4096], target[258];
+	int target_len, found = 0, result = 0;
+
+	if (!string || !*string || !config_path || !*config_path)
+		return -1;
+
+	target_len = snprintf(target, sizeof(target), "[%s]", string);
+	if (target_len < 0 || target_len >= (int)sizeof(target))
+		return -1;
+
+	tp = fopen(config_path, "r");
+	if (!tp)
+		return -1;
+
+	while (fgets(buf, sizeof(buf), tp) != NULL) {
+		if (strncmp(buf, target, (size_t)target_len) == 0 &&
+		    (buf[target_len] == '\n' || buf[target_len] == '\r' ||
+		     buf[target_len] == '\0')) {
+			found = 1;
+			break;
+		}
+	}
+	if (ferror(tp))
+		result = -1;
+	if (fclose(tp) != 0)
+		result = -1;
+
+	return result == 0 ? found : -1;
+}
+
+static int
+write_smb_conf_unlocked(void)
+{
+	FILE *fp = NULL;
+	char staged_path[64];
+	int i_maxuser, i_smb_mode, result = 0;
+	disk_info_t *follow_disk, *disks_info = NULL;
+	partition_info_t *follow_partition;
+
+	i_smb_mode = nvram_get_int("st_samba_mode");
+
+	if (samba_config_file_open(SAMBA_CONF, staged_path,
+				   sizeof(staged_path), &fp) != 0)
+		return -1;
+	if (write_smb_conf_header(fp) != 0) {
+		result = -1;
+		goto confpage;
+	}
+
+	/* share mode */
+	if (i_smb_mode == 1 || i_smb_mode == 3) {
+#if defined (APP_SMBD36)
+		fprintf(fp, "map to guest = %s\n", "Bad Password");
+#else
+		fprintf(fp, "security = %s\n", "SHARE");
+#endif
+		fprintf(fp, "guest ok = %s\n", "yes");
+		fprintf(fp, "guest only = yes\n");
+		fprintf(fp, "guest account = %s\n", SAMBA_GUEST_ACCOUNT);
+	} else if (i_smb_mode == 4) {
+#if !defined (APP_SMBD36)
+		fprintf(fp, "security = %s\n", "USER");
+#endif
+		fprintf(fp, "guest ok = %s\n", "no");
+		fprintf(fp, "map to guest = Bad User\n");
+		fprintf(fp, "hide unreadable = yes\n");
+	} else {
+		goto confpage;
+	}
+
+	fprintf(fp, "writeable = yes\n");
+	fprintf(fp, "directory mode = 0777\n");
+	fprintf(fp, "create mask = 0777\n");
+	fprintf(fp, "force directory mode = 0777\n");
+
+	/* max users */
+	i_maxuser = nvram_get_int("st_max_user");
+	if (i_maxuser < 1) i_maxuser = 1;
+	if (i_maxuser > MAX_CLIENTS_NUM) i_maxuser = MAX_CLIENTS_NUM;
+
+	fprintf(fp, "max connections = %d\n", i_maxuser);
+	fprintf(fp, "use spnego = no\n");		// ASUS add
+	fprintf(fp, "client use spnego = no\n");	// ASUS add
+	fprintf(fp, "null passwords = yes\n");		// ASUS add
+	fprintf(fp, "strict allocate = no\n");		// ASUS add
+	fprintf(fp, "use sendfile = yes\n");
+	fprintf(fp, "dos filemode = yes\n");
+	fprintf(fp, "dos filetimes = yes\n");
+	fprintf(fp, "dos filetime resolution = yes\n");
+	fprintf(fp, "access based share enum = yes\n");
+	fprintf(fp, "veto files = /Thumbs.db/.DS_Store/._*/.apdisk/.TemporaryItems/");
+	fprintf(fp, "delete veto files = yes\n");
+	fprintf(fp, "\n");
+
+	disks_info = read_disk_data();
+	if (!disks_info) {
+		result = -1;
+		goto confpage;
+	}
+
+	/* share */
+	if (i_smb_mode == 1) {
+		for (follow_disk = disks_info; follow_disk != NULL; follow_disk = follow_disk->next) {
+			for (follow_partition = follow_disk->partitions; follow_partition != NULL; follow_partition = follow_partition->next) {
+				char *mount_folder;
+				char *last_slash;
+				const char *disk_tag;
+
+				if (follow_partition->mount_point == NULL)
+					continue;
+
+				last_slash = strrchr(follow_partition->mount_point, '/');
+				if (last_slash == NULL || last_slash[1] == '\0')
+					continue;
+				mount_folder = last_slash + 1;
+				disk_tag = follow_disk->tag ? follow_disk->tag : "";
+				if (!samba_share_name_is_safe(mount_folder) ||
+				    !samba_mount_path_is_safe(follow_partition->mount_point) ||
+				    !samba_conf_text_is_safe(disk_tag)) {
+					logmessage("Samba Server", "skip share with unsafe storage metadata");
+					continue;
+				}
+
+				fprintf(fp, "[%s]\n", mount_folder);
+				fprintf(fp, "comment = %s's %s\n", disk_tag, mount_folder);
+				fprintf(fp, "path = %s\n", follow_partition->mount_point);
+				fprintf(fp, "guest ok = yes\n");
+				fprintf(fp, "writeable = yes\n");
+				fprintf(fp, "directory mode = 0777\n");
+				fprintf(fp, "create mask = 0777\n");
+				fprintf(fp, "map archive = no\n");
+				fprintf(fp, "map hidden = no\n");
+				fprintf(fp, "map read only = no\n");
+				fprintf(fp, "map system = no\n");
+				fprintf(fp, "store dos attributes = yes\n\n");
+			}
+		}
+	} else if (i_smb_mode == 3) {
+		fprintf(fp, "[%s]\n", "Media");
+		fprintf(fp, "comment = %s\n", "Root share for all media");
+		fprintf(fp, "path = %s\n", POOL_MOUNT_ROOT);
+		fprintf(fp, "guest ok = yes\n");
+		fprintf(fp, "writeable = yes\n");
+		fprintf(fp, "directory mode = 0777\n");
+		fprintf(fp, "create mask = 0777\n");
+		fprintf(fp, "map archive = no\n");
+		fprintf(fp, "map hidden = no\n");
+		fprintf(fp, "map read only = no\n");
+		fprintf(fp, "map system = no\n");
+		fprintf(fp, "store dos attributes = yes\n\n");
+	} else {
+		int n, acc_num = 0, sh_num=0;
+		char **account_list;
+		
+		// get the account list
+		if (get_account_list(&acc_num, &account_list) < 0) {
+			free_2_dimension_list(&acc_num, &account_list);
+			result = -1;
+			goto confpage;
+		}
+		
+		for (follow_disk = disks_info; follow_disk != NULL; follow_disk = follow_disk->next) {
+			for (follow_partition = follow_disk->partitions; follow_partition != NULL; follow_partition = follow_partition->next) {
+				if (follow_partition->mount_point == NULL)
+					continue;
+				
+				char **folder_list;
+				
+				// 1. get the folder list
+				if (get_folder_list_in_mount_path(follow_partition->mount_point, &sh_num, &folder_list) < 0) {
+					free_2_dimension_list(&sh_num, &folder_list);
+					free_2_dimension_list(&acc_num, &account_list);
+					result = -1;
+					goto confpage;
+				}
+				
+				// 2. start to get every share
+				for (n = 0; n < sh_num; ++n) {
+					int i, right, first, share_exists;
+					int guest_right;
+					char share[256];
+
+					if (!samba_mount_path_is_safe(follow_partition->mount_point) ||
+					    !samba_share_name_is_safe(folder_list[n])) {
+						logmessage("Samba Server", "skip share with unsafe storage metadata");
+						continue;
+					}
+					guest_right = get_permission(SMB_GUEST_USER, follow_partition->mount_point, folder_list[n], "cifs");
+					snprintf(share, sizeof(share), "%s", folder_list[n]);
+					
+					if (fclose(fp) != 0) {
+						fp = NULL;
+						free_2_dimension_list(&sh_num, &folder_list);
+						free_2_dimension_list(&acc_num, &account_list);
+						result = -1;
+						goto confpage;
+					}
+					fp = NULL;
+
+					share_exists = check_existed_share(share, staged_path);
+					if (share_exists < 0) {
+						free_2_dimension_list(&sh_num, &folder_list);
+						free_2_dimension_list(&acc_num, &account_list);
+						result = -1;
+						goto confpage;
+					}
+					if (share_exists) {
+						i = 1;
+						memset(share, 0, sizeof(share));
+						snprintf(share, sizeof(share), "%.*s(%d)", (int)sizeof(share) - 13, folder_list[n], i);
+						while ((share_exists = check_existed_share(share, staged_path)) > 0) {
+							++i;
+							snprintf(share, sizeof(share), "%.*s(%d)", (int)sizeof(share) - 13, folder_list[n], i);
+						}
+						if (share_exists < 0) {
+							free_2_dimension_list(&sh_num, &folder_list);
+							free_2_dimension_list(&acc_num, &account_list);
+							result = -1;
+							goto confpage;
+						}
+					}
+
+					fp = fopen(staged_path, "a");
+					if (fp == NULL) {
+						free_2_dimension_list(&sh_num, &folder_list);
+						free_2_dimension_list(&acc_num, &account_list);
+						result = -1;
+						goto confpage;
+					}
+					fprintf(fp, "[%s]\n", share);
+					fprintf(fp, "comment = %s\n", folder_list[n]);
+					fprintf(fp, "path = %s/%s\n", follow_partition->mount_point, folder_list[n]);
+					fprintf(fp, /*(guest_right == 2) ? "writeable = yes\n" : */"writeable = no\n");
+					if (!samba_acl_right_is_denied(guest_right))
+						fprintf(fp, "guest ok = yes\n");
+					
+					fprintf(fp, "valid users = ");
+					first = 1;
+					if (!samba_acl_right_is_denied(guest_right)) {
+						first = 0;
+						fprintf(fp, "%s", "nobody");
+					}
+					for (i = 0; i < acc_num; ++i) {
+						if (!samba_service_account_is_safe(account_list[i]))
+							continue;
+						right = get_permission(account_list[i], follow_partition->mount_point, folder_list[n], "cifs");
+						if (first == 1)
+							first = 0;
+						else
+							fprintf(fp, ", ");
+						
+						fprintf(fp, "%s", account_list[i]);
+					}
+					fprintf(fp, "\n");
+					
+					fprintf(fp, "invalid users = ");
+					first = 1;
+					for (i = 0; i < acc_num; ++i) {
+						if (!samba_service_account_is_safe(account_list[i]))
+							continue;
+						right = get_permission(account_list[i], follow_partition->mount_point, folder_list[n], "cifs");
+						/* A write-only grant must not be negated by invalid users. */
+						if (!samba_acl_right_is_denied(right))
+							continue;
+						
+						if (first == 1)
+							first = 0;
+						else
+							fprintf(fp, ", ");
+						
+						fprintf(fp, "%s", account_list[i]);
+					}
+					fprintf(fp, "\n");
+					
+					/*
+					 * A write-list member may also be in read list: Samba 3.6
+					 * gives write-list membership precedence for that user.
+					 */
+					fprintf(fp, "read list = ");
+					first = 1;
+					if (samba_acl_right_can_read(guest_right)) {
+						first = 0;
+						fprintf(fp, "%s", "nobody");
+					}
+					for (i = 0; i < acc_num; ++i) {
+						if (!samba_service_account_is_safe(account_list[i]))
+							continue;
+						right = get_permission(account_list[i], follow_partition->mount_point, folder_list[n], "cifs");
+						if (!samba_acl_right_can_read(right))
+							continue;
+						
+						if (first == 1)
+							first = 0;
+						else
+							fprintf(fp, ", ");
+						
+						fprintf(fp, "%s", account_list[i]);
+					}
+					fprintf(fp, "\n");
+					
+					fprintf(fp, "write list = ");
+					first = 1;
+					if (samba_acl_right_can_write(guest_right)) {
+						first = 0;
+						fprintf(fp, "%s", "nobody");
+					}
+					for (i = 0; i < acc_num; ++i) {
+						if (!samba_service_account_is_safe(account_list[i]))
+							continue;
+						right = get_permission(account_list[i], follow_partition->mount_point, folder_list[n], "cifs");
+						if (!samba_acl_right_can_write(right))
+							continue;
+						
+						if (first == 1)
+							first = 0;
+						else
+							fprintf(fp, ", ");
+						
+						fprintf(fp, "%s", account_list[i]);
+					}
+					fprintf(fp, "\n");
+				}
+				
+				free_2_dimension_list(&sh_num, &folder_list);
+			}
+		}
+		
+		free_2_dimension_list(&acc_num, &account_list);
+	}
+
+confpage:
+	if (result != 0) {
+		samba_config_file_discard(&fp, staged_path);
+		free_disk_data(disks_info);
+		return -1;
+	}
+	if (samba_config_file_publish(&fp, staged_path, SAMBA_CONF) != 0) {
+		free_disk_data(disks_info);
+		return -1;
+	}
+	free_disk_data(disks_info);
+	return 0;
+}
+
+int
+write_smb_conf(void)
+{
+	int lock_fd, result, saved_errno;
+
+	lock_fd = samba_config_transaction_lock_acquire(
+		SAMBA_CONFIG_TRANSACTION_LOCK_FILE);
+	if (lock_fd < 0) {
+		logmessage("Samba Server", "cannot lock Samba configuration publication (errno %d)",
+			   errno ? errno : EIO);
+		return -1;
+	}
+
+	if (samba_config_transaction_recover(
+		SAMBA_CONFIG_TRANSACTION_DIRECTORY,
+		SAMBA_CONFIG_TRANSACTION_PASSDB,
+		SAMBA_CONFIG_TRANSACTION_CONFIG) != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage("Samba Server", "cannot recover interrupted Samba passdb/config publication (errno %d)",
+			   saved_errno);
+		samba_config_transaction_lock_release(lock_fd);
+		errno = saved_errno;
+		return -1;
+	}
+
+	result = write_smb_conf_unlocked();
+	if (samba_config_transaction_lock_release(lock_fd) != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage("Samba Server", "cannot release Samba configuration lock (errno %d)",
+			   saved_errno);
+		if (result == 0)
+			result = -1;
+		errno = saved_errno;
+	}
+	return result;
+}
+
+static void
+clean_smbd_trash(void)
+{
+	int i;
+	const char *locks[] = {
+		"account_policy.tdb",
+		"connections.tdb",
+		"group_mapping.tdb",
+		"brlock.tdb",
+		"locking.tdb",
+		"sessionid.tdb",
+		NULL
+	};
+
+	for (i=0; locks[i] && *locks[i]; i++)
+		doSystem("rm -f /var/locks/%s", locks[i]);
+
+#if defined (APP_SMBD36)
+	doSystem("rm -f %s", "/var/log.*");
+#else
+	doSystem("rm -f %s", "/var/*.log");
+#endif
+	doSystem("rm -f %s", "/var/log/*");
+}
+
+void
+config_smb_fastpath(int check_pid)
+{
+	in_addr_t lan_ip = 0;
+
+	if (nvram_match("st_samba_fp", "1")) {
+		if (!check_pid || pids("smbd")) {
+			lan_ip = get_lan_ip4();
+			if (lan_ip == INADDR_ANY)
+				lan_ip = 0;
+		}
+	}
+
+	fput_int("/proc/net/netfilter/nf_fp_smb", ntohl(lan_ip));
+}
+
+int
+stop_samba(int force_stop)
+{
+	char* svcs[] = { "smbd",
+#if defined (APP_SMBD36)
+	"wsdd2" ,
+#endif
+	 "nmbd", NULL };
+
+	const int nmbdidx = sizeof(svcs) / sizeof(svcs[0]) - 2;
+	int stop_status;
+
+	if (!force_stop && nvram_match("wins_enable", "1"))
+		svcs[nmbdidx] = NULL;
+
+	stop_status = kill_services(svcs, 5, 1);
+	fput_int("/proc/net/netfilter/nf_fp_smb", 0);
+
+	if (stop_status != 0) {
+		logmessage("Samba Server", "one or more requested Samba daemons did not stop");
+		return stop_status;
+	}
+	if (!svcs[nmbdidx])
+		return 0;
+
+	clean_smbd_trash();
+	return 0;
+}
+
+static int
+samba_daemon_is_running(void *context, const char *daemon)
+{
+	(void)context;
+	return pids((char *)daemon) > 0;
+}
+
+static void
+samba_daemon_sleep(void *context, unsigned int microseconds)
+{
+	(void)context;
+	usleep(microseconds);
+}
+
+static int
+samba_wait_for_daemon(const char *daemon)
+{
+	static const struct samba_daemon_wait_ops ops = {
+		samba_daemon_is_running,
+		samba_daemon_sleep
+	};
+
+	return samba_daemon_wait_for_stable_presence(daemon, 30, &ops, NULL);
+}
+
+/* A successful command is not enough: require process presence across a settling interval. */
+static int
+samba_ensure_daemon(const char *daemon, int was_running)
+{
+	const char *daemon_path;
+	int command_status;
+
+	if (!daemon || (strcmp(daemon, "nmbd") != 0 &&
+			strcmp(daemon, "smbd") != 0 &&
+			strcmp(daemon, "wsdd2") != 0)) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	if (was_running) {
+		command_status = doSystem("killall %s %s", "-SIGHUP", daemon);
+	} else if (strcmp(daemon, "nmbd") == 0) {
+		daemon_path = "/sbin/nmbd";
+		command_status = eval(daemon_path, "-D", "-s", "/etc/smb.conf");
+	} else if (strcmp(daemon, "smbd") == 0) {
+		daemon_path = "/sbin/smbd";
+		command_status = eval(daemon_path, "-D", "-s", "/etc/smb.conf");
+	} else {
+		daemon_path = "/sbin/wsdd2";
+		command_status = eval(daemon_path, "-d", "-w");
+	}
+
+	if (command_status != 0) {
+		logmessage("Samba Server", "%s %s command failed (status %d)",
+			   daemon, was_running ? "reload" : "start", command_status);
+		return -1;
+	}
+	if (samba_wait_for_daemon(daemon) != 0) {
+		logmessage("Samba Server", "%s did not remain running after %s (errno %d)",
+			   daemon, was_running ? "reload" : "start", errno ? errno : ETIMEDOUT);
+		return -1;
+	}
+
+	return 0;
+}
+
+int run_samba(void)
+{
+	int lock_fd, sh_num, has_nmbd, has_smbd, i, j;
+	int credential_failed = 0, daemon_failed = 0, result = -1;
+	char tmpuser[40], tmp2[40];
+#if defined (APP_SMBD36)
+	int saved_errno, transaction_active = 0;
+	char staged_passdb[128];
+#endif
+
+	if (nvram_match("enable_samba", "0") || nvram_match("st_samba_mode", "0"))
+		return 0;
+
+	lock_fd = samba_config_transaction_lock_acquire(
+		SAMBA_CONFIG_TRANSACTION_LOCK_FILE);
+	if (lock_fd < 0) {
+		logmessage("Samba Server", "cannot lock Samba service publication (errno %d)",
+			   errno ? errno : EIO);
+		return -1;
+	}
+
+	mkdir_if_none("/etc/samba", "777");
+	if (samba_secure_private_samba_dir() != 0) {
+		logmessage("Samba Server", "private Samba directory validation failed; service was not reloaded");
+		goto out;
+	}
+	if (samba_config_transaction_recover(
+		SAMBA_CONFIG_TRANSACTION_DIRECTORY,
+		SAMBA_CONFIG_TRANSACTION_PASSDB,
+		SAMBA_CONFIG_TRANSACTION_CONFIG) != 0) {
+		logmessage("Samba Server", "interrupted Samba passdb/config transaction could not be recovered (errno %d)",
+			   errno ? errno : EIO);
+		goto out;
+	}
+
+	recreate_passwd_unix(0);
+	has_smbd = pids("smbd");
+	has_nmbd = pids("nmbd");
+
+	if (!has_nmbd && !has_smbd) {
+		/* Preserve the account database; clear only volatile TDB/staging files. */
+		doSystem("rm -f %s %s", "/etc/samba/*.tdb", "/etc/samba/.smbpasswd.*");
+		clean_smbd_trash();
+	}
+
+#if defined (APP_SMBD36)
+	if (samba_prepare_private_passdb(staged_passdb, sizeof(staged_passdb)) != 0) {
+		logmessage("Samba Server", "unable to prepare private passdb; service was not reloaded");
+		goto out;
+	}
+#endif
+
+	sh_num = nvram_safe_get_int("acc_num", 0, 0, MAX_ACCOUNT_NUM);
+	for (i = 0; i < sh_num; i++) {
+		snprintf(tmpuser, sizeof(tmpuser), "acc_username%d", i);
+		snprintf(tmp2, sizeof(tmp2), "acc_password%d", i);
+		if (!samba_service_account_is_safe(nvram_safe_get(tmpuser)))
+			continue;
+
+		/* Reject duplicate NVRAM identities instead of writing ambiguous rows. */
+		for (j = 0; j < i; j++) {
+			char previous_user[40];
+
+			snprintf(previous_user, sizeof(previous_user), "acc_username%d", j);
+			if (!strcmp(nvram_safe_get(tmpuser), nvram_safe_get(previous_user))) {
+				credential_failed = 1;
+				break;
+			}
+		}
+		if (credential_failed)
+			break;
+
+		if (!samba_passdb_password_is_safe(nvram_safe_get(tmp2)) ||
+		    samba_run_smbpasswd(
+#if defined (APP_SMBD36)
+			staged_passdb,
+#else
+			NULL,
+#endif
+			nvram_safe_get(tmpuser), nvram_safe_get(tmp2)) != 0) {
+			credential_failed = 1;
+			break;
+		}
+	}
+
+	if (credential_failed) {
+#if defined (APP_SMBD36)
+		unlink(staged_passdb);
+#endif
+		logmessage("Samba Server", "credential provisioning failed; existing passdb and configuration were preserved");
+		goto out;
+	}
+
+#if defined (APP_SMBD36)
+	/*
+	 * Keep rollback snapshots for both files until the new passdb and matching
+	 * smb.conf are published. PREPARED is recoverable after an abrupt exit;
+	 * COMMITTED makes the pair authoritative and leaves only cleanup work.
+	 */
+	if (samba_config_transaction_begin(
+		SAMBA_CONFIG_TRANSACTION_DIRECTORY,
+		SAMBA_CONFIG_TRANSACTION_PASSDB,
+		SAMBA_CONFIG_TRANSACTION_CONFIG) != 0) {
+		saved_errno = errno ? errno : EIO;
+		unlink(staged_passdb);
+		logmessage("Samba Server", "unable to prepare paired passdb/config transaction (errno %d)",
+			   saved_errno);
+		errno = saved_errno;
+		goto out;
+	}
+	transaction_active = 1;
+
+	if (rename(staged_passdb, SAMBA_CONFIG_TRANSACTION_PASSDB) != 0) {
+		saved_errno = errno ? errno : EIO;
+		unlink(staged_passdb);
+		logmessage("Samba Server", "unable to publish staged passdb (errno %d)",
+			   saved_errno);
+		errno = saved_errno;
+		goto out;
+	}
+
+	if (write_smb_conf_unlocked() != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage("Samba Server", "configuration publication failed; paired rollback requested (errno %d)",
+			   saved_errno);
+		errno = saved_errno;
+		goto out;
+	}
+
+	{
+		int commit_status = samba_config_transaction_commit(
+			SAMBA_CONFIG_TRANSACTION_DIRECTORY,
+			SAMBA_CONFIG_TRANSACTION_PASSDB,
+			SAMBA_CONFIG_TRANSACTION_CONFIG);
+		if (commit_status < 0) {
+			saved_errno = errno ? errno : EIO;
+			logmessage("Samba Server", "unable to commit paired passdb/config publication (errno %d)",
+				   saved_errno);
+			errno = saved_errno;
+			goto out;
+		}
+		transaction_active = 0;
+		if (commit_status > 0)
+			logmessage("Samba Server", "passdb/config pair committed; transaction snapshot cleanup will be retried");
+	}
+#else
+	if (write_smb_conf_unlocked() != 0) {
+		logmessage("Samba Server", "configuration generation failed; service was not reloaded");
+		goto out;
+	}
+#endif
+
+	config_smb_fastpath(0);
+
+	if (samba_ensure_daemon("nmbd", has_nmbd) != 0)
+		daemon_failed = 1;
+	if (samba_ensure_daemon("smbd", has_smbd) != 0)
+		daemon_failed = 1;
+
+#if defined (APP_SMBD36)
+	if (samba_ensure_daemon("wsdd2", pids("wsdd2") > 0) != 0)
+		logmessage("WSDD2", "optional discovery daemon reload/start failed");
+	else
+		logmessage("WSDD2", "daemon is started");
+#endif
+
+	if (daemon_failed) {
+		logmessage("Samba Server", "one or more required daemons failed reload/start postconditions");
+		goto out;
+	}
+	logmessage("Samba Server", "daemon is started");
+	result = 0;
+
+out:
+#if defined (APP_SMBD36)
+	if (transaction_active) {
+		saved_errno = errno ? errno : EIO;
+		if (samba_config_transaction_abort(
+			SAMBA_CONFIG_TRANSACTION_DIRECTORY,
+			SAMBA_CONFIG_TRANSACTION_PASSDB,
+			SAMBA_CONFIG_TRANSACTION_CONFIG) != 0)
+			logmessage("Samba Server", "CRITICAL: paired publication rollback failed; recovery journal and snapshots remain at %s (errno %d)",
+				   SAMBA_CONFIG_TRANSACTION_DIRECTORY, errno ? errno : EIO);
+		else
+			logmessage("Samba Server", "paired passdb/config publication rolled back");
+		errno = saved_errno;
+	}
+#endif
+	if (samba_config_transaction_lock_release(lock_fd) != 0) {
+		logmessage("Samba Server", "cannot release Samba service publication lock (errno %d)",
+			   errno ? errno : EIO);
+		if (result == 0)
+			result = -1;
+	}
+	return result;
+}
+
+int restart_smbd(void)
+{
+	int samba_status = 0;
+	int stop_status, mount_status;
+
+	stop_status = stop_samba(1);
+	if (stop_status != 0) {
+		logmessage("Samba Server", "restart aborted because existing daemons did not stop");
+		return stop_status;
+	}
+
+	mount_status = storage_has_mounted_devices("restarting Samba");
+	if (mount_status < 0) {
+		logmessage("Samba Server", "restart aborted because mounted storage state is unknown");
+		return -1;
+	}
+	if (mount_status > 0) {
+		samba_status = run_samba();
+		if (samba_status != 0)
+			return samba_status;
+	}
+
+	if (!pids("nmbd")) {
+		samba_status = start_wins();
+		if (samba_status != 0)
+			return samba_status;
+	}
+
+	return samba_status;
+}
+#endif
+
+#if defined (APP_NFSD)
+static int
+write_nfsd_exports(void)
+{
+	FILE *procpt = NULL, *fp = NULL;
+	struct stat exports_link_info, exports_target_info;
+	char line[512], devname[32], mpname[256], fstype[32], fsmode[256];
+	char acl_lan[32], acl_vpn[32], staged_path[] = "/etc/.exports.XXXXXX";
+	const char *exports_link = "/etc/storage/exports";
+	const char *exports_file = "/etc/exports";
+	const char *exports_rule = STORAGE_NFS_EXPORT_DEFAULT_OPTIONS;
+	char *nfsmm, *acl_addr, *acl_mask;
+	int fd = -1, read_error, close_error, parse_error = 0;
+	int close_status, output_error = 0, saved_errno = 0;
+	int exports_link_lstat_status, exports_link_stat_status = -1;
+	int exports_link_errno = 0, exports_target_errno = 0;
+	int exports_override_state;
+	int acl_ipv4_status, acl_vpn_status = 0;
+#if defined (USE_IPV6)
+	int ipv6_type, acl_ipv6_status = 0;
+	char *acl_addr6 = NULL, *acl_len6 = NULL;
+	char acl_addr6_export[INET6_ADDRSTRLEN + 4];
+#endif
+
+	/*
+	 * Only a genuinely absent override permits generated exports. A dangling
+	 * symlink, non-regular target or inaccessible path is an operator error;
+	 * never silently replace that intent with broader generated exports.
+	 */
+	exports_link_lstat_status = lstat(exports_link, &exports_link_info);
+	if (exports_link_lstat_status != 0) {
+		exports_link_errno = errno ? errno : EIO;
+	} else if (S_ISLNK(exports_link_info.st_mode)) {
+		exports_link_stat_status = stat(exports_link, &exports_target_info);
+		if (exports_link_stat_status != 0)
+			exports_target_errno = errno ? errno : EIO;
+	}
+
+	exports_override_state = storage_nfs_export_override_state(
+		exports_link_lstat_status, exports_link_errno,
+		exports_link_lstat_status == 0 && S_ISREG(exports_link_info.st_mode),
+		exports_link_lstat_status == 0 && S_ISLNK(exports_link_info.st_mode),
+		exports_link_stat_status,
+		exports_link_stat_status == 0 && S_ISREG(exports_target_info.st_mode));
+	if (exports_override_state < 0) {
+		if (exports_link_lstat_status != 0)
+			saved_errno = exports_link_errno;
+		else if (S_ISLNK(exports_link_info.st_mode) &&
+			 exports_link_stat_status != 0)
+			saved_errno = exports_target_errno;
+		else
+			saved_errno = EINVAL;
+		logmessage("Storage", "refusing invalid custom NFS exports path %s (errno %d)",
+			   exports_link, saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
+
+	/*
+	 * Preserve a valid operator-provided exports file as a symlink, but
+	 * publish the replacement atomically so a failed symlink/rename leaves
+	 * the old NFS configuration intact.
+	 */
+	if (exports_override_state == 1) {
+		fd = mkstemp(staged_path);
+		if (fd < 0)
+			return -1;
+		if (close(fd) != 0) {
+			saved_errno = errno;
+			unlink(staged_path);
+			errno = saved_errno;
+			return -1;
+		}
+		if (unlink(staged_path) != 0) {
+			saved_errno = errno;
+			unlink(staged_path);
+			errno = saved_errno;
+			return -1;
+		}
+		if (symlink(exports_link, staged_path) != 0) {
+			saved_errno = errno;
+			unlink(staged_path);
+			errno = saved_errno;
+			return -1;
+		}
+		if (rename(staged_path, exports_file) != 0) {
+			saved_errno = errno;
+			unlink(staged_path);
+			errno = saved_errno;
+			logmessage("Storage", "cannot publish custom NFS exports link (errno %d)", saved_errno);
+			return -1;
+		}
+		return 0;
+	}
+
+	procpt = fopen(PROC_MOUNTS_FILE, "r");
+	if (!procpt) {
+		saved_errno = errno ? errno : EIO;
+		logmessage("Storage", "cannot open %s while generating NFS exports (errno %d)",
+			   PROC_MOUNTS_FILE, saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
+
+	fd = mkstemp(staged_path);
+	if (fd < 0) {
+		saved_errno = errno ? errno : EIO;
+		fclose(procpt);
+		errno = saved_errno;
+		return -1;
+	}
+	if (fchmod(fd, 0644) != 0) {
+		saved_errno = errno ? errno : EIO;
+		close(fd);
+		fclose(procpt);
+		unlink(staged_path);
+		errno = saved_errno;
+		return -1;
+	}
+	fp = fdopen(fd, "w");
+	if (!fp) {
+		saved_errno = errno ? errno : EIO;
+		close(fd);
+		fclose(procpt);
+		unlink(staged_path);
+		errno = saved_errno;
+		return -1;
+	}
+	fd = -1;
+
+	acl_addr = nvram_safe_get("lan_ipaddr_t");
+	acl_mask = nvram_safe_get("lan_netmask_t");
+	if (!is_valid_ipv4(acl_addr) || !is_valid_ipv4(acl_mask)) {
+		acl_addr = nvram_safe_get("lan_ipaddr");
+		acl_mask = nvram_safe_get("lan_netmask");
+	}
+
+	acl_lan[0] = 0;
+	acl_ipv4_status = storage_nfs_export_format_ipv4_acl(
+		acl_addr, acl_mask, acl_lan, sizeof(acl_lan));
+	if (acl_ipv4_status < 0) {
+		saved_errno = EINVAL;
+		logmessage("Storage", "refusing to publish NFS exports with an invalid IPv4 LAN ACL");
+		fclose(fp);
+		fclose(procpt);
+		unlink(staged_path);
+		errno = saved_errno;
+		return -1;
+	}
+
+#if defined (USE_IPV6)
+	ipv6_type = get_ipv6_type();
+	if (ipv6_type != IPV6_DISABLED) {
+		acl_addr6 = nvram_safe_get("ip6_lan_addr");
+		acl_len6 = nvram_safe_get("ip6_lan_size");
+		acl_ipv6_status = storage_nfs_export_format_ipv6_acl(
+			acl_addr6, acl_len6, acl_addr6_export,
+			sizeof(acl_addr6_export));
+		if (acl_ipv6_status < 0) {
+			saved_errno = EINVAL;
+			logmessage("Storage", "refusing to publish NFS exports with an invalid IPv6 LAN ACL");
+			fclose(fp);
+			fclose(procpt);
+			unlink(staged_path);
+			errno = saved_errno;
+			return -1;
+		}
+	}
+#endif
+
+	acl_vpn[0] = 0;
+	if (!get_ap_mode() && nvram_get_int("vpns_enable") && nvram_get_int("vpns_vuse")) {
+		acl_addr = nvram_safe_get("vpns_vnet");
+		acl_mask = VPN_SERVER_SUBNET_MASK;
+#if defined (APP_OPENVPN)
+		if (nvram_get_int("vpns_type") == 2) {
+			if (nvram_get_int("vpns_ov_mode") == 1)
+				acl_vpn_status = storage_nfs_export_format_ipv4_acl(
+					acl_addr, acl_mask, acl_vpn, sizeof(acl_vpn));
+		} else
+#endif
+			acl_vpn_status = storage_nfs_export_format_ipv4_acl(
+				acl_addr, acl_mask, acl_vpn, sizeof(acl_vpn));
+
+		if (acl_vpn_status < 0) {
+			saved_errno = EINVAL;
+			logmessage("Storage", "refusing to publish NFS exports with an invalid IPv4 VPN ACL");
+			fclose(fp);
+			fclose(procpt);
+			unlink(staged_path);
+			errno = saved_errno;
+			return -1;
+		}
+		if (strcmp(acl_lan, acl_vpn) == 0)
+			acl_vpn[0] = 0;
+	}
+
+	fprintf(fp, "# %s\n\n", "auto-created file");
+
+	while (fgets(line, sizeof(line), procpt)) {
+		if (storage_nfs_export_parse_mount_line(line,
+				devname, sizeof(devname), mpname, sizeof(mpname),
+				fstype, sizeof(fstype), fsmode, sizeof(fsmode)) != 0) {
+			parse_error = 1;
+			break;
+		}
+
+		if (strcmp(fstype, "fuseblk") == 0)
+			continue;
+
+		if (!is_valid_storage_device(devname))
+			continue;
+
+		if (strncmp(mpname, "/media/", 7) == 0) {
+			nfsmm = (strncmp(fsmode, "ro", 2) == 0) ? "ro" : "rw";
+			fprintf(fp, "%s\t", mpname);
+			fprintf(fp, " %s(%s,%s)", acl_lan, nfsmm, exports_rule);
+#if defined (USE_IPV6)
+			if ((ipv6_type != IPV6_DISABLED) && acl_ipv6_status > 0)
+				fprintf(fp, " %s(%s,%s)", acl_addr6_export, nfsmm, exports_rule);
+#endif
+			if (acl_vpn[0])
+				fprintf(fp, " %s(%s,%s)", acl_vpn, nfsmm, exports_rule);
+			fprintf(fp, "\n");
+		}
+	}
+
+	read_error = ferror(procpt);
+	close_status = fclose(procpt);
+	procpt = NULL;
+	close_error = (close_status != 0);
+	if (!storage_nfs_export_may_publish(1, read_error, close_error, parse_error)) {
+		saved_errno = errno ? errno : EIO;
+		logmessage("Storage", "refusing to publish incomplete %s while generating NFS exports (read error=%d, close error=%d, malformed/truncated row=%d)",
+			   PROC_MOUNTS_FILE, read_error, close_error, parse_error);
+		fclose(fp);
+		unlink(staged_path);
+		errno = saved_errno;
+		return -1;
+	}
+
+	if (ferror(fp) || fflush(fp) != 0)
+		output_error = 1;
+	if (fclose(fp) != 0)
+		output_error = 1;
+	fp = NULL;
+	if (output_error) {
+		saved_errno = errno ? errno : EIO;
+		logmessage("Storage", "cannot complete staged NFS exports (errno %d)", saved_errno);
+		unlink(staged_path);
+		errno = saved_errno;
+		return -1;
+	}
+
+	if (rename(staged_path, exports_file) != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage("Storage", "cannot publish generated NFS exports (errno %d)", saved_errno);
+		unlink(staged_path);
+		errno = saved_errno;
+		return -1;
+	}
+
+	return 0;
+}
+
+void unload_nfsd(void)
+{
+	module_smart_unload("nfsd", 0);
+	module_smart_unload("exportfs", 0);
+	module_smart_unload("lockd", 0);
+	module_smart_unload("sunrpc", 0);
+}
+
+/*
+ * The storage lock is also the safe-removal barrier. The *_locked helpers
+ * are only for callers which already hold it (hotplug startup/removal and
+ * restart_nfsd); public RC applets acquire it themselves. This prevents a
+ * standalone run_nfsd/stop_nfsd command from restarting the export server
+ * while another process is unmounting its backing device.
+ */
+static int
+stop_nfsd_locked(void)
+{
+	return eval("/usr/bin/nfsd.sh", "stop");
+}
+
+int stop_nfsd(void)
+{
+	int storage_lock, status;
+
+	storage_lock = storage_operation_lock_acquire(file_lock);
+	if (storage_lock < 0) {
+		logmessage("Storage", "cannot acquire storage operation lock; refusing NFS stop");
+		return -1;
+	}
+
+	status = stop_nfsd_locked();
+	file_unlock(storage_lock);
+	return status;
+}
+
+static int
+run_nfsd_locked(void)
+{
+	int export_status;
+	int command_status = -1;
+
+	if (nvram_invmatch("nfsd_enable", "1"))
+		return 0;
+
+	export_status = write_nfsd_exports();
+	if (!storage_nfs_export_may_start(1, export_status)) {
+		logmessage("Storage", "NFS start skipped because exports could not be generated safely");
+		return storage_nfs_start_status(export_status, command_status);
+	}
+
+	command_status = eval("/usr/bin/nfsd.sh", "start");
+	if (command_status != 0)
+		logmessage("Storage", "NFS daemon start failed (status %d)", command_status);
+
+	return storage_nfs_start_status(export_status, command_status);
+}
+
+int
+run_nfsd(void)
+{
+	int storage_lock, status;
+
+	storage_lock = storage_operation_lock_acquire(file_lock);
+	if (storage_lock < 0) {
+		logmessage("Storage", "cannot acquire storage operation lock; refusing NFS start");
+		return -1;
+	}
+
+	status = run_nfsd_locked();
+	file_unlock(storage_lock);
+	return status;
+}
+
+static int
+reload_nfsd_locked(void)
+{
+	int export_status;
+	int command_status;
+
+	if (nvram_invmatch("nfsd_enable", "1"))
+		return 0;
+
+	export_status = write_nfsd_exports();
+	if (!storage_nfs_export_may_start(1, export_status)) {
+		logmessage("Storage", "NFS reload skipped because exports could not be generated safely");
+		return -1;
+	}
+
+	command_status = eval("/usr/bin/nfsd.sh", "reload");
+	if (command_status != 0)
+		logmessage("Storage", "NFS daemon reload failed (status %d)", command_status);
+
+	return command_status == 0 ? 0 : -1;
+}
+
+int
+reload_nfsd(void)
+{
+	int storage_lock, status;
+
+	storage_lock = storage_operation_lock_acquire(file_lock);
+	if (storage_lock < 0) {
+		logmessage("Storage", "cannot acquire storage operation lock; refusing NFS reload");
+		return -1;
+	}
+
+	status = reload_nfsd_locked();
+	file_unlock(storage_lock);
+	return status;
+}
+
+int restart_nfsd(void)
+{
+	int storage_lock, mount_count, status;
+
+	/* Serialize inventory, stop and restart with safe storage removal. */
+	storage_lock = storage_operation_lock_acquire(file_lock);
+	if (storage_lock < 0) {
+		logmessage("Storage", "cannot acquire storage operation lock; refusing NFS restart");
+		return -1;
+	}
+
+	mount_count = count_stor_mountpoint();
+	if (mount_count < 0) {
+		logmessage("Storage", "cannot determine mounted storage from %s during NFS restart; keeping NFS support running",
+			   PROC_MOUNTS_FILE);
+		file_unlock(storage_lock);
+		return -1;
+	}
+
+	if (stop_nfsd_locked() != 0) {
+		logmessage("Storage", "NFS server stop failed; refusing restart or module unload");
+		file_unlock(storage_lock);
+		return -1;
+	}
+
+	if (nvram_match("nfsd_enable", "1") &&
+	    storage_mount_inventory_has_mounts(mount_count)) {
+		sleep(1);
+		status = run_nfsd_locked();
+	} else {
+		unload_nfsd();
+		status = 0;
+	}
+
+	file_unlock(storage_lock);
+	return status;
+}
+#endif
+
+int create_mp_link(char *search_dir, char *link_path, int force_first_valid)
+{
+	FILE *procpt;
+	char line[512], devname[32], mpname[256], fstype[32], target_path[512];
+	int link_created, path_len;
+
+	if (!search_dir || !link_path)
+		return 0;
+
+	link_created = 0;
+
+	procpt = fopen(PROC_MOUNTS_FILE, "r");
+	if (procpt) {
+		while (fgets(line, sizeof(line), procpt)) {
+			if (sscanf(line, "%31s %255s %31s %*[^\n]", devname, mpname, fstype) != 3)
+				continue;
+			
+#if 0
+			if (only_ext_xfs) {
+				if (strcmp(fstype, "xfs") && strcmp(fstype, "exfat") && strncmp(fstype, "ext", 3))
+					continue;
+			}
+#endif
+			if (!is_valid_storage_device(devname))
+				continue;
+
+			if (strncmp(mpname, "/media/", 7) == 0) {
+				path_len = snprintf(target_path, sizeof(target_path), "%s/%s", mpname, search_dir);
+				if (path_len < 0 || path_len >= (int)sizeof(target_path))
+					continue;
+				if (!force_first_valid) {
+					if (check_if_dir_exist(target_path)) {
+						if (symlink(target_path, link_path) == 0) {
+							link_created = 1;
+							break;
+						}
+					}
+				} else {
+					if (mkdir_if_none(target_path, "777")) {
+						if (symlink(target_path, link_path) == 0) {
+							link_created = 1;
+							break;
+						}
+					}
+				
+				}
+			}
+		}
+		
+		fclose(procpt);
+	}
+
+	return link_created;
+}
+
+#if defined (APP_MINIDLNA)
+int is_dms_support(void)
+{
+	return check_if_file_exist("/usr/bin/minidlnad");
+}
+
+int is_dms_run(void)
+{
+	if (!is_dms_support())
+		return 0;
+
+	return (pids("minidlnad")) ? 1 : 0;
+}
+
+int stop_dms(void)
+{
+	char* svcs[] = { "minidlnad", NULL };
+	int command_status;
+
+	if (!is_dms_support())
+		return 0;
+
+	command_status = kill_services(svcs, 5, 1);
+	if (storage_service_stop_complete(command_status, is_dms_run()) != 0) {
+		logmessage("MiniDLNA", "daemon did not stop cleanly");
+		return -1;
+	}
+
+	return 0;
+}
+
+void update_minidlna_conf(const char *link_path, const char *conf_path)
+{
+	FILE *fp;
+	int dlna_disc, dlna_root;
+	char *computer_name;
+	char *dlna_src1 = "V,/media/AiDisk_a1/Video";
+	char *dlna_src2 = "P,/media/AiDisk_a1/Photo";
+	char *dlna_src3 = "A,/media/AiDisk_a1/Audio";
+
+	fp = fopen(conf_path, "w");
+	if (!fp)
+		return;
+
+	computer_name = get_our_hostname();
+
+	dlna_disc = nvram_get_int("dlna_disc");
+	dlna_root = nvram_get_int("dlna_root");
+	dlna_src1 = nvram_safe_get("dlna_src1");
+	dlna_src2 = nvram_safe_get("dlna_src2");
+	dlna_src3 = nvram_safe_get("dlna_src3");
+
+	if (!*dlna_src1 && !*dlna_src2 && !*dlna_src3)
+		dlna_src1 = "/media";
+
+	if (dlna_disc < 10) dlna_disc = 10;
+	if (dlna_disc > 10800) dlna_disc = 10800;
+
+	fprintf(fp, "port=%d\n", 8200);
+	fprintf(fp, "network_interface=%s\n", IFNAME_BR);
+	fprintf(fp, "notify_interval=%d\n", dlna_disc);
+	if (*dlna_src1)
+		fprintf(fp, "media_dir=%s\n", dlna_src1);
+	if (*dlna_src2)
+		fprintf(fp, "media_dir=%s\n", dlna_src2);
+	if (*dlna_src3)
+		fprintf(fp, "media_dir=%s\n", dlna_src3);
+	fprintf(fp, "merge_media_dirs=%s\n", "no");
+	if (dlna_root == 1)
+		fprintf(fp, "root_container=%s\n", "B");
+	else if (dlna_root == 2)
+		fprintf(fp, "root_container=%s\n", "M");
+	else if (dlna_root == 3)
+		fprintf(fp, "root_container=%s\n", "V");
+	else if (dlna_root == 4)
+		fprintf(fp, "root_container=%s\n", "P");
+	if (nvram_get_int("dlna_sort") > 0)
+		fprintf(fp, "force_sort_criteria=%s\n", "+upnp:class,+upnp:originalTrackNumber,+dc:title");
+	fprintf(fp, "friendly_name=%s\n", computer_name);
+	fprintf(fp, "db_dir=%s\n", link_path);
+	fprintf(fp, "log_dir=%s\n", link_path);
+	fprintf(fp, "album_art_names=%s\n", "Cover.jpg/cover.jpg/AlbumArtSmall.jpg/albumartsmall.jpg/AlbumArt.jpg/albumart.jpg/Album.jpg/album.jpg/Folder.jpg/folder.jpg/Thumb.jpg/thumb.jpg");
+	fprintf(fp, "wide_links=%s\n", "yes");
+	fprintf(fp, "inotify=%s\n", "yes");
+	fprintf(fp, "enable_tivo=%s\n", "no");
+	fprintf(fp, "strict_dlna=%s\n", "no");
+	fprintf(fp, "model_number=%d\n", 1);
+
+	fclose(fp);
+}
+
+void run_dms(int force_rescan)
+{
+	int db_rescan_mode;
+	unsigned char mac_bin[ETHER_ADDR_LEN] = {0};
+	char mac_str[16];
+	char *apps_name = "Media Server";
+	char *link_path = "/mnt/minidlna";
+	char *conf_path = "/etc/minidlna.conf";
+	char *dest_dir = ".dms";
+	char *minidlna_argv[] = {
+		"/usr/bin/minidlnad",
+		"-f", conf_path,
+		"-s", NULL,
+		NULL,	/* -U */
+		NULL
+	};
+
+	if (!nvram_match("apps_dms", "1"))
+		return;
+
+	if (!is_dms_support())
+		return;
+
+	if (is_dms_run())
+		return;
+
+	unlink(link_path);
+	if (!create_mp_link(dest_dir, link_path, 0))
+	{
+		if (!create_mp_link(dest_dir, link_path, 1))
+		{
+			logmessage(apps_name, "Cannot start: unable to create DB dir (/%s) on any volumes!", dest_dir);
+			return;
+		}
+	}
+
+	update_minidlna_conf(link_path, conf_path);
+
+	ether_atoe(nvram_safe_get("il0macaddr"), mac_bin);
+	minidlna_argv[4] = ether_etoa3(mac_bin, mac_str);
+
+	db_rescan_mode = nvram_get_int("dlna_rescan");
+	if (force_rescan || db_rescan_mode == 2)
+		minidlna_argv[5] = "-R";
+	else if (db_rescan_mode == 1)
+		minidlna_argv[5] = "-U";
+
+	_eval(minidlna_argv, NULL, 0, NULL);
+
+	if (is_dms_run())
+		logmessage(apps_name, "daemon is started");
+}
+
+void restart_dms(int force_rescan)
+{
+	if (stop_dms() != 0) {
+		logmessage("MiniDLNA", "restart aborted because the existing daemon did not stop");
+		return;
+	}
+	if (storage_has_mounted_devices("restarting DLNA"))
+		run_dms(force_rescan);
+}
+#endif
+
+#if defined (APP_FIREFLY)
+int is_itunes_support(void)
+{
+	return check_if_file_exist("/usr/bin/mt-daapd");
+}
+
+int is_itunes_run(void)
+{
+	if (!is_itunes_support())
+		return 0;
+
+	return (pids("mt-daapd")) ? 1 : 0;
+}
+
+int stop_itunes(void)
+{
+	char* svcs[] = { "mt-daapd", NULL };
+	int command_status;
+
+	if (!is_itunes_support())
+		return 0;
+
+	command_status = kill_services(svcs, 5, 1);
+	if (storage_service_stop_complete(command_status, is_itunes_run()) != 0) {
+		logmessage("Firefly", "daemon did not stop cleanly");
+		return -1;
+	}
+
+	return 0;
+}
+
+static void 
+update_firefly_conf(const char *link_path, const char *conf_path, const char *conf_file)
+{
+	FILE *fp1, *fp2;
+	char tmp1[64], tmp2[64], line[128];
+
+	snprintf(tmp1, sizeof(tmp1), "%s/%s", conf_path, conf_file);
+
+	if (check_if_file_exist(tmp1)) {
+		snprintf(tmp2, sizeof(tmp2), "%s/%s.tmp", conf_path, conf_file);
+		fp1 = fopen(tmp1, "r");
+		if (fp1) {
+			fp2 = fopen(tmp2, "w");
+			if (fp2) {
+				while (fgets(line, sizeof(line), fp1)){
+					if (strncmp(line, "web_root", 8) == 0)
+						snprintf(line, sizeof(line), "web_root = %s\n", "/usr/share/mt-daapd");
+					if (strncmp(line, "port", 4) == 0)
+						snprintf(line, sizeof(line), "port = %d\n", 3689);
+					else if (strncmp(line, "runas", 5) == 0)
+						snprintf(line, sizeof(line), "runas = %s\n", nvram_safe_get("http_username"));
+					else if (strncmp(line, "db_type", 7) == 0)
+						snprintf(line, sizeof(line), "db_type = %s\n", "sqlite3");
+					else if (strncmp(line, "db_parms", 8) == 0)
+						snprintf(line, sizeof(line), "db_parms = %s\n", link_path);
+					else if (strncmp(line, "plugin_dir", 10) == 0)
+						snprintf(line, sizeof(line), "plugin_dir = %s\n", "/usr/lib/mt-daapd");
+					fprintf(fp2, "%s", line);
+				}
+				fclose(fp2);
+				fclose(fp1);
+				rename(tmp2, tmp1);
+			}
+			else
+				fclose(fp1);
+		}
+	}
+	else {
+		fp1 = fopen(tmp1, "w");
+		if (fp1) {
+			fprintf(fp1, "[general]\n");
+			fprintf(fp1, "web_root = %s\n", "/usr/share/mt-daapd");
+			fprintf(fp1, "port = %d\n", 3689);
+			fprintf(fp1, "runas = %s\n", nvram_safe_get("http_username"));
+			fprintf(fp1, "admin_pw = %s\n", nvram_safe_get("http_passwd"));
+			fprintf(fp1, "db_type = %s\n", "sqlite3");
+			fprintf(fp1, "db_parms = %s\n", link_path);
+			fprintf(fp1, "logfile = %s/mt-daapd.log\n", link_path);
+			fprintf(fp1, "servername = %s\n", "Firefly on %h");
+			fprintf(fp1, "mp3_dir = %s\n", "/media");
+			fprintf(fp1, "extensions = %s\n", ".mp3,.m4a,.m4p,.flac,.alac");
+			fprintf(fp1, "rescan_interval = %d\n", 300);
+			fprintf(fp1, "always_scan = %d\n", 0);
+			fprintf(fp1, "scan_type = %d\n", 0);
+			fprintf(fp1, "debuglevel = %d\n\n", 0);
+			fprintf(fp1, "[scanning]\n");
+			fprintf(fp1, "skip_first = %d\n", 1);
+			fprintf(fp1, "process_playlists = %d\n", 1);
+			fprintf(fp1, "process_itunes = %d\n", 1);
+			fprintf(fp1, "process_m3u = %d\n", 1);
+			fprintf(fp1, "mp3_tag_codepage = %s\n\n", "WINDOWS-1251");
+			fprintf(fp1, "[plugins]\n");
+			fprintf(fp1, "plugin_dir = %s\n\n", "/usr/lib/mt-daapd");
+			fclose(fp1);
+		}
+	}
+}
+
+void run_itunes(void)
+{
+	char *apps_name = "iTunes Server";
+	char *link_path = "/mnt/firefly";
+	char *conf_path = "/etc/storage/firefly";
+	char *conf_file = "mt-daapd.conf";
+	char *dest_dir = ".itunes";
+	char conf_new[64], conf_old[64];
+
+	if (!nvram_match("apps_itunes", "1"))
+		return;
+
+	if (!is_itunes_support())
+		return;
+
+	if (is_itunes_run())
+		return;
+
+	unlink(link_path);
+	if (!create_mp_link(dest_dir, link_path, 0)) {
+		if (!create_mp_link(dest_dir, link_path, 1)) {
+			logmessage(apps_name, "Cannot start: unable to create DB dir (/%s) on any volumes!", dest_dir);
+			return;
+		}
+	}
+
+	mkdir(conf_path, 0755);
+
+	snprintf(conf_old, sizeof(conf_old), "%s/%s", "/etc/storage", conf_file);
+	snprintf(conf_new, sizeof(conf_new), "%s/%s", conf_path, conf_file);
+	if (!check_if_file_exist(conf_new) && check_if_file_exist(conf_old))
+		rename(conf_old, conf_new);
+
+	update_firefly_conf(link_path, conf_path, conf_file);
+
+	eval("/usr/bin/mt-daapd", "-c", conf_new);
+
+	if (is_itunes_run())
+		logmessage(apps_name, "daemon is started");
+}
+
+void restart_itunes(void)
+{
+	if (stop_itunes() != 0) {
+		logmessage("Firefly", "restart aborted because the existing daemon did not stop");
+		return;
+	}
+	if (storage_has_mounted_devices("restarting Firefly"))
+		run_itunes();
+}
+#endif
+
+#if defined (APP_TRMD)
+int is_torrent_support(void)
+{
+	return check_if_file_exist("/usr/bin/transmission-daemon");
+}
+
+int is_torrent_run(void)
+{
+	if (!is_torrent_support())
+		return 0;
+
+	return (pids("transmission-daemon")) ? 1 : 0;
+}
+
+int stop_torrent(void)
+{
+	int command_status;
+
+	if (!is_torrent_support() || !is_torrent_run())
+		return 0;
+
+	command_status = eval("/usr/bin/transmission.sh", "stop");
+	if (storage_service_stop_complete(command_status, is_torrent_run()) != 0) {
+		logmessage("Transmission", "daemon did not stop cleanly");
+		return -1;
+	}
+
+	return 0;
+}
+
+void run_torrent(void)
+{
+	char *apps_name = "Transmission";
+	char *link_path = "/mnt/transmission";
+	char *dest_dir = "transmission";
+
+	if (!nvram_match("trmd_enable", "1"))
+		return;
+
+	if (!is_torrent_support())
+		return;
+
+	if (is_torrent_run())
+		return;
+
+	unlink(link_path);
+	if (!create_mp_link(dest_dir, link_path, 0)) {
+		logmessage(apps_name, "Cannot start: please create dir \"%s\" on target volume!", dest_dir);
+		return;
+	}
+
+	eval("/usr/bin/transmission.sh", "start");
+}
+
+void restart_torrent(void)
+{
+	int is_run_before = is_torrent_run();
+	int is_run_after;
+
+	if (stop_torrent() != 0) {
+		logmessage("Transmission", "restart aborted because the existing daemon did not stop");
+		return;
+	}
+	if (storage_has_mounted_devices("restarting Transmission"))
+		run_torrent();
+
+	is_run_after = is_torrent_run();
+
+	if ((is_run_after != is_run_before) && nvram_match("fw_enable_x", "1"))
+		restart_firewall();
+}
+#endif
+
+#if defined (APP_ARIA)
+int is_aria_support(void)
+{
+	return check_if_file_exist("/usr/bin/aria2c");
+}
+
+int is_aria_run(void)
+{
+	if (!is_aria_support())
+		return 0;
+
+	return (pids("aria2c")) ? 1 : 0;
+}
+
+int stop_aria(void)
+{
+	int command_status;
+
+	if (!is_aria_support() || !is_aria_run())
+		return 0;
+
+	command_status = eval("/usr/bin/aria.sh", "stop");
+	if (storage_service_stop_complete(command_status, is_aria_run()) != 0) {
+		logmessage("Aria", "daemon did not stop cleanly");
+		return -1;
+	}
+
+	return 0;
+}
+
+void run_aria(void)
+{
+	char *apps_name = "Aria";
+	char *link_path = "/mnt/aria";
+	char *dest_dir = "aria";
+
+	if (!nvram_match("aria_enable", "1"))
+		return;
+
+	if (!is_aria_support())
+		return;
+
+	if (is_aria_run())
+		return;
+
+	unlink(link_path);
+	if (!create_mp_link(dest_dir, link_path, 0)) {
+		logmessage(apps_name, "Cannot start: please create dir \"%s\" on target volume!", dest_dir);
+		return;
+	}
+
+	eval("/usr/bin/aria.sh", "start");
+}
+
+void restart_aria(void)
+{
+	int is_run_before = is_aria_run();
+	int is_run_after;
+
+	if (stop_aria() != 0) {
+		logmessage("Aria", "restart aborted because the existing daemon did not stop");
+		return;
+	}
+	if (storage_has_mounted_devices("restarting Aria"))
+		run_aria();
+
+	is_run_after = is_aria_run();
+
+	if ((is_run_after != is_run_before) && nvram_match("fw_enable_x", "1"))
+		restart_firewall();
+}
+#endif
+
+struct storage_ejected_mount_entry {
+	char device[32];
+	char mountpoint[256];
+	struct storage_ejected_mount_entry *next;
+};
+
+static void
+free_storage_ejected_mounts(struct storage_ejected_mount_entry *entry)
+{
+	struct storage_ejected_mount_entry *next;
+
+	while (entry) {
+		next = entry->next;
+		free(entry);
+		entry = next;
+	}
+}
+
+struct storage_ejected_partition_entry {
+	char device[32];
+	struct storage_ejected_partition_entry *next;
+};
+
+static void
+free_storage_ejected_partitions(struct storage_ejected_partition_entry *entry)
+{
+	struct storage_ejected_partition_entry *next;
+	while (entry) {
+		next = entry->next;
+		free(entry);
+		entry = next;
+	}
+}
+
+/* Stage a complete partition inventory before any ejected mount is changed. */
+static int
+storage_stage_ejected_partitions(struct storage_ejected_partition_entry **staged)
+{
+	FILE *procpt;
+	char line[512], device[32];
+	int parse_status, parse_error, read_error, close_status, close_error;
+	struct storage_ejected_partition_entry *head, *tail, *entry;
+
+	if (!staged) {
+		errno = EINVAL;
+		return -1;
+	}
+	*staged = NULL;
+	procpt = fopen(PROC_PARTITIONS_FILE, "r");
+	if (!procpt) {
+		logmessage("Storage", "cannot read %s before ejected-device cleanup (errno %d)",
+			   PROC_PARTITIONS_FILE, errno);
+		return -1;
+	}
+
+	head = tail = NULL;
+	parse_error = 0;
+	while (fgets(line, sizeof(line), procpt)) {
+		parse_status = storage_ejected_parse_partition_line(line, device,
+								    sizeof(device));
+		if (parse_status < 0) {
+			parse_error = 1;
+			break;
+		}
+		if (parse_status == 0)
+			continue;
+		entry = (struct storage_ejected_partition_entry *)malloc(sizeof(*entry));
+		if (!entry) {
+			parse_error = 1;
+			break;
+		}
+		strcpy(entry->device, device);
+		entry->next = NULL;
+		if (tail)
+			tail->next = entry;
+		else
+			head = entry;
+		tail = entry;
+	}
+
+	read_error = ferror(procpt);
+	close_status = fclose(procpt);
+	close_error = (close_status != 0);
+	if (!storage_ejected_inventory_complete(read_error, close_error, parse_error)) {
+		logmessage("Storage", "incomplete %s before ejected-device cleanup (read error=%d, close error=%d, malformed/truncated row or allocation failure=%d); leaving mounts untouched",
+			   PROC_PARTITIONS_FILE, read_error, close_error, parse_error);
+		free_storage_ejected_partitions(head);
+		return -1;
+	}
+	*staged = head;
+	return 0;
+}
+
+static int
+storage_ejected_partition_is_active(const char *device,
+				    const struct storage_ejected_partition_entry *entries)
+{
+	const struct storage_ejected_partition_entry *entry;
+	if (!device || !*device)
+		return 0;
+	for (entry = entries; entry; entry = entry->next) {
+		if (strcmp(entry->device, device) == 0)
+			return 1;
+	}
+	return 0;
+}
+
+static void
+restore_home_dir(void)
+{
+	if (!check_if_dir_exist("/home/admin")) {
+		unlink("/home/admin");
+		symlink("/home/root", "/home/admin");
+	}
+}
+
+static int
+umount_ejected_locked(void)
+{
+	FILE *procpt;
+	char line[512], devname[32], mpname[256];
+	int active, result, saved_errno, hook_status;
+	int mount_read_error, mount_close_error, mount_parse_error;
+	struct storage_ejected_mount_entry *head, *tail, *entry;
+	struct storage_ejected_partition_entry *partitions = NULL;
+
+	head = tail = NULL;
+	procpt = fopen(PROC_MOUNTS_FILE, "r");
+	if (!procpt) {
+		saved_errno = errno;
+		logmessage("Storage", "cannot read %s for ejected-device cleanup (errno %d)",
+			   PROC_MOUNTS_FILE, saved_errno);
+		restore_home_dir();
+		return -1;
+	}
+
+	/*
+	 * Collect and close the complete mount inventory before performing any
+	 * unmount. A short/truncated row, read error, close error or allocation
+	 * failure must not be mistaken for an absent device.
+	 */
+	mount_parse_error = 0;
+	while (fgets(line, sizeof(line), procpt)) {
+		if (storage_ejected_parse_mount_line(line, devname, sizeof(devname),
+						     mpname, sizeof(mpname)) != 0) {
+			mount_parse_error = 1;
+			break;
+		}
+		if (!is_valid_storage_device(devname))
+			continue;
+
+		entry = (struct storage_ejected_mount_entry *)malloc(sizeof(*entry));
+		if (!entry) {
+			mount_parse_error = 1;
+			break;
+		}
+		strcpy(entry->device, devname);
+		strcpy(entry->mountpoint, mpname);
+		entry->next = NULL;
+		if (tail)
+			tail->next = entry;
+		else
+			head = entry;
+		tail = entry;
+	}
+	mount_read_error = ferror(procpt);
+	mount_close_error = (fclose(procpt) != 0);
+	if (!storage_ejected_inventory_complete(mount_read_error,
+						mount_close_error,
+						mount_parse_error)) {
+		logmessage("Storage", "incomplete %s during ejected-device cleanup (read error=%d, close error=%d, malformed/truncated row or allocation failure=%d)",
+			   PROC_MOUNTS_FILE, mount_read_error, mount_close_error,
+			   mount_parse_error);
+		free_storage_ejected_mounts(head);
+		restore_home_dir();
+		return -1;
+	}
+
+	if (!head) {
+		restore_home_dir();
+		return 0;
+	}
+
+	if (storage_stage_ejected_partitions(&partitions) != 0) {
+		free_storage_ejected_mounts(head);
+		restore_home_dir();
+		return -1;
+	}
+
+	result = 0;
+	for (entry = head; entry; entry = entry->next) {
+		active = storage_ejected_partition_is_active(entry->device + 5,
+							     partitions);
+		if (active)
+			continue;
+
+		hook_status = eval("/usr/bin/opt-umount.sh", entry->device,
+				   entry->mountpoint);
+		if (hook_status != 0) {
+			logmessage("Storage", "refusing to unmount ejected device %s from %s because Optware teardown failed (status %d)",
+				   entry->device, entry->mountpoint, hook_status);
+			result = -1;
+			continue;
+		}
+
+		if (umount(entry->mountpoint) != 0) {
+			saved_errno = errno;
+			logmessage("Storage", "failed to unmount ejected device %s from %s (errno %d)",
+				   entry->device, entry->mountpoint, saved_errno);
+			result = -1;
+		} else {
+			(void)rmdir(entry->mountpoint);
+		}
+	}
+
+	free_storage_ejected_mounts(head);
+	free_storage_ejected_partitions(partitions);
+	restore_home_dir();
+	return result;
+}
+
+int
+umount_ejected(void)
+{
+	int storage_lock, result, saved_errno;
+
+	storage_lock = storage_operation_lock_acquire(file_lock);
+	if (storage_lock == -1) {
+		saved_errno = errno ? errno : EIO;
+		logmessage("Storage", "cannot acquire storage operation lock for ejected-device cleanup (errno %d)",
+			   saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
+
+	result = umount_ejected_locked();
+	file_unlock(storage_lock);
+	return result;
+}
+
+struct storage_unmount_mount_entry {
+	char device[32];
+	char mountpoint[256];
+	struct storage_unmount_mount_entry *next;
+};
+
+static void
+free_storage_unmount_mounts(struct storage_unmount_mount_entry *entry)
+{
+	struct storage_unmount_mount_entry *next;
+
+	while (entry) {
+		next = entry->next;
+		free(entry);
+		entry = next;
+	}
+}
+
+/*
+ * Take one complete storage-mount snapshot for the entire safe-removal
+ * operation. No per-partition hook/unmount may run until this succeeds.
+ */
+static int
+storage_stage_unmount_mounts(struct storage_unmount_mount_entry **staged)
+{
+	FILE *procpt;
+	char line[512], devname[32], mpname[256];
+	int mount_read_error, mount_close_error, mount_parse_error;
+	struct storage_unmount_mount_entry *head, *tail, *entry;
+
+	if (!staged) {
+		errno = EINVAL;
+		return -1;
+	}
+	*staged = NULL;
+
+	procpt = fopen(PROC_MOUNTS_FILE, "r");
+	if (!procpt) {
+		logmessage("Storage", "cannot read %s before safe removal (errno %d)",
+			   PROC_MOUNTS_FILE, errno);
+		return -1;
+	}
+
+	head = tail = NULL;
+	mount_parse_error = 0;
+	while (fgets(line, sizeof(line), procpt)) {
+		if (storage_ejected_parse_mount_line(line, devname, sizeof(devname),
+						     mpname, sizeof(mpname)) != 0) {
+			mount_parse_error = 1;
+			break;
+		}
+		if (!is_valid_storage_device(devname))
+			continue;
+
+		entry = (struct storage_unmount_mount_entry *)malloc(sizeof(*entry));
+		if (!entry) {
+			mount_parse_error = 1;
+			break;
+		}
+		strcpy(entry->device, devname);
+		strcpy(entry->mountpoint, mpname);
+		entry->next = NULL;
+		if (tail)
+			tail->next = entry;
+		else
+			head = entry;
+		tail = entry;
+	}
+
+	mount_read_error = ferror(procpt);
+	mount_close_error = (fclose(procpt) != 0);
+	if (!storage_ejected_inventory_complete(mount_read_error,
+						mount_close_error,
+						mount_parse_error)) {
+		logmessage("Storage", "incomplete %s before safe removal (read error=%d, close error=%d, malformed/truncated row or allocation failure=%d); leaving mounts untouched",
+			   PROC_MOUNTS_FILE, mount_read_error,
+			   mount_close_error, mount_parse_error);
+		free_storage_unmount_mounts(head);
+		return -1;
+	}
+
+	*staged = head;
+	return 0;
+}
+
+static int
+storage_unmount_staged_disk_mounts(const char *disk,
+				   struct storage_unmount_mount_entry *mounts)
+{
+	struct storage_unmount_mount_entry *entry;
+	int result, hook_status;
+
+	if (!disk || !*disk)
+		return -1;
+
+	result = 0;
+	for (entry = mounts; entry; entry = entry->next) {
+		if (!storage_ejected_mount_matches_disk(entry->device, disk))
+			continue;
+
+		hook_status = eval("/usr/bin/opt-umount.sh", entry->device,
+				   entry->mountpoint);
+		if (hook_status != 0) {
+			logmessage("Storage", "refusing to unmount %s from %s because Optware teardown failed (status %d)",
+				   entry->device, entry->mountpoint, hook_status);
+			result = -1;
+			continue;
+		}
+		if (umount(entry->mountpoint) != 0) {
+			logmessage("Storage", "failed to unmount %s from %s (errno %d)",
+				   entry->device, entry->mountpoint, errno);
+			result = -1;
+		} else {
+			(void)rmdir(entry->mountpoint);
+		}
+	}
+
+	return result;
+}
+
+int
+count_stor_mountpoint(void)
+{
+	FILE *procpt;
+	char line[512], devname[32];
+	int count = 0, read_error, close_status;
+	int read_errno, close_errno, saved_errno;
+
+	procpt = fopen(PROC_MOUNTS_FILE, "r");
+	if (!procpt) {
+		saved_errno = errno ? errno : EIO;
+		logmessage("Storage", "cannot open %s to count mounted storage (errno %d)",
+			   PROC_MOUNTS_FILE, saved_errno);
+		errno = saved_errno;
+		return storage_mount_inventory_result(0, 1);
+	}
+
+	errno = 0;
+	while (fgets(line, sizeof(line), procpt)) {
+		if (sscanf(line, "%31s %*[^\n]", devname) != 1)
+			continue;
+
+		if (is_valid_storage_device(devname))
+			count++;
+	}
+	read_error = ferror(procpt);
+	read_errno = errno;
+
+	errno = 0;
+	close_status = fclose(procpt);
+	close_errno = errno;
+	if (read_error || close_status != 0) {
+		saved_errno = read_errno;
+		if (saved_errno == 0 && close_status != 0)
+			saved_errno = close_errno;
+		if (saved_errno == 0)
+			saved_errno = EIO;
+		logmessage("Storage", "incomplete read of %s while counting mounted storage (errno %d)",
+			   PROC_MOUNTS_FILE, saved_errno);
+		errno = saved_errno;
+		return storage_mount_inventory_result(count, 1);
+	}
+
+	return storage_mount_inventory_result(count, 0);
+}
+
+static int
+umount_stor_path_range(disk_info_t *disks_info, int port_b, int port_e,
+		       int filter_ports, const char *dev_name, int do_spindown)
+{
+	disk_info_t *follow_disk;
+	partition_info_t *follow_partition;
+	struct storage_unmount_mount_entry *mounts;
+	int result, swapoff_status, swap_status, disk_status, saved_errno;
+
+	if (!disks_info) {
+		logmessage("Storage", "cannot inspect storage topology before safe removal");
+		return -1;
+	}
+
+	/*
+	 * Validate one mount inventory for every selected disk before changing
+	 * swap or mount state; later partitions must not trigger late reads.
+	 */
+	if (storage_stage_unmount_mounts(&mounts) != 0)
+		return -1;
+
+	/*
+	 * Resolve all selected swaps before unmounting any selected disk. A
+	 * later unknown/failed swap record must not follow an earlier unmount.
+	 */
+	swapoff_status = 0;
+	for (follow_disk = disks_info; follow_disk != NULL; follow_disk = follow_disk->next) {
+		if (filter_ports &&
+		    ((int)follow_disk->port_root < port_b ||
+		     (int)follow_disk->port_root > port_e))
+			continue;
+		if (dev_name &&
+		    (!follow_disk->device || strcmp(follow_disk->device, dev_name) != 0))
+			continue;
+
+		for (follow_partition = follow_disk->partitions;
+		     follow_partition != NULL; follow_partition = follow_partition->next) {
+			if (!follow_partition->swapon)
+				continue;
+
+			swap_status = try_device_swapoff(follow_partition->device);
+			if (swap_status != 0) {
+				saved_errno = errno;
+				logmessage("Storage", "failed to disable swap on /dev/%s (status %d, errno %d)",
+					   follow_partition->device ? follow_partition->device : "(unknown)",
+					   swap_status, saved_errno);
+				swapoff_status = -1;
+			}
+		}
+	}
+
+	if (!storage_ejected_may_unmount_device(1, swapoff_status)) {
+		logmessage("Storage", "skipping all selected unmounts because swapoff did not complete");
+		free_storage_unmount_mounts(mounts);
+		return -1;
+	}
+
+	result = 0;
+	for (follow_disk = disks_info; follow_disk != NULL; follow_disk = follow_disk->next) {
+		if (filter_ports &&
+		    ((int)follow_disk->port_root < port_b ||
+		     (int)follow_disk->port_root > port_e))
+			continue;
+		if (dev_name &&
+		    (!follow_disk->device || strcmp(follow_disk->device, dev_name) != 0))
+			continue;
+		if (!follow_disk->device || !*follow_disk->device) {
+			logmessage("Storage", "cannot safely remove a disk with no device identity");
+			result = -1;
+			continue;
+		}
+
+		disk_status = storage_unmount_staged_disk_mounts(follow_disk->device, mounts);
+		if (do_spindown && follow_disk->port_root != MMC_VIRT_PORT_ID) {
+			if (disk_status == 0) {
+				spindown_hdd(follow_disk->device);
+			} else {
+				logmessage("Storage", "skipping spindown for %s because unmount did not complete",
+					   follow_disk->device);
+			}
+		}
+		if (disk_status != 0)
+			result = -1;
+	}
+
+	free_storage_unmount_mounts(mounts);
+	return result;
+}
+
+int
+umount_stor_path(disk_info_t *disks_info, int port, const char *dev_name, int do_spindown)
+{
+	return umount_stor_path_range(disks_info, port, port, port != 0,
+				      dev_name, do_spindown);
+}
+
+int
+stop_stor_apps(void)
+{
+	int need_restart_fw = 0;
+
+	int stop_status = 0;
+
+#if defined (APP_NFSD)
+	if (stop_nfsd_locked() != 0) {
+		logmessage("Storage", "NFS server did not stop cleanly; storage removal must be aborted");
+		stop_status = -1;
+	}
+#endif
+#if defined (APP_SMBD)
+	if (stop_samba(0) != 0) {
+		logmessage("Storage", "Samba server did not stop cleanly; storage removal must be aborted");
+		stop_status = -1;
+	}
+#endif
+#if defined (APP_FTPD)
+	if (nvram_match("ftpd_wopen", "1"))
+		need_restart_fw |= is_ftp_run();
+	if (stop_ftp() != 0) {
+		logmessage("Storage", "FTP server did not stop cleanly; storage removal must be aborted");
+		stop_status = -1;
+	}
+#endif
+#if defined (APP_MINIDLNA)
+	if (stop_dms() != 0) {
+		logmessage("Storage", "storage removal must be aborted because MiniDLNA did not stop");
+		stop_status = -1;
+	}
+#endif
+#if defined (APP_FIREFLY)
+	if (stop_itunes() != 0) {
+		logmessage("Storage", "storage removal must be aborted because Firefly did not stop");
+		stop_status = -1;
+	}
+#endif
+#if defined (APP_TRMD)
+	need_restart_fw |= is_torrent_run();
+	if (stop_torrent() != 0) {
+		logmessage("Storage", "storage removal must be aborted because Transmission did not stop");
+		stop_status = -1;
+	}
+#endif
+#if defined (APP_ARIA)
+	need_restart_fw |= is_aria_run();
+	if (stop_aria() != 0) {
+		logmessage("Storage", "storage removal must be aborted because Aria did not stop");
+		stop_status = -1;
+	}
+#endif
+
+	if (need_restart_fw && nvram_match("fw_enable_x", "1"))
+		restart_firewall();
+
+	return stop_status;
+}
+
+void
+start_stor_apps(void)
+{
+	int need_restart_fw = 0;
+
+#if defined (APP_FTPD)
+	if (run_ftp() != 0)
+		logmessage("Storage", "FTP startup did not reach its daemon postconditions");
+	if (nvram_match("ftpd_wopen", "1"))
+		need_restart_fw |= is_ftp_run();
+#endif
+#if defined (APP_SMBD)
+	if (run_samba() != 0)
+		logmessage("Storage", "Samba startup did not reach its daemon postconditions");
+#endif
+#if defined (APP_NFSD)
+	if (run_nfsd_locked() != 0)
+		logmessage("Storage", "NFS startup did not complete successfully");
+#endif
+#if defined (APP_MINIDLNA)
+	run_dms(0);
+#endif
+#if defined (APP_FIREFLY)
+	run_itunes();
+#endif
+#if defined (APP_TRMD)
+	run_torrent();
+	need_restart_fw |= is_torrent_run();
+#endif
+#if defined (APP_ARIA)
+	run_aria();
+	need_restart_fw |= is_aria_run();
+#endif
+
+	if (need_restart_fw && nvram_match("fw_enable_x", "1"))
+		restart_firewall();
+}
+
+static int
+storage_optware_start_result_read(void)
+{
+	unsigned char child_status = 1;
+	ssize_t bytes_read;
+	int result;
+
+	if (storage_optware_result_fd < 0)
+		return STORAGE_OPTWARE_START_CHILD_NONE;
+
+	do {
+		bytes_read = read(storage_optware_result_fd, &child_status,
+				  sizeof(child_status));
+	} while (bytes_read < 0 && errno == EINTR);
+
+	if (bytes_read < 0) {
+		if (errno == EAGAIN || errno == EWOULDBLOCK)
+			return STORAGE_OPTWARE_START_CHILD_RUNNING;
+		logmessage("Storage", "cannot read deferred Optware startup result (errno %d)", errno);
+		bytes_read = 0;
+	}
+
+	result = storage_optware_start_decode_result((int)bytes_read,
+						     (int)child_status);
+	close(storage_optware_result_fd);
+	storage_optware_result_fd = -1;
+
+	return result;
+}
+
+static int
+storage_optware_start_async(void)
+{
+	int pipe_fd[2], flags, command_status;
+	unsigned char child_result;
+	ssize_t written;
+	pid_t child;
+
+	/* A live result channel owns this single startup attempt. */
+	if (storage_optware_result_fd >= 0)
+		return -1;
+
+	if (pipe(pipe_fd) != 0) {
+		logmessage("Storage", "cannot create deferred Optware startup result pipe (errno %d)", errno);
+		return -1;
+	}
+
+	flags = fcntl(pipe_fd[0], F_GETFL, 0);
+	if (flags < 0 || fcntl(pipe_fd[0], F_SETFL, flags | O_NONBLOCK) != 0)
+		goto failed;
+	flags = fcntl(pipe_fd[1], F_GETFD);
+	if (flags < 0 || fcntl(pipe_fd[1], F_SETFD, flags | FD_CLOEXEC) != 0)
+		goto failed;
+
+	child = fork();
+	if (child < 0)
+		goto failed;
+
+	if (child == 0) {
+		close(pipe_fd[0]);
+		command_status = system("/usr/bin/opt-start.sh");
+		child_result = (command_status != -1 &&
+				WIFEXITED(command_status) &&
+				WEXITSTATUS(command_status) == 0) ? 0 : 1;
+		do {
+			written = write(pipe_fd[1], &child_result, sizeof(child_result));
+		} while (written < 0 && errno == EINTR);
+		close(pipe_fd[1]);
+		/* Wake PID 1 after publishing the result; SIGCHLD remains safely reaped there. */
+		(void)kill(1, SIGALRM);
+		_exit(child_result == 0 ? 0 : 1);
+	}
+
+	close(pipe_fd[1]);
+	storage_optware_result_fd = pipe_fd[0];
+	logmessage("Storage", "started deferred Optware service startup (pid %d)", (int)child);
+	return 0;
+
+failed:
+	logmessage("Storage", "cannot launch deferred Optware startup worker (errno %d)", errno);
+	close(pipe_fd[0]);
+	close(pipe_fd[1]);
+	return -1;
+}
+
+static int
+try_start_stor_apps(void)
+{
+	int storage_lock;
+	int mounted_devices;
+	int need_optware;
+	int child_result;
+
+	/*
+	 * Serialize integrated storage-service startup with safe removal, but do
+	 * not run the external Optware hooks under storage.lock. Their worker owns
+	 * only the separate Optware lifecycle lock after this lock is released.
+	 */
+	storage_lock = storage_operation_lock_acquire(file_lock);
+	if (storage_lock == -1) {
+		logmessage("Storage", "cannot acquire storage operation lock; deferring storage application startup");
+		return -1;
+	}
+
+	mounted_devices = storage_has_mounted_devices("starting storage applications");
+	if (mounted_devices < 0) {
+		file_unlock(storage_lock);
+		return -1;
+	}
+
+	if (mounted_devices == 0) {
+		child_result = storage_optware_start_result_read();
+		if (child_result == STORAGE_OPTWARE_START_CHILD_RUNNING) {
+			file_unlock(storage_lock);
+			return 1;
+		}
+
+		/* A complete empty inventory makes any old hotplug request stale. */
+		nvram_set_int_temp("usb_hotplug_ms", 0);
+		nvram_set_int_temp("usb_opt_start", 0);
+		file_unlock(storage_lock);
+		return 0;
+	}
+
+	/*
+	 * This event flag covers the integrated RC services only. Clear it after
+	 * one complete inventory/start attempt so Optware retries do not rerun
+	 * Samba/NFS/FTP and other integrated storage services every five seconds.
+	 */
+	if (nvram_match("usb_hotplug_ms", "1")) {
+		start_stor_apps();
+		nvram_set_int_temp("usb_hotplug_ms", 0);
+	}
+	need_optware = nvram_get_int("usb_opt_start");
+
+	/* External init scripts must never inherit storage.lock. */
+	file_unlock(storage_lock);
+
+	child_result = storage_optware_start_result_read();
+	if (child_result == STORAGE_OPTWARE_START_CHILD_RUNNING)
+		return 1;
+	if (child_result == STORAGE_OPTWARE_START_CHILD_SUCCESS) {
+		if (need_optware)
+			nvram_set_int_temp("usb_opt_start", 0);
+		return 0;
+	}
+	if (child_result == STORAGE_OPTWARE_START_CHILD_FAILURE) {
+		if (need_optware)
+			logmessage("Storage", "deferred Optware startup failed; preserving pending state for retry");
+		return need_optware ? -1 : 0;
+	}
+
+	if (!need_optware)
+		return 0;
+	if (storage_optware_start_async() != 0)
+		return -1;
+
+	return 1;
+}
+
+void
+on_deferred_hotplug_dev(void)
+{
+#if defined (USE_USB_SUPPORT)
+	int plug_modem = 0;
+	int unplug_modem = 0;
+#endif
+	int storage_start_result;
+
+	if (nvram_match("usb_hotplug_ms", "1") ||
+	    nvram_match("usb_opt_start", "1") ||
+	    storage_optware_result_fd >= 0) {
+		storage_start_result = try_start_stor_apps();
+		if (storage_start_result != 0)
+			alarm(5);
+	}
+
+#if defined (USE_USB_SUPPORT)
+	if (nvram_match("usb_unplug_lp", "1"))
+	{
+		nvram_set_int_temp("usb_unplug_lp", 0);
+		if (!usb_port_module_used("usblp"))
+			stop_usb_printer_spoolers();
+	}
+
+	if (nvram_match("usb_hotplug_lp", "1"))
+	{
+		nvram_set_int_temp("usb_hotplug_lp", 0);
+		try_start_usb_printer_spoolers();
+	}
+
+	if (nvram_match("usb_unplug_md", "1"))
+	{
+		nvram_set_int_temp("usb_unplug_md", 0);
+		if (nvram_get_int("modem_rule") > 0)
+			unplug_modem = 1;
+	}
+
+	if (nvram_match("usb_hotplug_md", "1"))
+	{
+		plug_modem = 1;
+		nvram_set_int_temp("usb_hotplug_md", 0);
+	}
+
+	if (unplug_modem)
+	{
+		try_wan_reconnect(1, 0);
+	}
+
+	if (plug_modem && !unplug_modem)
+	{
+		try_start_usb_modem_to_wan();
+	}
+#endif
+}
+
+void
+safe_remove_stor_device(int port_b, int port_e, const char *dev_name, int do_spindown)
+{
+	int storage_lock;
+	int port, has_mounted_port = 0, has_swapon_port = 0;
+	int unmount_status, ejected_status, mount_count;
+	disk_info_t *disks_info, *follow_disk;
+
+	storage_lock = storage_operation_lock_acquire(file_lock);
+	if (storage_lock == -1) {
+		logmessage("Storage", "cannot acquire storage operation lock; refusing safe removal");
+		return;
+	}
+
+	disks_info = read_disk_data();
+	if (!disks_info) {
+		file_unlock(storage_lock);
+		return;
+	}
+
+	for (follow_disk = disks_info; follow_disk != NULL; follow_disk = follow_disk->next) {
+		port = (int)follow_disk->port_root;
+		if (port < port_b || port > port_e)
+			continue;
+		if (follow_disk->mounted_number > 0)
+			has_mounted_port = 1;
+		if (follow_disk->swapon_number > 0)
+			has_swapon_port = 1;
+	}
+
+	if (has_mounted_port || has_swapon_port) {
+		if (has_mounted_port && stop_stor_apps() != 0) {
+			logmessage("Storage", "safe removal aborted because one or more required storage services did not stop");
+			free_disk_data(disks_info);
+			file_unlock(storage_lock);
+			return;
+		}
+
+		/* Stage one inventory for the whole requested port range. */
+		unmount_status = umount_stor_path_range(disks_info, port_b, port_e,
+							1, dev_name, do_spindown);
+		if (has_mounted_port) {
+			ejected_status = umount_ejected_locked();
+			if (unmount_status != 0 || ejected_status != 0)
+				logmessage("Storage", "safe removal incomplete; one or more mount/swap releases failed");
+			mount_count = count_stor_mountpoint();
+			if (mount_count > 0) {
+				start_stor_apps();
+#if defined(APP_NFSD)
+			} else if (mount_count == 0 && unmount_status == 0 && ejected_status == 0) {
+				unload_nfsd();
+#endif
+			} else if (mount_count < 0 || unmount_status != 0 || ejected_status != 0) {
+				logmessage("Storage", "storage state is uncertain; leaving services stopped rather than assuming eject succeeded");
+			}
+		} else if (unmount_status != 0) {
+			logmessage("Storage", "safe removal incomplete; active swap could not be disabled or mounted data could not be unmounted");
+		}
+	}
+
+	free_disk_data(disks_info);
+	file_unlock(storage_lock);
+}
+
+void
+safe_remove_all_stor_devices(int do_spindown)
+{
+	int storage_lock;
+	disk_info_t *disks_info;
+	int path_status, fallback_status;
+
+	storage_lock = storage_operation_lock_acquire(file_lock);
+	if (storage_lock == -1) {
+		logmessage("Storage", "cannot acquire storage operation lock; refusing eject-all operation");
+		return;
+	}
+
+	if (stop_stor_apps() != 0) {
+		logmessage("Storage", "eject-all aborted because one or more required storage services did not stop");
+		file_unlock(storage_lock);
+		return;
+	}
+
+	disks_info = read_disk_data();
+	path_status = umount_stor_path(disks_info, 0, NULL, do_spindown);
+	free_disk_data(disks_info);
+	if (path_status == 0) {
+		fallback_status = umount_all_storage();
+	} else {
+		/*
+		 * The per-device pass also runs the Optware stop hook. Do not let
+		 * the generic fallback bypass a failed hook and detach a live /opt.
+		 */
+		fallback_status = -1;
+		logmessage("Storage", "per-device unmount pass was incomplete; refusing fallback unmount to preserve active storage state");
+	}
+	if (fallback_status != 0)
+		logmessage("Storage", "one or more storage mounts or swap devices could not be released");
+	restore_home_dir();
+#if defined(APP_NFSD)
+	if (fallback_status == 0)
+		unload_nfsd();
+#endif
+	file_unlock(storage_lock);
+}

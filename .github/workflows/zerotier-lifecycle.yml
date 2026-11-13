@@ -1,0 +1,36 @@
+name: ZeroTier lifecycle stability regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/zerotier-lifecycle.yml"
+      - "scripts/check_zerotier_lifecycle.py"
+      - "trunk/user/zerotier/zerotier.sh"
+      - "trunk/user/zerotier/tests/zerotier_lifecycle.sh"
+      - "trunk/user/zerotier/Makefile"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/rc.c"
+  pull_request:
+    paths:
+      - ".github/workflows/zerotier-lifecycle.yml"
+      - "scripts/check_zerotier_lifecycle.py"
+      - "trunk/user/zerotier/zerotier.sh"
+      - "trunk/user/zerotier/tests/zerotier_lifecycle.sh"
+      - "trunk/user/zerotier/Makefile"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/rc.c"
+
+permissions:
+  contents: read
+
+jobs:
+  zerotier-lifecycle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run ZeroTier bounded lifecycle regression
+        run: sh trunk/user/zerotier/tests/zerotier_lifecycle.sh
+      - name: Verify ZeroTier lifecycle and RC integration contracts
+        run: python3 scripts/check_zerotier_lifecycle.py

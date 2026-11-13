@@ -1,0 +1,74 @@
+name: VPN server lifecycle stability regression
+
+on:
+  push:
+    paths:
+      - 'trunk/user/rc/src/tests/vpn_server_lease_lock.c'
+      - 'trunk/user/rc/src/vpn_server_lease_lock.h'
+      - 'trunk/user/rc/src/vpn_server.c'
+      - 'trunk/user/rc/src/vpn_openvpn.c'
+      - 'trunk/user/rc/src/vpn_server_lifecycle_lock.h'
+      - 'trunk/user/rc/src/vpn_server_callback_policy.h'
+      - 'trunk/user/rc/src/tests/vpn_server_callback_policy.c'
+      - 'trunk/user/pppd/ppp-2.4.7/pppd/ipcp.c'
+      - 'trunk/user/pppd/ppp-2.4.7/pppd/main.c'
+      - 'trunk/user/rc/src/tests/vpn_server_lifecycle_lock.c'
+      - 'trunk/user/rc/src/net_ppp.c'
+      - 'trunk/user/pppoe/mwan.sh'
+      - 'trunk/user/rc/src/net_wan.c'
+      - 'trunk/user/rc/src/vpn_client.c'
+      - 'trunk/user/rc/src/rc.c'
+      - 'trunk/user/rc/src/services.c'
+      - 'trunk/user/rc/src/rc.h'
+      - 'scripts/check_vpn_server_lifecycle.py'
+      - '.github/workflows/vpn-server-stability.yml'
+  pull_request:
+    paths:
+      - 'trunk/user/rc/src/tests/vpn_server_lease_lock.c'
+      - 'trunk/user/rc/src/vpn_server_lease_lock.h'
+      - 'trunk/user/rc/src/vpn_server.c'
+      - 'trunk/user/rc/src/vpn_openvpn.c'
+      - 'trunk/user/rc/src/vpn_server_lifecycle_lock.h'
+      - 'trunk/user/rc/src/vpn_server_callback_policy.h'
+      - 'trunk/user/rc/src/tests/vpn_server_callback_policy.c'
+      - 'trunk/user/pppd/ppp-2.4.7/pppd/ipcp.c'
+      - 'trunk/user/pppd/ppp-2.4.7/pppd/main.c'
+      - 'trunk/user/rc/src/tests/vpn_server_lifecycle_lock.c'
+      - 'trunk/user/rc/src/net_ppp.c'
+      - 'trunk/user/pppoe/mwan.sh'
+      - 'trunk/user/rc/src/net_wan.c'
+      - 'trunk/user/rc/src/vpn_client.c'
+      - 'trunk/user/rc/src/rc.c'
+      - 'trunk/user/rc/src/services.c'
+      - 'trunk/user/rc/src/rc.h'
+      - 'scripts/check_vpn_server_lifecycle.py'
+      - '.github/workflows/vpn-server-stability.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  vpn-server-lifecycle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Compile and run bounded lifecycle lock regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -Itrunk/user/rc/src \
+            trunk/user/rc/src/tests/vpn_server_lifecycle_lock.c \
+            -o /tmp/vpn_server_lifecycle_lock
+          /tmp/vpn_server_lifecycle_lock
+          cc -std=gnu89 -Wall -Wextra -Werror -Itrunk/user/rc/src \
+            trunk/user/rc/src/tests/vpn_server_callback_policy.c \
+            -o /tmp/vpn_server_callback_policy
+          /tmp/vpn_server_callback_policy
+      - name: Compile and run shared lease lock ownership/contention regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/vpn_server_lease_lock.c \
+            -o /tmp/vpn_server_lease_lock
+          /tmp/vpn_server_lease_lock
+      - name: Verify VPN lifecycle serialization and caller integration
+        run: python3 scripts/check_vpn_server_lifecycle.py
