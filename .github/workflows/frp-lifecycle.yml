@@ -7,6 +7,8 @@ on:
       - "trunk/user/frp/frp.sh"
       - "trunk/user/frp/tests/frp_lifecycle.sh"
       - "trunk/user/frp/tests/frp_crontab.sh"
+      - "trunk/user/frp/tests/frp_autostart.sh"
+      - "trunk/user/scripts/files/usr/bin/autostart.sh"
       - "scripts/check_frp_lifecycle.py"
   pull_request:
     paths:
@@ -14,6 +16,8 @@ on:
       - "trunk/user/frp/frp.sh"
       - "trunk/user/frp/tests/frp_lifecycle.sh"
       - "trunk/user/frp/tests/frp_crontab.sh"
+      - "trunk/user/frp/tests/frp_autostart.sh"
+      - "trunk/user/scripts/files/usr/bin/autostart.sh"
       - "scripts/check_frp_lifecycle.py"
 
 jobs:
@@ -29,5 +33,11 @@ jobs:
         run: sh -n trunk/user/frp/tests/frp_crontab.sh
       - name: Run FRP managed crontab regression
         run: sh trunk/user/frp/tests/frp_crontab.sh
+      - name: Check FRP boot script shell syntax
+        run: sh -n trunk/user/scripts/files/usr/bin/autostart.sh
+      - name: Check FRP boot regression shell syntax
+        run: sh -n trunk/user/frp/tests/frp_autostart.sh
+      - name: Run FRP client/server boot regression
+        run: sh trunk/user/frp/tests/frp_autostart.sh
       - name: Verify FRP supervision source contract
         run: python3 scripts/check_frp_lifecycle.py

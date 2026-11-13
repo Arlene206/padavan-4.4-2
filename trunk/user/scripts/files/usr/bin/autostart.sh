@@ -109,7 +109,20 @@ logger -t "自动启动" "正在启动 wireguard..."
 /usr/bin/wireguard.sh start
 fi
 
-if [ $(nvram get frpc_enable) = 1 ] ; then
-logger -t "自动启动" "正在启动 frp client..."
-/usr/bin/frp.sh start
-fi
+frp_launch()
+{
+	/usr/bin/frp.sh start
+}
+
+frp_autostart()
+{
+	frp_client_enabled=$(nvram get frpc_enable) || return 1
+	frp_server_enabled=$(nvram get frps_enable) || return 1
+	if [ "$frp_client_enabled" = "1" ] || [ "$frp_server_enabled" = "1" ]; then
+		logger -t "自动启动" "正在启动 FRP..."
+		frp_launch
+	fi
+	return 0
+}
+
+frp_autostart
