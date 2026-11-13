@@ -1,3 +1,14 @@
+## 2026-11-13 17:27 CST (UTC+8) — Trace remaining FRP signal, readiness and paired-config rollback gaps
+
+- Base main SHA: `252f328f48b8e4ee6bf8b9bfdc18ab8bd574311f`. Its five triggered push workflows all completed SUCCESS with matching checkout SHA and full logs inspected: AI docs [43400944647 / 131803346333], AliyunDrive [43400944593 / 131803346122], AliDDNS [43400944683 / 131803346094], AdGuardHome [43400944684 / 131803346971], infosvr [43400945908 / 131803349718].
+- A deeper source pass found that launcher flock serialization is not a complete process-ownership proof: `frp_close()` still uses `pidof` and `killall` by comm name, and `frp_script.sh` has two additional broad `killall frpc frps` call sites. The script backgrounds daemons and `frp_start()` does not fail when an enabled process never becomes visible; a bounded readiness contract is still needed.
+- The config script stages both enabled configs before publishing, but performs separate client/server renames. A failure on the second rename can leave the first file replaced; existing tests inject a per-file rename failure but do not cover second-rename rollback of the pair. Add all-or-rollback coverage before considering the config transaction closed.
+- Updated the handoff and roadmap to make these three issues the next bounded FRP task, followed by WAN bridge/VLAN, Wi-Fi bridge detach, DHCPv6 and service supervision. Corrected the prior 17:10 dev-log record's AI docs job reference: run [43399117134] job is [131797242686], not the final-SHA job ID.
+- Root dev-log count: 108→109, below 120 records and 384 KiB target; archive inventory remains 7/22/18, no rotation/index update. No production source changed in this checkpoint. The exact-head AI docs workflow for this new documentation tree must pass before this checkpoint is considered fully validated.
+- No local host test, MIPS/uClibc build, firmware/TRX build or router test is claimed.
+
+---
+
 ## 2026-11-13 17:20 CST (UTC+8) — Refresh FRP handoff and roadmap after serialized lifecycle verification
 
 - Recovery followed `AI_BOOTSTRAP_PROMPT.md` and `AI_DEVELOPMENT_PROTOCOL.md` in prescribed order. Re-read current handoff, roadmap, newest 20 root log entries and archive index; recovery HEAD was `b45a624f70e18e45415256092b3c6e6aa978f0f5`, current FRP source/test checkpoint is `7787210e670b74184d0326f1e8e68efa9063c65c`.
@@ -24,7 +35,7 @@
 - Base main SHA: `dccfed4cb318c6babc11da1af7675f5173251658`.
 - The dcc exact-head FRP workflow [43398856615] failed in the new lock regression because over-escaped printf newlines produced a literal backslash-n in the fixture's lock path/output; all earlier FRP shell regressions passed. This was a test-fixture defect.
 - Corrected shell printf strings to emit real newlines and aligned the duplicate C RC checker with the single serialized `frp.sh restart` dispatcher. Production process-control behavior was not changed by this correction commit.
-- On exact main `1802e0a050b65cf78f25bc979d490e71cf6df359`, AI docs [43399117134] / job [131799523616] SUCCESS and FRP [43399116749] reached the final source checker after all host tests passed; the checker then failed on its first-close ordering assertion, corrected by the following commit. Both exact checkouts and all FRP job steps were inspected.
+- On exact main `1802e0a050b65cf78f25bc979d490e71cf6df359`, AI docs [43399117134] / job [131797242686] SUCCESS and FRP [43399116749] reached the final source checker after all host tests passed; the checker then failed on its first-close ordering assertion, corrected by the following commit. Both exact checkouts and all FRP job steps were inspected.
 - Changed paths: `trunk/user/frp/frp.sh`, `trunk/user/frp/tests/frp_lock.sh`, and `scripts/check_frp_lifecycle.py`. No full firmware or router test is claimed.
 
 ---
