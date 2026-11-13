@@ -86,7 +86,7 @@ case "$TEST_MODE:$*" in
 		;;
 	slow:ddnsto)
 		echo TERM-BEGIN >> "$TEST_OPS"
-		/bin/sleep 1
+		/bin/sleep 0.1
 		stop_pid TERM
 		echo stopped > "$TEST_STATE"
 		echo TERM-END >> "$TEST_OPS"
@@ -253,6 +253,7 @@ done
 	flock -n 8
 ) || fail "background DDNSTO child retained the lifecycle lock descriptor"
 
+DDNSTO_LOCK_WAIT_SECONDS=30
 TEST_MODE=slow run_action slow stop &
 stop_pid=$!
 ready_attempt=0
@@ -263,6 +264,7 @@ done
 grep -Fqx TERM-BEGIN "$TEST_OPS" || fail "slow stop did not enter its critical section"
 run_action normal start || fail "start did not proceed after the serialized stop released the lock"
 wait "$stop_pid" || fail "serialized stop failed"
+DDNSTO_LOCK_WAIT_SECONDS=5
 awk '/TERM-END/ { stop_end = NR } /^START$/ && stop_end && NR > stop_end { started_after_stop = 1 } END { exit !started_after_stop }' "$TEST_OPS" ||
 	fail "concurrent start overlapped the in-progress stop"
 echo "DDNSTO start/stop operations serialize and detached daemons do not retain FD 9: PASS"
