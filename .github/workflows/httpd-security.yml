@@ -681,18 +681,25 @@ jobs:
           payload_read = restore.index("fread(buf")
           close_check = restore.index("fclose(fp) != 0")
           payload_validate = restore.index("nvram_profile_payload_valid")
-          persistent_snapshot = restore.index("nvram_getall(permanent_snapshot, NVRAM_SPACE, 0)")
-          temporary_snapshot = restore.index("nvram_getall(temporary_snapshot, NVRAM_SPACE, 2)")
+          transaction_begin = restore.index("nvram_transaction_begin(&transaction)")
+          persistent_snapshot = restore.index("nvram_transaction_getall(&transaction, permanent_snapshot")
+          temporary_snapshot = restore.index("nvram_transaction_getall(&transaction, temporary_snapshot")
           transaction = restore.index("nvram_restore_transaction_run")
-          assert header_check < payload_read < close_check < payload_validate < persistent_snapshot
-          assert persistent_snapshot < temporary_snapshot < transaction
+          transaction_end = restore.index("nvram_transaction_end(&transaction)")
+          assert header_check < payload_read < close_check < payload_validate < transaction_begin
+          assert transaction_begin < persistent_snapshot < temporary_snapshot < transaction < transaction_end
           assert "count != filelen || ferror(fp)" in restore
           assert "trailing = fgetc(fp)" in restore
+          restore_clear = source.split("static int nvram_restore_clear(", 1)[1].split(
+              "static int nvram_restore_set(", 1
+          )[0]
           restore_set = source.split("static int nvram_restore_set(", 1)[1].split(
               "static int nvram_restore_should_apply(", 1
           )[0]
-          assert "nvram_set(name, value)" in restore_set
-          assert "nvram_set_temp(name, value)" in restore_set
+          assert "nvram_transaction_clear" in restore_clear
+          assert "nvram_transaction_set" in restore_set
+          assert "nvram_set(name, value)" not in restore_set
+          assert "nvram_set_temp(name, value)" not in restore_set
           assert "rollback_failed" in restore
           assert "NVRAM_SPACE + 1024UL" in restore
           assert "(unsigned long *)(header + 4)" not in source
@@ -751,8 +758,12 @@ jobs:
           getter = body(shared, "nvram_getall(char *buf, int count, int include_temp)", "int\n_nvram_set(")
           exporter = body(core, "_nvram_getall(char *buf, int count, int include_temp)", "/* Regenerate NVRAM.")
           ioctl_get = body(driver, "user_nvram_get(anvram_ioctl_t __user *nvr)", "static long\ndev_nvram_ioctl")
-          assert restore.index("nvram_getall(permanent_snapshot, NVRAM_SPACE, 0)") < restore.index("nvram_restore_transaction_run")
-          assert restore.index("nvram_getall(temporary_snapshot, NVRAM_SPACE, 2)") < restore.index("nvram_restore_transaction_run")
+          transaction_begin = restore.index("nvram_transaction_begin(&transaction)")
+          persistent_snapshot = restore.index("nvram_transaction_getall(&transaction, permanent_snapshot")
+          temporary_snapshot = restore.index("nvram_transaction_getall(&transaction, temporary_snapshot")
+          transaction_apply = restore.index("nvram_restore_transaction_run")
+          transaction_end = restore.index("nvram_transaction_end(&transaction)")
+          assert transaction_begin < persistent_snapshot < temporary_snapshot < transaction_apply < transaction_end
           assert "previous configuration rollback is incomplete" in restore
           assert "continue_after_error" in policy and "errno = primary_error;" in policy
           assert "include_temp == 2 && !t->val_tmp" in exporter and "return -EOVERFLOW;" in exporter
