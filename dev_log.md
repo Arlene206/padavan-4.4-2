@@ -1,3 +1,19 @@
+## 2026-11-13 08:18 CST (UTC+8) — Preserve operator dnsmasq directives during Adbyby hosts cleanup
+
+- Recovery base main SHA: edd2b4e231819fd748dea032324cd45904ddf172. FRP duplicate watchdog restart prevention is L2 CLOSED on this exact SHA: FRP [43334213696] / job [131586165339], AI docs [43334213673] / job [131586165454], infosvr [43334213527] / job [131586164710], AdGuardHome [43334213750] / job [131586165190], AliDDNS [43334213640] / job [131586164869] and AliyunDrive [43334213535] / job [131586164554] all SUCCESS; every step/log inspected. AI docs reports root log=88/119 and archive inventory 7/22/18.
+- Cross-module audit identified an Adbyby stability bug: hosts_ads() and del_dns() used broad sed -i '/hosts/d' against shared /etc/storage/dnsmasq/dnsmasq.conf, deleting unrelated addn-hosts, hostsdir, conf-file, comments, address directives and other settings containing hosts.
+- This patch adds adbyby_remove_generated_hosts_config(), which escapes BRE-special path characters and deletes only the anchored exact generated addn-hosts=$PROG_PATH/hosts entry. Both callers use it; hosts_ads() refuses to append when cleanup fails, and del_dns() logs cleanup failure without sweeping unrelated configuration.
+- A no-network regression extracts the production helper verbatim and checks operator-owned directives, duplicate managed-line removal, metacharacter paths, idempotence and missing-config no-op. A dedicated Actions workflow also executes the existing firewall snapshot regression and checks caller order plus symmetric push/pull path filters.
+- Exact resulting-main Adbyby Actions are PENDING. No L2 closure until shell syntax, extracted-helper preservation test, firewall snapshot regression and semantic source/workflow checker pass on that SHA.
+- FTP failed-upload cleanup remains OPEN/BLOCKED: fstatat/unlinkat leaves a final-name race; Linux 4.4 lacks inode-conditional unlink-by-fd. Do not weaken STOR/APPE/REST/STOU or concurrent external-writer semantics.
+- No local full clone/project tests (github.com DNS resolution unavailable); no MIPS/uClibc object build, firmware/TRX or physical-router test is claimed.
+- Root log count: 88→89, below 120-record rotation and 384 KiB early-rotation thresholds; no archive/index rotation (inventory remains 7/22/18).
+- Changed paths: Adbyby production script, extracted-helper regression, semantic checker, new path-filtered workflow, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and dev_log.md. No branch/PR, firmware binary or GPT Session Rotator changed.
+- Resulting main commit: THIS COMMIT.
+- Next: inspect every Adbyby workflow step/log on the exact resulting SHA; if green, continue shared temporary-file/download integrity and lifecycle audit, then return to FRP broader caller paths.
+
+---
+
 ## 2026-11-13 08:00 CST (UTC+8) — Repair FRP host fixture setup and restore mandatory Active task handoff heading
 
 - Base main SHA: `cb592664e3d95cd0c1a42f51bb3805fa8f1db307`.

@@ -326,7 +326,9 @@ del_dns()
 {
 	sed -i '/dnsmasq-adbyby/d' /etc/storage/dnsmasq/dnsmasq.conf
 	#sed -i '/tvhosts/d' /etc/storage/dnsmasq/dnsmasq.conf
-	sed -i '/hosts/d' /etc/storage/dnsmasq/dnsmasq.conf
+	if ! adbyby_remove_generated_hosts_config; then
+	logger -t "adbyby" "移除Adbyby hosts配置失败。"
+fi
 	rm -f /tmp/dnsmasq.d/dnsmasq-adbyby.conf
 	rm -f /etc/storage/dnsmasq-adbyby.d/*
 	rm -f /tmp/adbyby_host.conf
@@ -487,6 +489,16 @@ fi
 fi
 }
 
+adbyby_remove_generated_hosts_config()
+{
+	adbyby_hosts_config_file="${1:-/etc/storage/dnsmasq/dnsmasq.conf}"
+	adbyby_hosts_file="${2:-$PROG_PATH/hosts}"
+	[ -f "$adbyby_hosts_config_file" ] || return 0
+	adbyby_hosts_entry="addn-hosts=$adbyby_hosts_file"
+	adbyby_escaped_hosts_entry=$(printf '%s\n' "$adbyby_hosts_entry" | sed 's/[][\\/.^$*]/\\&/g') || return 1
+	sed -i "/^$adbyby_escaped_hosts_entry\$/d" "$adbyby_hosts_config_file"
+}
+
 hosts_ads(){
 adbyby_hosts=`nvram get hosts_ad`
 nvram set adbyby_hostsad=0
@@ -508,7 +520,10 @@ rm -f /tmp/host.txt
 logger -t "adbyby" "正在对hosts文件进行去重处理."
 sort $PROG_PATH/hosts | uniq
 nvram set adbyby_hostsad=`grep -v '^!' $PROG_PATH/hosts | wc -l`
-sed -i '/hosts/d' /etc/storage/dnsmasq/dnsmasq.conf
+if ! adbyby_remove_generated_hosts_config; then
+	logger -t "adbyby" "移除Adbyby hosts配置失败，未追加新的hosts配置。"
+	return 1
+fi
 cat >> /etc/storage/dnsmasq/dnsmasq.conf <<-EOF
 	addn-hosts=$PROG_PATH/hosts
 EOF
