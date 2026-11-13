@@ -1,4 +1,4 @@
-## 2026-11-13 15:22 PST (UTC-8) — Repair required handoff heading after exact-head CI failure
+## 2026-11-14 07:22 CST (UTC+8) — Repair required handoff heading after exact-head CI failure
 
 - Re-fetched live `main` at `435913a1244da38ccb722f89df0eb2a5d2648b10`; branch inventory contains only `main`. Legacy PR #1 remains CLOSED / UNMERGED. Recursive Git tree enumeration returned 64,005 entries with `truncated=true`, so it cannot satisfy the exhaustive caller-inventory prerequisite for the active P1 process-inventory API migration.
 - Exact-head `push` runs on `435913a1244da38ccb722f89df0eb2a5d2648b10`: NVRAM `43525514810`, AdGuardHome `43525514772`, AliyunDrive `43525514717`, and AliDDNS `43525514693` SUCCESS; AI handoff docs `43525514688` FAILED because the live handoff omitted required heading `## Current repository state`. The preceding infosvr run `43525494041` on `c430f079d867d95dcb5c18193bc6ba5829948370` compiled and ran all three GNU89/ASan/UBSan regression binaries successfully, then failed its source checker on that same missing heading. No infosvr run exists for the inspected SHA.
