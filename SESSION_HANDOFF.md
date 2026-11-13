@@ -1,3 +1,24 @@
+## Live recovery checkpoint — 2026-11-13 14:55 PST (UTC-8)
+
+> Reconciled against live main and exact-head GitHub Actions. No product source or tests changed in this round; the previously recorded process-inventory task remains active and blocked on exhaustive caller inventory.
+
+- Live `main` SHA: `977c248c79d08e64b57bf8ddaae5457a951dae92`; direct parent: `a15a9cb16bbafde1c13638d963d6113014511173`. Compare confirms this commit changes only `SESSION_HANDOFF.md` and `dev_log.md`; product sources remain identical to L3-verified source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`.
+- Remote branch inventory: only `main`. Legacy PR #1 remains CLOSED / UNMERGED (head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`); `toolchain` tag remains `7f7d3ea41ebdd7eeab8a303f3d4ad8dddb54a8a7`.
+- Exact-main `push` Actions for `977c248c79d08e64b57bf8ddaae5457a951dae92`: 6/6 COMPLETED / SUCCESS, all exact `head_sha`, all jobs and steps successful — infosvr `43522682410` / job `132220616620`; AdGuardHome `43522682466` / `132220616953`; AI handoff docs `43522682464` / `132220616820`; AliDDNS `43522682402` / `132220616341`; AliyunDrive `43522682419` / `132220616721`; NVRAM `43522682425` / `132220617052`. This also resolves the previously pending NVRAM run `43522368539` for SHA `6a59436e0dd8c6a0e75688d77bcab6959cba8db9` as SUCCESS; all six runs for that exact SHA are now SUCCESS.
+- Active unfinished P1 remains shared process-inventory fail-open: `pids.c`, `shutils.h`, `common_ex.c`, `services_ex.c`, `service_lifecycle_policy.h`. Source blobs remain `f5092806d6f1a76021643b0af54eb24705cbd8fe`, `6ccb679cf049374839a0c5de6a543955614dc275`, `de5cc703ce1b9e2eb0897dc52ed7e1c5ec15eb97`, `8134ee60a84d626785956a073c1c1bde3422d84d`, `abe9f77b5354d8a33bce66c2575d1b1d09a2d4e2` respectively. Failure modes remain scan-context OOM, `/proc` open failure, unchecked `readdir()` error and PID-list allocation/growth failure collapsing into empty/partial inventory; lifecycle policy has Boolean presence semantics and sends SIGTERM before authoritative inventory.
+- Caller inventory is NOT COMPLETE. The GitHub connector can fetch individual known paths and code search/tree results have not been proven exhaustive; a complete local checkout is unavailable in this session. No production/test changes or executable host tests are claimed. L1 partial source review; L2 NOT RUN. Local `scripts/check_ai_handoff_docs.py` NOT RUN. Existing L3 XY-C1 MIPSel/TRX evidence remains limited to product source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f` (run `43489646254` / job `132107102854`); L4 router flash/boot NOT VERIFIED.
+- `REFACTOR_ROADMAP.md` does not need a change: the whole-repository inventory and P2 process-inventory priority remain unchanged. Root `dev_log.md` remains below rotation thresholds; archive index is unchanged.
+
+## Exact first action for the next GPT
+
+1. Re-fetch `main` and exact-head push Actions before any write.
+2. Obtain a complete checkout at that exact SHA (or a demonstrably exhaustive repository content enumeration); do not treat partial code search or truncated recursive trees as complete.
+3. Enumerate every `pids()`, `pids_main()`, `find_pid_by_name()`, and `procps_scan()` caller plus all lifecycle stop/readiness consumers, init/shutdown paths, build manifests and test integrations. Classify caller semantics before API changes.
+4. Design RUNNING / ABSENT / UNKNOWN semantics for context OOM, `/proc` open failure, mid-scan `readdir` error, PID-list allocation/growth failure, normal empty inventory, matched process and per-PID disappearance. UNKNOWN must abort before TERM/KILL, successful absence, restart or destructive cleanup.
+5. Add injectable GNU89/`-Werror` regressions, migrate only confirmed consumers, run local documentation validation when checkout is available, then verify all exact-head main push Actions. Do not start another subsystem task until this active P1 is safely resolved.
+
+---
+
 ## Live recovery checkpoint — 2026-11-13 14:50 PST (UTC-8)
 
 > Live-state reconciliation for this takeover. No product source or test was changed. The required complete process-API caller inventory remains blocked because this runtime has no complete checkout and GitHub code search/tree retrieval has not been proven exhaustive.
