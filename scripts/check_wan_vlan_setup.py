@@ -96,15 +96,19 @@ soft_wan = body(wan, "config_soft_bridge_wan(")
 for marker in ("br_add_del_bridge(", "br_set_stp(", "br_set_fd(",
                "br_set_param_int(", "set_interface_hwaddr(", "set_interface_mtu(",
                "create_vlan_iface_tracked(", "br_add_del_if_tracked(", "brport_set_param_int(",
-               "return ifconfig(br_ifname, IFUP"):
+               "ret = ifconfig(br_ifname, IFUP"):
     require(marker in soft_wan, f"WAN bridge setup omits {marker}")
 for marker in ("ret = br_add_del_bridge(", "ret = br_set_stp(", "ret = br_set_fd(",
                "ret = br_set_param_int(", "ret = set_interface_hwaddr(",
                "ret = set_interface_mtu(", "ret = create_vlan_iface_tracked(",
                "ret = br_add_del_if_tracked(", "ret = brport_set_param_int("):
     require(marker in soft_wan, f"WAN bridge setup discards {marker}")
-require(soft_wan.count("if (ret != 0)") >= 9,
+require(soft_wan.count("if (ret != 0)") >= 10,
         "WAN bridge setup does not fail closed on each setup stage")
+activation_pos = soft_wan.index('ret = ifconfig(br_ifname, IFUP, "0.0.0.0", NULL);')
+activation_gate = soft_wan.index("if (ret != 0)", activation_pos)
+require(activation_pos < activation_gate < soft_wan.index("goto rollback;", activation_gate),
+        "failed final bridge activation must enter rollback")
 rollback = soft_wan[soft_wan.index("rollback:"):]
 require("if (bwan_port_added)" in rollback and
         "if (wan_port_added)" in rollback and

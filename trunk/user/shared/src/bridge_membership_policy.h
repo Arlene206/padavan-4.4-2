@@ -34,10 +34,6 @@ bridge_membership_request_satisfied(int is_add, int membership)
 	return is_add ? (membership > 0) : (membership == 0);
 }
 
-/*
- * Linux 4.4 reports EBUSY for a duplicate add and EINVAL when a delete
- * races with another detach or the port is not owned by this bridge.
- */
 static inline int
 bridge_membership_operation_changed(int is_add, int membership_before,
 				    int operation_status)
@@ -49,6 +45,10 @@ bridge_membership_operation_changed(int is_add, int membership_before,
 	return is_add ? (membership_before == 0) : (membership_before == 1);
 }
 
+/*
+ * Linux 4.4 reports EBUSY for a duplicate add and EINVAL when a delete
+ * races with another detach or the port is not owned by this bridge.
+ */
 static inline int
 bridge_membership_race_is_idempotent(int is_add, int error_number)
 {

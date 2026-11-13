@@ -479,7 +479,10 @@ config_soft_bridge_wan(int br_id, int vid, int prio, const char *wan_ifname,
 		control_if_ipv6(br_ifname, 0);
 #endif
 	}
-	return ifconfig(br_ifname, IFUP, "0.0.0.0", NULL);
+	ret = ifconfig(br_ifname, IFUP, "0.0.0.0", NULL);
+	if (ret != 0)
+		goto rollback;
+	return 0;
 
 rollback:
 	saved_errno = errno;
