@@ -41,6 +41,27 @@ require(check.index('if [ "$frpc_enable" = "1" ]') <
 require('if [ "$result_net" = "1" ]' in check,
         "FRP restart must remain gated on successful WAN reachability")
 
+cron = function_body(source, "frp_manage_watchdog_cron()")
+for marker in ("add|remove", "A-Za-z0-9_.-", "FRP_CRONTAB_DIR", "FRP_CRON_ROOT",
+               "mktemp", "umask 077", "awk -v managed=", "chmod 0600", "mv -f"):
+    require(marker in cron, f"managed FRP crontab transaction omits {marker}")
+require("sed -i '/frp/d'" not in source and "cat >> /etc/storage/cron/crontabs/" not in source,
+        "FRP must not delete arbitrary cron entries using substring matching")
+require('FRP_WATCHDOG_CRON=' in source and
+        'awk -v managed="$FRP_WATCHDOG_CRON"' in cron,
+        "FRP watchdog cleanup must match only its exact managed line")
+start = function_body(source, "frp_start ()")
+require(start.index("frp_run_script") < start.index("frp_manage_watchdog_cron add"),
+        "do not publish a watchdog when the configured FRP start script fails")
+close = function_body(source, "frp_close ()")
+require("frp_manage_watchdog_cron remove" in close,
+        "disabling both services must remove the exact managed watchdog")
+cron_test = (ROOT / "trunk/user/frp/tests/frp_crontab.sh").read_text()
+for marker in ("frp_start", "frp_close", "operator", "path-traversal",
+               "symlink crontab", "atomic rename failure", "mode 0600",
+               "failed start script", "removing a missing watchdog"):
+    require(marker in cron_test, f"FRP managed crontab regression omits {marker}")
+
 network = function_body(source, "check_net()")
 require("if /bin/ping " in network and "== " not in network,
         "WAN probe must use a POSIX if/status check")
@@ -62,6 +83,7 @@ paths = (
     ".github/workflows/frp-lifecycle.yml",
     "trunk/user/frp/frp.sh",
     "trunk/user/frp/tests/frp_lifecycle.sh",
+    "trunk/user/frp/tests/frp_crontab.sh",
     "scripts/check_frp_lifecycle.py",
 )
 filters = workflow.split("jobs:", 1)[0]
