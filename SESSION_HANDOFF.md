@@ -2,43 +2,51 @@
 
 ## 最近接力状态（2026-11-14）
 
-- 恢复基线 main：233d5991afac081e2cd6784d9c212462cd519b07（docs: hand off verified NVRAM ioctl snapshot fix）；父提交为 a7a70397ec9f6458655a7f0520769c5270436258。远程 main 在本轮开始时与此 SHA 精确一致。
-- 233d 精确 event=push Actions 六项全部 COMPLETED / SUCCESS：infosvr 43470668893、AI handoff docs 43470668983、AdGuardHome 43470669030、AliDDNS 43470668996、AliyunDrive 43470668891、NVRAM boundary 43470668895；每个 run 的 head_sha 均为 233d5991afac081e2cd6784d9c212462cd519b07。NVRAM 快照实现及策略扫描的完整 PASS 细节见上一记录和 roadmap；本轮没有完整 MIPS/uClibc firmware/TRX 或实机测试。
-- 上轮 NVRAM_IOCTL_GET 单值快照修复已在 d551 实施、a7 修复 host 编译 include 并由 exact-head NVRAM/AI docs Actions 验证；只覆盖本驱动的单值 ioctl，不代表所有 legacy/out-of-tree nvram_get() 调用或系统级全局原子性。
-- 本轮从 233d 检查到 FTP/Samba 重启未获取 safe-removal/hotplug 共用的 storage-operation file lock，而 hotplug、safe removal、deferred storage start 和 NFS 公共 applets 都使用同一进程间锁。HTTPD direct RC applets、PID 1 notification dispatcher、CLI run_ftpsamba/run_ftp/run_samba 路径都能到达这两个无锁 restart 函数；形成明确的并发卸载窗口。本次已把 lock 包在 restart_ftpd()/restart_smbd() 的完整 stop→mount inventory→start/WINS 事务外层，单一出口释放，不把锁塞进内部 run/stop 函数，以免与 start_stor_apps()/stop_stor_apps() 已持锁调用产生自锁。三条 source-contract workflow 已补充顺序/释放断言；新提交的 Actions 尚待精确 SHA 验证。
-- refs：仅开发分支 main；toolchain tag 7f7d3ea41ebdd7eeab8a303f3d4ad8dddb54a8a7；PR #1 CLOSED / UNMERGED（head ba48e22609e0c81ad757b06756fe91d05f39cbf6）。不创建/修改 branch、PR、tag、checkpoint refs；GPT Session Rotator 未触碰。
-- dev_log.md 根文件本次增加到 26/119 条，未到 120-entry / 384 KiB 轮转阈值；保留历史 archives / INDEX，不做归档。
-- 当前代码证据和 host/Actions 均不构成 L3 当前 HEAD MIPS/uClibc 完整 firmware/TRX 或 L4 实机验证；这些仍安排在主体开发后集中执行。
+- 当前代码基线 main：79f79635daa46b748a0a1f987bf56c9e75ab855c（fix(storage): serialize media service restarts with removal），父提交 2c2c134a22ae9d4e6a350233365b0c604083a4f9。2c2 是此前并行落地的 FTP/Samba restart lock 修复；本轮在此基础上完成其余四类 storage-backed add-on restart wrapper 的锁与 fail-closed 修复。
+- 本轮代码提交 79f7963 修改 trunk/user/rc/src/services_stor.c 与 .github/workflows/storage-hotplug-stability.yml：restart_dms()、restart_itunes()、restart_torrent()、restart_aria() 现在在状态观察/stop 前获取共享 storage-operation fcntl lock，覆盖 stop、mount inventory、条件启动及 Transmission/Aria 防火墙状态协调；mount inventory 返回负值时不启动依赖存储的服务，锁获取失败也 fail closed。FTP/Samba 两个 wrapper 的锁修复来自父提交 2c2，现一并纳入完整六类服务重启覆盖。
+- 79f7963 的 8 个 exact event=push Actions 均使用同一 head_sha。已完成 SUCCESS：storage-hotplug 43474889693、Samba 43474890036、vsftpd 43474889690、NFS 43474889702、HTTPD security 43474889735、AI handoff docs 43474889938、NVRAM boundary 43474889827；XY-C1 firmware validation 43474889913 在最后检查时仍 IN_PROGRESS（Build XY-C1 步骤执行中，TRX verify/artifact 尚未开始），不得将其写成通过。
+- 79f7963 exact-head storage-hotplug 主机验证已通过：BusyBox 1.24.2/ash 生命周期回归、storage lock 跨进程 contention（2000 ms）、storage eject inventory、Optware child-result、daemon stop postcondition ASan/UBSan，以及包含四个新 restart wrapper 的 whole caller graph / lock-order source contract 均 PASS。Samba/vsftpd/NFS/HTTPD 及 AI docs 对应步骤和日志也已检查。NVRAM audit 同 SHA 完成：4,179 userland C/C++ files、raw bypass 0；44,044 kernel source files、外部 NVRAM API refs 0、writer refs 0；57 board configs；单值 snapshot contract PASS。
+- 本轮没有本地完整 checkout 或本地主机测试；上述 L2 结果来自精确 SHA 的 GitHub Actions。XY-C1 构建仍在执行，因此当前 HEAD 的 L3 firmware/TRX 状态待确认；L4 实机刷写/启动/运行从未执行。
+- 调用图边界：safe removal、hotplug、deferred storage startup 和 NFS 公共 applets 已使用相同 global storage lock；start_stor_apps()/stop_stor_apps() 在已持锁路径调用内部 run/stop helper。因此不能在 run_*/stop_* 内盲目再次加锁。本轮只锁 public restart wrapper，避免同进程嵌套获取导致自锁。独立 stop_ftp/stop_samba/stop_dms/stop_itunes/stop_torrent/stop_aria applets 仍需审计它们与 restart 的并发语义，不能宣称整个 service family 已全部封闭。
+- refs：仍只有开发分支 main；toolchain tag 7f7d3ea41ebdd7eeab8a303f3d4ad8dddb54a8a7；PR #1 CLOSED / UNMERGED（head ba48e22609e0c81ad757b06756fe91d05f39cbf6）。未创建/修改分支、PR、tag 或 checkpoint refs；GPT Session Rotator 未触碰。
+- dev_log.md 当前根记录为 26/119，未达到 120 条 / 384 KiB 轮转门槛。本次补充一条有实质代码/CI 结果的记录后为 27/119；不创建归档，不改 docs/dev-log/INDEX.md。
+- FTP upload failed-final-name cleanup 的 inode-check / unlinkat TOCTOU 仍是 OPEN/BLOCKED；没有证明 Linux 4.4 可安全地实现 inode-conditional unlink 前，不可修改该清理逻辑。NFS AUTH_SYS/root-squash/client durability 也仍需真实客户端/设备证据。
 
 ## Active task
 
-已确认并修复 FTP/Samba 服务重启与存储安全卸载之间的跨进程锁竞态；当前待完成的是该修复的新 SHA 精确 Actions 验证。
+本批 storage-backed public restart wrapper 锁修复已完成代码实现，主要相关 host/Actions 均 exact-head PASS；唯一尚未结束的 CI 项是 XY-C1 firmware validation run 43474889913。下一轮应先刷新该 run 和当前 main 的精确 SHA，然后继续审计 standalone stop applets 的锁语义。
 
-- 根因：restart_ftpd() 和 restart_smbd() 之前依次 stop、读取 /proc/mounts、按需 start，但未持有 STORAGE_OPERATION_LOCK_TAG="storage" 的 file_lock；hotplug mdev 与 safe_remove_stor_device()/safe_remove_all_stor_devices() 则持有同一把跨进程 fcntl 锁。PID 1 的 RCN_RESTART_FTPD/SMBD 事件、HTTPD 的 run_ftp/run_samba/run_ftpsamba applet，以及 CLI 都能触发 restart；因此 restart 的 stop/inventory/start 可与另一进程卸载同一挂载点并行。
-- 修改 services_stor.c：restart_ftpd()/restart_smbd() 在任何状态查询/daemon stop 前获取 storage_operation_lock_acquire(file_lock)，覆盖 mounted-storage inventory、服务重启和 Samba WINS 决策；锁获取失败 fail closed；stop 或 run 失败保留原负值/错误状态；inventory 不确定时不启动服务；统一 out 释放一把锁。
-- 不在 run_ftp()/stop_ftp()/run_samba()/stop_samba() 内部二次获取 global lock：这些内部函数还由已持锁的 start_stor_apps()/stop_stor_apps() 调用；重复 file_lock 在同进程会被拒绝，可能造成启动/卸载回归。公共 restart wrapper 是正确互斥边界。独立 stop applets 和其他 storage-backed service restart 尚需继续审计。
-- vsftpd、Samba、storage-hotplug 三个 workflow 已新增源码语义断言，检查锁先于 stop/inventory/start、锁在 WINS 决策之后释放且仅释放一次；已有跨进程 storage_operation_lock regression 仍覆盖 file_lock 竞争行为。
-- 下一步首先检查本提交所有精确 head_sha 的 push Actions 和完整 logs，修复任何失败。通过后再扫描 MiniDLNA/Firefly/Transmission/Aria、NFS/FTP/Samba standalone stop applets 与直接 HTTPD 调用的生命周期锁语义，不假设本轮已完成整个 storage service family。
+- 已确认的竞态：FTP、Samba、MiniDLNA、Firefly、Transmission、Aria public restart 路径必须与 mdev hotplug、safe removal、deferred storage startup、NFS storage lifecycle 共用 STORAGE_OPERATION_LOCK_TAG="storage"。2c2 增加 FTP/Samba wrapper 锁；79f7963 增加其余四个 wrapper 锁。
+- 四个新 wrapper 的核心策略：获取锁失败直接拒绝；stop 失败不继续启动；挂载清单状态必须明确为 positive 才允许启动，negative/unknown 时保持服务停止；所有正常/失败路径单一出口释放锁。Transmission/Aria 在锁内完成重启前后状态比较和所需 firewall reconcile。
+- 不要把锁加到内部 run_*/stop_* helper：它们还由已经持有 global lock 的 start_stor_apps()/stop_stor_apps() 调用。继续检查每个调用者与锁边界，必要时考虑显式 *_locked helper + public wrapper 的拆分，而不是简单嵌套 lock。
+- 当前未闭合项：rc.c 的 standalone stop applets 直接调用 stop_ftp()、stop_samba()、stop_dms()、stop_itunes()、stop_torrent()、stop_aria()；stop-only 不直接卸载磁盘，但它与另一个 public restart 并发时的最终状态可能不可预测。先追踪 HTTPD/PID1/CLI 入口、全部内部调用和锁持有方，再设计无嵌套锁的 stop transaction；不要在共享内部 stop helper 中盲目获取同一把锁。
+- 另一个清晰的待审点：services_ex.c::fill_dnsmasq_servers() 在 file_lock("dservers") 后未检查返回值是否小于零，可能在锁失败时继续 staged publication。确认所有调用关系后，考虑 fail-closed guard 并在 .github/workflows/dnsmasq-lifecycle.yml 增加 source contract；这是后续独立切片，不属于 79f7963。
+- 保持 FTP 上传清理 TOCTOU BLOCKED；不做未经证明的 inode-race 修复。完整多板固件/TRX 与实机验证按项目计划在主体开发后集中完成。
 
 ## Completed in this handoff
 
-1. 按 bootstrap / development protocol 既定顺序恢复；核对 main、branch/tag、PR #1、文档治理阈值和最新 Actions。233d 上六个 push Actions 均 SUCCESS，SHA 完全匹配。
-2. 读取 HTTPD aidisk 的 direct run/stop routes、variables.c EVM→RCN mapping、PID 1 notification dispatch、rc.c CLI applet 路径；追踪到 services_stor.c restart wrappers。
-3. 对照 mdev_sd/mdev_mmc、safe_remove_stor_device/all、deferred start 和 NFS run/stop/restart 的跨进程 storage-operation lock 使用，确认只有 FTP/Samba public restart 未覆盖完整生命周期事务。
-4. 实施 restart_ftpd()/restart_smbd() 外层共享锁；在锁持有期执行 stop、mount inventory、条件 start / WINS 决策，统一释放并保留失败状态；不将锁嵌入可由已持锁调用方复用的内部 start/stop helpers。
-5. 更新 vsftpd、Samba、storage-hotplug workflow 的 source contract checks，并更新 live handoff/roadmap/dev log。新 SHA 的 Actions 尚未检查；没有本地完整 checkout 或声称本地测试通过。
+1. 严格按 bootstrap / development protocol 顺序恢复项目；读取 handoff、roadmap、dev log，检查当前 main 与 refs，审阅上个 GPT 的未完成任务。
+2. 在父提交 2c2 的 FTP/Samba restart lock 修复基础上，确认 MiniDLNA/Firefly/Transmission/Aria public restart 同样缺少与 safe-removal 共享的 storage lock；并发现旧代码把 storage_has_mounted_devices() 的 -1 当作 C truthy 值，导致 inventory 不确定时仍可能拉起依赖磁盘的服务。
+3. 提交 79f79635daa46b748a0a1f987bf56c9e75ab855c：为四个 wrapper 加入外层共享锁、stop failure gate、mounted inventory positive-only start gate 和唯一 unlock；Transmission/Aria 的防火墙状态协调留在锁内。
+4. 扩展 storage-hotplug workflow 的语义检查，逐个验证四个 wrapper 的 lock→stop→inventory→positive-start→unlock 顺序、单次释放、stop-failure abort 和 unknown-inventory fail-closed。
+5. 检查 79f7963 的八个 exact-head Actions：七项已完成 SUCCESS；XY-C1 run 43474889913 最后查询仍在 Build XY-C1。没有把仍运行的步骤写成 PASS；当前没有本地编译或实机测试。
 
 ## Verification boundary
 
-- Recovery SHA 233d5991afac081e2cd6784d9c212462cd519b07：六个 exact event=push workflows 均 SUCCESS（infosvr 43470668893、AI docs 43470668983、AdGuardHome 43470669030、AliDDNS 43470668996、AliyunDrive 43470668891、NVRAM boundary 43470668895）；全部 head_sha 匹配 233d。该基线用于本轮源代码分析，不是本次修改的最终 CI。
-- L1：已逐条追踪 mdev 与 safe-removal/NFS global lock acquisition，再比对 HTTPD/PID1/CLI FTP/Samba restart 调用链；源码显示 restart wrapper 缺少同一 global lock，而本次补齐 stop→inventory→start/WINS 范围。无 device runtime 实测。
-- L2：新 commit 的 vsftpd、Samba、storage-hotplug 及 AI handoff docs Actions：PENDING exact-head run/job/log inspection；不得提前标注 HOST/ACTIONS VERIFIED。
-- NVRAM kernel ioctl single-value snapshot 的 L1/L2 bounded result 在 exact a7 完成；旧 d551 首轮 include-path CI failure 已由 a7 修复并验证。
-- L3 current HEAD MIPS/uClibc full firmware/TRX：NOT VERIFIED。L4 physical router flash/boot/runtime: NOT VERIFIED。无本轮本地固件 build 或实机 test。
+- 代码提交：79f79635daa46b748a0a1f987bf56c9e75ab855c，父提交：2c2c134a22ae9d4e6a350233365b0c604083a4f9。
+- Exact-head push Actions（全部 head_sha=79f7963）：storage-hotplug [43474889693/job 132056043039] SUCCESS；Samba [43474890036/job 132056043239] SUCCESS；vsftpd [43474889690/job 132056042311] SUCCESS；NFS [43474889702/job 132056042637] SUCCESS；HTTPD security [43474889735/job 132056043153] SUCCESS；AI docs [43474889938/job 132056042846] SUCCESS；NVRAM boundary [43474889827/job 132056042686] SUCCESS；XY-C1 firmware validation [43474889913/job 132056043295] 最后检查仍 IN_PROGRESS。
+- Storage-hotplug logs 明确记录：BusyBox 1.24.2/ash regressions PASS；跨进程 shared storage lock blocked 2,000 ms PASS；storage eject inventory、Optware lifecycle/child result、daemon stop ASan/UBSan policy PASS；四个 add-on restart lock-order source contracts 随 whole caller graph 最终 PASS。该 workflow 只证明 L2 host/Actions bounded behavior，不等于设备上真实 hotplug/eject 证明。
+- NVRAM exact-head audit PASS：4,179 userland C/C++ sources, raw bypass count 0; 44,044 kernel sources, NVRAM external API ref 0, writer ref 0; 57 board configs. 它仅支持既有单值 ioctl snapshot bounded claim，不扩展为全局 NVRAM 原子性。
+- L3：XY-C1 Build XY-C1 尚在运行，TRX output verification/artifact upload 尚 pending；不能声称当前 main 的 L3 已完成。L4 router flash/boot/runtime NOT VERIFIED。
+- 没有本地完整 checkout、host compile、full firmware build 或实机操作。
 
 ## Exact first action for the next GPT
 
-Fetch live main and confirm it equals the resulting commit from this code batch. Enumerate every exact event=push Action and require matching head_sha; inspect every job, step and full log, especially vsftpd, Samba share, storage hotplug and AI handoff docs. Fix any failed source assertion/host regression on main before closing this lock-race slice. Once green, continue the global storage supervision audit beyond FTP/Samba: trace standalone stop applets and restart/start/stop flows for MiniDLNA, Firefly, Transmission and Aria against safe removal and NFS/hotplug locks, avoiding nested acquisition in *_locked callers. Keep FTP upload cleanup TOCTOU blocked until safe inode-conditional semantics are proven; defer L3/L4 until the main development body is complete.
+1. Fetch current main; require it to equal the latest docs handoff commit (parent is 79f7963). Enumerate all event=push Actions for that exact current SHA and inspect every job/step/log. Specifically re-check XY-C1 run 43474889913 tied to 79f7963; if still in progress, report its real state and do not claim TRX success.
+2. Then inspect standalone stop applets in rc.c and all callers of six storage-backed stop helpers. Decide whether a thin public lock-taking wrapper plus private *_locked function is required; preserve already-held start_stor_apps()/stop_stor_apps() call paths without recursive acquisition. Add focused host/source contract coverage before changing behavior.
+3. Keep FTP failed-upload TOCTOU blocked until a genuinely inode-conditional cleanup design is proven on the project's Linux 4.4 semantics.
+4. After stop-app transition audit, address fill_dnsmasq_servers() missing file_lock("dservers") failure check as a separate DNSMasq reliability change with an exact-head workflow contract.
+5. Do not start a full all-board build or claim L3/L4 prematurely; preserve the project's existing plan to concentrate full firmware and device verification after mainline source governance is substantially complete.
 
 ## Completed task: Adbyby configured hosts-source list / hosts-list download hardening
 
