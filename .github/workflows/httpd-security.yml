@@ -677,11 +677,19 @@ jobs:
           payload_read = restore.index("fread(buf")
           close_check = restore.index("fclose(fp) != 0")
           payload_validate = restore.index("nvram_profile_payload_valid")
-          clear = restore.index("nvram_clear()")
-          assert header_check < payload_read < close_check < payload_validate < clear
+          persistent_snapshot = restore.index("nvram_getall(permanent_snapshot, NVRAM_SPACE, 0)")
+          temporary_snapshot = restore.index("nvram_getall(temporary_snapshot, NVRAM_SPACE, 2)")
+          transaction = restore.index("nvram_restore_transaction_run")
+          assert header_check < payload_read < close_check < payload_validate < persistent_snapshot
+          assert persistent_snapshot < temporary_snapshot < transaction
           assert "count != filelen || ferror(fp)" in restore
           assert "trailing = fgetc(fp)" in restore
-          assert "nvram_set(p, v) < 0" in restore
+          restore_set = source.split("static int nvram_restore_set(", 1)[1].split(
+              "static int nvram_restore_should_apply(", 1
+          )[0]
+          assert "nvram_set(name, value)" in restore_set
+          assert "nvram_set_temp(name, value)" in restore_set
+          assert "rollback_failed" in restore
           assert "NVRAM_SPACE + 1024UL" in restore
           assert "(unsigned long *)(header + 4)" not in source
 
@@ -700,6 +708,10 @@ jobs:
               "trunk/user/nvram/src/tests/nvram_profile_file.c",
               "trunk/user/nvram/src/nvram_cli_policy.h",
               "trunk/user/nvram/src/tests/nvram_cli_policy.c",
+              "trunk/user/nvram/src/nvram_restore_transaction.h",
+              "trunk/user/nvram/src/tests/nvram_restore_transaction.c",
+              "trunk/linux-4.4.x/drivers/nvram/nvram.c",
+              "trunk/linux-4.4.x/drivers/nvram/nvram_linux.c",
           ):
               needle = f'      - "{path}"'
               assert needle in push_paths and needle in pr_paths
