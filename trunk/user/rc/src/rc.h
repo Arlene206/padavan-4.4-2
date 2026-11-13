@@ -566,9 +566,9 @@ void start_iperf3(void);
 void restart_iperf3(void);
 #endif
 #if defined(APP_DNSFORWARDER)
-void stop_dnsforwarder(void);
-void start_dnsforwarder(void);
-void restart_dnsforwarder(void);
+int stop_dnsforwarder(void);
+int start_dnsforwarder(void);
+int restart_dnsforwarder(void);
 #endif
 #if defined(APP_ADBYBY)
 void stop_adbyby(void);

@@ -12,6 +12,8 @@ on:
       - "trunk/user/shared/src/shutils.h"
       - "trunk/user/dns-forwarder/Makefile"
       - "trunk/user/dns-forwarder/dns-forwarder.sh"
+      - "trunk/user/dns-forwarder/tests/dns_forwarder_lifecycle.sh"
+      - "trunk/configs/boards/busybox.config"
       - "scripts/check_dns_forwarder_launch.py"
   pull_request:
     paths:
@@ -24,6 +26,8 @@ on:
       - "trunk/user/shared/src/shutils.h"
       - "trunk/user/dns-forwarder/Makefile"
       - "trunk/user/dns-forwarder/dns-forwarder.sh"
+      - "trunk/user/dns-forwarder/tests/dns_forwarder_lifecycle.sh"
+      - "trunk/configs/boards/busybox.config"
       - "scripts/check_dns_forwarder_launch.py"
 
 permissions:
@@ -34,5 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify DNS Forwarder launch path and caller-independent execution
+      - name: Verify DNS Forwarder launch path and service contracts
         run: python3 scripts/check_dns_forwarder_launch.py
+      - name: Exercise DNS Forwarder lifecycle failure and lock gates
+        run: sh trunk/user/dns-forwarder/tests/dns_forwarder_lifecycle.sh

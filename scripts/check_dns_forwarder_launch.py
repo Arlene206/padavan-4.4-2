@@ -67,36 +67,44 @@ shutils_header = read("trunk/user/shared/src/shutils.h")
 package_makefile = read("trunk/user/dns-forwarder/Makefile")
 launcher_script = read("trunk/user/dns-forwarder/dns-forwarder.sh")
 workflow = read(".github/workflows/dns-forwarder-launch-path.yml")
+busybox_config = read("trunk/configs/boards/busybox.config")
+assert "CONFIG_FLOCK=y" in busybox_config
+assert "CONFIG_PIDOF=y" in busybox_config
+assert "CONFIG_KILLALL=y" in busybox_config
+assert "CONFIG_START_STOP_DAEMON=y" in busybox_config
 
-start = function_body(services, "void start_dnsforwarder(void)")
-stop = function_body(services, "void stop_dnsforwarder(void)")
-restart = function_body(services, "void restart_dnsforwarder(void)")
-assert 'nvram_get_int("dns_forwarder_enable")' in start
-assert "if (dnsforwarder_mode == 1)" in start
-assert 'eval("/usr/bin/dns-forwarder.sh","start");' in start
-assert 'eval("usr/bin/dns-forwarder.sh","start");' not in start
-assert 'eval("/usr/bin/dns-forwarder.sh","stop");' in stop
-assert restart.index("stop_dnsforwarder();") < restart.index("start_dnsforwarder();")
+start = function_body(services, "int start_dnsforwarder(void)")
+stop = function_body(services, "int stop_dnsforwarder(void)")
+restart = function_body(services, "int restart_dnsforwarder(void)")
+assert 'return eval("/usr/bin/dns-forwarder.sh","start");' in start
+assert 'return eval("/usr/bin/dns-forwarder.sh","stop");' in stop
+assert 'return eval("/usr/bin/dns-forwarder.sh","restart");' in restart
+assert "stop_dnsforwarder();" not in restart
 assert "start_dnsforwarder();" in function_body(
     services, "start_services_once(int is_ap_mode)"
 )
-assert "restart_dnsforwarder();" in rc
-assert "RCN_RESTART_DNSFORWARDER" in rc
-assert "void start_dnsforwarder(void);" in rc_header
-assert "void stop_dnsforwarder(void);" in rc_header
-assert "void restart_dnsforwarder(void);" in rc_header
+notify = function_body(rc, "handle_notifications(void)")
+assert "action_result = rc_notify_merge_action_result(action_result, restart_dnsforwarder());" in notify
+assert "RCN_RESTART_DNSFORWARDER" in notify
+assert "int start_dnsforwarder(void);" in rc_header
+assert "int stop_dnsforwarder(void);" in rc_header
+assert "int restart_dnsforwarder(void);" in rc_header
 
 # The package installs the exact absolute script path used by the RC service.
 assert (
     "$(ROMFSINST) -p +x $(THISDIR)/dns-forwarder.sh /usr/bin/dns-forwarder.sh"
     in package_makefile
 )
-assert (
-    'start-stop-daemon -S -b -x dns-forwarder -- -b "$bind_address" '
-    '-p "$bind_port" -s "$server"'
-    in launcher_script
-)
-assert 'killall -q dns-forwarder' in launcher_script
+assert "dns_forwarder_lifecycle_lock_prepare" in launcher_script
+assert "dns_forwarder_lifecycle_lock_execute" in launcher_script
+assert "flock -n 9" in launcher_script
+assert "pidof dns-forwarder" in launcher_script
+assert "killall -q dns-forwarder" in launcher_script
+assert "start-stop-daemon -S -b -x /usr/bin/dns-forwarder --" in launcher_script
+assert "launcher returned success but no daemon appeared" in launcher_script
+assert "restart aborted because stop did not complete" in launcher_script
+assert "nvram get dns_forwarder_enable" in launcher_script
+assert "bind_address=$(nvram get" not in launcher_script[:launcher_script.index("func_start()")]
 
 # eval() delegates argv[0] to execvp(). A pathname containing a slash is
 # resolved from CWD; PATH search is not performed for this relative pathname.
@@ -158,6 +166,8 @@ paths = (
     "trunk/user/shared/src/shutils.h",
     "trunk/user/dns-forwarder/Makefile",
     "trunk/user/dns-forwarder/dns-forwarder.sh",
+    "trunk/user/dns-forwarder/tests/dns_forwarder_lifecycle.sh",
+    "trunk/configs/boards/busybox.config",
     "scripts/check_dns_forwarder_launch.py",
 )
 filters = workflow.split("jobs:", 1)[0]

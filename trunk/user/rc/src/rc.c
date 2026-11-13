@@ -1358,7 +1358,7 @@ handle_notifications(void)
 #if defined(APP_DNSFORWARDER)
 		else if (strcmp(entry->d_name, RCN_RESTART_DNSFORWARDER) == 0)
 		{
-			restart_dnsforwarder();
+			action_result = rc_notify_merge_action_result(action_result, restart_dnsforwarder());
 		}
 #endif
 #if defined(APP_SMBD) || defined(APP_NMBD)

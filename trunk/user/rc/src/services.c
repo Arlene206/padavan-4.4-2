@@ -434,19 +434,17 @@ void restart_iperf3(void){
 }
 #endif
 #if defined(APP_DNSFORWARDER)
-void stop_dnsforwarder(void){
-	eval("/usr/bin/dns-forwarder.sh","stop");
+int stop_dnsforwarder(void){
+	return eval("/usr/bin/dns-forwarder.sh","stop");
 }
 
-void start_dnsforwarder(void){
-	int dnsforwarder_mode = nvram_get_int("dns_forwarder_enable");
-	if (dnsforwarder_mode == 1)
-		eval("/usr/bin/dns-forwarder.sh","start");
+int start_dnsforwarder(void){
+	return eval("/usr/bin/dns-forwarder.sh","start");
 }
 
-void restart_dnsforwarder(void){
-	stop_dnsforwarder();
-	start_dnsforwarder();
+int restart_dnsforwarder(void){
+	/* Stop + conditional start run as one serialized launcher transaction. */
+	return eval("/usr/bin/dns-forwarder.sh","restart");
 }
 #endif
 
