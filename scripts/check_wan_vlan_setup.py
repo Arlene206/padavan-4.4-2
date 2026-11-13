@@ -30,20 +30,26 @@ rc = ROOT / "trunk/user/rc/src"
 shared = ROOT / "trunk/user/shared/src"
 net = (rc / "net.c").read_text()
 wan = (rc / "net_wan.c").read_text()
+bridge_policy = (shared / "bridge_membership_policy.h").read_text()
+bridge_test = (shared / "tests/bridge_membership_policy.c").read_text()
 rc_header = (rc / "rc.h").read_text()
 netutils = (shared / "netutils.c").read_text()
 netutils_header = (shared / "netutils.h").read_text()
 workflow = (ROOT / ".github/workflows/wan-route-status.yml").read_text()
 
-create_vlan = body(net, "create_vlan_iface(const char *dev_ifname")
+create_vlan = body(net, "create_vlan_iface_internal(")
 for marker in ("vconfig_add_if(", "vconfig_egress_map(", "set_interface_mtu(",
                "set_interface_hwaddr(", "ifconfig(vlan_ifname, IFUP",
                "ifconfig(vlan_ifname, 0", "vconfig_del_if(", "return ret;"):
-    require(marker in create_vlan, f"create_vlan_iface() must propagate/rollback {marker}")
+    require(marker in create_vlan, f"create_vlan_iface_internal() must propagate/rollback {marker}")
+require("if (created_out)\n\t\t*created_out = 0;" in create_vlan and
+        "if (created_out)\n\t\t*created_out = created;" in create_vlan,
+        "tracked VLAN creation must only publish ownership after full success")
 require("int\ncreate_vlan_iface(" in net and
         "int create_vlan_iface(" in rc_header and
-        "void create_vlan_iface(" not in rc_header,
-        "create_vlan_iface declaration/definition must return status")
+        "int create_vlan_iface_tracked(" in rc_header and
+        "create_vlan_iface_internal(" in body(net, "create_vlan_iface_tracked("),
+        "public and tracked VLAN creation declarations must return status")
 remove_vlan = body(net, "remove_vlan_iface(const char *vlan_ifname")
 require("ifconfig(vlan_ifname, 0" in remove_vlan and
         "return vconfig_del_if(vlan_ifname);" in remove_vlan and
@@ -59,6 +65,22 @@ require("return fput_int(bridge_path, value);" in body(netutils, "br_set_param_i
         "bridge sysfs writes must propagate fput_int failure")
 require("return fput_int(brport_path, value);" in body(netutils, "brport_set_param_int("),
         "bridge-port sysfs writes must propagate fput_int failure")
+bridge_internal = body(netutils, "br_add_del_if_internal(")
+require("*changed_out = 0;" in bridge_internal and
+        "bridge_membership_operation_changed(is_add, membership, ret)" in bridge_internal,
+        "tracked bridge operation must report only a membership change made by its ioctl")
+changed_pos = bridge_internal.index("*changed_out = bridge_membership_operation_changed")
+race_pos = bridge_internal.index("if (ret < 0 && bridge_membership_race_is_idempotent(")
+require(changed_pos < race_pos,
+        "a raced-to-idempotent bridge request must not claim ownership of the change")
+tracked_bridge = body(netutils, "br_add_del_if_tracked(")
+require("if (!changed_out)" in tracked_bridge and
+        "br_add_del_if_internal(" in tracked_bridge and
+        "extern int       br_add_del_if_tracked(" in netutils_header,
+        "tracked bridge membership API must validate and expose ownership")
+require("bridge_membership_operation_changed" in bridge_policy and
+        "expect_membership_change(" in bridge_test,
+        "bridge membership ownership policy must have regression coverage")
 m2u = body(netutils, "brport_set_m2u(")
 require(m2u.count("brport_set_param_int(") == 2 and "return status;" in m2u,
         "multicast bridge-port configuration must report either sysfs failure")
@@ -78,11 +100,31 @@ for marker in ("br_add_del_bridge(", "br_set_stp(", "br_set_fd(",
     require(marker in soft_wan, f"WAN bridge setup omits {marker}")
 for marker in ("ret = br_add_del_bridge(", "ret = br_set_stp(", "ret = br_set_fd(",
                "ret = br_set_param_int(", "ret = set_interface_hwaddr(",
-               "ret = set_interface_mtu(", "ret = create_vlan_iface(",
-               "ret = br_add_del_if(", "ret = brport_set_param_int("):
+               "ret = set_interface_mtu(", "ret = create_vlan_iface_tracked(",
+               "ret = br_add_del_if_tracked(", "ret = brport_set_param_int("):
     require(marker in soft_wan, f"WAN bridge setup discards {marker}")
 require(soft_wan.count("if (ret != 0)") >= 9,
         "WAN bridge setup does not fail closed on each setup stage")
+rollback = soft_wan[soft_wan.index("rollback:"):]
+require("if (bwan_port_added)" in rollback and
+        "if (wan_port_added)" in rollback and
+        rollback.index("if (bwan_port_added)") < rollback.index("if (wan_port_added)"),
+        "owned bridge ports must roll back in reverse attachment order")
+require("if (bwan_attach_attempted && !bwan_port_added)" in rollback and
+        "vlan_remove_safe = 0;" in rollback and
+        "if (vlan_created)" in rollback and
+        "if (vlan_remove_safe)" in rollback,
+        "uncertain attachment ownership must prevent VLAN deletion")
+require("if (bridge_created)" in rollback and
+        "if (bridge_remove_safe)" in rollback and
+        "br_add_del_bridge(br_ifname, 0)" in rollback,
+        "new bridge removal must be ownership-gated")
+require("else if (bridge_was_up)" in rollback and
+        "ifconfig(br_ifname, IFUP" in rollback,
+        "pre-existing UP bridge must be restored on failed setup")
+require("saved_errno = errno;" in rollback and
+        "errno = saved_errno;\n\treturn ret;" in rollback,
+        "rollback must preserve the original setup failure")
 
 soft_other = body(wan, "config_soft_bridges_other(")
 require("int\nconfig_soft_bridges_other(" in wan and
@@ -119,6 +161,8 @@ require("config_soft_bridge_lan() != 0" in restart,
 
 for path in ("trunk/user/shared/src/netutils.c",
              "trunk/user/shared/src/netutils.h",
+             "trunk/user/shared/src/bridge_membership_policy.h",
+             "trunk/user/shared/src/tests/bridge_membership_policy.c",
              "scripts/check_wan_vlan_setup.py"):
     push, pr = workflow.split("  pull_request:", 1)
     require(push.count(f'"{path}"') == 1 and pr.count(f'"{path}"') == 1,

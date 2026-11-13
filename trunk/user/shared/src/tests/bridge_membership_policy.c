@@ -21,7 +21,20 @@ expect_membership_request(int is_add, int membership, int expected, const char *
 	int actual = bridge_membership_request_satisfied(is_add, membership);
 
 	if (actual != expected) {
-		fprintf(stderr, "%s: expected %d got %d\\n", label, expected, actual);
+		fprintf(stderr, "%s: expected %d got %d\n", label, expected, actual);
+		exit(1);
+	}
+}
+
+static void
+expect_membership_change(int is_add, int membership_before, int operation_status,
+			 int expected, const char *label)
+{
+	int actual = bridge_membership_operation_changed(is_add, membership_before,
+						 operation_status);
+
+	if (actual != expected) {
+		fprintf(stderr, "%s: expected %d got %d\n", label, expected, actual);
 		exit(1);
 	}
 }
@@ -32,7 +45,7 @@ expect_membership_race(int is_add, int error_number, int expected, const char *l
 	int actual = bridge_membership_race_is_idempotent(is_add, error_number);
 
 	if (actual != expected) {
-		fprintf(stderr, "%s: expected %d got %d\\n", label, expected, actual);
+		fprintf(stderr, "%s: expected %d got %d\n", label, expected, actual);
 		exit(1);
 	}
 }
@@ -44,7 +57,7 @@ expect_remove_vlan(int do_if_rem, const char *ifname, const char *lan_ifname,
 	int actual = bridge_cleanup_should_remove_vlan(do_if_rem, ifname, lan_ifname);
 
 	if (actual != expected) {
-		fprintf(stderr, "%s: expected %d got %d\\n", label, expected, actual);
+		fprintf(stderr, "%s: expected %d got %d\n", label, expected, actual);
 		exit(1);
 	}
 }
@@ -74,6 +87,14 @@ main(void)
 	expect_membership_request(0, 0, 1, "delete already absent");
 	expect_membership_request(0, 1, 0, "delete still present");
 	expect_membership_request(0, -1, 0, "delete unknown inventory");
+	expect_membership_change(1, 0, 0, 1, "new add owns membership change");
+	expect_membership_change(1, 1, 0, 0, "already-attached add owns no change");
+	expect_membership_change(1, 0, -1, 0, "failed add owns no change");
+	expect_membership_change(0, 1, 0, 1, "new delete owns membership change");
+	expect_membership_change(0, 0, 0, 0, "already-absent delete owns no change");
+	expect_membership_change(0, 1, -1, 0, "failed delete owns no change");
+	expect_membership_change(1, -1, 0, 0, "unknown add inventory owns no change");
+	expect_membership_change(0, 2, 0, 0, "invalid membership inventory owns no change");
 	expect_membership_race(1, EBUSY, 1, "duplicate add race");
 	expect_membership_race(0, EINVAL, 1, "duplicate delete race");
 	expect_membership_race(1, EINVAL, 0, "add unexpected EINVAL");

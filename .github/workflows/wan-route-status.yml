@@ -8,6 +8,8 @@ on:
       - "scripts/check_wan_vlan_setup.py"
       - "trunk/user/shared/src/netutils.h"
       - "trunk/user/shared/src/netutils.c"
+      - "trunk/user/shared/src/bridge_membership_policy.h"
+      - "trunk/user/shared/src/tests/bridge_membership_policy.c"
       - "trunk/linux-4.4.x/net/ipv4/fib_trie.c"
       - "trunk/linux-4.4.x/net/ipv4/fib_semantics.c"
       - "trunk/linux-4.4.x/net/ipv4/fib_frontend.c"
@@ -23,6 +25,8 @@ on:
       - "scripts/check_wan_vlan_setup.py"
       - "trunk/user/shared/src/netutils.h"
       - "trunk/user/shared/src/netutils.c"
+      - "trunk/user/shared/src/bridge_membership_policy.h"
+      - "trunk/user/shared/src/tests/bridge_membership_policy.c"
       - "trunk/linux-4.4.x/net/ipv4/fib_trie.c"
       - "trunk/linux-4.4.x/net/ipv4/fib_semantics.c"
       - "trunk/linux-4.4.x/net/ipv4/fib_frontend.c"
@@ -45,6 +49,15 @@ jobs:
             trunk/user/rc/src/tests/route_status_policy.c \
             -o /tmp/route-status-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/route-status-policy
+      - name: Compile and run bridge membership ownership regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer \
+            -I trunk/user/shared/src \
+            trunk/user/shared/src/tests/bridge_membership_policy.c \
+            -o /tmp/bridge-membership-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/bridge-membership-policy
       - name: Verify WAN VLAN and bridge error propagation
         run: python3 scripts/check_wan_vlan_setup.py
       - name: Verify route result propagation and cleanup ordering
