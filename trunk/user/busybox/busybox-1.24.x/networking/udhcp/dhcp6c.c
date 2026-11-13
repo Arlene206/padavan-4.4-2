@@ -1059,7 +1059,7 @@ static int client6_recvreply(struct dhcp6_if *ifp, struct dhcp6_event *ev,
 				struct dhcp6_optinfo *optinfo)
 {
 	struct dhcp6_listval *lv;
-	int state;
+	int state, script_status;
 
 	state = ev->state;
 	if (state != DHCP6S_INFOREQ &&
@@ -1137,9 +1137,15 @@ static int client6_recvreply(struct dhcp6_if *ifp, struct dhcp6_event *ev,
 	 * Call the configuration script, if specified, to handle various
 	 * configuration parameters.
 	 */
-	if (ifp->scriptpath != NULL) {
+	if (ifp->scriptpath != NULL && ifp->scriptpath[0] != '\0') {
 		log1("executes %s", ifp->scriptpath);
-		dhcp6_script(ifp->scriptpath, fill_envp_client6(optinfo, ifp->ifname));
+		script_status = dhcp6_script(ifp->scriptpath,
+					     fill_envp_client6(optinfo, ifp->ifname));
+		if (script_status < 0)
+			bb_perror_msg("DHCPv6 configuration script failed to execute");
+		else if (script_status != 0)
+			bb_error_msg("DHCPv6 configuration script exited with status %d",
+				     script_status);
 	}
 
 	dhcp6_remove_event(ev);
