@@ -112,6 +112,7 @@ require('cp -f /etc_ro/frp_script.sh "$frp_script_path"' in copy_scripts and
         '[ ! -f "$frp_script_path" ]' in copy_scripts,
         "boot must seed the persistent FRP script safely and enforce mode 0700")
 frp_template = (ROOT / "trunk/user/frp/frp_script.sh").read_text()
+frp_config_test = (ROOT / "trunk/user/frp/tests/frp_config.sh").read_text()
 require('frpc -c /tmp/frp/myfrpc.ini' in frp_template and
         'frps -c /tmp/frp/myfrps.ini' in frp_template,
         "persistent FRP script must retain both client and server launch paths")
@@ -147,6 +148,7 @@ paths = (
     "trunk/user/frp/tests/frp_lifecycle.sh",
     "trunk/user/frp/tests/frp_crontab.sh",
     "trunk/user/frp/tests/frp_autostart.sh",
+    "trunk/user/frp/tests/frp_config.sh",
     "trunk/user/scripts/files/usr/bin/autostart.sh",
     "trunk/user/frp/frp_script.sh",
     "trunk/user/scripts/files/usr/bin/copyscripts.sh",
@@ -207,4 +209,31 @@ for marker in ("HTTPD_FILE_TYPE_PRIVATE_SCRIPT", "httpd_script_file_type",
     require(marker in script_policy_test,
             f"HTTPD policy regression omits FRP private-script contract {marker}")
 
+runtime_dir = function_body(frp_template, "frp_prepare_runtime_dir()")
+require('[ -L "$frp_runtime_dir" ]' in runtime_dir and
+        'ls -lnd "$frp_runtime_dir"' in runtime_dir and
+        '[ "$3" = "$frp_expected_owner" ]' in runtime_dir and
+        'chmod 700 "$frp_runtime_dir"' in runtime_dir,
+        "FRP runtime directory must reject symlinks/non-root ownership and enforce mode 0700")
+validate_credentials = function_body(frp_template, "frp_validate_credentials()")
+require("CHANGE_ME_TO_A_UNIQUE_RANDOM_TOKEN" in validate_credentials and
+        "CHANGE_ME_TO_A_UNIQUE_PASSWORD" in validate_credentials and
+        '${#frp_token}' in validate_credentials and
+        '${#frp_dashboard_password}' in validate_credentials,
+        "FRP must fail closed on sample credentials and short/unsafe values")
+client_stage = function_body(frp_template, "frp_stage_client_config()")
+server_stage = function_body(frp_template, "frp_stage_server_config()")
+for body, name in ((client_stage, "myfrpc.ini"), (server_stage, "myfrps.ini")):
+    require(f'mktemp "$frp_runtime_dir/.{name}.XXXXXX"' in body and
+            'chmod 0600' in body and 'cat > "$frp_' in body,
+            f"FRP {name} must be written to a private same-directory stage")
+publish = function_body(frp_template, "frp_publish_staged_config()")
+require("frp_validate_config_target" in publish and
+        'mv -f "$frp_stage_path" "$frp_config_target"' in publish and
+        '[ ! -L "$frp_stage_path" ]' in publish,
+        "FRP config publication must reject unsafe targets and atomically rename a private staged file")
+for marker in ("FRP private runtime directory and credential config publication: PASS",
+               "FRP failed staging/rename preserves last-good config: PASS",
+               "FRP rejects symlink and non-regular runtime paths: PASS"):
+    require(marker in frp_config_test, f"FRP config regression omits {marker}")
 print("FRP asynchronous restart, private credential storage and workflow contracts: PASS")
