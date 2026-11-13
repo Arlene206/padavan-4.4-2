@@ -46,7 +46,7 @@ expect_not_has_line()
 expect_no_stage()
 {
 	for item in "$FRP_CRON_ROOT"/.frp-crontab.*; do
-		[ -e "$item" ] && fail "staging file leaked: $item"
+		[ -e "$item" ] && fail "staging file leaked: $item" || :
 	done
 }
 
