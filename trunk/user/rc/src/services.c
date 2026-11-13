@@ -106,7 +106,12 @@ restart_infosvr(void)
 	if (!infosvr_restart_can_start(stop_status, process_present)) {
 		logmessage(LOGNAME, "refusing infosvr restart: previous daemon did not stop (status=%d, running=%d)",
 			   stop_status, process_present);
-		return (stop_status != 0) ? stop_status : EBUSY;
+		if (stop_status != 0)
+			return stop_status;
+
+		/* PID 1 treats negative action_result as a failed notification. */
+		errno = EBUSY;
+		return -1;
 	}
 
 	return start_infosvr();

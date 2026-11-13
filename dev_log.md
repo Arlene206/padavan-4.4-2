@@ -1,3 +1,13 @@
+## 2026-11-14 00:38 CST (UTC+8) — Keep infosvr EBUSY failures visible to the RC queue
+
+- Follow-up review of `aec7b2ca6d75712f6c18a9712d4478c2c3172070` caught a return-convention bug in the conservative post-stop recheck: `EBUSY` is a positive errno, but PID 1's notification queue classifies `action_result < 0` as failure. A stop-success / process-still-visible race would therefore have been logged but incorrectly acknowledged.
+- Corrected the branch to preserve the negative `kill_services()` status; when the fresh process check alone blocks startup, it now sets `errno = EBUSY` and returns `-1`. The source checker now enforces the negative result and checks the ordering through the launch gate. This is a follow-up correction to the just-landed infosvr lifecycle batch, not a new scope.
+- Existing GNU89 policy unit test remains applicable and passed previously with `-Wall -Wextra -Werror`, ASan/UBSan and leak detection. The updated source checker will run in the exact-head infosvr workflow. Actions for the parent SHA `aec7b2ca...` are not final evidence for this corrected code.
+- Changed paths: `trunk/user/rc/src/services.c`, `scripts/check_infosvr_lifecycle.py`, and this dev-log record. New main SHA: THIS COMMIT; exact-head Actions pending.
+- Next: inspect this corrected SHA's complete push Actions and logs; if all green, refresh the handoff/roadmap with the verified NVRAM closure and the exact infosvr source/CI checkpoint.
+
+---
+
 ## 2026-11-14 00:32 CST (UTC+8) — Gate infosvr restart on a confirmed daemon stop
 
 - Exact-main recovery: live main `199d0f23f09931a84acb965a322a42bc32496830`. This is a docs-only continuation of `231fa506b898cf629391a6b6846ee36f3a5f78c4`; the exact 231fa push Actions were all green, including HTTPD, NVRAM boundary, AI docs, infosvr, four add-on workflows and XY-C1 firmware/TRX artifact. The NVRAM root-only fix is therefore closed at the audited shared-userland boundary, not a claim of kernel/external-writer global atomicity.

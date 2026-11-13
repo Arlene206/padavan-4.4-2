@@ -69,9 +69,12 @@ restart = function_body(services, "restart_infosvr(void)")
 stop_call = restart.index("stop_status = stop_infosvr();")
 presence_check = restart.index('process_present = pids("infosvr");')
 gate = restart.index("infosvr_restart_can_start(stop_status, process_present)")
-failure = restart.index("return (stop_status != 0) ? stop_status : EBUSY;")
+stop_error = restart.index("if (stop_status != 0)")
+stop_return = restart.index("return stop_status;", stop_error)
+busy_errno = restart.index("errno = EBUSY;", stop_return)
+failure = restart.index("return -1;", busy_errno)
 launch = restart.index("return start_infosvr();")
-assert stop_call < presence_check < gate < failure < launch
+assert stop_call < presence_check < gate < stop_error < stop_return < busy_errno < failure < launch
 assert "refusing infosvr restart: previous daemon did not stop" in restart
 
 assert "int stop_infosvr(void);" in header
