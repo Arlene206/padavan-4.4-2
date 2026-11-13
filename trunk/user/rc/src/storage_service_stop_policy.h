@@ -12,4 +12,12 @@ storage_service_stop_complete(int command_status, int daemon_running)
 	return 0;
 }
 
+
+/* Preserve the first failure while still attempting every daemon in a group. */
+static inline int
+storage_service_stop_status_merge(int current_status, int next_status)
+{
+	return current_status != 0 ? current_status : next_status;
+}
+
 #endif

@@ -432,26 +432,30 @@ jobs:
           assert "listen=YES" in test
           assert "ftp_config_file_publish(&fp, staged, target) != 0" in test
 
-          stop = function_body(source, "stop_ftp(void)")
+          stop = function_body(source, "stop_ftp_locked(void)")
           assert "status = kill_services(svcs, 3, 1)" in stop
           assert "return status" in stop
+          public_stop = function_body(source, "stop_ftp(void)")
+          assert public_stop.index("storage_operation_lock_acquire(file_lock)") < public_stop.index("stop_ftp_locked()")
+          assert public_stop.index("stop_ftp_locked()") < public_stop.index("file_unlock(storage_lock);")
+          assert public_stop.count("file_unlock(storage_lock);") == 1
           restart = function_body(source, "restart_ftpd(void)")
-          assert "stop_status = stop_ftp()" in restart
+          assert "stop_status = stop_ftp_locked()" in restart
           assert "if (stop_status != 0)" in restart
           assert "mount_status = storage_has_mounted_devices" in restart
           assert "if (mount_status < 0)" in restart
           assert "if (mount_status > 0)" in restart
           assert "start_status = run_ftp()" in restart
           restart_lock = restart.index("storage_operation_lock_acquire(file_lock)")
-          assert restart_lock < restart.index("stop_status = stop_ftp()")
-          assert restart.index("stop_status = stop_ftp()") < restart.index("storage_has_mounted_devices")
+          assert restart_lock < restart.index("stop_status = stop_ftp_locked()")
+          assert restart.index("stop_status = stop_ftp_locked()") < restart.index("storage_has_mounted_devices")
           assert restart.index("storage_has_mounted_devices") < restart.index("start_status = run_ftp()")
           assert restart.index("start_status = run_ftp()") < restart.index("file_unlock(storage_lock);")
           assert restart.count("file_unlock(storage_lock);") == 1
           assert "goto out;" in restart and "return restart_status;" in restart
 
           stop_stor = function_body(source, "stop_stor_apps(void)")
-          assert "if (stop_ftp() != 0)" in stop_stor
+          assert "if (stop_ftp_locked() != 0)" in stop_stor
           assert "FTP server did not stop cleanly" in stop_stor
           start_stor = function_body(source, "start_stor_apps(void)")
           assert "if (run_ftp() != 0)" in start_stor
@@ -465,7 +469,12 @@ jobs:
           assert "ret = stop_ftp();" in rc
           assert "int ftp_status = restart_ftpd();" in rc
           assert "ret = ftp_status;" in rc
-          assert "int samba_status = stop_samba(0);" in rc
+          assert "ret = stop_ftpsamba();" in rc
+          assert "int stop_ftpsamba(void);" in header
+          group_stop = function_body(source, "int\nstop_ftpsamba(void)")
+          assert group_stop.index("storage_operation_lock_acquire(file_lock)") < group_stop.index("stop_ftp_locked()")
+          assert group_stop.index("stop_ftp_locked()") < group_stop.index("file_unlock(storage_lock);")
+          assert group_stop.count("file_unlock(storage_lock);") == 1
 
           paths = (
               ".github/workflows/vsftpd-stability.yml",

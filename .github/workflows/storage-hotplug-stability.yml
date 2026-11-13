@@ -754,18 +754,53 @@ jobs:
           assert "if (stop_nfsd_locked() != 0)" in stop_apps and "stop_nfsd()" not in stop_apps
           assert "return stop_status;" in stop_apps
           assert "storage_service_stop_complete" in storage_stop_policy
-          for stop_name, running_check, command in (
-              ("stop_dms", "is_dms_run", "kill_services"),
-              ("stop_itunes", "is_itunes_run", "kill_services"),
-              ("stop_torrent", "is_torrent_run", "eval"),
-              ("stop_aria", "is_aria_run", "eval"),
+          # Standalone public stops take the eject barrier. Internal callers
+          # already holding it use only private *_locked implementations.
+          for stop_name, signature in (
+              ("stop_ftp", "stop_ftp(void)"),
+              ("stop_samba", "stop_samba(int force_stop)"),
+              ("stop_dms", "stop_dms(void)"),
+              ("stop_itunes", "stop_itunes(void)"),
+              ("stop_torrent", "stop_torrent(void)"),
+              ("stop_aria", "stop_aria(void)"),
           ):
-              stop_body = function_body(storage, "int " + stop_name + "(void)")
-              assert "storage_service_stop_complete(command_status, " + running_check + "())" in stop_body
-              assert command in stop_body
-              assert "return -1;" in stop_body and "return 0;" in stop_body
-              assert "if (" + stop_name + "() != 0)" in stop_apps
-              assert "int " + stop_name + "(void);" in rc_header
+              locked_name = stop_name + "_locked"
+              public_body = function_body(storage, signature)
+              locked_body = function_body(storage, locked_name + "(")
+              lock_pos = public_body.index("storage_operation_lock_acquire(file_lock)")
+              call_pos = public_body.index(locked_name + "(")
+              unlock_pos = public_body.index("file_unlock(storage_lock);")
+              assert lock_pos < call_pos < unlock_pos
+              assert public_body.count("file_unlock(storage_lock);") == 1
+              assert "if (storage_lock < 0)" in public_body and "return -1;" in public_body
+              assert public_body.index("if (storage_lock < 0)") < call_pos
+              if stop_name in ("stop_ftp", "stop_samba"):
+                  assert "kill_services" in locked_body
+              else:
+                  running_check = {
+                      "stop_dms": "is_dms_run",
+                      "stop_itunes": "is_itunes_run",
+                      "stop_torrent": "is_torrent_run",
+                      "stop_aria": "is_aria_run",
+                  }[stop_name]
+                  command = "kill_services" if stop_name in ("stop_dms", "stop_itunes") else "eval"
+                  assert "storage_service_stop_complete(command_status, " + running_check + "())" in locked_body
+                  assert command in locked_body
+                  assert "return -1;" in locked_body and "return 0;" in locked_body
+              assert "if (" + locked_name + "(" in stop_apps
+              assert "int " + signature + ";" in rc_header
+          assert "int stop_ftpsamba(void);" in rc_header
+          group_stop = function_body(storage, "stop_ftpsamba(void)")
+          assert group_stop.index("storage_operation_lock_acquire(file_lock)") < group_stop.index("stop_ftp_locked()")
+          assert group_stop.index("stop_ftp_locked()") < group_stop.index("stop_samba_locked(0)")
+          assert group_stop.index("stop_samba_locked(0)") < group_stop.index("file_unlock(storage_lock);")
+          assert group_stop.count("file_unlock(storage_lock);") == 1
+          assert "storage_service_stop_status_merge" in group_stop
+          assert "stop_ftp()" not in group_stop and "stop_samba(0)" not in group_stop
+          assert "storage_service_stop_status_merge" in storage_stop_policy
+          assert "group stop success" in storage_stop_test
+          assert "second daemon failure" in storage_stop_test
+          assert "preserve first daemon failure" in storage_stop_test
           assert "successful stop" in storage_stop_test
           assert "command failure" in storage_stop_test
           assert "daemon remains" in storage_stop_test
@@ -778,7 +813,7 @@ jobs:
           ):
               restart_body = function_body(storage, restart_name + "(")
               lock_acquire = restart_body.index("storage_operation_lock_acquire(file_lock)")
-              stop_call = restart_body.index("stop_status = " + stop_name + "()")
+              stop_call = restart_body.index("stop_status = " + stop_name + "_locked()")
               stop_failure = restart_body.index("if (stop_status != 0)")
               mount_inventory = restart_body.index('mount_status = storage_has_mounted_devices("restarting ' + operation + '")')
               start_gate = restart_body.index("if (mount_status > 0)")
@@ -807,19 +842,27 @@ jobs:
           # eject barrier used by mdev and safe removal, without nesting it
           # inside start_stor_apps()/stop_stor_apps() locked callers.
           ftp_restart = function_body(storage, "restart_ftpd(void)")
-          assert ftp_restart.index("storage_operation_lock_acquire(file_lock)") < ftp_restart.index("stop_ftp()")
-          assert ftp_restart.index("stop_ftp()") < ftp_restart.index("storage_has_mounted_devices")
+          assert ftp_restart.index("storage_operation_lock_acquire(file_lock)") < ftp_restart.index("stop_ftp_locked()")
+          assert ftp_restart.index("stop_ftp_locked()") < ftp_restart.index("storage_has_mounted_devices")
           assert ftp_restart.index("storage_has_mounted_devices") < ftp_restart.index("run_ftp()")
           assert ftp_restart.index("run_ftp()") < ftp_restart.index("file_unlock(storage_lock);")
           assert ftp_restart.count("file_unlock(storage_lock);") == 1
           samba_restart = function_body(storage, "int restart_smbd(void)")
-          assert samba_restart.index("storage_operation_lock_acquire(file_lock)") < samba_restart.index("stop_samba(1)")
-          assert samba_restart.index("stop_samba(1)") < samba_restart.index("storage_has_mounted_devices")
+          assert samba_restart.index("storage_operation_lock_acquire(file_lock)") < samba_restart.index("stop_samba_locked(1)")
+          assert samba_restart.index("stop_samba_locked(1)") < samba_restart.index("storage_has_mounted_devices")
           assert samba_restart.index("storage_has_mounted_devices") < samba_restart.index("run_samba()")
           assert samba_restart.index("run_samba()") < samba_restart.index("file_unlock(storage_lock);")
           assert samba_restart.index("start_wins()") < samba_restart.index("file_unlock(storage_lock);")
           assert samba_restart.count("file_unlock(storage_lock);") == 1
           assert 'action_result = restart_nfsd();' in rc and 'ret = stop_nfsd();' in rc
+          assert 'ret = stop_ftpsamba();' in rc
+          for applet_call in (
+              'ret = stop_ftp();', 'ret = stop_samba(0);',
+              'ret = stop_dms();', 'ret = stop_itunes();',
+              'ret = stop_torrent();', 'ret = stop_aria();',
+          ):
+              assert applet_call in rc
+          assert "storage_service_stop_status_merge" in storage_stop_policy
           # The CI ash binary is built from the same version/config used by firmware.
           assert "PKG_VERSION:=1.24" in busybox_package
           assert "SRC_DIR=./busybox-1.24.x" in busybox_package

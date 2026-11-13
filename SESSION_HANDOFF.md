@@ -2,52 +2,50 @@
 
 ## 最近接力状态（2026-11-14）
 
-- 最新 main：3ef3eedb18e15e1b29b155107c08d9b4337185bf（workflow-only 修正，补齐 DNSMasq resolver source contract 的 pull_request paths）；本批最后一个功能源码提交为 2d5f44b1978c3272fa85633e273297c16bd34283。更早的同批提交 c8b9a377cb530b3716b79279be5d33c4fecd205e 为 DNS server snapshot 增加 dservers 锁失败保护，95c25c1adbf43e8deb1f5f5011511eb96b8dae53 修正其 workflow assertion。所有提交均按 main 父 SHA 快进，未重写历史。
-- Storage restart slice：父提交 2c2c134a22ae9d4e6a350233365b0c604083a4f9 已锁 FTP/Samba；79f79635daa46b748a0a1f987bf56c9e75ab855c 为 MiniDLNA、Firefly、Transmission、Aria 增加共享 storage-operation fcntl lock，覆盖 stop、mount inventory、positive-only start 和 Transmission/Aria firewall reconcile。负值/unknown mount inventory 不再被 C truthy 语义误判为允许启动。所有六个 public restart wrappers 现已串行化；internal run/stop helper 不加嵌套锁，因为 safe-remove/start_stor_apps/stop_stor_apps 会在已持锁路径复用。
-- Resolver stability slice：c8b9a377 在 services_ex.c::fill_dnsmasq_servers() 获取 dservers 锁失败时直接返回，拒绝 staged snapshot publication，并保留 errno；此前该失败路径会继续写入/发布未受锁保护的 DNS server snapshot。2d5f44b 又为 net_wan.c::update_resolvconf() 和 net_lan.c::lan_up_manual() 的 resolv 锁增加失败保护；WAN writer 返回具体错误，LAN manual writer 在 route/resolv side effects 前返回。LAN auto resolver 和 DHCP lease deconfig 的原有锁失败检查已核实存在。workflow source contract 覆盖上述 writer 的 acquisition→failure gate→first side-effect 顺序及路径过滤。
-- DNSMasq workflow 精确结果：2d5f44b 的初次 run 43476679854 因 PR path filter 漏加 net_wan.c/net_lan.c 而失败；3ef3eed 补齐 pull_request filters 后，run 43476935451 / job 132063063482 全部步骤 COMPLETED / SUCCESS。run 95c25c1 的 DNSMasq workflow 43476350414 也 PASS；c8b9a 的早期 run 43476277192 曾因 source checker 错误地要求函数中的第一个 file_unlock 位于 publish 之后而失败，95c25c1 改为检查 publish 后的 unlock 及总 unlock 数后通过。以上测试脚本错误均已定位并修正，不隐藏失败历史。
-- 3ef3eed exact-head Actions：AI handoff documentation [43476935879] SUCCESS；DNSMasq lifecycle [43476935451] SUCCESS。2d5f44b 的其他相关检查：WAN DHCP callback [43476679931]、WAN gateway ARP socket [43476679928]、WAN route status [43476679902]、detect_link [43476679844]、VPN server lifecycle [43476679812]、HTTPD security [43476679798]、AI docs [43476679772]、NVRAM boundary [43476679750]、miniupnpd [43476679708]、detect_internet [43476679703]、WAN interface teardown [43476679687] 均 SUCCESS；DNSMasq 路径过滤问题由 3ef3eed 重跑通过。XY-C1 run 43476679718 在最后检查仍 IN_PROGRESS（Build XY-C1 中，TRX verify/artifact pending），需下一轮确认。
-- 79f7963 的 XY-C1 firmware validation [43474889913/job 132056043295] 后续已 COMPLETED / SUCCESS：Samba/DHCPv6/vsftpd header checks、Build XY-C1、TRX verification、artifact upload 全部通过；产物 TurBoTse-XY-C1-4.4-mipsel-linux-musl-20261114.trx，12,625,941 bytes，artifact ID 14063536623，SHA256 digest f37d9d0ab82d43e5c707a78c63999d03db64bfc4ca4e932451af7b05ac30209a。这个 L3 结果对应代码 SHA 79f7963；2d5f44b 后续又改了 WAN/LAN resolver writer，因此不能用 79 的 build 代替对最新功能源码的 L3 验证。
-- 79f7963 exact-head storage-hotplug job [43474889693/job 132056043039] PASS：BusyBox 1.24.2/ash、跨进程 lock contention 2,000 ms、eject inventory、Optware lifecycle/child status、ASan/UBSan daemon-stop postcondition、完整 storage caller graph 与四个新增 restart source contracts。79f7963 的 Samba、vsftpd、NFS、HTTPD、AI docs、NVRAM jobs也 SUCCESS。NVRAM boundary 79f7963 与 2d5f44b 均 PASS；最新一次统计 4,179 userland C/C++ sources / raw bypass 0，44,044 kernel sources / external NVRAM API refs 0 / writer refs 0，57 board configs。
-- refs：重新核对只存在 main；toolchain tag 7f7d3ea41ebdd7eeab8a303f3d4ad8dddb54a8a7；PR #1 CLOSED / UNMERGED，head ba48e22609e0c81ad757b06756fe91d05f39cbf6。没有创建/修改其他 branch、PR、tag 或 checkpoint refs；未改 GPT Session Rotator。
-- 本轮没有本地完整 checkout 或本地主机测试；相关 L2 结果来自精确 SHA 的 GitHub Actions。79f7963 上 XY-C1 L3 build/TRX 通过，但当前功能源码 SHA 2d5f44b 的 XY-C1 build 仍待确认；L4 实机刷写/启动/运行从未执行。
-- dev_log.md 根记录此前 27/119；本次补充一条实质源码与 CI 记录后为 28/119，未达到 120 条 / 384 KiB 轮转门槛。不新增归档，不改 docs/dev-log/INDEX.md。
-- FTP upload failed-final-name cleanup 的 inode-check / unlinkat TOCTOU 仍 OPEN/BLOCKED：没有证明 Linux 4.4 可安全实现 inode-conditional unlink 前，不得改该清理逻辑。NFS AUTH_SYS/root-squash/client durability 仍需真实客户端/设备证据。
+- 最新 main：THIS COMMIT；父 SHA 为 `a64c9923a24550177c76f88ea81694725a0230bd`。本批代码和测试以普通 fast-forward 提交到 main，不改写历史。恢复时 main 只有一个分支；PR #1 仍 CLOSED / UNMERGED（head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`）；toolchain tag `7f7d3ea41ebdd7eeab8a303f3d4ad8dddb54a8a7` 未修改。
+- 之前遗留的 XY-C1 L3 检查已完成：功能源码 SHA `2d5f44b1978c3272fa85633e273297c16bd34283` 的 run `43476679718` / job `132062194706` 完成 Build XY-C1、TRX verification、artifact upload；artifact `14064545568`，12,580,294 bytes，SHA256 `0fba859e6561464feaade2813bd2104d6e789c3829c4f5b30cb5875fa2d40e4d`。这是 2d5f44b 的 L3 证据，不代表本次新改动已完成 L3。
+- Storage standalone-stop slice：六个对外 stop API（FTP、Samba、MiniDLNA、Firefly、Transmission、Aria）现在各自先取得共享 storage-operation fcntl lock，再调用私有 `*_locked()` helper；取锁失败即拒绝停止。六个 restart wrapper 和已经持有全局锁的 `stop_stor_apps()` 改为调用私有 helper，避免同进程对同一 fcntl 锁递归 lock/unlock 破坏外层互斥。
+- `stop_ftpsamba` 改为一个原子停止事务：只取一次共享锁，依次尝试 FTP 与 Samba，即使 FTP stop 失败也继续尝试 Samba，并保留第一个非零失败结果；只有两个服务都停止成功才返回成功。RC 对 MiniDLNA、Firefly、Transmission、Aria 的 stop applet 也不再丢弃返回状态。
+- Storage-hotplug、vsftpd、Samba 三条 workflow 的 source contracts 已同步调整：覆盖 public wrapper lock/fail-closed/单次 unlock、private helper 使用、已持锁调用无递归、组合停止顺序/错误合并和 RC 状态传播。path filter 的 push / pull_request 均保留。
+- 上一主线 DNS resolver 修复仍有效：`fill_dnsmasq_servers()`、`update_resolvconf()`、`lan_up_manual()` 在共享锁失败时拒绝 staging/publication/路由副作用；LAN auto 和 DHCP lease deconfig 原有 guard 保留。3ef3eed exact-head DNSMasq run `43476935451` / job `132063063482` 和 AI docs run `43476935879` / job `132063065994` 均 SUCCESS。
+- 本次代码提交触发后的 Actions 需按新 SHA 单独核对：storage-hotplug、vsftpd、Samba、AI docs，以及 XY-C1。当前提交的 L2/L3 结果在本 handoff 形成时尚未核验；不得用 a64、3ef3eed 或 2d5f44b 的历史结果代替。
+- 本地使用 `cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer` 对现有 stop postcondition + 新增 group-status merge policy 回归进行了独立编译运行，PASS；源码调用图和三个 workflow 新增断言完成 preflight，PASS。没有完整本地 checkout，也没有完整固件编译；L4 实机验证从未执行。
+- 根 `dev_log.md` 本次更新后为 29/119，未达到 120 条或 384 KiB 轮转门槛；不新增归档，不修改 `docs/dev-log/INDEX.md`。FTP upload failed-final-name cleanup 的 inode-check / unlinkat TOCTOU 仍 OPEN/BLOCKED；NFS AUTH_SYS/root-squash/client durability 仍需真实客户端/设备证据。
 
 ## Active task
 
-上一批的 storage restart 缺口已闭环到六个 public restart wrappers；DNS server snapshot 与 resolver 多写者锁失败路径也已加保护，3ef3eed 的精确 DNSMasq workflow PASS。下一步先确认最新功能源码 2d5f44b 的 XY-C1 Build/TRX，再继续独立 stop applet 与全仓库稳定性审计。
+本批已完成前一 handoff 指定的 standalone storage stop applet 串行化源码切片。下一步先核实 THIS COMMIT 的全部精确 SHA push Actions（尤其 storage-hotplug、vsftpd、Samba、XY-C1 与 AI docs），再从全仓库 P2 台账转向 DNS Forwarder/DNSMasq lifecycle 与进程监督审计，继续扩大治理模块范围。
 
-- 最新功能改动：fill_dnsmasq_servers() 的 dservers lock 不可得时不创建临时文件、不发布 DNS_SERVERS_FILE；update_resolvconf() 的 resolv lock 不可得时不打开 resolver staging 文件并返回 errno；lan_up_manual() 在锁失败时不执行 route_add、不以 w+ 截断 /etc/resolv.conf。所有失败分支都不调用 file_unlock(-1)。
-- 审计出的 resolver writers：fill_dnsmasq_servers、update_resolvconf、lan_up_manual、lan_publish_resolver_auto、DHCP lease deconfig。前三个原先缺少 lock acquisition failure gate，后两个既有 guard 保留并在 source contract 中验证。net_wan.c/net_lan.c 已添加到 DNSMasq workflow 的 push 与 pull_request paths。
-- DNSMasq CI 的两次失败为 workflow/source-contract 错误，不是 C runtime test failure：c8b9a 的 unlock-order assertion 误把 staging-open 失败分支的早期 unlock 当成 publish 之后的 unlock；2d5f44b 的路径检查指出 net_wan/net_lan 只加入 push filter。两处分别由 95c25c1 和 3ef3eed 修复，3ef3eed 上 DNSMasq 所有步骤 SUCCESS。
-- 2d5f44b 的 XY-C1 build 仍在进行（run 43476679718/job 132062194706，Build XY-C1 step），TRX verify/artifact 尚 pending。79f7963 的 XY-C1 已成功，但不覆盖 2d 的新 WAN/LAN resolver 源码。先核对 run 最终结果和产物，再给最新功能源码定 L3 状态。
-- 接着追踪 rc.c standalone stop applets 对 stop_ftp/stop_samba/stop_dms/stop_itunes/stop_torrent/stop_aria 的所有调用，研究其与 concurrent restart 的最终状态语义；不要在被 start_stor_apps()/stop_stor_apps() 已持锁复用的内部 stop helper 里直接嵌套同一把锁。必要时先拆 *_locked helper 与 public wrapper 并增加 source/host regression。
-- 保持 FTP 上传清理 TOCTOU OPEN/BLOCKED；不做未经证明的 inode-race 修复。NFS 客户端语义、其他模块安全/稳定性审计继续推进，避免长期局限在 HTTPD/SkipDB。
+- 已把 `stop_ftp`、`stop_samba`、`stop_dms`、`stop_itunes`、`stop_torrent`、`stop_aria` 拆为 public lock-taking wrapper + private `*_locked()` helper。restart wrappers 和 `stop_stor_apps()` 复用 private helper；任何已持锁路径不得再次调用 public wrapper。
+- `stop_ftpsamba()` 负责一个锁内的 FTP+Samba group stop；保留首个失败状态同时继续尝试第二个服务。RC applet 的 stop 退出码必须继续经 `main()` 返回给调用者。
+- 新增/更新的 host regression 与 source contracts 已在本次提交中；精确 Actions 尚待核验。若 workflow failure，先区分 C source/build 失败与 source-check/path-filter harness 失败，记录真实失败并在 main 上修复，不得将旧 SHA 的绿灯当作新 SHA 证据。
+- DNS Forwarder/DNSMasq 下一轮关注 start/stop postcondition、reload/启动并发、stale PID、child wait/reap、fd/临时文件回收、错误回滚；不要重复已完成的 dservers/resolv 锁失败保护。
+- FTP failed-final-name cleanup 的 inode-check/unlinkat TOCTOU 继续 OPEN/BLOCKED；未证明 Linux 4.4 上安全的 inode-conditional unlink 语义前不得更改该路径。NFS 客户端 durability / AUTH_SYS / root-squash 仍需设备/客户端证据。
 
 ## Completed in this handoff
 
-1. 严格按照 AI_BOOTSTRAP_PROMPT.md → AI_DEVELOPMENT_PROTOCOL.md → SESSION_HANDOFF.md / REFACTOR_ROADMAP.md / dev_log.md 的项目顺序恢复并核查 main、checkpoint/refs、Actions 精确 SHA。
-2. 在 2c2/79f7963 完成 FTP、Samba、MiniDLNA、Firefly、Transmission、Aria 六个 storage-backed public restart wrapper 的 shared lock 串行化；四个 add-on wrapper 对 mount inventory unknown 采用 fail-closed，storage-hotplug workflow 覆盖 lock ordering、stop failure 和一次性 unlock。
-3. 在 c8b9a 修复 DNS server snapshot writer 对 dservers lock 失败未检查的问题；lock 不可得时保留 errno 并停止发布。
-4. 在 2d5f44b 修复 WAN resolver update 与 manual LAN resolver writer 对 resolv lock 失败未检查的问题；lan_up_manual 在获取锁前不再改变 route，锁失败时不触碰 resolv.conf。LAN auto 和 DHCP lease deconfig 原有 guard 经过核实。
-5. 更新 DNSMasq source contracts 和 push/PR path filters；通过 3ef3eed exact-head DNSMasq + AI docs Actions。诚实记录 c8b9a/2d5f44b 两次 workflow contract 失败及对应修正。
+1. 按规定顺序读取 `AI_BOOTSTRAP_PROMPT.md` → `AI_DEVELOPMENT_PROTOCOL.md` → `SESSION_HANDOFF.md` / `REFACTOR_ROADMAP.md` / `dev_log.md`，核对 main、remote refs、PR 与历史 Actions 的精确 SHA。
+2. 刷新并完成上一 handoff 未结束的 XY-C1 build/TRX 任务：2d5f44b 的 exact-source job `132062194706` / run `43476679718` SUCCESS，保存 artifact ID、大小和 SHA256；明确该 L3 结果不覆盖本批源码。
+3. 完成六个 storage-backed public stop wrapper 的共享锁保护，并拆出六个 `*_locked()` 私有 helper；restart 与已持锁的 storage teardown 调用 private helper，避免 fcntl 锁重入导致外层互斥提前释放。
+4. 将 FTP+Samba grouped stop 改为单次获取共享锁并尽力停止两项服务，保留首个非零状态；RC 的 add-on stop applet 现在传递 stop 结果，不再无声成功。
+5. 扩充 storage stop group-status host policy regression；更新 storage-hotplug、vsftpd、Samba workflows 的 public/private lock contracts、RC 状态传播断言，并保留 push/PR path filters。
+6. 本地 GNU89/Werror/ASan/UBSan stop-policy host regression 和源码/调用图 preflight 均 PASS；本批 exact-head Actions、当前代码 SHA 的 XY-C1 L3 需在本次提交触发后核实。
 
 ## Verification boundary
 
-- 当前 main：3ef3eedb18e15e1b29b155107c08d9b4337185bf（workflow-only path filter fix）；最后一个功能源码提交：2d5f44b1978c3272fa85633e273297c16bd34283；DNS server dservers guard commit：c8b9a377cb530b3716b79279be5d33c4fecd205e；其 checker correction：95c25c1adbf43e8deb1f5f5011511eb96b8dae53。
-- Exact-head Actions at 3ef3eed: DNSMasq lifecycle [43476935451/job 132063063482] SUCCESS（所有步骤），AI handoff documentation [43476935879/job 132063065994] SUCCESS。
-- Exact-head Actions at 2d5f44b: WAN DHCP [43476679931]、WAN ARP [43476679928]、WAN route [43476679902]、detect_link [43476679844]、VPN [43476679812]、HTTPD [43476679798]、AI docs [43476679772]、NVRAM audit [43476679750]、miniupnpd [43476679708]、detect_internet [43476679703]、WAN teardown [43476679687] all SUCCESS；DNSMasq [43476679854] failed only because the pull_request path list lacked net_wan/net_lan and was fixed/re-run at 3ef3eed. XY-C1 [43476679718/job 132062194706] was still IN_PROGRESS at last check.
-- 79f7963 的 storage-hotplug Actions PASS，包含 BusyBox 1.24.2/ash、2,000 ms 跨进程 lock contention、eject inventory、Optware child-result、ASan/UBSan stop policy 和完整 restart caller graph。79f7963 的 XY-C1 build/TRX output pass，artifact 14063536623 (12,625,941 bytes; SHA256 f37d9d0ab82d43e5c707a78c63999d03db64bfc4ca4e932451af7b05ac30209a)。这不等于最新源码 2d 的 L3 已完成。
-- 95c25c1 上 DNSMasq workflow [43476350414/job 132061059376] SUCCESS；c8b9a 初次 run [43476277192] 因 workflow 中错误的 unlock-order assertion 失败，已修正；2d5f44b run [43476679854] 因 PR path filter 漏项失败，已修正并在 3ef3eed 复验成功。
-- 未执行本地完整 checkout、local host build、latest-source all-board firmware、router flash/boot/runtime。L4 NOT VERIFIED。
+- 本次提交父 SHA：`a64c9923a24550177c76f88ea81694725a0230bd`；本次 main 结果 SHA：THIS COMMIT。没有重写历史或改动非 main refs。
+- Local host result：`storage_service_stop_policy.c` 使用 GNU89、`-Wall -Wextra -Werror`、ASan/UBSan 和 frame pointers 编译并运行，输出 `storage daemon stop postcondition and group result policy: PASS`。源码 preflight 确认六个 public stop wrapper 各有单次 unlock、锁失败 fail-closed，六个内部已持锁调用均使用 private helper，`stop_ftpsamba()` 单锁覆盖两项服务，RC 返回值传播正确。
+- Workflow changes：`.github/workflows/storage-hotplug-stability.yml`、`vsftpd-stability.yml`、`samba-share-stability.yml`。这三个 workflow 对本次 SHA 的 push run/job steps 必须逐项读取；AI handoff documentation 和 XY-C1 firmware validation 也必须按 exact head 核验。当前提交的 Actions 结果在提交时 PENDING。
+- Previous source L3：2d5f44b run `43476679718` / job `132062194706` SUCCESS；XY-C1 artifact `14064545568`（12,580,294 bytes；SHA256 `0fba859e6561464feaade2813bd2104d6e789c3829c4f5b30cb5875fa2d40e4d`）。不能视作本次 stop-wrapper 源码的 L3。
+- Exact-head baseline：3ef3eed DNSMasq `43476935451` / job `132063063482` 与 AI docs `43476935879` / job `132063065994` SUCCESS；a64c9923 的 infosvr、AI docs、AliyunDrive、AdGuardHome、AliDDNS、NVRAM push workflows 全部 SUCCESS。这些均为历史基线，不替代本次 SHA 的验证。
+- 没有完整本地 checkout、完整 all-board build 或 L4 router flash/boot/runtime 结果。FTP cleanup TOCTOU 和 NFS 客户端语义维持 OPEN/BLOCKED。
 
 ## Exact first action for the next GPT
 
-1. Fetch current main and all event=push runs with exact head_sha=3ef3eedb18e15e1b29b155107c08d9b4337185bf; confirm DNSMasq/AI docs outcomes. Then re-check functional commit 2d5f44b run 43476679718/job 132062194706; if completed, inspect Build XY-C1, TRX verification, artifact, digest and logs. Do not use 79f7963 TRX as proof that resolver changes in 2d compile.
-2. Audit standalone stop applets in rc.c, all callers and locks. Avoid nested locking via shared stop helpers. Use explicit public wrapper/private *_locked split if required, add focused host tests and source contracts.
-3. Keep FTP final-name cleanup TOCTOU blocked until a Linux 4.4-safe inode-conditional unlink model is proven.
-4. Continue rotating stability/security coverage across the whole userland; no permanent single-module focus. Full all-board build and L4 router test remain concentrated after principal source governance is complete.
+1. 重新读取 main HEAD，精确记录新 SHA；列出 `event=push` 且 `head_sha` 完全相等的所有 Actions runs。重点检查 storage-hotplug、vsftpd、Samba、AI handoff docs 和 XY-C1；对每个 run 读取 jobs 与 steps，检查完整结论和 artifact/TRX SHA256。若某条路径未触发，确认 path filters，不能以祖先 SHA 代替。
+2. 如有失败，判断是生产源码、host test、source checker 还是 workflow path-filter 问题；保存失败证据，在 main 上做最小修复并重新核验新 SHA。不得隐瞒第一次失败。
+3. 全部 L2 结果确认后，转入 P2 DNS Forwarder/DNSMasq lifecycle 与 child/process supervision 审计，检查启动/停止并发、stale PID、wait/reap、文件描述符和临时资源回收；扩大到其他用户态模块，不长期停留在 storage/HTTPD。
+4. 保持 FTP failed-final-name cleanup TOCTOU OPEN/BLOCKED，除非能证明 Linux 4.4 下真实安全的 inode-conditional unlink；NFS AUTH_SYS/root-squash/durability 继续等待真实 client/device evidence。
 
 ## Completed task: Adbyby configured hosts-source list / hosts-list download hardening
 

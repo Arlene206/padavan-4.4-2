@@ -114,8 +114,8 @@ is_ftp_run(void)
 	return (pids("vsftpd")) ? 1 : 0;
 }
 
-int
-stop_ftp(void)
+static int
+stop_ftp_locked(void)
 {
 	char* svcs[] = { "vsftpd", NULL };
 	int status;
@@ -123,6 +123,22 @@ stop_ftp(void)
 	status = kill_services(svcs, 3, 1);
 	if (status != 0)
 		logmessage("FTP server", "vsftpd did not stop cleanly");
+	return status;
+}
+
+int
+stop_ftp(void)
+{
+	int storage_lock, status;
+
+	storage_lock = storage_operation_lock_acquire(file_lock);
+	if (storage_lock < 0) {
+		logmessage("FTP server", "cannot acquire storage operation lock; refusing standalone FTP stop");
+		return -1;
+	}
+
+	status = stop_ftp_locked();
+	file_unlock(storage_lock);
 	return status;
 }
 
@@ -287,7 +303,7 @@ restart_ftpd(void)
 	}
 
 	is_run_before = is_ftp_run();
-	stop_status = stop_ftp();
+	stop_status = stop_ftp_locked();
 	if (stop_status != 0) {
 		logmessage("FTP server", "restart aborted because existing daemon did not stop");
 		restart_status = stop_status;
@@ -880,8 +896,8 @@ config_smb_fastpath(int check_pid)
 	fput_int("/proc/net/netfilter/nf_fp_smb", ntohl(lan_ip));
 }
 
-int
-stop_samba(int force_stop)
+static int
+stop_samba_locked(int force_stop)
 {
 	char* svcs[] = { "smbd",
 #if defined (APP_SMBD36)
@@ -907,6 +923,22 @@ stop_samba(int force_stop)
 
 	clean_smbd_trash();
 	return 0;
+}
+
+int
+stop_samba(int force_stop)
+{
+	int storage_lock, status;
+
+	storage_lock = storage_operation_lock_acquire(file_lock);
+	if (storage_lock < 0) {
+		logmessage("Samba Server", "cannot acquire storage operation lock; refusing standalone Samba stop");
+		return -1;
+	}
+
+	status = stop_samba_locked(force_stop);
+	file_unlock(storage_lock);
+	return status;
 }
 
 static int
@@ -1184,7 +1216,7 @@ int restart_smbd(void)
 		return -1;
 	}
 
-	stop_status = stop_samba(1);
+	stop_status = stop_samba_locked(1);
 	if (stop_status != 0) {
 		logmessage("Samba Server", "restart aborted because existing daemons did not stop");
 		restart_status = stop_status;
@@ -1704,7 +1736,8 @@ int is_dms_run(void)
 	return (pids("minidlnad")) ? 1 : 0;
 }
 
-int stop_dms(void)
+static int
+stop_dms_locked(void)
 {
 	char* svcs[] = { "minidlnad", NULL };
 	int command_status;
@@ -1719,6 +1752,22 @@ int stop_dms(void)
 	}
 
 	return 0;
+}
+
+int
+stop_dms(void)
+{
+	int storage_lock, status;
+
+	storage_lock = storage_operation_lock_acquire(file_lock);
+	if (storage_lock < 0) {
+		logmessage("MiniDLNA", "cannot acquire storage operation lock; refusing standalone stop");
+		return -1;
+	}
+
+	status = stop_dms_locked();
+	file_unlock(storage_lock);
+	return status;
 }
 
 void update_minidlna_conf(const char *link_path, const char *conf_path)
@@ -1845,7 +1894,7 @@ void restart_dms(int force_rescan)
 		return;
 	}
 
-	stop_status = stop_dms();
+	stop_status = stop_dms_locked();
 	if (stop_status != 0) {
 		logmessage("MiniDLNA", "restart aborted because the existing daemon did not stop");
 		goto out;
@@ -1878,7 +1927,8 @@ int is_itunes_run(void)
 	return (pids("mt-daapd")) ? 1 : 0;
 }
 
-int stop_itunes(void)
+static int
+stop_itunes_locked(void)
 {
 	char* svcs[] = { "mt-daapd", NULL };
 	int command_status;
@@ -1893,6 +1943,22 @@ int stop_itunes(void)
 	}
 
 	return 0;
+}
+
+int
+stop_itunes(void)
+{
+	int storage_lock, status;
+
+	storage_lock = storage_operation_lock_acquire(file_lock);
+	if (storage_lock < 0) {
+		logmessage("Firefly", "cannot acquire storage operation lock; refusing standalone stop");
+		return -1;
+	}
+
+	status = stop_itunes_locked();
+	file_unlock(storage_lock);
+	return status;
 }
 
 static void 
@@ -2015,7 +2081,7 @@ void restart_itunes(void)
 		return;
 	}
 
-	stop_status = stop_itunes();
+	stop_status = stop_itunes_locked();
 	if (stop_status != 0) {
 		logmessage("Firefly", "restart aborted because the existing daemon did not stop");
 		goto out;
@@ -2048,7 +2114,7 @@ int is_torrent_run(void)
 	return (pids("transmission-daemon")) ? 1 : 0;
 }
 
-int stop_torrent(void)
+static int stop_torrent_locked(void)
 {
 	int command_status;
 
@@ -2062,6 +2128,22 @@ int stop_torrent(void)
 	}
 
 	return 0;
+}
+
+int
+stop_torrent(void)
+{
+	int storage_lock, status;
+
+	storage_lock = storage_operation_lock_acquire(file_lock);
+	if (storage_lock < 0) {
+		logmessage("Transmission", "cannot acquire storage operation lock; refusing standalone stop");
+		return -1;
+	}
+
+	status = stop_torrent_locked();
+	file_unlock(storage_lock);
+	return status;
 }
 
 void run_torrent(void)
@@ -2101,7 +2183,7 @@ void restart_torrent(void)
 	}
 
 	is_run_before = is_torrent_run();
-	stop_status = stop_torrent();
+	stop_status = stop_torrent_locked();
 	if (stop_status != 0) {
 		logmessage("Transmission", "restart aborted because the existing daemon did not stop");
 		goto out;
@@ -2136,7 +2218,7 @@ int is_aria_run(void)
 	return (pids("aria2c")) ? 1 : 0;
 }
 
-int stop_aria(void)
+static int stop_aria_locked(void)
 {
 	int command_status;
 
@@ -2150,6 +2232,22 @@ int stop_aria(void)
 	}
 
 	return 0;
+}
+
+int
+stop_aria(void)
+{
+	int storage_lock, status;
+
+	storage_lock = storage_operation_lock_acquire(file_lock);
+	if (storage_lock < 0) {
+		logmessage("Aria", "cannot acquire storage operation lock; refusing standalone stop");
+		return -1;
+	}
+
+	status = stop_aria_locked();
+	file_unlock(storage_lock);
+	return status;
 }
 
 void run_aria(void)
@@ -2189,7 +2287,7 @@ void restart_aria(void)
 	}
 
 	is_run_before = is_aria_run();
-	stop_status = stop_aria();
+	stop_status = stop_aria_locked();
 	if (stop_status != 0) {
 		logmessage("Aria", "restart aborted because the existing daemon did not stop");
 		goto out;
@@ -2209,6 +2307,32 @@ out:
 	file_unlock(storage_lock);
 }
 #endif
+
+int
+stop_ftpsamba(void)
+{
+#if defined (APP_FTPD) || defined (APP_SMBD)
+	int storage_lock, status = 0;
+
+	storage_lock = storage_operation_lock_acquire(file_lock);
+	if (storage_lock < 0) {
+		logmessage("Storage", "cannot acquire storage operation lock; refusing FTP/Samba stop");
+		return -1;
+	}
+
+#if defined (APP_FTPD)
+	status = stop_ftp_locked();
+#endif
+#if defined (APP_SMBD)
+	status = storage_service_stop_status_merge(status, stop_samba_locked(0));
+#endif
+
+	file_unlock(storage_lock);
+	return status;
+#else
+	return 0;
+#endif
+}
 
 struct storage_ejected_mount_entry {
 	char device[32];
@@ -2726,7 +2850,7 @@ stop_stor_apps(void)
 	}
 #endif
 #if defined (APP_SMBD)
-	if (stop_samba(0) != 0) {
+	if (stop_samba_locked(0) != 0) {
 		logmessage("Storage", "Samba server did not stop cleanly; storage removal must be aborted");
 		stop_status = -1;
 	}
@@ -2734,33 +2858,33 @@ stop_stor_apps(void)
 #if defined (APP_FTPD)
 	if (nvram_match("ftpd_wopen", "1"))
 		need_restart_fw |= is_ftp_run();
-	if (stop_ftp() != 0) {
+	if (stop_ftp_locked() != 0) {
 		logmessage("Storage", "FTP server did not stop cleanly; storage removal must be aborted");
 		stop_status = -1;
 	}
 #endif
 #if defined (APP_MINIDLNA)
-	if (stop_dms() != 0) {
+	if (stop_dms_locked() != 0) {
 		logmessage("Storage", "storage removal must be aborted because MiniDLNA did not stop");
 		stop_status = -1;
 	}
 #endif
 #if defined (APP_FIREFLY)
-	if (stop_itunes() != 0) {
+	if (stop_itunes_locked() != 0) {
 		logmessage("Storage", "storage removal must be aborted because Firefly did not stop");
 		stop_status = -1;
 	}
 #endif
 #if defined (APP_TRMD)
 	need_restart_fw |= is_torrent_run();
-	if (stop_torrent() != 0) {
+	if (stop_torrent_locked() != 0) {
 		logmessage("Storage", "storage removal must be aborted because Transmission did not stop");
 		stop_status = -1;
 	}
 #endif
 #if defined (APP_ARIA)
 	need_restart_fw |= is_aria_run();
-	if (stop_aria() != 0) {
+	if (stop_aria_locked() != 0) {
 		logmessage("Storage", "storage removal must be aborted because Aria did not stop");
 		stop_status = -1;
 	}

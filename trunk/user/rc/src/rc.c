@@ -1800,16 +1800,7 @@ main(int argc, char **argv)
 	}
 #endif
 	else if (!strcmp(base, "stop_ftpsamba")) {
-#if defined(APP_FTPD)
-		ret = stop_ftp();
-#endif
-#if defined(APP_SMBD)
-		{
-			int samba_status = stop_samba(0);
-			if (ret == 0)
-				ret = samba_status;
-		}
-#endif
+		ret = stop_ftpsamba();
 	}
 #if defined(APP_NFSD)
 	else if (!strcmp(base, "stop_nfsd")) {
@@ -1818,22 +1809,22 @@ main(int argc, char **argv)
 #endif
 #if defined(APP_MINIDLNA)
 	else if (!strcmp(base, "stop_minidlna")) {
-		stop_dms();
+		ret = stop_dms();
 	}
 #endif
 #if defined(APP_FIREFLY)
 	else if (!strcmp(base, "stop_firefly")) {
-		stop_itunes();
+		ret = stop_itunes();
 	}
 #endif
 #if defined(APP_TRMD)
 	else if (!strcmp(base, "stop_transmission")) {
-		stop_torrent();
+		ret = stop_torrent();
 	}
 #endif
 #if defined(APP_ARIA)
 	else if (!strcmp(base, "stop_aria")) {
-		stop_aria();
+		ret = stop_aria();
 	}
 #endif
 	else if (!strcmp(base, "start_ddns")) {

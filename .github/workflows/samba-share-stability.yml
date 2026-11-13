@@ -198,8 +198,8 @@ jobs:
           assert "samba_status = run_samba();" in restart_smbd
           assert "if (samba_status != 0)" in restart_smbd
           restart_lock = restart_smbd.index("storage_operation_lock_acquire(file_lock)")
-          assert restart_lock < restart_smbd.index("stop_status = stop_samba(1)")
-          assert restart_smbd.index("stop_status = stop_samba(1)") < restart_smbd.index("storage_has_mounted_devices")
+          assert restart_lock < restart_smbd.index("stop_status = stop_samba_locked(1)")
+          assert restart_smbd.index("stop_status = stop_samba_locked(1)") < restart_smbd.index("storage_has_mounted_devices")
           assert restart_smbd.index("storage_has_mounted_devices") < restart_smbd.index("samba_status = run_samba()")
           assert restart_smbd.index("samba_status = run_samba()") < restart_smbd.index("file_unlock(storage_lock);")
           assert restart_smbd.index("start_wins()") < restart_smbd.index("file_unlock(storage_lock);")
@@ -218,16 +218,20 @@ jobs:
           assert "errno = ETIMEDOUT" in wait_policy
           assert "samba_daemon_wait_for_stable_presence" in daemon_test
 
-          stop_samba = function_body(stor, "int\nstop_samba(int force_stop)")
+          stop_samba = function_body(stor, "stop_samba_locked(int force_stop)")
           assert "stop_status = kill_services(svcs, 5, 1)" in stop_samba
           assert "if (stop_status != 0)" in stop_samba
           assert "clean_smbd_trash()" in stop_samba
+          public_stop_samba = function_body(stor, "int\nstop_samba(int force_stop)")
+          assert public_stop_samba.index("storage_operation_lock_acquire(file_lock)") < public_stop_samba.index("stop_samba_locked(force_stop)")
+          assert public_stop_samba.index("stop_samba_locked(force_stop)") < public_stop_samba.index("file_unlock(storage_lock);")
+          assert public_stop_samba.count("file_unlock(storage_lock);") == 1
           stop_stor = function_body(stor, "int\nstop_stor_apps(void)")
-          assert "if (stop_samba(0) != 0)" in stop_stor
+          assert "if (stop_samba_locked(0) != 0)" in stop_stor
           assert "Samba server did not stop cleanly" in stop_stor
           assert "safe removal aborted because one or more required storage services did not stop" in stor
           restart_smbd = function_body(stor, "int restart_smbd(void)")
-          assert "stop_status = stop_samba(1)" in restart_smbd
+          assert "stop_status = stop_samba_locked(1)" in restart_smbd
           assert "if (stop_status != 0)" in restart_smbd
           assert "mount_status = storage_has_mounted_devices" in restart_smbd
           assert "if (mount_status < 0)" in restart_smbd
@@ -251,6 +255,12 @@ jobs:
           assert "int restart_nmbd(void);" in header
           assert "int stop_samba(int force_stop);" in header
           assert "ret = stop_samba(0);" in rc
+          assert "int stop_ftpsamba(void);" in header
+          assert "ret = stop_ftpsamba();" in rc
+          group_stop = function_body(stor, "int\nstop_ftpsamba(void)")
+          assert group_stop.index("storage_operation_lock_acquire(file_lock)") < group_stop.index("stop_samba_locked(0)")
+          assert group_stop.index("stop_samba_locked(0)") < group_stop.index("file_unlock(storage_lock);")
+          assert group_stop.count("file_unlock(storage_lock);") == 1
 
           print("Samba share config publication, daemon lifecycle and storage-stop failure gates: PASS")
           PY
