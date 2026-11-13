@@ -2,42 +2,41 @@
 
 ## 最近接力状态（2026-11-13）
 
-- 已按根目录 AI_BOOTSTRAP_PROMPT.md、AI_DEVELOPMENT_PROTOCOL.md 的规定顺序恢复；唯一授权开发分支仍为 main。本轮代码与回归检查最终精确 SHA：e9c38f80e74c5d1e80ce6edbe74310e3645be2fe。文档 checkpoint 将是本记录所在提交，下一轮仍须先重新获取 live refs/heads/main，不能把代码 SHA 与文档提交 SHA 混淆。
-- 分支清单只有 main；没有 open PR，没有新建 branch、tag、checkpoint ref 或 PR。既有 refs/tags/toolchain 和历史 pull refs 保持不动；GPT Session Rotator 未改动。
-- 本轮恢复后优先接续上轮明确未完成的 config_soft_bridges_other() 跨 bridge 批次补偿。源代码提交 de29e51b643d60e829b89027496a0244ad0176fe 实现事务 ownership ledger；后续 17956f0f7938e6430dd2a1a2515eb97f58d0ac42、d304121e7e3f8d1ca854a4da28ad58603a47e7d7、0905bf5af4863ccba54926c8f562744814c48ca2 修正对应的源码契约/Workflow path 检查；e9c38f80e74c5d1e80ce6edbe74310e3645be2fe 将 shared bridge policy include 改为项目 staging include 路径，修复 XY-C1 首次构建暴露的 include 失败。
-- 当前批次事务覆盖最多四个 IFNAME_MAC2.<vid> / brwan2..5 条目：跟踪外层与 WAN-side VLAN 是否由本次创建、bridge 是否新建/原已 UP、两端 bridge-port 是否由本次 attach；失败时按逆序撤销 WAN-side VLAN port、WAN port、WAN-side VLAN、外层 VLAN，最后才考虑新 bridge。删除新 bridge 前使用 Linux 4.4 BRCTL_GET_PORT_LIST 查询完整 1024 项 port inventory；inventory 非空或查询失败时保留 bridge（并尝试保持 DOWN）。没有用 br_del_all_ifs() 清桥。策略门控与 GNU89 host test 已增加，覆盖 empty/non-empty/unknown inventory、预存/未知 membership 与删除安全条件。
-- de29... 的首次 XY-C1 运行因 net_wan.c 错用相对路径引用共享头文件而失败；未隐瞒该失败。修正后的 e9c38f80... 使用 #include "bridge_membership_policy.h"，依靠现有 shared header staging/include path；随后精确 SHA 的 XY-C1 build、TRX verify、artifact upload 全部 SUCCESS。
-- 精确 e9c38f80... 的 11 个 push Actions 全部 SUCCESS：WAN route [43429016219 / job 131897514715]、AI handoff docs [43429016261 / 131897515373]、WAN teardown [43429016457 / 131897515300]、HTTPD security [43429016301 / 131897515968]、WAN DHCP callback [43429016308 / 131897515048]、WAN ARP [43429016193 / 131897514913]、detect_link [43429016366 / 131897515082]、detect_internet [43429016453 / 131897515897]、miniupnpd [43429016528 / 131897515988]、VPN lifecycle [43429016754 / 131897516340]、XY-C1 firmware [43429016318 / 131897515445]。所有这些 run 的 head_sha 都精确等于 e9。
-- WAN route Action 编译并运行 GNU89 -Wall -Wextra -Werror / ASan / UBSan bridge policy regression，输出 Bridge membership and teardown policy regression: PASS、WAN VLAN and bridge error-propagation contracts: PASS、WAN route result propagation and cleanup ordering contracts: PASS。
-- XY-C1 精确 e9 的 MIPS/uClibc build、TRX 验证、artifact 上传成功，输出 trunk/images/TurBoTse-XY-C1-4.4-mipsel-linux-musl-20261113.trx；artifact ID 14039361485，上传包大小 12,576,910 bytes，上传包 SHA256 581c06a9e8fe011322516cdd3a655f9c658f383b2e1303c3643d6e05b419e839。构建并非零 warning：日志中仍有 parted/libtool 警告、缺少 modules.builtin.modinfo 的 depmod warning，以及空占位 ddnsto / zerotier-one 被 objcopy/strip 报 no sections；它们未阻断 TRX 验证及上传，后续仍可治理。
-- 没有完整本地 checkout，因此没有声称本地执行过测试；host policy / source contracts 与 target build 证据全部来自精确 e9 GitHub Actions。L4 实机刷写、启动、WAN/LAN 及多 bridge 运行仍 NOT VERIFIED。
-- 根目录 dev_log.md 当前 113 条；本次增加一条后为 114/120，大小低于 384 KiB，不归档、不改 docs/dev-log/INDEX.md。
-
+- 已按根目录 AI_BOOTSTRAP_PROMPT.md → AI_DEVELOPMENT_PROTOCOL.md → SESSION_HANDOFF.md → REFACTOR_ROADMAP.md → dev_log.md → live refs/Actions 的规定顺序恢复；唯一授权开发分支为 main。本轮代码与回归最终精确 SHA：d3e8edc792a1001d475e4e1fcbe6e06496399efd。本次文档 checkpoint 是后续提交，不能把源码 SHA 与文档提交 SHA 混淆。
+- 远程 refs 检查：只有 refs/heads/main；另有未合并的历史 refs/pull/1/head 和既有 refs/tags/toolchain，均未改动。PR #1 已 closed / unmerged；没有新增分支、tag、checkpoint ref 或 PR。GPT Session Rotator 及其 checkpoint 9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74 未改动。
+- 恢复时 live main 为 be42800f99d4f6d1d187f9aea235f9e71eb8ae4e。该 SHA 的 DDNSTO 生命周期与 AI handoff docs 两个 push Actions 均 SUCCESS（43437951651 / job 131927812862、43437951636 / job 131927812714）。
+- 上一轮明确遗留的 DHCPv6 callback child lifecycle 已完成源码审计：追踪 net_wan6.c 的 callback session lock / generation 校验、接口约束、start 配置 generation 发布与 exec 状态传播，以及 stop 先推进 generation 再停止主进程的顺序；BusyBox DHCPv6 script 通过同步 spawn_and_wait() 等待并回收子进程，传播脚本退出状态与 exec errno，dhcp6c.c 记录失败。现有实现的 stale callback fence 和 bounded lock 有覆盖；本次未发现有证据支持再改动的独立生命周期缺陷，因此没有为制造提交而改 DHCPv6 代码。之前对应 callback policy / source contract 在精确 a0e3ea8e45d305cba0a38557096a560936cd04ae 的 targeted Actions 有通过记录；本轮审计基于当前 be428... 源码。
+- 按 handoff 下一优先项转入 FRP。确认 frp_process_matches() 以前只比较可伪造的 /proc/PID/cmdline argv 元组；一个用其他程序执行但伪装成 frpc -c /tmp/frp/myfrpc.ini 的本地进程可能被误认并收到 root 发出的 TERM/KILL。修复在 trunk/user/frp/frp.sh 增加固定执行文件映射，并在信号处理前同时核对内核提供的 /proc/PID/exe 指向 /usr/bin/frpc 或 /usr/bin/frps，保留原有完整 argv 检查和信号前二次复核。
+- 新增/扩展 FRP 生命周期与 stop 回归，构造 argv 完全匹配但 exe 指向 /bin/sleep 的伪冒进程，证明它不算 FRP daemon、不应被停止；正常 FRP 测试进程显式构造对应 exe 链接。Python source checker 现在同时检查固定可执行文件映射、/proc/PID/exe 和伪冒测试。
+- 本轮源码提交链：ea9b86690ec5276e04253a7b57dd7bf022b69a4f（生产身份校验 + 初始回归）、81a2d0471891a4480ac68c02387956f6511051d6（修正 test fixture 的幂等 symlink 与 /proc/204 测试目录）、d3e8edc792a1001d475e4e1fcbe6e06496399efd（修复 Python checker tuple 语法）。前两次精确 SHA 的 FRP Action 失败原因均已从 job logs 确认并在后续提交修复，没有隐瞒：第一次 fixture 重复创建 symlink 且缺少 /proc/204 目录；第二次 shell tests 全通过，但 checker 因插入的 tuple marker 缩进错误而失败。最终精确 SHA 的 FRP 与 AI docs Actions 均 SUCCESS。
+- 精确 d3e8edc... FRP run [43440754101 / job 131937424207] 成功：shell syntax、watchdog 合并重启、有界启动 readiness、crontab 原子管理、两种角色 boot、私有配置/成对 rename rollback（含第二 rename 失败、EXIT 中断与失败恢复保留备份）、TERM/KILL stop、锁竞争/FD 9、Python source/workflow contracts 全 PASS。精确 SHA AI handoff docs [43440754169 / job 131937424241] SUCCESS。
+- FRP 成对配置回滚与异步 readiness 并非本轮新增，而是此前已有实现；本轮确认其现有测试仍通过。Linux 4.4 没有 pidfd，/proc/PID/exe 与 argv 的最后一次复核到 kill(2) 之间仍存在不可完全消除的 PID reuse 窄窗口；当前实现仅能收紧身份判断并缩小竞态，不应宣称彻底消除 PID reuse。
+- 当前没有完整本地 checkout，因此没有声称本地运行测试。L3 MIPS/uClibc 当前 main、完整固件/TRX 均 NOT VERIFIED；之前祖先 SHA e9c38f80e74c5d1e80ce6edbe74310e3645be2fe 的 XY-C1 TRX 成功不能代表当前 SHA。L4 实机刷写/启动及服务运行仍 NOT VERIFIED。
+- 根目录 dev_log.md 当前 114 条记录，本次新增后为 115/119；当前文件 283325 bytes，新增后仍低于 384 KiB 轮转阈值，不归档、不改 docs/dev-log/INDEX.md。
 
 ## Active task
 
-上轮遗留的 config_soft_bridges_other() 跨 bridge 批次回滚已实现并在精确 e9 SHA 的 host Actions 与 XY-C1 MIPS/uClibc build 中验证。当前优先项转为 DHCPv6 callback 子进程生命周期审计；完成该有界网络项后，必须回到 REFACTOR_ROADMAP.md 全仓库治理台账轮转，不能长期局限于 WAN/HTTPD/SkipDB。
+上一轮遗留的 DHCPv6 callback child lifecycle 已完成审计；没有证据支持为此再引入补丁。FRP 本轮补齐了实际可执行文件身份验证，并以 exact-head GitHub Actions 验证。当前 FRP 生命周期的 bounded readiness、两配置发布 rollback 与 launcher flock 已有测试覆盖，但 PID reuse 窄窗口及目标 BusyBox/procfs 语义仍需要目标环境证据。
 
-1. 已完成：WAN bridge phase 1（config_soft_bridge_wan()）跟踪本次创建的 VLAN/bridge/member 并对失败执行保守逆序补偿；归属不明确时保留对象。
-2. 已完成：LAN bridge 单次转换（config_soft_bridge_lan()）跟踪接口/VLAN membership 改动，失败时只撤销本次变更并保留原始 errno；策略及回归测试有 GNU89 + ASan/UBSan Actions 证据。
-3. 已完成：config_soft_bridges_other() 多 bridge batch ledger，记录最多四个外层 VLAN、WAN-side VLAN、bridge 和两个 port 的归属；失败后按构造逆序补偿，并在 bridge port inventory 明确 empty 时才删除本次创建的 bridge。不得将本轮描述为完整拓扑全局原子事务。
-4. 下一项：审计 trunk/user/rc/src/net_wan6.c DHCPv6 callback 子进程的 PID/generation 关联、spawn 成功与脚本 exit status、wait/reap、stop/restart race、stale child 清理及 errno/status 传播。追踪完整调用链与状态机，先构造可重复 host policy / mock 测试和 source contract，再修复最小稳定性缺陷。特别检查 callback child 与 dhcp6c 主进程 generation 是否严格关联，避免旧 generation 子进程影响新会话。
-5. DHCPv6 子进程治理后，从全仓库 priority queue 选择非单一网络模块的稳定性 BUG；优先级继续考虑严重安全问题、进程监督、资源释放、文件原子发布、并发与错误传播。FRP PID/argv identity 与双文件 publication rollback、FTP 上传清理 TOCTOU（保持 BLOCKED，未证明安全前不改）、NFS durability/兼容性、Wi-Fi bridge detach 和其它用户态模块仍需持续审计。
+接下来从 REFACTOR_ROADMAP.md 的全仓库治理台账轮转，不要继续机械深挖 FRP/WAN。FTP failed-upload cleanup TOCTOU 保持 OPEN/BLOCKED：Linux 4.4 没有 inode-conditional unlink-by-fd，未证明竞态安全前不改。NFS async durability / AUTH_SYS/root-squash 需要真实客户端证据。下一轮优先扫描尚未充分覆盖的服务启动/停止监督、crond、存储与 DNS/解析器路径，从可复现、可在主机侧证明的稳定性 BUG 中选一个有界修复点；严重安全漏洞或系统故障可以打断该轮转顺序。
 
+1. 已完成：DHCPv6 callback session generation / interface 校验、同步 spawn/wait/reap 和退出状态/errno 传播的源码调用链审计；本轮未发现新的可确认缺陷，未做无必要改动。
+2. 已完成：FRP process identity 同时校验 kernel /proc/PID/exe 固定路径与完整 argv tuple，并在 signal 前复核；新增 argv spoof 与 stop decoy regression，精确 d3e Actions 通过。
+3. 已有覆盖：FRP 异步 daemon bounded readiness 与 client/server 成对 config publication rollback（包括失败注入、EXIT 回滚和备份保留）；本轮核对现有实现和 regression，不把它们误记成本轮新增代码。
+4. 保持约束：FTP 上传清理 TOCTOU 未证明安全前不更改；NFS durability / AUTH_SYS / root-squash 需要真实 client evidence；不将 ancestor build/artifact 当成当前 main 的 L3 证据。
 
 ## Verification boundary
 
-- 当前代码 main SHA：e9c38f80e74c5d1e80ce6edbe74310e3645be2fe。精确 SHA 11/11 push Actions 全 SUCCESS；关键 run：WAN route [43429016219 / job 131897514715]、AI handoff [43429016261 / 131897515373]、WAN teardown [43429016457 / 131897515300]、XY-C1 [43429016318 / job 131897515445]，以及 HTTPD、WAN DHCP callback、WAN ARP、detect_link、detect_internet、miniupnpd、VPN 同 SHA 全通过。
-- WAN route host job 使用 GNU89 -Wall -Wextra -Werror 和 ASan/UBSan，bridge membership/teardown policy binary PASS，WAN VLAN/bridge error propagation 与 route status/cleanup source contracts PASS。
-- 精确 e9 XY-C1 Workflow 成功完成 MIPS/uClibc build、TRX output verification 与 artifact upload：TurBoTse-XY-C1-4.4-mipsel-linux-musl-20261113.trx；artifact ID 14039361485，上传包 12,576,910 bytes。此前 de29 上的第一次 build 因 include 路径失败；e9 修正为 staging include 后精确 e9 build 成功。日志仍有上述非致命 warnings/errors，不能描述成零 warning。
-- 当前会话无完整本地 checkout；没有本地测试/编译结果可报告。所有 host sanitizer/source contract 和固件构建证据均来自 exact-head GitHub Actions。无 L4 实机刷写/启动或真实多桥拓扑测试。
-- 回滚是保守补偿，不是全局原子事务。仍未完整恢复 IPv6 sysctl side effects、可能部分写入的 brport_set_m2u() 属性、预存 VLAN 的 MAC / egress priority，以及既有 WAN bridge 的 MAC/MTU/STP 等属性。WAN-side bridge setup 现有 IPv6 sysctl 变更也未做完整 snapshot/restore。后续不得把现状表述为“所有接口属性完全回滚”。
-
+- 代码 main SHA d3e8edc792a1001d475e4e1fcbe6e06496399efd 的 FRP Action [43440754101 / job 131937424207] 与 AI docs Action [43440754169 / job 131937424241] 均 completed SUCCESS；两者 head_sha 均精确匹配 d3e。
+- FRP host regressions 明确 PASS：FRP watchdog detects exact-config daemon state and dispatches one replacement、FRP asynchronous daemon startup uses bounded readiness and fail-closed cleanup、FRP managed watchdog crontab preserves operator jobs and publishes atomically、boot client-only/server-only/combined、private runtime/config 与 paired second-rename rollback / EXIT restoration、bounded TERM/KILL、stable lock / contention / FD 9，以及 FRP asynchronous restart, private credential storage and workflow contracts。测试由 GitHub Actions 运行，不是本地运行或目标设备验证。
+- 前两个 FRP exact-code-head runs 的失败和最终修复记录见上文；不得把它们隐藏，最终绿色结果仅归属于 d3e。
+- 当前 SHA 无 MIPS/uClibc 完整固件/TRX build；祖先 e9 的 XY-C1 build/artifact 只作为历史证据。没有 L4 路由器刷写、启动、WAN/LAN 或真实进程 stop/start 测试。
+- Linux 4.4 PID reuse race 不能靠单纯的 procfs 读后 kill 完全消除；FRP identity 仍应保留 signal 前 revalidation，后续如要进一步收敛必须考虑目标内核能力与不误杀保障。
+- 之前 WAN bridge rollback 的限制仍有效：它是保守补偿，不是全局原子事务；IPv6 sysctl side effects、可能部分写入的 M2U 属性、预存 VLAN MAC/egress priority、既有 WAN bridge MAC/MTU/STP 等属性未完整 snapshot/restore。
 
 ## Exact first action for the next GPT
 
-重新获取 live refs/heads/main 并核对 SHA；确认当前文档提交后的 AI handoff contract Actions 精确通过。然后从 trunk/user/rc/src/net_wan6.c 的 DHCPv6 callback child lifecycle 入手：定位所有 spawn/exec、PID/generation 保存、wait/reap、stop/restart 与错误返回调用点，画出父子生命周期状态转移，检查 stale child 和竞态；先写 GNU89 host policy/mock 与 source contracts，再按最小差异修复。通过精确 SHA Actions 后回到全仓库治理台账，选择下一项稳定性 BUG，不要只在 WAN 模块打转。
-
+重新获取 live refs/heads/main、git/refs、精确 HEAD 和最新 Actions；核对本 handoff 文档提交 SHA 对应的 AI docs workflow。然后打开 REFACTOR_ROADMAP.md 全仓库 Priority queue，从 FRP/WAN 之外找一个可复现的 userland 稳定性 BUG，先追调用链和状态，再写 host regression/source contract 并做最小代码修复。FTP TOCTOU 未能证明 inode 安全 unlink 前保持 BLOCKED；NFS 相关判断需要真实客户端证据。只在完成一个有界批次后再考虑下一个模块。
 
 ## Completed task: Adbyby configured hosts-source list / hosts-list download hardening
 
