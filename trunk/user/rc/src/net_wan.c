@@ -323,7 +323,7 @@ config_soft_bridge_lan(void)
 	int vlan_created = 0;
 	int physical_detached = 0, vlan_attached = 0;
 	int vlan_detached = 0, physical_attached = 0;
-	int vlan_attach_attempted = 0, physical_attach_attempted = 0;
+	int vlan_attach_attempted = 0;
 	int vlan_attach_ambiguous = 0, physical_attach_ambiguous = 0;
 	int vlan_state_safe = 1, physical_state_safe = 1;
 	int vlan_detached_safe = 0;
@@ -371,7 +371,6 @@ config_soft_bridge_lan(void)
 			if (ret != 0)
 				goto rollback;
 		}
-		physical_attach_attempted = 1;
 		ret = br_add_del_if_tracked(IFNAME_BR, IFNAME_MAC, 1,
 					    &physical_attached);
 		if (ret != 0) {

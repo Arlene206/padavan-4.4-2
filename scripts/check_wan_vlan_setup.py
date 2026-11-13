@@ -98,7 +98,7 @@ soft_lan_rollback = soft_lan[soft_lan.index("rollback:"):]
 require("if (vlan_attached)" in soft_lan_rollback and
         "if (physical_detached)" in soft_lan_rollback and
         "if (physical_attached)" in soft_lan_rollback and
-        "if (vlan_detached)" in soft_lan_rollback,
+        "if (vlan_detached && physical_state_safe)" in soft_lan_rollback,
         "LAN bridge rollback must reverse only memberships changed by this call")
 require("vlan_attach_ambiguous" in soft_lan_rollback and
         "physical_attach_ambiguous" in soft_lan_rollback and
