@@ -2,41 +2,42 @@
 
 ## 最近接力状态（2026-11-13）
 
-- 已按根目录 AI_BOOTSTRAP_PROMPT.md → AI_DEVELOPMENT_PROTOCOL.md → SESSION_HANDOFF.md → REFACTOR_ROADMAP.md → dev_log.md → live refs/Actions 的规定顺序恢复；唯一授权开发分支为 main。本轮代码与回归最终精确 SHA：d3e8edc792a1001d475e4e1fcbe6e06496399efd。本次文档 checkpoint 是后续提交，不能把源码 SHA 与文档提交 SHA 混淆。
-- 远程 refs 检查：只有 refs/heads/main；另有未合并的历史 refs/pull/1/head 和既有 refs/tags/toolchain，均未改动。PR #1 已 closed / unmerged；没有新增分支、tag、checkpoint ref 或 PR。GPT Session Rotator 及其 checkpoint 9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74 未改动。
-- 恢复时 live main 为 be42800f99d4f6d1d187f9aea235f9e71eb8ae4e。该 SHA 的 DDNSTO 生命周期与 AI handoff docs 两个 push Actions 均 SUCCESS（43437951651 / job 131927812862、43437951636 / job 131927812714）。
-- 上一轮明确遗留的 DHCPv6 callback child lifecycle 已完成源码审计：追踪 net_wan6.c 的 callback session lock / generation 校验、接口约束、start 配置 generation 发布与 exec 状态传播，以及 stop 先推进 generation 再停止主进程的顺序；BusyBox DHCPv6 script 通过同步 spawn_and_wait() 等待并回收子进程，传播脚本退出状态与 exec errno，dhcp6c.c 记录失败。现有实现的 stale callback fence 和 bounded lock 有覆盖；本次未发现有证据支持再改动的独立生命周期缺陷，因此没有为制造提交而改 DHCPv6 代码。之前对应 callback policy / source contract 在精确 a0e3ea8e45d305cba0a38557096a560936cd04ae 的 targeted Actions 有通过记录；本轮审计基于当前 be428... 源码。
-- 按 handoff 下一优先项转入 FRP。确认 frp_process_matches() 以前只比较可伪造的 /proc/PID/cmdline argv 元组；一个用其他程序执行但伪装成 frpc -c /tmp/frp/myfrpc.ini 的本地进程可能被误认并收到 root 发出的 TERM/KILL。修复在 trunk/user/frp/frp.sh 增加固定执行文件映射，并在信号处理前同时核对内核提供的 /proc/PID/exe 指向 /usr/bin/frpc 或 /usr/bin/frps，保留原有完整 argv 检查和信号前二次复核。
-- 新增/扩展 FRP 生命周期与 stop 回归，构造 argv 完全匹配但 exe 指向 /bin/sleep 的伪冒进程，证明它不算 FRP daemon、不应被停止；正常 FRP 测试进程显式构造对应 exe 链接。Python source checker 现在同时检查固定可执行文件映射、/proc/PID/exe 和伪冒测试。
-- 本轮源码提交链：ea9b86690ec5276e04253a7b57dd7bf022b69a4f（生产身份校验 + 初始回归）、81a2d0471891a4480ac68c02387956f6511051d6（修正 test fixture 的幂等 symlink 与 /proc/204 测试目录）、d3e8edc792a1001d475e4e1fcbe6e06496399efd（修复 Python checker tuple 语法）。前两次精确 SHA 的 FRP Action 失败原因均已从 job logs 确认并在后续提交修复，没有隐瞒：第一次 fixture 重复创建 symlink 且缺少 /proc/204 目录；第二次 shell tests 全通过，但 checker 因插入的 tuple marker 缩进错误而失败。最终精确 SHA 的 FRP 与 AI docs Actions 均 SUCCESS。
-- 精确 d3e8edc... FRP run [43440754101 / job 131937424207] 成功：shell syntax、watchdog 合并重启、有界启动 readiness、crontab 原子管理、两种角色 boot、私有配置/成对 rename rollback（含第二 rename 失败、EXIT 中断与失败恢复保留备份）、TERM/KILL stop、锁竞争/FD 9、Python source/workflow contracts 全 PASS。精确 SHA AI handoff docs [43440754169 / job 131937424241] SUCCESS。
-- FRP 成对配置回滚与异步 readiness 并非本轮新增，而是此前已有实现；本轮确认其现有测试仍通过。Linux 4.4 没有 pidfd，/proc/PID/exe 与 argv 的最后一次复核到 kill(2) 之间仍存在不可完全消除的 PID reuse 窄窗口；当前实现仅能收紧身份判断并缩小竞态，不应宣称彻底消除 PID reuse。
-- 当前没有完整本地 checkout，因此没有声称本地运行测试。L3 MIPS/uClibc 当前 main、完整固件/TRX 均 NOT VERIFIED；之前祖先 SHA e9c38f80e74c5d1e80ce6edbe74310e3645be2fe 的 XY-C1 TRX 成功不能代表当前 SHA。L4 实机刷写/启动及服务运行仍 NOT VERIFIED。
-- 根目录 dev_log.md 当前 114 条记录，本次新增后为 115/119；当前文件 283325 bytes，新增后仍低于 384 KiB 轮转阈值，不归档、不改 docs/dev-log/INDEX.md。
+- 严格按根目录 `AI_BOOTSTRAP_PROMPT.md` → `AI_DEVELOPMENT_PROTOCOL.md` → `SESSION_HANDOFF.md` → `REFACTOR_ROADMAP.md` → `dev_log.md` → live refs / Actions 的规定顺序恢复。唯一授权开发分支是 `main`。当前生产源码与 NVRAM restore host 回归的精确 checkpoint：`f1371be9e12a03937370fff7cdf07cb03a3d823e`。本次 handoff / roadmap / dev-log 更新是后续 docs-only commit；不要把代码 checkpoint 与文档 commit SHA 混淆。
+- live ref 检查：`refs/heads/main` 指向 f1371be9e12a03937370fff7cdf07cb03a3d823e；分支列表只有 `main`。历史 `refs/pull/1/head` 与 `refs/tags/toolchain` 未改动；PR #1 已 closed / unmerged，没有 open PR。未新建分支、tag、checkpoint ref 或 PR，GPT Session Rotator 及其 checkpoint 未更改。
+- 接续时发现上一份 handoff 之后 main 已继续推进，包含未被旧 handoff 记录的 NVRAM profile restore rollback 开发。恢复起点 live HEAD 为 `30b9e7134382eac747bd8f2d6dbb557d9107231c`；本批代码链：`f1f5cef69d9daa64ea81d7b8373fa33aef264e82`（restore failure rollback）、`5c37855d174291031a40b7e0bd04b89d96d47b0e`（HTTPD workflow/source contract）、`30b9e7134382eac747bd8f2d6dbb557d9107231c`（codec helper regression）、`f1371be9e12a03937370fff7cdf07cb03a3d823e`（修复测试字符常量和诊断字符串转义）。本轮恢复并闭合这个未完成批次，没有重复之前已完成的 FRP/DHCPv6 工作。
+- NVRAM restore 原流程在 profile 读完并验证后调用 `nvram_clear()`，随后逐项 `nvram_set()`；clear 或中途 setter 失败会让设备停留在已清空或部分套用状态。现在 `nvram_restore()` 在任何破坏性动作前分别快照 persistent 与 volatile tuples，并验证两份快照；新 transaction policy 在 initial clear 或 profile setter 失败时尝试重新 clear，然后恢复完整的 persistent 与 volatile 旧值，回滚时即使一个 setter 失败也继续尝试后续条目，保留最初失败 errno，并区分报告 rollback incomplete。
+- 为支撑完整快照，NVRAM `getall` 增加 `include_temp=2`（volatile tuples only），明确 0 / 1 / 2 的语义；kernel tuple exporter 不再静默截断结果，而是容量不足返回 `-EOVERFLOW`；ioctl 校验模式范围；shared user wrapper 校验参数并传播 ioctl / close 错误；CLI show 路径检查读取失败。GNU89 host regression 覆盖 codec parse/decode、只套用允许的 profile system keys、setter 失败后 persistent+volatile 回滚、回滚继续执行、initial clear 失败恢复尝试、malformed snapshot 在 mutation 前 fail closed。
+- 精确 f137 Actions：HTTPD Authentication and Security Regression `43443643075` / job `131947352282` SUCCESS；AI handoff docs `43443642982` / job `131947351586` SUCCESS；两者 `head_sha` 均精确等于 f137。HTTPD job 的 40 个步骤全部成功，NVRAM rollback + complete snapshot step 与 `-std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined` host binary 运行均 PASS。AI docs validator PASS，记录为 root log 115/119、batch=100、retain=20、archive inventory dev-log=7 / handoff=22 / roadmap=18。
+- 前序失败完整保留：f1f5 与 5c 两个 exact-head HTTPD runs 因新增 transaction test include 后 profile parse/decode helper 未使用而触发 `-Werror=unused-function`；30b9 加入 codec regression 后，HTTPD run 又因测试把 NUL 字符写成双反斜杠多字符常量而失败。f137 修正 C NUL literal 与 diagnostic escape，最终同一 workflow 全部步骤成功。不要把祖先 SHA 的失败归到最终 SHA，也不要隐去失败修复过程。
+- 这批改动的范围是 profile restore error recovery 与完整 getall snapshots，并非“并发事务原子性”证明。snapshot、clear、逐项 set 是多次独立 ioctl；本轮尚未证明其他 NVRAM writer 不会在这些调用之间交错，也尚未完成全仓库直接调用方 / 多板级路径盘点。必须保留为 OPEN follow-up，不可宣称 restore 对并发写入者全局原子。
+- DHCPv6 callback child lifecycle 已按 handoff 重审：`net_wan6.c` 的 callback session generation / interface gate、同步 `spawn_and_wait()`、wait/reap、script exit status / exec errno 传播及 stop generation fence 调用链已追踪；没有确认出独立的新缺陷，因此没有为制造提交而改动 DHCPv6 源码。
+- FRP 进程身份缺陷已在此前批次处理：在完整 argv tuple 之外验证内核 `/proc/PID/exe` 指向固定 `/usr/bin/frpc` 或 `/usr/bin/frps`，signal 前复核，并用 argv spoof 但 exe 指向 `/bin/sleep` 的伪进程验证不误认/误杀。精确 d3e FRP [43440754101 / job 131937424207] 与 AI docs [43440754169 / job 131937424241] 成功。Linux 4.4 缺少 pidfd，procfs 最后复核至 kill(2) 之间仍有无法完全消除的 PID reuse 窄窗口。
+- 没有完整本地 checkout；本轮没有声称本地测试。f137 当前 main 没有 exact-head MIPS/uClibc full firmware / TRX build 证据，旧 ancestor 的 XY-C1 成功不能代表 f137。L4 实机刷写、启动、WAN/LAN 与设备真实 NVRAM rollback 仍 NOT VERIFIED。
+- 根目录 `dev_log.md` 当前 115 条记录，本次新增后约 116/119；当前文件 286652 bytes，新增记录后仍低于 384 KiB 提前轮转阈值，不归档、不改 `docs/dev-log/INDEX.md`。
 
 ## Active task
 
-上一轮遗留的 DHCPv6 callback child lifecycle 已完成审计；没有证据支持为此再引入补丁。FRP 本轮补齐了实际可执行文件身份验证，并以 exact-head GitHub Actions 验证。当前 FRP 生命周期的 bounded readiness、两配置发布 rollback 与 launcher flock 已有测试覆盖，但 PID reuse 窄窗口及目标 BusyBox/procfs 语义仍需要目标环境证据。
+上一轮明确遗留的 NVRAM profile restore failure recovery 已完成 L1/L2 host + exact-head Actions 验证，代码 checkpoint 为 f1371be9e12a03937370fff7cdf07cb03a3d823e。当前最重要的接续任务不是重复 restore rollback 实现，而是核实这一事务边界：全仓库盘点 `nvram_getall()` / `nvram_clear()` / `nvram_set()` / `nvram_set_temp()` 的直接调用方与各板级实现，追查 restore 快照、clear、persistent/volatile 回放之间是否可能被其他 writer 交错；分析 kernel lock 是否只覆盖单次 ioctl、是否已有可复用的跨调用锁，以及是否需要用可测试的最小机制防止并发配置丢失。先建立可复现的 host/source regression，再决定是否改生产代码；不要无证据声称全局原子。
 
-接下来从 REFACTOR_ROADMAP.md 的全仓库治理台账轮转，不要继续机械深挖 FRP/WAN。FTP failed-upload cleanup TOCTOU 保持 OPEN/BLOCKED：Linux 4.4 没有 inode-conditional unlink-by-fd，未证明竞态安全前不改。NFS async durability / AUTH_SYS/root-squash 需要真实客户端证据。下一轮优先扫描尚未充分覆盖的服务启动/停止监督、crond、存储与 DNS/解析器路径，从可复现、可在主机侧证明的稳定性 BUG 中选一个有界修复点；严重安全漏洞或系统故障可以打断该轮转顺序。
+然后继续 `REFACTOR_ROADMAP.md` 的全仓库治理轮转，不要长期局限于 NVRAM、FRP 或 WAN。FTP failed-upload cleanup TOCTOU 维持 OPEN/BLOCKED：Linux 4.4 无 inode-conditional unlink-by-fd，未证明竞态安全前不改。NFS async durability / AUTH_SYS / root-squash 需要真实客户端证据。接下来优先扫描 FRP/WAN/NVRAM 之外的 crond、PID 1/service notification callers、storage daemons、DNS/resolver 服务，选择可复现的 stop-before-start、stale-child、status-loss、资源清理或安全边界问题。严重安全漏洞和严重系统故障可打断轮转顺序。
 
-1. 已完成：DHCPv6 callback session generation / interface 校验、同步 spawn/wait/reap 和退出状态/errno 传播的源码调用链审计；本轮未发现新的可确认缺陷，未做无必要改动。
-2. 已完成：FRP process identity 同时校验 kernel /proc/PID/exe 固定路径与完整 argv tuple，并在 signal 前复核；新增 argv spoof 与 stop decoy regression，精确 d3e Actions 通过。
-3. 已有覆盖：FRP 异步 daemon bounded readiness 与 client/server 成对 config publication rollback（包括失败注入、EXIT 回滚和备份保留）；本轮核对现有实现和 regression，不把它们误记成本轮新增代码。
-4. 保持约束：FTP 上传清理 TOCTOU 未证明安全前不更改；NFS durability / AUTH_SYS / root-squash 需要真实 client evidence；不将 ancestor build/artifact 当成当前 main 的 L3 证据。
+## Completed in this handoff
+
+1. DHCPv6 callback child lifecycle 已完成调用链审计：generation / interface stale-callback gate、同步子进程等待回收、脚本 status / errno 传播和 stop 顺序已追踪；未发现需追加补丁的已证实缺陷。
+2. FRP process identity L1/L2 已闭合：内核 exe 固定路径 + 完整 argv tuple，signal 前重新验证；新增 spoof decoy regression，精确 d3e Actions 通过。
+3. NVRAM profile restore L1/L2 host batch 已闭合：persistent/volatile snapshots、profile apply rollback、rollback continuation / primary errno、getall volatile-only mode 和 overflow/error propagation；精确 f137 HTTPD + AI docs Actions 通过。
+4. FTP cleanup TOCTOU 仍 BLOCKED；NFS durability / AUTH_SYS / root-squash 保持 evidence-gated；不得把祖先 firmware/TRX 作为当前 main L3 结果。
 
 ## Verification boundary
 
-- 代码 main SHA d3e8edc792a1001d475e4e1fcbe6e06496399efd 的 FRP Action [43440754101 / job 131937424207] 与 AI docs Action [43440754169 / job 131937424241] 均 completed SUCCESS；两者 head_sha 均精确匹配 d3e。
-- FRP host regressions 明确 PASS：FRP watchdog detects exact-config daemon state and dispatches one replacement、FRP asynchronous daemon startup uses bounded readiness and fail-closed cleanup、FRP managed watchdog crontab preserves operator jobs and publishes atomically、boot client-only/server-only/combined、private runtime/config 与 paired second-rename rollback / EXIT restoration、bounded TERM/KILL、stable lock / contention / FD 9，以及 FRP asynchronous restart, private credential storage and workflow contracts。测试由 GitHub Actions 运行，不是本地运行或目标设备验证。
-- 前两个 FRP exact-code-head runs 的失败和最终修复记录见上文；不得把它们隐藏，最终绿色结果仅归属于 d3e。
-- 当前 SHA 无 MIPS/uClibc 完整固件/TRX build；祖先 e9 的 XY-C1 build/artifact 只作为历史证据。没有 L4 路由器刷写、启动、WAN/LAN 或真实进程 stop/start 测试。
-- Linux 4.4 PID reuse race 不能靠单纯的 procfs 读后 kill 完全消除；FRP identity 仍应保留 signal 前 revalidation，后续如要进一步收敛必须考虑目标内核能力与不误杀保障。
-- 之前 WAN bridge rollback 的限制仍有效：它是保守补偿，不是全局原子事务；IPv6 sysctl side effects、可能部分写入的 M2U 属性、预存 VLAN MAC/egress priority、既有 WAN bridge MAC/MTU/STP 等属性未完整 snapshot/restore。
+- 精确生产/host-test checkpoint f1371be9e12a03937370fff7cdf07cb03a3d823e：HTTPD [43443643075 / job 131947352282] 与 AI docs [43443642982 / job 131947351586] 均 completed SUCCESS，head_sha 精确匹配。HTTPD 全 40 步通过；host transaction/codec regression 在 GNU89、Werror、ASan、UBSan 与 leak detection 配置下 PASS。
+- f1f5 / 5c378 两次失败是未使用静态 helper；30b9 失败是双反斜杠 NUL 多字符常量；均已在后续提交修正。最终成功仅归属 f137。
+- no full local checkout / local tests; current f137 MIPS/uClibc firmware/TRX and L4 hardware tests remain NOT VERIFIED。没有真实设备掉电、flash write、并发 NVRAM writer、路由器 profile restore recovery 数据。
+- restore rollback 是 best-effort error compensation，不是断电原子 transaction；rollback clear 或 setter 本身也可能失败，此时会明确报告 incomplete。跨多个 ioctl 的并发 writer interleaving 尚未证明安全，是下一轮第一检查点。
 
 ## Exact first action for the next GPT
 
-重新获取 live refs/heads/main、git/refs、精确 HEAD 和最新 Actions；核对本 handoff 文档提交 SHA 对应的 AI docs workflow。然后打开 REFACTOR_ROADMAP.md 全仓库 Priority queue，从 FRP/WAN 之外找一个可复现的 userland 稳定性 BUG，先追调用链和状态，再写 host regression/source contract 并做最小代码修复。FTP TOCTOU 未能证明 inode 安全 unlink 前保持 BLOCKED；NFS 相关判断需要真实客户端证据。只在完成一个有界批次后再考虑下一个模块。
+先重新获取 live `refs/heads/main`、`git/refs`、PR 状态、最新 commit exact SHA 和该 SHA 的 Actions/check-runs；核对本 handoff 文档 commit 的 AI docs workflow。随后从 `REFACTOR_ROADMAP.md` 的 NVRAM row 开始，全仓库搜索所有直接 NVRAM getall/clear/set/temp callers、driver ioctl 与跨调用锁，追清 profile restore 与并发 writer 的交错窗口；先写出可复现的 host concurrency/source regression，再决定最小安全修复。若确认该边界无需补丁，继续转向 queue 中的全仓库 service supervision 审计。FTP TOCTOU 仍保持 BLOCKED；NFS 需要真实客户端证据。只推进一个有界批次，不重复已闭合工作。
 
 ## Completed task: Adbyby configured hosts-source list / hosts-list download hardening
 
