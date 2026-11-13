@@ -15,6 +15,7 @@ nvram()
 		*) printf '\n' ;;
 	esac
 }
+set -- __test_source__
 . "$repo_root/trunk/user/frp/frp.sh" __test_source__
 
 # check_net uses legacy status 1 for online and 2 for offline. Keep this

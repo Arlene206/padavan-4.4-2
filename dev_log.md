@@ -1,3 +1,17 @@
+## 2026-11-13 08:00 CST (UTC+8) — Repair FRP host fixture setup and restore mandatory Active task handoff heading
+
+- Base main SHA: `cb592664e3d95cd0c1a42f51bb3805fa8f1db307`.
+- Exact-head FRP workflow [43333265560] / job [131582968032]: launcher `sh -n` PASS; host regression failed before exercising assertions because the sourced launcher evaluated its final `case $1` while the test shell had `set -u` and no positional parameter. The semantic checker was skipped. This is a host-fixture setup defect, not evidence of a production-shell failure. The fixture now sets a harmless source-only positional argument before dot-sourcing.
+- Exact-head AI docs [43333265414] / job [131582967557] failed because this handoff consolidation omitted the mandatory exact heading `## Active task`. Infosvr [43333265323] / job [131582967713] passed both GNU89 ASan/UBSan packet/signal policy binaries but its semantic source checker rejected the same missing heading. Restore the required heading and record it as a permanent handoff contract.
+- Other same-SHA workflows succeeded: AliDDNS [43333265442], AliyunDrive [43333265330], AdGuardHome [43333265313].
+- This follow-up repairs the test invocation and handoff structure. Exact-head reruns are pending; no full host, firmware, target or hardware result is claimed.
+- Root log count: 87→88 records, below the 120-record rotation threshold and 384 KiB early-rotation target; archive inventory remains 7/22/18; no archive/index rotation.
+- Changed paths: FRP host test, `SESSION_HANDOFF.md` and this log. The FRP launcher/workflow implementation in `cb592664e3d95cd0c1a42f51bb3805fa8f1db307` is unchanged.
+- Resulting main commit: THIS FOLLOW-UP.
+- Next: verify exact-head FRP, AI docs and infosvr actions; then continue the Adbyby whole-module audit. FTP upload cleanup TOCTOU remains OPEN/BLOCKED.
+
+---
+
 ## 2026-11-13 07:48 CST (UTC+8) — Aggregate FRP watchdog restarts across enabled daemons
 
 - Base main SHA: f08e11546b267b717253c0619e7eea86372146fe.
