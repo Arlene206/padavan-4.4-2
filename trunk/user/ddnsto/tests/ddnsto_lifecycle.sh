@@ -11,9 +11,10 @@ TEST_SLEEP_LOG="$TEST_TMP/sleep.log"
 TEST_NVRAM_LOG="$TEST_TMP/nvram.log"
 TEST_OPS="$TEST_TMP/operations.log"
 TEST_DAEMON_PID="$TEST_TMP/daemon.pid"
+TEST_ENABLE_FILE="$TEST_TMP/enable"
 TEST_HELPERS="$TEST_TMP/helpers.sh"
 LOCK_FILE="$TEST_TMP/.ddnsto.lifecycle.lock"
-export TEST_TMP TEST_STATE TEST_LOG TEST_SLEEP_LOG TEST_NVRAM_LOG TEST_OPS TEST_DAEMON_PID
+export TEST_TMP TEST_STATE TEST_LOG TEST_SLEEP_LOG TEST_NVRAM_LOG TEST_OPS TEST_DAEMON_PID TEST_ENABLE_FILE
 
 mkdir -p "$TEST_BIN"
 trap 'if [ -s "$TEST_DAEMON_PID" ]; then kill -9 "$(cat "$TEST_DAEMON_PID")" 2>/dev/null || :; fi; rm -rf "$TEST_TMP"' EXIT HUP INT TERM
@@ -42,8 +43,8 @@ sed -n \
 ddnsto_lifecycle_lock_path() { printf '%s\n' "$LOCK_FILE"; }
 DDNSTO_BIN="$TEST_BIN/ddnsto"
 DDNSTO_LOCK_WAIT_SECONDS=5
-TEST_ENABLE=1
-export DDNSTO_BIN DDNSTO_LOCK_WAIT_SECONDS TEST_ENABLE
+echo 1 > "$TEST_ENABLE_FILE"
+export DDNSTO_BIN DDNSTO_LOCK_WAIT_SECONDS
 
 cat > "$TEST_BIN/pidof" <<'MOCK'
 #!/bin/sh
@@ -112,7 +113,7 @@ cat > "$TEST_BIN/nvram" <<'MOCK'
 printf '%s\n' "$*" >> "$TEST_NVRAM_LOG"
 case "$1:$2" in
 	get:ddnsto_id) echo regression-id ;;
-	get:ddnsto_enable) echo "$TEST_ENABLE" ;;
+	get:ddnsto_enable) cat "$TEST_ENABLE_FILE" ;;
 	*) exit 1 ;;
 esac
 MOCK
@@ -276,12 +277,11 @@ echo running > "$TEST_STATE"
 run_action graceful restart || fail "serialized restart failed"
 restart_starts=$(grep -Fxc START "$TEST_OPS" || :)
 if [ "$restart_starts" -ne 1 ]; then
-	echo "restart diagnostics: enabled=$TEST_ENABLE state=$(cat "$TEST_STATE") nvram=$(cat "$TEST_NVRAM_LOG") ops=$(cat "$TEST_OPS")" >&2
+	echo "restart diagnostics: enable_file=$(cat "$TEST_ENABLE_FILE") state=$(cat "$TEST_STATE") nvram=$(cat "$TEST_NVRAM_LOG") ops=$(cat "$TEST_OPS")" >&2
 	fail "restart did not launch exactly one replacement"
 fi
 [ "$(cat "$TEST_STATE")" = running ] || fail "restart replacement was not launched"
-TEST_ENABLE=0
-export TEST_ENABLE
+echo 0 > "$TEST_ENABLE_FILE"
 : > "$TEST_OPS"
 run_action graceful restart || fail "disabled restart failed to stop existing daemon"
 [ ! -s "$TEST_OPS" ] || fail "disabled restart launched a replacement"
