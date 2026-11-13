@@ -197,6 +197,14 @@ jobs:
           restart_smbd = function_body(stor, "int restart_smbd(void)")
           assert "samba_status = run_samba();" in restart_smbd
           assert "if (samba_status != 0)" in restart_smbd
+          restart_lock = restart_smbd.index("storage_operation_lock_acquire(file_lock)")
+          assert restart_lock < restart_smbd.index("stop_status = stop_samba(1)")
+          assert restart_smbd.index("stop_status = stop_samba(1)") < restart_smbd.index("storage_has_mounted_devices")
+          assert restart_smbd.index("storage_has_mounted_devices") < restart_smbd.index("samba_status = run_samba()")
+          assert restart_smbd.index("samba_status = run_samba()") < restart_smbd.index("file_unlock(storage_lock);")
+          assert restart_smbd.index("start_wins()") < restart_smbd.index("file_unlock(storage_lock);")
+          assert restart_smbd.count("file_unlock(storage_lock);") == 1
+          assert "goto out;" in restart_smbd and "return restart_status;" in restart_smbd
           assert "action_result = restart_smbd();" in rc
           assert 'ret = restart_smbd();' in rc
           assert "\n\t\t\trestart_smbd();\n" not in rc

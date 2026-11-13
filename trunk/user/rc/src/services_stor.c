@@ -276,28 +276,42 @@ control_ftp_fw(int is_run_before)
 int
 restart_ftpd(void)
 {
-	int is_run_before = is_ftp_run();
-	int stop_status, mount_status, start_status = 0;
+	int storage_lock, is_run_before;
+	int stop_status, mount_status, start_status = 0, restart_status = -1;
 
+	/* Serialize stop/inventory/start with hotplug and safe storage removal. */
+	storage_lock = storage_operation_lock_acquire(file_lock);
+	if (storage_lock < 0) {
+		logmessage("FTP server", "cannot acquire storage operation lock; refusing FTP restart");
+		return -1;
+	}
+
+	is_run_before = is_ftp_run();
 	stop_status = stop_ftp();
 	if (stop_status != 0) {
 		logmessage("FTP server", "restart aborted because existing daemon did not stop");
-		return stop_status;
+		restart_status = stop_status;
+		goto out;
 	}
 
 	mount_status = storage_has_mounted_devices("restarting FTP");
 	if (mount_status < 0) {
 		logmessage("FTP server", "restart aborted because mounted storage state is unknown");
-		return -1;
+		goto out;
 	}
 	if (mount_status > 0) {
 		start_status = run_ftp();
-		if (start_status != 0)
-			return start_status;
+		if (start_status != 0) {
+			restart_status = start_status;
+			goto out;
+		}
 		control_ftp_fw(is_run_before);
 	}
 
-	return start_status;
+	restart_status = start_status;
+out:
+	file_unlock(storage_lock);
+	return restart_status;
 }
 #endif
 
@@ -1160,33 +1174,48 @@ out:
 
 int restart_smbd(void)
 {
-	int samba_status = 0;
-	int stop_status, mount_status;
+	int storage_lock, samba_status = 0;
+	int stop_status, mount_status, restart_status = -1;
+
+	/* Keep Samba's stop/inventory/start transaction inside the eject barrier. */
+	storage_lock = storage_operation_lock_acquire(file_lock);
+	if (storage_lock < 0) {
+		logmessage("Samba Server", "cannot acquire storage operation lock; refusing Samba restart");
+		return -1;
+	}
 
 	stop_status = stop_samba(1);
 	if (stop_status != 0) {
 		logmessage("Samba Server", "restart aborted because existing daemons did not stop");
-		return stop_status;
+		restart_status = stop_status;
+		goto out;
 	}
 
 	mount_status = storage_has_mounted_devices("restarting Samba");
 	if (mount_status < 0) {
 		logmessage("Samba Server", "restart aborted because mounted storage state is unknown");
-		return -1;
+		goto out;
 	}
 	if (mount_status > 0) {
 		samba_status = run_samba();
-		if (samba_status != 0)
-			return samba_status;
+		if (samba_status != 0) {
+			restart_status = samba_status;
+			goto out;
+		}
 	}
 
 	if (!pids("nmbd")) {
 		samba_status = start_wins();
-		if (samba_status != 0)
-			return samba_status;
+		if (samba_status != 0) {
+			restart_status = samba_status;
+			goto out;
+		}
 	}
 
-	return samba_status;
+	restart_status = samba_status;
+out:
+	file_unlock(storage_lock);
+	return restart_status;
 }
 #endif
 

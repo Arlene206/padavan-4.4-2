@@ -788,6 +788,22 @@ jobs:
           assert 'if (stop_nfsd_locked() != 0)' in restart_nfsd
           assert restart_nfsd.index('if (stop_nfsd_locked() != 0)') < restart_nfsd.index('run_nfsd_locked()')
           assert "file_unlock(storage_lock)" in restart_nfsd
+          # FTP and Samba public restarts must share the same cross-process
+          # eject barrier used by mdev and safe removal, without nesting it
+          # inside start_stor_apps()/stop_stor_apps() locked callers.
+          ftp_restart = function_body(storage, "restart_ftpd(void)")
+          assert ftp_restart.index("storage_operation_lock_acquire(file_lock)") < ftp_restart.index("stop_ftp()")
+          assert ftp_restart.index("stop_ftp()") < ftp_restart.index("storage_has_mounted_devices")
+          assert ftp_restart.index("storage_has_mounted_devices") < ftp_restart.index("run_ftp()")
+          assert ftp_restart.index("run_ftp()") < ftp_restart.index("file_unlock(storage_lock);")
+          assert ftp_restart.count("file_unlock(storage_lock);") == 1
+          samba_restart = function_body(storage, "int restart_smbd(void)")
+          assert samba_restart.index("storage_operation_lock_acquire(file_lock)") < samba_restart.index("stop_samba(1)")
+          assert samba_restart.index("stop_samba(1)") < samba_restart.index("storage_has_mounted_devices")
+          assert samba_restart.index("storage_has_mounted_devices") < samba_restart.index("run_samba()")
+          assert samba_restart.index("run_samba()") < samba_restart.index("file_unlock(storage_lock);")
+          assert samba_restart.index("start_wins()") < samba_restart.index("file_unlock(storage_lock);")
+          assert samba_restart.count("file_unlock(storage_lock);") == 1
           assert 'action_result = restart_nfsd();' in rc and 'ret = stop_nfsd();' in rc
           # The CI ash binary is built from the same version/config used by firmware.
           assert "PKG_VERSION:=1.24" in busybox_package

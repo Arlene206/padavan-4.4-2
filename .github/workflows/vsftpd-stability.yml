@@ -442,6 +442,13 @@ jobs:
           assert "if (mount_status < 0)" in restart
           assert "if (mount_status > 0)" in restart
           assert "start_status = run_ftp()" in restart
+          restart_lock = restart.index("storage_operation_lock_acquire(file_lock)")
+          assert restart_lock < restart.index("stop_status = stop_ftp()")
+          assert restart.index("stop_status = stop_ftp()") < restart.index("storage_has_mounted_devices")
+          assert restart.index("storage_has_mounted_devices") < restart.index("start_status = run_ftp()")
+          assert restart.index("start_status = run_ftp()") < restart.index("file_unlock(storage_lock);")
+          assert restart.count("file_unlock(storage_lock);") == 1
+          assert "goto out;" in restart and "return restart_status;" in restart
 
           stop_stor = function_body(source, "stop_stor_apps(void)")
           assert "if (stop_ftp() != 0)" in stop_stor

@@ -2,45 +2,43 @@
 
 ## 最近接力状态（2026-11-14）
 
-- 当前 live main HEAD：a7a70397ec9f6458655a7f0520769c5270436258（fix(ci): add NVRAM snapshot policy include path），生产修复提交为 parent d551d765acb3b2810786e64cca72529b7be1397c（fix(nvram): snapshot ioctl values under the driver lock）。a7 只修正新增 host test 的 include 搜索路径，不改生产源码；NVRAM 生产实现及策略测试在 a7 中与 d551 完全相同。
-- 精确 Actions：d551 首轮 NVRAM workflow 曾因测试编译命令缺少 -I trunk/linux-4.4.x/drivers/nvram 而失败，原因是 host test 找不到新头文件，不是内核源码编译失败。随后 a7 修正 workflow；a7 的两个 exact event=push runs（AI handoff docs 43469264009、NVRAM transaction boundary 43469265744）均 COMPLETED / SUCCESS，NVRAM job 132036533462 的全部步骤与完整日志已检查。
-- NVRAM exact a7 scan：userland C/C++ files 4,179、adapter 外 raw ioctl bypass 0；kernel source files 44,044、外部 NVRAM API refs 0、writer refs 0；board config files 57。Snapshot sizing policy、设备节点策略、共享 transaction lock 三组 GNU89/Werror/ASan/UBSan tests 均 PASS；kernel source checker 的 single-value ioctl snapshot contract PASS。
-- refs 重新核对：仅 branch main；refs/tags/toolchain = 7f7d3ea41ebdd7eeab8a303f3d4ad8dddb54a8a7；PR #1 CLOSED / UNMERGED（head ba48e22609e0c81ad757b06756fe91d05f39cbf6）。无其他分支、开放 PR 或新 checkpoint refs；GPT Session Rotator 未触碰。
-- 本轮新完成的是 kernel NVRAM_IOCTL_GET 单值读取的一致性快照修复，范围不等于所有内核/外部 writer 的全局原子性。没有完整 MIPS/uClibc firmware/TRX 构建或实机测试；这些仍放在主体开发后集中执行。
-- 根 dev_log.md 当前 24 条；本轮追加后 25 条，远低于 120-entry / 384 KiB 轮转门槛。不归档、不更新 docs/dev-log/INDEX.md。
+- 恢复基线 main：233d5991afac081e2cd6784d9c212462cd519b07（docs: hand off verified NVRAM ioctl snapshot fix）；父提交为 a7a70397ec9f6458655a7f0520769c5270436258。远程 main 在本轮开始时与此 SHA 精确一致。
+- 233d 精确 event=push Actions 六项全部 COMPLETED / SUCCESS：infosvr 43470668893、AI handoff docs 43470668983、AdGuardHome 43470669030、AliDDNS 43470668996、AliyunDrive 43470668891、NVRAM boundary 43470668895；每个 run 的 head_sha 均为 233d5991afac081e2cd6784d9c212462cd519b07。NVRAM 快照实现及策略扫描的完整 PASS 细节见上一记录和 roadmap；本轮没有完整 MIPS/uClibc firmware/TRX 或实机测试。
+- 上轮 NVRAM_IOCTL_GET 单值快照修复已在 d551 实施、a7 修复 host 编译 include 并由 exact-head NVRAM/AI docs Actions 验证；只覆盖本驱动的单值 ioctl，不代表所有 legacy/out-of-tree nvram_get() 调用或系统级全局原子性。
+- 本轮从 233d 检查到 FTP/Samba 重启未获取 safe-removal/hotplug 共用的 storage-operation file lock，而 hotplug、safe removal、deferred storage start 和 NFS 公共 applets 都使用同一进程间锁。HTTPD direct RC applets、PID 1 notification dispatcher、CLI run_ftpsamba/run_ftp/run_samba 路径都能到达这两个无锁 restart 函数；形成明确的并发卸载窗口。本次已把 lock 包在 restart_ftpd()/restart_smbd() 的完整 stop→mount inventory→start/WINS 事务外层，单一出口释放，不把锁塞进内部 run/stop 函数，以免与 start_stor_apps()/stop_stor_apps() 已持锁调用产生自锁。三条 source-contract workflow 已补充顺序/释放断言；新提交的 Actions 尚待精确 SHA 验证。
+- refs：仅开发分支 main；toolchain tag 7f7d3ea41ebdd7eeab8a303f3d4ad8dddb54a8a7；PR #1 CLOSED / UNMERGED（head ba48e22609e0c81ad757b06756fe91d05f39cbf6）。不创建/修改 branch、PR、tag、checkpoint refs；GPT Session Rotator 未触碰。
+- dev_log.md 根文件本次增加到 26/119 条，未到 120-entry / 384 KiB 轮转阈值；保留历史 archives / INDEX，不做归档。
+- 当前代码证据和 host/Actions 均不构成 L3 当前 HEAD MIPS/uClibc 完整 firmware/TRX 或 L4 实机验证；这些仍安排在主体开发后集中执行。
 
 ## Active task
 
-Linux 4.4 NVRAM kernel ioctl 单值读取并发边界已完成 L1/L2 修复并由 exact-main Actions 验证。已确认旧路径 user_nvram_get() 调用 nvram_get(param) 后，内部 nvram_lock 已释放，调用方才执行 strlen() 和 copy_to_user()；并发 set/unset/clear 可改变或重置共享 nvram_values 内容，造成长度与实际复制数据不一致。证据支持 unlocked read/write consistency race，不是已证明的 UAF：普通 clear 重置 backing pool，不释放长期分配的 nvram_values；tuple 生命周期和 module open/exit pin 也已检查。
+已确认并修复 FTP/Samba 服务重启与存储安全卸载之间的跨进程锁竞态；当前待完成的是该修复的新 SHA 精确 Actions 验证。
 
-1. 新增 nvram_value_span() 检查指针位于 pool 边界内；新增 nvram_get_snapshot()，在锁内计算所需长度，解锁后分配缓冲区，再锁内重新解析 key、复核长度并复制一致快照。若值在两次锁区间内增长则最多重试 3 次；pool 无终止符、内存不足、key 已删除或持续竞争分别返回明确错误。整个 copy_to_user() 始终在 spinlock 之外。
-2. user_nvram_get() 已改为只向用户态复制私有快照；不再把 nvram_get() 返回的 pool 指针带到 unlocked 区域。新增 snapshot sizing policy host test，覆盖容量充足、值增长重试、值缩短、pool terminator 边界。
-3. 同步加强 scripts/check_nvram_transaction_boundary.py：检查两阶段 lock/allocate/relock/copy 顺序、bounded retry、无 spinlock 内 copy_to_user、ioctl 使用私有快照、set/unset/clear/commit writer 锁保护、init 在 register 前完成、exit 先 unregister 再释放 pool，以及 module open/release pin。
-4. 生产代码提交 d551d765acb3b2810786e64cca72529b7be1397c；首轮 exact Actions 的 host 编译漏掉头文件 -I 搜索路径，已在 CI-only 后续提交 a7a70397ec9f6458655a7f0520769c5270436258 修正。a7 的 exact NVRAM 与 AI docs push runs 均 PASS，详见 Verification boundary。生产实现无后续更改。
-5. 此修复只覆盖本驱动的 NVRAM_IOCTL_GET 单值 ioctl。导出的 legacy nvram_get() API 仍为返回 pool 指针的接口；本仓库当前扫描未发现其他 kernel caller，但不能据此宣称 out-of-tree 模块或任意外部 writer 自动受到保护。
-6. 下一任务按 roadmap 继续整个用户态服务监督审计：优先追踪 restart_ftpd() / restart_smbd() 与安全卸载、storage hotplug 共用 storage-operation lock 的覆盖范围，验证跨进程调用上下文、锁顺序和 stop/postcondition；这是待证候选，不预设存在 BUG。同步继续 DNS/resolver 和存储服务链路，选取下一个可复现稳定性故障。
+- 根因：restart_ftpd() 和 restart_smbd() 之前依次 stop、读取 /proc/mounts、按需 start，但未持有 STORAGE_OPERATION_LOCK_TAG="storage" 的 file_lock；hotplug mdev 与 safe_remove_stor_device()/safe_remove_all_stor_devices() 则持有同一把跨进程 fcntl 锁。PID 1 的 RCN_RESTART_FTPD/SMBD 事件、HTTPD 的 run_ftp/run_samba/run_ftpsamba applet，以及 CLI 都能触发 restart；因此 restart 的 stop/inventory/start 可与另一进程卸载同一挂载点并行。
+- 修改 services_stor.c：restart_ftpd()/restart_smbd() 在任何状态查询/daemon stop 前获取 storage_operation_lock_acquire(file_lock)，覆盖 mounted-storage inventory、服务重启和 Samba WINS 决策；锁获取失败 fail closed；stop 或 run 失败保留原负值/错误状态；inventory 不确定时不启动服务；统一 out 释放一把锁。
+- 不在 run_ftp()/stop_ftp()/run_samba()/stop_samba() 内部二次获取 global lock：这些内部函数还由已持锁的 start_stor_apps()/stop_stor_apps() 调用；重复 file_lock 在同进程会被拒绝，可能造成启动/卸载回归。公共 restart wrapper 是正确互斥边界。独立 stop applets 和其他 storage-backed service restart 尚需继续审计。
+- vsftpd、Samba、storage-hotplug 三个 workflow 已新增源码语义断言，检查锁先于 stop/inventory/start、锁在 WINS 决策之后释放且仅释放一次；已有跨进程 storage_operation_lock regression 仍覆盖 file_lock 竞争行为。
+- 下一步首先检查本提交所有精确 head_sha 的 push Actions 和完整 logs，修复任何失败。通过后再扫描 MiniDLNA/Firefly/Transmission/Aria、NFS/FTP/Samba standalone stop applets 与直接 HTTPD 调用的生命周期锁语义，不假设本轮已完成整个 storage service family。
 
 ## Completed in this handoff
 
-1. NVRAM root:root 0600 device-node policy、PID 1 fail-closed setup、shared-userland transaction lock 与 whole-tree raw ioctl boundary audit 在此前 exact SHA 3a01511a527d265b40472de603bdaa7249c64b1a 通过；范围仅限共享 userland wrapper 和扫描覆盖。
-2. infosvr restart stop-before-start 修复：停止状态和 post-stop PID 检查决定是否启动替代进程，EBUSY 返回负值并由 PID 1 ADSC notification 保留失败 completion marker。GNU89 policy 与 RC source contracts 在 exact SHA 3a01511 通过。
-3. Linux 4.4 NVRAM 单值 ioctl 读取 race：nvram_get_snapshot() 锁内长度复核和数据复制、锁外分配、最多三次增长重试、锁外 copy_to_user()；policy test、源代码语义 checker 和全树 API/writer inventory 在 exact a7 SHA PASS。
-4. d551 首轮 NVRAM test workflow 因缺少 include path 失败；a7 增加正确的 -I trunk/linux-4.4.x/drivers/nvram 后，exact NVRAM test 全步骤成功。该失败已在后续 commit 修复，没有隐藏。
-5. 未改变分支/PR/tag/checkpoint；没有改动 docs archive/index，也没有执行本轮完整固件 build 或实机验证。
+1. 按 bootstrap / development protocol 既定顺序恢复；核对 main、branch/tag、PR #1、文档治理阈值和最新 Actions。233d 上六个 push Actions 均 SUCCESS，SHA 完全匹配。
+2. 读取 HTTPD aidisk 的 direct run/stop routes、variables.c EVM→RCN mapping、PID 1 notification dispatch、rc.c CLI applet 路径；追踪到 services_stor.c restart wrappers。
+3. 对照 mdev_sd/mdev_mmc、safe_remove_stor_device/all、deferred start 和 NFS run/stop/restart 的跨进程 storage-operation lock 使用，确认只有 FTP/Samba public restart 未覆盖完整生命周期事务。
+4. 实施 restart_ftpd()/restart_smbd() 外层共享锁；在锁持有期执行 stop、mount inventory、条件 start / WINS 决策，统一释放并保留失败状态；不将锁嵌入可由已持锁调用方复用的内部 start/stop helpers。
+5. 更新 vsftpd、Samba、storage-hotplug workflow 的 source contract checks，并更新 live handoff/roadmap/dev log。新 SHA 的 Actions 尚未检查；没有本地完整 checkout 或声称本地测试通过。
 
 ## Verification boundary
 
-- Live exact main at recovery/documentation base: a7a70397ec9f6458655a7f0520769c5270436258. Production NVRAM snapshot source was introduced by parent d551d765acb3b2810786e64cca72529b7be1397c; a7 changes only the host workflow include path.
-- a7 exact event=push runs: AI handoff documentation 43469264009 SUCCESS; NVRAM transaction boundary 43469265744 / job 132036533462 SUCCESS. Full job steps/log inspected; NVRAM audit steps all success. Earlier d551 HTTPD Authentication/Security run 43468924644 SUCCESS; earlier d551 NVRAM first attempt 43468924620 failed solely at host test compilation because the include search path was missing. Corrected by a7; do not report the first attempt as a code regression.
-- NVRAM test output: NVRAM single-value snapshot sizing policy: PASS; NVRAM device node root ownership, mode and identity policy regression: PASS; NVRAM shared-userland transaction lock inode, contention, symlink, hardlink, cross-process and crash-release regression: PASS; NVRAM kernel single-value ioctl snapshot contract: PASS; final checker reports NVRAM raw-userland boundary, wrapper-lock contracts and kernel caller inventory: PASS.
-- a7 full-tree counts: USERLAND_SOURCE_FILES_SCANNED=4179, RAW_USERLAND_BYPASS_COUNT=0, KERNEL_SOURCE_FILES_SCANNED=44044, KERNEL_NVRAM_API_REFERENCE_COUNT=0, KERNEL_NVRAM_WRITER_REFERENCE_COUNT=0, BOARD_CONFIG_FILES_SCANNED=57. Existing shared adapter has 25 raw ioctl references. The audit does not prove no out-of-tree callers or non-cooperating external writers.
-- The driver snapshot uses fixed-pool pointer-bound checks, lock-protected length capture and second-pass byte copy, heap allocation outside spinlock, three-attempt growth retry and user copy after unlocking. Kernel writer paths set/unset/clear/commit, initialization order, exit unregister/free order and module open/release references were source-checked.
-- Host test compilation/execution uses GNU89, -Wall -Wextra -Werror, ASan/UBSan and leak detection. The full real-source tree scanner and semantic checker ran in exact-head GitHub Actions. No complete local Linux kernel build, MIPS/uClibc firmware/TRX build or L4 router test was performed; current evidence is L1/L2 only.
-- Existing PR #1 remains CLOSED / UNMERGED, only branch main and existing toolchain tag are present; no ref mutation.
+- Recovery SHA 233d5991afac081e2cd6784d9c212462cd519b07：六个 exact event=push workflows 均 SUCCESS（infosvr 43470668893、AI docs 43470668983、AdGuardHome 43470669030、AliDDNS 43470668996、AliyunDrive 43470668891、NVRAM boundary 43470668895）；全部 head_sha 匹配 233d。该基线用于本轮源代码分析，不是本次修改的最终 CI。
+- L1：已逐条追踪 mdev 与 safe-removal/NFS global lock acquisition，再比对 HTTPD/PID1/CLI FTP/Samba restart 调用链；源码显示 restart wrapper 缺少同一 global lock，而本次补齐 stop→inventory→start/WINS 范围。无 device runtime 实测。
+- L2：新 commit 的 vsftpd、Samba、storage-hotplug 及 AI handoff docs Actions：PENDING exact-head run/job/log inspection；不得提前标注 HOST/ACTIONS VERIFIED。
+- NVRAM kernel ioctl single-value snapshot 的 L1/L2 bounded result 在 exact a7 完成；旧 d551 首轮 include-path CI failure 已由 a7 修复并验证。
+- L3 current HEAD MIPS/uClibc full firmware/TRX：NOT VERIFIED。L4 physical router flash/boot/runtime: NOT VERIFIED。无本轮本地固件 build 或实机 test。
 
 ## Exact first action for the next GPT
 
-Fetch live main and all exact-head push Actions first. Confirm the docs-only handoff refresh is green and root dev-log remains 25/119 with eight existing dev-log archive shards; no archive/index rotation is due. Then resume the repo-wide P2 storage/service supervision candidate: trace restart_ftpd(), restart_smbd(), safe removal, hotplug and NFS/USB operation lock acquisition order across HTTPD/RC/CLI/cron call contexts. Prove or reject cross-process lock gaps before changing code; if no concrete issue exists, rotate through DNS Forwarder/DNSMasq resolver reload and choose another reproducible stability/security defect. Keep FTP cleanup TOCTOU blocked until safe inode-conditional semantics are proven, and NFS durability dependent on real client/storage evidence.
+Fetch live main and confirm it equals the resulting commit from this code batch. Enumerate every exact event=push Action and require matching head_sha; inspect every job, step and full log, especially vsftpd, Samba share, storage hotplug and AI handoff docs. Fix any failed source assertion/host regression on main before closing this lock-race slice. Once green, continue the global storage supervision audit beyond FTP/Samba: trace standalone stop applets and restart/start/stop flows for MiniDLNA, Firefly, Transmission and Aria against safe removal and NFS/hotplug locks, avoiding nested acquisition in *_locked callers. Keep FTP upload cleanup TOCTOU blocked until safe inode-conditional semantics are proven; defer L3/L4 until the main development body is complete.
 
 ## Completed task: Adbyby configured hosts-source list / hosts-list download hardening
 
