@@ -236,7 +236,7 @@ require("config_soft_bridge_lan() != 0" in restart,
         "full WAN restart must stop when LAN-side VLAN bridge setup fails")
 
 push, pr = workflow.split("  pull_request:", 1)
-pr = pr.split("\\njobs:", 1)[0]
+pr = pr.split("\njobs:", 1)[0]
 for path in ("trunk/user/shared/src/netutils.c",
              "trunk/user/shared/src/netutils.h",
              "trunk/user/shared/src/bridge_membership_policy.h",
