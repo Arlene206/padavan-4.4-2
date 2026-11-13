@@ -67,9 +67,9 @@ jobs:
         run: sh -n trunk/user/frp/tests/frp_config.sh
       - name: Run FRP private config regression
         run: sh trunk/user/frp/tests/frp_config.sh
-      - name: Check FRP bounded stop regression shell syntax
+      - name: Check FRP exact process stop regression shell syntax
         run: sh -n trunk/user/frp/tests/frp_stop.sh
-      - name: Run FRP bounded stop regression
+      - name: Run FRP exact process identity and bounded stop regression
         run: sh trunk/user/frp/tests/frp_stop.sh
       - name: Check FRP lifecycle lock regression shell syntax
         run: sh -n trunk/user/frp/tests/frp_lock.sh

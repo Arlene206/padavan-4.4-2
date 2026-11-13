@@ -11,6 +11,13 @@ frp_dashboard_password='CHANGE_ME_TO_A_UNIQUE_PASSWORD'
 frp_runtime_dir='/tmp/frp'
 frp_client_tmp=
 frp_server_tmp=
+frp_client_backup=
+frp_server_backup=
+frp_client_had_original=0
+frp_server_had_original=0
+frp_client_published=0
+frp_server_published=0
+frp_preserve_config_backups=0
 
 frp_validate_credentials()
 {
@@ -159,20 +166,143 @@ frp_publish_staged_config()
 	return 0
 }
 
+frp_rollback_config_pair()
+{
+	frp_rollback_status=0
+	frp_client_target="$frp_runtime_dir/myfrpc.ini"
+	frp_server_target="$frp_runtime_dir/myfrps.ini"
+
+	if [ "$frp_client_had_original" = "1" ]; then
+		if mv -f "$frp_client_backup" "$frp_client_target"; then
+			frp_client_backup=
+		else
+			frp_rollback_status=1
+		fi
+	else
+		if [ "$frp_client_published" = "1" ] && ! rm -f "$frp_client_target"; then
+			frp_rollback_status=1
+		fi
+		if [ -n "$frp_client_backup" ]; then
+			rm -f "$frp_client_backup" || frp_rollback_status=1
+			[ "$frp_rollback_status" != "0" ] || frp_client_backup=
+		fi
+	fi
+
+	if [ "$frp_server_had_original" = "1" ]; then
+		if mv -f "$frp_server_backup" "$frp_server_target"; then
+			frp_server_backup=
+		else
+			frp_rollback_status=1
+		fi
+	else
+		if [ "$frp_server_published" = "1" ] && ! rm -f "$frp_server_target"; then
+			frp_rollback_status=1
+		fi
+		if [ -n "$frp_server_backup" ]; then
+			rm -f "$frp_server_backup" || frp_rollback_status=1
+			[ "$frp_rollback_status" != "0" ] || frp_server_backup=
+		fi
+	fi
+
+	if [ "$frp_rollback_status" != "0" ]; then
+		frp_preserve_config_backups=1
+		logger -t "frp" "FRP配置回滚未完全完成；保留私有备份供恢复。"
+		return 1
+	fi
+	return 0
+}
+
+# Back up both enabled targets before publishing either replacement. A failed
+# second rename restores the complete last-good pair or removes new files.
+frp_publish_enabled_configs()
+{
+	frp_client_target="$frp_runtime_dir/myfrpc.ini"
+	frp_server_target="$frp_runtime_dir/myfrps.ini"
+	frp_client_backup=
+	frp_server_backup=
+	frp_client_had_original=0
+	frp_server_had_original=0
+	frp_client_published=0
+	frp_server_published=0
+	frp_preserve_config_backups=0
+
+	if [ "$frpc_enable" = "1" ]; then
+		[ -n "$frp_client_tmp" ] && [ -f "$frp_client_tmp" ] &&
+			[ ! -L "$frp_client_tmp" ] || return 1
+		frp_validate_config_target "$frp_client_target" || return 1
+		frp_client_backup=$(mktemp "$frp_runtime_dir/.myfrpc.ini.backup.XXXXXX") || return 1
+		if [ -e "$frp_client_target" ] || [ -L "$frp_client_target" ]; then
+			if ! mv -f "$frp_client_target" "$frp_client_backup"; then
+				rm -f "$frp_client_backup"
+				frp_client_backup=
+				return 1
+			fi
+			frp_client_had_original=1
+		fi
+	fi
+
+	if [ "$frps_enable" = "1" ]; then
+		[ -n "$frp_server_tmp" ] && [ -f "$frp_server_tmp" ] &&
+			[ ! -L "$frp_server_tmp" ] || {
+				frp_rollback_config_pair
+				return 1
+			}
+		frp_validate_config_target "$frp_server_target" || {
+			frp_rollback_config_pair
+			return 1
+		}
+		frp_server_backup=$(mktemp "$frp_runtime_dir/.myfrps.ini.backup.XXXXXX") || {
+			frp_rollback_config_pair
+			return 1
+		}
+		if [ -e "$frp_server_target" ] || [ -L "$frp_server_target" ]; then
+			if ! mv -f "$frp_server_target" "$frp_server_backup"; then
+				frp_rollback_config_pair
+				return 1
+			fi
+			frp_server_had_original=1
+		fi
+	fi
+
+	if [ "$frpc_enable" = "1" ]; then
+		if ! frp_publish_staged_config "$frp_client_tmp" "$frp_client_target"; then
+			frp_rollback_config_pair
+			return 1
+		fi
+		frp_client_tmp=
+		frp_client_published=1
+	fi
+	if [ "$frps_enable" = "1" ]; then
+		if ! frp_publish_staged_config "$frp_server_tmp" "$frp_server_target"; then
+			frp_rollback_config_pair
+			return 1
+		fi
+		frp_server_tmp=
+		frp_server_published=1
+	fi
+
+	[ -z "$frp_client_backup" ] || rm -f "$frp_client_backup" || :
+	[ -z "$frp_server_backup" ] || rm -f "$frp_server_backup" || :
+	frp_client_backup=
+	frp_server_backup=
+	return 0
+}
+
 frp_cleanup_config_stages()
 {
 	[ -z "$frp_client_tmp" ] || rm -f "$frp_client_tmp"
 	[ -z "$frp_server_tmp" ] || rm -f "$frp_server_tmp"
+	if [ "$frp_preserve_config_backups" != "1" ]; then
+		[ -z "$frp_client_backup" ] || rm -f "$frp_client_backup"
+		[ -z "$frp_server_backup" ] || rm -f "$frp_server_backup"
+	fi
 }
 
 trap 'frp_cleanup_config_stages' 0
 trap 'exit 1' HUP INT TERM
 
-# A disabled FRP installation must not recreate configs or restart daemons.
-if [ "$frpc_enable" != "1" ] && [ "$frps_enable" != "1" ]; then
-	killall frpc frps
-	exit 0
-fi
+# The serialized launcher owns stop-before-start and disabled cleanup.
+# Do not signal by comm name here: only frp.sh stops exact owned argv.
 
 if ! frp_validate_credentials; then
 	logger -t "frp" "FRP令牌或Dashboard凭据仍为示例值或不符合安全格式，拒绝启动。"
@@ -206,23 +336,12 @@ if [ "$frps_enable" = "1" ]; then
 	}
 fi
 
-if [ "$frpc_enable" = "1" ]; then
-	frp_publish_staged_config "$frp_client_tmp" "$frp_runtime_dir/myfrpc.ini" || {
-		logger -t "frp" "FRPC配置原子发布失败，拒绝重启服务。"
-		exit 1
-	}
-	frp_client_tmp=
-fi
-if [ "$frps_enable" = "1" ]; then
-	frp_publish_staged_config "$frp_server_tmp" "$frp_runtime_dir/myfrps.ini" || {
-		logger -t "frp" "FRPS配置原子发布失败，拒绝重启服务。"
-		exit 1
-	}
-	frp_server_tmp=
+if ! frp_publish_enabled_configs; then
+	logger -t "frp" "FRP配置对发布失败，拒绝启动服务。"
+	exit 1
 fi
 
-# Only restart daemons after all enabled configs have been staged and published.
-killall frpc frps
+# The lifecycle-locked launcher has already stopped exact owned daemons.
 if [ "$frpc_enable" = "1" ]; then
 	frpc -c "$frp_runtime_dir/myfrpc.ini" 2>&1 &
 fi

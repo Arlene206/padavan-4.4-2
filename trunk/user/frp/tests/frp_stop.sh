@@ -1,5 +1,5 @@
 #!/bin/sh
-# Host regression for FRP stop postconditions and RC restart safety.
+# Host regression for FRP exact process identity and bounded stop postconditions.
 set -eu
 repo_root=$(CDPATH= cd -- "$(dirname "$0")/../../../.." && pwd)
 test_root=$(mktemp -d /tmp/frp-stop-test.XXXXXX)
@@ -23,46 +23,55 @@ set -- __test_source__
 
 FRP_CRON_ROOT="$test_root/cron"
 FRP_CRONTAB_DIR="$FRP_CRON_ROOT/crontabs"
-mkdir -p "$FRP_CRONTAB_DIR"
+FRP_PROC_ROOT="$test_root/proc"
+mkdir -p "$FRP_CRONTAB_DIR" "$FRP_PROC_ROOT"
 http_username=root
 crontab="$FRP_CRONTAB_DIR/root"
 watchdog_line='*/1 * * * * /bin/sh /usr/bin/frp.sh C >/dev/null 2>&1'
 SIGNAL_LOG="$test_root/signals.log"
 
-CLIENT_RUNNING=0
-SERVER_RUNNING=0
 TERM_CLIENT_STOP=1
 TERM_SERVER_STOP=1
 KILL_CLIENT_STOP=1
 KILL_SERVER_STOP=1
 SLEEP_CALLS=0
+KILLALL_CALLS=0
 
-pidof()
+add_process()
 {
-	case "$1" in
-		frpc) [ "$CLIENT_RUNNING" = "1" ] && printf '101\n' ;;
-		frps) [ "$SERVER_RUNNING" = "1" ] && printf '102\n' ;;
+	pid="$1"
+	service="$2"
+	config="$3"
+	mkdir -p "$FRP_PROC_ROOT/$pid"
+	printf '/usr/bin/%s\000-c\000%s\000' "$service" "$config" > "$FRP_PROC_ROOT/$pid/cmdline"
+}
+remove_process()
+{
+	rm -f "$FRP_PROC_ROOT/$1/cmdline"
+}
+process_exists()
+{
+	[ -r "$FRP_PROC_ROOT/$1/cmdline" ] &&
+		[ -s "$FRP_PROC_ROOT/$1/cmdline" ]
+}
+kill()
+{
+	signal="$1"
+	pid="$2"
+	printf '%s:%s\n' "$signal" "$pid" >> "$SIGNAL_LOG"
+	case "$signal:$pid" in
+		-TERM:101) [ "$TERM_CLIENT_STOP" = "1" ] && remove_process 101 ;;
+		-TERM:102) [ "$TERM_SERVER_STOP" = "1" ] && remove_process 102 ;;
+		-KILL:101) [ "$KILL_CLIENT_STOP" = "1" ] && remove_process 101 ;;
+		-KILL:102) [ "$KILL_SERVER_STOP" = "1" ] && remove_process 102 ;;
+		*) return 2 ;;
 	esac
 	return 0
 }
 killall()
 {
-	case "$1" in
-		-TERM) signal=TERM ;;
-		-KILL) signal=KILL ;;
-		*) echo "unexpected killall syntax: $*" >&2; return 2 ;;
-	esac
-	shift
-	for target in "$@"; do
-		printf '%s:%s\n' "$signal" "$target" >> "$SIGNAL_LOG"
-		case "$signal:$target" in
-			TERM:frpc) if [ "$TERM_CLIENT_STOP" = "1" ]; then CLIENT_RUNNING=0; fi ;;
-			TERM:frps) if [ "$TERM_SERVER_STOP" = "1" ]; then SERVER_RUNNING=0; fi ;;
-			KILL:frpc) if [ "$KILL_CLIENT_STOP" = "1" ]; then CLIENT_RUNNING=0; fi ;;
-			KILL:frps) if [ "$KILL_SERVER_STOP" = "1" ]; then SERVER_RUNNING=0; fi ;;
-		esac
-	done
-	return 0
+	KILLALL_CALLS=$((KILLALL_CALLS + 1))
+	return 97
 }
 sleep()
 {
@@ -77,6 +86,11 @@ setup_crontab()
 	: > "$SIGNAL_LOG"
 	SLEEP_CALLS=0
 }
+clear_processes()
+{
+	rm -rf "$FRP_PROC_ROOT"
+	mkdir -p "$FRP_PROC_ROOT"
+}
 expect_operator_cron_preserved()
 {
 	grep -Fqx 'SHELL=/bin/sh' "$crontab" || fail "crontab SHELL setting was lost"
@@ -90,64 +104,76 @@ expect_watchdog_removed()
 	fi
 }
 
-# Stop must terminate both daemons even while both boot flags remain enabled.
+# Stop must terminate exact-config daemons even while both boot flags remain enabled.
 setup_crontab
-frpc_enable=1
-frps_enable=1
-CLIENT_RUNNING=1
-SERVER_RUNNING=1
-TERM_CLIENT_STOP=1
-TERM_SERVER_STOP=1
+add_process 101 frpc /tmp/frp/myfrpc.ini
+add_process 102 frps /tmp/frp/myfrps.ini
 frp_close || fail "graceful stop failed"
-[ "$CLIENT_RUNNING" = "0" ] || fail "enabled FRPC survived stop"
-[ "$SERVER_RUNNING" = "0" ] || fail "enabled FRPS survived stop"
-grep -Fqx 'TERM:frpc' "$SIGNAL_LOG" || fail "FRPC did not receive TERM"
-grep -Fqx 'TERM:frps' "$SIGNAL_LOG" || fail "FRPS did not receive TERM"
-if grep -Fq 'KILL:' "$SIGNAL_LOG"; then fail "graceful stop escalated unnecessarily"; fi
+process_exists 101 && fail "FRPC survived stop"
+process_exists 102 && fail "FRPS survived stop"
+grep -Fqx -- '-TERM:101' "$SIGNAL_LOG" || fail "FRPC did not receive TERM"
+grep -Fqx -- '-TERM:102' "$SIGNAL_LOG" || fail "FRPS did not receive TERM"
+if grep -Fq -- '-KILL:' "$SIGNAL_LOG"; then fail "graceful stop escalated unnecessarily"; fi
 [ "$SLEEP_CALLS" -eq 0 ] || fail "graceful stop waited unnecessarily"
+[ "$KILLALL_CALLS" -eq 0 ] || fail "name-based killall was invoked"
 expect_watchdog_removed
 expect_operator_cron_preserved
 
 # A daemon ignoring TERM is escalated to KILL after five bounded polls.
 setup_crontab
-CLIENT_RUNNING=1
-SERVER_RUNNING=1
+clear_processes
+add_process 101 frpc /tmp/frp/myfrpc.ini
+add_process 102 frps /tmp/frp/myfrps.ini
 TERM_CLIENT_STOP=1
 TERM_SERVER_STOP=0
 KILL_SERVER_STOP=1
 frp_close || fail "stop did not escalate after TERM timeout"
-[ "$CLIENT_RUNNING" = "0" ] || fail "FRPC survived graceful TERM"
-[ "$SERVER_RUNNING" = "0" ] || fail "FRPS survived KILL escalation"
-grep -Fqx 'KILL:frps' "$SIGNAL_LOG" || fail "FRPS was not escalated to KILL"
+process_exists 101 && fail "FRPC survived graceful TERM"
+process_exists 102 && fail "FRPS survived KILL escalation"
+grep -Fqx -- '-KILL:102' "$SIGNAL_LOG" || fail "FRPS was not escalated to KILL"
 [ "$SLEEP_CALLS" -eq 5 ] || fail "TERM timeout was not bounded to five polls"
 expect_watchdog_removed
 expect_operator_cron_preserved
 
 # A process surviving both TERM and KILL must make stop return failure.
 setup_crontab
-CLIENT_RUNNING=0
-SERVER_RUNNING=1
+clear_processes
+add_process 102 frps /tmp/frp/myfrps.ini
 TERM_SERVER_STOP=0
 KILL_SERVER_STOP=0
 if frp_close; then fail "stubborn FRPS stop was reported successful"; fi
-[ "$SERVER_RUNNING" = "1" ] || fail "stubborn process fixture unexpectedly exited"
+process_exists 102 || fail "stubborn process fixture unexpectedly exited"
 [ "$SLEEP_CALLS" -eq 7 ] || fail "stop exceeded its five-plus-two poll bound"
 expect_watchdog_removed
 expect_operator_cron_preserved
 
-# Even if cron publication fails, attempt to stop daemons and report failure.
+# Same-name processes with another config or extra argv are not owned by FRP.
 setup_crontab
-CLIENT_RUNNING=1
-SERVER_RUNNING=0
+clear_processes
+mkdir -p "$FRP_PROC_ROOT/201" "$FRP_PROC_ROOT/202" "$FRP_PROC_ROOT/203"
+printf '/usr/bin/frpc\000-c\000/tmp/frp/operator.ini\000' > "$FRP_PROC_ROOT/201/cmdline"
+printf '/usr/bin/frps\000-c\000/tmp/frp/myfrps.ini\000--unexpected\000' > "$FRP_PROC_ROOT/202/cmdline"
+printf '/usr/bin/frpc-wrapper\000-c\000/tmp/frp/myfrpc.ini\000' > "$FRP_PROC_ROOT/203/cmdline"
+frp_close || fail "unowned same-name decoys made FRP stop fail"
+[ ! -s "$SIGNAL_LOG" ] || fail "unowned process received a signal"
+process_exists 201 || fail "wrong-config FRPC decoy was altered"
+process_exists 202 || fail "extra-argv FRPS decoy was altered"
+process_exists 203 || fail "wrong-executable FRPC decoy was altered"
+[ "$KILLALL_CALLS" -eq 0 ] || fail "name-based killall was invoked"
+
+# Even if cron publication fails, attempt to stop owned daemons and report failure.
+setup_crontab
+clear_processes
+add_process 101 frpc /tmp/frp/myfrpc.ini
 TERM_CLIENT_STOP=1
 mv() { return 1; }
 if frp_close; then fail "failed watchdog removal was reported successful"; fi
 unset -f mv
-[ "$CLIENT_RUNNING" = "0" ] || fail "cron error prevented daemon termination"
+process_exists 101 && fail "cron error prevented daemon termination"
 grep -Fqx "$watchdog_line" "$crontab" ||
 	fail "failed cron removal unexpectedly replaced the published crontab"
 expect_operator_cron_preserved
 
-echo "FRP stop terminates enabled daemons and removes only its watchdog: PASS"
+echo "FRP stop matches exact daemon argv and preserves same-name decoys: PASS"
 echo "FRP stop escalates TERM to KILL within a bounded interval: PASS"
 echo "FRP stop reports stubborn processes and cron cleanup failures: PASS"

@@ -7,22 +7,20 @@ FRP_CRON_ROOT="/etc/storage/cron"
 FRP_CRONTAB_DIR="$FRP_CRON_ROOT/crontabs"
 FRP_WATCHDOG_CRON='*/1 * * * * /bin/sh /usr/bin/frp.sh C >/dev/null 2>&1'
 
-check_frp () 
+check_frp ()
 {
 	check_net
 	result_net=$?
 	if [ "$result_net" = "1" ]; then
-		# frp_script.sh restarts both enabled daemons. Decide once after checking
-		# every enabled service: background startup may not expose either PID yet.
 		need_start=0
-		if [ "$frpc_enable" = "1" ] && [ -z "$(pidof frpc)" ]; then
+		if [ "$frpc_enable" = "1" ] && ! frp_service_running frpc; then
 			need_start=1
 		fi
-		if [ "$frps_enable" = "1" ] && [ -z "$(pidof frps)" ]; then
+		if [ "$frps_enable" = "1" ] && ! frp_service_running frps; then
 			need_start=1
 		fi
 		if [ "$need_start" = "1" ]; then
-			frp_start
+			frp_start || return $?
 		fi
 	fi
 	return 0
@@ -35,6 +33,81 @@ check_net()
 	fi
 	logger -t "frp" "检测到互联网未能成功访问,稍后再尝试启动frp"
 	return 2
+}
+
+
+# Paths are fixed in production. Tests replace FRP_PROC_ROOT after sourcing.
+FRP_RUNTIME_DIR='/tmp/frp'
+FRP_PROC_ROOT='/proc'
+FRP_START_WAIT_ATTEMPTS=5
+
+frp_service_config_path()
+{
+	case "$1" in
+		frpc) printf '%s\n' "$FRP_RUNTIME_DIR/myfrpc.ini" ;;
+		frps) printf '%s\n' "$FRP_RUNTIME_DIR/myfrps.ini" ;;
+		*) return 1 ;;
+	esac
+}
+
+# Match the complete argv tuple, not a process comm name. On Linux 4.4 there
+# is no pidfd; callers re-read cmdline immediately before each PID signal.
+frp_process_matches()
+{
+	frp_match_pid="$1"
+	frp_match_service="$2"
+	case "$frp_match_pid" in
+		''|0|1|*[!0-9]*) return 1 ;;
+	esac
+	frp_match_config=$(frp_service_config_path "$frp_match_service") || return 1
+	frp_match_cmdline="$FRP_PROC_ROOT/$frp_match_pid/cmdline"
+	[ -r "$frp_match_cmdline" ] && [ -f "$frp_match_cmdline" ] || return 1
+
+	tr '\000' '\n' < "$frp_match_cmdline" 2>/dev/null |
+		awk -v expected="$frp_match_service" -v config="$frp_match_config" '
+			NR == 1 {
+				executable = $0
+				sub(/^.*\//, "", executable)
+				if (executable != expected)
+					invalid = 1
+				next
+			}
+			NR == 2 {
+				if ($0 != "-c")
+					invalid = 1
+				next
+			}
+			NR == 3 {
+				if ($0 != config)
+					invalid = 1
+				next
+			}
+			{ invalid = 1 }
+			END {
+				if (NR == 3 && !invalid)
+					exit 0
+				exit 1
+			}
+		'
+}
+
+frp_service_pids()
+{
+	frp_scan_service="$1"
+	frp_service_config_path "$frp_scan_service" >/dev/null || return 1
+	for frp_proc_dir in "$FRP_PROC_ROOT"/[0-9]*; do
+		[ -d "$frp_proc_dir" ] || continue
+		frp_scan_pid=$(printf '%s\n' "$frp_proc_dir" | sed 's|.*/||')
+		case "$frp_scan_pid" in ''|*[!0-9]*) continue ;; esac
+		if frp_process_matches "$frp_scan_pid" "$frp_scan_service"; then
+			printf '%s\n' "$frp_scan_pid"
+		fi
+	done
+}
+
+frp_service_running()
+{
+	[ -n "$(frp_service_pids "$1")" ]
 }
 
 frp_run_script()
@@ -113,35 +186,75 @@ frp_manage_watchdog_cron()
 	)
 }
 
-frp_start () 
+frp_wait_started()
+{
+	frp_start_attempt=0
+	while [ "$frp_start_attempt" -lt "$FRP_START_WAIT_ATTEMPTS" ]; do
+		frp_start_ready=1
+		if [ "$frpc_enable" = "1" ] && ! frp_service_running frpc; then
+			frp_start_ready=0
+		fi
+		if [ "$frps_enable" = "1" ] && ! frp_service_running frps; then
+			frp_start_ready=0
+		fi
+		[ "$frp_start_ready" = "1" ] && return 0
+		frp_start_attempt=$((frp_start_attempt + 1))
+		if [ "$frp_start_attempt" -lt "$FRP_START_WAIT_ATTEMPTS" ]; then
+			sleep 1
+		fi
+	done
+	return 1
+}
+
+frp_start ()
 {
 	if [ "$frpc_enable" = "0" ] && [ "$frps_enable" = "0" ]; then
-		# RC/UI restart still calls start when both roles are disabled.
-		# Reuse stop cleanup and do not publish an idle watchdog or run user code.
 		frp_close
 		return $?
+	fi
+
+	if ! frp_stop_daemons; then
+		logger -t "frp" "旧FRP进程未能安全停止，拒绝启动替代实例。"
+		return 1
 	fi
 	if ! frp_run_script; then
 		logger -t "frp" "FRP启动脚本执行失败，保留现有crontab。"
 		return 1
 	fi
-	if ! frp_manage_watchdog_cron add; then
-		logger -t "frp" "FRP watchdog任务未能安全写入crontab。"
+	if ! frp_wait_started; then
+		logger -t "frp" "FRP守护进程未在有界时间内就绪，拒绝报告启动成功。"
+		frp_stop_daemons || logger -t "frp" "FRP启动失败后的残留进程清理未完成。"
 		return 1
 	fi
-	[ ! -z "\`pidof frpc\`" ] && logger -t "frp" "frpc启动成功"
-	[ ! -z "\`pidof frps\`" ] && logger -t "frp" "frps启动成功"
+	if ! frp_manage_watchdog_cron add; then
+		logger -t "frp" "FRP watchdog任务未能安全写入crontab。"
+		frp_stop_daemons || logger -t "frp" "crontab失败后的FRP进程清理未完成。"
+		return 1
+	fi
+	[ "$frpc_enable" != "1" ] || logger -t "frp" "frpc启动成功"
+	[ "$frps_enable" != "1" ] || logger -t "frp" "frps启动成功"
 	return 0
 }
 
 frp_any_running()
 {
-	[ -n "$(pidof frpc)" ] || [ -n "$(pidof frps)" ]
+	frp_service_running frpc || frp_service_running frps
 }
 
+# Revalidate each process immediately before signalling. This narrows, but on
+# Linux 4.4 cannot eliminate, PID reuse between /proc inspection and kill(2).
 frp_signal_all()
 {
-	killall "-$1" frpc frps >/dev/null 2>&1 || :
+	frp_signal="$1"
+	case "$frp_signal" in TERM|KILL) ;; *) return 1 ;; esac
+	for frp_signal_service in frpc frps; do
+		frp_signal_pids=$(frp_service_pids "$frp_signal_service") || return 1
+		for frp_signal_pid in $frp_signal_pids; do
+			frp_process_matches "$frp_signal_pid" "$frp_signal_service" || continue
+			kill "-$frp_signal" "$frp_signal_pid" >/dev/null 2>&1 || :
+		done
+	done
+	return 0
 }
 
 frp_wait_stopped()
@@ -156,32 +269,31 @@ frp_wait_stopped()
 	! frp_any_running
 }
 
+frp_stop_daemons()
+{
+	if frp_any_running; then
+		frp_signal_all TERM || return 1
+		if ! frp_wait_stopped 5; then
+			frp_signal_all KILL || return 1
+			if ! frp_wait_stopped 2; then
+				logger -t "frp" "匹配配置的FRP进程在有界TERM/KILL后仍未退出。"
+				return 1
+			fi
+		fi
+	fi
+	return 0
+}
+
 frp_close ()
 {
 	frp_close_status=0
-
-	# Remove the watchdog before stopping daemons, regardless of boot-enable
-	# flags. stop_services() also runs during reboot and firmware upgrade.
 	if ! frp_manage_watchdog_cron remove; then
 		logger -t "frp" "无法安全移除FRP watchdog crontab任务。"
 		frp_close_status=1
 	fi
-
-	if frp_any_running; then
-		frp_signal_all TERM
-		if ! frp_wait_stopped 5; then
-			frp_signal_all KILL
-			if ! frp_wait_stopped 2; then
-				logger -t "frp" "FRP进程在有界TERM/KILL后仍未退出，停止操作失败。"
-				frp_close_status=1
-			fi
-		fi
-	fi
-
+	frp_stop_daemons || frp_close_status=1
 	return "$frp_close_status"
 }
-
-
 
 frp_refresh_nvram_state()
 {

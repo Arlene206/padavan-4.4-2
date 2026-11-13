@@ -15,6 +15,8 @@ tr -d '\r' < "$repo_root/trunk/user/frp/frp_script.sh" |
 	-e '/^frp_stage_client_config()$/,/^}/p' \
 	-e '/^frp_stage_server_config()$/,/^}/p' \
 	-e '/^frp_publish_staged_config()$/,/^}/p' \
+	-e '/^frp_rollback_config_pair()$/,/^}/p' \
+	-e '/^frp_publish_enabled_configs()$/,/^}/p' \
 	-e '/^frp_cleanup_config_stages()$/,/^}/p' > "$test_root/helpers.sh"
 . "$test_root/helpers.sh"
 
@@ -31,6 +33,13 @@ frp_dashboard_user='frp_operator'
 frp_dashboard_password='A9b2C4d6E8f0G1h3J5k7'
 frp_client_tmp=
 frp_server_tmp=
+frp_client_backup=
+frp_server_backup=
+frp_client_had_original=0
+frp_server_had_original=0
+frp_client_published=0
+frp_server_published=0
+frp_preserve_config_backups=0
 frp_runtime_dir="$test_root/runtime"
 
 # Reject the example/default credentials before creating any config.
@@ -132,6 +141,55 @@ frp_client_tmp=
 [ "$(cat "$frp_runtime_dir/myfrpc.ini")" = "last-good client config" ] ||
 	fail "failed rename damaged last-good client config"
 
+# A failure of the second publish rename must restore both last-good files.
+printf 'last-good client pair\n' > "$frp_runtime_dir/myfrpc.ini"
+printf 'last-good server pair\n' > "$frp_runtime_dir/myfrps.ini"
+frp_client_tmp=
+frp_server_tmp=
+frp_stage_client_config || fail "paired client staging failed"
+frp_stage_server_config || fail "paired server staging failed"
+MV_CALLS=0
+mv()
+{
+	MV_CALLS=$((MV_CALLS + 1))
+	if [ "$MV_CALLS" -eq 4 ]; then
+		return 1
+	fi
+	command mv "$@"
+}
+if frp_publish_enabled_configs; then
+	fail "second config rename failure was reported as success"
+fi
+unset -f mv
+[ "$(cat "$frp_runtime_dir/myfrpc.ini")" = "last-good client pair" ] ||
+	fail "second rename failure did not restore the client config"
+[ "$(cat "$frp_runtime_dir/myfrps.ini")" = "last-good server pair" ] ||
+	fail "second rename failure did not restore the server config"
+[ "$frp_preserve_config_backups" = "0" ] ||
+	fail "successful rollback incorrectly retained recovery backups"
+
+# When neither old file existed, failed publication must remove the new file.
+rm -f "$frp_runtime_dir/myfrpc.ini" "$frp_runtime_dir/myfrps.ini"
+frp_stage_client_config || fail "absent-pair client staging failed"
+frp_stage_server_config || fail "absent-pair server staging failed"
+MV_CALLS=0
+mv()
+{
+	MV_CALLS=$((MV_CALLS + 1))
+	if [ "$MV_CALLS" -eq 4 ]; then
+		return 1
+	fi
+	command mv "$@"
+}
+if frp_publish_enabled_configs; then
+	fail "second rename failure for absent pair was reported as success"
+fi
+unset -f mv
+[ ! -e "$frp_runtime_dir/myfrpc.ini" ] ||
+	fail "rollback left a newly-created client config"
+[ ! -e "$frp_runtime_dir/myfrps.ini" ] ||
+	fail "rollback left a newly-created server config"
+
 # Refuse a symlink or non-regular live config target without touching its referent.
 rm -f "$frp_runtime_dir/myfrpc.ini"
 printf 'untouched referent\n' > "$test_root/referent"
@@ -149,5 +207,7 @@ fi
 
 frp_cleanup_config_stages
 echo "FRP private runtime directory and credential config publication: PASS"
+echo "FRP paired second-rename failure restores existing last-good configs: PASS"
+echo "FRP paired second-rename failure removes originally absent configs: PASS"
 echo "FRP failed staging/rename preserves last-good config: PASS"
 echo "FRP rejects symlink and non-regular runtime paths: PASS"

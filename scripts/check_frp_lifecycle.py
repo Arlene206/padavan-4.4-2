@@ -79,8 +79,13 @@ require(disabled_guard in start and
         start.index(disabled_guard) < start.index("frp_run_script") and
         "frp_close" in start[start.index(disabled_guard):start.index("frp_run_script")],
         "a start request with both FRP roles disabled must clean up without running user code")
-require(start.index("frp_run_script") < start.index("frp_manage_watchdog_cron add"),
-        "do not publish a watchdog when the configured FRP start script fails")
+require(start.index("frp_stop_daemons") < start.index("frp_run_script") <
+        start.index("frp_wait_started") < start.index("frp_manage_watchdog_cron add"),
+        "FRP start must stop owned daemons, launch, verify bounded readiness, then publish watchdog")
+require("FRP_START_WAIT_ATTEMPTS=5" in source and
+        "frp_service_running frpc" in function_body(source, "frp_wait_started()") and
+        "frp_service_running frps" in function_body(source, "frp_wait_started()"),
+        "FRP enabled daemons must satisfy the bounded startup readiness postcondition")
 close = function_body(source, "frp_close ()")
 require("frp_manage_watchdog_cron remove" in close,
         "disabling both services must remove the exact managed watchdog")
@@ -172,13 +177,15 @@ require(network.index('logger -t "frp"') < network.index("return 2"),
         "WAN failure log must not be unreachable after return")
 
 for marker in (
-    'expect_start_count "both enabled services missing" 1',
-    'expect_start_count "client missing" 1',
-    'expect_start_count "server missing" 1',
-    'expect_start_count "both services alive" 0',
-    'expect_start_count "all services disabled" 0',
-    'expect_start_count "WAN unavailable" 0',
-    "Deliberately leave both PIDs absent",
+    'expect_check_start "both enabled services missing" 1',
+    'expect_check_start "client missing" 1',
+    'expect_check_start "server missing" 1',
+    'expect_check_start "both services alive" 0',
+    'expect_check_start "all services disabled" 0',
+    'expect_check_start "WAN unavailable" 0',
+    "FRP asynchronous daemon startup uses bounded readiness",
+    "Partial startup times out",
+    "wrong-config process is not alive FRPC",
 ):
     require(marker in test, f"missing asynchronous lifecycle regression: {marker}")
 
@@ -216,14 +223,28 @@ require('[ -L "$frp_script_path" ]' in run_script and
 # Shutdown/reboot must stop both daemons regardless of their enable flags.
 close = function_body(source, "frp_close ()")
 require("frp_manage_watchdog_cron remove" in close and
-        close.index("frp_manage_watchdog_cron remove") < close.index("frp_signal_all TERM") and
-        "frp_wait_stopped 5" in close and
-        "frp_signal_all KILL" in close and "frp_wait_stopped 2" in close and
-        "frp_close_status" in close and "frpc_enable" not in close and
-        "frps_enable" not in close,
-        "FRP close must remove its watchdog and confirm both daemon exits with bounded TERM/KILL, independent of enable flags")
-require("frp_any_running" in source and 'killall "-$1" frpc frps' in source,
-        "FRP shutdown must signal only its daemon processes")
+        "frp_stop_daemons" in close and "frp_close_status" in close and
+        "frpc_enable" not in close and "frps_enable" not in close,
+        "FRP close must remove its watchdog and stop exact owned processes, independent of enable flags")
+require("frp_any_running" in source and "frp_service_pids" in source and
+        "frp_process_matches" in source and 'kill "-$frp_signal" "$frp_signal_pid"' in source and
+        "killall" not in source and "pidof frpc" not in source and "pidof frps" not in source,
+        "FRP shutdown and watchdog must use exact argv identity and never broad comm-name signals")
+process_match = function_body(source, "frp_process_matches()")
+for marker in ('$FRP_PROC_ROOT/$frp_match_pid/cmdline', "tr '\\000' '\\n'",
+               'sub(/^.*\\//, "", executable)', 'executable != expected',
+               '$0 != "-c"', '$0 != config', "NR == 3"):
+    require(marker in process_match, f"FRP process identity check omits {marker}")
+signal_body = function_body(source, "frp_signal_all()")
+require("frp_process_matches" in signal_body and
+        'kill "-$frp_signal" "$frp_signal_pid"' in signal_body,
+        "each FRP PID must be revalidated immediately before signalling")
+require("killall" not in frp_template and "pidof" not in frp_template,
+        "persistent FRP config script must not signal by broad process name")
+stop_daemons = function_body(source, "frp_stop_daemons()")
+require("frp_signal_all TERM" in stop_daemons and "frp_wait_stopped 5" in stop_daemons and
+        "frp_signal_all KILL" in stop_daemons and "frp_wait_stopped 2" in stop_daemons,
+        "FRP owned-daemon stop must retain bounded TERM/KILL postconditions")
 stop = function_body(services, "void stop_frp(void)")
 start = function_body(services, "void start_frp(void)")
 restart = function_body(services, "void restart_frp(void)")
@@ -235,9 +256,10 @@ require('eval("/usr/bin/frp.sh","restart")' in restart and
         'eval("/usr/bin/frp.sh","stop")' not in restart and
         'eval("/usr/bin/frp.sh","start")' not in restart,
         "RC restart must use the serialized launcher action and preserve the stop-before-start gate")
-for marker in ("enabled FRPC survived stop", "enabled FRPS survived stop",
-               "KILL escalation", "stubborn FRPS", "cron removal",
-               "five-plus-two poll bound"):
+for marker in ("FRPC survived stop", "FRPS survived stop",
+               "KILL escalation", "stubborn FRPS", "failed cron removal",
+               "five-plus-two poll bound", "same-name decoys",
+               "name-based killall was invoked"):
     require(marker in stop_test, f"FRP stop regression omits {marker}")
 
 # FRP private configuration must not be exposed as a world-readable script.
@@ -301,8 +323,19 @@ require("frp_validate_config_target" in publish and
         'mv -f "$frp_stage_path" "$frp_config_target"' in publish and
         '[ ! -L "$frp_stage_path" ]' in publish,
         "FRP config publication must reject unsafe targets and atomically rename a private staged file")
+publish_pair = function_body(frp_template, "frp_publish_enabled_configs()")
+rollback_pair = function_body(frp_template, "frp_rollback_config_pair()")
+require("frp_client_backup" in publish_pair and "frp_server_backup" in publish_pair and
+        "frp_rollback_config_pair" in publish_pair and
+        publish_pair.index("frp_publish_staged_config") < publish_pair.rindex("frp_publish_staged_config"),
+        "FRP client/server configs must publish through one pair transaction with rollback")
+require("frp_client_had_original" in rollback_pair and
+        "frp_server_had_original" in rollback_pair and
+        "frp_preserve_config_backups=1" in rollback_pair,
+        "FRP pair rollback must restore old files and preserve backups if recovery fails")
 for marker in ("FRP private runtime directory and credential config publication: PASS",
-               "FRP failed staging/rename preserves last-good config: PASS",
+               "FRP paired second-rename failure restores existing last-good configs: PASS",
+               "FRP paired second-rename failure removes originally absent configs: PASS",
                "FRP rejects symlink and non-regular runtime paths: PASS"):
     require(marker in frp_config_test, f"FRP config regression omits {marker}")
 print("FRP asynchronous restart, private credential storage and workflow contracts: PASS")

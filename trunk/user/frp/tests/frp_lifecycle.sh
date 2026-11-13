@@ -1,7 +1,9 @@
 #!/bin/sh
-# Host regression for FRP's asynchronous watchdog restart decision.
-set -u
+# Host regression for FRP exact process state and asynchronous start readiness.
+set -eu
 repo_root=$(CDPATH= cd -- "$(dirname "$0")/../../../.." && pwd)
+test_root=$(mktemp -d /tmp/frp-lifecycle-test.XXXXXX)
+trap 'rm -rf "$test_root"' EXIT HUP INT TERM
 
 TEST_FRPC_ENABLE=1
 TEST_FRPS_ENABLE=1
@@ -15,91 +17,196 @@ nvram()
 		*) printf '\n' ;;
 	esac
 }
+logger() { :; }
 set -- __test_source__
 . "$repo_root/trunk/user/frp/frp.sh" __test_source__
 
-# check_net uses legacy status 1 for online and 2 for offline. Keep this
-# fixture deterministic while exercising the real check_frp dispatch logic.
+FRP_PROC_ROOT="$test_root/proc"
+mkdir -p "$FRP_PROC_ROOT"
 NETWORK_RESULT=1
-check_net()
+check_net() { return "$NETWORK_RESULT"; }
+LAUNCH_CALLS=0
+WATCHDOG_ADDS=0
+WATCHDOG_REMOVES=0
+SLEEP_CALLS=0
+TEST_LAUNCH_MODE=immediate
+CLIENT_TERM=1
+SERVER_TERM=1
+
+add_process()
 {
-	return "$NETWORK_RESULT"
+	pid="$1"
+	service="$2"
+	config="$3"
+	mkdir -p "$FRP_PROC_ROOT/$pid"
+	printf '/usr/bin/%s\000-c\000%s\000' "$service" "$config" > "$FRP_PROC_ROOT/$pid/cmdline"
 }
-CLIENT_PID=
-SERVER_PID=
-pidof()
+remove_process()
 {
-	case "$1" in
-		frpc) [ -n "$CLIENT_PID" ] && printf '%s\n' "$CLIENT_PID" ;;
-		frps) [ -n "$SERVER_PID" ] && printf '%s\n' "$SERVER_PID" ;;
+	rm -f "$FRP_PROC_ROOT/$1/cmdline"
+}
+clear_processes()
+{
+	rm -rf "$FRP_PROC_ROOT"
+	mkdir -p "$FRP_PROC_ROOT"
+}
+kill()
+{
+	signal="$1"
+	pid="$2"
+	case "$signal:$pid" in
+		-TERM:301) [ "$CLIENT_TERM" = "1" ] && remove_process 301 ;;
+		-TERM:302) [ "$SERVER_TERM" = "1" ] && remove_process 302 ;;
+		-KILL:301) remove_process 301 ;;
+		-KILL:302) remove_process 302 ;;
+		*) return 2 ;;
 	esac
 	return 0
 }
-START_CALLS=0
-frp_start()
+sleep()
 {
-	START_CALLS=$((START_CALLS + 1))
-	# Deliberately leave both PIDs absent: frp_script.sh backgrounds both
-	# daemons, so pidof may not observe either before the parent returns.
+	SLEEP_CALLS=$((SLEEP_CALLS + 1))
+	if [ "$TEST_LAUNCH_MODE" = delayed ] && [ "$SLEEP_CALLS" -eq 2 ]; then
+		add_process 301 frpc /tmp/frp/myfrpc.ini
+		add_process 302 frps /tmp/frp/myfrps.ini
+	fi
 	return 0
 }
-fail()
+frp_run_script()
 {
-	printf 'FAIL: %s\n' "$1" >&2
-	exit 1
+	LAUNCH_CALLS=$((LAUNCH_CALLS + 1))
+	case "$TEST_LAUNCH_MODE" in
+		immediate)
+			[ "$frpc_enable" != "1" ] || add_process 301 frpc /tmp/frp/myfrpc.ini
+			[ "$frps_enable" != "1" ] || add_process 302 frps /tmp/frp/myfrps.ini
+			;;
+		delayed) : ;;
+		partial)
+			[ "$frpc_enable" != "1" ] || add_process 301 frpc /tmp/frp/myfrpc.ini
+			;;
+		*) return 2 ;;
+	esac
+	return 0
 }
-expect_start_count()
+frp_manage_watchdog_cron()
 {
-	label=$1
-	expected=$2
-	check_frp
-	[ "$START_CALLS" -eq "$expected" ] ||
-		fail "$label: expected $expected frp_start call(s), got $START_CALLS"
+	case "$1" in
+		add) WATCHDOG_ADDS=$((WATCHDOG_ADDS + 1)) ;;
+		remove) WATCHDOG_REMOVES=$((WATCHDOG_REMOVES + 1)) ;;
+		*) return 2 ;;
+	esac
+	return 0
+}
+fail() { echo "FRP lifecycle regression: FAIL: $*" >&2; exit 1; }
+expect_check_start()
+{
+	label="$1"
+	expected="$2"
+	check_frp || fail "$label: check_frp propagated a launch failure"
+	[ "$LAUNCH_CALLS" -eq "$expected" ] ||
+		fail "$label: expected $expected launch(es), got $LAUNCH_CALLS"
 }
 
-# Both enabled services missing used to call frp_start twice. Each call
-# invokes frp_script.sh, whose first action kills both daemons.
+clear_processes
+TEST_LAUNCH_MODE=immediate
+LAUNCH_CALLS=0
+WATCHDOG_ADDS=0
+SLEEP_CALLS=0
 frpc_enable=1
 frps_enable=1
-CLIENT_PID=
-SERVER_PID=
-START_CALLS=0
-expect_start_count "both enabled services missing" 1
+expect_check_start "both enabled services missing" 1
+frp_service_running frpc || fail "FRPC did not become visible"
+frp_service_running frps || fail "FRPS did not become visible"
+[ "$WATCHDOG_ADDS" -eq 1 ] || fail "watchdog was not published after readiness"
 
-# Either single missing service still requests one complete configured restart.
-CLIENT_PID=
-SERVER_PID=1201
-START_CALLS=0
-expect_start_count "client missing" 1
-CLIENT_PID=1202
-SERVER_PID=
-START_CALLS=0
-expect_start_count "server missing" 1
+# Either missing role triggers one replacement, stopping the prior exact peer first.
+clear_processes
+add_process 302 frps /tmp/frp/myfrps.ini
+TEST_LAUNCH_MODE=immediate
+LAUNCH_CALLS=0
+expect_check_start "client missing" 1
+frp_service_running frpc && frp_service_running frps ||
+	fail "combined replacement did not restore both enabled roles"
 
-# Already-running services and disabled services must not trigger restart.
-CLIENT_PID=1203
-SERVER_PID=1204
-START_CALLS=0
-expect_start_count "both services alive" 0
+clear_processes
+add_process 301 frpc /tmp/frp/myfrpc.ini
+TEST_LAUNCH_MODE=immediate
+LAUNCH_CALLS=0
+expect_check_start "server missing" 1
+frp_service_running frpc && frp_service_running frps ||
+	fail "combined replacement did not restore both enabled roles"
+
+# Exact-argv live processes suppress restart; unrelated same-name argv does not.
+clear_processes
+add_process 301 frpc /tmp/frp/myfrpc.ini
+add_process 302 frps /tmp/frp/myfrps.ini
+TEST_LAUNCH_MODE=immediate
+LAUNCH_CALLS=0
+expect_check_start "both services alive" 0
+clear_processes
+mkdir -p "$FRP_PROC_ROOT/401"
+printf '/usr/bin/frpc\000-c\000/tmp/frp/other.ini\000' > "$FRP_PROC_ROOT/401/cmdline"
+LAUNCH_CALLS=0
+expect_check_start "wrong-config process is not alive FRPC" 1
+
+clear_processes
 frpc_enable=0
 frps_enable=0
-CLIENT_PID=
-SERVER_PID=
-START_CALLS=0
-expect_start_count "all services disabled" 0
+LAUNCH_CALLS=0
+expect_check_start "all services disabled" 0
 frpc_enable=0
 frps_enable=1
-SERVER_PID=1205
-START_CALLS=0
-expect_start_count "disabled client is not required" 0
-
-# A failed WAN reachability probe must not launch either daemon.
+add_process 302 frps /tmp/frp/myfrps.ini
+LAUNCH_CALLS=0
+expect_check_start "disabled client is not required" 0
 frpc_enable=1
 frps_enable=1
-CLIENT_PID=
-SERVER_PID=
+clear_processes
 NETWORK_RESULT=2
-START_CALLS=0
-expect_start_count "WAN unavailable" 0
+LAUNCH_CALLS=0
+expect_check_start "WAN unavailable" 0
+NETWORK_RESULT=1
 
-printf 'FRP watchdog aggregates asynchronous daemon restarts: PASS\n'
+# Startup accepts a delayed background daemon, but only after bounded polling.
+clear_processes
+TEST_LAUNCH_MODE=delayed
+frpc_enable=1
+frps_enable=1
+LAUNCH_CALLS=0
+WATCHDOG_ADDS=0
+SLEEP_CALLS=0
+frp_start || fail "delayed daemons did not satisfy readiness"
+[ "$SLEEP_CALLS" -eq 2 ] || fail "readiness did not tolerate delayed PID publication"
+[ "$WATCHDOG_ADDS" -eq 1 ] || fail "watchdog was not added after delayed readiness"
+
+# Partial startup times out, stops the surviving daemon and never publishes watchdog.
+clear_processes
+TEST_LAUNCH_MODE=partial
+frpc_enable=1
+frps_enable=1
+LAUNCH_CALLS=0
+WATCHDOG_ADDS=0
+SLEEP_CALLS=0
+if frp_start; then fail "partial startup was incorrectly reported as successful"; fi
+[ "$SLEEP_CALLS" -eq 4 ] || fail "readiness timeout was not bounded to four retry sleeps"
+frp_service_running frpc && fail "partial FRPC daemon was not cleaned up"
+[ "$WATCHDOG_ADDS" -eq 0 ] || fail "watchdog was added after failed readiness"
+
+clear_processes
+TEST_LAUNCH_MODE=immediate
+frpc_enable=1
+frps_enable=0
+WATCHDOG_ADDS=0
+frp_start || fail "client-only readiness failed"
+frp_service_running frpc || fail "client-only daemon is absent"
+frp_service_running frps && fail "disabled server was unexpectedly started"
+clear_processes
+frpc_enable=0
+frps_enable=1
+WATCHDOG_ADDS=0
+frp_start || fail "server-only readiness failed"
+frp_service_running frps || fail "server-only daemon is absent"
+frp_service_running frpc && fail "disabled client was unexpectedly started"
+
+echo "FRP watchdog detects exact-config daemon state and dispatches one replacement: PASS"
+echo "FRP asynchronous daemon startup uses bounded readiness and fail-closed cleanup: PASS"
