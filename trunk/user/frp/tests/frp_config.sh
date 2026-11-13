@@ -133,6 +133,7 @@ frp_client_tmp=
 	fail "failed rename damaged last-good client config"
 
 # Refuse a symlink or non-regular live config target without touching its referent.
+rm -f "$frp_runtime_dir/myfrpc.ini"
 printf 'untouched referent\n' > "$test_root/referent"
 ln -s "$test_root/referent" "$frp_runtime_dir/myfrpc.ini"
 if frp_validate_config_target "$frp_runtime_dir/myfrpc.ini"; then
