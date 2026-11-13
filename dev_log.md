@@ -1,17 +1,17 @@
-## 2026-11-13 12:10 CST (UTC+8) — Close Adbyby third-party rule download hardening
+## 2026-11-13 13:01 CST (UTC+8) — Close Adbyby anti-AD fragment lifecycle hardening
 
-- Live main SHA: a8681f65733f08b7c932833fafe99062492f0a2a. NVRAM-configured third-party Adbyby rule download slice is now L2 CLOSED on this exact SHA.
-- All six triggered main push Actions completed SUCCESS and all exact checkout SHAs, steps and full logs were inspected: Adbyby [43363263383] / job [131681514167], infosvr [43363263454] / job [131681514465], AI docs [43363263378] / job [131681514145], AliDDNS [43363263594] / job [131681514640], AliyunDrive [43363263430] / job [131681513797], AdGuardHome [43363263365] / job [131681513585]. Adbyby sh -n, hosts preservation, lifecycle lock, stock HTTPS/MD5/cache rollback, third-party HTTPS/URL/size/last-good publication, firewall snapshot and semantic source/workflow checker all PASS. AI docs reports root log 97/119 and archives 7/22/18.
-- Production commit 315d738a580e154302dfdd9c57674ee64c3ada36 closes the insecure NVRAM third-party rules path: TLS verification / firmware CA / HTTPS-only, quoted and validated URLs, transfer timeout/retries/rate/size limits, unique mode-0700 staging, accepted line filtering, last-good cache preservation and atomic complete-list publication. Checker-only corrections 267bfb4e2d669c07d0daee918302e8780abc5958 and a8681f65733f08b7c932833fafe99062492f0a2a fixed stale assertions (centralized URL check and wrapper-level umask); final exact-head Actions green.
-- Firmware curl package is 8.21.0 (trunk/libs/libcurl/Makefile), confirming shared downloader flags --proto, --max-filesize and --limit-rate exist in project build.
-- Next Adbyby scope: anti-ad dnsmasq fragment via anti_ad_link, then host-source downloads. Inspect actual configuration producer/default and supported dnsmasq fragment syntax before enforcing a format allowlist. Both still contain curl -k and fixed destinations. After these, return to FRP whole caller-path audit. FTP cleanup remains OPEN/BLOCKED on the Linux 4.4 final-name TOCTOU; NFS needs client evidence; L3/L4 remain NOT VERIFIED.
-- Corrective note: the first docs checkpoint commit accidentally replaced the rolling root log rather than prepending to it. The exact preceding 97-entry log from a8681f65733f08b7c932833fafe99062492f0a2a is restored below this record, returning the root log to 98/119 entries. The AI docs Action on intermediate b774286064475c5d09c57fe20f342623740df1e8 correctly failed with “found 1”; the restored file still needs exact-head validator confirmation.
-- Root log count after restoration: 97→98/119; size remains below 384 KiB; archives remain dev-log=7, handoff=22, roadmap=18. No rotation or archive/index changes.
-- Changed paths: SESSION_HANDOFF.md, REFACTOR_ROADMAP.md, dev_log.md. This checkpoint closes the previous active task and names the next concrete one; no firmware, branch/PR or GPT Session Rotator changes.
-- Resulting main commit: THIS COMMIT.
-- Next exact action: inspect all anti_ad_link producers/defaults and sample config grammar, then implement and test safe same-filesystem download/publication with last-good retention.
+- Source-code base main SHA: `1c49f1169dd8a5ab153a04a4bdc86aaa5b8fb50d`; exact source/test/checker checkpoint: `ea854cd5e7ecdc124f786775fbaf72ace2931235`.
+- The anti-AD implementation was audited after tracing anti_ad_link through NVRAM defaults/UI and inspecting the published dnsmasq export format. It reuses the shared firmware-CA HTTPS downloader, HTTP 200 check, private same-filesystem stage, 16 MiB cap, 512-byte line cap, full address=/domain/ validation, atomic rename and last-good content fallback.
+- Found lifecycle gaps: del_dns() removed the last-good anti-AD file before refresh fallback; disabling the NVRAM toggle left the generated .conf active; and a rejected destination symlink stayed in conf-dir. Commit 6fbd0693b39b859cdae9ea4c918c7621815c1ae4 fixes those paths: disabled mode resets the count and removes the file/link itself, stop cleanup retains only a fully validated cache while enabled and removes other generated files/stale private stages, and link referents are never followed. Unrelated Adbyby DNS rules continue when optional anti-AD refresh fails.
+- The validator now also enforces 63-byte DNS label bounds (in addition to existing 253-byte domain and 16 MiB file caps). The no-network fixture covers a 64-byte label, disabled mode, wrapper symlink unlink without referent mutation, non-regular destination rejection, last-good stop cleanup and cache deletion while disabled.
+- The first exact-source Adbyby run on 6fbd (43368910069 / job 131699819182) passed shell syntax and all six host regressions but failed the semantic checker because a new assertion searched for a function's own name in its extracted body. The checker was corrected in ea854cd5e7ecdc124f786775fbaf72ace2931235. Final exact-code-head Adbyby [43369019121] / job [131700174947] passed shell syntax, all host regressions and the source/workflow checker. Exact-code-head AI docs [43369019133] / job [131700175086] also passed (98/119 entries at that checkpoint). HTTPD umbrella [43368910153] / job [131699819465] passed all 39 steps on source commit 6fbd. All transfer tests used local curl/NVRAM mocks; no real network download was performed.
+- L2 host/Actions is CLOSED for anti-AD only. No full firmware/TRX build or router test was run; L3 MIPS/uClibc and L4 hardware remain NOT VERIFIED.
+- Root-log order is restored newest-first: this entry, 12:38, 12:25, the preserved 12:10 b774 milestone, then 12:05. Adding this entry makes 99/119; no archive rotation is required (archive inventory remains dev-log=7, handoff=22, roadmap=18). Exact AI docs validation of this docs checkpoint is pending.
+- Source checkpoint changed only adbyby.sh, anti_ad_download.sh and check_adbyby_hosts_config.py. Existing Adbyby workflow path filters already covered these paths symmetrically, so no workflow edit was required. This docs checkpoint updates the handoff, roadmap and root dev log for the completed task transition.
+- Next: harden /etc/storage/adbyby_host.sh configured source-list / hosts-list downloads with the URL producer audit, bounded HTTPS, per-source staging, complete hosts validation, aggregate atomic publication and last-good retention.
 
 ---
+
 
 ## 2026-11-13 12:38 CST (UTC+8) — Place Adbyby umask contract at the wrapper boundary
 
@@ -36,6 +36,21 @@
 - Changed paths: checker, `SESSION_HANDOFF.md` and this log. No branch/PR, firmware artifact or GPT Session Rotator modification.
 - Resulting main commit: THIS COMMIT.
 - Next: inspect all exact-head Actions. If green, harden remaining anti-ad and hosts-list downloads, then continue FRP caller-path review.
+
+---
+
+## 2026-11-13 12:10 CST (UTC+8) — Close Adbyby third-party rule download hardening
+
+- Live main SHA: a8681f65733f08b7c932833fafe99062492f0a2a. NVRAM-configured third-party Adbyby rule download slice is now L2 CLOSED on this exact SHA.
+- All six triggered main push Actions completed SUCCESS and all exact checkout SHAs, steps and full logs were inspected: Adbyby [43363263383] / job [131681514167], infosvr [43363263454] / job [131681514465], AI docs [43363263378] / job [131681514145], AliDDNS [43363263594] / job [131681514640], AliyunDrive [43363263430] / job [131681513797], AdGuardHome [43363263365] / job [131681513585]. Adbyby sh -n, hosts preservation, lifecycle lock, stock HTTPS/MD5/cache rollback, third-party HTTPS/URL/size/last-good publication, firewall snapshot and semantic source/workflow checker all PASS. AI docs reports root log 97/119 and archives 7/22/18.
+- Production commit 315d738a580e154302dfdd9c57674ee64c3ada36 closes the insecure NVRAM third-party rules path: TLS verification / firmware CA / HTTPS-only, quoted and validated URLs, transfer timeout/retries/rate/size limits, unique mode-0700 staging, accepted line filtering, last-good cache preservation and atomic complete-list publication. Checker-only corrections 267bfb4e2d669c07d0daee918302e8780abc5958 and a8681f65733f08b7c932833fafe99062492f0a2a fixed stale assertions (centralized URL check and wrapper-level umask); final exact-head Actions green.
+- Firmware curl package is 8.21.0 (trunk/libs/libcurl/Makefile), confirming shared downloader flags --proto, --max-filesize and --limit-rate exist in project build.
+- Next Adbyby scope: anti-ad dnsmasq fragment via anti_ad_link, then host-source downloads. Inspect actual configuration producer/default and supported dnsmasq fragment syntax before enforcing a format allowlist. Both still contain curl -k and fixed destinations. After these, return to FRP whole caller-path audit. FTP cleanup remains OPEN/BLOCKED on the Linux 4.4 final-name TOCTOU; NFS needs client evidence; L3/L4 remain NOT VERIFIED.
+- Corrective note: the first docs checkpoint commit accidentally replaced the rolling root log rather than prepending to it. The exact preceding 97-entry log from a8681f65733f08b7c932833fafe99062492f0a2a is restored below this record, returning the root log to 98/119 entries. The AI docs Action on intermediate b774286064475c5d09c57fe20f342623740df1e8 correctly failed with “found 1”; the restored file still needs exact-head validator confirmation.
+- Root log count after restoration: 97→98/119; size remains below 384 KiB; archives remain dev-log=7, handoff=22, roadmap=18. No rotation or archive/index changes.
+- Changed paths: SESSION_HANDOFF.md, REFACTOR_ROADMAP.md, dev_log.md. This checkpoint closes the previous active task and names the next concrete one; no firmware, branch/PR or GPT Session Rotator changes.
+- Resulting main commit: THIS COMMIT.
+- Next exact action: inspect all anti_ad_link producers/defaults and sample config grammar, then implement and test safe same-filesystem download/publication with last-good retention.
 
 ---
 
