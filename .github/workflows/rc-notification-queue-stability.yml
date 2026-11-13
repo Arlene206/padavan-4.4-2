@@ -85,6 +85,10 @@ jobs:
           assert "kill(1, SIGUSR1)" in handler
           assert handler.index("rc_notify_batch_should_requeue") < handler.rindex("closedir(directory)")
           assert "return !stop_handle && queue_pending" in policy
+          assert "rc_notify_merge_action_result" in policy
+          assert "operation_status != 0" in policy
+          assert "rc_notify_merge_action_result(0, EBUSY) == -1" in test
+          assert "rc_notify_merge_action_result(action_result, restart_dhcpd())" in handler
           assert "assert(rc_notify_batch_should_requeue(10, 1, 0))" in test
           assert "assert(!rc_notify_batch_should_requeue(10, 1, 1))" in test
           assert "kill(1, SIGUSR1)" in notify

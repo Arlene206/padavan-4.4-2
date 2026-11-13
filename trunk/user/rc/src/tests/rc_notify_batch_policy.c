@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <errno.h>
 
 #include "rc_notify_batch_policy.h"
 
@@ -12,5 +13,12 @@ main(void)
 	assert(rc_notify_batch_should_requeue(11, 1, 0));
 	assert(!rc_notify_batch_should_requeue(10, 1, 1));
 	assert(!rc_notify_batch_should_requeue(100, 1, 1));
+	assert(rc_notify_merge_action_result(0, 0) == 0);
+	assert(rc_notify_merge_action_result(0, EBUSY) == -1);
+	assert(rc_notify_merge_action_result(0, EIO) == -1);
+	assert(rc_notify_merge_action_result(0, -1) == -1);
+	assert(rc_notify_merge_action_result(-1, 0) == -1);
+	assert(rc_notify_merge_action_result(-1, EBUSY) == -1);
+
 	return 0;
 }

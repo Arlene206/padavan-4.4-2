@@ -1032,7 +1032,7 @@ handle_notifications(void)
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_RADV) == 0)
 		{
-			restart_dhcpd();
+			action_result = rc_notify_merge_action_result(action_result, restart_dhcpd());
 		}
 #endif
 		else if (!strcmp(entry->d_name, RCN_RESTART_WAN))
@@ -1281,7 +1281,7 @@ handle_notifications(void)
 		else if (strcmp(entry->d_name, RCN_RESTART_VLMCSD) == 0)
 		{
 			restart_vlmcsd();
-			restart_dhcpd();
+			action_result = rc_notify_merge_action_result(action_result, restart_dhcpd());
 		}
 #endif
 #if defined(APP_IPERF3)
@@ -1364,12 +1364,12 @@ handle_notifications(void)
 #if defined(APP_SMBD) || defined(APP_NMBD)
 		else if (strcmp(entry->d_name, RCN_RESTART_NMBD) == 0)
 		{
-			restart_nmbd();
+			action_result = rc_notify_merge_action_result(action_result, restart_nmbd());
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_WINS) == 0)
 		{
-			restart_nmbd();
-			restart_dhcpd();
+			action_result = rc_notify_merge_action_result(action_result, restart_nmbd());
+			action_result = rc_notify_merge_action_result(action_result, restart_dhcpd());
 			reapply_vpn_server();
 		}
 #endif
@@ -1419,7 +1419,7 @@ handle_notifications(void)
 		{
 			if (get_ap_mode())
 				update_hosts_ap();
-			restart_dhcpd();
+			action_result = rc_notify_merge_action_result(action_result, restart_dhcpd());
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_UPNP) == 0)
 		{

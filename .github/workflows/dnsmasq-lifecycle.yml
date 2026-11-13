@@ -18,6 +18,8 @@ on:
       - "trunk/user/rc/src/tests/dnsmasq_dhcp_range_policy.c"
       - "trunk/user/rc/src/dnsmasq_lifecycle_lock.h"
       - "trunk/user/rc/src/tests/dnsmasq_lifecycle_lock.c"
+      - "trunk/user/rc/src/tests/rc_notify_batch_policy.c"
+      - "trunk/user/rc/src/rc_notify_batch_policy.h"
   pull_request:
     paths:
       - ".github/workflows/dnsmasq-lifecycle.yml"
@@ -35,6 +37,8 @@ on:
       - "trunk/user/rc/src/tests/dnsmasq_dhcp_range_policy.c"
       - "trunk/user/rc/src/dnsmasq_lifecycle_lock.h"
       - "trunk/user/rc/src/tests/dnsmasq_lifecycle_lock.c"
+      - "trunk/user/rc/src/tests/rc_notify_batch_policy.c"
+      - "trunk/user/rc/src/rc_notify_batch_policy.h"
   workflow_dispatch:
 
 permissions:
@@ -192,6 +196,8 @@ jobs:
               "trunk/user/rc/src/tests/dnsmasq_dhcp_range_policy.c",
               "trunk/user/rc/src/dnsmasq_lifecycle_lock.h",
               "trunk/user/rc/src/tests/dnsmasq_lifecycle_lock.c",
+              "trunk/user/rc/src/rc_notify_batch_policy.h",
+              "trunk/user/rc/src/tests/rc_notify_batch_policy.c",
           )
           filters = workflow.split("jobs:", 1)[0]
           push_filters, pr_filters = filters.split("  pull_request:", 1)
@@ -212,6 +218,8 @@ jobs:
           policy = Path("trunk/user/rc/src/dnsmasq_restart_policy.h").read_text()
           rc = Path("trunk/user/rc/src/rc.c").read_text()
           restart_test = Path("trunk/user/rc/src/tests/dnsmasq_restart_policy.c").read_text()
+          notify_policy = Path("trunk/user/rc/src/rc_notify_batch_policy.h").read_text()
+          notify_test = Path("trunk/user/rc/src/tests/rc_notify_batch_policy.c").read_text()
           workflow = Path(".github/workflows/dnsmasq-lifecycle.yml").read_text()
           range_policy = Path("trunk/user/rc/src/dnsmasq_dhcp_range_policy.h").read_text()
           range_test = Path("trunk/user/rc/src/tests/dnsmasq_dhcp_range_policy.c").read_text()
@@ -318,6 +326,14 @@ jobs:
           assert 'ret = restart_dhcpd();' in rc
           assert "return ret;" in rc
 
+          notification = function_body(rc, "handle_notifications(void)")
+          assert notification.count("rc_notify_merge_action_result(action_result, restart_dhcpd())") == 4
+          assert notification.count("rc_notify_merge_action_result(action_result, restart_nmbd())") == 2
+          assert "restart_dhcpd();" not in notification
+          assert "restart_nmbd();" not in notification
+          assert "operation_status != 0" in notify_policy
+          assert "rc_notify_merge_action_result(0, EBUSY) == -1" in notify_test
+
           simple_range = function_body(services, "simple_dhcp_range(")
           pool_check = function_body(services, "chk_valid_subnet_pool(")
           prepare = function_body(services, "prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)")
@@ -347,6 +363,8 @@ jobs:
               "trunk/user/rc/src/tests/dnsmasq_dhcp_range_policy.c",
               "trunk/user/rc/src/dnsmasq_lifecycle_lock.h",
               "trunk/user/rc/src/tests/dnsmasq_lifecycle_lock.c",
+              "trunk/user/rc/src/rc_notify_batch_policy.h",
+              "trunk/user/rc/src/tests/rc_notify_batch_policy.c",
           )
           filters = workflow.split("jobs:", 1)[0]
           push_filters, pr_filters = filters.split("  pull_request:", 1)
