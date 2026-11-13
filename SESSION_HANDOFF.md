@@ -1,9 +1,9 @@
 ## Current repository state
 
-- Live `main` HEAD at recovery: `2b37f77d423c4a163e4ecb6789a45c690e9efd13`; active branch: `main`. This is the exact current SHA fetched from `refs/heads/main`.
-- Product-source comparison from L3 source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f` to this HEAD reports 33 commits ahead, zero behind, and only `REFACTOR_ROADMAP.md`, `SESSION_HANDOFF.md`, and `dev_log.md` changed. No product-source delta since the recorded L3 source tree.
+- Live `main` HEAD at recovery: `935a38ae44ece9243015e3a9c3dcae054e561097`; active branch: `main`. This is the exact current SHA fetched from `refs/heads/main`.
+- Product-source comparison from L3 source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f` to this HEAD reports 34 commits ahead, zero behind, and only `REFACTOR_ROADMAP.md`, `SESSION_HANDOFF.md`, and `dev_log.md` changed. No product-source delta since the recorded L3 source tree.
 - Remote branch inventory: only `main`. Legacy PR #1 is CLOSED / UNMERGED (head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`, base `9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74`); do not use it. No checkpoint branch exists.
-- Exact-HEAD `push` Actions for `2b37f77d423c4a163e4ecb6789a45c690e9efd13`: AI handoff docs `43526969760`, AliDDNS `43526970045`, AdGuardHome `43526969880`, AliyunDrive `43526969918`, NVRAM `43526969744` — all COMPLETED / SUCCESS, with exact matching `head_sha` and completed successful jobs. No infosvr run was present in the fetched Actions list; do not infer an infosvr result.
+- Exact-HEAD `push` Actions for `935a38ae44ece9243015e3a9c3dcae054e561097`: AliyunDrive `43528744171`, AdGuardHome `43528744049`, AI handoff docs `43528744087`, infosvr `43528744070`, AliDDNS `43528744042`, and NVRAM `43528744152` — all COMPLETED / SUCCESS with exact matching `head_sha`. Job details were not yet inspected during this recovery; workflow conclusions are SUCCESS.
 - Root `dev_log.md` has 52 complete newest-first records before this checkpoint; adding one yields 53/119. No rotation or INDEX update is due.
 
 ## Active task
@@ -17,7 +17,7 @@
 
 - L1: partial source review and recovery only; no new product-source changes.
 - L2: process-inventory host regressions NOT RUN; local GNU89/`-Werror` tests NOT RUN. Local `scripts/check_ai_handoff_docs.py` NOT RUN because no checkout is available.
-- Exact-HEAD Actions on current `main`: five visible workflows PASS as listed above; infosvr NOT PRESENT / NOT VERIFIED.
+- Exact-HEAD Actions on current `main`: six visible workflows PASS by exact head SHA as listed above; job-step detail not yet inspected.
 - L3: XY-C1 MIPSel build, TRX verification and artifact upload evidence applies to product-source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f` (run `43489646254`, job `132107102854`, artifact `14069572898`). Current main differs from that source only in the three documentation paths listed above.
 - L4: physical router flash/boot NOT VERIFIED.
 
