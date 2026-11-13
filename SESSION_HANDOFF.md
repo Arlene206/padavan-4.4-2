@@ -2,45 +2,54 @@
 
 ## 最近接力状态（2026-11-14）
 
-- 最新 main exact SHA：`f01c05a455367e91d3302d2e302902a4eb2ff3dc`，父提交 `ec93ae5d070f34b848652f1dbe4b1a441d6cc240`。main 仅通过普通 fast-forward 更新；当前远程只有 main 分支，PR #1 仍 CLOSED / UNMERGED（head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`），`toolchain` tag 仍为 `7f7d3ea41ebdd7eeab8a303f3d4ad8dddb54a8a7`。
-- 最新 SHA `f01c05a455367e91d3302d2e302902a4eb2ff3dc` 对应的 push Actions 共 28 条，28/28 COMPLETED / SUCCESS，没有 failure 或 in-progress。重点 job 已检查完整 steps / 日志：DNSMasq [run `43483330811` / job `132085197857`]，PID 1 notification [`43483330787` / `132085196895`]，AI handoff docs [`43483330899` / `132085198145`]，USB storage hotplug [`43483330558` / `132085196419`]，NVRAM [`43483330633` / `132085197401`]。这些 run 的 `head_sha` 均精确等于当前 SHA。
-- DNSMasq / NMBD 通知错误状态修复已达到 L2：DNSMasq workflow 的 restart policy、DHCP range、跨进程锁、Inadyn、daemon postcondition 与新增 4 个 DNSMasq / 2 个 NMBD 调用点 source contracts 均 PASS；PID 1 workflow 以 `cc -std=gnu89 -Wall -Wextra -Werror` 编译并运行 `rc_notify_batch_policy.c`，正 errno / 负错误归一化回归 PASS；AI docs validator PASS（提交验证时 root dev_log 30/119）。Storage job 的 BusyBox ash 回归、storage eject inventory、跨进程锁、stop postcondition/group result 和 whole caller graph PASS。NVRAM 锁、snapshot、device-node、ioctl/userland bypass 合同 PASS（RAW_USERLAND_BYPASS_COUNT=0）。
-- 前一个 storage 变更 commit `ec93ae5d070f34b848652f1dbe4b1a441d6cc240` 的 XY-C1 exact-source run `43481041936` / job `132077270140` 已 COMPLETED / SUCCESS，Build XY-C1、TRX verification、artifact upload 全部 PASS。TRX：`TurBoTse-XY-C1-4.4-mipsel-linux-musl-20261114.trx`；artifact ID `14065946140`，大小 12,579,764 bytes，SHA-256 `f55f38c3dbc64a73994d675c36f802c62c8f97c7b9947f259d56a87461408e06`。该 L3 只证明 `ec93ae5d070f34b848652f1dbe4b1a441d6cc240`，不覆盖当前 SHA 的后续 RC notification 变更。
-- 当前 SHA 没有触发新的 XY-C1 run：该 workflow 的 push path filters 不包含 `trunk/user/rc/src/rc.c`、`rc_notify_batch_policy.h` 或对应测试。完整固件编译按项目计划安排在主体开发完成后集中进行；不得把父 SHA artifact 宣称为当前 SHA 构建。L4 router flash/boot 仍 NOT VERIFIED。
-- 最新 root `dev_log.md` 更新到 31/119（约 83 KiB），未达 120 条或 384 KiB early-rotation 门槛；不归档、不改 INDEX。FTP upload final-name inode-check/unlinkat TOCTOU 仍 OPEN/BLOCKED；NFS AUTH_SYS/root-squash/client durability 仍需真实客户端与存储证据。
+- 最新 main exact SHA：479f0d7a298f6980046a85c60a62271fc830893c，直接父提交 5be7a356957d47a1387346854966f3f19c8fde01；上一代码提交 5be7a35 的父提交为 47c544fe98511bfaa5f5bb66d047272748e1b021。本轮只对 main 做了两次普通 fast-forward；远程仅有 main 分支，PR #1 仍 CLOSED / UNMERGED（head ba48e22609e0c81ad757b06756fe91d05f39cbf6），toolchain tag 仍为 7f7d3ea41ebdd7eeab8a303f3d4ad8dddb54a8a7。
+- exact 479f0d7 的 push Actions 共 3 条：DNS Forwarder [run 43487234595 / job 132098791466] COMPLETED / SUCCESS；AI docs [43487234617 / 132098791118] COMPLETED / SUCCESS；NVRAM [43487234555 / 132098790943] 在本次记录时仍 IN_PROGRESS，前 8 个步骤成功，最后的全仓 kernel/userland API 扫描尚未结束。未将 pending job 误报为完成。
+- DNS Forwarder lifecycle 在 exact 479f0d7 达到 L2：持久 mode-0600 锁文件、锁目录 owner/权限及 symlink/hardlink 检查、跨进程 flock、全生命周期锁、FD 9 不泄漏到 daemon；NVRAM 配置在锁内读取；start 幂等且有 daemon 出现 postcondition；stop 有有界等待与退出 postcondition；restart 在 stop 未完成时禁止拉起替代实例；disabled restart 只 stop、不 start；launcher 返回码保留。三个 RC wrapper 改为返回 int，restart 由单次脚本事务执行；PID 1 restart notification 合并服务返回状态，失败时保留队列 marker。DNS Forwarder job 完整的 CWD/source contract 和 shell lifecycle regression 均 PASS。
+- 第一次 exact 5be7a35 的 37 条 push workflows 中 36 SUCCESS、1 FAILURE：DNS Forwarder 的源契约步骤 PASS，生命周期 test 因 fixture 缺陷失败——fake pidof 以文件非空代表 daemon，但 start-stop-daemon stub 和两处种子状态创建了零字节文件。未隐藏失败；479f0d7 将 fake PID marker 改为非空 123，并增加 checker 合同。复跑 479f0d7 的 DNS Forwarder run 43487234595 全步骤 SUCCESS。该失败是回归夹具自身不一致，不是生产 daemon 的失败证据。
+- 479f0d7 的 docs validator run 43487234617 检查了本次代码前的 handoff 状态，报告 root log 31/119、archives dev-log=8 / handoff=22 / roadmap=18；本次增加一条 dev_log 后为 32/119，仍远低于 120 条与 384 KiB early-rotation 门槛，不轮转、不改 INDEX。
+- XY-C1 MIPSel 完整构建在前一代码 SHA 5be7a356957d47a1387346854966f3f19c8fde01 成功：run 43485625995 / job 132093173668，Build XY-C1、TRX verification、artifact upload 全部 PASS；artifact 14067278386，12,580,062 bytes，SHA-256 0e0cf60b7be3b653d64b23a2554a5efcd3dab9255676673dcb71aa10d90c20cc。该构建早于 479f0d7 对 launcher 返回码的生产源码修改；因此它是 5be7a35 的 L3 证据，不得声称为当前 exact main 的 L3。当前 L4 router flash/boot 仍 NOT VERIFIED。
+- FTP upload final-name inode-check/unlinkat TOCTOU 仍 OPEN/BLOCKED；NFS AUTH_SYS/root-squash/client durability 仍需要真实客户端与存储设备证据。
 
 ## Active task
 
-DNSMasq/NMBD 通知失败状态归一化已在当前 main 完成并通过 exact-head L2。下一批继续全用户态 DNS Forwarder / DNSMasq 进程监督审计：梳理 public / locked start-stop-reload caller，检查 LAN full restart 组合事务、启动 postcondition、停止失败门、stale PID / process identity、child wait/reap、fd 与临时文件清理、配置回滚，以及其他通知调用点的 positive errno / negative errno 结果契约。发现可证实的稳定性缺陷后再实施源码与回归；不要重复本批已完成的通知 helper 与 resolver lock 门禁。
+DNS Forwarder 的启动/停止/重启事务及失败传播已在 exact 479f0d7 完成 L2；下一批继续 DNSMasq 主体生命周期审计，扩大到整个用户态治理覆盖范围。优先建立完整 public / locked caller map，核对 start_dns_dhcpd() / stop_dns_dhcpd() / restart_dhcpd() / restart_dns() / full_restart_lan() 的锁边界、嵌套锁及 full LAN restart 顺序，再审查 stale PID / process identity、daemon readiness、stop postcondition、child wait/reap、fd 和临时文件清理、配置回滚与所有 notification result contract。对发现的具体缺陷再添加最小回归并修复；不要重复已经完成的 DNS Forwarder 锁、failed-stop gate、launcher result 或 DNS/NMBD notification normalization。
 
-- `handle_notifications()` 只将 `action_result < 0` 视为失败；新服务调用如果可能返回正 errno，必须合并为负失败结果。现有 4 个 `restart_dhcpd()` 与 2 个 `restart_nmbd()` 通知调用均经 `rc_notify_merge_action_result()`。
-- `restart_infosvr()` / `restart_crond()` 有“服务被禁用”时返回正值的语义；不要机械把 notification handler 所有非零状态全局归一化，否则会把有效的 disabled/no-op 状态误报为失败。先追踪各 service API 的结果契约。
-- 组合通知（例如 WINS）应尽量完成后续必要收敛动作，同时保留前序操作失败结果；不得因早期错误无意跳过后续独立操作。
-- FTP final-name cleanup inode-check/unlinkat TOCTOU 继续 OPEN/BLOCKED，未证明 Linux 4.4 下 race-safe 前不得改动；NFS AUTH_SYS/root-squash/durability 继续等待真实 client/device evidence。
+- handle_notifications() 当前只将 action_result < 0 视为失败；新服务调用如果返回正 errno，必须按该 API 契约归一化后合并。已有 DNSMasq/NMBD notification helper 的正 errno / 负错误处理不要重复实现。
+- restart_infosvr() / restart_crond() 对 disabled/no-op 有正返回值语义；不得全局将 notification handler 所有非零值机械地视为失败。先追踪每个 service API 的结果契约。
+- 组合通知（例如 WINS）应尽可能完成后续独立收敛动作，同时保留前序失败结果；不得因早期错误意外跳过后续操作。
+- FTP final-name cleanup inode-check/unlinkat TOCTOU 继续 OPEN/BLOCKED；没有证明 Linux 4.4 下 race-safe 前不得改动。NFS AUTH_SYS/root-squash/durability 继续等待真实 client/device evidence。
 
 ## Completed in this handoff
 
-1. 严格按顺序恢复 bootstrap / development protocol、handoff、roadmap、dev_log；核对 exact main、远程 refs、checkpoint 与 Actions。
-2. 上一会话遗留的 standalone storage stop 问题由并行开发会话提交到父 SHA `ec93ae5d070f34b848652f1dbe4b1a441d6cc240`；本轮确认 storage hotplug / vsftpd / Samba exact-head Actions PASS，不将该代码提交归功于本会话。
-3. 本会话实施当前 SHA：修复 PID 1 对 DNSMasq/NMBD 通知服务失败状态的丢失；添加 policy helper、GNU89 regression、DNSMasq / PID1 workflow contracts 与 path filters；提交到 main。
-4. 当前 SHA 的 28 条 exact-head push Actions 全部为 28/28 SUCCESS；DNSMasq、PID1、AI docs、storage hotplug、NVRAM 相关 jobs 的 steps/log 已检查。
-5. 记录父 SHA `ec93ae5d070f34b848652f1dbe4b1a441d6cc240` 的 XY-C1 L3 build/TRX/artifact 成功，但明确不把其结果扩展到当前 SHA；当前无 L4 实测。
+1. 严格按 bootstrap / development protocol、handoff、roadmap、dev_log 顺序恢复；核对 exact main、refs、PR/tag 与 Actions。
+2. 在 DNS Forwarder 中发现原 C restart 由独立 stop/start 调用组成，缺少跨进程互斥；原 shell launcher 没有稳定锁、重复 start 防护、stop 成功门、daemon postcondition，且 C notification 丢弃 restart 结果。
+3. 修改 launcher、RC wrapper、头文件和 PID 1 notification；增加完整 shell lifecycle regression、BusyBox feature/source contracts 及 push/pull_request 对称 path filter。
+4. 根据第一次 CI 失败检查完整 job log，确认是 test fixture 的零字节进程 marker bug；修正 fixture，并同时保留 start-stop-daemon 的真实非零退出码。随后 exact-head DNS Forwarder 与 docs Actions PASS。
+5. 记录 5be7a35 上 XY-C1 构建成功，但明确该构建不覆盖其后的 479f0d7 launcher 源码修改；当前 L3/L4 状态如上。
 
 ## Verification boundary
 
-- 本会话代码提交：`f01c05a455367e91d3302d2e302902a4eb2ff3dc`（parent `ec93ae5d070f34b848652f1dbe4b1a441d6cc240`），message `fix(rc): retain failed DNS service notification markers`。提交后 exact main 已复核。源码路径：`rc.c`、`rc_notify_batch_policy.h`、`tests/rc_notify_batch_policy.c`、DNSMasq / PID1 两个 workflow。
-- 当前 SHA 的全部 28 条 exact-head push Actions = 28 SUCCESS / 0 failure / 0 pending。DNSMasq [`43483330811 / 132085197857`]、PID1 [`43483330787 / 132085196895`]、AI docs [`43483330899 / 132085198145`]、storage [`43483330558 / 132085196419`]、NVRAM [`43483330633 / 132085197401`] 均已核验具体 job steps / logs。DNSMasq/PID1 新增用例由 Actions 在 GNU89/Werror 下真实编译执行；本环境没有本地 checkout 或独立本地构建。
-- XY-C1 L3 证据为父 SHA `ec93ae5d070f34b848652f1dbe4b1a441d6cc240` 的 run `43481041936` / job `132077270140`：构建与 TRX verify PASS，artifact `14065946140` / 12,579,764 bytes / SHA256 `f55f38c3dbc64a73994d675c36f802c62c8f97c7b9947f259d56a87461408e06`。workflow 未因当前 SHA 的 RC policy-only paths 再次触发；当前 exact SHA L3 未验证。当前 L4 仍 NOT VERIFIED。
-- AI doc Actions 在代码提交时验证了 root dev_log 30/119、archive inventories；本次状态记录会使根 log 成为 31/119，没有轮转或 archive 变更。
-- FTP TOCTOU 与 NFS client semantics 仍为 OPEN/BLOCKED；不要将 host mocked tests 当作真实设备/client 证明。
+- 本轮源码实现提交：5be7a356957d47a1387346854966f3f19c8fde01（parent 47c544fe98511bfaa5f5bb66d047272748e1b021），message fix(dns-forwarder): serialize lifecycle and verify daemon transitions。随后修正提交：479f0d7a298f6980046a85c60a62271fc830893c（parent 5be7a356957d47a1387346854966f3f19c8fde01），message test(dns-forwarder): correct lifecycle process fixture；该修正还使生产 launcher 保留 start-stop-daemon 原始失败退出码。
+- exact 479f0d7 DNS Forwarder run 43487234595 / job 132098791466：checkout、CWD/source contracts、完整 lifecycle lock/failure-gate regression 均 SUCCESS；AI docs run 43487234617 / job 132098791118 SUCCESS。NVRAM run 43487234555 / job 132098790943 在本记录时仍运行最后的 repository-wide API audit，下一轮需先复核最终状态。
+- 5be7a35 的 XY-C1 L3 evidence：run 43485625995 / job 132093173668 完整 MIPSel 构建、TRX verify 和 artifact upload PASS；artifact 14067278386 / 12,580,062 bytes / SHA256 0e0cf60b7be3b653d64b23a2554a5efcd3dab9255676673dcb71aa10d90c20cc。不是当前 479f0d7 的 exact-source build。当前 main L3 尚未验证，L4 仍 NOT VERIFIED。
+- 5be7a35 initial exact-head workflow 有一个已调查并修复的 test-fixture failure（DNS Forwarder pidof stub 对空文件 marker 的判定不一致）；后续 479f0d7 对应回归 SUCCESS。当前 exact-head 479f0d7 的其余 workflow 尚有 NVRAM job pending，不能将它写成全绿。
+- 本次 root dev_log 从 31→32/119；归档数量未达到轮转条件，docs-dev-log INDEX 与既有 archives 未改动。AI docs validator 对更新后的 docs 将在本次文档 fast-forward 后再次运行。
+- FTP TOCTOU / NFS client semantics 仍 OPEN/BLOCKED；host/Actions mocks 不能替代真实设备或 client 证据。
 
 ## Exact first action for the next GPT
 
-1. 重新读取 `refs/heads/main`，核对是否已有后续提交；对当前 main 拉取所有 exact-head push Actions。检查本次状态文档提交后的 AI handoff docs validator。
-2. 延续 DNSMasq/DNS Forwarder audit：先从 `start_dns_dhcpd()` / `stop_dns_dhcpd()` / `restart_dhcpd()` / `restart_dns()` 与 `full_restart_lan()` 的所有调用点建立完整锁边界表；再追踪 `pids()` / process identity、stop postcondition 和 launch/reap 结果约定。特别注意 `restart_infosvr()`、`restart_crond()` disabled 状态正返回值的语义，不要误归类。
-3. 找到确证 BUG 后新增最小 GNU89/Werror 回归和精确 caller/source contracts，实施代码修复并按协议提交 main；更新 handoff/dev_log/roadmap 的活跃状态，避免无意义 archive/index/doc-only churn。
-4. FTP upload final-name TOCTOU 仍保持 OPEN/BLOCKED；NFS durability/AUTH_SYS/root-squash 要等真实 client/device evidence；L4 不可宣称。
+1. 重新获取 refs/heads/main 并核对是否已有后续 commit；列出 exact head_sha + event=push 的全部 Actions。重点查看当前文档提交触发的 AI docs run，以及本轮尚 pending 的 NVRAM run 43487234555（如仍执行中，先读 job steps/log）。
+2. 继续 DNSMasq 全生命周期审计：从服务 API 定义开始，列出所有 public/locked 调用者及嵌套锁边界；优先追踪 full_restart_lan() 和 DHCP/DNS stop/restart 组合、PID identity/readiness 与 wait/reap，再决定最小修复。
+3. 发现确定缺陷后，添加 GNU89/Werror 或目标 shell host regression 与精确 source contracts，按普通 fast-forward 提交 main；按需更新单一 live handoff、root dev_log 和有实质状态变化的 roadmap，不制造无意义 archive/index/doc-only churn。
+4. FTP upload final-name TOCTOU 继续保持 OPEN/BLOCKED；NFS durability/AUTH_SYS/root-squash 等待真实 client/device evidence；未实测不得声称 L4。
 
+## Completed task: DNS Forwarder lifecycle serialization and failure propagation
+
+The former DNS Forwarder path could interleave concurrent C-level stop/start calls and shell operations. The launcher now owns one stable persistent lock for the full start/stop/restart transaction, validates the lock directory/file owner and modes and rejects symlink/hardlink lock paths, then uses BusyBox flock. Start reads NVRAM only after lock acquisition, is idempotent and verifies daemon presence; stop performs a bounded wait and fails while the process remains; restart never starts a replacement after failed stop. FD 9 is explicitly closed for the daemon launcher, preserving the lock only in the supervising shell. Nonzero start-stop-daemon status is propagated.
+
+The RC service APIs now return launcher status; restart crosses one script boundary so stop+conditional start share the same lock. The PID 1 notification path merges restart failure status rather than discarding it, so a failed restart retains its incomplete marker. Regression covers initial/idempotent start, stop/idempotent stop, kill failure, daemon surviving the bounded wait, successful restart, disabled mode, launcher failure status, success-without-daemon, held lock contention, FD inheritance, and symlink/hardlink/unsafe-directory rejection. Exact 479f0d7 DNS Forwarder Actions pass. The first exact-source run caught a fixture defect (zero-byte fake daemon marker vs a pidof stub requiring a nonempty marker); this was corrected explicitly, not ignored.
+
+---
 ## Completed task: Adbyby configured hosts-source list / hosts-list download hardening
 
 The end-to-end producer/consumer chain was traced: the ROMFS source template is installed by the Adbyby Makefile, seeded into persistent /etc/storage/adbyby_host.sh by copyscripts.sh, edited by the Adbyby UI textarea through HTTPD persistence, and consumed by the lifecycle-locked runtime on start/update/manual refresh. The former curl -k plus shell-word-split loop and shared /tmp/host.txt output are replaced by quoted per-line HTTPS requests through the shared firmware-CA/HTTP-200/timeout/retry/rate/size policy. Each required source is downloaded into a unique private same-filesystem stage; IPv4/IPv6 address mappings, DNS labels, record and total byte limits are validated; the complete aggregate is deduplicated and atomically published as mode 0644. Any required-source failure preserves a validated last-good cache; without one, no partial file or managed dnsmasq include is enabled. The UI status count follows the published mapping count.
