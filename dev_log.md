@@ -1,3 +1,19 @@
+## 2026-11-14 05:24 CST (UTC+8) — Reconcile live main and refine process-inventory fail-open continuation
+
+- Re-fetched `refs/heads/main`: baseline exact SHA `947d9ce8aa51a8f000bbe3186e03774c226880c2`, parent `85b06794590a8d3fc7fe4218b2f967493d45d9e3`. The one-commit range is documentation-only; no product-source delta.
+- Remote branch inventory contains only `main`; PR #1 remains CLOSED / UNMERGED; `toolchain` tag remains `7f7d3ea41ebdd7eeab8a303f3d4ad8dddb54a8a7`.
+- Exact-main push Actions for `947d9ce8aa51a8f000bbe3186e03774c226880c2` completed 6/6 SUCCESS with exact `head_sha`: AI docs [43501595814], infosvr [43501595647], AdGuardHome [43501595737], AliyunDrive [43501595819], AliDDNS [43501595686], NVRAM [43501595559].
+- Re-read current `pids.c`, `shutils.h`, `common_ex.c`, `service_lifecycle_policy.h`, `services_ex.c`, DNSMasq policy/header and build manifests. Confirmed the scan-context/OOM/`/proc` open failure collapses to empty PID list / Boolean false. `common_ex.c` routes this through the generic service-stop callback; DNSMasq readiness/start/restart and Samba/miniupnpd-related checks also consume Boolean `pids()`.
+- Refined the design constraint: generic `service_lifecycle_policy.h` currently accepts only a Boolean is-running callback and may escalate TERM to KILL. UNKNOWN must therefore abort before any signal escalation; simply changing `pids()` to return -1 is unsafe because legacy Boolean callers may interpret it as true/running or otherwise inconsistently.
+- No production code/tests changed; no host test or local GNU89/Werror compile was run. GitHub code search produced no indexed matches, so a complete repository-wide caller inventory is still outstanding. This is a recovery/source-review milestone only.
+- Product-source L3 evidence remains XY-C1 run [43489646254 / job 132107102854] on `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`; later main commits are documentation-only. L4 remains NOT VERIFIED.
+- Root log advances 35→36/119. Archive inventory unchanged (dev-log=8 / handoff=22 / roadmap=18); no rotation or INDEX update.
+
+- Next: obtain a reliable full-repository checkout/search, inventory every process API caller, then design and test a checked RUNNING/ABSENT/UNKNOWN API plus fail-closed lifecycle policy before touching DNSMasq callers.
+- Changed paths: `SESSION_HANDOFF.md`, `dev_log.md`. Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-14 04:24 CST (UTC+8) — Reconcile live main checkpoint and preserve process-inventory continuation
 
 - Re-fetched `refs/heads/main`: exact SHA `85b06794590a8d3fc7fe4218b2f967493d45d9e3`, parent `18561fddd214238dda124e0b8883030081ffca5d`. Compared the one-commit range; `85b0679` changes only SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and dev_log.md. Product source remains the `691e4d6` tree; no source changes were made in this recovery.

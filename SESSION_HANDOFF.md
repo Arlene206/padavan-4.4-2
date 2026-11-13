@@ -1,3 +1,27 @@
+## Live recovery checkpoint — 2026-11-14 05:24 CST
+
+> This block supersedes the older 2026-11-14 04:24 CST state below. The prior checkpoint is retained as historical context; do not treat its SHA as live.
+
+- Live baseline before this handoff refresh: `main` = `947d9ce8aa51a8f000bbe3186e03774c226880c2`; direct parent `85b06794590a8d3fc7fe4218b2f967493d45d9e3`. Compare confirms exactly one intervening commit, documentation-only (`SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`); product sources are unchanged.
+- Remote branches: only `main`. Legacy PR #1 remains CLOSED / UNMERGED (head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`, base `9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74)); no PR work was used. Remote tag `toolchain` points to `7f7d3ea41ebdd7eeab8a303f3d4ad8dddb54a8a7`.
+- Exact-main push Actions for `947d9ce8aa51a8f000bbe3186e03774c226880c2`: 6/6 completed SUCCESS, all `event=push` and exact `head_sha`: AI handoff docs 43501595814; infosvr 43501595647; AdGuardHome 43501595737; AliyunDrive 43501595819; AliDDNS 43501595686; NVRAM 43501595559. AI docs workflow run metadata confirms exact SHA and success. This is Actions status evidence; no local job logs were executed in this session.
+- Active unfinished task remains the shared process-inventory fail-open defect. Current source blobs: `trunk/user/shared/src/pids.c` = `f5092806d6f1a76021643b0af54eb24705cbd8fe`; `trunk/user/shared/src/shutils.h` = `6ccb679cf049374839a0c5de6a543955614dc275`; `trunk/user/rc/src/common_ex.c` = `de5cc703ce1b9e2eb0897dc52ed7e1c5ec15eb97`; `trunk/user/rc/src/services_ex.c` = `8134ee60a84d626785956a073c1c1bde3422d84d`; `service_lifecycle_policy.h` = `abe9f77b5354d8a33bce66c2575d1b1d09a2d4e2`.
+- Confirmed source path: `alloc_procps_scan()` returns NULL on scan-context allocation failure or `opendir("/proc")` failure; initial `procps_scan(NULL, ...)` then returns NULL; `find_pid_by_name()` returns its preallocated empty PID list, and `pids()` reports 0. `common_ex.c::service_lifecycle_is_running()` forwards `pids()` into generic stop policy; `services_ex.c::is_dns_dhcpd_run()` and DNSMasq start/restart/readiness guards also use `pids()`. `kill_services()` has a post-failure logging check that also consumes the Boolean API. Samba and miniupnpd/other services in `services_ex.c` have additional Boolean call sites. Do not change the legacy Boolean API globally until every repository call site and consumer has been inventoried.
+- Important new detail from reading `service_lifecycle_policy.h`: its callback contract is Boolean running/not-running, not tri-state; generic stop policy can escalate TERM to KILL. The correct fix must preserve an explicit UNKNOWN/error state through the policy and prevent signal escalation or successful absence claims when inventory is unknown. DNSMasq's second readiness check and static-ARP cleanup must also remain fail-closed.
+- No production files or tests were changed in this session. No local checkout is available through the connected GitHub actions; repository-wide code search returned no indexed matches, so a complete `pids()` caller inventory and executable host regression cannot be honestly claimed. No commit was created for product code.
+- Validation: L1 partial source review only. L2 host tests NOT RUN. Existing XY-C1 L3 firmware evidence remains on product-source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f` (run `43489646254`, job `132107102854`, TRX/artifact verification as recorded below); current product sources remain identical because later commits are docs-only. L4 router flash/boot NOT VERIFIED.
+- Root dev_log was 35/119 before this recovery note; this note makes it 36/119, far below rotation thresholds. Archive inventory remains dev-log=8 / handoff=22 / roadmap=18; no rotation, INDEX update, or snapshot archive is due.
+
+## Exact first action for the next GPT
+
+1. Fetch live `main` and exact-head push Actions again; resolve the SHA of this handoff refresh commit.
+2. Obtain a complete local source checkout or another reliable whole-repository content-search path before editing. Enumerate every `pids()` / `pids_main()` / `find_pid_by_name()` caller, all relevant headers, and all stop/readiness policy consumers; include `common_ex.c`, DNSMasq, Samba, miniupnpd and every other daemon.
+3. Design a checked process-inventory API that distinguishes RUNNING, ABSENT and UNKNOWN while retaining legacy Boolean compatibility only where safe. Propagate `readdir()` errors as well as initial `/proc` open/context allocation errors; distinguish normal end-of-directory from scan failure and PID-list allocation failure. Generic lifecycle policy must abort on UNKNOWN before TERM/KILL escalation.
+4. Add injectable host regressions for context OOM, `/proc` open failure, mid-scan read error, empty inventory, matching process, PID-list growth OOM, and UNKNOWN during stop/reap. Compile with firmware-compatible GNU89 and `-Werror`; wire into a focused Actions workflow without weakening existing checks.
+5. Migrate DNSMasq start/readiness/stop/restart and service-lifecycle consumers fail-closed; only then complete the full DNSMasq caller/identity/HUP/wait-reap/FD/temp/rollback audit and rotate to other userland modules.
+
+---
+
 ## Current repository state
 
 ## 最近接力状态（2026-11-14）
