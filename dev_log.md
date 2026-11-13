@@ -1,3 +1,19 @@
+## 2026-11-13 14:15:28 CST (UTC+8) — Harden configured Adbyby hosts-source downloads
+
+- Base main SHA: `b6dcef4fcf304b0b0d84a47dda2e611f18f2765f`; active branch remains `main`.
+- Resumed the live handoff task after verifying the documentation checkpoint AI handoff run [43370479491] / job [131704801095] SUCCESS on exact SHA `b6dcef4fcf304b0b0d84a47dda2e611f18f2765f`; validator reported root log 99/119 and indexed archive counts 7/22/18. The same exact-head push had infosvr [43370479485], AdGuardHome [43370479484], AliyunDrive [43370479477] and AliDDNS [43370479464] all SUCCESS; every job step and complete log was inspected.
+- Traced the host-list configuration chain: ROMFS template `trunk/user/adbyby/adbyby_host.sh` is installed by the Adbyby Makefile and copied to `/etc/storage/adbyby_host.sh` by `copyscripts.sh` only when no operator file exists. The Adbyby UI exposes both `hosts_ad` and `scripts.adbyby_host.sh`; HTTPD marks the latter as a persisted File variable with `EVM_RESTART_ADBYBY`. The runtime is called from start, update and the lifecycle-locked manual `F` action.
+- Replaced `hosts_ads()` insecure `curl -k`, shell-word-split URL iteration and shared `/tmp/host.txt` output with per-line quoted HTTPS requests through the existing firmware-CA / HTTP-200 / bounded retry-time-rate-size helper. Each source now has a private unique stage under `$PROG_PATH` (same filesystem as the final file), bounded response size, strict hosts-file syntax validation (IPv4/IPv6, domain labels, comments and line bounds), and one complete aggregate size limit. Exact duplicate records are removed before a single same-filesystem rename publishes mode 0644.
+- A failed or malformed required source never truncates or deletes the live hosts file. A validated last-good cache remains active and its count/config entry is retained; absent a valid cache, the refresh fails closed and the managed dnsmasq entry is removed. URL values are not written to logs.
+- Added a no-network regression covering query/ampersand URL non-splitting, multi-source merge/deduplication, IPv4/IPv6 data, TLS/redirect/HTTP failures, invalid URL/whitespace, missing CA, malformed and oversized bodies, aggregate overflow, last-good fallback, failed final rename, no-cache fail-closed behavior, disabled mode and private-stage cleanup. Extended the Python semantic checker to verify the ROMFS/boot/UI/HTTPD/runtime producer-consumer chain, plus symmetric workflow paths and commands.
+- Changed paths: `trunk/user/adbyby/adbyby.sh`, new `trunk/user/adbyby/tests/host_list_download.sh`, `scripts/check_adbyby_hosts_config.py`, `.github/workflows/adbyby-config-stability.yml`, and this log.
+- Local full checkout is unavailable (clone attempt failed because this execution environment cannot resolve github.com); no local shell or Python test result is claimed. Exact-main Actions for the resulting commit are PENDING; no real network request, MIPS/uClibc firmware/TRX build or router test was run.
+- Root log was 99/119 records; this entry brings it to 100/119. File remains below the 384 KiB early-rotation target and 512 KiB hard limit; archive/index inventory remains dev-log=7, handoff=22, roadmap=18. No rotation is due.
+- Resulting main commit: THIS COMMIT.
+- Next: inspect the Adbyby and AI handoff Actions on this exact pushed main SHA. Require shell syntax, all pre-existing regressions, the new no-network host-list regression, source/producer chain checker and documentation validator to pass. Then update the live handoff/roadmap to resume the FRP RC/UI/cron/shared-script audit; keep FTP TOCTOU blocked and NFS/L3/L4 unverified.
+
+---
+
 ## 2026-11-13 13:01 CST (UTC+8) — Close Adbyby anti-AD fragment lifecycle hardening
 
 - Source-code base main SHA: `1c49f1169dd8a5ab153a04a4bdc86aaa5b8fb50d`; exact source/test/checker checkpoint: `ea854cd5e7ecdc124f786775fbaf72ace2931235`.

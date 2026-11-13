@@ -14,6 +14,13 @@ LIFECYCLE_TEST = ROOT / "trunk/user/adbyby/tests/lifecycle_lock.sh"
 RULES_TEST = ROOT / "trunk/user/adbyby/tests/rules_download.sh"
 EXTERNAL_TEST = ROOT / "trunk/user/adbyby/tests/external_downloads.sh"
 ANTI_AD_TEST = ROOT / "trunk/user/adbyby/tests/anti_ad_download.sh"
+HOST_LIST_TEST = ROOT / "trunk/user/adbyby/tests/host_list_download.sh"
+HOST_DEFAULT = ROOT / "trunk/user/adbyby/adbyby_host.sh"
+ADBYBY_MAKEFILE = ROOT / "trunk/user/adbyby/Makefile"
+HOST_UI = ROOT / "trunk/user/www/n56u_ribbon_fixed/Advanced_adbyby.asp"
+HOST_ACTION = ROOT / "trunk/user/www/n56u_ribbon_fixed/Ad_action.asp"
+HTTPD_VARIABLES = ROOT / "trunk/user/httpd/src/variables.c"
+COPY_SCRIPTS = ROOT / "trunk/user/scripts/files/usr/bin/copyscripts.sh"
 
 
 def fail(message):
@@ -42,6 +49,13 @@ lifecycle_test = LIFECYCLE_TEST.read_text(encoding="utf-8")
 rules_test = RULES_TEST.read_text(encoding="utf-8")
 external_test = EXTERNAL_TEST.read_text(encoding="utf-8")
 anti_ad_test = ANTI_AD_TEST.read_text(encoding="utf-8")
+host_list_test = HOST_LIST_TEST.read_text(encoding="utf-8")
+host_default = HOST_DEFAULT.read_text(encoding="utf-8")
+adbyby_makefile = ADBYBY_MAKEFILE.read_text(encoding="utf-8")
+host_ui = HOST_UI.read_text(encoding="utf-8")
+host_action = HOST_ACTION.read_text(encoding="utf-8")
+httpd_variables = HTTPD_VARIABLES.read_text(encoding="utf-8")
+copy_scripts = COPY_SCRIPTS.read_text(encoding="utf-8")
 helper = function_body(source, "adbyby_remove_generated_hosts_config")
 hosts_ads = function_body(source, "hosts_ads")
 del_dns = function_body(source, "del_dns")
@@ -65,6 +79,12 @@ prepare_anti_ad_transaction = function_body(source, "adbyby_prepare_anti_ad_tran
 anti_ad = function_body(source, "anti_ad")
 anti_ad_remove = function_body(source, "adbyby_remove_anti_ad_fragment")
 anti_ad_cleanup = function_body(source, "adbyby_cleanup_dnsmasq_ad_dir")
+host_validator = function_body(source, "adbyby_validate_hosts_file")
+host_cache = function_body(source, "adbyby_hosts_cache_is_usable")
+host_transaction_match = re.search(r"(?ms)^adbyby_prepare_hosts_transaction\(\)[ \t]*\n\((.*?)^\)", source)
+if not host_transaction_match:
+    fail("missing subshell function adbyby_prepare_hosts_transaction()")
+host_transaction = host_transaction_match.group(1)
 add_dns = function_body(source, "add_dns")
 del_dns = function_body(source, "del_dns")
 start = function_body(source, "adbyby_start")
@@ -89,16 +109,77 @@ require(r'sed -i "/^$adbyby_escaped_hosts_entry\$/d"' in helper,
         "cleanup must use an anchored exact-line match")
 require("sed -i '/hosts/d'" not in source and 'sed -i "/hosts/d"' not in source,
         "unbounded /hosts/d deletion remains")
-require(hosts_ads.count("adbyby_remove_generated_hosts_config") == 1,
-        "hosts_ads must call the scoped cleanup helper exactly once")
+require(hosts_ads.count("adbyby_remove_generated_hosts_config") == 2,
+        "hosts_ads must remove the managed entry both on fail-closed and publication paths")
 require(del_dns.count("adbyby_remove_generated_hosts_config") == 1,
         "del_dns must call the scoped cleanup helper exactly once")
-append_index = hosts_ads.find("cat >> /etc/storage/dnsmasq/dnsmasq.conf")
+append_index = hosts_ads.find('>> "$ADBYBY_HOSTS_CONFIG_FILE"')
 require(append_index >= 0 and
         hosts_ads.index("adbyby_remove_generated_hosts_config") < append_index,
         "hosts_ads must clean the old entry before appending the replacement")
 require("return 1" in hosts_ads[:append_index],
         "hosts_ads must fail closed when it cannot remove the prior entry")
+
+require("ADBYBY_HOST_LIST_FILE" in source and "/etc/storage/adbyby_host.sh" in source,
+        "the configured host-list path must remain the persistent storage file")
+require("ADBYBY_HOST_SOURCE_MAX_BYTES=4194304" in source and
+        "ADBYBY_HOST_TOTAL_MAX_BYTES=16777216" in source and
+        "ADBYBY_HOST_MAX_SOURCES=16" in source,
+        "host-list downloads need explicit per-source, aggregate and source-count bounds")
+require("adbyby_download_https_200" in host_transaction and
+        "ADBYBY_HOST_SOURCE_MAX_BYTES" in host_transaction,
+        "every configured host source must use the shared CA-verified HTTPS/HTTP-200 downloader")
+require("while IFS= read -r adbyby_hosts_url" in host_transaction and
+        '"$adbyby_hosts_url"' in host_transaction,
+        "host source URLs must be read one line at a time and quoted as a single argument")
+require("mktemp -d" in host_transaction and
+        'mktemp -d "$PROG_PATH/.adbyby-hosts.XXXXXX"' in host_transaction and
+        "umask 077" in host_transaction,
+        "host downloads require unique private staging on the destination filesystem")
+require("adbyby_validate_hosts_file" in host_transaction and
+        "ADBYBY_HOST_TOTAL_MAX_BYTES" in host_transaction and
+        "LC_ALL=C sort" in host_transaction and "uniq " in host_transaction and
+        'mv -f "$adbyby_hosts_stage/hosts.next" "$adbyby_hosts_destination"' in host_transaction,
+        "all sources must be syntactically validated, size-aggregated, deduplicated and atomically published")
+require("[ ! -L" in host_transaction and "chmod 0644" in host_transaction,
+        "the published host file must reject symlinks and have a readable mode")
+require("adbyby_validate_hosts_file" in host_cache and
+        '[ -s "$PROG_PATH/hosts" ]' in host_cache,
+        "last-good fallback must be a non-empty validated regular host file")
+require("adbyby_prepare_hosts_transaction" in hosts_ads and
+        "adbyby_hosts_cache_is_usable" in hosts_ads and
+        "保留并继续使用上一次完整列表" in hosts_ads,
+        "failed refreshes must preserve and continue using a valid last-good list")
+require("curl -k" not in hosts_ads and "/tmp/host.txt" not in source and
+        "hostlist.txt" not in source,
+        "legacy insecure/shared host download scratch paths must be removed")
+require("grep -v '^#' /etc/storage/adbyby_host.sh" not in source and
+        "rm -rf $PROG_PATH/hosts" not in source,
+        "the updater must not split URLs with shell word splitting or delete the live list first")
+for marker in ("URL splitting", "TLS, redirect and HTTP failures",
+               "Invalid schemes and whitespace", "missing firmware CA",
+               "Malformed and oversized", "Aggregate size", "last-good fallback",
+               "publication failure", "stale /tmp/host.txt",
+               "configured hosts URL splitting, bounded HTTPS"):
+    require(marker.lower() in host_list_test.lower(),
+            f"host-list regression misses: {marker}")
+require("https://cdn.jsdelivr.net/gh/VeleSila/yhosts/hosts" in host_default,
+        "the ROMFS default host-list URL is missing")
+require('$(ROMFSINST) /etc_ro/adbyby_host.sh' in adbyby_makefile,
+        "the default host-list template is not installed into ROMFS")
+require('name="scripts.adbyby_host.sh"' in host_ui and
+        'nvram_dump("scripts.adbyby_host.sh","")' in host_ui and
+        'name="hosts_ad"' in host_ui,
+        "the Adbyby UI no longer exposes the stored source list and enable toggle")
+require('{"scripts.adbyby_host.sh", "File", NULL, EVM_RESTART_ADBYBY}' in httpd_variables,
+        "HTTPD must persist the configured host source list as a file and restart Adbyby")
+require('cp -rf /etc_ro/adbyby_host.sh /etc/storage/' in copy_scripts,
+        "boot-time default seeding must preserve the operator's configured host list")
+require("<% adbyby_action(); %>" in host_action,
+        "manual Adbyby action dispatch endpoint is missing")
+require("hosts_ads" in start and "hosts_ads" in updater and
+        "F) hosts_ads" in locked_action,
+        "startup, updater and locked manual refresh must all use the same host-list transaction")
 require('logger -t "adbyby"' in del_dns,
         "del_dns must log a failed managed-entry cleanup")
 require("adbyby_refresh_nvram_state" in firewall_test,
@@ -251,6 +332,13 @@ paths = (
     "trunk/user/adbyby/tests/rules_download.sh",
     "trunk/user/adbyby/tests/external_downloads.sh",
     "trunk/user/adbyby/tests/anti_ad_download.sh",
+    "trunk/user/adbyby/tests/host_list_download.sh",
+    "trunk/user/adbyby/adbyby_host.sh",
+    "trunk/user/adbyby/Makefile",
+    "trunk/user/www/n56u_ribbon_fixed/Advanced_adbyby.asp",
+    "trunk/user/www/n56u_ribbon_fixed/Ad_action.asp",
+    "trunk/user/httpd/src/variables.c",
+    "trunk/user/scripts/files/usr/bin/copyscripts.sh",
     "trunk/user/adbyby/tests/firewall_snapshot.sh",
     "trunk/user/rc/src/services.c",
     "scripts/check_adbyby_hosts_config.py",
@@ -269,14 +357,16 @@ for command in (
     "sh -n trunk/user/adbyby/tests/rules_download.sh",
     "sh -n trunk/user/adbyby/tests/external_downloads.sh",
     "sh -n trunk/user/adbyby/tests/anti_ad_download.sh",
+    "sh -n trunk/user/adbyby/tests/host_list_download.sh",
     "sh trunk/user/adbyby/tests/hosts_config_preservation.sh",
     "sh trunk/user/adbyby/tests/lifecycle_lock.sh",
     "sh trunk/user/adbyby/tests/rules_download.sh",
     "sh trunk/user/adbyby/tests/external_downloads.sh",
     "sh trunk/user/adbyby/tests/anti_ad_download.sh",
+    "sh trunk/user/adbyby/tests/host_list_download.sh",
     "sh trunk/user/adbyby/tests/firewall_snapshot.sh",
     "python3 scripts/check_adbyby_hosts_config.py",
 ):
     require(command in workflow, f"workflow omits required command: {command}")
 
-print("Adbyby managed, third-party and anti-AD downloads, dnsmasq hosts cleanup and CI integration contracts: PASS")
+print("Adbyby managed, third-party, anti-AD and configured hosts downloads, dnsmasq cleanup, producer chain and CI integration contracts: PASS")

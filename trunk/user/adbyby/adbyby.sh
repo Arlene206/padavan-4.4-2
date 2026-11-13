@@ -7,6 +7,12 @@ DATA_PATH="$PROG_PATH/data"
 ADBYBY_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt"
 ADBYBY_ANTI_AD_FILE="/etc/storage/dnsmasq-adbyby.d/anti-ad-for-dnsmasq.conf"
 WAN_FILE="/etc/storage/dnsmasq-adbyby.d/03-adbyby-ipset.conf"
+ADBYBY_HOST_LIST_FILE="/etc/storage/adbyby_host.sh"
+ADBYBY_HOSTS_CONFIG_FILE="/etc/storage/dnsmasq/dnsmasq.conf"
+ADBYBY_HOST_SOURCE_MAX_BYTES=4194304
+ADBYBY_HOST_TOTAL_MAX_BYTES=16777216
+ADBYBY_HOST_MAX_CONFIG_BYTES=314571
+ADBYBY_HOST_MAX_SOURCES=16
 
 # Read mutable settings only after the lifecycle lock is held.
 adbyby_refresh_nvram_state()
@@ -901,35 +907,188 @@ adbyby_remove_generated_hosts_config()
 	sed -i "/^$adbyby_escaped_hosts_entry\$/d" "$adbyby_hosts_config_file"
 }
 
-hosts_ads(){
-adbyby_hosts=`nvram get hosts_ad`
-nvram set adbyby_hostsad=0
-if [ "$adbyby_hosts" = "1" ]; then
-rm -rf $PROG_PATH/hosts
-grep -v '^#' /etc/storage/adbyby_host.sh | grep -v "^$" > $PROG_PATH/hostlist.txt
-for ip in `cat $PROG_PATH/hostlist.txt`
-do
-logger -t "adbyby" "正在下载: $ip"
-curl -k -s -o /tmp/host.txt --connect-timeout 5 --retry 3 $ip
-if [ ! -f "/tmp/host.txt" ]; then
-	logger -t "adbyby" "$ip 下载失败！"
-else
-	logger -t "adbyby" "hosts下载成功,处理中..."
-grep -v '^#' /tmp/host.txt | grep -v "^$" >> $PROG_PATH/hosts
-fi
-done
-rm -f /tmp/host.txt
-logger -t "adbyby" "正在对hosts文件进行去重处理."
-sort $PROG_PATH/hosts | uniq
-nvram set adbyby_hostsad=`grep -v '^!' $PROG_PATH/hosts | wc -l`
-if ! adbyby_remove_generated_hosts_config; then
-	logger -t "adbyby" "移除Adbyby hosts配置失败，未追加新的hosts配置。"
-	return 1
-fi
-cat >> /etc/storage/dnsmasq/dnsmasq.conf <<-EOF
-	addn-hosts=$PROG_PATH/hosts
-EOF
-fi
+adbyby_validate_hosts_file()
+{
+	adbyby_hosts_input="$1"
+	adbyby_hosts_output="$2"
+	adbyby_hosts_max_bytes="$3"
+	[ -f "$adbyby_hosts_input" ] && [ ! -L "$adbyby_hosts_input" ] && [ -s "$adbyby_hosts_input" ] || return 1
+	case "$adbyby_hosts_max_bytes" in ''|*[!0123456789]*) return 1 ;; esac
+	[ "$adbyby_hosts_max_bytes" -gt 0 ] && [ "$adbyby_hosts_max_bytes" -le 16777216 ] || return 1
+	adbyby_hosts_input_bytes=$(wc -c < "$adbyby_hosts_input" | awk '{print $1}') || return 1
+	case "$adbyby_hosts_input_bytes" in ''|*[!0123456789]*) return 1 ;; esac
+	[ "$adbyby_hosts_input_bytes" -le "$adbyby_hosts_max_bytes" ] || return 1
+	if [ -n "$adbyby_hosts_output" ]; then
+		[ "$adbyby_hosts_output" != "$adbyby_hosts_input" ] || return 1
+		( set -C; : > "$adbyby_hosts_output" ) 2>/dev/null || return 1
+	else
+		adbyby_hosts_output="/dev/null"
+	fi
+	awk -v output="$adbyby_hosts_output" '
+		function valid_ipv4(address, octets, count, i, value) {
+			if (address !~ /^[0-9][0-9.]*$/) return 0
+			count = split(address, octets, /\./)
+			if (count != 4) return 0
+			for (i = 1; i <= 4; i++) {
+				if (octets[i] !~ /^[0-9]+$/ || length(octets[i]) > 3) return 0
+				if (length(octets[i]) > 1 && substr(octets[i], 1, 1) == "0") return 0
+				value = octets[i] + 0
+				if (value > 255) return 0
+			}
+			return 1
+		}
+		function valid_ipv6(address, parts, count, i, compressed, groups, normalized) {
+			if (address !~ /^[0-9A-Fa-f:]+$/ || index(address, ":") == 0 || address ~ /:::/) return 0
+			compressed = (index(address, "::") > 0)
+			normalized = address
+			if (compressed) {
+				sub(/::/, "X", normalized)
+				if (index(normalized, "::") > 0) return 0
+			} else if (substr(address, 1, 1) == ":" || substr(address, length(address), 1) == ":") return 0
+			count = split(address, parts, /:/)
+			groups = 0
+			for (i = 1; i <= count; i++) {
+				if (parts[i] == "") continue
+				if (length(parts[i]) > 4 || parts[i] !~ /^[0-9A-Fa-f]+$/) return 0
+				groups++
+			}
+			if (compressed) return groups < 8
+			return groups == 8
+		}
+		function valid_address(address) {
+			if (index(address, ":") > 0) return valid_ipv6(address)
+			return valid_ipv4(address)
+		}
+		function valid_hostname(name, labels, count, i, label) {
+			if (length(name) > 254 || name !~ /^[A-Za-z0-9_.-]+$/) return 0
+			if (substr(name, length(name), 1) == ".") name = substr(name, 1, length(name) - 1)
+			if (name == "" || length(name) > 253) return 0
+			count = split(name, labels, /\./)
+			for (i = 1; i <= count; i++) {
+				label = labels[i]
+				if (length(label) < 1 || length(label) > 63) return 0
+				if (length(label) == 1) {
+					if (label !~ /^[A-Za-z0-9_]$/) return 0
+				} else if (label !~ /^[A-Za-z0-9_][A-Za-z0-9_-]*[A-Za-z0-9_]$/) return 0
+			}
+			return 1
+		}
+		{
+			line = $0
+			sub(/\r$/, "", line)
+			if (length(line) > 1024) { invalid = 1; next }
+			sub(/^[ \t]+/, "", line)
+			sub(/[ \t]+$/, "", line)
+			if (line == "" || line ~ /^#/) next
+			fields_count = split(line, fields, /[ \t]+/)
+			if (fields_count < 2 || !valid_address(fields[1])) { invalid = 1; next }
+			normalized = fields[1]
+			names = 0
+			record_invalid = 0
+			for (i = 2; i <= fields_count; i++) {
+				if (substr(fields[i], 1, 1) == "#") break
+				if (!valid_hostname(fields[i])) { invalid = 1; record_invalid = 1; break }
+				normalized = normalized " " fields[i]
+				names++
+			}
+			if (names < 1) { invalid = 1; record_invalid = 1 }
+			if (!record_invalid) { print normalized >> output; records++ }
+		}
+		END { close(output); if (invalid || records == 0) exit 1 }
+	' "$adbyby_hosts_input"
+}
+
+adbyby_prepare_hosts_transaction()
+(
+	umask 077
+	adbyby_hosts_destination="$PROG_PATH/hosts"
+	[ -d "$PROG_PATH" ] && [ ! -L "$PROG_PATH" ] || return 1
+	if [ -e "$adbyby_hosts_destination" ] || [ -L "$adbyby_hosts_destination" ]; then
+		[ -f "$adbyby_hosts_destination" ] && [ ! -L "$adbyby_hosts_destination" ] || return 1
+	fi
+	[ -f "$ADBYBY_HOST_LIST_FILE" ] && [ ! -L "$ADBYBY_HOST_LIST_FILE" ] && [ -r "$ADBYBY_HOST_LIST_FILE" ] || return 1
+	adbyby_hosts_config_bytes=$(wc -c < "$ADBYBY_HOST_LIST_FILE" | awk '{print $1}') || return 1
+	case "$adbyby_hosts_config_bytes" in ''|*[!0123456789]*) return 1 ;; esac
+	[ "$adbyby_hosts_config_bytes" -le "$ADBYBY_HOST_MAX_CONFIG_BYTES" ] || return 1
+	adbyby_hosts_stage=$(mktemp -d "$PROG_PATH/.adbyby-hosts.XXXXXX") || return 1
+	trap 'rm -rf "$adbyby_hosts_stage"' 0
+	trap 'exit 1' HUP INT TERM
+	adbyby_hosts_aggregate="$adbyby_hosts_stage/all.hosts"
+	( set -C; : > "$adbyby_hosts_aggregate" ) 2>/dev/null || return 1
+	adbyby_hosts_source_count=0
+	while IFS= read -r adbyby_hosts_url || [ -n "$adbyby_hosts_url" ]; do
+		case "$adbyby_hosts_url" in ''|'#'*) continue ;; esac
+		adbyby_hosts_source_count=$((adbyby_hosts_source_count + 1))
+		[ "$adbyby_hosts_source_count" -le "$ADBYBY_HOST_MAX_SOURCES" ] || return 1
+		adbyby_hosts_source="$adbyby_hosts_stage/source.$adbyby_hosts_source_count"
+		adbyby_hosts_validated="$adbyby_hosts_stage/validated.$adbyby_hosts_source_count"
+		if ! adbyby_download_https_200 "$adbyby_hosts_url" "$adbyby_hosts_source" "$ADBYBY_HOST_SOURCE_MAX_BYTES"; then
+			logger -t "adbyby" "Hosts列表第 $adbyby_hosts_source_count 个来源下载或HTTPS校验失败。"
+			return 1
+		fi
+		if ! adbyby_validate_hosts_file "$adbyby_hosts_source" "$adbyby_hosts_validated" "$ADBYBY_HOST_SOURCE_MAX_BYTES"; then
+			logger -t "adbyby" "Hosts列表第 $adbyby_hosts_source_count 个来源格式无效。"
+			return 1
+		fi
+		adbyby_hosts_source_bytes=$(wc -c < "$adbyby_hosts_validated" | awk '{print $1}') || return 1
+		adbyby_hosts_aggregate_bytes=$(wc -c < "$adbyby_hosts_aggregate" | awk '{print $1}') || return 1
+		case "$adbyby_hosts_source_bytes:$adbyby_hosts_aggregate_bytes" in *[!0123456789:]*) return 1 ;; esac
+		[ $((adbyby_hosts_source_bytes + adbyby_hosts_aggregate_bytes)) -le "$ADBYBY_HOST_TOTAL_MAX_BYTES" ] || return 1
+		cat "$adbyby_hosts_validated" >> "$adbyby_hosts_aggregate" || return 1
+	done < "$ADBYBY_HOST_LIST_FILE"
+	[ "$adbyby_hosts_source_count" -gt 0 ] && [ -s "$adbyby_hosts_aggregate" ] || return 1
+	LC_ALL=C sort "$adbyby_hosts_aggregate" > "$adbyby_hosts_stage/hosts.sorted" || return 1
+	uniq "$adbyby_hosts_stage/hosts.sorted" > "$adbyby_hosts_stage/hosts.next" || return 1
+	[ -s "$adbyby_hosts_stage/hosts.next" ] || return 1
+	adbyby_hosts_final_bytes=$(wc -c < "$adbyby_hosts_stage/hosts.next" | awk '{print $1}') || return 1
+	case "$adbyby_hosts_final_bytes" in ''|*[!0123456789]*) return 1 ;; esac
+	[ "$adbyby_hosts_final_bytes" -le "$ADBYBY_HOST_TOTAL_MAX_BYTES" ] || return 1
+	adbyby_validate_hosts_file "$adbyby_hosts_stage/hosts.next" "" "$ADBYBY_HOST_TOTAL_MAX_BYTES" || return 1
+	if [ -e "$adbyby_hosts_destination" ] || [ -L "$adbyby_hosts_destination" ]; then
+		[ -f "$adbyby_hosts_destination" ] && [ ! -L "$adbyby_hosts_destination" ] || return 1
+	fi
+	chmod 0644 "$adbyby_hosts_stage/hosts.next" || return 1
+	mv -f "$adbyby_hosts_stage/hosts.next" "$adbyby_hosts_destination" || return 1
+)
+
+adbyby_hosts_cache_is_usable()
+{
+	[ -d "$PROG_PATH" ] && [ ! -L "$PROG_PATH" ] &&
+		[ -f "$PROG_PATH/hosts" ] && [ ! -L "$PROG_PATH/hosts" ] &&
+		[ -s "$PROG_PATH/hosts" ] &&
+		adbyby_validate_hosts_file "$PROG_PATH/hosts" "" "$ADBYBY_HOST_TOTAL_MAX_BYTES"
+}
+
+hosts_ads()
+{
+	adbyby_hosts_enabled=$(nvram get hosts_ad) || return 1
+	if [ "$adbyby_hosts_enabled" != "1" ]; then
+		nvram set adbyby_hostsad=0 || return 1
+		return 0
+	fi
+	if ! adbyby_prepare_hosts_transaction; then
+		if ! adbyby_hosts_cache_is_usable; then
+			logger -t "adbyby" "Hosts列表更新失败且不存在有效的上一次完整列表，拒绝发布。"
+			nvram set adbyby_hostsad=0 || return 1
+			if ! adbyby_remove_generated_hosts_config "$ADBYBY_HOSTS_CONFIG_FILE" "$PROG_PATH/hosts"; then
+				logger -t "adbyby" "移除无效Hosts配置失败。"
+				return 1
+			fi
+			return 1
+		fi
+		logger -t "adbyby" "Hosts列表更新失败，保留并继续使用上一次完整列表。"
+	fi
+	if ! adbyby_remove_generated_hosts_config "$ADBYBY_HOSTS_CONFIG_FILE" "$PROG_PATH/hosts"; then
+		logger -t "adbyby" "移除Adbyby Hosts配置失败，未追加新的Hosts配置。"
+		return 1
+	fi
+	if ! printf 'addn-hosts=%s\n' "$PROG_PATH/hosts" >> "$ADBYBY_HOSTS_CONFIG_FILE"; then
+		logger -t "adbyby" "写入Adbyby Hosts配置失败。"
+		return 1
+	fi
+	adbyby_hosts_count=$(wc -l < "$PROG_PATH/hosts" | awk '{print $1}') || return 1
+	case "$adbyby_hosts_count" in ''|*[!0123456789]*) return 1 ;; esac
+	nvram set adbyby_hostsad="$adbyby_hosts_count"
 }
 
 
