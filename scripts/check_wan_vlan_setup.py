@@ -96,7 +96,7 @@ for marker in ("create_vlan_iface_tracked(", "br_add_del_if_tracked(",
     require(marker in soft_lan, f"LAN bridge setup omits transactional rollback marker {marker}")
 soft_lan_rollback = soft_lan[soft_lan.index("rollback:"):]
 require("if (vlan_attached)" in soft_lan_rollback and
-        "if (physical_detached)" in soft_lan_rollback and
+        "if (physical_detached && vlan_state_safe)" in soft_lan_rollback and
         "if (physical_attached)" in soft_lan_rollback and
         "if (vlan_detached && physical_state_safe)" in soft_lan_rollback,
         "LAN bridge rollback must reverse only memberships changed by this call")
