@@ -1,3 +1,14 @@
+## 2026-11-14 06:39 CST (UTC+8) — Reconcile exact main SHA and preserve process-inventory continuation
+
+- Base main SHA: ebe8fc50584a51e0ce625f686f2d6e4bcd34529e (parent e2a227897feb3a558bde056884595bfd0a33ae3a). Branch inventory contains only main; PR #1 remains CLOSED / UNMERGED. Compare confirms the base commit changed only SESSION_HANDOFF.md and dev_log.md; product source remains the L3-verified 691e4d68a27580d0f053a8b4c9ae7a71bff03e6f tree.
+- Exact-head push Actions for the base SHA completed 6/6 SUCCESS: AI docs 43518951163, infosvr 43518951037, AdGuardHome 43518951039, AliDDNS 43518951170, AliyunDrive 43518951061, NVRAM 43518951092. All runs have event=push and exact head_sha; every reported job step succeeded.
+- Re-read pids.c, shutils.h, common_ex.c, services_ex.c and service_lifecycle_policy.h; source blob SHAs remain unchanged. Confirmed NULL/error collapse for scanner initialization, /proc open, readdir errors and PID-list allocation; lifecycle policy sends TERM before inventory can be trusted.
+- Attempted a fresh shallow filtered clone; it failed before checkout because this runtime cannot resolve github.com. Code search remains non-exhaustive; no complete caller inventory or executable host regression is available. No product source or tests changed; L1 partial, L2 NOT RUN.
+- Updated the live handoff and roadmap checkpoint to the exact current base SHA and exact Actions evidence, and appended this log entry. Root log advances 42→43/119; archive inventory remains dev-log=8 / handoff=22 / roadmap=18. No rotation or INDEX update.
+- Existing product-source L3 XY-C1 MIPSel/TRX evidence remains on 691e4d68a27580d0f053a8b4c9ae7a71bff03e6f (run 43489646254 / job 132107102854); L4 router flash/boot remains NOT VERIFIED.
+- Resulting commit: THIS COMMIT. Exact-head push Actions and documentation validator must be checked on the resulting commit SHA. No local docs script, host test, firmware build or hardware test is claimed.
+
+---
 ## 2026-11-14 06:22 CST (UTC+8) — Reconcile current main and exact-head Actions; retain process-inventory blocker
 
 - Base main SHA: `e2a227897feb3a558bde056884595bfd0a33ae3a` (parent `068e9896b5d0cff52a560bd4abe75287563f9155`). The branch inventory contains only `main`; legacy PR #1 remains CLOSED / UNMERGED. Compare confirms this recovery is docs-only; product source remains the L3-verified tree `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`.
