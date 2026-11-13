@@ -210,10 +210,10 @@ for marker in ("HTTPD_FILE_TYPE_PRIVATE_SCRIPT", "httpd_script_file_type",
             f"HTTPD policy regression omits FRP private-script contract {marker}")
 
 runtime_dir = function_body(frp_template, "frp_prepare_runtime_dir()")
-require('[ -L "$frp_runtime_dir" ]' in runtime_dir and
-        'ls -lnd "$frp_runtime_dir"' in runtime_dir and
+require('[ -L "$frp_check_dir" ]' in runtime_dir and
+        'ls -lnd "$frp_check_dir"' in runtime_dir and
         '[ "$3" = "$frp_expected_owner" ]' in runtime_dir and
-        'chmod 700 "$frp_runtime_dir"' in runtime_dir,
+        'chmod 700 "$frp_check_dir"' in runtime_dir,
         "FRP runtime directory must reject symlinks/non-root ownership and enforce mode 0700")
 validate_credentials = function_body(frp_template, "frp_validate_credentials()")
 require("CHANGE_ME_TO_A_UNIQUE_RANDOM_TOKEN" in validate_credentials and

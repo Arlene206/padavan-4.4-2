@@ -42,7 +42,7 @@ frp_validate_credentials()
 
 frp_prepare_runtime_dir()
 {
-	frp_runtime_dir="$1"
+	frp_check_dir="$1"
 	frp_expected_owner="$2"
 
 	[ -d /tmp ] && [ ! -L /tmp ] || return 1
@@ -53,17 +53,17 @@ frp_prepare_runtime_dir()
 		*) return 1 ;;
 	esac
 
-	if [ -L "$frp_runtime_dir" ] ||
-	   { [ -e "$frp_runtime_dir" ] && [ ! -d "$frp_runtime_dir" ]; }; then
+	if [ -L "$frp_check_dir" ] ||
+	   { [ -e "$frp_check_dir" ] && [ ! -d "$frp_check_dir" ]; }; then
 		return 1
 	fi
-	if [ ! -e "$frp_runtime_dir" ]; then
-		mkdir "$frp_runtime_dir" || return 1
+	if [ ! -e "$frp_check_dir" ]; then
+		mkdir "$frp_check_dir" || return 1
 	fi
-	[ -d "$frp_runtime_dir" ] && [ ! -L "$frp_runtime_dir" ] || return 1
-	set -- $(ls -lnd "$frp_runtime_dir" 2>/dev/null) || return 1
+	[ -d "$frp_check_dir" ] && [ ! -L "$frp_check_dir" ] || return 1
+	set -- $(ls -lnd "$frp_check_dir" 2>/dev/null) || return 1
 	[ "$3" = "$frp_expected_owner" ] || return 1
-	chmod 700 "$frp_runtime_dir" || return 1
+	chmod 700 "$frp_check_dir" || return 1
 	return 0
 }
 
