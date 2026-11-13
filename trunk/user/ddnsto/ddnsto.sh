@@ -174,10 +174,10 @@ ddnsto_lifecycle_lock_run() {
 		*) return 2 ;;
 	esac
 	ddnsto_lock_file=$(ddnsto_lifecycle_lock_path) || return 1
-	ddnsto_lifecycle_lock_prepare "$ddnsto_lock_file" || {
+	if ! ddnsto_lifecycle_lock_prepare "$ddnsto_lock_file"; then
 		logger -t "DDNSTO" "生命周期锁准备失败，取消服务操作"
 		return 1
-	}
+	fi
 	command -v flock >/dev/null 2>&1 || {
 		logger -t "DDNSTO" "系统缺少flock，拒绝无锁执行服务操作"
 		return 1
