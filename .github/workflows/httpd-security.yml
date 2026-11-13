@@ -4264,19 +4264,26 @@ jobs:
           write_end = web.index(chr(10) + "static void" + chr(10) + "websScan", write_start)
           write_helper = web[write_start:write_end]
           script_write_gate = write_helper.index(
-              "httpd_script_file_write_allowed(file_type, get_login_safe())"
+              "httpd_script_file_write_allowed(file_type,"
           )
           temp_write = write_helper.index("unlink(temp_path);")
           assert script_write_gate < temp_write
-          assert "file_type = HTTPD_FILE_TYPE_SCRIPT;" in write_helper
-          # The staging file must be created atomically and written through
-          # the returned descriptor; reopening a predictable /tmp path lets
-          # an unprivileged local process win an unlink/fopen symlink race.
-          assert 'char temp_path[] = "/tmp/httpd-upload-XXXXXX";' in write_helper
+          assert "file_type = httpd_script_file_type(file_name);" in write_helper
+          assert "HTTPD_FILE_TYPE_PRIVATE_SCRIPT" in write_helper
+          assert "get_login_private_key_access() : get_login_safe()" in write_helper
+          # Ordinary script writes retain the existing private /tmp staging;
+          # the FRP credential script stages beside its destination so rename
+          # publishes a 0700 inode atomically on the storage filesystem.
+          assert 'char temp_path[192] = "/tmp/httpd-upload-XXXXXX";' in write_helper
           temp_create = write_helper.index("temp_fd = mkstemp(temp_path);")
           temp_open = write_helper.index('temp_fp = fdopen(temp_fd, "w");')
           temp_write = write_helper.index("write_file_dos2unix_fp(value, temp_fp)")
           assert script_write_gate < temp_create < temp_open < temp_write
+          assert "lstat(real_path, &target_stat)" in write_helper
+          assert "S_ISREG(target_stat.st_mode)" in write_helper
+          assert '"/.frp_script.XXXXXX"' in write_helper
+          assert "chmod(temp_path, httpd_script_file_mode(file_type))" in write_helper
+          assert "rename(temp_path, real_path)" in write_helper
           assert 'snprintf(temp_path, sizeof(temp_path), "%s/.%s", "/tmp", file_name)' not in write_helper
           assert "HTTPD_FILE_TYPE_SCRIPT 1" in script_policy
           assert "HTTPD_FILE_TYPE_SCRIPT, 0" in script_policy_test

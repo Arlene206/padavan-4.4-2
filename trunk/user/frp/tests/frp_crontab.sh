@@ -29,7 +29,12 @@ http_username=root
 FRP_SCRIPT_PATH="$test_root/frp-script.sh"
 FRP_SCRIPT_MARKER="$test_root/script-ran"
 printf 'touch "%s"\n' "$FRP_SCRIPT_MARKER" > "$FRP_SCRIPT_PATH"
+chmod 755 "$FRP_SCRIPT_PATH"
 frp_run_script || { echo "FRP script path regression: FAIL: regular script did not run" >&2; exit 1; }
+[ "$(stat -c '%a' "$FRP_SCRIPT_PATH")" = "700" ] || {
+	echo "FRP script path regression: FAIL: runner did not repair mode 0700" >&2
+	exit 1
+}
 [ -f "$FRP_SCRIPT_MARKER" ] || {
 	echo "FRP script path regression: FAIL: regular script marker missing" >&2
 	exit 1

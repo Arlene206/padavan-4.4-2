@@ -184,7 +184,7 @@ require('httpd_script_file_type(file_name)' in web_ex and
         'get_login_private_key_access()' in web_ex and
         'lstat(real_path, &target_stat)' in web_ex and
         'S_ISREG(target_stat.st_mode)' in web_ex and
-        '".frp_script.XXXXXX"' in web_ex and
+        '/.frp_script.XXXXXX' in web_ex and
         'chmod(temp_path, httpd_script_file_mode(file_type))' in web_ex and
         'rename(temp_path, real_path)' in web_ex,
         "HTTPD must stage FRP script privately, reject symlinks/non-regular targets and atomically publish mode 0700")

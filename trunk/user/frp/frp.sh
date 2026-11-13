@@ -43,6 +43,11 @@ frp_run_script()
 		logger -t "frp" "拒绝执行缺失或非普通文件形式的FRP配置脚本。"
 		return 1
 	fi
+	# Do not execute a legacy 0755 copy if boot-time permission repair failed.
+	if ! chmod 700 "$frp_script_path"; then
+		logger -t "frp" "无法将FRP配置脚本收紧为仅所有者可访问，拒绝执行。"
+		return 1
+	fi
 	/bin/sh "$frp_script_path"
 }
 
