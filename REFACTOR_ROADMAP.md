@@ -5,7 +5,7 @@
 - Adbyby managed dnsmasq-entry cleanup is L2 CLOSED on this SHA: only the exact generated `addn-hosts=$PROG_PATH/hosts` line is removed; operator-owned directives/comments are preserved.
 - FRP asynchronous watchdog duplicate-restart dispatch remains L2 CLOSED on exact SHA `edd2b4e231819fd748dea032324cd45904ddf172`; all six exact-head Actions passed and subsequent main changes did not modify FRP sources.
 - AliyunDrive token-at-rest and credential argv privacy remain L2 CLOSED on `f08e11546b267b717253c0619e7eea86372146fe`.
-- This follow-up implements Adbyby lifecycle serialization, atomic RC stop/start, updateadb routing and FD-9 closure for detached children; exact resulting-main Actions are PENDING.
+- This follow-up implements Adbyby lifecycle serialization, atomic RC stop/start, updateadb routing and FD-9 closure for detached children; exact resulting-main Actions are PENDING. The first run exposed a firewall host fixture that called direct helpers before the new locked NVRAM refresh; fixture setup is corrected and must be rerun.
 - FTP failed-upload cleanup remains OPEN/BLOCKED: fstatat/unlinkat leaves a final-name race; Linux 4.4 lacks inode-conditional unlink-by-fd.
 - Current-main MIPS/uClibc firmware/TRX and physical-router L3/L4 remain NOT VERIFIED.
 

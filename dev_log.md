@@ -1,3 +1,16 @@
+## 2026-11-13 08:42 CST (UTC+8) — Align Adbyby firewall fixture with locked NVRAM initialization
+
+- Base main SHA: `c54c6c71b308ef4b188bfd32ea8431e6ae8fa5a0`; initial post-push head matched exactly.
+- New lifecycle lock regression passed on that exact SHA: it verified the `B` action remains narrow, `updateadb` reaches the rule updater, RC restart stop/start ordering, disabled and failed-stop behavior, concurrent serialization, stable inode, symlink/hardlink/permissive-file rejection, failure-status propagation and FD-9 closure.
+- Adbyby [43344906688] / job [131621789193] failed in the existing `firewall_snapshot.sh` direct-helper fixture after the new launcher intentionally stopped taking NVRAM snapshots at source time. The test directly calls `ip_rule()` / `add_rule()` after dot-sourcing, without the locked dispatcher, leaving `adbyby_ip_x` and `wan_mode` empty; the resulting numeric test warning caused the final firewall scenario to fail. HTTPD authentication umbrella [43344906734] / job [131621789538] encountered the same shared fixture failure in its add-on firewall staging step. The remaining 17 exact-head workflows passed.
+- Corrected the fixture to call `adbyby_refresh_nvram_state` immediately after dot-sourcing, matching the production invariant, and added a semantic checker assertion so future fixture edits cannot silently drop the initialization.
+- Current follow-up SHA Actions are PENDING; rerun exact-head Adbyby and HTTPD umbrella jobs and inspect all triggered steps/logs before claiming L2.
+- Root log count: 90→91, below the 120-record/384 KiB rotation thresholds; archive inventory remains 7/22/18. No archive/index rotation needed.
+- Changed paths: firewall snapshot host fixture, Adbyby semantic checker, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and dev_log.md. No firmware, branch/PR or GPT Session Rotator changes.
+- Resulting main commit: THIS COMMIT.
+- Next: verify exact-head Actions; if all are green, close lifecycle serialization at L2 and proceed to private download staging/TLS/integrity audit.
+
+---
 ## 2026-11-13 08:34 CST (UTC+8) — Serialize Adbyby lifecycle and update actions
 
 - Recovery base main SHA: `6fa50e11532ca5c68a9fdb3ffc95a8415841e794`. On that exact SHA, Adbyby [43336402301] / job [131593559948], infosvr [43336402343] / job [131593560012], AliyunDrive [43336402492] / job [131593560634], AliDDNS [43336402424] / job [131593560363], AdGuardHome [43336402256] / job [131593559789], AI docs [43336402234] / job [131593559451] and HTTPD security [43336402226] / job [131593559966] all SUCCESS; every step/log inspected. AI docs reports root log=89/119 and archive inventory 7/22/18.

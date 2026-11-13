@@ -130,6 +130,9 @@ TEST_SNAPSHOT_LOG="$test_root/snapshot.log"
 TEST_IPSET_STATE="$test_root/ipset-state"
 export TEST_COMMAND_LOG TEST_IPSET_LOG TEST_SNAPSHOT_LOG TEST_IPSET_STATE
 . "$repo_root/trunk/user/adbyby/adbyby.sh" test-source >/dev/null
+# The production launcher now loads mutable settings under the lifecycle lock.
+# The host fixture calls helpers directly, so initialize the same locked snapshot.
+adbyby_refresh_nvram_state
 snapshot="$test_root/private/.adbyby.save";sentinel="$test_root/sentinel"
 printf 'preserve-me\n' > "$sentinel";ln -s "$sentinel" "$snapshot"
 save_adbyby_rule_snapshot "$test_root/private"

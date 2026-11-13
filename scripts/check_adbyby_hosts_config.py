@@ -7,6 +7,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "trunk/user/adbyby/adbyby.sh"
 TEST = ROOT / "trunk/user/adbyby/tests/hosts_config_preservation.sh"
+FIREWALL_TEST = ROOT / "trunk/user/adbyby/tests/firewall_snapshot.sh"
 WORKFLOW = ROOT / ".github/workflows/adbyby-config-stability.yml"
 SERVICE = ROOT / "trunk/user/rc/src/services.c"
 LIFECYCLE_TEST = ROOT / "trunk/user/adbyby/tests/lifecycle_lock.sh"
@@ -31,6 +32,7 @@ def function_body(source, name):
 
 source = SOURCE.read_text(encoding="utf-8")
 test = TEST.read_text(encoding="utf-8")
+firewall_test = FIREWALL_TEST.read_text(encoding="utf-8")
 workflow = WORKFLOW.read_text(encoding="utf-8")
 service = SERVICE.read_text(encoding="utf-8")
 lifecycle_test = LIFECYCLE_TEST.read_text(encoding="utf-8")
@@ -66,6 +68,8 @@ require("return 1" in hosts_ads[:append_index],
         "hosts_ads must fail closed when it cannot remove the prior entry")
 require('logger -t "adbyby"' in del_dns,
         "del_dns must log a failed managed-entry cleanup")
+require("adbyby_refresh_nvram_state" in firewall_test,
+        "firewall host fixture must initialize the launcher state before direct helper calls")
 
 require("stat -c '%u %a %h'" in lock_prepare and '[ -L "$adbyby_lock_file" ]' in lock_prepare,
         "lifecycle lock validates owner, mode, links and symlink state")
