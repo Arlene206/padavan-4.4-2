@@ -1,3 +1,16 @@
+## 2026-11-13 15:53 PST (UTC-8) — Reconcile exact main checkpoint and process-inventory continuation
+
+- Re-read the mandatory bootstrap and complete development protocol, then recovered the live handoff, roadmap, newest root-log records and archive index.
+- Re-fetched `refs/heads/main`: `6dba16674ed6ee0b0babcf65905a3722fac23876` (parent `dbe61f648fdcaa34d7fb7dd00b76fe55db35e782`). Remote branch inventory contains only `main`; legacy PR #1 is CLOSED / UNMERGED and was inspected for state only. No non-main branch or PR was used.
+- Exact-head push Actions completed 6/6 SUCCESS with matching `head_sha`: AI handoff docs [43529987739], AliDDNS [43529987764], AliyunDrive [43529987660], AdGuardHome [43529987814], infosvr [43529987788], NVRAM [43529987716]. Every job-step summary reports success.
+- The active P1 shared process-inventory defect remains unfinished. The required complete caller inventory cannot be established with available GitHub code-search/tree results; the prior full/shallow checkout attempt is documented as blocked by GitHub DNS resolution. Do not change the shared API or migrate Boolean consumers until every caller and lifecycle path is enumerated. No production source, tests or workflow files were changed; no local test or docs checker was run.
+- Product-source L3 evidence remains on `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f` (XY-C1 run 43489646254 / job 132107102854); current main product delta remains documentation-only. L4 router flash/boot remains NOT VERIFIED.
+- Root log advances 54→55/119; size remains below the 384 KiB early-rotation threshold. Archive inventory remains dev-log=8 / handoff=22 / roadmap=18; no rotation or INDEX update.
+- Exact next action: obtain a complete checkout or exhaustive hierarchical source enumeration; inventory every `pids()`, `pids_main()`, `find_pid_by_name()`, `procps_scan()` and lifecycle/readiness/stop caller, then implement and test RUNNING/ABSENT/UNKNOWN fail-closed behavior. Do not perform a partial migration.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-13 15:45 PST (UTC-8) — Reconcile live main after stale handoff checkpoint
 
 - Recovered the repository in bootstrap order. Live `main` was `935a38ae44ece9243015e3a9c3dcae054e561097`; branch inventory contains only `main`. Legacy PR #1 remains CLOSED / UNMERGED. The handoff had still named `2b37f77d423c4a163e4ecb6789a45c690e9efd13`, so it was refreshed in place to the actual baseline and current Actions state.
