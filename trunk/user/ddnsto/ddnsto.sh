@@ -178,10 +178,10 @@ ddnsto_lifecycle_lock_run() {
 		logger -t "DDNSTO" "生命周期锁准备失败，取消服务操作"
 		return 1
 	fi
-	command -v flock >/dev/null 2>&1 || {
+	if ! command -v flock >/dev/null 2>&1; then
 		logger -t "DDNSTO" "系统缺少flock，拒绝无锁执行服务操作"
 		return 1
-	}
+	fi
 	ddnsto_lifecycle_lock_execute "$ddnsto_lock_file" "$DDNSTO_LOCK_WAIT_SECONDS" \
 		ddnsto_lifecycle_locked_action "$ddnsto_action"
 }
