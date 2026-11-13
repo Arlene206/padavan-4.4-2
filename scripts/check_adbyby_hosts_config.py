@@ -140,7 +140,9 @@ require("adbyby_prepare_user_rules" in add_rules and "return 1" in add_rules and
         "third-party rule failures must gate publication and never use shared insecure downloads")
 require("user.txt" in user_cache and "[ ! -L" in user_cache and "[ -s" in user_cache,
         "last-good user rules cache must be a non-empty regular non-symlink file")
-for marker in ("umask 077", "mktemp -d /tmp/adbyby-user-rules.XXXXXX",
+require("umask 077" in prepare_user_rules,
+        "third-party user-rule staging must set a private umask before creating the stage directory")
+for marker in ("mktemp -d /tmp/adbyby-user-rules.XXXXXX",
                "adbyby_download_https_200", "1048576", "user.next",
                "rule-", "chmod 0644", "mv -f", "user.bin"):
     require(marker in prepare_user_transaction, f"third-party user-rule transaction omits {marker}")

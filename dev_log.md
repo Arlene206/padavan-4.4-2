@@ -1,3 +1,16 @@
+## 2026-11-13 12:38 CST (UTC+8) — Place Adbyby umask contract at the wrapper boundary
+
+- Base main SHA: `267bfb4e2d669c07d0daee918302e8780abc5958`. The exact-head run after the previous checker correction, Adbyby [43363045488] / job [131680816661], passed shell syntax and all five host regressions, then failed the semantic checker at the stale marker `umask 077` being required inside `adbyby_prepare_user_rules_transaction()`. Production code intentionally applies the private umask in its wrapper subshell before invoking the transaction helper.
+- All other exact-267b push workflows passed: AI docs [43363045630] / job [131680816799], infosvr [43363045669] / job [131680817373], AdGuardHome [43363045535] / job [131680816777], AliDDNS [43363045485] / job [131680816288] and AliyunDrive [43363045498] / job [131680817636]. Exact checkout SHA confirmed; all steps passed. The AI docs validator passed.
+- THIS COMMIT moves the source assertion to the actual wrapper function and keeps transaction assertions on the function that creates the private stage and publishes the complete list. No production source or host test changes.
+- Third-party custom-rule L2 remains pending exact-main Actions; no local checkout/host execution is claimed.
+- Root log count: 96→97/119, below rotation thresholds; archive inventory remains 7/22/18. No archive/index rotation.
+- Changed paths: `scripts/check_adbyby_hosts_config.py`, `SESSION_HANDOFF.md` and this log. No firmware, branch, PR or GPT Session Rotator changes.
+- Resulting main commit: THIS COMMIT.
+- Next: inspect all exact-head Actions for the corrected checker; then continue anti-ad and hosts-list downloader hardening only after third-party rule L2 is green.
+
+---
+
 ## 2026-11-13 12:25 CST (UTC+8) — Align Adbyby source checker with shared HTTPS validator
 
 - Base main SHA: `315d738a580e154302dfdd9c57674ee64c3ada36`. Exact-head Actions for the third-party custom-rule change: Adbyby [43362382205] / job [131678687484] FAILED only at the semantic source checker; shell syntax and all five host regressions passed, including URL quoting, invalid URL rejection, TLS/redirect/HTTP fallback, oversized body rejection, last-good preservation and atomic publication. Failure was a stale assertion: it required a literal scheme check inside the managed fetch helper, although URL validation had been centralized in `adbyby_valid_https_url()`; the firmware CA readability checks remained in the shared downloader.
