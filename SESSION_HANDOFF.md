@@ -1,10 +1,10 @@
 ## Current repository state
 
-- Live `main` HEAD at recovery: `935a38ae44ece9243015e3a9c3dcae054e561097`; active branch: `main`. This is the exact current SHA fetched from `refs/heads/main`.
-- Product-source comparison from L3 source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f` to this HEAD reports 34 commits ahead, zero behind, and only `REFACTOR_ROADMAP.md`, `SESSION_HANDOFF.md`, and `dev_log.md` changed. No product-source delta since the recorded L3 source tree.
-- Remote branch inventory: only `main`. Legacy PR #1 is CLOSED / UNMERGED (head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`, base `9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74`); do not use it. No checkpoint branch exists.
-- Exact-HEAD `push` Actions for `935a38ae44ece9243015e3a9c3dcae054e561097`: AliyunDrive `43528744171`, AdGuardHome `43528744049`, AI handoff docs `43528744087`, infosvr `43528744070`, AliDDNS `43528744042`, and NVRAM `43528744152` — all COMPLETED / SUCCESS with exact matching `head_sha`. Job details were not yet inspected during this recovery; workflow conclusions are SUCCESS.
-- Root `dev_log.md` has 52 complete newest-first records before this checkpoint; adding one yields 53/119. No rotation or INDEX update is due.
+- Live `main` HEAD at this recovery: `dbe61f648fdcaa34d7fb7dd00b76fe55db35e782`; active branch: `main`. This SHA is the newest commit returned by the repository-scoped commit listing and is confirmed as the tip represented by the current `main` contents. The immediately preceding source checkpoint recorded in the handoff was `935a38ae44ece9243015e3a9c3dcae054e561097`; this tip commit is documentation-only (`dev_log.md` update).
+- Product-source comparison from L3 source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f` to this tip reports 36 commits ahead, zero behind; only `REFACTOR_ROADMAP.md`, `SESSION_HANDOFF.md`, and `dev_log.md` differ. No product-source delta since the recorded L3 source tree.
+- Remote branch inventory: only `main`; no remote checkpoint branch exists. Legacy PR #1 remains CLOSED / UNMERGED per the existing verified repository record; do not use it.
+- Exact-head Actions for `dbe61f648fdcaa34d7fb7dd00b76fe55db35e782`: not yet enumerated/verified in this recovery. The six SUCCESS push runs previously recorded for `935a38ae44ece9243015e3a9c3dcae054e561097` are stale for this tip and do not count as validation of `dbe61f648fdcaa34d7fb7dd00b76fe55db35e782`. Combined status lookup for the new tip returned no status entries; this is not evidence of success.
+- Root `dev_log.md` has 54 complete newest-first records; no rotation or INDEX update is due.
 
 ## Active task
 
