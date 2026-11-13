@@ -9,7 +9,7 @@
 - Still open: transactional batch rollback in `config_soft_bridges_other()`; DHCPv6 callback child supervision in `net_wan6.c`; then continue whole-repository governance. LAN rollback intentionally does not claim global atomicity: `control_if_ipv6()` side effects and possible partial `brport_set_m2u()` sysfs writes are not restored yet; existing VLAN MAC/priority and pre-existing WAN bridge MAC/MTU/STP values are not fully snapshotted.
 - Verification boundary: no complete local checkout or local host test execution was available. Host tests/contracts are evidenced by exact-head Actions. MIPS/uClibc XY-C1 TRX build/verification/upload passed on ddf9 production source; latest d9 changes only its checker. L4 physical-router flash/boot, LAN/WAN and multi-bridge topology remain NOT VERIFIED.
 - Root log count: 112→113/120; no archive rotation or INDEX update is due.
-- Resulting source checkpoint: `ddf9d691781e648bb19d98891f3fc9b64086f5e0`; current main including final checker fix: `d9ae3f12cf24e37402cfaa6293f79a1856169061`. Handoff and roadmap are refreshed in THIS documentation checkpoint.
+- Resulting production-source checkpoint: `ddf9d691781e648bb19d98891f3fc9b64086f5e0`; final checker checkpoint: `d9ae3f12cf24e37402cfaa6293f79a1856169061`. Documentation checkpoint `6c47c43405a71ccf7f1d6ee9fd128ff1ca77293c` refreshed handoff, roadmap and this log without changing production source; this follow-up only clarifies the source-versus-doc SHA boundary.
 
 ---
 

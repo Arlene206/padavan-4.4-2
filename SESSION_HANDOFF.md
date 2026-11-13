@@ -2,7 +2,7 @@
 
 ## 最近接力状态（2026-11-13）
 
-- 已按根目录 `AI_BOOTSTRAP_PROMPT.md`、`AI_DEVELOPMENT_PROTOCOL.md` 的规定顺序恢复。唯一授权开发分支为 `main`；本轮恢复基线是 `98079bdb24d4191318ee95ca966835a8a723be95`。当前 live `main` 精确 SHA：`d9ae3f12cf24e37402cfaa6293f79a1856169061`。
+- 已按根目录 `AI_BOOTSTRAP_PROMPT.md`、`AI_DEVELOPMENT_PROTOCOL.md` 的规定顺序恢复。唯一授权开发分支为 `main`；本轮恢复基线是 `98079bdb24d4191318ee95ca966835a8a723be95`。本轮生产源码 / checker 验证基线是 `d9ae3f12cf24e37402cfaa6293f79a1856169061`；后续 `6c47c43405a71ccf7f1d6ee9fd128ff1ca77293c` 是纯文档 checkpoint，没有修改生产代码。下一轮第一步必须重新获取 live `refs/heads/main`，不要把源码 SHA 与文档提交 SHA 混为一谈。
 - 分支核验只看到 `main`；Git refs 还包含既有 `refs/pull/1/head` 和 `refs/tags/toolchain`，本轮没有创建分支、checkpoint ref、tag 或 PR，也未修改 GPT Session Rotator。
 - WAN 软件桥 phase 1 由 `ea38b3efc0de62580feed33bf589e1f989fb69a1`、`36c7a7984d2c2ca57f1f5169860faddc723d55f5`、`fcac7ee169e99393cd3864805dedb76e70ab133f`、`44b0353cd3fc7bfd582e055cc768373819c6c0d2` 连续完成：新增 VLAN / bridge membership 所有权跟踪，`config_soft_bridge_wan()` 失败时仅撤销本次确认创建的对象和 membership，按逆序补偿；归属不明时保留而非误删。
 - 本轮已完成 LAN bridge 单次转换补偿：`8195276a5d20fbca8a51b970f12bf80e900424c1` 实现 `config_soft_bridge_lan()` 的 VLAN / bridge-port 所有权跟踪、错误回滚和原始 errno 保留；`ddf9d691781e648bb19d98891f3fc9b64086f5e0` 删除无用局部变量并调整源码契约；`d9ae3f12cf24e37402cfaa6293f79a1856169061` 修正最后一个 guard 字符串检查。此事务只覆盖本次可证明拥有的 membership 和 VLAN，不代表整个拓扑的全局原子事务。
