@@ -284,7 +284,7 @@ while [ "$(grep -Fxc START "$TEST_OPS" || :)" -ne 1 ] &&
 done
 restart_starts=$(grep -Fxc START "$TEST_OPS" || :)
 if [ "$restart_starts" -ne 1 ]; then
-	echo "restart diagnostics: enable_file=$(cat "$TEST_ENABLE_FILE") state=$(cat "$TEST_STATE") nvram=$(cat "$TEST_NVRAM_LOG") ops=$(cat "$TEST_OPS")" >&2
+	echo "restart diagnostics: enable_file=$(cat "$TEST_ENABLE_FILE") state=$(cat "$TEST_STATE") nvram=$(cat "$TEST_NVRAM_LOG") kill=$(cat "$TEST_LOG") ops=$(cat "$TEST_OPS")" >&2
 	fail "restart did not launch exactly one replacement"
 fi
 [ "$(cat "$TEST_STATE")" = running ] || fail "restart replacement was not launched"
