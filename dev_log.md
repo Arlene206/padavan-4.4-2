@@ -1,3 +1,17 @@
+## 2026-11-13 11:25 CST (UTC+8) — Fix Adbyby subshell-function contract extractor
+
+- Base main SHA: `e39778793032c5bf87208304a298f6ac8e77bd7a`; live main matched immediately before the correction.
+- Inspected all seven exact-head push Actions and every job step/log on that SHA. AliyunDrive [43358743725] / job [131666935595], HTTPD security umbrella [43358743676] / job [131666935386], AdGuardHome [43358743708] / job [131666935118], AI docs [43358743714] / job [131666935170], infosvr [43358743847] / job [131666935354] and AliDDNS [43358743752] / job [131666935129] succeeded. HTTPD passed all 39 steps; the docs validator reported root log 93/119 and archives 7/22/18.
+- Adbyby [43358743855] / job [131666935611] passed shell syntax and all four host regressions, including the new private HTTPS staging, MD5, cache fallback and publication rollback suite. Its only failure was the semantic checker: the extractor regex omitted the closing `)` in `adbyby_refresh_managed_rules()` before the POSIX subshell body.
+- Corrected the semantic checker to match the subshell function signature `name()\n(`. This is a checker/parser correction; no production source or test behavior changed in this follow-up.
+- Exact resulting-main Actions after the checker correction are PENDING; the managed-rule downloader remains L2 pending until the exact pushed SHA has an all-green Adbyby run and the other triggered workflows are inspected.
+- Root log count: 93→94/119; root file remains below the 384 KiB early-rotation target. Archive inventory stays 7/22/18; no archive or index rotation.
+- Changed paths: `scripts/check_adbyby_hosts_config.py`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and `dev_log.md`. No branch/PR, firmware binary/bundle or GPT Session Rotator change.
+- Resulting main commit: THIS COMMIT.
+- Next: recheck exact-main Actions for the parser correction. Then harden the remaining third-party-rule, anti-ad and hosts download paths with HTTPS, URL/size/time validation, unique private staging and last-good publication; afterward return to the FRP full caller-path audit.
+
+---
+
 ## 2026-11-13 10:55 CST (UTC+8) — Harden Adbyby managed rule download and publication
 
 - Base main SHA: `ceeb24d6b17e03f1777c240bdf0aca9fa6481194`; live main matched before constructing this change. Only the main branch exists; no checkpoint branch or development PR was created.

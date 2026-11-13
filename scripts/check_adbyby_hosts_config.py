@@ -52,7 +52,7 @@ download_https = function_body(source, "adbyby_download_https_200")
 add_rules = function_body(source, "add_rules")
 start = function_body(source, "adbyby_start")
 updater = function_body(source, "adbyby_uprules")
-refresh_match = re.search(r"(?ms)^adbyby_refresh_managed_rules\s*\(\s*\n\((.*?)^\)", source)
+refresh_match = re.search(r"(?ms)^adbyby_refresh_managed_rules\(\)[ \t]*\n\((.*?)^\)", source)
 if not refresh_match:
     fail("missing subshell function adbyby_refresh_managed_rules()")
 refresh_rules = refresh_match.group(1)
