@@ -6,6 +6,21 @@
 - Recursive Git tree enumeration returned `truncated=true` with 64,005 entries. This is not an exhaustive checkout or caller inventory. The active P1 process-inventory tri-state task remains unfinished and must not be partially migrated.
 - Root `dev_log.md` has 51 complete newest-first records / 119; no rotation or INDEX update is due. `REFACTOR_ROADMAP.md` remains the whole-repository dashboard; no global module priority change was established in this documentation-only recovery.
 
+## Active task
+
+- Priority P1 — finish the shared process-inventory fail-closed contract in `trunk/user/shared/src/pids.c`, `trunk/user/shared/src/shutils.h`, `trunk/user/rc/src/common_ex.c`, `trunk/user/rc/src/services_ex.c`, and `trunk/user/rc/src/service_lifecycle_policy.h`.
+- Confirmed failure classes: scan-context allocation failure, `opendir("/proc")` failure, mid-scan `readdir()` error, and PID-list allocation/growth failure can be collapsed into NULL/empty/partial inventory. Existing Boolean consumers cannot represent UNKNOWN; lifecycle stop can signal before authoritative inventory.
+- Do not change the shared API until every process-scan API caller and lifecycle/readiness/stop consumer is enumerated and classified. The current recursive tree response is truncated and a local shallow clone attempt failed because this runtime cannot resolve github.com; therefore the exhaustive inventory prerequisite is still BLOCKED.
+- The selected contract remains RUNNING / ABSENT / UNKNOWN. UNKNOWN must abort before TERM/KILL, success-as-absence, restart, or destructive cleanup. Add injectable GNU89/`-Werror` regressions and migrate only confirmed consumers after exhaustive inventory.
+
+## Verification boundary
+
+- L1: partial source review only; no new product-source changes in this recovery.
+- L2: host regressions for the shared process-inventory task NOT RUN. Prior exact-head infosvr binaries passed, but its source-contract step failed on the missing handoff headings; that failure is a documentation contract issue, not evidence of product-source failure.
+- Documentation validator: latest inspected exact-head run `43526801426` on `0a43156b1ef399804e9c93d3d51e86c16a8552e2` FAILED because `## Active task` was missing. Infosvr run `43526801450` failed on the same missing heading after its three GNU89/ASan/UBSan binaries passed. The heading is being restored; do not claim a pass until exact-head Actions confirm it.
+- L3: only product source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f` has XY-C1 MIPSel/TRX evidence (run `43489646254`, job `132107102854`). This is not current-main full firmware validation.
+- L4: router flash/boot NOT VERIFIED. No local documentation validator or full firmware build was run in this runtime.
+
 ## Live recovery checkpoint — 2026-11-13 15:23 PST (UTC-8)
 
 > Documentation CI recovery only. The exact live baseline is `cd18661e46ab7a684666e0998dcd687adbc9a9d8`. Product source and tests are unchanged. The active P1 shared process-inventory defect remains open because a complete checkout and exhaustive caller classification are prerequisites to a safe API change.
