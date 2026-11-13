@@ -9,6 +9,7 @@ on:
       - "trunk/user/busybox/Makefile"
       - "trunk/user/rc/src/net.c"
       - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/dnsmasq_lifecycle_lock.h"
       - "trunk/user/rc/src/tests/dnsmasq_lifecycle_lock.c"
@@ -249,6 +250,7 @@ on:
       - "trunk/user/busybox/Makefile"
       - "trunk/user/rc/src/net.c"
       - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/dnsmasq_lifecycle_lock.h"
       - "trunk/user/rc/src/tests/dnsmasq_lifecycle_lock.c"
@@ -1752,12 +1754,18 @@ jobs:
           lan_start = net_lan.index("full_restart_lan(void)")
           lan_end = net_lan.index("\n}\n", lan_start)
           lan_restart_body = net_lan[lan_start:lan_end]
-          assert "dnsmasq_stop_status = stop_dns_dhcpd_locked();" in lan_restart_body
-          assert "if (dnsmasq_stop_status == 0)" in lan_restart_body
-          assert "start_dns_dhcpd_locked(is_ap_mode)" in lan_restart_body
+          assert "dnsmasq_status = stop_dns_dhcpd_locked();" in lan_restart_body
+          assert "if (dnsmasq_status == 0)" in lan_restart_body
+          assert "dnsmasq_start_status = start_dns_dhcpd_locked(is_ap_mode);" in lan_restart_body
+          assert "dnsmasq_status = dnsmasq_start_status;" in lan_restart_body
+          assert "return dnsmasq_status;" in lan_restart_body
+          assert "return dnsmasq_lock_errno;" in lan_restart_body
+          assert "dnsmasq_status = dnsmasq_lock_errno;" in lan_restart_body
           assert lan_restart_body.index("dnsmasq_lifecycle_lock_acquire()") < lan_restart_body.index("stop_dns_dhcpd_locked()")
-          assert lan_restart_body.index("if (dnsmasq_stop_status == 0)") < lan_restart_body.index("start_dns_dhcpd_locked(is_ap_mode)")
+          assert lan_restart_body.index("if (dnsmasq_status == 0)") < lan_restart_body.index("start_dns_dhcpd_locked(is_ap_mode)")
           assert "DNSMasq restart skipped because the previous process did not stop" in lan_restart_body
+          assert "int full_restart_lan(void);" in rc_header
+          assert "rc_notify_merge_action_result(action_result, full_restart_lan())" in rc_main
 
           assert "DNSMASQ_RESTART_KEEP_RUNNING" in restart_policy and "DNSMASQ_RESTART_ABORT" in restart_policy
           assert "prepare_status != 0" in restart_policy
