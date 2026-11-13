@@ -339,6 +339,7 @@ for marker in ("FRP private runtime directory and credential config publication:
                "FRP paired second-rename failure restores existing last-good configs: PASS",
                "FRP paired second-rename failure removes originally absent configs: PASS",
                "FRP interrupted publication restores private backup on EXIT: PASS",
+               "FRP failed rollback retains private recovery backups: PASS",
                "FRP rejects symlink and non-regular runtime paths: PASS"):
     require(marker in frp_config_test, f"FRP config regression omits {marker}")
 print("FRP asynchronous restart, private credential storage and workflow contracts: PASS")

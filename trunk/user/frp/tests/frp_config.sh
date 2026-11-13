@@ -168,6 +168,55 @@ unset -f mv
 [ "$frp_preserve_config_backups" = "0" ] ||
 	fail "successful rollback incorrectly retained recovery backups"
 
+# A failed restoration must retain the private old-config backup for manual recovery.
+printf 'recoverable client pair\n' > "$frp_runtime_dir/myfrpc.ini"
+printf 'recoverable server pair\n' > "$frp_runtime_dir/myfrps.ini"
+chmod 0600 "$frp_runtime_dir/myfrpc.ini" "$frp_runtime_dir/myfrps.ini"
+frp_client_tmp=
+frp_server_tmp=
+frp_stage_client_config || fail "recovery-failure client staging failed"
+frp_stage_server_config || fail "recovery-failure server staging failed"
+MV_CALLS=0
+mv()
+{
+	MV_CALLS=$((MV_CALLS + 1))
+	# Fail the second publication and then fail restoring the old client file.
+	if [ "$MV_CALLS" -eq 4 ] || [ "$MV_CALLS" -eq 5 ]; then
+		return 1
+	fi
+	command mv "$@"
+}
+if frp_publish_enabled_configs; then
+	fail "incomplete pair rollback was reported as success"
+fi
+unset -f mv
+[ "$frp_preserve_config_backups" = "1" ] ||
+	fail "failed rollback did not request backup preservation"
+[ "$frp_pair_transaction_active" = "0" ] ||
+	fail "failed rollback left the transaction marked active"
+[ -f "$frp_client_backup" ] ||
+	fail "failed client restoration lost its private recovery backup"
+[ "$(cat "$frp_client_backup")" = "recoverable client pair" ] ||
+	fail "failed client restoration changed the recovery backup"
+[ -d "$frp_backup_dir" ] ||
+	fail "failed rollback removed the private backup directory"
+[ "$(cat "$frp_runtime_dir/myfrps.ini")" = "recoverable server pair" ] ||
+	fail "rollback did not continue restoring the independent server backup"
+frp_recovery_backup="$frp_client_backup"
+frp_recovery_dir="$frp_backup_dir"
+frp_cleanup_config_stages
+[ -f "$frp_recovery_backup" ] ||
+	fail "EXIT cleanup deleted the only recoverable old client config"
+[ ! -e "$frp_server_tmp" ] ||
+	fail "EXIT cleanup leaked the unconsumed server stage"
+# Complete manual recovery so later cases start from a clean fixture.
+command mv "$frp_recovery_backup" "$frp_runtime_dir/myfrpc.ini" ||
+	fail "manual recovery fixture could not restore the retained backup"
+rm -rf "$frp_recovery_dir"
+frp_backup_dir=
+frp_preserve_config_backups=0
+
+
 # When neither old file existed, failed publication must remove the new file.
 rm -f "$frp_runtime_dir/myfrpc.ini" "$frp_runtime_dir/myfrps.ini"
 frp_stage_client_config || fail "absent-pair client staging failed"
@@ -228,6 +277,7 @@ frp_cleanup_config_stages
 echo "FRP private runtime directory and credential config publication: PASS"
 echo "FRP paired second-rename failure restores existing last-good configs: PASS"
 echo "FRP paired second-rename failure removes originally absent configs: PASS"
+echo "FRP failed rollback retains private recovery backups: PASS"
 echo "FRP interrupted publication restores private backup on EXIT: PASS"
 echo "FRP failed staging/rename preserves last-good config: PASS"
 echo "FRP rejects symlink and non-regular runtime paths: PASS"
