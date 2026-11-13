@@ -96,6 +96,11 @@ if frp_manage_watchdog_cron add; then fail "path-traversal username was accepted
 [ ! -e "$FRP_CRON_ROOT/frp-cron-escape" ] || fail "username escaped into the cron parent"
 http_username=root
 
+# Overlong login names are not accepted as filesystem components.
+http_username='123456789012345678901234567890123'
+if frp_manage_watchdog_cron add; then fail "overlong username was accepted"; fi
+http_username=root
+
 # Symlink crontab entries are rejected without truncating their referent.
 target="$test_root/symlink-target"
 printf 'keep-this-data\n' > "$target"

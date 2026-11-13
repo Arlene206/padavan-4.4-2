@@ -58,7 +58,7 @@ frp_manage_watchdog_cron()
 				exit 1
 				;;
 		esac
-		[ "\${#http_username}" -le 32 ] || {
+		[ "${#http_username}" -le 32 ] || {
 			logger -t "frp" "http_username超过crontab文件名长度上限。"
 			exit 1
 		}
