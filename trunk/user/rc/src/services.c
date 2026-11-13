@@ -551,8 +551,8 @@ void start_adbyby(void){
 }
 
 void restart_adbyby(void){
-	stop_adbyby();
-	start_adbyby();
+	/* One launcher owns stop/start atomically with cron and manual actions. */
+	eval("/usr/bin/adbyby.sh","restart");
 }
 
 void update_adb(void){

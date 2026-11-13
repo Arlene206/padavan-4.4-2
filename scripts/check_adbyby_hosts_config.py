@@ -8,6 +8,8 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "trunk/user/adbyby/adbyby.sh"
 TEST = ROOT / "trunk/user/adbyby/tests/hosts_config_preservation.sh"
 WORKFLOW = ROOT / ".github/workflows/adbyby-config-stability.yml"
+SERVICE = ROOT / "trunk/user/rc/src/services.c"
+LIFECYCLE_TEST = ROOT / "trunk/user/adbyby/tests/lifecycle_lock.sh"
 
 
 def fail(message):
@@ -30,9 +32,16 @@ def function_body(source, name):
 source = SOURCE.read_text(encoding="utf-8")
 test = TEST.read_text(encoding="utf-8")
 workflow = WORKFLOW.read_text(encoding="utf-8")
+service = SERVICE.read_text(encoding="utf-8")
+lifecycle_test = LIFECYCLE_TEST.read_text(encoding="utf-8")
 helper = function_body(source, "adbyby_remove_generated_hosts_config")
 hosts_ads = function_body(source, "hosts_ads")
 del_dns = function_body(source, "del_dns")
+lock_prepare = function_body(source, "adbyby_lifecycle_lock_prepare")
+lock_execute = function_body(source, "adbyby_lifecycle_lock_execute")
+locked_action = function_body(source, "adbyby_lifecycle_locked_action")
+lock_run = function_body(source, "adbyby_lifecycle_lock_run")
+restart_adbyby = function_body(service, "restart_adbyby")
 
 require("/etc/storage/dnsmasq/dnsmasq.conf" in helper and
         "$PROG_PATH/hosts" in helper,
@@ -41,7 +50,7 @@ require('adbyby_hosts_entry="addn-hosts=$adbyby_hosts_file"' in helper,
         "cleanup target must be the exact Adbyby addn-hosts directive")
 require("sed 's/" in helper and r"\\&/g" in helper,
         "the full path must be escaped before use as a BRE pattern")
-require('sed -i "/^$adbyby_escaped_hosts_entry\$/d"' in helper,
+require(r'sed -i "/^$adbyby_escaped_hosts_entry\$/d"' in helper,
         "cleanup must use an anchored exact-line match")
 require("sed -i '/hosts/d'" not in source and 'sed -i "/hosts/d"' not in source,
         "unbounded /hosts/d deletion remains")
@@ -57,6 +66,29 @@ require("return 1" in hosts_ads[:append_index],
         "hosts_ads must fail closed when it cannot remove the prior entry")
 require('logger -t "adbyby"' in del_dns,
         "del_dns must log a failed managed-entry cleanup")
+
+require("stat -c '%u %a %h'" in lock_prepare and '[ -L "$adbyby_lock_file" ]' in lock_prepare,
+        "lifecycle lock validates owner, mode, links and symlink state")
+require('"$2" != 600' in lock_prepare and '"$3" != 1' in lock_prepare,
+        "lifecycle lock rejects permissive or hard-linked files")
+require("flock -n 9" in lock_execute and "exec 9>&-" in lock_execute,
+        "lifecycle lock uses bounded FD locking and closes FD 9")
+require("rm -f" not in lock_prepare,
+        "lifecycle lock inode must remain stable")
+require("adbyby_refresh_nvram_state || return 1" in locked_action,
+        "NVRAM must refresh after lock acquisition")
+require("updateadb" in lock_run and "restart" in lock_run,
+        "restart and update use lifecycle lock")
+require("G|updateadb) adbyby_uprules" in locked_action,
+        "RC updateadb notification reaches the rule updater")
+require('eval("/usr/bin/adbyby.sh","restart");' in restart_adbyby,
+        "RC restart uses one atomic lifecycle invocation")
+require('"$PROG_PATH/adbyby" 9>&- >/dev/null 2>&1 &' in source and "restart_dhcpd 9>&-" in source,
+        "detached daemon and DHCP children close FD 9")
+for marker in ("lifecycle transitions interleaved", "updateadb did not dispatch updater",
+               "symlink lock accepted", "hard-linked lock accepted",
+               "Adbyby lifecycle serialization, bounded lock"):
+    require(marker in lifecycle_test, f"lifecycle test misses: {marker}")
 
 for marker in (
     "addn-hosts=/etc/storage/custom-hosts",
@@ -74,7 +106,9 @@ paths = (
     ".github/workflows/adbyby-config-stability.yml",
     "trunk/user/adbyby/adbyby.sh",
     "trunk/user/adbyby/tests/hosts_config_preservation.sh",
+    "trunk/user/adbyby/tests/lifecycle_lock.sh",
     "trunk/user/adbyby/tests/firewall_snapshot.sh",
+    "trunk/user/rc/src/services.c",
     "scripts/check_adbyby_hosts_config.py",
 )
 filters = workflow.split("jobs:", 1)[0]
@@ -87,7 +121,9 @@ for path in paths:
 for command in (
     "sh -n trunk/user/adbyby/adbyby.sh",
     "sh -n trunk/user/adbyby/tests/hosts_config_preservation.sh",
+    "sh -n trunk/user/adbyby/tests/lifecycle_lock.sh",
     "sh trunk/user/adbyby/tests/hosts_config_preservation.sh",
+    "sh trunk/user/adbyby/tests/lifecycle_lock.sh",
     "sh trunk/user/adbyby/tests/firewall_snapshot.sh",
     "python3 scripts/check_adbyby_hosts_config.py",
 ):

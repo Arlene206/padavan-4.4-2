@@ -1,31 +1,29 @@
 #!/bin/sh
 #2019/08/30 by bkye
-adbyby_enable=`nvram get adbyby_enable`
-adbyby_ip_x=`nvram get adbyby_ip_x`
-adbyby_rules_x=`nvram get adbyby_rules_x`
-adbyby_set=`nvram get adbyby_set`
-http_username=`nvram get http_username`
-adbyby_update=`nvram get adbyby_update`
-adbyby_update_hour=`nvram get adbyby_update_hour`
-adbyby_update_min=`nvram get adbyby_update_min`
 ipt_n="iptables -t nat"
 #adbyby_dir="/tmp/adbyby"
 PROG_PATH="/tmp/adbyby"
 DATA_PATH="$PROG_PATH/data"
 WAN_FILE="/etc/storage/dnsmasq-adbyby.d/03-adbyby-ipset.conf"
-wan_mode=`nvram get adbyby_set`
-#abp_mode=`nvram get adbyby_adb_update`
-# Firewall rebuild invokes the B action only to refresh the blockip set.
-# Do not reset unrelated NVRAM state when running that narrow operation.
-if [ "$1" != "B" ]; then
-	nvram set adbyby_adb=0
-	nvram set adbybyip_mac_x_0=""
-	nvram set adbybyip_ip_x_0=""
-	nvram set adbybyip_name_x_0=""
-	nvram set adbybyip_ip_road_x_0=""
-	nvram set adbybyrules_x_0=""
-	nvram set adbybyrules_road_x_0=""
-fi
+
+# Read mutable settings only after the lifecycle lock is held.
+adbyby_refresh_nvram_state()
+{
+	adbyby_enable=$(nvram get adbyby_enable) || return 1
+	adbyby_ip_x=$(nvram get adbyby_ip_x) || return 1
+	adbyby_rules_x=$(nvram get adbyby_rules_x) || return 1
+	adbyby_set=$(nvram get adbyby_set) || return 1
+	http_username=$(nvram get http_username) || return 1
+	adbyby_update=$(nvram get adbyby_update) || return 1
+	adbyby_update_hour=$(nvram get adbyby_update_hour) || return 1
+	adbyby_update_min=$(nvram get adbyby_update_min) || return 1
+	wan_mode="$adbyby_set"
+}
+adbyby_restart_dhcpd()
+{
+	# The helper may detach dnsmasq; it must not retain the lifecycle lock FD.
+	/sbin/restart_dhcpd 9>&-
+}
 adbyby_start()
 {
 	addscripts
@@ -39,12 +37,12 @@ adbyby_start()
 	#fi
 	#/tmp/adbyby/adupdate.sh &
 	add_rules
-	$PROG_PATH/adbyby &>/dev/null &
+	"$PROG_PATH/adbyby" 9>&- >/dev/null 2>&1 &
 	add_dns
 	iptables-save | grep ADBYBY >/dev/null || \
 	add_rule
 	hosts_ads
-	/sbin/restart_dhcpd
+	adbyby_restart_dhcpd
 	add_cron
 	logger -t "adbyby" "Adbyby启动完成。"
 }
@@ -59,7 +57,7 @@ adbyby_close()
 	echo "stop mem mode"
 	fi
 	kill -9 $(ps | grep admem.sh | grep -v grep | awk '{print $1}') >/dev/null 2>&1 
-	/sbin/restart_dhcpd
+	adbyby_restart_dhcpd
 	logger -t "adbyby" "Adbyby已关闭。"
 
 }
@@ -461,12 +459,12 @@ adbyby_uprules()
 	#fi
 	#/tmp/adbyby/adupdate.sh &
 	add_rules
-	$PROG_PATH/adbyby &>/dev/null &
+	"$PROG_PATH/adbyby" 9>&- >/dev/null 2>&1 &
 	add_dns
 	iptables-save | grep ADBYBY >/dev/null || \
 	add_rule
 	hosts_ads
-	/sbin/restart_dhcpd
+	adbyby_restart_dhcpd
 	#add_cron
 }
 
@@ -676,38 +674,134 @@ EEE
 	fi
 }
 
-case $1 in
-B)
-	adbyby_refresh_blockip_set
-	;;
-start)
-	adbyby_start
-	;;
-stop)
-	adbyby_close
-	;;
-A)
-	add_rules
-	;;
-C)
-	add_rule
-	;;
-D)
-	add_dns
-	;;
-E)
-	addscripts
-	;;
-F)
-	hosts_ads
-	;;
-G)
-	adbyby_uprules
-	;;
-#updateadb)
-#	updateadb
-#	;;
-*)
-	echo "check"
-	;;
+adbyby_lifecycle_lock_path() {
+	printf '%s\n' '/tmp/.adbyby.lifecycle.lock'
+}
+
+# Keep a stable inode; unlinking a flock file can split active locks.
+adbyby_lifecycle_lock_prepare() {
+	adbyby_lock_file="$1"
+	[ -n "$adbyby_lock_file" ] || return 1
+	adbyby_lock_dir=$(dirname "$adbyby_lock_file") || return 1
+	[ -n "$adbyby_lock_dir" ] || adbyby_lock_dir=/
+	if [ -L "$adbyby_lock_dir" ] || [ ! -d "$adbyby_lock_dir" ]; then
+		logger -t "adbyby" "生命周期锁目录不是普通目录"
+		return 1
+	fi
+	adbyby_lock_uid=$(id -u) || return 1
+	adbyby_dir_info=$(stat -c '%u %a' "$adbyby_lock_dir") || return 1
+	set -- $adbyby_dir_info
+	if [ "$#" -ne 2 ] || [ "$1" != "$adbyby_lock_uid" ]; then
+		logger -t "adbyby" "生命周期锁目录所有者不安全"
+		return 1
+	fi
+	adbyby_dir_mode=$((0$2))
+	if [ $((adbyby_dir_mode & 0022)) -ne 0 ] && [ $((adbyby_dir_mode & 01000)) -eq 0 ]; then
+		logger -t "adbyby" "生命周期锁目录可被其他用户写入且没有sticky保护"
+		return 1
+	fi
+	if [ -L "$adbyby_lock_file" ]; then
+		logger -t "adbyby" "生命周期锁文件不能是符号链接"
+		return 1
+	fi
+	if [ ! -e "$adbyby_lock_file" ]; then
+		(umask 077; set -C; : > "$adbyby_lock_file") 2>/dev/null || :
+	fi
+	if [ -L "$adbyby_lock_file" ] || [ ! -f "$adbyby_lock_file" ]; then
+		logger -t "adbyby" "生命周期锁文件不是普通文件"
+		return 1
+	fi
+	adbyby_file_info=$(stat -c '%u %a %h' "$adbyby_lock_file") || return 1
+	set -- $adbyby_file_info
+	if [ "$#" -ne 3 ] || [ "$1" != "$adbyby_lock_uid" ] || [ "$2" != 600 ] || [ "$3" != 1 ]; then
+		logger -t "adbyby" "生命周期锁文件权限、所有者或链接数不安全"
+		return 1
+	fi
+	return 0
+}
+
+adbyby_lifecycle_lock_execute() {
+	adbyby_lock_file="$1"
+	adbyby_wait_seconds="$2"
+	shift 2
+	case "$adbyby_wait_seconds" in ''|*[!0-9]*) return 1 ;; esac
+	[ "$#" -gt 0 ] || return 1
+	if ( : <&9 ) 2>/dev/null || ( : >&9 ) 2>/dev/null; then
+		logger -t "adbyby" "生命周期锁FD 9已被占用，拒绝运行"
+		return 1
+	fi
+	adbyby_old_umask=$(umask)
+	umask 077
+	if ! exec 9>>"$adbyby_lock_file"; then
+		umask "$adbyby_old_umask"
+		logger -t "adbyby" "无法打开生命周期锁文件"
+		return 1
+	fi
+	umask "$adbyby_old_umask"
+	adbyby_lock_attempt=0
+	while ! flock -n 9; do
+		if [ "$adbyby_lock_attempt" -ge "$adbyby_wait_seconds" ]; then
+			exec 9>&-
+			logger -t "adbyby" "等待生命周期锁超时"
+			return 1
+		fi
+		adbyby_lock_attempt=$((adbyby_lock_attempt + 1))
+		sleep 1
+	done
+	if "$@"; then adbyby_action_status=0; else adbyby_action_status=$?; fi
+	exec 9>&-
+	return "$adbyby_action_status"
+}
+
+adbyby_lifecycle_locked_action() {
+	adbyby_action="$1"
+	if [ "$adbyby_action" != "B" ]; then
+		adbyby_refresh_nvram_state || return 1
+		nvram set adbyby_adb=0
+		nvram set adbybyip_mac_x_0=""
+		nvram set adbybyip_ip_x_0=""
+		nvram set adbybyip_name_x_0=""
+		nvram set adbybyip_ip_road_x_0=""
+		nvram set adbybyrules_x_0=""
+		nvram set adbybyrules_road_x_0=""
+	fi
+	case "$adbyby_action" in
+		B) adbyby_refresh_blockip_set ;;
+		start) adbyby_start ;;
+		stop) adbyby_close ;;
+		restart)
+			adbyby_close || return 1
+			if [ "$adbyby_enable" = "1" ]; then adbyby_start; fi
+			return 0
+			;;
+		A) add_rules ;;
+		C) add_rule ;;
+		D) add_dns ;;
+		E) addscripts ;;
+		F) hosts_ads ;;
+		G|updateadb) adbyby_uprules ;;
+		*) return 2 ;;
+	esac
+}
+
+adbyby_lifecycle_lock_run() {
+	adbyby_action="$1"
+	adbyby_wait_seconds="${2:-30}"
+	case "$adbyby_action" in B|start|stop|restart|A|C|D|E|F|G|updateadb) ;; *) return 2 ;; esac
+	adbyby_lock_file=$(adbyby_lifecycle_lock_path) || return 1
+	if ! adbyby_lifecycle_lock_prepare "$adbyby_lock_file"; then
+		logger -t "adbyby" "生命周期锁准备失败，取消服务操作"
+		return 1
+	fi
+	if ! command -v flock >/dev/null 2>&1; then
+		logger -t "adbyby" "系统缺少flock，拒绝无锁执行生命周期操作"
+		return 1
+	fi
+	adbyby_lifecycle_lock_execute "$adbyby_lock_file" "$adbyby_wait_seconds" \
+		adbyby_lifecycle_locked_action "$adbyby_action"
+}
+
+case "${1:-}" in
+	B|start|stop|restart|A|C|D|E|F|G|updateadb) adbyby_lifecycle_lock_run "$1" ;;
+	*) echo "check" ;;
 esac

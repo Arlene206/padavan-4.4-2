@@ -1,3 +1,19 @@
+## 2026-11-13 08:34 CST (UTC+8) — Serialize Adbyby lifecycle and update actions
+
+- Recovery base main SHA: `6fa50e11532ca5c68a9fdb3ffc95a8415841e794`. On that exact SHA, Adbyby [43336402301] / job [131593559948], infosvr [43336402343] / job [131593560012], AliyunDrive [43336402492] / job [131593560634], AliDDNS [43336402424] / job [131593560363], AdGuardHome [43336402256] / job [131593559789], AI docs [43336402234] / job [131593559451] and HTTPD security [43336402226] / job [131593559966] all SUCCESS; every step/log inspected. AI docs reports root log=89/119 and archive inventory 7/22/18.
+- Full caller tracing covered HTTPD `EVM_RESTART_ADBYBY` through PID 1 `rc.c` and `services.c`; RC restart previously ran separate stop/start script processes. HTTPD's update notification sent `updateadb`, but the shell dispatcher had no matching case.
+- Public Adbyby actions now run through persistent `/tmp/.adbyby.lifecycle.lock`, validating directory/file type, owner, mode, symlink and hard-link state before bounded `flock -n 9`. The inode is never unlinked. Mutable NVRAM is refreshed after lock acquisition.
+- RC restart now dispatches one `restart` transaction; `updateadb` reaches `adbyby_uprules`. The daemon and DHCP restart helper close FD 9 so detached children cannot retain the lock. A no-network regression covers transaction ordering, concurrent action serialization, update routing, disabled restart, stop failure, lock-file attacks, inode stability and FD cleanup.
+- Exact resulting-main Adbyby / AI docs / HTTPD Actions are PENDING. Do not claim L2 until every triggered exact-head job and relevant log passes.
+- Fixed shared download paths remain. Next audit should use private unique staging and verify HTTPS certificate checking, checksum-manifest handling, partial downloads, failure propagation and atomic publication.
+- FTP upload cleanup remains OPEN/BLOCKED (fstatat/unlinkat final-name TOCTOU; Linux 4.4 lacks inode-conditional unlink-by-fd). NFS remains gated on real-client evidence.
+- No local full checkout or local whole-project tests claimed (github.com DNS resolution unavailable); no current-main MIPS/uClibc build, firmware/TRX or router test claimed.
+- Root log count: 89→90, below 120-record rotation and 384 KiB early-rotation thresholds; archive inventory remains 7/22/18 and no archive/index change is needed.
+- Changed paths: Adbyby launcher, lifecycle-lock host regression, RC services caller, semantic checker, Adbyby workflow, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and this log. No branch/PR, firmware binary or GPT Session Rotator changed.
+- Resulting main commit: THIS COMMIT.
+- Next: verify exact resulting-main Actions; if green, close lifecycle serialization at L2 and continue private download staging/integrity review.
+
+---
 ## 2026-11-13 08:18 CST (UTC+8) — Preserve operator dnsmasq directives during Adbyby hosts cleanup
 
 - Recovery base main SHA: edd2b4e231819fd748dea032324cd45904ddf172. FRP duplicate watchdog restart prevention is L2 CLOSED on this exact SHA: FRP [43334213696] / job [131586165339], AI docs [43334213673] / job [131586165454], infosvr [43334213527] / job [131586164710], AdGuardHome [43334213750] / job [131586165190], AliDDNS [43334213640] / job [131586164869] and AliyunDrive [43334213535] / job [131586164554] all SUCCESS; every step/log inspected. AI docs reports root log=88/119 and archive inventory 7/22/18.
