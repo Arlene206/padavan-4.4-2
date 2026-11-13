@@ -483,8 +483,8 @@ void start_ddnsto(void){
 }
 
 void restart_ddnsto(void){
-	stop_ddnsto();
-	start_ddnsto();
+	/* Keep stop + conditional start inside one DDNSTO lifecycle lock. */
+	eval("/usr/bin/ddnsto.sh","restart");
 }
 #endif
 
