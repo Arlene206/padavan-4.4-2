@@ -120,6 +120,21 @@ main(void)
 		return 1;
 	}
 
+	/* Rollback must not delete a VLAN unless this call created it and */
+	/* the bridge membership is known to be detached. */
+	if (!bridge_rollback_can_remove_created_vlan(1, 1) ||
+	    bridge_rollback_can_remove_created_vlan(0, 1) ||
+	    bridge_rollback_can_remove_created_vlan(1, 0)) {
+		fprintf(stderr, "bridge rollback VLAN ownership gate mismatch\n");
+		return 1;
+	}
+	if (!bridge_rollback_can_restore_interface(1, 1) ||
+	    bridge_rollback_can_restore_interface(0, 1) ||
+	    bridge_rollback_can_restore_interface(1, 0)) {
+		fprintf(stderr, "bridge rollback interface-state gate mismatch\n");
+		return 1;
+	}
+
 	puts("Bridge membership and teardown policy regression: PASS");
 	return 0;
 }

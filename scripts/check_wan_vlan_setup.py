@@ -89,9 +89,27 @@ require("INT_MAX / 100" in fd and "return br_set_param_int(" in fd,
         "bridge forward-delay conversion must reject integer overflow")
 
 soft_lan = body(wan, "config_soft_bridge_lan(void)")
-for marker in ("create_vlan_iface(", "br_add_del_if(", "remove_vlan_iface(",
-               "brport_set_m2u(", "if (ret != 0)", "return ret;"):
-    require(marker in soft_lan, f"LAN bridge setup ignores {marker}")
+for marker in ("create_vlan_iface_tracked(", "br_add_del_if_tracked(",
+               "remove_vlan_iface(", "brport_set_m2u(", "rollback:",
+               "bridge_rollback_can_remove_created_vlan(",
+               "bridge_rollback_can_restore_interface("):
+    require(marker in soft_lan, f"LAN bridge setup omits transactional rollback marker {marker}")
+soft_lan_rollback = soft_lan[soft_lan.index("rollback:"):]
+require("if (vlan_attached)" in soft_lan_rollback and
+        "if (physical_detached)" in soft_lan_rollback and
+        "if (physical_attached)" in soft_lan_rollback and
+        "if (vlan_detached)" in soft_lan_rollback,
+        "LAN bridge rollback must reverse only memberships changed by this call")
+require("vlan_attach_ambiguous" in soft_lan_rollback and
+        "physical_attach_ambiguous" in soft_lan_rollback and
+        "errno = saved_errno;" in soft_lan_rollback and
+        "return ret;" in soft_lan_rollback,
+        "LAN bridge rollback must preserve ambiguous state and the original error")
+require("bridge_rollback_can_remove_created_vlan" in bridge_policy and
+        "bridge_rollback_can_restore_interface" in bridge_policy and
+        "bridge_rollback_can_remove_created_vlan" in bridge_test and
+        "bridge_rollback_can_restore_interface" in bridge_test,
+        "LAN bridge rollback ownership gates require host regression coverage")
 soft_wan = body(wan, "config_soft_bridge_wan(")
 for marker in ("br_add_del_bridge(", "br_set_stp(", "br_set_fd(",
                "br_set_param_int(", "set_interface_hwaddr(", "set_interface_mtu(",

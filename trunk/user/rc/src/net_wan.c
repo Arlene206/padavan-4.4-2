@@ -318,41 +318,167 @@ config_soft_bridge_lan(void)
 	const char *wired_ifname;
 	int igmp_snoop = nvram_get_int("ether_igmp");
 	int wired_m2u = nvram_get_int("ether_m2u");
-	int ret;
+	int ret, saved_errno, cleanup_ret;
+	int bridge_enabled, vlan_flags, vlan_exists, vlan_was_up;
+	int vlan_created = 0;
+	int physical_detached = 0, vlan_attached = 0;
+	int vlan_detached = 0, physical_attached = 0;
+	int vlan_attach_attempted = 0, physical_attach_attempted = 0;
+	int vlan_attach_ambiguous = 0, physical_attach_ambiguous = 0;
+	int vlan_state_safe = 1, physical_state_safe = 1;
+	int vlan_detached_safe = 0;
 
 	snprintf(lan_ifname, sizeof(lan_ifname), "%s.%d", IFNAME_MAC, 1);
-	if (get_wan_bridge_mode() != SWAPI_WAN_BRIDGE_DISABLE) {
-		ret = create_vlan_iface(IFNAME_MAC, 1, -1, -1, nvram_safe_get("lan_hwaddr"), 1);
+	bridge_enabled = get_wan_bridge_mode() != SWAPI_WAN_BRIDGE_DISABLE;
+
+	/*
+	 * Snapshot the VLAN before changing it.  The tracked creator publishes
+	 * ownership only after its full setup succeeds; a reused VLAN must retain
+	 * its original administrative state when the bridge transaction rolls
+	 * back.
+	 */
+	vlan_flags = get_interface_flags(lan_ifname);
+	if (vlan_flags < 0 && errno != ENODEV && errno != ENXIO)
+		return -1;
+	vlan_exists = vlan_flags >= 0;
+	vlan_was_up = vlan_exists && ((vlan_flags & IFF_UP) != 0);
+
+	if (bridge_enabled) {
+		ret = create_vlan_iface_tracked(IFNAME_MAC, 1, -1, -1,
+						nvram_safe_get("lan_hwaddr"), 1,
+						&vlan_created);
 		if (ret != 0)
-			return ret;
+			goto rollback;
 #if defined (USE_IPV6)
 		control_if_ipv6(lan_ifname, 0);
 #endif
-		ret = br_add_del_if(IFNAME_BR, IFNAME_MAC, 0);
+		ret = br_add_del_if_tracked(IFNAME_BR, IFNAME_MAC, 0,
+					    &physical_detached);
 		if (ret != 0)
-			return ret;
-		ret = br_add_del_if(IFNAME_BR, lan_ifname, 1);
-		if (ret != 0)
-			return ret;
+			goto rollback;
+		vlan_attach_attempted = 1;
+		ret = br_add_del_if_tracked(IFNAME_BR, lan_ifname, 1,
+					    &vlan_attached);
+		if (ret != 0) {
+			vlan_attach_ambiguous = 1;
+			goto rollback;
+		}
 		wired_ifname = lan_ifname;
 	} else {
-		if (is_interface_exist(lan_ifname)) {
-			ret = br_add_del_if(IFNAME_BR, lan_ifname, 0);
+		if (vlan_exists) {
+			ret = br_add_del_if_tracked(IFNAME_BR, lan_ifname, 0,
+						    &vlan_detached);
 			if (ret != 0)
-				return ret;
+				goto rollback;
 		}
-		ret = br_add_del_if(IFNAME_BR, IFNAME_MAC, 1);
-		if (ret != 0)
-			return ret;
-		ret = remove_vlan_iface(lan_ifname);
-		if (ret != 0)
-			return ret;
+		physical_attach_attempted = 1;
+		ret = br_add_del_if_tracked(IFNAME_BR, IFNAME_MAC, 1,
+					    &physical_attached);
+		if (ret != 0) {
+			physical_attach_ambiguous = 1;
+			goto rollback;
+		}
 		wired_ifname = IFNAME_MAC;
 	}
-	ret = brport_set_m2u(wired_ifname, (igmp_snoop && wired_m2u == 1) ? 1 : 0);
+
+	ret = brport_set_m2u(wired_ifname,
+			     (igmp_snoop && wired_m2u == 1) ? 1 : 0);
 	if (ret != 0)
-		logmessage(LOGNAME, "LAN bridge multicast port setup failed on %s (status=%d)",
-			   wired_ifname, ret);
+		goto rollback;
+
+	/* Delete the old VLAN only after the replacement port is fully ready. */
+	if (!bridge_enabled && vlan_exists) {
+		ret = remove_vlan_iface(lan_ifname);
+		if (ret != 0)
+			goto rollback;
+	}
+
+	return 0;
+
+rollback:
+	saved_errno = errno;
+	if (bridge_enabled) {
+		/*
+		 * Undo only a VLAN membership created by this call.  A successful
+		 * idempotent add (changed_out == 0) belongs to the pre-existing
+		 * topology and must not be detached or deleted here.
+		 */
+		if (vlan_attached) {
+			cleanup_ret = br_add_del_if(IFNAME_BR, lan_ifname, 0);
+			if (cleanup_ret == 0)
+				vlan_detached_safe = 1;
+			else {
+				vlan_state_safe = 0;
+				logmessage(LOGNAME, "LAN bridge rollback could not detach %s (status=%d)",
+					   lan_ifname, cleanup_ret);
+			}
+		} else if (!vlan_attach_attempted) {
+			vlan_detached_safe = 1;
+		}
+
+		if (vlan_attach_ambiguous)
+			vlan_state_safe = 0;
+
+		/* Restore the physical port only after the new VLAN port is safe. */
+		if (physical_detached && vlan_state_safe) {
+			cleanup_ret = br_add_del_if(IFNAME_BR, IFNAME_MAC, 1);
+			if (cleanup_ret != 0)
+				logmessage(LOGNAME, "LAN bridge rollback could not restore %s (status=%d)",
+					   IFNAME_MAC, cleanup_ret);
+		}
+
+		if (bridge_rollback_can_remove_created_vlan(vlan_created,
+							    vlan_detached_safe)) {
+			cleanup_ret = remove_vlan_iface(lan_ifname);
+			if (cleanup_ret != 0)
+				logmessage(LOGNAME, "LAN bridge rollback could not remove new VLAN %s (status=%d)",
+					   lan_ifname, cleanup_ret);
+		} else if (bridge_rollback_can_restore_interface(vlan_exists,
+								 vlan_state_safe)) {
+			cleanup_ret = vlan_was_up ?
+				ifconfig(lan_ifname, IFUP, "0.0.0.0", NULL) :
+				ifconfig(lan_ifname, 0, NULL, NULL);
+			if (cleanup_ret != 0)
+				logmessage(LOGNAME, "LAN bridge rollback could not restore VLAN %s state (status=%d)",
+					   lan_ifname, cleanup_ret);
+		}
+	} else {
+		/*
+		 * On the reverse transition, remove only the physical membership
+		 * introduced here before restoring the detached VLAN membership.
+		 */
+		if (physical_attached) {
+			cleanup_ret = br_add_del_if(IFNAME_BR, IFNAME_MAC, 0);
+			if (cleanup_ret != 0) {
+				physical_state_safe = 0;
+				logmessage(LOGNAME, "LAN bridge rollback could not detach %s (status=%d)",
+					   IFNAME_MAC, cleanup_ret);
+			}
+		}
+		if (physical_attach_ambiguous)
+			physical_state_safe = 0;
+
+		if (vlan_detached && physical_state_safe) {
+			cleanup_ret = br_add_del_if(IFNAME_BR, lan_ifname, 1);
+			if (cleanup_ret != 0) {
+				vlan_state_safe = 0;
+				logmessage(LOGNAME, "LAN bridge rollback could not restore %s membership (status=%d)",
+					   lan_ifname, cleanup_ret);
+			}
+		}
+		if (vlan_exists && physical_state_safe && vlan_state_safe) {
+			cleanup_ret = vlan_was_up ?
+				ifconfig(lan_ifname, IFUP, "0.0.0.0", NULL) :
+				ifconfig(lan_ifname, 0, NULL, NULL);
+			if (cleanup_ret != 0)
+				logmessage(LOGNAME, "LAN bridge rollback could not restore VLAN %s state (status=%d)",
+					   lan_ifname, cleanup_ret);
+		}
+	}
+
+	logmessage(LOGNAME, "LAN bridge transition failed (status=%d); rollback attempted",
+		   ret);
+	errno = saved_errno;
 	return ret;
 }
 

@@ -77,4 +77,17 @@ bridge_cleanup_should_remove_vlan(int do_if_rem, const char *ifname,
 	return strcmp(ifname, lan_ifname) != 0 && strchr(ifname, '.') != NULL;
 }
 
+static inline int
+bridge_rollback_can_remove_created_vlan(int created_by_call,
+					int membership_known_detached)
+{
+	return created_by_call && membership_known_detached;
+}
+
+static inline int
+bridge_rollback_can_restore_interface(int existed_before, int state_is_known)
+{
+	return existed_before && state_is_known;
+}
+
 #endif
