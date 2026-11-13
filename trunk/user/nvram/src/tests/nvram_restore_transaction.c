@@ -147,12 +147,12 @@ static int profile_codec_test(void)
     if (!nvram_profile_parse_header(legacy_header, 16, 16, &file_length,
                                     &random_value, &is_current_format) ||
         file_length != 2 || random_value != 0 || is_current_format != 0) {
-        fprintf(stderr, "FAIL: profile header parser regression\\n");
+        fprintf(stderr, "FAIL: profile header parser regression\n");
         return 0;
     }
     nvram_profile_decode_payload(payload, sizeof(payload), 1);
-    if (payload[0] != 0xf0 || payload[1] != '\\0') {
-        fprintf(stderr, "FAIL: profile payload decoder regression\\n");
+    if (payload[0] != 0xf0 || payload[1] != '\0') {
+        fprintf(stderr, "FAIL: profile payload decoder regression\n");
         return 0;
     }
     return 1;
