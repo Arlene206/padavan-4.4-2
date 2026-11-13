@@ -1,3 +1,28 @@
+## 2026-11-13 18:55 CST (UTC+8) — Repair WAN VLAN compile and regression contracts
+
+- Base main SHA: `38b05ec60d650a8d88074c1c3166678bd7436ba4`; production source baseline commit `28f6b172796659242e0c4d6f093b85f8d6e35dce`.
+- The exact-head XY-C1 run [43412016388] / job [131840501374] reached `net_wan.c` and failed on duplicate declarations of `ret` in `config_vinet_wan()` and `launch_viptv_wan()`. Removed the accidental standalone declarations; each function retains its existing grouped declaration.
+- WAN route run [43412016100] failed because the IPTV publication checker compared against the first NVRAM publication, which is the valid empty-name branch for a shared VLAN. Scoped the assertion to the distinct-VLAN setup path and require VLAN, optional bridge and `rp_filter` status checks before publishing its interface name.
+- WAN teardown run [43412016822] failed because the checker expected `config_soft_bridge_lan();` although production correctly gates `if (config_soft_bridge_lan() != 0)`. Updated the contract to verify that failure return precedes `start_wan()`.
+- WAN DHCP callback run [43412016122] passed its preceding policy binaries but failed a source assertion: the workflow contained a double-escaped newline, searching for literal `\\n` instead of the C source's line break. Replaced it with an explicit `chr(10)` signature check for all five private helpers.
+- Updated the live handoff and roadmap to prioritize exact-head WAN regression/build validation, then partial bridge rollback and DHCPv6 callback lifecycle. Promoted the preceding VLAN/bridge milestone into the proper newest-first root-log format; no archive rotation is due.
+- Local full checkout and local test execution are unavailable in this session. New exact-main WAN host Actions, AI-doc validation and XY-C1 build are the required evidence; do not claim them before inspecting their logs.
+- Resulting commit: THIS COMMIT.
+- Next: inspect all relevant push Actions against the resulting main SHA; repair any new failure on main before starting bridge rollback work.
+
+---
+
+## 2026-11-13 18:45 CST (UTC+8) — WAN/LAN VLAN 与软件桥错误传播
+
+- Code checkpoint: `12d100d1d0d0972e708644064f8541ec25418c79` — fix(wan): propagate VLAN and bridge setup failures.
+- 将 `create_vlan_iface`、`remove_vlan_iface` 及 bridge sysfs 参数写入改为返回状态；新建 VLAN 后续配置失败时仅回滚本次新建接口，并保留原始错误状态。
+- 将 LAN/WAN/IPTV 软桥及附加 LAN bridge 的 VLAN 创建、bridge 参数、端口加入、隔离和接口启用错误向调用者传播；主 WAN 配置失败不再继续报告成功，IPTV 接口名在配置成功后才发布。
+- 加入 `scripts/check_wan_vlan_setup.py` 并挂入 WAN host workflow，覆盖声明、状态传递和关键调用顺序。
+- CI: WAN route operation status regression: completed/failure (43411514756). 完整固件编译和实机验证未执行。
+- 接续方向：审查 bridge 创建后部分失败的清理策略；随后治理 DHCPv6 callback 生命周期。
+
+---
+
 ## 2026-11-13 17:27 CST (UTC+8) — Trace remaining FRP signal, readiness and paired-config rollback gaps
 
 - Base main SHA: `252f328f48b8e4ee6bf8b9bfdc18ab8bd574311f`. Its five triggered push workflows all completed SUCCESS with matching checkout SHA and full logs inspected: AI docs [43400944647 / 131803346333], AliyunDrive [43400944593 / 131803346122], AliDDNS [43400944683 / 131803346094], AdGuardHome [43400944684 / 131803346971], infosvr [43400945908 / 131803349718].
@@ -1457,12 +1482,3 @@
 - Next: inspect exact resulting main SHA and every job step/full log for the networkmap signal regression and AI docs. Require sanitizer test, signal/call-path/package/source contract and docs validator to pass on that same SHA; then rotate to an under-covered userland service.
 
 ---
-
-### 2026-11-13 — WAN/LAN VLAN 与软件桥错误传播
-
-- Code checkpoint: `12d100d1d0d0972e708644064f8541ec25418c79` — fix(wan): propagate VLAN and bridge setup failures.
-- 将 `create_vlan_iface`、`remove_vlan_iface` 及 bridge sysfs 参数写入改为返回状态；新建 VLAN 后续配置失败时仅回滚本次新建接口，并保留原始错误状态。
-- 将 LAN/WAN/IPTV 软桥及附加 LAN bridge 的 VLAN 创建、bridge 参数、端口加入、隔离和接口启用错误向调用者传播；主 WAN 配置失败不再继续报告成功，IPTV 接口名在配置成功后才发布。
-- 加入 `scripts/check_wan_vlan_setup.py` 并挂入 WAN host workflow，覆盖声明、状态传递和关键调用顺序。
-- CI: WAN route operation status regression: completed/failure (43411514756). 完整固件编译和实机验证未执行。
-- 接续方向：审查 bridge 创建后部分失败的清理策略；随后治理 DHCPv6 callback 生命周期。

@@ -154,14 +154,15 @@ jobs:
                           return text[brace + 1:pos]
               raise AssertionError(f"unterminated function: {signature}")
 
-          for signature in (
-              "static int\\nman_down_internal(",
-              "static int\\nzcip_bound(",
-              "static int\\nzcip_viptv_bound(",
-              "static int\\nmanv_route_deconfig(",
-              "static int\\nzcip_viptv_deconfig(",
+          for name in (
+              "man_down_internal",
+              "zcip_bound",
+              "zcip_viptv_bound",
+              "manv_route_deconfig",
+              "zcip_viptv_deconfig",
           ):
-              assert signature in source, f"expected one private int definition: {signature}"
+              signature = "static int" + chr(10) + name + "("
+              assert signature in source, f"expected one private int definition: {name}"
           assert '#include "dhcp_wan_interface_policy.h"' in source
           callback = body(source, "udhcpc_bound(char *wan_ifname, int is_renew_mode)")
           apply = callback.index("dhcp_wan_interface_apply(")

@@ -96,9 +96,11 @@ jobs:
           gate = "if (disassembly_bridges_wan() != 0)"
           gate_pos = full_restart.index(gate)
           abort_pos = full_restart.index("return;", gate_pos)
-          lan_config_pos = full_restart.index("config_soft_bridge_lan();")
+          lan_gate = "if (config_soft_bridge_lan() != 0)"
+          lan_config_pos = full_restart.index(lan_gate)
+          lan_abort_pos = full_restart.index("return;", lan_config_pos)
           wan_start_pos = full_restart.index("start_wan();")
-          assert gate_pos < abort_pos < lan_config_pos < wan_start_pos
+          assert gate_pos < abort_pos < lan_config_pos < lan_abort_pos < wan_start_pos
           policy = (rc / "wan_teardown_policy.h").read_text()
           assert "operation_status != 0" in policy
 

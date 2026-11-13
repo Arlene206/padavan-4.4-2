@@ -99,11 +99,20 @@ require("ret = create_vlan_iface(" in vinet and
 require(vinet.index("ret = create_vlan_iface(") < vinet.index('set_wan_unit_value(0, "viflast"'),
         "last-good WAN VLAN name must not be published before VLAN creation")
 viptv = body(wan, "launch_viptv_wan(void)")
-require("ret = create_vlan_iface(" in viptv and
-        "ret = config_soft_bridge_wan(" in viptv and
-        'nvram_set_temp("viptv_ifname"' in viptv and
-        viptv.index("ret = config_soft_bridge_wan(") < viptv.index('nvram_set_temp("viptv_ifname"'),
-        "IPTV VLAN/bridge errors must be checked before publishing its interface")
+iptv_start = viptv.index("/* VLAN interface for IPTV */")
+iptv_setup = viptv[iptv_start:]
+bridge_pos = iptv_setup.index("ret = config_soft_bridge_wan(")
+rp_filter_pos = iptv_setup.index('ret = set_interface_conf_int("ipv4", viptv_ifname, "rp_filter", 0);')
+publish_pos = iptv_setup.index('nvram_set_temp("viptv_ifname", viptv_ifname);')
+require(iptv_setup.index("ret = create_vlan_iface(") < bridge_pos < rp_filter_pos < publish_pos,
+        "IPTV VLAN, bridge and rp_filter setup must complete before publishing its interface")
+for operation in ("ret = create_vlan_iface(", "ret = config_soft_bridge_wan(",
+                  'ret = set_interface_conf_int("ipv4", viptv_ifname, "rp_filter", 0);'):
+    operation_pos = iptv_setup.index(operation)
+    error_gate = iptv_setup.index("if (ret != 0)", operation_pos)
+    error_return = iptv_setup.index("return ret;", error_gate)
+    require(operation_pos < error_gate < error_return < publish_pos,
+            f"IPTV setup must abort before interface publication after {operation}")
 restart = body(wan, "full_restart_wan(void)")
 require("config_soft_bridge_lan() != 0" in restart,
         "full WAN restart must stop when LAN-side VLAN bridge setup fails")
