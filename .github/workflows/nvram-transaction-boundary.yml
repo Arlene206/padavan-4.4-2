@@ -1,0 +1,34 @@
+name: NVRAM transaction boundary audit
+
+on:
+  push:
+    paths:
+      - "SESSION_HANDOFF.md"
+      - "REFACTOR_ROADMAP.md"
+      - "dev_log.md"
+      - ".github/workflows/nvram-transaction-boundary.yml"
+      - "scripts/check_nvram_transaction_boundary.py"
+      - "trunk/user/**"
+      - "trunk/linux-4.4.x/**"
+      - "trunk/configs/boards/**"
+
+permissions:
+  contents: read
+
+jobs:
+  nvram-transaction-boundary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile NVRAM transaction lock regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            trunk/user/shared/src/tests/nvram_transaction_lock.c \
+            -o "$RUNNER_TEMP/nvram-transaction-lock"
+      - name: Exercise lock inode, permissions, contention and crash release
+        env:
+          ASAN_OPTIONS: detect_leaks=1
+        run: "$RUNNER_TEMP/nvram-transaction-lock"
+      - name: Audit raw userland ioctl paths and kernel NVRAM API callers
+        run: python3 scripts/check_nvram_transaction_boundary.py
