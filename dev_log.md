@@ -1,3 +1,14 @@
+## 2026-11-14 21:52 CST (UTC+8) — Remove duplicate HTTPD workflow trigger key
+
+- Parent main SHA: `e9ae56274e15cf79e25ec71346dee8c9ca9f08e7`; backup ref remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact-head parent P1 `43599910902`, AI docs `43599910777`, infosvr `43599910813`, Watchdog `43599910757`, crond `43599910794`, GPIO `43599910812`, AdGuardHome `43599910716`, AliDDNS `43599910707`, AliyunDrive `43599910744` and inventory `43599910764` passed.
+- HTTPD run `43599909724` ended failure with zero jobs. Comparing parent/new workflow patch found the cause: duplicated adjacent `pull_request:` keys at the trigger boundary, introduced during manual path-filter insertion. Removed the extra key; push and pull_request each retain the shared header path, and lifecycle host compile includes shared/src.
+- NVRAM `43599910753` and XY-C1 MIPS `43599910863` were still running when this handoff was updated; inspect their terminal results on the exact SHA. The XY-C1 job had passed dependency and header staging checks and entered Build XY-C1. Previous MIPS run `43598951803` failed on the now-corrected staged-header include.
+- This commit only corrects workflow YAML syntax plus refreshed handoff/roadmap/log. It does not expand P1 code scope. New exact-head HTTPD and docs Actions are pending.
+- Root log advances one record; no rotation or INDEX change due. Resulting commit: THIS COMMIT.
+- Exact next action: verify the resulting main SHA, then inspect exact-head HTTPD job creation/results and XY-C1/NVRAM terminal outcomes.
+---
+
 ## 2026-11-14 21:40 CST (UTC+8) — Fix RC staged-header lookup and make pids_main return only CLI status
 
 - Base main SHA: `91deae70b0582f2925f95679ab722f97b41637a6`; backup branch remained `72f4f157a084f8184b9597ca5bf334b8080e5807`.
