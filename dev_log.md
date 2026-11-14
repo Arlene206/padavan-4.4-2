@@ -1,3 +1,14 @@
+## 2026-11-14 08:25 CST (UTC+8) — Refresh exact main checkpoint and preserve P1 process-inventory task
+
+- Base main SHA: `c3698fa56a5d3580fad38aba588d8d5cd0e1952e`; active branch `main`. The preceding base commit changed only `dev_log.md`; no product-source delta from the recorded L3 source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`.
+- Reconciled exact-head push Actions for the base SHA: AI handoff docs [43533915410], AdGuardHome [43533915342], AliDDNS [43533915511], and AliyunDrive [43533915325] SUCCESS; NVRAM [43533915397] IN_PROGRESS; no infosvr run was present. Every listed run has exact `head_sha` and `event=push`.
+- Re-fetched the shared process scanner and lifecycle sources. Confirmed `procps_scan()` treats all NULL `readdir()` results as EOF, while initialization, `/proc` open, and PID-list allocation failures also collapse to NULL/zero in wrappers. `service_lifecycle_stop()` sends TERM before an authoritative process inventory and Boolean `is_running` cannot represent UNKNOWN.
+- The complete cross-userland caller inventory remains INCOMPLETE; GitHub indexed search is not exhaustive and no complete local checkout is available. Per the handoff/protocol, no partial tri-state API migration or source change was made. L1 partial source review; L2 host regressions/docs checker NOT RUN; L3 only the previously recorded source SHA; L4 NOT VERIFIED.
+- Updated `SESSION_HANDOFF.md` in place with exact base SHA and CI boundary; resulting commit `8704d286eab3148948917be635cf2fe8cf0fc745`. Root log advances 57→58/119; no rotation or INDEX update. Roadmap/global module priorities did not materially change.
+- Exact next action: reconcile Actions for `8704d286eab3148948917be635cf2fe8cf0fc745`; then obtain complete source content in bounded batches and classify every process scanner and lifecycle/readiness/stop caller before designing RUNNING / ABSENT / UNKNOWN and injectable GNU89/`-Werror` regressions.
+
+---
+
 ## 2026-11-14 08:23 CST (UTC+8) — Reconcile current main and refresh process-inventory handoff
 
 - Re-fetched live `main`: base SHA `f40aba8106e24993cbc64fd9a23dee4756620790`; refreshed `SESSION_HANDOFF.md` in place as `4bb6c27e91e7f2b68a00011b99127f889bfe5d0d`. This is a documentation-only commit; no product source changed.
