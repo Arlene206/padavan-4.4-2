@@ -526,7 +526,6 @@ test_pidfile_wait_ignores_unselected_pppd_processes(void)
 }
 
 static void
-test_absent_pidfile_does_not_block_service_stop(void)static void
 test_absent_pidfile_does_not_block_service_stop(void)
 {
 	struct fake_service services[2];
