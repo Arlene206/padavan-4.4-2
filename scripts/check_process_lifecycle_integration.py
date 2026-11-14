@@ -200,7 +200,7 @@ lan_vpn_failure = lan_restart_transaction.index("if (vpn_status != 0)", lan_vpn_
 lan_vpn_abort = lan_restart_transaction.index("return vpn_status;", lan_vpn_failure)
 lan_first_other_stop = lan_restart_transaction.index("stop_lltd();")
 assert lan_vpn_stop < lan_vpn_failure < lan_vpn_abort < lan_first_other_stop
-assert "stop_vpn_server();" not in lan_restart_transaction
+assert lan_restart_transaction.count("stop_vpn_server();") == 1
 lan_dhcp_failure = lan_restart_transaction.index("if (lan_status != 0)")
 lan_dns_unlock = lan_restart_transaction.index("dnsmasq_lifecycle_lock_release(dnsmasq_lock)", lan_dhcp_failure)
 lan_vpn_restore = lan_restart_transaction.index("restart_vpn_server();", lan_dns_unlock)
