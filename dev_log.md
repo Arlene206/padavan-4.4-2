@@ -1,3 +1,15 @@
+## 2026-11-15 — Fix rstats PID publication target compile error
+
+- Base main SHA: 733463cb9e3289c62836dd1b7405a30ec1a424cc.
+- Exact-head XY-C1 run 43622638409 failed in rstats_main() at rstats.c:722: the PID identity publication failure path referenced saved_errno, but that variable was declared only inside earlier nested error blocks.
+- Added one function-scope saved_errno and reused it across signal setup, SIGPIPE setup, daemon setup and PID-file publication error handling. No PID lifecycle behavior changed.
+- Exact-head process-lifecycle workflow 43622638410, HTTPD security workflow 43622638413 and AI docs workflow 43622638346 had passed on the failing base SHA; the XY-C1 build stopped before TRX generation. This correction triggers fresh rstats host/integration and MIPS target validation.
+- Changed paths: trunk/user/rc/src/rstats.c, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and this log. Resulting commit: THIS COMMIT.
+- Root log advances 107→108 records; no archive rotation or INDEX update is due.
+- Next: inspect exact-head XY-C1 and process-lifecycle Actions for this correction. After PASS, migrate watchdog PID publication and both notification callers.
+
+---
+
 ## 2026-11-15 — Update HTTPD bandwidth regression for rstats identity signaling
 
 - Exact-head HTTPD security workflow `43622388659` failed only because its bandwidth refresh source assertion still required legacy `kill_pidfile_s` after the rstats PID consumer had migrated to `process_pidfile_signal()`.

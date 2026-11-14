@@ -652,6 +652,7 @@ int rstats_main(int argc, char *argv[])
 	long z;
 	int stopping = 0;
 	int exit_status = 0;
+	int saved_errno = 0;
 	sig_atomic_t events;
 
 	(void) argc;
@@ -679,7 +680,7 @@ int rstats_main(int argc, char *argv[])
 	    sigaction(SIGUSR1, &sa, NULL) < 0 ||
 	    sigaction(SIGUSR2, &sa, NULL) < 0 ||
 	    sigaction(SIGTERM, &sa, NULL) < 0) {
-		int saved_errno = errno;
+		saved_errno = errno;
 		(void) sigprocmask(SIG_SETMASK, &original_mask, NULL);
 		errno = saved_errno;
 		perror("rstats: install signal handlers");
@@ -690,7 +691,7 @@ int rstats_main(int argc, char *argv[])
 	sa.sa_handler = SIG_IGN;
 	sigemptyset(&sa.sa_mask);
 	if (sigaction(SIGPIPE, &sa, NULL) < 0) {
-		int saved_errno = errno;
+		saved_errno = errno;
 		(void) sigprocmask(SIG_SETMASK, &original_mask, NULL);
 		errno = saved_errno;
 		perror("rstats: ignore SIGPIPE");
@@ -700,7 +701,7 @@ int rstats_main(int argc, char *argv[])
 	printf("rstats\nCopyright (C) 2006-2009 Jonathan Zarate\n\n");
 
 	if (daemon(0, 0) < 0) {
-		int saved_errno = errno;
+		saved_errno = errno;
 		(void) sigprocmask(SIG_SETMASK, &original_mask, NULL);
 		errno = saved_errno;
 		perror("daemon");
