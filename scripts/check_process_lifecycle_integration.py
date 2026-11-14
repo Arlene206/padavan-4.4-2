@@ -150,7 +150,8 @@ assert "remove_pidfile(client_config.pidfile)" not in udhcpc_source
 assert "unlink-by-path can race a new publisher" in udhcpc_source
 print("BusyBox udhcpc identity-bound PID-file producer integration: PASS")
 
-net_wan_dhcp = (root / "trunk/user/rc/src/net_wan.c").read_text()
+net_wan = (root / "trunk/user/rc/src/net_wan.c").read_text()
+net_wan_dhcp = net_wan
 net_lan_dhcp = (root / "trunk/user/rc/src/net_lan.c").read_text()
 wan_dhcp_stop = net_wan_dhcp.split("static int\nstop_udhcpc_pidfile", 1)[1].split("\nint renew_udhcpc_wan", 1)[0]
 lan_stop = net_lan_dhcp.split("int\nstop_lan(int is_ap_mode)", 1)[1].split("\nint\nfull_restart_lan", 1)[0]

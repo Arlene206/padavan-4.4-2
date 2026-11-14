@@ -59,7 +59,7 @@ jobs:
           assert adapter.index('logmessage(') < adapter.rindex("return ret;")
 
           stop = function_body(source, "stop_wan_locked(void)")
-          service_gate = 'kill_services(svcs_wan, 3, 1)'
+          service_gate = 'kill_services_with_pidfiles(svcs_wan, udhcpc_pidfiles, "udhcpc", 0, 3, 1)'
           teardown = "ifdown_status = wan_teardown_ifdown_interfaces("
           failure_gate = "if (ifdown_status != 0)"
           usbnet_gate = 'if (get_usb_modem_wan(unit) && nvram_get_int("modem_type") == 3)'

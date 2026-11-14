@@ -386,7 +386,10 @@ jobs:
           stop_wan = body(source, "stop_wan_locked(void)")
           assert "if (is_wan_ipv6_type_sit() != 1)" in stop_wan
           stop_ipv6 = stop_wan.index("ipv6_status = wan6_down(man_ifname, unit);")
-          assert stop_ipv6 < stop_wan.index("return -1;", stop_ipv6) < stop_wan.index('if (pids("udhcpc"))')
+          dhcp_release = stop_wan.index('process_pidfile_signal(udhcpc_pidfiles[0], "udhcpc", SIGUSR2)')
+          viptv_release = stop_wan.index('process_pidfile_signal(udhcpc_pidfiles[1], "udhcpc", SIGUSR2)')
+          dhcp_stop = stop_wan.index('kill_services_with_pidfiles(svcs_wan, udhcpc_pidfiles, "udhcpc", 0, 3, 1)')
+          assert stop_ipv6 < dhcp_release < viptv_release < dhcp_stop
           wan_down_internal = body(source, "wan_down_internal(char *wan_ifname, int unit, int is_static)")
           wan6_down_call = wan_down_internal.index("ipv6_status = wan6_down(wan_ifname, unit);")
           assert "return ipv6_status;" in wan_down_internal[wan6_down_call:]
