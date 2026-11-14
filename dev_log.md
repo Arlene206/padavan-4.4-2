@@ -1,3 +1,17 @@
+## 2026-11-14 18:00 CST (UTC+8) — Add sparse Actions process/lifecycle census and record first whole-userland call-site inventory
+
+- Base main SHA: \`d0404d5e33d4239e19c92db9b9ab4fb7529cf26c\`; source/audit SHA: same. Added \`scripts/audit_process_lifecycle.py\` and \`.github/workflows/process-lifecycle-inventory.yml\` in the preceding tool commits. This entry plus the report/handoff/roadmap update is the documentation checkpoint.
+- Exact-head run [43581078509](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43581078509) was a \`push\` on \`main\`, head SHA \`d0404d5e33d4239e19c92db9b9ab4fb7529cf26c\`, conclusion SUCCESS. Sparse partial clone pinned this SHA; scanner self-test PASS; artifact [14108820679](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43581078509/artifacts/14108820679) uploaded 213,402 bytes.
+- Enumerated 9,439 tracked blobs under the complete \`trunk/user\` tree; 6,581 candidate files; 6,193 readable text files scanned; 388 binary candidates skipped; zero missing candidates and zero read errors. Raw lexical census: 193 API occurrences and 5,664 broad lifecycle candidates.
+- API inventory: \`pids()\` 77 call candidates; \`pids_main()\` one caller (\`rc.c:2005\`); \`kill_services()\` 46 call candidates; \`kill_pidfile()\` five call candidates; \`kill_pidfile_s()\` 15 call candidates. Same-named BusyBox \`procps_scan/find_pid_by_name\` is distinct from Padavan shared \`pids.c\`; do not merge the call graphs.
+- New finding: \`kill_pidfile_s()\` signals a numeric PID without validating process identity/start time and does not strictly validate \`strtoul()\` errno/end pointer. Existing shared scanner defects and TERM-before-authoritative-inventory remain open. Details and next steps: \`docs/audits/PROCESS_LIFECYCLE_INVENTORY.md\`.
+- No production C source, firmware template, runtime configuration, WebUI or P1 implementation changed. This is L1 lexical census evidence only; semantic caller/callee classification remains partial. L2 production scanner regressions NOT RUN; L3 no new MIPS build; L4 NOT VERIFIED.
+- Root \`dev_log.md\` advances 75→76 records; current size remains below the 384 KiB early-rotation threshold. No archive rotation or \`docs/dev-log/INDEX.md\` update is due.
+- Resulting documentation commit: THIS COMMIT. Exact-head AI handoff-doc Actions for this documentation SHA must be checked after push.
+- Exact next action: classify the 77 \`pids()\` and 46 \`kill_services()\` call candidates, all PID-file signal users and direct process/signal/wait paths; only then design and migrate tri-state fail-closed semantics.
+
+---
+
 ## 2026-11-14 16:17 CST (UTC+8) — Recover live main and re-confirm P1 process-inventory blocker
 
 - Re-read the complete `AI_BOOTSTRAP_PROMPT.md` and `AI_DEVELOPMENT_PROTOCOL.md`, the live handoff and roadmap, the newest 20 complete root log records, `docs/dev-log/INDEX.md`, and all of `XY-C1_DISCUSSION_CONTEXT.md` as explicitly requested. Current `main` baseline is `976258e441147a835826dda579b6479a5a468c08` (parent `bd783c4b8e9e153f6ba19b539e8aad5996258f03`).
