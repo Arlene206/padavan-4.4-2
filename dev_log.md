@@ -1,3 +1,13 @@
+## 2026-11-15 — Complete detect_link workflow dependency path filters
+
+- Follow-up review found the first checker correction added PID helper paths only to push filters, not pull_request filters, and omitted them from the workflow's own path-contract tuple.
+- Added process_pidfile and process_inventory source/header dependencies to both event filters and the contract tuple. This prevents the dedicated regression from silently skipping relevant helper changes.
+- Production source and test behavior are unchanged.
+- Changed paths: `.github/workflows/detect-link-signal-stability.yml` and this log. Resulting commit: THIS COMMIT.
+- The corrected exact-head detect_link workflow will verify both caller wiring and path-filter symmetry.
+
+---
+
 ## 2026-11-15 — Update detect_link regression for identity-bound PID helper
 
 - Exact-head detect_link workflow `43621732208` failed only because its existing caller-wiring assertion still required legacy `kill_pidfile_s()` calls after the producer and both consumers were migrated to `process_pidfile_write/signal()`.
