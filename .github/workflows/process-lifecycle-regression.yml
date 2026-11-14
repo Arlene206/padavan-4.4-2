@@ -20,6 +20,8 @@ on:
       - "trunk/user/LPRng/src/src/tests/lpd_pidfile_policy.c"
       - "trunk/user/rc/src/service_lifecycle_policy.h"
       - "trunk/user/rc/src/tests/service_lifecycle_policy.c"
+      - "trunk/user/rc/src/detect_internet.c"
+      - "trunk/user/httpd/src/web_ex.c"
       - "scripts/check_process_lifecycle_integration.py"
       - "SESSION_HANDOFF.md"
       - "REFACTOR_ROADMAP.md"

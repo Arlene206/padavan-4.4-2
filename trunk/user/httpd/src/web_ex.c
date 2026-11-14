@@ -52,6 +52,7 @@
 #include <rstats.h>
 #include <bin_sem_asus.h>
 #include <gpioutils.h>
+#include <process_pidfile.h>
 
 #include "common.h"
 #include "nvram_x.h"
@@ -2724,7 +2725,7 @@ static int update_action_hook(int eid, webs_t wp, int argc, char **argv)
 static int
 ej_detect_internet_hook(int eid, webs_t wp, int argc, char **argv)
 {
-	kill_pidfile_s("/var/run/detect_internet.pid", SIGHUP);
+	(void)process_pidfile_signal("/var/run/detect_internet.pid", "detect_internet", SIGHUP);
 
 	return 0;
 }

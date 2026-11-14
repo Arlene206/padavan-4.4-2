@@ -27,6 +27,7 @@
 
 #include "rc.h"
 #include "detect_internet_signal_policy.h"
+#include <process_pidfile.h>
 #include <gpioutils.h>
 
 #define DI_MAX_HOSTS	6
@@ -372,19 +373,18 @@ notify_run_detect_internet(int delay_time)
 	if (!pids("detect_internet"))
 		start_detect_internet(delay_time);
 	else
-		kill_pidfile_s(DI_PID_FILE, SIGUSR1);
+		(void)process_pidfile_signal(DI_PID_FILE, "detect_internet", SIGUSR1);
 }
 
 void
 notify_pause_detect_internet(void)
 {
-	kill_pidfile_s(DI_PID_FILE, SIGUSR2);
+	(void)process_pidfile_signal(DI_PID_FILE, "detect_internet", SIGUSR2);
 }
 
 int
 detect_internet_main(int argc, char *argv[])
 {
-	FILE *fp;
 	pid_t pid;
 	int c, auto_run_time = 0;
 	int saved_errno;
@@ -460,10 +460,13 @@ detect_internet_main(int argc, char *argv[])
 	/* never invoke oom killer */
 	oom_score_adjust(pid, OOM_SCORE_ADJ_MIN);
 
-	/* write pid */
-	if ((fp = fopen(DI_PID_FILE, "w")) != NULL) {
-		fprintf(fp, "%d", pid);
-		fclose(fp);
+	/* Publish PID and start_time before accepting notifications. */
+	if (process_pidfile_write(DI_PID_FILE, "detect_internet") < 0) {
+		saved_errno = errno ? errno : EIO;
+		(void)sigprocmask(SIG_SETMASK, &original_mask, NULL);
+		errno = saved_errno;
+		perror("detect_internet pid file");
+		return saved_errno;
 	}
 
 	di_pending_events = 0;

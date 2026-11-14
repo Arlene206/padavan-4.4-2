@@ -1,3 +1,16 @@
+## 2026-11-15 — Migrate detect_internet PID producer and all signal consumers
+
+- Base main SHA: `b2500167cbacbbf161df5126ee49c008d7164f42`.
+- `detect_internet` now publishes PID + kernel start_time via `process_pidfile_write()`; publication failure aborts daemon startup instead of silently running without a usable record.
+- Both RC notification paths and HTTPD's SIGHUP hook now call `process_pidfile_signal()` with the expected process name. No legacy numeric-PID signal fallback remains for this daemon.
+- Added integration assertions and process-lifecycle/XY-C1 workflow path filters for both RC and HTTPD source files.
+- The shared helper/parser host regression passed on its exact head; this producer/consumer migration has new exact-head host and MIPS validation pending.
+- Changed paths: `trunk/user/rc/src/detect_internet.c`, `trunk/user/httpd/src/web_ex.c`, integration checker, both workflows, handoff and this log. Resulting commit: THIS COMMIT.
+- Root log advances 99→100 records; no archive rotation or INDEX update is due.
+- Next: migrate detect_link producer and both signal consumers together.
+
+---
+
 ## 2026-11-15 — Add shared PID/start-time file identity helper
 
 - Base main SHA: `49af52aa88d92f5afbeb22638ef6a0e5124bd196`.

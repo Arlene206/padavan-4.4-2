@@ -10,6 +10,7 @@ on:
       - "trunk/user/httpd/src/web_ex.c"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_wan6.c"
+      - "trunk/user/rc/src/detect_internet.c"
       - "trunk/user/rc/src/services_usb.c"
       - "trunk/user/LPRng/src/src/common/lpd.c"
       - "trunk/user/LPRng/src/src/include/lpd_pidfile_policy.h"

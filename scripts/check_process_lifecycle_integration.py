@@ -68,3 +68,12 @@ assert "process_identity_validate(process_name, &snapshot.items[i])" in pidfile_
 assert "process_inventory_scan(process_name, &snapshot)" in pidfile_source
 assert "process_pidfile_write" in pidfile_header
 assert "process_pidfile_signal" in pidfile_header
+
+detect_internet_source = (root / "trunk/user/rc/src/detect_internet.c").read_text()
+httpd_source = (root / "trunk/user/httpd/src/web_ex.c").read_text()
+assert "process_pidfile_write(DI_PID_FILE, \"detect_internet\")" in detect_internet_source
+assert "process_pidfile_signal(DI_PID_FILE, \"detect_internet\", SIGUSR1)" in detect_internet_source
+assert "process_pidfile_signal(DI_PID_FILE, \"detect_internet\", SIGUSR2)" in detect_internet_source
+assert "kill_pidfile_s(DI_PID_FILE" not in detect_internet_source
+assert 'process_pidfile_signal("/var/run/detect_internet.pid", "detect_internet", SIGHUP)' in httpd_source
+assert 'kill_pidfile_s("/var/run/detect_internet.pid"' not in httpd_source

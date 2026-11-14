@@ -29,7 +29,7 @@ For every multi-file slice, publish source + regression tests + required workflo
 ### In-tree PID-file identity helper (new, validation pending)
 
 - Added `process_pidfile.c/.h` to shared library: strict PID + start_time record parsing, process-name inventory matching, identity revalidation immediately before signal, and atomic writer using a same-directory mkstemp + rename.
-- The new helper is not yet wired to daemon producers/callers. Next migrate detect_internet's producer, its two RC notification paths and HTTPD's SIGHUP caller together; then add/verify process-name identity coverage. BusyBox udhcpc and PPPD remain separate producer owners.
+- The helper is now wired to detect_internet's producer, its two RC notification paths and HTTPD's SIGHUP caller. The producer publishes PID+start_time atomically; all three consumers validate process name and start_time before signaling. BusyBox udhcpc and PPPD remain separate producer owners. Next migrate detect_link and its two RC notification paths as a separate bounded group.
 
 ### Exact-head Actions on product-source baseline d3951a276ed4002aff3232cf93c8d55662a94e95
 
