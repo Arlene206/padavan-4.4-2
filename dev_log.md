@@ -1,3 +1,13 @@
+## 2026-11-15 — Correct the AliDDNS helper-shell quoting
+
+- Parent main SHA: `59853da9688974ee733d851785cd530d09c4c2db`.
+- The first unique-PID patch still failed [43655773437]: the nested `sh -c` command string was missing its closing double quote around `$$`, so the helper shell reported an unterminated quoted string. The parent file's `sh -n` passed because the unmatched quote was consumed by later source text; runtime execution exposed it.
+- Corrected the line to `lookup_owner_pid=$(sh -c 'printf "%s\\n" "$$"') || exit 1`. Also fixed the mkdir diagnostic logger to record the actual wrapper PID (`$$`, not a literal `$`). The test already clears the mkdir trace before the two parallel calls and requires two distinct successful scratch directories plus separate A/B results.
+- Exact 59853 checks: DNSMasq lifecycle [43655773415], process inventory [43655773421], process lifecycle [43655773597], infosvr [43655773430], AdGuardHome [43655773400], miniupnpd [43655773467], Samba [43655773461] and AliyunDrive [43655773636] passed. AliDDNS [43655773437] failed at the nested shell command; HTTPD auth/security [43655773458] failed separately and is to be triaged. XY-C1 [43655773404] and NVRAM [43655773564] were still running at last inspection.
+- Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Make DNSMasq detached-child readiness tri-state and fail closed
 
 - Parent main SHA: `06355c57f002132031a50ec56596a6a1a74a2b4f`.

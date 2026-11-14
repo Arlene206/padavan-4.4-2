@@ -90,7 +90,7 @@ case "$1" in
 		else
 			mkdir_status=$?
 		fi
-		printf '%s\t%s\t%s\n' "$1" "$" "$mkdir_status" >> "$NSLOOKUP_MKDIR_LOG"
+		printf '%s\t%s\t%s\n' "$1" "$$" "$mkdir_status" >> "$NSLOOKUP_MKDIR_LOG"
 		exit "$mkdir_status"
 		;;
 esac

@@ -588,7 +588,7 @@ aliddns_nslookup() {
 		lookup_old_umask=$(umask)
 		umask 077
 		# POSIX shells retain the parent $ value in subshells; seed each call from a unique helper PID.
-		lookup_owner_pid=$(sh -c 'printf "%s\\n" "$') || exit 1
+		lookup_owner_pid=$(sh -c 'printf "%s\n" "$$"') || exit 1
 		lookup_dir=""
 		lookup_index=0
 		while [ "$lookup_index" -lt 100 ]; do
