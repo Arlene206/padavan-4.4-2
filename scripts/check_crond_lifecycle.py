@@ -61,6 +61,7 @@ common = read("trunk/user/rc/src/common_ex.c")
 lifecycle = read("trunk/user/rc/src/service_lifecycle_policy.h")
 inventory = read("trunk/user/shared/src/process_inventory.c")
 inventory_header = read("trunk/user/shared/src/process_inventory.h")
+pids = read("trunk/user/shared/src/pids.c")
 crond = read("trunk/user/busybox/busybox-1.24.x/miscutils/crond.c")
 daemonizer = read("trunk/user/busybox/busybox-1.24.x/libbb/vfork_daemon_rexec.c")
 workflow = read(".github/workflows/crond-lifecycle-stability.yml")
@@ -190,6 +191,7 @@ paths = (
     "trunk/user/rc/src/service_lifecycle_policy.h",
     "trunk/user/shared/src/process_inventory.c",
     "trunk/user/shared/src/process_inventory.h",
+    "trunk/user/shared/src/pids.c",
     "trunk/user/busybox/busybox-1.24.x/miscutils/crond.c",
     "trunk/user/busybox/busybox-1.24.x/libbb/vfork_daemon_rexec.c",
     "scripts/check_crond_lifecycle.py",
