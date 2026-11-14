@@ -90,3 +90,19 @@ assert "process_pidfile_signal(RSTATS_PID_FILE, \"rstats\", SIGHUP)" in rstats_s
 assert "kill_pidfile_s(RSTATS_PID_FILE" not in rstats_source
 assert 'process_pidfile_signal(RSTATS_PID_FILE, "rstats", sig)' in httpd_source
 assert "kill_pidfile_s(RSTATS_PID_FILE" not in httpd_source
+
+pppd_policy = (root / "trunk/user/pppd/ppp-2.4.7/pppd/pppd_pidfile_policy.h").read_text()
+pppd_main = (root / "trunk/user/pppd/ppp-2.4.7/pppd/main.c").read_text()
+pppd_writer = pppd_main.split("static void\ncreate_pidfile(pid)", 1)[1].split("void\ncreate_linkpidfile(pid)", 1)[0]
+process_pidfile = (root / "trunk/user/shared/src/process_pidfile.c").read_text()
+vpn_server = (root / "trunk/user/rc/src/vpn_server.c").read_text()
+assert "pppd_pidfile_parse_start_time" in pppd_policy
+assert "pppd_pidfile_format_record" in pppd_policy
+assert "read_process_start_time(pid" in pppd_main
+assert "write_pidfile_record(pidfilename, (pid_t)pid)" in pppd_writer
+assert 'fprintf(pidfile, "%d\\n", pid)' not in pppd_writer
+assert "process_pidfile_read_identity" in process_pidfile
+assert "process_identity_validate(process_name, &snapshot.items[i])" in process_pidfile
+assert 'process_pidfile_read_identity(pidfile, "pppd", &identity)' in vpn_server
+assert "pid_text_file" not in vpn_server
+print("PPPD PID-file start-time identity integration: PASS")

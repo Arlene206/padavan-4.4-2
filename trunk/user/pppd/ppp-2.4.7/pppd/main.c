@@ -106,6 +106,7 @@
 #include "ccp.h"
 #include "ecp.h"
 #include "pathnames.h"
+#include "pppd_pidfile_policy.h"
 
 #ifdef USE_TDB
 #include "tdb.h"
@@ -809,22 +810,129 @@ reopen_log()
     setlogmask(LOG_UPTO(LOG_INFO));
 }
 
+static int
+read_process_start_time(pid_t pid, unsigned long long *start_time)
+{
+	char path[64], buffer[4096];
+	int fd, saved_errno, path_length;
+	size_t used = 0;
+	ssize_t count;
+	char extra;
+
+	if (pid <= (pid_t)1 || !start_time) {
+		errno = EINVAL;
+		return -1;
+	}
+	path_length = snprintf(path, sizeof(path), "/proc/%ld/stat", (long)pid);
+	if (path_length < 0 || path_length >= (int)sizeof(path)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	fd = open(path, O_RDONLY);
+	if (fd < 0)
+		return -1;
+	while (used < sizeof(buffer) - 1) {
+		count = read(fd, buffer + used, sizeof(buffer) - 1 - used);
+		if (count < 0) {
+			if (errno == EINTR)
+				continue;
+			saved_errno = errno;
+			(void)close(fd);
+			errno = saved_errno;
+			return -1;
+		}
+		if (count == 0)
+			break;
+		used += (size_t)count;
+	}
+	if (used == sizeof(buffer) - 1) {
+		count = read(fd, &extra, 1);
+		if (count != 0) {
+			saved_errno = count < 0 ? errno : EOVERFLOW;
+			(void)close(fd);
+			errno = saved_errno;
+			return -1;
+		}
+	}
+	if (close(fd) != 0)
+		return -1;
+	buffer[used] = '\0';
+	if (pppd_pidfile_parse_start_time(buffer, start_time) != 0) {
+		errno = EINVAL;
+		return -1;
+	}
+	return 0;
+}
+
+static int
+write_pidfile_record(const char *path, pid_t pid)
+{
+	unsigned long long start_time;
+	char record[64], temp_path[MAXPATHLEN + 16];
+	int fd, length, path_length, saved_errno;
+	size_t offset = 0;
+
+	if (read_process_start_time(pid, &start_time) != 0)
+		return -1;
+	length = pppd_pidfile_format_record(pid, start_time, record, sizeof(record));
+	if (length < 0) {
+		errno = EINVAL;
+		return -1;
+	}
+	path_length = snprintf(temp_path, sizeof(temp_path), "%s.tmp.XXXXXX", path);
+	if (path_length <= 0 || path_length >= (int)sizeof(temp_path)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	fd = mkstemp(temp_path);
+	if (fd < 0)
+		return -1;
+	if (fchmod(fd, 0644) != 0)
+		goto failed;
+	while (offset < (size_t)length) {
+		ssize_t count = write(fd, record + offset, (size_t)length - offset);
+		if (count < 0) {
+			if (errno == EINTR)
+				continue;
+			goto failed;
+		}
+		if (count == 0) {
+			errno = EIO;
+			goto failed;
+		}
+		offset += (size_t)count;
+	}
+	if (fsync(fd) != 0)
+		goto failed;
+	if (close(fd) != 0) {
+		fd = -1;
+		goto failed;
+	}
+	fd = -1;
+	if (rename(temp_path, path) != 0)
+		goto failed;
+	return 0;
+
+failed:
+	saved_errno = errno ? errno : EIO;
+	if (fd >= 0)
+		(void)close(fd);
+	(void)unlink(temp_path);
+	errno = saved_errno;
+	return -1;
+}
+
 /*
- * Create a file containing our process ID.
+ * Create a file containing our process ID and /proc start_time identity.
  */
 static void
 create_pidfile(pid)
     int pid;
 {
-    FILE *pidfile;
-
     slprintf(pidfilename, sizeof(pidfilename), "%s%s.pid",
 	     _PATH_VARRUN, ifname);
-    if ((pidfile = fopen(pidfilename, "w")) != NULL) {
-	fprintf(pidfile, "%d\n", pid);
-	(void) fclose(pidfile);
-    } else {
-	error("Failed to create pid file %s: %m", pidfilename);
+    if (write_pidfile_record(pidfilename, (pid_t)pid) != 0) {
+	error("Failed to create identity-bound pid file %s: %m", pidfilename);
 	pidfilename[0] = 0;
     }
 }

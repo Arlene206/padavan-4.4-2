@@ -82,13 +82,21 @@ process_pidfile_read(const char *path, pid_t *pid,
 		     unsigned long long *start_time)
 {
 	char buffer[PROCESS_PIDFILE_RECORD_SIZE];
+	struct stat st;
 	int fd, saved_errno;
 	size_t used = 0;
 	ssize_t count;
 
-	fd = open(path, O_RDONLY);
+	fd = open(path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK);
 	if (fd < 0)
 		return -1;
+	if (fstat(fd, &st) != 0)
+		goto failed;
+	if (!S_ISREG(st.st_mode) || st.st_uid != 0 || st.st_nlink != 1 ||
+	    (st.st_mode & 022) != 0) {
+		errno = EPERM;
+		goto failed;
+	}
 	while (used < sizeof(buffer)) {
 		count = read(fd, buffer + used, sizeof(buffer) - used);
 		if (count < 0) {
@@ -106,6 +114,67 @@ process_pidfile_read(const char *path, pid_t *pid,
 	if (close(fd) < 0)
 		return -1;
 	return process_pidfile_parse_record(buffer, used, pid, start_time);
+
+failed:
+	saved_errno = errno ? errno : EIO;
+	(void)close(fd);
+	errno = saved_errno;
+	return -1;
+}
+
+enum process_presence
+process_pidfile_read_identity(const char *path, const char *process_name,
+			      struct process_identity *identity)
+{
+	struct process_snapshot snapshot;
+	enum process_presence state;
+	pid_t pid;
+	unsigned long long start_time;
+	size_t i;
+
+	if (!path || !*path || !process_name || !*process_name || !identity) {
+		errno = EINVAL;
+		return PROCESS_PRESENCE_UNKNOWN;
+	}
+	if (process_pidfile_read(path, &pid, &start_time) != 0) {
+		if (errno == ENOENT)
+			return PROCESS_PRESENCE_ABSENT;
+		return PROCESS_PRESENCE_UNKNOWN;
+	}
+	state = process_inventory_scan(process_name, &snapshot);
+	if (state == PROCESS_PRESENCE_UNKNOWN) {
+		errno = snapshot.error ? snapshot.error : EIO;
+		process_snapshot_release(&snapshot);
+		return PROCESS_PRESENCE_UNKNOWN;
+	}
+	if (state != PROCESS_PRESENCE_RUNNING && state != PROCESS_PRESENCE_ABSENT) {
+		process_snapshot_release(&snapshot);
+		errno = EIO;
+		return PROCESS_PRESENCE_UNKNOWN;
+	}
+	for (i = 0; i < snapshot.count; i++) {
+		if (snapshot.items[i].pid != pid)
+			continue;
+		if (snapshot.items[i].start_time != start_time) {
+			process_snapshot_release(&snapshot);
+			errno = ESRCH;
+			return PROCESS_PRESENCE_ABSENT;
+		}
+		state = process_identity_validate(process_name, &snapshot.items[i]);
+		if (state != PROCESS_PRESENCE_RUNNING) {
+			int saved_errno = state == PROCESS_PRESENCE_ABSENT ? ESRCH : EIO;
+			process_snapshot_release(&snapshot);
+			errno = saved_errno;
+			return state == PROCESS_PRESENCE_ABSENT ? PROCESS_PRESENCE_ABSENT :
+				PROCESS_PRESENCE_UNKNOWN;
+		}
+		*identity = snapshot.items[i];
+		process_snapshot_release(&snapshot);
+		return PROCESS_PRESENCE_RUNNING;
+	}
+	process_snapshot_release(&snapshot);
+	errno = ESRCH;
+	return PROCESS_PRESENCE_ABSENT;
 }
 
 static int

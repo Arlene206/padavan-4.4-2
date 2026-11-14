@@ -31,6 +31,7 @@
 #include "vpn_server_lease_lock.h"
 #include "vpn_server_lifecycle_lock.h"
 #include "vpn_server_callback_policy.h"
+#include <process_pidfile.h>
 
 #define VPNS_LOG_NAME		"VPN server"
 #define VPNS_PPP_UP_SCRIPT	"/tmp/ppp/ip-up.vpns"
@@ -558,12 +559,11 @@ static int
 vpns_callback_session_is_current(const char *ifname)
 {
 	const char *pid_text;
-	pid_t callback_pid, parent_pid, pidfile_pid;
-	char pidfile[64], pid_text_file[32];
-	int fd = -1, result = -1, saved_errno;
-	struct stat st;
-	size_t used = 0;
-	ssize_t count;
+	pid_t callback_pid, parent_pid;
+	char pidfile[64];
+	struct process_identity identity;
+	enum process_presence state;
+	int path_length;
 
 	if (!firewall_ppp_interface_is_safe(ifname, VPN_SERVER_PPP_UNIT)) {
 		errno = EINVAL;
@@ -574,61 +574,22 @@ vpns_callback_session_is_current(const char *ifname)
 		return 0;
 
 	parent_pid = getppid();
-	if (!vpn_server_callback_pids_match(callback_pid, parent_pid, callback_pid))
+	if (parent_pid <= (pid_t)1 || callback_pid != parent_pid)
 		return 0;
-
-	if (snprintf(pidfile, sizeof(pidfile), "/var/run/%s.pid", ifname) < 0) {
-		errno = EINVAL;
+	path_length = snprintf(pidfile, sizeof(pidfile), "/var/run/%s.pid", ifname);
+	if (path_length < 0 || path_length >= (int)sizeof(pidfile)) {
+		errno = ENAMETOOLONG;
 		return -1;
 	}
-	fd = open(pidfile, O_RDONLY | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK);
-	if (fd < 0)
-		return -1;
-	if (fstat(fd, &st) != 0)
-		goto failed;
-	if (!S_ISREG(st.st_mode) || st.st_uid != 0 || st.st_nlink != 1 ||
-	    (st.st_mode & 022) != 0) {
-		errno = EPERM;
-		goto failed;
-	}
-
-	for (;;) {
-		count = read(fd, pid_text_file + used,
-			     sizeof(pid_text_file) - 1 - used);
-		if (count < 0) {
-			if (errno == EINTR)
-				continue;
-			goto failed;
-		}
-		if (count == 0)
-			break;
-		used += (size_t)count;
-		if (used >= sizeof(pid_text_file) - 1) {
-			errno = EOVERFLOW;
-			goto failed;
-		}
-	}
-	if (used < 2 || pid_text_file[used - 1] != '\n') {
-		errno = EINVAL;
-		goto failed;
-	}
-	pid_text_file[--used] = '\0';
-	if (vpn_server_callback_pid_parse(pid_text_file, &pidfile_pid) != 0)
-		goto failed;
-	result = vpn_server_callback_pids_match(callback_pid, parent_pid,
-						pidfile_pid);
-
-	if (close(fd) != 0) {
-		errno = errno ? errno : EIO;
+	state = process_pidfile_read_identity(pidfile, "pppd", &identity);
+	if (state != PROCESS_PRESENCE_RUNNING) {
+		if (state == PROCESS_PRESENCE_ABSENT)
+			errno = ESRCH;
+		else if (!errno)
+			errno = EIO;
 		return -1;
 	}
-	return result;
-
-failed:
-	saved_errno = errno ? errno : EIO;
-	(void)close(fd);
-	errno = saved_errno;
-	return -1;
+	return vpn_server_callback_pids_match(callback_pid, parent_pid, identity.pid);
 }
 
 /* The lifecycle lock remains held across all callback side effects. */

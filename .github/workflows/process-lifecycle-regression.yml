@@ -14,6 +14,10 @@ on:
       - "trunk/user/shared/src/Makefile"
       - "trunk/user/shared/src/tests/process_inventory.c"
       - "trunk/user/rc/src/common_ex.c"
+      - "trunk/user/rc/src/vpn_server.c"
+      - "trunk/user/pppd/ppp-2.4.7/pppd/main.c"
+      - "trunk/user/pppd/ppp-2.4.7/pppd/pppd_pidfile_policy.h"
+      - "trunk/user/pppd/ppp-2.4.7/pppd/tests/pppd_pidfile_policy.c"
       - "trunk/user/rc/src/services_usb.c"
       - "trunk/user/LPRng/src/src/common/lpd.c"
       - "trunk/user/LPRng/src/src/include/lpd_pidfile_policy.h"
@@ -77,5 +81,12 @@ jobs:
             trunk/user/LPRng/src/src/tests/lpd_pidfile_policy.c \
             -o "$RUNNER_TEMP/lpd-pidfile-regression"
           "$RUNNER_TEMP/lpd-pidfile-regression"
+      - name: Compile and run PPPD PID-file identity policy regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror \\
+            -I trunk/user/pppd/ppp-2.4.7/pppd \\
+            trunk/user/pppd/ppp-2.4.7/pppd/tests/pppd_pidfile_policy.c \\
+            -o "$RUNNER_TEMP/pppd-pidfile-policy"
+          "$RUNNER_TEMP/pppd-pidfile-policy"
       - name: Verify shared-library and RC integration boundaries
         run: python3 scripts/check_process_lifecycle_integration.py
