@@ -1,9 +1,10 @@
 ## Current repository state
-- Live `main` baseline at this recovery: `eecba603a0fc0612d6120dd453596b238a7d9b61`; active branch `main`. This recovery updates handoff and log together in the next direct-main commit (THIS COMMIT); product-source baseline remains historical L3-verified SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`.
-- Remote branch inventory: only `main`. Legacy PR #1 is CLOSED / UNMERGED; head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`, base `9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74`. The recorded comparison at `bb3c217e4c513f66c9edbd686a8cb4184b8775c9` showed PR head 17 commits ahead / 230 behind, merge base `9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74`, 13 changed paths. CA trust-store bootstrap propagation/tests and an OpenSSL EVP_MAC HMAC helper/build integration remain unmerged candidate changes; compatibility review is incomplete, especially OpenSSL 3 EVP_MAC support on firmware. Do not develop on or push the PR branch.
-- Exact-head `push` Actions on prior documentation SHA `82ed2de22c73523fe39521d23a4a4f30768539e0`: five SUCCESS and NVRAM [43535751164] SUCCESS (all exact matching `head_sha`). NVRAM [43536039560] for SHA `6a905a64f8200ef531d78f2755a96a149502b956` remains IN_PROGRESS on last check. Current baseline `eecba603a0fc0612d6120dd453596b238a7d9b61` has five exact-head `push` runs IN_PROGRESS at inspection: AliDDNS [43536084049], AI handoff docs [43536084066], AliyunDrive [43536084063], AdGuardHome [43536084019], NVRAM [43536084038]. Recheck exact conclusions; no pass is inferred.
-- Root `dev_log.md` now has 67 complete newest-first records
+- Live `main` baseline at this recovery: `27e664440b6216380f3034e2641b46f589d9c2bd`; active branch `main`. Product source remains unchanged from historical L3-verified source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`.
+- Remote branch inventory: only `main`. Legacy PR #1 is CLOSED / UNMERGED; head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`, base `9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74`, 17 commits ahead / 230 behind and 13 changed paths. CA trust-store bootstrap changes are already superseded by main. The remaining EVP_MAC HMAC helper uses OpenSSL 3 APIs; current firmware package declares OpenSSL `3.0.21` in `trunk/libs/libssl/Makefile`, so the earlier blanket compatibility concern is resolved at API-version level. Complete the remaining per-file/build/link audit before deciding whether/how to port this valid secret-argv mitigation directly to main. Never use the PR branch.
+- Six exact-head `push` Actions for `27e664440b6216380f3034e2641b46f589d9c2bd` completed SUCCESS, all with matching `head_sha`: NVRAM [43536149249], infosvr [43536149191], AI handoff docs [43536149194], AliDDNS [43536149212], AliyunDrive [43536149202], AdGuardHome [43536149188]. These are workflow-level successes; no L3/L4 inference.
+- Root `dev_log.md` contains 67 complete newest-first records before this recovery entry. No log rotation or INDEX update is due.
 - Historical L3 evidence remains limited to product-source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f` (XY-C1 MIPSel build/TRX verification/artifact upload run `43489646254`, job `132107102854`, artifact `14069572898`). L4 router flash/boot NOT VERIFIED.
+
 ## Active task
 
 - Priority P1: finish the shared process-inventory fail-closed contract centered on `trunk/user/shared/src/pids.c`, public declarations in `trunk/user/shared/src/shutils.h`, and lifecycle consumers in `trunk/user/rc/src/common_ex.c`, `services_ex.c`, and `service_lifecycle_policy.h`.
@@ -14,9 +15,9 @@
 
 ## Verification boundary
 
-- L1: partial source review confirms the process-inventory fail-open paths; exhaustive caller classification NOT COMPLETE. PR #1 diff inventoried at commit/path-summary level only; no safe port approved.
+- L1: re-fetched and inspected scanner/lifecycle implementation; partial review confirms the process-inventory fail-open paths; exhaustive caller classification NOT COMPLETE. Also confirmed target OpenSSL package version 3.0.21 for legacy PR #1 EVP_MAC compatibility. PR #1 diff inventoried at commit/path-summary level only; no safe port approved.
 - L2: process-inventory GNU89/`-Werror` host regressions NOT RUN; local `scripts/check_ai_handoff_docs.py` NOT RUN (no local checkout).
-- Exact-head Actions for current main: NOT VERIFIED; available connector run query is PR-only and returned no runs; combined status empty. Do not claim success.
+- Exact-head Actions for current main `27e664440b6216380f3034e2641b46f589d9c2bd`: six matching push workflows SUCCESS (IDs above); job-level logs were not individually inspected in this recovery. Scanner L2 regressions NOT RUN.
 - L3: only source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f` and its recorded run/artifact are verified. No newer product-source L3 claim.
 - L4: physical router flash/boot NOT VERIFIED.
 

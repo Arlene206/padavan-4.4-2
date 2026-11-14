@@ -1,3 +1,16 @@
+## 2026-11-14 09:09 CST (UTC+8) — Recover exact main, reconcile push CI and advance process-scanner/PR compatibility audit
+
+- Re-fetched `refs/heads/main`: exact SHA `27e664440b6216380f3034e2641b46f589d9c2bd`; remote branch inventory contains only `main`. PR #1 is CLOSED / UNMERGED, 17 commits ahead / 230 behind, 13 changed paths.
+- Six exact-head `push` Actions completed SUCCESS on this SHA: NVRAM [43536149249], infosvr [43536149191], AI handoff docs [43536149194], AliDDNS [43536149212], AliyunDrive [43536149202], AdGuardHome [43536149188]. All six `head_sha` values match. Workflow job logs were not individually inspected; no L3/L4 inference.
+- Re-read bootstrap/protocol and live handoff/roadmap/log. Found documentation checkpoint drift: handoff referenced `eecba603`, roadmap `df219b2`, while actual main was `27e664440b6216380f3034e2641b46f589d9c2bd`; this entry refreshes the three live records consistently.
+- Re-fetched `pids.c`, `shutils.h`, `common_ex.c`, `services_ex.c`, `service_lifecycle_policy.h`. Confirmed `procps_scan()` treats every NULL `readdir()` as EOF; scan context/`/proc` open and list-growth failures collapse to NULL; `find_pid_by_name()`, `pids()`, and `pids_main()` conflate UNKNOWN with ABSENT; `service_lifecycle_stop()` sends TERM before authoritative inventory. Repository code-search connector returned zero indexed results for all eight queries (including pids/procps/lifecycle APIs); this is not exhaustive caller enumeration. No source edit or partial API migration made.
+- Inspected legacy PR #1 diff inventory and remaining EVP_MAC helper. Firmware package Makefile declares OpenSSL 3.0.21, resolving the prior API-version uncertainty; per-file build/link/ROMFS audit remains incomplete. CA bootstrap work is already present on main.
+- L1 partial source review only; exhaustive caller classification NOT COMPLETE. L2 scanner GNU89/`-Werror` tests and local docs checker NOT RUN (no local checkout). L3 only historical product-source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`; L4 NOT VERIFIED.
+- Changed paths: `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`. This documentation checkpoint is committed atomically: THIS COMMIT. Root log advances 67→68 records; no archive rotation or INDEX update.
+- Exact next action: finish the PR #1 13-path EVP_MAC build/link/ROMFS and test/workflow coupling audit; then obtain exhaustive `trunk/user` caller inventory for `pids()`, `pids_main()`, `find_pid_by_name()`, `procps_scan()` and all lifecycle/readiness/stop/signal/cleanup consumers before designing RUNNING / ABSENT / UNKNOWN. Do not change shared API until inventory is complete.
+
+---
+
 ## 2026-11-14 08:44 CST (UTC+8) — Synchronize handoff with exact live main and pending Actions
 
 - Base main SHA: `eecba603a0fc0612d6120dd453596b238a7d9b61`; active branch `main`. Confirmed the live ref immediately before constructing this combined handoff/log update.
