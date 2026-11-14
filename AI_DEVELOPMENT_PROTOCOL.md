@@ -23,6 +23,14 @@ No session may edit firmware source before completing the recovery sequence in S
 - `REFACTOR_ROADMAP.md`: one current whole-repository module dashboard and priority queue. Target below 64 KiB; hard limit 128 KiB. Keep one row per real module with source map, audit status, latest meaningful evidence/commit and next action. Put deep audit notes in `docs/audits/`. Update this file in place only when inventory, module state, evidence, or priority materially changes. Git history is its revision archive; do not create routine snapshot copies.
 - `dev_log.md`: newest-first chronological history. After a rotation it contains the newest 20 complete entries, then accumulates to 119. Target at or below 384 KiB; hard limit 512 KiB. Do not rotate on every entry.
 
+### Durable product and architecture discussion continuity
+
+- `XY-C1_DISCUSSION_CONTEXT.md` is the durable record for user requirements, constraints, source-verified facts, accepted architecture decisions, rejected alternatives, and open questions concerning XY-C1/C5 firmware, networking, DNS, and plugin design.
+- Before continuing one of those discussions, read the full current file. Append each material new discussion decision or correction with a dated section; do not rely on chat memory or leave a user-confirmed decision only in conversation.
+- Clearly label facts confirmed from current source, user requirements, accepted decisions, design candidates, and unresolved questions. Include repository paths / upstream references when they support a conclusion.
+- Update the bootstrap prompt whenever recovery steps must change so later GPT sessions know to load this context file.
+- A discussion record is not an implementation authorization. Do not edit product code, build configuration, or firmware settings unless the user explicitly authorizes implementation and the normal project protocol is followed.
+
 ### Batched, lossless log rotation
 
 - When adding an entry would bring the root log to 120 records, move the oldest 100 complete records verbatim into `docs/dev-log/YYYY/MM/part-NNN.md` in one batch, leaving the newest 20 records in `dev_log.md`. Do not commit a 120-record root log.

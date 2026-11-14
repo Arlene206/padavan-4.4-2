@@ -230,3 +230,55 @@ Actions Run `43541384942`（SHA `59105690...`）：
 - Existing SmartDNS page is a legacy implementation baseline, not a commitment to retain every current NVRAM field or its current layout. Redesign for clarity while preserving useful capabilities and backward-compatible settings where feasible.
 
 **State:** discussion/design only. No product source, SmartDNS runtime, proxy code, WebUI, or firmware template was changed. No target build or XY-C1 hardware test was performed.
+
+
+## 10. 2026-11-14 continuation: DNS ownership, dnsmasq upstream, and proxy egress separation
+
+### User's remembered N1 topology
+
+- User recalled that N1 runs SmartDNS on a separate, non-53 port and configures dnsmasq to use SmartDNS as its upstream. This is the preferred topology for C5 as well.
+- **Decision: keep Padavan's existing system dnsmasq as the LAN DNS/DHCP/local-name service on port 53; run SmartDNS independently on a configurable loopback-only alternate port (for example 6053); configure system dnsmasq to forward public/ordinary upstream queries to SmartDNS.** Do not make the proxy plugin start a private second dnsmasq.
+
+### Current repository evidence (main source inspected 2026-11-14)
+
+- Legacy proxy's `trunk/user/shadowsocks/scripts/shadowsocks.sh` does not start a dedicated private dnsmasq instance. It:
+  - launches `dnsproxy` or `dns2tcp` on `127.0.0.1:5353` as a proxy-reachable remote DNS transport;
+  - when `ss_chdns=1`, launches `chinadns-ng` on `0.0.0.0:65353`, with the configured domestic resolver (`china_dns`) and overseas resolver `127.0.0.1#5353`;
+  - edits the system `/etc/storage/dnsmasq/dnsmasq.conf` to add `no-resolv` and `server=127.0.0.1#65353`, then kills/restarts the existing `/user/sbin/dnsmasq`.
+- Legacy `trunk/user/shadowsocks/scripts/ss-rules` generates `/tmp/dnsmasq.dom/ss_dom.conf`, which adds per-domain `server=/<domain>/127.0.0.1#5353` rules and IPSet rules, then adds that directory to the same system dnsmasq via `conf-dir`. Thus old proxy rules could bypass a SmartDNS default upstream for matching domains.
+- SmartDNS's `trunk/user/smartdns/smartdns.sh` has an existing mode `sdns_redirect=1` that writes `no-resolv` and `server=127.0.0.1#$sdns_port` into the same system dnsmasq configuration. Its alternate mode `sdns_redirect=2` installs NAT port-53 redirection to SmartDNS. `trunk/user/smartdns/conf/smartdns_custom.conf` includes a non-53 listener example `bind :6053`.
+- Therefore the user's recalled N1 topology matches a real, already-supported SmartDNS/dnsmasq pattern in this firmware. The proxy and SmartDNS scripts currently both manipulate the same global dnsmasq configuration and default upstream; enabling both legacy control paths without a single owner can overwrite/conflict with `no-resolv`, `server=`, and per-domain forwarding. This must be resolved in the redesign, not preserved as competing ownership.
+
+### Architecture decision: separate DNS resolver selection from traffic egress
+
+1. **dnsmasq owns the LAN-facing DNS/DHCP entry point**: port 53 for LAN clients, DHCP leases, local hostnames and router-local records. It should remain the one system dnsmasq service, not be cloned by the proxy plugin.
+2. **SmartDNS owns DNS domain classification and resolver selection**: decide which upstream group should answer a domain (domestic, overseas, private/local, user override, etc.), and provide caching, upstream health/selection, DoT/DoH/DoQ where supported by the pinned binary, and DNS diagnostics.
+3. **The proxy subsystem owns actual connection/packet egress**: decide whether the subsequent application connection to the returned IP goes direct through WAN, via N1 SOCKS5, or through a C5-owned node. DNS classification is not itself a guarantee that the application's TCP/UDP connection uses that proxy.
+4. **These two policy layers should use common classification data, not duplicate independent manually maintained lists.** Keep a canonical rule-source/update manager (domain sets, China CIDRs, custom allow/block rules, etc.) and generate the appropriate SmartDNS `nameserver`/`domain-rules` output and proxy route/IPSet output from that source. Each subsystem owns its runtime output and behavior; neither hand-edits the other's config.
+5. Do not let the proxy plugin write global dnsmasq `server=` or per-domain resolver overrides once SmartDNS is the authoritative resolver path. Replace old `ss-rules` direct DNS forwarding to 5353 with SmartDNS domain-group selection; preserve any necessary resolved-IP/IPSet or route classification through an explicit integration API/shared generated data.
+6. The target default chain is: LAN client -> system dnsmasq :53 -> SmartDNS on a distinct loopback port -> chosen DNS upstream. A simple dnsmasq upstream configuration can use `no-resolv` and `server=127.0.0.1#<SmartDNS-port>` while retaining dnsmasq's DHCP/local-name role. Avoid port-53 NAT takeover as the default because it complicates ownership and IPv4/IPv6 behavior.
+7. SmartDNS should configure domestic upstreams as direct WAN egress and overseas upstreams through a selected proxy transport where required. Its named `proxy-server` and per-server `-proxy` options are supported by current upstream SmartDNS docs; Padavan's current `smartdns.sh` generator does not yet expose/emit these directives, so integration still requires implementation and hardware validation.
+8. Proxy page may expose a small setting for which transport SmartDNS uses for overseas DNS (N1 SOCKS5 / C5 own proxy / explicit direct mode) and display health. It must not duplicate SmartDNS upstream address, group, cache, or TTL configuration.
+
+### Important terminology
+
+- **DNS split (SmartDNS):** for a queried domain, which DNS resolver/group is asked, and by what transport is that resolver reached.
+- **Traffic split (proxy):** for the application's subsequent connection to the resulting destination IP/domain, which network egress carries it.
+- They should generally share domain categories but remain different decisions. A domain queried through an overseas DNS does not, by that fact alone, mean every connection to its resulting IP must be proxied; likewise a proxied application connection needs reliable, non-polluted DNS resolution.
+
+### Loop and fallback requirements
+
+- Proxy endpoint/node hostnames must have a bootstrap resolver and direct/bypass route that do not depend on the proxy being initialized.
+- SmartDNS must not send DNS to a SOCKS5 endpoint whose own name requires the same SmartDNS/proxy chain to resolve.
+- The dnsmasq -> SmartDNS forward is one-way. Never configure SmartDNS's default upstream back to dnsmasq's port 53.
+- Define explicit behavior if SmartDNS, N1, or C5's own proxy is unavailable; do not silently allow DNS or application traffic to leak through an unintended path.
+- Keep the dnsmasq DHCP/local-name path functional if SmartDNS is stopped; provide an explicit configured emergency resolver/fallback policy rather than an accidental loop.
+
+### Evidence / upstream references
+
+- SmartDNS FAQ says it is not intended to replace dnsmasq; it focuses on enhanced DNS resolution while dnsmasq continues to provide complementary functionality: https://pymumu.github.io/smartdns/en/faq/
+- SmartDNS supports grouped DNS upstreams, named proxy servers and per-server proxy selection: https://pymumu.github.io/smartdns/configuration/
+- SmartDNS supports domain-based resolver groups through `nameserver` and `domain-rules`: https://pymumu.github.io/smartdns/config/domain-forwarding/ and https://pymumu.github.io/smartdns/config/domain-rule/
+- dnsmasq supports upstream `server` entries with a non-standard port using `#port`, and `no-resolv` disables reading the system resolver file when explicit upstreams are used: https://dnsmasq.org/docs/dnsmasq-man.html
+
+**State:** architecture discussion and source audit only. No product source, dnsmasq runtime configuration, SmartDNS generator, proxy rules, WebUI, or firmware template was changed. No XY-C1 runtime or hardware test was performed.

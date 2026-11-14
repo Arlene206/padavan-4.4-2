@@ -19,6 +19,7 @@ You are the autonomous long-term maintainer of this repository. Work on this for
    - `REFACTOR_ROADMAP.md` — whole-repository module/status inventory and priority queue.
    - `dev_log.md` — read the newest 20 complete records, newest first; the root file may contain 20–119 records between batch rotations.
    - `docs/dev-log/INDEX.md` — archive map only; do not load historical shards unless a specific older fact is needed.
+   - `XY-C1_DISCUSSION_CONTEXT.md` — durable user requirements and architecture decisions for XY-C1/C5, networking, DNS and plugin design; read it completely before continuing those discussions. It records decisions and evidence, not permission to change product code.
 4. Inspect the remote branch inventory for legacy refs. The existing `backup/pre-plugin-overhaul-2026-11-14` branch is a user-authorized immutable archival snapshot, not a legacy cleanup target: do not switch to it, modify it, delete it, rename it, or prune it. Its root `BACKUP_BRANCH_DO_NOT_TOUCH.md` is authoritative for preservation. Do not create, switch to, or develop on any other non-main branch. Inspect open PR #1 solely to inventory its valid unmerged work for safe porting to `main`. Match relevant Actions run ID, conclusion, event and `head_sha` exactly.
 5. Resume the precise unfinished `main` task or failed/pending `push` CI in `SESSION_HANDOFF.md` before selecting any new work. Never use a PR or legacy branch as a development or validation target.
 

@@ -1,3 +1,17 @@
+## 2026-11-14 13:50 CST (UTC+8) — Clarify SmartDNS/dnsmasq ownership and DNS-vs-traffic split
+
+- Re-fetched live `main` at base SHA `aee2b0c4833739a5be4c70e323955bf2a8df27ab`. Read current `shadowsocks.sh`, `ss-rules`, `smartdns.sh`, and SmartDNS sample configuration.
+- Confirmed the legacy proxy does not start its own private dnsmasq: it starts dnsproxy/dns2tcp on 5353, optionally chinadns-ng on 65353, edits the system `/etc/storage/dnsmasq/dnsmasq.conf` to forward to 65353, and restarts the existing system dnsmasq. `ss-rules` also adds per-domain dnsmasq forwarding entries to 5353 plus IPSet classification.
+- Confirmed SmartDNS already supports the remembered pattern: `sdns_redirect=1` configures system dnsmasq with `no-resolv` and `server=127.0.0.1#$sdns_port`; its sample config documents an alternate `:6053` listener. A second legacy mode uses NAT redirection of port 53.
+- Identified a concrete ownership conflict: both old proxy DNS code and SmartDNS write the same global dnsmasq configuration/default upstream. The old proxy's per-domain 5353 overrides can bypass SmartDNS for matching domains.
+- Recorded the proposed target architecture in `XY-C1_DISCUSSION_CONTEXT.md`: one system dnsmasq for LAN DHCP/local DNS on 53; SmartDNS on a separate loopback port as the DNS domain-classification/resolver-selection owner; proxy subsystem owns subsequent application-connection egress; both consume common canonical rule data rather than duplicating/manual-overlapping lists.
+- Checked current upstream docs: SmartDNS supports domain-to-nameserver groups and named proxy-server/per-upstream -proxy selection; dnsmasq supports a non-standard upstream port using `#port` and `no-resolv`. The Padavan SmartDNS generator does not currently wire SmartDNS's proxy-server features.
+- Updated `AI_BOOTSTRAP_PROMPT.md` so future GPT sessions load the discussion context, and `AI_DEVELOPMENT_PROTOCOL.md` so discussion decisions are preserved and clearly distinguished from implementation authorization.
+- Changed paths: `XY-C1_DISCUSSION_CONTEXT.md`, `AI_BOOTSTRAP_PROMPT.md`, `AI_DEVELOPMENT_PROTOCOL.md`, and this log. No product code changed. Documentation Actions are pending; no firmware build or hardware test is claimed.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-14 12:32 CST (UTC+8) — Separate SmartDNS service UI from proxy DNS integration
 
 - Re-fetched live `main` at base SHA `f6239a74b3feb03a056f937630e3f020e0445ec6` and inspected the current SmartDNS WebUI, SmartDNS package/build gate, runtime configuration generator, and legacy proxy page.
