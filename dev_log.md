@@ -1,3 +1,13 @@
+## 2026-11-14 20:45 CST (UTC+8) — Align legacy lifecycle regression contracts with tri-state policy
+
+- Parent main: `67098238bbc2b969f14cab9d87d99a2ee4dd6934`. On this exact SHA the new process inventory and lifecycle Action `43595648746` PASS; process inventory lexical Action `43595648568`, crond `43595648651`, infosvr `43595648575`, and AI docs `43595648563` PASS.
+- Watchdog `43595648606` and HTTPD `43595648716` completed their GNU89/ASan C test compile/run steps, then failed on stale source-contract expectations inherited from the previous Boolean policy. Watchdog required the removed old test name and legacy `-1` stop result. HTTPD required a direct-return wait expression and old diagnostic text.
+- Updated Watchdog's contract to require the tri-state timeout/UNKNOWN tests and updated HTTPD's contract to require full preflight, PID identity signal policy, explicit UNKNOWN and current diagnostics. No production code or caller migration is hidden in these contract-only changes.
+- L2 overall remains OPEN pending exact-head affected workflow results. L3 MIPS/uClibc build NOT VERIFIED for final main; L4 XY-C1 actual flash/boot/runtime NOT VERIFIED.
+- Root log advances 82→83 records; no archive rotation or INDEX change due. Resulting commit: THIS COMMIT.
+- Exact next action: check exact-head Watchdog and HTTPD Actions for this commit, then inspect all other exact-head push workflows and target-build evidence.
+---
+
 ## 2026-11-14 20:32 CST (UTC+8) — Make tri-state lifecycle header self-contained for isolated host tests
 
 - Parent main: `28b676267ad671b0869d5f736a4a524e220b67dc`. P1 exact-head workflow `43595337517` on that SHA PASS: scanner GNU89 / ASan / UBSan compile and fault-injection execution; lifecycle policy GNU89 / ASan / UBSan compile and run; integration-boundary script.

@@ -4591,9 +4591,13 @@ jobs:
           assert "SERVICE_LIFECYCLE_FORCE_WAIT_SECONDS 3" in policy
           assert "SIGTERM" in policy and "SIGKILL" in policy
           assert "service_lifecycle_wait_for_exit" in policy
-          assert "return service_lifecycle_wait_for_exit" in policy
+          assert "result = service_lifecycle_wait_for_exit" in policy
+          assert "service_lifecycle_preflight" in policy
+          assert "service_lifecycle_signal_targets" in policy
+          assert "PROCESS_PRESENCE_UNKNOWN" in policy
           assert "service_lifecycle_stop(svc_name, wtimeout, forcekill, &ops, NULL)" in common
-          assert "service stop incomplete: %s remains active" in common
+          assert "service inventory unknown: %s" in common
+          assert "service stop incomplete: %s has %lu process(es)" in common
 
           stop_ppp = body(wan, "stop_wan_ppp_locked(void)")
           stop_wan = body(wan, "stop_wan_locked(void)")

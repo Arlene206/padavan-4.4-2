@@ -95,8 +95,11 @@ assert "return result;" in stop
 assert "SERVICE_LIFECYCLE_FORCE_WAIT_SECONDS 3" in lifecycle
 assert "service_lifecycle_wait_for_exit" in lifecycle
 assert "if (!forcekill)" in lifecycle
-assert "test_stubborn_service_is_reported" in lifecycle_test
-assert "service_lifecycle_stop(names, 6, 1, &fake_ops, &context) == -1" in lifecycle_test
+assert "test_nonforced_timeout_blocks_followup" in lifecycle_test
+assert "service_lifecycle_stop(names, 1, 0, &fake_ops, &context) ==" in lifecycle_test
+assert "SERVICE_LIFECYCLE_TIMEOUT" in lifecycle_test
+assert "SERVICE_LIFECYCLE_UNKNOWN" in lifecycle_test
+assert "test_unknown_before_kill_blocks_kill" in lifecycle_test
 
 paths = (
     ".github/workflows/watchdog-signal-stability.yml",
