@@ -1,3 +1,15 @@
+## 2026-11-14 08:32 CST (UTC+8) — Recover live main, audit shared process scanner and inventory legacy PR
+
+- Re-fetched live main at `bb3c217e4c513f66c9edbd686a8cb4184b8775c9`; remote branch inventory contains only `main`. Legacy PR #1 is CLOSED / UNMERGED; compared current main with PR head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`: diverged, PR head 17 commits ahead / 230 behind, 13 changed paths. The diff includes CA trust-store bootstrap status propagation and an OpenSSL EVP_MAC HMAC helper/build integration. No PR changes were ported: each remaining hunk and target OpenSSL/build compatibility still require review; EVP_MAC is not assumed available on firmware.
+- Re-read the current-main `pids.c`, `shutils.h`, `common_ex.c`, `services_ex.c` and lifecycle policy. Confirmed the existing P1 NULL/EOF ambiguity, partial process inventory on scan failure, and TERM-before-authoritative-inventory behavior. Six indexed source searches returned no results, but they are not exhaustive.
+- Tried a shallow clone; it failed because this runtime cannot resolve `github.com`. The available GitHub workflow-run wrapper returns PR-triggered runs only; exact-head push run query for `bb3c217e4c513f66c9edbd686a8cb4184b8775c9` returned none and combined status was empty. Current-main push Actions therefore remain NOT VERIFIED; no CI pass is inferred.
+- No product source or tests changed. The caller inventory prerequisite remains INCOMPLETE, so no unsafe partial tri-state API migration was made. L1 partial source review; L2 GNU89/`-Werror` regressions and local docs checker NOT RUN; L3 remains limited to source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`; L4 NOT VERIFIED.
+- Updated `SESSION_HANDOFF.md` in place to the live baseline and recorded the PR preservation audit and exact next actions. Root log advances 60→61/119; no archive rotation or INDEX update. Whole-repository module priorities did not change, so `REFACTOR_ROADMAP.md` remains untouched.
+- Handoff commit: `a4efbef15fcd04eef951c9434db70651aa51d302`. Resulting log commit: THIS COMMIT.
+- Exact next action: verify exact-head push Actions for the current main tip; finish the per-file PR #1 compatibility audit and port only valid unmerged changes; then obtain exhaustive cross-userland process-scanner/lifecycle caller inventory before implementing RUNNING / ABSENT / UNKNOWN.
+ 
+---
+
 ## 2026-11-14 08:29 CST (UTC+8) — Consolidate exact handoff and log checkpoint
 
 - Base main SHA: `0e111486f9e0c5e355dcb93899cd4066cb2bb2bc`; active branch `main`. Updated `SESSION_HANDOFF.md` to this exact base and appended this record in the same commit. Result: THIS COMMIT.
