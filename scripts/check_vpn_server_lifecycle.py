@@ -55,6 +55,7 @@ workflow=read(".github/workflows/vpn-server-stability.yml")
 test=read("trunk/user/rc/src/tests/vpn_server_lifecycle_lock.c")
 callback_policy=read("trunk/user/rc/src/vpn_server_callback_policy.h")
 callback_test=read("trunk/user/rc/src/tests/vpn_server_callback_policy.c")
+process_pidfile=read("trunk/user/shared/src/process_pidfile.c")
 pppd_ipcp=read("trunk/user/pppd/ppp-2.4.7/pppd/ipcp.c")
 pppd_main=read("trunk/user/pppd/ppp-2.4.7/pppd/main.c")
 require('#include "vpn_server_lifecycle_lock.h"' in vpn,"missing lifecycle lock include")
@@ -104,9 +105,9 @@ a=body(vpn,"reapply_vpn_server(void)")
 ap=body(vpn,"reapply_vpn_server_locked(void)")
 ordered(s,["vpn_server_lifecycle_lock_acquire()","if (lock_fd < 0)","start_vpn_server_locked()","vpn_server_lifecycle_lock_release(lock_fd)"],"start")
 require("return -1;" in s and "gen_vpns_pppd_options(i_type)" in sp,"start wrapper/private helper incomplete")
-ordered(t,["vpn_server_lifecycle_lock_acquire()","if (lock_fd < 0)","return;","stop_vpn_server_locked()","vpn_server_lifecycle_lock_release(lock_fd)"],"stop")
-require("kill_services(svcs, 5, 1)" in tp,"private stop helper lost daemon stop")
-ordered(r,["vpn_server_lifecycle_lock_acquire()","if (lock_fd < 0)","return;","stop_vpn_server_locked()","start_vpn_server_locked()","restart_firewall()","safe_start_xl2tpd_locked()","vpn_server_lifecycle_lock_release(lock_fd)"],"restart")
+ordered(t,["vpn_server_lifecycle_lock_acquire()","if (lock_fd < 0)","return -1;","stop_vpn_server_locked()","vpn_server_lifecycle_lock_release(lock_fd)"],"stop")
+require("kill_services_with_pidfiles(svcs, pidfile_paths, \"pppd\", 1, 5, 1)" in tp and "kill_pidfile_s" not in tp,"private stop helper must preflight all PPP clients before signaling")
+ordered(r,["vpn_server_lifecycle_lock_acquire()","if (lock_fd < 0)","return;","stop_vpn_server_locked()","if (stop_status != 0)","return;","start_vpn_server_locked()","restart_firewall()","safe_start_xl2tpd_locked()","vpn_server_lifecycle_lock_release(lock_fd)"],"restart")
 require("stop_vpn_server();" not in r and "start_vpn_server();" not in r,"restart must use private non-recursive helpers")
 require("reload_nfsd();" in r,"restart lost conditional NFS reload")
 ordered(a,["vpn_server_lifecycle_lock_acquire()","if (lock_fd < 0)","return;","reapply_vpn_server_locked()","vpn_server_lifecycle_lock_release(lock_fd)"],"reapply")
@@ -213,11 +214,14 @@ require("safe_start_xl2tpd_locked();" in body(vpn,"start_vpn_server_locked(void)
 
 # In-flight PPP callbacks must share the lifecycle critical section and prove
 # that their pppd parent and per-interface pidfile still identify one session.
-for t in ("PPPD_PID", "getppid()", "/var/run/%s.pid", "O_NOFOLLOW",
-          "O_CLOEXEC", "S_ISREG(st.st_mode)", "st.st_uid != 0",
-          "st.st_nlink != 1", "(st.st_mode & 022) != 0",
-          "vpn_server_callback_pids_match"):
+for t in ("PPPD_PID", "getppid()", "/var/run/%s.pid",
+          "vpn_server_callback_pids_match",
+          'process_pidfile_read_identity(pidfile, "pppd", &identity)'):
     require(t in vpn,f"callback identity gate missing {t}")
+for t in ("O_NOFOLLOW", "O_CLOEXEC", "O_NONBLOCK", "fstat(fd, &st)",
+          "S_ISREG(st.st_mode)", "st.st_uid != 0", "st.st_nlink != 1",
+          "(st.st_mode & 022) != 0"):
+    require(t in process_pidfile,f"central PID-file reader missing safety property {t}")
 for t in ("vpn_server_callback_pid_parse", "vpn_server_callback_pids_match",
           "callback_pid == parent_pid", "parent_pid == pidfile_pid"):
     require(t in callback_policy,f"callback policy missing {t}")
@@ -242,10 +246,13 @@ require("ipcp_script(path_ipup, 0)" in pppd_ipcp and
         "ipcp_script(path_ipdown, 0)" in pppd_ipcp,
         "pppd callback scripts must remain asynchronous when taking lifecycle lock")
 require("argv[6] = ipparam" in pppd_ipcp,"pppd ipparam ABI changed")
+pppd_pidfile_policy=read("trunk/user/pppd/ppp-2.4.7/pppd/pppd_pidfile_policy.h")
 require('script_setenv("PPPD_PID", numbuf, 1)' in pppd_main and
         "create_pidfile(getpid())" in pppd_main and
-        "_PATH_VARRUN, ifname" in pppd_main,
-        "pppd parent/pidfile identity source changed")
+        "_PATH_VARRUN, ifname" in pppd_main and
+        "write_pidfile_record(pidfilename, (pid_t)pid)" in pppd_main and
+        "pppd_pidfile_parse_start_time" in pppd_pidfile_policy,
+        "pppd parent/start-time pidfile identity source changed")
 require("expect_invalid" in callback_test and
         "vpn_server_callback_pids_match" in callback_test,
         "callback regression lacks parser/session coverage")

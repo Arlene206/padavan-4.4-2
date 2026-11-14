@@ -84,9 +84,9 @@ jobs:
           "$RUNNER_TEMP/lpd-pidfile-regression"
       - name: Compile and run PPPD PID-file identity policy regression
         run: |
-          cc -std=gnu89 -Wall -Wextra -Werror \\
-            -I trunk/user/pppd/ppp-2.4.7/pppd \\
-            trunk/user/pppd/ppp-2.4.7/pppd/tests/pppd_pidfile_policy.c \\
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/pppd/ppp-2.4.7/pppd \
+            trunk/user/pppd/ppp-2.4.7/pppd/tests/pppd_pidfile_policy.c \
             -o "$RUNNER_TEMP/pppd-pidfile-policy"
           "$RUNNER_TEMP/pppd-pidfile-policy"
       - name: Verify shared-library and RC integration boundaries

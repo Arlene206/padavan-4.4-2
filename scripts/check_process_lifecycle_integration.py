@@ -102,6 +102,7 @@ assert "read_process_start_time(pid" in pppd_main
 assert "write_pidfile_record(pidfilename, (pid_t)pid)" in pppd_writer
 assert 'fprintf(pidfile, "%d\\n", pid)' not in pppd_writer
 assert "process_pidfile_read_identity" in process_pidfile
+assert "O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK" in process_pidfile
 assert "process_identity_validate(process_name, &snapshot.items[i])" in process_pidfile
 assert 'process_pidfile_read_identity(pidfile, "pppd", &identity)' in vpn_server
 assert "pid_text_file" not in vpn_server

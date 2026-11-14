@@ -413,7 +413,8 @@ test_pidfile_unknown_blocks_entire_preflight(void)
 					      2, 1) == SERVICE_LIFECYCLE_UNKNOWN);
 	assert(context.term_signals == 0);
 	assert(context.kill_signals == 0);
-	service_lifecycle_release_targets(targets, 2);
+	process_snapshot_release(&targets[0].initial);
+	process_snapshot_release(&targets[1].initial);
 }
 
 static void
@@ -441,7 +442,8 @@ test_pidfile_identity_change_blocks_escalation(void)
 					      1, 1) == SERVICE_LIFECYCLE_CHANGED);
 	assert(context.term_signals == 1);
 	assert(context.kill_signals == 0);
-	service_lifecycle_release_targets(targets, 2);
+	process_snapshot_release(&targets[0].initial);
+	process_snapshot_release(&targets[1].initial);
 }
 
 static void
@@ -470,7 +472,8 @@ test_force_only_pidfile_target_skips_term_and_joins_kill(void)
 					      1, 1) == SERVICE_LIFECYCLE_STOPPED);
 	assert(context.term_signals == 1);
 	assert(context.kill_signals == 2);
-	service_lifecycle_release_targets(targets, 2);
+	process_snapshot_release(&targets[0].initial);
+	process_snapshot_release(&targets[1].initial);
 }
 
 static void
@@ -496,7 +499,8 @@ test_absent_pidfile_does_not_block_service_stop(void)
 					      1, 1) == SERVICE_LIFECYCLE_STOPPED);
 	assert(context.term_signals == 1);
 	assert(context.kill_signals == 0);
-	service_lifecycle_release_targets(targets, 2);
+	process_snapshot_release(&targets[0].initial);
+	process_snapshot_release(&targets[1].initial);
 }
 
 int

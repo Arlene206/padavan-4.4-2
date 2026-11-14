@@ -462,8 +462,7 @@ stop_vpn_server_locked(void)
 
 	/* All daemons and every possible client PPP session are captured and
 	 * identity-checked before the first TERM; PPPD targets remain force-only. */
-	if (kill_services_with_pidfiles(svcs, pidfile_paths, "pppd", 1, 5, 1) !=
-	    SERVICE_LIFECYCLE_STOPPED) {
+	if (kill_services_with_pidfiles(svcs, pidfile_paths, "pppd", 1, 5, 1) != 0) {
 		logmessage(VPNS_LOG_NAME,
 			   "refusing VPN server teardown: daemon or client PPP identity is unknown/active");
 		return -1;

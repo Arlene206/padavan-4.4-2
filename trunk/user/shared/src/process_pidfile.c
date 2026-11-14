@@ -87,7 +87,7 @@ process_pidfile_read(const char *path, pid_t *pid,
 	size_t used = 0;
 	ssize_t count;
 
-	fd = open(path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK);
+	fd = open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK);
 	if (fd < 0)
 		return -1;
 	if (fstat(fd, &st) != 0)

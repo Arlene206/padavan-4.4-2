@@ -331,8 +331,8 @@ jobs:
           assert "DHCPv6 configuration script failed to execute" in reply_handler
           assert "DHCPv6 configuration script exited with status %d" in reply_handler
           signal_adapter = body(common_ex_source, "service_lifecycle_send_signal(void *context")
-          assert 'doSystem("killall %s %s"' in signal_adapter
-          assert 'signal_option = "-SIGKILL"' in signal_adapter
+          assert "signal_number != SIGTERM && signal_number != SIGKILL" in signal_adapter
+          assert "kill(identity->pid, signal_number)" in signal_adapter
 
           callback_policy = body(dhcp6_callback_policy, "dhcp6c_callback_session_lock(")
           callback_writer = body(dhcp6_callback_policy, "dhcp6c_callback_session_write(")

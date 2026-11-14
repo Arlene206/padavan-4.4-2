@@ -22,6 +22,8 @@ on:
       - 'trunk/user/rc/src/rc.h'
       - 'scripts/check_vpn_server_lifecycle.py'
       - '.github/workflows/vpn-server-stability.yml'
+      - 'trunk/user/shared/src/process_pidfile.c'
+      - 'trunk/user/shared/src/process_pidfile.h'
   pull_request:
     paths:
       - 'trunk/user/rc/src/tests/vpn_server_lease_lock.c'
@@ -43,6 +45,8 @@ on:
       - 'trunk/user/rc/src/rc.h'
       - 'scripts/check_vpn_server_lifecycle.py'
       - '.github/workflows/vpn-server-stability.yml'
+      - 'trunk/user/shared/src/process_pidfile.c'
+      - 'trunk/user/shared/src/process_pidfile.h'
   workflow_dispatch:
 
 permissions:
