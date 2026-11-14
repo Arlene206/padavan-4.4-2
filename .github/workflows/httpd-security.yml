@@ -34,6 +34,8 @@ on:
       - "trunk/user/rc/src/switch_rtl8367.c"
       - "trunk/user/rc/src/switch.h"
       - "trunk/user/rc/src/rstats.c"
+      - "trunk/user/shared/src/process_pidfile.h"
+      - "trunk/user/shared/src/process_pidfile.c"
       - "trunk/user/rc/src/detect_link.c"
       - "trunk/user/httpd/src/switch_mtk_esw.c"
       - "trunk/user/httpd/src/switch_rtl8367.c"
@@ -262,6 +264,8 @@ on:
       - "trunk/user/rc/src/switch_rtl8367.c"
       - "trunk/user/rc/src/switch.h"
       - "trunk/user/rc/src/rstats.c"
+      - "trunk/user/shared/src/process_pidfile.h"
+      - "trunk/user/shared/src/process_pidfile.c"
       - "trunk/user/rc/src/detect_link.c"
       - "trunk/user/httpd/src/switch_mtk_esw.c"
       - "trunk/user/httpd/src/switch_rtl8367.c"
@@ -3639,7 +3643,8 @@ jobs:
           bandwidth_end = web.index("\nstatic int\nej_backup_nvram", bandwidth_start)
           bandwidth = web[bandwidth_start:bandwidth_end]
           assert "nvram_set_temp" in bandwidth and "unlink(fname)" in bandwidth
-          assert "kill_pidfile_s" in bandwidth
+          assert 'process_pidfile_signal(RSTATS_PID_FILE, "rstats", sig)' in bandwidth
+          assert "kill_pidfile_s" not in bandwidth
 
           # Direct ASP storage wrappers bypass do_update_cgi's selector guard.
           # Gate both their route/method entry and every EJ callback invocation.

@@ -1,3 +1,13 @@
+## 2026-11-15 — Update HTTPD bandwidth regression for rstats identity signaling
+
+- Exact-head HTTPD security workflow `43622388659` failed only because its bandwidth refresh source assertion still required legacy `kill_pidfile_s` after the rstats PID consumer had migrated to `process_pidfile_signal()`.
+- Updated the assertion to require the expected `rstats` process identity and reject the legacy call. Added shared PID helper source/header to HTTPD security workflow push and pull_request filters.
+- No production source changed in this correction. The rstats-specific persistence/signal regression and shared process lifecycle regression passed.
+- Changed paths: `.github/workflows/httpd-security.yml` and this log. Resulting commit: THIS COMMIT.
+- Exact-head HTTPD security workflow will rerun.
+
+---
+
 ## 2026-11-15 — Migrate rstats PID producer and RC/HTTPD signal consumers
 
 - Base main SHA: `13b1f602ac8a04f070b6d7ce4a88b2e6a05f6166`.
