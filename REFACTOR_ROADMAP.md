@@ -1,10 +1,10 @@
 ## Current source / CI checkpoint
 
-- Live `main` checkpoint: `27e664440b6216380f3034e2641b46f589d9c2bd`; active branch `main`; remote branch inventory contains only `main`. Product source remains unchanged from historical L3-verified tree `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`.
-- Six exact-head `push` Actions on `27e664440b6216380f3034e2641b46f589d9c2bd` completed SUCCESS with matching `head_sha`: NVRAM [43536149249], infosvr [43536149191], AI handoff docs [43536149194], AliDDNS [43536149212], AliyunDrive [43536149202], AdGuardHome [43536149188]. Job logs were not individually inspected in this recovery.
+- Live `main` checkpoint: `e507f744ce7f84e169d5a1f8a6e5f22d5cf067ff` (parent `27e664440b6216380f3034e2641b46f589d9c2bd`); active branch `main`; remote branch inventory contains only `main`. Product source remains unchanged from historical L3-verified tree `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`.
+- Six exact-head `push` Actions on `e507f744ce7f84e169d5a1f8a6e5f22d5cf067ff` completed SUCCESS with matching `head_sha`, event, status and all job steps: infosvr [43539005880 / 132274884530], AdGuardHome [43539005778 / 132274884199], AI handoff docs [43539005807 / 132274884032], AliyunDrive [43539005885 / 132274884239], AliDDNS [43539005811 / 132274884222], NVRAM [43539005892 / 132274884413]. Full logs inspected.
 - Shared process-inventory fail-open defect remains OPEN / NOT FIXED and P1: allocation, `/proc` open, `readdir()` and PID-list allocation failures can collapse into false absence/partial inventory; lifecycle stop sends TERM before authoritative inventory; Boolean APIs cannot express UNKNOWN. Complete cross-userland caller classification remains incomplete.
-- Legacy PR #1 is CLOSED / UNMERGED (17 commits ahead / 230 behind; 13 paths). CA bootstrap changes are superseded on main. The remaining EVP_MAC HMAC helper is API-compatible with the firmware's declared OpenSSL 3.0.21 package; complete build/link/ROMFS integration review remains pending before a direct-main port decision.
-- Root `dev_log.md` has 67 complete records before this recovery entry; archive inventory remains dev-log=8, handoff=22, roadmap=18. No rotation or INDEX update is due.
+- Legacy PR #1 preservation audit is CLOSED: all 13 changed paths are represented on main; direct-main port commit `74b66ff960457379518d13c723c44a3515e6a228` delivered CA bootstrap failure propagation and secret-safe EVP_MAC HMAC. Current-main package/ROMFS integration and OpenSSL 3.0.21 were verified; exact-head HMAC/CA regressions pass on e507. PR remains CLOSED / UNMERGED (17 commits ahead / 230 behind); never use its branch.
+- Root `dev_log.md` has 68 complete records before this recovery entry; archive inventory remains dev-log=8, handoff=22, roadmap=18. No rotation or INDEX update is due.
 - Historical L3 evidence remains limited to source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`; current-main L3/L4 are NOT VERIFIED.
 
 ## Whole-repository module status

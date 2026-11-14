@@ -1,3 +1,15 @@
+## 2026-11-14 09:16 CST (UTC+8) — Reconcile exact main CI and close legacy PR preservation audit
+
+- Re-fetched `refs/heads/main`: exact SHA `e507f744ce7f84e169d5a1f8a6e5f22d5cf067ff`, parent `27e664440b6216380f3034e2641b46f589d9c2bd`; remote branch inventory contains only `main`. No branch, PR or Session Rotator state was changed.
+- Exact-head `push` Actions on e507 completed 6/6 SUCCESS with matching `head_sha`: infosvr [43539005880 / job 132274884530], AdGuardHome [43539005778 / 132274884199], AI handoff docs [43539005807 / 132274884032], AliyunDrive [43539005885 / 132274884239], AliDDNS [43539005811 / 132274884222], NVRAM [43539005892 / 132274884413]. Inspected each job's steps and full log; GNU89/ASan/UBSan, module regressions, AI docs validation (68/119 records; archives 8/22/18), AliDDNS HMAC/CA tests and NVRAM audit all report PASS.
+- Finished the legacy PR #1 preservation audit: PR remains CLOSED / UNMERGED, 17 commits ahead / 230 behind, 13 changed paths. The full change was already ported directly to main in `74b66ff960457379518d13c723c44a3515e6a228`. Re-fetched all source/test/workflow/build files; verified `trunk/user/Makefile` package selection, `aliddns` package SRC_DIR/crypto link and ROMFS binary installation, helper invocation, OpenSSL 3.0.21 package and the HMAC/CA regression integration. No PR branch was used.
+- Re-enumerated the complete `trunk/user` Git tree at e507: 10,203 entries, 9,439 blobs, 764 directories, 4,152 C/H files, `truncated=false`. Content-level process API caller classification is still INCOMPLETE. Five indexed GitHub code searches returned zero with `incomplete_results=true`; this is not exhaustive. A 20-file parallel source fetch exceeded the connector call limit; one five-file shared batch succeeded but found no API hits. No source/API changes or tests were attempted because the caller-inventory prerequisite is not met.
+- L1: process scanner fail-open paths remain source-confirmed; complete caller inventory NOT COMPLETE. L2: no local scanner regression or docs script run (no local checkout). Exact-head e507 Actions are 6/6 SUCCESS as listed. L3 remains limited to historical product-source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`; L4 NOT VERIFIED.
+- Root log advances 68→69 complete records; archive inventory remains dev-log=8, handoff=22, roadmap=18. No rotation or INDEX update. Handoff and roadmap refreshed in place; no historical archive copies created.
+- Resulting main commit: THIS COMMIT. Next: exhaustive source-content caller inventory for process scanner and lifecycle APIs, then tri-state fail-closed design/tests. Do not partially migrate callers.
+
+---
+
 ## 2026-11-14 09:09 CST (UTC+8) — Recover exact main, reconcile push CI and advance process-scanner/PR compatibility audit
 
 - Re-fetched `refs/heads/main`: exact SHA `27e664440b6216380f3034e2641b46f589d9c2bd`; remote branch inventory contains only `main`. PR #1 is CLOSED / UNMERGED, 17 commits ahead / 230 behind, 13 changed paths.
