@@ -259,6 +259,14 @@ require("ipcp_script(path_ipup, 0)" in pppd_ipcp and
         "pppd callback scripts must remain asynchronous when taking lifecycle lock")
 require("argv[6] = ipparam" in pppd_ipcp,"pppd ipparam ABI changed")
 pppd_pidfile_policy=read("trunk/user/pppd/ppp-2.4.7/pppd/pppd_pidfile_policy.h")
+pppd_base_pid_writer=body(pppd_main,"static void\ncreate_pidfile(pid)")
+pppd_link_pid_writer=body(pppd_main,"void\ncreate_linkpidfile(pid)")
+require('fatal("Failed to create identity-bound pid file' in pppd_base_pid_writer and
+        "error(" not in pppd_base_pid_writer,
+        "pppd must exit rather than continue without a process-identity PID file")
+require('fatal("Failed to create identity-bound link pid file' in pppd_link_pid_writer and
+        "error(" not in pppd_link_pid_writer,
+        "pppd must exit rather than continue without a link-identity PID file")
 require('script_setenv("PPPD_PID", numbuf, 1)' in pppd_main and
         "create_pidfile(getpid())" in pppd_main and
         "_PATH_VARRUN, ifname" in pppd_main and

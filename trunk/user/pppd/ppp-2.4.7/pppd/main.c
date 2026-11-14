@@ -958,10 +958,8 @@ create_pidfile(pid)
 {
     slprintf(pidfilename, sizeof(pidfilename), "%s%s.pid",
 	     _PATH_VARRUN, ifname);
-    if (write_pidfile_record(pidfilename, (pid_t)pid) != 0) {
-	error("Failed to create identity-bound pid file %s: %m", pidfilename);
-	pidfilename[0] = 0;
-    }
+    if (write_pidfile_record(pidfilename, (pid_t)pid) != 0)
+	fatal("Failed to create identity-bound pid file %s: %m", pidfilename);
 }
 
 void
@@ -973,10 +971,8 @@ create_linkpidfile(pid)
     script_setenv("LINKNAME", linkname, 1);
     slprintf(linkpidfile, sizeof(linkpidfile), "%sppp-%s.pid",
 	     _PATH_VARRUN, linkname);
-    if (write_link_pidfile_record(linkpidfile, (pid_t)pid, ifname) != 0) {
-	error("Failed to create identity-bound link pid file %s: %m", linkpidfile);
-	linkpidfile[0] = 0;
-    }
+    if (write_link_pidfile_record(linkpidfile, (pid_t)pid, ifname) != 0)
+	fatal("Failed to create identity-bound link pid file %s: %m", linkpidfile);
 }
 
 /*
