@@ -28,6 +28,8 @@ struct fake_service {
 struct fake_context {
 	struct fake_service *services;
 	size_t service_count;
+	int unrelated_pppd_present;
+	struct process_identity unrelated_pppd_identity;
 	unsigned int term_signals;
 	unsigned int kill_signals;
 	unsigned int total_sleeps;
@@ -52,6 +54,7 @@ fake_scan(void *opaque, const char *name, struct process_snapshot *snapshot)
 {
 	struct fake_context *context = (struct fake_context *)opaque;
 	struct fake_service *service = fake_find(context, name);
+	size_t count = 0;
 
 	context->scans++;
 	memset(snapshot, 0, sizeof(*snapshot));
@@ -67,17 +70,24 @@ fake_scan(void *opaque, const char *name, struct process_snapshot *snapshot)
 		snapshot->state = PROCESS_PRESENCE_UNKNOWN;
 		return snapshot->state;
 	}
-	if (!service->present) {
+	if (service->present)
+		count++;
+	if (strcmp(name, "pppd") == 0 && context->unrelated_pppd_present)
+		count++;
+	if (count == 0) {
 		snapshot->state = PROCESS_PRESENCE_ABSENT;
 		return snapshot->state;
 	}
-	snapshot->items = (struct process_identity *)
-		malloc(sizeof(*snapshot->items));
+	snapshot->items = (struct process_identity *)calloc(count,
+							    sizeof(*snapshot->items));
 	assert(snapshot->items != NULL);
-	snapshot->items[0] = service->identity;
-	if (service->change_identity_after_term && context->term_signals > 0)
-		snapshot->items[0].start_time++;
-	snapshot->count = 1;
+	if (service->present) {
+		snapshot->items[snapshot->count++] = service->identity;
+		if (service->change_identity_after_term && context->term_signals > 0)
+			snapshot->items[0].start_time++;
+	}
+	if (strcmp(name, "pppd") == 0 && context->unrelated_pppd_present)
+		snapshot->items[snapshot->count++] = context->unrelated_pppd_identity;
 	snapshot->state = PROCESS_PRESENCE_RUNNING;
 	return snapshot->state;
 }
@@ -477,6 +487,46 @@ test_force_only_pidfile_target_skips_term_and_joins_kill(void)
 }
 
 static void
+test_pidfile_wait_ignores_unselected_pppd_processes(void)
+{
+	struct fake_service services[2];
+	struct fake_context context;
+	struct service_lifecycle_target targets[2];
+
+	memset(services, 0, sizeof(services));
+	services[0].name = "pptpd";
+	services[0].present = 1;
+	services[0].stop_on_term = 1;
+	services[1].name = "pppd";
+	services[1].present = 1;
+	services[1].stop_on_kill = 1;
+	services[1].pidfile_path = "/var/run/ppp10.pid";
+	services[1].pidfile_present = 1;
+	fake_setup(&context, services, 2);
+	context.unrelated_pppd_present = 1;
+	context.unrelated_pppd_identity.pid = 900;
+	context.unrelated_pppd_identity.start_time = 9000;
+	context.unrelated_pppd_identity.argv0_hash = 11;
+	context.unrelated_pppd_identity.argv1_hash = 0;
+	context.unrelated_pppd_identity.comm_truncated = 0;
+	strcpy(context.unrelated_pppd_identity.comm, "pppd");
+	memset(targets, 0, sizeof(targets));
+	targets[0].name = "pptpd";
+	targets[1].name = "pppd";
+	targets[1].pidfile = services[1].pidfile_path;
+	targets[1].force_only = 1;
+
+	assert(service_lifecycle_stop_targets(targets, 2, &fake_ops, &context,
+					      1, 1) == SERVICE_LIFECYCLE_STOPPED);
+	assert(context.term_signals == 1);
+	assert(context.kill_signals == 1);
+	assert(context.unrelated_pppd_present == 1);
+	process_snapshot_release(&targets[0].initial);
+	process_snapshot_release(&targets[1].initial);
+}
+
+static void
+test_absent_pidfile_does_not_block_service_stop(void)static void
 test_absent_pidfile_does_not_block_service_stop(void)
 {
 	struct fake_service services[2];
@@ -506,6 +556,7 @@ test_absent_pidfile_does_not_block_service_stop(void)
 int
 main(void)
 {
+	test_pidfile_wait_ignores_unselected_pppd_processes();
 	test_unknown_first_middle_last_sends_zero_signals();
 	test_full_preflight_finishes_before_first_term();
 	test_unknown_during_term_wait_blocks_kill_and_followup();

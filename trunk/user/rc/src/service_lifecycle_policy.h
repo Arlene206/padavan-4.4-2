@@ -246,7 +246,7 @@ service_lifecycle_probe_targets(struct service_lifecycle_target *targets,
 		struct process_snapshot current;
 
 		memset(&current, 0, sizeof(current));
-		state = ops->scan(context, targets[i].name, &current);
+		state = service_lifecycle_scan_target(&targets[i], ops, context, &current);
 		if (state == PROCESS_PRESENCE_UNKNOWN ||
 		    current.state != state) {
 			process_snapshot_release(&current);
