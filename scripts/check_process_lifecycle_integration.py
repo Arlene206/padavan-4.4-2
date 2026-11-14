@@ -30,3 +30,12 @@ stop_lpd = usb_services.split("stop_lpd(void)", 1)[1].split("#endif", 1)[0]
 assert "if (kill_services(svcs, 3, 1) != 0)" in stop_lpd
 assert stop_lpd.index("return;") < stop_lpd.index('unlink("/var/run/lpdparent.pid")')
 print("process inventory and lifecycle integration contract: PASS")
+
+lpd_source = (root / "trunk/user/LPRng/src/src/common/lpd.c").read_text()
+pid_writer = lpd_source.split("static int update_pidfile(void)", 1)[1].split("\\n/*", 1)[0]
+assert "O_CREAT | O_EXCL" in pid_writer
+assert "write(fd, pid_text + offset, len - offset)" in pid_writer
+assert "errno == EINTR" in pid_writer
+assert 'rename(temp_path, "/var/run/lpdparent.pid")' in pid_writer
+assert "fopen(\"/var/run/lpdparent.pid\", \"w\")" not in pid_writer
+assert "if (update_pidfile() < 0)" in lpd_source

@@ -1,3 +1,16 @@
+## 2026-11-15 — Publish LPRng PID file atomically and fail startup on errors
+
+- Base main SHA: `c95d9e96e4cf6d7f4cabe7d6920f0654df9ee346`.
+- Replaced unchecked `fopen/fprintf/fclose` in `lpd.c::update_pidfile()` with exclusive same-directory temporary-file creation, EINTR-safe complete writes, checked close, and atomic rename to `/var/run/lpdparent.pid`.
+- Every failure cleans up the temporary file and returns failure; LPRng main now logs the publication error and exits nonzero rather than continuing without trustworthy PID state.
+- Added production-source integration assertions and added `lpd.c` to both process-lifecycle regression and XY-C1 firmware build path filters.
+- Validation is pending exact-head CI and MIPS target build. No pass is claimed until those runs complete.
+- Changed paths: `trunk/user/LPRng/src/src/common/lpd.c`, `scripts/check_process_lifecycle_integration.py`, `.github/workflows/process-lifecycle-regression.yml`, `.github/workflows/xy-c1-firmware-validation.yml`, `SESSION_HANDOFF.md`, and this log. Resulting commit: THIS COMMIT.
+- Root log advances 90→91 records; no archive rotation or INDEX update is due.
+- Next: strict duplicate-instance PID-file consumer parsing and process identity validation in LPRng `main()`.
+
+---
+
 ## 2026-11-15 — Include USB printer RC source in XY-C1 target-build triggers
 
 - The first LPD source commit changed `trunk/user/rc/src/services_usb.c`, but the XY-C1 workflow's explicit push path list did not include that source file. Without this path, host CI could pass while the target compiler never checked the changed RC translation unit.

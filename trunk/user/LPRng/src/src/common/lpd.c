@@ -99,14 +99,69 @@ char busy = FALSE; //Add by Lisa
 void check_prn_status(char *status_prn, char *cliadd_prn); //Added by Jiahao
 void processReq_Raw(int fd); //Added by Jiahao
 
-static void update_pidfile(void)
+static int update_pidfile(void)
 {
 	pid_t pid = getpid();
-	FILE *fp;
+	char pid_text[32];
+	char temp_path[128];
+	int fd;
+	int len;
+	int offset = 0;
+	int saved_errno;
 
-	fp = fopen("/var/run/lpdparent.pid", "w");
-	fprintf(fp, "%d", pid);
-	fclose(fp);
+	len = snprintf(pid_text, sizeof(pid_text), "%ld", (long)pid);
+	if (len <= 0 || len >= sizeof(pid_text)) {
+		errno = EOVERFLOW;
+		return -1;
+	}
+
+	len = snprintf(temp_path, sizeof(temp_path),
+		"/var/run/lpdparent.pid.tmp.%ld", (long)pid);
+	if (len <= 0 || len >= sizeof(temp_path)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+
+	fd = open(temp_path, O_WRONLY | O_CREAT | O_EXCL, 0644);
+	if (fd < 0)
+		return -1;
+
+	len = strlen(pid_text);
+	while (offset < len) {
+		ssize_t written = write(fd, pid_text + offset, len - offset);
+		if (written < 0) {
+			if (errno == EINTR)
+				continue;
+			saved_errno = errno;
+			close(fd);
+			unlink(temp_path);
+			errno = saved_errno;
+			return -1;
+		}
+		if (written == 0) {
+			close(fd);
+			unlink(temp_path);
+			errno = EIO;
+			return -1;
+		}
+		offset += written;
+	}
+
+	if (close(fd) < 0) {
+		saved_errno = errno;
+		unlink(temp_path);
+		errno = saved_errno;
+		return -1;
+	}
+
+	if (rename(temp_path, "/var/run/lpdparent.pid") < 0) {
+		saved_errno = errno;
+		unlink(temp_path);
+		errno = saved_errno;
+		return -1;
+	}
+
+	return 0;
 }
 
 /*
@@ -165,7 +220,10 @@ int main(int argc, char *argv[])
 		exit(0);
 	}
 
-	update_pidfile();
+	if (update_pidfile() < 0) {
+		syslog(LOG_ERR, "cannot publish lpd pid file: %m");
+		exit(1);
+	}
 
     //Initial the server the not busy
     lptstatus.busy = FALSE;
