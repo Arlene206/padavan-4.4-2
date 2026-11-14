@@ -1,3 +1,14 @@
+## 2026-11-15 — Include USB printer RC source in XY-C1 target-build triggers
+
+- The first LPD source commit changed `trunk/user/rc/src/services_usb.c`, but the XY-C1 workflow's explicit push path list did not include that source file. Without this path, host CI could pass while the target compiler never checked the changed RC translation unit.
+- Added `services_usb.c` to `.github/workflows/xy-c1-firmware-validation.yml` and clarified the exact next validation in the live handoff. This makes future edits to this RC source trigger the MIPS/uClibc firmware/TRX workflow.
+- The corrected process-lifecycle checker commit is `2e14cb69c9f77b0b437d60204968d3779d5fc3d7`; its exact-head Actions are still pending at this checkpoint. The earlier `cc9fdd6` process-lifecycle run failed only in the newly added checker due to escaped-newline matching; the C scanner and lifecycle regression binaries passed.
+- Changed paths: `.github/workflows/xy-c1-firmware-validation.yml`, `SESSION_HANDOFF.md`, and this log. Resulting commit: THIS COMMIT.
+- Root log advances 89→90 records; no archive rotation or INDEX update is due.
+- Next: inspect exact-head process-lifecycle and XY-C1 build results; repair only actual failures, then continue LPRng PID-file producer/consumer hardening.
+
+---
+
 ## 2026-11-15 — Make LPD stop regression independent of escaped-newline matching
 
 - Review of commit `cc9fdd6377d7cc306e6fb02885b78a30db27e1b6` found that the new Python source-contract assertion encoded literal backslash-n characters instead of matching C line breaks. The production fix itself is unchanged.

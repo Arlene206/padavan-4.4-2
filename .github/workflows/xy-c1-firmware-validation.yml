@@ -10,6 +10,7 @@ on:
       - "trunk/user/httpd/src/web_ex.c"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_wan6.c"
+      - "trunk/user/rc/src/services_usb.c"
       - "trunk/user/vsftpd/src/asus_ext.h"
       - ".github/workflows/httpd-security.yml"
       - "trunk/user/rc/src/samba_share_policy.h"
