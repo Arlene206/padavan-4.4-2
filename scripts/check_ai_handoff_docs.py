@@ -96,6 +96,14 @@ def main() -> None:
 
     if "docs/dev-log/INDEX.md" not in bootstrap or "scripts/check_ai_handoff_docs.py" not in bootstrap:
         fail("bootstrap does not point to the canonical log archive index and validator")
+    if "Do not claim tests, commits, builds, firmware artifacts or hardware checks that were not actually performed." not in bootstrap:
+        fail("bootstrap is missing the complete no-fabrication rule")
+    if "aim tests, commits" in bootstrap:
+        fail("bootstrap contains a truncated/orphaned no-fabrication sentence")
+    if "Every GPT must update the handoff in Git before ending" in protocol:
+        fail("protocol unconditionally requires handoff churn and contradicts its materiality gate")
+    if "If it remains accurate, leave it untouched." not in protocol:
+        fail("protocol must explicitly preserve an accurate handoff without a no-op rewrite")
     for required in (
         "cross-conversation",
         "512 KiB",

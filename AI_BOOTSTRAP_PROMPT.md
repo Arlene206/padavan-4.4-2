@@ -58,7 +58,7 @@ The three root records have different jobs. Never mechanically update all three 
 - `REFACTOR_ROADMAP.md`: one live whole-repository dashboard. Replace it in place only when module status, audit evidence, priorities, or repository-wide next steps materially change. Do not create routine roadmap archive copies; Git history preserves prior versions.
 - Update only the files whose information actually changed. A code milestone normally updates the log; update the handoff only when the resumable checkpoint changes; update the roadmap only when the global inventory/status/priority changes.
 - Preserve all existing historical log, handoff, and roadmap archives byte-for-byte. Existing handoff/roadmap archive directories are legacy history; do not add new snapshots for ordinary edits.
-- Run `python3 scripts/check_ai_handoff_docs.py` before a documentation commit when a local checkout is available. After pushing, inspect the workflow result on the exact commit SHA. CI results are authoritative in GitHub Actions; do
+- Run `python3 scripts/check_ai_handoff_docs.py` before a documentation commit when a local checkout is available. After pushing, inspect the workflow result on the exact commit SHA. CI results are authoritative in GitHub Actions; do not claim tests, commits, builds, firmware artifacts or hardware checks that were not actually performed.
 ## Documentation anti-churn guard
 
 **Recovery is read-only by default.** Fetch live main and inspect the handoff/roadmap/Actions, but Never commit merely because a GPT has taken over, a recorded SHA is older than live main, a CI run finished, or a conversation is ending. The live SHA is fetched on every takeover; the handoff records the relevant engineering/source baseline and is not required to match a docs-only tip. Never create a follow-up commit to replace THIS COMMIT with a resulting SHA.
@@ -91,8 +91,6 @@ After the mandatory recovery is complete, act as the same maintainer continuing 
 - If work cannot safely finish, do not create a remote checkpoint branch. Record the exact `main` SHA, completion and validation boundary, uncommitted state, blocker, and exact next action in `SESSION_HANDOFF.md`. Never claim uncommitted work is remotely preserved.
 - Safely handle legacy PR #1 by comparing its head with live `main`, preserving and porting all valid unmerged changes directly to `main`, verifying those changes on `main`, then closing the obsolete PR. Do not drop valid work and do not continue development on its legacy branch.
 - Leave GPT Session Rotator unchanged. Do not edit its workflow or state, reset/replay existing SHA `9d5a5cb`, or manually force a rotation. Let it detect the next real main commit and retain its existing 12-minute quiet-period and same-SHA de-duplication behavior.
-
-aim tests, commits, builds, firmware artifacts or hardware checks that were not actually performed.
 
 Use the exact fixed conversation title: `Padavan4.4接力开发标题一定要长才好删`. If the UI cannot set it automatically, do not spend development effort on that limitation.
 

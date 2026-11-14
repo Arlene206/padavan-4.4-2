@@ -291,7 +291,7 @@ Update the handoff in place only when the active task, checkpoint SHA, validatio
 **The only user-facing takeover prompt needed is:**
 `接手 https://github.com/Arlene206/padavan-4.4-2/ 继续开发`
 
-Do not ask the user for a longer prompt, repeat questions already answered in Git, request a whole-repository upload, or depend on previous chat text. Do not generate recursive copy/paste prompts for the next GPT. The complete and current instructions for the next session belong in `SESSION_HANDOFF.md`; the bootstrap and this protocol explain how to recover and obey it. Every GPT must update the handoff in Git before ending, and the next GPT must resume from the live repository state.
+Do not ask the user for a longer prompt, repeat questions already answered in Git, request a whole-repository upload, or depend on previous chat text. Do not generate recursive copy/paste prompts for the next GPT. The complete and current instructions for the next session belong in `SESSION_HANDOFF.md`; the bootstrap and this protocol explain how to recover and obey it. Update `SESSION_HANDOFF.md` only when the active task, engineering/source baseline, validation boundary, blocker, or exact next action materially changes. If it remains accurate, leave it untouched. The next GPT must resume from live repository state.
 
 Every new conversation must do this before coding:
 

@@ -1,3 +1,14 @@
+## 2026-11-15 — Repair stale cross-session handoff and bootstrap contract
+
+- User-requested root handoff review found the live handoff and roadmap still described the watchdog-inclusive current-main Actions as pending and current L3 as unverified, although main is `f5cc0bafdfa017e9019dbda991a3855a84bc2e1c` and all ten exact-head `push` workflows completed SUCCESS.
+- Verified XY-C1 run [43625410221] passed Build XY-C1, TRX verification and artifact upload (artifact [14125764801], 12,583,902 bytes). Watchdog regression [43625410193], process lifecycle [43625410154], process inventory [43625410226], AI docs [43625410189], NVRAM [43625410190], AdGuardHome [43625410170], AliDDNS [43625410262], AliyunDrive [43625410196] and infosvr [43625410180] also passed on the exact same SHA. Prior dd7a XY-C1 run [43624870668] completed SUCCESS.
+- Corrected SESSION_HANDOFF.md and REFACTOR_ROADMAP.md to reflect verified current-main state and set the next implementation task to PPP/PID-file targets in the all-target stop preflight. L4 hardware validation remains NOT VERIFIED.
+- Fixed two malformed bootstrap sentences (a truncated documentation rule and an orphaned no-fabrication fragment). Clarified that an accurate handoff is not rewritten merely because a session ends; only material checkpoint changes justify updates.
+- Extended `scripts/check_ai_handoff_docs.py` to reject the observed bootstrap truncation and unconditional handoff-churn contradiction. The preserved backup branch remains unchanged at 72f4f157a084f8184b9597ca5bf334b8080e5807; legacy PR #1 remains closed/unmerged.
+- Root dev-log advances 109→110 records; no archive rotation or index update is due. This is a user-requested governance/handoff repair, not a product-source change. Exact-head AI documentation workflow is required after publication.
+
+---
+
 ## 2026-11-15 — Migrate watchdog PID publication and signal consumers
 
 - Base main SHA: dd7a9b42f6f12b1a585e09cb54a1d69c25f69877.
