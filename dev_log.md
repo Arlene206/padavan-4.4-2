@@ -1,3 +1,13 @@
+## 2026-11-15 — Fix regression checker after PID parser extraction
+
+- Exact-head process-lifecycle run `43620113866` failed only in the supplemental source checker: two assertions still expected digit/range parsing inside `lpd.c` after the logic had correctly moved into `lpd_pidfile_policy.h`.
+- Updated the checker to inspect the extracted production header for digit-only and PID-range validation. The parser's dedicated GNU89/Werror host regression passed in the same failed run.
+- No production source changed. New exact-head process-lifecycle run is required before this slice is accepted.
+- Changed paths: `scripts/check_process_lifecycle_integration.py` and this log. Resulting commit: THIS COMMIT.
+- Root log advances 97→98 records; no archive rotation or INDEX update is due.
+
+---
+
 ## 2026-11-15 — Extract strict LPD PID parser and add host regression
 
 - Base main SHA: `c70f7cc05e6743883789509d3ee4b0b2940044c2`.

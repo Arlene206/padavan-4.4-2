@@ -43,8 +43,9 @@ assert "if (update_pidfile() < 0)" in lpd_source
 assert '#include <process_inventory.h>' in lpd_source
 pid_reader = lpd_source.split("static int read_lpd_pidfile(pid_t *pid)", 1)[1].split("static int lpd_pid_is_running", 1)[0]
 assert "errno == ENOENT ? 0 : -1" in pid_reader
-assert "buffer[count] < '0' || buffer[count] > '9'" in pid_reader
-assert "value <= 1 || value > (unsigned long)INT_MAX" in pid_reader
+pid_policy = (root / "trunk/user/LPRng/src/src/include/lpd_pidfile_policy.h").read_text()
+assert "text[i] < '0' || text[i] > '9'" in pid_policy
+assert "value <= 1 || value > (unsigned long)INT_MAX" in pid_policy
 assert "static int lpd_pid_is_running(pid_t pid)" in lpd_source
 assert "process_inventory_scan(\"lpd\", &snapshot)" in lpd_source
 assert "process_identity_validate(\"lpd\", &snapshot.items[i])" in lpd_source
