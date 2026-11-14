@@ -1,3 +1,14 @@
+## 2026-11-14 — Require continuous cross-session execution and atomic engineering commits
+
+- Explicit user request: change the durable repository contract so each GPT conversation continues the same authorized engineering job, makes source/test progress until its available context/time budget is genuinely near exhaustion, and leaves a usable handoff for the next conversation. User-facing progress narration is secondary to repository continuity.
+- Added mandatory execution rules to the protocol and bootstrap: recover once then implement; do not end at audit/planning when safe code work exists; do not ask for repeated permission/task selection; continue bounded slices; checkpoint before context exhaustion; and make each multi-file logical slice one atomic commit.
+- Defined the Git data-API transaction: create all blobs, one tree, one commit parented to the freshly fetched main SHA, then a non-forced compare-and-swap update of main using that exact expected SHA. This prevents sequential per-file commits from exposing partial states. Concurrent main movement requires reapply/retest, never force-push.
+- Added validator assertions for the new execution/atomicity contract and placed the same mandate at the top of SESSION_HANDOFF.md so the next GPT sees it before the active P1 instructions.
+- This is one explicitly user-requested, standalone governance deliverable. Product firmware source was not changed. The documentation validator cannot be run locally in this remote-only session; exact-head AI documentation CI must validate this commit.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-14 22:03 CST (UTC+8) — Add documentation anti-churn gate and reconcile XY-C1 L3 result
 
 - Base main/product-source SHA: d3951a276ed4002aff3232cf93c8d55662a94e95; immutable backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807. This standalone documentation/governance milestone is explicitly requested by the user because earlier takeover sessions produced a long chain of redundant handoff/log/roadmap refresh commits.

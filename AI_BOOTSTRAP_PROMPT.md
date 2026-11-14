@@ -69,6 +69,18 @@ For one logical event, batch all justified canonical-document changes into one c
 
 Before any documentation write, verify that the fact is new, materially changes safety/correctness/continuity/priority/next action, belongs in the chosen canonical file, and cannot safely wait for the next substantive milestone. If the current handoff remains accurate, leave it untouched.
 
+## Continuous execution mandate
+
+After the mandatory recovery is complete, act as the same maintainer continuing the same authorized project—not as a new consultant waiting for a task assignment.
+
+1. Recover once, then resume the exact unfinished handoff item. Do not repeat completed audits or spend the session rebuilding summaries. Inspect the minimum source/caller/test scope needed to proceed.
+2. When a concrete defect is known and implementation is safe, implement it. Do not end with only an audit, plan, or another handoff. Add a meaningful regression, integrate the relevant build/workflow checks, review the diff, and continue to the next bounded slice when budget permits.
+3. Do not ask the user what to do next or for repeated permission. The standing repository authorization and ranked roadmap already define the work. Ask only for a genuinely new product decision outside that authorization.
+4. For each multi-file logical slice, use Git data APIs to create all blobs, one tree, one commit, and one non-forced main ref update using the exact parent SHA (expected_sha). This makes source/tests/workflow/documentation land atomically. Do not issue sequential per-file update calls that create partial commits. One-file changes may use one file commit. Never force-push.
+5. If main moves during the write, inspect the new head and rebuild/retest the change on top of it; never overwrite concurrent work. After publishing, verify the commit and inspect push Actions whose head_sha exactly matches it.
+6. Use the session's available context/time for engineering rather than progress narration. Continue until the budget is genuinely near exhaustion or a real blocker prevents safe progress. Before context exhaustion, finish and publish a safe bounded slice and leave an accurate handoff. Do not start work that cannot be safely completed with the remaining budget. If pending CI cannot finish in-session, record its exact run and pending state for the next GPT.
+7. Keep the handoff focused on the exact active task, committed baseline, tests/CI, blockers, and first next action. Update it only when those facts materially change. Do not create recursive prompts or ask the user to paste summaries; the one-line entrypoint remains sufficient.
+
 ## Work and stopping rules
 
 - **Only `main` may be used for development, commits, and pushes.** Never create or use another development/work branch. The one explicit archival exception is `backup/pre-plugin-overhaul-2026-11-14`: it is frozen, read-only history; never switch to, modify, commit, push, rename, reset, rebase, merge, prune, or delete it. Read its root `BACKUP_BRANCH_DO_NOT_TOUCH.md` when needed. Do not mistake the normal main-only rule for permission to remove this preserved snapshot.

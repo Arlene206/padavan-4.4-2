@@ -1,3 +1,9 @@
+# Cross-session execution mandate (read before resuming)
+
+This is a continuing autonomous engineering assignment. The next GPT must recover live state once, then immediately resume the exact P1 task below and implement/test/commit—not repeat this session's documentation work, re-audit already completed evidence, or ask the user to choose a task. Do not stop after a plan or status report when safe source work is available. Keep working through bounded engineering slices while context/time permits.
+
+For every multi-file slice, publish source + regression tests + required workflow/build integration as **one atomic main commit**: create blobs, one tree, one commit parented to the freshly fetched main SHA, then non-forced update of main with that same SHA as expected_sha. Never create partial per-file commits for one logical change. If main moved, rebase/reapply and retest; never force-push. Verify exact-head push Actions. Before context exhaustion, finish a safe slice and leave this handoff materially updated with committed progress, validation and the next exact action. Avoid progress narration; repository progress and a truthful continuation point are the priority.
+
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`. The only development branch is `main`. Last verified main/product-source baseline: `d3951a276ed4002aff3232cf93c8d55662a94e95`. This handoff is updated by a user-requested, standalone governance change; later docs-only commits do not require rewriting this source baseline. Fetch the actual live main before every write.

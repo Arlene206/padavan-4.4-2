@@ -127,6 +127,34 @@ def main() -> None:
             fail(f"protocol is missing anti-churn governance rule: {required}")
 
     for required in (
+        "Continuous execution across GPT conversations",
+        "Recover once, then execute",
+        "An audit is a means, not the default endpoint",
+        "One logical slice, one atomic commit",
+        "Checkpoint before context exhaustion",
+        "non-forced compare-and-swap",
+    ):
+        if required not in protocol:
+            fail(f"protocol is missing continuous-execution rule: {required}")
+
+    for required in (
+        "## Continuous execution mandate",
+        "Git data APIs to create all blobs, one tree, one commit",
+        "Before context exhaustion",
+        "Do not ask the user what to do next",
+    ):
+        if required not in bootstrap:
+            fail(f"bootstrap is missing continuous-execution rule: {required}")
+
+    for required in (
+        "# Cross-session execution mandate",
+        "one atomic main commit",
+        "Before context exhaustion",
+    ):
+        if required not in handoff:
+            fail(f"handoff is missing cross-session execution rule: {required}")
+
+    for required in (
         "## Documentation anti-churn guard",
         "Recovery is read-only by default",
         "Never commit merely because a GPT has taken over",
