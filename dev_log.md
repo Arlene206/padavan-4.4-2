@@ -1,3 +1,13 @@
+## 2026-11-15 — Correct LPD integration check function-boundary extraction
+
+- Review found two new Python source-contract assertions used a literal backslash-n delimiter instead of a C-source function boundary. This would fail the checker before evaluating the LPD PID consumer contract.
+- Changed both extractions to split on the next function declaration, avoiding newline escaping entirely. No production C source changed.
+- The exact-head process-lifecycle and XY-C1 Actions for the prior LPD consumer commit remain pending at this checkpoint; this correction itself will trigger exact-head CI.
+- Changed paths: `scripts/check_process_lifecycle_integration.py` and this log. Resulting commit: THIS COMMIT.
+- Root log advances 92→93 records; no archive rotation or INDEX update is due.
+
+---
+
 ## 2026-11-15 — Strictly validate LPRng duplicate-instance PID records
 
 - Base main SHA: `80f921e11ba66d9e687485e2f64ded9aec6cd66a`.

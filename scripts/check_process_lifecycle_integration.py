@@ -32,7 +32,7 @@ assert stop_lpd.index("return;") < stop_lpd.index('unlink("/var/run/lpdparent.pi
 print("process inventory and lifecycle integration contract: PASS")
 
 lpd_source = (root / "trunk/user/LPRng/src/src/common/lpd.c").read_text()
-pid_writer = lpd_source.split("static int update_pidfile(void)", 1)[1].split("\\n/*", 1)[0]
+pid_writer = lpd_source.split("static int update_pidfile(void)", 1)[1].split("void logmessage", 1)[0]
 assert "O_CREAT | O_EXCL" in pid_writer
 assert "write(fd, pid_text + offset, len - offset)" in pid_writer
 assert "errno == EINTR" in pid_writer
@@ -41,7 +41,7 @@ assert "fopen(\"/var/run/lpdparent.pid\", \"w\")" not in pid_writer
 assert "if (update_pidfile() < 0)" in lpd_source
 
 assert '#include <process_inventory.h>' in lpd_source
-pid_reader = lpd_source.split("static int read_lpd_pidfile(pid_t *pid)", 1)[1].split("\\nstatic int lpd_pid_is_running", 1)[0]
+pid_reader = lpd_source.split("static int read_lpd_pidfile(pid_t *pid)", 1)[1].split("static int lpd_pid_is_running", 1)[0]
 assert "errno == ENOENT ? 0 : -1" in pid_reader
 assert "buffer[count] < '0' || buffer[count] > '9'" in pid_reader
 assert "value <= 1 || value > (unsigned long)INT_MAX" in pid_reader
