@@ -54,6 +54,7 @@ def function_body(source, signature):
 
 gpio = read("trunk/user/rc/src/gpio_btn.c")
 policy = read("trunk/user/rc/src/gpio_btn_daemon_policy.h")
+process_inventory = read("trunk/user/shared/src/process_inventory.h")
 test = read("trunk/user/rc/src/tests/gpio_btn_daemon_policy.c")
 timing_policy = read("trunk/user/rc/src/gpio_btn_timing_policy.h")
 timing_test = read("trunk/user/rc/src/tests/gpio_btn_timing_policy.c")
@@ -62,36 +63,43 @@ header = read("trunk/user/rc/src/rc.h")
 dispatcher = read("trunk/user/rc/src/rc.c")
 shutils = read("trunk/user/shared/src/shutils.c")
 shutils_header = read("trunk/user/shared/src/shutils.h")
-pids = read("trunk/user/shared/src/pids.c")
 makefile = read("trunk/user/rc/src/Makefile")
 package_makefile = read("trunk/user/rc/Makefile")
 workflow = read(".github/workflows/gpio-btn-lifecycle.yml")
 
 assert '#include "gpio_btn_daemon_policy.h"' in gpio
 assert '#include "gpio_btn_timing_policy.h"' in gpio
+assert "#include \"process_inventory.h\"" in policy
 assert "#define GPIO_BTN_START_WAIT_ATTEMPTS 4" in policy
-assert "return launch_status;" in policy
-assert "return daemon_running ? 0 : ESRCH;" in policy
+assert "daemon_presence == PROCESS_PRESENCE_RUNNING" in policy
+assert "daemon_presence == PROCESS_PRESENCE_ABSENT" in policy
+assert "return EIO;" in policy
+assert "PROCESS_PRESENCE_UNKNOWN" in process_inventory
+assert "process_snapshot_release" in process_inventory
+
+presence_helper = function_body(gpio, "gpio_btn_process_presence(int *scan_error)")
+assert 'process_inventory_scan("gpio_btn", &snapshot)' in presence_helper
+assert "*scan_error = snapshot.error;" in presence_helper
+assert presence_helper.index("*scan_error = snapshot.error;") < presence_helper.index("process_snapshot_release(&snapshot)")
 
 start = function_body(gpio, "int start_gpio_btn(void)")
-existing = start.index('if (pids("gpio_btn"))')
+existing = start.index("presence = gpio_btn_process_presence(&scan_error);")
+running_gate = start.index("presence == PROCESS_PRESENCE_RUNNING", existing)
+unknown_gate = start.index("presence == PROCESS_PRESENCE_UNKNOWN", running_gate)
 launch = start.index('launch_status = eval("/sbin/gpio_btn");')
 launch_error = start.index("if (launch_status != 0)", launch)
 grace = start.index("sleep(1);", launch_error)
-first_probe = start.index(
-    'gpio_btn_start_policy_status(launch_status, pids("gpio_btn"))', grace
-)
-retry = start.index("attempt < GPIO_BTN_START_WAIT_ATTEMPTS", launch_error)
-launcher_failure = function_body(start, "if (launch_status != 0)")
-assert existing < launch < launch_error < grace < retry < first_probe
-assert 'status = gpio_btn_start_policy_status(launch_status, pids("gpio_btn"));' in launcher_failure
-assert "return status;" in launcher_failure
-assert "attempt + 1 < GPIO_BTN_START_WAIT_ATTEMPTS" in start[first_probe:]
-assert "if (status == 0)" in start
+retry = start.index("attempt < GPIO_BTN_START_WAIT_ATTEMPTS", grace)
+first_probe = start.index("presence = gpio_btn_process_presence(&scan_error);", retry)
+assert existing < running_gate < unknown_gate < launch < launch_error < grace < retry < first_probe
+assert 'gpio_btn_start_policy_status(launch_status, presence)' in start
+assert "if (presence == PROCESS_PRESENCE_UNKNOWN)" in start[first_probe:]
+unknown_post = start.index("if (presence == PROCESS_PRESENCE_UNKNOWN)", first_probe)
+assert start.index("break;", unknown_post) < start.index("sleep(1);", unknown_post)
+assert "pids(" not in start
 assert "return status;" in start
-assert "daemon did not remain running" in start
-assert "sleep(1);" in start[retry:]
-assert start.count('pids("gpio_btn")') >= 3
+assert "Button daemon did not remain running" in start
+assert "Cannot verify button daemon state" in start
 
 main = function_body(gpio, "int btn_main(int argc, char *argv[])")
 assert main.index("daemon(0, 0)") < main.index("fd = btn_uevent_init()")
@@ -112,9 +120,6 @@ eval_body = function_body(shutils, "_eval(char *const argv[], char *path, int ti
 assert "waitpid(pid, &status, 0)" in eval_body
 assert "WEXITSTATUS(status)" in eval_body
 assert "daemon(0, 0)" in main
-assert "comm_match(p, procName)" in pids
-assert "p->state[0] != 'Z'" in pids
-assert "strcmp(bb_basename(p->argv0), procName) == 0" in pids
 
 services_start = function_body(services, "start_services_once(int is_ap_mode)")
 assert "start_gpio_btn();" in services_start
@@ -127,6 +132,8 @@ for marker in (
     "test_running_daemon_satisfies_start",
     "test_missing_daemon_fails_start",
     "test_launcher_error_is_preserved",
+    "test_unknown_inventory_fails_closed",
+    "PROCESS_PRESENCE_UNKNOWN",
     "GPIO button daemon startup postcondition policy: PASS",
 ):
     assert marker in test, marker

@@ -273,18 +273,41 @@ static void btn_ev_handle(btn_event *ev)
 		break;
 	}
 }
+static enum process_presence
+gpio_btn_process_presence(int *scan_error)
+{
+	struct process_snapshot snapshot;
+	enum process_presence presence;
+
+	presence = process_inventory_scan("gpio_btn", &snapshot);
+	if (scan_error)
+		*scan_error = snapshot.error;
+	process_snapshot_release(&snapshot);
+	return presence;
+}
+
 int start_gpio_btn(void)
 {
 	int launch_status;
 	int status;
 	int attempt;
+	int scan_error;
+	enum process_presence presence;
 
-	if (pids("gpio_btn"))
+	presence = gpio_btn_process_presence(&scan_error);
+	if (presence == PROCESS_PRESENCE_RUNNING)
 		return 0;
+	if (presence == PROCESS_PRESENCE_UNKNOWN) {
+		status = scan_error ? scan_error : EIO;
+		logmessage("gpio_btn", "Cannot verify button daemon state; refusing duplicate launch (status=%d)",
+			   status);
+		return status;
+	}
 
 	launch_status = eval("/sbin/gpio_btn");
 	if (launch_status != 0) {
-		status = gpio_btn_start_policy_status(launch_status, pids("gpio_btn"));
+		status = gpio_btn_start_policy_status(launch_status,
+					      PROCESS_PRESENCE_UNKNOWN);
 		logmessage("gpio_btn", "Failed to launch button service (status=%d)", status);
 		return status;
 	}
@@ -292,14 +315,21 @@ int start_gpio_btn(void)
 	/* eval() waits for the daemonizing launcher, not the detached child. */
 	sleep(1);
 	for (attempt = 0; attempt < GPIO_BTN_START_WAIT_ATTEMPTS; attempt++) {
-		status = gpio_btn_start_policy_status(launch_status, pids("gpio_btn"));
-		if (status == 0)
+		presence = gpio_btn_process_presence(&scan_error);
+		status = gpio_btn_start_policy_status(launch_status, presence);
+		if (presence == PROCESS_PRESENCE_RUNNING)
 			return 0;
+		if (presence == PROCESS_PRESENCE_UNKNOWN) {
+			status = scan_error ? scan_error : EIO;
+			logmessage("gpio_btn", "Cannot verify button daemon startup (status=%d)",
+				   status);
+			break;
+		}
 		if (attempt + 1 < GPIO_BTN_START_WAIT_ATTEMPTS)
 			sleep(1);
 	}
 
-	logmessage("gpio_btn", "Button daemon did not remain running after startup");
+	logmessage("gpio_btn", "Button daemon did not remain running after startup (status=%d)", status);
 	return status;
 }
 
