@@ -1,29 +1,30 @@
 ## Current repository state
 
-- Live `main` HEAD at this recovery: `eda03f83812c86e81a6f8d67130ac30f54ce4b18`; active branch: `main`. Parent: `6dba16674ed6ee0b0babcf65905a3722fac23876`. The latest commit is documentation-only; product source remains identical to L3-verified tree `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`.
-- Remote branch inventory: only `main`; no checkpoint branch. Legacy PR #1 is CLOSED / UNMERGED; it was inspected for state only and is not a development target.
-- Exact-head Actions for `eda03f83812c86e81a6f8d67130ac30f54ce4b18` completed 6/6 SUCCESS on `push`, each with exact matching `head_sha`: AliyunDrive [43530505638], AI handoff docs [43530505416], AdGuardHome [43530505408], AliDDNS [43530505376], infosvr [43530505319], NVRAM [43530505307]. Combined commit status has no status entries; the six Actions runs are the positive CI evidence.
-- Root `dev_log.md` has 55 complete newest-first records before this recovery record; no rotation or INDEX update is due.
-- Product-source L3 evidence remains on `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`; L4 router flash/boot remains NOT VERIFIED.
+- Live `main` HEAD at this recovery: `f40aba8106e24993cbc64fd9a23dee4756620790`; active branch: `main`. Parent: `eda03f83812c86e81a6f8d67130ac30f54ce4b18`. This is a handoff/log-only commit; product-source tree remains unchanged from the recorded L3 source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`.
+- Remote branch inventory: only `main`. Legacy PR #1 is CLOSED / UNMERGED (head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`, base `9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74`); no PR or non-main branch used for development.
+- Exact-head Actions for `f40aba8106e24993cbc64fd9a23dee4756620790`: six `push` runs, all completed SUCCESS and all `head_sha` values exactly match: NVRAM [43531298250], AdGuardHome [43531298340], infosvr [43531298263], AliDDNS [43531298235], AI handoff docs [43531298253], AliyunDrive [43531298258]. These are host/source/documentation workflows, not firmware/hardware proof.
+- Root `dev_log.md` currently has 56 complete newest-first records (142,625 characters); no rotation due (20–119 records; below 384 KiB trigger). Archive index unchanged.
+- L3 evidence remains limited to product-source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f` (XY-C1 MIPSel build/TRX verification/artifact upload run `43489646254`, job `132107102854`, artifact `14069572898`). L4 router flash/boot NOT VERIFIED.
 
 ## Active task
 
-- Priority P1 — complete the shared process-inventory fail-closed contract in `trunk/user/shared/src/pids.c`, `trunk/user/shared/src/shutils.h`, `trunk/user/rc/src/common_ex.c`, `trunk/user/rc/src/services_ex.c`, and `trunk/user/rc/src/service_lifecycle_policy.h`.
-- Confirmed failure modes: scan-context allocation failure, `opendir("/proc")` failure, mid-scan `readdir()` error, and PID-list allocation/growth failure can be collapsed into NULL/empty/partial inventory. Boolean consumers cannot represent UNKNOWN; lifecycle stop can signal before authoritative inventory.
-- Required contract: RUNNING / ABSENT / UNKNOWN. UNKNOWN must abort before TERM/KILL, stop-success, restart, or destructive cleanup. Do not change the shared API until every process-scan API caller and lifecycle/readiness/stop consumer is enumerated and classified.
-- The complete hierarchical Git tree for `trunk/user` was enumerated at this SHA: 10,203 entries, 764 directories, and 4,409 C/H files; the subtree response was not truncated. Five repository code-search queries (`pids_main`, `procps_scan`, `find_pid_by_name`, `pids(`, `service_lifecycle_policy`) returned zero indexed matches, which is not proof of no callers. The full 229-file RC/shared fetch attempt exceeded the connector execution call budget before completing; therefore caller enumeration remains INCOMPLETE. No shared API migration is safe yet.
+- Priority P1: finish the shared process-inventory fail-closed contract centered on `trunk/user/shared/src/pids.c`, public declarations in `trunk/user/shared/src/shutils.h`, and lifecycle consumers in `trunk/user/rc/src/common_ex.c`, `services_ex.c`, and `service_lifecycle_policy.h`.
+- Source-confirmed defects: `alloc_procps_scan()` returns NULL for allocation and `opendir("/proc")` failures; `procps_scan()` treats every NULL `readdir()` as normal EOF without checking errno; `find_pid_by_name()` returns NULL for both scan failure and allocation failure, while callers can interpret NULL as no process. PID-list growth failure also collapses into NULL. This can produce false ABSENT/partial inventory and unsafe lifecycle decisions.
+- Required semantics: RUNNING / ABSENT / UNKNOWN. UNKNOWN must prevent TERM/KILL, stop-success, restart, and destructive cleanup. Do not change the shared API or migrate consumers until all API callers and lifecycle/readiness/stop paths are exhaustively enumerated and classified.
+- Enumeration progress: current-main Git tree previously enumerated hierarchically at `eda03f83812c86e81a6f8d67130ac30f54ce4b18`: `trunk/user` contained 10,203 entries, 764 directories, 4,409 C/H files, not truncated. RC and shared source directory listings have now been inspected. GitHub code search for `pids(`, `pids_main(`, `find_pid_by_name(`, `procps_scan(`, `service_lifecycle_stop`, and `kill_pidfile_s` returned zero indexed matches; this is NOT exhaustive. Bulk retrieval of all RC/shared source files exceeded connector execution budget in the previous attempt. Caller inventory remains INCOMPLETE; no safe API migration yet.
 
 ## Verification boundary
 
-- L1: complete subtree path inventory and partial source review only; no new product-source changes. Caller inventory remains incomplete.
-- L2: process-inventory host regressions NOT RUN; local GNU89/`-Werror` tests NOT RUN. Local `scripts/check_ai_handoff_docs.py` NOT RUN because no checkout is available.
-- Exact-HEAD Actions on current `main`: six push workflows PASS by exact head SHA (run IDs listed above). Job-step detail was not re-fetched in this recovery.
-- L3: XY-C1 MIPSel build, TRX verification and artifact upload evidence applies to product-source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f` (run `43489646254`, job `132107102854`, artifact `14069572898`). Current main differs from that source only in the three documentation paths listed above.
+- L1: partial source review confirms the fail-open paths; directory inventories available; exhaustive cross-userland caller classification NOT COMPLETE.
+- L2: process inventory GNU89/`-Werror` host regressions NOT RUN; local `scripts/check_ai_handoff_docs.py` NOT RUN (no local checkout).
+- Exact-head Actions for current main: 6/6 push workflows SUCCESS as listed above.
+- L3: only the source SHA and run/artifact listed above are verified. Current main's latest commits change documentation only; no newer product-source L3 claim.
 - L4: physical router flash/boot NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Re-fetch `refs/heads/main` and verify the exact SHA before any write; current exact-head push Actions for `eda03f83812c86e81a6f8d67130ac30f54ce4b18` are reconciled (6/6 SUCCESS).
-2. Complete the caller inventory using the now-enumerated `trunk/user` subtree: fetch and inspect all relevant C/H and shell sources for every process-scan API caller, lifecycle/readiness/stop consumer, init/shutdown path, build manifest, and test integration. Do not treat zero indexed code-search matches as exhaustive.
-4. Implement RUNNING / ABSENT / UNKNOWN propagation for scan allocation failure, `/proc` open failure, mid-scan `readdir` error, PID-list allocation/growth failure, normal empty inventory, matched process, and per-PID disappearance. UNKNOWN must abort before signals, successful absence, restart, or cleanup.
-5. Add injectable GNU89/`-Werror` regressions; migrate only confirmed consumers; run local docs validation when possible; commit directly to `main`; verify exact-head push Actions. Do not start another module or perform a partial API migration.
+1. Re-fetch `refs/heads/main`; expected baseline after this handoff update is the new direct child of `f40aba8106e24993cbc64fd9a23dee4756620790`. Reconcile exact-head push Actions before further writes.
+2. Obtain complete source content in bounded batches, starting with all RC/shared C/H files and then every other `trunk/user` subtree. Search locally or by content for all declarations/definitions/callers of `pids()`, `pids_main()`, `find_pid_by_name()`, `procps_scan()`, plus lifecycle consumers and signal/cleanup paths. Record exact paths and classify each caller; zero indexed search results are not proof of absence.
+3. Do not implement partial tri-state API changes until that inventory is complete. Then implement RUNNING / ABSENT / UNKNOWN, distinguish normal EOF from `readdir` errors, propagate scan and allocation failures, and define safe per-PID disappearance semantics.
+4. Add injectable GNU89/`-Werror` host regressions for allocation, `/proc` open, readdir error/EOF, list growth, empty/matched process, and PID disappearance; migrate every confirmed consumer fail-closed. Run relevant source tests and docs validation when a local checkout is available.
+5. Commit directly to `main`, append a concise log record, and verify exact-head push Actions. Do not create branches/PRs or start another module before this P1 task is safely resolved.
