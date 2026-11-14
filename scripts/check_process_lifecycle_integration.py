@@ -190,8 +190,8 @@ assert "if (control_status != 0)" in usbnet_stop
 assert 'ifdown_status = ifconfig(ndis_ifname, 0, "0.0.0.0", NULL)' in usbnet_stop
 assert "ifdown_status != ENODEV" in usbnet_stop
 assert 'is_usbnet_has_module(ndis_ifname, "cdc_mbim")' in usbnet_stop
-assert "int safe_remove_usb_modem(void);" in rc_header
-assert "int stop_wan_usbnet(void);" in rc_header
+assert "int  safe_remove_usb_modem(void);" in rc_header
+assert "int  stop_wan_usbnet(void);" in rc_header
 
 modem_remove = usb_modem.split("int\nsafe_remove_usb_modem(void)", 1)[1].split("\n}\n", 1)[0]
 assert "stop_status = stop_wan_usbnet();" in modem_remove
