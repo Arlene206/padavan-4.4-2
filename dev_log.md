@@ -1,3 +1,11 @@
+## 2026-11-15 — Anchor bootstrap orphan-fragment check to a full line
+
+- Exact-head AI handoff run [43630474661] on e1af9e9d797a6eb015aeb924b8c4da75f457b128 failed because the orphan-fragment detector used substring matching: the valid sentence “do not claim tests” contains the substring “aim tests”. This was a second validator false positive, not malformed bootstrap content.
+- Changed the check to a multiline, line-anchored regular expression matching only a standalone orphan line. Updated SESSION_HANDOFF.md to record both validator-only failures and direct the next GPT to inspect the corrected exact-head AI-doc run before resuming P1 source work.
+- The current-main source baseline remains f5cc0baf; no firmware source changed. Root dev-log advances 111→112 records; no archive rotation or index update is due. New exact-head AI docs run is pending.
+
+---
+
 ## 2026-11-15 — Correct handoff validator assertion after exact-head CI failure
 
 - Exact-head AI handoff documentation run [43630358677] on docs commit f25b32fb639239351209335a039334f2c63b3bc4 failed because the new validator assertion expected uppercase “Do not claim” while the correctly punctuated bootstrap sentence used lowercase “do not claim” after a semicolon. This was a validator-test defect, not a documentation content or product-source failure.
