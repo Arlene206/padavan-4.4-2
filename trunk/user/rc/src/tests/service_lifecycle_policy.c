@@ -174,7 +174,7 @@ fake_read_pidfile(void *opaque, const char *path, const char *name,
 		return PROCESS_PRESENCE_UNKNOWN;
 	if (service->pidfile_unknown)
 		return PROCESS_PRESENCE_UNKNOWN;
-	if (!service->pidfile_present)
+	if (!service->pidfile_present || !service->present)
 		return PROCESS_PRESENCE_ABSENT;
 	*identity = service->identity;
 	if (service->pidfile_change_identity_after_term &&
