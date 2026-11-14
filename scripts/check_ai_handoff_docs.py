@@ -116,6 +116,26 @@ def main() -> None:
     if "do not add new snapshots for ordinary edits" not in bootstrap:
         fail("bootstrap must prohibit routine handoff/roadmap snapshots")
 
+    for required in (
+        "## Documentation decision gate and anti-churn",
+        "Recovery is read-only by default",
+        "Do not commit merely to synchronize a documented SHA with live main",
+        "Allowed standalone documentation-only commits",
+        "Do not create a second documentation-only commit for the same logical event",
+    ):
+        if required not in protocol:
+            fail(f"protocol is missing anti-churn governance rule: {required}")
+
+    for required in (
+        "## Documentation anti-churn guard",
+        "Recovery is read-only by default",
+        "Never commit merely because a GPT has taken over",
+        "This is not a ban on useful documentation-only work",
+        "If the current handoff remains accurate, leave it untouched",
+    ):
+        if required not in bootstrap:
+            fail(f"bootstrap is missing anti-churn recovery rule: {required}")
+
     for heading in (
         "## Current repository state",
         "## Active task",

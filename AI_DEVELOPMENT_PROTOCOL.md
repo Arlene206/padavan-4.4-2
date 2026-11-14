@@ -19,9 +19,68 @@ No session may edit firmware source before completing the recovery sequence in S
 
 ### Canonical root files
 
-- `SESSION_HANDOFF.md`: exactly one current resumable checkpoint. Target 8–24 KiB; hard limit 64 KiB. State the live baseline SHA, active branch, last completed task, active task, paths/functions, evidence, exact-head CI, validation gaps, blockers and actionable first inspection. Update this file in place only when its current state materially changes or before stopping. Git history is its revision archive; do not create routine snapshot copies.
+- `SESSION_HANDOFF.md`: exactly one current resumable checkpoint. Target 8–24 KiB; hard limit 64 KiB. State the last meaningful engineering/source baseline (and its SHA), active task, paths/functions, evidence, exact-head CI, validation gaps, blockers and actionable first inspection. The current live main SHA is fetched read-only on every takeover; the handoff is not required to equal it. Update this file in place only when its resumable facts materially change. Git history is its revision archive; do not create routine snapshot copies.
 - `REFACTOR_ROADMAP.md`: one current whole-repository module dashboard and priority queue. Target below 64 KiB; hard limit 128 KiB. Keep one row per real module with source map, audit status, latest meaningful evidence/commit and next action. Put deep audit notes in `docs/audits/`. Update this file in place only when inventory, module state, evidence, or priority materially changes. Git history is its revision archive; do not create routine snapshot copies.
 - `dev_log.md`: newest-first chronological history. After a rotation it contains the newest 20 complete entries, then accumulates to 119. Target at or below 384 KiB; hard limit 512 KiB. Do not rotate on every entry.
+
+
+### Documentation decision gate and anti-churn
+
+**Recovery is read-only by default.** Reading the live repository, checking refs, comparing recorded facts, inspecting Actions, discovering that a recorded SHA is old, or reaching a conversation boundary does not by itself authorize a commit. A takeover must continue the existing engineering task, not create a commit to prove that recovery occurred.
+
+#### Separate live repository state from the engineering checkpoint
+
+- Fetch the live main SHA at every takeover and immediately before every write. Use that live value for comparison and the non-forced expected-parent update; it is an operational input, not a value that must be continuously copied into documentation.
+- In SESSION_HANDOFF.md and REFACTOR_ROADMAP.md, record the last meaningful product-source / test / build / audit baseline relevant to the task. It is valid for live main to be newer because of documentation-only commits. State that distinction when it matters.
+- **Do not commit merely to synchronize a documented SHA with live main.** A docs-only commit changes main again; chasing that new SHA creates a self-renewing loop. Git history is the authoritative record of documentation commit SHAs. Never create a follow-up commit merely to replace THIS COMMIT with its resulting SHA.
+- A later GPT must fetch live refs and compare them with the recorded engineering baseline. If the source baseline and active task are unchanged, continue from them without refreshing the handoff just because the ref moved.
+
+#### Materiality gate — when a documentation write is justified
+
+Before changing a canonical document, answer these questions:
+
+1. Is there a genuinely new or corrected durable fact, user requirement, accepted/rejected design decision, audit finding, verified result, blocker, or next action? It must not already be accurately represented in Git.
+2. Does it materially affect correctness, safety, reproducibility, project priority, the active task, or the next GPT's first useful action?
+3. Is this the smallest correct canonical location (dev_log.md, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md, XY-C1_DISCUSSION_CONTEXT.md, or a focused audit report)?
+4. Can the update be safely included with the next code/test/build/audit milestone instead? If yes, batch it there unless delaying it would lose a user-confirmed requirement, create a safety risk, block required CI/recovery, or make the next handoff materially misleading.
+
+A write is justified only when at least one positive trigger below applies. “The file is old” or “the GPT is ending” is not a positive trigger by itself.
+
+#### Allowed standalone documentation-only commits
+
+This is **not a blanket ban** on documentation-only commits. A standalone docs commit is appropriate when it delivers one real, independently useful result and no product-source change is the correct action, for example:
+
+- The user explicitly asks to create or revise durable project rules, requirements, an architecture record, or documentation.
+- A material user requirement or accepted/rejected design decision must be preserved before implementation or before another conversation can safely continue.
+- A bounded audit/research task is complete and produces a substantive, evidence-backed report with scope, findings, limitations, and actionable next steps.
+- A governance instruction, handoff contract, validator, or workflow has a real defect that can cause unsafe changes, loss of continuity, repeated wasted work, or a required CI/recovery blockage.
+- At session end, the current handoff would otherwise send the next GPT to the wrong task, repeat completed work, miss a material blocker, or misstate a verification boundary. In that case make one consolidated handoff checkpoint only if the facts have actually changed.
+- The documentation itself is the requested deliverable (for example, an operational guide or security/audit report).
+
+#### Documentation commits that are not justified
+
+Do not create commits solely to:
+
+- Make a SHA field match the newest main SHA, especially when the only intervening commit also changed documentation.
+- Record that a GPT has resumed, inspected files, polled CI, or found no new work.
+- Replace a PENDING CI note with PASS when the run can simply be checked live and the result does not change the active task or next action. Do not create a follow-up commit solely to write a completed CI result back into the files.
+- Refresh timestamps, reword accurate text, rearrange headings, or create a fresh handoff/roadmap snapshot without a material correction or deliverable.
+- Repeat a completed scan, inventory, audit, or status summary that is already represented accurately.
+- Produce a planning/checkpoint commit before implementation when the plan can remain in the current working analysis and the next action is already clear.
+
+A real documentation-contract failure is different: if a required check fails because the current change introduced a defect that blocks the required workflow, fix that defect. Do not misclassify a cosmetic preference or a non-blocking status change as a CI blocker.
+
+#### Batching and duplicate-commit control
+
+- Prefer one coherent commit for one engineering, audit, user-decision, or governance milestone. Include the related source, tests, build integration, focused report, log, and handoff/roadmap changes that are actually required by that same milestone.
+- When a milestone is legitimately documentation-only, put all justified changes for that logical event into **one consolidated commit**, not a sequence of one-file handoff/log/roadmap commits.
+- Add one concise dev_log.md entry per real completed milestone/commit. A docs-only entry must identify the independent deliverable or qualifying trigger and explicitly state whether product source changed. Do not log routine recovery, no-op inspections, repeated CI polling, or SHA refreshes as milestones.
+- Update only records whose facts changed: log for a completed milestone; handoff for a material resumable-state change; roadmap for a material whole-repository module/status/priority change; XY-C1 context for a material user decision or correction. Do not mechanically update all records.
+- Do not create a second documentation-only commit for the same logical event merely to add the first commit's SHA, record a green result, or polish wording. A second commit is allowed only for a newly discovered independent material fact, a genuine blocking defect revealed by validation, or a distinct subsequent user-requested deliverable. When possible, fold that correction into the next substantive milestone.
+- At conversation end, compare the actual state with the existing handoff. If the handoff remains accurate and its first action is still correct, leave it untouched and make no checkpoint commit. The next GPT will perform the read-only recovery.
+- Keep a short rationale in the log for every standalone docs-only commit: why it could not sensibly wait, which positive trigger applies, and why the touched canonical files were necessary.
+
+The protocol is judged by useful engineering continuity and durable deliverables, not by commit count, log volume, or how recently every SHA field was edited.
 
 ### Durable product and architecture discussion continuity
 
@@ -196,7 +255,8 @@ A historical commit or audit note is evidence of a past edit, not proof that the
 
 ### SESSION_HANDOFF.md — exact resumable checkpoint
 Record:
-- current main SHA and active branch;
+- active branch and the last observed main SHA only when needed to explain the checkpoint; never update a handoff solely to chase a newer documentation-only SHA;
+- last verified product-source / test / build baseline SHA, separately from the live main SHA when they differ;
 - current task and selected module;
 - files/functions reviewed;
 - evidence and findings;

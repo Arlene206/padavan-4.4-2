@@ -1,3 +1,14 @@
+## 2026-11-14 22:03 CST (UTC+8) — Add documentation anti-churn gate and reconcile XY-C1 L3 result
+
+- Base main/product-source SHA: d3951a276ed4002aff3232cf93c8d55662a94e95; immutable backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807. This standalone documentation/governance milestone is explicitly requested by the user because earlier takeover sessions produced a long chain of redundant handoff/log/roadmap refresh commits.
+- Root cause addressed: previous wording encouraged the handoff to track the live main SHA while also encouraging updates at every session boundary. Documentation-only commits therefore made the recorded SHA stale again and could trigger another refresh. The protocol now separates read-only live-ref discovery from the last meaningful engineering/source baseline.
+- Added the documentation materiality gate, explicit allowed standalone-doc triggers, prohibited SHA-chasing/no-op/CI-poll commits, one-logical-event batching, second-commit exception conditions, and the rule to leave an already accurate handoff untouched. The bootstrap mirrors the operational essentials; scripts/check_ai_handoff_docs.py now fails if the anti-churn rules disappear. Updated handoff and roadmap to the verified d395 state. No production firmware C, configuration, or WebUI source changed.
+- Reconciled XY-C1 L3: exact-head run [43600235493](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43600235493), job 132463212449, passed Build XY-C1, Verify TRX output and artifact upload. Artifact [14116152532](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43600235493/artifacts/14116152532), 12,582,629 bytes, SHA-256 74dcad97bba22e3588a4cdac7fa1763da997f9ee43e2e0349237f20ea1b02ff6. Current product-source baseline d395 also has exact-head P1, HTTPD, AI docs, NVRAM, infosvr, AliDDNS, AliyunDrive and AdGuardHome Actions SUCCESS. L4 physical XY-C1 flash/boot/runtime remains NOT VERIFIED.
+- Documentation validator local execution: NOT RUN (this session has remote GitHub file operations, not a complete local checkout). The updated exact-head AI handoff documentation Action must pass on this governance commit; inspect it once, and fix only an actual blocking check failure.
+- Resulting commit: THIS COMMIT. Root log advances 86→87 records; no archive rotation or INDEX update is due.
+- Exact next action: read-only recovery on the resulting live main, inspect this commit's AI handoff docs Action once, then resume P1 with strict PID-file parsing/identity and first identify the true /var/run/lpdparent.pid writer. Do not create another SHA/status-only docs commit.
+---
+
 ## 2026-11-14 21:52 CST (UTC+8) — Remove duplicate HTTPD workflow trigger key
 
 - Parent main SHA: `e9ae56274e15cf79e25ec71346dee8c9ca9f08e7`; backup ref remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.

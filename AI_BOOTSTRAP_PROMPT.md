@@ -54,11 +54,22 @@ A host test or green workflow is not proof of L3/L4.
 The three root records have different jobs. Never mechanically update all three after every change.
 
 - `dev_log.md`: append one concise, newest-first entry for each coherent code or documentation milestone. It accumulates from 20–119 records. When the next entry would make 120 records, archive the oldest 100 complete entries verbatim in one batch and leave the newest 20 in the root file. If the root log exceeds the 384 KiB target earlier, perform one size-triggered batch rotation while retaining the newest 20. Hard limit: 512 KiB.
-- `SESSION_HANDOFF.md`: one live, actionable checkpoint. Replace it in place only when the active task, source/checkpoint SHA, validation state, blocker, or exact next action materially changes, and before ending a conversation. Do not create routine handoff archive copies; Git history preserves prior versions.
+- `SESSION_HANDOFF.md`: one live, actionable checkpoint. Replace it in place only when the active task, engineering/source baseline, validation boundary, blocker, or exact next action materially changes. A documentation-only SHA change is not a checkpoint change. Do not create routine handoff archive copies; Git history preserves prior versions.
 - `REFACTOR_ROADMAP.md`: one live whole-repository dashboard. Replace it in place only when module status, audit evidence, priorities, or repository-wide next steps materially change. Do not create routine roadmap archive copies; Git history preserves prior versions.
 - Update only the files whose information actually changed. A code milestone normally updates the log; update the handoff only when the resumable checkpoint changes; update the roadmap only when the global inventory/status/priority changes.
 - Preserve all existing historical log, handoff, and roadmap archives byte-for-byte. Existing handoff/roadmap archive directories are legacy history; do not add new snapshots for ordinary edits.
-- Run `python3 scripts/check_ai_handoff_docs.py` before a documentation commit when a local checkout is available. After pushing, inspect the workflow result on the exact commit SHA. CI results are authoritative in GitHub Actions; do## Work and stopping rules
+- Run `python3 scripts/check_ai_handoff_docs.py` before a documentation commit when a local checkout is available. After pushing, inspect the workflow result on the exact commit SHA. CI results are authoritative in GitHub Actions; do
+## Documentation anti-churn guard
+
+**Recovery is read-only by default.** Fetch live main and inspect the handoff/roadmap/Actions, but Never commit merely because a GPT has taken over, a recorded SHA is older than live main, a CI run finished, or a conversation is ending. The live SHA is fetched on every takeover; the handoff records the relevant engineering/source baseline and is not required to match a docs-only tip. Never create a follow-up commit to replace THIS COMMIT with a resulting SHA.
+
+This is not a ban on useful documentation-only work. A standalone documentation-only commit is allowed for an explicit user request, a material user decision/requirement, a completed evidence-backed audit deliverable, a real governance/validator/workflow defect that blocks safe work or required CI, or a materially changed end-of-session handoff that would otherwise misdirect the next GPT. Use the detailed materiality gate and exceptions in Section 0 of AI_DEVELOPMENT_PROTOCOL.md.
+
+For one logical event, batch all justified canonical-document changes into one commit. Do not emit a chain of handoff-only, log-only, and roadmap-only refresh commits. Do not log routine recovery, no-op inspections, repeated CI polling, SHA synchronization, or cosmetic edits as milestones. Do not create a follow-up docs-only commit just to record CI success. A second docs-only commit for the same event requires a newly discovered independent material fact, a genuine blocking validation defect, or a distinct user-requested deliverable.
+
+Before any documentation write, verify that the fact is new, materially changes safety/correctness/continuity/priority/next action, belongs in the chosen canonical file, and cannot safely wait for the next substantive milestone. If the current handoff remains accurate, leave it untouched.
+
+## Work and stopping rules
 
 - **Only `main` may be used for development, commits, and pushes.** Never create or use another development/work branch. The one explicit archival exception is `backup/pre-plugin-overhaul-2026-11-14`: it is frozen, read-only history; never switch to, modify, commit, push, rename, reset, rebase, merge, prune, or delete it. Read its root `BACKUP_BRANCH_DO_NOT_TOUCH.md` when needed. Do not mistake the normal main-only rule for permission to remove this preserved snapshot.
 - **Do not use pull requests for development or validation.** Complete each independent fix directly on the latest `main`, commit it, and push it to `main`.
