@@ -13,6 +13,8 @@ on:
       - "trunk/user/rc/src/storage_operation_lock.h"
       - "trunk/user/rc/src/storage_partition_probe.h"
       - "trunk/user/libdisk/src/disk_initial.c"
+      - "trunk/user/libdisk/src/disk_initial.h"
+      - "scripts/check_storage_safe_remove.py"
       - "trunk/user/libdisk/src/storage_swap_policy.h"
       - "trunk/user/scripts/files/sbin/automount.sh"
       - "trunk/user/scripts/files/sbin/spindown.sh"
@@ -48,6 +50,8 @@ on:
       - "trunk/user/rc/src/storage_operation_lock.h"
       - "trunk/user/rc/src/storage_partition_probe.h"
       - "trunk/user/libdisk/src/disk_initial.c"
+      - "trunk/user/libdisk/src/disk_initial.h"
+      - "scripts/check_storage_safe_remove.py"
       - "trunk/user/libdisk/src/storage_swap_policy.h"
       - "trunk/user/scripts/files/sbin/automount.sh"
       - "trunk/user/scripts/files/sbin/spindown.sh"
@@ -910,3 +914,6 @@ jobs:
 
           print("USB storage hotplug full caller graph, lock ordering and teardown contracts: PASS")
           PY
+
+      - name: Verify checked storage eject and firmware persistence gates
+        run: python3 scripts/check_storage_safe_remove.py

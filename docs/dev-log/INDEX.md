@@ -15,6 +15,7 @@
 | `docs/dev-log/2026/11/part-006.md` | 100 | 2026-11-09 → 2026-11-10 | 239599 | `453c9e3b28f0513581df22967f622690b79b0875` |
 | `docs/dev-log/2026/11/part-007.md` | 100 | 2026-11-10 → 2026-11-11 | 260614 | `09670480113fb49aff423bdddf0a58f5cdb4f537` |
 | `docs/dev-log/2026/11/part-008.md` | 100 | 2026-11-11 → 2026-11-13 | 251751 | `b9a16f053c5dbcd19bd3285e12da2d3876482dff` |
+| `docs/dev-log/2026/11/part-009.md` | 100 | 2026-11-13 14:21:06 CST (UTC+8) → 2026-11-15 — Add shared PID/start-time file identity helper | 219669 | `3dfc7bffc0e4f251aa15e58c9d1586e29f26096c` |
 
 
 - **Post-migration rotation:** the first evicted root-window record is preserved verbatim in `part-003.md`; its original root source blob was `733d3c678575611642b3f69fe4cfe5e19ece9b57`.
@@ -60,3 +61,5 @@
 - **Rolling-window continuation:** 100 oldest complete records evicted when root `dev_log.md` reached 120 entries are preserved verbatim, oldest first, in part-007; source root blob before rotation: `4446bd2eb1896fdc75377b6068192e8dc897813a`. The new HTTPD lifecycle record and 19 newest prior records remain in root.
 
 - **Rolling-window continuation:** 100 oldest complete records evicted when root `dev_log.md` reached 120 entries are preserved verbatim, oldest first, in part-008; source root blob before rotation: `bfff83b85369ff39e8a4dfa85bf5d702e6c8076f`. Root retains the newest 20 complete records.
+
+- **Rolling-window continuation:** 100 oldest complete records evicted when root `dev_log.md` reached 120 entries are preserved verbatim, oldest first, in part-009; source root blob before rotation: `7fe9963b0eeaa302e787340e847738fc24e3b6de`. Root retains the newest 20 complete records.

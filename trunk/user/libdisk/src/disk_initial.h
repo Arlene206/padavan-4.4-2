@@ -64,6 +64,8 @@ struct partition_info_t {
 	partition_info_t *next;
 };
 
+/* 0 = complete inventory (list may be NULL); -1 = incomplete/unknown. */
+extern int read_disk_data_checked(disk_info_t **disk_info_out);
 extern disk_info_t *read_disk_data(void);
 extern void free_disk_data(disk_info_t *disk_info_list);
 

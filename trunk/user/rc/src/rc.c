@@ -550,7 +550,12 @@ flash_firmware(void)
 	if (check_if_file_exist(script_name))
 		doSystem("%s %d", script_name, 0);
 #if defined (USE_STORAGE)
-	safe_remove_all_stor_devices(0);
+	if (safe_remove_all_stor_devices(0) != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(LOGNAME, "firmware update aborted: storage eject incomplete (errno=%d)", saved_errno);
+		errno = saved_errno;
+		return;
+	}
 #endif
 #if defined (USE_USB_SUPPORT)
 	stop_usb_printer_spoolers();
@@ -908,6 +913,7 @@ shutdown_router(int level)
 {
 	int use_halt = (level == 1) ? 1 : 0;
 	int is_ap_mode = get_ap_mode();
+	int storage_remove_status = 0;
 	const char *script_name = SCRIPT_SHUTDOWN;
 
 	/* Prevent a late Optware start hook from racing service shutdown. */
@@ -921,7 +927,9 @@ shutdown_router(int level)
 		doSystem("%s %d", script_name, level);
 
 #if defined (USE_STORAGE)
-	safe_remove_all_stor_devices(use_halt);
+	storage_remove_status = safe_remove_all_stor_devices(use_halt);
+	if (storage_remove_status != 0)
+		logmessage(LOGNAME, "storage eject incomplete; continuing power-down without storage persistence");
 #endif
 
 #if defined (USE_USB_SUPPORT)
@@ -939,8 +947,12 @@ shutdown_router(int level)
 
 	LED_CONTROL(LED_WAN, LED_OFF);
 
-	storage_save_time(10);
-	write_storage_to_mtd();
+	if (storage_remove_status == 0) {
+		storage_save_time(10);
+		write_storage_to_mtd();
+	} else {
+		logmessage(LOGNAME, "skipping storage MTD persistence because safe eject was not verified");
+	}
 
 	stop_8021x_all();
 	stop_wifi_all_wl();

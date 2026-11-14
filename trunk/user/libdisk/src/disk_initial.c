@@ -996,89 +996,146 @@ create_disk(const char *dev_name, int dev_type, u32 major, u32 minor, disk_info_
 	return *new_disk_info;
 }
 
-disk_info_t *
-read_disk_data(void)
+int
+read_disk_data_checked(disk_info_t **disk_info_out)
 {
 	FILE *fp;
-	char line[64], dev_name[32];
+	char line[64], dev_name[32], extra;
 	disk_info_t *disk_info_list, *parent_disk_info, **follow_disk_info_list;
 	partition_info_t **follow_partition_list;
 	unsigned long long dev_size;
 	u32 major, minor;
-	int dev_type, read_error, close_status, saved_errno;
+	size_t line_length;
+	int dev_type, read_error, close_status, saved_errno, read_errno, close_errno;
 
+	if (!disk_info_out) {
+		errno = EINVAL;
+		return -1;
+	}
+	*disk_info_out = NULL;
+	errno = 0;
 	fp = fopen(PROC_PARTITIONS_FILE, "r");
 	if (!fp)
-		return NULL;
+		return -1;
 
-	/* skip two lines */
+	/* A short or failed procfs header is not evidence of an empty inventory. */
+	errno = 0;
 	if (!fgets(line, sizeof(line), fp)) {
-		fclose(fp);
-		return NULL;
+		saved_errno = ferror(fp) && errno ? errno : EIO;
+		(void)fclose(fp);
+		errno = saved_errno;
+		return -1;
 	}
-
+	errno = 0;
 	if (!fgets(line, sizeof(line), fp)) {
-		fclose(fp);
-		return NULL;
+		saved_errno = ferror(fp) && errno ? errno : EIO;
+		(void)fclose(fp);
+		errno = saved_errno;
+		return -1;
 	}
 
 	disk_info_list = NULL;
-
-	while (fgets(line, sizeof(line), fp)) {
-		dev_name[0] = 0;
-		if (sscanf(line, " %u %u %llu %31[^\n]", &major, &minor, &dev_size, dev_name) != 4)
+	for (;;) {
+		errno = 0;
+		if (!fgets(line, sizeof(line), fp)) {
+			read_error = ferror(fp);
+			read_errno = errno;
+			break;
+		}
+		line_length = strlen(line);
+		if (line_length == sizeof(line) - 1 && line[line_length - 1] != '\n') {
+			saved_errno = EIO;
+			free_disk_data(disk_info_list);
+			(void)fclose(fp);
+			errno = saved_errno;
+			return -1;
+		}
+		if (strspn(line, " \t\r\n") == line_length)
 			continue;
+
+		dev_name[0] = 0;
+		if (sscanf(line, " %u %u %llu %31s %c", &major, &minor, &dev_size, dev_name, &extra) != 4) {
+			saved_errno = EIO;
+			free_disk_data(disk_info_list);
+			(void)fclose(fp);
+			errno = saved_errno;
+			return -1;
+		}
 		if (major != SD_DISK_MAJOR && major != MMC_DISK_MAJOR)
 			continue;
 		if (dev_size < 8)
 			continue;
-		
+
 		dev_type = get_device_type_by_device(dev_name);
-		
 		if (is_disk_name(dev_name, dev_type)) {
 			follow_disk_info_list = &disk_info_list;
-			while(*follow_disk_info_list)
+			while (*follow_disk_info_list)
 				follow_disk_info_list = &((*follow_disk_info_list)->next);
-			create_disk(dev_name, dev_type, major, minor, follow_disk_info_list);
-		} else
-		if (is_partition_name(dev_name, dev_type)) {
+			errno = 0;
+			if (!create_disk(dev_name, dev_type, major, minor, follow_disk_info_list)) {
+				saved_errno = errno ? errno : EIO;
+				free_disk_data(disk_info_list);
+				(void)fclose(fp);
+				errno = saved_errno;
+				return -1;
+			}
+		} else if (is_partition_name(dev_name, dev_type)) {
 			parent_disk_info = disk_info_list;
-			
 			while (parent_disk_info) {
 				if (is_partition_of_disk(dev_name, parent_disk_info->device, dev_type))
 					break;
-
 				parent_disk_info = parent_disk_info->next;
 			}
-			
-			if (!parent_disk_info)
-				continue;
-			
+			if (!parent_disk_info) {
+				saved_errno = EIO;
+				free_disk_data(disk_info_list);
+				(void)fclose(fp);
+				errno = saved_errno;
+				return -1;
+			}
 			follow_partition_list = &(parent_disk_info->partitions);
-			while(*follow_partition_list)
+			while (*follow_partition_list)
 				follow_partition_list = &((*follow_partition_list)->next);
-			
+			errno = 0;
 			if (!create_partition(dev_name, dev_type, parent_disk_info, follow_partition_list)) {
 				saved_errno = errno ? errno : EIO;
-				errno = 0;
-				fclose(fp);
 				free_disk_data(disk_info_list);
+				(void)fclose(fp);
 				errno = saved_errno;
-				return NULL;
+				return -1;
 			}
+		} else {
+			saved_errno = EIO;
+			free_disk_data(disk_info_list);
+			(void)fclose(fp);
+			errno = saved_errno;
+			return -1;
 		}
 	}
 
-	read_error = ferror(fp);
 	errno = 0;
 	close_status = fclose(fp);
+	close_errno = errno;
 	if (read_error || close_status != 0) {
-		saved_errno = errno ? errno : EIO;
+		saved_errno = read_error && read_errno ? read_errno :
+			      (close_status != 0 && close_errno ? close_errno : EIO);
 		free_disk_data(disk_info_list);
 		errno = saved_errno;
-		return NULL;
+		return -1;
 	}
+	*disk_info_out = disk_info_list;
+	errno = 0;
+	return 0;
+}
 
+disk_info_t *
+read_disk_data(void)
+{
+	disk_info_t *disk_info_list = NULL;
+
+	if (read_disk_data_checked(&disk_info_list) != 0)
+		return NULL;
 	return disk_info_list;
 }
+
 

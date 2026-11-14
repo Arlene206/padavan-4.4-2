@@ -714,7 +714,7 @@ void start_stor_apps(void);
 int stop_stor_apps(void);
 void on_deferred_hotplug_dev(void);
 void safe_remove_stor_device(int port_b, int port_e, const char *dev_name, int do_spindown);
-void safe_remove_all_stor_devices(int do_spindown);
+int safe_remove_all_stor_devices(int do_spindown);
 #endif
 
 #if defined (USE_USB_SUPPORT)

@@ -20,4 +20,14 @@ storage_service_stop_status_merge(int current_status, int next_status)
 	return current_status != 0 ? current_status : next_status;
 }
 
+/* A successful unmount call is insufficient if mounts remain or the final
+ * /proc/mounts inventory is unknown. */
+static inline int
+storage_safe_remove_complete(int path_status, int fallback_status, int remaining_mounts)
+{
+	if (path_status != 0 || fallback_status != 0 || remaining_mounts != 0)
+		return -1;
+	return 0;
+}
+
 #endif

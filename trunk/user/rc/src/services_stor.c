@@ -3214,44 +3214,71 @@ safe_remove_stor_device(int port_b, int port_e, const char *dev_name, int do_spi
 	file_unlock(storage_lock);
 }
 
-void
+int
 safe_remove_all_stor_devices(int do_spindown)
 {
 	int storage_lock;
-	disk_info_t *disks_info;
-	int path_status, fallback_status;
+	disk_info_t *disks_info = NULL;
+	int path_status, fallback_status, mount_count;
+	int result = -1, saved_errno = 0;
 
 	storage_lock = storage_operation_lock_acquire(file_lock);
 	if (storage_lock == -1) {
+		saved_errno = errno ? errno : EBUSY;
 		logmessage("Storage", "cannot acquire storage operation lock; refusing eject-all operation");
-		return;
+		errno = saved_errno;
+		return -1;
 	}
-
+	errno = 0;
 	if (stop_stor_apps() != 0) {
+		saved_errno = errno ? errno : EIO;
 		logmessage("Storage", "eject-all aborted because one or more required storage services did not stop");
-		file_unlock(storage_lock);
-		return;
+		goto out;
+	}
+	if (read_disk_data_checked(&disks_info) != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage("Storage", "cannot obtain a complete disk inventory; refusing eject-all operation (errno %d)", saved_errno);
+		goto out;
 	}
 
-	disks_info = read_disk_data();
+	errno = 0;
 	path_status = umount_stor_path(disks_info, 0, NULL, do_spindown);
+	if (path_status != 0)
+		saved_errno = errno ? errno : EIO;
 	free_disk_data(disks_info);
+	disks_info = NULL;
 	if (path_status == 0) {
+		errno = 0;
 		fallback_status = umount_all_storage();
+		if (fallback_status != 0 && saved_errno == 0)
+			saved_errno = errno ? errno : EIO;
 	} else {
-		/*
-		 * The per-device pass also runs the Optware stop hook. Do not let
-		 * the generic fallback bypass a failed hook and detach a live /opt.
-		 */
+		/* Do not bypass a failed Optware stop hook with generic unmount. */
 		fallback_status = -1;
-		logmessage("Storage", "per-device unmount pass was incomplete; refusing fallback unmount to preserve active storage state");
+		logmessage("Storage", "per-device unmount was incomplete; refusing fallback unmount");
 	}
-	if (fallback_status != 0)
-		logmessage("Storage", "one or more storage mounts or swap devices could not be released");
+
+	errno = 0;
+	mount_count = count_stor_mountpoint();
+	result = storage_safe_remove_complete(path_status, fallback_status, mount_count);
+	if (result != 0) {
+		if (saved_errno == 0)
+			saved_errno = errno ? errno : EIO;
+		logmessage("Storage", "eject incomplete/unknown (unmount=%d fallback=%d mounts=%d); refusing storage persistence",
+			   path_status, fallback_status, mount_count);
+	}
 	restore_home_dir();
 #if defined(APP_NFSD)
-	if (fallback_status == 0)
+	if (result == 0)
 		unload_nfsd();
 #endif
+out:
+	free_disk_data(disks_info);
 	file_unlock(storage_lock);
+	if (result != 0)
+		errno = saved_errno ? saved_errno : EIO;
+	else
+		errno = 0;
+	return result;
 }
+

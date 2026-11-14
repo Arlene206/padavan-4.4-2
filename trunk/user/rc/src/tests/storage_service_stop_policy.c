@@ -39,6 +39,12 @@ main(void)
 	    check_merged_status("preserve first daemon failure", -2, -1, -2))
 		return 1;
 
-	puts("storage daemon stop postcondition and group result policy: PASS");
+	if (storage_safe_remove_complete(0, 0, 0) != 0 ||
+	    storage_safe_remove_complete(-1, 0, 0) == 0 ||
+	    storage_safe_remove_complete(0, -1, 0) == 0 ||
+	    storage_safe_remove_complete(0, 0, 1) == 0 ||
+	    storage_safe_remove_complete(0, 0, -1) == 0)
+		return 1;
+	puts("storage daemon stop and safe-eject completion policies: PASS");
 	return 0;
 }
