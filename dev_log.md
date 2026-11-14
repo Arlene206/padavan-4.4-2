@@ -1,3 +1,15 @@
+## 2026-11-14 12:32 CST (UTC+8) — Separate SmartDNS service UI from proxy DNS integration
+
+- Re-fetched live `main` at base SHA `f6239a74b3feb03a056f937630e3f020e0445ec6` and inspected the current SmartDNS WebUI, SmartDNS package/build gate, runtime configuration generator, and legacy proxy page.
+- Confirmed `Advanced_smartdns.asp` is an independent page with its own `SmartdnsConf` form and five configuration panels; `smartdns.sh` generates a separate SmartDNS config. The proxy page's legacy DNS toggles are integration concerns, not the SmartDNS service settings.
+- Recorded the architecture decision in `XY-C1_DISCUSSION_CONTEXT.md`: retain an independent SmartDNS WebUI/service plane; let the proxy UI expose only DNS integration/egress selection and loop-safe status. Domain-to-resolver policy and packet egress policy must remain distinct but coordinated.
+- Verified from current SmartDNS upstream documentation that DNS upstreams can use named SOCKS5/HTTP proxies. SOCKS5 supports TCP and UDP; HTTP is TCP-only. The Padavan `smartdns.sh` generator does not currently emit `proxy-server` / `-proxy`, so this remains a candidate integration, not an existing feature.
+- Updated the root bootstrap and development protocol to explicitly preserve the user-requested immutable `backup/pre-plugin-overhaul-2026-11-14` snapshot. All future development remains on `main`; the named archive must never be modified or deleted.
+- Changed paths: `XY-C1_DISCUSSION_CONTEXT.md`, `AI_BOOTSTRAP_PROMPT.md`, `AI_DEVELOPMENT_PROTOCOL.md`, and this log. No product code changed. Local documentation checker/Actions not yet run; no firmware build or hardware test is claimed.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-14 09:31 CST (UTC+8) — Pin active handoff to latest main and leave exact-head CI pending
 
 - Base `main` SHA: `537c6041f7198138cf4ab036fbefbbac9c576a45`. Refreshed `SESSION_HANDOFF.md` in place as `2b6b12d23d899717545f019bce6c5bf87a4d4edd` to preserve the active P1 process-inventory blocker and identify the pending exact-head Actions. No product source or tests changed.
