@@ -1,3 +1,15 @@
+## 2026-11-15 — Strictly validate LPRng duplicate-instance PID records
+
+- Base main SHA: `80f921e11ba66d9e687485e2f64ded9aec6cd66a`.
+- Replaced permissive `fscanf("%d")` and `kill(pid, 0)` with bounded read, digits-only PID parsing, overflow/range checks and explicit absent-versus-UNKNOWN handling.
+- A parsed PID is not trusted by itself: LPRng scans the shared process inventory, matches the exact PID, and revalidates captured start_time, comm and argv identity before treating it as a running duplicate. UNKNOWN from PID-file I/O or procfs blocks startup.
+- Extended production-source integration checks. The preceding atomic producer change passed process-lifecycle CI; XY-C1 target build for its exact head is still in progress. This consumer change has its own exact-head Actions pending.
+- Changed paths: `trunk/user/LPRng/src/src/common/lpd.c`, `scripts/check_process_lifecycle_integration.py`, `SESSION_HANDOFF.md`, and this log. Resulting commit: THIS COMMIT.
+- Root log advances 91→92 records; no archive rotation or INDEX update is due.
+- Next: inspect exact-head GNU89/MIPS build results, then resolve LPD socket-bind/PID-publication lifecycle ordering.
+
+---
+
 ## 2026-11-15 — Publish LPRng PID file atomically and fail startup on errors
 
 - Base main SHA: `c95d9e96e4cf6d7f4cabe7d6920f0654df9ee346`.

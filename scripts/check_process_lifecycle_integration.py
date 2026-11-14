@@ -39,3 +39,13 @@ assert "errno == EINTR" in pid_writer
 assert 'rename(temp_path, "/var/run/lpdparent.pid")' in pid_writer
 assert "fopen(\"/var/run/lpdparent.pid\", \"w\")" not in pid_writer
 assert "if (update_pidfile() < 0)" in lpd_source
+
+assert '#include <process_inventory.h>' in lpd_source
+pid_reader = lpd_source.split("static int read_lpd_pidfile(pid_t *pid)", 1)[1].split("\\nstatic int lpd_pid_is_running", 1)[0]
+assert "errno == ENOENT ? 0 : -1" in pid_reader
+assert "buffer[count] < '0' || buffer[count] > '9'" in pid_reader
+assert "value <= 1 || value > (unsigned long)INT_MAX" in pid_reader
+assert "static int lpd_pid_is_running(pid_t pid)" in lpd_source
+assert "process_inventory_scan(\"lpd\", &snapshot)" in lpd_source
+assert "process_identity_validate(\"lpd\", &snapshot.items[i])" in lpd_source
+assert "fscanf(fp, \"%d\", &pid)" not in lpd_source

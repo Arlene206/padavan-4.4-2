@@ -30,6 +30,7 @@
 #include "wlancom.h"
 #include "lp_asus.h"
 #include "syslog.h"
+#include <process_inventory.h>
 
 #include <bin_sem_asus.h>
 #include <nvram_linux.h>
@@ -164,6 +165,98 @@ static int update_pidfile(void)
 	return 0;
 }
 
+
+static int read_lpd_pidfile(pid_t *pid)
+{
+	char buffer[32];
+	char *end;
+	unsigned long value;
+	size_t used = 0;
+	int fd;
+	int saved_errno;
+	ssize_t count;
+
+	fd = open("/var/run/lpdparent.pid", O_RDONLY);
+	if (fd < 0)
+		return errno == ENOENT ? 0 : -1;
+
+	while (used < sizeof(buffer) - 1) {
+		count = read(fd, buffer + used, sizeof(buffer) - 1 - used);
+		if (count < 0) {
+			if (errno == EINTR)
+				continue;
+			saved_errno = errno;
+			close(fd);
+			errno = saved_errno;
+			return -1;
+		}
+		if (count == 0)
+			break;
+		used += count;
+	}
+
+	if (used == sizeof(buffer) - 1) {
+		char extra;
+		do {
+			count = read(fd, &extra, 1);
+		} while (count < 0 && errno == EINTR);
+		if (count != 0) {
+			saved_errno = count < 0 ? errno : EOVERFLOW;
+			close(fd);
+			errno = saved_errno;
+			return -1;
+		}
+	}
+
+	if (close(fd) < 0)
+		return -1;
+	if (used == 0) {
+		errno = EINVAL;
+		return -1;
+	}
+	buffer[used] = '\0';
+	for (count = 0; count < (ssize_t)used; count++) {
+		if (buffer[count] < '0' || buffer[count] > '9') {
+			errno = EINVAL;
+			return -1;
+		}
+	}
+
+	errno = 0;
+	value = strtoul(buffer, &end, 10);
+	if (errno == ERANGE || end == buffer || *end ||
+	    value <= 1 || value > (unsigned long)INT_MAX) {
+		errno = EINVAL;
+		return -1;
+	}
+	*pid = (pid_t)value;
+	return 1;
+}
+
+static int lpd_pid_is_running(pid_t pid)
+{
+	struct process_snapshot snapshot;
+	enum process_presence state;
+	size_t i;
+
+	state = process_inventory_scan("lpd", &snapshot);
+	if (state == PROCESS_PRESENCE_UNKNOWN)
+		return -1;
+	for (i = 0; i < snapshot.count; i++) {
+		if (snapshot.items[i].pid != pid)
+			continue;
+		state = process_identity_validate("lpd", &snapshot.items[i]);
+		process_snapshot_release(&snapshot);
+		if (state == PROCESS_PRESENCE_RUNNING)
+			return 1;
+		if (state == PROCESS_PRESENCE_UNKNOWN)
+			return -1;
+		return 0;
+	}
+	process_snapshot_release(&snapshot);
+	return 0;
+}
+
 /*
  * logmessage
  *
@@ -206,18 +299,25 @@ int main(int argc, char *argv[])
 	struct sockaddr_in	netaddr, client;
 #endif
 	int lock;
-	int pid = 0;
-	FILE *fp;
+	pid_t pid;
+	int pidfile_state;
+	int existing_state;
 
-	fp = fopen("/var/run/lpdparent.pid", "r");
-	if (fp) {
-		fscanf(fp, "%d", &pid);
-		fclose(fp);
+	pidfile_state = read_lpd_pidfile(&pid);
+	if (pidfile_state < 0) {
+		syslog(LOG_ERR, "cannot read lpd pid file safely: %m");
+		exit(1);
 	}
-
-	if ((pid > 1) && (kill(pid, 0) == 0 || errno != ESRCH)) {
-		syslog(LOGOPTS, "another lpd daemon exists!!\n");
-		exit(0);
+	if (pidfile_state > 0) {
+		existing_state = lpd_pid_is_running(pid);
+		if (existing_state < 0) {
+			syslog(LOG_ERR, "cannot validate existing lpd process safely");
+			exit(1);
+		}
+		if (existing_state > 0) {
+			syslog(LOGOPTS, "another lpd daemon exists!!\n");
+			exit(0);
+		}
 	}
 
 	if (update_pidfile() < 0) {
