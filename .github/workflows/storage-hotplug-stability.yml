@@ -328,11 +328,14 @@ jobs:
           assert "umount_ejected();" not in safe_remove
 
           remove_all = function_body(storage, "safe_remove_all_stor_devices(")
-          assert remove_all.index("storage_operation_lock_acquire(file_lock)") < remove_all.index("read_disk_data()")
+          assert remove_all.index("storage_operation_lock_acquire(file_lock)") < remove_all.index("read_disk_data_checked(&disks_info)")
+          assert remove_all.index("read_disk_data_checked(&disks_info)") < remove_all.index("stop_stor_apps()")
+          assert "path_status = disks_info ?" in remove_all
           assert "if (path_status == 0)" in remove_all
           assert remove_all.index("if (path_status == 0)") < remove_all.index("fallback_status = umount_all_storage();")
           assert "refusing fallback unmount" in remove_all
-          assert remove_all.count("file_unlock(storage_lock);") == 2
+          assert "count_stor_mountpoint()" in remove_all
+          assert remove_all.count("file_unlock(storage_lock);") == 1
 
           # Deferred removable-storage startup preserves a tri-state inventory,
           # separates integrated app work from Optware work, and observes the

@@ -2697,46 +2697,17 @@ storage_unmount_staged_disk_mounts(const char *disk,
 int
 count_stor_mountpoint(void)
 {
-	FILE *procpt;
-	char line[512], devname[32];
-	int count = 0, read_error, close_status;
-	int read_errno, close_errno, saved_errno;
+	struct storage_unmount_mount_entry *mounts, *entry;
+	int count;
 
-	procpt = fopen(PROC_MOUNTS_FILE, "r");
-	if (!procpt) {
-		saved_errno = errno ? errno : EIO;
-		logmessage("Storage", "cannot open %s to count mounted storage (errno %d)",
-			   PROC_MOUNTS_FILE, saved_errno);
-		errno = saved_errno;
+	mounts = NULL;
+	if (storage_stage_unmount_mounts(&mounts) != 0)
 		return storage_mount_inventory_result(0, 1);
-	}
 
-	errno = 0;
-	while (fgets(line, sizeof(line), procpt)) {
-		if (sscanf(line, "%31s %*[^\n]", devname) != 1)
-			continue;
-
-		if (is_valid_storage_device(devname))
-			count++;
-	}
-	read_error = ferror(procpt);
-	read_errno = errno;
-
-	errno = 0;
-	close_status = fclose(procpt);
-	close_errno = errno;
-	if (read_error || close_status != 0) {
-		saved_errno = read_errno;
-		if (saved_errno == 0 && close_status != 0)
-			saved_errno = close_errno;
-		if (saved_errno == 0)
-			saved_errno = EIO;
-		logmessage("Storage", "incomplete read of %s while counting mounted storage (errno %d)",
-			   PROC_MOUNTS_FILE, saved_errno);
-		errno = saved_errno;
-		return storage_mount_inventory_result(count, 1);
-	}
-
+	count = 0;
+	for (entry = mounts; entry; entry = entry->next)
+		count++;
+	free_storage_unmount_mounts(mounts);
 	return storage_mount_inventory_result(count, 0);
 }
 
@@ -3230,19 +3201,20 @@ safe_remove_all_stor_devices(int do_spindown)
 		return -1;
 	}
 	errno = 0;
-	if (stop_stor_apps() != 0) {
-		saved_errno = errno ? errno : EIO;
-		logmessage("Storage", "eject-all aborted because one or more required storage services did not stop");
-		goto out;
-	}
 	if (read_disk_data_checked(&disks_info) != 0) {
 		saved_errno = errno ? errno : EIO;
 		logmessage("Storage", "cannot obtain a complete disk inventory; refusing eject-all operation (errno %d)", saved_errno);
 		goto out;
 	}
+	if (stop_stor_apps() != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage("Storage", "eject-all aborted because one or more required storage services did not stop");
+		goto out;
+	}
 
+	/* A complete empty inventory still needs the generic mounts fallback. */
 	errno = 0;
-	path_status = umount_stor_path(disks_info, 0, NULL, do_spindown);
+	path_status = disks_info ? umount_stor_path(disks_info, 0, NULL, do_spindown) : 0;
 	if (path_status != 0)
 		saved_errno = errno ? errno : EIO;
 	free_disk_data(disks_info);
@@ -3250,8 +3222,10 @@ safe_remove_all_stor_devices(int do_spindown)
 	if (path_status == 0) {
 		errno = 0;
 		fallback_status = umount_all_storage();
-		if (fallback_status != 0 && saved_errno == 0)
-			saved_errno = errno ? errno : EIO;
+		if (fallback_status != 0) {
+			if (saved_errno == 0)
+				saved_errno = errno ? errno : EIO;
+		}
 	} else {
 		/* Do not bypass a failed Optware stop hook with generic unmount. */
 		fallback_status = -1;

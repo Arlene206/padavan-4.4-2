@@ -81,6 +81,16 @@ require("read_disk_data_checked(&disk_info_list)" in legacy and "return disk_inf
 require("read_disk_data_checked" in disk_header and "read_disk_data(void)" in disk_header,
         "both checked and legacy inventory APIs must be exported")
 
+require("read_disk_data_checked(&disks_info)" in eject and
+        eject.index("read_disk_data_checked(&disks_info)") < eject.index("stop_stor_apps()"),
+        "obtain a complete inventory before stopping services")
+require("path_status = disks_info ? umount_stor_path(disks_info, 0, NULL, do_spindown) : 0" in eject,
+        "a valid empty inventory must still reach generic mount cleanup")
+count = body(storage, "count_stor_mountpoint(void)")
+require("storage_stage_unmount_mounts(&mounts)" in count and
+        "free_storage_unmount_mounts(mounts)" in count,
+        "final mount count must use the complete parsed mount inventory")
+
 eject = body(storage, "safe_remove_all_stor_devices(int do_spindown)")
 require("storage_operation_lock_acquire(file_lock)" in eject and "stop_stor_apps()" in eject,
         "eject must retain operation lock and storage-service stop preflight")
