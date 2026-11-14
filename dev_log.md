@@ -1,3 +1,13 @@
+## 2026-11-15 — Update detect_link regression for identity-bound PID helper
+
+- Exact-head detect_link workflow `43621732208` failed only because its existing caller-wiring assertion still required legacy `kill_pidfile_s()` calls after the producer and both consumers were migrated to `process_pidfile_write/signal()`.
+- Updated the workflow contract to require PID+start_time publication and expected-process identity signaling, reject legacy calls, and watch the shared helper source/header in push and pull_request path filters.
+- The GNU89 signal deferral regression itself passed. Production code did not change in this correction.
+- Changed paths: `.github/workflows/detect-link-signal-stability.yml` and this log. Resulting commit: THIS COMMIT.
+- Exact-head detect_link workflow will rerun automatically.
+
+---
+
 ## 2026-11-15 — Migrate detect_link PID producer and both signal consumers
 
 - Base main SHA: `3dba5c47aa5986bb5530370ff1aa436ce70aa113`.

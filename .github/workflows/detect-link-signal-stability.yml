@@ -5,6 +5,8 @@ on:
     paths:
       - ".github/workflows/detect-link-signal-stability.yml"
       - "trunk/user/rc/src/detect_link.c"
+      - "trunk/user/shared/src/process_pidfile.h"
+      - "trunk/user/shared/src/process_pidfile.c"
       - "trunk/user/rc/src/detect_link_signal_policy.h"
       - "trunk/user/rc/src/tests/detect_link_signal_policy.c"
       - "trunk/user/rc/src/rc.c"
@@ -116,8 +118,10 @@ jobs:
           led_notify = body(detect, "notify_leds_detect_link(void)")
           stop_notify = body(detect, "stop_detect_link(void)")
           show_leds = body(detect, "show_hide_front_leds(int is_show)")
-          assert "kill_pidfile_s(DL_PID_FILE, SIGUSR1)" in reset_notify
-          assert "kill_pidfile_s(DL_PID_FILE, SIGHUP)" in led_notify
+          assert 'process_pidfile_signal(DL_PID_FILE, "detect_link", SIGUSR1)' in reset_notify
+          assert 'process_pidfile_signal(DL_PID_FILE, "detect_link", SIGHUP)' in led_notify
+          assert "kill_pidfile_s(DL_PID_FILE" not in reset_notify + led_notify
+          assert 'process_pidfile_write(DL_PID_FILE, "detect_link")' in main
           assert "killall" in stop_notify
           assert "notify_leds_detect_link();" in show_leds
           assert "notify_reset_detect_link();" in wan
