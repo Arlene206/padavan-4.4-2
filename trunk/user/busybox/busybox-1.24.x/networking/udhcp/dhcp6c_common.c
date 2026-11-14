@@ -33,6 +33,7 @@
 #include <netinet/if_ether.h>		// for hwid only
 #include <limits.h>
 #include <netdb.h>
+#include <sys/uio.h>
 
 #include "dhcp6c.h"
 #include "dhcp6c_duid_file_policy.h"

@@ -905,6 +905,7 @@ jobs:
           # DHCPv6 DUID is shared user-space policy; both firmware package and
           # the standalone host BusyBox build must provide its source include.
           assert '#include "dhcp6c_duid_file_policy.h"' in busybox_dhcp6c_common
+          assert "#include <sys/uio.h>" in busybox_dhcp6c_common
           assert "EXTRA_CFLAGS += -I$(ROOTDIR)/user/shared/src" in busybox_package
           assert "CONFIG_EXTRA_CFLAGS" in busybox_flags
           host_busybox_step = workflow.split("- name: Build firmware BusyBox 1.24.2 and run Optware lifecycle regressions under ash", 1)[1].split("- name: Compile and run storage eject inventory regression", 1)[0]
