@@ -1,3 +1,16 @@
+## 2026-11-15 — Preserve LPD PID evidence when service stop is not confirmed
+
+- Base main SHA: `edc70800a2659a4b9659e582706c9cae24aa2274`; product-source baseline before this slice: `d3951a276ed4002aff3232cf93c8d55662a94e95`.
+- Confirmed the actual `/var/run/lpdparent.pid` producer in `trunk/user/LPRng/src/src/common/lpd.c::update_pidfile()`: LPRng writes its own `getpid()` before entering its server loop. `services_usb.c::start_lpd()` unlinks the previous PID file before launching `/usr/sbin/lpd`.
+- Fixed `stop_lpd()` so it unlinks `lpdparent.pid` only when `kill_services({"lpd"})` returns confirmed STOPPED (zero). UNKNOWN, CHANGED, TIMEOUT or FAILED now preserve the PID evidence rather than deleting it while the daemon may still exist.
+- Added a production-source integration assertion and included `services_usb.c` in the process-lifecycle push workflow path filter. This is one bounded P1 caller fix; no broad PID API migration is claimed.
+- Local checkout and local test execution are unavailable in this remote-only session. Exact-head process-lifecycle and any triggered firmware build Actions must be inspected before claiming L2/L3. No L3/L4 result is claimed for this change.
+- Changed paths: `trunk/user/rc/src/services_usb.c`, `scripts/check_process_lifecycle_integration.py`, `.github/workflows/process-lifecycle-regression.yml`, `SESSION_HANDOFF.md`, and this log. Resulting commit: THIS COMMIT.
+- Root log advances 87→88 records; no archive rotation or INDEX update is due.
+- Next: inspect exact-head Actions; then harden the LPRng PID-file producer/duplicate-instance parser and coordinate strict PID/start_time/executable validation with the remaining PID-file consumers.
+
+---
+
 ## 2026-11-14 — Require continuous cross-session execution and atomic engineering commits
 
 - Explicit user request: change the durable repository contract so each GPT conversation continues the same authorized engineering job, makes source/test progress until its available context/time budget is genuinely near exhaustion, and leaves a usable handoff for the next conversation. User-facing progress narration is secondary to repository continuity.

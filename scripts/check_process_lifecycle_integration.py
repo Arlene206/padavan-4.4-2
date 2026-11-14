@@ -8,6 +8,7 @@ shared_header = (root / "trunk/user/shared/src/shutils.h").read_text()
 pids_source = (root / "trunk/user/shared/src/pids.c").read_text()
 common_ex = (root / "trunk/user/rc/src/common_ex.c").read_text()
 policy = (root / "trunk/user/rc/src/service_lifecycle_policy.h").read_text()
+usb_services = (root / "trunk/user/rc/src/services_usb.c").read_text()
 
 assert "process_inventory.o" in shared_makefile
 assert '#include "process_inventory.h"' in shared_header
@@ -24,4 +25,10 @@ assert 'doSystem("killall %s %s", signal_option, service_name)' not in common_ex
 assert "service_lifecycle_preflight" in policy
 assert "service_lifecycle_signal_targets" in policy
 assert "SERVICE_LIFECYCLE_UNKNOWN" in policy
+
+stop_lpd_start = usb_services.index("void\\nstop_lpd(void)")
+stop_lpd_end = usb_services.index("\\n}\\n#endif", stop_lpd_start)
+stop_lpd = usb_services[stop_lpd_start:stop_lpd_end]
+assert "if (kill_services(svcs, 3, 1) != 0)\\n\\t\\treturn;" in stop_lpd
+assert stop_lpd.index("kill_services") < stop_lpd.index('unlink("/var/run/lpdparent.pid")')
 print("process inventory and lifecycle integration contract: PASS")

@@ -121,7 +121,9 @@ void
 stop_lpd(void)
 {
 	char* svcs[] = { "lpd", NULL };
-	kill_services(svcs, 3, 1);
+
+	if (kill_services(svcs, 3, 1) != 0)
+		return;
 
 	unlink("/var/run/lpdparent.pid");
 }

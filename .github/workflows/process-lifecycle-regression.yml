@@ -11,6 +11,7 @@ on:
       - "trunk/user/shared/src/Makefile"
       - "trunk/user/shared/src/tests/process_inventory.c"
       - "trunk/user/rc/src/common_ex.c"
+      - "trunk/user/rc/src/services_usb.c"
       - "trunk/user/rc/src/service_lifecycle_policy.h"
       - "trunk/user/rc/src/tests/service_lifecycle_policy.c"
       - "scripts/check_process_lifecycle_integration.py"
