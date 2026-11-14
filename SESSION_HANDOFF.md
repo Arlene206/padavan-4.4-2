@@ -6,7 +6,7 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2. Only main is writable; the preserved backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807. The last full XY-C1/TRX PASS is older source d3951a276ed4002aff3232cf93c8d55662a94e95 and is not current. Exact-head XY-C1 run 43622638409 on main SHA 733463cb9e3289c62836dd1b7405a30ec1a424cc failed compiling rstats.c:722 because saved_errno was undeclared after the PID migration. This commit fixes that source error; its exact-head rebuild must pass before advancing to watchdog migration. Fetch live main before every write.
+- Repository: Arlene206/padavan-4.4-2. Only main is writable; the preserved backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807. The last full XY-C1/TRX PASS is older source d3951a276ed4002aff3232cf93c8d55662a94e95 and is not current. Exact-head XY-C1 run 43622638409 on main SHA 733463cb9e3289c62836dd1b7405a30ec1a424cc failed compiling rstats.c:722 because saved_errno was undeclared after the PID migration. Commit dd7a9b42f6f12b1a585e09cb54a1d69c25f69877 fixed that source error; its exact-head build was still in progress when this watchdog slice began. This commit adds watchdog identity binding and triggers another exact-head MIPS build. Fetch live main before every write.
 - Immutable archive: `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`. Read-only; never modify it.
 - **Permanent user entrypoint:** `接手 https://github.com/Arlene206/padavan-4.4-2/ 继续开发`. The user does not need a long prompt, previous chat, or repository upload. Never output a recursive next-GPT prompt in chat. Git documents and live GitHub state are the project memory.
 - Recovery is read-only by default: read complete `AI_DEVELOPMENT_PROTOCOL.md` and `AI_BOOTSTRAP_PROMPT.md`; fetch live main + immutable backup; inspect exact-head Actions; then read this handoff, roadmap, newest 20 dev-log records, `docs/dev-log/INDEX.md`, and the semantic audit report for the active caller group. Do not create a commit to refresh SHA fields, record a takeover, or report a CI poll.
@@ -26,31 +26,32 @@ For every multi-file slice, publish source + regression tests + required workflo
 - Production-connected host tests and CI: `trunk/user/shared/src/tests/process_inventory.c`, `trunk/user/rc/src/tests/service_lifecycle_policy.c`, `.github/workflows/process-lifecycle-regression.yml`, `scripts/check_process_lifecycle_integration.py`.
 - The one-line handoff rule is documented in `AI_BOOTSTRAP_PROMPT.md` and `AI_DEVELOPMENT_PROTOCOL.md`.
 
-### In-tree PID-file identity helper — partially migrated; target build correction pending
+### In-tree PID-file identity helper — partially migrated; watchdog now included
 
-- Added process_pidfile.c/.h to the shared library: strict PID + start_time record parsing, expected-process inventory matching, identity revalidation immediately before signaling, and atomic same-directory temporary-file publication. The parser avoids variable 64-bit division so the MIPS shared object does not require hidden __udivdi3.
-- Identity-bound publication/signaling is implemented for detect_internet (producer, two RC paths, HTTPD SIGHUP), detect_link (producer and both RC paths), and rstats (producer, RC SIGHUP, HTTPD refresh/history). LPD has its own strict parser and identity-validated consumer.
-- Exact-head XY-C1 run 43622638409 failed compiling rstats.c:722: saved_errno was declared only inside earlier nested error blocks but was reused in PID-publication failure handling. This commit moves it to function scope and reuses it across the error paths. Inspect the fresh exact-head target build; do not infer L3 from helper-only or ancestor builds.
-- Next in-tree daemon migration after the build passes: watchdog PID publisher and its time/Wi-Fi notification callers. BusyBox udhcpc, PPPD and INICD remain separate PID producers.
+- Added process_pidfile.c/.h to the shared library: strict PID + start_time record parsing, expected-process inventory matching, identity revalidation immediately before signaling, and atomic same-directory temporary-file publication. Its parser avoids variable 64-bit division, so the MIPS shared object does not require hidden __udivdi3.
+- Identity-bound publication/signaling now covers detect_internet (producer, two RC paths, HTTPD SIGHUP), detect_link (producer and both RC paths), rstats (producer, RC SIGHUP, HTTPD refresh/history) and watchdog (producer, RC time refresh and Wi-Fi notification). LPD has its own strict parser and identity-validated consumer.
+- Watchdog publishes PID + start_time only after daemonization and fails startup closed if publication fails. Both RC notification callers use process_pidfile_signal() with expected name watchdog. Time refresh launches a replacement only when the legacy pids() guard confirms absence; UNKNOWN remains truthy and cannot create a duplicate. Shutdown deliberately retains the last record rather than unlinking by pathname, which could remove a fast-restarted watchdog's new record. Stale PID/start_time records are rejected by the helper.
+- The rstats undeclared saved_errno compile error on 733 was fixed in dd7a9b42f6f12b1a585e09cb54a1d69c25f69877. Its exact-head host/integration runs passed; its XY-C1 run was still in progress when this commit was prepared. Watchdog's exact-head signal regression and new target build are now pending.
+- Remaining PID producers include BusyBox udhcpc, PPPD and INICD; next broader process task is to include PPP/PID-file targets in the all-target stop preflight.
 
-### Exact-head Actions on main SHA 733463cb9e3289c62836dd1b7405a30ec1a424cc
+### Exact-head Actions on main SHA dd7a9b42f6f12b1a585e09cb54a1d69c25f69877
 
-- AI handoff docs run 43622638346 — SUCCESS.
-- Process inventory/lifecycle regression run 43622638410 — SUCCESS.
-- HTTPD Authentication and Security Regression run 43622638413 — SUCCESS, including the updated rstats process-identity assertion.
-- NVRAM transaction boundary, AliDDNS, AliyunDrive and AdGuardHome workflows also completed SUCCESS on this SHA.
-- XY-C1 Firmware Validation run 43622638409, job 132531489683 — FAILURE at rstats.c:722: saved_errno undeclared. Setup and pre-build contracts passed; Build XY-C1 stopped while compiling RC, so TRX verification and artifact upload were skipped. This is a source compile error, not an infrastructure failure. The current commit fixes it and requires a fresh exact-head run.
+- Process inventory/lifecycle regression [43624870654] — SUCCESS.
+- Process lifecycle inventory [43624870697] — SUCCESS.
+- rstats persistence/signal regression [43624870719] — SUCCESS.
+- HTTPD security [43624870704] and AI handoff docs [43624870860] — SUCCESS.
+- XY-C1 Firmware Validation [43624870668] — IN_PROGRESS at handoff update; inspect the final Build XY-C1, TRX and artifact result. This commit changes watchdog.c and extends the XY-C1 path trigger, producing a new exact-head build as well as a watchdog-signal regression run.
 
-### XY-C1 MIPS/uClibc target build — current HEAD NOT VERIFIED
+### XY-C1 MIPS/uClibc target build — current HEAD NOT YET VERIFIED
 
-- The last full successful build/TRX verification/artifact upload remains run 43600235493 on older product-source SHA d3951a276ed4002aff3232cf93c8d55662a94e95, artifact 14116152532 (12,582,629 bytes, SHA-256 74dcad97bba22e3588a4cdac7fa1763da997f9ee43e2e0349237f20ea1b02ff6).
-- Later PID-helper caller migrations are not covered by that older TRX. The exact 733 build above failed before image generation. Do not claim L3 for current main until a corrected exact-head build completes Build XY-C1, TRX verification and artifact upload.
+- The last full successful TRX verification/artifact upload remains run [43600235493](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43600235493) on older product-source SHA d3951a276ed4002aff3232cf93c8d55662a94e95. Do not infer current L3 from this ancestor.
+- The rstats compile defect discovered on 733 is fixed on dd7a9b42f6f12b1a585e09cb54a1d69c25f69877; the dd7a target build was still in progress, and watchdog's exact-head build will validate the complete migrated RC source.
 - L4 remains NOT VERIFIED; no physical XY-C1 flash/boot/runtime claim.
 
 ## Explicitly uncompleted P1 work
 
 - All 77 direct `pids()` callers remain legacy Boolean users. Migrate by semantic group; never change `pids()` to negative UNKNOWN until every caller is explicit.
-- LPD PID publication writes through an exclusive same-directory temporary file and atomically renames only after a complete checked write; startup fails closed on publication errors. Its duplicate-instance consumer strictly parses decimal PID text, treats missing as stale/absent but malformed or unreadable as UNKNOWN, scans the process inventory, and validates PID/start_time/comm/argv before refusing a duplicate. Publication follows successful socket bind; stop does not unlink because that can delete a replacement daemon's newly published identity. detect_internet, detect_link and rstats now also use the shared PID+start_time helper. The watchdog migration remains next; BusyBox udhcpc, PPPD and INICD remain separate PID producers.
+- LPD PID publication uses exclusive same-directory temporary-file creation and atomic rename after a complete checked write; its strict identity-aware duplicate consumer treats malformed/unreadable records as UNKNOWN. Publication follows successful socket bind; stop does not unlink because that could delete a replacement daemon's newly published record. Shared identity-bound PID publication/signaling now covers detect_internet, detect_link, rstats and watchdog. Remaining PID producers include BusyBox udhcpc, PPPD and INICD.
 - Upper-layer stop propagation remains open: VPN Server/Client, USB modem DHCP/PPP removal, AP LAN DHCP/bridge teardown, firmware `stop_services()`/flash, Samba config publication, storage eject/unmount, NVRAM stopped-state publication.
 - Add PPP/PID-file targets to the same full-set preflight before any signal. Audit direct `killall` and signal paths outside `kill_services()`.
 - Linux 4.4 has no `pidfd_send_signal()`; PID/start_time validation leaves a check/kill TOCTOU window. Do not claim atomic identity binding.
@@ -58,18 +59,17 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Verification boundary
 
-- L1: prior lexical inventory and direct-call semantic review PASS within their recorded scope. Do not repeat the completed census.
-- L2: on exact SHA 733463cb9e3289c62836dd1b7405a30ec1a424cc, process-lifecycle run 43622638410, HTTPD run 43622638413 and AI-doc run 43622638346 PASS. The rstats compile correction in this current commit has fresh exact-head validation pending.
-- L3: current source NOT VERIFIED. The last full XY-C1 MIPS/uClibc/TRX PASS is older source d3951a276ed4002aff3232cf93c8d55662a94e95 (run 43600235493); exact 733 build 43622638409 failed compiling rstats before TRX generation. Re-run after this fix and do not infer L3 from an ancestor/helper-only build.
+- L1: prior lexical inventory and direct-call semantic review PASS within the recorded scope; do not repeat completed inventories.
+- L2: exact dd7a SHA process inventory [43624870654], process lifecycle inventory [43624870697], rstats [43624870719], HTTPD [43624870704] and AI docs [43624870860] passed. The new watchdog-signal regression and current source/target Actions for this commit are pending.
+- L3: current main NOT VERIFIED. The last full XY-C1/TRX PASS is older product-source d395 [43600235493]. The dd7a target build [43624870668] was in progress when this commit began; this commit triggers another exact-head target build that includes watchdog.c.
 - L4: physical XY-C1 flash, boot, runtime and functional hardware validation NOT VERIFIED.
-- No full local checkout is available in this execution context; source and CI evidence are obtained through GitHub. Never ask the user for the whole repository.
+- No full local checkout is available in this execution context; source and CI evidence are obtained through GitHub.
 
 ## Exact first action for the next GPT
 
-1. Recover read-only from GitHub: read this protocol/bootstrap, fetch live main and the immutable backup, compare refs, and inspect push Actions by exact head SHA. The one-line repository prompt is the only user entrypoint.
-2. Verify the rstats compile correction in this commit. Inspect the exact-main XY-C1 run through Build XY-C1, TRX verification and artifact upload; also inspect exact-head process-lifecycle and AI-doc runs. The known failure to close is run 43622638409 at rstats.c:722 (saved_errno undeclared); do not repeat unrelated subsystem audits.
-3. Once rstats and current target validation pass, migrate watchdog's PID writer and time/Wi-Fi notification callers to process_pidfile_write/signal(). Keep UNKNOWN fail-closed. Do not unlink the PID pathname on shutdown because a fast restart can publish a replacement record.
-4. Then include PPP/PID-file targets in full-set preflight; migrate VPN Server/Client, USB modem DHCP/PPP removal, AP LAN DHCP/bridge teardown, firmware stop_services()/flash, Samba/storage/NVRAM postconditions, and remaining direct signal/pids callers by semantic groups. Preserve UNKNOWN/CHANGED/FAILED as non-success.
-5. Do not change pids() UNKNOWN semantics until all 77 direct callers are migrated or explicitly adapted. Do not change shared kill_pidfile_s() until its five direct callers and all 15 call expressions are migrated/adapted. Keep BusyBox's independent procps scanner separate.
-6. Linux 4.4 PID/start_time validation retains a check/kill TOCTOU window. Do not claim pidfd-equivalent identity binding or L4 hardware validation without evidence.
-7. Maintain one atomic Git tree/CAS commit per real slice. Update only materially changed canonical records; never create SHA-refresh or CI-poll-only commits.
+1. Recover live main and the immutable backup read-only; inspect push Actions using the exact current main SHA. The one-line repository prompt is sufficient; do not request a repo upload or create a takeover commit.
+2. Verify the exact-head watchdog-signal regression and XY-C1 build triggered by this commit. Also inspect the prior dd7a XY-C1 run 43624870668; its state was IN_PROGRESS at the last check. The rstats compile error from 733 was fixed on dd7a and its exact-head process, inventory, rstats, HTTPD and AI-doc checks passed.
+3. When current-head CI passes, continue P1: add PPP/PID-file targets to the same all-target preflight before any signal. Then migrate VPN Server/Client, USB modem DHCP/PPP removal, AP LAN DHCP/bridge teardown, firmware stop_services()/flash, Samba/storage/NVRAM postconditions. Add caller-level regressions blocking destructive follow-up on UNKNOWN/CHANGED/FAILED.
+4. Keep pids() Boolean-compatible until all 77 direct callers are migrated/adapted. Keep kill_pidfile_s() semantics unchanged until its five direct callers and all 15 call expressions are migrated/adapted. BusyBox's independent procps implementation stays separate.
+5. Linux 4.4 PID/start_time validation retains a check/kill TOCTOU window; do not claim pidfd-equivalent atomic signaling or L4 hardware validation without evidence.
+6. Continue one complete Git tree/commit with a non-forced expected-SHA main update for every multi-file slice. No per-file commits, force pushes, SHA-refresh commits or standalone CI-poll commits.

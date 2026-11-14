@@ -34,6 +34,7 @@
 #include <linux/limits.h>
 
 #include "rc.h"
+#include <process_pidfile.h>
 #include "watchdog_signal_policy.h"
 #include "watchdog_ntp_policy.h"
 
@@ -630,26 +631,36 @@ start_watchdog(void)
 void
 notify_watchdog_time(void)
 {
-	if (pids("watchdog"))
-		kill_pidfile_s(WD_PID_FILE, SIGHUP);
-	else
-		eval("/sbin/watchdog");
+	int saved_errno;
+
+	if (process_pidfile_signal(WD_PID_FILE, "watchdog", SIGHUP) == 0)
+		return;
+
+	saved_errno = errno;
+	/* Keep the legacy presence guard: UNKNOWN must never launch a duplicate. */
+	if (!pids("watchdog"))
+		(void)start_watchdog();
+	else if (saved_errno != ENOENT && saved_errno != ESRCH)
+		logmessage("watchdog", "cannot signal time refresh (errno=%d)", saved_errno);
 }
 
 void
 notify_watchdog_wifi(int is_5ghz)
 {
 	int wd_notify_id = (is_5ghz) ? WD_NOTIFY_ID_WIFI5 : WD_NOTIFY_ID_WIFI2;
+	int saved_errno;
 
 	nvram_set_int_temp("wd_notify_id", wd_notify_id);
-	kill_pidfile_s(WD_PID_FILE, SIGUSR1);
+	if (process_pidfile_signal(WD_PID_FILE, "watchdog", SIGUSR1) < 0) {
+		saved_errno = errno;
+		if (saved_errno != ENOENT && saved_errno != ESRCH)
+			logmessage("watchdog", "cannot signal Wi-Fi update (errno=%d)", saved_errno);
+	}
 }
 
 int
 watchdog_main(int argc, char *argv[])
 {
-	FILE *fp;
-	pid_t pid;
 	int saved_errno = 0;
 	sig_atomic_t events;
 	sigset_t managed_signals, original_mask, dispatch_mask;
@@ -714,15 +725,13 @@ watchdog_main(int argc, char *argv[])
 		return saved_errno;
 	}
 
-	pid = getpid();
-
 	/* never invoke oom killer */
-	oom_score_adjust(pid, OOM_SCORE_ADJ_MIN);
+	oom_score_adjust(getpid(), OOM_SCORE_ADJ_MIN);
 
-	/* write pid */
-	if ((fp = fopen(WD_PID_FILE, "w")) != NULL) {
-		fprintf(fp, "%d", pid);
-		fclose(fp);
+	/* Publish PID + start_time atomically; do not run without identity state. */
+	if (process_pidfile_write(WD_PID_FILE, "watchdog") < 0) {
+		saved_errno = errno;
+		goto watchdog_cleanup;
 	}
 
 	nvram_set_int_temp("wd_notify_id", 0);
@@ -772,8 +781,11 @@ watchdog_main(int argc, char *argv[])
 
 watchdog_cleanup:
 	(void)wd_alarmtimer(0, 0);
-	if (remove(WD_PID_FILE) != 0 && errno != ENOENT)
-		logmessage("watchdog", "cannot remove pid file (errno=%d)", errno);
+	/*
+	 * Keep the last identity record. Unlinking by pathname can delete a
+	 * replacement watchdog's freshly published record after a fast restart;
+	 * stale PID/start_time pairs are rejected by process_pidfile_signal().
+	 */
 	if (sigprocmask(SIG_SETMASK, &original_mask, NULL) < 0 && saved_errno == 0)
 		saved_errno = errno;
 

@@ -1,3 +1,17 @@
+## 2026-11-15 — Migrate watchdog PID publication and signal consumers
+
+- Base main SHA: dd7a9b42f6f12b1a585e09cb54a1d69c25f69877.
+- watchdog_main() now publishes PID + kernel start_time through process_pidfile_write() after daemonization and aborts startup if the atomic identity record cannot be published.
+- notify_watchdog_time() and notify_watchdog_wifi() now use process_pidfile_signal() with expected process name watchdog. The time path retains a pids() absence check before starting a replacement, so UNKNOWN cannot trigger a duplicate launch.
+- Watchdog shutdown no longer unlinks WD_PID_FILE by pathname. A stale PID/start_time record is harmless and can be atomically replaced; unconditional cleanup unlink could race and remove a fast-restarted watchdog's new record.
+- Extended watchdog signal regression assertions and push/pull_request path filters to cover process_pidfile.c/.h. Added watchdog.c to the XY-C1 trigger so the MIPS/uClibc RC compile validates the new integration.
+- On base SHA dd7a, process-lifecycle [43624870654], process inventory [43624870697], rstats [43624870719], HTTPD [43624870704] and AI docs [43624870860] passed. XY-C1 [43624870668] was still IN_PROGRESS when this commit was prepared; this watchdog slice triggers a fresh target build and a watchdog-signal regression. No L3 result is claimed yet.
+- Changed paths: trunk/user/rc/src/watchdog.c, watchdog-signal-stability.yml, xy-c1-firmware-validation.yml, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and this log. Resulting commit: THIS COMMIT.
+- Root log advances 108→109 records; no archive rotation or INDEX update is due.
+- Next: inspect exact-head watchdog/XY-C1 Actions. Then migrate PPP/PID-file targets into the complete all-target stop preflight.
+
+---
+
 ## 2026-11-15 — Fix rstats PID publication target compile error
 
 - Base main SHA: 733463cb9e3289c62836dd1b7405a30ec1a424cc.
