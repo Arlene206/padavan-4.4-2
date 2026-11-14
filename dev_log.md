@@ -1,3 +1,15 @@
+## 2026-11-14 14:03 CST (UTC+8) — Record cross-cutting C5 reliability design candidates
+
+- Base main SHA: `1f6344d822ceffe1b16d5af64896f2c81f4b499e`. Re-read the current XY-C1/C5 discussion context and the project protocol before continuing the architecture review.
+- Added Section 11 to `XY-C1_DISCUSSION_CONTEXT.md` as **candidate recommendations, not accepted requirements**: explicit IPv4/IPv6 policy parity and leak prevention; a visible N1/C5/DNS/WAN failure matrix; transactional configuration apply and rollback; independent NTP/DNS bootstrap; secure LAN management and secret handling; firmware/configuration migration and recovery; bounded diagnostics/logs and measured device resource/performance budgets.
+- Kept the new points separate from the already discussed architecture decisions for C5's independent proxy capability, its broad WebUI, standalone SmartDNS UI, and the dnsmasq :53 -> SmartDNS alternate-port ownership model. Added open decisions for IPv6 scope, fail-open/fail-closed behavior, SmartDNS emergency DNS, automatic N1-to-C5 failover and hardware-supported firmware recovery.
+- Context document commit: `bd783c4b8e9e153f6ba19b539e8aad5996258f03`. This log update is the next documentation commit.
+- Changed paths: `XY-C1_DISCUSSION_CONTEXT.md` and `dev_log.md`. No product source, Makefile, template, WebUI, runtime configuration or firmware setting changed. No test, MIPS build, image validation or hardware test was run.
+- Root dev-log records: 73 before this entry; 74 after it. No batch rotation is due.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-14 13:50 CST (UTC+8) — Clarify SmartDNS/dnsmasq ownership and DNS-vs-traffic split
 
 - Re-fetched live `main` at base SHA `aee2b0c4833739a5be4c70e323955bf2a8df27ab`. Read current `shadowsocks.sh`, `ss-rules`, `smartdns.sh`, and SmartDNS sample configuration.
