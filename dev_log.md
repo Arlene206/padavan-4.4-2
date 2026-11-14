@@ -1,3 +1,13 @@
+## 2026-11-14 08:34 CST (UTC+8) — Align whole-repository priority dashboard with active P1
+
+- Base main SHA: `f0b5b78044f9584952bcfd4b00f07a5ec941b437`. Updated `REFACTOR_ROADMAP.md` in place: reconciled its stale source/CI checkpoint with live main, distinguished historical L3 source evidence from current-main validation, recorded current push Actions as NOT VERIFIED, updated the root log count/archive inventory, and promoted the shared process-inventory fail-open defect from P2 to P1 to match the active handoff and lifecycle risk. No module implementation status was otherwise changed.
+- No production source or tests changed. The cross-userland scanner/lifecycle caller inventory remains INCOMPLETE; no API migration or host test is claimed.
+- Exact-head Actions for the roadmap commit are PENDING / not yet inspectable; the available workflow-run wrapper remains PR-only. Local documentation checker NOT RUN because no checkout is available.
+- Roadmap commit: `f0b5b78044f9584952bcfd4b00f07a5ec941b437`. Resulting log commit: THIS COMMIT. Root log advances 61→62/119; no rotation or INDEX update.
+- Exact next action remains: inspect exact-main push Actions, complete the legacy PR #1 per-file compatibility audit, then obtain exhaustive caller inventory and implement the P1 RUNNING / ABSENT / UNKNOWN contract.
+
+---
+
 ## 2026-11-14 08:32 CST (UTC+8) — Recover live main, audit shared process scanner and inventory legacy PR
 
 - Re-fetched live main at `bb3c217e4c513f66c9edbd686a8cb4184b8775c9`; remote branch inventory contains only `main`. Legacy PR #1 is CLOSED / UNMERGED; compared current main with PR head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`: diverged, PR head 17 commits ahead / 230 behind, 13 changed paths. The diff includes CA trust-store bootstrap status propagation and an OpenSSL EVP_MAC HMAC helper/build integration. No PR changes were ported: each remaining hunk and target OpenSSL/build compatibility still require review; EVP_MAC is not assumed available on firmware.
