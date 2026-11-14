@@ -1,3 +1,13 @@
+## 2026-11-14 08:44 CST (UTC+8) — Synchronize handoff with exact live main and pending Actions
+
+- Base main SHA: `eecba603a0fc0612d6120dd453596b238a7d9b61`; active branch `main`. Confirmed the live ref immediately before constructing this combined handoff/log update.
+- Exact-head push Actions for this base are all pending at inspection: AliDDNS [43536084049], AI handoff docs [43536084066], AliyunDrive [43536084063], AdGuardHome [43536084019], and NVRAM [43536084038]. Each has matching head_sha and event=push. Earlier NVRAM run [43535751164] on `82ed2de22c73523fe39521d23a4a4f30768539e0` is SUCCESS; run [43536039560] on `6a905a64f8200ef531d78f2755a96a149502b956` remains IN_PROGRESS.
+- Updated SESSION_HANDOFF.md in place to capture exact main, Actions IDs and active P1 first action. Product source and tests unchanged. This entry and handoff are committed atomically: THIS COMMIT. Root log advances 66→67 records; no rotation/index update.
+- L1 partial scanner/lifecycle review and legacy PR #1 patch triage only. L2 scanner regressions and local docs checker NOT RUN (no checkout); L3 only historical product-source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`; L4 NOT VERIFIED.
+- Exact next action: re-fetch live main and inspect exact-head push runs for THIS COMMIT; then complete exhaustive `trunk/user` caller inventory for pids/procps and lifecycle/readiness/stop/signal/cleanup paths. Do not change shared API until all callers are classified; do not port EVP_MAC without firmware OpenSSL compatibility proof.
+
+---
+
 ## 2026-11-14 08:43 CST (UTC+8) — Align live handoff with current documentation checkpoint
 
 - Base main SHA: `7f8591436413161ad84124db301223b5c8448eaa`; active branch `main`. Refreshed `SESSION_HANDOFF.md` in place to distinguish the current documentation tip from the older recovery baseline and record the NVRAM push runs [43535751164] (still IN_PROGRESS on last check) and [43536039560] (QUEUED on exact log SHA `6a905a64f8200ef531d78f2755a96a149502b956`). No source or test files changed.
