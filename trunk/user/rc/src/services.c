@@ -25,6 +25,7 @@
 #include <sys/types.h>
 
 #include "rc.h"
+#include "process_inventory.h"
 #include "crond_daemon_policy.h"
 #include "infosvr_daemon_policy.h"
 #include "httpd_daemon_policy.h"
@@ -660,11 +661,25 @@ void restart_frp(void){
 }
 #endif
 
+static enum process_presence
+httpd_process_presence(int *scan_error)
+{
+	struct process_snapshot snapshot;
+	enum process_presence presence;
+
+	presence = process_inventory_scan("httpd", &snapshot);
+	if (scan_error)
+		*scan_error = snapshot.error;
+	process_snapshot_release(&snapshot);
+	return presence;
+}
+
 int
 start_httpd(int restart_fw)
 {
 	int http_proto, argv_index, http_port, restart_fw_need;
-	int launch_status, attempt, status;
+	int launch_status, attempt, status, scan_error;
+	enum process_presence presence;
 	char http_port_s[8];
 #if defined (SUPPORT_HTTPS)
 	char https_port_s[8];
@@ -679,6 +694,25 @@ start_httpd(int restart_fw)
 	argv_index = 1;
 	http_port = 0;
 	restart_fw_need = 0;
+
+	/*
+	 * Configuration normalization and stale-state publication are writes.
+	 * First require an authoritative process scan: RUNNING is a duplicate,
+	 * UNKNOWN is an error, and only ABSENT permits the startup transaction.
+	 */
+	presence = httpd_process_presence(&scan_error);
+	if (!httpd_start_can_launch(presence)) {
+		status = httpd_start_precondition_status(presence);
+		if (presence == PROCESS_PRESENCE_RUNNING) {
+			nvram_set_int_temp("httpd_started", 1);
+			logmessage(LOGNAME, "HTTPD is already running; refusing duplicate launch");
+		} else {
+			logmessage(LOGNAME,
+				   "cannot verify HTTPD process state; refusing startup (scan_error=%d)",
+				   scan_error ? scan_error : EIO);
+		}
+		return status;
+	}
 
 #if defined (SUPPORT_HTTPS)
 	http_proto = nvram_get_int("http_proto");
@@ -718,18 +752,13 @@ start_httpd(int restart_fw)
 	}
 #endif
 
-	if (!httpd_start_can_launch(pids("httpd"))) {
-		nvram_set_int_temp("httpd_started", 1);
-		logmessage(LOGNAME, "HTTPD is already running; refusing duplicate launch");
-		return EBUSY;
-	}
-	/* Clear a stale status only after confirming no HTTPD process exists. */
+	/* Clear stale state only after the earlier complete scan confirmed ABSENT. */
 	nvram_set_int_temp("httpd_started", 0);
 
 	launch_status = _eval(httpd_argv, NULL, 0, NULL);
 	if (launch_status != 0) {
 		logmessage(LOGNAME, "HTTPD launcher failed: %d", launch_status);
-		return httpd_start_postcondition(launch_status, 0);
+		return httpd_start_postcondition(launch_status, PROCESS_PRESENCE_ABSENT);
 	}
 
 	/*
@@ -739,9 +768,16 @@ start_httpd(int restart_fw)
 	sleep(HTTPD_START_INITIAL_WAIT_SECONDS);
 	status = -1;
 	for (attempt = 0; attempt < HTTPD_START_PROBE_ATTEMPTS; attempt++) {
-		status = httpd_start_postcondition(launch_status, pids("httpd"));
-		if (status == 0)
+		presence = httpd_process_presence(&scan_error);
+		status = httpd_start_postcondition(launch_status, presence);
+		if (presence == PROCESS_PRESENCE_RUNNING)
 			break;
+		if (presence == PROCESS_PRESENCE_UNKNOWN) {
+			logmessage(LOGNAME,
+				   "cannot verify HTTPD startup postcondition (scan_error=%d)",
+				   scan_error ? scan_error : EIO);
+			break;
+		}
 
 		if (attempt + 1 < HTTPD_START_PROBE_ATTEMPTS)
 			sleep(HTTPD_START_RETRY_WAIT_SECONDS);

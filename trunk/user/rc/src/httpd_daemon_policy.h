@@ -2,6 +2,7 @@
 #define HTTPD_DAEMON_POLICY_H
 
 #include <errno.h>
+#include "process_inventory.h"
 
 #define HTTPD_START_INITIAL_WAIT_SECONDS 1
 #define HTTPD_START_RETRY_WAIT_SECONDS 1
@@ -10,19 +11,35 @@
 /* A successful _eval() only confirms that the launcher exited successfully;
  * the detached HTTPD child must also remain observable. */
 static inline int
-httpd_start_postcondition(int launcher_status, int process_present)
+httpd_start_postcondition(int launcher_status,
+			  enum process_presence process_presence)
 {
 	if (launcher_status != 0)
 		return launcher_status;
 
-	return process_present ? 0 : ESRCH;
+	if (process_presence == PROCESS_PRESENCE_RUNNING)
+		return 0;
+	if (process_presence == PROCESS_PRESENCE_ABSENT)
+		return ESRCH;
+	return EIO;
 }
 
-/* Do not start another HTTPD if an earlier daemon is already present. */
+/* Only a complete scan that confirms absence authorizes configuration/start. */
 static inline int
-httpd_start_can_launch(int process_present)
+httpd_start_can_launch(enum process_presence process_presence)
 {
-	return !process_present;
+	return process_presence == PROCESS_PRESENCE_ABSENT;
+}
+
+/* Preserve duplicate status separately from an unobservable process table. */
+static inline int
+httpd_start_precondition_status(enum process_presence process_presence)
+{
+	if (process_presence == PROCESS_PRESENCE_RUNNING)
+		return EBUSY;
+	if (process_presence == PROCESS_PRESENCE_ABSENT)
+		return 0;
+	return EIO;
 }
 
 /* Do not publish HTTPD as stopped while the old process may still be alive. */

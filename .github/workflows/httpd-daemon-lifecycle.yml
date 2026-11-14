@@ -33,7 +33,7 @@ jobs:
         run: |
           set -eu
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
-            -I trunk/user/rc/src \
+            -I trunk/user/rc/src -I trunk/user/shared/src \
             trunk/user/rc/src/tests/httpd_daemon_policy.c \
             -o /tmp/httpd_daemon_policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/httpd_daemon_policy
@@ -64,16 +64,25 @@ jobs:
           workflow = Path(".github/workflows/httpd-daemon-lifecycle.yml").read_text()
 
           start = body(services, "start_httpd(int restart_fw)")
+          probe = body(services, "httpd_process_presence(int *scan_error)")
           stop = body(services, "stop_httpd(void)")
           restart = body(services, "restart_httpd(void)")
 
-          assert "httpd_start_can_launch(pids(\"httpd\"))" in start
-          assert start.index("httpd_start_can_launch(pids(\"httpd\"))") < start.index("launch_status = _eval(httpd_argv, NULL, 0, NULL);")
+          assert 'process_inventory_scan("httpd", &snapshot)' in probe
+          assert "snapshot.error" in probe and "process_snapshot_release(&snapshot)" in probe
+          assert "httpd_process_presence(&scan_error)" in start
+          assert "httpd_start_can_launch(presence)" in start
+          assert "httpd_start_precondition_status(presence)" in start
+          assert "pids(\"httpd\")" not in start
+          assert start.index("httpd_process_presence(&scan_error)") < start.index("nvram_set_int(\"http_lanport\"")
+          assert start.index("httpd_process_presence(&scan_error)") < start.index("launch_status = _eval(httpd_argv, NULL, 0, NULL);")
           assert 'nvram_set_int_temp("httpd_started", 0)' in start
           assert start.index('nvram_set_int_temp("httpd_started", 0)') < start.index("launch_status = _eval(httpd_argv, NULL, 0, NULL);")
           assert "launch_status = _eval(httpd_argv, NULL, 0, NULL);" in start
-          assert "return httpd_start_postcondition(launch_status, 0);" in start
-          assert 'httpd_start_postcondition(launch_status, pids("httpd"))' in start
+          assert "return httpd_start_postcondition(launch_status, PROCESS_PRESENCE_ABSENT);" in start
+          assert "httpd_start_postcondition(launch_status, presence)" in start
+          assert "presence == PROCESS_PRESENCE_UNKNOWN" in start
+          assert "scan_error ? scan_error : EIO" in start
           assert "HTTPD_START_PROBE_ATTEMPTS" in start
           probe_loop = start.index("status = -1;")
           started_publish = start.index('nvram_set_int_temp("httpd_started", 1)', probe_loop)
@@ -96,6 +105,9 @@ jobs:
           assert "int restart_httpd(void);" in header
           assert "HTTPD_START_PROBE_ATTEMPTS 4" in policy
           assert "httpd_start_can_launch" in policy
+          assert "enum process_presence process_presence" in policy
+          assert "httpd_start_precondition_status" in policy
+          assert "PROCESS_PRESENCE_UNKNOWN" in test
           assert "httpd_start_postcondition" in test
           assert "httpd_start_can_launch" in test
           assert "httpd_restart_can_start" in test
