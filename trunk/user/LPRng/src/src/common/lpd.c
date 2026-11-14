@@ -31,6 +31,7 @@
 #include "lp_asus.h"
 #include "syslog.h"
 #include <process_inventory.h>
+#include "lpd_pidfile_policy.h"
 
 #include <bin_sem_asus.h>
 #include <nvram_linux.h>
@@ -169,8 +170,6 @@ static int update_pidfile(void)
 static int read_lpd_pidfile(pid_t *pid)
 {
 	char buffer[32];
-	char *end;
-	unsigned long value;
 	size_t used = 0;
 	int fd;
 	int saved_errno;
@@ -210,26 +209,8 @@ static int read_lpd_pidfile(pid_t *pid)
 
 	if (close(fd) < 0)
 		return -1;
-	if (used == 0) {
-		errno = EINVAL;
+	if (lpd_pidfile_parse(buffer, used, pid) != 0)
 		return -1;
-	}
-	buffer[used] = '\0';
-	for (count = 0; count < (ssize_t)used; count++) {
-		if (buffer[count] < '0' || buffer[count] > '9') {
-			errno = EINVAL;
-			return -1;
-		}
-	}
-
-	errno = 0;
-	value = strtoul(buffer, &end, 10);
-	if (errno == ERANGE || end == buffer || *end ||
-	    value <= 1 || value > (unsigned long)INT_MAX) {
-		errno = EINVAL;
-		return -1;
-	}
-	*pid = (pid_t)value;
 	return 1;
 }
 

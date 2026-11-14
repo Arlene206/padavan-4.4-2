@@ -13,6 +13,8 @@ on:
       - "trunk/user/rc/src/common_ex.c"
       - "trunk/user/rc/src/services_usb.c"
       - "trunk/user/LPRng/src/src/common/lpd.c"
+      - "trunk/user/LPRng/src/src/include/lpd_pidfile_policy.h"
+      - "trunk/user/LPRng/src/src/tests/lpd_pidfile_policy.c"
       - "trunk/user/rc/src/service_lifecycle_policy.h"
       - "trunk/user/rc/src/tests/service_lifecycle_policy.c"
       - "scripts/check_process_lifecycle_integration.py"
@@ -52,5 +54,12 @@ jobs:
         env:
           ASAN_OPTIONS: detect_leaks=1
         run: "$RUNNER_TEMP/service-lifecycle-regression"
+      - name: Compile and run strict LPD PID-file parser regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/LPRng/src/src/include \
+            trunk/user/LPRng/src/src/tests/lpd_pidfile_policy.c \
+            -o "$RUNNER_TEMP/lpd-pidfile-regression"
+          "$RUNNER_TEMP/lpd-pidfile-regression"
       - name: Verify shared-library and RC integration boundaries
         run: python3 scripts/check_process_lifecycle_integration.py

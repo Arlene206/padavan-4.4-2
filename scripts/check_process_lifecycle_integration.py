@@ -54,3 +54,7 @@ assert "if (pid == getpid())" in lpd_source
 
 assert lpd_source.index("bind(sockfd") < lpd_source.index("update_pidfile() < 0")
 assert lpd_source.index("update_pidfile() < 0") < lpd_source.index("listen(sockfd")
+
+assert '#include "lpd_pidfile_policy.h"' in lpd_source
+assert "lpd_pidfile_parse(buffer, used, pid)" in lpd_source
+assert "value <= 1 || value > (unsigned long)INT_MAX" not in lpd_source

@@ -1,3 +1,15 @@
+## 2026-11-15 — Extract strict LPD PID parser and add host regression
+
+- Base main SHA: `c70f7cc05e6743883789509d3ee4b0b2940044c2`.
+- Extracted decimal PID parsing into `lpd_pidfile_policy.h` so production LPD and host tests exercise the exact same function.
+- Added GNU89/Werror regression cases for valid PID bounds, leading zeroes, empty/zero/one, signs, whitespace, newline/trailing junk, overflow and overlong input.
+- Wired the parser regression into process-lifecycle CI and added the new production header to both process-lifecycle and XY-C1 path filters.
+- Changed paths: `trunk/user/LPRng/src/src/common/lpd.c`, `trunk/user/LPRng/src/src/include/lpd_pidfile_policy.h`, `trunk/user/LPRng/src/src/tests/lpd_pidfile_policy.c`, `scripts/check_process_lifecycle_integration.py`, both workflow files, `SESSION_HANDOFF.md`, and this log. Resulting commit: THIS COMMIT.
+- Exact-head host and target checks are pending. Root log advances 96→97 records; no archive rotation or INDEX update is due.
+- Next: inspect exact-head parser and MIPS build results, then audit post-publication LPD failure exits.
+
+---
+
 ## 2026-11-15 — Remove stop_lpd PID unlink restart race
 
 - Base main SHA: `f9dca11cabbd7eaddbfc3c05e987952aa3c0b15b`.
