@@ -1,0 +1,84 @@
+name: Process lifecycle source inventory
+run-name: Process lifecycle inventory - ${{ github.sha }}
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/process-lifecycle-inventory.yml"
+      - "scripts/audit_process_lifecycle.py"
+      - "trunk/user/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: process-lifecycle-inventory-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  inventory:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Guard main-only source and pin exact commit
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+          REF_NAME: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          test "$REF_NAME" = "refs/heads/main"
+          test "$EXPECTED_SHA" != ""
+
+      - name: Partial clone and sparse-checkout only tracked source candidates
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          SRC="$RUNNER_TEMP/padavan-source"
+          mkdir -p "$SRC"
+          git init "$SRC"
+          git -C "$SRC" remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git -C "$SRC" -c protocol.version=2 fetch --no-tags --depth=1 --filter=blob:none origin "$SOURCE_SHA"
+          FETCHED_SHA="$(git -C "$SRC" rev-parse FETCH_HEAD)"
+          test "$FETCHED_SHA" = "$SOURCE_SHA"
+
+          # Fetch only the scanner blob first. It enumerates the immutable Git tree
+          # and emits exact file-path patterns; archives, toolchains, kernel trees
+          # and bundled binary payloads are not checked out.
+          git -C "$SRC" show "$SOURCE_SHA:scripts/audit_process_lifecycle.py" > "$RUNNER_TEMP/audit_process_lifecycle.py"
+          python3 "$RUNNER_TEMP/audit_process_lifecycle.py" \
+            --repo-root "$SRC" --revision "$SOURCE_SHA" --emit-sparse-patterns \
+            > "$RUNNER_TEMP/process-lifecycle-sparse-patterns.txt"
+
+          PATTERN_COUNT="$(wc -l < "$RUNNER_TEMP/process-lifecycle-sparse-patterns.txt" | tr -d ' ')"
+          echo "Exact sparse-checkout paths: $PATTERN_COUNT"
+          git -C "$SRC" sparse-checkout init --no-cone
+          git -C "$SRC" sparse-checkout set --no-cone --stdin < "$RUNNER_TEMP/process-lifecycle-sparse-patterns.txt"
+          git -C "$SRC" checkout --detach "$SOURCE_SHA"
+          test "$(git -C "$SRC" rev-parse HEAD)" = "$SOURCE_SHA"
+
+          python3 "$SRC/scripts/audit_process_lifecycle.py" --self-test
+          python3 "$SRC/scripts/audit_process_lifecycle.py" \
+            --repo-root "$SRC" --revision "$SOURCE_SHA" \
+            --output-dir "$RUNNER_TEMP/process-lifecycle-report"
+
+          {
+            echo "# Process lifecycle source inventory"
+            echo
+            echo "- Exact source commit: $SOURCE_SHA"
+            echo "- Exact sparse paths requested: $PATTERN_COUNT"
+            echo
+            cat "$RUNNER_TEMP/process-lifecycle-report/summary.txt"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload complete JSON and Markdown inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: process-lifecycle-inventory-${{ github.sha }}
+          path: ${{ runner.temp }}/process-lifecycle-report/
+          if-no-files-found: error
+          retention-days: 30
