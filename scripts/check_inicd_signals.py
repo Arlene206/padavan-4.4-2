@@ -58,6 +58,7 @@ test = read("trunk/user/rc/src/tests/inicd_signal_policy.c")
 wifi = read("trunk/user/rc/src/net_wifi.c")
 rc = read("trunk/user/rc/src/rc.c")
 rc_header = read("trunk/user/rc/src/rc.h")
+pidfile_header = read("trunk/user/shared/src/process_pidfile.h")
 src_makefile = read("trunk/user/rc/src/Makefile")
 package_makefile = read("trunk/user/rc/Makefile")
 workflow = read(".github/workflows/inicd-signal-stability.yml")
@@ -88,12 +89,26 @@ poll = main.index("if (events & INICD_EVENT_POLL)")
 callback = main.index("check_inic_mii_rebooted();")
 assert take < pending < pending_stop < stop < poll < callback
 assert "events == 0" in main
+publish_pidfile = main.index('process_pidfile_write(INICD_PID_FILE, "inicd")')
+publish_failure = main.index("if (process_pidfile_write(INICD_PID_FILE, \"inicd\") != 0)")
+timer_start = main.index("timer_status = inicd_alarmtimer(INICD_POLL_INTERVAL)")
+assert publish_failure < timer_start
+assert "Failed to publish identity PID file" in main[publish_failure:timer_start]
+assert "return saved_errno;" in main[publish_failure:timer_start]
 assert main.index("inicd_cleanup();", main.index("for (;;)")) > callback
 assert "if (timer_status < 0)" in main
 
 cleanup = function_body(source, "inicd_cleanup(void)")
 assert "inicd_alarmtimer(0)" in cleanup
-assert "remove(INICD_PID_FILE)" in cleanup
+assert "remove(INICD_PID_FILE)" not in cleanup
+assert "replacement daemon may already have atomically published a newer one" in source
+
+pidfile_stop = function_body(source, "stop_inicd(void)")
+assert 'char *services[] = { "inicd", NULL };' in pidfile_stop
+assert 'const char *pidfiles[] = { INICD_PID_FILE, NULL };' in pidfile_stop
+assert 'kill_services_with_pidfiles(services, pidfiles, "inicd", 0, 3, 1)' in pidfile_stop
+assert "killall" not in pidfile_stop
+assert 'int process_pidfile_write(const char *path, const char *process_name);' in pidfile_header
 assert "return -errno;" in function_body(source, "inicd_alarmtimer(unsigned long sec)")
 
 for token in (

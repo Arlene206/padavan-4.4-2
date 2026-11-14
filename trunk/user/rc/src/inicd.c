@@ -12,6 +12,7 @@
 #include <string.h>
 
 #include "rc.h"
+#include <process_pidfile.h>
 #include "inicd_signal_policy.h"
 
 #define INICD_POLL_INTERVAL 15
@@ -47,14 +48,21 @@ inicd_cleanup(void)
 {
 	if (inicd_alarmtimer(0) < 0)
 		logmessage("inicd", "Failed to disable health-check timer: %s", strerror(errno));
-	if (remove(INICD_PID_FILE) < 0 && errno != ENOENT)
-		logmessage("inicd", "Failed to remove PID file: %s", strerror(errno));
+	/*
+	 * Keep the last identity record instead of unlinking by pathname: a
+	 * replacement daemon may already have atomically published a newer one.
+	 * A stale PID/start-time pair is rejected by the stop preflight and is
+	 * replaced atomically by process_pidfile_write() on the next start.
+	 */
 }
 
 int
 stop_inicd(void)
 {
-	return doSystem("killall %s %s", "-q", "inicd");
+	char *services[] = { "inicd", NULL };
+	const char *pidfiles[] = { INICD_PID_FILE, NULL };
+
+	return kill_services_with_pidfiles(services, pidfiles, "inicd", 0, 3, 1);
 }
 
 int
@@ -66,7 +74,6 @@ start_inicd(void)
 int
 inicd_main(int argc, char *argv[])
 {
-	FILE *fp;
 	struct sigaction sa;
 	sigset_t managed_signals, previous_mask, wait_mask, pending_signals;
 	sig_atomic_t events;
@@ -127,9 +134,11 @@ inicd_main(int argc, char *argv[])
 		return saved_errno;
 	}
 
-	if ((fp = fopen(INICD_PID_FILE, "w")) != NULL) {
-		fprintf(fp, "%d", getpid());
-		fclose(fp);
+	if (process_pidfile_write(INICD_PID_FILE, "inicd") != 0) {
+		int saved_errno = errno ? errno : EIO;
+		logmessage("inicd", "Failed to publish identity PID file: %s", strerror(saved_errno));
+		(void)sigprocmask(SIG_SETMASK, &previous_mask, NULL);
+		return saved_errno;
 	}
 
 	timer_status = inicd_alarmtimer(INICD_POLL_INTERVAL);
