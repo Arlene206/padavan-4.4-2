@@ -171,7 +171,7 @@ print("WAN/LAN udhcpc identity-bound stop integration: PASS")
 
 wan_stop = net_wan.split("static int\nstop_wan_locked(void)", 1)[1].split("\n}\n", 1)[0]
 usb_modem = (root / "trunk/user/rc/src/usb_modem.c").read_text()
-modem_remove = usb_modem.split("void\nsafe_remove_usb_modem(void)", 1)[1].split("\n}\n", 1)[0]
+modem_remove = usb_modem.split("int\nsafe_remove_usb_modem(void)", 1)[1].split("\n}\n", 1)[0]
 assert '"udhcpc"' not in wan_stop.split("char* svcs_wan[]", 1)[1].split("};", 1)[0]
 assert "process_pidfile_signal(udhcpc_pidfiles[0], \"udhcpc\", SIGUSR2)" in wan_stop
 assert "process_pidfile_signal(udhcpc_pidfiles[1], \"udhcpc\", SIGUSR2)" in wan_stop
