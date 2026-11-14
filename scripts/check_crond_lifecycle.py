@@ -112,7 +112,7 @@ kill = function_body(
 assert "service_lifecycle_stop(svc_name, wtimeout, forcekill, &ops, NULL)" in kill
 assert "return result;" in kill
 assert "service_lifecycle_wait_for_exit" in lifecycle
-assert "if (!forcekill)" in lifecycle
+assert "if (!forcekill || result != SERVICE_LIFECYCLE_TIMEOUT)" in lifecycle
 
 # BusyBox's parent exits after forking, before the child can fail during
 # chdir, crontab scanning or pidfile publication.
