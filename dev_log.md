@@ -1,3 +1,19 @@
+## 2026-11-14 — Complete semantic classification of shared process lifecycle callers
+
+- Base main SHA: 736259cde2507d0997a240f01814c4ab4ff13527. Compare with inventory source SHA d0404d5e33d4239e19c92db9b9ab4fb7529cf26c shows the two intervening commits changed documentation paths only; process-related source/build/test/workflow baseline is unchanged.
+- Completed direct-call-site semantic review for 77 pids() calls, the single pids_main() caller, 46 kill_services() calls, five kill_pidfile() callers and 15 kill_pidfile_s() call expressions (14 external plus internal kill_pidfile() wrapper). Full caller matrix, UNKNOWN behavior, cleanup/restart propagation, feature guards, PID producers/consumers and build linkage are in docs/audits/PROCESS_LIFECYCLE_SEMANTIC_REVIEW.md.
+- Confirmed high-risk failures: VPN Server ignores stop failure before PPP SIGKILL and destructive state/script/lease cleanup, then restart proceeds; USB modem removal ignores udhcpc/pppd stop failure and clears WAN state; AP LAN stop tears down bridge after ignored DHCP stop; flash_firmware() reaches storage removal and firmware write through void stop_services(); Samba uses both >0 false-absence and raw negative truthiness; HTTPD/crond/GPIO startup readiness can treat UNKNOWN as RUNNING.
+- PID-file review covered all shared helper callers and in-tree detect_internet/detect_link/watchdog/rstats writers, BusyBox udhcpc -p writer, PPPD numeric PID files, INICD's independent PID file and unresolved /var/run/lpdparent.pid writer. kill_pidfile_s() validates neither process identity nor start time and can signal a reused PID.
+- Scanner detail: a per-PID stat/cmdline failure skips that entry and continues directory enumeration; the fail-open defect is that skipped entries do not mark the inventory UNKNOWN. readdir() errors remain indistinguishable from EOF; allocation/open/vector errors also collapse into an empty result.
+- Build boundary: Padavan shared pids.c is compiled into libshared.so for RC and HTTPD; BusyBox 1.24.x libbb/procps.c is independent. BusyBox udhcpc is a PID-file writer, not a shared pids() consumer.
+- This milestone changes audit/handoff documentation only. No production C, build config, regression test or runtime file changed. P1 remains OPEN/NOT FIXED pending tri-state API design, fault-injection tests and caller migration.
+- L1 lexical inventory PASS at source SHA d0404d5e33d4239e19c92db9b9ab4fb7529cf26c; requested direct API semantic classification PASS. L2 production scanner/lifecycle regression NOT RUN. L3 historical MIPS/uClibc evidence only at 691e4d68a27580d0f053a8b4c9ae7a71bff03e6f. L4 hardware flash/boot/runtime NOT VERIFIED.
+- Root log advances 77 to 78 records and remains below the 384 KiB rotation threshold. No archive rotation or docs/dev-log/INDEX.md change is due.
+- Resulting documentation commit: THIS COMMIT. Check exact-head push Actions after the main ref update.
+- Exact next action: design snapshot+tri-state scanner API and all-target preflight/identity-bound lifecycle policy from the completed semantic review, then add GNU89/-Werror fault-injection regressions before migrating callers.
+
+---
+
 ## 2026-11-14 18:02 CST (UTC+8) — Correct Markdown escaping in the process inventory handoff package
 
 - Base main SHA: `3db7981c006fc2ce56a5a6b4cefd67984e914b8c`. Corrected Markdown inline-code delimiters in `docs/audits/PROCESS_LIFECYCLE_INVENTORY.md`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and this log after the first docs commit preserved template escape characters literally.
