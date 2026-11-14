@@ -282,3 +282,74 @@ Actions Run `43541384942`（SHA `59105690...`）：
 - dnsmasq supports upstream `server` entries with a non-standard port using `#port`, and `no-resolv` disables reading the system resolver file when explicit upstreams are used: https://dnsmasq.org/docs/dnsmasq-man.html
 
 **State:** architecture discussion and source audit only. No product source, dnsmasq runtime configuration, SmartDNS generator, proxy rules, WebUI, or firmware template was changed. No XY-C1 runtime or hardware test was performed.
+
+
+## 11. 2026-11-14 continuation: cross-cutting reliability candidates beyond proxy and DNS UI
+
+### Status and intent
+
+- This section records additional architecture candidates identified after discussing the standalone C5 proxy capability, its WebUI, SmartDNS ownership, and dnsmasq integration.
+- These are **design recommendations for user review**, not yet accepted product requirements and not implementation authorization. They must remain distinguishable from the decisions already recorded in Sections 8–10.
+- The goal is not to add more plugins. It is to make the existing router, DNS, proxy, update and management planes fail predictably and recover safely.
+
+### 1. Explicit IPv4/IPv6 policy parity
+
+- The current platform/template has IPv6 capability, so every proxy operating mode needs an explicit IPv6 policy. Do not assume that an IPv4 TProxy/ipset/iptables path automatically covers IPv6.
+- If full dual-stack proxying is supported, validate IPv6 DNS answers (AAAA), interception, policy routing/marks, ip6tables, N1 SOCKS5 behavior, C5-owned node behavior, direct/bypass exceptions, and return traffic as one end-to-end path.
+- If a particular mode or outbound cannot support IPv6, expose that limitation and define an explicit policy (for example, block selected proxy-required IPv6 traffic or disable IPv6 answers for that policy). Never silently leak it over WAN while the UI claims it is proxied.
+- Keep router-local, LAN, link-local, multicast and required control-plane traffic outside transparent interception.
+
+### 2. A visible failure/fallback matrix
+
+- Define behavior separately for: N1 SOCKS5 unavailable; C5-owned proxy node unavailable; SmartDNS unavailable; dnsmasq unavailable; WAN unavailable; time not synchronized; rule/subscribe update failure.
+- In the normal N1-preferred profile, N1 failure may optionally trigger the C5-owned node, but the user must be able to choose and see this behavior. If both proxy paths fail, selected proxy-required traffic must follow an explicit fail-closed or user-selected fallback policy; no invisible direct bypass.
+- Ordinary direct/domestic traffic and LAN management should remain usable when proxy services fail.
+- SmartDNS failure must not stop DHCP or local-name service. dnsmasq's emergency upstream must be explicit and visible, not an accidental loop or undocumented leak.
+- Automatic failover, if implemented, needs readiness checks, bounded retries, hysteresis/cooldown and clear active-state reporting; process existence alone is not proof that an upstream works.
+
+### 3. Transactional configuration apply and service lifecycle
+
+- Treat a WebUI Apply operation as a transaction across generated configuration, DNS integration, proxy core and firewall/routing state.
+- Generate new files in a private temporary location; validate schema/syntax and referenced objects; stage rule/IPSet changes; then switch to the new generation atomically where the platform allows.
+- Start/reload the required service and perform a real readiness/health check. Only mark the new generation active after its dependencies are healthy. On any failure, restore the previous known-good files, processes and routing rules.
+- Start/stop/restart operations must be idempotent and must verify postconditions. Avoid global `killall`, flush-first firewall updates, or partial apply that leaves DNS pointing at a stopped listener.
+- Persist user configuration only after validation succeeds; distinguish saved, applied, active and degraded states in the WebUI.
+
+### 4. Independent clock and network bootstrap
+
+- Provide a bootstrap path for system time and DNS that does not require the proxy that it is about to start. This matters for HTTPS subscription/rule downloads and TLS-based nodes such as Hysteria2, where certificate/time validation must not be bypassed to get the service online.
+- NTP bootstrap should have direct, bounded retry behavior and a visible unsynchronized state. Its server-name resolution must use a known direct bootstrap resolver or another explicitly independent path.
+- Proxy node hostnames, N1 SOCKS5 endpoint hostnames, SmartDNS proxy endpoints and subscription hosts need explicit bootstrap DNS/direct-route exceptions to prevent circular dependencies.
+- A clock/TLS/bootstrap failure must be reported clearly; do not silently disable certificate verification.
+
+### 5. Secure management and secret handling
+
+- Default management exposure should be LAN-only; WAN-side WebUI access should remain disabled unless a separately designed secure remote-access path is explicitly enabled.
+- Require authenticated state-changing actions and appropriate session/CSRF protection. Validate all imported subscription/node data and uploaded files as untrusted input; avoid shell interpolation and arbitrary command construction from UI fields.
+- Bind any optional C5-local SOCKS5 listener only to the intended loopback/LAN interface, with authentication and/or explicit source ACLs. Never expose it to WAN by default.
+- Protect node passwords, UUIDs, subscription URLs/tokens and exported backups. Mask secrets in status pages, logs and one-click diagnostic bundles; diagnostics should require user review before sharing.
+
+### 6. Firmware update, configuration migration and recovery
+
+- Before choosing an embedded-core or fallback-core strategy, verify the actual XY-C1 MTD partition map, TRX limit, bootloader behavior and available persistent-storage capacity. Do not infer usable firmware space from the nominal 32 MB flash capacity.
+- Firmware update should preflight board identity, image format/size, checksum or signature, and configuration compatibility before writing. Preserve a restorable backup of user configuration and rule metadata; apply versioned migrations and validate the migrated configuration before services consume it.
+- Preserve the current known-good firmware/configuration recovery path. Do not assume A/B slots, dual-image rollback or a recovery partition exists until the actual hardware layout and bootloader support prove it.
+- External firmware/rule downloads may use the C5's own proxy path when needed, but local LAN firmware upload and ordinary router boot must not depend on N1 or WAN availability.
+
+### 7. Diagnostics, bounded logs and measurable resource budgets
+
+- Provide one diagnostic view/export covering WAN/LAN, NTP, dnsmasq, SmartDNS resolver groups, proxy core/outbound, N1 reachability, IPv4/IPv6 policy, rule-set versions, last successful update, active configuration generation and recent errors.
+- Include actionable connection tests for DNS groups, N1 SOCKS5 TCP and UDP, C5-owned node TCP and UDP, and selected IPv4/IPv6 paths. Distinguish process-running from end-to-end connectivity.
+- Keep high-volume logs in bounded RAM-backed storage where practical; rotate/cap them and avoid frequent flash writes. Persist only the state and last-known-good artifacts needed for recovery.
+- Define performance/resource acceptance tests using the actual XY-C1 device: 500M-class direct routing, N1 SOCKS5 mode, C5-owned-node mode, TCP/UDP, IPv4/IPv6, concurrent clients, CPU, peak RAM, flash use and update staging. No QoS/SQM work is implied; results must be measured rather than inferred from host builds or nominal RAM/flash.
+- Diagnostic exports must redact credentials, subscription tokens and other secrets by default.
+
+### Open decisions for a later design pass
+
+1. Whether IPv6 proxying is a required full feature in the first release, or whether a documented and leak-safe constrained policy is acceptable.
+2. Per-profile fail-open/fail-closed behavior when N1 and C5 proxy paths are both unavailable.
+3. The exact DNS emergency path when SmartDNS is stopped, including whether it is direct WAN or another explicitly configured resolver.
+4. Whether automatic N1-to-C5 failover is enabled by default or remains opt-in.
+5. Which firmware recovery mechanisms are genuinely supported by the XY-C1 partition map and bootloader.
+
+**State:** candidate architecture supplement only. No product source, build configuration, runtime settings, WebUI, firmware image or hardware behavior was changed or validated.
