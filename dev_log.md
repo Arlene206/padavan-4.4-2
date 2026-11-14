@@ -1,3 +1,17 @@
+## 2026-11-14 07:59 CST (UTC+8) — Reconcile current main and enumerate complete userland tree
+
+- Re-fetched `refs/heads/main`: `eda03f83812c86e81a6f8d67130ac30f54ce4b18` (parent `6dba16674ed6ee0b0babcf65905a3722fac23876`). Current tip is documentation-only; no product-source delta from the recorded L3 source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`.
+- Remote branch inventory contains only `main`; legacy PR #1 is CLOSED / UNMERGED. No non-main ref or PR was used for development.
+- Six current-main `push` Actions completed SUCCESS with exact matching `head_sha`: AliyunDrive [43530505638], AI docs [43530505416], AdGuardHome [43530505408], AliDDNS [43530505376], infosvr [43530505319], and NVRAM [43530505307]. Combined status endpoint returned no entries; it is not treated as a green check.
+- Enumerated the `trunk/user` Git tree hierarchically at this exact commit: 10,203 entries, 764 directories, 4,409 C/H files, and `truncated=false`. Five code-search queries returned no indexed matches, but that is not evidence of no callers. A bulk 229-file RC/shared source retrieval exceeded the connector call budget before completion; exhaustive caller classification is still NOT COMPLETE.
+- Partial source review confirms the fail-open concern in `shared/src/pids.c`: scan-context allocation and `opendir("/proc")` failures both return NULL; `procps_scan()` treats any NULL `readdir()` result as normal end-of-scan without distinguishing errno; PID-list wrappers and lifecycle consumers still require complete caller analysis before an API change. No source or test files were changed.
+- Validation: L1 partial review/tree enumeration only. L2 process-inventory regressions and local docs checker NOT RUN (no local checkout). L3 evidence remains limited to source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`; L4 NOT VERIFIED.
+- Root log advances 55→56/119; no size-triggered or count-triggered rotation; archive index unchanged.
+- Exact next action: finish source-wide process API and lifecycle consumer inventory from the complete `trunk/user` tree, then design the RUNNING / ABSENT / UNKNOWN API and GNU89/`-Werror` regression. Do not partially migrate callers.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-13 15:53 PST (UTC-8) — Reconcile exact main checkpoint and process-inventory continuation
 
 - Re-read the mandatory bootstrap and complete development protocol, then recovered the live handoff, roadmap, newest root-log records and archive index.
