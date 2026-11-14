@@ -1,3 +1,16 @@
+## 2026-11-14 08:23 CST (UTC+8) — Reconcile current main and refresh process-inventory handoff
+
+- Re-fetched live `main`: base SHA `f40aba8106e24993cbc64fd9a23dee4756620790`; refreshed `SESSION_HANDOFF.md` in place as `4bb6c27e91e7f2b68a00011b99127f889bfe5d0d`. This is a documentation-only commit; no product source changed.
+- Remote refs: only `main`. Legacy PR #1 remains CLOSED / UNMERGED. No non-main ref or PR was used.
+- Exact-head push Actions for base `f40aba8106e24993cbc64fd9a23dee4756620790` completed 6/6 SUCCESS with matching `head_sha`: NVRAM [43531298250], AdGuardHome [43531298340], infosvr [43531298263], AliDDNS [43531298235], AI handoff docs [43531298253], AliyunDrive [43531298258].
+- Re-inspected `pids.c`, `shutils.h`, `common_ex.c`, `services_ex.c`, and lifecycle policy. Confirmed NULL/EOF ambiguity remains: scanner allocation and `/proc` open failures return NULL; `readdir()` errors are indistinguishable from EOF; PID-list allocation/growth failures can be mistaken for absence. RC/shared source directory inventories were retrieved. Six indexed code searches returned no results, but this is not exhaustive; full cross-userland caller enumeration remains INCOMPLETE. Do not change API or migrate callers until exhaustive classification is achieved.
+- No product source or tests changed. L1 partial source review only; L2 GNU89/`-Werror` regressions and local docs checker NOT RUN because no local checkout. L3 remains limited to source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f` (run `43489646254` / job `132107102854`); L4 NOT VERIFIED.
+- Root log advances 56→57/119; current root size before entry was 142,625 characters, below the 384 KiB rotation trigger. No archive rotation or INDEX update; roadmap inventory/priority did not materially change.
+- Exact next action: retrieve and inspect source contents in bounded batches across all `trunk/user` subtrees; enumerate every scanner API and lifecycle caller before designing/migrating RUNNING / ABSENT / UNKNOWN. Then add injectable GNU89/`-Werror` tests and verify exact-head push Actions.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-14 07:59 CST (UTC+8) — Reconcile current main and enumerate complete userland tree
 
 - Re-fetched `refs/heads/main`: `eda03f83812c86e81a6f8d67130ac30f54ce4b18` (parent `6dba16674ed6ee0b0babcf65905a3722fac23876`). Current tip is documentation-only; no product-source delta from the recorded L3 source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`.
