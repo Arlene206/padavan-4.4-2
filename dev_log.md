@@ -1,3 +1,12 @@
+## 2026-11-14 09:31 CST (UTC+8) — Pin active handoff to latest main and leave exact-head CI pending
+
+- Base `main` SHA: `537c6041f7198138cf4ab036fbefbbac9c576a45`. Refreshed `SESSION_HANDOFF.md` in place as `2b6b12d23d899717545f019bce6c5bf87a4d4edd` to preserve the active P1 process-inventory blocker and identify the pending exact-head Actions. No product source or tests changed.
+- Six `push` workflows were queued on the handoff commit with matching `head_sha=2b6b12d23d899717545f019bce6c5bf87a4d4edd`: AI handoff docs [43540807160], AliDDNS [43540807074], AdGuardHome [43540807104], NVRAM [43540807112], infosvr [43540807045], AliyunDrive [43540807096]. They were queued at last inspection; no completion is claimed.
+- Local checkout and `scripts/check_ai_handoff_docs.py` remain unavailable because GitHub DNS resolution fails. The exact-head AI docs Action is the remote validation path; inspect all six runs by exact SHA on the next takeover. Root log advances 70→71/119; no rotation or INDEX update. L3 remains historical-only and L4 NOT VERIFIED.
+- This documentation log commit: THIS COMMIT. Continue the P1 caller-inventory task only after reconciling current `main` and exact-head CI; do not partially migrate the shared process API.
+ 
+---
+
 ## 2026-11-14 09:27 CST (UTC+8) — Refresh exact main checkpoint; preserve blocked P1 scanner migration
 
 - Re-fetched live `main`: `3f19d4bf89cccc6bbf97fb81c37a2cf22358a29e` (parent `e507f744ce7f84e169d5a1f8a6e5f22d5cf067ff`). The intervening commit changed only the live roadmap, handoff and log; no product source changed. The current remote branch inventory contains only `main`.
