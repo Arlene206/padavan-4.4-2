@@ -788,7 +788,7 @@ notify_modem_on_internet_state_changed(int has_internet)
 }
 #endif
 
-void
+int
 safe_remove_usb_modem(void)
 {
 	const char *pidfiles[2];
@@ -803,9 +803,14 @@ safe_remove_usb_modem(void)
 		if (stop_status != 0) {
 			logmessage(LOGNAME, "refusing NDIS modem removal: WAN DHCP identity stop failed (status=%d)",
 				   stop_status);
-			return;
+			return stop_status;
 		}
-		stop_wan_usbnet();
+		stop_status = stop_wan_usbnet();
+		if (stop_status != 0) {
+			logmessage(LOGNAME, "refusing NDIS modem removal: modem network teardown failed (status=%d)",
+				   stop_status);
+			return stop_status;
+		}
 	} else {
 		/* RAS pppd publishes linkname=wan0 in its identity-bound link PID file. */
 		pidfiles[0] = "/var/run/ppp-wan0.pid";
@@ -814,11 +819,12 @@ safe_remove_usb_modem(void)
 		if (stop_status != 0) {
 			logmessage(LOGNAME, "refusing RAS modem removal: PPP link identity stop failed (status=%d)",
 				   stop_status);
-			return;
+			return stop_status;
 		}
 	}
 
 	set_usb_modem_dev_wan(0, 0);
+	return 0;
 }
 
 int
@@ -887,17 +893,37 @@ launch_wan_usbnet(int unit)
 	return -1;
 }
 
-void
+int
 stop_wan_usbnet(void)
 {
 	int modem_devnum = 0;
+	int interface_present, control_status = 0, ifdown_status;
+	int result = 0;
 	char ndis_ifname[16] = {0};
 
-	if (get_modem_ndis_ifname(ndis_ifname, &modem_devnum)) {
-		ndis_control_network(ndis_ifname, modem_devnum, 0);
-		if (is_interface_exist(ndis_ifname))
-			ifconfig(ndis_ifname, 0, "0.0.0.0", NULL);
+	if (!get_modem_ndis_ifname(ndis_ifname, &modem_devnum))
+		return 0;
+
+	interface_present = is_interface_exist(ndis_ifname);
+	if (interface_present && !is_usbnet_has_module(ndis_ifname, "cdc_mbim")) {
+		control_status = ndis_control_network(ndis_ifname, modem_devnum, 0);
+		if (control_status != 0) {
+			logmessage(LOGNAME, "failed to disconnect USB modem control session on %s (status=%d)",
+				   ndis_ifname, control_status);
+			result = -1;
+		}
 	}
+
+	if (interface_present) {
+		ifdown_status = ifconfig(ndis_ifname, 0, "0.0.0.0", NULL);
+		if (ifdown_status != 0 && ifdown_status != ENODEV) {
+			logmessage(LOGNAME, "failed to bring USB modem interface %s down (status=%d)",
+				   ndis_ifname, ifdown_status);
+			result = -1;
+		}
+	}
+
+	return result;
 }
 
 static const struct ums_ma_addon_t {

@@ -5,12 +5,14 @@ on:
     paths:
       - ".github/workflows/wan-teardown-stability.yml"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/usb_modem.c"
       - "trunk/user/rc/src/wan_teardown_policy.h"
       - "trunk/user/rc/src/tests/wan_teardown_policy.c"
   pull_request:
     paths:
       - ".github/workflows/wan-teardown-stability.yml"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/usb_modem.c"
       - "trunk/user/rc/src/wan_teardown_policy.h"
       - "trunk/user/rc/src/tests/wan_teardown_policy.c"
 
@@ -59,6 +61,8 @@ jobs:
           assert adapter.index('logmessage(') < adapter.rindex("return ret;")
 
           stop = function_body(source, "stop_wan_locked(void)")
+          usb_modem = (rc / "usb_modem.c").read_text()
+          usbnet_stop = function_body(usb_modem, "int\\nstop_wan_usbnet(void)")
           service_gate = 'kill_services_with_pidfiles(svcs_wan, udhcpc_pidfiles, "udhcpc", 0, 3, 1)'
           teardown = "ifdown_status = wan_teardown_ifdown_interfaces("
           failure_gate = "if (ifdown_status != 0)"
@@ -66,7 +70,11 @@ jobs:
           assert "usbnet_ifname = NULL;" in stop
           assert usbnet_gate in stop
           assert stop.index(usbnet_gate) < stop.index('usbnet_ifname = get_wan_unit_value(unit, "ifname_t");') < stop.index("stop_wan_usbnet();")
-          assert stop.index(service_gate) < stop.index("stop_wan_usbnet();") < stop.index(teardown)
+          assert "stop_status = stop_wan_usbnet();" in stop
+          assert "if (control_status != 0)" in usbnet_stop
+          assert "ifdown_status != ENODEV" in usbnet_stop
+          assert "return result;" in usbnet_stop
+          assert stop.index(service_gate) < stop.index("stop_status = stop_wan_usbnet();") < stop.index(teardown)
           teardown_path = stop[stop.index(teardown):stop.index("remove_cb_links();")]
           assert "usbnet_ifname" in teardown_path
           assert stop.index(teardown) < stop.index("remove_cb_links();")
@@ -108,6 +116,7 @@ jobs:
           paths = (
               ".github/workflows/wan-teardown-stability.yml",
               "trunk/user/rc/src/net_wan.c",
+              "trunk/user/rc/src/usb_modem.c",
               "trunk/user/rc/src/wan_teardown_policy.h",
               "trunk/user/rc/src/tests/wan_teardown_policy.c",
           )

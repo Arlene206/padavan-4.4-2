@@ -1914,18 +1914,22 @@ stop_wan_locked(void)
 	if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC &&
 	    strcmp(man_ifname, get_wan_unit_value(unit, "ifname_t")) == 0)
 		wan_down(man_ifname, unit, 1);
+	stop_status = 0;
 #if defined (USE_USB_SUPPORT)
 	if (get_usb_modem_wan(unit) && nvram_get_int("modem_type") == 3)
 		usbnet_ifname = get_wan_unit_value(unit, "ifname_t");
-	stop_wan_usbnet();
+	stop_status = stop_wan_usbnet();
 #endif
 	ifdown_status = wan_teardown_ifdown_interfaces(man_ifname, IFNAME_WAN,
 						       usbnet_ifname,
 						       &wan_teardown_ifdown_ops, NULL);
 	remove_cb_links();
-	if (ifdown_status != 0) {
-		logmessage(LOGNAME, "WAN interface shutdown incomplete; skipping final WAN state clear");
-		stop_status = ifdown_status;
+	if (stop_status != 0 || ifdown_status != 0) {
+		logmessage(LOGNAME,
+			   "WAN interface shutdown incomplete (modem=%d interface=%d); skipping final WAN state clear",
+			   stop_status, ifdown_status);
+		if (stop_status == 0)
+			stop_status = ifdown_status;
 		goto abort_resume_detect;
 	}
 #if defined (USE_IPV6)

@@ -60,7 +60,7 @@ safe_remove_usb_device(int port, const char *dev_name)
 		if (modem_devnum) {
 			usb_info_t *usb_info, *follow_usb;
 			int has_modem_port = 0;
-			
+
 			usb_info = get_usb_info();
 			for (follow_usb = usb_info; follow_usb != NULL; follow_usb = follow_usb->next) {
 				if ((follow_usb->port_root == port) &&
@@ -70,17 +70,24 @@ safe_remove_usb_device(int port, const char *dev_name)
 					has_modem_port |= 1;
 			}
 			free_usb_info(usb_info);
-			
+
 			if (has_modem_port) {
-				if ( get_usb_modem_dev_wan(0, modem_devnum) ) {
-					safe_remove_usb_modem();
-					try_wan_reconnect(0, 0);
+				if (get_usb_modem_dev_wan(0, modem_devnum)) {
+					int modem_remove_status;
+
+					modem_remove_status = safe_remove_usb_modem();
+					if (modem_remove_status == 0)
+						try_wan_reconnect(0, 0);
+					else
+						logmessage(LOGNAME,
+							   "skipping WAN reconnect after incomplete USB modem removal (status=%d)",
+							   modem_remove_status);
 				}
 			}
 		} else {
 			safe_remove_stor_device(port, port, dev_name, 1);
 		}
-		
+
 	} else if (port == 0) {
 		safe_remove_stor_device(1, BOARD_NUM_USB_PORTS, NULL, 1);
 	}
