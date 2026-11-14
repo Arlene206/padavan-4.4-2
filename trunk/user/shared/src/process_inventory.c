@@ -524,18 +524,4 @@ process_identity_validate(const char *process_name,
 						  &proc_default_ops, NULL);
 }
 
-void
-process_snapshot_release(struct process_snapshot *snapshot)
-{
-	if (!snapshot)
-		return;
-	if (snapshot->items) {
-		if (snapshot->release_items)
-			snapshot->release_items(snapshot->release_context,
-					       snapshot->items);
-		else
-			free(snapshot->items);
-	}
-	memset(snapshot, 0, sizeof(*snapshot));
-	snapshot->state = PROCESS_PRESENCE_UNKNOWN;
-}
+

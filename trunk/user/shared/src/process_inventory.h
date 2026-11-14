@@ -2,6 +2,8 @@
 #define PROCESS_INVENTORY_H
 
 #include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 
 /* This is not a Boolean: callers must compare the state explicitly. */
@@ -64,6 +66,20 @@ enum process_presence
 process_identity_validate(const char *process_name,
 			  const struct process_identity *identity);
 
-void process_snapshot_release(struct process_snapshot *snapshot);
+static inline void
+process_snapshot_release(struct process_snapshot *snapshot)
+{
+	if (!snapshot)
+		return;
+	if (snapshot->items) {
+		if (snapshot->release_items)
+			snapshot->release_items(snapshot->release_context,
+					       snapshot->items);
+		else
+			free(snapshot->items);
+	}
+	memset(snapshot, 0, sizeof(*snapshot));
+	snapshot->state = PROCESS_PRESENCE_UNKNOWN;
+}
 
 #endif

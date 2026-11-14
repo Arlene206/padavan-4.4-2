@@ -1,3 +1,14 @@
+## 2026-11-14 20:32 CST (UTC+8) — Make tri-state lifecycle header self-contained for isolated host tests
+
+- Parent main: `28b676267ad671b0869d5f736a4a524e220b67dc`. P1 exact-head workflow `43595337517` on that SHA PASS: scanner GNU89 / ASan / UBSan compile and fault-injection execution; lifecycle policy GNU89 / ASan / UBSan compile and run; integration-boundary script.
+- Crond `43595337511`, infosvr `43595337418`, and AI handoff docs `43595337424` on the same exact SHA also PASS, including all their job steps.
+- Watchdog `43595337426` and HTTPD `43595337601` exposed an include dependency issue in their standalone host-test commands: they compile with `-I trunk/user/rc/src` only, so a quoted `process_inventory.h` include could not be resolved. The lifecycle header now includes the shared source header by repository-relative path; `process_snapshot_release()` is a `static inline` API so header-only policy tests do not need a link dependency on `process_inventory.c`. Re-run both affected workflows against the follow-up exact main SHA.
+- The first P1 run `43595026457` remains recorded as failed due to the 112-byte test snapshot leak; follow-up P1 run `43595337517` passes after preserving the original snapshot during force-kill preflight.
+- L2 overall remains OPEN until all affected exact-head workflows are inspected. L3 current-main MIPS/uClibc build NOT VERIFIED; L4 XY-C1 physical flash/boot/runtime NOT VERIFIED.
+- Root log advances 81→82 records. No archive rotation or INDEX change is due. Resulting commit: THIS COMMIT.
+- Exact next action: inspect exact-head Watchdog and HTTPD jobs on the resulting main SHA, then all other relevant exact-head Actions and the target build status.
+---
+
 ## 2026-11-14 20:20 CST (UTC+8) — Fix lifecycle snapshot ownership across force-kill preflight
 
 - Parent main: `58e924749f1937cbab144a664b15e659e48ca5f8`. Exact-head process lifecycle run `43595026457` exposed a real test/runtime memory leak: the pre-KILL second call to `service_lifecycle_preflight()` overwrote the original target snapshots while taking a new scan. LeakSanitizer reported 112 bytes in two tests. Scanner compile and fault-injection execution passed; lifecycle test compilation passed; lifecycle test execution failed.
