@@ -1,3 +1,11 @@
+## 2026-11-14 — Restore required handoff heading for documentation CI contract
+
+- Follow-up to documentation commit 5e37dfd0ec40d1b3a0f110224c3d5cc8ebc39940. Exact-head Actions exposed a strict, intentional heading contract: both scripts/check_ai_handoff_docs.py and scripts/check_infosvr_packets.py require the literal section heading "## Exact first action for the next GPT".
+- Restored that canonical heading in SESSION_HANDOFF.md without changing the semantic next-step content. The first exact-head run's infosvr C policy compiles/tests passed under GNU89, -Wall, -Wextra, -Werror, ASan and UBSan; its source-contract step failed only because of the handoff heading mismatch. The AI documentation job failed at the same required-heading assertion.
+- Documentation-only correction; no production source, test, workflow or build configuration changed. Root log advances 78→79; no archive rotation or docs/dev-log/INDEX.md change is due.
+- Resulting commit: THIS COMMIT. Recheck exact-head Actions and ensure the AI handoff and infosvr contract jobs now pass.
+---
+
 ## 2026-11-14 — Complete semantic classification of shared process lifecycle callers
 
 - Base main SHA: 736259cde2507d0997a240f01814c4ab4ff13527. Compare with inventory source SHA d0404d5e33d4239e19c92db9b9ab4fb7529cf26c shows the two intervening commits changed documentation paths only; process-related source/build/test/workflow baseline is unchanged.

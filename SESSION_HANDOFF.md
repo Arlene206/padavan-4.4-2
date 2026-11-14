@@ -37,7 +37,7 @@
 - L4: XY-C1 hardware flash/boot/runtime NOT VERIFIED.
 - Six exact-head push Actions on pre-review SHA passed; resulting documentation SHA must be checked independently. Green Actions are not firmware or hardware validation.
 
-## Exact next action for the next GPT
+## Exact first action for the next GPT
 
 1. Read complete AI_DEVELOPMENT_PROTOCOL.md first, then fetch live main and read this handoff, REFACTOR_ROADMAP.md, newest 20 dev_log.md records and docs/dev-log/INDEX.md. Check exact-head Actions.
 2. Read docs/audits/PROCESS_LIFECYCLE_SEMANTIC_REVIEW.md and cited sources. Do not restart lexical-scan design or repeat completed call-site census.
