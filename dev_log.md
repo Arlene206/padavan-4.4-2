@@ -1,3 +1,12 @@
+## 2026-11-15 — Remove pending-CI gate that blocked independent engineering
+
+- Cross-file rule review found a direct contradiction: bootstrap step 5 and protocol recovery text required resolving pending CI before selecting another task, while the continuous-execution section said not to burn the session polling pending runs. This contradicted the user's explicit PENDING→continue independent work rule and could stall every GPT session.
+- Changed the rule so the active engineering task resumes immediately; a relevant FAILED check must be triaged before its slice is called validated, but PENDING is not a blocker. Record the exact run ID/head SHA, continue safe independent implementation, and revisit at a useful checkpoint or before handoff. Never idle-wait or repeatedly poll.
+- Updated the handoff's exact first action to inspect AI-doc run 43631988702 for SHA 9ff6a875d31bbe832bac4ada583c7519d2a993ee, while explicitly continuing PPP/PID-file work if it remains pending. Added validator assertions to prevent regression to the old pending-CI gate.
+- This is a newly discovered, independently material continuity defect found during the user-requested cross-file review; it is a second correction to the same governance request, not a routine SHA/status refresh. No firmware source changed. Root dev-log advances 113→114 records; no archive rotation or index update is due.
+
+---
+
 ## 2026-11-15 — Make end-of-session handoff checkpoint mandatory without document churn
 
 - User-requested governance correction: every GPT session must perform and complete a handoff accuracy checkpoint before ending; the previous wording could be read as making the check optional or deferring it to the next conversation.

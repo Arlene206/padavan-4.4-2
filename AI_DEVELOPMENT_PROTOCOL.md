@@ -15,7 +15,7 @@ The sole authorized development branch is `main`. Do not create, use, or push an
 
 **The user's first priority is uninterrupted development continuity.** Every new GPT conversation must reconstruct the active task, whole-repository progress, validation boundary and exact next action directly from GitHub within a few minutes. This is a required engineering property, not an optional documentation preference.
 
-No session may edit firmware source before completing the recovery sequence in Section 10 and the root `AI_BOOTSTRAP_PROMPT.md`. Live GitHub state and the latest fetched `main` SHA are authoritative; hidden memory or copied chat summaries may not override them. Resume the active handoff task or resolve its pending/failed relevant CI before selecting another task.
+No session may edit firmware source before completing the recovery sequence in Section 10 and the root `AI_BOOTSTRAP_PROMPT.md`. Live GitHub state and the latest fetched `main` SHA are authoritative; hidden memory or copied chat summaries may not override them. Resume the active handoff engineering task first. A relevant failed exact-head CI result must be triaged before declaring that slice validated. A PENDING run is not a gate on independent work: record its run ID and exact head SHA, continue other safe independent tasks, and revisit it at a useful checkpoint or before handoff; never wait idly or repeatedly poll the same run.
 
 ### Canonical root files
 

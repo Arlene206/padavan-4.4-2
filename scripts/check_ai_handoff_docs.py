@@ -102,6 +102,14 @@ def main() -> None:
         fail("bootstrap contains a truncated/orphaned no-fabrication sentence")
     if "Every GPT must update the handoff in Git before ending" in protocol:
         fail("protocol unconditionally requires handoff churn and contradicts its materiality gate")
+    if "resolve its pending/failed relevant CI before selecting another task" in protocol:
+        fail("protocol blocks independent work while relevant CI is merely pending")
+    if "failed/pending `push` CI" in bootstrap:
+        fail("bootstrap incorrectly treats pending CI as a prerequisite to new work")
+    if "A PENDING run is not a gate on independent work" not in protocol:
+        fail("protocol must explicitly allow independent work while CI is pending")
+    if "A PENDING check is not a stop condition" not in bootstrap:
+        fail("bootstrap must explicitly allow independent work while CI is pending")
     if "If it remains accurate, leave it untouched." not in protocol:
         fail("protocol must explicitly preserve an accurate handoff without a no-op rewrite")
     for required in (
