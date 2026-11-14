@@ -14,6 +14,8 @@ on:
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/dnsmasq_restart_policy.h"
       - "trunk/user/rc/src/tests/dnsmasq_restart_policy.c"
+      - "trunk/user/shared/src/process_inventory.c"
+      - "trunk/user/shared/src/process_inventory.h"
       - "trunk/user/rc/src/dnsmasq_dhcp_range_policy.h"
       - "trunk/user/rc/src/tests/dnsmasq_dhcp_range_policy.c"
       - "trunk/user/rc/src/dnsmasq_lifecycle_lock.h"
@@ -33,6 +35,8 @@ on:
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/dnsmasq_restart_policy.h"
       - "trunk/user/rc/src/tests/dnsmasq_restart_policy.c"
+      - "trunk/user/shared/src/process_inventory.c"
+      - "trunk/user/shared/src/process_inventory.h"
       - "trunk/user/rc/src/dnsmasq_dhcp_range_policy.h"
       - "trunk/user/rc/src/tests/dnsmasq_dhcp_range_policy.c"
       - "trunk/user/rc/src/dnsmasq_lifecycle_lock.h"
@@ -52,7 +56,10 @@ jobs:
       - name: Compile and run DNSMasq restart policy regression
         run: |
           set -eu
-          cc -std=gnu89 -Wall -Wextra -Werror             -I trunk/user/rc/src             trunk/user/rc/src/tests/dnsmasq_restart_policy.c             -o "$RUNNER_TEMP/dnsmasq-restart-policy"
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src -I trunk/user/shared/src \
+            trunk/user/rc/src/tests/dnsmasq_restart_policy.c \
+            -o "$RUNNER_TEMP/dnsmasq-restart-policy"
           "$RUNNER_TEMP/dnsmasq-restart-policy"
       - name: Compile and run DNSMasq DHCP range conflict regression
         run: |
@@ -192,6 +199,8 @@ jobs:
               "trunk/user/rc/src/rc.h",
               "trunk/user/rc/src/dnsmasq_restart_policy.h",
               "trunk/user/rc/src/tests/dnsmasq_restart_policy.c",
+              "trunk/user/shared/src/process_inventory.c",
+              "trunk/user/shared/src/process_inventory.h",
               "trunk/user/rc/src/dnsmasq_dhcp_range_policy.h",
               "trunk/user/rc/src/tests/dnsmasq_dhcp_range_policy.c",
               "trunk/user/rc/src/dnsmasq_lifecycle_lock.h",
@@ -223,6 +232,8 @@ jobs:
           workflow = Path(".github/workflows/dnsmasq-lifecycle.yml").read_text()
           range_policy = Path("trunk/user/rc/src/dnsmasq_dhcp_range_policy.h").read_text()
           range_test = Path("trunk/user/rc/src/tests/dnsmasq_dhcp_range_policy.c").read_text()
+          inventory = Path("trunk/user/shared/src/process_inventory.c").read_text()
+          inventory_header = Path("trunk/user/shared/src/process_inventory.h").read_text()
 
           def function_body(source, signature):
               start = source.index(signature)
@@ -314,12 +325,28 @@ jobs:
           assert "dnsmasq_confirm_started(launch_status)" in restart
           assert "eval(\"/usr/sbin/dnsmasq\")" in start
           assert "eval(\"/usr/sbin/dnsmasq\")" in restart
+          presence_helper = function_body(services, "dnsmasq_process_presence(int *scan_error)")
+          assert 'process_inventory_scan("dnsmasq", &snapshot)' in presence_helper
+          assert "*scan_error = snapshot.error;" in presence_helper
+          assert presence_helper.index("*scan_error = snapshot.error;") < presence_helper.index(
+              "process_snapshot_release(&snapshot)"
+          )
+          assert "PROCESS_PRESENCE_UNKNOWN" in inventory_header
+          assert "PROCESS_PRESENCE_UNKNOWN" in inventory
           assert "DNSMASQ_START_WAIT_ATTEMPTS" in confirm
-          assert "is_dns_dhcpd_run()" in confirm
+          assert "presence = dnsmasq_process_presence(&scan_error);" in confirm
+          assert "presence == PROCESS_PRESENCE_RUNNING" in confirm
+          assert "dnsmasq_start_policy_status(launch_status, presence)" in confirm
+          unknown = confirm.index("presence == PROCESS_PRESENCE_UNKNOWN")
+          assert confirm.index("break;", unknown) < confirm.index("sleep(1)", unknown)
+          assert "is_dns_dhcpd_run()" not in confirm
           assert "sleep(1)" in confirm
-          assert "dnsmasq_start_policy_status(launch_status, daemon_running)" in confirm
-          assert "return daemon_running ? 0 : ESRCH;" in policy
-          assert "dnsmasq_start_policy_status(0, 0) == ESRCH" in restart_test
+          assert "if (daemon_presence == PROCESS_PRESENCE_RUNNING)" in policy
+          assert "if (daemon_presence == PROCESS_PRESENCE_ABSENT)" in policy
+          assert "return EIO;" in policy
+          assert "dnsmasq_start_policy_status(0, PROCESS_PRESENCE_ABSENT) == ESRCH" in restart_test
+          assert "dnsmasq_start_policy_status(0, PROCESS_PRESENCE_UNKNOWN) == EIO" in restart_test
+          assert "dnsmasq_start_policy_status(0, (enum process_presence)7) == EIO" in restart_test
           rc_header = Path("trunk/user/rc/src/rc.h").read_text()
           assert "int start_ddns(int clear_cache);" in rc_header
           assert 'ret = start_ddns(1);' in rc

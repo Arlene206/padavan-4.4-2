@@ -38,6 +38,7 @@
 #include "inadyn_config_file.h"
 #include "dnsmasq_lifecycle_lock.h"
 #include "dnsmasq_restart_policy.h"
+#include "process_inventory.h"
 #include "miniupnpd_config_file.h"
 #include "miniupnpd_daemon_policy.h"
 #include "samba_config_value_policy.h"
@@ -335,27 +336,47 @@ is_dns_dhcpd_run(void)
 
 #define DNSMASQ_START_WAIT_ATTEMPTS	4
 
+static enum process_presence
+dnsmasq_process_presence(int *scan_error)
+{
+	struct process_snapshot snapshot;
+	enum process_presence presence;
+
+	presence = process_inventory_scan("dnsmasq", &snapshot);
+	if (scan_error)
+		*scan_error = snapshot.error;
+	process_snapshot_release(&snapshot);
+	return presence;
+}
+
 static int
 dnsmasq_confirm_started(int launch_status)
 {
 	int attempt;
-	int daemon_running = 0;
+	int scan_error = 0;
+	enum process_presence presence = PROCESS_PRESENCE_ABSENT;
 
 	if (launch_status != 0)
-		return dnsmasq_start_policy_status(launch_status, 0);
+		return dnsmasq_start_policy_status(launch_status,
+					   PROCESS_PRESENCE_ABSENT);
 
 	/* dnsmasq daemonizes: eval() waits for its launcher, not the daemon child.
-	 * Confirm that the child is visible before reporting a successful start. */
+	 * Only a complete RUNNING inventory proves that the child is available. */
 	for (attempt = 0; attempt < DNSMASQ_START_WAIT_ATTEMPTS; attempt++) {
-		if (is_dns_dhcpd_run()) {
-			daemon_running = 1;
+		presence = dnsmasq_process_presence(&scan_error);
+		if (presence == PROCESS_PRESENCE_RUNNING)
+			return dnsmasq_start_policy_status(launch_status, presence);
+		if (presence == PROCESS_PRESENCE_UNKNOWN) {
+			logmessage(LOGNAME,
+				   "cannot verify DNSMasq startup postcondition (scan_error=%d)",
+				   scan_error ? scan_error : EIO);
 			break;
 		}
 		if (attempt + 1 < DNSMASQ_START_WAIT_ATTEMPTS)
 			sleep(1);
 	}
 
-	return dnsmasq_start_policy_status(launch_status, daemon_running);
+	return dnsmasq_start_policy_status(launch_status, presence);
 }
 
 int

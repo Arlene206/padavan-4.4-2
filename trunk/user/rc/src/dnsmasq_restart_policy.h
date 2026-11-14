@@ -2,6 +2,7 @@
 #define PADAVAN_DNSMASQ_RESTART_POLICY_H
 
 #include <errno.h>
+#include "process_inventory.h"
 
 /* Separate preparation from stop/launch so failed refreshes cannot take down
  * an already healthy daemon, and disabled service configurations stop cleanly. */
@@ -38,11 +39,16 @@ dnsmasq_restart_policy_action(int was_running, int prepare_status, int service_e
 /* A successful daemonization parent exit is not proof that the child remains
  * available. Require a process-presence postcondition after bounded polling. */
 static int
-dnsmasq_start_policy_status(int launch_status, int daemon_running)
+dnsmasq_start_policy_status(int launch_status,
+			    enum process_presence daemon_presence)
 {
 	if (launch_status != 0)
 		return launch_status;
-	return daemon_running ? 0 : ESRCH;
+	if (daemon_presence == PROCESS_PRESENCE_RUNNING)
+		return 0;
+	if (daemon_presence == PROCESS_PRESENCE_ABSENT)
+		return ESRCH;
+	return EIO;
 }
 
 #endif /* PADAVAN_DNSMASQ_RESTART_POLICY_H */

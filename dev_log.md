@@ -1,3 +1,15 @@
+## 2026-11-15 — Make DNSMasq detached-child readiness tri-state and fail closed
+
+- Parent main SHA: `06355c57f002132031a50ec56596a6a1a74a2b4f`.
+- DNSMasq daemonizes before the child is ready. `dnsmasq_confirm_started()` previously used `is_dns_dhcpd_run()` (`pids()`) as a Boolean, so an incomplete process-table scan could be mistaken for a confirmed running daemon.
+- Added `dnsmasq_process_presence()` around the shared scanner, preserving scan errno before releasing the snapshot. Startup now accepts only RUNNING, retries only confirmed ABSENT, and logs the scan error then aborts immediately on UNKNOWN. Policy returns ESRCH for confirmed ABSENT and EIO for UNKNOWN/invalid enum values; launcher errors retain precedence.
+- Extended GNU89 policy tests and the DNSMasq workflow's embedded source contract. The workflow now watches the shared scanner C/H and compiles the policy test with its include path. XY-C1 now watches `services_ex.c`, previously missing from its firmware trigger filter.
+- AliDDNS exact-head fix [06355c57] was IN_PROGRESS at last inspection; its parent failure [43655110946] diagnosed the shared-`$$` scratch-directory collision. Crond [43654459854] and HTTPD [43654668592] lifecycle checks passed on their exact source commits. Current-source L3 and physical L4 remain NOT VERIFIED.
+- No local checkout is available; no local compiler or MIPS result is claimed. Exact-head DNSMasq and XY-C1 Actions are required.
+- Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Fix AliDDNS concurrent lookup scratch-directory collision
 
 - Parent main SHA: `87292f784af267dc5b97ea071815af1e0ee26c44`.

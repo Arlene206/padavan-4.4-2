@@ -18,9 +18,11 @@ main(void)
 	assert(dnsmasq_start_policy_should_launch(0));
 	assert(!dnsmasq_start_policy_should_launch(1));
 	assert(dnsmasq_start_policy_status(EIO, 0) == EIO);
-	assert(dnsmasq_start_policy_status(0, 1) == 0);
-	assert(dnsmasq_start_policy_status(0, 0) == ESRCH);
-	assert(dnsmasq_start_policy_status(0, 7) == 0);
+	assert(dnsmasq_start_policy_status(0, PROCESS_PRESENCE_RUNNING) == 0);
+	assert(dnsmasq_start_policy_status(0, PROCESS_PRESENCE_ABSENT) == ESRCH);
+	assert(dnsmasq_start_policy_status(0, PROCESS_PRESENCE_UNKNOWN) == EIO);
+	assert(dnsmasq_start_policy_status(0, (enum process_presence)7) == EIO);
+	assert(dnsmasq_start_policy_status(EIO, PROCESS_PRESENCE_RUNNING) == EIO);
 	assert(dnsmasq_stop_policy_should_clear_arp(0));
 	assert(!dnsmasq_stop_policy_should_clear_arp(EBUSY));
 
