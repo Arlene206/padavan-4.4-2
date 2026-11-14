@@ -1,3 +1,13 @@
+## 2026-11-15 — Close XY-C1 build-trigger gaps for process identity sources
+
+- The XY-C1 workflow's path filter did not include several production inputs changed by the identity-lifecycle migration: BusyBox udhcpc, PPPD identity PID publication, RC common/WAN/LAN/VPN/USB/iNIC lifecycle sources, and the shared PID-record header. A later change to one of these files could therefore miss the MIPS/uClibc build.
+- Added the missing production paths to the XY-C1 push trigger. The process-lifecycle workflow now watches the XY workflow itself, and its integration checker asserts coverage for the affected production inputs.
+- Exact-head evidence before this correction: process inventory/lifecycle [43647169443], iNIC signal lifecycle [43647169424], wireless radio state [43647169416] and AI handoff docs [43647325253] passed on their respective exact SHAs. HTTPD run [43647169410] failed on 946a8719 because its assertion still expected the old interface-only WAN gate; b98bbbb corrected it to the combined modem/interface gate, and rerun [43647325290] was pending. XY-C1 run [43647325231] was pending on b98bbbb and covered the latest source tree; this commit also changes the XY workflow and triggers a fresh exact-head target build.
+- L3 is not claimed until the new XY-C1 run passes build, TRX verification and artifact upload. L4 hardware validation remains NOT VERIFIED. Root log now contains 117 records; no archive rotation is due.
+- Resulting change: this commit.
+
+---
+
 ## 2026-11-15 — Fix case-sensitive pending-CI validator assertion
 
 - Exact-head AI handoff run [43632050498] on SHA 812b335bb5fc234eb2f40f5489eec8a80479acf9 failed at the new bootstrap assertion. The bootstrap correctly said “a PENDING check is not a stop condition”; the validator incorrectly required uppercase “A PENDING”.

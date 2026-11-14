@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - ".github/workflows/process-lifecycle-regression.yml"
+      - ".github/workflows/xy-c1-firmware-validation.yml"
       - "trunk/user/shared/src/process_inventory.c"
       - "trunk/user/shared/src/process_inventory.h"
       - "trunk/user/shared/src/process_pidfile.c"

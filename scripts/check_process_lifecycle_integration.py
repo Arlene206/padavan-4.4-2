@@ -248,3 +248,28 @@ assert "abort_resume_detect:" in wan_ppp_stop_transaction
 assert "notify_run_detect_internet(2)" in wan_ppp_stop_transaction
 assert "goto abort_resume_detect;" in wan_ppp_stop_transaction
 print("WAN PPP/WAN teardown detect_internet pause rollback: PASS")
+
+xy_workflow = (root / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
+xy_target_sources = (
+    "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcpc.c",
+    "trunk/user/pppd/ppp-2.4.7/pppd/main.c",
+    "trunk/user/pppd/ppp-2.4.7/pppd/pppd_pidfile_policy.h",
+    "trunk/user/rc/src/common_ex.c",
+    "trunk/user/rc/src/net_lan.c",
+    "trunk/user/rc/src/net_wan.c",
+    "trunk/user/rc/src/rc.c",
+    "trunk/user/rc/src/service_lifecycle_policy.h",
+    "trunk/user/rc/src/usb_modem.c",
+    "trunk/user/rc/src/vpn_client.c",
+    "trunk/user/rc/src/vpn_server.c",
+    "trunk/user/rc/src/inicd.c",
+    "trunk/user/rc/src/net_wifi.c",
+    "trunk/user/shared/src/process_pidfile.c",
+    "trunk/user/shared/src/process_pidfile.h",
+    "trunk/user/shared/src/process_pidfile_record.h",
+)
+for path in xy_target_sources:
+    assert '"{}"'.format(path) in xy_workflow, (
+        "XY-C1 target-build workflow does not watch {}".format(path)
+    )
+print("XY-C1 MIPS/uClibc source-trigger coverage: PASS")
