@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 #include "process_pidfile.h"
@@ -24,6 +25,7 @@ static void expect_invalid(const char *record, size_t length)
 int main(void)
 {
 	expect_valid("2 1", 3, (pid_t)2, 1ULL);
+	expect_valid("2 18446744073709551615", 22, (pid_t)2, ULLONG_MAX);
 	expect_valid("00042 98765\n", 12, (pid_t)42, 98765ULL);
 	expect_invalid("", 0);
 	expect_invalid("2", 1);

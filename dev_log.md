@@ -1,3 +1,15 @@
+## 2026-11-15 — Remove MIPS 64-bit division helper from PID parser
+
+- Exact XY-C1 build for `b2500167cbacbbf161df5126ee49c008d7164f42` failed at the final RC link: shared `process_pidfile.o` referenced hidden libgcc symbol `__udivdi3`.
+- Root cause: runtime division of a 64-bit value by 10 in the start_time overflow check. Replaced it with the exact decimal cutoff for ULLONG_MAX, avoiding a 64-bit division helper in the shared object.
+- Added a positive ULLONG_MAX boundary test alongside the existing overflow rejection case.
+- Host parser regression passed before this MIPS-only link failure; exact-head process and target builds are required after this fix.
+- Changed paths: `trunk/user/shared/src/process_pidfile.c`, `trunk/user/shared/src/tests/process_pidfile.c`, `SESSION_HANDOFF.md`, and this log. Resulting commit: THIS COMMIT.
+- Root log advances 100→101 records; no archive rotation or INDEX update is due.
+- Next: verify the MIPS shared-library/RC link, then proceed to detect_link producer/consumer migration.
+
+---
+
 ## 2026-11-15 — Migrate detect_internet PID producer and all signal consumers
 
 - Base main SHA: `b2500167cbacbbf161df5126ee49c008d7164f42`.

@@ -29,7 +29,7 @@ For every multi-file slice, publish source + regression tests + required workflo
 ### In-tree PID-file identity helper (new, validation pending)
 
 - Added `process_pidfile.c/.h` to shared library: strict PID + start_time record parsing, process-name inventory matching, identity revalidation immediately before signal, and atomic writer using a same-directory mkstemp + rename.
-- The helper is now wired to detect_internet's producer, its two RC notification paths and HTTPD's SIGHUP caller. The producer publishes PID+start_time atomically; all three consumers validate process name and start_time before signaling. BusyBox udhcpc and PPPD remain separate producer owners. Next migrate detect_link and its two RC notification paths as a separate bounded group.
+- The helper is now wired to detect_internet's producer, its two RC notification paths and HTTPD's SIGHUP caller. The first XY-C1 build exposed a MIPS shared-library link failure because variable 64-bit division emitted hidden `__udivdi3`; the parser now uses a compile-time overflow cutoff instead. The producer publishes PID+start_time atomically; all three consumers validate process name and start_time before signaling. BusyBox udhcpc and PPPD remain separate producer owners. Next confirm the MIPS link fix on exact-head XY-C1, then migrate detect_link and its two RC notification paths as a separate bounded group.
 
 ### Exact-head Actions on product-source baseline d3951a276ed4002aff3232cf93c8d55662a94e95
 

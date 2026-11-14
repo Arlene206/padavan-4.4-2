@@ -60,7 +60,9 @@ process_pidfile_parse_record(const char *text, size_t length,
 	}
 	for (i = separator + 1; i < length; i++) {
 		unsigned int digit = (unsigned int)(text[i] - '0');
-		if (start_value > (ULLONG_MAX - digit) / 10) {
+		/* Avoid 64-bit division helpers in the MIPS shared object. */
+		if (start_value > 1844674407370955161ULL ||
+		    (start_value == 1844674407370955161ULL && digit > 5)) {
 			errno = ERANGE;
 			return -1;
 		}
