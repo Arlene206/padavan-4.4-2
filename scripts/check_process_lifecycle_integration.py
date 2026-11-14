@@ -83,3 +83,10 @@ assert "process_pidfile_write(DL_PID_FILE, \"detect_link\")" in detect_link_sour
 assert "process_pidfile_signal(DL_PID_FILE, \"detect_link\", SIGUSR1)" in detect_link_source
 assert "process_pidfile_signal(DL_PID_FILE, \"detect_link\", SIGHUP)" in detect_link_source
 assert "kill_pidfile_s(DL_PID_FILE" not in detect_link_source
+
+rstats_source = (root / "trunk/user/rc/src/rstats.c").read_text()
+assert "process_pidfile_write(RSTATS_PID_FILE, \"rstats\")" in rstats_source
+assert "process_pidfile_signal(RSTATS_PID_FILE, \"rstats\", SIGHUP)" in rstats_source
+assert "kill_pidfile_s(RSTATS_PID_FILE" not in rstats_source
+assert 'process_pidfile_signal(RSTATS_PID_FILE, "rstats", sig)' in httpd_source
+assert "kill_pidfile_s(RSTATS_PID_FILE" not in httpd_source

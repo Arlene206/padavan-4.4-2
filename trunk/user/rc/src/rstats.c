@@ -35,6 +35,7 @@
 #include <rstats.h>
 
 #include "rc.h"
+#include <process_pidfile.h>
 #include "switch.h"
 #include "rstats_file_policy.h"
 #include "rstats_signal_policy.h"
@@ -640,12 +641,11 @@ static void catch_sig_rstats(int sig)
 
 void notify_rstats_time(void)
 {
-	kill_pidfile_s(RSTATS_PID_FILE, SIGHUP);
+	(void)process_pidfile_signal(RSTATS_PID_FILE, "rstats", SIGHUP);
 }
 
 int rstats_main(int argc, char *argv[])
 {
-	FILE *fp;
 	pid_t pid;
 	struct sigaction sa;
 	sigset_t managed_signals, original_mask, wait_mask;
@@ -717,10 +717,14 @@ int rstats_main(int argc, char *argv[])
 	/* never invoke oom killer */
 	oom_score_adjust(pid, OOM_SCORE_ADJ_MIN);
 
-	/* write pid */
-	if ((fp = fopen(RSTATS_PID_FILE, "w")) != NULL) {
-		fprintf(fp, "%d", pid);
-		fclose(fp);
+	/* Publish PID and start_time before accepting notifications. */
+	if (process_pidfile_write(RSTATS_PID_FILE, "rstats") < 0) {
+		saved_errno = errno ? errno : EIO;
+		free_rstats();
+		(void)sigprocmask(SIG_SETMASK, &original_mask, NULL);
+		errno = saved_errno;
+		perror("rstats pid file");
+		return saved_errno;
 	}
 
 	g_ap_mode = get_ap_mode();

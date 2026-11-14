@@ -5017,7 +5017,7 @@ ej_bandwidth(int eid, webs_t wp, int argc, char **argv)
 		nvram_set_temp(nvkey, netdev);
 
 	unlink(fname);
-	if (kill_pidfile_s(RSTATS_PID_FILE, sig) == 0)
+	if (process_pidfile_signal(RSTATS_PID_FILE, "rstats", sig) == 0)
 		f_wait_exists(fname, 5);
 
 	if (f_exists(fname)) {

@@ -1,3 +1,16 @@
+## 2026-11-15 — Migrate rstats PID producer and RC/HTTPD signal consumers
+
+- Base main SHA: `13b1f602ac8a04f070b6d7ce4a88b2e6a05f6166`.
+- `rstats` now publishes PID + kernel start_time with `process_pidfile_write()`; failure frees initialized state, restores the signal mask and aborts startup.
+- RC time refresh and HTTPD live/history refresh now call `process_pidfile_signal()` with expected process name `rstats`. No legacy numeric PID signaling remains for this daemon.
+- Added source integration assertions and process-lifecycle/XY-C1 path filters.
+- Shared PID helper host regression passed and XY-C1 exact-head build `43621293292` passed, including the fix for hidden `__udivdi3`. The detect_link-inclusive build remains in progress; this rstats slice triggers fresh host and target validation.
+- Changed paths: `trunk/user/rc/src/rstats.c`, `trunk/user/httpd/src/web_ex.c`, integration checker, both workflows, handoff and this log. Resulting commit: THIS COMMIT.
+- Root log advances 103→104 records; no archive rotation or INDEX update is due.
+- Next: migrate watchdog PID producer and both RC signal consumers together.
+
+---
+
 ## 2026-11-15 — Complete detect_link workflow dependency path filters
 
 - Follow-up review found the first checker correction added PID helper paths only to push filters, not pull_request filters, and omitted them from the workflow's own path-contract tuple.

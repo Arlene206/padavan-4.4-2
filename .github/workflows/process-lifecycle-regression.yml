@@ -23,6 +23,7 @@ on:
       - "trunk/user/rc/src/detect_internet.c"
       - "trunk/user/rc/src/detect_link.c"
       - "trunk/user/httpd/src/web_ex.c"
+      - "trunk/user/rc/src/rstats.c"
       - "scripts/check_process_lifecycle_integration.py"
       - "SESSION_HANDOFF.md"
       - "REFACTOR_ROADMAP.md"
