@@ -51,3 +51,6 @@ assert "process_identity_validate(\"lpd\", &snapshot.items[i])" in lpd_source
 assert "fscanf(fp, \"%d\", &pid)" not in lpd_source
 
 assert "if (pid == getpid())" in lpd_source
+
+assert lpd_source.index("bind(sockfd") < lpd_source.index("update_pidfile() < 0")
+assert lpd_source.index("update_pidfile() < 0") < lpd_source.index("listen(sockfd")

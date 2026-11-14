@@ -1,3 +1,15 @@
+## 2026-11-15 — Publish LPRng PID only after acquiring the LPR socket
+
+- Base main SHA: `95d4c1dde767e5dcaa5050ba6d2cad44a068fe65`.
+- Moved PID-file publication until after the primary LPR TCP socket successfully binds. A competing daemon that loses the port bind now exits without replacing the active daemon's PID record.
+- Made primary `listen()` failure explicit and remove the newly published PID file before exiting.
+- Added source-order assertions for bind → PID publication → listen. Existing exact-head process-lifecycle regressions have passed on earlier LPD commits; MIPS builds for the preceding LPD commits remain in progress and this commit triggers fresh validation.
+- Changed paths: `trunk/user/LPRng/src/src/common/lpd.c`, `scripts/check_process_lifecycle_integration.py`, `SESSION_HANDOFF.md`, and this log. Resulting commit: THIS COMMIT.
+- Root log advances 94→95 records; no archive rotation or INDEX update is due.
+- Next: audit LPD exit/signal cleanup for ownership-safe PID-file removal.
+
+---
+
 ## 2026-11-15 — Avoid LPRng duplicate detection against its own reused PID
 
 - Base main SHA: `2cba8f148dfe9e5ff571ca060883a83ed0af5b97`.

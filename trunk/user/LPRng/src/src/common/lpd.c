@@ -324,10 +324,6 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (update_pidfile() < 0) {
-		syslog(LOG_ERR, "cannot publish lpd pid file: %m");
-		exit(1);
-	}
 
     //Initial the server the not busy
     lptstatus.busy = FALSE;
@@ -365,13 +361,23 @@ int main(int argc, char *argv[])
         syslog(LOGOPTS, "can't bind socket with port %d: %m", PNT_SVR_PORT_LPR);
         exit(0);
     }
+
+	/* The bound LPR port is the singleton lock; publish only after it is held. */
+	if (update_pidfile() < 0) {
+		syslog(LOG_ERR, "cannot publish lpd pid file: %m");
+		exit(1);
+	}
     /*JY1111*/
     int windowsize=2920;
     setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, (char *)&windowsize, sizeof(windowsize));
     int no_delay=1;
     setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &no_delay, sizeof(no_delay));	// by Jiahao. 20080808.
 
-    listen(sockfd , 15);
+    if (listen(sockfd, 15) < 0) {
+        syslog(LOGOPTS, "can't listen on LPR port %d: %m", PNT_SVR_PORT_LPR);
+        unlink("/var/run/lpdparent.pid");
+        exit(1);
+    }
 
 #ifdef Raw_Printing_with_ASUS //Lisa
 	if ((netfd = socket(AF_INET, SOCK_STREAM, IPPROTO_IP)) < 0)
