@@ -119,7 +119,8 @@ require(re.search(r'RCN_REAPPLY_VPNSVR[\s\S]{0,220}reapply_vpn_server\s*\(\)',rc
 require(re.search(r'RCN_RESTART_WINS[\s\S]{0,260}reapply_vpn_server\s*\(\)',rc),"WINS reapply entry missing")
 require(re.search(r'!strcmp\(base,\s*"restart_vpn_server"\)[\s\S]{0,160}restart_vpn_server\s*\(\)',rc),"direct RC applet entry missing")
 require("start_vpn_server();" in body(services,"start_services_once(int is_ap_mode)"),"service start entry missing")
-require("stop_vpn_server();" in body(services,"stop_services(int stopall)"),"service stop entry missing")
+require('record_service_stop_status(&stop_status, "VPN server", stop_vpn_server());' in body(services,"stop_services(int stopall)"),"service stop result must be aggregated")
+require("return stop_status;" in body(services,"stop_services(int stopall)"),"service stop failure must reach caller")
 for p in ("trunk/user/rc/src/vpn_server.c","trunk/user/rc/src/vpn_openvpn.c",
           "trunk/user/rc/src/vpn_server_lifecycle_lock.h",
           "trunk/user/rc/src/vpn_server_lease_lock.h",

@@ -139,7 +139,9 @@ assert '"networkmap"' in stop and "kill_services(" in stop
 assert '"-SIGUSR1", "networkmap"' in restart
 assert "start_networkmap(0);" in restart
 assert "start_networkmap(1);" in services
-assert "stop_networkmap();" in services
+stop_services = function_body(services, "stop_services(int stopall)")
+assert 'record_service_stop_status(&stop_status, "networkmap", stop_networkmap());' in stop_services
+assert "return stop_status;" in stop_services
 assert "restart_networkmap();" in rc
 assert "int start_networkmap(int first_call);" in rc_header
 assert "void stop_networkmap(void);" in rc_header

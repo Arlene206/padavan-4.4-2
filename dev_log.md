@@ -1,3 +1,14 @@
+## 2026-11-15 — Align networkmap and VPN lifecycle contracts with aggregated stop results
+
+- Exact-head CI on `cc61cb5f8ae594b0cf1aee3ddebdd414e0bf5286` exposed two stale source assertions after `stop_services()` was changed from ignored direct stops to explicit status aggregation. The networkmap checker expected the literal statement `stop_networkmap();`; the VPN checker expected `stop_vpn_server();`. Production now calls each through `record_service_stop_status()` and returns the aggregate, so the assertions were false negatives rather than runtime failures.
+- Updated both checkers to require the exact named stop result to be aggregated and `stop_services()` to return the aggregate. This preserves the stronger fail-closed contract instead of weakening it to a mere symbol-presence check.
+- Failed exact-head runs: networkmap [43648229545] (assertion at `scripts/check_networkmap_signals.py:142`) and VPN server [43648229565] (assertion at `scripts/check_vpn_server_lifecycle.py:122`). Both will rerun on this test-only fix. On the same SHA, process inventory [43648229499], AI handoff docs [43648229603], HTTPD lifecycle [43648229544], NFS start/reload [43648229491], and Samba share [43648229471] passed; XY-C1 [43648229489] and several independent workflows were still PENDING.
+- The next product slice remains storage eject failure propagation: `safe_remove_all_stor_devices()` currently returns void, hiding lock/daemon/inventory/unmount failures from firmware flash and shutdown. The checked disk inventory must distinguish a valid empty device list from a failed `/proc/partitions` read before allowing persistence or flash.
+- Root `dev_log.md` now contains 118 newest-first records; no archive rotation is due.
+- Resulting change: this commit.
+
+---
+
 ## 2026-11-15 — Close XY-C1 build-trigger gaps for process identity sources
 
 - The XY-C1 workflow's path filter did not include several production inputs changed by the identity-lifecycle migration: BusyBox udhcpc, PPPD identity PID publication, RC common/WAN/LAN/VPN/USB/iNIC lifecycle sources, and the shared PID-record header. A later change to one of these files could therefore miss the MIPS/uClibc build.
