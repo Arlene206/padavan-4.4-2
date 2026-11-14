@@ -1,3 +1,13 @@
+## 2026-11-14 08:29 CST (UTC+8) — Consolidate exact handoff and log checkpoint
+
+- Base main SHA: `0e111486f9e0c5e355dcb93899cd4066cb2bb2bc`; active branch `main`. Updated `SESSION_HANDOFF.md` to this exact base and appended this record in the same commit. Result: THIS COMMIT.
+- No product source or tests changed. Active P1 process-inventory failure remains open; complete cross-userland scanner/lifecycle caller enumeration is still incomplete, so no unsafe partial API migration was attempted.
+- Exact-head Actions for this combined documentation commit: PENDING / not yet visible. Earlier base `c3698fa56a5d3580fad38aba588d8d5cd0e1952e` had four SUCCESS, NVRAM IN_PROGRESS at inspection, and no infosvr run. No CI pass is inferred for later commits.
+- L1 partial source review only; L2 GNU89/`-Werror` regression and local docs checker NOT RUN; L3 remains limited to source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`; L4 NOT VERIFIED. Root log advances 59→60/119; no rotation or INDEX update. Roadmap/global priority unchanged.
+- Exact next action: inspect push Actions for THIS COMMIT by exact `head_sha`; then retrieve source in bounded batches and finish the exhaustive process API/lifecycle caller inventory before designing RUNNING / ABSENT / UNKNOWN.
+
+---
+
 ## 2026-11-14 08:27 CST (UTC+8) — Align handoff with the latest documentation checkpoint
 
 - Base main SHA: `3662492bb06b2b9687bf2c80a2c2e45391b78033`; active branch `main`. Updated `SESSION_HANDOFF.md` in place to distinguish the base checkpoint from the current main tip; resulting handoff commit `1b79a029a5e9c55929c00e232d0b141ef0c7f3d4`.

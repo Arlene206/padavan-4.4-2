@@ -1,8 +1,8 @@
 ## Current repository state
 
-- Live `main` HEAD at this recovery: `3662492bb06b2b9687bf2c80a2c2e45391b78033`; active branch: `main`. Parent: `8704d286eab3148948917be635cf2fe8cf0fc745`. This is a dev-log-only commit; product-source tree remains unchanged from the recorded L3 source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`.
+- Live `main` HEAD at this recovery: `0e111486f9e0c5e355dcb93899cd4066cb2bb2bc`; active branch: `main`. This is the exact base for the combined handoff/log checkpoint. This is a dev-log-only commit; product-source tree remains unchanged from the recorded L3 source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`.
 - Remote branch inventory: only `main`. Legacy PR #1 is CLOSED / UNMERGED (head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`, base `9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74`); no PR or non-main branch used for development.
-- Exact-head `push` Actions for `c3698fa56a5d3580fad38aba588d8d5cd0e1952e`: AI handoff docs [43533915410], AdGuardHome [43533915342], AliDDNS [43533915511], and AliyunDrive [43533915325] completed SUCCESS; NVRAM [43533915397] was IN_PROGRESS at inspection; no infosvr run was present. New handoff/log commits `8704d286eab3148948917be635cf2fe8cf0fc745` and `3662492bb06b2b9687bf2c80a2c2e45391b78033` have no visible push runs yet at this recovery. These are host/source/documentation workflows, not firmware/hardware proof.
+- Exact-head `push` Actions for `c3698fa56a5d3580fad38aba588d8d5cd0e1952e`: AI handoff docs [43533915410], AdGuardHome [43533915342], AliDDNS [43533915511], and AliyunDrive [43533915325] SUCCESS; NVRAM [43533915397] was IN_PROGRESS at inspection; no infosvr run was present. Exact-head push runs for intervening documentation commits were not visible at the time of inspection. These are host/source/documentation workflows, not firmware/hardware proof.
 - Root `dev_log.md` currently has 56 complete newest-first records (142,625 characters); no rotation due (20–119 records; below 384 KiB trigger). Archive index unchanged.
 - L3 evidence remains limited to product-source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f` (XY-C1 MIPSel build/TRX verification/artifact upload run `43489646254`, job `132107102854`, artifact `14069572898`). L4 router flash/boot NOT VERIFIED.
 
@@ -23,7 +23,7 @@
 
 ## Exact first action for the next GPT
 
-1. Re-fetch `refs/heads/main`; expected baseline after this handoff update is the new direct child of `3662492bb06b2b9687bf2c80a2c2e45391b78033`. Inspect exact-head `push` Actions for `8704d286eab3148948917be635cf2fe8cf0fc745` and `3662492bb06b2b9687bf2c80a2c2e45391b78033`; reconcile NVRAM run [43533915397].
+1. Re-fetch `refs/heads/main`; expected baseline after this combined handoff/log commit is its direct child of `0e111486f9e0c5e355dcb93899cd4066cb2bb2bc`. Inspect exact-head `push` Actions for the resulting SHA; reconcile NVRAM run [43533915397] and any intervening exact-SHA runs.
 2. Obtain complete source content in bounded batches, starting with all RC/shared C/H files and then every other `trunk/user` subtree. Search locally or by content for all declarations/definitions/callers of `pids()`, `pids_main()`, `find_pid_by_name()`, `procps_scan()`, plus lifecycle consumers and signal/cleanup paths. Record exact paths and classify each caller; zero indexed search results are not proof of absence.
 3. Do not implement partial tri-state API changes until that inventory is complete. Then implement RUNNING / ABSENT / UNKNOWN, distinguish normal EOF from `readdir` errors, propagate scan and allocation failures, and define safe per-PID disappearance semantics.
 4. Add injectable GNU89/`-Werror` host regressions for allocation, `/proc` open, readdir error/EOF, list growth, empty/matched process, and PID disappearance; migrate every confirmed consumer fail-closed. Run relevant source tests and docs validation when a local checkout is available.
