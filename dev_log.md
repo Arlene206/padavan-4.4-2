@@ -1,3 +1,15 @@
+## 2026-11-14 — Strict storage inventory, daemon startup gating, and lifecycle CI repairs
+
+- `c5ce74a61c80`: replaced permissive `/proc/partitions` parsing with canonical header/separator validation, exact token counts, strict unsigned decimal and overflow-safe parsing. Added GNU89 regression for valid SCSI/MMC rows, malformed/truncated records, signed tokens, and UINT/ULLONG overflow.
+- The parser Action initially stopped before the new test because BusyBox DHCPv6 used `writev()` without including `<sys/uio.h>`. `b022942` added the declaration and source contract; subsequent exact storage-hotplug status is recorded above.
+- `ea2163e`: migrated HTTPD duplicate-start/readiness checks from ambiguous `pids()` truthiness to tri-state `process_inventory_scan()`. UNKNOWN now blocks config/file mutations and launch; only confirmed RUNNING publishes daemon state. Added policy tests for UNKNOWN, ABSENT, RUNNING and launcher failures.
+- The first HTTPD lifecycle run failed in its embedded checker because it expected the old success branch. `b740` updated the checker to assert failed readiness returns before publishing started state.
+- Crond CI exposed a missing Python `pids` source binding (NameError); `74be` adds the binding and path-filter coverage for `pids.c`.
+- AliDDNS's prior exact run failed the second concurrent resolver output assertion. The same isolated-directory implementation passed local dash/BusyBox-ash reproduction; the regression was expanded to eight concurrent pairs with diagnostics to distinguish a race from a flaky runner. Await its exact-head result before calling it fixed.
+- All source and workflow writes used complete atomic Git trees and non-force expected-SHA updates. No router L4 validation is claimed.
+
+---
+
 ## 2026-11-15 — Diagnose intermittent AliDDNS concurrent resolver isolation failure
 
 - Parent main SHA: `b740103a92cdc0a2d81f849f36d37307c4e0484b`.

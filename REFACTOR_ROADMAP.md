@@ -1,7 +1,22 @@
 ## Current source / CI checkpoint
 
-- Current product source includes tri-state process inventory gates for crond and HTTPD; exact crond lifecycle [43654459854] passed after checker repair on `74be177`, and HTTPD lifecycle [43654668592] plus AI docs [43654668591] passed on docs/workflow head `b740103`. Latest current source still requires a fresh XY-C1 build/TRX/artifact proof; historical `cc61cb5` evidence does not cover later source changes.
-- AliDDNS concurrent resolver regression failed on `ed7acbb` [43653917007] and `7911849` [43654226754], though its transport/IP tests passed. This commit instruments only the existing test failure path with actual outputs and atomic-mkdir attempt statuses; production code is unchanged pending diagnosis. The exact-head run should determine the next corrective patch. L3 remains NOT VERIFIED for current source; L4 remains NOT VERIFIED.
+- Main source checkpoint before this documentation refresh: `febb4cf442e0aabc99120301f2a9e27e3a0d4be6`. Immutable backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`. Recent commits:
+  - `b740103a92cd test(httpd): verify failed readiness exits before publishing`
+  - `74be177adb25 test(crond): bind and watch process matcher source`
+  - `ea2163e84d81 fix(rc): fail closed on unknown HTTPD process state`
+  - `b022942bf30e fix(busybox): include writev declaration for DHCPv6`
+  - `c5ce74a61c80 fix(storage): strictly validate disk inventory records`
+- Latest workflow state:
+  - USB storage hotplug stability regression: run 43653875448, success, head b022942
+  - HTTPD daemon lifecycle stability: run 43654668592, success, head b740103
+  - Crond daemon lifecycle stability regression: run 43654459854, success, head 74be177
+  - XY-C1 Firmware Validation: run 43654318351, failure, head ea2163e
+  - AliDDNS signed API transport security regression: run 43654913164, success, head febb4cf
+  - AI handoff documentation contract: run 43654913151, success, head febb4cf
+- Strict disk inventory parsing is integrated into the checked reader and watched by storage, HTTPD, and XY-C1 CI. BusyBox `writev` compilation was repaired with `<sys/uio.h>`; the storage-hotplug run after that repair is the authoritative parser regression result.
+- HTTPD startup now fails closed on UNKNOWN process inventory and requires RUNNING postcondition before publishing daemon state. The exact lifecycle checker was updated after its first run exposed a stale assertion.
+- Crond checker no longer has an unbound `pids` source variable and its workflow watches the source it asserts. AliDDNS concurrent lookup test now repeats eight pairs and reports both outputs on mismatch; its prior failure is not called resolved until the new exact run passes.
+- L3 for current product source remains PENDING until exact-head XY-C1 MIPSel build, TRX verification and artifact upload all pass. L4 physical-router validation remains NOT VERIFIED.
 
 - Preserved branch: backup/pre-plugin-overhaul-2026-11-14 at 72f4f157a084f8184b9597ca5bf334b8080e5807; it remains immutable and outside development.
 - Complete recursive trunk/user tree at daafdae4e97b401a428a0ac65d83a94ebeab0ff5: 9,439 blobs. The remote lexical census scanned 6,193 readable candidate text files (388 binary candidates skipped; zero missing/read errors) at exact source commit d0404d5e33d4239e19c92db9b9ab4fb7529cf26c.
