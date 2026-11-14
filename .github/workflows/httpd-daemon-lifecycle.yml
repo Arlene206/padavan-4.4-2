@@ -86,7 +86,9 @@ jobs:
           assert "HTTPD_START_PROBE_ATTEMPTS" in start
           probe_loop = start.index("status = -1;")
           started_publish = start.index('nvram_set_int_temp("httpd_started", 1)', probe_loop)
-          assert start.index('if (status == 0)', probe_loop) < started_publish
+          status_failure = start.index("if (status != 0)", probe_loop)
+          assert status_failure < started_publish
+          assert start.index("return status;", status_failure) < started_publish
           assert started_publish < start.index("restart_firewall();", started_publish)
           assert "return status;" in start
 
