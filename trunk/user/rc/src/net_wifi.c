@@ -497,7 +497,10 @@ stop_wifi_all_rt(void)
 	int all_stopped = 1;
 
 #if defined(USE_RT3352_MII)
-	stop_inicd();
+	if (stop_inicd() != 0) {
+		logmessage(LOGNAME, "2.4GHz shutdown aborted: iNIC health monitor did not stop");
+		return -1;
+	}
 
 	/* Isolate the iNIC path, then stop and detach each started bridge port. */
 	if (phy_isolate_inic(1) != 0) {

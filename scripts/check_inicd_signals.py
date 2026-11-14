@@ -136,7 +136,12 @@ assert "void check_inic_mii_rebooted(void);" in rc_header
 assert "OBJS += inicd.o" in src_makefile
 assert "$(LN) rc $(ROMFSDIR)/sbin/inicd" in package_makefile
 assert "start_inicd()" in function_body(wifi, "start_wifi_ap_rt(int radio_on)")
-assert "stop_inicd();" in function_body(wifi, "stop_wifi_all_rt(void)")
+stop_wifi = function_body(wifi, "stop_wifi_all_rt(void)")
+stop_daemon = stop_wifi.index("if (stop_inicd() != 0)")
+isolate_hardware = stop_wifi.index("phy_isolate_inic(1)")
+assert stop_daemon < isolate_hardware
+assert "return -1;" in stop_wifi[stop_daemon:isolate_hardware]
+assert "iNIC health monitor did not stop" in stop_wifi[stop_daemon:isolate_hardware]
 assert "check_inic_mii_rebooted(void)" in wifi
 
 paths = (
