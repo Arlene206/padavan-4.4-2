@@ -122,10 +122,12 @@ stop_lpd(void)
 {
 	char* svcs[] = { "lpd", NULL };
 
-	if (kill_services(svcs, 3, 1) != 0)
-		return;
-
-	unlink("/var/run/lpdparent.pid");
+	/*
+	 * Keep the last PID record: LPRng validates PID/start_time/executable
+	 * before treating it as a live duplicate. Unlinking here can race a
+	 * freshly restarted daemon publishing its replacement record.
+	 */
+	(void)kill_services(svcs, 3, 1);
 }
 #endif
 

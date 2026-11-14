@@ -1,3 +1,15 @@
+## 2026-11-15 — Remove stop_lpd PID unlink restart race
+
+- Base main SHA: `f9dca11cabbd7eaddbfc3c05e987952aa3c0b15b`.
+- Removed unconditional `lpdparent.pid` unlink from `stop_lpd()`. Once the old daemon is stopped, a new LPD can bind and atomically publish its PID before the old stop caller reaches unlink; the old caller could otherwise delete the new daemon's record.
+- The PID file is now intentionally allowed to remain stale. LPRng's strict consumer checks the PID against the live process inventory and validates start_time/comm/argv identity, so stale records do not block restart and are atomically replaced by the next instance.
+- Updated the integration contract to prevent reintroduction of the unlink race. Exact-head target builds are still running for the preceding LPD changes.
+- Changed paths: `trunk/user/rc/src/services_usb.c`, `scripts/check_process_lifecycle_integration.py`, `SESSION_HANDOFF.md`, and this log. Resulting commit: THIS COMMIT.
+- Root log advances 95→96 records; no archive rotation or INDEX update is due.
+- Next: verify exact-head MIPS builds, then add focused host tests for strict LPD PID parsing and identity outcomes.
+
+---
+
 ## 2026-11-15 — Publish LPRng PID only after acquiring the LPR socket
 
 - Base main SHA: `95d4c1dde767e5dcaa5050ba6d2cad44a068fe65`.

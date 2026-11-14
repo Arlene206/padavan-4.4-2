@@ -27,8 +27,8 @@ assert "service_lifecycle_signal_targets" in policy
 assert "SERVICE_LIFECYCLE_UNKNOWN" in policy
 
 stop_lpd = usb_services.split("stop_lpd(void)", 1)[1].split("#endif", 1)[0]
-assert "if (kill_services(svcs, 3, 1) != 0)" in stop_lpd
-assert stop_lpd.index("return;") < stop_lpd.index('unlink("/var/run/lpdparent.pid")')
+assert "kill_services(svcs, 3, 1)" in stop_lpd
+assert 'unlink("/var/run/lpdparent.pid")' not in stop_lpd
 print("process inventory and lifecycle integration contract: PASS")
 
 lpd_source = (root / "trunk/user/LPRng/src/src/common/lpd.c").read_text()
