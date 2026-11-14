@@ -147,6 +147,7 @@ wait "$unrelated_pid" 2>/dev/null || :
 # Concurrent calls share $$ in their shell descendants; atomic mkdir must isolate them.
 FAST_WAIT=0
 export FAST_WAIT
+: > "$NSLOOKUP_MKDIR_LOG"
 (arNslookup concurrent-a.example > "$TEST_DIR/a.out") &
 pid_a=$!
 (arNslookup concurrent-b.example > "$TEST_DIR/b.out") &
@@ -155,6 +156,11 @@ wait "$pid_a" || fail "first concurrent lookup failed"
 wait "$pid_b" || fail "second concurrent lookup failed"
 first_result="$(cat "$TEST_DIR/a.out")"
 second_result="$(cat "$TEST_DIR/b.out")"
+mkdir_success_dirs="$(awk -F '\t' '$3 == 0 { print $1 }' "$NSLOOKUP_MKDIR_LOG" | sort -u | wc -l | tr -d ' ')"
+if [ "$mkdir_success_dirs" -ne 2 ]; then
+	mkdir_trace="$(tr '\n' ';' < "$NSLOOKUP_MKDIR_LOG")"
+	fail "concurrent lookups did not own two unique directories (count=$mkdir_success_dirs): $mkdir_trace"
+fi
 if [ "$first_result" != "203.0.113.11" ] || [ "$second_result" != "203.0.113.22" ]; then
 	mkdir_trace="$(tr '\n' ';' < "$NSLOOKUP_MKDIR_LOG")"
 	fail "concurrent lookup isolation mismatch: a='$first_result' b='$second_result'; mkdir_trace='$mkdir_trace'"

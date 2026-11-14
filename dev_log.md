@@ -1,3 +1,14 @@
+## 2026-11-15 — Fix AliDDNS concurrent lookup scratch-directory collision
+
+- Parent main SHA: `87292f784af267dc5b97ea071815af1e0ee26c44`.
+- Exact-head AliDDNS run [43655110946] failed reproducibly on `87292f7`: both concurrent calls returned `203.0.113.11`; diagnostics showed both calls using `/tmp/arNslookup.2741.0`. The production allocator derived its directory name from `$$` inside a POSIX-shell subshell. POSIX shells retain the invoking shell PID in `$$` across subshells, so simultaneous calls shared one directory and could read each other's resolver output.
+- Replaced the inherited-shell PID seed with the PID of a short-lived external `sh -c` helper, then retained the exclusive `mkdir` retry loop and restrictive umask. The test clears its trace before the concurrent pair, fixes the logger's literal-`$` typo, and now requires two distinct successful directories plus the independent A/B resolver answers.
+- The source contract now requires the helper PID and the two-directory assertion. No unsupported BusyBox `mktemp` dependency was added (`CONFIG_MKTEMP` is disabled in this router config).
+- Exact 87292 Actions: AI docs [43655110888], process inventory [43655110892], AdGuardHome [43655110906], infosvr [43655110865], AliyunDrive [43655110878] and NVRAM [43655110876] passed. AliDDNS [43655110946] failed at the concurrent lookup case. New exact-head AliDDNS CI must verify this repair.
+- Result: THIS COMMIT.
+
+---
+
 ## 2026-11-14 — Strict storage inventory, daemon startup gating, and lifecycle CI repairs
 
 - `c5ce74a61c80`: replaced permissive `/proc/partitions` parsing with canonical header/separator validation, exact token counts, strict unsigned decimal and overflow-safe parsing. Added GNU89 regression for valid SCSI/MMC rows, malformed/truncated records, signed tokens, and UINT/ULLONG overflow.

@@ -312,7 +312,7 @@ require('ddns_script_path="${ALIDDNS_DDNS_SCRIPT_PATH:-/etc/storage/ddns_script.
         "AliDDNS check must reject symlinks and failed custom-script loads before validating addresses")
 require("curl" not in nslookup and "wget" not in nslookup and "http://" not in nslookup and
         "killall" not in nslookup and
-        'lookup_candidate_dir="/tmp/arNslookup.$$.${lookup_index}"' in nslookup and
+        'lookup_owner_pid=$(sh -c' in nslookup and 'lookup_candidate_dir="/tmp/arNslookup.${lookup_owner_pid}.${lookup_index}"' in nslookup and
         "umask 077" in nslookup and 'trap \'rm -rf "$lookup_dir"\' 0' in nslookup and
         'lookup_pid=$!' in nslookup and 'kill "$lookup_pid"' in nslookup and
         'kill -9 "$lookup_pid"' in nslookup and 'wait "$lookup_pid"' in nslookup and
@@ -321,6 +321,7 @@ require("curl" not in nslookup and "wget" not in nslookup and "http://" not in n
         'aliddns_nslookup 4 "$1"' in nslookup4 and 'aliddns_nslookup 6 "$1"' in nslookup6,
         "DNS fallback must isolate scratch paths, reject timeout/failed partial results, validate both families and reap only its child")
 require("Concurrent calls share " in nslookup_test and "shell descendants" in nslookup_test and
+        "two unique directories" in nslookup_test and "mkdir_success_dirs" in nslookup_test and
         "timed-out query leaked partial output" in nslookup_test and
         "timed-out resolver child survived cleanup" in nslookup_test and
         "unrelated resolver process" in nslookup_test and

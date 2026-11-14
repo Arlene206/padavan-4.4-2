@@ -1,22 +1,7 @@
 ## Current source / CI checkpoint
 
-- Main source checkpoint before this documentation refresh: `febb4cf442e0aabc99120301f2a9e27e3a0d4be6`. Immutable backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`. Recent commits:
-  - `b740103a92cd test(httpd): verify failed readiness exits before publishing`
-  - `74be177adb25 test(crond): bind and watch process matcher source`
-  - `ea2163e84d81 fix(rc): fail closed on unknown HTTPD process state`
-  - `b022942bf30e fix(busybox): include writev declaration for DHCPv6`
-  - `c5ce74a61c80 fix(storage): strictly validate disk inventory records`
-- Latest workflow state:
-  - USB storage hotplug stability regression: run 43653875448, success, head b022942
-  - HTTPD daemon lifecycle stability: run 43654668592, success, head b740103
-  - Crond daemon lifecycle stability regression: run 43654459854, success, head 74be177
-  - XY-C1 Firmware Validation: run 43654318351, failure, head ea2163e
-  - AliDDNS signed API transport security regression: run 43654913164, success, head febb4cf
-  - AI handoff documentation contract: run 43654913151, success, head febb4cf
-- Strict disk inventory parsing is integrated into the checked reader and watched by storage, HTTPD, and XY-C1 CI. BusyBox `writev` compilation was repaired with `<sys/uio.h>`; the storage-hotplug run after that repair is the authoritative parser regression result.
-- HTTPD startup now fails closed on UNKNOWN process inventory and requires RUNNING postcondition before publishing daemon state. The exact lifecycle checker was updated after its first run exposed a stale assertion.
-- Crond checker no longer has an unbound `pids` source variable and its workflow watches the source it asserts. AliDDNS concurrent lookup test now repeats eight pairs and reports both outputs on mismatch; its prior failure is not called resolved until the new exact run passes.
-- L3 for current product source remains PENDING until exact-head XY-C1 MIPSel build, TRX verification and artifact upload all pass. L4 physical-router validation remains NOT VERIFIED.
+- Main source checkpoint before this AliDDNS correction: `87292f784af267dc5b97ea071815af1e0ee26c44`. Exact-head AliDDNS [43655110946] exposed a real concurrent scratch-directory collision: both function subshells used inherited POSIX `$$` and selected `/tmp/arNslookup.2741.0`. This commit gives each lookup a unique helper-process PID and adds an assertion that concurrent calls own two distinct directories. The new exact-head AliDDNS workflow is authoritative for this fix.
+- Exact 87292 process inventory [43655110892], AdGuardHome [43655110906], infosvr [43655110865], AliyunDrive [43655110878], NVRAM [43655110876] and AI docs [43655110888] passed. Crond [43654459854] and HTTPD [43654668592] lifecycle regressions passed on their exact source heads. Current XY-C1 firmware/TRX/artifact and physical-router L4 remain NOT VERIFIED.
 
 - Preserved branch: backup/pre-plugin-overhaul-2026-11-14 at 72f4f157a084f8184b9597ca5bf334b8080e5807; it remains immutable and outside development.
 - Complete recursive trunk/user tree at daafdae4e97b401a428a0ac65d83a94ebeab0ff5: 9,439 blobs. The remote lexical census scanned 6,193 readable candidate text files (388 binary candidates skipped; zero missing/read errors) at exact source commit d0404d5e33d4239e19c92db9b9ab4fb7529cf26c.
