@@ -677,6 +677,9 @@ stop_lan(int is_ap_mode)
 		notify_pause_detect_internet();
 		status = kill_services_with_pidfiles(svcs, pidfiles, "udhcpc", 0, 3, 1);
 		if (status != 0) {
+			/* The old AP network is still live; undo the pause because the
+			 * fail-closed DHCP preflight aborted before touching the bridge. */
+			notify_run_detect_internet(2);
 			logmessage(LOGNAME,
 				   "refusing LAN teardown while DHCP client identity remains active or unknown (status=%d)",
 				   status);
@@ -698,7 +701,12 @@ stop_lan(int is_ap_mode)
 #endif
 
 	/* Bring down LAN interface */
-	return ifconfig(IFNAME_BR, 0, NULL, NULL);
+	{
+		int status = ifconfig(IFNAME_BR, 0, NULL, NULL);
+		if (status != 0 && is_ap_mode)
+			notify_run_detect_internet(2);
+		return status;
+	}
 }
 
 int

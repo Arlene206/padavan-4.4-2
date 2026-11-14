@@ -106,6 +106,14 @@ jobs:
           assert "notify_pause_detect_internet(" in wan
           assert "notify_run_detect_internet(" in lan
           assert "notify_pause_detect_internet(" in lan
+
+          lan_stop = body(lan, "stop_lan(int is_ap_mode)")
+          preflight = lan_stop.index("kill_services_with_pidfiles(")
+          preflight_failure = lan_stop.index("if (status != 0)", preflight)
+          preflight_resume = lan_stop.index("notify_run_detect_internet(2)", preflight_failure)
+          ifdown = lan_stop.index("ifconfig(IFNAME_BR, 0, NULL, NULL)")
+          ifdown_resume = lan_stop.index("notify_run_detect_internet(2)", ifdown)
+          assert preflight < preflight_failure < preflight_resume < ifdown < ifdown_resume
           assert '"detect_internet"' in dispatcher and "detect_internet_main" in dispatcher
           assert "detect_internet.o" in makefile
           for marker in ("DI_PENDING_TIMER", "DI_PENDING_ACTIVITY", "DI_PENDING_TERMINATE",
