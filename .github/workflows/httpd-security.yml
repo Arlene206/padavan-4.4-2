@@ -2547,7 +2547,7 @@ jobs:
           assert "swap_status == STORAGE_SWAP_UNKNOWN" in partition
           assert "free_partition_data(&part_info)" in partition
 
-          read_start = libdisk.index("read_disk_data(void)")
+          read_start = libdisk.index("read_disk_data_checked(disk_info_t **disk_info_out)")
           read_data = libdisk[read_start:]
           assert "if (!create_partition(" in read_data
           assert "free_disk_data(disk_info_list)" in read_data
