@@ -39,6 +39,16 @@ main(void)
 					  record, sizeof(record)) == -1);
 	assert(pppd_pidfile_format_record((pid_t)321, 98765ULL,
 					  record, 2) == -1);
+	length = pppd_pidfile_format_link_record((pid_t)321, "ppp12",
+						  98765ULL, record, sizeof(record));
+	assert(length > 0);
+	assert(strcmp(record, "321\nppp12\n98765\n") == 0);
+	assert(pppd_pidfile_format_link_record((pid_t)321, "", 98765ULL,
+						       record, sizeof(record)) > 0);
+	assert(pppd_pidfile_format_link_record((pid_t)321, "eth0", 98765ULL,
+						       record, sizeof(record)) == -1);
+	assert(pppd_pidfile_format_link_record((pid_t)321, "pppA", 98765ULL,
+						       record, sizeof(record)) == -1);
 	puts("PPPD PID-file identity policy: PASS");
 	return 0;
 }

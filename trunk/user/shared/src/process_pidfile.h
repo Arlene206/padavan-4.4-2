@@ -8,6 +8,8 @@
 /* Strict record format: decimal PID, one space, decimal /proc start_time. */
 int process_pidfile_parse_record(const char *text, size_t length,
 				 pid_t *pid, unsigned long long *start_time);
+int process_pidfile_parse_link_record(const char *text, size_t length,
+				      pid_t *pid, unsigned long long *start_time);
 enum process_presence process_pidfile_read_identity(const char *path,
 						    const char *process_name,
 						    struct process_identity *identity);

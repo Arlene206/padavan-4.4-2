@@ -865,20 +865,12 @@ read_process_start_time(pid_t pid, unsigned long long *start_time)
 }
 
 static int
-write_pidfile_record(const char *path, pid_t pid)
+write_pidfile_contents(const char *path, const char *record, size_t length)
 {
-	unsigned long long start_time;
-	char record[64], temp_path[MAXPATHLEN + 16];
-	int fd, length, path_length, saved_errno;
+	char temp_path[MAXPATHLEN + 16];
+	int fd, path_length, saved_errno;
 	size_t offset = 0;
 
-	if (read_process_start_time(pid, &start_time) != 0)
-		return -1;
-	length = pppd_pidfile_format_record(pid, start_time, record, sizeof(record));
-	if (length < 0) {
-		errno = EINVAL;
-		return -1;
-	}
 	path_length = snprintf(temp_path, sizeof(temp_path), "%s.tmp.XXXXXX", path);
 	if (path_length <= 0 || path_length >= (int)sizeof(temp_path)) {
 		errno = ENAMETOOLONG;
@@ -889,8 +881,8 @@ write_pidfile_record(const char *path, pid_t pid)
 		return -1;
 	if (fchmod(fd, 0644) != 0)
 		goto failed;
-	while (offset < (size_t)length) {
-		ssize_t count = write(fd, record + offset, (size_t)length - offset);
+	while (offset < length) {
+		ssize_t count = write(fd, record + offset, length - offset);
 		if (count < 0) {
 			if (errno == EINTR)
 				continue;
@@ -922,6 +914,41 @@ failed:
 	return -1;
 }
 
+static int
+write_pidfile_record(const char *path, pid_t pid)
+{
+	unsigned long long start_time;
+	char record[64];
+	int length;
+
+	if (read_process_start_time(pid, &start_time) != 0)
+		return -1;
+	length = pppd_pidfile_format_record(pid, start_time, record, sizeof(record));
+	if (length < 0) {
+		errno = EINVAL;
+		return -1;
+	}
+	return write_pidfile_contents(path, record, (size_t)length);
+}
+
+static int
+write_link_pidfile_record(const char *path, pid_t pid, const char *link_ifname)
+{
+	unsigned long long start_time;
+	char record[64];
+	int length;
+
+	if (read_process_start_time(pid, &start_time) != 0)
+		return -1;
+	length = pppd_pidfile_format_link_record(pid, link_ifname, start_time,
+						 record, sizeof(record));
+	if (length < 0) {
+		errno = EINVAL;
+		return -1;
+	}
+	return write_pidfile_contents(path, record, (size_t)length);
+}
+
 /*
  * Create a file containing our process ID and /proc start_time identity.
  */
@@ -941,20 +968,13 @@ void
 create_linkpidfile(pid)
     int pid;
 {
-    FILE *pidfile;
-
     if (linkname[0] == 0)
 	return;
     script_setenv("LINKNAME", linkname, 1);
     slprintf(linkpidfile, sizeof(linkpidfile), "%sppp-%s.pid",
 	     _PATH_VARRUN, linkname);
-    if ((pidfile = fopen(linkpidfile, "w")) != NULL) {
-	fprintf(pidfile, "%d\n", pid);
-	if (ifname[0])
-	    fprintf(pidfile, "%s\n", ifname);
-	(void) fclose(pidfile);
-    } else {
-	error("Failed to create pid file %s: %m", linkpidfile);
+    if (write_link_pidfile_record(linkpidfile, (pid_t)pid, ifname) != 0) {
+	error("Failed to create identity-bound link pid file %s: %m", linkpidfile);
 	linkpidfile[0] = 0;
     }
 }

@@ -68,4 +68,37 @@ pppd_pidfile_format_record(pid_t pid, unsigned long long start_time,
 	return length;
 }
 
+
+static int
+pppd_pidfile_format_link_record(pid_t pid, const char *ifname,
+				unsigned long long start_time,
+				char *buffer, size_t buffer_size)
+{
+	size_t ifname_length = 0, i;
+	int length;
+
+	if (pid <= (pid_t)1 || !ifname || start_time == 0 ||
+	    !buffer || buffer_size == 0)
+		return -1;
+	while (ifname[ifname_length]) {
+		ifname_length++;
+		if (ifname_length > 15)
+			return -1;
+	}
+	if (ifname_length != 0) {
+		if (ifname_length < 4 || ifname[0] != 'p' ||
+		    ifname[1] != 'p' || ifname[2] != 'p')
+			return -1;
+		for (i = 3; i < ifname_length; i++) {
+			if (ifname[i] < '0' || ifname[i] > '9')
+				return -1;
+		}
+	}
+	length = snprintf(buffer, buffer_size, "%ld\n%s\n%llu\n",
+			  (long)pid, ifname, start_time);
+	if (length <= 0 || (size_t)length >= buffer_size)
+		return -1;
+	return length;
+}
+
 #endif /* PPPD_PIDFILE_POLICY_H */

@@ -22,6 +22,23 @@ static void expect_invalid(const char *record, size_t length)
 	assert(process_pidfile_parse_record(record, length, &pid, &start_time) == -1);
 }
 
+static void expect_valid_link(const char *record, size_t length,
+			      pid_t expected_pid, unsigned long long expected_start)
+{
+	pid_t pid = 0;
+	unsigned long long start_time = 0;
+	assert(process_pidfile_parse_link_record(record, length, &pid, &start_time) == 0);
+	assert(pid == expected_pid);
+	assert(start_time == expected_start);
+}
+
+static void expect_invalid_link(const char *record, size_t length)
+{
+	pid_t pid = 0;
+	unsigned long long start_time = 0;
+	assert(process_pidfile_parse_link_record(record, length, &pid, &start_time) == -1);
+}
+
 int main(void)
 {
 	expect_valid("2 1", 3, (pid_t)2, 1ULL);
@@ -41,6 +58,14 @@ int main(void)
 	expect_invalid("2147483648 3", 12);
 	expect_invalid("2 18446744073709551616", 22);
 	expect_invalid("1234567890123456789012345678901234567890123456789012345678901234", 64);
+	expect_valid_link("321\nppp12\n98765\n", 16, (pid_t)321, 98765ULL);
+	expect_valid_link("321\n\n98765\n", 11, (pid_t)321, 98765ULL);
+	expect_invalid_link("321\nppp12\n", 10);
+	expect_invalid_link("321\neth0\n98765\n", 15);
+	expect_invalid_link("321\npppA\n98765\n", 15);
+	expect_invalid_link("321\nppp12\n0\n", 12);
+	expect_invalid_link("321\nppp12\n98765\nextra\n", 22);
+	expect_invalid_link("1\nppp12\n98765\n", 14);
 	puts("process PID-file record regression: PASS");
 	return 0;
 }

@@ -77,6 +77,70 @@ process_pidfile_parse_record(const char *text, size_t length,
 	return 0;
 }
 
+
+int
+process_pidfile_parse_link_record(const char *text, size_t length,
+				  pid_t *pid, unsigned long long *start_time)
+{
+	const char *line1_end, *line2_end, *line3_end;
+	char record[PROCESS_PIDFILE_RECORD_SIZE];
+	size_t line1_length, line2_length, line3_length, record_length;
+	const char *p;
+
+	if (!text || !pid || !start_time || length == 0 ||
+	    text[length - 1] != '\n') {
+		errno = EINVAL;
+		return -1;
+	}
+	line1_end = (const char *)memchr(text, '\n', length);
+	if (!line1_end || line1_end == text) {
+		errno = EINVAL;
+		return -1;
+	}
+	line2_end = (const char *)memchr(line1_end + 1, '\n',
+					length - (size_t)(line1_end + 1 - text));
+	if (!line2_end) {
+		errno = EINVAL;
+		return -1;
+	}
+	line3_end = (const char *)memchr(line2_end + 1, '\n',
+					length - (size_t)(line2_end + 1 - text));
+	if (!line3_end || line3_end != text + length - 1) {
+		errno = EINVAL;
+		return -1;
+	}
+	line1_length = (size_t)(line1_end - text);
+	line2_length = (size_t)(line2_end - line1_end - 1);
+	line3_length = (size_t)(line3_end - line2_end - 1);
+	if (line1_length == 0 || line3_length == 0 ||
+	    line1_length + line3_length + 2 >= sizeof(record)) {
+		errno = EINVAL;
+		return -1;
+	}
+	/* linkname PID files preserve their historic PID / ifname prefix.
+	 * Accept an absent ifname, or a canonical Linux PPP interface name. */
+	if (line2_length != 0) {
+		if (line2_length < 4 || line2_length > 15 ||
+		    memcmp(line1_end + 1, "ppp", 3) != 0) {
+			errno = EINVAL;
+			return -1;
+		}
+		for (p = line1_end + 4; p < line2_end; ++p) {
+			if (*p < '0' || *p > '9') {
+				errno = EINVAL;
+				return -1;
+			}
+		}
+	}
+	memcpy(record, text, line1_length);
+	record[line1_length] = ' ';
+	memcpy(record + line1_length + 1, line2_end + 1, line3_length);
+	record_length = line1_length + 1 + line3_length;
+	record[record_length] = '\n';
+	return process_pidfile_parse_record(record, record_length + 1,
+					     pid, start_time);
+}
+
 static int
 process_pidfile_read(const char *path, pid_t *pid,
 		     unsigned long long *start_time)
@@ -113,7 +177,9 @@ process_pidfile_read(const char *path, pid_t *pid,
 	}
 	if (close(fd) < 0)
 		return -1;
-	return process_pidfile_parse_record(buffer, used, pid, start_time);
+	if (process_pidfile_parse_record(buffer, used, pid, start_time) == 0)
+		return 0;
+	return process_pidfile_parse_link_record(buffer, used, pid, start_time);
 
 failed:
 	saved_errno = errno ? errno : EIO;
