@@ -1,3 +1,13 @@
+## 2026-11-14 20:20 CST (UTC+8) — Fix lifecycle snapshot ownership across force-kill preflight
+
+- Parent main: `58e924749f1937cbab144a664b15e659e48ca5f8`. Exact-head process lifecycle run `43595026457` exposed a real test/runtime memory leak: the pre-KILL second call to `service_lifecycle_preflight()` overwrote the original target snapshots while taking a new scan. LeakSanitizer reported 112 bytes in two tests. Scanner compile and fault-injection execution passed; lifecycle test compilation passed; lifecycle test execution failed.
+- Corrected the policy to capture initial snapshots only once. The pre-KILL pass now scans into temporary snapshots, verifies the current set remains a subset of the original plan, validates original PID/start_time identities, and releases temporary state without losing the original snapshot. This preserves identity binding and removes the leak.
+- Exact-head crond run `43595026438` had the GNU89/ASan policy regression PASS but its source-contract checker failed because it required an explicit `if (!forcekill)` guard. Restored the explicit guard while retaining STOPPED and TIMEOUT checks.
+- This follow-up is a correctness fix, not a new API scope. L2 remains pending until the new exact-head run proves all regression steps. L3 MIPS/uClibc NOT RUN; L4 XY-C1 flash/boot/runtime NOT VERIFIED.
+- Root log advances 80→81 records; no archive rotation or INDEX change is due. Resulting commit: THIS COMMIT.
+- Exact next action: inspect exact-head process-lifecycle and crond workflow runs and their complete step results; fix further causal failures on main.
+---
+
 ## 2026-11-14 20:04 CST (UTC+8) — Add tri-state process inventory and fail-closed service-stop foundation
 
 - Base main SHA: `f32922d2afc9e8133625551b0dc3e6f361f378d5`. Live main and immutable backup were re-fetched before preparing this direct-main tree update; backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.

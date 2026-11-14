@@ -78,29 +78,46 @@ static inline enum service_lifecycle_result
 service_lifecycle_preflight(struct service_lifecycle_target *targets,
 			     size_t count,
 			     const struct service_lifecycle_ops *ops,
-			     void *context)
+			     void *context, int capture_snapshots)
 {
 	size_t i, j;
 	enum process_presence state;
 
-	/* Pass one: obtain a complete inventory for every configured service. */
-	for (i = 0; i < count; i++) {
-		state = ops->scan(context, targets[i].name, &targets[i].initial);
-		if (state == PROCESS_PRESENCE_UNKNOWN)
-			return SERVICE_LIFECYCLE_UNKNOWN;
-		if ((state != PROCESS_PRESENCE_RUNNING &&
-		     state != PROCESS_PRESENCE_ABSENT) ||
-		    targets[i].initial.state != state ||
-		    (state == PROCESS_PRESENCE_ABSENT &&
-		     targets[i].initial.count != 0) ||
-		    (state == PROCESS_PRESENCE_RUNNING &&
-		     targets[i].initial.count == 0))
-			return SERVICE_LIFECYCLE_UNKNOWN;
+	/*
+	 * Capture the original inventory only once. Before KILL, retain those
+	 * identities and compare a fresh inventory to the original plan; never
+	 * overwrite the original snapshots with the second pass.
+	 */
+	if (capture_snapshots) {
+		for (i = 0; i < count; i++) {
+			state = ops->scan(context, targets[i].name, &targets[i].initial);
+			if (state == PROCESS_PRESENCE_UNKNOWN)
+				return SERVICE_LIFECYCLE_UNKNOWN;
+			if ((state != PROCESS_PRESENCE_RUNNING &&
+			     state != PROCESS_PRESENCE_ABSENT) ||
+			    targets[i].initial.state != state ||
+			    (state == PROCESS_PRESENCE_ABSENT &&
+			     targets[i].initial.count != 0) ||
+			    (state == PROCESS_PRESENCE_RUNNING &&
+			     targets[i].initial.count == 0))
+				return SERVICE_LIFECYCLE_UNKNOWN;
+		}
+	} else {
+		for (i = 0; i < count; i++) {
+			state = targets[i].initial.state;
+			if ((state != PROCESS_PRESENCE_RUNNING &&
+			     state != PROCESS_PRESENCE_ABSENT) ||
+			    (state == PROCESS_PRESENCE_ABSENT &&
+			     targets[i].initial.count != 0) ||
+			    (state == PROCESS_PRESENCE_RUNNING &&
+			     targets[i].initial.count == 0))
+				return SERVICE_LIFECYCLE_UNKNOWN;
+		}
 	}
 
 	/*
-	 * Pass two: all service names are rescanned before the first signal.
-	 * Newly appeared/replaced PIDs invalidate the plan.
+	 * Rescan every service before the first TERM and again before KILL.
+	 * Newly appeared/replaced PIDs invalidate the original plan.
 	 */
 	for (i = 0; i < count; i++) {
 		struct process_snapshot current;
@@ -268,7 +285,7 @@ service_lifecycle_stop(char *service_names[], int wait_timeout, int forcekill,
 		targets[i].name = service_names[i];
 
 	/* No TERM may occur until every service passed this complete preflight. */
-	result = service_lifecycle_preflight(targets, count, ops, context);
+	result = service_lifecycle_preflight(targets, count, ops, context, 1);
 	if (result != SERVICE_LIFECYCLE_STOPPED)
 		goto out;
 	result = service_lifecycle_signal_targets(targets, count, ops, context,
@@ -280,13 +297,15 @@ service_lifecycle_stop(char *service_names[], int wait_timeout, int forcekill,
 		wait_timeout = 1;
 	result = service_lifecycle_wait_for_exit(targets, count, ops, context,
 						 (unsigned int)wait_timeout);
-	if (result == SERVICE_LIFECYCLE_STOPPED || !forcekill)
+	if (result == SERVICE_LIFECYCLE_STOPPED)
+		goto out;
+	if (!forcekill)
 		goto out;
 	if (result != SERVICE_LIFECYCLE_TIMEOUT)
 		goto out;
 
 	/* Re-inventory the entire plan before escalation, then recheck each PID. */
-	result = service_lifecycle_preflight(targets, count, ops, context);
+	result = service_lifecycle_preflight(targets, count, ops, context, 0);
 	if (result != SERVICE_LIFECYCLE_STOPPED)
 		goto out;
 	result = service_lifecycle_signal_targets(targets, count, ops, context,

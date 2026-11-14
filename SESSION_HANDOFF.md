@@ -1,12 +1,12 @@
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`. Development is on `main` only. This bounded P1 phase-2 implementation is assembled against the verified parent main SHA `f32922d2afc9e8133625551b0dc3e6f361f378d5`; after the tree commit, resolve the actual current main SHA from GitHub rather than assuming this parent is still the tip.
+- Repository: `Arlene206/padavan-4.4-2`. Development is on `main` only. The P1 phase-2 foundation commit is `58e924749f1937cbab144a664b15e659e48ca5f8`, parent `f32922d2afc9e8133625551b0dc3e6f361f378d5`. This follow-up correctness fix is being committed against `58e924749f1937cbab144a664b15e659e48ca5f8`; always re-fetch the live main ref before any further write.
 - Immutable archive: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Never modify, rename, prune, reset, rebase, merge, or delete it.
 - Legacy PR #1 remains CLOSED / UNMERGED. Do not reopen or use the PR head. Do not create development branches or PRs. Do not modify GPT Session Rotator.
 - L1 lexical inventory and direct-call semantic review are complete for the previously documented scopes. Reuse `docs/audits/PROCESS_LIFECYCLE_SEMANTIC_REVIEW.md`; do not repeat the 77 `pids()` / 46 `kill_services()` caller census or redesign the lexical scanner.
 - The semantic review covers the specified direct public-API calls, not an interprocedural closure of all 5,664 broad lifecycle candidates. Preserve that limitation in reports.
 - Baseline exact-head push Actions on parent SHA `f32922d2afc9e8133625551b0dc3e6f361f378d5` all passed: NVRAM `43590477651`, AI handoff docs `43590477637`, infosvr `43590477685`, AdGuardHome `43590477635`, AliDDNS `43590477629`, and AliyunDrive `43590477704`. NVRAM's job `132433928048` completed the raw ioctl/kernel API audit. These are parent-SHA baseline runs, not validation of this new P1 implementation.
-- Current implementation files are enumerated under Active task below. BusyBox `trunk/user/busybox/busybox-1.24.x/libbb/procps.c` remains a separate process scanner and was not changed.
+- Current implementation files are enumerated under Active task below. The initial exact-head regression run `43595026457` on `58e924749f1937cbab144a664b15e659e48ca5f8` exposed an ASan leak in the second (pre-KILL) preflight: it overwrote the original snapshot and leaked it. Scanner compile and scanner fault-injection run passed; lifecycle compile passed; lifecycle execution failed at LeakSanitizer. The fix now retains original identities and makes the second preflight compare a fresh scan without replacing them. Existing crond contract run `43595026438` had its GNU89 policy test pass but a source-contract step failed because the policy no longer contained the explicit `if (!forcekill)`; the explicit guard is restored. Recheck these on the follow-up SHA. BusyBox `trunk/user/busybox/busybox-1.24.x/libbb/procps.c` remains a separate process scanner and was not changed.
 
 ## Active task
 
@@ -32,7 +32,7 @@
 ## Verification boundary
 
 - L1: prior sparse inventory and semantic direct-call review remain PASS at their documented source SHAs; this implementation does not re-run or expand that census.
-- L2: the new dedicated workflow is `.github/workflows/process-lifecycle-regression.yml`. Its exact-head push run and every job step MUST be inspected for the actual commit SHA before claiming PASS. Local build/test was not run because this runtime has no checkout and GitHub DNS is unavailable to the local shell. Source-code creation or an Actions queue state is not L2 PASS.
+- L2: the new dedicated workflow is `.github/workflows/process-lifecycle-regression.yml`. First exact-head run `43595026457` on `58e924749f1937cbab144a664b15e659e48ca5f8` FAILED at lifecycle test runtime due to 112 bytes leaked across two KILL-preflight tests; the scanner test and both test compilations passed. Fix is included in this follow-up; L2 remains pending until the follow-up exact-head run and every step are inspected. Crond source-contract failure in `43595026438` is also being corrected. Local build/test was not run because this runtime has no checkout and GitHub DNS is unavailable to the local shell.
 - L3: current-main MIPS/uClibc build NOT RUN. Historical evidence at `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f` is not validation of this patch.
 - L4: XY-C1 actual flash, boot, runtime and functional hardware verification NOT VERIFIED.
 - An exact-head green Action does not establish target firmware packaging, target process behavior, L3 or L4.
@@ -40,7 +40,7 @@
 ## Exact first action for the next GPT
 
 1. Read the complete `AI_DEVELOPMENT_PROTOCOL.md` first, then `AI_BOOTSTRAP_PROMPT.md`. Fetch live `refs/heads/main` and the immutable backup ref. Never trust the SHA in this handoff as the live tip.
-2. Fetch Actions for the exact live main SHA. Inspect `process-lifecycle-regression.yml` run, all Jobs, every step, and logs for any failure. Only a `push` whose `head_sha` exactly equals the live SHA counts. Also inspect any other triggered exact-head workflows. If failed, fix on main with a new expected-head tree commit and re-run exact-head verification.
+2. Fetch Actions for the exact live main SHA. Inspect the follow-up run for `process-lifecycle-regression.yml` and the crond lifecycle workflow, all Jobs, every step, and logs for any failure. Confirm the pre-KILL snapshot leak and `if (!forcekill)` source-contract failure are both gone. Only a `push` whose `head_sha` exactly equals the live SHA counts. Also inspect any other triggered exact-head workflows. If failed, fix on main with a new expected-head tree commit and re-run exact-head verification.
 3. Read the latest `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, newest 20 complete `dev_log.md` records and `docs/dev-log/INDEX.md`; then reread the full `docs/audits/PROCESS_LIFECYCLE_SEMANTIC_REVIEW.md` for the specific caller group being migrated.
 4. Do NOT repeat the completed lexical scanner design, 9,439-blob inventory, 6,193-readable-file census, 77 direct `pids()` classifications or 46 direct `kill_services()` classifications. Do NOT ask for a whole-repository upload.
 5. Continue with PID-file identity: design strict parse/status interfaces, bind PID + start_time + expected executable identity, inject file/process operations, and migrate each producer with all consumers as one transaction. First map the exact writer of `lpdparent.pid`; leave unknown ownership fail-closed. Keep BusyBox procps separate.
