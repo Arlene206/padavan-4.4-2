@@ -466,24 +466,22 @@ int pids_main(char *appname)
 	struct process_snapshot snapshot;
 	enum process_presence state;
 	size_t i;
-	int count;
 
 	state = process_inventory_scan(appname, &snapshot);
 	if (state == PROCESS_PRESENCE_UNKNOWN) {
 		fprintf(stderr, "process inventory unknown: %s (error %d)\n",
 			appname ? appname : "(null)", snapshot.error);
 		process_snapshot_release(&snapshot);
-		return -1;
+		return EXIT_FAILURE;
 	}
 	if (state == PROCESS_PRESENCE_RUNNING) {
 		for (i = 0; i < snapshot.count; i++)
 			fprintf(stderr, "%u ", (unsigned)snapshot.items[i].pid);
 		fprintf(stderr, "\n");
 	}
-	count = (int)snapshot.count;
-	fprintf(stderr, "pid count: %d\n", count);
+	fprintf(stderr, "pid count: %lu\n", (unsigned long)snapshot.count);
 	process_snapshot_release(&snapshot);
-	return count;
+	return EXIT_SUCCESS;
 }
 
 int pids(char *appname)

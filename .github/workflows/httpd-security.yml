@@ -185,6 +185,7 @@ on:
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/service_lifecycle_policy.h"
       - "trunk/user/rc/src/tests/service_lifecycle_policy.c"
+      - "trunk/user/shared/src/process_inventory.h"
       - "trunk/user/rc/src/dhcp_lease_policy.h"
       - "trunk/user/rc/src/dnsmasq_domain_policy.h"
       - "trunk/user/rc/src/tests/dhcp_lease_policy.c"
@@ -242,6 +243,7 @@ on:
       - "trunk/user/rc/src/vpn_server_lease_policy.h"
       - "trunk/user/rc/src/tests/vpn_server_lease_policy.c"
       - "trunk/user/rc/src/vpn_server_lease_lock.h"
+  pull_request:
   pull_request:
     paths:
       - "trunk/user/shared/src/dhcp6c_duid_file_policy.h"
@@ -423,6 +425,7 @@ on:
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/service_lifecycle_policy.h"
       - "trunk/user/rc/src/tests/service_lifecycle_policy.c"
+      - "trunk/user/shared/src/process_inventory.h"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/dhcp_lease_policy.h"
       - "trunk/user/rc/src/dnsmasq_domain_policy.h"
@@ -4560,7 +4563,7 @@ jobs:
         run: |
           set -eu
           cc -std=gnu89 -Wall -Wextra -Werror \
-            -I trunk/user/rc/src \
+            -I trunk/user/rc/src -I trunk/user/shared/src \
             trunk/user/rc/src/tests/service_lifecycle_policy.c \
             -o /tmp/service_lifecycle_policy
           /tmp/service_lifecycle_policy

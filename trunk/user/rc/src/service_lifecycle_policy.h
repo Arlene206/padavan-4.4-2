@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../../shared/src/process_inventory.h"
+#include <process_inventory.h>
 
 #define SERVICE_LIFECYCLE_FORCE_WAIT_SECONDS 3
 

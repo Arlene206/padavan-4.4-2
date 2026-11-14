@@ -13,6 +13,10 @@ assert "process_inventory.o" in shared_makefile
 assert '#include "process_inventory.h"' in shared_header
 assert "process_inventory_scan(appname, &snapshot)" in pids_source
 assert "PROCESS_PRESENCE_UNKNOWN" in pids_source
+assert "return EXIT_FAILURE;" in pids_source
+assert "return EXIT_SUCCESS;" in pids_source
+assert "return count;" not in pids_source
+assert '#include <process_inventory.h>' in policy
 assert "process_inventory_scan(service_name, snapshot)" in common_ex
 assert "process_identity_validate(service_name, identity)" in common_ex
 assert "kill(identity->pid, signal_number)" in common_ex

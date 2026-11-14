@@ -1,3 +1,14 @@
+## 2026-11-14 21:40 CST (UTC+8) — Fix RC staged-header lookup and make pids_main return only CLI status
+
+- Base main SHA: `91deae70b0582f2925f95679ab722f97b41637a6`; backup branch remained `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact-head L2 P1 regression `43598951793` PASS; AI docs `43598951775`, infosvr `43598951786`, AdGuardHome `43598951840`, AliDDNS `43598951800`, AliyunDrive `43598951838`, process inventory L1 `43598951813`, and NVRAM `43598951790` PASS.
+- Exact-head XY-C1 MIPS/uClibc run `43598951803` FAILED at RC compile, after shared success: `process_inventory.o` compiled, `libshared.so` installed, and `process_inventory.h` staged, but `service_lifecycle_policy.h` included `../../shared/src/process_inventory.h`, which does not resolve from the build/RC copy. It now includes the staged public `<process_inventory.h>` header. Watchdog/HTTPD host test compiles now add `-I trunk/user/shared/src`, and both workflow path filters include the shared header for push and pull_request.
+- Semantic audit recheck: `pids_main()` is invoked by the `rc.c` `/sbin/pids` applet, whose return is the process exit status. It must not return count or negative UNKNOWN. It now returns `EXIT_SUCCESS` for any complete RUNNING/ABSENT inventory and `EXIT_FAILURE` for UNKNOWN; PID/count are printed separately. Legacy `pids()` remains unchanged.
+- Integration checker now guards the explicit pids_main exit contract and staged shared include. This commit's exact-head L2/Watchdog/HTTPD/XY-C1 Actions are PENDING; parent L3 `43598951803` is FAILED and no TRX artifact was created. L4 actual hardware NOT VERIFIED.
+- Root log advances one record; no archive rotation or INDEX update is due. Resulting commit: THIS COMMIT.
+- Exact next action: inspect the new exact-head host and MIPS Actions, confirm include resolution and CLI exit contract, then reach and verify TRX output.
+---
+
 ## 2026-11-14 21:16 CST (UTC+8) — Correct shared process-inventory target and /proc start_time extraction; simplify permanent handoff
 
 - Base live main SHA: `6f683b421bd62b4d229a2206a62e239189cd4cb9`. The immutable backup ref remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
