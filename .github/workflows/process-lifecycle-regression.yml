@@ -18,6 +18,8 @@ on:
       - "trunk/user/shared/src/Makefile"
       - "trunk/user/shared/src/tests/process_inventory.c"
       - "trunk/user/rc/src/common_ex.c"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/net_lan.c"
       - "trunk/user/rc/src/vpn_server.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/pppd/ppp-2.4.7/pppd/main.c"

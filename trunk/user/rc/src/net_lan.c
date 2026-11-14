@@ -666,22 +666,29 @@ start_lan(int is_ap_mode, int do_wait)
 	config_bridge(is_ap_mode);
 }
 
-void
+int
 stop_lan(int is_ap_mode)
 {
-	char *svcs[] = { "udhcpc", "detect_wan", NULL };
-
 	if (is_ap_mode) {
+		char *svcs[] = { "detect_wan", NULL };
+		const char *pidfiles[] = { "/var/run/udhcpc_lan.pid", NULL };
+		int status;
+
 		notify_pause_detect_internet();
-		
-		kill_services(svcs, 3, 1);
+		status = kill_services_with_pidfiles(svcs, pidfiles, "udhcpc", 0, 3, 1);
+		if (status != 0) {
+			logmessage(LOGNAME,
+				   "refusing LAN teardown while DHCP client identity remains active or unknown (status=%d)",
+				   status);
+			return status;
+		}
 	} else {
 		char *lan_ip = nvram_safe_get("lan_ipaddr_t");
-		
+
 		/* flush conntrack table (only old LAN IP records) */
 		if (is_valid_ipv4(lan_ip))
 			flush_conntrack_table(lan_ip);
-		
+
 		/* Remove static routes */
 		clear_if_route4(IFNAME_BR);
 	}
@@ -691,14 +698,14 @@ stop_lan(int is_ap_mode)
 #endif
 
 	/* Bring down LAN interface */
-	ifconfig(IFNAME_BR, 0, NULL, NULL);
+	return ifconfig(IFNAME_BR, 0, NULL, NULL);
 }
 
 int
 full_restart_lan(void)
 {
 	int is_wan_err = 0, is_lan_stp = 0;
-	int is_ap_mode, log_remote;
+	int is_ap_mode, log_remote, lan_status;
 	int dnsmasq_lock, dnsmasq_lock_errno;
 	int dnsmasq_status, dnsmasq_start_status;
 
@@ -728,7 +735,20 @@ full_restart_lan(void)
 	stop_vpn_server();
 	/* Preserve DNSMasq lifecycle errors for PID 1 notification accounting. */
 	dnsmasq_status = stop_dns_dhcpd_locked();
-	stop_lan(is_ap_mode);
+	lan_status = stop_lan(is_ap_mode);
+	if (lan_status != 0) {
+		logmessage(LOGNAME, "LAN restart aborted because previous LAN services did not stop (status=%d)",
+			   lan_status);
+		if (dnsmasq_status == 0) {
+			dnsmasq_start_status = start_dns_dhcpd_locked(is_ap_mode);
+			if (dnsmasq_start_status != 0)
+				logmessage(LOGNAME, "DNSMasq recovery after aborted LAN restart failed (status=%d)",
+					   dnsmasq_start_status);
+		}
+		if (dnsmasq_lifecycle_lock_release(dnsmasq_lock) != 0)
+			logmessage(LOGNAME, "cannot release DNSMasq lifecycle lock after aborted LAN restart (errno=%d)", errno);
+		return lan_status;
+	}
 
 	reset_lan_vars();
 
@@ -1337,8 +1357,10 @@ start_udhcpc_lan(char *lan_ifname)
 	return _eval(dhcp_argv, NULL, 0, NULL);
 }
 
-int 
-stop_udhcpc_lan()
+int
+stop_udhcpc_lan(void)
 {
-	return kill_pidfile("/var/run/udhcpc_lan.pid");
+	const char *pidfiles[] = { "/var/run/udhcpc_lan.pid", NULL };
+
+	return kill_services_with_pidfiles(NULL, pidfiles, "udhcpc", 0, 3, 1);
 }

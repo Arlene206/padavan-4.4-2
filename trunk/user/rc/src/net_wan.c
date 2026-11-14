@@ -31,6 +31,7 @@
 #include <signal.h>
 
 #include "rc.h"
+#include <process_pidfile.h>
 #include "ppp_options_file.h"
 #include "vpn_server_lifecycle_lock.h"
 #include "route_status_policy.h"
@@ -4303,34 +4304,56 @@ int start_zcip_viptv(char *man_ifname)
 	return eval("/sbin/zcip", "-q", man_ifname, SCRIPT_ZCIP_VIPTV);
 }
 
+static int
+stop_udhcpc_pidfile(const char *path)
+{
+	const char *pidfiles[2];
+
+	pidfiles[0] = path;
+	pidfiles[1] = NULL;
+	return kill_services_with_pidfiles(NULL, pidfiles, "udhcpc", 0, 3, 1);
+}
+
 int renew_udhcpc_wan(int unit)
 {
 	char pidfile[32];
+	int length;
 
-	snprintf(pidfile, sizeof(pidfile), "/var/run/udhcpc%d.pid", unit);
-	return kill_pidfile_s(pidfile, SIGUSR1);
+	length = snprintf(pidfile, sizeof(pidfile), "/var/run/udhcpc%d.pid", unit);
+	if (length < 0 || length >= (int)sizeof(pidfile)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	return process_pidfile_signal(pidfile, "udhcpc", SIGUSR1);
 }
 
 int release_udhcpc_wan(int unit)
 {
 	char pidfile[32];
+	int length;
 
-	snprintf(pidfile, sizeof(pidfile), "/var/run/udhcpc%d.pid", unit);
-	return kill_pidfile_s(pidfile, SIGUSR2);
+	length = snprintf(pidfile, sizeof(pidfile), "/var/run/udhcpc%d.pid", unit);
+	if (length < 0 || length >= (int)sizeof(pidfile)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	return process_pidfile_signal(pidfile, "udhcpc", SIGUSR2);
 }
 
 int stop_udhcpc_wan(int unit)
 {
 	char pidfile[32];
+	int length;
 
-	snprintf(pidfile, sizeof(pidfile), "/var/run/udhcpc%d.pid", unit);
-	return kill_pidfile(pidfile);
+	length = snprintf(pidfile, sizeof(pidfile), "/var/run/udhcpc%d.pid", unit);
+	if (length < 0 || length >= (int)sizeof(pidfile)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	return stop_udhcpc_pidfile(pidfile);
 }
 
 int stop_udhcpc_viptv(void)
 {
-	char pidfile[32];
-
-	snprintf(pidfile, sizeof(pidfile), "/var/run/udhcpc_viptv.pid");
-	return kill_pidfile(pidfile);
+	return stop_udhcpc_pidfile("/var/run/udhcpc_viptv.pid");
 }

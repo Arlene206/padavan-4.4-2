@@ -149,3 +149,19 @@ assert "write_pidfile(client_config.pidfile)" not in udhcpc_source
 assert "remove_pidfile(client_config.pidfile)" not in udhcpc_source
 assert "unlink-by-path can race a new publisher" in udhcpc_source
 print("BusyBox udhcpc identity-bound PID-file producer integration: PASS")
+
+net_wan_dhcp = (root / "trunk/user/rc/src/net_wan.c").read_text()
+net_lan_dhcp = (root / "trunk/user/rc/src/net_lan.c").read_text()
+wan_dhcp_stop = net_wan_dhcp.split("static int\nstop_udhcpc_pidfile", 1)[1].split("\nint renew_udhcpc_wan", 1)[0]
+lan_stop = net_lan_dhcp.split("int\nstop_lan(int is_ap_mode)", 1)[1].split("\nint\nfull_restart_lan", 1)[0]
+lan_restart = net_lan_dhcp.split("int\nfull_restart_lan(void)", 1)[1]
+assert "kill_services_with_pidfiles" in wan_dhcp_stop
+assert 'process_pidfile_signal(pidfile, "udhcpc", SIGUSR1)' in net_wan_dhcp
+assert 'process_pidfile_signal(pidfile, "udhcpc", SIGUSR2)' in net_wan_dhcp
+assert "kill_pidfile(" not in net_wan_dhcp[net_wan_dhcp.index("static int\nstop_udhcpc_pidfile"):]
+assert "kill_services_with_pidfiles(svcs, pidfiles, \"udhcpc\", 0, 3, 1)" in lan_stop
+assert '"/var/run/udhcpc_lan.pid"' in lan_stop
+assert "kill_services(svcs, 3, 1)" not in lan_stop
+assert "if (lan_status != 0)" in lan_restart
+assert "LAN restart aborted" in lan_restart
+print("WAN/LAN udhcpc identity-bound stop integration: PASS")

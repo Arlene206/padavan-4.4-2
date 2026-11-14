@@ -246,7 +246,7 @@ void reset_lan_temp(void);
 void reset_lan_vars(void);
 void update_hosts_ap(void);
 void start_lan(int is_ap_mode, int do_wait);
-void stop_lan(int is_ap_mode);
+int stop_lan(int is_ap_mode);
 void lan_up_manual(char *lan_ifname, char *lan_dname);
 void update_lan_status(int is_auto);
 int full_restart_lan(void);
@@ -261,7 +261,7 @@ void restart_switch_config_vlan(void);
 void update_ether_leds(void);
 int  is_vlan_vid_valid(int vlan_vid);
 int  start_udhcpc_lan(char *lan_ifname);
-int  stop_udhcpc_lan();
+int  stop_udhcpc_lan(void);
 int  udhcpc_lan_main(int argc, char **argv);
 
 /* net_wan.c */
