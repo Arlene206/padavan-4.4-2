@@ -14,6 +14,8 @@ on:
       - "trunk/user/rc/src/storage_partition_probe.h"
       - "trunk/user/libdisk/src/disk_initial.c"
       - "trunk/user/libdisk/src/disk_initial.h"
+      - "trunk/user/libdisk/src/disk_inventory_policy.h"
+      - "trunk/user/libdisk/src/tests/disk_inventory_policy.c"
       - "scripts/check_storage_safe_remove.py"
       - "trunk/user/libdisk/src/storage_swap_policy.h"
       - "trunk/user/scripts/files/sbin/automount.sh"
@@ -51,6 +53,8 @@ on:
       - "trunk/user/rc/src/storage_partition_probe.h"
       - "trunk/user/libdisk/src/disk_initial.c"
       - "trunk/user/libdisk/src/disk_initial.h"
+      - "trunk/user/libdisk/src/disk_inventory_policy.h"
+      - "trunk/user/libdisk/src/tests/disk_inventory_policy.c"
       - "scripts/check_storage_safe_remove.py"
       - "trunk/user/libdisk/src/storage_swap_policy.h"
       - "trunk/user/scripts/files/sbin/automount.sh"
@@ -181,6 +185,11 @@ jobs:
             -o /tmp/storage-ejected-inventory
           /tmp/storage-ejected-inventory
           cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/libdisk/src \
+            trunk/user/libdisk/src/tests/disk_inventory_policy.c \
+            -o /tmp/disk-inventory-policy
+          /tmp/disk-inventory-policy
+          cc -std=gnu89 -Wall -Wextra -Werror \
             -I trunk/user/rc/src \
             -I trunk/user/shared/src \
             trunk/user/rc/src/tests/storage_operation_lock.c \
@@ -284,6 +293,8 @@ jobs:
           probe = (rc_dir / "storage_partition_probe.h").read_text()
           libdisk_dir = Path("trunk/user/libdisk/src")
           libdisk = (libdisk_dir / "disk_initial.c").read_text()
+          disk_inventory_policy = (libdisk_dir / "disk_inventory_policy.h").read_text()
+          disk_inventory_test = (libdisk_dir / "tests/disk_inventory_policy.c").read_text()
           swap_policy = (libdisk_dir / "storage_swap_policy.h").read_text()
           automount = Path("trunk/user/scripts/files/sbin/automount.sh").read_text()
           spindown = Path("trunk/user/scripts/files/sbin/spindown.sh").read_text()
@@ -495,6 +506,12 @@ jobs:
           assert "fclose(procpt) != 0 && result == 0" in check_root
           assert "storage_disk_name_is_valid" in probe
           assert "storage_disk_has_partitions" in probe
+          assert '#include "disk_inventory_policy.h"' in libdisk
+          assert "disk_inventory_parse_header_line(line)" in libdisk
+          assert "disk_inventory_parse_partition_line(" in libdisk
+          assert "disk_inventory_parse_decimal" in disk_inventory_policy
+          assert "UINT_MAX" in disk_inventory_policy and "ULLONG_MAX" in disk_inventory_policy
+          assert " -8 0 10 sda" in disk_inventory_test and "18446744073709551616" in disk_inventory_test
 
           # Safe removal stages topology first, disables every selected swap,
           # then unmounts; disk spindown is gated on a successful unmount.
@@ -721,6 +738,8 @@ jobs:
               "trunk/user/rc/src/storage_operation_lock.h",
               "trunk/user/rc/src/storage_partition_probe.h",
               "trunk/user/libdisk/src/disk_initial.c",
+              "trunk/user/libdisk/src/disk_inventory_policy.h",
+              "trunk/user/libdisk/src/tests/disk_inventory_policy.c",
               "trunk/user/libdisk/src/storage_swap_policy.h",
               "trunk/user/scripts/files/sbin/automount.sh",
               "trunk/user/scripts/files/sbin/spindown.sh",

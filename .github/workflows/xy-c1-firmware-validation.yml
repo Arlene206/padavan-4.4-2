@@ -35,6 +35,7 @@ on:
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/storage_service_stop_policy.h"
       - "trunk/user/libdisk/src/disk_initial.h"
+      - "trunk/user/libdisk/src/disk_inventory_policy.h"
       - "trunk/user/libdisk/src/disk_initial.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/shared/src/shutils.h"

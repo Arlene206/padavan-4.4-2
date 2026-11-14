@@ -164,6 +164,8 @@ on:
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/libdisk/src/disk_initial.c"
       - "trunk/user/libdisk/src/disk_initial.h"
+      - "trunk/user/libdisk/src/disk_inventory_policy.h"
+      - "trunk/user/libdisk/src/tests/disk_inventory_policy.c"
       - "trunk/user/libdisk/src/storage_swap_policy.h"
       - "trunk/user/rc/src/tests/storage_swap_policy.c"
       - "trunk/user/rc/src/tests/storage_partition_probe.c"
@@ -404,6 +406,8 @@ on:
       - "trunk/user/rc/src/hotplug_stor.c"
       - "trunk/user/rc/src/storage_partition_probe.h"
       - "trunk/user/libdisk/src/disk_initial.h"
+      - "trunk/user/libdisk/src/disk_inventory_policy.h"
+      - "trunk/user/libdisk/src/tests/disk_inventory_policy.c"
       - "trunk/user/libdisk/src/storage_swap_policy.h"
       - "trunk/user/rc/src/tests/storage_swap_policy.c"
       - "trunk/user/libdisk/src/disk_initial.c"
@@ -2528,6 +2532,8 @@ jobs:
           from pathlib import Path
 
           libdisk = Path("trunk/user/libdisk/src/disk_initial.c").read_text()
+          disk_inventory_policy = Path("trunk/user/libdisk/src/disk_inventory_policy.h").read_text()
+          disk_inventory_test = Path("trunk/user/libdisk/src/tests/disk_inventory_policy.c").read_text()
           libdisk_header = Path("trunk/user/libdisk/src/disk_initial.h").read_text()
           helper = Path("trunk/user/libdisk/src/storage_swap_policy.h").read_text()
           test = Path("trunk/user/rc/src/tests/storage_swap_policy.c").read_text()
@@ -2552,6 +2558,13 @@ jobs:
           assert "if (!create_partition(" in read_data
           assert "free_disk_data(disk_info_list)" in read_data
           assert "read_error = ferror(fp)" in read_data
+          assert '#include "disk_inventory_policy.h"' in libdisk
+          assert "disk_inventory_parse_header_line(line)" in read_data
+          assert "disk_inventory_line_is_blank(line)" in read_data
+          assert "disk_inventory_parse_partition_line(" in read_data
+          assert "disk_inventory_parse_decimal" in disk_inventory_policy
+          assert "UINT_MAX" in disk_inventory_policy and "ULLONG_MAX" in disk_inventory_policy
+          assert " -8 0 10 sda" in disk_inventory_test and "18446744073709551616" in disk_inventory_test
 
           swapoff_start = libdisk.index("try_device_swapoff(const char *dev_name)")
           swapoff_end = libdisk.index("free_disk_data(", swapoff_start)

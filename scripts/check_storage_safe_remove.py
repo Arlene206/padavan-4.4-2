@@ -57,6 +57,8 @@ def body(source, signature):
 
 
 libdisk = read("trunk/user/libdisk/src/disk_initial.c")
+disk_policy = read("trunk/user/libdisk/src/disk_inventory_policy.h")
+disk_policy_test = read("trunk/user/libdisk/src/tests/disk_inventory_policy.c")
 disk_header = read("trunk/user/libdisk/src/disk_initial.h")
 storage = read("trunk/user/rc/src/services_stor.c")
 rc = read("trunk/user/rc/src/rc.c")
@@ -73,8 +75,14 @@ require("if (!create_disk(" in checked and "if (!create_partition(" in checked,
         "allocation/partition decode failures must not publish partial inventory")
 require("*disk_info_out = disk_info_list;" in checked and "return 0;" in checked,
         "checked inventory must distinguish valid empty inventory from failure")
-require("sscanf(line, " in checked and "strspn(line" in checked,
-        "malformed non-empty or truncated inventory rows must fail closed")
+require("disk_inventory_parse_header_line(line)" in checked and
+        "disk_inventory_line_is_blank(line)" in checked and
+        "disk_inventory_parse_partition_line(" in checked,
+        "checked inventory must reject malformed headers, rows and truncation")
+require("disk_inventory_parse_decimal" in disk_policy and "UINT_MAX" in disk_policy and "ULLONG_MAX" in disk_policy,
+        "procfs numeric fields must be strict decimal values with overflow checks")
+require(" -8 0 10 sda" in disk_policy_test and "18446744073709551616" in disk_policy_test,
+        "parser tests must reject signed numbers and integer overflow")
 legacy = body(libdisk, "read_disk_data(void)")
 require("read_disk_data_checked(&disk_info_list)" in legacy and "return disk_info_list;" in legacy,
         "legacy read_disk_data API must remain a compatibility wrapper")
@@ -130,11 +138,14 @@ push_filters = workflow[push_at:pr_at]
 pull_filters = workflow[pr_at:jobs_at]
 for path in ("trunk/user/libdisk/src/disk_initial.c",
              "trunk/user/libdisk/src/disk_initial.h",
+             "trunk/user/libdisk/src/disk_inventory_policy.h",
+             "trunk/user/libdisk/src/tests/disk_inventory_policy.c",
              "scripts/check_storage_safe_remove.py"):
     require('"' + path + '"' in push_filters, "storage push filter missing " + path)
     require('"' + path + '"' in pull_filters, "storage pull_request filter missing " + path)
 for path in ("trunk/user/libdisk/src/disk_initial.c",
              "trunk/user/libdisk/src/disk_initial.h",
+             "trunk/user/libdisk/src/disk_inventory_policy.h",
              "trunk/user/rc/src/storage_service_stop_policy.h"):
     require('"' + path + '"' in xy_workflow, "XY-C1 target build does not watch " + path)
 
