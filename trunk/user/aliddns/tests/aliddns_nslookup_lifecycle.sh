@@ -19,6 +19,8 @@ sed -n '/^arNslookup6() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 
 export NSLOOKUP_PID_LOG="$TEST_DIR/nslookup-pids.log"
 : > "$NSLOOKUP_PID_LOG"
+export NSLOOKUP_MKDIR_LOG="$TEST_DIR/nslookup-mkdir.log"
+: > "$NSLOOKUP_MKDIR_LOG"
 
 cat > "$MOCK_BIN/nslookup" <<'MOCK_NSLOOKUP'
 #!/bin/sh
@@ -79,7 +81,22 @@ if [ "$FAST_WAIT" = "1" ]; then
 fi
 exec /bin/sleep "$@"
 MOCK_SLEEP
-chmod 700 "$MOCK_BIN/nslookup" "$MOCK_BIN/sleep"
+cat > "$MOCK_BIN/mkdir" <<'MOCK_MKDIR'
+#!/bin/sh
+case "$1" in
+	/tmp/arNslookup.*)
+		if /bin/mkdir "$1" 2>/dev/null; then
+			mkdir_status=0
+		else
+			mkdir_status=$?
+		fi
+		printf '%s\t%s\t%s\n' "$1" "$" "$mkdir_status" >> "$NSLOOKUP_MKDIR_LOG"
+		exit "$mkdir_status"
+		;;
+esac
+exec /bin/mkdir "$@"
+MOCK_MKDIR
+chmod 700 "$MOCK_BIN/nslookup" "$MOCK_BIN/sleep" "$MOCK_BIN/mkdir"
 PATH="$MOCK_BIN:$PATH"
 FAST_WAIT=0
 export PATH FAST_WAIT
@@ -136,10 +153,12 @@ pid_a=$!
 pid_b=$!
 wait "$pid_a" || fail "first concurrent lookup failed"
 wait "$pid_b" || fail "second concurrent lookup failed"
-[ "$(cat "$TEST_DIR/a.out")" = "203.0.113.11" ] ||
-	fail "first concurrent lookup read another call's output"
-[ "$(cat "$TEST_DIR/b.out")" = "203.0.113.22" ] ||
-	fail "second concurrent lookup read another call's output"
+first_result="$(cat "$TEST_DIR/a.out")"
+second_result="$(cat "$TEST_DIR/b.out")"
+if [ "$first_result" != "203.0.113.11" ] || [ "$second_result" != "203.0.113.22" ]; then
+	mkdir_trace="$(tr '\n' ';' < "$NSLOOKUP_MKDIR_LOG")"
+	fail "concurrent lookup isolation mismatch: a='$first_result' b='$second_result'; mkdir_trace='$mkdir_trace'"
+fi
 
 # Every success and failure path must remove its private scratch directory.
 for leftover in /tmp/arNslookup.$$.*; do

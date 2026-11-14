@@ -1,3 +1,14 @@
+## 2026-11-15 — Diagnose intermittent AliDDNS concurrent resolver isolation failure
+
+- Parent main SHA: `b740103a92cdc0a2d81f849f36d37307c4e0484b`.
+- Crond's exact-head repair was completed by the parallel follow-up on `74be177adb256128c79018ad58c7ae36deed0191`: its lifecycle regression [43654459854] and AI-doc contract [43654459868] passed. HTTPD lifecycle [43654668592] and its AI-doc contract [43654668591] also passed on `b740103a92cdc0a2d81f849f36d37307c4e0484b`; the production HTTPD start gate already uses RUNNING/ABSENT/UNKNOWN before NVRAM/config mutation, and its policy tests cover UNKNOWN/invalid states.
+- AliDDNS failed the same concurrent lookup assertion twice: [43653917007] on docs-only `ed7acbb`, then [43654226754] on `7911849`. In the second run the first and second lookup failures alternated (the test emitted only a generic expected-value failure), while API transport and address validation steps passed. Added a private mock-`mkdir` trace and actual a/b output values to the existing regression failure message. This preserves the assertion and should distinguish directory collisions from resolver timeout/parse failures on the next exact-head run.
+- No production resolver behavior was changed in this diagnostic slice because the two CI logs did not identify the cause. A local shell simulation of the atomic-mkdir design passed 20 consecutive concurrent pairs; it is not a substitute for the target CI reproduction.
+- L3 remains NOT VERIFIED for current source; L4 remains NOT VERIFIED.
+- Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Reject UNKNOWN from crond detached-child readiness
 
 - Parent main SHA: `ed7acbbcf90a37a5cba2d2d939d6da47752f4866`; latest product-source baseline before this slice is `b022942bf30e6899c18d4bf40aaa528fb17a011f`.
