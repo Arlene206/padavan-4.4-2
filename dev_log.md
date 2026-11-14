@@ -1,3 +1,14 @@
+## 2026-11-14 09:27 CST (UTC+8) — Refresh exact main checkpoint; preserve blocked P1 scanner migration
+
+- Re-fetched live `main`: `3f19d4bf89cccc6bbf97fb81c37a2cf22358a29e` (parent `e507f744ce7f84e169d5a1f8a6e5f22d5cf067ff`). The intervening commit changed only the live roadmap, handoff and log; no product source changed. The current remote branch inventory contains only `main`.
+- Six exact-head `push` Actions on `3f19d4bf89cccc6bbf97fb81c37a2cf22358a29e` completed SUCCESS with matching `head_sha`: infosvr [43539795328 / job 132277425079], AI docs [43539795268 / 132277424524], AdGuardHome [43539795314 / 132277424622], AliDDNS [43539795331 / 132277424816], AliyunDrive [43539795270 / 132277424543], NVRAM [43539795280 / 132277424696]. All six job step summaries and logs were inspected. These are documentation-tip Actions and do not establish current-main L3/L4 firmware validation.
+- Rechecked legacy PR #1: CLOSED / UNMERGED; no branch or PR work was used. The complete `trunk/user` Git subtree is enumerable at tree SHA `daafdae4e97b401a428a0ac65d83a94ebeab0ff5` (10,203 entries, 9,439 blobs, 764 directories, 4,152 C/H files, `truncated=false`). Eight code-search queries still return zero with `incomplete_results=true`; this is not caller inventory. `git ls-remote` again failed because this runtime cannot resolve `github.com`, and bulk source retrieval remains unavailable.
+- Re-fetched and inspected `pids.c`, `shutils.h`, `common_ex.c`, and `service_lifecycle_policy.h`; confirmed the scan allocation/`/proc` open/`readdir`/PID-list growth error collapse and TERM-before-authoritative-inventory behavior. Exhaustive cross-userland caller classification remains INCOMPLETE, so no shared API or product source was changed. No local scanner test or documentation validator was run; no test result is claimed.
+- Updated only `SESSION_HANDOFF.md` and this log. Root log advances 69→70/119; archive inventory remains dev-log=8, handoff=22, roadmap=18. No rotation, INDEX update or routine archive copy. Historical L3 remains limited to source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`; L4 NOT VERIFIED.
+- Handoff commit: `94135c3396043070fa332c0e1acfd4cc04f2c6b5`. This log commit: THIS COMMIT. Exact next action: obtain a full local checkout or another demonstrably exhaustive source-content enumeration; classify every process scanner and lifecycle/readiness/stop/signal/cleanup caller before designing and implementing RUNNING / ABSENT / UNKNOWN. Do not partially migrate the API.
+ 
+---
+
 ## 2026-11-14 09:16 CST (UTC+8) — Reconcile exact main CI and close legacy PR preservation audit
 
 - Re-fetched `refs/heads/main`: exact SHA `e507f744ce7f84e169d5a1f8a6e5f22d5cf067ff`, parent `27e664440b6216380f3034e2641b46f589d9c2bd`; remote branch inventory contains only `main`. No branch, PR or Session Rotator state was changed.
