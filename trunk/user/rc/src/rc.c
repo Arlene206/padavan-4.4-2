@@ -1395,15 +1395,15 @@ handle_notifications(void)
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_VPNCLI) == 0)
 		{
-			restart_vpn_client();
+			action_result = rc_notify_merge_action_result(action_result, restart_vpn_client());
 		}
 		else if (strcmp(entry->d_name, "start_vpn_client") == 0)
 		{
-			start_vpn_client();
+			action_result = rc_notify_merge_action_result(action_result, start_vpn_client());
 		}
 		else if (strcmp(entry->d_name, "stop_vpn_client") == 0)
 		{
-			stop_vpn_client();
+			action_result = rc_notify_merge_action_result(action_result, stop_vpn_client());
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_DDNS) == 0)
 		{
@@ -1846,7 +1846,7 @@ main(int argc, char **argv)
 		restart_vpn_server();
 	}
 	else if (!strcmp(base, "restart_vpn_client")) {
-		restart_vpn_client();
+		ret = restart_vpn_client();
 	}
 	else if (!strcmp(base, "restart_networkmap")) {
 		restart_networkmap();

@@ -233,16 +233,40 @@ start_vpn_client(void)
 	return result;
 }
 
-void
+static int
+stop_vpn_client_ppp(int stop_xl2tpd)
+{
+	char pidfile[64];
+	const char *pidfile_paths[2];
+	char *svcs[] = { "xl2tpd", NULL };
+	int length;
+
+	length = snprintf(pidfile, sizeof(pidfile), "/var/run/ppp-%s.pid",
+			  VPNC_PPP_LINK_NAME);
+	if (length < 0 || length >= (int)sizeof(pidfile)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	pidfile_paths[0] = pidfile;
+	pidfile_paths[1] = NULL;
+	return kill_services_with_pidfiles(stop_xl2tpd ? svcs : NULL,
+					   pidfile_paths, "pppd", 0, 5, 1);
+}
+
+int
 stop_vpn_client(void)
 {
-	char pppd_pid[32];
+	int stop_status;
 
+	stop_status = stop_vpn_client_ppp(0);
+	if (stop_status != 0) {
+		logmessage(VPNC_LOG_NAME,
+			   "refusing VPN client cleanup: PPP link PID identity is unknown or active (status=%d)",
+			   stop_status);
+		return stop_status;
+	}
 	if (get_xl2tpd_vpnc_active() && pids("xl2tpd"))
 		control_xl2tpd("d", "VPNC");
-
-	sprintf(pppd_pid, "/var/run/ppp-%s.pid", VPNC_PPP_LINK_NAME);
-	kill_process_pidfile(pppd_pid, 5, 1);
 
 #if defined(APP_OPENVPN)
 	stop_openvpn_client();
@@ -250,58 +274,81 @@ stop_vpn_client(void)
 
 	nvram_set_int_temp("l2tp_cli_t", 0);
 	nvram_set_int_temp("vpnc_state_t", 0);
-
 	unlink(VPNC_PPP_UP_SCRIPT);
 	unlink(VPNC_PPP_DW_SCRIPT);
+	return 0;
 }
 
-static void
+static int
 stop_vpn_client_force(void)
 {
-	if (get_xl2tpd_vpnc_active()) {
-		char* svcs[] = { "xl2tpd", NULL };
-		kill_services(svcs, 5, 1);
-		xl2tpd_killed_vpnc = 1;
+	int stop_status;
+
+	if (!get_xl2tpd_vpnc_active())
+		return 0;
+	stop_status = stop_vpn_client_ppp(1);
+	if (stop_status != 0) {
+		logmessage(VPNC_LOG_NAME,
+			   "refusing forced VPN client restart: PPP/xl2tpd identity preflight failed (status=%d)",
+			   stop_status);
+		return stop_status;
 	}
+	xl2tpd_killed_vpnc = 1;
+	return 0;
 }
 
-static void
+static int
 restart_vpn_client_locked(void)
 {
+	int stop_status, start_status;
+
 	if (get_ap_mode())
-		return;
+		return 0;
 
 	xl2tpd_killed_vpnc = 0;
-
-	stop_vpn_client_force();
-	stop_vpn_client();
+	stop_status = stop_vpn_client_force();
+	if (stop_status != 0)
+		return stop_status;
+	stop_status = stop_vpn_client();
+	if (stop_status != 0)
+		return stop_status;
 
 	restore_dns_from_vpnc();
-
 	sleep(1);
-	start_vpn_client_locked();
-
+	start_status = start_vpn_client_locked();
 	restart_firewall();
 
 	/* restore L2TP WAN client or L2TP VPNS */
-	if (xl2tpd_killed_vpnc && (nvram_match("l2tp_wan_t", "1") || nvram_match("l2tp_srv_t", "1")))
+	if (xl2tpd_killed_vpnc &&
+	    (nvram_match("l2tp_wan_t", "1") || nvram_match("l2tp_srv_t", "1")))
 		safe_start_xl2tpd_locked();
+	return start_status;
 }
 
-void
+int
 restart_vpn_client(void)
 {
-	int lock_fd;
+	int lock_fd, result, saved_errno;
 
 	lock_fd = vpn_server_lifecycle_lock_acquire();
 	if (lock_fd < 0) {
 		logmessage(VPNC_LOG_NAME, "cannot lock VPN server lifecycle for client restart (errno=%d)", errno);
-		return;
+		return -1;
 	}
-	restart_vpn_client_locked();
-	if (vpn_server_lifecycle_lock_release(lock_fd) != 0)
+	result = restart_vpn_client_locked();
+	saved_errno = errno;
+	if (vpn_server_lifecycle_lock_release(lock_fd) != 0) {
+		int release_errno = errno ? errno : EIO;
 		logmessage(VPNC_LOG_NAME, "cannot release VPN server lifecycle lock after client restart (errno=%d)",
-			   errno);
+			   release_errno);
+		if (result == 0) {
+			result = -1;
+			saved_errno = release_errno;
+		}
+	}
+	if (result != 0 && saved_errno)
+		errno = saved_errno;
+	return result;
 }
 
 void

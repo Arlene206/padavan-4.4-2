@@ -125,3 +125,15 @@ assert "kill_services_with_pidfiles(svcs, pidfile_paths, \"pppd\", 1, 5, 1)" in 
 assert "kill_pidfile_s" not in vpn_stop
 assert "stop_status != 0" in vpn_server
 print("PPP PID-file all-target stop transaction integration: PASS")
+
+vpn_client = (root / "trunk/user/rc/src/vpn_client.c").read_text()
+vpn_client_stop = vpn_client.split("int\nstop_vpn_client(void)", 1)[1].split("\n}\n", 1)[0]
+vpn_client_force = vpn_client.split("static int\nstop_vpn_client_force(void)", 1)[1].split("\n}\n", 1)[0]
+assert "stop_vpn_client_ppp(0)" in vpn_client_stop
+assert "if (stop_status != 0)" in vpn_client_stop
+assert "stop_vpn_client_ppp(1)" in vpn_client_force
+assert "process_pidfile_parse_link_record" in process_pidfile
+assert "write_link_pidfile_record" in pppd_main
+assert "pppd_pidfile_format_link_record" in pppd_policy
+assert "stop_vpn_client() != 0" in (root / "trunk/user/rc/src/net_wan.c").read_text()
+print("VPN client PPP link PID-file stop integration: PASS")

@@ -184,9 +184,21 @@ ordered(client_restart,["vpn_server_lifecycle_lock_acquire()",
                         "restart_vpn_client_locked()",
                         "vpn_server_lifecycle_lock_release(lock_fd)"],"VPN client restart")
 ordered(client_restart_locked,["stop_vpn_client_force()",
+                               "if (stop_status != 0)",
                                "stop_vpn_client()",
+                               "if (stop_status != 0)",
                                "start_vpn_client_locked()",
                                "safe_start_xl2tpd_locked()"],"VPN client shared-daemon restart")
+client_stop=body(vpn_client,"stop_vpn_client(void)")
+client_force_stop=body(vpn_client,"stop_vpn_client_force(void)")
+client_pid_plan=body(vpn_client,"stop_vpn_client_ppp(int stop_xl2tpd)")
+require("stop_vpn_client_ppp(0)" in client_stop and "if (stop_status != 0)" in client_stop,
+        "VPN client stop must fail closed on unknown PPP link identity")
+require("kill_services_with_pidfiles" in client_pid_plan and
+        'pidfile_paths, "pppd", 0, 5, 1' in client_pid_plan,
+        "VPN client stop must bind pppd link PID file to process identity")
+require("stop_vpn_client_ppp(1)" in client_force_stop and "if (stop_status != 0)" in client_force_stop,
+        "forced VPN client stop must preflight PPP link PID and xl2tpd together")
 
 wan_stop_lock=body(net_wan,"run_wan_stop_under_vpn_lifecycle_lock(int (*operation)(void), const char *name)")
 ordered(wan_stop_lock,["vpn_server_lifecycle_lock_acquire()",
@@ -195,7 +207,7 @@ ordered(wan_stop_lock,["vpn_server_lifecycle_lock_acquire()",
 wan_ppp_stop=body(net_wan,"stop_wan_ppp_locked(void)")
 wan_full_stop=body(net_wan,"stop_wan_locked(void)")
 for name,part in (("WAN PPP stop",wan_ppp_stop),("WAN full stop",wan_full_stop)):
-    require("stop_vpn_client();" in part and "kill_services(svcs_ppp, 6, 1)" in part,
+    require("stop_vpn_client() != 0" in part and "kill_services(svcs_ppp, 6, 1)" in part,
             f"{name} must stop shared PPP services inside the lock-owning wrapper")
 require("run_wan_stop_under_vpn_lifecycle_lock(stop_wan_ppp_locked" in net_wan and
         "run_wan_stop_under_vpn_lifecycle_lock(stop_wan_locked" in net_wan,
