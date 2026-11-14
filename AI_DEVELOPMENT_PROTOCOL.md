@@ -24,6 +24,15 @@ No session may edit firmware source before completing the recovery sequence in S
 - `dev_log.md`: newest-first chronological history. After a rotation it contains the newest 20 complete entries, then accumulates to 119. Target at or below 384 KiB; hard limit 512 KiB. Do not rotate on every entry.
 
 
+### Mandatory end-of-session handoff checkpoint
+
+**Every session MUST perform a handoff checkpoint before ending, even when no code commit was made.** This is a mandatory verification action, not a mandatory document edit or commit. Compare the live repository with `SESSION_HANDOFF.md` and verify all information needed by the next GPT: meaningful engineering/source baseline, active task and progress, relevant exact-head Actions state, validation boundary, unresolved blockers, and the exact first action. The check must be completed before a normal session ending or context handoff; do not wait until literal context exhaustion.
+
+- If any next-session-critical fact is missing, stale, or changed, update `SESSION_HANDOFF.md` and commit the correction. Include it in the current source/test/build milestone whenever possible; otherwise one consolidated handoff-only checkpoint commit is allowed when needed to prevent lost progress, repeated work, a missed relevant CI result, or a misleading next action.
+- A relevant exact-head Action changing from PENDING to PASS/FAIL is checkpoint information: record the result when it closes or changes the active validation gate, or changes what the next GPT must do. Do not record unrelated workflow noise or poll-only observations that do not affect the active task.
+- If all checkpoint facts and the first action are already accurate, explicitly conclude the check with no file change and no commit. Never manufacture a documentation change merely to prove the check happened.
+- This rule overrides any reading of the anti-churn section that would allow a session to end without checking handoff accuracy. The materiality gate still decides whether a write is necessary; it does not make the checkpoint optional.
+
 ### Documentation decision gate and anti-churn
 
 **Recovery is read-only by default.** Reading the live repository, checking refs, comparing recorded facts, inspecting Actions, discovering that a recorded SHA is old, or reaching a conversation boundary does not by itself authorize a commit. A takeover must continue the existing engineering task, not create a commit to prove that recovery occurred.
@@ -77,7 +86,7 @@ A real documentation-contract failure is different: if a required check fails be
 - Add one concise dev_log.md entry per real completed milestone/commit. A docs-only entry must identify the independent deliverable or qualifying trigger and explicitly state whether product source changed. Do not log routine recovery, no-op inspections, repeated CI polling, or SHA refreshes as milestones.
 - Update only records whose facts changed: log for a completed milestone; handoff for a material resumable-state change; roadmap for a material whole-repository module/status/priority change; XY-C1 context for a material user decision or correction. Do not mechanically update all records.
 - Do not create a second documentation-only commit for the same logical event merely to add the first commit's SHA, record a green result, or polish wording. A second commit is allowed only for a newly discovered independent material fact, a genuine blocking defect revealed by validation, or a distinct subsequent user-requested deliverable. When possible, fold that correction into the next substantive milestone.
-- At conversation end, compare the actual state with the existing handoff. If the handoff remains accurate and its first action is still correct, leave it untouched and make no checkpoint commit. The next GPT will perform the read-only recovery.
+- At conversation end, the mandatory handoff checkpoint above must already have been performed. If the handoff remains accurate and its first action is still correct, leave it untouched and make no checkpoint commit; do not defer the check to the next GPT.
 - Keep a short rationale in the log for every standalone docs-only commit: why it could not sensibly wait, which positive trigger applies, and why the touched canonical files were necessary.
 
 The protocol is judged by useful engineering continuity and durable deliverables, not by commit count, log volume, or how recently every SHA field was edited.

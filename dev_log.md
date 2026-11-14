@@ -1,3 +1,12 @@
+## 2026-11-15 — Make end-of-session handoff checkpoint mandatory without document churn
+
+- User-requested governance correction: every GPT session must perform and complete a handoff accuracy checkpoint before ending; the previous wording could be read as making the check optional or deferring it to the next conversation.
+- Clarified that the checkpoint verifies engineering/source baseline, active task/progress, relevant exact-head Actions, validation boundary, blockers and exact first action. Missing/stale/changed next-session-critical facts require one consolidated handoff update and commit; an already accurate handoff requires no edit and no no-op commit.
+- Defined relevant CI transitions: PENDING→PASS/FAIL must be recorded when they close/change the active validation gate or next action; unrelated workflow noise and repeated polling are not documentation milestones. Source/test/build work remains the default, and handoff-only commits are limited to material continuity corrections that cannot safely wait.
+- Updated bootstrap, development protocol, current handoff and validator together. No firmware source or roadmap priority changed; the first engineering task remains PPP/PID-file inclusion in the all-target stop preflight. Root dev-log advances 112→113 records; no archive rotation or index update is due. Exact-head AI documentation Actions must validate this commit.
+
+---
+
 ## 2026-11-15 — Anchor bootstrap orphan-fragment check to a full line
 
 - Exact-head AI handoff run [43630474661] on e1af9e9d797a6eb015aeb924b8c4da75f457b128 failed because the orphan-fragment detector used substring matching: the valid sentence “do not claim tests” contains the substring “aim tests”. This was a second validator false positive, not malformed bootstrap content.

@@ -105,6 +105,22 @@ def main() -> None:
     if "If it remains accurate, leave it untouched." not in protocol:
         fail("protocol must explicitly preserve an accurate handoff without a no-op rewrite")
     for required in (
+        "Every session MUST perform a handoff checkpoint before ending",
+        "A relevant exact-head Action changing from PENDING to PASS/FAIL is checkpoint information",
+        "If all checkpoint facts and the first action are already accurate, explicitly conclude the check with no file change and no commit",
+    ):
+        if required not in protocol:
+            fail(f"protocol is missing mandatory end-of-session checkpoint rule: {required}")
+    for required in (
+        "Mandatory end-of-session handoff checkpoint",
+        "Every session MUST inspect the live repository state",
+        "do not create a no-op commit",
+    ):
+        if required not in bootstrap:
+            fail(f"bootstrap is missing mandatory handoff checkpoint rule: {required}")
+    if "Mandatory handoff checkpoint" not in handoff or "The checkpoint is mandatory; a document edit is conditional." not in handoff:
+        fail("current handoff does not require an end-of-session accuracy checkpoint")
+    for required in (
         "cross-conversation",
         "512 KiB",
         "docs/dev-log/YYYY/MM/part-NNN.md",
