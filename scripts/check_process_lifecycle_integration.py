@@ -165,3 +165,18 @@ assert "kill_services(svcs, 3, 1)" not in lan_stop
 assert "if (lan_status != 0)" in lan_restart
 assert "LAN restart aborted" in lan_restart
 print("WAN/LAN udhcpc identity-bound stop integration: PASS")
+
+wan_stop = net_wan.split("static int\nstop_wan_locked(void)", 1)[1].split("\n}\n", 1)[0]
+usb_modem = (root / "trunk/user/rc/src/usb_modem.c").read_text()
+modem_remove = usb_modem.split("void\nsafe_remove_usb_modem(void)", 1)[1].split("\n}\n", 1)[0]
+assert '"udhcpc"' not in wan_stop.split("char* svcs_wan[]", 1)[1].split("};", 1)[0]
+assert "process_pidfile_signal(udhcpc_pidfiles[0], \"udhcpc\", SIGUSR2)" in wan_stop
+assert "process_pidfile_signal(udhcpc_pidfiles[1], \"udhcpc\", SIGUSR2)" in wan_stop
+assert "kill_services_with_pidfiles(svcs_wan, udhcpc_pidfiles, \"udhcpc\", 0, 3, 1)" in wan_stop
+assert "killall %s %s\", \"-SIGUSR2\", \"udhcpc\"" not in wan_stop
+assert "stop_udhcpc_wan(0)" in modem_remove
+assert '"/var/run/ppp-wan0.pid"' in modem_remove
+assert "kill_services_with_pidfiles(NULL, pidfiles, \"pppd\", 0, 10, 1)" in modem_remove
+assert "set_usb_modem_dev_wan(0, 0)" in modem_remove
+assert modem_remove.index("if (stop_status != 0)") < modem_remove.index("set_usb_modem_dev_wan(0, 0)")
+print("WAN and USB modem DHCP/PPP identity-bound teardown integration: PASS")

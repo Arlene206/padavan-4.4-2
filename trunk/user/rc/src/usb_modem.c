@@ -791,30 +791,31 @@ notify_modem_on_internet_state_changed(int has_internet)
 void
 safe_remove_usb_modem(void)
 {
+	const char *pidfiles[2];
+	int stop_status;
+
 	doSystem("killall %s %s", "-q", "usb_modeswitch");
 	doSystem("killall %s %s", "-q", "eject");
 
-	if (nvram_get_int("modem_type") == 3)
-	{
-		char* svcs[] = { "udhcpc", NULL };
-		
-		if (pids(svcs[0]))
-		{
-			doSystem("killall %s %s", "-SIGUSR2", svcs[0]);
-			usleep(300000);
-			
-			kill_services(svcs, 3, 1);
+	if (nvram_get_int("modem_type") == 3) {
+		/* NDIS DHCP belongs to WAN unit 0, not every udhcpc instance. */
+		stop_status = stop_udhcpc_wan(0);
+		if (stop_status != 0) {
+			logmessage(LOGNAME, "refusing NDIS modem removal: WAN DHCP identity stop failed (status=%d)",
+				   stop_status);
+			return;
 		}
-		
 		stop_wan_usbnet();
-//		unlink_modem_ndis();
-	}
-	else
-	{
-		char* svcs_ppp[] = { "pppd", NULL };
-		
-		kill_services(svcs_ppp, 10, 1);
-//		unlink_modem_ras();
+	} else {
+		/* RAS pppd publishes linkname=wan0 in its identity-bound link PID file. */
+		pidfiles[0] = "/var/run/ppp-wan0.pid";
+		pidfiles[1] = NULL;
+		stop_status = kill_services_with_pidfiles(NULL, pidfiles, "pppd", 0, 10, 1);
+		if (stop_status != 0) {
+			logmessage(LOGNAME, "refusing RAS modem removal: PPP link identity stop failed (status=%d)",
+				   stop_status);
+			return;
+		}
 	}
 
 	set_usb_modem_dev_wan(0, 0);

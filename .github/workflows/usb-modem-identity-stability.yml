@@ -12,6 +12,7 @@ on:
       - "trunk/user/rc/src/modem_node_file.h"
       - "trunk/user/rc/src/modem_node_identity_policy.h"
       - "trunk/user/rc/src/tests/modem_node_file.c"
+      - "trunk/user/rc/src/net_wan.c"
   pull_request:
     paths:
       - ".github/workflows/usb-modem-identity-stability.yml"
@@ -23,6 +24,7 @@ on:
       - "trunk/user/rc/src/modem_node_file.h"
       - "trunk/user/rc/src/modem_node_identity_policy.h"
       - "trunk/user/rc/src/tests/modem_node_file.c"
+      - "trunk/user/rc/src/net_wan.c"
 
 permissions:
   contents: read
@@ -102,6 +104,13 @@ jobs:
           assert 'find_modem_node("cdc-wdm", 0, 0, -1, NULL)' not in ndis
           assert "modem_node_usb_identity_matches" in identity
           assert "modem_node_identity_policy.h" in metadata
+
+          remove = body(modem, "safe_remove_usb_modem(void)")
+          assert "stop_udhcpc_wan(0)" in remove
+          assert '"/var/run/ppp-wan0.pid"' in remove
+          assert "kill_services_with_pidfiles" in remove
+          assert "set_usb_modem_dev_wan(0, 0)" in remove
+          assert remove.index("if (stop_status != 0)") < remove.index("set_usb_modem_dev_wan(0, 0)")
 
           for marker in (
               'modem_node_usb_identity_matches("1-1", 7, "1-1", 7)',

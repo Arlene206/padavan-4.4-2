@@ -1845,7 +1845,10 @@ stop_wan_locked(void)
 	};
 	char* svcs_wan[] = {
 		"ntpd", "inadyn", "igmpproxy", "xupnpd", "udpxy",
-		"udhcpc", "zcip", "pppoe-relay", "detect_wan", NULL
+		"zcip", "pppoe-relay", "detect_wan", NULL
+	};
+	const char *udhcpc_pidfiles[] = {
+		"/var/run/udhcpc0.pid", "/var/run/udhcpc_viptv.pid", NULL
 	};
 
 	unit = 0;
@@ -1878,11 +1881,19 @@ stop_wan_locked(void)
 		}
 	}
 #endif
-	if (pids("udhcpc")) {
-		doSystem("killall %s %s", "-SIGUSR2", "udhcpc");
-		usleep(300000);
+	/* Release only WAN/VIPTV DHCP clients; never signal the LAN DHCP client. */
+	if (process_pidfile_signal(udhcpc_pidfiles[0], "udhcpc", SIGUSR2) != 0 &&
+	    errno != ENOENT && errno != ESRCH) {
+		logmessage(LOGNAME, "refusing WAN teardown: WAN DHCP PID identity is unknown");
+		return -1;
 	}
-	if (kill_services(svcs_wan, 3, 1) != 0) {
+	if (process_pidfile_signal(udhcpc_pidfiles[1], "udhcpc", SIGUSR2) != 0 &&
+	    errno != ENOENT && errno != ESRCH) {
+		logmessage(LOGNAME, "refusing WAN teardown: VIPTV DHCP PID identity is unknown");
+		return -1;
+	}
+	usleep(300000);
+	if (kill_services_with_pidfiles(svcs_wan, udhcpc_pidfiles, "udhcpc", 0, 3, 1) != 0) {
 		logmessage(LOGNAME, "refusing WAN interface teardown while WAN services remain active");
 		return -1;
 	}
