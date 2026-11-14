@@ -193,3 +193,16 @@ assert lan_pause < lan_preflight < lan_preflight_failure < lan_preflight_resume 
 assert lan_ifdown < lan_ifdown_resume
 assert "if (status != 0 && is_ap_mode)" in lan_stop_transaction
 print("AP LAN detect_internet pause rollback on failed teardown: PASS")
+
+lan_restart_transaction = net_lan_dhcp.split("int\nfull_restart_lan(void)", 1)[1].split("\n}\n", 1)[0]
+lan_vpn_stop = lan_restart_transaction.index("vpn_status = stop_vpn_server()")
+lan_vpn_failure = lan_restart_transaction.index("if (vpn_status != 0)", lan_vpn_stop)
+lan_vpn_abort = lan_restart_transaction.index("return vpn_status;", lan_vpn_failure)
+lan_first_other_stop = lan_restart_transaction.index("stop_lltd();")
+assert lan_vpn_stop < lan_vpn_failure < lan_vpn_abort < lan_first_other_stop
+assert "stop_vpn_server();" not in lan_restart_transaction
+lan_dhcp_failure = lan_restart_transaction.index("if (lan_status != 0)")
+lan_dns_unlock = lan_restart_transaction.index("dnsmasq_lifecycle_lock_release(dnsmasq_lock)", lan_dhcp_failure)
+lan_vpn_restore = lan_restart_transaction.index("restart_vpn_server();", lan_dns_unlock)
+assert lan_dhcp_failure < lan_dns_unlock < lan_vpn_restore
+print("LAN restart VPN fail-closed stop and rollback integration: PASS")

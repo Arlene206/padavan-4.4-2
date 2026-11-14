@@ -715,7 +715,7 @@ full_restart_lan(void)
 	int is_wan_err = 0, is_lan_stp = 0;
 	int is_ap_mode, log_remote, lan_status;
 	int dnsmasq_lock, dnsmasq_lock_errno;
-	int dnsmasq_status, dnsmasq_start_status;
+	int dnsmasq_status, dnsmasq_start_status, vpn_status;
 
 	/* Serialize LAN teardown/reconfiguration with independent DNSMasq RC applets. */
 	dnsmasq_lock = dnsmasq_lifecycle_lock_acquire();
@@ -732,6 +732,17 @@ full_restart_lan(void)
 		is_lan_stp = nvram_get_int("lan_stp");
 	}
 
+	/* A failed VPN preflight means old daemon/client identities are unknown.
+	 * Abort before stopping any other LAN services or changing the bridge. */
+	vpn_status = stop_vpn_server();
+	if (vpn_status != 0) {
+		logmessage(LOGNAME, "LAN restart aborted because VPN server teardown was incomplete (status=%d)",
+			   vpn_status);
+		if (dnsmasq_lifecycle_lock_release(dnsmasq_lock) != 0)
+			logmessage(LOGNAME, "cannot release DNSMasq lifecycle lock after VPN stop failure (errno=%d)", errno);
+		return vpn_status;
+	}
+
 	/* stop logger if remote */
 	if (log_remote)
 		stop_logger();
@@ -740,7 +751,6 @@ full_restart_lan(void)
 	stop_infosvr();
 	stop_networkmap();
 	stop_upnp();
-	stop_vpn_server();
 	/* Preserve DNSMasq lifecycle errors for PID 1 notification accounting. */
 	dnsmasq_status = stop_dns_dhcpd_locked();
 	lan_status = stop_lan(is_ap_mode);
@@ -755,6 +765,9 @@ full_restart_lan(void)
 		}
 		if (dnsmasq_lifecycle_lock_release(dnsmasq_lock) != 0)
 			logmessage(LOGNAME, "cannot release DNSMasq lifecycle lock after aborted LAN restart (errno=%d)", errno);
+		/* VPN stopped cleanly before this attempt; restore it after releasing
+		 * the DNSMasq lock so firewall/DNS callbacks cannot invert lock order. */
+		restart_vpn_server();
 		return lan_status;
 	}
 
