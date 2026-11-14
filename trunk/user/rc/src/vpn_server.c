@@ -321,7 +321,7 @@ static int
 start_vpn_server_locked(void)
 {
 	FILE *fp;
-	int i, i_type, i_vuse;
+	int i, i_type, i_vuse, xl2tpd_status;
 	char *vpns_cfg = "/etc/pptpd.conf";
 	const char *vpns_sec = "/tmp/ppp/chap-secrets";
 	unsigned int vaddr, vmask, vp_b, vp_e;
@@ -401,8 +401,11 @@ start_vpn_server_locked(void)
 
 	if (i_type == 1) {
 		nvram_set_int_temp("l2tp_srv_t", 1);
-		
-		safe_start_xl2tpd_locked();
+		xl2tpd_status = safe_start_xl2tpd_locked();
+		if (xl2tpd_status < 0) {
+			nvram_set_int_temp("l2tp_srv_t", 0);
+			return -1;
+		}
 	} else {
 		nvram_set_int_temp("l2tp_srv_t", 0);
 		
@@ -515,7 +518,7 @@ stop_vpn_server(void)
 void
 restart_vpn_server(void)
 {
-	int lock_fd, start_status, stop_status, saved_errno;
+	int lock_fd, start_status, stop_status, saved_errno, restore_status;
 
 	if (get_ap_mode())
 		return;
@@ -546,8 +549,12 @@ restart_vpn_server(void)
 	reload_nfsd();
 #endif
 	/* Restore L2TP WAN client/VPNC before releasing the lifecycle lock. */
-	if (xl2tpd_killed_vpns && (nvram_match("l2tp_wan_t", "1") || nvram_match("l2tp_cli_t", "1")))
-		safe_start_xl2tpd_locked();
+	if (xl2tpd_killed_vpns &&
+	    (nvram_match("l2tp_wan_t", "1") || nvram_match("l2tp_cli_t", "1"))) {
+		restore_status = safe_start_xl2tpd_locked();
+		if (restore_status < 0)
+			logmessage(VPNS_LOG_NAME, "cannot restore shared xl2tpd daemon after VPN server restart (errno=%d)", errno);
+	}
 
 	if (vpn_server_lifecycle_lock_release(lock_fd) != 0)
 		logmessage(VPNS_LOG_NAME, "cannot release VPN server lifecycle lock after restart (errno=%d)", errno);

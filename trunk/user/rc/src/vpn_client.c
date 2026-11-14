@@ -63,7 +63,7 @@ static int
 start_vpn_client_locked(void)
 {
 	FILE *fp;
-	int i_type, i_mppe, i_auth;
+	int i_type, i_mppe, i_auth, xl2tpd_status, saved_errno;
 	char *vpnc_peer, *vpnc_opt, tmp[256];
 
 	if (nvram_invmatch("vpnc_enable", "1") || get_ap_mode())
@@ -193,9 +193,16 @@ start_vpn_client_locked(void)
 	if (i_type == 1)
 	{
 		nvram_set_int_temp("l2tp_cli_t", 1);
-		
-		if (safe_start_xl2tpd_locked() != 0)
+		xl2tpd_status = safe_start_xl2tpd_locked();
+		if (xl2tpd_status == 1) {
 			control_xl2tpd("c", "VPNC");
+		} else if (xl2tpd_status < 0) {
+			saved_errno = errno ? errno : EIO;
+			nvram_set_int_temp("l2tp_cli_t", 0);
+			logmessage(VPNC_LOG_NAME, "cannot start or verify shared xl2tpd daemon (errno=%d)", saved_errno);
+			errno = saved_errno;
+			return -1;
+		}
 	}
 	else
 	{
@@ -300,7 +307,7 @@ stop_vpn_client_force(void)
 static int
 restart_vpn_client_locked(void)
 {
-	int stop_status, start_status;
+	int stop_status, start_status, restore_status;
 
 	if (get_ap_mode())
 		return 0;
@@ -320,8 +327,11 @@ restart_vpn_client_locked(void)
 
 	/* restore L2TP WAN client or L2TP VPNS */
 	if (xl2tpd_killed_vpnc &&
-	    (nvram_match("l2tp_wan_t", "1") || nvram_match("l2tp_srv_t", "1")))
-		safe_start_xl2tpd_locked();
+	    (nvram_match("l2tp_wan_t", "1") || nvram_match("l2tp_srv_t", "1"))) {
+		restore_status = safe_start_xl2tpd_locked();
+		if (restore_status < 0 && start_status == 0)
+			start_status = -1;
+	}
 	return start_status;
 }
 

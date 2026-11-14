@@ -40,6 +40,8 @@
 #include "ppp_callback_identity_policy.h"
 #include "ppp_callback_generation_policy.h"
 #include "ppp_wan_ipup_policy.h"
+#include <process_inventory.h>
+#include "xl2tpd_start_policy.h"
 
 #define PPP_WAN_SESSION_STATE_FILE "/tmp/ppp/wan-session.state"
 #define PPP_WAN_SESSION_LOCK_ATTEMPTS 500
@@ -286,7 +288,9 @@ safe_start_xl2tpd_locked(void)
 	FILE *fp;
 	int unit;
 	int use_vpn_server, use_wan_lac, use_vpnc;
-	int saved_errno;
+	int saved_errno, scan_error, presence_status;
+	struct process_snapshot process_snapshot;
+	enum process_presence daemon_presence;
 	const char *invalid_value = NULL;
 	const char *l2tp_conf = "/etc/xl2tpd.conf";
 	char hostname[256], wan_peer[256], wan_user[256];
@@ -304,6 +308,19 @@ safe_start_xl2tpd_locked(void)
 		);
 	use_vpnc = nvram_match("vpnc_enable", "1") &&
 		nvram_match("vpnc_type", "1");
+
+	/* UNKNOWN is not proof of a running daemon; reject before config I/O. */
+	daemon_presence = process_inventory_scan("xl2tpd", &process_snapshot);
+	scan_error = process_snapshot.error;
+	process_snapshot_release(&process_snapshot);
+	presence_status = xl2tpd_start_policy_result(daemon_presence);
+	if (presence_status < 0) {
+		saved_errno = scan_error ? scan_error : EIO;
+		logmessage(LOGNAME, "cannot verify xl2tpd process state; refusing config/start operation (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
 
 	/* Validate all NVRAM-derived, line-oriented values before truncating
 	 * the live daemon configuration. Printable credentials/spaces remain
@@ -440,10 +457,9 @@ safe_start_xl2tpd_locked(void)
 	if (use_vpnc)
 		nvram_set_int_temp("l2tp_cli_t", 1);
 
-	/* launch xl2tpd */
-	if (!pids("xl2tpd"))
+	/* Launch only when a complete inventory proves xl2tpd is absent. */
+	if (presence_status == 0)
 		return eval("/usr/sbin/xl2tpd", "-c", (char *)l2tp_conf);
-
 	return 1;
 }
 

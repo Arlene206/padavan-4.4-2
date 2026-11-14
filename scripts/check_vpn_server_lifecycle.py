@@ -47,6 +47,8 @@ lease_lock_test=read("trunk/user/rc/src/tests/vpn_server_lease_lock.c")
 rc=read("trunk/user/rc/src/rc.c")
 services=read("trunk/user/rc/src/services.c")
 net_ppp=read("trunk/user/rc/src/net_ppp.c")
+xl2tpd_policy=read("trunk/user/rc/src/xl2tpd_start_policy.h")
+xl2tpd_test=read("trunk/user/rc/src/tests/xl2tpd_start_policy.c")
 mwan=read("trunk/user/pppoe/mwan.sh")
 net_wan=read("trunk/user/rc/src/net_wan.c")
 vpn_client=read("trunk/user/rc/src/vpn_client.c")
@@ -128,6 +130,10 @@ for p in ("trunk/user/rc/src/vpn_server.c","trunk/user/rc/src/vpn_openvpn.c",
           "trunk/user/rc/src/tests/vpn_server_lifecycle_lock.c","trunk/user/rc/src/rc.c",
           "trunk/user/rc/src/services.c","trunk/user/rc/src/rc.h",
           "trunk/user/pppoe/mwan.sh",
+          "trunk/user/rc/src/net_ppp.c",
+          "trunk/user/rc/src/vpn_client.c",
+          "trunk/user/rc/src/xl2tpd_start_policy.h",
+          "trunk/user/rc/src/tests/xl2tpd_start_policy.c",
           "scripts/check_vpn_server_lifecycle.py",".github/workflows/vpn-server-stability.yml"):
     require(p in workflow,f"workflow path filter missing {p}")
 push_paths=workflow.split("  push:",1)[1].split("  pull_request:",1)[0]
@@ -146,6 +152,35 @@ ordered(safe_start,["vpn_server_lifecycle_lock_acquire()",
                     "vpn_server_lifecycle_lock_release(lock_fd)"],"public xl2tpd start")
 require('eval("/usr/sbin/xl2tpd"' in safe_start_locked,
         "locked xl2tpd starter lost daemon launch")
+require('#include <process_inventory.h>' in net_ppp and
+        '#include "xl2tpd_start_policy.h"' in net_ppp,
+        "xl2tpd start must use tri-state process inventory policy")
+require('process_inventory_scan("xl2tpd", &process_snapshot)' in safe_start_locked and
+        "process_snapshot_release(&process_snapshot)" in safe_start_locked,
+        "xl2tpd must obtain and release a complete process snapshot")
+require(safe_start_locked.index('process_inventory_scan("xl2tpd", &process_snapshot)') <
+        safe_start_locked.index('fopen(l2tp_conf, "w")'),
+        "unknown process state must be rejected before live config truncation")
+require("presence_status < 0" in safe_start_locked and
+        "scan_error ? scan_error : EIO" in safe_start_locked,
+        "unknown xl2tpd presence must not look like already-running success")
+require("if (presence_status == 0)" in safe_start_locked and
+        'if (!pids("xl2tpd"))' not in safe_start_locked,
+        "xl2tpd must launch only after confirmed absence")
+for marker in ("PROCESS_PRESENCE_RUNNING", "PROCESS_PRESENCE_ABSENT",
+               "PROCESS_PRESENCE_UNKNOWN", "xl2tpd process-presence start gate: PASS"):
+    require(marker in xl2tpd_policy + xl2tpd_test,
+            f"xl2tpd tri-state test marker missing: {marker}")
+client_start=body(vpn_client,"start_vpn_client_locked(void)")
+require("xl2tpd_status == 1" in client_start and "xl2tpd_status < 0" in client_start,
+        "VPNC control must only target a confirmed running daemon")
+server_start=body(vpn,"start_vpn_server_locked(void)")
+require("xl2tpd_status < 0" in server_start,
+        "L2TP server start must propagate unknown daemon state")
+client_restart=body(vpn_client,"restart_vpn_client_locked(void)")
+require("restore_status < 0" in client_restart and "start_status = -1" in client_restart,
+        "VPNC restart must propagate failed shared daemon restoration")
+
 wan_launch=body(net_ppp,"launch_wan_pppd(int unit, int wan_proto)")
 wan_launch_locked=body(net_ppp,"launch_wan_pppd_locked(int unit, int wan_proto)")
 ordered(wan_launch,["if (unit < 0)",
