@@ -1,3 +1,14 @@
+## 2026-11-13 16:39 PST (UTC-8) — Recover live main and preserve the active P1 process-inventory task
+
+- Re-fetched live `main`: `79ec0cffe57a327333b4de86bac9eaa35e663e2f` (parent `f0b5b78044f9584952bcfd4b00f07a5ec941b437`). The tip is documentation-only (`dev_log.md`); product source remains unchanged from the historical L3 source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`.
+- Remote branch inventory contains only `main`. Legacy PR #1 remains CLOSED / UNMERGED per the existing handoff; its 13-path compatibility audit remains incomplete. No PR/branch was used for development.
+- Exact-head push Actions for `79ec0cffe57a327333b4de86bac9eaa35e663e2f` are NOT VERIFIED: the available workflow-run connector is PR-only, combined status is empty, and the public Actions page could not be fetched. No CI pass is inferred.
+- Resumed recovery confirms the active P1 shared process-inventory fail-open defect is unchanged. Exhaustive caller/lifecycle inventory is still incomplete; no code or tests changed and no partial API migration was attempted.
+- L1 remains partial source review; L2 GNU89/`-Werror` tests and local documentation checker NOT RUN (no checkout); L3 applies only to historical source SHA above; L4 NOT VERIFIED. Root log advances 62→63/119; no rotation or INDEX update.
+- Exact next action: reconcile exact-main push Actions; finish the legacy PR #1 per-file compatibility audit; obtain exhaustive cross-userland scanner/lifecycle caller inventory before designing RUNNING / ABSENT / UNKNOWN and implementing fail-closed migration.
+
+---
+
 ## 2026-11-14 08:34 CST (UTC+8) — Align whole-repository priority dashboard with active P1
 
 - Base main SHA: `f0b5b78044f9584952bcfd4b00f07a5ec941b437`. Updated `REFACTOR_ROADMAP.md` in place: reconciled its stale source/CI checkpoint with live main, distinguished historical L3 source evidence from current-main validation, recorded current push Actions as NOT VERIFIED, updated the root log count/archive inventory, and promoted the shared process-inventory fail-open defect from P2 to P1 to match the active handoff and lifecycle risk. No module implementation status was otherwise changed.
