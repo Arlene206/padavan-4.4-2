@@ -1,3 +1,12 @@
+## 2026-11-15 — Propagate eject-all applet failure to command status
+
+- Final caller audit found the `ejall` RC applet still discarded the new `safe_remove_all_stor_devices()` result. It now assigns the result to the applet's `ret`, so shell callers receive a nonzero status when storage eject is incomplete instead of a false success.
+- Extended the storage integration checker to require that result propagation. This follows the checked inventory/eject implementation on parent SHA `c2b393dba16ec8ab821fe0eea8e4e3e4a5a74bc6`; exact-head storage-hotplug run [43650708280] was QUEUED and XY-C1 [43650708273] IN_PROGRESS when audited. The follow-up commit triggers exact-head reruns; current-source L3 remains PENDING.
+- Root `dev_log.md` now contains 21 newest-first records, below the 120-entry rotation threshold.
+- Resulting change: this commit.
+
+---
+
 ## 2026-11-15 — Gate firmware flash and shutdown persistence on verified storage eject
 
 - `read_disk_data()` returned NULL for both a valid empty disk list and an unreadable/truncated `/proc/partitions` snapshot. Its parser also ignored disk-object allocation failure, allowing a partial inventory to appear usable. Added `read_disk_data_checked()`: status 0 means the full inventory is complete (including a valid empty result); -1 means unknown/incomplete. It checks header/read/close errors, rejects truncated or malformed data rows, and fails on disk/partition allocation errors while preserving the original pointer-return API as a compatibility wrapper.

@@ -2013,7 +2013,7 @@ main(int argc, char **argv)
 #endif
 #if defined (USE_STORAGE)
 	else if (!strcmp(base, "ejall")) {
-		safe_remove_all_stor_devices(1);
+		ret = safe_remove_all_stor_devices(1);
 	}
 #endif
 	else if (!strcmp(base, "pids")) {

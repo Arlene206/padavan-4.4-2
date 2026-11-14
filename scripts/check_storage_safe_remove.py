@@ -94,6 +94,8 @@ require("storage_safe_remove_complete(path_status, fallback_status, mount_count)
         "eject must use the fail-closed postcondition")
 require("return result;" in eject, "eject must return operation status")
 require("int safe_remove_all_stor_devices(int do_spindown);" in rc_header,
+require('ret = safe_remove_all_stor_devices(1);' in rc,
+        "ejall must propagate a failed eject status to its caller")
         "RC header must expose the checked eject result")
 complete = body(policy, "storage_safe_remove_complete(")
 require("path_status != 0" in complete and "fallback_status != 0" in complete and "remaining_mounts != 0" in complete,
