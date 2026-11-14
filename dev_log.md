@@ -1,3 +1,15 @@
+## 2026-11-15 — Reject UNKNOWN from crond detached-child readiness
+
+- Parent main SHA: `ed7acbbcf90a37a5cba2d2d939d6da47752f4866`; latest product-source baseline before this slice is `b022942bf30e6899c18d4bf40aaa528fb17a011f`.
+- The crond launcher forks and exits before the detached child completes initialization. Its readiness probe used legacy `pids("crond")`, so an incomplete procfs scan could be treated as a positive process count and falsely satisfy startup. The postcondition policy now requires explicit `PROCESS_PRESENCE_RUNNING`. Startup probes use the shared tri-state inventory, retry only confirmed ABSENT, and fail immediately on UNKNOWN while logging the scan error.
+- Extended the GNU89 policy regression for RUNNING, ABSENT, UNKNOWN and invalid enum values. The dedicated workflow compiles against the staged shared API, watches both scanner files, and its source contract verifies error capture, release ordering and the fail-fast UNKNOWN branch. The XY-C1 workflow now includes `services.c` in its source trigger so this production change cannot miss the target build.
+- Related exact-head evidence on source SHA `35e411b4132e50d6d491a3594504038f276c08f1`: VPN [43653685672], WAN DHCP callback [43653685643], OpenVPN credential staging [43653685707], HTTPD [43653685717], WAN route [43653685904], process inventory [43653685618], process lifecycle inventory [43653685630] and AI docs [43653685685] passed. XY-C1 [43653685645] and NVRAM [43653685594] were IN_PROGRESS. On docs-only head `ed7acbb`, AI docs [43653917017], infosvr [43653916947] and AdGuardHome [43653916989] passed; process inventory [43653916959], NVRAM [43653917013], AliDDNS [43653917007] and AliyunDrive [43653916997] were IN_PROGRESS.
+- No local checkout is available, so local compiler/contract execution was NOT RUN. New exact-head crond, XY-C1 and AI-doc Actions are authoritative after publication. L3 remains NOT VERIFIED for the new source until its exact-head MIPS build, TRX verification and artifact upload pass; L4 remains NOT VERIFIED.
+- Changed paths: `services.c`, crond policy/test/workflow/checker, XY-C1 workflow, and this log/handoff/roadmap.
+- Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Propagate eject-all applet failure to command status
 
 - Final caller audit found the `ejall` RC applet still discarded the new `safe_remove_all_stor_devices()` result. It now assigns the result to the applet's `ret`, so shell callers receive a nonzero status when storage eject is incomplete instead of a false success.

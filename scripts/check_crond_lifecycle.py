@@ -59,7 +59,8 @@ header = read("trunk/user/rc/src/rc.h")
 dispatcher = read("trunk/user/rc/src/rc.c")
 common = read("trunk/user/rc/src/common_ex.c")
 lifecycle = read("trunk/user/rc/src/service_lifecycle_policy.h")
-pids = read("trunk/user/shared/src/pids.c")
+inventory = read("trunk/user/shared/src/process_inventory.c")
+inventory_header = read("trunk/user/shared/src/process_inventory.h")
 crond = read("trunk/user/busybox/busybox-1.24.x/miscutils/crond.c")
 daemonizer = read("trunk/user/busybox/busybox-1.24.x/libbb/vfork_daemon_rexec.c")
 workflow = read(".github/workflows/crond-lifecycle-stability.yml")
@@ -68,7 +69,9 @@ assert '#include "crond_daemon_policy.h"' in services
 assert "#define CROND_START_INITIAL_WAIT_SECONDS 1" in policy
 assert "#define CROND_START_RETRY_WAIT_SECONDS 1" in policy
 assert "#define CROND_START_PROBE_ATTEMPTS 4" in policy
-assert "return process_present ? 0 : -1;" in policy
+assert '#include <process_inventory.h>' in policy
+assert "if (process_presence == PROCESS_PRESENCE_RUNNING)" in policy
+assert "return -1;" in policy
 assert "return stop_status == 0;" in policy
 
 stop = function_body(services, "stop_crond(void)")
@@ -79,14 +82,27 @@ assert 'if (nvram_invmatch("crond_enable", "1"))' in start
 assert "return 1;" in start
 assert start.index("return 1;") < start.index("launch_status = _eval(crond_argv")
 launch_failure = function_body(start, "if (launch_status != 0)")
-assert "return crond_start_postcondition(launch_status, 0);" in launch_failure
+assert "return crond_start_postcondition(launch_status, PROCESS_PRESENCE_ABSENT);" in launch_failure
 assert start.index("launch_status = _eval(crond_argv") < start.index(
     "sleep(CROND_START_INITIAL_WAIT_SECONDS)"
-) < start.index('pids("crond")')
+) < start.index("crond_process_presence(&scan_error)")
 assert "attempt < CROND_START_PROBE_ATTEMPTS" in start
 assert "attempt + 1 < CROND_START_PROBE_ATTEMPTS" in start
 assert "sleep(CROND_START_RETRY_WAIT_SECONDS)" in start
-assert "crond_start_postcondition(launch_status, pids(\"crond\"))" in start
+presence_helper = function_body(services, "crond_process_presence(int *scan_error)")
+assert 'process_inventory_scan("crond", &snapshot)' in presence_helper
+assert "*scan_error = snapshot.error;" in presence_helper
+assert presence_helper.index("*scan_error = snapshot.error;") < presence_helper.index(
+    "process_snapshot_release(&snapshot)"
+)
+assert "PROCESS_PRESENCE_UNKNOWN" in inventory_header
+assert "PROCESS_PRESENCE_UNKNOWN" in inventory
+assert "presence = crond_process_presence(&scan_error);" in start
+assert "crond_start_postcondition(launch_status, presence)" in start
+assert "presence == PROCESS_PRESENCE_RUNNING" in start
+unknown = start.index("presence == PROCESS_PRESENCE_UNKNOWN")
+assert start.index("break;", unknown) < start.index("sleep(CROND_START_RETRY_WAIT_SECONDS)", unknown)
+assert 'pids("crond")' not in start
 assert "crond daemon did not remain running after launch" in start
 assert "return status;" in start
 
@@ -172,7 +188,8 @@ paths = (
     "trunk/user/rc/src/tests/crond_daemon_policy.c",
     "trunk/user/rc/src/common_ex.c",
     "trunk/user/rc/src/service_lifecycle_policy.h",
-    "trunk/user/shared/src/pids.c",
+    "trunk/user/shared/src/process_inventory.c",
+    "trunk/user/shared/src/process_inventory.h",
     "trunk/user/busybox/busybox-1.24.x/miscutils/crond.c",
     "trunk/user/busybox/busybox-1.24.x/libbb/vfork_daemon_rexec.c",
     "scripts/check_crond_lifecycle.py",

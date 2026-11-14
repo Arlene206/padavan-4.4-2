@@ -8,7 +8,7 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2. Only `main` is writable. Current production storage baseline is `e7aba88844d12b2254417cb09e01860e26218ab7`; subsequent commits repaired storage and HTTPD source contracts. On main `6c172a01c96d3a323622ac2183fd1d016fbf7564`, XY-C1 [43652595104], NVRAM [43652595101], process inventory [43652595073], process lifecycle [43652595047] and AI docs [43652595058] were IN_PROGRESS; GPIO [43652595045] passed. Storage-hotplug [43652052169] passed on 9d85739 and HTTPD [43652145749] passed on 453eaf. This commit adds strict partition inventory parsing and host regression, triggering new storage/HTTPD/XY-C1 runs. L3 is PENDING until exact-head build/TRX/artifact pass. Backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains immutable; L4 is NOT VERIFIED.
+- Repository: Arlene206/padavan-4.4-2. Only `main` is writable. Latest production-source baseline before this slice is `b022942bf30e6899c18d4bf40aaa528fb17a011f`; current docs-only main parent is `ed7acbbcf90a37a5cba2d2d939d6da47752f4866`. The source baseline includes strict storage partition parsing and xl2tpd tri-state startup. Exact-head source Actions from the preceding baselines passed VPN [43653685672], WAN callback [43653685643], OpenVPN staging [43653685707], HTTPD [43653685717], WAN route [43653685904], process inventory [43653685618] and process lifecycle [43653685630]; XY-C1 [43653685645] and NVRAM [43653685594] were in progress. Current ed7 docs runs: AI docs [43653917017], infosvr [43653916947] and AdGuardHome [43653916989] passed; process inventory [43653916959], NVRAM [43653917013], AliDDNS [43653917007] and AliyunDrive [43653916997] were in progress. This commit replaces crond's Boolean readiness probe with explicit RUNNING/ABSENT/UNKNOWN handling and adds exact-source XY-C1 trigger coverage. Current-source L3 remains NOT VERIFIED until exact-head build/TRX/artifact passes. Backup `72f4f157a084f8184b9597ca5bf334b8080e5807` is immutable; L4 is NOT VERIFIED.
 - Immutable archive: `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`. Read-only; never modify it.
 - **Permanent user entrypoint:** `接手 https://github.com/Arlene206/padavan-4.4-2/ 继续开发`. The user does not need a long prompt, previous chat, or repository upload. Never output a recursive next-GPT prompt in chat. Git documents and live GitHub state are the project memory.
 - Recovery is read-only by default: read complete `AI_DEVELOPMENT_PROTOCOL.md` and `AI_BOOTSTRAP_PROMPT.md`; fetch live main + immutable backup; inspect exact-head Actions; then read this handoff, roadmap, newest 20 dev-log records, `docs/dev-log/INDEX.md`, and the semantic audit report for the active caller group. Do not create a commit to refresh SHA fields, record a takeover, or report a CI poll.
@@ -85,26 +85,8 @@ The earlier dd7a XY-C1 run [43624870668] also completed SUCCESS; it is supersede
 
 ## Exact first action for the next GPT
 
-Current source baseline before this documentation-only handoff commit: `b022942bf30e6899c18d4bf40aaa528fb17a011f`.
-Immutable backup: `72f4f157a084f8184b9597ca5bf334b8080e5807` (do not move or force-update).
-This commit changes only handoff/roadmap/log files; it does not change firmware sources.
-
-### Completed in this work window
-- Storage eject is fail-closed: checked `/proc/partitions` inventory, final strict `/proc/mounts` verification, valid-empty-inventory fallback, flash abort before MTD writes, shutdown storage-persistence gate, and `ejall` return propagation. Storage hotplug regression run `43652052169` on `9d85739a978d2f65d87bbe27f8d50f2bdbff3000`: `completed/success`.
-- GPIO button startup now uses tri-state process inventory; UNKNOWN blocks duplicate launch and fails readiness rather than being treated as running: source present on this baseline.
-- xl2tpd startup tri-state preflight and caller propagation: source present on this baseline.
-
-### Actions snapshot for exact source SHA `b022942bf30e6899c18d4bf40aaa528fb17a011f`
-XY-C1 Firmware Validation: in_progress (run 43653875470)
-Process lifecycle inventory - b022942bf30e6899c18d4bf40aaa528fb17a011f: in_progress (run 43653875506)
-USB storage hotplug stability regression: in_progress (run 43653875448)
-HTTPD Authentication and Security Regression: in_progress (run 43653875605)
-AI handoff documentation contract: in_progress (run 43653875488)
-
-### Exact next work
-1. Check every non-completed Actions run above against its exact head SHA. PASS remains evidence for that SHA only. PENDING does not block other work. Repair any FAIL before claiming the associated slice complete.
-2. Confirm the new GPIO and xl2tpd policy tests actually ran on this source SHA. If their workflows are absent or failed, fix workflow path filters/checker/test compile first; do not infer PASS from another SHA.
-3. Continue the already-reviewed process-lifecycle semantic review without repeating the census: next isolated candidate is `trunk/user/rc/src/services.c` HTTPD start duplicate-launch/readiness handling. Migrate that caller to tri-state process presence; UNKNOWN must never be accepted as a successful readiness result. Add a focused regression test and exact-SHA Actions validation.
-4. Re-run XY-C1 target build after the latest product-source changes before marking L3 current. Physical router validation L4 remains NOT VERIFIED.
-
-Do not redo the repository bootstrap or repeat completed audits. Preserve the backup ref and use complete Git trees plus expected-SHA non-force main updates for each atomic commit.
+1. Fetch live `main` once and inspect exact-head crond lifecycle, XY-C1 and AI-doc push runs for this source commit. A FAILED relevant check must be triaged; PENDING must be recorded without idle waiting. Do not claim L3 until matching XY-C1 build, TRX verification and artifact upload pass.
+2. Continue the next audited service startup slice: inspect HTTPD duplicate-launch/readiness handling in `trunk/user/rc/src/services.c` using its existing policy/workflow contracts. UNKNOWN must not be mistaken for a running daemon, and any configuration/file mutation must remain behind a confirmed safe-state gate. Add GNU89 tests and source integration checks.
+3. Continue remaining P1 direct side-effect migrations from `docs/audits/PROCESS_LIFECYCLE_SEMANTIC_REVIEW.md` without repeating the 77-caller or 46-stop-caller census; keep legacy `pids()` Boolean-compatible until all callers are migrated. Then finish graceful-shutdown, Samba and NVRAM postconditions.
+4. The root `dev_log.md` retains its newest-first records; part-009 and its index remain unchanged. Rotate only at 120 records or the 384 KiB early size trigger.
+5. Linux 4.4 PID/start_time validation retains a check/kill TOCTOU window; L4 physical router validation remains NOT VERIFIED. Use one complete Git tree/commit and non-forced expected-SHA main update per slice; never force-push.

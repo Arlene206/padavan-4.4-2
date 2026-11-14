@@ -134,6 +134,19 @@ stop_crond(void)
 	return kill_services(svcs, 3, 1);
 }
 
+static enum process_presence
+crond_process_presence(int *scan_error)
+{
+	struct process_snapshot snapshot;
+	enum process_presence presence;
+
+	presence = process_inventory_scan("crond", &snapshot);
+	if (scan_error)
+		*scan_error = snapshot.error;
+	process_snapshot_release(&snapshot);
+	return presence;
+}
+
 int
 start_crond(void)
 {
@@ -142,7 +155,8 @@ start_crond(void)
 		NULL,			/* -d8 */
 		NULL
 	};
-	int launch_status, attempt, status;
+	int launch_status, attempt, status, scan_error;
+	enum process_presence presence;
 
 	if (nvram_invmatch("crond_enable", "1"))
 		return 1;
@@ -160,15 +174,22 @@ start_crond(void)
 	launch_status = _eval(crond_argv, NULL, 0, NULL);
 	if (launch_status != 0) {
 		logmessage(LOGNAME, "crond launcher failed: %d", launch_status);
-		return crond_start_postcondition(launch_status, 0);
+		return crond_start_postcondition(launch_status, PROCESS_PRESENCE_ABSENT);
 	}
 
 	sleep(CROND_START_INITIAL_WAIT_SECONDS);
 	status = -1;
 	for (attempt = 0; attempt < CROND_START_PROBE_ATTEMPTS; attempt++) {
-		status = crond_start_postcondition(launch_status, pids("crond"));
-		if (status == 0)
+		presence = crond_process_presence(&scan_error);
+		status = crond_start_postcondition(launch_status, presence);
+		if (presence == PROCESS_PRESENCE_RUNNING)
 			return 0;
+		if (presence == PROCESS_PRESENCE_UNKNOWN) {
+			logmessage(LOGNAME,
+				   "cannot verify crond startup postcondition (scan_error=%d)",
+				   scan_error ? scan_error : EIO);
+			break;
+		}
 
 		if (attempt + 1 < CROND_START_PROBE_ATTEMPTS)
 			sleep(CROND_START_RETRY_WAIT_SECONDS);
