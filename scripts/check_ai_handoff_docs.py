@@ -110,7 +110,7 @@ def main() -> None:
         fail("bootstrap incorrectly treats pending CI as a prerequisite to new work")
     if "A PENDING run is not a gate on independent work" not in protocol:
         fail("protocol must explicitly allow independent work while CI is pending")
-    if "A PENDING check is not a stop condition" not in bootstrap:
+    if "a pending check is not a stop condition" not in bootstrap.lower():
         fail("bootstrap must explicitly allow independent work while CI is pending")
     if "If it remains accurate, leave it untouched." not in protocol:
         fail("protocol must explicitly preserve an accurate handoff without a no-op rewrite")

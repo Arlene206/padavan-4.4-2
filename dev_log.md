@@ -1,3 +1,11 @@
+## 2026-11-15 — Fix case-sensitive pending-CI validator assertion
+
+- Exact-head AI handoff run [43632050498] on SHA 812b335bb5fc234eb2f40f5489eec8a80479acf9 failed at the new bootstrap assertion. The bootstrap correctly said “a PENDING check is not a stop condition”; the validator incorrectly required uppercase “A PENDING”.
+- Corrected the assertion to compare normalized lowercase text, preserving the required semantic check while avoiding the case-sensitive false negative. The failure was in the validator, not the handoff policy.
+- Updated SESSION_HANDOFF.md with the exact failing run/SHA, cause, correction and next exact-head validation action. No firmware source changed. Root dev-log advances 115→116 records; no archive rotation or index update is due.
+
+---
+
 ## 2026-11-15 — Eliminate remaining pending-CI recovery contradictions
 
 - Final cross-file search after the previous correction found two additional legacy priority/recovery sentences in the protocol (global priority selection and Section 10 recovery step) that still treated pending exact-head CI as a prerequisite to choosing new work. These contradicted the new explicit rule and could reintroduce the same stall in a later GPT.
