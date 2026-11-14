@@ -36,6 +36,7 @@
 #include "switch.h"
 #include "switch_status_policy.h"
 #include "detect_link_signal_policy.h"
+#include <process_pidfile.h>
 #include "gpio_pins.h"
 
 #define DL_POLL_INTERVAL	2 /* every 2 seconds  */
@@ -357,13 +358,13 @@ notify_reset_detect_link(void)
 	if (!pids("detect_link"))
 		start_detect_link();
 	else
-		kill_pidfile_s(DL_PID_FILE, SIGUSR1);
+		(void)process_pidfile_signal(DL_PID_FILE, "detect_link", SIGUSR1);
 }
 
 void
 notify_leds_detect_link(void)
 {
-	kill_pidfile_s(DL_PID_FILE, SIGHUP);
+	(void)process_pidfile_signal(DL_PID_FILE, "detect_link", SIGHUP);
 }
 
 void
@@ -383,7 +384,6 @@ show_hide_ether_leds(int is_show)
 int
 detect_link_main(int argc, char *argv[])
 {
-	FILE *fp;
 	pid_t pid;
 	int saved_errno;
 	sig_atomic_t events;
@@ -455,10 +455,13 @@ detect_link_main(int argc, char *argv[])
 	/* never invoke oom killer */
 	oom_score_adjust(pid, OOM_SCORE_ADJ_MIN);
 
-	/* write pid */
-	if ((fp = fopen(DL_PID_FILE, "w")) != NULL) {
-		fprintf(fp, "%d", pid);
-		fclose(fp);
+	/* Publish PID and start_time before accepting notifications. */
+	if (process_pidfile_write(DL_PID_FILE, "detect_link") < 0) {
+		saved_errno = errno ? errno : EIO;
+		(void)sigprocmask(SIG_SETMASK, &original_mask, NULL);
+		errno = saved_errno;
+		perror("detect_link pid file");
+		return saved_errno;
 	}
 
 	dl_reset_state();

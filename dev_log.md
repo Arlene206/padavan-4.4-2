@@ -1,3 +1,16 @@
+## 2026-11-15 — Migrate detect_link PID producer and both signal consumers
+
+- Base main SHA: `3dba5c47aa5986bb5530370ff1aa436ce70aa113`.
+- `detect_link` now publishes PID + kernel start_time atomically via `process_pidfile_write()`; failure aborts daemon startup rather than running without an identity-bound record.
+- Its SIGUSR1 refresh and SIGHUP LED-refresh callers now use `process_pidfile_signal()` with expected process name `detect_link`. No legacy numeric PID signal fallback remains for this daemon.
+- Added production-source integration assertions and process-lifecycle/XY-C1 path filters.
+- The shared helper's GNU89 host regression and the detect_internet migration's host workflows passed. Exact-head MIPS build for the helper's 64-bit overflow fix remains in progress; this commit triggers another target build with detect_link wired.
+- Changed paths: `trunk/user/rc/src/detect_link.c`, integration checker, both workflows, handoff and this log. Resulting commit: THIS COMMIT.
+- Root log advances 101→102 records; no archive rotation or INDEX update is due.
+- Next: verify exact-head MIPS link, then migrate rstats producer and both signal consumers.
+
+---
+
 ## 2026-11-15 — Remove MIPS 64-bit division helper from PID parser
 
 - Exact XY-C1 build for `b2500167cbacbbf161df5126ee49c008d7164f42` failed at the final RC link: shared `process_pidfile.o` referenced hidden libgcc symbol `__udivdi3`.

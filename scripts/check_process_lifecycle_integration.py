@@ -77,3 +77,9 @@ assert "process_pidfile_signal(DI_PID_FILE, \"detect_internet\", SIGUSR2)" in de
 assert "kill_pidfile_s(DI_PID_FILE" not in detect_internet_source
 assert 'process_pidfile_signal("/var/run/detect_internet.pid", "detect_internet", SIGHUP)' in httpd_source
 assert 'kill_pidfile_s("/var/run/detect_internet.pid"' not in httpd_source
+
+detect_link_source = (root / "trunk/user/rc/src/detect_link.c").read_text()
+assert "process_pidfile_write(DL_PID_FILE, \"detect_link\")" in detect_link_source
+assert "process_pidfile_signal(DL_PID_FILE, \"detect_link\", SIGUSR1)" in detect_link_source
+assert "process_pidfile_signal(DL_PID_FILE, \"detect_link\", SIGHUP)" in detect_link_source
+assert "kill_pidfile_s(DL_PID_FILE" not in detect_link_source
