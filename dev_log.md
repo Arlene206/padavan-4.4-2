@@ -1,3 +1,13 @@
+## 2026-11-15 — Make LPD stop regression independent of escaped-newline matching
+
+- Review of commit `cc9fdd6377d7cc306e6fb02885b78a30db27e1b6` found that the new Python source-contract assertion encoded literal backslash-n characters instead of matching C line breaks. The production fix itself is unchanged.
+- Simplified the checker to isolate `stop_lpd()` by its function name and `#endif`, then assert the nonzero stop-result guard and that its early return precedes PID-file unlink. This avoids fragile escaped-newline matching.
+- The original commit's exact-head Actions were still in progress when this correction was made; inspect both commits' exact-head runs, especially process-lifecycle regression. No test pass is claimed here.
+- Changed paths: `scripts/check_process_lifecycle_integration.py` and this log. Resulting commit: THIS COMMIT.
+- Root log advances 88→89 records; no archive rotation or INDEX update is due.
+
+---
+
 ## 2026-11-15 — Preserve LPD PID evidence when service stop is not confirmed
 
 - Base main SHA: `edc70800a2659a4b9659e582706c9cae24aa2274`; product-source baseline before this slice: `d3951a276ed4002aff3232cf93c8d55662a94e95`.

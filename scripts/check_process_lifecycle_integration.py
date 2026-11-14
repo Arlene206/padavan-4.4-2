@@ -26,9 +26,7 @@ assert "service_lifecycle_preflight" in policy
 assert "service_lifecycle_signal_targets" in policy
 assert "SERVICE_LIFECYCLE_UNKNOWN" in policy
 
-stop_lpd_start = usb_services.index("void\\nstop_lpd(void)")
-stop_lpd_end = usb_services.index("\\n}\\n#endif", stop_lpd_start)
-stop_lpd = usb_services[stop_lpd_start:stop_lpd_end]
-assert "if (kill_services(svcs, 3, 1) != 0)\\n\\t\\treturn;" in stop_lpd
-assert stop_lpd.index("kill_services") < stop_lpd.index('unlink("/var/run/lpdparent.pid")')
+stop_lpd = usb_services.split("stop_lpd(void)", 1)[1].split("#endif", 1)[0]
+assert "if (kill_services(svcs, 3, 1) != 0)" in stop_lpd
+assert stop_lpd.index("return;") < stop_lpd.index('unlink("/var/run/lpdparent.pid")')
 print("process inventory and lifecycle integration contract: PASS")
