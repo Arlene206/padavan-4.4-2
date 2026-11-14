@@ -25,6 +25,11 @@
 #include "dhcpd.h"
 #include "dhcpc.h"
 #include "udhcpc_script_policy.h"
+#include "process_pidfile_record.h"
+#include <fcntl.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include <netinet/if_ether.h>
 #include <linux/filter.h>
@@ -1169,13 +1174,76 @@ static uint8_t* alloc_dhcp_option(int code, const char *str, int extra)
 	return storage;
 }
 
+
+/* Keep the legacy PID-only first line, then bind it to procfs start_time.
+ * Retain the final record: unlink-by-path can race a new DHCP client. */
+static int
+write_udhcpc_pidfile(const char *path)
+{
+	unsigned long long start_time;
+	char record[64], temp_path[4096];
+	int fd, length, path_length, saved_errno;
+	size_t offset = 0;
+
+	if (!path || !*path || strcmp(path, "/dev/null") == 0)
+		return 0;
+	if (process_pidfile_record_read_start_time(getpid(), &start_time) != 0)
+		return -1;
+	length = process_pidfile_record_format(getpid(), start_time,
+					       record, sizeof(record));
+	if (length < 0)
+		return -1;
+	path_length = snprintf(temp_path, sizeof(temp_path), "%s.tmp.XXXXXX", path);
+	if (path_length <= 0 || path_length >= (int)sizeof(temp_path)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	fd = mkstemp(temp_path);
+	if (fd < 0)
+		return -1;
+	if (fchmod(fd, 0644) != 0)
+		goto failed;
+	while (offset < (size_t)length) {
+		ssize_t count = write(fd, record + offset, (size_t)length - offset);
+		if (count < 0) {
+			if (errno == EINTR)
+				continue;
+			goto failed;
+		}
+		if (count == 0) {
+			errno = EIO;
+			goto failed;
+		}
+		offset += (size_t)count;
+	}
+	if (fsync(fd) != 0)
+		goto failed;
+	if (close(fd) != 0) {
+		fd = -1;
+		goto failed;
+	}
+	fd = -1;
+	if (rename(temp_path, path) != 0)
+		goto failed;
+	return 0;
+
+failed:
+	saved_errno = errno ? errno : EIO;
+	if (fd >= 0)
+		(void)close(fd);
+	(void)unlink(temp_path);
+	errno = saved_errno;
+	return -1;
+}
+
 #if BB_MMU
 static void client_background(void)
 {
 	bb_daemonize(0);
 	logmode &= ~LOGMODE_STDIO;
 	/* rewrite pidfile, as our pid is different now */
-	write_pidfile(client_config.pidfile);
+	if (write_udhcpc_pidfile(client_config.pidfile) != 0)
+		bb_perror_msg_and_die("cannot publish identity PID file %s", client_config.pidfile);
 }
 #endif
 
@@ -1428,7 +1496,8 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 	/* Equivalent of doing a fflush after every \n */
 	setlinebuf(stdout);
 	/* Create pidfile */
-	write_pidfile(client_config.pidfile);
+	if (write_udhcpc_pidfile(client_config.pidfile) != 0)
+		bb_perror_msg_and_die("cannot publish identity PID file %s", client_config.pidfile);
 	/* Goes to stdout (unless NOMMU) and possibly syslog */
 	bb_info_msg("%s (v"BB_VER") started", applet_name);
 	/* Set up the signal pipe */
@@ -1897,7 +1966,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 		perform_release(server_addr, requested_ip);
 	retval = 0;
  ret:
-	/*if (client_config.pidfile) - remove_pidfile has its own check */
-		remove_pidfile(client_config.pidfile);
+	/* Keep the final PID/start_time record: stale identity is harmless and
+	 * unlink-by-path can race a new publisher. */
 	return retval;
 }

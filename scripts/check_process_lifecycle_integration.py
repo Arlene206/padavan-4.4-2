@@ -137,3 +137,15 @@ assert "write_link_pidfile_record" in pppd_main
 assert "pppd_pidfile_format_link_record" in pppd_policy
 assert "stop_vpn_client() != 0" in (root / "trunk/user/rc/src/net_wan.c").read_text()
 print("VPN client PPP link PID-file stop integration: PASS")
+
+udhcpc_source = (root / "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcpc.c").read_text()
+udhcpc_writer = udhcpc_source.split("static int\nwrite_udhcpc_pidfile", 1)[1].split("\n#if BB_MMU", 1)[0]
+assert '#include "process_pidfile_record.h"' in udhcpc_source
+assert "process_pidfile_record_read_start_time(getpid(), &start_time)" in udhcpc_writer
+assert "process_pidfile_record_format(getpid(), start_time" in udhcpc_writer
+assert "mkstemp(temp_path)" in udhcpc_writer and "fsync(fd)" in udhcpc_writer
+assert "rename(temp_path, path)" in udhcpc_writer
+assert "write_pidfile(client_config.pidfile)" not in udhcpc_source
+assert "remove_pidfile(client_config.pidfile)" not in udhcpc_source
+assert "unlink-by-path can race a new publisher" in udhcpc_source
+print("BusyBox udhcpc identity-bound PID-file producer integration: PASS")
