@@ -256,3 +256,14 @@ GPIO tri-state source present: true. xl2tpd tri-state source present: true. Curr
 - AI handoff documentation contract: in_progress (run 43653875488)
 
 Next audited task: convert HTTPD start duplicate-launch and readiness gates in `trunk/user/rc/src/services.c` to explicit tri-state process inventory semantics; UNKNOWN must not pass as ready. Revalidate XY-C1 firmware build for current product-source baseline before claiming L3. L4 remains unverified.
+
+## 2026-11-14 — process lifecycle continuation
+
+Source baseline: `ff34f0bf97fa1eef9b2787e3aca292baecd726c3`.
+
+Storage checked eject: not verified; GPIO tri-state startup: present; xl2tpd tri-state startup: present; HTTPD tri-state startup with refreshed post-launch scan: not verified.
+
+Exact-head Actions:
+- Process lifecycle inventory - ff34f0bf97fa1eef9b2787e3aca292baecd726c3: in_progress (#43654870945)
+
+Next task: continue the existing process-lifecycle semantic review with the isolated service-start candidate in `trunk/user/rc/src/services_ex.c`; do not change global `pids()` semantics. L3 still requires a fresh XY-C1 build on the latest product-source baseline; L4 is not verified.

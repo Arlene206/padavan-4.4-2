@@ -97,3 +97,17 @@ Source baseline: `b022942bf30e6899c18d4bf40aaa528fb17a011f` (handoff documentati
   - AI handoff documentation contract: in_progress (run 43653875488)
 - Next audited source slice: HTTPD start duplicate-launch/readiness checks in `trunk/user/rc/src/services.c`; UNKNOWN must fail closed.
 - L3 must be revalidated on latest product-source SHA; L4 hardware validation is not complete.
+
+## 2026-11-14 autonomous implementation continuation
+
+Source baseline: `ff34f0bf97fa1eef9b2787e3aca292baecd726c3` (handoff documentation commit follows separately).
+
+- Storage checked-inventory and eject-all completion gates: not verified on this baseline.
+- GPIO process-presence migration: present.
+- xl2tpd tri-state launch preflight: present.
+- HTTPD tri-state startup and refreshed post-launch process scan: not verified.
+
+Exact-head Actions snapshot:
+- Process lifecycle inventory - ff34f0bf97fa1eef9b2787e3aca292baecd726c3: in_progress (#43654870945)
+
+Next isolated process-lifecycle candidate: HTTPD has been addressed in source; continue with service-start handling in `trunk/user/rc/src/services_ex.c`. Do not globally alter `pids()`. L3 requires an XY-C1 build for the current product-source baseline; L4 physical hardware validation remains unverified.

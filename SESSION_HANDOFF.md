@@ -85,8 +85,22 @@ The earlier dd7a XY-C1 run [43624870668] also completed SUCCESS; it is supersede
 
 ## Exact first action for the next GPT
 
-1. Inspect the exact-head AliDDNS diagnostics run for this test change. Use the reported a/b values and `mkdir_trace` to determine whether the shared /tmp candidate directory is reused or the resolver subprocess returns no/incorrect data. Fix the actual issue and keep the concurrent-output assertions strict.
-2. Reconcile exact XY-C1 firmware validation from `7911849` [43654226753] and any current-head rerun; L3 remains NOT VERIFIED until current source build, TRX verification and artifact upload pass. Crond is now validated on `74be177` [43654459854]; HTTPD lifecycle and documentation checks passed on `b740103` [43654668592] and [43654668591].
-3. Continue remaining P1 direct process side-effect migrations from `docs/audits/PROCESS_LIFECYCLE_SEMANTIC_REVIEW.md` without repeating the 77-caller or 46-stop-caller censuses; the stale HTTPD next-step is already implemented and tested. A good bounded next audit is `chk_udhcpc()` in `trunk/user/rc/src/detect_wan.c`, where process UNKNOWN must not authorize name-wide SIGUSR1.
-4. Then finish shutdown orchestration, Samba publication and NVRAM stop-state postconditions. Rotate `dev_log.md` only at 120 records or the 384 KiB size trigger; keep part-009/index unchanged.
-5. L4 physical router validation remains NOT VERIFIED; Linux 4.4 PID/start_time check/kill retains its TOCTOU limit. Use a single full tree/commit and non-forced expected-SHA update for each atomic slice.
+Current source baseline before this documentation-only commit: `ff34f0bf97fa1eef9b2787e3aca292baecd726c3`.
+Immutable backup: `72f4f157a084f8184b9597ca5bf334b8080e5807` (do not move or force-update).
+
+### Completed source slices
+- Storage eject: checked disk inventory, strict final mount-table verification, valid-empty inventory fallback, service stop/unmount failure gating, and flash/shutdown persistence protection. Current source check: `not confirmed`.
+- GPIO daemon startup uses tri-state process presence and fails closed on UNKNOWN. Current source check: `present`.
+- xl2tpd startup preflight uses the checked process inventory before config truncation. Current source check: `present`.
+- HTTPD startup tri-state preflight and post-launch readiness check: `not confirmed or still needs repair`.
+
+### Actions for exact source SHA `ff34f0bf97fa1eef9b2787e3aca292baecd726c3`
+Process lifecycle inventory - ff34f0bf97fa1eef9b2787e3aca292baecd726c3: in_progress (#43654870945)
+
+### Next work
+1. Inspect any FAIL and PENDING run above against this exact SHA. A PASS on an earlier SHA is not evidence for this source baseline. Keep other independent work moving while runs are pending.
+2. Confirm the HTTPD policy unit test and source-integration checker ran; if the HTTPD workflow is absent or failing, repair its path filters, test compile, or source assertion before marking the slice complete.
+3. Continue the existing process-lifecycle semantic review with the next isolated service-start candidate in `trunk/user/rc/src/services_ex.c`; do not change the global `pids()` implementation.
+4. Re-run XY-C1 MIPS/uClibc build for the latest product-source SHA before claiming L3 current. Physical router validation L4 remains NOT VERIFIED.
+
+Do not redo repository bootstrap or completed audits. Preserve the backup ref; use complete trees and expected-SHA non-force updates for each atomic commit.
