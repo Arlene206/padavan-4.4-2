@@ -81,17 +81,17 @@ require("read_disk_data_checked(&disk_info_list)" in legacy and "return disk_inf
 require("read_disk_data_checked" in disk_header and "read_disk_data(void)" in disk_header,
         "both checked and legacy inventory APIs must be exported")
 
-require("read_disk_data_checked(&disks_info)" in eject and
-        eject.index("read_disk_data_checked(&disks_info)") < eject.index("stop_stor_apps()"),
-        "obtain a complete inventory before stopping services")
-require("path_status = disks_info ? umount_stor_path(disks_info, 0, NULL, do_spindown) : 0" in eject,
-        "a valid empty inventory must still reach generic mount cleanup")
 count = body(storage, "count_stor_mountpoint(void)")
 require("storage_stage_unmount_mounts(&mounts)" in count and
         "free_storage_unmount_mounts(mounts)" in count,
         "final mount count must use the complete parsed mount inventory")
 
 eject = body(storage, "safe_remove_all_stor_devices(int do_spindown)")
+require("read_disk_data_checked(&disks_info)" in eject and
+        eject.index("read_disk_data_checked(&disks_info)") < eject.index("stop_stor_apps()"),
+        "obtain a complete inventory before stopping services")
+require("path_status = disks_info ? umount_stor_path(disks_info, 0, NULL, do_spindown) : 0" in eject,
+        "a valid empty inventory must still reach generic mount cleanup")
 require("storage_operation_lock_acquire(file_lock)" in eject and "stop_stor_apps()" in eject,
         "eject must retain operation lock and storage-service stop preflight")
 require("read_disk_data_checked(&disks_info)" in eject,
@@ -104,9 +104,9 @@ require("storage_safe_remove_complete(path_status, fallback_status, mount_count)
         "eject must use the fail-closed postcondition")
 require("return result;" in eject, "eject must return operation status")
 require("int safe_remove_all_stor_devices(int do_spindown);" in rc_header,
+        "RC header must expose the checked eject result")
 require('ret = safe_remove_all_stor_devices(1);' in rc,
         "ejall must propagate a failed eject status to its caller")
-        "RC header must expose the checked eject result")
 complete = body(policy, "storage_safe_remove_complete(")
 require("path_status != 0" in complete and "fallback_status != 0" in complete and "remaining_mounts != 0" in complete,
         "safe eject must reject unmount failures and residual/unknown mounts")
