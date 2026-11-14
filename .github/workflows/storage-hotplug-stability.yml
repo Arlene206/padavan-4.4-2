@@ -704,8 +704,9 @@ jobs:
           assert 'else if (!strcmp(entry->d_name, "on_unplug_mass_storage"))' in notifications
           assert 'safe_remove_stor_device(ATA_VIRT_PORT_ID, ATA_VIRT_PORT_ID, devn, 1);' in rc
           assert 'safe_remove_stor_device(MMC_VIRT_PORT_ID, MMC_VIRT_PORT_ID, NULL, 0);' in rc
-          assert "safe_remove_all_stor_devices(0);" in rc
-          assert "safe_remove_all_stor_devices(use_halt);" in rc
+          assert "if (safe_remove_all_stor_devices(0) != 0)" in rc
+          assert "storage_remove_status = safe_remove_all_stor_devices(use_halt);" in rc
+          assert 'ret = safe_remove_all_stor_devices(1);' in rc
           assert 'else if (!strcmp(base, "ejall"))' in rc
 
           for path in (
