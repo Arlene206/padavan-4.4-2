@@ -494,14 +494,14 @@ int start_infosvr(void);
 int stop_infosvr(void);
 int restart_infosvr(void);
 int start_networkmap(int first_call);
-void stop_networkmap(void);
+int stop_networkmap(void);
 void restart_networkmap(void);
-void stop_telnetd(void);
+int stop_telnetd(void);
 void run_telnetd(void);
 void start_telnetd(void);
 #if defined (APP_SSHD)
 int is_sshd_run(void);
-void stop_sshd(void);
+int stop_sshd(void);
 void start_sshd(void);
 void restart_sshd(void);
 #endif
@@ -509,12 +509,12 @@ int start_httpd(int restart_fw);
 int stop_httpd(void);
 int restart_httpd(void);
 int start_lltd(void);
-void stop_lltd(void);
+int stop_lltd(void);
 void restart_lltd(void);
 int start_crond(void);
 int stop_crond(void);
 int restart_crond(void);
-void stop_rstats(void);
+int stop_rstats(void);
 int start_rstats(void);
 void restart_rstats(void);
 int start_logger(int showinfo);
@@ -522,8 +522,8 @@ void stop_logger(void);
 void start_watchdog_cpu(void);
 void restart_watchdog_cpu(void);
 int start_services_once(int is_ap_mode);
-void stop_services(int stopall);
-void stop_services_lan_wan(void);
+int stop_services(int stopall);
+int stop_services_lan_wan(void);
 int stop_misc(void);
 #if defined(APP_SCUT)
 int is_scutclient_run(void);
@@ -804,7 +804,7 @@ void notify_rstats_time(void);
 /* detect_link.c */
 int detect_link_main(int argc, char *argv[]);
 int start_detect_link(void);
-void stop_detect_link(void);
+int stop_detect_link(void);
 void notify_reset_detect_link(void);
 void notify_leds_detect_link(void);
 void show_hide_front_leds(int is_show);
@@ -813,7 +813,7 @@ void show_hide_ether_leds(int is_show);
 /* detect_internet.c */
 int detect_internet_main(int argc, char *argv[]);
 int start_detect_internet(int autorun_time);
-void stop_detect_internet(void);
+int stop_detect_internet(void);
 void notify_run_detect_internet(int delay_time);
 void notify_pause_detect_internet(void);
 

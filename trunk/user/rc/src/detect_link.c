@@ -340,10 +340,13 @@ catch_sig_detect_link(int sig)
 	detect_link_record_signal(&dl_pending_events, sig);
 }
 
-void
+int
 stop_detect_link(void)
 {
-	doSystem("killall %s %s", "-q", "detect_link");
+	char *services[] = { "detect_link", NULL };
+	const char *pidfiles[] = { DL_PID_FILE, NULL };
+
+	return kill_services_with_pidfiles(services, pidfiles, "detect_link", 0, 3, 1);
 }
 
 int

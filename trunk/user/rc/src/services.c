@@ -29,6 +29,16 @@
 #include "infosvr_daemon_policy.h"
 #include "httpd_daemon_policy.h"
 
+static void
+record_service_stop_status(int *first_status, const char *service_name, int status)
+{
+	if (status == 0)
+		return;
+	logmessage(LOGNAME, "%s stop failed (status=%d)", service_name, status);
+	if (*first_status == 0)
+		*first_status = status;
+}
+
 void
 stop_syslogd(void)
 {
@@ -190,11 +200,11 @@ start_networkmap(int first_call)
 	return eval("/usr/sbin/networkmap", (first_call) ? "-w" : "");
 }
 
-void
+int
 stop_networkmap(void)
 {
 	char* svcs[] = { "networkmap", NULL };
-	kill_services(svcs, 3, 1);
+	return kill_services(svcs, 3, 1);
 }
 
 void
@@ -206,11 +216,11 @@ restart_networkmap(void)
 		start_networkmap(0);
 }
 
-void
+int
 stop_telnetd(void)
 {
 	char* svcs[] = { "telnetd", NULL };
-	kill_services(svcs, 3, 1);
+	return kill_services(svcs, 3, 1);
 }
 
 void
@@ -243,8 +253,9 @@ int is_sshd_run(void){
 	return 0;
 }
 
-void stop_sshd(void){
-	eval("/usr/bin/sshd.sh", "stop");
+int stop_sshd(void)
+{
+	return eval("/usr/bin/sshd.sh", "stop");
 }
 
 void start_sshd(void){
@@ -758,11 +769,11 @@ restart_httpd(void)
 	return start_httpd(1);
 }
 
-void
+int
 stop_rstats(void)
 {
 	char* svcs[] = { "rstats", NULL };
-	kill_services(svcs, 3, 1);
+	return kill_services(svcs, 3, 1);
 }
 
 int
@@ -790,11 +801,11 @@ start_lltd(void)
 	return eval("/bin/lld2d", IFNAME_BR);
 }
 
-void
+int
 stop_lltd(void)
 {
 	char* svcs[] = { "lld2d", NULL };
-	kill_services(svcs, 2, 1);
+	return kill_services(svcs, 2, 1);
 }
 
 void
@@ -911,16 +922,18 @@ start_services_once(int is_ap_mode)
 	return 0;
 }
 
-void
+int
 stop_services(int stopall)
 {
+	int stop_status = 0;
+
 	if (stopall) {
-		stop_telnetd();
+		record_service_stop_status(&stop_status, "telnetd", stop_telnetd());
 #if defined (APP_SSHD)
-		stop_sshd();
+		record_service_stop_status(&stop_status, "sshd", stop_sshd());
 #endif
-		stop_httpd();
-		stop_vpn_server();
+		record_service_stop_status(&stop_status, "httpd", stop_httpd());
+		record_service_stop_status(&stop_status, "VPN server", stop_vpn_server());
 	}
 #if defined (USE_USB_SUPPORT)
 	stop_p910nd();
@@ -959,7 +972,6 @@ stop_services(int stopall)
 #if defined(APP_SQM)
 	stop_sqm();
 #endif
-
 #if defined(APP_ALDRIVER)
 	stop_aldriver();
 #endif
@@ -981,24 +993,28 @@ stop_services(int stopall)
 #if defined(APP_FRP)
 	stop_frp();
 #endif
-	stop_networkmap();
-	stop_lltd();
-	stop_detect_internet();
-	stop_rstats();
-	stop_infosvr();
-	stop_crond();
+	record_service_stop_status(&stop_status, "networkmap", stop_networkmap());
+	record_service_stop_status(&stop_status, "lld2d", stop_lltd());
+	record_service_stop_status(&stop_status, "detect_internet", stop_detect_internet());
+	record_service_stop_status(&stop_status, "rstats", stop_rstats());
+	record_service_stop_status(&stop_status, "infosvr", stop_infosvr());
+	record_service_stop_status(&stop_status, "crond", stop_crond());
 	stop_igmpproxy(NULL);
+	/* Optional package stop hooks above still expose legacy void APIs. */
+	return stop_status;
 }
 
-void
+int
 stop_services_lan_wan(void)
 {
-	stop_dns_dhcpd();
-	stop_upnp();
-	stop_detect_link();
+	int stop_status = 0;
+	record_service_stop_status(&stop_status, "DNS/DHCP", stop_dns_dhcpd());
+	record_service_stop_status(&stop_status, "UPnP", stop_upnp());
+	record_service_stop_status(&stop_status, "detect_link", stop_detect_link());
 #if defined (APP_SMBD) || defined (APP_NMBD)
-	stop_nmbd();
+	record_service_stop_status(&stop_status, "nmbd", stop_nmbd());
 #endif
+	return stop_status;
 }
 
 int

@@ -543,7 +543,10 @@ flash_firmware(void)
 		logmessage(LOGNAME, "firmware update aborted: miscellaneous services did not stop");
 		return;
 	}
-	stop_services(0);
+	if (stop_services(0) != 0) {
+		logmessage(LOGNAME, "firmware update aborted: checked services did not stop");
+		return;
+	}
 	if (check_if_file_exist(script_name))
 		doSystem("%s %d", script_name, 0);
 #if defined (USE_STORAGE)
@@ -911,8 +914,8 @@ shutdown_router(int level)
 	stop_rwfs_optware();
 	stop_misc();
 
-	if (level < 2)
-		stop_services(use_halt);
+	if (level < 2 && stop_services(use_halt) != 0)
+		logmessage(LOGNAME, "service shutdown incomplete; continuing system power-down");
 
 	if (check_if_file_exist(script_name))
 		doSystem("%s %d", script_name, level);
@@ -929,7 +932,8 @@ shutdown_router(int level)
 
 	stop_wan();
 	if (level < 2) {
-		stop_services_lan_wan();
+		if (stop_services_lan_wan() != 0)
+			logmessage(LOGNAME, "LAN/WAN service shutdown incomplete; continuing system power-down");
 		set_ipv4_forward(0);
 	}
 

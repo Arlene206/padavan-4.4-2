@@ -341,10 +341,13 @@ catch_sig_detect_internet(int sig)
 				       &di_pause_received, sig);
 }
 
-void
+int
 stop_detect_internet(void)
 {
-	doSystem("killall %s %s", "-q", "detect_internet");
+	char *services[] = { "detect_internet", NULL };
+	const char *pidfiles[] = { DI_PID_FILE, NULL };
+
+	return kill_services_with_pidfiles(services, pidfiles, "detect_internet", 0, 3, 1);
 }
 
 int
