@@ -2500,7 +2500,7 @@ jobs:
           assert "free_storage_unmount_mounts(mounts)" in range_body
 
           start = source.index("void\nsafe_remove_stor_device(")
-          end = source.index("\nvoid\nsafe_remove_all_stor_devices", start)
+          end = source.index("\nint\nsafe_remove_all_stor_devices", start)
           safe_body = source[start:end]
           assert safe_body.count("umount_stor_path_range(") == 1
           assert "for (port = port_b; port <= port_e; port++)" not in safe_body
