@@ -10,11 +10,11 @@
 
 ## Whole-repository module status
 
-### P1 process inventory / service lifecycle — tri-state foundation added; caller migration remains OPEN
+### P1 process inventory / service lifecycle — tri-state foundation HOST VERIFIED; target build integration correction in progress; caller migration remains OPEN
 
 - Added shared RUNNING / ABSENT / UNKNOWN process snapshots with separately reported count and PID/start_time identity; procfs and memory operations are injectable. Incomplete or failed scans discard partial PID lists and return UNKNOWN. `pids_main()` reports UNKNOWN as an error; legacy `pids()` is intentionally unchanged until all direct callers are migrated.
 - Central `kill_services()` now preflights the configured service-name set before TERM, rescans before first signal, validates identities before each signal, and signals captured PIDs rather than executing name-wide `killall`. UNKNOWN/changed/timeout/failure does not report STOPPED.
-- New L2 workflow and production-linked host tests are in `.github/workflows/process-lifecycle-regression.yml`; exact-head result must be confirmed before marking L2 PASS.
+- New L2 workflow and production-linked host tests are in `.github/workflows/process-lifecycle-regression.yml`; parent SHA `6f683b421bd62b4d229a2206a62e239189cd4cb9` exact-head run `43596037745` passed all steps. The XY-C1 MIPS/uClibc workflow `43596037729` failed at the shared object target because the Makefile said `proc_inventory.o` while the source is `process_inventory.c`; the object name is corrected to `process_inventory.o` in the current follow-up. Manual review also corrected the /proc stat start_time token from 19 to 20 and strengthened regression coverage. Re-run the new exact-head target build before assigning TARGET BUILD VERIFIED.
 - P1 overall remains OPEN: all 77 direct `pids()` call sites, strict PID-file parsing and producer migration, extra PID-file targets in multi-service transactions, direct name-wide signal paths, and upper-layer cleanup/restart propagation (VPN, USB modem, AP LAN, firmware shutdown, Samba/storage) remain unclosed. Linux 4.4 PID/start_time validation retains a check/kill race. BusyBox procps remains independent.
 
 | Module | Status | Verified bounded work | Open reliability / security work |

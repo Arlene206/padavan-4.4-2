@@ -211,6 +211,11 @@ Update the handoff in place only when the active task, checkpoint SHA, validatio
 
 ## 10. Cross-conversation recovery is mandatory
 
+**The only user-facing takeover prompt needed is:**
+`接手 https://github.com/Arlene206/padavan-4.4-2/ 继续开发`
+
+Do not ask the user for a longer prompt, repeat questions already answered in Git, request a whole-repository upload, or depend on previous chat text. Do not generate recursive copy/paste prompts for the next GPT. The complete and current instructions for the next session belong in `SESSION_HANDOFF.md`; the bootstrap and this protocol explain how to recover and obey it. Every GPT must update the handoff in Git before ending, and the next GPT must resume from the live repository state.
+
 Every new conversation must do this before coding:
 
 1. Read this protocol.

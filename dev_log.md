@@ -1,3 +1,15 @@
+## 2026-11-14 21:16 CST (UTC+8) — Correct shared process-inventory target and /proc start_time extraction; simplify permanent handoff
+
+- Base live main SHA: `6f683b421bd62b4d229a2206a62e239189cd4cb9`. The immutable backup ref remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Parent exact-head L2 evidence: P1 regression `43596037745` PASS (scanner GNU89/ASan/UBSan fault injection, lifecycle policy compile/run, integration contract); Watchdog `43596037803`, HTTPD `43596037779`, infosvr `43596037800`, AI docs `43596037878`, AdGuardHome `43596037815`, AliDDNS `43596037860`, AliyunDrive `43596037730`, and NVRAM `43596037799` all PASS.
+- Actual XY-C1 MIPS/uClibc build run `43596037729` FAILED in shared build because `trunk/user/shared/src/Makefile` requested `proc_inventory.o`, but the new source file is `process_inventory.c`; make reported `No rule to make target 'proc_inventory.o', needed by 'libshared.so'`. This is a patch integration defect, not a toolchain outage. Corrected object name to `process_inventory.o`; TRX verification/upload had been skipped on the failed parent run.
+- Manual parser review found /proc/PID/stat field 22 start_time was read from token 19 after comm rather than token 20. Corrected scanner iteration and field selection. Added an explicit host regression asserting the fixture's actual `start_time == 98765`, plus injection for PID disappearance between stat and cmdline, confirmed by re-reading stat.
+- Updated `scripts/check_process_lifecycle_integration.py` to enforce the correct object name. Updated `AI_BOOTSTRAP_PROMPT.md` and `AI_DEVELOPMENT_PROTOCOL.md`: next sessions require only the one-line repository takeover prompt; no recursive chat prompts. Replaced `SESSION_HANDOFF.md` with a fully self-contained active checkpoint and exact first action; updated P1 roadmap target-build status.
+- Parent SHA exact-head L2 is PASS. This corrective commit's L2 and L3 Actions are PENDING until exact-head runs complete. Parent L3 is FAILED; this commit has not yet been built as a firmware image. L4 physical XY-C1 flash/boot/runtime NOT VERIFIED.
+- Root log advances one record; no 120-record/384-KiB rotation trigger and no `docs/dev-log/INDEX.md` update is due. Resulting commit: THIS COMMIT.
+- Exact next action: inspect exact-head process-lifecycle and XY-C1 firmware workflows; ensure object target and start_time tests pass, then resolve the first build error and verify complete TRX output/artifact.
+---
+
 ## 2026-11-14 20:45 CST (UTC+8) — Align legacy lifecycle regression contracts with tri-state policy
 
 - Parent main: `67098238bbc2b969f14cab9d87d99a2ee4dd6934`. On this exact SHA the new process inventory and lifecycle Action `43595648746` PASS; process inventory lexical Action `43595648568`, crond `43595648651`, infosvr `43595648575`, and AI docs `43595648563` PASS.

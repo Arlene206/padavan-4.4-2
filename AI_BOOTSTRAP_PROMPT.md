@@ -4,7 +4,17 @@
 **Primary branch:** `main`  
 **First priority:** uninterrupted cross-conversation development continuity. GitHub is the project memory; chat memory is not.
 
-Copy this prompt into every new ChatGPT conversation:
+**Minimal user entrypoint — no long prompt is required**
+
+The user only needs to start a new conversation with:
+
+`接手 https://github.com/Arlene206/padavan-4.4-2/ 继续开发`
+
+Do not ask the user to paste this file, a recursive handoff prompt, repository source, or prior chat history. This file, `AI_DEVELOPMENT_PROTOCOL.md`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`, and the live GitHub state are the complete project memory. Every GPT must autonomously restore them in the order below.
+
+Do not generate a new-chat prompt at the end of a session. Write the complete next-session instructions into `SESSION_HANDOFF.md` and leave the same one-line user entrypoint valid indefinitely.
+
+The following bootstrap instructions are for the GPT to execute after the user gives that minimal entrypoint:
 
 ---
 

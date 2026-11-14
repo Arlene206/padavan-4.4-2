@@ -186,7 +186,7 @@ proc_numeric_pid(const char *name, pid_t *pid)
 
 /*
  * In /proc/PID/stat, after comm, state is field 3 and start_time is field 22.
- * The latter is the nineteenth token beginning with ppid (field 4).
+ * It is token 20 in the sequence beginning with state (field 3).
  */
 static int
 proc_parse_stat(const char *buffer, size_t length, pid_t expected_pid,
@@ -236,7 +236,7 @@ proc_parse_stat(const char *buffer, size_t length, pid_t expected_pid,
 	identity->pid = expected_pid;
 
 	cursor = right + 2;
-	for (field = 1; field <= 19; field++) {
+	for (field = 1; field <= 20; field++) {
 		char *token_end;
 		size_t token_length;
 
@@ -257,7 +257,7 @@ proc_parse_stat(const char *buffer, size_t length, pid_t expected_pid,
 			}
 			*state = cursor[0];
 		}
-		if (field == 19) {
+		if (field == 20) {
 			char number[32];
 			char *number_end;
 			if (token_length == 0 || token_length >= sizeof(number)) {

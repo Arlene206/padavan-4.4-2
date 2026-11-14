@@ -1,51 +1,77 @@
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`. Development is on `main` only. The P1 phase-2 foundation commit is `58e924749f1937cbab144a664b15e659e48ca5f8`, parent `f32922d2afc9e8133625551b0dc3e6f361f378d5`. This follow-up correctness fix is being committed against `58e924749f1937cbab144a664b15e659e48ca5f8`; always re-fetch the live main ref before any further write.
-- Immutable archive: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Never modify, rename, prune, reset, rebase, merge, or delete it.
-- Legacy PR #1 remains CLOSED / UNMERGED. Do not reopen or use the PR head. Do not create development branches or PRs. Do not modify GPT Session Rotator.
-- L1 lexical inventory and direct-call semantic review are complete for the previously documented scopes. Reuse `docs/audits/PROCESS_LIFECYCLE_SEMANTIC_REVIEW.md`; do not repeat the 77 `pids()` / 46 `kill_services()` caller census or redesign the lexical scanner.
-- The semantic review covers the specified direct public-API calls, not an interprocedural closure of all 5,664 broad lifecycle candidates. Preserve that limitation in reports.
-- Baseline exact-head push Actions on parent SHA `f32922d2afc9e8133625551b0dc3e6f361f378d5` all passed: NVRAM `43590477651`, AI handoff docs `43590477637`, infosvr `43590477685`, AdGuardHome `43590477635`, AliDDNS `43590477629`, and AliyunDrive `43590477704`. NVRAM's job `132433928048` completed the raw ioctl/kernel API audit. These are parent-SHA baseline runs, not validation of this new P1 implementation.
-- Current implementation files are enumerated under Active task below. The initial exact-head regression run `43595026457` on `58e924749f1937cbab144a664b15e659e48ca5f8` exposed an ASan leak in the second (pre-KILL) preflight: it overwrote the original snapshot and leaked it. Scanner compile and scanner fault-injection run passed; lifecycle compile passed; lifecycle execution failed at LeakSanitizer. The fix now retains original identities and makes the second preflight compare a fresh scan without replacing them. Existing crond contract run `43595026438` had its GNU89 policy test pass but a source-contract step failed because the policy no longer contained the explicit `if (!forcekill)`; the explicit guard is restored. Recheck these on the follow-up SHA. BusyBox `trunk/user/busybox/busybox-1.24.x/libbb/procps.c` remains a separate process scanner and was not changed.
+- Repository: `Arlene206/padavan-4.4-2`; development only on `main`. This corrective milestone is being committed directly on top of verified live parent `6f683b421bd62b4d229a2206a62e239189cd4cb9`; resulting implementation commit is recorded as `THIS COMMIT` in the matching dev-log entry. Always fetch `refs/heads/main` before any write and resolve the actual live SHA; never use this parent as an assumed current tip.
+- Immutable archival branch: `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`. It is read-only and must remain byte-for-byte unchanged.
+- **Permanent minimal takeover entrypoint:** the user only needs to say `接手 https://github.com/Arlene206/padavan-4.4-2/ 继续开发`. Never ask for a long prompt, prior transcript, source upload or recursive prompt. Never generate a next-GPT prompt in chat. All current instructions and the next exact action must be written into this file in Git.
+- Read complete `AI_DEVELOPMENT_PROTOCOL.md` before source edits, then `AI_BOOTSTRAP_PROMPT.md`; then fetch live `main`, backup ref, Actions, this handoff, roadmap, newest 20 dev-log records, INDEX and the specific audit reports required by the active task.
+- Legacy PR #1 remains CLOSED / UNMERGED. Do not reopen it or use its head. Do not create development branches or PRs. Do not modify GPT Session Rotator.
+- Prior L1 lexical inventory and direct public-API semantic review are complete at their documented source SHAs. Reuse `docs/audits/PROCESS_LIFECYCLE_SEMANTIC_REVIEW.md`; do not repeat the 9,439 tracked blob inventory, 6,193 readable-file scan, 77 direct `pids()` caller census or 46 direct `kill_services()` caller census. The review is not a complete interprocedural graph of all 5,664 broad lifecycle candidates.
 
 ## Active task
 
-### Implemented in this bounded milestone
+### P1 phase-2 foundation implemented
 
-- Added `trunk/user/shared/src/process_inventory.h` and `process_inventory.c`. The API expresses `PROCESS_PRESENCE_RUNNING`, `PROCESS_PRESENCE_ABSENT`, and `PROCESS_PRESENCE_UNKNOWN` explicitly; process count and process identity snapshots are separate fields.
-- The scanner has injectable directory open/read/close, file read, allocation/reallocation and release operations. It distinguishes clean directory EOF from `readdir()` error; treats stat/cmdline permission and I/O errors, malformed stat, argv0 allocation failure and PID-vector allocation/growth failure as UNKNOWN; permits only confirmed per-PID ENOENT/ESRCH disappearance to be skipped; and discards partial snapshots on any UNKNOWN.
-- Process identities record PID, `/proc/PID/stat` start_time, comm truncation state and argv0/argv1 fingerprints. The shared library Makefile includes `proc_inventory.o`; the shared header install rule already installs the new `.h` file.
-- `pids_main()` now prints an explicit inventory error and returns nonzero on UNKNOWN instead of reporting a false empty/partial result. Legacy `pids()` intentionally retains its old Boolean-compatible behavior in this milestone: do not introduce a negative UNKNOWN into any legacy truthiness branch.
-- Reworked `service_lifecycle_policy.h` and the central `kill_services()` adapter in `common_ex.c`: all configured service names are inventoried before TERM; the plan is rescanned before the first signal; each captured PID/start_time identity is revalidated immediately before TERM and KILL; signals target the captured PID directly rather than issuing name-wide `killall` after a scan; UNKNOWN, identity change, timeout or signal failure blocks stop success.
-- Added production-scanner fault-injection regression `trunk/user/shared/src/tests/process_inventory.c`, tri-state lifecycle regression `trunk/user/rc/src/tests/service_lifecycle_policy.c`, dedicated workflow `.github/workflows/process-lifecycle-regression.yml`, and supplemental integration contract `scripts/check_process_lifecycle_integration.py`.
-- Updated this handoff, `REFACTOR_ROADMAP.md` and root `dev_log.md`. No log archive rotation was due; `docs/dev-log/INDEX.md` was intentionally unchanged.
+- Added `trunk/user/shared/src/process_inventory.h` and `process_inventory.c`: explicit `PROCESS_PRESENCE_RUNNING`, `PROCESS_PRESENCE_ABSENT`, `PROCESS_PRESENCE_UNKNOWN`, separate count/snapshot, PID/start_time/comm/argv fingerprints, injectable directory/file/allocation operations, clean EOF versus readdir error, and all-or-nothing snapshots on UNKNOWN.
+- Added `process_inventory.o` to `trunk/user/shared/src/Makefile` (the previous `proc_inventory.o` spelling was wrong; this corrective commit changes it to match the actual `process_inventory.c` source file). The shared Makefile installs all root `.h` files, including the new public header.
+- Fixed `/proc/PID/stat` parsing: start_time (field 22) is the 20th token after comm, not token 19. The scanner regression now asserts the concrete test start_time `98765`, not only PID equality. Added a fault-injection case where a PID disappears between the stat and cmdline reads and is confirmed absent by a second stat read.
+- `pids_main()` explicitly reports UNKNOWN and returns an error. Legacy `pids()` remains Boolean-compatible until all 77 direct callers are migrated; never return negative UNKNOWN through its old truthiness API.
+- Reworked `service_lifecycle_policy.h` and central `kill_services()`: full configured service-set preflight before TERM, a second whole-set validation before the first signal, PID identity validation before each TERM/KILL, direct captured-PID signal instead of name-wide `killall`, and explicit UNKNOWN/CHANGED/TIMEOUT/FAILED results that do not authorize follow-up cleanup/restart/publication.
+- Added `trunk/user/shared/src/tests/process_inventory.c`, `trunk/user/rc/src/tests/service_lifecycle_policy.c`, `.github/workflows/process-lifecycle-regression.yml`, and `scripts/check_process_lifecycle_integration.py`.
+- Updated Watchdog and HTTPD source-contract checks to assert the new tri-state policy rather than stale Boolean implementation details. Updated root bootstrap/protocol so the user can use only the minimal takeover entrypoint above.
+- BusyBox `trunk/user/busybox/busybox-1.24.x/libbb/procps.c` remains a separate scanner and has not been changed.
 
-### Explicitly NOT migrated / remaining P1 work
+### Exact-head validation on parent SHA `6f683b421bd62b4d229a2206a62e239189cd4cb9`
 
-- The 77 direct `pids()` consumers still use the legacy API and remain to be migrated by semantic group (HTTPD/WebUI status, startup readiness, notification signals, Samba, watchdog, VPN, USB modem, WAN/LAN, storage and plugin hooks). Never switch `pids()` to return negative UNKNOWN until every such caller has explicit state handling.
-- PID-file identity work remains open: `kill_pidfile_s()` is unchanged; its strict parser, PID/start_time/expected-name validation, and coordinated producer/consumer formats are not implemented. In-tree detect_internet/detect_link/watchdog/rstats, BusyBox udhcpc, PPPD and INICD are separate producers/routes. Identify the `/var/run/lpdparent.pid` writer before trusting or migrating it; never infer from its filename.
-- Some callers still discard `kill_services()` errors or continue destructive cleanup/restart. The central service-name stop engine is safer, but this does NOT yet close VPN Server/Client, USB modem removal, AP LAN teardown, flash_firmware()/void stop_services(), Samba config publication, storage eject and other upper-layer propagation paths. Migrate these in priority order and make UNKNOWN block all dependent cleanup/state publication/restart.
-- Direct `killall`/signal paths outside `kill_services()` remain. They require exact identity-aware handling or a documented best-effort classification; a successful inventory is not authorization to use a later name-wide `killall`.
-- The current stop transaction preflights configured service-name targets. It does not yet include additional PID-file targets (for example PPP client PID files) in the same plan; VPN Server/Client and DHCP/PPP groups must add those identities before any signal.
-- Linux 4.4 has no `pidfd_send_signal()`. PID + start_time and command validation still leave a check/kill TOCTOU window. Do not claim atomic or race-free signalling.
+<badge color="success">L2 regression PASS</badge>
+
+- P1 process inventory/lifecycle regression: run `43596037745`, job `132450612501` — all steps PASS: GNU89 `-Wall -Wextra -Werror` scanner build, ASan/UBSan scanner fault-injection run, lifecycle policy build/run, integration boundary contract.
+- Watchdog: `43596037803` PASS.
+- HTTPD security and service lifecycle/WAN contracts: `43596037779` PASS.
+- infosvr lifecycle: `43596037800` PASS.
+- AI handoff documentation contract: `43596037878` PASS.
+- AdGuardHome: `43596037815` PASS.
+- AliDDNS: `43596037860` PASS.
+- AliyunDrive WebDAV: `43596037730` PASS.
+- NVRAM transaction boundary: `43596037799` PASS, including raw ioctl/kernel API audit.
+
+<badge color="danger">L3 attempt FAILED on parent SHA</badge>
+
+- XY-C1 firmware build run `43596037729`, job `132450613310`, was an actual MIPS/uClibc cross-build attempt. It passed setup, dependency installation and three staged-header contracts, then failed during the shared package build:
+  `make[5]: *** No rule to make target 'proc_inventory.o', needed by 'libshared.so'. Stop.`
+- Cause: Makefile object spelling did not match `process_inventory.c`. The current corrective commit changes it to `process_inventory.o`. The same code review found a start_time token off-by-one and added a concrete regression assertion.
+- No TRX artifact was produced; the workflow's TRX verification and upload steps were skipped. Do not claim L3 success based on this failed run.
+- L3 for the corrective commit is PENDING its own exact-head XY-C1 build. Only inspect the new run matching the actual live main SHA.
+- L4: XY-C1 physical flash, boot, runtime and functional validation NOT VERIFIED.
+
+## Explicitly uncompleted P1 work
+
+- All 77 direct `pids()` consumers are still unconverted. Group by semantic use (HTTPD/WebUI state, startup readiness, notifications/signals, Samba, watchdog, VPN, USB modem, WAN/LAN, storage, plugins). Do not change `pids()` return type/semantics until every direct caller has explicit tri-state handling.
+- `kill_pidfile_s()` is unchanged. Strict PID-file syntax, PID + start_time + expected identity verification, read errors and producer/consumer coordination remain open. Producers include detect_internet, detect_link, watchdog, rstats, BusyBox udhcpc, PPPD and INICD. Locate the actual writer of `/var/run/lpdparent.pid`; do not infer identity from filename.
+- Upper-layer failure propagation remains open: VPN Server/Client, USB modem safe removal, AP-mode LAN teardown and `flash_firmware()` / `stop_services()`; also Samba configuration publication, storage eject/unmount, NVRAM stopped-state publication and all dependent cleanup/restart. A failed/UNKNOWN stop must stop the caller transaction, not merely change a return type.
+- The current multi-service preflight covers configured service-name targets only; extra PID-file targets (especially PPP client PID files) must be enrolled in the same full-set preflight before any signal.
+- Audit direct `killall`/signal paths outside `kill_services()`; a process inventory cannot authorize a later name-wide signal.
+- Linux 4.4 has no `pidfd_send_signal()`. PID + start_time/command verification leaves a check-then-kill TOCTOU race. Do not claim atomic identity binding.
 
 ## Verification boundary
 
-- L1: prior sparse inventory and semantic direct-call review remain PASS at their documented source SHAs; this implementation does not re-run or expand that census.
-- L2: the new dedicated workflow is `.github/workflows/process-lifecycle-regression.yml`. First exact-head run `43595026457` on `58e924749f1937cbab144a664b15e659e48ca5f8` FAILED at lifecycle test runtime due to 112 bytes leaked across two KILL-preflight tests. Follow-up `43595337517` on `28b676267ad671b0869d5f736a4a524e220b67dc` PASS: scanner GNU89/ASan/UBSan compile+run, lifecycle compile+run, and integration contract. On `67098238bbc2b969f14cab9d87d99a2ee4dd6934`, P1 `43595648746` PASS; process inventory `43595648568`, crond `43595648651`, infosvr `43595648575` and AI docs `43595648563` PASS. Watchdog `43595648606` and HTTPD `43595648716` compiled and executed their C tests but failed on stale Python source-contract expectations; this follow-up aligns those checks to the new enum/policy contract. Local build/test was not run because this runtime has no checkout and GitHub DNS is unavailable to the local shell.
-- L3: current-main MIPS/uClibc build NOT RUN. Historical evidence at `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f` is not validation of this patch.
-- L4: XY-C1 actual flash, boot, runtime and functional hardware verification NOT VERIFIED.
-- An exact-head green Action does not establish target firmware packaging, target process behavior, L3 or L4.
+- L1: previous lexical and direct-call semantic review PASS within its documented scope; no repeated census.
+- L2: parent SHA `6f683b421bd62b4d229a2206a62e239189cd4cb9` exact-head workflow evidence listed above PASS. The corrective commit's own exact-head P1 and related tests are pending.
+- L3: parent SHA XY-C1 run `43596037729` FAILED at shared object rule; corrective fix is in this commit and needs a new exact-head cross-build. No TRX artifact from the failed run.
+- L4: NOT VERIFIED; no actual router flash/boot/runtime evidence.
+- The current execution environment has no full local repository checkout; use GitHub and Actions for remote evidence rather than asking the user to upload the repository.
 
 ## Exact first action for the next GPT
 
-1. Read the complete `AI_DEVELOPMENT_PROTOCOL.md` first, then `AI_BOOTSTRAP_PROMPT.md`. Fetch live `refs/heads/main` and the immutable backup ref. Never trust the SHA in this handoff as the live tip.
-2. Fetch Actions for the exact live main SHA. Inspect the latest `process-lifecycle-regression.yml`, Watchdog, HTTPD, crond, infosvr and all other triggered workflows, every Job and step. Confirm C tests still compile/run, the Watchdog assertions now verify explicit TIMEOUT/UNKNOWN statuses, and HTTPD assertions verify the new preflight/identity adapter. Only a `push` whose `head_sha` exactly equals live main counts. If failed, fix on main with an expected-head tree commit and re-run.
-3. Read the latest `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, newest 20 complete `dev_log.md` records and `docs/dev-log/INDEX.md`; then reread the full `docs/audits/PROCESS_LIFECYCLE_SEMANTIC_REVIEW.md` for the specific caller group being migrated.
-4. Do NOT repeat the completed lexical scanner design, 9,439-blob inventory, 6,193-readable-file census, 77 direct `pids()` classifications or 46 direct `kill_services()` classifications. Do NOT ask for a whole-repository upload.
-5. Continue with PID-file identity: design strict parse/status interfaces, bind PID + start_time + expected executable identity, inject file/process operations, and migrate each producer with all consumers as one transaction. First map the exact writer of `lpdparent.pid`; leave unknown ownership fail-closed. Keep BusyBox procps separate.
-6. Then migrate upper-layer stop/failure propagation in this order: VPN Server (including all PPP PID targets in the preflight), VPN Client, USB modem DHCP/PPP removal, AP-mode LAN DHCP/bridge teardown, and `flash_firmware()` through aggregated `stop_services()`. Only STOPPED may authorize cleanup, NVRAM stopped-state publication, restart, storage unmount or flash.
-7. Migrate the remaining direct `pids()` consumers by semantic purpose; do not change legacy `pids()` return semantics until all callers are explicit. Audit direct `killall` notifications and HTTPD/WebUI numeric status consumers too.
-8. Expand fault-injection tests for PID-file strict syntax/identity, state transitions during TERM/KILL, caller-level cleanup gates and feature guards. Run GNU89 `-Wall -Wextra -Werror`, ASan/UBSan, then attempt real MIPS/uClibc builds across relevant STORAGE/USB/IPv6/BOARD/APP configurations.
-9. Before writing, re-fetch main and construct one atomic Git tree/commit directly on main using the exact expected parent. Do not create branches or PRs. After commit, re-fetch main and backup, inspect exact-head push Actions and each job step; report L1–L4 separately.
-10. Update `dev_log.md` for substantive milestones. Update this handoff only when state, verification or the exact next action changes. Keep all four fixed headings exactly. Do not rotate archives or edit `docs/dev-log/INDEX.md` unless the documented threshold is reached.
+1. The user needs only this entrypoint: `接手 https://github.com/Arlene206/padavan-4.4-2/ 继续开发`. Do not ask for more instructions. Read `AI_DEVELOPMENT_PROTOCOL.md` completely, then `AI_BOOTSTRAP_PROMPT.md`.
+2. Fetch live `refs/heads/main` and `backup/pre-plugin-overhaul-2026-11-14`; confirm backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. Never trust a SHA from this handoff without fetching.
+3. Inspect every `push` Actions run whose `head_sha` exactly equals current main. First inspect the dedicated P1 regression workflow and XY-C1 firmware workflow. Confirm the object-name fix, the exact start_time assertion and mid-scan disappearance test pass. For XY-C1, inspect every job step, TRX validation and uploaded artifact. A green host job is not L3.
+4. If the new MIPS build fails, inspect its first causal compiler/build error and fix it directly on main; do not stop at the host tests. Then obtain complete TRX artifact and checksum/output validation before marking L3.
+5. Once the target build blocker is closed, continue the remaining P1 sequence from the semantic audit: first PID-file strict parsing/identity and the actual `lpdparent.pid` producer; then VPN Server stop transaction (include every PPP PID target in preflight), VPN Client, USB modem DHCP/PPP removal, AP LAN DHCP/bridge teardown and firmware shutdown propagation. Only a fully confirmed STOPPED result permits cleanup/restart/unmount/flash.
+6. Continue migrating all direct `pids()` call sites by semantic group, then direct signal/name-wide kill paths. Keep BusyBox procps separate.
+7. Add caller-level tests proving UNKNOWN blocks cleanup, NVRAM state publication, restart, resource teardown and firmware progression. Keep GNU89, `-Wall -Wextra -Werror`, ASan/UBSan and feature guards. Attempt the relevant STORAGE/USB/IPv6/BOARD/APP target configurations after XY-C1.
+8. Before every write re-fetch live main; commit directly to main with its exact expected parent. Never create a branch or PR. Preserve the backup ref. Append one substantive log record; update handoff/roadmap only when their state changes. Keep these four heading strings unchanged:
+   - `## Current repository state`
+   - `## Active task`
+   - `## Verification boundary`
+   - `## Exact first action for the next GPT`
+9. Before ending, make this file the complete current handoff for the following conversation. Do not output a recursive prompt in chat; the same minimal user entrypoint must remain sufficient indefinitely.

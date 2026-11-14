@@ -13,6 +13,7 @@ struct fake_process {
 	size_t cmdline_length;
 	int stat_error;
 	int cmdline_error;
+	int disappear_on_cmdline;
 };
 
 struct fake_context {
@@ -108,6 +109,11 @@ fake_read_file(void *opaque, const char *path, char *buffer,
 	}
 	error = strcmp(kind, "stat") == 0 ?
 		process->stat_error : process->cmdline_error;
+	if (strcmp(kind, "cmdline") == 0 && process->disappear_on_cmdline) {
+		process->stat_error = ENOENT;
+		errno = ENOENT;
+		return -1;
+	}
 	if (error) {
 		errno = error;
 		return -1;
@@ -253,6 +259,20 @@ test_disappeared_pid_is_skipped(void)
 }
 
 static void
+test_pid_disappearing_between_stat_and_cmdline_is_skipped(void)
+{
+	const char *entries[] = { "123" };
+	struct fake_context context;
+	struct process_snapshot snapshot;
+
+	fake_init(&context, entries, 1);
+	fake_add(&context, 123, "dnsmasq", "/usr/sbin/dnsmasq");
+	context.processes[0].disappear_on_cmdline = 1;
+	assert(run_scan(&context, &snapshot) == PROCESS_PRESENCE_ABSENT);
+	assert(snapshot.count == 0 && snapshot.items == NULL);
+}
+
+static void
 test_permission_and_io_failures_are_unknown(void)
 {
 	const char *entries[] = { "123" };
@@ -372,6 +392,7 @@ main(void)
 	test_normal_eof_is_absent();
 	test_readdir_error_is_unknown();
 	test_disappeared_pid_is_skipped();
+	test_pid_disappearing_between_stat_and_cmdline_is_skipped();
 	test_permission_and_io_failures_are_unknown();
 	test_malformed_stat_and_missing_cmdline_are_unknown();
 	test_argv0_allocation_failure_is_unknown();

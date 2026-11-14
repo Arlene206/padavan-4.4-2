@@ -9,7 +9,7 @@ pids_source = (root / "trunk/user/shared/src/pids.c").read_text()
 common_ex = (root / "trunk/user/rc/src/common_ex.c").read_text()
 policy = (root / "trunk/user/rc/src/service_lifecycle_policy.h").read_text()
 
-assert "proc_inventory.o" in shared_makefile
+assert "process_inventory.o" in shared_makefile
 assert '#include "process_inventory.h"' in shared_header
 assert "process_inventory_scan(appname, &snapshot)" in pids_source
 assert "PROCESS_PRESENCE_UNKNOWN" in pids_source
