@@ -104,6 +104,8 @@ def main() -> None:
         fail("protocol unconditionally requires handoff churn and contradicts its materiality gate")
     if "resolve its pending/failed relevant CI before selecting another task" in protocol:
         fail("protocol blocks independent work while relevant CI is merely pending")
+    if "pending/failed CI first; once it is closed" in protocol or "failed/pending exact-head `push` CI before choosing another task" in protocol:
+        fail("protocol contains a legacy pending-CI prerequisite that can block independent work")
     if "failed/pending `push` CI" in bootstrap:
         fail("bootstrap incorrectly treats pending CI as a prerequisite to new work")
     if "A PENDING run is not a gate on independent work" not in protocol:

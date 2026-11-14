@@ -175,7 +175,7 @@ Use this priority order:
 
 Security remains an active parallel workstream; do not defer a confirmed serious vulnerability merely because the current round is stability-focused. Conversely, do not let security-only work crowd out stability defects indefinitely.
 
-Do not let SkipDBv2, HTTPD, firewall, or any other already heavily worked subsystem monopolize the project. Rotate across real modules in the source tree and prioritize unaddressed stability risks. Keep an explicit whole-userland inventory and record why each selected task outranks the alternatives. Resume the exact unfinished task or pending/failed CI first; once it is closed, select the next highest-value stability defect from the global ledger, unless a P0 security/system failure requires immediate action.
+Do not let SkipDBv2, HTTPD, firewall, or any other already heavily worked subsystem monopolize the project. Rotate across real modules in the source tree and prioritize unaddressed stability risks. Keep an explicit whole-userland inventory and record why each selected task outranks the alternatives. Resume the exact unfinished engineering task first. If its exact-head CI is FAILED, triage the failure before calling that slice validated; if CI is PENDING, record its run/SHA and continue safe independent engineering work. Once the active task is closed, select the next highest-value stability defect from the global ledger, unless a P0 security/system failure requires immediate action.
 
 ## 4. Bounded, continuous delivery
 
@@ -309,7 +309,7 @@ Every new conversation must do this before coding:
 3. Read `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and the newest `dev_log.md` entries.
 4. Inspect the remote branch inventory only to identify legacy refs; inspect latest Actions runs and match their exact `head_sha`. Inspect open PR #1 (or any remaining legacy PR) only to inventory unmerged work that must be safely ported to `main`.
 5. Compare all recorded SHAs with actual GitHub state.
-6. Resume the exact unfinished `main` task or failed/pending exact-head `push` CI before choosing another task, unless the user explicitly assigns a higher-priority governance task.
+6. Resume the exact unfinished `main` engineering task. A relevant FAILED exact-head `push` check must be triaged before that slice is declared validated; a PENDING check must be recorded with its run ID and head SHA but must not block other independent engineering work. Do not wait idly or repeatedly poll. The user may explicitly assign a higher-priority governance task.
 7. Develop and commit only on `main`; do not create or use branches, checkpoint refs, or PRs.
 
 Never rely on hidden memory or the previous chat transcript. GitHub is the project memory. A legacy branch/PR is evidence to inspect, not a valid development or CI target.

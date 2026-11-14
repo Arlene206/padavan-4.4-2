@@ -1,3 +1,12 @@
+## 2026-11-15 — Eliminate remaining pending-CI recovery contradictions
+
+- Final cross-file search after the previous correction found two additional legacy priority/recovery sentences in the protocol (global priority selection and Section 10 recovery step) that still treated pending exact-head CI as a prerequisite to choosing new work. These contradicted the new explicit rule and could reintroduce the same stall in a later GPT.
+- Rewrote both: resume the active engineering task; FAILED relevant CI is triaged before claiming validation; PENDING is recorded with run ID/head SHA and does not block independent safe work. No idle waiting or repeated polling.
+- Updated the handoff to record that AI-doc run 43631988702 on SHA 9ff6a875d31bbe832bac4ada583c7519d2a993ee passed, and to inspect run 43632050498 on exact SHA 812b335bb5fc234eb2f40f5489eec8a80479acf9 while continuing PPP/PID-file implementation if pending.
+- This is a separate, newly found contradictory instruction in the authoritative protocol, not a cosmetic follow-up. No firmware source changed. Root dev-log advances 114→115 records; no archive rotation or index update is due.
+
+---
+
 ## 2026-11-15 — Remove pending-CI gate that blocked independent engineering
 
 - Cross-file rule review found a direct contradiction: bootstrap step 5 and protocol recovery text required resolving pending CI before selecting another task, while the continuous-execution section said not to burn the session polling pending runs. This contradicted the user's explicit PENDING→continue independent work rule and could stall every GPT session.
