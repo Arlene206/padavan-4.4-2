@@ -96,7 +96,7 @@ def main() -> None:
 
     if "docs/dev-log/INDEX.md" not in bootstrap or "scripts/check_ai_handoff_docs.py" not in bootstrap:
         fail("bootstrap does not point to the canonical log archive index and validator")
-    if "Do not claim tests, commits, builds, firmware artifacts or hardware checks that were not actually performed." not in bootstrap:
+    if "do not claim tests, commits, builds, firmware artifacts or hardware checks that were not actually performed." not in bootstrap:
         fail("bootstrap is missing the complete no-fabrication rule")
     if "aim tests, commits" in bootstrap:
         fail("bootstrap contains a truncated/orphaned no-fabrication sentence")

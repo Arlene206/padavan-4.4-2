@@ -1,3 +1,12 @@
+## 2026-11-15 — Correct handoff validator assertion after exact-head CI failure
+
+- Exact-head AI handoff documentation run [43630358677] on docs commit f25b32fb639239351209335a039334f2c63b3bc4 failed because the new validator assertion expected uppercase “Do not claim” while the correctly punctuated bootstrap sentence used lowercase “do not claim” after a semicolon. This was a validator-test defect, not a documentation content or product-source failure.
+- Corrected the assertion's expected case and clarified in SESSION_HANDOFF.md / REFACTOR_ROADMAP.md that f5cc0baf is the latest verified product-source baseline, while later documentation-only commits can advance live main without changing that engineering evidence.
+- f25 exact-head process lifecycle [43630358776], infosvr [43630358668], AdGuardHome [43630358687] and AliyunDrive [43630358691] passed; AliDDNS [43630358673] passed. NVRAM [43630358670] was still running at last inspection. The corrected AI docs run on the new commit is pending.
+- No firmware source changed. Root dev-log advances 110→111 records; no archive rotation or index update is due.
+
+---
+
 ## 2026-11-15 — Repair stale cross-session handoff and bootstrap contract
 
 - User-requested root handoff review found the live handoff and roadmap still described the watchdog-inclusive current-main Actions as pending and current L3 as unverified, although main is `f5cc0bafdfa017e9019dbda991a3855a84bc2e1c` and all ten exact-head `push` workflows completed SUCCESS.

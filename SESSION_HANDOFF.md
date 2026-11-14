@@ -6,7 +6,7 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2. Only `main` is writable; live main is `f5cc0bafdfa017e9019dbda991a3855a84bc2e1c`. The preserved backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and was verified read-only. The watchdog-inclusive XY-C1 MIPSel build on current main passed Build XY-C1, TRX verification and artifact upload (run `43625410221`, artifact `14125764801`). All ten exact-head `push` workflows on f5cc passed; see the CI section below. L4 physical router validation remains NOT VERIFIED. Fetch live main before every write.
+- Repository: Arlene206/padavan-4.4-2. Only `main` is writable. The latest verified product-source baseline is `f5cc0bafdfa017e9019dbda991a3855a84bc2e1c`; later changes are documentation-only. Fetch the live main ref on takeover; this handoff records the engineering baseline, not a docs-only tip. The preserved backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and was verified read-only. The watchdog-inclusive XY-C1 MIPSel build on the f5cc product-source baseline passed Build XY-C1, TRX verification and artifact upload (run `43625410221`, artifact `14125764801`). All ten exact-head `push` workflows triggered by f5cc passed; see the CI section below. L4 physical router validation remains NOT VERIFIED. Fetch live main before every write.
 - Immutable archive: `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`. Read-only; never modify it.
 - **Permanent user entrypoint:** `接手 https://github.com/Arlene206/padavan-4.4-2/ 继续开发`. The user does not need a long prompt, previous chat, or repository upload. Never output a recursive next-GPT prompt in chat. Git documents and live GitHub state are the project memory.
 - Recovery is read-only by default: read complete `AI_DEVELOPMENT_PROTOCOL.md` and `AI_BOOTSTRAP_PROMPT.md`; fetch live main + immutable backup; inspect exact-head Actions; then read this handoff, roadmap, newest 20 dev-log records, `docs/dev-log/INDEX.md`, and the semantic audit report for the active caller group. Do not create a commit to refresh SHA fields, record a takeover, or report a CI poll.
@@ -34,9 +34,9 @@ For every multi-file slice, publish source + regression tests + required workflo
 - The rstats `saved_errno` compile error found on `733463cb` was fixed by `dd7a9b42`; the dd7a XY-C1 run `43624870668` subsequently completed SUCCESS. The watchdog-inclusive current-main build and watchdog signal regression also completed SUCCESS on `f5cc0baf`.
 - Remaining PID producers include BusyBox udhcpc, PPPD and INICD; next broader process task is to include PPP/PID-file targets in the all-target stop preflight.
 
-### Exact-head Actions on current main SHA `f5cc0bafdfa017e9019dbda991a3855a84bc2e1c`
+### Exact-head Actions on product-source SHA `f5cc0bafdfa017e9019dbda991a3855a84bc2e1c`
 
-All ten `push` workflows below have `head_sha` exactly equal to current main and completed SUCCESS:
+All ten `push` workflows below checked out this exact product-source SHA (then the main tip) and completed SUCCESS:
 
 - XY-C1 Firmware Validation [43625410221] — Build XY-C1, Verify TRX output and artifact upload all SUCCESS; artifact [14125764801] (12,583,902 bytes).
 - AI handoff documentation contract [43625410189] — SUCCESS.
@@ -53,8 +53,8 @@ The earlier dd7a XY-C1 run [43624870668] also completed SUCCESS; it is supersede
 
 ### XY-C1 MIPS/uClibc target build — current HEAD NOT YET VERIFIED
 
-- Current-main L3 is VERIFIED on `f5cc0bafdfa017e9019dbda991a3855a84bc2e1c`: XY-C1 run [43625410221](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43625410221) passed Build XY-C1, Verify TRX output and artifact upload; artifact [14125764801](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43625410221/artifacts/14125764801), 12,583,902 bytes. This is L3 build/artifact evidence, not L4 router validation.
-- The rstats compile defect is fixed; both dd7a's follow-up build and the watchdog-inclusive current-main build passed. The current-main target build validates the integrated RC source at L3.
+- L3 is VERIFIED on product-source baseline `f5cc0bafdfa017e9019dbda991a3855a84bc2e1c`: XY-C1 run [43625410221](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43625410221) passed Build XY-C1, Verify TRX output and artifact upload; artifact [14125764801](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43625410221/artifacts/14125764801), 12,583,902 bytes. This is L3 build/artifact evidence, not L4 router validation.
+- The rstats compile defect is fixed; both dd7a's follow-up build and the watchdog-inclusive current-main build passed. The f5cc target build validates the integrated RC source at L3.
 - L4 remains NOT VERIFIED; no physical XY-C1 flash/boot/runtime claim.
 
 ## Explicitly uncompleted P1 work
@@ -69,14 +69,14 @@ The earlier dd7a XY-C1 run [43624870668] also completed SUCCESS; it is supersede
 ## Verification boundary
 
 - L1: prior lexical inventory and direct-call semantic review PASS within the recorded scope; do not repeat completed inventories.
-- L2: all ten exact-head `push` workflows on current main `f5cc0bafdfa017e9019dbda991a3855a84bc2e1c` passed: XY-C1 [43625410221], AI docs [43625410189], watchdog [43625410193], process lifecycle [43625410154], process inventory [43625410226], NVRAM [43625410190], AdGuardHome [43625410170], AliDDNS [43625410262], AliyunDrive [43625410196] and infosvr [43625410180].
-- L3: VERIFIED on current main `f5cc0bafdfa017e9019dbda991a3855a84bc2e1c`; XY-C1 run [43625410221] passed firmware build, TRX verification and artifact upload. No L4 hardware validation is claimed.
+- L2: all ten exact-head `push` workflows triggered by product-source SHA `f5cc0bafdfa017e9019dbda991a3855a84bc2e1c` passed: XY-C1 [43625410221], AI docs [43625410189], watchdog [43625410193], process lifecycle [43625410154], process inventory [43625410226], NVRAM [43625410190], AdGuardHome [43625410170], AliDDNS [43625410262], AliyunDrive [43625410196] and infosvr [43625410180].
+- L3: VERIFIED on product-source baseline `f5cc0bafdfa017e9019dbda991a3855a84bc2e1c`; XY-C1 run [43625410221] passed firmware build, TRX verification and artifact upload. No L4 hardware validation is claimed.
 - L4: physical XY-C1 flash, boot, runtime and functional hardware validation NOT VERIFIED.
 - No full local checkout is available in this execution context; source and CI evidence are obtained through GitHub.
 
 ## Exact first action for the next GPT
 
-1. Recover live `main`, confirm the immutable backup ref is unchanged, and inspect Actions only for the live `main` SHA. Do not repeat the completed inventory/semantic audit or re-check the ten already-passing f5cc workflows unless a new commit changes their inputs.
+1. Fetch live `main` and confirm the immutable backup ref is unchanged. The f5cc source baseline already has ten passing exact-head workflows and a passing XY-C1/TRX artifact build; do not repeat those checks unless a new commit changes their inputs. The intervening f25 documentation-only AI-doc run exposed a case-sensitive validator assertion, now corrected; inspect the new exact-head AI-doc result.
 2. Resume P1 implementation immediately: add PPP/PID-file targets to the existing all-target stop preflight before any signal. Trace the producer/consumer and stop semantics for each target; add caller-level regressions that block destructive follow-up on UNKNOWN/CHANGED/FAILED.
 3. Then migrate VPN Server/Client, USB modem DHCP/PPP removal, AP LAN DHCP/bridge teardown, firmware `stop_services()`/flash, and Samba/storage/NVRAM postconditions. Keep the compatibility constraints below.
 4. Keep pids() Boolean-compatible until all 77 direct callers are migrated/adapted. Keep kill_pidfile_s() semantics unchanged until its five direct callers and all 15 call expressions are migrated/adapted. BusyBox's independent procps implementation stays separate.
