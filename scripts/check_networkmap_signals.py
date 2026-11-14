@@ -144,7 +144,7 @@ assert 'record_service_stop_status(&stop_status, "networkmap", stop_networkmap()
 assert "return stop_status;" in stop_services
 assert "restart_networkmap();" in rc
 assert "int start_networkmap(int first_call);" in rc_header
-assert "void stop_networkmap(void);" in rc_header
+assert "int stop_networkmap(void);" in rc_header
 assert "void restart_networkmap(void);" in rc_header
 
 paths = (

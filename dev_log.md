@@ -1,3 +1,13 @@
+## 2026-11-15 — Correct networkmap stop prototype assertion after exact-head failure
+
+- Exact-head networkmap push [43648923325] on `7697c6fd6664bb57019ae610bca642c73d88a8d9` passed the GNU89/ASan/UBSan signal-policy binary, then failed at `scripts/check_networkmap_signals.py:147`: the checker expected `void stop_networkmap(void);`, but `rc.h` correctly declares `int` and `services.c` returns the `kill_services()` result. This was a stale source-contract assertion, not a production defect.
+- Updated the checker to require `int stop_networkmap(void);`, retaining the separate assertions that the stop result is aggregated in `stop_services()` and returned. The prior networkmap assertion failures on cc61 are resolved by the 7697 checker update; VPN rerun [43648923434] passed. AI docs [43648923326], process inventory [43648923376], AdGuardHome [43648923421], AliDDNS [43648923338], infosvr [43648923306] and AliyunDrive [43648923366] passed on exact 7697; NVRAM [43648923357] was still IN_PROGRESS.
+- XY-C1 L3 is VERIFIED on product-source SHA `cc61cb5f8ae594b0cf1aee3ddebdd414e0bf5286`: run [43648229489] passed firmware build, TRX verification and artifact upload [14135711084] (12,587,100 bytes; SHA-256 `bda83c9e71ed01a8708ad90a5104535e972bd30424bdf03ed24065b3a1a9407e`). No product source changed in the later 7697 handoff-only commit or this checker correction. L4 remains NOT VERIFIED.
+- Changed paths: `scripts/check_networkmap_signals.py`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and this log. Resulting commit: THIS COMMIT.
+- Root `dev_log.md` advances 118→119 records; no archive rotation or index update is due.
+
+---
+
 ## 2026-11-15 — Align networkmap and VPN lifecycle contracts with aggregated stop results
 
 - Exact-head CI on `cc61cb5f8ae594b0cf1aee3ddebdd414e0bf5286` exposed two stale source assertions after `stop_services()` was changed from ignored direct stops to explicit status aggregation. The networkmap checker expected the literal statement `stop_networkmap();`; the VPN checker expected `stop_vpn_server();`. Production now calls each through `record_service_stop_status()` and returns the aggregate, so the assertions were false negatives rather than runtime failures.
