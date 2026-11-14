@@ -42,6 +42,7 @@
 
 #include "rc.h"
 #include "service_lifecycle_policy.h"
+#include <process_pidfile.h>
 
 #define XSTR(s) STR(s)
 #define STR(s) #s
@@ -1156,6 +1157,15 @@ service_lifecycle_sleep(void *context, unsigned int seconds)
 	sleep(seconds);
 }
 
+static enum process_presence
+service_lifecycle_read_pidfile(void *context, const char *path,
+			       const char *process_name,
+			       struct process_identity *identity)
+{
+	(void)context;
+	return process_pidfile_read_identity(path, process_name, identity);
+}
+
 int
 kill_services(char* svc_name[], int wtimeout, int forcekill)
 {
@@ -1163,7 +1173,8 @@ kill_services(char* svc_name[], int wtimeout, int forcekill)
 		service_lifecycle_scan,
 		service_lifecycle_validate,
 		service_lifecycle_send_signal,
-		service_lifecycle_sleep
+		service_lifecycle_sleep,
+		service_lifecycle_read_pidfile
 	};
 	int i, result;
 
@@ -1183,6 +1194,61 @@ kill_services(char* svc_name[], int wtimeout, int forcekill)
 			process_snapshot_release(&snapshot);
 		}
 	}
+	return result;
+}
+
+int
+kill_services_with_pidfiles(char *svc_name[], const char *pidfile_paths[],
+			    const char *pidfile_process_name, int pidfile_force_only,
+			    int wtimeout, int forcekill)
+{
+	static const struct service_lifecycle_ops ops = {
+		service_lifecycle_scan,
+		service_lifecycle_validate,
+		service_lifecycle_send_signal,
+		service_lifecycle_sleep,
+		service_lifecycle_read_pidfile
+	};
+	struct service_lifecycle_target *targets;
+	size_t service_count = 0, pidfile_count = 0, count, i;
+	enum service_lifecycle_result result;
+
+	if (!svc_name && !pidfile_paths)
+		return SERVICE_LIFECYCLE_FAILED;
+	while (svc_name && svc_name[service_count] && *svc_name[service_count])
+		service_count++;
+	while (pidfile_paths && pidfile_paths[pidfile_count])
+		pidfile_count++;
+	if (pidfile_count && (!pidfile_process_name || !*pidfile_process_name))
+		return SERVICE_LIFECYCLE_FAILED;
+	if (service_count > (size_t)-1 - pidfile_count)
+		return SERVICE_LIFECYCLE_FAILED;
+	count = service_count + pidfile_count;
+	if (count == 0)
+		return SERVICE_LIFECYCLE_STOPPED;
+	if (count > (size_t)-1 / sizeof(*targets))
+		return SERVICE_LIFECYCLE_FAILED;
+	targets = (struct service_lifecycle_target *)calloc(count, sizeof(*targets));
+	if (!targets)
+		return SERVICE_LIFECYCLE_UNKNOWN;
+	for (i = 0; i < service_count; i++)
+		targets[i].name = svc_name[i];
+	for (i = 0; i < pidfile_count; i++) {
+		targets[service_count + i].name = pidfile_process_name;
+		targets[service_count + i].pidfile = pidfile_paths[i];
+		targets[service_count + i].force_only = pidfile_force_only;
+		if (!pidfile_paths[i] || !*pidfile_paths[i]) {
+			service_lifecycle_release_targets(targets, count);
+			free(targets);
+			return SERVICE_LIFECYCLE_FAILED;
+		}
+	}
+	result = service_lifecycle_stop_targets(targets, count, &ops, NULL,
+						wtimeout, forcekill);
+	if (result != SERVICE_LIFECYCLE_STOPPED)
+		logmessage(LOGNAME, "service/PID-file stop transaction incomplete (status=%d)", result);
+	service_lifecycle_release_targets(targets, count);
+	free(targets);
 	return result;
 }
 

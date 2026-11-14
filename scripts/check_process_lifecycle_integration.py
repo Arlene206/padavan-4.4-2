@@ -106,3 +106,21 @@ assert "process_identity_validate(process_name, &snapshot.items[i])" in process_
 assert 'process_pidfile_read_identity(pidfile, "pppd", &identity)' in vpn_server
 assert "pid_text_file" not in vpn_server
 print("PPPD PID-file start-time identity integration: PASS")
+
+lifecycle_policy = (root / "trunk/user/rc/src/service_lifecycle_policy.h").read_text()
+lifecycle_test = (root / "trunk/user/rc/src/tests/service_lifecycle_policy.c").read_text()
+common_ex = (root / "trunk/user/rc/src/common_ex.c").read_text()
+vpn_server = (root / "trunk/user/rc/src/vpn_server.c").read_text()
+vpn_stop = vpn_server.split("static int\nstop_vpn_server_locked(void)", 1)[1].split("\n}\n", 1)[0]
+assert "service_lifecycle_scan_target" in lifecycle_policy
+assert "read_pidfile" in lifecycle_policy and "force_only" in lifecycle_policy
+assert "service_lifecycle_stop_targets" in lifecycle_policy
+assert "process_pidfile_read_identity" in common_ex
+assert "kill_services_with_pidfiles" in common_ex
+assert "test_pidfile_unknown_blocks_entire_preflight" in lifecycle_test
+assert "test_pidfile_identity_change_blocks_escalation" in lifecycle_test
+assert "test_force_only_pidfile_target_skips_term_and_joins_kill" in lifecycle_test
+assert "kill_services_with_pidfiles(svcs, pidfile_paths, \"pppd\", 1, 5, 1)" in vpn_stop
+assert "kill_pidfile_s" not in vpn_stop
+assert "stop_status != 0" in vpn_server
+print("PPP PID-file all-target stop transaction integration: PASS")

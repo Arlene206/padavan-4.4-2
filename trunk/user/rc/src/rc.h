@@ -192,6 +192,7 @@ void start_rwfs_optware(void);
 int retry_rwfs_optware(void);
 void stop_rwfs_optware(void);
 int kill_services(char* svc_name[], int wtimeout, int forcekill);
+int kill_services_with_pidfiles(char *svc_name[], const char *pidfile_paths[], const char *pidfile_process_name, int pidfile_force_only, int wtimeout, int forcekill);
 int kill_process_pidfile(char *pidfile, int wtimeout, int forcekill);
 int create_file(const char *fn);
 int mkdir_if_none(const char *dirpath, const char *mode);
@@ -398,7 +399,7 @@ int ip6t_filter_default(void);
 
 /* vpn_server.c */
 int start_vpn_server(void);
-void stop_vpn_server(void);
+int stop_vpn_server(void);
 void restart_vpn_server(void);
 void reapply_vpn_server(void);
 void get_vpns_pool(int i_vuse, unsigned int *ip_v, unsigned int *ip_m, unsigned int *vp_b, unsigned int *vp_e);

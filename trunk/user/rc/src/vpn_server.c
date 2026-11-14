@@ -438,58 +438,85 @@ start_vpn_server(void)
 	return result;
 }
 
-static void
+static int
 stop_vpn_server_locked(void)
 {
-	int i;
-	char pppd_pid[32];
-	char* svcs[] = { "bcrelay", "pptpd", NULL,  NULL };
+	int i, xl2tpd_active, path_length;
+	char pppd_pidfiles[MAX_CLIENTS_NUM][64];
+	const char *pidfile_paths[MAX_CLIENTS_NUM + 1];
+	char *svcs[] = { "bcrelay", "pptpd", NULL, NULL };
 
-	if (get_xl2tpd_vpns_active()) {
+	xl2tpd_active = get_xl2tpd_vpns_active();
+	if (xl2tpd_active)
 		svcs[2] = "xl2tpd";
+	for (i = 0; i < MAX_CLIENTS_NUM; i++) {
+		path_length = snprintf(pppd_pidfiles[i], sizeof(pppd_pidfiles[i]),
+				       "/var/run/ppp%d.pid", VPN_SERVER_PPP_UNIT + i);
+		if (path_length < 0 || path_length >= (int)sizeof(pppd_pidfiles[i])) {
+			errno = ENAMETOOLONG;
+			return -1;
+		}
+		pidfile_paths[i] = pppd_pidfiles[i];
+	}
+	pidfile_paths[MAX_CLIENTS_NUM] = NULL;
+
+	/* All daemons and every possible client PPP session are captured and
+	 * identity-checked before the first TERM; PPPD targets remain force-only. */
+	if (kill_services_with_pidfiles(svcs, pidfile_paths, "pppd", 1, 5, 1) !=
+	    SERVICE_LIFECYCLE_STOPPED) {
+		logmessage(VPNS_LOG_NAME,
+			   "refusing VPN server teardown: daemon or client PPP identity is unknown/active");
+		return -1;
+	}
+	if (xl2tpd_active)
 		xl2tpd_killed_vpns = 1;
-	}
-
-	kill_services(svcs, 5, 1);
-
-	/* force kill all clients pppd */
-	for (i=0; i<MAX_CLIENTS_NUM; i++) {
-		snprintf(pppd_pid, sizeof(pppd_pid), "/var/run/ppp%d.pid", VPN_SERVER_PPP_UNIT+i);
-		kill_pidfile_s(pppd_pid, SIGKILL);
-	}
 
 	nvram_set_int_temp("l2tp_srv_t", 0);
-
-	unlink(VPNS_PPP_UP_SCRIPT);
-	unlink(VPNS_PPP_DW_SCRIPT);
+	if (unlink(VPNS_PPP_UP_SCRIPT) != 0 && errno != ENOENT)
+		return -1;
+	if (unlink(VPNS_PPP_DW_SCRIPT) != 0 && errno != ENOENT)
+		return -1;
 
 #if defined(APP_OPENVPN)
 	stop_openvpn_server();
 #endif
 
-	if (clear_vpns_lease_file() != 0)
+	if (clear_vpns_lease_file() != 0) {
 		logmessage(VPNS_LOG_NAME, "cannot clear VPN lease inventory safely (errno=%d)", errno);
+		return -1;
+	}
+	return 0;
 }
 
-void
+int
 stop_vpn_server(void)
 {
-	int lock_fd;
+	int lock_fd, result, saved_errno;
 
 	lock_fd = vpn_server_lifecycle_lock_acquire();
 	if (lock_fd < 0) {
 		logmessage(VPNS_LOG_NAME, "cannot lock VPN server lifecycle for stop (errno=%d)", errno);
-		return;
+		return -1;
 	}
-	stop_vpn_server_locked();
-	if (vpn_server_lifecycle_lock_release(lock_fd) != 0)
-		logmessage(VPNS_LOG_NAME, "cannot release VPN server lifecycle lock after stop (errno=%d)", errno);
+	result = stop_vpn_server_locked();
+	saved_errno = errno;
+	if (vpn_server_lifecycle_lock_release(lock_fd) != 0) {
+		int release_errno = errno ? errno : EIO;
+		logmessage(VPNS_LOG_NAME, "cannot release VPN server lifecycle lock after stop (errno=%d)", release_errno);
+		if (result == 0) {
+			result = -1;
+			saved_errno = release_errno;
+		}
+	}
+	if (result != 0 && saved_errno)
+		errno = saved_errno;
+	return result;
 }
 
 void
 restart_vpn_server(void)
 {
-	int lock_fd, start_status;
+	int lock_fd, start_status, stop_status, saved_errno;
 
 	if (get_ap_mode())
 		return;
@@ -502,7 +529,15 @@ restart_vpn_server(void)
 	xl2tpd_killed_vpns = 0;
 	/* Keep teardown, config publication and service restoration atomic across
 	 * independent RC applets and PID 1 notifications. */
-	stop_vpn_server_locked();
+	stop_status = stop_vpn_server_locked();
+	if (stop_status != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(VPNS_LOG_NAME, "VPN server restart aborted because stop was incomplete (errno=%d)", saved_errno);
+		if (vpn_server_lifecycle_lock_release(lock_fd) != 0)
+			logmessage(VPNS_LOG_NAME, "cannot release VPN server lifecycle lock after aborted restart (errno=%d)", errno);
+		errno = saved_errno;
+		return;
+	}
 	start_status = start_vpn_server_locked();
 	if (start_status != 0)
 		logmessage(VPNS_LOG_NAME, "VPN server restart failed (status=%d, errno=%d)", start_status, errno);

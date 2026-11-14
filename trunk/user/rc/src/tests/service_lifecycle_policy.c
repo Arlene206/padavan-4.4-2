@@ -17,6 +17,10 @@ struct fake_service {
 	int change_identity_after_term;
 	int disappear_on_validate;
 	int validate_unknown_initial;
+	const char *pidfile_path;
+	int pidfile_present;
+	int pidfile_unknown;
+	int pidfile_change_identity_after_term;
 	unsigned int sleeps;
 	struct process_identity identity;
 };
@@ -148,8 +152,29 @@ fake_sleep(void *opaque, unsigned int seconds)
 	}
 }
 
+static enum process_presence
+fake_read_pidfile(void *opaque, const char *path, const char *name,
+		  struct process_identity *identity)
+{
+	struct fake_context *context = (struct fake_context *)opaque;
+	struct fake_service *service = fake_find(context, name);
+
+	if (!service || !service->pidfile_path ||
+	    strcmp(service->pidfile_path, path) != 0)
+		return PROCESS_PRESENCE_UNKNOWN;
+	if (service->pidfile_unknown)
+		return PROCESS_PRESENCE_UNKNOWN;
+	if (!service->pidfile_present)
+		return PROCESS_PRESENCE_ABSENT;
+	*identity = service->identity;
+	if (service->pidfile_change_identity_after_term &&
+	    context->term_signals > 0)
+		identity->start_time++;
+	return PROCESS_PRESENCE_RUNNING;
+}
+
 static const struct service_lifecycle_ops fake_ops = {
-	fake_scan, fake_validate, fake_signal, fake_sleep
+	fake_scan, fake_validate, fake_signal, fake_sleep, fake_read_pidfile
 };
 
 static void
@@ -364,6 +389,116 @@ test_delayed_exit_and_empty_list(void)
 	       SERVICE_LIFECYCLE_STOPPED);
 }
 
+static void
+test_pidfile_unknown_blocks_entire_preflight(void)
+{
+	struct fake_service services[2];
+	struct fake_context context;
+	struct service_lifecycle_target targets[2];
+
+	memset(services, 0, sizeof(services));
+	services[0].name = "pptpd";
+	services[0].present = 1;
+	services[1].name = "pppd";
+	services[1].present = 1;
+	services[1].pidfile_path = "/var/run/ppp10.pid";
+	services[1].pidfile_unknown = 1;
+	fake_setup(&context, services, 2);
+	memset(targets, 0, sizeof(targets));
+	targets[0].name = "pptpd";
+	targets[1].name = "pppd";
+	targets[1].pidfile = services[1].pidfile_path;
+	targets[1].force_only = 1;
+	assert(service_lifecycle_stop_targets(targets, 2, &fake_ops, &context,
+					      2, 1) == SERVICE_LIFECYCLE_UNKNOWN);
+	assert(context.term_signals == 0);
+	assert(context.kill_signals == 0);
+	service_lifecycle_release_targets(targets, 2);
+}
+
+static void
+test_pidfile_identity_change_blocks_escalation(void)
+{
+	struct fake_service services[2];
+	struct fake_context context;
+	struct service_lifecycle_target targets[2];
+
+	memset(services, 0, sizeof(services));
+	services[0].name = "pptpd";
+	services[0].present = 1;
+	services[1].name = "pppd";
+	services[1].present = 1;
+	services[1].pidfile_path = "/var/run/ppp10.pid";
+	services[1].pidfile_present = 1;
+	services[1].pidfile_change_identity_after_term = 1;
+	fake_setup(&context, services, 2);
+	memset(targets, 0, sizeof(targets));
+	targets[0].name = "pptpd";
+	targets[1].name = "pppd";
+	targets[1].pidfile = services[1].pidfile_path;
+	targets[1].force_only = 1;
+	assert(service_lifecycle_stop_targets(targets, 2, &fake_ops, &context,
+					      1, 1) == SERVICE_LIFECYCLE_CHANGED);
+	assert(context.term_signals == 1);
+	assert(context.kill_signals == 0);
+	service_lifecycle_release_targets(targets, 2);
+}
+
+static void
+test_force_only_pidfile_target_skips_term_and_joins_kill(void)
+{
+	struct fake_service services[2];
+	struct fake_context context;
+	struct service_lifecycle_target targets[2];
+
+	memset(services, 0, sizeof(services));
+	services[0].name = "pptpd";
+	services[0].present = 1;
+	services[0].stop_on_kill = 1;
+	services[1].name = "pppd";
+	services[1].present = 1;
+	services[1].stop_on_kill = 1;
+	services[1].pidfile_path = "/var/run/ppp10.pid";
+	services[1].pidfile_present = 1;
+	fake_setup(&context, services, 2);
+	memset(targets, 0, sizeof(targets));
+	targets[0].name = "pptpd";
+	targets[1].name = "pppd";
+	targets[1].pidfile = services[1].pidfile_path;
+	targets[1].force_only = 1;
+	assert(service_lifecycle_stop_targets(targets, 2, &fake_ops, &context,
+					      1, 1) == SERVICE_LIFECYCLE_STOPPED);
+	assert(context.term_signals == 1);
+	assert(context.kill_signals == 2);
+	service_lifecycle_release_targets(targets, 2);
+}
+
+static void
+test_absent_pidfile_does_not_block_service_stop(void)
+{
+	struct fake_service services[2];
+	struct fake_context context;
+	struct service_lifecycle_target targets[2];
+
+	memset(services, 0, sizeof(services));
+	services[0].name = "pptpd";
+	services[0].present = 1;
+	services[0].stop_on_term = 1;
+	services[1].name = "pppd";
+	services[1].pidfile_path = "/var/run/ppp10.pid";
+	fake_setup(&context, services, 2);
+	memset(targets, 0, sizeof(targets));
+	targets[0].name = "pptpd";
+	targets[1].name = "pppd";
+	targets[1].pidfile = services[1].pidfile_path;
+	targets[1].force_only = 1;
+	assert(service_lifecycle_stop_targets(targets, 2, &fake_ops, &context,
+					      1, 1) == SERVICE_LIFECYCLE_STOPPED);
+	assert(context.term_signals == 1);
+	assert(context.kill_signals == 0);
+	service_lifecycle_release_targets(targets, 2);
+}
+
 int
 main(void)
 {
@@ -377,5 +512,9 @@ main(void)
 	test_force_kill_revalidates_and_waits_for_exit();
 	test_nonforced_timeout_blocks_followup();
 	test_delayed_exit_and_empty_list();
+	test_pidfile_unknown_blocks_entire_preflight();
+	test_pidfile_identity_change_blocks_escalation();
+	test_force_only_pidfile_target_skips_term_and_joins_kill();
+	test_absent_pidfile_does_not_block_service_stop();
 	return 0;
 }

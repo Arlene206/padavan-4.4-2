@@ -15,6 +15,7 @@ on:
       - "trunk/user/shared/src/tests/process_inventory.c"
       - "trunk/user/rc/src/common_ex.c"
       - "trunk/user/rc/src/vpn_server.c"
+      - "trunk/user/rc/src/rc.h"
       - "trunk/user/pppd/ppp-2.4.7/pppd/main.c"
       - "trunk/user/pppd/ppp-2.4.7/pppd/pppd_pidfile_policy.h"
       - "trunk/user/pppd/ppp-2.4.7/pppd/tests/pppd_pidfile_policy.c"

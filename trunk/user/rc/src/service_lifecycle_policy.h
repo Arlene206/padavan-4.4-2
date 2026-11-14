@@ -2,6 +2,7 @@
 #define SERVICE_LIFECYCLE_POLICY_H
 
 #include <signal.h>
+#include <errno.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,10 +29,15 @@ struct service_lifecycle_ops {
 			   const struct process_identity *identity,
 			   int signal_number);
 	void (*sleep_seconds)(void *context, unsigned int seconds);
+	enum process_presence (*read_pidfile)(void *context, const char *path,
+					       const char *process_name,
+					       struct process_identity *identity);
 };
 
 struct service_lifecycle_target {
 	const char *name;
+	const char *pidfile;
+	int force_only;
 	struct process_snapshot initial;
 };
 
@@ -45,6 +51,42 @@ service_lifecycle_identity_equal(const struct process_identity *left,
 		left->argv1_hash == right->argv1_hash &&
 		left->comm_truncated == right->comm_truncated &&
 		strcmp(left->comm, right->comm) == 0;
+}
+
+static inline enum process_presence
+service_lifecycle_scan_target(const struct service_lifecycle_target *target,
+			      const struct service_lifecycle_ops *ops,
+			      void *context, struct process_snapshot *snapshot)
+{
+	enum process_presence state;
+	struct process_identity identity;
+
+	if (!target->pidfile)
+		return ops->scan(context, target->name, snapshot);
+	memset(snapshot, 0, sizeof(*snapshot));
+	if (!ops->read_pidfile) {
+		snapshot->state = PROCESS_PRESENCE_UNKNOWN;
+		snapshot->error = EINVAL;
+		return snapshot->state;
+	}
+	state = ops->read_pidfile(context, target->pidfile, target->name, &identity);
+	snapshot->state = state;
+	if (state == PROCESS_PRESENCE_RUNNING) {
+		snapshot->items = (struct process_identity *)malloc(sizeof(identity));
+		if (!snapshot->items) {
+			snapshot->state = PROCESS_PRESENCE_UNKNOWN;
+			snapshot->error = ENOMEM;
+			return snapshot->state;
+		}
+		snapshot->items[0] = identity;
+		snapshot->count = 1;
+	} else if (state == PROCESS_PRESENCE_ABSENT) {
+		snapshot->count = 0;
+	} else {
+		snapshot->state = PROCESS_PRESENCE_UNKNOWN;
+		snapshot->error = errno ? errno : EIO;
+	}
+	return snapshot->state;
 }
 
 static inline int
@@ -90,7 +132,8 @@ service_lifecycle_preflight(struct service_lifecycle_target *targets,
 	 */
 	if (capture_snapshots) {
 		for (i = 0; i < count; i++) {
-			state = ops->scan(context, targets[i].name, &targets[i].initial);
+			state = service_lifecycle_scan_target(&targets[i], ops, context,
+					     &targets[i].initial);
 			if (state == PROCESS_PRESENCE_UNKNOWN)
 				return SERVICE_LIFECYCLE_UNKNOWN;
 			if ((state != PROCESS_PRESENCE_RUNNING &&
@@ -123,7 +166,7 @@ service_lifecycle_preflight(struct service_lifecycle_target *targets,
 		struct process_snapshot current;
 
 		memset(&current, 0, sizeof(current));
-		state = ops->scan(context, targets[i].name, &current);
+		state = service_lifecycle_scan_target(&targets[i], ops, context, &current);
 		if (state == PROCESS_PRESENCE_UNKNOWN ||
 		    current.state != state) {
 			process_snapshot_release(&current);
@@ -169,6 +212,8 @@ service_lifecycle_signal_targets(struct service_lifecycle_target *targets,
 	enum process_presence state;
 
 	for (i = 0; i < count; i++) {
+		if (signal_number == SIGTERM && targets[i].force_only)
+			continue;
 		for (j = 0; j < targets[i].initial.count; j++) {
 			/* Revalidate the exact PID/start-time identity before each signal. */
 			state = ops->validate(context, targets[i].name,
@@ -260,6 +305,53 @@ service_lifecycle_allows_followup(enum service_lifecycle_result result)
  * storage release or firmware-update progression.
  */
 static inline enum service_lifecycle_result
+service_lifecycle_stop_targets(struct service_lifecycle_target *targets,
+			       size_t count,
+			       const struct service_lifecycle_ops *ops,
+			       void *context, int wait_timeout, int forcekill)
+{
+	enum service_lifecycle_result result;
+
+	if ((!targets && count != 0) || !ops || !ops->scan || !ops->validate ||
+	    !ops->send_signal || !ops->sleep_seconds)
+		return SERVICE_LIFECYCLE_FAILED;
+	if (count == 0)
+		return SERVICE_LIFECYCLE_STOPPED;
+	if (count > (size_t)-1 / sizeof(*targets))
+		return SERVICE_LIFECYCLE_FAILED;
+
+	/* No TERM may occur until every process and PID-file target passed the
+	 * complete preflight, including strict PID/start-time identity matching. */
+	result = service_lifecycle_preflight(targets, count, ops, context, 1);
+	if (result != SERVICE_LIFECYCLE_STOPPED)
+		return result;
+	result = service_lifecycle_signal_targets(targets, count, ops, context,
+					  SIGTERM);
+	if (result != SERVICE_LIFECYCLE_STOPPED)
+		return result;
+
+	if (wait_timeout < 1)
+		wait_timeout = 1;
+	result = service_lifecycle_wait_for_exit(targets, count, ops, context,
+						 (unsigned int)wait_timeout);
+	if (result == SERVICE_LIFECYCLE_STOPPED)
+		return result;
+	if (!forcekill || result != SERVICE_LIFECYCLE_TIMEOUT)
+		return result;
+
+	/* Re-inventory the entire plan before escalation, then recheck each PID. */
+	result = service_lifecycle_preflight(targets, count, ops, context, 0);
+	if (result != SERVICE_LIFECYCLE_STOPPED)
+		return result;
+	result = service_lifecycle_signal_targets(targets, count, ops, context,
+					  SIGKILL);
+	if (result != SERVICE_LIFECYCLE_STOPPED)
+		return result;
+	return service_lifecycle_wait_for_exit(targets, count, ops, context,
+					       SERVICE_LIFECYCLE_FORCE_WAIT_SECONDS);
+}
+
+static inline enum service_lifecycle_result
 service_lifecycle_stop(char *service_names[], int wait_timeout, int forcekill,
 		       const struct service_lifecycle_ops *ops, void *context)
 {
@@ -277,47 +369,14 @@ service_lifecycle_stop(char *service_names[], int wait_timeout, int forcekill,
 	if (count > (size_t)-1 / sizeof(*targets))
 		return SERVICE_LIFECYCLE_FAILED;
 
-	targets = (struct service_lifecycle_target *)
-		calloc(count, sizeof(*targets));
+	targets = (struct service_lifecycle_target *)calloc(count, sizeof(*targets));
 	if (!targets)
 		return SERVICE_LIFECYCLE_UNKNOWN;
 	for (i = 0; i < count; i++)
 		targets[i].name = service_names[i];
-
-	/* No TERM may occur until every service passed this complete preflight. */
-	result = service_lifecycle_preflight(targets, count, ops, context, 1);
-	if (result != SERVICE_LIFECYCLE_STOPPED)
-		goto out;
-	result = service_lifecycle_signal_targets(targets, count, ops, context,
-						  SIGTERM);
-	if (result != SERVICE_LIFECYCLE_STOPPED)
-		goto out;
-
-	if (wait_timeout < 1)
-		wait_timeout = 1;
-	result = service_lifecycle_wait_for_exit(targets, count, ops, context,
-						 (unsigned int)wait_timeout);
-	if (result == SERVICE_LIFECYCLE_STOPPED)
-		goto out;
-	if (!forcekill)
-		goto out;
-	if (result != SERVICE_LIFECYCLE_TIMEOUT)
-		goto out;
-
-	/* Re-inventory the entire plan before escalation, then recheck each PID. */
-	result = service_lifecycle_preflight(targets, count, ops, context, 0);
-	if (result != SERVICE_LIFECYCLE_STOPPED)
-		goto out;
-	result = service_lifecycle_signal_targets(targets, count, ops, context,
-						  SIGKILL);
-	if (result != SERVICE_LIFECYCLE_STOPPED)
-		goto out;
-	result = service_lifecycle_wait_for_exit(targets, count, ops, context,
-						 SERVICE_LIFECYCLE_FORCE_WAIT_SECONDS);
-
-out:
+	result = service_lifecycle_stop_targets(targets, count, ops, context,
+						wait_timeout, forcekill);
 	service_lifecycle_release_targets(targets, count);
 	return result;
 }
-
 #endif
