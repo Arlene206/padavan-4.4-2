@@ -130,3 +130,64 @@ Actions Run `43541384942`（SHA `59105690...`）：
 - OC 实现：`trunk/linux-4.4.x/arch/mips/ralink/mt7621.c`、`trunk/configure`
 
 **状态：本文件只保存讨论上下文。未修改 XY-C1 模板、Makefile、WebUI、内核配置或任何产品代码；没有形成实施提交或硬件验证结论。**
+
+## 8. 2026-11-14 continuation: C5 must be independently usable; proxy UI/rules redesign
+
+### Newly confirmed user requirements
+
+- C5 must have its **own independent proxy capability**, not merely be a transparent forwarder to N1. Reasons: N1 downtime/reconfiguration, disaster recovery, and having a way to fetch tools/subscriptions/firmware-related resources when N1 is unavailable. Local firmware upload through the LAN WebUI itself does not require WAN proxy; downloading firmware/resources from the Internet may.
+- Normal operation may still use N1 as the preferred upstream: C5 performs LAN policy routing, domestic traffic exits WAN directly, selected overseas traffic goes through the N1 SOCKS5 endpoint, and N1 performs its own independent proxy/routing.
+- When N1 is unavailable, C5 must be able to select and run its own node directly, without requiring N1, N1 DNS, or N1 storage. This is a standalone fallback/disaster-recovery path, not a cloud-only or N1-dependent design.
+- N1's LAN address/subnet is **not hard-coded**. WebUI must allow the user to define one or more bypass/exempt LAN IPs/subnets (ideally both IPv4 and IPv6, with optional device/MAC selection if supported). These entries generate high-priority direct/bypass rules automatically. Distinguish source-device bypass (N1-originated traffic) and destination bypass (C5-to-N1 SOCKS endpoint must go directly over LAN); both must be enforced.
+- User explicitly values the old WebUI's breadth (client, node management, advanced settings, rules, logs, help). Do not reduce the design to a raw JSON editor or a single core toggle. Preserve useful functions, redesign their boundaries/UX, and do not claim support for protocols not actually implemented.
+
+### Current legacy WebUI/source findings
+
+- trunk/user/www/n56u_ribbon_fixed/Shadowsocks.asp is a multi-tab ShadowSocksR Plus+ page with tabs for client, node management, advanced settings, rule management, logs, help. It is more than a simple node picker.
+- Client section has main node, separate game UDP relay node, multi-thread selection, run modes (GFW list / bypass China IP / global / overseas return), proxy ports, LAN control (all or selected IPs), DNS proxy method, optional chinadns-ng, domestic DNS choices, etc.
+- Node management supports legacy SS/SSR, VMess/VLESS, Trojan and SOCKS5 entries/import logic. It does not currently provide genuine Sing-box config generation or a real Hysteria2 node editor. Old V2Ray QUIC is not Hysteria2.
+- Important distinction:
+  1. Main proxy node can be a **remote SOCKS5 upstream** (currently used to hand C5's selected transparent traffic to N1).
+  2. The page's separate socks5_enable section starts a **local SOCKS5 listener on C5** for LAN clients. It is an independent optional feature; don't conflate it with the main SOCKS5 upstream.
+- Current SOCKS5-main adapter: trunk/user/shadowsocks/ss/gensocks.lua launches ipt2socks with -s server -p port -l 1080 -r -4 -R. Upstream ipt2socks option semantics: -r reuse-port, -4 IPv4-only (disables IPv6), -R use TCP REDIRECT rather than TPROXY; TCP and UDP are enabled by default unless -T/-U is passed. Thus the old bridge is not simply “TCP-only”; it explicitly disables IPv6, and real UDP depends on the N1 SOCKS5 server supporting UDP ASSOCIATE. Verify end-to-end TCP/UDP/IPv4/IPv6 on hardware. Source: https://github.com/zfl9/ipt2socks
+- Legacy ss-rules builds ipset + iptables rules and has domestic/direct, GFW, overseas and global modes; it also has custom domain/IP white/blacklists, LAN lists, and WAN IP exception lists. This policy capability should be mapped into a clean, explicit rule model, not lost during a core change.
+- Existing DNS/updates:
+  - Page has manual “update now” buttons and separate automatic-update toggles for chnroute and GFWList.
+  - shadowsocks.sh schedules optional daily updates at 07:00 for chnroute and 08:00 for GFWList when the toggles are enabled.
+  - ss_chdns enables chinadns-ng and china_dns chooses its domestic DNS upstream. The old script loads /etc/storage/chinadns/chnroute.txt into the china ipset, and if /etc/storage/chinadns/chnlist_mini.txt exists, passes it to chinadns-ng for domain/CDN classification. No dedicated chnlist_mini updater was identified in the checked UI/source paths.
+  - chinadns-ng in the legacy path listens on port 65353; its overseas DNS upstream is the local DNS proxy at 127.0.0.1:5353. The DNS chain must be diagrammed and tested to avoid loops with SmartDNS, dnsmasq and sing-box DNS.
+  - update_gfwlist.sh downloads to /tmp and replaces the persistent copy, but currently removes the existing file before moving the new one. Redesign update path as fail-safe: stage in RAM, verify HTTP result/content/format/size/count/checksum as appropriate, then atomic replace; preserve last-known-good data on every failure.
+- Keep chinadns-ng as an optional independently selected DNS policy module only if it proves useful beside SmartDNS. Do not automatically chain SmartDNS, chinadns-ng, dnsproxy/dns2tcp and sing-box DNS together. Choose one authoritative DNS flow per profile and document its upstreams/ports.
+
+### Proposed C5 architecture (discussion direction, not implementation authorization)
+
+1. One current, verified Sing-box candidate may provide C5's own direct node outbounds (SS, VMess, VLESS/Reality, Trojan, Hysteria2) and the N1 SOCKS5 upstream as another outbound. A single policy engine can route the appropriate traffic to either the N1 SOCKS5 outbound or a directly configured C5 node. Verify each node format/import against user's actual profiles. Sing-box has no ShadowsocksR outbound; SSR compatibility must be an explicit decision after checking real node inventory, not silently claimed or dropped.
+2. Use explicit Linux TProxy inbound + C5-managed iptables/ipset rules as the first compatibility candidate for this Padavan 4.4.x environment. Do not assume Sing-box's newer nftables auto_redirect path is available/appropriate on the legacy Padavan kernel/userspace. Validate kernel TPROXY, policy routing, marks, IPv4/IPv6, TCP/UDP, SFE interaction and rollback on XY-C1 hardware.
+3. SOCKS5 outbound is a first-class outbound in Sing-box and supports TCP and UDP by default; still verify that the actual N1 server has UDP ASSOCIATE enabled and carries the traffic classes the user needs. Source: https://sing-box.sagernet.org/configuration/outbound/socks/
+4. C5 node selection should support at least profiles/modes: (a) preferred N1 SOCKS5 upstream, (b) C5 direct node, (c) direct/disabled for emergency diagnosis. Optional automatic failover can be considered with health checks, but must be visible, configurable, loop-safe and deterministic; don't silently switch routes without status.
+5. Sing-box documentation confirms TProxy inbound is Linux-only; rule-sets can be local or remote, remote sets have update intervals/cache behavior, and local files can be reloaded on change. For this product, prefer UI-managed local last-known-good files and explicit reload/apply rather than making boot depend on a remote fetch. Sources:
+   - https://sing-box.sagernet.org/configuration/inbound/tproxy/
+   - https://sing-box.sagernet.org/configuration/rule-set/
+   - https://sing-box.sagernet.org/configuration/route/rule/
+6. The Sing-box 1.14.4 Hysteria2 outbound is a genuine Hysteria2 protocol implementation, not a legacy V2Ray QUIC transport. Upstream docs: https://sing-box.sagernet.org/configuration/outbound/hysteria2/
+7. Keep proxy-core build, legacy SSR compatibility, rule-data/update managers, DNS modules (SmartDNS/chinadns-ng), and WebUI feature inclusion as separate build switches/dependencies. Enabling Sing-box must not drag in the entire old SHADOWSOCKS stack unless a specific compatibility function truly requires it.
+
+### Rules/data lifecycle and WebUI requirements
+
+- On boot: use a bundled baseline rule seed from firmware plus the last successfully installed persistent rule set, if present and valid. Do not require WAN, N1 or DNS downloads to boot; no mandatory rule download on every boot.
+- After C5 WAN and DNS are ready, user can click “Update now” independently for China IP routes, overseas/GFW domains, adblock/custom lists and other enabled rule sources. Optional scheduled updates should be separately configurable and default off unless user requests otherwise.
+- Downloads should go to RAM staging (/tmp), with strict validation. Only after successful validation should files be atomically committed to persistent storage (e.g. /etc/storage after partition/capacity validation). Failed or partial downloads must not replace the last-known-good rules. Record source URL, version/hash, item count, file size, last attempt, last successful update, and error.
+- Applying IP rule sets should minimize transient policy gaps (e.g. build new ipset and swap rather than flush-first where possible); reload only the necessary rules/DNS service when safe.
+- 512MB RAM is useful for staging and in-memory ipset/rule data, but is not proof that an arbitrarily large geo database or Sing-box runtime is harmless. Measure core RSS/peak memory, UDP state, DNS cache, ipset size and update peak separately. RAM staging is ephemeral; a persistent last-good copy is still required.
+- WebUI design should retain capabilities but separate concepts:
+  - Overview/status: selected mode/upstream, active core/version, service health, DNS health, TCP/UDP and IPv4/IPv6 status, rule update status, CPU/RAM, logs.
+  - Client/policy: run mode, direct-vs-proxy policy, ports, LAN device selection, per-device forced proxy/direct, N1 SOCKS5 endpoint and explicit N1 bypass/exempt IP/subnets.
+  - Node/subscription management: C5-owned direct nodes and remote SOCKS5 upstream as separate object types; clear support matrix, imports, validation and test connection.
+  - Rules: China CIDR, overseas/GFW domain/IP rules, custom whitelist/blacklist, source/destination IP exceptions, manual refresh and optional schedule.
+  - DNS: select one coherent SmartDNS/chinadns-ng/sing-box DNS design with explicit domestic/foreign upstreams and no loops.
+  - Advanced: local C5 SOCKS5 listener as independent optional feature, timeouts/retry/health-check/resource settings, and troubleshooting.
+  - Logs/help: actionable errors, last-good rollback state, exported diagnostics.
+- No hard-coded N1 address. User-configurable exceptions must be preserved across firmware upgrades and subscription imports.
+- Before implementation obtain redacted user node/subscription protocol inventory; verify C5's own direct Hysteria2/VLESS Reality/SS/VMess/Trojan; test SOCKS5 TCP/UDP to N1 and N1 outage fallback; measure flash/partition/core size/RAM/throughput; validate DNS and policy rules. Do not modify product code until user explicitly asks to implement and project protocol is followed.
+
+**State update:** this section is user-approved discussion context only. No product code changed and no firmware/hardware validation was performed.
