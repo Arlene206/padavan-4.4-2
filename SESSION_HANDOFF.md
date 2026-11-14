@@ -26,6 +26,11 @@ For every multi-file slice, publish source + regression tests + required workflo
 - Production-connected host tests and CI: `trunk/user/shared/src/tests/process_inventory.c`, `trunk/user/rc/src/tests/service_lifecycle_policy.c`, `.github/workflows/process-lifecycle-regression.yml`, `scripts/check_process_lifecycle_integration.py`.
 - The one-line handoff rule is documented in `AI_BOOTSTRAP_PROMPT.md` and `AI_DEVELOPMENT_PROTOCOL.md`.
 
+### In-tree PID-file identity helper (new, validation pending)
+
+- Added `process_pidfile.c/.h` to shared library: strict PID + start_time record parsing, process-name inventory matching, identity revalidation immediately before signal, and atomic writer using a same-directory mkstemp + rename.
+- The new helper is not yet wired to daemon producers/callers. Next migrate detect_internet's producer, its two RC notification paths and HTTPD's SIGHUP caller together; then add/verify process-name identity coverage. BusyBox udhcpc and PPPD remain separate producer owners.
+
 ### Exact-head Actions on product-source baseline d3951a276ed4002aff3232cf93c8d55662a94e95
 
 - P1 process scanner/lifecycle: run [43600235518](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43600235518), job 132463212570 — SUCCESS. GNU89 production scanner compile, ASan/UBSan fault injection, lifecycle compile/tests, and integration boundaries all passed.

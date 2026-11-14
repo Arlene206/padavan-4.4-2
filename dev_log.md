@@ -1,3 +1,16 @@
+## 2026-11-15 — Add shared PID/start-time file identity helper
+
+- Base main SHA: `49af52aa88d92f5afbeb22638ef6a0e5124bd196`.
+- Added shared `process_pidfile_write()`: captures current process start_time from the authoritative process inventory and atomically publishes `PID start_time\n` using mkstemp, checked writes/close and rename.
+- Added `process_pidfile_signal()`: strict bounded record parsing, expected process-name inventory lookup, start_time comparison and exact process identity revalidation before signaling. UNKNOWN fails closed; stale/mismatched records never signal.
+- Added a GNU89/Werror parser regression for malformed delimiters, PID bounds, zero start_time, signs, whitespace, overflow and overlong records. Added shared object and XY-C1/process-lifecycle path filters.
+- This helper is not yet wired into producers/callers; no existing kill_pidfile_s semantics changed in this commit.
+- Changed paths: shared helper source/header/test, shared Makefile, process/XY workflows, integration checker, handoff and this log. Resulting commit: THIS COMMIT.
+- Host and target CI pending. Root log advances 98→99 records; no archive rotation or INDEX update is due.
+- Next: migrate detect_internet PID producer and all in-tree signal consumers as one coordinated slice.
+
+---
+
 ## 2026-11-15 — Fix regression checker after PID parser extraction
 
 - Exact-head process-lifecycle run `43620113866` failed only in the supplemental source checker: two assertions still expected digit/range parsing inside `lpd.c` after the logic had correctly moved into `lpd_pidfile_policy.h`.

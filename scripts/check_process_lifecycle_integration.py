@@ -59,3 +59,12 @@ assert lpd_source.index("update_pidfile() < 0") < lpd_source.index("listen(sockf
 assert '#include "lpd_pidfile_policy.h"' in lpd_source
 assert "lpd_pidfile_parse(buffer, used, pid)" in lpd_source
 assert "value <= 1 || value > (unsigned long)INT_MAX" not in lpd_source
+
+pidfile_source = (root / "trunk/user/shared/src/process_pidfile.c").read_text()
+pidfile_header = (root / "trunk/user/shared/src/process_pidfile.h").read_text()
+assert "process_pidfile.o" in shared_makefile
+assert "process_pidfile_parse_record" in pidfile_source
+assert "process_identity_validate(process_name, &snapshot.items[i])" in pidfile_source
+assert "process_inventory_scan(process_name, &snapshot)" in pidfile_source
+assert "process_pidfile_write" in pidfile_header
+assert "process_pidfile_signal" in pidfile_header

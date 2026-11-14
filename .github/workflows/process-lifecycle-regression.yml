@@ -6,6 +6,9 @@ on:
       - ".github/workflows/process-lifecycle-regression.yml"
       - "trunk/user/shared/src/process_inventory.c"
       - "trunk/user/shared/src/process_inventory.h"
+      - "trunk/user/shared/src/process_pidfile.c"
+      - "trunk/user/shared/src/process_pidfile.h"
+      - "trunk/user/shared/src/tests/process_pidfile.c"
       - "trunk/user/shared/src/pids.c"
       - "trunk/user/shared/src/shutils.h"
       - "trunk/user/shared/src/Makefile"
@@ -54,6 +57,15 @@ jobs:
         env:
           ASAN_OPTIONS: detect_leaks=1
         run: "$RUNNER_TEMP/service-lifecycle-regression"
+      - name: Compile and run process PID-file identity record regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/shared/src \
+            trunk/user/shared/src/process_inventory.c \
+            trunk/user/shared/src/process_pidfile.c \
+            trunk/user/shared/src/tests/process_pidfile.c \
+            -o "$RUNNER_TEMP/process-pidfile-regression"
+          "$RUNNER_TEMP/process-pidfile-regression"
       - name: Compile and run strict LPD PID-file parser regression
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror \

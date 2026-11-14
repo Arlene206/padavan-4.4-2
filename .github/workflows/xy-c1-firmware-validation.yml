@@ -19,6 +19,8 @@ on:
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/shared/src/shutils.h"
+      - "trunk/user/shared/src/process_pidfile.c"
+      - "trunk/user/shared/src/process_pidfile.h"
       - "trunk/user/rc/src/Makefile"
       - "trunk/user/rc/Makefile"
       - "trunk/user/shared/Makefile"
