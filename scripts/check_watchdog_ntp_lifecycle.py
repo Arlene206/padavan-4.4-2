@@ -94,7 +94,7 @@ assert "result = service_lifecycle_stop(svc_name, wtimeout, forcekill, &ops, NUL
 assert "return result;" in stop
 assert "SERVICE_LIFECYCLE_FORCE_WAIT_SECONDS 3" in lifecycle
 assert "service_lifecycle_wait_for_exit" in lifecycle
-assert "if (!forcekill)" in lifecycle
+assert "if (!forcekill || result != SERVICE_LIFECYCLE_TIMEOUT)" in lifecycle
 assert "test_nonforced_timeout_blocks_followup" in lifecycle_test
 assert "service_lifecycle_stop(names, 1, 0, &fake_ops, &context) ==" in lifecycle_test
 assert "SERVICE_LIFECYCLE_TIMEOUT" in lifecycle_test
