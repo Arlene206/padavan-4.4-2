@@ -81,3 +81,19 @@
 | L2 host / Actions | FRP async watchdog, client/server boot selection, managed cron, disabled-both cleanup, private credential/config staging, bounded stop and launcher-level lifecycle serialization are L2 CLOSED on exact code SHA `7787210e670b74184d0326f1e8e68efa9063c65c` (FRP [43399797821 / job 131799522268], AI docs [43399798215 / job 131799523616] SUCCESS). The first dcc lock fixture failed due escaped newline output; 1802 passed host tests but failed the checker's close-order assertion; final 778 corrected both and rejects inherited FD 9. Five exact docs SHA `252f328f48b8e4ee6bf8b9bfdc18ab8bd574311f` workflows all SUCCESS: AI docs [43400944647], AliyunDrive [43400944593], AliDDNS [43400944683], AdGuardHome [43400944684], infosvr [43400945908], with every job checkout SHA matching. Static review after this bounded slice found broad `killall`, missing bounded startup readiness and lack of rollback across two sequential config renames; these remain OPEN. Adbyby download/lifecycle slices remain L2 closed as recorded above. | Host Actions/QEMU user-mode do not emulate current-main target firmware/hardware. FRP daemon identity/readiness and paired-config rollback are not yet verified. No MIPS/uClibc firmware/TRX or L4 router result is claimed. |
 | L3 MIPS/uClibc production objects / firmware/TRX | VERIFIED on product-source baseline `cc61cb5f8ae594b0cf1aee3ddebdd414e0bf5286`: XY-C1 run [43648229489] passed Build XY-C1, TRX verification and artifact upload (artifact [14135711084], 12,587,100 bytes, SHA-256 `bda83c9e71ed01a8708ad90a5104535e972bd30424bdf03ed24065b3a1a9407e`). | This proves the firmware build/artifact path at this SHA, not L4 physical router behavior. |
 | L4 router/physical hardware | NOT VERIFIED. | Requires target-device boot and subsystem-specific runtime checks. |
+
+## 2026-11-14 implementation/verification addendum
+
+Source baseline: `b022942bf30e6899c18d4bf40aaa528fb17a011f` (handoff documentation commit is separate).
+
+- Storage eject fail-closed implementation is in place; storage-hotplug run `43652052169` reports `completed/success` on `9d85739a978d2f65d87bbe27f8d50f2bdbff3000`. Do not generalize that result to later source SHAs without checking whether relevant storage code changed.
+- GPIO button tri-state startup source: present on this baseline.
+- xl2tpd tri-state startup source: present on this baseline.
+- Current exact-head Actions:
+  - XY-C1 Firmware Validation: in_progress (run 43653875470)
+  - Process lifecycle inventory - b022942bf30e6899c18d4bf40aaa528fb17a011f: in_progress (run 43653875506)
+  - USB storage hotplug stability regression: in_progress (run 43653875448)
+  - HTTPD Authentication and Security Regression: in_progress (run 43653875605)
+  - AI handoff documentation contract: in_progress (run 43653875488)
+- Next audited source slice: HTTPD start duplicate-launch/readiness checks in `trunk/user/rc/src/services.c`; UNKNOWN must fail closed.
+- L3 must be revalidated on latest product-source SHA; L4 hardware validation is not complete.

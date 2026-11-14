@@ -219,3 +219,17 @@
 
 ---
 
+## 2026-11-14 — autonomous process-lifecycle and storage continuation
+
+Source baseline: `b022942bf30e6899c18d4bf40aaa528fb17a011f`.
+
+Storage eject work: checked disk inventory, strict final mount inventory, valid-empty inventory fallback, firmware and shutdown persistence gates, and RC applet status propagation. Exact storage hotplug run `43652052169` on `9d85739a978d2f65d87bbe27f8d50f2bdbff3000`: `completed/success`.
+
+GPIO tri-state source present: true. xl2tpd tri-state source present: true. Current exact-head Actions snapshot:
+- XY-C1 Firmware Validation: in_progress (run 43653875470)
+- Process lifecycle inventory - b022942bf30e6899c18d4bf40aaa528fb17a011f: in_progress (run 43653875506)
+- USB storage hotplug stability regression: in_progress (run 43653875448)
+- HTTPD Authentication and Security Regression: in_progress (run 43653875605)
+- AI handoff documentation contract: in_progress (run 43653875488)
+
+Next audited task: convert HTTPD start duplicate-launch and readiness gates in `trunk/user/rc/src/services.c` to explicit tri-state process inventory semantics; UNKNOWN must not pass as ready. Revalidate XY-C1 firmware build for current product-source baseline before claiming L3. L4 remains unverified.

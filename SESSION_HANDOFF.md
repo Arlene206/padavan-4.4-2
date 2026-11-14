@@ -85,8 +85,26 @@ The earlier dd7a XY-C1 run [43624870668] also completed SUCCESS; it is supersede
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` once, verify backup, and inspect exact-head storage-hotplug, HTTPD and XY-C1 Actions. Before this parser change, storage-hotplug [43652052169] passed on 9d85739, HTTPD [43652145749] passed on 453eaf, and XY-C1 [43652595104] was IN_PROGRESS on main 6c172. This commit triggers strict parser host tests, storage/HTTPD contracts and target build. Do not claim L3 until exact-head build, TRX verification and artifact upload pass.
-2. Continue remaining P1 process-lifecycle work from the semantic review without repeating the 77-caller census. Migrate one bounded caller group from legacy `pids()` semantics and add caller-level UNKNOWN/CHANGED/FAILED regressions before destructive follow-up. Keep `pids()` Boolean-compatible until all 77 callers are migrated; preserve `kill_pidfile_s()` until its five direct callers and 15 expressions are explicitly adapted.
-3. Audit graceful shutdown ordering, Samba config/daemon publication and NVRAM postconditions. Storage eject now propagates inventory, service-stop, per-device/fallback unmount and final zero-mount status through firmware flash, normal shutdown and the `ejall` applet.
-4. Root `dev_log.md` has 21 newest-first records after the 119→20 rotation. Archive part-009 retains the oldest 100 complete records verbatim, oldest-first. Keep its index byte count and Git blob SHA synchronized; next rotation only at 120 records or size trigger.
-5. Linux 4.4 PID/start_time validation retains a check/kill TOCTOU window; no pidfd-equivalent guarantee or L4 hardware validation without evidence. Use one full Git tree/commit and non-forced expected-SHA main update per slice; no force push or partial commits.
+Current source baseline before this documentation-only handoff commit: `b022942bf30e6899c18d4bf40aaa528fb17a011f`.
+Immutable backup: `72f4f157a084f8184b9597ca5bf334b8080e5807` (do not move or force-update).
+This commit changes only handoff/roadmap/log files; it does not change firmware sources.
+
+### Completed in this work window
+- Storage eject is fail-closed: checked `/proc/partitions` inventory, final strict `/proc/mounts` verification, valid-empty-inventory fallback, flash abort before MTD writes, shutdown storage-persistence gate, and `ejall` return propagation. Storage hotplug regression run `43652052169` on `9d85739a978d2f65d87bbe27f8d50f2bdbff3000`: `completed/success`.
+- GPIO button startup now uses tri-state process inventory; UNKNOWN blocks duplicate launch and fails readiness rather than being treated as running: source present on this baseline.
+- xl2tpd startup tri-state preflight and caller propagation: source present on this baseline.
+
+### Actions snapshot for exact source SHA `b022942bf30e6899c18d4bf40aaa528fb17a011f`
+XY-C1 Firmware Validation: in_progress (run 43653875470)
+Process lifecycle inventory - b022942bf30e6899c18d4bf40aaa528fb17a011f: in_progress (run 43653875506)
+USB storage hotplug stability regression: in_progress (run 43653875448)
+HTTPD Authentication and Security Regression: in_progress (run 43653875605)
+AI handoff documentation contract: in_progress (run 43653875488)
+
+### Exact next work
+1. Check every non-completed Actions run above against its exact head SHA. PASS remains evidence for that SHA only. PENDING does not block other work. Repair any FAIL before claiming the associated slice complete.
+2. Confirm the new GPIO and xl2tpd policy tests actually ran on this source SHA. If their workflows are absent or failed, fix workflow path filters/checker/test compile first; do not infer PASS from another SHA.
+3. Continue the already-reviewed process-lifecycle semantic review without repeating the census: next isolated candidate is `trunk/user/rc/src/services.c` HTTPD start duplicate-launch/readiness handling. Migrate that caller to tri-state process presence; UNKNOWN must never be accepted as a successful readiness result. Add a focused regression test and exact-SHA Actions validation.
+4. Re-run XY-C1 target build after the latest product-source changes before marking L3 current. Physical router validation L4 remains NOT VERIFIED.
+
+Do not redo the repository bootstrap or repeat completed audits. Preserve the backup ref and use complete Git trees plus expected-SHA non-force main updates for each atomic commit.
