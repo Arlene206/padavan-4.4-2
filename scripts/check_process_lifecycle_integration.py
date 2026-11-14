@@ -49,3 +49,5 @@ assert "static int lpd_pid_is_running(pid_t pid)" in lpd_source
 assert "process_inventory_scan(\"lpd\", &snapshot)" in lpd_source
 assert "process_identity_validate(\"lpd\", &snapshot.items[i])" in lpd_source
 assert "fscanf(fp, \"%d\", &pid)" not in lpd_source
+
+assert "if (pid == getpid())" in lpd_source

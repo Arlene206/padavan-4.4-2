@@ -1,3 +1,14 @@
+## 2026-11-15 — Avoid LPRng duplicate detection against its own reused PID
+
+- Base main SHA: `2cba8f148dfe9e5ff571ca060883a83ed0af5b97`.
+- Added an explicit self-PID exclusion before process inventory scanning. If an old daemon PID has been recycled for the new LPD process itself, the stale record no longer causes the new instance to reject itself as a duplicate.
+- Added a production-source assertion and documented the remaining socket-bind/publication ordering fix.
+- Exact-head Actions for the preceding consumer change are still running; this defensive edge-case correction has its own CI queued.
+- Changed paths: `trunk/user/LPRng/src/src/common/lpd.c`, `scripts/check_process_lifecycle_integration.py`, `SESSION_HANDOFF.md`, and this log. Resulting commit: THIS COMMIT.
+- Root log advances 93→94 records; no archive rotation or INDEX update is due.
+
+---
+
 ## 2026-11-15 — Correct LPD integration check function-boundary extraction
 
 - Review found two new Python source-contract assertions used a literal backslash-n delimiter instead of a C-source function boundary. This would fail the checker before evaluating the LPD PID consumer contract.

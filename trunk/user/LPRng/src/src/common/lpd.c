@@ -239,6 +239,10 @@ static int lpd_pid_is_running(pid_t pid)
 	enum process_presence state;
 	size_t i;
 
+	/* A reused stale PID may already belong to this new lpd instance. */
+	if (pid == getpid())
+		return 0;
+
 	state = process_inventory_scan("lpd", &snapshot);
 	if (state == PROCESS_PRESENCE_UNKNOWN)
 		return -1;
