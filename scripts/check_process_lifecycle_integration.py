@@ -206,3 +206,13 @@ lan_dns_unlock = lan_restart_transaction.index("dnsmasq_lifecycle_lock_release(d
 lan_vpn_restore = lan_restart_transaction.index("restart_vpn_server();", lan_dns_unlock)
 assert lan_dhcp_failure < lan_dns_unlock < lan_vpn_restore
 print("LAN restart VPN fail-closed stop and rollback integration: PASS")
+
+wan_stop_transaction = net_wan.split("static int\nstop_wan_locked(void)", 1)[1].split("\n}\n", 1)[0]
+wan_ppp_stop_transaction = net_wan.split("static int\nstop_wan_ppp_locked(void)", 1)[1].split("\n}\n", 1)[0]
+assert "abort_resume_detect:" in wan_stop_transaction
+assert "notify_run_detect_internet(2)" in wan_stop_transaction
+assert "goto abort_resume_detect;" in wan_stop_transaction
+assert "abort_resume_detect:" in wan_ppp_stop_transaction
+assert "notify_run_detect_internet(2)" in wan_ppp_stop_transaction
+assert "goto abort_resume_detect;" in wan_ppp_stop_transaction
+print("WAN PPP/WAN teardown detect_internet pause rollback: PASS")

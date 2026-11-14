@@ -1797,15 +1797,19 @@ stop_wan_ppp_locked(void)
 	notify_pause_detect_internet();
 	if (stop_vpn_client() != 0) {
 		logmessage(LOGNAME, "refusing WAN PPP teardown because VPN client stop was incomplete");
-		return -1;
+		goto abort_resume_detect;
 	}
 	if (kill_services(svcs_ppp, 6, 1) != 0) {
 		logmessage(LOGNAME, "refusing to clear WAN PPP state while PPP services remain active");
-		return -1;
+		goto abort_resume_detect;
 	}
 	clear_wan_state();
 	control_wan_led_isp_state(0, 0);
 	return 0;
+
+abort_resume_detect:
+	notify_run_detect_internet(2);
+	return -1;
 }
 
 static int
@@ -1830,7 +1834,7 @@ static const struct wan_teardown_interface_ops wan_teardown_ifdown_ops = {
 static int
 stop_wan_locked(void)
 {
-	int unit, wan_proto, ifdown_status;
+	int unit, wan_proto, ifdown_status, stop_status;
 #if defined (USE_IPV6)
 	int ipv6_status = 0;
 #endif
@@ -1863,12 +1867,14 @@ stop_wan_locked(void)
 	notify_pause_detect_internet();
 	if (stop_vpn_client() != 0) {
 		logmessage(LOGNAME, "refusing WAN PPP teardown because VPN client stop was incomplete");
-		return -1;
+		stop_status = -1;
+		goto abort_resume_detect;
 	}
 
 	if (kill_services(svcs_ppp, 6, 1) != 0) {
 		logmessage(LOGNAME, "refusing WAN interface teardown while PPP services remain active");
-		return -1;
+		stop_status = -1;
+		goto abort_resume_detect;
 	}
 #if defined (USE_IPV6)
 	if (is_wan_ipv6_type_sit() != 1) {
@@ -1877,7 +1883,8 @@ stop_wan_locked(void)
 			logmessage(LOGNAME, "WAN IPv6 teardown incomplete on %s (status=%d)",
 				   man_ifname, ipv6_status);
 			logmessage(LOGNAME, "refusing WAN interface teardown while DHCPv6 callback fencing is incomplete");
-			return -1;
+			stop_status = ipv6_status;
+			goto abort_resume_detect;
 		}
 	}
 #endif
@@ -1885,17 +1892,20 @@ stop_wan_locked(void)
 	if (process_pidfile_signal(udhcpc_pidfiles[0], "udhcpc", SIGUSR2) != 0 &&
 	    errno != ENOENT && errno != ESRCH) {
 		logmessage(LOGNAME, "refusing WAN teardown: WAN DHCP PID identity is unknown");
-		return -1;
+		stop_status = -1;
+		goto abort_resume_detect;
 	}
 	if (process_pidfile_signal(udhcpc_pidfiles[1], "udhcpc", SIGUSR2) != 0 &&
 	    errno != ENOENT && errno != ESRCH) {
 		logmessage(LOGNAME, "refusing WAN teardown: VIPTV DHCP PID identity is unknown");
-		return -1;
+		stop_status = -1;
+		goto abort_resume_detect;
 	}
 	usleep(300000);
 	if (kill_services_with_pidfiles(svcs_wan, udhcpc_pidfiles, "udhcpc", 0, 3, 1) != 0) {
 		logmessage(LOGNAME, "refusing WAN interface teardown while WAN services remain active");
-		return -1;
+		stop_status = -1;
+		goto abort_resume_detect;
 	}
 
 	stop_auth_eapol();
@@ -1915,17 +1925,25 @@ stop_wan_locked(void)
 	remove_cb_links();
 	if (ifdown_status != 0) {
 		logmessage(LOGNAME, "WAN interface shutdown incomplete; skipping final WAN state clear");
-		return -1;
+		stop_status = ifdown_status;
+		goto abort_resume_detect;
 	}
 #if defined (USE_IPV6)
 	if (ipv6_status != 0) {
 		logmessage(LOGNAME, "WAN IPv6 teardown incomplete; skipping final WAN state clear");
-		return -1;
+		stop_status = ipv6_status;
+		goto abort_resume_detect;
 	}
 #endif
 	clear_wan_state();
 	control_wan_led_isp_state(0, 0);
 	return 0;
+
+abort_resume_detect:
+	/* Every failure exits before a confirmed complete teardown; restore the
+	 * monitor so it can observe or recover the still-live/partial WAN. */
+	notify_run_detect_internet(2);
+	return stop_status != 0 ? stop_status : -1;
 }
 
 static int
