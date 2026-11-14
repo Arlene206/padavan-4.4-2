@@ -184,22 +184,22 @@ assert "set_usb_modem_dev_wan(0, 0)" in modem_remove
 assert modem_remove.index("if (stop_status != 0)") < modem_remove.index("set_usb_modem_dev_wan(0, 0)")
 print("WAN and USB modem DHCP/PPP identity-bound teardown integration: PASS")
 
-usbnet_stop = usb_modem.split("int\\nstop_wan_usbnet(void)", 1)[1].split("\\n}\\n", 1)[0]
+usbnet_stop = usb_modem.split("int\nstop_wan_usbnet(void)", 1)[1].split("\n}\n", 1)[0]
 assert "ndis_control_network(ndis_ifname, modem_devnum, 0)" in usbnet_stop
 assert "if (control_status != 0)" in usbnet_stop
-assert "ifdown_status = ifconfig(ndis_ifname, 0, \\"0.0.0.0\\", NULL)" in usbnet_stop
+assert 'ifdown_status = ifconfig(ndis_ifname, 0, "0.0.0.0", NULL)' in usbnet_stop
 assert "ifdown_status != ENODEV" in usbnet_stop
-assert "is_usbnet_has_module(ndis_ifname, \\"cdc_mbim\\")" in usbnet_stop
+assert 'is_usbnet_has_module(ndis_ifname, "cdc_mbim")' in usbnet_stop
 assert "int safe_remove_usb_modem(void);" in rc_header
 assert "int stop_wan_usbnet(void);" in rc_header
 
-modem_remove = usb_modem.split("int\\nsafe_remove_usb_modem(void)", 1)[1].split("\\n}\\n", 1)[0]
+modem_remove = usb_modem.split("int\nsafe_remove_usb_modem(void)", 1)[1].split("\n}\n", 1)[0]
 assert "stop_status = stop_wan_usbnet();" in modem_remove
 assert "if (stop_status != 0)" in modem_remove
 assert modem_remove.index("return stop_status;") < modem_remove.index("set_usb_modem_dev_wan(0, 0)")
 assert "return 0;" in modem_remove
 
-usb_remove = usb_services.split("void\\nsafe_remove_usb_device(int port, const char *dev_name)", 1)[1].split("\\n}\\n", 1)[0]
+usb_remove = usb_services.split("void\nsafe_remove_usb_device(int port, const char *dev_name)", 1)[1].split("\n}\n", 1)[0]
 assert "modem_remove_status = safe_remove_usb_modem();" in usb_remove
 assert "if (modem_remove_status == 0)" in usb_remove
 assert usb_remove.index("if (modem_remove_status == 0)") < usb_remove.index("try_wan_reconnect(0, 0)")
