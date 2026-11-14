@@ -21,6 +21,8 @@
 #include <string.h>
 #include <ctype.h>
 
+#include "process_inventory.h"
+
 #include "defaults.h"
 
 #define MAX_FILE_LINE_SIZE	2048

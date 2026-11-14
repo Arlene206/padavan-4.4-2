@@ -13,7 +13,7 @@ CFLAGS += -Wall -I. -I./include -I$(ROOTDIR)/$(LINUXDIR)/include/nvram
 
 LDFLAGS += -L.
 
-OBJS := shutils.o netutils.o rtutils.o defaults.o nvram_linux.o notify_rc.o bin_sem_asus.o flash_mtd.o pids.o gpioutils.o
+OBJS := shutils.o netutils.o rtutils.o defaults.o nvram_linux.o notify_rc.o bin_sem_asus.o flash_mtd.o pids.o proc_inventory.o gpioutils.o
 
 HEADERS := $(shell ls *.h)
 HEADERS += $(shell ls include/*.h)

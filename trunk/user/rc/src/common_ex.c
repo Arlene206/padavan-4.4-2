@@ -1120,25 +1120,33 @@ inline int retry_rwfs_optware(void) { return 0; }
 inline void stop_rwfs_optware(void) {}
 #endif
 
-static int
-service_lifecycle_is_running(void *context, const char *service_name)
+static enum process_presence
+service_lifecycle_scan(void *context, const char *service_name,
+		       struct process_snapshot *snapshot)
 {
 	(void)context;
-	return pids((char *)service_name);
+	return process_inventory_scan(service_name, snapshot);
+}
+
+static enum process_presence
+service_lifecycle_validate(void *context, const char *service_name,
+			   const struct process_identity *identity)
+{
+	(void)context;
+	return process_identity_validate(service_name, identity);
 }
 
 static int
-service_lifecycle_send_signal(void *context, const char *service_name, int signal_number)
+service_lifecycle_send_signal(void *context,
+			      const struct process_identity *identity,
+			      int signal_number)
 {
-	const char *signal_option;
 	(void)context;
-	if (signal_number == SIGKILL)
-		signal_option = "-SIGKILL";
-	else if (signal_number == SIGTERM)
-		signal_option = "-q";
-	else
+	if (signal_number != SIGTERM && signal_number != SIGKILL)
 		return -1;
-	return doSystem("killall %s %s", signal_option, service_name);
+	if (kill(identity->pid, signal_number) == 0 || errno == ESRCH)
+		return 0;
+	return -1;
 }
 
 static void
@@ -1152,16 +1160,27 @@ int
 kill_services(char* svc_name[], int wtimeout, int forcekill)
 {
 	static const struct service_lifecycle_ops ops = {
-		service_lifecycle_is_running,
+		service_lifecycle_scan,
+		service_lifecycle_validate,
 		service_lifecycle_send_signal,
 		service_lifecycle_sleep
 	};
 	int i, result;
+
 	result = service_lifecycle_stop(svc_name, wtimeout, forcekill, &ops, NULL);
-	if (result != 0) {
+	if (result != SERVICE_LIFECYCLE_STOPPED) {
 		for (i = 0; svc_name && svc_name[i] && *svc_name[i]; i++) {
-			if (pids(svc_name[i]))
-				logmessage(LOGNAME, "service stop incomplete: %s remains active", svc_name[i]);
+			struct process_snapshot snapshot;
+			enum process_presence state;
+
+			state = process_inventory_scan(svc_name[i], &snapshot);
+			if (state == PROCESS_PRESENCE_UNKNOWN)
+				logmessage(LOGNAME, "service inventory unknown: %s (errno %d)",
+					   svc_name[i], snapshot.error);
+			else if (state == PROCESS_PRESENCE_RUNNING)
+				logmessage(LOGNAME, "service stop incomplete: %s has %lu process(es)",
+					   svc_name[i], (unsigned long)snapshot.count);
+			process_snapshot_release(&snapshot);
 		}
 	}
 	return result;

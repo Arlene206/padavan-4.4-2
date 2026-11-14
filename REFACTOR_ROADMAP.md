@@ -1,6 +1,6 @@
 ## Current source / CI checkpoint
 
-- Current main checkpoint is this documentation update (base `d0404d5e33d4239e19c92db9b9ab4fb7529cf26c`); re-fetch the resulting live main SHA and inspect exact-head push Actions before subsequent edits.
+- Current P1 phase-2 implementation checkpoint is assembled against live parent main `f32922d2afc9e8133625551b0dc3e6f361f378d5`; re-fetch the resulting live main SHA and inspect exact-head push Actions before subsequent edits.
 - Preserved branch: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; it remains immutable and outside development.
 - Complete recursive `trunk/user` tree at `daafdae4e97b401a428a0ac65d83a94ebeab0ff5`: 9,439 blobs. The new remote lexical census scanned 6,193 readable candidate text files (388 binary candidates skipped; zero missing/read errors) at exact source commit `d0404d5e33d4239e19c92db9b9ab4fb7529cf26c`.
 - Exact-head process inventory Action [43581078509](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43581078509) completed SUCCESS on `main`, event `push`, matching head SHA. Full report artifact [14108820679](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43581078509/artifacts/14108820679); persistent interpretation and next-step guide: `docs/audits/PROCESS_LIFECYCLE_INVENTORY.md`.
@@ -9,6 +9,13 @@
 - No production C source, firmware template, runtime configuration or WebUI changed in the inventory milestone. Historical L3 evidence remains limited to source SHA `691e4d68a27580d0f053a8b4c9ae7a71bff03e6f`; L4 physical router flash/boot is NOT VERIFIED.
 
 ## Whole-repository module status
+
+### P1 process inventory / service lifecycle — tri-state foundation added; caller migration remains OPEN
+
+- Added shared RUNNING / ABSENT / UNKNOWN process snapshots with separately reported count and PID/start_time identity; procfs and memory operations are injectable. Incomplete or failed scans discard partial PID lists and return UNKNOWN. `pids_main()` reports UNKNOWN as an error; legacy `pids()` is intentionally unchanged until all direct callers are migrated.
+- Central `kill_services()` now preflights the configured service-name set before TERM, rescans before first signal, validates identities before each signal, and signals captured PIDs rather than executing name-wide `killall`. UNKNOWN/changed/timeout/failure does not report STOPPED.
+- New L2 workflow and production-linked host tests are in `.github/workflows/process-lifecycle-regression.yml`; exact-head result must be confirmed before marking L2 PASS.
+- P1 overall remains OPEN: all 77 direct `pids()` call sites, strict PID-file parsing and producer migration, extra PID-file targets in multi-service transactions, direct name-wide signal paths, and upper-layer cleanup/restart propagation (VPN, USB modem, AP LAN, firmware shutdown, Samba/storage) remain unclosed. Linux 4.4 PID/start_time validation retains a check/kill race. BusyBox procps remains independent.
 
 | Module | Status | Verified bounded work | Open reliability / security work |
 |---|---|---|---|

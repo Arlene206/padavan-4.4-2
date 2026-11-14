@@ -14,6 +14,8 @@
 #include <stddef.h>
 #include <ctype.h>
 
+#include "process_inventory.h"
+
 enum {
         PSSCAN_PID      = 1 << 0,
         PSSCAN_PPID     = 1 << 1,
@@ -461,22 +463,26 @@ pid_t* find_pid_by_name(const char *procName)
 
 int pids_main(char *appname)
 {
-	pid_t *pidList;
-	pid_t *pl;
-	int count = 0;
+	struct process_snapshot snapshot;
+	enum process_presence state;
+	size_t i;
+	int count;
 
-	pidList = find_pid_by_name(appname);
-	if (!pidList)
-		return 0;
-	for (pl = pidList; *pl; pl++) {
-		count++;
-		fprintf(stderr, "%u ", (unsigned)*pl);
+	state = process_inventory_scan(appname, &snapshot);
+	if (state == PROCESS_PRESENCE_UNKNOWN) {
+		fprintf(stderr, "process inventory unknown: %s (error %d)\n",
+			appname ? appname : "(null)", snapshot.error);
+		process_snapshot_release(&snapshot);
+		return -1;
 	}
-	if (count) fprintf(stderr, "\n");
-	free(pidList);
-
+	if (state == PROCESS_PRESENCE_RUNNING) {
+		for (i = 0; i < snapshot.count; i++)
+			fprintf(stderr, "%u ", (unsigned)snapshot.items[i].pid);
+		fprintf(stderr, "\n");
+	}
+	count = (int)snapshot.count;
 	fprintf(stderr, "pid count: %d\n", count);
-
+	process_snapshot_release(&snapshot);
 	return count;
 }
 

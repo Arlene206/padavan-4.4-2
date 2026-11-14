@@ -1,3 +1,17 @@
+## 2026-11-14 20:04 CST (UTC+8) — Add tri-state process inventory and fail-closed service-stop foundation
+
+- Base main SHA: `f32922d2afc9e8133625551b0dc3e6f361f378d5`. Live main and immutable backup were re-fetched before preparing this direct-main tree update; backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Added `trunk/user/shared/src/process_inventory.h` and `process_inventory.c`: explicit RUNNING / ABSENT / UNKNOWN, separate count and process snapshots, PID/start_time plus command fingerprints, injectable procfs and allocator operations, EOF versus readdir-error distinction, disappearance handling, and all-or-nothing snapshots.
+- Added `proc_inventory.o` to shared lib; exposed the API through installed `shutils.h`; updated `pids_main()` to return a nonzero error for UNKNOWN. Legacy `pids()` deliberately retains its old semantics so negative UNKNOWN is not consumed by its 77 legacy callers.
+- Reworked the central `kill_services()` policy and adapter: all configured service names are preflighted before TERM, the plan is rescanned before the first signal, and each PID/start_time identity is checked before TERM/KILL. The implementation signals the captured PID rather than re-running `killall` by name. Stop success is distinct from UNKNOWN, changed identity, timeout and failure.
+- Added scanner and lifecycle fault-injection regressions, `.github/workflows/process-lifecycle-regression.yml`, and `scripts/check_process_lifecycle_integration.py`. Exact-head L2 Action is PENDING inspection after this commit; local tests were not run because no checkout is available and local GitHub DNS resolution fails.
+- Scope limits: the 77 direct `pids()` call sites are NOT migrated; `kill_pidfile_s()` and PID-file writers are NOT migrated; VPN/USB/AP-LAN/flash/Samba/storage upper-layer error propagation and direct name-wide signals remain open. The current multi-service engine does not yet include extra PID-file targets in the same preflight. BusyBox `libbb/procps.c` is untouched and independent.
+- Linux 4.4 lacks `pidfd_send_signal()`; PID + start_time validation leaves residual check/kill TOCTOU. No race-free claim.
+- L1: prior lexical inventory and direct API semantic review remain PASS at their recorded SHAs. L2: pending exact-head GNU89 / ASan / UBSan workflow. L3: MIPS/uClibc NOT RUN. L4: XY-C1 flash/boot/runtime NOT VERIFIED.
+- Root log advances 79→80 records (187,941 bytes before append); no archive rotation and no `docs/dev-log/INDEX.md` change is due. Resulting commit: THIS COMMIT.
+- Exact next action: inspect the new exact-head workflow and all steps; correct any build/test failures directly on main. Then migrate PID-file identity and the highest-risk stop/cleanup callers as listed in `SESSION_HANDOFF.md`.
+---
+
 ## 2026-11-14 — Restore required handoff heading for documentation CI contract
 
 - Follow-up to documentation commit 5e37dfd0ec40d1b3a0f110224c3d5cc8ebc39940. Exact-head Actions exposed a strict, intentional heading contract: both scripts/check_ai_handoff_docs.py and scripts/check_infosvr_packets.py require the literal section heading "## Exact first action for the next GPT".
