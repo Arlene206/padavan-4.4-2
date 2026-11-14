@@ -4621,8 +4621,8 @@ jobs:
           wan_service_stop = stop_wan.index('if (kill_services_with_pidfiles(svcs_wan, udhcpc_pidfiles, "udhcpc", 0, 3, 1) != 0)')
           interface_teardown = stop_wan.index("wan_teardown_ifdown_interfaces(")
           assert callback_fence < wan_service_stop < interface_teardown
-          assert "if (ifdown_status != 0)" in stop_wan
-          assert stop_wan.index("if (ifdown_status != 0)") < stop_wan.index("clear_wan_state();")
+          assert "if (stop_status != 0 || ifdown_status != 0)" in stop_wan
+          assert stop_wan.index("if (stop_status != 0 || ifdown_status != 0)") < stop_wan.index("clear_wan_state();")
           assert stop_wan.index("invalidate_wan_ppp_callback_session()") < stop_wan.index("kill_services(svcs_ppp, 6, 1)")
           assert stop_wan.index("stop_vpn_client() != 0") < stop_wan.index("kill_services(svcs_ppp, 6, 1)")
           assert "if (stop_wan() != 0)" in full_restart
