@@ -2410,8 +2410,8 @@ jobs:
           count_end = service.index("umount_stor_path(", count_start)
           count_fn = service[count_start:count_end]
           assert "storage_mount_inventory_result(0, 1)" in count_fn
-          assert "ferror(procpt)" in count_fn and "fclose(procpt)" in count_fn
-          assert "storage_mount_inventory_result(count, 1)" in count_fn
+          assert "storage_stage_unmount_mounts(&mounts)" in count_fn
+          assert "free_storage_unmount_mounts(mounts)" in count_fn
           assert "storage_mount_inventory_result(count, 0)" in count_fn
           assert "Returns mounted-device count, or -1" in rc_header
           assert "return io_failed ? -1 : count;" in policy

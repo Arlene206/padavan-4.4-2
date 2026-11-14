@@ -518,12 +518,15 @@ jobs:
           assert "mount_count < 0 || unmount_status != 0 || ejected_status != 0" in safe_remove
 
           remove_all = function_body(storage, "safe_remove_all_stor_devices(")
+          inventory_gate = remove_all.index("read_disk_data_checked(&disks_info)")
           stop_gate = remove_all.index("if (stop_stor_apps() != 0)")
-          stop_abort = remove_all.index("return;", stop_gate)
-          assert stop_gate < stop_abort < remove_all.index("read_disk_data()")
-          assert "file_unlock(storage_lock);" in remove_all[stop_gate:stop_abort]
-          assert remove_all.index("read_disk_data()") < remove_all.index("umount_stor_path(")
+          stop_abort = remove_all.index("goto out;", stop_gate)
+          assert remove_all.index("storage_operation_lock_acquire(file_lock)") < inventory_gate < stop_gate
+          assert stop_gate < stop_abort < remove_all.index("umount_stor_path(")
+          assert "file_unlock(storage_lock);" in remove_all
+          assert "path_status = disks_info ?" in remove_all
           assert "refusing fallback unmount" in remove_all
+          assert remove_all.index("fallback_status = umount_all_storage();") < remove_all.index("count_stor_mountpoint()")
 
           # libdisk confirms swap state exactly (not prefix-matched), rechecks
           # after swapoff failure, and never starts global unmount until both
