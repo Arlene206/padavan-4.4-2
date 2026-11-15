@@ -857,7 +857,7 @@ int
 init_router(void)
 {
 	int log_remote, is_ap_mode, nvram_need_commit;
-	int storage_save_status;
+	int storage_save_status, dnsmasq_start_status;
 
 #if defined (USE_RTL8367)
 	rtl8367_node();
@@ -941,7 +941,11 @@ init_router(void)
 	if (log_remote)
 		start_logger(1);
 
-	start_dns_dhcpd(is_ap_mode);
+	dnsmasq_start_status = start_dns_dhcpd(is_ap_mode);
+	if (dnsmasq_start_status != 0)
+		logmessage(LOGNAME,
+			   "Router initialization continuing without DNSMasq (start status=%d)",
+			   dnsmasq_start_status);
 #if defined (APP_SMBD) || defined (APP_NMBD)
 	start_wins();
 #endif

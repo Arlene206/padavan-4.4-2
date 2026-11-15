@@ -528,7 +528,7 @@ dnsmasq_process_check(void)
 	struct process_snapshot snapshot;
 	enum process_presence presence;
 	enum process_presence_start_action action;
-	int scan_error;
+	int scan_error, start_status;
 
 	presence = process_inventory_scan("dnsmasq", &snapshot);
 	scan_error = snapshot.error;
@@ -548,7 +548,11 @@ dnsmasq_process_check(void)
 	if (dnsmasq_missing > 1) {
 		dnsmasq_missing = 0;
 		logmessage("watchdog", "dnsmasq is missing, start again!");
-		start_dns_dhcpd(0);
+		start_status = start_dns_dhcpd(0);
+		if (start_status != 0)
+			logmessage("watchdog",
+				   "DNSMasq recovery start failed (status=%d)",
+				   start_status);
 	}
 }
 

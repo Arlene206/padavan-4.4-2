@@ -10,6 +10,7 @@ on:
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_lan.c"
       - "trunk/user/rc/src/net6.c"
+      - "trunk/user/rc/src/watchdog.c"
       - "trunk/user/rc/src/dnsmasq_domain_policy.h"
       - "trunk/user/rc/src/init.c"
       - "trunk/user/rc/src/inadyn_config_file.h"
@@ -39,6 +40,7 @@ on:
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_lan.c"
       - "trunk/user/rc/src/net6.c"
+      - "trunk/user/rc/src/watchdog.c"
       - "trunk/user/rc/src/dnsmasq_domain_policy.h"
       - "trunk/user/rc/src/init.c"
       - "trunk/user/rc/src/inadyn_config_file.h"
@@ -527,6 +529,17 @@ jobs:
           for path in paths:
               assert push_filters.count(path) == 1, path
               assert pr_filters.count(path) == 1, path
+          init_router = function_body(rc, "init_router(void)")
+          watchdog_source = Path("trunk/user/rc/src/watchdog.c").read_text()
+          watchdog_recovery = function_body(watchdog_source, "dnsmasq_process_check(void)")
+          assert "dnsmasq_start_status = start_dns_dhcpd(is_ap_mode);" in init_router
+          assert "if (dnsmasq_start_status != 0)" in init_router
+          assert "continuing without DNSMasq" in init_router
+          assert "start_status = start_dns_dhcpd(0);" in watchdog_recovery
+          assert "if (start_status != 0)" in watchdog_recovery
+          assert "DNSMasq recovery start failed" in watchdog_recovery
+          assert "trunk/user/rc/src/watchdog.c" in push_filters
+          assert "trunk/user/rc/src/watchdog.c" in pr_filters
           print("DNSMasq postconditions and RC service status propagation contract: PASS")
           PY
 
