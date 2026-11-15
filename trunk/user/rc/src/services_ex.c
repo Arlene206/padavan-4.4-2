@@ -143,6 +143,27 @@ done:
 	return result;
 }
 
+/* BusyBox arp reports success only after SIOCSARP succeeds. A failed add is
+ * not included in rollback: deleting that target could destroy an older entry. */
+static int
+dnsmasq_static_arp_command(const char *ip, const char *mac, int add, void *context)
+{
+	int command_status, command_errno, arp_errno;
+
+	(void)context;
+	errno = 0;
+	if (add)
+		command_status = doSystem("arp -i %s -s %s %s", IFNAME_BR, ip, mac);
+	else
+		command_status = doSystem("arp -i %s -d %s", IFNAME_BR, ip);
+	command_errno = errno;
+	arp_errno = dnsmasq_static_arp_command_errno(command_status, command_errno);
+	if (arp_errno)
+		logmessage(LOGNAME, "cannot %s static ARP binding %s (status=%d errno=%d)",
+			   add ? "install" : "remove", ip, command_status, command_errno);
+	return arp_errno;
+}
+
 struct ip4_items_t {
 	in_addr_t ip4;
 	int count;
@@ -182,6 +203,10 @@ fill_static_ethers(const char *lan_ip, const char *lan_mask)
 	struct ip4_items_t ip4_list[DHCPD_STATIC_MAX];
 	int i, j, i_max_items, i_arp_bind;
 	int path_length, result = 0;
+	const char *arp_ips[DHCPD_STATIC_MAX];
+	const char *arp_macs[DHCPD_STATIC_MAX];
+	char arp_ip_text[DHCPD_STATIC_MAX][16];
+	size_t arp_count = 0;
 	char dh_fn[64] = {0}, dhcp_hosts_stage[96] = "";
 	char dhcp_hosts_backup[128] = "";
 	char ethers_stage[] = "/etc/ethers.XXXXXX";
@@ -349,8 +374,8 @@ fill_static_ethers(const char *lan_ip, const char *lan_mask)
 		goto failed;
 	}
 
-	/* Apply kernel ARP side effects only after every corresponding file was
-	 * published; failed staging/publication must not partially change bindings. */
+	/* Publish all generated files before kernel side effects. Keep stable
+	 * IPv4 strings because inet_ntoa() reuses static storage. */
 	if (i_arp_bind) {
 		for (i = 0; i < DHCPD_STATIC_MAX; i++) {
 			struct ip4_items_t *ipl = &ip4_list[i];
@@ -358,25 +383,29 @@ fill_static_ethers(const char *lan_ip, const char *lan_mask)
 			if (!ipl->ip4)
 				break;
 			if (ipl->count == 1 && ipl->mac[0]) {
-				int command_status, command_errno, arp_errno;
-
 				in.s_addr = ipl->ip4;
-				sip4 = inet_ntoa(in);
-				errno = 0;
-				command_status = doSystem("arp -i %s -s %s %s",
-							  IFNAME_BR, sip4, ipl->mac[0]);
-				command_errno = errno;
-				arp_errno = dnsmasq_static_arp_command_errno(command_status,
-									 command_errno);
-				if (arp_errno) {
-					result = arp_errno;
-					logmessage(LOGNAME,
-						   "cannot install static ARP binding %s -> %s; refusing DNSMasq update (status=%d errno=%d)",
-						   sip4, ipl->mac[0], command_status,
-						   command_errno);
+				path_length = snprintf(arp_ip_text[arp_count],
+						       sizeof(arp_ip_text[arp_count]),
+						       "%s", inet_ntoa(in));
+				if (path_length < 0 ||
+				    path_length >= (int)sizeof(arp_ip_text[arp_count])) {
+					result = EOVERFLOW;
 					goto cleanup;
 				}
+				arp_ips[arp_count] = arp_ip_text[arp_count];
+				arp_macs[arp_count] = ipl->mac[0];
+				arp_count++;
 			}
+		}
+		result = dnsmasq_static_arp_apply_transaction(arp_ips, arp_macs,
+							      arp_count,
+							      dnsmasq_static_arp_command,
+							      NULL);
+		if (result != 0) {
+			logmessage(LOGNAME,
+				   "static ARP installation failed; prior additions were rolled back where possible (errno=%d)",
+				   result);
+			goto cleanup;
 		}
 	}
 	goto cleanup;
