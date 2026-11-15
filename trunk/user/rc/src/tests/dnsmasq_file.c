@@ -60,6 +60,7 @@ main(void)
 	assert(snprintf(destination, sizeof(destination), "%s/dnsmasq.servers", directory) > 0);
 	assert(snprintf(template, sizeof(template), "%s/dnsmasq.servers.XXXXXX", directory) > 0);
 	assert(snprintf(fail_template, sizeof(fail_template), "%s/failed.XXXXXX", directory) > 0);
+	assert(snprintf(rename_fail_template, sizeof(rename_fail_template), "%s/rename-fail.XXXXXX", directory) > 0);
 	assert(snprintf(lease_path, sizeof(lease_path), "%s/dnsmasq.leases", directory) > 0);
 	assert(snprintf(symlink_lease, sizeof(symlink_lease), "%s/symlink.leases", directory) > 0);
 	assert(snprintf(hardlink_lease, sizeof(hardlink_lease), "%s/hardlink.leases", directory) > 0);
