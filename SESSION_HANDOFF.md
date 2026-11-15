@@ -8,24 +8,26 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2. Parent main for THIS COMMIT: `5338c5adfe54a7eedcfc460b284f4783c03a09cf`; immutable backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
-- Parent source commit `5338c5adfe54a7eedcfc460b284f4783c03a09cf` implemented MTD digest staging/retryability, status-returning `write_storage_to_mtd()`, checked atomic `storage_save_time()`, and firmware/shutdown/boot persistence gating. Do not reimplement those changes.
-- Exact-head Actions on parent `5338c5adfe54a7eedcfc460b284f4783c03a09cf`: USB storage #43685359346 FAILED at step 11 because GNU coreutils rejects the BusyBox-specific `md5sum -s`; process lifecycle #43685359507 FAILED at its integration checker because it expected `write_storage_to_mtd();` instead of the now status-returning expression; HTTPD security #43685359427 FAILED at the corresponding duplicated inline source contract. XY-C1 #43685359467 was IN_PROGRESS at last poll. All three failures are being corrected in THIS COMMIT; the other completed parent workflows were successful.
-- The isolated shell reproduction showed GNU `md5sum -c` succeeds after a durable retry and correctly skips the following unchanged snapshot. The full repository shell regression is wired to exact-head USB storage Actions, not claimed locally.
-- Current-source L3 is NOT VERIFIED until exact-head XY-C1 MIPS/uClibc build, TRX verification and artifact upload pass. Physical L4 remains NOT VERIFIED. No full local checkout/toolchain is available.
+- Repository: Arlene206/padavan-4.4-2. Parent main for THIS COMMIT: `a7fe3e4648563f6941dcb0816b59c9a903b5f8bc`; immutable backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
+- Parent `a7fe3e4648563f6941dcb0816b59c9a903b5f8bc` contains the MTD save retry fix and RC timestamp/writer status propagation. Its exact-head USB storage #43686251138 passed MTD syntax, retry, persistence-gate, disk inventory, daemon stop and caller-graph tests, then failed at step 18 in `scripts/check_storage_safe_remove.py` because its function separator searched for a literal backslash-n instead of a newline. Process inventory/lifecycle #43686251333 failed only at checker line 286 on a stale `write_storage_to_mtd();` expectation for the status-returning expression. Both contracts are corrected in THIS COMMIT.
+- On the same parent SHA, HTTPD security #43686251157 SUCCESS; Process lifecycle inventory #43686251172 SUCCESS; AI handoff docs #43686251185 SUCCESS; AdGuardHome #43686251162 SUCCESS; infosvr #43686251181 SUCCESS; AliDDNS #43686251183 SUCCESS; AliyunDrive #43686251202 SUCCESS. XY-C1 #43686251137 and NVRAM audit #43686251209 were IN_PROGRESS at last poll; do not infer their outcome.
+- A concrete independent restore defect was found in `func_restore()`: it removed the live `/etc/storage` tree before checking the new `mkdir` and `cp`, so an I/O or space failure could destroy the last usable configuration and still return success. The current patch copies into a same-filesystem staging directory, preserves the old tree under a rollback name, atomically renames the prepared tree into place and restores the old tree if installation fails.
+- A new shell regression injects staging-copy and install-rename failures and checks the prior files and uploaded archive survive. It is integrated into USB storage Actions alongside a source contract. No local full checkout or target toolchain is available; current L3 and physical L4 remain NOT VERIFIED.
 ## Active task
 
-### Current P1 slice — repair exact-head validation fallout from the MTD persistence commit (THIS COMMIT)
+### Current P1 slice — make storage restore replacement transactional and repair exact-head contracts (THIS COMMIT)
 
-- In `mtd_storage.sh`, changed the unchanged-snapshot check from BusyBox-only `md5sum -s` to portable `md5sum -c` with stdout/stderr redirected. GNU coreutils in GitHub Actions does not accept `-s`; the old command therefore returned failure on every run and never skipped an unchanged archive.
-- Updated the Process lifecycle integration checker and the HTTPD security workflow's duplicated source-order contract to recognize `write_storage_to_mtd()` as a status-returning expression, rather than the previous void-call literal ending in a semicolon. Existing ordering constraints remain.
-- A local isolated shell reproduction using GNU md5sum confirmed that after a successful retry the next identical snapshot validates and skips MTD write. Full repository regressions and target build await exact-head Actions.
-- Fresh exact-head USB storage, Process lifecycle, HTTPD security and XY-C1 workflows are the required validation.
+- Exact-head parent Actions: USB storage #43686251138 reached its final source checker after the MTD retry and storage caller-graph steps passed, then failed because `mtd_save_end` searched for the literal characters `\\nfunc_backup()` instead of a real newline. Process lifecycle #43686251333 failed because its shutdown ordering check still searched for `write_storage_to_mtd();`. The checker now uses the actual function separator and status-returning call expression.
+- `func_restore()` had a destructive fail-open sequence: it removed the live storage directory and then ignored `mkdir`/`cp` failures. It now prepares a complete staged tree on the destination filesystem, parks the old tree, atomically installs the staged directory and rolls the old tree back if installation fails. Failed preparation leaves the live tree and upload archive untouched.
+- Added `trunk/user/scripts/tests/mtd_storage_restore_transaction.sh`; it injects copy failure and install-rename failure, checks rollback preserves the prior config and archive, then verifies successful replacement. USB storage Actions run this test and source assertions.
+- Exact-head USB storage, Process lifecycle and AI documentation checks are required after this commit. Current-source XY-C1 result on parent `a7fe3e4648563f6941dcb0816b59c9a903b5f8bc` was pending; this commit still requires a fresh XY-C1 build/TRX/artifact result for current-source L3.
+- No full local firmware checkout/toolchain or hardware validation is claimed.
 
-### Next P1 task — audit MTD load/restore/backup/reset failure handling
+### Next P1 task — audit MTD load, backup and reset postconditions
 
-- Trace `mtd_storage.sh` load/restore/backup/reset callsites, lock semantics, scratch paths, decompression/extraction, target replacement, metadata publication and rollback. Identify one reproducible failure before modifying destructive paths.
-- Add a focused shell regression for the actual failure, integrate the correct workflow path filters and verify exact-head Actions. Do not repeat MTD save retry, RC writer/time status propagation, firmware watchdog recovery, checker contract repairs, RWFS/UBI teardown or safe-eject.
+- `func_load()` ignores both `bzcat` and `tar xf` statuses and publishes the MD5 cache before validating extraction. Determine whether this can leave partial live config or falsely publish a valid boot snapshot; design the smallest safe stage/commit and failure rollback after tracing startup semantics.
+- `func_backup()` reports compression failure but the web download path ignores the script status; trace the upload/download file aliases and ensure a failed archive is never offered as a valid download.
+- Audit `func_reset()` directory creation and `func_erase()` postconditions. Add focused fault-injection tests only after defining compatibility behavior. Do not repeat the restore transaction, MTD save retry, RC timestamp/writer propagation, or completed eject/Optware/RWFS gates.
 
 ## Explicitly uncompleted P1 work
 
@@ -39,7 +41,7 @@ For every multi-file slice, publish source + regression tests + required workflo
 ## Verification boundary
 
 - L1: The MD5 bug is directly traced in func_save(): the old implementation published its skip hash before mtd_write. The new shell fixture exercises failed flash followed by an identical retry and later idempotent skip; source contracts cover script hash order and every RC persistence caller. Not executed locally in this context.
-- L2: Parent #43685359346 storage failed only at the unchanged-save idempotence assertion because GNU md5sum rejected `-s`; #43685359507 and #43685359427 failed on stale `write_storage_to_mtd();` source-contract text. This commit corrects those causes; fresh exact-head runs are required. The previous bda checker exception was repaired and 31ae7b6 USB storage #43684904469 passed.
+- L2: On exact parent `a7fe3e4`, USB storage #43686251138 failed only at the standalone checker separator (`\\nfunc_backup()` was incorrectly searched as literal text); Process inventory/lifecycle #43686251333 failed at shutdown's stale `write_storage_to_mtd();` expectation. This commit fixes both and adds the storage restore failure regression. The actual MTD retry shell test passed on the parent; HTTPD security #43686251157 passed. Fresh exact-head runs are required.
 - L3: Current source is NOT VERIFIED. A fresh exact-head XY-C1 MIPS/uClibc build, TRX verification and artifact upload are required after rc.c, header and persistence helper changes.
 - L4: Physical XY-C1 flash, boot/runtime and storage persistence behavior are NOT VERIFIED.
 - No local build/test or physical hardware result is claimed.
@@ -60,10 +62,9 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect the exact-head USB storage push workflow for this commit. Verify the shell retry test, GNU89 persistence gate, embedded RWFS contract and repaired standalone checker all pass; inspect the first failure log if not.
-2. Continue P1 with a bounded mtd_storage.sh load/restore/backup/reset audit. Trace callsites, locks, scratch paths, extraction and destructive replacement; add a focused regression for one concrete failure.
-3. Do not repeat the MTD save hash-retry fix, RC writer/timestamp status propagation, firmware watchdog recovery, checker literal-brace repair, RWFS/UBI teardown, Transmission/Aria identity stop or checked safe-eject.
-4. Use one complete Git tree/commit per logical slice, parented to fresh main; update with force=false and expected_sha; preserve the frozen backup. Keep L3/L4 claims evidence-scoped.
+1. Fetch live main and inspect exact-head USB storage, Process inventory/lifecycle, Process lifecycle inventory and AI handoff docs for this commit. Verify the restore fault-injection test, checker separator and shutdown ordering checks. Inspect logs for any failure before editing.
+2. Finish the P1 audit of `func_load()`, `func_backup()`, `func_reset()`, and the HTTPD storage download path. Preserve boot-time overlay semantics and prove a concrete failure before changing it.
+3. Keep source, tests, workflow, checker and handoff updates in one complete tree/commit parented to fresh main; update with `force=false` and `expected_sha`. L3 remains unverified until current exact-head MIPS/uClibc XY-C1 build, TRX and artifact upload pass; L4 remains unverified.
 
 Source/validation notes:
 - Parent main for THIS COMMIT: 31ae7b6f253734cc0abf5f67b5c34e861229155b; immutable backup: 72f4f157a084f8184b9597ca5bf334b8080e5807.

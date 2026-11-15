@@ -50,7 +50,7 @@
 
 ## Priority queue
 
-1. P1 OPEN — Audit mtd_storage.sh load/restore/backup/reset for unchecked extraction, cp, directory replacement, metadata publication and rollback failures. The MTD save retry and RC timestamp/writer status propagation are implemented; do not repeat them or the checked RWFS/UBI/Optware teardown.
+1. P1 OPEN — Audit mtd_storage.sh load/backup/reset and the HTTPD storage download postconditions. Restore now stages a complete tree on the destination filesystem and rolls back the old directory on failed install (current exact-head L2 pending). MTD save retry and RC timestamp/writer status propagation are implemented; do not repeat them or checked RWFS/UBI/Optware teardown.
 2. P2 — Finish DNSMasq public/locked caller graph and process identity / stop / HUP / wait-reap / FD / temporary-file / rollback audit. Full-LAN DNSMasq failure propagation is already L2 verified on production source ed010248; exact DNSMasq and HTTPD umbrella regressions passed.
 3. P2 — DNS Forwarder locked lifecycle, failed-stop gate, launch status and PID1 notification propagation remain L2 VERIFIED on 479f0d7; do not repeat this slice.
 4. P2 OPEN/BLOCKED — FTP failed-upload cleanup TOCTOU. Linux 4.4 has no inode-conditional unlink-by-fd; do not change cleanup until race-safe semantics are proven while preserving STOR/APPE/REST/STOU and concurrent external-writer behavior.

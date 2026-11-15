@@ -11,6 +11,7 @@ on:
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/scripts/files/sbin/mtd_storage.sh"
       - "trunk/user/scripts/tests/mtd_storage_save_retry.sh"
+      - "trunk/user/scripts/tests/mtd_storage_restore_transaction.sh"
       - "trunk/user/rc/src/storage_persistence_policy.h"
       - "trunk/user/rc/src/tests/storage_persistence_policy.c"
       - "trunk/user/rc/src/common_ex.c"
@@ -61,6 +62,7 @@ on:
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/scripts/files/sbin/mtd_storage.sh"
       - "trunk/user/scripts/tests/mtd_storage_save_retry.sh"
+      - "trunk/user/scripts/tests/mtd_storage_restore_transaction.sh"
       - "trunk/user/rc/src/storage_persistence_policy.h"
       - "trunk/user/rc/src/tests/storage_persistence_policy.c"
       - "trunk/user/rc/src/common_ex.c"
@@ -203,6 +205,8 @@ jobs:
         run: sh -n trunk/user/scripts/files/sbin/mtd_storage.sh
       - name: Verify MTD storage save retry after flash failure
         run: sh trunk/user/scripts/tests/mtd_storage_save_retry.sh
+      - name: Verify MTD storage restore staging and rollback
+        run: sh trunk/user/scripts/tests/mtd_storage_restore_transaction.sh
       - name: Compile and run storage persistence gate regression
         run: |
           set -eu

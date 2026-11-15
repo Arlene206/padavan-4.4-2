@@ -93,6 +93,7 @@ mtd_storage = read("trunk/user/scripts/files/sbin/mtd_storage.sh")
 persistence_policy = read("trunk/user/rc/src/storage_persistence_policy.h")
 persistence_test = read("trunk/user/rc/src/tests/storage_persistence_policy.c")
 mtd_storage_test = read("trunk/user/scripts/tests/mtd_storage_save_retry.sh")
+mtd_storage_restore_test = read("trunk/user/scripts/tests/mtd_storage_restore_transaction.sh")
 
 checked = body(libdisk, "read_disk_data_checked(disk_info_t **disk_info_out)")
 require("if (!disk_info_out)" in checked, "checked inventory must validate its output")
@@ -467,7 +468,7 @@ for path in ("trunk/user/libdisk/src/disk_initial.c",
 
 # A failed flash must not advance the MD5 checkpoint and suppress identical retries.
 mtd_save_start = mtd_storage.index("func_save()")
-mtd_save_end = mtd_storage.index("\\nfunc_backup()", mtd_save_start)
+mtd_save_end = mtd_storage.index("\nfunc_backup()", mtd_save_start)
 mtd_save = mtd_storage[mtd_save_start:mtd_save_end]
 require('md5sum "$tmp" > "$hash_tmp"' in mtd_save and
         'mv -f "$hash_tmp" "$hsh"' in mtd_save,
@@ -530,6 +531,7 @@ require("int storage_save_time(time_t delta);" in rc_header,
 
 for path in ("trunk/user/scripts/files/sbin/mtd_storage.sh",
              "trunk/user/scripts/tests/mtd_storage_save_retry.sh",
+             "trunk/user/scripts/tests/mtd_storage_restore_transaction.sh",
              "trunk/user/rc/src/storage_persistence_policy.h",
              "trunk/user/rc/src/tests/storage_persistence_policy.c"):
     require('"' + path + '"' in push_filters and '"' + path + '"' in pr_filters,
@@ -538,5 +540,24 @@ for path in ("trunk/user/scripts/files/sbin/mtd_storage.sh",
              "trunk/user/rc/src/storage_persistence_policy.h"):
     require('"' + path + '"' in xy_workflow,
             "XY-C1 must trigger for product persistence dependency " + path)
+
+restore_start = mtd_storage.index("func_restore()")
+restore_end = mtd_storage.index("\nfunc_erase()", restore_start)
+restore = mtd_storage[restore_start:restore_end]
+require("mktemp -d" in restore and 'cp -a "$tmp_storage"/. "$stage_storage"/' in restore and
+        'chmod 755 "$stage_storage"' in restore,
+        "storage restore must prepare a complete same-filesystem staging tree")
+require(restore.index("cp -a") < restore.index("func_stop_apps") <
+        restore.index('mv "$dir_storage" "$rollback_storage"') <
+        restore.index('mv "$stage_storage" "$dir_storage"'),
+        "storage restore must stage before stopping apps and replacing live settings")
+require('mv "$rollback_storage" "$dir_storage"' in restore and
+        "restore install and rollback both failed" in restore and
+        "Cannot prepare complete storage restore tree" in restore,
+        "storage restore must preserve and recover the previous directory on install failures")
+require("RESTORE_FAIL_CP=1" in mtd_storage_restore_test and
+        "RESTORE_FAIL_MV_AT=2" in mtd_storage_restore_test and
+        "rollback" in mtd_storage_restore_test,
+        "storage restore regression must inject copy and install-rename failures")
 
 print("Storage eject inventory, failure propagation and persistence gates: PASS")

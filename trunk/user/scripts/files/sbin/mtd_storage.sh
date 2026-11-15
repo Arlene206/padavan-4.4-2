@@ -137,14 +137,14 @@ func_backup()
 
 func_restore()
 {
-	local fsz tmp_storage restore_suffix
+	local fsz tmp_storage restore_suffix stage_storage rollback_storage rollback_suffix had_storage
 
 	[ ! -f "$tbz" ] && exit 1
 
 	fsz=`stat -c %s "$tbz" 2>/dev/null`
-	if [ -z "$fsz" ] || [ $fsz -lt 16 ] || [ $fsz -gt $mtd_part_size ] ; then
+	if [ -z "$fsz" ] || [ "$fsz" -lt 16 ] || [ "$fsz" -gt "$mtd_part_size" ] ; then
 		result=1
-		rm -f $tbz
+		rm -f "$tbz"
 		logger -t "Storage restore" "Invalid BZ2 file size: $fsz"
 		return 1
 	fi
@@ -155,7 +155,6 @@ func_restore()
 		restore_suffix=$((restore_suffix + 1))
 		if [ "$restore_suffix" -gt 999 ]; then
 			result=1
-			rm -f "$tbz"
 			logger -t "Storage restore" "Cannot allocate private restore scratch directory"
 			return 1
 		fi
@@ -164,31 +163,97 @@ func_restore()
 	tar xjf "$tbz" -C "$tmp_storage" 2>/dev/null
 	if [ $? -ne 0 ] ; then
 		result=1
-		rm -f $tbz
 		rm -rf "$tmp_storage"
 		logger -t "Storage restore" "Unable to extract BZ2 file: $tbz"
 		return 1
 	fi
 	if [ ! -f "$tmp_storage/start_script.sh" ] ; then
 		result=1
-		rm -f $tbz
 		rm -rf "$tmp_storage"
 		logger -t "Storage restore" "Invalid content of BZ2 file: $tbz"
 		return 1
 	fi
 
+	# Reject unexpected destination types rather than moving or replacing them.
+	if [ -L "$dir_storage" ] || { [ -e "$dir_storage" ] && [ ! -d "$dir_storage" ]; }; then
+		result=1
+		rm -rf "$tmp_storage"
+		logger -t "Storage restore" "Storage destination is not a real directory: $dir_storage"
+		return 1
+	fi
+
+	# Copy the complete restored tree beside /etc/storage. This keeps the
+	# installation rename on the same filesystem and leaves the live tree
+	# untouched if staging or copying fails.
+	stage_storage=`mktemp -d "${dir_storage}.restore.XXXXXX" 2>/dev/null`
+	if [ -z "$stage_storage" ] || [ ! -d "$stage_storage" ]; then
+		result=1
+		rm -rf "$tmp_storage"
+		logger -t "Storage restore" "Cannot allocate same-filesystem restore staging directory"
+		return 1
+	fi
+	if ! cp -a "$tmp_storage"/. "$stage_storage"/ || ! chmod 755 "$stage_storage"; then
+		result=1
+		rm -rf "$stage_storage" "$tmp_storage"
+		logger -t "Storage restore" "Cannot prepare complete storage restore tree"
+		return 1
+	fi
+
+	rollback_storage="${dir_storage}.rollback.$$"
+	rollback_suffix=0
+	while [ -e "$rollback_storage" ] || [ -L "$rollback_storage" ]; do
+		rollback_suffix=$((rollback_suffix + 1))
+		if [ "$rollback_suffix" -gt 999 ]; then
+			result=1
+			rm -rf "$stage_storage" "$tmp_storage"
+			logger -t "Storage restore" "Cannot allocate storage rollback pathname"
+			return 1
+		fi
+		rollback_storage="${dir_storage}.rollback.$$-$rollback_suffix"
+	done
+
 	func_stop_apps
+	had_storage=0
+	if [ -d "$dir_storage" ]; then
+		if ! mv "$dir_storage" "$rollback_storage"; then
+			result=1
+			rm -rf "$stage_storage" "$tmp_storage"
+			func_start_apps
+			logger -t "Storage restore" "Cannot preserve the previous storage directory before restore"
+			return 1
+		fi
+		had_storage=1
+	fi
 
-	rm -f $slk
-	rm -f $tbz
-	rm -rf $dir_storage
-	mkdir -p -m 755 $dir_storage
-	cp -rf "$tmp_storage"/. "$dir_storage"/
+	if ! mv "$stage_storage" "$dir_storage"; then
+		if [ "$had_storage" -eq 1 ]; then
+			if ! mv "$rollback_storage" "$dir_storage"; then
+				logger -t "Storage restore" "CRITICAL: restore install and rollback both failed; previous settings remain at $rollback_storage"
+			fi
+		fi
+		result=1
+		rm -rf "$stage_storage" "$tmp_storage"
+		func_start_apps
+		logger -t "Storage restore" "Cannot install the staged storage directory"
+		return 1
+	fi
+
+	if ! rm -f "$slk"; then
+		result=1
+		rm -rf "$tmp_storage"
+		func_start_apps
+		logger -t "Storage restore" "Storage restore installed, but the storage lock marker could not be removed"
+		return 1
+	fi
+
+	rm -f "$tbz"
 	rm -rf "$tmp_storage"
-
+	if [ "$had_storage" -eq 1 ] && ! rm -rf "$rollback_storage"; then
+		logger -t "Storage restore" "Restored settings are active; previous storage backup remains at $rollback_storage"
+	fi
 	func_start_apps
+	return 0
 }
-
 func_erase()
 {
 	mtd_write erase $mtd_part_name

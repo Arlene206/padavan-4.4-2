@@ -1,3 +1,13 @@
+## 2026-11-15 — Make MTD storage restore replacement transactional; repair exact-head contracts
+
+- Exact-head USB storage #43686251138 on `a7fe3e4648563f6941dcb0816b59c9a903b5f8bc` passed the MTD script syntax check and the injected flash-failure/identical-retry/unchanged-skip shell test, then passed storage persistence gates, inventory, daemon-stop and full caller-graph checks. The final standalone source checker crashed at line 470 because it searched for the two literal characters `\\n` before `func_backup()` rather than an actual newline. The checker now uses the real function separator.
+- Process inventory/lifecycle #43686251333 failed at shutdown ordering line 286 because it expected the obsolete `write_storage_to_mtd();` token after the caller became a status-returning expression. The check now matches the call expression while keeping the storage-removal gate ordering. HTTPD security #43686251157 and Process lifecycle inventory #43686251172 succeeded on the same SHA.
+- Auditing `func_restore()` found a data-loss branch: the old implementation removed the live storage directory before unchecked `mkdir`/copy. A failure could erase the old settings and still report success. Restore now prepares a complete tree in a same-filesystem stage, renames the existing tree to a rollback path, atomically installs the staged tree, and restores the original directory when installation fails.
+- Added copy-failure and install-rename-failure injection, with checks for old-config preservation, uploaded archive retention, successful replacement and service restart; wired the test into storage-hotplug Actions and expanded source contracts.
+- Changed paths: `mtd_storage.sh`, `mtd_storage_restore_transaction.sh`, `check_process_lifecycle_integration.py`, `check_storage_safe_remove.py`, storage-hotplug workflow, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`. Parent SHA: `a7fe3e4648563f6941dcb0816b59c9a903b5f8bc`. New exact-head checks and current-source XY-C1 build remain required; no local full checkout or hardware test is claimed.
+
+---
+
 ## 2026-11-15 — Fix GNU md5sum compatibility and checked-storage call contracts
 
 - Exact-head USB storage run #43685359346 on `5338c5adfe54a7eedcfc460b284f4783c03a09cf` passed MTD script syntax and the baseline/write-failure/retry cases, then failed because the unchanged-save check used BusyBox's `md5sum -s` option. The GitHub-hosted GNU coreutils `md5sum` rejects `-s`, so every unchanged save fell through and rewrote MTD. Replaced it with portable `md5sum -c` and explicit output redirection; a local shell reproduction with GNU md5sum confirms the retry succeeds and the next identical snapshot is skipped.
