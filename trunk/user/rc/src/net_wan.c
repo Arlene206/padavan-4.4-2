@@ -2203,23 +2203,26 @@ man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)
 		if (dhcp_lease_ipv4_is_valid(man_addr) && dhcp_lease_netmask_is_valid(man_mask) &&
 		    !is_same_subnet(man_gate, man_addr, man_mask)) {
 			route_status = route_del(man_ifname, 2, man_gate, NULL, "255.255.255.255");
-			status = route_status_accumulate(status, route_status);
-			if (route_status != 0)
+			if (!dhcp_lease_route_delete_is_ok(route_status)) {
+				status = route_status_accumulate(status, route_status);
 				logmessage(LOGNAME, "failed to delete MAN gateway host route %s on %s (error=%d)", man_gate, man_ifname, route_status);
+			}
 		}
 		route_status = route_del(man_ifname, 2, "0.0.0.0", man_gate, "0.0.0.0");
-		status = route_status_accumulate(status, route_status);
-		if (route_status != 0)
+		if (!dhcp_lease_route_delete_is_ok(route_status)) {
+			status = route_status_accumulate(status, route_status);
 			logmessage(LOGNAME, "failed to delete MAN default route via %s on %s (error=%d)", man_gate, man_ifname, route_status);
+		}
 		if (is_man_dns_auto && !is_modem_active && wan_proto != IPV4_WAN_PROTO_PPPOE) {
 			foreach(word, man_dns, next) {
 				if (is_valid_ipv4(word) && inet_addr(word) != inet_addr(man_gate) &&
 				    dhcp_lease_ipv4_is_valid(man_addr) && dhcp_lease_netmask_is_valid(man_mask) &&
 				    !is_same_subnet(word, man_addr, man_mask)) {
 					route_status = route_del(man_ifname, 2, word, man_gate, "255.255.255.255");
-					status = route_status_accumulate(status, route_status);
-					if (route_status != 0)
+					if (!dhcp_lease_route_delete_is_ok(route_status)) {
+						status = route_status_accumulate(status, route_status);
 						logmessage(LOGNAME, "failed to delete MAN DNS route %s via %s on %s (error=%d)", word, man_gate, man_ifname, route_status);
+					}
 				}
 			}
 		}
@@ -2508,10 +2511,11 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 	wan_gate = get_wan_unit_value(unit, "gateway");
 	if (is_valid_ipv4(wan_gate)) {
 		route_status = route_del(wan_ifname, 1, "0.0.0.0", wan_gate, "0.0.0.0");
-		status = route_status_accumulate(status, route_status);
-		if (route_status != 0)
+		if (!dhcp_lease_route_delete_is_ok(route_status)) {
+			status = route_status_accumulate(status, route_status);
 			logmessage(LOGNAME, "failed to delete WAN default route via %s on %s (error=%d)",
 				   wan_gate, wan_ifname, route_status);
+		}
 	}
 
 	/* Remove interface dependent static routes */
