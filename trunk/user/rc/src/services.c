@@ -318,19 +318,26 @@ stop_telnetd(void)
 	return kill_services(svcs, 3, 1);
 }
 
-void
+int
 run_telnetd(void)
 {
-	stop_telnetd();
+	int stop_status = stop_telnetd();
 
-	eval("telnetd");
+	if (stop_status != 0) {
+		logmessage(LOGNAME, "telnetd manual restart aborted because stop failed (status=%d)",
+			   stop_status);
+		return stop_status;
+	}
+
+	return eval("telnetd");
 }
 
-void
+int
 start_telnetd(void)
 {
 	if (nvram_match("telnetd", "1"))
-		eval("telnetd");
+		return eval("telnetd");
+	return 0;
 }
 
 #if defined(APP_SSHD)

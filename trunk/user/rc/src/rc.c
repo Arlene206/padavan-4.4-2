@@ -1272,8 +1272,10 @@ handle_notifications(void)
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_TELNETD) == 0)
 		{
-			action_result = rc_notify_merge_action_result(action_result, stop_telnetd());
-			start_telnetd();
+			int stop_status = stop_telnetd();
+			action_result = rc_notify_merge_action_result(action_result, stop_status);
+			if (stop_status == 0)
+				action_result = rc_notify_merge_action_result(action_result, start_telnetd());
 		}
 #if defined(APP_SSHD)
 		else if (strcmp(entry->d_name, RCN_RESTART_SSHD) == 0)
@@ -1794,7 +1796,7 @@ main(int argc, char **argv)
 		ret = -1;
 	}
 	else if (!strcmp(base, "run_telnetd")) {
-		run_telnetd();
+		ret = run_telnetd();
 	}
 	else if (!strcmp(base, "run_ftpsamba")) {
 #if defined(APP_SMBD)

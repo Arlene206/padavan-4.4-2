@@ -113,6 +113,19 @@ jobs:
               assert "action_result = rc_notify_merge_action_result(action_result, " + name + "())" in handler, name
           for name in ("stop_scutclient", "stop_mentohust", "stop_telnetd"):
               assert "action_result = rc_notify_merge_action_result(action_result, " + name + "())" in handler, name
+          run_telnetd = function_body(services, "run_telnetd(void)")
+          assert "int stop_status = stop_telnetd();" in run_telnetd
+          assert "if (stop_status != 0)" in run_telnetd
+          assert "return stop_status;" in run_telnetd
+          assert 'return eval("telnetd");' in run_telnetd
+          start_telnetd = function_body(services, "start_telnetd(void)")
+          assert 'return eval("telnetd");' in start_telnetd
+          telnet_event = function_body(handler, "else if (strcmp(entry->d_name, RCN_RESTART_TELNETD) == 0)")
+          assert "if (stop_status == 0)" in telnet_event
+          assert "rc_notify_merge_action_result(action_result, start_telnetd())" in telnet_event
+          assert "ret = run_telnetd();" in rc
+          assert "int run_telnetd(void);" in rc_header
+          assert "int start_telnetd(void);" in rc_header
           httpd_restart = function_body(services, "int\nrestart_httpd(void)")
           assert "int stop_status = stop_httpd();" in httpd_restart
           assert "return stop_status;" in httpd_restart
