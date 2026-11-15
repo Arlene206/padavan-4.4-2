@@ -1,3 +1,13 @@
+## 2026-11-15 — Add full user-tree lifecycle inventory to Process CI
+
+- All eight exact-head 4997 Actions PASS, including Process #43775696137, AI handoff #43775695951, NVRAM #43775696126 and SkipDB #43775696130. SkipDB passed its reducer-wrapped GPIO source contract, configuration, all targets and regression tests.
+- Rechecked aebfd65 exact Actions: USB storage #43775390744, NVRAM #43775390849 and XY-C1 #43775390773 all PASS. The XY-C1 job completed Build XY-C1, TRX verification and artifact upload on that SHA; commits through 4997 changed CI/checkpoint files only, so product-source L3 evidence remains current. No L4.
+- Added the whole tracked `trunk/user/**` tree to Process workflow triggers and execute `scripts/audit_process_lifecycle.py` against the exact checkout. The log prints direct `pids()` calls, `is_dns_dhcpd_run()`/DNSMasq status API references and legacy `killall` candidates; its output will drive bounded source migration rather than changing the old Boolean API without callsite analysis.
+- Extended the lexical scanner symbol inventory with the two DNSMasq status API names. The workflow also runs the scanner self-test.
+- Parent main: `4997afa4c480230727aa095f55b89b04f1e4fa73`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. This inventory integration awaits exact-head Process CI; no source migration is claimed in this commit.
+
+---
+
 ## 2026-11-15 — Align SkipDBv2 preflight and keep process CI push-only
 
 - The SkipDBv2 pre-build source map still asserted a raw `start_gpio_btn();` call after RC boot startup began passing that service result through `rc_first_service_start_status()`. Updated the contract to require the reducer-wrapped call, preserving the actual GPIO startup requirement.

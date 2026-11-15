@@ -7,7 +7,8 @@ from pathlib import Path
 ROOT = "trunk/user"
 SYMBOLS = ("pids", "pids_main", "find_pid_by_name", "procps_scan",
            "alloc_procps_scan", "free_procps_scan", "kill_services",
-           "kill_pidfile", "kill_pidfile_s")
+           "kill_pidfile", "kill_pidfile_s", "is_dns_dhcpd_run",
+           "dnsmasq_process_status")
 SUFFIXES = {".c",".h",".cc",".cpp",".cxx",".hh",".hpp",".hxx",".s",".sh",
 ".bash",".mk",".mak",".am",".ac",".in",".lua",".pl",".py",".awk",".y",".l",
 ".asp",".js",".m4",".inc",".def",".tcl",".tests",".test",".testsx",".init",

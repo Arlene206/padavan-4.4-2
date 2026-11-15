@@ -1,11 +1,10 @@
 ## Current source / CI checkpoint
 
-- Main is `aebfd65ccf7cef183e6a2432c45866d273c17b8b`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact aebfd65 USB storage #43775390744 PASS, including host + firmware BusyBox 1.24.2 ash tests for Transmission/Aria startup PID-state classification and the full storage suite. L2 for that regression is verified.
-- Exact aebfd65 Process inventory #43775390816, Process lifecycle #43775390764, AI docs #43775390851, infosvr #43775390910, AdGuardHome #43775390873, AliDDNS #43775390953 and AliyunDrive #43775390850 PASS. NVRAM #43775390849 and XY-C1 #43775390773 were in progress at last poll.
-- Boot-service first-failure aggregation source fix is d444; exact Process/AI and GPIO/Crond/watchdog contracts now pass through 2c16/aebfd65 Actions.
-- SkipDBv2 previously failed only at its pre-build source-contract assertion for the raw GPIO call. This commit aligns that assertion with the reducer-wrapped call and removes the accidental Process workflow pull_request trigger. Exact-head SkipDB/Process/AI runs must validate.
-- No L3 claim for aebfd65 until its exact XY-C1 Build, TRX verification and artifact upload all pass. No L4 without physical router evidence.
+- Main parent for whole-tree lifecycle inventory integration: `4997afa4c480230727aa095f55b89b04f1e4fa73`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- All exact-head 4997 Actions PASS: Process #43775696137, SkipDB #43775696130 (preflight + Configure + all targets + regression tests), AI docs #43775695951, NVRAM #43775696126, infosvr #43775696102, AdGuardHome #43775696141, AliyunDrive #43775696121 and AliDDNS #43775696124.
+- Exact aebfd65 USB storage #43775390744, NVRAM #43775390849 and XY-C1 #43775390773 PASS; XY-C1 built, verified TRX and uploaded artifact on the same SHA. Since firmware product sources are unchanged through 4997, current product-source L3 is VERIFIED for aebfd65's tree. No L4.
+- Added full tracked-user-tree lifecycle scanning to Process CI, triggered by every `trunk/user/**` change. It reports direct `pids()` callers, exported DNSMasq status references and legacy `killall` candidates. Exact-head Process run must validate scanner runtime.
+- Next P1: use the whole-tree report to classify/migrate bounded legacy process-presence and name-wide signal consumers. Do not change legacy Boolean APIs until all callsites are understood.
 
 
 ### P1 — Storage daemon startup and config publication
