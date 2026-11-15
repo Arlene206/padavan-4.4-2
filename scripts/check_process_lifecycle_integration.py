@@ -167,10 +167,17 @@ assert "stop_status != 0" in vpn_server
 print("PPP PID-file all-target stop transaction integration: PASS")
 
 vpn_client = (root / "trunk/user/rc/src/vpn_client.c").read_text()
-vpn_client_stop = vpn_client.split("int\nstop_vpn_client(void)", 1)[1].split("\n}\n", 1)[0]
+vpn_client_stop = vpn_client.split("static int\nstop_vpn_client_locked(void)", 1)[1].split("\n}\n", 1)[0]
+vpn_client_stop_public = vpn_client.split("int\nstop_vpn_client(void)", 1)[1].split("\n}\n", 1)[0]
 vpn_client_force = vpn_client.split("static int\nstop_vpn_client_force(void)", 1)[1].split("\n}\n", 1)[0]
 assert "stop_vpn_client_ppp(0)" in vpn_client_stop
 assert "if (stop_status != 0)" in vpn_client_stop
+assert "vpn_server_lifecycle_lock_acquire()" in vpn_client_stop_public
+assert "stop_vpn_client_locked()" in vpn_client_stop_public
+assert "vpn_server_lifecycle_lock_release(lock_fd)" in vpn_client_stop_public
+assert 'process_inventory_scan("xl2tpd", &snapshot)' in vpn_client_stop
+assert "PROCESS_PRESENCE_START_ABORT" in vpn_client_stop
+assert 'control_xl2tpd("d", "VPNC")' in vpn_client_stop
 assert "stop_vpn_client_ppp(1)" in vpn_client_force
 assert "process_pidfile_parse_link_record" in process_pidfile
 assert "write_link_pidfile_record" in pppd_main

@@ -1,3 +1,11 @@
+## 2026-11-15 — Update process-lifecycle contract for serialized VPN client stop
+
+- Exact process-lifecycle run `43673507109` on `2761e92be05d7957beaa967290996d707aee6334` passed the sanitizer and PID-file policy binaries, then failed because the cross-cutting checker still extracted the public `stop_vpn_client()` wrapper and expected the inner PPP teardown in that wrapper. The teardown now correctly lives in `stop_vpn_client_locked()`; updated the checker to validate the internal stop body, public lock acquisition/release and the new xl2tpd tri-state preflight.
+- Exact VPN server run `43673507149` failed the corresponding old restart-order assertion; that was corrected in `e95c0509e300a59ff8e4b7b34645c1d5e6817eb5`. New exact-head re-runs are queued.
+- Changed paths: `check_process_lifecycle_integration.py`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Match VPN client restart contract to locked stop helper
 
 - Post-commit source review found the legacy VPN checker still expected `restart_vpn_client_locked()` to call the public `stop_vpn_client()`, which would now reacquire the lifecycle lock and deadlock. Production correctly calls `stop_vpn_client_locked()` while holding the lock; updated the old ordering assertion to match the non-recursive path.
