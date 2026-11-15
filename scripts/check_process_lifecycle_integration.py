@@ -11,10 +11,18 @@ policy = (root / "trunk/user/rc/src/service_lifecycle_policy.h").read_text()
 usb_services = (root / "trunk/user/rc/src/services_usb.c").read_text()
 usb_modem = (root / "trunk/user/rc/src/usb_modem.c").read_text()
 rc_header = (root / "trunk/user/rc/src/rc.h").read_text()
+lifecycle_test = (root / "trunk/user/rc/src/tests/service_lifecycle_policy.c").read_text()
+net_lan_notification = (root / "trunk/user/rc/src/net_lan.c").read_text()
 assert "service_lifecycle_notification_allowed" in policy
 assert "service_lifecycle_notify(" in policy
 assert "service_lifecycle_preflight(targets, count, ops, context, 1)" in policy
 assert "service_lifecycle_signal_targets(targets, count, ops" in policy
+notify_body = policy.split("service_lifecycle_notify(char *service_names[]", 1)[1].split("service_lifecycle_probe_targets", 1)[0]
+pidfile_stop_body = common_ex.split("kill_services_with_pidfiles(char *svc_name[]", 1)[1].split("kill_process_pidfile(", 1)[0]
+assert "service_lifecycle_release_targets(targets, count);" in notify_body
+assert "free(targets)" not in notify_body
+assert "service_lifecycle_release_targets(targets, count);" in pidfile_stop_body
+assert "free(targets)" not in pidfile_stop_body
 assert "signal_services_by_identity" in rc_header
 assert "service_lifecycle_notify(svc_name, signal_number, &ops, NULL)" in common_ex
 assert "service_lifecycle_notification_allowed(signal_number)" in common_ex

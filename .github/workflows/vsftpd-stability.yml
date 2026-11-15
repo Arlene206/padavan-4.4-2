@@ -130,9 +130,11 @@ jobs:
 
           wait_fn = function_body(source, "ftp_wait_for_daemon(")
           assert "ftp_daemon_wait_for_stable_presence(daemon, 30" in wait_fn
+          assert "PROCESS_PRESENCE_UNKNOWN" in daemon_policy
+          assert "presence == PROCESS_PRESENCE_UNKNOWN" in daemon_policy
           running_fn = function_body(source, "ftp_daemon_is_running(")
           sleep_fn = function_body(source, "ftp_daemon_sleep(")
-          assert "pids((char *)daemon) > 0" in running_fn
+          assert "return storage_daemon_presence(daemon, NULL);" in running_fn
           assert "usleep(microseconds)" in sleep_fn
 
           acl_existing = function_body(vsftpd_acl, "asus_check_permission_existing_path(")

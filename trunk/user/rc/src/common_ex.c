@@ -1274,7 +1274,6 @@ kill_services_with_pidfiles(char *svc_name[], const char *pidfile_paths[],
 		targets[service_count + i].force_only = pidfile_force_only;
 		if (!pidfile_paths[i] || !*pidfile_paths[i]) {
 			service_lifecycle_release_targets(targets, count);
-			free(targets);
 			return SERVICE_LIFECYCLE_FAILED;
 		}
 	}
@@ -1283,7 +1282,6 @@ kill_services_with_pidfiles(char *svc_name[], const char *pidfile_paths[],
 	if (result != SERVICE_LIFECYCLE_STOPPED)
 		logmessage(LOGNAME, "service/PID-file stop transaction incomplete (status=%d)", result);
 	service_lifecycle_release_targets(targets, count);
-	free(targets);
 	return result;
 }
 

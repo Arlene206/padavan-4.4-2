@@ -1,3 +1,15 @@
+## 2026-11-14 — Close remaining lifecycle ownership and cross-suite trigger defects
+
+- Followed up the exact-head process-lifecycle failure from `669483855e2dd246f66543fb2b9a9d9c4ebec174`. The concurrent main commit `39af9b16649128b07859f9da56b34df5de12bbda` had removed the new `service_lifecycle_notify()` double-free. A second ownership bug remained in `kill_services_with_pidfiles()`: both its invalid-pidfile branch and normal return called `service_lifecycle_release_targets()` (which already frees the target array) and then freed the same pointer again. Removed both redundant frees and extended the checker to assert single ownership.
+- Made the new process-lifecycle checker define the HTTPD notification source and lifecycle test before using them in top-level assertions; the assertion ordering is now executable as written.
+- DNSMasq's Inadyn cross-suite source contract has the new Inadyn policy/test/checker/workflow paths in both push and pull-request filters.
+- Updated the vsftpd cross-suite liveness assertion to the actual tri-state `storage_daemon_presence()` callback rather than obsolete Boolean `pids()`; the stable-presence helper still rejects UNKNOWN.
+- Changed paths: `trunk/user/rc/src/common_ex.c`, `scripts/check_process_lifecycle_integration.py`, `.github/workflows/dnsmasq-lifecycle.yml`, `.github/workflows/vsftpd-stability.yml`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
+
+
 ## 2026-11-14 — Fix identity-bound notification target double-free
 
 - Exact-head process lifecycle run `43669932154` on `f6fdb37613baa40b6b198aefe1dd3de09a0f5c9e` failed its ASan/UBSan regression while exercising the new identity-bound service notification API. AddressSanitizer reported a double-free in `service_lifecycle_notify()`: `service_lifecycle_release_targets()` already releases each captured snapshot and frees the target array, but the caller immediately freed the same array again.

@@ -51,6 +51,10 @@ on:
       - "trunk/user/rc/src/tests/dnsmasq_lifecycle_lock.c"
       - "trunk/user/rc/src/tests/rc_notify_batch_policy.c"
       - "trunk/user/rc/src/rc_notify_batch_policy.h"
+      - "scripts/check_inadyn_lifecycle.py"
+      - "trunk/user/rc/src/tests/inadyn_daemon_policy.c"
+      - "trunk/user/rc/src/inadyn_daemon_policy.h"
+      - ".github/workflows/inadyn-lifecycle-stability.yml"
   workflow_dispatch:
 
 permissions:
