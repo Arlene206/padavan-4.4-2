@@ -1,3 +1,12 @@
+## 2026-11-15 — Align WAN wait-delay contract with source guard
+
+- Exact 524 WAN callback #43751765114 passed the preceding C regressions and the new static-address/PPP abort checks, then failed on the older assertion requiring literal `if (wait_dhcpc)`. The source intentionally changed this to `if (wait_dhcpc && launch_status == 0)` so a failed DHCP exec does not waste the two-second wait.
+- Updated only the source-contract assertion to the new successful-launch condition while preserving the sleep assertion and the separate static/abort tests.
+- Exact 524 AI docs #43751765238 PASS; Process #43751765170 / #43751765307 and XY-C1 #43751765026 were pending at last poll.
+- Parent main `524601f0e86e885f2858f1a5a7b571c09b8d1e1c`; backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-15 — Fail closed on static physical WAN setup errors
 
 - `launch_wanx()` now captures static WAN `ifconfig()` status, skips `man_up()` when the address is not applied and returns `EINVAL` when static MAN IP overlaps the LAN subnet.
