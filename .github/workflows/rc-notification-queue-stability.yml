@@ -139,8 +139,10 @@ jobs:
           )
           for name in app_restarts:
               assert "action_result = rc_notify_merge_action_result(action_result, " + name + "())" in handler, name
-          for name in ("stop_scutclient", "stop_mentohust", "stop_telnetd"):
+          for name in ("stop_scutclient", "stop_mentohust"):
               assert "action_result = rc_notify_merge_action_result(action_result, " + name + "())" in handler, name
+          assert "int stop_status = stop_telnetd();" in handler
+          assert "rc_notify_merge_action_result(action_result, stop_status)" in handler
           run_telnetd = function_body(services, "run_telnetd(void)")
           assert "int stop_status = stop_telnetd();" in run_telnetd
           assert "if (stop_status != 0)" in run_telnetd
