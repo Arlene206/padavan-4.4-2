@@ -8,13 +8,21 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2. Parent main for THIS COMMIT: `180e90075a11ad1135ee6801915211548337b52e`. This parent includes the concurrent RC buffered file-write/close failure fix in `common_ex.c`, its shared helper, regression test, workflow trigger and source contract. Preserve those changes.
-- Immutable backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only and must remain unchanged. Legacy PR #1 is CLOSED / UNMERGED; its CA bootstrap and AliDDNS HMAC/package/test work is already present in main, so do not replay its divergent branch.
-- Exact-main Actions on parent `180e90075a11ad1135ee6801915211548337b52e`: Process inventory and lifecycle fail-closed #43679234773 completed/success; AI handoff documentation contract #43679234764 completed/success; watchdog signal lifecycle #43679234947 completed/success; WAN DHCP callback #43679234703 completed/success. Process lifecycle inventory #43679234730, XY-C1 Firmware Validation #43679234754, HTTPD Authentication/Security #43679234699, Crond lifecycle #43679234687, USB storage #43679234861 and NVRAM audit #43679234792 were IN_PROGRESS at the last poll. Outcomes apply only to that SHA and must be re-fetched.
-- The preceding source SHA `335f137a831725f1ed241151d849e160578cca69` passed Process lifecycle #43677484589, wireless radio #43677484449, HTTPD security #43677484423, AI docs #43677484498, NVRAM audit #43677484415 and XY-C1 #43677484373. XY-C1 completed MIPS/uClibc build, TRX verification and artifact upload #14147062315 (12,595,529 bytes). This establishes L3 only for `335f137`; current source requires a fresh XY-C1 pass. L4 physical-router validation remains NOT VERIFIED.
-- No local checkout is available in this execution context. Do not claim local host tests, full builds or hardware validation; use exact-head Actions evidence.
+- Repository: Arlene206/padavan-4.4-2. Parent main for THIS COMMIT: db4cc443692afec592b224985bf08cb655ac1c04; it adds tri-state DNSMasq process status to resolver publication/reload, retaining last-known-good resolver state and refusing cache reload when daemon presence is UNKNOWN.
+- Immutable backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; read-only and must remain unchanged. Legacy PR #1 remains CLOSED / UNMERGED.
+- Exact parent push Actions: DNSMasq lifecycle #43679783878, Process lifecycle inventory #43679783896, Process inventory/fail-closed #43679783948, VPN #43679783979, AI docs #43679784041, Samba #43679783978, networkmap #43679783891 and numerous other subsystem runs completed SUCCESS. HTTPD Authentication/Security #43679783993 FAILED only on an obsolete source assertion requiring is_dns_dhcpd_run() in update_resolvconf(); parent source now uses dnsmasq_process_status() with RUNNING/ABSENT/UNKNOWN and removes that Boolean helper. This commit repairs the assertion. XY-C1 #43679783864 and NVRAM #43679783958 were IN_PROGRESS at last observation.
+- Exact-source L3 for db4cc443692afec592b224985bf08cb655ac1c04 is NOT VERIFIED until its own XY-C1 MIPS/uClibc build, TRX verification and artifact upload all pass. Historical L3 passed on SHA 335f137a831725f1ed241151d849e160578cca69 only. Physical router L4 remains NOT VERIFIED.
+- No local checkout is available. Do not claim local host tests, target builds or hardware validation; use exact-head Actions evidence only.
+- RC-core caller census of all 36 C translation units found no direct callers for stop_syslogd(), stop_klogd(), stop_udpxy() or stop_xupnpd(); those unused wrappers were deliberately not changed. Preserve the completed audit and do not repeat it.
 
 ## Active task
+
+### Current P1 slice — HTTPD security resolver regression contract (THIS COMMIT)
+
+- The db4cc443 source correctly migrated update_resolvconf() away from is_dns_dhcpd_run() to dnsmasq_process_status(): RUNNING restarts DNSMasq, ABSENT skips restart, UNKNOWN returns an error after publishing the resolver file without pretending the cache is fresh.
+- Exact-head HTTPD/security #43679783993 failed because its Python source contract still demanded the removed Boolean helper. This commit updates the assertion to verify the actual tri-state status API and fail-closed behavior; no production code is altered.
+- Exact-head HTTPD/security, AI docs and XY-C1 are required for this workflow/docs commit. Parent DNSMasq lifecycle #43679783878 passed. No local test result is claimed.
+
 
 ### Current P1 slice — normal shutdown custom-hook postcondition (THIS COMMIT)
 
@@ -103,13 +111,14 @@ The earlier dd7a XY-C1 run [43624870668] also completed SUCCESS; it is supersede
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and exact-head Actions once. Confirm Process lifecycle inventory, Process inventory/fail-closed, AI handoff docs, XY-C1 and the parent workflows by `head_sha`; inspect any failed job logs. The parent `180e90075a11ad1135ee6801915211548337b52e` is not evidence for THIS COMMIT. Its last known statuses are recorded above.
-2. Continue P1 at `stop_rwfs_optware()` and other legacy void stop hooks called during normal shutdown. Trace implementation, all callsites and what state / persistent writes can follow before changing signatures. Preserve the sequencing needed to stop late Optware workers.
-3. Audit NVRAM/storage publication only where an unchecked stop could still race or invalidate persisted state. Do not repeat checked firmware flash, normal shutdown hook, logger, IPTV, radio, Samba or storage public stop paths.
-4. Keep changes small and atomic: one complete Git tree/commit parented to fresh main, update main with expected SHA and force=false, then inspect exact-SHA Actions. Preserve the immutable backup and do not claim local or L4 results without evidence.
+1. Fetch live main and exact-head Actions once; verify this commit's HTTPD/security, DNSMasq, AI documentation, process lifecycle and XY-C1 by exact head_sha. Inspect any failed job logs.
+2. Then implement the OpenVPN stop-postcondition slice: native numeric writepid files must be mapped through a complete process inventory and revalidated by PID/start-time/argv before TERM/KILL; TAP/TUN stop operations must return status; server/client callers and restart must abort dependent lease/NVRAM/script cleanup on failure. Add source-contract coverage to the existing VPN lifecycle checker/workflow.
+3. The RC-core census has already established no C callsites for stop_syslogd/stop_klogd/stop_udpxy/stop_xupnpd. Do not repeat it or change the unreferenced wrappers. After OpenVPN, inspect stop_rwfs_optware() and stop_storage_services() callers and propagate only meaningful unchecked stop outcomes.
+4. Every production slice must be one complete tree/commit parented to fresh main, update main with expected SHA and force=false, then verify exact-SHA Actions. Continue independent work while CI is pending.
+5. L3 requires exact-source MIPS/uClibc build, TRX verification and artifact upload. L4 physical router flash/boot/runtime remains NOT VERIFIED unless hardware evidence exists.
 
 Source/validation notes:
-- Parent main SHA for THIS COMMIT: `180e90075a11ad1135ee6801915211548337b52e`; immutable backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Historical L3 passed on `335f137a831725f1ed241151d849e160578cca69`; the XY-C1 run on `180e900` was pending at the last poll. Revalidate any later source SHA with full Build, TRX verify and artifact upload.
-- Root `dev_log.md` had 94 records before this entry; keep archive shards and index byte-for-byte.
+- Parent main before THIS COMMIT: db4cc443692afec592b224985bf08cb655ac1c04. Immutable backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Parent exact-head HTTPD/security #43679783993 failed on the stale resolver assertion; DNSMasq #43679783878 passed. New SHA results are not yet known.
+- Root dev_log.md had 96 records before this entry and remains below 120 records / 384 KiB. Preserve archive shards and index byte-for-byte.
 

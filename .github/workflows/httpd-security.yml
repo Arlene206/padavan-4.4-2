@@ -1696,7 +1696,12 @@ jobs:
           assert "wan_resolver_refresh_policy_action(refresh_status)" in resolver_refresh
           assert "WAN_RESOLVER_REFRESH_KEEP_WAN" in resolver_refresh
           assert "keeping WAN state" in net_wan
-          assert "is_dns_dhcpd_run())" in resolver
+          assert "dnsmasq_process_status(&dnsmasq_scan_error)" in resolver
+          assert "if (dnsmasq_status < 0)" in resolver
+          assert "if (dnsmasq_status > 0)" in resolver
+          assert "resolver file published but DNSMasq process state is unknown" in resolver
+          assert "is_dns_dhcpd_run()" not in resolver
+          assert "dns_restart_status = restart_dns();" in resolver
           assert "dns_restart_status = restart_dns();" in resolver
           assert "return dns_restart_status;" in resolver
           assert "resolver file published but DNSMasq cache reload failed" in resolver

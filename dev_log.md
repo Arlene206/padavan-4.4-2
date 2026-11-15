@@ -1,3 +1,12 @@
+## 2026-11-15 — Align HTTPD security resolver contract with tri-state DNSMasq status
+
+- Exact-head HTTPD Authentication/Security run #43679783993 on db4cc443692afec592b224985bf08cb655ac1c04 failed at a stale assertion requiring is_dns_dhcpd_run() in update_resolvconf(). The same parent added dnsmasq_process_status() and deliberately removed that Boolean pids()-based check.
+- Updated the workflow source contract to require the public tri-state status call, fail-closed UNKNOWN handling, RUNNING-only restart and absence of the obsolete Boolean helper. Production code was already correct; this commit repairs only the integration contract.
+- Exact parent DNSMasq stability #43679783878, process inventory/fail-closed #43679783948, process lifecycle #43679783896, VPN #43679783979, AI docs #43679784041 and other listed subsystem workflows passed on db4cc443. XY-C1 #43679783864 and NVRAM #43679783958 were still in progress at the last poll. These do not validate this new workflow commit.
+- Changed paths: .github/workflows/httpd-security.yml, dev_log.md, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md. No production source changed and no local checkout/build is available.
+
+---
+
 ## 2026-11-15 — Gate normal shutdown persistence on custom hook success
 
 - shutdown_router() previously discarded the exit status from the configured shutdown_script.sh hook and could still persist storage MTD after the hook failed. The firmware-update path already fails closed on the same hook.
