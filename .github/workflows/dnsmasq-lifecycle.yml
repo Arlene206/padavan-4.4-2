@@ -474,8 +474,8 @@ jobs:
           assert "start_dns_dhcpd(0)" not in ipv6_restart
           assert "is_dns_dhcpd_run()" not in ipv6_restart
           assert "dnsmasq_status = dnsmasq_process_status(&scan_error);" in ipv6_restart
-          disabled_branch = ipv6_restart.split("if (ipv6_type == IPV6_DISABLED)", 1)[1].split("\\n\\t} else {", 1)[0]
-          enabled_branch = ipv6_restart.split("\\n\\t} else {", 1)[1]
+          disabled_branch = ipv6_restart.split("if (ipv6_type == IPV6_DISABLED)", 1)[1].split("\n\t} else {", 1)[0]
+          enabled_branch = ipv6_restart.split("\n\t} else {", 1)[1]
           assert disabled_branch.index("start_dns_dhcpd_locked(0)") < disabled_branch.index("dnsmasq_lifecycle_lock_release(dnsmasq_lock)")
           assert enabled_branch.index("dnsmasq_lifecycle_lock_release(dnsmasq_lock)") < enabled_branch.index("full_restart_wan()")
           assert enabled_branch.index("full_restart_wan()") < enabled_branch.index("dnsmasq_lock = dnsmasq_lifecycle_lock_acquire()")

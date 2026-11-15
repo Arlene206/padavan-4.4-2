@@ -4848,12 +4848,12 @@ jobs:
           assert stop_wan.index("if (stop_status != 0 || ifdown_status != 0)") < stop_wan.index("clear_wan_state();")
           assert stop_wan.index("invalidate_wan_ppp_callback_session()") < stop_wan.index("kill_services(svcs_ppp, 6, 1)")
           assert "stop_vpn_client_under_lifecycle_lock() != 0" in stop_ppp
-assert "stop_vpn_client_under_lifecycle_lock() != 0" in stop_wan
-assert "stop_vpn_client() != 0" not in stop_ppp and "stop_vpn_client() != 0" not in stop_wan
-assert stop_ppp.index("stop_vpn_client_under_lifecycle_lock() != 0") < stop_ppp.index("kill_services(svcs_ppp, 6, 1)")
-assert stop_wan.index("stop_vpn_client_under_lifecycle_lock() != 0") < stop_wan.index("kill_services(svcs_ppp, 6, 1)")
-wan_stop_lock = body(wan, "run_wan_stop_under_vpn_lifecycle_lock(int (*operation)(void), const char *name)")
-assert wan_stop_lock.index("vpn_server_lifecycle_lock_acquire()") < wan_stop_lock.index("result = operation()") < wan_stop_lock.index("vpn_server_lifecycle_lock_release(lock_fd)")
+          assert "stop_vpn_client_under_lifecycle_lock() != 0" in stop_wan
+          assert "stop_vpn_client() != 0" not in stop_ppp and "stop_vpn_client() != 0" not in stop_wan
+          assert stop_ppp.index("stop_vpn_client_under_lifecycle_lock() != 0") < stop_ppp.index("kill_services(svcs_ppp, 6, 1)")
+          assert stop_wan.index("stop_vpn_client_under_lifecycle_lock() != 0") < stop_wan.index("kill_services(svcs_ppp, 6, 1)")
+          wan_stop_lock = body(wan, "run_wan_stop_under_vpn_lifecycle_lock(int (*operation)(void), const char *name)")
+          assert wan_stop_lock.index("vpn_server_lifecycle_lock_acquire()") < wan_stop_lock.index("result = operation()") < wan_stop_lock.index("vpn_server_lifecycle_lock_release(lock_fd)")
           assert "if (stop_wan() != 0)" in full_restart
           assert full_restart.index("if (stop_wan() != 0)") < full_restart.index("reset_wan_vars();")
           assert "if (stop_wan() != 0)" in reconnect

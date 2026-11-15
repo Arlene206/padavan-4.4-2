@@ -224,8 +224,8 @@ assert "process_pidfile_parse_link_record" in process_pidfile
 assert "write_link_pidfile_record" in pppd_main
 assert "pppd_pidfile_format_link_record" in pppd_policy
 net_wan = (root / "trunk/user/rc/src/net_wan.c").read_text()
-wan_ppp_stop = net_wan.split("static int\\nstop_wan_ppp_locked(void)", 1)[1].split("\\n}", 1)[0]
-wan_full_stop = net_wan.split("static int\\nstop_wan_locked(void)", 1)[1].split("\\n}", 1)[0]
+wan_ppp_stop = net_wan.split("static int\nstop_wan_ppp_locked(void)", 1)[1].split("\n}", 1)[0]
+wan_full_stop = net_wan.split("static int\nstop_wan_locked(void)", 1)[1].split("\\n}", 1)[0]
 wan_lock_runner = net_wan.split("run_wan_stop_under_vpn_lifecycle_lock(int (*operation)(void), const char *name)", 1)[1].split("\\n}", 1)[0]
 for stop_body in (wan_ppp_stop, wan_full_stop):
     assert "stop_vpn_client_under_lifecycle_lock() != 0" in stop_body
