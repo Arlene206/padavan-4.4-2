@@ -174,8 +174,10 @@ assert "int launch_status;" in dms_start
 assert minidlna_launcher in dms_start
 minidlna_post_launch = dms_start.split(minidlna_launcher, 1)[1]
 assert "process_state = is_dms_run();" in minidlna_post_launch
-assert "storage_log_daemon_start_result(apps_name, launch_status, process_state);" in minidlna_post_launch
-assert minidlna_post_launch.index("process_state = is_dms_run();") < minidlna_post_launch.index("storage_log_daemon_start_result(apps_name, launch_status, process_state);")
+minidlna_logger = "storage_log_daemon_start_result(apps_name, launch_status,"
+assert minidlna_logger in minidlna_post_launch
+assert "(enum process_presence)process_state);" in minidlna_post_launch
+assert minidlna_post_launch.index("process_state = is_dms_run();") < minidlna_post_launch.index(minidlna_logger)
 assert dms_start.index("if (config_status != 0)") < dms_start.index("_eval(minidlna_argv, NULL, 0, NULL);")
 assert "mkstemp(temporary_path)" in minidlna_config_header
 assert "fflush(output)" in minidlna_config_header

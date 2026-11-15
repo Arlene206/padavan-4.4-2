@@ -1,3 +1,12 @@
+## 2026-11-15 — Accept typed process-state argument in MiniDLNA shared logger contract
+
+- Exact 30e Process run #43746805300 passed the IGMP proxy atomic configuration host regression (step 19) and other host checks, then failed at the MiniDLNA integration assertion. Production run_dms() passes process_state as an explicit (enum process_presence) cast to storage_log_daemon_start_result(); the checker expected the same call without the cast.
+- Updated the assertion to require the logger call prefix, the explicit enum conversion and ordering after the post-launch process scan. This preserves the type boundary rather than weakening the behavior check.
+- Exact 30e AI handoff docs #43746805306 PASS. No new XY-C1 run was triggered because this is a checker/documentation-only correction; the product source is unchanged from be7fd and its XY-C1 run #43746522702 must still be checked through TRX and artifact upload.
+- Parent main: 30e184833ffd8c43c1b22cdb544e0740545bdb43; exact-head Process validation required.
+
+---
+
 ## 2026-11-15 — Align MiniDLNA integration contract with shared startup-result logger
 
 - Exact be7fd Process run #43746522677 passed all earlier compilation and regression steps, including IGMP proxy atomic config test step 19, then failed at checker line 175. Storage lifecycle changes consolidated command and process-presence reporting into storage_log_daemon_start_result(); the older MiniDLNA-specific assertions still expected inline if/else logging.

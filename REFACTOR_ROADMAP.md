@@ -1,14 +1,14 @@
 ## Current source / CI checkpoint
 
-- Live main before this source-contract follow-up: be7fd92337812a28ddc5b275c7898915be114987. The IGMP config publisher and GNU89 ASan/UBSan host regression are in source; on exact e8b4 the dedicated Process test step 19 passed. The shared storage-startup logger is wired into MiniDLNA, Firefly, Transmission and Aria. Exact be7fd Process #43746522677 failed only because an older MiniDLNA-specific contract still expected inline error logging rather than the shared logger; the contract is now aligned with the shared implementation.
-- Exact be7fd AI handoff docs #43746522557 PASS. XY-C1 #43746522702 was IN_PROGRESS at Build; TRX verification and artifact upload not yet confirmed. NVRAM #43746522646 and USB hotplug #43746522545 were IN_PROGRESS. Other be7fd checks PASS: infosvr #43746522641, AdGuardHome #43746522610, AliyunDrive #43746522583, NFS #43746522567, vsftpd #43746522533, AliDDNS #43746522528, HTTPD #43746522505, Process inventory #43746522504 and Samba #43746522547.
-- The exact e8b4 run also exposed a duplicate MiniDLNA launch_status local and an over-escaped logger extraction; both were corrected in be7fd. FTP existing-STOR cleanup eligibility remains fixed, while the separate Linux 4.4 fstatat-to-unlinkat replacement race remains unresolved.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807. No physical-router L4 result is claimed.
+- Live main before this checker follow-up: 30e184833ffd8c43c1b22cdb544e0740545bdb43. IGMP proxy config staging and the GNU89 ASan/UBSan host regression are committed; exact Process step 19 on 30e passed. Exact Process #43746805300 failed only because the MiniDLNA source passes process_state as an explicit (enum process_presence) cast to storage_log_daemon_start_result(), while the static contract omitted the cast. The contract now checks the typed argument and ordering.
+- Exact 30e AI handoff docs #43746805306 PASS. The source-identical XY-C1 run #43746522702 on be7fd was IN_PROGRESS at last check; build/TRX/artifact must be verified. NVRAM #43746805297 was IN_PROGRESS. Other 30e checks PASS: AdGuardHome #43746805244, AliDDNS #43746805299, AliyunDrive #43746805254, infosvr #43746805329, vsftpd #43746522533, NFS #43746522567, Process inventory #43746522504 and Samba #43746522547.
+- The e8b4 duplicate MiniDLNA local and over-escaped helper extraction were corrected in be7fd. The remaining fstatat-to-unlinkat replacement window in FTP cleanup remains unresolved on Linux 4.4; no physical-router L4 result is claimed.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
 
 ### P2 — IGMP proxy configuration publication
 
-- start_igmpproxy() now stages configuration beside the destination, validates line-valued inputs, checks write/flush/fsync/close and atomically renames only after full success. Publication failure cleans the stage, preserves last-good content and blocks igmpproxy launch.
-- The dedicated e8b4 host regression passed (GNU89, ASan, UBSan); exact-head Process must pass the integration contract after this checker update. Exact-source XY-C1 Build/TRX/artifact remains the L3 gate.
+- start_igmpproxy() now stages config beside the destination, rejects CR/LF injection and checks write, flush, fsync, close and atomic rename. A publication failure preserves last-good content and prevents daemon launch.
+- The dedicated host test is PASS on the exact 30e Process job (step 19). Overall Process remains blocked only by the stale MiniDLNA cast contract; exact-head Process and source-identical XY-C1 Build/TRX/artifact verification remain required.
 
 ## Whole-repository module status
 
