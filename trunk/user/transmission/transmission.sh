@@ -35,6 +35,8 @@ transmission_require_dir()
 }
 func_start()
 {
+	# Avoid treating an inherited environment variable as our cleanup target.
+	CONFIG_TMP=""
 	# Make sure already running
 	if [ -n "`pidof transmission-daemon`" ] ; then
 		return 0
@@ -70,7 +72,6 @@ func_start()
 	
 	# Generate default settings into a private same-directory file, then publish atomically.
 	CONFIG_FILE="$DIR_CFG/settings.json"
-	CONFIG_TMP=""
 	if [ -L "$CONFIG_FILE" ] || { [ -e "$CONFIG_FILE" ] && [ ! -f "$CONFIG_FILE" ]; }; then
 		transmission_start_fail "settings path is not a regular file"
 		return 1

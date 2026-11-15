@@ -156,14 +156,15 @@ run_launcher()
 	mkdir_fail_path=${13:-}
 	chmod_fail_path=${14:-}
 	chown_fail_path=${15:-}
+	inherited_config_tmp=${16:-}
 	generator_status=${10:-0}
 	sed_status=${11:-0}
 	generator_empty=${12:-0}
 	if [ -n "${BUSYBOX_BIN:-}" ]; then
-		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" STORAGE_TEST_MKDIR_FAIL_PATH="$mkdir_fail_path" STORAGE_TEST_CHMOD_FAIL_PATH="$chmod_fail_path" STORAGE_TEST_CHOWN_FAIL_PATH="$chown_fail_path" \
+		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" STORAGE_TEST_MKDIR_FAIL_PATH="$mkdir_fail_path" STORAGE_TEST_CHMOD_FAIL_PATH="$chmod_fail_path" STORAGE_TEST_CHOWN_FAIL_PATH="$chown_fail_path" CONFIG_TMP="$inherited_config_tmp" \
 			"$BUSYBOX_BIN" ash "$launcher" start >/dev/null 2>&1
 	else
-		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" STORAGE_TEST_MKDIR_FAIL_PATH="$mkdir_fail_path" STORAGE_TEST_CHMOD_FAIL_PATH="$chmod_fail_path" STORAGE_TEST_CHOWN_FAIL_PATH="$chown_fail_path" \
+		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" STORAGE_TEST_MKDIR_FAIL_PATH="$mkdir_fail_path" STORAGE_TEST_CHMOD_FAIL_PATH="$chmod_fail_path" STORAGE_TEST_CHOWN_FAIL_PATH="$chown_fail_path" CONFIG_TMP="$inherited_config_tmp" \
 			sh "$launcher" start >/dev/null 2>&1
 	fi
 }
@@ -249,9 +250,11 @@ run_transmission_setup_failure()
 	phase=$1
 	mode=$2
 	fail_path=$3
+	inherited_tmp=${4:-}
 	setup_root="$TMP_DIR/transmission-setup-$phase"
 	link_root="$setup_root/mount"
 	mkdir -p "$link_root"
+	if [ -n "$inherited_tmp" ]; then printf "preserve-me\n" > "$inherited_tmp"; fi
 	mkdir_fail_path=""
 	chmod_fail_path=""
 	chown_fail_path=""
@@ -265,16 +268,20 @@ run_transmission_setup_failure()
 	    -e "s|DIR_LINK=\"/mnt/transmission\"|DIR_LINK=\"$link_root\"|" \
 	    "$TRANSMISSION_SRC" > "$TMP_DIR/transmission-setup-$phase.sh"
 	marker="$link_root/start-invoked"
-	if run_launcher "$TMP_DIR/transmission-setup-$phase.sh" 0 0 0 0 "$marker" "" "" "" 0 0 0 "$mkdir_fail_path" "$chmod_fail_path" "$chown_fail_path"; then
+	if run_launcher "$TMP_DIR/transmission-setup-$phase.sh" 0 0 0 0 "$marker" "" "" "" 0 0 0 "$mkdir_fail_path" "$chmod_fail_path" "$chown_fail_path" "$inherited_tmp"; then
 		echo "Transmission started despite $phase setup failure" >&2
 		exit 1
 	fi
 	[ ! -e "$marker" ] || { echo "Transmission daemon launch was attempted after $phase setup failure" >&2; exit 1; }
+	if [ -n "$inherited_tmp" ]; then
+		[ -s "$inherited_tmp" ] || { echo "Transmission removed an inherited CONFIG_TMP path during $phase failure" >&2; exit 1; }
+	fi
 	for tmp_settings in "$link_root/config"/settings.json.tmp.*; do
 		[ ! -e "$tmp_settings" ] || { echo "Transmission left a staging file after $phase setup failure" >&2; exit 1; }
 	done
 }
 run_transmission_setup_failure mkdir-config mkdir "$TMP_DIR/transmission-setup-mkdir-config/mount/config"
+run_transmission_setup_failure inherited-config-tmp mkdir "$TMP_DIR/transmission-setup-inherited-config-tmp/mount/config" "$TMP_DIR/transmission-inherited-config-tmp"
 run_transmission_setup_failure mkdir-downloads mkdir "$TMP_DIR/transmission-setup-mkdir-downloads/mount/downloads"
 run_transmission_setup_failure mkdir-incomplete mkdir "$TMP_DIR/transmission-setup-mkdir-incomplete/mount/incomplete"
 run_transmission_setup_failure mkdir-watch mkdir "$TMP_DIR/transmission-setup-mkdir-watch/mount/watch"

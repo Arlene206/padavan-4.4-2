@@ -1,3 +1,13 @@
+## 2026-11-16 06:22 Beijing — Initialize Transmission cleanup state before any fail-closed setup
+
+- `transmission_start_fail()` cleans `CONFIG_TMP`. Review found directory setup can fail before the previous assignment to `CONFIG_TMP`, allowing an inherited environment variable to be mistaken for the active stage path. `func_start()` now clears `CONFIG_TMP` immediately on entry.
+- Added host/BusyBox regression: force config-directory creation to fail while passing `CONFIG_TMP` as a pre-existing external file; require the file to remain nonempty and no daemon invocation.
+- Exact a391 main push Actions all PASS: storage #43765111683, AI docs #43765111687, Process inventory #43765111678, Process lifecycle #43765111691, infosvr #43765111706, AliDDNS #43765111677, AliyunDrive #43765111712, AdGuardHome #43765111669 and NVRAM #43765111698. Exact a9 storage #43764529973 PASS. b488 XY-C1 run #43762907958 passed Build XY-C1, TRX verification and artifact upload (L3 only for b488 C source).
+- Parent main: `a391be7a60c790eafd480cc4a70923e8c9e5c26b`. This follow-up is shell/test/docs only; exact-head Actions pending. Frozen backup unchanged; no L4 claim.
+- Next: verify exact-head storage result and then audit Transmission stop/restart postconditions.
+
+---
+
 ## 2026-11-16 06:05 Beijing — Fail closed on Transmission storage setup and ownership errors
 
 - Replaced unchecked Transmission `mkdir -p` calls with `transmission_require_dir()`, which checks both command status and resulting directory postcondition for config, downloads, incomplete and watch paths. A failed watch chmod now aborts startup.
