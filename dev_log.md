@@ -1,3 +1,12 @@
+## 2026-11-15 23:36 CST — Report networkmap boot startup failures
+
+- start_networkmap(1) returns failure when the process inventory is UNKNOWN or the launcher fails, but start_services_once() discarded the status. The daemon could therefore fail to start without a boot-sequence diagnostic.
+- Capture the result and log nonzero status while preserving best-effort boot continuation. Extend check_networkmap_signals.py with a semantic source assertion; the existing Networkmap push filters already include services.c and the checker, and XY-C1 already watches services.c.
+- Parent main: 6832b792e4304114555ba054cd91f34ff4868fa2; resulting SHA: THIS COMMIT. On the parent exact-head Networkmap #43729759374 and AI handoff #43729759472 passed. XY-C1 #43729759471 remains IN_PROGRESS (job #132859395581, Cross-build XY-C1 firmware); current-source L3 is not verified until build, TRX verification and artifact upload all pass. 26 of 27 exact-head push Actions on the parent completed SUCCESS.
+- P1 process-lifecycle sweep of all 36 trunk/user/rc/src/*.c files found no active in-tree kill_pidfile_s() callsites and no direct killall call outside the disabled #if 0 udhcpc block. The only active pids() call is the legacy is_dns_dhcpd_run() compatibility wrapper in services_ex.c, with no RC-source caller; kill_process_pidfile() also has no RC-source caller. Deliberate PID 1 / child-process signals and identity-bound service signals were left unchanged. This sweep is scoped to RC C sources, not every package in the repository.
+- Other status-returning startup calls remain to be triaged. Inspect each return contract and disabled/no-op sentinel before adding diagnostics.
+
+---
 ## 2026-11-15 23:20 CST — Log VPN server boot startup failure instead of discarding status
 
 - `start_vpn_server()` is status-returning and the PPTP launcher result can fail, but `start_services_once()` discarded the return value. Boot therefore continued without a startup-level diagnostic for a failed VPN server launch (the public wrapper only logs lifecycle-lock acquisition/release failures).

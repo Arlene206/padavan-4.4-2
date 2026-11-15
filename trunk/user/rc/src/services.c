@@ -1327,7 +1327,13 @@ start_services_once(int is_ap_mode)
 	start_lltd();
 	start_watchdog_cpu();
 	start_crond();
-	start_networkmap(1);
+	{
+		int networkmap_start_status = start_networkmap(1);
+		if (networkmap_start_status != 0)
+			logmessage(LOGNAME,
+				   "networkmap boot startup failed (status=%d)",
+				   networkmap_start_status);
+	}
 	start_rstats();
 #if defined(APP_MENTOHUST)
 	start_mentohust();
