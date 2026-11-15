@@ -214,6 +214,34 @@ assert "if (lan_status != 0)" in lan_restart
 assert "LAN restart aborted" in lan_restart
 print("WAN/LAN udhcpc identity-bound stop integration: PASS")
 
+wan_start = net_wan.split("void\nstart_wan(void)", 1)[1].split(
+    "\nstatic int\nstop_wan_ppp_locked", 1
+)[0]
+wan_up = net_wan.split("wan_up_internal(char *wan_ifname, int unit, int is_static)", 1)[1].split(
+    "\nint\nwan_up(", 1
+)[0]
+wan_down = net_wan.split("wan_down_internal(char *wan_ifname, int unit, int is_static)", 1)[1].split(
+    "\nint\nwan_down(", 1
+)[0]
+assert "auth_status = start_auth_eapol(wan_ifname, unit, wan_auth_mode - 2);" in wan_start
+wan_eapol_failure = wan_start.split("if (auth_status != 0)", 1)[1].split("/* We are done configuration */", 1)[0]
+assert "set_wan_unit_value_int(unit, \"err\", 1)" in wan_eapol_failure
+assert 'ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL)' in wan_eapol_failure
+assert "continue;" in wan_eapol_failure
+assert wan_start.index("if (auth_status != 0)") < wan_start.index("start_udhcpc_wan(wan_ifname, unit, 0)")
+assert "route_status = start_auth_kabinet();" in wan_up
+assert "status = route_status_accumulate(status, route_status);" in wan_up
+assert "WAN kabinet authentication startup incomplete" in wan_up
+assert "route_status = stop_auth_kabinet();" in wan_down
+assert "status = route_status_accumulate(status, route_status);" in wan_down
+assert "WAN kabinet authentication teardown incomplete" in wan_down
+assert "eapol_stop_status = stop_auth_eapol();" in wan_stop
+assert "kabinet_stop_status = stop_auth_kabinet();" in wan_stop
+assert "if (eapol_stop_status != 0 || kabinet_stop_status != 0)" in wan_stop
+assert wan_stop.index("if (eapol_stop_status != 0 || kabinet_stop_status != 0)") < wan_stop.index(
+    "set_passthrough_pppoe(0);"
+)
+
 wan_stop = net_wan.split("static int\nstop_wan_locked(void)", 1)[1].split("\n}\n", 1)[0]
 usb_modem = (root / "trunk/user/rc/src/usb_modem.c").read_text()
 modem_remove = usb_modem.split("int\nsafe_remove_usb_modem(void)", 1)[1].split("\n}\n", 1)[0]

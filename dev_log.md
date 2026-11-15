@@ -1,3 +1,12 @@
+## 2026-11-15 — Propagate WAN authentication lifecycle results to interface transitions
+
+- Follow-up inspection of every RC callsite found that `net_wan.c` still discarded the newly exposed `start_auth_eapol()`, `start_auth_kabinet()`, `stop_auth_eapol()` and `stop_auth_kabinet()` results. In particular, IPoE DHCP continued to launch `udhcpc` after EAPOL startup had failed, while WAN teardown cleared passthrough/interface state without proving auth daemons had stopped.
+- WAN startup now records EAPOL failure, marks the unit errored, clears an already-assigned static address and skips DHCP/UP handling. WAN teardown tries both auth stop paths, aggregates failures, and aborts before interface teardown. IPoE WAN up/down route handlers now accumulate kabinet start/stop failures into their returned status rather than discarding them.
+- Extended the integration checker for EAPOL abort ordering, stop-before-interface teardown and WAN up/down status aggregation. The existing process and XY-C1 path filters already include `net_wan.c`.
+- Changed paths: `net_wan.c`, `check_process_lifecycle_integration.py`, `dev_log.md`. Result: THIS COMMIT. Exact-head process regression and XY-C1 firmware validation required.
+
+---
+
 ## 2026-11-15 — Abort WAN authentication restart when old daemons fail to stop
 
 - `start_auth_kabinet()` and `start_auth_eapol()` both called void stop wrappers that discarded `kill_services()` results, then rewrote credentials/configuration and launched new authentication daemons regardless of whether old `lanauth`, `wpa_cli` or `wpa_supplicant` instances remained.

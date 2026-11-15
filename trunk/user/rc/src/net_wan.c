@@ -1711,7 +1711,7 @@ start_wan(void)
 		else if (wan_proto == IPV4_WAN_PROTO_IPOE_DHCP ||
 			 wan_proto == IPV4_WAN_PROTO_IPOE_STATIC)
 		{
-			int wan_auth_mode, wan_err = 0, wan_upnp_status;
+			int wan_auth_mode, wan_err = 0, wan_upnp_status, auth_status;
 			
 			/* Configure DHCP connection. */
 			if (check_upnp_wanif_changed(wan_ifname) != 0) {
@@ -1753,8 +1753,18 @@ start_wan(void)
 			
 			/* Start eapol authenticator */
 			wan_auth_mode = get_wan_unit_value_int(unit, "auth_mode");
-			if (wan_auth_mode > 1)
-				start_auth_eapol(wan_ifname, unit, wan_auth_mode - 2);
+			if (wan_auth_mode > 1) {
+				auth_status = start_auth_eapol(wan_ifname, unit, wan_auth_mode - 2);
+				if (auth_status != 0) {
+					logmessage(LOGNAME, "WAN EAPOL authentication startup failed on %s (status=%d); skipping address/lease setup",
+						   wan_ifname, auth_status);
+					set_wan_unit_value_int(unit, "err", 1);
+					if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC &&
+					    ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL) != 0)
+						logmessage(LOGNAME, "failed to clear static WAN address after EAPOL startup failure on %s", wan_ifname);
+					continue;
+				}
+			}
 			
 			/* We are done configuration */
 			if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC) {
@@ -1837,6 +1847,7 @@ static int
 stop_wan_locked(void)
 {
 	int unit, wan_proto, ifdown_status, stop_status;
+	int eapol_stop_status, kabinet_stop_status;
 #if defined (USE_IPV6)
 	int ipv6_status = 0;
 #endif
@@ -1910,8 +1921,16 @@ stop_wan_locked(void)
 		goto abort_resume_detect;
 	}
 
-	stop_auth_eapol();
-	stop_auth_kabinet();
+	eapol_stop_status = stop_auth_eapol();
+	if (eapol_stop_status != 0)
+		logmessage(LOGNAME, "WAN teardown could not stop EAPOL authentication (status=%d)", eapol_stop_status);
+	kabinet_stop_status = stop_auth_kabinet();
+	if (kabinet_stop_status != 0)
+		logmessage(LOGNAME, "WAN teardown could not stop kabinet authentication (status=%d)", kabinet_stop_status);
+	if (eapol_stop_status != 0 || kabinet_stop_status != 0) {
+		stop_status = eapol_stop_status != 0 ? eapol_stop_status : kabinet_stop_status;
+		goto abort_resume_detect;
+	}
 	set_passthrough_pppoe(0);
 	if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC &&
 	    strcmp(man_ifname, get_wan_unit_value(unit, "ifname_t")) == 0)
@@ -2344,8 +2363,12 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 
 	/* Start kabinet authenticator (for IPoE) */
 	if (!modem_unit_id && (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC || wan_proto == IPV4_WAN_PROTO_IPOE_DHCP)) {
-		if (get_wan_unit_value_int(unit, "auth_mode") == 1)
-			start_auth_kabinet();
+		if (get_wan_unit_value_int(unit, "auth_mode") == 1) {
+			route_status = start_auth_kabinet();
+			status = route_status_accumulate(status, route_status);
+			if (route_status != 0)
+				logmessage(LOGNAME, "WAN kabinet authentication startup incomplete (status=%d)", route_status);
+		}
 	}
 
 	/* start multicast router (for NDIS or IPoE) */
@@ -2460,8 +2483,12 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 
 	/* Stop kabinet authenticator (for IPoE) */
 	if (!modem_unit_id && (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC || wan_proto == IPV4_WAN_PROTO_IPOE_DHCP)) {
-		if (get_wan_unit_value_int(unit, "auth_mode") == 1)
-			stop_auth_kabinet();
+		if (get_wan_unit_value_int(unit, "auth_mode") == 1) {
+			route_status = stop_auth_kabinet();
+			status = route_status_accumulate(status, route_status);
+			if (route_status != 0)
+				logmessage(LOGNAME, "WAN kabinet authentication teardown incomplete (status=%d)", route_status);
+		}
 	}
 
 	/* Remove default route to gateway if specified */
