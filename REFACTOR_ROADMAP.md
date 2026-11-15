@@ -1,9 +1,9 @@
 ## Current source / CI checkpoint
 
-- Parent main for the VPN/DNSMasq lock-order slice: `0b9253aec5367c3c833ed54638b662f0784a1472`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged/read-only; PR #1 CLOSED / UNMERGED.
-- Exact parent Actions: DNSMasq #43723940207 PASS; AI handoff #43723940125 PASS; process inventory #43723940114 PASS; WAN DHCP callback #43723940104 PASS; HTTPD auth #43723940105 PASS; AdGuardHome #43723940129 PASS; Samba #43723940180 PASS. NVRAM #43723940163 and XY-C1 #43723940080 remained in progress at last poll.
-- Current slice removes same-process nested VPN `F_SETLK` unlocks in WAN stop callbacks and eliminates DNSMasq -> VPN lock inversion in LAN restart. Fresh exact-head DNSMasq/AI/XY-C1 evidence is required.
-- No current-source target MIPS/TRX or physical-router L4 result is claimed.
+- Parent main for this VPN lifecycle source-checker repair: `18c5f948efe89d9c8bcbff9caa14708686b2340d`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 CLOSED / UNMERGED.
+- On the production-source parent, DNSMasq #43724605898, WAN route #43724605834, AI docs #43724605883, OpenVPN client secret #43724605815 and WAN interface teardown #43724605876 PASS. VPN server lifecycle #43724605659 failed at the old Python assertion requiring the public reentrant VPN client wrapper; all C test steps passed. XY-C1 #43724605847 was still compiling.
+- Corrected the VPN lifecycle checker to require the caller-held-lock helper and forbid nested lock acquire/release. Exact-head rerun required.
+- No current-source MIPS/TRX or physical-router L4 result is claimed.
 
 ## Whole-repository module status
 

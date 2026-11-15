@@ -1,3 +1,12 @@
+## 2026-11-15 — Align VPN lifecycle checker with the under-lock WAN client stop helper
+
+- VPN server lifecycle Action #43724605659 on production SHA `18c5f948efe89d9c8bcbff9caa14708686b2340d` failed in the Python source-contract stage, not in compilation or a C test. The legacy assertion required `stop_vpn_client()` inside WAN callbacks even after the production fix correctly replaced it with `stop_vpn_client_under_lifecycle_lock()`.
+- Updated `scripts/check_vpn_server_lifecycle.py` to require the under-lock entry point in both WAN callbacks, forbid the reentrant public wrapper, prove the helper delegates to `stop_vpn_client_locked()` without acquiring/releasing the outer lock, and confirm the public declaration exists.
+- Production-source exact-head results: DNSMasq #43724605898 PASS; WAN route #43724605834 PASS; AI docs #43724605883 PASS; OpenVPN secret #43724605815 PASS; WAN teardown #43724605876 PASS. XY-C1 #43724605847 was building; no current-source L3 claim.
+- Parent main: `18c5f948efe89d9c8bcbff9caa14708686b2340d`; this workflow-only checker change requires a fresh VPN lifecycle/AI docs run. No physical-router result claimed.
+
+---
+
 ## 2026-11-15 — Repair VPN/DNSMasq lifecycle lock nesting and inversion
 
 - Confirmed nested same-process `fcntl(F_SETLK)` behavior in WAN shutdown: `stop_wan()` and `stop_wan_ppp()` acquired the VPN lifecycle lock around callbacks, but both callbacks called public `stop_vpn_client()`, which reacquired then released the same process-associated lock. Inner `F_UNLCK` could release the outer critical section prematurely.

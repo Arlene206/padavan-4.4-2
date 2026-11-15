@@ -272,9 +272,18 @@ ordered(wan_stop_lock,["vpn_server_lifecycle_lock_acquire()",
                        "vpn_server_lifecycle_lock_release(lock_fd)"],"WAN stop lock")
 wan_ppp_stop=body(net_wan,"stop_wan_ppp_locked(void)")
 wan_full_stop=body(net_wan,"stop_wan_locked(void)")
+client_stop_under_lock=body(vpn_client,"stop_vpn_client_under_lifecycle_lock(void)")
 for name,part in (("WAN PPP stop",wan_ppp_stop),("WAN full stop",wan_full_stop)):
-    require("stop_vpn_client() != 0" in part and "kill_services(svcs_ppp, 6, 1)" in part,
-            f"{name} must stop shared PPP services inside the lock-owning wrapper")
+    require("stop_vpn_client_under_lifecycle_lock() != 0" in part and
+            "stop_vpn_client() != 0" not in part and
+            "kill_services(svcs_ppp, 6, 1)" in part,
+            f"{name} must use the non-reentrant VPN stop helper inside the lock-owning wrapper")
+require("return stop_vpn_client_locked();" in client_stop_under_lock and
+        "vpn_server_lifecycle_lock_acquire" not in client_stop_under_lock and
+        "vpn_server_lifecycle_lock_release" not in client_stop_under_lock,
+        "WAN's under-lock client helper must not recursively acquire or release the process-associated lock")
+require("stop_vpn_client_under_lifecycle_lock" in rc_header,
+        "the caller-holds-lock VPN client entry point must be declared")
 require("run_wan_stop_under_vpn_lifecycle_lock(stop_wan_ppp_locked" in net_wan and
         "run_wan_stop_under_vpn_lifecycle_lock(stop_wan_locked" in net_wan,
         "both WAN teardown entry points must use the lifecycle barrier")

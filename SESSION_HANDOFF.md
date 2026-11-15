@@ -18,13 +18,12 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Active task
 
-### P2 — VPN/DNSMasq lifecycle lock ordering and remaining resolver concurrency
+### P2 — VPN/DNSMasq lock ordering; align VPN lifecycle regression contract
 
-- DNSMasq generated DHCP outputs publish as one rollback set; strict MAC/domain/pool validation and reverse-order static-ARP rollback are implemented. Unsafe upstream refresh errors propagate rather than falsely reporting success. Staging and rollback-snapshot discard preserve names on unlink failure, return status, and callers retry/log leftovers.
-- Confirmed nested process-lock bug: `stop_wan()` and `stop_wan_ppp()` acquire VPN lifecycle `fcntl(F_SETLK)` around their callbacks. Both callbacks called public `stop_vpn_client()`, which reacquired and unlocked the same process-associated inode; the inner `F_UNLCK` could drop the outer WAN lock. Added `stop_vpn_client_under_lifecycle_lock()` to invoke the existing locked implementation without nested acquire/release; both WAN callbacks now use it.
-- Confirmed VPN/DNSMasq lock inversion: static-IP WAN teardown holds VPN while refreshing DNSMasq, while LAN restart previously held DNSMasq before stopping VPN. LAN restart now completes VPN preflight before taking DNSMasq; if DNS lock acquisition fails, the stopped VPN is restored and the saved lock errno returned.
-- Added source contracts for both WAN callbacks, helper non-reentrancy, F_SETLK semantics, VPN-before-DNS order and VPN restoration on DNS lock failure. Exact-head DNSMasq, AI handoff and XY-C1 checks are required.
-- Remaining DNSMasq work: resolver/config publication concurrency and remaining public/locked start/stop/restart/reload caller graph; then rotate to broader whole-tree reliability/security work.
+- Production lock fixes are committed in `18c5f948efe89d9c8bcbff9caa14708686b2340d`: WAN stop callbacks now call `stop_vpn_client_under_lifecycle_lock()` rather than reacquiring the process-associated `F_SETLK` lock; LAN restart performs VPN preflight before taking the DNSMasq lock, restoring VPN if DNS lock acquisition fails.
+- DNSMasq exact-head action #43724605898 PASS, including the staged-file sanitizer tests and source-order contracts; WAN route #43724605834 and AI handoff #43724605883 PASS. XY-C1 #43724605847 was still building when checked.
+- VPN server lifecycle #43724605659 FAILED only because its legacy source checker still required the public `stop_vpn_client()` call inside the VPN-lock-owning WAN callbacks. The correct new under-lock helper is now reflected in `scripts/check_vpn_server_lifecycle.py`, including assertions that it does not acquire/release the outer lock.
+- Exact-head VPN lifecycle/AI/XY-C1 reruns are required after this checker update. Continue checking for any additional DNSMasq->VPN or same-process nested lock paths.
 
 
 ## Explicitly uncompleted P1 work
@@ -36,9 +35,9 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Verification boundary
 
-- Pre-change source `0b9253aec5367c3c833ed54638b662f0784a1472`: DNSMasq lifecycle #43723940207 PASS; AI handoff #43723940125 PASS; process inventory #43723940114 PASS; WAN DHCP callback #43723940104 PASS; HTTPD auth #43723940105 PASS; AdGuardHome #43723940129 PASS; Samba #43723940180 PASS. NVRAM #43723940163 and XY-C1 #43723940080 were IN_PROGRESS at last poll.
-- This commit changes WAN/VPN/DNSMasq lifecycle source and workflow contracts. Exact-head DNSMasq, AI handoff and XY-C1 Actions are required; L3 requires the XY-C1 build, TRX verification and artifact upload.
-- No current-source target MIPS/TRX or physical-router result is claimed; L4 remains NOT VERIFIED.
+- Exact source `18c5f948efe89d9c8bcbff9caa14708686b2340d`: DNSMasq #43724605898 PASS; WAN route #43724605834 PASS; AI handoff #43724605883 PASS; OpenVPN client secret #43724605815 PASS; WAN interface teardown #43724605876 PASS. VPN server lifecycle #43724605659 FAILED solely at its stale Python source assertion requiring `stop_vpn_client()` in locked WAN callbacks; all three C regression compile/run steps passed. XY-C1 #43724605847 was IN_PROGRESS (Build XY-C1 still running); no L3 claim.
+- The checker repair changes only the source contract and handoff records. Fresh VPN server lifecycle and AI handoff Actions are required; the already running XY-C1 run still covers the production-source SHA `18c5f948efe89d9c8bcbff9caa14708686b2340d`.
+- No current-source MIPS/TRX completion or physical-router result is claimed; L4 remains NOT VERIFIED.
 
 
 ## HTTPD daemon lifecycle — completed slice
@@ -57,11 +56,10 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Exact first action for the next GPT
 
-1. Check exact-head DNSMasq lifecycle, AI handoff and XY-C1 Actions for the VPN/DNSMasq lock-order fix; diagnose failures from full job logs.
-2. Verify both WAN stop callbacks use the under-lock VPN helper and LAN restart enforces VPN-before-DNS order with VPN restoration on DNS lock failure.
-3. Continue remaining DNSMasq public/locked start/stop/restart/reload caller graph and resolver/config publication concurrency; implement only concrete defects with regression coverage.
-4. Once DNSMasq is stable, rotate to an unblocked whole-tree user-space reliability/security area. FTP inode-conditional unlink remains constrained by Linux 4.4; NFS durability/auth compatibility needs client evidence.
-5. Keep frozen backup unchanged and physical router L4 NOT VERIFIED.
+1. Check exact-head VPN server lifecycle and AI handoff after the source-checker update; verify that the WAN under-lock helper assertions pass.
+2. Check completion of XY-C1 #43724605847 for production source `18c5f948efe89d9c8bcbff9caa14708686b2340d`; require Build XY-C1, TRX verification and artifact upload before L3.
+3. Continue the complete public/locked DNSMasq and VPN start/stop/restart/reload caller graph, searching for cross-process lock-order cycles and same-process nested F_SETLK releases. Add targeted contracts for any new defect.
+4. After lock/lifecycle audit, rotate to another unblocked high-impact user-space reliability/security area. Keep frozen backup unchanged and physical-router L4 NOT VERIFIED.
 
 
 Source/validation notes:
