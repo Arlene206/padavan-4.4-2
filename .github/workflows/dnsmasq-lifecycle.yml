@@ -26,7 +26,9 @@ on:
       - "trunk/user/shared/src/process_inventory.c"
       - "trunk/user/shared/src/process_inventory.h"
       - "trunk/user/rc/src/dnsmasq_dhcp_range_policy.h"
+      - "trunk/user/rc/src/dnsmasq_static_host_policy.h"
       - "trunk/user/rc/src/tests/dnsmasq_dhcp_range_policy.c"
+      - "trunk/user/rc/src/tests/dnsmasq_static_host_policy.c"
       - "trunk/user/rc/src/dnsmasq_lifecycle_lock.h"
       - "trunk/user/rc/src/tests/dnsmasq_lifecycle_lock.c"
       - "trunk/user/rc/src/tests/rc_notify_batch_policy.c"
@@ -52,7 +54,9 @@ on:
       - "trunk/user/shared/src/process_inventory.c"
       - "trunk/user/shared/src/process_inventory.h"
       - "trunk/user/rc/src/dnsmasq_dhcp_range_policy.h"
+      - "trunk/user/rc/src/dnsmasq_static_host_policy.h"
       - "trunk/user/rc/src/tests/dnsmasq_dhcp_range_policy.c"
+      - "trunk/user/rc/src/tests/dnsmasq_static_host_policy.c"
       - "trunk/user/rc/src/dnsmasq_lifecycle_lock.h"
       - "trunk/user/rc/src/tests/dnsmasq_lifecycle_lock.c"
       - "trunk/user/rc/src/tests/rc_notify_batch_policy.c"
@@ -95,6 +99,14 @@ jobs:
             trunk/user/rc/src/tests/dnsmasq_dhcp_range_policy.c \
             -o "$RUNNER_TEMP/dnsmasq-dhcp-range-policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/dnsmasq-dhcp-range-policy"
+      - name: Compile and run DNSMasq static-host MAC validation regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/dnsmasq_static_host_policy.c \
+            -o "$RUNNER_TEMP/dnsmasq-static-host-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/dnsmasq-static-host-policy"
       - name: Compile and run DNSMasq cross-process lock regression
         run: |
           set -eu
@@ -441,10 +453,17 @@ jobs:
 
           simple_range = function_body(services, "simple_dhcp_range(")
           pool_check = function_body(services, "chk_valid_subnet_pool(")
+          static_mac_test = Path("trunk/user/rc/src/tests/dnsmasq_static_host_policy.c").read_text()
+          static_mac_policy = Path("trunk/user/rc/src/dnsmasq_static_host_policy.h").read_text()
           prepare = function_body(services, "prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)")
           static_hosts_writer = function_body(services, "fill_static_ethers(")
           static_hosts_test = Path("trunk/user/rc/src/tests/dnsmasq_file.c").read_text()
           assert '#include "dnsmasq_dhcp_range_policy.h"' in services
+          assert '#include "dnsmasq_static_host_policy.h"' in services
+          assert "if (!dnsmasq_static_mac_is_valid(smac))" in static_hosts_writer
+          assert "dnsmasq_static_mac_is_valid" in static_mac_policy
+          for token in ("test_valid_unicast_mac_text", "test_rejects_injection_characters", "test_rejects_wrong_lengths"):
+              assert token in static_mac_test
           assert "dnsmasq_dhcp_range_default_pool" in simple_range
           assert "dnsmasq_dhcp_range_pool_is_valid" in pool_check
           assert "simple_dhcp_range(ip, dip1, dip2, mask) ? 1 : -1" in pool_check

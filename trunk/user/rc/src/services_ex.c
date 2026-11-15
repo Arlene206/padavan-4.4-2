@@ -35,6 +35,7 @@
 #include "rc.h"
 #include "dnsmasq_file.h"
 #include "dnsmasq_dhcp_range_policy.h"
+#include "dnsmasq_static_host_policy.h"
 #include "inadyn_config_file.h"
 #include "dnsmasq_lifecycle_lock.h"
 #include "dnsmasq_restart_policy.h"
@@ -208,8 +209,11 @@ fill_static_ethers(const char *lan_ip, const char *lan_mask)
 		for (j = 0; j < i_max_items; j++) {
 			snprintf(nvram_key, sizeof(nvram_key), "dhcp_staticmac_x%d", j);
 			smac = nvram_safe_get(nvram_key);
-			if (strlen(smac) != 12)
+			if (!dnsmasq_static_mac_is_valid(smac)) {
+				logmessage(LOGNAME,
+					   "ignoring invalid static DHCP MAC at index %d", j);
 				continue;
+			}
 			snprintf(nvram_key, sizeof(nvram_key), "dhcp_staticip_x%d", j);
 			sip4 = nvram_safe_get(nvram_key);
 			ip4 = inet_addr_safe(sip4);
