@@ -52,8 +52,11 @@ func_load()
 		if [ "$fsz" = "0" ]; then
 			# A successful erase leaves a one-shot save lock until the next boot
 			# confirms that the MTD is blank and default storage can be recreated.
-			rm -f "$hsh"
-			if ! rm -f "$slk"; then
+			# Keep the lock if the stale hash cannot be removed: func_save() must
+			# not mistake the blank partition for an unchanged saved snapshot.
+			if ! rm -f "$hsh"; then
+				logger -t "Storage load" "Unable to clear storage hash for an empty MTD partition; save lock retained"
+			elif ! rm -f "$slk"; then
 				logger -t "Storage load" "Unable to clear save lock for an empty MTD partition"
 			fi
 		fi
@@ -74,8 +77,10 @@ func_load()
 	esac
 	if [ "$fsz" -le 0 ]; then
 		result=1
-		rm -f "$tmp" "$hsh"
-		if ! rm -f "$slk"; then
+		rm -f "$tmp"
+		if ! rm -f "$hsh"; then
+			logger -t "Storage load" "Unable to clear storage hash for an empty MTD partition; save lock retained"
+		elif ! rm -f "$slk"; then
 			logger -t "Storage load" "Unable to clear save lock for an empty MTD partition"
 		fi
 		logger -t "Storage load" "Empty storage data in MTD partition: $mtd_part_dev"

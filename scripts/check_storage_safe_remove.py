@@ -518,11 +518,13 @@ require('tar xf "$tmp" -C "$dir_storage"' not in mtd_load and
 # the lock to be released; nonempty failed decompression remains fail-closed.
 bzcat_failure = mtd_load.split('if ! bzcat "$mtd_part_dev" > "$tmp" 2>/dev/null; then', 1)[1].split(chr(10) + "\tfi", 1)[0]
 require('if [ "$fsz" = "0" ]; then' in bzcat_failure and
-        'rm -f "$hsh"' in bzcat_failure and 'rm -f "$slk"' in bzcat_failure,
-        "zero-byte failed decompression must clear stale hash and one-shot erase lock")
+        'if ! rm -f "$hsh"; then' in bzcat_failure and
+        'elif ! rm -f "$slk"; then' in bzcat_failure,
+        "zero-byte failed decompression must remove the stale hash before releasing the one-shot lock")
 empty_size_branch = mtd_load.split('if [ "$fsz" -le 0 ]; then', 1)[1].split(chr(10) + "\tfi", 1)[0]
-require('"$hsh"' in empty_size_branch and 'rm -f "$slk"' in empty_size_branch,
-        "successful empty decompression must also clear the one-shot lock")
+require('if ! rm -f "$hsh"; then' in empty_size_branch and
+        'elif ! rm -f "$slk"; then' in empty_size_branch,
+        "successful empty decompression must remove the stale hash before releasing the one-shot lock")
 # Destructive erase/reset must preserve a save barrier across uncertain outcomes.
 erase_start = mtd_storage.index("func_erase()")
 erase_end = mtd_storage.index("\nfunc_reset()", erase_start)
@@ -579,6 +581,9 @@ require('"trunk/user/scripts/tests/mtd_storage_erase_reset.sh"' in push_filters 
 require("BZCAT_STATUS=2" in mtd_storage_load_test and
         "BZCAT_EMPTY=1" in mtd_storage_load_test and
         "empty successful decompression unexpectedly succeeded" in mtd_storage_load_test and
+        "FAIL_RM_PATH" in mtd_storage_load_test and "REAL_RM" in mtd_storage_load_test and
+        "zero-byte MTD hash-removal failure unexpectedly succeeded" in mtd_storage_load_test and
+        "empty successful MTD hash-removal failure unexpectedly succeeded" in mtd_storage_load_test and
         "TAR_FAIL=1" in mtd_storage_load_test and
         "MV_FAIL_AT=2" in mtd_storage_load_test and
         "partial-extract.conf" in mtd_storage_load_test and

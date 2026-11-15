@@ -1,3 +1,13 @@
+## 2026-11-15 — Keep the MTD save lock until blank-partition hash cleanup succeeds
+
+- Auditing both zero-byte branches in `func_load()` found a persistence hazard: stale MD5 removal failures were ignored and the one-shot save lock could still be removed. A later identical save could match the stale checkpoint and skip writing an erased partition.
+- Both branches now check `rm -f "$hsh"` before attempting `rm -f "$slk"`. If hash deletion fails, the old settings tree, checkpoint and lock remain intact, an error is logged, and load returns failure.
+- Added failure injection for hash-unlink errors after (1) nonzero decompressor status with zero output and (2) nominally successful empty output. The fixture asserts the previous configuration/hash/lock survive; existing storage Actions run it under host shell and BusyBox 1.24.2 ash. The source contract requires checked hash-before-lock ordering and both injection cases.
+- Parent USB storage #43696174488 on `bb2b87054ef9631fc97c0473dd47d7e8b4fccd87` passed the complete storage workflow after earlier checker fixes. Parent AI docs #43696174518 passed. XY-C1 #43694958186 succeeded on source SHA `99eeb6fa237b529ec9b9615976961c7a60a02575`, but predates this `mtd_storage.sh` modification; a fresh build/TRX/upload is required.
+- Changed paths: `mtd_storage.sh`, `mtd_storage_load_transaction.sh`, `check_storage_safe_remove.py`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`. Parent main: `bb2b87054ef9631fc97c0473dd47d7e8b4fccd87`; result: THIS COMMIT. Exact-head USB storage, AI docs and XY-C1 runs required. No local test/build/hardware result is claimed; L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-15 17:05 CST — Parse MTD shell function contracts without the C brace parser
 
 - Exact-head USB storage #43695808627 on `c2ee97b727e1fa16c86a93969129bf3c1c54f49f` passed syntax, MTD save retry, restore, host + BusyBox ash load/backup/erase-reset fixtures, GNU89 policy tests and the full storage caller graph. The final checker failed at `body(mtd_storage, "func_erase()")`: this helper parses C comments/strings and interpreted the apostrophe in a shell comment as a character quote, so it never recognized the closing function brace.

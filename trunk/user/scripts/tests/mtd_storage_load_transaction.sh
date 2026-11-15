@@ -3,7 +3,8 @@ set -eu
 script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/../../../.." && pwd)
 sandbox=$(mktemp -d "${TMPDIR:-/tmp}/mtd-storage-load.XXXXXX")
-trap 'status=$?; rm -rf "$sandbox"; exit "$status"' EXIT
+real_rm=$(command -v rm)
+trap 'status=$?; "$real_rm" -rf "$sandbox"; exit "$status"' EXIT
 trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
@@ -28,6 +29,13 @@ cat > "$sandbox/bin/logger" <<'EOF'
 #!/bin/sh
 exit 0
 EOF
+cat > "$sandbox/bin/rm" <<'EOF_RM'
+#!/bin/sh
+for arg do
+	[ "${FAIL_RM_PATH:-}" != "$arg" ] || exit 1
+done
+exec "$REAL_RM" "$@"
+EOF_RM
 cat > "$sandbox/bin/bzcat" <<'EOF'
 #!/bin/sh
 [ "${BZCAT_EMPTY:-0}" = 1 ] || cat "$BZCAT_FIXTURE"
@@ -59,8 +67,8 @@ printf '%s\n' "$count" > "$MV_COUNT_FILE"
 [ "${MV_FAIL_AT:-0}" != "$count" ] || exit 1
 exec /bin/mv "$@"
 EOF
-chmod +x "$sandbox/bin/logger" "$sandbox/bin/bzcat" "$sandbox/bin/tar" "$sandbox/bin/mv"
-export PATH="$sandbox/bin:$PATH" BZCAT_FIXTURE="$sandbox/full.tar"
+chmod +x "$sandbox/bin/logger" "$sandbox/bin/rm" "$sandbox/bin/bzcat" "$sandbox/bin/tar" "$sandbox/bin/mv"
+export REAL_RM="$real_rm" PATH="$sandbox/bin:$PATH" BZCAT_FIXTURE="$sandbox/full.tar"
 export TAR_LOG="$sandbox/tar.log" REAL_TAR="$real_tar" MV_COUNT_FILE="$sandbox/mv-count"
 
 run_load()
@@ -89,6 +97,14 @@ if run_load; then echo "blank MTD unexpectedly loaded" >&2; exit 1; fi
 [ ! -e "$sandbox/private/storage_md5" ] || exit 1
 [ ! -e "$sandbox/private/.storage_locked" ] || exit 1
 
+# A blank partition must remain save-locked if its stale hash cannot be removed.
+printf '%s\n' 'previous-checkpoint' > "$sandbox/private/storage_md5"
+: > "$sandbox/private/.storage_locked"
+export BZCAT_STATUS=2 BZCAT_EMPTY=1 FAIL_RM_PATH="$sandbox/private/storage_md5"
+if run_load; then echo "zero-byte MTD hash-removal failure unexpectedly succeeded" >&2; exit 1; fi
+assert_old_storage
+unset FAIL_RM_PATH
+
 # A nominally successful empty stream is still not a valid storage archive.
 printf '%s\n' 'previous-checkpoint' > "$sandbox/private/storage_md5"
 : > "$sandbox/private/.storage_locked"
@@ -96,6 +112,14 @@ export BZCAT_STATUS=0 BZCAT_EMPTY=1
 if run_load; then echo "empty successful decompression unexpectedly succeeded" >&2; exit 1; fi
 [ ! -e "$sandbox/private/storage_md5" ] || exit 1
 [ ! -e "$sandbox/private/.storage_locked" ] || exit 1
+
+# The same hash-removal failure must retain the lock when bzcat returns zero.
+printf '%s\n' 'previous-checkpoint' > "$sandbox/private/storage_md5"
+: > "$sandbox/private/.storage_locked"
+export BZCAT_STATUS=0 BZCAT_EMPTY=1 FAIL_RM_PATH="$sandbox/private/storage_md5"
+if run_load; then echo "empty successful MTD hash-removal failure unexpectedly succeeded" >&2; exit 1; fi
+assert_old_storage
+unset FAIL_RM_PATH
 
 # A nonempty failed stream is corruption, not an erase: retain old state.
 printf '%s\n' 'previous-checkpoint' > "$sandbox/private/storage_md5"
