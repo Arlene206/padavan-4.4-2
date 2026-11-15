@@ -1,3 +1,12 @@
+## 2026-11-16 — Propagate RC syslogd/klogd startup failures
+
+- `start_logger()` previously discarded both `start_syslogd()` and `start_klogd()` statuses and always returned zero. Existing syslog-restart and time-update notification paths check `start_logger(0) != 0`, so logger launch failures were silently acknowledged.
+- It now attempts both daemons, logs both individual failures and returns the first nonzero status. A GNU89 regression covers success, each individual failure, simultaneous failures and negative statuses; production integration checks verify unconditional attempts and caller-facing propagation.
+- Exact parent 828 USB storage #43771300948 PASS, including host and firmware BusyBox 1.24.2 ash tests for Aria/Transmission and full storage checks. Exact-parent Process #43771301002, inventory #43771301076, AI docs #43771300969, AdGuardHome #43771300992, AliyunDrive #43771300907, AliDDNS #43771300910, infosvr #43771301013 and NVRAM #43771300993 PASS. XY-C1 #43771300972 was still building.
+- Exact-head Process lifecycle and XY-C1 Build/TRX/artifact checks are required for this RC source. No local cross-build or target/L4 result is claimed.
+
+---
+
 ## 2026-11-16 — Harden Aria2 stop lifecycle and align launcher regressions
 
 - Aria `func_stop()` previously passed the entire `pidof aria2c` PID list as a single quoted `kill -9` argument, did not verify process absence afterward, and allowed `restart` to ignore stop failure.

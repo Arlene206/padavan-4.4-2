@@ -1,9 +1,10 @@
 ## Current source / CI checkpoint
 
-- Parent main for Aria2 stop lifecycle hardening: 662c8d279a8bea874997e1d5fb74623d3a322640; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact parent 662 Process lifecycle #43770376409 PASS (including corrected IGMP token-validation tests), Process inventory #43770376403 PASS, AI docs #43770376449 PASS, NVRAM #43770376543 PASS, AdGuardHome #43770376442 PASS, infosvr #43770376527 PASS, AliDDNS #43770376582 PASS and AliyunDrive #43770376415 PASS.
-- Exact parent XY-C1 #43770376467 was still building; TRX verification and artifact upload were pending. Prior abd40 USB storage #43769497238 PASS covers Transmission only.
-- THIS COMMIT extends stop safety to Aria2: tri-state pidof, numeric PID validation including rejection of 0/1, individual forced signals, final process-absence verification and restart gating. Transmission stop validation also rejects 0/1 and successful-empty pidof output. Shared host + firmware BusyBox 1.24.2 ash regressions now exercise both launchers.
+- Parent main for RC logger startup-status repair: `828af0d6423994cfb798b6e473bc295bd009b1b8`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact-parent USB storage #43771300948 PASS, including Aria/Transmission host shell and firmware BusyBox 1.24.2 ash regressions plus full storage caller checks.
+- Exact-parent Process #43771301002, inventory #43771301076, AI docs #43771300969, AdGuardHome #43771300992, AliyunDrive #43771300907, AliDDNS #43771300910, infosvr #43771301013 and NVRAM #43771300993 PASS. XY-C1 #43771300972 was pending.
+- Current P1 RC defect: `start_logger()` ignored both syslogd/klogd launch statuses and returned zero, defeating existing restart/time-update failure gates. THIS COMMIT propagates the first failure while attempting both daemons and adds GNU89 + source-integration regressions.
+- Exact-head Process and XY-C1 Build/TRX/artifact are required; no L3/L4 claim for this source before those results.
 
 ### P1 — Storage daemon startup and config publication
 
@@ -64,7 +65,7 @@
 5. P2 PARTIALLY FIXED / RESIDUAL BLOCKER — Failed non-exclusive STOR no longer makes a pre-existing destination cleanup-eligible; only the session that successfully creates the leaf with O_EXCL may roll back. Exact VSFTPD #43744355353 PASS on 079f. The fstatat()-then-unlinkat() replacement window remains unresolved on Linux 4.4; require a proven no-loss strategy for STOR/APPE/REST/STOU and concurrent writers before changing it.
 6. P2 — NFS async durability, AUTH_SYS/root-squash and external-mount compatibility require real client/storage evidence; do not infer guarantees from host mocks.
 7. P1 SOURCE/HOST FIX COMPLETE — LPD printer-removal SIGUSR2 requires verified PID/start_time identity; exact-head process lifecycle, HTTPD security and AI docs pass on 022bc. Current XY-C1 checks still gate firmware L3.
-8. P1 ACTIVE — Continue eliminating silent failures at enabled RC/service startup boundaries; current slice covers Firefly, Transmission and Aria while preserving feature and disabled-service guards.
+8. P1 ACTIVE — Continue eliminating silent failures at enabled RC/service startup boundaries; completed slices cover Firefly, Transmission and Aria, and THIS COMMIT propagates RC syslogd/klogd startup errors while preserving feature and disabled-service guards.
 
 9. P2 ACTIVE — Publish `/etc/igmpproxy.conf` through checked same-directory staging and atomic rename; refuse daemon launch on publication failure. Exact Process host regression and XY-C1 build/TRX/artifact are required.
 

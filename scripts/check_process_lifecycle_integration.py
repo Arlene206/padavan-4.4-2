@@ -497,6 +497,35 @@ assert "action_result = -1;" in syslog_restart
 assert "logger_stop_status == 0 && start_logger(0) != 0" in time_restart
 assert "logger_stop_status != 0" in time_restart
 
+logger_policy = (root / "trunk/user/rc/src/logger_start_policy.h").read_text()
+logger_test = (root / "trunk/user/rc/src/tests/logger_start_policy.c").read_text()
+logger_start = services_source.split("int\nstart_logger(int showinfo)", 1)[1].split("\n}\n", 1)[0]
+assert '#include "logger_start_policy.h"' in services_source
+assert "syslog_status = start_syslogd();" in logger_start
+assert "klog_status = start_klogd();" in logger_start
+assert logger_start.index("syslog_status = start_syslogd();") < logger_start.index("klog_status = start_klogd();")
+assert 'logmessage(LOGNAME, "syslogd startup failed (status=%d)", syslog_status);' in logger_start
+assert 'logmessage(LOGNAME, "klogd startup failed (status=%d)", klog_status);' in logger_start
+assert "return rc_logger_start_status(syslog_status, klog_status);" in logger_start
+assert "return 0;" not in logger_start
+assert "return syslog_status != 0 ? syslog_status : klog_status;" in logger_policy
+for contract in (
+    "rc_logger_start_status(0, 0) == 0",
+    "rc_logger_start_status(17, 0) == 17",
+    "rc_logger_start_status(0, 23) == 23",
+    "rc_logger_start_status(17, 23) == 17",
+    "rc_logger_start_status(-1, 0) == -1",
+    "rc_logger_start_status(0, -1) == -1",
+):
+    assert contract in logger_test
+assert '"trunk/user/rc/src/logger_start_policy.h"' in process_workflow
+assert '"trunk/user/rc/src/tests/logger_start_policy.c"' in process_workflow
+assert '"trunk/user/rc/src/logger_start_policy.h"' in xy_workflow
+assert '"trunk/user/rc/src/tests/logger_start_policy.c"' in xy_workflow
+assert "Compile and run RC logger startup result policy regression" in process_workflow
+print("RC logger startup status propagation and regression integration: PASS")
+
+
 net_wan = (root / "trunk/user/rc/src/net_wan.c").read_text()
 wan_stop = net_wan.split("static int\nstop_wan_locked(void)", 1)[1].split("\n}\n", 1)[0]
 net_wan_dhcp = net_wan

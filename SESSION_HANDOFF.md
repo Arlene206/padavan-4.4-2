@@ -8,24 +8,24 @@ For each logical task, create all source/test/doc blobs, one complete Git tree a
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2.
-- Parent main for the Aria stop lifecycle slice: 662c8d279a8bea874997e1d5fb74623d3a322640.
-- Frozen backup branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged and read-only.
-- Exact parent 662 Process lifecycle #43770376409 PASS, including IGMP token-validation and the corrected last-good fixture; Process inventory #43770376403 PASS; AI handoff #43770376449 PASS; NVRAM #43770376543 PASS; AdGuardHome #43770376442 PASS; infosvr #43770376527 PASS; AliDDNS #43770376582 PASS; AliyunDrive #43770376415 PASS.
-- Exact parent 662 XY-C1 #43770376467 was still at Build XY-C1 (TRX and artifact upload pending) at last inspection. No L3 for this SHA.
-- Exact prior abd40 USB storage #43769497238 PASS covers Transmission host and firmware BusyBox 1.24.2 ash. It predates Aria stop changes.
-- THIS COMMIT fixes Aria stop/restart parity: pidof tri-state, PID 0/1 and malformed-output rejection, per-PID SIGKILL, verified post-kill absence and restart fail-closed. Transmission's matching stop validator now also rejects PID 0/1 and successful-empty pidof output.
-- The common storage test exercises both launchers in host shell and BusyBox ash, including absent, graceful, multi-PID, signal failure, malformed/unsafe PID, pidof failure and restart gate scenarios.
+- Repository: `Arlene206/padavan-4.4-2`.
+- Parent main for the RC logger startup-status slice: `828af0d6423994cfb798b6e473bc295bd009b1b8`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged/read-only.
+- Exact-parent USB storage #43771300948 PASS: Aria and Transmission shell syntax/start-stop regressions passed under host shell and firmware BusyBox 1.24.2 ash, as did the complete storage caller/eject/persistence suite.
+- Exact-parent Process #43771301002, Process inventory #43771301076, AI docs #43771300969, AdGuardHome #43771300992, AliyunDrive #43771300907, AliDDNS #43771300910, infosvr #43771301013 and NVRAM #43771300993 PASS.
+- Exact-parent XY-C1 #43771300972 was in progress (Build XY-C1; TRX/artifact pending). No L3 for parent 828.
+- THIS COMMIT fixes a separate P1 RC defect: `start_logger()` discarded syslogd/klogd launch results and returned zero, defeating existing syslog-restart/time-update failure gates.
+- No physical-router/L4 validation is claimed.
 
 ## Active task
 
-### Verify Aria2 and Transmission stop postconditions under host shell and BusyBox ash
+### Return truthful status from RC logger startup
 
-Aria `func_stop()` passed a whitespace-separated `pidof aria2c` result as one quoted `kill -9` argument, printed success without checking post-SIGKILL daemon absence, and allowed `restart` to proceed regardless of stop result. It also treated pidof errors or successful-empty output as daemon absence.
+`start_syslogd()` returns `_eval()` status and `start_klogd()` returns `eval()` status, but `start_logger()` ignored both and unconditionally returned zero. Existing syslog-restart and time-update notification paths gate on `start_logger(0) != 0`, so failures were never propagated.
 
-THIS COMMIT validates pidof's status/output consistency, rejects malformed and unsafe PID 0/1 targets, signals every PID separately, verifies final process absence after SIGKILL and gates restart on successful stop. The shared storage regression now runs equivalent checks for both Aria and Transmission under host shell and firmware BusyBox 1.24.2 ash.
+THIS COMMIT records both statuses, attempts both daemons regardless of the first result, logs each nonzero status and returns the first failure. A GNU89 reducer test covers individual/combined and negative statuses; the process-lifecycle integration checker verifies the production call order and return contract. Exact-head Process lifecycle and XY-C1 Build/TRX/artifact Actions are required for this source.
 
-After exact-head storage validation, continue the next uncompleted broad P1 user-space service lifecycle/security finding from the roadmap. Avoid re-auditing these stop paths or the IGMP config publication.
+The immediately preceding Aria/Transmission stop slice is L2 verified by exact USB storage run #43771300948 (host + firmware BusyBox 1.24.2 ash). Do not re-audit it.
 
 ## Completed source slice — IGMP proxy config-token validation
 
@@ -43,13 +43,17 @@ Changed: `trunk/user/rc/src/net.c`; new `trunk/user/rc/src/msd_lite_config_file.
 
 ## Verification boundary
 
-- Parent main: `662c8d279a8bea874997e1d5fb74623d3a322640`; Aria/Transmission shell sources, shared regression and handoff/roadmap/log update are a single atomic commit.
-- Exact parent 662 Process lifecycle #43770376409 PASS (all scanner, PID, Firefly/MiniDLNA, optional-app, IAPP and IGMP checks); Process inventory #43770376403 PASS; AI docs #43770376449 PASS; NVRAM #43770376543 PASS; AdGuardHome #43770376442 PASS; infosvr #43770376527 PASS; AliDDNS #43770376582 PASS; AliyunDrive #43770376415 PASS.
-- Exact parent 662 XY-C1 #43770376467 was still building; TRX and artifact upload were pending. Prior abd40 storage #43769497238 PASS covers Transmission only.
-- Exact-head USB storage host + firmware BusyBox 1.24.2 ash tests are required for both launchers. Exact-head XY-C1 Build/TRX/artifact is required for L3. No L3/L4 claim yet.
-- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; archived log shards and index are untouched.
+- Parent main: `828af0d6423994cfb798b6e473bc295bd009b1b8`; this atomic commit contains RC source, GNU89 policy test, process-lifecycle checker, both workflow filters/test wiring and required handoff/roadmap/log changes.
+- Exact-parent USB storage #43771300948 PASS: Aria and Transmission host + firmware BusyBox 1.24.2 ash launcher tests and full storage checks.
+- Exact-parent Process #43771301002, inventory #43771301076, AI docs #43771300969, AdGuardHome #43771300992, AliyunDrive #43771300907, AliDDNS #43771300910, infosvr #43771301013 and NVRAM #43771300993 PASS.
+- Exact-parent XY-C1 #43771300972 was still in progress at last inspection. Exact-head Process and XY-C1 Build/TRX/artifact must pass; no L3/L4 claim.
 
 ## Exact first action for the next GPT
+
+1. Inspect exact-head Process lifecycle and XY-C1 Actions for THIS logger commit. Diagnose any failure; claim L3 only if Build XY-C1, TRX verification and artifact upload pass on the same SHA.
+2. If Actions remain pending, continue the broad P1 service-lifecycle queue without waiting: remaining enabled RC/service startup status boundaries, then residual direct `pids()` consumers and firmware `stop_services()`/shutdown/Samba/storage/NVRAM postconditions.
+3. Do not re-audit Aria/Transmission stop paths (exact USB #43771300948 PASS), IGMP input-token validation or completed MSD Lite publication.
+4. Preserve the frozen backup and archived log inventory. No L4 without physical-router evidence.
 
 1. Inspect exact-head USB storage Action for POSIX shell and firmware BusyBox 1.24.2 ash runs: both launchers' absent/graceful/multi-PID/failed-signal/malformed PID/pidof-unknown/restart tests, config-generation faults and the complete storage caller graph must pass.
 2. Inspect exact-head XY-C1 Build, TRX verification and artifact upload; claim L3 only if all stages pass on this exact source SHA.

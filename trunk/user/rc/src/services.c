@@ -27,6 +27,7 @@
 #include "rc.h"
 #include "process_inventory.h"
 #include "optional_daemon_policy.h"
+#include "logger_start_policy.h"
 
 static int optional_daemon_start_status(const char *service_name, const char *process_name);
 static int optional_daemon_stop_status(const char *service_name, const char *process_name, int command_status);
@@ -1282,7 +1283,11 @@ restart_lltd(void)
 int
 start_logger(int showinfo)
 {
-	start_syslogd();
+	int syslog_status;
+	int klog_status;
+
+	/* Attempt both daemons even if the first launch fails. */
+	syslog_status = start_syslogd();
 
 	if (showinfo)
 	{
@@ -1297,9 +1302,13 @@ start_logger(int showinfo)
 		logmessage(LOGNAME, "firmware version: %s", nvram_safe_get("firmver_sub"));
 	}
 
-	start_klogd();
+	klog_status = start_klogd();
+	if (syslog_status != 0)
+		logmessage(LOGNAME, "syslogd startup failed (status=%d)", syslog_status);
+	if (klog_status != 0)
+		logmessage(LOGNAME, "klogd startup failed (status=%d)", klog_status);
 
-	return 0;
+	return rc_logger_start_status(syslog_status, klog_status);
 }
 
 int
