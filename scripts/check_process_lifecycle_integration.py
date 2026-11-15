@@ -725,7 +725,13 @@ assert "PROCESS_PRESENCE_START_NOTIFY" in watchdog_start
 assert "PROCESS_PRESENCE_START_NEW" in watchdog_start
 assert "PROCESS_PRESENCE_START_ABORT" in watchdog_start
 assert "if (action == PROCESS_PRESENCE_START_NEW)" in watchdog_start
-assert watchdog_start.index("if (action == PROCESS_PRESENCE_START_NEW)") < watchdog_start.index('return eval("/sbin/watchdog")')
+assert "launch_status = eval(\"/sbin/watchdog\")" in watchdog_start
+assert "if (launch_status != 0)" in watchdog_start
+assert "watchdog launcher failed (status=%d)" in watchdog_start
+assert "return launch_status;" in watchdog_start
+assert watchdog_start.index("if (action == PROCESS_PRESENCE_START_NEW)") < watchdog_start.index(
+    "launch_status = eval(\"/sbin/watchdog\")"
+) < watchdog_start.index("if (launch_status != 0)") < watchdog_start.index("return launch_status;")
 assert "refusing watchdog start because process-presence policy is invalid" in watchdog_start
 assert "start_watchdog()" in watchdog_notify
 assert "pids(" not in watchdog_notify

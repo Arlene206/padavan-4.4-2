@@ -201,6 +201,14 @@ jobs:
           assert "RCN_RESTART_NTPC" in dispatcher and "RCN_RESTART_TIME" in dispatcher
           assert "notify_watchdog_wifi(0)" in wireless and "notify_watchdog_wifi(1)" in wireless
           assert "start_watchdog();" in body(services, "start_services_once(int is_ap_mode)")
+          watchdog_start = body(watchdog, "start_watchdog(void)")
+          assert "launch_status = eval(\\"/sbin/watchdog\\")" in watchdog_start
+          assert "if (launch_status != 0)" in watchdog_start
+          assert "watchdog launcher failed (status=%d)" in watchdog_start
+          assert "return launch_status;" in watchdog_start
+          assert watchdog_start.index("if (action == PROCESS_PRESENCE_START_NEW)") < watchdog_start.index(
+              "launch_status = eval(\\"/sbin/watchdog\\")"
+          ) < watchdog_start.index("if (launch_status != 0)") < watchdog_start.index("return launch_status;")
           assert '"watchdog"' in body(services, "stop_misc(void)")
           assert '"watchdog"' in dispatcher and "watchdog_main" in dispatcher
           assert "int  watchdog_main(int argc, char *argv[]);" in header

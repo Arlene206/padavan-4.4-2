@@ -1,3 +1,12 @@
+## 2026-11-15 — Report watchdog daemon launcher failures
+
+- `start_watchdog()` already fails closed and logs when process inventory is UNKNOWN, and avoids duplicate launches when RUNNING. But after a confirmed ABSENT scan it returned `eval("/sbin/watchdog")` directly; a failed launcher had no diagnostic at the point of failure. This affects boot startup and other watchdog recovery callers.
+- Capture the launcher status, log only when the launch itself fails, and return the original status unchanged. UNKNOWN/invalid-state diagnostics remain as before, and already-running remains a successful no-op. This avoids duplicate boot-level logging for the paths that already log internally.
+- Added exact source-order/status assertions to the watchdog signal workflow and process lifecycle integration checker. Both workflows already filter `watchdog.c`; XY-C1 also watches this product source.
+- Parent main: 7343fb3a798313ba8416df0741021efc6c536a84; resulting source/test-contract commit: THIS COMMIT. Exact-head watchdog, process lifecycle, AI docs and XY-C1 runs are required. The previous product-source SHA e902e806 still had XY-C1 #43731654808 IN_PROGRESS at the last check.
+- `start_gpio_btn()` was inspected and already logs UNKNOWN inventory, launcher failure, UNKNOWN startup state and failure to remain running; no duplicate outer log was added. `start_infosvr()` still returns 1 when disabled and logs inventory UNKNOWN in its optional-daemon helper; enabled launcher failures are a separate remaining gap.
+
+---
 ## 2026-11-15 — Repair networkmap source contract and restore mandatory handoff checkpoint
 
 - Exact-head Networkmap run #43731654772 for product-source SHA e902e806f565e26d34406483ae2133c0b55acee2 failed after both GNU89 ASan/UBSan policy binaries passed: the added Python raw regex over-escaped its metacharacters, causing re.PatternError (unclosed group). Corrected it to use one backslash per regex escape; a local isolated regex/fixture check passes. The full workflow must rerun on this checker-fix SHA.

@@ -662,7 +662,7 @@ start_watchdog(void)
 	struct process_snapshot snapshot;
 	enum process_presence presence;
 	enum process_presence_start_action action;
-	int scan_error;
+	int scan_error, launch_status;
 
 	presence = process_inventory_scan("watchdog", &snapshot);
 	scan_error = snapshot.error;
@@ -677,8 +677,13 @@ start_watchdog(void)
 	}
 	if (action == PROCESS_PRESENCE_START_NOTIFY)
 		return 0;
-	if (action == PROCESS_PRESENCE_START_NEW)
-		return eval("/sbin/watchdog");
+	if (action == PROCESS_PRESENCE_START_NEW) {
+		launch_status = eval("/sbin/watchdog");
+		if (launch_status != 0)
+			logmessage("watchdog", "watchdog launcher failed (status=%d)",
+				   launch_status);
+		return launch_status;
+	}
 
 	/* Only a confirmed ABSENT inventory may authorize a new daemon. */
 	errno = EIO;
