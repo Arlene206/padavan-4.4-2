@@ -105,11 +105,22 @@ require('$(ROMFSINST) -p +x $(THISDIR)/zerotier.sh /usr/bin/zerotier.sh' in make
 require('eval("/usr/bin/zerotier.sh","stop")' in services and
         'eval("/usr/bin/zerotier.sh","start")' in services,
         "RC service wrappers must retain ZeroTier stop/start integration")
-restart = function_body(services, "void restart_zerotier(void)")
-require('stop_zerotier();' in restart and 'start_zerotier();' in restart,
-        "RC ZeroTier restart caller graph changed unexpectedly")
-require('void restart_zerotier(void);' in rc_header and 'restart_zerotier();' in rc,
-        "RC declaration and notification caller must remain wired")
+stop = function_body(services, "int stop_zerotier(void)")
+require('return eval("/usr/bin/zerotier.sh","stop");' in stop and
+        'int stop_zerotier(void);' in rc_header,
+        "RC ZeroTier stop wrapper must propagate launcher status")
+restart = function_body(services, "int restart_zerotier(void)")
+require('int stop_status = stop_zerotier();' in restart and
+        'if (stop_status != 0)' in restart and
+        'return stop_status;' in restart and 'start_zerotier();' in restart and
+        'return 0;' in restart,
+        "RC ZeroTier restart must not start after a failed stop")
+require('int restart_zerotier(void);' in rc_header and
+        'action_result = rc_notify_merge_action_result(action_result, restart_zerotier());' in rc,
+        "RC ZeroTier restart status must reach the notification result")
+stop_services = function_body(services, "int\nstop_services(int stopall)")
+require('record_service_stop_status(&stop_status, "ZeroTier", stop_zerotier())' in stop_services,
+        "stop_services must aggregate ZeroTier stop status")
 
 for token in ['graceful', '-9-exits', 'stuck', 'start_zero', 'stop_zero',
               'identity.secret', 'numeric-kill.log', 'five one-second polls',
