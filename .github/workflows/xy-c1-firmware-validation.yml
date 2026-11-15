@@ -21,6 +21,8 @@ on:
       - "trunk/user/rc/src/inicd.c"
       - "trunk/user/rc/src/vpn_server.c"
       - "trunk/user/rc/src/vpn_client.c"
+      - "trunk/user/rc/src/vpn_openvpn.c"
+      - "trunk/user/rc/src/openvpn_process_stop_policy.h"
       - "trunk/user/rc/src/usb_modem.c"
       - "trunk/user/rc/src/service_lifecycle_policy.h"
       - "trunk/user/rc/src/rc.c"

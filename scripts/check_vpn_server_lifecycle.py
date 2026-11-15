@@ -454,6 +454,12 @@ require('expect_pid("4242\\n", 5, (pid_t)4242)' in openvpn_stop_test and
         "OpenVPN stop policy regression missing numeric/UNKNOWN cases")
 require("openvpn_process_stop_result(PROCESS_PRESENCE_RUNNING, 0) == -1" in openvpn_stop_test,
         "OpenVPN RUNNING state must not satisfy stop postcondition")
+
+xy_workflow=read(".github/workflows/xy-c1-firmware-validation.yml")
+for path in ("trunk/user/rc/src/vpn_openvpn.c",
+             "trunk/user/rc/src/openvpn_process_stop_policy.h"):
+    require(xy_workflow.count('      - "{}"'.format(path)) == 1,
+            f"XY-C1 firmware workflow must rebuild OpenVPN source dependency: {path}")
 vpn_server_stop=body(vpn,"static int\nstop_vpn_server_locked(void)")
 require("if (stop_openvpn_server() != 0)" in vpn_server_stop and
         vpn_server_stop.index("if (stop_openvpn_server() != 0)") < vpn_server_stop.index('nvram_set_int_temp("l2tp_srv_t", 0)') and
