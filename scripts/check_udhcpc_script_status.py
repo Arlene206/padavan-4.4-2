@@ -110,6 +110,15 @@ nak_end = dhcpc.index("change_listen_mode(LISTEN_RAW);", nak_start)
 nak = dhcpc[nak_start:nak_end]
 assert "udhcpc_deconfig_retry_required(deconfig_status)" in nak
 assert "udhcpc_schedule_deconfig_retry(INIT_SELECTING" in nak
+
+arp_start = dhcpc.index('bb_info_msg("Offered address is in use ")')
+arp_end = dhcpc.index("continue; /* back to main loop */", arp_start)
+arp_conflict = dhcpc[arp_start:arp_end]
+assert "send_decline(" in arp_conflict
+assert "if (state != REQUESTING)" in arp_conflict
+assert "udhcpc_deconfig_retry_required(deconfig_status)" in arp_conflict
+assert "udhcpc_schedule_deconfig_retry(INIT_SELECTING" in arp_conflict
+assert arp_conflict.index("udhcpc_schedule_deconfig_retry") < arp_conflict.index("change_listen_mode(LISTEN_RAW)")
 expiry_start = dhcpc.index('bb_info_msg("Lease lost, entering init state")')
 expiry_end = dhcpc.index("case DECONFIG_PENDING:", expiry_start)
 expiry = dhcpc[expiry_start:expiry_end]

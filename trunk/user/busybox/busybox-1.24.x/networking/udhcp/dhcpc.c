@@ -1943,8 +1943,16 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 							"(got ARP reply), declining");
 						send_decline(/*xid,*/ server_addr, packet.yiaddr);
 
-						if (state != REQUESTING)
-							udhcp_run_script(NULL, "deconfig");
+						if (state != REQUESTING) {
+							int deconfig_status = udhcp_run_script(NULL, "deconfig");
+							if (udhcpc_deconfig_retry_required(deconfig_status)) {
+								bb_error_msg("ARP conflict deconfig failed; deferring DHCP restart");
+								udhcpc_schedule_deconfig_retry(INIT_SELECTING,
+									tryagain_timeout, &timeout, &packet_num,
+									&already_waited_sec);
+								continue;
+							}
+						}
 						change_listen_mode(LISTEN_RAW);
 						state = INIT_SELECTING;
 						client_config.first_secs = 0; /* make secs field count from 0 */
