@@ -1,11 +1,11 @@
 #!/bin/sh
 
-pidfile="/var/sh_mentohust.pid"
+pidfile="${MENTOHUST_PIDFILE:-/var/sh_mentohust.pid}"
 [ -f $pidfile ] && kill -9 "$(cat $pidfile)" || echo "$$" > $pidfile
 
 mentohust_exec="bin_mentohust"
-conf_file="/var/mentohust.conf"
-bin_conf_file="/etc/storage/mentohust.conf"
+conf_file="${MENTOHUST_CONF_FILE:-/var/mentohust.conf}"
+bin_conf_file="${MENTOHUST_BIN_CONF_FILE:-/etc/storage/mentohust.conf}"
 
 mentohust_vars="username password nic ip mask gw dns pinghost timeout interval \
 	restart_wait maxfail startmode dhcp daemon ver datafile dhcpscript service"
@@ -49,37 +49,57 @@ func_start(){
 	fi
 
 	echo -n "Starting mentohust:..."
-	start-stop-daemon -S -b -x "$mentohust_exec"
-	if [ $? -eq 0 ] ; then
+	if start-stop-daemon -S -b -x "$mentohust_exec"; then
 		echo "[  OK  ]"
 		func_log "Daemon is started"
+		return 0
 	else
+		launch_status=$?
 		echo "[FAILED]"
+		func_log "Daemon launch failed (status=$launch_status)"
+		return "$launch_status"
 	fi
 }
 
 func_stop(){
 	echo -n "Stopping mentohust:..."
-	killall -q -9 $mentohust_exec
-	echo "[  OK  ]"
-	func_log "Stopped"
+	if killall -q -9 "$mentohust_exec"; then
+		echo "[  OK  ]"
+		func_log "Stopped"
+		return 0
+	else
+		stop_status=$?
+		echo "[FAILED]"
+		func_log "Daemon stop failed (status=$stop_status)"
+		return "$stop_status"
+	fi
 }
 
+action_status=0
 case "$1" in
 start)
 	func_start
+	action_status=$?
 	;;
 stop)
 	func_stop
+	action_status=$?
 	;;
 restart)
 	func_stop
-	func_start
+	stop_status=$?
+	if [ "$stop_status" -eq 0 ]; then
+		func_start
+		action_status=$?
+	else
+		action_status=$stop_status
+	fi
 	;;
 *)
 	echo "Usage: $0 { start | stop | restart }"
+	action_status=2
 	;;
 esac
-rm -f $pidfile
-exit 0
+rm -f "$pidfile"
+exit "$action_status"
 

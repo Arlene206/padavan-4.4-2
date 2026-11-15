@@ -33,6 +33,7 @@ on:
       - "trunk/user/rc/src/services.c"
       - "trunk/user/scutclient/scripts/scutclient.sh"
       - "trunk/user/vlmcsd/vlmcsd.sh"
+      - "trunk/user/mentohust/scripts/mentohust.sh"
       - "trunk/user/iperf3/Makefile"
       - "trunk/user/iperf3/iperf3.sh"
       - "trunk/user/rc/src/optional_daemon_policy.h"

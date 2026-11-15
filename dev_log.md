@@ -1,3 +1,11 @@
+## 2026-11-15 — Propagate mentohust daemon launch and stop failures
+
+- `start_mentohust()` already used the shared optional-daemon preflight, but `mentohust.sh` printed `[FAILED]` after a failed `start-stop-daemon` and still returned 0; its dispatcher also unconditionally exited 0 after start, stop or restart.
+- The shell now logs and propagates the exact daemon-launch status, checks and propagates stop-signal failure, prevents restart from proceeding after an unsuccessful stop, and returns usage status 2 for invalid actions. Test-only environment overrides isolate the pidfile and config path without changing firmware defaults.
+- Extended `check_optional_app_start_status.py` with mocked start success/failure and stop-failure cases. Process-lifecycle and XY-C1 workflows now watch the packaged mentohust script.
+- Parent main: `ba90b6ae213b928748d700801740198dcfffd2a1`; result: THIS COMMIT. Exact-head Actions required.
+
+---
 ## 2026-11-15 — Retire unused PID-only SIGKILL helper after RC callsite audit
 
 - Audited all 36 top-level trunk/user/rc/src/*.c files for kill_process_pidfile(), kill_services_with_pidfiles(), kill_pidfile() and kill_pidfile_s() references. The only kill_process_pidfile() occurrence was its definition in common_ex.c; it had no RC C caller. The helper's force path used PID-only kill_pidfile() checks followed by kill_pidfile_s(..., SIGKILL), without binding the signal to process identity.

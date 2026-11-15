@@ -201,8 +201,62 @@ exit 0
         assert "pidof is unavailable" in log.read_text()
 
 
+
+
+MENTOHUST_SCRIPT = ROOT / "trunk/user/mentohust/scripts/mentohust.sh"
+
+
+def check_mentohust():
+    with tempfile.TemporaryDirectory(prefix="mentohust-lifecycle-") as tmp:
+        base = Path(tmp)
+        bin_dir = mock_bin(base / "bin")
+        executable(bin_dir / "start-stop-daemon", """#!/bin/sh
+exit "${MOCK_START_STATUS:-0}"
+""")
+        executable(bin_dir / "killall", """#!/bin/sh
+exit "${MOCK_STOP_STATUS:-0}"
+""")
+        config = base / "existing-mentohust.conf"
+        config.write_text("[MentoHUST]\\n")
+        pidfile = base / "mentohust.pid"
+        log = base / "logger.log"
+        env = os.environ.copy()
+        env.update({
+            "PATH": str(bin_dir) + os.pathsep + env.get("PATH", ""),
+            "MOCK_START_STATUS": "43",
+            "MOCK_STOP_STATUS": "47",
+            "MOCK_LOG": str(log),
+            "MENTOHUST_PIDFILE": str(pidfile),
+            "MENTOHUST_BIN_CONF_FILE": str(config),
+        })
+
+        failed_start = run(["/bin/sh", str(MENTOHUST_SCRIPT), "start"], env)
+        assert failed_start.returncode == 43, (
+            f"mentohust must propagate launch status 43, got {failed_start.returncode}"
+        )
+        assert "[FAILED]" in failed_start.stdout
+        assert "Daemon launch failed (status=43)" in log.read_text()
+        assert not pidfile.exists(), "temporary mentohust pidfile was not cleaned"
+
+        log.write_text("")
+        env["MOCK_START_STATUS"] = "0"
+        started = run(["/bin/sh", str(MENTOHUST_SCRIPT), "start"], env)
+        assert started.returncode == 0, started.stderr
+        assert "[  OK  ]" in started.stdout
+        assert "Daemon is started" in log.read_text()
+
+        log.write_text("")
+        stopped = run(["/bin/sh", str(MENTOHUST_SCRIPT), "stop"], env)
+        assert stopped.returncode == 47, (
+            f"mentohust must propagate stop status 47, got {stopped.returncode}"
+        )
+        assert "[FAILED]" in stopped.stdout
+        assert "Daemon stop failed (status=47)" in log.read_text()
+
+
 if __name__ == "__main__":
     check_scutclient()
     check_vlmcsd()
     check_iperf3()
+    check_mentohust()
     print("optional app launch/lifecycle status regressions: PASS")
