@@ -2263,14 +2263,28 @@ int is_torrent_run(void)
 
 static int stop_torrent_locked(void)
 {
+	char *svcs[] = { "transmission-daemon", NULL };
+	enum process_presence process_state;
 	int command_status;
 
-	if (!is_torrent_support() || !is_torrent_run())
+	if (!is_torrent_support())
 		return 0;
 
-	command_status = eval("/usr/bin/transmission.sh", "stop");
+	process_state = is_torrent_run();
+	if (process_state == PROCESS_PRESENCE_ABSENT)
+		return 0;
+	if (process_state != PROCESS_PRESENCE_RUNNING) {
+		if (!errno)
+			errno = EIO;
+		logmessage("Transmission", "refusing name-wide stop because daemon presence is unknown");
+		return -1;
+	}
+
+	/* Use the shared identity-snapshot stop transaction instead of the
+	 * script's pidof/killall path, which cannot prove its PID snapshot. */
+	command_status = kill_services(svcs, 25, 1);
 	if (storage_service_stop_complete(command_status, is_torrent_run()) != 0) {
-		logmessage("Transmission", "daemon did not stop cleanly");
+		logmessage("Transmission", "daemon did not stop cleanly or process state is unknown");
 		return -1;
 	}
 
@@ -2374,14 +2388,28 @@ int is_aria_run(void)
 
 static int stop_aria_locked(void)
 {
+	char *svcs[] = { "aria2c", NULL };
+	enum process_presence process_state;
 	int command_status;
 
-	if (!is_aria_support() || !is_aria_run())
+	if (!is_aria_support())
 		return 0;
 
-	command_status = eval("/usr/bin/aria.sh", "stop");
+	process_state = is_aria_run();
+	if (process_state == PROCESS_PRESENCE_ABSENT)
+		return 0;
+	if (process_state != PROCESS_PRESENCE_RUNNING) {
+		if (!errno)
+			errno = EIO;
+		logmessage("Aria", "refusing name-wide stop because daemon presence is unknown");
+		return -1;
+	}
+
+	/* Preserve the same PID/start-time validation used by other storage
+	 * daemons; the legacy script signals a fresh pidof/killall name lookup. */
+	command_status = kill_services(svcs, 15, 1);
 	if (storage_service_stop_complete(command_status, is_aria_run()) != 0) {
-		logmessage("Aria", "daemon did not stop cleanly");
+		logmessage("Aria", "daemon did not stop cleanly or process state is unknown");
 		return -1;
 	}
 

@@ -170,6 +170,25 @@ require("storage_service_stop_complete(" in stop_body,
 stop_body = body(storage, "stop_itunes(void)")
 require("storage_service_stop_complete(" in stop_body,
         "stop_itunes must verify daemon absence after stop")
+for signature, daemon, suffix, label in (
+        ("static int stop_torrent_locked(void)", "transmission-daemon", "torrent", "Transmission"),
+        ("static int stop_aria_locked(void)", "aria2c", "aria", "Aria")):
+    locked_stop = body(storage, signature)
+    require("enum process_presence process_state;" in locked_stop and
+            "process_state = is_{}_run();".format(suffix) in locked_stop,
+            "{} stop must preserve tri-state preflight".format(label))
+    require("process_state == PROCESS_PRESENCE_ABSENT" in locked_stop and
+            "process_state != PROCESS_PRESENCE_RUNNING" in locked_stop and
+            "refusing name-wide stop because daemon presence is unknown" in locked_stop,
+            "{} stop must not signal on UNKNOWN presence".format(label))
+    require('char *svcs[] = { "{}", NULL };'.format(daemon) in locked_stop and
+            "command_status = kill_services(svcs," in locked_stop and
+            "storage_service_stop_complete(command_status, is_{}_run())".format(suffix) in locked_stop,
+            "{} stop must use identity-validated process lifecycle transaction".format(label))
+    legacy_script = "transmission.sh" if suffix == "torrent" else "aria.sh"
+    require('eval("/usr/bin/{}"'.format(legacy_script) not in locked_stop,
+            "{} stop must not call legacy pidof/killall shell path".format(label))
+
 stop_body = body(storage, "stop_torrent(void)")
 require("storage_service_stop_complete(" in stop_body,
         "stop_torrent must verify daemon absence after stop")
