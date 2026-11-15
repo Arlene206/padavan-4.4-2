@@ -309,8 +309,8 @@ int is_scutclient_run(void){
 		return 1;
 	return 0;
 }
-void stop_scutclient(void){
-	eval("/usr/bin/scutclient.sh","stop");
+int stop_scutclient(void){
+	return eval("/usr/bin/scutclient.sh","stop");
 }
 
 void start_scutclient(void){
@@ -320,7 +320,10 @@ void start_scutclient(void){
 }
 
 void restart_scutclient(void){
-	stop_scutclient();
+	if (stop_scutclient() != 0) {
+		logmessage(LOGNAME, "scutclient restart aborted because stop failed");
+		return;
+	}
 	start_scutclient();
 }
 
@@ -334,8 +337,8 @@ int is_mentohust_run(void){
 		return 1;
 	return 0;
 }
-void stop_mentohust(void){
-	eval("/usr/bin/mentohust.sh","stop");
+int stop_mentohust(void){
+	return eval("/usr/bin/mentohust.sh","stop");
 }
 
 void start_mentohust(void){
@@ -345,15 +348,18 @@ void start_mentohust(void){
 }
 
 void restart_mentohust(void){
-	stop_mentohust();
+	if (stop_mentohust() != 0) {
+		logmessage(LOGNAME, "mentohust restart aborted because stop failed");
+		return;
+	}
 	start_mentohust();
 }
 
 #endif
 
 #if defined(APP_TTYD)
-void stop_ttyd(void){
-	eval("/usr/bin/ttyd.sh","stop");
+int stop_ttyd(void){
+	return eval("/usr/bin/ttyd.sh","stop");
 }
 
 void start_ttyd(void){
@@ -363,14 +369,17 @@ void start_ttyd(void){
 }
 
 void restart_ttyd(void){
-	stop_ttyd();
+	if (stop_ttyd() != 0) {
+		logmessage(LOGNAME, "ttyd restart aborted because stop failed");
+		return;
+	}
 	start_ttyd();
 }
 #endif
 
 #if defined(APP_SHADOWSOCKS)
-void stop_ss(void){
-	eval("/usr/bin/shadowsocks.sh","stop");
+int stop_ss(void){
+	return eval("/usr/bin/shadowsocks.sh","stop");
 }
 
 void start_ss(void){
@@ -380,12 +389,15 @@ void start_ss(void){
 }
 
 void restart_ss(void){
-	stop_ss();
+	if (stop_ss() != 0) {
+		logmessage(LOGNAME, "ss restart aborted because stop failed");
+		return;
+	}
 	start_ss();
 }
 
-void stop_ss_tunnel(void){
-	eval("/usr/bin/ss-tunnel.sh","stop");
+int stop_ss_tunnel(void){
+	return eval("/usr/bin/ss-tunnel.sh","stop");
 }
 
 void start_ss_tunnel(void){
@@ -395,7 +407,10 @@ void start_ss_tunnel(void){
 }
 
 void restart_ss_tunnel(void){
-	stop_ss_tunnel();
+	if (stop_ss_tunnel() != 0) {
+		logmessage(LOGNAME, "ss_tunnel restart aborted because stop failed");
+		return;
+	}
 	start_ss_tunnel();
 }
 
@@ -425,8 +440,8 @@ int is_vlmcsd_run(void){
 	return 0;
 }
 
-void stop_vlmcsd(void){
-	eval("/usr/bin/vlmcsd.sh","stop");
+int stop_vlmcsd(void){
+	return eval("/usr/bin/vlmcsd.sh","stop");
 }
 
 void start_vlmcsd(void){
@@ -436,7 +451,10 @@ void start_vlmcsd(void){
 }
 
 void restart_vlmcsd(void){
-	stop_vlmcsd();
+	if (stop_vlmcsd() != 0) {
+		logmessage(LOGNAME, "vlmcsd restart aborted because stop failed");
+		return;
+	}
 	start_vlmcsd();
 }
 #endif
@@ -451,8 +469,8 @@ int is_iperf3_run(void){
 	return 0;
 }
 
-void stop_iperf3(void){
-	eval("/usr/bin/iperf3.sh","stop");
+int stop_iperf3(void){
+	return eval("/usr/bin/iperf3.sh","stop");
 }
 
 void start_iperf3(void){
@@ -462,7 +480,10 @@ void start_iperf3(void){
 }
 
 void restart_iperf3(void){
-	stop_iperf3();
+	if (stop_iperf3() != 0) {
+		logmessage(LOGNAME, "iperf3 restart aborted because stop failed");
+		return;
+	}
 	start_iperf3();
 }
 #endif
@@ -482,8 +503,8 @@ int restart_dnsforwarder(void){
 #endif
 
 #if defined(APP_ADGUARDHOME)
-void stop_adguardhome(void){
-	eval("/usr/bin/adguardhome.sh","stop");
+int stop_adguardhome(void){
+	return eval("/usr/bin/adguardhome.sh","stop");
 }
 
 void start_adguardhome(void){
@@ -517,8 +538,8 @@ void restart_zerotier(void){
 #endif
 
 #if defined(APP_DDNSTO)
-void stop_ddnsto(void){
-	eval("/usr/bin/ddnsto.sh","stop");
+int stop_ddnsto(void){
+	return eval("/usr/bin/ddnsto.sh","stop");
 }
 
 void start_ddnsto(void){
@@ -534,8 +555,8 @@ void restart_ddnsto(void){
 #endif
 
 #if defined(APP_SQM)
-void stop_sqm(void){
-	eval("/usr/lib/sqm/run.sh","stop");
+int stop_sqm(void){
+	return eval("/usr/lib/sqm/run.sh","stop");
 }
 
 void start_sqm(void){
@@ -545,14 +566,17 @@ void start_sqm(void){
 }
 
 void restart_sqm(void){
-	stop_sqm();
+	if (stop_sqm() != 0) {
+		logmessage(LOGNAME, "sqm restart aborted because stop failed");
+		return;
+	}
 	start_sqm();
 }
 #endif
 
 #if defined(APP_ALDRIVER)
-void stop_aldriver(void){
-	eval("/usr/bin/aliyundrive-webdav.sh","stop");
+int stop_aldriver(void){
+	return eval("/usr/bin/aliyundrive-webdav.sh","stop");
 }
 
 void start_aldriver(void){
@@ -562,14 +586,17 @@ void start_aldriver(void){
 }
 
 void restart_aldriver(void){
-	stop_aldriver();
+	if (stop_aldriver() != 0) {
+		logmessage(LOGNAME, "aldriver restart aborted because stop failed");
+		return;
+	}
 	start_aldriver();
 }
 #endif
 
 #if defined(APP_WIREGUARD)
-void stop_wireguard(void){
-	eval("/usr/bin/wireguard.sh","stop");
+int stop_wireguard(void){
+	return eval("/usr/bin/wireguard.sh","stop");
 }
 
 void start_wireguard(void){
@@ -579,14 +606,17 @@ void start_wireguard(void){
 }
 
 void restart_wireguard(void){
-	stop_wireguard();
+	if (stop_wireguard() != 0) {
+		logmessage(LOGNAME, "wireguard restart aborted because stop failed");
+		return;
+	}
 	start_wireguard();
 }
 #endif
 
 #if defined(APP_ADBYBY)
-void stop_adbyby(void){
-	eval("/usr/bin/adbyby.sh","stop");
+int stop_adbyby(void){
+	return eval("/usr/bin/adbyby.sh","stop");
 }
 
 void start_adbyby(void){
@@ -606,8 +636,8 @@ void update_adb(void){
 #endif
 
 #if defined(APP_SMARTDNS)
-void stop_smartdns(void){
-	eval("/usr/bin/smartdns.sh","stop");
+int stop_smartdns(void){
+	return eval("/usr/bin/smartdns.sh","stop");
 }
 
 void start_smartdns(void){
@@ -617,14 +647,17 @@ void start_smartdns(void){
 }
 
 void restart_smartdns(void){
-	stop_smartdns();
+	if (stop_smartdns() != 0) {
+		logmessage(LOGNAME, "smartdns restart aborted because stop failed");
+		return;
+	}
 	start_smartdns();
 }
 #endif
 
 #if defined(APP_ALIDDNS)
-void stop_aliddns(void){
-	eval("/usr/bin/aliddns.sh","stop");
+int stop_aliddns(void){
+	return eval("/usr/bin/aliddns.sh","stop");
 }
 
 void start_aliddns(void){
@@ -639,11 +672,12 @@ void restart_aliddns(void){
 #endif
 
 #if defined(APP_FRP)
-void stop_frp(void){
+int stop_frp(void){
 	int status = eval("/usr/bin/frp.sh","stop");
 
 	if (status != 0)
 		logmessage(LOGNAME, "FRP stop failed: %d", status);
+	return status;
 }
 
 void start_frp(void){
@@ -1002,53 +1036,50 @@ stop_services(int stopall)
 #endif
 #endif
 #if defined(APP_SCUT)
-	stop_scutclient();
+	record_service_stop_status(&stop_status, "scutclient", stop_scutclient());
 #endif
 #if defined(APP_MENTOHUST)
-	stop_mentohust();
+	record_service_stop_status(&stop_status, "mentohust", stop_mentohust());
 #endif
 #if defined(APP_VLMCSD)
-	stop_vlmcsd();
+	record_service_stop_status(&stop_status, "vlmcsd", stop_vlmcsd());
 #endif
 #if defined(APP_IPERF3)
-	stop_iperf3();
+	record_service_stop_status(&stop_status, "iperf3", stop_iperf3());
 #endif
 #if defined(APP_ADGUARDHOME)
-	stop_adguardhome();
+	record_service_stop_status(&stop_status, "AdGuardHome", stop_adguardhome());
 #endif
 #if defined(APP_SHADOWSOCKS)
-	stop_ss();
-	stop_ss_tunnel();
+	record_service_stop_status(&stop_status, "Shadowsocks", stop_ss());
+	record_service_stop_status(&stop_status, "Shadowsocks tunnel", stop_ss_tunnel());
 #endif
 #if defined(APP_ADBYBY)
-	stop_adbyby();
+	record_service_stop_status(&stop_status, "Adbyby", stop_adbyby());
 #endif
 #if defined(APP_DDNSTO)
-	stop_ddnsto();
+	record_service_stop_status(&stop_status, "DDNSTO", stop_ddnsto());
 #endif
 #if defined(APP_SQM)
-	stop_sqm();
+	record_service_stop_status(&stop_status, "SQM", stop_sqm());
 #endif
 #if defined(APP_ALDRIVER)
-	stop_aldriver();
+	record_service_stop_status(&stop_status, "AliyunDrive WebDAV", stop_aldriver());
 #endif
 #if defined(APP_WIREGUARD)
-	stop_wireguard();
+	record_service_stop_status(&stop_status, "WireGuard", stop_wireguard());
 #endif
 #if defined(APP_SMARTDNS)
-	stop_smartdns();
+	record_service_stop_status(&stop_status, "SmartDNS", stop_smartdns());
 #endif
 #if defined(APP_ALIDDNS)
-	stop_aliddns();
+	record_service_stop_status(&stop_status, "AliDDNS", stop_aliddns());
 #endif
 #if defined(APP_TTYD)
-	stop_ttyd();
-#endif
-#if defined(APP_WIREGUARD)
-	stop_wireguard();
+	record_service_stop_status(&stop_status, "ttyd", stop_ttyd());
 #endif
 #if defined(APP_FRP)
-	stop_frp();
+	record_service_stop_status(&stop_status, "FRP", stop_frp());
 #endif
 	record_service_stop_status(&stop_status, "networkmap", stop_networkmap());
 	record_service_stop_status(&stop_status, "lld2d", stop_lltd());

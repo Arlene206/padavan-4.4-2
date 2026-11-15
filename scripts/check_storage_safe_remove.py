@@ -145,9 +145,48 @@ for signature in ("restart_usb_printer_spoolers(void)", "try_start_usb_printer_s
             "return;" in starter and "exec_printer_daemons(" in starter,
             "printer restart must abort launch after a failed stop: " + signature)
 stop_all = body(services, "int\nstop_services(int stopall)")
-for daemon in ("p910nd", "lpd", "u2ec", "IPTV proxies"):
+for daemon in ("p910nd", "lpd", "u2ec", "IPTV proxies",
+               "scutclient", "mentohust", "vlmcsd", "iperf3",
+               "AdGuardHome", "Shadowsocks", "Shadowsocks tunnel",
+               "Adbyby", "DDNSTO", "SQM", "AliyunDrive WebDAV",
+               "WireGuard", "SmartDNS", "AliDDNS", "ttyd", "FRP"):
     require('record_service_stop_status(&stop_status, "' + daemon + '"' in stop_all,
             "stop_services must aggregate stop status: " + daemon)
+
+for name, script in (
+    ("scutclient", "/usr/bin/scutclient.sh"),
+    ("mentohust", "/usr/bin/mentohust.sh"),
+    ("ttyd", "/usr/bin/ttyd.sh"),
+    ("ss", "/usr/bin/shadowsocks.sh"),
+    ("ss_tunnel", "/usr/bin/ss-tunnel.sh"),
+    ("vlmcsd", "/usr/bin/vlmcsd.sh"),
+    ("iperf3", "/usr/bin/iperf3.sh"),
+    ("adguardhome", "/usr/bin/adguardhome.sh"),
+    ("ddnsto", "/usr/bin/ddnsto.sh"),
+    ("sqm", "/usr/lib/sqm/run.sh"),
+    ("aldriver", "/usr/bin/aliyundrive-webdav.sh"),
+    ("wireguard", "/usr/bin/wireguard.sh"),
+    ("adbyby", "/usr/bin/adbyby.sh"),
+    ("smartdns", "/usr/bin/smartdns.sh"),
+    ("aliddns", "/usr/bin/aliddns.sh"),
+):
+    stop_body = body(services, "int stop_" + name + "(void)")
+    require('return eval("' + script + '","stop");' in stop_body,
+            "optional service stop must propagate its shell status: " + name)
+    require("int stop_" + name + "(void);" in rc_header,
+            "RC header must expose checked stop status: " + name)
+frp_stop = body(services, "int stop_frp(void)")
+require("return status;" in frp_stop and 'eval("/usr/bin/frp.sh","stop")' in frp_stop,
+        "FRP stop must propagate the launcher status")
+require("int stop_frp(void);" in rc_header,
+        "RC header must expose checked FRP stop status")
+for name in ("scutclient", "mentohust", "ttyd", "ss", "ss_tunnel",
+             "vlmcsd", "iperf3", "sqm", "aldriver", "wireguard", "smartdns"):
+    restart_body = body(services, "void restart_" + name + "(void)")
+    require("stop_" + name + "() != 0" in restart_body and "start_" + name + "();" in restart_body,
+            "manual stop/start wrapper must not launch after failed stop: " + name)
+require(stop_all.count('record_service_stop_status(&stop_status, "WireGuard"') == 1,
+        "stop_services must only stop WireGuard once")
 igmp_stop = body(net, "int\nstop_igmpproxy(char *wan_ifname)")
 require("return 0;" in igmp_stop and "return kill_services(" in igmp_stop,
         "IPTV proxy stop must report success only for intentional no-op or verified stop")
