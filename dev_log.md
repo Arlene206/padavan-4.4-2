@@ -1,3 +1,13 @@
+## 2026-11-15 — Fail closed on direct IPoE static address configuration failure
+
+- `start_wan()`'s direct IPoE static IPv4 branch discarded `ifconfig()`'s return status, leaving `wan_err == 0` and allowing `wan_up()` plus UPnP publication after address configuration failed.
+- Capture the address status; on failure set/persist `wan_err`, log the original status, attempt to clear a potentially partial address application and separately log cleanup failure. The existing `if (!wan_err)` gate therefore suppresses route/UPnP activation; independent IPv6 setup remains attempted.
+- Added exact source-contract assertions for status capture, fail-state publication, partial-address cleanup, cleanup-error reporting, success gating of WAN routes/UPnP and continued IPv6 setup. Current-head GNU89 policy tests and exact-head WAN/XY-C1 Actions are pending.
+- Parent main: `454f3869fc3c937f496d459ae52017804632378c`; prior exact source baseline `524601f` had XY-C1 #43751765026 Build/TRX/artifact PASS. Previous exact-head WAN #43752933794, AI docs #43752933786 and Process lifecycle #43752933808 all PASS.
+- Frozen backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; no physical-router/L4 result is claimed.
+
+---
+
 ## 2026-11-15 — Scope physical-WAN PPP abort ordering regression
 
 - Exact WAN #43752539339 passed all six GNU89 compile/run policy regressions, the client wait-delay guard, static MAN address checks and non-PPPoE failure guard checks, then failed because the ordering assertion compared the restore call against the first `continue;` in the entire PPP branch.

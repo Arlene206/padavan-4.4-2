@@ -1769,7 +1769,18 @@ start_wan(void)
 					logmessage(LOGNAME, "%s (%s) ERROR! Static IP [%s/%s] in LAN subnet [%s/%s]!",
 						"WAN", wan_ifname, wan_addr, wan_mask, lan_addr, lan_mask);
 				} else {
-					ifconfig(wan_ifname, IFUP, wan_addr, wan_mask);
+					int address_status, clear_status;
+					
+					address_status = ifconfig(wan_ifname, IFUP, wan_addr, wan_mask);
+					if (address_status != 0) {
+						wan_err = 1;
+						logmessage(LOGNAME, "failed to configure static WAN address on %s (status=%d)",
+							   wan_ifname, address_status);
+						clear_status = ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
+						if (clear_status != 0)
+							logmessage(LOGNAME, "failed to clear partially configured static WAN address on %s (status=%d)",
+								   wan_ifname, clear_status);
+					}
 				}
 				
 				set_wan_unit_value_int(unit, "err", wan_err);
