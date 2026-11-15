@@ -309,10 +309,15 @@ assert "process_inventory_scan(\"udhcpc\", &snapshot)" in wan_renew
 assert "detect_wan_udhcpc_should_renew(presence)" in wan_renew
 assert "scan_error = snapshot.error;" in wan_renew
 assert wan_renew.index("scan_error = snapshot.error;") < wan_renew.index("process_snapshot_release(&snapshot);")
-assert wan_renew.index("process_snapshot_release(&snapshot);") < wan_renew.index('doSystem("killall %s %s"')
+assert wan_renew.index("process_snapshot_release(&snapshot);") < wan_renew.index('process_pidfile_signal(detect_wan_udhcpc_pidfile(ap_mode),')
 assert "if (renew_decision < 0)" in wan_renew
 assert "errno = scan_error ? scan_error : EIO;" in wan_renew
 assert "if (renew_decision == 0)" in wan_renew
+assert 'process_pidfile_signal(detect_wan_udhcpc_pidfile(ap_mode), "udhcpc", SIGUSR1)' in " ".join(wan_renew.split())
+assert 'doSystem("killall %s %s", "-SIGUSR1", "udhcpc")' not in wan_renew
+assert 'return ap_mode ? "/var/run/udhcpc_lan.pid" : "/var/run/udhcpc0.pid";' in wan_policy
+assert 'detect_wan_udhcpc_pidfile(0), "/var/run/udhcpc0.pid"' in wan_test
+assert 'detect_wan_udhcpc_pidfile(1), "/var/run/udhcpc_lan.pid"' in wan_test
 assert 'pids("udhcpc")' not in wan_renew
 assert "return -1;" in wan_renew
 assert "renew_status = chk_udhcpc(ap_mode);" in wan_poll

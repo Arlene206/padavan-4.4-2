@@ -1,3 +1,13 @@
+## 2026-11-15 10:51 CST — Bind gateway DHCP renewal to the intended udhcpc PID identity
+
+- Replaced `detect_wan.c::chk_udhcpc()`'s name-wide `killall -SIGUSR1 udhcpc` with `process_pidfile_signal()`, validating the PID/start-time record and signaling only the client owned by this role. Router WAN uses `/var/run/udhcpc0.pid`; AP mode uses `/var/run/udhcpc_lan.pid`. The process-inventory UNKNOWN gate remains in front of the operation; a missing/stale/mismatched PID identity fails visibly rather than signaling other DHCP clients.
+- Added the role-to-PID-file selector to the existing GNU89 DHCP policy and tests for both paths. Extended the process-inventory source contract to require identity-bound renewal and prohibit the broad signal.
+- This change is based on freshly fetched main `d861bf83f3d215140d65c01a17129269fbfaabcc`; concurrent direct-start fail-closed fixes were preserved.
+- Changed paths: `trunk/user/rc/src/detect_wan.c`, `trunk/user/rc/src/detect_wan_udhcpc_policy.h`, `trunk/user/rc/src/tests/detect_wan_udhcpc_policy.c`, `scripts/check_process_lifecycle_integration.py`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
+
 ## 2026-11-15 10:28 CST — Correct PID 1 and process-inventory source contracts
 
 - Exact-head PID 1 run `43666824125` on `b84bfafaed5745700782f3c8a3c54683c9126c5b` failed in the final inline checker: it required `PROCESS_PRESENCE_UNKNOWN` to appear inside `optional_daemon_policy.h`, although the header delegates the enum to `process_inventory.h` and the policy test exercises UNKNOWN. The check now validates ABSENT in the policy and UNKNOWN in its regression test.

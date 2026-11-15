@@ -20,4 +20,12 @@ detect_wan_udhcpc_should_renew(enum process_presence presence)
 	}
 }
 
+
+/* Route renewal only to the DHCP client owned by this WAN/AP role. */
+static inline const char *
+detect_wan_udhcpc_pidfile(int ap_mode)
+{
+	return ap_mode ? "/var/run/udhcpc_lan.pid" : "/var/run/udhcpc0.pid";
+}
+
 #endif /* DETECT_WAN_UDHCPC_POLICY_H */

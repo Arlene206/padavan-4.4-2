@@ -28,6 +28,7 @@
 #include <net/if_arp.h>
 
 #include "rc.h"
+#include "process_pidfile.h"
 #include "detect_wan_arp_socket_policy.h"
 #include "detect_wan_udhcpc_policy.h"
 
@@ -99,7 +100,8 @@ chk_udhcpc(int ap_mode)
 			return 0;
 
 		logmessage("detect_wan", "No response from gateway (%s)! Perform DHCP renew...", gateway_str);
-		renew_status = doSystem("killall %s %s", "-SIGUSR1", "udhcpc");
+		renew_status = process_pidfile_signal(detect_wan_udhcpc_pidfile(ap_mode),
+						     "udhcpc", SIGUSR1);
 		if (renew_status != 0)
 		{
 			if (renew_status != -1 || errno == 0)
