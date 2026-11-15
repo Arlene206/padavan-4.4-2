@@ -158,7 +158,7 @@ networkmap_start_call = "int networkmap_start_status = start_networkmap(1);"
 assert networkmap_start_call in boot_start
 assert "if (networkmap_start_status != 0)" in boot_start
 assert re.search(
-    r"logmessage\\s*\\(\\s*LOGNAME\\s*,\\s*\"networkmap boot startup failed \\(status=%d\\)\"",
+    r'logmessage\s*\(\s*LOGNAME\s*,\s*"networkmap boot startup failed \(status=%d\)"',
     boot_start,
 )
 assert boot_start.index(networkmap_start_call) < boot_start.index(

@@ -1,51 +1,54 @@
-# Cross-session execution mandate
+# Cross-session execution mandate (read before resuming)
 
-Resume from live Git state, then continue implementation. Do not repeat completed DNSMasq lock-order reviews or the RC C-source process-signal sweep below. Do not stop at a plan or wait for pending CI while independent work is available.
+This is a continuing autonomous engineering assignment. Recover live state once, then resume the exact P1 task below. Do not repeat completed work, stop after a plan, or ask the user to select a task. Continue safe independent engineering while CI is pending.
 
-For every multi-file slice, publish source, regression/source contract and required documentation as one atomic main commit: create blobs, one tree, one commit parented to freshly fetched main, then non-forced update of main with the expected parent SHA. Never create development branches or PRs, never force-push, and never touch the preserved archive branch. Inspect Actions only for the exact current main SHA.
+**Mandatory handoff checkpoint:** Every session must verify before ending that this file accurately records the meaningful source baseline, active task, relevant exact-head Actions, validation boundary, blockers and exact first action. The checkpoint is mandatory; a document edit is conditional. If any next-session-critical fact is stale or missing, update this handoff; if it remains accurate, do not create a no-op documentation commit.
+
+For each multi-file logical slice, publish source + regression/source contract + necessary documentation as **one atomic main commit**: create all blobs, one tree, one commit parented to the freshly fetched main SHA, then update main non-forced using that expected SHA. Never create development branches or PRs, never force-push, and never touch the preserved archive branch. Inspect Actions only for exact-head push runs.
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2; active branch: main.
-- Parent main SHA for the current slice: 6832b792e4304114555ba054cd91f34ff4868fa2 (fix(rc): report VPN server boot launch failures). Current slice result: THIS COMMIT; resolve the resulting SHA from live main during takeover.
-- Preserved archive branch: backup/pre-plugin-overhaul-2026-11-14, expected HEAD 72f4f157a084f8184b9597ca5bf334b8080e5807. Read-only forever; never switch to, update, delete, or develop on it.
-- PR #1 is closed and unmerged; it is not a development or validation target.
-- No local checkout or local cross-toolchain is available in this execution. Do not claim local tests or builds.
-- Prior exact-head Actions on parent 6832b792e4304114555ba054cd91f34ff4868fa2: 26 of 27 push runs completed SUCCESS. Networkmap #43729759374 and AI handoff #43729759472 passed. XY-C1 Firmware Validation #43729759471 is IN_PROGRESS; its only job is #132859395581, Cross-build XY-C1 firmware. No L3 result applies to the current slice until its exact SHA has a successful Build, TRX verification and artifact upload. Physical-router L4 remains NOT VERIFIED.
+- Repository: Arlene206/padavan-4.4-2; only development branch: main.
+- Product-source commit: e902e806f565e26d34406483ae2133c0b55acee2 (fix(rc): log networkmap boot startup failures). Current follow-up is a checker/handoff-only correction parented to this source commit; resolve its exact SHA from live main on takeover.
+- Frozen archive branch: backup/pre-plugin-overhaul-2026-11-14 at 72f4f157a084f8184b9597ca5bf334b8080e5807. Read-only, preserve byte-for-byte.
+- PR #1 is closed/unmerged and is not a development or validation target.
+- No local repository checkout or target cross-toolchain was available in this session. Do not claim full local tests/builds.
+- No firmware L3 or physical-router L4 claim yet applies to the product-source commit e902e806. Physical-router L4 remains NOT VERIFIED.
 
-## Completed in this slice
+## Active task
 
-### P1 process-lifecycle direct-call audit — RC C-source scope
+### P1 — Boot startup status accounting
 
-- Read the current bootstrap and development protocol, handoff, roadmap, newest root dev-log records and archive index. Reconfirmed main and preserved backup state.
-- Reviewed all 36 trunk/user/rc/src/*.c files for active pids(), kill_pidfile_s(), killall and direct kill() patterns. The only active pids() use is the compatibility wrapper is_dns_dhcpd_run() in services_ex.c; no RC C caller was found. The only direct killall invocation in the inspected RC C sources is inside #if 0 in auth.c. kill_process_pidfile() is an unused helper within the RC C-source scope. Identity-bound service signaling and deliberate PID 1 / child-process signaling remain unchanged.
-- This is not a whole-repository or all-package audit. The Linux 4.4 PID/start-time validation-to-signal TOCTOU remains unresolved; another pre-signal recheck does not close it.
+- Continue from `start_services_once()` in `trunk/user/rc/src/services.c`. A completed source slice now captures and logs nonzero `start_networkmap(1)` status without changing best-effort boot continuation. The source contract lives in `scripts/check_networkmap_signals.py` and its workflow already watches both files.
+- Audit remaining startup calls one at a time. First inspect `start_infosvr()`, `start_watchdog()`, and `start_gpio_btn()` and their compile guards, return semantics and internal diagnostics. Do not log disabled/no-op sentinel returns as failures: `start_infosvr()` returns 1 when `adsc_enable` is disabled. `start_crond()`, `start_rstats()`, and `start_lltd()` also use 1 for disabled configuration; TTYD/SCUT/VLMCSD/IPERF3 disabled paths currently return 0.
+- The preceding boot fix for `start_vpn_server()` already captures and logs nonzero status. TTYD boot status is also logged. Avoid duplicate diagnostics where the callee already logs launch failures. Preserve boot's best-effort behavior.
+- For the next concrete defect, add focused source/test coverage and update the relevant existing workflow path filters. Any change to firmware source must be watched by XY-C1; do not claim L3 until the exact product-source SHA has a successful Build, TRX verification and artifact upload.
 
-### Networkmap boot launch diagnostics
+### Completed in this session
 
-- start_services_once() previously discarded the status returned by start_networkmap(1); UNKNOWN process inventory and launcher failures could therefore pass without a boot-sequence diagnostic.
-- Capture the return status and log nonzero results without changing best-effort boot continuation. Added a semantic assertion to scripts/check_networkmap_signals.py. Existing Networkmap push path filters already include services.c and the checker; XY-C1 already watches services.c.
-- Parent: 6832b792e4304114555ba054cd91f34ff4868fa2; resulting commit: THIS COMMIT. Exact-head Networkmap and AI docs checks for the new SHA must be confirmed. No local test, target build or hardware result is claimed.
+- Reviewed all 36 `trunk/user/rc/src/*.c` files for active `pids()`, `kill_pidfile_s()`, `killall`, and direct `kill()` patterns. Only active `pids()` occurrence is the legacy `is_dns_dhcpd_run()` compatibility wrapper in `services_ex.c`, with no RC C-source caller. `kill_process_pidfile()` has no RC C-source caller. The `killall` occurrence was in a disabled `#if 0` path. This is an RC C-source scope only—not a whole-repository/package audit.
+- Left deliberate PID 1 and child-process signals and identity-bound service signal sites unchanged. Linux 4.4 PID/start-time validation-to-signal TOCTOU remains unresolved; another pre-signal recheck does not close it.
+- DNSMasq/VPN process-associated lock-order review is complete; do not repeat it.
 
-## Active next task
+## Verification boundary
 
-### P1 — Complete boot startup status accounting
-
-start_services_once() still ignores several int-returning start functions. Continue one call at a time, after checking each return contract and whether nonzero means disabled rather than failure. First inspect start_infosvr(), start_watchdog(), and start_gpio_btn(); start_infosvr() explicitly returns 1 when adsc_enable is disabled, so logging any nonzero status without a configuration guard would create false alarms. Check other start functions that log internally before adding duplicate messages. Preserve best-effort boot continuation.
-
-For the first concrete unlogged failure, add status capture plus a useful diagnostic and extend the most relevant existing workflow/source contract. Keep XY-C1 triggers correct for changed product source. Do not bundle unrelated startup services into a broad rewrite.
-
-## Other known boundaries
-
-- DNSMasq/VPN process-associated lock-order review is complete; do not repeat it. Linux 4.4 PID/start-time check-to-kill TOCTOU remains a known limitation.
-- FTP failed-upload unlink TOCTOU remains blocked because inode-conditional unlink-by-fd is unavailable; preserve STOR/APPE/REST/STOU semantics.
-- NFS durability, AUTH_SYS/root-squash and external-mount compatibility require real client/storage evidence.
-- Do not present host checks as MIPS L3 or physical-router L4. L4 remains NOT VERIFIED.
+- Product-source SHA e902e806f565e26d34406483ae2133c0b55acee2 triggered exact-head Networkmap #43731654772, AI handoff docs #43731654776, and XY-C1 #43731654808.
+- Networkmap #43731654772 FAILED at `scripts/check_networkmap_signals.py` after both GNU89 `-Wall -Wextra -Werror` ASan/UBSan policy binaries PASSED. The failure was the newly added over-escaped Python regex (`re.PatternError: missing ), unterminated subpattern`). This checker-only correction replaces that regex with proper escapes; new exact-head workflow must prove the fix.
+- AI handoff docs #43731654776 FAILED because the previous handoff rewrite omitted the required mandatory end-of-session checkpoint and required headings. This correction restores the required checkpoint wording and canonical sections; verify the new exact-head docs Action.
+- XY-C1 #43731654808 was IN_PROGRESS at the last check. It targets the product-source SHA e902e806; require Build XY-C1, TRX verification and artifact upload before L3. The current follow-up contains no product source changes.
+- No local full checker suite, MIPS/uClibc build, firmware/TRX artifact, or physical router test is claimed. L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and resolve the current slice commit SHA. Check exact-head push Actions for Networkmap signal stability, AI handoff docs and XY-C1. If a relevant run fails, inspect the first causal failure and fix it. If XY-C1 is pending, continue independently rather than waiting.
-2. Resume the boot-status audit at start_infosvr(), then start_watchdog() / start_gpio_btn(). Confirm disabled/no-op return values, internal diagnostics and compile guards before implementing any logging change.
-3. Keep all development on main, use one Git tree/commit for each logical multi-file slice, preserve the frozen backup, and update this handoff only when the exact task or validation checkpoint materially changes.
+1. Fetch live main and verify the current correction commit, then check exact-head Networkmap and AI handoff Actions. Inspect their first failure if either is not PASS. Check XY-C1 #43731654808 on product-source SHA e902e806 and require its Build, TRX verification and artifact upload before claiming L3.
+2. Resume the P1 startup-status audit at `start_infosvr()`, `start_watchdog()`, and `start_gpio_btn()`; inspect each return contract and disabled sentinel before deciding which unlogged failure is safe to report.
+3. Keep development on main with atomic Git Data commits and expected-SHA non-forced ref updates. Do not repeat DNSMasq/VPN lock-order work or the scoped RC C-source process-signal sweep.
 
-Preserve docs/dev-log/ archive shards and docs/dev-log/INDEX.md byte-for-byte.
+## Validation and safety invariants
+
+- A pending Action is not a gate on independent work. Record exact run ID and SHA, continue another safe task, then revisit at a useful checkpoint.
+- Preserve legacy behavior, NVRAM/configuration compatibility, target architecture and all board support. Do not weaken tests to obtain green CI.
+- FTP failed-upload unlink TOCTOU, NFS durability/AUTH_SYS/root-squash and live-router compatibility require separate focused evidence; do not claim they are resolved.
+- Before context exhaustion, finish a safe slice and update this handoff only if its active task, source baseline, exact-head validation or first action materially changes.
+
+Preserve `docs/dev-log/` archive shards and `docs/dev-log/INDEX.md` byte-for-byte.

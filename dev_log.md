@@ -1,3 +1,11 @@
+## 2026-11-15 — Repair networkmap source contract and restore mandatory handoff checkpoint
+
+- Exact-head Networkmap run #43731654772 for product-source SHA e902e806f565e26d34406483ae2133c0b55acee2 failed after both GNU89 ASan/UBSan policy binaries passed: the added Python raw regex over-escaped its metacharacters, causing re.PatternError (unclosed group). Corrected it to use one backslash per regex escape; a local isolated regex/fixture check passes. The full workflow must rerun on this checker-fix SHA.
+- Exact-head AI handoff documentation run #43731654776 for e902e806f565e26d34406483ae2133c0b55acee2 failed because the preceding handoff rewrite omitted the required Mandatory handoff checkpoint language and required section headings. Restored the mandatory verification/edit-conditional statement and the canonical Current repository state / Active task / Verification boundary / Exact first action sections. The existing protocol/bootstrap and all historical archive files remain unchanged.
+- XY-C1 run #43731654808 for product-source SHA e902e806f565e26d34406483ae2133c0b55acee2 was still IN_PROGRESS at this checkpoint; no L3 claim until Build, TRX verification and artifact upload all pass. The follow-up only changes the checker and handoff records, not product source.
+- Parent main: e902e806f565e26d34406483ae2133c0b55acee2; resulting checker/handoff correction commit: THIS COMMIT. Exact-head Networkmap and AI docs Actions must be rechecked.
+
+---
 ## 2026-11-15 23:36 CST — Report networkmap boot startup failures
 
 - start_networkmap(1) returns failure when the process inventory is UNKNOWN or the launcher fails, but start_services_once() discarded the status. The daemon could therefore fail to start without a boot-sequence diagnostic.
