@@ -1,3 +1,12 @@
+## 2026-11-15 — Verify and propagate Ralink IAPP daemon lifecycle status
+
+- `ralinkiappd` forks its own long-running child in C `main()`, but the service wrapper also backgrounded that launcher, hiding fork/exec failure and allowing later `sysctl`/`iptables` statuses to mask it. The old stop path accepted missing `pidof` as absence, ignored `killall` results and never checked daemon disappearance. The existing RC boot path called `iappd.sh test`, but the shell case statement did not implement it.
+- The replacement runs the self-forking parent in foreground, uses tri-state `pidof`, waits for bounded start/stop postconditions, skips duplicate starts, propagates launch/firewall/kill errors, gates restart on successful stop and implements RC's `test` action. Sysctl tuning stays best-effort for optional board interfaces.
+- Added mocked host tests for missing/erroring process inventory, launcher failure, successful child startup/interface arguments, duplicate start, firewall failure, killall failure, false-success stop, successful stop, restart gating and `test`. Process-lifecycle and XY-C1 workflows now include the shipped script path; exact-head Actions required.
+- Parent main: `607261a9f39e92b8167fbcc67cbfe8c84c0ab642`; result: THIS COMMIT. No MIPS firmware/TRX or physical-radio runtime result claimed.
+
+---
+
 ## 2026-11-15 — Capture optional application launch failures
 
 - The feature-gated RC wrappers for AdGuardHome, DDNS.to, Adbyby and AliDDNS discarded the return status of their `eval()` launch commands.

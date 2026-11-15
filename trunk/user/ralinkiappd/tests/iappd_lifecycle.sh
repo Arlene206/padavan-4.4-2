@@ -1,0 +1,95 @@
+#!/bin/sh
+set -u
+base=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/iappd-test.XXXXXX") || exit 1
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+mkdir -p "$tmp/bin" "$tmp/no-pidof" "$tmp/state"
+: > "$tmp/commands"; : > "$tmp/daemon"
+printf "mt76x3_ap\n" > "$tmp/modules"
+printf "rai0: 1\n" > "$tmp/interrupts"
+cat > "$tmp/mock" <<'EOF'
+#!/bin/sh
+name=${0##*/}
+echo "$name $*" >> "$COMMAND_LOG"
+case "$name" in
+  pidof)
+    [ "$MOCK_PIDOF" -le 1 ] || exit "$MOCK_PIDOF"
+    [ -f "$STATE_DIR/daemon" ] && { echo 123; exit 0; }
+    exit 1 ;;
+  ralinkiappd)
+    echo "$*" >> "$DAEMON_LOG"
+    [ "$MOCK_START" -eq 0 ] && : > "$STATE_DIR/daemon"
+    exit "$MOCK_START" ;;
+  sysctl) exit "$MOCK_SYSCTL" ;;
+  iptables) exit "$MOCK_IPTABLES" ;;
+  killall)
+    [ "$MOCK_KILLALL" -eq 0 ] && [ "$MOCK_REMOVE" -eq 1 ] && rm -f "$STATE_DIR/daemon"
+    exit "$MOCK_KILLALL" ;;
+  sleep|logger) exit 0 ;;
+  *) exit 127 ;;
+esac
+EOF
+chmod +x "$tmp/mock"
+for c in pidof ralinkiappd sysctl iptables killall sleep logger; do ln -s "$tmp/mock" "$tmp/bin/$c"; done
+ln -s /bin/grep "$tmp/bin/grep"
+ln -s "$tmp/bin/logger" "$tmp/no-pidof/logger"
+export PATH="$tmp/bin:$PATH" STATE_DIR="$tmp/state" COMMAND_LOG="$tmp/commands" DAEMON_LOG="$tmp/daemon"
+export MOCK_PIDOF=0 MOCK_START=0 MOCK_SYSCTL=0 MOCK_IPTABLES=0 MOCK_KILLALL=0 MOCK_REMOVE=1
+export IAPPD_PROC_MODULES="$tmp/modules" IAPPD_PROC_INTERRUPTS="$tmp/interrupts"
+fail() { echo "$*" >&2; exit 1; }
+status() { [ "$1" -eq "$2" ] || fail "expected $2, got $1"; }
+run() { /bin/sh "$base/iappd.sh" "$1"; }
+reset() { rm -f "$STATE_DIR/daemon"; : > "$COMMAND_LOG"; : > "$DAEMON_LOG"; MOCK_PIDOF=0 MOCK_START=0 MOCK_IPTABLES=0 MOCK_KILLALL=0 MOCK_REMOVE=1; }
+
+reset
+rc=$(PATH="$tmp/no-pidof" /bin/sh "$base/iappd.sh" start)
+status "$rc" 127
+! grep -q "^ralinkiappd " "$COMMAND_LOG" || fail "started without pidof"
+
+reset; : > "$STATE_DIR/daemon"
+rc=$(PATH="$tmp/no-pidof" /bin/sh "$base/iappd.sh" stop)
+status "$rc" 127
+[ -f "$STATE_DIR/daemon" ] || fail "missing pidof changed daemon state"
+
+reset; MOCK_PIDOF=2
+rc=$(run start); status "$rc" 2
+! grep -q "^ralinkiappd " "$COMMAND_LOG" || fail "started with UNKNOWN inventory"
+
+reset; MOCK_START=53
+rc=$(run start); status "$rc" 53
+! grep -q "^iptables " "$COMMAND_LOG" || fail "configured firewall after launcher failure"
+
+reset
+rc=$(run start); status "$rc" 0
+[ -f "$STATE_DIR/daemon" ] || fail "start did not create daemon marker"
+grep -Fq -- "-wi rai0 -d 0" "$DAEMON_LOG" || fail "wrong radio arguments"
+[ "$(grep -c "^iptables " "$COMMAND_LOG")" -eq 2 ] || fail "missing firewall rules"
+count=$(grep -c "^ralinkiappd " "$COMMAND_LOG")
+rc=$(run start); status "$rc" 0
+[ "$(grep -c "^ralinkiappd " "$COMMAND_LOG")" -eq "$count" ] || fail "duplicate start"
+
+reset; MOCK_IPTABLES=42
+rc=$(run start); status "$rc" 42
+
+reset; : > "$STATE_DIR/daemon"; MOCK_KILLALL=54
+rc=$(run stop); status "$rc" 54
+[ -f "$STATE_DIR/daemon" ] || fail "failed killall lost daemon marker"
+
+reset; : > "$STATE_DIR/daemon"; MOCK_REMOVE=0
+rc=$(run stop); status "$rc" 1
+[ -f "$STATE_DIR/daemon" ] || fail "stop postcondition false positive"
+
+reset; : > "$STATE_DIR/daemon"
+rc=$(run stop); status "$rc" 0
+[ ! -f "$STATE_DIR/daemon" ] || fail "successful stop left daemon marker"
+
+reset; : > "$STATE_DIR/daemon"; MOCK_KILLALL=54
+rc=$(run restart); status "$rc" 54
+! grep -q "^ralinkiappd " "$COMMAND_LOG" || fail "restart ran after failed stop"
+
+reset
+rc=$(run test); status "$rc" 1
+: > "$STATE_DIR/daemon"
+rc=$(run test); status "$rc" 0
+rc=$(run invalid); status "$rc" 1
+echo "Ralink IAPP daemon lifecycle regressions: PASS"

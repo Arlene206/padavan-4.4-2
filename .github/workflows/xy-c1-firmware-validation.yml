@@ -31,6 +31,7 @@ on:
       - "trunk/user/rc/src/storage_persistence_policy.h"
       - "trunk/user/scripts/files/sbin/mtd_storage.sh"
       - "trunk/user/rc/src/services.c"
+      - "trunk/user/ralinkiappd/iappd.sh"
       - "trunk/user/scutclient/scripts/scutclient.sh"
       - "trunk/user/vlmcsd/vlmcsd.sh"
       - "trunk/user/mentohust/scripts/mentohust.sh"

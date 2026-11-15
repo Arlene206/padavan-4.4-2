@@ -61,6 +61,8 @@ on:
       - "trunk/user/openssh/sshd.sh"
       - "trunk/user/dropbear/sshd.sh"
       - "trunk/user/dropbear/Makefile"
+      - "trunk/user/ralinkiappd/iappd.sh"
+      - "trunk/user/ralinkiappd/tests/iappd_lifecycle.sh"
       - "trunk/user/iperf3/Makefile"
       - "trunk/user/iperf3/iperf3.sh"
       - "SESSION_HANDOFF.md"
@@ -159,5 +161,10 @@ jobs:
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/rc-file-write-status"
       - name: Check SCUT, vlmcsd, iperf3, mentohust, ttyd, OpenSSH and Dropbear lifecycle status propagation
         run: python3 scripts/check_optional_app_start_status.py
+      - name: Exercise Ralink IAPP daemon lifecycle postconditions
+        run: |
+          sh -n trunk/user/ralinkiappd/iappd.sh
+          sh -n trunk/user/ralinkiappd/tests/iappd_lifecycle.sh
+          sh trunk/user/ralinkiappd/tests/iappd_lifecycle.sh
       - name: Verify shared-library and RC integration boundaries
         run: python3 scripts/check_process_lifecycle_integration.py
