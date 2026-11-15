@@ -396,7 +396,7 @@ jobs:
           assert "O_NOFOLLOW" in acl_path_policy
           assert "fstatat(dir_fd, leaf" in acl_path_policy
           assert "unlinkat(dir_fd, leaf" in acl_path_policy
-          assert "openat(parent_fd, p_leaf, flags, mode)" in vsftpd_acl
+          assert "ftp_acl_path_open_upload_entry(parent_fd, p_leaf," in vsftpd_acl
           assert "stat(resolved_parent, &expected_parent)" in vsftpd_acl
           assert "fstat(parent_fd, &opened_parent)" in vsftpd_acl
           assert "expected_parent.st_ino != opened_parent.st_ino" in vsftpd_acl

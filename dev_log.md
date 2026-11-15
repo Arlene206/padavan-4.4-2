@@ -1,3 +1,11 @@
+## 2026-11-15 — Align vsftpd upload implementation source assertion
+
+- Exact 32edac failed the static contract at line 323 because the audit still required an inline `openat(parent_fd, p_leaf, flags, mode)` in `asus_ext.c`. The safe open logic is now factored into `ftp_acl_path_open_upload_entry()`; the contract was updated to require that helper call instead.
+- The GNU89 helper/ACL host test compilation and execution had passed earlier in the same job; the remaining failure was this stale source-string assertion.
+- Parent main: `32edacbd83385b5ab6c4600a5ce4dc49e8f6ad71`; exact-head vsftpd workflow must pass after the assertion correction.
+
+---
+
 ## 2026-11-15 — Update vsftpd source contract for atomic upload creation
 
 - Exact 8e7ac1a failed at the resolver test's obsolete cleanup-eligible expectation; 55bd710 corrected the expectation and the GNU89 compile/run stage then passed.
