@@ -15,10 +15,54 @@ DIR_LINK="/mnt/aria"
 
 func_start()
 {
-	# Make sure already running
-	if [ -n "`pidof aria2c`" ] ; then
-		return 0
-	fi
+	# Resolve the daemon state from both pidof's status and output.
+	aria_start_pids=$(pidof aria2c 2>/dev/null)
+	aria_start_pidof_status=$?
+	case "$aria_start_pidof_status" in
+		0)
+			if [ -z "$aria_start_pids" ]; then
+				echo "[FAILED]"
+				logger -t "$SVC_NAME" "Cannot start: unable to determine daemon process state" >/dev/null 2>&1 || true
+				return 1
+			fi
+			case "$aria_start_pids" in
+				*[!0-9\ ]*)
+					echo "[FAILED]"
+					logger -t "$SVC_NAME" "Cannot start: invalid daemon PID list" >/dev/null 2>&1 || true
+					return 1
+					;;
+			esac
+			aria_start_pid_count=0
+			for aria_start_pid in $aria_start_pids; do
+				aria_start_pid_count=$((aria_start_pid_count + 1))
+				case "$aria_start_pid" in
+					0*|1|*[!0-9]*)
+						echo "[FAILED]"
+						logger -t "$SVC_NAME" "Cannot start: invalid daemon PID list" >/dev/null 2>&1 || true
+						return 1
+						;;
+				esac
+			done
+			if [ "$aria_start_pid_count" -eq 0 ]; then
+				echo "[FAILED]"
+				logger -t "$SVC_NAME" "Cannot start: invalid daemon PID list" >/dev/null 2>&1 || true
+				return 1
+			fi
+			return 0
+			;;
+		1)
+			if [ -n "$aria_start_pids" ]; then
+				echo "[FAILED]"
+				logger -t "$SVC_NAME" "Cannot start: inconsistent daemon process state" >/dev/null 2>&1 || true
+				return 1
+			fi
+			;;
+		*)
+			echo "[FAILED]"
+			logger -t "$SVC_NAME" "Cannot start: unable to determine daemon process state" >/dev/null 2>&1 || true
+			return 1
+			;;
+	esac
 
 	echo -n "Starting $SVC_NAME:."
 

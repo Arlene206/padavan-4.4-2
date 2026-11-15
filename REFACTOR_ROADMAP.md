@@ -1,17 +1,17 @@
 ## Current source / CI checkpoint
 
-- Live main before THIS COMMIT: `5cbf3a52a89a98646f195be34d9fb162c72b2bb3`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact 5cb PASS: AI handoff docs #43774559261, Process lifecycle #43774559266, infosvr #43774559287, AliDDNS #43774559327, AliyunDrive #43774559248, AdGuardHome #43774559217 and NVRAM #43774559233.
-- Boot-service aggregation source change landed in d444; subsequent corrections through 5cb repaired checker extraction, networkmap captured-status validation, XY-C1 push-only trigger and handoff contract.
-- THIS COMMIT aligns GPIO, Crond and watchdog integration source checks with their production `rc_first_service_start_status(start_status, start_...())` boot calls. Its exact-head CI runs remain to be verified.
-- Corrected XY-C1 push-only run #43773995690 remains scoped to SHA 0e27 (still in progress at last poll). Parent 323 firmware Build/TRX/artifact #43772230305 passed, but is historical evidence only. No exact-5cb L3 claim.
-- SkipDBv2 #43773526771 has an unresolved failure in its oversized inline source-contract step after the initial path checks. Logs are truncated before the final message; CMake/Build/CTest did not run.
+- Parent for THIS COMMIT: `2c16e60838bcc066e34d5e7e8b70fae2f02a088d`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact parent 2c16 CI-contract runs GPIO #43775134023, Crond #43775133995, watchdog #43775134027, Process #43775134102, AI docs #43775134055, infosvr #43775134174, AliDDNS #43775134052, AdGuardHome #43775134050, NVRAM #43775134029 and AliyunDrive #43775134000 were IN_PROGRESS at last poll.
+- This commit fixes the next P1 source issue: Aria and Transmission previously interpreted `pidof` output without its status. Only status 1 + empty output now allows startup; valid status-0 PID lists are accepted as RUNNING; query errors, inconsistent output, malformed tokens, whitespace-only output and PID 0/1 fail closed.
+- Shared storage regression covers both launchers and all these states; existing USB storage workflow runs host shell and firmware BusyBox 1.24.2 ash. Exact-head USB storage CI is pending; no L2 claim until it passes.
+- SkipDBv2 #43773526771 remains unresolved in its inline source-contract test before CMake/Build/CTest; the failing assertion is not yet visible in the output-capped job log.
+- Earlier parent 323 XY-C1 Build/TRX/artifact #43772230305 PASS is historical L3 evidence for SHA 323 only. No current-source L3/L4 claim.
 
 ### P1 — Storage daemon startup and config publication
 
 - Transmission settings staging remains process-unique (`settings.json.tmp.$$`) and ownership-aware; stop validates PID inventories, signals individual PIDs, verifies absence and gates restart.
-- Aria2 default config remains staged as `aria2.conf.tmp.$$` with two-phase concurrency markers. The prior Aria/Transmission stop-postcondition suite passed exact USB storage #43772230269 on parent 323 (host shell and firmware BusyBox 1.24.2 ash).
-- Next P1 source defect: Transmission and Aria startup currently treat empty `pidof` output as ABSENT without validating command status. Fail closed on UNKNOWN/inconsistent results and add host + firmware BusyBox ash regressions.
+- Aria2 default config remains staged as `aria2.conf.tmp.$$` with two-phase concurrency markers; stop/restart postconditions remain verified by exact USB storage #43772230269 on parent 323 (host + BusyBox 1.24.2 ash).
+- THIS COMMIT closes the start-time UNKNOWN-state gap for both launchers; exact-head USB storage is required to verify host and firmware shell behavior.
 - Firefly and MiniDLNA retain checked same-directory configuration publication; IGMP proxy rejects same-line whitespace/comment input injection.
 
 ## Whole-repository module status

@@ -40,10 +40,48 @@ func_start()
 	# Avoid treating an inherited environment variable as our cleanup target.
 	CONFIG_TMP=""
 	CONFIG_TMP_OWNED=0
-	# Make sure already running
-	if [ -n "`pidof transmission-daemon`" ] ; then
-		return 0
-	fi
+	# Resolve the daemon state from both pidof's status and output.
+	tr_start_pids=$(pidof transmission-daemon 2>/dev/null)
+	tr_start_pidof_status=$?
+	case "$tr_start_pidof_status" in
+		0)
+			if [ -z "$tr_start_pids" ]; then
+				transmission_start_fail "cannot determine daemon process state"
+				return 1
+			fi
+			case "$tr_start_pids" in
+				*[!0-9\ ]*)
+					transmission_start_fail "invalid daemon PID list"
+					return 1
+					;;
+			esac
+			tr_start_pid_count=0
+			for tr_start_pid in $tr_start_pids; do
+				tr_start_pid_count=$((tr_start_pid_count + 1))
+				case "$tr_start_pid" in
+					0*|1|*[!0-9]*)
+						transmission_start_fail "invalid daemon PID list"
+						return 1
+						;;
+				esac
+			done
+			if [ "$tr_start_pid_count" -eq 0 ]; then
+				transmission_start_fail "invalid daemon PID list"
+				return 1
+			fi
+			return 0
+			;;
+		1)
+			if [ -n "$tr_start_pids" ]; then
+				transmission_start_fail "inconsistent daemon process state"
+				return 1
+			fi
+			;;
+		*)
+			transmission_start_fail "cannot determine daemon process state"
+			return 1
+			;;
+	esac
 	
 	echo -n "Starting $SVC_NAME:."
 	

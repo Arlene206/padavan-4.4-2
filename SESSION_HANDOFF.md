@@ -9,23 +9,23 @@ Only edit it when the live facts or first next action change materially.
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Live main before THIS COMMIT: `5cbf3a52a89a98646f195be34d9fb162c72b2bb3`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged/read-only.
-- Exact 5cb Actions PASS: AI handoff docs #43774559261, Process inventory/lifecycle #43774559266, infosvr #43774559287, AliDDNS #43774559327, AliyunDrive #43774559248, AdGuardHome #43774559217 and NVRAM #43774559233.
-- Boot-service aggregation source fix is `d444b7bbe4fe2aaacd424f97640a05672ec60b16`; correction commits `0e27e66a60d7fda0e5136022ca1270426e931e57`, `118008748d0a076d58b7886ab71fb370482a71ef` and `5cbf3a52a89a98646f195be34d9fb162c72b2bb3` repaired the process checker, captured networkmap-status expectation, XY-C1 trigger and handoff contract. Exact 5cb Process and AI docs checks both PASS.
-- Exact 0e27 XY-C1 Build workflow #43773995690 was still IN_PROGRESS at the last inspection; the workflow is now push-only. No exact-5cb Build/TRX/artifact result is available yet. Earlier parent 323 XY-C1 #43772230305 passed Build, TRX verification and artifact upload, but that evidence applies only to SHA 323.
-- Exact d444 GPIO #43773527047, Crond #43773526834 and watchdog #43773527200 failed only because their source-contract assertions still expected bare start calls. The actual service starters are wrapped by `rc_first_service_start_status()`; THIS COMMIT aligns those assertions with the real aggregated call form.
-- Exact d444 SkipDBv2 #43773526771 failed in its large inline source-contract step after the configured-path checks printed OK. The run log is truncated before the failing post-loop assertion; CMake configure, build and CTest were skipped. Keep this isolated as unresolved and do not claim a C/CTest failure.
-- No exact-current-branch L3 firmware evidence or physical-router/L4 validation is claimed.
+- Parent for THIS COMMIT: `2c16e60838bcc066e34d5e7e8b70fae2f02a088d`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact parent 2c16 Actions (source/test CI-contract repair): GPIO #43775134023, Crond #43775133995, watchdog #43775134027, Process #43775134102, AI docs #43775134055, infosvr #43775134174, AliDDNS #43775134052, AdGuardHome #43775134050, NVRAM #43775134029 and AliyunDrive #43775134000 were all IN_PROGRESS at last poll.
+- The 2c16 commit changes only three integration assertions: GPIO and Crond helper scripts now assert their production boot calls are passed through `rc_first_service_start_status()`; watchdog inline contract does the same. Their exact-head Actions will establish PASS/FAIL.
+- Prior exact 5cb AI docs #43774559261 and Process #43774559266 PASS. Prior 5cb service runs including infosvr #43774559287, AliDDNS #43774559327, AliyunDrive #43774559248, AdGuardHome #43774559217 and NVRAM #43774559233 PASS.
+- The P1 Transmission/Aria start-state defect below is not yet fixed; this commit contains the first source/test implementation. Exact-head USB storage workflow run is required to exercise host and firmware BusyBox 1.24.2 ash.
+- SkipDBv2 #43773526771 remains unresolved in its large inline source-contract step; output was truncated before the final failure text, and CMake/Build/CTest were skipped. No source or C/CTest root cause has been established.
+- Earlier parent 323 XY-C1 #43772230305 passed Build, TRX verification and artifact upload; that L3 evidence applies only to SHA 323. No L3 for current sources and no physical-router/L4 validation are claimed.
 ## Active task
 
-### Preserve boot service startup failures across the RC init boundary
+### Fail closed on unknown Transmission and Aria startup process state
 
-`start_services_once()` previously ignored return values from multiple status-returning start functions (HTTPD, telnetd, optional SSHD, VPN, watchdog, GPIO button, infosvr, UPnP, LLTD, crond, networkmap and rstats), then always returned zero. Its only RC caller ignored the return value too. Some service helpers use 1 as a disabled-feature sentinel, so blindly aggregating every result would falsely report disabled LLTD, crond, rstats or infosvr as failures.
+Both launchers previously treated empty `pidof` output as proof that the daemon was absent. A failed process query or contradictory status/output pair could therefore launch a duplicate daemon. THIS COMMIT captures both the `pidof` exit status and output: only status 1 with empty output is ABSENT; status 0 is RUNNING only with a nonempty list of valid positive canonical PIDs. Query errors, status/output contradictions, malformed PID tokens, whitespace-only output and PID 0/1 fail closed before any storage setup or daemon launch.
 
-THIS COMMIT adds a GNU89 first-nonzero policy, preserves the first actual failure while still attempting all later startup actions, aggregates existing optional-app/command statuses, and has the RC caller log a single summary when any enabled boot action failed. LLTD, crond, rstats and infosvr are aggregated only when their matching NVRAM feature setting is enabled. Void-returning 802.1X, udpxy, xupnpd and watchdog-CPU calls remain outside this slice.
+The shared `storage_app_start_status.sh` regression covers both launchers for each state under the existing host-shell and firmware BusyBox 1.24.2 ash workflow. Exact-head USB storage CI is required before claiming L2.
+## Completed source slice — Transmission and Aria fail-closed startup process-state checks
 
-Changed source: `trunk/user/rc/src/services.c` and `trunk/user/rc/src/rc.c`. Added `service_start_status.h` and a GNU89 policy regression. Extended `check_process_lifecycle_integration.py` and both Process lifecycle / XY-C1 workflow path filters.
+Previously both scripts trusted captured `pidof` stdout while ignoring command status; an unavailable query could be misinterpreted as daemon absence. This commit makes only status 1 plus empty output permit startup. Status 0 requires one or more positive canonical PID tokens and returns as already running; every contradictory, malformed or error state exits before storage configuration or launch. The shared test now covers error, empty-success, error-with-output, absent-with-output, malformed/whitespace/unsafe PID and valid existing multi-PID states for both services. Exact-head USB storage must pass on both host shell and firmware BusyBox 1.24.2 ash before L2 is claimed.
 
 ## Completed validation slice — boot-service aggregation call contracts
 
@@ -49,15 +49,13 @@ The APP_MSD_LITE branch in `start_udpxy()` now stages config and checks publicat
 
 ## Verification boundary
 
-- Parent for THIS COMMIT: `5cbf3a52a89a98646f195be34d9fb162c72b2bb3`; this slice updates GPIO, Crond and watchdog integration contracts plus the handoff/roadmap/dev log only.
-- Exact parent 5cb AI handoff docs #43774559261 and Process lifecycle #43774559266 PASS. infosvr #43774559287, AliDDNS #43774559327, AliyunDrive #43774559248, AdGuardHome #43774559217 and NVRAM #43774559233 PASS.
-- GPIO #43773527047, Crond #43773526834 and watchdog #43773527200 previously failed on stale bare-call assertions; THIS COMMIT changes those expectations to the actual aggregator call. Exact-head runs are required before closing these checks.
-- Corrected XY-C1 push-only run #43773995690 is for SHA 0e27, not current main; it was still in progress at last inspection. Parent 323 XY-C1 #43772230305 PASS is historical Build/TRX/artifact evidence only.
-- SkipDBv2 #43773526771 remains unresolved in its large inline source-contract step; output was truncated before the final failure text and all later build/test steps were skipped.
-- No exact-current L3 or L4 evidence is claimed.
+- Parent for THIS COMMIT: `2c16e60838bcc066e34d5e7e8b70fae2f02a088d`; source changes are limited to the Aria/Transmission startup prechecks and their shared host/BusyBox regression.
+- The preceding Aria/Transmission stop-postcondition slice passed exact USB storage #43772230269 on parent 323, including POSIX host and firmware BusyBox 1.24.2 ash.
+- Exact parent 2c16 GPIO #43775134023, Crond #43775133995, watchdog #43775134027, Process #43775134102 and AI docs #43775134055 were IN_PROGRESS at last poll; these are for the prior validation-contract commit, not this source change.
+- This commit has not yet run exact-head USB storage; no test result is claimed until that workflow runs on its SHA. No firmware build/TRX/artifact or L3, and no L4 physical-router test, is claimed.
 ## Exact first action for the next GPT
 
-1. Fetch live main and the frozen backup once; inspect exact-head GPIO, Crond, watchdog and AI handoff Actions for THIS COMMIT.
-2. Recheck corrected XY-C1 Build/TRX/artifact run #43773995690 on SHA 0e27; do not claim current-main L3 from this older run.
-3. Isolate SkipDBv2 source-contract failure #43773526771 from its truncated log, preferably by a targeted reproduction or by splitting the oversized inline checker into a normal script with complete failure output. Do not guess or bypass the assertion.
-4. Continue the P1 Transmission/Aria startup process-state defect and shared host + BusyBox 1.24.2 ash regression; preserve the frozen backup. No L4 without physical-router evidence.
+1. Inspect exact-head USB storage # for THIS COMMIT, including POSIX host and firmware BusyBox 1.24.2 ash startup-process-state regressions for both launchers; diagnose any failure before claiming L2.
+2. Inspect exact-head Actions for the prior 2c16 CI-contract commit and close any failure in GPIO, Crond, watchdog, Process or AI docs.
+3. Isolate SkipDBv2 #43773526771 with a targeted reproduction or a split checker that preserves all assertions and exposes the complete failure output; do not bypass the unknown assertion.
+4. Continue broad user-space P1 work after these checks; preserve the frozen backup, and do not claim L3/L4 without exact firmware artifact or physical-router evidence.

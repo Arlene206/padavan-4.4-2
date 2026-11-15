@@ -1,3 +1,12 @@
+## 2026-11-16 — Fail closed on unknown Transmission and Aria startup process state
+
+- Replaced both launchers' stdout-only `pidof` checks with explicit exit-status/output classification. Only status 1 plus empty output is ABSENT; status 0 requires one or more valid, positive, canonical PID tokens and returns as already running.
+- Unknown command status, success-with-empty/whitespace output, output accompanying status 1, error-with-output, malformed PID tokens and PID 0/1 now fail closed before storage setup or daemon launch.
+- Extended `storage_app_start_status.sh` for both services with injectable pidof status/output and cases for all above states plus existing multi-PID RUNNING. Existing workflow exercises host shell and firmware BusyBox 1.24.2 ash.
+- Parent main: `2c16e60838bcc066e34d5e7e8b70fae2f02a088d`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. Exact-head storage CI is pending; no L2, firmware build, L3 or L4 claim is made before relevant evidence.
+
+---
+
 ## 2026-11-15 — Align GPIO, Crond and watchdog boot checks with aggregated startup status
 
 - GPIO, Crond and watchdog source-contract tests required bare `start_gpio_btn();`, `start_crond();` and `start_watchdog();` calls even though the production boot routine intentionally wraps each status in `rc_first_service_start_status()`.

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Validate Transmission and Aria startup exit-status propagation.
+# Validate Transmission and Aria start-state and exit-status propagation.
 set -eu
 ROOT_DIR=$(pwd)
 TRANSMISSION_SRC="$ROOT_DIR/trunk/user/transmission/transmission.sh"
@@ -20,7 +20,10 @@ printf '%s\n' '{"umask": 0, "download-dir": "/existing"}' > "$TMP_DIR/transmissi
 : > "$TMP_DIR/aria/config/incomplete.lst"
 cat > "$STUB_DIR/pidof" <<'EOF'
 #!/bin/sh
-exit 1
+if [ -n "${STORAGE_TEST_START_PIDOF_OUTPUT:-}" ]; then
+	printf '%s\n' "$STORAGE_TEST_START_PIDOF_OUTPUT"
+fi
+exit "${STORAGE_TEST_START_PIDOF_STATUS:-1}"
 EOF
 cat > "$STUB_DIR/nvram" <<'EOF'
 #!/bin/sh
@@ -165,11 +168,13 @@ run_launcher()
 	generator_status=${10:-0}
 	sed_status=${11:-0}
 	generator_empty=${12:-0}
+	pidof_status=${18:-1}
+	pidof_output=${19:-}
 	if [ -n "${BUSYBOX_BIN:-}" ]; then
-		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" STORAGE_TEST_GENERATOR_NO_UMASK="$generator_no_umask" STORAGE_TEST_MKDIR_FAIL_PATH="$mkdir_fail_path" STORAGE_TEST_CHMOD_FAIL_PATH="$chmod_fail_path" STORAGE_TEST_CHOWN_FAIL_PATH="$chown_fail_path" CONFIG_TMP="$inherited_config_tmp" \
+		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_START_PIDOF_STATUS="$pidof_status" STORAGE_TEST_START_PIDOF_OUTPUT="$pidof_output" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" STORAGE_TEST_GENERATOR_NO_UMASK="$generator_no_umask" STORAGE_TEST_MKDIR_FAIL_PATH="$mkdir_fail_path" STORAGE_TEST_CHMOD_FAIL_PATH="$chmod_fail_path" STORAGE_TEST_CHOWN_FAIL_PATH="$chown_fail_path" CONFIG_TMP="$inherited_config_tmp" \
 			"$BUSYBOX_BIN" ash "$launcher" start >/dev/null 2>&1
 	else
-		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" STORAGE_TEST_GENERATOR_NO_UMASK="$generator_no_umask" STORAGE_TEST_MKDIR_FAIL_PATH="$mkdir_fail_path" STORAGE_TEST_CHMOD_FAIL_PATH="$chmod_fail_path" STORAGE_TEST_CHOWN_FAIL_PATH="$chown_fail_path" CONFIG_TMP="$inherited_config_tmp" \
+		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_START_PIDOF_STATUS="$pidof_status" STORAGE_TEST_START_PIDOF_OUTPUT="$pidof_output" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" STORAGE_TEST_GENERATOR_NO_UMASK="$generator_no_umask" STORAGE_TEST_MKDIR_FAIL_PATH="$mkdir_fail_path" STORAGE_TEST_CHMOD_FAIL_PATH="$chmod_fail_path" STORAGE_TEST_CHOWN_FAIL_PATH="$chown_fail_path" CONFIG_TMP="$inherited_config_tmp" \
 			sh "$launcher" start >/dev/null 2>&1
 	fi
 }
@@ -199,6 +204,54 @@ assert_failure Transmission "$TMP_DIR/transmission.sh"
 assert_failure Aria "$TMP_DIR/aria.sh"
 assert_success Transmission "$TMP_DIR/transmission.sh"
 assert_success Aria "$TMP_DIR/aria.sh"
+
+expect_start_pidof_unknown()
+{
+	name=$1
+	launcher=$2
+	pidof_status=$3
+	pidof_output=$4
+	marker="$TMP_DIR/$name-start-marker"
+	rm -f "$marker"
+	if run_launcher "$launcher" 0 0 0 0 "$marker" "" "" "" 0 0 0 "" "" "" "" 0 "$pidof_status" "$pidof_output"; then
+		echo "$name started or reported success with an unknown pidof result" >&2
+		exit 1
+	fi
+	[ ! -e "$marker" ] || {
+		echo "$name launched a daemon after an unknown pidof result" >&2
+		exit 1
+	}
+}
+expect_start_pidof_running()
+{
+	name=$1
+	launcher=$2
+	marker="$TMP_DIR/$name-start-marker"
+	rm -f "$marker"
+	if ! run_launcher "$launcher" 0 0 0 0 "$marker" "" "" "" 0 0 0 "" "" "" "" 0 0 "101 202"; then
+		echo "$name failed to accept a valid existing daemon snapshot" >&2
+		exit 1
+	fi
+	[ ! -e "$marker" ] || {
+		echo "$name attempted a duplicate daemon launch" >&2
+		exit 1
+	}
+}
+for launcher_name in Transmission Aria; do
+	case "$launcher_name" in
+		Transmission) launcher="$TMP_DIR/transmission.sh" ;;
+		Aria) launcher="$TMP_DIR/aria.sh" ;;
+	esac
+	expect_start_pidof_unknown "$launcher_name-pidof-error" "$launcher" 2 ""
+	expect_start_pidof_unknown "$launcher_name-empty-success" "$launcher" 0 ""
+	expect_start_pidof_unknown "$launcher_name-error-with-output" "$launcher" 2 "101"
+	expect_start_pidof_unknown "$launcher_name-absent-with-output" "$launcher" 1 "101"
+	expect_start_pidof_unknown "$launcher_name-malformed-pid" "$launcher" 0 "101 invalid"
+	expect_start_pidof_unknown "$launcher_name-whitespace-pids" "$launcher" 0 "   "
+	expect_start_pidof_unknown "$launcher_name-unsafe-pid-zero" "$launcher" 0 "0"
+	expect_start_pidof_unknown "$launcher_name-unsafe-pid-one" "$launcher" 0 "1"
+	expect_start_pidof_running "$launcher_name-running" "$launcher"
+done
 run_transmission_config_failure()
 {
 	phase=$1
