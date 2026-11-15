@@ -1,3 +1,13 @@
+## 2026-11-15 — Make manual LAN resolver publication atomic and reject domain injection
+
+- Audited remaining writers after the resolver-lock migration. `lan_up_manual()` was the outlier: while holding the shared `resolv` lock, it opened `/etc/resolv.conf` with `w+`, truncating the live file before writing. It ignored every write/close error, so ENOSPC or interruption could publish a partial resolver configuration.
+- The same path interpolated `lan_dname` into a resolver directive without revalidating it. Manual AP startup logs a hostname-file validation failure but continues into this function, so relying on the earlier check did not protect the resolver file.
+- Now reject null/invalid domains before route or file side effects, stage the resolver with a unique sibling file, and publish through the checked flush/close/atomic-rename helper under the existing cross-process lock. Open/publish failures preserve errno, retry/log leftover stage cleanup, release the resolver lock and skip time-sync/status updates.
+- The existing DNSMasq file regression exercises private staging and atomic replacement; the workflow source contract now requires domain validation before lock acquisition, staged publication order, no direct truncating fopen, and explicit failure cleanup/logging.
+- Parent main: `6484323f80d53f76c0b943a90a11b9c0f7de64a3`. Exact-head DNSMasq and XY-C1 checks are required. No local compile, current-source MIPS/TRX result or physical-router L4 result is claimed.
+
+---
+
 ## 2026-11-15 — Repair DNSMasq source-contract variable in cleanup workflow
 
 - The new rollback-snapshot cleanup source and its ASan/UBSan test compiled and passed all preceding steps on exact commit `d2784f00b3ffd5e1988a5dbf780f12061e4b93a4`.

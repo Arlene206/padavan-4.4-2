@@ -949,6 +949,17 @@ lan_up_manual(char *lan_ifname, char *lan_dname)
 	int lock, saved_errno;
 	int dns_count = 0;
 	char *dns_ip, *gateway_ip;
+	char resolv_temp[] = "/etc/resolv.conf.XXXXXX";
+
+	/* This value is also written to /etc/hosts and is resolver syntax, not
+	 * an opaque hostname. Reject directive/newline injection before any side
+	 * effect or resolver publication. */
+	if (!lan_ifname || !*lan_ifname || !lan_dname ||
+	    (*lan_dname && !dnsmasq_valid_server_domain(lan_dname))) {
+		errno = EINVAL;
+		logmessage(LOGNAME, "refusing unsafe manual LAN resolver domain");
+		return;
+	}
 
 	gateway_ip = nvram_safe_get("lan_gateway");
 
@@ -961,32 +972,52 @@ lan_up_manual(char *lan_ifname, char *lan_dname)
 		return;
 	}
 
-	/* Set default route to gateway if specified */
+	/* Set default route to gateway if specified. */
 	if (is_valid_ipv4(gateway_ip))
 		route_add(lan_ifname, 0, "0.0.0.0", gateway_ip, "0.0.0.0");
 
-	/* Open resolv.conf */
-	fp = fopen(DNS_RESOLV_CONF, "w+");
-	if (fp) {
-		if (strlen(lan_dname) > 0)
-			fprintf(fp, "domain %s\n", lan_dname);
-		
-		dns_ip = nvram_safe_get("lan_dns1");
-		if (is_valid_ipv4(dns_ip)) {
-			fprintf(fp, "nameserver %s\n", dns_ip);
-			dns_count++;
-		}
-		
-		dns_ip = nvram_safe_get("lan_dns2");
-		if (is_valid_ipv4(dns_ip)) {
-			fprintf(fp, "nameserver %s\n", dns_ip);
-			dns_count++;
-		}
-		
-		if (!dns_count && is_valid_ipv4(gateway_ip))
-			fprintf(fp, "nameserver %s\n", gateway_ip);
-		
-		fclose(fp);
+	/* Keep the old resolver visible until the complete replacement is ready. */
+	fp = dnsmasq_file_open(resolv_temp);
+	if (!fp) {
+		saved_errno = errno ? errno : EIO;
+		if (dnsmasq_file_discard(resolv_temp) != 0)
+			logmessage(LOGNAME, "cannot remove manual LAN resolver stage '%s' after open failure (errno=%d)",
+				   resolv_temp, errno ? errno : EIO);
+		file_unlock(lock);
+		logmessage(LOGNAME, "cannot stage manual LAN resolver configuration (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return;
+	}
+
+	if (*lan_dname)
+		fprintf(fp, "domain %s\n", lan_dname);
+
+	dns_ip = nvram_safe_get("lan_dns1");
+	if (is_valid_ipv4(dns_ip)) {
+		fprintf(fp, "nameserver %s\n", dns_ip);
+		dns_count++;
+	}
+
+	dns_ip = nvram_safe_get("lan_dns2");
+	if (is_valid_ipv4(dns_ip)) {
+		fprintf(fp, "nameserver %s\n", dns_ip);
+		dns_count++;
+	}
+
+	if (!dns_count && is_valid_ipv4(gateway_ip))
+		fprintf(fp, "nameserver %s\n", gateway_ip);
+
+	if (dnsmasq_file_publish(fp, resolv_temp, DNS_RESOLV_CONF, 0644) != 0) {
+		saved_errno = errno ? errno : EIO;
+		if (dnsmasq_file_discard(resolv_temp) != 0)
+			logmessage(LOGNAME, "cannot remove failed manual LAN resolver stage '%s' (errno=%d)",
+				   resolv_temp, errno ? errno : EIO);
+		file_unlock(lock);
+		logmessage(LOGNAME, "cannot publish manual LAN resolver configuration (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return;
 	}
 
 	file_unlock(lock);

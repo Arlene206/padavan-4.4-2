@@ -387,11 +387,17 @@ jobs:
           assert "file_unlock(lock)" not in wan_guard
 
           lan_manual = function_body(net_lan, "lan_up_manual(char *lan_ifname, char *lan_dname)")
+          lan_domain_check = lan_manual.index("dnsmasq_valid_server_domain(lan_dname)")
           lan_lock = lan_manual.index('lock = file_lock("resolv");')
           lan_failure = lan_manual.index("if (lock < 0)", lan_lock)
           lan_route = lan_manual.index("route_add(")
-          lan_open = lan_manual.index('fopen(DNS_RESOLV_CONF, "w+")')
-          assert lan_lock < lan_failure < lan_route < lan_open
+          lan_open = lan_manual.index("fp = dnsmasq_file_open(resolv_temp);")
+          lan_publish = lan_manual.index("dnsmasq_file_publish(fp, resolv_temp, DNS_RESOLV_CONF, 0644)")
+          assert lan_domain_check < lan_lock < lan_failure < lan_route < lan_open < lan_publish
+          assert 'fopen(DNS_RESOLV_CONF, "w+")' not in lan_manual
+          assert "cannot stage manual LAN resolver configuration" in lan_manual
+          assert "cannot publish manual LAN resolver configuration" in lan_manual
+          assert "dnsmasq_file_discard(resolv_temp)" in lan_manual
           lan_guard = lan_manual[lan_failure:lan_route]
           assert "saved_errno = errno ? errno : EIO;" in lan_guard
           assert "errno = saved_errno;" in lan_guard
