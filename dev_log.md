@@ -1,3 +1,11 @@
+## 2026-11-15 — Repair optional-service caller regression and handoff contract
+
+- Exact 8da4 source commit captured/logged six optional startup results, but its Process workflow failed at the final Python integration checker because the inserted negative checks were spliced into an existing line, causing an unterminated string. The source and all earlier C/sanitizer steps passed.
+- Rebuilt the integration checker from the known-good 28ccec version, preserving the existing IAPPD/telnetd/ttyd/storage contracts, then added a simple line-based standalone-call guard and feature/order assertions for the six optional services.
+- Exact 8da4 AI handoff docs failed because the handoff omitted the required literal end-of-session checkpoint statement; restored it and recorded exact CI outcomes/next actions.
+- Exact 8da4 XY-C1 #43741567717 was still at Build XY-C1; TRX/artifact pending. No firmware L3 result claimed.
+
+---
 ## 2026-11-15 — Surface optional service launcher failures at the RC boot caller
 
 - `start_services_once()` ignored six return values: `doSystem("/usr/sbin/skipd -d /etc/storage/db")`, `start_scutclient()`, `start_dnsforwarder()`, `start_vlmcsd()`, `start_iperf3()` and `start_mentohust()`. Their helpers return launch status, but the boot orchestrator discarded it, making enabled optional-service launch failures silent.

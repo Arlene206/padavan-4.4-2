@@ -2,14 +2,14 @@
 
 Recover live state once, then continue the exact first action below. Do not repeat completed audits, stop at planning, or wait on PENDING CI when independent engineering is available. Before ending a session, refresh this file's exact source SHA, Action IDs/statuses, validation boundary and next action.
 
-**Mandatory handoff checkpoint:** verify the meaningful source baseline, active work, exact-head CI, blockers, and first action before context exhaustion. An edit is required only when the record is stale.
+**Mandatory handoff checkpoint:** verify the meaningful source baseline, active work, exact-head CI, blockers, and first action before context exhaustion. The checkpoint is mandatory; a document edit is conditional. An edit is required only when the record is stale.
 
 For each logical slice, create every blob, one complete tree, and one commit parented to freshly fetched `main`, then update `main` with that exact `expected_sha` and `force:false`. Do not create partial multi-file commits, force-push, change the frozen backup, or mutate dev-log archive shards.
 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Current parent before the optional-service caller status slice: `28ccec681975863be1dc59580166fdd3a7774655`. This slice captures and logs six previously ignored startup results in `start_services_once()`; its result is the current commit following the atomic push.
+- Current parent before the optional-service caller status slice: `28ccec681975863be1dc59580166fdd3a7774655`; current main source commit: `8da4da031fa9e0c4fa51ae1208a65be99386c1cd`. It captures/logs six previously ignored startup results in `start_services_once()`. Exact Process #43741567690 exposed a syntax error in the newly added source checker (test only); exact AI docs #43741567622 failed because the literal end-of-session checkpoint sentence was missing. Both are corrected in this follow-up checker/docs commit.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`. It is read-only.
 - No physical-router L4 result is claimed. Do not claim XY-C1 firmware L3 without exact-SHA Build, TRX verification and artifact upload.
 
@@ -33,17 +33,18 @@ For each logical slice, create every blob, one complete tree, and one commit par
 
 ## Verification boundary
 
-- Exact parent `28ccec681975863be1dc59580166fdd3a777465`: Process inventory/lifecycle #43741160702 PASS; AI handoff docs #43741160792 PASS; process inventory artifact #43741160766 PASS; NVRAM #43741160737 PASS; USB storage #43741160723 PASS; infosvr #43741160726 PASS; NFS #43741160739 PASS; AdGuardHome #43741160924 PASS; HTTPD #43741160902 PASS; Samba #43741160807 PASS; AliDDNS #43741160758 PASS; AliyunDrive #43741160680 PASS; vsftpd #43741160663 PASS.
-- Exact 28ccec XY-C1 #43741160797 was IN_PROGRESS at `Build XY-C1`; TRX verification and artifact upload had not yet completed at last poll. This optional-service caller change requires a new exact-head XY-C1 run.
-- Exact Process #43740923564 and AI docs #43740923576 on `4f2986624dc72c87f5453e47e822cef8a8e2d667` PASS, including the anchored IAPPD raw-call contract correction.
+- Exact source commit `8da4da031fa9e0c4fa51ae1208a65be99386c1cd`: Process #43741567690 FAILED at `scripts/check_process_lifecycle_integration.py` line 891 because the optional-service negative-check insertion spliced into the telnetd code, leaving an unterminated string. All earlier C/sanitizer and integration steps before this checker passed.
+- Exact 8da4 AI handoff docs #43741567622 FAILED because the condensed handoff omitted the literal mandatory-checkpoint sentence. The sentence and checker structure are restored in this follow-up commit; exact-head Process and AI docs reruns are required.
+- Exact 8da4 XY-C1 #43741567717 remained IN_PROGRESS at Build XY-C1. TRX verification and artifact upload had not yet run; no firmware L3 claim.
+- Exact 8da4 infosvr #43741567632, watchdog #43741567563, detect_internet #43741567626, HTTPD lifecycle #43741567671, WAN ARP #43741567678, VPN #43741567649, DDNSTO #43741567532, detect_link #43741567653, PID1 queue #43741567745, DNS Forwarder #43741567712, SkipDBv2 #43741567623, HTTPD security #43741567681, process inventory artifact #43741567672 and GPIO button #43741567609 completed SUCCESS. NVRAM #43741567710 remained IN_PROGRESS at the last poll.
+- Exact 28ccec Process #43741160702 passed the previous storage media launcher source contracts. Its XY-C1 #43741160797 remained IN_PROGRESS at Build; TRX and artifact pending.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, then check the exact-head Process inventory/lifecycle run created by this commit. Confirm all six optional service caller contracts pass and inspect any first failing assertion.
-2. Check the new exact-head XY-C1 run through Build XY-C1, TRX verification and artifact upload; the prior 28ccec run #43741160797 was still building and cannot verify this new source SHA.
-3. Continue independent RC launch/shutdown auditing while CI is pending. Next likely targets: `start_watchdog_cpu()` module-load status, `start_crond()` postcondition, and miniupnpd startup/readiness; do not re-audit NFS, IAPPD, 802.1X, IPTV or storage media launch contracts without new source changes.
-4. Preserve the backup and archive invariants; use a complete Git tree and expected-SHA non-forced main update for every logical change.
-
+1. Verify exact-head Process and AI handoff docs runs from this checker/docs repair; all integration assertions must execute, including six optional-service call/feature-guard checks.
+2. Verify exact-head XY-C1 and preceding #43741567717 through Build, TRX output verification and artifact upload. Continue other work while pending; no L3 claim before all three pass.
+3. Continue remaining concrete RC/service reliability work; Firefly config file publication still silently ignores write/open/rename failures and can launch mt-daapd on a stale config. Do not repeat completed optional daemon call-site audits.
+4. Preserve backup/archive invariants and use full-tree, expected-SHA non-forced atomic updates.
 ## Invariants and unresolved boundaries
 
 - A PENDING run does not block independent work. Record exact SHA/run ID and continue safe tasks.
