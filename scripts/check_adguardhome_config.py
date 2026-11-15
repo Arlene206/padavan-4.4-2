@@ -224,19 +224,17 @@ require('dir_$(CONFIG_FIRMWARE_INCLUDE_ADGUARDHOME)' in user_makefile and
         "user package graph must retain the firmware configuration gate")
 require('eval("/usr/bin/adguardhome.sh","stop")' in services and
         'eval("/usr/bin/adguardhome.sh","start")' in services and
-        'restart_adguardhome(void)' in services,
+        'int restart_adguardhome(void)' in services,
         "RC service wrapper must call the ROMFS-installed launcher")
-require('eval("/usr/bin/adguardhome.sh","restart")' in services and
-        'void restart_adguardhome(void){\n\t/* Keep stop + conditional start inside one launcher lifecycle lock. */' in services,
-        "RC restart wrapper must use one atomic launcher restart instead of separate stop/start locks")
+require('return eval("/usr/bin/adguardhome.sh","restart");' in services and
+        'int restart_adguardhome(void);' in rc_header,
+        "RC restart wrapper must return the atomic launcher restart status")
 require('{"adg_enable", "", NULL, EVM_RESTART_ADGUARDHOME}' in variables and
         '{"AdguardHomeConf",\t\tvariables_AdguardHomeConf}' in variables and
         'notify_rc(events_desc[i].notify_cmd)' in web_ex and
-        'RCN_RESTART_ADGUARDHOME' in rc and 'restart_adguardhome();' in rc,
-        "AdGuardHome UI NVRAM changes must flow through the RC restart notification")
-require('void restart_adguardhome(void);' in rc_header and
-        'RCN_RESTART_ADGUARDHOME' in rc and 'restart_adguardhome();' in rc,
-        "RC prototype and notification dispatch must remain connected")
+        'RCN_RESTART_ADGUARDHOME' in rc and
+        'rc_notify_merge_action_result(action_result, restart_adguardhome())' in rc,
+        "AdGuardHome UI NVRAM changes must flow through the status-aware RC restart notification")
 
 for marker in (
     "world-readable mode is repaired",
