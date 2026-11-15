@@ -36,6 +36,7 @@
 #include "dnsmasq_file.h"
 #include "dnsmasq_dhcp_range_policy.h"
 #include "dnsmasq_static_host_policy.h"
+#include "dnsmasq_domain_policy.h"
 #include "inadyn_config_file.h"
 #include "dnsmasq_lifecycle_lock.h"
 #include "dnsmasq_restart_policy.h"
@@ -549,6 +550,15 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 	ipaddr  = nvram_safe_get("lan_ipaddr");
 	netmask = nvram_safe_get("lan_netmask");
 	domain  = nvram_safe_get("lan_domain");
+
+	/* This value is emitted as a raw dnsmasq directive in both router and
+	 * AP mode. Reject control characters and option separators before any
+	 * generated host/ARP file is changed. */
+	if (!domain || (*domain && !dnsmasq_valid_server_domain(domain))) {
+		logmessage(LOGNAME, "refusing invalid DNSMasq LAN domain");
+		errno = EINVAL;
+		return EINVAL;
+	}
 
 	/* Validate the DHCP pool before changing generated host/ARP files. */
 	if (i_dhcp_enable) {

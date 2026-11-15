@@ -27,6 +27,7 @@ on:
       - "trunk/user/shared/src/process_inventory.h"
       - "trunk/user/rc/src/dnsmasq_dhcp_range_policy.h"
       - "trunk/user/rc/src/dnsmasq_static_host_policy.h"
+      - "trunk/user/rc/src/tests/dnsmasq_domain_policy.c"
       - "trunk/user/rc/src/tests/dnsmasq_dhcp_range_policy.c"
       - "trunk/user/rc/src/tests/dnsmasq_static_host_policy.c"
       - "trunk/user/rc/src/dnsmasq_lifecycle_lock.h"
@@ -55,6 +56,7 @@ on:
       - "trunk/user/shared/src/process_inventory.h"
       - "trunk/user/rc/src/dnsmasq_dhcp_range_policy.h"
       - "trunk/user/rc/src/dnsmasq_static_host_policy.h"
+      - "trunk/user/rc/src/tests/dnsmasq_domain_policy.c"
       - "trunk/user/rc/src/tests/dnsmasq_dhcp_range_policy.c"
       - "trunk/user/rc/src/tests/dnsmasq_static_host_policy.c"
       - "trunk/user/rc/src/dnsmasq_lifecycle_lock.h"
@@ -91,6 +93,14 @@ jobs:
             trunk/user/rc/src/tests/dnsmasq_reload_policy.c \
             -o "$RUNNER_TEMP/dnsmasq-reload-policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/dnsmasq-reload-policy"
+      - name: Compile and run DNSMasq LAN domain validation regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/dnsmasq_domain_policy.c \
+            -o "$RUNNER_TEMP/dnsmasq-domain-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/dnsmasq-domain-policy"
       - name: Compile and run DNSMasq DHCP range conflict regression
         run: |
           set -eu
@@ -460,6 +470,14 @@ jobs:
           static_hosts_test = Path("trunk/user/rc/src/tests/dnsmasq_file.c").read_text()
           assert '#include "dnsmasq_dhcp_range_policy.h"' in services
           assert '#include "dnsmasq_static_host_policy.h"' in services
+          assert '#include "dnsmasq_domain_policy.h"' in services
+          assert "if (!domain || (*domain && !dnsmasq_valid_server_domain(domain)))" in prepare
+          assert prepare.index("dnsmasq_valid_server_domain(domain)") < prepare.index("fill_static_ethers(ipaddr, netmask)")
+          domain_policy = Path("trunk/user/rc/src/dnsmasq_domain_policy.h").read_text()
+          domain_test = Path("trunk/user/rc/src/tests/dnsmasq_domain_policy.c").read_text()
+          assert "dnsmasq_valid_server_domain" in domain_policy
+          for token in ("test_valid_dns_domains", "test_rejects_directive_injection", "test_rejects_invalid_label_lengths"):
+              assert token in domain_test
           assert "if (!dnsmasq_static_mac_is_valid(smac))" in static_hosts_writer
           assert "dnsmasq_static_mac_is_valid" in static_mac_policy
           for token in ("test_valid_unicast_mac_text", "test_rejects_injection_characters", "test_rejects_wrong_lengths"):
