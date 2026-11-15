@@ -1026,25 +1026,6 @@ samba_wait_for_daemon(const char *daemon)
 	return samba_daemon_wait_for_stable_presence(daemon, 30, &ops, NULL);
 }
 
-static int
-samba_require_daemon_absent(const char *daemon, const char *stage)
-{
-	struct process_snapshot snapshot;
-	enum process_presence state;
-	int scan_error, status;
-
-	memset(&snapshot, 0, sizeof(snapshot));
-	state = process_inventory_scan(daemon, &snapshot);
-	scan_error = snapshot.error;
-	status = samba_process_require_absent(state, scan_error);
-	process_snapshot_release(&snapshot);
-	if (status != 0)
-		logmessage("Samba Server",
-			   "%s is not confirmed ABSENT %s (errno %d)",
-			   daemon, stage ? stage : "", errno ? errno : EIO);
-	return status;
-}
-
 /* A successful command is not enough: require process presence across a settling interval. */
 static enum process_presence
 samba_validate_identity(void *context,const struct process_identity *identity)
@@ -1083,6 +1064,7 @@ int run_samba(void)
 {
 	int lock_fd, sh_num, i, j;
 	int credential_failed = 0, daemon_failed = 0, result = -1;
+	char tmpuser[40], tmp2[40];
 	enum process_presence smbd_presence, nmbd_presence;
 	struct process_snapshot smbd_snapshot, nmbd_snapshot;
 #if defined (APP_SMBD36)
