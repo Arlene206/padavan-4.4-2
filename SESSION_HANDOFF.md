@@ -8,7 +8,7 @@ For each multi-file logical slice, publish source, tests/contracts and necessary
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; mentohust shell launch/stop status fix landed at `af9676af871386982c4a50b12b7ade9a8d2b9ad5`. This follow-up improves telnetd/ttyd tri-state start guards and diagnostics.
+- Repository `Arlene206/padavan-4.4-2`; telnetd/ttyd process-preflight and launch diagnostics landed at `89c971cb95347ef7be7545989ea625345eaecf65`. This follow-up fixes OpenSSH's shell wrapper, which previously forced exit 0 after sshd/keygen/stop errors.
 - Boot diagnostics cover networkmap, watchdog, infosvr, GPIO, LLTD and rstats. This slice fixes SCUT/vlmcsd wrappers that previously masked daemon launch failure as success.
 - LPD printer-removal PID identity hardening landed in `72ce1bb97323d4c417e8a5d891bbaf9c6ed3f2f3`; source-contract formatting correction is `022bc51507ca5f395c60a1f450cc461bf5403926`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. No local checkout/MIPS toolchain or physical-router L4 result is claimed.
@@ -38,8 +38,8 @@ For each multi-file logical slice, publish source, tests/contracts and necessary
 
 ## Exact first action for the next GPT
 
-1. Verify exact-head process-lifecycle and XY-C1 Actions for telnetd/ttyd startup preflight and diagnostics; require Build XY-C1, TRX verification and artifact upload before any L3 claim.
-2. Continue P1 boot launch auditing at other feature-guarded add-ons and shell wrappers, especially SSH startup and stop postconditions.
+1. Verify exact-head process-lifecycle, AI docs and XY-C1 after the OpenSSH script correction; require Build XY-C1, TRX verification and artifact upload before any L3 claim.
+2. Continue the shell-wrapper audit at other privileged daemon scripts; next inspect NFS daemon start/reload error propagation and postconditions.
 3. Keep main commits atomic using a complete Git tree and expected-SHA non-forced ref update. Keep backup unchanged.
 
 ## Invariants

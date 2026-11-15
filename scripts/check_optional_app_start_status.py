@@ -293,10 +293,68 @@ exit "${MOCK_STOP_STATUS:-0}"
             f"ttyd script must propagate killall status 54, got {stopped.returncode}"
         )
 
+
+
+SSHD_SCRIPT = ROOT / "trunk/user/openssh/sshd.sh"
+
+
+def check_sshd():
+    with tempfile.TemporaryDirectory(prefix="sshd-lifecycle-") as tmp:
+        base = Path(tmp)
+        bin_dir = mock_bin(base / "bin")
+        storage = base / "storage"
+        storage.mkdir()
+        old_path = base / "old-storage"
+        old_path.mkdir()
+        for name in ("ssh_host_rsa_key", "ssh_host_dsa_key", "ssh_host_ed25519_key"):
+            (storage / name).write_text("test-key")
+        config = storage / "sshd_config"
+        config.write_text("Port 22\\n")
+        run_dir = base / "run"
+        run_dir.mkdir()
+        sshd_log = base / "sshd.log"
+        executable(bin_dir / "sshd", """#!/bin/sh
+echo "$*" >> "$MOCK_SSHD_LOG"
+exit "${MOCK_SSHD_STATUS:-0}"
+""")
+        executable(bin_dir / "killall", """#!/bin/sh
+exit "${MOCK_KILLALL_STATUS:-0}"
+""")
+        env = os.environ.copy()
+        env.update({
+            "PATH": str(bin_dir) + os.pathsep + env.get("PATH", ""),
+            "MOCK_SSHD_LOG": str(sshd_log),
+            "MOCK_SSHD_STATUS": "59",
+            "MOCK_KILLALL_STATUS": "61",
+            "SSHD_STORAGE_DIR": str(storage),
+            "SSHD_CONFIG_FILE": str(config),
+            "SSHD_RSA_KEY": str(storage / "ssh_host_rsa_key"),
+            "SSHD_DSA_KEY": str(storage / "ssh_host_dsa_key"),
+            "SSHD_ED25519_KEY": str(storage / "ssh_host_ed25519_key"),
+            "SSHD_OLD_PATH": str(old_path),
+            "SSHD_BIN": str(bin_dir / "sshd"),
+            "SSHD_UTMP_FILE": str(run_dir / "utmp"),
+            "SSHD_PID_FILE": str(run_dir / "sshd.pid"),
+        })
+        failed_start = run(["/bin/sh", str(SSHD_SCRIPT), "start"], env)
+        assert failed_start.returncode == 59, (
+            f"sshd must propagate launch status 59, got {failed_start.returncode}"
+        )
+        assert "daemon launch failed (status=59)" in (base / "logger.log").read_text()
+        env["MOCK_SSHD_STATUS"] = "0"
+        started = run(["/bin/sh", str(SSHD_SCRIPT), "start"], env)
+        assert started.returncode == 0, started.stderr
+        stopped = run(["/bin/sh", str(SSHD_SCRIPT), "stop"], env)
+        assert stopped.returncode == 61, (
+            f"sshd must propagate killall status 61, got {stopped.returncode}"
+        )
+
+
 if __name__ == "__main__":
     check_scutclient()
     check_vlmcsd()
     check_iperf3()
     check_mentohust()
     check_ttyd()
+    check_sshd()
     print("optional app launch/lifecycle status regressions: PASS")

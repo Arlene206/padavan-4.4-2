@@ -1,3 +1,11 @@
+## 2026-11-15 — Propagate OpenSSH daemon setup and lifecycle failures
+
+- `sshd.sh` unconditionally exited 0 after its `case`, masking failures from host-key generation, config creation, sshd start, killall stop and SIGHUP reload. It now preserves the selected function status and logs failed start prerequisites/launch attempts.
+- Host-key generation and config-file creation now abort startup on error instead of continuing with incomplete SSH material. Config/storage/key/daemon/utmp/pid paths have environment overrides solely to make host regression isolated; firmware defaults are unchanged.
+- Added mocked SSH start-failure, successful-start and stop-failure cases. Process-lifecycle and XY-C1 path filters include `sshd.sh`.
+- Parent main: `89c971cb95347ef7be7545989ea625345eaecf65`; result: THIS COMMIT. Exact-head Actions required.
+
+---
 ## 2026-11-15 — Add fail-closed telnetd/ttyd start diagnostics
 
 - `start_telnetd()` already preflighted daemon presence but did not log UNKNOWN inventory or launcher failure; it now records the original eval status, logs failures and preserves the existing disabled no-op and already-running no-op.

@@ -2,8 +2,8 @@
 
 - Parent main for the common_ex PID-only SIGKILL cleanup: `0726f19c5a591b8f60745770b82fa592111f1525`. The iperf3 lifecycle/package and missing-tool error fixes are present at this parent; this slice removes the unused kill_process_pidfile() helper after the 36-file RC C callsite audit. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only.
 - Exact parent actions: process inventory/lifecycle #43734632418 PASS; process inventory summary #43734632429 PASS; AI docs #43734632385 PASS; infosvr #43734632430 PASS; AdGuardHome #43734632444 PASS; AliDDNS #43734632395 PASS. XY-C1 #43734632454, NVRAM #43734632370 and AliyunDrive #43734632391 were IN_PROGRESS.
-- Exact parent af967 process-lifecycle #43735463425 PASS, process inventory #43735463474 PASS, AI docs #43735463542 PASS and related infosvr/AdGuardHome/AliDDNS/AliyunDrive workflows PASS. XY-C1 #43735463489 and NVRAM #43735463395 were IN_PROGRESS; fresh exact-head verification is required for telnetd/ttyd.
-- Networkmap, watchdog, infosvr, LLTD, rstats, SCUT, vlmcsd, iperf3 and mentohust now have launch-status handling. This slice adds logged tri-state process preflight and status diagnostics for telnetd and ttyd, with a mocked ttyd shell regression.
+- Exact 89c971 process lifecycle #43735679248 and XY-C1 #43735679477 were queued; AI docs #43735679507 and several related workflows were in progress. Fresh exact-head process/XY checks are required for the OpenSSH changes.
+- Networkmap, watchdog, infosvr, LLTD, rstats, SCUT, vlmcsd, iperf3, mentohust, telnetd and ttyd now have launch-status handling. OpenSSH start/stop previously masked failure with `exit 0`; this slice adds status propagation and a mocked host regression.
 ## Whole-repository module status
 
 ### P1 process inventory / service lifecycle — tri-state foundation L2 VERIFIED; strict PID identity migration extended through PPPD/udhcpc/INICD and VPN/WAN/LAN/USB stop gates; xl2tpd and crond UNKNOWN start gates migrated; current L3 pending exact-head XY-C1

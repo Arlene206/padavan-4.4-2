@@ -1,11 +1,16 @@
 #!/bin/sh
 
-dir_storage="/etc/storage/openssh"
-sshd_config="$dir_storage/sshd_config"
+dir_storage="${SSHD_STORAGE_DIR:-/etc/storage/openssh}"
+sshd_config="${SSHD_CONFIG_FILE:-$dir_storage/sshd_config}"
 
-rsa_key="$dir_storage/ssh_host_rsa_key"
-dsa_key="$dir_storage/ssh_host_dsa_key"
-ed25519_key="$dir_storage/ssh_host_ed25519_key"
+rsa_key="${SSHD_RSA_KEY:-$dir_storage/ssh_host_rsa_key}"
+dsa_key="${SSHD_DSA_KEY:-$dir_storage/ssh_host_dsa_key}"
+ed25519_key="${SSHD_ED25519_KEY:-$dir_storage/ssh_host_ed25519_key}"
+old_path="${SSHD_OLD_PATH:-/etc/storage}"
+sshd_bin="${SSHD_BIN:-/usr/sbin/sshd}"
+ssh_keygen_bin="${SSHD_KEYGEN_BIN:-/usr/bin/ssh-keygen}"
+utmp_file="${SSHD_UTMP_FILE:-/var/run/utmp}"
+pid_file="${SSHD_PID_FILE:-/var/run/sshd.pid}"
 
 func_create_config()
 {
@@ -109,14 +114,26 @@ PidFile /var/run/sshd.pid
 Subsystem	sftp	/usr/libexec/sftp-server
 
 EOF
+	config_write_status=$?
+	if [ "$config_write_status" -ne 0 ]; then
+		logger -t "sshd" "configuration write failed (status=$config_write_status)"
+		return "$config_write_status"
+	fi
 	chmod 644 "$sshd_config"
 }
 
 func_start()
 {
-	[ ! -d "$dir_storage" ] && mkdir -p -m 755 $dir_storage
+	if [ ! -d "$dir_storage" ]; then
+		if mkdir -p -m 755 "$dir_storage"; then
+			:
+		else
+			storage_status=$?
+			logger -t "sshd" "cannot create host-key storage (status=$storage_status)"
+			return "$storage_status"
+		fi
+	fi
 
-	old_path="/etc/storage"
 	rm -f "${old_path}/sshd_config"
 	for i in ssh_host_rsa_key ssh_host_dsa_key ; do
 		[ -f "${old_path}/${i}" ] && mv -n "${old_path}/${i}" "$dir_storage"
@@ -124,21 +141,49 @@ func_start()
 	done
 
 	if [ ! -f "$rsa_key" ] || [ ! -f "$dsa_key" ] || [ ! -f "$ed25519_key" ] ; then
-		/usr/bin/ssh-keygen -A
+		if "$ssh_keygen_bin" -A; then
+			:
+		else
+			keygen_status=$?
+			logger -t "sshd" "host-key generation failed (status=$keygen_status)"
+			return "$keygen_status"
+		fi
 	fi
 
 	if [ ! -f "$sshd_config" ] ; then
 		func_create_config
+		config_status=$?
+		if [ "$config_status" -ne 0 ]; then
+			logger -t "sshd" "configuration creation failed (status=$config_status)"
+			return "$config_status"
+		fi
 	fi
 
-	touch /var/run/utmp
+	if touch "$utmp_file"; then
+		:
+	else
+		utmp_status=$?
+		logger -t "sshd" "cannot prepare utmp (status=$utmp_status)"
+		return "$utmp_status"
+	fi
 
 	if [ -n "$1" ] ; then
-		/usr/sbin/sshd -o PasswordAuthentication=no
+		if "$sshd_bin" -o PasswordAuthentication=no; then
+			return 0
+		else
+			launch_status=$?
+			logger -t "sshd" "daemon launch failed (status=$launch_status)"
+			return "$launch_status"
+		fi
 	else
-		/usr/sbin/sshd
+		if "$sshd_bin"; then
+			return 0
+		else
+			launch_status=$?
+			logger -t "sshd" "daemon launch failed (status=$launch_status)"
+			return "$launch_status"
+		fi
 	fi
-}
 
 func_stop()
 {
@@ -147,23 +192,27 @@ func_stop()
 
 func_reload()
 {
-	kill -SIGHUP `cat /var/run/sshd.pid`
+	kill -SIGHUP "$(cat "$pid_file")"
 }
 
+action_status=0
 case "$1" in
 start)
-	func_start $2
+	func_start "$2"
+	action_status=$?
 	;;
 stop)
 	func_stop
+	action_status=$?
 	;;
 reload)
 	func_reload
+	action_status=$?
 	;;
 *)
 	echo "Usage: $0 {start|stop|reload}"
-	exit 1
+	action_status=2
 	;;
 esac
 
-exit 0
+exit "$action_status"
