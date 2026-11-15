@@ -1,3 +1,10 @@
+## 2026-11-15 — Make telnetd/ttyd source contracts formatting-independent
+
+- Exact-head process-lifecycle #43736203033 ran all GNU89/ASan/UBSan C regressions and the optional-app shell test successfully, then failed in the source checker because `start_telnetd()`'s long `logmessage()` argument was wrapped across C lines while the checker expected a one-line substring. `start_ttyd()` used the same formatting and had the same latent brittle assertion.
+- Changed both source contracts to remove insignificant whitespace before matching the full call expression. No product code changed.
+- Parent: `e882b68c6f9b6329793bd47a54cf37aa55642d14`; exact-head process-lifecycle, AI docs and XY-C1 checks must be re-evaluated after this checker update.
+
+---
 ## 2026-11-15 — Fix OpenSSH mock logger test environment
 
 - Exact-head process-lifecycle #43735937436 on `a769870fbc2b94d3a2ae46541b1911f17edd4b8a` passed all preceding GNU89/ASan/UBSan lifecycle, identity, PPPoE, WAN DHCP and buffered file-write checks, then failed in `check_sshd()` because the mock logger writes to `MOCK_LOG` but the SSH test environment provided only `MOCK_SSHD_LOG`.

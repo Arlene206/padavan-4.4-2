@@ -1,8 +1,8 @@
 ## Current source / CI checkpoint
 
-- Current main baseline: `a769870fbc2b94d3a2ae46541b1911f17edd4b8a`; OpenSSH's wrapper now preserves daemon/key-generation/stop/reload statuses and has a shell syntax test. The exact-head app regression failed because its fake logger lacked `MOCK_LOG`; the current test-only follow-up fixes that fixture.
-- Exact a769 head: AI docs #43735937387 PASS and process inventory artifact #43735937469 PASS; process-lifecycle #43735937436 FAIL only at `check_sshd()` because missing `MOCK_LOG` prevented logger output. XY-C1 #43735937368 and NVRAM #43735937325 were IN_PROGRESS at last poll. The fixture correction triggers fresh exact-head checks.
-- Networkmap, watchdog, infosvr, LLTD, rstats, telnetd and ttyd have launch-status handling; SCUT, vlmcsd, iperf3 and mentohust wrappers have propagated launch/stop statuses. OpenSSH test fixture is being corrected based on the exact failure log.
+- Current main baseline: `e882b68c6f9b6329793bd47a54cf37aa55642d14`; the OpenSSH optional-app mock now supplies `MOCK_LOG` and its behavior test passed. Process integration failed only because two source assertions expected wrapped `logmessage()` calls as contiguous one-line strings; checker now normalizes whitespace.
+- Exact e882 Actions: process-lifecycle #43736203033 FAILED only at telnetd's whitespace-sensitive source-contract assertion; the optional-app shell regression passed. AI docs #43736203011, infosvr #43736203024 and AdGuardHome #43736202954 PASS; AliDDNS #43736203010, AliyunDrive #43736202896 and NVRAM #43736202974 were IN_PROGRESS at last poll. Fresh exact-head run required.
+- Current optional service wrapper coverage includes SCUT, vlmcsd, iperf3, mentohust, ttyd and OpenSSH shell launch/stop behavior plus telnetd/ttyd source diagnostics. The remaining work is to continue auditing functions that discard `eval()` status or cannot report it.
 - Networkmap, watchdog, infosvr, LLTD, rstats, SCUT, vlmcsd, iperf3, mentohust, telnetd and ttyd now have launch-status handling. OpenSSH start/stop previously masked failure with `exit 0`; this slice adds status propagation and a mocked host regression.
 ## Whole-repository module status
 
