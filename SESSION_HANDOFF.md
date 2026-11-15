@@ -9,34 +9,31 @@ For each logical task, create every source/test/workflow/doc blob, one complete 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Main before this direct IPoE DHCP status slice: `485d7c782c57b3fc0cb9cf4e42dcf0a79ba6665a`.
+- Main at the start of this regression follow-up: `8ee190c1872c4a3a9b6ad98b5da42fe1f2764e68`.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only.
-- Exact-main WAN DHCP callback #43749781222 PASS, AI handoff docs #43749781375 PASS, Process inventory/lifecycle #43749781215 PASS and Process inventory artifact #43749781176 PASS on `485d7c782c57b3fc0cb9cf4e42dcf0a79ba6665a`. XY-C1 #43749781299 was IN_PROGRESS at Build XY-C1 at last poll; TRX and artifact steps remain pending.
-- Exact XY-C1 #43748599786 on product-source commit `5bbaaba493f63b0e58bac035e750907304fd9939` completed successfully: Build XY-C1, TRX verification and artifact upload all PASS. The later `ab9ae` and `97ff` commits only adjusted test contracts/docs; firmware product source remained identical to 5bbaa, so L3 is VERIFIED for that source tree. No physical-router/L4 claim is made.
-- Dynamic IPTV client status propagation is committed at `5bbaaba493f63b0e58bac035e750907304fd9939`; exact regression contract now passes on `97ff`.
-- Root `dev_log.md` contained 92 entries before this slice; append in-place, no rotation. Keep `docs/dev-log/INDEX.md` and archived shards unchanged.
+- The direct IPoE DHCP launcher fix is committed at `8ee190c1872c4a3a9b6ad98b5da42fe1f2764e68`: `start_wan()` captures `start_udhcpc_wan()`, logs a nonzero spawn status, persists `wan_err = 1`, and still attempts independent IPv6.
+- Exact 8ee WAN DHCP callback #43750573557 FAIL occurred only in the new source-contract ordering assertion: it used `.index(set_wan_unit_value_int(...))`, which matched the earlier static-IP `wan_err` persistence instead of the later DHCP-branch persistence. The fix changes this assertion to `.rindex(...)`; production source is unchanged.
+- Exact 8ee AI handoff docs #43750573605 PASS and Process lifecycle #43750573434 PASS. Exact XY-C1 #43750573567 was `in_progress` at last poll; verify Build, TRX and artifact before claiming L3.
+- Previous source SHA `485d7c782c57b3fc0cb9cf4e42dcf0a79ba6665a` had WAN callback #43749781222 PASS, AI docs #43749781375 PASS and Process inventory #43749781215 PASS; its XY-C1 job was Build in progress at last recorded poll.
+- Frozen backup and archived logs/index remain untouched. No physical-router/L4 result is claimed.
 
 ## Active task
 
-### Propagate direct IPoE DHCP launch failures into WAN error state
+### Correct the direct IPoE DHCP error-state regression contract
 
-The earlier WAN slice returns the launch status from `launch_wanx()` for USB/PPP branches while preserving PPPoE asynchronous startup and PPTP/L2TP wait behavior. A separate direct IPoE DHCP path in `start_wan()` still discarded `start_udhcpc_wan(wan_ifname, unit, 0)` even though the function returns an execution status. A failed DHCP client spawn therefore left the persisted WAN `err` field clear.
-
-This source change captures `dhcp_status`, sets `wan_err = 1` and logs interface/status on failure, then persists `wan_err` for both static and DHCP IPoE paths. It does not abort independent IPv6 startup: IPv6 is still attempted and reports its own status. The WAN workflow asserts result assignment, failure log/state, persisted error field and ordering before IPv6.
-
+The source fix at `8ee190c` is intentional and independent of IPv6: direct IPoE DHCP now captures the client launch result, sets/logs WAN error on nonzero status, persists the error and continues IPv6 setup. The host workflow failed because its new ordering assertion used the first `wan_err` persistence point, which is in the static-IP branch. Change only that assertion to compare the DHCP failure condition with the last persistence point in the function. Do not weaken the state/log/order checks or change production code to fit a faulty test.
 
 ## Verification boundary
 
-- Parent main `485d7c782c57b3fc0cb9cf4e42dcf0a79ba6665a`: exact WAN DHCP callback #43749781222 PASS; AI handoff docs #43749781375 PASS; Process lifecycle #43749781215 PASS; Process inventory artifact #43749781176 PASS.
-- Exact-parent XY-C1 firmware run #43749781299 was IN_PROGRESS at Build XY-C1 at last poll. TRX verification and artifact upload are pending; no L3 claim for this source.
-- Earlier XY-C1 #43748599786 completed Build/TRX/artifact for the earlier IPTV source tree only; do not reuse it for these later WAN source changes.
-- Other exact-parent Actions: WAN teardown #43749781180, WAN route #43749781190, DNSMasq #43749781280, AdGuardHome #43749781197, AliDDNS #43749781279, AliyunDrive #43749781297, HTTPD #43749781268, NVRAM #43749781237, USB modem identity #43749781376, WAN ARP probe #43749781212, detect_internet #43749781302, VPN server #43749781304 and infosvr #43749781328 all PASS.
-- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; no physical-router/L4 evidence is claimed.
+- This regression-only follow-up is parented to `8ee190c1872c4a3a9b6ad98b5da42fe1f2764e68`.
+- Exact 8ee WAN callback #43750573557 failed at the single stale `.index()` assertion; all six C compile/run policy steps before the Python contract passed.
+- Exact 8ee AI handoff docs #43750573605 PASS and Process inventory #43750573434 PASS.
+- Exact 8ee XY-C1 #43750573567 was `in_progress` at last poll; no L3 claim until Build, TRX and artifact all PASS on the corresponding product-source SHA.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; no physical-router/L4 result is claimed.
 
 ## Exact first action for the next GPT
 
-1. Poll this follow-up's exact WAN callback, AI docs and Process checks; inspect any failure log.
-2. Poll the matching XY-C1 run through Build, TRX verification and artifact upload. Claim L3 only if all three pass for the exact product-source SHA.
-3. Continue auditing the remaining WAN startup callers without changing PPPoE asynchronous startup or PPTP/L2TP wait semantics.
-4. Keep the FTP `fstatat()`/`unlinkat()` replacement race blocked until a no-data-loss Linux 4.4-compatible solution is proven.
-
+1. Fetch the new main SHA and inspect exact-head WAN callback / AI docs / Process results; if WAN fails again, inspect the exact assertion before changing source.
+2. Check XY-C1 #43750573567 through Build, TRX verification and artifact upload, and check any newer source-triggered XY run on its exact SHA.
+3. Continue WAN startup/error-state work from the next proven source issue. Preserve independent IPv6 and PPPoE asynchronous behavior.
+4. Keep the exact mandatory checkpoint phrase intact; do not create no-op documentation commits.

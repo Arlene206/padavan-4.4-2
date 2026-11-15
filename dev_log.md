@@ -1,3 +1,12 @@
+## 2026-11-15 — Correct direct IPoE DHCP regression persistence ordering
+
+- Exact 8ee WAN callback #43750573557 passed all six preceding GNU89 compile/run policy tests but failed at the final source-contract assertion because `.index('set_wan_unit_value_int(unit, "err", wan_err);')` selected the earlier static-IP persistence call, not the later DHCP-branch persistence.
+- Changed only that assertion to `.rindex()`, preserving all production code and failure-state/log/order checks.
+- Exact 8ee AI docs #43750573605 PASS and Process lifecycle #43750573434 PASS. XY-C1 #43750573567 was `in_progress` at last poll.
+- Parent main: `8ee190c1872c4a3a9b6ad98b5da42fe1f2764e68`; frozen backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-15 — Propagate direct IPoE DHCP client launch failure
 
 - In `net_wan.c::start_wan()`, direct IPoE DHCP still discarded `start_udhcpc_wan()` return status, so a failed `_eval()` launch did not appear in WAN error state.
