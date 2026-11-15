@@ -22,6 +22,25 @@ dnsmasq_reload_notification_decision(enum process_presence presence)
 	return -1;
 }
 
+/* If every target disappears before a reload is delivered, the requested
+ * cache state is already absent. A signal race remains an error while any
+ * DNSMasq process is still running or its state cannot be verified. */
+static inline int
+dnsmasq_reload_post_signal_status(int signal_status,
+				  enum process_presence post_presence,
+				  int scan_error)
+{
+	if (signal_status != ESRCH)
+		return signal_status;
+	if (post_presence == PROCESS_PRESENCE_ABSENT)
+		return 0;
+	if (post_presence == PROCESS_PRESENCE_UNKNOWN)
+		return scan_error > 0 ? scan_error : EIO;
+	if (post_presence == PROCESS_PRESENCE_RUNNING)
+		return ESRCH;
+	return EIO;
+}
+
 /* Validate all snapshot identities before the first signal, then validate
  * again immediately before each targeted SIGHUP. UNKNOWN always fails closed;
  * identities that have disappeared are skipped. */

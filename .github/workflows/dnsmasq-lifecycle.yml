@@ -447,7 +447,12 @@ jobs:
           xy_workflow = Path(".github/workflows/xy-c1-firmware-validation.yml").read_text()
           assert 'process_inventory_scan("dnsmasq", &snapshot)' in reload
           assert "scan_error = snapshot.error;" in reload
-          assert reload.index("scan_error = snapshot.error;") < reload.index("dnsmasq_reload_signal_snapshot(")
+          assert "reload_decision = dnsmasq_reload_notification_decision(presence);" in reload
+          assert reload.index("reload_decision = dnsmasq_reload_notification_decision(presence);") < reload.index("dnsmasq_reload_signal_snapshot(")
+          assert "else if (reload_decision == 0)" in reload
+          assert "if (status == ESRCH)" in reload
+          assert 'process_inventory_scan("dnsmasq", &post_snapshot)' in reload
+          assert "dnsmasq_reload_post_signal_status(status," in reload
           assert reload.index("dnsmasq_reload_signal_snapshot(") < reload.index("process_snapshot_release(&snapshot);")
           assert reload.index("process_snapshot_release(&snapshot);") < reload.index('dnsmasq_lifecycle_lock_finish(lock_fd, status, "cache reload")')
           assert "PROCESS_PRESENCE_UNKNOWN" in reload and "scan_error ? scan_error : EIO" in reload
@@ -461,6 +466,8 @@ jobs:
               assert token in reload_policy, token
           for token in ("initial_unknown", "signal_phase_unknown", "vanished",
                         "fake.signal_count == 0", "SIGHUP",
+                        "dnsmasq_reload_post_signal_status(ESRCH, PROCESS_PRESENCE_ABSENT, 0) == 0",
+                        "dnsmasq_reload_post_signal_status(ESRCH, PROCESS_PRESENCE_UNKNOWN, EACCES) == EACCES",
                         "DNSMasq cache reload identity and tri-state policy: PASS"):
               assert token in reload_test, token
           assert '"trunk/user/rc/src/dnsmasq_reload_policy.h"' in xy_workflow

@@ -903,9 +903,10 @@ dnsmasq_reload_send_signal(void *context, pid_t pid, int signal_number)
 int
 restart_dns(void)
 {
-	int lock_fd, status, lock_errno, scan_error;
-	enum process_presence presence;
-	struct process_snapshot snapshot;
+	int lock_fd, status, lock_errno, scan_error, reload_decision;
+	int post_scan_error;
+	enum process_presence presence, post_presence;
+	struct process_snapshot snapshot, post_snapshot;
 
 	lock_fd = dnsmasq_lifecycle_lock_acquire();
 	if (lock_fd < 0) {
@@ -916,15 +917,29 @@ restart_dns(void)
 
 	presence = process_inventory_scan("dnsmasq", &snapshot);
 	scan_error = snapshot.error;
-	if (presence == PROCESS_PRESENCE_UNKNOWN) {
+	reload_decision = dnsmasq_reload_notification_decision(presence);
+	if (reload_decision < 0) {
 		status = scan_error ? scan_error : EIO;
 		logmessage(LOGNAME,
 			   "cannot verify DNSMasq identities; refusing cache reload (scan_error=%d)",
 			   status);
+	} else if (reload_decision == 0) {
+		/* A confirmed absent daemon has no cache to reload. */
+		status = 0;
 	} else {
 		status = dnsmasq_reload_signal_snapshot(&snapshot,
 				dnsmasq_reload_validate_identity,
 				dnsmasq_reload_send_signal, NULL);
+		if (status == ESRCH) {
+			/* The last snapshot PID may exit after identity validation but
+			 * before kill(SIGHUP). Treat that as a no-op only if a fresh,
+			 * complete inventory confirms that no replacement is running. */
+			post_presence = process_inventory_scan("dnsmasq", &post_snapshot);
+			post_scan_error = post_snapshot.error;
+			status = dnsmasq_reload_post_signal_status(status,
+							    post_presence, post_scan_error);
+			process_snapshot_release(&post_snapshot);
+		}
 		if (status != 0)
 			logmessage(LOGNAME,
 				   "DNSMasq cache reload was not confirmed (status=%d)",

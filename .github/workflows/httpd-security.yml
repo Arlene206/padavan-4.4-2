@@ -1657,7 +1657,12 @@ jobs:
           assert "is_dns_dhcpd_run()" not in restart_locked
           assert reload_public.index("dnsmasq_lifecycle_lock_acquire()") < reload_public.index('process_inventory_scan("dnsmasq", &snapshot)')
           assert "scan_error = snapshot.error;" in reload_public
-          assert "dnsmasq_reload_signal_snapshot(&snapshot" in reload_public
+          assert "reload_decision = dnsmasq_reload_notification_decision(presence);" in reload_public
+          assert reload_public.index("reload_decision = dnsmasq_reload_notification_decision(presence);") < reload_public.index("dnsmasq_reload_signal_snapshot(&snapshot")
+          assert "else if (reload_decision == 0)" in reload_public
+          assert "if (status == ESRCH)" in reload_public
+          assert 'process_inventory_scan("dnsmasq", &post_snapshot)' in reload_public
+          assert "dnsmasq_reload_post_signal_status(status," in reload_public
           assert reload_public.index("process_snapshot_release(&snapshot)") < reload_public.index("dnsmasq_lifecycle_lock_finish")
           assert "is_dns_dhcpd_run()" not in reload_public
           assert "killall" not in reload_public
@@ -1799,6 +1804,7 @@ jobs:
           assert "dnsmasq_start_policy_preflight" in restart_policy
           assert "dnsmasq_stop_policy_should_clear_arp" in restart_policy
           assert "dnsmasq_reload_signal_snapshot" in reload_policy
+          assert "dnsmasq_reload_post_signal_status" in reload_policy
           for token in (
               "PROCESS_PRESENCE_RUNNING", "PROCESS_PRESENCE_ABSENT",
               "PROCESS_PRESENCE_UNKNOWN", "Validate all snapshot identities",
@@ -1808,6 +1814,8 @@ jobs:
           for token in (
               "initial_unknown", "signal_phase_unknown", "vanished",
               "fake.signal_count == 0", "SIGHUP",
+              "dnsmasq_reload_post_signal_status(ESRCH, PROCESS_PRESENCE_ABSENT, 0) == 0",
+              "dnsmasq_reload_post_signal_status(ESRCH, PROCESS_PRESENCE_UNKNOWN, EACCES) == EACCES",
               "DNSMasq cache reload identity and tri-state policy: PASS",
           ):
               assert token in reload_test, token

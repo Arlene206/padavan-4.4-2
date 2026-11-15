@@ -85,6 +85,12 @@ main(void)
 	assert(dnsmasq_reload_notification_decision(PROCESS_PRESENCE_RUNNING) == 1);
 	assert(dnsmasq_reload_notification_decision(PROCESS_PRESENCE_ABSENT) == 0);
 	assert(dnsmasq_reload_notification_decision(PROCESS_PRESENCE_UNKNOWN) == -1);
+	assert(dnsmasq_reload_post_signal_status(ESRCH, PROCESS_PRESENCE_ABSENT, 0) == 0);
+	assert(dnsmasq_reload_post_signal_status(ESRCH, PROCESS_PRESENCE_RUNNING, 0) == ESRCH);
+	assert(dnsmasq_reload_post_signal_status(ESRCH, PROCESS_PRESENCE_UNKNOWN, EACCES) == EACCES);
+	assert(dnsmasq_reload_post_signal_status(ESRCH, PROCESS_PRESENCE_UNKNOWN, 0) == EIO);
+	assert(dnsmasq_reload_post_signal_status(EPERM, PROCESS_PRESENCE_ABSENT, 0) == EPERM);
+	assert(dnsmasq_reload_post_signal_status(ESRCH, (enum process_presence)7, 0) == EIO);
 
 	memset(identities, 0, sizeof(identities));
 	identities[0].pid = 501;
