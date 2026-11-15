@@ -1905,7 +1905,7 @@ main(int argc, char **argv)
 		ret = restart_vpn_client();
 	}
 	else if (!strcmp(base, "restart_networkmap")) {
-		restart_networkmap();
+		ret = restart_networkmap();
 	}
 	else if (!strcmp(base, "restart_firewall")) {
 		restart_firewall();

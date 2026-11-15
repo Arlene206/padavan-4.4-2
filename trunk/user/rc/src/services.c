@@ -26,6 +26,7 @@
 
 #include "rc.h"
 #include "process_inventory.h"
+#include "networkmap_daemon_policy.h"
 #include "crond_daemon_policy.h"
 #include "infosvr_daemon_policy.h"
 #include "httpd_daemon_policy.h"
@@ -213,11 +214,44 @@ restart_crond(void)
 	return start_crond();
 }
 
+static enum process_presence
+networkmap_validate_identity(void *context,
+			     const struct process_identity *identity)
+{
+	(void)context;
+	return process_identity_validate("networkmap", identity);
+}
+
+static int
+networkmap_send_signal(void *context, pid_t pid, int sig)
+{
+	(void)context;
+	return kill(pid, sig);
+}
+
 int
 start_networkmap(int first_call)
 {
-	if (first_call && pids("networkmap"))
-		return 0;
+	struct process_snapshot snapshot;
+	enum process_presence state;
+	int scan_error;
+
+	if (first_call) {
+		state = process_inventory_scan("networkmap", &snapshot);
+		if (state == PROCESS_PRESENCE_RUNNING) {
+			process_snapshot_release(&snapshot);
+			return 0;
+		}
+		if (state != PROCESS_PRESENCE_ABSENT) {
+			scan_error = snapshot.error > 0 ? snapshot.error : EIO;
+			process_snapshot_release(&snapshot);
+			errno = scan_error;
+			logmessage(LOGNAME, "networkmap start aborted: process inventory unknown (errno=%d)",
+				   scan_error);
+			return -1;
+		}
+		process_snapshot_release(&snapshot);
+	}
 
 	return eval("/usr/sbin/networkmap", (first_call) ? "-w" : "");
 }
@@ -229,13 +263,43 @@ stop_networkmap(void)
 	return kill_services(svcs, 3, 1);
 }
 
-void
+int
 restart_networkmap(void)
 {
-	if (pids("networkmap"))
-		doSystem("killall %s %s", "-SIGUSR1", "networkmap");
-	else
-		start_networkmap(0);
+	struct process_snapshot snapshot;
+	enum process_presence state;
+	enum networkmap_daemon_action action;
+	int scan_error;
+	int result;
+	int saved_errno;
+
+	state = process_inventory_scan("networkmap", &snapshot);
+	action = networkmap_action_for_presence(state);
+	if (action == NETWORKMAP_DAEMON_ABORT) {
+		scan_error = snapshot.error > 0 ? snapshot.error : EIO;
+		process_snapshot_release(&snapshot);
+		errno = scan_error;
+		logmessage(LOGNAME, "networkmap restart aborted: process inventory unknown (errno=%d)",
+			   scan_error);
+		return -1;
+	}
+	if (action == NETWORKMAP_DAEMON_START) {
+		process_snapshot_release(&snapshot);
+		return start_networkmap(0);
+	}
+
+	result = networkmap_signal_snapshot(&snapshot, SIGUSR1,
+					    networkmap_validate_identity,
+					    networkmap_send_signal, NULL);
+	saved_errno = errno;
+	process_snapshot_release(&snapshot);
+	if (result != 0) {
+		errno = saved_errno ? saved_errno : EIO;
+		logmessage(LOGNAME, "networkmap refresh signal failed (errno=%d)", errno);
+		return -1;
+	}
+
+	return 0;
 }
 
 int

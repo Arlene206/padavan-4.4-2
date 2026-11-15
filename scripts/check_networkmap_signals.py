@@ -61,6 +61,8 @@ src_makefile = read("trunk/user/networkmap/src/Makefile")
 package_makefile = read("trunk/user/networkmap/Makefile")
 user_makefile = read("trunk/user/Makefile")
 services = read("trunk/user/rc/src/services.c")
+daemon_policy = read("trunk/user/rc/src/networkmap_daemon_policy.h")
+daemon_test = read("trunk/user/rc/src/tests/networkmap_daemon_policy.c")
 rc = read("trunk/user/rc/src/rc.c")
 rc_header = read("trunk/user/rc/src/rc.h")
 workflow = read(".github/workflows/networkmap-signal-stability.yml")
@@ -135,17 +137,30 @@ start = function_body(services, "start_networkmap(int first_call)")
 stop = function_body(services, "stop_networkmap(void)")
 restart = function_body(services, "restart_networkmap(void)")
 assert 'eval("/usr/sbin/networkmap"' in start
+assert 'process_inventory_scan("networkmap", &snapshot)' in start
+assert "PROCESS_PRESENCE_RUNNING" in start and "PROCESS_PRESENCE_ABSENT" in start
+assert "PROCESS_PRESENCE_UNKNOWN" not in start or "start aborted" in start
+assert "pids(" not in start
 assert '"networkmap"' in stop and "kill_services(" in stop
-assert '"-SIGUSR1", "networkmap"' in restart
+assert 'process_inventory_scan("networkmap", &snapshot)' in restart
+assert "networkmap_action_for_presence(state)" in restart
+assert "networkmap_signal_snapshot(&snapshot, SIGUSR1" in restart
+assert "killall" not in restart and "pids(" not in restart
 assert "start_networkmap(0);" in restart
 assert "start_networkmap(1);" in services
+assert '#include "networkmap_daemon_policy.h"' in services
+assert "networkmap_action_for_presence" in daemon_policy
+assert "process_identity_validate" in services
+assert "networkmap_signal_snapshot" in daemon_policy
+assert "PROCESS_PRESENCE_UNKNOWN" in daemon_test
+assert "EACCES" in daemon_test and "EPERM" in daemon_test and "ESRCH" in daemon_test
 stop_services = function_body(services, "stop_services(int stopall)")
 assert 'record_service_stop_status(&stop_status, "networkmap", stop_networkmap());' in stop_services
 assert "return stop_status;" in stop_services
-assert "restart_networkmap();" in rc
+assert "ret = restart_networkmap();" in rc
 assert "int start_networkmap(int first_call);" in rc_header
 assert "int stop_networkmap(void);" in rc_header
-assert "void restart_networkmap(void);" in rc_header
+assert "int restart_networkmap(void);" in rc_header
 
 paths = (
     ".github/workflows/networkmap-signal-stability.yml",
@@ -159,6 +174,8 @@ paths = (
     "trunk/user/networkmap/Makefile",
     "trunk/user/Makefile",
     "trunk/user/rc/src/services.c",
+    "trunk/user/rc/src/networkmap_daemon_policy.h",
+    "trunk/user/rc/src/tests/networkmap_daemon_policy.c",
     "trunk/user/rc/src/rc.c",
     "trunk/user/rc/src/rc.h",
     "trunk/user/rc/src/Makefile",

@@ -495,7 +495,7 @@ int stop_infosvr(void);
 int restart_infosvr(void);
 int start_networkmap(int first_call);
 int stop_networkmap(void);
-void restart_networkmap(void);
+int restart_networkmap(void);
 int stop_telnetd(void);
 void run_telnetd(void);
 void start_telnetd(void);
