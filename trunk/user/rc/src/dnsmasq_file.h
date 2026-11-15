@@ -252,6 +252,93 @@ failed:
 	return -1;
 }
 
+
+/* Publish up to three related outputs as one rollback-capable transaction.
+ * POSIX lacks a multi-path atomic rename; snapshots restore every path already
+ * replaced if a later rename fails. If restoration fails, keep all remaining
+ * snapshots for manual recovery rather than deleting the only old copies. */
+static inline int
+dnsmasq_file_publish_set(FILE **staged_files, char **staged_paths,
+			 const char **destinations, char **backup_paths,
+			 size_t count, mode_t mode)
+{
+	size_t i, published = 0;
+	int saved_errno = 0;
+	int rollback_errno = 0;
+	int rollback_failed = 0;
+
+	if (!staged_files || !staged_paths || !destinations || !backup_paths ||
+	    count == 0 || count > 3) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	for (i = 0; i < count; i++) {
+		size_t j;
+
+		if (!staged_files[i] || !staged_paths[i] || !staged_paths[i][0] ||
+		    !destinations[i] || !destinations[i][0] ||
+		    !backup_paths[i] || !backup_paths[i][0]) {
+			saved_errno = EINVAL;
+			goto failed;
+		}
+		for (j = 0; j < i; j++) {
+			if (strcmp(destinations[i], destinations[j]) == 0) {
+				saved_errno = EINVAL;
+				goto failed;
+			}
+		}
+	}
+
+	for (i = 0; i < count; i++) {
+		if (dnsmasq_file_backup_create(destinations[i], backup_paths[i]) < 0)
+			goto failed;
+	}
+
+	for (i = 0; i < count; i++) {
+		FILE *staged_fp = staged_files[i];
+
+		staged_files[i] = NULL;
+		if (dnsmasq_file_publish(staged_fp, staged_paths[i],
+					 destinations[i], mode) != 0) {
+			saved_errno = errno ? errno : EIO;
+			goto rollback;
+		}
+		published++;
+	}
+	for (i = 0; i < count; i++)
+		dnsmasq_file_backup_discard(backup_paths[i]);
+	return 0;
+
+rollback:
+	while (published > 0) {
+		published--;
+		if (dnsmasq_file_backup_restore(destinations[published],
+						backup_paths[published]) != 0) {
+			rollback_failed = 1;
+			if (!rollback_errno)
+				rollback_errno = errno ? errno : EIO;
+		}
+	}
+	if (rollback_errno)
+		saved_errno = rollback_errno;
+
+failed:
+	if (!saved_errno)
+		saved_errno = errno ? errno : EIO;
+	for (i = 0; i < count; i++) {
+		if (staged_files[i]) {
+			(void)fclose(staged_files[i]);
+			staged_files[i] = NULL;
+		}
+		dnsmasq_file_discard(staged_paths[i]);
+		if (!rollback_failed)
+			dnsmasq_file_backup_discard(backup_paths[i]);
+	}
+	errno = saved_errno;
+	return -1;
+}
+
 /* Validate a last-known-good server file without following the final path. */
 static int
 dnsmasq_file_is_safe_regular(const char *path)

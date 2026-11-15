@@ -1675,7 +1675,18 @@ jobs:
           assert "int stop_dns_dhcpd_locked(void);" in rc_header
           assert 'strcmp(entry->d_name, RCN_RESTART_DHCPD) == 0' in rc_main
           assert 'else if (!strcmp(base, "restart_dhcpd"))' in rc_main
-          assert 'dnsmasq_file_open(hosts_static_stage)' in service
+          static_hosts_start = service.index("fill_static_ethers(const char *lan_ip, const char *lan_mask)")
+          static_hosts_end = service.index("\nint\nfill_dnsmasq_servers", static_hosts_start)
+          static_hosts_body = service[static_hosts_start:static_hosts_end]
+          assert 'dnsmasq_file_open(hosts_static_stage)' in static_hosts_body
+          assert 'dnsmasq_file_publish_set(fp, staged_paths, destinations, backup_paths,' in static_hosts_body
+          assert 'dnsmasq_file_publish(staged_fp, staged_paths[i]' not in static_hosts_body
+          assert 'dnsmasq_file_publish_set' in helper
+          assert 'dnsmasq_file_backup_restore(destinations[published]' in helper
+          assert 'dnsmasq_file_publish_set(set_files, set_stages, set_destinations,' in test
+          assert 'read_exact(set_first, "old-one\\n")' in test
+          assert 'read_exact(set_second, "old-two\\n")' in test
+          assert 'read_exact(set_third, "commit-three\\n")' in test
           assert 'destinations[2] = "/tmp/hosts.static";' in service
           assert "dnsmasq_file_publish(staged_fp, staged_paths[i]," in service
           assert "destinations[i], 0644)" in service

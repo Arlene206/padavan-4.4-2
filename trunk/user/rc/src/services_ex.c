@@ -158,12 +158,16 @@ fill_static_ethers(const char *lan_ip, const char *lan_mask)
 	int i, j, i_max_items, i_arp_bind;
 	int path_length, result = 0;
 	char dh_fn[64] = {0}, dhcp_hosts_stage[96] = "";
+	char dhcp_hosts_backup[128] = "";
 	char ethers_stage[] = "/etc/ethers.XXXXXX";
+	char ethers_backup[] = "/etc/ethers.rollback.XXXXXX";
 	char hosts_static_stage[] = "/tmp/hosts.static.XXXXXX";
+	char hosts_static_backup[] = "/tmp/hosts.static.rollback.XXXXXX";
 	char nvram_key[32], *smac, *sip4, *shname, *copy;
 	struct in_addr in;
 	const char *destinations[3];
 	char *staged_paths[3];
+	char *backup_paths[3];
 
 	memset(ip4_list, 0, sizeof(ip4_list));
 	i_arp_bind = 0;
@@ -171,7 +175,9 @@ fill_static_ethers(const char *lan_ip, const char *lan_mask)
 	staged_paths[0] = dhcp_hosts_stage;
 	staged_paths[1] = ethers_stage;
 	staged_paths[2] = hosts_static_stage;
-	destinations[0] = dh_fn;
+	backup_paths[0] = dhcp_hosts_backup;
+	backup_paths[1] = ethers_backup;
+	backup_paths[2] = hosts_static_backup;
 	destinations[1] = "/etc/ethers";
 	destinations[2] = "/tmp/hosts.static";
 
@@ -179,6 +185,13 @@ fill_static_ethers(const char *lan_ip, const char *lan_mask)
 	path_length = snprintf(dh_fn, sizeof(dh_fn), "%s/dhcp-hosts.rc",
 			       DHCPD_HOSTS_DIR);
 	if (path_length < 0 || path_length >= (int)sizeof(dh_fn)) {
+		errno = ENAMETOOLONG;
+		goto failed;
+	}
+	destinations[0] = dh_fn;
+	path_length = snprintf(dhcp_hosts_backup, sizeof(dhcp_hosts_backup),
+			       "%s.rollback.XXXXXX", dh_fn);
+	if (path_length < 0 || path_length >= (int)sizeof(dhcp_hosts_backup)) {
 		errno = ENAMETOOLONG;
 		goto failed;
 	}
@@ -304,15 +317,11 @@ fill_static_ethers(const char *lan_ip, const char *lan_mask)
 		}
 	}
 
-	/* All three streams are checked, closed and atomically renamed separately. */
-	for (i = 0; i < ARRAY_SIZE(fp); i++) {
-		FILE *staged_fp = fp[i];
-		fp[i] = NULL;
-		if (dnsmasq_file_publish(staged_fp, staged_paths[i],
-					 destinations[i], 0644) != 0) {
-			result = errno ? errno : EIO;
-			goto failed;
-		}
+	/* Keep DHCP hosts, ethers and named-host snapshots in one rollback set. */
+	if (dnsmasq_file_publish_set(fp, staged_paths, destinations, backup_paths,
+				     ARRAY_SIZE(fp), 0644) != 0) {
+		result = errno ? errno : EIO;
+		goto failed;
 	}
 
 	/* Apply kernel ARP side effects only after every corresponding file was

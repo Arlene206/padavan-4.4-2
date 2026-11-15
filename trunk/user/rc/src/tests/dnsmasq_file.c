@@ -33,6 +33,12 @@ main(void)
 	char pair_first_stage[256], pair_second_stage[256];
 	char pair_first_backup[256], pair_second_backup[256];
 	char pair_absent_first[256], pair_absent_stage[256], pair_absent_backup[256];
+	char set_first[256], set_second[256], set_third[256], set_bad_third[256];
+	char set_stage_one[256], set_stage_two[256], set_stage_three[256];
+	char set_backup_one[256], set_backup_two[256], set_backup_three[256];
+	char *set_stages[3], *set_backups[3];
+	const char *set_destinations[3];
+	FILE *set_files[3];
 	struct stat pair_stat;
 	FILE *fp, *pair_fp;
 	struct stat st;
@@ -82,6 +88,25 @@ main(void)
 	assert(snprintf(pair_absent_first, sizeof(pair_absent_first), "%s/pair.absent", directory) > 0);
 	assert(snprintf(pair_absent_stage, sizeof(pair_absent_stage), "%s/pair.absent.XXXXXX", directory) > 0);
 	assert(snprintf(pair_absent_backup, sizeof(pair_absent_backup), "%s/pair.absent.rollback.XXXXXX", directory) > 0);
+	assert(snprintf(set_first, sizeof(set_first), "%s/set-one", directory) > 0);
+	assert(snprintf(set_second, sizeof(set_second), "%s/set-two", directory) > 0);
+	assert(snprintf(set_third, sizeof(set_third), "%s/set-three", directory) > 0);
+	assert(snprintf(set_bad_third, sizeof(set_bad_third), "%s/missing/set-three", directory) > 0);
+	assert(snprintf(set_stage_one, sizeof(set_stage_one), "%s/set-one.XXXXXX", directory) > 0);
+	assert(snprintf(set_stage_two, sizeof(set_stage_two), "%s/set-two.XXXXXX", directory) > 0);
+	assert(snprintf(set_stage_three, sizeof(set_stage_three), "%s/set-three.XXXXXX", directory) > 0);
+	assert(snprintf(set_backup_one, sizeof(set_backup_one), "%s/set-one.rollback.XXXXXX", directory) > 0);
+	assert(snprintf(set_backup_two, sizeof(set_backup_two), "%s/set-two.rollback.XXXXXX", directory) > 0);
+	assert(snprintf(set_backup_three, sizeof(set_backup_three), "%s/set-three.rollback.XXXXXX", directory) > 0);
+	set_stages[0] = set_stage_one;
+	set_stages[1] = set_stage_two;
+	set_stages[2] = set_stage_three;
+	set_backups[0] = set_backup_one;
+	set_backups[1] = set_backup_two;
+	set_backups[2] = set_backup_three;
+	set_destinations[0] = set_first;
+	set_destinations[1] = set_second;
+	set_destinations[2] = set_third;
 	assert(snprintf(config_destination, sizeof(config_destination), "%s/dnsmasq.conf", directory) > 0);
 	assert(snprintf(config_template, sizeof(config_template), "%s/dnsmasq.conf.XXXXXX", directory) > 0);
 	assert(snprintf(config_fail_template, sizeof(config_fail_template), "%s/dnsmasq.conf.failed.XXXXXX", directory) > 0);
@@ -279,6 +304,56 @@ main(void)
 	read_exact(pair_first, "committed-hostname\n");
 	read_exact(pair_second, "committed-hosts\n");
 	assert(unlink(pair_first) == 0 && unlink(pair_second) == 0);
+
+
+	/* A third rename failure rolls back both earlier replacements in reverse order. */
+	fp = fopen(set_first, "w");
+	assert(fp != NULL && fputs("old-one\n", fp) >= 0 && fclose(fp) == 0);
+	fp = fopen(set_second, "w");
+	assert(fp != NULL && fputs("old-two\n", fp) >= 0 && fclose(fp) == 0);
+	set_destinations[2] = set_bad_third;
+	set_files[0] = dnsmasq_file_open(set_stages[0]);
+	set_files[1] = dnsmasq_file_open(set_stages[1]);
+	set_files[2] = dnsmasq_file_open(set_stages[2]);
+	assert(set_files[0] != NULL && set_files[1] != NULL && set_files[2] != NULL);
+	assert(fputs("new-one\n", set_files[0]) >= 0);
+	assert(fputs("new-two\n", set_files[1]) >= 0);
+	assert(fputs("new-three\n", set_files[2]) >= 0);
+	errno = 0;
+	assert(dnsmasq_file_publish_set(set_files, set_stages, set_destinations,
+					set_backups, 3, 0644) == -1);
+	assert(errno == ENOENT);
+	read_exact(set_first, "old-one\n");
+	read_exact(set_second, "old-two\n");
+	assert(access(set_bad_third, F_OK) != 0 && errno == ENOENT);
+	assert(set_stage_one[0] == '\0' && set_stage_two[0] == '\0' && set_stage_three[0] == '\0');
+	assert(set_backup_one[0] == '\0' && set_backup_two[0] == '\0' && set_backup_three[0] == '\0');
+
+	/* The same helper commits all three complete outputs when every rename works. */
+	set_destinations[2] = set_third;
+	fp = fopen(set_third, "w");
+	assert(fp != NULL && fputs("old-three\n", fp) >= 0 && fclose(fp) == 0);
+	assert(snprintf(set_stage_one, sizeof(set_stage_one), "%s/set-one.XXXXXX", directory) > 0);
+	assert(snprintf(set_stage_two, sizeof(set_stage_two), "%s/set-two.XXXXXX", directory) > 0);
+	assert(snprintf(set_stage_three, sizeof(set_stage_three), "%s/set-three.XXXXXX", directory) > 0);
+	assert(snprintf(set_backup_one, sizeof(set_backup_one), "%s/set-one.rollback.XXXXXX", directory) > 0);
+	assert(snprintf(set_backup_two, sizeof(set_backup_two), "%s/set-two.rollback.XXXXXX", directory) > 0);
+	assert(snprintf(set_backup_three, sizeof(set_backup_three), "%s/set-three.rollback.XXXXXX", directory) > 0);
+	set_files[0] = dnsmasq_file_open(set_stages[0]);
+	set_files[1] = dnsmasq_file_open(set_stages[1]);
+	set_files[2] = dnsmasq_file_open(set_stages[2]);
+	assert(set_files[0] != NULL && set_files[1] != NULL && set_files[2] != NULL);
+	assert(fputs("commit-one\n", set_files[0]) >= 0);
+	assert(fputs("commit-two\n", set_files[1]) >= 0);
+	assert(fputs("commit-three\n", set_files[2]) >= 0);
+	assert(dnsmasq_file_publish_set(set_files, set_stages, set_destinations,
+					set_backups, 3, 0644) == 0);
+	assert(set_stage_one[0] == '\0' && set_stage_two[0] == '\0' && set_stage_three[0] == '\0');
+	assert(set_backup_one[0] == '\0' && set_backup_two[0] == '\0' && set_backup_three[0] == '\0');
+	read_exact(set_first, "commit-one\n");
+	read_exact(set_second, "commit-two\n");
+	read_exact(set_third, "commit-three\n");
+	assert(unlink(set_first) == 0 && unlink(set_second) == 0 && unlink(set_third) == 0);
 
 /* Lease file initialization must reject a symlink without touching target. */
 	assert(symlink(sentinel, symlink_lease) == 0);
