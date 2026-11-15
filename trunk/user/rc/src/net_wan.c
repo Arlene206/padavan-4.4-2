@@ -38,6 +38,7 @@
 #include "vpn_server_lifecycle_lock.h"
 #include "route_status_policy.h"
 #include "dnsmasq_file.h"
+#include "dnsmasq_domain_policy.h"
 #include "wan_resolver_refresh_policy.h"
 #include "wan_teardown_policy.h"
 #include "dhcp_lease_policy.h"
@@ -2976,15 +2977,12 @@ update_hosts_router(const char *lan_ipaddr)
 	char *lan_hname, *lan_dname;
 	int saved_errno = 0;
 
-	if (!lan_ipaddr) {
-		errno = EINVAL;
-		return EINVAL;
-	}
-
 	lan_hname = get_our_hostname();
 	lan_dname = nvram_safe_get("lan_domain");
-	if (!lan_hname || !lan_dname) {
+	if (!dhcp_lease_ipv4_is_valid(lan_ipaddr) || !lan_dname ||
+	    (*lan_dname && !dnsmasq_valid_server_domain(lan_dname)) || !lan_hname) {
 		errno = EINVAL;
+		logmessage(LOGNAME, "refusing unsafe router hostname input");
 		return EINVAL;
 	}
 

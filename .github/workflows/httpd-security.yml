@@ -1765,6 +1765,9 @@ jobs:
           hosts_update = net_wan[hosts_update_start:hosts_update_end]
           assert 'hostname_fp = dnsmasq_file_open(hostname_temp);' in hosts_update
           assert 'hosts_fp = dnsmasq_file_open(hosts_temp);' in hosts_update
+          assert "dhcp_lease_ipv4_is_valid(lan_ipaddr)" in hosts_update
+          assert "dnsmasq_valid_server_domain(lan_dname)" in hosts_update
+          assert '#include "dnsmasq_domain_policy.h"' in net_wan
           assert 'dnsmasq_file_publish(staged_fp, hostname_temp, "/etc/hostname", 0644)' in hosts_update
           assert 'dnsmasq_file_publish(staged_fp, hosts_temp, "/etc/hosts", 0644)' in hosts_update
           assert 'load_user_config(hosts_fp, "/tmp", "hosts.static", NULL)' in hosts_update
@@ -2215,6 +2218,8 @@ jobs:
           hosts_writer = lan[hosts_writer_start:hosts_writer_end]
           assert 'hostname_fp = dnsmasq_file_open(hostname_temp);' in hosts_writer
           assert 'hosts_fp = dnsmasq_file_open(hosts_temp);' in hosts_writer
+          assert "dhcp_lease_ipv4_is_valid(lan_ipaddr)" in hosts_writer
+          assert "dnsmasq_valid_server_domain(lan_dname)" in hosts_writer
           assert 'dnsmasq_file_publish(staged_fp, hostname_temp, "/etc/hostname", 0644)' in hosts_writer
           assert 'dnsmasq_file_publish(staged_fp, hosts_temp, "/etc/hosts", 0644)' in hosts_writer
           assert "dnsmasq_file_discard(hostname_temp)" in hosts_writer
