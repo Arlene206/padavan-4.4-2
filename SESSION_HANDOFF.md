@@ -10,7 +10,7 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 - Repository: Arlene206/padavan-4.4-2. Parent main SHA for THIS COMMIT: `99eeb6fa237b529ec9b9615976961c7a60a02575`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only). Legacy PR #1 remains CLOSED / UNMERGED.
 - Product-source commit `99eeb6fa237b529ec9b9615976961c7a60a02575` adds checked, lock-protected MTD erase/reset and host + BusyBox ash fault injection. Do not repeat the implementation.
-- Exact-head USB storage #43694958246 on `99eeb6fa237b529ec9b9615976961c7a60a02575`: shell syntax, save retry, restore transaction, host + BusyBox ash load/backup/erase-reset fixtures, GNU89 policy suites and full storage caller graph all PASS. Final standalone checker failed only because the empty-MTD branch correctly removes hash and temp together with `rm -f "$tmp" "$hsh"`, while the assertion expected a standalone `rm -f "$hsh"` token. THIS COMMIT fixes that source contract; no production behavior changed.
+- Exact-head USB storage #43695808627 on `c2ee97b727e1fa16c86a93969129bf3c1c54f49f` passed all MTD source, shell and host + BusyBox ash fixture steps, including reset/erase, and the full caller graph. The final checker failed at `body(mtd_storage, "func_erase()")`: its C brace/string parser misread the apostrophe in a shell comment and reported an unterminated function. THIS COMMIT changes the shell contracts to bounded source slicing; no production source behavior changes.
 - Exact-head AI handoff docs #43694958340 SUCCESS. Process inventory/lifecycle #43694958225, infosvr #43694958242, AdGuardHome #43694958168, AliDDNS #43694958275, AliyunDrive #43694958193, process lifecycle inventory #43694958234, NVRAM #43694958278 and HTTPD security #43694958209 also SUCCESS, all on the same SHA.
 - XY-C1 Firmware Validation #43694958186 was still IN_PROGRESS at last poll. Its result is required for current-source L3. Physical L4 remains NOT VERIFIED.
 - Frozen backup remains unchanged; no local full checkout/toolchain or target hardware result is available.
@@ -38,11 +38,12 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Verification boundary
 
-- L1: MTD erase locks before flash mutation, checks MTD/hash/directory operations and retains the lock on uncertain or partial outcomes. Reset retains the lock through hash deletion, directory recreation and default fill. Physical erase rollback is not claimed.
-- L2: USB storage #43694958246 on `99eeb6fa237b529ec9b9615976961c7a60a02575` passed all production shell syntax, host/BusyBox ash save/restore/load/backup/erase-reset fixtures, GNU89 policies and caller graph; the final checker failed solely on its incorrect expectation of a standalone hash-removal command in the empty-MTD branch. THIS COMMIT corrects the assertion to the actual combined command. AI docs #43694958340 and the other listed regression workflows passed on the same parent.
-- L3: XY-C1 #43694958186 on `99eeb6fa237b529ec9b9615976961c7a60a02575` remained in progress at handoff. Any firmware result must include full MIPS/uClibc build, TRX verification and artifact upload at the exact product-source SHA. Current L3 not verified yet.
-- L4: Physical router/MTD erase, next-boot blank detection and post-reset persistence remain NOT VERIFIED.
-- No local checkout, local build or hardware result is claimed.
+- L1: MTD erase establishes the save lock before flash mutation, checks erase/hash/directory outcomes and retains the marker on uncertain/partial results. Reset retains the save barrier until default fill completes. No rollback is claimed after successful physical flash erase.
+- L2: USB storage #43695808627 on `c2ee97b727e1fa16c86a93969129bf3c1c54f49f` passed all shell, host + BusyBox ash save/restore/load/backup/erase-reset, GNU89 policy and caller-graph steps. It failed only in the final checker because the generic C function parser cannot safely parse shell comments (apostrophe in `func_erase()`) and reported an unterminated function. THIS COMMIT uses shell function boundary slicing for erase/reset source contracts; fresh exact-head storage check required.
+- L3: XY-C1 #43694958186 on product-source SHA `99eeb6fa237b529ec9b9615976961c7a60a02575` must be checked for exact SHA, full MIPS/uClibc build, TRX verification and artifact upload. Do not treat an in-progress run as L3 evidence.
+- L4: Physical erase/reset, blank-MTD next boot and subsequent persistence remain NOT VERIFIED.
+- No current L3 or physical L4 result is claimed.
+
 
 ## HTTPD daemon lifecycle — completed slice
 
@@ -60,10 +61,9 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head USB storage and AI docs Actions for THIS COMMIT; require the source checker to pass. Also retrieve XY-C1 #43694958186 on product source `99eeb6fa237b529ec9b9615976961c7a60a02575` and confirm full build/TRX/artifact before declaring L3.
-2. Then resume P1 at `do_restore_st_cgi()`: keep a previously retained restore archive until a new authenticated upload is fully parsed, flushed and atomically published. Gate the restore callback on per-request upload success so a rejected upload cannot consume stale bytes. Inject open/write/close/rename failure cases and validate trusted-session gating before the upload callback.
-3. Every multi-file slice must be one Git tree/commit; non-force update main with expected SHA. Keep the frozen backup untouched. L4 remains unverified.
-
+1. Inspect exact-head USB storage and AI docs push Actions for THIS COMMIT; require the shell source checker and reset/erase host + BusyBox ash fixtures to pass. Check XY-C1 #43694958186 against its exact product-source SHA and require full build/TRX/artifact evidence before marking L3 verified.
+2. Continue P1 at `do_restore_st_cgi()`: trace authenticated restore-upload staging and the incoming writer using `STORAGE_FIFO_FILENAME`. Preserve an older retained retry archive until a new upload is fully parsed, flushed and atomically published. Gate restore callback on per-request upload success so a rejected upload cannot consume stale bytes; inject open/write/close/rename failures and check trusted-session gating.
+3. Every multi-file slice must be one Git tree/commit; non-force update main with expected SHA. Frozen backup untouched. L4 remains unverified.
 
 Source/validation notes:
 - Parent main for THIS COMMIT: 361bf44c724e64f3826b876d43a876bb65fc6039; frozen backup: 72f4f157a084f8184b9597ca5bf334b8080e5807.

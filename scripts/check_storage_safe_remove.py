@@ -524,7 +524,9 @@ empty_size_branch = mtd_load.split('if [ "$fsz" -le 0 ]; then', 1)[1].split(chr(
 require('"$hsh"' in empty_size_branch and 'rm -f "$slk"' in empty_size_branch,
         "successful empty decompression must also clear the one-shot lock")
 # Destructive erase/reset must preserve a save barrier across uncertain outcomes.
-erase_body = body(mtd_storage, "func_erase()")
+erase_start = mtd_storage.index("func_erase()")
+erase_end = mtd_storage.index("\nfunc_reset()", erase_start)
+erase_body = mtd_storage[erase_start:erase_end]
 for token in ('if ! touch "$slk"; then',
               'if ! mtd_write erase "$mtd_part_name"; then',
               'if ! rm -f "$hsh"; then',
@@ -540,7 +542,9 @@ require(erase_body.index('if ! touch "$slk"; then') <
 require("MTD erase failed; storage save lock retained" in erase_body,
         "uncertain or partial MTD erase must retain the save lock")
 
-reset_body = body(mtd_storage, "func_reset()")
+reset_start = mtd_storage.index("func_reset()")
+reset_end = mtd_storage.index("\nfunc_fill()", reset_start)
+reset_body = mtd_storage[reset_start:reset_end]
 for token in ('if ! touch "$slk"; then',
               'if ! rm -f "$hsh"; then',
               'if ! rm -rf "$dir_storage"; then',

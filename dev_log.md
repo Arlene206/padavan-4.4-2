@@ -1,3 +1,13 @@
+## 2026-11-15 17:05 CST — Parse MTD shell function contracts without the C brace parser
+
+- Exact-head USB storage #43695808627 on `c2ee97b727e1fa16c86a93969129bf3c1c54f49f` passed syntax, MTD save retry, restore, host + BusyBox ash load/backup/erase-reset fixtures, GNU89 policy tests and the full storage caller graph. The final checker failed at `body(mtd_storage, "func_erase()")`: this helper parses C comments/strings and interpreted the apostrophe in a shell comment as a character quote, so it never recognized the closing function brace.
+- Updated only the source checker to isolate shell `func_erase()` and `func_reset()` by their neighboring function declarations. C function checks continue to use the C-aware parser. No production behavior or regression fixture changed.
+- Exact-head AI docs #43695808690, NVRAM #43695808608, infosvr #43695808631, process lifecycle #43695808654, AdGuardHome #43695808676, AliyunDrive #43695808670, AliDDNS #43695808625 succeeded on the same SHA. USB storage #43695808627 is the only listed failure; current-source XY-C1 result remains to be checked.
+- Changed paths: `scripts/check_storage_safe_remove.py`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`. Parent: `c2ee97b727e1fa16c86a93969129bf3c1c54f49f`; resulting SHA: THIS COMMIT. Exact-head storage/docs rerun required. L3/L4 remain NOT VERIFIED.
+- No local firmware build or router test is claimed.
+
+---
+
 ## 2026-11-15 16:22 CST — Align empty-MTD hash assertion with combined cleanup
 
 - Exact-head USB storage run #43694958246 on `99eeb6fa237b529ec9b9615976961c7a60a02575` passed production shell syntax, MTD save retry, transactional restore, host + BusyBox ash load/backup/erase-reset fixtures, GNU89 policy tests and the full caller graph. The final checker failed because it required a standalone `rm -f "$hsh"` in the successful empty-decompression branch, while source correctly issues `rm -f "$tmp" "$hsh"` and then checks one-shot lock removal.
