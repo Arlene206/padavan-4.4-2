@@ -27,6 +27,7 @@ def require(condition: bool, message: str) -> None:
 source = (ROOT / "trunk/user/frp/frp.sh").read_text()
 test = (ROOT / "trunk/user/frp/tests/frp_lifecycle.sh").read_text()
 services = (ROOT / "trunk/user/rc/src/services.c").read_text()
+rc_header = (ROOT / "trunk/user/rc/src/rc.h").read_text()
 stop_test = (ROOT / "trunk/user/frp/tests/frp_stop.sh").read_text()
 lock_test = (ROOT / "trunk/user/frp/tests/frp_lock.sh").read_text()
 web_ex = (ROOT / "trunk/user/httpd/src/web_ex.c").read_text()
@@ -90,8 +91,9 @@ close = function_body(source, "frp_close ()")
 require("frp_manage_watchdog_cron remove" in close,
         "disabling both services must remove the exact managed watchdog")
 services = (ROOT / "trunk/user/rc/src/services.c").read_text()
-restart_services = function_body(services, "void restart_frp(void)")
-require('eval("/usr/bin/frp.sh","restart")' in restart_services and
+restart_services = function_body(services, "int restart_frp(void)")
+require('return status;' in restart_services and
+        'eval("/usr/bin/frp.sh","restart")' in restart_services and
         "FRP restart failed" in restart_services and
         'eval("/usr/bin/frp.sh","stop")' not in restart_services and
         'eval("/usr/bin/frp.sh","start")' not in restart_services,
@@ -101,7 +103,8 @@ require('eval("/usr/bin/frp.sh","stop")' in services and
         "RC stop/start must use the installed FRP launcher")
 rc = (ROOT / "trunk/user/rc/src/rc.c").read_text()
 require('strcmp(entry->d_name, RCN_RESTART_FRP) == 0' in rc and
-        "restart_frp();" in rc,
+        "rc_notify_merge_action_result(action_result, restart_frp())" in rc and
+        "int restart_frp(void);" in rc_header and "int stop_frp(void);" in rc_header,
         "PID 1 must dispatch the FRP restart notification")
 variables = (ROOT / "trunk/user/httpd/src/variables.c").read_text()
 variables_normalized = " ".join(variables.split())
@@ -203,6 +206,7 @@ paths = (
     "trunk/user/frp/frp_script.sh",
     "trunk/user/scripts/files/usr/bin/copyscripts.sh",
     "trunk/user/rc/src/services.c",
+    "trunk/user/rc/src/rc.h",
     "trunk/user/rc/src/rc.c",
     "trunk/user/httpd/src/variables.c",
     "trunk/user/www/n56u_ribbon_fixed/Advanced_frp.asp",
@@ -252,10 +256,10 @@ stop_daemons = function_body(source, "frp_stop_daemons()")
 require("frp_signal_all TERM" in stop_daemons and "frp_wait_stopped 5" in stop_daemons and
         "frp_signal_all KILL" in stop_daemons and "frp_wait_stopped 2" in stop_daemons,
         "FRP owned-daemon stop must retain bounded TERM/KILL postconditions")
-stop = function_body(services, "void stop_frp(void)")
+stop = function_body(services, "int stop_frp(void)")
 start = function_body(services, "void start_frp(void)")
-restart = function_body(services, "void restart_frp(void)")
-require("status != 0" in stop and "FRP stop failed" in stop and
+restart = function_body(services, "int restart_frp(void)")
+require("status != 0" in stop and "FRP stop failed" in stop and "return status;" in stop and
         "status != 0" in start and "FRP start failed" in start,
         "RC stop/start wrappers must report FRP command failures")
 require('eval("/usr/bin/frp.sh","restart")' in restart and

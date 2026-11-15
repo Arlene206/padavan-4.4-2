@@ -5,6 +5,8 @@ on:
     paths:
       - ".github/workflows/rc-notification-queue-stability.yml"
       - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/rc_notify_batch_policy.h"
       - "trunk/user/rc/src/tests/rc_notify_batch_policy.c"
       - "trunk/user/rc/src/init.c"
@@ -16,6 +18,8 @@ on:
     paths:
       - ".github/workflows/rc-notification-queue-stability.yml"
       - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/rc_notify_batch_policy.h"
       - "trunk/user/rc/src/tests/rc_notify_batch_policy.c"
       - "trunk/user/rc/src/init.c"
@@ -55,6 +59,8 @@ jobs:
           from pathlib import Path
 
           rc = Path("trunk/user/rc/src/rc.c").read_text()
+          services = Path("trunk/user/rc/src/services.c").read_text()
+          rc_header = Path("trunk/user/rc/src/rc.h").read_text()
           policy = Path("trunk/user/rc/src/rc_notify_batch_policy.h").read_text()
           test = Path("trunk/user/rc/src/tests/rc_notify_batch_policy.c").read_text()
           init = Path("trunk/user/rc/src/init.c").read_text()
@@ -133,6 +139,8 @@ jobs:
           paths = (
               ".github/workflows/rc-notification-queue-stability.yml",
               "trunk/user/rc/src/rc.c",
+              "trunk/user/rc/src/rc.h",
+              "trunk/user/rc/src/services.c",
               "trunk/user/rc/src/rc_notify_batch_policy.h",
               "trunk/user/rc/src/tests/rc_notify_batch_policy.c",
               "trunk/user/rc/src/init.c",

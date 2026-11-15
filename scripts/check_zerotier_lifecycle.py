@@ -109,11 +109,16 @@ stop = function_body(services, "int stop_zerotier(void)")
 require('return eval("/usr/bin/zerotier.sh","stop");' in stop and
         'int stop_zerotier(void);' in rc_header,
         "RC ZeroTier stop wrapper must propagate launcher status")
-restart = function_body(services, "int restart_zerotier(void)")
-require('int stop_status = stop_zerotier();' in restart and
-        'if (stop_status != 0)' in restart and
-        'return stop_status;' in restart and 'start_zerotier();' in restart and
-        'return 0;' in restart,
+restart_start = services.rfind("int restart_zerotier(void)")
+require(restart_start >= 0, "missing checked ZeroTier restart wrapper")
+restart = function_body(services[restart_start:], "int restart_zerotier(void)")
+restart_compact = " ".join(restart.split())
+require('int stop_status = stop_zerotier();' in restart_compact and
+        'if (stop_status != 0)' in restart_compact and
+        'return stop_status;' in restart_compact and
+        'start_zerotier();' in restart_compact and
+        'return 0;' in restart_compact and
+        restart_compact.index('return stop_status;') < restart_compact.index('start_zerotier();') < restart_compact.index('return 0;'),
         "RC ZeroTier restart must not start after a failed stop")
 require('int restart_zerotier(void);' in rc_header and
         'action_result = rc_notify_merge_action_result(action_result, restart_zerotier());' in rc,

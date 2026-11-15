@@ -31,6 +31,7 @@ test = TEST_PATH.read_text()
 package = PACKAGE_PATH.read_text()
 user_makefile = USER_MAKEFILE_PATH.read_text()
 services = SERVICES_PATH.read_text()
+rc_header = (ROOT / "trunk/user/rc/src/rc.h").read_text()
 rc = RC_PATH.read_text()
 variables = VARIABLES_PATH.read_text()
 web_ex = WEB_EX_PATH.read_text()
@@ -256,15 +257,22 @@ require('$(ROMFSINST) -p +x $(THISDIR)/aliyundrive-webdav.sh /usr/bin/aliyundriv
         'dir_$(CONFIG_FIRMWARE_INCLUDE_ALDRIVER)' in user_makefile,
         "ROMFS package installation and firmware configuration gate must remain intact")
 
-require('eval("/usr/bin/aliyundrive-webdav.sh","stop")' in services and
+stop_aldriver_body = function_body(services, "int stop_aldriver(void)")
+restart_aldriver_body = function_body(services, "int restart_aldriver(void)")
+stop_all = function_body(services, "stop_services(int stopall)")
+require('return eval("/usr/bin/aliyundrive-webdav.sh","stop");' in stop_aldriver_body and
         'eval("/usr/bin/aliyundrive-webdav.sh","start")' in services and
-        'void restart_aldriver(void)' in services and
-        'stop_aldriver();' in services and 'start_aldriver();' in services,
-        "RC service wrapper must preserve stop/start/restart launcher wiring")
+        "if (stop_status != 0)" in restart_aldriver_body and
+        restart_aldriver_body.index("if (stop_status != 0)") < restart_aldriver_body.index("start_aldriver();") and
+        "return stop_status;" in restart_aldriver_body and
+        'record_service_stop_status(&stop_status, "AliyunDrive WebDAV", stop_aldriver());' in stop_all and
+        "int stop_aldriver(void);" in rc_header,
+        "RC service wrapper must propagate checked stop status through restart, public declaration and shutdown aggregate")
 
-require('RCN_RESTART_ALDRIVER' in rc and 'restart_aldriver();' in rc and
+require('RCN_RESTART_ALDRIVER' in rc and
+        'rc_notify_merge_action_result(action_result, restart_aldriver())' in rc and
         '#if defined(APP_ALDRIVER)' in rc,
-        "RC notification dispatch must still reach the AliyunDrive restart wrapper")
+        "RC notification dispatch must merge AliyunDrive restart status")
 
 ald_fields = (
     "aliyundrive_enable", "ald_refresh_token", "ald_auth_user",

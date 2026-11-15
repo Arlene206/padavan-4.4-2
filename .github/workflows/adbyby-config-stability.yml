@@ -18,6 +18,8 @@ on:
       - "trunk/user/httpd/src/variables.c"
       - "trunk/user/scripts/files/usr/bin/copyscripts.sh"
       - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/rc.c"
       - "trunk/user/adbyby/tests/firewall_snapshot.sh"
       - "scripts/check_adbyby_hosts_config.py"
   pull_request:
@@ -37,6 +39,8 @@ on:
       - "trunk/user/httpd/src/variables.c"
       - "trunk/user/scripts/files/usr/bin/copyscripts.sh"
       - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/rc.c"
       - "trunk/user/adbyby/tests/firewall_snapshot.sh"
       - "scripts/check_adbyby_hosts_config.py"
 

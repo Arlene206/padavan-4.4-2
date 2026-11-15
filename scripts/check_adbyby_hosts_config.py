@@ -93,9 +93,9 @@ refresh_match = re.search(r"(?ms)^adbyby_refresh_managed_rules\(\)[ \t]*\n\((.*?
 if not refresh_match:
     fail("missing subshell function adbyby_refresh_managed_rules()")
 refresh_rules = refresh_match.group(1)
-restart_match = re.search(r"(?ms)void\s+restart_adbyby\s*\(\s*void\s*\)\s*\{(.*?)^\}", service)
+restart_match = re.search(r"(?ms)int\s+restart_adbyby\s*\(\s*void\s*\)\s*\{(.*?)^\}", service)
 if not restart_match:
-    fail("missing C function restart_adbyby(void)")
+    fail("missing C function int restart_adbyby(void)")
 restart_adbyby = restart_match.group(1)
 
 require("/etc/storage/dnsmasq/dnsmasq.conf" in helper and
@@ -303,7 +303,7 @@ require("updateadb" in lock_run and "restart" in lock_run,
         "restart and update use lifecycle lock")
 require("G|updateadb) adbyby_uprules" in locked_action,
         "RC updateadb notification reaches the rule updater")
-require('eval("/usr/bin/adbyby.sh","restart");' in restart_adbyby,
+require('return eval("/usr/bin/adbyby.sh","restart");' in restart_adbyby,
         "RC restart uses one atomic lifecycle invocation")
 require('"$PROG_PATH/adbyby" 9>&- >/dev/null 2>&1 &' in source and "restart_dhcpd 9>&-" in source,
         "detached daemon and DHCP children close FD 9")

@@ -91,14 +91,15 @@ require('$(ROMFSINST) -p +x $(THISDIR)/ddnsto.sh /usr/bin/ddnsto.sh' in makefile
 require('eval("/usr/bin/ddnsto.sh","stop")' in services and
         'eval("/usr/bin/ddnsto.sh","start")' in services,
         "RC service wrappers must retain DDNSTO stop/start integration")
-require('void restart_ddnsto(void)' in services and
+require('int restart_ddnsto(void)' in services and
         'eval("/usr/bin/ddnsto.sh","restart")' in services,
         "RC restart must use one serialized launcher operation")
-restart_body = function_body(services, "void restart_ddnsto(void)")
-require('eval("/usr/bin/ddnsto.sh","stop")' not in restart_body and
+restart_body = function_body(services, "int restart_ddnsto(void)")
+require('return eval("/usr/bin/ddnsto.sh","restart");' in restart_body and
+        'eval("/usr/bin/ddnsto.sh","stop")' not in restart_body and
         'eval("/usr/bin/ddnsto.sh","start")' not in restart_body,
         "RC must not split DDNSTO restart across independently locked commands")
-require('void restart_ddnsto(void);' in rc_header and 'restart_ddnsto();' in rc,
+require('int restart_ddnsto(void);' in rc_header and 'rc_notify_merge_action_result(action_result, restart_ddnsto())' in rc,
         "RC declaration / notification caller must remain wired")
 for marker in ("private inode", "unsafe paths", "bounds lock contention",
                "inherited FD 9", "concurrent start", "TERM-END",

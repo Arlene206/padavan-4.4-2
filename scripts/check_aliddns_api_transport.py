@@ -95,7 +95,7 @@ stop_keeper = function_body(source, "aliddns_stop_keeper() {")
 keeper_close = function_body(source, "aliddns_close () {")
 lifecycle_check = function_body(source, "aliddns_check () {")
 lifecycle_control_start = function_body(source, "aliddns_lifecycle_control_start() {")
-restart_service = function_body(services, "void restart_aliddns(void){")
+restart_service = function_body(services, "int restart_aliddns(void){")
 
 require('ALIDDNS_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt"' in source and
         '--cacert "$ALIDDNS_CA_BUNDLE"' in send_request,
@@ -195,8 +195,8 @@ require('if [ $(nvram get aliddns_enable) = 1 ]' in autostart and
 
 require('EVM_RESTART_ALIDDNS' in variables and
         'RCN_RESTART_ALIDDNS' in rc and
-        'restart_aliddns();' in rc and
-        'void restart_aliddns(void)' in services,
+        'rc_notify_merge_action_result(action_result, restart_aliddns())' in rc and
+        'int restart_aliddns(void)' in services,
         "HTTPD NVRAM changes must continue to reach the existing RC lifecycle wrapper")
 
 require("echo /tmp/.aliddns.lifecycle.lock" in lifecycle_lock_path,
@@ -226,7 +226,7 @@ require('aliddns_close' in lifecycle_control_start and
         'aliddns_lifecycle_control_start' in lifecycle_locked_action and
         'stop)' in lifecycle_locked_action and 'check)' in lifecycle_locked_action,
         "AliDDNS start/restart/stop/check must dispatch through the serialized action")
-require('eval("/usr/bin/aliddns.sh","restart");' in restart_service and
+require('return eval("/usr/bin/aliddns.sh","restart");' in restart_service and
         'stop_aliddns();' not in restart_service and
         'start_aliddns();' not in restart_service,
         "RC restart must be one atomic launcher operation rather than separate stop/start calls")
