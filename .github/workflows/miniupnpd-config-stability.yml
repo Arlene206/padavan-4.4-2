@@ -45,7 +45,7 @@ jobs:
       - name: Compile and run miniupnpd daemon lifecycle policy
         run: |
           set -eu
-          cc -std=gnu89 -Wall -Wextra -Werror -Itrunk/user/rc/src \
+          cc -std=gnu89 -Wall -Wextra -Werror -Itrunk/user/rc/src -Itrunk/user/shared/src \
             trunk/user/rc/src/tests/miniupnpd_daemon_policy_test.c \
             -o /tmp/miniupnpd_daemon_policy
           /tmp/miniupnpd_daemon_policy
@@ -88,6 +88,9 @@ jobs:
               assert token in writer, token
 
           start = function_body(service, "start_upnp(void)")
+          assert "miniupnpd_process_presence(&scan_error)" in start
+          assert "miniupnpd_start_allowed(state)" in start
+          assert "duplicate start skipped" in start
           assert "miniupnpd_config_publish(\"/etc/miniupnpd.conf\"" in start
           assert start.index("miniupnpd_config_publish") < start.index('eval("/usr/bin/miniupnpd")')
           assert "if (ret != 0)" in start
@@ -96,9 +99,13 @@ jobs:
           assert "ret = miniupnpd_confirm_started(ret);" in start
           confirm = function_body(service, "miniupnpd_confirm_started(int launch_status)")
           assert "MINIUPNPD_START_WAIT_ATTEMPTS" in confirm
-          assert "is_upnp_run()" in confirm
+          assert "miniupnpd_process_presence(&scan_error)" in confirm
+          assert "state == PROCESS_PRESENCE_RUNNING" in confirm
+          assert "state == PROCESS_PRESENCE_UNKNOWN" in confirm
+          assert "PROCESS_PRESENCE_ABSENT" in confirm
+          assert "is_upnp_run()" not in confirm
           assert "sleep(1)" in confirm
-          assert confirm.index("sleep(1)") < confirm.index("is_upnp_run()")
+          assert confirm.index("sleep(1)") < confirm.index("miniupnpd_process_presence(&scan_error)")
           assert "miniupnpd_start_policy_status(launch_status, daemon_running)" in confirm
           assert "return daemon_running ? 0 : ESRCH;" in policy
           assert "miniupnpd_start_policy_status(0, 0) == ESRCH" in daemon_test
@@ -107,19 +114,32 @@ jobs:
           assert "miniupnpd_stop_policy_status(0, 1) == EBUSY" in daemon_test
           assert "miniupnpd_stop_policy_status(0, 0) == 0" in daemon_test
           assert "miniupnpd daemon lifecycle policy: PASS" in daemon_test
+          assert "miniupnpd_test_presence_policy" in daemon_test
+          assert "miniupnpd_test_identity_bound_signal" in daemon_test
+          assert "miniupnpd_signal_snapshot" in policy
 
           stop = function_body(service, "stop_upnp(void)")
           assert "kill_services(svcs, 3, 1)" in stop
-          assert "miniupnpd_stop_policy_status(ret, is_upnp_run())" in stop
+          assert "miniupnpd_process_presence(&scan_error)" in stop
+          assert "miniupnpd_presence_error(state, scan_error)" in stop
+          assert "miniupnpd_stop_policy_status(0," in stop
+          assert "state == PROCESS_PRESENCE_RUNNING" in stop
           assert "return ret;" in stop
           check_wan = function_body(service, "check_upnp_wanif_changed(char *wan_ifname)")
+          assert "miniupnpd_process_presence(&scan_error)" in check_wan
+          assert "miniupnpd_presence_error(state, scan_error)" in check_wan
+          assert "PROCESS_PRESENCE_ABSENT" in check_wan
           assert "return stop_upnp();" in check_wan
           assert "return 0;" in check_wan
           update = function_body(service, "update_upnp(void)")
           assert "return start_upnp();" in update
           assert "return stop_upnp();" in update
-          assert 'ret = doSystem("killall %s %s", "-SIGUSR1", "miniupnpd");' in update
-          assert "if (ret != 0)" in update and "return ret;" in update
+          assert "miniupnpd_action_for_presence(state)" in update
+          assert "miniupnpd_signal_snapshot(&snapshot, SIGUSR1" in update
+          assert "killall" not in update
+          assert "process_snapshot_release(&snapshot)" in update
+          assert "PROCESS_PRESENCE_UNKNOWN" in policy
+          assert "if (result != 0)" in update and "return -1;" in update
           restart = function_body(service, "restart_upnp(void)")
           assert restart.index("ret = stop_upnp();") < restart.index("if (ret != 0)") < restart.index("restart_firewall();")
           assert "return;" in restart

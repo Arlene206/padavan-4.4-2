@@ -1,3 +1,15 @@
+## 2026-11-14 — Fail closed on miniupnpd inventory and bind reload to PID identity
+
+- Replaced miniupnpd's Boolean `pids()` decisions in direct start, startup readiness, UPnP update and WAN-interface transition with process-inventory RUNNING/ABSENT/UNKNOWN. Duplicate starts are skipped only on confirmed RUNNING; launch proceeds only on confirmed ABSENT; UNKNOWN/invalid states return explicit errors and do not authorize duplicate launch.
+- `stop_upnp()` now preserves UNKNOWN as an error after its identity-aware `kill_services()` transaction rather than allowing a Boolean probe to describe an unreadable inventory as stopped.
+- Replaced name-wide `killall -SIGUSR1 miniupnpd` with a snapshot-bound notification: captured PID/start-time identities are preflight-validated, then revalidated before each exact-PID signal. UNKNOWN in preflight sends no signal; ESRCH for an exited target is harmless; the policy accepts only SIGUSR1.
+- Extended GNU89 daemon-policy tests for tri-state start/update decisions, identity preflight, UNKNOWN, target disappearance and signal errors. Updated the miniupnpd source-contract workflow and added the policy header to XY-C1 path triggers. Exact-SHA CI must confirm these changes; no MIPS or runtime claim is made here.
+- Changed paths: `trunk/user/rc/src/services_ex.c`, `trunk/user/rc/src/miniupnpd_daemon_policy.h`, `trunk/user/rc/src/tests/miniupnpd_daemon_policy_test.c`, `.github/workflows/miniupnpd-config-stability.yml`, `.github/workflows/xy-c1-firmware-validation.yml`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
+
+
 ## 2026-11-14 — Repair networkmap lifecycle checker after policy extraction
 
 - Investigated networkmap signal Action `43668416118` on `a90014886d87c8fcf8cf09a16f2322240e75e265`. Both GNU89/ASan/UBSan policy executables passed: signal deferral, and tri-state daemon action plus identity-bound refresh. The final checker failed because it expected RUNNING and ABSENT enum literals inside `start_networkmap()`; the implementation explicitly handles RUNNING in that function and centralizes ABSENT-only launch admission in `networkmap_start_allowed()`.

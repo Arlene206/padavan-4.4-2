@@ -1316,10 +1316,38 @@ out:
 // miniupnpd
 ///////////////////////////////////////////////////////////////////////
 
+static enum process_presence
+miniupnpd_process_presence(int *scan_error)
+{
+	struct process_snapshot snapshot;
+	enum process_presence state;
+
+	state = process_inventory_scan("miniupnpd", &snapshot);
+	if (scan_error)
+		*scan_error = snapshot.error;
+	process_snapshot_release(&snapshot);
+	return state;
+}
+
+static enum process_presence
+miniupnpd_validate_identity(void *context,
+			    const struct process_identity *identity)
+{
+	(void)context;
+	return process_identity_validate("miniupnpd", identity);
+}
+
+static int
+miniupnpd_send_signal(void *context, pid_t pid, int signal_number)
+{
+	(void)context;
+	return kill(pid, signal_number);
+}
+
 int
 is_upnp_run(void)
 {
-	return pids("miniupnpd");
+	return miniupnpd_process_presence(NULL) == PROCESS_PRESENCE_RUNNING;
 }
 
 static int
@@ -1327,6 +1355,8 @@ miniupnpd_confirm_started(int launch_status)
 {
 	int attempt;
 	int daemon_running = 0;
+	int scan_error;
+	enum process_presence state;
 
 	if (launch_status != 0)
 		return miniupnpd_start_policy_status(launch_status, 0);
@@ -1335,9 +1365,18 @@ miniupnpd_confirm_started(int launch_status)
 	 * the first process-presence probe; the parent has already exited 0. */
 	sleep(1);
 	for (attempt = 0; attempt < MINIUPNPD_START_WAIT_ATTEMPTS; attempt++) {
-		if (is_upnp_run()) {
+		state = miniupnpd_process_presence(&scan_error);
+		if (state == PROCESS_PRESENCE_RUNNING) {
 			daemon_running = 1;
 			break;
+		}
+		if (state == PROCESS_PRESENCE_UNKNOWN ||
+		    state != PROCESS_PRESENCE_ABSENT) {
+			errno = miniupnpd_presence_error(state, scan_error);
+			logmessage(LOGNAME,
+				   "miniupnpd startup inventory became unknown (errno %d)",
+				   errno);
+			return errno;
 		}
 		if (attempt + 1 < MINIUPNPD_START_WAIT_ATTEMPTS)
 			sleep(1);
@@ -1435,6 +1474,8 @@ int
 start_upnp(void)
 {
 	int ret, i_proto_use, i_clean_min, i_clean_int, i_iports[2], i_eports[2];
+	int scan_error, presence_error;
+	enum process_presence state;
 	char *lan_addr, *lan_mask, *lan_url, *proto_upnp, *proto_npmp, *secured;
 	char var[100];
 	char wan_ifname[16];
@@ -1444,6 +1485,20 @@ start_upnp(void)
 
 	if (!nvram_get_int("upnp_enable_x") || !nvram_get_int("wan_nat_x") || get_ap_mode())
 		return 0;
+
+	state = miniupnpd_process_presence(&scan_error);
+	if (state == PROCESS_PRESENCE_RUNNING) {
+		logmessage(LOGNAME, "miniupnpd is already running; duplicate start skipped");
+		return 0;
+	}
+	if (!miniupnpd_start_allowed(state)) {
+		presence_error = miniupnpd_presence_error(state, scan_error);
+		errno = presence_error;
+		logmessage(LOGNAME,
+			   "miniupnpd start aborted: process inventory is not ABSENT (errno %d)",
+			   presence_error);
+		return presence_error;
+	}
 
 	i_proto_use = nvram_get_int("upnp_proto");
 	i_clean_min = nvram_safe_get_int("upnp_clean_min", 10, 1, 999);
@@ -1521,9 +1576,17 @@ stop_upnp(void)
 {
 	char* svcs[] = { "miniupnpd", NULL };
 	int ret;
+	int scan_error;
+	enum process_presence state;
 
 	ret = kill_services(svcs, 3, 1);
-	ret = miniupnpd_stop_policy_status(ret, is_upnp_run());
+	state = miniupnpd_process_presence(&scan_error);
+	if (ret == 0) {
+		ret = miniupnpd_presence_error(state, scan_error);
+		if (ret == 0)
+			ret = miniupnpd_stop_policy_status(0,
+						   state == PROCESS_PRESENCE_RUNNING);
+	}
 	if (ret != 0)
 		logmessage(LOGNAME, "miniupnpd did not stop cleanly (status %d)", ret);
 
@@ -1533,7 +1596,19 @@ stop_upnp(void)
 int
 check_upnp_wanif_changed(char *wan_ifname)
 {
-	if (!is_upnp_run())
+	int scan_error;
+	int presence_error;
+	enum process_presence state;
+
+	state = miniupnpd_process_presence(&scan_error);
+	presence_error = miniupnpd_presence_error(state, scan_error);
+	if (presence_error != 0) {
+		errno = presence_error;
+		logmessage(LOGNAME, "UPnP WAN transition aborted: process inventory unknown (errno %d)",
+			   presence_error);
+		return presence_error;
+	}
+	if (state == PROCESS_PRESENCE_ABSENT)
 		return 0;
 
 	/* Restart miniupnpd only if the active WAN interface changes. */
@@ -1546,23 +1621,52 @@ check_upnp_wanif_changed(char *wan_ifname)
 int
 update_upnp(void)
 {
-	int ret;
+	struct process_snapshot snapshot;
+	enum process_presence state;
+	enum miniupnpd_daemon_action action;
+	int scan_error;
+	int result;
+	int saved_errno;
 
-	if (!is_upnp_run())
+	state = process_inventory_scan("miniupnpd", &snapshot);
+	action = miniupnpd_action_for_presence(state);
+	if (action == MINIUPNPD_DAEMON_ABORT) {
+		scan_error = snapshot.error > 0 ? snapshot.error : EIO;
+		process_snapshot_release(&snapshot);
+		errno = miniupnpd_presence_error(state, scan_error);
+		logmessage(LOGNAME,
+			   "UPnP update aborted: process inventory unknown (errno %d)",
+			   errno);
+		return errno;
+	}
+	if (action == MINIUPNPD_DAEMON_START) {
+		process_snapshot_release(&snapshot);
 		return start_upnp();
+	}
 
-	if (nvram_get_int("wan_nat_x") == 0)
+	if (nvram_get_int("wan_nat_x") == 0) {
+		process_snapshot_release(&snapshot);
 		return stop_upnp();
+	}
 
 	/* Update UPnP forwards from the lease file without changing mapping policy. */
-	if (!check_if_file_exist(UPNPD_LEASE_FILE))
+	if (!check_if_file_exist(UPNPD_LEASE_FILE)) {
+		process_snapshot_release(&snapshot);
 		return 0;
+	}
 
-	ret = doSystem("killall %s %s", "-SIGUSR1", "miniupnpd");
-	if (ret != 0)
-		logmessage(LOGNAME, "miniupnpd mapping reload signal failed (status %d)", ret);
+	result = miniupnpd_signal_snapshot(&snapshot, SIGUSR1,
+					   miniupnpd_validate_identity,
+					   miniupnpd_send_signal, NULL);
+	saved_errno = errno;
+	process_snapshot_release(&snapshot);
+	if (result != 0) {
+		errno = saved_errno ? saved_errno : EIO;
+		logmessage(LOGNAME, "miniupnpd mapping reload signal failed (errno %d)", errno);
+		return -1;
+	}
 
-	return ret;
+	return 0;
 }
 
 void
