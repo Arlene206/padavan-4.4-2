@@ -238,7 +238,27 @@ assert 'is_usbnet_has_module(ndis_ifname, "cdc_mbim")' in usbnet_stop
 assert "int  safe_remove_usb_modem(void);" in rc_header
 assert "int  stop_wan_usbnet(void);" in rc_header
 
+usb_modem_guard = usb_modem.split(
+    "static int\nusb_modem_require_no_active_process(const char *process_name)", 1
+)[1].split("\n}\n", 1)[0]
+assert "process_inventory_scan(process_name, &snapshot)" in usb_modem_guard
+assert "scan_error = snapshot.error;" in usb_modem_guard
+assert usb_modem_guard.index("scan_error = snapshot.error;") < usb_modem_guard.index(
+    "process_snapshot_release(&snapshot);"
+)
+assert usb_modem_guard.index("process_snapshot_release(&snapshot);") < usb_modem_guard.index(
+    "if (presence == PROCESS_PRESENCE_ABSENT)"
+)
+assert "PROCESS_PRESENCE_RUNNING" in usb_modem_guard
+assert "EBUSY" in usb_modem_guard and "scan_error ? scan_error : EIO" in usb_modem_guard
+
 modem_remove = usb_modem.split("int\nsafe_remove_usb_modem(void)", 1)[1].split("\n}\n", 1)[0]
+assert 'usb_modem_require_no_active_process("usb_modeswitch")' in modem_remove
+assert 'usb_modem_require_no_active_process("eject")' in modem_remove
+assert modem_remove.index('usb_modem_require_no_active_process("usb_modeswitch")') < modem_remove.index(
+    "stop_udhcpc_wan(0)"
+)
+assert "killall" not in modem_remove
 assert "stop_status = stop_wan_usbnet();" in modem_remove
 assert "if (stop_status != 0)" in modem_remove
 assert modem_remove.index("return stop_status;") < modem_remove.index("set_usb_modem_dev_wan(0, 0)")

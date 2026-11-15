@@ -1,3 +1,12 @@
+## 2026-11-15 — Replace USB modem-wide killall with fail-closed process preflight
+
+- `safe_remove_usb_modem()` previously ran `killall usb_modeswitch` and `killall eject` before modem teardown. Those name-wide kills could terminate a mode-switch or storage-eject job belonging to another USB device, while the rest of the teardown already uses identity-bound PPP/DHCP stops.
+- Added a shared-inventory preflight for both transient processes. Removal proceeds only after each is authoritatively ABSENT; RUNNING returns `EBUSY`, UNKNOWN preserves the scanner errno (or `EIO`). Snapshot errors are captured before release. Removed both global killall operations, preserving retry safety instead of killing unrelated jobs.
+- Extended the cross-cutting process-lifecycle source contract to verify the complete scan/release/fail-closed ordering and absence of killall in the modem-removal transaction. Existing process-lifecycle and XY-C1 workflow filters already watch `usb_modem.c` and the checker.
+- Changed paths: `usb_modem.c`, `check_process_lifecycle_integration.py`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Fix HTTPD watchdog checker extraction across nested preprocessor guards
 
 - Exact process-lifecycle run `43673924543` on `3eee10383ac8f6b05554738a92dd13fbfcceeb24` passed all compiled GNU89 policy regressions and integration checks through the detector group, then failed the new HTTPD wget source assertion. The checker sliced the function at the first inner `#endif` (`SUPPORT_HTTPS`), truncating the body before the wget invocation; production code was not implicated.

@@ -31,6 +31,7 @@
 #include <disk_share.h>
 
 #include "rc.h"
+#include <process_inventory.h>
 #include "ppp_options_file.h"
 #include "modem_node_identity_policy.h"
 
@@ -788,14 +789,40 @@ notify_modem_on_internet_state_changed(int has_internet)
 }
 #endif
 
+static int
+usb_modem_require_no_active_process(const char *process_name)
+{
+	struct process_snapshot snapshot;
+	enum process_presence presence;
+	int scan_error, saved_errno;
+
+	presence = process_inventory_scan(process_name, &snapshot);
+	scan_error = snapshot.error;
+	process_snapshot_release(&snapshot);
+	if (presence == PROCESS_PRESENCE_ABSENT)
+		return 0;
+
+	if (presence == PROCESS_PRESENCE_RUNNING)
+		saved_errno = EBUSY;
+	else
+		saved_errno = scan_error ? scan_error : EIO;
+	errno = saved_errno;
+	logmessage(LOGNAME,
+		   "refusing USB modem removal while %s is active or unknown (status=%d, errno=%d)",
+		   process_name, presence, saved_errno);
+	return -1;
+}
+
 int
 safe_remove_usb_modem(void)
 {
 	const char *pidfiles[2];
 	int stop_status;
 
-	doSystem("killall %s %s", "-q", "usb_modeswitch");
-	doSystem("killall %s %s", "-q", "eject");
+	/* Never terminate unrelated USB mode-switch or storage eject jobs. */
+	if (usb_modem_require_no_active_process("usb_modeswitch") != 0 ||
+	    usb_modem_require_no_active_process("eject") != 0)
+		return -1;
 
 	if (nvram_get_int("modem_type") == 3) {
 		/* NDIS DHCP belongs to WAN unit 0, not every udhcpc instance. */
