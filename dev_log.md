@@ -1,3 +1,13 @@
+## 2026-11-15 — Correct IPTV launcher regression and restore mandatory handoff contract
+
+- Exact 5bbaa WAN DHCP callback run #43748599751 failed only in the newly added source-contract tail: the negative substring assertion also matched the intended `ret = start_*_viptv(...)` assignment. Removed the false-positive negative assertions; retained positive checks for both assigned return values, returned status and caller-side error logging.
+- Exact 5bbaa AI handoff docs #43748599523 failed because the live handoff omitted the validator-required sentence `The checkpoint is mandatory; a document edit is conditional.`. Restored the literal requirement under `Mandatory handoff checkpoint`; no bootstrap/protocol content or archived data is changed.
+- Exact 5bbaa Process inventory #43748599504 PASS. XY-C1 #43748599786 was still in progress at last poll; no Build/TRX/artifact claim for 5bbaa is made.
+- Source fix `fix(wan): propagate IPTV client launch failures` is committed at `5bbaaba493f63b0e58bac035e750907304fd9939`; this follow-up repairs its regression contract and handoff validation.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-15 — Propagate IPTV DHCP and ZeroConf launcher status through WAN startup
 
 - In `launch_viptv_wan()`, the dynamic IPTV modes previously discarded the nonzero return from `start_udhcpc_viptv()` / `start_zcip_viptv()` and always returned 0. The existing `start_wan()` caller already logs nonzero `launch_viptv_wan()` results, so launch/exec failures were silently reported as successful IPTV startup.

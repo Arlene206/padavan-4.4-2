@@ -798,8 +798,6 @@ jobs:
           assert dhcp_launch in viptv_start
           assert viptv_start.index(zcip_launch) < viptv_start.index("return ret;")
           assert viptv_start.index(dhcp_launch) < viptv_start.index("return ret;")
-          assert "start_zcip_viptv(viptv_ifname);\\n" not in viptv_start
-          assert "start_udhcpc_viptv(viptv_ifname);\\n" not in viptv_start
 
           wan_start = body(source, "void" + chr(10) + "start_wan(void)")
           launch_call = "vlan_result = launch_viptv_wan();"

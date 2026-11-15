@@ -1,20 +1,20 @@
 ## Current source / CI checkpoint
 
-- Main at the start of this slice: `2199bdb463da98d26289f819baa407e9feec97b1`. Exact-main Process inventory/lifecycle #43747014935 PASS, AI handoff docs #43747014985 PASS and NVRAM #43747014966 PASS.
-- Product-source-identical XY-C1 run #43746522702 on `be7fd92337812a28ddc5b275c7898915be114987` completed Build XY-C1, TRX verification and artifact upload successfully. Later `30e1848` and `2199bdb` changes were checker/docs only. Product-source L3 is VERIFIED on that tree; no physical-router/L4 result is claimed.
-- IGMP proxy config staging and its GNU89 ASan/UBSan host regression passed in Process #43747014935. The MiniDLNA checker now verifies the explicit `(enum process_presence)` cast to the shared startup-result logger.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Main at this checkpoint: `5bbaaba493f63b0e58bac035e750907304fd9939`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- The IPTV dynamic-client status fix is committed: `launch_viptv_wan()` now returns `start_zcip_viptv()` / `start_udhcpc_viptv()` errors to the existing `start_wan()` logger. Exact 5bbaa WAN DHCP callback run #43748599751 FAIL was caused by two newly added negative substring assertions matching the intended assigned launch calls; remove those assertions and retain the positive call/return/caller checks.
+- Exact 5bbaa AI handoff docs #43748599523 FAIL because `SESSION_HANDOFF.md` omitted the validator-required literal sentence `The checkpoint is mandatory; a document edit is conditional.`; this follow-up restores it. Exact Process inventory #43748599504 PASS.
+- Exact 5bbaa XY-C1 run #43748599786 was still in progress at last poll; do not claim Build, TRX or artifact upload until checked.
+- Earlier product-source-identical XY-C1 #43746522702 on `be7fd92337812a28ddc5b275c7898915be114987` completed Build, TRX verification and artifact upload successfully. That confirms the prior source tree only, not new `net_wan.c` changes in 5bbaa. No physical-router/L4 result is claimed.
 
 ### P1 — WAN startup status propagation
 
-- `launch_viptv_wan()` previously ignored the return values from `start_udhcpc_viptv()` and `start_zcip_viptv()`, then returned success. Its existing `start_wan()` caller already checks and logs nonzero status, so the lost return value concealed DHCP/ZeroConf exec failures.
-- This source slice now propagates both dynamic client launch statuses and extends the WAN DHCP callback workflow's source-contract regression to protect the call and logging chain. Exact-head WAN workflow and any newly triggered XY-C1 run remain to be checked on the resulting source SHA.
-- Next distinct launcher boundary: `launch_wanx()` ignores `start_udhcpc_wan()` / `start_zcip_wan()` results. Audit call-site semantics before changing behavior; PPTP/L2TP wait for physical DHCP while PPPoE intentionally does not.
+- The current slice fixes ignored IPTV DHCP/ZeroConf launch results. The production source change is present; the exact WAN workflow regression needs its false-positive negative assertions removed and rerun.
+- Next distinct boundary: `launch_wanx()` ignores `start_udhcpc_wan()` / `start_zcip_wan()` results. Audit caller semantics before changing behavior: PPTP/L2TP wait for physical DHCP while PPPoE intentionally does not wait for a physical DHCP lease.
 
 ### P2 — IGMP proxy configuration publication
 
 - `start_igmpproxy()` stages config beside the destination, rejects CR/LF injection and checks write, flush, fsync, close and atomic rename. A publication failure preserves last-good content and blocks daemon launch.
-- The host regression and overall exact-main Process workflow #43747014935 both passed. The previous stale MiniDLNA typed-state assertion was corrected in `2199bdb`.
+- Its host regression passed on exact-main Process inventory run #43748599504. The MiniDLNA typed-state checker mismatch was fixed in `2199bdb`.
 
 ## Whole-repository module status
 
