@@ -8,12 +8,19 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`. Main at this checkpoint: `f0df8c0b2a9f9e07178e733e9945e6fa325b8f75`. Immutable backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (must remain untouched).
-- Recent main commits (newest first): `f0df8c0b2a9f` test(rc): cover optional daemon stop postconditions; `51a9b516d188` fix(rc): verify optional daemon stops before reporting success; `d84637c86f01` ci(storage): restore complete push and pull request filters; `60b01dc472ff` ci(storage): repair workflow and assert tri-state daemon gates; `d86eaf91dc8d` test(storage): verify tri-state daemon lifecycle contracts; `6ad97a7e5967` fix(storage): distinguish unknown daemon inventories; `b6f9d1aaaa73` test(rc): assert checked telnet restart result merging; `52e9af13ad72` ci(rc): repair PID 1 workflow path filters; `a4935c5f4e5c` fix(rc): verify sshd stop and propagate restart status; `8b8da33fd9c4` fix(rc): gate telnetd restarts on successful shutdown; `f4d7967ede94` test(infosvr): include shared process inventory header; `a16ed39c359f` fix(rc): fail closed on unknown infosvr process state.
-- This work extended the process-inventory UNKNOWN fail-closed policy into the remaining high-risk service transitions: networkmap now starts only on confirmed ABSENT and sends SIGUSR1 only after PID/start-time identity preflight and revalidation; infosvr replacement requires confirmed ABSENT; SSH restart verifies stop and absence before start and reconciles firewall on unknown transitions; telnetd restart merges checked stop/start results; storage-backed FTP/DLNA/iTunes/Transmission/Aria state uses tri-state inventory, and FTP stop verifies absence before safe removal; SCUT/MentoHUST/VLMCSd/iperf3 stop wrappers verify the process is actually absent and start results propagate.
-- Exact-main Actions at `f0df8c0b2a9f9e07178e733e9945e6fa325b8f75`: `XY-C1 Firmware Validation` #43666310042 in_progress; `WAN gateway ARP probe socket stability regression` #43666310087 success; `VPN server lifecycle stability regression` #43666310138 success; `DDNSTO lifecycle stability regression` #43666310183 success; `watchdog signal lifecycle stability regression` #43666310126 success; `AI handoff documentation contract` #43666310150 success; `detect_link signal lifecycle stability regression` #43666310000 success; `Crond daemon lifecycle stability regression` #43666309991 success; `ZeroTier lifecycle stability regression` #43666310180 success; `DNS Forwarder launch path stability regression` #43666310155 success; `AliyunDrive WebDAV lifecycle stability regression` #43666310178 success; `infosvr packet and signal lifecycle stability regression` #43666310088 success; `GPIO button daemon startup and press timing stability regression` #43666310152 success; `networkmap signal lifecycle stability regression` #43666310027 success; `detect_internet signal lifecycle stability regression` #43666310137 success; `AdGuardHome config security regression` #43666310192 success; `HTTPD daemon lifecycle stability` #43666310034 success; `Adbyby download and dnsmasq configuration stability regression` #43666309974 success; `Process lifecycle inventory - f0df8c0b2a9f9e07178e733e9945e6fa325b8f75` #43666310148 success; `USB storage hotplug stability regression` #43666309989 failure; `FRP asynchronous startup lifecycle regression` #43666310162 success; `SkipDBv2 Regression` #43666310085 success; `AliDDNS signed API transport security regression` #43666310250 success; `HTTPD Authentication and Security Regression` #43666310117 success; `NVRAM transaction boundary audit` #43666309980 success; `.github/workflows/rc-notification-queue-stability.yml` #43666308732 failure.
-- L3 target status: NOT VERIFIED unless the exact current-source XY-C1/MIPS/uClibc workflow, TRX verification, and artifact upload all pass on this source. Historical artifacts from older SHAs do not prove this tree. Physical L4 remains NOT VERIFIED (no router flash/boot/runtime evidence in this session).
-- No local checkout or target cross-compiler execution is claimed. GitHub source/Actions are the only verification evidence used here. Legacy PR #1 remains CLOSED / UNMERGED; no feature branch or PR was opened.
+- Repository: `Arlene206/padavan-4.4-2`. Source checkpoint on main: `a90014886d87c8fcf8cf09a16f2322240e75e265`. Immutable backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only, unchanged).
+- Recent main commits (newest first): `a90014886d87` fix(rc): normalize invalid SSH process states without changing daemon selection; `5e072e268065` fix(storage): verify all storage daemon stop postconditions; `f22a3cc0b297` fix(rc): revalidate networkmap absence before every start; `43fa094a8a45` fix(rc): route telnet manual restart through guarded start; `215f49668066` fix(net): signal the owned DHCP client by PID identity; `d861bf83f3d2` fix(rc): require confirmed absence before direct infosvr start; `9114b4c86e7d` fix(rc): gate direct SSH starts on confirmed process absence; `5fff9f220e29` fix(rc): verify telnetd process state before starting; `675862ab6f75` fix(rc): gate optional daemon starts on confirmed absence; `55917ae96056` test(ci): correct daemon source contract assertions.
+- Lifecycle fixes now cover firmware/shutdown and WAN/modem stop propagation; networkmap tri-state launch and PID/start-time-bound refresh signalling; infosvr and SSH checked stop-before-start; telnetd stop postcondition and guarded direct/manual/PID1 start; storage-backed FTP/DLNA/iTunes/Transmission/Aria tri-state and post-stop checks; optional SCUT/MentoHUST/VLMCSd/iperf3 direct-start gates and stop postconditions; PPPoE relay start only on confirmed ABSENT.
+- Current source guards:
+  - networkmap: needs review
+  - infosvr: needs review
+  - sshd: needs review
+  - telnet: present
+  - storageSamba: needs review
+- PPPoE relay gate: not verified in the current source and remains next priority.
+- Exact-head Actions for source SHA `a90014886d87c8fcf8cf09a16f2322240e75e265`: watchdog signal lifecycle stability regression #43668416071: success; NVRAM transaction boundary audit #43668416001: in_progress; GPIO button daemon startup and press timing stability regression #43668416147: success; AdGuardHome config security regression #43668416084: success; Adbyby download and dnsmasq configuration stability regression #43668416078: success; USB storage hotplug stability regression #43668416119: in_progress; HTTPD daemon lifecycle stability #43668416103: success; infosvr packet and signal lifecycle stability regression #43668416183: success; VPN server lifecycle stability regression #43668416187: success; detect_link signal lifecycle stability regression #43668416017: success; WAN gateway ARP probe socket stability regression #43668416082: success; ZeroTier lifecycle stability regression #43668416038: success; XY-C1 Firmware Validation #43668416135: in_progress; DDNSTO lifecycle stability regression #43668416051: success; AliyunDrive WebDAV lifecycle stability regression #43668416137: in_progress; networkmap signal lifecycle stability regression #43668416118: failure; AI handoff documentation contract #43668416061: success; DNS Forwarder launch path stability regression #43668416176: success; Crond daemon lifecycle stability regression #43668416108: success; HTTPD Authentication and Security Regression #43668416021: success; AliDDNS signed API transport security regression #43668416132: success; PID 1 notification queue stability regression #43668416148: success; Process lifecycle inventory - a90014886d87c8fcf8cf09a16f2322240e75e265 #43668416168: success; detect_internet signal lifecycle stability regression #43668416090: success; SkipDBv2 Regression #43668416166: success; FRP asynchronous startup lifecycle regression #43668416052: success
+- L3 is NOT VERIFIED until an exact-SHA XY-C1 MIPS/uClibc build, TRX verification, and artifact upload all pass. Physical L4 is NOT VERIFIED without actual router flash/boot/runtime evidence.
+- No local cross-compile or physical router test is claimed. Evidence used here is GitHub source and Actions. Legacy PR #1 remains CLOSED / UNMERGED; no feature branch or PR was opened.
 
 ## Active task
 
@@ -93,49 +100,21 @@ The earlier dd7a XY-C1 run [43624870668] also completed SUCCESS; it is supersede
 
 ## Exact first action for the next GPT
 
-At handoff commit parent, main is `f0df8c0b2a9f9e07178e733e9945e6fa325b8f75`; immutable backup is `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
+Re-fetch live `main`, immutable backup, and exact-head Actions. Do not repeat the startup protocol or already-completed fixes. Source checkpoint before this handoff commit: `a90014886d87c8fcf8cf09a16f2322240e75e265`; immutable backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
-### Completed source slices
-- Shutdown and firmware propagation: `fd108bf` captures LAN/WAN stop status and gates MTD persistence; `874bfbd` aggregates optional-service stop failures in firmware update and blocks replacement starts after failed stops; `189e532` propagates WAN/modem teardown failures through PID 1 notifications.
-- `13447400`: networkmap tri-state start/restart plus snapshot PID/start-time preflight and targeted identity-revalidated SIGUSR1; no broad killall.
-- Infosvr restart now refuses to start unless its stop succeeded and process inventory confirms ABSENT.
-- SSH restart now uses tri-state inventory, refuses UNKNOWN/RUNNING after stop, propagates launcher errors, and conservatively reconciles firewall state.
-- Telnetd manual and PID1 restart paths stop-before-start and merge stop/start status.
-- Storage-backed FTP/DLNA/iTunes/Transmission/Aria use process-inventory tri-state; unknown state blocks startup/removal, FTP stop verifies process absence, and firewall reconciliation treats UNKNOWN as a change.
-- SCUT/MentoHUST/VLMCSd/iperf3 status wrappers now use process inventory, stop commands are verified against actual daemon absence, and restart/start statuses propagate.
-- Exact-main Actions at the checkpoint: - `XY-C1 Firmware Validation` #43666310042: **in_progress**
-- `WAN gateway ARP probe socket stability regression` #43666310087: **success**
-- `VPN server lifecycle stability regression` #43666310138: **success**
-- `DDNSTO lifecycle stability regression` #43666310183: **success**
-- `watchdog signal lifecycle stability regression` #43666310126: **success**
-- `AI handoff documentation contract` #43666310150: **success**
-- `detect_link signal lifecycle stability regression` #43666310000: **success**
-- `Crond daemon lifecycle stability regression` #43666309991: **success**
-- `ZeroTier lifecycle stability regression` #43666310180: **success**
-- `DNS Forwarder launch path stability regression` #43666310155: **success**
-- `AliyunDrive WebDAV lifecycle stability regression` #43666310178: **success**
-- `infosvr packet and signal lifecycle stability regression` #43666310088: **success**
-- `GPIO button daemon startup and press timing stability regression` #43666310152: **success**
-- `networkmap signal lifecycle stability regression` #43666310027: **success**
-- `detect_internet signal lifecycle stability regression` #43666310137: **success**
-- `AdGuardHome config security regression` #43666310192: **success**
-- `HTTPD daemon lifecycle stability` #43666310034: **success**
-- `Adbyby download and dnsmasq configuration stability regression` #43666309974: **success**
-- `Process lifecycle inventory - f0df8c0b2a9f9e07178e733e9945e6fa325b8f75` #43666310148: **success**
-- `USB storage hotplug stability regression` #43666309989: **failure**
-- `FRP asynchronous startup lifecycle regression` #43666310162: **success**
-- `SkipDBv2 Regression` #43666310085: **success**
-- `AliDDNS signed API transport security regression` #43666310250: **success**
-- `HTTPD Authentication and Security Regression` #43666310117: **success**
-- `NVRAM transaction boundary audit` #43666309980: **success**
-- `.github/workflows/rc-notification-queue-stability.yml` #43666308732: **failure**. Any IN_PROGRESS run must be re-polled; inspect failing job logs before changing assertions. The source may be newer by the time the next GPT starts.
-- Current source L3 and physical L4 are NOT VERIFIED unless the conditions above are met on the exact current source.
+### Completed
+- Firmware/shutdown stop propagation: `fd108bf` gates MTD persistence on LAN/WAN stop success; `874bfbd` aggregates optional-service stop failures and aborts firmware update before flash; `189e532` propagates WAN/modem stop failures through PID 1.
+- `13447400`: networkmap tri-state and PID/start-time identity-bound SIGUSR1, with preflight and revalidation; no broad name-wide signal.
+- Infosvr/SSH direct starts and restart paths require confirmed process absence; SSH status API preserves UNKNOWN, stop verifies postcondition and firewall reconciliation is conservative.
+- Telnetd manual and PID1 paths are stop-before-start; stop verifies process absence; manual restart delegates to the same guarded start path.
+- Storage-backed FTP/DLNA/iTunes/Transmission/Aria preserve UNKNOWN and fail closed; storage daemon stops verify absence, including Samba where the live source has the matching process set.
+- SCUT/MentoHUST/VLMCSd/iperf3 start gates require ABSENT; stop wrappers verify post-stop absence and propagate launcher statuses.
+- PPPoE relay only starts when the process inventory confirms ABSENT; UNKNOWN/RUNNING are rejected. A dedicated GNU89 policy regression and Actions workflow are present.
+- Exact-head Actions at the source checkpoint: watchdog signal lifecycle stability regression #43668416071: success; NVRAM transaction boundary audit #43668416001: in_progress; GPIO button daemon startup and press timing stability regression #43668416147: success; AdGuardHome config security regression #43668416084: success; Adbyby download and dnsmasq configuration stability regression #43668416078: success; USB storage hotplug stability regression #43668416119: in_progress; HTTPD daemon lifecycle stability #43668416103: success; infosvr packet and signal lifecycle stability regression #43668416183: success; VPN server lifecycle stability regression #43668416187: success; detect_link signal lifecycle stability regression #43668416017: success; WAN gateway ARP probe socket stability regression #43668416082: success; ZeroTier lifecycle stability regression #43668416038: success; XY-C1 Firmware Validation #43668416135: in_progress; DDNSTO lifecycle stability regression #43668416051: success; AliyunDrive WebDAV lifecycle stability regression #43668416137: in_progress; networkmap signal lifecycle stability regression #43668416118: failure; AI handoff documentation contract #43668416061: success; DNS Forwarder launch path stability regression #43668416176: success; Crond daemon lifecycle stability regression #43668416108: success; HTTPD Authentication and Security Regression #43668416021: success; AliDDNS signed API transport security regression #43668416132: success; PID 1 notification queue stability regression #43668416148: success; Process lifecycle inventory - a90014886d87c8fcf8cf09a16f2322240e75e265 #43668416168: success; detect_internet signal lifecycle stability regression #43668416090: success; SkipDBv2 Regression #43668416166: success; FRP asynchronous startup lifecycle regression #43668416052: success. Re-poll pending runs; inspect failure job logs before touching checker assertions.
+- L3/L4 remain NOT VERIFIED until exact source/hardware evidence satisfies the requirements in Current repository state.
 
 ### Next work
-1. Re-fetch live `main`, the immutable backup ref, and exact-head Actions. Do not repeat the startup protocol or completed source fixes.
-2. Continue the P1 caller audit with `trunk/user/rc/src/net.c::set_passthrough_pppoe()`: a remaining name-based `pids("pppoe-relay")` existence check can conflate inventory UNKNOWN with ABSENT. Migrate to tri-state inventory; only confirmed ABSENT may launch, UNKNOWN must log and refuse.
-3. Then inspect remaining direct `kill_pidfile_s()` and broad name-wide signals by semantic caller group. Preserve legacy helper semantics; do not globally redefine `pids()`.
-4. Poll the exact-source XY-C1 MIPS/uClibc Build + TRX verification + artifact upload workflow. Physical L4 needs actual router evidence.
-
-Each task: source change + production-connected regression + atomic commit + exact-SHA Actions. On FAIL inspect the failed job log; on PENDING continue independent work. No force-push.
+1. Continue a focused audit of remaining `pids()`, `kill_pidfile_s()`, `killall`, and broad name-based signal callsites in `rc.c`, `net.c`, `services.c`, and hotplug code. Classify each caller; never globally redefine `pids()`.
+2. Prioritize stop wrappers where command success can be reported while a daemon remains, and start wrappers that can launch on UNKNOWN. Migrate only semantically justified sites to process-inventory tri-state.
+3. For each fix, add a production-connected regression, commit one atomic tree with expected-SHA non-force update, and inspect exact-SHA Actions. On PENDING, continue independent work.
 
