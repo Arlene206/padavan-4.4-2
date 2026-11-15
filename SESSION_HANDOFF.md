@@ -8,7 +8,7 @@ For each multi-file logical slice, publish source, tests/contracts and necessary
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; exact parent for this IAPPD RC-caller status slice is `db6615af1928b3c7ea8cd564830d6ccc05d431c7`. The preceding IPTV proxy launch-status change is also in db661; IAPPD wrapper/test at `37204498a3ce81d6dd077fd551a66e15a29be344` and status-capture correction at `443c23f2f814e69549a49b42c0347f0fd42cfe9e` pass Process #43738886473. 802.1X diagnostics at `ac28f793fe7cf897edfbc26ec6766d21d1d2c70d` pass Process #43739228138, inventory #43739227948 and wireless radio #43739228377. Exact db661 Process #43740074825, AI docs #43740074768 and NVRAM #43740074736 PASS; XY-C1 #43740074742 was still in Build at last poll.
+- Repository `Arlene206/padavan-4.4-2`; current main parent for the checker correction is `c1987b2520611dd1adb1a54e655832c4c61df8b0`. RC now captures/logs restart, xt_TPROXY module-load and IAPPD post-start test wait statuses; exact c1987 Process #43740697227 failed only because the negative source contract matched assigned `system()` calls by substring. All earlier source, C/ASan/UBSan and IAPPD host steps passed. XY-C1 #43740697118 was at pre-build setup; AI docs #43740696916 PASS; NVRAM #43740696902 remained IN_PROGRESS.
 - Exact a3aa Actions: process lifecycle #43739572150 PASS; inventory artifact #43739572120 PASS; AI docs #43739572235 PASS; infosvr #43739572142 PASS; AdGuardHome #43739572092 PASS; AliDDNS #43739572118 PASS; AliyunDrive #43739572281 PASS. NVRAM #43739572197 remained IN_PROGRESS at raw ioctl audit. XY-C1 #43739572125 remained IN_PROGRESS at Build; TRX verification and artifact upload were not yet observed. The previous #43737703922 ROMFS failure was caused by `$(THISDIR)` becoming empty; a3aa now uses `$(CURDIR)`.
 - Optional RC boot wrappers for AdGuardHome, DDNS.to, Adbyby and AliDDNS retain/log launcher failures. NFS stop regression #43738132578 passed on source parent `479c05be3bef946f892f81a296d0ca3e709a698f`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only). No local checkout/MIPS toolchain or physical-router L4 result is claimed.
@@ -51,16 +51,17 @@ For each multi-file logical slice, publish source, tests/contracts and necessary
 
 ## Verification boundary
 
-- Exact parent `db6615af1928b3c7ea8cd564830d6ccc05d431c7`: Process inventory/lifecycle #43740074825 PASS (including source integration and IAPPD host tests); AI docs #43740074768 PASS; NVRAM #43740074736 PASS; AdGuardHome #43740074816 PASS; WAN route #43740074841 PASS; AliyunDrive #43740074721 PASS; AliDDNS #43740074783 PASS; infosvr #43740074867 PASS.
-- Exact db661 XY-C1 #43740074742 remained IN_PROGRESS at Build XY-C1 at last poll; TRX and artifact upload were pending. This build covers the iperf3 ROMFS fix, IAPPD wrapper, 802.1X diagnostics and IPTV proxy status changes.
-- IAPPD exact Process #43738886473 PASS on test-fix SHA `443c23f2f814e69549a49b42c0347f0fd42cfe9e`; 802.1X exact Process #43739228138, inventory #43739227948 and wireless radio #43739228377 PASS on `ac28f793fe7cf897edfbc26ec6766d21d1d2c70d`. NFS stop fixture #43738132578 PASS on its recorded source parent.
+- Exact c1987 SHA `c1987b2520611dd1adb1a54e655832c4c61df8b0`: Process inventory/lifecycle #43740697227 FAILED only in the final Python integration checker. All prior C/ASan/UBSan binaries, optional-app checks, IAPPD host lifecycle tests and earlier source contracts passed. The negative contract searched for `system("...");` as a substring and falsely matched assigned `int status = system(...);` statements.
+- Exact c1987 AI docs #43740696916 PASS; NVRAM #43740696902 and XY-C1 #43740697118 were still running/queued at their last observed stages; no firmware/TRX/artifact result is claimed.
+- Exact db661 Process #43740074825, AI docs #43740074768, NVRAM #43740074736, AdGuardHome #43740074816, WAN route #43740074841, AliyunDrive #43740074721, AliDDNS #43740074783 and infosvr #43740074867 PASS; XY-C1 #43740074742 was still at Build with TRX/artifact pending.
+- IAPPD shell lifecycle #43738886473 PASS on `443c23f2f814e69549a49b42c0347f0fd42cfe9e`; 802.1X Process #43739228138, inventory #43739227948 and wireless radio #43739228377 PASS on `ac28f793fe7cf897edfbc26ec6766d21d1d2c70d`; NFS stop fixture #43738132578 PASS on its recorded exact source parent.
 
 ## Exact first action for the next GPT
 
-1. Verify exact-head XY-C1 #43740074742 through Build, TRX output verification and artifact upload; investigate the first causal error if the build fails.
-2. Verify this IAPPD RC-caller status checker on exact-head Process lifecycle; require all three results to be captured, logged and kept in call order.
-3. Continue independent service/startup audits if XY-C1 or other workflows are PENDING; do not repeat green IAPPD, 802.1X or NFS regressions without source changes.
-4. Preserve frozen backup/archive invariants and create each logical task as one full tree/commit with an expected-SHA non-forced main update.
+1. Verify exact-head Process lifecycle after replacing the overly broad negative assertions with anchored standalone-statement regexes; check every integration sub-contract through the IAPPD caller step.
+2. Recheck XY-C1 #43740697118 and NVRAM #43740696902 for exact c1987 SHA; do not report firmware success without Build, TRX and artifact completion.
+3. Continue independent service-wrapper work while remaining jobs are PENDING; do not repeat green IAPPD wrapper or NFS tests without changed source.
+4. Keep the backup/archive read-only and all logical changes atomic with expected-SHA, non-forced updates.
 
 ## Invariants
 

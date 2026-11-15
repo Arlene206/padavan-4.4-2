@@ -818,9 +818,9 @@ assert iappd_restart_at < tproxy_load_at < iappd_test_at
 assert "if (iappd_restart_status != 0)" in iappd_boot
 assert "if (tproxy_module_status != 0)" in iappd_boot
 assert "if (iappd_test_status != 0)" in iappd_boot
-assert 'system("/usr/bin/iappd.sh restart");' not in iappd_boot
-assert 'system("/usr/bin/iappd.sh test");' not in iappd_boot
-assert 'system("modprobe xt_TPROXY");' not in iappd_boot
+assert not re.search(r'(?m)^\s*system\("/usr/bin/iappd\.sh restart"\);$', iappd_boot)
+assert not re.search(r'(?m)^\s*system\("/usr/bin/iappd\.sh test"\);$', iappd_boot)
+assert not re.search(r'(?m)^\s*system\("modprobe xt_TPROXY"\);$', iappd_boot)
 print("IAPPD RC restart, TPROXY load and post-start test status propagation: PASS")
 
 telnetd_start = services_source.split("int\nstart_telnetd(void)", 1)[1].split("\n}\n", 1)[0]

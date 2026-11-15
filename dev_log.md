@@ -1,3 +1,11 @@
+## 2026-11-15 — Tighten the IAPPD caller fire-and-forget contract
+
+- Exact c1987 Process lifecycle #43740697227 passed all C/sanitizer, optional-app, IAPPD host and prior RC integration steps, then failed at the final negative source assertion. The assertion searched for `system("...");` as a substring and incorrectly matched assigned expressions such as `int iappd_restart_status = system("...");`.
+- Replaced the three false-positive checks with multiline-anchored regular expressions that match only a standalone `system()` statement. Positive checks still require all result assignments, nonzero diagnostics and call ordering. Product source is unchanged.
+- Parent main: `c1987b2520611dd1adb1a54e655832c4c61df8b0`; result: THIS COMMIT. Exact process-lifecycle rerun required. AI docs #43740696916 PASS; NVRAM #43740696902 and XY-C1 #43740697118 pending at last poll.
+
+---
+
 ## 2026-11-15 — Surface IAPPD wrapper results at the RC boot caller
 
 - The IAPPD shell wrapper now propagates launcher, firewall, stop and process-postcondition failures, but `start_services_once()` discarded the results of `system("/usr/bin/iappd.sh restart")`, `system("modprobe xt_TPROXY")` and `system("/usr/bin/iappd.sh test")`. This hid both failed startup and failed post-start health verification at the top-level boot orchestrator.
