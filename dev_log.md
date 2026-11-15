@@ -1,3 +1,10 @@
+## 2026-11-15 — Match VPN client restart contract to locked stop helper
+
+- Post-commit source review found the legacy VPN checker still expected `restart_vpn_client_locked()` to call the public `stop_vpn_client()`, which would now reacquire the lifecycle lock and deadlock. Production correctly calls `stop_vpn_client_locked()` while holding the lock; updated the old ordering assertion to match the non-recursive path.
+- Changed paths: `check_vpn_server_lifecycle.py`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Serialize VPN client stop and fail closed on xl2tpd state/control errors
 
 - `stop_vpn_client()` was the one VPN client lifecycle entry point that did not hold the shared VPN lifecycle lock. Split its body into `stop_vpn_client_locked()`, added a lock-owning public wrapper, and changed the already-locked restart path to call the internal helper to avoid recursive locking.

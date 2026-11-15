@@ -221,7 +221,7 @@ ordered(client_restart,["vpn_server_lifecycle_lock_acquire()",
                         "vpn_server_lifecycle_lock_release(lock_fd)"],"VPN client restart")
 ordered(client_restart_locked,["stop_vpn_client_force()",
                                "if (stop_status != 0)",
-                               "stop_vpn_client()",
+                               "stop_vpn_client_locked()",
                                "if (stop_status != 0)",
                                "start_vpn_client_locked()",
                                "safe_start_xl2tpd_locked()"],"VPN client shared-daemon restart")
