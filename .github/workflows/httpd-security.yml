@@ -1761,7 +1761,7 @@ jobs:
           assert 'server=//203.0.113.9#' in test
           assert 'assert(!dnsmasq_valid_server_domain("example.com/8.8.8.8"))' in test
           hosts_update_start = net_wan.index("update_hosts_router(const char *lan_ipaddr)")
-          hosts_update_end = net_wan.index("\\nstatic int\\ncontrol_dhcp_routes", hosts_update_start)
+          hosts_update_end = net_wan.index("control_dhcp_routes", hosts_update_start)
           hosts_update = net_wan[hosts_update_start:hosts_update_end]
           assert 'hostname_fp = dnsmasq_file_open(hostname_temp);' in hosts_update
           assert 'hosts_fp = dnsmasq_file_open(hosts_temp);' in hosts_update
