@@ -9,9 +9,12 @@ For each logical task, create all source/test/doc blobs, one complete Git tree a
 ## Current repository state
 
 - Repository: Arlene206/padavan-4.4-2.
-- Main SHA at start of the current repair slice: 50e24f32f310998a71e976287981aeb45f3bcd99.
+- Parent main for current barrier-marker follow-up: b488a561bb91df62aca810a6ff2c191c17f82b2b.
 - Frozen backup branch backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; read-only.
 - Recent main commits:
+- b488a561bb91 fix(rc): preserve alternate udpxy build path and CI contracts
+- 50e24f32f310 fix(net): publish MSD Lite config atomically
+- f36d6ec94650 fix(storage): isolate Aria concurrent config staging
 - 13a16ec70f7f fix(storage): isolate concurrent Aria config staging
 - 6ad669a672f8 fix(storage): use unique Aria config staging file
 - 755e8c711f1b fix(storage): stage Aria config before daemon launch
@@ -38,7 +41,7 @@ For each logical task, create all source/test/doc blobs, one complete Git tree a
 
 The exact 13a16 storage-hotplug run #43760834648 failed in the host shell startup regression. The first concurrent Aria start exited before daemon launch. Source review found the production CONFIG_TMP and the test's cat-barrier marker both used a literal dollar sign rather than the shell PID.
 
-Aria's PID-qualified path is in place and exact-head storage #43762316227 passed, but the test barrier had a measurement race: the first cat stub could return and allow its launcher to rename the temp file before the second stub counted it. This repair adds a second `checked.$` barrier so both concurrent cat stubs record the common two-file state before either returns. A two-shell host harness passed with both counts equal to 2.
+Aria's PID-qualified path is in place and exact-head storage #43762316227 passed, but the test barrier had a measurement race: the first cat stub could return and allow its launcher to rename the temp file before the second stub counted it. This repair adds a second `checked.$$` barrier so both concurrent cat stubs record the common two-file state before either returns. A two-shell host harness passed with both counts equal to 2.
 
 The same current-head repair restores two unrelated required contracts found by exact-head Actions: the handoff adds the required `Before context exhaustion` phrase and restores the exact singular heading `## Exact first action for the next GPT`; `start_udpxy()` restores the legacy `/usr/sbin/udpxy` `#else` branch for firmware builds without `APP_MSD_LITE`. The process lifecycle checker had caught that real feature-path regression after the MSD Lite refactor.
 
@@ -61,7 +64,7 @@ The exact-head Process lifecycle host regression and XY-C1 Build/TRX/artifact wo
 
 ## Exact first action for the next GPT
 
-1. Inspect the exact-head Actions for this repair: storage two-phase barrier, AI handoff docs, infosvr handoff compatibility and Process lifecycle/udpxy fallback contract. Repair any new causal failure immediately.
+1. Inspect this follow-up's exact-head storage Actions and the preceding b488 exact-head AI docs, infosvr and Process lifecycle checks; confirm PID-qualified `entered.$$` and `checked.$$` rendezvous markers. Repair the first causal failure, not just the symptom.
 2. Check XY-C1 Build/TRX/artifact status for the MSD Lite source; claim L3 only if that exact C-source SHA has all three phases PASS.
 3. After the storage and required source contracts pass, implement Transmission's checked PID-unique same-directory `settings.json` publication with generator/transform/rename fault injection under host shell and BusyBox ash.
 4. Continue broader user-space stability/security work without repeating already-closed audits.

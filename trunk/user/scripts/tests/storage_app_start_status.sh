@@ -50,7 +50,7 @@ if [ "${STORAGE_TEST_CAT_STATUS:-0}" -ne 0 ]; then
 	exit "$STORAGE_TEST_CAT_STATUS"
 fi
 if [ -n "${STORAGE_TEST_CAT_BARRIER:-}" ]; then
-	: > "$STORAGE_TEST_CAT_BARRIER/entered.$"
+	: > "$STORAGE_TEST_CAT_BARRIER/entered.$$"
 	attempt=0
 	while :; do
 		entered=0
@@ -67,7 +67,7 @@ if [ -n "${STORAGE_TEST_CAT_BARRIER:-}" ]; then
 		[ -f "$path" ] && staged=$((staged + 1))
 	done
 	printf '%s\n' "$staged" >> "$STORAGE_TEST_TEMP_COUNT"
-	: > "$STORAGE_TEST_CAT_BARRIER/checked.$"
+	: > "$STORAGE_TEST_CAT_BARRIER/checked.$$"
 	attempt=0
 	while :; do
 		checked=0

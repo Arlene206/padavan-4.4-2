@@ -1,12 +1,12 @@
 ## Current source / CI checkpoint
 
-- Main at MSD Lite slice start: f36d6ec94650103134a55b2e9c9abca9894de075; frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Parent main for this barrier-marker follow-up: b488a561bb91df62aca810a6ff2c191c17f82b2b; frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
 - Exact XY-C1 #43756373315 Build/TRX/artifact PASS for C source 401066 only (L3). No L4.
 - WAN source fixes: static IPoE address error gate, checked physical WAN interface bring-up, AP-client WISP old interface cleanup/abort, and separate critical MAN gateway/default-route status for static PPTP/L2TP; optional route errors remain nonfatal to that static PPP decision.
 - Storage fixes: Transmission/Aria explicit launch status; Aria staged atomic default config and fail-closed directory/session/permission setup. Transmission's default settings generator, sed transform and rename are still unchecked in live source; no PID-qualified settings staging exists yet.
 - Aria uses aria2.conf.tmp.$$ for its default config. Exact 13a16 storage run #43760834648 exposed that both the production temp suffix and the test barrier marker were still literal-dollar strings; this repair makes both PID-qualified. The concurrent-start regression checks two independent staged files and dual daemon launch; exact-head storage validation is pending.
 - Exact SHA 50e24f32f310998a71e976287981aeb45f3bcd99 push Actions: storage #43762316227 SUCCESS; AliDDNS #43762316320 SUCCESS; AliyunDrive #43762316276 SUCCESS; WAN route #43762316273 SUCCESS; AdGuardHome #43762316224 SUCCESS; HTTPD #43762316127 SUCCESS; NVRAM #43762316105 SUCCESS; Process inventory #43762316049 SUCCESS. AI docs #43762316097 FAIL (missing mandatory phrase); infosvr #43762316266 FAIL (handoff heading compatibility); Process lifecycle #43762316246 FAIL (udpxy fallback deleted by MSD Lite refactor). XY-C1 #43762316142 was in progress at last check.
-- The Aria concurrency test's single barrier phase was nondeterministic: one cat stub could return before its peer recorded the number of staged files. The current repair adds a second rendezvous before either stub returns; exact-head host/BusyBox Actions are pending.
+- The Aria concurrency test's single barrier phase was nondeterministic: one cat stub could return before its peer recorded the number of staged files. The b488a561 follow-up still wrote constant `entered.$` / `checked.$`; this commit corrects both to PID-qualified `entered.$$` / `checked.$$` and triggers exact-head host/BusyBox validation.
 
 ### P1 — Storage daemon startup and config publication
 

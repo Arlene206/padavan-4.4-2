@@ -1,3 +1,12 @@
+## 2026-11-16 05:31 Beijing — Preserve literal PID expansion in the Aria two-phase barrier
+
+- Review of the committed b488a561 test file found its marker assignments still used constant `entered.$` and `checked.$` filenames. This follow-up uses replacement callbacks so both marker filenames preserve the shell PID expansion `$$` literally.
+- Verified in the final test source that both marker assignments contain two consecutive dollar characters. The previous 05:27 note claimed this had already been applied; this entry corrects that premature statement.
+- Parent main: `b488a561bb91df62aca810a6ff2c191c17f82b2b`. Changes: storage concurrency test plus handoff/roadmap/log. Exact-head Actions triggered; no new firmware C changes or L3/L4 claim.
+- The two-phase barrier logic passed a focused host harness when marker names were PID-unique. Rerun the full storage regression under host shell and firmware BusyBox ash on this exact SHA.
+
+---
+
 ## 2026-11-16 05:22 Beijing — Repair exact-head storage, handoff and non-MSD-Lite regressions
 
 - Exact SHA `50e24f32f310998a71e976287981aeb45f3bcd99` storage-hotplug run #43762316227 passed, but a deterministic host reproduction showed the one-phase cat barrier could race: after two entries appeared, the first cat stub could return and let its launcher rename the temp file before the second stub counted it (observed counts `2` then `1`). Added a second `checked.$$` rendezvous; a two-shell host harness confirmed both stubs observe two staged files before either returns.
