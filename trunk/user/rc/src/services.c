@@ -443,6 +443,12 @@ sshd_process_presence(int *scan_error)
 	if (scan_error)
 		*scan_error = snapshot.error;
 	process_snapshot_release(&snapshot);
+	if (presence != PROCESS_PRESENCE_ABSENT &&
+	    presence != PROCESS_PRESENCE_RUNNING) {
+		presence = PROCESS_PRESENCE_UNKNOWN;
+		if (scan_error && *scan_error <= 0)
+			*scan_error = EIO;
+	}
 	return presence;
 }
 
