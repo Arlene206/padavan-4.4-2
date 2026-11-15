@@ -464,14 +464,23 @@ jobs:
           assert "return ret;" in rc
 
           ipv6_restart = function_body(net6, "full_restart_ipv6(int ipv6_type_old)")
-          assert "dnsmasq_status = dnsmasq_process_status(&scan_error);" in ipv6_restart
-          assert "dnsmasq_stop_status = stop_dns_dhcpd();" in ipv6_restart
+          assert '#include "dnsmasq_lifecycle_lock.h"' in net6
+          assert "dnsmasq_lock = dnsmasq_lifecycle_lock_acquire();" in ipv6_restart
+          assert "dnsmasq_stop_status = stop_dns_dhcpd_locked();" in ipv6_restart
           assert "if (dnsmasq_stop_status != 0)" in ipv6_restart
           assert "could not confirm DNSMasq stop" in ipv6_restart
-          assert "if (dnsmasq_status == 0)" in ipv6_restart
-          assert "else if (dnsmasq_status < 0)" in ipv6_restart
+          assert "start_dns_dhcpd_locked(0)" in ipv6_restart
+          assert "stop_dns_dhcpd()" not in ipv6_restart
+          assert "start_dns_dhcpd(0)" not in ipv6_restart
           assert "is_dns_dhcpd_run()" not in ipv6_restart
-          assert "start_dns_dhcpd(0)" in ipv6_restart
+          assert "dnsmasq_status = dnsmasq_process_status(&scan_error);" in ipv6_restart
+          disabled_branch = ipv6_restart.split("if (ipv6_type == IPV6_DISABLED)", 1)[1].split("\\n\\t} else {", 1)[0]
+          enabled_branch = ipv6_restart.split("\\n\\t} else {", 1)[1]
+          assert disabled_branch.index("start_dns_dhcpd_locked(0)") < disabled_branch.index("dnsmasq_lifecycle_lock_release(dnsmasq_lock)")
+          assert enabled_branch.index("dnsmasq_lifecycle_lock_release(dnsmasq_lock)") < enabled_branch.index("full_restart_wan()")
+          assert enabled_branch.index("full_restart_wan()") < enabled_branch.index("dnsmasq_lock = dnsmasq_lifecycle_lock_acquire()")
+          assert enabled_branch.index("dnsmasq_lock = dnsmasq_lifecycle_lock_acquire()") < enabled_branch.index("dnsmasq_status = dnsmasq_process_status(&scan_error)")
+          assert enabled_branch.index("dnsmasq_status = dnsmasq_process_status(&scan_error)") < enabled_branch.index("start_dns_dhcpd_locked(0)")
           assert "int dnsmasq_process_status(int *scan_error);" in rc_header
 
           arp_cleanup = function_body(services, "arpbind_clear(")

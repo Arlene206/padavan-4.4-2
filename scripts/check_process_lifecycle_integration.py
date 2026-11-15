@@ -223,8 +223,19 @@ assert "stop_vpn_client_ppp(1)" in vpn_client_force
 assert "process_pidfile_parse_link_record" in process_pidfile
 assert "write_link_pidfile_record" in pppd_main
 assert "pppd_pidfile_format_link_record" in pppd_policy
-assert "stop_vpn_client() != 0" in (root / "trunk/user/rc/src/net_wan.c").read_text()
-print("VPN client PPP link PID-file stop integration: PASS")
+net_wan = (root / "trunk/user/rc/src/net_wan.c").read_text()
+wan_ppp_stop = net_wan.split("static int\\nstop_wan_ppp_locked(void)", 1)[1].split("\\n}", 1)[0]
+wan_full_stop = net_wan.split("static int\\nstop_wan_locked(void)", 1)[1].split("\\n}", 1)[0]
+wan_lock_runner = net_wan.split("run_wan_stop_under_vpn_lifecycle_lock(int (*operation)(void), const char *name)", 1)[1].split("\\n}", 1)[0]
+for stop_body in (wan_ppp_stop, wan_full_stop):
+    assert "stop_vpn_client_under_lifecycle_lock() != 0" in stop_body
+    assert "stop_vpn_client() != 0" not in stop_body
+    assert "kill_services(svcs_ppp, 6, 1)" in stop_body
+assert wan_lock_runner.index("vpn_server_lifecycle_lock_acquire()") < wan_lock_runner.index("result = operation()")
+assert wan_lock_runner.index("result = operation()") < wan_lock_runner.index("vpn_server_lifecycle_lock_release(lock_fd)")
+assert "run_wan_stop_under_vpn_lifecycle_lock(stop_wan_ppp_locked" in net_wan
+assert "run_wan_stop_under_vpn_lifecycle_lock(stop_wan_locked" in net_wan
+print("VPN client PPP link PID-file stop and non-reentrant WAN lifecycle integration: PASS")
 
 udhcpc_source = (root / "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcpc.c").read_text()
 udhcpc_writer = udhcpc_source.split("static int\nwrite_udhcpc_pidfile", 1)[1].split("\n#if BB_MMU", 1)[0]

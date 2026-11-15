@@ -35,6 +35,7 @@
 #include <dirent.h>
 
 #include "rc.h"
+#include "dnsmasq_lifecycle_lock.h"
 
 #if defined (USE_IPV6)
 
@@ -153,6 +154,20 @@ full_restart_ipv6(int ipv6_type_old)
 	int ipv6_type = get_ipv6_type();
 	int ipv6_toggled = ((ipv6_type == IPV6_DISABLED || ipv6_type_old == IPV6_DISABLED) && (ipv6_type != ipv6_type_old)) ? 1 : 0;
 	int dnsmasq_status, dnsmasq_start_status, dnsmasq_stop_status, scan_error = 0;
+	int dnsmasq_lock, dnsmasq_lock_errno;
+
+	/*
+	 * Serialize the IPv6-only DNSMasq configuration changes with watchdog and
+	 * other RC applets. Acquire before stopping any service so lock failure
+	 * leaves the existing network state untouched.
+	 */
+	dnsmasq_lock = dnsmasq_lifecycle_lock_acquire();
+	if (dnsmasq_lock < 0) {
+		dnsmasq_lock_errno = errno ? errno : EIO;
+		logmessage(LOGNAME, "IPv6 restart refused: cannot acquire DNSMasq lifecycle lock (errno=%d)",
+			   dnsmasq_lock_errno);
+		return;
+	}
 
 	if (ipv6_toggled) {
 		stop_lltd();
@@ -163,9 +178,9 @@ full_restart_ipv6(int ipv6_type_old)
 #endif
 	stop_upnp();
 	stop_dhcp6c();
-	dnsmasq_stop_status = stop_dns_dhcpd();
+	dnsmasq_stop_status = stop_dns_dhcpd_locked();
 	if (dnsmasq_stop_status != 0)
-		logmessage(LOGNAME, "IPv6 restart could not confirm DNSMasq stop (status=%d); checking process state",
+		logmessage(LOGNAME, "IPv6 restart could not confirm DNSMasq stop (status=%d); start remains fail-closed",
 			   dnsmasq_stop_status);
 
 	if (ipv6_type == IPV6_DISABLED) {
@@ -177,34 +192,60 @@ full_restart_ipv6(int ipv6_type_old)
 		reset_wan6_vars();
 		control_if_ipv6_all(0);
 		set_libc_gai(1);
+		/* This no-notify refresh cannot recurse into restart_dns(). */
 		refresh_resolvconf_nonfatal_no_notify("IPv6 disabled", 0);
 		reload_nat_modules();
 		restart_firewall();
-		dnsmasq_start_status = start_dns_dhcpd(0);
+		dnsmasq_start_status = start_dns_dhcpd_locked(0);
 		if (dnsmasq_start_status != 0)
 			logmessage(LOGNAME, "IPv6 disable completed but DNSMasq did not restart (status=%d)",
 				   dnsmasq_start_status);
+		if (dnsmasq_lifecycle_lock_release(dnsmasq_lock) != 0)
+			logmessage(LOGNAME, "cannot release DNSMasq lifecycle lock after IPv6 disable (errno=%d)",
+				   errno ? errno : EIO);
 	} else {
 		set_libc_gai(0);
 		control_if_ipv6_all(1);
 		clear_all_addr6();
 		reset_lan6_vars();
 		reload_lan_addr6();
+
+		/*
+		 * Release before full_restart_wan(): WAN teardown owns the VPN lock and
+		 * resolver refresh can re-enter the DNSMasq lock. Keeping this order
+		 * prevents a DNSMasq -> VPN / VPN -> DNSMasq lock cycle.
+		 */
+		if (dnsmasq_lifecycle_lock_release(dnsmasq_lock) != 0)
+			logmessage(LOGNAME, "cannot release DNSMasq lifecycle lock before WAN restart (errno=%d)",
+				   errno ? errno : EIO);
+
 		full_restart_wan();
-		dnsmasq_status = dnsmasq_process_status(&scan_error);
-		if (dnsmasq_status == 0) {
-			dnsmasq_start_status = start_dns_dhcpd(0);
-			if (dnsmasq_start_status != 0)
-				logmessage(LOGNAME, "IPv6 restart could not start DNSMasq (status=%d)",
-					   dnsmasq_start_status);
-		} else if (dnsmasq_status < 0) {
-			logmessage(LOGNAME,
-				   "IPv6 restart cannot verify DNSMasq state; refusing duplicate start (scan_error=%d)",
-				   scan_error ? scan_error : EIO);
-		} else if (dnsmasq_status != 1) {
-			logmessage(LOGNAME,
-				   "IPv6 restart received invalid DNSMasq state; refusing duplicate start (status=%d)",
-				   dnsmasq_status);
+
+		/* Re-enter the DNSMasq barrier only after all VPN/WAN work is complete. */
+		dnsmasq_lock = dnsmasq_lifecycle_lock_acquire();
+		if (dnsmasq_lock < 0) {
+			dnsmasq_lock_errno = errno ? errno : EIO;
+			logmessage(LOGNAME, "IPv6 WAN restart completed but DNSMasq lifecycle lock reacquisition failed (errno=%d)",
+				   dnsmasq_lock_errno);
+		} else {
+			dnsmasq_status = dnsmasq_process_status(&scan_error);
+			if (dnsmasq_status == 0) {
+				dnsmasq_start_status = start_dns_dhcpd_locked(0);
+				if (dnsmasq_start_status != 0)
+					logmessage(LOGNAME, "IPv6 restart could not start DNSMasq (status=%d)",
+						   dnsmasq_start_status);
+			} else if (dnsmasq_status < 0) {
+				logmessage(LOGNAME,
+					   "IPv6 restart cannot verify DNSMasq state; refusing duplicate start (scan_error=%d)",
+					   scan_error ? scan_error : EIO);
+			} else if (dnsmasq_status != 1) {
+				logmessage(LOGNAME,
+					   "IPv6 restart received invalid DNSMasq state; refusing duplicate start (status=%d)",
+					   dnsmasq_status);
+			}
+			if (dnsmasq_lifecycle_lock_release(dnsmasq_lock) != 0)
+				logmessage(LOGNAME, "cannot release DNSMasq lifecycle lock after IPv6 WAN restart (errno=%d)",
+					   errno ? errno : EIO);
 		}
 		reload_nat_modules();
 	}
