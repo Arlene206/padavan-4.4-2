@@ -94,7 +94,7 @@ assert "DHCPACK for %s" in ack
 # A failed deconfig blocks NAK/expiry/release/manual-renew state transitions.
 assert "#define DECONFIG_PENDING 7" in dhcpc
 assert "static smallint deconfig_resume_state;" in dhcpc
-scheduler = function_body(dhcpc, "static void udhcpc_schedule_deconfig_retry")
+scheduler = function_body(dhcpc, "udhcpc_schedule_deconfig_retry(")
 assert "change_listen_mode(LISTEN_NONE)" in scheduler
 assert "state = DECONFIG_PENDING;" in scheduler
 assert "*already_waited_sec = 0;" in scheduler
