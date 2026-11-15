@@ -1,3 +1,13 @@
+## 2026-11-15 10:28 CST — Correct PID 1 and process-inventory source contracts
+
+- Exact-head PID 1 run `43666824125` on `b84bfafaed5745700782f3c8a3c54683c9126c5b` failed in the final inline checker: it required `PROCESS_PRESENCE_UNKNOWN` to appear inside `optional_daemon_policy.h`, although the header delegates the enum to `process_inventory.h` and the policy test exercises UNKNOWN. The check now validates ABSENT in the policy and UNKNOWN in its regression test.
+- Exact-head process-inventory run `43667225953` on `0eb191bbe35c422a3bf3835b0cda9a97b3637b24` failed because the integration checker incorrectly required a host-only PPPoE policy test to appear in the XY-C1 firmware-build trigger. Removed that test from target-build sources while retaining the production policy header, and explicitly checked that net.c/header/test are all watched by the process-lifecycle regression workflow.
+- Corrected the PPPoE source check's function delimiter so assertions are scoped to `set_passthrough_pppoe()`, not the remainder of net.c.
+- No product implementation changed in this contract-only correction. Changed paths: `.github/workflows/rc-notification-queue-stability.yml`, `scripts/check_process_lifecycle_integration.py`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
+
 ## 2026-11-15 10:23 CST — Fail closed on unknown PPPoE relay inventory
 
 - Continued the handoff's P1 task in `trunk/user/rc/src/net.c::set_passthrough_pppoe()`. The old `pids("pppoe-relay")` Boolean check did not encode the process inventory's RUNNING/ABSENT/UNKNOWN contract; start authorization now comes only from a complete ABSENT snapshot.

@@ -28,7 +28,7 @@ assert "process_identity_validate(service_name, identity)" in common_ex
 assert "kill(identity->pid, signal_number)" in common_ex
 assert 'doSystem("killall %s %s", signal_option, service_name)' not in common_ex
 assert "service_lifecycle_preflight" in policy
-pppoe_start = net_source.split("set_passthrough_pppoe(int is_on)", 1)[1].split("\\nvoid\\nset_igmp_mld_version", 1)[0]
+pppoe_start = net_source.split("set_passthrough_pppoe(int is_on)", 1)[1].split("set_igmp_mld_version", 1)[0]
 assert '#include "process_inventory.h"' in net_source
 assert '#include "pppoe_relay_policy.h"' in net_source
 assert 'process_inventory_scan("pppoe-relay", &snapshot)' in pppoe_start
@@ -287,9 +287,6 @@ xy_target_sources = (
     "trunk/user/rc/src/inicd.c",
     "trunk/user/rc/src/net_wifi.c",
     "trunk/user/rc/src/detect_wan.c",
-    "trunk/user/rc/src/net.c",
-    "trunk/user/rc/src/pppoe_relay_policy.h",
-    "trunk/user/rc/src/tests/pppoe_relay_policy.c",
     "trunk/user/rc/src/detect_wan_udhcpc_policy.h",
     "trunk/user/shared/src/process_pidfile.c",
     "trunk/user/shared/src/process_pidfile.h",
@@ -329,6 +326,9 @@ assert "PROCESS_PRESENCE_RUNNING) == 1" in wan_test
 assert "WAN DHCP renewal tri-state policy: PASS" in wan_test
 for path in (
     "trunk/user/rc/src/detect_wan.c",
+    "trunk/user/rc/src/net.c",
+    "trunk/user/rc/src/pppoe_relay_policy.h",
+    "trunk/user/rc/src/tests/pppoe_relay_policy.c",
     "trunk/user/rc/src/detect_wan_udhcpc_policy.h",
     "trunk/user/rc/src/tests/detect_wan_udhcpc_policy.c",
 ):

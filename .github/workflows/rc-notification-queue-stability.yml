@@ -143,6 +143,8 @@ jobs:
           assert "rc_notify_merge_action_result(action_result, restart_sshd())" in handler
           assert "rc_notify_merge_action_result(action_result, restart_lltd())" in handler
           services = open("trunk/user/rc/src/services.c").read()
+          optional_policy = (ROOT / "trunk/user/rc/src/optional_daemon_policy.h").read_text()
+          optional_test = (ROOT / "trunk/user/rc/src/tests/optional_daemon_policy.c").read_text()
           app_restarts = (
               "restart_scutclient", "restart_mentohust", "restart_ttyd",
               "restart_ss", "restart_ss_tunnel", "restart_vlmcsd",
@@ -164,7 +166,8 @@ jobs:
               assert "return start_" + daemon + "();" in services
               assert "int start_" + daemon + "(void);" in rc_header
           assert "optional_daemon_stop_complete(command_status, presence)" in services
-          assert "PROCESS_PRESENCE_UNKNOWN" in (ROOT / "trunk/user/rc/src/optional_daemon_policy.h").read_text()
+          assert "PROCESS_PRESENCE_ABSENT" in optional_policy
+          assert "PROCESS_PRESENCE_UNKNOWN" in optional_test
 
           for name in ("stop_scutclient", "stop_mentohust"):
               assert "action_result = rc_notify_merge_action_result(action_result, " + name + "())" in handler, name
