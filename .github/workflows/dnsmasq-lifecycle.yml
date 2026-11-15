@@ -9,6 +9,7 @@ on:
       - "trunk/user/rc/src/tests/dnsmasq_reload_policy.c"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/dnsmasq_domain_policy.h"
       - "trunk/user/rc/src/init.c"
       - "trunk/user/rc/src/inadyn_config_file.h"
       - "trunk/user/rc/src/tests/inadyn_config_file.c"
@@ -36,6 +37,7 @@ on:
       - "trunk/user/rc/src/tests/dnsmasq_reload_policy.c"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/dnsmasq_domain_policy.h"
       - "trunk/user/rc/src/init.c"
       - "trunk/user/rc/src/inadyn_config_file.h"
       - "trunk/user/rc/src/tests/inadyn_config_file.c"
@@ -414,7 +416,10 @@ jobs:
           assert "int full_restart_lan(void);" in rc_header
           notification = function_body(rc, "handle_notifications(void)")
           assert "rc_notify_merge_action_result(action_result, full_restart_lan())" in notification
-          assert notification.count("rc_notify_merge_action_result(action_result, restart_dhcpd())") == 4
+          assert notification.count("rc_notify_merge_action_result(action_result, restart_dhcpd())") == 5
+          assert "int hosts_status = update_hosts_ap();" in notification
+          assert "if (hosts_status == 0)" in notification
+          assert "rc_notify_merge_action_result(action_result, hosts_status)" in notification
           assert notification.count("rc_notify_merge_action_result(action_result, restart_nmbd())") == 2
           assert "restart_dhcpd();" not in notification
           assert "restart_nmbd();" not in notification
