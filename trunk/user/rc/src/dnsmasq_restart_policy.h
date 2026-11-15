@@ -56,6 +56,24 @@ dnsmasq_restart_policy_action(int was_running, int prepare_status, int service_e
 
 /* A successful daemonization parent exit is not proof that the child remains
  * available. Require a process-presence postcondition after bounded polling. */
+enum dnsmasq_ddns_cache_purge_action {
+	DNSMASQ_DDNS_CACHE_PURGE_SKIP = 0,
+	DNSMASQ_DDNS_CACHE_PURGE_RESTART,
+	DNSMASQ_DDNS_CACHE_PURGE_UNKNOWN
+};
+
+/* An opportunistic DDNS cache purge must not interpret UNKNOWN as ABSENT or
+ * authorize a DNSMasq operation on an incomplete process snapshot. */
+static enum dnsmasq_ddns_cache_purge_action
+dnsmasq_ddns_cache_purge_action_for_presence(enum process_presence presence)
+{
+	if (presence == PROCESS_PRESENCE_RUNNING)
+		return DNSMASQ_DDNS_CACHE_PURGE_RESTART;
+	if (presence == PROCESS_PRESENCE_ABSENT)
+		return DNSMASQ_DDNS_CACHE_PURGE_SKIP;
+	return DNSMASQ_DDNS_CACHE_PURGE_UNKNOWN;
+}
+
 static int
 dnsmasq_start_policy_status(int launch_status,
 			    enum process_presence daemon_presence)

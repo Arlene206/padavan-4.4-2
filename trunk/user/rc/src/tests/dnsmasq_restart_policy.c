@@ -33,6 +33,15 @@ main(void)
 	assert(dnsmasq_stop_policy_should_clear_arp(0));
 	assert(!dnsmasq_stop_policy_should_clear_arp(EBUSY));
 
+	assert(dnsmasq_ddns_cache_purge_action_for_presence(PROCESS_PRESENCE_RUNNING) ==
+	       DNSMASQ_DDNS_CACHE_PURGE_RESTART);
+	assert(dnsmasq_ddns_cache_purge_action_for_presence(PROCESS_PRESENCE_ABSENT) ==
+	       DNSMASQ_DDNS_CACHE_PURGE_SKIP);
+	assert(dnsmasq_ddns_cache_purge_action_for_presence(PROCESS_PRESENCE_UNKNOWN) ==
+	       DNSMASQ_DDNS_CACHE_PURGE_UNKNOWN);
+	assert(dnsmasq_ddns_cache_purge_action_for_presence((enum process_presence)7) ==
+	       DNSMASQ_DDNS_CACHE_PURGE_UNKNOWN);
+
 	puts("DNSMasq restart policy: PASS");
 	return 0;
 }

@@ -1693,13 +1693,24 @@ int
 ddns_updated_main(int argc, char *argv[])
 {
 	int restart_status;
+	int scan_error = 0;
+	enum process_presence dnsmasq_presence;
+	enum dnsmasq_ddns_cache_purge_action cache_action;
 
 	/* The cache purge is best effort; do not fail the DDNS update callback. */
-	if (getenv("INADYN_IP") && is_dns_dhcpd_run()) {
-		restart_status = restart_dns();
-		if (restart_status != 0)
-			logmessage(LOGNAME, "DDNS update completed but DNSMasq cache purge failed (status=%d)",
-				   restart_status);
+	if (getenv("INADYN_IP")) {
+		dnsmasq_presence = dnsmasq_process_presence(&scan_error);
+		cache_action = dnsmasq_ddns_cache_purge_action_for_presence(dnsmasq_presence);
+		if (cache_action == DNSMASQ_DDNS_CACHE_PURGE_RESTART) {
+			restart_status = restart_dns();
+			if (restart_status != 0)
+				logmessage(LOGNAME, "DDNS update completed but DNSMasq cache purge failed (status=%d)",
+					   restart_status);
+		} else if (cache_action == DNSMASQ_DDNS_CACHE_PURGE_UNKNOWN) {
+			logmessage(LOGNAME,
+				   "skipping DNSMasq cache purge after DDNS update because process state is unknown (scan_error=%d)",
+				   scan_error ? scan_error : EIO);
+		}
 	}
 
 	return 0;

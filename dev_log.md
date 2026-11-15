@@ -1,3 +1,11 @@
+## 2026-11-14 — Preserve DNSMasq UNKNOWN during DDNS cache-purge notification
+
+- Migrated the remaining `services_ex.c::ddns_updated_main()` legacy `pids("dnsmasq")` gate to the existing complete process-inventory scanner. A confirmed RUNNING DNSMasq triggers the best-effort cache purge; confirmed ABSENT skips the unnecessary restart; UNKNOWN or invalid inventory logs the scan error and does not run the purge path.
+- Added an explicit pure policy mapping for RUNNING / ABSENT / UNKNOWN plus invalid enum values, with GNU89 unit regressions. The DNSMasq lifecycle workflow already covers the source, policy header and test; added the policy header to XY-C1 firmware workflow path filters so target builds rerun when this included production header changes.
+- Changed paths: `trunk/user/rc/src/services_ex.c`, `trunk/user/rc/src/dnsmasq_restart_policy.h`, `trunk/user/rc/src/tests/dnsmasq_restart_policy.c`, `.github/workflows/xy-c1-firmware-validation.yml`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
 ## 2026-11-14 — Fix VSFTPD source-checker function signature parsing
 
 - Exact-head VSFTPD stability run `43670514105` on `80952b0eb515c9fd46ed1b4608638b79a1797197` passed its GNU89 regression binary and failed only in the final Python source contract. The checker was asked to extract `handle_rnfr()` / `handle_rnto()` with signatures that already included the opening `{`; its parser searched for a second opening brace after the signature and falsely reported a missing definition.

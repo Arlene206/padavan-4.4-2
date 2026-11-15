@@ -29,6 +29,7 @@ on:
       - "trunk/user/rc/src/inadyn_daemon_policy.h"
       - "trunk/user/rc/src/miniupnpd_daemon_policy.h"
       - "trunk/user/rc/src/dnsmasq_reload_policy.h"
+      - "trunk/user/rc/src/dnsmasq_restart_policy.h"
       - "trunk/user/rc/src/net_lan.c"
       - "trunk/user/rc/src/common_ex.c"
       - "trunk/user/rc/src/net_wan6.c"
