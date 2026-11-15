@@ -148,6 +148,18 @@ for daemon, signature in (
     state_fn = body(storage, signature)
     require('storage_daemon_presence("' + daemon + '", NULL)' in state_fn,
             "storage daemon query must use tri-state inventory: " + daemon)
+stop_body = body(storage, "stop_dms(void)")
+require("storage_service_stop_complete(" in stop_body,
+        "stop_dms must verify daemon absence after stop")
+stop_body = body(storage, "stop_itunes(void)")
+require("storage_service_stop_complete(" in stop_body,
+        "stop_itunes must verify daemon absence after stop")
+stop_body = body(storage, "stop_torrent(void)")
+require("storage_service_stop_complete(" in stop_body,
+        "stop_torrent must verify daemon absence after stop")
+stop_body = body(storage, "stop_aria(void)")
+require("storage_service_stop_complete(" in stop_body,
+        "stop_aria must verify daemon absence after stop")
 ftp_stop = body(storage, "stop_ftp_locked(void)")
 require("storage_service_stop_complete(status, is_ftp_run())" in ftp_stop,
         "FTP stop must verify daemon absence before eject")

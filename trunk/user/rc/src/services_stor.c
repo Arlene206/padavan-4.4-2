@@ -1902,7 +1902,7 @@ stop_dms(void)
 
 	status = stop_dms_locked();
 	file_unlock(storage_lock);
-	return status;
+	return storage_service_stop_complete(status, is_dms_run());
 }
 
 void update_minidlna_conf(const char *link_path, const char *conf_path)
@@ -2099,7 +2099,7 @@ stop_itunes(void)
 
 	status = stop_itunes_locked();
 	file_unlock(storage_lock);
-	return status;
+	return storage_service_stop_complete(status, is_itunes_run());
 }
 
 static void 
@@ -2290,7 +2290,7 @@ stop_torrent(void)
 
 	status = stop_torrent_locked();
 	file_unlock(storage_lock);
-	return status;
+	return storage_service_stop_complete(status, is_torrent_run());
 }
 
 void run_torrent(void)
@@ -2401,7 +2401,7 @@ stop_aria(void)
 
 	status = stop_aria_locked();
 	file_unlock(storage_lock);
-	return status;
+	return storage_service_stop_complete(status, is_aria_run());
 }
 
 void run_aria(void)
