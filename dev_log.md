@@ -1,3 +1,12 @@
+## 2026-11-15 — Use local bounded extraction for HTTPD probe contract
+
+- Exact process lifecycle run `43674095479` on `624e8fa2c4a471ee90127e42bc972a8a1c005ddc` revealed the next checker-only issue: `check_process_lifecycle_integration.py` has no shared `body()` helper (that helper exists in a different workflow's checker), so the nested-preprocessor fix raised `TypeError: 'str' object is not callable`.
+- Changed the probe extraction to bound the complete `httpd_check_v2()` source between its signature and the following `refresh_ntp()` definition. This includes the HTTPS inner `#endif` and the wget invocation while keeping the check local to this script.
+- The process-lifecycle source tests themselves all passed through detector checks before this Python extraction error.
+- Changed paths: `check_process_lifecycle_integration.py`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Replace USB modem-wide killall with fail-closed process preflight
 
 - `safe_remove_usb_modem()` previously ran `killall usb_modeswitch` and `killall eject` before modem teardown. Those name-wide kills could terminate a mode-switch or storage-eject job belonging to another USB device, while the rest of the teardown already uses identity-bound PPP/DHCP stops.
