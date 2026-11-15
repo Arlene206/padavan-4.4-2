@@ -8,7 +8,7 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2. Current main parent before this MIPS disk-parser fix: a7bfbdf6de475f46469cc19661265b4801306f0f. AliDDNS exact-head [43656161389] and HTTPD Authentication/Security [43656161273] passed on this main after their respective source/checker fixes. DNSMasq lifecycle [43655773415] passed on 59853da. Process inventory [43656161404], AdGuardHome [43656161276] and infosvr [43656161384] passed on a7bfb; NVRAM [43656161302] and AliyunDrive [43656161349] were IN_PROGRESS. XY-C1 [43656161268] was IN_PROGRESS at Build XY-C1; it predates this parser fix and does not resolve the known failure [43654318351] on ea2163e, where variable 64-bit division caused hidden __udivdi3 at the RC link. This commit removes all division and adds UINT_MAX/ULLONG_MAX coverage. Current-source L3 remains PENDING; physical L4 is NOT VERIFIED. Backup 72f4f157a084f8184b9597ca5bf334b8080e5807 remains immutable.
+- Repository: Arlene206/padavan-4.4-2. Only `main` is writable. Parent before this DNSMasq presence-gate slice is `3ca4126c209e5a76dad3d0802d02972b7e157172`; parent includes strict storage inventory validation. Detached-child readiness is tri-state, but start preflight and restart post-stop checks still used Boolean `is_dns_dhcpd_run()`. This commit replaces them with RUNNING/ABSENT/UNKNOWN inventory: only ABSENT permits config preparation, second launch gate and replacement launch; UNKNOWN aborts with captured errno before mutation and after stop. GNU89 policy and source-order contracts are extended. Exact Actions on parent 3ca4126 were not fully reconciled at the time of this commit; current-source L3 and physical L4 remain NOT VERIFIED. Backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains immutable.
 - Immutable archive: `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`. Read-only; never modify it.
 - **Permanent user entrypoint:** `接手 https://github.com/Arlene206/padavan-4.4-2/ 继续开发`. The user does not need a long prompt, previous chat, or repository upload. Never output a recursive next-GPT prompt in chat. Git documents and live GitHub state are the project memory.
 - Recovery is read-only by default: read complete `AI_DEVELOPMENT_PROTOCOL.md` and `AI_BOOTSTRAP_PROMPT.md`; fetch live main + immutable backup; inspect exact-head Actions; then read this handoff, roadmap, newest 20 dev-log records, `docs/dev-log/INDEX.md`, and the semantic audit report for the active caller group. Do not create a commit to refresh SHA fields, record a takeover, or report a CI poll.
@@ -111,10 +111,8 @@ Immutable backup: backup/pre-plugin-overhaul-2026-11-14 = 72f4f157a084f8184b9597
 - Current L3 stays PENDING until exact new-head XY-C1 completes Build XY-C1, TRX verification and artifact upload. L4 physical-router validation remains NOT VERIFIED.
 
 ### Next work
-1. Verify the exact-head storage-hotplug regression and XY-C1 firmware build triggered by this commit. If XY fails, use its actual link log and continue repairing until a matching SHA passes Build, TRX and artifact upload.
-2. Poll NVRAM [43656161302] and AliyunDrive [43656161349] exact-parent runs; inspect logs and repair any failure before marking their source slices complete.
-3. Continue DNSMasq pre-launch duplicate-presence and restart stop-state semantics in services_ex.c; post-launch readiness is tri-state, but other is_dns_dhcpd_run() guards still use legacy Boolean pids().
-4. Continue process lifecycle work at detect_wan.c::chk_udhcpc(): UNKNOWN from pids("udhcpc") is truthy and can authorize name-wide SIGUSR1. Replace that decision with RUNNING/ABSENT/UNKNOWN and add a caller-level regression.
-5. Continue shutdown/Samba/NVRAM postconditions without repeating completed censuses. L4 physical-router validation remains NOT VERIFIED. Use atomic complete trees and expected-SHA non-force main updates.
-
-Do not redo bootstrap or completed audits. Re-fetch live main before every write; preserve the immutable backup.
+1. Inspect exact-head DNSMasq lifecycle regression for this presence-gate slice; fix any GNU89 or source-contract failure. Reconcile pending parent 3ca4126 Actions as well.
+2. Reconcile exact-head XY-C1 firmware validation. Current source remains L3 NOT VERIFIED until Build XY-C1, TRX verification and artifact upload all pass.
+3. Audit DNSMasq cache reload (`restart_dns()`) separately: its legacy Boolean process guard precedes name-wide SIGHUP. Use tri-state inventory and identity-bound HUP; UNKNOWN must fail closed.
+4. Continue remaining process-lifecycle and upper-layer shutdown/Samba/NVRAM postconditions without repeating completed whole-tree censuses. Keep root dev log newest-first; rotate only at 120 records or 384 KiB.
+5. Physical-router L4 remains NOT VERIFIED. Use complete-tree commits and non-force expected-SHA main updates only.

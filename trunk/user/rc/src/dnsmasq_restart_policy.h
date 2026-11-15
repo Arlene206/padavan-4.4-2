@@ -6,11 +6,29 @@
 
 /* Separate preparation from stop/launch so failed refreshes cannot take down
  * an already healthy daemon, and disabled service configurations stop cleanly. */
-/* Start only when no previous daemon is present. */
+/* Only a complete ABSENT snapshot authorizes configuration and launch. */
 static int
-dnsmasq_start_policy_should_launch(int daemon_running)
+dnsmasq_start_policy_preflight(enum process_presence daemon_presence)
 {
-	return !daemon_running;
+	if (daemon_presence == PROCESS_PRESENCE_ABSENT)
+		return 0;
+	if (daemon_presence == PROCESS_PRESENCE_RUNNING)
+		return EBUSY;
+	return EIO;
+}
+
+/* After stop, only a complete ABSENT snapshot permits a replacement launch. */
+static int
+dnsmasq_restart_policy_stop_status(int stop_status,
+				   enum process_presence daemon_presence)
+{
+	if (stop_status != 0)
+		return stop_status;
+	if (daemon_presence == PROCESS_PRESENCE_ABSENT)
+		return 0;
+	if (daemon_presence == PROCESS_PRESENCE_RUNNING)
+		return EBUSY;
+	return EIO;
 }
 
 /* Static ARP bindings are removed only after the daemon stop is confirmed. */

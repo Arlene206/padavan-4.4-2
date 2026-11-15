@@ -350,6 +350,30 @@ dnsmasq_process_presence(int *scan_error)
 }
 
 static int
+dnsmasq_require_absent(const char *stage)
+{
+	int scan_error = 0;
+	int status;
+	enum process_presence presence;
+
+	presence = dnsmasq_process_presence(&scan_error);
+	status = dnsmasq_start_policy_preflight(presence);
+	if (presence == PROCESS_PRESENCE_UNKNOWN) {
+		int saved_error = scan_error ? scan_error : EIO;
+		logmessage(LOGNAME,
+			   "cannot verify DNSMasq process state %s; refusing start (scan_error=%d)",
+			   stage, saved_error);
+		return saved_error;
+	}
+	if (presence == PROCESS_PRESENCE_RUNNING) {
+		logmessage(LOGNAME,
+			   "refusing DNSMasq start %s while a previous instance is active",
+			   stage);
+	}
+	return status;
+}
+
+static int
 dnsmasq_confirm_started(int launch_status)
 {
 	int attempt;
@@ -705,18 +729,16 @@ start_dns_dhcpd_locked(int is_ap_mode)
 	int service_enabled = 0;
 	int status;
 	int launch_status;
-	if (!dnsmasq_start_policy_should_launch(is_dns_dhcpd_run())) {
-		logmessage(LOGNAME, "refusing DNSMasq start while a previous instance is active");
-		return EBUSY;
-	}
+	status = dnsmasq_require_absent("before configuration preparation");
+	if (status != 0)
+		return status;
 	status = prepare_dns_dhcpd(is_ap_mode, &service_enabled);
 	if (status != 0 || !service_enabled)
 		return status;
-	/* Retain a second guard against launchers that do not participate in this lock. */
-	if (!dnsmasq_start_policy_should_launch(is_dns_dhcpd_run())) {
-		logmessage(LOGNAME, "refusing duplicate DNSMasq launch after configuration preparation");
-		return EBUSY;
-	}
+	/* Retain a second complete scan against launchers outside this lock. */
+	status = dnsmasq_require_absent("after configuration preparation");
+	if (status != 0)
+		return status;
 	launch_status = eval("/usr/sbin/dnsmasq");
 	status = dnsmasq_confirm_started(launch_status);
 	if (status != 0) {
@@ -773,14 +795,29 @@ stop_dns_dhcpd(void)
 static int
 restart_dhcpd_locked(void)
 {
-	int was_running = is_dns_dhcpd_run();
+	int was_running;
 	int service_enabled = 0;
 	int prepare_status;
 	int stop_status;
-	int still_running;
+	int stop_postcondition;
+	int scan_error = 0;
 	int launch_status;
 	int start_status;
+	enum process_presence initial_presence;
+	enum process_presence final_presence;
 	enum dnsmasq_restart_action action;
+
+	/* Do not publish files or normalize NVRAM from an unknown process state. */
+	initial_presence = dnsmasq_process_presence(&scan_error);
+	if (initial_presence == PROCESS_PRESENCE_UNKNOWN) {
+		int saved_error = scan_error ? scan_error : EIO;
+		logmessage(LOGNAME,
+			   "cannot verify DNSMasq state before restart preparation; refusing mutation (scan_error=%d)",
+			   saved_error);
+		return saved_error;
+	}
+	was_running = (initial_presence == PROCESS_PRESENCE_RUNNING);
+
 	prepare_status = prepare_dns_dhcpd(get_ap_mode(), &service_enabled);
 	action = dnsmasq_restart_policy_action(was_running, prepare_status, service_enabled);
 	if (action == DNSMASQ_RESTART_KEEP_RUNNING) {
@@ -789,15 +826,21 @@ restart_dhcpd_locked(void)
 	}
 	if (action == DNSMASQ_RESTART_ABORT)
 		return prepare_status;
+
 	stop_status = stop_dns_dhcpd_locked();
-	still_running = is_dns_dhcpd_run();
-	if (stop_status != 0 || still_running) {
-		logmessage(LOGNAME, "DNSMasq stop incomplete (status=%d, running=%d); refusing duplicate launch",
-			   stop_status, still_running);
-		return EBUSY;
+	final_presence = dnsmasq_process_presence(&scan_error);
+	stop_postcondition = dnsmasq_restart_policy_stop_status(stop_status, final_presence);
+	if (stop_postcondition != 0) {
+		if (final_presence == PROCESS_PRESENCE_UNKNOWN && scan_error != 0)
+			stop_postcondition = scan_error;
+		logmessage(LOGNAME,
+			   "DNSMasq stop incomplete (stop_status=%d, presence=%d, scan_error=%d); refusing duplicate launch",
+			   stop_status, final_presence, scan_error);
+		return stop_postcondition;
 	}
 	if (action == DNSMASQ_RESTART_STOP_ONLY)
 		return 0;
+
 	launch_status = eval("/usr/sbin/dnsmasq");
 	start_status = dnsmasq_confirm_started(launch_status);
 	if (start_status != 0) {

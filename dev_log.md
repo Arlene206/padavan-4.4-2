@@ -1,3 +1,15 @@
+## 2026-11-15 — Fail closed on DNSMasq preflight and post-stop state
+
+- Parent main SHA: `3ca4126c209e5a76dad3d0802d02972b7e157172`.
+- After detached-child readiness was migrated, DNSMasq still used Boolean `is_dns_dhcpd_run()` guards before configuration preparation, again before launch, and after stopping for restart. Those checks could collapse an incomplete procfs inventory into a false presence result.
+- Replaced both start guards with shared-inventory preflight: only complete ABSENT allows preparation or launch; RUNNING returns EBUSY; UNKNOWN/invalid returns EIO or captured scan errno before config mutation. Restart now snapshots initial presence before preparation and aborts on UNKNOWN, then requires a final complete ABSENT snapshot after stop before any replacement launch. Stop errors retain precedence; RUNNING refuses duplicate launch and UNKNOWN fails closed.
+- Added GNU89 enum-policy tests for ABSENT/RUNNING/UNKNOWN/invalid values and stop-error precedence. Updated DNSMasq workflow source contract to assert scan-before-prepare ordering, second scan before launch, restart pre/post-stop gates, and no Boolean checks in restart.
+- Latest parent `3ca4126` adds strict storage inventory validation; exact-head Actions were still pending on its source at the last inspection. The DNSMasq detached-readiness workflow had passed on its earlier exact source; this guard change triggers a fresh DNSMasq regression. Current-source L3 and physical L4 remain NOT VERIFIED.
+- No local compiler or firmware build is claimed; exact-head DNSMasq and XY-C1 Actions are authoritative.
+- Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Remove variable 64-bit division from disk inventory parser
 
 - Parent main SHA: a7bfbdf6de475f46469cc19661265b4801306f0f.

@@ -201,6 +201,8 @@ jobs:
               "trunk/user/rc/src/tests/dnsmasq_restart_policy.c",
               "trunk/user/shared/src/process_inventory.c",
               "trunk/user/shared/src/process_inventory.h",
+              "trunk/user/shared/src/process_inventory.c",
+              "trunk/user/shared/src/process_inventory.h",
               "trunk/user/rc/src/dnsmasq_dhcp_range_policy.h",
               "trunk/user/rc/src/tests/dnsmasq_dhcp_range_policy.c",
               "trunk/user/rc/src/dnsmasq_lifecycle_lock.h",
@@ -325,6 +327,23 @@ jobs:
           assert "dnsmasq_confirm_started(launch_status)" in restart
           assert "eval(\"/usr/sbin/dnsmasq\")" in start
           assert "eval(\"/usr/sbin/dnsmasq\")" in restart
+          preflight = function_body(services, "dnsmasq_require_absent(const char *stage)")
+          assert "presence = dnsmasq_process_presence(&scan_error);" in preflight
+          assert "dnsmasq_start_policy_preflight(presence)" in preflight
+          assert "PROCESS_PRESENCE_UNKNOWN" in preflight
+          assert "return saved_error;" in preflight
+          assert start.index('dnsmasq_require_absent("before configuration preparation")') < start.index("prepare_dns_dhcpd")
+          assert start.index("prepare_dns_dhcpd") < start.index('dnsmasq_require_absent("after configuration preparation")')
+          assert "dnsmasq_start_policy_should_launch" not in start
+          assert "initial_presence = dnsmasq_process_presence(&scan_error);" in restart
+          assert restart.index("initial_presence == PROCESS_PRESENCE_UNKNOWN") < restart.index("prepare_dns_dhcpd")
+          assert "was_running = (initial_presence == PROCESS_PRESENCE_RUNNING);" in restart
+          assert "final_presence = dnsmasq_process_presence(&scan_error);" in restart
+          assert "dnsmasq_restart_policy_stop_status(stop_status, final_presence)" in restart
+          assert restart.index("final_presence = dnsmasq_process_presence") < restart.index('eval("/usr/sbin/dnsmasq")')
+          assert "is_dns_dhcpd_run()" not in restart
+          assert "dnsmasq_restart_policy_stop_status(0, PROCESS_PRESENCE_UNKNOWN) == EIO" in restart_test
+          assert "dnsmasq_start_policy_preflight(PROCESS_PRESENCE_UNKNOWN) == EIO" in restart_test
           presence_helper = function_body(services, "dnsmasq_process_presence(int *scan_error)")
           assert 'process_inventory_scan("dnsmasq", &snapshot)' in presence_helper
           assert "*scan_error = snapshot.error;" in presence_helper
