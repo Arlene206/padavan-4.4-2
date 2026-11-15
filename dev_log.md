@@ -1,3 +1,14 @@
+## 2026-11-14 — Make Inadyn reload and restart decisions identity-safe
+
+- Replaced `notify_ddns_update()`'s Boolean `pids("inadyn")` decision and process-name-wide `killall -SIGHUP` with tri-state process inventory and exact PID/start-time validation. UNKNOWN/invalid inventory aborts before writing config; a running instance must pass an all-target identity preflight before the atomic config writer publishes; the HUP phase revalidates identities before signaling.
+- Changed `stop_ddns()` to return the existing identity-aware `kill_services()` status, and made `start_ddns()` refuse to launch if the previous instance did not stop. This closes the former ignored-stop-result path that could start a duplicate Inadyn process.
+- Added GNU89/ASan/UBSan regressions for action selection, UNKNOWN preflight, no-signal behavior, PID identity revalidation, ESRCH handling, and rejection of non-HUP signals. Added a dedicated production integration workflow and XY-C1 header trigger.
+- Changed paths: `trunk/user/rc/src/services_ex.c`, `trunk/user/rc/src/rc.h`, `trunk/user/rc/src/inadyn_daemon_policy.h`, `trunk/user/rc/src/tests/inadyn_daemon_policy.c`, `scripts/check_inadyn_lifecycle.py`, `.github/workflows/inadyn-lifecycle-stability.yml`, `.github/workflows/xy-c1-firmware-validation.yml`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
+
+
 ## 2026-11-14 — Fail closed on miniupnpd inventory and bind reload to PID identity
 
 - Replaced miniupnpd's Boolean `pids()` decisions in direct start, startup readiness, UPnP update and WAN-interface transition with process-inventory RUNNING/ABSENT/UNKNOWN. Duplicate starts are skipped only on confirmed RUNNING; launch proceeds only on confirmed ABSENT; UNKNOWN/invalid states return explicit errors and do not authorize duplicate launch.

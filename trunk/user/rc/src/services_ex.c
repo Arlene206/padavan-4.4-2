@@ -1704,12 +1704,12 @@ ddns_updated_main(int argc, char *argv[])
 	return 0;
 }
 
-void
+int
 stop_ddns(void)
 {
 	char* svcs[] = { "inadyn", NULL };
 
-	kill_services(svcs, 3, 1);
+	return kill_services(svcs, 3, 1);
 }
 
 static const struct inadyn_system_t {
@@ -1950,11 +1950,18 @@ start_ddns(int clear_cache)
 	int verbose_idx = nvram_safe_get_int("ddns_verbose", 0, 0, 2);
 	char* ddns_verbose_str[] = { "err", "notice", "debug" };
 	char* startup_delay;
+	int stop_status;
 
 	if (get_ap_mode())
 		return -1;
 
-	stop_ddns();
+	stop_status = stop_ddns();
+	if (stop_status != 0) {
+		logmessage(LOGNAME,
+			   "inadyn start aborted because previous instance did not stop (status %d)",
+			   stop_status);
+		return stop_status;
+	}
 
 	if (!nvram_match("ddns_enable_x", "1"))
 		return -1;
@@ -1979,16 +1986,74 @@ start_ddns(int clear_cache)
 		"--exec-mode", "compat");
 }
 
+static enum process_presence
+inadyn_validate_identity(void *context,
+			 const struct process_identity *identity)
+{
+	(void)context;
+	return process_identity_validate("inadyn", identity);
+}
+
+static int
+inadyn_send_signal(void *context, pid_t pid, int signal_number)
+{
+	(void)context;
+	return kill(pid, signal_number);
+}
+
 int
 notify_ddns_update(void)
 {
-	if (pids("inadyn")) {
-		if (!write_inadyn_conf(DDNS_CONF_FILE))
-			return -1;
-		return doSystem("killall %s %s", "-SIGHUP", "inadyn");
+	struct process_snapshot snapshot;
+	enum process_presence state;
+	enum inadyn_daemon_action action;
+	int scan_error;
+	int result;
+	int saved_errno;
+
+	state = process_inventory_scan("inadyn", &snapshot);
+	action = inadyn_action_for_presence(state);
+	if (action == INADYN_DAEMON_ABORT) {
+		scan_error = snapshot.error > 0 ? snapshot.error : EIO;
+		process_snapshot_release(&snapshot);
+		errno = inadyn_presence_error(state, scan_error);
+		logmessage(LOGNAME,
+			   "DDNS update aborted: inadyn process inventory unknown (errno %d)",
+			   errno);
+		return -1;
+	}
+	if (action == INADYN_DAEMON_START) {
+		process_snapshot_release(&snapshot);
+		return start_ddns(0);
 	}
 
-	return start_ddns(0);
+	if (inadyn_validate_snapshot(&snapshot, inadyn_validate_identity, NULL) != 0) {
+		saved_errno = errno ? errno : EIO;
+		process_snapshot_release(&snapshot);
+		errno = saved_errno;
+		logmessage(LOGNAME, "DDNS update aborted: inadyn identity preflight failed (errno %d)",
+			   errno);
+		return -1;
+	}
+	if (!write_inadyn_conf(DDNS_CONF_FILE)) {
+		saved_errno = errno ? errno : EIO;
+		process_snapshot_release(&snapshot);
+		errno = saved_errno;
+		return -1;
+	}
+
+	result = inadyn_signal_snapshot(&snapshot, SIGHUP, inadyn_validate_identity,
+					inadyn_send_signal, NULL);
+	saved_errno = errno;
+	process_snapshot_release(&snapshot);
+	if (result != 0) {
+		errno = saved_errno ? saved_errno : EIO;
+		logmessage(LOGNAME, "inadyn configuration reload signal failed (errno %d)",
+			   errno);
+		return -1;
+	}
+
+	return 0;
 }
 
 char *
