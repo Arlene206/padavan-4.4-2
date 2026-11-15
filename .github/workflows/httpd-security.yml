@@ -1722,7 +1722,7 @@ jobs:
           assert 'refresh_resolvconf_nonfatal("OpenVPN client DNS update", 0);' in vpn_openvpn
           assert 'ret = restart_dns();' in rc_main
           ddns_start = service.index("ddns_updated_main(int argc, char *argv[])")
-          ddns_end = service.index("\nvoid\nstop_ddns", ddns_start)
+          ddns_end = service.index("\nint\nstop_ddns", ddns_start)
           ddns_body = service[ddns_start:ddns_end]
           assert "restart_status = restart_dns();" in ddns_body
           assert "DDNS update completed but DNSMasq cache purge failed" in ddns_body

@@ -34,6 +34,7 @@ on:
       - "trunk/user/rc/src/ftp_daemon_policy.h"
       - "trunk/user/rc/src/tests/storage_service_stop_policy.c"
       - "trunk/user/shared/src/shutils.h"
+      - "trunk/user/shared/src/process_inventory.h"
       - "trunk/user/rc/src/storage_ejected_inventory_policy.h"
       - "trunk/user/rc/src/tests/storage_ejected_inventory_policy.c"
       - "trunk/user/scripts/tests/optware_lifecycle_lock.sh"
@@ -79,6 +80,7 @@ on:
       - "trunk/user/rc/src/ftp_daemon_policy.h"
       - "trunk/user/rc/src/tests/storage_service_stop_policy.c"
       - "trunk/user/shared/src/shutils.h"
+      - "trunk/user/shared/src/process_inventory.h"
       - "trunk/user/rc/src/storage_ejected_inventory_policy.h"
       - "trunk/user/rc/src/tests/storage_ejected_inventory_policy.c"
       - "trunk/user/scripts/tests/optware_lifecycle_lock.sh"
@@ -304,6 +306,7 @@ jobs:
               "trunk/user/rc/src/services_stor.c",
               "trunk/user/rc/src/storage_ejected_inventory_policy.h",
               "trunk/user/rc/src/tests/storage_ejected_inventory_policy.c",
+              "trunk/user/shared/src/process_inventory.h",
           )
           filters = workflow.split("jobs:", 1)[0]
           push_filters, pr_filters = filters.split("  pull_request:", 1)

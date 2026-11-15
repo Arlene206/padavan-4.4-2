@@ -1,3 +1,15 @@
+## 2026-11-14 — Repair storage, VSFTPD and HTTPD lifecycle CI contracts
+
+- Storage hotplug run `43669561488` on `61cf95e446a5777568e45c2cf3d589e74696d6f` failed because `scripts/check_storage_safe_remove.py` matched a forward declaration of `optional_daemon_stop_status()` and parsed the following unrelated body. The checker now skips declarations and has a synthetic prototype/definition regression.
+- VSFTPD run `43670216329` on `d846387eeaa735265267cce54c270b1fe5e282c6` failed for the same prototype-selection defect in its inline `function_body()` checker for `write_vsftpd_conf()`. Added declaration skipping and an executable parser fixture.
+- HTTPD security run `43670216352` on `d846387eeaa735265267cce54c270b1fe5e282c6` failed because a cross-suite contract still delimited `ddns_updated_main()` using a `void stop_ddns` declaration. The implementation now returns `int`; corrected the boundary.
+- Both storage and VSFTPD regressions compile/use `ftp_daemon_policy.h`, which includes shared `process_inventory.h`. Added that dependency to push/PR filters and to each workflow's semantic path contract so changes to the shared header actually run the dependent suites.
+- The prior exact-head d846 DNSMasq (`43670216322`) and process lifecycle (`43670216277`) regressions passed. Storage run `43670216319` was still in progress when last checked; this checkpoint creates fresh exact-head coverage.
+- Product sources are unchanged in this CI-contract slice. Fresh exact-head storage, VSFTPD, HTTPD and dependency-triggered regressions are required; historical failures remain attributed to their original SHAs.
+- Changed paths: `scripts/check_storage_safe_remove.py`, `.github/workflows/storage-hotplug-stability.yml`, `.github/workflows/vsftpd-stability.yml`, `.github/workflows/httpd-security.yml`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
 ## 2026-11-14 — Close remaining lifecycle ownership and cross-suite trigger defects
 
 - Followed up the exact-head process-lifecycle failure from `669483855e2dd246f66543fb2b9a9d9c4ebec174`. The concurrent main commit `39af9b16649128b07859f9da56b34df5de12bbda` had removed the new `service_lifecycle_notify()` double-free. A second ownership bug remained in `kill_services_with_pidfiles()`: both its invalid-pidfile branch and normal return called `service_lifecycle_release_targets()` (which already frees the target array) and then freed the same pointer again. Removed both redundant frees and extended the checker to assert single ownership.

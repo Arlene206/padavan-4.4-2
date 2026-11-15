@@ -16,7 +16,14 @@ def require(condition, message):
 
 def body(source, signature):
     start = source.find(signature)
-    require(start >= 0, "missing function: " + signature)
+    while start >= 0:
+        signature_end = start + len(signature)
+        brace = source.find("{", signature_end)
+        semicolon = source.find(";", signature_end)
+        if brace >= 0 and (semicolon < 0 or brace < semicolon):
+            break
+        start = source.find(signature, semicolon + 1) if semicolon >= 0 else -1
+    require(start >= 0, "missing function definition: " + signature)
     brace = source.find("{", start + len(signature))
     require(brace >= 0, "missing function body: " + signature)
     depth = 0
@@ -54,6 +61,12 @@ def body(source, signature):
             state = "code"
         index += 1
     raise AssertionError("unterminated function: " + signature)
+
+
+# A forward declaration must not bind the checker to the next function body.
+_probe = "static int probe(void);\nstatic int probe(void) { return 1; }\n"
+require("return 1;" in body(_probe, "probe(void)"),
+        "function extractor must skip a forward declaration")
 
 
 libdisk = read("trunk/user/libdisk/src/disk_initial.c")
@@ -384,7 +397,8 @@ for path in ("trunk/user/libdisk/src/disk_initial.c",
              "trunk/user/libdisk/src/disk_inventory_policy.h",
              "trunk/user/libdisk/src/tests/disk_inventory_policy.c",
              "scripts/check_storage_safe_remove.py",
-             "trunk/user/rc/src/optional_daemon_policy.h"):
+             "trunk/user/rc/src/optional_daemon_policy.h",
+             "trunk/user/shared/src/process_inventory.h"):
     require('"' + path + '"' in push_filters, "storage push filter missing " + path)
     require('"' + path + '"' in pull_filters, "storage pull_request filter missing " + path)
 for path in ("trunk/user/libdisk/src/disk_initial.c",

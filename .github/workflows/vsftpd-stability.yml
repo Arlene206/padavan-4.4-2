@@ -22,6 +22,7 @@ on:
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/ftp_daemon_policy.h"
+      - "trunk/user/shared/src/process_inventory.h"
       - "trunk/user/rc/src/tests/ftp_daemon_policy.c"
   pull_request:
     paths:
@@ -44,6 +45,7 @@ on:
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/ftp_daemon_policy.h"
+      - "trunk/user/shared/src/process_inventory.h"
       - "trunk/user/rc/src/tests/ftp_daemon_policy.c"
 
 jobs:
@@ -96,8 +98,17 @@ jobs:
           acl_path_test = Path("trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c").read_text()
 
           def function_body(text, signature):
-              start = text.index(signature)
-              brace = text.index("{", start)
+              start = text.find(signature)
+              while start >= 0:
+                  signature_end = start + len(signature)
+                  brace = text.find("{", signature_end)
+                  semicolon = text.find(";", signature_end)
+                  if brace >= 0 and (semicolon < 0 or brace < semicolon):
+                      break
+                  start = text.find(signature, semicolon + 1) if semicolon >= 0 else -1
+              assert start >= 0, f"missing function definition: {signature}"
+              brace = text.find("{", start + len(signature))
+              assert brace >= 0, f"missing function body: {signature}"
               depth = 0
               for pos in range(brace, len(text)):
                   if text[pos] == "{":
@@ -107,6 +118,9 @@ jobs:
                       if depth == 0:
                           return text[brace + 1:pos]
               raise AssertionError(f"unterminated function: {signature}")
+
+          prototype_fixture = "static int probe(void);\nstatic int probe(void) { return 1; }\n"
+          assert "return 1;" in function_body(prototype_fixture, "probe(void)")
 
           config = function_body(source, "write_vsftpd_conf(")
           assert "ftp_config_file_open(" in config
@@ -487,6 +501,7 @@ jobs:
               "trunk/user/rc/src/rc.h",
               "trunk/user/rc/src/ftp_daemon_policy.h",
               "trunk/user/rc/src/tests/ftp_daemon_policy.c",
+              "trunk/user/shared/src/process_inventory.h",
               "trunk/user/vsftpd/src/asus_ext.c",
               "trunk/user/vsftpd/src/asus_ext.h",
               "trunk/user/vsftpd/src/postlogin.c",
