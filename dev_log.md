@@ -1,3 +1,14 @@
+## 2026-11-15 21:35 CST — Propagate blocked DNSMasq upstream refresh errors
+
+- Found a partial-success defect in `update_resolvconf()`: when `fill_dnsmasq_servers()` failed and the previous `DNS_SERVERS_FILE` was missing or unsafe, the code correctly suppressed DNSMasq cache notification but still returned success after publishing `/etc/resolv.conf`. WAN/PPP callers and PID 1 could acknowledge an incomplete refresh.
+- Preserve the validation errno and propagate it after resolver publication and resolver-lock release, before any DNSMasq cache notification. A safe last-known-good upstream snapshot remains a valid fallback.
+- Extended the GNU89 resolver policy regression for safe/unsafe/missing-errno states; added a production source-order contract and symmetric WAN push/PR filters; added the policy header to XY-C1 build triggers.
+- Parent main: `fedd187503974f72651ea960b4d87f5a558c7c2f`. DNSMasq #43719236286, WAN route #43719236311, AI docs #43719236448 and process inventory #43719236422 passed on preceding product source `3fa8d08b968de653a7998175bdab897e51b91379`; XY-C1 #43719236268 remained in progress. Exact-head Actions for this resolver fix are required. No current-source MIPS build or physical-router result is claimed.
+- Isolated GNU89 policy regression passed with ASan/UBSan; this is host-only evidence, not target MIPS validation.
+- Changed paths: `net_wan.c`, `wan_resolver_refresh_policy.h`, resolver test, WAN and XY-C1 workflows, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+
+---
+
 ## 2026-11-15 — Correct static-ARP transaction test literal after CI failure
 
 - DNSMasq lifecycle #43718997744 on `d5660e3cdfa9804a23335656676c5f598c19a37e` initially failed when compiling the expanded static-host transaction regression: its mock compared `mac[0]` against a multi-character constant produced by over-escaping the backslash.

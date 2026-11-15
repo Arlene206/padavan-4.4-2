@@ -2778,13 +2778,14 @@ update_resolvconf(int is_first_run, int do_not_notify)
 	int i, i_pdns, i_total_dns = 0;
 	int lock, dns_static, resolv_changed = 0;
 	int dns_restart_status;
-	int dns_servers_ready = 1, saved_errno, validation_errno;
+	int dns_servers_ready = 1, dns_servers_error = 0, saved_errno, validation_errno;
 
 	if (!is_first_run && fill_dnsmasq_servers() != 0) {
 		saved_errno = errno ? errno : EIO;
 		if (dnsmasq_file_is_safe_regular(DNS_SERVERS_FILE) != 0) {
 			validation_errno = errno ? errno : EPERM;
 			dns_servers_ready = 0;
+			dns_servers_error = validation_errno;
 			logmessage(LOGNAME, "DNSMasq reload blocked: unsafe DNS server snapshot (errno=%d)", validation_errno);
 		} else {
 			logmessage(LOGNAME, "DNS server snapshot refresh failed; keeping last-known-good file (errno=%d)", saved_errno);
@@ -2914,6 +2915,19 @@ update_resolvconf(int is_first_run, int do_not_notify)
 	}
 
 	file_unlock(lock);
+
+/* Do not report success when an unsafe upstream snapshot prevented the
+ * DNSMasq cache refresh. The resolver file is published, but the daemon
+ * must not be signalled until its server input is safe. */
+	saved_errno = wan_resolver_refresh_policy_blocked_status(dns_servers_ready,
+								 dns_servers_error);
+	if (saved_errno != 0) {
+		logmessage(LOGNAME,
+			   "resolver file published but DNSMasq server snapshot is unsafe; cache reload was blocked (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return saved_errno;
+	}
 
 	/* force notify dnsmasq for modem */
 	if (!resolv_changed && get_usb_modem_wan(0))
