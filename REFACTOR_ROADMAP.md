@@ -1,21 +1,14 @@
 ## Current source / CI checkpoint
 
-- Live main before this correction: `e8b4c0cc9f41df3092a4529a2fc8816d1d7b7438`. Exact e8b Process #43746069534 failed at Python checker helper extraction (IndexError; all preceding host regressions, including IGMP proxy atomic config, passed); AI docs #43746069612 PASS; XY-C1 #43746069488 IN_PROGRESS at Build, with TRX/artifact pending. The e8b source also contains a duplicate `launch_status` declaration in run_dms(); this correction removes it and scopes the shared logger/helper extraction safely. Other e8b actions PASS: WAN route #43746069491, AliDDNS #43746069482, infosvr #43746069600, Process inventory #43746069494, vsftpd #43746069587, NFS #43746069498, Samba #43746069667, AdGuardHome #43746069487, AliyunDrive #43746069460, HTTPD #43746069568, USB storage #43746069468 and NVRAM #43746069497. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact 51898 Actions: XY-C1 #43745391043 IN_PROGRESS (Build still running at last check; TRX verification/artifact upload not yet confirmed); Process #43745391109 FAIL at the final source-contract step (all prior compile and host regression steps passed; assertion required the missing `int launch_status;` declaration); AI docs #43745391151 FAIL because the handoff wrote lowercase `the checkpoint...` instead of the exact required capitalized sentence. Other exact-head checks PASS: NFS #43745390987, Samba #43745391093, AdGuardHome #43745391044, vsftpd #43745391060, AliDDNS #43745391035, HTTPD #43745391083, Process inventory #43745390995, AliyunDrive #43745391068, USB storage #43745391098 and NVRAM #43745391162.
-- The failed FTP upload cleanup eligibility bug is fixed on product source `e3b14c7a0f3f5a3bb247489e4a8626044bc2739b` and tests pass on exact vsftpd run #43744355353; only successful exclusive creation authorizes rollback. The separate fstatat-to-unlinkat replacement window remains unresolved on Linux 4.4.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. No physical-router L4 result is claimed.
+- Live main before this source-contract follow-up: be7fd92337812a28ddc5b275c7898915be114987. The IGMP config publisher and GNU89 ASan/UBSan host regression are in source; on exact e8b4 the dedicated Process test step 19 passed. The shared storage-startup logger is wired into MiniDLNA, Firefly, Transmission and Aria. Exact be7fd Process #43746522677 failed only because an older MiniDLNA-specific contract still expected inline error logging rather than the shared logger; the contract is now aligned with the shared implementation.
+- Exact be7fd AI handoff docs #43746522557 PASS. XY-C1 #43746522702 was IN_PROGRESS at Build; TRX verification and artifact upload not yet confirmed. NVRAM #43746522646 and USB hotplug #43746522545 were IN_PROGRESS. Other be7fd checks PASS: infosvr #43746522641, AdGuardHome #43746522610, AliyunDrive #43746522583, NFS #43746522567, vsftpd #43746522533, AliDDNS #43746522528, HTTPD #43746522505, Process inventory #43746522504 and Samba #43746522547.
+- The exact e8b4 run also exposed a duplicate MiniDLNA launch_status local and an over-escaped logger extraction; both were corrected in be7fd. FTP existing-STOR cleanup eligibility remains fixed, while the separate Linux 4.4 fstatat-to-unlinkat replacement race remains unresolved.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807. No physical-router L4 result is claimed.
 
-### Completed recent slices — do not duplicate without new evidence
+### P2 — IGMP proxy configuration publication
 
-- MiniDLNA launch handling now captures `_eval()` status and distinguishes RUNNING, ABSENT and UNKNOWN after successful launch handoff. The follow-up declaration fix is included in this batch.
-- IPTV udpxy/MSD Lite and xupnpd launch-command failures are logged; IAPPD boot and optional RC service callers report relevant command statuses without changing best-effort semantics.
-- vsftpd's stale static assertions were corrected; exact run #43744355353 passed the compile/host regression and source-contract steps.
-
-### P2 — IGMP proxy configuration publication failure handling (active)
-
-- `start_igmpproxy()` previously used `fopen("/etc/igmpproxy.conf", "w")`, ignored `fprintf()` and `fclose()` results, and invoked `igmpproxy` even when opening the config failed. This could truncate the last-good file or launch with partial content.
-- Replace direct truncation with same-directory staging, checked writes/flush/`fsync`/close and atomic rename. Failure must preserve the last-good file, remove the stage, log nonzero status and block daemon launch.
-- Host coverage includes exact legacy output, quickleave/default altnet, private mode, CR/LF injection, missing-parent, rename and buffered-write failures. Exact-head Process L2 and XY-C1 Build/TRX/artifact L3 remain required.
+- start_igmpproxy() now stages configuration beside the destination, validates line-valued inputs, checks write/flush/fsync/close and atomically renames only after full success. Publication failure cleans the stage, preserves last-good content and blocks igmpproxy launch.
+- The dedicated e8b4 host regression passed (GNU89, ASan, UBSan); exact-head Process must pass the integration contract after this checker update. Exact-source XY-C1 Build/TRX/artifact remains the L3 gate.
 
 ## Whole-repository module status
 

@@ -1,3 +1,12 @@
+## 2026-11-15 — Align MiniDLNA integration contract with shared startup-result logger
+
+- Exact be7fd Process run #43746522677 passed all earlier compilation and regression steps, including IGMP proxy atomic config test step 19, then failed at checker line 175. Storage lifecycle changes consolidated command and process-presence reporting into storage_log_daemon_start_result(); the older MiniDLNA-specific assertions still expected inline if/else logging.
+- Updated the MiniDLNA source contract to require the launcher call, process scan and shared logger in that order. The shared logger contract and four-service loop already verify nonzero launch status plus RUNNING/ABSENT/UNKNOWN handling.
+- Exact be7fd AI handoff docs #43746522557 PASS. XY-C1 #43746522702 was IN_PROGRESS at Build; TRX/artifact status remained pending.
+- Parent main: be7fd92337812a28ddc5b275c7898915be114987; fresh exact-head Process and XY-C1 validation required. No firmware L3 or physical-router L4 claim is made.
+
+---
+
 ## 2026-11-15 — Correct storage startup checker boundaries and duplicate declaration
 
 - Exact e8b4 Process #43746069534 completed all host compilations/regressions, including IGMP proxy atomic publication, then failed in the source checker with IndexError: the helper extraction searched an over-escaped newline delimiter not present in the C source.

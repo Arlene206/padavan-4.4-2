@@ -172,15 +172,10 @@ assert "if (config_status != 0)" in dms_start
 minidlna_launcher = "launch_status = _eval(minidlna_argv, NULL, 0, NULL);"
 assert "int launch_status;" in dms_start
 assert minidlna_launcher in dms_start
-assert "if (launch_status != 0)" in dms_start
-assert dms_start.index(minidlna_launcher) < dms_start.index("if (launch_status != 0)")
-assert 'logmessage(apps_name, "launch command failed (status=%d)", launch_status);' in dms_start
 minidlna_post_launch = dms_start.split(minidlna_launcher, 1)[1]
 assert "process_state = is_dms_run();" in minidlna_post_launch
-assert "PROCESS_PRESENCE_RUNNING" in minidlna_post_launch
-assert "PROCESS_PRESENCE_ABSENT" in minidlna_post_launch
-assert "cannot verify daemon startup (scan error=%d)" in minidlna_post_launch
-assert "errno ? errno : EIO" in minidlna_post_launch
+assert "storage_log_daemon_start_result(apps_name, launch_status, process_state);" in minidlna_post_launch
+assert minidlna_post_launch.index("process_state = is_dms_run();") < minidlna_post_launch.index("storage_log_daemon_start_result(apps_name, launch_status, process_state);")
 assert dms_start.index("if (config_status != 0)") < dms_start.index("_eval(minidlna_argv, NULL, 0, NULL);")
 assert "mkstemp(temporary_path)" in minidlna_config_header
 assert "fflush(output)" in minidlna_config_header
