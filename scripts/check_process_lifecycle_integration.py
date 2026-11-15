@@ -61,7 +61,9 @@ assert "return scan_error;" in pppoe_start
 assert "return kill_services(svcs, 3, 1);" in pppoe_start
 assert "int set_passthrough_pppoe(int is_on);" in rc_header
 assert "void set_passthrough_pppoe(int is_on);" not in rc_header
-assert "else if (presence == PROCESS_PRESENCE_UNKNOWN)" in pppoe_start
+assert "if (presence == PROCESS_PRESENCE_RUNNING)" in pppoe_start
+assert "if (scan_error <= 0)" in pppoe_start
+assert "errno = scan_error;" in pppoe_start
 assert "strerror(scan_error)" in pppoe_start
 assert "if (!pids(" not in pppoe_start and 'pids("pppoe-relay")' not in pppoe_start
 assert pppoe_start.index("if (pppoe_relay_should_start(presence))") < pppoe_start.index('eval("/usr/sbin/pppoe-relay"')

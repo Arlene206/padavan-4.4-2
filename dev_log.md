@@ -1,3 +1,11 @@
+## 2026-11-15 — Update PPPoE checker for explicit running/unknown failure split
+
+- Exact process-lifecycle runs `43675935125` (source `877fbb2b1ab09a1be429bb379844dddc05d2750f`) and `43676007129` (source `7733970303619f9288865b718a3d0411874c102e`) reached the Python integration checker and failed at an obsolete assertion requiring an `else if (presence == UNKNOWN)` branch. The production helper now correctly returns success only for RUNNING, while all other non-ABSENT states share the same fail-closed error path.
+- Replaced the obsolete branch-shape assertion with checks that RUNNING is accepted and unknown/invalid states preserve scanner errno and return the error. No production code changed in this checker-only correction.
+- Changed paths: `check_process_lifecycle_integration.py`, `dev_log.md`. Result: THIS COMMIT. Exact-head process lifecycle and XY-C1 validation required.
+
+---
+
 ## 2026-11-15 — Restore WAN route workflow heredoc indentation
 
 - The WAN route workflow had no job on the `d7889a818a36d0e2df4a15ef4f1c3b30b86efcb9` and `7fb6114a346fcf4a97ab478616a6f9134737de7b` pushes. The new kabinet-authentication assertion was inserted at column 1 inside a YAML block scalar, invalidating the workflow before GitHub could create a job; this was a workflow syntax failure, not a route-test result.
