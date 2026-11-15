@@ -1,3 +1,14 @@
+## 2026-11-14 — Replace HTTPD name-wide logout with identity-preflight notification
+
+- Migrated the LAN reconfiguration HTTPD logout from `killall -SIGUSR1 httpd` to `signal_services_by_identity()`. The new lifecycle-policy notification transaction captures all matching PID/start-time identities, performs complete inventory and identity preflight across the entire target set before the first signal, and revalidates each identity immediately before delivery.
+- The notification API is deliberately limited to SIGHUP, SIGUSR1 and SIGUSR2. SIGTERM/SIGKILL remain exclusive to the existing stop transaction; SIGSTOP and unsupported signals are rejected. UNKNOWN/CHANGED/FAILED states abort and are logged instead of broadcasting to all same-name processes.
+- Extended the GNU89 service-lifecycle regression with all-target preflight, zero-signal-on-UNKNOWN, identity-validation failure and stop/unsupported-signal rejection cases. Existing process workflow filters already watch every changed production/test source.
+- Changed paths: `trunk/user/rc/src/service_lifecycle_policy.h`, `trunk/user/rc/src/tests/service_lifecycle_policy.c`, `trunk/user/rc/src/common_ex.c`, `trunk/user/rc/src/rc.h`, `trunk/user/rc/src/net_lan.c`, `scripts/check_process_lifecycle_integration.py`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
+
+
 ## 2026-11-14 — Repair cross-suite CI contracts for Inadyn lifecycle changes
 
 - Exact-head DNSMasq workflow run `43669561401` on `61cf95e446a5777568e45c2cf3d589e74696d6f0` passed earlier build/test steps but failed in the inline Python source contract with `ValueError: substring not found`: it still expected literal `"-SIGHUP"` in `notify_ddns_update()`, while the implementation now uses `inadyn_signal_snapshot(..., SIGHUP, ...)`. Updated it to verify tri-state inventory, all-target preflight before atomic config publication, snapshot-bound signal after publication, cleanup, and absence of name-wide killall. Also strengthened the start contract for checked stop status.

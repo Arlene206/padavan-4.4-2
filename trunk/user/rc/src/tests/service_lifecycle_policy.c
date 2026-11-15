@@ -32,6 +32,8 @@ struct fake_context {
 	struct process_identity unrelated_pppd_identity;
 	unsigned int term_signals;
 	unsigned int kill_signals;
+	unsigned int notification_signals;
+	int last_notification_signal;
 	unsigned int total_sleeps;
 	unsigned int scans;
 	unsigned int validations;
@@ -141,6 +143,9 @@ fake_signal(void *opaque, const struct process_identity *identity,
 			context->kill_signals++;
 			if (service->stop_on_kill)
 				service->present = 0;
+		} else {
+			context->notification_signals++;
+			context->last_notification_signal = signal_number;
 		}
 		return 0;
 	}
@@ -526,6 +531,93 @@ test_pidfile_wait_ignores_unselected_pppd_processes(void)
 }
 
 static void
+test_identity_bound_notification_preflights_all_targets(void)
+{
+	struct fake_service services[2];
+	struct fake_context context;
+	char *names[] = { "httpd", "miniupnpd", NULL };
+
+	memset(services, 0, sizeof(services));
+	services[0].name = "httpd";
+	services[1].name = "miniupnpd";
+	services[0].present = 1;
+	services[1].present = 1;
+	fake_setup(&context, services, 2);
+
+	assert(service_lifecycle_notify(names, SIGUSR1, &fake_ops, &context) ==
+	       SERVICE_LIFECYCLE_STOPPED);
+	assert(context.notification_signals == 2);
+	assert(context.last_notification_signal == SIGUSR1);
+	assert(context.scans_before_first_signal >= 4);
+	assert(context.validations >= 4);
+	assert(context.term_signals == 0 && context.kill_signals == 0);
+}
+
+static void
+test_unknown_notification_inventory_sends_zero_signals(void)
+{
+	struct fake_service services[2];
+	struct fake_context context;
+	char *names[] = { "httpd", "miniupnpd", NULL };
+
+	memset(services, 0, sizeof(services));
+	services[0].name = "httpd";
+	services[1].name = "miniupnpd";
+	services[0].present = 1;
+	services[1].present = 1;
+	services[1].initial_unknown = 1;
+	fake_setup(&context, services, 2);
+
+	assert(service_lifecycle_notify(names, SIGUSR1, &fake_ops, &context) ==
+	       SERVICE_LIFECYCLE_UNKNOWN);
+	assert(context.notification_signals == 0);
+	assert(context.term_signals == 0 && context.kill_signals == 0);
+}
+
+static void
+test_unknown_identity_preflight_sends_zero_notification_signals(void)
+{
+	struct fake_service service;
+	struct fake_context context;
+	char *names[] = { "httpd", NULL };
+
+	memset(&service, 0, sizeof(service));
+	service.name = "httpd";
+	service.present = 1;
+	service.validate_unknown_initial = 1;
+	fake_setup(&context, &service, 1);
+
+	assert(service_lifecycle_notify(names, SIGHUP, &fake_ops, &context) ==
+	       SERVICE_LIFECYCLE_UNKNOWN);
+	assert(context.notification_signals == 0);
+	assert(context.term_signals == 0 && context.kill_signals == 0);
+}
+
+static void
+test_notification_api_rejects_stop_and_unsupported_signals(void)
+{
+	struct fake_service service;
+	struct fake_context context;
+	char *names[] = { "httpd", NULL };
+
+	memset(&service, 0, sizeof(service));
+	service.name = "httpd";
+	service.present = 1;
+	fake_setup(&context, &service, 1);
+
+	assert(service_lifecycle_notify(names, 0, &fake_ops, &context) ==
+	       SERVICE_LIFECYCLE_FAILED);
+	assert(service_lifecycle_notify(names, SIGTERM, &fake_ops, &context) ==
+	       SERVICE_LIFECYCLE_FAILED);
+	assert(service_lifecycle_notify(names, SIGKILL, &fake_ops, &context) ==
+	       SERVICE_LIFECYCLE_FAILED);
+	assert(service_lifecycle_notify(names, SIGSTOP, &fake_ops, &context) ==
+	       SERVICE_LIFECYCLE_FAILED);
+	assert(context.notification_signals == 0);
+	assert(context.term_signals == 0 && context.kill_signals == 0);
+}
+
+static void
 test_absent_pidfile_does_not_block_service_stop(void)
 {
 	struct fake_service services[2];
@@ -569,6 +661,10 @@ main(void)
 	test_pidfile_unknown_blocks_entire_preflight();
 	test_pidfile_identity_change_blocks_escalation();
 	test_force_only_pidfile_target_skips_term_and_joins_kill();
+	test_identity_bound_notification_preflights_all_targets();
+	test_unknown_notification_inventory_sends_zero_signals();
+	test_unknown_identity_preflight_sends_zero_notification_signals();
+	test_notification_api_rejects_stop_and_unsupported_signals();
 	test_absent_pidfile_does_not_block_service_stop();
 	return 0;
 }

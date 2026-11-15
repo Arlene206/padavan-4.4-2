@@ -1143,8 +1143,11 @@ service_lifecycle_send_signal(void *context,
 			      int signal_number)
 {
 	(void)context;
-	if (signal_number != SIGTERM && signal_number != SIGKILL)
+	if (signal_number != SIGTERM && signal_number != SIGKILL &&
+	    !service_lifecycle_notification_allowed(signal_number)) {
+		errno = EINVAL;
 		return -1;
+	}
 	if (kill(identity->pid, signal_number) == 0 || errno == ESRCH)
 		return 0;
 	return -1;
@@ -1164,6 +1167,38 @@ service_lifecycle_read_pidfile(void *context, const char *path,
 {
 	(void)context;
 	return process_pidfile_read_identity(path, process_name, identity);
+}
+
+int
+signal_services_by_identity(char *svc_name[], int signal_number)
+{
+	static const struct service_lifecycle_ops ops = {
+		service_lifecycle_scan,
+		service_lifecycle_validate,
+		service_lifecycle_send_signal,
+		service_lifecycle_sleep,
+		service_lifecycle_read_pidfile
+	};
+	enum service_lifecycle_result result;
+	int saved_errno;
+	int i;
+
+	result = service_lifecycle_notify(svc_name, signal_number, &ops, NULL);
+	if (result == SERVICE_LIFECYCLE_UNKNOWN)
+		errno = EIO;
+	else if (result == SERVICE_LIFECYCLE_CHANGED)
+		errno = EAGAIN;
+	else if (result == SERVICE_LIFECYCLE_FAILED && errno == 0)
+		errno = EINVAL;
+	saved_errno = errno;
+	if (result != SERVICE_LIFECYCLE_STOPPED) {
+		for (i = 0; svc_name && svc_name[i] && *svc_name[i]; i++)
+			logmessage(LOGNAME,
+				   "identity-bound notification %d for %s incomplete (status=%d, errno=%d)",
+				   signal_number, svc_name[i], result, saved_errno);
+	}
+	errno = saved_errno;
+	return result;
 }
 
 int

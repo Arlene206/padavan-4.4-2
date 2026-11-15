@@ -849,7 +849,14 @@ full_restart_lan(void)
 
 	/* force httpd logout */
 	system("/usr/bin/iappd.sh restart");
-	doSystem("killall %s %s", "-SIGUSR1", "httpd");
+	{
+		char *httpd_services[] = { "httpd", NULL };
+		int signal_status = signal_services_by_identity(httpd_services, SIGUSR1);
+		if (signal_status != SERVICE_LIFECYCLE_STOPPED)
+			logmessage(LOGNAME,
+				   "HTTPD logout notification incomplete (status=%d)",
+				   signal_status);
+	}
 
 	/* This return value reports the DNSMasq lifecycle portion of the LAN restart. */
 	return dnsmasq_status;

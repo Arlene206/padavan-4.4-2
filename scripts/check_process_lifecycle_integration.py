@@ -11,7 +11,19 @@ policy = (root / "trunk/user/rc/src/service_lifecycle_policy.h").read_text()
 usb_services = (root / "trunk/user/rc/src/services_usb.c").read_text()
 usb_modem = (root / "trunk/user/rc/src/usb_modem.c").read_text()
 rc_header = (root / "trunk/user/rc/src/rc.h").read_text()
+assert "service_lifecycle_notification_allowed" in policy
+assert "service_lifecycle_notify(" in policy
+assert "service_lifecycle_preflight(targets, count, ops, context, 1)" in policy
+assert "service_lifecycle_signal_targets(targets, count, ops" in policy
+assert "signal_services_by_identity" in rc_header
+assert "service_lifecycle_notify(svc_name, signal_number, &ops, NULL)" in common_ex
+assert "service_lifecycle_notification_allowed(signal_number)" in common_ex
+assert "signal_services_by_identity(httpd_services, SIGUSR1)" in net_lan_notification
+assert 'doSystem("killall %s %s", "-SIGUSR1", "httpd")' not in net_lan_notification
+assert "test_identity_bound_notification_preflights_all_targets" in lifecycle_test
+assert "test_unknown_notification_inventory_sends_zero_signals" in lifecycle_test
 net_source = (root / "trunk/user/rc/src/net.c").read_text()
+net_lan_notification = (root / "trunk/user/rc/src/net_lan.c").read_text()
 pppoe_policy = (root / "trunk/user/rc/src/pppoe_relay_policy.h").read_text()
 pppoe_test = (root / "trunk/user/rc/src/tests/pppoe_relay_policy.c").read_text()
 

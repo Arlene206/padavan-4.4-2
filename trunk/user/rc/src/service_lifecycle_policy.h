@@ -232,6 +232,47 @@ service_lifecycle_signal_targets(struct service_lifecycle_target *targets,
 	return SERVICE_LIFECYCLE_STOPPED;
 }
 
+static inline int
+service_lifecycle_notification_allowed(int signal_number)
+{
+	return signal_number == SIGHUP || signal_number == SIGUSR1 ||
+	       signal_number == SIGUSR2;
+}
+
+static inline enum service_lifecycle_result
+service_lifecycle_notify(char *service_names[], int signal_number,
+			 const struct service_lifecycle_ops *ops, void *context)
+{
+	struct service_lifecycle_target *targets;
+	size_t count = 0, i;
+	enum service_lifecycle_result result;
+
+	if (!service_names || !service_lifecycle_notification_allowed(signal_number) ||
+	    !ops || !ops->scan || !ops->validate || !ops->send_signal)
+		return SERVICE_LIFECYCLE_FAILED;
+
+	while (service_names[count] && *service_names[count])
+		count++;
+	if (count == 0)
+		return SERVICE_LIFECYCLE_STOPPED;
+	if (count > (size_t)-1 / sizeof(*targets))
+		return SERVICE_LIFECYCLE_FAILED;
+
+	targets = (struct service_lifecycle_target *)calloc(count, sizeof(*targets));
+	if (!targets)
+		return SERVICE_LIFECYCLE_UNKNOWN;
+	for (i = 0; i < count; i++)
+		targets[i].name = service_names[i];
+
+	result = service_lifecycle_preflight(targets, count, ops, context, 1);
+	if (result == SERVICE_LIFECYCLE_STOPPED)
+		result = service_lifecycle_signal_targets(targets, count, ops,
+							  context, signal_number);
+	service_lifecycle_release_targets(targets, count);
+	free(targets);
+	return result;
+}
+
 static inline enum service_lifecycle_result
 service_lifecycle_probe_targets(struct service_lifecycle_target *targets,
 				 size_t count,
