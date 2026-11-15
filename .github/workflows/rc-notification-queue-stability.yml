@@ -6,8 +6,8 @@ on:
       - ".github/workflows/rc-notification-queue-stability.yml"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
-      - "trunk/user/rc/src/tests/optional_daemon_policy.c"
       - "trunk/user/rc/src/optional_daemon_policy.h"
+      - "trunk/user/rc/src/tests/optional_daemon_policy.c"
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/sshd_daemon_policy.h"
       - "trunk/user/rc/src/tests/sshd_daemon_policy.c"
@@ -18,8 +18,13 @@ on:
       - "trunk/user/shared/src/notify_rc.c"
       - "trunk/user/shared/src/rc_notify_queue.h"
       - "trunk/user/shared/src/tests/rc_notify_queue.c"
-c/src/rc.c"
+  pull_request:
+    paths:
+      - ".github/workflows/rc-notification-queue-stability.yml"
+      - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/optional_daemon_policy.h"
+      - "trunk/user/rc/src/tests/optional_daemon_policy.c"
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/sshd_daemon_policy.h"
       - "trunk/user/rc/src/tests/sshd_daemon_policy.c"
@@ -76,6 +81,8 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+
+          ROOT = Path(".")
 
           rc = Path("trunk/user/rc/src/rc.c").read_text()
           services = Path("trunk/user/rc/src/services.c").read_text()
@@ -204,6 +211,8 @@ jobs:
               ".github/workflows/rc-notification-queue-stability.yml",
               "trunk/user/rc/src/rc.c",
               "trunk/user/rc/src/rc.h",
+              "trunk/user/rc/src/optional_daemon_policy.h",
+              "trunk/user/rc/src/tests/optional_daemon_policy.c",
               "trunk/user/rc/src/services.c",
               "trunk/user/rc/src/sshd_daemon_policy.h",
               "trunk/user/rc/src/tests/sshd_daemon_policy.c",

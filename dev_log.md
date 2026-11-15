@@ -1,3 +1,13 @@
+## 2026-11-15 10:12 CST — Repair PID 1 workflow trigger and regression integration
+
+- Exact-head run `43666576198` on `ff59679e8114b2b6156c3f235c9ff4a665d4d802` failed before creating a job (GitHub reports zero jobs). The workflow trigger block still contained a stray unindented path fragment, had lost its `pull_request` section, and therefore could not provide the required symmetric path coverage.
+- Rebuilt the trigger with matching `push` / `pull_request` filters for the PID 1 production, policy, test and workflow inputs. Added the optional-daemon policy header/test to the inline path contract and defined its `ROOT` path used by the policy assertion.
+- Product C source is unchanged. The new exact-head workflow must execute the GNU89/ASan/UBSan regressions and complete the source/path contract; this correction itself makes no L3/L4 claim.
+- Changed paths: `.github/workflows/rc-notification-queue-stability.yml`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
+
 ## 2026-11-14 — Extend fail-closed process inventory to service restarts and storage daemons
 
 - Networkmap now distinguishes RUNNING / ABSENT / UNKNOWN. The first-call start path launches only on confirmed ABSENT; restart refreshes only a complete RUNNING snapshot and preflights/revalidates captured PID/start-time identities before targeted SIGUSR1. Broad `killall -SIGUSR1 networkmap` was removed. Regression covers unknown snapshots, multi-process identity checks, ESRCH/EPERM and no-signal guarantees.
