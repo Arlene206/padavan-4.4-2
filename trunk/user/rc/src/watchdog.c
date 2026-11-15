@@ -673,8 +673,14 @@ start_watchdog(void)
 	}
 	if (action == PROCESS_PRESENCE_START_NOTIFY)
 		return 0;
+	if (action == PROCESS_PRESENCE_START_NEW)
+		return eval("/sbin/watchdog");
 
-	return eval("/sbin/watchdog");
+	/* Only a confirmed ABSENT inventory may authorize a new daemon. */
+	errno = EIO;
+	logmessage("watchdog",
+		   "refusing watchdog start because process-presence policy is invalid");
+	return -1;
 }
 
 void

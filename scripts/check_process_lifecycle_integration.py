@@ -445,6 +445,9 @@ assert "dnsmasq_missing = 0;" in watchdog_dnsmasq
 assert "PROCESS_PRESENCE_START_NOTIFY" in watchdog_start
 assert "PROCESS_PRESENCE_START_NEW" in watchdog_start
 assert "PROCESS_PRESENCE_START_ABORT" in watchdog_start
+assert "if (action == PROCESS_PRESENCE_START_NEW)" in watchdog_start
+assert watchdog_start.index("if (action == PROCESS_PRESENCE_START_NEW)") < watchdog_start.index('return eval("/sbin/watchdog")')
+assert "refusing watchdog start because process-presence policy is invalid" in watchdog_start
 assert "start_watchdog()" in watchdog_notify
 assert "pids(" not in watchdog_notify
 assert "process_pidfile_signal(WD_PID_FILE, \"watchdog\", SIGHUP)" in watchdog_notify

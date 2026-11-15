@@ -1,3 +1,11 @@
+## 2026-11-15 — Require an explicit ABSENT action before watchdog launch
+
+- Exact process-lifecycle run `43673617941` on `52c003b29a1dacccba89cb454e3cc359a864227e` passed all GNU89 sanitizer/policy binaries and earlier process-integration checks, then failed at the final watchdog contract: `start_watchdog()` rejected UNKNOWN and returned for RUNNING but let every other action fall through to `eval()`. The shared policy currently maps only ABSENT to NEW, but implicit fallthrough would also launch if a future/invalid action value were introduced.
+- Changed the production gate to invoke `/sbin/watchdog` only under an explicit `PROCESS_PRESENCE_START_NEW` check; any unexpected action now returns EIO without launching. Extended the source contract to preserve that explicit allowlist. Existing GNU89 policy regression already covers ABSENT→NEW, RUNNING→NOTIFY, UNKNOWN→ABORT and invalid enum→ABORT.
+- Changed paths: `trunk/user/rc/src/watchdog.c`, `scripts/check_process_lifecycle_integration.py`, `dev_log.md`. Result: THIS COMMIT. Exact-head process-lifecycle and XY-C1 validation required.
+
+---
+
 ## 2026-11-15 — Update process-lifecycle contract for serialized VPN client stop
 
 - Exact process-lifecycle run `43673507109` on `2761e92be05d7957beaa967290996d707aee6334` passed the sanitizer and PID-file policy binaries, then failed because the cross-cutting checker still extracted the public `stop_vpn_client()` wrapper and expected the inner PPP teardown in that wrapper. The teardown now correctly lives in `stop_vpn_client_locked()`; updated the checker to validate the internal stop body, public lock acquisition/release and the new xl2tpd tri-state preflight.
