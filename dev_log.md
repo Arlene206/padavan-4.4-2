@@ -1,3 +1,11 @@
+## 2026-11-15 — Surface optional service launcher failures at the RC boot caller
+
+- `start_services_once()` ignored six return values: `doSystem("/usr/sbin/skipd -d /etc/storage/db")`, `start_scutclient()`, `start_dnsforwarder()`, `start_vlmcsd()`, `start_iperf3()` and `start_mentohust()`. Their helpers return launch status, but the boot orchestrator discarded it, making enabled optional-service launch failures silent.
+- Captured each return value and logged nonzero results. The original `APP_SKIPDBV2`, `APP_SCUT`, `APP_DNSFORWARDER`, `APP_VLMCSD`, `APP_IPERF3` and `APP_MENTOHUST` compile-time guards, relative call order and best-effort boot behavior are preserved.
+- Added process-lifecycle source contracts for feature-gate containment, assignment, nonzero check, diagnostic, order and absence of standalone fire-and-forget calls. `services.c` is already present in Process and XY-C1 path filters.
+- Parent main: `28ccec681975863be1dc59580166fdd3a7774655`; result: THIS COMMIT. Exact-head Process and XY-C1/TRX/artifact verification required; no hardware runtime result claimed.
+
+---
 ## 2026-11-15 — Preserve storage-backed media daemon launch statuses
 
 - `run_itunes()`, `run_torrent()` and `run_aria()` discarded the `eval()` status returned by Firefly, Transmission and Aria launch commands. Enabled services could fail their launch command without an RC-side diagnostic.

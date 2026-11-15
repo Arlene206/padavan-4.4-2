@@ -1360,13 +1360,28 @@ start_services_once(int is_ap_mode)
 #endif
 	}
 #if defined(APP_SKIPDBV2)
-	doSystem("/usr/sbin/skipd -d /etc/storage/db");
+	{
+		int skipdb_start_status = doSystem("/usr/sbin/skipd -d /etc/storage/db");
+		if (skipdb_start_status != 0)
+			logmessage(LOGNAME, "SkipDBv2 boot startup failed (wait status=%d)",
+				   skipdb_start_status);
+	}
 #endif
 #if defined(APP_SCUT)
-	start_scutclient();
+	{
+		int scut_start_status = start_scutclient();
+		if (scut_start_status != 0)
+			logmessage(LOGNAME, "SCUT client boot startup failed (status=%d)",
+				   scut_start_status);
+	}
 #endif
 #if defined(APP_DNSFORWARDER)
-	start_dnsforwarder();
+	{
+		int dnsforwarder_start_status = start_dnsforwarder();
+		if (dnsforwarder_start_status != 0)
+			logmessage(LOGNAME, "DNS Forwarder boot startup failed (status=%d)",
+				   dnsforwarder_start_status);
+	}
 #endif
 #if defined(APP_TTYD)
 	{
@@ -1376,10 +1391,20 @@ start_services_once(int is_ap_mode)
 	}
 #endif
 #if defined(APP_VLMCSD)
-	start_vlmcsd();
+	{
+		int vlmcsd_start_status = start_vlmcsd();
+		if (vlmcsd_start_status != 0)
+			logmessage(LOGNAME, "vlmcsd boot startup failed (status=%d)",
+				   vlmcsd_start_status);
+	}
 #endif
 #if defined(APP_IPERF3)
-	start_iperf3();
+	{
+		int iperf3_start_status = start_iperf3();
+		if (iperf3_start_status != 0)
+			logmessage(LOGNAME, "iperf3 boot startup failed (status=%d)",
+				   iperf3_start_status);
+	}
 #endif
 	start_lltd();
 	start_watchdog_cpu();
@@ -1393,7 +1418,12 @@ start_services_once(int is_ap_mode)
 	}
 	start_rstats();
 #if defined(APP_MENTOHUST)
-	start_mentohust();
+	{
+		int mentohust_start_status = start_mentohust();
+		if (mentohust_start_status != 0)
+			logmessage(LOGNAME, "MentoHUST boot startup failed (status=%d)",
+				   mentohust_start_status);
+	}
 #endif
 	{
 		int iappd_restart_status = system("/usr/bin/iappd.sh restart");

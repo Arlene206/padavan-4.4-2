@@ -864,6 +864,278 @@ assert not re.search(r'(?m)^\s*system\("/usr/bin/iappd\.sh test"\);$', iappd_boo
 assert not re.search(r'(?m)^\s*system\("modprobe xt_TPROXY"\);$', iappd_boot)
 print("IAPPD RC restart, TPROXY load and post-start test status propagation: PASS")
 
+optional_boot_calls = [
+    ("APP_SKIPDBV2", 'int skipdb_start_status = doSystem("/usr/sbin/skipd -d /etc/storage/db");',
+     "skipdb_start_status", "SkipDBv2 boot startup failed (wait status=%d)"),
+    ("APP_SCUT", "int scut_start_status = start_scutclient();",
+     "scut_start_status", "SCUT client boot startup failed (status=%d)"),
+    ("APP_DNSFORWARDER", "int dnsforwarder_start_status = start_dnsforwarder();",
+     "dnsforwarder_start_status", "DNS Forwarder boot startup failed (status=%d)"),
+    ("APP_VLMCSD", "int vlmcsd_start_status = start_vlmcsd();",
+     "vlmcsd_start_status", "vlmcsd boot startup failed (status=%d)"),
+    ("APP_IPERF3", "int iperf3_start_status = start_iperf3();",
+     "iperf3_start_status", "iperf3 boot startup failed (status=%d)"),
+    ("APP_MENTOHUST", "int mentohust_start_status = start_mentohust();",
+     "mentohust_start_status", "MentoHUST boot startup failed (status=%d)"),
+]
+optional_call_positions = []
+for feature, assignment, status_name, diagnostic in optional_boot_calls:
+    feature_at = iappd_boot.index(f"#if defined({feature})")
+    call_at = iappd_boot.index(assignment)
+    check_at = iappd_boot.index(f"if ({status_name} != 0)", call_at)
+    log_at = iappd_boot.index(diagnostic, check_at)
+    assert feature_at < call_at < check_at < log_at
+    assert f"logmessage(LOGNAME," in iappd_boot[check_at:log_at]
+    optional_call_positions.append(call_at)
+assert optional_call_positions == sorted(optional_call_positions)
+assert not re.search(r'(?m)^\\s*doSystem\\("/usr/sbin/skipd -d /etc/storage/db"\\);telnetd_start = services_source.split("int\nstart_telnetd(void)", 1)[1].split("\n}\n", 1)[0]
+assert 'if (!nvram_match("telnetd", "1"))' in telnetd_start
+assert telnetd_start.index("return 0;") < telnetd_start.index('optional_daemon_start_status("telnetd", "telnetd")')
+telnetd_start_compact = " ".join(telnetd_start.split())
+assert 'logmessage(LOGNAME, "telnetd start aborted: process inventory unavailable (status=%d)", start_status);' in telnetd_start_compact
+assert 'start_status = eval("telnetd");' in telnetd_start
+assert 'logmessage(LOGNAME, "telnetd launcher failed (status=%d)", start_status);' in telnetd_start
+telnetd_launch = telnetd_start.index('start_status = eval("telnetd");')
+telnetd_launch_failure = telnetd_start.index("if (start_status != 0)", telnetd_launch)
+telnetd_launch_return = telnetd_start.index("return start_status;", telnetd_launch_failure)
+assert telnetd_launch < telnetd_launch_failure < telnetd_launch_return
+
+ttyd_start = services_source.split("int\nstart_ttyd(void)", 1)[1].split("\n}\n", 1)[0]
+assert 'if (ttyd_mode != 1)' in ttyd_start
+assert ttyd_start.index("return 0;") < ttyd_start.index('optional_daemon_start_status("ttyd", "ttyd")')
+ttyd_start_compact = " ".join(ttyd_start.split())
+assert 'logmessage(LOGNAME, "ttyd start aborted: process inventory unavailable (status=%d)", start_status);' in ttyd_start_compact
+assert 'start_status = eval("/usr/bin/ttyd.sh", "start");' in ttyd_start
+assert 'logmessage(LOGNAME, "ttyd launcher failed (status=%d)", start_status);' in ttyd_start
+ttyd_launch = ttyd_start.index('start_status = eval("/usr/bin/ttyd.sh", "start");')
+ttyd_launch_failure = ttyd_start.index("if (start_status != 0)", ttyd_launch)
+ttyd_launch_return = ttyd_start.index("return start_status;", ttyd_launch_failure)
+assert ttyd_launch < ttyd_launch_failure < ttyd_launch_return
+print("telnetd/ttyd boot launcher diagnostics and disabled sentinels: PASS")
+
+optional_start_contracts = (
+    ("start_adguardhome", "AdGuardHome"),
+    ("start_ddnsto", "DDNS.to"),
+    ("start_adbyby", "Adbyby"),
+    ("start_aliddns", "AliDDNS"),
+)
+for function_name, log_label in optional_start_contracts:
+    optional_start = services_source.split(function_name + "(void)", 1)[1].split("\n}", 1)[0]
+    eval_at = optional_start.index("start_status = eval(")
+    assert "int start_status;" in optional_start
+    assert re.search(r"\bif\s*\(", optional_start[:eval_at])  # retain the original enabled/disabled guard
+    failure_guard = optional_start.index("if (start_status != 0)", eval_at)
+    failure_log = optional_start.index(f'logmessage(LOGNAME, "{log_label} launcher failed (status=%d)", start_status);', failure_guard)
+    assert eval_at < failure_guard < failure_log
+print("optional AdGuardHome/DDNS.to/Adbyby/AliDDNS launch diagnostics: PASS")
+, iappd_boot)
+assert not re.search(r'(?m)^\\s*start_scutclient\\(\\);telnetd_start = services_source.split("int\nstart_telnetd(void)", 1)[1].split("\n}\n", 1)[0]
+assert 'if (!nvram_match("telnetd", "1"))' in telnetd_start
+assert telnetd_start.index("return 0;") < telnetd_start.index('optional_daemon_start_status("telnetd", "telnetd")')
+telnetd_start_compact = " ".join(telnetd_start.split())
+assert 'logmessage(LOGNAME, "telnetd start aborted: process inventory unavailable (status=%d)", start_status);' in telnetd_start_compact
+assert 'start_status = eval("telnetd");' in telnetd_start
+assert 'logmessage(LOGNAME, "telnetd launcher failed (status=%d)", start_status);' in telnetd_start
+telnetd_launch = telnetd_start.index('start_status = eval("telnetd");')
+telnetd_launch_failure = telnetd_start.index("if (start_status != 0)", telnetd_launch)
+telnetd_launch_return = telnetd_start.index("return start_status;", telnetd_launch_failure)
+assert telnetd_launch < telnetd_launch_failure < telnetd_launch_return
+
+ttyd_start = services_source.split("int\nstart_ttyd(void)", 1)[1].split("\n}\n", 1)[0]
+assert 'if (ttyd_mode != 1)' in ttyd_start
+assert ttyd_start.index("return 0;") < ttyd_start.index('optional_daemon_start_status("ttyd", "ttyd")')
+ttyd_start_compact = " ".join(ttyd_start.split())
+assert 'logmessage(LOGNAME, "ttyd start aborted: process inventory unavailable (status=%d)", start_status);' in ttyd_start_compact
+assert 'start_status = eval("/usr/bin/ttyd.sh", "start");' in ttyd_start
+assert 'logmessage(LOGNAME, "ttyd launcher failed (status=%d)", start_status);' in ttyd_start
+ttyd_launch = ttyd_start.index('start_status = eval("/usr/bin/ttyd.sh", "start");')
+ttyd_launch_failure = ttyd_start.index("if (start_status != 0)", ttyd_launch)
+ttyd_launch_return = ttyd_start.index("return start_status;", ttyd_launch_failure)
+assert ttyd_launch < ttyd_launch_failure < ttyd_launch_return
+print("telnetd/ttyd boot launcher diagnostics and disabled sentinels: PASS")
+
+optional_start_contracts = (
+    ("start_adguardhome", "AdGuardHome"),
+    ("start_ddnsto", "DDNS.to"),
+    ("start_adbyby", "Adbyby"),
+    ("start_aliddns", "AliDDNS"),
+)
+for function_name, log_label in optional_start_contracts:
+    optional_start = services_source.split(function_name + "(void)", 1)[1].split("\n}", 1)[0]
+    eval_at = optional_start.index("start_status = eval(")
+    assert "int start_status;" in optional_start
+    assert re.search(r"\bif\s*\(", optional_start[:eval_at])  # retain the original enabled/disabled guard
+    failure_guard = optional_start.index("if (start_status != 0)", eval_at)
+    failure_log = optional_start.index(f'logmessage(LOGNAME, "{log_label} launcher failed (status=%d)", start_status);', failure_guard)
+    assert eval_at < failure_guard < failure_log
+print("optional AdGuardHome/DDNS.to/Adbyby/AliDDNS launch diagnostics: PASS")
+, iappd_boot)
+assert not re.search(r'(?m)^\\s*start_dnsforwarder\\(\\);telnetd_start = services_source.split("int\nstart_telnetd(void)", 1)[1].split("\n}\n", 1)[0]
+assert 'if (!nvram_match("telnetd", "1"))' in telnetd_start
+assert telnetd_start.index("return 0;") < telnetd_start.index('optional_daemon_start_status("telnetd", "telnetd")')
+telnetd_start_compact = " ".join(telnetd_start.split())
+assert 'logmessage(LOGNAME, "telnetd start aborted: process inventory unavailable (status=%d)", start_status);' in telnetd_start_compact
+assert 'start_status = eval("telnetd");' in telnetd_start
+assert 'logmessage(LOGNAME, "telnetd launcher failed (status=%d)", start_status);' in telnetd_start
+telnetd_launch = telnetd_start.index('start_status = eval("telnetd");')
+telnetd_launch_failure = telnetd_start.index("if (start_status != 0)", telnetd_launch)
+telnetd_launch_return = telnetd_start.index("return start_status;", telnetd_launch_failure)
+assert telnetd_launch < telnetd_launch_failure < telnetd_launch_return
+
+ttyd_start = services_source.split("int\nstart_ttyd(void)", 1)[1].split("\n}\n", 1)[0]
+assert 'if (ttyd_mode != 1)' in ttyd_start
+assert ttyd_start.index("return 0;") < ttyd_start.index('optional_daemon_start_status("ttyd", "ttyd")')
+ttyd_start_compact = " ".join(ttyd_start.split())
+assert 'logmessage(LOGNAME, "ttyd start aborted: process inventory unavailable (status=%d)", start_status);' in ttyd_start_compact
+assert 'start_status = eval("/usr/bin/ttyd.sh", "start");' in ttyd_start
+assert 'logmessage(LOGNAME, "ttyd launcher failed (status=%d)", start_status);' in ttyd_start
+ttyd_launch = ttyd_start.index('start_status = eval("/usr/bin/ttyd.sh", "start");')
+ttyd_launch_failure = ttyd_start.index("if (start_status != 0)", ttyd_launch)
+ttyd_launch_return = ttyd_start.index("return start_status;", ttyd_launch_failure)
+assert ttyd_launch < ttyd_launch_failure < ttyd_launch_return
+print("telnetd/ttyd boot launcher diagnostics and disabled sentinels: PASS")
+
+optional_start_contracts = (
+    ("start_adguardhome", "AdGuardHome"),
+    ("start_ddnsto", "DDNS.to"),
+    ("start_adbyby", "Adbyby"),
+    ("start_aliddns", "AliDDNS"),
+)
+for function_name, log_label in optional_start_contracts:
+    optional_start = services_source.split(function_name + "(void)", 1)[1].split("\n}", 1)[0]
+    eval_at = optional_start.index("start_status = eval(")
+    assert "int start_status;" in optional_start
+    assert re.search(r"\bif\s*\(", optional_start[:eval_at])  # retain the original enabled/disabled guard
+    failure_guard = optional_start.index("if (start_status != 0)", eval_at)
+    failure_log = optional_start.index(f'logmessage(LOGNAME, "{log_label} launcher failed (status=%d)", start_status);', failure_guard)
+    assert eval_at < failure_guard < failure_log
+print("optional AdGuardHome/DDNS.to/Adbyby/AliDDNS launch diagnostics: PASS")
+, iappd_boot)
+assert not re.search(r'(?m)^\\s*start_vlmcsd\\(\\);telnetd_start = services_source.split("int\nstart_telnetd(void)", 1)[1].split("\n}\n", 1)[0]
+assert 'if (!nvram_match("telnetd", "1"))' in telnetd_start
+assert telnetd_start.index("return 0;") < telnetd_start.index('optional_daemon_start_status("telnetd", "telnetd")')
+telnetd_start_compact = " ".join(telnetd_start.split())
+assert 'logmessage(LOGNAME, "telnetd start aborted: process inventory unavailable (status=%d)", start_status);' in telnetd_start_compact
+assert 'start_status = eval("telnetd");' in telnetd_start
+assert 'logmessage(LOGNAME, "telnetd launcher failed (status=%d)", start_status);' in telnetd_start
+telnetd_launch = telnetd_start.index('start_status = eval("telnetd");')
+telnetd_launch_failure = telnetd_start.index("if (start_status != 0)", telnetd_launch)
+telnetd_launch_return = telnetd_start.index("return start_status;", telnetd_launch_failure)
+assert telnetd_launch < telnetd_launch_failure < telnetd_launch_return
+
+ttyd_start = services_source.split("int\nstart_ttyd(void)", 1)[1].split("\n}\n", 1)[0]
+assert 'if (ttyd_mode != 1)' in ttyd_start
+assert ttyd_start.index("return 0;") < ttyd_start.index('optional_daemon_start_status("ttyd", "ttyd")')
+ttyd_start_compact = " ".join(ttyd_start.split())
+assert 'logmessage(LOGNAME, "ttyd start aborted: process inventory unavailable (status=%d)", start_status);' in ttyd_start_compact
+assert 'start_status = eval("/usr/bin/ttyd.sh", "start");' in ttyd_start
+assert 'logmessage(LOGNAME, "ttyd launcher failed (status=%d)", start_status);' in ttyd_start
+ttyd_launch = ttyd_start.index('start_status = eval("/usr/bin/ttyd.sh", "start");')
+ttyd_launch_failure = ttyd_start.index("if (start_status != 0)", ttyd_launch)
+ttyd_launch_return = ttyd_start.index("return start_status;", ttyd_launch_failure)
+assert ttyd_launch < ttyd_launch_failure < ttyd_launch_return
+print("telnetd/ttyd boot launcher diagnostics and disabled sentinels: PASS")
+
+optional_start_contracts = (
+    ("start_adguardhome", "AdGuardHome"),
+    ("start_ddnsto", "DDNS.to"),
+    ("start_adbyby", "Adbyby"),
+    ("start_aliddns", "AliDDNS"),
+)
+for function_name, log_label in optional_start_contracts:
+    optional_start = services_source.split(function_name + "(void)", 1)[1].split("\n}", 1)[0]
+    eval_at = optional_start.index("start_status = eval(")
+    assert "int start_status;" in optional_start
+    assert re.search(r"\bif\s*\(", optional_start[:eval_at])  # retain the original enabled/disabled guard
+    failure_guard = optional_start.index("if (start_status != 0)", eval_at)
+    failure_log = optional_start.index(f'logmessage(LOGNAME, "{log_label} launcher failed (status=%d)", start_status);', failure_guard)
+    assert eval_at < failure_guard < failure_log
+print("optional AdGuardHome/DDNS.to/Adbyby/AliDDNS launch diagnostics: PASS")
+, iappd_boot)
+assert not re.search(r'(?m)^\\s*start_iperf3\\(\\);telnetd_start = services_source.split("int\nstart_telnetd(void)", 1)[1].split("\n}\n", 1)[0]
+assert 'if (!nvram_match("telnetd", "1"))' in telnetd_start
+assert telnetd_start.index("return 0;") < telnetd_start.index('optional_daemon_start_status("telnetd", "telnetd")')
+telnetd_start_compact = " ".join(telnetd_start.split())
+assert 'logmessage(LOGNAME, "telnetd start aborted: process inventory unavailable (status=%d)", start_status);' in telnetd_start_compact
+assert 'start_status = eval("telnetd");' in telnetd_start
+assert 'logmessage(LOGNAME, "telnetd launcher failed (status=%d)", start_status);' in telnetd_start
+telnetd_launch = telnetd_start.index('start_status = eval("telnetd");')
+telnetd_launch_failure = telnetd_start.index("if (start_status != 0)", telnetd_launch)
+telnetd_launch_return = telnetd_start.index("return start_status;", telnetd_launch_failure)
+assert telnetd_launch < telnetd_launch_failure < telnetd_launch_return
+
+ttyd_start = services_source.split("int\nstart_ttyd(void)", 1)[1].split("\n}\n", 1)[0]
+assert 'if (ttyd_mode != 1)' in ttyd_start
+assert ttyd_start.index("return 0;") < ttyd_start.index('optional_daemon_start_status("ttyd", "ttyd")')
+ttyd_start_compact = " ".join(ttyd_start.split())
+assert 'logmessage(LOGNAME, "ttyd start aborted: process inventory unavailable (status=%d)", start_status);' in ttyd_start_compact
+assert 'start_status = eval("/usr/bin/ttyd.sh", "start");' in ttyd_start
+assert 'logmessage(LOGNAME, "ttyd launcher failed (status=%d)", start_status);' in ttyd_start
+ttyd_launch = ttyd_start.index('start_status = eval("/usr/bin/ttyd.sh", "start");')
+ttyd_launch_failure = ttyd_start.index("if (start_status != 0)", ttyd_launch)
+ttyd_launch_return = ttyd_start.index("return start_status;", ttyd_launch_failure)
+assert ttyd_launch < ttyd_launch_failure < ttyd_launch_return
+print("telnetd/ttyd boot launcher diagnostics and disabled sentinels: PASS")
+
+optional_start_contracts = (
+    ("start_adguardhome", "AdGuardHome"),
+    ("start_ddnsto", "DDNS.to"),
+    ("start_adbyby", "Adbyby"),
+    ("start_aliddns", "AliDDNS"),
+)
+for function_name, log_label in optional_start_contracts:
+    optional_start = services_source.split(function_name + "(void)", 1)[1].split("\n}", 1)[0]
+    eval_at = optional_start.index("start_status = eval(")
+    assert "int start_status;" in optional_start
+    assert re.search(r"\bif\s*\(", optional_start[:eval_at])  # retain the original enabled/disabled guard
+    failure_guard = optional_start.index("if (start_status != 0)", eval_at)
+    failure_log = optional_start.index(f'logmessage(LOGNAME, "{log_label} launcher failed (status=%d)", start_status);', failure_guard)
+    assert eval_at < failure_guard < failure_log
+print("optional AdGuardHome/DDNS.to/Adbyby/AliDDNS launch diagnostics: PASS")
+, iappd_boot)
+assert not re.search(r'(?m)^\\s*start_mentohust\\(\\);telnetd_start = services_source.split("int\nstart_telnetd(void)", 1)[1].split("\n}\n", 1)[0]
+assert 'if (!nvram_match("telnetd", "1"))' in telnetd_start
+assert telnetd_start.index("return 0;") < telnetd_start.index('optional_daemon_start_status("telnetd", "telnetd")')
+telnetd_start_compact = " ".join(telnetd_start.split())
+assert 'logmessage(LOGNAME, "telnetd start aborted: process inventory unavailable (status=%d)", start_status);' in telnetd_start_compact
+assert 'start_status = eval("telnetd");' in telnetd_start
+assert 'logmessage(LOGNAME, "telnetd launcher failed (status=%d)", start_status);' in telnetd_start
+telnetd_launch = telnetd_start.index('start_status = eval("telnetd");')
+telnetd_launch_failure = telnetd_start.index("if (start_status != 0)", telnetd_launch)
+telnetd_launch_return = telnetd_start.index("return start_status;", telnetd_launch_failure)
+assert telnetd_launch < telnetd_launch_failure < telnetd_launch_return
+
+ttyd_start = services_source.split("int\nstart_ttyd(void)", 1)[1].split("\n}\n", 1)[0]
+assert 'if (ttyd_mode != 1)' in ttyd_start
+assert ttyd_start.index("return 0;") < ttyd_start.index('optional_daemon_start_status("ttyd", "ttyd")')
+ttyd_start_compact = " ".join(ttyd_start.split())
+assert 'logmessage(LOGNAME, "ttyd start aborted: process inventory unavailable (status=%d)", start_status);' in ttyd_start_compact
+assert 'start_status = eval("/usr/bin/ttyd.sh", "start");' in ttyd_start
+assert 'logmessage(LOGNAME, "ttyd launcher failed (status=%d)", start_status);' in ttyd_start
+ttyd_launch = ttyd_start.index('start_status = eval("/usr/bin/ttyd.sh", "start");')
+ttyd_launch_failure = ttyd_start.index("if (start_status != 0)", ttyd_launch)
+ttyd_launch_return = ttyd_start.index("return start_status;", ttyd_launch_failure)
+assert ttyd_launch < ttyd_launch_failure < ttyd_launch_return
+print("telnetd/ttyd boot launcher diagnostics and disabled sentinels: PASS")
+
+optional_start_contracts = (
+    ("start_adguardhome", "AdGuardHome"),
+    ("start_ddnsto", "DDNS.to"),
+    ("start_adbyby", "Adbyby"),
+    ("start_aliddns", "AliDDNS"),
+)
+for function_name, log_label in optional_start_contracts:
+    optional_start = services_source.split(function_name + "(void)", 1)[1].split("\n}", 1)[0]
+    eval_at = optional_start.index("start_status = eval(")
+    assert "int start_status;" in optional_start
+    assert re.search(r"\bif\s*\(", optional_start[:eval_at])  # retain the original enabled/disabled guard
+    failure_guard = optional_start.index("if (start_status != 0)", eval_at)
+    failure_log = optional_start.index(f'logmessage(LOGNAME, "{log_label} launcher failed (status=%d)", start_status);', failure_guard)
+    assert eval_at < failure_guard < failure_log
+print("optional AdGuardHome/DDNS.to/Adbyby/AliDDNS launch diagnostics: PASS")
+, iappd_boot)
+print("Optional RC daemon startup status propagation: PASS")
+
 telnetd_start = services_source.split("int\nstart_telnetd(void)", 1)[1].split("\n}\n", 1)[0]
 assert 'if (!nvram_match("telnetd", "1"))' in telnetd_start
 assert telnetd_start.index("return 0;") < telnetd_start.index('optional_daemon_start_status("telnetd", "telnetd")')

@@ -1,6 +1,6 @@
 ## Current source / CI checkpoint
 
-- Current parent before the storage-backed media launcher status slice: `4f2986624dc72c87f5453e47e822cef8a8e2d667`. IAPPD caller source fix is committed at c1987; its exact Process checker correction #43740923564 and AI docs #43740923576 PASS. NVRAM #43740923560 remained IN_PROGRESS; XY-C1 #43740697118 remained in Build. This slice captures and logs Firefly, Transmission and Aria launcher statuses while preserving feature and process-inventory gates.
+- Current source parent for the optional-service caller status slice: `28ccec681975863be1dc59580166fdd3a7774655`. Storage-backed Firefly/Transmission/Aria launch status logging is committed in 28ccec; exact Process #43741160702 and artifact #43741160766 PASS. AI docs #43741160792, NVRAM #43741160737, USB #43741160723, infosvr #43741160726, NFS #43741160739, AdGuardHome #43741160924, HTTPD #43741160902, Samba #43741160807, AliDDNS #43741160758, AliyunDrive #43741160680 and vsftpd #43741160663 PASS. XY-C1 #43741160797 was still at Build XY-C1; TRX/artifact not yet verified. This slice captures six previously ignored optional-service startup results.
 - Exact-parent Action summary: infosvr packet and signal lifecycle stability regression #43738132617 completed/success; NFS daemon start and reload lifecycle regression #43738132578 completed/success; AI handoff documentation contract #43738132573 completed/success; Process inventory and lifecycle fail-closed regression #43738132620 completed/success; Process lifecycle inventory - 479c05be3bef946f892f81a296d0ca3e709a698f #43738132593 completed/success; NVRAM transaction boundary audit #43738132600 completed/success; fresh process-lifecycle and XY-C1 checks are required after this source commit.
 - Exact 925e AI docs #43737910530, process inventory/lifecycle fail-closed #43737910499, infosvr #43737910533, AdGuardHome #43737910558, AliDDNS #43737910522 and AliyunDrive #43737910604 PASS; NVRAM #43737910496 was IN_PROGRESS at last poll. No NFS workflow was triggered on 925e; the corrected test needs a fresh exact-head run.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only. Do not claim XY-C1 L3 or physical-router L4 without current-SHA build/TRX/artifact and hardware evidence.
@@ -12,6 +12,10 @@
 ### P2 — IAPPD boot caller status visibility
 
 - RC previously discarded `system()` results from `iappd.sh restart`, `modprobe xt_TPROXY` and `iappd.sh test`, hiding failures from the wrapper fixed in the preceding IAPPD task. This slice captures and logs each nonzero wait status without making optional-service failure abort unrelated boot.
+
+### P2 — Optional RC boot service status visibility
+
+- `start_services_once()` now observes the previously ignored SkipDBv2, SCUT, DNS Forwarder, vlmcsd, iperf3 and MentoHUST startup results. Each nonzero result is logged inside its existing `APP_*` feature guard; launch order and best-effort boot semantics are unchanged. Exact-head Process and XY-C1 runs are required for this new caller/source-contract slice.
 
 ## Whole-repository module status
 
