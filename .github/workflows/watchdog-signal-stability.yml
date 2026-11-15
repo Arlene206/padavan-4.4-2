@@ -5,6 +5,8 @@ on:
     paths:
       - ".github/workflows/watchdog-signal-stability.yml"
       - "trunk/user/rc/src/watchdog.c"
+      - "trunk/user/rc/src/process_presence_start_policy.h"
+      - "trunk/user/rc/src/tests/process_presence_start_policy.c"
       - "trunk/user/rc/src/watchdog_ntp_policy.h"
       - "trunk/user/rc/src/tests/watchdog_ntp_policy.c"
       - "trunk/user/rc/src/common_ex.c"
@@ -82,6 +84,8 @@ jobs:
 
           rc = Path("trunk/user/rc/src")
           watchdog = (rc / "watchdog.c").read_text()
+          presence_policy = (rc / "process_presence_start_policy.h").read_text()
+          presence_test = (rc / "tests/process_presence_start_policy.c").read_text()
           policy = (rc / "watchdog_signal_policy.h").read_text()
           test = (rc / "tests/watchdog_signal_policy.c").read_text()
           dispatcher = (rc / "rc.c").read_text()
@@ -106,6 +110,12 @@ jobs:
               raise AssertionError("unterminated function: " + signature)
 
           assert '#include "watchdog_signal_policy.h"' in watchdog
+          assert '#include "process_presence_start_policy.h"' in watchdog
+          assert '#include <process_inventory.h>' in watchdog
+          for marker in ("PROCESS_PRESENCE_ABSENT", "PROCESS_PRESENCE_RUNNING",
+                         "PROCESS_PRESENCE_UNKNOWN", "(enum process_presence)7"):
+              assert marker in presence_test
+          assert "PROCESS_PRESENCE_START_ABORT" in presence_policy
           handler = body(watchdog, "catch_sig_watchdog(int sig)")
           assert "watchdog_record_signal(&wd_pending_events, sig)" in handler
           for forbidden in ("watchdog_on_timer(", "watchdog_on_sighup(",
@@ -178,9 +188,9 @@ jobs:
           wifi_notify = body(watchdog, "notify_watchdog_wifi(int is_5ghz)")
           assert 'process_pidfile_signal(WD_PID_FILE, "watchdog", SIGHUP)' in time_notify
           assert "kill_pidfile_s(WD_PID_FILE" not in time_notify
-          assert time_notify.index("process_pidfile_signal(") < time_notify.index('pids("watchdog")')
-          assert 'if (!pids("watchdog"))' in time_notify
-          assert "start_watchdog();" in time_notify
+          assert time_notify.index("process_pidfile_signal(") < time_notify.index("start_watchdog();")
+          assert "pids(" not in time_notify
+          assert "saved_errno == ENOENT || saved_errno == ESRCH" in time_notify
           assert 'nvram_set_int_temp("wd_notify_id", wd_notify_id)' in wifi_notify
           assert 'process_pidfile_signal(WD_PID_FILE, "watchdog", SIGUSR1)' in wifi_notify
           assert "kill_pidfile_s(WD_PID_FILE" not in wifi_notify
@@ -200,6 +210,8 @@ jobs:
           paths = (
               ".github/workflows/watchdog-signal-stability.yml",
               "trunk/user/rc/src/watchdog.c",
+              "trunk/user/rc/src/process_presence_start_policy.h",
+              "trunk/user/rc/src/tests/process_presence_start_policy.c",
               "trunk/user/shared/src/process_pidfile.c",
               "trunk/user/shared/src/process_pidfile.h",
               "trunk/user/rc/src/watchdog_signal_policy.h",

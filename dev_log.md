@@ -1,3 +1,12 @@
+## 2026-11-15 — Repair process-presence regression assertions after tri-state migration
+
+- Exact-head process lifecycle run `43672306838` on `bc7cc31b8e5e86b3bd1e7cc800ab27b79c552a44` passed all GNU89 binaries and prior integration checks, then failed because the new detector checker required the literal ABORT enum in each caller body even though both callers correctly route the final `else` to a logged UNKNOWN/no-action path. Tightened the contract to verify that explicit log path instead.
+- Exact-head watchdog signal run `43672306842` failed because its legacy assertion still required the removed `pids("watchdog")` fallback in `notify_watchdog_time()`. Updated it to require PID-file signal-before-tri-state-start ordering and the ENOENT/ESRCH recovery condition; added the new shared policy/test to its push/PR path filters and contract.
+- No product source changed. The previous process lifecycle failure at `a80a532fd6ed52c5775426fb314d64930abdd287` had the same detector-checker mismatch; this correction repairs both affected exact-head regressions.
+- Changed paths: `scripts/check_process_lifecycle_integration.py`, `.github/workflows/watchdog-signal-stability.yml`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
 ## 2026-11-14 — Stop watchdog recovery from treating UNKNOWN as daemon absence
 
 - Replaced the watchdog's remaining lossy service-presence gates for HTTPD, DNSMasq and watchdog itself with complete process-inventory scans. HTTPD/DNSMasq recovery counters now remain unchanged on UNKNOWN; a watchdog start is authorized only by ABSENT, treated as already running on RUNNING, and rejected with the scan error on UNKNOWN.

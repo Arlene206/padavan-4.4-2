@@ -383,7 +383,8 @@ for body, process_name in ((di_notify, "detect_internet"), (dl_notify, "detect_l
     assert body.index("process_snapshot_release(&snapshot);") < body.index("process_presence_start_action_for_state(presence)")
     assert "PROCESS_PRESENCE_START_NEW" in body
     assert "PROCESS_PRESENCE_START_NOTIFY" in body
-    assert "PROCESS_PRESENCE_START_ABORT" in body
+    assert "skipping start/notification because process inventory is unknown" in body
+    assert "else:" in body
     assert "pids(" not in body
 assert 'process_inventory_scan("detect_wan", &snapshot)' in wan_gateway_start
 assert "scan_error = snapshot.error;" in wan_gateway_start
