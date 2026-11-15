@@ -16,6 +16,8 @@ on:
       - "trunk/user/rc/src/tests/samba_config_transaction.c"
       - "trunk/user/rc/src/samba_daemon_policy.h"
       - "trunk/user/rc/src/tests/samba_daemon_policy.c"
+      - "trunk/user/rc/src/samba_process_policy.h"
+      - "trunk/user/rc/src/tests/samba_process_policy.c"
   pull_request:
     paths:
       - ".github/workflows/samba-share-stability.yml"
@@ -31,6 +33,8 @@ on:
       - "trunk/user/rc/src/tests/samba_config_transaction.c"
       - "trunk/user/rc/src/samba_daemon_policy.h"
       - "trunk/user/rc/src/tests/samba_daemon_policy.c"
+      - "trunk/user/rc/src/samba_process_policy.h"
+      - "trunk/user/rc/src/tests/samba_process_policy.c"
 
 jobs:
   samba-config:
@@ -60,6 +64,11 @@ jobs:
             trunk/user/rc/src/tests/samba_daemon_policy.c \
             -o /tmp/samba-daemon-policy
           /tmp/samba-daemon-policy
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/rc/src -I trunk/user/shared/src \
+            trunk/user/rc/src/tests/samba_process_policy.c \
+            -o /tmp/samba-process-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/samba-process-policy
       - name: Verify Samba config staging and service failure gates
         run: |
           python3 - <<'PY'
@@ -183,13 +192,20 @@ jobs:
           sleep_fn = function_body(stor, "samba_daemon_sleep(")
           assert "pids((char *)daemon) > 0" in running_fn
           assert "usleep(microseconds)" in sleep_fn
-          assert 'doSystem("killall %s %s", "-SIGHUP", daemon)' in ensure_fn
-          assert 'eval(daemon_path, "-D", "-s", "/etc/smb.conf")' in ensure_fn
+          assert "samba_daemon_signal_snapshot(initial_snapshot, SIGHUP" in ensure_fn
+          assert "process_inventory_scan(daemon, &current_snapshot)" in ensure_fn
+          assert "killall" not in ensure_fn
+          assert "eval(daemon_path" in ensure_fn
           assert "command_status != 0" in ensure_fn
           assert "samba_wait_for_daemon(daemon) != 0" in ensure_fn
           run_samba = function_body(stor, "int run_samba(void)")
-          assert 'samba_ensure_daemon("nmbd", has_nmbd)' in run_samba
-          assert 'samba_ensure_daemon("smbd", has_smbd)' in run_samba
+          assert 'process_inventory_scan("smbd", &smbd_snapshot)' in run_samba
+          assert 'process_inventory_scan("nmbd", &nmbd_snapshot)' in run_samba
+          assert run_samba.index('process_inventory_scan("smbd", &smbd_snapshot)') < run_samba.index("recreate_passwd_unix(0)")
+          assert run_samba.index('process_inventory_scan("nmbd", &nmbd_snapshot)') < run_samba.index("write_smb_conf_unlocked()")
+          assert 'samba_ensure_daemon("nmbd", &nmbd_snapshot)' in run_samba
+          assert 'samba_ensure_daemon("smbd", &smbd_snapshot)' in run_samba
+          assert "pids(" not in run_samba
           assert "daemon_failed" in run_samba and "return -1;" in run_samba
           assert "void run_samba(void);" not in header
           assert "int run_samba(void);" in header
@@ -211,12 +227,22 @@ jobs:
 
           daemon_policy = Path("trunk/user/rc/src/samba_daemon_policy.h").read_text()
           daemon_test = Path("trunk/user/rc/src/tests/samba_daemon_policy.c").read_text()
+          process_policy = Path("trunk/user/rc/src/samba_process_policy.h").read_text()
+          process_test = Path("trunk/user/rc/src/tests/samba_process_policy.c").read_text()
           wait_policy = function_body(daemon_policy, "samba_daemon_wait_for_stable_presence(")
           assert "ops->is_running(context, daemon)" in wait_policy
           assert "ops->sleep_us(context, 500000U)" in wait_policy
           assert "ops->sleep_us(context, 100000U)" in wait_policy
           assert "errno = ETIMEDOUT" in wait_policy
           assert "samba_daemon_wait_for_stable_presence" in daemon_test
+          assert "samba_daemon_signal_snapshot" in process_policy
+          for token in ("SAMBA_DAEMON_ACTION_START","SAMBA_DAEMON_ACTION_RELOAD",
+                        "SAMBA_DAEMON_ACTION_ABORT","Complete preflight before first signal"):
+              assert token in process_policy
+          for token in ("PROCESS_PRESENCE_UNKNOWN","signal_count==0",
+                        "errno==EACCES","errno==EPERM",
+                        "Samba process action and identity-bound signal policy: PASS"):
+              assert token in process_test
 
           stop_samba = function_body(stor, "stop_samba_locked(int force_stop)")
           assert "stop_status = kill_services(svcs, 5, 1)" in stop_samba

@@ -41,8 +41,10 @@
 #include "storage_operation_lock.h"
 #include "samba_share_policy.h"
 #if defined (APP_SMBD)
+#include "process_inventory.h"
 #include "samba_config_file.h"
 #include "samba_daemon_policy.h"
+#include "samba_process_policy.h"
 #include "samba_config_transaction.h"
 #endif
 #include "samba_passdb_policy.h"
@@ -967,54 +969,54 @@ samba_wait_for_daemon(const char *daemon)
 }
 
 /* A successful command is not enough: require process presence across a settling interval. */
-static int
-samba_ensure_daemon(const char *daemon, int was_running)
+static enum process_presence
+samba_validate_identity(void *context,const struct process_identity *identity)
 {
-	const char *daemon_path;
-	int command_status;
-
-	if (!daemon || (strcmp(daemon, "nmbd") != 0 &&
-			strcmp(daemon, "smbd") != 0 &&
-			strcmp(daemon, "wsdd2") != 0)) {
-		errno = EINVAL;
-		return -1;
+	const char *daemon=(const char *)context;
+	if(!daemon||!identity){errno=EINVAL;return PROCESS_PRESENCE_UNKNOWN;}
+	return process_identity_validate(daemon,identity);
+}
+static int samba_send_signal(void *context,pid_t pid,int sig){(void)context;return kill(pid,sig);}
+static int
+samba_ensure_daemon(const char *daemon,const struct process_snapshot *initial_snapshot)
+{
+	const char *daemon_path;int command_status;enum samba_daemon_action action;
+	struct process_snapshot current_snapshot;enum process_presence current_presence;
+	if(!daemon||(strcmp(daemon,"nmbd")&&strcmp(daemon,"smbd")&&strcmp(daemon,"wsdd2"))||!initial_snapshot){errno=EINVAL;return -1;}
+	action=samba_daemon_action_for_presence(initial_snapshot->state);
+	if(action==SAMBA_DAEMON_ACTION_ABORT){errno=EIO;logmessage("Samba Server","%s process state UNKNOWN; refusing start/reload",daemon);return -1;}
+	if(action==SAMBA_DAEMON_ACTION_RELOAD){
+		command_status=samba_daemon_signal_snapshot(initial_snapshot,SIGHUP,samba_validate_identity,samba_send_signal,(void *)daemon);
+	}else{
+		memset(&current_snapshot,0,sizeof(current_snapshot));
+		current_presence=process_inventory_scan(daemon, &current_snapshot);
+		if(current_presence==PROCESS_PRESENCE_UNKNOWN){errno=current_snapshot.error?current_snapshot.error:EIO;process_snapshot_release(&current_snapshot);logmessage("Samba Server","%s inventory UNKNOWN before launch",daemon);return -1;}
+		if(current_presence!=PROCESS_PRESENCE_ABSENT){process_snapshot_release(&current_snapshot);errno=EBUSY;logmessage("Samba Server","%s appeared before launch; refusing duplicate",daemon);return -1;}
+		process_snapshot_release(&current_snapshot);
+		if(!strcmp(daemon,"nmbd")){daemon_path="/sbin/nmbd";command_status=eval(daemon_path,"-D","-s","/etc/smb.conf");}
+		else if(!strcmp(daemon,"smbd")){daemon_path="/sbin/smbd";command_status=eval(daemon_path,"-D","-s","/etc/smb.conf");}
+		else{daemon_path="/sbin/wsdd2";command_status=eval(daemon_path,"-d","-w");}
 	}
-
-	if (was_running) {
-		command_status = doSystem("killall %s %s", "-SIGHUP", daemon);
-	} else if (strcmp(daemon, "nmbd") == 0) {
-		daemon_path = "/sbin/nmbd";
-		command_status = eval(daemon_path, "-D", "-s", "/etc/smb.conf");
-	} else if (strcmp(daemon, "smbd") == 0) {
-		daemon_path = "/sbin/smbd";
-		command_status = eval(daemon_path, "-D", "-s", "/etc/smb.conf");
-	} else {
-		daemon_path = "/sbin/wsdd2";
-		command_status = eval(daemon_path, "-d", "-w");
-	}
-
-	if (command_status != 0) {
-		logmessage("Samba Server", "%s %s command failed (status %d)",
-			   daemon, was_running ? "reload" : "start", command_status);
-		return -1;
-	}
-	if (samba_wait_for_daemon(daemon) != 0) {
-		logmessage("Samba Server", "%s did not remain running after %s (errno %d)",
-			   daemon, was_running ? "reload" : "start", errno ? errno : ETIMEDOUT);
-		return -1;
-	}
-
+	if(command_status!=0){logmessage("Samba Server","%s %s command failed (status %d)",daemon,action==SAMBA_DAEMON_ACTION_RELOAD?"reload":"start",command_status);return -1;}
+	if(samba_wait_for_daemon(daemon)!=0){logmessage("Samba Server","%s not stable after %s (errno %d)",daemon,action==SAMBA_DAEMON_ACTION_RELOAD?"reload":"start",errno?errno:ETIMEDOUT);return -1;}
 	return 0;
 }
 
 int run_samba(void)
 {
-	int lock_fd, sh_num, has_nmbd, has_smbd, i, j;
+	int lock_fd, sh_num, i, j;
 	int credential_failed = 0, daemon_failed = 0, result = -1;
-	char tmpuser[40], tmp2[40];
+	enum process_presence smbd_presence, nmbd_presence;
+	struct process_snapshot smbd_snapshot, nmbd_snapshot;
 #if defined (APP_SMBD36)
+	struct process_snapshot wsdd2_snapshot;
 	int saved_errno, transaction_active = 0;
 	char staged_passdb[128];
+#endif
+	memset(&smbd_snapshot, 0, sizeof(smbd_snapshot));
+	memset(&nmbd_snapshot, 0, sizeof(nmbd_snapshot));
+#if defined (APP_SMBD36)
+	memset(&wsdd2_snapshot, 0, sizeof(wsdd2_snapshot));
 #endif
 
 	if (nvram_match("enable_samba", "0") || nvram_match("st_samba_mode", "0"))
@@ -1028,6 +1030,26 @@ int run_samba(void)
 		return -1;
 	}
 
+	/* Inventory every daemon before account, config or cleanup mutation. */
+	smbd_presence = process_inventory_scan("smbd", &smbd_snapshot);
+	if (smbd_presence == PROCESS_PRESENCE_UNKNOWN) {
+		errno = smbd_snapshot.error ? smbd_snapshot.error : EIO;
+		logmessage("Samba Server", "smbd inventory UNKNOWN; refusing publication");
+		goto out;
+	}
+	nmbd_presence = process_inventory_scan("nmbd", &nmbd_snapshot);
+	if (nmbd_presence == PROCESS_PRESENCE_UNKNOWN) {
+		errno = nmbd_snapshot.error ? nmbd_snapshot.error : EIO;
+		logmessage("Samba Server", "nmbd inventory UNKNOWN; refusing publication");
+		goto out;
+	}
+#if defined (APP_SMBD36)
+	if (process_inventory_scan("wsdd2", &wsdd2_snapshot) == PROCESS_PRESENCE_UNKNOWN) {
+		errno = wsdd2_snapshot.error ? wsdd2_snapshot.error : EIO;
+		logmessage("WSDD2", "inventory UNKNOWN; refusing publication");
+		goto out;
+	}
+#endif
 	mkdir_if_none("/etc/samba", "777");
 	if (samba_secure_private_samba_dir() != 0) {
 		logmessage("Samba Server", "private Samba directory validation failed; service was not reloaded");
@@ -1043,10 +1065,9 @@ int run_samba(void)
 	}
 
 	recreate_passwd_unix(0);
-	has_smbd = pids("smbd");
-	has_nmbd = pids("nmbd");
 
-	if (!has_nmbd && !has_smbd) {
+	if (nmbd_presence == PROCESS_PRESENCE_ABSENT &&
+	    smbd_presence == PROCESS_PRESENCE_ABSENT) {
 		/* Preserve the account database; clear only volatile TDB/staging files. */
 		doSystem("rm -f %s %s", "/etc/samba/*.tdb", "/etc/samba/.smbpasswd.*");
 		clean_smbd_trash();
@@ -1161,13 +1182,13 @@ int run_samba(void)
 
 	config_smb_fastpath(0);
 
-	if (samba_ensure_daemon("nmbd", has_nmbd) != 0)
+	if (samba_ensure_daemon("nmbd", &nmbd_snapshot) != 0)
 		daemon_failed = 1;
-	if (samba_ensure_daemon("smbd", has_smbd) != 0)
+	if (samba_ensure_daemon("smbd", &smbd_snapshot) != 0)
 		daemon_failed = 1;
 
 #if defined (APP_SMBD36)
-	if (samba_ensure_daemon("wsdd2", pids("wsdd2") > 0) != 0)
+	if (samba_ensure_daemon("wsdd2", &wsdd2_snapshot) != 0)
 		logmessage("WSDD2", "optional discovery daemon reload/start failed");
 	else
 		logmessage("WSDD2", "daemon is started");
@@ -1181,7 +1202,10 @@ int run_samba(void)
 	result = 0;
 
 out:
+	process_snapshot_release(&smbd_snapshot);
+	process_snapshot_release(&nmbd_snapshot);
 #if defined (APP_SMBD36)
+	process_snapshot_release(&wsdd2_snapshot);
 	if (transaction_active) {
 		saved_errno = errno ? errno : EIO;
 		if (samba_config_transaction_abort(
