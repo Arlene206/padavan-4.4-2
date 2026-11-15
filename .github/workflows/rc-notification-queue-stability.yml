@@ -172,11 +172,17 @@ jobs:
               ("wireguard", 'eval("/usr/bin/wireguard.sh","start")'),
               ("smartdns", 'eval("/usr/bin/smartdns.sh","start")'),
           ):
-              start_body = function_body(services, "int start_" + name + "(void)")
-              restart_body = function_body(services, "int restart_" + name + "(void)")
+              # Match the function name independently of return-type formatting.
+              start_body = function_body(services, "start_" + name + "(void)")
+              restart_body = function_body(services, "restart_" + name + "(void)")
               assert " != 1)" in start_body
               assert "return 0;" in start_body
-              assert "return " + launcher + ";" in start_body
+              if name == "ttyd":
+                  # ttyd logs the launcher failure before returning its captured status.
+                  assert "start_status = " + launcher + ";" in start_body
+                  assert "return start_status;" in start_body
+              else:
+                  assert "return " + launcher + ";" in start_body
               assert "return start_" + name + "();" in restart_body
               assert "start_" + name + "();" not in restart_body.replace("return start_" + name + "();", "")
               assert "int start_" + name + "(void);" in rc_header
