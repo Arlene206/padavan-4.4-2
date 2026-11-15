@@ -9,9 +9,11 @@ For each logical task, create all source/test/doc blobs, one complete Git tree a
 ## Current repository state
 
 - Repository: Arlene206/padavan-4.4-2.
-- Parent main for Transmission directory-preparation and cleanup-state slice: a391be7a60c790eafd480cc4a70923e8c9e5c26b.
+- Main at the start of the Transmission settings-contract slice: 7bab2e0784e0e93e9defc451aed3fb8c89e448b9.
 - Frozen backup branch backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; read-only.
 - Recent main commits:
+- 7bab2e0784e fix(storage): initialize Transmission cleanup state early
+- a391be7a60c7 fix(storage): gate Transmission launch on setup status
 - a391be7a60c7 fix(storage): gate Transmission launch on setup status
 - a9b32e72faab test(storage): fix launcher fixture syntax boundary
 - 5ae02f33db8c fix(storage): stage Transmission default settings safely
@@ -40,11 +42,11 @@ For each logical task, create all source/test/doc blobs, one complete Git tree a
 
 ## Active task
 
-### Harden Transmission early-failure cleanup state
+### Enforce the generated Transmission settings contract
 
-Transmission settings publication and directory/permission setup now fail closed. Exact host + BusyBox storage regression passed on a391 (#43765111683). Review identified one cleanup-state edge: `transmission_start_fail()` removes the path in `CONFIG_TMP`, but before this follow-up that variable was not initialized until after directory setup. A caller-inherited `CONFIG_TMP` could therefore be mistaken for the temporary file and deleted if an early mkdir/chmod failed.
+Transmission now clears CONFIG_TMP before any early setup failure (7bab) and checks its config/download/incomplete/watch directories plus required mode/ownership setup before launching (a391). Exact a391 storage #43765111683 passed the full host and firmware BusyBox ash regression. The default-settings publisher also stages privately as settings.json.tmp.$$ and checks generator/transform/rename status, but only checks nonempty content.
 
-This slice initializes `CONFIG_TMP` as empty at the start of `func_start()` and adds a regression that injects a config-directory mkdir failure while supplying an inherited `CONFIG_TMP` file; the file must remain untouched and the daemon must not be invoked.
+A malformed nonempty generator output with no umask key could still be published, and the transform stage does not verify umask 0 was actually written. This slice adds source/post-transform content checks and a missing-umask test. The XY-C1 workflow's push path filter also omits trunk/user/transmission/transmission.sh; add this path so this shell firmware source change schedules exact-SHA Build/TRX/artifact verification.
 
 ## Completed source slice — MSD Lite configuration publication
 
@@ -56,16 +58,16 @@ The exact-head Process lifecycle host regression and XY-C1 Build/TRX/artifact wo
 
 ## Verification boundary
 
-- Parent main for current cleanup-state fix: a391be7a60c790eafd480cc4a70923e8c9e5c26b.
-- Aria PID uniqueness fix: `f36d6ec94650103134a55b2e9c9abca9894de075`; barrier race follow-up: `b488a561bb91df62aca810a6ff2c191c17f82b2b`; literal `$` barrier marker fix: `df267fd1457bb62e2a0c0fb0c359d3aa153f10e9`. Exact df267 storage #43763413862 PASS.
-- MSD Lite source slice from 50e24f32f310998a71e976287981aeb45f3bcd99 adds checked staged config publication, regression, workflow filters and source contract; b488a561 restores non-APP_MSD_LITE udpxy fallback. Exact Process + XY-C1 checks on b488 passed.
-- Local host command: cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I trunk/user/rc/src trunk/user/rc/src/tests/msd_lite_config_file.c -o msd-lite-config-regression; ASAN_OPTIONS=detect_leaks=1 ./msd-lite-config-regression — PASS.
-- The b488 source SHA got exact XY-C1 cross-build PASS (#43762907958); L3 applies only to that source revision. No physical-router/L4 result.
-- Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807; archive index/shards untouched.
+- Parent main: 7bab2e0784e0e93e9defc451aed3fb8c89e448b9.
+- Exact a391 push Actions all PASS: USB storage #43765111683; AI docs #43765111687; Process inventory #43765111691; Process lifecycle #43765111678; infosvr #43765111706; AliDDNS #43765111677; AliyunDrive #43765111712; AdGuardHome #43765111669; NVRAM #43765111698.
+- a391 adds checked Transmission directory creation/postconditions and required chmod/chown gates; its exact storage action covered injected host/BusyBox mkdir/chmod/chown failures and passed. 7bab further initializes CONFIG_TMP before early errors and verifies inherited environment cleanup safety; exact 7bab Actions were in progress at last poll: storage #43765528314, Process inventory #43765528359, Process lifecycle #43765528378, NVRAM #43765528331, AliDDNS #43765528342 and AliyunDrive #43765528351; AI docs #43765528363, AdGuardHome #43765528318 and infosvr #43765528320 already passed.
+- This slice adds expected umask 18 and transformed umask 0 content gates, a malformed nonempty-output regression, and trunk/user/transmission/transmission.sh to the XY-C1 push path filter. Exact-head storage and XY-C1 Build/TRX/artifact checks are pending.
+- Exact XY-C1 #43762907958 Build/TRX/artifact PASS remains scoped to C-source SHA b488a561bb91df62aca810a6ff2c191c17f82b2b only; do not transfer it to later commits. No physical-router/L4 result.
+- Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807; docs/dev-log/INDEX.md and archived shards untouched.
 
 ## Exact first action for the next GPT
 
-1. Inspect this cleanup-state fix's exact-head storage workflow; require host shell and firmware BusyBox ash PASS for all Transmission config-publication, mkdir, chmod, chown and inherited-`CONFIG_TMP` cases plus the Aria concurrency/fault-injection cases.
-2. After storage PASS, audit Transmission stop/restart postconditions and failure status (killall, timeout, forced kill, final pidof) with regression tests.
-3. Continue broader Padavan user-space stability/security work; do not repeat completed audits.
-4. Preserve the frozen backup and archived dev-log index/shards. b488's exact C-source L3 remains revision-specific; no L4 without physical-router evidence.
+1. Inspect exact-head USB storage host/BusyBox ash results and XY-C1 Build, TRX verification and artifact upload for the Transmission umask-contract slice; require all phases on one SHA before claiming L3.
+2. If green, inspect Transmission stop/restart and remaining runtime lifecycle postconditions; add failure injection where a concrete defect is found.
+3. Continue wider Padavan user-space reliability/security work without repeating WAN, Aria or MSD Lite slices.
+4. Preserve the frozen backup and archived logs; no L4 without physical-router evidence.

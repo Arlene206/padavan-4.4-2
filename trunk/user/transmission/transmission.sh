@@ -88,16 +88,16 @@ func_start()
 			transmission_start_fail "default settings generator failed"
 			return 1
 		fi
-		if [ ! -s "$CONFIG_TMP" ]; then
-			transmission_start_fail "default settings generator produced an empty file"
+		if [ ! -s "$CONFIG_TMP" ] || ! grep -q '"umask": 18,' "$CONFIG_TMP"; then
+			transmission_start_fail "default settings output is empty or lacks the expected umask"
 			return 1
 		fi
 		if ! sed -i 's|"umask": 18,|"umask": 0,|g' "$CONFIG_TMP"; then
 			transmission_start_fail "default settings transform failed"
 			return 1
 		fi
-		if [ ! -s "$CONFIG_TMP" ]; then
-			transmission_start_fail "default settings transform produced an empty file"
+		if [ ! -s "$CONFIG_TMP" ] || ! grep -q '"umask": 0,' "$CONFIG_TMP"; then
+			transmission_start_fail "default settings transform output is empty or has an invalid umask"
 			return 1
 		fi
 		if ! mv "$CONFIG_TMP" "$CONFIG_FILE"; then

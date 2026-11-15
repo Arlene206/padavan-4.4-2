@@ -1,3 +1,14 @@
+## 2026-11-16 06:50 Beijing — Enforce generated Transmission settings content contract
+
+- Exact a391 storage-hotplug run #43765111683 PASS across host shell and firmware BusyBox ash, including mkdir/chmod/chown failure injection; AI docs #43765111687, Process inventory #43765111691, Process lifecycle #43765111678, infosvr #43765111706, AliDDNS #43765111677, AliyunDrive #43765111712, AdGuardHome #43765111669 and NVRAM #43765111698 also PASS.
+- Exact 7bab cleanup-state follow-up changed Transmission CONFIG_TMP initialization and inherited-environment cleanup guard; at last poll storage #43765528314, Process inventory #43765528359, Process lifecycle #43765528378, NVRAM #43765528331, AliDDNS #43765528342 and AliyunDrive #43765528351 were running; AI docs #43765528363, AdGuardHome #43765528318 and infosvr #43765528320 passed.
+- The settings publisher still accepted nonempty malformed JSON lacking umask 18 and did not verify transformed umask 0. This slice adds both content checks and a malformed-output test.
+- Added trunk/user/transmission/transmission.sh to the XY-C1 workflow push path so shell changes trigger an exact firmware build/TRX/artifact check.
+- Parent main: 7bab2e0784e0e93e9defc451aed3fb8c89e448b9. Exact-head storage and XY-C1 checks are pending; C-source L3 remains scoped to b488a561 only. No L4.
+- Next: verify this exact SHA, then inspect Transmission stop/restart lifecycle postconditions.
+
+---
+
 ## 2026-11-16 06:22 Beijing — Initialize Transmission cleanup state before any fail-closed setup
 
 - `transmission_start_fail()` cleans `CONFIG_TMP`. Review found directory setup can fail before the previous assignment to `CONFIG_TMP`, allowing an inherited environment variable to be mistaken for the active stage path. `func_start()` now clears `CONFIG_TMP` immediately on entry.

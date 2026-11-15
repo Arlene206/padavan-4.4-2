@@ -50,7 +50,11 @@ if [ "${STORAGE_TEST_GENERATOR_STATUS:-0}" -ne 0 ]; then
 	exit "$STORAGE_TEST_GENERATOR_STATUS"
 fi
 if [ "${STORAGE_TEST_GENERATOR_EMPTY:-0}" -eq 0 ]; then
-	printf '%s\n' '{"umask": 18, "download-dir": "/generated"}' >&2
+	if [ "${STORAGE_TEST_GENERATOR_NO_UMASK:-0}" -eq 0 ]; then
+		printf '%s\n' '{"umask": 18, "download-dir": "/generated"}' >&2
+	else
+		printf '%s\n' '{"download-dir": "/generated"}' >&2
+	fi
 fi
 exit 0
 EOF
@@ -157,14 +161,15 @@ run_launcher()
 	chmod_fail_path=${14:-}
 	chown_fail_path=${15:-}
 	inherited_config_tmp=${16:-}
+	generator_no_umask=${17:-0}
 	generator_status=${10:-0}
 	sed_status=${11:-0}
 	generator_empty=${12:-0}
 	if [ -n "${BUSYBOX_BIN:-}" ]; then
-		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" STORAGE_TEST_MKDIR_FAIL_PATH="$mkdir_fail_path" STORAGE_TEST_CHMOD_FAIL_PATH="$chmod_fail_path" STORAGE_TEST_CHOWN_FAIL_PATH="$chown_fail_path" CONFIG_TMP="$inherited_config_tmp" \
+		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" STORAGE_TEST_GENERATOR_NO_UMASK="$generator_no_umask" STORAGE_TEST_MKDIR_FAIL_PATH="$mkdir_fail_path" STORAGE_TEST_CHMOD_FAIL_PATH="$chmod_fail_path" STORAGE_TEST_CHOWN_FAIL_PATH="$chown_fail_path" CONFIG_TMP="$inherited_config_tmp" \
 			"$BUSYBOX_BIN" ash "$launcher" start >/dev/null 2>&1
 	else
-		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" STORAGE_TEST_MKDIR_FAIL_PATH="$mkdir_fail_path" STORAGE_TEST_CHMOD_FAIL_PATH="$chmod_fail_path" STORAGE_TEST_CHOWN_FAIL_PATH="$chown_fail_path" CONFIG_TMP="$inherited_config_tmp" \
+		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" STORAGE_TEST_GENERATOR_NO_UMASK="$generator_no_umask" STORAGE_TEST_MKDIR_FAIL_PATH="$mkdir_fail_path" STORAGE_TEST_CHMOD_FAIL_PATH="$chmod_fail_path" STORAGE_TEST_CHOWN_FAIL_PATH="$chown_fail_path" CONFIG_TMP="$inherited_config_tmp" \
 			sh "$launcher" start >/dev/null 2>&1
 	fi
 }
@@ -201,6 +206,7 @@ run_transmission_config_failure()
 	sed_status=$3
 	mv_status=$4
 	generator_empty=$5
+	generator_no_umask=$6
 	failure_root="$TMP_DIR/transmission-$phase"
 	config_dir="$failure_root/config"
 	mkdir -p "$config_dir" "$failure_root/incomplete" "$failure_root/watch" "$TMP_DIR/Downloads"
@@ -208,7 +214,7 @@ run_transmission_config_failure()
 	    -e "s|DIR_LINK=\"/mnt/transmission\"|DIR_LINK=\"$failure_root\"|" \
 	    "$TRANSMISSION_SRC" > "$TMP_DIR/transmission-$phase.sh"
 	marker="$failure_root/start-invoked"
-	if run_launcher "$TMP_DIR/transmission-$phase.sh" 0 0 0 "$mv_status" "$marker" "" "$config_dir" "" "$generator_status" "$sed_status" "$generator_empty"; then
+	if run_launcher "$TMP_DIR/transmission-$phase.sh" 0 0 0 "$mv_status" "$marker" "" "$config_dir" "" "$generator_status" "$sed_status" "$generator_empty" "" "" "" "" "$generator_no_umask"; then
 		echo "Transmission started despite $phase failure while publishing default settings" >&2
 		exit 1
 	fi
@@ -242,6 +248,7 @@ run_transmission_config_success()
 }
 run_transmission_config_failure generator 9 0 0 0
 run_transmission_config_failure empty-output 0 0 0 1
+run_transmission_config_failure missing-umask 0 0 0 0 1
 run_transmission_config_failure transform 0 9 0 0
 run_transmission_config_failure publish 0 0 9 0
 run_transmission_config_success

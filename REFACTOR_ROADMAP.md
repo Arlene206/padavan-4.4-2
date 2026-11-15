@@ -1,10 +1,10 @@
 ## Current source / CI checkpoint
 
-- Parent main for Transmission cleanup-state follow-up: a391be7a60c790eafd480cc4a70923e8c9e5c26b; frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Main at Transmission settings-contract slice start: 7bab2e0784e0e93e9defc451aed3fb8c89e448b9; frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
 - Exact XY-C1 #43762907958 cross-build PASS for C-source SHA b488a561bb91df62aca810a6ff2c191c17f82b2b (L3 for that exact source revision only). No L4.
 - WAN source fixes: static IPoE address error gate, checked physical WAN interface bring-up, AP-client WISP old interface cleanup/abort, and separate critical MAN gateway/default-route status for static PPTP/L2TP; optional route errors remain nonfatal to that static PPP decision.
-- Storage fixes: Aria's `aria2.conf.tmp.$` staging and two-phase concurrent test are verified by exact #43763413862. Transmission's `settings.json.tmp.$` publication checks generator/transform/rename and file postconditions (#43764529973 PASS); required mkdir/chmod/chown startup setup now fails closed (#43765111683 PASS).
-- Aria now uses `aria2.conf.tmp.$$`; the regression uses process-unique `entered.$$` and `checked.$$` rendezvous markers. Exact df267 storage run #43763413862 PASS.
+- Storage fixes: Aria uses `aria2.conf.tmp.$` staging and process-unique barrier markers (exact #43763413862 PASS). Transmission uses `settings.json.tmp.$`, checks generator/transform/rename, and fails closed on mkdir/chmod/chown setup faults (exact #43765111683 PASS). This slice adds strict expected/post-transform umask content validation.
+- Aria uses `aria2.conf.tmp.$`; its regression uses process-unique `entered.$` and `checked.$` rendezvous markers. Exact df267 storage run #43763413862 PASS.
 - Exact df267 push Actions all PASS: storage #43763413862, AI docs #43763413814, Process inventory #43763413812, Process lifecycle #43763413775, infosvr #43763413761, AliDDNS #43763413799, AliyunDrive #43763413767, AdGuardHome #43763413821 and NVRAM #43763413864. Earlier b488 XY-C1 cross-build #43762907958 PASS.
 - The Aria two-phase cat barrier now uses literal `entered.$$` and `checked.$$` names; exact-head storage regression #43763413862 on df267 passes.
 
@@ -12,8 +12,8 @@
 
 - Preserve start-stop-daemon result, independent of logger.
 - Aria exact-head storage run #43763413862 PASS with both PID-unique barrier phases.
-- Transmission now stages default settings in `settings.json.tmp.$$` in the config directory, exclusively creates the file with `umask 077` + noclobber, checks generator status/nonempty output, sed status/nonempty transformed output, rename status and final file type/size; all generation/publish failures clean the temp and abort before daemon launch.
-- Regression injects generator failure, empty generator output, sed failure, rename failure and successful transformed publish. New exact-head host and firmware BusyBox ash checks are pending.
+- Transmission stages default settings in settings.json.tmp.$$ with private exclusive creation, validates generator status/nonempty output plus source umask 18, validates sed status and transformed umask 0, then checks same-directory rename and final file type/size. Failures clean the temp and abort before launch.
+- Regression injects generator failure, empty output, missing umask, transform failure, rename failure, setup mkdir/chmod/chown faults and inherited CONFIG_TMP cleanup safety under host shell and BusyBox ash. Exact a391 storage #43765111683 PASS; this slice's additional content validation awaits exact-head rerun.
 
 ### P1 — WAN startup status propagation
 
