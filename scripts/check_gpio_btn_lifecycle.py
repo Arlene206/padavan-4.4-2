@@ -122,7 +122,7 @@ assert "WEXITSTATUS(status)" in eval_body
 assert "daemon(0, 0)" in main
 
 services_start = function_body(services, "start_services_once(int is_ap_mode)")
-assert "start_gpio_btn();" in services_start
+assert "rc_first_service_start_status(start_status, start_gpio_btn())" in services_start
 assert "int  start_gpio_btn(void);" in header
 assert '"gpio_btn"' in dispatcher
 assert "gpio_btn.o" in makefile

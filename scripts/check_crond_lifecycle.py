@@ -116,7 +116,7 @@ assert "refusing crond restart: previous daemon did not stop" in restart
 assert "return stop_status;" in restart
 
 boot = function_body(services, "start_services_once(int is_ap_mode)")
-assert "start_crond();" in boot
+assert "rc_first_service_start_status(start_status, start_crond())" in boot
 assert "int start_crond(void);" in header
 assert "int stop_crond(void);" in header
 assert "int restart_crond(void);" in header

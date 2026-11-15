@@ -9,18 +9,14 @@ Only edit it when the live facts or first next action change materially.
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Current main: `118008748d0a076d58b7886ab71fb370482a71ef` (parent `0e27e66a60d7fda0e5136022ca1270426e931e57`); active RC source slice was introduced in `d444b7bbe4fe2aaacd424f97640a05672ec60b16`.
+- Live main before THIS COMMIT: `5cbf3a52a89a98646f195be34d9fb162c72b2bb3`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged/read-only.
-- Parent SHA `3236230989b599b5d34ae7cdd8aa5e44178cf0d6`: Process lifecycle #43772230234 PASS and AI handoff docs #43772230258 PASS. XY-C1 #43772230305 was still building at last poll.
-- Exact d444 SHA `d444b7bbe4fe2aaacd424f97640a05672ec60b16`: Process #43773527020 failed first at the over-escaped newline extraction; XY-C1 #43773526843 rejected an accidental pull_request trigger (XY-C1 is push-only); AI docs #43773527100 rejected missing exact checkpoint wording. The 0e27 correction fixed the extraction delimiter and removed the PR trigger.
-- Exact 0e27 SHA `0e27e66a60d7fda0e5136022ca1270426e931e57`: Process #43773995752 got through every GNU89 policy binary and most integration assertions, then failed because the checker expected direct aggregation of `start_networkmap(1)` while production intentionally captures that status in `networkmap_start_status` for diagnostics before aggregation. This commit corrects the checker contract.
-- Exact 0e27 AI docs #43773995692 failed because the handoff phrase used `conditional on material status changes`, breaking the validator's exact required sentence. The correction at 118 restored that sentence, but exact 118 AI docs #43774359299 then failed on a separate required `Before context exhaustion` phrase; THIS COMMIT adds it.
-- Exact 0e27 XY-C1 #43773995690 remained in progress at the last poll. The workflow on that SHA is push-only and has the new helper/test path filters; no Build/TRX/artifact completion can be claimed.
-- Exact 118 Process lifecycle #43774359240 PASS after correcting the networkmap local-status aggregation assertion.
-- Exact USB storage #43771300948 PASS on parent 828; Transmission and Aria lifecycle tests passed under host shell and firmware BusyBox 1.24.2 ash. Do not repeat those source slices absent a new regression.
-- The preceding logger fix in SHA 323 makes `start_logger()` attempt both syslogd/klogd, logs both launch failures and returns the first nonzero status. Exact Process #43772230234 PASS includes its reducer and source-integration regression.
-- No physical-router/L4 validation is claimed.
-
+- Exact 5cb Actions PASS: AI handoff docs #43774559261, Process inventory/lifecycle #43774559266, infosvr #43774559287, AliDDNS #43774559327, AliyunDrive #43774559248, AdGuardHome #43774559217 and NVRAM #43774559233.
+- Boot-service aggregation source fix is `d444b7bbe4fe2aaacd424f97640a05672ec60b16`; correction commits `0e27e66a60d7fda0e5136022ca1270426e931e57`, `118008748d0a076d58b7886ab71fb370482a71ef` and `5cbf3a52a89a98646f195be34d9fb162c72b2bb3` repaired the process checker, captured networkmap-status expectation, XY-C1 trigger and handoff contract. Exact 5cb Process and AI docs checks both PASS.
+- Exact 0e27 XY-C1 Build workflow #43773995690 was still IN_PROGRESS at the last inspection; the workflow is now push-only. No exact-5cb Build/TRX/artifact result is available yet. Earlier parent 323 XY-C1 #43772230305 passed Build, TRX verification and artifact upload, but that evidence applies only to SHA 323.
+- Exact d444 GPIO #43773527047, Crond #43773526834 and watchdog #43773527200 failed only because their source-contract assertions still expected bare start calls. The actual service starters are wrapped by `rc_first_service_start_status()`; THIS COMMIT aligns those assertions with the real aggregated call form.
+- Exact d444 SkipDBv2 #43773526771 failed in its large inline source-contract step after the configured-path checks printed OK. The run log is truncated before the failing post-loop assertion; CMake configure, build and CTest were skipped. Keep this isolated as unresolved and do not claim a C/CTest failure.
+- No exact-current-branch L3 firmware evidence or physical-router/L4 validation is claimed.
 ## Active task
 
 ### Preserve boot service startup failures across the RC init boundary
@@ -30,6 +26,10 @@ Only edit it when the live facts or first next action change materially.
 THIS COMMIT adds a GNU89 first-nonzero policy, preserves the first actual failure while still attempting all later startup actions, aggregates existing optional-app/command statuses, and has the RC caller log a single summary when any enabled boot action failed. LLTD, crond, rstats and infosvr are aggregated only when their matching NVRAM feature setting is enabled. Void-returning 802.1X, udpxy, xupnpd and watchdog-CPU calls remain outside this slice.
 
 Changed source: `trunk/user/rc/src/services.c` and `trunk/user/rc/src/rc.c`. Added `service_start_status.h` and a GNU89 policy regression. Extended `check_process_lifecycle_integration.py` and both Process lifecycle / XY-C1 workflow path filters.
+
+## Completed validation slice — boot-service aggregation call contracts
+
+GPIO, Crond and watchdog integration checks now require their boot start calls to appear as arguments to `rc_first_service_start_status(start_status, ...)`, matching the production implementation while still requiring each service to start. Exact 5cb Process lifecycle #43774559266 PASS already covers the production aggregate and GNU89 reducer; THIS COMMIT adds the three corrected checker contracts, whose own exact-head Actions must pass.
 
 ## Completed source slice — RC logger startup results
 
@@ -49,21 +49,15 @@ The APP_MSD_LITE branch in `start_udpxy()` now stages config and checks publicat
 
 ## Verification boundary
 
-- Source SHA `d444b7bbe4fe2aaacd424f97640a05672ec60b16` added the boot-service status source/test/checker/workflow slice atomically. Correction SHA `0e27e66a60d7fda0e5136022ca1270426e931e57` fixed the initial checker extraction, restored XY-C1's push-only trigger and adjusted checkpoint wording.
-- Exact 0e27 Process #43773995752 FAIL at the networkmap captured-status assertion after all GNU89 tests PASS; exact 0e27 AI docs #43773995692 FAIL on exact sentence wording; exact 0e27 XY-C1 #43773995690 was in progress.
-- Exact 118 Process #43774359240 PASS, confirming the corrected production integration checker. Exact 118 AI docs #43774359299 FAIL only on missing `Before context exhaustion`; THIS COMMIT repairs the last required handoff phrase. No L3/L4 claim.
-- Exact-head Process lifecycle must execute the new boot-service reducer and integration assertions. Exact-head XY-C1 Build, TRX verification and artifact upload are required for L3.
-- No local cross-build or physical router test is claimed.
-
+- Parent for THIS COMMIT: `5cbf3a52a89a98646f195be34d9fb162c72b2bb3`; this slice updates GPIO, Crond and watchdog integration contracts plus the handoff/roadmap/dev log only.
+- Exact parent 5cb AI handoff docs #43774559261 and Process lifecycle #43774559266 PASS. infosvr #43774559287, AliDDNS #43774559327, AliyunDrive #43774559248, AdGuardHome #43774559217 and NVRAM #43774559233 PASS.
+- GPIO #43773527047, Crond #43773526834 and watchdog #43773527200 previously failed on stale bare-call assertions; THIS COMMIT changes those expectations to the actual aggregator call. Exact-head runs are required before closing these checks.
+- Corrected XY-C1 push-only run #43773995690 is for SHA 0e27, not current main; it was still in progress at last inspection. Parent 323 XY-C1 #43772230305 PASS is historical Build/TRX/artifact evidence only.
+- SkipDBv2 #43773526771 remains unresolved in its large inline source-contract step; output was truncated before the final failure text and all later build/test steps were skipped.
+- No exact-current L3 or L4 evidence is claimed.
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and frozen backup once; inspect exact-head Process lifecycle and AI handoff docs Actions for THIS correction. The source checker must reach final PASS and the handoff validator must pass.
-2. Inspect the exact-head XY-C1 run. It must retain push-only workflow semantics, pass pre-build staged-header checks, then Build XY-C1, TRX verification and artifact upload on the same SHA before L3 can be claimed.
-3. If an Action is PENDING, continue broad P1 work without waiting: residual legacy `pids()` consumers/name-wide signals, followed by `stop_services()`/shutdown and Samba/storage/NVRAM postconditions.
-4. Do not repeat the completed Aria/Transmission storage regression (#43771300948) or RC logger policy tests; these passed on earlier exact SHAs. No L4 without physical-router evidence.
-
-1. Fetch live `main`, the frozen backup and exact-head Actions once; confirm the corrective commit SHA.
-2. Inspect corrected Process lifecycle # and AI handoff docs #; the Python source checker must reach its final PASS and the docs validator must pass.
-3. Inspect corrected XY-C1 Build, TRX verification and artifact upload; only claim L3 if all pass on the same source SHA.
-4. If either workflow is pending, continue independent P1 work: residual direct legacy `pids()` consumers and name-wide signals, then `stop_services()`/shutdown status propagation and Samba/storage/NVRAM postconditions.
-5. Preserve frozen backup and log archive inventory. No L4 without physical-router evidence.
+1. Fetch live main and the frozen backup once; inspect exact-head GPIO, Crond, watchdog and AI handoff Actions for THIS COMMIT.
+2. Recheck corrected XY-C1 Build/TRX/artifact run #43773995690 on SHA 0e27; do not claim current-main L3 from this older run.
+3. Isolate SkipDBv2 source-contract failure #43773526771 from its truncated log, preferably by a targeted reproduction or by splitting the oversized inline checker into a normal script with complete failure output. Do not guess or bypass the assertion.
+4. Continue the P1 Transmission/Aria startup process-state defect and shared host + BusyBox 1.24.2 ash regression; preserve the frozen backup. No L4 without physical-router evidence.

@@ -1,19 +1,18 @@
 ## Current source / CI checkpoint
 
-- Current main `118008748d0a076d58b7886ab71fb370482a71ef` (parent `0e27e66a60d7fda0e5136022ca1270426e931e57`); active source change was introduced at `d444b7bbe4fe2aaacd424f97640a05672ec60b16`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Parent SHA `3236230989b599b5d34ae7cdd8aa5e44178cf0d6`: Process #43772230234 PASS and AI docs #43772230258 PASS; XY-C1 #43772230305 was still building at last poll.
-- Exact d444 Process #43773527020 failed initially on source extraction; exact d444 XY-C1 #43773526843 rejected an accidental PR trigger; exact d444 AI docs #43773527100 rejected checkpoint wording. Correction #0e27 fixed extraction and push-only workflow.
-- Exact 0e27 Process #43773995752 failed at the captured `networkmap_start_status` checker assertion after all C regression binaries passed. Exact 0e27 AI docs #43773995692 failed on the checkpoint sentence. Exact 0e27 XY-C1 #43773995690 remained in progress.
-- Exact 118 Process #43774359240 PASS; exact 118 AI docs #43774359299 failed only on the missing `Before context exhaustion` phrase. THIS COMMIT adds the exact required phrase; new docs Action pending.
-- Current P1 issue: `start_services_once()` discarded several return statuses from int-returning boot service starters, returned zero unconditionally, and its only RC caller ignored the result. THIS COMMIT preserves the first nonzero startup result while continuing all later start attempts; the RC caller logs the aggregate. Optional-feature sentinels (LLTD, crond, rstats, infosvr) are gated to avoid treating disabled services as errors.
-- Exact-head Process lifecycle and XY-C1 Build/TRX/artifact Actions are required for THIS COMMIT. No L3/L4 claim until matching evidence exists.
+- Live main before THIS COMMIT: `5cbf3a52a89a98646f195be34d9fb162c72b2bb3`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact 5cb PASS: AI handoff docs #43774559261, Process lifecycle #43774559266, infosvr #43774559287, AliDDNS #43774559327, AliyunDrive #43774559248, AdGuardHome #43774559217 and NVRAM #43774559233.
+- Boot-service aggregation source change landed in d444; subsequent corrections through 5cb repaired checker extraction, networkmap captured-status validation, XY-C1 push-only trigger and handoff contract.
+- THIS COMMIT aligns GPIO, Crond and watchdog integration source checks with their production `rc_first_service_start_status(start_status, start_...())` boot calls. Its exact-head CI runs remain to be verified.
+- Corrected XY-C1 push-only run #43773995690 remains scoped to SHA 0e27 (still in progress at last poll). Parent 323 firmware Build/TRX/artifact #43772230305 passed, but is historical evidence only. No exact-5cb L3 claim.
+- SkipDBv2 #43773526771 has an unresolved failure in its oversized inline source-contract step after the initial path checks. Logs are truncated before the final message; CMake/Build/CTest did not run.
 
 ### P1 — Storage daemon startup and config publication
 
-- Transmission settings staging remains process-unique (`settings.json.tmp.$$`) and ownership-aware; its stop path validates process snapshots, signals individual PIDs, verifies absence and gates restart.
-- Aria2 default config remains staged as `aria2.conf.tmp.$` with two-phase concurrency markers; Aria and Transmission stop/restart postconditions are now L2 VERIFIED by exact USB storage run #43771300948 (host shell and firmware BusyBox 1.24.2 ash).
-- Firefly and MiniDLNA retain checked same-directory configuration publication; IGMP proxy additionally rejects same-line whitespace/comment input injection.
-- Do not repeat the Aria/Transmission lifecycle slice absent a new regression.
+- Transmission settings staging remains process-unique (`settings.json.tmp.$$`) and ownership-aware; stop validates PID inventories, signals individual PIDs, verifies absence and gates restart.
+- Aria2 default config remains staged as `aria2.conf.tmp.$$` with two-phase concurrency markers. The prior Aria/Transmission stop-postcondition suite passed exact USB storage #43772230269 on parent 323 (host shell and firmware BusyBox 1.24.2 ash).
+- Next P1 source defect: Transmission and Aria startup currently treat empty `pidof` output as ABSENT without validating command status. Fail closed on UNKNOWN/inconsistent results and add host + firmware BusyBox ash regressions.
+- Firefly and MiniDLNA retain checked same-directory configuration publication; IGMP proxy rejects same-line whitespace/comment input injection.
 
 ## Whole-repository module status
 

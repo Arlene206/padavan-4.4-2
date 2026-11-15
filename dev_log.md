@@ -1,3 +1,12 @@
+## 2026-11-15 — Align GPIO, Crond and watchdog boot checks with aggregated startup status
+
+- GPIO, Crond and watchdog source-contract tests required bare `start_gpio_btn();`, `start_crond();` and `start_watchdog();` calls even though the production boot routine intentionally wraps each status in `rc_first_service_start_status()`.
+- Updated the three test contracts to require the service start call inside the production first-failure aggregation expression; this preserves the service-start requirement while validating status propagation.
+- Parent main: `5cbf3a52a89a98646f195be34d9fb162c72b2bb3`. Exact AI handoff docs #43774559261 and Process lifecycle #43774559266, infosvr #43774559287, AliDDNS #43774559327, AliyunDrive #43774559248, AdGuardHome #43774559217 and NVRAM #43774559233 PASS. Exact-head tests for these three updated contracts are pending.
+- Corrected XY-C1 push-only run #43773995690 applies to SHA 0e27 and was still in progress at last inspection; no current-main L3 claim. SkipDBv2 #43773526771 remains an independent unresolved inline source-contract failure.
+
+---
+
 ## 2026-11-16 — Complete the mandatory handoff checkpoint wording
 
 - Exact main SHA 118 Process lifecycle #43774359240 PASS after correcting the networkmap checker to assert the captured local status and its subsequent aggregation.

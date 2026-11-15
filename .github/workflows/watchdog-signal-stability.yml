@@ -200,7 +200,8 @@ jobs:
           assert "notify_watchdog_time();" in dispatcher
           assert "RCN_RESTART_NTPC" in dispatcher and "RCN_RESTART_TIME" in dispatcher
           assert "notify_watchdog_wifi(0)" in wireless and "notify_watchdog_wifi(1)" in wireless
-          assert "start_watchdog();" in body(services, "start_services_once(int is_ap_mode)")
+          watchdog_boot = body(services, "start_services_once(int is_ap_mode)")
+          assert "rc_first_service_start_status(start_status, start_watchdog())" in watchdog_boot
           watchdog_start = body(watchdog, "start_watchdog(void)")
           assert 'launch_status = eval("/sbin/watchdog")' in watchdog_start
           assert "if (launch_status != 0)" in watchdog_start
