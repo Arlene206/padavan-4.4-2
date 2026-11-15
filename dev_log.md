@@ -1,3 +1,12 @@
+## 2026-11-15 — Report 802.1X authenticator launch failures
+
+- The 5GHz and 2.4GHz Wi-Fi startup functions invoked `rt2860apd` and `rtinicapd` through `eval()` but discarded its return status. An enabled WPA/WPA2/RADIUS configuration could therefore fail to launch its authenticator without a service-specific boot diagnostic.
+- Both paths now retain the original eval status and log radio-specific errors on failure. Existing radio/auth-mode guards, Wi-Fi ordering and `void` entry-point ABI are preserved.
+- The process-lifecycle integration checker asserts result assignment, nonzero test and diagnostic ordering for both bands. `net_wifi.c` is already present in process/XY-C1 path filters.
+- Parent main: `c0999a97f07435c11903dac04524a07844cc60a8`; result: THIS COMMIT. Exact-head process-lifecycle and XY-C1 validations required.
+
+---
+
 ## 2026-11-15 — Capture IAPPD regression command exit statuses correctly
 
 - The first exact-head process-lifecycle run on `37204498a3ce81d6dd077fd551a66e15a29be344` passed every C/ASan/UBSan, process lifecycle and optional-app step, then failed at the first IAPPD test case. The test assigned `rc=$(command)`, which captures stdout rather than `$?`; since the wrapper correctly emits no stdout, the test compared an empty string to 127.

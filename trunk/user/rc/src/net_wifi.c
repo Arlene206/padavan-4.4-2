@@ -1054,11 +1054,16 @@ void
 start_8021x_wl(void)
 {
 #if BOARD_HAS_5G_RADIO
+	int start_status;
+
 	if (!get_enabled_radio_wl())
 		return;
 
-	if (is_need_8021x(nvram_wlan_get(1, "auth_mode")))
-		eval("rt2860apd", "-i", IFNAME_5G_MAIN);
+	if (is_need_8021x(nvram_wlan_get(1, "auth_mode"))) {
+		start_status = eval("rt2860apd", "-i", IFNAME_5G_MAIN);
+		if (start_status != 0)
+			logmessage(LOGNAME, "802.1X 5GHz authenticator launch failed (status=%d)", start_status);
+	}
 #endif
 
 	const char *wifname = find_wlan_if_up(1);
@@ -1075,12 +1080,17 @@ start_8021x_wl(void)
 void
 start_8021x_rt(void)
 {
+	int start_status;
+
 #if !defined(USE_RT3352_MII)
 	if (!get_enabled_radio_rt())
 		return;
 #endif
-	if (is_need_8021x(nvram_wlan_get(0, "auth_mode")))
-		eval("rtinicapd", "-i", IFNAME_2G_MAIN);
+	if (is_need_8021x(nvram_wlan_get(0, "auth_mode"))) {
+		start_status = eval("rtinicapd", "-i", IFNAME_2G_MAIN);
+		if (start_status != 0)
+			logmessage(LOGNAME, "802.1X 2.4GHz authenticator launch failed (status=%d)", start_status);
+	}
 
 	const char *wifname = find_wlan_if_up(0);
 

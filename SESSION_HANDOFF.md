@@ -8,17 +8,22 @@ For each multi-file logical slice, publish source, tests/contracts and necessary
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; IAPPD wrapper and host regression are committed at `37204498a3ce81d6dd077fd551a66e15a29be344`. The exact-head process-lifecycle run #43738581837 passed all earlier C/ASan/UBSan and optional-app steps, then failed only because the new shell fixture captured command stdout instead of its exit status; the correction below adds an explicit status-capture helper. XY-C1 #43738581861 remained in Build XY-C1 at last poll. NFS stop fixtures are green at 479c (#43738132578).
+- Repository `Arlene206/padavan-4.4-2`; IAPPD lifecycle source/test are committed at `37204498a3ce81d6dd077fd551a66e15a29be344`, with its status-capture fixture correction at `443c23f2f814e69549a49b42c0347f0fd42cfe9e`; exact Process lifecycle #43738886473 and AI docs #43738886520 PASS. XY-C1 #43738581861 for the IAPPD product-script source remained IN_PROGRESS at Build XY-C1 at last poll. Latest parent before this 802.1X fix is `c0999a97f07435c11903dac04524a07844cc60a8`. NFS stop fixtures pass at 479c (#43738132578).
 - Boot diagnostics cover networkmap, watchdog, infosvr, GPIO, LLTD, rstats, telnetd and ttyd. SCUT, vlmcsd, iperf3 and mentohust wrappers now preserve their daemon launch/stop statuses.
 - LPD printer-removal PID identity hardening landed in `72ce1bb97323d4c417e8a5d891bbaf9c6ed3f2f3`; source-contract formatting correction is `022bc51507ca5f395c60a1f450cc461bf5403926`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. No local checkout/MIPS toolchain or physical-router L4 result is claimed.
 
 ## Active task
 
-### P1 — Ralink IAPP daemon lifecycle postconditions
+### P1 — 802.1X authenticator launch failure visibility
+
+- `start_8021x_wl()` and `start_8021x_rt()` invoked `rt2860apd` / `rtinicapd` with `eval()` but discarded the returned status. A configured WPA/WPA2/RADIUS authenticator launch failure therefore produced no radio-specific boot diagnostic.
+- Both functions now retain and log nonzero launcher statuses while preserving radio-enabled/auth-mode guards, call ordering and the existing `void` interface. The process-lifecycle source contract checks both launch result assignments and error-log ordering; `net_wifi.c` is already filtered by the process and XY-C1 workflows.
+
+### P2 — Ralink IAPP daemon lifecycle postconditions (host regression PASS; firmware build pending)
 
 - The C `ralinkiappd` binary forks its own long-running child, but `iappd.sh` also backgrounded its launcher, hiding fork/exec failures and allowing later `sysctl`/`iptables` status to mask them. Stop ignored both `killall` statuses and lacked a process-absence postcondition; the RC boot path's `iappd.sh test` action was unsupported.
-- The wrapper now runs the self-forking parent in the foreground, requires an authoritative `pidof` result, waits for bounded child/stop postconditions, skips duplicate starts, propagates launcher/firewall/kill failures, gates restart on a confirmed stop, and implements the existing RC `test` action. Added mocked host coverage and process/XY-C1 workflow triggers. Exact SHA #43738581837 exposed only a status-capture bug in the test harness; source launch/stop behavior has not yet passed its full fixture.
+- The wrapper runs the self-forking parent in the foreground, requires authoritative `pidof`, verifies bounded child/stop postconditions, skips duplicate starts, propagates launcher/firewall/kill failures, gates restart on confirmed stop, and implements the RC `test` action. The corrected mocked host regression passes exact Process lifecycle #43738886473; AI docs #43738886520 PASS. XY-C1 #43738581861 for this product source remains pending at Build XY-C1.
 
 - Networkmap `start_networkmap(1)`, watchdog `start_watchdog()`, infosvr `start_infosvr()`, and now `start_lltd()` / `start_rstats()` log enabled launcher failures at the call site and return the original status.
 - `start_gpio_btn()` already logs UNKNOWN inventory, launcher failure, UNKNOWN postcondition and immediate exit. Crond has bounded post-launch verification and failure logs.
@@ -33,7 +38,7 @@ For each multi-file logical slice, publish source, tests/contracts and necessary
 
 ## Verification boundary
 
-- Exact IAPPD source/test SHA `37204498a3ce81d6dd077fd551a66e15a29be344`: process lifecycle #43738581837 FAIL at the first IAPPD missing-pidof case because command substitution captured empty stdout, not the command's exit code; all preceding scanner, lifecycle C/ASan/UBSan and optional-app checks passed. This test-only follow-up adds an explicit `capture_status` helper. AI docs #43738581717 PASS; XY-C1 #43738581861 IN_PROGRESS at Build XY-C1; NVRAM #43738581771 IN_PROGRESS.
+- IAPPD test run #43738581837 initially failed because the fixture captured stdout instead of command exit status; test-only correction `443c23f2f814e69549a49b42c0347f0fd42cfe9e` then passed Process lifecycle #43738886473 and AI docs #43738886520. XY-C1 #43738581861 for IAPPD source SHA `37204498a3ce81d6dd077fd551a66e15a29be344` remained IN_PROGRESS at Build; TRX and artifact were not yet observed.
 - Exact parent SHA: `479c05be3bef946f892f81a296d0ca3e709a698f`; NFS #43738132578 PASS; Process lifecycle #43738132620 PASS; Process artifact #43738132593 PASS; AI docs #43738132573 PASS; infosvr #43738132617 PASS; AdGuardHome #43738132606 PASS; AliDDNS #43738132690 PASS. AliyunDrive #43738132576 and NVRAM #43738132600 completed/pending respectively at last poll. No XY-C1 run was triggered on that parent.
 - infosvr packet and signal lifecycle stability regression #43738132617: completed/success (exact parent).
 - NFS daemon start and reload lifecycle regression #43738132578: completed/success (exact parent).
@@ -43,10 +48,10 @@ For each multi-file logical slice, publish source, tests/contracts and necessary
 - NVRAM transaction boundary audit #43738132600: completed/success (exact parent).
 - The four RC wrapper changes retain their NVRAM feature gates and only add enabled-launch failure observability. Fresh exact-head process-lifecycle and XY-C1 Actions are required; no current-source L3 or physical-router L4 claim is made without exact-SHA build, TRX/artifact and hardware evidence.
 ## Exact first action for the next GPT
-1. Verify exact-head process-lifecycle after the test status-capture correction; check whether every IAPPD fixture case now passes and inspect any next failure in the wrapper.
-2. Verify XY-C1 #43738581861 for Build XY-C1, TRX output and artifact upload; do not declare L3 while any stage is pending/failed.
-3. Recheck NVRAM #43738581771 and the exact-head AI/docs/other Action statuses. NFS fixture correction is already green at #43738132578; do not repeat it.
-4. Continue the remaining `start_services_once()` audit only after IAPPD and XY-C1 are verified; preserve backup/archive and expected-SHA commit invariants.
+1. Verify exact-head process-lifecycle and XY-C1 for the 802.1X status-logging change; confirm status capture and error-log ordering for both `rt2860apd` and `rtinicapd`.
+2. Recheck XY-C1 #43738581861 for IAPPD source SHA 37204498; require Build, TRX verification and artifact upload before L3.
+3. Continue independent `start_services_once()` wrapper audits only once these checks are recorded; candidates include udpxy/xupnpd and watchdog module-load status. Do not repeat NFS/IAPPD checks already green.
+4. Preserve the frozen backup and dev-log archive; use complete atomic trees and expected-SHA non-forced main updates.
 
 
 ## Invariants
