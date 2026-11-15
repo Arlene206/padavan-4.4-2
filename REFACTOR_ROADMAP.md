@@ -1,11 +1,12 @@
 ## Current source / CI checkpoint
 
-- Parent for THIS COMMIT: `2c16e60838bcc066e34d5e7e8b70fae2f02a088d`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact parent 2c16 CI-contract runs GPIO #43775134023, Crond #43775133995, watchdog #43775134027, Process #43775134102, AI docs #43775134055, infosvr #43775134174, AliDDNS #43775134052, AdGuardHome #43775134050, NVRAM #43775134029 and AliyunDrive #43775134000 were IN_PROGRESS at last poll.
-- This commit fixes the next P1 source issue: Aria and Transmission previously interpreted `pidof` output without its status. Only status 1 + empty output now allows startup; valid status-0 PID lists are accepted as RUNNING; query errors, inconsistent output, malformed tokens, whitespace-only output and PID 0/1 fail closed.
-- Shared storage regression covers both launchers and all these states; existing USB storage workflow runs host shell and firmware BusyBox 1.24.2 ash. Exact-head USB storage CI is pending; no L2 claim until it passes.
-- SkipDBv2 #43773526771 remains unresolved in its inline source-contract test before CMake/Build/CTest; the failing assertion is not yet visible in the output-capped job log.
-- Earlier parent 323 XY-C1 Build/TRX/artifact #43772230305 PASS is historical L3 evidence for SHA 323 only. No current-source L3/L4 claim.
+- Main is `aebfd65ccf7cef183e6a2432c45866d273c17b8b`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact aebfd65 USB storage #43775390744 PASS, including host + firmware BusyBox 1.24.2 ash tests for Transmission/Aria startup PID-state classification and the full storage suite. L2 for that regression is verified.
+- Exact aebfd65 Process inventory #43775390816, Process lifecycle #43775390764, AI docs #43775390851, infosvr #43775390910, AdGuardHome #43775390873, AliDDNS #43775390953 and AliyunDrive #43775390850 PASS. NVRAM #43775390849 and XY-C1 #43775390773 were in progress at last poll.
+- Boot-service first-failure aggregation source fix is d444; exact Process/AI and GPIO/Crond/watchdog contracts now pass through 2c16/aebfd65 Actions.
+- SkipDBv2 previously failed only at its pre-build source-contract assertion for the raw GPIO call. This commit aligns that assertion with the reducer-wrapped call and removes the accidental Process workflow pull_request trigger. Exact-head SkipDB/Process/AI runs must validate.
+- No L3 claim for aebfd65 until its exact XY-C1 Build, TRX verification and artifact upload all pass. No L4 without physical router evidence.
+
 
 ### P1 — Storage daemon startup and config publication
 

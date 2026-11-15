@@ -3211,7 +3211,7 @@ jobs:
                   "#if defined(APP_SKIPDBV2)",
                   'doSystem("/usr/sbin/skipd -d /etc/storage/db");',
                   "#endif",
-                  "start_gpio_btn();",
+                  "rc_first_service_start_status(start_status, start_gpio_btn());",
               ],
               "trunk/linux-4.4.x/arch/mips/boot/dts/ralink/xy-c1.dts": [
                   'compatible = "gpio-keys-polled";',

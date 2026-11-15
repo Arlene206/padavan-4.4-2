@@ -1,3 +1,13 @@
+## 2026-11-15 — Align SkipDBv2 preflight and keep process CI push-only
+
+- The SkipDBv2 pre-build source map still asserted a raw `start_gpio_btn();` call after RC boot startup began passing that service result through `rc_first_service_start_status()`. Updated the contract to require the reducer-wrapped call, preserving the actual GPIO startup requirement.
+- Removed the accidental `pull_request` trigger from Process lifecycle regression; main push path filters are preserved.
+- Parent main: `aebfd65ccf7cef183e6a2432c45866d273c17b8b`; frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact aebfd65 USB storage #43775390744 PASS including host shell and firmware BusyBox 1.24.2 ash Transmission/Aria startup-state regressions. Process inventory #43775390816, Process lifecycle #43775390764, AI docs #43775390851, infosvr #43775390910, AdGuardHome #43775390873, AliDDNS #43775390953 and AliyunDrive #43775390850 also PASS. NVRAM #43775390849 and XY-C1 #43775390773 were pending at last poll.
+- XY-C1 must complete Build/TRX/artifact on aebfd65 before L3 is claimed. This validation-contract update has not yet been Actions-verified; no L4 claim.
+
+---
+
 ## 2026-11-16 — Fail closed on unknown Transmission and Aria startup process state
 
 - Replaced both launchers' stdout-only `pidof` checks with explicit exit-status/output classification. Only status 1 plus empty output is ABSENT; status 0 requires one or more valid, positive, canonical PID tokens and returns as already running.
