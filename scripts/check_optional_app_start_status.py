@@ -299,6 +299,8 @@ SSHD_SCRIPT = ROOT / "trunk/user/openssh/sshd.sh"
 
 
 def check_sshd():
+    syntax_check = run(["/bin/sh", "-n", str(SSHD_SCRIPT)], os.environ.copy())
+    assert syntax_check.returncode == 0, syntax_check.stderr
     with tempfile.TemporaryDirectory(prefix="sshd-lifecycle-") as tmp:
         base = Path(tmp)
         bin_dir = mock_bin(base / "bin")

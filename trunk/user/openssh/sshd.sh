@@ -184,6 +184,7 @@ func_start()
 			return "$launch_status"
 		fi
 	fi
+}
 
 func_stop()
 {
