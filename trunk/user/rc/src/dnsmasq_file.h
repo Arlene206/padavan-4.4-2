@@ -198,12 +198,17 @@ dnsmasq_file_backup_create(const char *destination, char *backup_path)
 	return 1;
 }
 
-static inline void
+static inline int
+dnsmasq_file_backup_discard_with_unlink(char *backup_path,
+					dnsmasq_file_unlink_fn unlink_fn)
+{
+	return dnsmasq_file_discard_with_unlink(backup_path, unlink_fn);
+}
+
+static inline int
 dnsmasq_file_backup_discard(char *backup_path)
 {
-	if (backup_path && backup_path[0] &&
-	    (unlink(backup_path) == 0 || errno == ENOENT))
-		backup_path[0] = '\0';
+	return dnsmasq_file_backup_discard_with_unlink(backup_path, unlink);
 }
 
 /* An empty backup pathname means the destination did not exist at snapshot. */

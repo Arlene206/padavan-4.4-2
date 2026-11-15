@@ -51,6 +51,17 @@ test_discard_preserves_path_when_unlink_fails(void)
 	assert(stage[0] == '\0');
 	assert(discard_mock_calls == 3);
 
+	/* Rollback snapshot cleanup exposes the same retryable error contract. */
+	strcpy(stage, "/tmp/dnsmasq-discard-test.stage");
+	discard_mock_result = -1;
+	discard_mock_error = EACCES;
+	assert(dnsmasq_file_backup_discard_with_unlink(stage, mock_discard_unlink) == -1);
+	assert(errno == EACCES);
+	assert(strcmp(stage, "/tmp/dnsmasq-discard-test.stage") == 0);
+	discard_mock_result = 0;
+	assert(dnsmasq_file_backup_discard_with_unlink(stage, mock_discard_unlink) == 0);
+	assert(stage[0] == '\0');
+
 	strcpy(stage, "/tmp/dnsmasq-discard-test.stage");
 	assert(dnsmasq_file_discard_with_unlink(stage, NULL) == -1);
 	assert(errno == EINVAL);

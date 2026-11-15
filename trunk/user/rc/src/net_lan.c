@@ -624,6 +624,14 @@ create_hosts_lan(const char *lan_ipaddr, const char *lan_dname)
 		}
 	}
 
+	/* Retry backup cleanup once while the unique rollback names remain live. */
+	if (dnsmasq_file_backup_discard(hostname_backup) != 0)
+		logmessage(LOGNAME, "cannot remove LAN hostname rollback snapshot '%s' (errno=%d)",
+			   hostname_backup, errno ? errno : EIO);
+	if (dnsmasq_file_backup_discard(hosts_backup) != 0)
+		logmessage(LOGNAME, "cannot remove LAN hosts rollback snapshot '%s' (errno=%d)",
+			   hosts_backup, errno ? errno : EIO);
+
 	/* Do not expose a new kernel name until both on-disk files are complete. */
 	sethostname(lan_hname, strlen(lan_hname));
 	setdomainname(lan_dname, strlen(lan_dname));
@@ -653,6 +661,10 @@ failed:
 	if (dnsmasq_file_discard(hosts_temp) != 0)
 		logmessage(LOGNAME, "cannot remove LAN hosts stage '%s' (errno=%d)",
 			   hosts_temp, errno ? errno : EIO);
+	if (hostname_backup[0])
+		logmessage(LOGNAME, "retaining LAN hostname rollback snapshot '%s' for recovery", hostname_backup);
+	if (hosts_backup[0])
+		logmessage(LOGNAME, "retaining LAN hosts rollback snapshot '%s' for recovery", hosts_backup);
 	logmessage(LOGNAME, "cannot stage/publish LAN hostname files (errno=%d)", saved_errno);
 	errno = saved_errno;
 	return saved_errno;

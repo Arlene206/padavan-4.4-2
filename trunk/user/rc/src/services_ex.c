@@ -374,6 +374,15 @@ fill_static_ethers(const char *lan_ip, const char *lan_mask)
 		goto failed;
 	}
 
+	/* The set helper tries once; retry snapshots while the path buffers are
+	 * live, but never undo already-published outputs for a cleanup warning. */
+	for (i = 0; i < ARRAY_SIZE(backup_paths); i++) {
+		if (dnsmasq_file_backup_discard(backup_paths[i]) != 0)
+			logmessage(LOGNAME,
+				   "cannot remove DHCP rollback snapshot '%s' after publish (errno=%d)",
+				   backup_paths[i], errno ? errno : EIO);
+	}
+
 	/* Publish all generated files before kernel side effects. Keep stable
 	 * IPv4 strings because inet_ntoa() reuses static storage. */
 	if (i_arp_bind) {
@@ -421,6 +430,9 @@ failed:
 		if (dnsmasq_file_discard(staged_paths[i]) != 0)
 			logmessage(LOGNAME, "cannot remove staged static DHCP file '%s' (errno=%d)",
 				   staged_paths[i], errno ? errno : EIO);
+		if (backup_paths[i] && backup_paths[i][0])
+			logmessage(LOGNAME, "retaining DHCP rollback snapshot '%s' for recovery",
+				   backup_paths[i]);
 	}
 
 cleanup:

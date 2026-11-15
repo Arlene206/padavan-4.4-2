@@ -1,3 +1,14 @@
+## 2026-11-15 — Make DNSMasq rollback-snapshot cleanup observable
+
+- Found a related cleanup hole: `dnsmasq_file_backup_discard()` returned void. It preserved a path on unlink failure but exposed no status for callers, so leftover hard-link recovery snapshots could remain unnoticed.
+- It now returns the retryable discard result and shares the injectable unlink implementation. Tests cover backup snapshot EACCES retention and successful retry.
+- Three-output DHCP publication, router hostname/hosts publication and LAN hostname/hosts publication now retry residual backup cleanup while path buffers are alive, logging any persistent leftovers. Failure paths retain and log snapshot names for recovery rather than deleting them blindly.
+- Parent main: `a3291427a15d8c7d55a38ebe20404e3a5af541ce`. Staging-discard cleanup exact DNSMasq #43721283505 and AI docs #43721283501 PASS; WAN route #43721283467, process inventory #43721283468 and NVRAM #43721283671 PASS. XY-C1 #43721283605 remained in progress; fresh exact-head validation required.
+- No current-source target MIPS/TRX build or physical-router result is claimed; L4 remains NOT VERIFIED.
+- Changed paths: `dnsmasq_file.h`, `tests/dnsmasq_file.c`, `services_ex.c`, `net_wan.c`, `net_lan.c`, DNSMasq workflow, SESSION_HANDOFF, REFACTOR_ROADMAP and dev_log.
+
+---
+
 ## 2026-11-15 — Preserve DNSMasq staging paths when cleanup fails
 
 - Found a resource-management defect: `dnsmasq_file_discard()` unconditionally zeroed its caller's pathname even when `unlink()` failed, leaving a private staging file orphaned with no retry handle and no cleanup error reported.
