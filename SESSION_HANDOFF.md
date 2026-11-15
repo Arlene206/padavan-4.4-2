@@ -8,19 +8,20 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2. Base main SHA for THIS COMMIT: `c6ae3785862d7a0272f5ecc0c7e59199f3ee3593`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only). Legacy PR #1 remains CLOSED / UNMERGED.
-- Exact-head Actions on parent c6ae: USB storage #43688959814 FAILED only at the final storage path-filter assertion because `mtd_storage_load_transaction.sh` was missing from the checker’s push/pull filter list. Both host and BusyBox ash load fixtures, MTD syntax, save retry, restore transaction, persistence and caller graph had passed. AdGuardHome #43688959625, infosvr #43688959634, AliyunDrive #43688959654, AliDDNS #43688959637, Process inventory/lifecycle #43688959636, and AI handoff docs #43688959686 SUCCESS. No exact-head XY-C1 Action appeared in that run set.
-- This commit adds the missing load-fixture filter path plus backup failure fixture path, validates MTD backup compression/size/decompression/tar integrity against the actual MTD capacity, and gates HTTPD download on successful command and existing output.
-- Current source L3 and physical L4 remain NOT VERIFIED. No full local checkout/toolchain or target hardware is available; no local shell/build result is claimed.
+- Repository: Arlene206/padavan-4.4-2. Base main SHA for THIS COMMIT: `0baeb3d38480464bcfc7c3127847d234caca226a`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only). Legacy PR #1 remains CLOSED / UNMERGED.
+- Product work already on main includes checked storage writes/persistence shutdown gates, transactional MTD save/load/restore, and MTD backup validation + HTTPD download gating from parent `0baeb3d38480464bcfc7c3127847d234caca226a`.
+- Exact-head parent USB storage #43689545333 and HTTPD security #43689545379 FAILED in newly added source-contract boundary lookups: Python string boundaries used literal escaped backslash-n, not an actual newline. Product source validation was not green at this parent. This commit replaces these lookups with `chr(10)` and fixes the newly confirmed restore upload-retention bug.
+- Parent `0baeb3d` Actions: AdGuardHome #43689545261, Process lifecycle #43689545223, AliyunDrive #43689545256, Process inventory #43689545238, infosvr #43689545251, AliDDNS #43689545236, NVRAM #43689545257, FRP #43689545218 and AI handoff docs #43689545233 SUCCESS. XY-C1 #43689545219 was IN_PROGRESS at last poll. These do not mark firmware L3 complete.
+- Current source L3 and physical L4 remain NOT VERIFIED. No full local checkout/toolchain or target hardware is available; no local test/build result is claimed.
 ## Active task
 
-### P1 slice — Reject partial MTD backups before HTTPD download (THIS COMMIT)
+### P1 slice — Preserve failed restore uploads for retry; repair exact-head source contracts (THIS COMMIT)
 
-- Parent USB storage #43688959814 passed MTD syntax, save retry, restore transaction, transactional load host/BusyBox ash fixtures, persistence gates and embedded caller graph. It failed only at checker line 570 because the new load-test path was missing from the source checker's push/pull path-list assertion. The backup fixture path is added alongside it.
-- The old backup function could leave partial BZ2 output after a failed compressor, lacked the target partition capacity check, and never verified decompression or tar structure. Its dispatcher did not call `func_get_mtd()`.
-- Backup now loads actual MTD size, rejects compression failure, nonnumeric or out-of-range size, failed bzip2 decompression and invalid tar listing, removes scratch/archive on failure, and returns nonzero. HTTPD streams only when the script returns success and a fresh output file exists; otherwise sends HTTP 500 and removes stale output.
-- Added host/BusyBox ash fault injection for partial compression output, oversized archive, corrupt stream, malformed tar and valid archive. Updated storage and HTTPD source contracts.
-- Changed paths: `mtd_storage.sh`, new `mtd_storage_backup_failure.sh`, `web_ex.c`, storage workflow, storage checker, HTTPD security workflow, handoff/roadmap/dev log. Parent SHA `c6ae3785862d7a0272f5ecc0c7e59199f3ee3593`; exact-head Actions pending. No local run is claimed.
+- Parent exact-head USB storage #43689545333 and HTTPD security #43689545379 failed in source-contract parsing: backup/HTTPD Python boundary lookups searched for literal backslash-n strings rather than actual newlines. This commit uses `chr(10)` for these source boundaries.
+- `do_restore_st_cgi()` unconditionally unlinked `STORAGE_FIFO_FILENAME` after invoking restore, including on failure. That discarded an upload even though the transactional restore routine intentionally preserves retryable input on extraction/publication failure.
+- The handler now deletes the uploaded archive only inside the `ret == 0` success branch. On restore failure it shows the error response and leaves the archive available for retry.
+- Added HTTPD source regression requiring exactly one unlink in the success branch and none in the error branch. Corrected storage checker and HTTPD workflow newline delimiters so their source contracts can execute.
+- Changed paths: `web_ex.c`, `check_storage_safe_remove.py`, `httpd-security.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`. Parent SHA `0baeb3d38480464bcfc7c3127847d234caca226a`; exact-head Actions pending. No local test/compile is claimed.
 ## Explicitly uncompleted P1 work
 
 - Migrate remaining direct pids() callers by semantic group; keep the legacy Boolean API until all callers explicitly handle UNKNOWN. Continue auditing remaining kill_pidfile_s() and direct name-wide signal paths; Linux 4.4 retains a PID/start_time check-to-signal TOCTOU window.
@@ -54,10 +55,10 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head USB storage and HTTPD security Actions for backup generation, fault-injection tests and HTTPD download source contract.
-2. Continue P1 with `do_restore_st_cgi()`: the handler unconditionally unlinks `STORAGE_FIFO_FILENAME` even when `mtd_storage.sh restore` fails, destroying the uploaded archive that the restore script intentionally preserves for retry. Retain it on failure and delete only on success; add a focused CGI/source test.
-3. Then audit `func_reset()`/`func_erase()` for directory creation/removal, MTD erase status, hash and lock postconditions, including injected failure after successful erase.
-4. Use fresh main SHA, one complete Git tree/commit and force=false/expected_sha. Frozen backup remains untouched. Current-source L3 and physical L4 remain NOT VERIFIED.
+1. Inspect exact-head HTTPD security and USB storage Actions. Confirm backup source-boundary checks, failed-restore upload-retention assertions, MTD backup host/BusyBox tests and the full caller graph.
+2. Continue P1 with `func_reset()` and `func_erase()`: they ignore directory/hash/lock operation statuses; erase success followed by failed settings-directory recreation can leave startup without its expected directory. Add error propagation and failure-injection coverage; do not claim MTD rollback after physical erase.
+3. Review restore retry UX and expiry: a failed upload should remain available for retry, but the next authenticated upload must replace stale retry data only when the new upload safely begins.
+4. Use a fresh main SHA, one complete Git tree/commit, force=false and expected_sha. Frozen backup untouched. Current-source L3 and physical L4 remain NOT VERIFIED.
 
 Source/validation notes:
 - Parent main for THIS COMMIT: `dbfcdaba996473dd135c93c574c88f02f6f3bcf0`; immutable backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`.

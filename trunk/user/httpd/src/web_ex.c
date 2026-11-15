@@ -4758,9 +4758,8 @@ do_restore_st_cgi(const char *url, FILE *stream)
 		ret = eval("/sbin/mtd_storage.sh", "restore");
 	}
 
-	unlink(upload_file);
-
 	if (ret == 0) {
+		unlink(upload_file);
 		websApply(stream, "UploadDone.asp");
 	} else {
 		websApply(stream, "UploadError.asp");

@@ -518,7 +518,7 @@ require("BZCAT_STATUS=2" in mtd_storage_load_test and
         "MTD load fixture must cover decompression, extraction, rollback, BusyBox ash and success")
 
 backup_start = mtd_storage.index("func_backup()")
-backup_end = mtd_storage.index("\\nfunc_restore()", backup_start)
+backup_end = mtd_storage.index(chr(10) + "func_restore()", backup_start)
 backup = mtd_storage[backup_start:backup_end]
 for token in ('if ! bzip2 -9 "$tmp" 2>/dev/null; then',
               'stat -c %s "$tbz"',

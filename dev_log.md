@@ -1,3 +1,11 @@
+## 2026-11-15 — Preserve failed restore upload for retry; repair source contracts
+
+- Parent exact-head USB storage #43689545333 and HTTPD security #43689545379 failed because the newly added Python boundary lookups searched for literal escaped backslash-n strings rather than actual source newlines. This commit uses `chr(10)` in the storage checker and HTTPD workflow contract.
+- `do_restore_st_cgi()` unconditionally deleted `STORAGE_FIFO_FILENAME` even when `mtd_storage.sh restore` failed, destroying the exact uploaded archive needed for retry. The handler now unlinks it only when restore returns success; failure displays `UploadError.asp` and keeps the uploaded archive.
+- Added HTTPD regression assertions requiring one unlink under `ret == 0` and none under the error branch. Exact-head Actions for this commit pending. No local compile/test, firmware build or router result claimed. Parent SHA `0baeb3d38480464bcfc7c3127847d234caca226a`.
+
+---
+
 ## 2026-11-15 — Reject invalid MTD backup archives before HTTPD download
 
 - Parent exact-head USB storage #43688959814 passed MTD syntax, save retry, restore, host/BusyBox ash load fixtures, persistence gates and embedded caller graph, then failed at the final path-list assertion because the load regression path was not listed in the checker’s push/pull filter contract. This commit adds it together with the new backup regression path.

@@ -4122,11 +4122,11 @@ jobs:
           assert "chmod 1777 /tmp" in dev_init
           assert dev_init.index("chmod 1777 /tmp") < dev_init.index("mkdir -p -m 700 /tmp/.httpd-private") < dev_init.index("mtd_storage.sh load")
           backup_start = storage_script.index("func_backup()")
-          backup_end = storage_script.index("\\nfunc_restore()", backup_start)
+          backup_end = storage_script.index(chr(10) + "func_restore()", backup_start)
           backup = storage_script[backup_start:backup_end]
           backup_dispatch = storage_script[storage_script.index("backup)"):storage_script.index("restore)")]
           storage_download_start = web.index("do_storage_file(const char *url, FILE *stream)")
-          storage_download_end = web.index("\\nstatic void\\ndo_syslog_file", storage_download_start)
+          storage_download_end = web.index(chr(10) + "static void" + chr(10) + "do_syslog_file", storage_download_start)
           storage_download = web[storage_download_start:storage_download_end]
           assert 'if ! bzip2 -9 "$tmp" 2>/dev/null; then' in backup
           assert 'stat -c %s "$tbz"' in backup
@@ -4139,6 +4139,14 @@ jobs:
           assert 'websError(stream, 500, "Unable to create a valid storage backup.' in storage_download
           assert storage_download.index("backup_result = eval") < storage_download.index("backup_result == 0") < storage_download.index("do_file(storage_file, stream)")
           assert storage_download.index("do_file(storage_file, stream)") < storage_download.rindex("unlink(storage_file)")
+          restore_cgi_start = web.index("do_restore_st_cgi(const char *url, FILE *stream)")
+          restore_cgi_end = web.index(chr(10) + "static void", restore_cgi_start)
+          restore_cgi = web[restore_cgi_start:restore_cgi_end]
+          assert restore_cgi.count("unlink(upload_file)") == 1
+          assert 'if (ret == 0) {' in restore_cgi
+          assert restore_cgi.index("if (ret == 0)") < restore_cgi.index("unlink(upload_file)") < restore_cgi.index('websApply(stream, "UploadDone.asp")')
+          restore_error = restore_cgi[restore_cgi.index("} else {"):]
+          assert "unlink(upload_file)" not in restore_error
           print("HTTPD upload exclusive-create and private restore staging contracts: OK")
 
           # Storage restore executes tar as root into a scratch directory.
