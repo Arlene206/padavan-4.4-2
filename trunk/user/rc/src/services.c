@@ -28,6 +28,7 @@
 #include "process_inventory.h"
 #include "optional_daemon_policy.h"
 #include "logger_start_policy.h"
+#include "service_start_status.h"
 
 static int optional_daemon_start_status(const char *service_name, const char *process_name);
 static int optional_daemon_stop_status(const char *service_name, const char *process_name, int command_status);
@@ -1337,27 +1338,31 @@ restart_watchdog_cpu(void)
 int
 start_services_once(int is_ap_mode)
 {
+	int start_status = 0;
+
 	start_8021x_wl();
 	start_8021x_rt();
-	start_httpd(0);
-	start_telnetd();
+	start_status = rc_first_service_start_status(start_status, start_httpd(0));
+	start_status = rc_first_service_start_status(start_status, start_telnetd());
 #if defined(APP_SSHD)
-	start_sshd();
+	start_status = rc_first_service_start_status(start_status, start_sshd());
 #endif
 	{
 		int vpn_start_status = start_vpn_server();
 		if (vpn_start_status != 0)
 			logmessage(LOGNAME, "VPN server boot startup failed (status=%d)",
 				   vpn_start_status);
+		start_status = rc_first_service_start_status(start_status, vpn_start_status);
 	}
-	start_watchdog();
-	start_gpio_btn();
-	start_infosvr();
+	start_status = rc_first_service_start_status(start_status, start_watchdog());
+	start_status = rc_first_service_start_status(start_status, start_gpio_btn());
+	if (nvram_match("adsc_enable", "1"))
+		start_status = rc_first_service_start_status(start_status, start_infosvr());
 
 	if (!is_ap_mode) {
 		if (!is_upnp_run())
-			start_upnp();
-		
+			start_status = rc_first_service_start_status(start_status, start_upnp());
+
 		if (!nvram_match("lan_stp", "0")) {
 			br_set_stp(IFNAME_BR, 1);
 			br_set_fd(IFNAME_BR, 15);
@@ -1374,6 +1379,7 @@ start_services_once(int is_ap_mode)
 		if (skipdb_start_status != 0)
 			logmessage(LOGNAME, "SkipDBv2 boot startup failed (wait status=%d)",
 				   skipdb_start_status);
+		start_status = rc_first_service_start_status(start_status, skipdb_start_status);
 	}
 #endif
 #if defined(APP_SCUT)
@@ -1382,6 +1388,7 @@ start_services_once(int is_ap_mode)
 		if (scut_start_status != 0)
 			logmessage(LOGNAME, "SCUT client boot startup failed (status=%d)",
 				   scut_start_status);
+		start_status = rc_first_service_start_status(start_status, scut_start_status);
 	}
 #endif
 #if defined(APP_DNSFORWARDER)
@@ -1390,6 +1397,7 @@ start_services_once(int is_ap_mode)
 		if (dnsforwarder_start_status != 0)
 			logmessage(LOGNAME, "DNS Forwarder boot startup failed (status=%d)",
 				   dnsforwarder_start_status);
+		start_status = rc_first_service_start_status(start_status, dnsforwarder_start_status);
 	}
 #endif
 #if defined(APP_TTYD)
@@ -1397,6 +1405,7 @@ start_services_once(int is_ap_mode)
 		int ttyd_start_status = start_ttyd();
 		if (ttyd_start_status != 0)
 			logmessage(LOGNAME, "ttyd boot startup failed (status=%d)", ttyd_start_status);
+		start_status = rc_first_service_start_status(start_status, ttyd_start_status);
 	}
 #endif
 #if defined(APP_VLMCSD)
@@ -1405,6 +1414,7 @@ start_services_once(int is_ap_mode)
 		if (vlmcsd_start_status != 0)
 			logmessage(LOGNAME, "vlmcsd boot startup failed (status=%d)",
 				   vlmcsd_start_status);
+		start_status = rc_first_service_start_status(start_status, vlmcsd_start_status);
 	}
 #endif
 #if defined(APP_IPERF3)
@@ -1413,25 +1423,31 @@ start_services_once(int is_ap_mode)
 		if (iperf3_start_status != 0)
 			logmessage(LOGNAME, "iperf3 boot startup failed (status=%d)",
 				   iperf3_start_status);
+		start_status = rc_first_service_start_status(start_status, iperf3_start_status);
 	}
 #endif
-	start_lltd();
+	if (nvram_match("lltd_enable", "1"))
+		start_status = rc_first_service_start_status(start_status, start_lltd());
 	start_watchdog_cpu();
-	start_crond();
+	if (nvram_match("crond_enable", "1"))
+		start_status = rc_first_service_start_status(start_status, start_crond());
 	{
 		int networkmap_start_status = start_networkmap(1);
 		if (networkmap_start_status != 0)
 			logmessage(LOGNAME,
 				   "networkmap boot startup failed (status=%d)",
 				   networkmap_start_status);
+		start_status = rc_first_service_start_status(start_status, networkmap_start_status);
 	}
-	start_rstats();
+	if (nvram_match("rstats_enable", "1"))
+		start_status = rc_first_service_start_status(start_status, start_rstats());
 #if defined(APP_MENTOHUST)
 	{
 		int mentohust_start_status = start_mentohust();
 		if (mentohust_start_status != 0)
 			logmessage(LOGNAME, "MentoHUST boot startup failed (status=%d)",
 				   mentohust_start_status);
+		start_status = rc_first_service_start_status(start_status, mentohust_start_status);
 	}
 #endif
 	{
@@ -1439,20 +1455,23 @@ start_services_once(int is_ap_mode)
 		if (iappd_restart_status != 0)
 			logmessage(LOGNAME, "Ralink IAPP restart command failed (wait status=%d)",
 				   iappd_restart_status);
+		start_status = rc_first_service_start_status(start_status, iappd_restart_status);
 	}
 	{
 		int tproxy_module_status = system("modprobe xt_TPROXY");
 		if (tproxy_module_status != 0)
 			logmessage(LOGNAME, "xt_TPROXY module load command failed (wait status=%d)",
 				   tproxy_module_status);
+		start_status = rc_first_service_start_status(start_status, tproxy_module_status);
 	}
 	{
 		int iappd_test_status = system("/usr/bin/iappd.sh test");
 		if (iappd_test_status != 0)
 			logmessage(LOGNAME, "Ralink IAPP post-start test failed (wait status=%d)",
 				   iappd_test_status);
+		start_status = rc_first_service_start_status(start_status, iappd_test_status);
 	}
-	return 0;
+	return start_status;
 }
 
 int

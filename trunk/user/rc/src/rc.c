@@ -987,7 +987,13 @@ init_router(void)
 		}
 	}
 
-	start_services_once(is_ap_mode);
+	{
+		int boot_services_status = start_services_once(is_ap_mode);
+		if (boot_services_status != 0)
+			logmessage(LOGNAME,
+				   "one or more boot service startup operations failed (first status=%d)",
+				   boot_services_status);
+	}
 
 	notify_leds_detect_link();
 

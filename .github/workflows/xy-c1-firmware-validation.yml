@@ -36,6 +36,8 @@ on:
       - "trunk/user/rc/src/storage_persistence_policy.h"
       - "trunk/user/scripts/files/sbin/mtd_storage.sh"
       - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/service_start_status.h"
+      - "trunk/user/rc/src/tests/service_start_status.c"
       - "trunk/user/rc/src/logger_start_policy.h"
       - "trunk/user/rc/src/tests/logger_start_policy.c"
       - "trunk/user/ralinkiappd/iappd.sh"
@@ -109,6 +111,15 @@ on:
       - ".github/workflows/xy-c1-firmware-validation.yml"
   workflow_dispatch:
 
+  pull_request:
+    paths:
+      - ".github/workflows/process-lifecycle-regression.yml"
+      - ".github/workflows/xy-c1-firmware-validation.yml"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/service_start_status.h"
+      - "trunk/user/rc/src/tests/service_start_status.c"
+      - "scripts/check_process_lifecycle_integration.py"
 permissions:
   contents: read
 

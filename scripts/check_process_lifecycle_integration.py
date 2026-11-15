@@ -1130,3 +1130,49 @@ assert '"trunk/user/rc/src/msd_lite_config_file.h"' in xy_workflow
 assert '"trunk/user/rc/src/tests/msd_lite_config_file.c"' in xy_workflow
 assert "Compile and run MSD Lite atomic configuration publication regression" in process_workflow
 print("MSD Lite atomic config publication and launch gate integration: PASS")
+
+
+service_start_policy = (root / "trunk/user/rc/src/service_start_status.h").read_text()
+service_start_test = (root / "trunk/user/rc/src/tests/service_start_status.c").read_text()
+boot_start = services_source.split("int\\nstart_services_once(int is_ap_mode)", 1)[1].split("\\n}\\n", 1)[0]
+assert '#include "service_start_status.h"' in services_source
+for call in (
+    "start_httpd(0)", "start_telnetd()", "start_sshd()", "start_watchdog()",
+    "start_gpio_btn()", "start_infosvr()", "start_upnp()", "start_lltd()",
+    "start_crond()", "start_networkmap(1)", "start_rstats()",
+):
+    assert call in boot_start
+for call in (
+    "start_httpd(0)", "start_telnetd()", "start_sshd()", "start_watchdog()",
+    "start_gpio_btn()", "start_upnp()", "start_networkmap(1)",
+):
+    assert "rc_first_service_start_status(start_status, " + call + ")" in boot_start
+for service, flag in (
+    ("start_infosvr()", "adsc_enable"),
+    ("start_lltd()", "lltd_enable"),
+    ("start_crond()", "crond_enable"),
+    ("start_rstats()", "rstats_enable"),
+):
+    assert 'if (nvram_match("' + flag + '", "1"))' in boot_start
+    assert "rc_first_service_start_status(start_status, " + service + ")" in boot_start
+assert "return start_status;" in boot_start
+assert "return first_status != 0 ? first_status : next_status;" in service_start_policy
+for contract in (
+    "rc_first_service_start_status(0, 0) == 0",
+    "rc_first_service_start_status(0, -1) == -1",
+    "rc_first_service_start_status(0, 17) == 17",
+    "rc_first_service_start_status(-1, 0) == -1",
+    "rc_first_service_start_status(17, -1) == 17",
+    "rc_first_service_start_status(-5, 9) == -5",
+    "rc_first_service_start_status(4, 0) == 4",
+):
+    assert contract in service_start_test
+assert "boot_services_status = start_services_once(is_ap_mode);" in rc_source
+assert "one or more boot service startup operations failed (first status=%d)" in rc_source
+assert "boot_services_status != 0" in rc_source
+assert "Compile and run RC boot service status aggregation regression" in process_workflow
+assert '"trunk/user/rc/src/service_start_status.h"' in process_workflow
+assert '"trunk/user/rc/src/tests/service_start_status.c"' in process_workflow
+assert '"trunk/user/rc/src/service_start_status.h"' in xy_workflow
+assert '"trunk/user/rc/src/tests/service_start_status.c"' in xy_workflow
+print("RC boot-service status aggregation and disabled-feature sentinel handling: PASS")

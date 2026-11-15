@@ -1,3 +1,13 @@
+## 2026-11-16 — Propagate boot-service startup failures through start_services_once()
+
+- `start_services_once()` ignored the status from HTTPD, telnetd, optional SSHD, VPN, watchdog, GPIO button, infosvr, UPnP, LLTD, crond, networkmap, rstats and already-checked optional app/command startups, then returned zero. Its sole RC caller also ignored the result. Failures could be individually logged but there was no truthful aggregate status at the boot boundary.
+- It now preserves the first nonzero status while attempting every later startup action, and `rc.c` logs an aggregate failure. LLTD, crond, rstats and infosvr are aggregated only when their respective NVRAM feature switches are enabled; their disabled return sentinel (1) is not misreported. Void-returning helpers remain outside this slice.
+- Added a GNU89 policy regression, source-level caller/feature-guard assertions and exact-path Process lifecycle + XY-C1 workflow coverage.
+- Parent main: `3236230989b599b5d34ae7cdd8aa5e44178cf0d6`; frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`. Exact-parent Process #43772230234 PASS and AI docs #43772230258 PASS. XY-C1 #43772230305 was in progress at last poll (Build XY-C1); TRX/artifact pending.
+- No local firmware build or L3/L4 claim for this new source. Exact-head Actions are required.
+
+---
+
 ## 2026-11-16 — Propagate RC syslogd/klogd startup failures
 
 - `start_logger()` previously discarded both `start_syslogd()` and `start_klogd()` statuses and always returned zero. Existing syslog-restart and time-update notification paths check `start_logger(0) != 0`, so logger launch failures were silently acknowledged.
