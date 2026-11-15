@@ -1,3 +1,12 @@
+## 2026-11-14 — Restore target build integration for inadyn daemon policy
+
+- Exact-head XY-C1 Firmware Validation run `43670514075` on `80952b0eb515c9fd46ed1b4608638b79a1797197` failed during the MIPS/uClibc build in `services_ex.c::notify_ddns_update()`: the function used `inadyn_daemon_policy.h` types and helpers without including the policy header. The compiler reported the incomplete enum type and undeclared action constants/functions.
+- Added the direct policy-header include beside the existing process-inventory include. The XY-C1 workflow already watches both `services_ex.c` and `inadyn_daemon_policy.h`, so the next exact-head run exercises the full target build.
+- Product behavior is unchanged; this repairs a missing compile-time dependency. L3 remains unverified until the new exact-head build, TRX verification and artifact upload all pass.
+- Changed paths: `trunk/user/rc/src/services_ex.c`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
 ## 2026-11-14 — Repair storage, VSFTPD and HTTPD lifecycle CI contracts
 
 - Storage hotplug run `43669561488` on `61cf95e446a5777568e45c2cf3d589e74696d6f` failed because `scripts/check_storage_safe_remove.py` matched a forward declaration of `optional_daemon_stop_status()` and parsed the following unrelated body. The checker now skips declarations and has a synthetic prototype/definition regression.

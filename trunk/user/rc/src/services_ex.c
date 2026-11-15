@@ -40,6 +40,7 @@
 #include "dnsmasq_restart_policy.h"
 #include "dnsmasq_reload_policy.h"
 #include "process_inventory.h"
+#include "inadyn_daemon_policy.h"
 #include "miniupnpd_config_file.h"
 #include "miniupnpd_daemon_policy.h"
 #include "samba_config_value_policy.h"
