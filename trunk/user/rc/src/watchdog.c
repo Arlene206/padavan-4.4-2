@@ -505,7 +505,6 @@ static void httpd_process_check(void)
 	{
 		printf("## restart httpd ##\n");
 		httpd_missing = 0;
-		stop_httpd();
 		stop_status = stop_httpd();
 		if (stop_status != 0) {
 			logmessage("watchdog",

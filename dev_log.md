@@ -1,3 +1,11 @@
+## 2026-11-15 — Remove duplicate HTTPD stop invocation
+
+- Review of exact main `c44b3f9b90ded466aea5a9160e8c957adf46eb26` found that `httpd_process_check()` called `stop_httpd()` once with the return value discarded, then immediately called it a second time and checked only the second result. The refactor had consolidated the #ifdef branches but retained the original ignored call; that doubled every stop transaction and could conceal the first transaction's failure.
+- Removed the unchecked invocation so the identity-bound stop executes exactly once and its status gates marker removal and restart. Added a source contract asserting exactly one `stop_httpd()` call within the watchdog recovery body.
+- Changed paths: `trunk/user/rc/src/watchdog.c`, `scripts/check_process_lifecycle_integration.py`, `dev_log.md`. Result: THIS COMMIT. Exact-head process lifecycle and XY-C1 validations required.
+
+---
+
 ## 2026-11-15 — Consolidate watchdog HTTPD stop guard outside feature conditional
 
 - Simplified the preceding HTTPD recovery change so the identity-bound `stop_httpd()` and its fail-closed status check execute once, regardless of whether the optional HTTPD content probe is compiled. Only probe-marker removal remains conditional on `HTTPD_CHECK`.

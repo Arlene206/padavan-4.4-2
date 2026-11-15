@@ -468,6 +468,7 @@ for body, service in ((watchdog_httpd, "httpd"), (watchdog_dnsmasq, "dnsmasq"),
 assert "is_dns_dhcpd_run()" not in watchdog_dnsmasq
 assert "PROCESS_PRESENCE_START_ABORT" in watchdog_httpd
 assert "stop_status = stop_httpd();" in watchdog_httpd
+assert watchdog_httpd.count("stop_httpd();") == 1
 assert "if (stop_status != 0)" in watchdog_httpd
 assert watchdog_httpd.index("stop_status = stop_httpd();") < watchdog_httpd.index("if (stop_status != 0)") < watchdog_httpd.index("return;") < watchdog_httpd.index("start_status = start_httpd(0);")
 assert "killall -9 httpd" not in watchdog_httpd
