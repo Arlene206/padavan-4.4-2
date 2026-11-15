@@ -1,3 +1,12 @@
+## 2026-11-15 — Bind HTTPD LPD removal signal to verified process identity
+
+- Process-lifecycle inventory identified the HTTPD lpr_remove handler as a raw numeric-PID signal path: it sent SIGUSR2 to /var/run/lpdparent.pid without verifying that the PID still belonged to LPD.
+- LPD now writes shared strict PID/start_time records via process_pidfile_write(); startup validates them with process_pidfile_read_identity(). A PID-only fallback remains solely for older firmware compatibility and requires O_NOFOLLOW/O_NONBLOCK, a regular root-owned single-link file, no group/world write, strict decimal parsing and process-inventory validation.
+- HTTPD now calls process_pidfile_signal(path, "lpd", SIGUSR2); ENOENT is harmless, while other identity/signal errors are logged and fail closed. Updated the process-lifecycle source contract and HTTPD privileged-script sink contract. Existing shared PID-file and legacy LPD parser regressions are already included in exact-head CI.
+- Parent main: 4e0e078cfac3a3db90d7f100e255e65b4bb03cbc; resulting SHA: THIS COMMIT. Exact-head process-lifecycle, HTTPD security, AI docs and XY-C1 Actions required. No MIPS/TRX/L3 or physical-router L4 result is claimed.
+- Next handoff item remains the boot-start status audit at start_infosvr(); watchdog startup status was completed by the parent commit. Linux 4.4 PID/start_time validation-to-kill TOCTOU is narrowed but not eliminated.
+
+---
 ## 2026-11-15 — Log enabled infosvr launcher failures without treating disabled service as an error
 
 - `start_infosvr()` correctly returns 1 when `adsc_enable` is disabled and its optional-daemon helper logs UNKNOWN process inventory. But once enabled and confirmed absent, it returned a failed `eval("/usr/sbin/infosvr", IFNAME_BR)` without a startup diagnostic.

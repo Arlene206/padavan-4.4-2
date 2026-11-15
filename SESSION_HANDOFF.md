@@ -14,6 +14,8 @@ For each multi-file logical slice, publish source, tests/contracts and necessary
 - Frozen archive `backup/pre-plugin-overhaul-2026-11-14`: 72f4f157a084f8184b9597ca5bf334b8080e5807. Read-only; do not touch.
 - No local checkout or MIPS/uClibc cross-toolchain in this session. Do not claim local full tests/builds.
 
+- Current LPD PID identity hardening is parented to 4e0e078cfac3a3db90d7f100e255e65b4bb03cbc; resulting SHA is this changeset. It changes the LPD writer/startup reader and HTTPD's privileged LPD removal signal. Fresh exact-head process-lifecycle, HTTPD security, AI docs and XY-C1 checks are required.
+
 ## Active task
 
 ### P1 — Boot daemon startup error reporting
@@ -22,6 +24,15 @@ For each multi-file logical slice, publish source, tests/contracts and necessary
 - Watchdog `start_watchdog()` now captures `eval("/sbin/watchdog")`, logs nonzero launcher status and returns it unchanged on product source 5e164049. UNKNOWN process inventory and invalid policy already have diagnostics; RUNNING remains a successful no-op.
 - `start_gpio_btn()` has internal logs for UNKNOWN inventory, failed launcher, UNKNOWN postcondition and daemon-not-remain-running; no duplicate caller log needed.
 - Next inspect/fix `start_infosvr()`: when `adsc_enable != 1`, return 1 is a disabled sentinel; optional-daemon helper already logs UNKNOWN inventory. Enabled `eval("/usr/sbin/infosvr", IFNAME_BR)` failure currently lacks a specific diagnostic. Preserve the return value and disabled no-op semantics.
+
+
+
+### P1 LPD printer-removal PID identity hardening
+
+- The process-lifecycle inventory identified HTTPD's trusted lpr_remove handler as a raw numeric-PID signal path: it sent SIGUSR2 to /var/run/lpdparent.pid without checking that the PID still belonged to LPD.
+- LPD now publishes the shared strict PID/start_time record; startup validates it with process_pidfile_read_identity(). A narrowly scoped PID-only fallback remains for older firmware compatibility and is gated by O_NOFOLLOW/O_NONBLOCK, regular root-owned single-link checks, non-writable group/world mode, strict decimal parsing and process-inventory validation.
+- HTTPD now uses process_pidfile_signal(..., "lpd", SIGUSR2); missing PID files remain harmless, while other signal/identity errors are logged and fail closed. The process-lifecycle source contract and HTTPD privileged-script sink contract were updated in the same changeset.
+- Parent main: 4e0e078cfac3a3db90d7f100e255e65b4bb03cbc; resulting SHA is this changeset. Exact-head process-lifecycle, HTTPD security, AI docs and XY-C1 Actions are required. The Linux 4.4 PID/start_time validate-to-kill TOCTOU remains a documented limitation; this change narrows but does not eliminate it.
 
 ## Verification boundary
 
@@ -32,9 +43,10 @@ For each multi-file logical slice, publish source, tests/contracts and necessary
 
 ## Exact first action for the next GPT
 
-1. Fetch live main; check exact-head infosvr, AI handoff docs, process lifecycle and XY-C1 Actions for this source SHA. Check the earlier XY-C1 #43732391824 for product SHA 5e164049 too; don't wait idly.
-2. The infosvr launcher-status fix is implemented in this commit; diagnose any failed exact-head regression and repair it. If green, continue other `start_services_once()` callers one at a time, distinguishing disabled sentinel values from failure.
-3. Preserve best-effort boot continuation and exact source/test/workflow path-filter alignment.
+1. Check exact-head process-lifecycle regression, HTTPD security, AI docs and XY-C1 Actions for the LPD PID identity changeset; inspect any causal failure and fix it. Do not claim L3 until Build XY-C1, TRX verification and artifact upload all pass for the exact product-source SHA.
+2. Resume the existing P1 boot-status audit at start_infosvr(); watchdog startup failure logging was completed in the parent commit. Continue with other functions only after checking disabled sentinels and internal diagnostics.
+3. Keep development on main with atomic Git Data commits and expected-SHA non-forced ref updates. Do not repeat DNSMasq/VPN lock-order work or the scoped RC C-source process-signal sweep.
+
 
 ## Invariants
 

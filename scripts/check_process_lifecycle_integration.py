@@ -113,33 +113,33 @@ assert 'unlink("/var/run/lpdparent.pid")' not in stop_lpd
 print("process inventory and lifecycle integration contract: PASS")
 
 lpd_source = (root / "trunk/user/LPRng/src/src/common/lpd.c").read_text()
-pid_writer = lpd_source.split("static int update_pidfile(void)", 1)[1].split("void logmessage", 1)[0]
-assert "O_CREAT | O_EXCL" in pid_writer
-assert "write(fd, pid_text + offset, len - offset)" in pid_writer
-assert "errno == EINTR" in pid_writer
-assert 'rename(temp_path, "/var/run/lpdparent.pid")' in pid_writer
-assert "fopen(\"/var/run/lpdparent.pid\", \"w\")" not in pid_writer
+pid_writer = lpd_source.split("static int update_pidfile(void)", 1)[1].split("static int read_lpd_pidfile_legacy", 1)[0]
+assert 'process_pidfile_write("/var/run/lpdparent.pid", "lpd")' in pid_writer
+assert "O_CREAT | O_EXCL" not in pid_writer
 assert "if (update_pidfile() < 0)" in lpd_source
 
 assert '#include <process_inventory.h>' in lpd_source
+assert '#include <process_pidfile.h>' in lpd_source
 pid_reader = lpd_source.split("static int read_lpd_pidfile(pid_t *pid)", 1)[1].split("static int lpd_pid_is_running", 1)[0]
-assert "errno == ENOENT ? 0 : -1" in pid_reader
+assert 'process_pidfile_read_identity("/var/run/lpdparent.pid", "lpd",' in pid_reader
+assert "if (errno != EINVAL)" in pid_reader
+legacy_reader = lpd_source.split("static int read_lpd_pidfile_legacy(pid_t *pid)", 1)[1].split("static int read_lpd_pidfile(pid_t *pid)", 1)[0]
+for token in ("O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC", "fstat(fd, &st)",
+              "S_ISREG(st.st_mode)", "st.st_uid != (uid_t)0",
+              "st.st_nlink != 1", "(st.st_mode & 022) != 0",
+              "lpd_pidfile_parse(buffer, used, pid)"):
+    assert token in legacy_reader
 pid_policy = (root / "trunk/user/LPRng/src/src/include/lpd_pidfile_policy.h").read_text()
 assert "text[i] < '0' || text[i] > '9'" in pid_policy
 assert "value <= 1 || value > (unsigned long)INT_MAX" in pid_policy
 assert "static int lpd_pid_is_running(pid_t pid)" in lpd_source
-assert "process_inventory_scan(\"lpd\", &snapshot)" in lpd_source
-assert "process_identity_validate(\"lpd\", &snapshot.items[i])" in lpd_source
+assert 'process_inventory_scan("lpd", &snapshot)' in lpd_source
+assert 'process_identity_validate("lpd", &snapshot.items[i])' in lpd_source
 assert "fscanf(fp, \"%d\", &pid)" not in lpd_source
-
 assert "if (pid == getpid())" in lpd_source
-
 assert lpd_source.index("bind(sockfd") < lpd_source.index("update_pidfile() < 0")
 assert lpd_source.index("update_pidfile() < 0") < lpd_source.index("listen(sockfd")
 
-assert '#include "lpd_pidfile_policy.h"' in lpd_source
-assert "lpd_pidfile_parse(buffer, used, pid)" in lpd_source
-assert "value <= 1 || value > (unsigned long)INT_MAX" not in lpd_source
 
 pidfile_source = (root / "trunk/user/shared/src/process_pidfile.c").read_text()
 pidfile_header = (root / "trunk/user/shared/src/process_pidfile.h").read_text()
@@ -171,6 +171,9 @@ assert "process_pidfile_signal(RSTATS_PID_FILE, \"rstats\", SIGHUP)" in rstats_s
 assert "kill_pidfile_s(RSTATS_PID_FILE" not in rstats_source
 assert 'process_pidfile_signal(RSTATS_PID_FILE, "rstats", sig)' in httpd_source
 assert "kill_pidfile_s(RSTATS_PID_FILE" not in httpd_source
+assert 'process_pidfile_signal("/var/run/lpdparent.pid", "lpd", SIGUSR2)' in httpd_source
+assert 'kill_pidfile_s("/var/run/lpdparent.pid", SIGUSR2)' not in httpd_source
+assert 'refusing LPD remove signal because PID identity is unverified' in httpd_source
 
 pppd_policy = (root / "trunk/user/pppd/ppp-2.4.7/pppd/pppd_pidfile_policy.h").read_text()
 pppd_main = (root / "trunk/user/pppd/ppp-2.4.7/pppd/main.c").read_text()

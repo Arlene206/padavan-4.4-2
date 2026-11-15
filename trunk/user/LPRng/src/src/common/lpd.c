@@ -19,6 +19,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/wait.h>
 #include <sys/socket.h>
@@ -31,6 +32,7 @@
 #include "lp_asus.h"
 #include "syslog.h"
 #include <process_inventory.h>
+#include <process_pidfile.h>
 #include "lpd_pidfile_policy.h"
 
 #include <bin_sem_asus.h>
@@ -103,81 +105,29 @@ void processReq_Raw(int fd); //Added by Jiahao
 
 static int update_pidfile(void)
 {
-	pid_t pid = getpid();
-	char pid_text[32];
-	char temp_path[128];
-	int fd;
-	int len;
-	int offset = 0;
-	int saved_errno;
-
-	len = snprintf(pid_text, sizeof(pid_text), "%ld", (long)pid);
-	if (len <= 0 || len >= sizeof(pid_text)) {
-		errno = EOVERFLOW;
-		return -1;
-	}
-
-	len = snprintf(temp_path, sizeof(temp_path),
-		"/var/run/lpdparent.pid.tmp.%ld", (long)pid);
-	if (len <= 0 || len >= sizeof(temp_path)) {
-		errno = ENAMETOOLONG;
-		return -1;
-	}
-
-	fd = open(temp_path, O_WRONLY | O_CREAT | O_EXCL, 0644);
-	if (fd < 0)
-		return -1;
-
-	len = strlen(pid_text);
-	while (offset < len) {
-		ssize_t written = write(fd, pid_text + offset, len - offset);
-		if (written < 0) {
-			if (errno == EINTR)
-				continue;
-			saved_errno = errno;
-			close(fd);
-			unlink(temp_path);
-			errno = saved_errno;
-			return -1;
-		}
-		if (written == 0) {
-			close(fd);
-			unlink(temp_path);
-			errno = EIO;
-			return -1;
-		}
-		offset += written;
-	}
-
-	if (close(fd) < 0) {
-		saved_errno = errno;
-		unlink(temp_path);
-		errno = saved_errno;
-		return -1;
-	}
-
-	if (rename(temp_path, "/var/run/lpdparent.pid") < 0) {
-		saved_errno = errno;
-		unlink(temp_path);
-		errno = saved_errno;
-		return -1;
-	}
-
-	return 0;
+	return process_pidfile_write("/var/run/lpdparent.pid", "lpd");
 }
 
 
-static int read_lpd_pidfile(pid_t *pid)
+static int read_lpd_pidfile_legacy(pid_t *pid)
 {
 	char buffer[32];
+	struct stat st;
 	size_t used = 0;
 	int fd;
 	int saved_errno;
 	ssize_t count;
 
-	fd = open("/var/run/lpdparent.pid", O_RDONLY);
+	fd = open("/var/run/lpdparent.pid", O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
 	if (fd < 0)
 		return errno == ENOENT ? 0 : -1;
+	if (fstat(fd, &st) != 0)
+		goto failed;
+	if (!S_ISREG(st.st_mode) || st.st_uid != (uid_t)0 ||
+	    st.st_nlink != 1 || (st.st_mode & 022) != 0) {
+		errno = EPERM;
+		goto failed;
+	}
 
 	while (used < sizeof(buffer) - 1) {
 		count = read(fd, buffer + used, sizeof(buffer) - 1 - used);
@@ -212,6 +162,34 @@ static int read_lpd_pidfile(pid_t *pid)
 	if (lpd_pidfile_parse(buffer, used, pid) != 0)
 		return -1;
 	return 1;
+
+failed:
+	saved_errno = errno ? errno : EIO;
+	(void)close(fd);
+	errno = saved_errno;
+	return -1;
+}
+
+static int read_lpd_pidfile(pid_t *pid)
+{
+	struct process_identity identity;
+	enum process_presence state;
+
+	state = process_pidfile_read_identity("/var/run/lpdparent.pid", "lpd",
+					      &identity);
+	if (state == PROCESS_PRESENCE_RUNNING) {
+		*pid = identity.pid;
+		return 1;
+	}
+	if (state == PROCESS_PRESENCE_ABSENT)
+		return 0;
+
+	/* Older firmware wrote PID-only records. Fall back only for the strict
+	 * parser's EINVAL format mismatch; unsafe files and procfs UNKNOWN remain
+	 * fail-closed and must never reach the legacy reader. */
+	if (errno != EINVAL)
+		return -1;
+	return read_lpd_pidfile_legacy(pid);
 }
 
 static int lpd_pid_is_running(pid_t pid)

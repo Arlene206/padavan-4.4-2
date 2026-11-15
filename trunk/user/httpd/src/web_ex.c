@@ -34,6 +34,7 @@
 #include <signal.h>
 #include <time.h>
 #include <sys/klog.h>
+#include <syslog.h>
 #include <stdarg.h>
 #include <sys/wait.h>
 #include <dirent.h>
@@ -233,6 +234,8 @@ sys_script(char *name)
 {
 	char scmd[64];
 	int u2ec_fifo;
+	int pidfile_signal_status;
+	int pidfile_signal_errno;
 #if defined(USE_IPV6)
 	char s_addr[INET6_ADDRSTRLEN];
 #else
@@ -276,7 +279,15 @@ sys_script(char *name)
 	}
 	else if (strcmp(name, "lpr_remove")==0)
 	{
-		kill_pidfile_s("/var/run/lpdparent.pid", SIGUSR2);
+		pidfile_signal_status = process_pidfile_signal(
+			"/var/run/lpdparent.pid", "lpd", SIGUSR2);
+		if (pidfile_signal_status != 0) {
+			pidfile_signal_errno = errno;
+			if (pidfile_signal_errno != ENOENT)
+				syslog(LOG_WARNING,
+				       "refusing LPD remove signal because PID identity is unverified (errno=%d)",
+				       pidfile_signal_errno ? pidfile_signal_errno : EIO);
+		}
 	}
 	else if (!strcmp(name, "mfp_requeue")) 
 	{
