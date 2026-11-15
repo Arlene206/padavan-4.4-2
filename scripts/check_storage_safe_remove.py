@@ -499,11 +499,14 @@ for token in ('if ! bzcat "$mtd_part_dev" > "$tmp" 2>/dev/null; then',
               'if ! mv -f "$hash_tmp" "$hsh"; then',
               'if ! rm -f "$slk"; then'):
     require(token in mtd_load, "MTD load misses " + token)
+lock_cleanup_check = 'if ! rm -f "$slk"; then'
+require(mtd_load.count(lock_cleanup_check) == 2,
+        "MTD load must check both blank-flash unlock and successful-load cleanup")
 require(mtd_load.index('if ! bzcat') < mtd_load.index('if ! tar xf') <
         mtd_load.index('if ! md5sum') < mtd_load.index('mv "$dir_storage" "$backup_storage"') <
         mtd_load.index('mv "$load_storage" "$dir_storage"') <
         mtd_load.index('if ! mv -f "$hash_tmp" "$hsh"') <
-        mtd_load.index('if ! rm -f "$slk"; then'),
+        mtd_load.rindex('if ! rm -f "$slk"; then'),
         "MTD load must validate and stage the full tree before publication")
 require('tar xf "$tmp" -C "$dir_storage"' not in mtd_load and
         'rm -rf "$dir_storage"' not in mtd_load,

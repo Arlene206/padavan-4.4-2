@@ -8,23 +8,24 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2. Parent main for THIS COMMIT: `2feac289de28bca92469c304a0af13d90c1fb5e9`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only). Legacy PR #1 remains CLOSED / UNMERGED.
-- Parent exact-head Actions `2feac289de28bca92469c304a0af13d90c1fb5e9`: HTTPD security #43690684263 SUCCESS; process lifecycle inventory #43690684217 SUCCESS; process inventory fail-closed #43690684307 SUCCESS; infosvr #43690684231 SUCCESS; AdGuardHome #43690684211 SUCCESS; AI docs #43690684277 SUCCESS; AliyunDrive #43690684251 SUCCESS; AliDDNS #43690684338 SUCCESS. USB storage #43690684317 FAILED in the combined MTD load host/BusyBox ash regression step. NVRAM #43690684273 and XY-C1 #43690684216 remained IN_PROGRESS at last poll.
-- Source work includes MTD backup integrity validation and HTTPD download gating, retention of failed restore uploads, and blank-MTD one-shot lock release. The storage Action reaches the load fixture; the current test correction fixes two malformed newline formats and ensures cleanup cannot mask test failures.
-- Current L3 and physical L4 remain NOT VERIFIED. No full local checkout/toolchain or target hardware is available.
+- Repository: Arlene206/padavan-4.4-2. Parent main SHA for THIS COMMIT: 361bf44c724e64f3826b876d43a876bb65fc6039; frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807 (read-only). Legacy PR #1 remains CLOSED / UNMERGED.
+- Product source baseline remains 2feac289de28bca92469c304a0af13d90c1fb5e9: transactional MTD load/restore, backup integrity, HTTPD backup gating, failed restore upload retention and blank-MTD one-shot lock release. Commits after that are regression/documentation changes only.
+- Exact-head USB storage #43691365991 on 361bf44c724e64f3826b876d43a876bb65fc6039 passed shell syntax, save retry, restore transaction, host + BusyBox ash load/backup fixtures, GNU89 policy tests and the complete storage caller graph. It failed only in scripts/check_storage_safe_remove.py:502 because the order assertion selected the first lock-marker removal in the zero-byte failure branch instead of the final successful-load cleanup. THIS COMMIT repairs the assertion while requiring both paths.
+- Exact-head AI handoff docs #43691366036 failed because the preceding commit left only one record in dev_log.md and dropped the prior 110-record root history. THIS COMMIT restores those 110 records verbatim from parent 2feac289de28bca92469c304a0af13d90c1fb5e9 and retains the new entry; root count will be 112 after this entry, under the 120-record rotation threshold. No archive/index changed.
+- On 361bf44c724e64f3826b876d43a876bb65fc6039, AliyunDrive #43691366014, Process lifecycle #43691366021, infosvr #43691366019, process inventory #43691366005, AliDDNS #43691366013, AdGuardHome #43691366009 and NVRAM #43691366022 SUCCESS. New exact-head storage and AI docs checks are required.
+- Current L3 and physical L4 remain NOT VERIFIED. No full local checkout/toolchain or target hardware result is available.
 
 ## Active task
 
-### Current P1 correction — make blank-MTD load regression reliable under host shell and BusyBox ash (THIS COMMIT)
+### P1 CI repair — validate final MTD lock cleanup and restore lossless dev-log history (THIS COMMIT)
 
-- The load test recreates the previous MD5 checkpoint twice between blank-MTD and nonempty-corruption cases. Both fixture writes used doubled backslashes in the printf format, yielding literal backslash-n rather than a line ending; they are corrected to one newline escape.
-- The original EXIT/HUP/INT/TERM trap ran only `rm -rf`, which could replace a failing test's nonzero status with cleanup's zero status. The EXIT handler now preserves the original status, and signal handlers exit nonzero.
-- Parent USB storage #43690684317 passed shell syntax, MTD save retry and transactional restore, then failed in the combined load test step. This test-only change requires fresh exact-head host/BusyBox validation; no local execution is claimed.
+- The storage checker now requires exactly two checked save-lock removal branches: blank-MTD failure and successful load. The ordering assertion uses the last occurrence for success publication/cleanup, not the earlier blank-MTD path.
+- Restored the 110 previous root records from parent 2feac289de28bca92469c304a0af13d90c1fb5e9 verbatim; retained the single 361bf44 record. Root log count is 112 after adding this entry, so no archive rotation is due.
 
 ### Next P1 task — audit destructive reset/erase postconditions
 
-- Trace `func_erase()` and `func_reset()` end-to-end. Check MTD erase status, stale hash deletion, storage directory removal/recreation, lock creation/removal and every partial failure. Add failure injection for erase failure and directory creation/removal failure. Do not claim physical rollback after successful flash erase.
-- Restore upload retry retention is already implemented in `do_restore_st_cgi()`; MTD backup integrity and HTTPD response gating are also implemented. Do not repeat these slices.
+- Trace func_erase() and func_reset() end-to-end. Check MTD erase status, stale hash deletion, storage directory removal/recreation, lock creation/removal and every partial failure. Add deterministic failure injection for erase failure and directory creation/removal failure. Do not claim rollback after irreversible successful flash erase.
+- Restore upload retention, MTD backup integrity and blank-MTD lock release are already implemented; do not repeat these slices.
 
 ## Explicitly uncompleted P1 work
 
@@ -35,10 +36,10 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Verification boundary
 
-- L1: Source checks cover zero-byte MTD unlock, nonempty corruption retention and transactional extraction/promotion. The test cleanup now preserves failures; checkpoint fixtures write exactly one newline.
-- L2: Exact parent `2feac289de28bca92469c304a0af13d90c1fb5e9` storage #43690684317 failed in the combined load test; HTTPD, process lifecycle/inventory, infosvr, AI docs, AdGuardHome, AliyunDrive and AliDDNS succeeded; NVRAM and XY-C1 were pending. Exact-head storage rerun required after this correction.
-- L3: Current source is NOT VERIFIED. Fresh exact-head XY-C1 MIPS/uClibc build, TRX verification and artifact upload required.
-- L4: Physical XY-C1 erase, blank-MTD reboot, defaults recreation and later persistence remain NOT VERIFIED.
+- L1: The MTD load path releases the erase lock only for zero-byte flash, preserves it on nonempty corruption, and stages verified data before promotion. The host/BusyBox load fixture now seeds hashes with real newlines and preserves failures across cleanup.
+- L2: USB storage #43691365991 on 361bf44c724e64f3826b876d43a876bb65fc6039 passed all shell, MTD host/BusyBox fixture, GNU89 policy and caller-graph steps, then failed only on the stale checker ordering assertion at line 502. This commit corrects it. AI docs #43691366036 failed because dev_log.md had been truncated to one record; this commit restores the previous 110 records plus the 361bf44 and current entries. New exact-head storage/docs Actions required.
+- L3: Current product source baseline 2feac289de28bca92469c304a0af13d90c1fb5e9 is NOT VERIFIED by a fresh current-main XY-C1 build/TRX upload. Test/docs commits do not change firmware source.
+- L4: Physical erase, blank-MTD next boot, default recreation and later persistence remain NOT VERIFIED.
 - No local shell/test/build or hardware result is claimed.
 
 ## HTTPD daemon lifecycle — completed slice
@@ -57,12 +58,12 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head HTTPD security and USB storage Actions. Confirm backup source-boundary checks, failed-restore upload-retention assertions, MTD backup host/BusyBox tests and the full caller graph.
-2. Continue P1 with `func_reset()` and `func_erase()`: they ignore directory/hash/lock operation statuses; erase success followed by failed settings-directory recreation can leave startup without its expected directory. Add error propagation and failure-injection coverage; do not claim MTD rollback after physical erase.
-3. Review restore retry UX and expiry: a failed upload should remain available for retry, but the next authenticated upload must replace stale retry data only when the new upload safely begins.
-4. Use a fresh main SHA, one complete Git tree/commit, force=false and expected_sha. Frozen backup untouched. Current-source L3 and physical L4 remain NOT VERIFIED.
+1. Inspect exact-head USB storage and AI handoff documentation Actions for THIS COMMIT. Require storage source contract PASS and docs checker pass with at least 20 root records and all indexed archive hashes/counts unchanged.
+2. When both pass, resume P1 at func_reset() / func_erase() in trunk/user/scripts/files/sbin/mtd_storage.sh. Make hash, directory and lock operations status-checked; test MTD erase failure, storage removal/recreation failures and lock failure. A successful physical flash erase cannot be rolled back.
+3. After reset/erase behavior is covered, review new authenticated restore-upload replacement so retained retry data is not discarded before safe replacement.
+4. Before writing, fetch the live main SHA; create complete blob set/tree/commit for every slice and non-force update main using expected_sha. Frozen backup untouched; current L3/L4 unverified.
 
 Source/validation notes:
-- Parent main for THIS COMMIT: 2feac289de28bca92469c304a0af13d90c1fb5e9; frozen backup: 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Parent main for THIS COMMIT: 361bf44c724e64f3826b876d43a876bb65fc6039; frozen backup: 72f4f157a084f8184b9597ca5bf334b8080e5807.
 - Historical L3 only: 335f137a831725f1ed241151d849e160578cca69, XY-C1 #43677484373, artifact #14147062315. Current source requires fresh build/TRX/upload.
 - Preserve docs/dev-log archived shards and docs/dev-log/INDEX.md byte-for-byte.
