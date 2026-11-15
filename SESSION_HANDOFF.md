@@ -4,12 +4,12 @@ Recover live state once, then continue the exact first action below. Do not repe
 
 **Mandatory handoff checkpoint:** verify the meaningful source baseline, active work, exact-head CI, blockers, and first action before context exhaustion. The checkpoint is mandatory; a document edit is conditional. An edit is required only when the record is stale.
 
-For each logical slice, create every blob, one complete tree, and one commit parented to freshly fetched `main`, then update `main` with that exact `expected_sha` and `force:false`. Do not create partial multi-file commits, force-push, change the frozen backup, or mutate dev-log archive shards.
+For each logical task, publish source, regression tests/contracts and necessary documentation as one atomic main commit. Create every blob, one complete tree, and one commit parented to freshly fetched `main`, then update `main` with that exact `expected_sha` and `force:false`. Do not create partial multi-file commits, force-push, change the frozen backup, or mutate dev-log archive shards. Before context exhaustion, finish the current safe slice, validate it, commit it and leave a usable handoff.
 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Current parent before the optional-service caller status slice: `28ccec681975863be1dc59580166fdd3a7774655`; current main source commit: `8da4da031fa9e0c4fa51ae1208a65be99386c1cd`. It captures/logs six previously ignored startup results in `start_services_once()`. Exact Process #43741567690 exposed a syntax error in the newly added source checker (test only); exact AI docs #43741567622 failed because the literal end-of-session checkpoint sentence was missing. Both are corrected in this follow-up checker/docs commit.
+- Optional-service caller status source: `8da4da031fa9e0c4fa51ae1208a65be99386c1cd`; checker/docs repair: `1c9ef914b9d27396e90976d6eb0fdfa9ba961cf4`. Exact Process #43741972950 PASS; AI docs #43741972993 still failed because the handoff omitted the required phrase `one atomic main commit` and explicit `Before context exhaustion` rule. This commit adds both. Exact 8da XY-C1 #43741567717 remained in Build XY-C1 at last poll. The preceding 28ccec XY-C1 #43741160797 has since completed SUCCESS, including TRX verification and artifact upload.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`. It is read-only.
 - No physical-router L4 result is claimed. Do not claim XY-C1 firmware L3 without exact-SHA Build, TRX verification and artifact upload.
 
@@ -33,18 +33,17 @@ For each logical slice, create every blob, one complete tree, and one commit par
 
 ## Verification boundary
 
-- Exact source commit `8da4da031fa9e0c4fa51ae1208a65be99386c1cd`: Process #43741567690 FAILED at `scripts/check_process_lifecycle_integration.py` line 891 because the optional-service negative-check insertion spliced into the telnetd code, leaving an unterminated string. All earlier C/sanitizer and integration steps before this checker passed.
-- Exact 8da4 AI handoff docs #43741567622 FAILED because the condensed handoff omitted the literal mandatory-checkpoint sentence. The sentence and checker structure are restored in this follow-up commit; exact-head Process and AI docs reruns are required.
-- Exact 8da4 XY-C1 #43741567717 remained IN_PROGRESS at Build XY-C1. TRX verification and artifact upload had not yet run; no firmware L3 claim.
-- Exact 8da4 infosvr #43741567632, watchdog #43741567563, detect_internet #43741567626, HTTPD lifecycle #43741567671, WAN ARP #43741567678, VPN #43741567649, DDNSTO #43741567532, detect_link #43741567653, PID1 queue #43741567745, DNS Forwarder #43741567712, SkipDBv2 #43741567623, HTTPD security #43741567681, process inventory artifact #43741567672 and GPIO button #43741567609 completed SUCCESS. NVRAM #43741567710 remained IN_PROGRESS at the last poll.
-- Exact 28ccec Process #43741160702 passed the previous storage media launcher source contracts. Its XY-C1 #43741160797 remained IN_PROGRESS at Build; TRX and artifact pending.
+- Exact optional-service source SHA `8da4da031fa9e0c4fa51ae1208a65be99386c1cd`: Process run #43741567690 failed at a malformed checker splice; the correction in `1c9ef914b9d27396e90976d6eb0fdfa9ba961cf4` makes the complete Process workflow #43741972950 PASS.
+- AI handoff docs run #43741567622 first failed because the checkpoint literal was absent; after adding that literal, #43741972993 failed because the handoff omitted the exact `one atomic main commit` and `Before context exhaustion` requirements. This commit restores those required rules; exact-head docs rerun required.
+- Exact 8da XY-C1 #43741567717 was still building at last poll. Its predecessor 28ccec XY-C1 #43741160797 completed SUCCESS, including Build XY-C1, Verify TRX output and artifact upload. This does not establish L3 for 8da or later source SHA.
+- Exact 1c9f Process #43741972950 PASS; AI docs #43741972993 is the only known failure on that SHA. Backup remains `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Exact first action for the next GPT
 
-1. Verify exact-head Process and AI handoff docs runs from this checker/docs repair; all integration assertions must execute, including six optional-service call/feature-guard checks.
-2. Verify exact-head XY-C1 and preceding #43741567717 through Build, TRX output verification and artifact upload. Continue other work while pending; no L3 claim before all three pass.
-3. Continue remaining concrete RC/service reliability work; Firefly config file publication still silently ignores write/open/rename failures and can launch mt-daapd on a stale config. Do not repeat completed optional daemon call-site audits.
-4. Preserve backup/archive invariants and use full-tree, expected-SHA non-forced atomic updates.
+1. Verify exact-head AI handoff docs after restoring the atomic-main-commit and before-context-exhaustion rules.
+2. Check XY-C1 #43741567717 on 8da through Build, TRX verification and artifact upload; do not infer those results from the older 28ccec pass.
+3. Continue the Firefly configuration publication failure-handling fix: `update_firefly_conf()` still ignores writes/close/rename and `run_itunes()` still starts mt-daapd after that void helper.
+4. Preserve frozen backup and archived log shards; use one atomic tree/commit and non-forced expected-SHA update.
 ## Invariants and unresolved boundaries
 
 - A PENDING run does not block independent work. Record exact SHA/run ID and continue safe tasks.

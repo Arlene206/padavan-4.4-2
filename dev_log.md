@@ -1,3 +1,10 @@
+## 2026-11-15 — Complete mandatory handoff commit/exhaustion rules
+
+- Rebuilt the optional RC startup source-contract checker in `1c9ef914b9d27396e90976d6eb0fdfa9ba961cf4`; exact Process #43741972950 passed.
+- Exact AI docs #43741972993 then identified two further missing literal handoff requirements: `one atomic main commit` and `Before context exhaustion`. Restored both requirements without changing the bootstrap/protocol rules.
+- Exact 8da XY-C1 #43741567717 remained in Build. The prior 28ccec XY-C1 #43741160797 completed SUCCESS through TRX verification and artifact upload; this does not verify 8da or later source.
+
+---
 ## 2026-11-15 — Repair optional-service caller regression and handoff contract
 
 - Exact 8da4 source commit captured/logged six optional startup results, but its Process workflow failed at the final Python integration checker because the inserted negative checks were spliced into an existing line, causing an unterminated string. The source and all earlier C/sanitizer steps passed.
