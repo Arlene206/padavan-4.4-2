@@ -954,6 +954,7 @@ shutdown_router(int level)
 	int misc_stop_status, service_stop_status = 0, printer_stop_status = 0;
 	int wan_stop_status, lan_wan_stop_status = 0;
 	int auth_stop_status, logger_stop_status = 0;
+	int wifi_wl_stop_status = 0, wifi_rt_stop_status = 0;
 	const char *script_name = SCRIPT_SHUTDOWN;
 
 	/* Prevent a late Optware start hook from racing service shutdown. */
@@ -1005,20 +1006,26 @@ shutdown_router(int level)
 			logmessage(LOGNAME, "logger shutdown incomplete; continuing power-down without storage persistence");
 	}
 
+	/* Radio teardown is a prerequisite for safe storage persistence. */
+	wifi_wl_stop_status = stop_wifi_all_wl();
+	if (wifi_wl_stop_status != 0)
+		logmessage(LOGNAME, "5GHz radio shutdown incomplete; continuing power-down without storage persistence");
+	wifi_rt_stop_status = stop_wifi_all_rt();
+	if (wifi_rt_stop_status != 0)
+		logmessage(LOGNAME, "2.4GHz radio shutdown incomplete; continuing power-down without storage persistence");
+
 	LED_CONTROL(LED_WAN, LED_OFF);
 
 	if (storage_remove_status == 0 && misc_stop_status == 0 &&
 	    service_stop_status == 0 && printer_stop_status == 0 &&
 	    wan_stop_status == 0 && lan_wan_stop_status == 0 &&
-	    auth_stop_status == 0 && logger_stop_status == 0) {
+	    auth_stop_status == 0 && logger_stop_status == 0 &&
+	    wifi_wl_stop_status == 0 && wifi_rt_stop_status == 0) {
 		storage_save_time(10);
 		write_storage_to_mtd();
 	} else {
 		logmessage(LOGNAME, "skipping storage MTD persistence because safe eject or service-stop completion was not verified");
 	}
-
-	stop_wifi_all_wl();
-	stop_wifi_all_rt();
 
 	if (level < 2)
 		stop_lan(is_ap_mode);

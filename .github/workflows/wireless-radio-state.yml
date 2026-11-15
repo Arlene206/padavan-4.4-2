@@ -257,7 +257,9 @@ jobs:
               assert peer_gate in body, f"{name}: DBDC peer startup failures must be propagated"
               peer_pos = body.index(peer_gate)
               peer_failure = body.index("return -1;", peer_pos)
-              auth_cleanup = "stop_8021x_" + ("wl" if name == "restart_wifi_wl" else "rt") + "();"
+              # The primary radio's authenticator is already running; peer
+              # authentication is not launched until all peer interfaces start.
+              auth_cleanup = "if (" + own_auth.replace("start_", "stop_", 1) + " != 0)"
               assert peer_pos < body.index(auth_cleanup, peer_pos) < peer_failure
               assert body.index(peer_stop + " < 0", peer_pos) < peer_failure
 

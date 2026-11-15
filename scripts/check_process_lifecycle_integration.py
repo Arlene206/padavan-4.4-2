@@ -567,6 +567,18 @@ assert "DBDC rollback could not stop the 2.4GHz 802.1X daemon" in restart_wifi_r
 shutdown_router = rc_source.split("shutdown_router(int level)", 1)[1].split("\n}\n", 1)[0]
 assert "auth_stop_status = stop_8021x_all();" in shutdown_router
 assert "auth_stop_status == 0" in shutdown_router
+assert "int wifi_wl_stop_status = 0, wifi_rt_stop_status = 0;" in shutdown_router
+assert "wifi_wl_stop_status = stop_wifi_all_wl();" in shutdown_router
+assert "wifi_rt_stop_status = stop_wifi_all_rt();" in shutdown_router
+assert "wifi_wl_stop_status != 0" in shutdown_router
+assert "wifi_rt_stop_status != 0" in shutdown_router
+assert "wifi_wl_stop_status == 0" in shutdown_router
+assert "wifi_rt_stop_status == 0" in shutdown_router
+mtd_gate_pos = shutdown_router.index("if (storage_remove_status == 0")
+assert shutdown_router.index("wifi_wl_stop_status = stop_wifi_all_wl();") < mtd_gate_pos
+assert shutdown_router.index("wifi_rt_stop_status = stop_wifi_all_rt();") < mtd_gate_pos
+assert shutdown_router.count("stop_wifi_all_wl();") == 1
+assert shutdown_router.count("stop_wifi_all_rt();") == 1
 assert shutdown_router.index("auth_stop_status = stop_8021x_all();") < shutdown_router.index(
     "auth_stop_status == 0"
 )

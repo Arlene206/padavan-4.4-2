@@ -1,3 +1,12 @@
+## 2026-11-15 — Gate shutdown MTD persistence on wireless radio teardown
+
+- shutdown_router() discarded stop_wifi_all_wl() / stop_wifi_all_rt() return statuses and called both only after write_storage_to_mtd(). It now attempts both band teardowns before the MTD decision, logs each failure, includes both statuses in the fail-closed persistence gate, and removes the late duplicate calls.
+- Added a production-connected process-lifecycle contract for both result captures, error reporting, pre-MTD ordering and exactly-once stop calls.
+- Fixed two stale workflow assertions. Wireless DBDC rollback correctly uses guarded if (stop_8021x_*() != 0) to stop the primary radio authenticator; the previous checker searched for a standalone call. HTTPD/security expected stop_misc() before storage eject, while commit 4264332 correctly moved watchdog shutdown after all fallible preparation and restores it when stop_misc() fails; its checker now tests the real order and recovery.
+- Changed paths: rc.c, check_process_lifecycle_integration.py, wireless-radio-state.yml, httpd-security.yml, dev_log.md, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md. Result: THIS COMMIT. Exact-head process-lifecycle, wireless-radio, HTTPD/security, AI docs and XY-C1 checks required. No local checkout/build/hardware result is claimed.
+
+---
+
 ## 2026-11-15 — Report watchdog recovery failures on firmware abort
 
 - The new firmware abort recovery attempted `start_watchdog()`, but discarded its result. If procfs inventory was UNKNOWN or the watchdog launcher failed, the update returned silently without confirming recovery of the safety monitor; the MTD-write failure branch had the same silent result handling.

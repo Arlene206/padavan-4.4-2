@@ -4709,7 +4709,10 @@ jobs:
           assert "if (release_status != 0)" in flash
           assert "firmware update aborted: cannot lock VPN server lifecycle" in flash
           assert "if (stop_misc() != 0)" in flash
-          assert flash.index("if (stop_misc() != 0)") < flash.index("safe_remove_all_stor_devices(0)")
+          assert flash.index("safe_remove_all_stor_devices(0)") < flash.index("stop_usb_printer_spoolers()") < flash.index("stop_igmpproxy(NULL)") < flash.index("if (stop_misc() != 0)") < flash.index("storage_save_time(60)") < flash.index("write_storage_to_mtd();")
+          stop_misc_failure = flash.split("if (stop_misc() != 0)", 1)[1].split("storage_save_time(60)", 1)[0]
+          assert "watchdog_status = start_watchdog();" in stop_misc_failure
+          assert "firmware update abort could not restore watchdog" in stop_misc_failure
 
           assert "int kill_services(char* svc_name[], int wtimeout, int forcekill);" in header
           assert "int stop_wan(void);" in header
