@@ -1,6 +1,6 @@
 ## Current source / CI checkpoint
 
-- Current parent `c1987b2520611dd1adb1a54e655832c4c61df8b0`: the IAPPD boot caller now captures/logs all three system wait statuses. Exact Process #43740697227 failed only due to a too-broad negative checker assertion; anchored-regex correction committed as this test-only slice. AI docs #43740696916 PASS; NVRAM #43740696902 and XY-C1 #43740697118 pending.
+- Current parent before the storage-backed media launcher status slice: `4f2986624dc72c87f5453e47e822cef8a8e2d667`. IAPPD caller source fix is committed at c1987; its exact Process checker correction #43740923564 and AI docs #43740923576 PASS. NVRAM #43740923560 remained IN_PROGRESS; XY-C1 #43740697118 remained in Build. This slice captures and logs Firefly, Transmission and Aria launcher statuses while preserving feature and process-inventory gates.
 - Exact-parent Action summary: infosvr packet and signal lifecycle stability regression #43738132617 completed/success; NFS daemon start and reload lifecycle regression #43738132578 completed/success; AI handoff documentation contract #43738132573 completed/success; Process inventory and lifecycle fail-closed regression #43738132620 completed/success; Process lifecycle inventory - 479c05be3bef946f892f81a296d0ca3e709a698f #43738132593 completed/success; NVRAM transaction boundary audit #43738132600 completed/success; fresh process-lifecycle and XY-C1 checks are required after this source commit.
 - Exact 925e AI docs #43737910530, process inventory/lifecycle fail-closed #43737910499, infosvr #43737910533, AdGuardHome #43737910558, AliDDNS #43737910522 and AliyunDrive #43737910604 PASS; NVRAM #43737910496 was IN_PROGRESS at last poll. No NFS workflow was triggered on 925e; the corrected test needs a fresh exact-head run.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only. Do not claim XY-C1 L3 or physical-router L4 without current-SHA build/TRX/artifact and hardware evidence.
@@ -65,7 +65,7 @@
 5. P2 OPEN/BLOCKED — FTP failed-upload cleanup TOCTOU. Linux 4.4 has no inode-conditional unlink-by-fd; do not change cleanup until race-safe semantics are proven while preserving STOR/APPE/REST/STOU and concurrent external-writer behavior.
 6. P2 — NFS async durability, AUTH_SYS/root-squash and external-mount compatibility require real client/storage evidence; do not infer guarantees from host mocks.
 7. P1 SOURCE/HOST FIX COMPLETE — LPD printer-removal SIGUSR2 requires verified PID/start_time identity; exact-head process lifecycle, HTTPD security and AI docs pass on 022bc. Current XY-C1 checks still gate firmware L3.
-8. P1 ACTIVE — Fix and validate the iperf3 ROMFS install path with exact XY-C1/TRX/artifact evidence, then continue auditing remaining RC startup wrappers while preserving feature guards and disabled sentinels.
+8. P1 ACTIVE — Continue eliminating silent failures at enabled RC/service startup boundaries; current slice covers Firefly, Transmission and Aria while preserving feature and disabled-service guards.
 
 ## Working rules
 

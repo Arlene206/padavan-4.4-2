@@ -45,12 +45,14 @@ assert 'doSystem("killall %s %s", "-SIGUSR1", "httpd")' not in net_lan_notificat
 assert "test_identity_bound_notification_preflights_all_targets" in lifecycle_test
 assert "test_unknown_notification_inventory_sends_zero_signals" in lifecycle_test
 net_source = (root / "trunk/user/rc/src/net.c").read_text()
+storage_services = (root / "trunk/user/rc/src/services_stor.c").read_text()
 net_lan_notification = (root / "trunk/user/rc/src/net_lan.c").read_text()
 pppoe_policy = (root / "trunk/user/rc/src/pppoe_relay_policy.h").read_text()
 
 file_write_status_test = (root / "trunk/user/rc/src/tests/file_write_status.c").read_text()
 file_write_status_header = (root / "trunk/user/shared/src/file_write_status.h").read_text()
 process_workflow = (root / ".github/workflows/process-lifecycle-regression.yml").read_text()
+xy_workflow = (root / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
 fput_string_body = common_ex.split("fput_string(const char *name, const char *value)", 1)[1].split(
     "\nint\nfput_int", 1
 )[0]
@@ -66,6 +68,45 @@ assert '"trunk/user/rc/src/tests/file_write_status.c"' in process_workflow
 assert "Compile and run RC file write/close status regression" in process_workflow
 print("RC fput_string buffered-write and close-status integration: PASS")
 
+storage_launch_contracts = (
+    (
+        "void run_itunes(void)",
+        "\\nvoid restart_itunes(void)",
+        'launch_status = eval("/usr/bin/mt-daapd", "-c", conf_new);',
+        'if (!nvram_match("apps_itunes", "1"))',
+        "iTunes Server",
+    ),
+    (
+        "void run_torrent(void)",
+        "\\nvoid restart_torrent(void)",
+        'launch_status = eval("/usr/bin/transmission.sh", "start");',
+        'if (!nvram_match("trmd_enable", "1"))',
+        "Transmission",
+    ),
+    (
+        "void run_aria(void)",
+        "\\nvoid restart_aria(void)",
+        'launch_status = eval("/usr/bin/aria.sh", "start");',
+        'if (!nvram_match("aria_enable", "1"))',
+        "Aria",
+    ),
+)
+for start_marker, end_marker, launcher, enable_guard, service_name in storage_launch_contracts:
+    start_body = storage_services.split(start_marker, 1)[1].split(end_marker, 1)[0]
+    assert enable_guard in start_body
+    assert "int launch_status;" in start_body
+    assert "if (process_state == PROCESS_PRESENCE_RUNNING)" in start_body
+    assert "if (process_state != PROCESS_PRESENCE_ABSENT)" in start_body
+    assert launcher in start_body
+    assert "if (launch_status != 0)" in start_body
+    assert 'logmessage(apps_name, "launch command failed (status=%d)", launch_status);' in start_body
+    assert start_body.index(launcher) < start_body.index("if (launch_status != 0)")
+    assert start_body.index("if (launch_status != 0)") < start_body.index(
+        'logmessage(apps_name, "launch command failed (status=%d)", launch_status);'
+    )
+    assert service_name in start_body
+assert '"trunk/user/rc/src/services_stor.c"' in process_workflow
+assert '"trunk/user/rc/src/services_stor.c"' in xy_workflow
 pppoe_test = (root / "trunk/user/rc/src/tests/pppoe_relay_policy.c").read_text()
 
 assert "process_inventory.o" in shared_makefile

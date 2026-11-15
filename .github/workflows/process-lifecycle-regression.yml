@@ -37,6 +37,7 @@ on:
       - "trunk/user/pppd/ppp-2.4.7/pppd/pppd_pidfile_policy.h"
       - "trunk/user/pppd/ppp-2.4.7/pppd/tests/pppd_pidfile_policy.c"
       - "trunk/user/rc/src/services_usb.c"
+      - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/LPRng/src/src/common/lpd.c"
       - "trunk/user/LPRng/src/src/include/lpd_pidfile_policy.h"
       - "trunk/user/LPRng/src/src/tests/lpd_pidfile_policy.c"

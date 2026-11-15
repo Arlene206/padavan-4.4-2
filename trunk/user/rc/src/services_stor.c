@@ -2179,6 +2179,7 @@ void run_itunes(void)
 	char *dest_dir = ".itunes";
 	char conf_new[64], conf_old[64];
 	int process_state;
+	int launch_status;
 
 	if (!nvram_match("apps_itunes", "1"))
 		return;
@@ -2211,7 +2212,9 @@ void run_itunes(void)
 
 	update_firefly_conf(link_path, conf_path, conf_file);
 
-	eval("/usr/bin/mt-daapd", "-c", conf_new);
+	launch_status = eval("/usr/bin/mt-daapd", "-c", conf_new);
+	if (launch_status != 0)
+		logmessage(apps_name, "launch command failed (status=%d)", launch_status);
 
 	if (is_itunes_run() == PROCESS_PRESENCE_RUNNING)
 		logmessage(apps_name, "daemon is started");
@@ -2313,6 +2316,7 @@ void run_torrent(void)
 	char *link_path = "/mnt/transmission";
 	char *dest_dir = "transmission";
 	int process_state;
+	int launch_status;
 
 	if (!nvram_match("trmd_enable", "1"))
 		return;
@@ -2334,7 +2338,9 @@ void run_torrent(void)
 		return;
 	}
 
-	eval("/usr/bin/transmission.sh", "start");
+	launch_status = eval("/usr/bin/transmission.sh", "start");
+	if (launch_status != 0)
+		logmessage(apps_name, "launch command failed (status=%d)", launch_status);
 }
 
 void restart_torrent(void)
@@ -2438,6 +2444,7 @@ void run_aria(void)
 	char *link_path = "/mnt/aria";
 	char *dest_dir = "aria";
 	int process_state;
+	int launch_status;
 
 	if (!nvram_match("aria_enable", "1"))
 		return;
@@ -2459,7 +2466,9 @@ void run_aria(void)
 		return;
 	}
 
-	eval("/usr/bin/aria.sh", "start");
+	launch_status = eval("/usr/bin/aria.sh", "start");
+	if (launch_status != 0)
+		logmessage(apps_name, "launch command failed (status=%d)", launch_status);
 }
 
 void restart_aria(void)

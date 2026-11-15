@@ -1,3 +1,11 @@
+## 2026-11-15 — Preserve storage-backed media daemon launch statuses
+
+- `run_itunes()`, `run_torrent()` and `run_aria()` discarded the `eval()` status returned by Firefly, Transmission and Aria launch commands. Enabled services could fail their launch command without an RC-side diagnostic.
+- Each function now captures the numeric status and logs a service-specific launch error on nonzero. Existing NVRAM enable guards, support checks, RUNNING idempotency and UNKNOWN process-inventory refusal are unchanged.
+- Added source-contract regressions for result capture, failure-log ordering, enable guards and process-presence preflight. Added `services_stor.c` to the Process workflow trigger; XY-C1 already watches this source.
+- Parent main: `4f2986624dc72c87f5453e47e822cef8a8e2d667`. Exact-head Process and XY-C1 validation required; no daemon-readiness or physical-storage claim is made.
+
+---
 ## 2026-11-15 — Tighten the IAPPD caller fire-and-forget contract
 
 - Exact c1987 Process lifecycle #43740697227 passed all C/sanitizer, optional-app, IAPPD host and prior RC integration steps, then failed at the final negative source assertion. The assertion searched for `system("...");` as a substring and incorrectly matched assigned expressions such as `int iappd_restart_status = system("...");`.
