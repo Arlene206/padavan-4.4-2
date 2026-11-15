@@ -16,6 +16,9 @@
 #define DNSMASQ_DHCP_FEATURE_LEASES 0x01
 #define DNSMASQ_DHCP_FEATURE_RA     0x02
 
+/* Declared here because dnsmasq_file_open() uses it during fdopen failure cleanup. */
+static inline int dnsmasq_file_discard(char *path);
+
 static int
 dnsmasq_lease_file_required(int dhcp_features)
 {
@@ -55,13 +58,38 @@ dnsmasq_file_open(char *path)
 	return fp;
 }
 
-static void
+typedef int (*dnsmasq_file_unlink_fn)(const char *path);
+
+/* Keep the unique path when unlink fails, allowing a caller to retry/log it. */
+static inline int
+dnsmasq_file_discard_with_unlink(char *path, dnsmasq_file_unlink_fn unlink_fn)
+{
+	int saved_errno;
+
+	if (!path || !path[0])
+		return 0;
+	if (!unlink_fn) {
+		errno = EINVAL;
+		return -1;
+	}
+	errno = 0;
+	if (unlink_fn(path) == 0) {
+		path[0] = '\0';
+		return 0;
+	}
+	saved_errno = errno ? errno : EIO;
+	if (saved_errno == ENOENT) {
+		path[0] = '\0';
+		return 0;
+	}
+	errno = saved_errno;
+	return -1;
+}
+
+static inline int
 dnsmasq_file_discard(char *path)
 {
-	if (path && path[0]) {
-		unlink(path);
-		path[0] = '\0';
-	}
+	return dnsmasq_file_discard_with_unlink(path, unlink);
 }
 
 /* Flush/close the staged file before atomically replacing the published path.

@@ -418,7 +418,9 @@ failed:
 			(void)fclose(fp[i]);
 			fp[i] = NULL;
 		}
-		dnsmasq_file_discard(staged_paths[i]);
+		if (dnsmasq_file_discard(staged_paths[i]) != 0)
+			logmessage(LOGNAME, "cannot remove staged static DHCP file '%s' (errno=%d)",
+				   staged_paths[i], errno ? errno : EIO);
 	}
 
 cleanup:
@@ -892,7 +894,9 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 			saved_errno = errno ? errno : EIO;
 			if (fclose(fp) != 0)
 				logmessage(LOGNAME, "error closing DNSMasq staging file after lease-path rejection (errno=%d)", errno ? errno : EIO);
-			dnsmasq_file_discard(config_path);
+			if (dnsmasq_file_discard(config_path) != 0)
+				logmessage(LOGNAME, "cannot remove rejected DNSMasq config stage '%s' (errno=%d)",
+					   config_path, errno ? errno : EIO);
 			logmessage(LOGNAME, "refusing DNSMasq lease configuration with unsafe lease file (errno=%d)", saved_errno);
 			errno = saved_errno;
 			return saved_errno;
@@ -917,7 +921,9 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 			validation_errno = errno ? errno : EPERM;
 			if (fclose(fp) != 0)
 				logmessage(LOGNAME, "error closing rejected DNSMasq staging file (errno=%d)", errno ? errno : EIO);
-			dnsmasq_file_discard(config_path);
+			if (dnsmasq_file_discard(config_path) != 0)
+				logmessage(LOGNAME, "cannot remove rejected DNSMasq config stage '%s' (errno=%d)",
+					   config_path, errno ? errno : EIO);
 			logmessage(LOGNAME, "refusing DNSMasq start with unsafe DNS server snapshot (errno=%d)", validation_errno);
 			return validation_errno;
 		}

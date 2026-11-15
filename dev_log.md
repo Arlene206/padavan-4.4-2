@@ -1,3 +1,14 @@
+## 2026-11-15 — Preserve DNSMasq staging paths when cleanup fails
+
+- Found a resource-management defect: `dnsmasq_file_discard()` unconditionally zeroed its caller's pathname even when `unlink()` failed, leaving a private staging file orphaned with no retry handle and no cleanup error reported.
+- Replaced it with a status-returning helper: successful unlink and ENOENT clear the path; other errors preserve the exact path and errno. Added an injectable unlink callback for deterministic regression coverage.
+- Updated resolver, hostname/LAN, DNSMasq service-config and static-host cleanup paths to check and log leftover staging paths. The DNSMasq workflow now contracts the helper/test and path list; XY-C1 watches the DNSMasq file regression too.
+- Parent main: `39a67af8d061f6f3eceeb2efbea7bd9a4c7cfe10`. Resolver fix exact-head DNSMasq #43719693642, WAN route #43719693710, AI docs #43719693546, process inventory #43719693606 and NVRAM #43719693596 passed; XY-C1 #43719693623 was IN_PROGRESS. Fresh exact-head Actions are required for this cleanup commit.
+- No current-source target MIPS/TRX build or physical-router result is claimed; L4 remains NOT VERIFIED.
+- Changed paths: `dnsmasq_file.h`, `tests/dnsmasq_file.c`, `services_ex.c`, `net_wan.c`, `net_lan.c`, DNSMasq/XY-C1 workflows, SESSION_HANDOFF, REFACTOR_ROADMAP and dev_log.
+
+---
+
 ## 2026-11-15 21:35 CST — Propagate blocked DNSMasq upstream refresh errors
 
 - Found a partial-success defect in `update_resolvconf()`: when `fill_dnsmasq_servers()` failed and the previous `DNS_SERVERS_FILE` was missing or unsafe, the code correctly suppressed DNSMasq cache notification but still returned success after publishing `/etc/resolv.conf`. WAN/PPP callers and PID 1 could acknowledge an incomplete refresh.

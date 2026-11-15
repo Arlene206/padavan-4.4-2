@@ -647,8 +647,12 @@ failed:
 		fclose(hostname_fp);
 	if (hosts_fp)
 		fclose(hosts_fp);
-	dnsmasq_file_discard(hostname_temp);
-	dnsmasq_file_discard(hosts_temp);
+	if (dnsmasq_file_discard(hostname_temp) != 0)
+		logmessage(LOGNAME, "cannot remove LAN hostname stage '%s' (errno=%d)",
+			   hostname_temp, errno ? errno : EIO);
+	if (dnsmasq_file_discard(hosts_temp) != 0)
+		logmessage(LOGNAME, "cannot remove LAN hosts stage '%s' (errno=%d)",
+			   hosts_temp, errno ? errno : EIO);
 	logmessage(LOGNAME, "cannot stage/publish LAN hostname files (errno=%d)", saved_errno);
 	errno = saved_errno;
 	return saved_errno;

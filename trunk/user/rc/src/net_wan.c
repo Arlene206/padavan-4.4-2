@@ -2808,6 +2808,9 @@ update_resolvconf(int is_first_run, int do_not_notify)
 	fp = dnsmasq_file_open(resolv_temp);
 	if (!fp) {
 		saved_errno = errno ? errno : EIO;
+		if (dnsmasq_file_discard(resolv_temp) != 0)
+			logmessage(LOGNAME, "cannot remove resolver staging file '%s' after open failure (errno=%d)",
+				   resolv_temp, errno ? errno : EIO);
 		logmessage(LOGNAME, "cannot stage resolver configuration (errno=%d)", saved_errno);
 		file_unlock(lock);
 		errno = saved_errno;
@@ -2884,7 +2887,9 @@ update_resolvconf(int is_first_run, int do_not_notify)
 		saved_errno = errno ? errno : EIO;
 		if (fclose(fp) != 0)
 			logmessage(LOGNAME, "error closing failed resolver staging file (errno=%d)", errno ? errno : EIO);
-		dnsmasq_file_discard(resolv_temp);
+		if (dnsmasq_file_discard(resolv_temp) != 0)
+			logmessage(LOGNAME, "cannot remove failed resolver staging file '%s' (errno=%d)",
+				   resolv_temp, errno ? errno : EIO);
 		file_unlock(lock);
 		logmessage(LOGNAME, "cannot write resolver configuration (errno=%d)", saved_errno);
 		errno = saved_errno;
@@ -2896,16 +2901,28 @@ update_resolvconf(int is_first_run, int do_not_notify)
 	if (dnsmasq_file_contents_equal(DNS_RESOLV_CONF, resolv_temp)) {
 		if (fclose(fp) != 0) {
 			saved_errno = errno ? errno : EIO;
-			dnsmasq_file_discard(resolv_temp);
+			if (dnsmasq_file_discard(resolv_temp) != 0)
+				logmessage(LOGNAME, "cannot remove unchanged resolver staging file '%s' (errno=%d)",
+					   resolv_temp, errno ? errno : EIO);
 			file_unlock(lock);
 			logmessage(LOGNAME, "cannot close unchanged resolver staging file (errno=%d)", saved_errno);
 			errno = saved_errno;
 			return saved_errno;
 		}
-		dnsmasq_file_discard(resolv_temp);
+		if (dnsmasq_file_discard(resolv_temp) != 0) {
+			saved_errno = errno ? errno : EIO;
+			file_unlock(lock);
+			logmessage(LOGNAME, "cannot remove unchanged resolver staging file '%s' (errno=%d)",
+				   resolv_temp, saved_errno);
+			errno = saved_errno;
+			return saved_errno;
+		}
 	} else {
 		if (dnsmasq_file_publish(fp, resolv_temp, DNS_RESOLV_CONF, 0644) != 0) {
 			saved_errno = errno ? errno : EIO;
+			if (dnsmasq_file_discard(resolv_temp) != 0)
+				logmessage(LOGNAME, "cannot remove failed resolver staging file '%s' (errno=%d)",
+					   resolv_temp, errno ? errno : EIO);
 			file_unlock(lock);
 			logmessage(LOGNAME, "cannot publish resolver configuration (errno=%d)", saved_errno);
 			errno = saved_errno;
@@ -3091,8 +3108,12 @@ failed:
 		fclose(hostname_fp);
 	if (hosts_fp)
 		fclose(hosts_fp);
-	dnsmasq_file_discard(hostname_temp);
-	dnsmasq_file_discard(hosts_temp);
+	if (dnsmasq_file_discard(hostname_temp) != 0)
+		logmessage(LOGNAME, "cannot remove router hostname stage '%s' (errno=%d)",
+			   hostname_temp, errno ? errno : EIO);
+	if (dnsmasq_file_discard(hosts_temp) != 0)
+		logmessage(LOGNAME, "cannot remove router hosts stage '%s' (errno=%d)",
+			   hosts_temp, errno ? errno : EIO);
 	logmessage(LOGNAME, "cannot stage/publish router hostname files (errno=%d)", saved_errno);
 	errno = saved_errno;
 	return saved_errno;

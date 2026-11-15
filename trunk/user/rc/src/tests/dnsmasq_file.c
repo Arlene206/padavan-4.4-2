@@ -7,6 +7,56 @@
 #include <unistd.h>
 #include "dnsmasq_file.h"
 
+static int discard_mock_result;
+static int discard_mock_error;
+static int discard_mock_calls;
+
+static int
+mock_discard_unlink(const char *path)
+{
+	assert(strcmp(path, "/tmp/dnsmasq-discard-test.stage") == 0);
+	discard_mock_calls++;
+	if (discard_mock_result != 0) {
+		errno = discard_mock_error;
+		return -1;
+	}
+	return 0;
+}
+
+static void
+test_discard_preserves_path_when_unlink_fails(void)
+{
+	char stage[] = "/tmp/dnsmasq-discard-test.stage";
+
+	discard_mock_result = -1;
+	discard_mock_error = EACCES;
+	discard_mock_calls = 0;
+	errno = 0;
+	assert(dnsmasq_file_discard_with_unlink(stage, mock_discard_unlink) == -1);
+	assert(errno == EACCES);
+	assert(strcmp(stage, "/tmp/dnsmasq-discard-test.stage") == 0);
+	assert(discard_mock_calls == 1);
+
+	/* A caller can retry because the failed unlink did not erase the path. */
+	discard_mock_result = 0;
+	assert(dnsmasq_file_discard_with_unlink(stage, mock_discard_unlink) == 0);
+	assert(stage[0] == '\0');
+	assert(discard_mock_calls == 2);
+
+	/* ENOENT means the requested cleanup state already holds. */
+	strcpy(stage, "/tmp/dnsmasq-discard-test.stage");
+	discard_mock_result = -1;
+	discard_mock_error = ENOENT;
+	assert(dnsmasq_file_discard_with_unlink(stage, mock_discard_unlink) == 0);
+	assert(stage[0] == '\0');
+	assert(discard_mock_calls == 3);
+
+	strcpy(stage, "/tmp/dnsmasq-discard-test.stage");
+	assert(dnsmasq_file_discard_with_unlink(stage, NULL) == -1);
+	assert(errno == EINVAL);
+	assert(strcmp(stage, "/tmp/dnsmasq-discard-test.stage") == 0);
+}
+
 static void
 read_exact(const char *path, const char *expected)
 {
@@ -43,6 +93,8 @@ main(void)
 	FILE *fp, *pair_fp;
 	struct stat st;
 	int saved_errno;
+
+	test_discard_preserves_path_when_unlink_fails();
 
 	assert(dnsmasq_valid_server_domain("example.com"));
 	assert(dnsmasq_valid_server_domain("sub-domain.example.co"));
@@ -155,7 +207,7 @@ main(void)
 	assert(fflush(fp) == 0);
 	assert(dnsmasq_file_contents_equal(resolv_destination, resolv_same_template) == 1);
 	assert(fclose(fp) == 0);
-	dnsmasq_file_discard(resolv_same_template);
+	assert(dnsmasq_file_discard(resolv_same_template) == 0);
 
 	fp = dnsmasq_file_open(resolv_diff_template);
 	assert(fp != NULL);
@@ -163,7 +215,7 @@ main(void)
 	assert(fflush(fp) == 0);
 	assert(dnsmasq_file_contents_equal(resolv_destination, resolv_diff_template) == 0);
 	assert(fclose(fp) == 0);
-	dnsmasq_file_discard(resolv_diff_template);
+	assert(dnsmasq_file_discard(resolv_diff_template) == 0);
 
 	assert(symlink(sentinel, resolv_symlink) == 0);
 	fp = dnsmasq_file_open(resolv_link_template);
@@ -172,7 +224,7 @@ main(void)
 	assert(fflush(fp) == 0);
 	assert(dnsmasq_file_contents_equal(resolv_symlink, resolv_link_template) == 0);
 	assert(fclose(fp) == 0);
-	dnsmasq_file_discard(resolv_link_template);
+	assert(dnsmasq_file_discard(resolv_link_template) == 0);
 	read_exact(sentinel, "preserve-me\n");
 
 	/* Finalization errors retain errno, unlink staging and preserve old output. */
