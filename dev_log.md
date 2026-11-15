@@ -1,3 +1,12 @@
+## 2026-11-15 — Mirror DNSMasq reload test paths in pull-request trigger
+
+- Parent main SHA: c4975b6ceea51f21e669563d07331664c4e64b4d.
+- The first DNSMasq reload commit added its header and regression to push filters but missed the matching pull_request filters. Added both paths to the PR trigger and verified each path appears exactly once under push and once under pull_request.
+- No production source changed. The exact DNSMasq Action on c4975b6 was still starting at last poll; it will rerun after this workflow correction.
+- Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Make DNSMasq cache reload identity-bound and tri-state
 
 - Parent main SHA: 525c046d658ec4e3de0fd62f25c133dec603bbd9.
