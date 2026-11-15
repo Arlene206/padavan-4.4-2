@@ -906,10 +906,15 @@ restart_wifi_wl(int radio_on, int need_reload_conf)
 		}
 	}
 #endif
-	stop_8021x_wl();
+	if (stop_8021x_wl() != 0) {
+		logmessage(LOGNAME, "5GHz wireless restart aborted: 802.1X daemon did not stop");
+		return -1;
+	}
 #if defined (BOARD_MT7615_DBDC) || defined (BOARD_MT7915_DBDC)
-	if (need_reload_conf)
-		stop_8021x_rt();
+	if (need_reload_conf && stop_8021x_rt() != 0) {
+		logmessage(LOGNAME, "dual-band wireless restart aborted: 2.4GHz 802.1X daemon did not stop");
+		return -1;
+	}
 #endif
 
 	if (need_reload_conf)
@@ -934,7 +939,8 @@ restart_wifi_wl(int radio_on, int need_reload_conf)
 		    start_wifi_wds_rt(rt_radio_on) < 0 ||
 		    start_wifi_apcli_rt(rt_radio_on) < 0) {
 			logmessage(LOGNAME, "DBDC 2.4GHz startup incomplete; rolling back both radios");
-			stop_8021x_wl();
+			if (stop_8021x_wl() != 0)
+				logmessage(LOGNAME, "DBDC rollback could not stop the 5GHz 802.1X daemon");
 			if (stop_wifi_all_rt() < 0)
 				logmessage(LOGNAME, "DBDC 2.4GHz startup rollback was incomplete");
 			if (stop_wifi_all_wl() < 0)
@@ -977,10 +983,15 @@ restart_wifi_rt(int radio_on, int need_reload_conf)
 		}
 	}
 #endif
-	stop_8021x_rt();
+	if (stop_8021x_rt() != 0) {
+		logmessage(LOGNAME, "2.4GHz wireless restart aborted: 802.1X daemon did not stop");
+		return -1;
+	}
 #if defined (BOARD_MT7615_DBDC) || defined (BOARD_MT7915_DBDC)
-	if (need_reload_conf)
-		stop_8021x_wl();
+	if (need_reload_conf && stop_8021x_wl() != 0) {
+		logmessage(LOGNAME, "dual-band wireless restart aborted: 5GHz 802.1X daemon did not stop");
+		return -1;
+	}
 #endif
 
 	if (need_reload_conf)
@@ -1005,7 +1016,8 @@ restart_wifi_rt(int radio_on, int need_reload_conf)
 		    start_wifi_wds_wl(wl_radio_on) < 0 ||
 		    start_wifi_apcli_wl(wl_radio_on) < 0) {
 			logmessage(LOGNAME, "DBDC 5GHz startup incomplete; rolling back both radios");
-			stop_8021x_rt();
+			if (stop_8021x_rt() != 0)
+				logmessage(LOGNAME, "DBDC rollback could not stop the 2.4GHz 802.1X daemon");
 			if (stop_wifi_all_wl() < 0)
 				logmessage(LOGNAME, "DBDC 5GHz startup rollback was incomplete");
 			if (stop_wifi_all_rt() < 0)
@@ -1081,27 +1093,29 @@ start_8021x_rt(void)
 	doSystem("iwpriv %s set %s=%d", wifname, "AssocReqRssiThres", rt_AssocReqRssiThres);
 }
 
-void
+int
 stop_8021x_wl(void)
 {
 #if BOARD_HAS_5G_RADIO
 	char* svcs[] = { "rt2860apd", NULL };
-	kill_services(svcs, 3, 1);
+	return kill_services(svcs, 3, 1);
+#else
+	return 0;
 #endif
 }
 
-void
+int
 stop_8021x_rt(void)
 {
 	char* svcs[] = { "rtinicapd", NULL };
-	kill_services(svcs, 3, 1);
+	return kill_services(svcs, 3, 1);
 }
 
-void
+int
 stop_8021x_all(void)
 {
 	char* svcs[] = { "rt2860apd", "rtinicapd", NULL };
-	kill_services(svcs, 3, 1);
+	return kill_services(svcs, 3, 1);
 }
 
 int 

@@ -922,6 +922,7 @@ shutdown_router(int level)
 	int storage_remove_status = 0;
 	int misc_stop_status, service_stop_status = 0, printer_stop_status = 0;
 	int wan_stop_status, lan_wan_stop_status = 0;
+	int auth_stop_status;
 	const char *script_name = SCRIPT_SHUTDOWN;
 
 	/* Prevent a late Optware start hook from racing service shutdown. */
@@ -963,18 +964,22 @@ shutdown_router(int level)
 		set_ipv4_forward(0);
 	}
 
+	auth_stop_status = stop_8021x_all();
+	if (auth_stop_status != 0)
+		logmessage(LOGNAME, "802.1X shutdown incomplete; continuing power-down without storage persistence");
+
 	LED_CONTROL(LED_WAN, LED_OFF);
 
 	if (storage_remove_status == 0 && misc_stop_status == 0 &&
 	    service_stop_status == 0 && printer_stop_status == 0 &&
-	    wan_stop_status == 0 && lan_wan_stop_status == 0) {
+	    wan_stop_status == 0 && lan_wan_stop_status == 0 &&
+	    auth_stop_status == 0) {
 		storage_save_time(10);
 		write_storage_to_mtd();
 	} else {
 		logmessage(LOGNAME, "skipping storage MTD persistence because safe eject or service-stop completion was not verified");
 	}
 
-	stop_8021x_all();
 	stop_wifi_all_wl();
 	stop_wifi_all_rt();
 

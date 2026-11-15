@@ -1,3 +1,12 @@
+## 2026-11-15 — Propagate 802.1X stop failures through wireless restart and shutdown
+
+- The 802.1X stop wrappers for `rt2860apd` and `rtinicapd` returned `void` and discarded `kill_services()` status. Both `restart_wifi_wl()` and `restart_wifi_rt()` then changed radio configuration and launched replacement wireless interfaces even when an old authenticator daemon had not stopped. Dual-band rollback also discarded authenticator cleanup results; shutdown did not include the all-radio 802.1X stop in its persistence gate.
+- Converted all three stop wrappers to return the checked `kill_services()` result (the 5GHz no-radio build explicitly returns success), updated public prototypes, and gated each radio restart before NVRAM reload-state changes/startup when its own or paired DBDC authenticator fails to stop. Rollback now logs authenticator stop failures. Shutdown records the all-radio stop result before MTD persistence and skips persistence on failure.
+- Extended the process-lifecycle source contract to validate wrapper results, WL/RT preflight ordering, DBDC rollback reporting and shutdown persistence gating. Added the exact production files to the path-filtered regression trigger; XY-C1 already watches these production sources.
+- Changed paths: `net_wifi.c`, `rc.h`, `rc.c`, `check_process_lifecycle_integration.py`, `process-lifecycle-regression.yml`, `dev_log.md`. Result: THIS COMMIT. Exact-head sanitizer/process checks and XY-C1 MIPS/uClibc build required.
+
+---
+
 ## 2026-11-15 — Remove duplicate HTTPD stop invocation
 
 - Review of exact main `c44b3f9b90ded466aea5a9160e8c957adf46eb26` found that `httpd_process_check()` called `stop_httpd()` once with the return value discarded, then immediately called it a second time and checked only the second result. The refactor had consolidated the #ifdef branches but retained the original ignored call; that doubled every stop transaction and could conceal the first transaction's failure.

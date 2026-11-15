@@ -437,6 +437,42 @@ for path in (
     assert '"{}"'.format(path) in xy_workflow, "XY-C1 workflow missing {}".format(path)
 print("detect_internet/detect_link/WAN gateway tri-state start-gate integration: PASS")
 
+wifi_source = (root / "trunk/user/rc/src/net_wifi.c").read_text()
+rc_source = (root / "trunk/user/rc/src/rc.c").read_text()
+stop_8021x_wl = wifi_source.split("int\nstop_8021x_wl(void)", 1)[1].split("\n}", 1)[0]
+stop_8021x_rt = wifi_source.split("int\nstop_8021x_rt(void)", 1)[1].split("\n}", 1)[0]
+stop_8021x_all = wifi_source.split("int\nstop_8021x_all(void)", 1)[1].split("\n}", 1)[0]
+assert "return kill_services(svcs, 3, 1);" in stop_8021x_wl
+assert "return 0;" in stop_8021x_wl
+assert "return kill_services(svcs, 3, 1);" in stop_8021x_rt
+assert "return kill_services(svcs, 3, 1);" in stop_8021x_all
+restart_wifi_wl = wifi_source.split("restart_wifi_wl(int radio_on, int need_reload_conf)", 1)[1].split(
+    "\nint\nrestart_wifi_rt", 1
+)[0]
+restart_wifi_rt = wifi_source.split("restart_wifi_rt(int radio_on, int need_reload_conf)", 1)[1].split(
+    "\nint\n", 1
+)[0]
+assert "if (stop_8021x_wl() != 0)" in restart_wifi_wl
+assert "if (need_reload_conf && stop_8021x_rt() != 0)" in restart_wifi_wl
+assert restart_wifi_wl.index("if (stop_8021x_wl() != 0)") < restart_wifi_wl.index(
+    'nvram_set_int_temp("reload_svc_wl", 1)'
+)
+assert "if (stop_8021x_rt() != 0)" in restart_wifi_rt
+assert "if (need_reload_conf && stop_8021x_wl() != 0)" in restart_wifi_rt
+assert restart_wifi_rt.index("if (stop_8021x_rt() != 0)") < restart_wifi_rt.index(
+    'nvram_set_int_temp("reload_svc_rt", 1)'
+)
+assert "DBDC rollback could not stop the 5GHz 802.1X daemon" in restart_wifi_wl
+assert "DBDC rollback could not stop the 2.4GHz 802.1X daemon" in restart_wifi_rt
+shutdown_router = rc_source.split("shutdown_router(int level)", 1)[1].split("\n}\n", 1)[0]
+assert "auth_stop_status = stop_8021x_all();" in shutdown_router
+assert "auth_stop_status == 0" in shutdown_router
+assert shutdown_router.index("auth_stop_status = stop_8021x_all();") < shutdown_router.index(
+    "auth_stop_status == 0"
+)
+assert '"trunk/user/rc/src/net_wifi.c"' in process_workflow
+assert '"trunk/user/rc/src/rc.c"' in process_workflow
+
 watchdog_source = (root / "trunk/user/rc/src/watchdog.c").read_text()
 httpd_probe = watchdog_source.split("static int\nhttpd_check_v2()", 1)[1].split(
     "\nstatic int\nrefresh_ntp(void)", 1
