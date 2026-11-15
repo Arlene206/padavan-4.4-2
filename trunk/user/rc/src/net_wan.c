@@ -2912,15 +2912,28 @@ update_resolvconf(int is_first_run, int do_not_notify)
 	if (!resolv_changed && get_usb_modem_wan(0))
 		resolv_changed = 1;
 
-	/* notify dnsmasq */
-	if (resolv_changed && !do_not_notify && dns_servers_ready &&
-	    is_dns_dhcpd_run()) {
-		dns_restart_status = restart_dns();
-		if (dns_restart_status != 0) {
+	/* Notify DNSMasq only on a complete process snapshot. A failed legacy
+	 * pids() scan is indistinguishable from ABSENT and can leave stale caches. */
+	if (resolv_changed && !do_not_notify && dns_servers_ready) {
+		int dnsmasq_scan_error = 0;
+		int dnsmasq_status = dnsmasq_process_status(&dnsmasq_scan_error);
+
+		if (dnsmasq_status < 0) {
+			saved_errno = dnsmasq_scan_error ? dnsmasq_scan_error : EIO;
 			logmessage(LOGNAME,
-				   "resolver file published but DNSMasq cache reload failed (status=%d)",
-				   dns_restart_status);
-			return dns_restart_status;
+				   "resolver file published but DNSMasq process state is unknown; cache reload not attempted (scan_error=%d)",
+				   saved_errno);
+			errno = saved_errno;
+			return saved_errno;
+		}
+		if (dnsmasq_status > 0) {
+			dns_restart_status = restart_dns();
+			if (dns_restart_status != 0) {
+				logmessage(LOGNAME,
+					   "resolver file published but DNSMasq cache reload failed (status=%d)",
+					   dns_restart_status);
+				return dns_restart_status;
+			}
 		}
 	}
 

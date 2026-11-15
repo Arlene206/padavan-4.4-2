@@ -352,6 +352,21 @@ dnsmasq_process_presence(int *scan_error)
 	return presence;
 }
 
+/* Public status contract for callers outside services_ex.c:
+ * 1 = RUNNING, 0 = ABSENT, -1 = UNKNOWN (errno and scan_error preserved). */
+int
+dnsmasq_process_status(int *scan_error)
+{
+	enum process_presence presence;
+	int status;
+
+	presence = dnsmasq_process_presence(scan_error);
+	status = dnsmasq_reload_notification_decision(presence);
+	if (status < 0)
+		errno = (scan_error && *scan_error > 0) ? *scan_error : EIO;
+	return status;
+}
+
 static int
 dnsmasq_require_absent(const char *stage)
 {

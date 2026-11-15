@@ -82,6 +82,10 @@ main(void)
 	const int signal_errors[] = {0, 0, 0, EIO};
 	int status;
 
+	assert(dnsmasq_reload_notification_decision(PROCESS_PRESENCE_RUNNING) == 1);
+	assert(dnsmasq_reload_notification_decision(PROCESS_PRESENCE_ABSENT) == 0);
+	assert(dnsmasq_reload_notification_decision(PROCESS_PRESENCE_UNKNOWN) == -1);
+
 	memset(identities, 0, sizeof(identities));
 	identities[0].pid = 501;
 	identities[1].pid = 502;

@@ -514,6 +514,42 @@ for path in (
     assert '"{}"'.format(path) in process_workflow, "process workflow missing {}".format(path)
 assert "WAN DHCP renewal presence policy regression" in process_workflow
 
+dnsmasq_services = (root / "trunk/user/rc/src/services_ex.c").read_text()
+dnsmasq_notify_policy = (root / "trunk/user/rc/src/dnsmasq_reload_policy.h").read_text()
+dnsmasq_notify_test = (root / "trunk/user/rc/src/tests/dnsmasq_reload_policy.c").read_text()
+wan_resolver = (root / "trunk/user/rc/src/net_wan.c").read_text()
+dnsmasq_status_body = dnsmasq_services.split("dnsmasq_process_status(int *scan_error)", 1)[1].split(
+    "\nint\nis_dhcpd_enabled", 1
+)[0]
+resolver_update_body = wan_resolver.split("update_resolvconf(int is_first_run, int do_not_notify)", 1)[1].split(
+    "\nstatic void\nrefresh_resolvconf_nonfatal_internal", 1
+)[0]
+assert "dnsmasq_reload_notification_decision" in dnsmasq_status_body
+assert "errno = (scan_error && *scan_error > 0) ? *scan_error : EIO;" in dnsmasq_status_body
+assert "dnsmasq_reload_notification_decision(enum process_presence presence)" in dnsmasq_notify_policy
+assert "PROCESS_PRESENCE_RUNNING" in dnsmasq_notify_policy
+assert "PROCESS_PRESENCE_ABSENT" in dnsmasq_notify_policy
+assert "return -1;" in dnsmasq_notify_policy
+assert "dnsmasq_process_status(&dnsmasq_scan_error)" in resolver_update_body
+assert "if (dnsmasq_status < 0)" in resolver_update_body
+assert "if (dnsmasq_status > 0)" in resolver_update_body
+assert "is_dns_dhcpd_run()" not in resolver_update_body
+assert "resolver file published but DNSMasq process state is unknown" in resolver_update_body
+assert "dnsmasq_reload_notification_decision(PROCESS_PRESENCE_RUNNING) == 1" in dnsmasq_notify_test
+assert "dnsmasq_reload_notification_decision(PROCESS_PRESENCE_ABSENT) == 0" in dnsmasq_notify_test
+assert "dnsmasq_reload_notification_decision(PROCESS_PRESENCE_UNKNOWN) == -1" in dnsmasq_notify_test
+dnsmasq_workflow = (root / ".github/workflows/dnsmasq-lifecycle.yml").read_text()
+for path in (
+    "trunk/user/rc/src/net_wan.c",
+    "trunk/user/rc/src/services_ex.c",
+    "trunk/user/rc/src/rc.h",
+    "trunk/user/rc/src/dnsmasq_reload_policy.h",
+    "trunk/user/rc/src/tests/dnsmasq_reload_policy.c",
+):
+    assert '"{}"'.format(path) in dnsmasq_workflow, "DNSMasq workflow missing {}".format(path)
+assert "Compile and run DNSMasq reload identity policy regression" in dnsmasq_workflow
+print("DNSMasq resolver notification tri-state integration: PASS")
+
 presence_policy = (root / "trunk/user/rc/src/process_presence_start_policy.h").read_text()
 process_inventory_header = (root / "trunk/user/shared/src/process_inventory.h").read_text()
 presence_test = (root / "trunk/user/rc/src/tests/process_presence_start_policy.c").read_text()

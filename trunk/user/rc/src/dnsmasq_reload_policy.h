@@ -10,6 +10,18 @@ typedef enum process_presence (*dnsmasq_reload_validate_fn)(
 typedef int (*dnsmasq_reload_signal_fn)(void *context, pid_t pid,
 					int signal_number);
 
+/* Resolver publication may skip cache reload only on a complete ABSENT
+ * snapshot. UNKNOWN is an error, never a false "not running" result. */
+static inline int
+dnsmasq_reload_notification_decision(enum process_presence presence)
+{
+	if (presence == PROCESS_PRESENCE_RUNNING)
+		return 1;
+	if (presence == PROCESS_PRESENCE_ABSENT)
+		return 0;
+	return -1;
+}
+
 /* Validate all snapshot identities before the first signal, then validate
  * again immediately before each targeted SIGHUP. UNKNOWN always fails closed;
  * identities that have disappeared are skipped. */
