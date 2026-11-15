@@ -111,7 +111,7 @@ nak = dhcpc[nak_start:nak_end]
 assert "udhcpc_deconfig_retry_required(deconfig_status)" in nak
 assert "udhcpc_schedule_deconfig_retry(INIT_SELECTING" in nak
 
-arp_start = dhcpc.index('bb_info_msg("Offered address is in use ")')
+arp_start = dhcpc.index("if (!arpping(packet.yiaddr,")
 arp_end = dhcpc.index("continue; /* back to main loop */", arp_start)
 arp_conflict = dhcpc[arp_start:arp_end]
 assert "send_decline(" in arp_conflict
