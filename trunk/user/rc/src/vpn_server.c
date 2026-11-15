@@ -999,7 +999,7 @@ ipup_vpns_main(int argc, char **argv)
 					cleanup_failed = 1;
 				}
 			}
-		} else if (i_vuse == 0) {
+		} else if (relay_action == PROCESS_PRESENCE_START_NEW && i_vuse == 0) {
 			if (i_cast == 1 || i_cast == 3) {
 				relay_status = eval("/usr/sbin/bcrelay", "-d", "-i", IFNAME_BR, "-o", "ppp[1-5][0-9]", "-n");
 				if (relay_status != 0)

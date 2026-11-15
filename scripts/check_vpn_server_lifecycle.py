@@ -306,7 +306,8 @@ require("cleanup_failed = 1;" in up and "cleanup_failed = 1;" in down,
         "VPN bcrelay failure must propagate to callback status")
 ordered(up, ["if (relay_action == PROCESS_PRESENCE_START_ABORT)",
              "else if (relay_action == PROCESS_PRESENCE_START_NOTIFY)",
-             "else if (i_vuse == 0)"], "VPN up bcrelay branch order")
+             "else if (relay_action == PROCESS_PRESENCE_START_NEW && i_vuse == 0)"],
+        "VPN up bcrelay branch order")
 ordered(down, ["if (relay_action == PROCESS_PRESENCE_START_ABORT)",
                "else if (relay_action == PROCESS_PRESENCE_START_NOTIFY)",
                "kill_services(svcs, 3, 1)"], "VPN down bcrelay branch order")

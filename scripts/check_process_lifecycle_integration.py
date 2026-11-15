@@ -434,7 +434,7 @@ assert "is_dns_dhcpd_run()" not in watchdog_dnsmasq
 assert "PROCESS_PRESENCE_START_ABORT" in watchdog_httpd
 assert "PROCESS_PRESENCE_START_ABORT" in watchdog_dnsmasq
 assert "PROCESS_PRESENCE_START_NEW" in watchdog_dnsmasq
-assert "PROCESS_PRESENCE_START_NOTIFY" in watchdog_dnsmasq
+assert "dnsmasq_missing = 0;" in watchdog_dnsmasq
 assert "PROCESS_PRESENCE_START_NOTIFY" in watchdog_start
 assert "PROCESS_PRESENCE_START_NEW" in watchdog_start
 assert "PROCESS_PRESENCE_START_ABORT" in watchdog_start

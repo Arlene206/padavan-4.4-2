@@ -1,3 +1,11 @@
+## 2026-11-15 — Tighten explicit ABSENT handling and align watchdog checker
+
+- Exact process-lifecycle run `43672907289` reached the source checker and found another over-specific condition: the DNSMasq recovery path correctly treats the only remaining known state after the UNKNOWN early return as RUNNING, resetting `dnsmasq_missing` without spelling the derived NOTIFY action. The assertion now checks the actual reset behavior.
+- Exact VPN server run `43672907307` passed all compiled regression binaries, then found that the bcrelay launch branch relied on the helper's final `else` instead of spelling out ABSENT. Made the launch condition explicitly require `PROCESS_PRESENCE_START_NEW`; the checker now locks that fail-closed branch ordering.
+- Changed paths: `vpn_server.c`, `check_process_lifecycle_integration.py`, `check_vpn_server_lifecycle.py`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Repair VPN and process-lifecycle source checker integration
 
 - Exact process lifecycle run `43672595568` (and its superseded rerun `43672782229`) passed all regression binaries and failed on a checker looking for `PROCESS_PRESENCE_UNKNOWN` in the start-action mapping header. The enum correctly lives in `trunk/user/shared/src/process_inventory.h`; corrected the checker to read that contract instead.
