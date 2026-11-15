@@ -453,10 +453,11 @@ jobs:
           assert "int dnsmasq_process_status(int *scan_error);" in rc_header
 
           arp_cleanup = function_body(services, "arpbind_clear(")
+          static_hosts_writer = function_body(services, "fill_static_ethers(")
           dnsmasq_stop = function_body(services, "stop_dns_dhcpd_locked(")
           assert "dnsmasq_stop_policy_cleanup_status(status, arp_status)" in dnsmasq_stop
           assert "arp_status = arpbind_clear()" in dnsmasq_stop
-          assert "dnsmasq_static_arp_command_errno(command_status, command_errno)" in arp_cleanup
+          assert "dnsmasq_static_arp_command_errno" in static_hosts_writer
           assert "cannot remove static ARP binding" in arp_cleanup
           assert 'fopen("/proc/net/arp", "r")' in arp_cleanup
           assert "dnsmasq_stop_policy_cleanup_status" in restart_test
