@@ -506,23 +506,15 @@ static void httpd_process_check(void)
 		printf("## restart httpd ##\n");
 		httpd_missing = 0;
 		stop_httpd();
+		stop_status = stop_httpd();
+		if (stop_status != 0) {
+			logmessage("watchdog",
+				   "HTTPD recovery aborted because identity-bound stop failed (status=%d)",
+				   stop_status);
+			return;
+		}
 #ifdef HTTPD_CHECK
-		stop_status = stop_httpd();
-		if (stop_status != 0) {
-			logmessage("watchdog",
-				   "HTTPD recovery aborted because identity-bound stop failed (status=%d)",
-				   stop_status);
-			return;
-		}
 		remove(DETECT_HTTPD_FILE);
-#else
-		stop_status = stop_httpd();
-		if (stop_status != 0) {
-			logmessage("watchdog",
-				   "HTTPD recovery aborted because identity-bound stop failed (status=%d)",
-				   stop_status);
-			return;
-		}
 #endif
 		start_status = start_httpd(0);
 		if (start_status != 0)

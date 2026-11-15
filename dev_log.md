@@ -1,3 +1,11 @@
+## 2026-11-15 — Consolidate watchdog HTTPD stop guard outside feature conditional
+
+- Simplified the preceding HTTPD recovery change so the identity-bound `stop_httpd()` and its fail-closed status check execute once, regardless of whether the optional HTTPD content probe is compiled. Only probe-marker removal remains conditional on `HTTPD_CHECK`.
+- No behavioral change; this keeps the single stop postcondition visible and avoids duplicating control flow.
+- Changed paths: `watchdog.c`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Remove watchdog's global HTTPD kill fallback and honor stop result
 
 - `httpd_process_check()` already used the process inventory to distinguish RUNNING/ABSENT/UNKNOWN, but after an HTTPD health-check failure it ignored `stop_httpd()`'s result and ran `killall -9 httpd` unconditionally. This could kill a replacement/parallel HTTPD and then launch another even when the identity-bound stop transaction had failed.
