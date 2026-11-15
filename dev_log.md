@@ -1,3 +1,16 @@
+## 2026-11-15 — Make DNSMasq cache reload identity-bound and tri-state
+
+- Parent main SHA: 525c046d658ec4e3de0fd62f25c133dec603bbd9.
+- restart_dns() still used is_dns_dhcpd_run() and name-wide killall -SIGHUP, so UNKNOWN could authorize a reload and concurrent PID reuse was not checked.
+- Added dnsmasq_reload_policy.h: it validates every captured DNSMasq identity before the first signal, then revalidates each identity immediately before its targeted SIGHUP. ABSENT identities are skipped; UNKNOWN/invalid state and signal errors return an error; no surviving identity returns ESRCH.
+- restart_dns() now captures process_inventory_scan("dnsmasq"), preserves snapshot.error, applies the targeted reload policy and releases the snapshot before unlocking. The name-wide killall path is removed.
+- Added callback-injected GNU89 ASan/UBSan regression for two-target success, zero-signal preflight UNKNOWN, per-PID revalidation UNKNOWN, disappeared PIDs, ABSENT/UNKNOWN snapshots, invalid callback/data and signal failure.
+- Local cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined regression: PASS (DNSMasq cache reload identity and tri-state policy: PASS). Exact DNSMasq and XY-C1 Actions for this commit are pending.
+- Prior exact evidence: Process lifecycle [43657031251] on 525c046 passed; DNSMasq [43656500091] on 322c17f passed; XY-C1 [43656932522] on 09268ce and [43656299052] on 3ca4126 were still building at last poll. L3/L4 NOT VERIFIED.
+- Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Correct WAN caller integration-check delimiters
 
 - Parent main SHA: 09268ce8c68d7e884b02244558a92da017d9a3e4.

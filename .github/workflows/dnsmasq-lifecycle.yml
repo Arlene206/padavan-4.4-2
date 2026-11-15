@@ -5,6 +5,8 @@ on:
     paths:
       - ".github/workflows/dnsmasq-lifecycle.yml"
       - "trunk/user/rc/src/services_ex.c"
+      - "trunk/user/rc/src/dnsmasq_reload_policy.h"
+      - "trunk/user/rc/src/tests/dnsmasq_reload_policy.c"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_lan.c"
       - "trunk/user/rc/src/init.c"
@@ -61,6 +63,14 @@ jobs:
             trunk/user/rc/src/tests/dnsmasq_restart_policy.c \
             -o "$RUNNER_TEMP/dnsmasq-restart-policy"
           "$RUNNER_TEMP/dnsmasq-restart-policy"
+      - name: Compile and run DNSMasq reload identity policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/rc/src -I trunk/user/shared/src \
+            trunk/user/rc/src/tests/dnsmasq_reload_policy.c \
+            -o "$RUNNER_TEMP/dnsmasq-reload-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/dnsmasq-reload-policy"
       - name: Compile and run DNSMasq DHCP range conflict regression
         run: |
           set -eu
@@ -199,6 +209,8 @@ jobs:
               "trunk/user/rc/src/rc.h",
               "trunk/user/rc/src/dnsmasq_restart_policy.h",
               "trunk/user/rc/src/tests/dnsmasq_restart_policy.c",
+              "trunk/user/rc/src/dnsmasq_reload_policy.h",
+              "trunk/user/rc/src/tests/dnsmasq_reload_policy.c",
               "trunk/user/shared/src/process_inventory.c",
               "trunk/user/shared/src/process_inventory.h",
               "trunk/user/shared/src/process_inventory.c",
@@ -406,6 +418,32 @@ jobs:
               assert test_case in range_test
           print("DNSMasq DHCP pool/router-address exclusion source contract: PASS")
 
+
+          reload = function_body(services, "restart_dns(void)")
+          reload_validate = function_body(services, "dnsmasq_reload_validate_identity(")
+          reload_signal = function_body(services, "dnsmasq_reload_send_signal(")
+          reload_policy = Path("trunk/user/rc/src/dnsmasq_reload_policy.h").read_text()
+          reload_test = Path("trunk/user/rc/src/tests/dnsmasq_reload_policy.c").read_text()
+          xy_workflow = Path(".github/workflows/xy-c1-firmware-validation.yml").read_text()
+          assert 'process_inventory_scan("dnsmasq", &snapshot)' in reload
+          assert "scan_error = snapshot.error;" in reload
+          assert reload.index("scan_error = snapshot.error;") < reload.index("dnsmasq_reload_signal_snapshot(")
+          assert reload.index("dnsmasq_reload_signal_snapshot(") < reload.index("process_snapshot_release(&snapshot);")
+          assert reload.index("process_snapshot_release(&snapshot);") < reload.index('dnsmasq_lifecycle_lock_finish(lock_fd, status, "cache reload")')
+          assert "PROCESS_PRESENCE_UNKNOWN" in reload and "scan_error ? scan_error : EIO" in reload
+          assert "is_dns_dhcpd_run()" not in reload and "killall" not in reload and "doSystem(" not in reload
+          assert 'process_identity_validate("dnsmasq", identity)' in reload_validate
+          assert "kill(pid, signal_number)" in reload_signal
+          for token in ("PROCESS_PRESENCE_RUNNING", "PROCESS_PRESENCE_ABSENT", "PROCESS_PRESENCE_UNKNOWN",
+                        "dnsmasq_reload_validate_fn", "dnsmasq_reload_signal_fn",
+                        "for (i = 0; i < snapshot->count; i++)", "SIGHUP",
+                        "return errno ? errno : EIO", "return signalled ? 0 : ESRCH"):
+              assert token in reload_policy, token
+          for token in ("initial_unknown", "signal_phase_unknown", "vanished",
+                        "fake.signal_count == 0", "SIGHUP",
+                        "DNSMasq cache reload identity and tri-state policy: PASS"):
+              assert token in reload_test, token
+          assert '"trunk/user/rc/src/dnsmasq_reload_policy.h"' in xy_workflow
           paths = (
               ".github/workflows/dnsmasq-lifecycle.yml",
               "trunk/user/rc/src/services_ex.c",

@@ -38,6 +38,7 @@
 #include "inadyn_config_file.h"
 #include "dnsmasq_lifecycle_lock.h"
 #include "dnsmasq_restart_policy.h"
+#include "dnsmasq_reload_policy.h"
 #include "process_inventory.h"
 #include "miniupnpd_config_file.h"
 #include "miniupnpd_daemon_policy.h"
@@ -867,20 +868,52 @@ restart_dhcpd(void)
 	return dnsmasq_lifecycle_lock_finish(lock_fd, status, "restart");
 }
 
+static enum process_presence
+dnsmasq_reload_validate_identity(void *context,
+				const struct process_identity *identity)
+{
+	(void)context;
+	return process_identity_validate("dnsmasq", identity);
+}
+
+static int
+dnsmasq_reload_send_signal(void *context, pid_t pid, int signal_number)
+{
+	(void)context;
+	return kill(pid, signal_number);
+}
+
 int
 restart_dns(void)
 {
-	int lock_fd, status, lock_errno;
+	int lock_fd, status, lock_errno, scan_error;
+	enum process_presence presence;
+	struct process_snapshot snapshot;
+
 	lock_fd = dnsmasq_lifecycle_lock_acquire();
 	if (lock_fd < 0) {
 		lock_errno = errno ? errno : EIO;
 		logmessage(LOGNAME, "cannot acquire DNSMasq lifecycle lock; refusing cache reload (errno=%d)", lock_errno);
 		return lock_errno;
 	}
-	if (!is_dns_dhcpd_run())
-		status = -1;
-	else
-		status = doSystem("killall %s %s", "-SIGHUP", "dnsmasq");
+
+	presence = process_inventory_scan("dnsmasq", &snapshot);
+	scan_error = snapshot.error;
+	if (presence == PROCESS_PRESENCE_UNKNOWN) {
+		status = scan_error ? scan_error : EIO;
+		logmessage(LOGNAME,
+			   "cannot verify DNSMasq identities; refusing cache reload (scan_error=%d)",
+			   status);
+	} else {
+		status = dnsmasq_reload_signal_snapshot(&snapshot,
+				dnsmasq_reload_validate_identity,
+				dnsmasq_reload_send_signal, NULL);
+		if (status != 0)
+			logmessage(LOGNAME,
+				   "DNSMasq cache reload was not confirmed (status=%d)",
+				   status);
+	}
+	process_snapshot_release(&snapshot);
 	return dnsmasq_lifecycle_lock_finish(lock_fd, status, "cache reload");
 }
 

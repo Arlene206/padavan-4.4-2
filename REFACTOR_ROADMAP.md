@@ -1,12 +1,12 @@
 ## Current source / CI checkpoint
 
-- Main parent before the detect_wan DHCP-renewal fix: 322c17f9ca546b6578304966f017a24c944dd883.
-- detect_wan.c::chk_udhcpc() previously used !pids("udhcpc"); legacy pids() maps UNKNOWN to a truthy nonzero result, so incomplete /proc inventory could authorize name-wide SIGUSR1. This slice uses shared process_inventory and gates renewal on RUNNING only; UNKNOWN propagates scan errno and exits poll_gateway before signaling.
-- Added GNU89 RUNNING/ABSENT/UNKNOWN/invalid-state policy regression, integration assertions for scan/error/release/signal ordering and workflow/XY-C1 target-path coverage.
-- Exact main 3ca4126: storage [43656299087], AliDDNS [43656299048], HTTPD security [43656299030], AI docs [43656299013], process inventory [43656299065], process lifecycle [43656299033], AdGuardHome [43656299184], infosvr [43656299051], AliyunDrive [43656299154] and NVRAM [43656299071] passed; XY-C1 [43656299052] remained IN_PROGRESS at Build.
-- Exact main 322c17f DNSMasq presence-gate Actions were PENDING at last poll. Current-source L3 remains NOT VERIFIED until exact XY build/TRX/artifact pass; L4 physical validation remains NOT VERIFIED.
-- Disk parser commit 3ca4126 removes variable 64-bit division responsible for earlier hidden __udivdi3 link failure; exact-head XY Action is required to verify MIPS compatibility.
-- Preserved backup branch: backup/pre-plugin-overhaul-2026-11-14 at 72f4f157a084f8184b9597ca5bf334b8080e5807; immutable. Do not repeat completed 9,439 blob / 6,193 readable-text / 77 pids() / 46 kill_services() censuses.
+- Main parent before the DNSMasq identity-bound reload fix: 525c046d658ec4e3de0fd62f25c133dec603bbd9.
+- restart_dns() previously used Boolean is_dns_dhcpd_run() and name-wide killall -SIGHUP. This slice captures the DNSMasq process snapshot, prevalidates all identities before any signal, revalidates each identity immediately before targeted SIGHUP, skips vanished PIDs, and fails closed on UNKNOWN or signal errors.
+- Added GNU89/ASan/UBSan callback-injected policy regression for full-snapshot preflight, per-signal revalidation, UNKNOWN, ABSENT, vanished identities and signal errors.
+- Exact 525c046: Process lifecycle [43657031251], AliDDNS [43657031278], infosvr [43657031274], AdGuardHome [43657031239], AliyunDrive [43657031284], AI docs [43657031271] and NVRAM [43657031315] passed. Exact 322c17f DNSMasq lifecycle [43656500091] passed.
+- Exact 09268ce XY-C1 [43656932522] and 3ca XY-C1 [43656299052] were still in Build XY-C1 at last poll; no TRX/artifact claim.
+- Disk parser fix 3ca4126 removes variable 64-bit division that caused hidden __udivdi3; current L3 stays NOT VERIFIED until matching source Build/TRX/artifact all pass. L4 remains NOT VERIFIED.
+- Preserved backup: backup/pre-plugin-overhaul-2026-11-14 = 72f4f157a084f8184b9597ca5bf334b8080e5807, immutable. Do not redo completed inventory/census.
 
 ## Whole-repository module status
 

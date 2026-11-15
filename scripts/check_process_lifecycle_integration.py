@@ -259,6 +259,8 @@ xy_target_sources = (
     "trunk/user/rc/src/net_wan.c",
     "trunk/user/rc/src/rc.c",
     "trunk/user/rc/src/service_lifecycle_policy.h",
+    "trunk/user/rc/src/services_ex.c",
+    "trunk/user/rc/src/dnsmasq_reload_policy.h",
     "trunk/user/rc/src/usb_modem.c",
     "trunk/user/rc/src/vpn_client.c",
     "trunk/user/rc/src/vpn_server.c",
