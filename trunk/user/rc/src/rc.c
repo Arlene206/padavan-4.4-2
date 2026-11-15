@@ -558,7 +558,10 @@ flash_firmware(void)
 	}
 #endif
 #if defined (USE_USB_SUPPORT)
-	stop_usb_printer_spoolers();
+	if (stop_usb_printer_spoolers() != 0) {
+		logmessage(LOGNAME, "firmware update aborted: USB printer daemons did not stop");
+		return;
+	}
 #endif
 	stop_igmpproxy(NULL);
 	storage_save_time(60);
@@ -914,14 +917,20 @@ shutdown_router(int level)
 	int use_halt = (level == 1) ? 1 : 0;
 	int is_ap_mode = get_ap_mode();
 	int storage_remove_status = 0;
+	int misc_stop_status, service_stop_status = 0, printer_stop_status = 0;
 	const char *script_name = SCRIPT_SHUTDOWN;
 
 	/* Prevent a late Optware start hook from racing service shutdown. */
 	stop_rwfs_optware();
-	stop_misc();
+	misc_stop_status = stop_misc();
+	if (misc_stop_status != 0)
+		logmessage(LOGNAME, "miscellaneous service shutdown incomplete; continuing power-down without storage persistence");
 
-	if (level < 2 && stop_services(use_halt) != 0)
-		logmessage(LOGNAME, "service shutdown incomplete; continuing system power-down");
+	if (level < 2) {
+		service_stop_status = stop_services(use_halt);
+		if (service_stop_status != 0)
+			logmessage(LOGNAME, "service shutdown incomplete; continuing system power-down without storage persistence");
+	}
 
 	if (check_if_file_exist(script_name))
 		doSystem("%s %d", script_name, level);
@@ -933,7 +942,9 @@ shutdown_router(int level)
 #endif
 
 #if defined (USE_USB_SUPPORT)
-	stop_usb_printer_spoolers();
+	printer_stop_status = stop_usb_printer_spoolers();
+	if (printer_stop_status != 0)
+		logmessage(LOGNAME, "USB printer shutdown incomplete; continuing power-down without storage persistence");
 #endif
 	LED_CONTROL(LED_USB, LED_OFF);
 	LED_CONTROL(LED_USB2, LED_OFF);
@@ -947,11 +958,12 @@ shutdown_router(int level)
 
 	LED_CONTROL(LED_WAN, LED_OFF);
 
-	if (storage_remove_status == 0) {
+	if (storage_remove_status == 0 && misc_stop_status == 0 &&
+	    service_stop_status == 0 && printer_stop_status == 0) {
 		storage_save_time(10);
 		write_storage_to_mtd();
 	} else {
-		logmessage(LOGNAME, "skipping storage MTD persistence because safe eject was not verified");
+		logmessage(LOGNAME, "skipping storage MTD persistence because safe eject or service-stop completion was not verified");
 	}
 
 	stop_8021x_all();

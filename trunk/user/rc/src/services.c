@@ -993,12 +993,12 @@ stop_services(int stopall)
 		record_service_stop_status(&stop_status, "VPN server", stop_vpn_server());
 	}
 #if defined (USE_USB_SUPPORT)
-	stop_p910nd();
+	record_service_stop_status(&stop_status, "p910nd", stop_p910nd());
 #if defined (SRV_LPRD)
-	stop_lpd();
+	record_service_stop_status(&stop_status, "lpd", stop_lpd());
 #endif
 #if defined (SRV_U2EC)
-	stop_u2ec();
+	record_service_stop_status(&stop_status, "u2ec", stop_u2ec());
 #endif
 #endif
 #if defined(APP_SCUT)

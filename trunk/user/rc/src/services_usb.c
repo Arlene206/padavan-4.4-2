@@ -105,11 +105,11 @@ start_u2ec(void)
 	nvram_set("apps_u2ec_ex", "1");
 }
 
-void
+int
 stop_u2ec(void)
 {
-	char* svcs[] = { "u2ec",  NULL };
-	kill_services(svcs, 3, 1);
+	char* svcs[] = { "u2ec", NULL };
+	return kill_services(svcs, 3, 1);
 }
 #endif
 
@@ -124,7 +124,7 @@ start_lpd(void)
 	system("/usr/sbin/lpd &");
 }
 
-void
+int
 stop_lpd(void)
 {
 	char* svcs[] = { "lpd", NULL };
@@ -134,7 +134,7 @@ stop_lpd(void)
 	 * before treating it as a live duplicate. Unlinking here can race a
 	 * freshly restarted daemon publishing its replacement record.
 	 */
-	(void)kill_services(svcs, 3, 1);
+	return kill_services(svcs, 3, 1);
 }
 #endif
 
@@ -150,11 +150,11 @@ start_p910nd(char *devlp)
 		eval("/usr/sbin/p910nd", "-f", devlp, "0");
 }
 
-void
+int
 stop_p910nd(void)
 {
 	char* svcs[] = { "p910nd", NULL };
-	kill_services(svcs, 3, 1);
+	return kill_services(svcs, 3, 1);
 }
 
 static void
@@ -186,29 +186,49 @@ exec_printer_daemons(int call_fw)
 	}
 }
 
-void
+static void
+record_usb_printer_stop_status(int *first_status, const char *daemon,
+			       int status)
+{
+	if (status == 0)
+		return;
+	logmessage("USB Printer", "%s stop failed (status=%d)", daemon, status);
+	if (*first_status == 0)
+		*first_status = status;
+}
+
+int
 stop_usb_printer_spoolers(void)
 {
+	int stop_status = 0;
+
 #if defined(SRV_U2EC)
-	stop_u2ec();
+	record_usb_printer_stop_status(&stop_status, "u2ec", stop_u2ec());
 #endif
 #if defined(SRV_LPRD)
-	stop_lpd();
+	record_usb_printer_stop_status(&stop_status, "lpd", stop_lpd());
 #endif
-	stop_p910nd();
+	record_usb_printer_stop_status(&stop_status, "p910nd", stop_p910nd());
+	return stop_status;
 }
 
 void
 restart_usb_printer_spoolers(void)
 {
-	stop_usb_printer_spoolers();
+	if (stop_usb_printer_spoolers() != 0) {
+		logmessage("USB Printer", "printer restart aborted because an existing daemon did not stop");
+		return;
+	}
 	exec_printer_daemons(0);
 }
 
 void
 try_start_usb_printer_spoolers(void)
 {
-	stop_usb_printer_spoolers();
+	if (stop_usb_printer_spoolers() != 0) {
+		logmessage("USB Printer", "printer start aborted because an existing daemon did not stop");
+		return;
+	}
 	exec_printer_daemons(1);
 }
 

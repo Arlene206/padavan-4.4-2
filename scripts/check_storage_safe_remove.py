@@ -61,6 +61,8 @@ disk_policy = read("trunk/user/libdisk/src/disk_inventory_policy.h")
 disk_policy_test = read("trunk/user/libdisk/src/tests/disk_inventory_policy.c")
 disk_header = read("trunk/user/libdisk/src/disk_initial.h")
 storage = read("trunk/user/rc/src/services_stor.c")
+services = read("trunk/user/rc/src/services.c")
+services_usb = read("trunk/user/rc/src/services_usb.c")
 rc = read("trunk/user/rc/src/rc.c")
 rc_header = read("trunk/user/rc/src/rc.h")
 policy = read("trunk/user/rc/src/storage_service_stop_policy.h")
@@ -122,17 +124,49 @@ complete = body(policy, "storage_safe_remove_complete(")
 require("path_status != 0" in complete and "fallback_status != 0" in complete and "remaining_mounts != 0" in complete,
         "safe eject must reject unmount failures and residual/unknown mounts")
 
+# Printer daemon stop results must reach the firmware flash gate.
+for declaration in ("int stop_u2ec(void);", "int stop_lpd(void);",
+                    "int stop_p910nd(void);", "int stop_usb_printer_spoolers(void);"):
+    require(declaration in rc_header, "RC header must expose checked printer stop API: " + declaration)
+for signature in ("int\nstop_u2ec(void)", "int\nstop_lpd(void)", "int\nstop_p910nd(void)"):
+    stop_fn = body(services_usb, signature)
+    require("return kill_services(" in stop_fn,
+            "printer stop must propagate kill_services result: " + signature)
+printer_stop = body(services_usb, "int\nstop_usb_printer_spoolers(void)")
+for daemon in ("u2ec", "lpd", "p910nd"):
+    require('"' + daemon + '"' in printer_stop,
+            "printer stop aggregate must include " + daemon)
+require("record_usb_printer_stop_status" in printer_stop and "return stop_status;" in printer_stop,
+        "printer group must aggregate every stop result")
+for signature in ("restart_usb_printer_spoolers(void)", "try_start_usb_printer_spoolers(void)"):
+    starter = body(services_usb, signature)
+    require("stop_usb_printer_spoolers() != 0" in starter and
+            "return;" in starter and "exec_printer_daemons(" in starter,
+            "printer restart must abort launch after a failed stop: " + signature)
+stop_all = body(services, "int\nstop_services(int stopall)")
+for daemon in ("p910nd", "lpd", "u2ec"):
+    require('record_service_stop_status(&stop_status, "' + daemon + '"' in stop_all,
+            "stop_services must aggregate printer stop status: " + daemon)
+
 flash = body(rc, "flash_firmware(void)")
+require("stop_usb_printer_spoolers() != 0" in flash,
+        "firmware write must be blocked by a failed second printer stop")
 flash_gate = flash.index("if (safe_remove_all_stor_devices(0) != 0)")
 require(flash_gate < flash.index("storage_save_time(") < flash.index("write_storage_to_mtd(") <
         flash.index('eval("/tmp/mtd_write"'),
         "firmware persistence and flash must follow successful storage eject")
 shutdown = body(rc, "shutdown_router(int level)")
+require("misc_stop_status = stop_misc();" in shutdown and
+        "service_stop_status = stop_services(use_halt);" in shutdown and
+        "printer_stop_status = stop_usb_printer_spoolers();" in shutdown,
+        "shutdown must collect all checked service-stop results")
+require("service shutdown incomplete; continuing system power-down" in shutdown,
+        "safe reboot/halt must proceed even when daemon stop fails")
 shutdown_gate = shutdown.index("storage_remove_status = safe_remove_all_stor_devices(use_halt)")
-persist_gate = shutdown.index("if (storage_remove_status == 0)")
+persist_gate = shutdown.index("if (storage_remove_status == 0 && misc_stop_status == 0")
 require(shutdown_gate < persist_gate < shutdown.index("storage_save_time(") <
         shutdown.index("write_storage_to_mtd("),
-        "shutdown must power down but gate storage persistence on safe eject")
+        "shutdown must power down but gate storage persistence on all service-stop/eject results")
 
 push_at = workflow.index("  push:\n    paths:\n")
 pr_at = workflow.index("  pull_request:\n    paths:\n")
