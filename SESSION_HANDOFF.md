@@ -4,7 +4,7 @@ Recover live state once, then continue the exact P1 task. Do not repeat complete
 
 **Mandatory handoff checkpoint:** Every session must verify before ending that this file accurately records the meaningful source baseline, active task, relevant exact-head Actions, validation boundary, blockers and exact first action. The checkpoint is mandatory; a document edit is conditional. If next-session-critical facts have changed, update this handoff; if already accurate, no no-op commit.
 
-For each multi-file logical slice, create all blobs, one tree, one commit parented to freshly fetched main, then non-forced update of main using that exact expected SHA. Keep source, tests/contracts and necessary docs atomic. No branches/PRs, no force-push, no archive modifications.
+For each multi-file logical slice, publish source, tests/contracts and necessary docs in **one atomic main commit**: create all blobs, one tree, one commit parented to freshly fetched main, then non-forced update of main using that exact expected SHA. No branches/PRs, no force-push, no archive modifications.
 
 ## Current repository state
 
@@ -26,15 +26,15 @@ For each multi-file logical slice, create all blobs, one tree, one commit parent
 ## Verification boundary
 
 - On product source 5e164049, watchdog run #43732391911 failed only at the inline Python contract step due syntax error from double-escaped quote characters. Both GNU89 ASan/UBSan policy tests and NTP/service lifecycle checker passed. The separate process lifecycle run #43732391871, infosvr #43732392035, AI docs #43732391844, AdGuardHome #43732392074, DNSMasq #43732391865 and AliyunDrive #43732391870 passed exact-head.
-- The current workflow correction uses single-quoted Python literals; new exact-head watchdog run required. The source is unchanged from product SHA 5e164049.
+- The current workflow correction used single-quoted Python literals; exact-head watchdog #43732516198 passed. AI docs #43732516259 failed solely because the handoff omitted its exact required `one atomic main commit` phrase; this source/docs commit restores that wording. Verify AI docs again on the new SHA.
 - XY-C1 #43732391824 for product SHA 5e164049 was IN_PROGRESS at last check. Require Build, TRX verification and artifact upload for L3. Physical-router L4 is NOT VERIFIED.
 - Earlier checker/handoff correction SHA 7343fb3a passed Networkmap #43732137598 and AI docs #43732137652. The parent product SHA e902e806 had XY-C1 #43731654808 still in progress.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main; check exact-head watchdog-signal-stability and AI docs actions triggered by this workflow-only correction. Diagnose any failure from its job log. Recheck XY-C1 #43732391824 for product SHA 5e164049; don't wait idly.
-2. Continue P1 at `start_infosvr()` in `services.c`: add focused failure logging for enabled launcher errors, keeping disabled `adsc_enable` status 1 benign. Add a relevant source contract to infosvr workflow; verify XY-C1 includes `services.c`.
-3. Continue other boot service start return contracts only after checking whether nonzero is disabled/no-op or already logged internally.
+1. Fetch live main; check exact-head infosvr, AI handoff docs, process lifecycle and XY-C1 Actions for this source SHA. Check the earlier XY-C1 #43732391824 for product SHA 5e164049 too; don't wait idly.
+2. The infosvr launcher-status fix is implemented in this commit; diagnose any failed exact-head regression and repair it. If green, continue other `start_services_once()` callers one at a time, distinguishing disabled sentinel values from failure.
+3. Preserve best-effort boot continuation and exact source/test/workflow path-filter alignment.
 
 ## Invariants
 

@@ -62,6 +62,18 @@ workflow = read(".github/workflows/infosvr-packet-stability.yml")
 assert '#include "infosvr_daemon_policy.h"' in services
 assert "process_state == PROCESS_PRESENCE_ABSENT" in policy
 
+start = function_body(services, "start_infosvr(void)")
+assert 'optional_daemon_start_status("infosvr", "infosvr")' in start
+running = start.index("if (start_status > 0)")
+unknown = start.index("if (start_status < 0)")
+disabled = start.index('if (nvram_invmatch("adsc_enable", "1"))')
+launch_status = start.index('start_status = eval("/usr/sbin/infosvr", IFNAME_BR);')
+launch_log = start.index('logmessage("infosvr", "infosvr launch failed (status=%d)",')
+launch_return = start.index("return start_status;", launch_log)
+assert running < unknown < disabled < launch_status < launch_log < launch_return
+assert "return 1;" in start[disabled:launch_status]
+assert "if (start_status != 0)" in start
+assert "return start_status;" in start
 stop = function_body(services, "stop_infosvr(void)")
 assert "return kill_services(svcs, 3, 1);" in stop
 

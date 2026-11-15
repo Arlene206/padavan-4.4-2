@@ -1,3 +1,12 @@
+## 2026-11-15 — Log enabled infosvr launcher failures without treating disabled service as an error
+
+- `start_infosvr()` correctly returns 1 when `adsc_enable` is disabled and its optional-daemon helper logs UNKNOWN process inventory. But once enabled and confirmed absent, it returned a failed `eval("/usr/sbin/infosvr", IFNAME_BR)` without a startup diagnostic.
+- Capture the launcher result, log only nonzero launch failures, and return the original value unchanged. Disabled sentinel, already-running no-op and UNKNOWN-inventory diagnostic paths remain unchanged.
+- Added ordered source assertions to `scripts/check_infosvr_lifecycle.py`; its existing workflow already filters `services.c` and this checker, and XY-C1 watches `services.c`.
+- On parent SHA c75a2d8, watchdog #43732516198, infosvr #43732516176, Process inventory #43732516314, AliyunDrive #43732516228, AdGuardHome #43732516280, and DNSMasq #437325163? were completed; AI docs #43732516259 failed because handoff lacked the exact required phrase `one atomic main commit`. The watchdog contract correction passed its exact-head run. The phrase is restored in the handoff in this commit.
+- Parent main: c75a2d8b02c6efe75ec0e9e001dcce173fcc8e16; result: THIS COMMIT.
+
+---
 ## 2026-11-15 — Fix watchdog inline source-contract quoting
 
 - Exact-head watchdog run #43732391911 on product-source SHA 5e16404907f16ac2321e69838b250d426c1aedd2 compiled and passed both GNU89 ASan/UBSan regression binaries and the NTP/service lifecycle checker. Its final inline Python source contract failed to parse because the added assertion double-escaped quotes inside a double-quoted Python literal.

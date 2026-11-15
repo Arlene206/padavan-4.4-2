@@ -179,7 +179,11 @@ start_infosvr(void)
 	if (nvram_invmatch("adsc_enable", "1"))
 		return 1;
 
-	return eval("/usr/sbin/infosvr", IFNAME_BR);
+	start_status = eval("/usr/sbin/infosvr", IFNAME_BR);
+	if (start_status != 0)
+		logmessage("infosvr", "infosvr launch failed (status=%d)",
+			   start_status);
+	return start_status;
 }
 
 int
