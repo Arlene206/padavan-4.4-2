@@ -181,7 +181,8 @@ for signature, daemon, suffix, label in (
             "process_state != PROCESS_PRESENCE_RUNNING" in locked_stop and
             "refusing name-wide stop because daemon presence is unknown" in locked_stop,
             "{} stop must not signal on UNKNOWN presence".format(label))
-    require('char *svcs[] = { "{}", NULL };'.format(daemon) in locked_stop and
+    expected_svcs = 'char *svcs[] = { "' + daemon + '", NULL };'
+    require(expected_svcs in locked_stop and
             "command_status = kill_services(svcs," in locked_stop and
             "storage_service_stop_complete(command_status, is_{}_run())".format(suffix) in locked_stop,
             "{} stop must use identity-validated process lifecycle transaction".format(label))

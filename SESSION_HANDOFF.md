@@ -8,25 +8,25 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2. Parent main for THIS COMMIT: `fc675527e58402dfab0bd25d7ea5dc620861d872`. Production changes on this parent include checked RWFS unmount/UBI detach before MTD persistence (`e89f8ca3da85860e71acfd4f6a50eae4ce096311`) and identity-validated Transmission/Aria stop transactions (`2aedad115793e7a6de4f2114272c845559105783`). Immutable backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; DO NOT modify it. Legacy PR #1 remains CLOSED / UNMERGED.
-- Exact-head parent Actions: AI handoff docs #43682722938 SUCCESS; USB storage hotplug #43682722908 FAILED in the embedded Python source contract at line 490 because it still expected `void umount_rwfs_partition(void)` and bare `return;` after the production API became status-returning. All earlier syntax, policy, BusyBox ash/Optware, disk-inventory, FTP and storage daemon stop steps passed; the final checked-eject step was skipped.
-- On source parent `2aedad115793e7a6de4f2114272c845559105783`, NFS lifecycle #43682494464 SUCCESS; XY-C1 #43682494445 was IN_PROGRESS at last observation; USB storage #43682494422 failed on the same stale inline contract. Results are SHA-scoped.
-- THIS COMMIT changes only the duplicated embedded workflow contract and handoff/roadmap/log. The standalone `scripts/check_storage_safe_remove.py` already matches the checked RWFS status API; no production code is changed here.
-- No local checkout/toolchain is available. Do not claim local tests, current-source MIPS build, TRX validation or hardware testing. Current L3 and physical L4 remain NOT VERIFIED.
+- Repository: Arlene206/padavan-4.4-2. Base main SHA for THIS COMMIT: `bda473715cf8bb2e1bbb8c704370639854f2a07c`. Product-source work now on main includes checked buffered storage writes (`180e90075a11ad1135ee6801915211548337b52e`), wireless radio and custom-hook shutdown persistence gates (`335f137a831725f1ed241151d849e160578cca69`, `d16c7ed591fdec961992f6236a441f12c286fe61`), Optware worker/hook and RWFS/UBI teardown gates (`b41fa1fae03904078f0d765d157d2dfdf97daa51`, `e89f8ca3da85860e71acfd4f6a50eae4ce096311`), and identity-validated Transmission/Aria stop transactions (`2aedad115793e7a6de4f2114272c845559105783`). Immutable backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; DO NOT modify it. Legacy PR #1 remains CLOSED / UNMERGED; its AliDDNS HMAC helper and associated test files are present on main.
+- Exact-head USB storage hotplug run #43683399235 on `bda473715cf8bb2e1bbb8c704370639854f2a07c` FAILED at step 15, `python3 scripts/check_storage_safe_remove.py`, with `ValueError: unexpected '{' in field name` at line 184. The checker used `.format(daemon)` on a C array initializer containing literal braces. Step 14's full storage caller-graph/lock-order contract PASSED; all earlier steps passed. This commit repairs the checker expression; a fresh exact-head storage run must verify the complete job.
+- Other Actions on this exact SHA: Process inventory/lifecycle #43683399240 SUCCESS; AdGuardHome #43683399227 SUCCESS; infosvr #43683399233 SUCCESS; AI handoff docs #43683399266 SUCCESS; AliDDNS #43683399231 SUCCESS; AliyunDrive #43683399312 SUCCESS; NVRAM transaction audit #43683399234 SUCCESS. These do not turn the storage failure green.
+- No full local checkout/toolchain is available. Do not claim full local workflow execution, current-source MIPS build/TRX validation, or hardware testing. Current L3 and physical L4 remain NOT VERIFIED.
 
 ## Active task
 
-### Current P1 slice — align storage-hotplug workflow contract with checked RWFS teardown (THIS COMMIT)
+### Current P1 slice — repair storage safe-remove checker runtime failure (THIS COMMIT)
 
-- The exact-head USB storage workflow on `fc675527e58402dfab0bd25d7ea5dc620861d872` passed all earlier syntax, GNU89 policy, BusyBox 1.24.2 ash, Optware lifecycle, disk-inventory, FTP-presence and storage-daemon-stop steps, then failed at embedded Python line 490. Its duplicate source contract still requested the old void function signature and bare `return;` paths despite production `e89f8ca3` now returning status and verifying UBI detach.
-- Updated the embedded contract to require the int signature, Optware hook failure propagation, RWFS unmount error propagation, UBI identity checks before/after detach, and the detach-completion policy. Failure paths must not proceed to persistence.
-- A fresh exact-head USB storage run must pass the repaired source-contract tail and later `scripts/check_storage_safe_remove.py` step. Parent run #43682722908 is a failure being corrected, not a passing test.
-- No production files or local test/build evidence are part of this slice.
+- Exact-head USB storage push #43683399235 on `bda473715cf8bb2e1bbb8c704370639854f2a07c` passed all syntax, GNU89 policy, BusyBox ash/Optware lifecycle, disk inventory, FTP presence, storage daemon stop and embedded caller-graph checks, then failed at the standalone `scripts/check_storage_safe_remove.py` invocation.
+- The checker crashed before its remaining source assertions: line 184 called `.format(daemon)` on `'char *svcs[] = { "{}", NULL };'`, so Python interpreted the literal C initializer braces and raised `ValueError: unexpected '{' in field name`.
+- Replaced that construction with explicit string concatenation while retaining the exact expected C declaration; the source contract still requires the identity-validated `kill_services()` transaction and verified daemon-absence postcondition.
+- This is a regression-checker defect, not a product-source change. A fresh exact-head USB storage `push` run must pass the standalone checker and complete the job. No full local checkout/test or target build is available.
+ 
+### Next P1 review — remaining NVRAM and storage publication callers
 
-### Next P1 review — concrete NVRAM and storage publication callers
-
-- Trace actual callers of `write_storage_to_mtd()`, `storage_save_time()` and NVRAM commit wrappers. Determine whether any caller can publish a snapshot after unchecked write/fsync/close, unmount or prerequisite stop failures. Find a concrete fail-open branch before editing.
-- Do not repeat already completed Optware worker/service stop, RWFS/UBI detach, safe-eject, Transmission/Aria identity stop or shutdown MTD persistence-gate work.
+- After the exact-head storage checker passes, trace the actual remaining callers of `write_storage_to_mtd()`, `storage_save_time()` and NVRAM commit wrappers. Follow write/fsync/close and prerequisite stop/unmount statuses through each publication decision; identify a concrete fail-open branch before editing.
+- Account for already-landed gates before selecting a change: checked buffered writes (`180e900`), radio/custom-hook shutdown gates (`335f137`, `d16c7ed`), Optware worker/hook stop and RWFS/UBI teardown (`b41fa1f`, `e89f8ca`), and Transmission/Aria identity-bound stop (`2aedad1`). Do not repeat those implementations; determine what remains unchecked in the current callers.
+- Do not repeat safe-eject inventory, storage operation locks, or the completed shutdown persistence gates. Add a focused GNU89 regression and production source contract for the first actual remaining defect.
 
 ### In-tree PID-file identity helper — partially migrated; PPPD, udhcpc and iNICD now included
 
@@ -93,13 +93,15 @@ The earlier dd7a XY-C1 run [43624870668] also completed SUCCESS; it is supersede
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and this commit's exact-head Actions once. Confirm repaired USB storage passes its embedded caller-graph assertions and the later `scripts/check_storage_safe_remove.py` check; inspect any failed job log before proceeding.
-2. Continue P1 with concrete `write_storage_to_mtd()`, `storage_save_time()` and NVRAM commit callers. Trace write/fsync/close and prerequisite stop/unmount statuses to each publication decision. Start with one actionable unchecked result.
-3. Add a focused GNU89 policy regression and production source contract for the first real defect. Commit source, test and workflow integration in one complete tree.
-4. Parent one commit to freshly fetched main; update with `expected_sha` and `force=false`; verify exact-head Actions. Continue independent work while CI is pending.
-5. Current-source L3 is NOT VERIFIED until exact-source XY-C1 MIPS/uClibc build, TRX verification and artifact upload pass. Physical router L4 remains NOT VERIFIED.
+1. Fetch live main and inspect the new exact-head USB storage run for this checker fix. Confirm that `scripts/check_storage_safe_remove.py` executes its full assertion set and the workflow completes; inspect the first causal failure if it does not.
+2. Once storage validation is clean, continue P1 by tracing the remaining `write_storage_to_mtd()`, `storage_save_time()` and NVRAM commit callers. Avoid redoing the write, shutdown-hook, radio, Optware, RWFS/UBI and torrent-stop gates listed above.
+3. For the first concrete unchecked result, add a focused GNU89 policy regression and production-connected source contract. Publish all changed files as one atomic main commit using a freshly fetched parent SHA, complete tree and non-forced expected-SHA update.
+4. Continue independent work while unrelated or pending Actions run; do not wait idly. Current-source L3 remains NOT VERIFIED until exact-source XY-C1 MIPS/uClibc build, TRX verification and artifact upload pass. Physical router L4 remains NOT VERIFIED.
 
 Source/validation notes:
+- Base main SHA for this checker correction: `bda473715cf8bb2e1bbb8c704370639854f2a07c`; exact-head USB storage run #43683399235 FAILED at line 184 with a Python literal-brace `.format()` ValueError after the embedded caller-graph step passed.
+- Immutable backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`; preserve it. PR #1 remains closed/unmerged; AliDDNS HMAC implementation and core test files match main.
+- Preserve archived dev-log shards and indexes byte-for-byte.
 - Parent main: `fc675527e58402dfab0bd25d7ea5dc620861d872`; immutable backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - Exact parent AI docs #43682722938 SUCCESS; USB storage #43682722908 FAILED only at stale inline function signature/return assertion. Earlier steps passed; checked-eject script was skipped. New exact-head Actions required.
 - Preserve archived dev-log shards and indexes byte-for-byte.

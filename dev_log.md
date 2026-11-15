@@ -1,3 +1,12 @@
+## 2026-11-15 14:18 CST — Fix storage safe-remove checker literal-brace failure
+
+- Exact-head USB storage run #43683399235 on `bda473715cf8bb2e1bbb8c704370639854f2a07c` passed the embedded storage caller-graph and lock-order contract, then failed when `scripts/check_storage_safe_remove.py` called `.format(daemon)` on a C array literal containing unescaped braces. Python raised `ValueError: unexpected '{' in field name` before completing the remaining source assertions.
+- Replaced the fragile format expression with explicit concatenation for the expected `char *svcs[] = { "<daemon>", NULL };` declaration. The adjacent identity-validated stop and postcondition assertions are unchanged.
+- Local validation: exercised the expected C-array string construction for both Transmission and Aria with Python 3 (PASS). Full checker execution is unavailable without a local repository checkout; fresh exact-head Actions validation is required. No production firmware source changed.
+- Changed paths: `scripts/check_storage_safe_remove.py`, `SESSION_HANDOFF.md`, `dev_log.md`. Parent SHA: `bda473715cf8bb2e1bbb8c704370639854f2a07c`. Exact-head storage Actions for this commit: PENDING.
+
+---
+
 ## 2026-11-15 — Repair stale RWFS contract in storage-hotplug workflow
 
 - Exact-head USB storage run #43682722908 on `fc675527e58402dfab0bd25d7ea5dc620861d872` passed all syntax, GNU89 policy, BusyBox 1.24.2 ash, Optware lifecycle, disk inventory, FTP presence and storage-daemon stop steps, then failed in embedded source-contract Python at line 490. The inline contract expected the removed `void umount_rwfs_partition(void)` signature and bare `return;` although production `e89f8ca3` returns status and verifies RWFS unmount plus UBI identity/detach.
