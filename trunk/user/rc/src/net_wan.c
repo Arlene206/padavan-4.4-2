@@ -1725,7 +1725,7 @@ start_wan(void)
 		else if (wan_proto == IPV4_WAN_PROTO_IPOE_DHCP ||
 			 wan_proto == IPV4_WAN_PROTO_IPOE_STATIC)
 		{
-			int wan_auth_mode, wan_err = 0, wan_upnp_status, auth_status;
+			int wan_auth_mode, wan_err = 0, wan_upnp_status, auth_status, dhcp_status;
 			
 			/* Configure DHCP connection. */
 			if (check_upnp_wanif_changed(wan_ifname) != 0) {
@@ -1789,8 +1789,15 @@ start_wan(void)
 					if (wan_upnp_status != 0)
 						logmessage(LOGNAME, "UPnP update incomplete after WAN startup (status=%d)", wan_upnp_status);
 				}
-			} else
-				start_udhcpc_wan(wan_ifname, unit, 0);
+			} else {
+				dhcp_status = start_udhcpc_wan(wan_ifname, unit, 0);
+				if (dhcp_status != 0) {
+					wan_err = 1;
+					logmessage(LOGNAME, "WAN DHCP client launch failed on %s (status=%d)",
+						   wan_ifname, dhcp_status);
+				}
+				set_wan_unit_value_int(unit, "err", wan_err);
+			}
 #if defined (USE_IPV6)
 			if (is_wan_ipv6_type_sit() == 0) {
 				int ipv6_status = wan6_up(wan_ifname, unit);

@@ -1,16 +1,19 @@
 ## Current source / CI checkpoint
 
-- Main at the start of this slice: `97ffb22dd851f3ce3b303302df1a962bc40c7ade`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact-main WAN DHCP callback #43749391596 PASS, AI docs #43749391650 PASS and Process inventory #43749391694 PASS on `97ffb22dd851f3ce3b303302df1a962bc40c7ade`.
-- IPTV DHCP/ZeroConf launch status propagation committed at `5bbaaba493f63b0e58bac035e750907304fd9939`; product-source-identical XY-C1 #43748599786 completed Build, TRX verification and artifact upload successfully. The later `ab9ae` / `97ff` commits were workflow/docs only, so L3 is VERIFIED for the IPTV source tree.
-- Current source slice propagates physical WAN DHCP/ZeroConf client launch failures from `launch_wanx()` to all four USB/PPP caller sites without changing PPPoE wait behavior. Exact-head WAN callback and XY-C1 Build/TRX/artifact remain pending on the resulting source SHA.
-- No physical-router/L4 result is claimed.
+- Main before direct IPoE DHCP failure propagation: `485d7c782c57b3fc0cb9cf4e42dcf0a79ba6665a`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact-parent WAN DHCP callback #43749781222 PASS, AI docs #43749781375 PASS, Process inventory/lifecycle #43749781215 PASS and Process inventory artifact #43749781176 PASS.
+- Exact-parent XY-C1 #43749781299 was IN_PROGRESS at Build XY-C1; TRX verification and artifact upload were pending. No L3 claim for current WAN sources until all three stages pass.
+- The direct IPoE DHCP branch still ignored `start_udhcpc_wan()` return. This slice captures status, persists WAN error on failed spawn and still starts independent IPv6.
+- Archived handoff/dev-log shards and index remain immutable. No physical-router/L4 result is claimed.
+
 
 ### P1 — WAN startup status propagation
 
-- Dynamic IPTV launch status is checked by exact-main WAN workflow #43749391596.
-- This slice returns `start_udhcpc_wan()` / `start_zcip_wan()` status from `launch_wanx()` and logs nonzero results at all four callers. PPPoE's no-wait behavior is preserved; PPTP/L2TP's wait remains unchanged.
-- Next source candidate after verification: audit WAN static address setup/rollback status in `launch_wanx()` and its effects on PPP launch, without changing PPPoE's intentional asynchronous path.
+- IPTV DHCP/ZeroConf launch status is propagated through `launch_viptv_wan()`; exact source/checker passed on the earlier 97ff tree.
+- Physical WAN DHCP/ZeroConf status is returned from `launch_wanx()` to the USB/PPP callers; exact 485d WAN callback #43749781222 PASS.
+- The direct IPoE DHCP path now captures `start_udhcpc_wan()`, persists `err` on failed launch and still attempts independent IPv6. Exact-head regression and XY-C1 verification required for this new source.
+- Preserve PPPoE intentional no-wait and PPTP/L2TP wait behavior.
+
 
 ### P2 — IGMP proxy configuration publication
 

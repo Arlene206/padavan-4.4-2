@@ -1,3 +1,13 @@
+## 2026-11-15 — Propagate direct IPoE DHCP client launch failure
+
+- In `net_wan.c::start_wan()`, direct IPoE DHCP still discarded `start_udhcpc_wan()` return status, so a failed `_eval()` launch did not appear in WAN error state.
+- Captured the status, logged interface/return code and persisted `wan_err = 1` for failed spawn. Independent IPv6 startup still runs and retains its own status handling.
+- Extended WAN source-contract regression to require assigned status, failure logging, persisted error update and ordering before IPv6 setup.
+- Parent main: 485d7c782c57b3fc0cb9cf4e42dcf0a79ba6665a. Exact WAN/AI docs/Process and XY-C1 checks on the resulting commit required.
+- Parent exact actions: WAN #43749781222 PASS, AI docs #43749781375 PASS, Process lifecycle #43749781215 PASS; XY-C1 #43749781299 was at Build with TRX/artifact pending.
+
+---
+
 ## 2026-11-15 — Propagate physical WAN DHCP/ZeroConf launcher results
 
 - `launch_wanx()` was `static void` and discarded the launch status from `start_udhcpc_wan()` / `start_zcip_wan()`. Changed it to return that status and made all four USB-modem / PPP WAN call sites capture and log nonzero results.
