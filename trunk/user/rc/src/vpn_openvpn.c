@@ -786,16 +786,33 @@ openvpn_create_client_conf(const char *conf_file, int is_tun)
 	return 0;
 }
 
-static void
+static int
 openvpn_tapif_start(const char *ifname, int is_server, int insert_to_bridge)
 {
-	if (!is_interface_exist(ifname))
-		doSystem("%s %s --dev %s", OPENVPN_EXE, "--mktun", ifname);
+	int created = 0;
+	int status;
+
+	if (!is_interface_exist(ifname)) {
+		status = doSystem("%s %s --dev %s", OPENVPN_EXE, "--mktun", ifname);
+		if (status != 0)
+			return status;
+		created = 1;
+	}
 
 	if (insert_to_bridge)
 		br_add_del_if(IFNAME_BR, ifname, 1);
-	doSystem("ifconfig %s %s %s", ifname, "0.0.0.0", "promisc up");
+	status = doSystem("ifconfig %s %s %s", ifname, "0.0.0.0", "promisc up");
+	if (status != 0) {
+		/* Roll back only a TAP device created by this invocation. */
+		if (created) {
+			if (insert_to_bridge)
+				br_add_del_if(IFNAME_BR, ifname, 0);
+			(void)doSystem("%s %s --dev %s", OPENVPN_EXE, "--rmtun", ifname);
+		}
+		return status;
+	}
 	set_vpn_balancing(ifname, is_server);
+	return 0;
 }
 
 static int
@@ -812,12 +829,18 @@ openvpn_tapif_stop(const char *ifname)
 	return doSystem("%s %s --dev %s", OPENVPN_EXE, "--rmtun", ifname);
 }
 
-static void
+static int
 openvpn_tunif_start(const char *ifname, int is_server)
 {
-	if (!is_interface_exist(ifname))
-		doSystem("%s %s --dev %s", OPENVPN_EXE, "--mktun", ifname);
+	int status;
+
+	if (!is_interface_exist(ifname)) {
+		status = doSystem("%s %s --dev %s", OPENVPN_EXE, "--mktun", ifname);
+		if (status != 0)
+			return status;
+	}
 	set_vpn_balancing(ifname, is_server);
+	return 0;
 }
 
 static int
@@ -1334,6 +1357,7 @@ int
 start_openvpn_server(void)
 {
 	int i_mode_tun;
+	int interface_status;
 	char vpns_cfg[64], vpns_scr[64];
 	char *server_conf = "server.conf";
 	char *openvpn_argv[] = {
@@ -1358,9 +1382,13 @@ start_openvpn_server(void)
 
 	/* create tun or tap device (and add tap to bridge) */
 	if (i_mode_tun)
-		openvpn_tunif_start(IFNAME_SERVER_TUN, 1);
+		interface_status = openvpn_tunif_start(IFNAME_SERVER_TUN, 1);
 	else
-		openvpn_tapif_start(IFNAME_SERVER_TAP, 1, 1);
+		interface_status = openvpn_tapif_start(IFNAME_SERVER_TAP, 1, 1);
+	if (interface_status != 0) {
+		logmessage(SERVER_LOG_NAME, "cannot prepare OpenVPN server interface (status=%d)", interface_status);
+		return interface_status;
+	}
 
 	/* create script symlink */
 	symlink("/sbin/rc", vpns_scr);
@@ -1374,6 +1402,7 @@ int
 start_openvpn_client(void)
 {
 	int i_mode_tun;
+	int interface_status;
 	char vpnc_cfg[64], vpnc_scr[64];
 	char *client_conf = "client.conf";
 	char *openvpn_argv[] = {
@@ -1397,9 +1426,13 @@ start_openvpn_client(void)
 
 	/* create tun or tap device */
 	if (i_mode_tun)
-		openvpn_tunif_start(IFNAME_CLIENT_TUN, 0);
+		interface_status = openvpn_tunif_start(IFNAME_CLIENT_TUN, 0);
 	else
-		openvpn_tapif_start(IFNAME_CLIENT_TAP, 0, (nvram_get_int("vpnc_ov_cnat") == 1) ? 0 : 1);
+		interface_status = openvpn_tapif_start(IFNAME_CLIENT_TAP, 0, (nvram_get_int("vpnc_ov_cnat") == 1) ? 0 : 1);
+	if (interface_status != 0) {
+		logmessage(CLIENT_LOG_NAME, "cannot prepare OpenVPN client interface (status=%d)", interface_status);
+		return interface_status;
+	}
 
 	/* create script symlink */
 	symlink("/sbin/rc", vpnc_scr);

@@ -407,6 +407,30 @@ ordered(stop_process,["openvpn_read_process_identity(pidfile, &identity)",
     "openvpn_wait_process_stopped(&identity)"],"OpenVPN bounded stop escalation")
 require("ETIMEDOUT" in openvpn and "process_identity_validate(\"openvpn\", identity)" in openvpn,
         "OpenVPN stop must wait for a verified process exit")
+tap_start=body(openvpn,"static int\nopenvpn_tapif_start")
+ordered(tap_start,[
+    'doSystem("%s %s --dev %s", OPENVPN_EXE, "--mktun", ifname)',
+    "if (status != 0)",
+    'doSystem("ifconfig %s %s %s", ifname, "0.0.0.0", "promisc up")',
+    "if (status != 0)",
+    "if (created)",
+    'doSystem("%s %s --dev %s", OPENVPN_EXE, "--rmtun", ifname)',
+    "set_vpn_balancing(ifname, is_server)",
+], "OpenVPN TAP setup and rollback")
+tun_start=body(openvpn,"static int\nopenvpn_tunif_start")
+require('doSystem("%s %s --dev %s", OPENVPN_EXE, "--mktun", ifname)' in tun_start and
+        "if (status != 0)" in tun_start and
+        "set_vpn_balancing(ifname, is_server)" in tun_start,
+        "OpenVPN TUN creation failure must be returned before balancing")
+for signature,interface in (("int\nstart_openvpn_server(void)","IFNAME_SERVER_TUN"),
+                            ("int\nstart_openvpn_client(void)","IFNAME_CLIENT_TUN")):
+    start_fn=body(openvpn,signature)
+    require("interface_status = openvpn_tunif_start(" in start_fn and
+            "interface_status = openvpn_tapif_start(" in start_fn and
+            "if (interface_status != 0)" in start_fn and
+            start_fn.index("if (interface_status != 0)") < start_fn.index("symlink(\"/sbin/rc\"") <
+            start_fn.index("_eval(openvpn_argv"),
+            f"OpenVPN start must abort before script link/daemon launch when interface setup fails ({interface})")
 for signature,label in (("int\nopenvpn_tapif_stop","TAP"),("int\nopenvpn_tunif_stop","TUN")):
     iface_stop=body(openvpn,signature)
     require("ifconfig(ifname, 0, NULL, NULL)" in iface_stop and
