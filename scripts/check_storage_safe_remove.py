@@ -179,9 +179,13 @@ zerotier_stop = body(services, "int stop_zerotier(void)")
 require('return eval("/usr/bin/zerotier.sh","stop");' in zerotier_stop and
         "int stop_zerotier(void);" in rc_header,
         "ZeroTier stop must propagate launcher status")
-zerotier_restart = body(services, "int restart_zerotier(void)")
-require("stop_zerotier() != 0" in zerotier_restart and "start_zerotier();" in zerotier_restart,
-        "ZeroTier restart must abort after a failed stop")
+zerotier_restart = " ".join(body(services, "int restart_zerotier(void)").split())
+require("int stop_status = stop_zerotier();" in zerotier_restart and
+        "if (stop_status != 0)" in zerotier_restart and
+        "return stop_status;" in zerotier_restart and
+        "start_zerotier();" in zerotier_restart and
+        zerotier_restart.index("return stop_status;") < zerotier_restart.index("start_zerotier();") < zerotier_restart.index("return 0;"),
+        "ZeroTier restart must propagate stop failure and gate the replacement start")
 require('record_service_stop_status(&stop_status, "ZeroTier", stop_zerotier())' in stop_all,
         "stop_services must aggregate ZeroTier stop status")
 
