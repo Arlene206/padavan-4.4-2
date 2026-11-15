@@ -273,3 +273,37 @@ for path in xy_target_sources:
         "XY-C1 target-build workflow does not watch {}".format(path)
     )
 print("XY-C1 MIPS/uClibc source-trigger coverage: PASS")
+
+wan_source = (root / "trunk/user/rc/src/detect_wan.c").read_text()
+wan_policy = (root / "trunk/user/rc/src/detect_wan_udhcpc_policy.h").read_text()
+wan_test = (root / "trunk/user/rc/src/tests/detect_wan_udhcpc_policy.c").read_text()
+process_workflow = (root / ".github/workflows/process-lifecycle-regression.yml").read_text()
+
+wan_renew = wan_source.split("static int\\nchk_udhcpc(int ap_mode)", 1)[1].split("\\n}\\n", 1)[0]
+wan_poll = wan_source.split("static int\\npoll_gateway(void)", 1)[1].split("\\n}\\n", 1)[0]
+assert "process_inventory_scan(\"udhcpc\", &snapshot)" in wan_renew
+assert "detect_wan_udhcpc_should_renew(presence)" in wan_renew
+assert "scan_error = snapshot.error;" in wan_renew
+assert wan_renew.index("scan_error = snapshot.error;") < wan_renew.index("process_snapshot_release(&snapshot);")
+assert wan_renew.index("process_snapshot_release(&snapshot);") < wan_renew.index('doSystem("killall %s %s"')
+assert "if (renew_decision < 0)" in wan_renew
+assert "errno = scan_error ? scan_error : EIO;" in wan_renew
+assert "if (renew_decision == 0)" in wan_renew
+assert 'pids("udhcpc")' not in wan_renew
+assert "return -1;" in wan_renew
+assert "renew_status = chk_udhcpc(ap_mode);" in wan_poll
+assert "if (renew_status != 0)" in wan_poll
+assert wan_poll.index("if (renew_status != 0)") < wan_poll.index("return -1;")
+assert all(state in wan_policy for state in ("PROCESS_PRESENCE_RUNNING", "PROCESS_PRESENCE_ABSENT", "PROCESS_PRESENCE_UNKNOWN"))
+assert "errno = EIO;" in wan_policy and "return -1;" in wan_policy
+assert "PROCESS_PRESENCE_UNKNOWN) == -1" in wan_test
+assert "PROCESS_PRESENCE_ABSENT) == 0" in wan_test
+assert "PROCESS_PRESENCE_RUNNING) == 1" in wan_test
+assert "WAN DHCP renewal tri-state policy: PASS" in wan_test
+for path in (
+    "trunk/user/rc/src/detect_wan.c",
+    "trunk/user/rc/src/detect_wan_udhcpc_policy.h",
+    "trunk/user/rc/src/tests/detect_wan_udhcpc_policy.c",
+):
+    assert '"{}"'.format(path) in process_workflow, "process workflow missing {}".format(path)
+assert "WAN DHCP renewal presence policy regression" in process_workflow

@@ -1,11 +1,12 @@
 ## Current source / CI checkpoint
 
-- Main parent before the no-division disk parser repair: a7bfbdf6de475f46469cc19661265b4801306f0f.
-- XY-C1 [43654318351] on ea2163e failed the RC final link because variable 64-bit division in disk_inventory_parse_decimal() introduced hidden __udivdi3 from the libdisk DSO. This slice removes all division and adds UINT_MAX/ULLONG_MAX boundary coverage. Exact-head XY build is required to verify MIPS compatibility; current L3 is PENDING.
-- On exact main a7bfbdf, AliDDNS [43656161389], HTTPD Authentication/Security [43656161273], process inventory [43656161404], AdGuardHome [43656161276] and infosvr [43656161384] passed. NVRAM [43656161302] and AliyunDrive [43656161349] were in progress. XY-C1 [43656161268] was in progress but predates this parser repair.
-- DNSMasq lifecycle [43655773415] passed on 59853da. Storage hotplug [43653875448], HTTPD daemon lifecycle [43654668592] and crond [43654459854] passed on their exact source heads. L4 physical validation remains NOT VERIFIED.
-- Preserved backup branch: backup/pre-plugin-overhaul-2026-11-14 at 72f4f157a084f8184b9597ca5bf334b8080e5807; immutable.
-- Reuse completed L1 and semantic audits; do not repeat the 9,439 blob / 6,193 text-file inventory or 77 pids() / 46 kill_services() census.
+- Main parent before the detect_wan DHCP-renewal fix: 322c17f9ca546b6578304966f017a24c944dd883.
+- detect_wan.c::chk_udhcpc() previously used !pids("udhcpc"); legacy pids() maps UNKNOWN to a truthy nonzero result, so incomplete /proc inventory could authorize name-wide SIGUSR1. This slice uses shared process_inventory and gates renewal on RUNNING only; UNKNOWN propagates scan errno and exits poll_gateway before signaling.
+- Added GNU89 RUNNING/ABSENT/UNKNOWN/invalid-state policy regression, integration assertions for scan/error/release/signal ordering and workflow/XY-C1 target-path coverage.
+- Exact main 3ca4126: storage [43656299087], AliDDNS [43656299048], HTTPD security [43656299030], AI docs [43656299013], process inventory [43656299065], process lifecycle [43656299033], AdGuardHome [43656299184], infosvr [43656299051], AliyunDrive [43656299154] and NVRAM [43656299071] passed; XY-C1 [43656299052] remained IN_PROGRESS at Build.
+- Exact main 322c17f DNSMasq presence-gate Actions were PENDING at last poll. Current-source L3 remains NOT VERIFIED until exact XY build/TRX/artifact pass; L4 physical validation remains NOT VERIFIED.
+- Disk parser commit 3ca4126 removes variable 64-bit division responsible for earlier hidden __udivdi3 link failure; exact-head XY Action is required to verify MIPS compatibility.
+- Preserved backup branch: backup/pre-plugin-overhaul-2026-11-14 at 72f4f157a084f8184b9597ca5bf334b8080e5807; immutable. Do not repeat completed 9,439 blob / 6,193 readable-text / 77 pids() / 46 kill_services() censuses.
 
 ## Whole-repository module status
 

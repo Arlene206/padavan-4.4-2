@@ -35,6 +35,9 @@ on:
       - "trunk/user/rc/src/tests/service_lifecycle_policy.c"
       - "trunk/user/rc/src/detect_internet.c"
       - "trunk/user/rc/src/detect_link.c"
+      - "trunk/user/rc/src/detect_wan.c"
+      - "trunk/user/rc/src/detect_wan_udhcpc_policy.h"
+      - "trunk/user/rc/src/tests/detect_wan_udhcpc_policy.c"
       - "trunk/user/httpd/src/web_ex.c"
       - "trunk/user/rc/src/rstats.c"
       - "scripts/check_process_lifecycle_integration.py"
@@ -104,5 +107,12 @@ jobs:
             trunk/user/pppd/ppp-2.4.7/pppd/tests/pppd_pidfile_policy.c \
             -o "$RUNNER_TEMP/pppd-pidfile-policy"
           "$RUNNER_TEMP/pppd-pidfile-policy"
+      - name: Compile and run WAN DHCP renewal presence policy regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/shared/src -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/detect_wan_udhcpc_policy.c \
+            -o "$RUNNER_TEMP/detect-wan-udhcpc-policy"
+          "$RUNNER_TEMP/detect-wan-udhcpc-policy"
       - name: Verify shared-library and RC integration boundaries
         run: python3 scripts/check_process_lifecycle_integration.py

@@ -8,7 +8,7 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2. Only `main` is writable. Parent before this DNSMasq presence-gate slice is `3ca4126c209e5a76dad3d0802d02972b7e157172`; parent includes strict storage inventory validation. Detached-child readiness is tri-state, but start preflight and restart post-stop checks still used Boolean `is_dns_dhcpd_run()`. This commit replaces them with RUNNING/ABSENT/UNKNOWN inventory: only ABSENT permits config preparation, second launch gate and replacement launch; UNKNOWN aborts with captured errno before mutation and after stop. GNU89 policy and source-order contracts are extended. Exact Actions on parent 3ca4126 were not fully reconciled at the time of this commit; current-source L3 and physical L4 remain NOT VERIFIED. Backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains immutable.
+- Repository: Arlene206/padavan-4.4-2. Parent main before this WAN DHCP renewal fix: 322c17f9ca546b6578304966f017a24c944dd883. The preceding DNSMasq presence-gate commit on 3ca4126 added RUNNING/ABSENT/UNKNOWN preflight and post-stop checks. Exact main 3ca Actions: storage [43656299087], AliDDNS [43656299048], HTTPD security [43656299030], AI docs [43656299013], process inventory [43656299065], process lifecycle [43656299033], AdGuardHome [43656299184], infosvr [43656299051], AliyunDrive [43656299154] and NVRAM [43656299071] passed. XY-C1 [43656299052] remained IN_PROGRESS at Build XY-C1. On current parent 322c17f, DNSMasq presence-gate Actions were PENDING at last poll. This commit fixes detect_wan.c::chk_udhcpc(): UNKNOWN previously counted truthy and could authorize name-wide SIGUSR1. Only complete RUNNING authorizes renewal; ABSENT is no-op; UNKNOWN records scan errno, logs and propagates failure through poll_gateway without signaling. Backup 72f4f157a084f8184b9597ca5bf334b8080e5807 remains immutable. Current L3 and physical L4 remain NOT VERIFIED.
 - Immutable archive: `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`. Read-only; never modify it.
 - **Permanent user entrypoint:** `接手 https://github.com/Arlene206/padavan-4.4-2/ 继续开发`. The user does not need a long prompt, previous chat, or repository upload. Never output a recursive next-GPT prompt in chat. Git documents and live GitHub state are the project memory.
 - Recovery is read-only by default: read complete `AI_DEVELOPMENT_PROTOCOL.md` and `AI_BOOTSTRAP_PROMPT.md`; fetch live main + immutable backup; inspect exact-head Actions; then read this handoff, roadmap, newest 20 dev-log records, `docs/dev-log/INDEX.md`, and the semantic audit report for the active caller group. Do not create a commit to refresh SHA fields, record a takeover, or report a CI poll.
@@ -92,27 +92,26 @@ The earlier dd7a XY-C1 run [43624870668] also completed SUCCESS; it is supersede
 
 ## Exact first action for the next GPT
 
-Main parent before this no-division disk parser repair: a7bfbdf6de475f46469cc19661265b4801306f0f.
+Main parent before this detect_wan tri-state repair: 322c17f9ca546b6578304966f017a24c944dd883.
 Immutable backup: backup/pre-plugin-overhaul-2026-11-14 = 72f4f157a084f8184b9597ca5bf334b8080e5807 (read-only).
 
-### Exact-head validation at the parent
-- AliDDNS signed API transport [43656161389]: PASS on a7bfbdf.
-- HTTPD Authentication/Security [43656161273]: PASS on a7bfbdf; its previous DNSMasq generated-file trust-boundary failure was repaired by the shared-process-header include correction.
-- Process inventory [43656161404], AdGuardHome [43656161276] and infosvr [43656161384]: PASS on a7bfbdf.
-- NVRAM [43656161302] and AliyunDrive [43656161349]: IN_PROGRESS at last poll.
-- XY-C1 [43656161268]: IN_PROGRESS at Build XY-C1 on a7bfbdf. This run predates the parser correction and cannot validate it.
-- DNSMasq lifecycle [43655773415]: PASS on 59853da. Storage [43653875448], HTTPD daemon lifecycle [43654668592] and crond [43654459854] passed on their own exact heads.
+### Completed source slices
+- Strict disk inventory parser avoids all division and tests UINT_MAX/ULLONG_MAX; commit 3ca4126.
+- DNSMasq start and restart gates use explicit RUNNING/ABSENT/UNKNOWN for duplicate launch, config mutation and post-stop checks; parent 322c17f.
+- AliDDNS resolver scratch directories use child PID namespaces; exact AliDDNS [43656161389] passed on a7bfbdf.
+- WAN DHCP renewal gate in this slice uses process_inventory_scan("udhcpc"), captures snapshot.error before release and permits SIGUSR1 only on confirmed RUNNING. ABSENT is a no-op; UNKNOWN/invalid logs and propagates scan errno through poll_gateway without signal. Added GNU89 policy regression, source integration contract and XY-C1 path coverage.
 
-### Product-source failure and repair in this slice
-- XY-C1 [43654318351] on ea2163e failed during RC final link with hidden __udivdi3 referenced by the libdisk DSO.
-- Root cause was variable 64-bit division in disk_inventory_parse_decimal(). This commit uses a constant ULLONG_MAX cutoff before multiply/add and compares each safe result with the caller's UINT_MAX/ULLONG_MAX limit. No division remains in the parser.
-- Added a valid maximum parser row with UINT_MAX major/minor and ULLONG_MAX blocks. The storage integration checker now fails if /10ULL or /10UL division is reintroduced.
-- Local GNU89 -Wall -Wextra -Werror ASan/UBSan disk parser regression passed before commit. Existing storage and XY-C1 path filters already include the parser header/test/checker as appropriate.
-- Current L3 stays PENDING until exact new-head XY-C1 completes Build XY-C1, TRX verification and artifact upload. L4 physical-router validation remains NOT VERIFIED.
+### Verification boundary before this commit
+- Exact main 3ca4126: storage [43656299087], AliDDNS [43656299048], HTTPD security [43656299030], AI docs [43656299013], process inventory [43656299065], process lifecycle [43656299033], AdGuardHome [43656299184], infosvr [43656299051], AliyunDrive [43656299154] and NVRAM [43656299071] PASSED; XY-C1 [43656299052] remained IN_PROGRESS at Build XY-C1.
+- Exact main 322c17f DNSMasq presence-gate Actions were PENDING at last poll.
+- Earlier XY-C1 [43654318351] on ea2163e failed the RC link with hidden __udivdi3; commit 3ca removes variable division. Its exact XY run remains required before L3.
+- Current-source L3 is NOT VERIFIED until Build XY-C1, TRX verification and artifact upload pass for a matching SHA. L4 physical router is NOT VERIFIED.
 
 ### Next work
-1. Inspect exact-head DNSMasq lifecycle regression for this presence-gate slice; fix any GNU89 or source-contract failure. Reconcile pending parent 3ca4126 Actions as well.
-2. Reconcile exact-head XY-C1 firmware validation. Current source remains L3 NOT VERIFIED until Build XY-C1, TRX verification and artifact upload all pass.
-3. Audit DNSMasq cache reload (`restart_dns()`) separately: its legacy Boolean process guard precedes name-wide SIGHUP. Use tri-state inventory and identity-bound HUP; UNKNOWN must fail closed.
-4. Continue remaining process-lifecycle and upper-layer shutdown/Samba/NVRAM postconditions without repeating completed whole-tree censuses. Keep root dev log newest-first; rotate only at 120 records or 384 KiB.
-5. Physical-router L4 remains NOT VERIFIED. Use complete-tree commits and non-force expected-SHA main updates only.
+1. Poll exact-head process lifecycle and XY-C1 for this WAN DHCP commit. Resolve failures from actual logs; no result may be inferred from parent SHA.
+2. Poll 3ca XY-C1 [43656299052] and 322c DNSMasq/XY jobs. If 3ca XY Build, TRX and artifact all pass, determine whether newer 322c source changes require a newer build; do not claim L3 for unbuilt source.
+3. Continue DNSMasq cache reload restart_dns(): its legacy Boolean process guard precedes name-wide SIGHUP. Use tri-state inventory and identity-bound HUP; UNKNOWN must fail closed.
+4. Continue remaining audited process-lifecycle callers and shutdown/Samba/NVRAM postconditions without repeating completed inventories/censuses.
+5. L4 physical-router validation remains NOT VERIFIED. Use one complete tree per logical slice and expected-SHA non-force updates.
+
+Re-fetch live main before every write; preserve the immutable backup and do not redo bootstrap.

@@ -29,6 +29,7 @@
 
 #include "rc.h"
 #include "detect_wan_arp_socket_policy.h"
+#include "detect_wan_udhcpc_policy.h"
 
 //#define DEBUG		1
 #define MAX_ARP_WAIT	5
@@ -56,11 +57,14 @@ struct arpMsg {
 } ATTRIBUTE_PACKED;
 
 
-static void
+static int
 chk_udhcpc(int ap_mode)
 {
 	char *gateway_str;
 	in_addr_t ip;
+	struct process_snapshot snapshot;
+	enum process_presence presence;
+	int scan_error, renew_decision, renew_status;
 
 	if (ap_mode || get_wan_proto(0) == IPV4_WAN_PROTO_IPOE_DHCP)
 	{
@@ -74,15 +78,40 @@ chk_udhcpc(int ap_mode)
 			ip = get_lan_ip4();
 			gateway_str = nvram_safe_get("lan_gateway_t");
 		}
-		
-		if (!is_valid_ipv4(gateway_str) || ip == INADDR_ANY || !pids("udhcpc"))
+
+		if (!is_valid_ipv4(gateway_str) || ip == INADDR_ANY)
+			return 0;
+
+		presence = process_inventory_scan("udhcpc", &snapshot);
+		scan_error = snapshot.error;
+		renew_decision = detect_wan_udhcpc_should_renew(presence);
+		process_snapshot_release(&snapshot);
+
+		if (renew_decision < 0)
 		{
-			return;
+			errno = scan_error ? scan_error : EIO;
+			logmessage("detect_wan",
+				   "Unable to verify udhcpc state; refusing gateway DHCP renew (error %d)",
+				   errno);
+			return -1;
 		}
-		
+		if (renew_decision == 0)
+			return 0;
+
 		logmessage("detect_wan", "No response from gateway (%s)! Perform DHCP renew...", gateway_str);
-		doSystem("killall %s %s", "-SIGUSR1", "udhcpc");
+		renew_status = doSystem("killall %s %s", "-SIGUSR1", "udhcpc");
+		if (renew_status != 0)
+		{
+			if (renew_status != -1 || errno == 0)
+				errno = EIO;
+			logmessage("detect_wan",
+				   "Failed to request udhcpc renewal (status %d, error %d)",
+				   renew_status, errno);
+			return -1;
+		}
 	}
+
+	return 0;
 }
 
 
@@ -222,7 +251,7 @@ arpping_gateway(int ap_mode)
 static int
 poll_gateway(void)
 {
-	int count;
+	int count, renew_status;
 	int ap_mode = get_ap_mode();
 
 	for(;;)
@@ -251,7 +280,9 @@ poll_gateway(void)
 		
 		if ((count >= MAX_ARP_RETRY) && (ap_mode || get_wan_ether_link_cached()))
 		{
-			chk_udhcpc(ap_mode);
+			renew_status = chk_udhcpc(ap_mode);
+			if (renew_status != 0)
+				return -1;
 		}
 		
 		sleep(20);

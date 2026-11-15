@@ -1,3 +1,15 @@
+## 2026-11-15 — Fail closed on UNKNOWN before WAN DHCP renewal signal
+
+- Parent main SHA: 322c17f9ca546b6578304966f017a24c944dd883.
+- Semantic audit found detect_wan.c::chk_udhcpc() relied on !pids("udhcpc"). The legacy API reports scan UNKNOWN as a truthy nonzero result, so incomplete /proc inventory could authorize killall -SIGUSR1 udhcpc.
+- Added detect_wan_udhcpc_policy.h: only PROCESS_PRESENCE_RUNNING authorizes renewal, ABSENT is a no-op, and UNKNOWN/invalid returns EIO. Production calls process_inventory_scan(), captures snapshot.error before release, refuses signal on UNKNOWN and propagates failure through poll_gateway().
+- Added GNU89 policy tests for RUNNING, ABSENT, UNKNOWN and invalid enum values; added source integration contracts for scan/error/release/signal order and no legacy pids("udhcpc"); expanded process regression and XY-C1 path filters.
+- Local cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined policy regression: PASS (WAN DHCP renewal tri-state policy: PASS).
+- At parent 3ca4126, storage, AliDDNS, HTTPD, process inventory/lifecycle, AdGuardHome, infosvr, AliyunDrive and NVRAM Actions were SUCCESS; XY-C1 [43656299052] remained IN_PROGRESS at Build. Parent 322c17f DNSMasq presence-gate Actions were PENDING at last poll. L3 and L4 remain NOT VERIFIED.
+- Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Fail closed on DNSMasq preflight and post-stop state
 
 - Parent main SHA: `3ca4126c209e5a76dad3d0802d02972b7e157172`.
