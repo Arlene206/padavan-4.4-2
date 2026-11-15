@@ -9,33 +9,35 @@ For each logical task, create every source/test/workflow/doc blob, one complete 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Main at start of this source slice: `454f3869fc3c937f496d459ae52017804632378c`.
+- Main at start of physical-interface bring-up slice: `20f1bbd6eb138ec87b451cd2d7f424337db798bb`.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only.
-- Product WAN source `524601f0e86e885f2858f1a5a7b571c09b8d1e1c` gates physical static MAN configuration, reports LAN overlap as `EINVAL`, avoids waiting after failed DHCP launch and aborts required non-PPPoE PPTP/L2TP startup if the physical path is unavailable; PPPoE async/no-wait is preserved.
-- The previous exact-main 454f source-checker follow-up is validated: WAN #43752933794 PASS; AI docs #43752933786 PASS; Process lifecycle #43752933808 PASS; infosvr #43752933795 PASS; NVRAM #43752933792 PASS; AliDDNS #43752933810 PASS; AdGuardHome #43752933826 PASS; AliyunDrive #43752933849 PASS.
-- Exact XY-C1 #43751765026 on product source `524601f`: Build XY-C1, TRX verification and artifact upload all PASS; L3 is verified for that product source. The current source change below requires a new XY-C1 run; do not reuse this prior result.
-- A new concrete defect was confirmed in direct IPoE static IPv4 startup: `start_wan()` discarded `ifconfig()` status and still left `wan_err` clear, allowing `wan_up()` / UPnP activation when static address configuration failed. This source slice captures status, marks WAN error, attempts to clear a potentially partially applied address, logs cleanup failure, and relies on the existing `if (!wan_err)` gate to block route/UPnP activation. Independent IPv6 setup remains attempted.
-- Frozen backup, `docs/dev-log/INDEX.md` and archived shards remain unchanged. No physical-router/L4 result is claimed.
+- Product source `20f1bbd6eb138ec87b451cd2d7f424337db798bb` adds direct IPoE static IPv4 fail-closed handling: capture `ifconfig()` result, set `wan_err`, log the status, attempt partial-address clearing and prevent `wan_up()`/UPnP via the existing error gate; IPv6 remains independent.
+- Exact parent-20f1bbd source checks: WAN callback #43753689812 PASS, AI docs #43753689582 PASS, Process inventory #43753689669 PASS, WAN route status #43753689651 PASS. DNSMasq lifecycle #43753689763, AliDDNS #43753689742, WAN interface teardown #43753689732, AdGuardHome #43753689712, AliyunDrive #43753689699, HTTPD #43753689687, detect_link #43753689643, miniupnpd config #43753689638, WAN ARP probe #43753689573, infosvr #43753689570, Process lifecycle #43753689558, VPN lifecycle #43753689546 and detect_internet #43753689531 all PASS.
+- Exact parent-20f XY-C1 #43753689746 was in Build XY-C1 at last poll; TRX verification and artifact upload remained pending. NVRAM audit #43753689581 was still running.
+- New issue in this slice: initial WAN bring-up used unchecked `doSystem("ifconfig ... mtu 1500 up 0.0.0.0")`. For PPPoE without MAN preseed this was the only physical-interface setup before pppd launch, so a failed command could be silently followed by PPP startup.
+- The current slice replaces that shell command with checked `set_interface_mtu()` plus direct `ifconfig()`; MTU failure is diagnostic/nonfatal, but failed interface bring-up now attempts to keep the interface down and skips the WAN unit before ApCli reconnect or protocol launch.
+- Frozen backup, `docs/dev-log/INDEX.md` and archived shards remain untouched. No physical-router/L4 result is claimed.
 
 ## Active task
 
-### Verify direct IPoE static address failure is fail-closed
+### Verify physical interface bring-up fail-closed behavior
 
-The WAN static IPv4 branch now captures the result of `ifconfig(wan_ifname, IFUP, wan_addr, wan_mask)`. A nonzero result sets `wan_err`, logs the original error, attempts to clear a partially applied address and logs any cleanup error. The branch persists `wan_err`; the already-existing `if (!wan_err)` gate consequently prevents `wan_up()` and UPnP publication. The unrelated IPv6 setup path is preserved.
+`start_wan()` now performs the initial MTU operation through `set_interface_mtu()` and brings the interface up / clears its previous IPv4 address through the checked `ifconfig()` helper instead of an unchecked shell command. A MTU failure is logged but is not fatal because the interface can still function with its current MTU. A failed physical interface setup is fatal for that WAN unit: log it, attempt to keep the interface down, and `continue` before ApCli reconnect or any WAN protocol startup.
 
-The workflow now asserts this exact status/cleanup/error-state flow and route/UPnP gating, including the continuing IPv6 call. The next GPT must inspect exact-head WAN/AI/Process/XY-C1 results, then continue only after these pass.
+The workflow asserts both statuses, the cleanup attempt and abort ordering. The direct IPoE static address status/cleanup fix from parent `20f1bbd` remains in the same source tree.
 
 ## Verification boundary
 
-- Source baseline parent: `454f3869fc3c937f496d459ae52017804632378c`; implementation change is in `trunk/user/rc/src/net_wan.c`; regression source contract is in `.github/workflows/wan-dhcp-callback-stability.yml`.
-- Previous exact-head baseline 454f: WAN #43752933794 PASS; AI docs #43752933786 PASS; Process #43752933808 PASS; infosvr #43752933795 PASS; NVRAM #43752933792 PASS; AliDDNS #43752933810 PASS; AdGuardHome #43752933826 PASS; AliyunDrive #43752933849 PASS.
-- Earlier product source `524601f` XY-C1 #43751765026 Build/TRX/artifact PASS. The new static IPoE C change invalidates reuse of that build for current source; current-source L3 is pending new exact-SHA Build/TRX/artifact.
-- New exact-head WAN and AI docs results pending at handoff preparation. No physical-router/L4 result is claimed.
-- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Parent main: `20f1bbd6eb138ec87b451cd2d7f424337db798bb`; current implementation modifies `trunk/user/rc/src/net_wan.c` and its WAN source-contract workflow.
+- Exact parent 20f1bbd: WAN callback #43753689812 PASS; AI docs #43753689582 PASS; Process inventory #43753689669 PASS; WAN route status #43753689651 PASS. Several independent module workflows listed above also PASS.
+- Exact parent 20f1bbd XY-C1 #43753689746 was at Build XY-C1; TRX/artifact pending. NVRAM #43753689581 was still running.
+- Exact current-head Actions for this slice are pending and a new XY-C1 run is expected. No L3 for the new physical-interface bring-up code until Build, TRX verification and artifact upload all PASS.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; no L4 claim.
 
 ## Exact first action for the next GPT
 
-1. Fetch main and inspect exact-head WAN callback / AI docs / Process / XY-C1 Actions for this static-address fix. Inspect full failing logs before modifying tests/source.
-2. Require GNU89 host policy steps, the new static IPoE status/cleanup/gating contracts and current-source XY-C1 Build, TRX verification and artifact upload to pass before claiming L3.
-3. Continue WAN startup review by determining whether static MAN route errors from `man_up_internal()` should flow to `launch_wanx()` without making optional route failures incorrectly fatal. Separately review the now-captured direct IPoE static-address error path and its cleanup semantics.
-4. Preserve independent IPv6 behavior, PPPoE async/no-wait, frozen backup and archived log index/shards; keep the mandatory checkpoint sentence intact.
+1. Fetch main and inspect exact-head WAN callback, AI docs, Process inventory, NVRAM and XY-C1 Actions for the checked physical-interface startup change. Read the complete failing job log if any source contract fails.
+2. Require current-source WAN host compile/run/source contracts and XY-C1 Build/TRX/artifact to pass before claiming L3.
+3. Reassess remaining ignored status returns in WAN startup, including `config_apcli_wisp()`, without widening behavior to unrelated USB/PPPoE paths.
+4. Continue route error classification at `man_up_internal()`: distinguish critical default/gateway routes from optional configured static/DNS routes before any fatal propagation.
+5. Preserve PPPoE async/no-wait, independent IPv6, frozen backup and archived log shards/index; retain the mandatory checkpoint phrase.

@@ -1,3 +1,13 @@
+## 2026-11-15 — Check physical WAN interface bring-up before protocol startup
+
+- `start_wan()` previously issued `doSystem("ifconfig ... mtu 1500 up 0.0.0.0")` and discarded the `system()` return status. PPPoE with no MAN preseed could therefore proceed to pppd even when its physical interface bring-up failed; DHCP/static paths also lacked an early fail gate.
+- Replaced the shell command with checked `set_interface_mtu()` and direct `ifconfig()`. MTU failure is logged but remains nonfatal (the interface may still operate with its existing MTU); a failed interface-up/address-clear operation logs, attempts to leave the interface down, and skips startup for that WAN unit.
+- Added source-contract coverage for both status paths, cleanup and abort-before-ApCli/protocol startup. Direct IPoE static address failure handling is already present from parent `20f1bbd`.
+- Parent main: `20f1bbd6eb138ec87b451cd2d7f424337db798bb`; exact-head WAN #43753689812 PASS, AI docs #43753689582 PASS, Process inventory #43753689669 PASS, WAN route status #43753689651 PASS. XY-C1 #43753689746 was still building at the last poll; NVRAM audit #43753689581 was still running.
+- Frozen backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; no L4 result is claimed.
+
+---
+
 ## 2026-11-15 — Fail closed on direct IPoE static address configuration failure
 
 - `start_wan()`'s direct IPoE static IPv4 branch discarded `ifconfig()`'s return status, leaving `wan_err == 0` and allowing `wan_up()` plus UPnP publication after address configuration failed.

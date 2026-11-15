@@ -1572,7 +1572,7 @@ void
 start_wan(void)
 {
 	int unit, wan_proto;
-	int vlan_result;
+	int vlan_result, mtu_status, interface_status, interface_cleanup_status;
 	char *wan_ifname;
 
 	/* Secure PPP callback/peer storage before publishing callback links. */
@@ -1618,8 +1618,21 @@ start_wan(void)
 		if (strlen(wan_ifname) < 1)
 			continue;
 		
-		/* bring up physical WAN interface */
-		doSystem("ifconfig %s mtu %d up %s", wan_ifname, 1500, "0.0.0.0");
+		/* Prepare the physical WAN interface without a shell command. */
+		mtu_status = set_interface_mtu(wan_ifname, 1500);
+		if (mtu_status != 0)
+			logmessage(LOGNAME, "WAN interface %s MTU setup incomplete (status=%d)",
+				   wan_ifname, mtu_status);
+		interface_status = ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
+		if (interface_status != 0) {
+			logmessage(LOGNAME, "aborting WAN startup for unit %d: failed to bring up physical interface %s (status=%d)",
+				   unit, wan_ifname, interface_status);
+			interface_cleanup_status = ifconfig(wan_ifname, 0, NULL, NULL);
+			if (interface_cleanup_status != 0)
+				logmessage(LOGNAME, "failed to keep physical WAN interface %s down after startup failure (status=%d)",
+					   wan_ifname, interface_cleanup_status);
+			continue;
+		}
 		
 		/* perform ApCli reconnect */
 		reconnect_apcli(wan_ifname, 0);

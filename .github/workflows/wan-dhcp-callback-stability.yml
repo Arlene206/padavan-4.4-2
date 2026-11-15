@@ -801,6 +801,16 @@ jobs:
           assert viptv_start.index(dhcp_launch) < dynamic_return
 
           wan_start = body(source, "void" + chr(10) + "start_wan(void)")
+          physical_setup = wan_start[wan_start.index("/* Prepare the physical WAN interface without a shell command."):wan_start.index("/* perform ApCli reconnect */")]
+          assert "mtu_status = set_interface_mtu(wan_ifname, 1500);" in physical_setup
+          assert 'logmessage(LOGNAME, "WAN interface %s MTU setup incomplete (status=%d)",' in physical_setup
+          assert 'interface_status = ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);' in physical_setup
+          assert "if (interface_status != 0)" in physical_setup
+          assert 'interface_cleanup_status = ifconfig(wan_ifname, 0, NULL, NULL);' in physical_setup
+          assert "failed to keep physical WAN interface %s down after startup failure (status=%d)" in physical_setup
+          assert "doSystem(" not in physical_setup
+          assert physical_setup.index("mtu_status = set_interface_mtu(") < physical_setup.index("interface_status = ifconfig(")
+          assert physical_setup.index("if (interface_status != 0)") < physical_setup.index("interface_cleanup_status = ifconfig(") < physical_setup.index("continue;")
           launch_call = "vlan_result = launch_viptv_wan();"
           launch_error = 'logmessage(LOGNAME, "IPTV VLAN or service setup incomplete (error=%d)", vlan_result);'
           assert launch_call in wan_start
