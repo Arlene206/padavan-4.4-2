@@ -144,7 +144,8 @@ run_launcher()
 		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" \
 			sh "$launcher" start >/dev/null 2>&1
 	fi
-}assert_failure()
+}
+assert_failure()
 {
 	name=$1
 	launcher=$2

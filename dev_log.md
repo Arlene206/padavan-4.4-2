@@ -1,3 +1,11 @@
+## 2026-11-16 05:51 Beijing — Fix storage regression shell boundary and refresh PID-path docs
+
+- Review of exact committed test source found the regenerated `run_launcher()` block had been concatenated directly with `assert_failure()` as `}assert_failure()`. Added the required newline so the shell parses the two function definitions separately.
+- Corrected stale handoff/roadmap paths that had been rendered with one `$`: Aria config stage and barrier markers are `aria2.conf.tmp.$$`, `entered.$$`, `checked.$$`; Transmission uses `settings.json.tmp.$$`.
+- Parent main: `5ae02f33db8cace2b45054df9e32df8c064b9d4c`. This follow-up changes test syntax and checkpoint wording only. Its exact-head storage CI run is pending; the earlier run on parent SHA is not treated as validation of this correction.
+
+---
+
 ## 2026-11-16 05:45 Beijing — Stage Transmission default settings and fail closed
 
 - Replaced the global `/tmp/settings.json` path with private, same-directory `settings.json.tmp.$$` staging. The stage is exclusively created under `umask 077`/shell noclobber, and the generator command, nonempty output, `sed` transformation, post-transform nonempty output, atomic same-directory `mv`, and final regular/nonempty settings file are checked.

@@ -4,15 +4,15 @@
 - Exact XY-C1 #43762907958 cross-build PASS for C-source SHA b488a561bb91df62aca810a6ff2c191c17f82b2b (L3 for that exact source revision only). No L4.
 - WAN source fixes: static IPoE address error gate, checked physical WAN interface bring-up, AP-client WISP old interface cleanup/abort, and separate critical MAN gateway/default-route status for static PPTP/L2TP; optional route errors remain nonfatal to that static PPP decision.
 - Storage fixes: Transmission/Aria explicit launch status; Aria staged atomic default config and fail-closed directory/session/permission setup. Transmission's default settings generator, sed transform and rename are still unchecked in live source; no PID-qualified settings staging exists yet.
-- Aria now uses `aria2.conf.tmp.$`; the regression uses process-unique `entered.$` and `checked.$` rendezvous markers. Exact df267 storage run #43763413862 PASS.
+- Aria now uses `aria2.conf.tmp.$$`; the regression uses process-unique `entered.$$` and `checked.$$` rendezvous markers. Exact df267 storage run #43763413862 PASS.
 - Exact df267 push Actions all PASS: storage #43763413862, AI docs #43763413814, Process inventory #43763413812, Process lifecycle #43763413775, infosvr #43763413761, AliDDNS #43763413799, AliyunDrive #43763413767, AdGuardHome #43763413821 and NVRAM #43763413864. Earlier b488 XY-C1 cross-build #43762907958 PASS.
-- The Aria two-phase cat barrier now uses literal `entered.$` and `checked.$` names; the exact-head storage regression on df267 passes.
+- The Aria two-phase cat barrier now uses literal `entered.$` and `checked.$` names; exact-head storage regression #43763413862 on df267 passes.
 
 ### P1 — Storage daemon startup and config publication
 
 - Preserve start-stop-daemon result, independent of logger.
 - Aria exact-head storage run #43763413862 PASS with both PID-unique barrier phases.
-- Transmission now stages default settings in `settings.json.tmp.$` in the config directory, exclusively creates the file with `umask 077` + noclobber, checks generator status/nonempty output, sed status/nonempty transformed output, rename status and final file type/size; all generation/publish failures clean the temp and abort before daemon launch.
+- Transmission now stages default settings in `settings.json.tmp.$$` in the config directory, exclusively creates the file with `umask 077` + noclobber, checks generator status/nonempty output, sed status/nonempty transformed output, rename status and final file type/size; all generation/publish failures clean the temp and abort before daemon launch.
 - Regression injects generator failure, empty generator output, sed failure, rename failure and successful transformed publish. New exact-head host and firmware BusyBox ash checks are pending.
 
 ### P1 — WAN startup status propagation
