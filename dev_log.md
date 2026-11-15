@@ -1,3 +1,12 @@
+## 2026-11-15 — Bound the HTTPD health-check wget instead of killing all wget processes
+
+- `watchdog.c::httpd_check_v2()` launched a background wget with the default 900-second network timeout, then used `pids("wget")` plus `killall wget` on two early-exit paths. That could terminate unrelated download jobs.
+- Set the probe's BusyBox-supported `-T 1` network timeout and removed both process-name-wide cleanup paths. The URL is numeric loopback, so the timeout is not exposed to DNS lookup delays. The common BusyBox config enables `CONFIG_FEATURE_WGET_TIMEOUT`.
+- Extended the process-lifecycle checker to enforce the bounded wget invocation, absence of broad wget cleanup, and the required BusyBox config feature.
+- Changed paths: `watchdog.c`, `check_process_lifecycle_integration.py`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Remove undefined-variable assertion from process-lifecycle checker
 
 - Exact process-lifecycle run `43673792669` on `877e36b42fc1f3249fb0235c000655a402d89ebe` passed the sanitizer/policy binaries and all VPN, PPP, DHCP, WAN/LAN, USB and detector integration checks, then stopped at a Python `NameError`: the checker referenced undefined `processWf` in an assertion that had no valid semantic purpose. Removed only that stray assertion; the actual workflow path checks below remain intact.

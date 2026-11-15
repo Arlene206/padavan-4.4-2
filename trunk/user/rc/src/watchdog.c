@@ -122,7 +122,8 @@ httpd_check_v2()
 	http_port = nvram_get_int("http_lanport");
 
 	/* httpd will not count 127.0.0.1 */
-	doSystem("wget -q http://127.0.0.1:%d/httpd_check.htm -O %s &", http_port, DETECT_HTTPD_FILE);
+	/* The probe is detached; bound its network wait instead of killing every wget. */
+	doSystem("wget -q -T 1 http://127.0.0.1:%d/httpd_check.htm -O %s &", http_port, DETECT_HTTPD_FILE);
 
 	httpd_live = 0;
 	for (i=0; i < 3; i++)
@@ -145,20 +146,13 @@ httpd_check_v2()
 		
 		/* check port changed */
 		if (nvram_get_int("http_lanport") != http_port)
-		{
-			if (pids("wget"))
-				system("killall wget");
 			return 1;
-		}
 		
 		sleep(1);
 	}
 
 	if (!httpd_live)
 	{
-		if (pids("wget"))
-			system("killall wget");
-		
 		dbg("httpd is so dead!!!\n");
 		
 		return 0;
