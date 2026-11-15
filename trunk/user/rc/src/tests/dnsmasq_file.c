@@ -238,6 +238,7 @@ main(void)
 	assert(access(pair_absent_first, F_OK) != 0 && errno == ENOENT);
 	assert(pair_absent_backup[0] == '\0' && pair_second_backup[0] == '\0');
 
+	assert(unlink(pair_first) == 0);
 	/* Restore the symlink entry itself, never its referenced target. */
 	fp = fopen(pair_sentinel, "w");
 	assert(fp != NULL && fputs("sentinel\n", fp) >= 0 && fclose(fp) == 0);
