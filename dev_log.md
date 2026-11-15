@@ -1,3 +1,11 @@
+## 2026-11-15 — Trigger XY-C1 firmware validation for vsftpd source
+
+- The XY-C1 workflow watched `trunk/user/vsftpd/src/asus_ext.h` but omitted the production implementation `asus_ext.c`, the upload caller `postlogin.c`, the descriptor-relative ACL helper `ftp_acl_path_policy.h` and its host regression. Therefore, a vsftpd implementation change could pass its host workflow without starting a product firmware build.
+- Added those source/helper/test paths to the XY-C1 push filter. This exact-head commit triggers a fresh XY-C1 MIPS build, TRX verification and artifact upload for the failed-upload cleanup fix.
+- Parent main: `079f35644072056f333cf04adffe63f8476d38bd`. Exact 079f vsftpd #43744355353, Process #43744355434, AI docs #43744355446, AliyunDrive #43744355411, AdGuardHome #43744355352 and AliDDNS #43744355620 PASS; NVRAM audit #43744355441 was still pending.
+
+---
+
 ## 2026-11-15 — Check upload hardening flags at the owning helper
 
 - Exact 9ec104c failed the next stale checker assertion: `O_NOFOLLOW` and `O_CLOEXEC` moved from `asus_ext.c` into `ftp_acl_path_policy.h` with the new descriptor-relative upload-open helper. Both source contracts now check the policy header where those flags are actually applied.
