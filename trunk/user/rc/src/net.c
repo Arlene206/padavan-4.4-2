@@ -951,7 +951,7 @@ set_tcp_tweaks(void)
 	fput_int(tmp, 1);		//def: 1
 }
 
-void
+int
 set_passthrough_pppoe(int is_on)
 {
 	char* svcs[] = { "pppoe-relay", NULL };
@@ -970,16 +970,21 @@ set_passthrough_pppoe(int is_on)
 			if (start_status != 0)
 				logmessage(LOGNAME, "pppoe-relay launch failed (status=%d)",
 					   start_status);
-		} else if (presence == PROCESS_PRESENCE_UNKNOWN) {
-			if (scan_error <= 0)
-				scan_error = EIO;
-			logmessage(LOGNAME,
-				   "pppoe-relay process inventory failed (%s); refusing startup",
-				   strerror(scan_error));
+			return start_status;
 		}
+		if (presence == PROCESS_PRESENCE_RUNNING)
+			return 0;
+
+		if (scan_error <= 0)
+			scan_error = EIO;
+		errno = scan_error;
+		logmessage(LOGNAME,
+			   "pppoe-relay process inventory failed (%s); refusing startup",
+			   strerror(scan_error));
+		return scan_error;
 	}
-	else
-		kill_services(svcs, 3, 1);
+
+	return kill_services(svcs, 3, 1);
 }
 
 void

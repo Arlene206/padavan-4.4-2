@@ -1788,7 +1788,12 @@ start_wan(void)
 		}
 	}
 
-	set_passthrough_pppoe(1);
+	{
+		int passthrough_status = set_passthrough_pppoe(1);
+		if (passthrough_status != 0)
+			logmessage(LOGNAME, "PPPoE passthrough startup incomplete (status=%d)",
+				   passthrough_status);
+	}
 }
 
 static int
@@ -1931,7 +1936,12 @@ stop_wan_locked(void)
 		stop_status = eapol_stop_status != 0 ? eapol_stop_status : kabinet_stop_status;
 		goto abort_resume_detect;
 	}
-	set_passthrough_pppoe(0);
+	stop_status = set_passthrough_pppoe(0);
+	if (stop_status != 0) {
+		logmessage(LOGNAME, "refusing WAN interface teardown because PPPoE relay did not stop (status=%d)",
+			   stop_status);
+		goto abort_resume_detect;
+	}
 	if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC &&
 	    strcmp(man_ifname, get_wan_unit_value(unit, "ifname_t")) == 0)
 		wan_down(man_ifname, unit, 1);

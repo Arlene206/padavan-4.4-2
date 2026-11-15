@@ -1,3 +1,12 @@
+## 2026-11-15 — Propagate PPPoE relay lifecycle errors through WAN transitions
+
+- `set_passthrough_pppoe()` performed an inventory-guarded start but returned `void`, so callers could not observe launch failure or an UNKNOWN process inventory; its stop branch also discarded `kill_services()` failure. `stop_wan_locked()` consequently continued WAN interface teardown even when `pppoe-relay` might still be running.
+- Converted the helper to return status for launch, already-running, inventory-unknown and stop outcomes; UNKNOWN now returns the scanner error (or EIO) with errno preserved. WAN startup logs optional passthrough failure. WAN teardown now aborts before WAN route/interface teardown when the relay stop is incomplete.
+- Extended the process integration contracts for the helper's status paths and WAN stop ordering. The relevant production files are already covered by process and XY-C1 workflow path filters.
+- Changed paths: `net.c`, `rc.h`, `net_wan.c`, `check_process_lifecycle_integration.py`, `dev_log.md`. Result: THIS COMMIT. Exact-head process-lifecycle, HTTPD security and XY-C1 firmware validation required.
+
+---
+
 ## 2026-11-15 — Gate logger restart and shutdown on confirmed stop completion
 
 - `stop_logger()` discarded the result of `kill_services(klogd, syslogd)`. The SYSLOG and TIME notification handlers then unconditionally started replacement logger processes, risking duplicate daemons when stop did not complete. During shutdown, logger termination happened only after storage MTD persistence had already been authorized, and its failure could not suppress persistence.

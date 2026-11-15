@@ -233,7 +233,7 @@ void set_ipv4_forward(int is_on);
 void set_nf_conntrack(void);
 void set_tcp_syncookies(void);
 void set_tcp_tweaks(void);
-void set_passthrough_pppoe(int is_on);
+int set_passthrough_pppoe(int is_on);
 void set_igmp_mld_version(void);
 void set_libc_gai(int ipv4_first);
 

@@ -48,7 +48,7 @@ assert "process_identity_validate(service_name, identity)" in common_ex
 assert "kill(identity->pid, signal_number)" in common_ex
 assert 'doSystem("killall %s %s", signal_option, service_name)' not in common_ex
 assert "service_lifecycle_preflight" in policy
-pppoe_start = net_source.split("set_passthrough_pppoe(int is_on)", 1)[1].split("set_igmp_mld_version", 1)[0]
+pppoe_start = net_source.split("int\nset_passthrough_pppoe(int is_on)", 1)[1].split("set_igmp_mld_version", 1)[0]
 assert '#include "process_inventory.h"' in net_source
 assert '#include "pppoe_relay_policy.h"' in net_source
 assert 'process_inventory_scan("pppoe-relay", &snapshot)' in pppoe_start
@@ -56,6 +56,11 @@ assert "scan_error = snapshot.error;" in pppoe_start
 assert pppoe_start.index("scan_error = snapshot.error;") < pppoe_start.index("process_snapshot_release(&snapshot);")
 assert pppoe_start.index("process_snapshot_release(&snapshot);") < pppoe_start.index("pppoe_relay_should_start(presence)")
 assert "if (pppoe_relay_should_start(presence))" in pppoe_start
+assert "return start_status;" in pppoe_start
+assert "return scan_error;" in pppoe_start
+assert "return kill_services(svcs, 3, 1);" in pppoe_start
+assert "int set_passthrough_pppoe(int is_on);" in rc_header
+assert "void set_passthrough_pppoe(int is_on);" not in rc_header
 assert "else if (presence == PROCESS_PRESENCE_UNKNOWN)" in pppoe_start
 assert "strerror(scan_error)" in pppoe_start
 assert "if (!pids(" not in pppoe_start and 'pids("pppoe-relay")' not in pppoe_start
@@ -256,6 +261,11 @@ assert "WAN kabinet authentication startup incomplete" in wan_up
 assert "route_status = stop_auth_kabinet();" in wan_down
 assert "status = route_status_accumulate(status, route_status);" in wan_down
 assert "WAN kabinet authentication teardown incomplete" in wan_down
+assert "passthrough_status = set_passthrough_pppoe(1);" in wan_start
+assert "PPPoE passthrough startup incomplete" in wan_start
+assert "stop_status = set_passthrough_pppoe(0);" in wan_stop
+assert "refusing WAN interface teardown because PPPoE relay did not stop" in wan_stop
+assert wan_stop.index("if (stop_status != 0)") < wan_stop.index("wan_down(man_ifname, unit, 1)")
 assert "eapol_stop_status = stop_auth_eapol();" in wan_stop
 assert "kabinet_stop_status = stop_auth_kabinet();" in wan_stop
 assert "if (eapol_stop_status != 0 || kabinet_stop_status != 0)" in wan_stop
