@@ -1,3 +1,20 @@
+## 2026-11-15 — Refresh exact-main handoff after storage launcher fixes
+
+- Handoff checkpoint parent main: 13a16ec70f7f78f9a8114582a51e7d9e88bd9644; frozen backup branch: 72f4f157a084f8184b9597ca5bf334b8080e5807 (unchanged).
+- Current-source storage workflow state: #43760834648 USB storage hotplug stability regression: completed/failure. Exact-main Actions: #43760834673 AI handoff documentation contract: completed/success
+- #43760834671 AliDDNS signed API transport security regression: completed/success
+- #43760834666 Process lifecycle inventory - 13a16ec70f7f78f9a8114582a51e7d9e88bd9644: completed/success
+- #43760834648 USB storage hotplug stability regression: completed/failure
+- #43760834637 NVRAM transaction boundary audit: completed/success
+- #43760834634 AliyunDrive WebDAV lifecycle stability regression: completed/success
+- #43760834624 Process inventory and lifecycle fail-closed regression: completed/success
+- #43760834623 infosvr packet and signal lifecycle stability regression: completed/success
+- #43760834594 AdGuardHome config security regression: completed/success.
+- Work completed in this session includes WAN status/error propagation and L3 verification on source 401066, Transmission/Aria launch result fixes, Aria atomic default config and failure cleanup, and Transmission staged settings with generator/transform/rename checks plus host/BusyBox regression.
+- No physical-router L4 result. Immediate next task is exact-SHA storage workflow verification and correction of any failing test/source path.
+
+---
+
 ## 2026-11-16 04:50 Beijing — Enforce unique Aria default-config staging under concurrent starts
 
 - The current main source still had `CONFIG_TMP="${FILE_CONF}.tmp.$"`, a constant literal suffix; this contradicted the previous log entry that said the PID expansion had been corrected. The preceding storage-hotplug run #43759497496 passed the existing write/rename fault tests but did not detect the collision.

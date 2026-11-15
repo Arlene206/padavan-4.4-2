@@ -1,25 +1,32 @@
 ## Current source / CI checkpoint
 
-- Main at slice start: 6ad669a672f8274f523723df4315e523841de5d5; frozen backup read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- Exact 401066 WAN callback #43756373267, WAN route #43756373287, NVRAM #43756373306, Process lifecycle #43756373317, Process inventory #43756373209, HTTPD #43756373180, AdGuardHome #43756373548, DNSMasq #43756373394, miniupnpd #43756373360, USB identity #43756373320, WAN teardown #43756373261, WAN ARP #43756373302, AliDDNS #43756373308, AliyunDrive #43756373280, VPN #43756373251, infosvr #43756373126, detect_link #43756373117, detect_internet #43756373238 and AI docs #43756373157 PASS; XY-C1 #43756373315 Build/TRX/artifact PASS (L3 for 401066 only).
-- Transmission/Aria start-result fix eddf9aac: storage workflow #43758894731 SUCCESS, including host and BusyBox ash regressions; AI docs #43758894840 and Process inventory #43758894771 PASS.
-- Aria setup and write/rename fault injection passed storage run #43759497496 on 755e8c711f1becc9a33c369f156d7b66def904cb, but live source still had a constant `.tmp.## Current source / CI checkpoint
+- Main before handoff checkpoint: 13a16ec70f7f78f9a8114582a51e7d9e88bd9644; frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Exact XY-C1 #43756373315 Build/TRX/artifact PASS for C source 401066 only (L3). No L4.
+- WAN source fixes: static IPoE address error gate, checked physical WAN interface bring-up, AP-client WISP old interface cleanup/abort, and separate critical MAN gateway/default-route status for static PPTP/L2TP; optional route errors remain nonfatal to that static PPP decision.
+- Storage fixes: Transmission/Aria explicit launch status; Aria staged atomic default config and fail-closed directory/session/permission setup; Transmission PID-qualified default settings stage with generator/sed/mv checks and nonempty final-settings gate. Host + BusyBox ash regression exercises failure and success cases.
+- Exact current-main Actions:
+- #43760834673 AI handoff documentation contract: completed/success
+- #43760834671 AliDDNS signed API transport security regression: completed/success
+- #43760834666 Process lifecycle inventory - 13a16ec70f7f78f9a8114582a51e7d9e88bd9644: completed/success
+- #43760834648 USB storage hotplug stability regression: completed/failure
+- #43760834637 NVRAM transaction boundary audit: completed/success
+- #43760834634 AliyunDrive WebDAV lifecycle stability regression: completed/success
+- #43760834624 Process inventory and lifecycle fail-closed regression: completed/success
+- #43760834623 infosvr packet and signal lifecycle stability regression: completed/success
+- #43760834594 AdGuardHome config security regression: completed/success
+- Storage workflow: #43760834648 USB storage hotplug stability regression: completed/failure. Fetch current jobs/logs before next changes.
 
-- Main at slice start: 6ad669a672f8274f523723df4315e523841de5d5; frozen backup read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- Exact 401066 WAN callback #43756373267, WAN route #43756373287, NVRAM #43756373306, Process lifecycle #43756373317, Process inventory #43756373209, HTTPD #43756373180, AdGuardHome #43756373548, DNSMasq #43756373394, miniupnpd #43756373360, USB identity #43756373320, WAN teardown #43756373261, WAN ARP #43756373302, AliDDNS #43756373308, AliyunDrive #43756373280, VPN #43756373251, infosvr #43756373126, detect_link #43756373117, detect_internet #43756373238 and AI docs #43756373157 PASS; XY-C1 #43756373315 Build/TRX/artifact PASS (L3 for 401066 only).
-- Transmission/Aria start-result fix eddf9aac: storage workflow #43758894731 SUCCESS, including host and BusyBox ash regressions; AI docs #43758894840 and Process inventory #43758894771 PASS.
- suffix despite an earlier log claiming `$`; THIS COMMIT corrects the PID expansion and adds deterministic concurrent-start coverage. Exact-head storage validation for THIS COMMIT pending.
+### P1 — Storage daemon startup and config publication
 
-### P1 — Storage service startup result propagation
-
-- Transmission/Aria explicitly return daemon launch success/failure independent of logger exit status (eddf9aac; host/BusyBox ash CI PASS).
-- Aria now uses a PID-qualified same-directory temp for default config; it checks write/rename, cleans up and aborts before launch on failures. Existing cat/mv fault injection passed #43759497496; THIS COMMIT adds a deterministic concurrent-start regression to prove two simultaneous starts cannot collide on the staging path.
-- Next inspect Transmission default settings generation and fail-closed handling for directory/permission/config creation before daemon launch.
+- Preserve start-stop-daemon result, independent of logger.
+- Aria config is written to unique same-directory temp, checked, atomically renamed and cleaned on error.
+- Transmission default settings are generated to unique same-directory temp; generator, sed transform, mv and nonempty final settings are checked before daemon start.
+- Next action: verify exact-SHA storage workflow and finish any failing test/source contract; then continue directory/permission failure handling.
 
 ### P1 — WAN startup status propagation
 
-- Direct IPoE static address errors fail closed; physical interface bring-up checked; AP-client WISP cleanup guarded; required MAN gateway/default route errors gate static MAN PPTP/L2TP.
-- Exact-source XY-C1 L3 PASS for 401066 only; no L4.
+- Static IPoE address errors fail closed; initial physical interface bring-up checked; AP-client WISP migration guarded; required MAN gateway/default routes gate static MAN PPTP/L2TP.
+- XY-C1 L3 is only for exact C source SHA 401066; no L4.
 
 ### P2 — IGMP proxy configuration publication
 
