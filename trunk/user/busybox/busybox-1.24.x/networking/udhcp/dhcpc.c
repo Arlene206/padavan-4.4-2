@@ -2059,8 +2059,26 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 	} /* for (;;) - main loop ends */
 
  ret0:
-	if (opt & OPT_R) /* release on quit */
-		perform_release(server_addr, requested_ip);
+	/* Do not leave the lease configured when release-on-quit or a pending
+	 * deconfig callback could not complete. Retry cleanup before exiting. */
+	if ((opt & OPT_R) || state == DECONFIG_PENDING) {
+		int release_status;
+
+		if (opt & OPT_R)
+			release_status = perform_release(server_addr, requested_ip);
+		else {
+			release_status = udhcp_run_script(NULL, "deconfig");
+			change_listen_mode(LISTEN_NONE);
+		}
+		while (udhcpc_deconfig_retry_required(release_status)) {
+			int retry_delay = tryagain_timeout > 0 ? tryagain_timeout : 1;
+
+			bb_error_msg("DHCP deconfig failed on exit (status %d); retrying in %d seconds",
+				release_status, retry_delay);
+			sleep(retry_delay);
+			release_status = udhcp_run_script(NULL, "deconfig");
+		}
+	}
 	retval = 0;
  ret:
 	/* Keep the final PID/start_time record: stale identity is harmless and

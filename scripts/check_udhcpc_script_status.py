@@ -133,6 +133,12 @@ signal_release = dhcpc[dhcpc.index("case SIGUSR2:"):dhcpc.index("/* Is it a pack
 assert "deconfig_resume_state = RELEASED;" in signal_release
 assert "udhcpc_schedule_deconfig_retry(RELEASED" in signal_release
 
+exit_cleanup = dhcpc[dhcpc.index(" ret0:"):]
+assert "if ((opt & OPT_R) || state == DECONFIG_PENDING)" in exit_cleanup
+assert "while (udhcpc_deconfig_retry_required(release_status))" in exit_cleanup
+assert "sleep(retry_delay);" in exit_cleanup
+assert 'release_status = udhcp_run_script(NULL, "deconfig");' in exit_cleanup
+
 assert "if (acquiring)" in policy
 assert "*timeout = retry_timeout;" in policy
 assert "*packet_num = 0;" in policy
