@@ -2210,7 +2210,9 @@ jobs:
           assert "LAN lease applied but hostname files could not be published" in lan_bound
           assert "return hosts_status;" in lan_bound
           assert "int status, rollback_status = 0, hosts_status = 0;" in lan_bound
-          hosts_writer = function_body(lan, "create_hosts_lan(const char *lan_ipaddr, const char *lan_dname)")
+          hosts_writer_start = lan.index("static int\\ncreate_hosts_lan(const char *lan_ipaddr, const char *lan_dname)")
+          hosts_writer_end = lan.index("\\nint\\nupdate_hosts_ap(", hosts_writer_start)
+          hosts_writer = lan[hosts_writer_start:hosts_writer_end]
           assert 'hostname_fp = dnsmasq_file_open(hostname_temp);' in hosts_writer
           assert 'hosts_fp = dnsmasq_file_open(hosts_temp);' in hosts_writer
           assert 'dnsmasq_file_publish(staged_fp, hostname_temp, "/etc/hostname", 0644)' in hosts_writer
