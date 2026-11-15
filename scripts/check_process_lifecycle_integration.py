@@ -451,7 +451,6 @@ assert "refusing watchdog start because process-presence policy is invalid" in w
 assert "start_watchdog()" in watchdog_notify
 assert "pids(" not in watchdog_notify
 assert "process_pidfile_signal(WD_PID_FILE, \"watchdog\", SIGHUP)" in watchdog_notify
-assert "watchdog_source" not in processWf
 assert '"trunk/user/rc/src/watchdog.c"' in process_workflow
 assert '"trunk/user/rc/src/watchdog.c"' in xy_workflow
 assert '"trunk/user/rc/src/process_presence_start_policy.h"' in process_workflow

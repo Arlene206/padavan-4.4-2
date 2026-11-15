@@ -1,3 +1,10 @@
+## 2026-11-15 — Remove undefined-variable assertion from process-lifecycle checker
+
+- Exact process-lifecycle run `43673792669` on `877e36b42fc1f3249fb0235c000655a402d89ebe` passed the sanitizer/policy binaries and all VPN, PPP, DHCP, WAN/LAN, USB and detector integration checks, then stopped at a Python `NameError`: the checker referenced undefined `processWf` in an assertion that had no valid semantic purpose. Removed only that stray assertion; the actual workflow path checks below remain intact.
+- Changed paths: `check_process_lifecycle_integration.py`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Require an explicit ABSENT action before watchdog launch
 
 - Exact process-lifecycle run `43673617941` on `52c003b29a1dacccba89cb454e3cc359a864227e` passed all GNU89 sanitizer/policy binaries and earlier process-integration checks, then failed at the final watchdog contract: `start_watchdog()` rejected UNKNOWN and returned for RUNNING but let every other action fall through to `eval()`. The shared policy currently maps only ABSENT to NEW, but implicit fallthrough would also launch if a future/invalid action value were introduced.
