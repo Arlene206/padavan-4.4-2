@@ -1,18 +1,24 @@
 ## Current source / CI checkpoint
 
-- Live main before this checker follow-up: 30e184833ffd8c43c1b22cdb544e0740545bdb43. IGMP proxy config staging and the GNU89 ASan/UBSan host regression are committed; exact Process step 19 on 30e passed. Exact Process #43746805300 failed only because the MiniDLNA source passes process_state as an explicit (enum process_presence) cast to storage_log_daemon_start_result(), while the static contract omitted the cast. The contract now checks the typed argument and ordering.
-- Exact 30e AI handoff docs #43746805306 PASS. The source-identical XY-C1 run #43746522702 on be7fd was IN_PROGRESS at last check; build/TRX/artifact must be verified. NVRAM #43746805297 was IN_PROGRESS. Other 30e checks PASS: AdGuardHome #43746805244, AliDDNS #43746805299, AliyunDrive #43746805254, infosvr #43746805329, vsftpd #43746522533, NFS #43746522567, Process inventory #43746522504 and Samba #43746522547.
-- The e8b4 duplicate MiniDLNA local and over-escaped helper extraction were corrected in be7fd. The remaining fstatat-to-unlinkat replacement window in FTP cleanup remains unresolved on Linux 4.4; no physical-router L4 result is claimed.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Main at the start of this slice: `2199bdb463da98d26289f819baa407e9feec97b1`. Exact-main Process inventory/lifecycle #43747014935 PASS, AI handoff docs #43747014985 PASS and NVRAM #43747014966 PASS.
+- Product-source-identical XY-C1 run #43746522702 on `be7fd92337812a28ddc5b275c7898915be114987` completed Build XY-C1, TRX verification and artifact upload successfully. Later `30e1848` and `2199bdb` changes were checker/docs only. Product-source L3 is VERIFIED on that tree; no physical-router/L4 result is claimed.
+- IGMP proxy config staging and its GNU89 ASan/UBSan host regression passed in Process #43747014935. The MiniDLNA checker now verifies the explicit `(enum process_presence)` cast to the shared startup-result logger.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+### P1 — WAN startup status propagation
+
+- `launch_viptv_wan()` previously ignored the return values from `start_udhcpc_viptv()` and `start_zcip_viptv()`, then returned success. Its existing `start_wan()` caller already checks and logs nonzero status, so the lost return value concealed DHCP/ZeroConf exec failures.
+- This source slice now propagates both dynamic client launch statuses and extends the WAN DHCP callback workflow's source-contract regression to protect the call and logging chain. Exact-head WAN workflow and any newly triggered XY-C1 run remain to be checked on the resulting source SHA.
+- Next distinct launcher boundary: `launch_wanx()` ignores `start_udhcpc_wan()` / `start_zcip_wan()` results. Audit call-site semantics before changing behavior; PPTP/L2TP wait for physical DHCP while PPPoE intentionally does not.
 
 ### P2 — IGMP proxy configuration publication
 
-- start_igmpproxy() now stages config beside the destination, rejects CR/LF injection and checks write, flush, fsync, close and atomic rename. A publication failure preserves last-good content and prevents daemon launch.
-- The dedicated host test is PASS on the exact 30e Process job (step 19). Overall Process remains blocked only by the stale MiniDLNA cast contract; exact-head Process and source-identical XY-C1 Build/TRX/artifact verification remain required.
+- `start_igmpproxy()` stages config beside the destination, rejects CR/LF injection and checks write, flush, fsync, close and atomic rename. A publication failure preserves last-good content and blocks daemon launch.
+- The host regression and overall exact-main Process workflow #43747014935 both passed. The previous stale MiniDLNA typed-state assertion was corrected in `2199bdb`.
 
 ## Whole-repository module status
 
-### P1 process inventory / service lifecycle — tri-state foundation L2 VERIFIED; strict PID identity migration extended through PPPD/udhcpc/INICD and VPN/WAN/LAN/USB stop gates; xl2tpd and crond UNKNOWN start gates migrated; current L3 pending exact-head XY-C1
+### P1 process inventory / service lifecycle — tri-state foundation L2 VERIFIED; strict PID identity migration extended through PPPD/udhcpc/INICD and VPN/WAN/LAN/USB stop gates; xl2tpd and crond UNKNOWN start gates migrated; product-source L3 VERIFIED on be7fd XY-C1 build/TRX/artifact
 
 - Added shared RUNNING / ABSENT / UNKNOWN process snapshots with separately reported count and PID/start_time identity; procfs and memory operations are injectable. Incomplete or failed scans discard partial PID lists and return UNKNOWN. `pids_main()` reports UNKNOWN as an error; legacy `pids()` is intentionally unchanged until all direct callers are migrated.
 - Central `kill_services()` now preflights the configured service-name set before TERM, rescans before first signal, validates identities before each signal, and signals captured PIDs rather than executing name-wide `killall`. UNKNOWN/changed/timeout/failure does not report STOPPED.

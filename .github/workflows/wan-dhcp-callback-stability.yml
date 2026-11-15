@@ -789,5 +789,24 @@ jobs:
           ):
               assert marker in native_start, f"native IPv6 operation not status-gated: {marker}"
 
-          print("WAN DHCP callback ordering and rollback contracts: PASS")
+          # The dynamic IPTV client launchers return status, so a failed
+          # udhcpc/zcip exec reaches start_wan()'s existing failure logger.
+          viptv_start = body(source, "launch_viptv_wan(void)")
+          zcip_launch = "ret = start_zcip_viptv(viptv_ifname);"
+          dhcp_launch = "ret = start_udhcpc_viptv(viptv_ifname);"
+          assert zcip_launch in viptv_start
+          assert dhcp_launch in viptv_start
+          assert viptv_start.index(zcip_launch) < viptv_start.index("return ret;")
+          assert viptv_start.index(dhcp_launch) < viptv_start.index("return ret;")
+          assert "start_zcip_viptv(viptv_ifname);\\n" not in viptv_start
+          assert "start_udhcpc_viptv(viptv_ifname);\\n" not in viptv_start
+
+          wan_start = body(source, "void" + chr(10) + "start_wan(void)")
+          launch_call = "vlan_result = launch_viptv_wan();"
+          launch_error = 'logmessage(LOGNAME, "IPTV VLAN or service setup incomplete (error=%d)", vlan_result);'
+          assert launch_call in wan_start
+          assert launch_error in wan_start
+          assert wan_start.index(launch_call) < wan_start.index(launch_error) < wan_start.index("config_apcli_wisp();")
+
+          print("WAN DHCP callback ordering, rollback and IPTV client launch-status contracts: PASS")
           PY

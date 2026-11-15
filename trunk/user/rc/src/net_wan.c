@@ -1369,12 +1369,12 @@ launch_viptv_wan(void)
 			logmessage(LOGNAME, "%s %s (%s)", "IPTV MAN", "up", viptv_ifname);
 		return ret;
 	} else if (viptv_mode == 1) {
-		start_zcip_viptv(viptv_ifname);
+		ret = start_zcip_viptv(viptv_ifname);
 	} else {
-		start_udhcpc_viptv(viptv_ifname);
+		ret = start_udhcpc_viptv(viptv_ifname);
 	}
 
-	return 0;
+	return ret;
 }
 
 static void

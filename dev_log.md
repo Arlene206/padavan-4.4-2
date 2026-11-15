@@ -1,3 +1,13 @@
+## 2026-11-15 — Propagate IPTV DHCP and ZeroConf launcher status through WAN startup
+
+- In `launch_viptv_wan()`, the dynamic IPTV modes previously discarded the nonzero return from `start_udhcpc_viptv()` / `start_zcip_viptv()` and always returned 0. The existing `start_wan()` caller already logs nonzero `launch_viptv_wan()` results, so launch/exec failures were silently reported as successful IPTV startup.
+- Propagated each selected client's status through `ret` and returned it to the existing caller. DHCP-versus-ZeroConf selection and static IPTV startup remain unchanged.
+- Extended the WAN DHCP callback workflow source-contract regression to require both result assignments, the returned result and the caller's error log.
+- Parent main: `2199bdb463da98d26289f819baa407e9feec97b1`. Exact-parent Process #43747014935, AI handoff docs #43747014985 and NVRAM #43747014966 PASS. Product-source-identical XY-C1 #43746522702 on be7fd completed Build, TRX verification and artifact upload successfully. The new source commit's exact-head WAN/XY Actions must still be checked.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; no physical-router/L4 result is claimed.
+
+---
+
 ## 2026-11-15 — Accept typed process-state argument in MiniDLNA shared logger contract
 
 - Exact 30e Process run #43746805300 passed the IGMP proxy atomic configuration host regression (step 19) and other host checks, then failed at the MiniDLNA integration assertion. Production run_dms() passes process_state as an explicit (enum process_presence) cast to storage_log_daemon_start_result(); the checker expected the same call without the cast.
