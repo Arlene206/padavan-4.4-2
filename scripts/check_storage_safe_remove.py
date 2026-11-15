@@ -511,8 +511,10 @@ require("BZCAT_STATUS=2" in mtd_storage_load_test and
         "TAR_FAIL=1" in mtd_storage_load_test and
         "MV_FAIL_AT=2" in mtd_storage_load_test and
         "partial-extract.conf" in mtd_storage_load_test and
-        "BUSYBOX_BIN=" in mtd_storage_load_test,
-        "MTD load fixture must cover decompression, extraction, rollback, ash and success")
+        'if [ -n "${BUSYBOX_BIN:-}" ]; then' in mtd_storage_load_test and
+        '"$BUSYBOX_BIN" ash "$sandbox/mtd_storage.sh" load' in mtd_storage_load_test and
+        'BUSYBOX_BIN="$busybox_bin" sh trunk/user/scripts/tests/mtd_storage_load_transaction.sh' in workflow,
+        "MTD load fixture must cover decompression, extraction, rollback, BusyBox ash and success")
 
 writer = body(rc, "write_storage_to_mtd(void)")
 require('return doSystem("/sbin/mtd_storage.sh %s", "save");' in writer and

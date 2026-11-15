@@ -1,3 +1,11 @@
+## 2026-11-15 — Correct the MTD-load regression source contract
+
+- Exact-head storage-hotplug #43688365428 on `dbfcdaba996473dd135c93c574c88f02f6f3bcf0` passed script syntax, MTD save retry, restore staging/rollback, both POSIX-shell and BusyBox 1.24.2 ash load transaction fixtures, policy tests and the storage caller graph. The final standalone checker failed because it expected a literal `BUSYBOX_BIN=` assignment inside the fixture, although the fixture correctly reads `${BUSYBOX_BIN:-}` and the workflow supplies the environment variable.
+- Corrected the source contract to verify the fixture's environment lookup and ash dispatch plus the workflow's explicit `BUSYBOX_BIN="$busybox_bin"` invocation. The regression cases and workflow execution are unchanged; this is not a test bypass.
+- Changed paths: `scripts/check_storage_safe_remove.py`, `SESSION_HANDOFF.md`, `dev_log.md`. Parent: `dbfcdaba996473dd135c93c574c88f02f6f3bcf0`; resulting SHA: THIS COMMIT. Fresh exact-head Actions pending. No local checkout/test, MIPS build or hardware result is claimed.
+- Next: harden `func_backup()` and HTTPD `do_storage_file()` so failed/partial archives cannot be streamed as valid configuration downloads.
+
+---
 ## 2026-11-15 — Make boot-time MTD load transactional
 
 - Traced early boot: `dev_init.sh` creates `/etc/storage` and runs MTD load before defaults and the user start script. Old `func_load()` ignored decompression/extraction status, accepted partial output, advanced MD5 before extraction and unpacked over live data.
