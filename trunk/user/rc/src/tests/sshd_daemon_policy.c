@@ -3,6 +3,14 @@
 
 #include "sshd_daemon_policy.h"
 
+static void test_direct_start_requires_confirmed_absence(void)
+{
+	assert(sshd_start_allowed(PROCESS_PRESENCE_ABSENT));
+	assert(!sshd_start_allowed(PROCESS_PRESENCE_RUNNING));
+	assert(!sshd_start_allowed(PROCESS_PRESENCE_UNKNOWN));
+	assert(!sshd_start_allowed((enum process_presence)9));
+}
+
 static void test_stop_failure_blocks_start(void)
 {
 	assert(!sshd_restart_can_start(-1, PROCESS_PRESENCE_ABSENT));
@@ -40,6 +48,7 @@ static void test_firewall_refresh_policy(void)
 
 int main(void)
 {
+	test_direct_start_requires_confirmed_absence();
 	test_stop_failure_blocks_start();
 	test_running_or_unknown_blocks_start();
 	test_confirmed_absence_allows_start();

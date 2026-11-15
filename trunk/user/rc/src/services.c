@@ -453,12 +453,25 @@ int stop_sshd(void)
 int start_sshd(void)
 {
 	int sshd_mode = nvram_get_int("sshd_enable");
+	enum process_presence state;
+	int scan_error = 0;
+
+	if (sshd_mode != 1 && sshd_mode != 2)
+		return 0;
+
+	state = sshd_process_presence(&scan_error);
+	if (state == PROCESS_PRESENCE_RUNNING)
+		return 0;
+	if (!sshd_start_allowed(state)) {
+		errno = scan_error > 0 ? scan_error : EIO;
+		logmessage(LOGNAME, "SSH start aborted: process inventory unknown (errno=%d)",
+			   errno);
+		return -1;
+	}
 
 	if (sshd_mode == 2)
 		return eval("/usr/bin/sshd.sh", "start", "-s");
-	else if (sshd_mode == 1)
-		return eval("/usr/bin/sshd.sh", "start");
-	return 0;
+	return eval("/usr/bin/sshd.sh", "start");
 }
 
 int restart_sshd(void)
