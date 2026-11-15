@@ -171,9 +171,11 @@ require(flash_gate < flash.index("storage_save_time(") < flash.index("write_stor
 shutdown = body(rc, "shutdown_router(int level)")
 require("misc_stop_status = stop_misc();" in shutdown and
         "service_stop_status = stop_services(use_halt);" in shutdown and
-        "printer_stop_status = stop_usb_printer_spoolers();" in shutdown,
+        "printer_stop_status = stop_usb_printer_spoolers();" in shutdown and
+        "lan_wan_stop_status = stop_services_lan_wan();" in shutdown,
         "shutdown must collect all checked service-stop results")
-require("service shutdown incomplete; continuing system power-down" in shutdown,
+require("service shutdown incomplete; continuing system power-down" in shutdown and
+        "LAN/WAN service shutdown incomplete; continuing power-down without storage persistence" in shutdown,
         "safe reboot/halt must proceed even when daemon stop fails")
 shutdown_gate = shutdown.index("storage_remove_status = safe_remove_all_stor_devices(use_halt)")
 persist_gate = shutdown.index("if (storage_remove_status == 0 && misc_stop_status == 0")

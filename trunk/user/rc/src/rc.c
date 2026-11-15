@@ -921,6 +921,7 @@ shutdown_router(int level)
 	int is_ap_mode = get_ap_mode();
 	int storage_remove_status = 0;
 	int misc_stop_status, service_stop_status = 0, printer_stop_status = 0;
+	int lan_wan_stop_status = 0;
 	const char *script_name = SCRIPT_SHUTDOWN;
 
 	/* Prevent a late Optware start hook from racing service shutdown. */
@@ -954,15 +955,17 @@ shutdown_router(int level)
 
 	stop_wan();
 	if (level < 2) {
-		if (stop_services_lan_wan() != 0)
-			logmessage(LOGNAME, "LAN/WAN service shutdown incomplete; continuing system power-down");
+		lan_wan_stop_status = stop_services_lan_wan();
+		if (lan_wan_stop_status != 0)
+			logmessage(LOGNAME, "LAN/WAN service shutdown incomplete; continuing power-down without storage persistence");
 		set_ipv4_forward(0);
 	}
 
 	LED_CONTROL(LED_WAN, LED_OFF);
 
 	if (storage_remove_status == 0 && misc_stop_status == 0 &&
-	    service_stop_status == 0 && printer_stop_status == 0) {
+	    service_stop_status == 0 && printer_stop_status == 0 &&
+	    lan_wan_stop_status == 0) {
 		storage_save_time(10);
 		write_storage_to_mtd();
 	} else {
