@@ -158,6 +158,10 @@ jobs:
           # Restart APIs must preserve launcher failures from their start phase.
           # The start entry point also serves boot startup, so disabled daemons are
           # successful no-ops rather than failed starts.
+          services_once = function_body(services, "start_services_once(int is_ap_mode)")
+          assert "int ttyd_start_status = start_ttyd();" in services_once
+          assert "if (ttyd_start_status != 0)" in services_once
+          assert '"ttyd boot startup failed (status=%d)"' in services_once
           for name, launcher in (
               ("ttyd", 'eval("/usr/bin/ttyd.sh","start")'),
               ("ss", 'eval("/usr/bin/shadowsocks.sh","start")'),

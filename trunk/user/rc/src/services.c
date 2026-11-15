@@ -1307,7 +1307,11 @@ start_services_once(int is_ap_mode)
 	start_dnsforwarder();
 #endif
 #if defined(APP_TTYD)
-	start_ttyd();
+	{
+		int ttyd_start_status = start_ttyd();
+		if (ttyd_start_status != 0)
+			logmessage(LOGNAME, "ttyd boot startup failed (status=%d)", ttyd_start_status);
+	}
 #endif
 #if defined(APP_VLMCSD)
 	start_vlmcsd();
