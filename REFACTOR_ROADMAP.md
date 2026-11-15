@@ -1,9 +1,10 @@
 ## Current source / CI checkpoint
 
-- Parent main for the current LLTD/rstats startup diagnostic slice: `022bc51507ca5f395c60a1f450cc461bf5403926`; this atomic change updates `services.c`, the process-lifecycle semantic source checker, and live handoff/roadmap/log.
-- Exact parent `022bc51507ca5f395c60a1f450cc461bf5403926` passed process lifecycle #43732981693, HTTPD security #43732981614, AI docs #43732981749, process inventory #43732981821, infosvr #43732981611, AdGuardHome #43732981580, FRP #43732981591, AliDDNS #43732981623, AliyunDrive #43732981731 and NVRAM #43732981609. XY-C1 #43732981606 was still building; no current-source L3 claim.
-- LPD PID/start_time identity hardening is source-contract green on 022bc after its earlier wrapped-call assertion correction. No MIPS/TRX evidence for that later source yet.
-- This slice adds LLTD/rstats failure logs without changing disabled return-1 behavior. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only; physical L4 NOT VERIFIED.
+- Current main source SHA: `32e10009d28e4d37013b5defbdc526d7e9aa5063` (LLTD/rstats boot launch failure diagnostics), parent `022bc51507ca5f395c60a1f450cc461bf5403926`. Process-lifecycle checker has new enabled/disabled sentinel contracts; exact-head run results are pending.
+- Parent 022bc had process-lifecycle #43732981693, HTTPD #43732981614, AI docs #43732981749, process inventory #43732981821, infosvr #43732981611, AdGuardHome #43732981580, FRP #43732981591, AliDDNS #43732981623, AliyunDrive #43732981731 and NVRAM #43732981609 PASS. XY-C1 #43732981606 remained in progress; no L3 claim.
+- AI docs on 32e (#43733575878) failed because the updated handoff omitted the exact required "Before context exhaustion" phrase; this follow-up restores the wording. Poll exact-head reruns.
+- LPD PID/start_time source-contract correction is green on parent 022bc. Networkmap, watchdog, infosvr and GPIO logging predate 32e; this source adds LLTD/rstats logs without changing disabled return-1 behavior.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` stays read-only; physical-router L4 NOT VERIFIED.
 
 ## Whole-repository module status
 

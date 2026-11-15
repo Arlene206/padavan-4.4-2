@@ -1,3 +1,10 @@
+## 2026-11-15 — Restore required cross-session handoff checkpoint wording
+
+- AI handoff documentation run #43733575878 on exact SHA `32e10009d28e4d37013b5defbdc526d7e9aa5063` failed because the refreshed `SESSION_HANDOFF.md` checkpoint did not contain the required literal `Before context exhaustion`. No source or test failure was reported by this documentation job.
+- Restored the explicit end-of-session checkpoint phrase and synchronized the live roadmap with the 32e source SHA. Exact-head AI docs rerun is required.
+- Parent main: `32e10009d28e4d37013b5defbdc526d7e9aa5063`; resulting SHA: THIS COMMIT.
+
+---
 ## 2026-11-15 — Report enabled LLTD and rstats boot launcher failures
 
 - `start_services_once()` invokes LLTD/rstats starts but discards their return values. Both wrappers returned direct `eval()` status without a diagnostic, so failed enabled launches were silent.

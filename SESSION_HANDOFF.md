@@ -1,6 +1,6 @@
 # Cross-session execution mandate (read before resuming)
 
-Recover live state once, then continue the exact P1 task. Do not repeat completed audits, stop at a plan, or ask the user to select work. Continue independent engineering while CI is pending.
+Recover live state once, then continue the exact P1 task. Do not repeat completed audits, stop at a plan, or ask the user to select work. Continue independent engineering while CI is pending. Before context exhaustion, refresh the exact first action and verification boundary so the next GPT can resume without repeating completed work.
 
 **Mandatory handoff checkpoint:** Verify before ending that this file accurately records the meaningful source baseline, active task, relevant exact-head Actions, validation boundary, blockers and exact first action. The checkpoint is mandatory; a document edit is conditional.
 
@@ -8,7 +8,7 @@ For each multi-file logical slice, publish source, tests/contracts and necessary
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; work continues on `main`. Parent for this LLTD/rstats startup diagnostic slice: `022bc51507ca5f395c60a1f450cc461bf5403926`; resulting SHA is this atomic changeset.
+- Repository `Arlene206/padavan-4.4-2`; work continues on `main`. LLTD/rstats startup diagnostic source commit: `32e10009d28e4d37013b5defbdc526d7e9aa5063` (parent `022bc51507ca5f395c60a1f450cc461bf5403926`).
 - Boot diagnostics are present for networkmap, watchdog, infosvr and GPIO; this slice adds enabled-start failure diagnostics for LLTD and rstats while preserving each disabled-setting return-1 sentinel.
 - LPD printer-removal PID identity hardening landed in `72ce1bb97323d4c417e8a5d891bbaf9c6ed3f2f3`; source-contract formatting correction is `022bc51507ca5f395c60a1f450cc461bf5403926`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. No local checkout/MIPS toolchain or physical-router L4 result is claimed.
@@ -23,15 +23,16 @@ For each multi-file logical slice, publish source, tests/contracts and necessary
 - After exact-head checks, continue auditing remaining optional starts (SCUT, vlmcsd, iperf3 and DNS forwarder) with their shell scripts/feature guards; do not duplicate diagnostics already emitted downstream.
 
 ## Verification boundary
+- AI handoff docs #43733575878 FAILED at the required cross-session handoff phrase because the replacement checkpoint omitted the literal `Before context exhaustion`; this documentation-only follow-up restores the rule. Other exact-head 32e workflow results are to be polled; no inference from PENDING jobs.
 
-- Exact parent SHA `022bc51507ca5f395c60a1f450cc461bf5403926`: process-lifecycle regression #43732981693 PASS; HTTPD security #43732981614 PASS; AI handoff docs #43732981749 PASS; process inventory #43732981821 PASS; infosvr #43732981611 PASS; AdGuardHome #43732981580 PASS; FRP #43732981591 PASS; AliDDNS #43732981623 PASS; AliyunDrive #43732981731 PASS; NVRAM transaction audit #43732981609 SUCCESS.
+- Exact source SHA `32e10009d28e4d37013b5defbdc526d7e9aa5063`: process-lifecycle checker now includes LLTD/rstats status contracts; exact-head run results are pending. Parent `022bc51507ca5f395c60a1f450cc461bf5403926` had process-lifecycle regression #43732981693 PASS; HTTPD security #43732981614 PASS; AI handoff docs #43732981749 PASS; process inventory #43732981821 PASS; infosvr #43732981611 PASS; AdGuardHome #43732981580 PASS; FRP #43732981591 PASS; AliDDNS #43732981623 PASS; AliyunDrive #43732981731 PASS; NVRAM transaction audit #43732981609 SUCCESS.
 - XY-C1 #43732981606 on SHA `022bc51507ca5f395c60a1f450cc461bf5403926` remained IN_PROGRESS at Build XY-C1; TRX verification/artifact upload not yet complete. No L3 claim until all succeed on the exact source SHA.
 - LPD source SHA `72ce1bb97323d4c417e8a5d891bbaf9c6ed3f2f3` initially failed only at wrapped-call substring contracts. The one-line formatting correction in 022bc was verified by process lifecycle #43732981693 and HTTPD #43732981614 PASS; AI docs #43732981749 PASS.
 - Prior L3 evidence at product SHA `30c5b48ba8a8e996d13548280a54a9b7f5dbda7a` does not apply to later source changes. Physical-router L4 is NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head XY-C1 Build, TRX verification and artifact upload triggered by this LLTD/rstats source change; inspect process-lifecycle and AI docs runs on the exact commit too.
+1. Check exact-head process-lifecycle regression, AI handoff and XY-C1 for `32e10009d28e4d37013b5defbdc526d7e9aa5063`; repair any causal failure. Require Build XY-C1, TRX verification and artifact upload before any L3 claim.
 2. Continue the boot launcher audit with SCUT, vlmcsd, iperf3 and DNS forwarder, tracing feature guards and script-level diagnostics before adding logs.
 3. Keep main commits atomic using a complete Git tree and expected-SHA non-forced ref update. Keep backup unchanged.
 
