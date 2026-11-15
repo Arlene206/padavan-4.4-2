@@ -1,3 +1,13 @@
+## 2026-11-15 — Align physical WAN diagnostic source contract
+
+- Exact 7a28 WAN callback #43752014770 passed all six GNU89 compile/run policy regressions and earlier source assertions, then failed because the final count still expected the old `WAN physical DHCP/ZeroConf client launch incomplete` message.
+- The 524601f source deliberately renamed both physical WAN caller diagnostics to `WAN physical interface setup incomplete`, covering DHCP/ZeroConf spawn and static interface setup failures. Updated only the expected message count; the two-call-site requirement remains.
+- Exact AI docs #43752014837 PASS and Process lifecycle #43752014758 PASS. XY-C1 #43751765026 for product source 524601f remained IN_PROGRESS at the last poll; Build/TRX/artifact pending.
+- Parent main: `7a28a32006f86fe47eca89567ba78a13f51b750b`; frozen backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Next source task after verification: trace `man_up_internal()` route-status propagation and rollback.
+
+---
+
 ## 2026-11-15 — Align WAN wait-delay contract with source guard
 
 - Exact 524 WAN callback #43751765114 passed the preceding C regressions and the new static-address/PPP abort checks, then failed on the older assertion requiring literal `if (wait_dhcpc)`. The source intentionally changed this to `if (wait_dhcpc && launch_status == 0)` so a failed DHCP exec does not waste the two-second wait.
