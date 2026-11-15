@@ -1687,9 +1687,9 @@ jobs:
           assert 'read_exact(set_first, "old-one\\n")' in test
           assert 'read_exact(set_second, "old-two\\n")' in test
           assert 'read_exact(set_third, "commit-three\\n")' in test
-          assert 'destinations[2] = "/tmp/hosts.static";' in service
-          assert "dnsmasq_file_publish(staged_fp, staged_paths[i]," in service
-          assert "destinations[i], 0644)" in service
+          assert 'destinations[2] = "/tmp/hosts.static";' in static_hosts_body
+          assert 'dnsmasq_file_publish_set(fp, staged_paths, destinations, backup_paths,' in static_hosts_body
+          assert 'ARRAY_SIZE(fp), 0644)' in static_hosts_body
           assert 'fp = dnsmasq_file_open(servers_path);' in service
           assert 'dnsmasq_file_publish(fp, servers_path, DNS_SERVERS_FILE, 0644)' in service
           assert 'dnsmasq_lease_file_ensure(DHCPD_LEASE_FILE)' in service
