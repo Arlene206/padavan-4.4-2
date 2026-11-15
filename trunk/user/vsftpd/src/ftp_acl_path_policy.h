@@ -506,11 +506,17 @@ ftp_acl_path_resolve_write_entry(const char *path, char *resolved_parent,
 {
   char target[PATH_MAX], parent[PATH_MAX];
   struct stat st;
-  int lstat_result, saved_errno;
+  int saved_errno;
   if (!path || !*path || !resolved_parent || resolved_size < PATH_MAX ||
       !leaf || leaf_size == 0 || !cleanup_allowed ||
       ftp_acl_path_is_internal_metadata(path) || strlen(path) >= PATH_MAX)
     return -1;
+
+  /*
+   * Path preflight never authorizes rollback: the leaf may be created or
+   * replaced between this check and openat(). Only a successful O_EXCL
+   * creation on the pinned parent can make a failed upload cleanup-eligible.
+   */
   *cleanup_allowed = 0;
   if (realpath(path, target) != NULL) {
     if (ftp_acl_path_is_internal_metadata(target) ||
@@ -518,11 +524,9 @@ ftp_acl_path_resolve_write_entry(const char *path, char *resolved_parent,
                                  leaf, leaf_size) != 0 ||
         realpath(parent, resolved_parent) == NULL)
       return -1;
-    lstat_result = lstat(path, &st);
-    if (lstat_result == 0 && !S_ISLNK(st.st_mode))
-      *cleanup_allowed = 1;
     return 0;
   }
+
   saved_errno = errno;
   if (saved_errno != ENOENT || lstat(path, &st) == 0 || errno != ENOENT)
     return -1;
@@ -530,8 +534,52 @@ ftp_acl_path_resolve_write_entry(const char *path, char *resolved_parent,
                                leaf, leaf_size) != 0 ||
       realpath(parent, resolved_parent) == NULL)
     return -1;
-  *cleanup_allowed = 1;
   return 0;
+}
+
+/*
+ * Open an upload target while recording whether this session actually
+ * created the leaf. Existing STOR targets are opened without O_CREAT, so a
+ * failed upload can never mistake a pre-existing file for a rollback target.
+ */
+static int
+ftp_acl_path_open_upload_entry(int dir_fd, const char *leaf, int exclusive,
+                               mode_t mode, int *cleanup_allowed)
+{
+  int file_fd;
+  int flags;
+
+  if (dir_fd < 0 || !leaf || !*leaf || strchr(leaf, '/') ||
+      strcmp(leaf, ".") == 0 || strcmp(leaf, "..") == 0 ||
+      ftp_acl_path_is_internal_metadata(leaf) || !cleanup_allowed) {
+    errno = EINVAL;
+    return -1;
+  }
+
+  *cleanup_allowed = 0;
+  flags = O_WRONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC;
+  if (exclusive) {
+    file_fd = openat(dir_fd, leaf,
+                     flags | O_CREAT | O_EXCL | O_APPEND, mode);
+    if (file_fd >= 0)
+      *cleanup_allowed = 1;
+    return file_fd;
+  }
+
+  /*
+   * Atomically distinguish a new leaf from an existing STOR target. If
+   * another entry already exists, reopen it without O_CREAT and never mark
+   * it for cleanup.
+   */
+  file_fd = openat(dir_fd, leaf, flags | O_CREAT | O_EXCL, mode);
+  if (file_fd >= 0) {
+    *cleanup_allowed = 1;
+    return file_fd;
+  }
+  if (errno != EEXIST)
+    return -1;
+
+  return openat(dir_fd, leaf, flags, mode);
 }
 
 /*

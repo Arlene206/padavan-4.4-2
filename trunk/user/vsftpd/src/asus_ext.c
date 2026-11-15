@@ -626,7 +626,7 @@ asus_open_upload_path(struct vsf_session* p_sess,
                       unsigned int leaf_size, int* p_cleanup_allowed)
 {
   char resolved_parent[PATH_MAX];
-  int parent_fd, file_fd, flags, saved_errno;
+  int parent_fd, file_fd, saved_errno;
   if (!p_sess || !p_path_str || !p_parent_fd || !p_leaf ||
       leaf_size == 0 || !p_cleanup_allowed) {
     errno = EINVAL;
@@ -662,10 +662,9 @@ asus_open_upload_path(struct vsf_session* p_sess,
     errno = saved_errno;
     return -1;
   }
-  flags = O_WRONLY | O_NONBLOCK | O_CREAT | O_NOFOLLOW | O_CLOEXEC;
-  if (exclusive)
-    flags |= O_EXCL | O_APPEND;
-  file_fd = openat(parent_fd, p_leaf, flags, mode);
+  file_fd = ftp_acl_path_open_upload_entry(parent_fd, p_leaf,
+                                                   exclusive, (mode_t)mode,
+                                                   p_cleanup_allowed);
   if (file_fd < 0) {
     saved_errno = errno;
     close(parent_fd);

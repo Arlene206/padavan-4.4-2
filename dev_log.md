@@ -1,3 +1,12 @@
+## 2026-11-15 — Prevent failed FTP uploads from deleting existing files
+
+- `ftp_acl_path_resolve_write_entry()` incorrectly marked an existing regular file cleanup-eligible. With `delete_failed_uploads=YES`, an interrupted non-exclusive STOR could unlink the pre-existing destination.
+- Moved cleanup authorization to the successful `openat(O_CREAT|O_EXCL)` operation. Non-exclusive STOR now atomically creates a missing leaf or reopens an existing leaf without `O_CREAT`; only the session that won the exclusive create can roll back its partial file. Unique uploads retain exclusive-create semantics.
+- Added host coverage for existing-file preservation, newly-created partial-file rollback, and duplicate STOU rejection, plus static source contracts.
+- Parent main: `e3b14c7a0f3f5a3bb247489e4a8626044bc2739b`; exact-head vsftpd regression and XY-C1 build/TRX/artifact validation required.
+
+---
+
 ## 2026-11-15 — Fail closed on incomplete storage mount-link inventory
 
 - `create_mp_link()` accepted the first matching `/proc/mounts` entry, ignored malformed/truncated records and did not check `ferror()` or `fclose()`; a later inventory failure could still return a usable link to a storage-backed daemon.
