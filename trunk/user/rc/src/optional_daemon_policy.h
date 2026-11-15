@@ -4,6 +4,13 @@
 #include "process_inventory.h"
 
 /* Never report a successful stop or start a replacement on UNKNOWN. */
+/* Only a complete inventory confirming ABSENT permits a daemon start. */
+static inline int
+optional_daemon_start_allowed(enum process_presence state)
+{
+	return state == PROCESS_PRESENCE_ABSENT;
+}
+
 static inline int
 optional_daemon_stop_complete(int command_status, enum process_presence state)
 {

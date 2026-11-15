@@ -5,6 +5,11 @@
 
 int main(void)
 {
+	assert(optional_daemon_start_allowed(PROCESS_PRESENCE_ABSENT));
+	assert(!optional_daemon_start_allowed(PROCESS_PRESENCE_RUNNING));
+	assert(!optional_daemon_start_allowed(PROCESS_PRESENCE_UNKNOWN));
+	assert(!optional_daemon_start_allowed((enum process_presence)9));
+
 	assert(optional_daemon_stop_complete(0, PROCESS_PRESENCE_ABSENT) == 0);
 	assert(optional_daemon_stop_complete(-1, PROCESS_PRESENCE_ABSENT) == -1);
 	assert(optional_daemon_stop_complete(-7, PROCESS_PRESENCE_RUNNING) == -7);

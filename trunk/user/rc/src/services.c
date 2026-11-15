@@ -61,6 +61,24 @@ optional_daemon_presence(const char *process_name, int *scan_error)
 }
 
 static int
+optional_daemon_start_status(const char *service_name, const char *process_name)
+{
+	enum process_presence presence;
+	int scan_error = 0;
+
+	presence = optional_daemon_presence(process_name, &scan_error);
+	if (optional_daemon_start_allowed(presence))
+		return 0;
+	if (presence == PROCESS_PRESENCE_RUNNING)
+		return 1;
+
+	errno = scan_error > 0 ? scan_error : EIO;
+	logmessage(LOGNAME, "%s start aborted: process inventory unknown (errno=%d)",
+		   service_name, errno);
+	return -1;
+}
+
+static int
 optional_daemon_stop_status(const char *service_name, const char *process_name,
 			    int command_status)
 {
@@ -492,7 +510,18 @@ int stop_scutclient(void)
 int start_scutclient(void)
 {
 	int mode = nvram_get_int("scutclient_enable");
-	return mode == 1 ? eval("/usr/bin/scutclient.sh", "start") : 0;
+	int start_status;
+
+	if (mode != 1)
+		return 0;
+
+	start_status = optional_daemon_start_status("scutclient", "bin_scutclient");
+	if (start_status > 0)
+		return 0;
+	if (start_status < 0)
+		return start_status;
+
+	return eval("/usr/bin/scutclient.sh", "start");
 }
 
 int restart_scutclient(void)
@@ -521,7 +550,18 @@ int stop_mentohust(void)
 int start_mentohust(void)
 {
 	int mode = nvram_get_int("mentohust_enable");
-	return mode == 1 ? eval("/usr/bin/mentohust.sh", "start") : 0;
+	int start_status;
+
+	if (mode != 1)
+		return 0;
+
+	start_status = optional_daemon_start_status("mentohust", "bin_mentohust");
+	if (start_status > 0)
+		return 0;
+	if (start_status < 0)
+		return start_status;
+
+	return eval("/usr/bin/mentohust.sh", "start");
 }
 
 int restart_mentohust(void)
@@ -631,7 +671,18 @@ int stop_vlmcsd(void)
 int start_vlmcsd(void)
 {
 	int mode = nvram_get_int("vlmcsd_enable");
-	return mode == 1 ? eval("/usr/bin/vlmcsd.sh", "start") : 0;
+	int start_status;
+
+	if (mode != 1)
+		return 0;
+
+	start_status = optional_daemon_start_status("vlmcsd", "vlmcsd");
+	if (start_status > 0)
+		return 0;
+	if (start_status < 0)
+		return start_status;
+
+	return eval("/usr/bin/vlmcsd.sh", "start");
 }
 
 int restart_vlmcsd(void)
@@ -659,7 +710,18 @@ int stop_iperf3(void)
 int start_iperf3(void)
 {
 	int mode = nvram_get_int("iperf3_enable");
-	return mode == 1 ? eval("/usr/bin/iperf3.sh", "start") : 0;
+	int start_status;
+
+	if (mode != 1)
+		return 0;
+
+	start_status = optional_daemon_start_status("iperf3", "iperf3");
+	if (start_status > 0)
+		return 0;
+	if (start_status < 0)
+		return start_status;
+
+	return eval("/usr/bin/iperf3.sh", "start");
 }
 
 int restart_iperf3(void)

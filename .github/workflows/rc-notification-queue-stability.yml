@@ -166,6 +166,17 @@ jobs:
               assert "return start_" + daemon + "();" in services
               assert "int start_" + daemon + "(void);" in rc_header
           assert "optional_daemon_stop_complete(command_status, presence)" in services
+          assert "optional_daemon_start_allowed(presence)" in services
+          for daemon, process in (
+              ("scutclient", "bin_scutclient"),
+              ("mentohust", "bin_mentohust"),
+              ("vlmcsd", "vlmcsd"),
+              ("iperf3", "iperf3"),
+          ):
+              start_body = function_body(services, "int start_" + daemon + "(void)")
+              assert 'optional_daemon_start_status("' + daemon + '", "' + process + '")' in start_body
+              assert "return start_status;" in start_body
+
           assert "PROCESS_PRESENCE_ABSENT" in optional_policy
           assert "PROCESS_PRESENCE_UNKNOWN" in optional_test
 
