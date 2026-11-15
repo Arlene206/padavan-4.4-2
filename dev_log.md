@@ -1,3 +1,11 @@
+## 2026-11-15 — Make Aria staged config filename process-unique
+
+- Review of the just-committed Aria staging change found the JS-generated literal had collapsed the shell PID expansion from $$ to a single trailing dollar. That would have made the temporary name constant across concurrent starts.
+- Corrected the assignment to CONFIG_TMP="${FILE_CONF}.tmp.$$" so concurrent invocations get distinct same-directory staging files.
+- Parent main: 755e8c711f1becc9a33c369f156d7b66def904cb; the Aria config write/rename fault-injection checks are present but await exact-head storage CI. Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+
+---
+
 ## 2026-11-15 — Stage Aria default config and fail closed on setup errors
 
 - Aria previously ignored config-directory/session-list/download-directory creation, permission, and default-config creation/publication failures, then could launch with missing or incomplete state.

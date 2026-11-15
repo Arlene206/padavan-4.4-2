@@ -8,7 +8,7 @@
 ### P1 — Storage service startup result propagation
 
 - Transmission/Aria explicitly return daemon launch success/failure independent of logger exit status (eddf9aac; host/BusyBox ash CI PASS).
-- Aria checks config/session/download path preparation and required permissions/ownership; default config writes to same-directory temp, checks write and atomic rename, cleans and aborts before daemon launch on failure. New fault-injection tests target cat and mv failures.
+- Aria checks config/session/download path preparation and required permissions/ownership; default config writes to a PID-qualified same-directory temp, checks write and atomic rename, cleans and aborts before daemon launch on failure. New fault-injection tests target cat and mv failures.
 - Next separately inspect Transmission settings generation and other setup failures before daemon launch.
 
 ### P1 — WAN startup status propagation
