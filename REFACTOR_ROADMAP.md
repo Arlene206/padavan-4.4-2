@@ -1,33 +1,18 @@
 ## Current source / CI checkpoint
 
-- Parent main for this repair: 4d2afeddba949b77dcbe1a8f6f950e9093438910; frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- Exact parent USB storage #43765741973 failed at the launcher regression because optional argument $6 was read unconditionally under set -u. Exact parent AI handoff docs #43765741952 failed because root dev_log.md reached 120 records. This commit fixes the test default and performs the required 100-record archive rotation.
-- Parent XY-C1 #43765742001 was still in progress at last check. This commit changes Transmission shell source and should trigger a new XY-C1 validation because the workflow now watches trunk/user/transmission/transmission.sh. No current L3 for this source SHA and no L4.
-- Exact parent checks passed: AliDDNS #43765742065, infosvr #43765742025, AdGuardHome #43765742019, NVRAM #43765741983, AliyunDrive #43765741945, Process inventory #43765741935 and Process lifecycle #43765741927.
-- Aria's PID-qualified config stage and two-phase concurrency markers remain verified by earlier exact-head storage runs. Transmission fails closed on required directory and permission/ownership failures and checks the generated settings umask contract.
-- New source fix: settings-stage cleanup is ownership-aware. A noclobber collision leaves an existing path untouched; owned staging files are cleaned after later generator, transform or publication failures. Regression injects a deterministic collision.
-- Log archive rotation: part-011 contains the 100 oldest complete root records in chronological order; root dev_log.md retains 21 newest-first records including this repair. Archive index records exact bytes and Git blob SHA.
+- Parent main for the PID-unique Transmission staging-suffix repair: c0d287c2e1cacbf93dd20dccea9daf39e84d9324; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact parent c0 USB storage run #43767296645 FAILED in the new stage-collision regression: production used `settings.json.tmp. instead of the expected PID-unique `settings.json.tmp.$`, so the fixture did not create a collision and observed an unintended daemon start. THIS COMMIT restores the process-unique suffix; exact-head regression is pending.
+- Exact parent AI handoff docs #43767296578 PASS after the root log was rotated to part-011 (100 records) and retained the newest 21 root records. Existing archive shards/index are preserved.
+- Other exact parent c0 checks passed: Process inventory #43767296590, Process lifecycle #43767296606, infosvr #43767296612, AliDDNS #43767296621, AliyunDrive #43767296670 and AdGuardHome #43767296717. XY-C1 #43767296597 and NVRAM #43767296583 were still running at last inspection.
+- XY-C1 #43765742001 passed Build/TRX/artifact only on source 4d2afeddba949b77dcbe1a8f6f950e9093438910; no later-SHA L3 or L4 claim.
 
 ### P1 — Storage daemon startup and config publication
 
 - Transmission and Aria preserve start-stop-daemon status independently from logger.
 - Transmission checks config/download/incomplete/watch directory creation, watch/root/download chmod and config/incomplete chown before daemon launch. Settings generation validates generator status, nonempty output and required umask 18; sed status and resulting umask 0; same-directory rename; and final regular/nonempty file.
-- Regression cases cover generator failure, empty and missing-umask output, transform and rename failure, required mkdir/chmod/chown failures, inherited CONFIG_TMP cleanup safety, and pre-existing stage collision under host shell and firmware BusyBox 1.24.2 ash.
-- Parent a391 storage #43765111683 passed all host/BusyBox and full storage checks. Parent 4d2 storage #43765741973 failed before the regression body due to an unbound optional test parameter; this is corrected in THIS COMMIT. New exact-head checks are pending.
-- Aria uses PID-unique aria2.conf.tmp.$$ staging and entered.$$/checked.$$ two-phase concurrency markers; retain the existing fault and parallel-start tests.
-
-### P1 — WAN startup status propagation
-
-- Static IPoE address errors fail closed; initial physical interface bring-up checked; AP-client WISP migration guarded; required MAN gateway/default routes gate static MAN PPTP/L2TP.
-- XY-C1 L3 for WAN changes remains scoped to exact C source SHA 401066ebf04c50aaeb1ef47c36feb2ec210a0bc6; no L4.
-
-### P1 — MSD Lite configuration publication
-
-- APP_MSD_LITE configuration uses checked same-directory staged publication with GNU89 ASan/UBSan regression coverage. The non-APP_MSD_LITE /usr/sbin/udpxy fallback was restored in b488a561; exact Process + XY-C1 checks passed for that source revision (L3 only; no L4).
-
-### P2 — IGMP proxy configuration publication
-
-- Same-directory staged publication checks write/flush/fsync/close/rename and preserves last-good config.
+- Staging is process-unique as `settings.json.tmp.$`. `CONFIG_TMP_OWNED` ensures only the current invocation's successfully created stage is deleted on generator/transform/publication failure. The deterministic pre-existing-stage collision regression is present and is now aligned with the production PID suffix.
+- Exact parent a391 storage #43765111683 PASS for host + firmware BusyBox ash preconditions. Exact c0 storage #43767296645 FAIL due to the suffix mismatch above; this commit restores it and requires fresh exact-head validation.
+- Aria uses PID-unique `aria2.conf.tmp.$` staging and `entered.$`/`checked.$` two-phase concurrency markers; retain existing fault and parallel-start tests.
 
 ## Whole-repository module status
 

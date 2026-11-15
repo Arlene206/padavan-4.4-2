@@ -1,3 +1,12 @@
+## 2026-11-16 06:01 Beijing — Restore PID-unique Transmission settings staging
+
+- Exact parent c0 USB storage run #43767296645 failed in the deterministic pre-existing-stage collision test: production had `settings.json.tmp.$` (one dollar), so the fixture's `tmp.$$ ` rewrite did not match and Transmission proceeded to launch.
+- Restored `CONFIG_TMP="${CONFIG_FILE}.tmp.$$"`, preserving per-process staging isolation and making the collision regression exercise the real noclobber ownership path. The production ownership guard continues to remove only files successfully created by this invocation.
+- No local checkout was available to run the shell harness in this session; syntax and behavioral verification are delegated to the exact-head host + firmware BusyBox ash storage workflow. Do not claim L2 before that workflow passes.
+- Parent main: `c0d287c2e1cacbf93dd20dccea9daf39e84d9324`. Exact parent AI handoff docs #43767296578 PASS; parent XY-C1 #43767296597 and NVRAM #43767296583 were pending at last inspection. Exact-head storage and XY-C1 for THIS COMMIT are required. Previous XY-C1 #43765742001 L3 is limited to 4d2 source. No L4.
+
+---
+
 ## 2026-11-16 — Repair Transmission storage regression and protect pre-existing settings stages
 
 - Exact parent 4d2afeddba949b77dcbe1a8f6f950e9093438910 storage run #43765741973 failed before running the first launcher assertion: under set -u, run_transmission_config_failure assigned optional argument $6 without a default. The function now uses a zero default, so existing generator/empty/transform/rename calls remain valid while the missing-umask case can pass 1 explicitly.
