@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 #include "disk_inventory_policy.h"
@@ -33,6 +34,8 @@ main(void)
 	assert(disk_inventory_parse_partition_line("8 1 10 abcdefghijklmnopqrstuvwxyz123456\n", &major, &minor, &blocks, device, sizeof(device)) != 0);
 	assert(disk_inventory_parse_partition_line("8 1 10 sda", &major, &minor, &blocks, device, sizeof(device)) != 0);
 	assert(disk_inventory_parse_partition_line("8 1 10 sda\nextra\n", &major, &minor, &blocks, device, sizeof(device)) != 0);
+	assert(disk_inventory_parse_partition_line("4294967295 4294967295 18446744073709551615 sda\n", &major, &minor, &blocks, device, sizeof(device)) == 1);
+	assert(major == UINT_MAX && minor == UINT_MAX && blocks == ULLONG_MAX);
 	puts("Strict /proc/partitions parser policy: PASS");
 	return 0;
 }

@@ -81,7 +81,10 @@ require("disk_inventory_parse_header_line(line)" in checked and
         "checked inventory must reject malformed headers, rows and truncation")
 require("disk_inventory_parse_decimal" in disk_policy and "UINT_MAX" in disk_policy and "ULLONG_MAX" in disk_policy,
         "procfs numeric fields must be strict decimal values with overflow checks")
-require(" -8 0 10 sda" in disk_policy_test and "18446744073709551616" in disk_policy_test,
+require("1844674407370955161ULL" in disk_policy and "/ 10ULL" not in disk_policy and
+        "/ 10UL" not in disk_policy,
+        "strict disk parsing must avoid division so MIPS libdisk cannot import __udivdi3")
+require(" -8 0 10 sda" in disk_policy_test and "18446744073709551616" in disk_policy_test and "ULLONG_MAX" in disk_policy_test,
         "parser tests must reject signed numbers and integer overflow")
 legacy = body(libdisk, "read_disk_data(void)")
 require("read_disk_data_checked(&disk_info_list)" in legacy and "return disk_info_list;" in legacy,

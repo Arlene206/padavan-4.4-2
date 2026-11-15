@@ -46,12 +46,18 @@ disk_inventory_parse_decimal(const char *token, unsigned long long limit,
 	const unsigned char *p;
 	unsigned long long result = 0;
 	if (!token || !*token || !value) return -1;
+
+	/* Check the 64-bit ceiling before multiply/add. A constant cutoff
+	 * avoids a variable-width division and MIPS libgcc __udivdi3 import. */
 	for (p = (const unsigned char *)token; *p; p++) {
 		unsigned int digit;
 		if (*p < '0' || *p > '9') return -1;
 		digit = (unsigned int)(*p - '0');
-		if (result > (limit - digit) / 10ULL) return -1;
+		if (result > 1844674407370955161ULL ||
+		    (result == 1844674407370955161ULL && digit > 5U))
+			return -1;
 		result = result * 10ULL + digit;
+		if (result > limit) return -1;
 	}
 	*value = result;
 	return 0;

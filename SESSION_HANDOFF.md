@@ -8,7 +8,7 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2. Only `main` is writable. Parent before this CI dependency correction is `e2ae222bdacb7a628bc59c82cc2bba482ef1e3e3`. Exact e2ae222 runs passed AliDDNS [43656006432], AliyunDrive [43656006474], process lifecycle [43656006468], AdGuardHome [43656006400], infosvr [43656006452] and AI docs [43656006411]; NVRAM [43656006425] was still IN_PROGRESS. The older HTTPD security job [43655773458] failed at its embedded DNSMasq policy compile because it omitted `-I trunk/user/shared/src` after the policy began including `process_inventory.h`; this commit adds that missing compiler dependency. DNSMasq lifecycle itself passed [43655773415]. Current-source XY-C1 L3 and physical L4 remain NOT VERIFIED; backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains immutable.
+- Repository: Arlene206/padavan-4.4-2. Current main parent before this MIPS disk-parser fix: a7bfbdf6de475f46469cc19661265b4801306f0f. AliDDNS exact-head [43656161389] and HTTPD Authentication/Security [43656161273] passed on this main after their respective source/checker fixes. DNSMasq lifecycle [43655773415] passed on 59853da. Process inventory [43656161404], AdGuardHome [43656161276] and infosvr [43656161384] passed on a7bfb; NVRAM [43656161302] and AliyunDrive [43656161349] were IN_PROGRESS. XY-C1 [43656161268] was IN_PROGRESS at Build XY-C1; it predates this parser fix and does not resolve the known failure [43654318351] on ea2163e, where variable 64-bit division caused hidden __udivdi3 at the RC link. This commit removes all division and adds UINT_MAX/ULLONG_MAX coverage. Current-source L3 remains PENDING; physical L4 is NOT VERIFIED. Backup 72f4f157a084f8184b9597ca5bf334b8080e5807 remains immutable.
 - Immutable archive: `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`. Read-only; never modify it.
 - **Permanent user entrypoint:** `接手 https://github.com/Arlene206/padavan-4.4-2/ 继续开发`. The user does not need a long prompt, previous chat, or repository upload. Never output a recursive next-GPT prompt in chat. Git documents and live GitHub state are the project memory.
 - Recovery is read-only by default: read complete `AI_DEVELOPMENT_PROTOCOL.md` and `AI_BOOTSTRAP_PROMPT.md`; fetch live main + immutable backup; inspect exact-head Actions; then read this handoff, roadmap, newest 20 dev-log records, `docs/dev-log/INDEX.md`, and the semantic audit report for the active caller group. Do not create a commit to refresh SHA fields, record a takeover, or report a CI poll.
@@ -72,7 +72,7 @@ The earlier dd7a XY-C1 run [43624870668] also completed SUCCESS; it is supersede
 
 - L1: prior lexical inventory and direct-call semantic review PASS within the recorded scope; do not repeat completed inventories.
 - L2: latest source-level exact-head evidence includes process inventory [43648229415], PID1 [43648229463], DNS Forwarder [43648229531], storage hotplug [43648229477], Samba [43648229471], NFS [43648229491], HTTPD [43648229544], WAN route [43648229405], AdGuardHome [43648229513], watchdog [43648229404], AliDDNS [43648229509], infosvr [43648229453], VPN/other module checks as recorded in the current-main Actions. On the follow-up docs-only head `7697c6f`, VPN [43648923434], AI docs [43648923326], process inventory [43648923376], AdGuardHome [43648923421], AliDDNS [43648923338], infosvr [43648923306] and AliyunDrive [43648923366] passed. Networkmap [43648923325] failed only on the incorrect checker prototype assertion; this commit fixes it. NVRAM [43648923357] was PENDING/IN_PROGRESS on `7697c6f`.
-- L3: VERIFIED on product-source baseline `cc61cb5f8ae594b0cf1aee3ddebdd414e0bf5286`; XY-C1 [43648229489] passed Build XY-C1, TRX output verification and artifact upload [14135711084] (12,587,100 bytes; SHA-256 `bda83c9e71ed01a8708ad90a5104535e972bd30424bdf03ed24065b3a1a9407e`). The later `7697c6f` and this correction are documentation/test-only; they do not invalidate that product-source build evidence.
+- L3: Current production source is NOT VERIFIED. XY-C1 [43654318351] on ea2163e failed at RC final link because disk_inventory_parse_decimal() introduced variable 64-bit division and a hidden __udivdi3 dependency in libdisk.so. This commit removes all division using a constant ULLONG_MAX cutoff and adds max-value parsing coverage. A new exact-head XY-C1 Build, TRX verification and artifact upload must pass before L3 can be claimed.
 - L4: physical XY-C1 flash, boot, runtime and functional hardware validation NOT VERIFIED.
 - No full local checkout is available in this execution context; source and CI evidence are obtained through GitHub.
 
@@ -92,20 +92,29 @@ The earlier dd7a XY-C1 run [43624870668] also completed SUCCESS; it is supersede
 
 ## Exact first action for the next GPT
 
-Current source baseline before this documentation-only commit: `ff34f0bf97fa1eef9b2787e3aca292baecd726c3`.
-Immutable backup: `72f4f157a084f8184b9597ca5bf334b8080e5807` (do not move or force-update).
+Main parent before this no-division disk parser repair: a7bfbdf6de475f46469cc19661265b4801306f0f.
+Immutable backup: backup/pre-plugin-overhaul-2026-11-14 = 72f4f157a084f8184b9597ca5bf334b8080e5807 (read-only).
 
-### Completed source slices
-- Storage eject: checked disk inventory, strict final mount-table verification, valid-empty inventory fallback, service stop/unmount failure gating, and flash/shutdown persistence protection. Current source check: `not confirmed`.
-- GPIO daemon startup uses tri-state process presence and fails closed on UNKNOWN. Current source check: `present`.
-- xl2tpd startup preflight uses the checked process inventory before config truncation. Current source check: `present`.
-- HTTPD startup tri-state preflight and post-launch readiness check: `not confirmed or still needs repair`.
+### Exact-head validation at the parent
+- AliDDNS signed API transport [43656161389]: PASS on a7bfbdf.
+- HTTPD Authentication/Security [43656161273]: PASS on a7bfbdf; its previous DNSMasq generated-file trust-boundary failure was repaired by the shared-process-header include correction.
+- Process inventory [43656161404], AdGuardHome [43656161276] and infosvr [43656161384]: PASS on a7bfbdf.
+- NVRAM [43656161302] and AliyunDrive [43656161349]: IN_PROGRESS at last poll.
+- XY-C1 [43656161268]: IN_PROGRESS at Build XY-C1 on a7bfbdf. This run predates the parser correction and cannot validate it.
+- DNSMasq lifecycle [43655773415]: PASS on 59853da. Storage [43653875448], HTTPD daemon lifecycle [43654668592] and crond [43654459854] passed on their own exact heads.
 
-### Actions for exact source SHA `ff34f0bf97fa1eef9b2787e3aca292baecd726c3`
-Process lifecycle inventory - ff34f0bf97fa1eef9b2787e3aca292baecd726c3: in_progress (#43654870945)
+### Product-source failure and repair in this slice
+- XY-C1 [43654318351] on ea2163e failed during RC final link with hidden __udivdi3 referenced by the libdisk DSO.
+- Root cause was variable 64-bit division in disk_inventory_parse_decimal(). This commit uses a constant ULLONG_MAX cutoff before multiply/add and compares each safe result with the caller's UINT_MAX/ULLONG_MAX limit. No division remains in the parser.
+- Added a valid maximum parser row with UINT_MAX major/minor and ULLONG_MAX blocks. The storage integration checker now fails if /10ULL or /10UL division is reintroduced.
+- Local GNU89 -Wall -Wextra -Werror ASan/UBSan disk parser regression passed before commit. Existing storage and XY-C1 path filters already include the parser header/test/checker as appropriate.
+- Current L3 stays PENDING until exact new-head XY-C1 completes Build XY-C1, TRX verification and artifact upload. L4 physical-router validation remains NOT VERIFIED.
 
 ### Next work
-1. Inspect exact-head HTTPD security workflow rerun and NVRAM [43656006425]; the former must pass the embedded DNSMasq policy compile with the shared-header include path.
-2. Continue the bounded DNSMasq duplicate/start/restart state migration in `services_ex.c`: pre-launch guards and restart stop verification still use `is_dns_dhcpd_run()`. Replace only those lifecycle-critical uses with RUNNING/ABSENT/UNKNOWN, fail closed on UNKNOWN before config mutation/launch, and add enum policy regression plus workflow contract. Preserve legacy `pids()` API for unrelated callers.
-3. Reconcile XY-C1 on the latest source and require Build XY-C1, TRX verification and artifact upload before claiming L3. L4 physical-router validation remains NOT VERIFIED.
-4. Continue remaining process side-effect and shutdown/Samba/NVRAM postconditions without repeating the completed census. Rotate root log only at 120 records or 384 KiB; all commits use complete trees and non-force expected-SHA updates.
+1. Verify the exact-head storage-hotplug regression and XY-C1 firmware build triggered by this commit. If XY fails, use its actual link log and continue repairing until a matching SHA passes Build, TRX and artifact upload.
+2. Poll NVRAM [43656161302] and AliyunDrive [43656161349] exact-parent runs; inspect logs and repair any failure before marking their source slices complete.
+3. Continue DNSMasq pre-launch duplicate-presence and restart stop-state semantics in services_ex.c; post-launch readiness is tri-state, but other is_dns_dhcpd_run() guards still use legacy Boolean pids().
+4. Continue process lifecycle work at detect_wan.c::chk_udhcpc(): UNKNOWN from pids("udhcpc") is truthy and can authorize name-wide SIGUSR1. Replace that decision with RUNNING/ABSENT/UNKNOWN and add a caller-level regression.
+5. Continue shutdown/Samba/NVRAM postconditions without repeating completed censuses. L4 physical-router validation remains NOT VERIFIED. Use atomic complete trees and expected-SHA non-force main updates.
+
+Do not redo bootstrap or completed audits. Re-fetch live main before every write; preserve the immutable backup.

@@ -1,3 +1,15 @@
+## 2026-11-15 — Remove variable 64-bit division from disk inventory parser
+
+- Parent main SHA: a7bfbdf6de475f46469cc19661265b4801306f0f.
+- XY-C1 [43654318351] on ea2163e failed the final RC link because disk_inventory_parse_decimal() divided an unsigned long long value by a variable 64-bit bound, adding a hidden __udivdi3 dependency from libdisk.so.
+- Reworked strict decimal parsing to check the fixed ULLONG_MAX decimal cutoff 1844674407370955161 (final digit <=5) before multiply/add, then compare each safe value to the caller's UINT_MAX/ULLONG_MAX limit. No division remains in the parser.
+- Added a valid maximum /proc/partitions row regression for UINT_MAX major/minor and ULLONG_MAX blocks. The storage integration checker now forbids reintroducing /10ULL or /10UL division. Existing storage and XY-C1 workflows already watch the relevant parser files.
+- Local GNU89 -Wall -Wextra -Werror ASan/UBSan parser test: PASS. Exact-head storage and XY-C1 Actions from this commit are pending.
+- At parent a7bfbdf, AliDDNS [43656161389], HTTPD security [43656161273], process inventory [43656161404], AdGuardHome [43656161276] and infosvr [43656161384] passed; NVRAM [43656161302] and AliyunDrive [43656161349] were still pending. Current L3 remains PENDING; L4 remains NOT VERIFIED.
+- Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Fix HTTPD security workflow dependency for DNSMasq policy
 
 - Parent main SHA: `e2ae222bdacb7a628bc59c82cc2bba482ef1e3e3`.
