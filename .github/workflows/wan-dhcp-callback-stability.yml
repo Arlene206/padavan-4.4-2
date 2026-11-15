@@ -833,5 +833,21 @@ jobs:
           assert "start_udhcpc_wan(wan_ifname, unit, 0);" not in wan_start.replace(ipoe_dhcp_launch, "")
           assert wan_start.count("WAN physical DHCP/ZeroConf client launch incomplete") == 2
 
-          print("WAN DHCP callback ordering, rollback and physical-client launch-status contracts: PASS")
+          static_branch = wanx[wanx.index("if (is_same_subnet2("):]
+          assert "launch_status = EINVAL;" in static_branch
+          assert "launch_status = ifconfig(man_ifname, IFUP, man_addr, man_mask);" in static_branch
+          assert "if (launch_status != 0)" in static_branch
+          assert static_branch.index("launch_status = ifconfig(") < static_branch.index("if (launch_status != 0)") < static_branch.index("man_up(man_ifname, unit, 1);")
+          assert "if (wait_dhcpc && launch_status == 0)" in wanx
+
+          ppp_branch = wan_start[wan_start.index("int i_pppoe, i_pppoe_man, i_demand, wanx_status;"):]
+          ppp_branch = ppp_branch[:ppp_branch.index("else if (wan_proto == IPV4_WAN_PROTO_IPOE_DHCP")]
+          abort_guard = "if (!i_pppoe && wanx_status != 0)"
+          restore_call = "restore_wan_after_ppp_start_failure(unit, wan_ifname);"
+          assert abort_guard in ppp_branch
+          assert restore_call in ppp_branch
+          assert ppp_branch.index(abort_guard) < ppp_branch.index(restore_call) < ppp_branch.index("continue;")
+          assert "aborting WAN PPP startup for unit %d: physical WAN setup failed" in ppp_branch
+
+          print("WAN DHCP callback ordering, rollback, launcher status and static-interface failure contracts: PASS")
           PY

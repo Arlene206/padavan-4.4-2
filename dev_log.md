@@ -1,3 +1,13 @@
+## 2026-11-15 — Fail closed on static physical WAN setup errors
+
+- `launch_wanx()` now captures static WAN `ifconfig()` status, skips `man_up()` when the address is not applied and returns `EINVAL` when static MAN IP overlaps the LAN subnet.
+- A failed DHCP process spawn no longer incurs the two-second PPTP/L2TP delay. The non-PPPoE PPTP/L2TP branch restores physical WAN interface/firewall state and skips PPP launch if physical WAN setup fails; PPPoE async/no-wait and USB modem handling remain unchanged.
+- Added WAN source-contract checks for conflict status, `ifconfig()` gating, skipped publication, wait-delay behavior and non-PPPoE abort/restore ordering. Exact-head WAN/AI/Process/XY-C1 checks still required.
+- Parent main: `bfc63087814434feac683b56fa9007d619508829`; exact-parent `bfc` WAN #43751152794, AI docs #43751152792 and Process #43751152773 were pending at last poll.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; no physical-router/L4 result claimed.
+
+---
+
 ## 2026-11-15 — Correct direct IPoE DHCP regression persistence ordering
 
 - Exact 8ee WAN callback #43750573557 passed all six preceding GNU89 compile/run policy tests but failed at the final source-contract assertion because `.index('set_wan_unit_value_int(unit, "err", wan_err);')` selected the earlier static-IP persistence call, not the later DHCP-branch persistence.

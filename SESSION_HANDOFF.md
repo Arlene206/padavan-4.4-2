@@ -9,31 +9,34 @@ For each logical task, create every source/test/workflow/doc blob, one complete 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Main at the start of this regression follow-up: `8ee190c1872c4a3a9b6ad98b5da42fe1f2764e68`.
+- Main at the start of this source slice: `bfc63087814434feac683b56fa9007d619508829`.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only.
-- The direct IPoE DHCP launcher fix is committed at `8ee190c1872c4a3a9b6ad98b5da42fe1f2764e68`: `start_wan()` captures `start_udhcpc_wan()`, logs a nonzero spawn status, persists `wan_err = 1`, and still attempts independent IPv6.
-- Exact 8ee WAN DHCP callback #43750573557 FAIL occurred only in the new source-contract ordering assertion: it used `.index(set_wan_unit_value_int(...))`, which matched the earlier static-IP `wan_err` persistence instead of the later DHCP-branch persistence. The fix changes this assertion to `.rindex(...)`; production source is unchanged.
-- Exact 8ee AI handoff docs #43750573605 PASS and Process lifecycle #43750573434 PASS. Exact XY-C1 #43750573567 was `in_progress` at last poll; verify Build, TRX and artifact before claiming L3.
-- Previous source SHA `485d7c782c57b3fc0cb9cf4e42dcf0a79ba6665a` had WAN callback #43749781222 PASS, AI docs #43749781375 PASS and Process inventory #43749781215 PASS; its XY-C1 job was Build in progress at last recorded poll.
+- Direct IPoE DHCP launch status fix `8ee190c1872c4a3a9b6ad98b5da42fe1f2764e68`: captured `start_udhcpc_wan()` status, persisted `wan_err` on spawn failure and preserved independent IPv6 startup. Exact WAN callback #43750573557 failed only in its persistence-order assertion; regression-only correction `bfc63087814434feac683b56fa9007d619508829` changed the later persistence check to `.rindex()`.
+- Exact `bfc` WAN callback #43751152794, AI docs #43751152792 and Process inventory #43751152773 were all IN_PROGRESS at last poll.
+- Exact XY-C1 #43750573567 for source SHA 8ee was IN_PROGRESS at last poll; verify Build, TRX and artifact.
+- Prior physical WAN launcher source `485d7c782c57b3fc0cb9cf4e42dcf0a79ba6665a` had WAN #43749781222 PASS, AI docs #43749781375 PASS and Process #43749781215 PASS.
 - Frozen backup and archived logs/index remain untouched. No physical-router/L4 result is claimed.
 
 ## Active task
 
-### Correct the direct IPoE DHCP error-state regression contract
+### Fail closed when required physical WAN setup fails
 
-The source fix at `8ee190c` is intentional and independent of IPv6: direct IPoE DHCP now captures the client launch result, sets/logs WAN error on nonzero status, persists the error and continues IPv6 setup. The host workflow failed because its new ordering assertion used the first `wan_err` persistence point, which is in the static-IP branch. Change only that assertion to compare the DHCP failure condition with the last persistence point in the function. Do not weaken the state/log/order checks or change production code to fit a faulty test.
+`launch_wanx()` returns dynamic DHCP/ZeroConf spawn status to its caller, but its static MAN branch still ignored `ifconfig()` status and called `man_up()` even if the address had not been applied. A static MAN address overlapping LAN also set `wanx_err` but returned success. In the non-PPPoE path, PPTP/L2TP could consequently launch PPP without the physical WAN setup their own comments say is required.
+
+This slice checks static `ifconfig()` status, prevents route/physical setup publication when the interface address cannot be configured, returns `EINVAL` for the LAN-subnet conflict, and skips the two-second delay on a failed DHCP process launch. Non-PPPoE PPTP/L2TP now restore the physical WAN interface/firewall selection and skip PPP startup on nonzero physical setup status. PPPoE's asynchronous/no-wait behavior and the USB modem branch are left unchanged.
+
+The WAN callback workflow protects the static address guard, conflict status, delay condition and non-PPPoE abort/restore ordering. Exact-head Actions remain required.
 
 ## Verification boundary
 
-- This regression-only follow-up is parented to `8ee190c1872c4a3a9b6ad98b5da42fe1f2764e68`.
-- Exact 8ee WAN callback #43750573557 failed at the single stale `.index()` assertion; all six C compile/run policy steps before the Python contract passed.
-- Exact 8ee AI handoff docs #43750573605 PASS and Process inventory #43750573434 PASS.
-- Exact 8ee XY-C1 #43750573567 was `in_progress` at last poll; no L3 claim until Build, TRX and artifact all PASS on the corresponding product-source SHA.
+- This source slice is parented to `bfc63087814434feac683b56fa9007d619508829`; verify exact-head WAN callback, AI docs/Process and XY-C1 Build/TRX/artifact.
+- Exact `bfc` WAN callback #43751152794, AI docs #43751152792 and Process #43751152773 were pending at handoff preparation. The earlier 8ee WAN run #43750573557 failed only at the assertion repaired in bfc; 8ee AI docs #43750573605 and Process #43750573434 PASS.
+- Exact 8ee XY-C1 #43750573567 was IN_PROGRESS at last poll; do not claim L3 until Build, TRX and artifact pass.
 - Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; no physical-router/L4 result is claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch the new main SHA and inspect exact-head WAN callback / AI docs / Process results; if WAN fails again, inspect the exact assertion before changing source.
-2. Check XY-C1 #43750573567 through Build, TRX verification and artifact upload, and check any newer source-triggered XY run on its exact SHA.
-3. Continue WAN startup/error-state work from the next proven source issue. Preserve independent IPv6 and PPPoE asynchronous behavior.
-4. Keep the exact mandatory checkpoint phrase intact; do not create no-op documentation commits.
+1. Fetch resulting main and exact-head WAN/AI/Process Actions; diagnose any regression assertion or source failure.
+2. Verify XY-C1 Build, TRX verification and artifact upload for the exact physical WAN source SHA; do not reuse older source builds.
+3. Continue WAN startup auditing from route propagation/error rollback only after this physical interface guard is verified. Preserve PPPoE asynchronous behavior.
+4. Keep the mandatory checkpoint phrase intact and never create a no-op handoff commit.

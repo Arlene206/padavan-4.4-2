@@ -1402,7 +1402,7 @@ launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)
 			launch_status = start_udhcpc_wan(man_ifname, unit, wait_dhcpc);
 			
 			/* add delay 2s after eth3 up: gethostbyname delay issue (L2TP/PPTP) */
-			if (wait_dhcpc)
+			if (wait_dhcpc && launch_status == 0)
 				sleep(2);
 		} else
 			launch_status = start_zcip_wan(man_ifname);
@@ -1416,12 +1416,19 @@ launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)
 		
 		if (is_same_subnet2(man_addr, lan_addr, man_mask, lan_mask)) {
 			man_err = 1;
+			launch_status = EINVAL;
 			
 			logmessage(LOGNAME, "%s (%s) ERROR! Static IP [%s/%s] in LAN subnet [%s/%s]!",
 				"MAN", man_ifname, man_addr, man_mask, lan_addr, lan_mask);
 		} else {
-			ifconfig(man_ifname, IFUP, man_addr, man_mask);
-			man_up(man_ifname, unit, 1);
+			launch_status = ifconfig(man_ifname, IFUP, man_addr, man_mask);
+			if (launch_status != 0) {
+				man_err = 1;
+				logmessage(LOGNAME, "failed to configure static WAN address on %s (status=%d)",
+					   man_ifname, launch_status);
+			} else {
+				man_up(man_ifname, unit, 1);
+			}
 		}
 		
 		nvram_set_int_temp("wanx_err", man_err);
@@ -1649,7 +1656,7 @@ start_wan(void)
 					else if (i_pppoe && i_pppoe_man == 2)
 						wanx_status = launch_wanx(wan_ifname, unit, 0, 1);
 					if (wanx_status != 0)
-						logmessage(LOGNAME, "WAN physical DHCP/ZeroConf client launch incomplete on %s (status=%d)",
+						logmessage(LOGNAME, "WAN physical interface setup incomplete on %s (status=%d)",
 							   wan_ifname, wanx_status);
 				}
 				
@@ -1691,8 +1698,14 @@ start_wan(void)
 			else if (i_pppoe && i_pppoe_man == 2)
 				wanx_status = launch_wanx(wan_ifname, unit, 0, 1);
 			if (wanx_status != 0)
-				logmessage(LOGNAME, "WAN physical DHCP/ZeroConf client launch incomplete on %s (status=%d)",
+				logmessage(LOGNAME, "WAN physical interface setup incomplete on %s (status=%d)",
 					   wan_ifname, wanx_status);
+			if (!i_pppoe && wanx_status != 0) {
+				logmessage(LOGNAME, "aborting WAN PPP startup for unit %d: physical WAN setup failed (status=%d)",
+					   unit, wanx_status);
+				restore_wan_after_ppp_start_failure(unit, wan_ifname);
+				continue;
+			}
 			
 			/* re-build iptables rules (first stage w/o WAN IP) */
 			start_firewall_ex();

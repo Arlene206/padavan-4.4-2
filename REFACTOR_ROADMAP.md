@@ -1,21 +1,21 @@
 ## Current source / CI checkpoint
 
-- Main at the start of this regression follow-up: `8ee190c1872c4a3a9b6ad98b5da42fe1f2764e68`; frozen backup is read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Direct IPoE DHCP launcher failure propagation is committed at `8ee190c1872c4a3a9b6ad98b5da42fe1f2764e68`. Exact WAN callback #43750573557 failed only because its new ordering assertion selected the first `wan_err` persistence in the static branch; the regression-only follow-up changes it to `.rindex()`.
-- Exact AI docs #43750573605 PASS and Process lifecycle #43750573434 PASS on 8ee. Exact XY-C1 #43750573567 status at last poll: `in_progress`; L3 remains unclaimed until Build/TRX/artifact are checked.
-- Prior physical WAN launcher source #485d had WAN callback #43749781222 PASS, AI docs #43749781375 PASS and Process #43749781215 PASS. Its XY-C1 #43749781299 still requires exact job inspection.
+- Main at slice start: `bfc63087814434feac683b56fa9007d619508829`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Direct IPoE DHCP source `8ee190c` captures launch status and persists `wan_err`; exact WAN #43750573557 failed only due the first-match persistence assertion. Regression fix `bfc6308` changes that check to the last persistence point.
+- Exact `bfc` WAN #43751152794, AI docs #43751152792 and Process inventory #43751152773 were IN_PROGRESS at last poll.
+- Exact XY-C1 #43750573567 on 8ee was IN_PROGRESS; verify Build/TRX/artifact and do not reuse prior source builds.
+- This slice checks static MAN `ifconfig()` before `man_up()`, returns `EINVAL` for LAN-subnet overlap and stops required non-PPPoE PPTP/L2TP startup when physical WAN setup fails. Exact-head checks remain pending.
 - No physical-router/L4 result is claimed.
 
 ### P1 — WAN startup status propagation
 
-- IPTV client launch result flows through `launch_viptv_wan()`; the exact regression passed on 97ff.
-- Physical WAN DHCP/ZeroConf launch status flows through `launch_wanx()` to four USB/PPP callers; exact WAN callback passed on 485d.
-- Direct IPoE now captures the DHCP spawn status, records `wan_err`, and preserves independent IPv6 setup. The only 8ee WAN test failure is a false-positive first-match assertion, being corrected without weakening production coverage.
+- IPTV, dynamic physical WAN and direct IPoE DHCP client launch failures are now surfaced in status/log/NVRAM.
+- Static MAN interface configuration and required non-PPPoE physical WAN setup are now guarded; PPPoE asynchronous behavior is unchanged.
+- Next issue after verification: propagate `man_up_internal()` route setup status through static MAN start without duplicating error reporting or changing lease behavior.
 
 ### P2 — IGMP proxy configuration publication
 
-- `start_igmpproxy()` stages configuration beside its destination and checks write/flush/fsync/close/rename. Last-good content is preserved on publication failure.
-- The host regression remains covered by prior passing Process lifecycle runs; MiniDLNA typed startup logging was corrected in `2199bdb`.
+- Same-directory staged config publication checks write, flush, fsync, close and rename, preserving last-good config on failure. The Process workflow regression previously passed on exact-head Process Actions.
 
 ## Whole-repository module status
 
