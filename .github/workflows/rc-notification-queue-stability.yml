@@ -163,7 +163,7 @@ jobs:
           assert "if (ttyd_start_status != 0)" in services_once
           assert '"ttyd boot startup failed (status=%d)"' in services_once
           for name, launcher in (
-              ("ttyd", 'eval("/usr/bin/ttyd.sh","start")'),
+              ("ttyd", 'eval("/usr/bin/ttyd.sh", "start")'),
               ("ss", 'eval("/usr/bin/shadowsocks.sh","start")'),
               ("ss_tunnel", 'eval("/usr/bin/ss-tunnel.sh","start")'),
               ("zerotier", 'eval("/usr/bin/zerotier.sh","start")'),
