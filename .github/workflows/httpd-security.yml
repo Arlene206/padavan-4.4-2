@@ -1676,7 +1676,8 @@ jobs:
           assert 'else if (!strcmp(base, "restart_dhcpd"))' in rc_main
           assert 'dnsmasq_file_open(hosts_static_stage)' in service
           assert 'destinations[2] = "/tmp/hosts.static";' in service
-          assert "dnsmasq_file_publish(staged_fp, staged_paths[i], destinations[i], 0644)" in service
+          assert "dnsmasq_file_publish(staged_fp, staged_paths[i]," in service
+          assert "destinations[i], 0644)" in service
           assert 'fp = dnsmasq_file_open(servers_path);' in service
           assert 'dnsmasq_file_publish(fp, servers_path, DNS_SERVERS_FILE, 0644)' in service
           assert 'dnsmasq_lease_file_ensure(DHCPD_LEASE_FILE)' in service
