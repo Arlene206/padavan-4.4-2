@@ -162,6 +162,16 @@ assert "trunk/user/rc/src/tests/minidlna_config_file.c" in process_workflow
 assert "trunk/user/rc/src/minidlna_config_file.h" in xy_workflow
 print("MiniDLNA configuration publication and fail-closed startup contracts: PASS")
 
+mount_link = storage_services.split("int create_mp_link(", 1)[1].split("\\n#if defined (APP_MINIDLNA)", 1)[0]
+assert "storage_nfs_export_parse_mount_line(" in mount_link
+assert "read_error = ferror(procpt) ? 1 : 0;" in mount_link
+assert "close_error = (fclose(procpt) != 0);" in mount_link
+assert "storage_nfs_export_inventory_complete(read_error, close_error" in mount_link
+assert "if (link_created && unlink(link_path) != 0)" in mount_link
+assert "incomplete /proc/mounts inventory; refusing storage link" in mount_link
+assert mount_link.index("storage_nfs_export_inventory_complete(") < mount_link.index("return link_created;")
+print("Storage mount-link inventory read/parse/close fail-closed contract: PASS")
+
 pppoe_test = (root / "trunk/user/rc/src/tests/pppoe_relay_policy.c").read_text()
 
 assert "process_inventory.o" in shared_makefile

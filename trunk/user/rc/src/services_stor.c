@@ -1807,53 +1807,72 @@ int restart_nfsd(void)
 int create_mp_link(char *search_dir, char *link_path, int force_first_valid)
 {
 	FILE *procpt;
-	char line[512], devname[32], mpname[256], fstype[32], target_path[512];
+	char line[512], devname[32], mpname[256], fstype[32];
+	char mount_options[256], target_path[512];
 	int link_created, path_len;
+	int read_error, close_error, parse_error;
 
 	if (!search_dir || !link_path)
 		return 0;
 
 	link_created = 0;
+	read_error = 0;
+	close_error = 0;
+	parse_error = 0;
 
 	procpt = fopen(PROC_MOUNTS_FILE, "r");
-	if (procpt) {
-		while (fgets(line, sizeof(line), procpt)) {
-			if (sscanf(line, "%31s %255s %31s %*[^\n]", devname, mpname, fstype) != 3)
-				continue;
-			
-#if 0
-			if (only_ext_xfs) {
-				if (strcmp(fstype, "xfs") && strcmp(fstype, "exfat") && strncmp(fstype, "ext", 3))
-					continue;
-			}
-#endif
-			if (!is_valid_storage_device(devname))
-				continue;
+	if (!procpt)
+		return 0;
 
-			if (strncmp(mpname, "/media/", 7) == 0) {
-				path_len = snprintf(target_path, sizeof(target_path), "%s/%s", mpname, search_dir);
-				if (path_len < 0 || path_len >= (int)sizeof(target_path))
-					continue;
-				if (!force_first_valid) {
-					if (check_if_dir_exist(target_path)) {
-						if (symlink(target_path, link_path) == 0) {
-							link_created = 1;
-							break;
-						}
-					}
-				} else {
-					if (mkdir_if_none(target_path, "777")) {
-						if (symlink(target_path, link_path) == 0) {
-							link_created = 1;
-							break;
-						}
-					}
-				
+	while (fgets(line, sizeof(line), procpt)) {
+		if (storage_nfs_export_parse_mount_line(
+			    line, devname, sizeof(devname), mpname, sizeof(mpname),
+			    fstype, sizeof(fstype), mount_options,
+			    sizeof(mount_options)) != 0) {
+			parse_error = 1;
+			break;
+		}
+
+		/* Continue validating the complete inventory after choosing a target. */
+		if (link_created)
+			continue;
+
+#if 0
+		if (only_ext_xfs) {
+			if (strcmp(fstype, "xfs") && strcmp(fstype, "exfat") && strncmp(fstype, "ext", 3))
+				continue;
+		}
+#endif
+		if (!is_valid_storage_device(devname))
+			continue;
+
+		if (strncmp(mpname, "/media/", 7) == 0) {
+			path_len = snprintf(target_path, sizeof(target_path), "%s/%s", mpname, search_dir);
+			if (path_len < 0 || path_len >= (int)sizeof(target_path))
+				continue;
+			if (!force_first_valid) {
+				if (check_if_dir_exist(target_path)) {
+					if (symlink(target_path, link_path) == 0)
+						link_created = 1;
+				}
+			} else {
+				if (mkdir_if_none(target_path, "777")) {
+					if (symlink(target_path, link_path) == 0)
+						link_created = 1;
 				}
 			}
 		}
-		
-		fclose(procpt);
+	}
+
+	read_error = ferror(procpt) ? 1 : 0;
+	close_error = (fclose(procpt) != 0);
+	if (!storage_nfs_export_inventory_complete(read_error, close_error,
+						   parse_error)) {
+		if (link_created && unlink(link_path) != 0)
+			logmessage("Storage", "unable to remove storage link after incomplete mount scan: %s",
+				   link_path);
+		logmessage("Storage", "incomplete /proc/mounts inventory; refusing storage link");
+		return 0;
 	}
 
 	return link_created;

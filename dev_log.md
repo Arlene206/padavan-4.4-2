@@ -1,3 +1,10 @@
+## 2026-11-15 — Fail closed on incomplete storage mount-link inventory
+
+- `create_mp_link()` accepted the first matching `/proc/mounts` entry, ignored malformed/truncated records and did not check `ferror()` or `fclose()`; a later inventory failure could still return a usable link to a storage-backed daemon.
+- Reused the strict six-field mount-record parser and inventory completion policy already covered by the NFS export policy regression. The helper now validates the entire inventory, checks read/close status, and removes any link it created before returning failure.
+- Added Process source-contract assertions for strict parsing, read/close checks and cleanup. Parent main: `03d251398ffe1dce36abb628f64502a0cfd4e0fb`; exact-head Process and XY-C1 verification required.
+
+---
 ## 2026-11-15 — Align MiniDLNA status-returning API declaration
 
 - The MiniDLNA publication slice changed `update_minidlna_conf()` from `void` to `int` so `run_dms()` can refuse to launch after a failed config write, but `rc.h` still declared the old `void` signature. That conflicting declaration can break the RC build.
