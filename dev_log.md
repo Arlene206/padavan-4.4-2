@@ -1,3 +1,12 @@
+## 2026-11-15 — Gate logger restart and shutdown on confirmed stop completion
+
+- `stop_logger()` discarded the result of `kill_services(klogd, syslogd)`. The SYSLOG and TIME notification handlers then unconditionally started replacement logger processes, risking duplicate daemons when stop did not complete. During shutdown, logger termination happened only after storage MTD persistence had already been authorized, and its failure could not suppress persistence.
+- Converted `stop_logger()` to return the checked lifecycle status. SYSLOG and TIME restarts now abort replacement startup on stop failure and report start failures. Shutdown stops logging before the storage persistence decision, includes logger status in the fail-closed MTD gate, and retains the later LAN shutdown ordering without repeating the logger stop.
+- Added process-lifecycle source contracts for helper result propagation, shutdown persistence order and both notification restart gates; added `services.c` to the process regression push path filter.
+- Changed paths: `services.c`, `rc.h`, `rc.c`, `check_process_lifecycle_integration.py`, `process-lifecycle-regression.yml`, `dev_log.md`. Result: THIS COMMIT. Exact-head process-lifecycle and XY-C1 MIPS/uClibc validation required.
+
+---
+
 ## 2026-11-15 — Align lifecycle regression contracts with checked WAN/802.1X paths
 
 - Exact-head run on `9f5556216f279b9ee7ea98f91be8d538e1cb666f` exposed three source-checker failures after the auth propagation slice: the process checker referenced `wan_stop` before its later declaration; WAN route status still expected five result accumulations after kabinet authentication became a sixth checked operation; and the HTTPD security workflow searched for bare `stop_8021x_*.();` calls although production restart code now uses guarded `stop_8021x_*( ) != 0` expressions.

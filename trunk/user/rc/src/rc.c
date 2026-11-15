@@ -922,7 +922,7 @@ shutdown_router(int level)
 	int storage_remove_status = 0;
 	int misc_stop_status, service_stop_status = 0, printer_stop_status = 0;
 	int wan_stop_status, lan_wan_stop_status = 0;
-	int auth_stop_status;
+	int auth_stop_status, logger_stop_status = 0;
 	const char *script_name = SCRIPT_SHUTDOWN;
 
 	/* Prevent a late Optware start hook from racing service shutdown. */
@@ -968,12 +968,18 @@ shutdown_router(int level)
 	if (auth_stop_status != 0)
 		logmessage(LOGNAME, "802.1X shutdown incomplete; continuing power-down without storage persistence");
 
+	if (level < 2) {
+		logger_stop_status = stop_logger();
+		if (logger_stop_status != 0)
+			logmessage(LOGNAME, "logger shutdown incomplete; continuing power-down without storage persistence");
+	}
+
 	LED_CONTROL(LED_WAN, LED_OFF);
 
 	if (storage_remove_status == 0 && misc_stop_status == 0 &&
 	    service_stop_status == 0 && printer_stop_status == 0 &&
 	    wan_stop_status == 0 && lan_wan_stop_status == 0 &&
-	    auth_stop_status == 0) {
+	    auth_stop_status == 0 && logger_stop_status == 0) {
 		storage_save_time(10);
 		write_storage_to_mtd();
 	} else {
@@ -983,10 +989,8 @@ shutdown_router(int level)
 	stop_wifi_all_wl();
 	stop_wifi_all_rt();
 
-	if (level < 2) {
-		stop_logger();
+	if (level < 2)
 		stop_lan(is_ap_mode);
-	}
 
 	umount_rwfs_partition();
 
@@ -1501,8 +1505,15 @@ handle_notifications(void)
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_SYSLOG) == 0)
 		{
-			stop_logger();
-			start_logger(0);
+			int logger_stop_status = stop_logger();
+			if (logger_stop_status != 0) {
+				logmessage(LOGNAME, "syslog restart aborted because existing logger daemons did not stop (status=%d)",
+					   logger_stop_status);
+				action_result = -1;
+			} else if (start_logger(0) != 0) {
+				logmessage(LOGNAME, "syslog restart failed while starting replacement logger daemons");
+				action_result = -1;
+			}
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_WDG) == 0)
 		{
@@ -1534,11 +1545,19 @@ handle_notifications(void)
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_TIME) == 0)
 		{
-			stop_logger();
+			int logger_stop_status = stop_logger();
+			if (logger_stop_status != 0) {
+				logmessage(LOGNAME, "time update could not restart logger because existing daemons did not stop (status=%d)",
+					   logger_stop_status);
+				action_result = -1;
+			}
 			set_timezone();
 			notify_watchdog_time();
 			notify_rstats_time();
-			start_logger(0);
+			if (logger_stop_status == 0 && start_logger(0) != 0) {
+				logmessage(LOGNAME, "time update failed while starting replacement logger daemons");
+				action_result = -1;
+			}
 			if (restart_crond() < 0)
 				action_result = -1;
 		}

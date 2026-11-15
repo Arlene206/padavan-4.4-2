@@ -1245,11 +1245,11 @@ start_logger(int showinfo)
 	return 0;
 }
 
-void
+int
 stop_logger(void)
 {
 	char* svcs[] = { "klogd", "syslogd", NULL };
-	kill_services(svcs, 3, 1);
+	return kill_services(svcs, 3, 1);
 }
 
 void

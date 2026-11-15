@@ -519,7 +519,7 @@ int stop_rstats(void);
 int start_rstats(void);
 int restart_rstats(void);
 int start_logger(int showinfo);
-void stop_logger(void);
+int stop_logger(void);
 void start_watchdog_cpu(void);
 void restart_watchdog_cpu(void);
 int start_services_once(int is_ap_mode);

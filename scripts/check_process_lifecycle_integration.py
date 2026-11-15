@@ -197,6 +197,26 @@ assert "remove_pidfile(client_config.pidfile)" not in udhcpc_source
 assert "unlink-by-path can race a new publisher" in udhcpc_source
 print("BusyBox udhcpc identity-bound PID-file producer integration: PASS")
 
+services_source = (root / "trunk/user/rc/src/services.c").read_text()
+logger_stop = services_source.split("int\nstop_logger(void)", 1)[1].split("\n}", 1)[0]
+rc_source = (root / "trunk/user/rc/src/rc.c").read_text()
+shutdown = rc_source.split("shutdown_router(int level)", 1)[1].split("\n}\n", 1)[0]
+syslog_restart = rc_source.split("RCN_RESTART_SYSLOG) == 0)", 1)[1].split("RCN_RESTART_WDG)", 1)[0]
+time_restart = rc_source.split("RCN_RESTART_TIME) == 0)", 1)[1].split("RCN_RESTART_SYSCTL)", 1)[0]
+assert "return kill_services(svcs, 3, 1);" in logger_stop
+assert "int stop_logger(void);" in rc_header
+assert "void stop_logger(void);" not in rc_header
+assert "logger_stop_status = stop_logger();" in shutdown
+assert "logger_stop_status == 0" in shutdown
+assert shutdown.count("stop_logger();") == 1
+assert shutdown.index("logger_stop_status = stop_logger();") < shutdown.index("if (storage_remove_status == 0")
+assert shutdown.index("if (storage_remove_status == 0") < shutdown.index("write_storage_to_mtd();")
+assert "logger_stop_status != 0" in syslog_restart
+assert syslog_restart.index("logger_stop_status != 0") < syslog_restart.index("start_logger(0)")
+assert "action_result = -1;" in syslog_restart
+assert "logger_stop_status == 0 && start_logger(0) != 0" in time_restart
+assert "logger_stop_status != 0" in time_restart
+
 net_wan = (root / "trunk/user/rc/src/net_wan.c").read_text()
 wan_stop = net_wan.split("static int\nstop_wan_locked(void)", 1)[1].split("\n}\n", 1)[0]
 net_wan_dhcp = net_wan
