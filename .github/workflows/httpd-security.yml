@@ -2206,6 +2206,22 @@ jobs:
           assert "return ifconfig(context->lan_ifname, IFUP" in lan
           assert 'nvram_set_temp("lan_gateway_t", gateway_buf)' in lan_bound
           assert lan_bound.index("create_hosts_lan(lease_ip, lease_domain)") > lease_publish
+          assert "status = create_hosts_lan(lease_ip, lease_domain);" in lan_bound
+          assert "LAN lease applied but hostname files could not be published" in lan_bound
+          assert "return status;" in lan_bound
+          hosts_writer = function_body(lan, "create_hosts_lan(const char *lan_ipaddr, const char *lan_dname)")
+          assert 'hostname_fp = dnsmasq_file_open(hostname_temp);' in hosts_writer
+          assert 'hosts_fp = dnsmasq_file_open(hosts_temp);' in hosts_writer
+          assert 'dnsmasq_file_publish(staged_fp, hostname_temp, "/etc/hostname", 0644)' in hosts_writer
+          assert 'dnsmasq_file_publish(staged_fp, hosts_temp, "/etc/hosts", 0644)' in hosts_writer
+          assert "dnsmasq_file_discard(hostname_temp)" in hosts_writer
+          assert "dnsmasq_file_discard(hosts_temp)" in hosts_writer
+          assert 'fopen("/etc/hostname", "w+")' not in hosts_writer
+          assert 'fopen("/etc/hosts", "w+")' not in hosts_writer
+          assert hosts_writer.index('dnsmasq_file_publish(staged_fp, hosts_temp') < hosts_writer.index("sethostname(lan_hname")
+          assert "int update_hosts_ap(void);" in rc_header
+          assert "return create_hosts_lan(nvram_safe_get" in lan
+          assert "rc_notify_merge_action_result(action_result, update_hosts_ap())" in rc_main
           assert "dhcp_lease_deconfig_status" in test
 
           lan_down_start = lan.index("lan_down_auto(char *lan_ifname)")

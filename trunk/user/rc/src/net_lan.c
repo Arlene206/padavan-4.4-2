@@ -570,36 +570,76 @@ reset_lan_vars(void)
 	nvram_set("lan_hwaddr", nvram_safe_get("il0macaddr"));
 }
 
-static void
+static int
 create_hosts_lan(const char *lan_ipaddr, const char *lan_dname)
 {
-	FILE *fp;
+	FILE *hostname_fp = NULL, *hosts_fp = NULL;
+	char hostname_temp[] = "/etc/hostname.XXXXXX";
+	char hosts_temp[] = "/etc/hosts.XXXXXX";
 	char *lan_hname = get_our_hostname();
+	int saved_errno = 0;
 
+	if (!lan_ipaddr || !lan_dname || !lan_hname) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	/* Stage both files completely before replacing either live pathname. */
+	hostname_fp = dnsmasq_file_open(hostname_temp);
+	if (!hostname_fp)
+		goto failed;
+	hosts_fp = dnsmasq_file_open(hosts_temp);
+	if (!hosts_fp)
+		goto failed;
+
+	fprintf(hostname_fp, "%s\n", lan_hname);
+	fprintf(hosts_fp, "%s %s %s\n", "127.0.0.1", "localhost.localdomain", "localhost");
+	if (strlen(lan_dname) > 0)
+		fprintf(hosts_fp, "%s %s.%s %s\n", lan_ipaddr, lan_hname, lan_dname, lan_hname);
+	else
+		fprintf(hosts_fp, "%s %s\n", lan_ipaddr, lan_hname);
+
+	/* Each rename is atomic; the staged pair is not a cross-file transaction. */
+	{
+		FILE *staged_fp = hostname_fp;
+		hostname_fp = NULL;
+		if (dnsmasq_file_publish(staged_fp, hostname_temp, "/etc/hostname", 0644) != 0) {
+			saved_errno = errno ? errno : EIO;
+			goto failed;
+		}
+	}
+	{
+		FILE *staged_fp = hosts_fp;
+		hosts_fp = NULL;
+		if (dnsmasq_file_publish(staged_fp, hosts_temp, "/etc/hosts", 0644) != 0) {
+			saved_errno = errno ? errno : EIO;
+			goto failed;
+		}
+	}
+
+	/* Do not expose a new kernel name until both on-disk files are complete. */
 	sethostname(lan_hname, strlen(lan_hname));
 	setdomainname(lan_dname, strlen(lan_dname));
+	return 0;
 
-	fp = fopen("/etc/hostname", "w+");
-	if (fp) {
-		fprintf(fp, "%s\n", lan_hname);
-		fclose(fp);
-	}
-
-	fp = fopen("/etc/hosts", "w+");
-	if (fp) {
-		fprintf(fp, "%s %s %s\n", "127.0.0.1", "localhost.localdomain", "localhost");
-		if (strlen(lan_dname) > 0)
-			fprintf(fp, "%s %s.%s %s\n", lan_ipaddr, lan_hname, lan_dname, lan_hname);
-		else
-			fprintf(fp, "%s %s\n", lan_ipaddr, lan_hname);
-		fclose(fp);
-	}
+failed:
+	if (!saved_errno)
+		saved_errno = errno ? errno : EIO;
+	if (hostname_fp)
+		fclose(hostname_fp);
+	if (hosts_fp)
+		fclose(hosts_fp);
+	dnsmasq_file_discard(hostname_temp);
+	dnsmasq_file_discard(hosts_temp);
+	logmessage(LOGNAME, "cannot stage/publish LAN hostname files (errno=%d)", saved_errno);
+	errno = saved_errno;
+	return saved_errno;
 }
 
-void
+int
 update_hosts_ap(void)
 {
-	create_hosts_lan(nvram_safe_get("lan_ipaddr_t"), nvram_safe_get("lan_domain_t"));
+	return create_hosts_lan(nvram_safe_get("lan_ipaddr_t"), nvram_safe_get("lan_domain_t"));
 }
 
 void
@@ -623,7 +663,7 @@ start_lan(int is_ap_mode, int do_wait)
 	if (is_ap_mode) {
 		char *lan_dname = nvram_safe_get("lan_domain");
 		
-		create_hosts_lan(lan_ipaddr, lan_dname);
+		(void)create_hosts_lan(lan_ipaddr, lan_dname);
 		
 		if (nvram_match("lan_proto_x", "1")) {
 			
@@ -1299,7 +1339,11 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 	nvram_set_temp("lan_lease_t", lease_text);
 
 	if (is_changed || !is_renew) {
-		create_hosts_lan(lease_ip, lease_domain);
+		status = create_hosts_lan(lease_ip, lease_domain);
+		if (status != 0)
+			logmessage("DHCP LAN Client",
+				   "LAN lease applied but hostname files could not be published (status=%d)",
+				   status);
 		notify_watchdog_time();
 
 #if defined(APP_SMBD)
@@ -1318,7 +1362,7 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 	if (!is_renew)
 		restart_networkmap();
 
-	return 0;
+	return status;
 }
 
 static int 

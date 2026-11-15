@@ -245,7 +245,7 @@ int  add_static_lan_routes(char *lan_ifname);
 int  del_static_lan_routes(char *lan_ifname);
 void reset_lan_temp(void);
 void reset_lan_vars(void);
-void update_hosts_ap(void);
+int update_hosts_ap(void);
 void start_lan(int is_ap_mode, int do_wait);
 int stop_lan(int is_ap_mode);
 void lan_up_manual(char *lan_ifname, char *lan_dname);
