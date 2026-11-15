@@ -214,7 +214,7 @@ jobs:
           assert "failed-existing-upload.txt" in acl_path_test
           assert "failed STOR cleanup removed a pre-existing file" in acl_path_test
           assert "failed-new-upload.txt" in acl_path_test
-          assert upload_open.index("ftp_acl_path_verify_directory_identity(resolved_parent, parent_fd)") < upload_open.index("openat(parent_fd, p_leaf, flags, mode)")
+          assert upload_open.index("ftp_acl_path_verify_directory_identity(resolved_parent, parent_fd)") < upload_open.index("ftp_acl_path_open_upload_entry(parent_fd, p_leaf")
           assert "stat(resolved_parent, &expected_parent)" not in upload_open
           assert "p_sess, p_filename, 1," in upload
           assert "p_sess, p_filename, 0," in upload

@@ -1,3 +1,11 @@
+## 2026-11-15 — Update vsftpd source contract for atomic upload creation
+
+- Exact 8e7ac1a failed at the resolver test's obsolete cleanup-eligible expectation; 55bd710 corrected the expectation and the GNU89 compile/run stage then passed.
+- Exact 55bd710 reached static verification but failed because the existing checker still expected direct `openat()` in `asus_open_upload_path()`. The implementation now delegates to the tested `ftp_acl_path_open_upload_entry()` helper, so the source-order contract was updated to assert the pinned-parent identity check precedes that helper call.
+- Parent main: `55bd710eff29a822180ea996bb07c9f35c1a21ee`; exact-head vsftpd stability regression is the validation gate.
+
+---
+
 ## 2026-11-15 — Tighten FTP upload cleanup regression expectations
 
 - The follow-up host regression now explicitly asserts that path resolution alone never grants cleanup eligibility. The earlier draft still expected the old preflight flag and would have failed despite the new O_EXCL behavior.
