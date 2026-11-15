@@ -2,6 +2,8 @@
 #define PADAVAN_DNSMASQ_STATIC_HOST_POLICY_H
 
 #include <stddef.h>
+#include <errno.h>
+#include <sys/wait.h>
 
 /* A dnsmasq --dhcp-host MAC field must contain exactly twelve hex digits. */
 static int
@@ -38,6 +40,19 @@ dnsmasq_static_mac_is_valid(const char *mac)
 
 	/* DHCP client hardware addresses must be nonzero unicast Ethernet MACs. */
 	return nonzero && !(first_octet & 1U);
+}
+
+
+/* system() returns a wait status, not the command's plain exit code. Treat
+ * signal termination and nonzero exit as a failed static-ARP configuration. */
+static int
+dnsmasq_static_arp_command_errno(int status, int command_errno)
+{
+	if (status == -1)
+		return command_errno ? command_errno : EIO;
+	if (WIFEXITED(status) && WEXITSTATUS(status) == 0)
+		return 0;
+	return EIO;
 }
 
 #endif /* PADAVAN_DNSMASQ_STATIC_HOST_POLICY_H */

@@ -333,9 +333,24 @@ fill_static_ethers(const char *lan_ip, const char *lan_mask)
 			if (!ipl->ip4)
 				break;
 			if (ipl->count == 1 && ipl->mac[0]) {
+				int command_status, command_errno, arp_errno;
+
 				in.s_addr = ipl->ip4;
 				sip4 = inet_ntoa(in);
-				doSystem("arp -i %s -s %s %s", IFNAME_BR, sip4, ipl->mac[0]);
+				errno = 0;
+				command_status = doSystem("arp -i %s -s %s %s",
+							  IFNAME_BR, sip4, ipl->mac[0]);
+				command_errno = errno;
+				arp_errno = dnsmasq_static_arp_command_errno(command_status,
+									 command_errno);
+				if (arp_errno) {
+					result = arp_errno;
+					logmessage(LOGNAME,
+						   "cannot install static ARP binding %s -> %s; refusing DNSMasq update (status=%d errno=%d)",
+						   sip4, ipl->mac[0], command_status,
+						   command_errno);
+					goto cleanup;
+				}
 			}
 		}
 	}
@@ -356,7 +371,7 @@ cleanup:
 	free_static_ethers_items(ip4_list);
 	if (result != 0) {
 		logmessage(LOGNAME,
-			   "cannot prepare static DHCP host/ethers snapshots; refusing DNSMasq update (errno=%d)",
+			   "cannot complete static DHCP host/ethers preparation; refusing DNSMasq update (errno=%d)",
 			   result);
 		errno = result;
 		return result;

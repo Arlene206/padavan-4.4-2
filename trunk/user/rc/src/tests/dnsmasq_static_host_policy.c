@@ -1,5 +1,8 @@
 #include <assert.h>
+#include <errno.h>
+#include <signal.h>
 #include <stdio.h>
+#include <sys/wait.h>
 #include "dnsmasq_static_host_policy.h"
 
 static void
@@ -41,6 +44,17 @@ test_rejects_wrong_lengths(void)
 	assert(!dnsmasq_static_mac_is_valid("00112233445g"));
 }
 
+
+static void
+test_static_arp_command_status(void)
+{
+	assert(dnsmasq_static_arp_command_errno(0, 0) == 0);
+	assert(dnsmasq_static_arp_command_errno(9 << 8, 0) == EIO);
+	assert(dnsmasq_static_arp_command_errno(-1, ENOENT) == ENOENT);
+	assert(dnsmasq_static_arp_command_errno(-1, 0) == EIO);
+	assert(dnsmasq_static_arp_command_errno(SIGTERM, 0) == EIO);
+}
+
 int
 main(void)
 {
@@ -48,6 +62,7 @@ main(void)
 	test_rejects_non_unicast_addresses();
 	test_rejects_injection_characters();
 	test_rejects_wrong_lengths();
-	puts("DNSMasq static-host MAC validation policy: PASS");
+	test_static_arp_command_status();
+	puts("DNSMasq static-host MAC and ARP command policies: PASS");
 	return 0;
 }

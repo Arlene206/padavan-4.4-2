@@ -492,7 +492,11 @@ jobs:
               assert token in domain_test
           assert "if (!dnsmasq_static_mac_is_valid(smac))" in static_hosts_writer
           assert "dnsmasq_static_mac_is_valid" in static_mac_policy
-          for token in ("test_valid_unicast_mac_text", "test_rejects_non_unicast_addresses", "test_rejects_injection_characters", "test_rejects_wrong_lengths"):
+          assert "dnsmasq_static_arp_command_errno(command_status," in static_hosts_writer
+          assert "cannot install static ARP binding" in static_hosts_writer
+          assert "dnsmasq_static_arp_command_errno" in static_mac_policy
+          assert "test_static_arp_command_status" in static_mac_test
+          for token in ("test_valid_unicast_mac_text", "test_rejects_non_unicast_addresses", "test_rejects_injection_characters", "test_rejects_wrong_lengths", "test_static_arp_command_status"):
               assert token in static_mac_test
           assert "dnsmasq_dhcp_range_default_pool" in simple_range
           assert "dnsmasq_dhcp_range_pool_is_valid" in pool_check
