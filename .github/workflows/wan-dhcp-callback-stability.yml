@@ -802,6 +802,27 @@ jobs:
 
           wan_start = body(source, "void" + chr(10) + "start_wan(void)")
           apcli_wisp = body(source, "static void" + chr(10) + "config_apcli_wisp(void)")
+          gateway_helper = body(source, "static int" + chr(10) + "add_man_gateway_routes(char *man_ifname, int unit, int metric, int *gateway_route_status)")
+          assert "*gateway_route_status = 0;" in gateway_helper
+          gateway_host = gateway_helper[gateway_helper.index("/* if the gateway is out of the subnet */"):gateway_helper.index("/* default route via default gateway */")]
+          gateway_default = gateway_helper[gateway_helper.index("/* default route via default gateway */"):gateway_helper.index("/* ... and to dns servers as well for demand ppp to work */")]
+          gateway_dns = gateway_helper[gateway_helper.index("/* ... and to dns servers as well for demand ppp to work */"):]
+          required_accumulate = "*gateway_route_status = route_status_accumulate(*gateway_route_status, route_status);"
+          assert required_accumulate in gateway_host
+          assert required_accumulate in gateway_default
+          assert "*gateway_route_status" not in gateway_dns
+          man_internal = body(source, "static int" + chr(10) + "man_up_internal(char *man_ifname, int unit, int is_static, int *gateway_route_status)")
+          assert "add_man_gateway_routes(man_ifname, unit, 2, gateway_route_status)" in man_internal
+          man_wrapper = body(source, "void" + chr(10) + "man_up(char *man_ifname, int unit, int is_static)")
+          assert "man_up_internal(man_ifname, unit, is_static, NULL)" in man_wrapper
+          assert "route_setup_status = man_up_internal(wan_ifname, unit, 0, NULL);" in source
+          assert "route_setup_status = man_up_internal(man_ifname, unit, 0, NULL);" in source
+          wanx_static = wanx[wanx.index("if (is_same_subnet2("):]
+          assert "route_status = man_up_internal(man_ifname, unit, 1, &gateway_route_status);" in wanx_static
+          assert "if (gateway_route_status != 0)" in wanx_static
+          assert "launch_status = gateway_route_status;" in wanx_static
+          assert "man_err = 1;" in wanx_static
+          assert 'nvram_set_int_temp("wanx_err", man_err);' in wanx_static
           assert 'address_status = ifconfig(man_ifname, IFUP, "0.0.0.0", NULL);' in apcli_wisp
           assert "if (address_status != 0)" in apcli_wisp
           assert 'logmessage(LOGNAME, "failed to clear previous WAN address on %s (status=%d)",' in apcli_wisp

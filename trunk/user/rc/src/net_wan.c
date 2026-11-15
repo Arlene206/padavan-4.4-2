@@ -1431,7 +1431,7 @@ launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)
 		} else
 			launch_status = start_zcip_wan(man_ifname);
 	} else {
-		int man_err = 0;
+		int man_err = 0, gateway_route_status = 0, route_status;
 		char *lan_addr = nvram_safe_get("lan_ipaddr");
 		char *lan_mask = nvram_safe_get("lan_netmask");
 		
@@ -1451,7 +1451,14 @@ launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)
 				logmessage(LOGNAME, "failed to configure static WAN address on %s (status=%d)",
 					   man_ifname, launch_status);
 			} else {
-				man_up(man_ifname, unit, 1);
+				route_status = man_up_internal(man_ifname, unit, 1, &gateway_route_status);
+				if (route_status != 0)
+					logmessage(LOGNAME, "MAN route setup incomplete on %s (error=%d)",
+						   man_ifname, route_status);
+				if (gateway_route_status != 0) {
+					man_err = 1;
+					launch_status = gateway_route_status;
+				}
 			}
 		}
 		
@@ -2151,12 +2158,15 @@ is_ifunit_modem(char *wan_ifname, int unit)
 }
 
 static int
-add_man_gateway_routes(char *man_ifname, int unit, int metric)
+add_man_gateway_routes(char *man_ifname, int unit, int metric, int *gateway_route_status)
 {
 	int is_man_dns_auto, is_modem_active, wan_proto;
 	int status = 0, route_status;
 	char *next, *man_gate, *man_addr, *man_mask, *man_dns;
 	char word[100];
+
+	if (gateway_route_status)
+		*gateway_route_status = 0;
 
 	man_gate = nvram_safe_get("wanx_gateway");
 	if (!is_valid_ipv4(man_gate))
@@ -2181,6 +2191,8 @@ add_man_gateway_routes(char *man_ifname, int unit, int metric)
 	if (!is_same_subnet(man_gate, man_addr, man_mask)) {
 		route_status = route_add(man_ifname, metric, man_gate, NULL, "255.255.255.255");
 		status = route_status_accumulate(status, route_status);
+		if (gateway_route_status)
+			*gateway_route_status = route_status_accumulate(*gateway_route_status, route_status);
 		if (route_status != 0)
 			logmessage(LOGNAME, "failed to add MAN gateway host route %s on %s (error=%d)",
 				   man_gate, man_ifname, route_status);
@@ -2189,6 +2201,8 @@ add_man_gateway_routes(char *man_ifname, int unit, int metric)
 	/* default route via default gateway */
 	route_status = route_add(man_ifname, metric, "0.0.0.0", man_gate, "0.0.0.0");
 	status = route_status_accumulate(status, route_status);
+	if (gateway_route_status)
+		*gateway_route_status = route_status_accumulate(*gateway_route_status, route_status);
 	if (route_status != 0)
 		logmessage(LOGNAME, "failed to add MAN default route via %s on %s (error=%d)",
 			   man_gate, man_ifname, route_status);
@@ -2211,9 +2225,12 @@ add_man_gateway_routes(char *man_ifname, int unit, int metric)
 }
 
 static int
-man_up_internal(char *man_ifname, int unit, int is_static)
+man_up_internal(char *man_ifname, int unit, int is_static, int *gateway_route_status)
 {
 	int status = 0, route_status;
+
+	if (gateway_route_status)
+		*gateway_route_status = 0;
 
 	logmessage(LOGNAME, "%s %s (%s)", "MAN", "up", man_ifname);
 
@@ -2234,7 +2251,7 @@ man_up_internal(char *man_ifname, int unit, int is_static)
 	}
 
 	/* and default route (metric 2) */
-	route_status = add_man_gateway_routes(man_ifname, unit, 2);
+	route_status = add_man_gateway_routes(man_ifname, unit, 2, gateway_route_status);
 	status = route_status_accumulate(status, route_status);
 
 	if (!is_static) {
@@ -2254,7 +2271,7 @@ man_up_internal(char *man_ifname, int unit, int is_static)
 void
 man_up(char *man_ifname, int unit, int is_static)
 {
-	int status = man_up_internal(man_ifname, unit, is_static);
+	int status = man_up_internal(man_ifname, unit, is_static, NULL);
 
 	if (status != 0)
 		logmessage(LOGNAME, "MAN route setup incomplete on %s (error=%d)",
@@ -3962,7 +3979,7 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 			udhcpc_state, wan_ifname, wan_ip, wan_gw, lease_dur);
 
 		if (is_man)
-			route_setup_status = man_up_internal(wan_ifname, unit, 0);
+			route_setup_status = man_up_internal(wan_ifname, unit, 0, NULL);
 		else
 			route_setup_status = wan_up_internal(wan_ifname, unit, 0);
 
@@ -4213,7 +4230,7 @@ zcip_bound(char *man_ifname)
 	nvram_set_temp(strcat_r(prefix, "ipaddr", tmp), ip);
 
 	unit = get_wan_unit(man_ifname);
-	route_setup_status = man_up_internal(man_ifname, unit, 0);
+	route_setup_status = man_up_internal(man_ifname, unit, 0, NULL);
 	if (route_setup_status != 0)
 		logmessage(LOGNAME, "ZeroConf address on %s is active but MAN route setup is incomplete (error=%d)", man_ifname, route_setup_status);
 	return route_setup_status;

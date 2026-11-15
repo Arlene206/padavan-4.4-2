@@ -1,3 +1,14 @@
+## 2026-11-15 — Separate required MAN gateway routes from optional route errors
+
+- `man_up_internal()` previously returned one aggregate containing critical gateway/default-route setup and optional configured static/DHCP/DNS routes. The static MAN caller used the void `man_up()` wrapper, so PPTP/L2TP could not abort for a required gateway failure without also treating optional routes as fatal.
+- Added a separate `gateway_route_status` output covering only the off-subnet gateway host route and default route. User static routes, DHCP routes and DNS host routes remain in the aggregate return and are not fatal to static MAN PPP startup.
+- Static MAN `launch_wanx()` now persists `wanx_err` and returns the required gateway error; the pre-existing non-PPPoE PPTP/L2TP guard blocks pppd. DHCP/ZeroConf callback callers retain aggregate semantics; PPPoE asynchronous/no-wait remains unchanged.
+- Added workflow contracts for critical/optional route separation and exact caller propagation. Exact current-head WAN/XY-C1 Actions pending.
+- Parent main: `2529f9a8aadd378347fa47578a1f048a793b0c1c`; exact parent WAN #43754701672, AI docs #43754701543, Process inventory #43754701614 and NVRAM ioctl audit #43754701523 PASS. XY-C1 #43754701433 was at Build with TRX/artifact pending.
+- Frozen backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; no physical-router/L4 claim.
+
+---
+
 ## 2026-11-15 — Guard AP-client WISP migration on old WAN address cleanup
 
 - `config_apcli_wisp()` ignored failure to clear the previous MAN interface address, then published the WISP interface as the active WAN. A stale address could remain on the old physical interface during migration.

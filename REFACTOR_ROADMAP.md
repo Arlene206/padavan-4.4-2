@@ -1,17 +1,18 @@
 ## Current source / CI checkpoint
 
-- Main at slice start: `7ebeaa9e02e6249ac787497429defab2f726e5a0`; frozen backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact 7ebe Actions: WAN callback #43754281208 PASS; AI docs #43754281251 PASS; Process inventory #43754281242 PASS; WAN route #43754281323 PASS; DNSMasq #43754281246 PASS; USB modem identity #43754281329 PASS; detect_link #43754281306 PASS; detect_internet #43754281305 PASS; WAN teardown #43754281294 PASS; AliDDNS #43754281292 PASS; infosvr #43754281282 PASS; VPN lifecycle #43754281279 PASS; WAN ARP #43754281264 PASS; AdGuardHome #43754281227 PASS; AliyunDrive #43754281226 PASS; HTTPD #43754281200 PASS; Process #43754281205 PASS. NVRAM #43754281347 still auditing ioctl call paths.
-- Exact XY-C1 #43754281438 for source 7ebe was at Build XY-C1; TRX/artifact pending. Prior 524601f firmware PASS does not validate later C changes.
-- Current C slices capture direct IPoE static address error, check initial WAN interface bring-up, and protect AP-client WISP migration from stale old-interface addresses. Current-head results pending; no L3 claim yet.
-- No physical-router/L4 result claimed.
+- Main at slice start: `2529f9a8aadd378347fa47578a1f048a793b0c1c`; frozen backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Product baselines: direct IPoE static address result gate at `20f1bbd`; checked initial WAN interface bring-up at `7ebeaa9`; AP-client WISP old-interface cleanup at `2529f9a`.
+- Exact 2529 Actions: WAN callback #43754701672 PASS; AI docs #43754701543 PASS; Process inventory #43754701614 PASS; NVRAM ioctl audit #43754701523 PASS. XY-C1 #43754701433 was at Build XY-C1; TRX/artifact pending.
+- Current slice separates required MAN gateway host/default route errors from optional static/DHCP/DNS route errors. Static MAN startup propagates only required failures to PPTP/L2TP gating; callback aggregate diagnostics and PPPoE asynchronous/no-wait behavior remain unchanged.
+- Current-head Actions pending; no current-source L3 claim and no physical-router/L4 claim.
 
 ### P1 — WAN startup status propagation
 
-- Direct IPoE static IPv4 captures `ifconfig()` error, sets `wan_err`, attempts partial-address cleanup and blocks WAN route/UPnP publication; IPv6 continues independently.
-- Initial WAN interface bring-up no longer discards shell command status; checked MTU is diagnostic, failed interface-up triggers best-effort shutdown and skips protocol startup.
-- AP-client WISP migration now checks old-MAN address removal and refuses to publish WISP if old interface shutdown cannot be established.
-- Next review: distinguish critical MAN gateway/default route errors from optional configured static/DNS route errors; review any other unchecked WISP setup statuses.
+- Direct IPoE static IPv4 `ifconfig()` errors fail closed before WAN route/UPnP publication; partial-address cleanup is attempted and IPv6 remains independent.
+- Initial WAN interface bring-up uses checked MTU/interface operations; failed interface-up skips WAN protocol startup after best-effort shutdown.
+- AP-client WISP migration checks old MAN address clearing and refuses migration if the previous interface cannot be ensured down.
+- Required static MAN gateway host/default route errors now have a separate status channel for PPTP/L2TP; optional configured static/DHCP/DNS routes remain reported but do not block PPP.
+- Keep PPPoE async/no-wait unchanged.
 
 ### P2 — IGMP proxy configuration publication
 
