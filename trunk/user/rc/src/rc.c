@@ -955,11 +955,14 @@ shutdown_router(int level)
 	int wan_stop_status, lan_wan_stop_status = 0;
 	int auth_stop_status, logger_stop_status = 0;
 	int wifi_wl_stop_status = 0, wifi_rt_stop_status = 0;
+	int optware_stop_status = 0;
 	int shutdown_script_status = 0;
 	const char *script_name = SCRIPT_SHUTDOWN;
 
 	/* Prevent a late Optware start hook from racing service shutdown. */
-	stop_rwfs_optware();
+	optware_stop_status = stop_rwfs_optware();
+	if (optware_stop_status != 0)
+		logmessage(LOGNAME, "MTD Optware startup worker did not stop cleanly; continuing power-down without storage persistence");
 	misc_stop_status = stop_misc();
 	if (misc_stop_status != 0)
 		logmessage(LOGNAME, "miscellaneous service shutdown incomplete; continuing power-down without storage persistence");
@@ -1026,7 +1029,7 @@ shutdown_router(int level)
 	    wan_stop_status == 0 && lan_wan_stop_status == 0 &&
 	    auth_stop_status == 0 && logger_stop_status == 0 &&
 	    wifi_wl_stop_status == 0 && wifi_rt_stop_status == 0 &&
-	    shutdown_script_status == 0) {
+	    optware_stop_status == 0 && shutdown_script_status == 0) {
 		storage_save_time(10);
 		write_storage_to_mtd();
 	} else {

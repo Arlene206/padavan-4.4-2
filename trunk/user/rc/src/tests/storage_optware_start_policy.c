@@ -27,6 +27,21 @@ main(void)
 	assert(storage_optware_retry_next_delay(300U) == 300U);
 	assert(storage_optware_retry_next_delay(1000U) == 300U);
 
-	puts("deferred Optware child-result and retry policy: PASS");
+	assert(storage_optware_stop_policy_result(STORAGE_OPTWARE_STOP_ABSENT,
+						 STORAGE_OPTWARE_STOP_ABSENT, 0) == 0);
+	assert(storage_optware_stop_policy_result(STORAGE_OPTWARE_STOP_RUNNING,
+						 STORAGE_OPTWARE_STOP_ABSENT, 0) == -1);
+	assert(storage_optware_stop_policy_result(STORAGE_OPTWARE_STOP_ABSENT,
+						 STORAGE_OPTWARE_STOP_RUNNING, 0) == -1);
+	assert(storage_optware_stop_policy_result(STORAGE_OPTWARE_STOP_UNKNOWN,
+						 STORAGE_OPTWARE_STOP_ABSENT, 0) == -1);
+	assert(storage_optware_stop_policy_result(STORAGE_OPTWARE_STOP_ABSENT,
+						 STORAGE_OPTWARE_STOP_UNKNOWN, 0) == -1);
+	assert(storage_optware_stop_policy_result(STORAGE_OPTWARE_STOP_ABSENT,
+						 STORAGE_OPTWARE_STOP_ABSENT, 5) == 5);
+	assert(storage_optware_stop_policy_result(STORAGE_OPTWARE_STOP_RUNNING,
+						 STORAGE_OPTWARE_STOP_RUNNING, 13) == 13);
+
+	puts("deferred Optware child-result, retry, and fail-closed stop policy: PASS");
 	return 0;
 }

@@ -35,4 +35,22 @@ storage_optware_retry_next_delay(unsigned int current_delay)
 	return current_delay * 2U;
 }
 
+enum storage_optware_stop_presence {
+	STORAGE_OPTWARE_STOP_UNKNOWN = -1,
+	STORAGE_OPTWARE_STOP_ABSENT = 0,
+	STORAGE_OPTWARE_STOP_RUNNING = 1
+};
+
+static inline int
+storage_optware_stop_policy_result(int worker_presence, int group_presence,
+				   int operation_status)
+{
+	if (operation_status != 0)
+		return operation_status;
+	if (worker_presence != STORAGE_OPTWARE_STOP_ABSENT ||
+	    group_presence != STORAGE_OPTWARE_STOP_ABSENT)
+		return -1;
+	return 0;
+}
+
 #endif /* PADAVAN_STORAGE_OPTWARE_START_POLICY_H */

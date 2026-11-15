@@ -698,12 +698,22 @@ jobs:
           stop_worker = function_body(common_ex, "stop_rwfs_optware(void)")
           assert "rwfs_optware_start_pending = 0" in stop_worker
           assert "sigprocmask(SIG_BLOCK" in stop_worker
-          assert "waitpid(child, &status, WNOHANG)" in stop_worker
+          assert "rwfs_optware_worker_presence(child, &worker_presence)" in stop_worker
+          assert "rwfs_optware_group_presence(child, &group_presence)" in stop_worker
+          assert "waitpid(child, &child_status, WNOHANG)" in common_ex
+          assert "waitpid(-process_group, &child_status, WNOHANG)" in common_ex
           assert "kill(-child, SIGTERM)" in stop_worker
           assert "kill(-child, SIGKILL)" in stop_worker
-          assert "rwfs_optware_result_fd = -1" in stop_worker
-          assert "void stop_rwfs_optware(void);" in rc_header
+          assert "kill(-process_group, 0)" in common_ex
+          assert "ETIMEDOUT" in stop_worker
+          assert "storage_optware_stop_policy_result(worker_presence" in stop_worker
+          assert "int stop_rwfs_optware(void);" in rc_header
+          assert "storage_optware_stop_policy_result" in optware_policy
+          assert "STORAGE_OPTWARE_STOP_UNKNOWN" in optware_policy_test
           shutdown = function_body(rc, "shutdown_router(int level)")
+          assert "optware_stop_status = stop_rwfs_optware();" in shutdown
+          assert "optware_stop_status != 0" in shutdown
+          assert "optware_stop_status == 0" in shutdown
           assert shutdown.index("stop_rwfs_optware();") < shutdown.index("stop_misc();")
           assert "STORAGE_OPTWARE_START_CHILD_SUCCESS" in rwfs_retry
           assert "rwfs_optware_start_pending = 0" in rwfs_retry

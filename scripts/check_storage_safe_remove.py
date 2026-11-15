@@ -405,6 +405,7 @@ for path in ("trunk/user/libdisk/src/disk_initial.c",
              "trunk/user/libdisk/src/disk_initial.h",
              "trunk/user/libdisk/src/disk_inventory_policy.h",
              "trunk/user/rc/src/storage_service_stop_policy.h",
+             "trunk/user/rc/src/storage_optware_start_policy.h",
              "trunk/user/rc/src/optional_daemon_policy.h"):
     require('"' + path + '"' in xy_workflow, "XY-C1 target build does not watch " + path)
 

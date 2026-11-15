@@ -841,6 +841,74 @@ static long rwfs_optware_retry_at = 0;
 static char rwfs_optware_device[16];
 
 static void
+rwfs_optware_record_stop_error(int *stop_status, int error)
+{
+	if (*stop_status == 0)
+		*stop_status = error > 0 ? error : EIO;
+}
+
+static int
+rwfs_optware_worker_presence(pid_t child, int *presence)
+{
+	pid_t waited;
+	int child_status;
+
+	if (child <= 0 || !presence)
+		return EINVAL;
+
+	do {
+		waited = waitpid(child, &child_status, WNOHANG);
+	} while (waited < 0 && errno == EINTR);
+
+	if (waited == 0) {
+		*presence = STORAGE_OPTWARE_STOP_RUNNING;
+		return 0;
+	}
+	if (waited == child || (waited < 0 && errno == ECHILD)) {
+		*presence = STORAGE_OPTWARE_STOP_ABSENT;
+		return 0;
+	}
+
+	*presence = STORAGE_OPTWARE_STOP_UNKNOWN;
+	return errno ? errno : EIO;
+}
+
+static int
+rwfs_optware_group_presence(pid_t process_group, int *presence)
+{
+	if (process_group <= 0 || !presence)
+		return EINVAL;
+
+	if (kill(-process_group, 0) == 0) {
+		*presence = STORAGE_OPTWARE_STOP_RUNNING;
+		return 0;
+	}
+	if (errno == ESRCH) {
+		*presence = STORAGE_OPTWARE_STOP_ABSENT;
+		return 0;
+	}
+
+	*presence = STORAGE_OPTWARE_STOP_UNKNOWN;
+	return errno ? errno : EIO;
+}
+
+/* Reap orphaned hooks after their worker exits. SIGCHLD is blocked by caller. */
+static int
+rwfs_optware_reap_group(pid_t process_group)
+{
+	pid_t waited;
+	int child_status;
+
+	do {
+		waited = waitpid(-process_group, &child_status, WNOHANG);
+	} while (waited > 0 || (waited < 0 && errno == EINTR));
+
+	if (waited < 0 && errno != ECHILD)
+		return errno ? errno : EIO;
+	return 0;
+}
+
+static void
 rwfs_optware_schedule_retry(void)
 {
 	if (rwfs_optware_retry_at != 0)
@@ -1055,68 +1123,129 @@ void start_rwfs_optware(void)
  * before stopping router services. RWFS teardown remains the fail-closed
  * backstop if a hook cannot be stopped or the lifecycle lock stays busy.
  */
-void
+int
 stop_rwfs_optware(void)
 {
 	sigset_t child_mask, old_mask;
-	pid_t child, waited;
-	int status, group_status;
-
-	rwfs_optware_start_pending = 0;
-	rwfs_optware_retry_at = 0;
-	rwfs_optware_retry_delay = STORAGE_OPTWARE_RETRY_INITIAL_SECONDS;
+	pid_t child;
+	int worker_presence = STORAGE_OPTWARE_STOP_ABSENT;
+	int group_presence = STORAGE_OPTWARE_STOP_ABSENT;
+	int stop_status = 0;
+	int operation_status;
+	int attempt;
+	int result;
 
 	sigemptyset(&child_mask);
 	sigaddset(&child_mask, SIGCHLD);
 	if (sigprocmask(SIG_BLOCK, &child_mask, &old_mask) != 0) {
-		logmessage(LOGNAME, "cannot block SIGCHLD while stopping MTD Optware startup (errno %d)", errno);
-		return;
+		stop_status = errno ? errno : EIO;
+		logmessage(LOGNAME, "cannot block SIGCHLD while stopping MTD Optware startup (errno %d)", stop_status);
+		return stop_status;
 	}
 
+	/* Do not discard the worker identity until its process and private group
+	 * have both been observed absent. */
+	rwfs_optware_start_pending = 0;
+	rwfs_optware_retry_at = 0;
+	rwfs_optware_retry_delay = STORAGE_OPTWARE_RETRY_INITIAL_SECONDS;
 	child = rwfs_optware_worker_pid;
+
 	if (child > 0) {
-		do {
-			waited = waitpid(child, &status, WNOHANG);
-		} while (waited < 0 && errno == EINTR);
+		operation_status = rwfs_optware_worker_presence(child, &worker_presence);
+		if (operation_status != 0)
+			rwfs_optware_record_stop_error(&stop_status, operation_status);
+		operation_status = rwfs_optware_group_presence(child, &group_presence);
+		if (operation_status != 0)
+			rwfs_optware_record_stop_error(&stop_status, operation_status);
 
-		if (waited == 0 || waited == child ||
-		    (waited < 0 && errno == ECHILD)) {
-			group_status = kill(-child, SIGTERM);
-			if (group_status != 0 && waited == 0)
-				(void)kill(child, SIGTERM);
-			sleep(1);
+		/* Stop the entire startup group; fall back to the PID only when it is
+		 * still confirmed to be our live child. */
+		if (group_presence == STORAGE_OPTWARE_STOP_RUNNING) {
+			if (kill(-child, SIGTERM) != 0 && errno != ESRCH)
+				rwfs_optware_record_stop_error(&stop_status, errno);
+		} else if (worker_presence == STORAGE_OPTWARE_STOP_RUNNING) {
+			if (kill(child, SIGTERM) != 0 && errno != ESRCH)
+				rwfs_optware_record_stop_error(&stop_status, errno);
+		}
+		sleep(1);
 
-			if (waited == 0) {
-				do {
-					waited = waitpid(child, &status, WNOHANG);
-				} while (waited < 0 && errno == EINTR);
+		if (worker_presence == STORAGE_OPTWARE_STOP_RUNNING) {
+			operation_status = rwfs_optware_worker_presence(child, &worker_presence);
+			if (operation_status != 0)
+				rwfs_optware_record_stop_error(&stop_status, operation_status);
+		}
+		operation_status = rwfs_optware_group_presence(child, &group_presence);
+		if (operation_status != 0)
+			rwfs_optware_record_stop_error(&stop_status, operation_status);
+
+		/* Escalate any surviving worker/group to SIGKILL. */
+		if (group_presence == STORAGE_OPTWARE_STOP_RUNNING) {
+			if (kill(-child, SIGKILL) != 0 && errno != ESRCH)
+				rwfs_optware_record_stop_error(&stop_status, errno);
+		} else if (worker_presence == STORAGE_OPTWARE_STOP_RUNNING) {
+			if (kill(child, SIGKILL) != 0 && errno != ESRCH)
+				rwfs_optware_record_stop_error(&stop_status, errno);
+		}
+
+		/* Reap adopted descendants as well as the worker, then verify that no
+		 * process remains in the private group. Never trust signal delivery as
+		 * proof of termination. */
+		for (attempt = 0; attempt < 3; attempt++) {
+			if (worker_presence != STORAGE_OPTWARE_STOP_ABSENT) {
+				operation_status = rwfs_optware_worker_presence(child, &worker_presence);
+				if (operation_status != 0)
+					rwfs_optware_record_stop_error(&stop_status, operation_status);
 			}
-			if (waited == 0) {
-				if (kill(-child, SIGKILL) != 0)
-					(void)kill(child, SIGKILL);
-			} else {
-				/* The worker may have exited with background hooks still in its group. */
-				(void)kill(-child, SIGKILL);
-			}
-		} else if (waited < 0) {
-			logmessage(LOGNAME, "cannot inspect MTD Optware startup worker (errno %d)", errno);
+			operation_status = rwfs_optware_reap_group(child);
+			if (operation_status != 0)
+				rwfs_optware_record_stop_error(&stop_status, operation_status);
+			operation_status = rwfs_optware_group_presence(child, &group_presence);
+			if (operation_status != 0)
+				rwfs_optware_record_stop_error(&stop_status, operation_status);
+			if (worker_presence == STORAGE_OPTWARE_STOP_ABSENT &&
+			    group_presence == STORAGE_OPTWARE_STOP_ABSENT)
+				break;
+			if (attempt < 2)
+				sleep(1);
+		}
+
+		if (worker_presence != STORAGE_OPTWARE_STOP_ABSENT)
+			rwfs_optware_record_stop_error(&stop_status, ETIMEDOUT);
+		if (group_presence != STORAGE_OPTWARE_STOP_ABSENT)
+			rwfs_optware_record_stop_error(&stop_status, ETIMEDOUT);
+	}
+
+	result = storage_optware_stop_policy_result(worker_presence,
+						    group_presence, stop_status);
+	if (result == 0) {
+		rwfs_optware_worker_pid = -1;
+		if (rwfs_optware_result_fd >= 0) {
+			if (close(rwfs_optware_result_fd) != 0)
+				rwfs_optware_record_stop_error(&stop_status, errno);
+			else
+				rwfs_optware_result_fd = -1;
 		}
 	}
 
-	rwfs_optware_worker_pid = -1;
-	if (rwfs_optware_result_fd >= 0) {
-		close(rwfs_optware_result_fd);
-		rwfs_optware_result_fd = -1;
-	}
-	if (sigprocmask(SIG_SETMASK, &old_mask, NULL) != 0)
+	if (sigprocmask(SIG_SETMASK, &old_mask, NULL) != 0) {
+		rwfs_optware_record_stop_error(&stop_status, errno);
 		logmessage(LOGNAME, "cannot restore SIGCHLD mask after stopping MTD Optware startup (errno %d)", errno);
+	}
+
+	result = storage_optware_stop_policy_result(worker_presence, group_presence,
+						    stop_status);
+	if (result != 0)
+		logmessage(LOGNAME,
+			   "MTD Optware startup worker stop incomplete (worker=%d, group=%d, status=%d); refusing storage persistence",
+			   worker_presence, group_presence, result);
+	return result;
 }
 #else
 inline void mount_rwfs_partition(void) {}
 inline void umount_rwfs_partition(void) {}
 inline void start_rwfs_optware(void) {}
 inline int retry_rwfs_optware(void) { return 0; }
-inline void stop_rwfs_optware(void) {}
+inline int stop_rwfs_optware(void) { return 0; }
 #endif
 
 static enum process_presence

@@ -190,7 +190,7 @@ void mount_rwfs_partition(void);
 void umount_rwfs_partition(void);
 void start_rwfs_optware(void);
 int retry_rwfs_optware(void);
-void stop_rwfs_optware(void);
+int stop_rwfs_optware(void);
 int kill_services(char* svc_name[], int wtimeout, int forcekill);
 int signal_services_by_identity(char *svc_name[], int signal_number);
 int kill_services_with_pidfiles(char *svc_name[], const char *pidfile_paths[], const char *pidfile_process_name, int pidfile_force_only, int wtimeout, int forcekill);
