@@ -1,3 +1,12 @@
+## 2026-11-14 — Fix VSFTPD source-checker function signature parsing
+
+- Exact-head VSFTPD stability run `43670514105` on `80952b0eb515c9fd46ed1b4608638b79a1797197` passed its GNU89 regression binary and failed only in the final Python source contract. The checker was asked to extract `handle_rnfr()` / `handle_rnto()` with signatures that already included the opening `{`; its parser searched for a second opening brace after the signature and falsely reported a missing definition.
+- Updated the inline `function_body()` helper to recognize signatures that include their opening brace, while preserving forward-declaration skipping. Added a synthetic regression for this exact signature shape alongside the existing prototype fixture.
+- Product sources are unchanged. A new exact-head VSFTPD workflow run is required; the previous failure remains attributed to its original SHA.
+- Changed paths: `.github/workflows/vsftpd-stability.yml`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
 ## 2026-11-14 — Restore target build integration for inadyn daemon policy
 
 - Exact-head XY-C1 Firmware Validation run `43670514075` on `80952b0eb515c9fd46ed1b4608638b79a1797197` failed during the MIPS/uClibc build in `services_ex.c::notify_ddns_update()`: the function used `inadyn_daemon_policy.h` types and helpers without including the policy header. The compiler reported the incomplete enum type and undeclared action constants/functions.
