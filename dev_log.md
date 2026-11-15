@@ -1,3 +1,12 @@
+## 2026-11-15 — Reconcile transactional restore contracts across storage and HTTPD Actions
+
+- Exact-head USB storage #43687076965 on `0ed88bde4fe182f057291429e7a94af5149da772` passed shell syntax, MTD save retry, the new restore copy-failure/install-rename rollback regression, storage persistence gate, disk inventory, daemon stop and storage caller graph. Its final checker failed with `NameError: pr_filters is not defined`; it had already split the workflow into `push_filters` and `pull_filters`. The path contract now consistently checks `pull_filters`.
+- HTTPD security #43687076956 passed 33 preceding policy checks, including NVRAM and storage safe-eject, then failed at its inline source contract because it still expected the old destructive `cp -rf "$tmp_storage"/. "$dir_storage"/` copy. Replaced that expectation with staging, same-filesystem rename, rollback and recovery checks matching the production restore implementation.
+- Process lifecycle #43687076988, NVRAM transaction #43687076931, Process lifecycle inventory #43687076969 and AI handoff docs #43687076907 all passed exact-head. XY-C1 #43687076955 was still in progress at last poll.
+- No production source semantics were changed here. Changed paths: `.github/workflows/httpd-security.yml`, `scripts/check_storage_safe_remove.py`, `SESSION_HANDOFF.md`, `dev_log.md`. Parent SHA: `0ed88bde4fe182f057291429e7a94af5149da772`.
+
+---
+
 ## 2026-11-15 — Make MTD storage restore replacement transactional; repair exact-head contracts
 
 - Exact-head USB storage #43686251138 on `a7fe3e4648563f6941dcb0816b59c9a903b5f8bc` passed the MTD script syntax check and the injected flash-failure/identical-retry/unchanged-skip shell test, then passed storage persistence gates, inventory, daemon-stop and full caller-graph checks. The final standalone source checker crashed at line 470 because it searched for the two literal characters `\\n` before `func_backup()` rather than an actual newline. The checker now uses the real function separator.

@@ -534,7 +534,7 @@ for path in ("trunk/user/scripts/files/sbin/mtd_storage.sh",
              "trunk/user/scripts/tests/mtd_storage_restore_transaction.sh",
              "trunk/user/rc/src/storage_persistence_policy.h",
              "trunk/user/rc/src/tests/storage_persistence_policy.c"):
-    require('"' + path + '"' in push_filters and '"' + path + '"' in pr_filters,
+    require('"' + path + '"' in push_filters and '"' + path + '"' in pull_filters,
             "storage-hotplug must trigger for persistence file " + path)
 for path in ("trunk/user/scripts/files/sbin/mtd_storage.sh",
              "trunk/user/rc/src/storage_persistence_policy.h"):

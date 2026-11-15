@@ -4113,7 +4113,12 @@ jobs:
           assert 'while ! mkdir -m 700 "$tmp_storage" 2>/dev/null; do' in restore
           assert 'tmp_storage="/tmp/.httpd-private/storage-restore-$restore_suffix"' in restore
           assert 'if [ "$restore_suffix" -gt 999 ]; then' in restore
-          assert 'cp -rf "$tmp_storage"/. "$dir_storage"/' in restore
+          assert 'stage_storage=`mktemp -d "${dir_storage}.restore.XXXXXX" 2>/dev/null`' in restore
+          assert 'cp -a "$tmp_storage"/. "$stage_storage"/' in restore
+          assert 'mv "$dir_storage" "$rollback_storage"' in restore
+          assert 'mv "$stage_storage" "$dir_storage"' in restore
+          assert 'mv "$rollback_storage" "$dir_storage"' in restore
+          assert "restore install and rollback both failed" in restore
           assert "chmod 1777 /tmp" in dev_init
           assert dev_init.index("chmod 1777 /tmp") < dev_init.index("mkdir -p -m 700 /tmp/.httpd-private") < dev_init.index("mtd_storage.sh load")
           print("HTTPD upload exclusive-create and private restore staging contracts: OK")
