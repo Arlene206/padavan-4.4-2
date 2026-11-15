@@ -727,17 +727,21 @@ jobs:
           assert "if (router_ready && retry_rwfs_optware() != 0)" in init_source
           assert "int retry_rwfs_optware(void);" in rc_header
 
-          rwfs_stop = function_body(common_ex, "void umount_rwfs_partition(void)")
+          rwfs_stop = function_body(common_ex, "int umount_rwfs_partition(void)")
           rwfs_hook = rwfs_stop.index('doSystem("/usr/bin/opt-umount.sh %s %s", "/dev/ubi", mp_rwfs)')
-          rwfs_hook_gate = rwfs_stop.index("if (doSystem(")
-          rwfs_hook_abort = rwfs_stop.index("return;", rwfs_hook_gate)
+          rwfs_hook_abort = rwfs_stop.index("return EIO;", rwfs_hook)
           rwfs_umount = rwfs_stop.index("umount(mp_rwfs)")
-          rwfs_detach = rwfs_stop.index('doSystem("ubidetach -p /dev/mtd%d 2>/dev/null", mtd_rwfs)')
-          assert rwfs_hook < rwfs_hook_abort < rwfs_umount < rwfs_detach
+          unmount_error = rwfs_stop.index("cannot unmount RWFS")
+          unmount_abort = rwfs_stop.index("return operation_status;", unmount_error)
+          ubi_before = rwfs_stop.index("rwfs_ubi_attachment_presence(mtd_rwfs, &ubi_before)")
+          ubi_detach = rwfs_stop.index('doSystem("ubidetach -p /dev/mtd%d 2>/dev/null", mtd_rwfs)')
+          ubi_after = rwfs_stop.index("rwfs_ubi_attachment_presence(mtd_rwfs, &ubi_after)")
+          assert rwfs_hook < rwfs_hook_abort < rwfs_umount < unmount_error < unmount_abort
+          assert unmount_abort < ubi_before < ubi_detach < ubi_after
           assert "refusing to unmount RWFS" in rwfs_stop
           assert "errno != EINVAL && errno != ENOENT" in rwfs_stop
-          unmount_error = rwfs_stop.index("cannot unmount RWFS")
-          assert unmount_error < rwfs_stop.index("return;", unmount_error) < rwfs_detach
+          assert "storage_optware_ubi_detach_complete(ubi_before, ubi_after)" in rwfs_stop
+          assert "return ENODEV;" in rwfs_stop and "return 0;" in rwfs_stop
           assert "start_rwfs_optware(void)" in common_ex
           assert "retry_rwfs_optware(void)" in common_ex
 

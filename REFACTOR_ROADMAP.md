@@ -1,9 +1,9 @@
 ## Current source / CI checkpoint
 
-- Source checkpoint: THIS COMMIT; parent main SHA `adaa637920c5322e92be2ea7a21d20ed735646b7`. Optware stop hooks, RWFS unmount and verified UBI detach now run before MTD Storage persistence; unknown or failed teardown suppresses persistence while power-down proceeds. Immutable backup: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
-- Exact-parent Actions: VPN server lifecycle stability regression #43682158745 completed/success; Process inventory and lifecycle fail-closed regression #43682158741 completed/success; XY-C1 Firmware Validation #43682158738 in_progress/pending; AI handoff documentation contract #43682158736 completed/success. Results are SHA-scoped; fresh USB storage, Process lifecycle, AI docs and XY-C1 checks are required for THIS COMMIT.
-- Historical L3 passed only on `335f137a831725f1ed241151d849e160578cca69`, XY-C1 #43677484373, artifact #14147062315 (12,595,529 bytes). Current L3 and physical L4 are NOT VERIFIED.
-- No local checkout/toolchain is available; no local test/build or physical hardware result is claimed.
+- Source checkpoint: THIS COMMIT; parent main SHA `fc675527e58402dfab0bd25d7ea5dc620861d872`. Production RWFS/UBI teardown gating and identity-validated Transmission/Aria stop transactions are already on main. THIS COMMIT repairs only the duplicated storage-hotplug workflow contract for the status-returning RWFS API. Immutable backup: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
+- Exact-head parent Actions: AI handoff docs #43682722938 SUCCESS; USB storage hotplug #43682722908 FAILED at embedded Python line 490 on obsolete `void umount_rwfs_partition(void)` / bare `return;` assumptions. All preceding steps passed; the later checked-eject script was skipped. Fresh exact-head USB storage and docs Actions required.
+- XY-C1 #43682494445 on source parent `2aedad115793e7a6de4f2114272c845559105783` was IN_PROGRESS at last observation. Current L3 remains NOT VERIFIED pending exact-source MIPS/uClibc build, TRX verification and artifact upload; physical L4 remains NOT VERIFIED.
+- No local checkout/toolchain is available; no local test/build or hardware claim is made.
 
 ## Whole-repository module status
 
@@ -50,7 +50,7 @@
 
 ## Priority queue
 
-1. P1 OPEN — After exact-head validation, audit concrete NVRAM/storage writers whose callers can publish state after unchecked stop, unmount, write, fsync or close failures. The current source gates MTD persistence on completed Optware service teardown, RWFS unmount and verified UBI detach; do not repeat those paths.
+1. P1 OPEN — Audit concrete callers of write_storage_to_mtd(), storage_save_time() and NVRAM commit wrappers for unchecked write/fsync/close, unmount or prerequisite-stop errors. RWFS/UBI teardown and Optware/service stop gates are implemented; do not repeat those paths.
 2. P2 — Finish DNSMasq public/locked caller graph and process identity / stop / HUP / wait-reap / FD / temporary-file / rollback audit. Full-LAN DNSMasq failure propagation is already L2 verified on production source ed010248; exact DNSMasq and HTTPD umbrella regressions passed.
 3. P2 — DNS Forwarder locked lifecycle, failed-stop gate, launch status and PID1 notification propagation remain L2 VERIFIED on 479f0d7; do not repeat this slice.
 4. P2 OPEN/BLOCKED — FTP failed-upload cleanup TOCTOU. Linux 4.4 has no inode-conditional unlink-by-fd; do not change cleanup until race-safe semantics are proven while preserving STOR/APPE/REST/STOU and concurrent external-writer behavior.

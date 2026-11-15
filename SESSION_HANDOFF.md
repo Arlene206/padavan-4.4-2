@@ -8,29 +8,25 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2. Parent main for THIS COMMIT: `adaa637920c5322e92be2ea7a21d20ed735646b7`. Parent includes the checked Optware startup-worker stop before ordinary router service shutdown; this slice adds checked Optware stop hooks, RWFS unmount and verified UBI detach before the MTD Storage snapshot.
-- Immutable backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only. Legacy PR #1 remains CLOSED / UNMERGED; CA/HMAC work is integrated on main.
-- Exact-parent Actions: VPN server lifecycle stability regression #43682158745 completed/success; Process inventory and lifecycle fail-closed regression #43682158741 completed/success; XY-C1 Firmware Validation #43682158738 in_progress/pending; AI handoff documentation contract #43682158736 completed/success. These validate only `adaa637920c5322e92be2ea7a21d20ed735646b7`; fetch fresh USB storage, Process lifecycle, AI docs and XY-C1 Actions for THIS COMMIT.
-- Historical L3 is verified only on `335f137a831725f1ed241151d849e160578cca69`, XY-C1 #43677484373 (MIPS/uClibc build, TRX verification and artifact upload #14147062315, 12,595,529 bytes). No later SHA inherits it. Current L3 and physical L4 are NOT VERIFIED.
-- No local checkout or target toolchain is available. Do not claim local tests, full build or hardware validation.
+- Repository: Arlene206/padavan-4.4-2. Parent main for THIS COMMIT: `fc675527e58402dfab0bd25d7ea5dc620861d872`. Production changes on this parent include checked RWFS unmount/UBI detach before MTD persistence (`e89f8ca3da85860e71acfd4f6a50eae4ce096311`) and identity-validated Transmission/Aria stop transactions (`2aedad115793e7a6de4f2114272c845559105783`). Immutable backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; DO NOT modify it. Legacy PR #1 remains CLOSED / UNMERGED.
+- Exact-head parent Actions: AI handoff docs #43682722938 SUCCESS; USB storage hotplug #43682722908 FAILED in the embedded Python source contract at line 490 because it still expected `void umount_rwfs_partition(void)` and bare `return;` after the production API became status-returning. All earlier syntax, policy, BusyBox ash/Optware, disk-inventory, FTP and storage daemon stop steps passed; the final checked-eject step was skipped.
+- On source parent `2aedad115793e7a6de4f2114272c845559105783`, NFS lifecycle #43682494464 SUCCESS; XY-C1 #43682494445 was IN_PROGRESS at last observation; USB storage #43682494422 failed on the same stale inline contract. Results are SHA-scoped.
+- THIS COMMIT changes only the duplicated embedded workflow contract and handoff/roadmap/log. The standalone `scripts/check_storage_safe_remove.py` already matches the checked RWFS status API; no production code is changed here.
+- No local checkout/toolchain is available. Do not claim local tests, current-source MIPS build, TRX validation or hardware testing. Current L3 and physical L4 remain NOT VERIFIED.
 
 ## Active task
 
-### Current P1 slice — gate MTD persistence on RWFS/Optware teardown (THIS COMMIT)
+### Current P1 slice — align storage-hotplug workflow contract with checked RWFS teardown (THIS COMMIT)
 
-- `shutdown_router()` previously persisted `/etc/storage` to MTD before calling `umount_rwfs_partition()`; the void helper discarded Optware stop-hook, RWFS unmount and UBI detach failures.
-- This slice returns status, verifies UBI identity through `/sys/class/ubi/ubiN/mtd_num`, checks the final ABSENT state, and treats already-detached UBI as a safe no-op. Unknown identity or failed teardown propagates an error.
-- Shutdown now runs Optware stop hooks and unmounts RWFS before `storage_save_time()` and `write_storage_to_mtd()`; failure skips persistence but does not abort power-down. Policy tests and `check_storage_safe_remove.py` enforce status propagation and ordering.
-- Exact parent `adaa637920c5322e92be2ea7a21d20ed735646b7` Actions: VPN server lifecycle stability regression #43682158745 completed/success; Process inventory and lifecycle fail-closed regression #43682158741 completed/success; XY-C1 Firmware Validation #43682158738 in_progress/pending; AI handoff documentation contract #43682158736 completed/success. These do not validate THIS COMMIT; fresh exact-head USB storage, AI docs, Process lifecycle and XY-C1 checks are required.
-- The preceding worker-stop gate prevents a pending startup process from racing service shutdown; this slice covers later Optware stop hooks and RWFS/UBI teardown.
+- The exact-head USB storage workflow on `fc675527e58402dfab0bd25d7ea5dc620861d872` passed all earlier syntax, GNU89 policy, BusyBox 1.24.2 ash, Optware lifecycle, disk-inventory, FTP-presence and storage-daemon-stop steps, then failed at embedded Python line 490. Its duplicate source contract still requested the old void function signature and bare `return;` paths despite production `e89f8ca3` now returning status and verifying UBI detach.
+- Updated the embedded contract to require the int signature, Optware hook failure propagation, RWFS unmount error propagation, UBI identity checks before/after detach, and the detach-completion policy. Failure paths must not proceed to persistence.
+- A fresh exact-head USB storage run must pass the repaired source-contract tail and later `scripts/check_storage_safe_remove.py` step. Parent run #43682722908 is a failure being corrected, not a passing test.
+- No production files or local test/build evidence are part of this slice.
 
- the source file and object now match. MIPS job confirmed this object compiled and `libshared.so` installed `process_inventory.h` into `trunk/stage/include/shared`.
-- `/proc/PID/stat` field 22 start_time is token 20 after comm. Scanner test asserts concrete value `98765` and exercises disappearance between stat/cmdline.
-- `pids_main()` is now a pure CLI exit-status API: complete RUNNING/ABSENT returns `EXIT_SUCCESS`; UNKNOWN returns `EXIT_FAILURE`; count/PIDs are printed only. This was required because `rc.c` returns its value directly from the `/sbin/pids` applet. Legacy `pids()` remains Boolean-compatible until all 77 callers are migrated.
-- `service_lifecycle_policy.h` includes staged public header `<process_inventory.h>`; Watchdog/HTTPD host compile commands add `-I trunk/user/shared/src`. Their workflow path filters watch the public shared header in push and pull_request events.
-- `kill_services()` preflights all configured service names before TERM, checks full plan membership before first signal, revalidates PID identity before each TERM/KILL, and signals the captured PID (not a later name-wide killall). UNKNOWN/CHANGED/TIMEOUT/FAILED are not STOPPED.
-- Production-connected host tests and CI: `trunk/user/shared/src/tests/process_inventory.c`, `trunk/user/rc/src/tests/service_lifecycle_policy.c`, `.github/workflows/process-lifecycle-regression.yml`, `scripts/check_process_lifecycle_integration.py`.
-- The one-line handoff rule is documented in `AI_BOOTSTRAP_PROMPT.md` and `AI_DEVELOPMENT_PROTOCOL.md`.
+### Next P1 review — concrete NVRAM and storage publication callers
+
+- Trace actual callers of `write_storage_to_mtd()`, `storage_save_time()` and NVRAM commit wrappers. Determine whether any caller can publish a snapshot after unchecked write/fsync/close, unmount or prerequisite stop failures. Find a concrete fail-open branch before editing.
+- Do not repeat already completed Optware worker/service stop, RWFS/UBI detach, safe-eject, Transmission/Aria identity stop or shutdown MTD persistence-gate work.
 
 ### In-tree PID-file identity helper — partially migrated; PPPD, udhcpc and iNICD now included
 
@@ -97,13 +93,14 @@ The earlier dd7a XY-C1 run [43624870668] also completed SUCCESS; it is supersede
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and exact-head USB storage hotplug, Process lifecycle inventory, AI handoff docs and XY-C1 Actions. Inspect failed jobs; do not carry forward parent statuses. Confirm XY-C1 completed Build, TRX verification and artifact upload before assigning L3.
-2. Continue P1 with a narrow NVRAM/storage writer audit: find a concrete caller that can still publish state after failed stop, unmount, write, fsync or close. Trace the complete caller and status path before changing APIs; avoid speculative edits.
-3. Do not re-audit the checked Optware startup-worker stop, reverse-order Optware service hooks, RWFS unmount, UBI mtd_num identity/postcondition, shutdown-hook/radio/service gates or storage eject lock.
-4. Keep source/tests/workflow/docs in one complete tree/commit parented to fresh main, update with expected SHA and force=false, preserve the immutable backup, and make no local/L4 claims without evidence.
+1. Fetch live main and this commit's exact-head Actions once. Confirm repaired USB storage passes its embedded caller-graph assertions and the later `scripts/check_storage_safe_remove.py` check; inspect any failed job log before proceeding.
+2. Continue P1 with concrete `write_storage_to_mtd()`, `storage_save_time()` and NVRAM commit callers. Trace write/fsync/close and prerequisite stop/unmount statuses to each publication decision. Start with one actionable unchecked result.
+3. Add a focused GNU89 policy regression and production source contract for the first real defect. Commit source, test and workflow integration in one complete tree.
+4. Parent one commit to freshly fetched main; update with `expected_sha` and `force=false`; verify exact-head Actions. Continue independent work while CI is pending.
+5. Current-source L3 is NOT VERIFIED until exact-source XY-C1 MIPS/uClibc build, TRX verification and artifact upload pass. Physical router L4 remains NOT VERIFIED.
 
 Source/validation notes:
-- Parent SHA: `adaa637920c5322e92be2ea7a21d20ed735646b7`; immutable backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Historical L3 only: `335f137a831725f1ed241151d849e160578cca69`, XY-C1 #43677484373, artifact #14147062315. Later sources require their own Build/TRX/upload.
-- Preserve archived dev-log shards and index byte-for-byte.
+- Parent main: `fc675527e58402dfab0bd25d7ea5dc620861d872`; immutable backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact parent AI docs #43682722938 SUCCESS; USB storage #43682722908 FAILED only at stale inline function signature/return assertion. Earlier steps passed; checked-eject script was skipped. New exact-head Actions required.
+- Preserve archived dev-log shards and indexes byte-for-byte.
 

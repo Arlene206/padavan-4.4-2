@@ -1,3 +1,13 @@
+## 2026-11-15 — Repair stale RWFS contract in storage-hotplug workflow
+
+- Exact-head USB storage run #43682722908 on `fc675527e58402dfab0bd25d7ea5dc620861d872` passed all syntax, GNU89 policy, BusyBox 1.24.2 ash, Optware lifecycle, disk inventory, FTP presence and storage-daemon stop steps, then failed in embedded source-contract Python at line 490. The inline contract expected the removed `void umount_rwfs_partition(void)` signature and bare `return;` although production `e89f8ca3` returns status and verifies RWFS unmount plus UBI identity/detach.
+- The standalone `scripts/check_storage_safe_remove.py` already matches the current API. This patch repairs the duplicate inline workflow assertions to check int return type, Optware hook error, unmount error, UBI pre/post identity and detach completion ordering.
+- Exact parent AI docs #43682722938 passed; USB storage #43682722908 failed only at the stale inline contract. Earlier steps passed; checked-eject script was skipped. This changes no production source and claims no local test.
+- Changed paths: `.github/workflows/storage-hotplug-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`. Parent SHA: `fc675527e58402dfab0bd25d7ea5dc620861d872`.
+- Next P1: trace real `write_storage_to_mtd()`, `storage_save_time()` and NVRAM commit callers for unchecked write/fsync/close or prerequisite-stop status.
+
+---
+
 ## 2026-11-15 — Gate storage persistence on checked RWFS/Optware teardown
 
 - shutdown_router() previously called umount_rwfs_partition() only after storage_save_time()/write_storage_to_mtd(); the void helper discarded Optware stop-hook, filesystem unmount and UBI detach failures. MTD Storage could be published while Optware teardown remained incomplete.
