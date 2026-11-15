@@ -95,6 +95,7 @@ persistence_test = read("trunk/user/rc/src/tests/storage_persistence_policy.c")
 mtd_storage_test = read("trunk/user/scripts/tests/mtd_storage_save_retry.sh")
 mtd_storage_restore_test = read("trunk/user/scripts/tests/mtd_storage_restore_transaction.sh")
 mtd_storage_load_test = read("trunk/user/scripts/tests/mtd_storage_load_transaction.sh")
+mtd_storage_backup_test = read("trunk/user/scripts/tests/mtd_storage_backup_failure.sh")
 
 checked = body(libdisk, "read_disk_data_checked(disk_info_t **disk_info_out)")
 require("if (!disk_info_out)" in checked, "checked inventory must validate its output")
@@ -516,6 +517,26 @@ require("BZCAT_STATUS=2" in mtd_storage_load_test and
         'BUSYBOX_BIN="$busybox_bin" sh trunk/user/scripts/tests/mtd_storage_load_transaction.sh' in workflow,
         "MTD load fixture must cover decompression, extraction, rollback, BusyBox ash and success")
 
+backup_start = mtd_storage.index("func_backup()")
+backup_end = mtd_storage.index("\\nfunc_restore()", backup_start)
+backup = mtd_storage[backup_start:backup_end]
+for token in ('if ! bzip2 -9 "$tmp" 2>/dev/null; then',
+              'stat -c %s "$tbz"',
+              'if ! bzcat "$tbz" > "$tmp" 2>/dev/null ||',
+              'tar tf "$tmp" >/dev/null 2>&1',
+              'rm -f "$tmp" "$tbz"'):
+    require(token in backup, "MTD backup validation misses " + token)
+backup_dispatch = mtd_storage[mtd_storage.index("backup)"):mtd_storage.index("restore)")]
+require("func_get_mtd" in backup_dispatch and
+        backup_dispatch.index("func_get_mtd") < backup_dispatch.index("func_tarb") < backup_dispatch.index("func_backup"),
+        "MTD backup must read the actual target partition size before compression")
+require("BZIP2_MODE=fail" in mtd_storage_backup_test and
+        "BZIP2_MODE=oversized" in mtd_storage_backup_test and
+        "BZCAT_MODE=fail" in mtd_storage_backup_test and
+        "BZCAT_MODE=invalid" in mtd_storage_backup_test and
+        "MTD storage backup failure and integrity regression" in mtd_storage_backup_test,
+        "MTD backup fixture must cover compression, size, stream, tar and successful archive")
+
 writer = body(rc, "write_storage_to_mtd(void)")
 require('return doSystem("/sbin/mtd_storage.sh %s", "save");' in writer and
         "int write_storage_to_mtd(void);" in rc_header,
@@ -564,6 +585,8 @@ require("int storage_save_time(time_t delta);" in rc_header,
 for path in ("trunk/user/scripts/files/sbin/mtd_storage.sh",
              "trunk/user/scripts/tests/mtd_storage_save_retry.sh",
              "trunk/user/scripts/tests/mtd_storage_restore_transaction.sh",
+             "trunk/user/scripts/tests/mtd_storage_load_transaction.sh",
+             "trunk/user/scripts/tests/mtd_storage_backup_failure.sh",
              "trunk/user/scripts/tests/mtd_storage_load_transaction.sh",
              "trunk/user/rc/src/storage_persistence_policy.h",
              "trunk/user/rc/src/tests/storage_persistence_policy.c"):

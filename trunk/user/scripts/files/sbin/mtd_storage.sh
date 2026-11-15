@@ -236,13 +236,41 @@ func_save()
 
 func_backup()
 {
-	rm -f $tbz
-	bzip2 -9 $tmp 2>/dev/null
-	if [ $? -ne 0 ] ; then
+	local fsz
+
+	rm -f "$tbz"
+	if ! bzip2 -9 "$tmp" 2>/dev/null; then
 		result=1
+		rm -f "$tmp" "$tbz"
 		logger -t "Storage backup" "Cannot create BZ2 file!"
+		return 1
 	fi
-	rm -f $tmp
+
+	fsz=$(stat -c %s "$tbz" 2>/dev/null)
+	case "$fsz" in
+		""|*[!0-9]*)
+			result=1
+			rm -f "$tmp" "$tbz"
+			logger -t "Storage backup" "Invalid BZ2 file size: $fsz"
+			return 1
+			;;
+	esac
+	if [ "$fsz" -lt 16 ] || [ "$fsz" -gt "$mtd_part_size" ]; then
+		result=1
+		rm -f "$tmp" "$tbz"
+		logger -t "Storage backup" "BZ2 archive size is outside the restorable MTD range: $fsz"
+		return 1
+	fi
+	# Validate the compressed stream and tar structure with firmware applets.
+	if ! bzcat "$tbz" > "$tmp" 2>/dev/null ||
+	   ! tar tf "$tmp" >/dev/null 2>&1; then
+		result=1
+		rm -f "$tmp" "$tbz"
+		logger -t "Storage backup" "Created BZ2 archive failed integrity verification"
+		return 1
+	fi
+	rm -f "$tmp"
+	return 0
 }
 
 func_restore()
@@ -914,6 +942,7 @@ save)
 	func_save
 	;;
 backup)
+	func_get_mtd
 	func_mdir
 	func_tarb
 	func_backup

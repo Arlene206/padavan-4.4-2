@@ -1,3 +1,12 @@
+## 2026-11-15 — Reject invalid MTD backup archives before HTTPD download
+
+- Parent exact-head USB storage #43688959814 passed MTD syntax, save retry, restore, host/BusyBox ash load fixtures, persistence gates and embedded caller graph, then failed at the final path-list assertion because the load regression path was not listed in the checker’s push/pull filter contract. This commit adds it together with the new backup regression path.
+- Old `func_backup()` could leave partial archive output on compressor failure, had no actual partition-capacity check and did not validate bzip2 or tar integrity. It also did not load the target MTD size. Backup now obtains the real size, checks compression return, size range, `bzcat` and `tar tf`, and cleans partial output on every failure.
+- HTTPD `do_storage_file()` now streams only when backup returns success and its output exists; otherwise it sends HTTP 500 and removes the stale path.
+- Added host and BusyBox ash coverage for partial compressor failure, oversized output, corrupt compressed stream, malformed tar and a valid archive; integrated source contracts. Parent SHA `c6ae3785862d7a0272f5ecc0c7e59199f3ee3593`; exact-head Actions for this commit pending. No local test/build/hardware result is claimed.
+
+---
+
 ## 2026-11-15 — Correct the MTD-load regression source contract
 
 - Exact-head storage-hotplug #43688365428 on `dbfcdaba996473dd135c93c574c88f02f6f3bcf0` passed script syntax, MTD save retry, restore staging/rollback, both POSIX-shell and BusyBox 1.24.2 ash load transaction fixtures, policy tests and the storage caller graph. The final standalone checker failed because it expected a literal `BUSYBOX_BIN=` assignment inside the fixture, although the fixture correctly reads `${BUSYBOX_BIN:-}` and the workflow supplies the environment variable.

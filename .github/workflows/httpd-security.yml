@@ -4121,6 +4121,24 @@ jobs:
           assert "restore install and rollback both failed" in restore
           assert "chmod 1777 /tmp" in dev_init
           assert dev_init.index("chmod 1777 /tmp") < dev_init.index("mkdir -p -m 700 /tmp/.httpd-private") < dev_init.index("mtd_storage.sh load")
+          backup_start = storage_script.index("func_backup()")
+          backup_end = storage_script.index("\\nfunc_restore()", backup_start)
+          backup = storage_script[backup_start:backup_end]
+          backup_dispatch = storage_script[storage_script.index("backup)"):storage_script.index("restore)")]
+          storage_download_start = web.index("do_storage_file(const char *url, FILE *stream)")
+          storage_download_end = web.index("\\nstatic void\\ndo_syslog_file", storage_download_start)
+          storage_download = web[storage_download_start:storage_download_end]
+          assert 'if ! bzip2 -9 "$tmp" 2>/dev/null; then' in backup
+          assert 'stat -c %s "$tbz"' in backup
+          assert 'if ! bzcat "$tbz" > "$tmp" 2>/dev/null ||' in backup
+          assert 'tar tf "$tmp" >/dev/null 2>&1' in backup
+          assert 'func_get_mtd' in backup_dispatch
+          assert backup_dispatch.index("func_get_mtd") < backup_dispatch.index("func_tarb") < backup_dispatch.index("func_backup")
+          assert 'backup_result = eval("/sbin/mtd_storage.sh", "backup");' in storage_download
+          assert 'backup_result == 0 && f_exists(storage_file)' in storage_download
+          assert 'websError(stream, 500, "Unable to create a valid storage backup.' in storage_download
+          assert storage_download.index("backup_result = eval") < storage_download.index("backup_result == 0") < storage_download.index("do_file(storage_file, stream)")
+          assert storage_download.index("do_file(storage_file, stream)") < storage_download.rindex("unlink(storage_file)")
           print("HTTPD upload exclusive-create and private restore staging contracts: OK")
 
           # Storage restore executes tar as root into a scratch directory.

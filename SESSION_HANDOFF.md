@@ -8,25 +8,19 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2. Base main SHA for THIS COMMIT: `dbfcdaba996473dd135c93c574c88f02f6f3bcf0`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only). Legacy PR #1 remains CLOSED / UNMERGED; its remaining changes were already ported to main.
-- Product source on main includes checked buffered storage writes, storage shutdown persistence gates, MTD save retry/GNU md5sum compatibility, transactional restore, and boot-time MTD load (`dbfcdaba996473dd135c93c574c88f02f6f3bcf0`).
-- Exact-head Actions on `dbfcdaba996473dd135c93c574c88f02f6f3bcf0`: storage-hotplug #43688365428 FAILED only at the final standalone source checker (job 132733514178); the POSIX-shell and BusyBox 1.24.2 ash MTD-load regressions and all preceding storage checks passed. The checker incorrectly requires the literal `BUSYBOX_BIN=` inside the test fixture even though the fixture consumes `${BUSYBOX_BIN:-}` and the workflow injects the variable. XY-C1 #43688365628 and NVRAM #43688365369 were IN_PROGRESS. Other exact-head checks: infosvr #43688365536, inventory #43688365376, AliDDNS #43688365481, HTTPD security #43688365384, handoff docs #43688365472, AdGuardHome #43688365455, process lifecycle #43688365347, and AliyunDrive #43688365350 SUCCESS.
-- Current source L3 and physical L4 remain NOT VERIFIED. No complete local checkout/toolchain or target hardware is available; no local shell/build result is claimed.
-
+- Repository: Arlene206/padavan-4.4-2. Base main SHA for THIS COMMIT: `c6ae3785862d7a0272f5ecc0c7e59199f3ee3593`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only). Legacy PR #1 remains CLOSED / UNMERGED.
+- Exact-head Actions on parent c6ae: USB storage #43688959814 FAILED only at the final storage path-filter assertion because `mtd_storage_load_transaction.sh` was missing from the checker’s push/pull filter list. Both host and BusyBox ash load fixtures, MTD syntax, save retry, restore transaction, persistence and caller graph had passed. AdGuardHome #43688959625, infosvr #43688959634, AliyunDrive #43688959654, AliDDNS #43688959637, Process inventory/lifecycle #43688959636, and AI handoff docs #43688959686 SUCCESS. No exact-head XY-C1 Action appeared in that run set.
+- This commit adds the missing load-fixture filter path plus backup failure fixture path, validates MTD backup compression/size/decompression/tar integrity against the actual MTD capacity, and gates HTTPD download on successful command and existing output.
+- Current source L3 and physical L4 remain NOT VERIFIED. No full local checkout/toolchain or target hardware is available; no local shell/build result is claimed.
 ## Active task
 
-### P1 slice — Correct the MTD-load regression source contract (THIS COMMIT)
+### P1 slice — Reject partial MTD backups before HTTPD download (THIS COMMIT)
 
-- The load fixture reads ${BUSYBOX_BIN:-} and runs the production script through "$BUSYBOX_BIN" ash; the storage-hotplug workflow explicitly supplies BUSYBOX_BIN="$busybox_bin" and executes the fixture after its POSIX-shell run.
-- Exact-head storage-hotplug #43688365428 on parent dbfcdaba996473dd135c93c574c88f02f6f3bcf0 successfully ran the host and BusyBox 1.24.2 ash fault-injection cases (decompressor emits bytes then fails, partial tar extraction, failed publication/rollback, and complete replacement), as well as all preceding storage checks. It failed only because the source checker looked for an assignment in the fixture file rather than verifying the environment lookup and workflow invocation.
-- This correction asserts the fixture's environment lookup, ash invocation, and workflow injection together; it does not relax the regression. No local checkout or local test execution is available. Exact-head Actions for this commit are pending.
-
-### Next P1 slice — Harden MTD backup and HTTPD storage download
-
-- Inspect func_backup() in trunk/user/scripts/files/sbin/mtd_storage.sh and the complete HTTPD do_storage_file() caller path. Trace archive creation, compression status, temp-file lifetime, file existence/size, lock ownership, HTTP response headers/body and error propagation.
-- Prevent a failed or partial backup from being streamed as a valid configuration download. Reproduce the failure with fault injection, add a shell regression and source contract, and wire push/PR + target-build path filters as applicable.
-- Then retain STORAGE_FIFO_FILENAME after failed do_restore_st_cgi() restores for retry; audit func_reset()/func_erase() directory, erase, lock and hash postconditions.
-
+- Parent USB storage #43688959814 passed MTD syntax, save retry, restore transaction, transactional load host/BusyBox ash fixtures, persistence gates and embedded caller graph. It failed only at checker line 570 because the new load-test path was missing from the source checker's push/pull path-list assertion. The backup fixture path is added alongside it.
+- The old backup function could leave partial BZ2 output after a failed compressor, lacked the target partition capacity check, and never verified decompression or tar structure. Its dispatcher did not call `func_get_mtd()`.
+- Backup now loads actual MTD size, rejects compression failure, nonnumeric or out-of-range size, failed bzip2 decompression and invalid tar listing, removes scratch/archive on failure, and returns nonzero. HTTPD streams only when the script returns success and a fresh output file exists; otherwise sends HTTP 500 and removes stale output.
+- Added host/BusyBox ash fault injection for partial compression output, oversized archive, corrupt stream, malformed tar and valid archive. Updated storage and HTTPD source contracts.
+- Changed paths: `mtd_storage.sh`, new `mtd_storage_backup_failure.sh`, `web_ex.c`, storage workflow, storage checker, HTTPD security workflow, handoff/roadmap/dev log. Parent SHA `c6ae3785862d7a0272f5ecc0c7e59199f3ee3593`; exact-head Actions pending. No local run is claimed.
 ## Explicitly uncompleted P1 work
 
 - Migrate remaining direct pids() callers by semantic group; keep the legacy Boolean API until all callers explicitly handle UNKNOWN. Continue auditing remaining kill_pidfile_s() and direct name-wide signal paths; Linux 4.4 retains a PID/start_time check-to-signal TOCTOU window.
@@ -60,10 +54,10 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head storage-hotplug, XY-C1, NVRAM and handoff-doc Actions for this correction commit. Require the storage checker to pass and retain both POSIX-shell and BusyBox 1.24.2 ash coverage; triage any new failure at its first causal log line.
-2. Continue the P1 backup/download task: inspect func_backup(), HTTPD do_storage_file(), and the caller that serves STORAGE_FIFO_FILENAME. Add regression coverage for compressor failure after partial output, missing/empty output, backup status propagation and HTTP response suppression.
-3. Then fix restore-FIFO retry retention after failed restore and audit func_reset()/func_erase() destructive postconditions.
-4. Use a fresh main parent, one complete tree/commit, force=false/expected_sha; keep frozen backup untouched. Current L3/L4 remain NOT VERIFIED.
+1. Inspect exact-head USB storage and HTTPD security Actions for backup generation, fault-injection tests and HTTPD download source contract.
+2. Continue P1 with `do_restore_st_cgi()`: the handler unconditionally unlinks `STORAGE_FIFO_FILENAME` even when `mtd_storage.sh restore` fails, destroying the uploaded archive that the restore script intentionally preserves for retry. Retain it on failure and delete only on success; add a focused CGI/source test.
+3. Then audit `func_reset()`/`func_erase()` for directory creation/removal, MTD erase status, hash and lock postconditions, including injected failure after successful erase.
+4. Use fresh main SHA, one complete Git tree/commit and force=false/expected_sha. Frozen backup remains untouched. Current-source L3 and physical L4 remain NOT VERIFIED.
 
 Source/validation notes:
 - Parent main for THIS COMMIT: `dbfcdaba996473dd135c93c574c88f02f6f3bcf0`; immutable backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`.

@@ -4784,11 +4784,16 @@ static void
 do_storage_file(const char *url, FILE *stream)
 {
 	char *storage_file = STORAGE_FIFO_FILENAME;
+	int backup_result;
 
 	unlink(storage_file);
 	if (get_login_safe()) {
-		eval("/sbin/mtd_storage.sh", "backup");
-		do_file(storage_file, stream);
+		backup_result = eval("/sbin/mtd_storage.sh", "backup");
+		if (backup_result == 0 && f_exists(storage_file)) {
+			do_file(storage_file, stream);
+		} else {
+			websError(stream, 500, "Unable to create a valid storage backup.\\n");
+		}
 		unlink(storage_file);
 	}
 }
