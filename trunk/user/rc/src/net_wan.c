@@ -3841,6 +3841,7 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 				   udhcpc_state, wan_ifname, route_setup_status);
 	}
 
+	nvram_set_int_temp(strcat_r(prefix, "route_err", tmp), route_setup_status);
 	nvram_set_int_temp(strcat_r(prefix, "err", tmp), i_err);
 
 	return route_setup_status;
@@ -4037,6 +4038,7 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 		start_igmpproxy(man_ifname);
 	}
 
+	nvram_set_int_temp("manv_route_err", route_setup_status);
 	nvram_set_int_temp("manv_err", i_err);
 	return route_setup_status;
 }
@@ -4147,6 +4149,12 @@ udhcpc_renew(char *wan_ifname)
 
 	snprintf(log_prefix, sizeof(log_prefix), "%s %s Client", "DHCP", (is_man) ? "MAN" : "WAN");
 
+	if (dhcp_wan_route_setup_retry_required(
+		nvram_get_int(strcat_r(prefix, "route_err", tmp)))) {
+		logmessage(log_prefix, "retrying incomplete DHCP route setup on %s", wan_ifname);
+		return udhcpc_bound(wan_ifname, 1);
+	}
+
 	value = getenv("subnet");
 	if (!value || nvram_invmatch(strcat_r(prefix, "netmask", tmp), trim_r(value)))
 		return udhcpc_bound(wan_ifname, 1);
@@ -4249,6 +4257,10 @@ udhcpc_viptv_renew(char *man_ifname)
 	unsigned int parsed_value;
 
 	strcpy(prefix, "manv_");
+
+	if (dhcp_wan_route_setup_retry_required(
+		nvram_get_int(strcat_r(prefix, "route_err", tmp))))
+		return udhcpc_viptv_bound(man_ifname, 1);
 
 	value = getenv("subnet");
 	if (value && nvram_invmatch(strcat_r(prefix, "netmask", tmp), trim_r(value)))

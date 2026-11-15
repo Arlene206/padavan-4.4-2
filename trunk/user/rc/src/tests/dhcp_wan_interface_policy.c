@@ -222,6 +222,14 @@ static const struct dhcp_wan_route_transition_ops fake_route_transition_ops = {
 };
 
 static void
+test_route_setup_failure_requires_retry(void)
+{
+	assert(!dhcp_wan_route_setup_retry_required(0));
+	assert(dhcp_wan_route_setup_retry_required(EIO));
+	assert(dhcp_wan_route_setup_retry_required(EHOSTUNREACH));
+}
+
+static void
 test_route_transition_success(void)
 {
 	struct fake_route_transition fake = { 0, 0, 0, 0, 0, "", 0 };
@@ -298,6 +306,7 @@ main(void)
 	test_failed_first_lease_is_cleared();
 	test_failed_clear_without_previous_lease_is_reported();
 	test_invalid_input_has_no_side_effects();
+	test_route_setup_failure_requires_retry();
 	test_route_transition_success();
 	test_route_transition_ignores_missing_old_routes();
 	test_route_transition_rolls_back_all_after_delete_errors();

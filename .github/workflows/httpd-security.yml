@@ -2325,6 +2325,8 @@ jobs:
           renew_start = wan.index("udhcpc_renew(char *wan_ifname)")
           renew_end = wan.index("udhcpc_leasefail(", renew_start)
           renew = wan[renew_start:renew_end]
+          assert "dhcp_wan_route_setup_retry_required" in renew
+          assert 'nvram_set_int_temp(strcat_r(prefix, "route_err", tmp), route_setup_status)' in bound
           assert renew.count("dhcp_lease_route_text_is_safe(value)") >= 6
           wan_router_start = renew.index('value = getenv("router");')
           wan_router_end = renew.index('value = getenv("ip");', wan_router_start)
@@ -2336,6 +2338,8 @@ jobs:
           tv_renew_start = wan.index("udhcpc_viptv_renew(char *man_ifname)")
           tv_renew_end = wan.index("udhcpc_leasefail(", tv_renew_start)
           tv_renew = wan[tv_renew_start:tv_renew_end]
+          assert "dhcp_wan_route_setup_retry_required" in tv_renew
+          assert 'nvram_set_int_temp("manv_route_err", route_setup_status)' in tv_bound
           tv_router_start = tv_renew.index('value = getenv("router");')
           tv_router_end = tv_renew.index('value = getenv("ip");', tv_router_start)
           tv_router = tv_renew[tv_router_start:tv_router_end]

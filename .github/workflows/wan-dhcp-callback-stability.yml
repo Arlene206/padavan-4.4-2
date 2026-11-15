@@ -195,6 +195,7 @@ jobs:
           restore_routes = body(source, "wan_dhcp_restore_old_routes(void *opaque)")
           assert "route_add(ifname, context->route_metric" in restore_routes
           assert "if (context->restore_host_route &&" in restore_routes
+          assert "dhcp_wan_route_setup_retry_required(int route_setup_status)" in route_policy
           assert "add_dhcp_routes_by_prefix" in restore_routes
           assert "route_context.restore_host_route = remove_old_host_route;" in callback
           assert 'route_context.restore_host_route = 0;' in viptv_bound
@@ -207,6 +208,10 @@ jobs:
           assert gateway_state < wan_route_setup
           assert "accepted but route setup is incomplete" in callback
           assert "return route_setup_status;" in callback
+          assert 'nvram_set_int_temp(strcat_r(prefix, "route_err", tmp), route_setup_status)' in callback
+          wan_dhcp_renew = body(source, "udhcpc_renew(char *wan_ifname)")
+          assert "dhcp_wan_route_setup_retry_required" in wan_dhcp_renew
+          assert wan_dhcp_renew.index("dhcp_wan_route_setup_retry_required") < wan_dhcp_renew.index('value = getenv("subnet")')
           assert man_route_setup < callback.index("nvram_set_int_temp(strcat_r(prefix, \"err\", tmp), i_err)")
 
           apply_policy = body(policy, "dhcp_wan_interface_apply(")
@@ -255,6 +260,10 @@ jobs:
           assert viptv_bound.count("route_setup_status = route_status_accumulate(route_setup_status, route_result);") == 2
           assert "accepted but route setup is incomplete" in viptv_bound
           assert "return route_setup_status;" in viptv_bound
+          assert 'nvram_set_int_temp("manv_route_err", route_setup_status)' in viptv_bound
+          viptv_renew = body(source, "udhcpc_viptv_renew(char *man_ifname)")
+          assert "dhcp_wan_route_setup_retry_required" in viptv_renew
+          assert viptv_renew.index("dhcp_wan_route_setup_retry_required") < viptv_renew.index('value = getenv("subnet")')
 
           viptv_deconfig = body(source, "manv_route_deconfig(char *man_ifname)")
           assert 'route_result = del_dhcp_routes_by_prefix("manv_"' in viptv_deconfig

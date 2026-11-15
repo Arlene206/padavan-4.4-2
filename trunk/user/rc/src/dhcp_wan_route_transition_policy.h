@@ -71,4 +71,10 @@ dhcp_wan_route_transition_apply(int remove_host_route,
 	return status;
 }
 
+static inline int
+dhcp_wan_route_setup_retry_required(int route_setup_status)
+{
+	return route_setup_status != 0;
+}
+
 #endif /* DHCP_WAN_ROUTE_TRANSITION_POLICY_H */
