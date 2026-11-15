@@ -60,10 +60,14 @@ assert "pppoe_relay_start_status(launch_status, presence)" in pppoe_confirm
 pppoe_start = net_source.split("int\nset_passthrough_pppoe(int is_on)", 1)[1].split("set_igmp_mld_version", 1)[0]
 assert '#include "process_inventory.h"' in net_source
 assert '#include "pppoe_relay_policy.h"' in net_source
-assert 'process_inventory_scan("pppoe-relay", &snapshot)' in pppoe_start
-assert "scan_error = snapshot.error;" in pppoe_start
-assert pppoe_start.index("scan_error = snapshot.error;") < pppoe_start.index("process_snapshot_release(&snapshot);")
-assert pppoe_start.index("process_snapshot_release(&snapshot);") < pppoe_start.index("pppoe_relay_should_start(presence)")
+pppoe_scan = net_source.split("static enum process_presence\npppoe_relay_process_presence(int *scan_error)", 1)[1].split(
+    "\nstatic int\npppoe_relay_confirm_started", 1
+)[0]
+assert 'process_inventory_scan("pppoe-relay", &snapshot)' in pppoe_scan
+assert "*scan_error = snapshot.error;" in pppoe_scan
+assert pppoe_scan.index("*scan_error = snapshot.error;") < pppoe_scan.index("process_snapshot_release(&snapshot);")
+assert "pppoe_relay_process_presence(&scan_error)" in pppoe_start
+assert pppoe_start.index("pppoe_relay_process_presence(&scan_error)") < pppoe_start.index("pppoe_relay_should_start(presence)")
 assert "if (pppoe_relay_should_start(presence))" in pppoe_start
 assert "return start_status;" in pppoe_start
 assert "start_status = pppoe_relay_confirm_started(start_status);" in pppoe_start

@@ -985,14 +985,16 @@ pppoe_relay_confirm_started(int launch_status)
 			errno = scan_error > 0 ? scan_error : EIO;
 			break;
 		}
+		if (presence != PROCESS_PRESENCE_ABSENT) {
+			errno = EIO;
+			break;
+		}
 		if (attempt + 1 < PPPOE_RELAY_START_WAIT_ATTEMPTS)
 			sleep(1);
 	}
 
 	if (presence == PROCESS_PRESENCE_ABSENT)
 		errno = ESRCH;
-	else if (presence != PROCESS_PRESENCE_RUNNING && errno == 0)
-		errno = EIO;
 	return pppoe_relay_start_status(launch_status, presence);
 }
 

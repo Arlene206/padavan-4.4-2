@@ -1,3 +1,11 @@
+## 2026-11-15 — Align PPPoE readiness checker with shared scan wrapper
+
+- Exact process regression `43676517579` on `a8b84679c87bf02703e72cf032e8d9bedc031ed1` failed at a stale integration assertion that still required `process_inventory_scan()` and snapshot release inside `set_passthrough_pppoe()`. The implementation had deliberately centralized snapshot/error/release handling in `pppoe_relay_process_presence()`; the source contract had not been updated to follow that refactor. The standalone policy target and preceding steps were not implicated by this assertion.
+- Updated the contract to validate the shared scanner wrapper and its error-capture-before-release ordering, then validate that the preflight call uses the wrapper before the start decision. Tightened readiness handling so invalid enum values fail immediately with `EIO` rather than consuming the ABSENT retry window; UNKNOWN keeps the underlying scanner error.
+- Changed paths: `net.c`, `check_process_lifecycle_integration.py`, `dev_log.md`. Result: THIS COMMIT. Exact-head process-lifecycle and XY-C1 reruns required.
+
+---
+
 ## 2026-11-15 — Require PPPoE relay child readiness after successful launch
 
 - Review of the PPPoE relay start path found that the pre-launch inventory gate proved only that no old daemon existed. `eval()` waits for the launcher child and does not prove the detached `pppoe-relay` process remains present; returning that launcher status directly could report success even if the relay immediately exited or could not be observed. Unlike the adjacent DNSMasq path, no post-launch process-presence check existed.
