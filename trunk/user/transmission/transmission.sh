@@ -13,6 +13,16 @@ SVC_NAME="Transmission"
 SVC_PATH="/usr/bin/transmission-daemon"
 DIR_LINK="/mnt/transmission"
 
+transmission_config_fail()
+{
+	if [ -n "$CONFIG_TMP" ]; then
+		rm -f "$CONFIG_TMP" >/dev/null 2>&1 || true
+		CONFIG_TMP=""
+	fi
+	logger -t "$SVC_NAME" "Cannot start: $1" >/dev/null 2>&1 || true
+	echo "[FAILED]"
+	return 1
+}
 func_start()
 {
 	# Make sure already running
@@ -46,13 +56,46 @@ func_start()
 	tr_pport=`nvram get trmd_pport`
 	tr_rport=`nvram get trmd_rport`
 	
-	# create default settings.json
-	if [ ! -f "$DIR_CFG/settings.json" ] ; then
+	# Generate default settings into a private same-directory file, then publish atomically.
+	CONFIG_FILE="$DIR_CFG/settings.json"
+	CONFIG_TMP=""
+	if [ -L "$CONFIG_FILE" ] || { [ -e "$CONFIG_FILE" ] && [ ! -f "$CONFIG_FILE" ]; }; then
+		transmission_config_fail "settings path is not a regular file"
+		return 1
+	fi
+	if [ ! -s "$CONFIG_FILE" ]; then
+		CONFIG_TMP="${CONFIG_FILE}.tmp.$$"
+		if ! (umask 077; set -C; : > "$CONFIG_TMP") 2>/dev/null; then
+			transmission_config_fail "cannot create private settings staging file"
+			return 1
+		fi
 		tr_user=`nvram get http_username`
 		tr_pass=`nvram get http_passwd`
-		$SVC_PATH -w "$DIR_DL1" --incomplete-dir "$DIR_DL2" -c "$DIR_DL3" --no-incomplete-dir -y -L 90 -l 30 --no-utp -M -t -u "$tr_user" -v "$tr_pass" -P "$tr_pport" -p "$tr_rport" -x /var/run/transmission.pid -d 2>/tmp/settings.json
-		sed -i 's|"umask": 18,|"umask": 0,|g' /tmp/settings.json
-		mv /tmp/settings.json "$DIR_CFG/settings.json"
+		if ! "$SVC_PATH" -w "$DIR_DL1" --incomplete-dir "$DIR_DL2" -c "$DIR_DL3" --no-incomplete-dir -y -L 90 -l 30 --no-utp -M -t -u "$tr_user" -v "$tr_pass" -P "$tr_pport" -p "$tr_rport" -x /var/run/transmission.pid -d 2>"$CONFIG_TMP"; then
+			transmission_config_fail "default settings generator failed"
+			return 1
+		fi
+		if [ ! -s "$CONFIG_TMP" ]; then
+			transmission_config_fail "default settings generator produced an empty file"
+			return 1
+		fi
+		if ! sed -i 's|"umask": 18,|"umask": 0,|g' "$CONFIG_TMP"; then
+			transmission_config_fail "default settings transform failed"
+			return 1
+		fi
+		if [ ! -s "$CONFIG_TMP" ]; then
+			transmission_config_fail "default settings transform produced an empty file"
+			return 1
+		fi
+		if ! mv "$CONFIG_TMP" "$CONFIG_FILE"; then
+			transmission_config_fail "default settings publication failed"
+			return 1
+		fi
+		CONFIG_TMP=""
+	fi
+	if [ -L "$CONFIG_FILE" ] || [ ! -f "$CONFIG_FILE" ] || [ ! -s "$CONFIG_FILE" ]; then
+		transmission_config_fail "published settings are missing or empty"
+		return 1
 	fi
 	
 	svc_user=""

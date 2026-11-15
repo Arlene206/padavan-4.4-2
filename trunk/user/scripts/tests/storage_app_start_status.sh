@@ -15,7 +15,7 @@ mkdir -p "$STUB_DIR" \
 	"$TMP_DIR/transmission/config" "$TMP_DIR/transmission/incomplete" \
 	"$TMP_DIR/transmission/watch" "$TMP_DIR/aria/config" \
 	"$TMP_DIR/Downloads"
-: > "$TMP_DIR/transmission/config/settings.json"
+printf '%s\n' '{"umask": 0, "download-dir": "/existing"}' > "$TMP_DIR/transmission/config/settings.json"
 : > "$TMP_DIR/aria/config/aria2.conf"
 : > "$TMP_DIR/aria/config/incomplete.lst"
 cat > "$STUB_DIR/pidof" <<'EOF'
@@ -43,6 +43,23 @@ EOF
 cat > "$STUB_DIR/logger" <<'EOF'
 #!/bin/sh
 exit "${STORAGE_TEST_LOGGER_STATUS:-0}"
+EOF
+cat > "$STUB_DIR/transmission-daemon" <<'EOF'
+#!/bin/sh
+if [ "${STORAGE_TEST_GENERATOR_STATUS:-0}" -ne 0 ]; then
+	exit "$STORAGE_TEST_GENERATOR_STATUS"
+fi
+if [ "${STORAGE_TEST_GENERATOR_EMPTY:-0}" -eq 0 ]; then
+	printf '%s\n' '{"umask": 18, "download-dir": "/generated"}' >&2
+fi
+exit 0
+EOF
+cat > "$STUB_DIR/sed" <<'EOF'
+#!/bin/sh
+if [ "${STORAGE_TEST_SED_STATUS:-0}" -ne 0 ]; then
+	exit "$STORAGE_TEST_SED_STATUS"
+fi
+exec /bin/sed "$@"
 EOF
 cat > "$STUB_DIR/cat" <<'EOF'
 #!/bin/sh
@@ -117,15 +134,17 @@ run_launcher()
 	cat_barrier=${7:-}
 	config_dir=${8:-}
 	temp_count=${9:-}
+	generator_status=${10:-0}
+	sed_status=${11:-0}
+	generator_empty=${12:-0}
 	if [ -n "${BUSYBOX_BIN:-}" ]; then
-		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" \
+		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" \
 			"$BUSYBOX_BIN" ash "$launcher" start >/dev/null 2>&1
 	else
-		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" \
+		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" \
 			sh "$launcher" start >/dev/null 2>&1
 	fi
-}
-assert_failure()
+}assert_failure()
 {
 	name=$1
 	launcher=$2
@@ -151,6 +170,57 @@ assert_failure Transmission "$TMP_DIR/transmission.sh"
 assert_failure Aria "$TMP_DIR/aria.sh"
 assert_success Transmission "$TMP_DIR/transmission.sh"
 assert_success Aria "$TMP_DIR/aria.sh"
+run_transmission_config_failure()
+{
+	phase=$1
+	generator_status=$2
+	sed_status=$3
+	mv_status=$4
+	generator_empty=$5
+	failure_root="$TMP_DIR/transmission-$phase"
+	config_dir="$failure_root/config"
+	mkdir -p "$config_dir" "$failure_root/incomplete" "$failure_root/watch" "$TMP_DIR/Downloads"
+	sed -e "s|SVC_PATH=\"/usr/bin/transmission-daemon\"|SVC_PATH=\"$STUB_DIR/transmission-daemon\"|" \
+	    -e "s|DIR_LINK=\"/mnt/transmission\"|DIR_LINK=\"$failure_root\"|" \
+	    "$TRANSMISSION_SRC" > "$TMP_DIR/transmission-$phase.sh"
+	marker="$failure_root/start-invoked"
+	if run_launcher "$TMP_DIR/transmission-$phase.sh" 0 0 0 "$mv_status" "$marker" "" "$config_dir" "" "$generator_status" "$sed_status" "$generator_empty"; then
+		echo "Transmission started despite $phase failure while publishing default settings" >&2
+		exit 1
+	fi
+	[ ! -e "$marker" ] || { echo "Transmission daemon launch was attempted after $phase failure" >&2; exit 1; }
+	[ ! -e "$config_dir/settings.json" ] || { echo "Transmission published settings after $phase failure" >&2; exit 1; }
+	for tmp_settings in "$config_dir"/settings.json.tmp.*; do
+		[ ! -e "$tmp_settings" ] || { echo "Transmission left a staging file after $phase failure" >&2; exit 1; }
+	done
+}
+run_transmission_config_success()
+{
+	success_root="$TMP_DIR/transmission-config-success"
+	config_dir="$success_root/config"
+	mkdir -p "$config_dir" "$success_root/incomplete" "$success_root/watch" "$TMP_DIR/Downloads"
+	: > "$config_dir/settings.json"
+	sed -e "s|SVC_PATH=\"/usr/bin/transmission-daemon\"|SVC_PATH=\"$STUB_DIR/transmission-daemon\"|" \
+	    -e "s|DIR_LINK=\"/mnt/transmission\"|DIR_LINK=\"$success_root\"|" \
+	    "$TRANSMISSION_SRC" > "$TMP_DIR/transmission-config-success.sh"
+	marker="$success_root/start-invoked"
+	if ! run_launcher "$TMP_DIR/transmission-config-success.sh" 0 9 0 0 "$marker" "" "$config_dir" ""; then
+		echo "Transmission failed despite successful default settings publication" >&2
+		exit 1
+	fi
+	[ -s "$config_dir/settings.json" ] || { echo "Transmission did not publish nonempty settings" >&2; exit 1; }
+	grep -q '"umask": 0,' "$config_dir/settings.json" || { echo "Transmission did not apply the umask transform" >&2; exit 1; }
+	grep -q '"umask": 18,' "$config_dir/settings.json" && { echo "Transmission published untransformed settings" >&2; exit 1; }
+	[ -f "$marker" ] || { echo "Transmission did not reach daemon launch after settings publication" >&2; exit 1; }
+	for tmp_settings in "$config_dir"/settings.json.tmp.*; do
+		[ ! -e "$tmp_settings" ] || { echo "Transmission left a staging file after success" >&2; exit 1; }
+	done
+}
+run_transmission_config_failure generator 9 0 0 0
+run_transmission_config_failure empty-output 0 0 0 1
+run_transmission_config_failure transform 0 9 0 0
+run_transmission_config_failure publish 0 0 9 0
+run_transmission_config_success
 run_aria_config_failure()
 {
 	phase=$1

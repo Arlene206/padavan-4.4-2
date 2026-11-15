@@ -1,3 +1,13 @@
+## 2026-11-16 05:45 Beijing — Stage Transmission default settings and fail closed
+
+- Replaced the global `/tmp/settings.json` path with private, same-directory `settings.json.tmp.$$` staging. The stage is exclusively created under `umask 077`/shell noclobber, and the generator command, nonempty output, `sed` transformation, post-transform nonempty output, atomic same-directory `mv`, and final regular/nonempty settings file are checked.
+- Existing symlink or non-regular settings paths now fail closed. A zero-byte regular settings file is treated as incomplete and regenerated; nonempty regular settings remain preserved.
+- Added regression stubs for the Transmission generator and sed. Fault-injection cases cover generator nonzero, empty generator output, transform failure and rename failure; each requires no daemon launch, no published invalid settings and no leftover staging file. Success case starts with an empty config, checks transformed `"umask": 0,` content and a nonempty final file before daemon invocation. Test plumbing passes under host shell and firmware BusyBox ash.
+- Parent main: `df267fd1457bb62e2a0c0fb0c359d3aa153f10e9`. Source/test/docs changed in one atomic commit. Full storage Actions for the new exact SHA are pending; no new firmware C change. b488 XY-C1 source L3 remains limited to that C source; no L4 claim.
+- Next: check the exact-head storage host and BusyBox ash regressions. Then audit Transmission mkdir/chmod/chown and ownership preparation failure paths as a separate slice.
+
+---
+
 ## 2026-11-16 05:31 Beijing — Preserve literal PID expansion in the Aria two-phase barrier
 
 - Review of the committed b488a561 test file found its marker assignments still used constant `entered.$` and `checked.$` filenames. This follow-up uses replacement callbacks so both marker filenames preserve the shell PID expansion `$$` literally.

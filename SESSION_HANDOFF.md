@@ -9,7 +9,7 @@ For each logical task, create all source/test/doc blobs, one complete Git tree a
 ## Current repository state
 
 - Repository: Arlene206/padavan-4.4-2.
-- Parent main for current barrier-marker follow-up: b488a561bb91df62aca810a6ff2c191c17f82b2b.
+- Parent main for Transmission fail-closed settings slice: df267fd1457bb62e2a0c0fb0c359d3aa153f10e9.
 - Frozen backup branch backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; read-only.
 - Recent main commits:
 - b488a561bb91 fix(rc): preserve alternate udpxy build path and CI contracts
@@ -29,23 +29,23 @@ For each logical task, create all source/test/doc blobs, one complete Git tree a
 - 454f3869fc3c test(wan): scope physical WAN abort ordering
 - WAN firmware source SHA 401066ebf04c50aaeb1ef47c36feb2ec210a0bc6 exact XY-C1 #43756373315 Build/TRX/artifact SUCCESS (L3 for that exact C source SHA). No physical router/L4 result.
 - WAN source work includes direct IPoE static IPv4 fail-closed address application, checked initial physical WAN bring-up, safe AP-client WISP cleanup and required MAN gateway/default-route error separation for static PPTP/L2TP. Optional configured static/DHCP/DNS routes remain aggregate-only; DHCP/ZeroConf aggregate semantics and PPPoE async/no-wait are preserved.
-- Storage startup work: Transmission and Aria return actual start-stop-daemon status independently from logger. Aria checks directory/session/download preparation, permissions/ownership, and default-config write/rename before launch; its PID-qualified config temp is now `aria2.conf.tmp.$`. Transmission default `settings.json` generation is NOT yet staged or fail-closed: live source still ignores generator, `sed`, and `mv` failures. This remains the next storage reliability implementation after current exact-head regressions are green.
-- Exact `50e24f32f310998a71e976287981aeb45f3bcd99` push Actions: storage #43762316227 SUCCESS; AliDDNS #43762316320 SUCCESS; AliyunDrive #43762316276 SUCCESS; WAN route #43762316273 SUCCESS; AdGuardHome #43762316224 SUCCESS; HTTPD #43762316127 SUCCESS; NVRAM #43762316105 SUCCESS; Process inventory #43762316049 SUCCESS.
-- Exact-head failures requiring repair: AI handoff docs #43762316097 FAIL because `Before context exhaustion` was absent; infosvr #43762316266 FAIL because the handoff changed its required heading from singular to plural (all compiled packet/signal tests passed); Process lifecycle #43762316246 FAIL in the integration checker because the non-`APP_MSD_LITE` `/usr/sbin/udpxy` branch was removed from `start_udpxy()`.
-- Exact-head XY-C1 build #43762316142 was `in_progress` at last check; no L3 claim for this source SHA until Build/TRX/artifact completion. No L4 claim.
+- Storage startup work: Transmission and Aria return actual start-stop-daemon status independently from logger. Aria checks directory/session/download preparation, permissions/ownership and default-config write/rename before launch; its config stage is `aria2.conf.tmp.$`. This commit adds Transmission PID-qualified same-directory `settings.json.tmp.$` staging, exclusive private creation, checked generator/transform/rename, nonempty-file gates, and cleanup on failure; host/BusyBox fault-injection CI is pending for this exact SHA. Other Transmission directory/permission setup commands remain a separate open audit.
+- Exact SHA `df267fd1457bb62e2a0c0fb0c359d3aa153f10e9` push Actions all PASSED: storage #43763413862, AI docs #43763413814, Process inventory #43763413812, Process lifecycle #43763413775, infosvr #43763413761, AliDDNS #43763413799, AliyunDrive #43763413767, AdGuardHome #43763413821 and NVRAM #43763413864.
+- Earlier SHA 50e24f32f310998a71e976287981aeb45f3bcd99 failures AI docs #43762316097, infosvr #43762316266 and Process lifecycle #43762316246 were repaired in b488a561 and all respective exact df267 Actions now PASS.
+- XY-C1 run #43762907958 for exact C-source SHA b488a561bb91df62aca810a6ff2c191c17f82b2b completed SUCCESS (cross-build job PASS). This establishes L3 for that exact C-source revision; no physical router/L4 result. The later df267 change is shell/test/docs only.
 - Frozen backup, docs/dev-log/INDEX.md and archive shards remain untouched. No L4 claim.
 
 ## Active task
 
-### Close Aria test race, handoff contract and MSD Lite feature-path regressions
+### Implement fail-closed Transmission default settings publication
 
-The exact 13a16 storage-hotplug run #43760834648 failed in the host shell startup regression. The first concurrent Aria start exited before daemon launch. Source review found the production CONFIG_TMP and the test's cat-barrier marker both used a literal dollar sign rather than the shell PID.
+Aria's production temp suffix and the test's two-phase barrier are now PID-qualified; exact-head storage #43763413862 passes on df267. The handoff literal checker, infosvr heading contract, and alternate udpxy feature-path regression are also closed (all df267 push workflows PASS).
 
 Aria's PID-qualified path is in place and exact-head storage #43762316227 passed, but the test barrier had a measurement race: the first cat stub could return and allow its launcher to rename the temp file before the second stub counted it. This repair adds a second `checked.$$` barrier so both concurrent cat stubs record the common two-file state before either returns. A two-shell host harness passed with both counts equal to 2.
 
-The same current-head repair restores two unrelated required contracts found by exact-head Actions: the handoff adds the required `Before context exhaustion` phrase and restores the exact singular heading `## Exact first action for the next GPT`; `start_udpxy()` restores the legacy `/usr/sbin/udpxy` `#else` branch for firmware builds without `APP_MSD_LITE`. The process lifecycle checker had caught that real feature-path regression after the MSD Lite refactor.
+The prior b488/df267 repairs also restored the literal AI/docs and infosvr heading contracts and the alternate `/usr/sbin/udpxy` non-MSD-Lite build path; all current exact-head checks are green. the handoff adds the required `Before context exhaustion` phrase and restores the exact singular heading `## Exact first action for the next GPT`; `start_udpxy()` restores the legacy `/usr/sbin/udpxy` `#else` branch for firmware builds without `APP_MSD_LITE`. The process lifecycle checker had caught that real feature-path regression after the MSD Lite refactor.
 
-## Parallel source slice completed — MSD Lite configuration publication
+## Completed source slice — MSD Lite configuration publication
 
 The APP_MSD_LITE branch in start_udpxy() previously truncated /etc/storage/msd_lite.conf before it opened /etc_ro/msd_lite.conf, and it ignored read/write/flush/close failures before enabling and launching the daemon. This slice replaces direct truncation with same-directory mkstemp staging, regular-file/source checks, mode preservation, input validation, checked read/write/flush/fsync/close and atomic rename. Publication failure logs and returns before setting msd_lite_enable or invoking msd_lite.
 
@@ -55,11 +55,11 @@ The exact-head Process lifecycle host regression and XY-C1 Build/TRX/artifact wo
 
 ## Verification boundary
 
-- Parent main for this MSD Lite slice: f36d6ec94650103134a55b2e9c9abca9894de075.
-- Aria concurrent-start repair f36d6ec94650103134a55b2e9c9abca9894de075 changed aria.sh plus storage_app_start_status.sh after exact 13a16 storage #43760834648 failed; exact-f36 storage workflow #43761890951 was in progress at the last poll. Other f36 Actions #43761890935, #43761890866, #43761890893, #43761890999, #43761890904, #43761890891, #43761890896 and #43761890879 were queued/in progress at that poll.
-- MSD Lite files in this atomic slice: net.c, new msd_lite_config_file.h, new tests/msd_lite_config_file.c, Process/XY-C1 workflow path filters, and Process source contract. Parent main f36d6ec94650103134a55b2e9c9abca9894de075.
+- Parent main for Transmission slice: df267fd1457bb62e2a0c0fb0c359d3aa153f10e9.
+- Aria PID uniqueness fix: `f36d6ec94650103134a55b2e9c9abca9894de075`; barrier race follow-up: `b488a561bb91df62aca810a6ff2c191c17f82b2b`; literal `$` barrier marker fix: `df267fd1457bb62e2a0c0fb0c359d3aa153f10e9`. Exact df267 storage #43763413862 PASS.
+- MSD Lite source slice from 50e24f32f310998a71e976287981aeb45f3bcd99 adds checked staged config publication, regression, workflow filters and source contract; b488a561 restores non-APP_MSD_LITE udpxy fallback. Exact Process + XY-C1 checks on b488 passed.
 - Local host command: cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I trunk/user/rc/src trunk/user/rc/src/tests/msd_lite_config_file.c -o msd-lite-config-regression; ASAN_OPTIONS=detect_leaks=1 ./msd-lite-config-regression — PASS.
-- New exact-head Process lifecycle and XY-C1 Build XY-C1, TRX verification and artifact upload results must be checked on the new source SHA before claiming L3. No physical-router/L4 result.
+- The b488 source SHA got exact XY-C1 cross-build PASS (#43762907958); L3 applies only to that source revision. No physical-router/L4 result.
 - Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807; archive index/shards untouched.
 
 ## Exact first action for the next GPT

@@ -1,19 +1,19 @@
 ## Current source / CI checkpoint
 
-- Parent main for this barrier-marker follow-up: b488a561bb91df62aca810a6ff2c191c17f82b2b; frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- Exact XY-C1 #43756373315 Build/TRX/artifact PASS for C source 401066 only (L3). No L4.
+- Parent main for Transmission settings slice: df267fd1457bb62e2a0c0fb0c359d3aa153f10e9; frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Exact XY-C1 #43762907958 cross-build PASS for C-source SHA b488a561bb91df62aca810a6ff2c191c17f82b2b (L3 for that exact source revision only). No L4.
 - WAN source fixes: static IPoE address error gate, checked physical WAN interface bring-up, AP-client WISP old interface cleanup/abort, and separate critical MAN gateway/default-route status for static PPTP/L2TP; optional route errors remain nonfatal to that static PPP decision.
 - Storage fixes: Transmission/Aria explicit launch status; Aria staged atomic default config and fail-closed directory/session/permission setup. Transmission's default settings generator, sed transform and rename are still unchecked in live source; no PID-qualified settings staging exists yet.
-- Aria uses aria2.conf.tmp.$$ for its default config. Exact 13a16 storage run #43760834648 exposed that both the production temp suffix and the test barrier marker were still literal-dollar strings; this repair makes both PID-qualified. The concurrent-start regression checks two independent staged files and dual daemon launch; exact-head storage validation is pending.
-- Exact SHA 50e24f32f310998a71e976287981aeb45f3bcd99 push Actions: storage #43762316227 SUCCESS; AliDDNS #43762316320 SUCCESS; AliyunDrive #43762316276 SUCCESS; WAN route #43762316273 SUCCESS; AdGuardHome #43762316224 SUCCESS; HTTPD #43762316127 SUCCESS; NVRAM #43762316105 SUCCESS; Process inventory #43762316049 SUCCESS. AI docs #43762316097 FAIL (missing mandatory phrase); infosvr #43762316266 FAIL (handoff heading compatibility); Process lifecycle #43762316246 FAIL (udpxy fallback deleted by MSD Lite refactor). XY-C1 #43762316142 was in progress at last check.
-- The Aria concurrency test's single barrier phase was nondeterministic: one cat stub could return before its peer recorded the number of staged files. The b488a561 follow-up still wrote constant `entered.$` / `checked.$`; this commit corrects both to PID-qualified `entered.$$` / `checked.$$` and triggers exact-head host/BusyBox validation.
+- Aria now uses `aria2.conf.tmp.$`; the regression uses process-unique `entered.$` and `checked.$` rendezvous markers. Exact df267 storage run #43763413862 PASS.
+- Exact df267 push Actions all PASS: storage #43763413862, AI docs #43763413814, Process inventory #43763413812, Process lifecycle #43763413775, infosvr #43763413761, AliDDNS #43763413799, AliyunDrive #43763413767, AdGuardHome #43763413821 and NVRAM #43763413864. Earlier b488 XY-C1 cross-build #43762907958 PASS.
+- The Aria two-phase cat barrier now uses literal `entered.$` and `checked.$` names; the exact-head storage regression on df267 passes.
 
 ### P1 — Storage daemon startup and config publication
 
 - Preserve start-stop-daemon result, independent of logger.
-- Aria's PID-qualified staging works and exact SHA 50e24f32f310998a71e976287981aeb45f3bcd99 storage run #43762316227 PASS. The original one-phase test barrier can race while collecting its file count; this repair adds a second barrier and triggers fresh exact-head coverage.
-- Transmission default settings are currently generated directly to `/tmp/settings.json`; generator, `sed`, and `mv` return statuses are unchecked, and daemon start is not gated on a verified nonempty published file.
-- Next action after current exact-head red CI repair: stage settings in a private same-directory PID-qualified path, check generation/transform/rename and final nonempty file, clean up every failure and add host + BusyBox regression.
+- Aria exact-head storage run #43763413862 PASS with both PID-unique barrier phases.
+- Transmission now stages default settings in `settings.json.tmp.$` in the config directory, exclusively creates the file with `umask 077` + noclobber, checks generator status/nonempty output, sed status/nonempty transformed output, rename status and final file type/size; all generation/publish failures clean the temp and abort before daemon launch.
+- Regression injects generator failure, empty generator output, sed failure, rename failure and successful transformed publish. New exact-head host and firmware BusyBox ash checks are pending.
 
 ### P1 — WAN startup status propagation
 
@@ -22,7 +22,7 @@
 
 ### P1 — MSD Lite configuration publication
 
-- APP_MSD_LITE configuration now uses checked same-directory staged publication; the GNU89 ASan/UBSan config regression passed on SHA 50e24f32f310998a71e976287981aeb45f3bcd99. The Process lifecycle integration check found the MSD Lite slice had accidentally removed the `#else` `/usr/sbin/udpxy` launch path for non-APP_MSD_LITE builds; this repair restores that fallback. Exact-head Process and XY-C1 verification must be rerun.
+- APP_MSD_LITE configuration uses checked same-directory staged publication with GNU89 ASan/UBSan regression coverage. The non-APP_MSD_LITE `#else` `/usr/sbin/udpxy` branch was restored in b488a561; Process lifecycle and XY-C1 exact-source cross-build checks passed on that revision (L3 only; no L4).
 
 ### P2 — IGMP proxy configuration publication
 
