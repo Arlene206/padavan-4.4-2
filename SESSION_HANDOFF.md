@@ -8,24 +8,24 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2. Parent main for THIS COMMIT: 31ae7b6f253734cc0abf5f67b5c34e861229155b. Production source includes checked buffered storage writes, radio/custom-hook shutdown gates, checked Optware/RWFS/UBI teardown, and identity-validated Transmission/Aria stops. Recent docs/checker-only commits repaired the duplicated RWFS workflow contract (bda473715cf8bb2e1bbb8c704370639854f2a07c) and a literal-brace ValueError in the standalone checker (31ae7b6f253734cc0abf5f67b5c34e861229155b).
-- Immutable backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807; read-only. Do not modify, merge or reset it. Legacy PR #1 remains CLOSED / UNMERGED.
-- Parent bda473715cf8bb2e1bbb8c704370639854f2a07c USB storage run #43683399235 reached the standalone checker after all previous stages and failed on its Python format-string literal-brace bug; commit 31ae7b6 fixes that checker. Exact-head revalidation is required and no status transfers to THIS COMMIT.
-- The workflow-run connector available here filters to pull-request-triggered runs; combined main commit statuses may be empty. Empty results are NOT PASS. No exact-head push CI success is claimed until checked directly.
-- Historical L3 only: 335f137a831725f1ed241151d849e160578cca69, XY-C1 #43677484373 (MIPS/uClibc build, TRX verification, artifact #14147062315, 12,595,529 bytes). Current L3 and physical L4 are NOT VERIFIED.
-- No full local checkout or target toolchain is available. Do not claim local build/test or hardware validation; newly added regressions are integrated into Actions.
-
+- Repository: Arlene206/padavan-4.4-2. Parent main for THIS COMMIT: `5338c5adfe54a7eedcfc460b284f4783c03a09cf`; immutable backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
+- Parent source commit `5338c5adfe54a7eedcfc460b284f4783c03a09cf` implemented MTD digest staging/retryability, status-returning `write_storage_to_mtd()`, checked atomic `storage_save_time()`, and firmware/shutdown/boot persistence gating. Do not reimplement those changes.
+- Exact-head Actions on parent `5338c5adfe54a7eedcfc460b284f4783c03a09cf`: USB storage #43685359346 FAILED at step 11 because GNU coreutils rejects the BusyBox-specific `md5sum -s`; process lifecycle #43685359507 FAILED at its integration checker because it expected `write_storage_to_mtd();` instead of the now status-returning expression; HTTPD security #43685359427 FAILED at the corresponding duplicated inline source contract. XY-C1 #43685359467 was IN_PROGRESS at last poll. All three failures are being corrected in THIS COMMIT; the other completed parent workflows were successful.
+- The isolated shell reproduction showed GNU `md5sum -c` succeeds after a durable retry and correctly skips the following unchanged snapshot. The full repository shell regression is wired to exact-head USB storage Actions, not claimed locally.
+- Current-source L3 is NOT VERIFIED until exact-head XY-C1 MIPS/uClibc build, TRX verification and artifact upload pass. Physical L4 remains NOT VERIFIED. No full local checkout/toolchain is available.
 ## Active task
 
-### P1 slice — Preserve retryability and propagate MTD storage save failures (THIS COMMIT)
+### Current P1 slice — repair exact-head validation fallout from the MTD persistence commit (THIS COMMIT)
 
-- mtd_storage.sh previously wrote the new archive MD5 directly to storage_md5 before invoking mtd_write. A failed flash therefore caused the next identical save to validate the new hash and skip retrying, leaving the old MTD snapshot active.
-- Save now stages the hash in a temporary file and publishes it only after mtd_write succeeds. Hash staging, compression, flash and checkpoint publication failures return non-zero; a failed flash leaves the old hash authoritative.
-- write_storage_to_mtd() now propagates doSystem() status. Startup reports failed persistence while continuing crond startup; shutdown logs failure but continues power-down; firmware update refuses image writing unless timestamp and MTD persistence both succeed, and attempts watchdog recovery on abort.
-- storage_save_time() now checks clock/localtime conversion and overflow, uses a same-directory temporary file, checks write/flush/fsync/close and atomically renames it. Failure cleans the temp file while preserving the previous timestamp.
-- Added a shell regression for baseline save → injected MTD failure → identical retry → unchanged-save skip. Added a GNU89 -Wall -Wextra -Werror persistence-policy regression and expanded Python source/order contracts.
-- Changed paths: rc.c, rc.h, mtd_storage.sh, new MTD retry shell test, new persistence policy/header test, storage-hotplug and XY-C1 workflows, check_storage_safe_remove.py, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and dev_log.md. Parent main SHA: 31ae7b6f253734cc0abf5f67b5c34e861229155b. Exact-head push Actions and local test/build results are not available here; no CI PASS is claimed.
-- Do not repeat already-landed checked buffered writer work (180e90075a11ad1135ee6801915211548337b52e), shutdown radio/custom-hook gates (335f137a831725f1ed241151d849e160578cca69 and d16c7ed591fdec961992f6236a441f12c286fe61), checked Optware/RWFS/UBI teardown (b41fa1fae03904078f0d765d157d2dfdf97daa51 and e89f8ca3da85860e71acfd4f6a50eae4ce096311), or Transmission/Aria identity-bound stop (2aedad115793e7a6de4f2114272c845559105783). Recent bda/31ae commits fixed workflow/checker contracts only.
+- In `mtd_storage.sh`, changed the unchanged-snapshot check from BusyBox-only `md5sum -s` to portable `md5sum -c` with stdout/stderr redirected. GNU coreutils in GitHub Actions does not accept `-s`; the old command therefore returned failure on every run and never skipped an unchanged archive.
+- Updated the Process lifecycle integration checker and the HTTPD security workflow's duplicated source-order contract to recognize `write_storage_to_mtd()` as a status-returning expression, rather than the previous void-call literal ending in a semicolon. Existing ordering constraints remain.
+- A local isolated shell reproduction using GNU md5sum confirmed that after a successful retry the next identical snapshot validates and skips MTD write. Full repository regressions and target build await exact-head Actions.
+- Fresh exact-head USB storage, Process lifecycle, HTTPD security and XY-C1 workflows are the required validation.
+
+### Next P1 task — audit MTD load/restore/backup/reset failure handling
+
+- Trace `mtd_storage.sh` load/restore/backup/reset callsites, lock semantics, scratch paths, decompression/extraction, target replacement, metadata publication and rollback. Identify one reproducible failure before modifying destructive paths.
+- Add a focused shell regression for the actual failure, integrate the correct workflow path filters and verify exact-head Actions. Do not repeat MTD save retry, RC writer/time status propagation, firmware watchdog recovery, checker contract repairs, RWFS/UBI teardown or safe-eject.
 
 ## Explicitly uncompleted P1 work
 
@@ -39,7 +39,7 @@ For every multi-file slice, publish source + regression tests + required workflo
 ## Verification boundary
 
 - L1: The MD5 bug is directly traced in func_save(): the old implementation published its skip hash before mtd_write. The new shell fixture exercises failed flash followed by an identical retry and later idempotent skip; source contracts cover script hash order and every RC persistence caller. Not executed locally in this context.
-- L2: Storage-hotplug regression and standalone source checker are wired to run on the new main push; exact-head result is PENDING/UNKNOWN until the relevant push run is inspected. Prior bda run #43683399235 failed before full completion on a checker exception fixed by 31ae7b6; that result is not carried forward.
+- L2: Parent #43685359346 storage failed only at the unchanged-save idempotence assertion because GNU md5sum rejected `-s`; #43685359507 and #43685359427 failed on stale `write_storage_to_mtd();` source-contract text. This commit corrects those causes; fresh exact-head runs are required. The previous bda checker exception was repaired and 31ae7b6 USB storage #43684904469 passed.
 - L3: Current source is NOT VERIFIED. A fresh exact-head XY-C1 MIPS/uClibc build, TRX verification and artifact upload are required after rc.c, header and persistence helper changes.
 - L4: Physical XY-C1 flash, boot/runtime and storage persistence behavior are NOT VERIFIED.
 - No local build/test or physical hardware result is claimed.

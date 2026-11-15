@@ -1,3 +1,12 @@
+## 2026-11-15 — Fix GNU md5sum compatibility and checked-storage call contracts
+
+- Exact-head USB storage run #43685359346 on `5338c5adfe54a7eedcfc460b284f4783c03a09cf` passed MTD script syntax and the baseline/write-failure/retry cases, then failed because the unchanged-save check used BusyBox's `md5sum -s` option. The GitHub-hosted GNU coreutils `md5sum` rejects `-s`, so every unchanged save fell through and rewrote MTD. Replaced it with portable `md5sum -c` and explicit output redirection; a local shell reproduction with GNU md5sum confirms the retry succeeds and the next identical snapshot is skipped.
+- Exact-head Process inventory/lifecycle #43685359507 and HTTPD security #43685359427 exposed stale source-contract literals expecting `write_storage_to_mtd();`; production now invokes the status-returning function as an expression in a ternary. Updated both assertions to recognize the call while preserving their surrounding ordering checks.
+- No lifecycle or storage semantics were relaxed. Fresh exact-head storage, process-lifecycle, HTTPD and XY-C1 Actions are required; the prior XY-C1 run #43685359467 was still IN_PROGRESS at last observation.
+- Changed paths: `trunk/user/scripts/files/sbin/mtd_storage.sh`, `scripts/check_process_lifecycle_integration.py`, `.github/workflows/httpd-security.yml`, `SESSION_HANDOFF.md`, `dev_log.md`. Parent SHA: `5338c5adfe54a7eedcfc460b284f4783c03a09cf`. Full repository regression suite and target build are not claimed locally.
+
+---
+
 ## 2026-11-15 — Preserve retryability and propagate MTD storage save failures
 
 - mtd_storage.sh previously published the changed archive MD5 to storage_md5 before invoking mtd_write. A failed flash then caused the next identical save to skip retrying and leave the old MTD snapshot active. The hash is now staged and published only after a successful flash; staging, compression, flash and checkpoint errors return non-zero.

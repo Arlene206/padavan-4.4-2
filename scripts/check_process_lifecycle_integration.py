@@ -259,7 +259,7 @@ assert "wpa_cli" not in flash and "wpa_supplicant" not in flash
 assert flash.index("set_passthrough_pppoe(0)") < flash.index("doSystem(\"%s %d\", script_name, 0)")
 assert flash.index("auth_stop_status = stop_8021x_all();") < flash.index("doSystem(\"%s %d\", script_name, 0)")
 assert flash.index("stop_igmpproxy(NULL)") < flash.index("stop_misc()")
-assert flash.index("stop_misc()") < flash.index("storage_save_time(60)") < flash.index("write_storage_to_mtd();")
+assert flash.index("stop_misc()") < flash.index("storage_save_time(60)") < flash.index("write_storage_to_mtd()")
 stop_misc_failure = flash.split("if (stop_misc() != 0)", 1)[1].split("storage_save_time(60)", 1)[0]
 assert "watchdog_status = start_watchdog();" in stop_misc_failure
 assert "firmware update abort could not restore watchdog" in stop_misc_failure

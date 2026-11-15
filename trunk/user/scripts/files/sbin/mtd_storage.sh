@@ -81,8 +81,7 @@ func_save()
 	echo "Save storage files to MTD partition \"$mtd_part_dev\""
 	hash_tmp="${hsh}.tmp.$$"
 	rm -f "$tbz" "$hash_tmp"
-	md5sum -c -s "$hsh" 2>/dev/null
-	if [ $? -eq 0 ] ; then
+	if md5sum -c "$hsh" >/dev/null 2>&1; then
 		echo "Storage hash is not changed, skip write to MTD partition. Exit."
 		rm -f "$tmp"
 		return 0
