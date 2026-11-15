@@ -60,22 +60,25 @@ dispatcher = read("trunk/user/rc/src/rc.c")
 workflow = read(".github/workflows/infosvr-packet-stability.yml")
 
 assert '#include "infosvr_daemon_policy.h"' in services
-assert "return stop_status == 0 && process_present == 0;" in policy
+assert "process_state == PROCESS_PRESENCE_ABSENT" in policy
 
 stop = function_body(services, "stop_infosvr(void)")
 assert "return kill_services(svcs, 3, 1);" in stop
 
 restart = function_body(services, "restart_infosvr(void)")
 stop_call = restart.index("stop_status = stop_infosvr();")
-presence_check = restart.index('process_present = pids("infosvr");')
-gate = restart.index("infosvr_restart_can_start(stop_status, process_present)")
+presence_check = restart.index('process_state = process_inventory_scan("infosvr", &snapshot);')
+gate = restart.index("infosvr_restart_can_start(stop_status, process_state)")
 stop_error = restart.index("if (stop_status != 0)")
 stop_return = restart.index("return stop_status;", stop_error)
 busy_errno = restart.index("errno = EBUSY;", stop_return)
 failure = restart.index("return -1;", busy_errno)
 launch = restart.index("return start_infosvr();")
 assert stop_call < presence_check < gate < stop_error < stop_return < busy_errno < failure < launch
-assert "refusing infosvr restart: previous daemon did not stop" in restart
+assert "refusing infosvr restart: previous daemon absence is unconfirmed" in restart
+assert "process_state == PROCESS_PRESENCE_UNKNOWN" in restart
+assert "scan_error > 0 ? scan_error : EIO" in restart
+assert "process_snapshot_release(&snapshot);" in restart
 
 assert "int stop_infosvr(void);" in header
 assert "int restart_infosvr(void);" in header
@@ -89,8 +92,9 @@ assert "completion marker retained" in dispatcher
 for marker in (
     "test_failed_stop_never_starts_replacement",
     "test_remaining_process_blocks_replacement",
-    "test_confirmed_stop_allows_start",
-    "infosvr stop-before-start daemon policy: PASS",
+    "test_unknown_inventory_blocks_replacement",
+    "test_confirmed_absence_allows_start",
+    "infosvr tri-state stop-before-start daemon policy: PASS",
 ):
     assert marker in test, marker
 

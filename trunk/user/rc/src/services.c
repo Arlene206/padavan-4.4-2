@@ -112,19 +112,28 @@ start_infosvr(void)
 int
 restart_infosvr(void)
 {
+	struct process_snapshot snapshot;
+	enum process_presence process_state;
 	int stop_status = stop_infosvr();
-	int process_present = pids("infosvr");
+	int scan_error;
 
-	if (!infosvr_restart_can_start(stop_status, process_present)) {
-		logmessage(LOGNAME, "refusing infosvr restart: previous daemon did not stop (status=%d, running=%d)",
-			   stop_status, process_present);
+	process_state = process_inventory_scan("infosvr", &snapshot);
+	scan_error = snapshot.error;
+	if (!infosvr_restart_can_start(stop_status, process_state)) {
+		process_snapshot_release(&snapshot);
+		logmessage(LOGNAME, "refusing infosvr restart: previous daemon absence is unconfirmed (status=%d, state=%d, scan_error=%d)",
+			   stop_status, process_state, scan_error);
 		if (stop_status != 0)
 			return stop_status;
 
 		/* PID 1 treats negative action_result as a failed notification. */
-		errno = EBUSY;
+		if (process_state == PROCESS_PRESENCE_UNKNOWN)
+			errno = scan_error > 0 ? scan_error : EIO;
+		else
+			errno = EBUSY;
 		return -1;
 	}
+	process_snapshot_release(&snapshot);
 
 	return start_infosvr();
 }
