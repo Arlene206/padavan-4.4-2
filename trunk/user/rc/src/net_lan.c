@@ -1045,7 +1045,11 @@ lan_publish_resolver_auto(char *lan_gateway, char *lan_dname, char *lan_dns)
 	fp = dnsmasq_file_open(resolv_temp);
 	if (!fp) {
 		status = errno ? errno : EIO;
+		if (dnsmasq_file_discard(resolv_temp) != 0)
+			logmessage(LOGNAME, "cannot remove LAN DHCP resolver stage '%s' after open failure (errno=%d)",
+				   resolv_temp, errno ? errno : EIO);
 		file_unlock(lock);
+		errno = status;
 		return status;
 	}
 
@@ -1199,6 +1203,10 @@ lan_down_auto(char *lan_ifname)
 		fp = dnsmasq_file_open(resolv_temp);
 		if (!fp) {
 			resolver_status = errno ? errno : EIO;
+			if (dnsmasq_file_discard(resolv_temp) != 0)
+				logmessage("DHCP LAN Client",
+					   "cannot remove LAN resolver stage '%s' after open failure (errno=%d)",
+					   resolv_temp, errno ? errno : EIO);
 		} else if (dnsmasq_file_publish(fp, resolv_temp,
 						DNS_RESOLV_CONF, 0644) != 0) {
 			resolver_status = errno ? errno : EIO;

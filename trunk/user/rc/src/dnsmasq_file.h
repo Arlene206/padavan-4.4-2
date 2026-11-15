@@ -25,46 +25,15 @@ dnsmasq_lease_file_required(int dhcp_features)
 	return (dhcp_features & DNSMASQ_DHCP_FEATURE_LEASES) != 0;
 }
 
-/* Build a complete replacement beside its destination; never truncate a
- * predictable shared-/tmp pathname or follow a pre-existing destination link. */
-static FILE *
-dnsmasq_file_open(char *path)
-{
-	int fd;
-	FILE *fp;
-	int saved_errno;
-
-	if (!path || !path[0]) {
-		errno = EINVAL;
-		return NULL;
-	}
-
-	fd = mkstemp(path);
-	if (fd < 0) {
-		path[0] = '\0';
-		return NULL;
-	}
-
-	fp = fdopen(fd, "w");
-	if (!fp) {
-		saved_errno = errno;
-		close(fd);
-		unlink(path);
-		path[0] = '\0';
-		errno = saved_errno;
-		return NULL;
-	}
-
-	return fp;
-}
-
 typedef int (*dnsmasq_file_unlink_fn)(const char *path);
+typedef FILE *(*dnsmasq_file_fdopen_fn)(int fd, const char *mode);
+typedef int (*dnsmasq_file_close_fn)(int fd);
 
 /* Keep the unique path when unlink fails, allowing a caller to retry/log it. */
 static inline int
 dnsmasq_file_discard_with_unlink(char *path, dnsmasq_file_unlink_fn unlink_fn)
 {
-	int saved_errno;
+	int status, saved_errno;
 
 	if (!path || !path[0])
 		return 0;
@@ -72,8 +41,11 @@ dnsmasq_file_discard_with_unlink(char *path, dnsmasq_file_unlink_fn unlink_fn)
 		errno = EINVAL;
 		return -1;
 	}
-	errno = 0;
-	if (unlink_fn(path) == 0) {
+	do {
+		errno = 0;
+		status = unlink_fn(path);
+	} while (status != 0 && errno == EINTR);
+	if (status == 0) {
 		path[0] = '\0';
 		return 0;
 	}
@@ -90,6 +62,46 @@ static inline int
 dnsmasq_file_discard(char *path)
 {
 	return dnsmasq_file_discard_with_unlink(path, unlink);
+}
+
+/* fdopen() can fail after mkstemp() has created a file. Preserve its name if
+ * the cleanup unlink also fails so the caller can retry and report the leak. */
+static inline FILE *
+dnsmasq_file_open_with_ops(char *path, dnsmasq_file_fdopen_fn fdopen_fn,
+			   dnsmasq_file_close_fn close_fn,
+			   dnsmasq_file_unlink_fn unlink_fn)
+{
+	int fd, saved_errno;
+	FILE *fp;
+
+	if (!path || !path[0] || !fdopen_fn || !close_fn || !unlink_fn) {
+		errno = EINVAL;
+		return NULL;
+	}
+	fd = mkstemp(path);
+	if (fd < 0) {
+		saved_errno = errno ? errno : EIO;
+		path[0] = '\0';
+		errno = saved_errno;
+		return NULL;
+	}
+	fp = fdopen_fn(fd, "w");
+	if (!fp) {
+		saved_errno = errno ? errno : EIO;
+		(void)close_fn(fd);
+		(void)dnsmasq_file_discard_with_unlink(path, unlink_fn);
+		errno = saved_errno;
+		return NULL;
+	}
+	return fp;
+}
+
+/* Build a complete replacement beside its destination; never truncate a
+ * predictable shared-/tmp pathname or follow a pre-existing destination link. */
+static FILE *
+dnsmasq_file_open(char *path)
+{
+	return dnsmasq_file_open_with_ops(path, fdopen, close, unlink);
 }
 
 /* Flush/close the staged file before atomically replacing the published path.

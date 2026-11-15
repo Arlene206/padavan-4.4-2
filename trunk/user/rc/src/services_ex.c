@@ -468,6 +468,9 @@ fill_dnsmasq_servers(void)
 	fp = dnsmasq_file_open(servers_path);
 	if (!fp) {
 		saved_errno = errno ? errno : EIO;
+		if (dnsmasq_file_discard(servers_path) != 0)
+			logmessage(LOGNAME, "cannot remove DNS server snapshot stage '%s' after open failure (errno=%d)",
+				   servers_path, errno ? errno : EIO);
 		logmessage(LOGNAME, "cannot stage DNS server snapshot (errno=%d)", saved_errno);
 		file_unlock(lock);
 		errno = saved_errno;
@@ -712,7 +715,11 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 	fp = dnsmasq_file_open(config_path);
 	if (!fp) {
 		saved_errno = errno ? errno : EIO;
+		if (dnsmasq_file_discard(config_path) != 0)
+			logmessage(LOGNAME, "cannot remove DNSMasq config stage '%s' after open failure (errno=%d)",
+				   config_path, errno ? errno : EIO);
 		logmessage(LOGNAME, "cannot stage DNSMasq configuration (errno=%d)", saved_errno);
+		errno = saved_errno;
 		return saved_errno;
 	}
 

@@ -10,12 +10,19 @@
 static int discard_mock_result;
 static int discard_mock_error;
 static int discard_mock_calls;
+static int discard_mock_eintr_count;
+static const char *discard_mock_expected_path = "/tmp/dnsmasq-discard-test.stage";
 
 static int
 mock_discard_unlink(const char *path)
 {
-	assert(strcmp(path, "/tmp/dnsmasq-discard-test.stage") == 0);
+	assert(strcmp(path, discard_mock_expected_path) == 0);
 	discard_mock_calls++;
+	if (discard_mock_eintr_count > 0) {
+		discard_mock_eintr_count--;
+		errno = EINTR;
+		return -1;
+	}
 	if (discard_mock_result != 0) {
 		errno = discard_mock_error;
 		return -1;
@@ -66,6 +73,54 @@ test_discard_preserves_path_when_unlink_fails(void)
 	assert(dnsmasq_file_discard_with_unlink(stage, NULL) == -1);
 	assert(errno == EINVAL);
 	assert(strcmp(stage, "/tmp/dnsmasq-discard-test.stage") == 0);
+}
+
+static FILE *
+mock_fdopen_failure(int fd, const char *mode)
+{
+	(void)fd;
+	(void)mode;
+	errno = ENOMEM;
+	return NULL;
+}
+
+static void
+test_open_failure_retains_path_for_retry(const char *directory)
+{
+	char stage[256];
+
+	assert(snprintf(stage, sizeof(stage), "%s/fdopen-fail.XXXXXX", directory) > 0);
+	discard_mock_expected_path = stage;
+	discard_mock_result = -1;
+	discard_mock_error = EACCES;
+	discard_mock_eintr_count = 0;
+	discard_mock_calls = 0;
+	errno = 0;
+	assert(dnsmasq_file_open_with_ops(stage, mock_fdopen_failure, close,
+					 mock_discard_unlink) == NULL);
+	assert(errno == ENOMEM);
+	assert(stage[0] != '\0');
+	assert(access(stage, F_OK) == 0);
+	assert(discard_mock_calls == 1);
+
+	/* A later caller retry has the original unique pathname. */
+	assert(dnsmasq_file_discard(stage) == 0);
+	assert(stage[0] == '\0');
+	assert(access(stage, F_OK) != 0);
+	discard_mock_expected_path = "/tmp/dnsmasq-discard-test.stage";
+}
+
+static void
+test_discard_retries_interrupted_unlink(void)
+{
+	char stage[] = "/tmp/dnsmasq-discard-test.stage";
+
+	discard_mock_result = 0;
+	discard_mock_eintr_count = 1;
+	discard_mock_calls = 0;
+	assert(dnsmasq_file_discard_with_unlink(stage, mock_discard_unlink) == 0);
+	assert(stage[0] == '\0');
+	assert(discard_mock_calls == 2);
 }
 
 static void
@@ -130,6 +185,8 @@ main(void)
 					 DNSMASQ_DHCP_FEATURE_RA));
 
 	assert(mkdtemp(directory) != NULL);
+	test_open_failure_retains_path_for_retry(directory);
+	test_discard_retries_interrupted_unlink();
 	assert(snprintf(sentinel, sizeof(sentinel), "%s/sentinel", directory) > 0);
 	assert(snprintf(destination, sizeof(destination), "%s/dnsmasq.servers", directory) > 0);
 	assert(snprintf(template, sizeof(template), "%s/dnsmasq.servers.XXXXXX", directory) > 0);

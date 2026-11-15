@@ -1,3 +1,12 @@
+## 2026-11-15 — Preserve temporary-file names when fdopen cleanup fails
+
+- Followed the retryable staging/backup cleanup path into its creator and found a remaining leak: after mkstemp succeeded, fdopen failure called raw unlink() and then cleared the caller's pathname unconditionally. A failed unlink therefore made the newly created stage untraceable.
+- Moved the opener behind the injectable unlink primitive. fdopen failures now close the descriptor, attempt the same EINTR-retrying discard operation, and preserve the original fdopen errno while retaining the path if cleanup fails. A deterministic regression forces fdopen ENOMEM plus unlink EACCES, verifies the stage still exists and the original errno survives, then retries cleanup successfully. A separate test injects EINTR and verifies the unlink is retried.
+- Added retry/log handling at the DNS server snapshot, DNSMasq main config, LAN DHCP resolver publication and LAN resolver deconfig open-failure callers. Successful callers keep their primary errno when best-effort cleanup fails.
+- Parent main: `7e3e556f28cbd30296a8d91ad115e2556d43735f`. Exact-head DNSMasq and XY-C1 checks are required; the DNSMasq test is compiled with GNU89, warnings-as-errors and ASan/UBSan in the workflow. No local compile, current-source MIPS/TRX result or physical-router L4 result is claimed.
+
+---
+
 ## 2026-11-15 — Make manual LAN resolver publication atomic and reject domain injection
 
 - Audited remaining writers after the resolver-lock migration. `lan_up_manual()` was the outlier: while holding the shared `resolv` lock, it opened `/etc/resolv.conf` with `w+`, truncating the live file before writing. It ignored every write/close error, so ENOSPC or interruption could publish a partial resolver configuration.

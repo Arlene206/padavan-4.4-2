@@ -639,10 +639,18 @@ jobs:
           assert "return dnsmasq_file_discard_with_unlink(backup_path, unlink_fn);" in backup_discard
           assert "return dnsmasq_file_backup_discard_with_unlink(backup_path, unlink);" in dnsmasq_file_helper
           assert "dnsmasq_file_backup_discard" in dnsmasq_file_helper
+          assert "dnsmasq_file_open_with_ops" in dnsmasq_file_helper
+          assert "while (status != 0 && errno == EINTR)" in dnsmasq_file_helper
+          assert "test_open_failure_retains_path_for_retry" in static_hosts_test
+          assert "test_discard_retries_interrupted_unlink" in static_hosts_test
           assert "dnsmasq_file_backup_discard_with_unlink(stage, mock_discard_unlink) == -1" in static_hosts_test
           assert "cannot remove DHCP rollback snapshot" in services
+          assert "cannot remove DNS server snapshot stage" in services
+          assert "cannot remove DNSMasq config stage" in services
           assert "cannot remove router hostname rollback snapshot" in net_wan
           assert "cannot remove LAN hostname rollback snapshot" in net_lan
+          assert "cannot remove LAN DHCP resolver stage" in net_lan
+          assert "cannot remove LAN resolver stage" in net_lan
           assert static_hosts_writer.index("dnsmasq_file_publish_set(") < static_hosts_writer.index("dnsmasq_file_backup_discard(backup_paths[i])")
           print("DNSMasq postconditions and RC service status propagation contract: PASS")
           PY
