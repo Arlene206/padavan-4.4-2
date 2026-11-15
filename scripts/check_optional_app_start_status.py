@@ -254,9 +254,49 @@ exit "${MOCK_STOP_STATUS:-0}"
         assert "Daemon stop failed (status=47)" in log.read_text()
 
 
+
+
+TTYD_SCRIPT = ROOT / "trunk/user/ttyd/ttyd.sh"
+
+
+def check_ttyd():
+    with tempfile.TemporaryDirectory(prefix="ttyd-lifecycle-") as tmp:
+        base = Path(tmp)
+        bin_dir = mock_bin(base / "bin")
+        executable(bin_dir / "nvram", """#!/bin/sh
+if [ "$1" = get ]; then
+    echo 7681
+fi
+exit 0
+""")
+        executable(bin_dir / "start-stop-daemon", """#!/bin/sh
+exit "${MOCK_START_STATUS:-0}"
+""")
+        executable(bin_dir / "killall", """#!/bin/sh
+exit "${MOCK_STOP_STATUS:-0}"
+""")
+        env = os.environ.copy()
+        env.update({
+            "PATH": str(bin_dir) + os.pathsep + env.get("PATH", ""),
+            "MOCK_START_STATUS": "53",
+            "MOCK_STOP_STATUS": "54",
+        })
+        failed_start = run(["/bin/sh", str(TTYD_SCRIPT), "start"], env)
+        assert failed_start.returncode == 53, (
+            f"ttyd script must propagate start-stop-daemon status 53, got {failed_start.returncode}"
+        )
+        env["MOCK_START_STATUS"] = "0"
+        started = run(["/bin/sh", str(TTYD_SCRIPT), "start"], env)
+        assert started.returncode == 0, started.stderr
+        stopped = run(["/bin/sh", str(TTYD_SCRIPT), "stop"], env)
+        assert stopped.returncode == 54, (
+            f"ttyd script must propagate killall status 54, got {stopped.returncode}"
+        )
+
 if __name__ == "__main__":
     check_scutclient()
     check_vlmcsd()
     check_iperf3()
     check_mentohust()
+    check_ttyd()
     print("optional app launch/lifecycle status regressions: PASS")

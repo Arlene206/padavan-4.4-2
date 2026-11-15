@@ -418,10 +418,17 @@ start_telnetd(void)
 	start_status = optional_daemon_start_status("telnetd", "telnetd");
 	if (start_status > 0)
 		return 0;
-	if (start_status < 0)
+	if (start_status < 0) {
+		logmessage(LOGNAME, "telnetd start aborted: process inventory unavailable (status=%d)",
+			   start_status);
 		return start_status;
+	}
 
-	return eval("telnetd");
+	start_status = eval("telnetd");
+	if (start_status != 0)
+		logmessage(LOGNAME, "telnetd launcher failed (status=%d)", start_status);
+
+	return start_status;
 }
 
 #if defined(APP_SSHD)
@@ -620,11 +627,29 @@ int stop_ttyd(void){
 	return eval("/usr/bin/ttyd.sh","stop");
 }
 
-int start_ttyd(void){
+int
+start_ttyd(void)
+{
 	int ttyd_mode = nvram_get_int("ttyd_enable");
+	int start_status;
+
 	if (ttyd_mode != 1)
 		return 0;
-	return eval("/usr/bin/ttyd.sh","start");
+
+	start_status = optional_daemon_start_status("ttyd", "ttyd");
+	if (start_status > 0)
+		return 0;
+	if (start_status < 0) {
+		logmessage(LOGNAME, "ttyd start aborted: process inventory unavailable (status=%d)",
+			   start_status);
+		return start_status;
+	}
+
+	start_status = eval("/usr/bin/ttyd.sh", "start");
+	if (start_status != 0)
+		logmessage(LOGNAME, "ttyd launcher failed (status=%d)", start_status);
+
+	return start_status;
 }
 
 int restart_ttyd(void){

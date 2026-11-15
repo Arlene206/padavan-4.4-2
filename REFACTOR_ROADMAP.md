@@ -2,8 +2,8 @@
 
 - Parent main for the common_ex PID-only SIGKILL cleanup: `0726f19c5a591b8f60745770b82fa592111f1525`. The iperf3 lifecycle/package and missing-tool error fixes are present at this parent; this slice removes the unused kill_process_pidfile() helper after the 36-file RC C callsite audit. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only.
 - Exact parent actions: process inventory/lifecycle #43734632418 PASS; process inventory summary #43734632429 PASS; AI docs #43734632385 PASS; infosvr #43734632430 PASS; AdGuardHome #43734632444 PASS; AliDDNS #43734632395 PASS. XY-C1 #43734632454, NVRAM #43734632370 and AliyunDrive #43734632391 were IN_PROGRESS.
-- Exact parent ba90 process-lifecycle #43735048264 PASS and AI docs #43735048309 PASS; XY-C1 #43735048312 was in Build XY-C1 at last poll. Fresh exact-head process/XY runs are required for the mentohust changes; no L3 claim until Build, TRX and artifact upload all pass. Physical-router L4 remains NOT VERIFIED.
-- Networkmap, watchdog, infosvr, LLTD, rstats, SCUT, vlmcsd and iperf3 now have launch-status handling. Mentohust previously masked start-stop-daemon/killall failures; this slice adds propagated statuses and mock-command coverage.
+- Exact parent af967 process-lifecycle #43735463425 PASS, process inventory #43735463474 PASS, AI docs #43735463542 PASS and related infosvr/AdGuardHome/AliDDNS/AliyunDrive workflows PASS. XY-C1 #43735463489 and NVRAM #43735463395 were IN_PROGRESS; fresh exact-head verification is required for telnetd/ttyd.
+- Networkmap, watchdog, infosvr, LLTD, rstats, SCUT, vlmcsd, iperf3 and mentohust now have launch-status handling. This slice adds logged tri-state process preflight and status diagnostics for telnetd and ttyd, with a mocked ttyd shell regression.
 ## Whole-repository module status
 
 ### P1 process inventory / service lifecycle — tri-state foundation L2 VERIFIED; strict PID identity migration extended through PPPD/udhcpc/INICD and VPN/WAN/LAN/USB stop gates; xl2tpd and crond UNKNOWN start gates migrated; current L3 pending exact-head XY-C1

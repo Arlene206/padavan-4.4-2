@@ -776,3 +776,20 @@ assert rstats_start.index('start_status = eval("/sbin/rstats");') < rstats_start
 assert '"trunk/user/rc/src/services.c"' in process_workflow
 assert '"trunk/user/rc/src/services.c"' in xy_workflow
 print("LLTD/rstats boot launch status and disabled-sentinel contracts: PASS")
+
+telnetd_start = services_source.split("int\nstart_telnetd(void)", 1)[1].split("\n}\n", 1)[0]
+assert 'if (!nvram_match("telnetd", "1"))' in telnetd_start
+assert telnetd_start.index("return 0;") < telnetd_start.index('optional_daemon_start_status("telnetd", "telnetd")')
+assert 'logmessage(LOGNAME, "telnetd start aborted: process inventory unavailable (status=%d)", ' in telnetd_start
+assert 'start_status = eval("telnetd");' in telnetd_start
+assert 'logmessage(LOGNAME, "telnetd launcher failed (status=%d)", start_status);' in telnetd_start
+assert telnetd_start.index('start_status = eval("telnetd");') < telnetd_start.index("if (start_status != 0)") < telnetd_start.index("return start_status;")
+
+ttyd_start = services_source.split("int\nstart_ttyd(void)", 1)[1].split("\n}\n", 1)[0]
+assert 'if (ttyd_mode != 1)' in ttyd_start
+assert ttyd_start.index("return 0;") < ttyd_start.index('optional_daemon_start_status("ttyd", "ttyd")')
+assert 'logmessage(LOGNAME, "ttyd start aborted: process inventory unavailable (status=%d)", ' in ttyd_start
+assert 'start_status = eval("/usr/bin/ttyd.sh", "start");' in ttyd_start
+assert 'logmessage(LOGNAME, "ttyd launcher failed (status=%d)", start_status);' in ttyd_start
+assert ttyd_start.index('start_status = eval("/usr/bin/ttyd.sh", "start");') < ttyd_start.index("if (start_status != 0)") < ttyd_start.index("return start_status;")
+print("telnetd/ttyd boot launcher diagnostics and disabled sentinels: PASS")

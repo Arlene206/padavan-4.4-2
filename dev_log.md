@@ -1,3 +1,11 @@
+## 2026-11-15 — Add fail-closed telnetd/ttyd start diagnostics
+
+- `start_telnetd()` already preflighted daemon presence but did not log UNKNOWN inventory or launcher failure; it now records the original eval status, logs failures and preserves the existing disabled no-op and already-running no-op.
+- `start_ttyd()` previously called its shell script without process inventory preflight or failure logging. It now refuses UNKNOWN inventory, avoids a duplicate start when ttyd is already RUNNING, and logs/returns the original `eval()` status. The `ttyd.sh` command itself already propagated `start-stop-daemon`/`killall` status; a host mock regression now pins that behavior.
+- Extended the process-lifecycle source contract and optional-app shell test, and added `ttyd.sh` to process/XY-C1 path filters.
+- Parent main: `af9676af871386982c4a50b12b7ade9a8d2b9ad5`; result: THIS COMMIT. Exact-head process-lifecycle and XY-C1 checks required.
+
+---
 ## 2026-11-15 — Propagate mentohust daemon launch and stop failures
 
 - `start_mentohust()` already used the shared optional-daemon preflight, but `mentohust.sh` printed `[FAILED]` after a failed `start-stop-daemon` and still returned 0; its dispatcher also unconditionally exited 0 after start, stop or restart.
