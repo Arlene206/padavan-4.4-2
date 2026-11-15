@@ -555,8 +555,14 @@ flash_firmware(void)
 			   eapol_stop_status, kabinet_stop_status, auth_stop_status, pppoe_stop_status);
 		return;
 	}
-	if (check_if_file_exist(script_name))
-		doSystem("%s %d", script_name, 0);
+	if (check_if_file_exist(script_name)) {
+		int script_status = doSystem("%s %d", script_name, 0);
+		if (script_status != 0) {
+			logmessage(LOGNAME, "firmware update aborted: custom shutdown script failed (status=%d)",
+				   script_status);
+			return;
+		}
+	}
 #if defined (USE_STORAGE)
 	if (safe_remove_all_stor_devices(0) != 0) {
 		saved_errno = errno ? errno : EIO;

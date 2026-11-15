@@ -1,3 +1,12 @@
+## 2026-11-15 — Abort firmware update when the custom shutdown hook fails
+
+- The firmware path invoked `/etc/storage/shutdown_script.sh` through `doSystem()` but discarded its exit status and continued toward storage persistence and MTD image write even when the configured operator hook failed.
+- Captured the hook status and fail-closed the firmware update on non-zero exit, with a diagnostic. This check runs before later service/watchdog shutdown and before storage mutation, so a hook failure leaves the watchdog running.
+- Added source-contract coverage for the checked hook return and abort-before-proxy/storage ordering.
+- Changed paths: `rc.c`, `check_process_lifecycle_integration.py`, `dev_log.md`. Result: THIS COMMIT. Exact-head process-lifecycle and XY-C1 validation required.
+
+---
+
 ## 2026-11-15 — Stop all WAN authentication and PPPoE relay services before firmware flash
 
 - Follow-up over the complete firmware stop set found that `flash_firmware()` still relied on its narrow ad-hoc `wpa_cli/wpa_supplicant` kill list. It left the separate WAN `lanauth` and AP `rt2860apd/rtinicapd` daemons outside the gate, and the newly status-returning PPPoE relay stop helper was not used. A successful firmware write could therefore proceed while those services were still active.

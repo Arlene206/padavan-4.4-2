@@ -227,6 +227,10 @@ flash = rc_source.split("flash_firmware(void)", 1)[1].split(
     "\nstatic void\nstorage_load_time", 1
 )[0]
 assert "auth_stop_status = stop_8021x_all();" in flash
+assert "int script_status = doSystem(\"%s %d\", script_name, 0);" in flash
+assert "if (script_status != 0)" in flash
+assert "custom shutdown script failed" in flash
+assert flash.index("if (script_status != 0)") < flash.index("stop_igmpproxy(NULL)")
 assert "eapol_stop_status = stop_auth_eapol();" in flash
 assert "kabinet_stop_status = stop_auth_kabinet();" in flash
 assert "pppoe_stop_status = set_passthrough_pppoe(0);" in flash
