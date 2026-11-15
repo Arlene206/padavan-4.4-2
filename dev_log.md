@@ -1,3 +1,11 @@
+## 2026-11-15 — Capture optional application launch failures
+
+- Four feature-gated RC wrappers for AdGuardHome, DDNS.to, Adbyby and AliDDNS discarded their `eval()` return values. The wrappers now capture the original status and log a service-specific error when nonzero; their existing NVRAM guards remain in force.
+- The process-lifecycle source checker asserts each wrapper declares the status, retains an enabled-service guard, assigns the eval result and orders failure logging after the check.
+- Parent main: `776b47eea3728e44944e04aeef67e4e0fe750f9a`; resulting exact SHA is recorded in this entry after publication. The existing process and XY-C1 workflows watch the changed C source/checker.
+
+---
+
 ## 2026-11-15 — Record optional service launcher failures at RC boundary
 
 - Four `void start_*()` wrappers for AdGuardHome, DDNS.to, Adbyby and AliDDNS called `eval()` without preserving its result. The scripts may emit their own details, but the RC boot entry point discarded nonzero exit status with no central launch diagnostic.

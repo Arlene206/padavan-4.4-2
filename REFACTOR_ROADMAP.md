@@ -1,7 +1,7 @@
 ## Current source / CI checkpoint
 
-- Current main parent for the optional boot diagnostics slice: `56369810646910ccaf0f342b414dd09f83570843`. Four enabled optional-service wrappers still discarded their `eval()` result; the slice captures it and logs nonzero launch status while retaining each NVRAM feature gate.
-- Parent exact-SHA Action status: NVRAM transaction boundary audit #43737626810 in_progress; NFS daemon start and reload lifecycle regression #43737626899 completed/failure; AI handoff documentation contract #43737626900 completed/success; Process lifecycle inventory - 56369810646910ccaf0f342b414dd09f83570843 #43737626854 completed/success; infosvr packet and signal lifecycle stability regression #43737626880 completed/success; Process inventory and lifecycle fail-closed regression #43737627168 completed/success. Fresh exact-head process/XY checks required after this source change.
+- Current parent: `776b47eea3728e44944e04aeef67e4e0fe750f9a`. Four previously silent `void start_*()` wrappers (AdGuardHome, DDNS.to, Adbyby, AliDDNS) now retain the original `eval()` status and emit a named diagnostic on failure.
+- Exact-parent workflow status: Process lifecycle inventory - 776b47eea3728e44944e04aeef67e4e0fe750f9a #43737703771 completed/success; Process inventory and lifecycle fail-closed regression #43737703882 completed/success; XY-C1 Firmware Validation #43737703922 in_progress; AI handoff documentation contract #43737703755 completed/success; NVRAM transaction boundary audit #43737703842 completed/success. Fresh process-lifecycle and XY-C1 checks needed on the updated source.
 - Networkmap, watchdog, infosvr, LLTD, rstats, telnetd, ttyd, SCUT, vlmcsd, iperf3, mentohust, OpenSSH, Dropbear and NFS status work has prior coverage. This slice adds launch-failure logging to AdGuardHome, DDNS.to, Adbyby and AliDDNS C entry points.
 - No local target build or physical-router L4 result is claimed.
 

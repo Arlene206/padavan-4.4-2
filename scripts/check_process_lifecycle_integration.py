@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Supplemental integration checks for process-inventory production wiring."""
+import re
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
@@ -812,7 +813,7 @@ for function_name, log_label in optional_start_contracts:
     optional_start = services_source.split(function_name + "(void)", 1)[1].split("\n}", 1)[0]
     eval_at = optional_start.index("start_status = eval(")
     assert "int start_status;" in optional_start
-    assert "if (" in optional_start[:eval_at]  # retain the original enabled/disabled guard
+    assert re.search(r"\bif\s*\(", optional_start[:eval_at])  # retain the original enabled/disabled guard
     failure_guard = optional_start.index("if (start_status != 0)", eval_at)
     failure_log = optional_start.index(f'logmessage(LOGNAME, "{log_label} launcher failed (status=%d)", start_status);', failure_guard)
     assert eval_at < failure_guard < failure_log
