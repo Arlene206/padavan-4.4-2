@@ -888,11 +888,30 @@ config_smb_fastpath(int check_pid)
 	in_addr_t lan_ip = 0;
 
 	if (nvram_match("st_samba_fp", "1")) {
-		if (!check_pid || pids("smbd")) {
+		if (!check_pid) {
 			lan_ip = get_lan_ip4();
-			if (lan_ip == INADDR_ANY)
-				lan_ip = 0;
+		} else {
+			struct process_snapshot snapshot;
+			enum process_presence state;
+			int scan_error;
+
+			memset(&snapshot, 0, sizeof(snapshot));
+			state = process_inventory_scan("smbd", &snapshot);
+			scan_error = snapshot.error;
+			process_snapshot_release(&snapshot);
+			if (state == PROCESS_PRESENCE_RUNNING) {
+				lan_ip = get_lan_ip4();
+			} else if (state == PROCESS_PRESENCE_UNKNOWN) {
+				logmessage("Samba Server",
+					   "cannot verify smbd for fastpath; disabling acceleration (errno %d)",
+					   scan_error ? scan_error : EIO);
+			} else if (state != PROCESS_PRESENCE_ABSENT) {
+				logmessage("Samba Server",
+					   "invalid smbd inventory state for fastpath; disabling acceleration");
+			}
 		}
+		if (lan_ip == INADDR_ANY)
+			lan_ip = 0;
 	}
 
 	fput_int("/proc/net/netfilter/nf_fp_smb", ntohl(lan_ip));
@@ -976,6 +995,25 @@ samba_wait_for_daemon(const char *daemon)
 	};
 
 	return samba_daemon_wait_for_stable_presence(daemon, 30, &ops, NULL);
+}
+
+static int
+samba_require_daemon_absent(const char *daemon, const char *stage)
+{
+	struct process_snapshot snapshot;
+	enum process_presence state;
+	int scan_error, status;
+
+	memset(&snapshot, 0, sizeof(snapshot));
+	state = process_inventory_scan(daemon, &snapshot);
+	scan_error = snapshot.error;
+	status = samba_process_require_absent(state, scan_error);
+	process_snapshot_release(&snapshot);
+	if (status != 0)
+		logmessage("Samba Server",
+			   "%s is not confirmed ABSENT %s (errno %d)",
+			   daemon, stage ? stage : "", errno ? errno : EIO);
+	return status;
 }
 
 /* A successful command is not enough: require process presence across a settling interval. */
@@ -1257,6 +1295,15 @@ int restart_smbd(void)
 		goto out;
 	}
 
+	/* kill_services() success is not a substitute for complete procfs absence. */
+	if (samba_require_daemon_absent("smbd", "after restart stop") != 0 ||
+	    samba_require_daemon_absent("nmbd", "after restart stop") != 0)
+		goto out;
+#if defined (APP_SMBD36)
+	if (samba_require_daemon_absent("wsdd2", "after restart stop") != 0)
+		goto out;
+#endif
+
 	mount_status = storage_has_mounted_devices("restarting Samba");
 	if (mount_status < 0) {
 		logmessage("Samba Server", "restart aborted because mounted storage state is unknown");
@@ -1268,9 +1315,8 @@ int restart_smbd(void)
 			restart_status = samba_status;
 			goto out;
 		}
-	}
-
-	if (!pids("nmbd")) {
+	} else {
+		/* start_wins() is a no-op when WINS is disabled. */
 		samba_status = start_wins();
 		if (samba_status != 0) {
 			restart_status = samba_status;

@@ -217,7 +217,7 @@ jobs:
           assert "PROCESS_PRESENCE_UNKNOWN" in ex_presence
           assert "samba_daemon_wait_for_stable_presence(daemon, 30" in ex_wait_fn
           assert "usleep(microseconds)" in sleep_fn
-          assert "samba_daemon_signal_snapshot(initial_snapshot, SIGHUP" in ensure_fn
+          assert "samba_daemon_signal_snapshot(initial_snapshot,SIGHUP" in ensure_fn
           assert "process_inventory_scan(daemon, &current_snapshot)" in ensure_fn
           assert "killall" not in ensure_fn
           assert "eval(daemon_path" in ensure_fn
@@ -235,12 +235,29 @@ jobs:
           assert "void run_samba(void);" not in header
           assert "int run_samba(void);" in header
           assert "int restart_smbd(void);" in header
+          fastpath = function_body(stor, "config_smb_fastpath(int check_pid)")
+          assert 'process_inventory_scan("smbd", &snapshot)' in fastpath
+          assert "PROCESS_PRESENCE_RUNNING" in fastpath
+          assert "PROCESS_PRESENCE_UNKNOWN" in fastpath
+          assert "process_snapshot_release(&snapshot)" in fastpath
+          assert "pids(" not in fastpath
+
+          require_absent = function_body(stor, "samba_require_daemon_absent(")
+          assert "process_inventory_scan(daemon, &snapshot)" in require_absent
+          assert "samba_process_require_absent(state, scan_error)" in require_absent
+          assert "process_snapshot_release(&snapshot)" in require_absent
+
           restart_smbd = function_body(stor, "int restart_smbd(void)")
           assert "samba_status = run_samba();" in restart_smbd
           assert "if (samba_status != 0)" in restart_smbd
           restart_lock = restart_smbd.index("storage_operation_lock_acquire(file_lock)")
           assert restart_lock < restart_smbd.index("stop_status = stop_samba_locked(1)")
-          assert restart_smbd.index("stop_status = stop_samba_locked(1)") < restart_smbd.index("storage_has_mounted_devices")
+          assert restart_smbd.index("stop_status = stop_samba_locked(1)") < restart_smbd.index('samba_require_daemon_absent("smbd"')
+          assert restart_smbd.index('samba_require_daemon_absent("smbd"') < restart_smbd.index("storage_has_mounted_devices")
+          assert 'samba_require_daemon_absent("nmbd"' in restart_smbd
+          assert 'samba_require_daemon_absent("wsdd2"' in restart_smbd
+          assert "pids(" not in restart_smbd
+          assert "start_wins()" in restart_smbd
           assert restart_smbd.index("storage_has_mounted_devices") < restart_smbd.index("samba_status = run_samba()")
           assert restart_smbd.index("samba_status = run_samba()") < restart_smbd.index("file_unlock(storage_lock);")
           assert restart_smbd.index("start_wins()") < restart_smbd.index("file_unlock(storage_lock);")
@@ -264,11 +281,13 @@ jobs:
           assert "PROCESS_PRESENCE_UNKNOWN" in daemon_test
           assert "Samba tri-state daemon readiness policy: PASS" in daemon_test
           assert "samba_daemon_signal_snapshot" in process_policy
+          assert "samba_process_require_absent" in process_policy
           for token in ("SAMBA_DAEMON_ACTION_START","SAMBA_DAEMON_ACTION_RELOAD",
                         "SAMBA_DAEMON_ACTION_ABORT","Complete preflight before first signal"):
               assert token in process_policy
           for token in ("PROCESS_PRESENCE_UNKNOWN","signal_count==0",
-                        "errno==EACCES","errno==EPERM",
+                        "errno==EACCES","errno==EPERM","errno==EBUSY",
+                        "samba_process_require_absent","errno==EIO",
                         "Samba process action and identity-bound signal policy: PASS"):
               assert token in process_test
 
@@ -299,11 +318,30 @@ jobs:
           assert wins.index("samba_config_file_publish") < wins.index('eval("/sbin/nmbd"')
           assert "command_status != 0" in wins
           assert 'samba_ex_wait_for_daemon("nmbd") != 0' in wins
-          assert 'doSystem("killall %s %s", "-SIGHUP", "nmbd")' in wins
+          assert "samba_config_transaction_recover(" in wins
+          assert 'process_inventory_scan("nmbd", &nmbd_snapshot)' in wins
+          assert wins.index('process_inventory_scan("nmbd", &nmbd_snapshot)') < wins.index("samba_config_transaction_recover(")
+          assert wins.index("samba_config_transaction_recover(") < wins.index("samba_config_file_open")
+          assert "PROCESS_PRESENCE_UNKNOWN" in wins
+          assert "samba_daemon_signal_snapshot(" in wins
+          assert 'samba_ex_require_absent("nmbd"' in wins
+          assert "process_snapshot_release(&nmbd_snapshot)" in wins
+          assert "killall" not in wins and "pids(" not in wins
+
+          reload_nmbd = function_body(services, "int\nreload_nmbd(void)")
+          assert 'process_inventory_scan("nmbd", &snapshot)' in reload_nmbd
+          assert "PROCESS_PRESENCE_UNKNOWN" in reload_nmbd
+          assert "samba_daemon_signal_snapshot(" in reload_nmbd
+          assert "killall" not in reload_nmbd and "pids(" not in reload_nmbd
+
           restart_nmbd = function_body(services, "int\nrestart_nmbd(void)")
-          assert restart_nmbd.index("stop_nmbd() != 0") < restart_nmbd.index('eval("/sbin/nmbd"')
-          assert 'samba_ex_wait_for_daemon("nmbd") != 0' in restart_nmbd
-          assert 'doSystem("killall %s %s", "-SIGHUP", "smbd")' in restart_nmbd
+          assert 'process_inventory_scan("nmbd", &nmbd_snapshot)' in restart_nmbd
+          assert 'process_inventory_scan("smbd", &smbd_snapshot)' in restart_nmbd
+          assert restart_nmbd.index('process_inventory_scan("smbd", &smbd_snapshot)') < restart_nmbd.index("write_smb_conf() != 0")
+          assert "samba_ex_require_absent" in restart_nmbd
+          assert "samba_daemon_signal_snapshot(" in restart_nmbd
+          assert "killall" not in restart_nmbd and "pids(" not in restart_nmbd
+          assert "process_snapshot_release(&smbd_snapshot)" in restart_nmbd
           assert "int start_wins(void);" in header
           assert "int stop_nmbd(void);" in header
           assert "int restart_nmbd(void);" in header

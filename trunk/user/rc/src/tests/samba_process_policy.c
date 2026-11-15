@@ -27,6 +27,11 @@ int main(void)
 	assert(samba_daemon_action_for_presence(PROCESS_PRESENCE_RUNNING)==SAMBA_DAEMON_ACTION_RELOAD);
 	assert(samba_daemon_action_for_presence(PROCESS_PRESENCE_UNKNOWN)==SAMBA_DAEMON_ACTION_ABORT);
 	assert(samba_daemon_action_for_presence((enum process_presence)9)==SAMBA_DAEMON_ACTION_ABORT);
+	assert(samba_process_require_absent(PROCESS_PRESENCE_ABSENT,0)==0);
+	errno=0;assert(samba_process_require_absent(PROCESS_PRESENCE_RUNNING,0)==-1&&errno==EBUSY);
+	errno=0;assert(samba_process_require_absent(PROCESS_PRESENCE_UNKNOWN,EACCES)==-1&&errno==EACCES);
+	errno=0;assert(samba_process_require_absent(PROCESS_PRESENCE_UNKNOWN,0)==-1&&errno==EIO);
+	errno=0;assert(samba_process_require_absent((enum process_presence)9,0)==-1&&errno==EIO);
 	{
 		const enum process_presence s[]={PROCESS_PRESENCE_RUNNING,PROCESS_PRESENCE_RUNNING,PROCESS_PRESENCE_RUNNING,PROCESS_PRESENCE_RUNNING};
 		struct fake x={s,4,0,0,0,0,{0},{0}};

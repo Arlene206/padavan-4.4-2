@@ -9,6 +9,20 @@ static enum samba_daemon_action samba_daemon_action_for_presence(enum process_pr
 	if(state==PROCESS_PRESENCE_RUNNING)return SAMBA_DAEMON_ACTION_RELOAD;
 	return SAMBA_DAEMON_ACTION_ABORT;
 }
+/* Stop/restart postconditions require a complete ABSENT inventory. */
+static int
+samba_process_require_absent(enum process_presence state, int scan_error)
+{
+	if (state == PROCESS_PRESENCE_ABSENT)
+		return 0;
+	if (state == PROCESS_PRESENCE_RUNNING)
+		errno = EBUSY;
+	else if (state == PROCESS_PRESENCE_UNKNOWN)
+		errno = scan_error > 0 ? scan_error : EIO;
+	else
+		errno = EIO;
+	return -1;
+}
 typedef enum process_presence (*samba_process_identity_validate_fn)(void *,const struct process_identity *);
 typedef int (*samba_process_signal_fn)(void *,pid_t,int);
 /* Complete preflight before first signal; revalidate each PID before its targeted signal. */
