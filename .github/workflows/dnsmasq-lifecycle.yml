@@ -647,9 +647,13 @@ jobs:
           assert "cannot remove DHCP rollback snapshot" in services
           assert "cannot remove DNS server snapshot stage" in services
           assert "cannot remove DNSMasq config stage" in services
+          assert "cannot remove failed DNS server snapshot stage" in services
+          assert "cannot remove failed DNSMasq config stage" in services
           assert "cannot remove router hostname rollback snapshot" in net_wan
           assert "cannot remove LAN hostname rollback snapshot" in net_lan
           assert "cannot remove LAN DHCP resolver stage" in net_lan
+          assert "cannot remove failed LAN DHCP resolver stage" in net_lan
+          assert "cannot remove failed LAN resolver stage" in net_lan
           assert "cannot remove LAN resolver stage" in net_lan
           assert static_hosts_writer.index("dnsmasq_file_publish_set(") < static_hosts_writer.index("dnsmasq_file_backup_discard(backup_paths[i])")
           print("DNSMasq postconditions and RC service status propagation contract: PASS")

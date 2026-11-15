@@ -1,3 +1,12 @@
+## 2026-11-15 — Retry and report stage cleanup after publication failures
+
+- The fdopen failure path is now retryable, but tracing the next failure edge found callers where dnsmasq_file_publish() attempted one best-effort stage unlink and callers returned without reporting a retained path if that unlink failed.
+- Added a second checked discard attempt and path-specific logging when publication of the DNS server snapshot, the main DNSMasq configuration, an automatically learned LAN resolver file, or the deconfig resolver file fails. The original publication errno remains the returned status even if cleanup fails.
+- Workflow source contracts now require each caller to preserve/report the stage on publication failure. Existing atomic-publication and injected unlink regressions cover the underlying helpers.
+- Parent main: `5ea9fe1d0fb7527d6cf38c341bb9d27d7b192aac`. Exact-head DNSMasq and XY-C1 validation required. No local compile, current-source MIPS/TRX result or physical-router L4 result is claimed.
+
+---
+
 ## 2026-11-15 — Preserve temporary-file names when fdopen cleanup fails
 
 - Followed the retryable staging/backup cleanup path into its creator and found a remaining leak: after mkstemp succeeded, fdopen failure called raw unlink() and then cleared the caller's pathname unconditionally. A failed unlink therefore made the newly created stage untraceable.

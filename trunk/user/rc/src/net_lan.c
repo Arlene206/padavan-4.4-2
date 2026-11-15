@@ -1082,10 +1082,16 @@ lan_publish_resolver_auto(char *lan_gateway, char *lan_dname, char *lan_dns)
 	if (!dns_count && is_valid_ipv4(lan_gateway))
 		fprintf(fp, "nameserver %s\n", lan_gateway);
 
-	if (dnsmasq_file_publish(fp, resolv_temp, DNS_RESOLV_CONF, 0644) != 0)
+	if (dnsmasq_file_publish(fp, resolv_temp, DNS_RESOLV_CONF, 0644) != 0) {
 		status = errno ? errno : EIO;
+		if (dnsmasq_file_discard(resolv_temp) != 0)
+			logmessage(LOGNAME, "cannot remove failed LAN DHCP resolver stage '%s' after publish failure (errno=%d)",
+				   resolv_temp, errno ? errno : EIO);
+	}
 
 	file_unlock(lock);
+	if (status != 0)
+		errno = status;
 	return status;
 }
 
@@ -1210,6 +1216,10 @@ lan_down_auto(char *lan_ifname)
 		} else if (dnsmasq_file_publish(fp, resolv_temp,
 						DNS_RESOLV_CONF, 0644) != 0) {
 			resolver_status = errno ? errno : EIO;
+			if (dnsmasq_file_discard(resolv_temp) != 0)
+				logmessage("DHCP LAN Client",
+					   "cannot remove failed LAN resolver stage '%s' after publish failure (errno=%d)",
+					   resolv_temp, errno ? errno : EIO);
 		}
 		file_unlock(lock);
 	}

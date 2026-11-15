@@ -508,6 +508,9 @@ fill_dnsmasq_servers(void)
 
 	if (dnsmasq_file_publish(fp, servers_path, DNS_SERVERS_FILE, 0644) != 0) {
 		saved_errno = errno ? errno : EIO;
+		if (dnsmasq_file_discard(servers_path) != 0)
+			logmessage(LOGNAME, "cannot remove failed DNS server snapshot stage '%s' after publish failure (errno=%d)",
+				   servers_path, errno ? errno : EIO);
 		logmessage(LOGNAME, "cannot publish DNS server snapshot (errno=%d)", saved_errno);
 		file_unlock(lock);
 		errno = saved_errno;
@@ -951,7 +954,11 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 
 	if (dnsmasq_file_publish(fp, config_path, "/etc/dnsmasq.conf", 0644) != 0) {
 		saved_errno = errno ? errno : EIO;
+		if (dnsmasq_file_discard(config_path) != 0)
+			logmessage(LOGNAME, "cannot remove failed DNSMasq config stage '%s' after publish failure (errno=%d)",
+				   config_path, errno ? errno : EIO);
 		logmessage(LOGNAME, "cannot publish DNSMasq configuration (errno=%d)", saved_errno);
+		errno = saved_errno;
 		return saved_errno;
 	}
 
