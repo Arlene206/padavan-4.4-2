@@ -295,6 +295,10 @@ require("PROCESS_PRESENCE_START_ABORT" in up and
         "PROCESS_PRESENCE_START_NOTIFY" in up and
         "PROCESS_PRESENCE_START_NEW" in up,
         "VPN up bcrelay start/stop tri-state branches incomplete")
+require('eval("/usr/sbin/bcrelay", "-d", "-i", IFNAME_BR, "-o", "ppp[1-5][0-9]", "-n")' in up,
+        "VPN bcrelay bridge-to-client relay direction changed")
+require('eval("/usr/sbin/bcrelay", "-d", "-i", "ppp[1-5][0-9]", "-o", IFNAME_BR, "-n")' in up,
+        "VPN bcrelay client-to-bridge relay direction changed")
 require("PROCESS_PRESENCE_START_ABORT" in down and
         "PROCESS_PRESENCE_START_NOTIFY" in down,
         "VPN down bcrelay UNKNOWN/stop branches incomplete")

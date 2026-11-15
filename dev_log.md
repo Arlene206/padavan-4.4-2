@@ -1,3 +1,11 @@
+## 2026-11-15 — Preserve both VPN broadcast-relay traffic directions
+
+- Immediate post-commit review of `a2b80bd2cc66244b2f75ef857224985cdfaa88b6` caught a transcription error in the second `bcrelay` launch argument: its output interface had been copied as the PPP pattern instead of `IFNAME_BR`. Restored the original PPP-to-bridge direction.
+- Added VPN lifecycle source-contract assertions for both bridge-to-PPP and PPP-to-bridge invocation forms, so future tri-state gate edits cannot silently collapse the two relay directions.
+- Changed paths: `vpn_server.c`, `check_vpn_server_lifecycle.py`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Make VPN server bcrelay callbacks respect UNKNOWN process state
 
 - Migrated `ipup_vpns_main()` and `ipdown_vpns_main()` away from the lossy `pids("bcrelay")` predicate. Both callbacks now capture the scanner error before releasing the snapshot and use the shared tri-state action: RUNNING can be stopped when the VPN cast mode requires it; ABSENT can launch configured relay instances; UNKNOWN performs neither operation and marks callback cleanup incomplete.
