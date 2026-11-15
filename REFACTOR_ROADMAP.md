@@ -1,9 +1,9 @@
 ## Current source / CI checkpoint
 
-- Parent main SHA for THIS COMMIT: `1eb57714cd9cbaaa71a4074615eaf472f053f359`. Exact-head USB storage #43691843963 on this SHA passed steps 1–20 (including MTD save retry, transactional restore/load, host + BusyBox ash load/backup fixtures, GNU89 policy and full caller graph) and failed only in the final checker because its lock-removal count expected two while `func_load()` contains three checked paths. THIS COMMIT corrects that source contract and adds erase/reset host + BusyBox ash fault injection.
-- Exact-head AI handoff docs #43691844015 on `1eb57714cd9cbaaa71a4074615eaf472f053f359` SUCCESS. Infosvr #43691843957, AdGuardHome #43691843925, AliDDNS #43691843931, AliyunDrive #43691843980, process inventory/lifecycle #43691843972 and NVRAM #43691843918 also SUCCESS.
-- THIS COMMIT changes product source `mtd_storage.sh`; current-main L3 must be revalidated through a fresh XY-C1 MIPS/uClibc build, TRX inspection and artifact upload. Physical L4 remains NOT VERIFIED.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged and read-only. No local full checkout/toolchain or hardware validation is claimed.
+- Parent main SHA for THIS COMMIT: `99eeb6fa237b529ec9b9615976961c7a60a02575`. Exact-head USB storage #43694958246 on this SHA passed syntax, MTD save retry, restore, host + BusyBox ash load/backup/erase-reset fixtures, GNU89 policy tests and full caller graph. The final checker failed only because its empty-MTD source assertion expected a standalone hash delete, while production correctly deletes temp and hash together with `rm -f "$tmp" "$hsh"`. THIS COMMIT repairs that source contract only; no production behavior changed.
+- Exact-head AI docs #43694958340, Process inventory/lifecycle #43694958225, infosvr #43694958242, AdGuardHome #43694958168, AliDDNS #43694958275, AliyunDrive #43694958193, process lifecycle inventory #43694958234, NVRAM #43694958278 and HTTPD security #43694958209 all SUCCESS on `99eeb6fa237b529ec9b9615976961c7a60a02575`.
+- XY-C1 Firmware Validation #43694958186 was IN_PROGRESS at last poll. Current L3 remains unverified until exact-source MIPS/uClibc build, TRX inspection and artifact upload. L4 physical validation remains NOT VERIFIED.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged/read-only.
 
 ## Whole-repository module status
 

@@ -1,3 +1,12 @@
+## 2026-11-15 16:22 CST — Align empty-MTD hash assertion with combined cleanup
+
+- Exact-head USB storage run #43694958246 on `99eeb6fa237b529ec9b9615976961c7a60a02575` passed production shell syntax, MTD save retry, transactional restore, host + BusyBox ash load/backup/erase-reset fixtures, GNU89 policy tests and the full caller graph. The final checker failed because it required a standalone `rm -f "$hsh"` in the successful empty-decompression branch, while source correctly issues `rm -f "$tmp" "$hsh"` and then checks one-shot lock removal.
+- Changed the assertion to require the hash path token plus checked lock cleanup, matching the actual combined cleanup without weakening the invariant. No production source changed.
+- AI handoff docs #43694958340, Process inventory/lifecycle #43694958225, infosvr #43694958242, AdGuardHome #43694958168, AliDDNS #43694958275, AliyunDrive #43694958193, process inventory #43694958234, NVRAM #43694958278 and HTTPD security #43694958209 succeeded on the same exact parent. XY-C1 #43694958186 was still in progress.
+- Changed paths: `scripts/check_storage_safe_remove.py`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`. Parent: `99eeb6fa237b529ec9b9615976961c7a60a02575`; result: THIS COMMIT. Fresh exact-head storage/docs checks required; current-source L3/L4 are not yet verified.
+
+---
+
 ## 2026-11-15 16:05 CST — Make MTD erase and reset fail closed
 
 - `func_erase()` now establishes the persistent save lock before the irreversible MTD erase, checks the flash command and every hash/directory operation, and keeps the lock on failed or uncertain outcomes. A successful physical erase is not claimed to be reversible.

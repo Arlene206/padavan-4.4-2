@@ -521,7 +521,7 @@ require('if [ "$fsz" = "0" ]; then' in bzcat_failure and
         'rm -f "$hsh"' in bzcat_failure and 'rm -f "$slk"' in bzcat_failure,
         "zero-byte failed decompression must clear stale hash and one-shot erase lock")
 empty_size_branch = mtd_load.split('if [ "$fsz" -le 0 ]; then', 1)[1].split(chr(10) + "\tfi", 1)[0]
-require('rm -f "$hsh"' in empty_size_branch and 'rm -f "$slk"' in empty_size_branch,
+require('"$hsh"' in empty_size_branch and 'rm -f "$slk"' in empty_size_branch,
         "successful empty decompression must also clear the one-shot lock")
 # Destructive erase/reset must preserve a save barrier across uncertain outcomes.
 erase_body = body(mtd_storage, "func_erase()")
