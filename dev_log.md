@@ -1,3 +1,11 @@
+## 2026-11-15 — Fix iperf3 ROMFS script installation path
+
+- Exact XY-C1 push run #43737703922 on `776b47eea3728e44944e04aeef67e4e0fe750f9a` reached ROMFS and failed because the iperf3 Makefile used `$(THISDIR)`, which was empty under the submake and resolved the script source to `/iperf3.sh`. TRX verification and artifact upload were skipped; unrelated groff/SmartDNS download warnings were nonfatal.
+- Switched the ROMFS script source to `$(CURDIR)/iperf3.sh` and added a semantic package-path assertion to `scripts/check_optional_app_start_status.py`, run by Process lifecycle regression. The XY-C1 workflow already watches the package Makefile.
+- Parent main: `d2eebe4401dd9c7968334b71e748ad6c4312b20f`. Exact-head process-lifecycle and XY-C1 Build/TRX/artifact validation are required; no L3 or L4 result is claimed yet.
+
+---
+
 ## 2026-11-15 — Report 802.1X authenticator launch failures
 
 - The 5GHz and 2.4GHz Wi-Fi startup functions invoked `rt2860apd` and `rtinicapd` through `eval()` but discarded its return status. An enabled WPA/WPA2/RADIUS configuration could therefore fail to launch its authenticator without a service-specific boot diagnostic.

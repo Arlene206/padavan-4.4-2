@@ -104,9 +104,19 @@ exit "${MOCK_START_STATUS:-0}"
 
 
 IPERF_SCRIPT = ROOT / "trunk/user/iperf3/iperf3.sh"
+IPERF_MAKEFILE = ROOT / "trunk/user/iperf3/Makefile"
 
 
 def check_iperf3():
+    # ROMFS is invoked with "make -C iperf3", where THISDIR is unset.
+    # CURDIR is GNU make's defined current-directory variable for this submake.
+    package_makefile = IPERF_MAKEFILE.read_text()
+    expected_script_install = (
+        "$(INSTALL_BIN) $(CURDIR)/iperf3.sh $(ROMFSDIR)/usr/bin/iperf3.sh"
+    )
+    assert expected_script_install in package_makefile
+    assert "$(THISDIR)/iperf3.sh" not in package_makefile
+
     with tempfile.TemporaryDirectory(prefix="iperf3-lifecycle-") as tmp:
         base = Path(tmp)
         bin_dir = mock_bin(base / "bin")

@@ -1,6 +1,6 @@
 ## Current source / CI checkpoint
 
-- Current parent before 802.1X status diagnostics: `c0999a97f07435c11903dac04524a07844cc60a8`. IAPPD wrapper/test plus status-capture fixture correction are green on Process lifecycle #43738886473 and AI docs #43738886520; XY-C1 #43738581861 for IAPPD source remains pending at Build. This slice records nonzero `rt2860apd` / `rtinicapd` eval statuses without altering Wi-Fi feature gates or boot ordering.
+- Current parent before the iperf3 ROMFS fix: `d2eebe4401dd9c7968334b71e748ad6c4312b20f`. IAPPD host regression is green on Process lifecycle #43738886473; 802.1X launch-status diagnostics are green on Process #43739228138 and Process lifecycle inventory #43739227948 (source SHA `ac28f793fe7cf897edfbc26ec6766d21d1d2c70d`). XY-C1 #43739227968 was in progress at Build. Earlier XY-C1 #43737703922 exposed a concrete iperf3 ROMFS path defect: `$(THISDIR)` became empty, causing `/iperf3.sh`; this slice fixes it with `$(CURDIR)` and adds a source regression guard. Current exact-head firmware/TRX/artifact verification remains required.
 - Exact-parent Action summary: infosvr packet and signal lifecycle stability regression #43738132617 completed/success; NFS daemon start and reload lifecycle regression #43738132578 completed/success; AI handoff documentation contract #43738132573 completed/success; Process inventory and lifecycle fail-closed regression #43738132620 completed/success; Process lifecycle inventory - 479c05be3bef946f892f81a296d0ca3e709a698f #43738132593 completed/success; NVRAM transaction boundary audit #43738132600 completed/success; fresh process-lifecycle and XY-C1 checks are required after this source commit.
 - Exact 925e AI docs #43737910530, process inventory/lifecycle fail-closed #43737910499, infosvr #43737910533, AdGuardHome #43737910558, AliDDNS #43737910522 and AliyunDrive #43737910604 PASS; NVRAM #43737910496 was IN_PROGRESS at last poll. No NFS workflow was triggered on 925e; the corrected test needs a fresh exact-head run.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only. Do not claim XY-C1 L3 or physical-router L4 without current-SHA build/TRX/artifact and hardware evidence.
@@ -57,7 +57,7 @@
 5. P2 OPEN/BLOCKED — FTP failed-upload cleanup TOCTOU. Linux 4.4 has no inode-conditional unlink-by-fd; do not change cleanup until race-safe semantics are proven while preserving STOR/APPE/REST/STOU and concurrent external-writer behavior.
 6. P2 — NFS async durability, AUTH_SYS/root-squash and external-mount compatibility require real client/storage evidence; do not infer guarantees from host mocks.
 7. P1 SOURCE/HOST FIX COMPLETE — LPD printer-removal SIGUSR2 requires verified PID/start_time identity; exact-head process lifecycle, HTTPD security and AI docs pass on 022bc. Current XY-C1 checks still gate firmware L3.
-8. P1 ACTIVE — Review APP_MENTOHUST and other optional service launch wrappers for swallowed start failures, preserving feature guards and disabled sentinels.
+8. P1 ACTIVE — Fix and validate the iperf3 ROMFS install path with exact XY-C1/TRX/artifact evidence, then continue auditing remaining RC startup wrappers while preserving feature guards and disabled sentinels.
 
 ## Working rules
 
