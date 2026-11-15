@@ -2224,7 +2224,13 @@ jobs:
           assert hosts_writer.index('dnsmasq_file_publish(staged_fp, hosts_temp') < hosts_writer.index("sethostname(lan_hname")
           assert "int update_hosts_ap(void);" in rc_header
           assert "return create_hosts_lan(nvram_safe_get" in lan
-          assert "rc_notify_merge_action_result(action_result, update_hosts_ap())" in rc_main
+          dhcpd_notify_start = rc_main.index('else if (strcmp(entry->d_name, RCN_RESTART_DHCPD) == 0)')
+          dhcpd_notify_end = rc_main.index('else if (strcmp(entry->d_name, RCN_RESTART_UPNP) == 0)', dhcpd_notify_start)
+          dhcpd_notify = rc_main[dhcpd_notify_start:dhcpd_notify_end]
+          assert "int hosts_status = update_hosts_ap();" in dhcpd_notify
+          assert "if (hosts_status == 0)" in dhcpd_notify
+          assert dhcpd_notify.index("hosts_status = update_hosts_ap()") < dhcpd_notify.index("if (hosts_status == 0)") < dhcpd_notify.index("restart_dhcpd()")
+          assert "rc_notify_merge_action_result(action_result, hosts_status)" in dhcpd_notify
           assert "dhcp_lease_deconfig_status" in test
 
           lan_down_start = lan.index("lan_down_auto(char *lan_ifname)")

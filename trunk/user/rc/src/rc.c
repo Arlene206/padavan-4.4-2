@@ -1608,9 +1608,15 @@ handle_notifications(void)
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_DHCPD) == 0)
 		{
-			if (get_ap_mode())
-				action_result = rc_notify_merge_action_result(action_result, update_hosts_ap());
-			action_result = rc_notify_merge_action_result(action_result, restart_dhcpd());
+			if (get_ap_mode()) {
+				int hosts_status = update_hosts_ap();
+
+				action_result = rc_notify_merge_action_result(action_result, hosts_status);
+				if (hosts_status == 0)
+					action_result = rc_notify_merge_action_result(action_result, restart_dhcpd());
+			} else {
+				action_result = rc_notify_merge_action_result(action_result, restart_dhcpd());
+			}
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_UPNP) == 0)
 		{
