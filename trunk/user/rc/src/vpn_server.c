@@ -31,6 +31,8 @@
 #include "vpn_server_lease_lock.h"
 #include "vpn_server_lifecycle_lock.h"
 #include "vpn_server_callback_policy.h"
+#include "process_presence_start_policy.h"
+#include <process_inventory.h>
 #include <process_pidfile.h>
 
 #define VPNS_LOG_NAME		"VPN server"
@@ -888,6 +890,10 @@ ipup_vpns_main(int argc, char **argv)
 {
 	int i_cast, i_vuse, lock_fd, firewall_status, lifecycle_fd, callback_state;
 	int cleanup_failed = 0, saved_errno, record_length;
+	int scan_error, stop_status, relay_status;
+	struct process_snapshot snapshot;
+	enum process_presence presence;
+	enum process_presence_start_action relay_action;
 	char *peer_name;
 	char lease_record[VPN_SERVER_LEASE_LINE_SIZE];
 	char lease_ifname[VPN_SERVER_LEASE_IFNAME_SIZE];
@@ -973,14 +979,38 @@ ipup_vpns_main(int argc, char **argv)
 	vpns_route_to_remote_lan(peer_name, argv[1], NULL, 1);
 	set_vpn_balancing(argv[1], 1);
 	i_cast = nvram_get_int("vpns_cast");
-	if (pids(svcs[0])) {
-		if (i_cast == 0)
-			kill_services(svcs, 3, 1);
-	} else if (i_vuse == 0) {
-		if (i_cast == 1 || i_cast == 3)
-			eval("/usr/sbin/bcrelay", "-d", "-i", IFNAME_BR, "-o", "ppp[1-5][0-9]", "-n");
-		if (i_cast == 2 || i_cast == 3)
-			eval("/usr/sbin/bcrelay", "-d", "-i", "ppp[1-5][0-9]", "-o", IFNAME_BR, "-n");
+	if (i_cast == 0 || i_vuse == 0) {
+		presence = process_inventory_scan("bcrelay", &snapshot);
+		scan_error = snapshot.error;
+		process_snapshot_release(&snapshot);
+		relay_action = process_presence_start_action_for_state(presence);
+		if (relay_action == PROCESS_PRESENCE_START_ABORT) {
+			logmessage(VPNS_LOG_NAME,
+				   "skipping broadcast relay management because process inventory is unknown (error=%d)",
+				   scan_error ? scan_error : EIO);
+			cleanup_failed = 1;
+		} else if (relay_action == PROCESS_PRESENCE_START_NOTIFY) {
+			if (i_cast == 0) {
+				stop_status = kill_services(svcs, 3, 1);
+				if (stop_status != 0) {
+					logmessage(VPNS_LOG_NAME,
+						   "cannot stop broadcast relay after VPN client connect (status=%d)",
+						   stop_status);
+					cleanup_failed = 1;
+				}
+			}
+		} else if (i_vuse == 0) {
+			if (i_cast == 1 || i_cast == 3) {
+				relay_status = eval("/usr/sbin/bcrelay", "-d", "-i", IFNAME_BR, "-o", "ppp[1-5][0-9]", "-n");
+				if (relay_status != 0)
+					cleanup_failed = 1;
+			}
+			if (i_cast == 2 || i_cast == 3) {
+				relay_status = eval("/usr/sbin/bcrelay", "-d", "-i", "ppp[1-5][0-9]", "-o", "ppp[1-5][0-9]", "-n");
+				if (relay_status != 0)
+					cleanup_failed = 1;
+			}
+		}
 	}
 	if (check_if_file_exist(script_name)) {
 		char *hook_argv[] = {
@@ -1000,6 +1030,10 @@ ipdown_vpns_main(int argc, char **argv)
 {
 	int i_clients = 0, firewall_status = -1, lease_status = -1;
 	int cleanup_failed = 0, lock_fd, lifecycle_fd, callback_state;
+	int scan_error, stop_status;
+	struct process_snapshot snapshot;
+	enum process_presence presence;
+	enum process_presence_start_action relay_action;
 	char *peer_name;
 	char *svcs[] = { "bcrelay", NULL };
 	const char *script_name = VPN_SERVER_UPDOWN_SCRIPT;
@@ -1050,9 +1084,27 @@ ipdown_vpns_main(int argc, char **argv)
 		};
 		_eval(hook_argv, NULL, 0, NULL);
 	}
-	if (((lease_status == 0 && i_clients == 0) ||
-	     nvram_get_int("vpns_cast") == 0) && pids(svcs[0]))
-		kill_services(svcs, 3, 1);
+	if ((lease_status == 0 && i_clients == 0) ||
+	    nvram_get_int("vpns_cast") == 0) {
+		presence = process_inventory_scan("bcrelay", &snapshot);
+		scan_error = snapshot.error;
+		process_snapshot_release(&snapshot);
+		relay_action = process_presence_start_action_for_state(presence);
+		if (relay_action == PROCESS_PRESENCE_START_ABORT) {
+			logmessage(VPNS_LOG_NAME,
+				   "cannot confirm broadcast relay state after VPN client disconnect (error=%d)",
+				   scan_error ? scan_error : EIO);
+			cleanup_failed = 1;
+		} else if (relay_action == PROCESS_PRESENCE_START_NOTIFY) {
+			stop_status = kill_services(svcs, 3, 1);
+			if (stop_status != 0) {
+				logmessage(VPNS_LOG_NAME,
+					   "cannot stop broadcast relay after last VPN client disconnect (status=%d)",
+					   stop_status);
+				cleanup_failed = 1;
+			}
+		}
+	}
 	if (vpn_server_lifecycle_lock_release(lifecycle_fd) != 0) {
 		logmessage(VPNS_LOG_NAME, "cannot release VPN lifecycle lock after disconnect callback (errno=%d)", errno);
 		cleanup_failed = 1;

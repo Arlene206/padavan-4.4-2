@@ -275,7 +275,38 @@ for t in ("vpn_server_callback_pid_parse", "vpn_server_callback_pids_match",
     require(t in callback_policy,f"callback policy missing {t}")
 up=body(vpn,"ipup_vpns_main(int argc, char **argv)")
 down=body(vpn,"ipdown_vpns_main(int argc, char **argv)")
-ordered(up,["vpns_callback_lifecycle_enter(argv[1], &lifecycle_fd)",
+require('#include <process_inventory.h>' in vpn and
+        '#include "process_presence_start_policy.h"' in vpn,
+        "VPN server callbacks missing tri-state process inventory dependencies")
+for callback, label in ((up, "VPN up bcrelay gate"), (down, "VPN down bcrelay gate")):
+    require('process_inventory_scan("bcrelay", &snapshot)' in callback,
+            f"{label}: missing complete process inventory scan")
+    require("scan_error = snapshot.error;" in callback and
+            "process_snapshot_release(&snapshot);" in callback and
+            "process_presence_start_action_for_state(presence)" in callback,
+            f"{label}: snapshot error/release/action order incomplete")
+    ordered(callback, ["scan_error = snapshot.error;",
+                       "process_snapshot_release(&snapshot);",
+                       "process_presence_start_action_for_state(presence)"],
+            label)
+    require("pids(svcs[0])" not in callback,
+            f"{label}: lossy pids() gate remains")
+require("PROCESS_PRESENCE_START_ABORT" in up and
+        "PROCESS_PRESENCE_START_NOTIFY" in up and
+        "PROCESS_PRESENCE_START_NEW" in up,
+        "VPN up bcrelay start/stop tri-state branches incomplete")
+require("PROCESS_PRESENCE_START_ABORT" in down and
+        "PROCESS_PRESENCE_START_NOTIFY" in down,
+        "VPN down bcrelay UNKNOWN/stop branches incomplete")
+require("cleanup_failed = 1;" in up and "cleanup_failed = 1;" in down,
+        "VPN bcrelay failure must propagate to callback status")
+ordered(up, ["if (relay_action == PROCESS_PRESENCE_START_ABORT)",
+             "else if (relay_action == PROCESS_PRESENCE_START_NOTIFY)",
+             "else if (i_vuse == 0)"], "VPN up bcrelay branch order")
+ordered(down, ["if (relay_action == PROCESS_PRESENCE_START_ABORT)",
+               "else if (relay_action == PROCESS_PRESENCE_START_NOTIFY)",
+               "kill_services(svcs, 3, 1)"], "VPN down bcrelay branch order")
+"vpns_callback_lifecycle_enter(argv[1], &lifecycle_fd)",
             "vpn_server_lease_lock_acquire(VPN_SERVER_LEASE_LOCK_FILE)",
             "vpns_firewall_permission(argv[1], 1)",
             "append_vpns_lease_record",
@@ -349,3 +380,15 @@ ovpn_restart=body(openvpn,"void\nrestart_openvpn_server(void)")
 ordered(ovpn_restart,["stop_openvpn_server()","if (openvpn_server_lease_clear() != 0)",
     "return;","start_openvpn_server()"],"OpenVPN restart stop/fence/start")
 print("VPN server lifecycle and callback source contract: PASS")
+
+# The bcrelay presence policy and its shared scanner are VPN callback dependencies.
+for path in (
+    "trunk/user/rc/src/vpn_server.c",
+    "trunk/user/shared/src/process_inventory.c",
+    "trunk/user/shared/src/process_inventory.h",
+    "trunk/user/rc/src/process_presence_start_policy.h",
+    "trunk/user/rc/src/tests/process_presence_start_policy.c",
+):
+    push, pull_request = workflow.split("  pull_request:", 1)
+    require(push.count(path) == 1 and pull_request.count(path) == 1,
+            f"VPN workflow missing/duplicated process-presence dependency: {path}")

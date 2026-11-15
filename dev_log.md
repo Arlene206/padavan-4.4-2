@@ -1,3 +1,11 @@
+## 2026-11-15 — Make VPN server bcrelay callbacks respect UNKNOWN process state
+
+- Migrated `ipup_vpns_main()` and `ipdown_vpns_main()` away from the lossy `pids("bcrelay")` predicate. Both callbacks now capture the scanner error before releasing the snapshot and use the shared tri-state action: RUNNING can be stopped when the VPN cast mode requires it; ABSENT can launch configured relay instances; UNKNOWN performs neither operation and marks callback cleanup incomplete.
+- Propagated `kill_services()` failures and bcrelay launch failures into callback return status instead of silently reporting success. The VPN lifecycle source checker now enforces snapshot lifetime, explicit tri-state branches, and absence of legacy pids gates. The dedicated VPN workflow watches process-inventory implementation/header and the shared presence policy/test in both push and PR filters.
+- Changed paths: `vpn_server.c`, `.github/workflows/vpn-server-stability.yml`, `scripts/check_vpn_server_lifecycle.py`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Correct tri-state source contract and watchdog PR path symmetry
 
 - Rechecked exact-head runs on `707c43481d77f212559e0592c0710ab8cca99a0b`: process lifecycle `43672495607` reached the final source contract and failed on an invalid Python assertion for a C-style unbraced `else` branch; the actual fail-closed log statement was present. Removed the syntactically incorrect assertion while retaining the explicit UNKNOWN log check.
