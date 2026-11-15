@@ -852,7 +852,7 @@ full_restart_lan(void)
 	{
 		char *httpd_services[] = { "httpd", NULL };
 		int signal_status = signal_services_by_identity(httpd_services, SIGUSR1);
-		if (signal_status != SERVICE_LIFECYCLE_STOPPED)
+		if (signal_status != 0)
 			logmessage(LOGNAME,
 				   "HTTPD logout notification incomplete (status=%d)",
 				   signal_status);

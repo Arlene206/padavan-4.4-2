@@ -1,3 +1,13 @@
+## 2026-11-14 — Keep RC lifecycle result constants out of net_lan translation unit
+
+- Corrected the new HTTPD notification caller to compare the public integer status with `0`, rather than naming `SERVICE_LIFECYCLE_STOPPED` in `net_lan.c`. The enum belongs to the private lifecycle policy header, which is not included by that translation unit; the caller only needs the documented zero-success contract from `signal_services_by_identity()`.
+- This avoids coupling the network/LAN unit to an internal enum and prevents a compile-time undeclared-identifier failure. The policy and adapter continue to use the enum internally.
+- Changed paths: `trunk/user/rc/src/net_lan.c`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
+
+
 ## 2026-11-14 — Replace HTTPD name-wide logout with identity-preflight notification
 
 - Migrated the LAN reconfiguration HTTPD logout from `killall -SIGUSR1 httpd` to `signal_services_by_identity()`. The new lifecycle-policy notification transaction captures all matching PID/start-time identities, performs complete inventory and identity preflight across the entire target set before the first signal, and revalidates each identity immediately before delivery.
