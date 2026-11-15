@@ -52,8 +52,11 @@ int main(void)
 		assert(errno==ESRCH&&x.signal_count==0);
 	}
 	{
-		const enum process_presence s[]={PROCESS_PRESENCE_RUNNING,PROCESS_PRESENCE_RUNNING};
-		struct fake x={s,2,0,0,EPERM,0,{0},{0}};
+		const enum process_presence s[]={
+			PROCESS_PRESENCE_RUNNING,PROCESS_PRESENCE_RUNNING,
+			PROCESS_PRESENCE_RUNNING,PROCESS_PRESENCE_RUNNING
+		};
+		struct fake x={s,4,0,0,EPERM,0,{0},{0}};
 		errno=0;assert(samba_daemon_signal_snapshot(&snap,SIGHUP,validate,send_signal,&x)==-1);
 		assert(errno==EPERM&&x.signal_count==0);
 	}

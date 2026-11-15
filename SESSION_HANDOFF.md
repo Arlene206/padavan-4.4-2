@@ -8,7 +8,7 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2. Main parent for this Samba process-state slice: 5584a6d0f479b82cb2c872ca0effcd875e6f2b91. Exact-head Actions on 5584a6d: process [43658363971], AliDDNS [43658363963], HTTPD [43658363959], AdGuardHome [43658363924], infosvr [43658363931], AI docs [43658363838], AliyunDrive [43658363871] and NVRAM [43658363842] PASS; XY-C1 [43658363873] was IN_PROGRESS at last poll. DNSMasq lifecycle PASS on 9d816 [43657650362]. This commit moves run_samba() decisions from raw PID booleans to complete smbd/nmbd/(SMBD36 wsdd2) snapshots before account/config/cleanup side effects; reload uses validated per-PID SIGHUP and ABSENT is re-scanned before launch. Samba exact-head CI pending. L3/L4 NOT VERIFIED. Immutable backup unchanged: backup/pre-plugin-overhaul-2026-11-14 at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Repository: Arlene206/padavan-4.4-2. Current main source SHA before this test correction: 6052c4aaad370b67f529485b8effa14350435f2b. Samba process-inventory slice introduced `samba_process_policy.h` and production use in `services_stor.c::run_samba()`; the first exact-head Samba CI run [43659761190] failed because the EPERM fake supplied only two RUNNING validations instead of the required four (two identities × preflight + signal-time revalidation). This commit corrects that test fixture and restores the complete root development log from 525c046 (the previous handoff mistakenly replaced its history with a single entry). The follow-up `reload_nmbd()` source change was not published; do not assume it exists on main. Next inspect exact-head Samba + AI docs Actions, then continue WINS start/restart migrations. DNSMasq lifecycle exact-head PASS on 9d816 [43657650362]. L3 and physical L4 remain NOT VERIFIED. Immutable backup remains `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - Immutable archive: `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`. Read-only; never modify it.
 - **Permanent user entrypoint:** `接手 https://github.com/Arlene206/padavan-4.4-2/ 继续开发`. The user does not need a long prompt, previous chat, or repository upload. Never output a recursive next-GPT prompt in chat. Git documents and live GitHub state are the project memory.
 - Recovery is read-only by default: read complete `AI_DEVELOPMENT_PROTOCOL.md` and `AI_BOOTSTRAP_PROMPT.md`; fetch live main + immutable backup; inspect exact-head Actions; then read this handoff, roadmap, newest 20 dev-log records, `docs/dev-log/INDEX.md`, and the semantic audit report for the active caller group. Do not create a commit to refresh SHA fields, record a takeover, or report a CI poll.
@@ -108,10 +108,10 @@ Immutable backup: backup/pre-plugin-overhaul-2026-11-14 = 72f4f157a084f8184b9597
 - Current-source L3 is NOT VERIFIED until exact-source Build XY-C1, TRX verification and artifact upload pass. Physical L4 remains NOT VERIFIED.
 
 ### Next work
-1. Verify this commit's exact-head Samba share-stability Action; fix any compiler/test/source-contract failure from actual logs.
-2. Migrate `services_ex.c` WINS paths `start_wins()`, `reload_nmbd()`, `restart_nmbd()` from raw `pids()` / name-wide killall to tri-state snapshots, identity-bound per-PID SIGHUP and ABSENT stop postconditions before relaunch.
-3. Finish residual `services_stor.c` process decisions in fastpath and `restart_smbd()`, optional wsdd2, generic config-write caller gates; continue upper-layer Samba stop and shutdown/flash/NVRAM.
-4. L3 exact product-source SHA needs Build + TRX + artifact upload. L4 physical XY-C1 flash/boot/runtime remains NOT VERIFIED.
-5. Preserve backup and use atomic complete trees with expected-SHA non-force updates.
+1. Verify exact-head Samba share-stability and AI documentation Actions for this correction commit; inspect and resolve any remaining failed steps.
+2. Migrate `services_ex.c::start_wins()` from raw `pids()` and name-wide SIGHUP to a complete nmbd snapshot, fail-closed UNKNOWN before config publication, identity-bound targeted reload, and a fresh ABSENT check before launch.
+3. Migrate `restart_nmbd()`: snapshot smbd/nmbd before config/stop, abort on UNKNOWN, require confirmed ABSENT before relaunch, and signal only the captured smbd identities.
+4. Finish `services_stor.c` fastpath and `restart_smbd()` postconditions, optional wsdd2 handling, then Samba stop/shutdown/flash/NVRAM lifecycle work.
+5. L3 needs the exact product-source SHA to pass Build, TRX verification and artifact upload. L4 physical XY-C1 flash/boot/runtime remains NOT VERIFIED.
 
 Re-fetch live main before every write; do not redo bootstrap.
