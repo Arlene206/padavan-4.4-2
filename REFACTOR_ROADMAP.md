@@ -4,6 +4,7 @@
 - Exact XY-C1 #43756373315 Build/TRX/artifact PASS for C source 401066 only (L3). No L4.
 - WAN source fixes: static IPoE address error gate, checked physical WAN interface bring-up, AP-client WISP old interface cleanup/abort, and separate critical MAN gateway/default-route status for static PPTP/L2TP; optional route errors remain nonfatal to that static PPP decision.
 - Storage fixes: Transmission/Aria explicit launch status; Aria staged atomic default config and fail-closed directory/session/permission setup; Transmission PID-qualified default settings stage with generator/sed/mv checks and nonempty final-settings gate. Host + BusyBox ash regression exercises failure and success cases.
+- Aria uses aria2.conf.tmp.$$ for its default config. Exact 13a16 storage run #43760834648 exposed that both the production temp suffix and the test barrier marker were still literal-dollar strings; this repair makes both PID-qualified. The concurrent-start regression checks two independent staged files and dual daemon launch; exact-head storage validation is pending.
 - Exact current-main Actions:
 - #43760834673 AI handoff documentation contract: completed/success
 - #43760834671 AliDDNS signed API transport security regression: completed/success

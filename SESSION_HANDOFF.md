@@ -9,7 +9,7 @@ For each logical task, create all source/test/doc blobs, one complete Git tree a
 ## Current repository state
 
 - Repository: Arlene206/padavan-4.4-2.
-- Main SHA at start of this handoff checkpoint: 13a16ec70f7f78f9a8114582a51e7d9e88bd9644.
+- Main SHA at start of this storage regression repair: 1f304921a63b8a8ea79b0e836e43b5359be9cd0b.
 - Frozen backup branch backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; read-only.
 - Recent main commits:
 - 13a16ec70f7f fix(storage): isolate concurrent Aria config staging
@@ -42,23 +42,24 @@ For each logical task, create all source/test/doc blobs, one complete Git tree a
 
 ## Active task
 
-### Validate storage launcher startup and configuration publication
+### Repair Aria concurrent-start staging regression
 
-The immediate next action is to inspect exact-current-main storage-hotplug workflow jobs and logs. Confirm the Transmission/Aria status, staged config and failure-injection tests pass under both host shell and BusyBox ash. If FAIL, inspect the full failing log and implement the narrow source/test correction. If PENDING, progress an independent module issue instead of waiting.
+The exact 13a16 storage-hotplug run #43760834648 failed in the host shell startup regression. The first concurrent Aria start exited before daemon launch. Source review found the production CONFIG_TMP and the test's cat-barrier marker both used a literal dollar sign rather than the shell PID.
 
-After storage validation, inspect remaining Transmission settings and directory/permission/ownership failure paths as distinct atomic slices. Do not repeat the already-completed WAN audit unless a specific exact-SHA check fails.
+This repair changes the default config path to aria2.conf.tmp.$$ and the two-process barrier marker to a PID-qualified filename. The regression then requires two staged files to coexist, both config writes/renames to complete, both processes to reach start-stop-daemon, and no temp files to remain. Exact-head host and BusyBox ash validation is required after commit.
 
 ## Verification boundary
 
-- Main SHA before this handoff-only checkpoint commit: 13a16ec70f7f78f9a8114582a51e7d9e88bd9644.
-- Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- XY-C1 L3 is established for source SHA 401066ebf04c50aaeb1ef47c36feb2ec210a0bc6 only. New changes are shell/user-space only; no physical-router L4 evidence.
-- Current-main exact Action IDs/statuses are listed above. No result is transferred from a different SHA.
-- Newest storage checks are represented by #43760834648 USB storage hotplug stability regression: completed/failure.
+- Parent main: 1f304921a63b8a8ea79b0e836e43b5359be9cd0b.
+- Changed: trunk/user/aria2/aria.sh and trunk/user/scripts/tests/storage_app_start_status.sh; handoff/roadmap/log checkpoint updated in the same atomic commit.
+- Exact 13a16 Process lifecycle #43760834624 PASS; Process inventory #43760834666 PASS; AI docs #43760834673 PASS; AliyunDrive #43760834634 PASS; AliDDNS #43760834671 PASS; infosvr #43760834623 PASS; AdGuardHome #43760834594 PASS; NVRAM #43760834637 PASS.
+- Exact 13a16 USB storage run #43760834648 FAIL at step 4 ("Check Transmission and Aria launcher syntax and startup status propagation"). Full job log ends with "First concurrent Aria start failed". Root cause: production CONFIG_TMP suffix and test barrier marker were literal "$" rather than PID expansion "$$".
+- This commit corrects both expressions. Its exact-head storage workflow is pending; no firmware C changes and no L3/L4 claim for this source SHA.
+- Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807; archive index/shards unchanged.
 
-## Exact first action for the next GPT
+## Exact first actions for the next GPT
 
-1. Fetch main and Actions; inspect exact-current-SHA storage-hotplug jobs and full logs. Confirm host and firmware BusyBox ash cases.
-2. Correct any failing source or regression test immediately with one atomic commit; on PENDING, move to another independent stability/security issue.
-3. Verify Transmission/Aria config and directory preparation before allowing daemon start; do not infer successful startup from logger or echo status.
-4. Preserve frozen backup, archived log index/shards, and exact L3/L4 boundary.
+1. Inspect the exact-head storage-hotplug workflow for this fix; verify host and firmware BusyBox ash regressions both pass.
+2. Confirm two concurrent Aria startups observe two unique staged files, both reach daemon launch, and neither leaves a temporary config.
+3. After PASS, inspect remaining Transmission default-settings and directory/permission/ownership pre-launch paths as a separate atomic task.
+4. Preserve frozen backup and archive index/shards. Do not claim current-source L3 without exact XY-C1 Build/TRX/artifact success.

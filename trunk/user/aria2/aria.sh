@@ -62,7 +62,7 @@ func_start()
 			logger -t "$SVC_NAME" "Cannot start: unable to set downloads directory permissions" >/dev/null 2>&1
 			return 1
 		fi
-		CONFIG_TMP="${FILE_CONF}.tmp.$"
+		CONFIG_TMP="${FILE_CONF}.tmp.$$"
 		if ! cat > "$CONFIG_TMP" <<EOF
 
 ### XML-RPC

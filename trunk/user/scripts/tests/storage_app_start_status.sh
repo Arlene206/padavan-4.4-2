@@ -37,7 +37,7 @@ esac
 EOF
 cat > "$STUB_DIR/start-stop-daemon" <<'EOF'
 #!/bin/sh
-[ -z "${STORAGE_TEST_START_MARKER:-}" ] || printf '%s\n' "$" >> "$STORAGE_TEST_START_MARKER"
+[ -z "${STORAGE_TEST_START_MARKER:-}" ] || printf '%s\n' "$$" >> "$STORAGE_TEST_START_MARKER"
 exit "${STORAGE_TEST_START_STATUS:-23}"
 EOF
 cat > "$STUB_DIR/logger" <<'EOF'
@@ -50,7 +50,7 @@ if [ "${STORAGE_TEST_CAT_STATUS:-0}" -ne 0 ]; then
 	exit "$STORAGE_TEST_CAT_STATUS"
 fi
 if [ -n "${STORAGE_TEST_CAT_BARRIER:-}" ]; then
-	: > "$STORAGE_TEST_CAT_BARRIER/$"
+	: > "$STORAGE_TEST_CAT_BARRIER/$$"
 	attempt=0
 	while :; do
 		entered=0

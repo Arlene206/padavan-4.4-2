@@ -1,3 +1,13 @@
+## 2026-11-16 — Fix Aria concurrent-start staging collision and barrier
+
+- Exact 13a16 storage-hotplug run #43760834648 failed in host startup testing with "First concurrent Aria start failed".
+- Root cause was two literal-dollar mistakes: aria.sh used CONFIG_TMP="\${FILE_CONF}.tmp.$" instead of PID-qualified .tmp.$$; the test cat stub wrote its barrier marker to "$STORAGE_TEST_CAT_BARRIER/$", so both concurrent shells appeared as one participant and timed out.
+- Changed the production config temp suffix and barrier marker to use "$$"; the start-daemon marker now records the PID too. The existing regression checks simultaneous distinct staged files, successful publication by both starts, dual daemon launch, and no leftover temp files.
+- Exact 13a16 Process lifecycle #43760834624, Process inventory #43760834666, AI docs #43760834673, AliyunDrive #43760834634, AliDDNS #43760834671, infosvr #43760834623, AdGuardHome #43760834594 and NVRAM #43760834637 PASS; USB storage #43760834648 FAIL as detailed above.
+- Exact-head storage validation for this repair pending. Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807; no new L3 or L4 claim.
+
+---
+
 ## 2026-11-15 — Refresh exact-main handoff after storage launcher fixes
 
 - Handoff checkpoint parent main: 13a16ec70f7f78f9a8114582a51e7d9e88bd9644; frozen backup branch: 72f4f157a084f8184b9597ca5bf334b8080e5807 (unchanged).
