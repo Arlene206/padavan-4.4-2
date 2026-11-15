@@ -583,16 +583,27 @@ flash_firmware(void)
 	}
 	/* Stop the watchdog only after every other fallible preparation is complete. */
 	if (stop_misc() != 0) {
+		int watchdog_status, watchdog_errno;
 		logmessage(LOGNAME, "firmware update aborted: miscellaneous services did not stop");
-		start_watchdog();
+		watchdog_status = start_watchdog();
+		watchdog_errno = errno ? errno : EIO;
+		if (watchdog_status != 0)
+			logmessage(LOGNAME, "firmware update abort could not restore watchdog (status=%d, errno=%d)",
+				   watchdog_status, watchdog_errno);
 		return;
 	}
 	storage_save_time(60);
 	write_storage_to_mtd();
 	sync();
 	sleep(1);
-	if (eval("/tmp/mtd_write", "-r", "write", FW_IMG_NAME, FW_MTD_NAME) != 0)
-		start_watchdog();
+	if (eval("/tmp/mtd_write", "-r", "write", FW_IMG_NAME, FW_MTD_NAME) != 0) {
+		int watchdog_status, watchdog_errno;
+		watchdog_status = start_watchdog();
+		watchdog_errno = errno ? errno : EIO;
+		if (watchdog_status != 0)
+			logmessage(LOGNAME, "firmware write failed and watchdog recovery also failed (status=%d, errno=%d)",
+				   watchdog_status, watchdog_errno);
+	}
 }
 
 static void

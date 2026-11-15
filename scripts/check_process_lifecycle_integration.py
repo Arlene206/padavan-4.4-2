@@ -242,6 +242,9 @@ assert flash.index("auth_stop_status = stop_8021x_all();") < flash.index("doSyst
 assert flash.index("stop_igmpproxy(NULL)") < flash.index("stop_misc()")
 assert flash.index("stop_misc()") < flash.index("storage_save_time(60)") < flash.index("write_storage_to_mtd();")
 stop_misc_failure = flash.split("if (stop_misc() != 0)", 1)[1].split("storage_save_time(60)", 1)[0]
+assert "watchdog_status = start_watchdog();" in stop_misc_failure
+assert "firmware update abort could not restore watchdog" in stop_misc_failure
+assert "firmware write failed and watchdog recovery also failed" in flash
 assert "start_watchdog();" in stop_misc_failure
 assert "if (eval(\"/tmp/mtd_write\"" in flash and "start_watchdog();" in flash
 syslog_restart = rc_source.split("RCN_RESTART_SYSLOG) == 0)", 1)[1].split("RCN_RESTART_WDG)", 1)[0]

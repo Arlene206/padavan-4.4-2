@@ -1,3 +1,11 @@
+## 2026-11-15 — Report watchdog recovery failures on firmware abort
+
+- The new firmware abort recovery attempted `start_watchdog()`, but discarded its result. If procfs inventory was UNKNOWN or the watchdog launcher failed, the update returned silently without confirming recovery of the safety monitor; the MTD-write failure branch had the same silent result handling.
+- Both recovery branches now capture and report watchdog start status and errno when recovery fails. The source regression asserts the failure report is present for the early miscellaneous-stop abort and the late MTD launcher failure.
+- Changed paths: `rc.c`, `check_process_lifecycle_integration.py`, `dev_log.md`. Result: THIS COMMIT. Exact-head process lifecycle validation required.
+
+---
+
 ## 2026-11-15 — Abort firmware update when the custom shutdown hook fails
 
 - The firmware path invoked `/etc/storage/shutdown_script.sh` through `doSystem()` but discarded its exit status and continued toward storage persistence and MTD image write even when the configured operator hook failed.
