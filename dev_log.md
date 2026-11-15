@@ -1,3 +1,12 @@
+## 2026-11-16 — Repair exact-head process, XY-C1 and handoff validation regressions
+
+- Exact d444 Process lifecycle #43773527020 executed the new GNU89 boot-service status reducer and RC logger reducer successfully, along with the existing regression suite, then failed because the appended integration checker encoded the newline delimiter as a literal backslash-n. Corrected the Python delimiter so it splits the real C function source.
+- Exact d444 XY-C1 #43773526843 failed before firmware build: `check_samba_shared_header.py` enforces that XY-C1 remains push-only. The new source/test push path entries are retained; the accidental pull_request trigger has been removed.
+- Exact d444 AI handoff docs #43773527100 failed because the checkpoint contract requires the literal phrases `Mandatory handoff checkpoint` and `The checkpoint is mandatory; a document edit is conditional.`. Added the exact contractual wording.
+- The target build, TRX and artifact steps were skipped after the Samba preflight failure. No L3 claim. New exact-head Process, AI-docs and XY-C1 runs must confirm this correction.
+
+---
+
 ## 2026-11-16 — Propagate boot-service startup failures through start_services_once()
 
 - `start_services_once()` ignored the status from HTTPD, telnetd, optional SSHD, VPN, watchdog, GPIO button, infosvr, UPnP, LLTD, crond, networkmap, rstats and already-checked optional app/command startups, then returned zero. Its sole RC caller also ignored the result. Failures could be individually logged but there was no truthful aggregate status at the boot boundary.

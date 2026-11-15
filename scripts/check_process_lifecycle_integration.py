@@ -1134,7 +1134,7 @@ print("MSD Lite atomic config publication and launch gate integration: PASS")
 
 service_start_policy = (root / "trunk/user/rc/src/service_start_status.h").read_text()
 service_start_test = (root / "trunk/user/rc/src/tests/service_start_status.c").read_text()
-boot_start = services_source.split("int\\nstart_services_once(int is_ap_mode)", 1)[1].split("\\n}\\n", 1)[0]
+boot_start = services_source.split("int\nstart_services_once(int is_ap_mode)", 1)[1].split("\n}\n", 1)[0]
 assert '#include "service_start_status.h"' in services_source
 for call in (
     "start_httpd(0)", "start_telnetd()", "start_sshd()", "start_watchdog()",

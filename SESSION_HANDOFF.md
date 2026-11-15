@@ -2,15 +2,15 @@
 
 Recover live repository state once, then continue the active engineering task. Do not repeat completed audits, remain at planning, wait on PENDING CI when independent work is available, or ask the user what to do next.
 
-For each logical task: create all blobs, one complete Git tree and one commit parented to freshly fetched main; update main with exact expected SHA and force:false. Use one atomic main commit, never partial multi-file commits or force-push. Preserve the frozen backup and archived log shards/index. A handoff checkpoint is mandatory at session end; document edits are conditional on material status changes.
+For each logical task: create all blobs, one complete Git tree and one commit parented to freshly fetched main; update main with exact expected SHA and force:false. Use one atomic main commit, never partial multi-file commits or force-push. Preserve the frozen backup and archived log shards/index. Mandatory handoff checkpoint: The checkpoint is mandatory; a document edit is conditional on material status changes.
 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Parent main for the current boot-service status aggregation fix: `3236230989b599b5d34ae7cdd8aa5e44178cf0d6`.
+- Current source commit: `d444b7bbe4fe2aaacd424f97640a05672ec60b16` (parent `3236230989b599b5d34ae7cdd8aa5e44178cf0d6`).
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged/read-only.
-- Exact-parent Process lifecycle #43772230234 PASS. Its steps include GNU89/ASan/UBSan policy tests, production integration checks, and the RC logger status reducer regression. Exact-parent AI handoff docs #43772230258 PASS.
-- Exact-parent XY-C1 #43772230305 was still building XY-C1 at last poll; TRX validation and artifact upload were pending. No L3 claim for SHA 323.
+- Parent SHA `3236230989b599b5d34ae7cdd8aa5e44178cf0d6`: Process lifecycle #43772230234 PASS and AI handoff docs #43772230258 PASS. XY-C1 #43772230305 was still building at last poll.
+- Exact current source SHA `d444b7bbe4fe2aaacd424f97640a05672ec60b16`: Process lifecycle #43773527020 FAIL only at the new source-integration extraction assertion (Python string contained an over-escaped newline); the new GNU89 boot-service reducer and logger tests had already passed. XY-C1 #43773526843 FAIL at the pre-build Samba shared-header contract because the workflow must remain push-only; the accidental pull_request trigger is removed. AI docs #43773527100 FAIL because the handoff missed the validator's required checkpoint wording; that exact wording is now restored.
 - Exact USB storage #43771300948 PASS on parent 828; Transmission and Aria lifecycle tests passed under host shell and firmware BusyBox 1.24.2 ash. Do not repeat those source slices absent a new regression.
 - The preceding logger fix in SHA 323 makes `start_logger()` attempt both syslogd/klogd, logs both launch failures and returns the first nonzero status. Exact Process #43772230234 PASS includes its reducer and source-integration regression.
 - No physical-router/L4 validation is claimed.
@@ -43,16 +43,16 @@ The APP_MSD_LITE branch in `start_udpxy()` now stages config and checks publicat
 
 ## Verification boundary
 
-- Parent main for THIS boot-service slice: `3236230989b599b5d34ae7cdd8aa5e44178cf0d6`; source/test/checker/workflow and handoff/roadmap/log are one atomic tree and commit.
-- Exact-parent Process lifecycle #43772230234 PASS; exact-parent AI handoff docs #43772230258 PASS.
-- Exact-parent XY-C1 #43772230305 was in progress at last poll (Build XY-C1); TRX verification and artifact upload had not completed. No L3/L4 claim.
+- Source SHA `d444b7bbe4fe2aaacd424f97640a05672ec60b16` is parented to `3236230989b599b5d34ae7cdd8aa5e44178cf0d6`; all boot-service source, policy, tests, checker/workflows and docs were one atomic commit.
+- Exact d444 Process lifecycle #43773527020 FAIL at the newly appended source-extraction assertion (the policy binary itself passed). Exact d444 XY-C1 #43773526843 FAIL at the Samba pre-build check because XY-C1 is contractually push-only. Exact d444 AI docs #43773527100 FAIL only for missing exact checkpoint wording.
+- This corrective commit fixes those three integration/contract failures; new exact-head Process, AI docs and XY-C1 checks remain pending. No L3/L4 claim.
 - Exact-head Process lifecycle must execute the new boot-service reducer and integration assertions. Exact-head XY-C1 Build, TRX verification and artifact upload are required for L3.
 - No local cross-build or physical router test is claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, the frozen backup and exact-head Actions once. Confirm the SHA created by THIS COMMIT.
-2. Inspect exact-head Process lifecycle run for the new boot-service policy, source checker and logger policy. Fix a real failure; do not repeatedly inspect already-passed slices.
-3. Inspect exact-head XY-C1 Build, TRX verification and artifact upload; only claim L3 if all pass on the same source SHA.
+1. Fetch live `main`, the frozen backup and exact-head Actions once; confirm the corrective commit SHA.
+2. Inspect corrected Process lifecycle # and AI handoff docs #; the Python source checker must reach its final PASS and the docs validator must pass.
+3. Inspect corrected XY-C1 Build, TRX verification and artifact upload; only claim L3 if all pass on the same source SHA.
 4. If either workflow is pending, continue independent P1 work: residual direct legacy `pids()` consumers and name-wide signals, then `stop_services()`/shutdown status propagation and Samba/storage/NVRAM postconditions.
 5. Preserve frozen backup and log archive inventory. No L4 without physical-router evidence.

@@ -1,8 +1,8 @@
 ## Current source / CI checkpoint
 
-- Parent main for the RC boot-service status aggregation slice: `3236230989b599b5d34ae7cdd8aa5e44178cf0d6`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact-parent Process lifecycle #43772230234 PASS, including the RC logger startup policy regression and production integration checker. Exact-parent AI handoff docs #43772230258 PASS.
-- Exact-parent XY-C1 Firmware Validation #43772230305 was still building XY-C1 at the last poll; TRX verification and artifact upload are pending. Do not claim L3 until all three pass on the same SHA.
+- Current source SHA `d444b7bbe4fe2aaacd424f97640a05672ec60b16` (parent `3236230989b599b5d34ae7cdd8aa5e44178cf0d6`); frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Parent SHA `3236230989b599b5d34ae7cdd8aa5e44178cf0d6`: Process #43772230234 PASS and AI docs #43772230258 PASS; XY-C1 #43772230305 was still building at last poll.
+- Exact d444 Process #43773527020 FAIL at the new checker extraction assertion after the boot-service policy binary passed. Exact d444 XY-C1 #43773526843 FAIL at the Samba pre-build contract because XY-C1 must remain push-only. Exact d444 AI docs #43773527100 FAIL on the missing exact checkpoint phrase. THIS COMMIT repairs all three; new exact-head Actions are pending.
 - Current P1 issue: `start_services_once()` discarded several return statuses from int-returning boot service starters, returned zero unconditionally, and its only RC caller ignored the result. THIS COMMIT preserves the first nonzero startup result while continuing all later start attempts; the RC caller logs the aggregate. Optional-feature sentinels (LLTD, crond, rstats, infosvr) are gated to avoid treating disabled services as errors.
 - Exact-head Process lifecycle and XY-C1 Build/TRX/artifact Actions are required for THIS COMMIT. No L3/L4 claim until matching evidence exists.
 
