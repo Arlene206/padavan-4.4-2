@@ -68,6 +68,7 @@ main(void)
   char tiny[2];
   int cleanup_allowed, dir_fd, race_fd, rollback_fd, replacement_fd;
   int upload_dir_fd, upload_fd, existing_upload_fd;
+  int duplicate_cleanup_allowed;
   int existing_dir_fd, existing_file_fd, remove_parent_fd;
   int child_parent_fd, child_dir_fd;
   int rename_source_fd, rename_destination_fd, metadata_fd;
@@ -534,8 +535,8 @@ main(void)
       ftp_acl_path_resolve_write_entry(new_file, resolved, sizeof(resolved),
                                        leaf, sizeof(leaf), &cleanup_allowed) ||
       strcmp(resolved, a) || strcmp(leaf, "new-upload.txt") ||
-      !cleanup_allowed) {
-    fprintf(stderr, "new upload parent/leaf resolution failed\n"); return 1;
+      cleanup_allowed) {
+    fprintf(stderr, "new upload preflight incorrectly authorized rollback\n"); return 1;
   }
   /*
    * Cleanup eligibility is granted only by the actual O_EXCL create, never
@@ -560,13 +561,13 @@ main(void)
       upload_dir_fd, "failed-existing-upload.txt", 0, 0600,
       &cleanup_allowed);
   if (upload_fd < 0 || cleanup_allowed) {
-    fprintf(stderr, "existing STOR target became cleanup-eligible\\n");
+    fprintf(stderr, "existing STOR target became cleanup-eligible\n");
     return 1;
   }
   if (cleanup_allowed &&
       ftp_acl_path_unlink_opened_entry(upload_dir_fd,
           "failed-existing-upload.txt", upload_fd) == 0) {
-    fprintf(stderr, "failed STOR cleanup removed a pre-existing file\\n");
+    fprintf(stderr, "failed STOR cleanup removed a pre-existing file\n");
     return 1;
   }
   if (close(upload_fd) != 0) {
@@ -577,7 +578,7 @@ main(void)
   read_length = existing_upload_fd < 0 ? -1 : read(existing_upload_fd, readback, 4);
   if (existing_upload_fd < 0 || read_length != 4 ||
       memcmp(readback, "keep", 4) != 0 || close(existing_upload_fd) != 0) {
-    fprintf(stderr, "failed STOR did not preserve pre-existing file contents\\n");
+    fprintf(stderr, "failed STOR did not preserve pre-existing file contents\n");
     return 1;
   }
 
@@ -588,24 +589,26 @@ main(void)
       ftp_acl_path_unlink_opened_entry(upload_dir_fd,
           "failed-new-upload.txt", upload_fd) != 0 ||
       close(upload_fd) != 0) {
-    fprintf(stderr, "new partial upload could not be safely rolled back\\n");
+    fprintf(stderr, "new partial upload could not be safely rolled back\n");
     return 1;
   }
   checked_path(path, sizeof(path), a, "failed-new-upload.txt");
   if (lstat(path, &st) == 0 || errno != ENOENT) {
-    fprintf(stderr, "failed new upload remained after rollback\\n");
+    fprintf(stderr, "failed new upload remained after rollback\n");
     return 1;
   }
 
   upload_fd = ftp_acl_path_open_upload_entry(
       upload_dir_fd, "failed-unique-upload.txt", 1, 0600, &cleanup_allowed);
+  duplicate_cleanup_allowed = 1;
   if (upload_fd < 0 || !cleanup_allowed ||
       ftp_acl_path_open_upload_entry(upload_dir_fd, "failed-unique-upload.txt",
-          1, 0600, &existing_upload_fd) >= 0 || existing_upload_fd != 0 ||
+          1, 0600, &duplicate_cleanup_allowed) >= 0 ||
+      duplicate_cleanup_allowed ||
       ftp_acl_path_unlink_opened_entry(upload_dir_fd,
           "failed-unique-upload.txt", upload_fd) != 0 ||
       close(upload_fd) != 0) {
-    fprintf(stderr, "exclusive upload creation/rollback contract failed\\n");
+    fprintf(stderr, "exclusive upload creation/rollback contract failed\n");
     return 1;
   }
   if (unlinkat(upload_dir_fd, "failed-existing-upload.txt", 0) != 0 ||

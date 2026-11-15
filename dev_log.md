@@ -1,3 +1,11 @@
+## 2026-11-15 — Tighten FTP upload cleanup regression expectations
+
+- The follow-up host regression now explicitly asserts that path resolution alone never grants cleanup eligibility. The earlier draft still expected the old preflight flag and would have failed despite the new O_EXCL behavior.
+- The STOU duplicate-open fixture now checks its independent cleanup flag, and C diagnostic strings use normal newline escapes.
+- Parent main: `8e7ac1a9680d03e37c01d4701e80b2d0e19faf97`; exact-head vsftpd regression remains the validation gate.
+ 
+---
+
 ## 2026-11-15 — Prevent failed FTP uploads from deleting existing files
 
 - `ftp_acl_path_resolve_write_entry()` incorrectly marked an existing regular file cleanup-eligible. With `delete_failed_uploads=YES`, an interrupted non-exclusive STOR could unlink the pre-existing destination.
