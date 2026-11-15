@@ -89,6 +89,17 @@ jobs:
           assert "operation_status != 0" in policy
           assert "rc_notify_merge_action_result(0, EBUSY) == -1" in test
           assert "rc_notify_merge_action_result(action_result, restart_dhcpd())" in handler
+          stop_whole_wan = function_body(handler, 'else if (!strcmp(entry->d_name, "stop_whole_wan"))')
+          assert "rc_notify_merge_action_result(action_result, stop_wan())" in stop_whole_wan
+          modem = function_body(handler, 'else if (!strcmp(entry->d_name, RCN_RESTART_MODEM))')
+          assert "wan_stop_status = stop_wan()" in modem
+          assert "action_result = rc_notify_merge_action_result(" in modem
+          assert "stop_failed = 1" in modem
+          assert modem.index("if (!stop_failed)") < modem.index("reload_modem_modules(")
+          assert modem.index("if (!stop_failed)") < modem.index("unload_modem_modules()")
+          assert "if (!stop_failed && need_restart_wan)" in modem
+          assert "nvram_modem_rule = modem_rule;" in modem
+          assert "if (!stop_failed && nvram_modem_type != modem_type)" in modem
           assert "assert(rc_notify_batch_should_requeue(10, 1, 0))" in test
           assert "assert(!rc_notify_batch_should_requeue(10, 1, 1))" in test
           assert "kill(1, SIGUSR1)" in notify
@@ -114,5 +125,5 @@ jobs:
           for path in paths:
               assert push_filters.count(path) == 1, path
               assert pr_filters.count(path) == 1, path
-          print("PID 1 notification queue bounded-batch contract: PASS")
+          print("PID 1 notification queue and WAN stop-result contract: PASS")
           PY

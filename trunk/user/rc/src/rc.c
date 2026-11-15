@@ -1081,7 +1081,7 @@ handle_notifications(void)
 		}
 		else if (!strcmp(entry->d_name, "stop_whole_wan"))
 		{
-			stop_wan();
+			action_result = rc_notify_merge_action_result(action_result, stop_wan());
 		}
 		else if (!strcmp(entry->d_name, RCN_RESTART_IPTV))
 		{
@@ -1122,36 +1122,56 @@ handle_notifications(void)
 		else if (!strcmp(entry->d_name, RCN_RESTART_MODEM))
 		{
 			int wan_stopped = 0;
+			int stop_failed = 0;
+			int wan_stop_status = 0;
 			int modules_reloaded = 0;
 			int need_restart_wan = get_usb_modem_wan(0);
 			int modem_rule = nvram_get_int("modem_rule");
 			int modem_type = nvram_get_int("modem_type");
 			if (nvram_modem_rule != modem_rule)
 			{
-				nvram_modem_rule = modem_rule;
 				if (need_restart_wan) {
-					wan_stopped = 1;
-					stop_wan();
+					wan_stop_status = stop_wan();
+					if (wan_stop_status != 0) {
+						action_result = rc_notify_merge_action_result(
+							action_result, wan_stop_status);
+						stop_failed = 1;
+					} else {
+						wan_stopped = 1;
+					}
 				}
-				if (modem_rule > 0) {
-					modules_reloaded = 1;
-					reload_modem_modules(modem_type, 1);
-				} else {
-					unload_modem_modules();
+				if (!stop_failed) {
+					nvram_modem_rule = modem_rule;
+					if (modem_rule > 0) {
+						modules_reloaded = 1;
+						reload_modem_modules(modem_type, 1);
+					} else {
+						unload_modem_modules();
+					}
 				}
 			}
-			if (nvram_modem_type != modem_type)
+			if (!stop_failed && nvram_modem_type != modem_type)
 			{
 				if (nvram_modem_type == 3 || modem_type == 3) {
 					if (modem_rule > 0 && !modules_reloaded) {
-						if (need_restart_wan && !wan_stopped)
-							stop_wan();
-						reload_modem_modules(modem_type, 1);
+						if (need_restart_wan && !wan_stopped) {
+							wan_stop_status = stop_wan();
+							if (wan_stop_status != 0) {
+								action_result = rc_notify_merge_action_result(
+									action_result, wan_stop_status);
+								stop_failed = 1;
+							} else {
+								wan_stopped = 1;
+							}
+						}
+						if (!stop_failed)
+							reload_modem_modules(modem_type, 1);
 					}
 				}
-				nvram_modem_type = modem_type;
+				if (!stop_failed)
+					nvram_modem_type = modem_type;
 			}
-			if (need_restart_wan)
+			if (!stop_failed && need_restart_wan)
 				full_restart_wan();
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_SPOOLER) == 0)
