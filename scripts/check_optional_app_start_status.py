@@ -326,6 +326,7 @@ exit "${MOCK_KILLALL_STATUS:-0}"
         env.update({
             "PATH": str(bin_dir) + os.pathsep + env.get("PATH", ""),
             "MOCK_SSHD_LOG": str(sshd_log),
+            "MOCK_LOG": str(base / "logger.log"),
             "MOCK_SSHD_STATUS": "59",
             "MOCK_KILLALL_STATUS": "61",
             "SSHD_STORAGE_DIR": str(storage),

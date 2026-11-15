@@ -1,8 +1,8 @@
 ## Current source / CI checkpoint
 
-- Parent main for the common_ex PID-only SIGKILL cleanup: `0726f19c5a591b8f60745770b82fa592111f1525`. The iperf3 lifecycle/package and missing-tool error fixes are present at this parent; this slice removes the unused kill_process_pidfile() helper after the 36-file RC C callsite audit. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only.
-- Exact parent actions: process inventory/lifecycle #43734632418 PASS; process inventory summary #43734632429 PASS; AI docs #43734632385 PASS; infosvr #43734632430 PASS; AdGuardHome #43734632444 PASS; AliDDNS #43734632395 PASS. XY-C1 #43734632454, NVRAM #43734632370 and AliyunDrive #43734632391 were IN_PROGRESS.
-- Exact 89c971 process lifecycle #43735679248 and XY-C1 #43735679477 were queued; AI docs #43735679507 and several related workflows were in progress. Fresh exact-head process/XY checks are required for the OpenSSH changes.
+- Current main baseline: `a769870fbc2b94d3a2ae46541b1911f17edd4b8a`; OpenSSH's wrapper now preserves daemon/key-generation/stop/reload statuses and has a shell syntax test. The exact-head app regression failed because its fake logger lacked `MOCK_LOG`; the current test-only follow-up fixes that fixture.
+- Exact a769 head: AI docs #43735937387 PASS and process inventory artifact #43735937469 PASS; process-lifecycle #43735937436 FAIL only at `check_sshd()` because missing `MOCK_LOG` prevented logger output. XY-C1 #43735937368 and NVRAM #43735937325 were IN_PROGRESS at last poll. The fixture correction triggers fresh exact-head checks.
+- Networkmap, watchdog, infosvr, LLTD, rstats, telnetd and ttyd have launch-status handling; SCUT, vlmcsd, iperf3 and mentohust wrappers have propagated launch/stop statuses. OpenSSH test fixture is being corrected based on the exact failure log.
 - Networkmap, watchdog, infosvr, LLTD, rstats, SCUT, vlmcsd, iperf3, mentohust, telnetd and ttyd now have launch-status handling. OpenSSH start/stop previously masked failure with `exit 0`; this slice adds status propagation and a mocked host regression.
 ## Whole-repository module status
 

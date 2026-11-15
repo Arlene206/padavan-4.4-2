@@ -1,3 +1,11 @@
+## 2026-11-15 — Fix OpenSSH mock logger test environment
+
+- Exact-head process-lifecycle #43735937436 on `a769870fbc2b94d3a2ae46541b1911f17edd4b8a` passed all preceding GNU89/ASan/UBSan lifecycle, identity, PPPoE, WAN DHCP and buffered file-write checks, then failed in `check_sshd()` because the mock logger writes to `MOCK_LOG` but the SSH test environment provided only `MOCK_SSHD_LOG`.
+- Added `MOCK_LOG` pointing to the temporary logger file; no product source changed. The existing `/bin/sh -n` and behavioral assertions will rerun on the new exact SHA.
+- AI docs #43735937387 and process inventory artifact #43735937469 passed on the parent; XY-C1 #43735937368 and NVRAM #43735937325 remained IN_PROGRESS at last poll.
+- Parent main: `a769870fbc2b94d3a2ae46541b1911f17edd4b8a`; result: THIS COMMIT. Fresh process-lifecycle and XY-C1 checks required.
+
+---
 ## 2026-11-15 — Propagate OpenSSH daemon setup and lifecycle failures
 
 - `sshd.sh` unconditionally exited 0 after its `case`, masking failures from host-key generation, config creation, sshd start, killall stop and SIGHUP reload. It now preserves the selected function status and logs failed start prerequisites/launch attempts.
