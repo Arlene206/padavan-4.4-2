@@ -46,6 +46,16 @@ assert_stage_removed(const char *path)
 	assert(lstat(path, &info) != 0 && errno == ENOENT);
 }
 
+static size_t
+fail_write(FILE *stream, const void *buffer, size_t length)
+{
+	(void)stream;
+	(void)buffer;
+	(void)length;
+	errno = ENOSPC;
+	return 0;
+}
+
 static int
 fail_flush(FILE *stream)
 {
@@ -123,7 +133,17 @@ main(void)
 	assert(stream == NULL);
 	assert_text(target, "uploaded safely\n");
 
-	/* A write/flush error closes and discards only the new stage. */
+	/* A short write closes and discards only the new stage. */
+	memset(&ops, 0, sizeof(ops));
+	ops.write = fail_write;
+	stream = new_staging(target, stage, sizeof(stage));
+	assert(httpd_upload_write(stream, "partial", 7, &ops) != 7);
+	httpd_upload_discard_staged(&stream, stage, &ops);
+	assert(stream == NULL);
+	assert_text(target, "uploaded safely\n");
+	assert_stage_removed(stage);
+
+	/* A flush error closes and discards only the new stage. */
 	memset(&ops, 0, sizeof(ops));
 	ops.flush = fail_flush;
 	stream = new_staging(target, stage, sizeof(stage));

@@ -49,6 +49,7 @@ httpd_upload_open_exclusive(const char *path)
 }
 
 typedef struct httpd_upload_file_ops {
+	size_t (*write)(FILE *stream, const void *buffer, size_t length);
 	int (*flush)(FILE *stream);
 	int (*sync)(int fd);
 	/* Must release stream even when returning an error, as fclose does. */
@@ -56,6 +57,27 @@ typedef struct httpd_upload_file_ops {
 	int (*rename)(const char *source, const char *destination);
 	int (*unlink)(const char *path);
 } httpd_upload_file_ops_t;
+
+static size_t
+httpd_upload_default_write(FILE *stream, const void *buffer, size_t length)
+{
+	return fwrite(buffer, 1, length, stream);
+}
+
+static size_t
+httpd_upload_write(FILE *stream, const void *buffer, size_t length,
+		   const httpd_upload_file_ops_t *ops)
+{
+	size_t (*write_fn)(FILE *, const void *, size_t);
+
+	if (!stream || (!buffer && length != 0)) {
+		errno = EINVAL;
+		return 0;
+	}
+
+	write_fn = (ops && ops->write) ? ops->write : httpd_upload_default_write;
+	return write_fn(stream, buffer, length);
+}
 
 static int
 httpd_upload_default_flush(FILE *stream)
@@ -166,6 +188,21 @@ httpd_upload_sync_close(FILE **stream, const httpd_upload_file_ops_t *ops)
 	if (result != 0)
 		errno = (saved_errno != 0) ? saved_errno : EIO;
 	return result;
+}
+
+static void
+httpd_upload_discard_staged(FILE **stream, const char *staging_path,
+			    const httpd_upload_file_ops_t *ops)
+{
+	int saved_errno = errno;
+	int (*unlink_fn)(const char *);
+
+	unlink_fn = (ops && ops->unlink) ? ops->unlink : httpd_upload_default_unlink;
+	if (stream && *stream)
+		httpd_upload_sync_close(stream, ops);
+	if (staging_path && *staging_path)
+		unlink_fn(staging_path);
+	errno = saved_errno;
 }
 
 static int

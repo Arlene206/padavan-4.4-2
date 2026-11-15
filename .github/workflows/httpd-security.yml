@@ -4112,7 +4112,10 @@ jobs:
           assert "symlink(victim, target)" in upload_policy_test
           assert "S_ISREG(info.st_mode)" in upload_policy_test
           assert "(info.st_mode & 0777) == 0600" in upload_policy_test
-          for upload_failure in ("fail_flush", "fail_sync", "fail_close", "fail_rename"):
+          assert "httpd_upload_write(fp, ptr" in upload_helper
+          assert "httpd_upload_write(fp, &ch" in upload_helper
+          assert "httpd_upload_discard_staged(&fp, fn, ops)" in upload_helper
+          for upload_failure in ("fail_write", "fail_flush", "fail_sync", "fail_close", "fail_rename"):
               assert upload_failure in upload_policy_test
           assert "assert_stage_removed(stage)" in upload_policy_test
           assert "symlink(victim, target)" in upload_policy_test

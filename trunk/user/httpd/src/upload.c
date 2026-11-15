@@ -192,7 +192,7 @@ checkcrc_fail:
 }
 
 static int
-do_upload_file(FILE *stream, int clen, char *bndr, const char *fn, const char *publish_to, const char *obj_name, check_header_t func_hdr, int hdr_size, FILE *output_fp)
+do_upload_file(FILE *stream, int clen, char *bndr, const char *fn, const char *publish_to, const char *obj_name, check_header_t func_hdr, int hdr_size, FILE *output_fp, const httpd_upload_file_ops_t *ops)
 {
 	FILE *fp = output_fp;
 	char buf[64+UPLOAD_BUF_SIZE+1], buf_obj[32], *ptr;
@@ -304,7 +304,7 @@ do_upload_file(FILE *stream, int clen, char *bndr, const char *fn, const char *p
 			count = filelen;
 		
 		filelen -= count;
-		if (count > 0 && fwrite(ptr, 1, (size_t)count, fp) != (size_t)count)
+		if (count > 0 && httpd_upload_write(fp, ptr, (size_t)count, ops) != (size_t)count)
 			goto err;
 
 		if (bndr) {
@@ -326,7 +326,7 @@ do_upload_file(FILE *stream, int clen, char *bndr, const char *fn, const char *p
 			goto err;
 
 		if (filelen > 0) {
-			if (fwrite(&ch, 1, 1, fp) != 1)
+			if (httpd_upload_write(fp, &ch, 1, ops) != 1)
 				goto err;
 			filelen--;
 		}
@@ -336,12 +336,16 @@ do_upload_file(FILE *stream, int clen, char *bndr, const char *fn, const char *p
 
 err:
 	if (publish_to && ret == 0 && valid_header) {
-		if (httpd_upload_publish_staged(&fp, fn, publish_to, NULL) != 0)
+		if (httpd_upload_publish_staged(&fp, fn, publish_to, ops) != 0)
 			ret = EIO;
 	} else if (fp) {
-		if (fclose(fp) != 0 && ret == 0)
-			ret = EIO;
-		fp = NULL;
+		if (publish_to) {
+			httpd_upload_discard_staged(&fp, fn, ops);
+		} else {
+			if (fclose(fp) != 0 && ret == 0)
+				ret = EIO;
+			fp = NULL;
+		}
 	}
 
 	/* Slurp anything remaining in the request */
@@ -377,7 +381,7 @@ do_upgrade_fw_post(const char *url, FILE *stream, int clen, char *boundary)
 	/* reclaim RAM from caches */
 	fput_int("/proc/sys/vm/drop_caches", 1);
 
-	ret = do_upload_file(stream, clen, NULL, upload_file, NULL, "file", check_header_image, sizeof(image_header_t), NULL);
+	ret = do_upload_file(stream, clen, NULL, upload_file, NULL, "file", check_header_image, sizeof(image_header_t), NULL, NULL);
 	if (ret == 0) {
 		ret = check_crc_image(upload_file);
 		if (ret != 0)
@@ -390,7 +394,7 @@ do_restore_nv_post(const char *url, FILE *stream, int clen, char *boundary)
 {
 	const char *upload_file = PROFILE_FIFO_UPLOAD;
 
-	do_upload_file(stream, clen, NULL, upload_file, NULL, "file_nv", check_header_nvram, 8, NULL);
+	do_upload_file(stream, clen, NULL, upload_file, NULL, "file_nv", check_header_nvram, 8, NULL, NULL);
 }
 
 static int restore_st_upload_ready;
@@ -437,6 +441,6 @@ do_restore_st_post(const char *url, FILE *stream, int clen, char *boundary)
 		return;
 
 	if (do_upload_file(stream, clen, bndr, staging_file, upload_file,
-			   "file_st", check_header_bz2, 10, staging_fp) == 0)
+			   "file_st", check_header_bz2, 10, staging_fp, NULL) == 0)
 		restore_st_upload_ready = 1;
 }
