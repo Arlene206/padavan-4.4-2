@@ -188,7 +188,7 @@ jobs:
           assert "int stop_status = stop_telnetd();" in run_telnetd
           assert "if (stop_status != 0)" in run_telnetd
           assert "return stop_status;" in run_telnetd
-          assert 'return eval("telnetd");' in run_telnetd
+          assert "return start_telnetd();" in run_telnetd
           start_telnetd = function_body(services, "start_telnetd(void)")
           assert 'return eval("telnetd");' in start_telnetd
           telnet_stop = function_body(services, "stop_telnetd(void)")

@@ -402,7 +402,7 @@ run_telnetd(void)
 		return stop_status;
 	}
 
-	return eval("telnetd");
+	return start_telnetd();
 }
 
 int
