@@ -4,49 +4,207 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
 #ifndef O_NOFOLLOW
-/* O_EXCL with O_CREAT still rejects an existing symlink on supported POSIX targets. */
 #define O_NOFOLLOW 0
 #endif
 
-/* Create, never follow or truncate, a predictable upload destination. */
 static FILE *
 httpd_upload_open_exclusive(const char *path)
 {
-    int fd, saved_errno;
-    FILE *stream;
+	int fd, saved_errno;
+	FILE *stream;
 
-    if (!path || !*path) {
-        errno = EINVAL;
-        return NULL;
-    }
+	if (!path || !*path) {
+		errno = EINVAL;
+		return NULL;
+	}
 
-    fd = open(path, O_RDWR | O_CREAT | O_EXCL | O_NOFOLLOW,
-               S_IRUSR | S_IWUSR);
-    if (fd < 0)
-        return NULL;
+	fd = open(path, O_RDWR | O_CREAT | O_EXCL | O_NOFOLLOW,
+		  S_IRUSR | S_IWUSR);
+	if (fd < 0)
+		return NULL;
 
-    if (fchmod(fd, S_IRUSR | S_IWUSR) != 0) {
-        saved_errno = errno;
-        close(fd);
-        unlink(path);
-        errno = saved_errno;
-        return NULL;
-    }
+	if (fchmod(fd, S_IRUSR | S_IWUSR) != 0) {
+		saved_errno = errno;
+		close(fd);
+		unlink(path);
+		errno = saved_errno;
+		return NULL;
+	}
 
-    stream = fdopen(fd, "w+");
-    if (!stream) {
-        saved_errno = errno;
-        close(fd);
-        unlink(path);
-        errno = saved_errno;
-        return NULL;
-    }
+	stream = fdopen(fd, "w+");
+	if (!stream) {
+		saved_errno = errno;
+		close(fd);
+		unlink(path);
+		errno = saved_errno;
+		return NULL;
+	}
 
-    return stream;
+	return stream;
 }
 
-#endif /* HTTPD_UPLOAD_FILE_H */
+typedef struct httpd_upload_file_ops {
+	int (*flush)(FILE *stream);
+	int (*sync)(int fd);
+	/* Must release stream even when returning an error, as fclose does. */
+	int (*close)(FILE *stream);
+	int (*rename)(const char *source, const char *destination);
+	int (*unlink)(const char *path);
+} httpd_upload_file_ops_t;
+
+static int
+httpd_upload_default_flush(FILE *stream)
+{
+	return fflush(stream);
+}
+
+static int
+httpd_upload_default_sync(int fd)
+{
+	return fsync(fd);
+}
+
+static int
+httpd_upload_default_close(FILE *stream)
+{
+	return fclose(stream);
+}
+
+static int
+httpd_upload_default_rename(const char *source, const char *destination)
+{
+	return rename(source, destination);
+}
+
+static int
+httpd_upload_default_unlink(const char *path)
+{
+	return unlink(path);
+}
+
+static FILE *
+httpd_upload_create_staging(const char *destination, char *path, size_t path_size)
+{
+	int fd, saved_errno, length;
+	FILE *stream;
+
+	if (!destination || !*destination || !path || path_size == 0) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	length = snprintf(path, path_size, "%s.upload.XXXXXX", destination);
+	if (length < 0 || (size_t)length >= path_size) {
+		errno = ENAMETOOLONG;
+		return NULL;
+	}
+
+	fd = mkstemp(path);
+	if (fd < 0)
+		return NULL;
+
+	if (fchmod(fd, S_IRUSR | S_IWUSR) != 0) {
+		saved_errno = errno;
+		close(fd);
+		unlink(path);
+		errno = saved_errno;
+		return NULL;
+	}
+
+	stream = fdopen(fd, "w+");
+	if (!stream) {
+		saved_errno = errno;
+		close(fd);
+		unlink(path);
+		errno = saved_errno;
+		return NULL;
+	}
+
+	return stream;
+}
+
+static int
+httpd_upload_sync_close(FILE **stream, const httpd_upload_file_ops_t *ops)
+{
+	FILE *fp;
+	int result, saved_errno, fd;
+	int (*flush_fn)(FILE *);
+	int (*sync_fn)(int);
+	int (*close_fn)(FILE *);
+
+	if (!stream || !(fp = *stream)) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	flush_fn = (ops && ops->flush) ? ops->flush : httpd_upload_default_flush;
+	sync_fn = (ops && ops->sync) ? ops->sync : httpd_upload_default_sync;
+	close_fn = (ops && ops->close) ? ops->close : httpd_upload_default_close;
+
+	result = 0;
+	saved_errno = 0;
+	fd = fileno(fp);
+	if (flush_fn(fp) != 0) {
+		result = -1;
+		saved_errno = errno;
+	} else if (fd < 0 || sync_fn(fd) != 0) {
+		result = -1;
+		saved_errno = errno;
+	}
+
+	if (close_fn(fp) != 0 && result == 0) {
+		result = -1;
+		saved_errno = errno;
+	}
+	*stream = NULL;
+
+	if (result != 0)
+		errno = (saved_errno != 0) ? saved_errno : EIO;
+	return result;
+}
+
+static int
+httpd_upload_publish_staged(FILE **stream, const char *staging_path,
+			    const char *destination_path,
+			    const httpd_upload_file_ops_t *ops)
+{
+	int saved_errno;
+	int (*rename_fn)(const char *, const char *);
+	int (*unlink_fn)(const char *);
+
+	rename_fn = (ops && ops->rename) ? ops->rename : httpd_upload_default_rename;
+	unlink_fn = (ops && ops->unlink) ? ops->unlink : httpd_upload_default_unlink;
+
+	if (!stream || !*stream || !staging_path || !*staging_path ||
+	    !destination_path || !*destination_path) {
+		errno = EINVAL;
+		if (stream && *stream)
+			httpd_upload_sync_close(stream, NULL);
+		if (staging_path && *staging_path)
+			unlink_fn(staging_path);
+		return -1;
+	}
+
+	if (httpd_upload_sync_close(stream, ops) != 0) {
+		saved_errno = errno;
+		unlink_fn(staging_path);
+		errno = saved_errno;
+		return -1;
+	}
+
+	if (rename_fn(staging_path, destination_path) != 0) {
+		saved_errno = errno;
+		unlink_fn(staging_path);
+		errno = saved_errno;
+		return -1;
+	}
+
+	return 0;
+}
+
+#endif

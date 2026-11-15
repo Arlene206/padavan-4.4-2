@@ -8,24 +8,22 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2. Parent main SHA for THIS COMMIT: `bb2b87054ef9631fc97c0473dd47d7e8b4fccd87`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only). Legacy PR #1 remains CLOSED / UNMERGED.
-- Product-source baseline through `99eeb6fa237b529ec9b9615976961c7a60a02575` includes transactional MTD load/restore, backup integrity, HTTPD backup gating, failed-restore upload retention, blank-MTD lock release and fail-closed erase/reset. THIS COMMIT additionally enforces checked stale-hash deletion before save-lock release on both zero-byte MTD paths.
-- Exact-head USB storage #43696174488 on `bb2b87054ef9631fc97c0473dd47d7e8b4fccd87` SUCCESS after earlier checker-only failures were corrected: syntax/save retry, restore, host + BusyBox ash load/backup/erase-reset, GNU89 policy, caller graph and source contracts all passed. Exact-head AI docs #43696174518 SUCCESS. Infosvr #43696174495, Process inventory/lifecycle #43696174597, AdGuardHome #43696174519, AliyunDrive #43696174530 and AliDDNS #43696174537 SUCCESS. NVRAM #43696174497 was IN_PROGRESS at last poll.
-- XY-C1 #43694958186 SUCCESS on product-source SHA `99eeb6fa237b529ec9b9615976961c7a60a02575`, including Build XY-C1, TRX verification and artifact upload. This is historical evidence for that exact source only; THIS COMMIT changes `mtd_storage.sh` and requires a fresh current-source MIPS/uClibc build/TRX inspection/artifact upload.
-- Frozen backup remains unchanged. Current-source L3 and physical L4 are NOT VERIFIED; no local checkout, local regression or current-source firmware-build result is claimed.
+- Repository: Arlene206/padavan-4.4-2. Parent main SHA for THIS COMMIT: `de14e2ec6c3365fd1e9be4cce5c13cb37ace60bc`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only). Legacy PR #1 remains CLOSED / UNMERGED.
+- Product baseline includes transactional MTD restore/load/backup/erase/reset and checked blank-MTD hash-before-lock release. The checker-only function-boundary correction is commit `de14e2ec6c3365fd1e9be4cce5c13cb37ace60bc`: exact-head USB #43698297016 PASS and AI docs #43698297005 PASS.
+- XY-C1 #43697297850 SUCCESS on product source SHA `8c95ef5ad8a2d4a2ac7755fbe02b7ac2211214b8`, including Build XY-C1, TRX verification and artifact upload. That baseline predates THIS COMMIT's HTTPD product-source change.
+- Parent HTTPD security run #43697297903 SUCCESS on source SHA `8c95ef5ad8a2d4a2ac7755fbe02b7ac2211214b8`. THIS COMMIT changes HTTPD upload handling and requires fresh exact-head HTTPD regression plus current-source XY-C1 build/TRX/artifact validation.
+- The frozen backup is unchanged. Current-source L3 for THIS COMMIT and physical router L4 are NOT VERIFIED; no physical-device result is claimed.
+
 ## Active task
 
-### P1 Keep the blank-MTD save lock until stale-hash deletion succeeds (THIS COMMIT)
+### P1 — Preserve retained HTTPD restore archives across failed replacement uploads (THIS COMMIT)
 
-- Both zero-byte paths in `func_load()` (failed decompression with zero-byte output, and a successful decompressor that emits an empty stream) now check stale MD5 removal before attempting to release the one-shot save lock.
-- If hash deletion fails, the old settings tree, stale checkpoint and save lock remain intact; a diagnostic is logged and load returns nonzero. This prevents a stale matching hash from making `func_save()` skip writing a blank partition.
-- Added injected hash-unlink failures for both branches in `mtd_storage_load_transaction.sh`; assertions require the existing configuration, checkpoint and lock to survive. The existing storage workflow runs the fixture under host shell and BusyBox 1.24.2 ash. The source checker requires checked hash-before-lock ordering and both injected failures.
-- Parent exact-head USB storage #43696174488 on `bb2b87054ef9631fc97c0473dd47d7e8b4fccd87` passed before this source change. Exact-head USB, docs and XY-C1 Actions are required for THIS COMMIT.
-
-### Next P1 task — review authenticated restore-upload replacement and retry retention
-
-- Inspect `do_restore_st_cgi()` and all HTTPD upload/authentication callers end-to-end. A previously failed restore archive must remain available until a new authenticated upload has completed in private staging and atomically replaced it.
-- Inject upload-open, write, close and rename failures; verify pre-publication failures preserve the previous retry payload and never leave a truncated file at `STORAGE_FIFO_FILENAME`. Existing restore application is transactional and retains a failed archive; do not redo that implementation.
+- `do_restore_st_post()` no longer unlinks `STORAGE_FIFO_FILENAME` or writes directly to that stable path. It requires `get_login_safe()`, validates the multipart boundary, and opens a unique same-directory staging file with mode 0600.
+- The multipart parser accepts an optional pre-opened stream and a publish target. Normal firmware/NVRAM uploads keep their one-shot cleanup behavior. Storage restore publishes only after its complete BZ2 multipart payload and boundary validate, followed by checked fflush, fsync and fclose, then same-directory atomic rename.
+- Stage-open, parse/write, flush, fsync, close and rename failures remove only the staging file. The prior retry archive remains unchanged until rename succeeds. A per-request ready latch is reset at POST entry and consumed by the CGI output callback; rejected uploads cannot cause an old archive to be restored accidentally.
+- A failed MTD restore continues to retain the newly uploaded archive; successful restore still removes it. The existing HTTPD MIME route remains authenticated and POST-only.
+- Expanded host C regression covers staging-open, flush/write, fsync, close and rename failures, previous-archive integrity, successful replacement and symlink-entry replacement. Local scratch command `cc -std=gnu89 -Wall -Wextra -Werror -I <httpd-src> tests/httpd_upload_file.c` and execution PASS.
+- Exact-head HTTPD, AI docs, USB storage and XY-C1 Actions for THIS COMMIT are pending. The source/test/workflow tree is committed atomically; no CI or current-target build result is claimed until inspected.
 ## Explicitly uncompleted P1 work
 
 - Migrate remaining direct pids() callers by semantic group; retain legacy Boolean until direct callers explicitly handle UNKNOWN. Continue remaining kill_pidfile_s() and name-wide signal audits; Linux 4.4 retains PID/start_time check-to-signal TOCTOU.
@@ -35,11 +33,12 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Verification boundary
 
-- L1: Both blank-MTD paths now require successful stale MD5 deletion before attempting save-lock removal. A hash-unlink failure retains the marker and the previous live settings/checkpoint; this prevents an identical-save skip after blank flash.
-- L2: Exact-head USB storage #43696174488 on `bb2b87054ef9631fc97c0473dd47d7e8b4fccd87` passed all workflow steps, including MTD syntax/save retry, transactional restore/load, host + BusyBox ash fixtures, GNU89 policy tests, the complete storage caller graph and source contracts. THIS COMMIT adds two hash-unlink fault cases; a fresh exact-head USB run is required. AI docs #43696174518 on the parent succeeded; new exact-head docs check required.
-- L3: XY-C1 #43694958186 succeeded on product-source SHA `99eeb6fa237b529ec9b9615976961c7a60a02575` through Build XY-C1, TRX verification and artifact upload. That artifact predates THIS COMMIT's `mtd_storage.sh` change; current-source L3 requires another exact-head build/TRX/upload.
-- L4: Physical MTD erase, blank-partition boot, default recreation, save after erase and long-term persistence remain NOT VERIFIED.
-- No local checkout, local shell regression or current-source firmware build is claimed.
+- L1: New restore uploads never unlink/truncate the stable retry archive before successful complete parsing. Same-directory mode-0600 staging plus checked flush/fsync/close and atomic rename means the stable path contains the old complete archive or the new complete archive, never an incomplete replacement.
+- L2: The helper regression compiled and passed locally with GNU89 `-Wall -Wextra -Werror`. Fault injection covers staging-open, flush, fsync, fclose and rename; success verifies archive replacement and that rename replaces a symlink entry without following it. The HTTPD workflow already compiles/runs this fixture and now checks source/callback integration.
+- L2 exact-head CI for THIS COMMIT: pending. Parent HTTPD #43697297903 on `8c95ef5ad8a2d4a2ac7755fbe02b7ac2211214b8` passed; it is not evidence for the new code.
+- L3: XY-C1 #43697297850 succeeded on source `8c95ef5ad8a2d4a2ac7755fbe02b7ac2211214b8`; it predates this HTTPD change. Require a new full MIPS/uClibc build, TRX verification and artifact upload for THIS COMMIT.
+- L4: Actual router restore upload, retry after failed restore, reboot and persistence remain NOT VERIFIED.
+- No physical-device result is claimed.
 
 ## HTTPD daemon lifecycle — completed slice
 
@@ -57,9 +56,9 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head USB storage, AI handoff docs and XY-C1 Actions for THIS COMMIT. Require both new blank-MTD hash-unlink failure cases to pass under host shell and BusyBox 1.24.2 ash, the complete storage checker to pass, and the docs checker to pass with at least 20 root log records and unchanged archive/index hashes/counts. Require current-source XY-C1 build, TRX verification and artifact upload before marking L3 verified.
-2. Resume P1 at `do_restore_st_cgi()`: trace authentication and upload staging through open/write/close/rename and all callers. Preserve the prior retry archive until a new authenticated upload has completed and is atomically published; inject each pre-publication failure.
-3. Before each write, fetch fresh `main`; publish each multi-file slice as one complete Git tree/commit and non-forced expected-SHA ref update. Keep the frozen backup untouched. L4 remains unverified.
+1. Inspect exact-head HTTPD Authentication/Security, AI handoff docs, USB storage and XY-C1 push Actions for THIS COMMIT. Read and fix any failures. XY-C1 must complete Build XY-C1, Verify TRX output and artifact upload on this exact product source SHA.
+2. After this slice is green, continue the P2 DNSMasq public/locked caller graph and process identity/stop/HUP/wait-reap/FD/temporary-file/rollback audit. Avoid repeating already L2-verified storage and service lifecycle work.
+3. Keep main-only atomic commits using a freshly fetched expected SHA and non-forced update. Frozen backup remains immutable. Physical L4 remains unverified.
 
 Source/validation notes:
 - Parent main for THIS COMMIT: bb2b87054ef9631fc97c0473dd47d7e8b4fccd87; frozen backup: 72f4f157a084f8184b9597ca5bf334b8080e5807.

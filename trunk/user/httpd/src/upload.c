@@ -192,24 +192,30 @@ checkcrc_fail:
 }
 
 static int
-do_upload_file(FILE *stream, int clen, char *bndr, const char *fn, const char *obj_name, check_header_t func_hdr, int hdr_size)
+do_upload_file(FILE *stream, int clen, char *bndr, const char *fn, const char *publish_to, const char *obj_name, check_header_t func_hdr, int hdr_size, FILE *output_fp)
 {
-	FILE *fp = NULL;
+	FILE *fp = output_fp;
 	char buf[64+UPLOAD_BUF_SIZE+1], buf_obj[32], *ptr;
 	int cnt, count, offset, ret, ch, valid_header, boundary_found;
 	long filelen, max_payload_len, end_pos, back_len;
 
 	/*
-	 * The request output/restore callback still runs when upload parsing fails.
-	 * Clear any artifact left by an interrupted earlier request before parsing
-	 * this request, or a malformed POST could reuse the stale file.
+	 * Ordinary one-shot uploads retain their historical stale-file cleanup.
+	 * Storage restore instead writes to a separate stage and must not disturb
+	 * the previous retry archive until a complete replacement is published.
 	 */
-	if (fn && *fn)
+	if (!publish_to && fn && *fn)
 		unlink(fn);
 
 	if (!stream || !fn || !*fn || !obj_name || !func_hdr ||
-	    clen < 0 || hdr_size <= 0 || hdr_size > UPLOAD_BUF_SIZE)
+	    clen < 0 || hdr_size <= 0 || hdr_size > UPLOAD_BUF_SIZE ||
+	    (publish_to && !output_fp) || (!publish_to && output_fp)) {
+		if (fp)
+			fclose(fp);
+		if (fn && *fn)
+			unlink(fn);
 		return -1;
+	}
 
 	ret = EINVAL;
 	valid_header = 0;
@@ -234,7 +240,7 @@ do_upload_file(FILE *stream, int clen, char *bndr, const char *fn, const char *o
 			break;
 	}
 
-	if (!(fp = httpd_upload_open_exclusive(fn)))
+	if (!fp && !(fp = httpd_upload_open_exclusive(fn)))
 		goto err;
 
 	max_payload_len = clen;
@@ -329,7 +335,10 @@ do_upload_file(FILE *stream, int clen, char *bndr, const char *fn, const char *o
 	ret = 0;
 
 err:
-	if (fp) {
+	if (publish_to && ret == 0 && valid_header) {
+		if (httpd_upload_publish_staged(&fp, fn, publish_to, NULL) != 0)
+			ret = EIO;
+	} else if (fp) {
 		if (fclose(fp) != 0 && ret == 0)
 			ret = EIO;
 		fp = NULL;
@@ -337,12 +346,13 @@ err:
 
 	/* Slurp anything remaining in the request */
 	while (clen-- > 0) {
-		if((ch = fgetc(stream)) == EOF)
+		if ((ch = fgetc(stream)) == EOF)
 			break;
 	}
 
 	if (ret != 0 || !valid_header) {
-		unlink(fn);
+		if (fn && *fn)
+			unlink(fn);
 		return -1;
 	}
 
@@ -367,7 +377,7 @@ do_upgrade_fw_post(const char *url, FILE *stream, int clen, char *boundary)
 	/* reclaim RAM from caches */
 	fput_int("/proc/sys/vm/drop_caches", 1);
 
-	ret = do_upload_file(stream, clen, NULL, upload_file, "file", check_header_image, sizeof(image_header_t));
+	ret = do_upload_file(stream, clen, NULL, upload_file, NULL, "file", check_header_image, sizeof(image_header_t), NULL);
 	if (ret == 0) {
 		ret = check_crc_image(upload_file);
 		if (ret != 0)
@@ -380,7 +390,18 @@ do_restore_nv_post(const char *url, FILE *stream, int clen, char *boundary)
 {
 	const char *upload_file = PROFILE_FIFO_UPLOAD;
 
-	do_upload_file(stream, clen, NULL, upload_file, "file_nv", check_header_nvram, 8);
+	do_upload_file(stream, clen, NULL, upload_file, NULL, "file_nv", check_header_nvram, 8, NULL);
+}
+
+static int restore_st_upload_ready;
+
+int
+httpd_restore_st_upload_consume_ready(void)
+{
+	int ready = restore_st_upload_ready;
+
+	restore_st_upload_ready = 0;
+	return ready;
 }
 
 void
@@ -388,11 +409,15 @@ do_restore_st_post(const char *url, FILE *stream, int clen, char *boundary)
 {
 	const char *upload_file = STORAGE_FIFO_FILENAME;
 	char bndr[128];
+	char staging_file[sizeof(STORAGE_FIFO_FILENAME) + sizeof(".upload.XXXXXX")];
+	FILE *staging_fp;
 	const unsigned char *p;
 	int bndr_len;
 
-	/* A failed boundary check must not leave a previous restore image usable. */
-	unlink(upload_file);
+	/* The callback may run after this input handler rejects the request. */
+	restore_st_upload_ready = 0;
+	if (!get_login_safe())
+		return;
 
 	if (!boundary || !*boundary || clen < 0)
 		return;
@@ -401,9 +426,17 @@ do_restore_st_post(const char *url, FILE *stream, int clen, char *boundary)
 			return;
 	}
 
-	/* BZ2 does not store file length in its header; require a valid MIME boundary. */
+	/* BZ2 has no embedded file length; require a valid MIME boundary. */
 	bndr_len = snprintf(bndr, sizeof(bndr), "\r\n--%s", boundary);
 	if (bndr_len < 0 || bndr_len >= (int)sizeof(bndr))
 		return;
-	do_upload_file(stream, clen, bndr, upload_file, "file_st", check_header_bz2, 10);
+
+	/* Keep the previous retry archive until the new upload is complete. */
+	staging_fp = httpd_upload_create_staging(upload_file, staging_file, sizeof(staging_file));
+	if (!staging_fp)
+		return;
+
+	if (do_upload_file(stream, clen, bndr, staging_file, upload_file,
+			   "file_st", check_header_bz2, 10, staging_fp) == 0)
+		restore_st_upload_ready = 1;
 }

@@ -4752,9 +4752,11 @@ static void
 do_restore_st_cgi(const char *url, FILE *stream)
 {
 	const char *upload_file = STORAGE_FIFO_FILENAME;
-	int ret = -1;
+	int upload_ready, ret = -1;
 
-	if (f_exists(upload_file) && get_login_safe()) {
+	/* Never let a rejected POST consume an older retained retry archive. */
+	upload_ready = httpd_restore_st_upload_consume_ready();
+	if (upload_ready && f_exists(upload_file) && get_login_safe()) {
 		ret = eval("/sbin/mtd_storage.sh", "restore");
 	}
 

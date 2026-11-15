@@ -204,6 +204,7 @@ extern int fill_eth_status(int port_id_uapi, webs_t wp);
 extern void do_upgrade_fw_post(const char *url, FILE *stream, int clen, char *boundary);
 extern void do_restore_nv_post(const char *url, FILE *stream, int clen, char *boundary);
 extern void do_restore_st_post(const char *url, FILE *stream, int clen, char *boundary);
+extern int httpd_restore_st_upload_consume_ready(void);
 
 // web_ex.c
 extern int nvram_commit_safe(void);

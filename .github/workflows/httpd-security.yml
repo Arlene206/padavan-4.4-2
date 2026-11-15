@@ -4072,21 +4072,28 @@ jobs:
           assert "while (GetServiceId(sid) != NULL)" not in apply_handler
           print("HTTPD sid_list service-ID validation: OK")
 
-          # Upload handlers run their output/restore callbacks even when the
-          # input callback fails, so stale artifacts must be removed before
-          # parsing a new multipart body or rejecting its boundary.
+          # Ordinary one-shot artifacts retain their previous cleanup behavior.
+          # Storage restore stages new bytes without disturbing a retained retry archive.
           upload_start = upload.index("do_upload_file(FILE *stream")
           upload_end = upload.index(chr(10) + "void" + chr(10) + "do_upgrade_fw_post", upload_start)
           upload_helper = upload[upload_start:upload_end]
+          assert "if (!publish_to && fn && *fn)" in upload_helper
           stale_clear = upload_helper.index("unlink(fn);")
           parse_part = upload_helper.index("/* Look for our part */")
-          assert stale_clear < parse_part, "upload destination is not cleared before multipart parsing"
+          assert stale_clear < parse_part, "ordinary upload target is not cleared before multipart parsing"
+          assert "httpd_upload_publish_staged(&fp, fn, publish_to, NULL)" in upload_helper
           storage_post_start = upload.index(chr(10) + "void" + chr(10) + "do_restore_st_post")
           storage_post = upload[storage_post_start:]
-          storage_clear = storage_post.index("unlink(upload_file);")
+          assert "unlink(upload_file);" not in storage_post, "restore POST must preserve the previous retry archive"
+          assert "if (!get_login_safe())" in storage_post
+          assert "restore_st_upload_ready = 0;" in storage_post
           storage_boundary_check = storage_post.index("if (!boundary || !*boundary || clen < 0)")
-          assert storage_clear < storage_boundary_check, "invalid storage boundary can reuse a stale archive"
-          print("HTTPD stale upload-artifact guard wiring: OK")
+          storage_stage = storage_post.index("httpd_upload_create_staging(upload_file")
+          storage_publish_call = storage_post.index("do_upload_file(stream, clen, bndr, staging_file, upload_file")
+          storage_ready = storage_post.index("restore_st_upload_ready = 1;")
+          assert storage_boundary_check < storage_stage < storage_publish_call < storage_ready
+          assert "httpd_restore_st_upload_consume_ready" in upload
+          print("HTTPD per-request upload readiness and retry-archive preservation: OK")
 
           restore_start = storage_script.index("func_restore()")
           restore_end = storage_script.index(chr(10) + "func_erase()", restore_start)
@@ -4096,12 +4103,19 @@ jobs:
           # prevents a symlink inserted after stale-file cleanup from being followed.
           assert '#include "httpd_upload_file.h"' in upload
           assert "httpd_upload_open_exclusive(fn)" in upload_helper
+          assert "httpd_upload_publish_staged(&fp, fn, publish_to, NULL)" in upload_helper
+          assert "httpd_upload_create_staging" in upload_policy
+          assert "mkstemp(path)" in upload_policy and "fsync(fd)" in upload_policy and "rename_fn(staging_path, destination_path)" in upload_policy
           assert 'fopen(fn, "w+")' not in upload_helper
           assert "O_CREAT | O_EXCL | O_NOFOLLOW" in upload_policy
           assert "fchmod(fd, S_IRUSR | S_IWUSR)" in upload_policy
           assert "symlink(victim, target)" in upload_policy_test
           assert "S_ISREG(info.st_mode)" in upload_policy_test
           assert "(info.st_mode & 0777) == 0600" in upload_policy_test
+          for upload_failure in ("fail_flush", "fail_sync", "fail_close", "fail_rename"):
+              assert upload_failure in upload_policy_test
+          assert "assert_stage_removed(stage)" in upload_policy_test
+          assert "symlink(victim, target)" in upload_policy_test
           assert '#define PROFILE_FIFO_UPLOAD\t"/tmp/.httpd-private/settings_u.prf"' in httpd_header
           assert '#define PROFILE_FIFO_DOWNLOAD\t"/tmp/.httpd-private/settings_d.prf"' in httpd_header
           assert '#define STORAGE_FIFO_FILENAME\t"/tmp/.httpd-private/storage.tar.bz2"' in httpd_header
@@ -4143,11 +4157,20 @@ jobs:
           restore_cgi_end = web.index(chr(10) + "static void", restore_cgi_start)
           restore_cgi = web[restore_cgi_start:restore_cgi_end]
           assert restore_cgi.count("unlink(upload_file)") == 1
+          assert "httpd_restore_st_upload_consume_ready()" in restore_cgi
+          assert "if (upload_ready && f_exists(upload_file) && get_login_safe())" in restore_cgi
+          assert restore_cgi.index("httpd_restore_st_upload_consume_ready()") < restore_cgi.index('eval("/sbin/mtd_storage.sh", "restore")')
           assert 'if (ret == 0) {' in restore_cgi
           assert restore_cgi.index("if (ret == 0)") < restore_cgi.index("unlink(upload_file)") < restore_cgi.index('websApply(stream, "UploadDone.asp")')
           restore_error = restore_cgi[restore_cgi.index("} else {"):]
           assert "unlink(upload_file)" not in restore_error
-          print("HTTPD upload exclusive-create and private restore staging contracts: OK")
+          assert "httpd_restore_st_upload_consume_ready" in httpd_header
+          httpd_request = Path("trunk/user/httpd/src/httpd.c").read_text()
+          post_input = httpd_request.index("handler->input(file, conn_fp, clen, boundary);")
+          pull_body = httpd_request.index("try_pull_data(conn_fp, item->fd);", post_input)
+          output_callback = httpd_request.index("handler->output(file, conn_fp);", pull_body)
+          assert post_input < pull_body < output_callback
+          print("HTTPD upload exclusive-create, staged publication and per-request callback gate contracts: OK")
 
           # Storage restore executes tar as root into a scratch directory.
           # Enforce member-path safety before tar creates parents or unlinks

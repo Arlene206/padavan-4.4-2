@@ -1,3 +1,14 @@
+## 2026-11-15 — Stage HTTPD restore uploads before replacing retained retries
+
+- Fixed the restore upload transaction: `do_restore_st_post()` no longer unlinks or writes directly to `STORAGE_FIFO_FILENAME`. It authenticates the request, validates the multipart boundary and creates a unique mode-0600 stage in the same directory.
+- The multipart parser now accepts a pre-opened stream and publish target. For storage restores, the old archive is replaced only after the complete payload/boundary validate, followed by checked fflush, fsync and fclose, then atomic rename. Parse/write/flush/fsync/close/rename failures remove only the new stage.
+- Added a one-request readiness latch, reset at POST entry and consumed by the CGI output callback. A failed/malformed new upload cannot cause the callback to apply an older retained archive. A failed MTD restore keeps the new archive; a successful restore removes it.
+- Extended `httpd_upload_file.c` with staging-open, flush, fsync, close and rename fault injection; asserts old archive bytes remain unchanged and the stage is removed. Successful replacement checks mode 0600 and confirms rename replaces a symlink entry rather than following its victim.
+- Local helper test: `cc -std=gnu89 -Wall -Wextra -Werror -I <httpd-src> tests/httpd_upload_file.c` and execute — PASS in scratch workspace. Embedded HTTPD source contracts now check trusted auth, stage/publish ordering, stable retry retention, callback readiness and HTTPD input/output request order.
+- Parent main SHA: `de14e2ec6c3365fd1e9be4cce5c13cb37ace60bc`. Parent HTTPD #43697297903 and current-baseline XY-C1 #43697297850 passed on source `8c95ef5ad8a2d4a2ac7755fbe02b7ac2211214b8`; both predate this HTTPD product change. Exact-head Actions for THIS COMMIT pending. No L4 hardware result claimed.
+- Changed paths: `upload.c`, `httpd_upload_file.h`, `tests/httpd_upload_file.c`, `web_ex.c`, `httpd.h`, `.github/workflows/httpd-security.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+
+---
 ## 2026-11-15 — Keep the MTD save lock until blank-partition hash cleanup succeeds
 
 - Auditing both zero-byte branches in `func_load()` found a persistence hazard: stale MD5 removal failures were ignored and the one-shot save lock could still be removed. A later identical save could match the stale checkpoint and skip writing an erased partition.
