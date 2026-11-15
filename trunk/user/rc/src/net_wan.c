@@ -3852,8 +3852,10 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 	char old_ip[INET_ADDRSTRLEN], old_mask[INET_ADDRSTRLEN];
 	unsigned int parsed_value;
 	int lease_dur, is_changed, i_err, dhcp_mtu, mtu_seen, route_result;
-	int interface_status, rollback_status, route_status, route_setup_status;
+	int interface_status, rollback_status, route_setup_status;
+	int route_cleanup_status, route_rollback_status;
 	struct wan_dhcp_interface_context interface_context;
+	struct wan_dhcp_route_transition_context route_context;
 
 	snprintf(log_prefix, sizeof(log_prefix), "%s %s Client", "DHCP", "IPTV");
 	udhcpc_state = (is_renew_mode) ? "renew" : "bound";
@@ -3967,37 +3969,29 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 	}
 
 	/*
-	 * Remove the old route inventory before replacing its NVRAM source data.
-	 * If teardown is incomplete, restore the old address and retain that
-	 * inventory so a later cleanup still knows which routes to remove.
+	 * Keep the old IPTV lease as a recoverable unit. If any old route cannot
+	 * be removed, restore both its address and route inventory before retry.
 	 */
-	route_status = 0;
-	if (dhcp_lease_ipv4_is_valid(old_gateway)) {
-		route_result = route_del(man_ifname, 10, "0.0.0.0", old_gateway, "0.0.0.0");
-		route_status = route_status_accumulate(route_status, route_result);
-		if (route_result != 0)
-			logmessage(log_prefix, "failed to delete previous IPTV default route via %s (error=%d)",
-				old_gateway, route_result);
-	}
-	route_result = del_dhcp_routes_by_prefix("manv_", man_ifname, 0);
-	route_status = route_status_accumulate(route_status, route_result);
-	if (route_result != 0)
-		logmessage(log_prefix, "failed to delete previous IPTV DHCP routes on %s (error=%d)",
-			man_ifname, route_result);
-
-	if (route_status != 0) {
-		if (dhcp_lease_ipv4_is_valid(old_ip) && dhcp_lease_netmask_is_valid(old_mask))
-			rollback_status = wan_dhcp_interface_set(&interface_context, old_ip, old_mask);
-		else
-			rollback_status = wan_dhcp_interface_clear(&interface_context);
+	route_context.interface_context = &interface_context;
+	route_context.prefix = "manv_";
+	route_context.old_gateway = old_gateway;
+	route_context.old_ip = old_ip;
+	route_context.old_mask = old_mask;
+	route_context.route_metric = 10;
+	route_context.remove_dhcp_routes = 1;
+	route_cleanup_status = dhcp_wan_route_transition_apply(
+		0, dhcp_lease_ipv4_is_valid(old_gateway), 1,
+		&wan_dhcp_route_transition_ops, &route_context,
+		&route_rollback_status);
+	if (route_cleanup_status != 0) {
 		logmessage(log_prefix,
 			"previous IPTV route teardown incomplete on %s (error=%d); preserving previous lease and route inventory",
-			man_ifname, route_status);
-		if (rollback_status != 0)
+			man_ifname, route_cleanup_status);
+		if (route_rollback_status != 0)
 			logmessage(log_prefix,
-				"failed to restore previous IPTV address on %s after route teardown failure (error=%d)",
-				man_ifname, rollback_status);
-		return route_status;
+				"failed to restore previous IPTV route inventory on %s (error=%d)",
+				man_ifname, route_rollback_status);
+		return route_cleanup_status;
 	}
 
 	nvram_set_temp("manv_ipaddr", ip);

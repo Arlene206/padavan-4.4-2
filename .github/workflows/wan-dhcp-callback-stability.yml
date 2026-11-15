@@ -239,11 +239,13 @@ jobs:
           assert "failed to clear conflicting IPTV DHCP address" in viptv_bound
           assert "failed to apply IPTV DHCP address" in viptv_bound
           assert "failed to restore previous IPTV DHCP address" in viptv_bound
-          assert viptv_bound.index("dhcp_wan_interface_apply(") < viptv_bound.index('route_result = route_del(man_ifname, 10')
-          assert viptv_bound.index('route_result = del_dhcp_routes_by_prefix("manv_"') < viptv_bound.index('nvram_set_temp("manv_ipaddr", ip)')
-          assert viptv_bound.count("route_status = route_status_accumulate(route_status, route_result);") == 2
+          route_transition = viptv_bound.index("dhcp_wan_route_transition_apply(")
+          assert viptv_bound.index("dhcp_wan_interface_apply(") < route_transition < viptv_bound.index('nvram_set_temp("manv_ipaddr", ip)')
+          assert 'route_context.prefix = "manv_"' in viptv_bound
+          assert "route_rollback_status" in viptv_bound
           assert "preserving previous lease and route inventory" in viptv_bound
-          assert "return route_status;" in viptv_bound
+          assert "failed to restore previous IPTV route inventory" in viptv_bound
+          assert "return route_cleanup_status;" in viptv_bound
           assert "route_result = add_dhcp_routes(rt, rt_rfc, rt_ms, man_ifname, 0);" in viptv_bound
           assert "route_result = route_add(man_ifname, 10" in viptv_bound
           assert viptv_bound.count("route_setup_status = route_status_accumulate(route_setup_status, route_result);") == 2
