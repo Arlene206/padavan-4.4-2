@@ -2,6 +2,10 @@
 
 - Current AliDDNS scratch-directory isolation fix is on main, but the exact 59853 regression [43655773437] identified a malformed nested `sh -c` PID helper command. This commit corrects the runtime quote and logger; exact-head regression must pass before closing the defect. DNSMasq lifecycle and shared process inventory/lifecycle tests passed on 59853; HTTPD auth/security failed and needs separate triage. XY-C1 and NVRAM were pending at the last poll; current L3 and L4 remain NOT VERIFIED.
 
+- Exact e2ae222 main checks passed AliDDNS [43656006432], AliyunDrive [43656006474], process inventory/lifecycle [43656006468], AdGuardHome [43656006400], infosvr [43656006452] and AI docs [43656006411]; NVRAM [43656006425] was still running at last poll.
+- HTTPD Authentication and Security run [43655773458] failed at the DNSMasq restart-policy test compile because its command omitted `-I trunk/user/shared/src` after the policy header gained a dependency on `process_inventory.h`. This commit repairs that workflow compile path; exact-head rerun is required.
+- DNSMasq dedicated lifecycle [43655773415] passed on 59853. XY-C1 current source build/TRX/artifact and L4 remain NOT VERIFIED.
+
 - Preserved branch: backup/pre-plugin-overhaul-2026-11-14 at 72f4f157a084f8184b9597ca5bf334b8080e5807; it remains immutable and outside development.
 - Complete recursive trunk/user tree at daafdae4e97b401a428a0ac65d83a94ebeab0ff5: 9,439 blobs. The remote lexical census scanned 6,193 readable candidate text files (388 binary candidates skipped; zero missing/read errors) at exact source commit d0404d5e33d4239e19c92db9b9ab4fb7529cf26c.
 - Process inventory semantic review and the tri-state/fail-closed scanner foundation are complete within the documented direct-call scope. Do not repeat the 9,439 tracked-blob scan, 6,193 readable-file scan, 77 pids() census or 46 kill_services() census.

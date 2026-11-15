@@ -1,3 +1,13 @@
+## 2026-11-15 — Fix HTTPD security workflow dependency for DNSMasq policy
+
+- Parent main SHA: `e2ae222bdacb7a628bc59c82cc2bba482ef1e3e3`.
+- Exact 59853 HTTPD Authentication and Security workflow run [43655773458], job [132633829952], failed while compiling the DNSMasq restart policy regression: `dnsmasq_restart_policy.h` now includes the public `process_inventory.h`, but this second workflow compiled the test with only `-I trunk/user/rc/src`.
+- The dedicated DNSMasq workflow already passed on 59853 [43655773415], confirming its compile command had the shared include directory. Added the same `-I trunk/user/shared/src` dependency to the HTTPD security workflow's embedded DNSMasq compile. This is a CI integration defect, not an HTTPD production regression.
+- On exact e2ae222 main, AliDDNS [43656006432], AliyunDrive [43656006474], process lifecycle [43656006468], AdGuardHome [43656006400], infosvr [43656006452] and AI docs [43656006411] passed; NVRAM [43656006425] remained IN_PROGRESS at the last poll.
+- Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Repair nested shell command syntax in AliDDNS PID allocator
 
 - Parent main SHA: `1091e2737d7886c60f529e3a9c6d3626a01e9717`.
