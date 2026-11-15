@@ -1086,7 +1086,7 @@ handle_notifications(void)
 		else if (!strcmp(entry->d_name, RCN_RESTART_IPTV))
 		{
 			int is_ap_mode = get_ap_mode();
-			restart_iptv(is_ap_mode);
+			action_result = rc_notify_merge_action_result(action_result, restart_iptv(is_ap_mode));
 			if (!is_ap_mode)
 				restart_firewall();
 		}

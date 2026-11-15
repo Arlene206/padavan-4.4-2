@@ -510,7 +510,7 @@ stop_igmpproxy(char *wan_ifname)
 	return kill_services(svcs, 3, 1);
 }
 
-void
+int
 start_igmpproxy(char *wan_ifname)
 {
 	FILE *fp;
@@ -520,12 +520,16 @@ start_igmpproxy(char *wan_ifname)
 	/* check used IPTV via VLAN interface */
 	viptv_iflast = nvram_safe_get("viptv_ifname");
 	if (*viptv_iflast && is_interface_exist(viptv_iflast) && strcmp(wan_ifname, viptv_iflast))
-		return;
+		return 0;
 
 	/* Do not start replacements until every old IPTV process is confirmed stopped. */
-	if (stop_igmpproxy(wan_ifname) != 0) {
-		logmessage("IPTV", "proxy restart aborted because an existing proxy did not stop");
-		return;
+	{
+		int stop_status = stop_igmpproxy(wan_ifname);
+		if (stop_status != 0) {
+			logmessage("IPTV", "proxy restart aborted because an existing proxy did not stop (status=%d)",
+				   stop_status);
+			return stop_status;
+		}
 	}
 
 	start_udpxy(wan_ifname);
@@ -534,7 +538,7 @@ start_igmpproxy(char *wan_ifname)
 #endif
 
 	if (nvram_invmatch("mr_enable_x", "1"))
-		return;
+		return 0;
 
 	fp = fopen(igmpproxy_conf, "w");
 	if (fp) {
@@ -554,12 +558,14 @@ start_igmpproxy(char *wan_ifname)
 		fclose(fp);
 	}
 
-	eval("/bin/igmpproxy", igmpproxy_conf);
+	return eval("/bin/igmpproxy", igmpproxy_conf);
 }
 
-void
+int
 restart_iptv(int is_ap_mode)
 {
+	int stop_status;
+
 	config_bridge(is_ap_mode);
 
 	if (!is_ap_mode) {
@@ -571,17 +577,20 @@ restart_iptv(int is_ap_mode)
 			wan_ifname = viptv_iflast;
 		else
 			wan_ifname = get_man_ifname(0);
-		start_igmpproxy(wan_ifname);
+		return start_igmpproxy(wan_ifname);
 	} else {
-		if (stop_igmpproxy(NULL) != 0) {
-			logmessage("IPTV", "AP-mode proxy restart aborted because an existing proxy did not stop");
-			return;
+		stop_status = stop_igmpproxy(NULL);
+		if (stop_status != 0) {
+			logmessage("IPTV", "AP-mode proxy restart aborted because an existing proxy did not stop (status=%d)",
+				   stop_status);
+			return stop_status;
 		}
 		start_udpxy(IFNAME_BR);
 #if defined(APP_XUPNPD)
 		start_xupnpd(IFNAME_BR);
 #endif
 	}
+	return 0;
 }
 
 void

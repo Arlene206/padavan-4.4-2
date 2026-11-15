@@ -200,13 +200,24 @@ require(stop_all.count('record_service_stop_status(&stop_status, "WireGuard"') =
 igmp_stop = body(net, "int\nstop_igmpproxy(char *wan_ifname)")
 require("return 0;" in igmp_stop and "return kill_services(" in igmp_stop,
         "IPTV proxy stop must report success only for intentional no-op or verified stop")
-igmp_start = body(net, "void\nstart_igmpproxy(char *wan_ifname)")
-require(igmp_start.index("stop_igmpproxy(wan_ifname) != 0") < igmp_start.index("start_udpxy(wan_ifname)"),
-        "IPTV restart must not launch replacements after a failed stop")
-iptv_restart = body(net, "void\nrestart_iptv(int is_ap_mode)")
-require('stop_igmpproxy(NULL) != 0' in iptv_restart and
-        iptv_restart.index('stop_igmpproxy(NULL) != 0') < iptv_restart.index("start_udpxy(IFNAME_BR)"),
-        "AP-mode IPTV restart must abort replacements after a failed stop")
+igmp_start = body(net, "int\nstart_igmpproxy(char *wan_ifname)")
+require("return stop_status;" in igmp_start and
+        igmp_start.index("return stop_status;") < igmp_start.index("start_udpxy(wan_ifname)") and
+        'return eval("/bin/igmpproxy", igmpproxy_conf);' in igmp_start,
+        "IPTV start must propagate stop and daemon launch status before replacements")
+iptv_restart = body(net, "int\nrestart_iptv(int is_ap_mode)")
+require("return start_igmpproxy(wan_ifname);" in iptv_restart and
+        "stop_status = stop_igmpproxy(NULL);" in iptv_restart and
+        "return stop_status;" in iptv_restart and
+        iptv_restart.index("return stop_status;") < iptv_restart.index("start_udpxy(IFNAME_BR)") and
+        "return 0;" in iptv_restart,
+        "IPTV restart must propagate non-AP/AP stop outcomes and abort failed replacements")
+require("int restart_iptv(int is_ap_mode);" in rc_header and
+        "int start_igmpproxy(char *wan_ifname);" in rc_header,
+        "IPTV start/restart declarations must return checked status")
+iptv_dispatch = body(rc, 'else if (!strcmp(entry->d_name, RCN_RESTART_IPTV))')
+require("rc_notify_merge_action_result(action_result, restart_iptv(is_ap_mode))" in iptv_dispatch,
+        "PID 1 IPTV notification must return restart status to queue")
 require("int stop_igmpproxy(char *wan_ifname);" in rc_header,
         "RC header must export checked IPTV stop status")
 
