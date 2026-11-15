@@ -1,3 +1,11 @@
+## 2026-11-14 — Align VSFTPD checker with checked stop postcondition
+
+- The exact-head VSFTPD run `43671217127` on `ae4fbc507488ac32318f966d9066a3a9b9561c9d` passed its GNU89 regression and the brace-bearing function-parser fixtures, then failed the next source assertion: the checker expected `stop_ftp_locked()` to return the raw `kill_services()` status. Production intentionally passes that status through `storage_service_stop_complete(status, is_ftp_run())`, returns `-1` if the daemon is not confirmed absent, and returns `0` only after that postcondition succeeds.
+- Replaced the stale raw-status assertion with checks for the actual status merge, failure return, success return, and their required ordering. This preserves the stronger production contract instead of weakening it.
+- Product source unchanged. Changed paths: `.github/workflows/vsftpd-stability.yml`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
 ## 2026-11-14 — Preserve DNSMasq UNKNOWN during DDNS cache-purge notification
 
 - Migrated the remaining `services_ex.c::ddns_updated_main()` legacy `pids("dnsmasq")` gate to the existing complete process-inventory scanner. A confirmed RUNNING DNSMasq triggers the best-effort cache purge; confirmed ABSENT skips the unnecessary restart; UNKNOWN or invalid inventory logs the scan error and does not run the purge path.

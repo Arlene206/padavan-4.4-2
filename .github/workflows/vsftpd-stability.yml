@@ -459,7 +459,12 @@ jobs:
 
           stop = function_body(source, "stop_ftp_locked(void)")
           assert "status = kill_services(svcs, 3, 1)" in stop
-          assert "return status" in stop
+          assert "storage_service_stop_complete(status, is_ftp_run())" in stop
+          assert "return -1;" in stop
+          assert "return 0;" in stop
+          assert stop.index("status = kill_services(svcs, 3, 1)") < stop.index(
+              "storage_service_stop_complete(status, is_ftp_run())"
+          ) < stop.index("return -1;") < stop.rindex("return 0;")
           public_stop = function_body(source, "stop_ftp(void)")
           assert public_stop.index("storage_operation_lock_acquire(file_lock)") < public_stop.index("stop_ftp_locked()")
           assert public_stop.index("stop_ftp_locked()") < public_stop.index("file_unlock(storage_lock);")
