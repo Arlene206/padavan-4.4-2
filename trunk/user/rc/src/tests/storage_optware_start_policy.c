@@ -42,6 +42,17 @@ main(void)
 	assert(storage_optware_stop_policy_result(STORAGE_OPTWARE_STOP_RUNNING,
 						 STORAGE_OPTWARE_STOP_RUNNING, 13) == 13);
 
-	puts("deferred Optware child-result, retry, and fail-closed stop policy: PASS");
+	assert(storage_optware_ubi_detach_complete(STORAGE_OPTWARE_STOP_ABSENT,
+						 STORAGE_OPTWARE_STOP_ABSENT));
+	assert(storage_optware_ubi_detach_complete(STORAGE_OPTWARE_STOP_RUNNING,
+						 STORAGE_OPTWARE_STOP_ABSENT));
+	assert(!storage_optware_ubi_detach_complete(STORAGE_OPTWARE_STOP_RUNNING,
+						  STORAGE_OPTWARE_STOP_RUNNING));
+	assert(!storage_optware_ubi_detach_complete(STORAGE_OPTWARE_STOP_RUNNING,
+						  STORAGE_OPTWARE_STOP_UNKNOWN));
+	assert(!storage_optware_ubi_detach_complete(STORAGE_OPTWARE_STOP_UNKNOWN,
+						  STORAGE_OPTWARE_STOP_ABSENT));
+
+	puts("deferred Optware child-result, retry, fail-closed stop, and UBI detach policy: PASS");
 	return 0;
 }

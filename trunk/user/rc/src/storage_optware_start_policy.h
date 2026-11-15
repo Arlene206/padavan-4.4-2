@@ -53,4 +53,16 @@ storage_optware_stop_policy_result(int worker_presence, int group_presence,
 	return 0;
 }
 
+/*
+ * UBI detach is complete only when the pre-state is known and the post-state
+ * confirms that the RWFS UBI device is absent.
+ */
+static inline int
+storage_optware_ubi_detach_complete(int before, int after)
+{
+	return (before == STORAGE_OPTWARE_STOP_ABSENT ||
+		before == STORAGE_OPTWARE_STOP_RUNNING) &&
+		after == STORAGE_OPTWARE_STOP_ABSENT;
+}
+
 #endif /* PADAVAN_STORAGE_OPTWARE_START_POLICY_H */

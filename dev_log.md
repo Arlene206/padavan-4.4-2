@@ -1,3 +1,13 @@
+## 2026-11-15 — Gate storage persistence on checked RWFS/Optware teardown
+
+- shutdown_router() previously called umount_rwfs_partition() only after storage_save_time()/write_storage_to_mtd(); the void helper discarded Optware stop-hook, filesystem unmount and UBI detach failures. MTD Storage could be published while Optware teardown remained incomplete.
+- umount_rwfs_partition() now returns status, verifies the UBI device maps to the RWFS MTD through Linux 4.4's sysfs mtd_num attribute, and requires an ABSENT post-detach state. Already-detached UBI is a safe no-op; unknown identity or failed unmount/detach is an error.
+- Shutdown now stops Optware hooks and unmounts RWFS before MTD persistence, includes its status in the fail-closed gate, and continues power-down after failure. Added policy assertions and production source/order checks.
+- Changed paths: common_ex.c, rc.c, rc.h, storage_optware_start_policy.h and its test, check_storage_safe_remove.py, dev_log.md, SESSION_HANDOFF.md and REFACTOR_ROADMAP.md. Parent SHA: adaa637920c5322e92be2ea7a21d20ed735646b7. Exact-head USB storage, AI docs and XY-C1 checks required; no local build or hardware result is claimed.
+- Exact-parent Actions: VPN server lifecycle stability regression #43682158745 completed/success; Process inventory and lifecycle fail-closed regression #43682158741 completed/success; XY-C1 Firmware Validation #43682158738 in_progress/pending; AI handoff documentation contract #43682158736 completed/success.
+
+---
+
 ## 2026-11-15 — Align HTTPD security resolver contract with tri-state DNSMasq status
 
 - Exact-head HTTPD Authentication/Security run #43679783993 on db4cc443692afec592b224985bf08cb655ac1c04 failed at a stale assertion requiring is_dns_dhcpd_run() in update_resolvconf(). The same parent added dnsmasq_process_status() and deliberately removed that Boolean pids()-based check.

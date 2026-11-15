@@ -797,9 +797,58 @@ void mount_rwfs_partition(void)
 	}
 }
 
-void umount_rwfs_partition(void)
+static int
+rwfs_ubi_attachment_presence(int mtd_rwfs, int *presence)
+{
+	char ubi_path[80], mtd_path[96];
+	struct stat st;
+	FILE *fp;
+	int attached_mtd, path_len;
+
+	if (mtd_rwfs < 0 || !presence)
+		return EINVAL;
+	*presence = STORAGE_OPTWARE_STOP_UNKNOWN;
+	if (stat("/sys/class", &st) != 0 || !S_ISDIR(st.st_mode))
+		return errno ? errno : ENOTDIR;
+
+	path_len = snprintf(ubi_path, sizeof(ubi_path), "/sys/class/ubi/ubi%d", mtd_rwfs);
+	if (path_len < 0 || path_len >= (int)sizeof(ubi_path))
+		return ENAMETOOLONG;
+	if (stat(ubi_path, &st) != 0) {
+		if (errno == ENOENT) {
+			*presence = STORAGE_OPTWARE_STOP_ABSENT;
+			return 0;
+		}
+		return errno ? errno : EIO;
+	}
+	if (!S_ISDIR(st.st_mode))
+		return ENOTDIR;
+
+	path_len = snprintf(mtd_path, sizeof(mtd_path), "%s/mtd_num", ubi_path);
+	if (path_len < 0 || path_len >= (int)sizeof(mtd_path))
+		return ENAMETOOLONG;
+	fp = fopen(mtd_path, "r");
+	if (!fp)
+		return errno ? errno : EIO;
+	if (fscanf(fp, "%d", &attached_mtd) != 1) {
+		int saved_errno = errno ? errno : EIO;
+		(void)fclose(fp);
+		return saved_errno;
+	}
+	if (fclose(fp) != 0)
+		return errno ? errno : EIO;
+	if (attached_mtd != mtd_rwfs)
+		return EBUSY;
+	*presence = STORAGE_OPTWARE_STOP_RUNNING;
+	return 0;
+}
+
+int umount_rwfs_partition(void)
 {
 	int mtd_rwfs;
+	int operation_status;
+	int detach_command_status = 0;
+	int ubi_before, ubi_after;
 	const char *mp_rwfs = MP_MTD_RWFS;
 
 	if (check_if_dir_exist(mp_rwfs)) {
@@ -809,27 +858,51 @@ void umount_rwfs_partition(void)
 		 */
 		if (doSystem("/usr/bin/opt-umount.sh %s %s", "/dev/ubi", mp_rwfs) != 0) {
 			logmessage(LOGNAME, "refusing to unmount RWFS: Optware teardown did not complete");
-			return;
+			return EIO;
 		}
 
 		if (umount(mp_rwfs) == 0) {
 			rmdir(mp_rwfs);
 		} else if (errno != EINVAL && errno != ENOENT) {
+			operation_status = errno ? errno : EIO;
 			logmessage(LOGNAME, "cannot unmount RWFS at %s (errno %d); keeping UBI attached",
-				   mp_rwfs, errno);
-			return;
+				   mp_rwfs, operation_status);
+			return operation_status;
 		}
 	}
 
 	mtd_rwfs = mtd_dev_idx(MTD_PART_NAME_RWFS);
+	if (mtd_rwfs < 0) {
+		logmessage(LOGNAME, "cannot identify RWFS MTD partition; refusing storage persistence");
+		return ENODEV;
+	}
 	if (mtd_rwfs < 3)
-		return;
+		return 0;
 
-	if (!is_module_loaded("ubi"))
-		return;
+	operation_status = rwfs_ubi_attachment_presence(mtd_rwfs, &ubi_before);
+	if (operation_status != 0) {
+		logmessage(LOGNAME, "cannot verify RWFS UBI attachment on MTD%d (status=%d)",
+			   mtd_rwfs, operation_status);
+		return operation_status;
+	}
 
-	if (doSystem("ubidetach -p /dev/mtd%d 2>/dev/null", mtd_rwfs) != 0)
-		logmessage(LOGNAME, "failed to detach RWFS UBI volume on MTD%d", mtd_rwfs);
+	ubi_after = ubi_before;
+	if (ubi_before == STORAGE_OPTWARE_STOP_RUNNING) {
+		detach_command_status = doSystem("ubidetach -p /dev/mtd%d 2>/dev/null", mtd_rwfs);
+		operation_status = rwfs_ubi_attachment_presence(mtd_rwfs, &ubi_after);
+		if (operation_status != 0) {
+			logmessage(LOGNAME, "cannot verify RWFS UBI detach postcondition on MTD%d (status=%d, command=%d)",
+				   mtd_rwfs, operation_status, detach_command_status);
+			return operation_status;
+		}
+	}
+
+	if (!storage_optware_ubi_detach_complete(ubi_before, ubi_after)) {
+		logmessage(LOGNAME, "RWFS UBI remains attached or has unknown state on MTD%d (before=%d, after=%d, command=%d)",
+			   mtd_rwfs, ubi_before, ubi_after, detach_command_status);
+		return EIO;
+	}
+	return 0;
 }
 
 static int rwfs_optware_result_fd = -1;
@@ -1242,7 +1315,7 @@ stop_rwfs_optware(void)
 }
 #else
 inline void mount_rwfs_partition(void) {}
-inline void umount_rwfs_partition(void) {}
+inline int umount_rwfs_partition(void) { return 0; }
 inline void start_rwfs_optware(void) {}
 inline int retry_rwfs_optware(void) { return 0; }
 inline int stop_rwfs_optware(void) { return 0; }

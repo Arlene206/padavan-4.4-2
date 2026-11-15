@@ -8,37 +8,23 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2. Parent main for THIS COMMIT: db4cc443692afec592b224985bf08cb655ac1c04; it adds tri-state DNSMasq process status to resolver publication/reload, retaining last-known-good resolver state and refusing cache reload when daemon presence is UNKNOWN.
-- Immutable backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; read-only and must remain unchanged. Legacy PR #1 remains CLOSED / UNMERGED.
-- Exact parent push Actions: DNSMasq lifecycle #43679783878, Process lifecycle inventory #43679783896, Process inventory/fail-closed #43679783948, VPN #43679783979, AI docs #43679784041, Samba #43679783978, networkmap #43679783891 and numerous other subsystem runs completed SUCCESS. HTTPD Authentication/Security #43679783993 FAILED only on an obsolete source assertion requiring is_dns_dhcpd_run() in update_resolvconf(); parent source now uses dnsmasq_process_status() with RUNNING/ABSENT/UNKNOWN and removes that Boolean helper. This commit repairs the assertion. XY-C1 #43679783864 and NVRAM #43679783958 were IN_PROGRESS at last observation.
-- Exact-source L3 for db4cc443692afec592b224985bf08cb655ac1c04 is NOT VERIFIED until its own XY-C1 MIPS/uClibc build, TRX verification and artifact upload all pass. Historical L3 passed on SHA 335f137a831725f1ed241151d849e160578cca69 only. Physical router L4 remains NOT VERIFIED.
-- No local checkout is available. Do not claim local host tests, target builds or hardware validation; use exact-head Actions evidence only.
-- RC-core caller census of all 36 C translation units found no direct callers for stop_syslogd(), stop_klogd(), stop_udpxy() or stop_xupnpd(); those unused wrappers were deliberately not changed. Preserve the completed audit and do not repeat it.
+- Repository: Arlene206/padavan-4.4-2. Parent main for THIS COMMIT: `adaa637920c5322e92be2ea7a21d20ed735646b7`. Parent includes the checked Optware startup-worker stop before ordinary router service shutdown; this slice adds checked Optware stop hooks, RWFS unmount and verified UBI detach before the MTD Storage snapshot.
+- Immutable backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only. Legacy PR #1 remains CLOSED / UNMERGED; CA/HMAC work is integrated on main.
+- Exact-parent Actions: VPN server lifecycle stability regression #43682158745 completed/success; Process inventory and lifecycle fail-closed regression #43682158741 completed/success; XY-C1 Firmware Validation #43682158738 in_progress/pending; AI handoff documentation contract #43682158736 completed/success. These validate only `adaa637920c5322e92be2ea7a21d20ed735646b7`; fetch fresh USB storage, Process lifecycle, AI docs and XY-C1 Actions for THIS COMMIT.
+- Historical L3 is verified only on `335f137a831725f1ed241151d849e160578cca69`, XY-C1 #43677484373 (MIPS/uClibc build, TRX verification and artifact upload #14147062315, 12,595,529 bytes). No later SHA inherits it. Current L3 and physical L4 are NOT VERIFIED.
+- No local checkout or target toolchain is available. Do not claim local tests, full build or hardware validation.
 
 ## Active task
 
-### Current P1 slice — HTTPD security resolver regression contract (THIS COMMIT)
+### Current P1 slice — gate MTD persistence on RWFS/Optware teardown (THIS COMMIT)
 
-- The db4cc443 source correctly migrated update_resolvconf() away from is_dns_dhcpd_run() to dnsmasq_process_status(): RUNNING restarts DNSMasq, ABSENT skips restart, UNKNOWN returns an error after publishing the resolver file without pretending the cache is fresh.
-- Exact-head HTTPD/security #43679783993 failed because its Python source contract still demanded the removed Boolean helper. This commit updates the assertion to verify the actual tri-state status API and fail-closed behavior; no production code is altered.
-- Exact-head HTTPD/security, AI docs and XY-C1 are required for this workflow/docs commit. Parent DNSMasq lifecycle #43679783878 passed. No local test result is claimed.
+- `shutdown_router()` previously persisted `/etc/storage` to MTD before calling `umount_rwfs_partition()`; the void helper discarded Optware stop-hook, RWFS unmount and UBI detach failures.
+- This slice returns status, verifies UBI identity through `/sys/class/ubi/ubiN/mtd_num`, checks the final ABSENT state, and treats already-detached UBI as a safe no-op. Unknown identity or failed teardown propagates an error.
+- Shutdown now runs Optware stop hooks and unmounts RWFS before `storage_save_time()` and `write_storage_to_mtd()`; failure skips persistence but does not abort power-down. Policy tests and `check_storage_safe_remove.py` enforce status propagation and ordering.
+- Exact parent `adaa637920c5322e92be2ea7a21d20ed735646b7` Actions: VPN server lifecycle stability regression #43682158745 completed/success; Process inventory and lifecycle fail-closed regression #43682158741 completed/success; XY-C1 Firmware Validation #43682158738 in_progress/pending; AI handoff documentation contract #43682158736 completed/success. These do not validate THIS COMMIT; fresh exact-head USB storage, AI docs, Process lifecycle and XY-C1 checks are required.
+- The preceding worker-stop gate prevents a pending startup process from racing service shutdown; this slice covers later Optware stop hooks and RWFS/UBI teardown.
 
-
-### Current P1 slice — normal shutdown custom-hook postcondition (THIS COMMIT)
-
-- `shutdown_router()` invoked the configured `SCRIPT_SHUTDOWN` hook but discarded `doSystem()` status. A failing operator hook could therefore be followed by `storage_save_time()` and `write_storage_to_mtd()`, unlike the already checked firmware-update path.
-- This slice captures/logs the hook status, preserves the remaining power-down and storage-eject sequence, and requires a zero hook status before storage-time or MTD persistence.
-- `scripts/check_process_lifecycle_integration.py` checks capture, diagnostic, exactly-once invocation and ordering before storage eject / MTD persistence. It preserves the concurrent file-write close-status coverage introduced on parent `180e900`.
-- Parent `180e90075a11ad1135ee6801915211548337b52e` exact Actions: Process inventory/fail-closed #43679234773 and AI docs #43679234764 passed; watchdog #43679234947 and WAN DHCP #43679234703 passed. Process lifecycle inventory #43679234730, XY-C1 #43679234754, HTTPD #43679234699, Crond #43679234687, USB storage #43679234861 and NVRAM #43679234792 were pending at last poll. Fresh exact-head Actions are required.
-- The previous source SHA `335f137a831725f1ed241151d849e160578cca69` passed exact Process lifecycle, wireless radio, HTTPD, AI docs, NVRAM and full XY-C1 build/TRX/artifact upload. Its MIPS artifact does not validate this later source.
-- Caller audit: stop_syslogd/stop_klogd and stop_udpxy/stop_xupnpd wrappers discard kill status but have no callsites identified in the RC C source set. stop_logger() and stop_igmpproxy() propagate their grouped stop status. Samba/storage public stop APIs retain locked checked postconditions. Next inspect stop_rwfs_optware() and other legacy void shutdown hooks; do not repeat completed caller scans.
-
-
-
-### Implemented P1 foundation
-
-- New shared tri-state scanner: `trunk/user/shared/src/process_inventory.h`, `process_inventory.c`; states RUNNING/ABSENT/UNKNOWN are distinct, count is separate, identities capture PID/start_time/comm/argv hashes, procfs and allocation ops are injectable, EOF/errors distinguished, partial snapshots are discarded on UNKNOWN.
-- `trunk/user/shared/src/Makefile` includes `process_inventory.o`; the source file and object now match. MIPS job confirmed this object compiled and `libshared.so` installed `process_inventory.h` into `trunk/stage/include/shared`.
+ the source file and object now match. MIPS job confirmed this object compiled and `libshared.so` installed `process_inventory.h` into `trunk/stage/include/shared`.
 - `/proc/PID/stat` field 22 start_time is token 20 after comm. Scanner test asserts concrete value `98765` and exercises disappearance between stat/cmdline.
 - `pids_main()` is now a pure CLI exit-status API: complete RUNNING/ABSENT returns `EXIT_SUCCESS`; UNKNOWN returns `EXIT_FAILURE`; count/PIDs are printed only. This was required because `rc.c` returns its value directly from the `/sbin/pids` applet. Legacy `pids()` remains Boolean-compatible until all 77 callers are migrated.
 - `service_lifecycle_policy.h` includes staged public header `<process_inventory.h>`; Watchdog/HTTPD host compile commands add `-I trunk/user/shared/src`. Their workflow path filters watch the public shared header in push and pull_request events.
@@ -82,7 +68,7 @@ The earlier dd7a XY-C1 run [43624870668] also completed SUCCESS; it is supersede
 
 - All 77 direct `pids()` callers remain legacy Boolean users. Migrate by semantic group; never change `pids()` to negative UNKNOWN until every caller is explicit.
 - LPD PID publication uses exclusive same-directory temporary-file creation and atomic rename after a complete checked write; its strict identity-aware duplicate consumer treats malformed/unreadable records as UNKNOWN. Publication follows successful socket bind; stop does not unlink because that could delete a replacement daemon's newly published record. Shared identity-bound PID publication/signaling now covers detect_internet, detect_link, rstats, watchdog, PPPD base/link daemons, BusyBox udhcpc and INICD. Stop gates also cover VPN client/server, WAN DHCP, AP-LAN DHCP and USB modem teardown. Remaining legacy process-presence callers and broader system shutdown/storage/Samba/NVRAM postconditions remain open.
-- Remaining P1 review: inspect `stop_rwfs_optware()` and other legacy void hooks reachable during normal shutdown; then trace any NVRAM/storage publication that can still follow an unchecked stop. Firmware flash, logger, radio, authentication, WAN, Samba post-stop ABSENT checks and storage-eject gates have already been inspected; do not repeat them.
+- Remaining P1 work: after exact-head validation, audit concrete NVRAM/storage writers whose callers can publish state after unchecked stop, unmount, write, fsync or close failures. Do not repeat the now-checked Optware worker, service-hook, RWFS unmount or UBI detach paths.
 - Continue migrating remaining direct `pids()` caller groups and `kill_pidfile_s()` use sites; audit direct `killall` and signal paths outside `kill_services()`. PPP, udhcpc and iNICD identity producers plus current VPN/WAN/LAN/USB stop gates are already implemented; do not repeat those slices.
 - Linux 4.4 has no `pidfd_send_signal()`; PID/start_time validation leaves a check/kill TOCTOU window. Do not claim atomic identity binding.
 - BusyBox `trunk/user/busybox/busybox-1.24.x/libbb/procps.c` remains a separate scanner and was not changed.
@@ -111,14 +97,13 @@ The earlier dd7a XY-C1 run [43624870668] also completed SUCCESS; it is supersede
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and exact-head Actions once; verify this commit's HTTPD/security, DNSMasq, AI documentation, process lifecycle and XY-C1 by exact head_sha. Inspect any failed job logs.
-2. Then implement the OpenVPN stop-postcondition slice: native numeric writepid files must be mapped through a complete process inventory and revalidated by PID/start-time/argv before TERM/KILL; TAP/TUN stop operations must return status; server/client callers and restart must abort dependent lease/NVRAM/script cleanup on failure. Add source-contract coverage to the existing VPN lifecycle checker/workflow.
-3. The RC-core census has already established no C callsites for stop_syslogd/stop_klogd/stop_udpxy/stop_xupnpd. Do not repeat it or change the unreferenced wrappers. After OpenVPN, inspect stop_rwfs_optware() and stop_storage_services() callers and propagate only meaningful unchecked stop outcomes.
-4. Every production slice must be one complete tree/commit parented to fresh main, update main with expected SHA and force=false, then verify exact-SHA Actions. Continue independent work while CI is pending.
-5. L3 requires exact-source MIPS/uClibc build, TRX verification and artifact upload. L4 physical router flash/boot/runtime remains NOT VERIFIED unless hardware evidence exists.
+1. Fetch live main and exact-head USB storage hotplug, Process lifecycle inventory, AI handoff docs and XY-C1 Actions. Inspect failed jobs; do not carry forward parent statuses. Confirm XY-C1 completed Build, TRX verification and artifact upload before assigning L3.
+2. Continue P1 with a narrow NVRAM/storage writer audit: find a concrete caller that can still publish state after failed stop, unmount, write, fsync or close. Trace the complete caller and status path before changing APIs; avoid speculative edits.
+3. Do not re-audit the checked Optware startup-worker stop, reverse-order Optware service hooks, RWFS unmount, UBI mtd_num identity/postcondition, shutdown-hook/radio/service gates or storage eject lock.
+4. Keep source/tests/workflow/docs in one complete tree/commit parented to fresh main, update with expected SHA and force=false, preserve the immutable backup, and make no local/L4 claims without evidence.
 
 Source/validation notes:
-- Parent main before THIS COMMIT: db4cc443692afec592b224985bf08cb655ac1c04. Immutable backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- Parent exact-head HTTPD/security #43679783993 failed on the stale resolver assertion; DNSMasq #43679783878 passed. New SHA results are not yet known.
-- Root dev_log.md had 96 records before this entry and remains below 120 records / 384 KiB. Preserve archive shards and index byte-for-byte.
+- Parent SHA: `adaa637920c5322e92be2ea7a21d20ed735646b7`; immutable backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Historical L3 only: `335f137a831725f1ed241151d849e160578cca69`, XY-C1 #43677484373, artifact #14147062315. Later sources require their own Build/TRX/upload.
+- Preserve archived dev-log shards and index byte-for-byte.
 

@@ -79,6 +79,9 @@ services_usb = read("trunk/user/rc/src/services_usb.c")
 net = read("trunk/user/rc/src/net.c")
 rc = read("trunk/user/rc/src/rc.c")
 rc_header = read("trunk/user/rc/src/rc.h")
+common_ex_source = read("trunk/user/rc/src/common_ex.c")
+optware_policy = read("trunk/user/rc/src/storage_optware_start_policy.h")
+optware_policy_test = read("trunk/user/rc/src/tests/storage_optware_start_policy.c")
 policy = read("trunk/user/rc/src/storage_service_stop_policy.h")
 ftp_policy = read("trunk/user/rc/src/ftp_daemon_policy.h")
 ftp_test = read("trunk/user/rc/src/tests/ftp_daemon_policy.c")
@@ -386,6 +389,34 @@ require("wan_stop_status == 0" in shutdown[persist_gate:],
 require(shutdown_gate < persist_gate < shutdown.index("storage_save_time(") <
         shutdown.index("write_storage_to_mtd("),
         "shutdown must power down but gate storage persistence on all service-stop/eject results")
+rwfs_unmount = body(common_ex_source, "int umount_rwfs_partition(void)")
+require("int umount_rwfs_partition(void);" in rc_header,
+        "RWFS unmount must expose a checked status")
+require("opt-umount.sh" in rwfs_unmount and "return EIO;" in rwfs_unmount,
+        "Optware stop-hook failure must propagate")
+require("umount(mp_rwfs)" in rwfs_unmount and "return operation_status;" in rwfs_unmount,
+        "RWFS filesystem unmount failure must propagate")
+require("rwfs_ubi_attachment_presence(mtd_rwfs, &ubi_before)" in rwfs_unmount and
+        "rwfs_ubi_attachment_presence(mtd_rwfs, &ubi_after)" in rwfs_unmount,
+        "UBI attachment must be verified before and after detach")
+require("storage_optware_ubi_detach_complete(ubi_before, ubi_after)" in rwfs_unmount,
+        "UBI detach must require confirmed absence")
+ubi_presence = body(common_ex_source, "rwfs_ubi_attachment_presence(int mtd_rwfs, int *presence)")
+require('"/sys/class/ubi/ubi%d"' in ubi_presence and '"%s/mtd_num"' in ubi_presence and
+        'fscanf(fp, "%d", &attached_mtd)' in ubi_presence,
+        "UBI identity must be read from its kernel mtd_num attribute")
+require("storage_optware_ubi_detach_complete" in optware_policy and
+        "STORAGE_OPTWARE_STOP_UNKNOWN" in optware_policy_test,
+        "UBI detach policy must have regression coverage")
+require("rwfs_unmount_status = umount_rwfs_partition();" in shutdown and
+        "rwfs_unmount_status == 0" in shutdown,
+        "shutdown must gate MTD persistence on RWFS teardown")
+rwfs_call = shutdown.index("rwfs_unmount_status = umount_rwfs_partition();")
+require(rwfs_call < persist_gate < shutdown.index("storage_save_time(") <
+        shutdown.index("write_storage_to_mtd("),
+        "RWFS teardown must finish before MTD persistence")
+require(shutdown.count("umount_rwfs_partition(") == 1,
+        "shutdown must not unmount RWFS after MTD persistence")
 
 push_at = workflow.index("  push:\n    paths:\n")
 pr_at = workflow.index("  pull_request:\n    paths:\n")

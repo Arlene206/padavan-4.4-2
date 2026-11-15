@@ -956,6 +956,7 @@ shutdown_router(int level)
 	int auth_stop_status, logger_stop_status = 0;
 	int wifi_wl_stop_status = 0, wifi_rt_stop_status = 0;
 	int optware_stop_status = 0;
+	int rwfs_unmount_status = 0;
 	int shutdown_script_status = 0;
 	const char *script_name = SCRIPT_SHUTDOWN;
 
@@ -1022,6 +1023,11 @@ shutdown_router(int level)
 	if (wifi_rt_stop_status != 0)
 		logmessage(LOGNAME, "2.4GHz radio shutdown incomplete; continuing power-down without storage persistence");
 
+	/* Stop Optware hooks and detach RWFS before publishing MTD storage. */
+	rwfs_unmount_status = umount_rwfs_partition();
+	if (rwfs_unmount_status != 0)
+		logmessage(LOGNAME, "RWFS/Optware teardown incomplete; continuing power-down without storage persistence");
+
 	LED_CONTROL(LED_WAN, LED_OFF);
 
 	if (storage_remove_status == 0 && misc_stop_status == 0 &&
@@ -1029,17 +1035,17 @@ shutdown_router(int level)
 	    wan_stop_status == 0 && lan_wan_stop_status == 0 &&
 	    auth_stop_status == 0 && logger_stop_status == 0 &&
 	    wifi_wl_stop_status == 0 && wifi_rt_stop_status == 0 &&
-	    optware_stop_status == 0 && shutdown_script_status == 0) {
+	    optware_stop_status == 0 && rwfs_unmount_status == 0 &&
+	    shutdown_script_status == 0) {
 		storage_save_time(10);
 		write_storage_to_mtd();
 	} else {
-		logmessage(LOGNAME, "skipping storage MTD persistence because shutdown-hook, safe-eject or service-stop completion was not verified");
+		logmessage(LOGNAME, "skipping storage MTD persistence because shutdown-hook, RWFS/Optware teardown, safe-eject or service-stop completion was not verified");
 	}
 
 	if (level < 2)
 		stop_lan(is_ap_mode);
 
-	umount_rwfs_partition();
 
 	if (use_halt) {
 		module_smart_unload("hw_nat", 0);
