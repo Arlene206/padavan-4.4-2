@@ -234,6 +234,12 @@ for daemon in ("p910nd", "lpd", "u2ec", "IPTV proxies",
     require('record_service_stop_status(&stop_status, "' + daemon + '"' in stop_all,
             "stop_services must aggregate stop status: " + daemon)
 
+optional_identity_processes = {
+    "scutclient": "bin_scutclient",
+    "mentohust": "bin_mentohust",
+    "vlmcsd": "vlmcsd",
+    "iperf3": "iperf3",
+}
 for name, script in (
     ("scutclient", "/usr/bin/scutclient.sh"),
     ("mentohust", "/usr/bin/mentohust.sh"),
@@ -252,10 +258,35 @@ for name, script in (
     ("aliddns", "/usr/bin/aliddns.sh"),
 ):
     stop_body = body(services, "int stop_" + name + "(void)")
-    require('return eval("' + script + '","stop");' in stop_body,
-            "optional service stop must propagate its shell status: " + name)
+    if name in optional_identity_processes:
+        normalized = " ".join(stop_body.split())
+        expected = ('return optional_daemon_stop_status("{0}", "{1}", '
+                    'eval("{2}", "stop"));').format(
+                        name, optional_identity_processes[name], script)
+        require(expected in normalized,
+                "identity-managed stop must preserve command status and verify daemon absence: " + name)
+    else:
+        require('return eval("' + script + '","stop");' in stop_body,
+                "optional service stop must propagate its shell status: " + name)
     require("int stop_" + name + "(void);" in rc_header,
             "RC header must expose checked stop status: " + name)
+
+optional_policy = read("trunk/user/rc/src/optional_daemon_policy.h")
+optional_presence = body(services, "optional_daemon_presence(const char *process_name, int *scan_error)")
+require("process_inventory_scan(process_name, &snapshot)" in optional_presence and
+        "process_snapshot_release(&snapshot)" in optional_presence and
+        "PROCESS_PRESENCE_UNKNOWN" in optional_presence,
+        "optional daemon inventory must preserve UNKNOWN and release its snapshot")
+optional_stop = body(services, "optional_daemon_stop_status(const char *service_name, const char *process_name,")
+require("optional_daemon_presence(process_name, &scan_error)" in optional_stop and
+        "optional_daemon_stop_complete(command_status, presence)" in optional_stop,
+        "optional daemon stop must verify tri-state process absence after the command")
+stop_policy = body(optional_policy, "optional_daemon_stop_complete(int command_status, enum process_presence state)")
+require("if (command_status != 0)" in stop_policy and
+        "return command_status;" in stop_policy and
+        "state == PROCESS_PRESENCE_ABSENT ? 0 : -1" in stop_policy,
+        "optional daemon stop policy must preserve command errors and require confirmed ABSENT")
+
 zerotier_stop = body(services, "int stop_zerotier(void)")
 require('return eval("/usr/bin/zerotier.sh","stop");' in zerotier_stop and
         "int stop_zerotier(void);" in rc_header,
@@ -340,13 +371,15 @@ for path in ("trunk/user/libdisk/src/disk_initial.c",
              "trunk/user/libdisk/src/disk_initial.h",
              "trunk/user/libdisk/src/disk_inventory_policy.h",
              "trunk/user/libdisk/src/tests/disk_inventory_policy.c",
-             "scripts/check_storage_safe_remove.py"):
+             "scripts/check_storage_safe_remove.py",
+             "trunk/user/rc/src/optional_daemon_policy.h"):
     require('"' + path + '"' in push_filters, "storage push filter missing " + path)
     require('"' + path + '"' in pull_filters, "storage pull_request filter missing " + path)
 for path in ("trunk/user/libdisk/src/disk_initial.c",
              "trunk/user/libdisk/src/disk_initial.h",
              "trunk/user/libdisk/src/disk_inventory_policy.h",
-             "trunk/user/rc/src/storage_service_stop_policy.h"):
+             "trunk/user/rc/src/storage_service_stop_policy.h",
+             "trunk/user/rc/src/optional_daemon_policy.h"):
     require('"' + path + '"' in xy_workflow, "XY-C1 target build does not watch " + path)
 
 print("Storage eject inventory, failure propagation and persistence gates: PASS")

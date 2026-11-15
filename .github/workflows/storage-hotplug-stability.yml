@@ -5,6 +5,7 @@ on:
     paths:
       - "trunk/user/rc/src/net.c"
       - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/optional_daemon_policy.h"
       - "trunk/user/rc/src/services_usb.c"
       - ".github/workflows/storage-hotplug-stability.yml"
       - "trunk/user/rc/src/rc.c"
@@ -49,6 +50,7 @@ on:
     paths:
       - "trunk/user/rc/src/net.c"
       - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/optional_daemon_policy.h"
       - "trunk/user/rc/src/services_usb.c"
       - ".github/workflows/storage-hotplug-stability.yml"
       - "trunk/user/rc/src/rc.c"

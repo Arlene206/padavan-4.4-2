@@ -1,3 +1,13 @@
+## 2026-11-15 10:18 CST — Align storage stop contract with identity-verified optional daemons
+
+- USB storage hotplug run `43666309989` on `f0df8c0b2a9f9e07178e733e9945e6fa325b8f75` passed the storage lifecycle graph checks but failed at `scripts/check_storage_safe_remove.py:255`. The checker still required four stop functions to directly return `eval(..., "stop")`; production correctly routes SCUT/MentoHUST/VLMCSd/iperf3 through `optional_daemon_stop_status()` so it can also require a complete process inventory proving ABSENT.
+- Updated the contract to require the exact command-status argument and identity-specific process name for those four wrappers, and to verify UNKNOWN-preserving snapshot cleanup plus the shared policy's command-error precedence and confirmed-ABSENT requirement. Other daemon wrappers retain their direct launcher-status assertions.
+- Added `optional_daemon_policy.h` to storage hotplug and XY-C1 push path filters because the production RC source includes it; this closes a target-build trigger gap as well as the host contract trigger.
+- Changed paths: `scripts/check_storage_safe_remove.py`, `.github/workflows/storage-hotplug-stability.yml`, `.github/workflows/xy-c1-firmware-validation.yml`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
+
 ## 2026-11-15 10:12 CST — Repair PID 1 workflow trigger and regression integration
 
 - Exact-head run `43666576198` on `ff59679e8114b2b6156c3f235c9ff4a665d4d802` failed before creating a job (GitHub reports zero jobs). The workflow trigger block still contained a stray unindented path fragment, had lost its `pull_request` section, and therefore could not provide the required symmetric path coverage.
