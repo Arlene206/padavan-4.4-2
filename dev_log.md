@@ -1,9 +1,9 @@
-## 2026-11-16 06:01 Beijing — Restore PID-unique Transmission settings staging
+## 2026-11-16 06:05 Beijing — Correct Transmission PID-unique settings staging
 
-- Exact parent c0 USB storage run #43767296645 failed in the deterministic pre-existing-stage collision test: production had `settings.json.tmp.$` (one dollar), so the fixture's `tmp.$$ ` rewrite did not match and Transmission proceeded to launch.
-- Restored `CONFIG_TMP="${CONFIG_FILE}.tmp.$$"`, preserving per-process staging isolation and making the collision regression exercise the real noclobber ownership path. The production ownership guard continues to remove only files successfully created by this invocation.
-- No local checkout was available to run the shell harness in this session; syntax and behavioral verification are delegated to the exact-head host + firmware BusyBox ash storage workflow. Do not claim L2 before that workflow passes.
-- Parent main: `c0d287c2e1cacbf93dd20dccea9daf39e84d9324`. Exact parent AI handoff docs #43767296578 PASS; parent XY-C1 #43767296597 and NVRAM #43767296583 were pending at last inspection. Exact-head storage and XY-C1 for THIS COMMIT are required. Previous XY-C1 #43765742001 L3 is limited to 4d2 source. No L4.
+- Exact c0 USB storage run #43767296645 failed in the pre-existing-stage collision regression: the test fixture correctly rewrites a PID-qualified suffix, but the live launcher still used `settings.json.tmp.$`, so the intended collision did not occur and daemon startup proceeded.
+- The intervening b21 checkpoint left the production source blob unchanged; this commit now changes the assignment to `CONFIG_TMP="${CONFIG_FILE}.tmp.$$"`. The existing collision regression will exercise the real noclobber failure and the ownership-aware cleanup guard, requiring the foreign file to remain byte-for-byte unchanged.
+- No local repository checkout or local shell execution was available. Host shell and firmware BusyBox ash validation are pending on the exact new SHA; do not claim L2 until they pass.
+- Parent main: `b21b95b3e1858ae752ef7dc34259204524e484e4`. Exact c0 AI handoff docs #43767296578 PASS; c0 Process inventory #43767296590, Process lifecycle #43767296606, infosvr #43767296612, AliDDNS #43767296621, AliyunDrive #43767296670 and AdGuardHome #43767296717 PASS. c0 XY-C1 #43767296597 predates this fix. New exact-head storage and XY-C1 checks required. No L3/L4 claim.
 
 ---
 

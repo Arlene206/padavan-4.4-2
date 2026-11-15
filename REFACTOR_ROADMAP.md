@@ -1,18 +1,17 @@
 ## Current source / CI checkpoint
 
-- Parent main for the PID-unique Transmission staging-suffix repair: c0d287c2e1cacbf93dd20dccea9daf39e84d9324; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact parent c0 USB storage run #43767296645 FAILED in the new stage-collision regression: production used `settings.json.tmp. instead of the expected PID-unique `settings.json.tmp.$`, so the fixture did not create a collision and observed an unintended daemon start. THIS COMMIT restores the process-unique suffix; exact-head regression is pending.
-- Exact parent AI handoff docs #43767296578 PASS after the root log was rotated to part-011 (100 records) and retained the newest 21 root records. Existing archive shards/index are preserved.
-- Other exact parent c0 checks passed: Process inventory #43767296590, Process lifecycle #43767296606, infosvr #43767296612, AliDDNS #43767296621, AliyunDrive #43767296670 and AdGuardHome #43767296717. XY-C1 #43767296597 and NVRAM #43767296583 were still running at last inspection.
-- XY-C1 #43765742001 passed Build/TRX/artifact only on source 4d2afeddba949b77dcbe1a8f6f950e9093438910; no later-SHA L3 or L4 claim.
+- Parent main for this Transmission staging-suffix correction: b21b95b3e1858ae752ef7dc34259204524e484e4; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact c0 USB storage #43767296645 FAILED in the pre-existing stage-collision regression. The fixture replaces the PID-qualified `settings.json.tmp.$$` suffix; production had a single-dollar suffix, so no collision occurred and Transmission started. The b21 source blob remained unchanged; THIS COMMIT restores the PID-qualified stage path.
+- Exact c0 AI handoff docs #43767296578 PASS. Process inventory #43767296590, Process lifecycle #43767296606, infosvr #43767296612, AliDDNS #43767296621, AliyunDrive #43767296670 and AdGuardHome #43767296717 also PASS. c0 XY-C1 #43767296597 and NVRAM #43767296583 were pending at last inspection.
+- XY-C1 #43765742001 passed Build/TRX/artifact only for source SHA 4d2afeddba949b77dcbe1a8f6f950e9093438910; it does not validate this change. No current L3 or L4 claim.
 
 ### P1 — Storage daemon startup and config publication
 
 - Transmission and Aria preserve start-stop-daemon status independently from logger.
 - Transmission checks config/download/incomplete/watch directory creation, watch/root/download chmod and config/incomplete chown before daemon launch. Settings generation validates generator status, nonempty output and required umask 18; sed status and resulting umask 0; same-directory rename; and final regular/nonempty file.
-- Staging is process-unique as `settings.json.tmp.$`. `CONFIG_TMP_OWNED` ensures only the current invocation's successfully created stage is deleted on generator/transform/publication failure. The deterministic pre-existing-stage collision regression is present and is now aligned with the production PID suffix.
-- Exact parent a391 storage #43765111683 PASS for host + firmware BusyBox ash preconditions. Exact c0 storage #43767296645 FAIL due to the suffix mismatch above; this commit restores it and requires fresh exact-head validation.
-- Aria uses PID-unique `aria2.conf.tmp.$` staging and `entered.$`/`checked.$` two-phase concurrency markers; retain existing fault and parallel-start tests.
+- Transmission settings staging must remain process-unique as `settings.json.tmp.$$`. `CONFIG_TMP_OWNED` ensures only this invocation's successfully created stage is removed after generator/transform/publication failure. The existing collision regression pre-creates the deterministic replacement path and checks that it remains intact.
+- Exact parent a391 storage #43765111683 PASS for the earlier host + firmware BusyBox ash checks. Exact c0 storage #43767296645 FAIL due to the single-dollar suffix regression; this commit restores the PID suffix and requires fresh exact-head validation.
+- Aria uses PID-unique `aria2.conf.tmp.$$` staging and `entered.$$`/`checked.$$` two-phase concurrency markers; retain existing fault and parallel-start tests.
 
 ## Whole-repository module status
 

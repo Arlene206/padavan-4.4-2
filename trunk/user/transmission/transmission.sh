@@ -80,7 +80,7 @@ func_start()
 		return 1
 	fi
 	if [ ! -s "$CONFIG_FILE" ]; then
-		CONFIG_TMP="${CONFIG_FILE}.tmp.$"
+		CONFIG_TMP="${CONFIG_FILE}.tmp.$$"
 		CONFIG_TMP_OWNED=0
 		if ! (umask 077; set -C; : > "$CONFIG_TMP") 2>/dev/null; then
 			transmission_start_fail "cannot create private settings staging file"
