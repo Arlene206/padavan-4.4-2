@@ -13,7 +13,7 @@ SVC_NAME="Transmission"
 SVC_PATH="/usr/bin/transmission-daemon"
 DIR_LINK="/mnt/transmission"
 
-transmission_config_fail()
+transmission_start_fail()
 {
 	if [ -n "$CONFIG_TMP" ]; then
 		rm -f "$CONFIG_TMP" >/dev/null 2>&1 || true
@@ -22,6 +22,16 @@ transmission_config_fail()
 	logger -t "$SVC_NAME" "Cannot start: $1" >/dev/null 2>&1 || true
 	echo "[FAILED]"
 	return 1
+}
+transmission_require_dir()
+{
+	if [ ! -d "$1" ]; then
+		if ! mkdir -p "$1" || [ ! -d "$1" ]; then
+			transmission_start_fail "cannot create required directory: $1"
+			return 1
+		fi
+	fi
+	return 0
 }
 func_start()
 {
@@ -45,13 +55,15 @@ func_start()
 	DIR_DL2="${DIR_LINK}/incomplete"
 	DIR_DL3="${DIR_LINK}/watch"
 	
-	[ ! -d "$DIR_CFG" ] && mkdir -p "$DIR_CFG"
-	[ ! -d "$DIR_DL1" ] && mkdir -p "$DIR_DL1"
-	[ ! -d "$DIR_DL2" ] && mkdir -p "$DIR_DL2"
-	[ ! -d "$DIR_DL3" ] && mkdir -p "$DIR_DL3"
-	
-	# full acces for watch dir
-	chmod 777 "$DIR_DL3"
+	# Do not start with missing storage directories or failed watch permissions.
+	transmission_require_dir "$DIR_CFG" || return 1
+	transmission_require_dir "$DIR_DL1" || return 1
+	transmission_require_dir "$DIR_DL2" || return 1
+	transmission_require_dir "$DIR_DL3" || return 1
+	if ! chmod 777 "$DIR_DL3"; then
+		transmission_start_fail "cannot set watch directory permissions"
+		return 1
+	fi
 	
 	tr_pport=`nvram get trmd_pport`
 	tr_rport=`nvram get trmd_rport`
@@ -60,41 +72,41 @@ func_start()
 	CONFIG_FILE="$DIR_CFG/settings.json"
 	CONFIG_TMP=""
 	if [ -L "$CONFIG_FILE" ] || { [ -e "$CONFIG_FILE" ] && [ ! -f "$CONFIG_FILE" ]; }; then
-		transmission_config_fail "settings path is not a regular file"
+		transmission_start_fail "settings path is not a regular file"
 		return 1
 	fi
 	if [ ! -s "$CONFIG_FILE" ]; then
 		CONFIG_TMP="${CONFIG_FILE}.tmp.$$"
 		if ! (umask 077; set -C; : > "$CONFIG_TMP") 2>/dev/null; then
-			transmission_config_fail "cannot create private settings staging file"
+			transmission_start_fail "cannot create private settings staging file"
 			return 1
 		fi
 		tr_user=`nvram get http_username`
 		tr_pass=`nvram get http_passwd`
 		if ! "$SVC_PATH" -w "$DIR_DL1" --incomplete-dir "$DIR_DL2" -c "$DIR_DL3" --no-incomplete-dir -y -L 90 -l 30 --no-utp -M -t -u "$tr_user" -v "$tr_pass" -P "$tr_pport" -p "$tr_rport" -x /var/run/transmission.pid -d 2>"$CONFIG_TMP"; then
-			transmission_config_fail "default settings generator failed"
+			transmission_start_fail "default settings generator failed"
 			return 1
 		fi
 		if [ ! -s "$CONFIG_TMP" ]; then
-			transmission_config_fail "default settings generator produced an empty file"
+			transmission_start_fail "default settings generator produced an empty file"
 			return 1
 		fi
 		if ! sed -i 's|"umask": 18,|"umask": 0,|g' "$CONFIG_TMP"; then
-			transmission_config_fail "default settings transform failed"
+			transmission_start_fail "default settings transform failed"
 			return 1
 		fi
 		if [ ! -s "$CONFIG_TMP" ]; then
-			transmission_config_fail "default settings transform produced an empty file"
+			transmission_start_fail "default settings transform produced an empty file"
 			return 1
 		fi
 		if ! mv "$CONFIG_TMP" "$CONFIG_FILE"; then
-			transmission_config_fail "default settings publication failed"
+			transmission_start_fail "default settings publication failed"
 			return 1
 		fi
 		CONFIG_TMP=""
 	fi
 	if [ -L "$CONFIG_FILE" ] || [ ! -f "$CONFIG_FILE" ] || [ ! -s "$CONFIG_FILE" ]; then
-		transmission_config_fail "published settings are missing or empty"
+		transmission_start_fail "published settings are missing or empty"
 		return 1
 	fi
 	
@@ -102,10 +114,22 @@ func_start()
 	
 	# check start-stop-daemon stuff
 	if [ $SVC_ROOT -eq 0 ] ; then
-		chmod 777 "${DIR_LINK}"
-		chown -R nobody "$DIR_CFG"
-		chown -R nobody "$DIR_DL2"
-		chmod -R 777 "$DIR_DL1"
+		if ! chmod 777 "${DIR_LINK}"; then
+			transmission_start_fail "cannot set transmission storage directory permissions"
+			return 1
+		fi
+		if ! chown -R nobody "$DIR_CFG"; then
+			transmission_start_fail "cannot assign config directory ownership"
+			return 1
+		fi
+		if ! chown -R nobody "$DIR_DL2"; then
+			transmission_start_fail "cannot assign incomplete directory ownership"
+			return 1
+		fi
+		if ! chmod -R 777 "$DIR_DL1"; then
+			transmission_start_fail "cannot set download directory permissions"
+			return 1
+		fi
 		svc_user=" -c nobody"
 	fi
 	

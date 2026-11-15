@@ -1,3 +1,13 @@
+## 2026-11-16 06:05 Beijing — Fail closed on Transmission storage setup and ownership errors
+
+- Replaced unchecked Transmission `mkdir -p` calls with `transmission_require_dir()`, which checks both command status and resulting directory postcondition for config, downloads, incomplete and watch paths. A failed watch chmod now aborts startup.
+- Under SVC_ROOT=0, checks chmod of the storage root and download directory and chown of config/incomplete directories. Any failure is logged, returns nonzero and prevents `start-stop-daemon` invocation.
+- Extended the shared launcher harness with injectable mkdir/chmod/chown failures and cases for each required directory/permission/ownership operation. Tests require that no daemon launch occurs after any setup failure and no config staging file is left behind.
+- Parent main: `a9b32e72faab490c0bf5fbcd6680ff55d568324e`. Source/test/docs are staged for one atomic commit; exact-head storage Actions pending. No firmware C changes or new L3/L4 claim.
+- Next: check exact-head storage host + BusyBox ash workflow, then inspect remaining unchecked optional setup and service postconditions.
+
+---
+
 ## 2026-11-16 05:51 Beijing — Fix storage regression shell boundary and refresh PID-path docs
 
 - Review of exact committed test source found the regenerated `run_launcher()` block had been concatenated directly with `assert_failure()` as `}assert_failure()`. Added the required newline so the shell parses the two function definitions separately.

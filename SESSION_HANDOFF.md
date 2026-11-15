@@ -41,9 +41,9 @@ For each logical task, create all source/test/doc blobs, one complete Git tree a
 
 Aria's production temp suffix and the test's two-phase barrier are now PID-qualified; exact-head storage #43763413862 passes on df267. The handoff literal checker, infosvr heading contract, and alternate udpxy feature-path regression are also closed (all df267 push workflows PASS).
 
-Aria's source and two-phase test markers are now PID-unique (`aria2.conf.tmp.$`, `entered.$`, `checked.$`); exact df267 storage run #43763413862 passed.
+Aria's source and two-phase test markers are now PID-unique (`aria2.conf.tmp.$$`, `entered.$$`, `checked.$$`); exact df267 storage run #43763413862 passed.
 
-The prior b488/df267 repairs also restored the literal AI/docs and infosvr heading contracts and the alternate `/usr/sbin/udpxy` non-MSD-Lite build path; all current exact-head checks are green. the handoff adds the required `Before context exhaustion` phrase and restores the exact singular heading `## Exact first action for the next GPT`; `start_udpxy()` restores the legacy `/usr/sbin/udpxy` `#else` branch for firmware builds without `APP_MSD_LITE`. The process lifecycle checker had caught that real feature-path regression after the MSD Lite refactor.
+The prior b488/df267 repairs restored the required AI handoff and infosvr heading contracts plus the alternate `/usr/sbin/udpxy` non-MSD-Lite build path; all exact-head df267 checks are green.
 
 ## Completed source slice — MSD Lite configuration publication
 

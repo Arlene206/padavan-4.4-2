@@ -6,7 +6,7 @@
 - Storage fixes: Transmission/Aria explicit launch status; Aria staged atomic default config and fail-closed directory/session/permission setup. Transmission's default settings generator, sed transform and rename are still unchecked in live source; no PID-qualified settings staging exists yet.
 - Aria now uses `aria2.conf.tmp.$$`; the regression uses process-unique `entered.$$` and `checked.$$` rendezvous markers. Exact df267 storage run #43763413862 PASS.
 - Exact df267 push Actions all PASS: storage #43763413862, AI docs #43763413814, Process inventory #43763413812, Process lifecycle #43763413775, infosvr #43763413761, AliDDNS #43763413799, AliyunDrive #43763413767, AdGuardHome #43763413821 and NVRAM #43763413864. Earlier b488 XY-C1 cross-build #43762907958 PASS.
-- The Aria two-phase cat barrier now uses literal `entered.$` and `checked.$` names; exact-head storage regression #43763413862 on df267 passes.
+- The Aria two-phase cat barrier now uses literal `entered.$$` and `checked.$$` names; exact-head storage regression #43763413862 on df267 passes.
 
 ### P1 — Storage daemon startup and config publication
 

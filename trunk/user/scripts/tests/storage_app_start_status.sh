@@ -106,12 +106,31 @@ if [ "${STORAGE_TEST_MV_STATUS:-0}" -ne 0 ]; then
 fi
 exec /bin/mv "$@"
 EOF
+cat > "$STUB_DIR/mkdir" <<'EOF'
+#!/bin/sh
+if [ -n "${STORAGE_TEST_MKDIR_FAIL_PATH:-}" ]; then
+	for path in "$@"; do
+		[ "$path" = "$STORAGE_TEST_MKDIR_FAIL_PATH" ] && exit 9
+	done
+fi
+exec /bin/mkdir "$@"
+EOF
 cat > "$STUB_DIR/chown" <<'EOF'
 #!/bin/sh
+if [ -n "${STORAGE_TEST_CHOWN_FAIL_PATH:-}" ]; then
+	for path in "$@"; do
+		[ "$path" = "$STORAGE_TEST_CHOWN_FAIL_PATH" ] && exit 9
+	done
+fi
 exit 0
 EOF
 cat > "$STUB_DIR/chmod" <<'EOF'
 #!/bin/sh
+if [ -n "${STORAGE_TEST_CHMOD_FAIL_PATH:-}" ]; then
+	last=""
+	for path in "$@"; do last="$path"; done
+	[ "$last" = "$STORAGE_TEST_CHMOD_FAIL_PATH" ] && exit 9
+fi
 exit 0
 EOF
 chmod 755 "$STUB_DIR/"*
@@ -134,14 +153,17 @@ run_launcher()
 	cat_barrier=${7:-}
 	config_dir=${8:-}
 	temp_count=${9:-}
+	mkdir_fail_path=${13:-}
+	chmod_fail_path=${14:-}
+	chown_fail_path=${15:-}
 	generator_status=${10:-0}
 	sed_status=${11:-0}
 	generator_empty=${12:-0}
 	if [ -n "${BUSYBOX_BIN:-}" ]; then
-		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" \
+		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" STORAGE_TEST_MKDIR_FAIL_PATH="$mkdir_fail_path" STORAGE_TEST_CHMOD_FAIL_PATH="$chmod_fail_path" STORAGE_TEST_CHOWN_FAIL_PATH="$chown_fail_path" \
 			"$BUSYBOX_BIN" ash "$launcher" start >/dev/null 2>&1
 	else
-		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" \
+		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" STORAGE_TEST_MKDIR_FAIL_PATH="$mkdir_fail_path" STORAGE_TEST_CHMOD_FAIL_PATH="$chmod_fail_path" STORAGE_TEST_CHOWN_FAIL_PATH="$chown_fail_path" \
 			sh "$launcher" start >/dev/null 2>&1
 	fi
 }
@@ -222,6 +244,45 @@ run_transmission_config_failure empty-output 0 0 0 1
 run_transmission_config_failure transform 0 9 0 0
 run_transmission_config_failure publish 0 0 9 0
 run_transmission_config_success
+run_transmission_setup_failure()
+{
+	phase=$1
+	mode=$2
+	fail_path=$3
+	setup_root="$TMP_DIR/transmission-setup-$phase"
+	link_root="$setup_root/mount"
+	mkdir -p "$link_root"
+	mkdir_fail_path=""
+	chmod_fail_path=""
+	chown_fail_path=""
+	case "$mode" in
+		mkdir) mkdir_fail_path="$fail_path" ;;
+		chmod) chmod_fail_path="$fail_path" ;;
+		chown) chown_fail_path="$fail_path" ;;
+		*) echo "Unknown setup failure mode: $mode" >&2; exit 1 ;;
+	esac
+	sed -e "s|SVC_PATH=\"/usr/bin/transmission-daemon\"|SVC_PATH=\"$STUB_DIR/transmission-daemon\"|" \
+	    -e "s|DIR_LINK=\"/mnt/transmission\"|DIR_LINK=\"$link_root\"|" \
+	    "$TRANSMISSION_SRC" > "$TMP_DIR/transmission-setup-$phase.sh"
+	marker="$link_root/start-invoked"
+	if run_launcher "$TMP_DIR/transmission-setup-$phase.sh" 0 0 0 0 "$marker" "" "" "" 0 0 0 "$mkdir_fail_path" "$chmod_fail_path" "$chown_fail_path"; then
+		echo "Transmission started despite $phase setup failure" >&2
+		exit 1
+	fi
+	[ ! -e "$marker" ] || { echo "Transmission daemon launch was attempted after $phase setup failure" >&2; exit 1; }
+	for tmp_settings in "$link_root/config"/settings.json.tmp.*; do
+		[ ! -e "$tmp_settings" ] || { echo "Transmission left a staging file after $phase setup failure" >&2; exit 1; }
+	done
+}
+run_transmission_setup_failure mkdir-config mkdir "$TMP_DIR/transmission-setup-mkdir-config/mount/config"
+run_transmission_setup_failure mkdir-downloads mkdir "$TMP_DIR/transmission-setup-mkdir-downloads/mount/downloads"
+run_transmission_setup_failure mkdir-incomplete mkdir "$TMP_DIR/transmission-setup-mkdir-incomplete/mount/incomplete"
+run_transmission_setup_failure mkdir-watch mkdir "$TMP_DIR/transmission-setup-mkdir-watch/mount/watch"
+run_transmission_setup_failure chmod-watch chmod "$TMP_DIR/transmission-setup-chmod-watch/mount/watch"
+run_transmission_setup_failure chmod-root chmod "$TMP_DIR/transmission-setup-chmod-root/mount"
+run_transmission_setup_failure chown-config chown "$TMP_DIR/transmission-setup-chown-config/mount/config"
+run_transmission_setup_failure chown-incomplete chown "$TMP_DIR/transmission-setup-chown-incomplete/mount/incomplete"
+run_transmission_setup_failure chmod-downloads chmod "$TMP_DIR/transmission-setup-chmod-downloads/mount/downloads"
 run_aria_config_failure()
 {
 	phase=$1
