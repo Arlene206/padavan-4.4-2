@@ -274,6 +274,14 @@ assert "void stop_logger(void);" not in rc_header
 assert "logger_stop_status = stop_logger();" in shutdown
 assert "logger_stop_status == 0" in shutdown
 assert shutdown.count("stop_logger();") == 1
+assert "int shutdown_script_status = 0;" in shutdown
+assert 'shutdown_script_status = doSystem("%s %d", script_name, level);' in shutdown
+assert "if (shutdown_script_status != 0)" in shutdown
+assert "custom shutdown script failed" in shutdown
+assert "shutdown_script_status == 0" in shutdown
+assert shutdown.count('doSystem("%s %d", script_name, level);') == 1
+assert shutdown.index("shutdown_script_status = doSystem(") < shutdown.index("safe_remove_all_stor_devices(")
+assert shutdown.index("shutdown_script_status = doSystem(") < shutdown.index("if (storage_remove_status == 0")
 assert shutdown.index("logger_stop_status = stop_logger();") < shutdown.index("if (storage_remove_status == 0")
 assert shutdown.index("if (storage_remove_status == 0") < shutdown.index("write_storage_to_mtd();")
 assert "logger_stop_status != 0" in syslog_restart

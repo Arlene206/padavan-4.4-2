@@ -955,6 +955,7 @@ shutdown_router(int level)
 	int wan_stop_status, lan_wan_stop_status = 0;
 	int auth_stop_status, logger_stop_status = 0;
 	int wifi_wl_stop_status = 0, wifi_rt_stop_status = 0;
+	int shutdown_script_status = 0;
 	const char *script_name = SCRIPT_SHUTDOWN;
 
 	/* Prevent a late Optware start hook from racing service shutdown. */
@@ -969,8 +970,12 @@ shutdown_router(int level)
 			logmessage(LOGNAME, "service shutdown incomplete; continuing system power-down without storage persistence");
 	}
 
-	if (check_if_file_exist(script_name))
-		doSystem("%s %d", script_name, level);
+	if (check_if_file_exist(script_name)) {
+		shutdown_script_status = doSystem("%s %d", script_name, level);
+		if (shutdown_script_status != 0)
+			logmessage(LOGNAME, "custom shutdown script failed (status=%d); continuing power-down without storage persistence",
+				   shutdown_script_status);
+	}
 
 #if defined (USE_STORAGE)
 	storage_remove_status = safe_remove_all_stor_devices(use_halt);
@@ -1020,11 +1025,12 @@ shutdown_router(int level)
 	    service_stop_status == 0 && printer_stop_status == 0 &&
 	    wan_stop_status == 0 && lan_wan_stop_status == 0 &&
 	    auth_stop_status == 0 && logger_stop_status == 0 &&
-	    wifi_wl_stop_status == 0 && wifi_rt_stop_status == 0) {
+	    wifi_wl_stop_status == 0 && wifi_rt_stop_status == 0 &&
+	    shutdown_script_status == 0) {
 		storage_save_time(10);
 		write_storage_to_mtd();
 	} else {
-		logmessage(LOGNAME, "skipping storage MTD persistence because safe eject or service-stop completion was not verified");
+		logmessage(LOGNAME, "skipping storage MTD persistence because shutdown-hook, safe-eject or service-stop completion was not verified");
 	}
 
 	if (level < 2)

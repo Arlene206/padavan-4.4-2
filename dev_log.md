@@ -1,3 +1,13 @@
+## 2026-11-15 — Gate normal shutdown persistence on custom hook success
+
+- shutdown_router() previously discarded the exit status from the configured shutdown_script.sh hook and could still persist storage MTD after the hook failed. The firmware-update path already fails closed on the same hook.
+- Captured and logged the hook result. Shutdown/eject sequencing continues, but a non-zero hook status now suppresses storage_save_time() and write_storage_to_mtd().
+- Extended the process-lifecycle source contract to require status capture, failure diagnostic, exactly-once hook invocation and ordering before storage eject / MTD persistence.
+- Caller audit: stop_syslogd()/stop_klogd() and stop_udpxy()/stop_xupnpd() discard kill_services() status but have no identified callsites in the RC C source set. stop_logger() and grouped stop_igmpproxy() already propagate status. Samba and storage public stop paths retain their checked postconditions and lock boundaries; no unchecked RC caller was established in those paths.
+- Changed paths: rc.c, check_process_lifecycle_integration.py, dev_log.md, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md. Parent SHA: 180e90075a11ad1135ee6801915211548337b52e. Exact-head Process lifecycle, AI docs and XY-C1 checks required. No local test/build/hardware result is claimed.
+
+---
+
 ## 2026-11-15 — Gate shutdown MTD persistence on wireless radio teardown
 
 - shutdown_router() discarded stop_wifi_all_wl() / stop_wifi_all_rt() return statuses and called both only after write_storage_to_mtd(). It now attempts both band teardowns before the MTD decision, logs each failure, includes both statuses in the fail-closed persistence gate, and removes the late duplicate calls.
