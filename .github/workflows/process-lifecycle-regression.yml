@@ -41,6 +41,8 @@ on:
       - "trunk/user/rc/src/detect_wan.c"
       - "trunk/user/rc/src/detect_wan_udhcpc_policy.h"
       - "trunk/user/rc/src/tests/detect_wan_udhcpc_policy.c"
+      - "trunk/user/rc/src/process_presence_start_policy.h"
+      - "trunk/user/rc/src/tests/process_presence_start_policy.c"
       - "trunk/user/httpd/src/web_ex.c"
       - "trunk/user/rc/src/rstats.c"
       - "scripts/check_process_lifecycle_integration.py"
@@ -124,5 +126,12 @@ jobs:
             trunk/user/rc/src/tests/pppoe_relay_policy.c \
             -o "$RUNNER_TEMP/pppoe-relay-policy"
           "$RUNNER_TEMP/pppoe-relay-policy"
+      - name: Compile and run process presence start/notify tri-state regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/shared/src -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/process_presence_start_policy.c \
+            -o "$RUNNER_TEMP/process-presence-start-policy"
+          "$RUNNER_TEMP/process-presence-start-policy"
       - name: Verify shared-library and RC integration boundaries
         run: python3 scripts/check_process_lifecycle_integration.py

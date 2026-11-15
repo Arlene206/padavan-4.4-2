@@ -36,6 +36,8 @@
 #include "switch.h"
 #include "switch_status_policy.h"
 #include "detect_link_signal_policy.h"
+#include "process_presence_start_policy.h"
+#include <process_inventory.h>
 #include <process_pidfile.h>
 #include "gpio_pins.h"
 
@@ -358,10 +360,23 @@ start_detect_link(void)
 void
 notify_reset_detect_link(void)
 {
-	if (!pids("detect_link"))
+	struct process_snapshot snapshot;
+	enum process_presence presence;
+	enum process_presence_start_action action;
+	int scan_error;
+
+	presence = process_inventory_scan("detect_link", &snapshot);
+	scan_error = snapshot.error;
+	process_snapshot_release(&snapshot);
+	action = process_presence_start_action_for_state(presence);
+	if (action == PROCESS_PRESENCE_START_NEW)
 		start_detect_link();
-	else
+	else if (action == PROCESS_PRESENCE_START_NOTIFY)
 		(void)process_pidfile_signal(DL_PID_FILE, "detect_link", SIGUSR1);
+	else
+		logmessage("detect_link",
+			   "skipping start/notification because process inventory is unknown (error=%d)",
+			   scan_error ? scan_error : EIO);
 }
 
 void

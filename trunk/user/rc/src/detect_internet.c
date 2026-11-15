@@ -27,6 +27,8 @@
 
 #include "rc.h"
 #include "detect_internet_signal_policy.h"
+#include "process_presence_start_policy.h"
+#include <process_inventory.h>
 #include <process_pidfile.h>
 #include <gpioutils.h>
 
@@ -371,12 +373,25 @@ start_detect_internet(int autorun_time)
 void
 notify_run_detect_internet(int delay_time)
 {
+	struct process_snapshot snapshot;
+	enum process_presence presence;
+	enum process_presence_start_action action;
+	int scan_error;
+
 	nvram_set_int_temp("di_notify_delay", delay_time);
 
-	if (!pids("detect_internet"))
+	presence = process_inventory_scan("detect_internet", &snapshot);
+	scan_error = snapshot.error;
+	process_snapshot_release(&snapshot);
+	action = process_presence_start_action_for_state(presence);
+	if (action == PROCESS_PRESENCE_START_NEW)
 		start_detect_internet(delay_time);
-	else
+	else if (action == PROCESS_PRESENCE_START_NOTIFY)
 		(void)process_pidfile_signal(DI_PID_FILE, "detect_internet", SIGUSR1);
+	else
+		logmessage("detect_internet",
+			   "skipping start/notification because process inventory is unknown (error=%d)",
+			   scan_error ? scan_error : EIO);
 }
 
 void

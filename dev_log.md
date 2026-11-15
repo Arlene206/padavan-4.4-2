@@ -1,3 +1,14 @@
+## 2026-11-14 — Make auxiliary detector start gates fail closed on UNKNOWN
+
+- Removed three remaining lossy `pids()` start checks:
+  - `notify_run_detect_internet()` now starts only on confirmed ABSENT, sends the PID-file identity-bound SIGUSR1 only on confirmed RUNNING, and does neither on UNKNOWN.
+  - `notify_reset_detect_link()` follows the same three-way rule.
+  - WAN IPoE gateway-ARP checker startup now occurs only on confirmed ABSENT; RUNNING is a no-op and UNKNOWN is logged without launching a duplicate.
+- Added a shared, unit-tested process-presence action policy covering ABSENT, RUNNING, UNKNOWN and invalid states. The process-lifecycle integration checker verifies inventory capture/release ordering and the three production call sites; the GNU89 regression and XY-C1 target workflow watch the new policy and test files.
+- Changed paths: `detect_internet.c`, `detect_link.c`, `net_wan.c`, `process_presence_start_policy.h`, `tests/process_presence_start_policy.c`, `process-lifecycle-regression.yml`, `xy-c1-firmware-validation.yml`, `check_process_lifecycle_integration.py`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
 ## 2026-11-14 — Align VSFTPD checker with checked stop postcondition
 
 - The exact-head VSFTPD run `43671217127` on `ae4fbc507488ac32318f966d9066a3a9b9561c9d` passed its GNU89 regression and the brace-bearing function-parser fixtures, then failed the next source assertion: the checker expected `stop_ftp_locked()` to return the raw `kill_services()` status. Production intentionally passes that status through `storage_service_stop_complete(status, is_ftp_run())`, returns `-1` if the daemon is not confirmed absent, and returns `0` only after that postcondition succeeds.

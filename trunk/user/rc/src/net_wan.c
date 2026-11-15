@@ -31,7 +31,9 @@
 #include <signal.h>
 
 #include "rc.h"
+#include <process_inventory.h>
 #include <process_pidfile.h>
+#include "process_presence_start_policy.h"
 #include "ppp_options_file.h"
 #include "vpn_server_lifecycle_lock.h"
 #include "route_status_policy.h"
@@ -2359,10 +2361,24 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 	/* deferred start static VPN client */
 	notify_rc("start_vpn_client");
 
-	/* start gateway ARP checker (for IPoE Auto) */
-	if (!modem_unit_id && wan_proto == IPV4_WAN_PROTO_IPOE_DHCP) {
-		if (nvram_match("gw_arp_ping", "1") && !pids("detect_wan"))
+	/* Start the gateway ARP checker only after a complete ABSENT scan. */
+	if (!modem_unit_id && wan_proto == IPV4_WAN_PROTO_IPOE_DHCP &&
+	    nvram_match("gw_arp_ping", "1")) {
+		struct process_snapshot snapshot;
+		enum process_presence presence;
+		enum process_presence_start_action action;
+		int scan_error;
+
+		presence = process_inventory_scan("detect_wan", &snapshot);
+		scan_error = snapshot.error;
+		process_snapshot_release(&snapshot);
+		action = process_presence_start_action_for_state(presence);
+		if (action == PROCESS_PRESENCE_START_NEW)
 			eval("detect_wan");
+		else if (action == PROCESS_PRESENCE_START_ABORT)
+			logmessage(LOGNAME,
+				   "skipping gateway ARP checker start because process inventory is unknown (error=%d)",
+				   scan_error ? scan_error : EIO);
 	}
 
 	if (wan_gate)

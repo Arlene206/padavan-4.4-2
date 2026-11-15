@@ -359,3 +359,52 @@ for path in (
 ):
     assert '"{}"'.format(path) in process_workflow, "process workflow missing {}".format(path)
 assert "WAN DHCP renewal presence policy regression" in process_workflow
+
+presence_policy = (root / "trunk/user/rc/src/process_presence_start_policy.h").read_text()
+presence_test = (root / "trunk/user/rc/src/tests/process_presence_start_policy.c").read_text()
+detect_internet_source = (root / "trunk/user/rc/src/detect_internet.c").read_text()
+detect_link_source = (root / "trunk/user/rc/src/detect_link.c").read_text()
+di_notify = detect_internet_source.split(
+    "void\nnotify_run_detect_internet(int delay_time)", 1
+)[1].split("\n}\n", 1)[0]
+dl_notify = detect_link_source.split(
+    "void\nnotify_reset_detect_link(void)", 1
+)[1].split("\n}\n", 1)[0]
+wan_gateway_start = net_wan.split(
+    "/* Start the gateway ARP checker only after a complete ABSENT scan. */", 1
+)[1].split("if (wan_gate)", 1)[0]
+for source in (detect_internet_source, detect_link_source, net_wan):
+    assert '#include "process_presence_start_policy.h"' in source
+    assert '#include <process_inventory.h>' in source
+for body, process_name in ((di_notify, "detect_internet"), (dl_notify, "detect_link")):
+    assert 'process_inventory_scan("{}"'.format(process_name) in body
+    assert "scan_error = snapshot.error;" in body
+    assert body.index("scan_error = snapshot.error;") < body.index("process_snapshot_release(&snapshot);")
+    assert body.index("process_snapshot_release(&snapshot);") < body.index("process_presence_start_action_for_state(presence)")
+    assert "PROCESS_PRESENCE_START_NEW" in body
+    assert "PROCESS_PRESENCE_START_NOTIFY" in body
+    assert "PROCESS_PRESENCE_START_ABORT" in body
+    assert "pids(" not in body
+assert 'process_inventory_scan("detect_wan", &snapshot)' in wan_gateway_start
+assert "scan_error = snapshot.error;" in wan_gateway_start
+assert wan_gateway_start.index("scan_error = snapshot.error;") < wan_gateway_start.index("process_snapshot_release(&snapshot);")
+assert wan_gateway_start.index("process_snapshot_release(&snapshot);") < wan_gateway_start.index("process_presence_start_action_for_state(presence)")
+assert "PROCESS_PRESENCE_START_NEW" in wan_gateway_start
+assert "PROCESS_PRESENCE_START_ABORT" in wan_gateway_start
+assert 'pids("detect_wan")' not in wan_gateway_start
+assert "PROCESS_PRESENCE_START_ABORT" in presence_policy
+assert "PROCESS_PRESENCE_UNKNOWN" in presence_policy
+for token in ("PROCESS_PRESENCE_ABSENT", "PROCESS_PRESENCE_RUNNING",
+              "PROCESS_PRESENCE_UNKNOWN", "(enum process_presence)7"):
+    assert token in presence_test
+assert "Process presence start/notify tri-state policy: PASS" in presence_test
+for path in (
+    "trunk/user/rc/src/detect_internet.c",
+    "trunk/user/rc/src/detect_link.c",
+    "trunk/user/rc/src/net_wan.c",
+    "trunk/user/rc/src/process_presence_start_policy.h",
+    "trunk/user/rc/src/tests/process_presence_start_policy.c",
+):
+    assert '"{}"'.format(path) in process_workflow, "process workflow missing {}".format(path)
+    assert '"{}"'.format(path) in xy_workflow, "XY-C1 workflow missing {}".format(path)
+print("detect_internet/detect_link/WAN gateway tri-state start-gate integration: PASS")
