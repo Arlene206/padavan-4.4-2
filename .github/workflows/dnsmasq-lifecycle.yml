@@ -14,6 +14,10 @@ on:
       - "trunk/user/rc/src/tests/inadyn_config_file.c"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
+      - "scripts/check_inadyn_lifecycle.py"
+      - "trunk/user/rc/src/tests/inadyn_daemon_policy.c"
+      - "trunk/user/rc/src/inadyn_daemon_policy.h"
+      - ".github/workflows/inadyn-lifecycle-stability.yml"
       - "trunk/user/rc/src/dnsmasq_restart_policy.h"
       - "trunk/user/rc/src/tests/dnsmasq_restart_policy.c"
       - "trunk/user/shared/src/process_inventory.c"
@@ -170,11 +174,19 @@ jobs:
           assert writer.index("load_user_config(") < writer.index("inadyn_config_file_publish(")
 
           start = function_body(services, "start_ddns(int clear_cache)")
+          assert "stop_status = stop_ddns()" in start
+          assert "if (stop_status != 0)" in start
+          assert start.index("if (stop_status != 0)") < start.index('eval("/bin/inadyn"')
           assert "if (!write_inadyn_conf(DDNS_CONF_FILE))" in start
           assert start.index("write_inadyn_conf(DDNS_CONF_FILE)") < start.index('eval("/bin/inadyn"')
           update = function_body(services, "notify_ddns_update(void)")
-          assert "if (!write_inadyn_conf(DDNS_CONF_FILE))" in update
-          assert update.index("write_inadyn_conf(DDNS_CONF_FILE)") < update.index('"-SIGHUP"')
+          assert 'process_inventory_scan("inadyn", &snapshot)' in update
+          assert "inadyn_action_for_presence(state)" in update
+          assert "INADYN_DAEMON_ABORT" in update
+          assert update.index("inadyn_validate_snapshot(") < update.index("write_inadyn_conf(DDNS_CONF_FILE)")
+          assert update.index("write_inadyn_conf(DDNS_CONF_FILE)") < update.index("inadyn_signal_snapshot(&snapshot, SIGHUP")
+          assert "process_snapshot_release(&snapshot)" in update
+          assert 'doSystem("killall %s %s", "-SIGHUP", "inadyn")' not in update
 
           init_loop = function_body(init, "init_main_loop(void)")
           assert "umask(0000);" in init_loop
@@ -209,12 +221,14 @@ jobs:
               "trunk/user/rc/src/tests/inadyn_config_file.c",
               "trunk/user/rc/src/rc.c",
               "trunk/user/rc/src/rc.h",
+              "scripts/check_inadyn_lifecycle.py",
+              "trunk/user/rc/src/tests/inadyn_daemon_policy.c",
+              "trunk/user/rc/src/inadyn_daemon_policy.h",
+              ".github/workflows/inadyn-lifecycle-stability.yml",
               "trunk/user/rc/src/dnsmasq_restart_policy.h",
               "trunk/user/rc/src/tests/dnsmasq_restart_policy.c",
               "trunk/user/rc/src/dnsmasq_reload_policy.h",
               "trunk/user/rc/src/tests/dnsmasq_reload_policy.c",
-              "trunk/user/shared/src/process_inventory.c",
-              "trunk/user/shared/src/process_inventory.h",
               "trunk/user/shared/src/process_inventory.c",
               "trunk/user/shared/src/process_inventory.h",
               "trunk/user/rc/src/dnsmasq_dhcp_range_policy.h",

@@ -1,3 +1,15 @@
+## 2026-11-14 — Repair cross-suite CI contracts for Inadyn lifecycle changes
+
+- Exact-head DNSMasq workflow run `43669561401` on `61cf95e446a5777568e45c2cf3d589e74696d6f0` passed earlier build/test steps but failed in the inline Python source contract with `ValueError: substring not found`: it still expected literal `"-SIGHUP"` in `notify_ddns_update()`, while the implementation now uses `inadyn_signal_snapshot(..., SIGHUP, ...)`. Updated it to verify tri-state inventory, all-target preflight before atomic config publication, snapshot-bound signal after publication, cleanup, and absence of name-wide killall. Also strengthened the start contract for checked stop status.
+- Added the new Inadyn lifecycle helper, test, checker and workflow paths to DNSMasq push/PR filters and its exact source-path contract. Removed a pre-existing duplicate pair of process-inventory paths from the checker tuple so the once-per-trigger assertion is meaningful.
+- Exact-head vsftpd run `43669561432` on the same source SHA failed at compile time because `ftp_daemon_policy.h` includes `process_inventory.h` but the regression omitted `-I trunk/user/shared/src`. Added the required include path; product source and FTP policy are unchanged.
+- Changed paths: `.github/workflows/dnsmasq-lifecycle.yml`, `.github/workflows/vsftpd-stability.yml`, `dev_log.md`. New exact-head Actions must pass before closure; the old failures remain historical failures.
+- Result: THIS COMMIT.
+
+---
+
+
+
 ## 2026-11-14 — Make Inadyn reload and restart decisions identity-safe
 
 - Replaced `notify_ddns_update()`'s Boolean `pids("inadyn")` decision and process-name-wide `killall -SIGHUP` with tri-state process inventory and exact PID/start-time validation. UNKNOWN/invalid inventory aborts before writing config; a running instance must pass an all-target identity preflight before the atomic config writer publishes; the HUP phase revalidates identities before signaling.
