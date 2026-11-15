@@ -1,3 +1,11 @@
+## 2026-11-15 — Capture IAPPD regression command exit statuses correctly
+
+- The first exact-head process-lifecycle run on `37204498a3ce81d6dd077fd551a66e15a29be344` passed every C/ASan/UBSan, process lifecycle and optional-app step, then failed at the first IAPPD test case. The test assigned `rc=$(command)`, which captures stdout rather than `$?`; since the wrapper correctly emits no stdout, the test compared an empty string to 127.
+- Added `capture_status()` to execute a command, save its exit status, and print that numeric status for command substitution. All IAPPD test invocations now use the helper, including restricted-PATH start/stop, UNKNOWN inventory, launcher/firewall failures, stop/restart and RC `test` checks. Product source is unchanged in this correction.
+- Parent main: `37204498a3ce81d6dd077fd551a66e15a29be344`; exact-head process-lifecycle rerun required. XY-C1 #43738581861 remained in progress at Build XY-C1; no TRX/artifact or physical-radio result claimed.
+
+---
+
 ## 2026-11-15 — Verify and propagate Ralink IAPP daemon lifecycle status
 
 - `ralinkiappd` forks its own long-running child in C `main()`, but the service wrapper also backgrounded that launcher, hiding fork/exec failure and allowing later `sysctl`/`iptables` statuses to mask it. The old stop path accepted missing `pidof` as absence, ignored `killall` results and never checked daemon disappearance. The existing RC boot path called `iappd.sh test`, but the shell case statement did not implement it.

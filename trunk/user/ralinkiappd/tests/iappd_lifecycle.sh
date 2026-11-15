@@ -39,57 +39,58 @@ export IAPPD_PROC_MODULES="$tmp/modules" IAPPD_PROC_INTERRUPTS="$tmp/interrupts"
 fail() { echo "$*" >&2; exit 1; }
 status() { [ "$1" -eq "$2" ] || fail "expected $2, got $1"; }
 run() { /bin/sh "$base/iappd.sh" "$1"; }
+capture_status() { "$@"; rc=$?; printf "%s" "$rc"; }
 reset() { rm -f "$STATE_DIR/daemon"; : > "$COMMAND_LOG"; : > "$DAEMON_LOG"; MOCK_PIDOF=0 MOCK_START=0 MOCK_IPTABLES=0 MOCK_KILLALL=0 MOCK_REMOVE=1; }
 
 reset
-rc=$(PATH="$tmp/no-pidof" /bin/sh "$base/iappd.sh" start)
+rc=$(capture_status env PATH="$tmp/no-pidof" /bin/sh "$base/iappd.sh" start)
 status "$rc" 127
 ! grep -q "^ralinkiappd " "$COMMAND_LOG" || fail "started without pidof"
 
 reset; : > "$STATE_DIR/daemon"
-rc=$(PATH="$tmp/no-pidof" /bin/sh "$base/iappd.sh" stop)
+rc=$(capture_status env PATH="$tmp/no-pidof" /bin/sh "$base/iappd.sh" stop)
 status "$rc" 127
 [ -f "$STATE_DIR/daemon" ] || fail "missing pidof changed daemon state"
 
 reset; MOCK_PIDOF=2
-rc=$(run start); status "$rc" 2
+rc=$(capture_status run start); status "$rc" 2
 ! grep -q "^ralinkiappd " "$COMMAND_LOG" || fail "started with UNKNOWN inventory"
 
 reset; MOCK_START=53
-rc=$(run start); status "$rc" 53
+rc=$(capture_status run start); status "$rc" 53
 ! grep -q "^iptables " "$COMMAND_LOG" || fail "configured firewall after launcher failure"
 
 reset
-rc=$(run start); status "$rc" 0
+rc=$(capture_status run start); status "$rc" 0
 [ -f "$STATE_DIR/daemon" ] || fail "start did not create daemon marker"
 grep -Fq -- "-wi rai0 -d 0" "$DAEMON_LOG" || fail "wrong radio arguments"
 [ "$(grep -c "^iptables " "$COMMAND_LOG")" -eq 2 ] || fail "missing firewall rules"
 count=$(grep -c "^ralinkiappd " "$COMMAND_LOG")
-rc=$(run start); status "$rc" 0
+rc=$(capture_status run start); status "$rc" 0
 [ "$(grep -c "^ralinkiappd " "$COMMAND_LOG")" -eq "$count" ] || fail "duplicate start"
 
 reset; MOCK_IPTABLES=42
-rc=$(run start); status "$rc" 42
+rc=$(capture_status run start); status "$rc" 42
 
 reset; : > "$STATE_DIR/daemon"; MOCK_KILLALL=54
-rc=$(run stop); status "$rc" 54
+rc=$(capture_status run stop); status "$rc" 54
 [ -f "$STATE_DIR/daemon" ] || fail "failed killall lost daemon marker"
 
 reset; : > "$STATE_DIR/daemon"; MOCK_REMOVE=0
-rc=$(run stop); status "$rc" 1
+rc=$(capture_status run stop); status "$rc" 1
 [ -f "$STATE_DIR/daemon" ] || fail "stop postcondition false positive"
 
 reset; : > "$STATE_DIR/daemon"
-rc=$(run stop); status "$rc" 0
+rc=$(capture_status run stop); status "$rc" 0
 [ ! -f "$STATE_DIR/daemon" ] || fail "successful stop left daemon marker"
 
 reset; : > "$STATE_DIR/daemon"; MOCK_KILLALL=54
-rc=$(run restart); status "$rc" 54
+rc=$(capture_status run restart); status "$rc" 54
 ! grep -q "^ralinkiappd " "$COMMAND_LOG" || fail "restart ran after failed stop"
 
 reset
-rc=$(run test); status "$rc" 1
+rc=$(capture_status run test); status "$rc" 1
 : > "$STATE_DIR/daemon"
-rc=$(run test); status "$rc" 0
-rc=$(run invalid); status "$rc" 1
+rc=$(capture_status run test); status "$rc" 0
+rc=$(capture_status run invalid); status "$rc" 1
 echo "Ralink IAPP daemon lifecycle regressions: PASS"
