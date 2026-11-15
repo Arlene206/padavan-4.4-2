@@ -67,8 +67,19 @@ func_mount_if_needed()
 	esac
 }
 
+func_require_pidof()
+{
+	if command -v pidof >/dev/null 2>&1; then
+		return 0
+	fi
+
+	logger -t "NFS server" "pidof is unavailable; refusing NFS lifecycle action"
+	return 127
+}
 func_start()
 {
+	func_require_pidof || return $?
+
 	# rpcbind is required by the NFS user-space services.
 	if [ -z "$(pidof rpcbind)" ] ; then
 		/sbin/rpcbind || {
@@ -186,6 +197,8 @@ func_start()
 
 func_reload()
 {
+	func_require_pidof || return $?
+
 	if [ -z "$(pidof rpcbind)" ] ; then
 		logger -t "NFS server" "cannot reload NFS exports because rpcbind is not running"
 		return 1
@@ -233,6 +246,8 @@ func_unmount_if_mounted()
 
 func_stop()
 {
+	func_require_pidof || return $?
+
 	status=0
 
 	# Stop rpc.mountd and the kernel NFS server before touching export state.

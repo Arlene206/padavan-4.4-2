@@ -1,3 +1,11 @@
+## 2026-11-15 — Fail closed when NFS process inventory tooling is unavailable
+
+- NFS start/reload/stop infer rpcbind, nfsd and rpc.mountd state using `pidof`. If `pidof` is absent from PATH, command substitutions expand to empty strings; critically, `func_stop()` could treat that as confirmed daemon absence and continue to unexport NFS exports and unmount pseudo-filesystems.
+- Added `func_require_pidof()` as the first operation in all three lifecycle actions. Missing tooling logs the failure and returns 127 before daemon, export or mount state can be mutated.
+- Extended `nfsd_start_lifecycle.sh` with a restricted-PATH fixture containing only the mock logger. Start/reload/stop must each return 127; the stop case seeds both daemon markers and both pseudo-mount entries and verifies no killall/exportfs/umount and no state change. Added inline source/workflow contracts for the guard and cases.
+- Parent main: `7e21f495aeaa60a85bdf839e9ee1bb514105c49a`; result: THIS COMMIT. Exact-head NFS workflow required; no target build or physical-router storage result claimed.
+
+---
 ## 2026-11-15 — Scope telnetd/ttyd return-order checks to launch failure
 
 - Exact-head Process inventory and lifecycle fail-closed run #43736811716 on `a71d73c0ff7776ae36dce19c5287ca3c141553cd` passed all GNU89/ASan/UBSan binaries, process/PID identity contracts, optional-app shell tests, and the normalized telnetd/ttyd diagnostic-string checks. It failed only at the return-order assertion: `start_status < 0` has an earlier legitimate `return start_status;` for UNKNOWN process inventory, so a whole-function `.index("return start_status;")` selected the wrong return.

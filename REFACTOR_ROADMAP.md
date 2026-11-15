@@ -1,9 +1,7 @@
 ## Current source / CI checkpoint
 
-- Parent main for the telnetd/ttyd launcher return-order checker correction: a71d73c0ff7776ae36dce19c5287ca3c141553cd. Dropbear keygen/start/stop status propagation and its shell tests are now present in the source baseline.
-- Exact a71 Process inventory/lifecycle #43736811716 failed only at the final source checker after all C and optional-app tests passed: the source contract matched an earlier UNKNOWN-inventory return rather than the later launch-failure return. AI docs #43736811598, Process lifecycle inventory #43736811577, infosvr #43736811544, AdGuardHome #43736811570, AliyunDrive #43736811565 and AliDDNS #43736811539 PASS.
-- XY-C1 #43736811566 and NVRAM #43736811552 were IN_PROGRESS. Dropbear is product source; require exact SHA Build, TRX verification and artifact upload before L3. Physical L4 remains NOT VERIFIED.
-- Process checker follow-up scopes return-order checks to the launch failure block; source checker and AI docs require exact-head revalidation. NFS service wrapper audit is next after this gate.
+- Current main: `7e21f495aeaa60a85bdf839e9ee1bb514105c49a`; Dropbear keygen/start/stop status propagation and mocked shell tests are present. The follow-up process-lifecycle run #43736960883 and AI docs #43736960862 both PASS after fixing telnetd/ttyd branch-order contracts. AdGuardHome #43736960909, infosvr #43736961052, AliDDNS #43736960859 and AliyunDrive #43736961032 also PASS; NVRAM #43736960951 was IN_PROGRESS.
+- NFS review found a fail-open when `pidof` is missing: process command substitutions look empty, and NFS stop can proceed to export withdrawal/unmount without authoritative daemon absence. This slice gates start/reload/stop on `command -v pidof`, returns 127 if unavailable, and adds mocked tests that prove no state mutation.
 ## Whole-repository module status
 
 ### P1 process inventory / service lifecycle — tri-state foundation L2 VERIFIED; strict PID identity migration extended through PPPD/udhcpc/INICD and VPN/WAN/LAN/USB stop gates; xl2tpd and crond UNKNOWN start gates migrated; current L3 pending exact-head XY-C1

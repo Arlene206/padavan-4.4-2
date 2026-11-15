@@ -86,10 +86,19 @@ jobs:
           assert "refusing to unmount conflicting or unreadable mount state" in unmount
           assert 'umount "$mountpoint" 2>/dev/null || return 1' in unmount
           stop = function_body(script, "func_stop()")
+          assert "func_require_pidof || return $?" in stop
+          assert stop.index("func_require_pidof || return $?") < stop.index("killall")
           assert 'func_unmount_if_mounted /var/lib/nfs/rpc_pipefs rpc_pipefs rpc_pipefs' in stop
           assert 'func_unmount_if_mounted /proc/fs/nfsd nfsd nfsd' in stop
 
+          require_pidof = function_body(script, "func_require_pidof()")
+          assert "command -v pidof" in require_pidof
+          assert "pidof is unavailable" in require_pidof
+          assert "return 127" in require_pidof
+
           start = function_body(script, "func_start()")
+          assert "func_require_pidof || return $?" in start
+          assert start.index("func_require_pidof || return $?") < start.index("pidof rpcbind")
           for command in (
               "/sbin/rpcbind ||",
               "touch /etc/exports",
@@ -113,6 +122,8 @@ jobs:
           assert "rpc.mountd returned success but the daemon is not running" in start
 
           reload = function_body(script, "func_reload()")
+          assert "func_require_pidof || return $?" in reload
+          assert reload.index("func_require_pidof || return $?") < reload.index("pidof rpcbind")
           for prerequisite in ("pidof rpcbind", "pidof nfsd", "pidof rpc.mountd", "[ ! -f /etc/exports ]"):
               assert prerequisite in reload
           assert "/sbin/exportfs -r ||" in reload and "return 1" in reload
@@ -231,6 +242,9 @@ jobs:
               assert pr_filters.count(path) == 1
 
           lifecycle_test = Path("trunk/user/nfs-utils/tests/nfsd_start_lifecycle.sh").read_text()
+          assert "NFS start without pidof" in lifecycle_test
+          assert "NFS reload without pidof" in lifecycle_test
+          assert "NFS stop without pidof" in lifecycle_test
           assert "conflicting nfsd mount tuple" in lifecycle_test
           assert "conflicting rpc_pipefs mount tuple" in lifecycle_test
           assert "duplicate nfsd mountpoint entries" in lifecycle_test

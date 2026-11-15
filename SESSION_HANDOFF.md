@@ -8,7 +8,7 @@ For each multi-file logical slice, publish source, tests/contracts and necessary
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; Dropbear wrapper status propagation and shell tests are committed at `a71d73c0ff7776ae36dce19c5287ca3c141553cd`. The process integration checker now preserves C diagnostic spacing, but the exact-head run found that return-order checks matched an earlier UNKNOWN-inventory return instead of the later launch-failure return; this follow-up scopes the search to the launcher branch.
+- Repository `Arlene206/padavan-4.4-2`; Dropbear wrapper status propagation and mocked shell tests are present at `a71d73c0ff7776ae36dce19c5287ca3c141553cd`. The exact-head process-lifecycle follow-up `7e21f495aeaa60a85bdf839e9ee1bb514105c49a` corrected the telnetd/ttyd return-order contracts; process lifecycle #43736960883 and AI docs #43736960862 now PASS. Independent NFS review found missing `pidof` was interpreted as empty process inventory, allowing NFS stop to progress toward export withdrawal/unmount without confirmed daemon absence. This slice adds a fail-closed `pidof` preflight to NFS start/reload/stop.
 - Boot diagnostics cover networkmap, watchdog, infosvr, GPIO, LLTD, rstats, telnetd and ttyd. SCUT, vlmcsd, iperf3 and mentohust wrappers now preserve their daemon launch/stop statuses.
 - LPD printer-removal PID identity hardening landed in `72ce1bb97323d4c417e8a5d891bbaf9c6ed3f2f3`; source-contract formatting correction is `022bc51507ca5f395c60a1f450cc461bf5403926`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. No local checkout/MIPS toolchain or physical-router L4 result is claimed.
@@ -30,14 +30,16 @@ For each multi-file logical slice, publish source, tests/contracts and necessary
 
 ## Verification boundary
 
-- Exact a71 process inventory/lifecycle workflow run #43736811716 failed at the final source checker only after all C sanitizer/identity tests and optional-app shell tests passed. The failure was the checker using the first `return start_status;` in each function (UNKNOWN-inventory rejection) instead of the launch-failure return. This slice fixes the source contract only.
-- Exact a71 AI docs #43736811598 PASS; Process lifecycle inventory #43736811577 PASS; infosvr #43736811544 PASS; AdGuardHome #43736811570 PASS; AliyunDrive #43736811565 PASS; AliDDNS #43736811539 PASS. XY-C1 #43736811566 and NVRAM #43736811552 were IN_PROGRESS at last poll.
+- On exact a71 SHA, process lifecycle #43736811716 failed at the telnetd order contract after all C and optional-app tests passed; AI docs #43736811598, process inventory artifact #43736811577, infosvr #43736811544, AdGuardHome #43736811570, AliyunDrive #43736811565 and AliDDNS #43736811539 passed. Follow-up `7e21f495aeaa60a85bdf839e9ee1bb514105c49a` corrected the checker; exact process lifecycle #43736960883 and AI docs #43736960862 PASS. AdGuardHome #43736960909, infosvr #43736961052, AliDDNS #43736960859 and AliyunDrive #43736961032 PASS; NVRAM #43736960951 was IN_PROGRESS.
+- This slice adds an explicit `pidof` availability gate before NFS start/reload/stop, plus host regressions proving each returns 127 when the process inventory tool is missing and stop leaves daemon/mount state untouched. Exact-head NFS workflow must pass; no NFS target build or physical-router storage test is claimed.
 - Dropbear source/wrapper changes are in a71; no L3 claim until the exact product-source SHA has successful Build, TRX verification and artifact upload. Physical-router L4 remains NOT VERIFIED.
 ## Exact first action for the next GPT
 
-1. Verify exact-head Process lifecycle and AI docs after the corrected telnetd/ttyd return-order contract; check XY-C1 #43736811566 through Build, TRX verification and artifact upload, and NVRAM #43736811552 if still pending.
-2. When CI is green, continue the tracked `start_services_once()`/service-script audit. The NFS wrapper exists at `trunk/user/nfs-utils/nfsd.sh`; review its stop failure and postcondition tests before claiming broader NFS compatibility.
-3. Keep multi-file changes in one atomic main commit, using freshly fetched main and expected-SHA non-forced ref update. Preserve the frozen backup and archive shards.
+1. Verify exact-head NFS start/reload workflow for the missing-`pidof` fail-closed behavior; confirm start/reload/stop return 127 and stop makes no killall/exportfs/umount call and leaves daemons/mounts intact.
+2. Confirm NFS workflow's inline RC/storage-lock/export ACL contracts still pass. Check exact-head process lifecycle #43736960883 and AI docs #43736960862 (both PASS) remain the latest green baseline.
+3. Recheck NVRAM #43736960951 for the exact source SHA; inspect XY-C1 status for the product SHA that includes Dropbear. No L3 claim until Build, TRX verification and artifact upload all pass; physical L4 remains NOT VERIFIED.
+4. Continue the tracked `start_services_once()` and optional service-wrapper audit. Keep atomic main commits and the backup/archive invariants.
+
 ## Invariants
 
 - A PENDING run does not block independent work; retain exact run ID/SHA and continue safe tasks.

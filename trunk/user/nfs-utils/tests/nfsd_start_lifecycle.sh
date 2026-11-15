@@ -93,6 +93,9 @@ export MOUNTS_FILE="$tmp_dir/proc/mounts"
 mkdir -p "$STATE_DIR"
 export PATH="$tmp_dir/bin:$PATH"
 
+mkdir -p "$tmp_dir/no-pidof-bin"
+ln -s "$tmp_dir/bin/mock-command" "$tmp_dir/no-pidof-bin/logger"
+
 reset_fixture()
 {
 	rm -f "$STATE_DIR/rpcbind" "$STATE_DIR/nfsd" "$STATE_DIR/rpc.mountd"
@@ -140,6 +143,57 @@ assert_failed()
 		echo "$2 unexpectedly returned success" >&2
 		exit 1
 	}
+}
+
+# Missing process inventory is UNKNOWN, not proof that daemons are absent.
+reset_fixture
+status=$(PATH="$tmp_dir/no-pidof-bin" run_command "" "" start)
+[ "$status" -eq 127 ] || {
+	echo "NFS start without pidof returned $status, expected 127" >&2
+	exit 1
+}
+assert_command logger
+assert_no_command rpcbind
+assert_no_command mount
+assert_no_command exportfs
+
+reset_fixture
+: > "$STATE_DIR/rpcbind"
+: > "$STATE_DIR/nfsd"
+: > "$STATE_DIR/rpc.mountd"
+: > "$tmp_dir/etc/exports"
+status=$(PATH="$tmp_dir/no-pidof-bin" run_command "" "" reload)
+[ "$status" -eq 127 ] || {
+	echo "NFS reload without pidof returned $status, expected 127" >&2
+	exit 1
+}
+assert_command logger
+assert_no_command exportfs
+
+reset_fixture
+: > "$STATE_DIR/rpcbind"
+: > "$STATE_DIR/nfsd"
+: > "$STATE_DIR/rpc.mountd"
+: > "$tmp_dir/etc/exports"
+printf 'nfsd %s nfsd rw 0 0\nrpc_pipefs %s rpc_pipefs rw 0 0\n' \
+	"$tmp_dir/proc/fs/nfsd" "$tmp_dir/var/lib/nfs/rpc_pipefs" > "$MOUNTS_FILE"
+mounts_before=$(cat "$MOUNTS_FILE")
+status=$(PATH="$tmp_dir/no-pidof-bin" run_command "" "" stop)
+[ "$status" -eq 127 ] || {
+	echo "NFS stop without pidof returned $status, expected 127" >&2
+	exit 1
+}
+assert_command logger
+assert_no_command killall
+assert_no_command exportfs
+assert_no_command umount
+[ -f "$STATE_DIR/nfsd" ] && [ -f "$STATE_DIR/rpc.mountd" ] || {
+	echo "NFS stop without pidof disturbed running daemon state" >&2
+	exit 1
+}
+[ "$(cat "$MOUNTS_FILE")" = "$mounts_before" ] || {
+	echo "NFS stop without pidof changed mounted filesystem state" >&2
+	exit 1
 }
 
 reset_fixture
