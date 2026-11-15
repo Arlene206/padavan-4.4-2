@@ -157,6 +157,7 @@ func_stop()
 	tr_pid=`pidof transmission-daemon 2>/dev/null`
 	tr_pidof_status=$?
 	if [ "$tr_pidof_status" -gt 1 ] ||
+		{ [ "$tr_pidof_status" -eq 0 ] && [ -z "$tr_pid" ]; } ||
 		{ [ "$tr_pidof_status" -ne 0 ] && [ -n "$tr_pid" ]; }; then
 		echo "[FAILED]"
 		logger -t "$SVC_NAME" "Cannot stop: unable to inspect daemon PIDs" >/dev/null 2>&1 || true
@@ -180,6 +181,7 @@ func_stop()
 		tr_pid=`pidof transmission-daemon 2>/dev/null`
 		tr_pidof_status=$?
 		if [ "$tr_pidof_status" -gt 1 ] ||
+			{ [ "$tr_pidof_status" -eq 0 ] && [ -z "$tr_pid" ]; } ||
 			{ [ "$tr_pidof_status" -ne 0 ] && [ -n "$tr_pid" ]; }; then
 			echo "[FAILED]"
 			logger -t "$SVC_NAME" "Cannot stop: unable to inspect daemon PIDs" >/dev/null 2>&1 || true
@@ -193,7 +195,7 @@ func_stop()
 		# before signaling so malformed output cannot become a kill argument.
 		for tr_pid_one in $tr_pid; do
 			case "$tr_pid_one" in
-				''|*[!0-9]*)
+				''|0|1|*[!0-9]*)
 					echo "[FAILED]"
 					logger -t "$SVC_NAME" "Cannot stop: invalid daemon PID list" >/dev/null 2>&1 || true
 					return 1
@@ -207,6 +209,7 @@ func_stop()
 		tr_pid=`pidof transmission-daemon 2>/dev/null`
 		tr_pidof_status=$?
 		if [ "$tr_pidof_status" -gt 1 ] ||
+			{ [ "$tr_pidof_status" -eq 0 ] && [ -z "$tr_pid" ]; } ||
 			{ [ "$tr_pidof_status" -ne 0 ] && [ -n "$tr_pid" ]; }; then
 			echo "[FAILED]"
 			logger -t "$SVC_NAME" "Cannot stop: unable to verify daemon exit" >/dev/null 2>&1 || true

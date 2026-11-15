@@ -1,15 +1,16 @@
 ## Current source / CI checkpoint
 
-- Parent main for IGMP regression fixture correction: e3499afc01bdc42cd1620eb18a6eec0e20541d36; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact e349 Process lifecycle #43770121710 failed at a later fixture-preservation assertion after the newly added token-injection cases changed the expected file from `last-good-configuration` to `last-good-token-validation`. This correction restores the original fixture before existing missing-parent and write-failure assertions.
-- Exact e349 AI docs #43770121750, Process inventory #43770121725, AdGuardHome #43770121883, infosvr #43770121820, AliyunDrive #43770121777 and AliDDNS #43770121720 PASS. NVRAM #43770121752 and XY-C1 #43770121908 were pending.
-- IGMP publisher rejects whitespace/comment token injection in NVRAM-derived values and preserves last-good config. Corrected exact-head host + XY-C1 validation pending.
+- Parent main for Aria2 stop lifecycle hardening: 662c8d279a8bea874997e1d5fb74623d3a322640; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact parent 662 Process lifecycle #43770376409 PASS (including corrected IGMP token-validation tests), Process inventory #43770376403 PASS, AI docs #43770376449 PASS, NVRAM #43770376543 PASS, AdGuardHome #43770376442 PASS, infosvr #43770376527 PASS, AliDDNS #43770376582 PASS and AliyunDrive #43770376415 PASS.
+- Exact parent XY-C1 #43770376467 was still building; TRX verification and artifact upload were pending. Prior abd40 USB storage #43769497238 PASS covers Transmission only.
+- THIS COMMIT extends stop safety to Aria2: tri-state pidof, numeric PID validation including rejection of 0/1, individual forced signals, final process-absence verification and restart gating. Transmission stop validation also rejects 0/1 and successful-empty pidof output. Shared host + firmware BusyBox 1.24.2 ash regressions now exercise both launchers.
 
 ### P1 — Storage daemon startup and config publication
 
-- Transmission stop postconditions and restart gating are implemented; exact abd40 USB storage #43769497238 PASS across POSIX and firmware BusyBox 1.24.2 ash.
-- Firefly and MiniDLNA checked staging/publication and IGMP config publication keep the last-good file on write/fsync/rename failure.
-- IGMP token validation additionally blocks same-line whitespace/comment directive injection; e349 Process lifecycle regression needs the fixture-baseline correction in THIS COMMIT.
+- Transmission settings staging remains process-unique (`settings.json.tmp.$$`) and ownership-aware; its stop path validates process snapshots, signals individual PIDs, verifies absence and gates restart.
+- Aria2 default config remains staged as `aria2.conf.tmp.$$` with two-phase concurrency markers; THIS COMMIT now gives its stop/restart path the same fail-closed postconditions as Transmission.
+- Firefly and MiniDLNA retain checked same-directory configuration publication; IGMP proxy additionally rejects same-line whitespace/comment input injection.
+- Exact parent abd40 USB storage #43769497238 PASS covers Transmission's prior stop fix, not the new Aria cases. Exact-head host + firmware BusyBox ash storage validation is pending.
 
 ## Whole-repository module status
 

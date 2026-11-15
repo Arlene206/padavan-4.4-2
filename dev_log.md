@@ -1,3 +1,15 @@
+## 2026-11-16 — Harden Aria2 stop lifecycle and align launcher regressions
+
+- Aria `func_stop()` previously passed the entire `pidof aria2c` PID list as a single quoted `kill -9` argument, did not verify process absence afterward, and allowed `restart` to ignore stop failure.
+- Aria now treats pidof status/output inconsistencies as UNKNOWN, rejects malformed and unsafe PID 0/1 values, signals each process separately, confirms post-SIGKILL daemon absence and fails closed on residual/unknown state. Restart now gates on successful stop.
+- Transmission stop validation also now rejects PID 0/1 and pidof success with empty output rather than treating that inconsistent response as proof of absence.
+- Generalized storage lifecycle regressions to both launchers: no daemon, graceful stop, multiple forced PIDs, killall failure followed by successful forced stop, failed SIGKILL, malformed/unsafe PID, pidof error, successful-empty pidof and restart gating. Workflow invokes the helper under host shell and firmware BusyBox ash.
+- Exact parent 662 Process lifecycle #43770376409 PASS, inventory #43770376403 PASS, AI docs #43770376449 PASS, NVRAM #43770376543 PASS, AdGuardHome #43770376442 PASS, infosvr #43770376527 PASS, AliDDNS #43770376582 PASS and AliyunDrive #43770376415 PASS. XY-C1 #43770376467 was still building at last poll.
+- No local checkout was available; no local execution is claimed. Exact-head storage host + BusyBox ash and XY-C1 Build/TRX/artifact validation are required.
+- Parent main: `662c8d279a8bea874997e1d5fb74623d3a322640`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. No L3/L4 claim.
+
+---
+
 ## 2026-11-16 — Restore IGMP regression fixture before legacy failure cases
 
 - Exact e349 Process lifecycle #43770121710 failed in the IGMP config regression: the new token-injection tests wrote `last-good-token-validation`, while existing missing-parent/rename assertions still expected `last-good-configuration`. The production helper built and the run reached the later fixture comparison.

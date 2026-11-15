@@ -164,34 +164,92 @@ EOF
 
 func_stop()
 {
-	# Make sure not running
-	if [ -z "`pidof aria2c`" ] ; then
+	# pidof exit 1 with no output means absent; every other inconsistent
+	# result is UNKNOWN and must not be treated as a successful stop.
+	aria_pid=`pidof aria2c 2>/dev/null`
+	aria_pidof_status=$?
+	if [ "$aria_pidof_status" -gt 1 ] ||
+	    { [ "$aria_pidof_status" -eq 0 ] && [ -z "$aria_pid" ]; } ||
+	    { [ "$aria_pidof_status" -ne 0 ] && [ -n "$aria_pid" ]; }; then
+		echo "[FAILED]"
+		logger -t "$SVC_NAME" "Cannot stop: cannot determine daemon process state" >/dev/null 2>&1 || true
+		return 1
+	fi
+	if [ -z "$aria_pid" ]; then
 		return 0
 	fi
 
-	echo -n "Stopping $SVC_NAME:."
-
-	# stop daemon
-	killall -q aria2c
-
-	# gracefully wait max 15 seconds while aria2c stopped
-	i=0
-	while [ -n "`pidof aria2c`" ] && [ $i -le 15 ] ; do
-		echo -n "."
-		i=$(( $i + 1 ))
-		sleep 1
+	# Validate every PID before using any PID as a signal target.
+	for aria_pid_one in $aria_pid; do
+		case "$aria_pid_one" in
+			''|0|1|*[!0-9]*)
+				echo "[FAILED]"
+				logger -t "$SVC_NAME" "Cannot stop: invalid daemon PID list" >/dev/null 2>&1 || true
+				return 1
+				;;
+		esac
 	done
 
-	aria_pid=`pidof aria2c`
-	if [ -n "$aria_pid" ] ; then
-		# force kill (hungup?)
-		kill -9 "$aria_pid"
+	echo -n "Stopping $SVC_NAME:."
+
+	# Ask the daemon to stop gracefully; process presence is authoritative.
+	killall -q aria2c >/dev/null 2>&1 || true
+
+	# Gracefully wait at most 15 seconds while aria2c stops.
+	i=0
+	while [ -n "$aria_pid" ] && [ "$i" -lt 15 ]; do
+		echo -n "."
 		sleep 1
+		aria_pid=`pidof aria2c 2>/dev/null`
+		aria_pidof_status=$?
+		if [ "$aria_pidof_status" -gt 1 ] ||
+		    { [ "$aria_pidof_status" -eq 0 ] && [ -z "$aria_pid" ]; } ||
+		    { [ "$aria_pidof_status" -ne 0 ] && [ -n "$aria_pid" ]; }; then
+			echo "[FAILED]"
+			logger -t "$SVC_NAME" "Cannot stop: process inventory became unknown" >/dev/null 2>&1 || true
+			return 1
+		fi
+		i=$((i + 1))
+	done
+
+	if [ -n "$aria_pid" ]; then
+		# Validate the refreshed snapshot before sending individual signals.
+		for aria_pid_one in $aria_pid; do
+			case "$aria_pid_one" in
+				''|0|1|*[!0-9]*)
+					echo "[FAILED]"
+					logger -t "$SVC_NAME" "Cannot stop: invalid daemon PID list" >/dev/null 2>&1 || true
+					return 1
+					;;
+			esac
+		done
+		for aria_pid_one in $aria_pid; do
+			kill -9 "$aria_pid_one" >/dev/null 2>&1 || true
+		done
+
+		# SIGKILL is asynchronous; verify daemon absence before reporting success.
+		sleep 1
+		aria_pid=`pidof aria2c 2>/dev/null`
+		aria_pidof_status=$?
+		if [ "$aria_pidof_status" -gt 1 ] ||
+		    { [ "$aria_pidof_status" -eq 0 ] && [ -z "$aria_pid" ]; } ||
+		    { [ "$aria_pidof_status" -ne 0 ] && [ -n "$aria_pid" ]; }; then
+			echo "[FAILED]"
+			logger -t "$SVC_NAME" "Cannot stop: process inventory unknown after SIGKILL" >/dev/null 2>&1 || true
+			return 1
+		fi
+		if [ -n "$aria_pid" ]; then
+			echo "[FAILED]"
+			logger -t "$SVC_NAME" "Cannot stop: processes remain after SIGKILL: $aria_pid" >/dev/null 2>&1 || true
+			return 1
+		fi
 		echo "[KILLED]"
-		logger -t "$SVC_NAME" "Cannot stop: Timeout reached! Force killed."
+		logger -t "$SVC_NAME" "Cannot stop: Timeout reached! Force killed." >/dev/null 2>&1 || true
 	else
 		echo "[  OK  ]"
 	fi
+
+	return 0
 }
 
 func_reload()
@@ -217,7 +275,7 @@ reload)
 	func_reload
 	;;
 restart)
-	func_stop
+	func_stop || exit 1
 	func_start
 	;;
 *)

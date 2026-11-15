@@ -9,38 +9,31 @@ For each logical task, create all source/test/doc blobs, one complete Git tree a
 ## Current repository state
 
 - Repository: Arlene206/padavan-4.4-2.
-- Parent main for the IGMP regression baseline correction: e3499afc01bdc42cd1620eb18a6eec0e20541d36.
-- Frozen backup branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged/read-only.
-- Exact parent e349 Process lifecycle run #43770121710 FAILED in the IGMP config regression because the newly added last-good token-validation fixture changed the preserved file contents but the following older failure case still expected the prior fixture string. The validator itself compiled and the run reached the assertion after the new cases.
-- Exact parent XY-C1 #43770121908 and NVRAM #43770121752 were still in progress at last inspection. AI docs #43770121750, inventory #43770121725, AdGuardHome #43770121883, infosvr #43770121820, AliyunDrive #43770121777 and AliDDNS #43770121720 passed.
-- THIS COMMIT restores the original `last-good-configuration` fixture after the new whitespace/comment rejection cases, keeping the independent pre-existing missing-parent/rename assertions unchanged.
-- IGMP config validation now emits only single safe tokens: interface fields reject whitespace/control/comment chars; altnet allows only digits/dots/slashes. No production code change in this correction.
+- Parent main for the Aria stop lifecycle slice: 662c8d279a8bea874997e1d5fb74623d3a322640.
+- Frozen backup branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged and read-only.
+- Exact parent 662 Process lifecycle #43770376409 PASS, including IGMP token-validation and the corrected last-good fixture; Process inventory #43770376403 PASS; AI handoff #43770376449 PASS; NVRAM #43770376543 PASS; AdGuardHome #43770376442 PASS; infosvr #43770376527 PASS; AliDDNS #43770376582 PASS; AliyunDrive #43770376415 PASS.
+- Exact parent 662 XY-C1 #43770376467 was still at Build XY-C1 (TRX and artifact upload pending) at last inspection. No L3 for this SHA.
+- Exact prior abd40 USB storage #43769497238 PASS covers Transmission host and firmware BusyBox 1.24.2 ash. It predates Aria stop changes.
+- THIS COMMIT fixes Aria stop/restart parity: pidof tri-state, PID 0/1 and malformed-output rejection, per-PID SIGKILL, verified post-kill absence and restart fail-closed. Transmission's matching stop validator now also rejects PID 0/1 and successful-empty pidof output.
+- The common storage test exercises both launchers in host shell and BusyBox ash, including absent, graceful, multi-PID, signal failure, malformed/unsafe PID, pidof failure and restart gate scenarios.
 
 ## Active task
 
-### Verify IGMP proxy token validation after fixture correction
+### Verify Aria2 and Transmission stop postconditions under host shell and BusyBox ash
 
-The exact e349 Process lifecycle run #43770121710 failed in the IGMP helper regression after the newly added token-injection tests: those tests changed the fixture file contents to `last-good-token-validation`, but the following existing missing-parent failure test still asserted the older `last-good-configuration` contents. The validator compiled and the run reached this assertion; the failure is test fixture sequencing, not a production parser/build error.
+Aria `func_stop()` passed a whitespace-separated `pidof aria2c` result as one quoted `kill -9` argument, printed success without checking post-SIGKILL daemon absence, and allowed `restart` to proceed regardless of stop result. It also treated pidof errors or successful-empty output as daemon absence.
 
-THIS COMMIT restores the original last-good fixture before the older missing-parent/rename/flush-failure tests. Exact Process lifecycle regression and XY-C1 Build/TRX/artifact checks on this corrected SHA are required.
+THIS COMMIT validates pidof's status/output consistency, rejects malformed and unsafe PID 0/1 targets, signals every PID separately, verifies final process absence after SIGKILL and gates restart on successful stop. The shared storage regression now runs equivalent checks for both Aria and Transmission under host shell and firmware BusyBox 1.24.2 ash.
 
-Next task: continue the Aria launcher stop lifecycle audit (same multi-PID, forced-kill postcondition and restart-gate pattern previously corrected in Transmission), then wider outstanding P1 service lifecycle work.
+After exact-head storage validation, continue the next uncompleted broad P1 user-space service lifecycle/security finding from the roadmap. Avoid re-auditing these stop paths or the IGMP config publication.
+
+## Completed source slice — IGMP proxy config-token validation
+
+The IGMP proxy publisher already staged its configuration and checked writes/flush/fsync/close/rename. It now rejects whitespace/control/comment markers in interface tokens and restricts altnet values to digits, dots and slashes, preventing same-line token/comment injection from NVRAM values. Exact Process lifecycle #43770376409 PASS on parent SHA 662; exact 662 XY-C1 #43770376467 was still in progress at last poll.
 
 ## Completed source slice — Transmission launcher lifecycle
 
-Transmission's shell stop now validates each PID independently before SIGKILL, confirms daemon absence after the forced path and gates restart on successful stop. The PID-unique config stage and ownership-aware cleanup remain. Exact abd40 USB storage #43769497238 PASS across host, BusyBox 1.24.2 ash and full storage checks. The exact-head XY-C1 workflow was pending at last inspection; no L3 for this SHA yet.
-
-## Completed source slice — MSD Lite configuration publication
-
-The APP_MSD_LITE branch in `start_udpxy()` previously truncated `/etc/storage/msd_lite.conf` before validating the template and ignored read/write/flush/close failures. It now uses checked same-directory staged publication and aborts before enabling or launching the daemon on failure.
-
-Changed: `trunk/user/rc/src/net.c`; new `trunk/user/rc/src/msd_lite_config_file.h` and its host regression; Process lifecycle integration and XY-C1 workflow filters. GNU89 ASan/UBSan regression passed. The exact Process lifecycle host regression and XY-C1 Build/TRX/artifact workflow passed for source SHA `b488a561bb91df62aca810a6ff2c191c17f82b2b`; L3 applies only to that exact source revision. No L4.
-
-## Completed source slice — MSD Lite configuration publication
-
-The APP_MSD_LITE branch in `start_udpxy()` previously truncated `/etc/storage/msd_lite.conf` before validating the template and ignored read/write/flush/close failures. It now uses checked same-directory staged publication and aborts before enabling or launching the daemon on failure.
-
-Changed: `trunk/user/rc/src/net.c`; new `trunk/user/rc/src/msd_lite_config_file.h` and its host regression; Process lifecycle integration and XY-C1 workflow filters. GNU89 ASan/UBSan regression passed. The exact Process lifecycle host regression and XY-C1 Build/TRX/artifact workflow passed for source SHA `b488a561bb91df62aca810a6ff2c191c17f82b2b`; L3 applies only to that exact source revision. No L4.
+Transmission's shell stop now validates each PID, signals individual processes, confirms absence after forced termination and gates restart. Its PID-unique config stage and ownership-aware cleanup remain. Exact abd40 USB storage #43769497238 PASS across host and firmware BusyBox ash; no L3 claim for newer source SHA.
 
 ## Completed source slice — MSD Lite configuration publication
 
@@ -50,16 +43,16 @@ Changed: `trunk/user/rc/src/net.c`; new `trunk/user/rc/src/msd_lite_config_file.
 
 ## Verification boundary
 
-- Parent main: `e3499afc01bdc42cd1620eb18a6eec0e20541d36`; this is a one-file regression fixture correction with an atomic handoff/roadmap/log update.
-- Exact e349 Process lifecycle #43770121710 FAIL only at the IGMP regression's later last-good assertion: the inserted new tests had set another expected file value and did not restore the fixture before legacy failure-path assertions.
-- Exact e349 AI docs #43770121750, Process inventory #43770121725, AdGuardHome #43770121883, infosvr #43770121820, AliyunDrive #43770121777 and AliDDNS #43770121720 PASS. NVRAM #43770121752 and XY-C1 #43770121908 were in progress at last poll.
-- Exact abd40 storage #43769497238 PASS, including host + BusyBox 1.24.2 ash launcher tests; that result predates the IGMP-only changes.
-- No new exact-head Process lifecycle/XY-C1 result yet; no L3/L4 claim. Frozen backup unchanged.
+- Parent main: `662c8d279a8bea874997e1d5fb74623d3a322640`; Aria/Transmission shell sources, shared regression and handoff/roadmap/log update are a single atomic commit.
+- Exact parent 662 Process lifecycle #43770376409 PASS (all scanner, PID, Firefly/MiniDLNA, optional-app, IAPP and IGMP checks); Process inventory #43770376403 PASS; AI docs #43770376449 PASS; NVRAM #43770376543 PASS; AdGuardHome #43770376442 PASS; infosvr #43770376527 PASS; AliDDNS #43770376582 PASS; AliyunDrive #43770376415 PASS.
+- Exact parent 662 XY-C1 #43770376467 was still building; TRX and artifact upload were pending. Prior abd40 storage #43769497238 PASS covers Transmission only.
+- Exact-head USB storage host + firmware BusyBox 1.24.2 ash tests are required for both launchers. Exact-head XY-C1 Build/TRX/artifact is required for L3. No L3/L4 claim yet.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; archived log shards and index are untouched.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head Process lifecycle regression. Confirm IGMP token tests pass and the original missing-parent, directory-target and RLIMIT_FSIZE failure cases still prove last-good preservation.
-2. Inspect exact-head XY-C1 Build, TRX verification and artifact upload; L3 only if all phases pass on this SHA.
-3. Then repair Aria `func_stop()` multi-PID signaling, final process-absence verification and restart gating with host + firmware BusyBox ash regressions.
-4. Preserve frozen backup and archive shards; no L4 without physical-router evidence.
+1. Inspect exact-head USB storage Action for POSIX shell and firmware BusyBox 1.24.2 ash runs: both launchers' absent/graceful/multi-PID/failed-signal/malformed PID/pidof-unknown/restart tests, config-generation faults and the complete storage caller graph must pass.
+2. Inspect exact-head XY-C1 Build, TRX verification and artifact upload; claim L3 only if all stages pass on this exact source SHA.
+3. Continue the next uncompleted P1 broad user-space stability/security task in the roadmap; do not repeat the completed Aria/Transmission stop audit, IGMP input-token validation or prior MSD Lite slice.
+4. Preserve the frozen backup and archive inventory. No L4 without physical-router evidence.
 

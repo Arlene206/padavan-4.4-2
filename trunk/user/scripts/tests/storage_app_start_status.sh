@@ -320,11 +320,19 @@ run_transmission_setup_failure chmod-root chmod "$TMP_DIR/transmission-setup-chm
 run_transmission_setup_failure chown-config chown "$TMP_DIR/transmission-setup-chown-config/mount/config"
 run_transmission_setup_failure chown-incomplete chown "$TMP_DIR/transmission-setup-chown-incomplete/mount/incomplete"
 run_transmission_setup_failure chmod-downloads chmod "$TMP_DIR/transmission-setup-chmod-downloads/mount/downloads"
-# Exercise the extracted production stop function with deterministic PID state.
+# Exercise both production stop functions against deterministic PID state.
 STOP_STUB_DIR="$TMP_DIR/stop-bin"
 mkdir -p "$STOP_STUB_DIR"
 cat > "$STOP_STUB_DIR/pidof" <<'EOF'
 #!/bin/sh
+if [ "${STORAGE_TEST_STOP_PIDOF_EMPTY_SUCCESS:-0}" -eq 1 ]; then
+	exit 0
+fi
+case "${STORAGE_TEST_STOP_PIDOF_STATUS:-0}" in
+	0) ;;
+	1) exit 1 ;;
+	*) exit "$STORAGE_TEST_STOP_PIDOF_STATUS" ;;
+esac
 [ -s "$STORAGE_TEST_STOP_STATE" ] || exit 1
 exec /bin/cat "$STORAGE_TEST_STOP_STATE"
 EOF
@@ -341,10 +349,15 @@ cat > "$STOP_STUB_DIR/sleep" <<'EOF'
 exit 0
 EOF
 chmod 755 "$STOP_STUB_DIR/"*
+
+create_stop_runner()
 {
-	cat <<'EOF'
+	source_file=$1
+	output_file=$2
+	{
+		cat <<'EOF'
 #!/bin/sh
-SVC_NAME=Transmission
+SVC_NAME="${STORAGE_TEST_STOP_SERVICE_NAME:-StorageTest}"
 kill()
 {
 	[ "$#" -eq 2 ] && [ "$1" = "-9" ] || return 64
@@ -355,85 +368,152 @@ kill()
 	return 0
 }
 EOF
-	sed -n '/^func_stop()/,/^func_reload()/p' "$TRANSMISSION_SRC" | sed '$d'
-	printf '%s\n' 'func_stop'
-} > "$TMP_DIR/transmission-stop-runner.sh"
-chmod 755 "$TMP_DIR/transmission-stop-runner.sh"
+		sed -n '/^func_stop()/,/^func_reload()/p' "$source_file" | sed '$d'
+		printf '%s\n' 'func_stop'
+	} > "$output_file"
+	chmod 755 "$output_file"
+}
 
-run_transmission_stop()
+run_stop_runner()
 {
-	state_file=$1
-	signal_log=$2
-	kill_status=$3
-	killall_clear=$4
-	PATH="$STOP_STUB_DIR:$STUB_DIR:$PATH" \
-		STORAGE_TEST_STOP_STATE="$state_file" \
-		STORAGE_TEST_SIGNAL_LOG="$signal_log" \
-		STORAGE_TEST_KILL_STATUS="$kill_status" \
-		STORAGE_TEST_STOP_KILLALL_CLEAR="$killall_clear" \
-		"$TMP_DIR/transmission-stop-runner.sh" >/dev/null 2>&1
+	runner_file=$1
+	service_name=$2
+	state_file=$3
+	signal_log=$4
+	kill_status=$5
+	killall_clear=$6
+	pidof_status=$7
+	killall_status=$8
+	pidof_empty_success=${9:-0}
+	if [ -n "${BUSYBOX_BIN:-}" ]; then
+		PATH="$STOP_STUB_DIR:$STUB_DIR:$PATH" \
+			STORAGE_TEST_STOP_SERVICE_NAME="$service_name" \
+			STORAGE_TEST_STOP_STATE="$state_file" \
+			STORAGE_TEST_SIGNAL_LOG="$signal_log" \
+			STORAGE_TEST_KILL_STATUS="$kill_status" \
+			STORAGE_TEST_STOP_KILLALL_CLEAR="$killall_clear" \
+			STORAGE_TEST_STOP_PIDOF_STATUS="$pidof_status" \
+			STORAGE_TEST_STOP_KILLALL_STATUS="$killall_status" \
+			STORAGE_TEST_STOP_KILLALL_LOG="$TMP_DIR/$service_name-killall.log" \
+			STORAGE_TEST_STOP_PIDOF_EMPTY_SUCCESS="$pidof_empty_success" \
+			"$BUSYBOX_BIN" ash "$runner_file" >/dev/null 2>&1
+	else
+		PATH="$STOP_STUB_DIR:$STUB_DIR:$PATH" \
+			STORAGE_TEST_STOP_SERVICE_NAME="$service_name" \
+			STORAGE_TEST_STOP_STATE="$state_file" \
+			STORAGE_TEST_SIGNAL_LOG="$signal_log" \
+			STORAGE_TEST_KILL_STATUS="$kill_status" \
+			STORAGE_TEST_STOP_KILLALL_CLEAR="$killall_clear" \
+			STORAGE_TEST_STOP_PIDOF_STATUS="$pidof_status" \
+			STORAGE_TEST_STOP_KILLALL_STATUS="$killall_status" \
+			STORAGE_TEST_STOP_KILLALL_LOG="$TMP_DIR/$service_name-killall.log" \
+			STORAGE_TEST_STOP_PIDOF_EMPTY_SUCCESS="$pidof_empty_success" \
+			"$runner_file" >/dev/null 2>&1
+	fi
 }
 
-# Graceful exit: no SIGKILL should be needed.
-stop_state="$TMP_DIR/stop-graceful-pids"
-stop_signals="$TMP_DIR/stop-graceful-signals"
-stop_killall="$TMP_DIR/stop-graceful-killall"
-printf '%s\n' 101 202 > "$stop_state"
-if ! STORAGE_TEST_STOP_STATE="$stop_state" STORAGE_TEST_STOP_KILLALL_LOG="$stop_killall" \
-	STORAGE_TEST_STOP_KILLALL_CLEAR=1 PATH="$STOP_STUB_DIR:$STUB_DIR:$PATH" \
-	"$TMP_DIR/transmission-stop-runner.sh" >/dev/null 2>&1; then
-	echo "Transmission graceful stop failed" >&2
-	exit 1
-fi
-[ ! -s "$stop_state" ] || { echo "Transmission graceful stop left daemon PIDs" >&2; exit 1; }
-[ ! -s "$stop_signals" ] || { echo "Transmission graceful stop sent an unnecessary SIGKILL" >&2; exit 1; }
+check_stop_contracts()
+{
+	stop_prefix=$1
+	stop_service=$2
+	stop_source=$3
+	stop_runner="$TMP_DIR/$stop_prefix-stop-runner.sh"
+	create_stop_runner "$stop_source" "$stop_runner"
 
-# Forced stop must signal each PID separately and verify final absence.
-stop_state="$TMP_DIR/stop-forced-pids"
-stop_signals="$TMP_DIR/stop-forced-signals"
-: > "$stop_state"
-: > "$stop_signals"
-printf '%s\n' 303 404 > "$stop_state"
-if ! run_transmission_stop "$stop_state" "$stop_signals" 0 0; then
-	echo "Transmission forced stop failed after successful per-PID SIGKILL" >&2
-	exit 1
-fi
-[ ! -s "$stop_state" ] || { echo "Transmission forced stop left daemon PIDs" >&2; exit 1; }
-[ "$(wc -l < "$stop_signals")" -eq 2 ] || { echo "Transmission did not signal each PID separately" >&2; exit 1; }
-[ "$(sed -n '1p' "$stop_signals")" = 303 ] && [ "$(sed -n '2p' "$stop_signals")" = 404 ] || {
-	echo "Transmission SIGKILL PID list was not processed individually" >&2
-	exit 1
+	# No daemon is a successful no-op and must not invoke killall.
+	stop_state="$TMP_DIR/$stop_prefix-stop-absent-pids"
+	stop_signals="$TMP_DIR/$stop_prefix-stop-absent-signals"
+	stop_killall="$TMP_DIR/$stop_service-killall.log"
+	: > "$stop_state"
+	: > "$stop_signals"
+	rm -f "$stop_killall"
+	if ! run_stop_runner "$stop_runner" "$stop_service" "$stop_state" "$stop_signals" 0 0 1 0; then
+		echo "$stop_service stop failed when pidof confirmed no daemon" >&2
+		exit 1
+	fi
+	[ ! -e "$stop_killall" ] || { echo "$stop_service invoked killall with no daemon" >&2; exit 1; }
+
+	# Graceful exit: killall clears the daemon snapshot.
+	stop_state="$TMP_DIR/$stop_prefix-stop-graceful-pids"
+	stop_signals="$TMP_DIR/$stop_prefix-stop-graceful-signals"
+	printf '%s\n' 101 202 > "$stop_state"
+	: > "$stop_signals"
+	rm -f "$stop_killall"
+	if ! run_stop_runner "$stop_runner" "$stop_service" "$stop_state" "$stop_signals" 0 1 0 0; then
+		echo "$stop_service graceful stop failed" >&2
+		exit 1
+	fi
+	[ ! -s "$stop_state" ] || { echo "$stop_service graceful stop left daemon PIDs" >&2; exit 1; }
+	[ ! -s "$stop_signals" ] || { echo "$stop_service graceful stop sent an unnecessary SIGKILL" >&2; exit 1; }
+
+	# Forced stop sends one signal per PID; killall status is non-authoritative.
+	stop_state="$TMP_DIR/$stop_prefix-stop-forced-pids"
+	stop_signals="$TMP_DIR/$stop_prefix-stop-forced-signals"
+	printf '%s\n' 303 404 > "$stop_state"
+	: > "$stop_signals"
+	if ! run_stop_runner "$stop_runner" "$stop_service" "$stop_state" "$stop_signals" 0 0 0 7; then
+		echo "$stop_service forced stop failed after successful per-PID SIGKILL" >&2
+		exit 1
+	fi
+	[ ! -s "$stop_state" ] || { echo "$stop_service forced stop left daemon PIDs" >&2; exit 1; }
+	[ "$(wc -l < "$stop_signals")" -eq 2 ] || { echo "$stop_service did not signal each PID separately" >&2; exit 1; }
+	[ "$(sed -n '1p' "$stop_signals")" = 303 ] && [ "$(sed -n '2p' "$stop_signals")" = 404 ] || {
+		echo "$stop_service SIGKILL PID list was not processed individually" >&2
+		exit 1
+	}
+
+	# Failed SIGKILL must not be reported as a successful stop.
+	stop_state="$TMP_DIR/$stop_prefix-stop-failed-kill-pids"
+	stop_signals="$TMP_DIR/$stop_prefix-stop-failed-kill-signals"
+	printf '%s\n' 505 606 > "$stop_state"
+	: > "$stop_signals"
+	if run_stop_runner "$stop_runner" "$stop_service" "$stop_state" "$stop_signals" 9 0 0 0; then
+		echo "$stop_service reported success while daemon PIDs survived SIGKILL failure" >&2
+		exit 1
+	fi
+	[ -s "$stop_state" ] || { echo "$stop_service failed-kill fixture unexpectedly removed daemon PIDs" >&2; exit 1; }
+	[ "$(wc -l < "$stop_signals")" -eq 2 ] || { echo "$stop_service did not attempt SIGKILL for every remaining PID" >&2; exit 1; }
+
+	# Reject malformed and unsafe PID lists before sending any signal.
+	for invalid_pids in "505 invalid" "0" "1"; do
+		stop_state="$TMP_DIR/$stop_prefix-stop-invalid-pids"
+		stop_signals="$TMP_DIR/$stop_prefix-stop-invalid-signals"
+		printf '%s\n' "$invalid_pids" > "$stop_state"
+		: > "$stop_signals"
+		if run_stop_runner "$stop_runner" "$stop_service" "$stop_state" "$stop_signals" 0 0 0 0; then
+			echo "$stop_service accepted unsafe pidof output: $invalid_pids" >&2
+			exit 1
+		fi
+		[ ! -s "$stop_signals" ] || { echo "$stop_service signaled an unsafe PID list" >&2; exit 1; }
+	done
+
+	# A pidof error or a successful-but-empty response is UNKNOWN, not absent.
+	stop_state="$TMP_DIR/$stop_prefix-stop-unknown-pids"
+	stop_signals="$TMP_DIR/$stop_prefix-stop-unknown-signals"
+	: > "$stop_state"
+	: > "$stop_signals"
+	rm -f "$stop_killall"
+	if run_stop_runner "$stop_runner" "$stop_service" "$stop_state" "$stop_signals" 0 0 2 0; then
+		echo "$stop_service treated pidof error as daemon absence" >&2
+		exit 1
+	fi
+	[ ! -e "$stop_killall" ] || { echo "$stop_service invoked killall after pidof error" >&2; exit 1; }
+	if run_stop_runner "$stop_runner" "$stop_service" "$stop_state" "$stop_signals" 0 0 0 0 1; then
+		echo "$stop_service accepted an empty successful pidof response" >&2
+		exit 1
+	fi
+	[ ! -e "$stop_killall" ] || { echo "$stop_service invoked killall after inconsistent pidof output" >&2; exit 1; }
+
+	# Restart must not start after stop fails.
+	restart_block=$(sed -n '/^restart)/,/^;;/p' "$stop_source")
+	case "$restart_block" in
+		*"func_stop || exit 1"*) ;;
+		*) echo "$stop_service restart is not gated on successful stop" >&2; exit 1 ;;
+	esac
 }
 
-# Failed SIGKILL must not be reported as a successful stop.
-stop_state="$TMP_DIR/stop-failed-kill-pids"
-stop_signals="$TMP_DIR/stop-failed-kill-signals"
-: > "$stop_signals"
-printf '%s\n' 505 606 > "$stop_state"
-if run_transmission_stop "$stop_state" "$stop_signals" 9 0; then
-	echo "Transmission reported success while daemon PIDs survived SIGKILL failure" >&2
-	exit 1
-fi
-[ -s "$stop_state" ] || { echo "Failed SIGKILL fixture unexpectedly removed daemon PIDs" >&2; exit 1; }
-[ "$(wc -l < "$stop_signals")" -eq 2 ] || { echo "Transmission did not attempt SIGKILL for every remaining PID" >&2; exit 1; }
-
-# Reject malformed pidof output without turning it into a signal argument.
-stop_state="$TMP_DIR/stop-invalid-pids"
-stop_signals="$TMP_DIR/stop-invalid-signals"
-: > "$stop_signals"
-printf '%s\n' '505 invalid' > "$stop_state"
-if run_transmission_stop "$stop_state" "$stop_signals" 0 0; then
-	echo "Transmission accepted malformed pidof output" >&2
-	exit 1
-fi
-[ ! -s "$stop_signals" ] || { echo "Transmission signaled an invalid PID list" >&2; exit 1; }
-
-# Restart must not proceed to the start action when stop fails.
-restart_block=$(sed -n '/^restart)/,/^;;/p' "$TRANSMISSION_SRC")
-case "$restart_block" in
-	*"func_stop || exit 1"*) ;;
-	*) echo "Transmission restart is not gated on successful stop" >&2; exit 1 ;;
-esac
+check_stop_contracts transmission Transmission "$TRANSMISSION_SRC"
+check_stop_contracts aria Aria2 "$ARIA_SRC"
 
 run_aria_config_failure()
 {
