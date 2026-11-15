@@ -1,3 +1,13 @@
+## 2026-11-15 — Stabilize Samba source-contract whitespace and handoff
+
+- Parent main SHA: f4e78554c490c28697fc7819de8ba4947ab6eb48.
+- Exact f4 Samba run [43660915754] passed every C regression executable (config file, passdb policy, paired transaction, tri-state daemon readiness and identity-bound process signaling) and failed only in the Python source-contract step at line 150. Production's compact C expression was semantically correct; the assertion expected spaced tokens. The check now removes whitespace before comparing the full helper-call contract.
+- The f4 source addition adds a tested samba_process_require_absent() policy (ABSENT succeeds, RUNNING returns EBUSY, UNKNOWN preserves scan errno / EIO, invalid states return EIO) and verifies smbd/nmbd/(SMBD36 wsdd2) absence after the Samba stop before mount scan/restart. Fastpath uses full process inventory and leaves acceleration disabled on UNKNOWN.
+- AI handoff [43660915715], process inventory [43660915717], NFS [43660915753], vsftpd [43660915711] and HTTPD [43660915835] passed on f4. XY-C1 [43660915762], storage [43660915718] and NVRAM [43660915714] were IN_PROGRESS at last poll. This commit changes only the Samba workflow contract and handoff/roadmap/log; new exact-head Samba and docs runs must be checked. Current L3/L4 NOT VERIFIED.
+- Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 15/11/2026, 08:50 CST — Correct Samba policy regression and restore complete root development log
 
 - Parent main SHA: 6052c4aaad370b67f529485b8effa14350435f2b.

@@ -8,7 +8,7 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2. Current main source SHA before this test correction: 6052c4aaad370b67f529485b8effa14350435f2b. Samba process-inventory slice introduced `samba_process_policy.h` and production use in `services_stor.c::run_samba()`; the first exact-head Samba CI run [43659761190] failed because the EPERM fake supplied only two RUNNING validations instead of the required four (two identities × preflight + signal-time revalidation). This commit corrects that test fixture and restores the complete root development log from 525c046 (the previous handoff mistakenly replaced its history with a single entry). The follow-up `reload_nmbd()` source change was not published; do not assume it exists on main. Next inspect exact-head Samba + AI docs Actions, then continue WINS start/restart migrations. DNSMasq lifecycle exact-head PASS on 9d816 [43657650362]. L3 and physical L4 remain NOT VERIFIED. Immutable backup remains `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Repository: Arlene206/padavan-4.4-2. Current main before this test/doc follow-up: f4e78554c490c28697fc7819de8ba4947ab6eb48. Commit f4e7855 added a reusable complete-ABSENT postcondition policy and made restart_smbd() require smbd/nmbd (and wsdd2 on SMBD36) to be absent after kill_services() before mount inventory or restart; Samba fastpath also moved to RUNNING/ABSENT/UNKNOWN. Exact-head Samba [43660915754] failed only at the Python source contract, line 150, because the checker expected whitespace-normalized "command_status != 0" while the production helper is formatted "command_status!=0"; all five config/passdb/transaction/readiness/identity-policy C test binaries passed. The integration checker is made whitespace-stable here. AI docs [43660915715], process inventory [43660915717], NFS [43660915753], vsftpd [43660915711] and HTTPD [43660915835] passed; XY-C1 [43660915762], storage hotplug [43660915718] and NVRAM [43660915714] were IN_PROGRESS at last poll. This commit changes workflow + handoff only; current production-source L3 remains pending exact XY-C1 Build/TRX/artifact. Physical L4 NOT VERIFIED. Immutable backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
 - Immutable archive: `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`. Read-only; never modify it.
 - **Permanent user entrypoint:** `接手 https://github.com/Arlene206/padavan-4.4-2/ 继续开发`. The user does not need a long prompt, previous chat, or repository upload. Never output a recursive next-GPT prompt in chat. Git documents and live GitHub state are the project memory.
 - Recovery is read-only by default: read complete `AI_DEVELOPMENT_PROTOCOL.md` and `AI_BOOTSTRAP_PROMPT.md`; fetch live main + immutable backup; inspect exact-head Actions; then read this handoff, roadmap, newest 20 dev-log records, `docs/dev-log/INDEX.md`, and the semantic audit report for the active caller group. Do not create a commit to refresh SHA fields, record a takeover, or report a CI poll.
@@ -53,11 +53,12 @@ All ten `push` workflows below checked out this exact product-source SHA (then t
 
 The earlier dd7a XY-C1 run [43624870668] also completed SUCCESS; it is superseded by the successful current-main build.
 
-### XY-C1 MIPS/uClibc target build — VERIFIED on current product-source baseline
+### XY-C1 MIPS/uClibc target build — historical baseline verified; current source pending
 
-- Latest product-source baseline: `cc61cb5f8ae594b0cf1aee3ddebdd414e0bf5286`. Exact-head XY-C1 push [43648229489](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43648229489) passed the complete MIPS/uClibc build, TRX output verification and artifact upload. Artifact [14135711084](https://github.com/Arlene206/padavan-4.4-2/actions/runs/43648229489): 12,587,100 bytes; SHA-256 `bda83c9e71ed01a8708ad90a5104535e972bd30424bdf03ed24065b3a1a9407e`.
-- The subsequent `7697c6fd` commit changed only handoff documentation. This checker correction also changes no firmware product source; L3 remains VERIFIED for the current product-source baseline `cc61cb5`. Any later production-source change requires a new exact-head target build before claiming current L3.
-- L4 remains NOT VERIFIED; no physical XY-C1 flash/boot/runtime claim.
+- Last fully verified product-source baseline: `cc61cb5f8ae594b0cf1aee3ddebdd414e0bf5286`, exact-head XY-C1 [43648229489] passed MIPS/uClibc build, TRX verification and artifact upload [14135711084] (12,587,100 bytes; SHA-256 `bda83c9e71ed01a8708ad90a5104535e972bd30424bdf03ed24065b3a1a9407e`).
+- Exact XY-C1 [43660915762] for product-source commit `f4e78554c490c28697fc7819de8ba4947ab6eb48` was IN_PROGRESS at last poll; it includes Samba WINS identity/restart and complete-ABSENT postcondition changes. This workflow/doc-only follow-up does not alter product source. L3 remains NOT VERIFIED until that run's Build, TRX check and artifact upload pass.
+- Physical XY-C1 flash/boot/runtime L4 remains NOT VERIFIED.
+
 
 ## Explicitly uncompleted P1 work
 
@@ -92,26 +93,19 @@ The earlier dd7a XY-C1 run [43624870668] also completed SUCCESS; it is supersede
 
 ## Exact first action for the next GPT
 
-Main parent before this DNSMasq identity-bound cache-reload fix: 525c046d658ec4e3de0fd62f25c133dec603bbd9.
-Immutable backup: backup/pre-plugin-overhaul-2026-11-14 = 72f4f157a084f8184b9597ca5bf334b8080e5807 (read-only).
+Current main parent for this follow-up: `f4e78554c490c28697fc7819de8ba4947ab6eb48`. This commit corrects the Samba workflow source assertion by compacting whitespace before comparing C helper calls and updates the handoff/roadmap after the Samba process-state migration. Immutable backup remains `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
 
-### Completed in recent source slices
-- 3ca4126: strict disk inventory decimal parser no longer uses 64-bit division; UINT_MAX and ULLONG_MAX boundary cases added.
-- 322c17f: DNSMasq start preflight/restart post-stop gates distinguish RUNNING/ABSENT/UNKNOWN.
-- 09268ce: WAN DHCP renewal is authorized only on confirmed RUNNING; UNKNOWN propagates scan errno and no SIGUSR1 is sent. Exact Process lifecycle Action [43657031251] on 525c046 PASSED after fixing the checker delimiter follow-up in 525c046.
-- This slice: restart_dns() uses captured DNSMasq process identities and sends targeted SIGHUP only after full preflight and immediate per-PID revalidation; UNKNOWN and signal errors fail closed.
-
-### Verification boundary before this commit
-- Exact 525c046: Process lifecycle [43657031251], AliDDNS [43657031278], infosvr [43657031274], AdGuardHome [43657031239], AliyunDrive [43657031284], AI docs [43657031271] and NVRAM [43657031315] PASSED.
-- Exact 09268ce XY-C1 [43656932522] remained IN_PROGRESS at Build XY-C1; 3ca XY-C1 [43656299052] also remained IN_PROGRESS. No TRX/artifact result was available at last poll.
-- Exact 322c17f DNSMasq lifecycle [43656500091] PASSED.
-- Current-source L3 is NOT VERIFIED until exact-source Build XY-C1, TRX verification and artifact upload pass. Physical L4 remains NOT VERIFIED.
+### Completed through the current slice
+- WINS start/reload/restart use complete process inventories, identity-bound PID SIGHUP, fresh ABSENT checks before launch and stable tri-state readiness; UNKNOWN blocks configuration mutation and unsafe launch.
+- Samba process-action policy now includes a separately tested ABSENT postcondition helper: RUNNING returns EBUSY; UNKNOWN preserves scan errno or EIO. After a public Samba restart stop, smbd/nmbd and (SMBD36) wsdd2 must all be authoritatively absent before mount inventory or any new launch.
+- Fastpath checks smbd via complete process inventory; UNKNOWN keeps acceleration disabled. The earlier direct Samba pids() checks are gone in the migrated start/restart decisions.
+- Exact f4 Samba [43660915754] passed all five GNU89/ASan/UBSan C test executables but failed the Python source integration contract at line 150 due whitespace-sensitive matching of the minified helper call; that assertion is made whitespace-stable in this commit. AI docs [43660915715], process inventory [43660915717], NFS [43660915753], vsftpd [43660915711] and HTTPD [43660915835] passed; XY [43660915762], storage hotplug [43660915718] and NVRAM [43660915714] were IN_PROGRESS at last poll. New Samba/docs exact-head Actions are pending.
+- Root `dev_log.md` contains 36 existing complete records plus this record; no rotation due. Current-source L3 NOT VERIFIED; physical L4 NOT VERIFIED.
 
 ### Next work
-1. Verify exact-head Samba share-stability and AI documentation Actions for this correction commit; inspect and resolve any remaining failed steps.
-2. Migrate `services_ex.c::start_wins()` from raw `pids()` and name-wide SIGHUP to a complete nmbd snapshot, fail-closed UNKNOWN before config publication, identity-bound targeted reload, and a fresh ABSENT check before launch.
-3. Migrate `restart_nmbd()`: snapshot smbd/nmbd before config/stop, abort on UNKNOWN, require confirmed ABSENT before relaunch, and signal only the captured smbd identities.
-4. Finish `services_stor.c` fastpath and `restart_smbd()` postconditions, optional wsdd2 handling, then Samba stop/shutdown/flash/NVRAM lifecycle work.
-5. L3 needs the exact product-source SHA to pass Build, TRX verification and artifact upload. L4 physical XY-C1 flash/boot/runtime remains NOT VERIFIED.
+1. Resume the audited upper-level stop-propagation group: inspect `services.c::stop_services()`, `rc.c::flash_firmware()`, and `rc.c::shutdown_router()`; trace all callers and verify failed service stop blocks firmware erase/write and unsafe follow-on shutdown while preserving explicitly permitted safe reboot/halt behavior.
+2. Add production-connected regression coverage for any missing stop-result propagation; update only the relevant RC/firmware regression and XY trigger paths.
+3. Continue the remaining direct `pids()` and name-wide signal migrations by semantic group. Do not change legacy `pids()` semantics globally.
+4. Current L3 requires exact latest product-source XY-C1 MIPS/uClibc Build + TRX verification + artifact upload. Physical L4 remains NOT VERIFIED.
 
-Re-fetch live main before every write; do not redo bootstrap.
+Re-fetch main and exact-head Actions before the next write. Do not repeat the completed process inventory census or Samba WINS migration.
