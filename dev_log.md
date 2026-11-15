@@ -1,3 +1,11 @@
+## 2026-11-15 — Fix HTTPD watchdog checker extraction across nested preprocessor guards
+
+- Exact process-lifecycle run `43673924543` on `3eee10383ac8f6b05554738a92dd13fbfcceeb24` passed all compiled GNU89 policy regressions and integration checks through the detector group, then failed the new HTTPD wget source assertion. The checker sliced the function at the first inner `#endif` (`SUPPORT_HTTPS`), truncating the body before the wget invocation; production code was not implicated.
+- Reused the existing brace-aware C function extractor to inspect the complete `httpd_check_v2()` body, including nested preprocessor blocks.
+- Changed paths: `check_process_lifecycle_integration.py`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Bound the HTTPD health-check wget instead of killing all wget processes
 
 - `watchdog.c::httpd_check_v2()` launched a background wget with the default 900-second network timeout, then used `pids("wget")` plus `killall wget` on two early-exit paths. That could terminate unrelated download jobs.

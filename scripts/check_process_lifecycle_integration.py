@@ -418,7 +418,7 @@ for path in (
 print("detect_internet/detect_link/WAN gateway tri-state start-gate integration: PASS")
 
 watchdog_source = (root / "trunk/user/rc/src/watchdog.c").read_text()
-httpd_probe = watchdog_source.split("static int\nhttpd_check_v2()", 1)[1].split("\n#endif", 1)[0]
+httpd_probe = body(watchdog_source, "httpd_check_v2()")
 busybox_config = (root / "trunk/configs/boards/busybox.config").read_text()
 assert 'wget -q -T 1 http://127.0.0.1:%d/httpd_check.htm' in httpd_probe
 assert 'pids("wget")' not in httpd_probe
