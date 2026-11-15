@@ -266,6 +266,17 @@ grep -Fqx TERM-BEGIN "$TEST_OPS" || fail "slow stop did not enter its critical s
 run_action normal start || fail "start did not proceed after the serialized stop released the lock"
 wait "$stop_pid" || fail "serialized stop failed"
 DDNSTO_LOCK_WAIT_SECONDS=5
+# The start launcher intentionally returns after spawning its daemon. Observe
+# the asynchronous child's START marker before asserting event ordering.
+start_after_stop_attempt=0
+while { [ "$(grep -Fxc START "$TEST_OPS" || :)" -lt 2 ] ||
+        [ "$(cat "$TEST_STATE")" != running ]; } &&
+      [ "$start_after_stop_attempt" -lt 100 ]; do
+	/bin/sleep 0.02
+	start_after_stop_attempt=$((start_after_stop_attempt + 1))
+done
+[ "$(grep -Fxc START "$TEST_OPS" || :)" -ge 2 ] &&
+[ "$(cat "$TEST_STATE")" = running ] || fail "serialized replacement start was not observed"
 awk '/TERM-END/ { stop_end = NR } /^START$/ && stop_end && NR > stop_end { started_after_stop = 1 } END { exit !started_after_stop }' "$TEST_OPS" ||
 	fail "concurrent start overlapped the in-progress stop"
 echo "DDNSTO start/stop operations serialize and detached daemons do not retain FD 9: PASS"
