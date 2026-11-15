@@ -318,22 +318,20 @@ start_networkmap(int first_call)
 	enum process_presence state;
 	int scan_error;
 
-	if (first_call) {
-		state = process_inventory_scan("networkmap", &snapshot);
-		if (state == PROCESS_PRESENCE_RUNNING) {
-			process_snapshot_release(&snapshot);
-			return 0;
-		}
-		if (state != PROCESS_PRESENCE_ABSENT) {
-			scan_error = snapshot.error > 0 ? snapshot.error : EIO;
-			process_snapshot_release(&snapshot);
-			errno = scan_error;
-			logmessage(LOGNAME, "networkmap start aborted: process inventory unknown (errno=%d)",
-				   scan_error);
-			return -1;
-		}
+	state = process_inventory_scan("networkmap", &snapshot);
+	if (state == PROCESS_PRESENCE_RUNNING) {
 		process_snapshot_release(&snapshot);
+		return 0;
 	}
+	if (!networkmap_start_allowed(state)) {
+		scan_error = snapshot.error > 0 ? snapshot.error : EIO;
+		process_snapshot_release(&snapshot);
+		errno = scan_error;
+		logmessage(LOGNAME, "networkmap start aborted: process inventory unknown (errno=%d)",
+			   scan_error);
+		return -1;
+	}
+	process_snapshot_release(&snapshot);
 
 	return eval("/usr/sbin/networkmap", (first_call) ? "-w" : "");
 }

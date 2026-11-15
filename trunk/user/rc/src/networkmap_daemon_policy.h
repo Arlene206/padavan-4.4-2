@@ -11,6 +11,13 @@ enum networkmap_daemon_action {
 	NETWORKMAP_DAEMON_REFRESH = 1
 };
 
+/* Replacement start requires a complete inventory proving absence. */
+static int
+networkmap_start_allowed(enum process_presence state)
+{
+	return state == PROCESS_PRESENCE_ABSENT;
+}
+
 static enum networkmap_daemon_action
 networkmap_action_for_presence(enum process_presence state)
 {

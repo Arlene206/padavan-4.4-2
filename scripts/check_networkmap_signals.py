@@ -137,6 +137,9 @@ start = function_body(services, "start_networkmap(int first_call)")
 stop = function_body(services, "stop_networkmap(void)")
 restart = function_body(services, "restart_networkmap(void)")
 assert 'eval("/usr/sbin/networkmap"' in start
+assert "networkmap_start_allowed(state)" in start
+assert "if (first_call)" not in start
+
 assert 'process_inventory_scan("networkmap", &snapshot)' in start
 assert "PROCESS_PRESENCE_RUNNING" in start and "PROCESS_PRESENCE_ABSENT" in start
 assert "PROCESS_PRESENCE_UNKNOWN" not in start or "start aborted" in start

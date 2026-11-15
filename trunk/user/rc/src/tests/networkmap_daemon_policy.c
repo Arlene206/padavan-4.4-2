@@ -71,6 +71,11 @@ main(void)
 	snapshot.items = identities;
 	snapshot.count = 2;
 
+	assert(networkmap_start_allowed(PROCESS_PRESENCE_ABSENT));
+	assert(!networkmap_start_allowed(PROCESS_PRESENCE_RUNNING));
+	assert(!networkmap_start_allowed(PROCESS_PRESENCE_UNKNOWN));
+	assert(!networkmap_start_allowed((enum process_presence)9));
+
 	assert(networkmap_action_for_presence(PROCESS_PRESENCE_ABSENT) ==
 	       NETWORKMAP_DAEMON_START);
 	assert(networkmap_action_for_presence(PROCESS_PRESENCE_RUNNING) ==
