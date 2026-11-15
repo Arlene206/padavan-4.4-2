@@ -1,3 +1,12 @@
+## 2026-11-15 11:02 UTC — Record IPv6 stop failures and repair DNSMasq build triggers
+
+- full_restart_ipv6() now captures and logs nonzero stop_dns_dhcpd() status before the existing fresh tri-state process inventory and locked start preflight.
+- Added dnsmasq_file.h and tests/dnsmasq_file.c to DNSMasq push/PR path filters and explicit workflow path contract. Added dnsmasq_file.h and dnsmasq_domain_policy.h to XY-C1 push triggers for header-only product changes.
+- Parent exact-head evidence 34ec88e1: DNSMasq #43705925858, HTTPD #43705926049, AI handoff #43705925896 and process inventory #43705926093 PASS. XY-C1 #43705925871 and NVRAM #43705925906 remain in progress. This commit's Actions remain pending.
+- Parent main: 34ec88e12393d8c8645ad25674ccf44aacbe1256. Changed paths: net6.c; DNSMasq and XY-C1 workflows; SESSION_HANDOFF.md; REFACTOR_ROADMAP.md; dev_log.md. Frozen backup unchanged. No local or hardware test claimed.
+
+---
+
 ## 2026-11-15 — Stage HTTPD restore uploads before replacing retained retries
 
 - Fixed the restore upload transaction: `do_restore_st_post()` no longer unlinks or writes directly to `STORAGE_FIFO_FILENAME`. It authenticates the request, validates the multipart boundary and creates a unique mode-0600 stage in the same directory.

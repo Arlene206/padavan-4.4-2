@@ -152,7 +152,7 @@ full_restart_ipv6(int ipv6_type_old)
 {
 	int ipv6_type = get_ipv6_type();
 	int ipv6_toggled = ((ipv6_type == IPV6_DISABLED || ipv6_type_old == IPV6_DISABLED) && (ipv6_type != ipv6_type_old)) ? 1 : 0;
-	int dnsmasq_status, dnsmasq_start_status, scan_error = 0;
+	int dnsmasq_status, dnsmasq_start_status, dnsmasq_stop_status, scan_error = 0;
 
 	if (ipv6_toggled) {
 		stop_lltd();
@@ -163,7 +163,10 @@ full_restart_ipv6(int ipv6_type_old)
 #endif
 	stop_upnp();
 	stop_dhcp6c();
-	stop_dns_dhcpd();
+	dnsmasq_stop_status = stop_dns_dhcpd();
+	if (dnsmasq_stop_status != 0)
+		logmessage(LOGNAME, "IPv6 restart could not confirm DNSMasq stop (status=%d); checking process state",
+			   dnsmasq_stop_status);
 
 	if (ipv6_type == IPV6_DISABLED) {
 		clear_all_route6();

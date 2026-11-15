@@ -10,6 +10,8 @@ on:
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_lan.c"
       - "trunk/user/rc/src/net6.c"
+      - "trunk/user/rc/src/dnsmasq_file.h"
+      - "trunk/user/rc/src/tests/dnsmasq_file.c"
       - "trunk/user/rc/src/watchdog.c"
       - "trunk/user/rc/src/dnsmasq_domain_policy.h"
       - "trunk/user/rc/src/init.c"
@@ -43,6 +45,8 @@ on:
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_lan.c"
       - "trunk/user/rc/src/net6.c"
+      - "trunk/user/rc/src/dnsmasq_file.h"
+      - "trunk/user/rc/src/tests/dnsmasq_file.c"
       - "trunk/user/rc/src/watchdog.c"
       - "trunk/user/rc/src/dnsmasq_domain_policy.h"
       - "trunk/user/rc/src/init.c"
@@ -253,6 +257,9 @@ jobs:
               "trunk/user/rc/src/tests/inadyn_config_file.c",
               "trunk/user/rc/src/rc.c",
               "trunk/user/rc/src/rc.h",
+              "trunk/user/rc/src/net6.c",
+              "trunk/user/rc/src/dnsmasq_file.h",
+              "trunk/user/rc/src/tests/dnsmasq_file.c",
               "scripts/check_inadyn_lifecycle.py",
               "trunk/user/rc/src/tests/inadyn_daemon_policy.c",
               "trunk/user/rc/src/inadyn_daemon_policy.h",
@@ -435,6 +442,9 @@ jobs:
 
           ipv6_restart = function_body(net6, "full_restart_ipv6(int ipv6_type_old)")
           assert "dnsmasq_status = dnsmasq_process_status(&scan_error);" in ipv6_restart
+          assert "dnsmasq_stop_status = stop_dns_dhcpd();" in ipv6_restart
+          assert "if (dnsmasq_stop_status != 0)" in ipv6_restart
+          assert "could not confirm DNSMasq stop" in ipv6_restart
           assert "if (dnsmasq_status == 0)" in ipv6_restart
           assert "else if (dnsmasq_status < 0)" in ipv6_restart
           assert "is_dns_dhcpd_run()" not in ipv6_restart

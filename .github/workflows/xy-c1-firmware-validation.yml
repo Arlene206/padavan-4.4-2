@@ -36,6 +36,8 @@ on:
       - "trunk/user/rc/src/dnsmasq_reload_policy.h"
       - "trunk/user/rc/src/dnsmasq_static_host_policy.h"
       - "trunk/user/rc/src/dnsmasq_restart_policy.h"
+      - "trunk/user/rc/src/dnsmasq_domain_policy.h"
+      - "trunk/user/rc/src/dnsmasq_file.h"
       - "trunk/user/rc/src/net_lan.c"
       - "trunk/user/rc/src/net6.c"
       - "trunk/user/rc/src/common_ex.c"

@@ -8,37 +8,42 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2. Parent main SHA for THIS COMMIT: `de14e2ec6c3365fd1e9be4cce5c13cb37ace60bc`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only). Legacy PR #1 remains CLOSED / UNMERGED.
-- Product baseline includes transactional MTD restore/load/backup/erase/reset and checked blank-MTD hash-before-lock release. The checker-only function-boundary correction is commit `de14e2ec6c3365fd1e9be4cce5c13cb37ace60bc`: exact-head USB #43698297016 PASS and AI docs #43698297005 PASS.
-- XY-C1 #43697297850 SUCCESS on product source SHA `8c95ef5ad8a2d4a2ac7755fbe02b7ac2211214b8`, including Build XY-C1, TRX verification and artifact upload. That baseline predates THIS COMMIT's HTTPD product-source change.
-- Parent HTTPD security run #43697297903 SUCCESS on source SHA `8c95ef5ad8a2d4a2ac7755fbe02b7ac2211214b8`. THIS COMMIT changes HTTPD upload handling and requires fresh exact-head HTTPD regression plus current-source XY-C1 build/TRX/artifact validation.
-- The frozen backup is unchanged. Current-source L3 for THIS COMMIT and physical router L4 are NOT VERIFIED; no physical-device result is claimed.
+- Repository: Arlene206/padavan-4.4-2. Main parent for this slice: 34ec88e12393d8c8645ad25674ccf44aacbe1256. Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807 (read-only); PR #1 remains CLOSED / UNMERGED.
+- P1 HTTPD retained restore-upload protection is L2/L3 verified on product SHA ee18adc7fe9062d2fe5284a3e64802242b89fad0: HTTPD #43701369173, AI docs #43701369189 and XY-C1 #43701369143 PASS through firmware build, TRX verification and artifact upload. Physical router L4 remains unverified.
+- P2 DNSMasq on main includes SIGHUP ESRCH re-inventory, staged DHCP hosts/ethers/hosts.static, fail-closed preparation, static MAC validation, LAN domain validation, WAN/AP hostname publication, AP restart gating, IPv6 tri-state restart, and boot/watchdog start failure reporting. Latest functional commits: bc2b1193, 393bb762, 64e5714d, 9e9bac08, 514572c3, 55ff022f, f188bacf, d74f61b1, 37350a66, c3227528, e749890c, 53cf5fbe, 34ec88e1.
+- Exact-head Actions on 34ec88e1: DNSMasq #43705925858 PASS; HTTPD #43705926049 PASS; AI handoff #43705925896 PASS; Process inventory #43705926093 PASS; Samba #43705925862 and Inadyn #43705925881 PASS. XY-C1 #43705925871 and NVRAM audit #43705925906 remain IN_PROGRESS at last poll.
+- This slice records IPv6 stop failure and closes DNSMasq helper/test and XY firmware helper-header trigger gaps. Frozen backup remains unchanged. No physical-router result is claimed.
+
 
 ## Active task
 
-### P1 — Preserve retained HTTPD restore archives across failed replacement uploads (THIS COMMIT)
+### P2 — DNSMasq lifecycle and generated-host consistency
 
-- `do_restore_st_post()` no longer unlinks `STORAGE_FIFO_FILENAME` or writes directly to that stable path. It requires `get_login_safe()`, validates the multipart boundary, and opens a unique same-directory staging file with mode 0600.
-- The multipart parser accepts an optional pre-opened stream and a publish target. Normal firmware/NVRAM uploads keep their one-shot cleanup behavior. Storage restore publishes only after its complete BZ2 multipart payload and boundary validate, followed by checked fflush, fsync and fclose, then same-directory atomic rename.
-- Stage-open, parse/write, flush, fsync, close and rename failures remove only the staging file. The prior retry archive remains unchanged until rename succeeds. A per-request ready latch is reset at POST entry and consumed by the CGI output callback; rejected uploads cannot cause an old archive to be restored accidentally.
-- A failed MTD restore continues to retain the newly uploaded archive; successful restore still removes it. The existing HTTPD MIME route remains authenticated and POST-only.
-- Expanded host C regression covers staging-open, flush/write, fsync, close and rename failures, previous-archive integrity, successful replacement and symlink-entry replacement. Local scratch command `cc -std=gnu89 -Wall -Wextra -Werror -I <httpd-src> tests/httpd_upload_file.c` and execution PASS.
-- Exact-head HTTPD, AI docs, USB storage and XY-C1 Actions for THIS COMMIT are pending. The source/test/workflow tree is committed atomically; no CI or current-target build result is claimed until inspected.
+- restart_dns() re-inventories after targeted SIGHUP ESRCH; only a fresh complete ABSENT scan turns the race into a no-op. UNKNOWN and a replacement daemon remain errors.
+- fill_static_ethers() stages DHCP hosts, /etc/ethers and /tmp/hosts.static before individual atomic renames; preparation refuses startup on failures, ARP changes follow publication. The three renames are not a cross-file transaction.
+- Static DHCP MAC fields now require exactly 12 hexadecimal characters. LAN domain is validated before any generated host/ARP data changes and before raw config emission. Regression checks cover directive injection and invalid DNS labels.
+- WAN/AP hostname+hosts are staged, lease IP/domain validated, and AP DHCP restart waits for successful publication; status propagates to PID 1. Pair rollback remains an audit item.
+- IPv6 full_restart_ipv6() uses tri-state dnsmasq_process_status(): only ABSENT starts, RUNNING skips, UNKNOWN/invalid refuses duplicate start. This slice captures stop_dns_dhcpd() status and logs failure before the fresh process-state decision.
+- On 34ec88e1 exact head, DNSMasq #43705925858, HTTPD #43705926049 and AI docs #43705925896 PASS; XY-C1 #43705925871 and NVRAM #43705925906 are IN_PROGRESS.
+- Workflow gap: DNSMasq runs tests/dnsmasq_file.c and consumes dnsmasq_file.h but the path filters omitted them; this commit adds both to push/PR filters and path contract. XY-C1 now tracks dnsmasq_file.h and dnsmasq_domain_policy.h to trigger MIPS rebuilds for header-only dependency edits.
+
+
 ## Explicitly uncompleted P1 work
 
-- Migrate remaining direct pids() callers by semantic group; retain legacy Boolean until direct callers explicitly handle UNKNOWN. Continue remaining kill_pidfile_s() and name-wide signal audits; Linux 4.4 retains PID/start_time check-to-signal TOCTOU.
-- Continue DNSMasq public/locked caller graph and process identity/stop/HUP/wait-reap/FD/temp-file/rollback audit.
-- FTP upload cleanup TOCTOU remains blocked; Linux 4.4 lacks inode-conditional unlink-by-fd. Do not claim it is solved.
-- NFS durability, AUTH_SYS/root-squash and external-mount compatibility require real client/storage evidence.
+- No outstanding P1 source fix is currently identified. HTTPD retained restore-upload preservation is L2/L3 verified on ee18adc7fe9062d2fe5284a3e64802242b89fad0; physical restore/retry/reboot L4 remains NOT VERIFIED.
+- P2: three generated DHCP/ethers/hosts.static renames are individually atomic only. Audit rollback/recovery if rename 2 or 3 fails after an earlier publish; inspect ARP command return values and temp/FD cleanup.
+- P2: WAN/AP hostname+hosts two-file publication likewise needs recovery if the second rename fails.
+- P2: continue resolver concurrency and daemon-config rollback review; Linux 4.4 PID/start-time revalidate-to-signal TOCTOU remains.
+- Continue remaining kill_pidfile_s() and name-wide signal audits. FTP failed-upload cleanup TOCTOU remains blocked by lack of inode-conditional unlink-by-fd; preserve STOR/APPE/REST/STOU.
+- NFS async durability, AUTH_SYS/root-squash and external-mount compatibility need real client/storage evidence.
+
 
 ## Verification boundary
 
-- L1: New restore uploads never unlink/truncate the stable retry archive before successful complete parsing. Same-directory mode-0600 staging plus checked flush/fsync/close and atomic rename means the stable path contains the old complete archive or the new complete archive, never an incomplete replacement.
-- L2: The helper regression compiled and passed locally with GNU89 `-Wall -Wextra -Werror`. Fault injection covers staging-open, flush, fsync, fclose and rename; success verifies archive replacement and that rename replaces a symlink entry without following it. The HTTPD workflow already compiles/runs this fixture and now checks source/callback integration.
-- L2 exact-head CI for THIS COMMIT: pending. Parent HTTPD #43697297903 on `8c95ef5ad8a2d4a2ac7755fbe02b7ac2211214b8` passed; it is not evidence for the new code.
-- L3: XY-C1 #43697297850 succeeded on source `8c95ef5ad8a2d4a2ac7755fbe02b7ac2211214b8`; it predates this HTTPD change. Require a new full MIPS/uClibc build, TRX verification and artifact upload for THIS COMMIT.
-- L4: Actual router restore upload, retry after failed restore, reboot and persistence remain NOT VERIFIED.
-- No physical-device result is claimed.
+- HTTPD restore-upload L2/L3: HTTPD #43701369173, AI docs #43701369189 and XY-C1 #43701369143 PASS on product SHA ee18adc7fe9062d2fe5284a3e64802242b89fad0, including build/TRX/artifact. Physical router L4 remains NOT VERIFIED.
+- Exact-head 34ec88e1: DNSMasq #43705925858 PASS; HTTPD #43705926049 PASS; AI docs #43705925896 PASS; Process inventory #43705926093 PASS. XY-C1 #43705925871 and NVRAM #43705925906 remain IN_PROGRESS at last poll.
+- No local checkout/build or hardware device was available. No local compilation or physical-device test is claimed.
+
 
 ## HTTPD daemon lifecycle — completed slice
 
@@ -56,11 +61,12 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head HTTPD Authentication/Security, AI handoff docs, USB storage and XY-C1 push Actions for THIS COMMIT. Read and fix any failures. XY-C1 must complete Build XY-C1, Verify TRX output and artifact upload on this exact product source SHA.
-2. After this slice is green, continue the P2 DNSMasq public/locked caller graph and process identity/stop/HUP/wait-reap/FD/temporary-file/rollback audit. Avoid repeating already L2-verified storage and service lifecycle work.
-3. Keep main-only atomic commits using a freshly fetched expected SHA and non-forced update. Frozen backup remains immutable. Physical L4 remains unverified.
+1. Recheck exact-head XY-C1 #43705925871 and NVRAM #43705925906 on 34ec88e1. Require Build XY-C1, TRX verification and artifact upload before marking current L3.
+2. Verify the exact-head DNSMasq/HTTPD/AI runs for this commit; fix source or workflow regressions, don't just annotate them.
+3. Continue the highest-risk DNSMasq generated-input issue: stage and recover DHCP-host, /etc/ethers and hosts.static as a coherent generation if a later rename fails. Check ARP command status and all temp/FD cleanup.
+4. Audit two-file hostname/hosts publication rollback and remaining caller/signal/concurrency issues.
+5. Re-fetch main before each write; use one complete Git tree and commit, then non-forced update with the same expected SHA. Keep backup immutable and physical L4 unverified.
 
 Source/validation notes:
-- Parent main for THIS COMMIT: bb2b87054ef9631fc97c0473dd47d7e8b4fccd87; frozen backup: 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- Historical current-source build before this MTD fix: product-source SHA 99eeb6fa237b529ec9b9615976961c7a60a02575, XY-C1 #43694958186 completed Build XY-C1, TRX verification and artifact upload. THIS COMMIT requires a fresh build.
-- Preserve docs/dev-log archived shards and docs/dev-log/INDEX.md byte-for-byte.
+- Parent main for this slice: 34ec88e12393d8c8645ad25674ccf44aacbe1256; frozen backup: 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Preserve archived docs/dev-log shards and docs/dev-log/INDEX.md byte-for-byte.
