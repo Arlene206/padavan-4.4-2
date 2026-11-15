@@ -193,6 +193,7 @@ on:
       - "trunk/user/rc/src/tests/service_lifecycle_policy.c"
       - "trunk/user/shared/src/process_inventory.h"
       - "trunk/user/rc/src/dhcp_lease_policy.h"
+      - "trunk/user/rc/src/dhcp_wan_route_transition_policy.h"
       - "trunk/user/rc/src/dnsmasq_domain_policy.h"
       - "trunk/user/rc/src/tests/dhcp_lease_policy.c"
       - "trunk/user/rc/src/net_ppp.c"
@@ -439,6 +440,7 @@ on:
       - "trunk/user/shared/src/process_inventory.h"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/dhcp_lease_policy.h"
+      - "trunk/user/rc/src/dhcp_wan_route_transition_policy.h"
       - "trunk/user/rc/src/dnsmasq_domain_policy.h"
       - "trunk/user/rc/src/tests/dhcp_lease_policy.c"
       - "trunk/user/rc/src/net_ppp.c"
@@ -2308,7 +2310,9 @@ jobs:
           assert 'if (!lan_ifname || !*lan_ifname)' in lan_main
           print("LAN DHCP bound/renew validation, route reconciliation and fail-closed deconfig contracts: OK")
           assert "dhcp_lease_decimal_is_valid(value, 576U, 1500U" in bound
-          assert "del_dhcp_routes_by_prefix(prefix, wan_ifname, 0)" in bound
+          assert "dhcp_wan_route_transition_apply(" in bound
+assert "remove_old_dhcp_routes" in bound
+assert "preserving old lease" in bound
 
           tv_start = wan.index("udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)")
           tv_end = wan.index("zcip_bound(", tv_start)
