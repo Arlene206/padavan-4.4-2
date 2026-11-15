@@ -32,12 +32,18 @@ func_start()
 	DIR_DL1="`cd \"$DIR_LINK\"; dirname \"$(pwd -P)\"`/Downloads"
 	[ ! -d "$DIR_DL1" ] && DIR_DL1="${DIR_LINK}/downloads"
 
-	[ ! -d "$DIR_CFG" ] && mkdir -p "$DIR_CFG"
+	if [ ! -d "$DIR_CFG" ] && ! mkdir -p "$DIR_CFG" ; then
+		logger -t "$SVC_NAME" "Cannot start: unable to create config directory" >/dev/null 2>&1
+		return 1
+	fi
 
 	FILE_CONF="$DIR_CFG/aria2.conf"
 	FILE_LIST="$DIR_CFG/incomplete.lst"
 
-	touch "$FILE_LIST"
+	if ! touch "$FILE_LIST" ; then
+		logger -t "$SVC_NAME" "Cannot start: unable to create session list" >/dev/null 2>&1
+		return 1
+	fi
 
 	aria_pport=`nvram get aria_pport`
 	aria_rport=`nvram get aria_rport`
@@ -48,9 +54,16 @@ func_start()
 	[ -z "$aria_pport" ] && aria_pport="16888"
 
 	if [ ! -f "$FILE_CONF" ] ; then
-		[ ! -d "$DIR_DL1" ] && mkdir -p "$DIR_DL1"
-		chmod -R 777 "$DIR_DL1"
-		cat > "$FILE_CONF" <<EOF
+		if [ ! -d "$DIR_DL1" ] && ! mkdir -p "$DIR_DL1" ; then
+			logger -t "$SVC_NAME" "Cannot start: unable to create downloads directory" >/dev/null 2>&1
+			return 1
+		fi
+		if ! chmod -R 777 "$DIR_DL1" ; then
+			logger -t "$SVC_NAME" "Cannot start: unable to set downloads directory permissions" >/dev/null 2>&1
+			return 1
+		fi
+		CONFIG_TMP="${FILE_CONF}.tmp.$"
+		if ! cat > "$CONFIG_TMP" <<EOF
 
 ### XML-RPC
 rpc-listen-all=true
@@ -104,6 +117,16 @@ log=$DIR_CFG/aria2.log
 log-level=notice
 
 EOF
+		then
+			rm -f "$CONFIG_TMP"
+			logger -t "$SVC_NAME" "Cannot start: failed to write default config" >/dev/null 2>&1
+			return 1
+		fi
+		if ! mv -f "$CONFIG_TMP" "$FILE_CONF" ; then
+			rm -f "$CONFIG_TMP"
+			logger -t "$SVC_NAME" "Cannot start: failed to publish default config" >/dev/null 2>&1
+			return 1
+		fi
 	fi
 
 	# aria2 needed home dir
@@ -119,8 +142,10 @@ EOF
 	svc_user=""
 
 	if [ $SVC_ROOT -eq 0 ] ; then
-		chmod 777 "${DIR_LINK}"
-		chown -R nobody "$DIR_CFG"
+		if ! chmod 777 "${DIR_LINK}" || ! chown -R nobody "$DIR_CFG" ; then
+			logger -t "$SVC_NAME" "Cannot start: unable to set service ownership/permissions" >/dev/null 2>&1
+			return 1
+		fi
 		svc_user=" -c nobody"
 	fi
 

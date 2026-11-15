@@ -1,23 +1,24 @@
 ## Current source / CI checkpoint
 
-- Main at slice start: 401066ebf04c50aaeb1ef47c36feb2ec210a0bc6; frozen backup read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- Exact 401066 WAN callback #43756373267 PASS; WAN route #43756373287 PASS; NVRAM #43756373306 PASS; Process lifecycle #43756373317 PASS; Process inventory #43756373209 PASS; HTTPD #43756373180 PASS; AdGuardHome #43756373548 PASS; DNSMasq #43756373394 PASS; miniupnpd #43756373360 PASS; USB modem identity #43756373320 PASS; WAN teardown #43756373261 PASS; WAN ARP #43756373302 PASS; AliDDNS #43756373308 PASS; AliyunDrive #43756373280 PASS; VPN #43756373251 PASS; infosvr #43756373126 PASS; detect_link #43756373117 PASS; detect_internet #43756373238 PASS; AI docs #43756373157 PASS.
-- XY-C1 #43756373315 Build/TRX/artifact all PASS (L3 for 401066 only). No L4.
-- Transmission and Aria now preserve start-stop-daemon status explicitly; host and firmware BusyBox ash regression added, exact storage workflow pending.
-
-### P1 — WAN startup status propagation
-
-- Direct IPoE static address errors fail closed; initial physical interface bring-up checked; WISP cleanup guarded; required MAN gateway/default-route errors gate static MAN PPTP/L2TP.
-- Exact WAN/related Actions above PASS. L3 for 401066 only; no L4.
+- Main at slice start: eddf9aac4d44377d518d947af9b25f58685a67be; frozen backup read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Exact 401066 WAN callback #43756373267, WAN route #43756373287, NVRAM #43756373306, Process lifecycle #43756373317, Process inventory #43756373209, HTTPD #43756373180, AdGuardHome #43756373548, DNSMasq #43756373394, miniupnpd #43756373360, USB identity #43756373320, WAN teardown #43756373261, WAN ARP #43756373302, AliDDNS #43756373308, AliyunDrive #43756373280, VPN #43756373251, infosvr #43756373126, detect_link #43756373117, detect_internet #43756373238 and AI docs #43756373157 PASS; XY-C1 #43756373315 Build/TRX/artifact PASS (L3 for 401066 only).
+- Transmission/Aria start-result fix eddf9aac: storage workflow #43758894731 SUCCESS, including host and BusyBox ash regressions; AI docs #43758894840 and Process inventory #43758894771 PASS.
+- Current slice checks Aria setup and atomic default-config publication; new exact-head storage workflow pending.
 
 ### P1 — Storage service startup result propagation
 
-- Transmission and Aria explicitly return daemon-launch success/failure regardless of logger status. Regression tests both outcomes and logger failure under host shell and BusyBox ash.
-- Next separately inspect directory creation and config-file write failures before daemon launch.
+- Transmission/Aria explicitly return daemon launch success/failure independent of logger exit status (eddf9aac; host/BusyBox ash CI PASS).
+- Aria checks config/session/download path preparation and required permissions/ownership; default config writes to same-directory temp, checks write and atomic rename, cleans and aborts before daemon launch on failure. New fault-injection tests target cat and mv failures.
+- Next separately inspect Transmission settings generation and other setup failures before daemon launch.
+
+### P1 — WAN startup status propagation
+
+- Direct IPoE static address errors fail closed; physical interface bring-up checked; AP-client WISP cleanup guarded; required MAN gateway/default route errors gate static MAN PPTP/L2TP.
+- Exact-source XY-C1 L3 PASS for 401066 only; no L4.
 
 ### P2 — IGMP proxy configuration publication
 
-- Same-directory staged publication checks write/flush/fsync/close/rename and preserves last-good configuration.
+- Same-directory staged publication checks write/flush/fsync/close/rename and preserves last-good config.
 
 ## Whole-repository module status
 

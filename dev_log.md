@@ -1,3 +1,13 @@
+## 2026-11-15 — Stage Aria default config and fail closed on setup errors
+
+- Aria previously ignored config-directory/session-list/download-directory creation, permission, and default-config creation/publication failures, then could launch with missing or incomplete state.
+- Added checks for config/session and downloads setup plus required permissions/ownership. The default config writes to aria2.conf.tmp.$$ in the same directory, checks the write and atomic rename, removes temporary files on failure, and returns before daemon launch.
+- Extended storage_app_start_status.sh with cat/write and mv/rename fault injection. It asserts neither failure invokes start-stop-daemon or leaves a final/temporary config behind.
+- Parent eddf9aac storage workflow #43758894731 completed SUCCESS: host shell syntax/status regression and firmware BusyBox ash regression all PASS. Current Aria staging follow-up requires a new exact-SHA storage run.
+- No firmware C change; L3 remains the exact 401066 boundary only. Frozen backup unchanged; no L4 claim.
+
+---
+
 ## 2026-11-15 — Preserve Transmission and Aria start command status
 
 - Both launchers had false-success status propagation: failed start-stop-daemon was followed by echo and returned zero; successful launch was followed by logger, whose failure could falsely report startup failure.
