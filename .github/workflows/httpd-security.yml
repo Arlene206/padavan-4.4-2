@@ -2142,6 +2142,7 @@ jobs:
           policy = (root / "dhcp_lease_policy.h").read_text()
           test = (root / "tests/dhcp_lease_policy.c").read_text()
           header = (root / "rc.h").read_text()
+          rc_main = (root / "rc.c").read_text()
 
           assert '#include "dhcp_lease_policy.h"' in wan
           assert "dhcp_lease_ipv4_is_valid" in policy
