@@ -264,6 +264,8 @@ xy_target_sources = (
     "trunk/user/rc/src/vpn_server.c",
     "trunk/user/rc/src/inicd.c",
     "trunk/user/rc/src/net_wifi.c",
+    "trunk/user/rc/src/detect_wan.c",
+    "trunk/user/rc/src/detect_wan_udhcpc_policy.h",
     "trunk/user/shared/src/process_pidfile.c",
     "trunk/user/shared/src/process_pidfile.h",
     "trunk/user/shared/src/process_pidfile_record.h",
@@ -279,8 +281,8 @@ wan_policy = (root / "trunk/user/rc/src/detect_wan_udhcpc_policy.h").read_text()
 wan_test = (root / "trunk/user/rc/src/tests/detect_wan_udhcpc_policy.c").read_text()
 process_workflow = (root / ".github/workflows/process-lifecycle-regression.yml").read_text()
 
-wan_renew = wan_source.split("static int\\nchk_udhcpc(int ap_mode)", 1)[1].split("\\n}\\n", 1)[0]
-wan_poll = wan_source.split("static int\\npoll_gateway(void)", 1)[1].split("\\n}\\n", 1)[0]
+wan_renew = wan_source.split("static int\nchk_udhcpc(int ap_mode)", 1)[1].split("\n}\n", 1)[0]
+wan_poll = wan_source.split("static int\npoll_gateway(void)", 1)[1].split("\n}\n", 1)[0]
 assert "process_inventory_scan(\"udhcpc\", &snapshot)" in wan_renew
 assert "detect_wan_udhcpc_should_renew(presence)" in wan_renew
 assert "scan_error = snapshot.error;" in wan_renew

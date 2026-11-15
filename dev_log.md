@@ -1,3 +1,13 @@
+## 2026-11-15 — Correct WAN caller integration-check delimiters
+
+- Parent main SHA: 09268ce8c68d7e884b02244558a92da017d9a3e4.
+- Static review of the new process integration checker found its function-boundary delimiters were double-escaped, so its Python split would search for literal backslash-n instead of C source newlines. Corrected both chk_udhcpc() and poll_gateway() boundary strings.
+- Added detect_wan.c and detect_wan_udhcpc_policy.h to the checker’s XY-C1 target-source trigger contract; the XY workflow already watches both paths.
+- Source/test implementation remains unchanged. Exact process lifecycle Action [43656932626] had completed its scanner and generic lifecycle tests and was still running at the strict LPD PID-file test; the new WAN policy and integration steps were pending. Current exact process workflow will rerun on this checker correction.
+- Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Fail closed on UNKNOWN before WAN DHCP renewal signal
 
 - Parent main SHA: 322c17f9ca546b6578304966f017a24c944dd883.
