@@ -1,15 +1,20 @@
 ## Current source / CI checkpoint
 
-- Main at slice start: eddf9aac4d44377d518d947af9b25f58685a67be; frozen backup read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Main at slice start: 6ad669a672f8274f523723df4315e523841de5d5; frozen backup read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
 - Exact 401066 WAN callback #43756373267, WAN route #43756373287, NVRAM #43756373306, Process lifecycle #43756373317, Process inventory #43756373209, HTTPD #43756373180, AdGuardHome #43756373548, DNSMasq #43756373394, miniupnpd #43756373360, USB identity #43756373320, WAN teardown #43756373261, WAN ARP #43756373302, AliDDNS #43756373308, AliyunDrive #43756373280, VPN #43756373251, infosvr #43756373126, detect_link #43756373117, detect_internet #43756373238 and AI docs #43756373157 PASS; XY-C1 #43756373315 Build/TRX/artifact PASS (L3 for 401066 only).
 - Transmission/Aria start-result fix eddf9aac: storage workflow #43758894731 SUCCESS, including host and BusyBox ash regressions; AI docs #43758894840 and Process inventory #43758894771 PASS.
-- Current slice checks Aria setup and atomic default-config publication; new exact-head storage workflow pending.
+- Aria setup and write/rename fault injection passed storage run #43759497496 on 755e8c711f1becc9a33c369f156d7b66def904cb, but live source still had a constant `.tmp.## Current source / CI checkpoint
+
+- Main at slice start: 6ad669a672f8274f523723df4315e523841de5d5; frozen backup read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Exact 401066 WAN callback #43756373267, WAN route #43756373287, NVRAM #43756373306, Process lifecycle #43756373317, Process inventory #43756373209, HTTPD #43756373180, AdGuardHome #43756373548, DNSMasq #43756373394, miniupnpd #43756373360, USB identity #43756373320, WAN teardown #43756373261, WAN ARP #43756373302, AliDDNS #43756373308, AliyunDrive #43756373280, VPN #43756373251, infosvr #43756373126, detect_link #43756373117, detect_internet #43756373238 and AI docs #43756373157 PASS; XY-C1 #43756373315 Build/TRX/artifact PASS (L3 for 401066 only).
+- Transmission/Aria start-result fix eddf9aac: storage workflow #43758894731 SUCCESS, including host and BusyBox ash regressions; AI docs #43758894840 and Process inventory #43758894771 PASS.
+ suffix despite an earlier log claiming `$`; THIS COMMIT corrects the PID expansion and adds deterministic concurrent-start coverage. Exact-head storage validation for THIS COMMIT pending.
 
 ### P1 — Storage service startup result propagation
 
 - Transmission/Aria explicitly return daemon launch success/failure independent of logger exit status (eddf9aac; host/BusyBox ash CI PASS).
-- Aria checks config/session/download path preparation and required permissions/ownership; default config writes to a PID-qualified same-directory temp, checks write and atomic rename, cleans and aborts before daemon launch on failure. New fault-injection tests target cat and mv failures.
-- Next separately inspect Transmission settings generation and other setup failures before daemon launch.
+- Aria now uses a PID-qualified same-directory temp for default config; it checks write/rename, cleans up and aborts before launch on failures. Existing cat/mv fault injection passed #43759497496; THIS COMMIT adds a deterministic concurrent-start regression to prove two simultaneous starts cannot collide on the staging path.
+- Next inspect Transmission default settings generation and fail-closed handling for directory/permission/config creation before daemon launch.
 
 ### P1 — WAN startup status propagation
 

@@ -1,3 +1,12 @@
+## 2026-11-16 04:50 Beijing — Enforce unique Aria default-config staging under concurrent starts
+
+- The current main source still had `CONFIG_TMP="${FILE_CONF}.tmp.$"`, a constant literal suffix; this contradicted the previous log entry that said the PID expansion had been corrected. The preceding storage-hotplug run #43759497496 passed the existing write/rename fault tests but did not detect the collision.
+- Changed the path to `aria2.conf.tmp.$$` and added a barrier-controlled concurrent-start regression: both shells must simultaneously observe two distinct staged files, both publish successfully, both reach daemon launch, and no temporary file remains. The test is wired to existing host-shell and firmware BusyBox ash workflow steps; no workflow filter change was needed.
+- Parent main: 6ad669a672f8274f523723df4315e523841de5d5. Changed paths: trunk/user/aria2/aria.sh, trunk/user/scripts/tests/storage_app_start_status.sh, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and dev_log.md. Exact-head storage Actions for THIS COMMIT pending; no local checkout/build or new MIPS/L4 claim.
+- Next after exact-head validation: inspect Transmission default settings generation and every pre-launch setup/publish failure path. Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+
+---
+
 ## 2026-11-15 — Make Aria staged config filename process-unique
 
 - Review of the just-committed Aria staging change found the JS-generated literal had collapsed the shell PID expansion from $$ to a single trailing dollar. That would have made the temporary name constant across concurrent starts.

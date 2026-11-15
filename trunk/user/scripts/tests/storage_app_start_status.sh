@@ -37,7 +37,7 @@ esac
 EOF
 cat > "$STUB_DIR/start-stop-daemon" <<'EOF'
 #!/bin/sh
-[ -z "${STORAGE_TEST_START_MARKER:-}" ] || : > "$STORAGE_TEST_START_MARKER"
+[ -z "${STORAGE_TEST_START_MARKER:-}" ] || printf '%s\n' "$" >> "$STORAGE_TEST_START_MARKER"
 exit "${STORAGE_TEST_START_STATUS:-23}"
 EOF
 cat > "$STUB_DIR/logger" <<'EOF'
@@ -48,6 +48,25 @@ cat > "$STUB_DIR/cat" <<'EOF'
 #!/bin/sh
 if [ "${STORAGE_TEST_CAT_STATUS:-0}" -ne 0 ]; then
 	exit "$STORAGE_TEST_CAT_STATUS"
+fi
+if [ -n "${STORAGE_TEST_CAT_BARRIER:-}" ]; then
+	: > "$STORAGE_TEST_CAT_BARRIER/$"
+	attempt=0
+	while :; do
+		entered=0
+		for marker in "$STORAGE_TEST_CAT_BARRIER"/*; do
+			[ -f "$marker" ] && entered=$((entered + 1))
+		done
+		[ "$entered" -ge 2 ] && break
+		attempt=$((attempt + 1))
+		[ "$attempt" -lt 30 ] || exit 91
+		sleep 1
+	done
+	staged=0
+	for path in "$STORAGE_TEST_CONFIG_DIR"/aria2.conf.tmp.*; do
+		[ -f "$path" ] && staged=$((staged + 1))
+	done
+	printf '%s\n' "$staged" >> "$STORAGE_TEST_TEMP_COUNT"
 fi
 exec /bin/cat "$@"
 EOF
@@ -83,11 +102,14 @@ run_launcher()
 	cat_status=${4:-0}
 	mv_status=${5:-0}
 	start_marker=${6:-}
+	cat_barrier=${7:-}
+	config_dir=${8:-}
+	temp_count=${9:-}
 	if [ -n "${BUSYBOX_BIN:-}" ]; then
-		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" \
+		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" \
 			"$BUSYBOX_BIN" ash "$launcher" start >/dev/null 2>&1
 	else
-		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" \
+		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" \
 			sh "$launcher" start >/dev/null 2>&1
 	fi
 }
@@ -150,4 +172,55 @@ run_aria_config_failure()
 }
 run_aria_config_failure "config-write" 9 0
 run_aria_config_failure "config-rename" 0 9
+run_aria_config_concurrency()
+{
+	concurrency_root="$TMP_DIR/aria-concurrency"
+	config_dir="$concurrency_root/config"
+	barrier="$concurrency_root/barrier"
+	mkdir -p "$config_dir" "$concurrency_root/Downloads" "$barrier"
+	: > "$config_dir/incomplete.lst"
+	sed -e "s|SVC_PATH=\"/usr/bin/aria2c\"|SVC_PATH=\"$STUB_DIR/aria2c\"|" \
+	    -e "s|DIR_LINK=\"/mnt/aria\"|DIR_LINK=\"$concurrency_root\"|" \
+	    "$ARIA_SRC" > "$TMP_DIR/aria-concurrency.sh"
+	marker="$concurrency_root/start-invoked"
+	temp_count="$concurrency_root/temp-counts"
+	: > "$temp_count"
+	run_launcher "$TMP_DIR/aria-concurrency.sh" 0 0 0 0 "$marker" "$barrier" "$config_dir" "$temp_count" &
+	first_pid=$!
+	run_launcher "$TMP_DIR/aria-concurrency.sh" 0 0 0 0 "$marker" "$barrier" "$config_dir" "$temp_count" &
+	second_pid=$!
+	if ! wait "$first_pid"; then
+		echo "First concurrent Aria start failed" >&2
+		exit 1
+	fi
+	if ! wait "$second_pid"; then
+		echo "Second concurrent Aria start failed" >&2
+		exit 1
+	fi
+	[ "$(wc -l < "$temp_count")" -eq 2 ] || {
+		echo "Concurrent Aria starts did not both observe staged configs" >&2
+		exit 1
+	}
+	while IFS= read -r staged_count; do
+		[ "$staged_count" -eq 2 ] || {
+			echo "Concurrent Aria starts reused a staging filename" >&2
+			exit 1
+		}
+	done < "$temp_count"
+	[ "$(wc -l < "$marker")" -eq 2 ] || {
+		echo "Both Aria starts did not reach the daemon launch" >&2
+		exit 1
+	}
+	[ -f "$config_dir/aria2.conf" ] || {
+		echo "Concurrent Aria starts did not publish a config" >&2
+		exit 1
+	}
+	for tmp_config in "$config_dir"/aria2.conf.tmp.*; do
+		[ ! -e "$tmp_config" ] || {
+			echo "Concurrent Aria start left a temporary config" >&2
+			exit 1
+		}
+	done
+}
+run_aria_config_concurrency
 echo "Transmission and Aria startup exit-status regression: PASS"
