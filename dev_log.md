@@ -1,3 +1,12 @@
+## 2026-11-14 — Fix identity-bound notification target double-free
+
+- Exact-head process lifecycle run `43669932154` on `f6fdb37613baa40b6b198aefe1dd3de09a0f5c9e` failed its ASan/UBSan regression while exercising the new identity-bound service notification API. AddressSanitizer reported a double-free in `service_lifecycle_notify()`: `service_lifecycle_release_targets()` already releases each captured snapshot and frees the target array, but the caller immediately freed the same array again.
+- Removed the redundant second `free(targets)`. The existing `test_identity_bound_notification_preflights_all_targets` exercises the exact successful notification path and reproduces the failure under ASan; the exact-head process lifecycle Action must pass after this correction.
+- No signal-selection, inventory, identity validation, or stop transaction semantics changed.
+- Changed path: `trunk/user/rc/src/service_lifecycle_policy.h`. Result: THIS COMMIT.
+
+---
+
 ## 2026-11-14 — Keep RC lifecycle result constants out of net_lan translation unit
 
 - Corrected the new HTTPD notification caller to compare the public integer status with `0`, rather than naming `SERVICE_LIFECYCLE_STOPPED` in `net_lan.c`. The enum belongs to the private lifecycle policy header, which is not included by that translation unit; the caller only needs the documented zero-success contract from `signal_services_by_identity()`.

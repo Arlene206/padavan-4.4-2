@@ -268,8 +268,8 @@ service_lifecycle_notify(char *service_names[], int signal_number,
 	if (result == SERVICE_LIFECYCLE_STOPPED)
 		result = service_lifecycle_signal_targets(targets, count, ops,
 							  context, signal_number);
+	/* release_targets owns and frees the target array. */
 	service_lifecycle_release_targets(targets, count);
-	free(targets);
 	return result;
 }
 
