@@ -1206,7 +1206,7 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 	unsigned int parsed_lease;
 	int is_changed, ip_changed, netmask_changed, gateway_changed;
 	int address_changed, apply_gateway, lease_dur = 0;
-	int status, rollback_status = 0;
+	int status, rollback_status = 0, hosts_status = 0;
 	struct lan_dhcp_bound_context context;
 
 	if (!lan_ifname || !*lan_ifname)
@@ -1339,11 +1339,11 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 	nvram_set_temp("lan_lease_t", lease_text);
 
 	if (is_changed || !is_renew) {
-		status = create_hosts_lan(lease_ip, lease_domain);
-		if (status != 0)
+		hosts_status = create_hosts_lan(lease_ip, lease_domain);
+		if (hosts_status != 0)
 			logmessage("DHCP LAN Client",
 				   "LAN lease applied but hostname files could not be published (status=%d)",
-				   status);
+				   hosts_status);
 		notify_watchdog_time();
 
 #if defined(APP_SMBD)
@@ -1362,7 +1362,7 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 	if (!is_renew)
 		restart_networkmap();
 
-	return status;
+	return hosts_status;
 }
 
 static int 
