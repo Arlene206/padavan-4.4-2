@@ -3,7 +3,10 @@ set -eu
 script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/../../../.." && pwd)
 sandbox=$(mktemp -d "${TMPDIR:-/tmp}/mtd-storage-load.XXXXXX")
-trap 'rm -rf "$sandbox"' EXIT HUP INT TERM
+trap 'status=$?; rm -rf "$sandbox"; exit "$status"' EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 mkdir -p "$sandbox/etc/storage" "$sandbox/private" "$sandbox/bin" "$sandbox/archive"
 printf '%s\n' 'mtd5: 00010000 00010000 "Storage"' > "$sandbox/proc-mtd"
 printf '%s\n' 'previous configuration' > "$sandbox/etc/storage/previous.conf"
@@ -87,7 +90,7 @@ if run_load; then echo "blank MTD unexpectedly loaded" >&2; exit 1; fi
 [ ! -e "$sandbox/private/.storage_locked" ] || exit 1
 
 # A nominally successful empty stream is still not a valid storage archive.
-printf '%s\\n' 'previous-checkpoint' > "$sandbox/private/storage_md5"
+printf '%s\n' 'previous-checkpoint' > "$sandbox/private/storage_md5"
 : > "$sandbox/private/.storage_locked"
 export BZCAT_STATUS=0 BZCAT_EMPTY=1
 if run_load; then echo "empty successful decompression unexpectedly succeeded" >&2; exit 1; fi
@@ -95,7 +98,7 @@ if run_load; then echo "empty successful decompression unexpectedly succeeded" >
 [ ! -e "$sandbox/private/.storage_locked" ] || exit 1
 
 # A nonempty failed stream is corruption, not an erase: retain old state.
-printf '%s\\n' 'previous-checkpoint' > "$sandbox/private/storage_md5"
+printf '%s\n' 'previous-checkpoint' > "$sandbox/private/storage_md5"
 : > "$sandbox/private/.storage_locked"
 export BZCAT_STATUS=2 BZCAT_EMPTY=0
 if run_load; then echo "partial decompression failure unexpectedly succeeded" >&2; exit 1; fi
