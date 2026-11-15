@@ -252,6 +252,7 @@ jobs:
           paths = (
               ".github/workflows/dnsmasq-lifecycle.yml",
               "trunk/user/rc/src/services_ex.c",
+              "trunk/user/rc/src/dnsmasq_file.h",
               "trunk/user/rc/src/init.c",
               "trunk/user/rc/src/inadyn_config_file.h",
               "trunk/user/rc/src/tests/inadyn_config_file.c",
@@ -478,6 +479,7 @@ jobs:
           prepare = function_body(services, "prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)")
           static_hosts_writer = function_body(services, "fill_static_ethers(")
           static_hosts_test = Path("trunk/user/rc/src/tests/dnsmasq_file.c").read_text()
+          dnsmasq_file_helper = Path("trunk/user/rc/src/dnsmasq_file.h").read_text()
           assert '#include "dnsmasq_dhcp_range_policy.h"' in services
           assert '#include "dnsmasq_static_host_policy.h"' in services
           assert '#include "dnsmasq_domain_policy.h"' in services
@@ -497,21 +499,31 @@ jobs:
           assert "simple_dhcp_range(ip, dip1, dip2, mask) ? 1 : -1" in pool_check
           assert prepare.index("chk_valid_subnet_pool") < prepare.index("fill_static_ethers")
           assert "if (fill_static_ethers(ipaddr, netmask) != 0)" in prepare
+          assert "if (update_hosts_ap() != 0)" in prepare
+          assert "cannot publish AP hostname files" in prepare
+          assert prepare.index("update_hosts_ap()") < prepare.index("dnsmasq_file_open(config_path)")
           assert prepare.index("fill_static_ethers(ipaddr, netmask)") < prepare.index("dnsmasq_file_open(config_path)")
           assert "return saved_errno;" in prepare
           for token in (
               "dnsmasq_file_open(dhcp_hosts_stage)",
               "dnsmasq_file_open(ethers_stage)",
               "dnsmasq_file_open(hosts_static_stage)",
-              "dnsmasq_file_publish(staged_fp, staged_paths[i],",
-              "destinations[i], 0644)",
+              "dnsmasq_file_publish_set(fp, staged_paths, destinations, backup_paths,",
+              "ARRAY_SIZE(fp), 0644)",
               "dnsmasq_file_discard(staged_paths[i])",
               "errno = ENOMEM;",
           ):
               assert token in static_hosts_writer, token
+          assert "dnsmasq_file_publish_set" in dnsmasq_file_helper
+          assert "dnsmasq_file_backup_restore(destinations[published]" in dnsmasq_file_helper
+          assert "dnsmasq_file_publish(staged_fp, staged_paths[i]," not in static_hosts_writer
           assert 'fopen(dh_fn, "w+")' not in static_hosts_writer
           assert 'fopen("/etc/ethers", "w+")' not in static_hosts_writer
-          assert static_hosts_writer.index("dnsmasq_file_publish(staged_fp") < static_hosts_writer.index("doSystem(")
+          assert static_hosts_writer.index("dnsmasq_file_publish_set(") < static_hosts_writer.index("doSystem(")
+          assert "dnsmasq_file_publish_set(set_files, set_stages, set_destinations," in static_hosts_test
+          assert 'read_exact(set_first, "old-one\\n")' in static_hosts_test
+          assert 'read_exact(set_second, "old-two\\n")' in static_hosts_test
+          assert 'read_exact(set_third, "commit-three\\n")' in static_hosts_test
           assert "dnsmasq_file_publish(fp, rename_fail_template, directory, 0644) == -1" in static_hosts_test
           assert "assert(rename_fail_template[0] == '\\0');" in static_hosts_test
           assert "pool_status < 0" in prepare and "return EINVAL;" in prepare
