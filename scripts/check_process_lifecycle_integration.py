@@ -1058,3 +1058,41 @@ for function_name, log_label in optional_start_contracts:
     failure_log = optional_start.index(f'logmessage(LOGNAME, "{log_label} launcher failed (status=%d)", start_status);', failure_guard)
     assert eval_at < failure_guard < failure_log
 print("optional AdGuardHome/DDNS.to/Adbyby/AliDDNS launch diagnostics: PASS")
+
+
+# MSD Lite config publication must finish before enabling or launching the daemon.
+msd_config_header = (root / "trunk/user/rc/src/msd_lite_config_file.h").read_text()
+msd_config_test = (root / "trunk/user/rc/src/tests/msd_lite_config_file.c").read_text()
+udpxy_start = net_source.split("void\nstart_udpxy(char *wan_ifname)", 1)[1].split(
+    "\n#if defined(APP_XUPNPD)", 1
+)[0]
+msd_lite_branch = udpxy_start.split("#if defined (APP_MSD_LITE)", 1)[1].split("#else", 1)[0]
+assert '#include "msd_lite_config_file.h"' in net_source
+assert "msd_lite_config_publish(src_conf, dst_conf, wan_ifname, port)" in msd_lite_branch
+assert "if (config_status != 0)" in msd_lite_branch
+assert msd_lite_branch.index("if (config_status != 0)") < msd_lite_branch.index('nvram_set("msd_lite_enable", "1")')
+assert msd_lite_branch.index("if (config_status != 0)") < msd_lite_branch.index('eval("/usr/bin/msd_lite"')
+assert 'fopen(dst_conf, "w")' not in msd_lite_branch
+assert 'doSystem("cp -f %s %s", src_conf, dst_conf)' not in msd_lite_branch
+assert "fopen(source_path, \"r\")" in msd_config_header
+assert "fstat(fileno(source), &source_stat)" in msd_config_header
+assert "lstat(destination_path, &destination_stat)" in msd_config_header
+assert "mkstemp(temporary_path)" in msd_config_header
+assert "fchmod(fd, mode)" in msd_config_header
+assert "ferror(source)" in msd_config_header
+assert "fflush(output)" in msd_config_header
+assert "fsync(fileno(output))" in msd_config_header
+assert "fclose(source)" in msd_config_header
+assert "fclose(output)" in msd_config_header
+assert "rename(temporary_path, destination_path)" in msd_config_header
+assert "unlink(temporary_path)" in msd_config_header
+assert "last-good-configuration" in msd_config_test
+assert "RLIMIT_FSIZE" in msd_config_test
+assert "symlink(symlink_target, symlink_path)" in msd_config_test
+assert "eth3.2\\nquickleave" in msd_config_test
+assert '"trunk/user/rc/src/msd_lite_config_file.h"' in process_workflow
+assert '"trunk/user/rc/src/tests/msd_lite_config_file.c"' in process_workflow
+assert '"trunk/user/rc/src/msd_lite_config_file.h"' in xy_workflow
+assert '"trunk/user/rc/src/tests/msd_lite_config_file.c"' in xy_workflow
+assert "Compile and run MSD Lite atomic configuration publication regression" in process_workflow
+print("MSD Lite atomic config publication and launch gate integration: PASS")

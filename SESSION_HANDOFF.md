@@ -9,7 +9,7 @@ For each logical task, create all source/test/doc blobs, one complete Git tree a
 ## Current repository state
 
 - Repository: Arlene206/padavan-4.4-2.
-- Main SHA at start of this storage regression repair: 1f304921a63b8a8ea79b0e836e43b5359be9cd0b.
+- Main SHA at start of MSD Lite parallel source slice: f36d6ec94650103134a55b2e9c9abca9894de075.
 - Frozen backup branch backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; read-only.
 - Recent main commits:
 - 13a16ec70f7f fix(storage): isolate concurrent Aria config staging
@@ -48,18 +48,27 @@ The exact 13a16 storage-hotplug run #43760834648 failed in the host shell startu
 
 This repair changes the default config path to aria2.conf.tmp.$$ and the two-process barrier marker to a PID-qualified filename. The regression then requires two staged files to coexist, both config writes/renames to complete, both processes to reach start-stop-daemon, and no temp files to remain. Exact-head host and BusyBox ash validation is required after commit.
 
+## Parallel source slice completed — MSD Lite configuration publication
+
+The APP_MSD_LITE branch in start_udpxy() previously truncated /etc/storage/msd_lite.conf before it opened /etc_ro/msd_lite.conf, and it ignored read/write/flush/close failures before enabling and launching the daemon. This slice replaces direct truncation with same-directory mkstemp staging, regular-file/source checks, mode preservation, input validation, checked read/write/flush/fsync/close and atomic rename. Publication failure logs and returns before setting msd_lite_enable or invoking msd_lite.
+
+Changed: trunk/user/rc/src/net.c; new trunk/user/rc/src/msd_lite_config_file.h and tests/msd_lite_config_file.c; Process lifecycle and XY-C1 workflow path filters; scripts/check_process_lifecycle_integration.py. Local GNU89 ASan/UBSan regression PASS, including missing source/parent, invalid interface/port, directory/symlink destination, last-good preservation, mode preservation, RLIMIT_FSIZE write failure and temp cleanup.
+
+The exact-head Process lifecycle host regression and XY-C1 Build/TRX/artifact workflow for this source change are pending. Do not transfer the earlier 401066 L3 result to this new C source.
+
 ## Verification boundary
 
-- Parent main: 1f304921a63b8a8ea79b0e836e43b5359be9cd0b.
-- Changed: trunk/user/aria2/aria.sh and trunk/user/scripts/tests/storage_app_start_status.sh; handoff/roadmap/log checkpoint updated in the same atomic commit.
-- Exact 13a16 Process lifecycle #43760834624 PASS; Process inventory #43760834666 PASS; AI docs #43760834673 PASS; AliyunDrive #43760834634 PASS; AliDDNS #43760834671 PASS; infosvr #43760834623 PASS; AdGuardHome #43760834594 PASS; NVRAM #43760834637 PASS.
-- Exact 13a16 USB storage run #43760834648 FAIL at step 4 ("Check Transmission and Aria launcher syntax and startup status propagation"). Full job log ends with "First concurrent Aria start failed". Root cause: production CONFIG_TMP suffix and test barrier marker were literal "$" rather than PID expansion "$$".
-- This commit corrects both expressions. Its exact-head storage workflow is pending; no firmware C changes and no L3/L4 claim for this source SHA.
-- Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807; archive index/shards unchanged.
+- Parent main for this MSD Lite slice: f36d6ec94650103134a55b2e9c9abca9894de075.
+- Aria concurrent-start repair f36d6ec94650103134a55b2e9c9abca9894de075 changed aria.sh plus storage_app_start_status.sh after exact 13a16 storage #43760834648 failed; exact-f36 storage workflow #43761890951 was in progress at the last poll. Other f36 Actions #43761890935, #43761890866, #43761890893, #43761890999, #43761890904, #43761890891, #43761890896 and #43761890879 were queued/in progress at that poll.
+- MSD Lite files in this atomic slice: net.c, new msd_lite_config_file.h, new tests/msd_lite_config_file.c, Process/XY-C1 workflow path filters, and Process source contract. Parent main f36d6ec94650103134a55b2e9c9abca9894de075.
+- Local host command: cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I trunk/user/rc/src trunk/user/rc/src/tests/msd_lite_config_file.c -o msd-lite-config-regression; ASAN_OPTIONS=detect_leaks=1 ./msd-lite-config-regression — PASS.
+- New exact-head Process lifecycle and XY-C1 Build XY-C1, TRX verification and artifact upload results must be checked on the new source SHA before claiming L3. No physical-router/L4 result.
+- Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807; archive index/shards untouched.
 
 ## Exact first actions for the next GPT
 
-1. Inspect the exact-head storage-hotplug workflow for this fix; verify host and firmware BusyBox ash regressions both pass.
-2. Confirm two concurrent Aria startups observe two unique staged files, both reach daemon launch, and neither leaves a temporary config.
-3. After PASS, inspect remaining Transmission default-settings and directory/permission/ownership pre-launch paths as a separate atomic task.
-4. Preserve frozen backup and archive index/shards. Do not claim current-source L3 without exact XY-C1 Build/TRX/artifact success.
+1. Check exact-f36 storage-hotplug run #43761890951 and finish the Aria concurrent-start validation; inspect full logs if it fails.
+2. Check the exact-head Process lifecycle regression for the MSD Lite source contract and host ASan/UBSan test.
+3. Check XY-C1 Build, TRX verification and artifact upload on that exact same source SHA; only then claim L3.
+4. Resume storage pre-launch review with Transmission settings and permission/postcondition edges, then other user-space startup reliability items.
+5. Preserve the frozen backup and archive index/shards; do not claim L4 without physical-router evidence.

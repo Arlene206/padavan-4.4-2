@@ -40,6 +40,9 @@
 #include "pppoe_relay_policy.h"
 #include "route_status_policy.h"
 #include "igmpproxy_config_file.h"
+#if defined (APP_MSD_LITE)
+#include "msd_lite_config_file.h"
+#endif
 
 #define SR_BUF_LEN (8192)
 
@@ -334,43 +337,21 @@ start_udpxy(char *wan_ifname)
 		return;
 
 #if defined (APP_MSD_LITE)
-	char *src_conf = "/etc_ro/msd_lite.conf";
-	char *dst_conf = "/etc/storage/msd_lite.conf";
-	if (!check_if_file_exist(dst_conf))
-		doSystem("cp -f %s %s", src_conf, dst_conf);
-	char line[256];
-	FILE *fp1, *fp2;
-	fp1 = fopen(dst_conf, "w");
-	if (fp1) {
-		fp2 = fopen(src_conf, "r");
-		if (fp2) {
-			while (fgets(line, sizeof(line), fp2)){
-				if (strstr(line, "<ifName>"))
-					snprintf(line, sizeof(line), "\t\t\t\t<ifName>%s</ifName>\n", wan_ifname);
-				else if (strstr(line, "<bind><address>0.0.0.0:"))
-					snprintf(line, sizeof(line), "\t\t\t<bind><address>0.0.0.0:%d</address><fAcceptFilter>y</fAcceptFilter></bind>\n", port);
-				else if (strstr(line, "<bind><address>[::]:"))
-					snprintf(line, sizeof(line), "\t\t\t<bind><address>[::]:%d</address></bind>\n", port);
-				fprintf(fp1, "%s", line);
-			}
-			fclose(fp2);
-		}
-		fclose(fp1);
+	const char *src_conf = "/etc_ro/msd_lite.conf";
+	const char *dst_conf = "/etc/storage/msd_lite.conf";
+	int config_status;
+
+	config_status = msd_lite_config_publish(src_conf, dst_conf, wan_ifname, port);
+	if (config_status != 0) {
+		logmessage(LOGNAME, "MSD Lite configuration publication failed (status=%d)",
+			   config_status);
+		return;
 	}
+
 	nvram_set("msd_lite_enable", "1");
 	launch_status = eval("/usr/bin/msd_lite", "-d", "-c", dst_conf);
 	if (launch_status != 0)
 		logmessage(LOGNAME, "MSD Lite launch failed (status=%d)", launch_status);
-#else
-	launch_status = eval("/usr/sbin/udpxy",
-		"-m", wan_ifname,
-		"-p", nvram_safe_get("udpxy_enable_x"),
-		"-B", "65536",
-		"-c", nvram_safe_get("udpxy_clients"),
-		"-M", nvram_safe_get("udpxy_renew_period")
-		);
-	if (launch_status != 0)
-		logmessage(LOGNAME, "udpxy launch failed (status=%d)", launch_status);
 #endif
 }
 

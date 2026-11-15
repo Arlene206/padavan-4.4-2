@@ -1,6 +1,6 @@
 ## Current source / CI checkpoint
 
-- Main before handoff checkpoint: 13a16ec70f7f78f9a8114582a51e7d9e88bd9644; frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Main at MSD Lite slice start: f36d6ec94650103134a55b2e9c9abca9894de075; frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
 - Exact XY-C1 #43756373315 Build/TRX/artifact PASS for C source 401066 only (L3). No L4.
 - WAN source fixes: static IPoE address error gate, checked physical WAN interface bring-up, AP-client WISP old interface cleanup/abort, and separate critical MAN gateway/default-route status for static PPTP/L2TP; optional route errors remain nonfatal to that static PPP decision.
 - Storage fixes: Transmission/Aria explicit launch status; Aria staged atomic default config and fail-closed directory/session/permission setup; Transmission PID-qualified default settings stage with generator/sed/mv checks and nonempty final-settings gate. Host + BusyBox ash regression exercises failure and success cases.
@@ -20,7 +20,7 @@
 ### P1 — Storage daemon startup and config publication
 
 - Preserve start-stop-daemon result, independent of logger.
-- Aria config is written to unique same-directory temp, checked, atomically renamed and cleaned on error.
+- Aria concurrent-start repair f36d6ec fixes both CONFIG_TMP and the cat-barrier marker to use PID expansion; exact-f36 storage run #43761890951 was in progress at the last poll.
 - Transmission default settings are generated to unique same-directory temp; generator, sed transform, mv and nonempty final settings are checked before daemon start.
 - Next action: verify exact-SHA storage workflow and finish any failing test/source contract; then continue directory/permission failure handling.
 
@@ -28,6 +28,10 @@
 
 - Static IPoE address errors fail closed; initial physical interface bring-up checked; AP-client WISP migration guarded; required MAN gateway/default routes gate static MAN PPTP/L2TP.
 - XY-C1 L3 is only for exact C source SHA 401066; no L4.
+
+### P1 — MSD Lite configuration publication
+
+- MSD Lite APP_MSD_LITE config now uses checked same-directory staged publication and skips service enable/launch on any write/read/flush/fsync/close/rename failure. Host GNU89 ASan/UBSan regression PASS; exact-head Process and XY-C1 checks pending.
 
 ### P2 — IGMP proxy configuration publication
 

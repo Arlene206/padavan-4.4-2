@@ -1,3 +1,13 @@
+## 2026-11-16 — Preserve last-good MSD Lite configuration on publication failure
+
+- start_udpxy() previously opened the live MSD Lite config with "w" before validating the read-only template; missing source or buffered write/close failures could destroy the persistent config while service enable/launch still proceeded.
+- Added a checked same-directory mkstemp publisher with source/destination file-type checks, mode preservation, interface/port validation, write/flush/fsync/close checks and atomic rename. Publication failure now aborts before msd_lite_enable or daemon launch.
+- Added GNU89 ASan/UBSan regression coverage for exact transformed config, preserved unrelated lines and existing mode, missing source/parent, invalid input, directory/symlink targets, buffered RLIMIT_FSIZE failure, last-good preservation and staging cleanup.
+- Local host regression PASS. Exact-head Process lifecycle host regression and XY-C1 Build/TRX/artifact are pending for the new C source; no L3/L4 claim.
+- Parent main: f36d6ec94650103134a55b2e9c9abca9894de075. Frozen backup and archive index/shards unchanged.
+
+---
+
 ## 2026-11-16 — Fix Aria concurrent-start staging collision and barrier
 
 - Exact 13a16 storage-hotplug run #43760834648 failed in host startup testing with "First concurrent Aria start failed".
