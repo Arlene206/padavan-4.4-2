@@ -420,8 +420,8 @@ int ipdown_vpnc_main(int argc, char **argv);
 /* openvpn.c */
 int start_openvpn_server(void);
 int start_openvpn_client(void);
-void stop_openvpn_server(void);
-void stop_openvpn_client(void);
+int stop_openvpn_server(void);
+int stop_openvpn_client(void);
 void restart_openvpn_server(void);
 int ovpn_server_script_main(int argc, char **argv);
 int ovpn_client_script_main(int argc, char **argv);

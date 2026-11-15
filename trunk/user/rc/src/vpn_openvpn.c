@@ -34,6 +34,8 @@
 #include "openvpn_config_file.h"
 #include "openvpn_server_lease_policy.h"
 #include "vpn_server_lease_lock.h"
+#include <process_inventory.h>
+#include "openvpn_process_stop_policy.h"
 
 #define OPENVPN_EXE		"/usr/sbin/openvpn"
 #define COMMON_TEMP_DIR		"/tmp/openvpn"
@@ -796,14 +798,18 @@ openvpn_tapif_start(const char *ifname, int is_server, int insert_to_bridge)
 	set_vpn_balancing(ifname, is_server);
 }
 
-static void
+static int
 openvpn_tapif_stop(const char *ifname)
 {
-	if (is_interface_exist(ifname)) {
-		ifconfig(ifname, 0, NULL, NULL);
-		br_add_del_if(IFNAME_BR, ifname, 0);
-		doSystem("%s %s --dev %s", OPENVPN_EXE, "--rmtun", ifname);
-	}
+	int status;
+
+	if (!is_interface_exist(ifname))
+		return 0;
+	status = ifconfig(ifname, 0, NULL, NULL);
+	if (status != 0)
+		return status;
+	br_add_del_if(IFNAME_BR, ifname, 0);
+	return doSystem("%s %s --dev %s", OPENVPN_EXE, "--rmtun", ifname);
 }
 
 static void
@@ -814,13 +820,192 @@ openvpn_tunif_start(const char *ifname, int is_server)
 	set_vpn_balancing(ifname, is_server);
 }
 
-static void
+static int
 openvpn_tunif_stop(const char *ifname)
 {
-	if (is_interface_exist(ifname)) {
-		ifconfig(ifname, 0, NULL, NULL);
-		doSystem("%s %s --dev %s", OPENVPN_EXE, "--rmtun", ifname);
+	int status;
+
+	if (!is_interface_exist(ifname))
+		return 0;
+	status = ifconfig(ifname, 0, NULL, NULL);
+	if (status != 0)
+		return status;
+	return doSystem("%s %s --dev %s", OPENVPN_EXE, "--rmtun", ifname);
+}
+
+/* Map the numeric OpenVPN writepid value to a complete, current process
+ * identity before any signal. This prevents a stale PID from reaching a
+ * recycled process with a different start_time or argv identity. */
+static enum process_presence
+openvpn_read_process_identity(const char *pidfile,
+			      struct process_identity *identity)
+{
+	char pid_text[32];
+	struct stat before, after;
+	struct process_snapshot snapshot;
+	enum process_presence state;
+	pid_t pid;
+	int fd, saved_errno;
+	size_t used = 0, i;
+	ssize_t count;
+
+	if (!pidfile || !identity) {
+		errno = EINVAL;
+		return PROCESS_PRESENCE_UNKNOWN;
 	}
+	fd = open(pidfile, O_RDONLY | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK);
+	if (fd < 0) {
+		if (errno == ENOENT)
+			return PROCESS_PRESENCE_ABSENT;
+		return PROCESS_PRESENCE_UNKNOWN;
+	}
+	if (fstat(fd, &before) != 0)
+		goto failed;
+	if (!S_ISREG(before.st_mode) || before.st_uid != (uid_t)0 ||
+	    before.st_nlink != 1 || (before.st_mode & 022) != 0 ||
+	    before.st_size <= 0 || before.st_size >= (off_t)sizeof(pid_text)) {
+		errno = EPERM;
+		goto failed;
+	}
+	while (used < sizeof(pid_text)) {
+		count = read(fd, pid_text + used, sizeof(pid_text) - used);
+		if (count < 0) {
+			if (errno == EINTR)
+				continue;
+			goto failed;
+		}
+		if (count == 0)
+			break;
+		used += (size_t)count;
+	}
+	if (fstat(fd, &after) != 0)
+		goto failed;
+	if (before.st_dev != after.st_dev || before.st_ino != after.st_ino ||
+	    before.st_size != after.st_size || used != (size_t)after.st_size) {
+		errno = EIO;
+		goto failed;
+	}
+	if (close(fd) != 0) {
+		fd = -1;
+		if (!errno)
+			errno = EIO;
+		goto failed;
+	}
+	fd = -1;
+	if (openvpn_process_stop_parse_pid(pid_text, used, &pid) != 0)
+		return PROCESS_PRESENCE_UNKNOWN;
+
+	state = process_inventory_scan("openvpn", &snapshot);
+	if (state == PROCESS_PRESENCE_UNKNOWN) {
+		saved_errno = snapshot.error ? snapshot.error : EIO;
+		process_snapshot_release(&snapshot);
+		errno = saved_errno;
+		return PROCESS_PRESENCE_UNKNOWN;
+	}
+	if (state != PROCESS_PRESENCE_RUNNING &&
+	    state != PROCESS_PRESENCE_ABSENT) {
+		process_snapshot_release(&snapshot);
+		errno = EIO;
+		return PROCESS_PRESENCE_UNKNOWN;
+	}
+	for (i = 0; i < snapshot.count; i++) {
+		if (snapshot.items[i].pid != pid)
+			continue;
+		*identity = snapshot.items[i];
+		process_snapshot_release(&snapshot);
+		state = process_identity_validate("openvpn", identity);
+		if (state == PROCESS_PRESENCE_UNKNOWN)
+			errno = EIO;
+		else if (state == PROCESS_PRESENCE_ABSENT)
+			errno = ESRCH;
+		return state;
+	}
+	process_snapshot_release(&snapshot);
+	errno = ESRCH;
+	return PROCESS_PRESENCE_ABSENT;
+
+failed:
+	saved_errno = errno ? errno : EIO;
+	(void)close(fd);
+	errno = saved_errno;
+	return PROCESS_PRESENCE_UNKNOWN;
+}
+
+static int
+openvpn_signal_process_identity(const struct process_identity *identity,
+				int signal_number)
+{
+	enum process_presence state;
+
+	state = process_identity_validate("openvpn", identity);
+	if (state == PROCESS_PRESENCE_ABSENT)
+		return 1;
+	if (state != PROCESS_PRESENCE_RUNNING) {
+		errno = EIO;
+		return -1;
+	}
+	if (kill(identity->pid, signal_number) == 0)
+		return 0;
+	if (errno == ESRCH)
+		return 1;
+	return -1;
+}
+
+static int
+openvpn_wait_process_stopped(const struct process_identity *identity)
+{
+	enum process_presence state;
+	int attempt;
+
+	for (attempt = 0; attempt < 3; attempt++) {
+		sleep(1);
+		state = process_identity_validate("openvpn", identity);
+		if (state == PROCESS_PRESENCE_ABSENT)
+			return 0;
+		if (state != PROCESS_PRESENCE_RUNNING) {
+			errno = EIO;
+			return -1;
+		}
+	}
+	errno = ETIMEDOUT;
+	return -1;
+}
+
+static int
+openvpn_stop_pidfile_process(const char *pidfile)
+{
+	struct process_identity identity;
+	enum process_presence state;
+	int signal_status, saved_errno;
+
+	state = openvpn_read_process_identity(pidfile, &identity);
+	if (state != PROCESS_PRESENCE_RUNNING) {
+		if (state == PROCESS_PRESENCE_UNKNOWN) {
+			saved_errno = errno ? errno : EIO;
+			return openvpn_process_stop_result(state, saved_errno);
+		}
+		return openvpn_process_stop_result(state, 0);
+	}
+	signal_status = openvpn_signal_process_identity(&identity, SIGTERM);
+	if (signal_status < 0)
+		return -1;
+	if (signal_status > 0)
+		return 0;
+	if (openvpn_wait_process_stopped(&identity) == 0)
+		return 0;
+	if (errno != ETIMEDOUT)
+		return -1;
+
+	/* Revalidate the same start_time and argv identity immediately before
+	 * escalating; never send SIGKILL to a recycled numeric PID. */
+	signal_status = openvpn_signal_process_identity(&identity, SIGKILL);
+	if (signal_status < 0)
+		return -1;
+	if (signal_status > 0)
+		return 0;
+	if (openvpn_wait_process_stopped(&identity) == 0)
+		return 0;
+	return -1;
 }
 
 static int
@@ -1224,40 +1409,54 @@ start_openvpn_client(void)
 	return _eval(openvpn_argv, NULL, 0, NULL);
 }
 
-void
+int
 stop_openvpn_server(void)
 {
 	char vpns_scr[64];
+	int status;
 
-	kill_process_pidfile(SERVER_PID_FILE, 3, 1);
-
-	/* remove tap device */
-	openvpn_tapif_stop(IFNAME_SERVER_TAP);
-
-	/* remove tun device */
-	openvpn_tunif_stop(IFNAME_SERVER_TUN);
-
-	/* remove script symlink */
+	status = openvpn_stop_pidfile_process(SERVER_PID_FILE);
+	if (status != 0) {
+		logmessage(SERVER_LOG_NAME,
+			   "refusing OpenVPN server cleanup because process stop is incomplete (errno=%d)",
+			   errno ? errno : EIO);
+		return status;
+	}
+	status = openvpn_tapif_stop(IFNAME_SERVER_TAP);
+	if (status != 0)
+		return status;
+	status = openvpn_tunif_stop(IFNAME_SERVER_TUN);
+	if (status != 0)
+		return status;
 	snprintf(vpns_scr, sizeof(vpns_scr), "%s/%s", SERVER_ROOT_DIR, SCRIPT_OVPN_SERVER);
-	unlink(vpns_scr);
+	if (unlink(vpns_scr) != 0 && errno != ENOENT)
+		return -1;
+	return 0;
 }
 
-void
+int
 stop_openvpn_client(void)
 {
 	char vpnc_scr[64];
+	int status;
 
-	kill_process_pidfile(CLIENT_PID_FILE, 3, 1);
-
-	/* remove tap device */
-	openvpn_tapif_stop(IFNAME_CLIENT_TAP);
-
-	/* remove tun device */
-	openvpn_tunif_stop(IFNAME_CLIENT_TUN);
-
-	/* remove script symlink */
+	status = openvpn_stop_pidfile_process(CLIENT_PID_FILE);
+	if (status != 0) {
+		logmessage(CLIENT_LOG_NAME,
+			   "refusing OpenVPN client cleanup because process stop is incomplete (errno=%d)",
+			   errno ? errno : EIO);
+		return status;
+	}
+	status = openvpn_tapif_stop(IFNAME_CLIENT_TAP);
+	if (status != 0)
+		return status;
+	status = openvpn_tunif_stop(IFNAME_CLIENT_TUN);
+	if (status != 0)
+		return status;
 	snprintf(vpnc_scr, sizeof(vpnc_scr), "%s/%s", CLIENT_ROOT_DIR, SCRIPT_OVPN_CLIENT);
-	unlink(vpnc_scr);
+	if (unlink(vpnc_scr) != 0 && errno != ENOENT)
+		return -1;
+	return 0;
 }
 
 static int
@@ -1292,10 +1491,16 @@ out:
 void
 restart_openvpn_server(void)
 {
-	int start_status;
+	int start_status, stop_status;
 
 	/* Note: SIGHUP is buggy with server drop privilegies. */
-	stop_openvpn_server();
+	stop_status = stop_openvpn_server();
+	if (stop_status != 0) {
+		logmessage(SERVER_LOG_NAME,
+			   "OpenVPN server restart aborted because stop was incomplete (status=%d, errno=%d)",
+			   stop_status, errno ? errno : EIO);
+		return;
+	}
 	if (openvpn_server_lease_clear() != 0) {
 		logmessage(SERVER_LOG_NAME,
 			   "cannot clear lease inventory during OpenVPN restart (errno=%d)",

@@ -475,15 +475,20 @@ stop_vpn_server_locked(void)
 	if (xl2tpd_active)
 		xl2tpd_killed_vpns = 1;
 
+#if defined(APP_OPENVPN)
+	if (stop_openvpn_server() != 0) {
+		logmessage(VPNS_LOG_NAME,
+			   "refusing VPN server cleanup because OpenVPN stop is incomplete (errno=%d)",
+			   errno ? errno : EIO);
+		return -1;
+	}
+#endif
+
 	nvram_set_int_temp("l2tp_srv_t", 0);
 	if (unlink(VPNS_PPP_UP_SCRIPT) != 0 && errno != ENOENT)
 		return -1;
 	if (unlink(VPNS_PPP_DW_SCRIPT) != 0 && errno != ENOENT)
 		return -1;
-
-#if defined(APP_OPENVPN)
-	stop_openvpn_server();
-#endif
 
 	if (clear_vpns_lease_file() != 0) {
 		logmessage(VPNS_LOG_NAME, "cannot clear VPN lease inventory safely (errno=%d)", errno);

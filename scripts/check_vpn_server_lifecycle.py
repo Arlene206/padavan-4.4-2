@@ -383,6 +383,64 @@ require("expect_invalid" in callback_test and
 # OpenVPN callbacks run after privilege drop and must serialize against the
 # root RC lease clear on the same inode, with a PID fence checked after lock.
 openvpn=read("trunk/user/rc/src/vpn_openvpn.c")
+openvpn_stop_policy=read("trunk/user/rc/src/openvpn_process_stop_policy.h")
+openvpn_stop_test=read("trunk/user/rc/src/tests/openvpn_process_stop_policy.c")
+require('#include "openvpn_process_stop_policy.h"' in openvpn,
+        "OpenVPN process stop policy header is not integrated")
+pid_identity=body(openvpn,"static enum process_presence\nopenvpn_read_process_identity")
+ordered(pid_identity,["open(pidfile, O_RDONLY | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK)",
+    "fstat(fd, &before)","openvpn_process_stop_parse_pid(pid_text, used, &pid)",
+    'process_inventory_scan("openvpn", &snapshot)',
+    "snapshot.items[i].pid != pid","process_identity_validate(\"openvpn\", identity)"],
+    "numeric OpenVPN PID mapping")
+for token in ("before.st_uid != (uid_t)0","before.st_nlink != 1",
+              "(before.st_mode & 022) != 0","before.st_size != after.st_size"):
+    require(token in pid_identity,f"OpenVPN numeric PID file validation missing {token}")
+signal_identity=body(openvpn,"static int\nopenvpn_signal_process_identity")
+ordered(signal_identity,["process_identity_validate(\"openvpn\", identity)",
+    "kill(identity->pid, signal_number)"],"OpenVPN identity-bound signal")
+stop_process=body(openvpn,"static int\nopenvpn_stop_pidfile_process")
+ordered(stop_process,["openvpn_read_process_identity(pidfile, &identity)",
+    "openvpn_signal_process_identity(&identity, SIGTERM)",
+    "openvpn_wait_process_stopped(&identity)",
+    "openvpn_signal_process_identity(&identity, SIGKILL)",
+    "openvpn_wait_process_stopped(&identity)"],"OpenVPN bounded stop escalation")
+require("ETIMEDOUT" in openvpn and "process_identity_validate(\"openvpn\", identity)" in openvpn,
+        "OpenVPN stop must wait for a verified process exit")
+for signature,label in (("int\nopenvpn_tapif_stop","TAP"),("int\nopenvpn_tunif_stop","TUN")):
+    iface_stop=body(openvpn,signature)
+    require("ifconfig(ifname, 0, NULL, NULL)" in iface_stop and
+            'doSystem("%s %s --dev %s", OPENVPN_EXE, "--rmtun", ifname)' in iface_stop,
+            f"OpenVPN {label} teardown must check interface-down and device-removal status")
+server_openvpn_stop=body(openvpn,"int\nstop_openvpn_server(void)")
+client_openvpn_stop=body(openvpn,"int\nstop_openvpn_client(void)")
+ordered(server_openvpn_stop,["openvpn_stop_pidfile_process(SERVER_PID_FILE)",
+    "openvpn_tapif_stop(IFNAME_SERVER_TAP)","openvpn_tunif_stop(IFNAME_SERVER_TUN)",
+    "unlink(vpns_scr)"],"OpenVPN server checked stop")
+ordered(client_openvpn_stop,["openvpn_stop_pidfile_process(CLIENT_PID_FILE)",
+    "openvpn_tapif_stop(IFNAME_CLIENT_TAP)","openvpn_tunif_stop(IFNAME_CLIENT_TUN)",
+    "unlink(vpnc_scr)"],"OpenVPN client checked stop")
+require("openvpn_process_stop_parse_pid" in openvpn_stop_policy and
+        "openvpn_process_stop_result" in openvpn_stop_policy and
+        "PROCESS_PRESENCE_UNKNOWN" not in openvpn_stop_policy,
+        "OpenVPN stop policy must keep numeric parsing and fail-closed state contract")
+require('expect_pid("4242\\n", 5, (pid_t)4242)' in openvpn_stop_test and
+        "PROCESS_PRESENCE_UNKNOWN" in openvpn_stop_test and
+        "ETIMEDOUT" not in openvpn_stop_test,
+        "OpenVPN stop policy regression missing numeric/UNKNOWN cases")
+require("openvpn_process_stop_result(PROCESS_PRESENCE_RUNNING, 0) == -1" in openvpn_stop_test,
+        "OpenVPN RUNNING state must not satisfy stop postcondition")
+vpn_server_stop=body(vpn,"static int\nstop_vpn_server_locked(void)")
+require("if (stop_openvpn_server() != 0)" in vpn_server_stop and
+        vpn_server_stop.index("if (stop_openvpn_server() != 0)") < vpn_server_stop.index('nvram_set_int_temp("l2tp_srv_t", 0)') and
+        vpn_server_stop.index("if (stop_openvpn_server() != 0)") < vpn_server_stop.index("unlink(VPNS_PPP_UP_SCRIPT)"),
+        "VPN server cleanup must wait for OpenVPN stop")
+vpn_client_stop=body(vpn_client,"static int\nstop_vpn_client_locked(void)")
+require("stop_status = stop_openvpn_client();" in vpn_client_stop and
+        "if (stop_status != 0)" in vpn_client_stop and
+        vpn_client_stop.index("if (stop_status != 0)") < vpn_client_stop.index('nvram_set_int_temp("l2tp_cli_t", 0)'),
+        "VPN client NVRAM/script cleanup must wait for OpenVPN stop")
+
 require('#include "vpn_server_lease_lock.h"' in openvpn,
         "OpenVPN callbacks do not include the shared lease lock")
 parent_fence=body(openvpn,"static int\nopenvpn_server_lease_parent_is_current(void)")
@@ -413,9 +471,10 @@ ordered(ovpn_clear,["vpn_server_lease_lock_acquire(VPN_SERVER_LEASE_LOCK_FILE)",
     "unlink(SERVER_PID_FILE)","unlink(VPN_SERVER_LEASE_FILE)",
     "vpn_server_lease_lock_release(lock_fd)"],"OpenVPN restart lease clear")
 ovpn_restart=body(openvpn,"void\nrestart_openvpn_server(void)")
-ordered(ovpn_restart,["stop_openvpn_server()","if (openvpn_server_lease_clear() != 0)",
-    "return;","start_openvpn_server()"],"OpenVPN restart stop/fence/start")
-print("VPN server lifecycle and callback source contract: PASS")
+ordered(ovpn_restart,["stop_status = stop_openvpn_server()","if (stop_status != 0)",
+    "return;","if (openvpn_server_lease_clear() != 0)","start_openvpn_server()"],
+    "OpenVPN restart fail-closed stop/fence/start")
+print("VPN server lifecycle, identity-bound OpenVPN stop and callback source contract: PASS")
 
 # The bcrelay presence policy and its shared scanner are VPN callback dependencies.
 for path in (

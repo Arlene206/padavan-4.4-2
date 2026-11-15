@@ -339,7 +339,13 @@ stop_vpn_client_locked(void)
 	}
 
 #if defined(APP_OPENVPN)
-	stop_openvpn_client();
+	stop_status = stop_openvpn_client();
+	if (stop_status != 0) {
+		logmessage(VPNC_LOG_NAME,
+			   "refusing VPN client cleanup because OpenVPN stop is incomplete (status=%d, errno=%d)",
+			   stop_status, errno ? errno : EIO);
+		return stop_status;
+	}
 #endif
 
 	nvram_set_int_temp("l2tp_cli_t", 0);
