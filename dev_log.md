@@ -1,3 +1,11 @@
+## 2026-11-15 — Report enabled LLTD and rstats boot launcher failures
+
+- `start_services_once()` invokes LLTD/rstats starts but discards their return values. Both wrappers returned direct `eval()` status without a diagnostic, so failed enabled launches were silent.
+- `start_lltd()` and `start_rstats()` now capture the result, log nonzero launch status and return the original code. Their disabled-setting `return 1` sentinels remain unchanged and do not log an error.
+- Added semantic source contracts for disabled guards, launch capture, nonzero diagnostics and return propagation. The existing process-lifecycle and XY-C1 workflows both path-filter `services.c`.
+- Parent main: `022bc51507ca5f395c60a1f450cc461bf5403926`; resulting SHA: THIS COMMIT. Parent process-lifecycle #43732981693, HTTPD #43732981614 and AI docs #43732981749 PASS. XY-C1 #43732981606 remained IN_PROGRESS at Build; exact-head validation is required for this source.
+
+---
 ## 2026-11-15 — Align LPD signal source with exact privileged-sink contracts
 
 - The LPD PID identity production commit `72ce1bb97323d4c417e8a5d891bbaf9c6ed3f2f3` passed every C compile/runtime regression, including the shared PID-file and legacy LPD parser binaries, but process-lifecycle #43732716465 failed at the source contract expecting a contiguous call string.

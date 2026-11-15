@@ -1176,10 +1176,16 @@ stop_rstats(void)
 int
 start_rstats(void)
 {
+	int start_status;
+
 	if (nvram_invmatch("rstats_enable", "1"))
 		return 1;
 
-	return eval("/sbin/rstats");
+	start_status = eval("/sbin/rstats");
+	if (start_status != 0)
+		logmessage(LOGNAME, "rstats daemon launch failed (status=%d)", start_status);
+
+	return start_status;
 }
 
 int
@@ -1199,10 +1205,16 @@ restart_rstats(void)
 int
 start_lltd(void)
 {
+	int start_status;
+
 	if (nvram_invmatch("lltd_enable", "1"))
 		return 1;
 
-	return eval("/bin/lld2d", IFNAME_BR);
+	start_status = eval("/bin/lld2d", IFNAME_BR);
+	if (start_status != 0)
+		logmessage(LOGNAME, "LLTD daemon launch failed (status=%d)", start_status);
+
+	return start_status;
 }
 
 int

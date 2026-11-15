@@ -744,3 +744,22 @@ assert '"trunk/user/rc/src/watchdog.c"' in xy_workflow
 assert '"trunk/user/rc/src/process_presence_start_policy.h"' in process_workflow
 assert '"trunk/user/rc/src/tests/process_presence_start_policy.c"' in process_workflow
 print("watchdog process inventory tri-state recovery/start integration: PASS")
+
+
+lltd_start = services_source.split("int\nstart_lltd(void)", 1)[1].split("\n}", 1)[0]
+assert 'if (nvram_invmatch("lltd_enable", "1"))' in lltd_start
+assert lltd_start.index("return 1;") < lltd_start.index('start_status = eval("/bin/lld2d", IFNAME_BR);')
+assert 'logmessage(LOGNAME, "LLTD daemon launch failed (status=%d)", start_status);' in lltd_start
+assert "return start_status;" in lltd_start
+assert lltd_start.index('start_status = eval("/bin/lld2d", IFNAME_BR);') < lltd_start.index("if (start_status != 0)") < lltd_start.index("return start_status;")
+
+rstats_start = services_source.split("int\nstart_rstats(void)", 1)[1].split("\n}", 1)[0]
+assert 'if (nvram_invmatch("rstats_enable", "1"))' in rstats_start
+assert rstats_start.index("return 1;") < rstats_start.index('start_status = eval("/sbin/rstats");')
+assert 'logmessage(LOGNAME, "rstats daemon launch failed (status=%d)", start_status);' in rstats_start
+assert "return start_status;" in rstats_start
+assert rstats_start.index('start_status = eval("/sbin/rstats");') < rstats_start.index("if (start_status != 0)") < rstats_start.index("return start_status;")
+
+assert '"trunk/user/rc/src/services.c"' in process_workflow
+assert '"trunk/user/rc/src/services.c"' in xy_workflow
+print("LLTD/rstats boot launch status and disabled-sentinel contracts: PASS")
