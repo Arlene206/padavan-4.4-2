@@ -227,6 +227,13 @@ flash = rc_source.split("flash_firmware(void)", 1)[1].split(
     "\nstatic void\nstorage_load_time", 1
 )[0]
 assert "auth_stop_status = stop_8021x_all();" in flash
+assert "eapol_stop_status = stop_auth_eapol();" in flash
+assert "kabinet_stop_status = stop_auth_kabinet();" in flash
+assert "pppoe_stop_status = set_passthrough_pppoe(0);" in flash
+assert "eapol_stop_status != 0 || kabinet_stop_status != 0" in flash
+assert "auth_stop_status != 0 || pppoe_stop_status != 0" in flash
+assert "wpa_cli" not in flash and "wpa_supplicant" not in flash
+assert flash.index("set_passthrough_pppoe(0)") < flash.index("doSystem(\"%s %d\", script_name, 0)")
 assert flash.index("auth_stop_status = stop_8021x_all();") < flash.index("doSystem(\"%s %d\", script_name, 0)")
 assert flash.index("stop_igmpproxy(NULL)") < flash.index("stop_misc()")
 assert flash.index("stop_misc()") < flash.index("storage_save_time(60)") < flash.index("write_storage_to_mtd();")

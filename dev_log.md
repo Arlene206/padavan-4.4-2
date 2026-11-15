@@ -1,3 +1,12 @@
+## 2026-11-15 — Stop all WAN authentication and PPPoE relay services before firmware flash
+
+- Follow-up over the complete firmware stop set found that `flash_firmware()` still relied on its narrow ad-hoc `wpa_cli/wpa_supplicant` kill list. It left the separate WAN `lanauth` and AP `rt2860apd/rtinicapd` daemons outside the gate, and the newly status-returning PPPoE relay stop helper was not used. A successful firmware write could therefore proceed while those services were still active.
+- Replaced the duplicate EAPOL process-name entries in the legacy kill list with the shared checked `stop_auth_eapol()`, `stop_auth_kabinet()`, `stop_8021x_all()` and `set_passthrough_pppoe(0)` helpers. All four are attempted before the custom shutdown hook or storage mutation, and any stop failure aborts the update. The L2TP/PPP daemon group retains its existing six-second stop policy.
+- Extended the process-lifecycle source contract for the complete auth/relay stop set and its pre-hook ordering. Exact-head process and XY-C1 reruns required.
+- Changed paths: `rc.c`, `check_process_lifecycle_integration.py`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Keep firmware-update abort paths recoverable after service shutdown
 
 - Review of `flash_firmware()` found that `stop_misc()` terminated the watchdog before several later fallible operations (optional-service stop, custom shutdown hook, storage eject, printer stop and IPTV proxy stop). Any subsequent abort returned with the watchdog still stopped. The firmware path also killed `wpa_cli/wpa_supplicant` but did not call the shared `stop_8021x_all()`, leaving AP authentication daemons outside its stop gate.

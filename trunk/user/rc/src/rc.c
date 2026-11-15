@@ -511,8 +511,9 @@ static void
 flash_firmware(void)
 {
 	const char *script_name = SCRIPT_SHUTDOWN;
-	char* svcs[] = { "l2tpd", "xl2tpd", "pppd", "wpa_cli", "wpa_supplicant", NULL };
-	int lock_fd, stop_status, release_status, saved_errno, auth_stop_status;
+	char* svcs[] = { "l2tpd", "xl2tpd", "pppd", NULL };
+	int lock_fd, stop_status, release_status, saved_errno;
+	int eapol_stop_status, kabinet_stop_status, auth_stop_status, pppoe_stop_status;
 
 	/* PPPD callback children share this lock; stop only after in-flight
 	 * VPN callbacks have completed, then stale children fail PID identity. */
@@ -543,10 +544,15 @@ flash_firmware(void)
 		logmessage(LOGNAME, "firmware update aborted: checked services did not stop");
 		return;
 	}
+	eapol_stop_status = stop_auth_eapol();
+	kabinet_stop_status = stop_auth_kabinet();
 	auth_stop_status = stop_8021x_all();
-	if (auth_stop_status != 0) {
-		logmessage(LOGNAME, "firmware update aborted: 802.1X authentication daemons did not stop (status=%d)",
-			   auth_stop_status);
+	pppoe_stop_status = set_passthrough_pppoe(0);
+	if (eapol_stop_status != 0 || kabinet_stop_status != 0 ||
+	    auth_stop_status != 0 || pppoe_stop_status != 0) {
+		logmessage(LOGNAME,
+			   "firmware update aborted: WAN/AP authentication or PPPoE relay daemons did not stop (EAPOL=%d, kabinet=%d, 802.1X=%d, relay=%d)",
+			   eapol_stop_status, kabinet_stop_status, auth_stop_status, pppoe_stop_status);
 		return;
 	}
 	if (check_if_file_exist(script_name))
