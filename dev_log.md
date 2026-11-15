@@ -1,3 +1,11 @@
+## 2026-11-15 — Make MiniDLNA config publication atomic and fail closed
+
+- `update_minidlna_conf()` truncated `/etc/minidlna.conf` before writing, ignored buffered write/close errors and returned void; `run_dms()` attempted daemon launch regardless.
+- Added a checked writer and same-directory temporary-file publisher with `mkstemp`, flush, `fsync`, close, atomic rename and failed-stage cleanup. `run_dms()` now refuses launch after config publication failure.
+- Added a GNU89 ASan/UBSan host regression covering media-source selection, optional root-container/sort output, full replacement, 0600 mode and failed-rename cleanup; added static source contracts and Process/XY-C1 path filters.
+- Parent main: `d3531270e9d3cf9523f2c0b8f0dc577b687acafb`. Exact-head Process and XY-C1 validation required; no DLNA runtime or hardware claim.
+
+---
 ## 2026-11-15 — Make Firefly configuration publication fail closed
 
 - `update_firefly_conf()` ignored source-open, write, close and rename failures; `run_itunes()` launched mt-daapd even when config publication failed.

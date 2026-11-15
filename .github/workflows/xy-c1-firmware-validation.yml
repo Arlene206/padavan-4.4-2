@@ -72,6 +72,7 @@ on:
       - "trunk/user/rc/src/samba_share_policy.h"
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/firefly_config_file.h"
+      - "trunk/user/rc/src/minidlna_config_file.h"
       - "trunk/user/rc/src/storage_service_stop_policy.h"
       - "trunk/user/rc/src/storage_optware_start_policy.h"
       - "trunk/user/libdisk/src/disk_initial.h"

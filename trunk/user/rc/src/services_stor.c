@@ -57,6 +57,7 @@
 #include "storage_nfs_export_policy.h"
 #include "storage_service_stop_policy.h"
 #include "firefly_config_file.h"
+#include "minidlna_config_file.h"
 #include "switch.h"
 
 void
@@ -1906,70 +1907,48 @@ stop_dms(void)
 	return storage_service_stop_complete(status, is_dms_run());
 }
 
-void update_minidlna_conf(const char *link_path, const char *conf_path)
+int update_minidlna_conf(const char *link_path, const char *conf_path)
 {
-	FILE *fp;
-	int dlna_disc, dlna_root;
-	char *computer_name;
-	char *dlna_src1 = "V,/media/AiDisk_a1/Video";
-	char *dlna_src2 = "P,/media/AiDisk_a1/Photo";
-	char *dlna_src3 = "A,/media/AiDisk_a1/Audio";
-
-	fp = fopen(conf_path, "w");
-	if (!fp)
-		return;
+	struct minidlna_config_values values;
+	const char *computer_name;
+	int dlna_disc, dlna_root, status;
 
 	computer_name = get_our_hostname();
+	if (computer_name == NULL)
+		return EIO;
 
 	dlna_disc = nvram_get_int("dlna_disc");
 	dlna_root = nvram_get_int("dlna_root");
-	dlna_src1 = nvram_safe_get("dlna_src1");
-	dlna_src2 = nvram_safe_get("dlna_src2");
-	dlna_src3 = nvram_safe_get("dlna_src3");
+	values.media_source1 = nvram_safe_get("dlna_src1");
+	values.media_source2 = nvram_safe_get("dlna_src2");
+	values.media_source3 = nvram_safe_get("dlna_src3");
+	if (!*values.media_source1 && !*values.media_source2 &&
+	    !*values.media_source3)
+		values.media_source1 = "/media";
 
-	if (!*dlna_src1 && !*dlna_src2 && !*dlna_src3)
-		dlna_src1 = "/media";
+	if (dlna_disc < 10)
+		dlna_disc = 10;
+	if (dlna_disc > 10800)
+		dlna_disc = 10800;
 
-	if (dlna_disc < 10) dlna_disc = 10;
-	if (dlna_disc > 10800) dlna_disc = 10800;
+	values.interface_name = IFNAME_BR;
+	values.notify_interval = dlna_disc;
+	values.root_container = dlna_root;
+	values.force_sort = nvram_get_int("dlna_sort");
+	values.friendly_name = computer_name;
+	values.database_dir = link_path;
 
-	fprintf(fp, "port=%d\n", 8200);
-	fprintf(fp, "network_interface=%s\n", IFNAME_BR);
-	fprintf(fp, "notify_interval=%d\n", dlna_disc);
-	if (*dlna_src1)
-		fprintf(fp, "media_dir=%s\n", dlna_src1);
-	if (*dlna_src2)
-		fprintf(fp, "media_dir=%s\n", dlna_src2);
-	if (*dlna_src3)
-		fprintf(fp, "media_dir=%s\n", dlna_src3);
-	fprintf(fp, "merge_media_dirs=%s\n", "no");
-	if (dlna_root == 1)
-		fprintf(fp, "root_container=%s\n", "B");
-	else if (dlna_root == 2)
-		fprintf(fp, "root_container=%s\n", "M");
-	else if (dlna_root == 3)
-		fprintf(fp, "root_container=%s\n", "V");
-	else if (dlna_root == 4)
-		fprintf(fp, "root_container=%s\n", "P");
-	if (nvram_get_int("dlna_sort") > 0)
-		fprintf(fp, "force_sort_criteria=%s\n", "+upnp:class,+upnp:originalTrackNumber,+dc:title");
-	fprintf(fp, "friendly_name=%s\n", computer_name);
-	fprintf(fp, "db_dir=%s\n", link_path);
-	fprintf(fp, "log_dir=%s\n", link_path);
-	fprintf(fp, "album_art_names=%s\n", "Cover.jpg/cover.jpg/AlbumArtSmall.jpg/albumartsmall.jpg/AlbumArt.jpg/albumart.jpg/Album.jpg/album.jpg/Folder.jpg/folder.jpg/Thumb.jpg/thumb.jpg");
-	fprintf(fp, "wide_links=%s\n", "yes");
-	fprintf(fp, "inotify=%s\n", "yes");
-	fprintf(fp, "enable_tivo=%s\n", "no");
-	fprintf(fp, "strict_dlna=%s\n", "no");
-	fprintf(fp, "model_number=%d\n", 1);
-
-	fclose(fp);
+	status = minidlna_config_publish(conf_path, &values);
+	if (status != 0)
+		logmessage("MiniDLNA", "configuration publication failed (status=%d)", status);
+	return status;
 }
 
 void run_dms(int force_rescan)
 {
 	int db_rescan_mode;
 	int process_state;
+	int config_status;
 	unsigned char mac_bin[ETHER_ADDR_LEN] = {0};
 	char mac_str[16];
 	char *apps_name = "Media Server";
@@ -2008,7 +1987,11 @@ void run_dms(int force_rescan)
 		}
 	}
 
-	update_minidlna_conf(link_path, conf_path);
+	config_status = update_minidlna_conf(link_path, conf_path);
+	if (config_status != 0) {
+		logmessage(apps_name, "refusing daemon launch after configuration failure");
+		return;
+	}
 
 	ether_atoe(nvram_safe_get("il0macaddr"), mac_bin);
 	minidlna_argv[4] = ether_etoa3(mac_bin, mac_str);

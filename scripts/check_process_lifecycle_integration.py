@@ -48,6 +48,8 @@ net_source = (root / "trunk/user/rc/src/net.c").read_text()
 storage_services = (root / "trunk/user/rc/src/services_stor.c").read_text()
 firefly_config_header = (root / "trunk/user/rc/src/firefly_config_file.h").read_text()
 firefly_config_test = (root / "trunk/user/rc/src/tests/firefly_config_file.c").read_text()
+minidlna_config_header = (root / "trunk/user/rc/src/minidlna_config_file.h").read_text()
+minidlna_config_test = (root / "trunk/user/rc/src/tests/minidlna_config_file.c").read_text()
 net_lan_notification = (root / "trunk/user/rc/src/net_lan.c").read_text()
 pppoe_policy = (root / "trunk/user/rc/src/pppoe_relay_policy.h").read_text()
 
@@ -134,6 +136,27 @@ assert "trunk/user/rc/src/firefly_config_file.h" in process_workflow
 assert "trunk/user/rc/src/tests/firefly_config_file.c" in process_workflow
 assert "trunk/user/rc/src/firefly_config_file.h" in xy_workflow
 print("Firefly configuration publication failure and last-good preservation contracts: PASS")
+
+assert '#include "minidlna_config_file.h"' in storage_services
+minidlna_update = storage_services.split("int update_minidlna_conf(", 1)[1].split("\nvoid run_dms(int force_rescan)", 1)[0]
+assert "minidlna_config_publish(conf_path, &values)" in minidlna_update
+assert "configuration publication failed (status=%d)" in minidlna_update
+dms_start = storage_services.split("void run_dms(int force_rescan)", 1)[1].split("\nvoid restart_dms(int force_rescan)", 1)[0]
+assert "config_status = update_minidlna_conf(link_path, conf_path);" in dms_start
+assert "if (config_status != 0)" in dms_start
+assert dms_start.index("if (config_status != 0)") < dms_start.index("_eval(minidlna_argv, NULL, 0, NULL);")
+assert "mkstemp(temporary_path)" in minidlna_config_header
+assert "fflush(output)" in minidlna_config_header
+assert "fsync(fileno(output))" in minidlna_config_header
+assert "rename(temporary_path, path)" in minidlna_config_header
+assert "unlink(temporary_path)" in minidlna_config_header
+assert "minidlna_config_publish(directory_target, &values)" in minidlna_config_test
+assert "old-incomplete-config" in minidlna_config_test
+assert "0600" in minidlna_config_test
+assert "trunk/user/rc/src/minidlna_config_file.h" in process_workflow
+assert "trunk/user/rc/src/tests/minidlna_config_file.c" in process_workflow
+assert "trunk/user/rc/src/minidlna_config_file.h" in xy_workflow
+print("MiniDLNA configuration publication and fail-closed startup contracts: PASS")
 
 pppoe_test = (root / "trunk/user/rc/src/tests/pppoe_relay_policy.c").read_text()
 

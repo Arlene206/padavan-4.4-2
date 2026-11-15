@@ -8,13 +8,19 @@ For each logical task, publish source, regression tests/contracts and necessary 
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; exact parent before Firefly config publication is `2bd4868069048e5470fcfd024678b0891575b12a`.
-- Optional-service caller checker repair: `1c9ef914b9d27396e90976d6eb0fdfa9ba961cf4` exact Process #43741972950 PASS; handoff docs follow-up `2bd4868069048e5470fcfd024678b0891575b12a` exact Process #43742092499 and AI docs #43742092447 PASS.
-- Optional RC boot status source: `8da4da031fa9e0c4fa51ae1208a65be99386c1cd`; its Process #43741567690 originally failed on checker syntax only, corrected at 1c9f. XY-C1 #43741567717 remained in Build XY-C1 at last poll.
-- Previous storage media daemon launch status source: `28ccec681975863be1dc59580166fdd3a7774655`; exact XY-C1 #43741160797 completed SUCCESS through TRX verification and artifact upload.
+- Repository `Arlene206/padavan-4.4-2`; exact parent before the MiniDLNA config publication slice is `d3531270e9d3cf9523f2c0b8f0dc577b687acafb`.
+- Firefly atomic config publication is committed at `d3531270e9d3cf9523f2c0b8f0dc577b687acafb`; exact Process #43742499910 passed all steps, including the GNU89 ASan/UBSan publication regression and static source contract. AI handoff docs #43742501048 and process inventory artifact #43742499867 also PASS.
+- Exact d353 XY-C1 #43742499742 was still at dependency installation at the last poll; Build XY-C1, TRX verification and artifact upload remain pending.
+- Optional RC caller status source is `8da4da031fa9e0c4fa51ae1208a65be99386c1cd`; exact Process was repaired and passed at #43741972950. The older 28ccec XY-C1 #43741160797 completed full Build/TRX/artifact SUCCESS.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. No physical-router L4 result is claimed.
 ## Active task
 
+### P2 — MiniDLNA config publication failure handling
+
+- `update_minidlna_conf()` opened `/etc/minidlna.conf` with `"w"`, truncating the active config immediately; it ignored all `fprintf()` and `fclose()` results. `run_dms()` then launched minidlnad even when the config write had failed or left partial content.
+- This slice stages a complete generated config in a unique same-directory file and checks each write, flush, `fsync`, close and final rename. Failure removes the stage and leaves the previous file intact; `run_dms()` logs and refuses daemon launch if publication fails.
+- The host regression checks all config branches, media-source omission, root-container/sort settings, replacement of old content, restrictive 0600 mode and cleanup after a failed rename. Process runs it under ASan/UBSan, and the XY-C1 path filter tracks the helper header.
+- The guarantee is atomic config publication only, not DLNA socket/discovery readiness.
 ### P2 — Firefly configuration publication failure handling
 
 - `update_firefly_conf()` was `void` and ignored source-open, temporary-file open, write, close and rename errors. `run_itunes()` launched mt-daapd regardless, so a failed update could leave stale or partial configuration.
@@ -23,28 +29,20 @@ For each logical task, publish source, regression tests/contracts and necessary 
 - This guarantees config publication only, not daemon runtime readiness.
 ### P2 — Optional RC boot service status visibility
 
-- `start_services_once()` discarded the return values of `doSystem("/usr/sbin/skipd -d /etc/storage/db")`, `start_scutclient()`, `start_dnsforwarder()`, `start_vlmcsd()`, `start_iperf3()` and `start_mentohust()`. Their helpers already return command/start status and have their own feature/enable guards; the boot caller hid failures.
-- This slice captures each result and logs nonzero status while preserving the existing compile-time `APP_*` guards, order and best-effort boot semantics. It deliberately does not turn optional-service failure into a boot abort.
-- The process-lifecycle integration checker asserts assignment, feature-guard containment, nonzero branch, diagnostic and original order; it also rejects standalone fire-and-forget calls. `services.c` is already included in Process and XY-C1 path filters.
+- `start_services_once()` discarded the return values of `doSystem("/usr/sbin/skipd -d /etc/storage/db")`, `start_scutclient()`, `start_dnsforwarder()`, `start_vlmcsd()`, `start_iperf3()` and `start_mentohust()`. Their helpers already return command/start status and have ## Verification boundary
 
-### Previously completed source slices
-
-- NFS `pidof` fail-closed gates on start/reload/stop: `c736d4a8eccfe58f3106cdb63acc8b47963e6b98`; fixture newline correction: `479c05be3bef946f892f81a296d0ca3e709a698f`; exact NFS start/reload and stop fixture runs #43737106642 / #43738132578 PASS.
-- Ralink IAPPD self-fork wrapper, tri-state process inventory, bounded start/stop postconditions and RC `test`: `37204498a3ce81d6dd077fd551a66e15a## Verification boundary
-
-- Exact parent before Firefly atomic config publication: `2bd4868069048e5470fcfd024678b0891575b12a`. The new helper/source contract and host regression require fresh exact-head Process PASS; XY-C1 must complete Build, TRX verification and artifact upload.
-- Exact 2bd Process #43742092499 and AI handoff docs #43742092447 PASS; exact 1c9f Process #43741972950 PASS.
-- Exact 8da XY-C1 #43741567717 remained IN_PROGRESS at Build XY-C1 at last poll; TRX and artifact upload were pending. Exact 28ccec XY-C1 #43741160797 completed SUCCESS through Build, TRX verification and artifact upload; that result does not validate 8da or later changes.
-- No physical-router L4 evidence is claimed. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact parent before MiniDLNA atomic config publication: `d3531270e9d3cf9523f2c0b8f0dc577b687acafb`. Require fresh exact-head Process regression and static contracts, plus XY-C1 Build, TRX verification and artifact upload.
+- Firefly atomic config publication at exact SHA `d3531270e9d3cf9523f2c0b8f0dc577b687acafb`: Process #43742499910 PASS; all 20 job steps completed SUCCESS, including `Compile and run Firefly atomic configuration publication regression`. Process inventory artifact #43742499867 and AI docs #43742501048 PASS.
+- Exact d353 XY-C1 #43742499742 remained IN_PROGRESS at dependency installation at last poll; no build/TRX/artifact result yet. Do not infer current firmware L3 from the historical 28ccec pass.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; no physical-router L4 evidence is claimed.
 
 ## Exact first action for the next GPT
 
-1. Check the exact-head Process workflow for the Firefly publisher regression under ASan/UBSan and source-contract checks; diagnose the first failure if any.
-2. Check exact-head XY-C1 Build, TRX output verification and artifact upload. Do not infer current-source firmware validation from the older 28ccec pass.
-3. Continue independent reliability/security work while CI is pending; after Firefly, review other storage-backed config publishers for concrete ignored write/close/rename failures. Do not repeat completed launcher-status checks.
-4. Keep backup/archive shards read-only and use a complete tree/commit with non-forced expected-SHA main update.
-n required.
-- Exact 8da XY-C1 #43741567717 was still building at last poll. Its predecessor 28ccec XY-C1 #43741160797 completed SUCCESS, including Build XY-C1, Verify TRX output and artifact upload. This does not establish L3 for 8da or later source SHA.
+1. Check the exact-head Process workflow for the MiniDLNA atomic publisher ASan/UBSan regression and checker; fix the first actual test or source failure.
+2. Check exact-head XY-C1 through Build, TRX verification and artifact upload; keep it distinct from the older passing 28ccec build.
+3. Continue independent user-space stability/security work while XY-C1 is pending. Do not repeat Firefly source/test contracts without new evidence.
+4. Keep the frozen backup and archive shards read-only; use one complete tree/commit and non-forced expected-SHA update.
+ predecessor 28ccec XY-C1 #43741160797 completed SUCCESS, including Build XY-C1, Verify TRX output and artifact upload. This does not establish L3 for 8da or later source SHA.
 - Exact 1c9f Process #43741972950 PASS; AI docs #43741972993 is the only known failure on that SHA. Backup remains `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Exact first action for the next GPT
