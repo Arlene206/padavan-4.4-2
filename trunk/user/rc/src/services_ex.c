@@ -94,28 +94,53 @@ chk_valid_subnet_pool(const char *ip, char *dip1, char *dip2, const char *mask)
 	return simple_dhcp_range(ip, dip1, dip2, mask) ? 1 : -1;
 }
 
-static void
+static int
 arpbind_clear(void)
 {
 	FILE *fp;
 	char buffer[256], arp_ip[16], arp_if[32];
 	unsigned int arp_flags;
+	int result = 0;
 
 	fp = fopen("/proc/net/arp", "r");
-	if (fp) {
-		// skip first line
-		fgets(buffer, sizeof(buffer), fp);
-		
-		while (fgets(buffer, sizeof(buffer), fp)) {
-			arp_flags = 0;
-			if (sscanf(buffer, "%15s %*s 0x%x %*s %*s %31s", arp_ip, &arp_flags, arp_if) == 3) {
-				if ((arp_flags & 0x04) && strcmp(arp_if, IFNAME_BR) == 0)
-					doSystem("arp -i %s -d %s", IFNAME_BR, arp_ip);
-			}
-		}
-		
-		fclose(fp);
+	if (!fp)
+		return errno ? errno : EIO;
+
+	/* A missing header is not a complete view of the ARP table. */
+	if (!fgets(buffer, sizeof(buffer), fp)) {
+		result = ferror(fp) ? (errno ? errno : EIO) : EIO;
+		goto done;
 	}
+
+	while (fgets(buffer, sizeof(buffer), fp)) {
+		int command_status, command_errno, arp_errno;
+
+		arp_flags = 0;
+		if (sscanf(buffer, "%15s %*s 0x%x %*s %*s %31s",
+			   arp_ip, &arp_flags, arp_if) != 3 ||
+		    !(arp_flags & 0x04) || strcmp(arp_if, IFNAME_BR) != 0)
+			continue;
+
+		errno = 0;
+		command_status = doSystem("arp -i %s -d %s", IFNAME_BR, arp_ip);
+		command_errno = errno;
+		arp_errno = dnsmasq_static_arp_command_errno(command_status,
+							       command_errno);
+		if (arp_errno) {
+			if (!result)
+				result = arp_errno;
+			logmessage(LOGNAME,
+				   "cannot remove static ARP binding %s (status=%d errno=%d)",
+				   arp_ip, command_status, command_errno);
+		}
+	}
+	if (ferror(fp) && !result)
+		result = errno ? errno : EIO;
+
+done:
+	if (fclose(fp) != 0 && !result)
+		result = errno ? errno : EIO;
+	return result;
 }
 
 struct ip4_items_t {
@@ -944,12 +969,19 @@ int
 stop_dns_dhcpd_locked(void)
 {
 	char* svcs[] = { "dnsmasq", NULL };
-	int status;
+	int status, arp_status;
+
 	status = kill_services(svcs, 3, 1);
-	if (dnsmasq_stop_policy_should_clear_arp(status))
-		arpbind_clear();
-	else
+	if (dnsmasq_stop_policy_should_clear_arp(status)) {
+		arp_status = arpbind_clear();
+		if (arp_status != 0)
+			logmessage(LOGNAME,
+				   "DNSMasq stopped but static ARP cleanup was incomplete (errno=%d)",
+				   arp_status);
+		status = dnsmasq_stop_policy_cleanup_status(status, arp_status);
+	} else {
 		logmessage(LOGNAME, "DNSMasq did not stop cleanly; retaining static ARP bindings");
+	}
 	return status;
 }
 

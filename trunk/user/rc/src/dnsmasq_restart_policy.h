@@ -38,6 +38,14 @@ dnsmasq_stop_policy_should_clear_arp(int stop_status)
 	return stop_status == 0;
 }
 
+/* A successful daemon stop is not fully successful if required ARP cleanup
+ * failed. Preserve the original stop error when both operations fail. */
+static int
+dnsmasq_stop_policy_cleanup_status(int stop_status, int arp_cleanup_status)
+{
+	return stop_status != 0 ? stop_status : arp_cleanup_status;
+}
+
 enum dnsmasq_restart_action {
 	DNSMASQ_RESTART_ABORT = 0,
 	DNSMASQ_RESTART_KEEP_RUNNING,

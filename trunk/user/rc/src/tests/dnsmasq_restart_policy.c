@@ -32,6 +32,10 @@ main(void)
 	assert(dnsmasq_start_policy_status(EIO, PROCESS_PRESENCE_RUNNING) == EIO);
 	assert(dnsmasq_stop_policy_should_clear_arp(0));
 	assert(!dnsmasq_stop_policy_should_clear_arp(EBUSY));
+	assert(dnsmasq_stop_policy_cleanup_status(0, 0) == 0);
+	assert(dnsmasq_stop_policy_cleanup_status(0, EIO) == EIO);
+	assert(dnsmasq_stop_policy_cleanup_status(EBUSY, 0) == EBUSY);
+	assert(dnsmasq_stop_policy_cleanup_status(EBUSY, EIO) == EBUSY);
 
 	assert(dnsmasq_ddns_cache_purge_action_for_presence(PROCESS_PRESENCE_RUNNING) ==
 	       DNSMASQ_DDNS_CACHE_PURGE_RESTART);
