@@ -11,6 +11,7 @@ struct fake_daemon {
 	size_t state_count;
 	size_t next_state;
 	unsigned int slept_us;
+	int unknown_errno;
 };
 
 static int
@@ -19,10 +20,14 @@ fake_is_running(void *context, const char *daemon)
 	struct fake_daemon *fake = (struct fake_daemon *)context;
 
 	assert(strcmp(daemon, "vsftpd") == 0);
-	if (fake->next_state < fake->state_count)
-		return fake->states[fake->next_state++];
+	if (fake->next_state < fake->state_count) {
+		int state = fake->states[fake->next_state++];
+		if (state == PROCESS_PRESENCE_UNKNOWN)
+			errno = fake->unknown_errno ? fake->unknown_errno : EIO;
+		return state;
+	}
 	fake->next_state++;
-	return 0;
+	return PROCESS_PRESENCE_ABSENT;
 }
 
 static void
@@ -43,7 +48,7 @@ main(void)
 {
 	{
 		const int states[] = { 0, 1, 1 };
-		struct fake_daemon fake = { states, 3, 0, 0 };
+		struct fake_daemon fake = { states, 3, 0, 0, 0 };
 
 		assert(ftp_daemon_wait_for_stable_presence("vsftpd", 3,
 							    &fake_ops, &fake) == 0);
@@ -53,7 +58,7 @@ main(void)
 
 	{
 		const int states[] = { 1, 0, 0 };
-		struct fake_daemon fake = { states, 3, 0, 0 };
+		struct fake_daemon fake = { states, 3, 0, 0, 0 };
 
 		errno = 0;
 		assert(ftp_daemon_wait_for_stable_presence("vsftpd", 2,
@@ -64,7 +69,7 @@ main(void)
 	}
 
 	{
-		struct fake_daemon fake = { NULL, 0, 0, 0 };
+		struct fake_daemon fake = { NULL, 0, 0, 0, 0 };
 
 		errno = 0;
 		assert(ftp_daemon_wait_for_stable_presence("vsftpd", 0,
@@ -74,7 +79,7 @@ main(void)
 	}
 
 	{
-		struct fake_daemon fake = { NULL, 0, 0, 0 };
+		struct fake_daemon fake = { NULL, 0, 0, 0, 0 };
 
 		errno = 0;
 		assert(ftp_daemon_wait_for_stable_presence("vsftpd", 1,
@@ -82,6 +87,27 @@ main(void)
 		assert(errno == EINVAL);
 	}
 
-	puts("vsftpd bounded daemon-presence policy: PASS");
+	{
+		const int states[] = { PROCESS_PRESENCE_UNKNOWN };
+		struct fake_daemon fake = { states, 1, 0, 0, EACCES };
+		errno = 0;
+		assert(ftp_daemon_wait_for_stable_presence("vsftpd", 3, &fake_ops, &fake) == -1);
+		assert(errno == EACCES && fake.next_state == 1 && fake.slept_us == 0);
+	}
+	{
+		const int states[] = { PROCESS_PRESENCE_RUNNING, PROCESS_PRESENCE_UNKNOWN };
+		struct fake_daemon fake = { states, 2, 0, 0, EACCES };
+		errno = 0;
+		assert(ftp_daemon_wait_for_stable_presence("vsftpd", 3, &fake_ops, &fake) == -1);
+		assert(errno == EACCES && fake.next_state == 2 && fake.slept_us == 500000U);
+	}
+	{
+		const int states[] = { (int)9 };
+		struct fake_daemon fake = { states, 1, 0, 0, 0 };
+		errno = 0;
+		assert(ftp_daemon_wait_for_stable_presence("vsftpd", 1, &fake_ops, &fake) == -1);
+		assert(errno == EIO);
+	}
+	puts("vsftpd tri-state daemon-presence policy: PASS");
 	return 0;
 }

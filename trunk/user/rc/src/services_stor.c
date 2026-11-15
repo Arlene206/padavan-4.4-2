@@ -38,10 +38,10 @@
 #include <disk_share.h>
 
 #include "rc.h"
+#include "process_inventory.h"
 #include "storage_operation_lock.h"
 #include "samba_share_policy.h"
 #if defined (APP_SMBD)
-#include "process_inventory.h"
 #include "samba_config_file.h"
 #include "samba_daemon_policy.h"
 #include "samba_process_policy.h"
@@ -109,11 +109,45 @@ storage_has_mounted_devices(const char *operation)
 	return storage_mount_inventory_has_mounts(mount_count) ? 1 : 0;
 }
 
+/*
+ * A failed /proc scan is UNKNOWN, not proof that a storage-backed daemon
+ * disappeared. Preserve this distinction across eject and restart decisions.
+ */
+static enum process_presence
+storage_daemon_presence(const char *daemon, int *scan_error)
+{
+	struct process_snapshot snapshot;
+	enum process_presence presence;
+	int saved_error;
+
+	if (!daemon || !*daemon) {
+		errno = EINVAL;
+		if (scan_error)
+			*scan_error = EINVAL;
+		return PROCESS_PRESENCE_UNKNOWN;
+	}
+	presence = process_inventory_scan(daemon, &snapshot);
+	saved_error = snapshot.error > 0 ? snapshot.error : EIO;
+	if (scan_error)
+		*scan_error = snapshot.error;
+	process_snapshot_release(&snapshot);
+	if (presence == PROCESS_PRESENCE_UNKNOWN)
+		errno = saved_error;
+	return presence;
+}
+
+static int
+storage_daemon_presence_changed(int before, int after)
+{
+	return before < PROCESS_PRESENCE_ABSENT ||
+	       after < PROCESS_PRESENCE_ABSENT || before != after;
+}
+
 #if defined (APP_FTPD)
 int
 is_ftp_run(void)
 {
-	return (pids("vsftpd")) ? 1 : 0;
+	return storage_daemon_presence("vsftpd", NULL);
 }
 
 static int
@@ -123,9 +157,11 @@ stop_ftp_locked(void)
 	int status;
 
 	status = kill_services(svcs, 3, 1);
-	if (status != 0)
-		logmessage("FTP server", "vsftpd did not stop cleanly");
-	return status;
+	if (storage_service_stop_complete(status, is_ftp_run()) != 0) {
+		logmessage("FTP server", "vsftpd did not stop cleanly or process state is unknown");
+		return -1;
+	}
+	return 0;
 }
 
 int
@@ -229,7 +265,7 @@ static int
 ftp_daemon_is_running(void *context, const char *daemon)
 {
 	(void)context;
-	return pids((char *)daemon) > 0;
+	return storage_daemon_presence(daemon, NULL);
 }
 
 static void
@@ -254,12 +290,20 @@ int
 run_ftp(void)
 {
 	int saved_errno, command_status;
+	int process_state;
 
 	if (nvram_match("enable_ftp", "0"))
 		return 0;
 
-	if (is_ftp_run())
+	process_state = is_ftp_run();
+	if (process_state == PROCESS_PRESENCE_RUNNING)
 		return 0;
+	if (process_state != PROCESS_PRESENCE_ABSENT) {
+		saved_errno = errno ? errno : EIO;
+		logmessage("FTP server", "startup skipped because daemon presence is unknown (errno %d)", saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
 
 	if (write_vsftpd_conf() != 0) {
 		saved_errno = errno ? errno : EIO;
@@ -287,7 +331,14 @@ run_ftp(void)
 void
 control_ftp_fw(int is_run_before)
 {
-	if (!is_run_before && is_ftp_run() && nvram_match("ftpd_wopen", "1") && nvram_match("fw_enable_x", "1"))
+	int is_run_after = is_ftp_run();
+
+	if (storage_daemon_presence_changed(is_run_before, is_run_after) &&
+	    (is_run_before == PROCESS_PRESENCE_UNKNOWN ||
+	     is_run_after == PROCESS_PRESENCE_UNKNOWN ||
+	     (is_run_before == PROCESS_PRESENCE_ABSENT &&
+	      is_run_after == PROCESS_PRESENCE_RUNNING)) &&
+	    nvram_match("ftpd_wopen", "1") && nvram_match("fw_enable_x", "1"))
 		restart_firewall();
 }
 
@@ -1824,7 +1875,7 @@ int is_dms_run(void)
 	if (!is_dms_support())
 		return 0;
 
-	return (pids("minidlnad")) ? 1 : 0;
+	return storage_daemon_presence("minidlna", NULL);
 }
 
 static int
@@ -1924,6 +1975,7 @@ void update_minidlna_conf(const char *link_path, const char *conf_path)
 void run_dms(int force_rescan)
 {
 	int db_rescan_mode;
+	int process_state;
 	unsigned char mac_bin[ETHER_ADDR_LEN] = {0};
 	char mac_str[16];
 	char *apps_name = "Media Server";
@@ -1944,8 +1996,13 @@ void run_dms(int force_rescan)
 	if (!is_dms_support())
 		return;
 
-	if (is_dms_run())
+	process_state = is_dms_run();
+	if (process_state == PROCESS_PRESENCE_RUNNING)
 		return;
+	if (process_state != PROCESS_PRESENCE_ABSENT) {
+		logmessage("minidlna", "startup skipped because process inventory is unknown");
+		return;
+	}
 
 	unlink(link_path);
 	if (!create_mp_link(dest_dir, link_path, 0))
@@ -1970,7 +2027,7 @@ void run_dms(int force_rescan)
 
 	_eval(minidlna_argv, NULL, 0, NULL);
 
-	if (is_dms_run())
+	if (is_dms_run() == PROCESS_PRESENCE_RUNNING)
 		logmessage(apps_name, "daemon is started");
 }
 
@@ -2015,7 +2072,7 @@ int is_itunes_run(void)
 	if (!is_itunes_support())
 		return 0;
 
-	return (pids("mt-daapd")) ? 1 : 0;
+	return storage_daemon_presence("mt-daapd", NULL);
 }
 
 static int
@@ -2128,6 +2185,7 @@ void run_itunes(void)
 	char *conf_file = "mt-daapd.conf";
 	char *dest_dir = ".itunes";
 	char conf_new[64], conf_old[64];
+	int process_state;
 
 	if (!nvram_match("apps_itunes", "1"))
 		return;
@@ -2135,8 +2193,13 @@ void run_itunes(void)
 	if (!is_itunes_support())
 		return;
 
-	if (is_itunes_run())
+	process_state = is_itunes_run();
+	if (process_state == PROCESS_PRESENCE_RUNNING)
 		return;
+	if (process_state != PROCESS_PRESENCE_ABSENT) {
+		logmessage("mt-daapd", "startup skipped because process inventory is unknown");
+		return;
+	}
 
 	unlink(link_path);
 	if (!create_mp_link(dest_dir, link_path, 0)) {
@@ -2157,7 +2220,7 @@ void run_itunes(void)
 
 	eval("/usr/bin/mt-daapd", "-c", conf_new);
 
-	if (is_itunes_run())
+	if (is_itunes_run() == PROCESS_PRESENCE_RUNNING)
 		logmessage(apps_name, "daemon is started");
 }
 
@@ -2202,7 +2265,7 @@ int is_torrent_run(void)
 	if (!is_torrent_support())
 		return 0;
 
-	return (pids("transmission-daemon")) ? 1 : 0;
+	return storage_daemon_presence("transmission-daemon", NULL);
 }
 
 static int stop_torrent_locked(void)
@@ -2242,6 +2305,7 @@ void run_torrent(void)
 	char *apps_name = "Transmission";
 	char *link_path = "/mnt/transmission";
 	char *dest_dir = "transmission";
+	int process_state;
 
 	if (!nvram_match("trmd_enable", "1"))
 		return;
@@ -2249,8 +2313,13 @@ void run_torrent(void)
 	if (!is_torrent_support())
 		return;
 
-	if (is_torrent_run())
+	process_state = is_torrent_run();
+	if (process_state == PROCESS_PRESENCE_RUNNING)
 		return;
+	if (process_state != PROCESS_PRESENCE_ABSENT) {
+		logmessage("transmission-daemon", "startup skipped because process inventory is unknown");
+		return;
+	}
 
 	unlink(link_path);
 	if (!create_mp_link(dest_dir, link_path, 0)) {
@@ -2287,7 +2356,8 @@ void restart_torrent(void)
 		logmessage("Transmission", "restart aborted because mounted storage state is unknown");
 
 	is_run_after = is_torrent_run();
-	if ((is_run_after != is_run_before) && nvram_match("fw_enable_x", "1"))
+	if (storage_daemon_presence_changed(is_run_before, is_run_after) &&
+	    nvram_match("fw_enable_x", "1"))
 		restart_firewall();
 
 out:
@@ -2306,7 +2376,7 @@ int is_aria_run(void)
 	if (!is_aria_support())
 		return 0;
 
-	return (pids("aria2c")) ? 1 : 0;
+	return storage_daemon_presence("aria2c", NULL);
 }
 
 static int stop_aria_locked(void)
@@ -2346,6 +2416,7 @@ void run_aria(void)
 	char *apps_name = "Aria";
 	char *link_path = "/mnt/aria";
 	char *dest_dir = "aria";
+	int process_state;
 
 	if (!nvram_match("aria_enable", "1"))
 		return;
@@ -2353,8 +2424,13 @@ void run_aria(void)
 	if (!is_aria_support())
 		return;
 
-	if (is_aria_run())
+	process_state = is_aria_run();
+	if (process_state == PROCESS_PRESENCE_RUNNING)
 		return;
+	if (process_state != PROCESS_PRESENCE_ABSENT) {
+		logmessage("aria2c", "startup skipped because process inventory is unknown");
+		return;
+	}
 
 	unlink(link_path);
 	if (!create_mp_link(dest_dir, link_path, 0)) {
@@ -2391,7 +2467,8 @@ void restart_aria(void)
 		logmessage("Aria", "restart aborted because mounted storage state is unknown");
 
 	is_run_after = is_aria_run();
-	if ((is_run_after != is_run_before) && nvram_match("fw_enable_x", "1"))
+	if (storage_daemon_presence_changed(is_run_before, is_run_after) &&
+	    nvram_match("fw_enable_x", "1"))
 		restart_firewall();
 
 out:

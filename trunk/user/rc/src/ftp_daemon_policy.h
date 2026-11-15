@@ -2,6 +2,7 @@
 #define PADAVAN_FTP_DAEMON_POLICY_H
 
 #include <errno.h>
+#include "process_inventory.h"
 
 /* Testable bounded wait for an FTP daemon to remain present after start. */
 struct ftp_daemon_wait_ops {
@@ -23,10 +24,32 @@ ftp_daemon_wait_for_stable_presence(const char *daemon, unsigned int attempts,
 	}
 
 	for (attempt = 0; attempt < attempts; ++attempt) {
-		if (ops->is_running(context, daemon) > 0) {
+		int presence = ops->is_running(context, daemon);
+
+		if (presence == PROCESS_PRESENCE_UNKNOWN) {
+			if (!errno)
+				errno = EIO;
+			return -1;
+		}
+		if (presence != PROCESS_PRESENCE_ABSENT &&
+		    presence != PROCESS_PRESENCE_RUNNING) {
+			errno = EIO;
+			return -1;
+		}
+		if (presence == PROCESS_PRESENCE_RUNNING) {
 			ops->sleep_us(context, 500000U);
-			if (ops->is_running(context, daemon) > 0)
+			presence = ops->is_running(context, daemon);
+			if (presence == PROCESS_PRESENCE_UNKNOWN) {
+				if (!errno)
+					errno = EIO;
+				return -1;
+			}
+			if (presence == PROCESS_PRESENCE_RUNNING)
 				return 0;
+			if (presence != PROCESS_PRESENCE_ABSENT) {
+				errno = EIO;
+				return -1;
+			}
 		}
 		ops->sleep_us(context, 100000U);
 	}

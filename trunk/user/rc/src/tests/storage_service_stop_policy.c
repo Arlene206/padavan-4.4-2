@@ -36,7 +36,13 @@ main(void)
 	    check_case("negative process query", 0, -1, -1) ||
 	    check_merged_status("group stop success", 0, 0, 0) ||
 	    check_merged_status("second daemon failure", 0, -1, -1) ||
-	    check_merged_status("preserve first daemon failure", -2, -1, -2))
+	    check_merged_status("preserve first daemon failure", -2, -1, -2) ||
+	    storage_service_process_presence_changed(0, 0) ||
+	    storage_service_process_presence_changed(1, 1) ||
+	    !storage_service_process_presence_changed(0, 1) ||
+	    !storage_service_process_presence_changed(1, 0) ||
+	    !storage_service_process_presence_changed(-1, 0) ||
+	    !storage_service_process_presence_changed(1, -1))
 		return 1;
 
 	if (storage_safe_remove_complete(0, 0, 0) != 0 ||
@@ -45,6 +51,6 @@ main(void)
 	    storage_safe_remove_complete(0, 0, 1) == 0 ||
 	    storage_safe_remove_complete(0, 0, -1) == 0)
 		return 1;
-	puts("storage daemon stop and safe-eject completion policies: PASS");
+	puts("storage daemon stop and tri-state presence policies: PASS");
 	return 0;
 }

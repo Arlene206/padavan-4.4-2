@@ -13,6 +13,13 @@ storage_service_stop_complete(int command_status, int daemon_running)
 }
 
 
+/* UNKNOWN before/after requires conservative firewall reconciliation. */
+static inline int
+storage_service_process_presence_changed(int before, int after)
+{
+	return before < 0 || after < 0 || before != after;
+}
+
 /* Preserve the first failure while still attempting every daemon in a group. */
 static inline int
 storage_service_stop_status_merge(int current_status, int next_status)
