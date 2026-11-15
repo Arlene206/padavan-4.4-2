@@ -1,3 +1,12 @@
+## 2026-11-15 — Remove watchdog's global HTTPD kill fallback and honor stop result
+
+- `httpd_process_check()` already used the process inventory to distinguish RUNNING/ABSENT/UNKNOWN, but after an HTTPD health-check failure it ignored `stop_httpd()`'s result and ran `killall -9 httpd` unconditionally. This could kill a replacement/parallel HTTPD and then launch another even when the identity-bound stop transaction had failed.
+- Removed the name-wide SIGKILL. Watchdog now requires `stop_httpd()` to complete successfully before deleting the probe marker or starting a replacement; stop failure leaves the daemon state intact and aborts recovery. The restart result is now logged instead of discarded. `stop_httpd()` already performs the shared identity-bound TERM/KILL transaction and verifies absence.
+- Extended the process-lifecycle source contract to enforce stop-result ordering and ban the old global kill path.
+- Changed paths: `watchdog.c`, `check_process_lifecycle_integration.py`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Use local bounded extraction for HTTPD probe contract
 
 - Exact process lifecycle run `43674095479` on `624e8fa2c4a471ee90127e42bc972a8a1c005ddc` revealed the next checker-only issue: `check_process_lifecycle_integration.py` has no shared `body()` helper (that helper exists in a different workflow's checker), so the nested-preprocessor fix raised `TypeError: 'str' object is not callable`.
