@@ -1,3 +1,13 @@
+## 2026-11-16 — Repair Transmission stop PID validation and regression harness
+
+- Exact parent 814d storage #43768621241 failed before executing tests: POSIX `sh -n` rejected the unquoted-space glob `*[!0-9 ]*` in the new Transmission stop PID validation.
+- Replaced the malformed class with per-token numeric validation (`''|*[!0-9]*`) before sending any signals. Also corrected the test harness's AWK extraction (now uses a sed function range), changed double-escaped newline format strings into real line delimiters, and added an assertion that restart is gated by `func_stop || exit 1`.
+- Parent exact AI docs #43768621220 PASS; NVRAM #43768621188, Process inventory #43768621322, Process lifecycle #43768621183, infosvr #43768621156, AliDDNS #43768621223, AdGuardHome #43768621236 and AliyunDrive #43768621152 PASS. Parent XY-C1 #43768621137 was in progress at last inspection.
+- No local repository checkout was available; no local shell test is claimed. Exact-head storage host + BusyBox ash and XY-C1 Build/TRX/artifact Actions are required for this repair.
+- Parent main: `814d4639643675ed9da0b315e7bbdcabaaa89061`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. No L3/L4 claim.
+
+---
+
 ## 2026-11-16 — Make Transmission stop reporting depend on process exit
 
 - The existing Transmission script's timeout path passed the whitespace-separated result of `pidof transmission-daemon` as one quoted argument to `kill -9`, so multiple PIDs were not signaled individually. It printed `[KILLED]` without checking whether any daemon remained; signal and killall statuses were ignored.

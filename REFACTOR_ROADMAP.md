@@ -1,16 +1,18 @@
 ## Current source / CI checkpoint
 
-- Parent main for Transmission stop hardening: ba51619ceea8efc084d28f6f38bb5a8bc084e8d7; frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- Exact parent b516 storage #43768122780 passed host shell syntax and Transmission/Aria startup regression, including the collision case; BusyBox 1.24.2 ash lifecycle regressions were still running at last poll. Exact parent AI docs #43768122829 PASS; Process lifecycle #43768122785, inventory #43768122777, infosvr #43768122801, AdGuardHome #43768122808, AliDDNS #43768122886 and AliyunDrive #43768122908 PASS. Parent XY-C1 #43768122787 and NVRAM #43768122782 were pending.
-- Transmission `func_stop()` previously passed a multi-PID pidof string as one quoted kill argument and did not check post-SIGKILL absence. THIS COMMIT changes it to validate PID tokens, signal each PID separately and require the final PID snapshot to be empty. Tests inject graceful stop, two-PID forced stop, failed signal and malformed output.
-- Exact-head storage/BusyBox and XY-C1 validation for this stop change remain pending.
+- Parent main for Transmission stop-test repair: 814d4639643675ed9da0b315e7bbdcabaaa89061; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact parent USB storage #43768621241 FAILED at the first POSIX shell syntax step: `trunk/user/transmission/transmission.sh: 195: Syntax error: word unexpected`. Root cause was the invalid space-containing case glob `*[!0-9 ]*`. THIS COMMIT validates each PID token independently, fixes the extracted function harness and printf newline escapes, and gates restart on successful stop.
+- Exact parent AI docs #43768621220 PASS; NVRAM #43768621188, Process inventory #43768621322, Process lifecycle #43768621183, infosvr #43768621156, AliDDNS #43768621223, AdGuardHome #43768621236 and AliyunDrive #43768621152 PASS. Parent XY-C1 #43768621137 was still in progress at last inspection.
+- Prior XY-C1 #43768122787 passed Build/TRX/artifact on ba516 SHA only. No L3/L4 for current source.
+- Transmission's PID-qualified config stage and owned-cleanup contract remain in place. Stop now prevalidates each PID, sends SIGKILL per process, verifies final absence and prevents restart after failed stop. Exact-head shell and BusyBox tests pending.
 
 ### P1 — Storage daemon startup and config publication
 
-- Transmission config setup fails closed on directory/permission/ownership errors and validates default settings generation, expected umask 18, transformed umask 0 and atomic publication.
-- Default settings staging is PID-qualified as `settings.json.tmp.$$`; ownership-aware cleanup never removes a pre-existing collision. Parent b516 host test passed the collision regression before entering firmware BusyBox ash.
-- Aria uses PID-qualified `aria2.conf.tmp.$$` and process-unique two-phase concurrency markers. Preserve its generator failure and parallel-start tests.
-- New stop postcondition coverage adds graceful shutdown, multi-PID SIGKILL, signal failure and invalid PID-list injection; it must pass both host and BusyBox 1.24.2 ash before being considered verified.
+- Transmission config setup fails closed on directory/permission/ownership errors and validates generated umask 18, transformed umask 0 and atomic publication.
+- Default settings use process-unique `settings.json.tmp.$$`; cleanup only removes a stage owned by this invocation. The foreign-stage collision regression remains enabled.
+- Transmission stop validates all PID tokens before signaling, signals each PID individually, rechecks absence after forced termination and returns nonzero when pidof cannot prove absence. Restart is gated on successful stop.
+- Exact parent ba516 storage #43768122780 passed startup/config, stage collision and BusyBox 1.24.2 ash tests. Exact parent 814d storage #43768621241 failed syntax before tests; current exact-head validation is pending.
+- Aria continues to use process-unique staging and two-phase concurrent publication tests.
 
 ## Whole-repository module status
 

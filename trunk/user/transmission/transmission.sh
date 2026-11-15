@@ -191,13 +191,15 @@ func_stop()
 	if [ -n "$tr_pid" ]; then
 		# pidof returns a whitespace-separated PID list. Validate every token
 		# before signaling so malformed output cannot become a kill argument.
-		case "$tr_pid" in
-			*[!0-9 ]*)
-				echo "[FAILED]"
-				logger -t "$SVC_NAME" "Cannot stop: invalid daemon PID list" >/dev/null 2>&1 || true
-				return 1
-				;;
-		esac
+		for tr_pid_one in $tr_pid; do
+			case "$tr_pid_one" in
+				''|*[!0-9]*)
+					echo "[FAILED]"
+					logger -t "$SVC_NAME" "Cannot stop: invalid daemon PID list" >/dev/null 2>&1 || true
+					return 1
+					;;
+			esac
+		done
 		for tr_pid_one in $tr_pid; do
 			kill -9 "$tr_pid_one" >/dev/null 2>&1 || true
 		done
@@ -243,7 +245,7 @@ reload)
 	func_reload
 	;;
 restart)
-	func_stop
+	func_stop || exit 1
 	func_start
 	;;
 *)

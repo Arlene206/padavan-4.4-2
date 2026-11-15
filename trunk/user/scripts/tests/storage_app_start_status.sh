@@ -330,7 +330,7 @@ exec /bin/cat "$STORAGE_TEST_STOP_STATE"
 EOF
 cat > "$STOP_STUB_DIR/killall" <<'EOF'
 #!/bin/sh
-[ -z "${STORAGE_TEST_STOP_KILLALL_LOG:-}" ] || printf '%s\\n' "$*" >> "$STORAGE_TEST_STOP_KILLALL_LOG"
+[ -z "${STORAGE_TEST_STOP_KILLALL_LOG:-}" ] || printf '%s\n' "$*" >> "$STORAGE_TEST_STOP_KILLALL_LOG"
 if [ "${STORAGE_TEST_STOP_KILLALL_CLEAR:-0}" -eq 1 ]; then
 	: > "$STORAGE_TEST_STOP_STATE"
 fi
@@ -348,15 +348,15 @@ SVC_NAME=Transmission
 kill()
 {
 	[ "$#" -eq 2 ] && [ "$1" = "-9" ] || return 64
-	printf '%s\\n' "$2" >> "$STORAGE_TEST_SIGNAL_LOG"
+	printf '%s\n' "$2" >> "$STORAGE_TEST_SIGNAL_LOG"
 	[ "${STORAGE_TEST_KILL_STATUS:-0}" -eq 0 ] || return "$STORAGE_TEST_KILL_STATUS"
 	/bin/grep -vxF "$2" "$STORAGE_TEST_STOP_STATE" > "$STORAGE_TEST_STOP_STATE.tmp" || :
 	/bin/mv "$STORAGE_TEST_STOP_STATE.tmp" "$STORAGE_TEST_STOP_STATE"
 	return 0
 }
 EOF
-	awk '/^func_stop\\(\\)/ {copy=1} /^func_reload\\(\\)/ {copy=0} copy {print}' "$TRANSMISSION_SRC"
-	printf '%s\\n' 'func_stop'
+	sed -n '/^func_stop()/,/^func_reload()/p' "$TRANSMISSION_SRC" | sed '$d'
+	printf '%s\n' 'func_stop'
 } > "$TMP_DIR/transmission-stop-runner.sh"
 chmod 755 "$TMP_DIR/transmission-stop-runner.sh"
 
@@ -378,7 +378,7 @@ run_transmission_stop()
 stop_state="$TMP_DIR/stop-graceful-pids"
 stop_signals="$TMP_DIR/stop-graceful-signals"
 stop_killall="$TMP_DIR/stop-graceful-killall"
-printf '%s\\n' 101 202 > "$stop_state"
+printf '%s\n' 101 202 > "$stop_state"
 if ! STORAGE_TEST_STOP_STATE="$stop_state" STORAGE_TEST_STOP_KILLALL_LOG="$stop_killall" \
 	STORAGE_TEST_STOP_KILLALL_CLEAR=1 PATH="$STOP_STUB_DIR:$STUB_DIR:$PATH" \
 	"$TMP_DIR/transmission-stop-runner.sh" >/dev/null 2>&1; then
@@ -393,7 +393,7 @@ stop_state="$TMP_DIR/stop-forced-pids"
 stop_signals="$TMP_DIR/stop-forced-signals"
 : > "$stop_state"
 : > "$stop_signals"
-printf '%s\\n' 303 404 > "$stop_state"
+printf '%s\n' 303 404 > "$stop_state"
 if ! run_transmission_stop "$stop_state" "$stop_signals" 0 0; then
 	echo "Transmission forced stop failed after successful per-PID SIGKILL" >&2
 	exit 1
@@ -409,7 +409,7 @@ fi
 stop_state="$TMP_DIR/stop-failed-kill-pids"
 stop_signals="$TMP_DIR/stop-failed-kill-signals"
 : > "$stop_signals"
-printf '%s\\n' 505 606 > "$stop_state"
+printf '%s\n' 505 606 > "$stop_state"
 if run_transmission_stop "$stop_state" "$stop_signals" 9 0; then
 	echo "Transmission reported success while daemon PIDs survived SIGKILL failure" >&2
 	exit 1
@@ -421,12 +421,19 @@ fi
 stop_state="$TMP_DIR/stop-invalid-pids"
 stop_signals="$TMP_DIR/stop-invalid-signals"
 : > "$stop_signals"
-printf '%s\\n' '505 invalid' > "$stop_state"
+printf '%s\n' '505 invalid' > "$stop_state"
 if run_transmission_stop "$stop_state" "$stop_signals" 0 0; then
 	echo "Transmission accepted malformed pidof output" >&2
 	exit 1
 fi
 [ ! -s "$stop_signals" ] || { echo "Transmission signaled an invalid PID list" >&2; exit 1; }
+
+# Restart must not proceed to the start action when stop fails.
+restart_block=$(sed -n '/^restart)/,/^;;/p' "$TRANSMISSION_SRC")
+case "$restart_block" in
+	*"func_stop || exit 1"*) ;;
+	*) echo "Transmission restart is not gated on successful stop" >&2; exit 1 ;;
+esac
 
 run_aria_config_failure()
 {
