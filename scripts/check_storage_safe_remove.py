@@ -351,9 +351,9 @@ zerotier_restart = " ".join(body(services, "int restart_zerotier(void)").split()
 require("int stop_status = stop_zerotier();" in zerotier_restart and
         "if (stop_status != 0)" in zerotier_restart and
         "return stop_status;" in zerotier_restart and
-        "start_zerotier();" in zerotier_restart and
-        zerotier_restart.index("return stop_status;") < zerotier_restart.index("start_zerotier();") < zerotier_restart.index("return 0;"),
-        "ZeroTier restart must propagate stop failure and gate the replacement start")
+        zerotier_restart.count("return start_zerotier();") == 1 and
+        zerotier_restart.index("return stop_status;") < zerotier_restart.index("return start_zerotier();"),
+        "ZeroTier restart must gate replacement start and propagate both stop and start statuses")
 require('record_service_stop_status(&stop_status, "ZeroTier", stop_zerotier())' in stop_all,
         "stop_services must aggregate ZeroTier stop status")
 

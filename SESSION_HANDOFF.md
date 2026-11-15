@@ -8,7 +8,7 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; source parent for VPN/DNSMasq cross-lifecycle lock-order repair: `0b9253aec5367c3c833ed54638b662f0784a1472`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only); PR #1 is CLOSED / UNMERGED.
+- Repository: `Arlene206/padavan-4.4-2`; live main at takeover: `30c5b48ba8a8e996d13548280a54a9b7f5dbda7a`. The active source baseline now includes DNSMasq/VPN lock-order fixes, IPv6 DNSMasq lifecycle serialization (`8a909474`), optional daemon start-status propagation (`55947ba`), and TTYD boot failure logging (`30c5b48`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only). PR #1 is CLOSED / UNMERGED; comparison shows no PR-only commits ahead of main.
 - DNSMasq static-ARP rollback transaction source landed in `d5660e3cdfa9804a23335656676c5f598c19a37e`. Its initial exact-head #43718997744 exposed a test-only multi-character NUL literal; `23cc4e9e509f13a4ea7636c067d6cfd869fde81b` corrected the literal. Exact-head DNSMasq #43719124911 now PASS; AI docs #43719124917 and process inventory #43719124976 PASS.
 - XY-C1 run #43718997699 for product source `d5660e3` was still IN_PROGRESS at checkpoint; the source code is unchanged by `23cc4e9e`, but L3 must not be claimed until Build XY-C1, TRX verification and artifact upload all pass.
 - BusyBox udhcpc ARP-conflict deconfig retry is on main; exact checker #43718099815 PASS on `fef0bc61085a5e9364e972c00c97b5b0e3a8c59d`.
@@ -29,13 +29,13 @@ For every multi-file slice, publish source + regression tests + required workflo
 ## Explicitly uncompleted P1 work
 
 - No outstanding P1 source change identified. HTTPD retained restore-upload protection has prior L2/L3 evidence on `ee18adc7fe9062d2fe5284a3e64802242b89fad0`; physical restore/retry/reboot L4 remains NOT VERIFIED.
-- P2 DNSMasq: static-ARP transaction L2 is verified. This slice adds unsafe-upstream refresh error propagation; exact-head regression and XY-C1 product build/TRX/artifact are required. Resolver concurrency, temp-file/FD cleanup and remaining caller-graph review remain open.
+- P2 DNSMasq: static-ARP transaction, unsafe-upstream refresh error propagation, retryable stage/backup cleanup, manual LAN resolver atomic publication, VPN/DNS lock-order repair and IPv6 restart serialization are implemented. DNSMasq regression #43726863022 passed on `55947ba869421a8108d24898abb761ba58bb81a7`; the later RC start-status source changes do not modify DNSMasq code. Resolver/config concurrency and the remaining complete caller graph remain open.
 - Linux 4.4 PID/start-time revalidate-to-signal TOCTOU remains; continue direct `pids()`, `kill_pidfile_s()` and name-wide signal audit without changing legacy semantics globally.
 - FTP failed-upload unlink TOCTOU remains blocked by lack of inode-conditional unlink-by-fd; preserve STOR/APPE/REST/STOU semantics. NFS durability, AUTH_SYS/root-squash and external-mount compatibility require real client/storage evidence.
 
 ## Verification boundary
 
-- Exact source `18c5f948efe89d9c8bcbff9caa14708686b2340d`: DNSMasq #43724605898 PASS; WAN route #43724605834 PASS; AI handoff #43724605883 PASS; OpenVPN client secret #43724605815 PASS; WAN interface teardown #43724605876 PASS. VPN server lifecycle #43724605659 FAILED solely at its stale Python source assertion requiring `stop_vpn_client()` in locked WAN callbacks; all three C regression compile/run steps passed. XY-C1 #43724605847 was IN_PROGRESS (Build XY-C1 still running); no L3 claim.
+- Exact current main source SHA `30c5b48ba8a8e996d13548280a54a9b7f5dbda7a`: AI handoff #43727223494 PASS; VPN server lifecycle #43727223521 PASS; RC notification queue #43727223568 PASS; ZeroTier #43727223519 PASS. USB storage #43727223550 FAILED only at the final `check_storage_safe_remove.py` contract because it expected the old discarded-start ZeroTier restart pattern; all preceding MTD/Optware/storage tests and the full storage caller graph passed. This exact contract has been corrected in the following atomic commit; fresh storage exact-head run required. XY-C1 #43727223434 was IN_PROGRESS; no L3 claim until its Build XY-C1, TRX verification and artifact upload steps finish.
 - The checker repair changes only the source contract and handoff records. Fresh VPN server lifecycle and AI handoff Actions are required; the already running XY-C1 run still covers the production-source SHA `18c5f948efe89d9c8bcbff9caa14708686b2340d`.
 - No current-source MIPS/TRX completion or physical-router result is claimed; L4 remains NOT VERIFIED.
 
@@ -56,10 +56,10 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Exact first action for the next GPT
 
-1. Check exact-head VPN server lifecycle and AI handoff after the source-checker update; verify that the WAN under-lock helper assertions pass.
-2. Check completion of XY-C1 #43724605847 for production source `18c5f948efe89d9c8bcbff9caa14708686b2340d`; require Build XY-C1, TRX verification and artifact upload before L3.
-3. Continue the complete public/locked DNSMasq and VPN start/stop/restart/reload caller graph, searching for cross-process lock-order cycles and same-process nested F_SETLK releases. Add targeted contracts for any new defect.
-4. After lock/lifecycle audit, rotate to another unblocked high-impact user-space reliability/security area. Keep frozen backup unchanged and physical-router L4 NOT VERIFIED.
+1. Check the fresh exact-head USB storage run triggered by the ZeroTier source-contract repair; verify `check_storage_safe_remove.py` now accepts the returned `start_zerotier()` status while preserving the stop-failure gate.
+2. Check completion of XY-C1 run #43727223434 for product source `30c5b48ba8a8e996d13548280a54a9b7f5dbda7a`; require Build XY-C1, TRX verification and artifact upload before claiming L3. The subsequent storage/checker + documentation commit does not alter product source.
+3. Continue the remaining DNSMasq/VPN start/stop/restart/reload and resolver writer/caller graph from the active P2 task. The IPv6 path in `net6.c` already releases DNSMasq lock before `full_restart_wan()` and reacquires afterward; do not re-audit that completed ordering. Search for further DNSMasq→VPN / VPN→DNS cycles, same-process nested `F_SETLK` releases, resolver/config races and missed cleanup status propagation.
+4. Once the remaining DNSMasq slice is closed, rotate to another high-impact user-space reliability/security area. Keep the archival backup unchanged and physical-router L4 NOT VERIFIED.
 
 
 Source/validation notes:

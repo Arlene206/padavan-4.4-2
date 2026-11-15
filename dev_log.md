@@ -1,3 +1,35 @@
+## 2026-11-15 23:06 CST — Repair ZeroTier restart contract after start-status propagation
+
+- USB storage run #43727223550 on exact main SHA `30c5b48ba8a8e996d13548280a54a9b7f5dbda7a` passed syntax, MTD/Optware regressions, storage gate, inventory, service-stop and the full caller graph. The final checker failed because it still required the obsolete `start_zerotier(); return 0;` pattern; production now correctly returns `start_zerotier()` so launcher failure is preserved.
+- Updated only the stale contract to require the stop-failure gate and exactly one returned start call after it. No production source or regression fixture changed.
+- Parent main: `30c5b48ba8a8e996d13548280a54a9b7f5dbda7a`; resulting SHA: THIS COMMIT. Exact-head storage rerun required. XY-C1 #43727223434 was still IN_PROGRESS; AI docs #43727223494 and VPN server #43727223521 PASS on the parent. No local checkout/test, MIPS/TRX result for a later source SHA, or physical-router L4 result is claimed.
+
+---
+
+## 2026-11-15 22:58 CST — Log optional TTYD boot launcher failures
+
+- `start_services_once()` previously discarded the returned status from optional TTYD startup during boot. It now logs a nonzero status while preserving the existing best-effort startup behavior for this optional service.
+- Added the production source contract to the RC notification queue workflow. Parent `e6d78f8ce49ec0325674b1a3531635219502748c`; commit `30c5b48ba8a8e996d13548280a54a9b7f5dbda7a`.
+- Exact-head push checks on that source SHA: AI docs #43727223494, VPN server #43727223521, RC queue #43727223568 and ZeroTier #43727223519 PASS; USB storage #43727223550 failed only at its stale ZeroTier source assertion and is corrected in the next commit. XY-C1 #43727223434 was IN_PROGRESS at the checkpoint. No physical-router result claimed.
+
+---
+
+## 2026-11-15 22:54 CST — Propagate optional daemon start failures through restart APIs
+
+- Converted optional TTYD, Shadowsocks, Shadowsocks tunnel, ZeroTier, SQM, AliyunDrive WebDAV, WireGuard and SmartDNS start wrappers from void to status-returning APIs. Disabled services remain successful no-ops; enabled starts return the launcher result; restart APIs now return the start result after the stop gate instead of silently reporting success.
+- Updated RC notification and ZeroTier/AliyunDrive source contracts; follow-up test-only commits corrected the assertions to distinguish a returned start call from a discarded call. Main source commit `55947ba869421a8108d24898abb761ba58bb81a7` (parent `18c411ab0e5f7c9e8dfbbd96403a85317cc9a576`).
+- The initial exact-head ZeroTier contract run #43726862606 failed on the stale expectation that restart returned zero; current-head ZeroTier #43727223519 and RC queue #43727223568 now PASS on `30c5b48ba8a8e996d13548280a54a9b7f5dbda7a`. Other 55947 checks included DNSMasq #43726863022 and XY-C1 #43726862800 PASS. No L4 hardware claim.
+
+---
+
+## 2026-11-15 22:36 CST — Serialize IPv6 DNSMasq restart around the shared lifecycle lock
+
+- `full_restart_ipv6()` now takes the DNSMasq lifecycle lock before stopping/restarting the service and uses the caller-held-lock helpers. For IPv6 enable, it releases the DNSMasq lock before `full_restart_wan()` (which owns VPN teardown), then reacquires it before scanning/starting DNSMasq, preventing the DNSMasq→VPN / VPN→DNSMasq lock cycle.
+- Added DNSMasq and shared process/WAN source contracts. Product commit `8a90947493e7a9e3ef9e54ea2a75f99c6bbb88aa` (parent `779d409e004cc655813f1d8565ec45abfbad55a9`). XY-C1 #43725312979 and AI docs #43725313007 PASS on that SHA; its DNSMasq contract run #43725312974 was later corrected and exact-head DNSMasq #43726863022 passed on `55947ba869421a8108d24898abb761ba58bb81a7`, with unchanged `net6.c`.
+- This is source/host regression evidence, not physical-router L4 verification.
+
+---
+
 ## 2026-11-15 — Align VPN lifecycle checker with the under-lock WAN client stop helper
 
 - VPN server lifecycle Action #43724605659 on production SHA `18c5f948efe89d9c8bcbff9caa14708686b2340d` failed in the Python source-contract stage, not in compilation or a C test. The legacy assertion required `stop_vpn_client()` inside WAN callbacks even after the production fix correctly replaced it with `stop_vpn_client_under_lifecycle_lock()`.
