@@ -1,3 +1,12 @@
+## 2026-11-16 — Make Transmission stop reporting depend on process exit
+
+- The existing Transmission script's timeout path passed the whitespace-separated result of `pidof transmission-daemon` as one quoted argument to `kill -9`, so multiple PIDs were not signaled individually. It printed `[KILLED]` without checking whether any daemon remained; signal and killall statuses were ignored.
+- Reworked `func_stop()` to reject unexpected pidof errors and malformed PID tokens, signal each validated PID independently after the graceful timeout, and verify a final empty PID snapshot before reporting successful forced termination. A surviving PID now returns failure; a kill race is accepted only when the final snapshot proves absence.
+- Added injectable tests for graceful termination, a two-PID forced stop, SIGKILL failure with surviving PIDs, and malformed pidof output (no signals permitted). Exact-head host/BusyBox storage Actions will verify the change.
+- Parent main: ba51619ceea8efc084d28f6f38bb5a8bc084e8d7. Exact parent storage #43768122780 had passed host syntax/startup tests and was still building/running BusyBox ash. AI docs #43768122829 PASS; Process lifecycle #43768122785, Process inventory #43768122777, infosvr #43768122801, AdGuardHome #43768122808, AliDDNS #43768122886 and AliyunDrive #43768122908 PASS. XY-C1 #43768122787 and NVRAM #43768122782 were in progress. New exact-head storage and XY-C1 runs required. No L3/L4 claim.
+
+---
+
 ## 2026-11-16 06:05 Beijing — Correct Transmission PID-unique settings staging
 
 - Exact c0 USB storage run #43767296645 failed in the pre-existing-stage collision regression: the test fixture correctly rewrites a PID-qualified suffix, but the live launcher still used `settings.json.tmp.$`, so the intended collision did not occur and daemon startup proceeded.

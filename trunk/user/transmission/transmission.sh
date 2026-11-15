@@ -153,34 +153,74 @@ func_start()
 
 func_stop()
 {
-	# Make sure not running
-	if [ -z "`pidof transmission-daemon`" ] ; then
+	# Treat pidof failures as an unknown process state, not as proof of absence.
+	tr_pid=`pidof transmission-daemon 2>/dev/null`
+	tr_pidof_status=$?
+	if [ "$tr_pidof_status" -gt 1 ] ||
+		{ [ "$tr_pidof_status" -ne 0 ] && [ -n "$tr_pid" ]; }; then
+		echo "[FAILED]"
+		logger -t "$SVC_NAME" "Cannot stop: unable to inspect daemon PIDs" >/dev/null 2>&1 || true
+		return 1
+	fi
+	if [ -z "$tr_pid" ]; then
 		return 0
 	fi
-	
+
 	echo -n "Stopping $SVC_NAME:."
-	
-	# stop daemon
-	killall -q transmission-daemon
-	
-	# gracefully wait max 25 seconds while transmission stopped
+
+	# A failed killall may be a race; the following PID snapshots determine
+	# whether the daemon is actually stopped.
+	killall -q transmission-daemon >/dev/null 2>&1 || true
+
+	# Gracefully wait at most 25 seconds for the daemon to exit.
 	i=0
-	while [ -n "`pidof transmission-daemon`" ] && [ $i -le 25 ] ; do
+	while [ -n "$tr_pid" ] && [ "$i" -le 25 ]; do
 		echo -n "."
-		i=$(( $i + 1 ))
 		sleep 1
+		tr_pid=`pidof transmission-daemon 2>/dev/null`
+		tr_pidof_status=$?
+		if [ "$tr_pidof_status" -gt 1 ] ||
+			{ [ "$tr_pidof_status" -ne 0 ] && [ -n "$tr_pid" ]; }; then
+			echo "[FAILED]"
+			logger -t "$SVC_NAME" "Cannot stop: unable to inspect daemon PIDs" >/dev/null 2>&1 || true
+			return 1
+		fi
+		i=$((i + 1))
 	done
-	
-	tr_pid=`pidof transmission-daemon`
-	if [ -n "$tr_pid" ] ; then
-		# force kill (hungup?)
-		kill -9 "$tr_pid"
+
+	if [ -n "$tr_pid" ]; then
+		# pidof returns a whitespace-separated PID list. Validate every token
+		# before signaling so malformed output cannot become a kill argument.
+		case "$tr_pid" in
+			*[!0-9 ]*)
+				echo "[FAILED]"
+				logger -t "$SVC_NAME" "Cannot stop: invalid daemon PID list" >/dev/null 2>&1 || true
+				return 1
+				;;
+		esac
+		for tr_pid_one in $tr_pid; do
+			kill -9 "$tr_pid_one" >/dev/null 2>&1 || true
+		done
 		sleep 1
+		tr_pid=`pidof transmission-daemon 2>/dev/null`
+		tr_pidof_status=$?
+		if [ "$tr_pidof_status" -gt 1 ] ||
+			{ [ "$tr_pidof_status" -ne 0 ] && [ -n "$tr_pid" ]; }; then
+			echo "[FAILED]"
+			logger -t "$SVC_NAME" "Cannot stop: unable to verify daemon exit" >/dev/null 2>&1 || true
+			return 1
+		fi
+		if [ -n "$tr_pid" ]; then
+			echo "[FAILED]"
+			logger -t "$SVC_NAME" "Cannot stop: daemon PIDs remain after SIGKILL: $tr_pid" >/dev/null 2>&1 || true
+			return 1
+		fi
 		echo "[KILLED]"
-		logger -t "$SVC_NAME" "Cannot stop: Timeout reached! Force killed."
+		logger -t "$SVC_NAME" "Daemon required SIGKILL after graceful stop timeout" >/dev/null 2>&1 || true
 	else
 		echo "[  OK  ]"
 	fi
+	return 0
 }
 
 func_reload()

@@ -1,17 +1,16 @@
 ## Current source / CI checkpoint
 
-- Parent main for this Transmission staging-suffix correction: b21b95b3e1858ae752ef7dc34259204524e484e4; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact c0 USB storage #43767296645 FAILED in the pre-existing stage-collision regression. The fixture replaces the PID-qualified `settings.json.tmp.$$` suffix; production had a single-dollar suffix, so no collision occurred and Transmission started. The b21 source blob remained unchanged; THIS COMMIT restores the PID-qualified stage path.
-- Exact c0 AI handoff docs #43767296578 PASS. Process inventory #43767296590, Process lifecycle #43767296606, infosvr #43767296612, AliDDNS #43767296621, AliyunDrive #43767296670 and AdGuardHome #43767296717 also PASS. c0 XY-C1 #43767296597 and NVRAM #43767296583 were pending at last inspection.
-- XY-C1 #43765742001 passed Build/TRX/artifact only for source SHA 4d2afeddba949b77dcbe1a8f6f950e9093438910; it does not validate this change. No current L3 or L4 claim.
+- Parent main for Transmission stop hardening: ba51619ceea8efc084d28f6f38bb5a8bc084e8d7; frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Exact parent b516 storage #43768122780 passed host shell syntax and Transmission/Aria startup regression, including the collision case; BusyBox 1.24.2 ash lifecycle regressions were still running at last poll. Exact parent AI docs #43768122829 PASS; Process lifecycle #43768122785, inventory #43768122777, infosvr #43768122801, AdGuardHome #43768122808, AliDDNS #43768122886 and AliyunDrive #43768122908 PASS. Parent XY-C1 #43768122787 and NVRAM #43768122782 were pending.
+- Transmission `func_stop()` previously passed a multi-PID pidof string as one quoted kill argument and did not check post-SIGKILL absence. THIS COMMIT changes it to validate PID tokens, signal each PID separately and require the final PID snapshot to be empty. Tests inject graceful stop, two-PID forced stop, failed signal and malformed output.
+- Exact-head storage/BusyBox and XY-C1 validation for this stop change remain pending.
 
 ### P1 — Storage daemon startup and config publication
 
-- Transmission and Aria preserve start-stop-daemon status independently from logger.
-- Transmission checks config/download/incomplete/watch directory creation, watch/root/download chmod and config/incomplete chown before daemon launch. Settings generation validates generator status, nonempty output and required umask 18; sed status and resulting umask 0; same-directory rename; and final regular/nonempty file.
-- Transmission settings staging must remain process-unique as `settings.json.tmp.$$`. `CONFIG_TMP_OWNED` ensures only this invocation's successfully created stage is removed after generator/transform/publication failure. The existing collision regression pre-creates the deterministic replacement path and checks that it remains intact.
-- Exact parent a391 storage #43765111683 PASS for the earlier host + firmware BusyBox ash checks. Exact c0 storage #43767296645 FAIL due to the single-dollar suffix regression; this commit restores the PID suffix and requires fresh exact-head validation.
-- Aria uses PID-unique `aria2.conf.tmp.$$` staging and `entered.$$`/`checked.$$` two-phase concurrency markers; retain existing fault and parallel-start tests.
+- Transmission config setup fails closed on directory/permission/ownership errors and validates default settings generation, expected umask 18, transformed umask 0 and atomic publication.
+- Default settings staging is PID-qualified as `settings.json.tmp.$$`; ownership-aware cleanup never removes a pre-existing collision. Parent b516 host test passed the collision regression before entering firmware BusyBox ash.
+- Aria uses PID-qualified `aria2.conf.tmp.$$` and process-unique two-phase concurrency markers. Preserve its generator failure and parallel-start tests.
+- New stop postcondition coverage adds graceful shutdown, multi-PID SIGKILL, signal failure and invalid PID-list injection; it must pass both host and BusyBox 1.24.2 ash before being considered verified.
 
 ## Whole-repository module status
 
