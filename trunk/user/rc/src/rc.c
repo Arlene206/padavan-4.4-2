@@ -1268,11 +1268,11 @@ handle_notifications(void)
 #endif
 		else if (strcmp(entry->d_name, RCN_RESTART_HTTPD) == 0)
 		{
-			restart_httpd();
+			action_result = rc_notify_merge_action_result(action_result, restart_httpd());
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_TELNETD) == 0)
 		{
-			stop_telnetd();
+			action_result = rc_notify_merge_action_result(action_result, stop_telnetd());
 			start_telnetd();
 		}
 #if defined(APP_SSHD)

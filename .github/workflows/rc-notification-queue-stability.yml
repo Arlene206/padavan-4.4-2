@@ -100,12 +100,16 @@ jobs:
               "restart_iperf3", "restart_adguardhome", "restart_ddnsto",
               "restart_sqm", "restart_aldriver", "restart_wireguard",
               "restart_adbyby", "restart_smartdns", "restart_aliddns",
-              "restart_frp", "restart_zerotier",
+              "restart_frp", "restart_zerotier", "restart_httpd",
           )
           for name in app_restarts:
               assert "action_result = rc_notify_merge_action_result(action_result, " + name + "())" in handler, name
-          for name in ("stop_scutclient", "stop_mentohust"):
+          for name in ("stop_scutclient", "stop_mentohust", "stop_telnetd"):
               assert "action_result = rc_notify_merge_action_result(action_result, " + name + "())" in handler, name
+          httpd_restart = function_body(services, "int\nrestart_httpd(void)")
+          assert "int stop_status = stop_httpd();" in httpd_restart
+          assert "return stop_status;" in httpd_restart
+          assert "return start_httpd(1);" in httpd_restart
           stop_whole_wan = function_body(handler, 'else if (!strcmp(entry->d_name, "stop_whole_wan"))')
           assert "rc_notify_merge_action_result(action_result, stop_wan())" in stop_whole_wan
           modem = function_body(handler, 'else if (!strcmp(entry->d_name, RCN_RESTART_MODEM))')
