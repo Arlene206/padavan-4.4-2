@@ -11,6 +11,9 @@ policy = (root / "trunk/user/rc/src/service_lifecycle_policy.h").read_text()
 usb_services = (root / "trunk/user/rc/src/services_usb.c").read_text()
 usb_modem = (root / "trunk/user/rc/src/usb_modem.c").read_text()
 rc_header = (root / "trunk/user/rc/src/rc.h").read_text()
+net_source = (root / "trunk/user/rc/src/net.c").read_text()
+pppoe_policy = (root / "trunk/user/rc/src/pppoe_relay_policy.h").read_text()
+pppoe_test = (root / "trunk/user/rc/src/tests/pppoe_relay_policy.c").read_text()
 
 assert "process_inventory.o" in shared_makefile
 assert '#include "process_inventory.h"' in shared_header
@@ -25,6 +28,21 @@ assert "process_identity_validate(service_name, identity)" in common_ex
 assert "kill(identity->pid, signal_number)" in common_ex
 assert 'doSystem("killall %s %s", signal_option, service_name)' not in common_ex
 assert "service_lifecycle_preflight" in policy
+pppoe_start = net_source.split("set_passthrough_pppoe(int is_on)", 1)[1].split("\\nvoid\\nset_igmp_mld_version", 1)[0]
+assert '#include "process_inventory.h"' in net_source
+assert '#include "pppoe_relay_policy.h"' in net_source
+assert 'process_inventory_scan("pppoe-relay", &snapshot)' in pppoe_start
+assert "scan_error = snapshot.error;" in pppoe_start
+assert pppoe_start.index("scan_error = snapshot.error;") < pppoe_start.index("process_snapshot_release(&snapshot);")
+assert pppoe_start.index("process_snapshot_release(&snapshot);") < pppoe_start.index("pppoe_relay_should_start(presence)")
+assert "if (pppoe_relay_should_start(presence))" in pppoe_start
+assert "else if (presence == PROCESS_PRESENCE_UNKNOWN)" in pppoe_start
+assert "strerror(scan_error)" in pppoe_start
+assert "if (!pids(" not in pppoe_start and 'pids("pppoe-relay")' not in pppoe_start
+assert pppoe_start.index("if (pppoe_relay_should_start(presence))") < pppoe_start.index('eval("/usr/sbin/pppoe-relay"')
+assert "presence == PROCESS_PRESENCE_ABSENT" in pppoe_policy
+assert "PROCESS_PRESENCE_UNKNOWN" in pppoe_test and "PROCESS_PRESENCE_RUNNING" in pppoe_test
+assert "process inventory failed" in pppoe_start
 assert "service_lifecycle_signal_targets" in policy
 assert "SERVICE_LIFECYCLE_UNKNOWN" in policy
 
@@ -255,6 +273,8 @@ xy_target_sources = (
     "trunk/user/pppd/ppp-2.4.7/pppd/main.c",
     "trunk/user/pppd/ppp-2.4.7/pppd/pppd_pidfile_policy.h",
     "trunk/user/rc/src/common_ex.c",
+    "trunk/user/rc/src/net.c",
+    "trunk/user/rc/src/pppoe_relay_policy.h",
     "trunk/user/rc/src/net_lan.c",
     "trunk/user/rc/src/net_wan.c",
     "trunk/user/rc/src/rc.c",
@@ -267,6 +287,9 @@ xy_target_sources = (
     "trunk/user/rc/src/inicd.c",
     "trunk/user/rc/src/net_wifi.c",
     "trunk/user/rc/src/detect_wan.c",
+    "trunk/user/rc/src/net.c",
+    "trunk/user/rc/src/pppoe_relay_policy.h",
+    "trunk/user/rc/src/tests/pppoe_relay_policy.c",
     "trunk/user/rc/src/detect_wan_udhcpc_policy.h",
     "trunk/user/shared/src/process_pidfile.c",
     "trunk/user/shared/src/process_pidfile.h",

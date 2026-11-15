@@ -1,3 +1,13 @@
+## 2026-11-15 10:23 CST — Fail closed on unknown PPPoE relay inventory
+
+- Continued the handoff's P1 task in `trunk/user/rc/src/net.c::set_passthrough_pppoe()`. The old `pids("pppoe-relay")` Boolean check did not encode the process inventory's RUNNING/ABSENT/UNKNOWN contract; start authorization now comes only from a complete ABSENT snapshot.
+- A RUNNING relay is left alone. UNKNOWN captures the scanner error before releasing the snapshot, logs the reason, and refuses to launch a possible duplicate. The existing stop path is unchanged. Nonzero launcher status is now logged rather than silently discarded.
+- Added a GNU89 policy regression for ABSENT/RUNNING/UNKNOWN/invalid states, wired it into the process-lifecycle workflow, extended production source integration assertions, and added the helper to the XY-C1 MIPS build trigger.
+- Changed paths: `trunk/user/rc/src/net.c`, `trunk/user/rc/src/pppoe_relay_policy.h`, `trunk/user/rc/src/tests/pppoe_relay_policy.c`, `.github/workflows/process-lifecycle-regression.yml`, `.github/workflows/xy-c1-firmware-validation.yml`, `scripts/check_process_lifecycle_integration.py`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
+
 ## 2026-11-15 10:18 CST — Align storage stop contract with identity-verified optional daemons
 
 - USB storage hotplug run `43666309989` on `f0df8c0b2a9f9e07178e733e9945e6fa325b8f75` passed the storage lifecycle graph checks but failed at `scripts/check_storage_safe_remove.py:255`. The checker still required four stop functions to directly return `eval(..., "stop")`; production correctly routes SCUT/MentoHUST/VLMCSd/iperf3 through `optional_daemon_stop_status()` so it can also require a complete process inventory proving ABSENT.

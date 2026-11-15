@@ -36,6 +36,8 @@
 #include <dirent.h>
 
 #include "rc.h"
+#include "process_inventory.h"
+#include "pppoe_relay_policy.h"
 #include "route_status_policy.h"
 
 #define SR_BUF_LEN (8192)
@@ -954,8 +956,27 @@ set_passthrough_pppoe(int is_on)
 {
 	char* svcs[] = { "pppoe-relay", NULL };
 	if (is_on && nvram_match("fw_pt_pppoe", "1")) {
-		if (!pids(svcs[0]))
-			eval("/usr/sbin/pppoe-relay", "-C", IFNAME_BR, "-S", get_man_ifname(0));
+		struct process_snapshot snapshot;
+		enum process_presence presence;
+		int scan_error;
+		int start_status;
+
+		presence = process_inventory_scan("pppoe-relay", &snapshot);
+		scan_error = snapshot.error;
+		process_snapshot_release(&snapshot);
+		if (pppoe_relay_should_start(presence)) {
+			start_status = eval("/usr/sbin/pppoe-relay", "-C", IFNAME_BR,
+					    "-S", get_man_ifname(0));
+			if (start_status != 0)
+				logmessage(LOGNAME, "pppoe-relay launch failed (status=%d)",
+					   start_status);
+		} else if (presence == PROCESS_PRESENCE_UNKNOWN) {
+			if (scan_error <= 0)
+				scan_error = EIO;
+			logmessage(LOGNAME,
+				   "pppoe-relay process inventory failed (%s); refusing startup",
+				   strerror(scan_error));
+		}
 	}
 	else
 		kill_services(svcs, 3, 1);
