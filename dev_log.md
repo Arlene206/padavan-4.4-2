@@ -1,3 +1,11 @@
+## 2026-11-15 — Correct static-ARP transaction test literal after CI failure
+
+- DNSMasq lifecycle #43718997744 on `d5660e3cdfa9804a23335656676c5f598c19a37e` initially failed when compiling the expanded static-host transaction regression: its mock compared `mac[0]` against a multi-character constant produced by over-escaping the backslash.
+- Corrected the test-only literal to C `'\\0'` in `23cc4e9e509f13a4ea7636c067d6cfd869fde81b`. Exact-head DNSMasq #43719124911 then passed, including the GNU89 static-host regression; AI handoff #43719124917 and process inventory #43719124976 also passed.
+- XY-C1 #43718997699 for the unchanged product source `d5660e3` was still in progress at checkpoint; L3 is unverified until build, TRX and artifact upload all pass. No local firmware or physical-router result is claimed.
+
+---
+
 ## 2026-11-15 — Roll back prior static ARP additions after setup failure
 
 - `fill_static_ethers()` previously stopped on a later failed `arp -s` without removing earlier static ARP entries installed during the same setup pass, leaving a partial kernel ARP table while DNSMasq refused to start.

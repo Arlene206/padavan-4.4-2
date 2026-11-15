@@ -8,35 +8,37 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; source parent for this slice: `fef0bc61085a5e9364e972c00c97b5b0e3a8c59d`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only); PR #1 is CLOSED / UNMERGED.
-- P1 HTTPD retained restore-upload protection retains prior L2/L3 evidence on `ee18adc7fe9062d2fe5284a3e64802242b89fad0`; physical router L4 remains NOT VERIFIED.
-- DNSMasq three-file generated-input rollback and static-ARP command wait-status propagation were implemented and DNSMasq #43717087846 passed on `1f9105e975abb1fc5c66a2c07f16f858b304f80a`. This slice adds reverse rollback for prior successful static ARP additions after a later add fails.
-- BusyBox udhcpc ARP-conflict deconfig retry is on main. The earlier #43717810267 checker failure was fixed by using the real `if (!arpping(packet.yiaddr,` branch anchor; exact run #43718099815 passed on `fef0bc61085a5e9364e972c00c97b5b0e3a8c59d`.
-- WAN DHCP callback #43717201135 passed on `928f80c64683e9340b28ec769fd5266378a780c5`; other independent Actions continue to validate new source.
-- No local target build or physical-router result is claimed. L4 remains NOT VERIFIED.
+- Repository: `Arlene206/padavan-4.4-2`; current main HEAD: `23cc4e9e509f13a4ea7636c067d6cfd869fde81b`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only); PR #1 is CLOSED / UNMERGED.
+- DNSMasq static-ARP rollback transaction source landed in `d5660e3cdfa9804a23335656676c5f598c19a37e`. Its initial exact-head #43718997744 exposed a test-only multi-character NUL literal; `23cc4e9e509f13a4ea7636c067d6cfd869fde81b` corrected the literal. Exact-head DNSMasq #43719124911 now PASS; AI docs #43719124917 and process inventory #43719124976 PASS.
+- XY-C1 run #43718997699 for product source `d5660e3` was still IN_PROGRESS at checkpoint; the source code is unchanged by `23cc4e9e`, but L3 must not be claimed until Build XY-C1, TRX verification and artifact upload all pass.
+- BusyBox udhcpc ARP-conflict deconfig retry is on main; exact checker #43718099815 PASS on `fef0bc61085a5e9364e972c00c97b5b0e3a8c59d`.
+- P1 HTTPD restore-upload protection retains prior L2/L3 evidence on `ee18adc7fe9062d2fe5284a3e64802242b89fad0`; physical router L4 remains NOT VERIFIED.
+- No local build or physical-router result is claimed.
 
 
 ## Active task
 
 ### P2 — DNSMasq static-ARP transaction and remaining lifecycle
 
-- DHCP hosts, `/etc/ethers` and `/tmp/hosts.static` are privately staged and published as one rollback set; static MACs are nonzero unicast; ARP add/delete wait statuses are checked and stop cleanup is fail-closed.
-- Static-ARP installation now applies a fully prevalidated set. If a later `arp -s` fails, each earlier successful addition is removed in reverse order; rollback continues after an individual delete failure and returns the rollback error. The failed target is not deleted because in-tree BusyBox `arp_set()` returns success only after `SIOCSARP` succeeds.
-- GNU89 tests cover success, reverse rollback, continued cleanup after delete failure, and invalid-set rejection before side effects. DNSMasq workflow contracts the production callback and BusyBox applet behavior.
-- Remaining DNSMasq work: resolver/config publication concurrency, temp-file/FD cleanup, and remaining start/stop/restart caller graph. Then rotate to a broader independent user-space stability/security area.
+- DHCP hosts, `/etc/ethers` and `/tmp/hosts.static` are staged privately and published as one rollback set; static MACs are nonzero unicast; ARP add/delete wait statuses are checked and stop cleanup is fail-closed.
+- Static-ARP setup fully prevalidates IP/MAC pairs and applies the set via the production command callback. A later failed `arp -s` triggers reverse-order deletion of every earlier successful add; rollback continues after delete failures and returns the rollback error. The failed target is deliberately not deleted because BusyBox `arp_set()` reports success only after `SIOCSARP` succeeds.
+- GNU89 tests cover success, reverse rollback, continued rollback after delete failure and prevalidation. Exact-head DNSMasq lifecycle #43719124911 PASS on `23cc4e9e509f13a4ea7636c067d6cfd869fde81b`, including compile and run of the expanded test binary.
+- Remaining DNSMasq work: resolver/config publication concurrency, temp-file/FD cleanup and remaining start/stop/restart caller graph. XY-C1 L3 verification for source `d5660e3` remains pending.
 
 
 ## Explicitly uncompleted P1 work
 
 - No outstanding P1 source change identified. HTTPD retained restore-upload protection has prior L2/L3 evidence on `ee18adc7fe9062d2fe5284a3e64802242b89fad0`; physical restore/retry/reboot L4 remains NOT VERIFIED.
-- P2 DNSMasq: exact-head lifecycle and XY-C1 validation for the new ARP rollback transaction are pending; resolver concurrency, temp-file/FD cleanup and caller graph remain open.
+- P2 DNSMasq: L2 exact-head regression now passes; XY-C1 product build/TRX/artifact is still required for L3. Resolver concurrency, temp-file/FD cleanup and remaining caller-graph review remain open.
 - Linux 4.4 PID/start-time revalidate-to-signal TOCTOU remains; continue direct `pids()`, `kill_pidfile_s()` and name-wide signal audit without changing legacy semantics globally.
 - FTP failed-upload unlink TOCTOU remains blocked by lack of inode-conditional unlink-by-fd; preserve STOR/APPE/REST/STOU semantics. NFS durability, AUTH_SYS/root-squash and external-mount compatibility require real client/storage evidence.
 
 ## Verification boundary
 
-- DNSMasq previous implementation: #43717087846 PASS on `1f9105e975abb1fc5c66a2c07f16f858b304f80a`; not evidence for this rollback change.
-- BusyBox udhcpc policy binary passed ASan/UBSan and corrected checker rerun #43718099815 passed on `fef0bc61085a5e9364e972c00c97b5b0e3a8c59d`.
+- DNSMasq lifecycle #43719124911 PASS on `23cc4e9e509f13a4ea7636c067d6cfd869fde81b`; all GNU89 policy regressions, including the new static-ARP transaction tests, compiled and passed. The immediately preceding #43718997744 failure was only a multi-character C literal in the test mock and is fixed in `23cc4e9`.
+- AI handoff #43719124917 and process lifecycle inventory #43719124976 PASS on `23cc4e9e509f13a4ea7636c067d6cfd869fde81b`.
+- XY-C1 #43718997699 on source SHA `d5660e3cdfa9804a23335656676c5f598c19a37e` was IN_PROGRESS at checkpoint; no L3 claim until all build/TRX/artifact jobs pass.
+- udhcpc checker #43718099815 PASS on `fef0bc61085a5e9364e972c00c97b5b0e3a8c59d`.
 - No local checkout/build or hardware device was available. Physical-router L4 remains NOT VERIFIED.
 
 
@@ -56,11 +58,10 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Exact first action for the next GPT
 
-1. Inspect this commit's exact-head DNSMasq lifecycle Action; require all GNU89 tests and source assertions to pass, and diagnose any FAIL from full job logs.
-2. Inspect this commit's XY-C1 run; require Build XY-C1, TRX verification and artifact upload before L3 claim.
-3. Continue DNSMasq resolver/config concurrency, temp-file/FD cleanup and remaining caller-graph review; do not repeat the ARP transaction slice.
-4. Rotate to an independent high-impact stability/security candidate outside DNSMasq and process inventory.
-5. Re-fetch main before each write; use one complete Git tree/commit and a non-forced expected-SHA update. Frozen backup remains unchanged; physical L4 remains unverified.
+1. Inspect XY-C1 #43718997699 for source `d5660e3`; require Build XY-C1, TRX verification and artifact upload before L3 claim.
+2. Continue DNSMasq resolver/config publication concurrency, temp-file/FD cleanup and remaining public/locked start-stop-restart caller graph; do not repeat the green static-ARP transaction slice.
+3. Once the bounded DNSMasq audit is complete, rotate to an independent high-impact user-space stability/security candidate outside DNSMasq and process inventory.
+4. Re-fetch main before every write; use one complete tree/commit and non-forced expected-SHA update. Frozen backup remains unchanged; physical L4 remains unverified.
 
 
 Source/validation notes:
