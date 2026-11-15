@@ -1,3 +1,13 @@
+## 2026-11-15 — Release the post-erase MTD save lock only after confirming blank flash
+
+- Exact-head parent `546ca8e66a00aee08c53922a55368e61ceb507e2`: HTTPD security #43690054071 SUCCESS after the prior commit retained uploaded storage restore files on failure and fixed the escaped-newline source-boundary checks. USB storage #43690054009 FAILED only at the final trigger contract because `mtd_storage_load_transaction.sh` and `mtd_storage_backup_failure.sh` were not present in pull_request filters.
+- `func_erase()` deliberately touches `$slk` after successful flash erase to prevent runtime from immediately repopulating the partition. On the next boot, blank flash causes bzcat to fail with a zero-byte output. The transactional loader previously returned early and left `$slk`, permanently disabling future saves. It now clears MD5 and the lock only when file size is exactly zero; nonempty partial/corrupt output preserves the previous checkpoint and lock.
+- Added host/BusyBox ash cases for zero-byte failure, zero-byte success and nonempty decompressor failure; retained existing extraction/publication rollback cases. Added both MTD regression paths to storage-hotplug pull_request filters and removed a duplicated load path in the checker.
+- Parent XY-C1 #43690054061 was IN_PROGRESS at last inspection. NVRAM #43690054024, HTTPD security #43690054071, FRP #43690054108, AdGuardHome #43690054047, AI docs #43690054062, Process inventory #43690054006, Process lifecycle #43690054021, infosvr #43690054113, AliDDNS #43690054011 and AliyunDrive #43690054109 SUCCESS. Fresh exact-head storage/XY-C1 results required.
+- No local shell/build or physical hardware result claimed. Changed paths: `mtd_storage.sh`, `mtd_storage_load_transaction.sh`, `check_storage_safe_remove.py`, storage-hotplug workflow, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`. Parent SHA: `546ca8e66a00aee08c53922a55368e61ceb507e2`.
+
+---
+
 ## 2026-11-15 — Preserve failed restore upload for retry; repair source contracts
 
 - Parent exact-head USB storage #43689545333 and HTTPD security #43689545379 failed because the newly added Python boundary lookups searched for literal escaped backslash-n strings rather than actual source newlines. This commit uses `chr(10)` in the storage checker and HTTPD workflow contract.

@@ -48,6 +48,15 @@ func_load()
 
 	# A decompressor can emit a prefix and still report corruption.
 	if ! bzcat "$mtd_part_dev" > "$tmp" 2>/dev/null; then
+		fsz=$(stat -c %s "$tmp" 2>/dev/null)
+		if [ "$fsz" = "0" ]; then
+			# A successful erase leaves a one-shot save lock until the next boot
+			# confirms that the MTD is blank and default storage can be recreated.
+			rm -f "$hsh"
+			if ! rm -f "$slk"; then
+				logger -t "Storage load" "Unable to clear save lock for an empty MTD partition"
+			fi
+		fi
 		result=1
 		rm -f "$tmp"
 		logger -t "Storage load" "Unable to decompress storage data from MTD partition: $mtd_part_dev"
@@ -65,7 +74,10 @@ func_load()
 	esac
 	if [ "$fsz" -le 0 ]; then
 		result=1
-		rm -f "$tmp"
+		rm -f "$tmp" "$hsh"
+		if ! rm -f "$slk"; then
+			logger -t "Storage load" "Unable to clear save lock for an empty MTD partition"
+		fi
 		logger -t "Storage load" "Empty storage data in MTD partition: $mtd_part_dev"
 		return 1
 	fi

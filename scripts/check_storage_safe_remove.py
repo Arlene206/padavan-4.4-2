@@ -508,14 +508,27 @@ require(mtd_load.index('if ! bzcat') < mtd_load.index('if ! tar xf') <
 require('tar xf "$tmp" -C "$dir_storage"' not in mtd_load and
         'rm -rf "$dir_storage"' not in mtd_load,
         "MTD load must never extract over or delete live config")
+
+# func_erase() creates the one-shot marker to stop runtime repopulating flash.
+# At next boot only zero-byte output proves the partition is blank and allows
+# the lock to be released; nonempty failed decompression remains fail-closed.
+bzcat_failure = mtd_load.split('if ! bzcat "$mtd_part_dev" > "$tmp" 2>/dev/null; then', 1)[1].split(chr(10) + "\tfi", 1)[0]
+require('if [ "$fsz" = "0" ]; then' in bzcat_failure and
+        'rm -f "$hsh"' in bzcat_failure and 'rm -f "$slk"' in bzcat_failure,
+        "zero-byte failed decompression must clear stale hash and one-shot erase lock")
+empty_size_branch = mtd_load.split('if [ "$fsz" -le 0 ]; then', 1)[1].split(chr(10) + "\tfi", 1)[0]
+require('rm -f "$hsh"' in empty_size_branch and 'rm -f "$slk"' in empty_size_branch,
+        "successful empty decompression must also clear the one-shot lock")
 require("BZCAT_STATUS=2" in mtd_storage_load_test and
+        "BZCAT_EMPTY=1" in mtd_storage_load_test and
+        "empty successful decompression unexpectedly succeeded" in mtd_storage_load_test and
         "TAR_FAIL=1" in mtd_storage_load_test and
         "MV_FAIL_AT=2" in mtd_storage_load_test and
         "partial-extract.conf" in mtd_storage_load_test and
         'if [ -n "${BUSYBOX_BIN:-}" ]; then' in mtd_storage_load_test and
         '"$BUSYBOX_BIN" ash "$sandbox/mtd_storage.sh" load' in mtd_storage_load_test and
         'BUSYBOX_BIN="$busybox_bin" sh trunk/user/scripts/tests/mtd_storage_load_transaction.sh' in workflow,
-        "MTD load fixture must cover decompression, extraction, rollback, BusyBox ash and success")
+        "MTD load fixture must cover erased MTD, corruption, extraction, rollback and BusyBox ash")
 
 backup_start = mtd_storage.index("func_backup()")
 backup_end = mtd_storage.index(chr(10) + "func_restore()", backup_start)
@@ -585,7 +598,6 @@ require("int storage_save_time(time_t delta);" in rc_header,
 for path in ("trunk/user/scripts/files/sbin/mtd_storage.sh",
              "trunk/user/scripts/tests/mtd_storage_save_retry.sh",
              "trunk/user/scripts/tests/mtd_storage_restore_transaction.sh",
-             "trunk/user/scripts/tests/mtd_storage_load_transaction.sh",
              "trunk/user/scripts/tests/mtd_storage_backup_failure.sh",
              "trunk/user/scripts/tests/mtd_storage_load_transaction.sh",
              "trunk/user/rc/src/storage_persistence_policy.h",

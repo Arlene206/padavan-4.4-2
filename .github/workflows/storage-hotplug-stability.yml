@@ -65,6 +65,8 @@ on:
       - "trunk/user/scripts/files/sbin/mtd_storage.sh"
       - "trunk/user/scripts/tests/mtd_storage_save_retry.sh"
       - "trunk/user/scripts/tests/mtd_storage_restore_transaction.sh"
+      - "trunk/user/scripts/tests/mtd_storage_load_transaction.sh"
+      - "trunk/user/scripts/tests/mtd_storage_backup_failure.sh"
       - "trunk/user/rc/src/storage_persistence_policy.h"
       - "trunk/user/rc/src/tests/storage_persistence_policy.c"
       - "trunk/user/rc/src/common_ex.c"

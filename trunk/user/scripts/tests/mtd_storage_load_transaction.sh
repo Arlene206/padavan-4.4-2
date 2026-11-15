@@ -27,7 +27,7 @@ exit 0
 EOF
 cat > "$sandbox/bin/bzcat" <<'EOF'
 #!/bin/sh
-cat "$BZCAT_FIXTURE"
+[ "${BZCAT_EMPTY:-0}" = 1 ] || cat "$BZCAT_FIXTURE"
 exit "${BZCAT_STATUS:-0}"
 EOF
 cat > "$sandbox/bin/tar" <<'EOF'
@@ -77,9 +77,28 @@ assert_old_storage()
 	done
 }
 
-export BZCAT_STATUS=2 TAR_FAIL=0 MV_FAIL_AT=0
+export BZCAT_STATUS=2 TAR_FAIL=0 MV_FAIL_AT=0 BZCAT_EMPTY=1
 : > "$TAR_LOG"
-if run_load; then echo "decompression failure unexpectedly succeeded" >&2; exit 1; fi
+if run_load; then echo "blank MTD unexpectedly loaded" >&2; exit 1; fi
+[ ! -s "$TAR_LOG" ] || { echo "tar ran after blank MTD decompression failed" >&2; exit 1; }
+[ "$(cat "$sandbox/etc/storage/previous.conf")" = "previous configuration" ] || exit 1
+[ ! -e "$sandbox/etc/storage/partial-extract.conf" ] || exit 1
+[ ! -e "$sandbox/private/storage_md5" ] || exit 1
+[ ! -e "$sandbox/private/.storage_locked" ] || exit 1
+
+# A nominally successful empty stream is still not a valid storage archive.
+printf '%s\\n' 'previous-checkpoint' > "$sandbox/private/storage_md5"
+: > "$sandbox/private/.storage_locked"
+export BZCAT_STATUS=0 BZCAT_EMPTY=1
+if run_load; then echo "empty successful decompression unexpectedly succeeded" >&2; exit 1; fi
+[ ! -e "$sandbox/private/storage_md5" ] || exit 1
+[ ! -e "$sandbox/private/.storage_locked" ] || exit 1
+
+# A nonempty failed stream is corruption, not an erase: retain old state.
+printf '%s\\n' 'previous-checkpoint' > "$sandbox/private/storage_md5"
+: > "$sandbox/private/.storage_locked"
+export BZCAT_STATUS=2 BZCAT_EMPTY=0
+if run_load; then echo "partial decompression failure unexpectedly succeeded" >&2; exit 1; fi
 [ ! -s "$TAR_LOG" ] || { echo "tar ran after decompression failed" >&2; exit 1; }
 assert_old_storage
 
