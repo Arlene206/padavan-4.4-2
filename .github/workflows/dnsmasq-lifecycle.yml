@@ -424,11 +424,31 @@ jobs:
           simple_range = function_body(services, "simple_dhcp_range(")
           pool_check = function_body(services, "chk_valid_subnet_pool(")
           prepare = function_body(services, "prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)")
+          static_hosts_writer = function_body(services, "fill_static_ethers(")
+          static_hosts_test = Path("trunk/user/rc/src/tests/dnsmasq_file.c").read_text()
           assert '#include "dnsmasq_dhcp_range_policy.h"' in services
           assert "dnsmasq_dhcp_range_default_pool" in simple_range
           assert "dnsmasq_dhcp_range_pool_is_valid" in pool_check
           assert "simple_dhcp_range(ip, dip1, dip2, mask) ? 1 : -1" in pool_check
           assert prepare.index("chk_valid_subnet_pool") < prepare.index("fill_static_ethers")
+          assert "if (fill_static_ethers(ipaddr, netmask) != 0)" in prepare
+          assert prepare.index("fill_static_ethers(ipaddr, netmask)") < prepare.index("dnsmasq_file_open(config_path)")
+          assert "return saved_errno;" in prepare
+          for token in (
+              "dnsmasq_file_open(dhcp_hosts_stage)",
+              "dnsmasq_file_open(ethers_stage)",
+              "dnsmasq_file_open(hosts_static_stage)",
+              "dnsmasq_file_publish(staged_fp, staged_paths[i],",
+              "destinations[i], 0644)",
+              "dnsmasq_file_discard(staged_paths[i])",
+              "errno = ENOMEM;",
+          ):
+              assert token in static_hosts_writer, token
+          assert 'fopen(dh_fn, "w+")' not in static_hosts_writer
+          assert 'fopen("/etc/ethers", "w+")' not in static_hosts_writer
+          assert static_hosts_writer.index("dnsmasq_file_publish(staged_fp") < static_hosts_writer.index("doSystem(")
+          assert "dnsmasq_file_publish(fp, rename_fail_template, directory, 0644) == -1" in static_hosts_test
+          assert "assert(rename_fail_template[0] == '\\0');" in static_hosts_test
           assert "pool_status < 0" in prepare and "return EINVAL;" in prepare
           assert "pool_status > 0" in prepare
           assert 'nvram_set("dhcp_start", dhcp_start)' in prepare

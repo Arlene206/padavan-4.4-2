@@ -23,7 +23,7 @@ main(void)
 {
 	char directory[] = "/tmp/dnsmasq-file-test.XXXXXX";
 	char sentinel[256], destination[256], template[256], staged[256];
-	char fail_template[256], fail_path[256], lease_path[256];
+	char fail_template[256], fail_path[256], rename_fail_template[256], rename_fail_path[256], lease_path[256];
 	char config_destination[256], config_template[256];
 	char config_fail_template[256], config_fail_path[256];
 	char resolv_destination[256], resolv_same_template[256], resolv_diff_template[256];
@@ -145,6 +145,19 @@ main(void)
 	assert(saved_errno != 0);
 	assert(fail_template[0] == '\0');
 	assert(access(fail_path, F_OK) != 0 && errno == ENOENT);
+	read_exact(destination, "server=/example.test/192.0.2.53\n");
+
+	/* A rename failure must discard staging and preserve the last-good file. */
+	fp = dnsmasq_file_open(rename_fail_template);
+	assert(fp != NULL);
+	assert(snprintf(rename_fail_path, sizeof(rename_fail_path), "%s", rename_fail_template) > 0);
+	assert(fputs("replacement\n", fp) >= 0);
+	errno = 0;
+	assert(dnsmasq_file_publish(fp, rename_fail_template, directory, 0644) == -1);
+	saved_errno = errno;
+	assert(saved_errno != 0);
+	assert(rename_fail_template[0] == '\0');
+	assert(access(rename_fail_path, F_OK) != 0 && errno == ENOENT);
 	read_exact(destination, "server=/example.test/192.0.2.53\n");
 
 	/* The main service config is also staged and atomically published. */
