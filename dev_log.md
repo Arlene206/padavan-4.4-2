@@ -1,3 +1,12 @@
+## 2026-11-16 — Correct networkmap status-binding checker and handoff contract wording
+
+- Exact 0e27 Process lifecycle #43773995752 compiled and ran the GNU89 boot-service first-failure and logger policy binaries successfully, then failed in the final production integration checker. The assertion incorrectly expected `start_networkmap(1)` to be nested directly in the reducer; production captures it in `networkmap_start_status`, logs a useful diagnostic and then reduces that local. Updated the checker to verify the real binding + aggregation contract rather than require a different implementation.
+- Exact 0e27 AI docs #43773995692 failed because the handoff used "conditional on material status changes" instead of the governance validator's exact sentence "The checkpoint is mandatory; a document edit is conditional." Restored exact wording and kept the materiality explanation as a separate sentence.
+- Exact 0e27 XY-C1 #43773995690 remained in progress at last poll; the corrected workflow is push-only, with the new boot-service header/test paths present once in its push filter.
+- No target Build/TRX/artifact result is inferred from a queued/in-progress run. No L3/L4 claim.
+
+---
+
 ## 2026-11-16 — Repair exact-head process, XY-C1 and handoff validation regressions
 
 - Exact d444 Process lifecycle #43773527020 executed the new GNU89 boot-service status reducer and RC logger reducer successfully, along with the existing regression suite, then failed because the appended integration checker encoded the newline delimiter as a literal backslash-n. Corrected the Python delimiter so it splits the real C function source.

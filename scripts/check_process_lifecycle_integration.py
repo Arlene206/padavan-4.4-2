@@ -1144,9 +1144,14 @@ for call in (
     assert call in boot_start
 for call in (
     "start_httpd(0)", "start_telnetd()", "start_sshd()", "start_watchdog()",
-    "start_gpio_btn()", "start_upnp()", "start_networkmap(1)",
+    "start_gpio_btn()", "start_upnp()",
 ):
     assert "rc_first_service_start_status(start_status, " + call + ")" in boot_start
+
+# networkmap's status is captured for diagnostics before it is aggregated.
+assert "int networkmap_start_status = start_networkmap(1);" in boot_start
+assert 'logmessage(LOGNAME,' in boot_start
+assert "rc_first_service_start_status(start_status, networkmap_start_status)" in boot_start
 for service, flag in (
     ("start_infosvr()", "adsc_enable"),
     ("start_lltd()", "lltd_enable"),
