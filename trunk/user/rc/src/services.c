@@ -168,6 +168,14 @@ stop_infosvr(void)
 int
 start_infosvr(void)
 {
+	int start_status;
+
+	start_status = optional_daemon_start_status("infosvr", "infosvr");
+	if (start_status > 0)
+		return 0;
+	if (start_status < 0)
+		return start_status;
+
 	if (nvram_invmatch("adsc_enable", "1"))
 		return 1;
 
