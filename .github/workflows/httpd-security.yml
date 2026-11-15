@@ -1760,7 +1760,20 @@ jobs:
           assert service.count("ignoring invalid domain-specific DNS routing domain") == 2
           assert 'server=//203.0.113.9#' in test
           assert 'assert(!dnsmasq_valid_server_domain("example.com/8.8.8.8"))' in test
-          assert 'load_user_config(fp, "/tmp", "hosts.static", NULL)' in net_wan
+          hosts_update_start = net_wan.index("update_hosts_router(const char *lan_ipaddr)")
+          hosts_update_end = net_wan.index("\\nstatic int\\ncontrol_dhcp_routes", hosts_update_start)
+          hosts_update = net_wan[hosts_update_start:hosts_update_end]
+          assert 'hostname_fp = dnsmasq_file_open(hostname_temp);' in hosts_update
+          assert 'hosts_fp = dnsmasq_file_open(hosts_temp);' in hosts_update
+          assert 'dnsmasq_file_publish(staged_fp, hostname_temp, "/etc/hostname", 0644)' in hosts_update
+          assert 'dnsmasq_file_publish(staged_fp, hosts_temp, "/etc/hosts", 0644)' in hosts_update
+          assert 'load_user_config(hosts_fp, "/tmp", "hosts.static", NULL)' in hosts_update
+          assert hosts_update.index('dnsmasq_file_publish(staged_fp, hostname_temp') < hosts_update.index('sethostname(lan_hname')
+          assert "dnsmasq_file_discard(hostname_temp)" in hosts_update
+          assert "dnsmasq_file_discard(hosts_temp)" in hosts_update
+          assert 'fopen("/etc/hosts", "w+")' not in hosts_update
+          assert 'fopen("/etc/hostname", "w+")' not in hosts_update
+          assert "if (update_hosts_router(ipaddr) != 0)" in service
           assert 'fopen("/tmp/hosts.static", "w+")' not in service
           assert 'fopen(DNS_SERVERS_FILE, "w")' not in service
           assert 'create_file(DHCPD_LEASE_FILE)' not in service

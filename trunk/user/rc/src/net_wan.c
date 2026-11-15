@@ -2970,54 +2970,100 @@ refresh_resolvconf_nonfatal_no_notify(const char *reason, int is_first_run)
 int
 update_hosts_router(const char *lan_ipaddr)
 {
-	FILE *fp;
+	FILE *hostname_fp = NULL, *hosts_fp = NULL;
+	char hostname_temp[] = "/etc/hostname.XXXXXX";
+	char hosts_temp[] = "/etc/hosts.XXXXXX";
 	char *lan_hname, *lan_dname;
+	int saved_errno = 0;
+
+	if (!lan_ipaddr) {
+		errno = EINVAL;
+		return EINVAL;
+	}
 
 	lan_hname = get_our_hostname();
 	lan_dname = nvram_safe_get("lan_domain");
-
-	sethostname(lan_hname, strlen(lan_hname));
-	setdomainname(lan_dname, strlen(lan_dname));
-
-	fp = fopen("/etc/hostname", "w+");
-	if (fp) {
-		fprintf(fp, "%s\n", lan_hname);
-		fclose(fp);
+	if (!lan_hname || !lan_dname) {
+		errno = EINVAL;
+		return EINVAL;
 	}
 
-	fp = fopen("/etc/hosts", "w+");
-	if (fp) {
-		fprintf(fp, "%s %s %s\n", "127.0.0.1", "localhost.localdomain", "localhost");
-		if (strlen(lan_dname) > 0)
-			fprintf(fp, "%s %s.%s %s\n", lan_ipaddr, lan_hname, lan_dname, lan_hname);
-		else
-			fprintf(fp, "%s %s\n", lan_ipaddr, lan_hname);
-		fprintf(fp, "%s %s\n", lan_ipaddr, "my.router");
-		
-		/* Never ingest a stale or attacker-planted shared-/tmp link as hosts data. */
-		if (dnsmasq_file_is_safe_regular("/tmp/hosts.static") == 0)
-			load_user_config(fp, "/tmp", "hosts.static", NULL);
-		else if (errno != ENOENT)
-			logmessage(LOGNAME, "skipping unsafe static DHCP host snapshot (errno=%d)", errno);
-		
+	/* Stage both resolver-visible files before replacing either destination. */
+	hostname_fp = dnsmasq_file_open(hostname_temp);
+	if (!hostname_fp)
+		goto failed;
+	hosts_fp = dnsmasq_file_open(hosts_temp);
+	if (!hosts_fp)
+		goto failed;
+
+	fprintf(hostname_fp, "%s\n", lan_hname);
+	fprintf(hosts_fp, "%s %s %s\n", "127.0.0.1", "localhost.localdomain", "localhost");
+	if (strlen(lan_dname) > 0)
+		fprintf(hosts_fp, "%s %s.%s %s\n", lan_ipaddr, lan_hname, lan_dname, lan_hname);
+	else
+		fprintf(hosts_fp, "%s %s\n", lan_ipaddr, lan_hname);
+	fprintf(hosts_fp, "%s %s\n", lan_ipaddr, "my.router");
+
+	/* Never ingest a stale or attacker-planted shared-/tmp link as hosts data. */
+	if (dnsmasq_file_is_safe_regular("/tmp/hosts.static") == 0)
+		load_user_config(hosts_fp, "/tmp", "hosts.static", NULL);
+	else if (errno != ENOENT)
+		logmessage(LOGNAME, "skipping unsafe static DHCP host snapshot (errno=%d)", errno);
+
 #if defined (USE_IPV6)
-		if (get_ipv6_type() != IPV6_DISABLED) {
-			fprintf(fp, "%s %s %s\n", "::1", "localhost.localdomain", "localhost");
+	if (get_ipv6_type() != IPV6_DISABLED) {
+		fprintf(hosts_fp, "%s %s %s\n", "::1", "localhost.localdomain", "localhost");
+		{
 			char addr6s[INET6_ADDRSTRLEN];
-			char* lan_addr6_host = get_lan_addr6_host(addr6s);
+			char *lan_addr6_host = get_lan_addr6_host(addr6s);
 			if (lan_addr6_host) {
 				if (strlen(lan_dname) > 0)
-					fprintf(fp, "%s %s.%s %s\n", lan_addr6_host, lan_hname, lan_dname, lan_hname);
+					fprintf(hosts_fp, "%s %s.%s %s\n", lan_addr6_host, lan_hname, lan_dname, lan_hname);
 				else
-					fprintf(fp, "%s %s\n", lan_addr6_host, lan_hname);
-				fprintf(fp, "%s %s\n", lan_addr6_host, "my.router");
+					fprintf(hosts_fp, "%s %s\n", lan_addr6_host, lan_hname);
+				fprintf(hosts_fp, "%s %s\n", lan_addr6_host, "my.router");
 			}
 		}
+	}
 #endif
-		fclose(fp);
+
+	/* Each file is atomically replaced only after both complete streams exist.
+	 * A rename failure is returned to prepare_dns_dhcpd, which keeps the
+	 * current DNSMasq instance from being restarted with incomplete host data. */
+	{
+		FILE *staged_fp = hostname_fp;
+		hostname_fp = NULL;
+		if (dnsmasq_file_publish(staged_fp, hostname_temp, "/etc/hostname", 0644) != 0) {
+			saved_errno = errno ? errno : EIO;
+			goto failed;
+		}
+	}
+	{
+		FILE *staged_fp = hosts_fp;
+		hosts_fp = NULL;
+		if (dnsmasq_file_publish(staged_fp, hosts_temp, "/etc/hosts", 0644) != 0) {
+			saved_errno = errno ? errno : EIO;
+			goto failed;
+		}
 	}
 
+	/* Update kernel names only after both corresponding files were published. */
+	sethostname(lan_hname, strlen(lan_hname));
+	setdomainname(lan_dname, strlen(lan_dname));
 	return 0;
+
+failed:
+	if (!saved_errno)
+		saved_errno = errno ? errno : EIO;
+	if (hostname_fp)
+		fclose(hostname_fp);
+	if (hosts_fp)
+		fclose(hosts_fp);
+	dnsmasq_file_discard(hostname_temp);
+	dnsmasq_file_discard(hosts_temp);
+	logmessage(LOGNAME, "cannot stage/publish router hostname files (errno=%d)", saved_errno);
+	errno = saved_errno;
+	return saved_errno;
 }
 
 static int

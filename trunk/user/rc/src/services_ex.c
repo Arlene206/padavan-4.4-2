@@ -576,7 +576,14 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 
 	if (!is_ap_mode) {
 		/* create /etc/hosts (run after fill_static_ethers!) */
-		update_hosts_router(ipaddr);
+		if (update_hosts_router(ipaddr) != 0) {
+			saved_errno = errno ? errno : EIO;
+			logmessage(LOGNAME,
+				   "cannot publish router hostname files; refusing DNSMasq preparation (errno=%d)",
+				   saved_errno);
+			errno = saved_errno;
+			return saved_errno;
+		}
 		
 		/* touch resolv.conf if not exist */
 		create_file(DNS_RESOLV_CONF);
