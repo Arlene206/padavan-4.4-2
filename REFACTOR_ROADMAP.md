@@ -1,9 +1,9 @@
 ## Current source / CI checkpoint
 
-- Current main source SHA: `32e10009d28e4d37013b5defbdc526d7e9aa5063` (LLTD/rstats boot launch failure diagnostics), parent `022bc51507ca5f395c60a1f450cc461bf5403926`. Process-lifecycle checker has new enabled/disabled sentinel contracts; exact-head run results are pending.
-- Parent 022bc had process-lifecycle #43732981693, HTTPD #43732981614, AI docs #43732981749, process inventory #43732981821, infosvr #43732981611, AdGuardHome #43732981580, FRP #43732981591, AliDDNS #43732981623, AliyunDrive #43732981731 and NVRAM #43732981609 PASS. XY-C1 #43732981606 remained in progress; no L3 claim.
-- AI docs on 32e (#43733575878) failed because the updated handoff omitted the exact required "Before context exhaustion" phrase; this follow-up restores the wording. Poll exact-head reruns.
-- LPD PID/start_time source-contract correction is green on parent 022bc. Networkmap, watchdog, infosvr and GPIO logging predate 32e; this source adds LLTD/rstats logs without changing disabled return-1 behavior.
+- Parent main for the SCUT/vlmcsd launch-status fix: `ba29a126870c7f57d4317edd2a0bd9c48508fa7d`; this atomic changeset updates both packaged scripts, a mock-command regression and process/firmware workflow path filters.
+- Parent 32e1 Actions included process lifecycle #43733575880, AI docs #43733575878, HTTPD security #43733575855 and XY-C1 #43733575797 queued; inventory #43733575902 in progress. AI handoff docs #43734087377 passed on docs-only SHA ba29.
+- SCUT no longer prints FAILED then exits 0; vlmcsd no longer lets logger success mask launch failure. Both scripts propagate the real daemon launch status. DNS Forwarder already logs launcher failure and verifies process appearance.
+- Next P1: `start_iperf3()` references `/usr/bin/iperf3.sh`, but the tracked package Makefile installs only `/bin/iperf3`; add a bounded start/stop helper, ROMFS installation and regression coverage. Physical-router L4 remains unverified.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` stays read-only; physical-router L4 NOT VERIFIED.
 
 ## Whole-repository module status

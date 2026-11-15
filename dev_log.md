@@ -1,3 +1,12 @@
+## 2026-11-15 — Propagate SCUT and vlmcsd startup launch failures
+
+- `scutclient.sh` printed `[FAILED]` when `start-stop-daemon` failed but unconditionally exited 0, hiding the failure from its RC wrapper. It now logs and propagates the original status, with a test-only PID-file path override for safe host testing.
+- `vlmcsd.sh` used the final logger command's status as the start result, masking any daemon launch failure. It now logs the launch failure and returns the original `vlmcsd` exit status.
+- Added a host-side regression with mocked `nvram`, `start-stop-daemon`, `vlmcsd` and `logger`; it verifies both success and failure status paths. Process-lifecycle executes the test; XY-C1 now watches both packaged app scripts.
+- Parent main: `ba29a126870c7f57d4317edd2a0bd9c48508fa7d`; resulting app-script/test/workflow/handoff checkpoint: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Restore required cross-session handoff checkpoint wording
 
 - AI handoff documentation run #43733575878 on exact SHA `32e10009d28e4d37013b5defbdc526d7e9aa5063` failed because the refreshed `SESSION_HANDOFF.md` checkpoint did not contain the required literal `Before context exhaustion`. No source or test failure was reported by this documentation job.

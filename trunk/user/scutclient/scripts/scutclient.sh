@@ -1,5 +1,5 @@
 #!/bin/sh
-pidfile="/var/scutclient.sh.pid"
+pidfile="${SCUTCLIENT_PIDFILE:-/var/scutclient.sh.pid}"
 scutclient_exec="bin_scutclient"
 LOG="$2"
 
@@ -23,7 +23,7 @@ func_start(){
 	fail_hook=$(nvram get scutclient_fail_exec)
 	sysdns=$(nvram get wan_dns1_x | cut -d ' ' -f 1)
 	echo -n "Starting scutclient:..."
-	start-stop-daemon -S -b -x "$scutclient_exec" -- -u "$(nvram get scutclient_username)" -p "$(nvram get scutclient_password)" \
+	if start-stop-daemon -S -b -x "$scutclient_exec" -- -u "$(nvram get scutclient_username)" -p "$(nvram get scutclient_password)" \
 	-i "$(nvram get wan_ifname)" \
 	-n "${sysdns:-"114.114.114.114"}" \
 	-H "$(nvram get scutclient_hostname)" \
@@ -32,13 +32,15 @@ func_start(){
 	-h "$(nvram get scutclient_hash)" \
 	"$(get_arg_debug)" "$(get_arg_skip_udp_hb)" \
 	-E "${auth_hook:-"echo 0 > /tmp/scutclient_status"}" \
-	-Q "${fail_hook:-"echo 1 > /tmp/scutclient_status"}"
-
-	if [ $? -eq 0 ] ; then
+	-Q "${fail_hook:-"echo 1 > /tmp/scutclient_status"}"; then
 		echo "[  OK  ]"
 		func_log "Daemon is started"
+		return 0
 	else
+		launch_status=$?
 		echo "[FAILED]"
+		func_log "Daemon launch failed (status=$launch_status)"
+		return "$launch_status"
 	fi
 }
 
@@ -50,20 +52,24 @@ func_stop(){
 	func_log "Stopped"
 }
 
+action_status=0
 case "$1" in
 start)
 	func_start
+	action_status=$?
 	;;
 stop)
 	func_stop
+	action_status=0
 	;;
 restart)
 	func_stop
 	func_start
+	action_status=$?
 	;;
 *)
 	echo "Usage: $0 { start | stop | restart }"
 	;;
 esac
-rm -f $pidfile
-exit 0
+rm -f "$pidfile"
+exit "$action_status"
