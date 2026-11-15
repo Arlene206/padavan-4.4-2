@@ -506,7 +506,13 @@ assert "PROCESS_PRESENCE_START_ABORT" in watchdog_httpd
 assert "stop_status = stop_httpd();" in watchdog_httpd
 assert watchdog_httpd.count("stop_httpd();") == 1
 assert "if (stop_status != 0)" in watchdog_httpd
-assert watchdog_httpd.index("stop_status = stop_httpd();") < watchdog_httpd.index("if (stop_status != 0)") < watchdog_httpd.index("return;") < watchdog_httpd.index("start_status = start_httpd(0);")
+httpd_stop_failure = watchdog_httpd.split("if (stop_status != 0)", 1)[1].split(
+    "start_status = start_httpd(0);", 1
+)[0]
+assert watchdog_httpd.index("stop_status = stop_httpd();") < watchdog_httpd.index(
+    "if (stop_status != 0)"
+) < watchdog_httpd.index("start_status = start_httpd(0);")
+assert "return;" in httpd_stop_failure
 assert "killall -9 httpd" not in watchdog_httpd
 assert "system(" not in watchdog_httpd
 assert "start_httpd(0)" in watchdog_httpd

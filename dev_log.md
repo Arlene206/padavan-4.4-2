@@ -1,3 +1,11 @@
+## 2026-11-15 — Correct HTTPD recovery ordering assertion
+
+- Exact process-lifecycle run `43674418682` on `c44b3f9b90ded466aea5a9160e8c957adf46eb26` passed every compile-time and integration check through the USB, WAN and detector paths, then failed on an over-broad watchdog checker assertion: it searched for the first `return;` in the whole HTTPD recovery body, which is the legitimate early return from UNKNOWN process presence, not the stop-failure branch.
+- Scoped the return assertion to the block between the checked `stop_httpd()` call and `start_httpd()`. The production source ordering is correct.
+- Changed paths: `check_process_lifecycle_integration.py`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Propagate 802.1X stop failures through wireless restart and shutdown
 
 - The 802.1X stop wrappers for `rt2860apd` and `rtinicapd` returned `void` and discarded `kill_services()` status. Both `restart_wifi_wl()` and `restart_wifi_rt()` then changed radio configuration and launched replacement wireless interfaces even when an old authenticator daemon had not stopped. Dual-band rollback also discarded authenticator cleanup results; shutdown did not include the all-radio 802.1X stop in its persistence gate.
