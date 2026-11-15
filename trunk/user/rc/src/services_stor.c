@@ -2021,10 +2021,20 @@ void run_dms(int force_rescan)
 	else if (db_rescan_mode == 1)
 		minidlna_argv[5] = "-U";
 
-	_eval(minidlna_argv, NULL, 0, NULL);
+	launch_status = _eval(minidlna_argv, NULL, 0, NULL);
+	if (launch_status != 0) {
+		logmessage(apps_name, "launch command failed (status=%d)", launch_status);
+		return;
+	}
 
-	if (is_dms_run() == PROCESS_PRESENCE_RUNNING)
+	process_state = is_dms_run();
+	if (process_state == PROCESS_PRESENCE_RUNNING)
 		logmessage(apps_name, "daemon is started");
+	else if (process_state == PROCESS_PRESENCE_ABSENT)
+		logmessage(apps_name, "launcher exited successfully but daemon is absent");
+	else
+		logmessage(apps_name, "cannot verify daemon startup (scan error=%d)",
+			   errno ? errno : EIO);
 }
 
 void restart_dms(int force_rescan)

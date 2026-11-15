@@ -1,3 +1,12 @@
+## 2026-11-15 — Report MiniDLNA launch and postcondition failures
+
+- run_dms() discarded the return from _eval() and only logged when a follow-up process scan found RUNNING. A failed launch, confirmed ABSENT state or UNKNOWN inventory was otherwise silent after config publication succeeded.
+- Capture the launcher status and stop on a nonzero result; after a successful launcher return, report RUNNING, ABSENT and UNKNOWN distinctly without changing feature guards or daemon launch order.
+- Added source-contract regression assertions in check_process_lifecycle_integration.py for the enable/support guards, launcher result, ordering and all three post-launch process states.
+- Parent main: a77f3921f3f3039bfc6e978f4878b54df5621e62; fresh exact Process and XY-C1 checks required.
+
+---
+
 ## 2026-11-15 — Refresh cross-session handoff after storage/FTP fixes
 
 - Replaced the stale, duplicated handoff with a current checkpoint at main d45672a7f0c74b99eaf93ddf6140fbac9f4fcbe7 and backup 72f4f157a084f8184b9597ca5bf334b8080e5807.
