@@ -470,7 +470,8 @@ for path in ("trunk/user/libdisk/src/disk_initial.c",
 
 
 # A failed flash must not advance the MD5 checkpoint and suppress identical retries.
-mtd_save_start = mtd_storage.index("func_save()")
+mtd_save_marker = "\nfunc_save()\n"
+mtd_save_start = mtd_storage.index(mtd_save_marker) + 1
 mtd_save_end = mtd_storage.index("\nfunc_backup()", mtd_save_start)
 mtd_save = mtd_storage[mtd_save_start:mtd_save_end]
 require('md5sum "$tmp" > "$hash_tmp"' in mtd_save and
