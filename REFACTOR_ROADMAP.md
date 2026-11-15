@@ -1,28 +1,29 @@
 ## Current source / CI checkpoint
 
-- Main at Transmission settings-contract slice start: 7bab2e0784e0e93e9defc451aed3fb8c89e448b9; frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- Exact XY-C1 #43762907958 cross-build PASS for C-source SHA b488a561bb91df62aca810a6ff2c191c17f82b2b (L3 for that exact source revision only). No L4.
-- WAN source fixes: static IPoE address error gate, checked physical WAN interface bring-up, AP-client WISP old interface cleanup/abort, and separate critical MAN gateway/default-route status for static PPTP/L2TP; optional route errors remain nonfatal to that static PPP decision.
-- Storage fixes: Aria uses `aria2.conf.tmp.$` staging and process-unique barrier markers (exact #43763413862 PASS). Transmission uses `settings.json.tmp.$`, checks generator/transform/rename, and fails closed on mkdir/chmod/chown setup faults (exact #43765111683 PASS). This slice adds strict expected/post-transform umask content validation.
-- Aria uses `aria2.conf.tmp.$`; its regression uses process-unique `entered.$` and `checked.$` rendezvous markers. Exact df267 storage run #43763413862 PASS.
-- Exact df267 push Actions all PASS: storage #43763413862, AI docs #43763413814, Process inventory #43763413812, Process lifecycle #43763413775, infosvr #43763413761, AliDDNS #43763413799, AliyunDrive #43763413767, AdGuardHome #43763413821 and NVRAM #43763413864. Earlier b488 XY-C1 cross-build #43762907958 PASS.
-- The Aria two-phase cat barrier now uses literal `entered.$$` and `checked.$$` names; exact-head storage regression #43763413862 on df267 passes.
+- Parent main for this repair: 4d2afeddba949b77dcbe1a8f6f950e9093438910; frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Exact parent USB storage #43765741973 failed at the launcher regression because optional argument $6 was read unconditionally under set -u. Exact parent AI handoff docs #43765741952 failed because root dev_log.md reached 120 records. This commit fixes the test default and performs the required 100-record archive rotation.
+- Parent XY-C1 #43765742001 was still in progress at last check. This commit changes Transmission shell source and should trigger a new XY-C1 validation because the workflow now watches trunk/user/transmission/transmission.sh. No current L3 for this source SHA and no L4.
+- Exact parent checks passed: AliDDNS #43765742065, infosvr #43765742025, AdGuardHome #43765742019, NVRAM #43765741983, AliyunDrive #43765741945, Process inventory #43765741935 and Process lifecycle #43765741927.
+- Aria's PID-qualified config stage and two-phase concurrency markers remain verified by earlier exact-head storage runs. Transmission fails closed on required directory and permission/ownership failures and checks the generated settings umask contract.
+- New source fix: settings-stage cleanup is ownership-aware. A noclobber collision leaves an existing path untouched; owned staging files are cleaned after later generator, transform or publication failures. Regression injects a deterministic collision.
+- Log archive rotation: part-011 contains the 100 oldest complete root records in chronological order; root dev_log.md retains 21 newest-first records including this repair. Archive index records exact bytes and Git blob SHA.
 
 ### P1 — Storage daemon startup and config publication
 
-- Preserve start-stop-daemon result, independent of logger.
-- Aria exact-head storage run #43763413862 PASS with both PID-unique barrier phases.
-- Transmission stages default settings in settings.json.tmp.$$ with private exclusive creation, validates generator status/nonempty output plus source umask 18, validates sed status and transformed umask 0, then checks same-directory rename and final file type/size. Failures clean the temp and abort before launch.
-- Regression injects generator failure, empty output, missing umask, transform failure, rename failure, setup mkdir/chmod/chown faults and inherited CONFIG_TMP cleanup safety under host shell and BusyBox ash. Exact a391 storage #43765111683 PASS; this slice's additional content validation awaits exact-head rerun.
+- Transmission and Aria preserve start-stop-daemon status independently from logger.
+- Transmission checks config/download/incomplete/watch directory creation, watch/root/download chmod and config/incomplete chown before daemon launch. Settings generation validates generator status, nonempty output and required umask 18; sed status and resulting umask 0; same-directory rename; and final regular/nonempty file.
+- Regression cases cover generator failure, empty and missing-umask output, transform and rename failure, required mkdir/chmod/chown failures, inherited CONFIG_TMP cleanup safety, and pre-existing stage collision under host shell and firmware BusyBox 1.24.2 ash.
+- Parent a391 storage #43765111683 passed all host/BusyBox and full storage checks. Parent 4d2 storage #43765741973 failed before the regression body due to an unbound optional test parameter; this is corrected in THIS COMMIT. New exact-head checks are pending.
+- Aria uses PID-unique aria2.conf.tmp.$$ staging and entered.$$/checked.$$ two-phase concurrency markers; retain the existing fault and parallel-start tests.
 
 ### P1 — WAN startup status propagation
 
 - Static IPoE address errors fail closed; initial physical interface bring-up checked; AP-client WISP migration guarded; required MAN gateway/default routes gate static MAN PPTP/L2TP.
-- XY-C1 L3 is only for exact C source SHA 401066; no L4.
+- XY-C1 L3 for WAN changes remains scoped to exact C source SHA 401066ebf04c50aaeb1ef47c36feb2ec210a0bc6; no L4.
 
 ### P1 — MSD Lite configuration publication
 
-- APP_MSD_LITE configuration uses checked same-directory staged publication with GNU89 ASan/UBSan regression coverage. The non-APP_MSD_LITE `#else` `/usr/sbin/udpxy` branch was restored in b488a561; Process lifecycle and XY-C1 exact-source cross-build checks passed on that revision (L3 only; no L4).
+- APP_MSD_LITE configuration uses checked same-directory staged publication with GNU89 ASan/UBSan regression coverage. The non-APP_MSD_LITE /usr/sbin/udpxy fallback was restored in b488a561; exact Process + XY-C1 checks passed for that source revision (L3 only; no L4).
 
 ### P2 — IGMP proxy configuration publication
 

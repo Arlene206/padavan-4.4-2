@@ -206,7 +206,7 @@ run_transmission_config_failure()
 	sed_status=$3
 	mv_status=$4
 	generator_empty=$5
-	generator_no_umask=$6
+	generator_no_umask=${6:-0}
 	failure_root="$TMP_DIR/transmission-$phase"
 	config_dir="$failure_root/config"
 	mkdir -p "$config_dir" "$failure_root/incomplete" "$failure_root/watch" "$TMP_DIR/Downloads"
@@ -252,6 +252,29 @@ run_transmission_config_failure missing-umask 0 0 0 0 1
 run_transmission_config_failure transform 0 9 0 0
 run_transmission_config_failure publish 0 0 9 0
 run_transmission_config_success
+run_transmission_staging_collision()
+{
+	collision_root="$TMP_DIR/transmission-stage-collision"
+	config_dir="$collision_root/config"
+	mkdir -p "$config_dir" "$collision_root/incomplete" "$collision_root/watch" "$TMP_DIR/Downloads"
+	collision_file="$config_dir/settings.json.tmp.collision-test"
+	printf '%s\n' 'preserve-existing-stage' > "$collision_file"
+	sed -e "s|SVC_PATH=\"/usr/bin/transmission-daemon\"|SVC_PATH=\"$STUB_DIR/transmission-daemon\"|" \
+	    -e "s|DIR_LINK=\"/mnt/transmission\"|DIR_LINK=\"$collision_root\"|" \
+	    -e 's|tmp\.\$\$|tmp.collision-test|' \
+	    "$TRANSMISSION_SRC" > "$TMP_DIR/transmission-stage-collision.sh"
+	marker="$collision_root/start-invoked"
+	if run_launcher "$TMP_DIR/transmission-stage-collision.sh" 0 0 0 0 "$marker" "" "$config_dir" ""; then
+		echo "Transmission started despite a pre-existing settings staging collision" >&2
+		exit 1
+	fi
+	[ ! -e "$marker" ] || { echo "Transmission launched after a staging collision" >&2; exit 1; }
+	[ ! -e "$config_dir/settings.json" ] || { echo "Transmission published settings after a staging collision" >&2; exit 1; }
+	[ -f "$collision_file" ] || { echo "Transmission deleted a pre-existing staging file" >&2; exit 1; }
+	[ "$(cat "$collision_file")" = "preserve-existing-stage" ] || { echo "Transmission modified a pre-existing staging file" >&2; exit 1; }
+}
+run_transmission_staging_collision
+
 run_transmission_setup_failure()
 {
 	phase=$1

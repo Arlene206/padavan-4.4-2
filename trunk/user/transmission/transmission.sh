@@ -15,10 +15,12 @@ DIR_LINK="/mnt/transmission"
 
 transmission_start_fail()
 {
-	if [ -n "$CONFIG_TMP" ]; then
+	# A failed noclobber open does not transfer ownership of a pre-existing path.
+	if [ "$CONFIG_TMP_OWNED" = "1" ] && [ -n "$CONFIG_TMP" ]; then
 		rm -f "$CONFIG_TMP" >/dev/null 2>&1 || true
-		CONFIG_TMP=""
 	fi
+	CONFIG_TMP=""
+	CONFIG_TMP_OWNED=0
 	logger -t "$SVC_NAME" "Cannot start: $1" >/dev/null 2>&1 || true
 	echo "[FAILED]"
 	return 1
@@ -37,6 +39,7 @@ func_start()
 {
 	# Avoid treating an inherited environment variable as our cleanup target.
 	CONFIG_TMP=""
+	CONFIG_TMP_OWNED=0
 	# Make sure already running
 	if [ -n "`pidof transmission-daemon`" ] ; then
 		return 0
@@ -77,11 +80,13 @@ func_start()
 		return 1
 	fi
 	if [ ! -s "$CONFIG_FILE" ]; then
-		CONFIG_TMP="${CONFIG_FILE}.tmp.$$"
+		CONFIG_TMP="${CONFIG_FILE}.tmp.$"
+		CONFIG_TMP_OWNED=0
 		if ! (umask 077; set -C; : > "$CONFIG_TMP") 2>/dev/null; then
 			transmission_start_fail "cannot create private settings staging file"
 			return 1
 		fi
+		CONFIG_TMP_OWNED=1
 		tr_user=`nvram get http_username`
 		tr_pass=`nvram get http_passwd`
 		if ! "$SVC_PATH" -w "$DIR_DL1" --incomplete-dir "$DIR_DL2" -c "$DIR_DL3" --no-incomplete-dir -y -L 90 -l 30 --no-utp -M -t -u "$tr_user" -v "$tr_pass" -P "$tr_pport" -p "$tr_rport" -x /var/run/transmission.pid -d 2>"$CONFIG_TMP"; then
@@ -105,6 +110,7 @@ func_start()
 			return 1
 		fi
 		CONFIG_TMP=""
+		CONFIG_TMP_OWNED=0
 	fi
 	if [ -L "$CONFIG_FILE" ] || [ ! -f "$CONFIG_FILE" ] || [ ! -s "$CONFIG_FILE" ]; then
 		transmission_start_fail "published settings are missing or empty"
