@@ -1791,6 +1791,10 @@ jobs:
           assert 'fopen("/etc/hosts", "w+")' not in hosts_update
           assert 'fopen("/etc/hostname", "w+")' not in hosts_update
           assert "if (update_hosts_router(ipaddr) != 0)" in service
+          assert "if (update_hosts_ap() != 0)" in dnsmasq_prepare_body
+          assert "cannot publish AP hostname files" in dnsmasq_prepare_body
+          assert dnsmasq_prepare_body.index("update_hosts_ap()") < dnsmasq_prepare_body.index('fp = dnsmasq_file_open(config_path);')
+          assert "initial AP hostname publication failed; DNSMasq preparation will retry" in net_lan
           assert 'fopen("/tmp/hosts.static", "w+")' not in service
           assert 'fopen(DNS_SERVERS_FILE, "w")' not in service
           assert 'create_file(DHCPD_LEASE_FILE)' not in service

@@ -681,7 +681,13 @@ start_lan(int is_ap_mode, int do_wait)
 	if (is_ap_mode) {
 		char *lan_dname = nvram_safe_get("lan_domain");
 		
-		(void)create_hosts_lan(lan_ipaddr, lan_dname);
+		{
+			int hosts_status = create_hosts_lan(lan_ipaddr, lan_dname);
+			if (hosts_status != 0)
+				logmessage(LOGNAME,
+					   "initial AP hostname publication failed; DNSMasq preparation will retry (status=%d)",
+					   hosts_status);
+		}
 		
 		if (nvram_match("lan_proto_x", "1")) {
 			

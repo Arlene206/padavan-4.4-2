@@ -588,7 +588,19 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 		return saved_errno;
 	}
 
-	if (!is_ap_mode) {
+	if (is_ap_mode) {
+		/* start_lan() populates the temporary AP lease fields before DNSMasq
+		 * startup. Re-publish here as a fail-closed preparation gate so an
+		 * earlier best-effort hostname write cannot leave stale host data. */
+		if (update_hosts_ap() != 0) {
+			saved_errno = errno ? errno : EIO;
+			logmessage(LOGNAME,
+				   "cannot publish AP hostname files; refusing DNSMasq preparation (errno=%d)",
+				   saved_errno);
+			errno = saved_errno;
+			return saved_errno;
+		}
+	} else {
 		/* create /etc/hosts (run after fill_static_ethers!) */
 		if (update_hosts_router(ipaddr) != 0) {
 			saved_errno = errno ? errno : EIO;
