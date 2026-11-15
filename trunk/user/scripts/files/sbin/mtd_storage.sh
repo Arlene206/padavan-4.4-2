@@ -44,22 +44,132 @@ func_start_apps()
 
 func_load()
 {
-	local fsz
+	local fsz load_storage backup_storage storage_parent storage_name backup_suffix had_storage hash_tmp
 
-	bzcat $mtd_part_dev > $tmp 2>/dev/null
-	fsz=`stat -c %s $tmp 2>/dev/null`
-	if [ -n "$fsz" ] && [ $fsz -gt 0 ] ; then
-		md5sum $tmp > $hsh
-		tar xf "$tmp" -C "$dir_storage" 2>/dev/null
-	else
+	# A decompressor can emit a prefix and still report corruption.
+	if ! bzcat "$mtd_part_dev" > "$tmp" 2>/dev/null; then
 		result=1
-		rm -f $hsh
-		logger -t "Storage load" "Invalid storage data in MTD partition: $mtd_part_dev"
+		rm -f "$tmp"
+		logger -t "Storage load" "Unable to decompress storage data from MTD partition: $mtd_part_dev"
+		return 1
 	fi
-	rm -f $tmp
-	rm -f $slk
-}
 
+	fsz=$(stat -c %s "$tmp" 2>/dev/null)
+	case "$fsz" in
+		""|*[!0-9]*)
+			result=1
+			rm -f "$tmp"
+			logger -t "Storage load" "Invalid storage data size in MTD partition: $fsz"
+			return 1
+			;;
+	esac
+	if [ "$fsz" -le 0 ]; then
+		result=1
+		rm -f "$tmp"
+		logger -t "Storage load" "Empty storage data in MTD partition: $mtd_part_dev"
+		return 1
+	fi
+	if [ -L "$dir_storage" ] || { [ -e "$dir_storage" ] && [ ! -d "$dir_storage" ]; }; then
+		result=1
+		rm -f "$tmp"
+		logger -t "Storage load" "Storage destination is not a real directory: $dir_storage"
+		return 1
+	fi
+
+	# Extract into a private sibling on the same tmpfs, not into live settings.
+	storage_parent=${dir_storage%/*}
+	storage_name=${dir_storage##*/}
+	load_storage=$(mktemp -d "${storage_parent}/.${storage_name}.load.XXXXXX" 2>/dev/null)
+	if [ -z "$load_storage" ] || [ ! -d "$load_storage" ]; then
+		result=1
+		rm -f "$tmp"
+		logger -t "Storage load" "Cannot allocate private storage load directory"
+		return 1
+	fi
+	if ! tar xf "$tmp" -C "$load_storage" 2>/dev/null; then
+		result=1
+		rm -rf "$load_storage"
+		rm -f "$tmp"
+		logger -t "Storage load" "Unable to extract storage archive from MTD partition: $mtd_part_dev"
+		return 1
+	fi
+	if ! chmod 755 "$load_storage"; then
+		result=1
+		rm -rf "$load_storage"
+		rm -f "$tmp"
+		logger -t "Storage load" "Unable to set storage directory permissions: $load_storage"
+		return 1
+	fi
+
+	# Stage the cache only after a complete extraction.
+	hash_tmp="${hsh}.tmp.$$"
+	if ! md5sum "$tmp" > "$hash_tmp"; then
+		result=1
+		rm -rf "$load_storage"
+		rm -f "$tmp" "$hash_tmp"
+		logger -t "Storage load" "Unable to stage storage hash checkpoint"
+		return 1
+	fi
+
+	backup_suffix=0
+	backup_storage="${storage_parent}/.${storage_name}.load-backup.$$"
+	while [ -e "$backup_storage" ] || [ -L "$backup_storage" ]; do
+		backup_suffix=$((backup_suffix + 1))
+		if [ "$backup_suffix" -gt 999 ]; then
+			result=1
+			rm -rf "$load_storage"
+			rm -f "$tmp" "$hash_tmp"
+			logger -t "Storage load" "Cannot allocate storage rollback pathname"
+			return 1
+		fi
+		backup_storage="${storage_parent}/.${storage_name}.load-backup.$$-$backup_suffix"
+	done
+
+	had_storage=0
+	if [ -d "$dir_storage" ]; then
+		if ! mv "$dir_storage" "$backup_storage"; then
+			result=1
+			rm -rf "$load_storage"
+			rm -f "$tmp" "$hash_tmp"
+			logger -t "Storage load" "Unable to preserve the previous storage directory: $dir_storage"
+			return 1
+		fi
+		had_storage=1
+	fi
+	if [ -e "$dir_storage" ] || [ -L "$dir_storage" ] ||
+	   ! mv "$load_storage" "$dir_storage"; then
+		result=1
+		if [ "$had_storage" -eq 1 ] && [ ! -e "$dir_storage" ] && [ ! -L "$dir_storage" ]; then
+			if ! mv "$backup_storage" "$dir_storage"; then
+				logger -t "Storage load" "CRITICAL: unable to restore previous storage directory; backup remains at $backup_storage"
+			fi
+		elif [ "$had_storage" -eq 1 ]; then
+			logger -t "Storage load" "CRITICAL: destination reappeared; previous storage preserved at $backup_storage"
+		fi
+		rm -rf "$load_storage"
+		rm -f "$tmp" "$hash_tmp"
+		logger -t "Storage load" "Unable to publish verified storage directory: $dir_storage"
+		return 1
+	fi
+
+	# A cache failure loses only the skip optimization; keep the complete tree.
+	if ! mv -f "$hash_tmp" "$hsh"; then
+		result=1
+		logger -t "Storage load" "Storage loaded but hash checkpoint publication failed"
+	fi
+	if [ "$had_storage" -eq 1 ] && ! rm -rf "$backup_storage"; then
+		result=1
+		logger -t "Storage load" "Storage loaded but previous directory cleanup failed: $backup_storage"
+	fi
+	if ! rm -f "$tmp"; then
+		result=1
+		logger -t "Storage load" "Storage loaded but temporary archive cleanup failed: $tmp"
+	fi
+	if ! rm -f "$slk"; then
+		result=1
+		logger -t "Storage load" "Storage loaded but storage lock marker cleanup failed: $slk"
+	fi
+}
 func_tarb()
 {
 	rm -f $tmp

@@ -94,6 +94,7 @@ persistence_policy = read("trunk/user/rc/src/storage_persistence_policy.h")
 persistence_test = read("trunk/user/rc/src/tests/storage_persistence_policy.c")
 mtd_storage_test = read("trunk/user/scripts/tests/mtd_storage_save_retry.sh")
 mtd_storage_restore_test = read("trunk/user/scripts/tests/mtd_storage_restore_transaction.sh")
+mtd_storage_load_test = read("trunk/user/scripts/tests/mtd_storage_load_transaction.sh")
 
 checked = body(libdisk, "read_disk_data_checked(disk_info_t **disk_info_out)")
 require("if (!disk_info_out)" in checked, "checked inventory must validate its output")
@@ -484,6 +485,35 @@ require("MTD_WRITE_FAIL=1" in mtd_storage_test and
         "unchanged save unexpectedly flashed again" in mtd_storage_test,
         "MTD retry test must cover write failure, identical retry and unchanged skip")
 
+# Boot-time MTD load must reject incomplete archives before publishing.
+mtd_load_start = mtd_storage.index("func_load()")
+mtd_load_end = mtd_storage.index("\nfunc_tarb()", mtd_load_start)
+mtd_load = mtd_storage[mtd_load_start:mtd_load_end]
+for token in ('if ! bzcat "$mtd_part_dev" > "$tmp" 2>/dev/null; then',
+              'if ! tar xf "$tmp" -C "$load_storage" 2>/dev/null; then',
+              'if ! md5sum "$tmp" > "$hash_tmp"; then',
+              'mv "$dir_storage" "$backup_storage"',
+              'mv "$load_storage" "$dir_storage"',
+              'mv "$backup_storage" "$dir_storage"',
+              'if ! mv -f "$hash_tmp" "$hsh"; then',
+              'if ! rm -f "$slk"; then'):
+    require(token in mtd_load, "MTD load misses " + token)
+require(mtd_load.index('if ! bzcat') < mtd_load.index('if ! tar xf') <
+        mtd_load.index('if ! md5sum') < mtd_load.index('mv "$dir_storage" "$backup_storage"') <
+        mtd_load.index('mv "$load_storage" "$dir_storage"') <
+        mtd_load.index('if ! mv -f "$hash_tmp" "$hsh"') <
+        mtd_load.index('if ! rm -f "$slk"; then'),
+        "MTD load must validate and stage the full tree before publication")
+require('tar xf "$tmp" -C "$dir_storage"' not in mtd_load and
+        'rm -rf "$dir_storage"' not in mtd_load,
+        "MTD load must never extract over or delete live config")
+require("BZCAT_STATUS=2" in mtd_storage_load_test and
+        "TAR_FAIL=1" in mtd_storage_load_test and
+        "MV_FAIL_AT=2" in mtd_storage_load_test and
+        "partial-extract.conf" in mtd_storage_load_test and
+        "BUSYBOX_BIN=" in mtd_storage_load_test,
+        "MTD load fixture must cover decompression, extraction, rollback, ash and success")
+
 writer = body(rc, "write_storage_to_mtd(void)")
 require('return doSystem("/sbin/mtd_storage.sh %s", "save");' in writer and
         "int write_storage_to_mtd(void);" in rc_header,
@@ -532,6 +562,7 @@ require("int storage_save_time(time_t delta);" in rc_header,
 for path in ("trunk/user/scripts/files/sbin/mtd_storage.sh",
              "trunk/user/scripts/tests/mtd_storage_save_retry.sh",
              "trunk/user/scripts/tests/mtd_storage_restore_transaction.sh",
+             "trunk/user/scripts/tests/mtd_storage_load_transaction.sh",
              "trunk/user/rc/src/storage_persistence_policy.h",
              "trunk/user/rc/src/tests/storage_persistence_policy.c"):
     require('"' + path + '"' in push_filters and '"' + path + '"' in pull_filters,

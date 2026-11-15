@@ -1,0 +1,106 @@
+#!/bin/sh
+set -eu
+script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
+repo_root=$(CDPATH= cd -- "$script_dir/../../../.." && pwd)
+sandbox=$(mktemp -d "${TMPDIR:-/tmp}/mtd-storage-load.XXXXXX")
+trap 'rm -rf "$sandbox"' EXIT HUP INT TERM
+mkdir -p "$sandbox/etc/storage" "$sandbox/private" "$sandbox/bin" "$sandbox/archive"
+printf '%s\n' 'mtd5: 00010000 00010000 "Storage"' > "$sandbox/proc-mtd"
+printf '%s\n' 'previous configuration' > "$sandbox/etc/storage/previous.conf"
+printf '%s\n' 'previous-checkpoint' > "$sandbox/private/storage_md5"
+: > "$sandbox/private/.storage_locked"
+printf '%s\n' 'new configuration' > "$sandbox/archive/config.conf"
+printf '%s\n' 'second entry' > "$sandbox/archive/secondary.conf"
+real_tar=$(command -v tar)
+"$real_tar" -cf "$sandbox/full.tar" -C "$sandbox/archive" config.conf secondary.conf
+sed \
+  -e "s|^dir_storage=.*|dir_storage=\"$sandbox/etc/storage\"|" \
+  -e "s|^slk=.*|slk=\"$sandbox/private/.storage_locked\"|" \
+  -e "s|^tmp=.*|tmp=\"$sandbox/private/storage.tar\"|" \
+  -e "s|^hsh=.*|hsh=\"$sandbox/private/storage_md5\"|" \
+  -e "s|cat /proc/mtd|cat \"$sandbox/proc-mtd\"|" \
+  "$repo_root/trunk/user/scripts/files/sbin/mtd_storage.sh" > "$sandbox/mtd_storage.sh"
+
+cat > "$sandbox/bin/logger" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+cat > "$sandbox/bin/bzcat" <<'EOF'
+#!/bin/sh
+cat "$BZCAT_FIXTURE"
+exit "${BZCAT_STATUS:-0}"
+EOF
+cat > "$sandbox/bin/tar" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$*" >> "$TAR_LOG"
+if [ "${TAR_FAIL:-0}" = 1 ]; then
+	target=
+	want_target=0
+	for arg do
+		if [ "$want_target" = 1 ]; then target=$arg; want_target=0
+		elif [ "$arg" = "-C" ]; then want_target=1
+		fi
+	done
+	[ -n "$target" ] || exit 99
+	printf '%s\n' 'partial extraction must not be published' > "$target/partial-extract.conf"
+	exit 2
+fi
+exec "$REAL_TAR" "$@"
+EOF
+cat > "$sandbox/bin/mv" <<'EOF'
+#!/bin/sh
+count=0
+[ ! -f "$MV_COUNT_FILE" ] || count=$(/bin/cat "$MV_COUNT_FILE")
+count=$((count + 1))
+printf '%s\n' "$count" > "$MV_COUNT_FILE"
+[ "${MV_FAIL_AT:-0}" != "$count" ] || exit 1
+exec /bin/mv "$@"
+EOF
+chmod +x "$sandbox/bin/logger" "$sandbox/bin/bzcat" "$sandbox/bin/tar" "$sandbox/bin/mv"
+export PATH="$sandbox/bin:$PATH" BZCAT_FIXTURE="$sandbox/full.tar"
+export TAR_LOG="$sandbox/tar.log" REAL_TAR="$real_tar" MV_COUNT_FILE="$sandbox/mv-count"
+
+run_load()
+{
+	if [ -n "${BUSYBOX_BIN:-}" ]; then "$BUSYBOX_BIN" ash "$sandbox/mtd_storage.sh" load
+	else sh "$sandbox/mtd_storage.sh" load
+	fi
+}
+assert_old_storage()
+{
+	[ "$(cat "$sandbox/etc/storage/previous.conf")" = "previous configuration" ] || exit 1
+	[ ! -e "$sandbox/etc/storage/partial-extract.conf" ] || exit 1
+	[ "$(cat "$sandbox/private/storage_md5")" = "previous-checkpoint" ] || exit 1
+	[ -f "$sandbox/private/.storage_locked" ] || exit 1
+	for scratch in "$sandbox/etc"/.storage.load.* "$sandbox/etc"/.storage.load-backup.*; do
+		[ ! -e "$scratch" ] || { echo "failed load left scratch data: $scratch" >&2; exit 1; }
+	done
+}
+
+export BZCAT_STATUS=2 TAR_FAIL=0 MV_FAIL_AT=0
+: > "$TAR_LOG"
+if run_load; then echo "decompression failure unexpectedly succeeded" >&2; exit 1; fi
+[ ! -s "$TAR_LOG" ] || { echo "tar ran after decompression failed" >&2; exit 1; }
+assert_old_storage
+
+export BZCAT_STATUS=0 TAR_FAIL=1
+if run_load; then echo "partial extraction unexpectedly succeeded" >&2; exit 1; fi
+assert_old_storage
+
+export TAR_FAIL=0 MV_FAIL_AT=2
+: > "$MV_COUNT_FILE"
+if run_load; then echo "injected storage publish failure unexpectedly succeeded" >&2; exit 1; fi
+assert_old_storage
+
+export MV_FAIL_AT=0
+: > "$MV_COUNT_FILE"
+if ! run_load; then echo "valid storage load unexpectedly failed" >&2; exit 1; fi
+[ "$(cat "$sandbox/etc/storage/config.conf")" = "new configuration" ] || exit 1
+[ "$(cat "$sandbox/etc/storage/secondary.conf")" = "second entry" ] || exit 1
+[ ! -e "$sandbox/etc/storage/previous.conf" ] || exit 1
+[ -s "$sandbox/private/storage_md5" ] || exit 1
+[ ! -e "$sandbox/private/.storage_locked" ] || exit 1
+for scratch in "$sandbox/etc"/.storage.load.* "$sandbox/etc"/.storage.load-backup.*; do
+	[ ! -e "$scratch" ] || { echo "successful load left scratch data: $scratch" >&2; exit 1; }
+done
+echo "MTD storage load transactional extraction regression: PASS"

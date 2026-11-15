@@ -8,25 +8,19 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2. Parent main for THIS COMMIT: `0ed88bde4fe182f057291429e7a94af5149da772`; immutable backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
-- Exact-head Actions on `0ed88bde4fe182f057291429e7a94af5149da772`: USB storage #43687076965 passed the new restore staging/copy-failure/install-rename rollback regression and all preceding shell/caller tests, then the source checker raised NameError because its expanded path-filter check used undefined `pr_filters` rather than `pull_filters`. Process lifecycle #43687076988 SUCCESS; Process lifecycle inventory #43687076969 SUCCESS; NVRAM transaction #43687076931 SUCCESS; AI handoff docs #43687076907 SUCCESS; infosvr #43687076961 SUCCESS; AdGuardHome #43687076974 SUCCESS; AliDDNS #43687077041 SUCCESS; AliyunDrive #43687076945 SUCCESS. HTTPD security #43687076956 failed only because its inline restore contract still expected the old destructive copy sequence. Both validation contracts are corrected in THIS COMMIT.
-- The transactional restore source and its fault-injection test passed on the parent. XY-C1 #43687076955 remained IN_PROGRESS at last poll; do not infer target build/TRX/artifact outcome.
-- No local full checkout or target toolchain is available. Current L3 and physical L4 remain NOT VERIFIED.
+- Repository: Arlene206/padavan-4.4-2. Base main SHA for THIS COMMIT: `b799ac5bb7588e015913a5bbc70e68efb5adec77`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only). Legacy PR #1 remains CLOSED / UNMERGED.
+- Product source already on main includes checked buffered storage writes (`180e90075a11ad1135ee6801915211548337b52e`), storage shutdown persistence gates, MTD save retry/GNU md5sum compatibility, RC timestamp persistence and transactional MTD restore.
+- Exact-head parent Actions on `b799ac5bb7588e015913a5bbc70e68efb5adec77`: USB storage #43687393291 SUCCESS; HTTPD security #43687393326 SUCCESS; Process inventory/lifecycle #43687393295 SUCCESS; NVRAM audit #43687393286 SUCCESS; AI handoff docs #43687393272 SUCCESS; infosvr #43687393356 SUCCESS; AdGuardHome #43687393288 SUCCESS; AliDDNS #43687393306 SUCCESS; AliyunDrive #43687393297 SUCCESS. XY-C1 #43687393279 was IN_PROGRESS at last poll.
+- Current P1 defect: `func_load()` ignores `bzcat`/tar failures, accepts partial non-empty decompression, publishes MD5 before extraction, and extracts directly into live `/etc/storage`. This commit validates/stages before same-filesystem directory replacement with rollback.
+- Current source L3 and physical L4 remain NOT VERIFIED. No full local checkout/toolchain or target hardware is available; no local shell/build result is claimed.
 ## Active task
 
-### Current P1 slice — reconcile restore source contracts after transactional replacement (THIS COMMIT)
+### P1 slice — Make boot-time MTD load transactional (THIS COMMIT)
 
-- On exact parent `0ed88bde4fe182f057291429e7a94af5149da772`, USB storage #43687076965 passed the actual restore copy-failure and rename-failure rollback regression plus MTD save retry, persistence gate, eject inventory and storage caller-graph tests. Its final checker failed because it used undefined `pr_filters` rather than `pull_filters` when checking push and PR path filters.
-- HTTPD security #43687076956 passed 33 earlier policy and storage checks, then its inline source contract failed on the old `cp -rf "$tmp_storage"/. "$dir_storage"/` restore sequence. Update that contract to check the prepared same-filesystem stage, copy, move of the old tree, install rename and rollback rename.
-- Process lifecycle #43687076988, NVRAM transaction #43687076931, Process lifecycle inventory #43687076969 and AI handoff docs #43687076907 all passed exact-head.
-- The P1 restore implementation is retained unchanged; this commit only repairs these two stale test contracts and records the exact outcomes.
-
-### Next P1 task — audit MTD load, backup and reset postconditions
-
-- `func_load()` ignores both `bzcat` and `tar xf` statuses and publishes the MD5 cache before validating extraction. Trace its early-boot caller and overlay semantics; prove whether partial extraction or false metadata publication can harm live configuration before changing behavior.
-- `func_backup()` reports compression failure but the HTTPD download path ignores the script status; trace `STORAGE_FIFO_FILENAME` and `do_file()` and ensure failed/partial archives cannot be downloaded as valid backups.
-- Audit `func_reset()` directory creation and `func_erase()` postconditions. Do not repeat the transactional restore, MTD save retry, RC timestamp/writer propagation, or completed eject/Optware/RWFS gates.
-
+- Early boot creates `/etc/storage` and invokes MTD load before defaults and the custom start script. Old load ignored decompressor/tar statuses, accepted partial output, advanced MD5 before extraction and unpacked over live configuration.
+- New load checks decompressor status, numeric/nonzero size, staged tar extraction, directory permissions and hash staging; then parks the old directory and publishes the complete sibling stage. Failed publication restores the old tree. Cleanup/checkpoint failures are surfaced without replacing good settings with partial data.
+- Added host and BusyBox ash regression for decompression failure after output, partial extraction, failed publish/rollback and complete replacement. Integrated storage workflow push/PR filters and production source checker.
+- Changed paths: `mtd_storage.sh`, new `mtd_storage_load_transaction.sh`, storage-hotplug workflow, `check_storage_safe_remove.py`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`. Parent `b799ac5bb7588e015913a5bbc70e68efb5adec77`; exact-head Actions PENDING. No local run is claimed.
 ## Explicitly uncompleted P1 work
 
 - Migrate remaining direct pids() callers by semantic group; keep the legacy Boolean API until all callers explicitly handle UNKNOWN. Continue auditing remaining kill_pidfile_s() and direct name-wide signal paths; Linux 4.4 retains a PID/start_time check-to-signal TOCTOU window.
@@ -60,9 +54,10 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head USB storage, HTTPD security, AI handoff docs and XY-C1 Actions for this commit. Confirm the restore regression and both updated source contracts; inspect logs on any failure.
-2. Continue the P1 caller audit: trace early-boot `mtd_storage.sh load`, inspect HTTPD storage backup/download artifact handling, then audit reset/erase behavior. Do not assume load's overlay semantics; confirm the boot sequence first.
-3. Commit complete source/test/workflow/docs trees on main using fresh expected SHA and `force=false`; do not update the immutable backup. Current-source L3 requires successful XY-C1 MIPS/uClibc build, TRX and uploaded artifact; L4 requires physical router validation.
+1. Inspect exact-head USB storage and XY-C1 Actions. Require host/BusyBox ash load fixtures, storage caller graph and source checker to pass.
+2. Continue P1 with `func_backup()` and HTTPD `do_storage_file()`: prevent a failed or partial backup from being streamed as valid; test compressor failure and file existence.
+3. Then update `do_restore_st_cgi()` to retain `STORAGE_FIFO_FILENAME` after failed restore for retry; audit `func_reset()`/`func_erase()` directory, MTD erase, lock and hash postconditions.
+4. Use fresh parent, one complete tree/commit, force=false/expected_sha; keep frozen backup untouched. Current L3/L4 NOT VERIFIED.
 
 Source/validation notes:
 - Parent main for THIS COMMIT: 31ae7b6f253734cc0abf5f67b5c34e861229155b; immutable backup: 72f4f157a084f8184b9597ca5bf334b8080e5807.

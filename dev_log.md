@@ -1,3 +1,12 @@
+## 2026-11-15 — Make boot-time MTD load transactional
+
+- Traced early boot: `dev_init.sh` creates `/etc/storage` and runs MTD load before defaults and the user start script. Old `func_load()` ignored decompression/extraction status, accepted partial output, advanced MD5 before extraction and unpacked over live data.
+- New load validates decompression and nonzero numeric output, extracts into a private sibling, checks tar/chmod/hash staging, then moves the old directory to rollback and publishes the verified stage. A failed publish restores old settings; the old hash and lock marker remain on all pre-publication failures.
+- Added host and BusyBox ash fault injection for decompression failure after output, partial extraction, failed publish/rollback and successful replacement. Integrated push/PR filters and production source contracts.
+- Parent `b799ac5bb7588e015913a5bbc70e68efb5adec77`: USB storage #43687393291, HTTPD security #43687393326, Process inventory/lifecycle #43687393295, NVRAM #43687393286, AI docs #43687393272, infosvr #43687393356, AdGuardHome #43687393288, AliDDNS #43687393306 and AliyunDrive #43687393297 SUCCESS; XY-C1 #43687393279 IN_PROGRESS. New commit Actions pending. No local shell, MIPS build or hardware result is claimed.
+
+---
+
 ## 2026-11-15 — Reconcile transactional restore contracts across storage and HTTPD Actions
 
 - Exact-head USB storage #43687076965 on `0ed88bde4fe182f057291429e7a94af5149da772` passed shell syntax, MTD save retry, the new restore copy-failure/install-rename rollback regression, storage persistence gate, disk inventory, daemon stop and storage caller graph. Its final checker failed with `NameError: pr_filters is not defined`; it had already split the workflow into `push_filters` and `pull_filters`. The path contract now consistently checks `pull_filters`.

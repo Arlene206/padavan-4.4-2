@@ -12,6 +12,7 @@ on:
       - "trunk/user/scripts/files/sbin/mtd_storage.sh"
       - "trunk/user/scripts/tests/mtd_storage_save_retry.sh"
       - "trunk/user/scripts/tests/mtd_storage_restore_transaction.sh"
+      - "trunk/user/scripts/tests/mtd_storage_load_transaction.sh"
       - "trunk/user/rc/src/storage_persistence_policy.h"
       - "trunk/user/rc/src/tests/storage_persistence_policy.c"
       - "trunk/user/rc/src/common_ex.c"
@@ -207,6 +208,13 @@ jobs:
         run: sh trunk/user/scripts/tests/mtd_storage_save_retry.sh
       - name: Verify MTD storage restore staging and rollback
         run: sh trunk/user/scripts/tests/mtd_storage_restore_transaction.sh
+      - name: Verify MTD storage load rejects incomplete archives transactionally
+        run: |
+          set -eu
+          sh trunk/user/scripts/tests/mtd_storage_load_transaction.sh
+          busybox_bin="$PWD/trunk/user/busybox/busybox-1.24.x/busybox"
+          test -x "$busybox_bin"
+          BUSYBOX_BIN="$busybox_bin" sh trunk/user/scripts/tests/mtd_storage_load_transaction.sh
       - name: Compile and run storage persistence gate regression
         run: |
           set -eu
