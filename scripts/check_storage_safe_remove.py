@@ -96,6 +96,7 @@ mtd_storage_test = read("trunk/user/scripts/tests/mtd_storage_save_retry.sh")
 mtd_storage_restore_test = read("trunk/user/scripts/tests/mtd_storage_restore_transaction.sh")
 mtd_storage_load_test = read("trunk/user/scripts/tests/mtd_storage_load_transaction.sh")
 mtd_storage_backup_test = read("trunk/user/scripts/tests/mtd_storage_backup_failure.sh")
+mtd_storage_erase_reset_test = read("trunk/user/scripts/tests/mtd_storage_erase_reset.sh")
 
 checked = body(libdisk, "read_disk_data_checked(disk_info_t **disk_info_out)")
 require("if (!disk_info_out)" in checked, "checked inventory must validate its output")
@@ -500,8 +501,8 @@ for token in ('if ! bzcat "$mtd_part_dev" > "$tmp" 2>/dev/null; then',
               'if ! rm -f "$slk"; then'):
     require(token in mtd_load, "MTD load misses " + token)
 lock_cleanup_check = 'if ! rm -f "$slk"; then'
-require(mtd_load.count(lock_cleanup_check) == 2,
-        "MTD load must check both blank-flash unlock and successful-load cleanup")
+require(mtd_load.count(lock_cleanup_check) == 3,
+        "MTD load must check zero-byte decompression failure, empty stream and successful-load cleanup")
 require(mtd_load.index('if ! bzcat') < mtd_load.index('if ! tar xf') <
         mtd_load.index('if ! md5sum') < mtd_load.index('mv "$dir_storage" "$backup_storage"') <
         mtd_load.index('mv "$load_storage" "$dir_storage"') <
@@ -522,6 +523,55 @@ require('if [ "$fsz" = "0" ]; then' in bzcat_failure and
 empty_size_branch = mtd_load.split('if [ "$fsz" -le 0 ]; then', 1)[1].split(chr(10) + "\tfi", 1)[0]
 require('rm -f "$hsh"' in empty_size_branch and 'rm -f "$slk"' in empty_size_branch,
         "successful empty decompression must also clear the one-shot lock")
+# Destructive erase/reset must preserve a save barrier across uncertain outcomes.
+erase_body = body(mtd_storage, "func_erase()")
+for token in ('if ! touch "$slk"; then',
+              'if ! mtd_write erase "$mtd_part_name"; then',
+              'if ! rm -f "$hsh"; then',
+              'if ! rm -rf "$dir_storage"; then',
+              'if ! mkdir -p -m 755 "$dir_storage"; then'):
+    require(token in erase_body, "MTD erase postcondition check misses " + token)
+require(erase_body.index('if ! touch "$slk"; then') <
+        erase_body.index('if ! mtd_write erase "$mtd_part_name"; then') <
+        erase_body.index('if ! rm -f "$hsh"; then') <
+        erase_body.index('if ! rm -rf "$dir_storage"; then') <
+        erase_body.index('if ! mkdir -p -m 755 "$dir_storage"; then'),
+        "MTD erase must lock before flash and check hash/directory cleanup in order")
+require("MTD erase failed; storage save lock retained" in erase_body,
+        "uncertain or partial MTD erase must retain the save lock")
+
+reset_body = body(mtd_storage, "func_reset()")
+for token in ('if ! touch "$slk"; then',
+              'if ! rm -f "$hsh"; then',
+              'if ! rm -rf "$dir_storage"; then',
+              'if ! mkdir -p -m 755 "$dir_storage"; then'):
+    require(token in reset_body, "storage reset postcondition check misses " + token)
+require(reset_body.index('if ! touch "$slk"; then') <
+        reset_body.index('if ! rm -f "$hsh"; then') <
+        reset_body.index('if ! rm -rf "$dir_storage"; then') <
+        reset_body.index('if ! mkdir -p -m 755 "$dir_storage"; then'),
+        "storage reset must retain the save barrier while replacing its directory")
+reset_case_start = mtd_storage.index("\nreset)\n") + 1
+reset_case_end = mtd_storage.index("\n\t;;", reset_case_start)
+reset_dispatch = mtd_storage[reset_case_start:reset_case_end]
+require("if func_reset && func_fill; then" in reset_dispatch and
+        reset_dispatch.index('if ! rm -f "$slk"; then') <
+        reset_dispatch.index("func_start_apps"),
+        "reset dispatch must fill defaults before unlocking and starting applications")
+require("Reset preparation failed; storage save lock retained" in reset_dispatch,
+        "failed reset preparation must not continue into default fill or app startup")
+for item in ("MTD_WRITE_STATUS", "FAIL_TOUCH_PATH", "FAIL_RM_PATH",
+             "FAIL_MKDIR_PATH", "FILL_FAIL", "reset-lock-release-failure",
+             "erase-directory-recreation-failure"):
+    require(item in mtd_storage_erase_reset_test,
+            "erase/reset fixture lacks injection case: " + item)
+require('sh trunk/user/scripts/tests/mtd_storage_erase_reset.sh' in workflow and
+        'BUSYBOX_BIN="$busybox_bin" sh trunk/user/scripts/tests/mtd_storage_erase_reset.sh' in workflow,
+        "erase/reset fixture must run under host shell and firmware BusyBox ash")
+require('"trunk/user/scripts/tests/mtd_storage_erase_reset.sh"' in push_filters and
+        '"trunk/user/scripts/tests/mtd_storage_erase_reset.sh"' in pull_filters,
+        "storage erase/reset test must be covered by push and pull_request path filters")
+
 require("BZCAT_STATUS=2" in mtd_storage_load_test and
         "BZCAT_EMPTY=1" in mtd_storage_load_test and
         "empty successful decompression unexpectedly succeeded" in mtd_storage_load_test and

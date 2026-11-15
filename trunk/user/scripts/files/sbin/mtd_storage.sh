@@ -406,22 +406,62 @@ func_restore()
 }
 func_erase()
 {
-	mtd_write erase $mtd_part_name
-	if [ $? -eq 0 ] ; then
-		rm -f $hsh
-		rm -rf $dir_storage
-		mkdir -p -m 755 $dir_storage
-		touch "$slk"
-	else
+	# Block concurrent persistence before touching the flash partition.
+	if ! touch "$slk"; then
 		result=1
+		logger -t "Storage" "Cannot create storage save lock before MTD erase: $slk"
+		return 1
 	fi
+	if ! mtd_write erase "$mtd_part_name"; then
+		# The flash may have been partially erased; retain the lock until boot
+		# can inspect the partition instead of allowing a possibly unsafe save.
+		result=1
+		logger -t "Storage" "MTD erase failed; storage save lock retained: $mtd_part_name"
+		return 1
+	fi
+	if ! rm -f "$hsh"; then
+		result=1
+		logger -t "Storage" "MTD erase succeeded but storage hash cleanup failed: $hsh"
+		return 1
+	fi
+	if ! rm -rf "$dir_storage"; then
+		result=1
+		logger -t "Storage" "MTD erase succeeded but storage directory removal failed: $dir_storage"
+		return 1
+	fi
+	if ! mkdir -p -m 755 "$dir_storage"; then
+		result=1
+		logger -t "Storage" "MTD erase succeeded but storage directory recreation failed: $dir_storage"
+		return 1
+	fi
+	# Keep the marker: only the next boot's blank-MTD check may release it.
+	return 0
 }
 
 func_reset()
 {
-	rm -f $slk
-	rm -rf $dir_storage
-	mkdir -p -m 755 $dir_storage
+	# Keep persistence disabled until the replacement defaults are complete.
+	if ! touch "$slk"; then
+		result=1
+		logger -t "Storage reset" "Cannot create storage save lock: $slk"
+		return 1
+	fi
+	if ! rm -f "$hsh"; then
+		result=1
+		logger -t "Storage reset" "Cannot remove stale storage hash: $hsh"
+		return 1
+	fi
+	if ! rm -rf "$dir_storage"; then
+		result=1
+		logger -t "Storage reset" "Cannot remove old storage directory: $dir_storage"
+		return 1
+	fi
+	if ! mkdir -p -m 755 "$dir_storage"; then
+		result=1
+		logger -t "Storage reset" "Cannot recreate storage directory: $dir_storage"
+		return 1
+	fi
+	return 0
 }
 
 func_fill()
@@ -969,9 +1009,20 @@ erase)
 	;;
 reset)
 	func_stop_apps
-	func_reset
-	func_fill
-	func_start_apps
+	if func_reset && func_fill; then
+		# Release the barrier only after the complete default tree exists.
+		if ! rm -f "$slk"; then
+			result=1
+			logger -t "Storage reset" "Defaults prepared but storage save lock cleanup failed: $slk"
+		fi
+		if ! func_start_apps; then
+			result=1
+			logger -t "Storage reset" "Defaults prepared but storage applications failed to start"
+		fi
+	else
+		result=1
+		logger -t "Storage reset" "Reset preparation failed; storage save lock retained"
+	fi
 	;;
 fill)
 	func_mdir

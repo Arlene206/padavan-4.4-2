@@ -1,3 +1,14 @@
+## 2026-11-15 16:05 CST — Make MTD erase and reset fail closed
+
+- `func_erase()` now establishes the persistent save lock before the irreversible MTD erase, checks the flash command and every hash/directory operation, and keeps the lock on failed or uncertain outcomes. A successful physical erase is not claimed to be reversible.
+- `func_reset()` now locks persistence before deleting the stale hash and old settings directory, checks removal/recreation, and keeps the lock on partial failure. The dispatcher fills defaults before releasing the marker and does not start services after an incomplete preparation.
+- Added deterministic regression coverage for flash failure, lock creation, hash removal, storage removal/recreation, default-fill and lock-release failures. USB storage Actions now run it under the host shell and BusyBox 1.24.2 ash. Corrected the exact-head MTD-load source contract from two to three checked lock-removal paths; the previous exact-head run failed only at that assertion after all preceding steps passed.
+- Changed paths: `mtd_storage.sh`, `mtd_storage_erase_reset.sh`, `check_storage_safe_remove.py`, storage-hotplug workflow, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`. Parent SHA: `1eb57714cd9cbaaa71a4074615eaf472f053f359`; result: THIS COMMIT. Exact-head storage, AI docs and XY-C1 Actions required.
+- No local checkout/test, current-source MIPS firmware build or hardware result is claimed. L4 remains NOT VERIFIED.
+
+
+---
+
 ## 2026-11-15 15:44 CST — Repair MTD load source contract and restore full log window
 
 - Exact-head USB storage #43691365991 on 361bf44c724e64f3826b876d43a876bb65fc6039 passed MTD syntax, save-retry, restore, host + BusyBox ash load/backup fixtures, GNU89 persistence/inventory/lock tests and the full caller graph. It failed only in scripts/check_storage_safe_remove.py line 502: the order assertion used index() and selected the first save-lock removal token in the blank-flash error path, rather than the final successful-load cleanup. The checker now explicitly requires both checked lock-removal paths and orders the final one with rindex().
