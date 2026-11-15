@@ -17,6 +17,7 @@ on:
       - "trunk/user/rc/src/net_ppp.c"
       - "trunk/user/rc/src/xl2tpd_start_policy.h"
       - "trunk/user/rc/src/net_wifi.c"
+      - "trunk/user/rc/src/auth.c"
       - "trunk/user/rc/src/inicd.c"
       - "trunk/user/rc/src/vpn_server.c"
       - "trunk/user/rc/src/vpn_client.c"

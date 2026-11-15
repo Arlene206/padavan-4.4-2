@@ -473,6 +473,22 @@ assert shutdown_router.index("auth_stop_status = stop_8021x_all();") < shutdown_
 assert '"trunk/user/rc/src/net_wifi.c"' in process_workflow
 assert '"trunk/user/rc/src/rc.c"' in process_workflow
 
+auth_source = (root / "trunk/user/rc/src/auth.c").read_text()
+auth_stop_kabinet = auth_source.split("int stop_auth_kabinet(void)", 1)[1].split("\n}", 1)[0]
+auth_stop_eapol = auth_source.split("int stop_auth_eapol(void)", 1)[1].split("\n}", 1)[0]
+auth_start_kabinet = auth_source.split("int start_auth_kabinet(void)", 1)[1].split("\n}", 1)[0]
+auth_start_eapol = auth_source.split("int start_auth_eapol(", 1)[1].split("\n}", 1)[0]
+assert "return kill_services(svcs, 3, 1);" in auth_stop_kabinet
+assert "return kill_services(svcs, 3, 1);" in auth_stop_eapol
+assert "ret = stop_auth_kabinet();" in auth_start_kabinet
+assert "if (ret != 0)" in auth_start_kabinet
+assert auth_start_kabinet.index("ret = stop_auth_kabinet();") < auth_start_kabinet.index("if (ret != 0)") < auth_start_kabinet.index('eval("/usr/sbin/lanauth"')
+assert "ret = stop_auth_eapol();" in auth_start_eapol
+assert "if (ret != 0)" in auth_start_eapol
+assert auth_start_eapol.index("ret = stop_auth_eapol();") < auth_start_eapol.index("if (ret != 0)") < auth_start_eapol.index('fopen(wpa_conf, "w")')
+assert '"trunk/user/rc/src/auth.c"' in process_workflow
+assert '"trunk/user/rc/src/auth.c"' in xy_workflow
+
 watchdog_source = (root / "trunk/user/rc/src/watchdog.c").read_text()
 httpd_probe = watchdog_source.split("static int\nhttpd_check_v2()", 1)[1].split(
     "\nstatic int\nrefresh_ntp(void)", 1

@@ -1,3 +1,12 @@
+## 2026-11-15 — Abort WAN authentication restart when old daemons fail to stop
+
+- `start_auth_kabinet()` and `start_auth_eapol()` both called void stop wrappers that discarded `kill_services()` results, then rewrote credentials/configuration and launched new authentication daemons regardless of whether old `lanauth`, `wpa_cli` or `wpa_supplicant` instances remained.
+- Converted the two stop wrappers to return the underlying lifecycle result and made both start paths fail closed before launching replacements or rewriting the EAPOL config when the prior stop is incomplete. Updated shared prototypes.
+- Extended the process-lifecycle checker for wrapper result propagation and stop-before-config/launch ordering. Added `auth.c` to both the sanitizer source-contract and XY-C1 firmware build path filters.
+- Changed paths: `auth.c`, `rc.h`, `check_process_lifecycle_integration.py`, `process-lifecycle-regression.yml`, `xy-c1-firmware-validation.yml`, `dev_log.md`. Result: THIS COMMIT. Exact-head sanitizer/source contract and XY-C1 MIPS/uClibc validation required.
+
+---
+
 ## 2026-11-15 — Correct HTTPD recovery ordering assertion
 
 - Exact process-lifecycle run `43674418682` on `c44b3f9b90ded466aea5a9160e8c957adf46eb26` passed every compile-time and integration check through the USB, WAN and detector paths, then failed on an over-broad watchdog checker assertion: it searched for the first `return;` in the whole HTTPD recovery body, which is the legitimate early return from UNKNOWN process presence, not the stop-failure branch.

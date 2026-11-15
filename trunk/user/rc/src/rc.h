@@ -163,9 +163,9 @@ int  sys_stop(void);
 /* auth.c */
 int  wpacli_main(int argc, char **argv);
 int  start_auth_eapol(char *ifname, int unit, int eap_algo);
-void stop_auth_eapol(void);
+int stop_auth_eapol(void);
 int  start_auth_kabinet(void);
-void stop_auth_kabinet(void);
+int stop_auth_kabinet(void);
 
 /* common_ex.c */
 long uptime(void);

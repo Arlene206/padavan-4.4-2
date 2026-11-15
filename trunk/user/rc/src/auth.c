@@ -23,10 +23,10 @@
 
 #include "rc.h"
 
-void stop_auth_kabinet(void)
+int stop_auth_kabinet(void)
 {
 	char *svcs[] = { "lanauth", NULL };
-	kill_services(svcs, 3, 1);
+	return kill_services(svcs, 3, 1);
 }
 
 int start_auth_kabinet(void)
@@ -35,7 +35,11 @@ int start_auth_kabinet(void)
 	char *gateip = nvram_safe_get("wan_auth_host");
 	char *passwd = nvram_safe_get("wan_auth_pass");
 
-	stop_auth_kabinet();
+	ret = stop_auth_kabinet();
+	if (ret != 0) {
+		logmessage("lanauth", "authentication restart aborted because the previous daemon did not stop (status=%d)", ret);
+		return ret;
+	}
 
 	if (strlen(passwd) < 1) {
 		logmessage("lanauth", "password is empty, unable to start!");
@@ -53,10 +57,10 @@ int start_auth_kabinet(void)
 	return ret;
 }
 
-void stop_auth_eapol(void)
+int stop_auth_eapol(void)
 {
 	char *svcs[] = { "wpa_cli", "wpa_supplicant",  NULL };
-	kill_services(svcs, 3, 1);
+	return kill_services(svcs, 3, 1);
 }
 
 int start_auth_eapol(char *ifname, int unit, int eap_algo)
@@ -81,7 +85,11 @@ int start_auth_eapol(char *ifname, int unit, int eap_algo)
 		NULL
 	};
 
-	stop_auth_eapol();
+	ret = stop_auth_eapol();
+	if (ret != 0) {
+		logmessage("EAPoL", "authentication restart aborted because previous daemons did not stop (status=%d)", ret);
+		return ret;
+	}
 
 	/* Generate options file */
 	if ((fp = fopen(wpa_conf, "w")) == NULL) {
