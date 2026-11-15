@@ -807,6 +807,22 @@ assert '"trunk/user/rc/src/services.c"' in process_workflow
 assert '"trunk/user/rc/src/services.c"' in xy_workflow
 print("LLTD/rstats boot launch status and disabled-sentinel contracts: PASS")
 
+iappd_boot = services_source.split("int\nstart_services_once(int is_ap_mode)", 1)[1].split("\n}\n", 1)[0]
+iappd_restart_at = iappd_boot.index('int iappd_restart_status = system("/usr/bin/iappd.sh restart");')
+tproxy_load_at = iappd_boot.index('int tproxy_module_status = system("modprobe xt_TPROXY");')
+iappd_test_at = iappd_boot.index('int iappd_test_status = system("/usr/bin/iappd.sh test");')
+assert "Ralink IAPP restart command failed (wait status=%d)" in iappd_boot
+assert "xt_TPROXY module load command failed (wait status=%d)" in iappd_boot
+assert "Ralink IAPP post-start test failed (wait status=%d)" in iappd_boot
+assert iappd_restart_at < tproxy_load_at < iappd_test_at
+assert "if (iappd_restart_status != 0)" in iappd_boot
+assert "if (tproxy_module_status != 0)" in iappd_boot
+assert "if (iappd_test_status != 0)" in iappd_boot
+assert 'system("/usr/bin/iappd.sh restart");' not in iappd_boot
+assert 'system("/usr/bin/iappd.sh test");' not in iappd_boot
+assert 'system("modprobe xt_TPROXY");' not in iappd_boot
+print("IAPPD RC restart, TPROXY load and post-start test status propagation: PASS")
+
 telnetd_start = services_source.split("int\nstart_telnetd(void)", 1)[1].split("\n}\n", 1)[0]
 assert 'if (!nvram_match("telnetd", "1"))' in telnetd_start
 assert telnetd_start.index("return 0;") < telnetd_start.index('optional_daemon_start_status("telnetd", "telnetd")')

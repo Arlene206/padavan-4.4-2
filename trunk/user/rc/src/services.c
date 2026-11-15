@@ -1395,9 +1395,24 @@ start_services_once(int is_ap_mode)
 #if defined(APP_MENTOHUST)
 	start_mentohust();
 #endif
-	system("/usr/bin/iappd.sh restart");
-	system("modprobe xt_TPROXY");
-	system("/usr/bin/iappd.sh test");
+	{
+		int iappd_restart_status = system("/usr/bin/iappd.sh restart");
+		if (iappd_restart_status != 0)
+			logmessage(LOGNAME, "Ralink IAPP restart command failed (wait status=%d)",
+				   iappd_restart_status);
+	}
+	{
+		int tproxy_module_status = system("modprobe xt_TPROXY");
+		if (tproxy_module_status != 0)
+			logmessage(LOGNAME, "xt_TPROXY module load command failed (wait status=%d)",
+				   tproxy_module_status);
+	}
+	{
+		int iappd_test_status = system("/usr/bin/iappd.sh test");
+		if (iappd_test_status != 0)
+			logmessage(LOGNAME, "Ralink IAPP post-start test failed (wait status=%d)",
+				   iappd_test_status);
+	}
 	return 0;
 }
 

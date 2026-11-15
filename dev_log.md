@@ -1,3 +1,12 @@
+## 2026-11-15 — Surface IAPPD wrapper results at the RC boot caller
+
+- The IAPPD shell wrapper now propagates launcher, firewall, stop and process-postcondition failures, but `start_services_once()` discarded the results of `system("/usr/bin/iappd.sh restart")`, `system("modprobe xt_TPROXY")` and `system("/usr/bin/iappd.sh test")`. This hid both failed startup and failed post-start health verification at the top-level boot orchestrator.
+- Capture and log each command's `system()` wait status independently while preserving existing order and best-effort boot policy. An optional IAPPD or xt_TPROXY module-load failure remains nonfatal to unrelated services but is no longer silent.
+- Extend the process-lifecycle source contract to require the three assigned results, distinct nonzero diagnostics, exact call order and absence of raw unobserved calls. `services.c` is already included in the process and XY-C1 path filters.
+- Parent main: `db6615af1928b3c7ea8cd564830d6ccc05d431c7`; result: THIS COMMIT. Exact Process lifecycle and XY-C1/TRX/artifact checks required; no target or physical IAPPD run claimed.
+
+---
+
 ## 2026-11-15 — Report IPTV streaming proxy launch command failures
 
 - `start_udpxy()` ignored the `eval()` result for both supported launch paths, `/usr/sbin/udpxy` and optional `/usr/bin/msd_lite`. `start_xupnpd()` ignored both its foreground `eval()` and the background-shell `system("/usr/bin/xupnpd &")` result. An enabled proxy could therefore fail at the launch command without a service-specific boot diagnostic.

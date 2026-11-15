@@ -1,6 +1,6 @@
 ## Current source / CI checkpoint
 
-- Current main parent for IPTV proxy diagnostics: `a3aa716b5205b0b48f0aa656234fa125e5251542`. IAPPD exact Process #43738886473 PASS; 802.1X Process #43739228138, inventory #43739227948 and wireless radio #43739228377 PASS. The iperf3 ROMFS fix is in a3aa; exact Process #43739572150 and process inventory #43739572120 PASS, while XY-C1 #43739572125 remained IN_PROGRESS at Build. NVRAM #43739572197 remained IN_PROGRESS at raw ioctl audit. TRX/artifact validation remains required.
+- Current parent for IAPPD RC-caller status reporting: `db6615af1928b3c7ea8cd564830d6ccc05d431c7`. Exact db661 Process #43740074825, AI docs #43740074768, NVRAM #43740074736, AdGuardHome #43740074816, WAN route #43740074841, AliyunDrive #43740074721, AliDDNS #43740074783 and infosvr #43740074867 PASS. XY-C1 #43740074742 remained IN_PROGRESS at Build; TRX/artifact pending.
 - Exact-parent Action summary: infosvr packet and signal lifecycle stability regression #43738132617 completed/success; NFS daemon start and reload lifecycle regression #43738132578 completed/success; AI handoff documentation contract #43738132573 completed/success; Process inventory and lifecycle fail-closed regression #43738132620 completed/success; Process lifecycle inventory - 479c05be3bef946f892f81a296d0ca3e709a698f #43738132593 completed/success; NVRAM transaction boundary audit #43738132600 completed/success; fresh process-lifecycle and XY-C1 checks are required after this source commit.
 - Exact 925e AI docs #43737910530, process inventory/lifecycle fail-closed #43737910499, infosvr #43737910533, AdGuardHome #43737910558, AliDDNS #43737910522 and AliyunDrive #43737910604 PASS; NVRAM #43737910496 was IN_PROGRESS at last poll. No NFS workflow was triggered on 925e; the corrected test needs a fresh exact-head run.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only. Do not claim XY-C1 L3 or physical-router L4 without current-SHA build/TRX/artifact and hardware evidence.
@@ -8,6 +8,10 @@
 ### P2 — IPTV streaming proxy launch failure visibility
 
 - `start_udpxy()` ignored launch statuses from `/usr/sbin/udpxy` and optional `/usr/bin/msd_lite`; `start_xupnpd()` ignored `eval()` and `system("... &")` results. This slice captures/logs nonzero command statuses while keeping service guards/provider selection intact. The background shell result is not a child-readiness postcondition; config publishing remains separate follow-up work.
+
+### P2 — IAPPD boot caller status visibility
+
+- RC previously discarded `system()` results from `iappd.sh restart`, `modprobe xt_TPROXY` and `iappd.sh test`, hiding failures from the wrapper fixed in the preceding IAPPD task. This slice captures and logs each nonzero wait status without making optional-service failure abort unrelated boot.
 
 ## Whole-repository module status
 
