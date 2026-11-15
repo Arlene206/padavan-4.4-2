@@ -67,6 +67,8 @@ net = read("trunk/user/rc/src/net.c")
 rc = read("trunk/user/rc/src/rc.c")
 rc_header = read("trunk/user/rc/src/rc.h")
 policy = read("trunk/user/rc/src/storage_service_stop_policy.h")
+ftp_policy = read("trunk/user/rc/src/ftp_daemon_policy.h")
+ftp_test = read("trunk/user/rc/src/tests/ftp_daemon_policy.c")
 workflow = read(".github/workflows/storage-hotplug-stability.yml")
 xy_workflow = read(".github/workflows/xy-c1-firmware-validation.yml")
 
@@ -124,6 +126,45 @@ require('ret = safe_remove_all_stor_devices(1);' in rc,
 complete = body(policy, "storage_safe_remove_complete(")
 require("path_status != 0" in complete and "fallback_status != 0" in complete and "remaining_mounts != 0" in complete,
         "safe eject must reject unmount failures and residual/unknown mounts")
+require("storage_service_process_presence_changed" in policy and
+        "before < 0 || after < 0" in policy,
+        "unknown daemon state must force conservative firewall reconciliation")
+require("storage_service_process_presence_changed" in storage,
+        "FTP, Transmission and Aria firewall refresh must use tri-state presence")
+presence = body(storage, "storage_daemon_presence(const char *daemon, int *scan_error)")
+require("process_inventory_scan(daemon, &snapshot)" in presence and
+        "process_snapshot_release(&snapshot);" in presence and
+        "PROCESS_PRESENCE_UNKNOWN" in presence,
+        "storage daemon query must preserve process-inventory UNKNOWN")
+for daemon, signature in (
+    ("vsftpd", "is_ftp_run(void)"),
+    ("minidlna", "int is_dms_run(void)"),
+    ("mt-daapd", "int is_itunes_run(void)"),
+    ("transmission-daemon", "int is_torrent_run(void)"),
+    ("aria2c", "int is_aria_run(void)"),
+):
+    state_fn = body(storage, signature)
+    require('storage_daemon_presence("' + daemon + '", NULL)' in state_fn,
+            "storage daemon query must use tri-state inventory: " + daemon)
+ftp_stop = body(storage, "stop_ftp_locked(void)")
+require("storage_service_stop_complete(status, is_ftp_run())" in ftp_stop,
+        "FTP stop must verify daemon absence before eject")
+ftp_start = body(storage, "run_ftp(void)")
+require("process_state != PROCESS_PRESENCE_ABSENT" in ftp_start and
+        "PROCESS_PRESENCE_RUNNING" in ftp_start,
+        "FTP start must refuse unknown daemon presence")
+for signature in ("void run_dms(int force_rescan)", "void run_itunes(void)",
+                  "void run_torrent(void)", "void run_aria(void)"):
+    run_body = body(storage, signature)
+    require("process_state != PROCESS_PRESENCE_ABSENT" in run_body and
+            "PROCESS_PRESENCE_RUNNING" in run_body,
+            "storage daemon start must fail closed on unknown presence: " + signature)
+require("PROCESS_PRESENCE_UNKNOWN" in ftp_policy and
+        "return -1;" in ftp_policy and "EIO" in ftp_policy,
+        "FTP daemon wait must fail immediately on unknown process state")
+require("PROCESS_PRESENCE_UNKNOWN" in ftp_test and "EACCES" in ftp_test,
+        "FTP wait regression must cover process-inventory failures")
+
 
 # Printer daemon stop results must reach the firmware flash gate.
 for declaration in ("int stop_u2ec(void);", "int stop_lpd(void);",

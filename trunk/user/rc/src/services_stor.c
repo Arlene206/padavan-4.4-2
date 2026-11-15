@@ -136,13 +136,6 @@ storage_daemon_presence(const char *daemon, int *scan_error)
 	return presence;
 }
 
-static int
-storage_daemon_presence_changed(int before, int after)
-{
-	return before < PROCESS_PRESENCE_ABSENT ||
-	       after < PROCESS_PRESENCE_ABSENT || before != after;
-}
-
 #if defined (APP_FTPD)
 int
 is_ftp_run(void)
@@ -333,7 +326,7 @@ control_ftp_fw(int is_run_before)
 {
 	int is_run_after = is_ftp_run();
 
-	if (storage_daemon_presence_changed(is_run_before, is_run_after) &&
+	if (storage_service_process_presence_changed(is_run_before, is_run_after) &&
 	    (is_run_before == PROCESS_PRESENCE_UNKNOWN ||
 	     is_run_after == PROCESS_PRESENCE_UNKNOWN ||
 	     (is_run_before == PROCESS_PRESENCE_ABSENT &&
@@ -2356,7 +2349,7 @@ void restart_torrent(void)
 		logmessage("Transmission", "restart aborted because mounted storage state is unknown");
 
 	is_run_after = is_torrent_run();
-	if (storage_daemon_presence_changed(is_run_before, is_run_after) &&
+	if (storage_service_process_presence_changed(is_run_before, is_run_after) &&
 	    nvram_match("fw_enable_x", "1"))
 		restart_firewall();
 
@@ -2467,7 +2460,7 @@ void restart_aria(void)
 		logmessage("Aria", "restart aborted because mounted storage state is unknown");
 
 	is_run_after = is_aria_run();
-	if (storage_daemon_presence_changed(is_run_before, is_run_after) &&
+	if (storage_service_process_presence_changed(is_run_before, is_run_after) &&
 	    nvram_match("fw_enable_x", "1"))
 		restart_firewall();
 
