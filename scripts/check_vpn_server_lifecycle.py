@@ -226,15 +226,45 @@ ordered(client_restart_locked,["stop_vpn_client_force()",
                                "start_vpn_client_locked()",
                                "safe_start_xl2tpd_locked()"],"VPN client shared-daemon restart")
 client_stop=body(vpn_client,"stop_vpn_client(void)")
+client_stop_locked=body(vpn_client,"stop_vpn_client_locked(void)")
 client_force_stop=body(vpn_client,"stop_vpn_client_force(void)")
 client_pid_plan=body(vpn_client,"stop_vpn_client_ppp(int stop_xl2tpd)")
-require("stop_vpn_client_ppp(0)" in client_stop and "if (stop_status != 0)" in client_stop,
+client_control=body(vpn_client,"control_xl2tpd(const char *cmd, const char *lac)")
+ordered(client_stop,["vpn_server_lifecycle_lock_acquire()",
+                     "stop_vpn_client_locked()",
+                     "vpn_server_lifecycle_lock_release(lock_fd)"],"VPN client stop")
+require("process_inventory_scan(\"xl2tpd\", &snapshot)" in client_stop_locked and
+        "scan_error = snapshot.error;" in client_stop_locked and
+        "process_snapshot_release(&snapshot);" in client_stop_locked and
+        "process_presence_start_action_for_state(presence)" in client_stop_locked,
+        "VPN client stop must use a complete xl2tpd tri-state inventory")
+ordered(client_stop_locked,["scan_error = snapshot.error;",
+                            "process_snapshot_release(&snapshot);",
+                            "process_presence_start_action_for_state(presence)",
+                            "stop_vpn_client_ppp(0)"],"VPN client stop preflight")
+require("PROCESS_PRESENCE_START_ABORT" in client_stop_locked and
+        "PROCESS_PRESENCE_START_NOTIFY" in client_stop_locked and
+        "pids(" not in client_stop_locked,
+        "VPN client stop must fail closed and remove lossy xl2tpd pids gate")
+require('control_xl2tpd("d", "VPNC")' in client_stop_locked and
+        "if (control_status != 0)" in client_stop_locked,
+        "VPN client stop must propagate xl2tpd disconnect failures")
+require("written = write(control_fd, buf, (size_t)length);" in client_control and
+        "written != length" in client_control and
+        "close(control_fd) != 0" in client_control,
+        "xl2tpd control helper must propagate short-write and close errors")
+require('control_xl2tpd("c", "VPNC")' in client_start_locked and
+        "cannot connect VPNC tunnel through xl2tpd control FIFO" in client_start_locked,
+        "VPN client start must report control FIFO command failures")
+require("stop_vpn_client_ppp(0)" in client_stop_locked and "if (stop_status != 0)" in client_stop_locked,
         "VPN client stop must fail closed on unknown PPP link identity")
 require("kill_services_with_pidfiles" in client_pid_plan and
         'pidfile_paths, "pppd", 0, 5, 1' in client_pid_plan,
         "VPN client stop must bind pppd link PID file to process identity")
 require("stop_vpn_client_ppp(1)" in client_force_stop and "if (stop_status != 0)" in client_force_stop,
         "forced VPN client stop must preflight PPP link PID and xl2tpd together")
+require("stop_vpn_client_locked()" in client_restart_locked,
+        "VPN client restart must use the non-recursive locked stop helper")
 
 wan_stop_lock=body(net_wan,"run_wan_stop_under_vpn_lifecycle_lock(int (*operation)(void), const char *name)")
 ordered(wan_stop_lock,["vpn_server_lifecycle_lock_acquire()",

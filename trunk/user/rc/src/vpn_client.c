@@ -27,6 +27,8 @@
 #include <fcntl.h>
 
 #include "rc.h"
+#include <process_inventory.h>
+#include "process_presence_start_policy.h"
 #include "vpn_server_lifecycle_lock.h"
 
 #define VPNC_LOG_NAME		"VPN client"
@@ -40,15 +42,38 @@ static int
 control_xl2tpd(const char *cmd, const char *lac)
 {
 	char buf[32];
-	
-	int control_fd = open("/var/run/xl2tpd-control", O_WRONLY, 0600);
+	int control_fd, length, saved_errno;
+	ssize_t written;
+
+	if (!cmd || !lac) {
+		errno = EINVAL;
+		return -1;
+	}
+	length = snprintf(buf, sizeof(buf), "%s %s", cmd, lac);
+	if (length < 0 || length >= (int)sizeof(buf)) {
+		errno = EMSGSIZE;
+		return -1;
+	}
+
+	control_fd = open("/var/run/xl2tpd-control", O_WRONLY, 0600);
 	if (control_fd < 0)
 		return -1;
-	
-	snprintf(buf, sizeof(buf), "%s %s", cmd, lac);
-	write(control_fd, buf, strlen(buf));
-	close(control_fd);
-	
+
+	do {
+		written = write(control_fd, buf, (size_t)length);
+	} while (written < 0 && errno == EINTR);
+	saved_errno = 0;
+	if (written < 0)
+		saved_errno = errno ? errno : EIO;
+	else if (written != length)
+		saved_errno = EIO;
+
+	if (close(control_fd) != 0 && saved_errno == 0)
+		saved_errno = errno ? errno : EIO;
+	if (saved_errno) {
+		errno = saved_errno;
+		return -1;
+	}
 	return 0;
 }
 
@@ -195,7 +220,15 @@ start_vpn_client_locked(void)
 		nvram_set_int_temp("l2tp_cli_t", 1);
 		xl2tpd_status = safe_start_xl2tpd_locked();
 		if (xl2tpd_status == 1) {
-			control_xl2tpd("c", "VPNC");
+			if (control_xl2tpd("c", "VPNC") != 0) {
+				saved_errno = errno ? errno : EIO;
+				nvram_set_int_temp("l2tp_cli_t", 0);
+				logmessage(VPNC_LOG_NAME,
+					   "cannot connect VPNC tunnel through xl2tpd control FIFO (errno=%d)",
+					   saved_errno);
+				errno = saved_errno;
+				return -1;
+			}
 		} else if (xl2tpd_status < 0) {
 			saved_errno = errno ? errno : EIO;
 			nvram_set_int_temp("l2tp_cli_t", 0);
@@ -260,10 +293,31 @@ stop_vpn_client_ppp(int stop_xl2tpd)
 					   pidfile_paths, "pppd", 0, 5, 1);
 }
 
-int
-stop_vpn_client(void)
+static int
+stop_vpn_client_locked(void)
 {
-	int stop_status;
+	int stop_status, scan_error, control_status;
+	struct process_snapshot snapshot;
+	enum process_presence presence;
+	enum process_presence_start_action action;
+
+	/* Do not mutate PPP or VPN client state if the shared daemon's presence
+	 * cannot be established from a complete process inventory. */
+	action = PROCESS_PRESENCE_START_NEW;
+	if (get_xl2tpd_vpnc_active()) {
+		presence = process_inventory_scan("xl2tpd", &snapshot);
+		scan_error = snapshot.error;
+		process_snapshot_release(&snapshot);
+		action = process_presence_start_action_for_state(presence);
+		if (action == PROCESS_PRESENCE_START_ABORT) {
+			int saved_errno = scan_error ? scan_error : EIO;
+			logmessage(VPNC_LOG_NAME,
+				   "refusing VPN client cleanup because xl2tpd process inventory is unknown (errno=%d)",
+				   saved_errno);
+			errno = saved_errno;
+			return -1;
+		}
+	}
 
 	stop_status = stop_vpn_client_ppp(0);
 	if (stop_status != 0) {
@@ -272,8 +326,17 @@ stop_vpn_client(void)
 			   stop_status);
 		return stop_status;
 	}
-	if (get_xl2tpd_vpnc_active() && pids("xl2tpd"))
-		control_xl2tpd("d", "VPNC");
+	if (action == PROCESS_PRESENCE_START_NOTIFY) {
+		control_status = control_xl2tpd("d", "VPNC");
+		if (control_status != 0) {
+			int saved_errno = errno ? errno : EIO;
+			logmessage(VPNC_LOG_NAME,
+				   "cannot disconnect VPNC tunnel through xl2tpd control FIFO (errno=%d)",
+				   saved_errno);
+			errno = saved_errno;
+			return -1;
+		}
+	}
 
 #if defined(APP_OPENVPN)
 	stop_openvpn_client();
@@ -284,6 +347,35 @@ stop_vpn_client(void)
 	unlink(VPNC_PPP_UP_SCRIPT);
 	unlink(VPNC_PPP_DW_SCRIPT);
 	return 0;
+}
+
+int
+stop_vpn_client(void)
+{
+	int lock_fd, result, saved_errno;
+
+	lock_fd = vpn_server_lifecycle_lock_acquire();
+	if (lock_fd < 0) {
+		logmessage(VPNC_LOG_NAME,
+			   "cannot lock VPN server lifecycle for client stop (errno=%d)",
+			   errno ? errno : EIO);
+		return -1;
+	}
+	result = stop_vpn_client_locked();
+	saved_errno = errno;
+	if (vpn_server_lifecycle_lock_release(lock_fd) != 0) {
+		int release_errno = errno ? errno : EIO;
+		logmessage(VPNC_LOG_NAME,
+			   "cannot release VPN server lifecycle lock after client stop (errno=%d)",
+			   release_errno);
+		if (result == 0) {
+			result = -1;
+			saved_errno = release_errno;
+		}
+	}
+	if (result != 0 && saved_errno)
+		errno = saved_errno;
+	return result;
 }
 
 static int
@@ -316,7 +408,7 @@ restart_vpn_client_locked(void)
 	stop_status = stop_vpn_client_force();
 	if (stop_status != 0)
 		return stop_status;
-	stop_status = stop_vpn_client();
+	stop_status = stop_vpn_client_locked();
 	if (stop_status != 0)
 		return stop_status;
 

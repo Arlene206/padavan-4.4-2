@@ -1,3 +1,13 @@
+## 2026-11-15 — Serialize VPN client stop and fail closed on xl2tpd state/control errors
+
+- `stop_vpn_client()` was the one VPN client lifecycle entry point that did not hold the shared VPN lifecycle lock. Split its body into `stop_vpn_client_locked()`, added a lock-owning public wrapper, and changed the already-locked restart path to call the internal helper to avoid recursive locking.
+- Removed the remaining `pids("xl2tpd")` gate. A complete inventory now distinguishes RUNNING (send the VPNC disconnect command), ABSENT (skip it), and UNKNOWN (preserve VPN state and fail closed) before PPP teardown begins.
+- The xl2tpd FIFO helper previously discarded write and close errors, causing VPN start/stop to report success when its command was not delivered. It now validates the formatted command and propagates short-write, write, and close failures; connect/disconnect callers preserve NVRAM state and return an error on failure.
+- Extended the VPN lifecycle checker for public stop locking, internal non-recursive restart, the tri-state process gate, and control FIFO error propagation. Existing VPN workflow filters already include `vpn_client.c`, process inventory, and the shared tri-state policy/test for push and PR events.
+- Changed paths: `vpn_client.c`, `check_vpn_server_lifecycle.py`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Spell watchdog process-inventory UNKNOWN as an explicit abort
 
 - Exact process-lifecycle run `43673038080` passed all unit binaries and earlier integration contracts, then failed because `start_watchdog()` used a generic fall-through error block rather than explicitly comparing `PROCESS_PRESENCE_START_ABORT`. Reworked the production branch so UNKNOWN is visibly rejected before either returning RUNNING or launching on ABSENT. The scan errno is preserved.
