@@ -124,27 +124,78 @@ struct ip4_items_t {
 };
 
 static void
+free_static_ethers_items(struct ip4_items_t *ip4_list)
+{
+	int i, j;
+
+	for (i = 0; i < DHCPD_STATIC_MAX; i++) {
+		struct ip4_items_t *item = &ip4_list[i];
+
+		for (j = 0; j < DHCPD_MULTIMAC_MAX; j++) {
+			if (item->mac[j])
+				free(item->mac[j]);
+		}
+		if (item->hname)
+			free(item->hname);
+	}
+}
+
+/*
+ * Prepare every generated file beside its destination and publish each only
+ * after the complete in-memory configuration has been written.  A failure
+ * prevents DNSMasq from starting/restarting; existing running instances keep
+ * their last loaded configuration.  The three renames are individually
+ * atomic, not a cross-filesystem multi-file transaction.
+ */
+static int
 fill_static_ethers(const char *lan_ip, const char *lan_mask)
 {
-	FILE *fp[3];
+	FILE *fp[3] = { NULL, NULL, NULL };
 	in_addr_t ip4, ip4_lan;
 	struct ip4_items_t ip4_list[DHCPD_STATIC_MAX];
 	int i, j, i_max_items, i_arp_bind;
-	char dh_fn[64], nvram_key[32], *smac, *sip4, *shname;
-	char hosts_static_path[] = "/tmp/hosts.static.XXXXXX";
-	int hosts_static_errno;
+	int path_length, result = 0;
+	char dh_fn[64] = {0}, dhcp_hosts_stage[96] = "";
+	char ethers_stage[] = "/etc/ethers.XXXXXX";
+	char hosts_static_stage[] = "/tmp/hosts.static.XXXXXX";
+	char nvram_key[32], *smac, *sip4, *shname, *copy;
+	struct in_addr in;
+	const char *destinations[3];
+	char *staged_paths[3];
 
 	memset(ip4_list, 0, sizeof(ip4_list));
-	hosts_static_errno = 0;
+	i_arp_bind = 0;
+
+	staged_paths[0] = dhcp_hosts_stage;
+	staged_paths[1] = ethers_stage;
+	staged_paths[2] = hosts_static_stage;
+	destinations[0] = dh_fn;
+	destinations[1] = "/etc/ethers";
+	destinations[2] = "/tmp/hosts.static";
 
 	mkdir_if_none(DHCPD_HOSTS_DIR, "755");
-	snprintf(dh_fn, sizeof(dh_fn), "%s/dhcp-hosts.rc", DHCPD_HOSTS_DIR);
+	path_length = snprintf(dh_fn, sizeof(dh_fn), "%s/dhcp-hosts.rc",
+			       DHCPD_HOSTS_DIR);
+	if (path_length < 0 || path_length >= (int)sizeof(dh_fn)) {
+		errno = ENAMETOOLONG;
+		goto failed;
+	}
+	path_length = snprintf(dhcp_hosts_stage, sizeof(dhcp_hosts_stage),
+			       "%s.XXXXXX", dh_fn);
+	if (path_length < 0 || path_length >= (int)sizeof(dhcp_hosts_stage)) {
+		errno = ENAMETOOLONG;
+		goto failed;
+	}
 
-	fp[0] = fopen(dh_fn, "w+");
-	fp[1] = fopen("/etc/ethers", "w+");
-	fp[2] = dnsmasq_file_open(hosts_static_path);
+	fp[0] = dnsmasq_file_open(dhcp_hosts_stage);
+	if (!fp[0])
+		goto failed;
+	fp[1] = dnsmasq_file_open(ethers_stage);
+	if (!fp[1])
+		goto failed;
+	fp[2] = dnsmasq_file_open(hosts_static_stage);
 	if (!fp[2])
-		hosts_static_errno = errno ? errno : EIO;
+		goto failed;
 
 	if (nvram_get_int("dhcp_static_x") == 1) {
 		ip4_lan = inet_addr_safe(lan_ip);
@@ -152,8 +203,8 @@ fill_static_ethers(const char *lan_ip, const char *lan_mask)
 		i_max_items = nvram_get_int("dhcp_staticnum_x");
 		if (i_max_items > DHCPD_STATIC_MAX)
 			i_max_items = DHCPD_STATIC_MAX;
-		
-		/* first pass */
+
+		/* First pass: allocate a complete normalized snapshot. */
 		for (j = 0; j < i_max_items; j++) {
 			snprintf(nvram_key, sizeof(nvram_key), "dhcp_staticmac_x%d", j);
 			smac = nvram_safe_get(nvram_key);
@@ -168,42 +219,62 @@ fill_static_ethers(const char *lan_ip, const char *lan_mask)
 				continue;
 			snprintf(nvram_key, sizeof(nvram_key), "dhcp_staticname_x%d", j);
 			shname = nvram_safe_get(nvram_key);
-			
-			/* fill multi-items array by IP */
+
 			for (i = 0; i < DHCPD_STATIC_MAX; i++) {
 				struct ip4_items_t *ipl = &ip4_list[i];
-				
+
 				if (!ipl->ip4) {
+					copy = strdup(smac);
+					if (!copy) {
+						errno = ENOMEM;
+						goto failed;
+					}
 					ipl->ip4 = ip4;
 					ipl->count = 1;
-					ipl->mac[0] = strdup(smac);
-					if (is_valid_hostname(shname))
-						ipl->hname = strdup(shname);
+					ipl->mac[0] = copy;
+					if (is_valid_hostname(shname)) {
+						copy = strdup(shname);
+						if (!copy) {
+							errno = ENOMEM;
+							goto failed;
+						}
+						ipl->hname = copy;
+					}
 					break;
 				}
 				if (ipl->ip4 == ip4) {
 					if (ipl->count < DHCPD_MULTIMAC_MAX) {
-						ipl->mac[ipl->count] = strdup(smac);
+						copy = strdup(smac);
+						if (!copy) {
+							errno = ENOMEM;
+							goto failed;
+						}
+						ipl->mac[ipl->count] = copy;
 						ipl->count++;
 					}
-					if (!ipl->hname && is_valid_hostname(shname))
-						ipl->hname = strdup(shname);
+					if (!ipl->hname && is_valid_hostname(shname)) {
+						copy = strdup(shname);
+						if (!copy) {
+							errno = ENOMEM;
+							goto failed;
+						}
+						ipl->hname = copy;
+					}
 					break;
 				}
 			}
 		}
-		
-		/* second pass */
+
+		/* Second pass: write only to private staging files. */
 		for (i = 0; i < DHCPD_STATIC_MAX; i++) {
 			struct ip4_items_t *ipl = &ip4_list[i];
-			struct in_addr in;
-			
+
 			if (!ipl->ip4)
 				break;
-			
+
 			in.s_addr = ipl->ip4;
 			sip4 = inet_ntoa(in);
-			if (fp[0] && ipl->count > 0) {
+			if (ipl->count > 0) {
 				for (j = 0; j < ipl->count; j++) {
 					smac = ipl->mac[j];
 					if (!smac)
@@ -214,48 +285,69 @@ fill_static_ethers(const char *lan_ip, const char *lan_mask)
 				}
 				fprintf(fp[0], "set:%s,%s\n", DHCPD_RANGE_DEF_TAG, sip4);
 			}
-			
-			/* use only unique IP for /etc/ethers (ARP binds) */
+
+			/* Keep /etc/ethers coherent with the same staged lease snapshot. */
 			if (i_arp_bind && ipl->count == 1 && ipl->mac[0]) {
 				smac = ipl->mac[0];
-				if (fp[1]) {
-					fprintf(fp[1], "%c%c:%c%c:%c%c:%c%c:%c%c:%c%c %s\n",
-						smac[0], smac[1], smac[2], smac[3], smac[4], smac[5],
-						smac[6], smac[7], smac[8], smac[9], smac[10], smac[11], sip4);
-				}
-				doSystem("arp -i %s -s %s %s", IFNAME_BR, sip4, smac);
+				fprintf(fp[1], "%c%c:%c%c:%c%c:%c%c:%c%c:%c%c %s\n",
+					smac[0], smac[1], smac[2], smac[3], smac[4], smac[5],
+					smac[6], smac[7], smac[8], smac[9], smac[10], smac[11], sip4);
 			}
-			
-			if (fp[2] && ipl->hname)
-				fprintf(fp[2], "%s %s\n", sip4, sanity_hostname(ipl->hname));
-		}
-		
-		/* cleanup items */
-		for (i = 0; i < DHCPD_STATIC_MAX; i++) {
-			struct ip4_items_t *ipl = &ip4_list[i];
-			
-			for (j = 0; j < DHCPD_MULTIMAC_MAX; j++) {
-				if (ipl->mac[j])
-					free(ipl->mac[j]);
-			}
+
 			if (ipl->hname)
-				free(ipl->hname);
+				fprintf(fp[2], "%s %s\n", sip4, sanity_hostname(ipl->hname));
 		}
 	}
 
+	/* All three streams are checked, closed and atomically renamed separately. */
 	for (i = 0; i < ARRAY_SIZE(fp); i++) {
-		if (i == 2) {
-			if (fp[i]) {
-				if (dnsmasq_file_publish(fp[i], hosts_static_path,
-						 "/tmp/hosts.static", 0644) != 0)
-					logmessage(LOGNAME, "cannot publish static DHCP host snapshot (errno=%d)", errno);
-			} else if (hosts_static_errno) {
-				logmessage(LOGNAME, "cannot stage static DHCP host snapshot (errno=%d)", hosts_static_errno);
-			}
-		} else if (fp[i]) {
-			fclose(fp[i]);
+		FILE *staged_fp = fp[i];
+		fp[i] = NULL;
+		if (dnsmasq_file_publish(staged_fp, staged_paths[i],
+					 destinations[i], 0644) != 0) {
+			result = errno ? errno : EIO;
+			goto failed;
 		}
 	}
+
+	/* Apply kernel ARP side effects only after every corresponding file was
+	 * published; failed staging/publication must not partially change bindings. */
+	if (i_arp_bind) {
+		for (i = 0; i < DHCPD_STATIC_MAX; i++) {
+			struct ip4_items_t *ipl = &ip4_list[i];
+
+			if (!ipl->ip4)
+				break;
+			if (ipl->count == 1 && ipl->mac[0]) {
+				in.s_addr = ipl->ip4;
+				sip4 = inet_ntoa(in);
+				doSystem("arp -i %s -s %s %s", IFNAME_BR, sip4, ipl->mac[0]);
+			}
+		}
+	}
+	goto cleanup;
+
+failed:
+	if (!result)
+		result = errno ? errno : EIO;
+	for (i = 0; i < ARRAY_SIZE(fp); i++) {
+		if (fp[i]) {
+			(void)fclose(fp[i]);
+			fp[i] = NULL;
+		}
+		dnsmasq_file_discard(staged_paths[i]);
+	}
+
+cleanup:
+	free_static_ethers_items(ip4_list);
+	if (result != 0) {
+		logmessage(LOGNAME,
+			   "cannot prepare static DHCP host/ethers snapshots; refusing DNSMasq update (errno=%d)",
+			   result);
+		errno = result;
+		return result;
+	}
+	return 0;
 }
 
 int
@@ -471,8 +563,16 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 		}
 	}
 
-	/* create /etc/ethers */
-	fill_static_ethers(ipaddr, netmask);
+	/* Stage DHCP hosts and ARP inputs before allowing DNSMasq to start.
+	 * A failed output keeps the previous daemon/configuration in service. */
+	if (fill_static_ethers(ipaddr, netmask) != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(LOGNAME,
+			   "cannot publish static DHCP host inputs; refusing DNSMasq preparation (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return saved_errno;
+	}
 
 	if (!is_ap_mode) {
 		/* create /etc/hosts (run after fill_static_ethers!) */
