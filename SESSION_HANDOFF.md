@@ -8,7 +8,7 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2. Current main before this test/doc follow-up: f4e78554c490c28697fc7819de8ba4947ab6eb48. Commit f4e7855 added a reusable complete-ABSENT postcondition policy and made restart_smbd() require smbd/nmbd (and wsdd2 on SMBD36) to be absent after kill_services() before mount inventory or restart; Samba fastpath also moved to RUNNING/ABSENT/UNKNOWN. Exact-head Samba [43660915754] failed only at the Python source contract, line 150, because the checker expected whitespace-normalized "command_status != 0" while the production helper is formatted "command_status!=0"; all five config/passdb/transaction/readiness/identity-policy C test binaries passed. The integration checker is made whitespace-stable here. AI docs [43660915715], process inventory [43660915717], NFS [43660915753], vsftpd [43660915711] and HTTPD [43660915835] passed; XY-C1 [43660915762], storage hotplug [43660915718] and NVRAM [43660915714] were IN_PROGRESS at last poll. This commit changes workflow + handoff only; current production-source L3 remains pending exact XY-C1 Build/TRX/artifact. Physical L4 NOT VERIFIED. Immutable backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Repository: Arlene206/padavan-4.4-2. Parent main SHA: 4d1cc2d8f85839b13f1d4fcab9f17b173e94a1d5. Exact-head CI at checkpoint: ai-handoff-docs.yml#43663194707=success; zerotier-lifecycle.yml#43663194683=failure. Immutable backup `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`. Recent source work now includes Samba tri-state/identity-bound daemon operations, USB printer and IPTV stop propagation, optional package stop status aggregation, firmware abort gates and best-effort shutdown with storage-persistence gating. This checkpoint also aligns AliyunDrive and ZeroTier restart contracts with stop-failure guards, FRP stop API with `int`, and detect-link assertions with captured LAN/WAN stop status; a GNU89 ASan/UBSan regression covers the production first-failure accumulator. Any exact-head FAIL must be diagnosed from its own job log; PENDING is not PASS. Current-source L3 remains NOT VERIFIED until latest-source XY-C1 build/TRX/artifact succeeds; physical L4 NOT VERIFIED.
 - Immutable archive: `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`. Read-only; never modify it.
 - **Permanent user entrypoint:** `接手 https://github.com/Arlene206/padavan-4.4-2/ 继续开发`. The user does not need a long prompt, previous chat, or repository upload. Never output a recursive next-GPT prompt in chat. Git documents and live GitHub state are the project memory.
 - Recovery is read-only by default: read complete `AI_DEVELOPMENT_PROTOCOL.md` and `AI_BOOTSTRAP_PROMPT.md`; fetch live main + immutable backup; inspect exact-head Actions; then read this handoff, roadmap, newest 20 dev-log records, `docs/dev-log/INDEX.md`, and the semantic audit report for the active caller group. Do not create a commit to refresh SHA fields, record a takeover, or report a CI poll.
@@ -93,19 +93,19 @@ The earlier dd7a XY-C1 run [43624870668] also completed SUCCESS; it is supersede
 
 ## Exact first action for the next GPT
 
-Current main parent for this follow-up: `f4e78554c490c28697fc7819de8ba4947ab6eb48`. This commit corrects the Samba workflow source assertion by compacting whitespace before comparing C helper calls and updates the handoff/roadmap after the Samba process-state migration. Immutable backup remains `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
+Parent main at handoff checkpoint: `4d1cc2d8f85839b13f1d4fcab9f17b173e94a1d5`. Backup `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807` is immutable.
 
-### Completed through the current slice
-- WINS start/reload/restart use complete process inventories, identity-bound PID SIGHUP, fresh ABSENT checks before launch and stable tri-state readiness; UNKNOWN blocks configuration mutation and unsafe launch.
-- Samba process-action policy now includes a separately tested ABSENT postcondition helper: RUNNING returns EBUSY; UNKNOWN preserves scan errno or EIO. After a public Samba restart stop, smbd/nmbd and (SMBD36) wsdd2 must all be authoritatively absent before mount inventory or any new launch.
-- Fastpath checks smbd via complete process inventory; UNKNOWN keeps acceleration disabled. The earlier direct Samba pids() checks are gone in the migrated start/restart decisions.
-- Exact f4 Samba [43660915754] passed all five GNU89/ASan/UBSan C test executables but failed the Python source integration contract at line 150 due whitespace-sensitive matching of the minified helper call; that assertion is made whitespace-stable in this commit. AI docs [43660915715], process inventory [43660915717], NFS [43660915753], vsftpd [43660915711] and HTTPD [43660915835] passed; XY [43660915762], storage hotplug [43660915718] and NVRAM [43660915714] were IN_PROGRESS at last poll. New Samba/docs exact-head Actions are pending.
-- Root `dev_log.md` contains 36 existing complete records plus this record; no rotation due. Current-source L3 NOT VERIFIED; physical L4 NOT VERIFIED.
+### Completed
+- Samba configuration/passdb transaction recovery, tri-state process inventory, identity-bound WINS signals and fail-closed start/restart/readiness/stop semantics are implemented.
+- USB printer, IPTV/IGMP and optional shell-backed service stops return their real operation status; `stop_services()` retains the first failure while attempting all remaining hooks. Firmware aborts before erase/write when required stops fail.
+- Shutdown preserves safe reboot/halt progress but suppresses storage MTD persistence after failed service, printer, miscellaneous or LAN/WAN teardown.
+- Lifecycle static contracts were updated for status-returning stop APIs and fail-closed restart guards. A GNU89/ASan/UBSan regression tests first-failure accumulation and its production include is covered by the target XY source trigger.
+- Exact-head Actions at this checkpoint: ai-handoff-docs.yml#43663194707=success; zerotier-lifecycle.yml#43663194683=failure. Treat only `conclusion=success` as PASS. FAIL must be investigated from the exact failed job log. Current-source L3 NOT VERIFIED; physical L4 NOT VERIFIED.
 
 ### Next work
-1. Resume the audited upper-level stop-propagation group: inspect `services.c::stop_services()`, `rc.c::flash_firmware()`, and `rc.c::shutdown_router()`; trace all callers and verify failed service stop blocks firmware erase/write and unsafe follow-on shutdown while preserving explicitly permitted safe reboot/halt behavior.
-2. Add production-connected regression coverage for any missing stop-result propagation; update only the relevant RC/firmware regression and XY trigger paths.
-3. Continue the remaining direct `pids()` and name-wide signal migrations by semantic group. Do not change legacy `pids()` semantics globally.
-4. Current L3 requires exact latest product-source XY-C1 MIPS/uClibc Build + TRX verification + artifact upload. Physical L4 remains NOT VERIFIED.
+1. Inspect every exact-head Action. Fix failed source contracts or production regressions; continue independent work while jobs remain pending.
+2. If stop-propagation Actions pass, continue remaining P1 process-state consumers by semantic caller group. Do not rerun the completed full process census or modify global legacy `pids()` semantics.
+3. Re-run XY-C1 against the exact latest product source and confirm MIPS/uClibc Build, TRX verification and artifact upload before marking L3 PASS.
+4. Physical XY-C1 flash/boot/runtime L4 still requires hardware validation.
 
-Re-fetch main and exact-head Actions before the next write. Do not repeat the completed process inventory census or Samba WINS migration.
+Re-fetch live main, backup and exact-head Actions before future writes.

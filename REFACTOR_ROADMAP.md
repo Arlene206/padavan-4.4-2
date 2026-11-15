@@ -1,9 +1,10 @@
 ## Current source / CI checkpoint
 
-- Current source parent: `f4e78554c490c28697fc7819de8ba4947ab6eb48`. The Samba WINS lifecycle migration and restart postconditions are now tri-state: process identities are prevalidated and revalidated before targeted signals, all daemon starts require fresh ABSENT, stable readiness uses RUNNING/ABSENT/UNKNOWN, and public restart requires smbd/nmbd/(SMBD36 wsdd2) to be absent after stop. Fastpath is disabled when smbd inventory is UNKNOWN.
-- Exact f4 Samba [43660915754] passed all five C regression executables (config publication, passdb, transaction recovery, tri-state readiness and identity-bound signaling) but failed the final Python source integration check at line 150 because the checker used whitespace-sensitive matching against compact production C. This follow-up normalizes whitespace before those assertions. AI docs [43660915715], process inventory [43660915717], NFS [43660915753], vsftpd [43660915711] and HTTPD [43660915835] passed; XY-C1 [43660915762], storage hotplug [43660915718] and NVRAM [43660915714] were IN_PROGRESS at last poll. This commit does not alter product source; new Samba and doc Actions must pass before closure.
-- Last verified product-source baseline: `cc61cb5f8ae594b0cf1aee3ddebdd414e0bf5286`, XY-C1 [43648229489], artifact [14135711084] (12,587,100 bytes; SHA-256 `bda83c9e71ed01a8708ad90a5104535e972bd30424bdf03ed24065b3a1a9407e`). Current L3 NOT VERIFIED pending the exact latest source build, TRX and artifact; physical L4 remains NOT VERIFIED.
-- Immutable backup remains `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify it.
+- Parent main: `4d1cc2d8f85839b13f1d4fcab9f17b173e94a1d5`. Exact-head CI: ai-handoff-docs.yml#43663194707=success; zerotier-lifecycle.yml#43663194683=failure. Interpret pending jobs as PENDING, not PASS; every failure requires its exact job log and a source/test correction.
+- Production now propagates USB printer, IPTV/IGMP and optional package stop failures through `stop_services()`; firmware aborts on failed required teardown. Shutdown remains best-effort but withholds storage persistence after failed service or LAN/WAN stop operations.
+- Samba start/reload/restart/stop and config publication use tri-state process inventory and identity-bound signaling; UNKNOWN is fail-closed.
+- Last historical XY-C1 L3 PASS remains `cc61cb5f8ae594b0cf1aee3ddebdd414e0bf5286`, artifact [14135711084], SHA-256 `bda83c9e71ed01a8708ad90a5104535e972bd30424bdf03ed24065b3a1a9407e`. Latest-source L3 NOT VERIFIED; physical L4 NOT VERIFIED.
+- Immutable backup: `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify.
 
 ## Whole-repository module status
 

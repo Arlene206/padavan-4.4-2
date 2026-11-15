@@ -1,3 +1,14 @@
+## 2026-11-14 — Exact-head validation and cross-session handoff checkpoint
+
+- Parent main SHA: 4d1cc2d8f85839b13f1d4fcab9f17b173e94a1d5.
+- Exact-head Actions at checkpoint: ai-handoff-docs.yml#43663194707=success; zerotier-lifecycle.yml#43663194683=failure.
+- Updated the handoff and roadmap to record the live CI state, including pending/failed distinctions, and to preserve the immutable backup SHA 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Source state carried forward: Samba uses tri-state daemon process inventory and identity-bound operations; USB printer, IPTV/IGMP and optional shell-backed stop failures propagate; firmware refuses to proceed after required teardown failures; shutdown continues reboot/halt while skipping storage persistence after checked stop failures.
+- Lifecycle source contracts now reflect status-returning stop helpers and guarded stop/start wrappers; the production first-failure accumulator has GNU89/ASan/UBSan regression coverage. Current-source L3 and physical L4 are NOT VERIFIED.
+- Result: THIS CHECKPOINT COMMIT.
+
+---
+
 ## 2026-11-15 — Stabilize Samba source-contract whitespace and handoff
 
 - Parent main SHA: f4e78554c490c28697fc7819de8ba4947ab6eb48.
