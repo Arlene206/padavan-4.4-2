@@ -179,7 +179,7 @@ zerotier_stop = body(services, "int stop_zerotier(void)")
 require('return eval("/usr/bin/zerotier.sh","stop");' in zerotier_stop and
         "int stop_zerotier(void);" in rc_header,
         "ZeroTier stop must propagate launcher status")
-zerotier_restart = body(services, "void restart_zerotier(void)")
+zerotier_restart = body(services, "int restart_zerotier(void)")
 require("stop_zerotier() != 0" in zerotier_restart and "start_zerotier();" in zerotier_restart,
         "ZeroTier restart must abort after a failed stop")
 require('record_service_stop_status(&stop_status, "ZeroTier", stop_zerotier())' in stop_all,
@@ -192,8 +192,8 @@ require("int stop_frp(void);" in rc_header,
         "RC header must expose checked FRP stop status")
 for name in ("scutclient", "mentohust", "ttyd", "ss", "ss_tunnel",
              "vlmcsd", "iperf3", "sqm", "aldriver", "wireguard", "smartdns"):
-    restart_body = body(services, "void restart_" + name + "(void)")
-    require("stop_" + name + "() != 0" in restart_body and "start_" + name + "();" in restart_body,
+    restart_body = body(services, "int restart_" + name + "(void)")
+    require("int stop_status = stop_" + name + "();" in restart_body and "return stop_status;" in restart_body and "start_" + name + "();" in restart_body,
             "manual stop/start wrapper must not launch after failed stop: " + name)
 require(stop_all.count('record_service_stop_status(&stop_status, "WireGuard"') == 1,
         "stop_services must only stop WireGuard once")

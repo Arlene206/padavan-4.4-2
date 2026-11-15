@@ -100,6 +100,7 @@ jobs:
               assert "return stop_status;" in restart_body if name == "restart_sshd" else "stop_status" in restart_body
           assert "rc_notify_merge_action_result(action_result, restart_sshd())" in handler
           assert "rc_notify_merge_action_result(action_result, restart_lltd())" in handler
+          services = read("trunk/user/rc/src/services.c")
           app_restarts = (
               "restart_scutclient", "restart_mentohust", "restart_ttyd",
               "restart_ss", "restart_ss_tunnel", "restart_vlmcsd",
