@@ -1,3 +1,11 @@
+## 2026-11-15 — Record optional service launcher failures at RC boundary
+
+- Four `void start_*()` wrappers for AdGuardHome, DDNS.to, Adbyby and AliDDNS called `eval()` without preserving its result. The scripts may emit their own details, but the RC boot entry point discarded nonzero exit status with no central launch diagnostic.
+- Capture each `eval()` result and log the exact status when nonzero. The original NVRAM enabled/disabled condition remains the guard around the complete launch-and-log block; no service enable semantics or boot ordering change.
+- Added source-contract regressions for each wrapper to assert declaration, retained feature guard, assigned `eval()`, failure check and log ordering. Existing process-lifecycle and XY-C1 path filters already watch `services.c` and the integration checker.
+- Parent main: `56369810646910ccaf0f342b414dd09f83570843`; product/checker/docs changes are committed as one complete Git tree in THIS COMMIT. Exact-head Actions required.
+
+---
 ## 2026-11-15 — Cover NFS server stop failure and completion postconditions
 
 - The NFS stop path already requires both server daemons to be absent before unexporting, retains `etab` when teardown fails, and detaches rpc_pipefs/nfsd only in sequence. Its isolated host fixture previously tested startup/reload failures and the missing-`pidof` guard, but not normal stop transitions.

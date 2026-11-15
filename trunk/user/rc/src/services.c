@@ -820,9 +820,13 @@ int stop_adguardhome(void){
 }
 
 void start_adguardhome(void){
+	int start_status;
 	int adg_mode = nvram_get_int("adg_enable");
-	if ( adg_mode == 1)
-		eval("/usr/bin/adguardhome.sh","start");
+	if ( adg_mode == 1) {
+		start_status = eval("/usr/bin/adguardhome.sh","start");
+		if (start_status != 0)
+			logmessage(LOGNAME, "AdGuardHome launcher failed (status=%d)", start_status);
+	}
 }
 
 int restart_adguardhome(void){
@@ -861,9 +865,13 @@ int stop_ddnsto(void){
 }
 
 void start_ddnsto(void){
+	int start_status;
 	int ddnsto_enable = nvram_get_int("ddnsto_enable");
-	if ( ddnsto_enable == 1)
-		eval("/usr/bin/ddnsto.sh","start");
+	if ( ddnsto_enable == 1) {
+		start_status = eval("/usr/bin/ddnsto.sh","start");
+		if (start_status != 0)
+			logmessage(LOGNAME, "DDNS.to launcher failed (status=%d)", start_status);
+	}
 }
 
 int restart_ddnsto(void){
@@ -947,9 +955,13 @@ int stop_adbyby(void){
 }
 
 void start_adbyby(void){
+	int start_status;
 	int adbyby_mode = nvram_get_int("adbyby_enable");
-	if ( adbyby_mode == 1)
-		eval("/usr/bin/adbyby.sh","start");
+	if ( adbyby_mode == 1) {
+		start_status = eval("/usr/bin/adbyby.sh","start");
+		if (start_status != 0)
+			logmessage(LOGNAME, "Adbyby launcher failed (status=%d)", start_status);
+	}
 }
 
 int restart_adbyby(void){
@@ -991,9 +1003,13 @@ int stop_aliddns(void){
 }
 
 void start_aliddns(void){
+	int start_status;
 	int aliddns_mode = nvram_get_int("aliddns_enable");
-	if ( aliddns_mode == 1)
-		eval("/usr/bin/aliddns.sh","start");
+	if ( aliddns_mode == 1) {
+		start_status = eval("/usr/bin/aliddns.sh","start");
+		if (start_status != 0)
+			logmessage(LOGNAME, "AliDDNS launcher failed (status=%d)", start_status);
+	}
 }
 
 int restart_aliddns(void){

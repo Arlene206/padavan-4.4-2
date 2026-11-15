@@ -8,7 +8,7 @@ For each multi-file logical slice, publish source, tests/contracts and necessary
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; Dropbear lifecycle status fixes remain at `a71d73c0ff7776ae36dce19c5287ca3c141553cd`; the telnetd/ttyd source-order checker correction is at `7e21f495aeaa60a85bdf839e9ee1bb514105c49a`. NFS start/reload/stop now require `pidof` at `c736d4a8eccfe58f3106cdb63acc8b47963e6b98`; this slice adds missing stop postcondition coverage.
+- Repository `Arlene206/padavan-4.4-2`; live parent before this optional-launch diagnostic slice: `56369810646910ccaf0f342b414dd09f83570843`. Earlier commits fixed NFS pidof fail-closed handling, the telnetd/ttyd launch-return source contracts, and Dropbear/OpenSSH startup status propagation.
 - Boot diagnostics cover networkmap, watchdog, infosvr, GPIO, LLTD, rstats, telnetd and ttyd. SCUT, vlmcsd, iperf3 and mentohust wrappers now preserve their daemon launch/stop statuses.
 - LPD printer-removal PID identity hardening landed in `72ce1bb97323d4c417e8a5d891bbaf9c6ed3f2f3`; source-contract formatting correction is `022bc51507ca5f395c60a1f450cc461bf5403926`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. No local checkout/MIPS toolchain or physical-router L4 result is claimed.
@@ -29,11 +29,16 @@ For each multi-file logical slice, publish source, tests/contracts and necessary
 - This does not close Linux 4.4's final identity-check-to-kill(2) race; no atomic pidfd-like primitive is available in this target baseline.
 
 ## Verification boundary
-- Exact c736 Actions: NFS daemon start/reload #43737106642 PASS (shell syntax, start/reload fixture, IPv4/IPv6 export ACL compile, RC storage-lock/status and workflow path contracts); process lifecycle #43737106692 PASS; process inventory artifact #43737106584 PASS; AI docs #43737106611 PASS; infosvr #43737106602 PASS; AdGuardHome #43737106614 PASS; AliyunDrive #43737106593 PASS; AliDDNS #43737106579 PASS; NVRAM #43737106582 PASS. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- c736 does not include the new stop postcondition cases in this follow-up; exact-head NFS workflow must rerun before claiming the expanded stop coverage.
-- On exact a71 SHA, process lifecycle #43736811716 failed at the telnetd order contract after all C and optional-app tests passed; AI docs #43736811598, process inventory artifact #43736811577, infosvr #43736811544, AdGuardHome #43736811570, AliyunDrive #43736811565 and AliDDNS #43736811539 passed. Follow-up `7e21f495aeaa60a85bdf839e9ee1bb514105c49a` corrected the checker; exact process lifecycle #43736960883 and AI docs #43736960862 PASS. AdGuardHome #43736960909, infosvr #43736961052, AliDDNS #43736960859 and AliyunDrive #43736961032 PASS; NVRAM #43736960951 was IN_PROGRESS.
-- This slice adds an explicit `pidof` availability gate before NFS start/reload/stop, plus host regressions proving each returns 127 when the process inventory tool is missing and stop leaves daemon/mount state untouched. Exact-head NFS workflow must pass; no NFS target build or physical-router storage test is claimed.
-- Dropbear source/wrapper changes are in a71; no L3 claim until the exact product-source SHA has successful Build, TRX verification and artifact upload. Physical-router L4 remains NOT VERIFIED.
+
+- Exact parent main: `56369810646910ccaf0f342b414dd09f83570843`.
+- NVRAM transaction boundary audit #43737626810: in_progress (parent 5636981).
+- NFS daemon start and reload lifecycle regression #43737626899: completed/failure (parent 5636981).
+- AI handoff documentation contract #43737626900: completed/success (parent 5636981).
+- Process lifecycle inventory - 56369810646910ccaf0f342b414dd09f83570843 #43737626854: completed/success (parent 5636981).
+- infosvr packet and signal lifecycle stability regression #43737626880: completed/success (parent 5636981).
+- Process inventory and lifecycle fail-closed regression #43737627168: completed/success (parent 5636981).
+- Product source changes in the next commit modify only launch diagnostics for enabled AdGuardHome, DDNS.to, Adbyby and AliDDNS wrappers. Disabled-service guards remain unchanged; exact-head process-lifecycle and XY-C1 runs are required.
+- No current-source L3 or physical-router L4 result is claimed unless exact-head Build, TRX verification, artifact upload and hardware validation are independently recorded.
 ## Exact first action for the next GPT
 
 1. Verify exact-head `nfsd-start-stability` after the stop regression additions: killall failure must retain live-daemon and mount state; exportfs/unmount failure must retain `etab`; full success must remove both daemon markers and both pseudo-mounts.

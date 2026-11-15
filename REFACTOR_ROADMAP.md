@@ -1,8 +1,8 @@
 ## Current source / CI checkpoint
 
-- Main baseline for expanded NFS stop regression coverage: `c736d4a8eccfe58f3106cdb63acc8b47963e6b98`. NFS start/reload/stop now fail closed when `pidof` is absent.
-- Exact c736 NFS workflow #43737106642 PASS (shell syntax, existing start/reload tests, IPv4/IPv6 export ACL compile, and RC/storage-lock/source contracts); process lifecycle #43737106692 PASS; AI docs #43737106611 PASS; infosvr #43737106602, AdGuardHome #43737106614, AliyunDrive #43737106593, AliDDNS #43737106579, Process inventory #43737106584 and NVRAM #43737106582 PASS. Backup remains read-only.
-- Existing NFS stop postcondition code is fail-closed, but its dedicated fixture lacked tests for surviving daemon signal failure, export withdrawal failure, unmount failure and complete success. This slice adds those four mocked stop cases; require exact-head NFS workflow before marking coverage verified.
+- Current main parent for the optional boot diagnostics slice: `56369810646910ccaf0f342b414dd09f83570843`. Four enabled optional-service wrappers still discarded their `eval()` result; the slice captures it and logs nonzero launch status while retaining each NVRAM feature gate.
+- Parent exact-SHA Action status: NVRAM transaction boundary audit #43737626810 in_progress; NFS daemon start and reload lifecycle regression #43737626899 completed/failure; AI handoff documentation contract #43737626900 completed/success; Process lifecycle inventory - 56369810646910ccaf0f342b414dd09f83570843 #43737626854 completed/success; infosvr packet and signal lifecycle stability regression #43737626880 completed/success; Process inventory and lifecycle fail-closed regression #43737627168 completed/success. Fresh exact-head process/XY checks required after this source change.
+- Networkmap, watchdog, infosvr, LLTD, rstats, telnetd, ttyd, SCUT, vlmcsd, iperf3, mentohust, OpenSSH, Dropbear and NFS status work has prior coverage. This slice adds launch-failure logging to AdGuardHome, DDNS.to, Adbyby and AliDDNS C entry points.
 - No local target build or physical-router L4 result is claimed.
 
 ## Whole-repository module status
