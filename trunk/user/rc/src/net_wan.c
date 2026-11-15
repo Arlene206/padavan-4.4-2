@@ -4381,9 +4381,10 @@ manv_route_deconfig(char *man_ifname)
 		logmessage(LOGNAME, "failed to delete IPTV DHCP routes on %s (error=%d)", man_ifname, route_result);
 	if (dhcp_lease_ipv4_is_valid(old_gateway)) {
 		route_result = route_del(man_ifname, 10, "0.0.0.0", old_gateway, "0.0.0.0");
-		route_status = route_status_accumulate(route_status, route_result);
-		if (route_result != 0)
+		if (!dhcp_lease_route_delete_is_ok(route_result)) {
+			route_status = route_status_accumulate(route_status, route_result);
 			logmessage(LOGNAME, "failed to delete IPTV default route via %s (error=%d)", old_gateway, route_result);
+		}
 	}
 	if (route_status == 0) {
 		nvram_set_temp("manv_gateway", "");
