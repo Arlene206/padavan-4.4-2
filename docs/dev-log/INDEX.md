@@ -1,6 +1,6 @@
 # Development log archive index
 
-- Root `dev_log.md` holds the newest 20 complete records, newest first.
+- Root `dev_log.md` is a rolling window of 20–119 complete records, newest first; when the next entry would make 120, archive the oldest 100 complete records verbatim and retain the newest 20 in the root.
 - Archive parts are chronological oldest-to-newest. For this rolling-window rotation, keep the 18 previous newest records from the root first, then reverse the newly appended archived records.
 - **Original source:** `dev_log.md` blob `6dc04f5aef231f9f4ea0e100abe87fce22c49fc0`, 984527 bytes, 663 records. Every historical record body is byte-identical to its source record.
 - **Shard policy:** target 256–384 KiB; hard cap 512 KiB; split only between complete dated records.
