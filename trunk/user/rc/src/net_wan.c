@@ -3491,6 +3491,7 @@ struct wan_dhcp_route_transition_context {
 	const char *old_ip;
 	const char *old_mask;
 	int route_metric;
+	int restore_host_route;
 	int remove_dhcp_routes;
 };
 
@@ -3548,7 +3549,8 @@ wan_dhcp_restore_old_routes(void *opaque)
 	int status = 0, route_status;
 
 	if (dhcp_lease_ipv4_is_valid(context->old_gateway)) {
-		if (dhcp_lease_ipv4_is_valid(context->old_ip) &&
+		if (context->restore_host_route &&
+		    dhcp_lease_ipv4_is_valid(context->old_ip) &&
 		    dhcp_lease_netmask_is_valid(context->old_mask) &&
 		    !is_same_subnet((char *)context->old_gateway,
 				    (char *)context->old_ip,
@@ -3698,6 +3700,7 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	route_context.old_ip = old_ip;
 	route_context.old_mask = old_mask;
 	route_context.route_metric = route_metric;
+	route_context.restore_host_route = remove_old_host_route;
 	route_context.remove_dhcp_routes = remove_old_dhcp_routes;
 	route_cleanup_status = dhcp_wan_route_transition_apply(
 		remove_old_host_route, dhcp_lease_ipv4_is_valid(old_gateway),
@@ -3978,6 +3981,7 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 	route_context.old_ip = old_ip;
 	route_context.old_mask = old_mask;
 	route_context.route_metric = 10;
+	route_context.restore_host_route = 0;
 	route_context.remove_dhcp_routes = 1;
 	route_cleanup_status = dhcp_wan_route_transition_apply(
 		0, dhcp_lease_ipv4_is_valid(old_gateway), 1,
