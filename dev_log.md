@@ -1,3 +1,10 @@
+## 2026-11-15 — Check upload hardening flags at the owning helper
+
+- Exact 9ec104c failed the next stale checker assertion: `O_NOFOLLOW` and `O_CLOEXEC` moved from `asus_ext.c` into `ftp_acl_path_policy.h` with the new descriptor-relative upload-open helper. Both source contracts now check the policy header where those flags are actually applied.
+- Parent main: `9ec104c802859cab3d92fbbcd7f139e7044dbf0a`; compile/run passed on the preceding exact SHA, but the static checker still requires a clean exact-head rerun.
+
+---
+
 ## 2026-11-15 — Align vsftpd upload implementation source assertion
 
 - Exact 32edac failed the static contract at line 323 because the audit still required an inline `openat(parent_fd, p_leaf, flags, mode)` in `asus_ext.c`. The safe open logic is now factored into `ftp_acl_path_open_upload_entry()`; the contract was updated to require that helper call instead.

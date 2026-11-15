@@ -401,8 +401,8 @@ jobs:
           assert "fstat(parent_fd, &opened_parent)" in vsftpd_acl
           assert "expected_parent.st_ino != opened_parent.st_ino" in vsftpd_acl
           assert "ftp_acl_path_unlink_opened_entry" in vsftpd_acl
-          assert "O_NOFOLLOW" in vsftpd_acl
-          assert "O_CLOEXEC" in vsftpd_acl
+          assert "O_NOFOLLOW" in acl_path_policy
+          assert "O_CLOEXEC" in acl_path_policy
           assert "directory descriptor did not stay on original share" in acl_path_test
           assert "O_NOFOLLOW accepted a substituted final symlink" in acl_path_test
           assert "cleanup removed a replacement upload entry" in acl_path_test
