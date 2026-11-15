@@ -422,4 +422,107 @@ assert_no_command umount
 	exit 1
 }
 
-echo "NFS daemon start/reload failure propagation and rollback: PASS"
+# Verify stop postconditions under signal, export-withdrawal and unmount failures.
+# A failed signal with surviving daemons must not mutate exports or mount state.
+reset_fixture
+prepare_running_nfs()
+{
+	: > "$STATE_DIR/nfsd"
+	: > "$STATE_DIR/rpc.mountd"
+	printf 'nfsd %s nfsd rw 0 0\\n' "$tmp_dir/proc/fs/nfsd" > "$MOUNTS_FILE"
+	printf 'rpc_pipefs %s rpc_pipefs rw 0 0\\n' "$tmp_dir/var/lib/nfs/rpc_pipefs" >> "$MOUNTS_FILE"
+	printf 'recovery-state\\n' > "$tmp_dir/var/lib/nfs/etab"
+}
+
+reset_fixture
+prepare_running_nfs
+status=$(run_command killall "" stop)
+assert_failed "$status" "NFS stop with surviving daemons"
+[ -f "$STATE_DIR/nfsd" ] && [ -f "$STATE_DIR/rpc.mountd" ] || {
+	echo "NFS daemon state disappeared despite injected killall failures" >&2
+	exit 1
+}
+[ "$(cat "$tmp_dir/var/lib/nfs/etab")" = "recovery-state" ] || {
+	echo "NFS stop discarded export recovery state while daemons survived" >&2
+	exit 1
+}
+[ "$(wc -l < "$MOUNTS_FILE" | tr -d ' ')" -eq 2 ] || {
+	echo "NFS stop detached pseudo-filesystems while daemons survived" >&2
+	exit 1
+}
+assert_command killall
+assert_no_command exportfs
+assert_no_command umount
+grep -q '^killall -q -9 rpc.mountd$' "$COMMAND_LOG"
+grep -q '^killall -q -9 nfsd$' "$COMMAND_LOG"
+
+# Failed rpc_pipefs detach must retain etab and must not continue to nfsd unmount.
+reset_fixture
+prepare_running_nfs
+status=$(run_command umount "" stop)
+assert_failed "$status" "NFS stop with rpc_pipefs unmount failure"
+[ ! -f "$STATE_DIR/nfsd" ] && [ ! -f "$STATE_DIR/rpc.mountd" ] || {
+	echo "NFS daemons remained after mocked successful termination" >&2
+	exit 1
+}
+[ "$(cat "$tmp_dir/var/lib/nfs/etab")" = "recovery-state" ] || {
+	echo "NFS stop discarded etab after unmount failure" >&2
+	exit 1
+}
+[ "$(wc -l < "$MOUNTS_FILE" | tr -d ' ')" -eq 2 ] || {
+	echo "NFS stop changed mount state after injected unmount failure" >&2
+	exit 1
+}
+assert_command exportfs
+assert_command umount
+[ "$(grep -c '^umount ' "$COMMAND_LOG")" -eq 1 ] || {
+	echo "NFS stop continued unmounting after the first unmount failure" >&2
+	exit 1
+}
+
+# Failed export withdrawal must keep both pseudo-filesystems and etab in place.
+reset_fixture
+prepare_running_nfs
+status=$(run_command exportfs "" stop)
+assert_failed "$status" "NFS stop with export withdrawal failure"
+[ ! -f "$STATE_DIR/nfsd" ] && [ ! -f "$STATE_DIR/rpc.mountd" ] || {
+	echo "NFS daemons remained after successful mocked termination" >&2
+	exit 1
+}
+[ -f "$tmp_dir/var/lib/nfs/etab" ] || {
+	echo "NFS stop removed etab after export withdrawal failure" >&2
+	exit 1
+}
+[ "$(wc -l < "$MOUNTS_FILE" | tr -d ' ')" -eq 2 ] || {
+	echo "NFS stop detached pseudo-filesystems after export withdrawal failure" >&2
+	exit 1
+}
+assert_no_command umount
+
+# Full successful stop must remove both daemons, exports and exactly two mounts.
+reset_fixture
+prepare_running_nfs
+status=$(run_command "" "" stop)
+[ "$status" -eq 0 ] || {
+	echo "successful NFS stop returned $status" >&2
+	exit 1
+}
+[ ! -f "$STATE_DIR/nfsd" ] && [ ! -f "$STATE_DIR/rpc.mountd" ] || {
+	echo "successful NFS stop left a server daemon running" >&2
+	exit 1
+}
+[ ! -s "$MOUNTS_FILE" ] || {
+	echo "successful NFS stop left pseudo-filesystems mounted" >&2
+	exit 1
+}
+[ ! -f "$tmp_dir/var/lib/nfs/etab" ] || {
+	echo "successful NFS stop retained etab after complete teardown" >&2
+	exit 1
+}
+assert_command exportfs
+[ "$(grep -c '^umount ' "$COMMAND_LOG")" -eq 2 ] || {
+	echo "successful NFS stop did not unmount exactly two pseudo-filesystems" >&2
+	exit 1
+}
+
+echo "NFS daemon start/reload/stop failure propagation and rollback: PASS"

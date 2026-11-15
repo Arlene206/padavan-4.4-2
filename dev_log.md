@@ -1,3 +1,12 @@
+## 2026-11-15 — Cover NFS server stop failure and completion postconditions
+
+- The NFS stop path already requires both server daemons to be absent before unexporting, retains `etab` when teardown fails, and detaches rpc_pipefs/nfsd only in sequence. Its isolated host fixture previously tested startup/reload failures and the missing-`pidof` guard, but not normal stop transitions.
+- Added four mocked stop cases: both graceful/forced killall attempts failing while daemons survive; rpc_pipefs unmount failure; exportfs withdrawal failure; and complete successful stop. Tests assert preserved `etab`/mount state on failures and removal of both daemon markers and both pseudo-mounts on full success.
+- Production `nfsd.sh` is unchanged in this test-only slice; no target build or router runtime is claimed. Exact c736 NFS workflow #43737106642 passed the preceding missing-`pidof` tests; this new source SHA needs a fresh run.
+- Parent main: `c736d4a8eccfe58f3106cdb63acc8b47963e6b98`; result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Fail closed when NFS process inventory tooling is unavailable
 
 - NFS start/reload/stop infer rpcbind, nfsd and rpc.mountd state using `pidof`. If `pidof` is absent from PATH, command substitutions expand to empty strings; critically, `func_stop()` could treat that as confirmed daemon absence and continue to unexport NFS exports and unmount pseudo-filesystems.

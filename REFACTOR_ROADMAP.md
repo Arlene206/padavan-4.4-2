@@ -1,7 +1,10 @@
 ## Current source / CI checkpoint
 
-- Current main: `7e21f495aeaa60a85bdf839e9ee1bb514105c49a`; Dropbear keygen/start/stop status propagation and mocked shell tests are present. The follow-up process-lifecycle run #43736960883 and AI docs #43736960862 both PASS after fixing telnetd/ttyd branch-order contracts. AdGuardHome #43736960909, infosvr #43736961052, AliDDNS #43736960859 and AliyunDrive #43736961032 also PASS; NVRAM #43736960951 was IN_PROGRESS.
-- NFS review found a fail-open when `pidof` is missing: process command substitutions look empty, and NFS stop can proceed to export withdrawal/unmount without authoritative daemon absence. This slice gates start/reload/stop on `command -v pidof`, returns 127 if unavailable, and adds mocked tests that prove no state mutation.
+- Main baseline for expanded NFS stop regression coverage: `c736d4a8eccfe58f3106cdb63acc8b47963e6b98`. NFS start/reload/stop now fail closed when `pidof` is absent.
+- Exact c736 NFS workflow #43737106642 PASS (shell syntax, existing start/reload tests, IPv4/IPv6 export ACL compile, and RC/storage-lock/source contracts); process lifecycle #43737106692 PASS; AI docs #43737106611 PASS; infosvr #43737106602, AdGuardHome #43737106614, AliyunDrive #43737106593, AliDDNS #43737106579, Process inventory #43737106584 and NVRAM #43737106582 PASS. Backup remains read-only.
+- Existing NFS stop postcondition code is fail-closed, but its dedicated fixture lacked tests for surviving daemon signal failure, export withdrawal failure, unmount failure and complete success. This slice adds those four mocked stop cases; require exact-head NFS workflow before marking coverage verified.
+- No local target build or physical-router L4 result is claimed.
+
 ## Whole-repository module status
 
 ### P1 process inventory / service lifecycle — tri-state foundation L2 VERIFIED; strict PID identity migration extended through PPPD/udhcpc/INICD and VPN/WAN/LAN/USB stop gates; xl2tpd and crond UNKNOWN start gates migrated; current L3 pending exact-head XY-C1
