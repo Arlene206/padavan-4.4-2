@@ -141,7 +141,9 @@ assert "networkmap_start_allowed(state)" in start
 assert "if (first_call)" not in start
 
 assert 'process_inventory_scan("networkmap", &snapshot)' in start
-assert "PROCESS_PRESENCE_RUNNING" in start and "PROCESS_PRESENCE_ABSENT" in start
+assert "if (state == PROCESS_PRESENCE_RUNNING)" in start
+assert "networkmap_start_allowed(state)" in start
+assert "return state == PROCESS_PRESENCE_ABSENT;" in daemon_policy
 assert "PROCESS_PRESENCE_UNKNOWN" not in start or "start aborted" in start
 assert "pids(" not in start
 assert '"networkmap"' in stop and "kill_services(" in stop

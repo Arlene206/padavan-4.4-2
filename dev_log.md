@@ -1,3 +1,14 @@
+## 2026-11-14 — Repair networkmap lifecycle checker after policy extraction
+
+- Investigated networkmap signal Action `43668416118` on `a90014886d87c8fcf8cf09a16f2322240e75e265`. Both GNU89/ASan/UBSan policy executables passed: signal deferral, and tri-state daemon action plus identity-bound refresh. The final checker failed because it expected RUNNING and ABSENT enum literals inside `start_networkmap()`; the implementation explicitly handles RUNNING in that function and centralizes ABSENT-only launch admission in `networkmap_start_allowed()`.
+- Corrected the source contract to assert the RUNNING fast path, the helper call, and the helper's exact ABSENT predicate. The UNKNOWN-abort assertion is retained. No production behavior changed.
+- Changed path: `scripts/check_networkmap_signals.py`. A new exact-head run is required; the old failure is not being re-labelled as a pass.
+- Result: THIS COMMIT.
+
+---
+
+
+
 ## 2026-11-14 — Harden direct starts and daemon stop postconditions
 
 - Direct/manual starts now preserve process-inventory UNKNOWN for SSH, infosvr, telnetd, networkmap, PPPoE relay, and SCUT/MentoHUST/VLMCSd/iperf3; starts proceed only when the complete inventory proves ABSENT.
