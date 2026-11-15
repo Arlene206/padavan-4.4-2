@@ -851,10 +851,19 @@ jobs:
                       "stop_torrent": "is_torrent_run",
                       "stop_aria": "is_aria_run",
                   }[stop_name]
-                  command = "kill_services" if stop_name in ("stop_dms", "stop_itunes") else "eval"
+                  command = "kill_services" if stop_name in (
+                      "stop_dms", "stop_itunes", "stop_torrent", "stop_aria"
+                  ) else "eval"
                   assert "storage_service_stop_complete(command_status, " + running_check + "())" in locked_body
                   assert command in locked_body
                   assert "return -1;" in locked_body and "return 0;" in locked_body
+                  if stop_name in ("stop_torrent", "stop_aria"):
+                      process_suffix = "torrent" if stop_name == "stop_torrent" else "aria"
+                      assert "process_state = is_{}_run();".format(process_suffix) in locked_body
+                      assert "process_state == PROCESS_PRESENCE_ABSENT" in locked_body
+                      assert "process_state != PROCESS_PRESENCE_RUNNING" in locked_body
+                      assert "refusing name-wide stop because daemon presence is unknown" in locked_body
+                      assert "kill_services(svcs," in locked_body
               assert "if (" + locked_name + "(" in stop_apps
               assert "int " + signature + ";" in rc_header
           assert "int stop_ftpsamba(void);" in rc_header
