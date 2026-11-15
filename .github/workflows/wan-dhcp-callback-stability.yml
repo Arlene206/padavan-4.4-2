@@ -172,6 +172,7 @@ jobs:
               assert signature in source, f"expected one private int definition: {name}"
           assert '#include "dhcp_wan_interface_policy.h"' in source
           callback = body(source, "udhcpc_bound(char *wan_ifname, int is_renew_mode)")
+          viptv_bound = body(source, "udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)")
           apply = callback.index("dhcp_wan_interface_apply(")
           route_transition = callback.index("dhcp_wan_route_transition_apply(")
           primary_state = callback.index('nvram_set_temp(strcat_r(prefix, "ipaddr", tmp), lease_ip)')
