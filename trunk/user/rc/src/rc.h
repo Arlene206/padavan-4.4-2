@@ -685,7 +685,7 @@ int restart_nfsd(void);
 #endif
 #if defined (APP_MINIDLNA)
 int is_dms_run(void);
-void update_minidlna_conf(const char *link_path, const char *conf_path);
+int update_minidlna_conf(const char *link_path, const char *conf_path);
 int stop_dms(void);
 void run_dms(int force_rescan);
 void restart_dms(int force_rescan);

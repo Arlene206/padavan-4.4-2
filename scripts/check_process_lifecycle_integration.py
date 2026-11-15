@@ -46,6 +46,7 @@ assert "test_identity_bound_notification_preflights_all_targets" in lifecycle_te
 assert "test_unknown_notification_inventory_sends_zero_signals" in lifecycle_test
 net_source = (root / "trunk/user/rc/src/net.c").read_text()
 storage_services = (root / "trunk/user/rc/src/services_stor.c").read_text()
+rc_header = (root / "trunk/user/rc/src/rc.h").read_text()
 firefly_config_header = (root / "trunk/user/rc/src/firefly_config_file.h").read_text()
 firefly_config_test = (root / "trunk/user/rc/src/tests/firefly_config_file.c").read_text()
 minidlna_config_header = (root / "trunk/user/rc/src/minidlna_config_file.h").read_text()
@@ -138,6 +139,9 @@ assert "trunk/user/rc/src/firefly_config_file.h" in xy_workflow
 print("Firefly configuration publication failure and last-good preservation contracts: PASS")
 
 assert '#include "minidlna_config_file.h"' in storage_services
+assert "int update_minidlna_conf(const char *link_path, const char *conf_path);" in rc_header
+assert "void update_minidlna_conf(const char *link_path, const char *conf_path);" not in rc_header
+assert "int update_minidlna_conf(const char *link_path, const char *conf_path)" in storage_services
 minidlna_update = storage_services.split("int update_minidlna_conf(", 1)[1].split("\nvoid run_dms(int force_rescan)", 1)[0]
 assert "minidlna_config_publish(conf_path, &values)" in minidlna_update
 assert "configuration publication failed (status=%d)" in minidlna_update

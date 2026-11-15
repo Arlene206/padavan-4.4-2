@@ -1,3 +1,10 @@
+## 2026-11-15 — Align MiniDLNA status-returning API declaration
+
+- The MiniDLNA publication slice changed `update_minidlna_conf()` from `void` to `int` so `run_dms()` can refuse to launch after a failed config write, but `rc.h` still declared the old `void` signature. That conflicting declaration can break the RC build.
+- Updated the public prototype to `int` and extended the Process source-contract checker to assert declaration/definition agreement.
+- Parent main: `c20bbfcfc8971a17dcea974f0e31416dafd8c1f4`. The MiniDLNA publisher GNU89 ASan/UBSan host regression passes locally; fresh exact-head Process and XY-C1 validation is required.
+
+---
 ## 2026-11-15 — Make MiniDLNA config publication atomic and fail closed
 
 - `update_minidlna_conf()` truncated `/etc/minidlna.conf` before writing, ignored buffered write/close errors and returned void; `run_dms()` attempted daemon launch regardless.
