@@ -155,6 +155,27 @@ jobs:
           )
           for name in app_restarts:
               assert "action_result = rc_notify_merge_action_result(action_result, " + name + "())" in handler, name
+          # Restart APIs must preserve launcher failures from their start phase.
+          # The start entry point also serves boot startup, so disabled daemons are
+          # successful no-ops rather than failed starts.
+          for name, launcher in (
+              ("ttyd", 'eval("/usr/bin/ttyd.sh","start")'),
+              ("ss", 'eval("/usr/bin/shadowsocks.sh","start")'),
+              ("ss_tunnel", 'eval("/usr/bin/ss-tunnel.sh","start")'),
+              ("zerotier", 'eval("/usr/bin/zerotier.sh","start")'),
+              ("sqm", 'eval("/usr/lib/sqm/run.sh")'),
+              ("aldriver", 'eval("/usr/bin/aliyundrive-webdav.sh","start")'),
+              ("wireguard", 'eval("/usr/bin/wireguard.sh","start")'),
+              ("smartdns", 'eval("/usr/bin/smartdns.sh","start")'),
+          ):
+              start_body = function_body(services, "int start_" + name + "(void)")
+              restart_body = function_body(services, "int restart_" + name + "(void)")
+              assert " != 1)" in start_body
+              assert "return 0;" in start_body
+              assert "return " + launcher + ";" in start_body
+              assert "return start_" + name + "();" in restart_body
+              assert "start_" + name + "();" not in restart_body
+              assert "int start_" + name + "(void);" in rc_header
           for daemon, process in (
               ("scutclient", "bin_scutclient"),
               ("mentohust", "bin_mentohust"),

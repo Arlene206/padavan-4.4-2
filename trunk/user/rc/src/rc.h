@@ -542,15 +542,15 @@ int restart_mentohust(void);
 #endif
 #if defined(APP_TTYD)
 int stop_ttyd(void);
-void start_ttyd(void);
+int start_ttyd(void);
 int restart_ttyd(void);
 #endif
 #if defined(APP_SHADOWSOCKS)
 int stop_ss(void);
-void start_ss(void);
+int start_ss(void);
 int restart_ss(void);
 int stop_ss_tunnel(void);
-void start_ss_tunnel(void);
+int start_ss_tunnel(void);
 int restart_ss_tunnel(void);
 void update_chnroute(void);
 void update_gfwlist(void);
@@ -592,7 +592,7 @@ int restart_aliddns(void);
 #endif
 #if defined(APP_ZEROTIER)
 int stop_zerotier(void);
-void start_zerotier(void);
+int start_zerotier(void);
 int restart_zerotier(void);
 #endif
 #if defined(APP_DDNSTO)
@@ -602,22 +602,22 @@ int restart_ddnsto(void);
 #endif
 #if defined(APP_ALDRIVER)
 int stop_aldriver(void);
-void start_aldriver(void);
+int start_aldriver(void);
 int restart_aldriver(void);
 #endif
 #if defined(APP_SQM)
 int stop_sqm(void);
-void start_sqm(void);
+int start_sqm(void);
 int restart_sqm(void);
 #endif
 #if defined(APP_WIREGUARD)
 int stop_wireguard(void);
-void start_wireguard(void);
+int start_wireguard(void);
 int restart_wireguard(void);
 #endif
 #if defined(APP_SMARTDNS)
 int stop_smartdns(void);
-void start_smartdns(void);
+int start_smartdns(void);
 int restart_smartdns(void);
 #endif
 #if defined(APP_FRP)

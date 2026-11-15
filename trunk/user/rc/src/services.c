@@ -616,10 +616,11 @@ int stop_ttyd(void){
 	return eval("/usr/bin/ttyd.sh","stop");
 }
 
-void start_ttyd(void){
+int start_ttyd(void){
 	int ttyd_mode = nvram_get_int("ttyd_enable");
-	if ( ttyd_mode == 1)
-		eval("/usr/bin/ttyd.sh","start");
+	if (ttyd_mode != 1)
+		return 0;
+	return eval("/usr/bin/ttyd.sh","start");
 }
 
 int restart_ttyd(void){
@@ -629,8 +630,7 @@ int restart_ttyd(void){
 		logmessage(LOGNAME, "ttyd restart aborted because stop failed");
 		return stop_status;
 	}
-	start_ttyd();
-	return 0;
+	return start_ttyd();
 }
 #endif
 
@@ -639,10 +639,11 @@ int stop_ss(void){
 	return eval("/usr/bin/shadowsocks.sh","stop");
 }
 
-void start_ss(void){
+int start_ss(void){
 	int ss_enable = nvram_get_int("ss_enable");
-	if ( ss_enable == 1)
-		eval("/usr/bin/shadowsocks.sh","start");
+	if (ss_enable != 1)
+		return 0;
+	return eval("/usr/bin/shadowsocks.sh","start");
 }
 
 int restart_ss(void){
@@ -652,18 +653,18 @@ int restart_ss(void){
 		logmessage(LOGNAME, "ss restart aborted because stop failed");
 		return stop_status;
 	}
-	start_ss();
-	return 0;
+	return start_ss();
 }
 
 int stop_ss_tunnel(void){
 	return eval("/usr/bin/ss-tunnel.sh","stop");
 }
 
-void start_ss_tunnel(void){
+int start_ss_tunnel(void){
 	int ss_tunnel_mode = nvram_get_int("ss-tunnel_enable");
-	if ( ss_tunnel_mode == 1)
-		eval("/usr/bin/ss-tunnel.sh","start");
+	if (ss_tunnel_mode != 1)
+		return 0;
+	return eval("/usr/bin/ss-tunnel.sh","start");
 }
 
 int restart_ss_tunnel(void){
@@ -673,8 +674,7 @@ int restart_ss_tunnel(void){
 		logmessage(LOGNAME, "ss_tunnel restart aborted because stop failed");
 		return stop_status;
 	}
-	start_ss_tunnel();
-	return 0;
+	return start_ss_tunnel();
 }
 
 void update_chnroute(void){
@@ -808,10 +808,11 @@ int stop_zerotier(void){
 	return eval("/usr/bin/zerotier.sh","stop");
 }
 
-void start_zerotier(void){
+int start_zerotier(void){
 	int zerotier_enable = nvram_get_int("zerotier_enable");
-	if ( zerotier_enable == 1)
-		eval("/usr/bin/zerotier.sh","start");
+	if (zerotier_enable != 1)
+		return 0;
+	return eval("/usr/bin/zerotier.sh","start");
 }
 
 int restart_zerotier(void){
@@ -821,8 +822,7 @@ int restart_zerotier(void){
 		logmessage(LOGNAME, "ZeroTier restart aborted because stop failed");
 		return stop_status;
 	}
-	start_zerotier();
-	return 0;
+	return start_zerotier();
 }
 #endif
 
@@ -848,10 +848,11 @@ int stop_sqm(void){
 	return eval("/usr/lib/sqm/run.sh","stop");
 }
 
-void start_sqm(void){
+int start_sqm(void){
 	int sqm_mode = nvram_get_int("sqm_enable");
-	if ( sqm_mode == 1)
-		eval("/usr/lib/sqm/run.sh");
+	if (sqm_mode != 1)
+		return 0;
+	return eval("/usr/lib/sqm/run.sh");
 }
 
 int restart_sqm(void){
@@ -861,8 +862,7 @@ int restart_sqm(void){
 		logmessage(LOGNAME, "sqm restart aborted because stop failed");
 		return stop_status;
 	}
-	start_sqm();
-	return 0;
+	return start_sqm();
 }
 #endif
 
@@ -871,10 +871,11 @@ int stop_aldriver(void){
 	return eval("/usr/bin/aliyundrive-webdav.sh","stop");
 }
 
-void start_aldriver(void){
+int start_aldriver(void){
 	int aldriver_enable = nvram_get_int("aliyundrive_enable");
-	if ( aldriver_enable == 1)
-		eval("/usr/bin/aliyundrive-webdav.sh","start");
+	if (aldriver_enable != 1)
+		return 0;
+	return eval("/usr/bin/aliyundrive-webdav.sh","start");
 }
 
 int restart_aldriver(void){
@@ -884,8 +885,7 @@ int restart_aldriver(void){
 		logmessage(LOGNAME, "aldriver restart aborted because stop failed");
 		return stop_status;
 	}
-	start_aldriver();
-	return 0;
+	return start_aldriver();
 }
 #endif
 
@@ -894,10 +894,11 @@ int stop_wireguard(void){
 	return eval("/usr/bin/wireguard.sh","stop");
 }
 
-void start_wireguard(void){
+int start_wireguard(void){
 	int wireguard_enable = nvram_get_int("wireguard_enable");
-	if ( wireguard_enable == 1)
-		eval("/usr/bin/wireguard.sh","start");
+	if (wireguard_enable != 1)
+		return 0;
+	return eval("/usr/bin/wireguard.sh","start");
 }
 
 int restart_wireguard(void){
@@ -907,8 +908,7 @@ int restart_wireguard(void){
 		logmessage(LOGNAME, "wireguard restart aborted because stop failed");
 		return stop_status;
 	}
-	start_wireguard();
-	return 0;
+	return start_wireguard();
 }
 #endif
 
@@ -938,10 +938,11 @@ int stop_smartdns(void){
 	return eval("/usr/bin/smartdns.sh","stop");
 }
 
-void start_smartdns(void){
+int start_smartdns(void){
 	int smartdns_mode = nvram_get_int("sdns_enable");
-	if ( smartdns_mode == 1)
-		eval("/usr/bin/smartdns.sh","start");
+	if (smartdns_mode != 1)
+		return 0;
+	return eval("/usr/bin/smartdns.sh","start");
 }
 
 int restart_smartdns(void){
@@ -951,8 +952,7 @@ int restart_smartdns(void){
 		logmessage(LOGNAME, "smartdns restart aborted because stop failed");
 		return stop_status;
 	}
-	start_smartdns();
-	return 0;
+	return start_smartdns();
 }
 #endif
 
