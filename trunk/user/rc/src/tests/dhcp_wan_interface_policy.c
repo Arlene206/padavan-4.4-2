@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "dhcp_wan_interface_policy.h"
+#include "dhcp_wan_route_transition_policy.h"
 
 struct fake_interface {
 	int clear_status;
@@ -153,6 +154,138 @@ test_invalid_input_has_no_side_effects(void)
 	assert(fake.event_count == 0);
 }
 
+
+struct fake_route_transition {
+	int delete_host_status;
+	int delete_default_status;
+	int delete_dhcp_status;
+	int restore_address_status;
+	int restore_routes_status;
+	char events[16];
+	size_t event_count;
+};
+
+static void
+record_route_event(struct fake_route_transition *fake, char event)
+{
+	assert(fake->event_count + 1 < sizeof(fake->events));
+	fake->events[fake->event_count++] = event;
+	fake->events[fake->event_count] = '\0';
+}
+
+static int
+fake_delete_host_route(void *opaque)
+{
+	struct fake_route_transition *fake = (struct fake_route_transition *)opaque;
+	record_route_event(fake, 'h');
+	return fake->delete_host_status;
+}
+
+static int
+fake_delete_default_route(void *opaque)
+{
+	struct fake_route_transition *fake = (struct fake_route_transition *)opaque;
+	record_route_event(fake, 'd');
+	return fake->delete_default_status;
+}
+
+static int
+fake_delete_dhcp_routes(void *opaque)
+{
+	struct fake_route_transition *fake = (struct fake_route_transition *)opaque;
+	record_route_event(fake, 'r');
+	return fake->delete_dhcp_status;
+}
+
+static int
+fake_restore_address(void *opaque)
+{
+	struct fake_route_transition *fake = (struct fake_route_transition *)opaque;
+	record_route_event(fake, 'A');
+	return fake->restore_address_status;
+}
+
+static int
+fake_restore_routes(void *opaque)
+{
+	struct fake_route_transition *fake = (struct fake_route_transition *)opaque;
+	record_route_event(fake, 'R');
+	return fake->restore_routes_status;
+}
+
+static const struct dhcp_wan_route_transition_ops fake_route_transition_ops = {
+	fake_delete_host_route,
+	fake_delete_default_route,
+	fake_delete_dhcp_routes,
+	fake_restore_address,
+	fake_restore_routes
+};
+
+static void
+test_route_transition_success(void)
+{
+	struct fake_route_transition fake = { 0, 0, 0, 0, 0, "", 0 };
+	int rollback_status = -1;
+
+	assert(dhcp_wan_route_transition_apply(1, 1, 1,
+		&fake_route_transition_ops, &fake, &rollback_status) == 0);
+	assert(rollback_status == 0);
+	assert(strcmp(fake.events, "hdr") == 0);
+}
+
+static void
+test_route_transition_ignores_missing_old_routes(void)
+{
+	struct fake_route_transition fake = { ESRCH, ESRCH, ESRCH, 0, 0, "", 0 };
+	int rollback_status = -1;
+
+	assert(dhcp_wan_route_transition_apply(1, 1, 1,
+		&fake_route_transition_ops, &fake, &rollback_status) == 0);
+	assert(rollback_status == 0);
+	assert(strcmp(fake.events, "hdr") == 0);
+}
+
+static void
+test_route_transition_rolls_back_all_after_delete_errors(void)
+{
+	struct fake_route_transition fake = {
+		EIO, EACCES, ENETUNREACH, 0, 0, "", 0
+	};
+	int rollback_status = -1;
+
+	assert(dhcp_wan_route_transition_apply(1, 1, 1,
+		&fake_route_transition_ops, &fake, &rollback_status) == EIO);
+	assert(rollback_status == 0);
+	assert(strcmp(fake.events, "hdrAR") == 0);
+}
+
+static void
+test_route_transition_reports_rollback_failure_but_attempts_both(void)
+{
+	struct fake_route_transition fake = {
+		EIO, 0, 0, EACCES, EPERM, "", 0
+	};
+	int rollback_status = 0;
+
+	assert(dhcp_wan_route_transition_apply(1, 1, 1,
+		&fake_route_transition_ops, &fake, &rollback_status) == EIO);
+	assert(rollback_status == EACCES);
+	assert(strcmp(fake.events, "hdrAR") == 0);
+}
+
+static void
+test_route_transition_skips_unrequested_operations(void)
+{
+	struct fake_route_transition fake = { 0, 0, 0, 0, 0, "", 0 };
+
+	assert(dhcp_wan_route_transition_apply(0, 0, 0,
+		&fake_route_transition_ops, &fake, NULL) == 0);
+	assert(fake.event_count == 0);
+	assert(dhcp_wan_route_transition_apply(2, 0, 0,
+		&fake_route_transition_ops, &fake, NULL) == EINVAL);
+	assert(fake.event_count == 0);
+}
+
 int
 main(void)
 {
@@ -165,6 +298,11 @@ main(void)
 	test_failed_first_lease_is_cleared();
 	test_failed_clear_without_previous_lease_is_reported();
 	test_invalid_input_has_no_side_effects();
-	puts("WAN DHCP/ZeroConf interface transaction regression: PASS");
+	test_route_transition_success();
+	test_route_transition_ignores_missing_old_routes();
+	test_route_transition_rolls_back_all_after_delete_errors();
+	test_route_transition_reports_rollback_failure_but_attempts_both();
+	test_route_transition_skips_unrequested_operations();
+	puts("WAN DHCP/ZeroConf interface and route transaction regression: PASS");
 	return 0;
 }

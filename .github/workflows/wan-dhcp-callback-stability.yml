@@ -26,6 +26,7 @@ on:
       - "trunk/user/rc/src/dhcp6c_config_file.h"
       - "trunk/user/rc/src/tests/dhcp6c_config_file.c"
       - "trunk/user/rc/src/dhcp_wan_interface_policy.h"
+      - "trunk/user/rc/src/dhcp_wan_route_transition_policy.h"
       - "trunk/user/rc/src/tests/dhcp_wan_interface_policy.c"
       - "trunk/user/rc/src/wan_viptv_static_policy.h"
       - "trunk/user/rc/src/tests/wan_viptv_static_policy.c"
@@ -56,6 +57,7 @@ on:
       - "trunk/user/rc/src/dhcp6c_config_file.h"
       - "trunk/user/rc/src/tests/dhcp6c_config_file.c"
       - "trunk/user/rc/src/dhcp_wan_interface_policy.h"
+      - "trunk/user/rc/src/dhcp_wan_route_transition_policy.h"
       - "trunk/user/rc/src/tests/dhcp_wan_interface_policy.c"
       - "trunk/user/rc/src/wan_viptv_static_policy.h"
       - "trunk/user/rc/src/tests/wan_viptv_static_policy.c"
@@ -134,6 +136,7 @@ jobs:
           config_policy = (rc / "dhcp6c_config_file.h").read_text()
           config_test = (rc / "tests/dhcp6c_config_file.c").read_text()
           policy = (rc / "dhcp_wan_interface_policy.h").read_text()
+          route_policy = (rc / "dhcp_wan_route_transition_policy.h").read_text()
           workflow = Path(".github/workflows/wan-dhcp-callback-stability.yml").read_text()
           ipup_policy = (rc / "ppp_wan_ipup_policy.h").read_text()
           ipup_test = (rc / "tests/ppp_wan_ipup_policy.c").read_text()
@@ -170,13 +173,30 @@ jobs:
           assert '#include "dhcp_wan_interface_policy.h"' in source
           callback = body(source, "udhcpc_bound(char *wan_ifname, int is_renew_mode)")
           apply = callback.index("dhcp_wan_interface_apply(")
-          old_routes = callback.index("route_del(wan_ifname, route_metric")
+          route_transition = callback.index("dhcp_wan_route_transition_apply(")
           primary_state = callback.index('nvram_set_temp(strcat_r(prefix, "ipaddr", tmp), lease_ip)')
-          assert apply < old_routes < primary_state
+          assert apply < route_transition < primary_state
           assert "preserving previous lease and routes" in callback
           assert "failed to restore previous DHCP address" in callback
           assert "ifconfig(wan_ifname" not in callback
-          assert callback.index("wan_dhcp_interface_clear(&interface_context)") < old_routes
+          assert callback.index("wan_dhcp_interface_clear(&interface_context)") < route_transition
+          assert "preserving old lease" in callback
+          assert "failed to restore previous DHCP route inventory" in callback
+          transition = body(route_policy, "dhcp_wan_route_transition_apply(")
+          assert "dhcp_lease_route_delete_is_ok(operation_status)" in transition
+          assert "ops->restore_old_address(context)" in transition
+          assert "ops->restore_old_routes(context)" in transition
+          assert transition.index("ops->restore_old_address(context)") < transition.index("ops->restore_old_routes(context)")
+          delete_host = body(source, "wan_dhcp_delete_old_host_route(void *opaque)")
+          assert "return route_del(context->interface_context->ifname" in delete_host
+          restore_address = body(source, "wan_dhcp_restore_old_address(void *opaque)")
+          assert "wan_dhcp_interface_set" in restore_address and "wan_dhcp_interface_clear" in restore_address
+          restore_routes = body(source, "wan_dhcp_restore_old_routes(void *opaque)")
+          assert "route_add(ifname, context->route_metric" in restore_routes
+          assert "add_dhcp_routes_by_prefix" in restore_routes
+          control_routes = body(source, "control_dhcp_routes(char *rt")
+          assert control_routes.count("dhcp_lease_route_add_is_ok(route_status)") == 2
+          assert control_routes.count("dhcp_lease_route_delete_is_ok(route_status)") == 2
           gateway_state = callback.index('nvram_set_temp(strcat_r(prefix, "gateway", tmp), gateway_buf)')
           wan_route_setup = callback.index("route_setup_status = wan_up_internal(wan_ifname, unit, 0)")
           man_route_setup = callback.index("route_setup_status = man_up_internal(wan_ifname, unit, 0)")
@@ -641,6 +661,7 @@ jobs:
               "trunk/user/rc/src/dhcp6c_config_file.h",
               "trunk/user/rc/src/tests/dhcp6c_config_file.c",
               "trunk/user/rc/src/dhcp_wan_interface_policy.h",
+              "trunk/user/rc/src/dhcp_wan_route_transition_policy.h",
               "trunk/user/rc/src/tests/dhcp_wan_interface_policy.c",
               "trunk/user/rc/src/wan_viptv_static_policy.h",
               "trunk/user/rc/src/tests/wan_viptv_static_policy.c",

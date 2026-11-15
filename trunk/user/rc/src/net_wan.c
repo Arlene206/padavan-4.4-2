@@ -44,6 +44,7 @@
 #include "wan_teardown_policy.h"
 #include "dhcp_lease_policy.h"
 #include "dhcp_wan_interface_policy.h"
+#include "dhcp_wan_route_transition_policy.h"
 #include "wan_viptv_static_policy.h"
 #include "bridge_membership_policy.h"
 #include "switch.h"
@@ -3122,11 +3123,13 @@ control_dhcp_routes(char *rt, char *rt_rfc, char *rt_ms,
 					route_status = is_add ?
 						route_add(ifname, metric, ipaddr, gateway, netmask) :
 						route_del(ifname, metric, ipaddr, gateway, netmask);
-					status = route_status_accumulate(status, route_status);
-					if (route_status != 0)
+					if ((is_add && !dhcp_lease_route_add_is_ok(route_status)) ||
+					    (!is_add && !dhcp_lease_route_delete_is_ok(route_status))) {
+						status = route_status_accumulate(status, route_status);
 						logmessage(LOGNAME, "failed to %s DHCP route %s via %s on %s (error=%d)",
 							   is_add ? "add" : "delete", ipaddr, gateway,
 							   ifname, route_status);
+					}
 				}
 			}
 			free(routes);
@@ -3163,11 +3166,13 @@ control_dhcp_routes(char *rt, char *rt_rfc, char *rt_ms,
 				route_status = is_add ?
 					route_add(ifname, metric, ipaddr, gateway, netmask) :
 					route_del(ifname, metric, ipaddr, gateway, netmask);
-				status = route_status_accumulate(status, route_status);
-				if (route_status != 0)
+				if ((is_add && !dhcp_lease_route_add_is_ok(route_status)) ||
+				    (!is_add && !dhcp_lease_route_delete_is_ok(route_status))) {
+					status = route_status_accumulate(status, route_status);
 					logmessage(LOGNAME, "failed to %s DHCP classless route %s/%d via %s on %s (error=%d)",
 						   is_add ? "add" : "delete", ipaddr, bits, gateway,
 						   ifname, route_status);
+				}
 			}
 			free(routes);
 		}
@@ -3478,6 +3483,104 @@ static const struct dhcp_wan_interface_ops wan_dhcp_interface_ops = {
 	wan_dhcp_interface_set
 };
 
+
+struct wan_dhcp_route_transition_context {
+	struct wan_dhcp_interface_context *interface_context;
+	const char *prefix;
+	const char *old_gateway;
+	const char *old_ip;
+	const char *old_mask;
+	int route_metric;
+	int remove_dhcp_routes;
+};
+
+static int
+wan_dhcp_delete_old_host_route(void *opaque)
+{
+	struct wan_dhcp_route_transition_context *context =
+		(struct wan_dhcp_route_transition_context *)opaque;
+
+	return route_del(context->interface_context->ifname,
+			 context->route_metric, (char *)context->old_gateway,
+			 NULL, "255.255.255.255");
+}
+
+static int
+wan_dhcp_delete_old_default_route(void *opaque)
+{
+	struct wan_dhcp_route_transition_context *context =
+		(struct wan_dhcp_route_transition_context *)opaque;
+
+	return route_del(context->interface_context->ifname,
+			 context->route_metric, "0.0.0.0",
+			 (char *)context->old_gateway, "0.0.0.0");
+}
+
+static int
+wan_dhcp_delete_old_dhcp_routes(void *opaque)
+{
+	struct wan_dhcp_route_transition_context *context =
+		(struct wan_dhcp_route_transition_context *)opaque;
+
+	return del_dhcp_routes_by_prefix((char *)context->prefix,
+					 context->interface_context->ifname, 0);
+}
+
+static int
+wan_dhcp_restore_old_address(void *opaque)
+{
+	struct wan_dhcp_route_transition_context *context =
+		(struct wan_dhcp_route_transition_context *)opaque;
+
+	if (dhcp_lease_ipv4_is_valid(context->old_ip) &&
+	    dhcp_lease_netmask_is_valid(context->old_mask))
+		return wan_dhcp_interface_set(context->interface_context,
+					      context->old_ip, context->old_mask);
+	return wan_dhcp_interface_clear(context->interface_context);
+}
+
+static int
+wan_dhcp_restore_old_routes(void *opaque)
+{
+	struct wan_dhcp_route_transition_context *context =
+		(struct wan_dhcp_route_transition_context *)opaque;
+	char *ifname = context->interface_context->ifname;
+	int status = 0, route_status;
+
+	if (dhcp_lease_ipv4_is_valid(context->old_gateway)) {
+		if (dhcp_lease_ipv4_is_valid(context->old_ip) &&
+		    dhcp_lease_netmask_is_valid(context->old_mask) &&
+		    !is_same_subnet((char *)context->old_gateway,
+				    (char *)context->old_ip,
+				    (char *)context->old_mask)) {
+			route_status = route_add(ifname, context->route_metric,
+						  (char *)context->old_gateway,
+						  NULL, "255.255.255.255");
+			if (!dhcp_lease_route_add_is_ok(route_status))
+				status = route_status_accumulate(status, route_status);
+		}
+		route_status = route_add(ifname, context->route_metric,
+					 "0.0.0.0", (char *)context->old_gateway,
+					 "0.0.0.0");
+		if (!dhcp_lease_route_add_is_ok(route_status))
+			status = route_status_accumulate(status, route_status);
+	}
+	if (context->remove_dhcp_routes) {
+		route_status = add_dhcp_routes_by_prefix((char *)context->prefix,
+							 ifname, 0);
+		status = route_status_accumulate(status, route_status);
+	}
+	return status;
+}
+
+static const struct dhcp_wan_route_transition_ops wan_dhcp_route_transition_ops = {
+	wan_dhcp_delete_old_host_route,
+	wan_dhcp_delete_old_default_route,
+	wan_dhcp_delete_old_dhcp_routes,
+	wan_dhcp_restore_old_address,
+	wan_dhcp_restore_old_routes
+};
+
 static int
 udhcpc_bound(char *wan_ifname, int is_renew_mode)
 {
@@ -3491,7 +3594,10 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	int unit, is_man, is_changed, i_err, has_gateway, lease_dur, dhcp_mtu;
 	int wan_proto, modem_unit_id, route_result, route_metric;
 	int interface_status, rollback_status, route_setup_status;
+	int remove_old_host_route, remove_old_dhcp_routes;
+	int route_cleanup_status, route_rollback_status;
 	struct wan_dhcp_interface_context interface_context;
+	struct wan_dhcp_route_transition_context route_context;
 
 	unit = get_wan_unit(wan_ifname);
 	is_man = is_ifunit_man(wan_ifname, unit);
@@ -3577,19 +3683,36 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 		}
 	}
 
-	/* The old route inventory is still in NVRAM here; remove it only after
-	 * interface configuration succeeds, before publishing the new lease. */
-	if (dhcp_lease_ipv4_is_valid(old_gateway)) {
-		if (dhcp_lease_ipv4_is_valid(old_ip) &&
-		    dhcp_lease_netmask_is_valid(old_mask) &&
-		    !is_same_subnet(old_gateway, old_ip, old_mask))
-			route_del(wan_ifname, route_metric, old_gateway, NULL, "255.255.255.255");
-		route_del(wan_ifname, route_metric, "0.0.0.0", old_gateway, "0.0.0.0");
+	/* The old route inventory is still in NVRAM here. Do not publish a
+	 * replacement lease if deleting that inventory fails: restore the old
+	 * interface address and every route, then let udhcpc retry the callback. */
+	remove_old_host_route = dhcp_lease_ipv4_is_valid(old_gateway) &&
+		dhcp_lease_ipv4_is_valid(old_ip) &&
+		dhcp_lease_netmask_is_valid(old_mask) &&
+		!is_same_subnet(old_gateway, old_ip, old_mask);
+	remove_old_dhcp_routes = is_man || modem_unit_id == 2 ||
+		(!modem_unit_id && wan_proto == IPV4_WAN_PROTO_IPOE_DHCP);
+	route_context.interface_context = &interface_context;
+	route_context.prefix = prefix;
+	route_context.old_gateway = old_gateway;
+	route_context.old_ip = old_ip;
+	route_context.old_mask = old_mask;
+	route_context.route_metric = route_metric;
+	route_context.remove_dhcp_routes = remove_old_dhcp_routes;
+	route_cleanup_status = dhcp_wan_route_transition_apply(
+		remove_old_host_route, dhcp_lease_ipv4_is_valid(old_gateway),
+		remove_old_dhcp_routes, &wan_dhcp_route_transition_ops,
+		&route_context, &route_rollback_status);
+	if (route_cleanup_status != 0) {
+		logmessage(log_prefix,
+			   "failed to remove previous DHCP route inventory on %s (status=%d); preserving old lease",
+			   wan_ifname, route_cleanup_status);
+		if (route_rollback_status != 0)
+			logmessage(log_prefix,
+				   "failed to restore previous DHCP route inventory on %s (status=%d)",
+				   wan_ifname, route_rollback_status);
+		return route_cleanup_status;
 	}
-	if (is_man ||
-	    modem_unit_id == 2 ||
-	    (!modem_unit_id && wan_proto == IPV4_WAN_PROTO_IPOE_DHCP))
-		del_dhcp_routes_by_prefix(prefix, wan_ifname, 0);
 
 	lease_dur = 0;
 	has_gateway = 0;
