@@ -4081,7 +4081,7 @@ jobs:
           stale_clear = upload_helper.index("unlink(fn);")
           parse_part = upload_helper.index("/* Look for our part */")
           assert stale_clear < parse_part, "ordinary upload target is not cleared before multipart parsing"
-          assert "httpd_upload_publish_staged(&fp, fn, publish_to, NULL)" in upload_helper
+          assert "httpd_upload_publish_staged(&fp, fn, publish_to, ops)" in upload_helper
           storage_post_start = upload.index(chr(10) + "void" + chr(10) + "do_restore_st_post")
           storage_post = upload[storage_post_start:]
           assert "unlink(upload_file);" not in storage_post, "restore POST must preserve the previous retry archive"
@@ -4103,7 +4103,7 @@ jobs:
           # prevents a symlink inserted after stale-file cleanup from being followed.
           assert '#include "httpd_upload_file.h"' in upload
           assert "httpd_upload_open_exclusive(fn)" in upload_helper
-          assert "httpd_upload_publish_staged(&fp, fn, publish_to, NULL)" in upload_helper
+          assert "httpd_upload_publish_staged(&fp, fn, publish_to, ops)" in upload_helper
           assert "httpd_upload_create_staging" in upload_policy
           assert "mkstemp(path)" in upload_policy and "fsync(fd)" in upload_policy and "rename_fn(staging_path, destination_path)" in upload_policy
           assert 'fopen(fn, "w+")' not in upload_helper
