@@ -1,3 +1,12 @@
+## 2026-11-16 — Complete the mandatory handoff checkpoint wording
+
+- Exact main SHA 118 Process lifecycle #43774359240 PASS after correcting the networkmap checker to assert the captured local status and its subsequent aggregation.
+- Exact 118 AI handoff docs #43774359299 failed on the handoff validator's required literal phrase `Before context exhaustion`. The checkpoint section now states that requirement alongside the exact mandatory checkpoint sentence.
+- XY-C1 run #43773995690 remained in progress on source SHA 0e27 at last poll. No Build/TRX/artifact or L3 claim.
+- This is a docs/validation-contract correction only; firmware source did not change.
+
+---
+
 ## 2026-11-16 — Correct networkmap status-binding checker and handoff contract wording
 
 - Exact 0e27 Process lifecycle #43773995752 compiled and ran the GNU89 boot-service first-failure and logger policy binaries successfully, then failed in the final production integration checker. The assertion incorrectly expected `start_networkmap(1)` to be nested directly in the reducer; production captures it in `networkmap_start_status`, logs a useful diagnostic and then reduces that local. Updated the checker to verify the real binding + aggregation contract rather than require a different implementation.

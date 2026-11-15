@@ -3,17 +3,20 @@
 Recover live repository state once, then continue the active engineering task. Do not repeat completed audits, remain at planning, wait on PENDING CI when independent work is available, or ask the user what to do next.
 
 For each logical task: create all blobs, one complete Git tree and one commit parented to freshly fetched main; update main with exact expected SHA and force:false. Use one atomic main commit, never partial multi-file commits or force-push. Preserve the frozen backup and archived log shards/index. Mandatory handoff checkpoint: The checkpoint is mandatory; a document edit is conditional.
+Before context exhaustion, record exact refs, Action states and the first next action.
 Only edit it when the live facts or first next action change materially.
 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Current source commit: `0e27e66a60d7fda0e5136022ca1270426e931e57` (parent `d444b7bbe4fe2aaacd424f97640a05672ec60b16`).
+- Current main: `118008748d0a076d58b7886ab71fb370482a71ef` (parent `0e27e66a60d7fda0e5136022ca1270426e931e57`); active RC source slice was introduced in `d444b7bbe4fe2aaacd424f97640a05672ec60b16`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged/read-only.
 - Parent SHA `3236230989b599b5d34ae7cdd8aa5e44178cf0d6`: Process lifecycle #43772230234 PASS and AI handoff docs #43772230258 PASS. XY-C1 #43772230305 was still building at last poll.
 - Exact d444 SHA `d444b7bbe4fe2aaacd424f97640a05672ec60b16`: Process #43773527020 failed first at the over-escaped newline extraction; XY-C1 #43773526843 rejected an accidental pull_request trigger (XY-C1 is push-only); AI docs #43773527100 rejected missing exact checkpoint wording. The 0e27 correction fixed the extraction delimiter and removed the PR trigger.
 - Exact 0e27 SHA `0e27e66a60d7fda0e5136022ca1270426e931e57`: Process #43773995752 got through every GNU89 policy binary and most integration assertions, then failed because the checker expected direct aggregation of `start_networkmap(1)` while production intentionally captures that status in `networkmap_start_status` for diagnostics before aggregation. This commit corrects the checker contract.
-- Exact 0e27 AI docs #43773995692 failed because the handoff phrase was extended with `on material status changes`, breaking the validator's exact punctuation. This commit restores the exact required sentence. XY-C1 #43773995690 remained in progress at the last poll; the corrected workflow is push-only and retains its new helper/test path filters.
+- Exact 0e27 AI docs #43773995692 failed because the handoff phrase used `conditional on material status changes`, breaking the validator's exact required sentence. The correction at 118 restored that sentence, but exact 118 AI docs #43774359299 then failed on a separate required `Before context exhaustion` phrase; THIS COMMIT adds it.
+- Exact 0e27 XY-C1 #43773995690 remained in progress at the last poll. The workflow on that SHA is push-only and has the new helper/test path filters; no Build/TRX/artifact completion can be claimed.
+- Exact 118 Process lifecycle #43774359240 PASS after correcting the networkmap local-status aggregation assertion.
 - Exact USB storage #43771300948 PASS on parent 828; Transmission and Aria lifecycle tests passed under host shell and firmware BusyBox 1.24.2 ash. Do not repeat those source slices absent a new regression.
 - The preceding logger fix in SHA 323 makes `start_logger()` attempt both syslogd/klogd, logs both launch failures and returns the first nonzero status. Exact Process #43772230234 PASS includes its reducer and source-integration regression.
 - No physical-router/L4 validation is claimed.
@@ -47,8 +50,8 @@ The APP_MSD_LITE branch in `start_udpxy()` now stages config and checks publicat
 ## Verification boundary
 
 - Source SHA `d444b7bbe4fe2aaacd424f97640a05672ec60b16` added the boot-service status source/test/checker/workflow slice atomically. Correction SHA `0e27e66a60d7fda0e5136022ca1270426e931e57` fixed the initial checker extraction, restored XY-C1's push-only trigger and adjusted checkpoint wording.
-- Exact 0e27 Process #43773995752 FAIL at the `networkmap_start_status` aggregation assertion after all GNU89 tests PASS. Exact 0e27 AI docs #43773995692 FAIL on the exact checkpoint sentence. Exact 0e27 XY-C1 #43773995690 was still in progress at last inspection.
-- THIS COMMIT fixes the source-checker model of the captured networkmap status and restores the exact handoff contract sentence. New exact-head Process, AI docs and XY-C1 Actions are required; no L3/L4 claim.
+- Exact 0e27 Process #43773995752 FAIL at the networkmap captured-status assertion after all GNU89 tests PASS; exact 0e27 AI docs #43773995692 FAIL on exact sentence wording; exact 0e27 XY-C1 #43773995690 was in progress.
+- Exact 118 Process #43774359240 PASS, confirming the corrected production integration checker. Exact 118 AI docs #43774359299 FAIL only on missing `Before context exhaustion`; THIS COMMIT repairs the last required handoff phrase. No L3/L4 claim.
 - Exact-head Process lifecycle must execute the new boot-service reducer and integration assertions. Exact-head XY-C1 Build, TRX verification and artifact upload are required for L3.
 - No local cross-build or physical router test is claimed.
 
