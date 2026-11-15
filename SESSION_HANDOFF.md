@@ -8,7 +8,7 @@ For each multi-file logical slice, publish source, tests/contracts and necessary
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; current main is `925e6530bd27d1c7eea23984fbc867f3009648eb`. The optional RC wrappers for AdGuardHome, DDNS.to, Adbyby and AliDDNS capture/log eval failures; Dropbear/SSH and NFS pidof changes remain in the source baseline.
+- Repository `Arlene206/padavan-4.4-2`; current parent before optional-service launcher logging: `479c05be3bef946f892f81a296d0ca3e709a698f`. The four feature-gated wrappers now capture their eval status and log nonzero failures; backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
 - Boot diagnostics cover networkmap, watchdog, infosvr, GPIO, LLTD, rstats, telnetd and ttyd. SCUT, vlmcsd, iperf3 and mentohust wrappers now preserve their daemon launch/stop statuses.
 - LPD printer-removal PID identity hardening landed in `72ce1bb97323d4c417e8a5d891bbaf9c6ed3f2f3`; source-contract formatting correction is `022bc51507ca5f395c60a1f450cc461bf5403926`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. No local checkout/MIPS toolchain or physical-router L4 result is claimed.
@@ -29,20 +29,18 @@ For each multi-file logical slice, publish source, tests/contracts and necessary
 - This does not close Linux 4.4's final identity-check-to-kill(2) race; no atomic pidfd-like primitive is available in this target baseline.
 
 ## Verification boundary
-- Exact SHA `56369810646910ccaf0f342b414dd09f83570843`: NFS daemon workflow #43737626899 FAIL at the first new stop fixture assertion (etab content); shell syntax passed. The cause is over-escaped printf formats in the fixture, not production NFS code. This commit corrects the format delimiters.
-- Exact parent `925e6530bd27d1c7eea23984fbc867f3009648eb`: AI docs #43737910530 PASS; process inventory/lifecycle fail-closed #43737910499 PASS; infosvr #43737910533 PASS; AdGuardHome #43737910558 PASS; AliDDNS #43737910522 PASS; AliyunDrive #43737910604 PASS; NVRAM #43737910496 was IN_PROGRESS at last poll. No NFS workflow was triggered on 925e; require a fresh NFS run after this test-only correction.
 
-- Exact parent SHA: `776b47eea3728e44944e04aeef67e4e0fe750f9a`.
-- Process lifecycle inventory - 776b47eea3728e44944e04aeef67e4e0fe750f9a #43737703771: completed/success.
-- Process inventory and lifecycle fail-closed regression #43737703882: completed/success.
-- XY-C1 Firmware Validation #43737703922: in_progress.
-- AI handoff documentation contract #43737703755: completed/success.
-- NVRAM transaction boundary audit #43737703842: completed/success.
-- The four optional-service diagnostics change only failure observability; feature-gated enable/disable behavior and boot ordering are unchanged. Fresh exact-head process-lifecycle and XY-C1 checks are required.
-- No current-source L3 or physical-router L4 claim without exact-SHA build, TRX/artifact and hardware evidence.
+- Exact parent SHA: `479c05be3bef946f892f81a296d0ca3e709a698f`.
+- infosvr packet and signal lifecycle stability regression #43738132617: completed/success (exact parent).
+- NFS daemon start and reload lifecycle regression #43738132578: completed/success (exact parent).
+- AI handoff documentation contract #43738132573: completed/success (exact parent).
+- Process inventory and lifecycle fail-closed regression #43738132620: completed/success (exact parent).
+- Process lifecycle inventory - 479c05be3bef946f892f81a296d0ca3e709a698f #43738132593: completed/success (exact parent).
+- NVRAM transaction boundary audit #43738132600: completed/success (exact parent).
+- The four RC wrapper changes retain their NVRAM feature gates and only add enabled-launch failure observability. Fresh exact-head process-lifecycle and XY-C1 Actions are required; no current-source L3 or physical-router L4 claim is made without exact-SHA build, TRX/artifact and hardware evidence.
 ## Exact first action for the next GPT
 
-1. Verify the exact-head nfsd-start-stability run after correcting the three printf newline escapes. Confirm all four new stop cases run: surviving daemons, export withdrawal failure, rpc_pipefs unmount failure and complete successful teardown.
+1. Verify the exact-head process-lifecycle source contracts and XY-C1 Build/TRX/artifact results for AdGuardHome, DDNS.to, Adbyby and AliDDNS. If those pass, continue auditing the next tracked `void start_*()` wrapper without duplicating existing coverage.
 2. Verify the exact-head optional RC launch checker and XY-C1 source/build workflow for AdGuardHome, DDNS.to, Adbyby and AliDDNS wrapper changes; do not treat prior 776b/925e parent runs as current-source L3 evidence.
 3. After the NFS test gate is green, continue the actual start_services_once() and optional service-wrapper audit; preserve the frozen backup, archive shards and exact-SHA commit discipline.
 4. Keep main commits atomic with complete trees and expected-SHA non-forced updates; do not modify backup or archived dev-log shards.

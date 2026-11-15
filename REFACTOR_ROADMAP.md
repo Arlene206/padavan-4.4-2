@@ -1,7 +1,7 @@
 ## Current source / CI checkpoint
 
-- Current baseline is `925e6530bd27d1c7eea23984fbc867f3009648eb`. Four optional RC launch wrappers now capture and log nonzero eval status while preserving feature guards.
-- NFS stop postcondition regressions were added, but exact SHA `56369810646910ccaf0f342b414dd09f83570843` failed at the first fixture assertion because three shell printf formats were over-escaped and generated literal backslash-n characters. Shell syntax passed; no production NFS failure has been demonstrated. This follow-up corrects only the fixture delimiters.
+- Current main parent: `479c05be3bef946f892f81a296d0ca3e709a698f`. AdGuardHome, DDNS.to, Adbyby and AliDDNS boot wrappers now capture and log nonzero launcher statuses while preserving existing feature gates.
+- Exact-parent Action summary: infosvr packet and signal lifecycle stability regression #43738132617 completed/success; NFS daemon start and reload lifecycle regression #43738132578 completed/success; AI handoff documentation contract #43738132573 completed/success; Process inventory and lifecycle fail-closed regression #43738132620 completed/success; Process lifecycle inventory - 479c05be3bef946f892f81a296d0ca3e709a698f #43738132593 completed/success; NVRAM transaction boundary audit #43738132600 completed/success; fresh process-lifecycle and XY-C1 checks are required after this source commit.
 - Exact 925e AI docs #43737910530, process inventory/lifecycle fail-closed #43737910499, infosvr #43737910533, AdGuardHome #43737910558, AliDDNS #43737910522 and AliyunDrive #43737910604 PASS; NVRAM #43737910496 was IN_PROGRESS at last poll. No NFS workflow was triggered on 925e; the corrected test needs a fresh exact-head run.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only. Do not claim XY-C1 L3 or physical-router L4 without current-SHA build/TRX/artifact and hardware evidence.
 

@@ -1,3 +1,11 @@
+## 2026-11-15 — Capture optional application launch failures
+
+- The feature-gated RC wrappers for AdGuardHome, DDNS.to, Adbyby and AliDDNS discarded the return status of their `eval()` launch commands.
+- Each wrapper now captures the original eval status and emits a named log message on nonzero status. Existing NVRAM feature guards, disabled-service no-op behavior and boot order are retained.
+- Added source-contract coverage for the four wrappers: status declaration, enabled-service guard, assigned eval result and failure-log ordering. Existing process-lifecycle and XY-C1 workflows already watch `services.c` and the checker.
+- Parent main: `479c05be3bef946f892f81a296d0ca3e709a698f`; backup branch remains untouched at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Exact-head process-lifecycle and XY-C1 validation are required.
+
+---
 ## 2026-11-15 — Correct NFS stop regression fixture line delimiters
 
 - The new NFS stop scenarios reached the etab preservation assertion after injecting daemon signal failures, but the Action exposed a fixture-construction error: three printf formats contained two backslashes before n, so printf wrote literal backslash-n characters instead of line breaks.
