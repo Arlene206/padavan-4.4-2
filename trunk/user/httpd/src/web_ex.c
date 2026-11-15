@@ -279,8 +279,7 @@ sys_script(char *name)
 	}
 	else if (strcmp(name, "lpr_remove")==0)
 	{
-		pidfile_signal_status = process_pidfile_signal(
-			"/var/run/lpdparent.pid", "lpd", SIGUSR2);
+		pidfile_signal_status = process_pidfile_signal("/var/run/lpdparent.pid", "lpd", SIGUSR2);
 		if (pidfile_signal_status != 0) {
 			pidfile_signal_errno = errno;
 			if (pidfile_signal_errno != ENOENT)

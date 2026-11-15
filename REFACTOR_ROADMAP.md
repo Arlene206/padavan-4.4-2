@@ -1,9 +1,9 @@
 ## Current source / CI checkpoint
 
-- Parent main for the current LPD PID-identity hardening slice: `4e0e078cfac3a3db90d7f100e255e65b4bb03cbc`; the atomic changeset updates LPD's PID/start_time writer and startup reader, HTTPD's privileged LPD removal signal, and process-lifecycle / HTTPD security source contracts. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
-- The parent includes boot launch diagnostics for networkmap and watchdog. Previous exact-head process-lifecycle, infosvr, AI docs, AdGuardHome, DNSMasq and AliyunDrive workflows passed on 5e164049. The current LPD source requires fresh exact-head process-lifecycle, HTTPD security, AI docs and XY-C1 checks.
-- Prior product-source L3 evidence remains XY-C1 #43727223434 on `30c5b48ba8a8e996d13548280a54a9b7f5dbda7a` (Build, TRX verification and artifact upload succeeded, artifact #14166909490 / 12,602,685 bytes). It does not validate later product-source changes. No L3 result for this source or physical-router L4 result is claimed.
-- The scoped RC C-source signal-call sweep and DNSMasq/VPN lock-order review are complete. The remaining dynamic common_ex.c SIGKILL escalation still needs end-to-end review.
+- Current parent main for the LPD source-contract correction: `72ce1bb97323d4c417e8a5d891bbaf9c6ed3f2f3`; production LPD PID/start_time writer/reader and HTTPD identity-bound signal landed at `72ce1bb97323d4c417e8a5d891bbaf9c6ed3f2f3`. This follow-up is a formatting correction so source contracts match the wrapped call. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
+- On LPD source SHA 72ce, process lifecycle #43732716465 and HTTPD security #43732716493 failed only because both expected the full identity-signal expression as a contiguous one-line substring; all preceding C compile/runtime regressions and HTTPD security checks passed. AI docs #43732716471, process inventory #43732716633 and infosvr #43732716469 PASS. XY-C1 #43732716622 was IN_PROGRESS at last poll.
+- Networkmap, watchdog and infosvr startup launch failures now have checked diagnostics; start_gpio_btn() already logs internal failures. No current-source L3 or physical-router L4 claim is made.
+- Prior product-source L3 evidence remains XY-C1 #43727223434 on `30c5b48ba8a8e996d13548280a54a9b7f5dbda7a`; it does not validate later source changes. The remaining dynamic common_ex.c SIGKILL escalation and additional start_services_once() return-discard checks remain open.
 
 ## Whole-repository module status
 

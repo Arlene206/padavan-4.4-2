@@ -1,3 +1,11 @@
+## 2026-11-15 — Align LPD signal source with exact privileged-sink contracts
+
+- The LPD PID identity production commit `72ce1bb97323d4c417e8a5d891bbaf9c6ed3f2f3` passed every C compile/runtime regression, including the shared PID-file and legacy LPD parser binaries, but process-lifecycle #43732716465 failed at the source contract expecting a contiguous call string.
+- HTTPD security #43732716493 likewise failed only at the exact privileged-sink substring check; all preceding security checks passed. Reformatted the call to the single-line expression already required by both semantic contracts. No runtime behavior change.
+- The same exact SHA had AI docs #43732716471, process inventory #43732716633 and infosvr #43732716469 PASS; XY-C1 #43732716622 was still IN_PROGRESS. Fresh exact-head process-lifecycle, HTTPD security and XY-C1 runs are required after this correction.
+- The infosvr launch-status fix in parent `4e0e078cfac3a3db90d7f100e255e65b4bb03cbc` was already complete and exact-head workflow #43732716469 passed; Handoff/Roadmap now mark it done and resume the remaining startup caller audit.
+
+---
 ## 2026-11-15 — Bind HTTPD LPD removal signal to verified process identity
 
 - Process-lifecycle inventory identified the HTTPD lpr_remove handler as a raw numeric-PID signal path: it sent SIGUSR2 to /var/run/lpdparent.pid without verifying that the PID still belonged to LPD.
