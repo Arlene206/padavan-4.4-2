@@ -44,7 +44,7 @@ exit "${MOCK_LAUNCH_STATUS:-0}"
             "MOCK_LOG": str(log),
             "MOCK_LAUNCH_STATUS": "23",
         })
-        failed = run(["sh", str(VLM_SCRIPT), "start"], env)
+        failed = run(["/bin/sh", str(VLM_SCRIPT), "start"], env)
         assert failed.returncode == 23, (
             f"vlmcsd must propagate launcher status 23, got "
             f"{failed.returncode}: {failed.stderr}"
@@ -53,7 +53,7 @@ exit "${MOCK_LAUNCH_STATUS:-0}"
 
         log.write_text("")
         env["MOCK_LAUNCH_STATUS"] = "0"
-        succeeded = run(["sh", str(VLM_SCRIPT), "start"], env)
+        succeeded = run(["/bin/sh", str(VLM_SCRIPT), "start"], env)
         assert succeeded.returncode == 0, succeeded.stderr
         assert "KMS Activation server is running." in log.read_text()
 
@@ -83,7 +83,7 @@ exit "${MOCK_START_STATUS:-0}"
             "MOCK_START_STATUS": "29",
             "SCUTCLIENT_PIDFILE": str(pidfile),
         })
-        failed = run(["sh", str(SCUT_SCRIPT), "start"], env)
+        failed = run(["/bin/sh", str(SCUT_SCRIPT), "start"], env)
         assert failed.returncode == 29, (
             f"SCUT must propagate launcher status 29, got "
             f"{failed.returncode}: {failed.stderr}"
@@ -94,7 +94,7 @@ exit "${MOCK_START_STATUS:-0}"
 
         log.write_text("")
         env["MOCK_START_STATUS"] = "0"
-        succeeded = run(["sh", str(SCUT_SCRIPT), "start"], env)
+        succeeded = run(["/bin/sh", str(SCUT_SCRIPT), "start"], env)
         assert succeeded.returncode == 0, succeeded.stderr
         assert "[  OK  ]" in succeeded.stdout
         assert "Daemon is started" in log.read_text()
@@ -145,7 +145,7 @@ exit 0
             "MOCK_STOP_STATUS": "0",
         })
 
-        failed = run(["sh", str(IPERF_SCRIPT), "start"], env)
+        failed = run(["/bin/sh", str(IPERF_SCRIPT), "start"], env)
         assert failed.returncode == 31, (
             f"iperf3 must propagate launcher status 31, got "
             f"{failed.returncode}: {failed.stderr}"
@@ -154,36 +154,51 @@ exit 0
         assert not state.exists()
 
         env["MOCK_START_STATUS"] = "0"
-        started = run(["sh", str(IPERF_SCRIPT), "start"], env)
+        started = run(["/bin/sh", str(IPERF_SCRIPT), "start"], env)
         assert started.returncode == 0, started.stderr
         assert state.exists()
         assert "server started" in log.read_text()
         starts_before = start_log.read_text().count("-S -b")
         env["MOCK_START_STATUS"] = "31"
-        duplicate = run(["sh", str(IPERF_SCRIPT), "start"], env)
+        duplicate = run(["/bin/sh", str(IPERF_SCRIPT), "start"], env)
         assert duplicate.returncode == 0, duplicate.stderr
         assert start_log.read_text().count("-S -b") == starts_before, (
             "repeated start must not launch a second iperf3 process"
         )
 
-        stopped = run(["sh", str(IPERF_SCRIPT), "stop"], env)
+        stopped = run(["/bin/sh", str(IPERF_SCRIPT), "stop"], env)
         assert stopped.returncode == 0, stopped.stderr
         assert not state.exists()
 
         env["MOCK_START_STATUS"] = "0"
         env["MOCK_START_APPEARS"] = "0"
-        missing = run(["sh", str(IPERF_SCRIPT), "start"], env)
+        missing = run(["/bin/sh", str(IPERF_SCRIPT), "start"], env)
         assert missing.returncode == 1, missing.stderr
         assert "no server process appeared" in log.read_text()
 
         state.write_text("running")
         env["MOCK_STOP_STATUS"] = "41"
-        stop_failed = run(["sh", str(IPERF_SCRIPT), "stop"], env)
+        stop_failed = run(["/bin/sh", str(IPERF_SCRIPT), "stop"], env)
         assert stop_failed.returncode == 41, (
             f"iperf3 must propagate a failed stop signal while still running, "
             f"got {stop_failed.returncode}"
         )
         assert "server stop signal failed (status=41)" in log.read_text()
+
+        # Missing lifecycle tooling is UNKNOWN, never a successful no-op.
+        missing_bin = base / "missing-bin"
+        missing_bin.mkdir()
+        executable(missing_bin / "logger", """#!/bin/sh
+echo "$*" >> "$MOCK_LOG"
+exit 0
+""")
+        missing_env = env.copy()
+        missing_env["PATH"] = str(missing_bin)
+        missing_tools = run(["/bin/sh", str(IPERF_SCRIPT), "start"], missing_env)
+        assert missing_tools.returncode == 127, (
+            f"iperf3 must fail closed if pidof is missing, got {missing_tools.returncode}"
+        )
+        assert "pidof is unavailable" in log.read_text()
 
 
 if __name__ == "__main__":

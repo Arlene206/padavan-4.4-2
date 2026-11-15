@@ -28,8 +28,11 @@ func_start() {
         log_message "server binary is missing or not executable: $IPERF3_BIN"
         return 127
     fi
-    if ! check_start_tools; then
-        return $?
+    if check_start_tools; then
+        :
+    else
+        tool_status=$?
+        return "$tool_status"
     fi
 
     if is_running; then
