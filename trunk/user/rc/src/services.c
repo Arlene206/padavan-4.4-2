@@ -42,6 +42,48 @@ record_service_stop_status(int *first_status, const char *service_name, int stat
 		*first_status = status;
 }
 
+static enum process_presence
+optional_daemon_presence(const char *process_name, int *scan_error)
+{
+	struct process_snapshot snapshot;
+	enum process_presence presence;
+	int saved_error;
+
+	presence = process_inventory_scan(process_name, &snapshot);
+	saved_error = snapshot.error > 0 ? snapshot.error : EIO;
+	if (scan_error)
+		*scan_error = snapshot.error;
+	process_snapshot_release(&snapshot);
+	if (presence == PROCESS_PRESENCE_UNKNOWN)
+		errno = saved_error;
+	return presence;
+}
+
+static int
+optional_daemon_stop_status(const char *service_name, const char *process_name,
+			    int command_status)
+{
+	enum process_presence presence;
+	int scan_error = 0;
+	int result;
+
+	presence = optional_daemon_presence(process_name, &scan_error);
+	result = optional_daemon_stop_complete(command_status, presence);
+	if (result != 0) {
+		if (command_status == 0) {
+			if (presence == PROCESS_PRESENCE_UNKNOWN)
+				errno = scan_error > 0 ? scan_error : EIO;
+			else if (presence == PROCESS_PRESENCE_RUNNING)
+				errno = EBUSY;
+			else
+				errno = EIO;
+		}
+		logmessage(LOGNAME, "%s stop incomplete (command=%d, process_state=%d, scan_error=%d)",
+			   service_name, command_status, presence, scan_error);
+	}
+	return result;
+}
+
 void
 stop_syslogd(void)
 {
@@ -435,63 +477,60 @@ int restart_sshd(void)
 #endif
 
 #if defined(APP_SCUT)
-int is_scutclient_run(void){
-	if(pids("bin_scutclient"))
-		return 1;
-	return 0;
-}
-int stop_scutclient(void){
-	return eval("/usr/bin/scutclient.sh","stop");
+int is_scutclient_run(void)
+{
+	return optional_daemon_presence("bin_scutclient", NULL);
 }
 
-void start_scutclient(void){
-	int scutclient_mode = nvram_get_int("scutclient_enable");
-	if (scutclient_mode == 1)
-		eval("/usr/bin/scutclient.sh","start");
+int stop_scutclient(void)
+{
+	return optional_daemon_stop_status("scutclient", "bin_scutclient",
+					   eval("/usr/bin/scutclient.sh", "stop"));
 }
 
-int restart_scutclient(void){
+int start_scutclient(void)
+{
+	int mode = nvram_get_int("scutclient_enable");
+	return mode == 1 ? eval("/usr/bin/scutclient.sh", "start") : 0;
+}
+
+int restart_scutclient(void)
+{
 	int stop_status = stop_scutclient();
 
-	if (stop_status != 0) {
-		logmessage(LOGNAME, "scutclient restart aborted because stop failed");
+	if (stop_status != 0)
 		return stop_status;
-	}
-	start_scutclient();
-	return 0;
+	return start_scutclient();
 }
-
 #endif
 
 
 #if defined(APP_MENTOHUST)
-
-int is_mentohust_run(void){
-	if(pids("bin_mentohust"))
-		return 1;
-	return 0;
-}
-int stop_mentohust(void){
-	return eval("/usr/bin/mentohust.sh","stop");
+int is_mentohust_run(void)
+{
+	return optional_daemon_presence("bin_mentohust", NULL);
 }
 
-void start_mentohust(void){
+int stop_mentohust(void)
+{
+	return optional_daemon_stop_status("mentohust", "bin_mentohust",
+					   eval("/usr/bin/mentohust.sh", "stop"));
+}
+
+int start_mentohust(void)
+{
 	int mode = nvram_get_int("mentohust_enable");
-	if (mode == 1)
-		eval("/usr/bin/mentohust.sh","start");
+	return mode == 1 ? eval("/usr/bin/mentohust.sh", "start") : 0;
 }
 
-int restart_mentohust(void){
+int restart_mentohust(void)
+{
 	int stop_status = stop_mentohust();
 
-	if (stop_status != 0) {
-		logmessage(LOGNAME, "mentohust restart aborted because stop failed");
+	if (stop_status != 0)
 		return stop_status;
-	}
-	start_mentohust();
-	return 0;
+	return start_mentohust();
 }
-
 #endif
 
 #if defined(APP_TTYD)
@@ -577,66 +616,58 @@ void reset_dlink(void){
 #endif
 
 #if defined(APP_VLMCSD)
-int is_vlmcsd_run(void){
-	if (check_if_file_exist("/usr/bin/vlmcsd"))
-	{
-		if (pids("vlmcsd"))
-			return 1;
-	}
-	return 0;
+int is_vlmcsd_run(void)
+{
+	return optional_daemon_presence("vlmcsd", NULL);
 }
 
-int stop_vlmcsd(void){
-	return eval("/usr/bin/vlmcsd.sh","stop");
+int stop_vlmcsd(void)
+{
+	return optional_daemon_stop_status("vlmcsd", "vlmcsd",
+					   eval("/usr/bin/vlmcsd.sh", "stop"));
 }
 
-void start_vlmcsd(void){
-	int vlmcsd_mode = nvram_get_int("vlmcsd_enable");
-	if ( vlmcsd_mode == 1)
-		eval("/usr/bin/vlmcsd.sh","start");
+int start_vlmcsd(void)
+{
+	int mode = nvram_get_int("vlmcsd_enable");
+	return mode == 1 ? eval("/usr/bin/vlmcsd.sh", "start") : 0;
 }
 
-int restart_vlmcsd(void){
+int restart_vlmcsd(void)
+{
 	int stop_status = stop_vlmcsd();
 
-	if (stop_status != 0) {
-		logmessage(LOGNAME, "vlmcsd restart aborted because stop failed");
+	if (stop_status != 0)
 		return stop_status;
-	}
-	start_vlmcsd();
-	return 0;
+	return start_vlmcsd();
 }
 #endif
 
 #if defined(APP_IPERF3)
-int is_iperf3_run(void){
-	if (check_if_file_exist("/usr/bin/iperf3"))
-	{
-		if (pids("iperf3"))
-			return 1;
-	}
-	return 0;
+int is_iperf3_run(void)
+{
+	return optional_daemon_presence("iperf3", NULL);
 }
 
-int stop_iperf3(void){
-	return eval("/usr/bin/iperf3.sh","stop");
+int stop_iperf3(void)
+{
+	return optional_daemon_stop_status("iperf3", "iperf3",
+					   eval("/usr/bin/iperf3.sh", "stop"));
 }
 
-void start_iperf3(void){
-	int iperf3_mode = nvram_get_int("iperf3_enable");
-	if ( iperf3_mode == 1)
-		eval("/usr/bin/iperf3.sh","start");
+int start_iperf3(void)
+{
+	int mode = nvram_get_int("iperf3_enable");
+	return mode == 1 ? eval("/usr/bin/iperf3.sh", "start") : 0;
 }
 
-int restart_iperf3(void){
+int restart_iperf3(void)
+{
 	int stop_status = stop_iperf3();
 
-	if (stop_status != 0) {
-		logmessage(LOGNAME, "iperf3 restart aborted because stop failed");
+	if (stop_status != 0)
 		return stop_status;
-	}
-	start_iperf3();
-	return 0;
+	return start_iperf3();
 }
 #endif
 #if defined(APP_DNSFORWARDER)

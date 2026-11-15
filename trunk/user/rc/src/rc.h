@@ -528,13 +528,13 @@ int stop_misc(void);
 #if defined(APP_SCUT)
 int is_scutclient_run(void);
 int stop_scutclient(void);
-void start_scutclient(void);
+int start_scutclient(void);
 int restart_scutclient(void);
 #endif
 #if defined(APP_MENTOHUST)
 int is_mentohust_run(void);
 int stop_mentohust(void);
-void start_mentohust(void);
+int start_mentohust(void);
 int restart_mentohust(void);
 #endif
 #if defined(APP_TTYD)
@@ -557,13 +557,13 @@ void reset_dlink(void);
 #if defined(APP_VLMCSD)
 int is_vlmcsd_run(void);
 int stop_vlmcsd(void);
-void start_vlmcsd(void);
+int start_vlmcsd(void);
 int restart_vlmcsd(void);
 #endif
 #if defined(APP_IPERF3)
 int is_iperf3_run(void);
 int stop_iperf3(void);
-void start_iperf3(void);
+int start_iperf3(void);
 int restart_iperf3(void);
 #endif
 #if defined(APP_DNSFORWARDER)
