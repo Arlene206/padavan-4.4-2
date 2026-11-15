@@ -1,21 +1,21 @@
 ## Current source / CI checkpoint
 
-- Current main before this storage-daemon launch-diagnostics slice: `51898c0c01f87154abbb03f14a5668d2381c1922`. Exact 518 VSFTPD #43745391060 PASS and NFS #43745390987 PASS; exact AI handoff docs #43745391151 FAILED only because SESSION_HANDOFF used a lower-case paraphrase instead of the required literal sentence “The checkpoint is mandatory; a document edit is conditional.” This commit restores the literal and adds one shared launch-status/post-launch process-state logger for MiniDLNA, Firefly, Transmission and Aria; each previously logged only a nonzero launcher result or RUNNING, leaving successful-but-ABSENT/UNKNOWN starts silent. Fresh exact Process, docs and XY-C1 checks required.
-- Exact-parent Action summary: infosvr packet and signal lifecycle stability regression #43738132617 completed/success; NFS daemon start and reload lifecycle regression #43738132578 completed/success; AI handoff documentation contract #43738132573 completed/success; Process inventory and lifecycle fail-closed regression #43738132620 completed/success; Process lifecycle inventory - 479c05be3bef946f892f81a296d0ca3e709a698f #43738132593 completed/success; NVRAM transaction boundary audit #43738132600 completed/success; fresh process-lifecycle and XY-C1 checks are required after this source commit.
-- Exact 925e AI docs #43737910530, process inventory/lifecycle fail-closed #43737910499, infosvr #43737910533, AdGuardHome #43737910558, AliDDNS #43737910522 and AliyunDrive #43737910604 PASS; NVRAM #43737910496 was IN_PROGRESS at last poll. No NFS workflow was triggered on 925e; the corrected test needs a fresh exact-head run.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only. Do not claim XY-C1 L3 or physical-router L4 without current-SHA build/TRX/artifact and hardware evidence.
+- Live main before this batch: `76e6e351e5bbbf17a6baf000bf76f56009f36ab3`. The latest product-source commit `51898c0c01f87154abbb03f14a5668d2381c1922` surfaced two follow-ups: Process static integration found that `run_dms()` used `launch_status` without a local declaration, and the AI-docs validator rejected the lowercase start of the mandatory handoff checkpoint sentence. Both are corrected in this batch.
+- Exact 51898 Actions: XY-C1 #43745391043 IN_PROGRESS (Build still running at last check; TRX verification/artifact upload not yet confirmed); Process #43745391109 FAIL at the final source-contract step (all prior compile and host regression steps passed; assertion required the missing `int launch_status;` declaration); AI docs #43745391151 FAIL because the handoff wrote lowercase `the checkpoint...` instead of the exact required capitalized sentence. Other exact-head checks PASS: NFS #43745390987, Samba #43745391093, AdGuardHome #43745391044, vsftpd #43745391060, AliDDNS #43745391035, HTTPD #43745391083, Process inventory #43745390995, AliyunDrive #43745391068, USB storage #43745391098 and NVRAM #43745391162.
+- The failed FTP upload cleanup eligibility bug is fixed on product source `e3b14c7a0f3f5a3bb247489e4a8626044bc2739b` and tests pass on exact vsftpd run #43744355353; only successful exclusive creation authorizes rollback. The separate fstatat-to-unlinkat replacement window remains unresolved on Linux 4.4.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. No physical-router L4 result is claimed.
 
-### P2 — IPTV streaming proxy launch failure visibility
+### Completed recent slices — do not duplicate without new evidence
 
-- `start_udpxy()` ignored launch statuses from `/usr/sbin/udpxy` and optional `/usr/bin/msd_lite`; `start_xupnpd()` ignored `eval()` and `system("... &")` results. This slice captures/logs nonzero command statuses while keeping service guards/provider selection intact. The background shell result is not a child-readiness postcondition; config publishing remains separate follow-up work.
+- MiniDLNA launch handling now captures `_eval()` status and distinguishes RUNNING, ABSENT and UNKNOWN after successful launch handoff. The follow-up declaration fix is included in this batch.
+- IPTV udpxy/MSD Lite and xupnpd launch-command failures are logged; IAPPD boot and optional RC service callers report relevant command statuses without changing best-effort semantics.
+- vsftpd's stale static assertions were corrected; exact run #43744355353 passed the compile/host regression and source-contract steps.
 
-### P2 — IAPPD boot caller status visibility
+### P2 — IGMP proxy configuration publication failure handling (active)
 
-- RC previously discarded `system()` results from `iappd.sh restart`, `modprobe xt_TPROXY` and `iappd.sh test`, hiding failures from the wrapper fixed in the preceding IAPPD task. This slice captures and logs each nonzero wait status without making optional-service failure abort unrelated boot.
-
-### P2 — Optional RC boot service status visibility
-
-- `start_services_once()` now observes the previously ignored SkipDBv2, SCUT, DNS Forwarder, vlmcsd, iperf3 and MentoHUST startup results. Each nonzero result is logged inside its existing `APP_*` feature guard; launch order and best-effort boot semantics are unchanged. Exact-head Process and XY-C1 runs are required for this new caller/source-contract slice.
+- `start_igmpproxy()` previously used `fopen("/etc/igmpproxy.conf", "w")`, ignored `fprintf()` and `fclose()` results, and invoked `igmpproxy` even when opening the config failed. This could truncate the last-good file or launch with partial content.
+- Replace direct truncation with same-directory staging, checked writes/flush/`fsync`/close and atomic rename. Failure must preserve the last-good file, remove the stage, log nonzero status and block daemon launch.
+- Host coverage includes exact legacy output, quickleave/default altnet, private mode, CR/LF injection, missing-parent, rename and buffered-write failures. Exact-head Process L2 and XY-C1 Build/TRX/artifact L3 remain required.
 
 ## Whole-repository module status
 
@@ -70,6 +70,8 @@
 6. P2 — NFS async durability, AUTH_SYS/root-squash and external-mount compatibility require real client/storage evidence; do not infer guarantees from host mocks.
 7. P1 SOURCE/HOST FIX COMPLETE — LPD printer-removal SIGUSR2 requires verified PID/start_time identity; exact-head process lifecycle, HTTPD security and AI docs pass on 022bc. Current XY-C1 checks still gate firmware L3.
 8. P1 ACTIVE — Continue eliminating silent failures at enabled RC/service startup boundaries; current slice covers Firefly, Transmission and Aria while preserving feature and disabled-service guards.
+
+9. P2 ACTIVE — Publish `/etc/igmpproxy.conf` through checked same-directory staging and atomic rename; refuse daemon launch on publication failure. Exact Process host regression and XY-C1 build/TRX/artifact are required.
 
 ## Working rules
 

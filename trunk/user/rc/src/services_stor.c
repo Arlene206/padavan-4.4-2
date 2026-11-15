@@ -1988,6 +1988,7 @@ void run_dms(int force_rescan)
 {
 	int db_rescan_mode;
 	int process_state;
+	int launch_status;
 	int config_status;
 	int launch_status;
 	unsigned char mac_bin[ETHER_ADDR_LEN] = {0};

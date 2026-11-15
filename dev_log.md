@@ -1,3 +1,12 @@
+## 2026-11-15 — Atomically publish IGMP proxy configuration and fix MiniDLNA launch declaration
+
+- `start_igmpproxy()` previously truncated `/etc/igmpproxy.conf` directly, ignored write/close errors, and still invoked the daemon when opening its config failed. Added same-directory staged publication with CR/LF input rejection, checked writes, flush, `fsync`, close and atomic rename. Failure cleans the stage, preserves last-good content, logs the status and blocks daemon launch.
+- Added a GNU89 ASan/UBSan host regression for exact legacy output, quickleave/default altnet, mode 0600, directive-injection rejection, missing-parent and rename failures, buffered write failure and temporary-file cleanup. Wired it into Process integration and XY-C1 source filters.
+- The same exact-parent Process run exposed a missing local declaration for `launch_status` in `run_dms()`; the source used the identifier without declaring it. Added the local declaration, retaining the existing launch-status and RUNNING/ABSENT/UNKNOWN diagnostics.
+- Parent main: `76e6e351e5bbbf17a6baf000bf76f56009f36ab3`; exact-head Process and XY-C1 validation remains required. No target IPTV or physical-router result is claimed.
+
+---
+
 ## 2026-11-15 — Normalize storage daemon startup postconditions
 
 - Exact 51898c0 AI handoff docs #43745391151 failed because SESSION_HANDOFF paraphrased the mandatory checkpoint sentence with a lower-case initial; restore the exact contract phrase.

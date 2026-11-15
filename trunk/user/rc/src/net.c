@@ -39,6 +39,7 @@
 #include "process_inventory.h"
 #include "pppoe_relay_policy.h"
 #include "route_status_policy.h"
+#include "igmpproxy_config_file.h"
 
 #define SR_BUF_LEN (8192)
 
@@ -522,9 +523,14 @@ stop_igmpproxy(char *wan_ifname)
 int
 start_igmpproxy(char *wan_ifname)
 {
-	FILE *fp;
+	struct igmpproxy_config_values config_values;
+	char *altnet, *viptv_iflast;
+	const char *altnet_mask;
 	char *igmpproxy_conf = "/etc/igmpproxy.conf";
-	char *altnet, *altnet_mask, *viptv_iflast;
+	int config_status;
+
+	if (wan_ifname == NULL || *wan_ifname == '\0')
+		return EINVAL;
 
 	/* check used IPTV via VLAN interface */
 	viptv_iflast = nvram_safe_get("viptv_ifname");
@@ -549,22 +555,21 @@ start_igmpproxy(char *wan_ifname)
 	if (nvram_invmatch("mr_enable_x", "1"))
 		return 0;
 
-	fp = fopen(igmpproxy_conf, "w");
-	if (fp) {
-		altnet = nvram_get("mr_altnet_x");
-		if (altnet && strlen(altnet) > 6)
-			altnet_mask = altnet;
-		else
-			altnet_mask = "0.0.0.0/0";
-		fprintf(fp, "# automatically generated\n");
-		if (nvram_invmatch("mr_qleave_x", "0"))
-			fprintf(fp, "quickleave\n");
-		fprintf(fp, "\nphyint %s %s  ratelimit 0  threshold 1\n", wan_ifname, "upstream");
-		fprintf(fp, "\taltnet %s\n", altnet_mask);
-		fprintf(fp, "\nphyint %s %s  ratelimit 0  threshold 1\n", IFNAME_BR, "downstream");
-		fprintf(fp, "\n");
-		
-		fclose(fp);
+	altnet = nvram_get("mr_altnet_x");
+	if (altnet == NULL || strlen(altnet) <= 6)
+		altnet_mask = "0.0.0.0/0";
+	else
+		altnet_mask = altnet;
+
+	config_values.upstream_interface = wan_ifname;
+	config_values.altnet = altnet_mask;
+	config_values.downstream_interface = IFNAME_BR;
+	config_values.quickleave = nvram_invmatch("mr_qleave_x", "0");
+	config_status = igmpproxy_config_publish(igmpproxy_conf, &config_values);
+	if (config_status != 0) {
+		logmessage("IPTV", "igmpproxy config publication failed (status=%d)",
+			   config_status);
+		return config_status;
 	}
 
 	return eval("/bin/igmpproxy", igmpproxy_conf);

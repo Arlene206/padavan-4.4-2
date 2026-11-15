@@ -51,6 +51,8 @@ firefly_config_header = (root / "trunk/user/rc/src/firefly_config_file.h").read_
 firefly_config_test = (root / "trunk/user/rc/src/tests/firefly_config_file.c").read_text()
 minidlna_config_header = (root / "trunk/user/rc/src/minidlna_config_file.h").read_text()
 minidlna_config_test = (root / "trunk/user/rc/src/tests/minidlna_config_file.c").read_text()
+igmpproxy_config_header = (root / "trunk/user/rc/src/igmpproxy_config_file.h").read_text()
+igmpproxy_config_test = (root / "trunk/user/rc/src/tests/igmpproxy_config_file.c").read_text()
 net_lan_notification = (root / "trunk/user/rc/src/net_lan.c").read_text()
 pppoe_policy = (root / "trunk/user/rc/src/pppoe_relay_policy.h").read_text()
 
@@ -241,6 +243,29 @@ assert 'launch_status = system("/usr/bin/xupnpd &");' in xupnpd_start
 assert 'xupnpd launch command failed (status=%d)' in xupnpd_start
 assert xupnpd_start.index("if (has_daemon)") < xupnpd_start.index('launch_status = eval("/usr/bin/xupnpd");')
 assert xupnpd_start.index('launch_status = system("/usr/bin/xupnpd &");') < xupnpd_start.index("if (launch_status != 0)")
+igmpproxy_start = net_source.split("int\nstart_igmpproxy(char *wan_ifname)", 1)[1].split("\n}\n", 1)[0]
+assert '#include "igmpproxy_config_file.h"' in net_source
+assert "igmpproxy_config_publish(igmpproxy_conf, &config_values)" in igmpproxy_start
+assert 'igmpproxy config publication failed (status=%d)' in igmpproxy_start
+assert igmpproxy_start.index("igmpproxy_config_publish(") < igmpproxy_start.index('return eval("/bin/igmpproxy", igmpproxy_conf);')
+assert "if (config_status != 0)" in igmpproxy_start
+assert "fopen(igmpproxy_conf" not in igmpproxy_start
+assert "igmpproxy_config_printf(" in igmpproxy_config_header
+assert "mkstemp(" in igmpproxy_config_header
+assert "fdopen(" in igmpproxy_config_header
+assert "fflush(" in igmpproxy_config_header
+assert "fsync(" in igmpproxy_config_header
+assert "fclose(output)" in igmpproxy_config_header
+assert "rename(temporary_path, path)" in igmpproxy_config_header
+assert "unlink(temporary_path)" in igmpproxy_config_header
+assert "last-good-after-write-failure" in igmpproxy_config_test
+assert "target.conf.tmp." in igmpproxy_config_test
+assert "quickleave" in igmpproxy_config_test
+assert "igmpproxy_config_publish" in igmpproxy_config_test
+assert '"trunk/user/rc/src/igmpproxy_config_file.h"' in process_workflow
+assert '"trunk/user/rc/src/tests/igmpproxy_config_file.c"' in process_workflow
+assert "Compile and run IGMP proxy atomic configuration publication regression" in process_workflow
+assert '"trunk/user/rc/src/igmpproxy_config_file.h"' in xy_workflow
 pppoe_start = net_source.split("int\nset_passthrough_pppoe(int is_on)", 1)[1].split("set_igmp_mld_version", 1)[0]
 assert '#include "process_inventory.h"' in net_source
 assert '#include "pppoe_relay_policy.h"' in net_source
