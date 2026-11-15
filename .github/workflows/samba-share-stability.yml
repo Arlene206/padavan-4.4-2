@@ -60,7 +60,7 @@ jobs:
             -o /tmp/samba-config-transaction
           /tmp/samba-config-transaction
           cc -std=gnu89 -Wall -Wextra -Werror \
-            -I trunk/user/rc/src \
+            -I trunk/user/rc/src -I trunk/user/shared/src \
             trunk/user/rc/src/tests/samba_daemon_policy.c \
             -o /tmp/samba-daemon-policy
           /tmp/samba-daemon-policy
@@ -119,15 +119,32 @@ jobs:
           wins = function_body(services, "start_wins(void)")
           assert "samba_config_transaction_lock_acquire(" in wins
           assert "samba_config_transaction_recover(" in wins
+          assert 'process_inventory_scan("nmbd", &nmbd_snapshot)' in wins
+          assert wins.index('process_inventory_scan("nmbd", &nmbd_snapshot)') < wins.index("samba_config_file_open")
+          assert "PROCESS_PRESENCE_UNKNOWN" in wins
+          assert "samba_daemon_signal_snapshot(" in wins
+          assert 'samba_ex_require_absent("nmbd"' in wins
           assert "samba_config_file_open(SAMBA_CONF" in wins
           assert "write_smb_conf_header(fp)" in wins
           assert "samba_config_file_publish(&fp, staged_path, SAMBA_CONF)" in wins
-          assert wins.index("samba_config_file_publish") < wins.index('eval("/sbin/nmbd"')
+          assert "killall" not in wins
+          assert "pids(" not in wins
+          assert "process_snapshot_release(&nmbd_snapshot)" in wins
+
+          reload = function_body(services, "reload_nmbd(void)")
+          assert 'process_inventory_scan("nmbd", &snapshot)' in reload
+          assert "PROCESS_PRESENCE_UNKNOWN" in reload
+          assert "PROCESS_PRESENCE_ABSENT" in reload
+          assert "samba_daemon_signal_snapshot(" in reload
+          assert "killall" not in reload and "pids(" not in reload
 
           restart = function_body(services, "restart_nmbd(void)")
-          assert restart.index("write_smb_conf() != 0") < restart.index("stop_nmbd()")
-          assert restart.index("write_smb_conf() != 0") < restart.index('eval("/sbin/nmbd"')
-          assert restart.index("write_smb_conf() != 0") < restart.index('doSystem("killall %s %s", "-SIGHUP", "smbd")')
+          assert 'process_inventory_scan("nmbd", &nmbd_snapshot)' in restart
+          assert "samba_ex_require_absent" in restart
+          assert restart.index('process_inventory_scan("smbd", &smbd_snapshot)') < restart.index("write_smb_conf() != 0")
+          assert "samba_daemon_signal_snapshot(" in restart
+          assert "killall" not in restart and "pids(" not in restart
+          assert "process_snapshot_release(&nmbd_snapshot)" in restart
 
           open_fn = function_body(helper, "samba_config_file_open(")
           publish_fn = function_body(helper, "samba_config_file_publish(")
@@ -187,10 +204,18 @@ jobs:
           rc = Path("trunk/user/rc/src/rc.c").read_text()
           wait_fn = function_body(stor, "samba_wait_for_daemon(")
           ensure_fn = function_body(stor, "samba_ensure_daemon(")
+          ex_wait_fn = function_body(services, "samba_ex_wait_for_daemon(")
           assert "samba_daemon_wait_for_stable_presence(daemon, 30" in wait_fn
-          running_fn = function_body(stor, "samba_daemon_is_running(")
+          stor_presence = function_body(stor, "samba_daemon_is_running(")
+          ex_presence = function_body(services, "samba_ex_daemon_is_running(")
           sleep_fn = function_body(stor, "samba_daemon_sleep(")
-          assert "pids((char *)daemon) > 0" in running_fn
+          assert "process_inventory_scan(daemon, &snapshot)" in stor_presence
+          assert "process_snapshot_release(&snapshot)" in stor_presence
+          assert "PROCESS_PRESENCE_UNKNOWN" in stor_presence
+          assert "process_inventory_scan(daemon, &snapshot)" in ex_presence
+          assert "process_snapshot_release(&snapshot)" in ex_presence
+          assert "PROCESS_PRESENCE_UNKNOWN" in ex_presence
+          assert "samba_daemon_wait_for_stable_presence(daemon, 30" in ex_wait_fn
           assert "usleep(microseconds)" in sleep_fn
           assert "samba_daemon_signal_snapshot(initial_snapshot, SIGHUP" in ensure_fn
           assert "process_inventory_scan(daemon, &current_snapshot)" in ensure_fn
@@ -230,11 +255,14 @@ jobs:
           process_policy = Path("trunk/user/rc/src/samba_process_policy.h").read_text()
           process_test = Path("trunk/user/rc/src/tests/samba_process_policy.c").read_text()
           wait_policy = function_body(daemon_policy, "samba_daemon_wait_for_stable_presence(")
-          assert "ops->is_running(context, daemon)" in wait_policy
+          assert "ops->get_presence(context, daemon)" in wait_policy
+          assert "PROCESS_PRESENCE_UNKNOWN" in wait_policy
+          assert "PROCESS_PRESENCE_RUNNING" in wait_policy
           assert "ops->sleep_us(context, 500000U)" in wait_policy
           assert "ops->sleep_us(context, 100000U)" in wait_policy
           assert "errno = ETIMEDOUT" in wait_policy
-          assert "samba_daemon_wait_for_stable_presence" in daemon_test
+          assert "PROCESS_PRESENCE_UNKNOWN" in daemon_test
+          assert "Samba tri-state daemon readiness policy: PASS" in daemon_test
           assert "samba_daemon_signal_snapshot" in process_policy
           for token in ("SAMBA_DAEMON_ACTION_START","SAMBA_DAEMON_ACTION_RELOAD",
                         "SAMBA_DAEMON_ACTION_ABORT","Complete preflight before first signal"):

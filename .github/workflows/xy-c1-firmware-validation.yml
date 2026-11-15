@@ -45,6 +45,8 @@ on:
       - "trunk/user/libdisk/src/disk_inventory_policy.h"
       - "trunk/user/libdisk/src/disk_initial.c"
       - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/samba_process_policy.h"
+      - "trunk/user/rc/src/samba_daemon_policy.h"
       - "trunk/user/shared/src/shutils.h"
       - "trunk/user/shared/src/process_inventory.c"
       - "trunk/user/shared/src/process_inventory.h"

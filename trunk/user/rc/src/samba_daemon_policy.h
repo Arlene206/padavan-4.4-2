@@ -2,13 +2,14 @@
 #define PADAVAN_SAMBA_DAEMON_POLICY_H
 
 #include <errno.h>
+#include "process_inventory.h"
 
 /*
- * Wait for a daemon to remain present across a settling interval. The small
- * callback surface keeps the timeout behavior testable without router APIs.
+ * Wait for confirmed daemon presence across a settling interval. UNKNOWN is
+ * an inventory failure, not ABSENT: stop immediately and preserve errno.
  */
 struct samba_daemon_wait_ops {
-	int (*is_running)(void *context, const char *daemon);
+	enum process_presence (*get_presence)(void *context, const char *daemon);
 	void (*sleep_us)(void *context, unsigned int microseconds);
 };
 
@@ -19,17 +20,42 @@ samba_daemon_wait_for_stable_presence(const char *daemon,
 				      void *context)
 {
 	unsigned int attempt;
+	enum process_presence state;
 
 	if (!daemon || !*daemon || attempts == 0 || !ops ||
-	    !ops->is_running || !ops->sleep_us) {
+	    !ops->get_presence || !ops->sleep_us) {
 		errno = EINVAL;
 		return -1;
 	}
 
 	for (attempt = 0; attempt < attempts; ++attempt) {
-		if (ops->is_running(context, daemon) > 0) {
+		errno = 0;
+		state = ops->get_presence(context, daemon);
+		if (state == PROCESS_PRESENCE_UNKNOWN) {
+			if (!errno)
+				errno = EIO;
+			return -1;
+		}
+		if (state != PROCESS_PRESENCE_ABSENT &&
+		    state != PROCESS_PRESENCE_RUNNING) {
+			errno = EIO;
+			return -1;
+		}
+		if (state == PROCESS_PRESENCE_RUNNING) {
 			ops->sleep_us(context, 500000U);
-			if (ops->is_running(context, daemon) > 0)
+			errno = 0;
+			state = ops->get_presence(context, daemon);
+			if (state == PROCESS_PRESENCE_UNKNOWN) {
+				if (!errno)
+					errno = EIO;
+				return -1;
+			}
+			if (state != PROCESS_PRESENCE_ABSENT &&
+			    state != PROCESS_PRESENCE_RUNNING) {
+				errno = EIO;
+				return -1;
+			}
+			if (state == PROCESS_PRESENCE_RUNNING)
 				return 0;
 		}
 		ops->sleep_us(context, 100000U);

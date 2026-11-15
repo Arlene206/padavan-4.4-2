@@ -943,11 +943,21 @@ stop_samba(int force_stop)
 	return status;
 }
 
-static int
+static enum process_presence
 samba_daemon_is_running(void *context, const char *daemon)
 {
+	struct process_snapshot snapshot;
+	enum process_presence state;
+	int scan_error;
+
 	(void)context;
-	return pids((char *)daemon) > 0;
+	memset(&snapshot, 0, sizeof(snapshot));
+	state = process_inventory_scan(daemon, &snapshot);
+	scan_error = snapshot.error;
+	process_snapshot_release(&snapshot);
+	if (state == PROCESS_PRESENCE_UNKNOWN)
+		errno = scan_error ? scan_error : EIO;
+	return state;
 }
 
 static void
