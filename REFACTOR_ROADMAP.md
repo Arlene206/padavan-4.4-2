@@ -1,9 +1,9 @@
 ## Current source / CI checkpoint
 
-- Parent main for the SCUT/vlmcsd launch-status fix: `ba29a126870c7f57d4317edd2a0bd9c48508fa7d`; this atomic changeset updates both packaged scripts, a mock-command regression and process/firmware workflow path filters.
-- Parent 32e1 Actions included process lifecycle #43733575880, AI docs #43733575878, HTTPD security #43733575855 and XY-C1 #43733575797 queued; inventory #43733575902 in progress. AI handoff docs #43734087377 passed on docs-only SHA ba29.
-- SCUT no longer prints FAILED then exits 0; vlmcsd no longer lets logger success mask launch failure. Both scripts propagate the real daemon launch status. DNS Forwarder already logs launcher failure and verifies process appearance.
-- Next P1: `start_iperf3()` references `/usr/bin/iperf3.sh`, but the tracked package Makefile installs only `/bin/iperf3`; add a bounded start/stop helper, ROMFS installation and regression coverage. Physical-router L4 remains unverified.
+- Parent main for the SCUT/vlmcsd status correction: `e950cee8d24ede2b355e18967a52a0b092b842fc`; this follow-up adds the previously missing iperf3 service helper and ROMFS installation plus mock-command lifecycle regression.
+- Exact e950 process inventory/lifecycle #43734448717, AI docs #43734448768, process lifecycle inventory #43734448702, infosvr #43734448825, AdGuardHome #43734448705, AliDDNS #43734448677 and AliyunDrive #43734448782 PASS. XY-C1 #43734448706 and NVRAM #43734448863 were IN_PROGRESS; the e950 build predates this iperf3 script.
+- SCUT and vlmcsd now propagate daemon start failures; the process regression passed their mocked success/failure cases. `start_iperf3()` referenced a nonexistent `/usr/bin/iperf3.sh`; this commit creates and packages a server lifecycle script with process readiness and bounded stop checks.
+- After exact-head verification of iperf3 packaging, continue reviewing APP_MENTOHUST and other optional boot-start wrappers for status loss; do not duplicate service checks already implemented downstream. Physical-router L4 remains unverified.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` stays read-only; physical-router L4 NOT VERIFIED.
 
 ## Whole-repository module status

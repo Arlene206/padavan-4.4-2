@@ -1,3 +1,12 @@
+## 2026-11-15 — Add the missing iperf3 service lifecycle script
+
+- `start_iperf3()` and `stop_iperf3()` invoked `/usr/bin/iperf3.sh`, but `trunk/user/iperf3/Makefile` installed only `/bin/iperf3`; the script did not exist in the tracked tree or firmware package.
+- Added `iperf3.sh` and ROMFS installation. Start now launches `/bin/iperf3 -s` via `start-stop-daemon`, preserves the command failure status, waits for the daemon to appear, and skips duplicate starts. Stop uses a bounded wait and reports a failed signal if the process remains. Restart fails closed if stop does not complete.
+- Extended the host mocked-command regression to cover launch status, ready state, duplicate start, bounded startup postcondition and stop-signal failure. Process-lifecycle and XY-C1 path filters cover the script and package Makefile.
+- Parent main: `e950cee8d24ede2b355e18967a52a0b092b842fc`; resulting script/package/test/workflow/handoff checkpoint: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Propagate SCUT and vlmcsd startup launch failures
 
 - `scutclient.sh` printed `[FAILED]` when `start-stop-daemon` failed but unconditionally exited 0, hiding the failure from its RC wrapper. It now logs and propagates the original status, with a test-only PID-file path override for safe host testing.

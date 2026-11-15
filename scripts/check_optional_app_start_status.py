@@ -100,7 +100,94 @@ exit "${MOCK_START_STATUS:-0}"
         assert "Daemon is started" in log.read_text()
 
 
+
+
+
+IPERF_SCRIPT = ROOT / "trunk/user/iperf3/iperf3.sh"
+
+
+def check_iperf3():
+    with tempfile.TemporaryDirectory(prefix="iperf3-lifecycle-") as tmp:
+        base = Path(tmp)
+        bin_dir = mock_bin(base / "bin")
+        binary = base / "iperf3"
+        executable(binary, "#!/bin/sh\nexit 0\n")
+        state = base / "running"
+        start_log = base / "start.log"
+        executable(bin_dir / "pidof", """#!/bin/sh
+[ -f "$MOCK_STATE_FILE" ] || exit 1
+echo 123
+""")
+        executable(bin_dir / "sleep", "#!/bin/sh\nexit 0\n")
+        executable(bin_dir / "start-stop-daemon", """#!/bin/sh
+printf '%s\\n' "$*" >> "$MOCK_START_LOG"
+status="${MOCK_START_STATUS:-0}"
+[ "$status" -eq 0 ] || exit "$status"
+[ "${MOCK_START_APPEARS:-1}" = 1 ] && : > "$MOCK_STATE_FILE"
+exit 0
+""")
+        executable(bin_dir / "killall", """#!/bin/sh
+status="${MOCK_STOP_STATUS:-0}"
+[ "$status" -eq 0 ] || exit "$status"
+rm -f "$MOCK_STATE_FILE"
+exit 0
+""")
+        log = base / "logger.log"
+        env = os.environ.copy()
+        env.update({
+            "PATH": str(bin_dir) + os.pathsep + env.get("PATH", ""),
+            "IPERF3_BIN": str(binary),
+            "MOCK_STATE_FILE": str(state),
+            "MOCK_START_LOG": str(start_log),
+            "MOCK_LOG": str(log),
+            "MOCK_START_STATUS": "31",
+            "MOCK_START_APPEARS": "1",
+            "MOCK_STOP_STATUS": "0",
+        })
+
+        failed = run(["sh", str(IPERF_SCRIPT), "start"], env)
+        assert failed.returncode == 31, (
+            f"iperf3 must propagate launcher status 31, got "
+            f"{failed.returncode}: {failed.stderr}"
+        )
+        assert "server launcher failed (status=31)" in log.read_text()
+        assert not state.exists()
+
+        env["MOCK_START_STATUS"] = "0"
+        started = run(["sh", str(IPERF_SCRIPT), "start"], env)
+        assert started.returncode == 0, started.stderr
+        assert state.exists()
+        assert "server started" in log.read_text()
+        starts_before = start_log.read_text().count("-S -b")
+        env["MOCK_START_STATUS"] = "31"
+        duplicate = run(["sh", str(IPERF_SCRIPT), "start"], env)
+        assert duplicate.returncode == 0, duplicate.stderr
+        assert start_log.read_text().count("-S -b") == starts_before, (
+            "repeated start must not launch a second iperf3 process"
+        )
+
+        stopped = run(["sh", str(IPERF_SCRIPT), "stop"], env)
+        assert stopped.returncode == 0, stopped.stderr
+        assert not state.exists()
+
+        env["MOCK_START_STATUS"] = "0"
+        env["MOCK_START_APPEARS"] = "0"
+        missing = run(["sh", str(IPERF_SCRIPT), "start"], env)
+        assert missing.returncode == 1, missing.stderr
+        assert "no server process appeared" in log.read_text()
+
+        state.write_text("running")
+        env["MOCK_STOP_STATUS"] = "41"
+        stop_failed = run(["sh", str(IPERF_SCRIPT), "stop"], env)
+        assert stop_failed.returncode == 41, (
+            f"iperf3 must propagate a failed stop signal while still running, "
+            f"got {stop_failed.returncode}"
+        )
+        assert "server stop signal failed (status=41)" in log.read_text()
+
+
 if __name__ == "__main__":
     check_scutclient()
     check_vlmcsd()
-    print("optional SCUT/vlmcsd launch status regressions: PASS")
+    check_iperf3()
+    print("optional app launch/lifecycle status regressions: PASS")

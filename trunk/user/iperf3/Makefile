@@ -22,3 +22,5 @@ $(eval $(call BuildPackage,iperf))
 romfs:
 	$(INSTALL_DIR) $(ROMFSDIR)/bin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/src/iperf3 $(ROMFSDIR)/bin/iperf3
+	$(INSTALL_DIR) $(ROMFSDIR)/usr/bin
+	$(INSTALL_BIN) $(THISDIR)/iperf3.sh $(ROMFSDIR)/usr/bin/iperf3.sh
