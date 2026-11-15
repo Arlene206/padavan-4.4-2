@@ -211,6 +211,7 @@ shutdown = body(rc, "shutdown_router(int level)")
 require("misc_stop_status = stop_misc();" in shutdown and
         "service_stop_status = stop_services(use_halt);" in shutdown and
         "printer_stop_status = stop_usb_printer_spoolers();" in shutdown and
+        "wan_stop_status = stop_wan();" in shutdown and
         "lan_wan_stop_status = stop_services_lan_wan();" in shutdown,
         "shutdown must collect all checked service-stop results")
 require("service shutdown incomplete; continuing system power-down" in shutdown and
@@ -218,6 +219,8 @@ require("service shutdown incomplete; continuing system power-down" in shutdown 
         "safe reboot/halt must proceed even when daemon stop fails")
 shutdown_gate = shutdown.index("storage_remove_status = safe_remove_all_stor_devices(use_halt)")
 persist_gate = shutdown.index("if (storage_remove_status == 0 && misc_stop_status == 0")
+require("wan_stop_status == 0" in shutdown[persist_gate:],
+        "shutdown must not persist storage when WAN stop failed")
 require(shutdown_gate < persist_gate < shutdown.index("storage_save_time(") <
         shutdown.index("write_storage_to_mtd("),
         "shutdown must power down but gate storage persistence on all service-stop/eject results")
