@@ -361,6 +361,7 @@ for path in (
 assert "WAN DHCP renewal presence policy regression" in process_workflow
 
 presence_policy = (root / "trunk/user/rc/src/process_presence_start_policy.h").read_text()
+process_inventory_header = (root / "trunk/user/shared/src/process_inventory.h").read_text()
 presence_test = (root / "trunk/user/rc/src/tests/process_presence_start_policy.c").read_text()
 detect_internet_source = (root / "trunk/user/rc/src/detect_internet.c").read_text()
 detect_link_source = (root / "trunk/user/rc/src/detect_link.c").read_text()
@@ -393,7 +394,7 @@ assert "PROCESS_PRESENCE_START_NEW" in wan_gateway_start
 assert "PROCESS_PRESENCE_START_ABORT" in wan_gateway_start
 assert 'pids("detect_wan")' not in wan_gateway_start
 assert "PROCESS_PRESENCE_START_ABORT" in presence_policy
-assert "PROCESS_PRESENCE_UNKNOWN" in presence_policy
+assert "PROCESS_PRESENCE_UNKNOWN" in process_inventory_header
 for token in ("PROCESS_PRESENCE_ABSENT", "PROCESS_PRESENCE_RUNNING",
               "PROCESS_PRESENCE_UNKNOWN", "(enum process_presence)7"):
     assert token in presence_test

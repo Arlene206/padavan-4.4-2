@@ -310,7 +310,8 @@ ordered(up, ["if (relay_action == PROCESS_PRESENCE_START_ABORT)",
 ordered(down, ["if (relay_action == PROCESS_PRESENCE_START_ABORT)",
                "else if (relay_action == PROCESS_PRESENCE_START_NOTIFY)",
                "kill_services(svcs, 3, 1)"], "VPN down bcrelay branch order")
-"vpns_callback_lifecycle_enter(argv[1], &lifecycle_fd)",
+ordered(up,[
+            "vpns_callback_lifecycle_enter(argv[1], &lifecycle_fd)",
             "vpn_server_lease_lock_acquire(VPN_SERVER_LEASE_LOCK_FILE)",
             "vpns_firewall_permission(argv[1], 1)",
             "append_vpns_lease_record",

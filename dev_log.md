@@ -1,3 +1,12 @@
+## 2026-11-15 — Repair VPN and process-lifecycle source checker integration
+
+- Exact process lifecycle run `43672595568` (and its superseded rerun `43672782229`) passed all regression binaries and failed on a checker looking for `PROCESS_PRESENCE_UNKNOWN` in the start-action mapping header. The enum correctly lives in `trunk/user/shared/src/process_inventory.h`; corrected the checker to read that contract instead.
+- Exact VPN server run `43672782153` passed the lifecycle-lock, callback identity, xl2tpd and lease-lock binaries, then found an `IndentationError` in the newly extended Python source checker: the original `ordered(up,[` call opener had been consumed by the inserted block. Restored the call boundary.
+- No new production behavior changed in this correction. The VPN relay-direction correction remains in `bc238c9fdcd4b23ea4fb3ad8463257e289da60b3`.
+- Changed paths: `scripts/check_process_lifecycle_integration.py`, `scripts/check_vpn_server_lifecycle.py`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Preserve both VPN broadcast-relay traffic directions
 
 - Immediate post-commit review of `a2b80bd2cc66244b2f75ef857224985cdfaa88b6` caught a transcription error in the second `bcrelay` launch argument: its output interface had been copied as the PPP pattern instead of `IFNAME_BR`. Restored the original PPP-to-bridge direction.
