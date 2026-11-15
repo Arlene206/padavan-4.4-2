@@ -1,3 +1,13 @@
+## 2026-11-16 — Restore IGMP regression fixture before legacy failure cases
+
+- Exact e349 Process lifecycle #43770121710 failed in the IGMP config regression: the new token-injection tests wrote `last-good-token-validation`, while existing missing-parent/rename assertions still expected `last-good-configuration`. The production helper built and the run reached the later fixture comparison.
+- Restored the original last-good fixture after the new altnet whitespace, interface comment and downstream-tab rejection assertions, keeping all older error-path tests independent.
+- Exact e349 AI docs #43770121750, inventory #43770121725, AdGuardHome #43770121883, infosvr #43770121820, AliyunDrive #43770121777 and AliDDNS #43770121720 PASS; NVRAM #43770121752 and XY-C1 #43770121908 were in progress. Exact abd40 storage #43769497238 PASS.
+- No local checkout/test run is claimed. Corrected exact-head Process lifecycle regression and XY-C1 Build/TRX/artifact validation required.
+- Parent main: `e3499afc01bdc42cd1620eb18a6eec0e20541d36`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. No L3/L4 claim.
+
+---
+
 ## 2026-11-16 — Reject IGMP proxy configuration token injection
 
 - Review of the atomic IGMP proxy publisher found that the old CR/LF-only validation still accepted spaces/tabs and '#' inside NVRAM-derived `altnet` and interface values. These characters can split a generated directive into unintended parser tokens or comment out its remainder without a newline.

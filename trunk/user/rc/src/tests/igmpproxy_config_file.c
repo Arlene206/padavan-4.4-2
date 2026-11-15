@@ -133,6 +133,7 @@ main(void)
 	assert_file_equals(config_path, "last-good-token-validation\n");
 	values.downstream_interface = "br0";
 	assert_no_temporary_files(directory, "igmpproxy.conf.tmp.");
+	write_file(config_path, "last-good-configuration\n");
 
 	/* Missing-parent and rename failures never replace the previous config. */
 	status = igmpproxy_config_publish(missing_path, &values);

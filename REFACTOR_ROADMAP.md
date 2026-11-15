@@ -1,15 +1,15 @@
 ## Current source / CI checkpoint
 
-- Parent main for IGMP proxy input-token hardening: abd40abba2c3b78bf02fb262110f485534ba8b4b; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact parent abd40 USB storage #43769497238 PASS (host + firmware BusyBox 1.24.2 ash + complete storage checks); AI handoff docs #43769497316 PASS; Process lifecycle #43769497255 PASS; AdGuardHome #43769497209 PASS; infosvr #43769497293 PASS. XY-C1 #43769497292, NVRAM #43769497231, Process inventory #43769497244, AliDDNS #43769497245 and AliyunDrive #43769497299 were still in progress at last poll.
-- IGMP proxy config publication already validates complete output, flush/fsync/close and same-directory atomic rename. THIS COMMIT closes the remaining same-line token-splitting gap: interface fields reject whitespace/control/comment markers and altnet only accepts digits/dots/slashes. New injected-value regressions verify the last-good file is preserved.
-- Exact-head Process lifecycle and XY-C1 runs are required for this validation change; no new L3/L4 claim.
+- Parent main for IGMP regression fixture correction: e3499afc01bdc42cd1620eb18a6eec0e20541d36; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact e349 Process lifecycle #43770121710 failed at a later fixture-preservation assertion after the newly added token-injection cases changed the expected file from `last-good-configuration` to `last-good-token-validation`. This correction restores the original fixture before existing missing-parent and write-failure assertions.
+- Exact e349 AI docs #43770121750, Process inventory #43770121725, AdGuardHome #43770121883, infosvr #43770121820, AliyunDrive #43770121777 and AliDDNS #43770121720 PASS. NVRAM #43770121752 and XY-C1 #43770121908 were pending.
+- IGMP publisher rejects whitespace/comment token injection in NVRAM-derived values and preserves last-good config. Corrected exact-head host + XY-C1 validation pending.
 
 ### P1 — Storage daemon startup and config publication
 
-- Transmission settings stage remains process-unique (`settings.json.tmp.$$`) and cleanup is ownership-aware. Exact abd40 storage #43769497238 PASS across host and firmware BusyBox ash tests, including the forced-stop and restart-gate coverage.
-- Firefly and MiniDLNA config publication use checked same-directory stages and atomic rename; both retain last-good config on write or publication failure.
-- IGMP proxy config now additionally rejects whitespace/comment token injection from NVRAM-derived values. Exact parent Process lifecycle #43769497255 passed before this addition; exact-head validation pending.
+- Transmission stop postconditions and restart gating are implemented; exact abd40 USB storage #43769497238 PASS across POSIX and firmware BusyBox 1.24.2 ash.
+- Firefly and MiniDLNA checked staging/publication and IGMP config publication keep the last-good file on write/fsync/rename failure.
+- IGMP token validation additionally blocks same-line whitespace/comment directive injection; e349 Process lifecycle regression needs the fixture-baseline correction in THIS COMMIT.
 
 ## Whole-repository module status
 

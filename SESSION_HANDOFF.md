@@ -9,21 +9,22 @@ For each logical task, create all source/test/doc blobs, one complete Git tree a
 ## Current repository state
 
 - Repository: Arlene206/padavan-4.4-2.
-- Parent main for IGMP proxy config-token validation: abd40abba2c3b78bf02fb262110f485534ba8b4b.
+- Parent main for the IGMP regression baseline correction: e3499afc01bdc42cd1620eb18a6eec0e20541d36.
 - Frozen backup branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged/read-only.
-- Exact parent abd40 USB storage #43769497238 PASS, including POSIX launcher and firmware BusyBox 1.24.2 ash lifecycle tests. Exact parent AI handoff docs #43769497316 PASS. Process lifecycle #43769497255 and AdGuardHome #43769497209 PASS; infosvr #43769497293 PASS. XY-C1 #43769497292, NVRAM #43769497231, Process inventory #43769497244, AliDDNS #43769497245 and AliyunDrive #43769497299 were still in progress at last poll.
-- This commit strengthens IGMP proxy config input validation: the prior helper rejected CR/LF but allowed spaces/tabs and comment characters inside interface/altnet values, which could split a generated directive into extra parser tokens. Interface values are now emitted as printable non-whitespace tokens without '#'; altnet accepts only digits, '.' and '/'.
-- The existing atomic same-directory publication / flush / fsync / rename contract remains unchanged. New host tests verify no-token-splitting and last-good config preservation.
+- Exact parent e349 Process lifecycle run #43770121710 FAILED in the IGMP config regression because the newly added last-good token-validation fixture changed the preserved file contents but the following older failure case still expected the prior fixture string. The validator itself compiled and the run reached the assertion after the new cases.
+- Exact parent XY-C1 #43770121908 and NVRAM #43770121752 were still in progress at last inspection. AI docs #43770121750, inventory #43770121725, AdGuardHome #43770121883, infosvr #43770121820, AliyunDrive #43770121777 and AliDDNS #43770121720 passed.
+- THIS COMMIT restores the original `last-good-configuration` fixture after the new whitespace/comment rejection cases, keeping the independent pre-existing missing-parent/rename assertions unchanged.
+- IGMP config validation now emits only single safe tokens: interface fields reject whitespace/control/comment chars; altnet allows only digits/dots/slashes. No production code change in this correction.
 
 ## Active task
 
-### Verify IGMP proxy input-token hardening
+### Verify IGMP proxy token validation after fixture correction
 
-The IGMP proxy publisher already staged its configuration, checked writes/flush/fsync/close and atomically renamed only complete output. A source review found a remaining configuration-injection/stability gap: `igmpproxy_config_single_line()` rejected only CR/LF, so a tab/space or '#' in NVRAM-derived `altnet` or interface names could split/comment a generated directive without containing a newline.
+The exact e349 Process lifecycle run #43770121710 failed in the IGMP helper regression after the newly added token-injection tests: those tests changed the fixture file contents to `last-good-token-validation`, but the following existing missing-parent failure test still asserted the older `last-good-configuration` contents. The validator compiled and the run reached this assertion; the failure is test fixture sequencing, not a production parser/build error.
 
-THIS COMMIT changes the validation contract: interface names must be one printable non-whitespace token without comment markers; altnet is restricted to numeric IPv4/CIDR punctuation (digits, dot, slash). Regression tests cover same-line whitespace/comment injection and preserve the existing last-good file. Exact Process host regression and XY-C1 build/TRX/artifact checks for THIS SHA are pending.
+THIS COMMIT restores the original last-good fixture before the older missing-parent/rename/flush-failure tests. Exact Process lifecycle regression and XY-C1 Build/TRX/artifact checks on this corrected SHA are required.
 
-After validation, continue the next uncompleted P1 service/lifecycle boundary from the roadmap; avoid re-auditing the completed atomic publication path.
+Next task: continue the Aria launcher stop lifecycle audit (same multi-PID, forced-kill postcondition and restart-gate pattern previously corrected in Transmission), then wider outstanding P1 service lifecycle work.
 
 ## Completed source slice — Transmission launcher lifecycle
 
@@ -49,15 +50,16 @@ Changed: `trunk/user/rc/src/net.c`; new `trunk/user/rc/src/msd_lite_config_file.
 
 ## Verification boundary
 
-- Parent main: `abd40abba2c3b78bf02fb262110f485534ba8b4b`; IGMP validator, regression, static checker and handoff/roadmap/log update are one atomic commit.
-- Exact parent abd40 USB storage #43769497238 PASS; AI handoff #43769497316 PASS; Process lifecycle #43769497255 PASS; AdGuardHome #43769497209 PASS; infosvr #43769497293 PASS. XY-C1 #43769497292, NVRAM #43769497231, Process inventory #43769497244, AliDDNS #43769497245 and AliyunDrive #43769497299 were pending at last poll.
-- New Process lifecycle and XY-C1 workflows must compile/run IGMP tests on this SHA. No L3/L4 claim until exact-head CI completes.
-- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; archive shards/index untouched.
+- Parent main: `e3499afc01bdc42cd1620eb18a6eec0e20541d36`; this is a one-file regression fixture correction with an atomic handoff/roadmap/log update.
+- Exact e349 Process lifecycle #43770121710 FAIL only at the IGMP regression's later last-good assertion: the inserted new tests had set another expected file value and did not restore the fixture before legacy failure-path assertions.
+- Exact e349 AI docs #43770121750, Process inventory #43770121725, AdGuardHome #43770121883, infosvr #43770121820, AliyunDrive #43770121777 and AliDDNS #43770121720 PASS. NVRAM #43770121752 and XY-C1 #43770121908 were in progress at last poll.
+- Exact abd40 storage #43769497238 PASS, including host + BusyBox 1.24.2 ash launcher tests; that result predates the IGMP-only changes.
+- No new exact-head Process lifecycle/XY-C1 result yet; no L3/L4 claim. Frozen backup unchanged.
 
 ## Exact first action for the next GPT
 
-1. Inspect this SHA's Process lifecycle regression: compile/run IGMP proxy config publication tests (new whitespace/comment rejection plus the existing failure/rollback tests) and the whole caller graph.
-2. Inspect this SHA's XY-C1 Build, TRX verification and artifact upload; claim L3 only if all phases pass.
-3. Continue the next uncompleted P1 enabled-service startup/lifecycle boundary in the roadmap; do not repeat Transmission launcher or IGMP atomic publication audits.
-4. Preserve the frozen backup and archive inventory. No L4 without physical-router evidence.
+1. Check exact-head Process lifecycle regression. Confirm IGMP token tests pass and the original missing-parent, directory-target and RLIMIT_FSIZE failure cases still prove last-good preservation.
+2. Inspect exact-head XY-C1 Build, TRX verification and artifact upload; L3 only if all phases pass on this SHA.
+3. Then repair Aria `func_stop()` multi-PID signaling, final process-absence verification and restart gating with host + firmware BusyBox ash regressions.
+4. Preserve frozen backup and archive shards; no L4 without physical-router evidence.
 
