@@ -1,3 +1,13 @@
+## 2026-11-15 — Anchor IPTV dynamic launcher contract to final return
+
+- Exact `ab9ae` WAN DHCP callback run #43749013381 compiled and passed all six existing host regressions, then failed only in the new return-order contract. The assertion used the first `return ret;` in `launch_viptv_wan()`, which belongs to static-IP mode and precedes the dynamic DHCP/ZeroConf branch.
+- Changed the source contract to compare both dynamic launch assignments with the final `return ret;` using `rindex`; it now distinguishes the static-mode early return from the dynamic client result.
+- Exact `ab9ae` AI handoff docs #43749013429 PASS and Process inventory #43749013428 PASS. XY-C1 #43748599786 for product-source SHA `5bbaaba493f63b0e58bac035e750907304fd9939` was still IN_PROGRESS at last poll.
+- Production source fix remains `5bbaaba493f63b0e58bac035e750907304fd9939`; current main parent before this test-only follow-up is `ab9ae820d689922ece417f0fc1e59c3110e02f74`.
+- Backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-15 — Correct IPTV launcher regression and restore mandatory handoff contract
 
 - Exact 5bbaa WAN DHCP callback run #43748599751 failed only in the newly added source-contract tail: the negative substring assertion also matched the intended `ret = start_*_viptv(...)` assignment. Removed the false-positive negative assertions; retained positive checks for both assigned return values, returned status and caller-side error logging.

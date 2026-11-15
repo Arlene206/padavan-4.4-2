@@ -796,8 +796,9 @@ jobs:
           dhcp_launch = "ret = start_udhcpc_viptv(viptv_ifname);"
           assert zcip_launch in viptv_start
           assert dhcp_launch in viptv_start
-          assert viptv_start.index(zcip_launch) < viptv_start.index("return ret;")
-          assert viptv_start.index(dhcp_launch) < viptv_start.index("return ret;")
+          dynamic_return = viptv_start.rindex("return ret;")
+          assert viptv_start.index(zcip_launch) < dynamic_return
+          assert viptv_start.index(dhcp_launch) < dynamic_return
 
           wan_start = body(source, "void" + chr(10) + "start_wan(void)")
           launch_call = "vlan_result = launch_viptv_wan();"

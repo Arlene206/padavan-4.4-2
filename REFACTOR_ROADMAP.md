@@ -1,20 +1,19 @@
 ## Current source / CI checkpoint
 
-- Main at this checkpoint: `5bbaaba493f63b0e58bac035e750907304fd9939`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- The IPTV dynamic-client status fix is committed: `launch_viptv_wan()` now returns `start_zcip_viptv()` / `start_udhcpc_viptv()` errors to the existing `start_wan()` logger. Exact 5bbaa WAN DHCP callback run #43748599751 FAIL was caused by two newly added negative substring assertions matching the intended assigned launch calls; remove those assertions and retain the positive call/return/caller checks.
-- Exact 5bbaa AI handoff docs #43748599523 FAIL because `SESSION_HANDOFF.md` omitted the validator-required literal sentence `The checkpoint is mandatory; a document edit is conditional.`; this follow-up restores it. Exact Process inventory #43748599504 PASS.
-- Exact 5bbaa XY-C1 run #43748599786 was still in progress at last poll; do not claim Build, TRX or artifact upload until checked.
-- Earlier product-source-identical XY-C1 #43746522702 on `be7fd92337812a28ddc5b275c7898915be114987` completed Build, TRX verification and artifact upload successfully. That confirms the prior source tree only, not new `net_wan.c` changes in 5bbaa. No physical-router/L4 result is claimed.
+- Main at the start of this follow-up: `ab9ae820d689922ece417f0fc1e59c3110e02f74`; backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Production commit `5bbaaba493f63b0e58bac035e750907304fd9939` propagates DHCP/ZeroConf IPTV process-launch status from `launch_viptv_wan()` to the existing WAN startup logger. Its exact WAN callback run #43748599751 failed in the added false-positive negative assertions; the following test commit removed those assertions.
+- Exact test-follow-up `ab9ae` WAN callback #43749013381 passed all six prior host regressions, then failed only because the new ordering check matched the earlier static-IP `return ret;`. The next test follow-up now anchors to the final return. Exact `ab9ae` AI handoff docs #43749013429 PASS and Process inventory #43749013428 PASS.
+- XY-C1 #43748599786 on product source SHA `5bbaaba493f63b0e58bac035e750907304fd9939` remained IN_PROGRESS at last poll. Build/TRX/artifact is unverified for that source at this checkpoint. The older `be7fd` source-identical run #43746522702 passed, but does not cover the IPTV source change.
+- No physical-router/L4 result is claimed.
 
 ### P1 — WAN startup status propagation
 
-- The current slice fixes ignored IPTV DHCP/ZeroConf launch results. The production source change is present; the exact WAN workflow regression needs its false-positive negative assertions removed and rerun.
-- Next distinct boundary: `launch_wanx()` ignores `start_udhcpc_wan()` / `start_zcip_wan()` results. Audit caller semantics before changing behavior: PPTP/L2TP wait for physical DHCP while PPPoE intentionally does not wait for a physical DHCP lease.
+- The committed IPTV client status propagation is source-correct; its guard's return-order assertion is being refined to distinguish the static early return from the dynamic-mode final return.
+- Next distinct launcher boundary: `launch_wanx()` ignores `start_udhcpc_wan()` / `start_zcip_wan()` results. Audit caller semantics before changing behavior; PPTP/L2TP wait for physical DHCP while PPPoE intentionally does not.
 
 ### P2 — IGMP proxy configuration publication
 
-- `start_igmpproxy()` stages config beside the destination, rejects CR/LF injection and checks write, flush, fsync, close and atomic rename. A publication failure preserves last-good content and blocks daemon launch.
-- Its host regression passed on exact-main Process inventory run #43748599504. The MiniDLNA typed-state checker mismatch was fixed in `2199bdb`.
+- `start_igmpproxy()` stages config beside the destination and protects last-good content on write/flush/fsync/close/rename errors. Its exact-main host regression passed on Process #43749013428; MiniDLNA's typed logger checker is fixed in `2199bdb`.
 
 ## Whole-repository module status
 

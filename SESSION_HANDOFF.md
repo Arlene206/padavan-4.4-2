@@ -9,7 +9,7 @@ For each logical task, create every source/test/workflow/doc blob, one complete 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Main at the start of this source slice: `2199bdb463da98d26289f819baa407e9feec97b1`.
+- Main at the start of this follow-up: `ab9ae820d689922ece417f0fc1e59c3110e02f74`.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only.
 - Exact-main Process inventory/lifecycle run #43747014935 PASS; AI handoff docs #43747014985 PASS; NVRAM #43747014966 PASS.
 - Product-source-identical XY-C1 run #43746522702 on `be7fd92337812a28ddc5b275c7898915be114987` completed successfully: Build XY-C1, TRX verification and artifact upload all PASS. The intervening `30e1848` and `2199bdb` commits changed checker/docs only, not firmware product source. L3 is VERIFIED on that source tree; no physical-router/L4 claim is made.
@@ -22,7 +22,11 @@ For each logical task, create every source/test/workflow/doc blob, one complete 
 
 In `trunk/user/rc/src/net_wan.c`, `start_udhcpc_viptv()` and `start_zcip_viptv()` both return their `_eval()/eval()` status. `launch_viptv_wan()` previously discarded that status and returned 0 for both dynamic modes, even though `start_wan()` already checks `launch_viptv_wan()` and logs any nonzero result. This hid missing-binary, exec and launch failures as successful IPTV startup.
 
-The source slice now assigns each dynamic launcher's result to `ret` and returns it. The existing `.github/workflows/wan-dhcp-callback-stability.yml` source-contract regression is extended to require both status assignments, returned status and caller-side error logging. This is a targeted startup-status propagation fix; it does not alter DHCP lease behavior or IPTV mode selection.
+Source fix commit: `5bbaaba493f63b0e58bac035e750907304fd9939`. It assigns both dynamic launch results to `ret` and returns it without changing DHCP lease behavior or IPTV mode selection.
+
+The WAN workflow contract passed the six preceding host compile/run regressions, then failed its final ordering assertion: `index("return ret;")` selected the earlier static-IP return rather than the final dynamic-mode return. The follow-up now locates the final return with `rindex`.
+
+Exact `ab9ae` AI handoff docs #43749013429 PASS and Process inventory #43749013428 PASS; WAN callback #43749013381 FAIL only at that ordering assertion. XY-C1 #43748599786 on `5bbaa` remained pending at last poll; its Build/TRX/artifact status is not claimed.
 
 ## Verification boundary
 
