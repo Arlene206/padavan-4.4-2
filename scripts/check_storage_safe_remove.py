@@ -149,7 +149,7 @@ for daemon in ("p910nd", "lpd", "u2ec", "IPTV proxies",
                "scutclient", "mentohust", "vlmcsd", "iperf3",
                "AdGuardHome", "Shadowsocks", "Shadowsocks tunnel",
                "Adbyby", "DDNSTO", "SQM", "AliyunDrive WebDAV",
-               "WireGuard", "SmartDNS", "AliDDNS", "ttyd", "FRP"):
+               "WireGuard", "SmartDNS", "ZeroTier", "AliDDNS", "ttyd", "FRP"):
     require('record_service_stop_status(&stop_status, "' + daemon + '"' in stop_all,
             "stop_services must aggregate stop status: " + daemon)
 
@@ -175,6 +175,16 @@ for name, script in (
             "optional service stop must propagate its shell status: " + name)
     require("int stop_" + name + "(void);" in rc_header,
             "RC header must expose checked stop status: " + name)
+zerotier_stop = body(services, "int stop_zerotier(void)")
+require('return eval("/usr/bin/zerotier.sh","stop");' in zerotier_stop and
+        "int stop_zerotier(void);" in rc_header,
+        "ZeroTier stop must propagate launcher status")
+zerotier_restart = body(services, "void restart_zerotier(void)")
+require("stop_zerotier() != 0" in zerotier_restart and "start_zerotier();" in zerotier_restart,
+        "ZeroTier restart must abort after a failed stop")
+require('record_service_stop_status(&stop_status, "ZeroTier", stop_zerotier())' in stop_all,
+        "stop_services must aggregate ZeroTier stop status")
+
 frp_stop = body(services, "int stop_frp(void)")
 require("return status;" in frp_stop and 'eval("/usr/bin/frp.sh","stop")' in frp_stop,
         "FRP stop must propagate the launcher status")

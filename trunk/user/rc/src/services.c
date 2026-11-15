@@ -521,8 +521,8 @@ void restart_adguardhome(void){
 #endif
 
 #if defined(APP_ZEROTIER)
-void stop_zerotier(void){
-	eval("/usr/bin/zerotier.sh","stop");
+int stop_zerotier(void){
+	return eval("/usr/bin/zerotier.sh","stop");
 }
 
 void start_zerotier(void){
@@ -532,7 +532,10 @@ void start_zerotier(void){
 }
 
 void restart_zerotier(void){
-	stop_zerotier();
+	if (stop_zerotier() != 0) {
+		logmessage(LOGNAME, "ZeroTier restart aborted because stop failed");
+		return;
+	}
 	start_zerotier();
 }
 #endif
@@ -1068,6 +1071,9 @@ stop_services(int stopall)
 #endif
 #if defined(APP_WIREGUARD)
 	record_service_stop_status(&stop_status, "WireGuard", stop_wireguard());
+#endif
+#if defined(APP_ZEROTIER)
+	record_service_stop_status(&stop_status, "ZeroTier", stop_zerotier());
 #endif
 #if defined(APP_SMARTDNS)
 	record_service_stop_status(&stop_status, "SmartDNS", stop_smartdns());

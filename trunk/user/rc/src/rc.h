@@ -588,7 +588,7 @@ void start_aliddns(void);
 void restart_aliddns(void);
 #endif
 #if defined(APP_ZEROTIER)
-void stop_zerotier(void);
+int stop_zerotier(void);
 void start_zerotier(void);
 void restart_zerotier(void);
 #endif
