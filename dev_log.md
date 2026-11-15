@@ -1,3 +1,13 @@
+## 2026-11-15 — Scope physical-WAN PPP abort ordering regression
+
+- Exact WAN #43752539339 passed all six GNU89 compile/run policy regressions, the client wait-delay guard, static MAN address checks and non-PPPoE failure guard checks, then failed because the ordering assertion compared the restore call against the first `continue;` in the entire PPP branch.
+- An earlier `continue;` belongs to independent UPnP/interface preflight. Scoped the test to the substring beginning at `abort_guard` and retained the restore-before-continue assertion inside the actual physical-WAN failure block.
+- Exact AI docs #43752539348 PASS and Process lifecycle #43752539327 PASS. Exact XY-C1 #43751765026 on product source `524601f` completed Build, TRX verification and artifact upload: L3 PASS.
+- Parent main: `a976ce23dc4ea5dad63ef17565e96bf4d1e3af5b`; product source `524601f`; backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Next source task: check whether static MAN should propagate `man_up_internal()` route errors through `launch_wanx()`, preserving existing callback logging and PPPoE behavior.
+
+---
+
 ## 2026-11-15 — Align physical WAN diagnostic source contract
 
 - Exact 7a28 WAN callback #43752014770 passed all six GNU89 compile/run policy regressions and earlier source assertions, then failed because the final count still expected the old `WAN physical DHCP/ZeroConf client launch incomplete` message.
