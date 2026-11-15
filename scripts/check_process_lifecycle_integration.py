@@ -249,6 +249,11 @@ assert igmpproxy_start.index("igmpproxy_config_publish(") < igmpproxy_start.inde
 assert "if (config_status != 0)" in igmpproxy_start
 assert "fopen(igmpproxy_conf" not in igmpproxy_start
 assert "igmpproxy_config_printf(" in igmpproxy_config_header
+assert "igmpproxy_config_token(" in igmpproxy_config_header
+assert "igmpproxy_config_altnet_token(" in igmpproxy_config_header
+assert "192.0.2.0/24 quickleave" in igmpproxy_config_test
+assert "eth0.2 #comment" in igmpproxy_config_test
+assert "br0\\tphyint" in igmpproxy_config_test
 assert "mkstemp(" in igmpproxy_config_header
 assert "fdopen(" in igmpproxy_config_header
 assert "fflush(" in igmpproxy_config_header

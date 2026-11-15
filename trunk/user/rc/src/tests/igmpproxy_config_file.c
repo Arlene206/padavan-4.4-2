@@ -116,6 +116,24 @@ main(void)
 	values.altnet = "192.0.2.0/24";
 	values.quickleave = 1;
 
+	/* Reject whitespace/comment token injection even without a newline. */
+	write_file(config_path, "last-good-token-validation\n");
+	values.altnet = "192.0.2.0/24 quickleave";
+	assert(igmpproxy_config_publish(config_path, &values) == EINVAL);
+	assert_file_equals(config_path, "last-good-token-validation\n");
+	values.altnet = "192.0.2.0/24";
+
+	values.upstream_interface = "eth0.2 #comment";
+	assert(igmpproxy_config_publish(config_path, &values) == EINVAL);
+	assert_file_equals(config_path, "last-good-token-validation\n");
+	values.upstream_interface = "eth0.2";
+
+	values.downstream_interface = "br0\tphyint";
+	assert(igmpproxy_config_publish(config_path, &values) == EINVAL);
+	assert_file_equals(config_path, "last-good-token-validation\n");
+	values.downstream_interface = "br0";
+	assert_no_temporary_files(directory, "igmpproxy.conf.tmp.");
+
 	/* Missing-parent and rename failures never replace the previous config. */
 	status = igmpproxy_config_publish(missing_path, &values);
 	assert(status != 0);

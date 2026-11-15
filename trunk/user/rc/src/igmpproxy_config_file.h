@@ -15,15 +15,35 @@ struct igmpproxy_config_values {
 	int quickleave;
 };
 
+/* Configuration values are emitted as single parser tokens. */
 static int
-igmpproxy_config_single_line(const char *value)
+igmpproxy_config_token(const char *value)
 {
-	if (value == NULL || value[0] == '\0')
+	const unsigned char *cursor = (const unsigned char *)value;
+
+	if (cursor == NULL || *cursor == '\0')
 		return 0;
-	while (*value != '\0') {
-		if (*value == '\n' || *value == '\r')
+	while (*cursor != '\0') {
+		/* Whitespace splits directives; '#' starts a config comment. */
+		if (*cursor <= 0x20 || *cursor >= 0x7f || *cursor == '#')
 			return 0;
-		++value;
+		++cursor;
+	}
+	return 1;
+}
+
+static int
+igmpproxy_config_altnet_token(const char *value)
+{
+	const unsigned char *cursor = (const unsigned char *)value;
+
+	if (!igmpproxy_config_token(value))
+		return 0;
+	while (*cursor != '\0') {
+		if ((*cursor < '0' || *cursor > '9') &&
+		    *cursor != '.' && *cursor != '/')
+			return 0;
+		++cursor;
 	}
 	return 1;
 }
@@ -50,9 +70,9 @@ igmpproxy_config_write(FILE *stream,
 	int status;
 
 	if (stream == NULL || values == NULL ||
-	    !igmpproxy_config_single_line(values->upstream_interface) ||
-	    !igmpproxy_config_single_line(values->altnet) ||
-	    !igmpproxy_config_single_line(values->downstream_interface) ||
+	    !igmpproxy_config_token(values->upstream_interface) ||
+	    !igmpproxy_config_altnet_token(values->altnet) ||
+	    !igmpproxy_config_token(values->downstream_interface) ||
 	    (values->quickleave != 0 && values->quickleave != 1))
 		return EINVAL;
 

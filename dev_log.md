@@ -1,3 +1,13 @@
+## 2026-11-16 — Reject IGMP proxy configuration token injection
+
+- Review of the atomic IGMP proxy publisher found that the old CR/LF-only validation still accepted spaces/tabs and '#' inside NVRAM-derived `altnet` and interface values. These characters can split a generated directive into unintended parser tokens or comment out its remainder without a newline.
+- Added a printable single-token validator for interface names (reject controls, whitespace and '#') and restrict `altnet` to numeric IPv4/CIDR punctuation (digits, '.' and '/'). Tests verify altnet whitespace, interface comment/tab injection all return EINVAL and leave the last-good config unchanged.
+- Parent abd40 USB storage #43769497238 PASS, AI docs #43769497316 PASS, Process lifecycle #43769497255 PASS, AdGuardHome #43769497209 PASS and infosvr #43769497293 PASS. XY-C1 #43769497292, NVRAM #43769497231, inventory #43769497244, AliDDNS #43769497245 and AliyunDrive #43769497299 were pending at last poll.
+- No local checkout was available; no local C test is claimed. Exact-head Process lifecycle (GNU89 ASan/UBSan) and XY-C1 Build/TRX/artifact are pending.
+- Parent main: `abd40abba2c3b78bf02fb262110f485534ba8b4b`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. No L3/L4 claim.
+
+---
+
 ## 2026-11-16 — Repair Transmission stop PID validation and regression harness
 
 - Exact parent 814d storage #43768621241 failed before executing tests: POSIX `sh -n` rejected the unquoted-space glob `*[!0-9 ]*` in the new Transmission stop PID validation.
