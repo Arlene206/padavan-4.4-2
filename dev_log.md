@@ -1,3 +1,13 @@
+## 2026-11-15 — Guard AP-client WISP migration on old WAN address cleanup
+
+- `config_apcli_wisp()` ignored failure to clear the previous MAN interface address, then published the WISP interface as the active WAN. A stale address could remain on the old physical interface during migration.
+- The function now records/logs address-clear failure. On non-single-MAC hardware it attempts to bring the old interface down; on single-MAC hardware it checks the existing down operation and retries a down-only ioctl if needed. If it cannot ensure the old interface is down, it refuses to publish the WISP interface, retaining the prior WAN interface selection.
+- Added source-contract coverage for checked clear, both hardware-specific shutdown paths, retry/failure handling and migration publication ordering. Exact current-head Actions are pending.
+- Parent main: `7ebeaa9e02e6249ac787497429defab2f726e5a0`; exact parent WAN callback #43754281208 PASS; AI docs #43754281251 PASS; Process inventory #43754281242 PASS; other finished module Actions include DNSMasq #43754281246, WAN route #43754281323 and HTTPD #43754281200 PASS. XY-C1 #43754281438 remained in Build XY-C1; NVRAM #43754281347 was still auditing ioctl call paths.
+- Frozen backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; no L4 result is claimed.
+
+---
+
 ## 2026-11-15 — Check physical WAN interface bring-up before protocol startup
 
 - `start_wan()` previously issued `doSystem("ifconfig ... mtu 1500 up 0.0.0.0")` and discarded the `system()` return status. PPPoE with no MAN preseed could therefore proceed to pppd even when its physical interface bring-up failed; DHCP/static paths also lacked an early fail gate.

@@ -1138,9 +1138,33 @@ config_apcli_wisp(void)
 
 	man_ifname = get_man_ifname(unit);
 	if (strlen(man_ifname) > 0 && !is_man_wisp(man_ifname)) {
-		ifconfig(man_ifname, IFUP, "0.0.0.0", NULL);
+		int address_status, down_status;
+
+		address_status = ifconfig(man_ifname, IFUP, "0.0.0.0", NULL);
+		if (address_status != 0)
+			logmessage(LOGNAME, "failed to clear previous WAN address on %s (status=%d)",
+				   man_ifname, address_status);
 #if defined (USE_SINGLE_MAC)
-		ifconfig(man_ifname, 0, "0.0.0.0", NULL);
+		down_status = ifconfig(man_ifname, 0, "0.0.0.0", NULL);
+		if (down_status != 0) {
+			logmessage(LOGNAME, "failed to shut down previous WAN interface %s (status=%d)",
+				   man_ifname, down_status);
+			down_status = ifconfig(man_ifname, 0, NULL, NULL);
+			if (down_status != 0) {
+				logmessage(LOGNAME, "unable to keep previous WAN interface %s down; refusing WISP migration (status=%d)",
+					   man_ifname, down_status);
+				return;
+			}
+		}
+#else
+		if (address_status != 0) {
+			down_status = ifconfig(man_ifname, 0, NULL, NULL);
+			if (down_status != 0) {
+				logmessage(LOGNAME, "unable to clear or shut down previous WAN interface %s; refusing WISP migration (status=%d)",
+					   man_ifname, down_status);
+				return;
+			}
+		}
 #endif
 	}
 
