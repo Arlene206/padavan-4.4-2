@@ -8,7 +8,7 @@ For each multi-file logical slice, publish source, tests/contracts and necessary
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; OpenSSH wrapper status propagation and `/bin/sh -n` coverage are committed at `a769870fbc2b94d3a2ae46541b1911f17edd4b8a`. The fixture fix `e882b68c6f9b6329793bd47a54cf37aa55642d14` restored the optional-app shell suite. Process integration then exposed whitespace-sensitive telnetd/ttyd diagnostics assertions: the C source wraps the long `logmessage()` calls across lines. This follow-up normalizes whitespace in those source contracts.
+- Repository `Arlene206/padavan-4.4-2`; OpenSSH wrapper status propagation and `/bin/sh -n` coverage are committed at `a769870fbc2b94d3a2ae46541b1911f17edd4b8a`. The `MOCK_LOG` fixture fix is `e882b68c6f9b6329793bd47a54cf37aa55642d14`. The next process-lifecycle run exposed a source-check bug: the first whitespace compaction removed spaces inside the C string literal. This follow-up changes compaction to preserve token spacing while collapsing line wrapping.
 - Boot diagnostics cover networkmap, watchdog, infosvr, GPIO, LLTD, rstats, telnetd and ttyd. SCUT, vlmcsd, iperf3 and mentohust wrappers now preserve their daemon launch/stop statuses.
 - LPD printer-removal PID identity hardening landed in `72ce1bb97323d4c417e8a5d891bbaf9c6ed3f2f3`; source-contract formatting correction is `022bc51507ca5f395c60a1f450cc461bf5403926`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. No local checkout/MIPS toolchain or physical-router L4 result is claimed.
@@ -29,6 +29,7 @@ For each multi-file logical slice, publish source, tests/contracts and necessary
 - This does not close Linux 4.4's final identity-check-to-kill(2) race; no atomic pidfd-like primitive is available in this target baseline.
 
 ## Verification boundary
+- On exact-head process-lifecycle #43736358298, all C and optional-app shell regressions passed, but the source integration checker failed because `"".join(split())` removed literal spaces from the telnetd diagnostic expected string. AI docs #43736358292, infosvr #43736358282, AdGuardHome #43736358220, AliDDNS #43736358252 and AliyunDrive #43736358293 PASS; NVRAM #43736358258 was IN_PROGRESS. This slice uses `" ".join(split())` for telnetd/ttyd, preserving spaces within format strings; no product source changed.
 - Exact e882 head: process-lifecycle #43736203033 FAIL at the final RC source contract after all C regressions and optional-app mocked shell tests passed. Failure was only the exact-string contract for wrapped `logmessage()` arguments in `start_telnetd()`; `start_ttyd()` had the same formatting-sensitive expectation. AI docs #43736203011, infosvr #43736203024 and AdGuardHome #43736202954 PASS. AliDDNS #43736203010, AliyunDrive #43736202896 and NVRAM #43736202974 were IN_PROGRESS at last poll. The current checker fix strips source whitespace before matching; no product source changes.
 - Exact e950 Actions: process inventory/lifecycle #43734448717 SUCCESS including SCUT/vlmcsd mocked shell regressions; AI docs #43734448768 SUCCESS; process lifecycle inventory #43734448702 SUCCESS; infosvr #43734448825 SUCCESS; AdGuardHome #43734448705 SUCCESS; AliDDNS #43734448677 SUCCESS; AliyunDrive #43734448782 SUCCESS. XY-C1 #43734448706 and NVRAM audit #43734448863 were IN_PROGRESS at last poll; fresh exact-head validation is required for the iperf3 additions.
 
@@ -38,7 +39,7 @@ For each multi-file logical slice, publish source, tests/contracts and necessary
 
 ## Exact first action for the next GPT
 
-1. Verify exact-head process-lifecycle after the whitespace-independent telnetd/ttyd source contracts; confirm both the optional-app shell suite and full integration checker pass. Recheck XY-C1/NVRAM status for the e882 parent.
+1. Verify exact-head process-lifecycle and AI docs on this follow-up; confirm both optional-app and source-integration checker steps pass. Recheck NVRAM #43736358258 if still relevant.
 2. Continue the actual tracked optional-daemon audit after SSH is green; search remaining scripts referenced by `start_services_once()` rather than assuming an NFS service exists.
 3. Keep main commits atomic using a complete Git tree and expected-SHA non-forced ref update. Keep backup unchanged.
 

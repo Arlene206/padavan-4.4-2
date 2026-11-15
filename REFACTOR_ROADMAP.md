@@ -1,9 +1,9 @@
 ## Current source / CI checkpoint
 
-- Current main baseline: `e882b68c6f9b6329793bd47a54cf37aa55642d14`; the OpenSSH optional-app mock now supplies `MOCK_LOG` and its behavior test passed. Process integration failed only because two source assertions expected wrapped `logmessage()` calls as contiguous one-line strings; checker now normalizes whitespace.
-- Exact e882 Actions: process-lifecycle #43736203033 FAILED only at telnetd's whitespace-sensitive source-contract assertion; the optional-app shell regression passed. AI docs #43736203011, infosvr #43736203024 and AdGuardHome #43736202954 PASS; AliDDNS #43736203010, AliyunDrive #43736202896 and NVRAM #43736202974 were IN_PROGRESS at last poll. Fresh exact-head run required.
-- Current optional service wrapper coverage includes SCUT, vlmcsd, iperf3, mentohust, ttyd and OpenSSH shell launch/stop behavior plus telnetd/ttyd source diagnostics. The remaining work is to continue auditing functions that discard `eval()` status or cannot report it.
-- Networkmap, watchdog, infosvr, LLTD, rstats, SCUT, vlmcsd, iperf3, mentohust, telnetd and ttyd now have launch-status handling. OpenSSH start/stop previously masked failure with `exit 0`; this slice adds status propagation and a mocked host regression.
+- Parent main for the telnetd/ttyd whitespace-checker correction: ffaab4054d87afc23b410f1a560d0e6f561d7c43. The OpenSSH mock logger fix is committed at e882; optional-app shell regressions passed on ffa.
+- Exact ffa process-lifecycle #43736358298 passed all C and shell regressions before failing at the source checker because empty-string joining removed spaces inside C diagnostic literals. The current checker-only follow-up changes to single-space joining. AI docs #43736358292, infosvr #43736358282, AdGuardHome #43736358220, AliDDNS #43736358252 and AliyunDrive #43736358293 PASS; NVRAM #43736358258 was IN_PROGRESS.
+- This slice changes integration checker/docs only, no firmware source. Exact-head Process lifecycle and AI docs must be rechecked; no XY-C1 trigger is expected.
+- The dead PID-only kill_process_pidfile helper and header prototype are removed. Linux 4.4 final PID/start_time validation-to-kill TOCTOU remains. Frozen backup remains read-only; physical L4 NOT VERIFIED.
 ## Whole-repository module status
 
 ### P1 process inventory / service lifecycle — tri-state foundation L2 VERIFIED; strict PID identity migration extended through PPPD/udhcpc/INICD and VPN/WAN/LAN/USB stop gates; xl2tpd and crond UNKNOWN start gates migrated; current L3 pending exact-head XY-C1

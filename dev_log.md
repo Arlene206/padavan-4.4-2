@@ -1,3 +1,11 @@
+## 2026-11-15 — Preserve string-literal spaces in telnetd/ttyd source checks
+
+- Exact-head process-lifecycle #43736358298 on `ffaab4054d87afc23b410f1a560d0e6f561d7c43` passed every C regression and the optional-app shell suite, then failed at the new telnetd diagnostic source assertion. The checker used `"".join(split())`, which also removed spaces inside the C string literal, so the expected log text could never match.
+- Corrected the whitespace compaction to `" ".join(split())`: it collapses indentation/newlines and repeated whitespace while retaining the single spaces in the diagnostic string. Applied to both telnetd and ttyd assertions.
+- Exact ffa AI docs #43736358292 PASS, infosvr #43736358282 PASS, AdGuardHome #43736358220 PASS, AliDDNS #43736358252 PASS, AliyunDrive #43736358293 PASS. NVRAM #43736358258 was IN_PROGRESS. No product source changed; XY-C1 is not triggered by this checker-only correction.
+- Parent main: ffaab4054d87afc23b410f1a560d0e6f561d7c43; result: THIS COMMIT. Exact-head process-lifecycle and AI docs reruns required.
+
+---
 ## 2026-11-15 — Make telnetd/ttyd source contracts formatting-independent
 
 - Exact-head process-lifecycle #43736203033 ran all GNU89/ASan/UBSan C regressions and the optional-app shell test successfully, then failed in the source checker because `start_telnetd()`'s long `logmessage()` argument was wrapped across C lines while the checker expected a one-line substring. `start_ttyd()` used the same formatting and had the same latent brittle assertion.
