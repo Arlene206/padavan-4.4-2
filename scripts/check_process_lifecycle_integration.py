@@ -46,6 +46,8 @@ assert "test_identity_bound_notification_preflights_all_targets" in lifecycle_te
 assert "test_unknown_notification_inventory_sends_zero_signals" in lifecycle_test
 net_source = (root / "trunk/user/rc/src/net.c").read_text()
 storage_services = (root / "trunk/user/rc/src/services_stor.c").read_text()
+firefly_config_header = (root / "trunk/user/rc/src/firefly_config_file.h").read_text()
+firefly_config_test = (root / "trunk/user/rc/src/tests/firefly_config_file.c").read_text()
 net_lan_notification = (root / "trunk/user/rc/src/net_lan.c").read_text()
 pppoe_policy = (root / "trunk/user/rc/src/pppoe_relay_policy.h").read_text()
 
@@ -107,6 +109,32 @@ for start_marker, end_marker, launcher, enable_guard, service_name in storage_la
     assert service_name in start_body
 assert '"trunk/user/rc/src/services_stor.c"' in process_workflow
 assert '"trunk/user/rc/src/services_stor.c"' in xy_workflow
+assert '#include "firefly_config_file.h"' in storage_services
+firefly_update = storage_services.split("static int\nupdate_firefly_conf(", 1)[1].split("\nvoid run_itunes(void)", 1)[0]
+assert "return firefly_config_publish(conf_full, conf_full, link_path," in firefly_update
+assert "ENAMETOOLONG" in firefly_update
+itunes_config = storage_services.split("void run_itunes(void)", 1)[1].split("\nvoid restart_itunes(void)", 1)[0]
+assert "if (mkdir(conf_path, 0755) != 0 && errno != EEXIST)" in itunes_config
+assert "rename(conf_old, conf_new) != 0" in itunes_config
+assert "config_status = update_firefly_conf(link_path, conf_path, conf_file);" in itunes_config
+assert "configuration publication failed (status=%d)" in itunes_config
+assert itunes_config.index("if (config_status != 0)") < itunes_config.index('launch_status = eval("/usr/bin/mt-daapd", "-c", conf_new);')
+assert "mkstemp(temporary_path)" in firefly_config_header
+assert "fflush(output)" in firefly_config_header
+assert "fsync(fileno(output))" in firefly_config_header
+assert "rename(temporary_path, path)" in firefly_config_header
+assert "unlink(temporary_path)" in firefly_config_header
+assert "ferror(source)" in firefly_config_header
+assert "last-good-configuration" in firefly_config_test
+assert "custom_setting = preserve-me" in firefly_config_test
+assert "firefly_config_publish(path, directory" in firefly_config_test
+assert "S_ISDIR(st.st_mode)" in firefly_config_test
+assert "0600" in firefly_config_test
+assert "trunk/user/rc/src/firefly_config_file.h" in process_workflow
+assert "trunk/user/rc/src/tests/firefly_config_file.c" in process_workflow
+assert "trunk/user/rc/src/firefly_config_file.h" in xy_workflow
+print("Firefly configuration publication failure and last-good preservation contracts: PASS")
+
 pppoe_test = (root / "trunk/user/rc/src/tests/pppoe_relay_policy.c").read_text()
 
 assert "process_inventory.o" in shared_makefile

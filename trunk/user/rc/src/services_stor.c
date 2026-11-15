@@ -56,6 +56,7 @@
 #include "storage_ejected_inventory_policy.h"
 #include "storage_nfs_export_policy.h"
 #include "storage_service_stop_policy.h"
+#include "firefly_config_file.h"
 #include "switch.h"
 
 void
@@ -2102,72 +2103,21 @@ stop_itunes(void)
 	return storage_service_stop_complete(status, is_itunes_run());
 }
 
-static void 
-update_firefly_conf(const char *link_path, const char *conf_path, const char *conf_file)
+static int
+update_firefly_conf(const char *link_path, const char *conf_path,
+		    const char *conf_file)
 {
-	FILE *fp1, *fp2;
-	char tmp1[64], tmp2[64], line[128];
+	char conf_full[128];
+	int path_length;
 
-	snprintf(tmp1, sizeof(tmp1), "%s/%s", conf_path, conf_file);
+	path_length = snprintf(conf_full, sizeof(conf_full), "%s/%s",
+			       conf_path, conf_file);
+	if (path_length < 0 || (size_t)path_length >= sizeof(conf_full))
+		return ENAMETOOLONG;
 
-	if (check_if_file_exist(tmp1)) {
-		snprintf(tmp2, sizeof(tmp2), "%s/%s.tmp", conf_path, conf_file);
-		fp1 = fopen(tmp1, "r");
-		if (fp1) {
-			fp2 = fopen(tmp2, "w");
-			if (fp2) {
-				while (fgets(line, sizeof(line), fp1)){
-					if (strncmp(line, "web_root", 8) == 0)
-						snprintf(line, sizeof(line), "web_root = %s\n", "/usr/share/mt-daapd");
-					if (strncmp(line, "port", 4) == 0)
-						snprintf(line, sizeof(line), "port = %d\n", 3689);
-					else if (strncmp(line, "runas", 5) == 0)
-						snprintf(line, sizeof(line), "runas = %s\n", nvram_safe_get("http_username"));
-					else if (strncmp(line, "db_type", 7) == 0)
-						snprintf(line, sizeof(line), "db_type = %s\n", "sqlite3");
-					else if (strncmp(line, "db_parms", 8) == 0)
-						snprintf(line, sizeof(line), "db_parms = %s\n", link_path);
-					else if (strncmp(line, "plugin_dir", 10) == 0)
-						snprintf(line, sizeof(line), "plugin_dir = %s\n", "/usr/lib/mt-daapd");
-					fprintf(fp2, "%s", line);
-				}
-				fclose(fp2);
-				fclose(fp1);
-				rename(tmp2, tmp1);
-			}
-			else
-				fclose(fp1);
-		}
-	}
-	else {
-		fp1 = fopen(tmp1, "w");
-		if (fp1) {
-			fprintf(fp1, "[general]\n");
-			fprintf(fp1, "web_root = %s\n", "/usr/share/mt-daapd");
-			fprintf(fp1, "port = %d\n", 3689);
-			fprintf(fp1, "runas = %s\n", nvram_safe_get("http_username"));
-			fprintf(fp1, "admin_pw = %s\n", nvram_safe_get("http_passwd"));
-			fprintf(fp1, "db_type = %s\n", "sqlite3");
-			fprintf(fp1, "db_parms = %s\n", link_path);
-			fprintf(fp1, "logfile = %s/mt-daapd.log\n", link_path);
-			fprintf(fp1, "servername = %s\n", "Firefly on %h");
-			fprintf(fp1, "mp3_dir = %s\n", "/media");
-			fprintf(fp1, "extensions = %s\n", ".mp3,.m4a,.m4p,.flac,.alac");
-			fprintf(fp1, "rescan_interval = %d\n", 300);
-			fprintf(fp1, "always_scan = %d\n", 0);
-			fprintf(fp1, "scan_type = %d\n", 0);
-			fprintf(fp1, "debuglevel = %d\n\n", 0);
-			fprintf(fp1, "[scanning]\n");
-			fprintf(fp1, "skip_first = %d\n", 1);
-			fprintf(fp1, "process_playlists = %d\n", 1);
-			fprintf(fp1, "process_itunes = %d\n", 1);
-			fprintf(fp1, "process_m3u = %d\n", 1);
-			fprintf(fp1, "mp3_tag_codepage = %s\n\n", "WINDOWS-1251");
-			fprintf(fp1, "[plugins]\n");
-			fprintf(fp1, "plugin_dir = %s\n\n", "/usr/lib/mt-daapd");
-			fclose(fp1);
-		}
-	}
+	return firefly_config_publish(conf_full, conf_full, link_path,
+				      nvram_safe_get("http_username"),
+				      nvram_safe_get("http_passwd"));
 }
 
 void run_itunes(void)
@@ -2180,6 +2130,8 @@ void run_itunes(void)
 	char conf_new[64], conf_old[64];
 	int process_state;
 	int launch_status;
+	int config_status;
+	int path_length;
 
 	if (!nvram_match("apps_itunes", "1"))
 		return;
@@ -2203,14 +2155,34 @@ void run_itunes(void)
 		}
 	}
 
-	mkdir(conf_path, 0755);
+	if (mkdir(conf_path, 0755) != 0 && errno != EEXIST) {
+		config_status = errno ? errno : EIO;
+		logmessage(apps_name, "configuration directory creation failed (status=%d)", config_status);
+		return;
+	}
 
-	snprintf(conf_old, sizeof(conf_old), "%s/%s", "/etc/storage", conf_file);
-	snprintf(conf_new, sizeof(conf_new), "%s/%s", conf_path, conf_file);
-	if (!check_if_file_exist(conf_new) && check_if_file_exist(conf_old))
-		rename(conf_old, conf_new);
+	path_length = snprintf(conf_old, sizeof(conf_old), "%s/%s", "/etc/storage", conf_file);
+	if (path_length < 0 || (size_t)path_length >= sizeof(conf_old)) {
+		logmessage(apps_name, "legacy configuration path is too long");
+		return;
+	}
+	path_length = snprintf(conf_new, sizeof(conf_new), "%s/%s", conf_path, conf_file);
+	if (path_length < 0 || (size_t)path_length >= sizeof(conf_new)) {
+		logmessage(apps_name, "configuration path is too long");
+		return;
+	}
+	if (!check_if_file_exist(conf_new) && check_if_file_exist(conf_old) &&
+	    rename(conf_old, conf_new) != 0) {
+		config_status = errno ? errno : EIO;
+		logmessage(apps_name, "legacy configuration migration failed (status=%d)", config_status);
+		return;
+	}
 
-	update_firefly_conf(link_path, conf_path, conf_file);
+	config_status = update_firefly_conf(link_path, conf_path, conf_file);
+	if (config_status != 0) {
+		logmessage(apps_name, "configuration publication failed (status=%d)", config_status);
+		return;
+	}
 
 	launch_status = eval("/usr/bin/mt-daapd", "-c", conf_new);
 	if (launch_status != 0)

@@ -1,3 +1,11 @@
+## 2026-11-15 — Make Firefly configuration publication fail closed
+
+- `update_firefly_conf()` ignored source-open, write, close and rename failures; `run_itunes()` launched mt-daapd even when config publication failed.
+- Added a unique same-directory temporary-file publisher checking read/write, flush, `fsync`, close and rename. Failed publication removes staging files and preserves the last good config; Firefly startup now checks directory creation and legacy migration and refuses launch after config failure.
+- Added a host C regression for existing-config rewrite, default generation, last-good preservation on read/rename failures, 0600 mode and temporary-file cleanup. Process compiles/runs it under ASan/UBSan; Process and XY-C1 filters include the helper header.
+- Parent main: `2bd4868069048e5470fcfd024678b0891575b12a`. Exact-head Process and XY-C1 validation required; no hardware runtime result claimed.
+
+---
 ## 2026-11-15 — Complete mandatory handoff commit/exhaustion rules
 
 - Rebuilt the optional RC startup source-contract checker in `1c9ef914b9d27396e90976d6eb0fdfa9ba961cf4`; exact Process #43741972950 passed.
