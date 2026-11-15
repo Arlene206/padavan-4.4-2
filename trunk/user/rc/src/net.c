@@ -328,6 +328,7 @@ void
 start_udpxy(char *wan_ifname)
 {
 	int port = nvram_get_int("udpxy_enable_x");
+	int launch_status;
 	if (port < 1024)
 		return;
 
@@ -356,15 +357,19 @@ start_udpxy(char *wan_ifname)
 		fclose(fp1);
 	}
 	nvram_set("msd_lite_enable", "1");
-	eval("/usr/bin/msd_lite", "-d", "-c", dst_conf);
+	launch_status = eval("/usr/bin/msd_lite", "-d", "-c", dst_conf);
+	if (launch_status != 0)
+		logmessage(LOGNAME, "MSD Lite launch failed (status=%d)", launch_status);
 #else
-	eval("/usr/sbin/udpxy",
+	launch_status = eval("/usr/sbin/udpxy",
 		"-m", wan_ifname,
 		"-p", nvram_safe_get("udpxy_enable_x"),
 		"-B", "65536",
 		"-c", nvram_safe_get("udpxy_clients"),
 		"-M", nvram_safe_get("udpxy_renew_period")
 		);
+	if (launch_status != 0)
+		logmessage(LOGNAME, "udpxy launch failed (status=%d)", launch_status);
 #endif
 }
 
@@ -389,7 +394,7 @@ stop_xupnpd(void)
 void
 start_xupnpd(char *wan_ifname)
 {
-	int i, xport, has_daemon;
+	int i, xport, has_daemon, launch_status;
 	FILE *fp1, *fp2;
 	char tmp1[64], tmp2[64], line[256];
 	char *dir_src = "/etc_ro/xupnpd";
@@ -490,9 +495,11 @@ start_xupnpd(char *wan_ifname)
 		doSystem("mv -f %s %s", tmp1, tmp2);
 		
 		if (has_daemon)
-			eval("/usr/bin/xupnpd");
+			launch_status = eval("/usr/bin/xupnpd");
 		else
-			system("/usr/bin/xupnpd &");
+			launch_status = system("/usr/bin/xupnpd &");
+		if (launch_status != 0)
+			logmessage(LOGNAME, "xupnpd launch command failed (status=%d)", launch_status);
 	}
 }
 #endif

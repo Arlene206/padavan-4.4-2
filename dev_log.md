@@ -1,3 +1,12 @@
+## 2026-11-15 — Report IPTV streaming proxy launch command failures
+
+- `start_udpxy()` ignored the `eval()` result for both supported launch paths, `/usr/sbin/udpxy` and optional `/usr/bin/msd_lite`. `start_xupnpd()` ignored both its foreground `eval()` and the background-shell `system("/usr/bin/xupnpd &")` result. An enabled proxy could therefore fail at the launch command without a service-specific boot diagnostic.
+- Capture and log the selected launch-command status while retaining the 1024+ port guard, xupnpd binary-support check, provider selection and existing foreground/background behavior. Added source-contract assertions for the two udpxy providers and both xupnpd modes.
+- Limitation: successful `system("... &")` only reports the shell command result, not child readiness. Config-file creation/publication and running-process postconditions are not addressed by this slice.
+- Parent main: `a3aa716b5205b0b48f0aa656234fa125e5251542`; result: THIS COMMIT. Exact-head Process lifecycle and XY-C1/TRX/artifact verification required; no firmware or physical IPTV test claimed.
+
+---
+
 ## 2026-11-15 — Fix iperf3 ROMFS script installation path
 
 - Exact XY-C1 push run #43737703922 on `776b47eea3728e44944e04aeef67e4e0fe750f9a` reached ROMFS and failed because the iperf3 Makefile used `$(THISDIR)`, which was empty under the submake and resolved the script source to `/iperf3.sh`. TRX verification and artifact upload were skipped; unrelated groff/SmartDNS download warnings were nonfatal.

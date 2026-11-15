@@ -1,9 +1,13 @@
 ## Current source / CI checkpoint
 
-- Current parent before the iperf3 ROMFS fix: `d2eebe4401dd9c7968334b71e748ad6c4312b20f`. IAPPD host regression is green on Process lifecycle #43738886473; 802.1X launch-status diagnostics are green on Process #43739228138 and Process lifecycle inventory #43739227948 (source SHA `ac28f793fe7cf897edfbc26ec6766d21d1d2c70d`). XY-C1 #43739227968 was in progress at Build. Earlier XY-C1 #43737703922 exposed a concrete iperf3 ROMFS path defect: `$(THISDIR)` became empty, causing `/iperf3.sh`; this slice fixes it with `$(CURDIR)` and adds a source regression guard. Current exact-head firmware/TRX/artifact verification remains required.
+- Current main parent for IPTV proxy diagnostics: `a3aa716b5205b0b48f0aa656234fa125e5251542`. IAPPD exact Process #43738886473 PASS; 802.1X Process #43739228138, inventory #43739227948 and wireless radio #43739228377 PASS. The iperf3 ROMFS fix is in a3aa; exact Process #43739572150 and process inventory #43739572120 PASS, while XY-C1 #43739572125 remained IN_PROGRESS at Build. NVRAM #43739572197 remained IN_PROGRESS at raw ioctl audit. TRX/artifact validation remains required.
 - Exact-parent Action summary: infosvr packet and signal lifecycle stability regression #43738132617 completed/success; NFS daemon start and reload lifecycle regression #43738132578 completed/success; AI handoff documentation contract #43738132573 completed/success; Process inventory and lifecycle fail-closed regression #43738132620 completed/success; Process lifecycle inventory - 479c05be3bef946f892f81a296d0ca3e709a698f #43738132593 completed/success; NVRAM transaction boundary audit #43738132600 completed/success; fresh process-lifecycle and XY-C1 checks are required after this source commit.
 - Exact 925e AI docs #43737910530, process inventory/lifecycle fail-closed #43737910499, infosvr #43737910533, AdGuardHome #43737910558, AliDDNS #43737910522 and AliyunDrive #43737910604 PASS; NVRAM #43737910496 was IN_PROGRESS at last poll. No NFS workflow was triggered on 925e; the corrected test needs a fresh exact-head run.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only. Do not claim XY-C1 L3 or physical-router L4 without current-SHA build/TRX/artifact and hardware evidence.
+
+### P2 — IPTV streaming proxy launch failure visibility
+
+- `start_udpxy()` ignored launch statuses from `/usr/sbin/udpxy` and optional `/usr/bin/msd_lite`; `start_xupnpd()` ignored `eval()` and `system("... &")` results. This slice captures/logs nonzero command statuses while keeping service guards/provider selection intact. The background shell result is not a child-readiness postcondition; config publishing remains separate follow-up work.
 
 ## Whole-repository module status
 

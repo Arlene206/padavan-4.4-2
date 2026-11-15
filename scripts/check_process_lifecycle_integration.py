@@ -90,6 +90,21 @@ assert "PROCESS_PRESENCE_RUNNING" in pppoe_confirm
 assert "PROCESS_PRESENCE_UNKNOWN" in pppoe_confirm
 assert "sleep(1);" in pppoe_confirm
 assert "pppoe_relay_start_status(launch_status, presence)" in pppoe_confirm
+udpxy_start = net_source.split("void\nstart_udpxy(char *wan_ifname)", 1)[1].split("\n}\n", 1)[0]
+assert "if (port < 1024)" in udpxy_start
+assert 'launch_status = eval("/usr/bin/msd_lite"' in udpxy_start
+assert 'MSD Lite launch failed (status=%d)' in udpxy_start
+assert 'launch_status = eval("/usr/sbin/udpxy"' in udpxy_start
+assert 'udpxy launch failed (status=%d)' in udpxy_start
+assert udpxy_start.count("if (launch_status != 0)") == 2
+xupnpd_start = net_source.split("void\nstart_xupnpd(char *wan_ifname)", 1)[1].split("\n}\n#endif", 1)[0]
+assert "if (!is_xupnpd_support())" in xupnpd_start
+assert "if (xport < 1024)" in xupnpd_start
+assert 'launch_status = eval("/usr/bin/xupnpd");' in xupnpd_start
+assert 'launch_status = system("/usr/bin/xupnpd &");' in xupnpd_start
+assert 'xupnpd launch command failed (status=%d)' in xupnpd_start
+assert xupnpd_start.index("if (has_daemon)") < xupnpd_start.index('launch_status = eval("/usr/bin/xupnpd");')
+assert xupnpd_start.index('launch_status = system("/usr/bin/xupnpd &");') < xupnpd_start.index("if (launch_status != 0)")
 pppoe_start = net_source.split("int\nset_passthrough_pppoe(int is_on)", 1)[1].split("set_igmp_mld_version", 1)[0]
 assert '#include "process_inventory.h"' in net_source
 assert '#include "pppoe_relay_policy.h"' in net_source

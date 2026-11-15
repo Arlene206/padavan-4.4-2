@@ -8,18 +8,24 @@ For each multi-file logical slice, publish source, tests/contracts and necessary
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; main parent before the iperf3 ROMFS fix is `d2eebe4401dd9c7968334b71e748ad6c4312b20f`. IAPPD lifecycle code/test is at `37204498a3ce81d6dd077fd551a66e15a29be344`, with corrected fixture exit-status capture at `443c23f2f814e69549a49b42c0347f0fd42cfe9e`. The 802.1X diagnostics are at `ac28f793fe7cf897edfbc26ec6766d21d1d2c70d`; exact Process lifecycle #43739228138 and process inventory #43739227948 passed.
-- Current XY-C1 run #43739227968 for the 802.1X/IAPPD source stack was IN_PROGRESS at Build XY-C1 at last poll. Earlier exact XY-C1 #43737703922 on SHA `776b47eea3728e44944e04aeef67e4e0fe750f9a` exposed the iperf3 ROMFS install-path failure detailed below.
+- Repository `Arlene206/padavan-4.4-2`; exact parent for this IPTV proxy diagnostic slice is `a3aa716b5205b0b48f0aa656234fa125e5251542`. IAPPD wrapper/test at `37204498a3ce81d6dd077fd551a66e15a29be344` and fixture status-capture correction at `443c23f2f814e69549a49b42c0347f0fd42cfe9e` pass Process lifecycle #43738886473. 802.1X diagnostics at `ac28f793fe7cf897edfbc26ec6766d21d1d2c70d` pass Process #43739228138, inventory #43739227948 and wireless radio #43739228377. The iperf3 ROMFS fix at a3aa is under exact-head XY-C1 #43739572125.
+- Exact a3aa Actions: process lifecycle #43739572150 PASS; inventory artifact #43739572120 PASS; AI docs #43739572235 PASS; infosvr #43739572142 PASS; AdGuardHome #43739572092 PASS; AliDDNS #43739572118 PASS; AliyunDrive #43739572281 PASS. NVRAM #43739572197 remained IN_PROGRESS at raw ioctl audit. XY-C1 #43739572125 remained IN_PROGRESS at Build; TRX verification and artifact upload were not yet observed. The previous #43737703922 ROMFS failure was caused by `$(THISDIR)` becoming empty; a3aa now uses `$(CURDIR)`.
 - Optional RC boot wrappers for AdGuardHome, DDNS.to, Adbyby and AliDDNS retain/log launcher failures. NFS stop regression #43738132578 passed on source parent `479c05be3bef946f892f81a296d0ca3e709a698f`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only). No local checkout/MIPS toolchain or physical-router L4 result is claimed.
 
 ## Active task
 
-### P1 — iperf3 ROMFS package install path blocks XY-C1 firmware
+### P2 — IPTV streaming proxy launch failure diagnostics
 
-- Exact XY-C1 push run #43737703922 on SHA `776b47eea3728e44944e04aeef67e4e0fe750f9a` compiled through package ROMFS, then failed at `trunk/user/iperf3/Makefile`: `$(THISDIR)` was empty under `make -C iperf3 romfs`, so install attempted to copy `/iperf3.sh` and failed with “cannot stat”. TRX verification and artifact upload were skipped. The earlier groff HTML warning and SmartDNS mirror 404s were nonfatal; the SmartDNS Git fallback completed.
-- This atomic slice changes the script install source to GNU make's `$(CURDIR)` and adds a package-path regression assertion to `scripts/check_optional_app_start_status.py`. That checker runs in the process-lifecycle workflow; the Makefile is in the XY-C1 path filter. Require fresh exact-head process and complete XY-C1/TRX/artifact results.
-- Continue the remaining `start_services_once()` / optional service launch audit after this build blocker is closed; preserve enable guards and disabled-service no-op semantics.
+- `start_udpxy()` ignored the `eval()` result for both `/usr/sbin/udpxy` and the optional `/usr/bin/msd_lite` provider. `start_xupnpd()` ignored the foreground `eval()` and background-shell `system()` results. Enabled IPTV proxy launch command failures therefore had no launcher-specific diagnostic.
+- This slice captures and logs nonzero results for each selected launch path, preserving NVRAM thresholds, optional-app compile gates, xupnpd support checks and existing foreground/background mode. The process integration checker covers all three launch branches; `net.c` is already filtered by process/XY-C1 workflows.
+- This is command-result visibility only: `system("... &")` success does not prove child readiness, and configuration file creation/publish errors remain open.
+
+### P1 — iperf3 ROMFS source fix (committed; firmware verification pending)
+
+- The ROMFS source defect was fixed at `a3aa716b5205b0b48f0aa656234fa125e5251542`: `$(THISDIR)` was empty under `make -C iperf3 romfs`, causing `/iperf3.sh`; the install source now uses `$(CURDIR)/iperf3.sh`. `scripts/check_optional_app_start_status.py` asserts the package path.
+- Exact a3aa Process #43739572150 PASS and inventory artifact #43739572120 PASS; XY-C1 #43739572125 remained IN_PROGRESS at Build at last poll. TRX and artifact upload are not yet verified; no firmware L3 claim.
+- Continue remaining optional `start_services_once()` launch wrappers after confirming the current build; retain feature gates and disabled-service no-op behavior.
 
 ### P1 — 802.1X authenticator launch diagnostics (host contract PASS; XY-C1 pending)
 
@@ -41,22 +47,22 @@ For each multi-file logical slice, publish source, tests/contracts and necessary
 
 ## Verification boundary
 
-- IAPPD test run #43738581837 initially failed because the fixture c## Verification boundary
-
-- Exact parent before this fix: `d2eebe4401dd9c7968334b71e748ad6c4312b20f`. XY-C1 run #43737703922 on source SHA `776b47eea3728e44944e04aeef67e4e0fe750f9a` failed in iperf3 ROMFS at `install: cannot stat '/iperf3.sh'`; TRX verification and artifact upload were skipped. This fix changes the source path to `$(CURDIR)/iperf3.sh`; exact-head XY-C1 must pass Build, Verify TRX output and upload before L3 can be claimed.
-- 802.1X source SHA `ac28f793fe7cf897edfbc26ec6766d21d1d2c70d`: Process inventory and lifecycle regression #43739228138 PASS; Process lifecycle inventory #43739227948 PASS. XY-C1 #43739227968 was IN_PROGRESS at the last poll; inspect its outcome, but do not treat it as validation of this iperf3 change.
-- IAPPD fixture correction: Process lifecycle #43738886473 and AI docs #43738886520 PASS on SHA `443c23f2f814e69549a49b42c0347f0fd42cfe9e`. XY-C1 #43738581861 for source SHA `37204498a3ce81d6dd077fd551a66e15a29be344` was IN_PROGRESS at the last poll.
-- PID 1 workflow on SHA `c0999a97f07435c11903dac04524a07844cc60a8` failed at the stale telnetd assertion expecting `return eval("telnetd");`; the implementation now captures/logs/returns `start_status`. This checker correction is in `d2eebe4401dd9c7968334b71e748ad6c4312b20f`; exact-head rerun required.
-- Existing NFS stop regression #43738132578, process lifecycle #43738132620 and their source-parent results remain PASS on their recorded exact SHAs. No full-firmware L3 or physical-router L4 claim is made without corresponding evidence.
+- Exact parent `a3aa716b5205b0b48f0aa656234fa125e5251542`: Process inventory/lifecycle #43739572150 PASS; process inventory artifact #43739572120 PASS; AI docs #43739572235 PASS; infosvr #43739572142 PASS; AdGuardHome #43739572092 PASS; AliDDNS #43739572118 PASS; AliyunDrive #43739572281 PASS. NVRAM #43739572197 remained IN_PROGRESS at the raw userland ioctl/kernel API audit.
+- Exact a3aa XY-C1 #43739572125 was IN_PROGRESS at Build XY-C1 at last poll; TRX verification and artifact upload were not yet observed. This build includes the iperf3 ROMFS fix, IAPPD wrapper and 802.1X source.
+- Prior XY-C1 #43738581861 on SHA `37204498a3ce81d6dd077fd551a66e15a29be344` FAILED at ROMFS because the iperf3 Makefile then used `$(THISDIR)` and attempted `/iperf3.sh`; a3aa fixes this with `$(CURDIR)`. Require a fresh successful build, TRX and artifact before L3.
+- IAPPD exact Process lifecycle #43738886473 PASS on SHA `443c23f2f814e69549a49b42c0347f0fd42cfe9e`; 802.1X exact Process #43739228138, inventory #43739227948 and wireless radio #43739228377 PASS on `ac28f793fe7cf897edfbc26ec6766d21d1d2c70d`.
+- NFS start/reload #43737106642 and stop fixture #43738132578 PASS on their recorded exact source parents; do not repeat without new evidence.
 
 ## Exact first action for the next GPT
 
-1. Verify the process-lifecycle and XY-C1 push runs whose `head_sha` exactly matches the commit containing this iperf3 fix. Inspect Build XY-C1, TRX verification and artifact upload; diagnose the first causal failure.
-2. Recheck PID 1 notification queue and AI handoff docs Actions triggered by `d2eebe4401dd9c7968334b71e748ad6c4312b20f`; diagnose the next contract failure if the workflow does not pass.
-3. Inspect the result of XY-C1 #43739227968 on `ac28f793fe7cf897edfbc26ec6766d21d1d2c70d`, but keep it distinct from the new exact-head build.
-4. Once the build blocker is closed, continue the whole-repository RC startup-wrapper audit; do not repeat IAPPD, 802.1X or NFS host regressions without new evidence.
+1. Verify exact-head XY-C1 #43739572125: inspect Build XY-C1, Verify TRX output and artifact upload. Diagnose the first causal compile/ROMFS failure if Build does not pass.
+2. Recheck NVRAM #43739572197 and the current exact-a3aa workflow statuses; continue independent work instead of waiting for a PENDING job.
+3. Verify this net.c proxy launch checker on the resulting exact-head Process lifecycle run; net.c already belongs to process and XY-C1 path filters.
+4. Continue the remaining optional RC startup-wrapper audit only where a concrete swallowed status or unsafe postcondition remains.
 
-ntinue safe tasks.
+## Invariants
+
+- A PENDING run does not block independent work; record exact run ID/SHA and continue safe tasks.
 - DNSMasq/VPN lock-order and scoped RC process-signal audits are complete; do not repeat without new evidence.
 - Linux 4.4 PID/start_time validation-to-signal TOCTOU remains unresolved. FTP failed-upload cleanup, NFS durability/AUTH_SYS and physical-router behavior remain separate unverified areas.
-- Preserve docs/dev-log archive shards and docs/dev-log/INDEX.md byte-for-byte.
+- Preserve `backup/pre-plugin-overhaul-2026-11-14` and docs/dev-log archive shards / `docs/dev-log/INDEX.md` byte-for-byte.
