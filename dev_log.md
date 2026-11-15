@@ -1,3 +1,11 @@
+## 2026-11-15 — Fix watchdog inline source-contract quoting
+
+- Exact-head watchdog run #43732391911 on product-source SHA 5e16404907f16ac2321e69838b250d426c1aedd2 compiled and passed both GNU89 ASan/UBSan regression binaries and the NTP/service lifecycle checker. Its final inline Python source contract failed to parse because the added assertion double-escaped quotes inside a double-quoted Python literal.
+- Changed the inline contract to use single-quoted Python literals around the exact C source text; no production source changed. The separate process-lifecycle integration workflow #43732391871 passed on the same SHA, as did infosvr #43732392035, AI handoff #43732391844, AdGuardHome #43732392074, DNSMasq #43732391865 and AliyunDrive #43732391870.
+- XY-C1 #43732391824 for product-source SHA 5e164049 was still IN_PROGRESS; no L3 claim until Build, TRX verification and artifact upload pass. Current commit is workflow/docs-only; verify the new exact-head watchdog Action.
+- Parent main: 5e16404907f16ac2321e69838b250d426c1aedd2; resulting checker correction: THIS COMMIT.
+
+---
 ## 2026-11-15 — Report watchdog daemon launcher failures
 
 - `start_watchdog()` already fails closed and logs when process inventory is UNKNOWN, and avoids duplicate launches when RUNNING. But after a confirmed ABSENT scan it returned `eval("/sbin/watchdog")` directly; a failed launcher had no diagnostic at the point of failure. This affects boot startup and other watchdog recovery callers.
