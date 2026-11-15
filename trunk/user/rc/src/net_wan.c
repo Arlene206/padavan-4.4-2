@@ -38,6 +38,7 @@
 #include "vpn_server_lifecycle_lock.h"
 #include "route_status_policy.h"
 #include "dnsmasq_file.h"
+#include "dnsmasq_lifecycle_lock.h"
 #include "dnsmasq_domain_policy.h"
 #include "wan_resolver_refresh_policy.h"
 #include "wan_teardown_policy.h"
@@ -2971,11 +2972,14 @@ refresh_resolvconf_nonfatal_no_notify(const char *reason, int is_first_run)
 int
 update_hosts_router(const char *lan_ipaddr)
 {
+	char hostname_backup[] = "/etc/hostname.rollback.XXXXXX";
+	char hosts_backup[] = "/etc/hosts.rollback.XXXXXX";
 	FILE *hostname_fp = NULL, *hosts_fp = NULL;
 	char hostname_temp[] = "/etc/hostname.XXXXXX";
 	char hosts_temp[] = "/etc/hosts.XXXXXX";
 	char *lan_hname, *lan_dname;
 	int saved_errno = 0;
+	int hosts_lock = -1;
 
 	lan_hname = get_our_hostname();
 	lan_dname = nvram_safe_get("lan_domain");
@@ -3025,21 +3029,21 @@ update_hosts_router(const char *lan_ipaddr)
 	}
 #endif
 
-	/* Each file is atomically replaced only after both complete streams exist.
-	 * A rename failure is returned to prepare_dns_dhcpd, which keeps the
-	 * current DNSMasq instance from being restarted with incomplete host data. */
-	{
-		FILE *staged_fp = hostname_fp;
-		hostname_fp = NULL;
-		if (dnsmasq_file_publish(staged_fp, hostname_temp, "/etc/hostname", 0644) != 0) {
-			saved_errno = errno ? errno : EIO;
-			goto failed;
-		}
+	hosts_lock = dnsmasq_lifecycle_lock_acquire_path(
+		DNSMASQ_HOSTNAME_LOCK_FILE, DNSMASQ_LIFECYCLE_LOCK_WAIT_SECONDS);
+	if (hosts_lock < 0) {
+		saved_errno = errno ? errno : EIO;
+		goto failed;
 	}
 	{
-		FILE *staged_fp = hosts_fp;
+		FILE *staged_hostname_fp = hostname_fp;
+		FILE *staged_hosts_fp = hosts_fp;
+		hostname_fp = NULL;
 		hosts_fp = NULL;
-		if (dnsmasq_file_publish(staged_fp, hosts_temp, "/etc/hosts", 0644) != 0) {
+		if (dnsmasq_file_publish_pair(staged_hostname_fp, hostname_temp,
+					      "/etc/hostname", hostname_backup,
+					      staged_hosts_fp, hosts_temp,
+					      "/etc/hosts", hosts_backup, 0644) != 0) {
 			saved_errno = errno ? errno : EIO;
 			goto failed;
 		}
@@ -3048,9 +3052,20 @@ update_hosts_router(const char *lan_ipaddr)
 	/* Update kernel names only after both corresponding files were published. */
 	sethostname(lan_hname, strlen(lan_hname));
 	setdomainname(lan_dname, strlen(lan_dname));
+	if (dnsmasq_lifecycle_lock_release(hosts_lock) != 0) {
+		saved_errno = errno ? errno : EIO;
+		hosts_lock = -1;
+		goto failed;
+	}
+	hosts_lock = -1;
 	return 0;
 
 failed:
+	if (hosts_lock >= 0) {
+		if (dnsmasq_lifecycle_lock_release(hosts_lock) != 0)
+			logmessage(LOGNAME, "cannot release hostname file lock (errno=%d)", errno ? errno : EIO);
+		hosts_lock = -1;
+	}
 	if (!saved_errno)
 		saved_errno = errno ? errno : EIO;
 	if (hostname_fp)

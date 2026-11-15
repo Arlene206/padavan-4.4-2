@@ -29,7 +29,12 @@ main(void)
 	char resolv_destination[256], resolv_same_template[256], resolv_diff_template[256];
 	char resolv_symlink[256], resolv_link_template[256];
 	char symlink_lease[256], hardlink_lease[256], fifo_lease[256], private_lease[256];
-	FILE *fp;
+	char pair_first[256], pair_second[256], pair_bad_second[256], pair_sentinel[256];
+	char pair_first_stage[256], pair_second_stage[256];
+	char pair_first_backup[256], pair_second_backup[256];
+	char pair_absent_first[256], pair_absent_stage[256], pair_absent_backup[256];
+	struct stat pair_stat;
+	FILE *fp, *pair_fp;
 	struct stat st;
 	int saved_errno;
 
@@ -66,6 +71,17 @@ main(void)
 	assert(snprintf(hardlink_lease, sizeof(hardlink_lease), "%s/hardlink.leases", directory) > 0);
 	assert(snprintf(fifo_lease, sizeof(fifo_lease), "%s/fifo.leases", directory) > 0);
 	assert(snprintf(private_lease, sizeof(private_lease), "%s/private.leases", directory) > 0);
+	assert(snprintf(pair_first, sizeof(pair_first), "%s/pair.hostname", directory) > 0);
+	assert(snprintf(pair_second, sizeof(pair_second), "%s/pair.hosts", directory) > 0);
+	assert(snprintf(pair_bad_second, sizeof(pair_bad_second), "%s/missing/hosts", directory) > 0);
+	assert(snprintf(pair_sentinel, sizeof(pair_sentinel), "%s/pair-sentinel", directory) > 0);
+	assert(snprintf(pair_first_stage, sizeof(pair_first_stage), "%s/pair.hostname.XXXXXX", directory) > 0);
+	assert(snprintf(pair_second_stage, sizeof(pair_second_stage), "%s/pair.hosts.XXXXXX", directory) > 0);
+	assert(snprintf(pair_first_backup, sizeof(pair_first_backup), "%s/pair.hostname.rollback.XXXXXX", directory) > 0);
+	assert(snprintf(pair_second_backup, sizeof(pair_second_backup), "%s/pair.hosts.rollback.XXXXXX", directory) > 0);
+	assert(snprintf(pair_absent_first, sizeof(pair_absent_first), "%s/pair.absent", directory) > 0);
+	assert(snprintf(pair_absent_stage, sizeof(pair_absent_stage), "%s/pair.absent.XXXXXX", directory) > 0);
+	assert(snprintf(pair_absent_backup, sizeof(pair_absent_backup), "%s/pair.absent.rollback.XXXXXX", directory) > 0);
 	assert(snprintf(config_destination, sizeof(config_destination), "%s/dnsmasq.conf", directory) > 0);
 	assert(snprintf(config_template, sizeof(config_template), "%s/dnsmasq.conf.XXXXXX", directory) > 0);
 	assert(snprintf(config_fail_template, sizeof(config_fail_template), "%s/dnsmasq.conf.failed.XXXXXX", directory) > 0);
@@ -188,7 +204,82 @@ main(void)
 	assert(access(config_fail_path, F_OK) != 0 && errno == ENOENT);
 	read_exact(config_destination, "generated-config\n");
 
-	/* Lease file initialization must reject a symlink without touching target. */
+	
+	/* A failed second publish restores the original first destination. */
+	fp = fopen(pair_first, "w");
+	assert(fp != NULL && fputs("old-hostname\n", fp) >= 0 && fclose(fp) == 0);
+	fp = dnsmasq_file_open(pair_first_stage);
+	pair_fp = dnsmasq_file_open(pair_second_stage);
+	assert(fp != NULL && pair_fp != NULL);
+	assert(fputs("new-hostname\n", fp) >= 0 && fputs("new-hosts\n", pair_fp) >= 0);
+	errno = 0;
+	assert(dnsmasq_file_publish_pair(fp, pair_first_stage, pair_first, pair_first_backup,
+					 pair_fp, pair_second_stage, pair_bad_second,
+					 pair_second_backup, 0644) == -1);
+	assert(errno == ENOENT);
+	read_exact(pair_first, "old-hostname\n");
+	assert(access(pair_bad_second, F_OK) != 0 && errno == ENOENT);
+	assert(pair_first_stage[0] == '\0' && pair_second_stage[0] == '\0');
+	assert(pair_first_backup[0] == '\0' && pair_second_backup[0] == '\0');
+
+	/* An absent first destination is removed when second publication fails. */
+	assert(snprintf(pair_absent_stage, sizeof(pair_absent_stage), "%s/pair.absent.XXXXXX", directory) > 0);
+	assert(snprintf(pair_second_stage, sizeof(pair_second_stage), "%s/pair.hosts.fail.XXXXXX", directory) > 0);
+	assert(snprintf(pair_absent_backup, sizeof(pair_absent_backup), "%s/pair.absent.rollback.XXXXXX", directory) > 0);
+	assert(snprintf(pair_second_backup, sizeof(pair_second_backup), "%s/pair.hosts.fail.rollback.XXXXXX", directory) > 0);
+	fp = dnsmasq_file_open(pair_absent_stage);
+	pair_fp = dnsmasq_file_open(pair_second_stage);
+	assert(fp != NULL && pair_fp != NULL);
+	assert(fputs("new-absent\n", fp) >= 0 && fputs("new-hosts\n", pair_fp) >= 0);
+	assert(dnsmasq_file_publish_pair(fp, pair_absent_stage, pair_absent_first,
+					 pair_absent_backup, pair_fp, pair_second_stage,
+					 pair_bad_second, pair_second_backup, 0644) == -1);
+	assert(errno == ENOENT);
+	assert(access(pair_absent_first, F_OK) != 0 && errno == ENOENT);
+	assert(pair_absent_backup[0] == '\0' && pair_second_backup[0] == '\0');
+
+	/* Restore the symlink entry itself, never its referenced target. */
+	fp = fopen(pair_sentinel, "w");
+	assert(fp != NULL && fputs("sentinel\n", fp) >= 0 && fclose(fp) == 0);
+	assert(symlink(pair_sentinel, pair_first) == 0);
+	assert(snprintf(pair_first_stage, sizeof(pair_first_stage), "%s/pair.hostname.XXXXXX", directory) > 0);
+	assert(snprintf(pair_second_stage, sizeof(pair_second_stage), "%s/pair.hosts.symlink.XXXXXX", directory) > 0);
+	assert(snprintf(pair_first_backup, sizeof(pair_first_backup), "%s/pair.hostname.rollback.XXXXXX", directory) > 0);
+	assert(snprintf(pair_second_backup, sizeof(pair_second_backup), "%s/pair.hosts.symlink.rollback.XXXXXX", directory) > 0);
+	fp = dnsmasq_file_open(pair_first_stage);
+	pair_fp = dnsmasq_file_open(pair_second_stage);
+	assert(fp != NULL && pair_fp != NULL);
+	assert(fputs("new-hostname\n", fp) >= 0 && fputs("new-hosts\n", pair_fp) >= 0);
+	assert(dnsmasq_file_publish_pair(fp, pair_first_stage, pair_first, pair_first_backup,
+					 pair_fp, pair_second_stage, pair_bad_second,
+					 pair_second_backup, 0644) == -1);
+	assert(errno == ENOENT);
+	assert(lstat(pair_first, &pair_stat) == 0 && S_ISLNK(pair_stat.st_mode));
+	read_exact(pair_sentinel, "sentinel\n");
+	assert(unlink(pair_first) == 0 && unlink(pair_sentinel) == 0);
+
+	/* Successful publication replaces both files and removes snapshots. */
+	fp = fopen(pair_first, "w");
+	assert(fp != NULL && fputs("old-hostname\n", fp) >= 0 && fclose(fp) == 0);
+	fp = fopen(pair_second, "w");
+	assert(fp != NULL && fputs("old-hosts\n", fp) >= 0 && fclose(fp) == 0);
+	assert(snprintf(pair_first_stage, sizeof(pair_first_stage), "%s/pair.hostname.XXXXXX", directory) > 0);
+	assert(snprintf(pair_second_stage, sizeof(pair_second_stage), "%s/pair.hosts.XXXXXX", directory) > 0);
+	assert(snprintf(pair_first_backup, sizeof(pair_first_backup), "%s/pair.hostname.rollback.XXXXXX", directory) > 0);
+	assert(snprintf(pair_second_backup, sizeof(pair_second_backup), "%s/pair.hosts.rollback.XXXXXX", directory) > 0);
+	fp = dnsmasq_file_open(pair_first_stage);
+	pair_fp = dnsmasq_file_open(pair_second_stage);
+	assert(fp != NULL && pair_fp != NULL);
+	assert(fputs("committed-hostname\n", fp) >= 0 && fputs("committed-hosts\n", pair_fp) >= 0);
+	assert(dnsmasq_file_publish_pair(fp, pair_first_stage, pair_first, pair_first_backup,
+					 pair_fp, pair_second_stage, pair_second, pair_second_backup,
+					 0644) == 0);
+	assert(pair_first_backup[0] == '\0' && pair_second_backup[0] == '\0');
+	read_exact(pair_first, "committed-hostname\n");
+	read_exact(pair_second, "committed-hosts\n");
+	assert(unlink(pair_first) == 0 && unlink(pair_second) == 0);
+
+/* Lease file initialization must reject a symlink without touching target. */
 	assert(symlink(sentinel, symlink_lease) == 0);
 	assert(dnsmasq_lease_file_ensure(symlink_lease) == -1);
 	assert(lstat(symlink_lease, &st) == 0 && S_ISLNK(st.st_mode));

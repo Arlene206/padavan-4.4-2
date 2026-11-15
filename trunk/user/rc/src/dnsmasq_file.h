@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -113,6 +114,142 @@ dnsmasq_file_publish(FILE *fp, char *path, const char *destination, mode_t mode)
 
 	path[0] = '\0';
 	return 0;
+}
+
+
+/* POSIX has no two-path atomic rename. Preserve both old directory entries so
+ * a failed second rename can restore the first without leaving mixed files. */
+static inline int
+dnsmasq_file_backup_create(const char *destination, char *backup_path)
+{
+	int fd, saved_errno;
+	struct stat original, backup;
+
+	if (!destination || !destination[0] || !backup_path || !backup_path[0]) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (lstat(destination, &original) != 0) {
+		if (errno == ENOENT) {
+			backup_path[0] = '\0';
+			return 0;
+		}
+		return -1;
+	}
+	fd = mkstemp(backup_path);
+	if (fd < 0)
+		return -1;
+	if (close(fd) != 0) {
+		saved_errno = errno ? errno : EIO;
+		if (unlink(backup_path) == 0 || errno == ENOENT)
+			backup_path[0] = '\0';
+		errno = saved_errno;
+		return -1;
+	}
+	if (unlink(backup_path) != 0)
+		return -1;
+	if (link(destination, backup_path) != 0) {
+		saved_errno = errno ? errno : EIO;
+		backup_path[0] = '\0';
+		errno = saved_errno;
+		return -1;
+	}
+	if (lstat(backup_path, &backup) != 0) {
+		saved_errno = errno ? errno : EIO;
+		if (unlink(backup_path) == 0 || errno == ENOENT)
+			backup_path[0] = '\0';
+		errno = saved_errno;
+		return -1;
+	}
+	if (original.st_dev != backup.st_dev || original.st_ino != backup.st_ino) {
+		if (unlink(backup_path) == 0 || errno == ENOENT)
+			backup_path[0] = '\0';
+		errno = EAGAIN;
+		return -1;
+	}
+	return 1;
+}
+
+static inline void
+dnsmasq_file_backup_discard(char *backup_path)
+{
+	if (backup_path && backup_path[0] &&
+	    (unlink(backup_path) == 0 || errno == ENOENT))
+		backup_path[0] = '\0';
+}
+
+/* An empty backup pathname means the destination did not exist at snapshot. */
+static inline int
+dnsmasq_file_backup_restore(const char *destination, char *backup_path)
+{
+	if (backup_path && backup_path[0]) {
+		if (rename(backup_path, destination) != 0)
+			return -1;
+		backup_path[0] = '\0';
+		return 0;
+	}
+	if (unlink(destination) != 0 && errno != ENOENT)
+		return -1;
+	return 0;
+}
+
+static inline int
+dnsmasq_file_publish_pair(FILE *first_fp, char *first_stage_path,
+			  const char *first_destination, char *first_backup_path,
+			  FILE *second_fp, char *second_stage_path,
+			  const char *second_destination, char *second_backup_path,
+			  mode_t mode)
+{
+	int saved_errno = 0, preserve_first_backup = 0;
+
+	if (!first_fp || !first_stage_path || !first_stage_path[0] ||
+	    !first_destination || !first_destination[0] ||
+	    !first_backup_path || !first_backup_path[0] ||
+	    !second_fp || !second_stage_path || !second_stage_path[0] ||
+	    !second_destination || !second_destination[0] ||
+	    !second_backup_path || !second_backup_path[0] ||
+	    strcmp(first_destination, second_destination) == 0) {
+		saved_errno = EINVAL;
+		goto failed;
+	}
+	if (dnsmasq_file_backup_create(first_destination, first_backup_path) < 0 ||
+	    dnsmasq_file_backup_create(second_destination, second_backup_path) < 0)
+		goto failed;
+
+	if (dnsmasq_file_publish(first_fp, first_stage_path,
+				 first_destination, mode) != 0) {
+		first_fp = NULL;
+		goto failed;
+	}
+	first_fp = NULL;
+	if (dnsmasq_file_publish(second_fp, second_stage_path,
+				 second_destination, mode) != 0) {
+		second_fp = NULL;
+		saved_errno = errno ? errno : EIO;
+		if (dnsmasq_file_backup_restore(first_destination,
+						first_backup_path) != 0)
+			preserve_first_backup = first_backup_path[0] != '\0';
+		goto failed;
+	}
+	second_fp = NULL;
+	dnsmasq_file_backup_discard(first_backup_path);
+	dnsmasq_file_backup_discard(second_backup_path);
+	return 0;
+
+failed:
+	if (!saved_errno)
+		saved_errno = errno ? errno : EIO;
+	if (first_fp)
+		(void)fclose(first_fp);
+	if (second_fp)
+		(void)fclose(second_fp);
+	dnsmasq_file_discard(first_stage_path);
+	dnsmasq_file_discard(second_stage_path);
+	if (!preserve_first_backup)
+		dnsmasq_file_backup_discard(first_backup_path);
+	dnsmasq_file_backup_discard(second_backup_path);
+	errno = saved_errno;
+	return -1;
 }
 
 /* Validate a last-known-good server file without following the final path. */

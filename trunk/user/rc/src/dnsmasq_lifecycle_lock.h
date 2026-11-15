@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #define DNSMASQ_LIFECYCLE_LOCK_FILE "/tmp/.dnsmasq.lifecycle.lock"
+#define DNSMASQ_HOSTNAME_LOCK_FILE "/tmp/.dnsmasq.hostname.lock"
 #define DNSMASQ_LIFECYCLE_LOCK_WAIT_SECONDS 10
 /*
  * Never unlink this file while the router is running. POSIX record locks are

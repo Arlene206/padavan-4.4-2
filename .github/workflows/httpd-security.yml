@@ -1612,6 +1612,7 @@ jobs:
           assert '#include "dnsmasq_file.h"' in service
           assert '#include "dnsmasq_lifecycle_lock.h"' in service and '#include "dnsmasq_lifecycle_lock.h"' in net_lan
           assert 'DNSMASQ_LIFECYCLE_LOCK_FILE "/tmp/.dnsmasq.lifecycle.lock"' in lifecycle_lock
+          assert 'DNSMASQ_HOSTNAME_LOCK_FILE "/tmp/.dnsmasq.hostname.lock"' in lifecycle_lock
           assert "DNSMASQ_LIFECYCLE_LOCK_WAIT_SECONDS 10" in lifecycle_lock
           assert "F_SETLK" in lifecycle_lock and "O_NOFOLLOW" in lifecycle_lock
           assert "st.st_uid != geteuid()" in lifecycle_lock and "st.st_nlink != 1" in lifecycle_lock
@@ -1753,6 +1754,12 @@ jobs:
           assert 'dnsmasq_file_contents_equal(resolv_destination, resolv_same_template) == 1' in test
           assert 'dnsmasq_file_contents_equal(resolv_destination, resolv_diff_template) == 0' in test
           assert 'dnsmasq_file_contents_equal(resolv_symlink, resolv_link_template) == 0' in test
+          assert 'dnsmasq_file_publish_pair' in helper
+          assert 'dnsmasq_file_backup_restore(const char *destination, char *backup_path)' in helper
+          assert 'read_exact(pair_first, "old-hostname\\n")' in test
+          assert 'S_ISLNK(pair_stat.st_mode)' in test
+          assert 'assert(access(pair_absent_first, F_OK) != 0 && errno == ENOENT)' in test
+          assert 'read_exact(pair_second, "committed-hosts\\n")' in test
           assert 'dnsmasq_file_is_safe_regular(DNS_SERVERS_FILE)' in net_wan
           assert 'if (dnsmasq_file_is_safe_regular("/tmp/hosts.static") == 0)' in net_wan
           assert "dnsmasq_valid_server_domain" in domain_policy
@@ -1768,10 +1775,17 @@ jobs:
           assert "dhcp_lease_ipv4_is_valid(lan_ipaddr)" in hosts_update
           assert "dnsmasq_valid_server_domain(lan_dname)" in hosts_update
           assert '#include "dnsmasq_domain_policy.h"' in net_wan
-          assert 'dnsmasq_file_publish(staged_fp, hostname_temp, "/etc/hostname", 0644)' in hosts_update
-          assert 'dnsmasq_file_publish(staged_fp, hosts_temp, "/etc/hosts", 0644)' in hosts_update
+          assert 'dnsmasq_file_publish_pair(staged_hostname_fp, hostname_temp,' in hosts_update
+          assert 'staged_hosts_fp, hosts_temp,' in hosts_update
+          assert '"/etc/hostname", hostname_backup' in hosts_update
+          assert '"/etc/hosts", hosts_backup, 0644)' in hosts_update
+          assert 'hosts_lock = dnsmasq_lifecycle_lock_acquire_path(' in hosts_update
+          assert 'DNSMASQ_HOSTNAME_LOCK_FILE' in hosts_update
           assert 'load_user_config(hosts_fp, "/tmp", "hosts.static", NULL)' in hosts_update
-          assert hosts_update.index('dnsmasq_file_publish(staged_fp, hostname_temp') < hosts_update.index('sethostname(lan_hname')
+          assert hosts_update.index('hosts_lock = dnsmasq_lifecycle_lock_acquire_path(') < hosts_update.index('dnsmasq_file_publish_pair(') < hosts_update.index('sethostname(lan_hname')
+          assert 'dnsmasq_lifecycle_lock_release(hosts_lock)' in hosts_update
+          assert 'dnsmasq_file_publish(staged_fp, hostname_temp' not in hosts_update
+          assert 'dnsmasq_file_publish(staged_fp, hosts_temp' not in hosts_update
           assert "dnsmasq_file_discard(hostname_temp)" in hosts_update
           assert "dnsmasq_file_discard(hosts_temp)" in hosts_update
           assert 'fopen("/etc/hosts", "w+")' not in hosts_update
@@ -1906,7 +1920,7 @@ jobs:
           assert 'assert(dnsmasq_lease_file_ensure(symlink_lease) == -1)' in test
           assert 'assert(dnsmasq_lease_file_ensure(hardlink_lease) == -1)' in test
           assert 'assert(dnsmasq_lease_file_ensure(fifo_lease) == -1)' in test
-          print("DNSMasq temporary-file symlink, hardlink, FIFO and atomic-publication regressions: OK")
+          print("DNSMasq file safety and hostname-pair rollback publication regressions: OK")
           PY
 
       - name: Verify PPP credential-file confidentiality
@@ -2221,13 +2235,18 @@ jobs:
           assert 'hosts_fp = dnsmasq_file_open(hosts_temp);' in hosts_writer
           assert "dhcp_lease_ipv4_is_valid(lan_ipaddr)" in hosts_writer
           assert "dnsmasq_valid_server_domain(lan_dname)" in hosts_writer
-          assert 'dnsmasq_file_publish(staged_fp, hostname_temp, "/etc/hostname", 0644)' in hosts_writer
-          assert 'dnsmasq_file_publish(staged_fp, hosts_temp, "/etc/hosts", 0644)' in hosts_writer
+          assert 'dnsmasq_file_publish_pair(staged_hostname_fp, hostname_temp,' in hosts_writer
+          assert 'staged_hosts_fp, hosts_temp,' in hosts_writer
+          assert '"/etc/hostname", hostname_backup' in hosts_writer
+          assert '"/etc/hosts", hosts_backup, 0644)' in hosts_writer
+          assert 'hosts_lock = dnsmasq_lifecycle_lock_acquire_path(' in hosts_writer
+          assert 'DNSMASQ_HOSTNAME_LOCK_FILE' in hosts_writer
+          assert 'dnsmasq_lifecycle_lock_release(hosts_lock)' in hosts_writer
+          assert hosts_writer.index('hosts_lock = dnsmasq_lifecycle_lock_acquire_path(') < hosts_writer.index('dnsmasq_file_publish_pair(') < hosts_writer.index("sethostname(lan_hname")
           assert "dnsmasq_file_discard(hostname_temp)" in hosts_writer
           assert "dnsmasq_file_discard(hosts_temp)" in hosts_writer
           assert 'fopen("/etc/hostname", "w+")' not in hosts_writer
           assert 'fopen("/etc/hosts", "w+")' not in hosts_writer
-          assert hosts_writer.index('dnsmasq_file_publish(staged_fp, hosts_temp') < hosts_writer.index("sethostname(lan_hname")
           assert "int update_hosts_ap(void);" in header
           assert "return create_hosts_lan(nvram_safe_get" in lan
           dhcpd_notify_start = rc_main.index('else if (strcmp(entry->d_name, RCN_RESTART_DHCPD) == 0)')

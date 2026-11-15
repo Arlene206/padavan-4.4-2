@@ -573,11 +573,14 @@ reset_lan_vars(void)
 static int
 create_hosts_lan(const char *lan_ipaddr, const char *lan_dname)
 {
+	char hostname_backup[] = "/etc/hostname.rollback.XXXXXX";
+	char hosts_backup[] = "/etc/hosts.rollback.XXXXXX";
 	FILE *hostname_fp = NULL, *hosts_fp = NULL;
 	char hostname_temp[] = "/etc/hostname.XXXXXX";
 	char hosts_temp[] = "/etc/hosts.XXXXXX";
 	char *lan_hname = get_our_hostname();
 	int saved_errno = 0;
+	int hosts_lock = -1;
 
 	if (!dhcp_lease_ipv4_is_valid(lan_ipaddr) || !lan_dname ||
 	    (*lan_dname && !dnsmasq_valid_server_domain(lan_dname)) || !lan_hname) {
@@ -601,19 +604,21 @@ create_hosts_lan(const char *lan_ipaddr, const char *lan_dname)
 	else
 		fprintf(hosts_fp, "%s %s\n", lan_ipaddr, lan_hname);
 
-	/* Each rename is atomic; the staged pair is not a cross-file transaction. */
-	{
-		FILE *staged_fp = hostname_fp;
-		hostname_fp = NULL;
-		if (dnsmasq_file_publish(staged_fp, hostname_temp, "/etc/hostname", 0644) != 0) {
-			saved_errno = errno ? errno : EIO;
-			goto failed;
-		}
+	hosts_lock = dnsmasq_lifecycle_lock_acquire_path(
+		DNSMASQ_HOSTNAME_LOCK_FILE, DNSMASQ_LIFECYCLE_LOCK_WAIT_SECONDS);
+	if (hosts_lock < 0) {
+		saved_errno = errno ? errno : EIO;
+		goto failed;
 	}
 	{
-		FILE *staged_fp = hosts_fp;
+		FILE *staged_hostname_fp = hostname_fp;
+		FILE *staged_hosts_fp = hosts_fp;
+		hostname_fp = NULL;
 		hosts_fp = NULL;
-		if (dnsmasq_file_publish(staged_fp, hosts_temp, "/etc/hosts", 0644) != 0) {
+		if (dnsmasq_file_publish_pair(staged_hostname_fp, hostname_temp,
+					      "/etc/hostname", hostname_backup,
+					      staged_hosts_fp, hosts_temp,
+					      "/etc/hosts", hosts_backup, 0644) != 0) {
 			saved_errno = errno ? errno : EIO;
 			goto failed;
 		}
@@ -622,9 +627,20 @@ create_hosts_lan(const char *lan_ipaddr, const char *lan_dname)
 	/* Do not expose a new kernel name until both on-disk files are complete. */
 	sethostname(lan_hname, strlen(lan_hname));
 	setdomainname(lan_dname, strlen(lan_dname));
+	if (dnsmasq_lifecycle_lock_release(hosts_lock) != 0) {
+		saved_errno = errno ? errno : EIO;
+		hosts_lock = -1;
+		goto failed;
+	}
+	hosts_lock = -1;
 	return 0;
 
 failed:
+	if (hosts_lock >= 0) {
+		if (dnsmasq_lifecycle_lock_release(hosts_lock) != 0)
+			logmessage(LOGNAME, "cannot release hostname file lock (errno=%d)", errno ? errno : EIO);
+		hosts_lock = -1;
+	}
 	if (!saved_errno)
 		saved_errno = errno ? errno : EIO;
 	if (hostname_fp)
