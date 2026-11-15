@@ -46,6 +46,11 @@ lease_lock=read("trunk/user/rc/src/vpn_server_lease_lock.h")
 lease_lock_test=read("trunk/user/rc/src/tests/vpn_server_lease_lock.c")
 rc=read("trunk/user/rc/src/rc.c")
 services=read("trunk/user/rc/src/services.c")
+boot_services=body(services,"int\nstart_services_once(int is_ap_mode)")
+require("int vpn_start_status = start_vpn_server();" in boot_services and
+        "if (vpn_start_status != 0)" in boot_services and
+        'logmessage(LOGNAME, "VPN server boot startup failed (status=%d)",' in boot_services,
+        "boot must log VPN server startup failures instead of discarding the status")
 net_ppp=read("trunk/user/rc/src/net_ppp.c")
 xl2tpd_policy=read("trunk/user/rc/src/xl2tpd_start_policy.h")
 xl2tpd_test=read("trunk/user/rc/src/tests/xl2tpd_start_policy.c")

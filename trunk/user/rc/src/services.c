@@ -1278,7 +1278,12 @@ start_services_once(int is_ap_mode)
 #if defined(APP_SSHD)
 	start_sshd();
 #endif
-	start_vpn_server();
+	{
+		int vpn_start_status = start_vpn_server();
+		if (vpn_start_status != 0)
+			logmessage(LOGNAME, "VPN server boot startup failed (status=%d)",
+				   vpn_start_status);
+	}
 	start_watchdog();
 	start_gpio_btn();
 	start_infosvr();

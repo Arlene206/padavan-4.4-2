@@ -1,3 +1,12 @@
+## 2026-11-15 23:20 CST — Log VPN server boot startup failure instead of discarding status
+
+- `start_vpn_server()` is status-returning and the PPTP launcher result can fail, but `start_services_once()` discarded the return value. Boot therefore continued without a startup-level diagnostic for a failed VPN server launch (the public wrapper only logs lifecycle-lock acquisition/release failures).
+- Capture the result and log a nonzero status while preserving best-effort boot continuation. Added a semantic source contract to `check_vpn_server_lifecycle.py`; the existing VPN workflow already path-filters `services.c` and the checker, so no workflow edit is required.
+- Parent main: `e875f25d55a1e3523a1912368c5dd407b593946a`; resulting SHA: THIS COMMIT. Exact-head VPN/AI docs and XY-C1 validation required. Prior product source `30c5b48` had exact XY-C1 Build/TRX/artifact PASS (#43727223434; artifact #14166909490, 12,602,685 bytes), but this `services.c` change needs its own build result.
+- DNSMasq direct callers, resolver writers and lock ordering were reviewed across RC source files; no additional same-process nested lifecycle lock release or reverse VPN/DNS edge was found. The Linux 4.4 PID/start_time check-to-kill race remains unmodified because revalidation alone cannot close it.
+
+---
+
 ## 2026-11-15 23:06 CST — Repair ZeroTier restart contract after start-status propagation
 
 - USB storage run #43727223550 on exact main SHA `30c5b48ba8a8e996d13548280a54a9b7f5dbda7a` passed syntax, MTD/Optware regressions, storage gate, inventory, service-stop and the full caller graph. The final checker failed because it still required the obsolete `start_zerotier(); return 0;` pattern; production now correctly returns `start_zerotier()` so launcher failure is preserved.

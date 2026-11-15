@@ -8,7 +8,7 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; live main at takeover: `30c5b48ba8a8e996d13548280a54a9b7f5dbda7a`. The active source baseline now includes DNSMasq/VPN lock-order fixes, IPv6 DNSMasq lifecycle serialization (`8a909474`), optional daemon start-status propagation (`55947ba`), and TTYD boot failure logging (`30c5b48`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only). PR #1 is CLOSED / UNMERGED; comparison shows no PR-only commits ahead of main.
+- Repository: `Arlene206/padavan-4.4-2`; live main at takeover for this slice: `e875f25d55a1e3523a1912368c5dd407b593946a`. The active source baseline now includes DNSMasq/VPN lock-order fixes, IPv6 DNSMasq lifecycle serialization (`8a909474`), optional daemon start-status propagation (`55947ba`), and TTYD boot failure logging (`30c5b48`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only). PR #1 is CLOSED / UNMERGED; comparison shows no PR-only commits ahead of main.
 - DNSMasq static-ARP rollback transaction source landed in `d5660e3cdfa9804a23335656676c5f598c19a37e`. Its initial exact-head #43718997744 exposed a test-only multi-character NUL literal; `23cc4e9e509f13a4ea7636c067d6cfd869fde81b` corrected the literal. Exact-head DNSMasq #43719124911 now PASS; AI docs #43719124917 and process inventory #43719124976 PASS.
 - XY-C1 run #43718997699 for product source `d5660e3` was still IN_PROGRESS at checkpoint; the source code is unchanged by `23cc4e9e`, but L3 must not be claimed until Build XY-C1, TRX verification and artifact upload all pass.
 - BusyBox udhcpc ARP-conflict deconfig retry is on main; exact checker #43718099815 PASS on `fef0bc61085a5e9364e972c00c97b5b0e3a8c59d`.
@@ -35,7 +35,7 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Verification boundary
 
-- Exact current main source SHA `30c5b48ba8a8e996d13548280a54a9b7f5dbda7a`: AI handoff #43727223494 PASS; VPN server lifecycle #43727223521 PASS; RC notification queue #43727223568 PASS; ZeroTier #43727223519 PASS. USB storage #43727223550 FAILED only at the final `check_storage_safe_remove.py` contract because it expected the old discarded-start ZeroTier restart pattern; all preceding MTD/Optware/storage tests and the full storage caller graph passed. This exact contract has been corrected in the following atomic commit; fresh storage exact-head run required. XY-C1 #43727223434 was IN_PROGRESS; no L3 claim until its Build XY-C1, TRX verification and artifact upload steps finish.
+- At source SHA `30c5b48ba8a8e996d13548280a54a9b7f5dbda7a`, AI handoff #43727223494, VPN server #43727223521, RC queue #43727223568 and ZeroTier #43727223519 PASS; storage's stale ZeroTier checker assertion was fixed by the follow-up checker-only commit. Exact checker SHA `e875f25d55a1e3523a1912368c5dd407b593946a`: storage #43728578619 and AI handoff #43728578578 PASS. XY-C1 #43727223434 completed PASS with Build XY-C1, TRX verification and artifact upload; artifact #14166909490 (`XY-C1-firmware-30c5b48ba8a8e996d13548280a54a9b7f5dbda7a`, 12,602,685 bytes). This L3 evidence applies to product source `30c5b48`, not to the new `services.c` change being committed now.
 - The checker repair changes only the source contract and handoff records. Fresh VPN server lifecycle and AI handoff Actions are required; the already running XY-C1 run still covers the production-source SHA `18c5f948efe89d9c8bcbff9caa14708686b2340d`.
 - No current-source MIPS/TRX completion or physical-router result is claimed; L4 remains NOT VERIFIED.
 
@@ -56,10 +56,10 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Exact first action for the next GPT
 
-1. Check the fresh exact-head USB storage run triggered by the ZeroTier source-contract repair; verify `check_storage_safe_remove.py` now accepts the returned `start_zerotier()` status while preserving the stop-failure gate.
-2. Check completion of XY-C1 run #43727223434 for product source `30c5b48ba8a8e996d13548280a54a9b7f5dbda7a`; require Build XY-C1, TRX verification and artifact upload before claiming L3. The subsequent storage/checker + documentation commit does not alter product source.
-3. Continue the remaining DNSMasq/VPN start/stop/restart/reload and resolver writer/caller graph from the active P2 task. The IPv6 path in `net6.c` already releases DNSMasq lock before `full_restart_wan()` and reacquires afterward; do not re-audit that completed ordering. Search for further DNSMasq→VPN / VPN→DNS cycles, same-process nested `F_SETLK` releases, resolver/config races and missed cleanup status propagation.
-4. Once the remaining DNSMasq slice is closed, rotate to another high-impact user-space reliability/security area. Keep the archival backup unchanged and physical-router L4 NOT VERIFIED.
+1. Confirm this commit's exact-head VPN server lifecycle and AI docs Actions; the new source contract asserts `start_services_once()` logs a failed `start_vpn_server()` result. Confirm XY-C1 is triggered for the changed `services.c` and require Build, TRX verification and artifact upload before claiming the new source SHA at L3.
+2. DNSMasq direct caller/lock-order review is complete: only `services_ex.c` public wrappers, `net_lan.c`/`net6.c` caller-held-lock paths, boot `rc.c`, watchdog recovery and shutdown `services.c` call the lifecycle APIs; `net_wan.c` releases the resolver publication lock before invoking `restart_dns()`. No additional same-process nested DNSMasq F_SETLK release or reverse VPN/DNS lock edge was found. Do not repeat this audit. Remaining known limitation: Linux 4.4 PID/start_time validation-to-kill TOCTOU; do not claim it is solved by an extra recheck.
+3. After exact-head checks, rotate to the P1 process-lifecycle ledger: investigate the remaining direct `pids()` / `kill_pidfile_s()` users and direct name-wide signal sites, without re-auditing already migrated services. Prefer a concrete high-impact caller and add a focused host regression/source contract.
+4. Keep frozen backup `backup/pre-plugin-overhaul-2026-11-14` unchanged and physical-router L4 NOT VERIFIED.
 
 
 Source/validation notes:
