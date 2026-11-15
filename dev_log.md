@@ -1,3 +1,12 @@
+## 2026-11-15 — Refresh cross-session handoff after storage/FTP fixes
+
+- Replaced the stale, duplicated handoff with a current checkpoint at main d45672a7f0c74b99eaf93ddf6140fbac9f4fcbe7 and backup 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Recorded exact d456 Action outcomes, current XY-C1 Build-in-progress boundary, the VSFTPD 079f host/action PASS, the completed MiniDLNA/Firefly/mount-inventory fixes and the remaining fstatat()/unlinkat() race.
+- Updated the FTP roadmap status to distinguish the fixed existing-STOR data-loss defect from the still-blocked replacement race. No archived shards or index files changed.
+- Parent main: d45672a7f0c74b99eaf93ddf6140fbac9f4fcbe7. AI handoff documentation validation must pass on the resulting exact commit.
+
+---
+
 ## 2026-11-15 — Trigger XY-C1 firmware validation for vsftpd source
 
 - The XY-C1 workflow watched `trunk/user/vsftpd/src/asus_ext.h` but omitted the production implementation `asus_ext.c`, the upload caller `postlogin.c`, the descriptor-relative ACL helper `ftp_acl_path_policy.h` and its host regression. Therefore, a vsftpd implementation change could pass its host workflow without starting a product firmware build.
