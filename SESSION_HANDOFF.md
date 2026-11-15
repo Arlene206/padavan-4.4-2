@@ -2,14 +2,14 @@
 
 Recover live repository state once, then execute the active engineering task below. Do not repeat completed audits, remain at planning, wait on PENDING CI when independent work is available, or ask the user what to do next.
 
-For each logical task, create all source/test/doc blobs, one complete Git tree and one commit parented to freshly fetched main; update main with exact expected SHA and force:false. Use one atomic main commit, never partial multi-file commits or force-push. Preserve frozen backup and archived log shards/index.
+For each logical task, create all source/test/doc blobs, one complete Git tree and one commit parented to freshly fetched main; update main with exact expected SHA and force:false. Use one atomic main commit, never partial multi-file commits or force-push. Preserve frozen backup and archived log shards/index. Before context exhaustion, finish a safe bounded slice and leave the exact first action for the next session.
 
 **Mandatory handoff checkpoint:** The checkpoint is mandatory; a document edit is conditional. Every session records exact main/backup SHAs, source changes, exact-SHA Action IDs/statuses, validation boundary and first next action before ending. Do not create a no-op handoff commit when the checkpoint is accurate.
 
 ## Current repository state
 
 - Repository: Arlene206/padavan-4.4-2.
-- Main SHA at start of MSD Lite parallel source slice: f36d6ec94650103134a55b2e9c9abca9894de075.
+- Main SHA at start of the current repair slice: 50e24f32f310998a71e976287981aeb45f3bcd99.
 - Frozen backup branch backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; read-only.
 - Recent main commits:
 - 13a16ec70f7f fix(storage): isolate concurrent Aria config staging
@@ -26,27 +26,21 @@ For each logical task, create all source/test/doc blobs, one complete Git tree a
 - 454f3869fc3c test(wan): scope physical WAN abort ordering
 - WAN firmware source SHA 401066ebf04c50aaeb1ef47c36feb2ec210a0bc6 exact XY-C1 #43756373315 Build/TRX/artifact SUCCESS (L3 for that exact C source SHA). No physical router/L4 result.
 - WAN source work includes direct IPoE static IPv4 fail-closed address application, checked initial physical WAN bring-up, safe AP-client WISP cleanup and required MAN gateway/default-route error separation for static PPTP/L2TP. Optional configured static/DHCP/DNS routes remain aggregate-only; DHCP/ZeroConf aggregate semantics and PPPoE async/no-wait are preserved.
-- Storage startup work: Transmission and Aria return actual start-stop-daemon status independently from logger; Aria checks directory/session/download preparation and ownership/permissions, writes default config to PID-qualified same-directory temp and atomically renames after successful write; Transmission stages default settings in PID-qualified same-directory temp and checks generator, sed transform, mv and final nonempty file before daemon launch. Regression tests inject launch, logger, write, transform, rename and successful publication paths under host shell and BusyBox ash.
-- Exact current-main Actions:
-- #43760834673 AI handoff documentation contract: completed/success
-- #43760834671 AliDDNS signed API transport security regression: completed/success
-- #43760834666 Process lifecycle inventory - 13a16ec70f7f78f9a8114582a51e7d9e88bd9644: completed/success
-- #43760834648 USB storage hotplug stability regression: completed/failure
-- #43760834637 NVRAM transaction boundary audit: completed/success
-- #43760834634 AliyunDrive WebDAV lifecycle stability regression: completed/success
-- #43760834624 Process inventory and lifecycle fail-closed regression: completed/success
-- #43760834623 infosvr packet and signal lifecycle stability regression: completed/success
-- #43760834594 AdGuardHome config security regression: completed/success
-- Current storage workflow state: #43760834648 USB storage hotplug stability regression: completed/failure.
+- Storage startup work: Transmission and Aria return actual start-stop-daemon status independently from logger. Aria checks directory/session/download preparation, permissions/ownership, and default-config write/rename before launch; its PID-qualified config temp is now `aria2.conf.tmp.$`. Transmission default `settings.json` generation is NOT yet staged or fail-closed: live source still ignores generator, `sed`, and `mv` failures. This remains the next storage reliability implementation after current exact-head regressions are green.
+- Exact `50e24f32f310998a71e976287981aeb45f3bcd99` push Actions: storage #43762316227 SUCCESS; AliDDNS #43762316320 SUCCESS; AliyunDrive #43762316276 SUCCESS; WAN route #43762316273 SUCCESS; AdGuardHome #43762316224 SUCCESS; HTTPD #43762316127 SUCCESS; NVRAM #43762316105 SUCCESS; Process inventory #43762316049 SUCCESS.
+- Exact-head failures requiring repair: AI handoff docs #43762316097 FAIL because `Before context exhaustion` was absent; infosvr #43762316266 FAIL because the handoff changed its required heading from singular to plural (all compiled packet/signal tests passed); Process lifecycle #43762316246 FAIL in the integration checker because the non-`APP_MSD_LITE` `/usr/sbin/udpxy` branch was removed from `start_udpxy()`.
+- Exact-head XY-C1 build #43762316142 was `in_progress` at last check; no L3 claim for this source SHA until Build/TRX/artifact completion. No L4 claim.
 - Frozen backup, docs/dev-log/INDEX.md and archive shards remain untouched. No L4 claim.
 
 ## Active task
 
-### Repair Aria concurrent-start staging regression
+### Close Aria test race, handoff contract and MSD Lite feature-path regressions
 
 The exact 13a16 storage-hotplug run #43760834648 failed in the host shell startup regression. The first concurrent Aria start exited before daemon launch. Source review found the production CONFIG_TMP and the test's cat-barrier marker both used a literal dollar sign rather than the shell PID.
 
-This repair changes the default config path to aria2.conf.tmp.$$ and the two-process barrier marker to a PID-qualified filename. The regression then requires two staged files to coexist, both config writes/renames to complete, both processes to reach start-stop-daemon, and no temp files to remain. Exact-head host and BusyBox ash validation is required after commit.
+Aria's PID-qualified path is in place and exact-head storage #43762316227 passed, but the test barrier had a measurement race: the first cat stub could return and allow its launcher to rename the temp file before the second stub counted it. This repair adds a second `checked.$` barrier so both concurrent cat stubs record the common two-file state before either returns. A two-shell host harness passed with both counts equal to 2.
+
+The same current-head repair restores two unrelated required contracts found by exact-head Actions: the handoff adds the required `Before context exhaustion` phrase and restores the exact singular heading `## Exact first action for the next GPT`; `start_udpxy()` restores the legacy `/usr/sbin/udpxy` `#else` branch for firmware builds without `APP_MSD_LITE`. The process lifecycle checker had caught that real feature-path regression after the MSD Lite refactor.
 
 ## Parallel source slice completed — MSD Lite configuration publication
 
@@ -65,10 +59,10 @@ The exact-head Process lifecycle host regression and XY-C1 Build/TRX/artifact wo
 - New exact-head Process lifecycle and XY-C1 Build XY-C1, TRX verification and artifact upload results must be checked on the new source SHA before claiming L3. No physical-router/L4 result.
 - Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807; archive index/shards untouched.
 
-## Exact first actions for the next GPT
+## Exact first action for the next GPT
 
-1. Check exact-f36 storage-hotplug run #43761890951 and finish the Aria concurrent-start validation; inspect full logs if it fails.
-2. Check the exact-head Process lifecycle regression for the MSD Lite source contract and host ASan/UBSan test.
-3. Check XY-C1 Build, TRX verification and artifact upload on that exact same source SHA; only then claim L3.
-4. Resume storage pre-launch review with Transmission settings and permission/postcondition edges, then other user-space startup reliability items.
-5. Preserve the frozen backup and archive index/shards; do not claim L4 without physical-router evidence.
+1. Inspect the exact-head Actions for this repair: storage two-phase barrier, AI handoff docs, infosvr handoff compatibility and Process lifecycle/udpxy fallback contract. Repair any new causal failure immediately.
+2. Check XY-C1 Build/TRX/artifact status for the MSD Lite source; claim L3 only if that exact C-source SHA has all three phases PASS.
+3. After the storage and required source contracts pass, implement Transmission's checked PID-unique same-directory `settings.json` publication with generator/transform/rename fault injection under host shell and BusyBox ash.
+4. Continue broader user-space stability/security work without repeating already-closed audits.
+5. Preserve frozen backup and archive index/shards; do not claim L4 without physical-router evidence.

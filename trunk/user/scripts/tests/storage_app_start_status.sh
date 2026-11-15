@@ -50,11 +50,11 @@ if [ "${STORAGE_TEST_CAT_STATUS:-0}" -ne 0 ]; then
 	exit "$STORAGE_TEST_CAT_STATUS"
 fi
 if [ -n "${STORAGE_TEST_CAT_BARRIER:-}" ]; then
-	: > "$STORAGE_TEST_CAT_BARRIER/$$"
+	: > "$STORAGE_TEST_CAT_BARRIER/entered.$"
 	attempt=0
 	while :; do
 		entered=0
-		for marker in "$STORAGE_TEST_CAT_BARRIER"/*; do
+		for marker in "$STORAGE_TEST_CAT_BARRIER"/entered.*; do
 			[ -f "$marker" ] && entered=$((entered + 1))
 		done
 		[ "$entered" -ge 2 ] && break
@@ -67,6 +67,18 @@ if [ -n "${STORAGE_TEST_CAT_BARRIER:-}" ]; then
 		[ -f "$path" ] && staged=$((staged + 1))
 	done
 	printf '%s\n' "$staged" >> "$STORAGE_TEST_TEMP_COUNT"
+	: > "$STORAGE_TEST_CAT_BARRIER/checked.$"
+	attempt=0
+	while :; do
+		checked=0
+		for marker in "$STORAGE_TEST_CAT_BARRIER"/checked.*; do
+			[ -f "$marker" ] && checked=$((checked + 1))
+		done
+		[ "$checked" -ge 2 ] && break
+		attempt=$((attempt + 1))
+		[ "$attempt" -lt 30 ] || exit 92
+		sleep 1
+	done
 fi
 exec /bin/cat "$@"
 EOF

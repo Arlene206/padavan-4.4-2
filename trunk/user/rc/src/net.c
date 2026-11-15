@@ -352,6 +352,16 @@ start_udpxy(char *wan_ifname)
 	launch_status = eval("/usr/bin/msd_lite", "-d", "-c", dst_conf);
 	if (launch_status != 0)
 		logmessage(LOGNAME, "MSD Lite launch failed (status=%d)", launch_status);
+#else
+	launch_status = eval("/usr/sbin/udpxy",
+		"-m", wan_ifname,
+		"-p", nvram_safe_get("udpxy_enable_x"),
+		"-B", "65536",
+		"-c", nvram_safe_get("udpxy_clients"),
+		"-M", nvram_safe_get("udpxy_renew_period")
+		);
+	if (launch_status != 0)
+		logmessage(LOGNAME, "udpxy launch failed (status=%d)", launch_status);
 #endif
 }
 

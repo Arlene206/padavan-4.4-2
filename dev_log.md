@@ -1,3 +1,14 @@
+## 2026-11-16 05:22 Beijing — Repair exact-head storage, handoff and non-MSD-Lite regressions
+
+- Exact SHA `50e24f32f310998a71e976287981aeb45f3bcd99` storage-hotplug run #43762316227 passed, but a deterministic host reproduction showed the one-phase cat barrier could race: after two entries appeared, the first cat stub could return and let its launcher rename the temp file before the second stub counted it (observed counts `2` then `1`). Added a second `checked.$$` rendezvous; a two-shell host harness confirmed both stubs observe two staged files before either returns.
+- AI docs #43762316097 failed because the handoff lacked the required literal `Before context exhaustion`. Infosvr #43762316266 passed its packet/signal policy binaries but its source checker rejected the handoff heading after it had been pluralized. The handoff restores the exact singular `## Exact first action for the next GPT` and adds the required phrase.
+- Process lifecycle #43762316246 passed all compile/sanitizer tests, including the new MSD Lite config host test, then failed its integration checker because `start_udpxy()` no longer contained the `#else` `/usr/sbin/udpxy` launch path. That path is required on non-APP_MSD_LITE builds and has been restored; the checker already asserts its presence.
+- Other exact-50e24 push Actions: storage #43762316227, AliDDNS #43762316320, AliyunDrive #43762316276, WAN route #43762316273, AdGuardHome #43762316224, HTTPD #43762316127, NVRAM #43762316105, Process inventory #43762316049 all SUCCESS. AI docs, infosvr and Process lifecycle failed as detailed above. XY-C1 #43762316142 was in progress at last check.
+- Correction retained from previous entries: Transmission's live launcher still has unchecked settings generation, `sed`, and `mv`; it has no PID-qualified stage and remains open. Parent main: `50e24f32f310998a71e976287981aeb45f3bcd99`. No new L3/L4 claim.
+- Next: run exact-head Actions for these three fixes, then implement Transmission's staged, checked `settings.json` generation/publication and host + BusyBox failure-injection tests.
+
+---
+
 ## 2026-11-16 — Preserve last-good MSD Lite configuration on publication failure
 
 - start_udpxy() previously opened the live MSD Lite config with "w" before validating the read-only template; missing source or buffered write/close failures could destroy the persistent config while service enable/launch still proceeded.
