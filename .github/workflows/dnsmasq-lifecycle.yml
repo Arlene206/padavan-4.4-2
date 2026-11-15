@@ -455,7 +455,7 @@ jobs:
           assert "dnsmasq_reload_post_signal_status(status," in reload
           assert reload.index("dnsmasq_reload_signal_snapshot(") < reload.index("process_snapshot_release(&snapshot);")
           assert reload.index("process_snapshot_release(&snapshot);") < reload.index('dnsmasq_lifecycle_lock_finish(lock_fd, status, "cache reload")')
-          assert "PROCESS_PRESENCE_UNKNOWN" in reload and "scan_error ? scan_error : EIO" in reload
+          assert "reload_decision < 0" in reload and "scan_error ? scan_error : EIO" in reload
           assert "is_dns_dhcpd_run()" not in reload and "killall" not in reload and "doSystem(" not in reload
           assert 'process_identity_validate("dnsmasq", identity)' in reload_validate
           assert "kill(pid, signal_number)" in reload_signal
