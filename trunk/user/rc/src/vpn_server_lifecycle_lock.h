@@ -10,7 +10,10 @@
 #define VPN_SERVER_LIFECYCLE_LOCK_FILE "/tmp/.vpns.lifecycle.lock"
 #define VPN_SERVER_LIFECYCLE_LOCK_WAIT_SECONDS 10
 
-/* Keep one stable root-private inode; never unlink it while the router runs. */
+/* Keep one stable root-private inode; never unlink it while the router runs.
+ * F_SETLK record locks are process-associated, not descriptor-recursive:
+ * a same-process nested acquire succeeds, and an inner F_UNLCK/close drops
+ * the outer process lock too. Use *_locked helpers when already holding it. */
 static inline int
 vpn_server_lifecycle_lock_acquire_path(const char *path, unsigned int wait_seconds)
 {

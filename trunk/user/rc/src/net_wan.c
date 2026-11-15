@@ -1815,7 +1815,7 @@ stop_wan_ppp_locked(void)
 	}
 	nvram_set_int_temp("deferred_wanup_t", 0);
 	notify_pause_detect_internet();
-	if (stop_vpn_client() != 0) {
+	if (stop_vpn_client_under_lifecycle_lock() != 0) {
 		logmessage(LOGNAME, "refusing WAN PPP teardown because VPN client stop was incomplete");
 		goto abort_resume_detect;
 	}
@@ -1886,7 +1886,7 @@ stop_wan_locked(void)
 	man_ifname = get_man_ifname(unit);
 	usbnet_ifname = NULL;
 	notify_pause_detect_internet();
-	if (stop_vpn_client() != 0) {
+	if (stop_vpn_client_under_lifecycle_lock() != 0) {
 		logmessage(LOGNAME, "refusing WAN PPP teardown because VPN client stop was incomplete");
 		stop_status = -1;
 		goto abort_resume_detect;

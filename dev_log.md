@@ -1,3 +1,15 @@
+## 2026-11-15 — Repair VPN/DNSMasq lifecycle lock nesting and inversion
+
+- Confirmed nested same-process `fcntl(F_SETLK)` behavior in WAN shutdown: `stop_wan()` and `stop_wan_ppp()` acquired the VPN lifecycle lock around callbacks, but both callbacks called public `stop_vpn_client()`, which reacquired then released the same process-associated lock. Inner `F_UNLCK` could release the outer critical section prematurely.
+- Added `stop_vpn_client_under_lifecycle_lock()` that delegates to the existing locked implementation without taking or releasing the lifecycle lock. Declared its caller-held-lock contract in `rc.h`; both WAN stop callbacks use it.
+- Confirmed a cross-file cycle: LAN restart held DNSMasq then acquired VPN; static-IP WAN teardown held VPN and refreshed DNSMasq. Reordered LAN restart to stop VPN first, release it, then acquire DNSMasq. If DNS lock acquisition fails, VPN is restarted and the original lock errno returned.
+- Added DNSMasq workflow source assertions for both WAN callbacks, helper non-reentrancy, process-associated F_SETLK/F_UNLCK semantics, VPN-before-DNS ordering and VPN recovery when DNS lock acquisition fails. Added modified VPN lifecycle lock header to XY-C1 triggers.
+- Parent main: `0b9253aec5367c3c833ed54638b662f0784a1472`. DNSMasq #43723940207, AI docs #43723940125, process inventory #43723940114, WAN DHCP callback #43723940104, HTTPD #43723940105, AdGuardHome #43723940129 and Samba #43723940180 passed; NVRAM #43723940163 and XY-C1 #43723940080 remained in progress. Exact-head validation is required for this source change.
+- No current-source target MIPS/TRX or physical-router result is claimed; L4 remains NOT VERIFIED.
+- Changed paths: `vpn_client.c`, `rc.h`, `net_wan.c`, `net_lan.c`, `vpn_server_lifecycle_lock.h`, DNSMasq/XY-C1 workflows, SESSION_HANDOFF, REFACTOR_ROADMAP and dev_log.
+
+---
+
 ## 2026-11-15 — Retry and report stage cleanup after publication failures
 
 - The fdopen failure path is now retryable, but tracing the next failure edge found callers where dnsmasq_file_publish() attempted one best-effort stage unlink and callers returned without reporting a retained path if that unlink failed.
