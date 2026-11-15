@@ -143,6 +143,7 @@ storage_daemon_presence(const char *daemon, int *scan_error)
  * scripts may fail, and a successful launcher can exit before/without a
  * daemon being visible. Report both rather than silently accepting either.
  */
+#if defined (APP_MINIDLNA) || defined (APP_FIREFLY) || defined (APP_TRMD) || defined (APP_ARIA)
 static void
 storage_log_daemon_start_result(const char *apps_name, int launch_status,
 				enum process_presence process_state)
@@ -158,6 +159,7 @@ storage_log_daemon_start_result(const char *apps_name, int launch_status,
 		logmessage(apps_name, "cannot verify daemon startup (scan error=%d)",
 			   errno ? errno : EIO);
 }
+#endif
 
 #if defined (APP_FTPD)
 int
@@ -1988,7 +1990,6 @@ void run_dms(int force_rescan)
 {
 	int db_rescan_mode;
 	int process_state;
-	int launch_status;
 	int config_status;
 	int launch_status;
 	unsigned char mac_bin[ETHER_ADDR_LEN] = {0};

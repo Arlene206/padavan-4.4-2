@@ -1,3 +1,13 @@
+## 2026-11-15 — Correct storage startup checker boundaries and duplicate declaration
+
+- Exact e8b4 Process #43746069534 completed all host compilations/regressions, including IGMP proxy atomic publication, then failed in the source checker with IndexError: the helper extraction searched an over-escaped newline delimiter not present in the C source.
+- The e8b diff also introduced a duplicate int launch_status declaration in run_dms(); removed the duplicate.
+- Corrected function-boundary extraction to split on chr(10), and added an APP_* compile guard around the shared logger so builds with all four optional storage daemons disabled do not contain an unused static function.
+- Exact e8b AI docs #43746069612 PASS. Exact e8b XY-C1 #43746069488 was still building at last poll; TRX/artifact not yet verified.
+- Parent main: e8b4c0cc9f41df3092a4529a2fc8816d1d7b7438; fresh exact Process/XY validation required.
+
+---
+
 ## 2026-11-15 — Atomically publish IGMP proxy configuration and fix MiniDLNA launch declaration
 
 - `start_igmpproxy()` previously truncated `/etc/igmpproxy.conf` directly, ignored write/close errors, and still invoked the daemon when opening its config failed. Added same-directory staged publication with CR/LF input rejection, checked writes, flush, `fsync`, close and atomic rename. Failure cleans the stage, preserves last-good content, logs the status and blocks daemon launch.

@@ -8,12 +8,12 @@ For each logical task, create every source/test/workflow/doc blob, one complete 
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; main before the current source/test slice: `76e6e351e5bbbf17a6baf000bf76f56009f36ab3`.
+- Repository: `Arlene206/padavan-4.4-2`; main before the current checker/RC correction: `e8b4c0cc9f41df3092a4529a2fc8816d1d7b7438`.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only.
-- Exact 51898 XY-C1 #43745391043 was IN_PROGRESS at Build; TRX verification and artifact upload were not confirmed.
-- Exact 51898 Process #43745391109 failed only at the final integration checker; all preceding compile/host tests passed. The failure found the undeclared local `launch_status` in `run_dms()`; this batch adds the declaration.
-- Exact 51898 AI docs #43745391151 failed because the handoff used lowercase "the checkpoint..." while the validator requires the exact capitalized sentence; this batch corrects it.
-- Other 51898 exact-head Actions passed: NFS #43745390987, Samba #43745391093, AdGuardHome #43745391044, vsftpd #43745391060, AliDDNS #43745391035, HTTPD #43745391083, Process inventory #43745390995, AliyunDrive #43745391068, USB storage #43745391098 and NVRAM #43745391162.
+- Exact e8b4 XY-C1 #43746069488 was IN_PROGRESS at Build; TRX verification and artifact upload were not confirmed.
+- Exact e8b4 Process #43746069534 failed in the integration checker with IndexError because the new logger extractor used over-escaped newline literals. Host tests preceding the checker passed, including IGMP proxy atomic configuration publication.
+- Exact e8b4 AI docs #43746069612 PASS. Other e8b4 exact-head Actions passed: WAN route #43746069491, AliDDNS #43746069482, infosvr #43746069600, Process inventory #43746069494, vsftpd #43746069587, NFS #43746069498, Samba #43746069667, AdGuardHome #43746069487, AliyunDrive #43746069460, HTTPD #43746069568, USB storage #43746069468 and NVRAM #43746069497.
+- e8b4 also introduced a duplicate `int launch_status;` declaration in run_dms(); the follow-up removes the duplicate and scopes the helper/checker only when relevant storage daemons are compiled.
 - The FTP existing-STOR cleanup-eligibility defect is fixed and exact vsftpd host CI passed on #43744355353. Only successful exclusive creation grants rollback rights; the fstatat-to-unlinkat replacement race remains unresolved on Linux 4.4.
 - No physical-router L4 evidence is claimed.
 
@@ -29,7 +29,7 @@ The GNU89 ASan/UBSan test covers exact output, quickleave/default altnet, privat
 
 ### Adjacent MiniDLNA correction
 
-The exact 51898 Process checker also exposed that `run_dms()` assigned `launch_status` but had no local declaration. This batch adds `int launch_status;`; it does not change the recently added MiniDLNA status behavior.
+The exact 51898 Process checker exposed a missing `launch_status` declaration; 76 added it. The next e8b4 commit accidentally added a second declaration, which this follow-up removes.
 
 ## Verification boundary
 
@@ -40,8 +40,9 @@ The exact 51898 Process checker also exposed that `run_dms()` assigned `launch_s
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and exact-head Actions. Inspect the new Process regression, AI handoff-docs check and XY-C1 run; diagnose any real failure rather than claiming success.
-2. Confirm XY-C1 Build, TRX verification and artifact upload for the exact source SHA.
-3. If those checks are pending, continue the next independent source-level stability/security item from the live roadmap. Do not redo the completed FTP cleanup, udpxy/xupnpd launch logging, IAPPD caller status or MiniDLNA diagnostics.
+1. Verify the checker/duplicate-declaration correction: exact Process #43746069534 failed at helper-extraction IndexError; this commit changes extraction to chr(10) boundaries, removes duplicate run_dms declaration, and guards the shared logger when all related APP_* features are disabled.
+2. Poll exact e8b4 XY-C1 #43746069488 for Build, TRX verification and artifact upload; investigate a real cross-build failure before claiming L3.
+3. IGMP proxy configuration helper/source and host regression are committed in e8b4; its host test passed before the Process checker failure. Re-run the exact Process workflow to obtain an overall PASS.
+4. Continue the next independent source-level stability/security item from the live roadmap. Do not redo completed FTP cleanup, udpxy/xupnpd launch logging or IAPPD caller status.
 4. Before ending, refresh this checkpoint only if a status, blocker, source baseline or first next action materially changed.
 

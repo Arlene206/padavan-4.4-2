@@ -78,7 +78,7 @@ print("RC fput_string buffered-write and close-status integration: PASS")
 storage_launch_contracts = (
     (
         "void run_dms(int force_rescan)",
-        "\\nvoid restart_dms(int force_rescan)",
+        "void restart_dms(int force_rescan)",
         'launch_status = _eval(minidlna_argv, NULL, 0, NULL);',
         'if (!nvram_match("apps_dms", "1"))',
         "Media Server",
@@ -86,7 +86,7 @@ storage_launch_contracts = (
     ),
     (
         "void run_itunes(void)",
-        "\\nvoid restart_itunes(void)",
+        "void restart_itunes(void)",
         'launch_status = eval("/usr/bin/mt-daapd", "-c", conf_new);',
         'if (!nvram_match("apps_itunes", "1"))',
         "iTunes Server",
@@ -94,7 +94,7 @@ storage_launch_contracts = (
     ),
     (
         "void run_torrent(void)",
-        "\\nvoid restart_torrent(void)",
+        "void restart_torrent(void)",
         'launch_status = eval("/usr/bin/transmission.sh", "start");',
         'if (!nvram_match("trmd_enable", "1"))',
         "Transmission",
@@ -102,7 +102,7 @@ storage_launch_contracts = (
     ),
     (
         "void run_aria(void)",
-        "\\nvoid restart_aria(void)",
+        "void restart_aria(void)",
         'launch_status = eval("/usr/bin/aria.sh", "start");',
         'if (!nvram_match("aria_enable", "1"))',
         "Aria",
@@ -110,7 +110,7 @@ storage_launch_contracts = (
     ),
 )
 for start_marker, end_marker, launcher, enable_guard, service_name, presence_call in storage_launch_contracts:
-    start_body = storage_services.split(start_marker, 1)[1].split(end_marker, 1)[0]
+    start_body = storage_services.split(start_marker, 1)[1].split(chr(10) + end_marker, 1)[0]
     assert enable_guard in start_body
     assert "int launch_status;" in start_body
     assert "if (process_state == PROCESS_PRESENCE_RUNNING)" in start_body
@@ -122,10 +122,11 @@ for start_marker, end_marker, launcher, enable_guard, service_name, presence_cal
     assert "process_state = " + presence_call + ";" in post_launch
     assert service_name in start_body
 
-start_result = storage_services.split(
-    "static void\\nstorage_log_daemon_start_result(", 1
-)[1].split("\\n#if defined (APP_FTPD)", 1)[0]
+start_result = storage_services.split("storage_log_daemon_start_result(", 1)[1].split(
+    chr(10) + "#if defined (APP_FTPD)", 1
+)[0]
 assert "if (launch_status != 0)" in start_result
+assert "#if defined (APP_MINIDLNA) || defined (APP_FIREFLY) || defined (APP_TRMD) || defined (APP_ARIA)" in storage_services
 assert "PROCESS_PRESENCE_RUNNING" in start_result
 assert "PROCESS_PRESENCE_ABSENT" in start_result
 assert "cannot verify daemon startup (scan error=%d)" in start_result
@@ -136,7 +137,7 @@ assert '#include "firefly_config_file.h"' in storage_services
 firefly_update = storage_services.split("static int\nupdate_firefly_conf(", 1)[1].split("\nvoid run_itunes(void)", 1)[0]
 assert "return firefly_config_publish(conf_full, conf_full, link_path," in firefly_update
 assert "ENAMETOOLONG" in firefly_update
-itunes_config = storage_services.split("void run_itunes(void)", 1)[1].split("\nvoid restart_itunes(void)", 1)[0]
+itunes_config = storage_services.split("void run_itunes(void)", 1)[1].split("void restart_itunes(void)", 1)[0]
 assert "if (mkdir(conf_path, 0755) != 0 && errno != EEXIST)" in itunes_config
 assert "rename(conf_old, conf_new) != 0" in itunes_config
 assert "config_status = update_firefly_conf(link_path, conf_path, conf_file);" in itunes_config
@@ -165,7 +166,7 @@ assert "int update_minidlna_conf(const char *link_path, const char *conf_path)" 
 minidlna_update = storage_services.split("int update_minidlna_conf(", 1)[1].split("\nvoid run_dms(int force_rescan)", 1)[0]
 assert "minidlna_config_publish(conf_path, &values)" in minidlna_update
 assert "configuration publication failed (status=%d)" in minidlna_update
-dms_start = storage_services.split("void run_dms(int force_rescan)", 1)[1].split("\nvoid restart_dms(int force_rescan)", 1)[0]
+dms_start = storage_services.split("void run_dms(int force_rescan)", 1)[1].split("void restart_dms(int force_rescan)", 1)[0]
 assert "config_status = update_minidlna_conf(link_path, conf_path);" in dms_start
 assert "if (config_status != 0)" in dms_start
 minidlna_launcher = "launch_status = _eval(minidlna_argv, NULL, 0, NULL);"
