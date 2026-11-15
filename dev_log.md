@@ -1,3 +1,11 @@
+## 2026-11-15 — Correct tri-state source contract and watchdog PR path symmetry
+
+- Rechecked exact-head runs on `707c43481d77f212559e0592c0710ab8cca99a0b`: process lifecycle `43672495607` reached the final source contract and failed on an invalid Python assertion for a C-style unbraced `else` branch; the actual fail-closed log statement was present. Removed the syntactically incorrect assertion while retaining the explicit UNKNOWN log check.
+- Watchdog signal `43672495588` passed all functional signal tests and failed its path-contract check because the previous workflow update had added `process_presence_start_policy.h` and its regression to push filters but not pull_request filters. Added both PR entries; push/PR contract tuple already includes both.
+- Changed paths: `scripts/check_process_lifecycle_integration.py`, `.github/workflows/watchdog-signal-stability.yml`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Repair process-presence regression assertions after tri-state migration
 
 - Exact-head process lifecycle run `43672306838` on `bc7cc31b8e5e86b3bd1e7cc800ab27b79c552a44` passed all GNU89 binaries and prior integration checks, then failed because the new detector checker required the literal ABORT enum in each caller body even though both callers correctly route the final `else` to a logged UNKNOWN/no-action path. Tightened the contract to verify that explicit log path instead.
