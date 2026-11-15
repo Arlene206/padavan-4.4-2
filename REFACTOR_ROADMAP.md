@@ -1,9 +1,9 @@
 ## Current source / CI checkpoint
 
-- Parent main for the telnetd/ttyd whitespace-checker correction: ffaab4054d87afc23b410f1a560d0e6f561d7c43. The OpenSSH mock logger fix is committed at e882; optional-app shell regressions passed on ffa.
-- Exact ffa process-lifecycle #43736358298 passed all C and shell regressions before failing at the source checker because empty-string joining removed spaces inside C diagnostic literals. The current checker-only follow-up changes to single-space joining. AI docs #43736358292, infosvr #43736358282, AdGuardHome #43736358220, AliDDNS #43736358252 and AliyunDrive #43736358293 PASS; NVRAM #43736358258 was IN_PROGRESS.
-- This slice changes integration checker/docs only, no firmware source. Exact-head Process lifecycle and AI docs must be rechecked; no XY-C1 trigger is expected.
-- The dead PID-only kill_process_pidfile helper and header prototype are removed. Linux 4.4 final PID/start_time validation-to-kill TOCTOU remains. Frozen backup remains read-only; physical L4 NOT VERIFIED.
+- Parent main for the telnetd/ttyd launcher return-order checker correction: a71d73c0ff7776ae36dce19c5287ca3c141553cd. Dropbear keygen/start/stop status propagation and its shell tests are now present in the source baseline.
+- Exact a71 Process inventory/lifecycle #43736811716 failed only at the final source checker after all C and optional-app tests passed: the source contract matched an earlier UNKNOWN-inventory return rather than the later launch-failure return. AI docs #43736811598, Process lifecycle inventory #43736811577, infosvr #43736811544, AdGuardHome #43736811570, AliyunDrive #43736811565 and AliDDNS #43736811539 PASS.
+- XY-C1 #43736811566 and NVRAM #43736811552 were IN_PROGRESS. Dropbear is product source; require exact SHA Build, TRX verification and artifact upload before L3. Physical L4 remains NOT VERIFIED.
+- Process checker follow-up scopes return-order checks to the launch failure block; source checker and AI docs require exact-head revalidation. NFS service wrapper audit is next after this gate.
 ## Whole-repository module status
 
 ### P1 process inventory / service lifecycle — tri-state foundation L2 VERIFIED; strict PID identity migration extended through PPPD/udhcpc/INICD and VPN/WAN/LAN/USB stop gates; xl2tpd and crond UNKNOWN start gates migrated; current L3 pending exact-head XY-C1

@@ -8,7 +8,7 @@ For each multi-file logical slice, publish source, tests/contracts and necessary
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; main is `be92c387747af3011ce9239fb2c1b0089504b097` after preserving spaces in the telnetd/ttyd diagnostic source contracts. This slice fixes the alternate Dropbear provider, whose keygen/start/stop failures were hidden and whose `xargs` launcher translated daemon exit codes.
+- Repository `Arlene206/padavan-4.4-2`; Dropbear wrapper status propagation and shell tests are committed at `a71d73c0ff7776ae36dce19c5287ca3c141553cd`. The process integration checker now preserves C diagnostic spacing, but the exact-head run found that return-order checks matched an earlier UNKNOWN-inventory return instead of the later launch-failure return; this follow-up scopes the search to the launcher branch.
 - Boot diagnostics cover networkmap, watchdog, infosvr, GPIO, LLTD, rstats, telnetd and ttyd. SCUT, vlmcsd, iperf3 and mentohust wrappers now preserve their daemon launch/stop statuses.
 - LPD printer-removal PID identity hardening landed in `72ce1bb97323d4c417e8a5d891bbaf9c6ed3f2f3`; source-contract formatting correction is `022bc51507ca5f395c60a1f450cc461bf5403926`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. No local checkout/MIPS toolchain or physical-router L4 result is claimed.
@@ -29,22 +29,15 @@ For each multi-file logical slice, publish source, tests/contracts and necessary
 - This does not close Linux 4.4's final identity-check-to-kill(2) race; no atomic pidfd-like primitive is available in this target baseline.
 
 ## Verification boundary
-- On exact parent be92, process-lifecycle #43736528747 FAIL: all C binaries and optional-app shell tests passed, then the final source integration assertion failed because expected `logmessage()` text omitted the real spaces after commas. This commit fixes those two expectations. AI docs #43736528725, infosvr #43736528664, AdGuardHome #43736528662, AliyunDrive #43736528653 and AliDDNS #43736528663 PASS; NVRAM #43736528727 was IN_PROGRESS.
-- On exact-head process-lifecycle #43736358298, all C and optional-app shell regressions passed, but the source integration checker failed because `"".join(split())` removed literal spaces from the telnetd diagnostic expected string. AI docs #43736358292, infosvr #43736358282, AdGuardHome #43736358220, AliDDNS #43736358252 and AliyunDrive #43736358293 PASS; NVRAM #43736358258 was IN_PROGRESS. This slice uses `" ".join(split())` for telnetd/ttyd, preserving spaces within format strings; no product source changed.
-- Exact e882 head: process-lifecycle #43736203033 FAIL at the final RC source contract after all C regressions and optional-app mocked shell tests passed. Failure was only the exact-string contract for wrapped `logmessage()` arguments in `start_telnetd()`; `start_ttyd()` had the same formatting-sensitive expectation. AI docs #43736203011, infosvr #43736203024 and AdGuardHome #43736202954 PASS. AliDDNS #43736203010, AliyunDrive #43736202896 and NVRAM #43736202974 were IN_PROGRESS at last poll. The current checker fix strips source whitespace before matching; no product source changes.
-- Exact e950 Actions: process inventory/lifecycle #43734448717 SUCCESS including SCUT/vlmcsd mocked shell regressions; AI docs #43734448768 SUCCESS; process lifecycle inventory #43734448702 SUCCESS; infosvr #43734448825 SUCCESS; AdGuardHome #43734448705 SUCCESS; AliDDNS #43734448677 SUCCESS; AliyunDrive #43734448782 SUCCESS. XY-C1 #43734448706 and NVRAM audit #43734448863 were IN_PROGRESS at last poll; fresh exact-head validation is required for the iperf3 additions.
 
-- XY-C1 #43734448706 for exact e950 was IN_PROGRESS at Build setup stage; it validates the SCUT/vlmcsd scripts but predates this iperf3 package change. Require the new exact-head build, TRX verification and artifact upload before L3.
-- LPD source SHA `72ce1bb97323d4c417e8a5d891bbaf9c6ed3f2f3` initially failed only at wrapped-call substring contracts. The one-line formatting correction in 022bc was verified by process lifecycle #43732981693 and HTTPD #43732981614 PASS; AI docs #43732981749 PASS.
-- Prior L3 evidence at product SHA `30c5b48ba8a8e996d13548280a54a9b7f5dbda7a` does not apply to later source changes. Physical-router L4 is NOT VERIFIED.
-
+- Exact a71 process inventory/lifecycle workflow run #43736811716 failed at the final source checker only after all C sanitizer/identity tests and optional-app shell tests passed. The failure was the checker using the first `return start_status;` in each function (UNKNOWN-inventory rejection) instead of the launch-failure return. This slice fixes the source contract only.
+- Exact a71 AI docs #43736811598 PASS; Process lifecycle inventory #43736811577 PASS; infosvr #43736811544 PASS; AdGuardHome #43736811570 PASS; AliyunDrive #43736811565 PASS; AliDDNS #43736811539 PASS. XY-C1 #43736811566 and NVRAM #43736811552 were IN_PROGRESS at last poll.
+- Dropbear source/wrapper changes are in a71; no L3 claim until the exact product-source SHA has successful Build, TRX verification and artifact upload. Physical-router L4 remains NOT VERIFIED.
 ## Exact first action for the next GPT
 
-1. Verify exact-head process-lifecycle after the corrected telnetd/ttyd expectations and new Dropbear shell regressions; inspect logs, then check the resulting SHA's XY-C1 Build, TRX and artifact upload.
-2. Continue the tracked optional-daemon audit from `start_services_once()` and other exact callers after both SSH providers pass; do not assume NFS scripts exist.
-2. Continue the actual tracked optional-daemon audit after SSH is green; search remaining scripts referenced by `start_services_once()` rather than assuming an NFS service exists.
-3. Keep main commits atomic using a complete Git tree and expected-SHA non-forced ref update. Keep backup unchanged.
-
+1. Verify exact-head Process lifecycle and AI docs after the corrected telnetd/ttyd return-order contract; check XY-C1 #43736811566 through Build, TRX verification and artifact upload, and NVRAM #43736811552 if still pending.
+2. When CI is green, continue the tracked `start_services_once()`/service-script audit. The NFS wrapper exists at `trunk/user/nfs-utils/nfsd.sh`; review its stop failure and postcondition tests before claiming broader NFS compatibility.
+3. Keep multi-file changes in one atomic main commit, using freshly fetched main and expected-SHA non-forced ref update. Preserve the frozen backup and archive shards.
 ## Invariants
 
 - A PENDING run does not block independent work; retain exact run ID/SHA and continue safe tasks.

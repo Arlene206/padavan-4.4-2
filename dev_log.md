@@ -1,3 +1,11 @@
+## 2026-11-15 — Scope telnetd/ttyd return-order checks to launch failure
+
+- Exact-head Process inventory and lifecycle fail-closed run #43736811716 on `a71d73c0ff7776ae36dce19c5287ca3c141553cd` passed all GNU89/ASan/UBSan binaries, process/PID identity contracts, optional-app shell tests, and the normalized telnetd/ttyd diagnostic-string checks. It failed only at the return-order assertion: `start_status < 0` has an earlier legitimate `return start_status;` for UNKNOWN process inventory, so a whole-function `.index("return start_status;")` selected the wrong return.
+- Bound the return search to the `if (start_status != 0)` launcher-failure block, for both telnetd and ttyd. The contract now proves launch invocation precedes launcher error handling, which precedes returning that launch status, without mistaking the separate UNKNOWN-inventory return.
+- Exact a71 AI docs #43736811598 PASS; Process lifecycle inventory #43736811577 PASS; infosvr #43736811544 PASS; AdGuardHome #43736811570 PASS; AliyunDrive #43736811565 PASS; AliDDNS #43736811539 PASS. XY-C1 #43736811566 and NVRAM #43736811552 were IN_PROGRESS at last poll. Dropbear product wrapper changed on a71, so the exact SHA still needs Build, TRX verification and artifact upload before any L3 claim.
+- Parent main: a71d73c0ff7776ae36dce19c5287ca3c141553cd; result: THIS COMMIT. Re-run exact-head process-lifecycle and AI handoff docs.
+
+---
 ## 2026-11-15 — Fix Dropbear SSH error propagation and telnetd/ttyd source assertions
 
 - Dropbear's alternate `sshd.sh` unconditionally exited 0 after start/stop/newkeys, masking host-key generation, daemon launch and killall errors; piping launch through `xargs` also translated daemon exit status.
