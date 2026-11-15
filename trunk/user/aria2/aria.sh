@@ -124,15 +124,16 @@ EOF
 		svc_user=" -c nobody"
 	fi
 
-	start-stop-daemon -S -N $SVC_PRIORITY$svc_user -x $SVC_PATH -- \
+	if start-stop-daemon -S -N $SVC_PRIORITY$svc_user -x $SVC_PATH -- \
 		-D --enable-rpc=true --conf-path="$FILE_CONF" --input-file="$FILE_LIST" --save-session="$FILE_LIST" \
-		--rpc-listen-port="$aria_rport" --listen-port="$aria_pport" --dht-listen-port="$aria_pport" $SSL_OPT
-
-	if [ $? -eq 0 ] ; then
+		--rpc-listen-port="$aria_rport" --listen-port="$aria_pport" --dht-listen-port="$aria_pport" $SSL_OPT ; then
 		echo "[  OK  ]"
 		logger -t "$SVC_NAME" "daemon is started"
+		return 0
 	else
 		echo "[FAILED]"
+		logger -t "$SVC_NAME" "daemon start command failed" >/dev/null 2>&1
+		return 1
 	fi
 }
 

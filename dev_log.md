@@ -1,3 +1,14 @@
+## 2026-11-15 — Preserve Transmission and Aria start command status
+
+- Both launchers had false-success status propagation: failed start-stop-daemon was followed by echo and returned zero; successful launch was followed by logger, whose failure could falsely report startup failure.
+- Changed both launchers to test start-stop-daemon directly and explicitly return 0 on success / 1 on failure, independently of logging.
+- Added storage_app_start_status.sh with temporary directories and stubbed pidof/NVRAM/start-stop-daemon/logger/chmod/chown; it verifies launch failure with normal or failed logger and successful launch with failed logger.
+- Added path filters plus host-shell and BusyBox ash syntax/regression steps to storage-hotplug-stability.yml.
+- Parent main: 401066ebf04c50aaeb1ef47c36feb2ec210a0bc6; XY-C1 #43756373315 Build/TRX/artifact all PASS on source 401066; firmware C unchanged. New storage workflow pending.
+- Frozen backup unchanged; no L4 result.
+
+---
+
 ## 2026-11-15 — Add forward declaration for early MAN route-status call
 
 - `launch_wanx()` calls static `man_up_internal(char *, int, int, int *)` before the function definition later in `net_wan.c`. Added the file-scope prototype with unnamed parameter types to avoid implicit/non-static declaration errors under GNU89.

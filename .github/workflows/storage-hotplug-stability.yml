@@ -35,6 +35,9 @@ on:
       - "trunk/user/optware/opt-mount.sh"
       - "trunk/user/rc/src/tests/storage_operation_lock.c"
       - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/transmission/transmission.sh"
+      - "trunk/user/aria2/aria.sh"
+      - "trunk/user/scripts/tests/storage_app_start_status.sh"
       - "trunk/user/rc/src/storage_optware_start_policy.h"
       - "trunk/user/rc/src/tests/storage_optware_start_policy.c"
       - "trunk/user/rc/src/storage_service_stop_policy.h"
@@ -89,6 +92,9 @@ on:
       - "trunk/user/optware/opt-mount.sh"
       - "trunk/user/rc/src/tests/storage_operation_lock.c"
       - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/transmission/transmission.sh"
+      - "trunk/user/aria2/aria.sh"
+      - "trunk/user/scripts/tests/storage_app_start_status.sh"
       - "trunk/user/rc/src/storage_optware_start_policy.h"
       - "trunk/user/rc/src/tests/storage_optware_start_policy.c"
       - "trunk/user/rc/src/storage_service_stop_policy.h"
@@ -118,6 +124,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check NFS service stop script syntax
         run: sh -n trunk/user/nfs-utils/nfsd.sh
+      - name: Check Transmission and Aria launcher syntax and startup status propagation
+        run: |
+          set -eu
+          sh -n trunk/user/transmission/transmission.sh
+          sh -n trunk/user/aria2/aria.sh
+          sh trunk/user/scripts/tests/storage_app_start_status.sh
       - name: Check Optware MTD startup script syntax
         run: sh -n trunk/user/optware/opt-mount.sh
       - name: Check Optware teardown and lifecycle helper syntax
@@ -207,6 +219,7 @@ jobs:
           "$busybox_bin" ash trunk/user/scripts/tests/optware_lifecycle_lock.sh
           "$busybox_bin" ash trunk/user/scripts/tests/optware_lifecycle_teardown.sh
           "$busybox_bin" ash trunk/user/scripts/tests/optware_lifecycle_startup.sh
+          BUSYBOX_BIN="$busybox_bin" sh trunk/user/scripts/tests/storage_app_start_status.sh
       - name: Check MTD storage save script syntax
         run: sh -n trunk/user/scripts/files/sbin/mtd_storage.sh
       - name: Verify MTD storage save retry after flash failure

@@ -1,17 +1,19 @@
 ## Current source / CI checkpoint
 
-- Main at slice start: `b1b8991aaba12684542e90929daad429f6e57d9f`; frozen backup stays read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- WAN source now covers static IPoE fail-closed address application, checked physical interface bring-up, AP-client WISP cleanup/abort, and critical MAN gateway host/default route errors gated for static MAN PPTP/L2TP; optional static/DHCP/DNS routes remain nonfatal.
-- Parent b1b899 exact Actions: WAN callback #43756151245 PASS; WAN route #43756151031 PASS; AI docs #43756151101 PASS; Process inventory #43756151205 PASS; HTTPD #43756151156 PASS; infosvr #43756151158 PASS; AliyunDrive #43756151160 PASS; AdGuardHome #43756151126 PASS; DNSMasq #43756151038 PASS; WAN teardown #43756151129 PASS; WAN ARP #43756151066 PASS; miniupnpd #43756151110 PASS; VPN #43756151125 PASS; USB identity #43756151191 PASS; detect_link #43756151181 PASS; detect_internet #43756151047 PASS. Process lifecycle #43756151162, NVRAM #43756151222 and AliDDNS #43756151138 still running at last poll.
-- XY-C1 #43756151170 was in Build; TRX/artifact pending. This follow-up adds a forward declaration before the early call to static `man_up_internal()`; latest-source L3 pending.
+- Main at slice start: 401066ebf04c50aaeb1ef47c36feb2ec210a0bc6; frozen backup read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Exact 401066 WAN callback #43756373267 PASS; WAN route #43756373287 PASS; NVRAM #43756373306 PASS; Process lifecycle #43756373317 PASS; Process inventory #43756373209 PASS; HTTPD #43756373180 PASS; AdGuardHome #43756373548 PASS; DNSMasq #43756373394 PASS; miniupnpd #43756373360 PASS; USB modem identity #43756373320 PASS; WAN teardown #43756373261 PASS; WAN ARP #43756373302 PASS; AliDDNS #43756373308 PASS; AliyunDrive #43756373280 PASS; VPN #43756373251 PASS; infosvr #43756373126 PASS; detect_link #43756373117 PASS; detect_internet #43756373238 PASS; AI docs #43756373157 PASS.
+- XY-C1 #43756373315 Build/TRX/artifact all PASS (L3 for 401066 only). No L4.
+- Transmission and Aria now preserve start-stop-daemon status explicitly; host and firmware BusyBox ash regression added, exact storage workflow pending.
 
 ### P1 — WAN startup status propagation
 
-- Direct IPoE static IPv4 failures set WAN error, attempt partial-address cleanup and block route/UPnP publication; IPv6 remains independent.
-- Initial physical WAN interface bring-up checks MTU/interface status; failed interface-up skips protocol startup.
-- AP-client WISP migration now returns cleanup errors and aborts WAN startup before IPTV DHCP/ZeroConf clients.
-- Static MAN gateway host/default route status flows into non-PPPoE PPTP/L2TP startup gating; optional static/DHCP/DNS routes and DHCP/ZeroConf aggregate callback behavior are preserved.
-- The early static MAN helper call now has a forward declaration; current-source cross-build required.
+- Direct IPoE static address errors fail closed; initial physical interface bring-up checked; WISP cleanup guarded; required MAN gateway/default-route errors gate static MAN PPTP/L2TP.
+- Exact WAN/related Actions above PASS. L3 for 401066 only; no L4.
+
+### P1 — Storage service startup result propagation
+
+- Transmission and Aria explicitly return daemon-launch success/failure regardless of logger status. Regression tests both outcomes and logger failure under host shell and BusyBox ash.
+- Next separately inspect directory creation and config-file write failures before daemon launch.
 
 ### P2 — IGMP proxy configuration publication
 

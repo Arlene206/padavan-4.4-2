@@ -66,13 +66,14 @@ func_start()
 		svc_user=" -c nobody"
 	fi
 	
-	start-stop-daemon -S -N $SVC_PRIORITY$svc_user -x $SVC_PATH -- -g "$DIR_CFG" -P "$tr_pport" -p "$tr_rport" -e "${DIR_LINK}/transmission.log"
-	
-	if [ $? -eq 0 ] ; then
+	if start-stop-daemon -S -N $SVC_PRIORITY$svc_user -x $SVC_PATH -- -g "$DIR_CFG" -P "$tr_pport" -p "$tr_rport" -e "${DIR_LINK}/transmission.log" ; then
 		echo "[  OK  ]"
 		logger -t "$SVC_NAME" "daemon is started"
+		return 0
 	else
 		echo "[FAILED]"
+		logger -t "$SVC_NAME" "daemon start command failed" >/dev/null 2>&1
+		return 1
 	fi
 }
 
