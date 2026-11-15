@@ -4,7 +4,7 @@ Recover live repository state once, then execute the first action below. Do not 
 
 For each logical source/test/doc slice, create every blob, one complete Git tree and one commit parented to freshly fetched main; update main with that exact expected SHA and force:false. Use one atomic main commit, never partial multi-file commits or force-push. Keep the frozen backup and archived log shards/index unchanged. Before context exhaustion, finish a safe slice and leave this file accurate. Do not ask the user what to do next.
 
-**Mandatory handoff checkpoint:** the checkpoint is mandatory; a document edit is conditional. Record exact main/backup SHAs, source changes, exact-head Action IDs/statuses, validation boundary and the first next action.
+**Mandatory handoff checkpoint:** The checkpoint is mandatory; a document edit is conditional. the checkpoint is mandatory; a document edit is conditional. Record exact main/backup SHAs, source changes, exact-head Action IDs/statuses, validation boundary and the first next action.
 
 ## Current repository state
 

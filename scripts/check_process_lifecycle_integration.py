@@ -75,11 +75,20 @@ print("RC fput_string buffered-write and close-status integration: PASS")
 
 storage_launch_contracts = (
     (
+        "void run_dms(int force_rescan)",
+        "\\nvoid restart_dms(int force_rescan)",
+        'launch_status = _eval(minidlna_argv, NULL, 0, NULL);',
+        'if (!nvram_match("apps_dms", "1"))',
+        "Media Server",
+        "is_dms_run()",
+    ),
+    (
         "void run_itunes(void)",
         "\\nvoid restart_itunes(void)",
         'launch_status = eval("/usr/bin/mt-daapd", "-c", conf_new);',
         'if (!nvram_match("apps_itunes", "1"))',
         "iTunes Server",
+        "is_itunes_run()",
     ),
     (
         "void run_torrent(void)",
@@ -87,6 +96,7 @@ storage_launch_contracts = (
         'launch_status = eval("/usr/bin/transmission.sh", "start");',
         'if (!nvram_match("trmd_enable", "1"))',
         "Transmission",
+        "is_torrent_run()",
     ),
     (
         "void run_aria(void)",
@@ -94,22 +104,30 @@ storage_launch_contracts = (
         'launch_status = eval("/usr/bin/aria.sh", "start");',
         'if (!nvram_match("aria_enable", "1"))',
         "Aria",
+        "is_aria_run()",
     ),
 )
-for start_marker, end_marker, launcher, enable_guard, service_name in storage_launch_contracts:
+for start_marker, end_marker, launcher, enable_guard, service_name, presence_call in storage_launch_contracts:
     start_body = storage_services.split(start_marker, 1)[1].split(end_marker, 1)[0]
     assert enable_guard in start_body
     assert "int launch_status;" in start_body
     assert "if (process_state == PROCESS_PRESENCE_RUNNING)" in start_body
     assert "if (process_state != PROCESS_PRESENCE_ABSENT)" in start_body
     assert launcher in start_body
-    assert "if (launch_status != 0)" in start_body
-    assert 'logmessage(apps_name, "launch command failed (status=%d)", launch_status);' in start_body
-    assert start_body.index(launcher) < start_body.index("if (launch_status != 0)")
-    assert start_body.index("if (launch_status != 0)") < start_body.index(
-        'logmessage(apps_name, "launch command failed (status=%d)", launch_status);'
-    )
+    assert "storage_log_daemon_start_result(apps_name, launch_status," in start_body
+    assert start_body.index(launcher) < start_body.index("storage_log_daemon_start_result(apps_name, launch_status,")
+    post_launch = start_body.split(launcher, 1)[1]
+    assert "process_state = " + presence_call + ";" in post_launch
     assert service_name in start_body
+
+start_result = storage_services.split(
+    "static void\\nstorage_log_daemon_start_result(", 1
+)[1].split("\\n#if defined (APP_FTPD)", 1)[0]
+assert "if (launch_status != 0)" in start_result
+assert "PROCESS_PRESENCE_RUNNING" in start_result
+assert "PROCESS_PRESENCE_ABSENT" in start_result
+assert "cannot verify daemon startup (scan error=%d)" in start_result
+assert "errno ? errno : EIO" in start_result
 assert '"trunk/user/rc/src/services_stor.c"' in process_workflow
 assert '"trunk/user/rc/src/services_stor.c"' in xy_workflow
 assert '#include "firefly_config_file.h"' in storage_services

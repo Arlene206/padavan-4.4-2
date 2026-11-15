@@ -1,3 +1,13 @@
+## 2026-11-15 — Normalize storage daemon startup postconditions
+
+- Exact 51898c0 AI handoff docs #43745391151 failed because SESSION_HANDOFF paraphrased the mandatory checkpoint sentence with a lower-case initial; restore the exact contract phrase.
+- MiniDLNA had ignored _eval() status; the first repair captured it but returned early on nonzero, which skipped the post-launch process scan. Consolidated launcher exit and process presence diagnostics in storage_log_daemon_start_result().
+- Applied the shared reporting to MiniDLNA, Firefly, Transmission and Aria: report nonzero launcher status independently from RUNNING, ABSENT and UNKNOWN process inventory. Disabled-service guards, initial no-duplicate checks and launch order remain unchanged.
+- Extended the Process integration source-contract regression to cover all four launch paths and the shared result helper.
+- Parent main: 51898c0c01f87154abbb03f14a5668d2381c1922; exact 518 Process #43745391109, XY-C1 #43745391043 and other sibling checks were pending/in progress at the last poll; exact VSFTPD #43745391060 and NFS #43745390987 PASS.
+
+---
+
 ## 2026-11-15 — Report MiniDLNA launch and postcondition failures
 
 - run_dms() discarded the return from _eval() and only logged when a follow-up process scan found RUNNING. A failed launch, confirmed ABSENT state or UNKNOWN inventory was otherwise silent after config publication succeeded.

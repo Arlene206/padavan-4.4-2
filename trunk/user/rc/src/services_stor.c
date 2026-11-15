@@ -138,6 +138,27 @@ storage_daemon_presence(const char *daemon, int *scan_error)
 	return presence;
 }
 
+/*
+ * Launcher exit status and daemon presence are separate postconditions:
+ * scripts may fail, and a successful launcher can exit before/without a
+ * daemon being visible. Report both rather than silently accepting either.
+ */
+static void
+storage_log_daemon_start_result(const char *apps_name, int launch_status,
+				enum process_presence process_state)
+{
+	if (launch_status != 0)
+		logmessage(apps_name, "launch command failed (status=%d)", launch_status);
+
+	if (process_state == PROCESS_PRESENCE_RUNNING)
+		logmessage(apps_name, "daemon is started");
+	else if (process_state == PROCESS_PRESENCE_ABSENT)
+		logmessage(apps_name, "daemon is absent in post-launch process inventory");
+	else
+		logmessage(apps_name, "cannot verify daemon startup (scan error=%d)",
+			   errno ? errno : EIO);
+}
+
 #if defined (APP_FTPD)
 int
 is_ftp_run(void)
@@ -1968,6 +1989,7 @@ void run_dms(int force_rescan)
 	int db_rescan_mode;
 	int process_state;
 	int config_status;
+	int launch_status;
 	unsigned char mac_bin[ETHER_ADDR_LEN] = {0};
 	char mac_str[16];
 	char *apps_name = "Media Server";
@@ -2022,19 +2044,9 @@ void run_dms(int force_rescan)
 		minidlna_argv[5] = "-U";
 
 	launch_status = _eval(minidlna_argv, NULL, 0, NULL);
-	if (launch_status != 0) {
-		logmessage(apps_name, "launch command failed (status=%d)", launch_status);
-		return;
-	}
-
 	process_state = is_dms_run();
-	if (process_state == PROCESS_PRESENCE_RUNNING)
-		logmessage(apps_name, "daemon is started");
-	else if (process_state == PROCESS_PRESENCE_ABSENT)
-		logmessage(apps_name, "launcher exited successfully but daemon is absent");
-	else
-		logmessage(apps_name, "cannot verify daemon startup (scan error=%d)",
-			   errno ? errno : EIO);
+	storage_log_daemon_start_result(apps_name, launch_status,
+					(enum process_presence)process_state);
 }
 
 void restart_dms(int force_rescan)
@@ -2197,11 +2209,9 @@ void run_itunes(void)
 	}
 
 	launch_status = eval("/usr/bin/mt-daapd", "-c", conf_new);
-	if (launch_status != 0)
-		logmessage(apps_name, "launch command failed (status=%d)", launch_status);
-
-	if (is_itunes_run() == PROCESS_PRESENCE_RUNNING)
-		logmessage(apps_name, "daemon is started");
+	process_state = is_itunes_run();
+	storage_log_daemon_start_result(apps_name, launch_status,
+					(enum process_presence)process_state);
 }
 
 void restart_itunes(void)
@@ -2323,8 +2333,9 @@ void run_torrent(void)
 	}
 
 	launch_status = eval("/usr/bin/transmission.sh", "start");
-	if (launch_status != 0)
-		logmessage(apps_name, "launch command failed (status=%d)", launch_status);
+	process_state = is_torrent_run();
+	storage_log_daemon_start_result(apps_name, launch_status,
+					(enum process_presence)process_state);
 }
 
 void restart_torrent(void)
@@ -2451,8 +2462,9 @@ void run_aria(void)
 	}
 
 	launch_status = eval("/usr/bin/aria.sh", "start");
-	if (launch_status != 0)
-		logmessage(apps_name, "launch command failed (status=%d)", launch_status);
+	process_state = is_aria_run();
+	storage_log_daemon_start_result(apps_name, launch_status,
+					(enum process_presence)process_state);
 }
 
 void restart_aria(void)
