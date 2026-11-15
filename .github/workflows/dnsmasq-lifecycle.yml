@@ -635,7 +635,7 @@ jobs:
           assert "dnsmasq_file_backup_discard" in dnsmasq_file_helper
           assert "dnsmasq_file_backup_discard_with_unlink(stage, mock_discard_unlink) == -1" in static_hosts_test
           assert "cannot remove DHCP rollback snapshot" in services
-          assert "cannot remove router hostname rollback snapshot" in wan
+          assert "cannot remove router hostname rollback snapshot" in net_wan
           assert "cannot remove LAN hostname rollback snapshot" in net_lan
           assert static_hosts_writer.index("dnsmasq_file_publish_set(") < static_hosts_writer.index("dnsmasq_file_backup_discard(backup_paths[i])")
           print("DNSMasq postconditions and RC service status propagation contract: PASS")

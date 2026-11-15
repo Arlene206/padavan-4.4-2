@@ -1,3 +1,12 @@
+## 2026-11-15 — Repair DNSMasq source-contract variable in cleanup workflow
+
+- The new rollback-snapshot cleanup source and its ASan/UBSan test compiled and passed all preceding steps on exact commit `d2784f00b3ffd5e1988a5dbf780f12061e4b93a4`.
+- DNSMasq Action #43722144765 then failed at the final source-contract stage with Python `NameError: name 'wan' is not defined`. The workflow loads the file as `net_wan`; the new assertion referenced the wrong variable. Corrected the assertion to use `net_wan`.
+- AI docs #43722144758 and WAN route #43722144902 passed; XY-C1 #43722144832 and NVRAM #43722144898 were still in progress at last poll. Rerun DNSMasq source contract and retain exact-SHA evidence.
+- This is a workflow assertion repair, not a C-source/test failure. No current-source MIPS/TRX or physical-router result is claimed.
+
+---
+
 ## 2026-11-15 — Make DNSMasq rollback-snapshot cleanup observable
 
 - Found a related cleanup hole: `dnsmasq_file_backup_discard()` returned void. It preserved a path on unlink failure but exposed no status for callers, so leftover hard-link recovery snapshots could remain unnoticed.

@@ -8,7 +8,7 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; source parent for this rollback-snapshot cleanup slice: `a3291427a15d8c7d55a38ebe20404e3a5af541ce`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only); PR #1 is CLOSED / UNMERGED.
+- Repository: `Arlene206/padavan-4.4-2`; source parent for this DNSMasq workflow contract repair: `d2784f00b3ffd5e1988a5dbf780f12061e4b93a4`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only); PR #1 is CLOSED / UNMERGED.
 - DNSMasq static-ARP rollback transaction source landed in `d5660e3cdfa9804a23335656676c5f598c19a37e`. Its initial exact-head #43718997744 exposed a test-only multi-character NUL literal; `23cc4e9e509f13a4ea7636c067d6cfd869fde81b` corrected the literal. Exact-head DNSMasq #43719124911 now PASS; AI docs #43719124917 and process inventory #43719124976 PASS.
 - XY-C1 run #43718997699 for product source `d5660e3` was still IN_PROGRESS at checkpoint; the source code is unchanged by `23cc4e9e`, but L3 must not be claimed until Build XY-C1, TRX verification and artifact upload all pass.
 - BusyBox udhcpc ARP-conflict deconfig retry is on main; exact checker #43718099815 PASS on `fef0bc61085a5e9364e972c00c97b5b0e3a8c59d`.
@@ -18,13 +18,12 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Active task
 
-### P2 — DNSMasq rollback-snapshot cleanup and remaining lifecycle
+### P2 — DNSMasq rollback-snapshot cleanup validation and remaining lifecycle
 
-- The three generated DHCP/ethers/hosts.static outputs are published as one rollback set; strict MAC/domain/pool validation and reverse-order static-ARP rollback are implemented.
-- Unsafe-upstream partial-success is fixed: if DNSMasq upstream generation fails and no safe last-known-good snapshot exists, `update_resolvconf()` returns the validation error after resolver publication and lock release, before cache notification.
-- Staging discard now preserves the unique pathname on unlink failure, returns the errno, treats ENOENT as clean, and exposes an injectable callback. Its EACCES/retry/ENOENT regression compiled and passed in DNSMasq Action #43721283505 on exact SHA `a3291427a15d8c7d55a38ebe20404e3a5af541ce`.
-- New audit finding: rollback snapshot discard previously returned void. A failed unlink could leave private hard-link snapshots without a cleanup status. It now returns status and reuses retryable discard semantics; successful publication callers retry and log leftovers, while failed transactions retain/log recovery snapshots.
-- Remaining DNSMasq work: resolver/config publication concurrency and the public/locked start/stop/restart caller graph. After this, rotate to broader whole-tree reliability/security work.
+- Source fix is committed in `d2784f00b3ffd5e1988a5dbf780f12061e4b93a4`: rollback snapshot discard now returns retryable status, callers retry after successful publication and log leftovers, while failed transactions log retained recovery paths.
+- The exact-head DNSMasq workflow's compile/test stages all passed, including the GNU89 ASan/UBSan file-staging regression and DNSMasq policies. Its final Python source contract failed for a checker-only NameError: it referenced undefined `wan`; the loaded source variable is `net_wan`. No production compile/test failure was reported before the checker stopped.
+- This follow-up changes the assertion to use `net_wan`. Fresh exact-head DNSMasq and AI docs Actions must pass; XY-C1 #43722144832 was still IN_PROGRESS at last poll.
+- Remaining DNSMasq audit: resolver/config publication concurrency and public/locked start/stop/restart/reload caller graph. Do not repeat discard/static-ARP/upstream-status fixes.
 
 
 ## Explicitly uncompleted P1 work
@@ -36,9 +35,9 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Verification boundary
 
-- Exact source `a3291427a15d8c7d55a38ebe20404e3a5af541ce`: DNSMasq lifecycle #43721283505 PASS (includes GNU89 ASan/UBSan staging-discard test); AI handoff #43721283501 PASS; WAN route #43721283467 PASS; process inventory #43721283468 PASS; NVRAM #43721283671 PASS. XY-C1 #43721283605 remained IN_PROGRESS at last poll.
-- Exact source `39a67af8d061f6f3eceeb2efbea7bd9a4c7cfe10`: resolver status fix exact-head DNSMasq #43719693642, WAN route #43719693710, AI handoff #43719693546, process inventory #43719693606 and NVRAM #43719693596 passed; XY-C1 #43719693623 remained in progress at last poll.
-- Fresh exact-head DNSMasq/AI/XY-C1 validation is required for this rollback-snapshot slice. No current-source MIPS/TRX or physical-router result is claimed; L4 remains NOT VERIFIED.
+- `d2784f00b3ffd5e1988a5dbf780f12061e4b93a4`: DNSMasq lifecycle #43722144765 FAIL at the final source-contract step only; all compile/test steps completed PASS. Failure: NameError `wan` undefined in a new assertion; workflow repair uses the existing `net_wan` source variable. AI docs #43722144758 PASS; WAN route #43722144902 PASS; process inventory #43722144817 PASS; NVRAM #43722144898 was IN_PROGRESS at last poll; XY-C1 #43722144832 was IN_PROGRESS.
+- Previous staging-discard commit `a3291427a15d8c7d55a38ebe20404e3a5af541ce`: DNSMasq #43721283505, AI docs #43721283501, WAN route #43721283467, process inventory #43721283468 and NVRAM #43721283671 PASS; XY-C1 #43721283605 remained IN_PROGRESS.
+- No current-source MIPS/TRX build or physical-router L4 result is claimed.
 
 
 ## HTTPD daemon lifecycle — completed slice
@@ -57,13 +56,13 @@ For every multi-file slice, publish source + regression tests + required workflo
 
 ## Exact first action for the next GPT
 
-1. Check exact-head DNSMasq lifecycle and AI handoff for rollback-snapshot cleanup; diagnose any FAIL from full logs. Ensure the injected backup unlink failure and retry case pass.
+1. Check exact-head DNSMasq lifecycle and AI handoff after the `net_wan` source-checker variable correction; diagnose any new FAIL from full logs. The C compile/test portion passed on the previous SHA.
 2. Check exact-head XY-C1; require Build XY-C1, TRX verification and artifact upload before any L3 claim.
-3. Continue DNSMasq resolver/config publication concurrency and the full public/locked start/stop/restart/reload caller graph; verify lock ordering, process identity, SIGHUP ESRCH re-inventory and wait/reap postconditions. Do not repeat static ARP, upstream-status or discard-status slices.
+3. Continue DNSMasq resolver/config publication concurrency and public/locked start/stop/restart/reload caller graph; verify lock ordering, process identity, SIGHUP ESRCH re-inventory and wait/reap postconditions.
 4. Once DNSMasq is stable, rotate to an unblocked high-impact whole-tree user-space reliability/security area. FTP inode-conditional unlink remains blocked by Linux 4.4 semantics; NFS durability/auth compatibility needs client evidence.
 5. Keep frozen backup unchanged and physical router L4 NOT VERIFIED.
 
 
 Source/validation notes:
-- Parent main for this slice: a3291427a15d8c7d55a38ebe20404e3a5af541ce; frozen backup: 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Parent main for this slice: d2784f00b3ffd5e1988a5dbf780f12061e4b93a4; frozen backup: 72f4f157a084f8184b9597ca5bf334b8080e5807.
 - Preserve docs/dev-log archived shards and docs/dev-log/INDEX.md byte-for-byte.
