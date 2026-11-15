@@ -1,3 +1,15 @@
+## 2026-11-15 15/11/2026, 08:28 CST — Align HTTPD security umbrella with DNSMasq tri-state lifecycle
+
+- Parent main SHA: 9d816ad60a2e8fe097702df9583b42764462f9d5.
+- DNSMasq lifecycle [43657650362] on 9d816ad PASSED after c497's run [43657495479] failed because reload policy header/test were absent from pull_request path filters; follow-up 9d816 added both.
+- HTTPD security [43657495718] on c497 failed in "Verify DNSMasq generated file trust boundaries". Its first failing assertion expected `start_dns_dhcpd_locked()` to call retired Boolean `dnsmasq_start_policy_should_launch(is_dns_dhcpd_run())`; current source uses tri-state `dnsmasq_require_absent()` preflights before and after configuration preparation. The same checker also expected a Boolean restart postcondition and name-wide `killall -SIGHUP`; these expectations are replaced with checks for initial/final process snapshots, fail-closed UNKNOWN, restart stop postconditions, identity-bound SIGHUP and snapshot release.
+- Added GNU89/`-Wall -Wextra -Werror`/ASan/UBSan compile-and-run of `dnsmasq_reload_policy.c` to the HTTPD umbrella, with source/test semantic assertions and push + pull_request trigger symmetry.
+- Exact 9d816 Actions: DNSMasq [43657650362], process inventory [43657650329], AI docs [43657650415], infosvr [43657650291], AliDDNS [43657650445], AdGuardHome [43657650286] and AliyunDrive [43657650326] PASS; NVRAM [43657650289] IN_PROGRESS. Corrected HTTPD and sibling Actions are pending at commit creation. XY-C1 [43657495469] on product-source SHA c497 was still IN_PROGRESS; no TRX/artifact claim. L3/L4 remain NOT VERIFIED.
+- Local compiler was not run because this connector session has GitHub API/file access but no local checkout.
+- Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Mirror DNSMasq reload test paths in pull-request trigger
 
 - Parent main SHA: c4975b6ceea51f21e669563d07331664c4e64b4d.
