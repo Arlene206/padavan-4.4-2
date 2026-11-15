@@ -204,7 +204,7 @@ jobs:
           assert control_routes.count("dhcp_lease_route_delete_is_ok(route_status)") == 2
           gateway_state = callback.index('nvram_set_temp(strcat_r(prefix, "gateway", tmp), gateway_buf)')
           wan_route_setup = callback.index("route_setup_status = wan_up_internal(wan_ifname, unit, 0)")
-          man_route_setup = callback.index("route_setup_status = man_up_internal(wan_ifname, unit, 0)")
+          man_route_setup = callback.index("route_setup_status = man_up_internal(wan_ifname, unit, 0, NULL)")
           assert gateway_state < wan_route_setup
           assert "accepted but route setup is incomplete" in callback
           assert "return route_setup_status;" in callback

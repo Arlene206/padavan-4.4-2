@@ -1,3 +1,13 @@
+## 2026-11-15 — Correct MAN helper API expectations in route workflows
+
+- Exact 41ea WAN callback #43755418926 failed at a stale source assertion expecting `route_setup_status = man_up_internal(wan_ifname, unit, 0)`; DHCP callback now intentionally passes `NULL` for the optional required-gateway out parameter. All six prior GNU89/host policy steps PASS.
+- Exact 41ea WAN route #43755418941 failed at stale three-argument helper extraction for `add_man_gateway_routes()` after its required-route output parameter was added. Compile/sanitizer, resolver, bridge ownership and VLAN/bridge propagation checks PASS.
+- Updated both workflow contracts to the extended signatures and added explicit critical host/default versus optional DNS route assertions. No product-source change.
+- Parent main: `41ea56088a7c8cb8bddd16b3d59ce168c0784c91`; exact AI docs #43755418869, Process inventory #43755418919, Process lifecycle #43755418852, infosvr #43755418948, USB identity #43755418970, detect_link #43755418966, WAN teardown #43755418845, WAN ARP #43755418839, VPN #43755418832, AliDDNS #43755418826, AliyunDrive #43755418815, HTTPD #43755418812, detect_internet #43755418808, miniupnpd #43755418910 and DNSMasq #43755418936 all PASS. NVRAM #43755418947 still running.
+- XY-C1 #43755418990 was at checkout/setup; no Build/TRX/artifact result. Frozen backup unchanged; no latest-source L3 or L4 claim.
+
+---
+
 ## 2026-11-15 — Separate required MAN gateway routes from optional route errors
 
 - `man_up_internal()` previously returned one aggregate containing critical gateway/default-route setup and optional configured static/DHCP/DNS routes. The static MAN caller used the void `man_up()` wrapper, so PPTP/L2TP could not abort for a required gateway failure without also treating optional routes as fatal.

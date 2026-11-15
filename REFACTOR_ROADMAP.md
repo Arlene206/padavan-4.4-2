@@ -1,18 +1,19 @@
 ## Current source / CI checkpoint
 
-- Main at slice start: `2529f9a8aadd378347fa47578a1f048a793b0c1c`; frozen backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Product baselines: direct IPoE static address result gate at `20f1bbd`; checked initial WAN interface bring-up at `7ebeaa9`; AP-client WISP old-interface cleanup at `2529f9a`.
-- Exact 2529 Actions: WAN callback #43754701672 PASS; AI docs #43754701543 PASS; Process inventory #43754701614 PASS; NVRAM ioctl audit #43754701523 PASS. XY-C1 #43754701433 was at Build XY-C1; TRX/artifact pending.
-- Current slice separates required MAN gateway host/default route errors from optional static/DHCP/DNS route errors. Static MAN startup propagates only required failures to PPTP/L2TP gating; callback aggregate diagnostics and PPPoE asynchronous/no-wait behavior remain unchanged.
-- Current-head Actions pending; no current-source L3 claim and no physical-router/L4 claim.
+- Main at slice start: `41ea56088a7c8cb8bddd16b3d59ce168c0784c91`; frozen backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Current production source `41ea560` separates required MAN gateway host/default route errors from optional configured routes. Static MAN caller propagates only required failures to PPTP/L2TP; DHCP/ZeroConf retain aggregate return, PPPoE async/no-wait unchanged.
+- Exact 41ea WAN #43755418926 failed only on stale callback expected substring (`man_up_internal(...,0)` vs new `...,0,NULL`); six preceding host-policy tests PASS.
+- Exact 41ea WAN route #43755418941 failed only on stale helper signature extraction; compile/sanitizer, resolver, bridge and VLAN/bridge propagation steps PASS.
+- Exact 41ea Process lifecycle #43755418852, Process inventory #43755418919, infosvr #43755418948, USB identity #43755418970, detect_link #43755418966, WAN teardown #43755418845, WAN ARP #43755418839, VPN #43755418832, AliDDNS #43755418826, AliyunDrive #43755418815, HTTPD #43755418812, detect_internet #43755418808, miniupnpd #43755418910 and DNSMasq #43755418936 PASS; AI docs #43755418869 PASS. NVRAM #43755418947 was running.
+- Exact 41ea XY-C1 #43755418990 was at checkout/setup; Build/TRX/artifact pending. No current-source L3 or physical-router/L4 claim.
 
 ### P1 — WAN startup status propagation
 
-- Direct IPoE static IPv4 `ifconfig()` errors fail closed before WAN route/UPnP publication; partial-address cleanup is attempted and IPv6 remains independent.
-- Initial WAN interface bring-up uses checked MTU/interface operations; failed interface-up skips WAN protocol startup after best-effort shutdown.
-- AP-client WISP migration checks old MAN address clearing and refuses migration if the previous interface cannot be ensured down.
-- Required static MAN gateway host/default route errors now have a separate status channel for PPTP/L2TP; optional configured static/DHCP/DNS routes remain reported but do not block PPP.
-- Keep PPPoE async/no-wait unchanged.
+- Direct IPoE static address errors fail closed before WAN route/UPnP publication; partial-address cleanup is attempted and IPv6 remains independent.
+- Initial WAN interface bring-up checks MTU/interface results; failed interface-up skips protocol launch.
+- AP-client WISP migration refuses to publish WISP if the old MAN interface cannot be cleared or safely brought down.
+- Required MAN gateway host/default routes have a separate status channel for static MAN PPTP/L2TP gating; optional static/DHCP/DNS routes remain aggregate diagnostics. Correct stale host workflow expectations and revalidate.
+- Preserve PPPoE async/no-wait.
 
 ### P2 — IGMP proxy configuration publication
 
