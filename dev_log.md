@@ -1,3 +1,12 @@
+## 2026-11-15 — Keep firmware-update abort paths recoverable after service shutdown
+
+- Review of `flash_firmware()` found that `stop_misc()` terminated the watchdog before several later fallible operations (optional-service stop, custom shutdown hook, storage eject, printer stop and IPTV proxy stop). Any subsequent abort returned with the watchdog still stopped. The firmware path also killed `wpa_cli/wpa_supplicant` but did not call the shared `stop_8021x_all()`, leaving AP authentication daemons outside its stop gate.
+- Moved `stop_misc()` to after the other fallible preparation steps, immediately before storage persistence/MTD write. If its own partial stop fails, the path now attempts the tri-state-safe `start_watchdog()` recovery before returning. Added a checked `stop_8021x_all()` gate before the custom shutdown hook and storage mutations.
+- Extended the process-lifecycle source contract for the AP-auth stop gate, late watchdog-stop order, abort recovery and storage-write ordering. Exact-head process/XY-C1 reruns required.
+- Changed paths: `rc.c`, `check_process_lifecycle_integration.py`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Align PPPoE readiness checker with shared scan wrapper
 
 - Exact process regression `43676517579` on `a8b84679c87bf02703e72cf032e8d9bedc031ed1` failed at a stale integration assertion that still required `process_inventory_scan()` and snapshot release inside `set_passthrough_pppoe()`. The implementation had deliberately centralized snapshot/error/release handling in `pppoe_relay_process_presence()`; the source contract had not been updated to follow that refactor. The standalone policy target and preceding steps were not implicated by this assertion.

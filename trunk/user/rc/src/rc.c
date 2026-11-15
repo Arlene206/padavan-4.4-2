@@ -512,7 +512,7 @@ flash_firmware(void)
 {
 	const char *script_name = SCRIPT_SHUTDOWN;
 	char* svcs[] = { "l2tpd", "xl2tpd", "pppd", "wpa_cli", "wpa_supplicant", NULL };
-	int lock_fd, stop_status, release_status, saved_errno;
+	int lock_fd, stop_status, release_status, saved_errno, auth_stop_status;
 
 	/* PPPD callback children share this lock; stop only after in-flight
 	 * VPN callbacks have completed, then stale children fail PID identity. */
@@ -539,12 +539,14 @@ flash_firmware(void)
 			errno = saved_errno;
 		return;
 	}
-	if (stop_misc() != 0) {
-		logmessage(LOGNAME, "firmware update aborted: miscellaneous services did not stop");
-		return;
-	}
 	if (stop_services(0) != 0) {
 		logmessage(LOGNAME, "firmware update aborted: checked services did not stop");
+		return;
+	}
+	auth_stop_status = stop_8021x_all();
+	if (auth_stop_status != 0) {
+		logmessage(LOGNAME, "firmware update aborted: 802.1X authentication daemons did not stop (status=%d)",
+			   auth_stop_status);
 		return;
 	}
 	if (check_if_file_exist(script_name))
@@ -565,6 +567,12 @@ flash_firmware(void)
 #endif
 	if (stop_igmpproxy(NULL) != 0) {
 		logmessage(LOGNAME, "firmware update aborted: IPTV proxy daemons did not stop");
+		return;
+	}
+	/* Stop the watchdog only after every other fallible preparation is complete. */
+	if (stop_misc() != 0) {
+		logmessage(LOGNAME, "firmware update aborted: miscellaneous services did not stop");
+		start_watchdog();
 		return;
 	}
 	storage_save_time(60);

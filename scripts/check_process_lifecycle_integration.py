@@ -223,6 +223,16 @@ services_source = (root / "trunk/user/rc/src/services.c").read_text()
 logger_stop = services_source.split("int\nstop_logger(void)", 1)[1].split("\n}", 1)[0]
 rc_source = (root / "trunk/user/rc/src/rc.c").read_text()
 shutdown = rc_source.split("shutdown_router(int level)", 1)[1].split("\n}\n", 1)[0]
+flash = rc_source.split("flash_firmware(void)", 1)[1].split(
+    "\nstatic void\nstorage_load_time", 1
+)[0]
+assert "auth_stop_status = stop_8021x_all();" in flash
+assert flash.index("auth_stop_status = stop_8021x_all();") < flash.index("doSystem(\"%s %d\", script_name, 0)")
+assert flash.index("stop_igmpproxy(NULL)") < flash.index("stop_misc()")
+assert flash.index("stop_misc()") < flash.index("storage_save_time(60)") < flash.index("write_storage_to_mtd();")
+stop_misc_failure = flash.split("if (stop_misc() != 0)", 1)[1].split("storage_save_time(60)", 1)[0]
+assert "start_watchdog();" in stop_misc_failure
+assert "if (eval(\"/tmp/mtd_write\"" in flash and "start_watchdog();" in flash
 syslog_restart = rc_source.split("RCN_RESTART_SYSLOG) == 0)", 1)[1].split("RCN_RESTART_WDG)", 1)[0]
 time_restart = rc_source.split("RCN_RESTART_TIME) == 0)", 1)[1].split("RCN_RESTART_SYSCTL)", 1)[0]
 assert "return kill_services(svcs, 3, 1);" in logger_stop
