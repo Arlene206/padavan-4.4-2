@@ -174,7 +174,7 @@ jobs:
               assert "return 0;" in start_body
               assert "return " + launcher + ";" in start_body
               assert "return start_" + name + "();" in restart_body
-              assert "start_" + name + "();" not in restart_body
+              assert "start_" + name + "();" not in restart_body.replace("return start_" + name + "();", "")
               assert "int start_" + name + "(void);" in rc_header
           for daemon, process in (
               ("scutclient", "bin_scutclient"),
