@@ -1,3 +1,11 @@
+## 2026-11-15 — Propagate WISP cleanup failure and repair WAN callback contract
+
+- Exact parent 3f6 WAN route Action #43755792869 PASS; the WAN callback Action #43755792972 failed only in its Python source-contract step after all compiled policy executables passed. The failure was `NameError: wanx is not defined`; the subsequent static MAN assertion also still looked for the obsolete void `man_up()` call.
+- `config_apcli_wisp()` now returns 0 for no-op/success and the final down status on unrecoverable old-MAN cleanup. `start_wan()` checks the status, removes callback links and aborts before IPTV DHCP/ZeroConf clients or later WAN startup.
+- The workflow now binds the `launch_wanx()` body before route-specific assertions, expects required gateway status propagation, checks WISP abort ordering and ensures WISP cleanup runs before IPTV client startup.
+- Parent main: `3f6ca487db9729987cdc6b3a49a2facf479bae7e`. Parent WAN callback #43755792972 FAIL as detailed above; WAN route #43755792869, AI docs #43755792956, Process inventory #43755793007, infosvr #43755792908, AdGuardHome #43755793061, AliyunDrive #43755792904 and AliDDNS #43755792868 PASS. Prior 41ea module Actions were PASS; NVRAM #43755793079 remained in progress.
+- No local target compile was run. Exact new-head WAN and XY-C1 Build/TRX/artifact validation is required; frozen backup and archive unchanged; no L4 claim.
+---
 ## 2026-11-15 — Correct MAN helper API expectations in route workflows
 
 - Exact 41ea WAN callback #43755418926 failed at a stale source assertion expecting `route_setup_status = man_up_internal(wan_ifname, unit, 0)`; DHCP callback now intentionally passes `NULL` for the optional required-gateway out parameter. All six prior GNU89/host policy steps PASS.

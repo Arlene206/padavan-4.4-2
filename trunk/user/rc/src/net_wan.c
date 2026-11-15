@@ -1126,7 +1126,7 @@ config_vinet_wan(void)
 	return 0;
 }
 
-static void
+static int
 config_apcli_wisp(void)
 {
 	int unit = 0;
@@ -1134,7 +1134,7 @@ config_apcli_wisp(void)
 	char *wisp_ifname = get_apcli_wisp_ifname();
 
 	if (!wisp_ifname)
-		return;
+		return 0;
 
 	man_ifname = get_man_ifname(unit);
 	if (strlen(man_ifname) > 0 && !is_man_wisp(man_ifname)) {
@@ -1153,7 +1153,7 @@ config_apcli_wisp(void)
 			if (down_status != 0) {
 				logmessage(LOGNAME, "unable to keep previous WAN interface %s down; refusing WISP migration (status=%d)",
 					   man_ifname, down_status);
-				return;
+				return down_status;
 			}
 		}
 #else
@@ -1162,7 +1162,7 @@ config_apcli_wisp(void)
 			if (down_status != 0) {
 				logmessage(LOGNAME, "unable to clear or shut down previous WAN interface %s; refusing WISP migration (status=%d)",
 					   man_ifname, down_status);
-				return;
+				return down_status;
 			}
 		}
 #endif
@@ -1173,6 +1173,7 @@ config_apcli_wisp(void)
 		control_if_ipv6(wisp_ifname, 1);
 #endif
 	set_wan_unit_value(0, "ifname", wisp_ifname);
+	return 0;
 }
 
 static int
@@ -1620,11 +1621,22 @@ start_wan(void)
 		return;
 	}
 
+	/*
+	 * Resolve the old physical WAN interface before starting an IPTV
+	 * DHCP/ZeroConf client. On migration failure, leave no client running
+	 * against an interface whose address/administrative state is unknown.
+	 */
+	vlan_result = config_apcli_wisp();
+	if (vlan_result != 0) {
+		logmessage(LOGNAME, "aborting WAN startup: AP-client WISP migration failed (status=%d)",
+			   vlan_result);
+		remove_cb_links();
+		return;
+	}
+
 	vlan_result = launch_viptv_wan();
 	if (vlan_result != 0)
 		logmessage(LOGNAME, "IPTV VLAN or service setup incomplete (error=%d)", vlan_result);
-
-	config_apcli_wisp();
 
 	reload_nat_modules();
 

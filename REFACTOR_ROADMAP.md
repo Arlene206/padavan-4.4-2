@@ -1,23 +1,21 @@
 ## Current source / CI checkpoint
 
-- Main at slice start: `41ea56088a7c8cb8bddd16b3d59ce168c0784c91`; frozen backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Current production source `41ea560` separates required MAN gateway host/default route errors from optional configured routes. Static MAN caller propagates only required failures to PPTP/L2TP; DHCP/ZeroConf retain aggregate return, PPPoE async/no-wait unchanged.
-- Exact 41ea WAN #43755418926 failed only on stale callback expected substring (`man_up_internal(...,0)` vs new `...,0,NULL`); six preceding host-policy tests PASS.
-- Exact 41ea WAN route #43755418941 failed only on stale helper signature extraction; compile/sanitizer, resolver, bridge and VLAN/bridge propagation steps PASS.
-- Exact 41ea Process lifecycle #43755418852, Process inventory #43755418919, infosvr #43755418948, USB identity #43755418970, detect_link #43755418966, WAN teardown #43755418845, WAN ARP #43755418839, VPN #43755418832, AliDDNS #43755418826, AliyunDrive #43755418815, HTTPD #43755418812, detect_internet #43755418808, miniupnpd #43755418910 and DNSMasq #43755418936 PASS; AI docs #43755418869 PASS. NVRAM #43755418947 was running.
-- Exact 41ea XY-C1 #43755418990 was at checkout/setup; Build/TRX/artifact pending. No current-source L3 or physical-router/L4 claim.
+- Main at slice start: `3f6ca487db9729987cdc6b3a49a2facf479bae7e`; frozen backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact 3f6 Actions: WAN callback #43755792972 FAIL (`wanx` undefined in source-contract Python, plus obsolete MAN call assertion); WAN route #43755792869 PASS; AI docs #43755792956 PASS; Process inventory #43755793007 PASS; infosvr #43755792908 PASS; AdGuardHome #43755793061 PASS; AliyunDrive #43755792904 PASS; AliDDNS #43755792868 PASS. Prior 41ea PASS module Actions: Process lifecycle #43755418852; Process inventory #43755418919; WAN teardown #43755418845; DNSMasq #43755418936; HTTPD #43755418812; VPN #43755418832; detect_internet #43755418808; detect_link #43755418966; USB modem #43755418970; infosvr #43755418948; WAN ARP #43755418839; miniupnpd #43755418910.
+- MAN required gateway host/default route status is separate from optional configured static/DHCP/DNS route results; PPPoE async/no-wait and aggregate DHCP callback error reporting remain unchanged.
+- This slice returns and propagates AP-client WISP migration cleanup failure to `start_wan()`, aborting before IPTV DHCP/ZeroConf startup.
+- Exact new-head WAN and XY-C1 checks pending; no L3/L4 claim.
 
 ### P1 — WAN startup status propagation
 
-- Direct IPoE static address errors fail closed before WAN route/UPnP publication; partial-address cleanup is attempted and IPv6 remains independent.
-- Initial WAN interface bring-up checks MTU/interface results; failed interface-up skips protocol launch.
-- AP-client WISP migration refuses to publish WISP if the old MAN interface cannot be cleared or safely brought down.
-- Required MAN gateway host/default routes have a separate status channel for static MAN PPTP/L2TP gating; optional static/DHCP/DNS routes remain aggregate diagnostics. Correct stale host workflow expectations and revalidate.
-- Preserve PPPoE async/no-wait.
+- Direct IPoE static-address errors fail closed before WAN route/UPnP publication; IPv6 remains independent.
+- Failed initial WAN interface-up skips protocol startup after best-effort shutdown.
+- Required MAN gateway host/default route failures gate static MAN non-PPPoE PPTP/L2TP; optional configured static/DHCP/DNS routes remain best-effort for PPP launch.
+- AP-client WISP cleanup now returns a status, and caller aborts before IPTV client launch if old MAN cleanup fails.
 
 ### P2 — IGMP proxy configuration publication
 
-- Same-directory staged publication checks write/flush/fsync/close/rename and preserves last-good configuration. Existing Process regression coverage remains intact.
+- Same-directory staged publication checks write/flush/fsync/close/rename and preserves last-good configuration.
 
 ## Whole-repository module status
 

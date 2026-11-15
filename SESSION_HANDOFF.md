@@ -9,39 +9,35 @@ For each logical task, create every source/test/workflow/doc blob, one complete 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Current main at start of test-contract correction: `41ea56088a7c8cb8bddd16b3d59ce168c0784c91`.
+- Main at start of this slice: `3f6ca487db9729987cdc6b3a49a2facf479bae7e`.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only.
-- Production source `41ea56088a7c8cb8bddd16b3d59ce168c0784c91` adds separate required MAN gateway host/default route status propagation. Optional configured static/DHCP/DNS route failures remain in the aggregate status; static MAN startup returns only gateway/default failures to PPTP/L2TP startup gating. PPPoE async/no-wait and DHCP/ZeroConf callback aggregate semantics are retained.
-- Exact 41ea WAN callback #43755418926 FAILED at a stale checker expression that searched for `route_setup_status = man_up_internal(wan_ifname, unit, 0)` after the callback was intentionally changed to pass `NULL` for the new optional status output. Its six preceding GNU89/host policy tests all PASS.
-- Exact 41ea WAN route status #43755418941 FAILED at a stale `body()` signature still requesting the old three-argument `add_man_gateway_routes()`; the C function now accepts the additional status pointer. Compile/sanitizer, resolver, bridge ownership and VLAN/bridge propagation steps all PASS before the source contract.
-- Exact 41ea AI handoff #43755418869, Process inventory #43755418919, Process lifecycle #43755418852, infosvr #43755418948, USB identity #43755418970, detect_link #43755418966, WAN teardown #43755418845, WAN ARP #43755418839, VPN #43755418832, AliDDNS #43755418826, AliyunDrive #43755418815, HTTPD #43755418812, detect_internet #43755418808, miniupnpd #43755418910 and DNSMasq #43755418936 all completed SUCCESS. NVRAM #43755418947 was still running at last poll.
-- Exact XY-C1 #43755418990 was in progress during checkout/setup; Build, TRX and artifact steps had not yet started.
-- Earlier product-source XY-C1 success on `524601f` does not validate later C source changes. No current-source L3 and no physical-router/L4 claim.
-- Frozen backup, `docs/dev-log/INDEX.md` and archived shards remain untouched.
+- Current WAN source includes direct IPoE static-address error gating, checked physical-interface bring-up and AP-client WISP address cleanup; latest route slice separates critical gateway host/default route status from optional configured static/DHCP/DNS routes and propagates required failures into static MAN PPTP/L2TP startup gating. DHCP/ZeroConf callbacks keep aggregate status; PPPoE async/no-wait is preserved.
+- Exact 3f6 Actions: WAN callback #43755792972 FAIL (C policy executables passed; Python source contract failed with `NameError: wanx is not defined`, and contains a stale static MAN call assertion); WAN route status #43755792869 PASS; AI docs #43755792956 PASS; Process inventory #43755793007 PASS; infosvr #43755792908 PASS; AdGuardHome #43755793061 PASS; AliyunDrive #43755792904 PASS; AliDDNS #43755792868 PASS. The 41ea module runs remained PASS: Process lifecycle #43755418852; Process inventory #43755418919; WAN teardown #43755418845; DNSMasq #43755418936; HTTPD #43755418812; VPN #43755418832; detect_internet #43755418808; detect_link #43755418966; USB modem #43755418970; infosvr #43755418948; WAN ARP #43755418839; AdGuardHome #43755418976; miniupnpd #43755418910; AliDDNS #43755418826; AliyunDrive #43755418815. NVRAM #43755793079 remained in ioctl audit at last check.
+- Static MAN route classification source is already in parent 41ea; 3f6 repaired the exact WAN route regression and its Action passed. The WAN callback checker still lacked a local `wanx` function binding before route-specific assertions, and still expected the old `man_up()` call.
+- The WISP cleanup helper still returned `void` while its caller ignored the unrecoverable failure. This slice makes the helper return a status and aborts caller startup before any IPTV DHCP/ZeroConf client is launched.
+- Backup and archive index/shards remain unchanged. No physical-router/L4 validation is claimed.
 
 ## Active task
 
-### Align route-status workflows with the extended MAN helper API
+### Complete WISP caller failure propagation and WAN callback source contract
 
-The MAN route implementation is in place. Two exact-head workflow failures are test-only stale references:
-- WAN callback workflow must expect `man_up_internal(..., 0, NULL)` for DHCP callbacks.
-- WAN route workflow must use the extended helper signatures and preserve checks of aggregate return behavior, while asserting only gateway-host/default route failures feed the new required status; DNS routes remain outside that status.
+`config_apcli_wisp()` now returns zero for no-op/success and returns the final interface-down status when the previous MAN interface cannot be made safe. `start_wan()` checks this status, removes callback links and aborts before launching IPTV DHCP/ZeroConf clients, NAT refresh or WAN protocol startup. WISP interface publication remains after the old interface cleanup gate.
 
-No production-source change is required by these two failures.
+The WAN callback workflow now verifies the WISP return/caller abort and correct order, defines the `wanx` function body before testing MAN required-route propagation, and checks the updated `man_up_internal(..., &gateway_route_status)` call.
+
+This source, regression workflow and checkpoint docs are one atomic commit.
 
 ## Verification boundary
 
-- Test-only correction parent: `41ea56088a7c8cb8bddd16b3d59ce168c0784c91`; update `.github/workflows/wan-dhcp-callback-stability.yml` and `.github/workflows/wan-route-status.yml`, plus current checkpoint docs.
-- Exact WAN #43755418926 failed at one stale callback substring; all preceding six host policy/compile tests passed.
-- Exact WAN route #43755418941 failed at stale function-signature extraction (line 131 of workflow Python); compile/sanitizer, resolver refresh, bridge ownership and VLAN/bridge status steps passed.
-- Other 41ea exact-head workflows listed above completed SUCCESS; NVRAM was running at last poll.
-- Exact 41ea XY-C1 #43755418990 was still at checkout/setup; no Build/TRX/artifact result.
-- Backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; no L3 for latest source, no L4 claim.
+- Parent main: `3f6ca487db9729987cdc6b3a49a2facf479bae7e`; frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact parent WAN callback #43755792972 FAIL only at the workflow Python source contract after all compiled policy tests passed; immediate cause: `wanx` local variable was never initialized before use at the required-MAN route assertions. The static MAN assertion also still looked for the old `man_up()` call and must be updated as part of this source contract.
+- Exact parent WAN route #43755792869 PASS; AI docs #43755792956 PASS; Process inventory #43755793007 PASS; infosvr #43755792908 PASS; AdGuardHome #43755793061 PASS; AliyunDrive #43755792904 PASS; AliDDNS #43755792868 PASS.
+- Exact parent source 41ea module Actions listed above completed PASS; NVRAM #43755793079 remained in progress.
+- No local target compile is claimed. Exact new-head WAN callback and XY-C1 Build/TRX/artifact Actions must be checked; no current-source L3 until they pass and no L4 claim.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head WAN callback and WAN route workflow results for the checker-only updates. If they fail, inspect full logs and identify the precise remaining stale contract.
-2. Confirm current-source XY-C1 Build, TRX verification and artifact upload; never reuse earlier SHA artifacts.
-3. Ensure the critical route status covers gateway host/default routes and excludes optional DNS/user routes as currently specified; confirm the non-PPPoE PPTP/L2TP startup gate remains the only new fatal path.
-4. Continue another independent stability/security audit outside WAN when CI is pending; do not wait idle.
-5. Preserve backup and archive shards/index plus mandatory checkpoint wording.
+1. Fetch live main and inspect exact-head WAN callback and XY-C1 Actions for this source slice; inspect full logs if a new assertion fails.
+2. Require WAN callback contract PASS and latest-source XY-C1 Build, TRX verification and artifact upload before L3 claim.
+3. After the caller failure path is validated, resume the broader user-space stability/security ledger; do not reopen the now-covered MAN route classification without new evidence.
+4. Preserve PPPoE async/no-wait, IPv6, backup immutability and archived log shards/index.

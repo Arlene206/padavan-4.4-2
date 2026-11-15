@@ -801,7 +801,7 @@ jobs:
           assert viptv_start.index(dhcp_launch) < dynamic_return
 
           wan_start = body(source, "void" + chr(10) + "start_wan(void)")
-          apcli_wisp = body(source, "static void" + chr(10) + "config_apcli_wisp(void)")
+          apcli_wisp = body(source, "static int" + chr(10) + "config_apcli_wisp(void)")
           gateway_helper = body(source, "static int" + chr(10) + "add_man_gateway_routes(char *man_ifname, int unit, int metric, int *gateway_route_status)")
           assert "*gateway_route_status = 0;" in gateway_helper
           gateway_host = gateway_helper[gateway_helper.index("/* if the gateway is out of the subnet */"):gateway_helper.index("/* default route via default gateway */")]
@@ -817,6 +817,7 @@ jobs:
           assert "man_up_internal(man_ifname, unit, is_static, NULL)" in man_wrapper
           assert "route_setup_status = man_up_internal(wan_ifname, unit, 0, NULL);" in source
           assert "route_setup_status = man_up_internal(man_ifname, unit, 0, NULL);" in source
+          wanx = body(source, "launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)")
           wanx_static = wanx[wanx.index("if (is_same_subnet2("):]
           assert "route_status = man_up_internal(man_ifname, unit, 1, &gateway_route_status);" in wanx_static
           assert "if (gateway_route_status != 0)" in wanx_static
@@ -831,7 +832,15 @@ jobs:
           assert 'down_status = ifconfig(man_ifname, 0, NULL, NULL);' in apcli_wisp
           assert "unable to keep previous WAN interface %s down; refusing WISP migration (status=%d)" in apcli_wisp
           assert "unable to clear or shut down previous WAN interface %s; refusing WISP migration (status=%d)" in apcli_wisp
+          assert "return down_status;" in apcli_wisp
+          assert "return 0;" in apcli_wisp
           assert apcli_wisp.index("if (address_status != 0)") < apcli_wisp.index("set_wan_unit_value(0, \"ifname\", wisp_ifname);")
+          apcli_call = "vlan_result = config_apcli_wisp();"
+          apcli_error = 'logmessage(LOGNAME, "aborting WAN startup: AP-client WISP migration failed (status=%d)",'
+          assert apcli_call in wan_start and apcli_error in wan_start
+          apcli_failure = wan_start[wan_start.index(apcli_call):wan_start.index("vlan_result = launch_viptv_wan();")]
+          assert "if (vlan_result != 0)" in apcli_failure and "remove_cb_links();" in apcli_failure and "return;" in apcli_failure
+          assert apcli_failure.index("if (vlan_result != 0)") < apcli_failure.index(apcli_error) < apcli_failure.index("remove_cb_links();") < apcli_failure.index("return;")
           physical_setup = wan_start[wan_start.index("/* Prepare the physical WAN interface without a shell command."):wan_start.index("/* perform ApCli reconnect */")]
           assert "mtu_status = set_interface_mtu(wan_ifname, 1500);" in physical_setup
           assert 'logmessage(LOGNAME, "WAN interface %s MTU setup incomplete (status=%d)",' in physical_setup
@@ -846,7 +855,7 @@ jobs:
           launch_error = 'logmessage(LOGNAME, "IPTV VLAN or service setup incomplete (error=%d)", vlan_result);'
           assert launch_call in wan_start
           assert launch_error in wan_start
-          assert wan_start.index(launch_call) < wan_start.index(launch_error) < wan_start.index("config_apcli_wisp();")
+          assert wan_start.index(apcli_call) < wan_start.index(launch_call) < wan_start.index(launch_error)
 
           # Physical WAN DHCP/ZeroConf client launch status must cross
           # launch_wanx() and reach each WAN protocol caller for diagnostics.
@@ -899,7 +908,7 @@ jobs:
           assert "launch_status = EINVAL;" in static_branch
           assert "launch_status = ifconfig(man_ifname, IFUP, man_addr, man_mask);" in static_branch
           assert "if (launch_status != 0)" in static_branch
-          assert static_branch.index("launch_status = ifconfig(") < static_branch.index("if (launch_status != 0)") < static_branch.index("man_up(man_ifname, unit, 1);")
+          assert static_branch.index("launch_status = ifconfig(") < static_branch.index("if (launch_status != 0)") < static_branch.index("route_status = man_up_internal(man_ifname, unit, 1, &gateway_route_status);")
           assert "if (wait_dhcpc && launch_status == 0)" in wanx
 
           ppp_branch = wan_start[wan_start.index("int i_pppoe, i_pppoe_man, i_demand, wanx_status;"):]
