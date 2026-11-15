@@ -6,8 +6,17 @@ static void
 test_valid_unicast_mac_text(void)
 {
 	assert(dnsmasq_static_mac_is_valid("001122334455"));
+	assert(dnsmasq_static_mac_is_valid("021122334455"));
 	assert(dnsmasq_static_mac_is_valid("aAbBcCdDeEfF"));
-	assert(dnsmasq_static_mac_is_valid("000000000000"));
+	assert(dnsmasq_static_mac_is_valid("fe1122334455"));
+}
+
+static void
+test_rejects_non_unicast_addresses(void)
+{
+	assert(!dnsmasq_static_mac_is_valid("000000000000"));
+	assert(!dnsmasq_static_mac_is_valid("011122334455"));
+	assert(!dnsmasq_static_mac_is_valid("ff1122334455"));
 }
 
 static void
@@ -36,6 +45,7 @@ int
 main(void)
 {
 	test_valid_unicast_mac_text();
+	test_rejects_non_unicast_addresses();
 	test_rejects_injection_characters();
 	test_rejects_wrong_lengths();
 	puts("DNSMasq static-host MAC validation policy: PASS");

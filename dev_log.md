@@ -1,3 +1,12 @@
+## 2026-11-15 11:12 UTC — Reject multicast and all-zero static DHCP MACs
+
+- Tightened dnsmasq_static_mac_is_valid(): 12 hex characters are necessary but insufficient. A DHCP hardware address must also be nonzero and unicast (I/G bit clear); multicast and 00:00:00:00:00:00 are now rejected.
+- Updated GNU89 regression: accepts ordinary and locally administered unicast MACs; rejects zero, multicast, wrong-length and injection-character forms. DNSMasq source contract now requires the new negative test case.
+- Baseline exact-head b39d7749: DNSMasq #43706419314, HTTPD #43706419305, AI docs #43706419277, Process inventory #43706419288 and NVRAM #43706419285 PASS. Earlier hostname-pair rollback test failed on bc91ec1 due to a stale test path; b39d7749 corrected the fixture and all these Actions passed.
+- Parent main b39d77496885c65b1725dfc904788ec41f69f8fb. Changed: dnsmasq_static_host_policy.h, tests/dnsmasq_static_host_policy.c, DNSMasq source contract, SESSION_HANDOFF.md, REFACTOR_ROADMAP.md and dev_log.md. No local compile/hardware result claimed.
+
+---
+
 ## 2026-11-15 11:02 UTC — Record IPv6 stop failures and repair DNSMasq build triggers
 
 - full_restart_ipv6() now captures and logs nonzero stop_dns_dhcpd() status before the existing fresh tri-state process inventory and locked start preflight.
