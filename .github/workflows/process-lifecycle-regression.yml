@@ -38,6 +38,7 @@ on:
       - "trunk/user/rc/src/tests/service_lifecycle_policy.c"
       - "trunk/user/rc/src/detect_internet.c"
       - "trunk/user/rc/src/detect_link.c"
+      - "trunk/user/rc/src/watchdog.c"
       - "trunk/user/rc/src/detect_wan.c"
       - "trunk/user/rc/src/detect_wan_udhcpc_policy.h"
       - "trunk/user/rc/src/tests/detect_wan_udhcpc_policy.c"

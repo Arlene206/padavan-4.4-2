@@ -408,3 +408,41 @@ for path in (
     assert '"{}"'.format(path) in process_workflow, "process workflow missing {}".format(path)
     assert '"{}"'.format(path) in xy_workflow, "XY-C1 workflow missing {}".format(path)
 print("detect_internet/detect_link/WAN gateway tri-state start-gate integration: PASS")
+
+watchdog_source = (root / "trunk/user/rc/src/watchdog.c").read_text()
+watchdog_httpd = watchdog_source.split("static void httpd_process_check(void)", 1)[1].split(
+    "/* Sometimes, dnsmasq crashed, try to re-run it */", 1
+)[0]
+watchdog_dnsmasq = watchdog_source.split("static void\ndnsmasq_process_check(void)", 1)[1].split(
+    "\n}\n", 1
+)[0]
+watchdog_start = watchdog_source.split("int\nstart_watchdog(void)", 1)[1].split(
+    "\n}\n", 1
+)[0]
+watchdog_notify = watchdog_source.split("void\nnotify_watchdog_time(void)", 1)[1].split(
+    "\n}\n", 1
+)[0]
+for body, service in ((watchdog_httpd, "httpd"), (watchdog_dnsmasq, "dnsmasq"),
+                      (watchdog_start, "watchdog")):
+    assert 'process_inventory_scan("{}", &snapshot)'.format(service) in body
+    assert "scan_error = snapshot.error;" in body
+    assert body.index("scan_error = snapshot.error;") < body.index("process_snapshot_release(&snapshot);")
+    assert body.index("process_snapshot_release(&snapshot);") < body.index("process_presence_start_action_for_state(presence)")
+    assert "pids(" not in body
+assert "is_dns_dhcpd_run()" not in watchdog_dnsmasq
+assert "PROCESS_PRESENCE_START_ABORT" in watchdog_httpd
+assert "PROCESS_PRESENCE_START_ABORT" in watchdog_dnsmasq
+assert "PROCESS_PRESENCE_START_NEW" in watchdog_dnsmasq
+assert "PROCESS_PRESENCE_START_NOTIFY" in watchdog_dnsmasq
+assert "PROCESS_PRESENCE_START_NOTIFY" in watchdog_start
+assert "PROCESS_PRESENCE_START_NEW" in watchdog_start
+assert "PROCESS_PRESENCE_START_ABORT" in watchdog_start
+assert "start_watchdog()" in watchdog_notify
+assert "pids(" not in watchdog_notify
+assert "process_pidfile_signal(WD_PID_FILE, \"watchdog\", SIGHUP)" in watchdog_notify
+assert "watchdog_source" not in processWf
+assert '"trunk/user/rc/src/watchdog.c"' in process_workflow
+assert '"trunk/user/rc/src/watchdog.c"' in xy_workflow
+assert '"trunk/user/rc/src/process_presence_start_policy.h"' in process_workflow
+assert '"trunk/user/rc/src/tests/process_presence_start_policy.c"' in process_workflow
+print("watchdog process inventory tri-state recovery/start integration: PASS")

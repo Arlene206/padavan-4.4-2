@@ -1,3 +1,12 @@
+## 2026-11-14 — Stop watchdog recovery from treating UNKNOWN as daemon absence
+
+- Replaced the watchdog's remaining lossy service-presence gates for HTTPD, DNSMasq and watchdog itself with complete process-inventory scans. HTTPD/DNSMasq recovery counters now remain unchanged on UNKNOWN; a watchdog start is authorized only by ABSENT, treated as already running on RUNNING, and rejected with the scan error on UNKNOWN.
+- `notify_watchdog_time()` now delegates failed-PID-file recovery to the tri-state `start_watchdog()` gate, so a missing/stale PID record cannot cause a duplicate watchdog when the process is still present or inventory is unavailable.
+- Extended the existing tri-state policy integration checker and added watchdog.c to the process-lifecycle regression's watched paths. The existing policy regression covers ABSENT/RUNNING/UNKNOWN/invalid inputs.
+- Changed paths: `watchdog.c`, `process-lifecycle-regression.yml`, `check_process_lifecycle_integration.py`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
 ## 2026-11-14 — Make auxiliary detector start gates fail closed on UNKNOWN
 
 - Removed three remaining lossy `pids()` start checks:

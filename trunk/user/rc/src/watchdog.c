@@ -34,7 +34,9 @@
 #include <linux/limits.h>
 
 #include "rc.h"
+#include <process_inventory.h>
 #include <process_pidfile.h>
+#include "process_presence_start_policy.h"
 #include "watchdog_signal_policy.h"
 #include "watchdog_ntp_policy.h"
 
@@ -475,7 +477,23 @@ update_svc_status_wifi5()
 /* Sometimes, httpd becomes inaccessible, try to re-run it */
 static void httpd_process_check(void)
 {
-	int httpd_is_run = pids("httpd");
+	struct process_snapshot snapshot;
+	enum process_presence presence;
+	enum process_presence_start_action action;
+	int scan_error;
+	int httpd_is_run;
+
+	presence = process_inventory_scan("httpd", &snapshot);
+	scan_error = snapshot.error;
+	process_snapshot_release(&snapshot);
+	action = process_presence_start_action_for_state(presence);
+	if (action == PROCESS_PRESENCE_START_ABORT) {
+		logmessage("watchdog",
+			   "skipping HTTPD recovery because process inventory is unknown (error=%d)",
+			   scan_error ? scan_error : EIO);
+		return;
+	}
+	httpd_is_run = (action == PROCESS_PRESENCE_START_NOTIFY);
 
 	if (!httpd_is_run)
 		httpd_missing++;
@@ -507,11 +525,26 @@ static void httpd_process_check(void)
 static void
 dnsmasq_process_check(void)
 {
-	if (!is_dns_dhcpd_run())
+	struct process_snapshot snapshot;
+	enum process_presence presence;
+	enum process_presence_start_action action;
+	int scan_error;
+
+	presence = process_inventory_scan("dnsmasq", &snapshot);
+	scan_error = snapshot.error;
+	process_snapshot_release(&snapshot);
+	action = process_presence_start_action_for_state(presence);
+	if (action == PROCESS_PRESENCE_START_ABORT) {
+		logmessage("watchdog",
+			   "skipping DNSMasq recovery because process inventory is unknown (error=%d)",
+			   scan_error ? scan_error : EIO);
+		return;
+	}
+	if (action == PROCESS_PRESENCE_START_NEW)
 		dnsmasq_missing++;
 	else
 		dnsmasq_missing = 0;
-	
+
 	if (dnsmasq_missing > 1) {
 		dnsmasq_missing = 0;
 		logmessage("watchdog", "dnsmasq is missing, start again!");
@@ -622,26 +655,45 @@ catch_sig_watchdog(int sig)
 int
 start_watchdog(void)
 {
-	if (pids("watchdog"))
-		return 0;
+	struct process_snapshot snapshot;
+	enum process_presence presence;
+	enum process_presence_start_action action;
+	int scan_error;
 
-	return eval("/sbin/watchdog");
+	presence = process_inventory_scan("watchdog", &snapshot);
+	scan_error = snapshot.error;
+	process_snapshot_release(&snapshot);
+	action = process_presence_start_action_for_state(presence);
+	if (action == PROCESS_PRESENCE_START_NOTIFY)
+		return 0;
+	if (action == PROCESS_PRESENCE_START_NEW)
+		return eval("/sbin/watchdog");
+
+	errno = scan_error ? scan_error : EIO;
+	logmessage("watchdog",
+		   "refusing watchdog start because process inventory is unknown (error=%d)",
+		   errno);
+	return -1;
 }
 
 void
 notify_watchdog_time(void)
 {
 	int saved_errno;
+	int start_status;
 
 	if (process_pidfile_signal(WD_PID_FILE, "watchdog", SIGHUP) == 0)
 		return;
 
-	saved_errno = errno;
-	/* Keep the legacy presence guard: UNKNOWN must never launch a duplicate. */
-	if (!pids("watchdog"))
-		(void)start_watchdog();
-	else if (saved_errno != ENOENT && saved_errno != ESRCH)
+	saved_errno = errno ? errno : EIO;
+	if (saved_errno == ENOENT || saved_errno == ESRCH) {
+		start_status = start_watchdog();
+		if (start_status != 0)
+			logmessage("watchdog", "cannot recover time-refresh notification by starting daemon (status=%d, errno=%d)",
+				   start_status, errno ? errno : EIO);
+	} else {
 		logmessage("watchdog", "cannot signal time refresh (errno=%d)", saved_errno);
+	}
 }
 
 void
