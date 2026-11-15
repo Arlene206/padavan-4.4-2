@@ -191,6 +191,11 @@ jobs:
           assert 'return eval("telnetd");' in run_telnetd
           start_telnetd = function_body(services, "start_telnetd(void)")
           assert 'return eval("telnetd");' in start_telnetd
+          telnet_stop = function_body(services, "stop_telnetd(void)")
+          assert 'optional_daemon_stop_status("telnetd", "telnetd"' in telnet_stop
+          telnet_start = function_body(services, "start_telnetd(void)")
+          assert 'optional_daemon_start_status("telnetd", "telnetd")' in telnet_start
+          assert 'return eval("telnetd");' in telnet_start
           telnet_event = function_body(handler, "else if (strcmp(entry->d_name, RCN_RESTART_TELNETD) == 0)")
           assert "if (stop_status == 0)" in telnet_event
           assert "rc_notify_merge_action_result(action_result, start_telnetd())" in telnet_event

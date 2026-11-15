@@ -27,6 +27,9 @@
 #include "rc.h"
 #include "process_inventory.h"
 #include "optional_daemon_policy.h"
+
+static int optional_daemon_start_status(const char *service_name, const char *process_name);
+static int optional_daemon_stop_status(const char *service_name, const char *process_name, int command_status);
 #include "sshd_daemon_policy.h"
 #include "networkmap_daemon_policy.h"
 #include "crond_daemon_policy.h"
@@ -377,7 +380,7 @@ int
 stop_telnetd(void)
 {
 	char* svcs[] = { "telnetd", NULL };
-	return kill_services(svcs, 3, 1);
+	return optional_daemon_stop_status("telnetd", "telnetd", kill_services(svcs, 3, 1));
 }
 
 int
@@ -397,9 +400,18 @@ run_telnetd(void)
 int
 start_telnetd(void)
 {
-	if (nvram_match("telnetd", "1"))
-		return eval("telnetd");
-	return 0;
+	int start_status;
+
+	if (!nvram_match("telnetd", "1"))
+		return 0;
+
+	start_status = optional_daemon_start_status("telnetd", "telnetd");
+	if (start_status > 0)
+		return 0;
+	if (start_status < 0)
+		return start_status;
+
+	return eval("telnetd");
 }
 
 #if defined(APP_SSHD)
