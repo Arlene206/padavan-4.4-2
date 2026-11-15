@@ -89,6 +89,10 @@ ftp_policy = read("trunk/user/rc/src/ftp_daemon_policy.h")
 ftp_test = read("trunk/user/rc/src/tests/ftp_daemon_policy.c")
 workflow = read(".github/workflows/storage-hotplug-stability.yml")
 xy_workflow = read(".github/workflows/xy-c1-firmware-validation.yml")
+mtd_storage = read("trunk/user/scripts/files/sbin/mtd_storage.sh")
+persistence_policy = read("trunk/user/rc/src/storage_persistence_policy.h")
+persistence_test = read("trunk/user/rc/src/tests/storage_persistence_policy.c")
+mtd_storage_test = read("trunk/user/scripts/tests/mtd_storage_save_retry.sh")
 
 checked = body(libdisk, "read_disk_data_checked(disk_info_t **disk_info_out)")
 require("if (!disk_info_out)" in checked, "checked inventory must validate its output")
@@ -459,5 +463,80 @@ for path in ("trunk/user/libdisk/src/disk_initial.c",
              "trunk/user/rc/src/storage_optware_start_policy.h",
              "trunk/user/rc/src/optional_daemon_policy.h"):
     require('"' + path + '"' in xy_workflow, "XY-C1 target build does not watch " + path)
+
+
+# A failed flash must not advance the MD5 checkpoint and suppress identical retries.
+mtd_save_start = mtd_storage.index("func_save()")
+mtd_save_end = mtd_storage.index("\\nfunc_backup()", mtd_save_start)
+mtd_save = mtd_storage[mtd_save_start:mtd_save_end]
+require('md5sum "$tmp" > "$hash_tmp"' in mtd_save and
+        'mv -f "$hash_tmp" "$hsh"' in mtd_save,
+        "MTD save must stage its content hash")
+require(mtd_save.index("if mtd_write write") <
+        mtd_save.index('mv -f "$hash_tmp" "$hsh"'),
+        "MTD hash checkpoint must be published only after flash success")
+require("MTD write succeeded but storage hash checkpoint failed" in mtd_save and
+        'rm -f "$tmp" "$tbz" "$hash_tmp"' in mtd_save,
+        "MTD save must surface checkpoint failures and clean scratch files")
+require("MTD_WRITE_FAIL=1" in mtd_storage_test and
+        "expected three MTD attempts" in mtd_storage_test and
+        "unchanged save unexpectedly flashed again" in mtd_storage_test,
+        "MTD retry test must cover write failure, identical retry and unchanged skip")
+
+writer = body(rc, "write_storage_to_mtd(void)")
+require('return doSystem("/sbin/mtd_storage.sh %s", "save");' in writer and
+        "int write_storage_to_mtd(void);" in rc_header,
+        "RC MTD writer must propagate the storage script status")
+time_save = body(rc, "storage_save_time(time_t delta)")
+for operation in ("mkstemp(temp_path)", 'fdopen(fd, "w")',
+                  "fchmod(fd, 0644)", "fflush(fp)", "fsync(fileno(fp))",
+                  "fclose(fp)", 'rename(temp_path, "/etc/storage/system_time")'):
+    require(operation in time_save, "timestamp save misses checked operation: " + operation)
+require(time_save.index("fflush(fp)") < time_save.index("fsync(fileno(fp))") <
+        time_save.index("if (fclose(fp) != 0)") <
+        time_save.index('rename(temp_path, "/etc/storage/system_time")'),
+        "timestamp temp file must be flushed, synced, closed and renamed in order")
+require("(void)unlink(temp_path);" in time_save and
+        "errno = saved_errno;" in time_save,
+        "timestamp save must clean temporary files and preserve errno")
+
+require("storage_persistence_mtd_may_run" in persistence_policy and
+        "storage_persistence_complete" in persistence_policy and
+        "storage_persistence_complete(-1, 0)" in persistence_test and
+        "storage_persistence_complete(0, -1)" in persistence_test,
+        "firmware persistence gate policy needs failure cases")
+flash = body(rc, "flash_firmware(void)")
+flash_time = flash.index("storage_time_status = storage_save_time(60)")
+flash_mtd = flash.index("storage_mtd_status = storage_persistence_mtd_may_run(storage_time_status)")
+flash_gate = flash.index("if (!storage_persistence_complete(storage_time_status, storage_mtd_status))")
+flash_image = flash.index('eval("/tmp/mtd_write", "-r", "write", FW_IMG_NAME, FW_MTD_NAME)')
+require(flash_time < flash_mtd < flash_gate < flash_image and
+        "watchdog_status = start_watchdog();" in flash[flash_gate:flash_image],
+        "firmware image write must require successful storage persistence and recover watchdog on abort")
+startup = body(rc, "init_router(void)")
+require("storage_save_status = write_storage_to_mtd();" in startup and
+        "if (storage_save_status != 0)" in startup and
+        startup.index("if (storage_save_status != 0)") < startup.index("restart_crond()"),
+        "startup must report snapshot failure and still restart crond")
+shutdown_writer = body(rc, "shutdown_router(int level)")
+shutdown_time = shutdown_writer.index("storage_time_status = storage_save_time(10)")
+shutdown_mtd = shutdown_writer.index("storage_mtd_status = storage_persistence_mtd_may_run(storage_time_status)")
+shutdown_gate = shutdown_writer.index("if (!storage_persistence_complete(storage_time_status, storage_mtd_status))")
+require(shutdown_time < shutdown_mtd < shutdown_gate and
+        "continuing power-down" in shutdown_writer[shutdown_gate:],
+        "shutdown must report persistence errors without aborting power-down")
+require("int storage_save_time(time_t delta);" in rc_header,
+        "RC header must expose timestamp status")
+
+for path in ("trunk/user/scripts/files/sbin/mtd_storage.sh",
+             "trunk/user/scripts/tests/mtd_storage_save_retry.sh",
+             "trunk/user/rc/src/storage_persistence_policy.h",
+             "trunk/user/rc/src/tests/storage_persistence_policy.c"):
+    require('"' + path + '"' in push_filters and '"' + path + '"' in pr_filters,
+            "storage-hotplug must trigger for persistence file " + path)
+for path in ("trunk/user/scripts/files/sbin/mtd_storage.sh",
+             "trunk/user/rc/src/storage_persistence_policy.h"):
+    require('"' + path + '"' in xy_workflow,
+            "XY-C1 must trigger for product persistence dependency " + path)
 
 print("Storage eject inventory, failure propagation and persistence gates: PASS")

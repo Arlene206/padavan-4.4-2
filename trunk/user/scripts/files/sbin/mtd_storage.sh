@@ -75,25 +75,43 @@ func_tarb()
 
 func_save()
 {
-	local fsz
+	local fsz hash_tmp
 
 	logger -t "Storage save" "Save storage files to MTD partition \"$mtd_part_dev\""
 	echo "Save storage files to MTD partition \"$mtd_part_dev\""
-	rm -f $tbz
-	md5sum -c -s $hsh 2>/dev/null
+	hash_tmp="${hsh}.tmp.$$"
+	rm -f "$tbz" "$hash_tmp"
+	md5sum -c -s "$hsh" 2>/dev/null
 	if [ $? -eq 0 ] ; then
 		echo "Storage hash is not changed, skip write to MTD partition. Exit."
-		rm -f $tmp
+		rm -f "$tmp"
 		return 0
 	fi
-	md5sum $tmp > $hsh
-	bzip2 -9 $tmp 2>/dev/null
+	if ! md5sum "$tmp" > "$hash_tmp"; then
+		result=1
+		echo "Error! Cannot stage storage hash"
+		logger -t "Storage save" "Cannot stage storage hash"
+		rm -f "$tmp" "$hash_tmp"
+		return 1
+	fi
+	if ! bzip2 -9 "$tmp" 2>/dev/null; then
+		result=1
+		echo "Error! Cannot compress storage archive"
+		logger -t "Storage save" "Cannot compress storage archive"
+		rm -f "$tmp" "$tbz" "$hash_tmp"
+		return 1
+	fi
 	fsz=`stat -c %s "$tbz" 2>/dev/null`
-	if [ -n "$fsz" ] && [ $fsz -ge 16 ] && [ $fsz -le $mtd_part_size ] ; then
-		mtd_write write $tbz $mtd_part_name
-		if [ $? -eq 0 ] ; then
-			echo "Done."
-			logger -t "Storage save" "Done."
+	if [ -n "$fsz" ] && [ "$fsz" -ge 16 ] && [ "$fsz" -le "$mtd_part_size" ] ; then
+		if mtd_write write "$tbz" "$mtd_part_name"; then
+			if mv -f "$hash_tmp" "$hsh"; then
+				echo "Done."
+				logger -t "Storage save" "Done."
+			else
+				result=1
+				echo "Error! MTD write succeeded but storage hash checkpoint failed"
+				logger -t "Storage save" "MTD write succeeded but storage hash checkpoint failed"
+			fi
 		else
 			result=1
 			echo "Error! MTD write FAILED"
@@ -104,8 +122,7 @@ func_save()
 		echo "Error! Invalid storage final data size: $fsz"
 		logger -t "Storage save" "Invalid storage final data size: $fsz"
 	fi
-	rm -f $tmp
-	rm -f $tbz
+	rm -f "$tmp" "$tbz" "$hash_tmp"
 }
 
 func_backup()

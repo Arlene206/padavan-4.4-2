@@ -45,6 +45,7 @@
 #include "rc.h"
 #include "firewall_startup_policy.h"
 #include "rc_nvram_policy.h"
+#include "storage_persistence_policy.h"
 #include "vpn_server_lifecycle_lock.h"
 #include "rc_notify_batch_policy.h"
 #include <rc_notify_queue.h>
@@ -484,10 +485,10 @@ nvram_convert_misc_values(void)
 	time_zone_x_mapping();
 }
 
-void
+int
 write_storage_to_mtd(void)
 {
-	doSystem("/sbin/mtd_storage.sh %s", "save");
+	return doSystem("/sbin/mtd_storage.sh %s", "save");
 }
 
 void
@@ -514,6 +515,7 @@ flash_firmware(void)
 	char* svcs[] = { "l2tpd", "xl2tpd", "pppd", NULL };
 	int lock_fd, stop_status, release_status, saved_errno;
 	int eapol_stop_status, kabinet_stop_status, auth_stop_status, pppoe_stop_status;
+	int storage_time_status, storage_mtd_status;
 
 	/* PPPD callback children share this lock; stop only after in-flight
 	 * VPN callbacks have completed, then stale children fail PID identity. */
@@ -592,8 +594,22 @@ flash_firmware(void)
 				   watchdog_status, watchdog_errno);
 		return;
 	}
-	storage_save_time(60);
-	write_storage_to_mtd();
+	storage_time_status = storage_save_time(60);
+	storage_mtd_status = storage_persistence_mtd_may_run(storage_time_status) ?
+		write_storage_to_mtd() : -1;
+	if (!storage_persistence_complete(storage_time_status, storage_mtd_status)) {
+		int storage_errno, watchdog_status, watchdog_errno;
+		storage_errno = errno ? errno : EIO;
+		logmessage(LOGNAME, "firmware update aborted: storage persistence failed (time status=%d, MTD status=%d)",
+			   storage_time_status, storage_mtd_status);
+		watchdog_status = start_watchdog();
+		watchdog_errno = errno ? errno : EIO;
+		if (watchdog_status != 0)
+			logmessage(LOGNAME, "firmware update abort could not restore watchdog (status=%d, errno=%d)",
+				   watchdog_status, watchdog_errno);
+		errno = storage_errno;
+		return;
+	}
 	sync();
 	sleep(1);
 	if (eval("/tmp/mtd_write", "-r", "write", FW_IMG_NAME, FW_MTD_NAME) != 0) {
@@ -633,26 +649,72 @@ storage_load_time(void)
 #endif
 }
 
-void
+int
 storage_save_time(time_t delta)
 {
 #if !defined (USE_RTC_HCTOSYS)
-	FILE *fp;
+	FILE *fp = NULL;
+	int fd = -1;
+	int saved_errno;
 	time_t now_time;
 	struct tm now_tm;
+	char temp_path[] = "/etc/storage/.system_time.XXXXXX";
 
 	if (nvram_match("stime_stored", "0"))
-		return;
+		return 0;
 
-	time(&now_time);
-	localtime_r(&now_time, &now_tm);
-	if (now_tm.tm_year > (SYS_START_YEAR - 1900)) {
-		fp = fopen("/etc/storage/system_time", "w");
-		if (fp) {
-			fprintf(fp, "%lu", (now_time + delta));
-			fclose(fp);
-		}
+	errno = 0;
+	if (time(&now_time) == (time_t)-1) {
+		if (!errno)
+			errno = EIO;
+		return -1;
 	}
+	errno = 0;
+	if (!localtime_r(&now_time, &now_tm)) {
+		if (!errno)
+			errno = EINVAL;
+		return -1;
+	}
+	if (now_tm.tm_year <= (SYS_START_YEAR - 1900))
+		return 0;
+	if ((delta > 0 && now_time > (time_t)(LONG_MAX - (long)delta)) ||
+	    (delta < 0 && now_time < (time_t)(LONG_MIN - (long)delta))) {
+		errno = EOVERFLOW;
+		return -1;
+	}
+	fd = mkstemp(temp_path);
+	if (fd < 0)
+		return -1;
+	if (fchmod(fd, 0644) != 0)
+		goto fail;
+	fp = fdopen(fd, "w");
+	if (!fp)
+		goto fail;
+	fd = -1;
+	if (fprintf(fp, "%lu", (unsigned long)(now_time + delta)) < 0 ||
+	    fflush(fp) != 0 || fsync(fileno(fp)) != 0)
+		goto fail;
+	if (fclose(fp) != 0) {
+		fp = NULL;
+		goto fail;
+	}
+	fp = NULL;
+	if (rename(temp_path, "/etc/storage/system_time") != 0)
+		goto fail;
+	return 0;
+
+fail:
+	saved_errno = errno ? errno : EIO;
+	if (fp)
+		(void)fclose(fp);
+	else if (fd >= 0)
+		(void)close(fd);
+	(void)unlink(temp_path);
+	errno = saved_errno;
+	return -1;
+#else
+	(void)delta;
+	return 0;
 #endif
 }
 
@@ -795,6 +857,7 @@ int
 init_router(void)
 {
 	int log_remote, is_ap_mode, nvram_need_commit;
+	int storage_save_status;
 
 #if defined (USE_RTL8367)
 	rtl8367_node();
@@ -927,7 +990,10 @@ init_router(void)
 	start_rwfs_optware();
 
 	if (init_crontab()) {
-		write_storage_to_mtd();
+		storage_save_status = write_storage_to_mtd();
+		if (storage_save_status != 0)
+			logmessage(LOGNAME, "initial crontab changed but MTD storage persistence failed (status=%d)",
+				   storage_save_status);
 		if (restart_crond() < 0)
 			logmessage(LOGNAME, "crond restart after initial crontab update failed");
 	}
@@ -958,6 +1024,7 @@ shutdown_router(int level)
 	int optware_stop_status = 0;
 	int rwfs_unmount_status = 0;
 	int shutdown_script_status = 0;
+	int storage_time_status, storage_mtd_status;
 	const char *script_name = SCRIPT_SHUTDOWN;
 
 	/* Prevent a late Optware start hook from racing service shutdown. */
@@ -1037,8 +1104,12 @@ shutdown_router(int level)
 	    wifi_wl_stop_status == 0 && wifi_rt_stop_status == 0 &&
 	    optware_stop_status == 0 && rwfs_unmount_status == 0 &&
 	    shutdown_script_status == 0) {
-		storage_save_time(10);
-		write_storage_to_mtd();
+		storage_time_status = storage_save_time(10);
+		storage_mtd_status = storage_persistence_mtd_may_run(storage_time_status) ?
+			write_storage_to_mtd() : -1;
+		if (!storage_persistence_complete(storage_time_status, storage_mtd_status))
+			logmessage(LOGNAME, "storage MTD persistence failed (time status=%d, MTD status=%d); continuing power-down",
+				   storage_time_status, storage_mtd_status);
 	} else {
 		logmessage(LOGNAME, "skipping storage MTD persistence because shutdown-hook, RWFS/Optware teardown, safe-eject or service-stop completion was not verified");
 	}

@@ -1,3 +1,20 @@
+## 2026-11-15 — Preserve retryability and propagate MTD storage save failures
+
+- mtd_storage.sh previously published the changed archive MD5 to storage_md5 before invoking mtd_write. A failed flash then caused the next identical save to skip retrying and leave the old MTD snapshot active. The hash is now staged and published only after a successful flash; staging, compression, flash and checkpoint errors return non-zero.
+- write_storage_to_mtd() propagates doSystem() status. Startup logs failed persistence and continues crond startup; shutdown reports failure but continues power-down; firmware update refuses to write the image unless timestamp and MTD persistence succeed and attempts watchdog recovery on abort.
+- storage_save_time() now validates time/localtime and overflow, stages a same-directory temp file, checks write/flush/fsync/close, and atomically renames it. Failures clean up without truncating the prior timestamp.
+- Added a shell regression for successful baseline → injected MTD failure → identical retry → unchanged skip, a GNU89 -Wall -Wextra -Werror persistence-policy test, and source/order contracts. Storage-hotplug and XY-C1 path filters include the source and tests.
+- Changed paths: rc.c, rc.h, mtd_storage.sh, MTD retry test, persistence policy/header test, storage-hotplug and XY-C1 workflows, checker, handoff, roadmap and dev_log. Parent SHA: 31ae7b6f253734cc0abf5f67b5c34e861229155b. Exact-head Actions/local test/build/hardware are not claimed.
+
+---
+
+## 2026-11-15 — Stop Transmission and Aria daemons by verified process identity
+
+- Transmission and Aria stop paths use process-inventory preflight, bounded kill_services(), and verified daemon absence. Public stop APIs hold the shared storage operation lock and re-check postconditions; RUNNING or UNKNOWN prevents eject success.
+- Source commit 2aedad115793e7a6de4f2114272c845559105783. The initial source commit was not separately recorded in the top-level chronological dev log before this catch-up entry.
+
+---
+
 ## 2026-11-15 14:18 CST — Fix storage safe-remove checker literal-brace failure
 
 - Exact-head USB storage run #43683399235 on `bda473715cf8bb2e1bbb8c704370639854f2a07c` passed the embedded storage caller-graph and lock-order contract, then failed when `scripts/check_storage_safe_remove.py` called `.format(daemon)` on a C array literal containing unescaped braces. Python raised `ValueError: unexpected '{' in field name` before completing the remaining source assertions.
