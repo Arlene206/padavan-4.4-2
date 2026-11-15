@@ -664,16 +664,17 @@ start_watchdog(void)
 	scan_error = snapshot.error;
 	process_snapshot_release(&snapshot);
 	action = process_presence_start_action_for_state(presence);
+	if (action == PROCESS_PRESENCE_START_ABORT) {
+		errno = scan_error ? scan_error : EIO;
+		logmessage("watchdog",
+			   "refusing watchdog start because process inventory is unknown (error=%d)",
+			   errno);
+		return -1;
+	}
 	if (action == PROCESS_PRESENCE_START_NOTIFY)
 		return 0;
-	if (action == PROCESS_PRESENCE_START_NEW)
-		return eval("/sbin/watchdog");
 
-	errno = scan_error ? scan_error : EIO;
-	logmessage("watchdog",
-		   "refusing watchdog start because process inventory is unknown (error=%d)",
-		   errno);
-	return -1;
+	return eval("/sbin/watchdog");
 }
 
 void

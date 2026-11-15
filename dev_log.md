@@ -1,3 +1,11 @@
+## 2026-11-15 — Spell watchdog process-inventory UNKNOWN as an explicit abort
+
+- Exact process-lifecycle run `43673038080` passed all unit binaries and earlier integration contracts, then failed because `start_watchdog()` used a generic fall-through error block rather than explicitly comparing `PROCESS_PRESENCE_START_ABORT`. Reworked the production branch so UNKNOWN is visibly rejected before either returning RUNNING or launching on ABSENT. The scan errno is preserved.
+- The process-lifecycle push filter already covers `watchdog.c`; no new event triggers were introduced.
+- Changed paths: `watchdog.c`, `dev_log.md`. Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Tighten explicit ABSENT handling and align watchdog checker
 
 - Exact process-lifecycle run `43672907289` reached the source checker and found another over-specific condition: the DNSMasq recovery path correctly treats the only remaining known state after the UNKNOWN early return as RUNNING, resetting `dnsmasq_missing` without spelling the derived NOTIFY action. The assertion now checks the actual reset behavior.
