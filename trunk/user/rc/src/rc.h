@@ -502,7 +502,7 @@ int start_telnetd(void);
 #if defined (APP_SSHD)
 int is_sshd_run(void);
 int stop_sshd(void);
-void start_sshd(void);
+int start_sshd(void);
 int restart_sshd(void);
 #endif
 int start_httpd(int restart_fw);

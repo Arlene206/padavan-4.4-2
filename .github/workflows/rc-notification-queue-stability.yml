@@ -7,6 +7,8 @@ on:
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/tests/sshd_daemon_policy.c"
+      - "trunk/user/rc/src/sshd_daemon_policy.h"
       - "trunk/user/rc/src/rc_notify_batch_policy.h"
       - "trunk/user/rc/src/tests/rc_notify_batch_policy.c"
       - "trunk/user/rc/src/init.c"
@@ -14,10 +16,7 @@ on:
       - "trunk/user/shared/src/notify_rc.c"
       - "trunk/user/shared/src/rc_notify_queue.h"
       - "trunk/user/shared/src/tests/rc_notify_queue.c"
-  pull_request:
-    paths:
-      - ".github/workflows/rc-notification-queue-stability.yml"
-      - "trunk/user/rc/src/rc.c"
+k/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/rc_notify_batch_policy.h"
@@ -53,6 +52,14 @@ jobs:
             trunk/user/shared/src/tests/rc_notify_queue.c \
             -o /tmp/rc-notify-queue
           /tmp/rc-notify-queue
+      - name: Compile and run GNU89 SSH daemon restart policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/rc/src -I trunk/user/shared/src \
+            trunk/user/rc/src/tests/sshd_daemon_policy.c \
+            -o /tmp/sshd-daemon-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/sshd-daemon-policy
       - name: Verify PID 1 batch fairness, signal wakeup and workflow paths
         run: |
           python3 - <<'PY'
@@ -61,6 +68,8 @@ jobs:
           rc = Path("trunk/user/rc/src/rc.c").read_text()
           services = Path("trunk/user/rc/src/services.c").read_text()
           rc_header = Path("trunk/user/rc/src/rc.h").read_text()
+          sshd_policy = Path("trunk/user/rc/src/sshd_daemon_policy.h").read_text()
+          sshd_test = Path("trunk/user/rc/src/tests/sshd_daemon_policy.c").read_text()
           policy = Path("trunk/user/rc/src/rc_notify_batch_policy.h").read_text()
           test = Path("trunk/user/rc/src/tests/rc_notify_batch_policy.c").read_text()
           init = Path("trunk/user/rc/src/init.c").read_text()
@@ -95,6 +104,20 @@ jobs:
           assert "operation_status != 0" in policy
           assert "rc_notify_merge_action_result(0, EBUSY) == -1" in test
           assert "rc_notify_merge_action_result(action_result, restart_dhcpd())" in handler
+          sshd_presence = function_body(services, "sshd_process_presence(int *scan_error)")
+          assert 'process_inventory_scan(process_name, &snapshot)' in sshd_presence
+          assert "process_snapshot_release(&snapshot);" in sshd_presence
+          assert "PROCESS_PRESENCE_RUNNING" in function_body(services, "is_sshd_run(void)")
+          sshd_start = function_body(services, "start_sshd(void)")
+          assert 'return eval("/usr/bin/sshd.sh", "start", "-s");' in sshd_start
+          assert 'return eval("/usr/bin/sshd.sh", "start");' in sshd_start
+          sshd_restart = function_body(services, "restart_sshd(void)")
+          assert "sshd_restart_can_start(stop_status, stopped_state)" in sshd_restart
+          assert "PROCESS_PRESENCE_UNKNOWN" in sshd_restart
+          assert "sshd_firewall_refresh_required(before_state, after_state)" in sshd_restart
+          assert "return start_status;" in sshd_restart
+          assert "PROCESS_PRESENCE_UNKNOWN" in sshd_policy
+          assert "test_unknown" not in sshd_test or "PROCESS_PRESENCE_UNKNOWN" in sshd_test
           for name in ("restart_sshd", "restart_rstats", "restart_lltd"):
               restart_body = function_body(services, "int " + name + "(void)") if name == "restart_sshd" else function_body(services, "int\n" + name + "(void)")
               assert "return stop_status;" in restart_body if name == "restart_sshd" else "stop_status" in restart_body
@@ -155,6 +178,8 @@ jobs:
               "trunk/user/rc/src/rc.c",
               "trunk/user/rc/src/rc.h",
               "trunk/user/rc/src/services.c",
+              "trunk/user/rc/src/sshd_daemon_policy.h",
+              "trunk/user/rc/src/tests/sshd_daemon_policy.c",
               "trunk/user/rc/src/rc_notify_batch_policy.h",
               "trunk/user/rc/src/tests/rc_notify_batch_policy.c",
               "trunk/user/rc/src/init.c",

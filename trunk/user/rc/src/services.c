@@ -26,6 +26,7 @@
 
 #include "rc.h"
 #include "process_inventory.h"
+#include "sshd_daemon_policy.h"
 #include "networkmap_daemon_policy.h"
 #include "crond_daemon_policy.h"
 #include "infosvr_daemon_policy.h"
@@ -341,18 +342,34 @@ start_telnetd(void)
 }
 
 #if defined(APP_SSHD)
-int is_sshd_run(void){
+static enum process_presence
+sshd_process_presence(int *scan_error)
+{
+	struct process_snapshot snapshot;
+	enum process_presence presence;
+	const char *process_name = NULL;
+
 	if (check_if_file_exist("/usr/bin/dropbearmulti"))
-	{
-		if (pids("dropbear"))
-			return 1;
-	}
+		process_name = "dropbear";
 	else if (check_if_file_exist("/usr/sbin/sshd"))
-	{
-		if (pids("sshd"))
-			return 1;
+		process_name = "sshd";
+
+	if (!process_name) {
+		if (scan_error)
+			*scan_error = 0;
+		return PROCESS_PRESENCE_ABSENT;
 	}
-	return 0;
+
+	presence = process_inventory_scan(process_name, &snapshot);
+	if (scan_error)
+		*scan_error = snapshot.error;
+	process_snapshot_release(&snapshot);
+	return presence;
+}
+
+int is_sshd_run(void)
+{
+	return sshd_process_presence(NULL) == PROCESS_PRESENCE_RUNNING;
 }
 
 int stop_sshd(void)
@@ -360,31 +377,59 @@ int stop_sshd(void)
 	return eval("/usr/bin/sshd.sh", "stop");
 }
 
-void start_sshd(void){
+int start_sshd(void)
+{
 	int sshd_mode = nvram_get_int("sshd_enable");
 
 	if (sshd_mode == 2)
-		eval("/usr/bin/sshd.sh", "start", "-s");
+		return eval("/usr/bin/sshd.sh", "start", "-s");
 	else if (sshd_mode == 1)
-		eval("/usr/bin/sshd.sh", "start");
+		return eval("/usr/bin/sshd.sh", "start");
+	return 0;
 }
 
-int restart_sshd(void){
-	int is_run_before = is_sshd_run();
-	int is_run_after;
-	int stop_status = stop_sshd();
+int restart_sshd(void)
+{
+	enum process_presence before_state;
+	enum process_presence stopped_state;
+	enum process_presence after_state;
+	int scan_error;
+	int stop_status;
+	int start_status;
 
+	before_state = sshd_process_presence(NULL);
+	stop_status = stop_sshd();
 	if (stop_status != 0) {
 		logmessage(LOGNAME, "SSH restart aborted because the previous daemon did not stop (status=%d)",
 			   stop_status);
 		return stop_status;
 	}
-	start_sshd();
 
-	is_run_after = is_sshd_run();
+	stopped_state = sshd_process_presence(&scan_error);
+	if (!sshd_restart_can_start(stop_status, stopped_state)) {
+		if (stopped_state == PROCESS_PRESENCE_UNKNOWN)
+			errno = scan_error > 0 ? scan_error : EIO;
+		else
+			errno = EBUSY;
+		logmessage(LOGNAME, "SSH restart aborted: previous daemon absence is unconfirmed (state=%d, scan_error=%d)",
+			   stopped_state, scan_error);
+		return -1;
+	}
 
-	if ((is_run_after != is_run_before) && nvram_match("sshd_wopen", "1") && nvram_match("fw_enable_x", "1"))
+	start_status = start_sshd();
+	after_state = sshd_process_presence(&scan_error);
+
+	if (sshd_firewall_refresh_required(before_state, after_state) &&
+	    nvram_match("sshd_wopen", "1") && nvram_match("fw_enable_x", "1"))
 		restart_firewall();
+
+	if (start_status != 0)
+		return start_status;
+	if (after_state == PROCESS_PRESENCE_UNKNOWN) {
+		errno = scan_error > 0 ? scan_error : EIO;
+		logmessage(LOGNAME, "SSH startup state is unknown (scan_error=%d)", scan_error);
+		return -1;
+	}
 	return 0;
 }
 #endif
