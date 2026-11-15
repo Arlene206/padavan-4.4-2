@@ -1,3 +1,12 @@
+## 2026-11-15 — Align lifecycle regression contracts with checked WAN/802.1X paths
+
+- Exact-head run on `9f5556216f279b9ee7ea98f91be8d538e1cb666f` exposed three source-checker failures after the auth propagation slice: the process checker referenced `wan_stop` before its later declaration; WAN route status still expected five result accumulations after kabinet authentication became a sixth checked operation; and the HTTPD security workflow searched for bare `stop_8021x_*.();` calls although production restart code now uses guarded `stop_8021x_*( ) != 0` expressions.
+- Moved the existing WAN teardown body extraction above its new assertions, updated the route-status count and explicit kabinet assertion, and changed wireless-order checker tokens to match the guarded function calls while preserving both-radio ordering.
+- Exact 9f Actions: process lifecycle failed on the checker NameError; WAN route status failed on the stale aggregate count; HTTPD security failed because the stop-position list became empty. Process inventory, WAN interface teardown, WAN DHCP callback, WAN ARP and multiple other source-head checks passed. XY-C1 remained in progress at inspection.
+- Changed paths: `check_process_lifecycle_integration.py`, `wan-route-status.yml`, `httpd-security.yml`, `dev_log.md`. Result: THIS COMMIT. Exact-head process, WAN route, HTTPD security and XY-C1 reruns required.
+
+---
+
 ## 2026-11-15 — Propagate WAN authentication lifecycle results to interface transitions
 
 - Follow-up inspection of every RC callsite found that `net_wan.c` still discarded the newly exposed `start_auth_eapol()`, `start_auth_kabinet()`, `stop_auth_eapol()` and `stop_auth_kabinet()` results. In particular, IPoE DHCP continued to launch `udhcpc` after EAPOL startup had failed, while WAN teardown cleared passthrough/interface state without proving auth daemons had stopped.
