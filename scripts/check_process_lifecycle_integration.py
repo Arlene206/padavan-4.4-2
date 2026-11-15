@@ -33,6 +33,25 @@ assert "test_unknown_notification_inventory_sends_zero_signals" in lifecycle_tes
 net_source = (root / "trunk/user/rc/src/net.c").read_text()
 net_lan_notification = (root / "trunk/user/rc/src/net_lan.c").read_text()
 pppoe_policy = (root / "trunk/user/rc/src/pppoe_relay_policy.h").read_text()
+
+file_write_status_test = (root / "trunk/user/rc/src/tests/file_write_status.c").read_text()
+file_write_status_header = (root / "trunk/user/shared/src/file_write_status.h").read_text()
+process_workflow = (root / ".github/workflows/process-lifecycle-regression.yml").read_text()
+fput_string_body = common_ex.split("fput_string(const char *name, const char *value)", 1)[1].split(
+    "\nint\nfput_int", 1
+)[0]
+assert "#include <file_write_status.h>" in common_ex
+assert "return fput_string_stream(fp, value);" in fput_string_body
+assert "fputs(value, fp)" not in fput_string_body
+assert "fclose(fp)" not in fput_string_body
+assert "fclose(stream) != 0" in file_write_status_header
+assert "fputs(value, stream) == EOF" in file_write_status_header
+assert "test_dev_full_reports_buffered_close_failure" in file_write_status_test
+assert '"trunk/user/shared/src/file_write_status.h"' in process_workflow
+assert '"trunk/user/rc/src/tests/file_write_status.c"' in process_workflow
+assert "Compile and run RC file write/close status regression" in process_workflow
+print("RC fput_string buffered-write and close-status integration: PASS")
+
 pppoe_test = (root / "trunk/user/rc/src/tests/pppoe_relay_policy.c").read_text()
 
 assert "process_inventory.o" in shared_makefile

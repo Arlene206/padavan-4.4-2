@@ -43,6 +43,7 @@
 #include "rc.h"
 #include "service_lifecycle_policy.h"
 #include <process_pidfile.h>
+#include <file_write_status.h>
 
 #define XSTR(s) STR(s)
 #define STR(s) #s
@@ -471,13 +472,10 @@ fput_string(const char *name, const char *value)
 	FILE *fp;
 
 	fp = fopen(name, "w");
-	if (fp) {
-		fputs(value, fp);
-		fclose(fp);
-		return 0;
-	} else {
-		return errno;
-	}
+	if (!fp)
+		return errno ? errno : EIO;
+
+	return fput_string_stream(fp, value);
 }
 
 int
