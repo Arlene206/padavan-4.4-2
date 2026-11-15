@@ -1,3 +1,13 @@
+## 2026-11-15 — Repair nested shell command syntax in AliDDNS PID allocator
+
+- Parent main SHA: `1091e2737d7886c60f529e3a9c6d3626a01e9717`.
+- The exact 59853 AliDDNS job [43655773437] showed the previous commit's `sh -c` argument still had an unterminated double quote. The shell parser consumed later text, so static `sh -n` alone did not establish that the runtime helper command was correct.
+- Corrected the exact command to `lookup_owner_pid=$(sh -c 'printf "%s\\n" "$$"') || exit 1`, with both the helper argument and PID expansion properly quoted. Corrected the test's mkdir wrapper to record `$$` rather than a literal dollar sign. The concurrency regression still requires two distinct successful directories and separate resolver answers.
+- The previous DNSMasq lifecycle regression [43655773415], process inventory [43655773421], process lifecycle [43655773597], infosvr [43655773430], AdGuardHome [43655773400], miniupnpd [43655773467], Samba [43655773461] and AliyunDrive [43655773636] all passed on exact SHA `59853da`. HTTPD auth/security [43655773458] failed separately; it remains to be triaged. XY-C1 [43655773404] and NVRAM [43655773564] were pending.
+- Result: THIS COMMIT.
+
+---
+
 ## 2026-11-15 — Correct the AliDDNS helper-shell quoting
 
 - Parent main SHA: `59853da9688974ee733d851785cd530d09c4c2db`.
