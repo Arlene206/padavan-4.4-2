@@ -8,7 +8,7 @@ For each multi-file logical slice, publish source, tests/contracts and necessary
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; current parent before the optional-launch source-contract follow-up: `776b47eea3728e44944e04aeef67e4e0fe750f9a`. AdGuardHome, DDNS.to, Adbyby and AliDDNS now capture and log nonzero `eval()` status; the checker also validates their retained feature guards.
+- Repository `Arlene206/padavan-4.4-2`; current main is `925e6530bd27d1c7eea23984fbc867f3009648eb`. The optional RC wrappers for AdGuardHome, DDNS.to, Adbyby and AliDDNS capture/log eval failures; Dropbear/SSH and NFS pidof changes remain in the source baseline.
 - Boot diagnostics cover networkmap, watchdog, infosvr, GPIO, LLTD, rstats, telnetd and ttyd. SCUT, vlmcsd, iperf3 and mentohust wrappers now preserve their daemon launch/stop statuses.
 - LPD printer-removal PID identity hardening landed in `72ce1bb97323d4c417e8a5d891bbaf9c6ed3f2f3`; source-contract formatting correction is `022bc51507ca5f395c60a1f450cc461bf5403926`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. No local checkout/MIPS toolchain or physical-router L4 result is claimed.
@@ -20,7 +20,7 @@ For each multi-file logical slice, publish source, tests/contracts and necessary
 - Networkmap `start_networkmap(1)`, watchdog `start_watchdog()`, infosvr `start_infosvr()`, and now `start_lltd()` / `start_rstats()` log enabled launcher failures at the call site and return the original status.
 - `start_gpio_btn()` already logs UNKNOWN inventory, launcher failure, UNKNOWN postcondition and immediate exit. Crond has bounded post-launch verification and failure logs.
 - LLTD and rstats still return 1 when their NVRAM enable setting is off; only enabled `eval()` failures are logged. The process-lifecycle checker asserts those sentinels, result capture, diagnostic and status propagation. Both the process-lifecycle and XY-C1 workflows filter `services.c`.
-- DNS Forwarder already checks launcher status, logs failures and verifies process appearance. The iperf3 package includes bounded startup/stop checks; SCUT/vlmcsd/MentoHUST wrappers preserve daemon status. NFS `func_stop()` now rejects missing `pidof` before state mutation, but the shell regression still lacks direct cases for surviving daemons, failed export withdrawal, failed unmount, and complete successful teardown; this slice adds those four cases without changing production code.
+- DNS Forwarder already checks launcher status, logs failures and verifies process appearance. The iperf3 package includes bounded startup/stop checks; SCUT/vlmcsd/MentoHUST wrappers preserve daemon status. NFS `func_stop()` rejects missing `pidof` before state mutation. The stop regression cases are present, but the first exact run exposed a fixture-only escaping bug: three printf formats wrote literal backslash-n characters instead of line breaks, causing the seeded etab content assertion to fail before later cases ran. No production stop defect has been demonstrated.
 
 ### P1 common_ex PID-file SIGKILL audit — LEGACY PID-ONLY HELPER REMOVED
 
@@ -29,6 +29,8 @@ For each multi-file logical slice, publish source, tests/contracts and necessary
 - This does not close Linux 4.4's final identity-check-to-kill(2) race; no atomic pidfd-like primitive is available in this target baseline.
 
 ## Verification boundary
+- Exact SHA `56369810646910ccaf0f342b414dd09f83570843`: NFS daemon workflow #43737626899 FAIL at the first new stop fixture assertion (etab content); shell syntax passed. The cause is over-escaped printf formats in the fixture, not production NFS code. This commit corrects the format delimiters.
+- Exact parent `925e6530bd27d1c7eea23984fbc867f3009648eb`: AI docs #43737910530 PASS; process inventory/lifecycle fail-closed #43737910499 PASS; infosvr #43737910533 PASS; AdGuardHome #43737910558 PASS; AliDDNS #43737910522 PASS; AliyunDrive #43737910604 PASS; NVRAM #43737910496 was IN_PROGRESS at last poll. No NFS workflow was triggered on 925e; require a fresh NFS run after this test-only correction.
 
 - Exact parent SHA: `776b47eea3728e44944e04aeef67e4e0fe750f9a`.
 - Process lifecycle inventory - 776b47eea3728e44944e04aeef67e4e0fe750f9a #43737703771: completed/success.
@@ -40,10 +42,10 @@ For each multi-file logical slice, publish source, tests/contracts and necessary
 - No current-source L3 or physical-router L4 claim without exact-SHA build, TRX/artifact and hardware evidence.
 ## Exact first action for the next GPT
 
-1. Verify exact-head `nfsd-start-stability` after the stop regression additions: killall failure must retain live-daemon and mount state; exportfs/unmount failure must retain `etab`; full success must remove both daemon markers and both pseudo-mounts.
-2. Confirm the workflow's inline RC/storage-lock/export ACL contracts still pass; keep the c736 exact-head process lifecycle #43737106692 and AI docs #43737106611 as green baseline unless a newer SHA supersedes them.
-3. After NFS stop coverage is green, continue the actual `start_services_once()` and optional service-wrapper audit; preserve the frozen backup, archive shards and exact-SHA commit discipline.
-4. Continue the tracked `start_services_once()` and optional service-wrapper audit. Keep atomic main commits and the backup/archive invariants.
+1. Verify the exact-head nfsd-start-stability run after correcting the three printf newline escapes. Confirm all four new stop cases run: surviving daemons, export withdrawal failure, rpc_pipefs unmount failure and complete successful teardown.
+2. Verify the exact-head optional RC launch checker and XY-C1 source/build workflow for AdGuardHome, DDNS.to, Adbyby and AliDDNS wrapper changes; do not treat prior 776b/925e parent runs as current-source L3 evidence.
+3. After the NFS test gate is green, continue the actual start_services_once() and optional service-wrapper audit; preserve the frozen backup, archive shards and exact-SHA commit discipline.
+4. Keep main commits atomic with complete trees and expected-SHA non-forced updates; do not modify backup or archived dev-log shards.
 
 ## Invariants
 

@@ -1,9 +1,9 @@
 ## Current source / CI checkpoint
 
-- Current parent: `776b47eea3728e44944e04aeef67e4e0fe750f9a`. Four previously silent `void start_*()` wrappers (AdGuardHome, DDNS.to, Adbyby, AliDDNS) now retain the original `eval()` status and emit a named diagnostic on failure.
-- Exact-parent workflow status: Process lifecycle inventory - 776b47eea3728e44944e04aeef67e4e0fe750f9a #43737703771 completed/success; Process inventory and lifecycle fail-closed regression #43737703882 completed/success; XY-C1 Firmware Validation #43737703922 in_progress; AI handoff documentation contract #43737703755 completed/success; NVRAM transaction boundary audit #43737703842 completed/success. Fresh process-lifecycle and XY-C1 checks needed on the updated source.
-- Networkmap, watchdog, infosvr, LLTD, rstats, telnetd, ttyd, SCUT, vlmcsd, iperf3, mentohust, OpenSSH, Dropbear and NFS status work has prior coverage. This slice adds launch-failure logging to AdGuardHome, DDNS.to, Adbyby and AliDDNS C entry points.
-- No local target build or physical-router L4 result is claimed.
+- Current baseline is `925e6530bd27d1c7eea23984fbc867f3009648eb`. Four optional RC launch wrappers now capture and log nonzero eval status while preserving feature guards.
+- NFS stop postcondition regressions were added, but exact SHA `56369810646910ccaf0f342b414dd09f83570843` failed at the first fixture assertion because three shell printf formats were over-escaped and generated literal backslash-n characters. Shell syntax passed; no production NFS failure has been demonstrated. This follow-up corrects only the fixture delimiters.
+- Exact 925e AI docs #43737910530, process inventory/lifecycle fail-closed #43737910499, infosvr #43737910533, AdGuardHome #43737910558, AliDDNS #43737910522 and AliyunDrive #43737910604 PASS; NVRAM #43737910496 was IN_PROGRESS at last poll. No NFS workflow was triggered on 925e; the corrected test needs a fresh exact-head run.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only. Do not claim XY-C1 L3 or physical-router L4 without current-SHA build/TRX/artifact and hardware evidence.
 
 ## Whole-repository module status
 

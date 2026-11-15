@@ -429,9 +429,9 @@ prepare_running_nfs()
 {
 	: > "$STATE_DIR/nfsd"
 	: > "$STATE_DIR/rpc.mountd"
-	printf 'nfsd %s nfsd rw 0 0\\n' "$tmp_dir/proc/fs/nfsd" > "$MOUNTS_FILE"
-	printf 'rpc_pipefs %s rpc_pipefs rw 0 0\\n' "$tmp_dir/var/lib/nfs/rpc_pipefs" >> "$MOUNTS_FILE"
-	printf 'recovery-state\\n' > "$tmp_dir/var/lib/nfs/etab"
+	printf 'nfsd %s nfsd rw 0 0\n' "$tmp_dir/proc/fs/nfsd" > "$MOUNTS_FILE"
+	printf 'rpc_pipefs %s rpc_pipefs rw 0 0\n' "$tmp_dir/var/lib/nfs/rpc_pipefs" >> "$MOUNTS_FILE"
+	printf 'recovery-state\n' > "$tmp_dir/var/lib/nfs/etab"
 }
 
 reset_fixture

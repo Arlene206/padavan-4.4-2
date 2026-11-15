@@ -1,3 +1,12 @@
+## 2026-11-15 — Correct NFS stop regression fixture line delimiters
+
+- The new NFS stop scenarios reached the etab preservation assertion after injecting daemon signal failures, but the Action exposed a fixture-construction error: three printf formats contained two backslashes before n, so printf wrote literal backslash-n characters instead of line breaks.
+- Corrected the helper to use the same single-backslash newline escapes as the already-passing NFS fixtures. Production nfsd.sh remains unchanged.
+- Exact SHA 56369810646910ccaf0f342b414dd09f83570843: NFS workflow #43737626899 FAIL at the first new stop fixture assertion; shell syntax PASS. Exact parent 925e6530bd27d1c7eea23984fbc867f3009648eb: AI docs #43737910530, lifecycle inventory #43737910499, infosvr #43737910533, AdGuardHome #43737910558, AliDDNS #43737910522 and AliyunDrive #43737910604 PASS; NVRAM #43737910496 IN_PROGRESS at last poll.
+- Require a new exact-head NFS run before treating the stop failure/success postconditions as verified.
+
+---
+
 ## 2026-11-15 — Capture optional application launch failures
 
 - Four feature-gated RC wrappers for AdGuardHome, DDNS.to, Adbyby and AliDDNS discarded their `eval()` return values. The wrappers now capture the original status and log a service-specific error when nonzero; their existing NVRAM guards remain in force.
