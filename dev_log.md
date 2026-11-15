@@ -1,3 +1,11 @@
+## 2026-11-15 — Restore WAN route workflow heredoc indentation
+
+- The WAN route workflow had no job on the `d7889a818a36d0e2df4a15ef4f1c3b30b86efcb9` and `7fb6114a346fcf4a97ab478616a6f9134737de7b` pushes. The new kabinet-authentication assertion was inserted at column 1 inside a YAML block scalar, invalidating the workflow before GitHub could create a job; this was a workflow syntax failure, not a route-test result.
+- Restored the required ten-space heredoc indentation while retaining the sixth WAN status accumulation and explicit `start_auth_kabinet()` assertion. The next push should now instantiate the route regression job.
+- Changed paths: `.github/workflows/wan-route-status.yml`, `dev_log.md`. Result: THIS COMMIT. Exact-head WAN route regression required.
+
+---
+
 ## 2026-11-15 — Propagate PPPoE relay lifecycle errors through WAN transitions
 
 - `set_passthrough_pppoe()` performed an inventory-guarded start but returned `void`, so callers could not observe launch failure or an UNKNOWN process inventory; its stop branch also discarded `kill_services()` failure. `stop_wan_locked()` consequently continued WAN interface teardown even when `pppoe-relay` might still be running.

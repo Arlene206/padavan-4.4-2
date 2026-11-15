@@ -215,7 +215,7 @@ jobs:
           wan_up = body(wan, "wan_up_internal(char *wan_ifname, int unit, int is_static)")
           assert "static int" + chr(10) + "wan_up_internal(" in wan
           assert wan_up.count("route_status_accumulate(status, route_status)") == 6
-assert "route_status = start_auth_kabinet();" in wan_up
+          assert "route_status = start_auth_kabinet();" in wan_up
           assert wan_up.count("route_add(") == wan_up.count("route_status = route_add(") == 2
           assert "route_status = add_static_wan_routes(wan_ifname);" in wan_up
           assert "route_status = add_static_man_routes(wan_ifname);" in wan_up
