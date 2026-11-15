@@ -1,3 +1,13 @@
+## 2026-11-15 — Fix Dropbear SSH error propagation and telnetd/ttyd source assertions
+
+- Dropbear's alternate `sshd.sh` unconditionally exited 0 after start/stop/newkeys, masking host-key generation, daemon launch and killall errors; piping launch through `xargs` also translated daemon exit status.
+- The wrapper now checks storage/key/argument/migration operations, logs failed keygen/start/stop and returns their original statuses. Dropbear is invoked directly after controlled whitespace splitting with pathname expansion disabled; default firmware paths and command names remain unchanged.
+- Added shell syntax and ROMFS wiring assertions, mocked start status 53, stop status 54, keygen status 71, successful `-s` mode and invalid-action tests.
+- The exact be92 process-lifecycle run #43736528747 passed all C regressions and optional-app tests but failed the two telnetd/ttyd source contracts because the expected strings omitted spaces after commas. This commit corrects those checker expectations and adds Dropbear coverage.
+- Exact be92 AI docs #43736528725, infosvr #43736528664, AdGuardHome #43736528662, AliyunDrive #43736528653 and AliDDNS #43736528663 PASS; NVRAM #43736528727 was IN_PROGRESS. No exact-head result or XY-C1 firmware/TRX result is claimed yet.
+
+---
+
 ## 2026-11-15 — Preserve string-literal spaces in telnetd/ttyd source checks
 
 - Exact-head process-lifecycle #43736358298 on `ffaab4054d87afc23b410f1a560d0e6f561d7c43` passed every C regression and the optional-app shell suite, then failed at the new telnetd diagnostic source assertion. The checker used `"".join(split())`, which also removed spaces inside the C string literal, so the expected log text could never match.

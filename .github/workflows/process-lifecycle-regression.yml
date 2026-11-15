@@ -59,6 +59,8 @@ on:
       - "trunk/user/mentohust/scripts/mentohust.sh"
       - "trunk/user/ttyd/ttyd.sh"
       - "trunk/user/openssh/sshd.sh"
+      - "trunk/user/dropbear/sshd.sh"
+      - "trunk/user/dropbear/Makefile"
       - "trunk/user/iperf3/Makefile"
       - "trunk/user/iperf3/iperf3.sh"
       - "SESSION_HANDOFF.md"
@@ -155,7 +157,7 @@ jobs:
             trunk/user/rc/src/tests/file_write_status.c \
             -o "$RUNNER_TEMP/rc-file-write-status"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/rc-file-write-status"
-      - name: Check SCUT, vlmcsd, iperf3, mentohust, ttyd and SSH launch/lifecycle status propagation
+      - name: Check SCUT, vlmcsd, iperf3, mentohust, ttyd, OpenSSH and Dropbear lifecycle status propagation
         run: python3 scripts/check_optional_app_start_status.py
       - name: Verify shared-library and RC integration boundaries
         run: python3 scripts/check_process_lifecycle_integration.py

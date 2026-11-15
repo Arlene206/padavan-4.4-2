@@ -296,6 +296,7 @@ exit "${MOCK_STOP_STATUS:-0}"
 
 
 SSHD_SCRIPT = ROOT / "trunk/user/openssh/sshd.sh"
+DROPBEAR_SSHD_SCRIPT = ROOT / "trunk/user/dropbear/sshd.sh"
 
 
 def check_sshd():
@@ -353,6 +354,79 @@ exit "${MOCK_KILLALL_STATUS:-0}"
         )
 
 
+def check_dropbear():
+    syntax = run(["/bin/sh", "-n", str(DROPBEAR_SSHD_SCRIPT)], os.environ.copy())
+    assert syntax.returncode == 0, syntax.stderr
+    makefile = (ROOT / "trunk/user/dropbear/Makefile").read_text()
+    assert "$(INSTALL_BIN) ./sshd.sh $(ROMFSDIR)/usr/bin/sshd.sh" in makefile
+
+    with tempfile.TemporaryDirectory(prefix="dropbear-lifecycle-") as tmp:
+        base = Path(tmp)
+        bin_dir = mock_bin(base / "bin")
+        storage = base / "storage"
+        storage.mkdir()
+        for name in ("rsa_host_key", "dss_host_key", "ecdsa_host_key", "ed25519_host_key"):
+            (storage / name).write_text("fixture-key")
+        (storage / "extra_args").write_text("-p 2222")
+        legacy = base / "legacy"
+        legacy.mkdir()
+        daemon_log = base / "dropbear.log"
+        executable(bin_dir / "dropbear", """#!/bin/sh
+printf '%s\\n' "$*" >> "$MOCK_DROPBEAR_LOG"
+exit "$MOCK_DROPBEAR_STATUS"
+""")
+        executable(bin_dir / "dropbearkey", """#!/bin/sh
+exit "$MOCK_KEYGEN_STATUS"
+""")
+        executable(bin_dir / "killall", """#!/bin/sh
+exit "$MOCK_KILLALL_STATUS"
+""")
+        env = os.environ.copy()
+        env.update({
+            "PATH": str(bin_dir) + os.pathsep + env.get("PATH", ""),
+            "MOCK_LOG": str(base / "logger.log"),
+            "MOCK_DROPBEAR_LOG": str(daemon_log),
+            "MOCK_DROPBEAR_STATUS": "53",
+            "MOCK_KEYGEN_STATUS": "71",
+            "MOCK_KILLALL_STATUS": "54",
+            "DROPBEAR_STORAGE_DIR": str(storage),
+            "DROPBEAR_OLD_KEY_PREFIX": str(legacy / "dropbear_"),
+            "DROPBEAR_BIN": str(bin_dir / "dropbear"),
+            "DROPBEAR_KEYGEN_BIN": str(bin_dir / "dropbearkey"),
+        })
+
+        failed = run(["/bin/sh", str(DROPBEAR_SSHD_SCRIPT), "start"], env)
+        assert failed.returncode == 53, (
+            f"dropbear must preserve daemon status 53, got {failed.returncode}"
+        )
+        assert daemon_log.read_text().splitlines()[-1] == "-p 2222"
+        assert "daemon launch failed (status=53)" in (base / "logger.log").read_text()
+
+        env["MOCK_DROPBEAR_STATUS"] = "0"
+        started = run(["/bin/sh", str(DROPBEAR_SSHD_SCRIPT), "start", "-s"], env)
+        assert started.returncode == 0, started.stderr
+        assert daemon_log.read_text().splitlines()[-1] == "-s -p 2222"
+
+        stopped = run(["/bin/sh", str(DROPBEAR_SSHD_SCRIPT), "stop"], env)
+        assert stopped.returncode == 54, (
+            f"dropbear must propagate killall status 54, got {stopped.returncode}"
+        )
+        assert "daemon stop failed (status=54)" in (base / "logger.log").read_text()
+
+        keygen = run(["/bin/sh", str(DROPBEAR_SSHD_SCRIPT), "newkeys"], env)
+        assert keygen.returncode == 71, (
+            f"dropbear must propagate keygen status 71, got {keygen.returncode}"
+        )
+        assert "host-key generation failed for rsa (status=71)" in (
+            base / "logger.log"
+        ).read_text()
+
+        invalid = run(["/bin/sh", str(DROPBEAR_SSHD_SCRIPT), "invalid"], env)
+        assert invalid.returncode == 1, (
+            f"dropbear invalid action must return 1, got {invalid.returncode}"
+        )
+
+
 if __name__ == "__main__":
     check_scutclient()
     check_vlmcsd()
@@ -360,4 +434,5 @@ if __name__ == "__main__":
     check_mentohust()
     check_ttyd()
     check_sshd()
+    check_dropbear()
     print("optional app launch/lifecycle status regressions: PASS")

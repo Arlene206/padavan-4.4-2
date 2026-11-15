@@ -781,7 +781,7 @@ telnetd_start = services_source.split("int\nstart_telnetd(void)", 1)[1].split("\
 assert 'if (!nvram_match("telnetd", "1"))' in telnetd_start
 assert telnetd_start.index("return 0;") < telnetd_start.index('optional_daemon_start_status("telnetd", "telnetd")')
 telnetd_start_compact = " ".join(telnetd_start.split())
-assert 'logmessage(LOGNAME,"telnetd start aborted: process inventory unavailable (status=%d)",start_status);' in telnetd_start_compact
+assert 'logmessage(LOGNAME, "telnetd start aborted: process inventory unavailable (status=%d)", start_status);' in telnetd_start_compact
 assert 'start_status = eval("telnetd");' in telnetd_start
 assert 'logmessage(LOGNAME, "telnetd launcher failed (status=%d)", start_status);' in telnetd_start
 assert telnetd_start.index('start_status = eval("telnetd");') < telnetd_start.index("if (start_status != 0)") < telnetd_start.index("return start_status;")
@@ -790,7 +790,7 @@ ttyd_start = services_source.split("int\nstart_ttyd(void)", 1)[1].split("\n}\n",
 assert 'if (ttyd_mode != 1)' in ttyd_start
 assert ttyd_start.index("return 0;") < ttyd_start.index('optional_daemon_start_status("ttyd", "ttyd")')
 ttyd_start_compact = " ".join(ttyd_start.split())
-assert 'logmessage(LOGNAME,"ttyd start aborted: process inventory unavailable (status=%d)",start_status);' in ttyd_start_compact
+assert 'logmessage(LOGNAME, "ttyd start aborted: process inventory unavailable (status=%d)", start_status);' in ttyd_start_compact
 assert 'start_status = eval("/usr/bin/ttyd.sh", "start");' in ttyd_start
 assert 'logmessage(LOGNAME, "ttyd launcher failed (status=%d)", start_status);' in ttyd_start
 assert ttyd_start.index('start_status = eval("/usr/bin/ttyd.sh", "start");') < ttyd_start.index("if (start_status != 0)") < ttyd_start.index("return start_status;")

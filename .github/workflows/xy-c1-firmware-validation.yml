@@ -36,6 +36,8 @@ on:
       - "trunk/user/mentohust/scripts/mentohust.sh"
       - "trunk/user/ttyd/ttyd.sh"
       - "trunk/user/openssh/sshd.sh"
+      - "trunk/user/dropbear/sshd.sh"
+      - "trunk/user/dropbear/Makefile"
       - "trunk/user/iperf3/Makefile"
       - "trunk/user/iperf3/iperf3.sh"
       - "trunk/user/rc/src/optional_daemon_policy.h"
