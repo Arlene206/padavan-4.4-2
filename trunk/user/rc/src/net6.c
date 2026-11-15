@@ -147,10 +147,12 @@ void clear_all_route6(void)
 	system("ip -6 route flush scope all");
 }
 
-void full_restart_ipv6(int ipv6_type_old)
+void
+full_restart_ipv6(int ipv6_type_old)
 {
 	int ipv6_type = get_ipv6_type();
 	int ipv6_toggled = ((ipv6_type == IPV6_DISABLED || ipv6_type_old == IPV6_DISABLED) && (ipv6_type != ipv6_type_old)) ? 1 : 0;
+	int dnsmasq_status, dnsmasq_start_status, scan_error = 0;
 
 	if (ipv6_toggled) {
 		stop_lltd();
@@ -175,7 +177,10 @@ void full_restart_ipv6(int ipv6_type_old)
 		refresh_resolvconf_nonfatal_no_notify("IPv6 disabled", 0);
 		reload_nat_modules();
 		restart_firewall();
-		start_dns_dhcpd(0);
+		dnsmasq_start_status = start_dns_dhcpd(0);
+		if (dnsmasq_start_status != 0)
+			logmessage(LOGNAME, "IPv6 disable completed but DNSMasq did not restart (status=%d)",
+				   dnsmasq_start_status);
 	} else {
 		set_libc_gai(0);
 		control_if_ipv6_all(1);
@@ -183,8 +188,21 @@ void full_restart_ipv6(int ipv6_type_old)
 		reset_lan6_vars();
 		reload_lan_addr6();
 		full_restart_wan();
-		if (!is_dns_dhcpd_run())
-			start_dns_dhcpd(0);
+		dnsmasq_status = dnsmasq_process_status(&scan_error);
+		if (dnsmasq_status == 0) {
+			dnsmasq_start_status = start_dns_dhcpd(0);
+			if (dnsmasq_start_status != 0)
+				logmessage(LOGNAME, "IPv6 restart could not start DNSMasq (status=%d)",
+					   dnsmasq_start_status);
+		} else if (dnsmasq_status < 0) {
+			logmessage(LOGNAME,
+				   "IPv6 restart cannot verify DNSMasq state; refusing duplicate start (scan_error=%d)",
+				   scan_error ? scan_error : EIO);
+		} else if (dnsmasq_status != 1) {
+			logmessage(LOGNAME,
+				   "IPv6 restart received invalid DNSMasq state; refusing duplicate start (status=%d)",
+				   dnsmasq_status);
+		}
 		reload_nat_modules();
 	}
 #if defined (APP_NFSD)

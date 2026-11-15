@@ -9,6 +9,7 @@ on:
       - "trunk/user/rc/src/tests/dnsmasq_reload_policy.c"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/net6.c"
       - "trunk/user/rc/src/dnsmasq_domain_policy.h"
       - "trunk/user/rc/src/init.c"
       - "trunk/user/rc/src/inadyn_config_file.h"
@@ -37,6 +38,7 @@ on:
       - "trunk/user/rc/src/tests/dnsmasq_reload_policy.c"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/net6.c"
       - "trunk/user/rc/src/dnsmasq_domain_policy.h"
       - "trunk/user/rc/src/init.c"
       - "trunk/user/rc/src/inadyn_config_file.h"
@@ -260,6 +262,7 @@ jobs:
           services = Path("trunk/user/rc/src/services_ex.c").read_text()
           net_wan = Path("trunk/user/rc/src/net_wan.c").read_text()
           net_lan = Path("trunk/user/rc/src/net_lan.c").read_text()
+          net6 = Path("trunk/user/rc/src/net6.c").read_text()
           policy = Path("trunk/user/rc/src/dnsmasq_restart_policy.h").read_text()
           rc = Path("trunk/user/rc/src/rc.c").read_text()
           restart_test = Path("trunk/user/rc/src/tests/dnsmasq_restart_policy.c").read_text()
@@ -405,6 +408,14 @@ jobs:
           assert 'ret = start_ddns(1);' in rc
           assert 'ret = restart_dhcpd();' in rc
           assert "return ret;" in rc
+
+          ipv6_restart = function_body(net6, "full_restart_ipv6(int ipv6_type_old)")
+          assert "dnsmasq_status = dnsmasq_process_status(&scan_error);" in ipv6_restart
+          assert "if (dnsmasq_status == 0)" in ipv6_restart
+          assert "else if (dnsmasq_status < 0)" in ipv6_restart
+          assert "is_dns_dhcpd_run()" not in ipv6_restart
+          assert "start_dns_dhcpd(0)" in ipv6_restart
+          assert "int dnsmasq_process_status(int *scan_error);" in rc_header
 
           lan_restart = function_body(net_lan, "full_restart_lan(void)")
           assert "dnsmasq_status = stop_dns_dhcpd_locked();" in lan_restart
