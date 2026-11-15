@@ -1,3 +1,12 @@
+## 2026-11-15 — Retire unused PID-only SIGKILL helper after RC callsite audit
+
+- Audited all 36 top-level trunk/user/rc/src/*.c files for kill_process_pidfile(), kill_services_with_pidfiles(), kill_pidfile() and kill_pidfile_s() references. The only kill_process_pidfile() occurrence was its definition in common_ex.c; it had no RC C caller. The helper's force path used PID-only kill_pidfile() checks followed by kill_pidfile_s(..., SIGKILL), without binding the signal to process identity.
+- Removed the dead helper and its rc.h declaration. The ten live kill_services_with_pidfiles() callsites in VPN server/client, WAN/LAN DHCP, USB modem, detect_internet, detect_link and INICD route through process_pidfile_read_identity() and the shared service-lifecycle policy. That policy preflights targets, validates captured identities before TERM, rescans before KILL and revalidates before each signal.
+- Existing service_lifecycle_policy.c regressions cover UNKNOWN preflight, PID-file identity replacement between TERM and KILL, and force-only PPPD PID-file targets. Extended the integration checker to enforce the legacy helper's absence in common_ex.c, rc.h and all RC C translation units, while retaining the escalation regression assertions. Process-lifecycle and XY-C1 workflows already watch common_ex.c and rc.h.
+- Linux 4.4's final PID/start_time validation-to-kill window remains; this user-space cleanup does not eliminate it. No physical-router L4 result is claimed.
+- Parent main: 0726f19c5a591b8f60745770b82fa592111f1525; resulting source/test/docs commit: THIS COMMIT. Exact-head process-lifecycle and XY-C1 reruns are required.
+
+---
 ## 2026-11-15 — Add the missing iperf3 service lifecycle script
 
 - `start_iperf3()` and `stop_iperf3()` invoked `/usr/bin/iperf3.sh`, but `trunk/user/iperf3/Makefile` installed only `/bin/iperf3`; the script did not exist in the tracked tree or firmware package.
@@ -53,7 +62,7 @@
 - `start_infosvr()` correctly returns 1 when `adsc_enable` is disabled and its optional-daemon helper logs UNKNOWN process inventory. But once enabled and confirmed absent, it returned a failed `eval("/usr/sbin/infosvr", IFNAME_BR)` without a startup diagnostic.
 - Capture the launcher result, log only nonzero launch failures, and return the original value unchanged. Disabled sentinel, already-running no-op and UNKNOWN-inventory diagnostic paths remain unchanged.
 - Added ordered source assertions to `scripts/check_infosvr_lifecycle.py`; its existing workflow already filters `services.c` and this checker, and XY-C1 watches `services.c`.
-- On parent SHA c75a2d8, watchdog #43732516198, infosvr #43732516176, Process inventory #43732516314, AliyunDrive #43732516228, AdGuardHome #43732516280, and DNSMasq #437325163? were completed; AI docs #43732516259 failed because handoff lacked the exact required phrase `one atomic main commit`. The watchdog contract correction passed its exact-head run. The phrase is restored in the handoff in this commit.
+- On parent SHA c75a2d8, watchdog #43732516198, infosvr #43732516176, Process inventory #43732516314, AliyunDrive #43732516228 and AdGuardHome #43732516280 passed; AI docs #43732516259 failed because the handoff lacked the exact required phrase `one atomic main commit`. The watchdog contract correction passed its exact-head run. The required phrase was restored in the follow-up handoff.
 - Parent main: c75a2d8b02c6efe75ec0e9e001dcce173fcc8e16; result: THIS COMMIT.
 
 ---

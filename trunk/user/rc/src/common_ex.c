@@ -1486,29 +1486,6 @@ kill_services_with_pidfiles(char *svc_name[], const char *pidfile_paths[],
 }
 
 int
-kill_process_pidfile(char *pidfile, int wtimeout, int forcekill)
-{
-	int i, result = -1;
-
-	if (wtimeout < 1)
-		wtimeout = 1;
-
-	for (i=0; i<wtimeout; i++) {
-		if (kill_pidfile(pidfile) != 0)
-			break;
-		result = 0; // process exist
-		sleep(1);
-	}
-
-	if (i == wtimeout && forcekill) {
-		if (kill_pidfile(pidfile) == 0)
-			kill_pidfile_s(pidfile, SIGKILL);
-	}
-
-	return result;
-}
-
-int
 create_file(const char *fn)
 {
 	int fd = open(fn, O_RDWR | O_CREAT, 0666);

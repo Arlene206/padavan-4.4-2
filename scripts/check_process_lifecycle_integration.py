@@ -18,11 +18,24 @@ assert "service_lifecycle_notify(" in policy
 assert "service_lifecycle_preflight(targets, count, ops, context, 1)" in policy
 assert "service_lifecycle_signal_targets(targets, count, ops" in policy
 notify_body = policy.split("service_lifecycle_notify(char *service_names[]", 1)[1].split("service_lifecycle_probe_targets", 1)[0]
-pidfile_stop_body = common_ex.split("kill_services_with_pidfiles(char *svc_name[]", 1)[1].split("kill_process_pidfile(", 1)[0]
+pidfile_stop_body = common_ex.split("kill_services_with_pidfiles(char *svc_name[]", 1)[1].split("\nint\ncreate_file(", 1)[0]
 assert "service_lifecycle_release_targets(targets, count);" in notify_body
 assert "free(targets)" not in notify_body
 assert "service_lifecycle_release_targets(targets, count);" in pidfile_stop_body
 assert "free(targets)" not in pidfile_stop_body
+assert "kill_process_pidfile" not in common_ex
+assert "kill_pidfile_s(" not in common_ex
+assert "kill_pidfile(" not in common_ex
+assert "kill_process_pidfile" not in rc_header
+rc_source_dir = root / "trunk/user/rc/src"
+legacy_pidfile_kill_callers = [
+    source for source in rc_source_dir.glob("*.c")
+    if "kill_process_pidfile(" in source.read_text()
+]
+assert legacy_pidfile_kill_callers == []
+assert "test_pidfile_identity_change_blocks_escalation" in lifecycle_test
+assert "test_pidfile_unknown_blocks_entire_preflight" in lifecycle_test
+assert "test_force_only_pidfile_target_skips_term_and_joins_kill" in lifecycle_test
 assert "signal_services_by_identity" in rc_header
 assert "service_lifecycle_notify(svc_name, signal_number, &ops, NULL)" in common_ex
 assert "service_lifecycle_notification_allowed(signal_number)" in common_ex

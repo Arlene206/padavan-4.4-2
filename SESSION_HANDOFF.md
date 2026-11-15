@@ -2,13 +2,13 @@
 
 Recover live state once, then continue the exact P1 task. Do not repeat completed audits, stop at a plan, or ask the user to select work. Continue independent engineering while CI is pending. Before context exhaustion, refresh the exact first action and verification boundary so the next GPT can resume without repeating completed work.
 
-**Mandatory handoff checkpoint:** Verify before ending that this file accurately records the meaningful source baseline, active task, relevant exact-head Actions, validation boundary, blockers and exact first action. The checkpoint is mandatory; a document edit is conditional.
+**Mandatory handoff checkpoint:** Every session must verify before ending that this file accurately records the meaningful source baseline, active task, relevant exact-head Actions, validation boundary, blockers and exact first action. The checkpoint is mandatory; a document edit is conditional. If next-session-critical facts have changed, update this handoff; if it is already accurate, do not create a no-op documentation commit.
 
 For each multi-file logical slice, publish source, tests/contracts and necessary docs in **one atomic main commit**: create all blobs, one tree, one commit parented to freshly fetched main, then non-forced update of main using that exact expected SHA. No branches/PRs, no force-push, no archive modifications.
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; current main is SCUT/vlmcsd follow-up commit `e950cee8d24ede2b355e18967a52a0b092b842fc` parented to docs checkpoint `ba29a126870c7f57d4317edd2a0bd9c48508fa7d`. This iperf3 package/script slice is parented to the fresh e950 main.
+- Repository `Arlene206/padavan-4.4-2`; current main before this cleanup is iperf3 tool-status fix `0726f19c5a591b8f60745770b82fa592111f1525` (parent `d6fec8110f79ab5b1466fbd92b3f6b7753075560`). This slice removes the unused PID-only SIGKILL helper and its RC prototype.
 - Boot diagnostics cover networkmap, watchdog, infosvr, GPIO, LLTD and rstats. This slice fixes SCUT/vlmcsd wrappers that previously masked daemon launch failure as success.
 - LPD printer-removal PID identity hardening landed in `72ce1bb97323d4c417e8a5d891bbaf9c6ed3f2f3`; source-contract formatting correction is `022bc51507ca5f395c60a1f450cc461bf5403926`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. No local checkout/MIPS toolchain or physical-router L4 result is claimed.
@@ -22,7 +22,14 @@ For each multi-file logical slice, publish source, tests/contracts and necessary
 - LLTD and rstats still return 1 when their NVRAM enable setting is off; only enabled `eval()` failures are logged. The process-lifecycle checker asserts those sentinels, result capture, diagnostic and status propagation. Both the process-lifecycle and XY-C1 workflows filter `services.c`.
 - DNS Forwarder already checks launcher status, logs failures and verifies process appearance. This slice adds the missing `/usr/bin/iperf3.sh` that `start_iperf3()` and `stop_iperf3()` already invoke; the package now installs it. The script starts the binary as a background server, checks process appearance, avoids duplicate starts, and uses bounded stop verification.
 
+### P1 common_ex PID-file SIGKILL audit — LEGACY PID-ONLY HELPER REMOVED
+
+- All 36 top-level trunk/user/rc/src/*.c files were searched for kill_process_pidfile(). It had no in-tree RC C caller; its only implementation used PID-only kill_pidfile() and kill_pidfile_s(SIGKILL). The unused helper and its rc.h declaration are removed in this source slice.
+- The ten live kill_services_with_pidfiles() callsites across VPN server/client, WAN/LAN DHCP, USB modem, detect_internet, detect_link and INICD use process_pidfile_read_identity() through service_lifecycle_policy.h. Existing tests cover UNKNOWN preflight, replacement identity blocking KILL escalation and force-only PPPD targets.
+- This does not close Linux 4.4's final identity-check-to-kill(2) race; no atomic pidfd-like primitive is available in this target baseline.
+
 ## Verification boundary
+- On exact parent SHA 0726f19c5a591b8f60745770b82fa592111f1525: process inventory/lifecycle #43734632418 PASS; process inventory summary #43734632429 PASS; AI docs #43734632385 PASS; infosvr #43734632430 PASS; AdGuardHome #43734632444 PASS; AliDDNS #43734632395 PASS. XY-C1 #43734632454, NVRAM #43734632370 and AliyunDrive #43734632391 were IN_PROGRESS at last poll.
 - Exact e950 Actions: process inventory/lifecycle #43734448717 SUCCESS including SCUT/vlmcsd mocked shell regressions; AI docs #43734448768 SUCCESS; process lifecycle inventory #43734448702 SUCCESS; infosvr #43734448825 SUCCESS; AdGuardHome #43734448705 SUCCESS; AliDDNS #43734448677 SUCCESS; AliyunDrive #43734448782 SUCCESS. XY-C1 #43734448706 and NVRAM audit #43734448863 were IN_PROGRESS at last poll; fresh exact-head validation is required for the iperf3 additions.
 
 - XY-C1 #43734448706 for exact e950 was IN_PROGRESS at Build setup stage; it validates the SCUT/vlmcsd scripts but predates this iperf3 package change. Require the new exact-head build, TRX verification and artifact upload before L3.
@@ -31,8 +38,8 @@ For each multi-file logical slice, publish source, tests/contracts and necessary
 
 ## Exact first action for the next GPT
 
-1. Check exact-head process-lifecycle/optional-app shell tests, AI docs, XY-C1 Build, TRX verification and artifact upload for this iperf3 helper; diagnose any failure before claiming L3.
-2. Continue tracing the remaining `start_services_once()` optional-service launchers and their script-level error reporting; next audit APP_MENTOHUST / other feature-guarded add-ons without duplicating existing process checks.
+1. Check exact-head process-lifecycle and XY-C1 Actions triggered by this common_ex cleanup; require Build XY-C1, TRX verification and artifact upload before any L3 claim. Recheck XY-C1 #43734632454 for the iperf3 source SHA too.
+2. Continue P1 boot launch auditing at APP_MENTOHUST and other feature-guarded add-ons; inspect disabled sentinels and downstream diagnostics before adding source changes.
 3. Keep main commits atomic using a complete Git tree and expected-SHA non-forced ref update. Keep backup unchanged.
 
 ## Invariants
