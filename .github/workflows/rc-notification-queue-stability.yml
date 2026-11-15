@@ -89,6 +89,11 @@ jobs:
           assert "operation_status != 0" in policy
           assert "rc_notify_merge_action_result(0, EBUSY) == -1" in test
           assert "rc_notify_merge_action_result(action_result, restart_dhcpd())" in handler
+          for name in ("restart_sshd", "restart_rstats", "restart_lltd"):
+              restart_body = function_body(services, "int " + name + "(void)") if name == "restart_sshd" else function_body(services, "int\n" + name + "(void)")
+              assert "return stop_status;" in restart_body if name == "restart_sshd" else "stop_status" in restart_body
+          assert "rc_notify_merge_action_result(action_result, restart_sshd())" in handler
+          assert "rc_notify_merge_action_result(action_result, restart_lltd())" in handler
           app_restarts = (
               "restart_scutclient", "restart_mentohust", "restart_ttyd",
               "restart_ss", "restart_ss_tunnel", "restart_vlmcsd",

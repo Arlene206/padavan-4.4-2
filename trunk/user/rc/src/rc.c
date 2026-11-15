@@ -1278,7 +1278,7 @@ handle_notifications(void)
 #if defined(APP_SSHD)
 		else if (strcmp(entry->d_name, RCN_RESTART_SSHD) == 0)
 		{
-			restart_sshd();
+			action_result = rc_notify_merge_action_result(action_result, restart_sshd());
 		}
 #endif
 #if defined(APP_SCUT)
@@ -1431,7 +1431,7 @@ handle_notifications(void)
 #endif
 		else if (strcmp(entry->d_name, RCN_RESTART_LLTD) == 0)
 		{
-			restart_lltd();
+			action_result = rc_notify_merge_action_result(action_result, restart_lltd());
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_ADSC) == 0)
 		{

@@ -289,17 +289,23 @@ void start_sshd(void){
 		eval("/usr/bin/sshd.sh", "start");
 }
 
-void restart_sshd(void){
+int restart_sshd(void){
 	int is_run_before = is_sshd_run();
 	int is_run_after;
+	int stop_status = stop_sshd();
 
-	stop_sshd();
+	if (stop_status != 0) {
+		logmessage(LOGNAME, "SSH restart aborted because the previous daemon did not stop (status=%d)",
+			   stop_status);
+		return stop_status;
+	}
 	start_sshd();
 
 	is_run_after = is_sshd_run();
 
 	if ((is_run_after != is_run_before) && nvram_match("sshd_wopen", "1") && nvram_match("fw_enable_x", "1"))
 		restart_firewall();
+	return 0;
 }
 #endif
 
@@ -916,11 +922,18 @@ start_rstats(void)
 	return eval("/sbin/rstats");
 }
 
-void
+int
 restart_rstats(void)
 {
-	stop_rstats();
-	start_rstats();
+	int stop_status = stop_rstats();
+	int start_status;
+
+	if (stop_status != 0)
+		return stop_status;
+	start_status = start_rstats();
+	if (start_status != 0 && nvram_match("rstats_enable", "1"))
+		return start_status;
+	return 0;
 }
 
 int
@@ -939,11 +952,18 @@ stop_lltd(void)
 	return kill_services(svcs, 2, 1);
 }
 
-void
+int
 restart_lltd(void)
 {
-	stop_lltd();
-	start_lltd();
+	int stop_status = stop_lltd();
+	int start_status;
+
+	if (stop_status != 0)
+		return stop_status;
+	start_status = start_lltd();
+	if (start_status != 0 && nvram_match("lltd_enable", "1"))
+		return start_status;
+	return 0;
 }
 
 int
