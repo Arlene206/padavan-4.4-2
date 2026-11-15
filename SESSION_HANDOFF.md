@@ -9,36 +9,33 @@ For each logical task, create every source/test/workflow/doc blob, one complete 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Main at the start of this follow-up: `ab9ae820d689922ece417f0fc1e59c3110e02f74`.
+- Main at the start of this source slice: `97ffb22dd851f3ce3b303302df1a962bc40c7ade`.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only.
-- Exact-main Process inventory/lifecycle run #43747014935 PASS; AI handoff docs #43747014985 PASS; NVRAM #43747014966 PASS.
-- Product-source-identical XY-C1 run #43746522702 on `be7fd92337812a28ddc5b275c7898915be114987` completed successfully: Build XY-C1, TRX verification and artifact upload all PASS. The intervening `30e1848` and `2199bdb` commits changed checker/docs only, not firmware product source. L3 is VERIFIED on that source tree; no physical-router/L4 claim is made.
-- IGMP proxy staged config publication and its GNU89 ASan/UBSan host regression are covered by the passing exact-main Process run. The previous MiniDLNA typed-state checker mismatch is fixed in `2199bdb`.
-- Root `dev_log.md` has 89 entries before this slice; append in-place and do not rotate. Keep `docs/dev-log/INDEX.md` and archived shards unchanged.
+- Exact-main WAN DHCP callback #43749391596 PASS, AI handoff docs #43749391650 PASS and Process inventory #43749391694 PASS on `97ffb22dd851f3ce3b303302df1a962bc40c7ade`.
+- Exact XY-C1 #43748599786 on product-source commit `5bbaaba493f63b0e58bac035e750907304fd9939` completed successfully: Build XY-C1, TRX verification and artifact upload all PASS. The later `ab9ae` and `97ff` commits only adjusted test contracts/docs; firmware product source remained identical to 5bbaa, so L3 is VERIFIED for that source tree. No physical-router/L4 claim is made.
+- Dynamic IPTV client status propagation is committed at `5bbaaba493f63b0e58bac035e750907304fd9939`; exact regression contract now passes on `97ff`.
+- Root `dev_log.md` contained 92 entries before this slice; append in-place, no rotation. Keep `docs/dev-log/INDEX.md` and archived shards unchanged.
 
 ## Active task
 
-### Propagate IPTV DHCP/ZeroConf launcher failures through WAN startup
+### Propagate physical WAN DHCP/ZeroConf launcher failures through WAN startup
 
-In `trunk/user/rc/src/net_wan.c`, `start_udhcpc_viptv()` and `start_zcip_viptv()` both return their `_eval()/eval()` status. `launch_viptv_wan()` previously discarded that status and returned 0 for both dynamic modes, even though `start_wan()` already checks `launch_viptv_wan()` and logs any nonzero result. This hid missing-binary, exec and launch failures as successful IPTV startup.
+The next stability slice is in `trunk/user/rc/src/net_wan.c`: `launch_wanx()` was `static void` and discarded the int result returned by `start_udhcpc_wan()` and `start_zcip_wan()`. Failures to execute these clients were therefore invisible to the WAN startup caller.
 
-Source fix commit: `5bbaaba493f63b0e58bac035e750907304fd9939`. It assigns both dynamic launch results to `ret` and returns it without changing DHCP lease behavior or IPTV mode selection.
+The current source slice changes `launch_wanx()` to return the selected dynamic client launch status. All four existing call sites in the USB-modem and PPP WAN branches now capture and log nonzero results. It deliberately does not abort PPPoE or alter the existing `wait_dhcpc` behavior: PPPoE intentionally starts without waiting for physical DHCP, while PPTP/L2TP retain their existing wait path. Static address setup and separately logged IPv6 setup remain unchanged.
 
-The WAN workflow contract passed the six preceding host compile/run regressions, then failed its final ordering assertion: `index("return ret;")` selected the earlier static-IP return rather than the final dynamic-mode return. The follow-up now locates the final return with `rindex`.
-
-Exact `ab9ae` AI handoff docs #43749013429 PASS and Process inventory #43749013428 PASS; WAN callback #43749013381 FAIL only at that ordering assertion. XY-C1 #43748599786 on `5bbaa` remained pending at last poll; its Build/TRX/artifact status is not claimed.
+The WAN callback workflow gains source-contract assertions for both return paths, preservation of the wait/sleep branch, all four call-site assignments and both caller-side status logs. Exact-head WAN/XY-C1 Actions for the resulting source commit remain required.
 
 ## Verification boundary
 
-- The source commit is built on parent `2199bdb463da98d26289f819baa407e9feec97b1`; fetch its resulting main SHA and exact-head Actions before claiming verification.
-- The WAN DHCP callback workflow must pass its host tests and new launcher propagation contract.
-- Check any exact-head XY-C1 build through Build, TRX and artifact upload if the workflow is triggered by this source path.
-- The preceding product-source baseline `be7fd92337812a28ddc5b275c7898915be114987` has exact run #43746522702 PASS including Build/TRX/artifact. That does not replace checking a newly triggered run for this source change.
-- Frozen backup and archived dev-log/roadmap content remain untouched. No physical-router/L4 result is claimed.
+- This source commit is parented to `97ffb22dd851f3ce3b303302df1a962bc40c7ade`; verify its exact-head WAN callback, AI docs/Process workflows and XY-C1 Build/TRX/artifact before claiming new-source verification.
+- The preceding IPTV source commit `5bbaaba493f63b0e58bac035e750907304fd9939` has exact XY-C1 #43748599786 PASS through Build, TRX verification and artifact upload. This does not cover the new `launch_wanx()` source change.
+- No physical-router/L4 result is claimed.
+- Frozen backup and archived documentation remain untouched.
 
 ## Exact first action for the next GPT
 
-1. Fetch the new live main SHA and inspect exact-head Actions for the IPTV launcher status commit. Diagnose/fix any failing WAN DHCP callback source contract or host test; do not infer PASS from partial jobs.
-2. If the XY-C1 workflow was triggered, verify Build, TRX and artifact upload for the exact new SHA. The older source-identical #43746522702 run is already PASS.
-3. Continue the same startup-status audit at the next call boundary: `launch_wanx()` currently ignores the status from `start_udhcpc_wan()` / `start_zcip_wan()`, and callers in `start_wan()` need careful handling for PPPoE versus PPTP/L2TP (do not blindly abort PPPoE, which intentionally does not wait for a physical DHCP lease).
-4. Do not redo IGMP proxy publication, the MiniDLNA typed logger checker, completed FTP cleanup/udpxy/xupnpd/IAPPD work or the completed XY-C1 build baseline.
+1. Fetch the resulting main SHA and exact-head Actions. Diagnose any WAN source-contract or firmware build failure; do not treat a pending run as a reason to wait.
+2. Verify the XY-C1 run on the exact source SHA through Build, TRX verification and artifact upload.
+3. Continue WAN launcher auditing from the next independent startup branch; do not repeat the already-passed IPTV and physical WAN launch propagation slices.
+4. Preserve the literal checkpoint requirements above and update this handoff only when source SHA, exact Action status, verification boundary or first next action materially changes.

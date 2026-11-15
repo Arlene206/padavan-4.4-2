@@ -1377,9 +1377,10 @@ launch_viptv_wan(void)
 	return ret;
 }
 
-static void
+static int
 launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)
 {
+	int launch_status = 0;
 	int man_mtu = get_wan_unit_value_int(unit, "man_mtu");
 	char *man_addr = get_wan_unit_value(unit, "man_ipaddr");
 	char *man_mask = get_wan_unit_value(unit, "man_netmask");
@@ -1398,13 +1399,13 @@ launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)
 		/* PPPoE connection not needed WAN physical address first, skip wait DHCP lease */
 		/* PPTP and L2TP needed WAN physical first for create VPN tunnel, wait DHCP lease */
 		if (!use_zcip) {
-			start_udhcpc_wan(man_ifname, unit, wait_dhcpc);
+			launch_status = start_udhcpc_wan(man_ifname, unit, wait_dhcpc);
 			
 			/* add delay 2s after eth3 up: gethostbyname delay issue (L2TP/PPTP) */
 			if (wait_dhcpc)
 				sleep(2);
 		} else
-			start_zcip_wan(man_ifname);
+			launch_status = start_zcip_wan(man_ifname);
 	} else {
 		int man_err = 0;
 		char *lan_addr = nvram_safe_get("lan_ipaddr");
@@ -1434,6 +1435,8 @@ launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)
 				   man_ifname, ipv6_status);
 	}
 #endif
+
+	return launch_status;
 }
 
 static int
@@ -1636,14 +1639,18 @@ start_wan(void)
 				    wan_proto == IPV4_WAN_PROTO_PPTP ||
 				    wan_proto == IPV4_WAN_PROTO_L2TP)
 				{
-					int i_pppoe, i_pppoe_man;
+					int i_pppoe, i_pppoe_man, wanx_status;
 					
 					i_pppoe = (wan_proto == IPV4_WAN_PROTO_PPPOE) ? 1 : 0;
 					i_pppoe_man = get_wan_unit_value_int(unit, "pppoe_man");
+					wanx_status = 0;
 					if (!i_pppoe || i_pppoe_man == 1)
-						launch_wanx(wan_ifname, unit, 0, 0);
+						wanx_status = launch_wanx(wan_ifname, unit, 0, 0);
 					else if (i_pppoe && i_pppoe_man == 2)
-						launch_wanx(wan_ifname, unit, 0, 1);
+						wanx_status = launch_wanx(wan_ifname, unit, 0, 1);
+					if (wanx_status != 0)
+						logmessage(LOGNAME, "WAN physical DHCP/ZeroConf client launch incomplete on %s (status=%d)",
+							   wan_ifname, wanx_status);
 				}
 				
 				/* re-build iptables rules (first stage w/o WAN IP) */
@@ -1659,7 +1666,7 @@ start_wan(void)
 		    wan_proto == IPV4_WAN_PROTO_L2TP)
 		{
 			char *proto_desc, *ppp_ifname = IFNAME_PPP;
-			int i_pppoe, i_pppoe_man, i_demand;
+			int i_pppoe, i_pppoe_man, i_demand, wanx_status;
 			
 			if (wan_proto == IPV4_WAN_PROTO_PPPOE)
 				proto_desc = "PPPoE";
@@ -1678,10 +1685,14 @@ start_wan(void)
 			i_pppoe = (wan_proto == IPV4_WAN_PROTO_PPPOE) ? 1 : 0;
 			i_pppoe_man = get_wan_unit_value_int(unit, "pppoe_man");
 			
+			wanx_status = 0;
 			if (!i_pppoe || i_pppoe_man == 1)
-				launch_wanx(wan_ifname, unit, !i_pppoe, 0);
+				wanx_status = launch_wanx(wan_ifname, unit, !i_pppoe, 0);
 			else if (i_pppoe && i_pppoe_man == 2)
-				launch_wanx(wan_ifname, unit, 0, 1);
+				wanx_status = launch_wanx(wan_ifname, unit, 0, 1);
+			if (wanx_status != 0)
+				logmessage(LOGNAME, "WAN physical DHCP/ZeroConf client launch incomplete on %s (status=%d)",
+					   wan_ifname, wanx_status);
 			
 			/* re-build iptables rules (first stage w/o WAN IP) */
 			start_firewall_ex();

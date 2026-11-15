@@ -1,3 +1,13 @@
+## 2026-11-15 — Propagate physical WAN DHCP/ZeroConf launcher results
+
+- `launch_wanx()` was `static void` and discarded the launch status from `start_udhcpc_wan()` / `start_zcip_wan()`. Changed it to return that status and made all four USB-modem / PPP WAN call sites capture and log nonzero results.
+- Preserved protocol semantics: no change to PPPoE's intentional no-wait physical DHCP behavior, PPTP/L2TP's existing `wait_dhcpc` path, static IP handling or IPv6 status logging. This is launch-failure visibility only; it does not abort asynchronous PPPoE.
+- Added WAN workflow source-contract assertions for both launch status assignments, return value, existing wait/sleep branch, four caller assignments and two caller logging branches. Local CI has not yet run for this exact source SHA.
+- Parent main: `97ffb22dd851f3ce3b303302df1a962bc40c7ade`. Exact prior-main WAN #43749391596, AI docs #43749391650 and Process inventory #43749391694 PASS. Prior product source #5bbaa XY-C1 #43748599786 completed Build, TRX and artifact upload PASS; this new physical WAN code needs its own exact-SHA build.
+- Frozen backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; no physical-router/L4 result is claimed.
+
+---
+
 ## 2026-11-15 — Anchor IPTV dynamic launcher contract to final return
 
 - Exact `ab9ae` WAN DHCP callback run #43749013381 compiled and passed all six existing host regressions, then failed only in the new return-order contract. The assertion used the first `return ret;` in `launch_viptv_wan()`, which belongs to static-IP mode and precedes the dynamic DHCP/ZeroConf branch.

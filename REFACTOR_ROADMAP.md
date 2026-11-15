@@ -1,19 +1,21 @@
 ## Current source / CI checkpoint
 
-- Main at the start of this follow-up: `ab9ae820d689922ece417f0fc1e59c3110e02f74`; backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Production commit `5bbaaba493f63b0e58bac035e750907304fd9939` propagates DHCP/ZeroConf IPTV process-launch status from `launch_viptv_wan()` to the existing WAN startup logger. Its exact WAN callback run #43748599751 failed in the added false-positive negative assertions; the following test commit removed those assertions.
-- Exact test-follow-up `ab9ae` WAN callback #43749013381 passed all six prior host regressions, then failed only because the new ordering check matched the earlier static-IP `return ret;`. The next test follow-up now anchors to the final return. Exact `ab9ae` AI handoff docs #43749013429 PASS and Process inventory #43749013428 PASS.
-- XY-C1 #43748599786 on product source SHA `5bbaaba493f63b0e58bac035e750907304fd9939` remained IN_PROGRESS at last poll. Build/TRX/artifact is unverified for that source at this checkpoint. The older `be7fd` source-identical run #43746522702 passed, but does not cover the IPTV source change.
+- Main at the start of this slice: `97ffb22dd851f3ce3b303302df1a962bc40c7ade`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact-main WAN DHCP callback #43749391596 PASS, AI docs #43749391650 PASS and Process inventory #43749391694 PASS on `97ffb22dd851f3ce3b303302df1a962bc40c7ade`.
+- IPTV DHCP/ZeroConf launch status propagation committed at `5bbaaba493f63b0e58bac035e750907304fd9939`; product-source-identical XY-C1 #43748599786 completed Build, TRX verification and artifact upload successfully. The later `ab9ae` / `97ff` commits were workflow/docs only, so L3 is VERIFIED for the IPTV source tree.
+- Current source slice propagates physical WAN DHCP/ZeroConf client launch failures from `launch_wanx()` to all four USB/PPP caller sites without changing PPPoE wait behavior. Exact-head WAN callback and XY-C1 Build/TRX/artifact remain pending on the resulting source SHA.
 - No physical-router/L4 result is claimed.
 
 ### P1 — WAN startup status propagation
 
-- The committed IPTV client status propagation is source-correct; its guard's return-order assertion is being refined to distinguish the static early return from the dynamic-mode final return.
-- Next distinct launcher boundary: `launch_wanx()` ignores `start_udhcpc_wan()` / `start_zcip_wan()` results. Audit caller semantics before changing behavior; PPTP/L2TP wait for physical DHCP while PPPoE intentionally does not.
+- Dynamic IPTV launch status is checked by exact-main WAN workflow #43749391596.
+- This slice returns `start_udhcpc_wan()` / `start_zcip_wan()` status from `launch_wanx()` and logs nonzero results at all four callers. PPPoE's no-wait behavior is preserved; PPTP/L2TP's wait remains unchanged.
+- Next source candidate after verification: audit WAN static address setup/rollback status in `launch_wanx()` and its effects on PPP launch, without changing PPPoE's intentional asynchronous path.
 
 ### P2 — IGMP proxy configuration publication
 
-- `start_igmpproxy()` stages config beside the destination and protects last-good content on write/flush/fsync/close/rename errors. Its exact-main host regression passed on Process #43749013428; MiniDLNA's typed logger checker is fixed in `2199bdb`.
+- `start_igmpproxy()` stages config beside the destination, rejects CR/LF injection and checks write, flush, fsync, close and atomic rename. A publication failure preserves last-good content and blocks daemon launch.
+- Its host regression passed on Process inventory #43749391694. The MiniDLNA typed logger contract is fixed in `2199bdb`.
 
 ## Whole-repository module status
 

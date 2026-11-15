@@ -807,5 +807,19 @@ jobs:
           assert launch_error in wan_start
           assert wan_start.index(launch_call) < wan_start.index(launch_error) < wan_start.index("config_apcli_wisp();")
 
-          print("WAN DHCP callback ordering, rollback and IPTV client launch-status contracts: PASS")
+          # Physical WAN DHCP/ZeroConf client launch status must cross
+          # launch_wanx() and reach each WAN protocol caller for diagnostics.
+          wanx = body(source, "launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)")
+          assert "static int" + chr(10) + "launch_wanx(" in source
+          assert "launch_status = start_udhcpc_wan(man_ifname, unit, wait_dhcpc);" in wanx
+          assert "launch_status = start_zcip_wan(man_ifname);" in wanx
+          assert "return launch_status;" in wanx
+          assert "if (wait_dhcpc)" in wanx and "sleep(2);" in wanx
+          assert "int i_pppoe, i_pppoe_man, wanx_status;" in source
+          assert "int i_pppoe, i_pppoe_man, i_demand, wanx_status;" in source
+          assert wan_start.count("wanx_status = launch_wanx(") == 4
+          assert wan_start.count("if (wanx_status != 0)") == 2
+          assert wan_start.count("WAN physical DHCP/ZeroConf client launch incomplete") == 2
+
+          print("WAN DHCP callback ordering, rollback and physical-client launch-status contracts: PASS")
           PY
