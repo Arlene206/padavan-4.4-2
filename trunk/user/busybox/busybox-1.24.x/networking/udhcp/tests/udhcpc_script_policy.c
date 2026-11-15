@@ -9,6 +9,15 @@
 	} \
 } while (0)
 
+static int test_failed_deconfig_blocks_state_transition(void)
+{
+	CHECK(!udhcpc_deconfig_retry_required(0));
+	CHECK(udhcpc_deconfig_retry_required(1));
+	CHECK(udhcpc_deconfig_retry_required(-1));
+	CHECK(udhcpc_deconfig_retry_required(0x100));
+	return 0;
+}
+
 static int test_initial_acquisition_retries_selected_request(void)
 {
 	int timeout = 90;
@@ -79,13 +88,14 @@ static int test_already_expired_lease_is_not_resurrected(void)
 
 int main(void)
 {
-	if (test_initial_acquisition_retries_selected_request() != 0 ||
+	if (test_failed_deconfig_blocks_state_transition() != 0 ||
+	    test_initial_acquisition_retries_selected_request() != 0 ||
 	    test_failed_renewal_preserves_existing_lease_deadline() != 0 ||
 	    test_script_runtime_cannot_extend_expired_lease() != 0 ||
 	    test_exact_lease_deadline_is_expired() != 0 ||
 	    test_already_expired_lease_is_not_resurrected() != 0)
 		return 1;
 
-	puts("udhcpc script failure retry policy: PASS");
+	puts("udhcpc script failure and deconfig retry policy: PASS");
 	return 0;
 }

@@ -1005,7 +1005,10 @@ static smallint listen_mode;
 #define RENEW_REQUESTED 5
 /* release, possibly manually requested (SIGUSR2) */
 #define RELEASED        6
+/* Retry failed cleanup before resuming DHCP or release processing. */
+#define DECONFIG_PENDING 7
 static smallint state;
+static smallint deconfig_resume_state;
 
 static int udhcp_raw_socket(int ifindex)
 {
@@ -1109,9 +1112,26 @@ static void change_listen_mode(int new_mode)
 	/* else LISTEN_NONE: sockfd stays closed */
 }
 
-/* Called only on SIGUSR1 */
-static void perform_renew(void)
+/* Retry a failed deconfig callback with packet sockets closed. Resume the
+ * requested DHCP state only after cleanup completes successfully. */
+static void
+udhcpc_schedule_deconfig_retry(int resume_state, int retry_timeout,
+				int *timeout, int *packet_num,
+				unsigned *already_waited_sec)
 {
+	deconfig_resume_state = resume_state;
+	change_listen_mode(LISTEN_NONE);
+	state = DECONFIG_PENDING;
+	*timeout = retry_timeout > 0 ? retry_timeout : 1;
+	*packet_num = 0;
+	*already_waited_sec = 0;
+}
+
+/* Called only on SIGUSR1 */
+static int perform_renew(void)
+{
+	int script_status;
+
 	bb_info_msg("Performing a DHCP renew");
 	switch (state) {
 	case BOUND:
@@ -1121,21 +1141,26 @@ static void perform_renew(void)
 		state = RENEW_REQUESTED;
 		break;
 	case RENEW_REQUESTED: /* impatient are we? fine, square 1 */
-		udhcp_run_script(NULL, "deconfig");
+		script_status = udhcp_run_script(NULL, "deconfig");
+		if (udhcpc_deconfig_retry_required(script_status))
+			return script_status;
 	case REQUESTING:
 	case RELEASED:
 		change_listen_mode(LISTEN_RAW);
 		state = INIT_SELECTING;
 		break;
 	case INIT_SELECTING:
+	case DECONFIG_PENDING:
 		break;
 	}
+	return 0;
 }
 
-static void perform_release(uint32_t server_addr, uint32_t requested_ip)
+static int perform_release(uint32_t server_addr, uint32_t requested_ip)
 {
 	char buffer[sizeof("255.255.255.255")];
 	struct in_addr temp_addr;
+	int script_status;
 
 	/* send release packet */
 	if (state == BOUND
@@ -1158,9 +1183,11 @@ static void perform_release(uint32_t server_addr, uint32_t requested_ip)
  * Users requested to be notified in all cases, even if not in one
  * of the states above.
  */
-	udhcp_run_script(NULL, "deconfig");
+	script_status = udhcp_run_script(NULL, "deconfig");
 	change_listen_mode(LISTEN_NONE);
-	state = RELEASED;
+	if (!udhcpc_deconfig_retry_required(script_status))
+		state = RELEASED;
+	return script_status;
 }
 
 static uint8_t* alloc_dhcp_option(int code, const char *str, int extra)
@@ -1362,6 +1389,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 	IF_FEATURE_UDHCPC_ARPING(unsigned arpping_ms;)
 	int max_fd;
 	int retval;
+	int script_status;
 	fd_set rfds;
 
 	/* Default options */
@@ -1506,6 +1534,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 	srand(monotonic_us());
 
 	state = INIT_SELECTING;
+	deconfig_resume_state = INIT_SELECTING;
 //	udhcp_run_script(NULL, "deconfig");
 	change_listen_mode(LISTEN_RAW);
 	packet_num = 0;
@@ -1660,13 +1689,46 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 					timeout >>= 1;
 					continue;
 				}
-				/* Timed out, enter init state */
+				/* Timed out, enter init only after the old lease is deconfigured. */
 				bb_info_msg("Lease lost, entering init state");
-				udhcp_run_script(NULL, "deconfig");
+				{
+					int deconfig_status = udhcp_run_script(NULL, "deconfig");
+					if (udhcpc_deconfig_retry_required(deconfig_status)) {
+						bb_error_msg("lease-expiry deconfig failed; deferring DHCP restart");
+						udhcpc_schedule_deconfig_retry(INIT_SELECTING,
+							tryagain_timeout, &timeout, &packet_num,
+							&already_waited_sec);
+						continue;
+					}
+				}
 				state = INIT_SELECTING;
+				change_listen_mode(LISTEN_RAW);
 				client_config.first_secs = 0; /* make secs field count from 0 */
+				requested_ip = 0;
 				/*timeout = 0; - already is */
 				packet_num = 0;
+				continue;
+			case DECONFIG_PENDING:
+				{
+					int deconfig_status = udhcp_run_script(NULL, "deconfig");
+					if (udhcpc_deconfig_retry_required(deconfig_status)) {
+						bb_error_msg("DHCP deconfig still failing (status %d); retrying in %d seconds",
+							deconfig_status, tryagain_timeout);
+						timeout = tryagain_timeout > 0 ? tryagain_timeout : 1;
+						continue;
+					}
+				}
+				state = deconfig_resume_state;
+				if (state == INIT_SELECTING) {
+					change_listen_mode(LISTEN_RAW);
+					client_config.first_secs = 0;
+					requested_ip = 0;
+					packet_num = 0;
+					timeout = 0;
+				} else {
+					change_listen_mode(LISTEN_NONE);
+					timeout = INT_MAX;
+				}
 				continue;
 			/* case RELEASED: */
 			}
@@ -1683,7 +1745,13 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 		case SIGUSR1:
 			client_config.first_secs = 0; /* make secs field count from 0 */
 			already_waited_sec = 0;
-			perform_renew();
+			script_status = perform_renew();
+			if (udhcpc_deconfig_retry_required(script_status)) {
+				bb_error_msg("manual renew deconfig failed; deferring DHCP restart");
+				udhcpc_schedule_deconfig_retry(INIT_SELECTING, tryagain_timeout,
+					&timeout, &packet_num, &already_waited_sec);
+				continue;
+			}
 			if (state == RENEW_REQUESTED) {
 				/* We might be either on the same network
 				 * (in which case renew might work),
@@ -1710,8 +1778,21 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 			timeout = 0;
 			continue;
 		case SIGUSR2:
-			perform_release(server_addr, requested_ip);
-			timeout = INT_MAX;
+			if (state == DECONFIG_PENDING) {
+				/* Preserve pending cleanup but honor the requested release. */
+				deconfig_resume_state = RELEASED;
+				timeout = 0;
+				already_waited_sec = 0;
+				continue;
+			}
+			script_status = perform_release(server_addr, requested_ip);
+			if (udhcpc_deconfig_retry_required(script_status)) {
+				bb_error_msg("release deconfig failed; deferring released state");
+				udhcpc_schedule_deconfig_retry(RELEASED, tryagain_timeout,
+					&timeout, &packet_num, &already_waited_sec);
+			} else {
+				timeout = INT_MAX;
+			}
 			continue;
 		case SIGTERM:
 			bb_info_msg("Received SIGTERM");
@@ -1940,11 +2021,19 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 					if (svid != server_addr)
 						goto non_matching_svid;
 				}
-				/* return to init state */
+				/* Return to init only after the old lease has been deconfigured. */
 				bb_info_msg("Received DHCP NAK");
 				udhcp_run_script(&packet, "nak");
-				if (state != REQUESTING)
-					udhcp_run_script(NULL, "deconfig");
+				if (state != REQUESTING) {
+					int deconfig_status = udhcp_run_script(NULL, "deconfig");
+					if (udhcpc_deconfig_retry_required(deconfig_status)) {
+						bb_error_msg("DHCP NAK deconfig failed; deferring DHCP restart");
+						udhcpc_schedule_deconfig_retry(INIT_SELECTING,
+							tryagain_timeout, &timeout, &packet_num,
+							&already_waited_sec);
+						continue;
+					}
+				}
 				change_listen_mode(LISTEN_RAW);
 				sleep(3); /* avoid excessive network traffic */
 				state = INIT_SELECTING;

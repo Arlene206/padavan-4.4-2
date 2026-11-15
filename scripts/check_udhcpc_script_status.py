@@ -91,11 +91,46 @@ assert ack.index("requested_ip = packet.yiaddr;", retry_continue) > retry_contin
 assert "already_waited_sec = script_elapsed;" in ack
 assert "DHCPACK for %s" in ack
 
+# A failed deconfig blocks NAK/expiry/release/manual-renew state transitions.
+assert "#define DECONFIG_PENDING 7" in dhcpc
+assert "static smallint deconfig_resume_state;" in dhcpc
+scheduler = function_body(dhcpc, "static void udhcpc_schedule_deconfig_retry")
+assert "change_listen_mode(LISTEN_NONE)" in scheduler
+assert "state = DECONFIG_PENDING;" in scheduler
+assert "*already_waited_sec = 0;" in scheduler
+pending = dhcpc.rindex("case DECONFIG_PENDING:")
+pending_end = dhcpc.index("/* case RELEASED:", pending)
+pending_body = dhcpc[pending:pending_end]
+assert 'udhcp_run_script(NULL, "deconfig")' in pending_body
+assert "udhcpc_deconfig_retry_required(deconfig_status)" in pending_body
+assert "state = deconfig_resume_state;" in pending_body
+assert "change_listen_mode(LISTEN_RAW)" in pending_body
+nak_start = dhcpc.index('bb_info_msg("Received DHCP NAK")')
+nak_end = dhcpc.index("change_listen_mode(LISTEN_RAW);", nak_start)
+nak = dhcpc[nak_start:nak_end]
+assert "udhcpc_deconfig_retry_required(deconfig_status)" in nak
+assert "udhcpc_schedule_deconfig_retry(INIT_SELECTING" in nak
+expiry_start = dhcpc.index('bb_info_msg("Lease lost, entering init state")')
+expiry_end = dhcpc.index("case DECONFIG_PENDING:", expiry_start)
+expiry = dhcpc[expiry_start:expiry_end]
+assert "udhcpc_deconfig_retry_required(deconfig_status)" in expiry
+assert "udhcpc_schedule_deconfig_retry(INIT_SELECTING" in expiry
+renew = function_body(dhcpc, "static int perform_renew")
+assert "return script_status;" in renew
+release = function_body(dhcpc, "static int perform_release")
+assert "return script_status;" in release
+assert "if (!udhcpc_deconfig_retry_required(script_status))" in release
+signal_release = dhcpc[dhcpc.index("case SIGUSR2:"):dhcpc.index("/* Is it a packet? */")]
+assert "deconfig_resume_state = RELEASED;" in signal_release
+assert "udhcpc_schedule_deconfig_retry(RELEASED" in signal_release
+
 assert "if (acquiring)" in policy
 assert "*timeout = retry_timeout;" in policy
 assert "*packet_num = 0;" in policy
 assert "script_elapsed >= remaining" in policy
 assert "*already_waited_sec += script_elapsed;" in policy
+assert "return script_status != 0;" in policy
+assert "test_failed_deconfig_blocks_state_transition" in test
 
 for marker in (
     "test_initial_acquisition_retries_selected_request",
@@ -103,7 +138,7 @@ for marker in (
     "test_script_runtime_cannot_extend_expired_lease",
     "test_exact_lease_deadline_is_expired",
     "test_already_expired_lease_is_not_resurrected",
-    "udhcpc script failure retry policy: PASS",
+    "udhcpc script failure and deconfig retry policy: PASS",
 ):
     assert marker in test, marker
 
