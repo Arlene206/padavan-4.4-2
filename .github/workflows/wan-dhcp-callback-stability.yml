@@ -802,6 +802,7 @@ jobs:
 
           wan_start = body(source, "void" + chr(10) + "start_wan(void)")
           apcli_wisp = body(source, "static int" + chr(10) + "config_apcli_wisp(void)")
+          assert "static int man_up_internal(char *, int, int, int *);" in source
           gateway_helper = body(source, "static int" + chr(10) + "add_man_gateway_routes(char *man_ifname, int unit, int metric, int *gateway_route_status)")
           assert "*gateway_route_status = 0;" in gateway_helper
           gateway_host = gateway_helper[gateway_helper.index("/* if the gateway is out of the subnet */"):gateway_helper.index("/* default route via default gateway */")]

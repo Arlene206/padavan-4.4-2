@@ -1,3 +1,13 @@
+## 2026-11-15 — Add forward declaration for early MAN route-status call
+
+- `launch_wanx()` calls static `man_up_internal(char *, int, int, int *)` before the function definition later in `net_wan.c`. Added the file-scope prototype with unnamed parameter types to avoid implicit/non-static declaration errors under GNU89.
+- Added a WAN source-contract assertion for the prototype. The parent b1b899 WAN callback #43756151245 and WAN route #43756151031 both PASS, including the required/optional MAN route checks and WISP abort tests.
+- Parent exact module Actions: AI docs #43756151101, Process inventory #43756151205, HTTPD #43756151156, infosvr #43756151158, AliyunDrive #43756151160, AdGuardHome #43756151126, DNSMasq #43756151038, WAN teardown #43756151129, WAN ARP #43756151066, miniupnpd #43756151110, VPN #43756151125, USB identity #43756151191, detect_link #43756151181 and detect_internet #43756151047 PASS. Process lifecycle #43756151162, NVRAM #43756151222 and AliDDNS #43756151138 still running at last poll.
+- Parent XY-C1 #43756151170 was in Build XY-C1; TRX/artifact pending. This source prototype triggers a fresh L3 validation; no current-source L3 or L4 claim.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-15 — Propagate WISP cleanup failure and repair WAN callback contract
 
 - Exact parent 3f6 WAN route Action #43755792869 PASS; the WAN callback Action #43755792972 failed only in its Python source-contract step after all compiled policy executables passed. The failure was `NameError: wanx is not defined`; the subsequent static MAN assertion also still looked for the obsolete void `man_up()` call.

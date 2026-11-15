@@ -1,17 +1,17 @@
 ## Current source / CI checkpoint
 
-- Main at slice start: `3f6ca487db9729987cdc6b3a49a2facf479bae7e`; frozen backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact 3f6 Actions: WAN callback #43755792972 FAIL (`wanx` undefined in source-contract Python, plus obsolete MAN call assertion); WAN route #43755792869 PASS; AI docs #43755792956 PASS; Process inventory #43755793007 PASS; infosvr #43755792908 PASS; AdGuardHome #43755793061 PASS; AliyunDrive #43755792904 PASS; AliDDNS #43755792868 PASS. Prior 41ea PASS module Actions: Process lifecycle #43755418852; Process inventory #43755418919; WAN teardown #43755418845; DNSMasq #43755418936; HTTPD #43755418812; VPN #43755418832; detect_internet #43755418808; detect_link #43755418966; USB modem #43755418970; infosvr #43755418948; WAN ARP #43755418839; miniupnpd #43755418910.
-- MAN required gateway host/default route status is separate from optional configured static/DHCP/DNS route results; PPPoE async/no-wait and aggregate DHCP callback error reporting remain unchanged.
-- This slice returns and propagates AP-client WISP migration cleanup failure to `start_wan()`, aborting before IPTV DHCP/ZeroConf startup.
-- Exact new-head WAN and XY-C1 checks pending; no L3/L4 claim.
+- Main at slice start: `b1b8991aaba12684542e90929daad429f6e57d9f`; frozen backup stays read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- WAN source now covers static IPoE fail-closed address application, checked physical interface bring-up, AP-client WISP cleanup/abort, and critical MAN gateway host/default route errors gated for static MAN PPTP/L2TP; optional static/DHCP/DNS routes remain nonfatal.
+- Parent b1b899 exact Actions: WAN callback #43756151245 PASS; WAN route #43756151031 PASS; AI docs #43756151101 PASS; Process inventory #43756151205 PASS; HTTPD #43756151156 PASS; infosvr #43756151158 PASS; AliyunDrive #43756151160 PASS; AdGuardHome #43756151126 PASS; DNSMasq #43756151038 PASS; WAN teardown #43756151129 PASS; WAN ARP #43756151066 PASS; miniupnpd #43756151110 PASS; VPN #43756151125 PASS; USB identity #43756151191 PASS; detect_link #43756151181 PASS; detect_internet #43756151047 PASS. Process lifecycle #43756151162, NVRAM #43756151222 and AliDDNS #43756151138 still running at last poll.
+- XY-C1 #43756151170 was in Build; TRX/artifact pending. This follow-up adds a forward declaration before the early call to static `man_up_internal()`; latest-source L3 pending.
 
 ### P1 — WAN startup status propagation
 
-- Direct IPoE static-address errors fail closed before WAN route/UPnP publication; IPv6 remains independent.
-- Failed initial WAN interface-up skips protocol startup after best-effort shutdown.
-- Required MAN gateway host/default route failures gate static MAN non-PPPoE PPTP/L2TP; optional configured static/DHCP/DNS routes remain best-effort for PPP launch.
-- AP-client WISP cleanup now returns a status, and caller aborts before IPTV client launch if old MAN cleanup fails.
+- Direct IPoE static IPv4 failures set WAN error, attempt partial-address cleanup and block route/UPnP publication; IPv6 remains independent.
+- Initial physical WAN interface bring-up checks MTU/interface status; failed interface-up skips protocol startup.
+- AP-client WISP migration now returns cleanup errors and aborts WAN startup before IPTV DHCP/ZeroConf clients.
+- Static MAN gateway host/default route status flows into non-PPPoE PPTP/L2TP startup gating; optional static/DHCP/DNS routes and DHCP/ZeroConf aggregate callback behavior are preserved.
+- The early static MAN helper call now has a forward declaration; current-source cross-build required.
 
 ### P2 — IGMP proxy configuration publication
 

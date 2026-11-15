@@ -1402,6 +1402,8 @@ launch_viptv_wan(void)
 	return ret;
 }
 
+static int man_up_internal(char *, int, int, int *);
+
 static int
 launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)
 {
