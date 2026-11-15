@@ -2227,7 +2227,7 @@ jobs:
           assert 'fopen("/etc/hostname", "w+")' not in hosts_writer
           assert 'fopen("/etc/hosts", "w+")' not in hosts_writer
           assert hosts_writer.index('dnsmasq_file_publish(staged_fp, hosts_temp') < hosts_writer.index("sethostname(lan_hname")
-          assert "int update_hosts_ap(void);" in rc_header
+          assert "int update_hosts_ap(void);" in header
           assert "return create_hosts_lan(nvram_safe_get" in lan
           dhcpd_notify_start = rc_main.index('else if (strcmp(entry->d_name, RCN_RESTART_DHCPD) == 0)')
           dhcpd_notify_end = rc_main.index('else if (strcmp(entry->d_name, RCN_RESTART_UPNP) == 0)', dhcpd_notify_start)
