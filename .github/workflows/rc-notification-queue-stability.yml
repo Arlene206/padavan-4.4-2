@@ -89,6 +89,18 @@ jobs:
           assert "operation_status != 0" in policy
           assert "rc_notify_merge_action_result(0, EBUSY) == -1" in test
           assert "rc_notify_merge_action_result(action_result, restart_dhcpd())" in handler
+          app_restarts = (
+              "restart_scutclient", "restart_mentohust", "restart_ttyd",
+              "restart_ss", "restart_ss_tunnel", "restart_vlmcsd",
+              "restart_iperf3", "restart_adguardhome", "restart_ddnsto",
+              "restart_sqm", "restart_aldriver", "restart_wireguard",
+              "restart_adbyby", "restart_smartdns", "restart_aliddns",
+              "restart_frp", "restart_zerotier",
+          )
+          for name in app_restarts:
+              assert "action_result = rc_notify_merge_action_result(action_result, " + name + "())" in handler, name
+          for name in ("stop_scutclient", "stop_mentohust"):
+              assert "action_result = rc_notify_merge_action_result(action_result, " + name + "())" in handler, name
           stop_whole_wan = function_body(handler, 'else if (!strcmp(entry->d_name, "stop_whole_wan"))')
           assert "rc_notify_merge_action_result(action_result, stop_wan())" in stop_whole_wan
           modem = function_body(handler, 'else if (!strcmp(entry->d_name, RCN_RESTART_MODEM))')
@@ -125,5 +137,5 @@ jobs:
           for path in paths:
               assert push_filters.count(path) == 1, path
               assert pr_filters.count(path) == 1, path
-          print("PID 1 notification queue and WAN stop-result contract: PASS")
+          print("PID 1 notification queue and service restart status contract: PASS")
           PY

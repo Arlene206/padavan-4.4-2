@@ -319,12 +319,15 @@ void start_scutclient(void){
 		eval("/usr/bin/scutclient.sh","start");
 }
 
-void restart_scutclient(void){
-	if (stop_scutclient() != 0) {
+int restart_scutclient(void){
+	int stop_status = stop_scutclient();
+
+	if (stop_status != 0) {
 		logmessage(LOGNAME, "scutclient restart aborted because stop failed");
-		return;
+		return stop_status;
 	}
 	start_scutclient();
+	return 0;
 }
 
 #endif
@@ -347,12 +350,15 @@ void start_mentohust(void){
 		eval("/usr/bin/mentohust.sh","start");
 }
 
-void restart_mentohust(void){
-	if (stop_mentohust() != 0) {
+int restart_mentohust(void){
+	int stop_status = stop_mentohust();
+
+	if (stop_status != 0) {
 		logmessage(LOGNAME, "mentohust restart aborted because stop failed");
-		return;
+		return stop_status;
 	}
 	start_mentohust();
+	return 0;
 }
 
 #endif
@@ -368,12 +374,15 @@ void start_ttyd(void){
 		eval("/usr/bin/ttyd.sh","start");
 }
 
-void restart_ttyd(void){
-	if (stop_ttyd() != 0) {
+int restart_ttyd(void){
+	int stop_status = stop_ttyd();
+
+	if (stop_status != 0) {
 		logmessage(LOGNAME, "ttyd restart aborted because stop failed");
-		return;
+		return stop_status;
 	}
 	start_ttyd();
+	return 0;
 }
 #endif
 
@@ -388,12 +397,15 @@ void start_ss(void){
 		eval("/usr/bin/shadowsocks.sh","start");
 }
 
-void restart_ss(void){
-	if (stop_ss() != 0) {
+int restart_ss(void){
+	int stop_status = stop_ss();
+
+	if (stop_status != 0) {
 		logmessage(LOGNAME, "ss restart aborted because stop failed");
-		return;
+		return stop_status;
 	}
 	start_ss();
+	return 0;
 }
 
 int stop_ss_tunnel(void){
@@ -406,12 +418,15 @@ void start_ss_tunnel(void){
 		eval("/usr/bin/ss-tunnel.sh","start");
 }
 
-void restart_ss_tunnel(void){
-	if (stop_ss_tunnel() != 0) {
+int restart_ss_tunnel(void){
+	int stop_status = stop_ss_tunnel();
+
+	if (stop_status != 0) {
 		logmessage(LOGNAME, "ss_tunnel restart aborted because stop failed");
-		return;
+		return stop_status;
 	}
 	start_ss_tunnel();
+	return 0;
 }
 
 void update_chnroute(void){
@@ -450,12 +465,15 @@ void start_vlmcsd(void){
 		eval("/usr/bin/vlmcsd.sh","start");
 }
 
-void restart_vlmcsd(void){
-	if (stop_vlmcsd() != 0) {
+int restart_vlmcsd(void){
+	int stop_status = stop_vlmcsd();
+
+	if (stop_status != 0) {
 		logmessage(LOGNAME, "vlmcsd restart aborted because stop failed");
-		return;
+		return stop_status;
 	}
 	start_vlmcsd();
+	return 0;
 }
 #endif
 
@@ -479,12 +497,15 @@ void start_iperf3(void){
 		eval("/usr/bin/iperf3.sh","start");
 }
 
-void restart_iperf3(void){
-	if (stop_iperf3() != 0) {
+int restart_iperf3(void){
+	int stop_status = stop_iperf3();
+
+	if (stop_status != 0) {
 		logmessage(LOGNAME, "iperf3 restart aborted because stop failed");
-		return;
+		return stop_status;
 	}
 	start_iperf3();
+	return 0;
 }
 #endif
 #if defined(APP_DNSFORWARDER)
@@ -513,9 +534,9 @@ void start_adguardhome(void){
 		eval("/usr/bin/adguardhome.sh","start");
 }
 
-void restart_adguardhome(void){
+int restart_adguardhome(void){
 	/* Keep stop + conditional start inside one launcher lifecycle lock. */
-	eval("/usr/bin/adguardhome.sh","restart");
+	return eval("/usr/bin/adguardhome.sh","restart");
 }
 
 #endif
@@ -531,12 +552,15 @@ void start_zerotier(void){
 		eval("/usr/bin/zerotier.sh","start");
 }
 
-void restart_zerotier(void){
-	if (stop_zerotier() != 0) {
+int restart_zerotier(void){
+	int stop_status = stop_zerotier();
+
+	if (stop_status != 0) {
 		logmessage(LOGNAME, "ZeroTier restart aborted because stop failed");
-		return;
+		return stop_status;
 	}
 	start_zerotier();
+	return 0;
 }
 #endif
 
@@ -551,9 +575,9 @@ void start_ddnsto(void){
 		eval("/usr/bin/ddnsto.sh","start");
 }
 
-void restart_ddnsto(void){
+int restart_ddnsto(void){
 	/* Keep stop + conditional start inside one DDNSTO lifecycle lock. */
-	eval("/usr/bin/ddnsto.sh","restart");
+	return eval("/usr/bin/ddnsto.sh","restart");
 }
 #endif
 
@@ -568,12 +592,15 @@ void start_sqm(void){
 		eval("/usr/lib/sqm/run.sh");
 }
 
-void restart_sqm(void){
-	if (stop_sqm() != 0) {
+int restart_sqm(void){
+	int stop_status = stop_sqm();
+
+	if (stop_status != 0) {
 		logmessage(LOGNAME, "sqm restart aborted because stop failed");
-		return;
+		return stop_status;
 	}
 	start_sqm();
+	return 0;
 }
 #endif
 
@@ -588,12 +615,15 @@ void start_aldriver(void){
 		eval("/usr/bin/aliyundrive-webdav.sh","start");
 }
 
-void restart_aldriver(void){
-	if (stop_aldriver() != 0) {
+int restart_aldriver(void){
+	int stop_status = stop_aldriver();
+
+	if (stop_status != 0) {
 		logmessage(LOGNAME, "aldriver restart aborted because stop failed");
-		return;
+		return stop_status;
 	}
 	start_aldriver();
+	return 0;
 }
 #endif
 
@@ -608,12 +638,15 @@ void start_wireguard(void){
 		eval("/usr/bin/wireguard.sh","start");
 }
 
-void restart_wireguard(void){
-	if (stop_wireguard() != 0) {
+int restart_wireguard(void){
+	int stop_status = stop_wireguard();
+
+	if (stop_status != 0) {
 		logmessage(LOGNAME, "wireguard restart aborted because stop failed");
-		return;
+		return stop_status;
 	}
 	start_wireguard();
+	return 0;
 }
 #endif
 
@@ -628,9 +661,9 @@ void start_adbyby(void){
 		eval("/usr/bin/adbyby.sh","start");
 }
 
-void restart_adbyby(void){
+int restart_adbyby(void){
 	/* One launcher owns stop/start atomically with cron and manual actions. */
-	eval("/usr/bin/adbyby.sh","restart");
+	return eval("/usr/bin/adbyby.sh","restart");
 }
 
 void update_adb(void){
@@ -649,12 +682,15 @@ void start_smartdns(void){
 		eval("/usr/bin/smartdns.sh","start");
 }
 
-void restart_smartdns(void){
-	if (stop_smartdns() != 0) {
+int restart_smartdns(void){
+	int stop_status = stop_smartdns();
+
+	if (stop_status != 0) {
 		logmessage(LOGNAME, "smartdns restart aborted because stop failed");
-		return;
+		return stop_status;
 	}
 	start_smartdns();
+	return 0;
 }
 #endif
 
@@ -669,8 +705,8 @@ void start_aliddns(void){
 		eval("/usr/bin/aliddns.sh","start");
 }
 
-void restart_aliddns(void){
-	eval("/usr/bin/aliddns.sh","restart");
+int restart_aliddns(void){
+	return eval("/usr/bin/aliddns.sh","restart");
 }
 #endif
 
@@ -690,11 +726,12 @@ void start_frp(void){
 		logmessage(LOGNAME, "FRP start failed: %d", status);
 }
 
-void restart_frp(void){
+int restart_frp(void){
 	int status = eval("/usr/bin/frp.sh","restart");
 
 	if (status != 0)
 		logmessage(LOGNAME, "FRP restart failed: %d", status);
+	return status;
 }
 #endif
 

@@ -529,26 +529,26 @@ int stop_misc(void);
 int is_scutclient_run(void);
 int stop_scutclient(void);
 void start_scutclient(void);
-void restart_scutclient(void);
+int restart_scutclient(void);
 #endif
 #if defined(APP_MENTOHUST)
 int is_mentohust_run(void);
 int stop_mentohust(void);
 void start_mentohust(void);
-void restart_mentohust(void);
+int restart_mentohust(void);
 #endif
 #if defined(APP_TTYD)
 int stop_ttyd(void);
 void start_ttyd(void);
-void restart_ttyd(void);
+int restart_ttyd(void);
 #endif
 #if defined(APP_SHADOWSOCKS)
 int stop_ss(void);
 void start_ss(void);
-void restart_ss(void);
+int restart_ss(void);
 int stop_ss_tunnel(void);
 void start_ss_tunnel(void);
-void restart_ss_tunnel(void);
+int restart_ss_tunnel(void);
 void update_chnroute(void);
 void update_gfwlist(void);
 void update_dlink(void);
@@ -558,13 +558,13 @@ void reset_dlink(void);
 int is_vlmcsd_run(void);
 int stop_vlmcsd(void);
 void start_vlmcsd(void);
-void restart_vlmcsd(void);
+int restart_vlmcsd(void);
 #endif
 #if defined(APP_IPERF3)
 int is_iperf3_run(void);
 int stop_iperf3(void);
 void start_iperf3(void);
-void restart_iperf3(void);
+int restart_iperf3(void);
 #endif
 #if defined(APP_DNSFORWARDER)
 int stop_dnsforwarder(void);
@@ -574,53 +574,53 @@ int restart_dnsforwarder(void);
 #if defined(APP_ADBYBY)
 int stop_adbyby(void);
 void start_adbyby(void);
-void restart_adbyby(void);
+int restart_adbyby(void);
 void update_adb(void);
 #endif
 #if defined(APP_ADGUARDHOME)
 int stop_adguardhome(void);
 void start_adguardhome(void);
-void restart_adguardhome(void);
+int restart_adguardhome(void);
 #endif
 #if defined(APP_ALIDDNS)
 int stop_aliddns(void);
 void start_aliddns(void);
-void restart_aliddns(void);
+int restart_aliddns(void);
 #endif
 #if defined(APP_ZEROTIER)
 int stop_zerotier(void);
 void start_zerotier(void);
-void restart_zerotier(void);
+int restart_zerotier(void);
 #endif
 #if defined(APP_DDNSTO)
 int stop_ddnsto(void);
 void start_ddnsto(void);
-void restart_ddnsto(void);
+int restart_ddnsto(void);
 #endif
 #if defined(APP_ALDRIVER)
 int stop_aldriver(void);
 void start_aldriver(void);
-void restart_aldriver(void);
+int restart_aldriver(void);
 #endif
 #if defined(APP_SQM)
 int stop_sqm(void);
 void start_sqm(void);
-void restart_sqm(void);
+int restart_sqm(void);
 #endif
 #if defined(APP_WIREGUARD)
 int stop_wireguard(void);
 void start_wireguard(void);
-void restart_wireguard(void);
+int restart_wireguard(void);
 #endif
 #if defined(APP_SMARTDNS)
 int stop_smartdns(void);
 void start_smartdns(void);
-void restart_smartdns(void);
+int restart_smartdns(void);
 #endif
 #if defined(APP_FRP)
 int stop_frp(void);
 void start_frp(void);
-void restart_frp(void);
+int restart_frp(void);
 #endif
 /* services_ex.c */
 int fill_dnsmasq_servers(void);

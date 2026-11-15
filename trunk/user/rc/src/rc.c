@@ -1284,37 +1284,37 @@ handle_notifications(void)
 #if defined(APP_SCUT)
 		else if (strcmp(entry->d_name, RCN_RESTART_SCUT) == 0)
 		{
-			restart_scutclient();
+			action_result = rc_notify_merge_action_result(action_result, restart_scutclient());
 		}
 		else if (strcmp(entry->d_name, "stop_scutclient") == 0)
 		{
-			stop_scutclient();
+			action_result = rc_notify_merge_action_result(action_result, stop_scutclient());
 		}
 #endif
 #if defined(APP_MENTOHUST)
 		else if (strcmp(entry->d_name, RCN_RESTART_MENTOHUST) == 0)
 		{
-			restart_mentohust();
+			action_result = rc_notify_merge_action_result(action_result, restart_mentohust());
 		}
 		else if (strcmp(entry->d_name, "stop_mentohust") == 0)
 		{
-			stop_mentohust();
+			action_result = rc_notify_merge_action_result(action_result, stop_mentohust());
 		}
 #endif
 #if defined(APP_TTYD)
 		else if (strcmp(entry->d_name, RCN_RESTART_TTYD) == 0)
 		{
-			restart_ttyd();
+			action_result = rc_notify_merge_action_result(action_result, restart_ttyd());
 		}
 #endif
 #if defined(APP_SHADOWSOCKS)
 		else if (strcmp(entry->d_name, RCN_RESTART_SHADOWSOCKS) == 0)
 		{
-			restart_ss();
+			action_result = rc_notify_merge_action_result(action_result, restart_ss());
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_SS_TUNNEL) == 0)
 		{
-			restart_ss_tunnel();
+			action_result = rc_notify_merge_action_result(action_result, restart_ss_tunnel());
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_CHNROUTE_UPD) == 0)
 		{
@@ -1336,57 +1336,57 @@ handle_notifications(void)
 #if defined(APP_VLMCSD)
 		else if (strcmp(entry->d_name, RCN_RESTART_VLMCSD) == 0)
 		{
-			restart_vlmcsd();
+			action_result = rc_notify_merge_action_result(action_result, restart_vlmcsd());
 			action_result = rc_notify_merge_action_result(action_result, restart_dhcpd());
 		}
 #endif
 #if defined(APP_IPERF3)
 		else if (strcmp(entry->d_name, RCN_RESTART_IPERF3) == 0)
 		{
-			restart_iperf3();
+			action_result = rc_notify_merge_action_result(action_result, restart_iperf3());
 		}
 #endif
 #if defined(APP_ALIDDNS)
 		else if (strcmp(entry->d_name, RCN_RESTART_ALIDDNS) == 0)
 		{
-			restart_aliddns();
+			action_result = rc_notify_merge_action_result(action_result, restart_aliddns());
 		}
 #endif
 #if defined(APP_ZEROTIER)
 		else if (strcmp(entry->d_name, RCN_RESTART_ZEROTIER) == 0)
 		{
-			restart_zerotier();
+			action_result = rc_notify_merge_action_result(action_result, restart_zerotier());
 		}
 #endif
 #if defined(APP_DDNSTO)
 		else if (strcmp(entry->d_name, RCN_RESTART_DDNSTO) == 0)
 		{
-			restart_ddnsto();
+			action_result = rc_notify_merge_action_result(action_result, restart_ddnsto());
 		}
 #endif
 
 #if defined(APP_ALDRIVER)
 		else if (strcmp(entry->d_name, RCN_RESTART_ALDRIVER) == 0)
 		{
-			restart_aldriver();
+			action_result = rc_notify_merge_action_result(action_result, restart_aldriver());
 		}
 #endif
 #if defined(APP_WIREGUARD)
 		else if (strcmp(entry->d_name, RCN_RESTART_WIREGUARD) == 0)
 		{
-			restart_wireguard();
+			action_result = rc_notify_merge_action_result(action_result, restart_wireguard());
 		}
 #endif
 #if defined(APP_SQM)
 		else if (strcmp(entry->d_name, RCN_RESTART_SQM) == 0)
 		{
-			restart_sqm();
+			action_result = rc_notify_merge_action_result(action_result, restart_sqm());
 		}
 #endif
 #if defined(APP_ADBYBY)
 		else if (strcmp(entry->d_name, RCN_RESTART_ADBYBY) == 0)
 		{
-			restart_adbyby();
+			action_result = rc_notify_merge_action_result(action_result, restart_adbyby());
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_UPDATEADB) == 0)
 		{
@@ -1396,19 +1396,19 @@ handle_notifications(void)
 #if defined(APP_ADGUARDHOME)
 		else if (strcmp(entry->d_name, RCN_RESTART_ADGUARDHOME) == 0)
 		{
-			restart_adguardhome();
+			action_result = rc_notify_merge_action_result(action_result, restart_adguardhome());
 		}
 #endif
 #if defined(APP_SMARTDNS)
 		else if (strcmp(entry->d_name, RCN_RESTART_SMARTDNS) == 0)
 		{
-			restart_smartdns();
+			action_result = rc_notify_merge_action_result(action_result, restart_smartdns());
 		}
 #endif
 #if defined(APP_FRP)
 		else if (strcmp(entry->d_name, RCN_RESTART_FRP) == 0)
 		{
-			restart_frp();
+			action_result = rc_notify_merge_action_result(action_result, restart_frp());
 		}
 #endif
 #if defined(APP_DNSFORWARDER)
