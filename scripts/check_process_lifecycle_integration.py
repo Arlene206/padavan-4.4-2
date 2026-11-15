@@ -48,6 +48,15 @@ assert "process_identity_validate(service_name, identity)" in common_ex
 assert "kill(identity->pid, signal_number)" in common_ex
 assert 'doSystem("killall %s %s", signal_option, service_name)' not in common_ex
 assert "service_lifecycle_preflight" in policy
+pppoe_confirm = net_source.split("static int\npppoe_relay_confirm_started(int launch_status)", 1)[1].split(
+    "\nint\nset_passthrough_pppoe", 1
+)[0]
+assert "PPPOE_RELAY_START_WAIT_ATTEMPTS 4" in net_source
+assert "pppoe_relay_process_presence(&scan_error)" in pppoe_confirm
+assert "PROCESS_PRESENCE_RUNNING" in pppoe_confirm
+assert "PROCESS_PRESENCE_UNKNOWN" in pppoe_confirm
+assert "sleep(1);" in pppoe_confirm
+assert "pppoe_relay_start_status(launch_status, presence)" in pppoe_confirm
 pppoe_start = net_source.split("int\nset_passthrough_pppoe(int is_on)", 1)[1].split("set_igmp_mld_version", 1)[0]
 assert '#include "process_inventory.h"' in net_source
 assert '#include "pppoe_relay_policy.h"' in net_source
@@ -57,6 +66,8 @@ assert pppoe_start.index("scan_error = snapshot.error;") < pppoe_start.index("pr
 assert pppoe_start.index("process_snapshot_release(&snapshot);") < pppoe_start.index("pppoe_relay_should_start(presence)")
 assert "if (pppoe_relay_should_start(presence))" in pppoe_start
 assert "return start_status;" in pppoe_start
+assert "start_status = pppoe_relay_confirm_started(start_status);" in pppoe_start
+assert "launch/readiness failed" in pppoe_start
 assert "return scan_error;" in pppoe_start
 assert "return kill_services(svcs, 3, 1);" in pppoe_start
 assert "int set_passthrough_pppoe(int is_on);" in rc_header

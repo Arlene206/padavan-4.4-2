@@ -1,3 +1,12 @@
+## 2026-11-15 — Require PPPoE relay child readiness after successful launch
+
+- Review of the PPPoE relay start path found that the pre-launch inventory gate proved only that no old daemon existed. `eval()` waits for the launcher child and does not prove the detached `pppoe-relay` process remains present; returning that launcher status directly could report success even if the relay immediately exited or could not be observed. Unlike the adjacent DNSMasq path, no post-launch process-presence check existed.
+- Added a four-attempt bounded RUNNING postcondition after a successful launch. Only an authoritative RUNNING snapshot returns success; ABSENT after bounded retries returns `ESRCH`, UNKNOWN/invalid returns `EIO` with the scan error preserved, and an exec/launcher error is returned unchanged. The pre-start gate now shares one scanner wrapper so every snapshot is released consistently.
+- Extended the standalone GNU89 PPPoE policy regression for RUNNING/ABSENT/UNKNOWN/invalid post-launch states and preserved launcher errors. Extended the process source contract for the bounded retry/readiness path; process and XY-C1 workflows already monitor the changed production/helper/test paths.
+- Changed paths: `net.c`, `pppoe_relay_policy.h`, `tests/pppoe_relay_policy.c`, `check_process_lifecycle_integration.py`, `dev_log.md`. Result: THIS COMMIT. Exact-head process-lifecycle and XY-C1 firmware validation required.
+
+---
+
 ## 2026-11-15 — Update PPPoE checker for explicit running/unknown failure split
 
 - Exact process-lifecycle runs `43675935125` (source `877fbb2b1ab09a1be429bb379844dddc05d2750f`) and `43676007129` (source `7733970303619f9288865b718a3d0411874c102e`) reached the Python integration checker and failed at an obsolete assertion requiring an `else if (presence == UNKNOWN)` branch. The production helper now correctly returns success only for RUNNING, while all other non-ABSENT states share the same fail-closed error path.
