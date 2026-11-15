@@ -6,6 +6,8 @@ on:
       - ".github/workflows/rc-notification-queue-stability.yml"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/tests/optional_daemon_policy.c"
+      - "trunk/user/rc/src/optional_daemon_policy.h"
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/sshd_daemon_policy.h"
       - "trunk/user/rc/src/tests/sshd_daemon_policy.c"
@@ -16,10 +18,7 @@ on:
       - "trunk/user/shared/src/notify_rc.c"
       - "trunk/user/shared/src/rc_notify_queue.h"
       - "trunk/user/shared/src/tests/rc_notify_queue.c"
-  pull_request:
-    paths:
-      - ".github/workflows/rc-notification-queue-stability.yml"
-      - "trunk/user/rc/src/rc.c"
+c/src/rc.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/sshd_daemon_policy.h"
@@ -57,6 +56,14 @@ jobs:
             trunk/user/shared/src/tests/rc_notify_queue.c \
             -o /tmp/rc-notify-queue
           /tmp/rc-notify-queue
+      - name: Compile and run optional daemon tri-state stop postcondition regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/rc/src -I trunk/user/shared/src \
+            trunk/user/rc/src/tests/optional_daemon_policy.c \
+            -o /tmp/optional-daemon-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/optional-daemon-policy
       - name: Compile and run GNU89 SSH daemon restart policy regression
         run: |
           set -eu
@@ -139,6 +146,19 @@ jobs:
           )
           for name in app_restarts:
               assert "action_result = rc_notify_merge_action_result(action_result, " + name + "())" in handler, name
+          for daemon, process in (
+              ("scutclient", "bin_scutclient"),
+              ("mentohust", "bin_mentohust"),
+              ("vlmcsd", "vlmcsd"),
+              ("iperf3", "iperf3"),
+          ):
+              assert 'optional_daemon_presence("' + process + '", NULL)' in services
+              assert 'optional_daemon_stop_status("' + daemon + '", "' + process + '"' in services
+              assert "return start_" + daemon + "();" in services
+              assert "int start_" + daemon + "(void);" in rc_header
+          assert "optional_daemon_stop_complete(command_status, presence)" in services
+          assert "PROCESS_PRESENCE_UNKNOWN" in (ROOT / "trunk/user/rc/src/optional_daemon_policy.h").read_text()
+
           for name in ("stop_scutclient", "stop_mentohust"):
               assert "action_result = rc_notify_merge_action_result(action_result, " + name + "())" in handler, name
           assert "int stop_status = stop_telnetd();" in handler

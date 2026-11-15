@@ -26,6 +26,7 @@
 
 #include "rc.h"
 #include "process_inventory.h"
+#include "optional_daemon_policy.h"
 #include "sshd_daemon_policy.h"
 #include "networkmap_daemon_policy.h"
 #include "crond_daemon_policy.h"
