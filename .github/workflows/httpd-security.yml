@@ -2319,8 +2319,8 @@ jobs:
           tv_bound = wan[tv_start:tv_end]
           assert "dhcp_lease_ipv4_is_valid(ip)" in tv_bound
           assert "dhcp_lease_netmask_is_valid(nm)" in tv_bound
-           assert "dhcp_wan_route_transition_apply(" in tv_bound
-           assert 'route_context.prefix = "manv_"' in tv_bound
+          assert "dhcp_wan_route_transition_apply(" in tv_bound
+          assert 'route_context.prefix = "manv_"' in tv_bound
 
           renew_start = wan.index("udhcpc_renew(char *wan_ifname)")
           renew_end = wan.index("udhcpc_leasefail(", renew_start)
