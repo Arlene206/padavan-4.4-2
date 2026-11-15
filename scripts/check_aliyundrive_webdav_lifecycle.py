@@ -260,11 +260,14 @@ require('$(ROMFSINST) -p +x $(THISDIR)/aliyundrive-webdav.sh /usr/bin/aliyundriv
 stop_aldriver_body = function_body(services, "int stop_aldriver(void)")
 restart_aldriver_body = function_body(services, "int restart_aldriver(void)")
 stop_all = function_body(services, "stop_services(int stopall)")
+start_aldriver_body = function_body(services, "int start_aldriver(void)")
 require('return eval("/usr/bin/aliyundrive-webdav.sh","stop");' in stop_aldriver_body and
-        'eval("/usr/bin/aliyundrive-webdav.sh","start")' in services and
+        'return eval("/usr/bin/aliyundrive-webdav.sh","start");' in start_aldriver_body and
+        'int start_aldriver(void);' in rc_header and
         "if (stop_status != 0)" in restart_aldriver_body and
-        restart_aldriver_body.index("if (stop_status != 0)") < restart_aldriver_body.index("start_aldriver();") and
-        "return stop_status;" in restart_aldriver_body and
+        restart_aldriver_body.index("if (stop_status != 0)") < restart_aldriver_body.index("return start_aldriver();") and
+        "return start_aldriver();" in restart_aldriver_body and
+        "return start_aldriver();" not in restart_aldriver_body[:restart_aldriver_body.index("if (stop_status != 0)")] and
         'record_service_stop_status(&stop_status, "AliyunDrive WebDAV", stop_aldriver());' in stop_all and
         "int stop_aldriver(void);" in rc_header,
         "RC service wrapper must propagate checked stop status through restart, public declaration and shutdown aggregate")

@@ -141,9 +141,12 @@ require('zerotier_kernel_route_segment "$zt0"' in cleanup_section,
 
 require('$(ROMFSINST) -p +x $(THISDIR)/zerotier.sh /usr/bin/zerotier.sh' in makefile,
         "ROMFS must install the exercised ZeroTier launcher")
+start = function_body(services, "int start_zerotier(void)")
 require('eval("/usr/bin/zerotier.sh","stop")' in services and
-        'eval("/usr/bin/zerotier.sh","start")' in services,
-        "RC service wrappers must retain ZeroTier stop/start integration")
+        'return eval("/usr/bin/zerotier.sh","start");' in start and
+        'if (zerotier_enable != 1)' in start and
+        'int start_zerotier(void);' in rc_header,
+        "RC ZeroTier start wrapper must propagate launch status and preserve disabled mode")
 stop = function_body(services, "int stop_zerotier(void)")
 require('return eval("/usr/bin/zerotier.sh","stop");' in stop and
         'int stop_zerotier(void);' in rc_header,
@@ -155,10 +158,10 @@ restart_compact = " ".join(restart.split())
 require('int stop_status = stop_zerotier();' in restart_compact and
         'if (stop_status != 0)' in restart_compact and
         'return stop_status;' in restart_compact and
-        'start_zerotier();' in restart_compact and
-        'return 0;' in restart_compact and
-        restart_compact.index('return stop_status;') < restart_compact.index('start_zerotier();') < restart_compact.index('return 0;'),
-        "RC ZeroTier restart must not start after a failed stop")
+        'return start_zerotier();' in restart_compact and
+        'start_zerotier();' not in restart_compact.replace('return start_zerotier();', '') and
+        restart_compact.index('return stop_status;') < restart_compact.index('return start_zerotier();'),
+        "RC ZeroTier restart must preserve stop and start launcher statuses")
 require('int restart_zerotier(void);' in rc_header and
         'action_result = rc_notify_merge_action_result(action_result, restart_zerotier());' in rc,
         "RC ZeroTier restart status must reach the notification result")
