@@ -26,10 +26,49 @@ def require(condition: bool, message: str) -> None:
 
 
 def function_body(source: str, signature: str) -> str:
-    match = re.search(rf"(?m)^{re.escape(signature)}[ \t]*\{{(.*?)^[ \t]*\}}", source, re.S)
-    require(match is not None, f"missing function {signature}")
-    return match.group(1)
+    start = source.find(signature)
+    require(start >= 0, f"missing function {signature}")
+    opening = source.find("{", start + len(signature))
+    require(opening >= 0, f"missing opening brace for {signature}")
 
+    depth = 0
+    state = "code"
+    pos = opening
+    while pos < len(source):
+        char = source[pos]
+        nxt = source[pos + 1] if pos + 1 < len(source) else ""
+        if state == "code":
+            if char == '"':
+                state = "string"
+            elif char == "'":
+                state = "char"
+            elif char == "/" and nxt == "*":
+                state = "block_comment"
+                pos += 1
+            elif char == "/" and nxt == "/":
+                state = "line_comment"
+                pos += 1
+            elif char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    return source[opening + 1:pos]
+        elif state in ("string", "char"):
+            if char == "\\\\":
+                pos += 1
+            elif state == "string" and char == '"':
+                state = "code"
+            elif state == "char" and char == "'":
+                state = "code"
+        elif state == "block_comment":
+            if char == "*" and nxt == "/":
+                state = "code"
+                pos += 1
+        elif state == "line_comment" and char == "\\n":
+            state = "code"
+        pos += 1
+    raise AssertionError("unterminated function: " + signature)
 
 wait_body = function_body(script, "zerotier_wait_stopped()")
 kill_body = function_body(script, "kill_z()")
