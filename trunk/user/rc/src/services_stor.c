@@ -918,6 +918,25 @@ config_smb_fastpath(int check_pid)
 }
 
 static int
+samba_require_daemon_absent(const char *daemon, const char *stage)
+{
+	struct process_snapshot snapshot;
+	enum process_presence state;
+	int scan_error, status;
+
+	memset(&snapshot, 0, sizeof(snapshot));
+	state = process_inventory_scan(daemon, &snapshot);
+	scan_error = snapshot.error;
+	status = samba_process_require_absent(state, scan_error);
+	process_snapshot_release(&snapshot);
+	if (status != 0)
+		logmessage("Samba Server",
+			   "%s is not confirmed ABSENT %s (errno %d)",
+			   daemon, stage ? stage : "", errno ? errno : EIO);
+	return status;
+}
+
+static int
 stop_samba_locked(int force_stop)
 {
 	char* svcs[] = { "smbd",
@@ -939,8 +958,18 @@ stop_samba_locked(int force_stop)
 		logmessage("Samba Server", "one or more requested Samba daemons did not stop");
 		return stop_status;
 	}
+
+	/* Never declare a stop successful on a partial or UNKNOWN inventory. */
+	if (samba_require_daemon_absent("smbd", "after stop") != 0)
+		return -1;
+#if defined (APP_SMBD36)
+	if (samba_require_daemon_absent("wsdd2", "after stop") != 0)
+		return -1;
+#endif
 	if (!svcs[nmbdidx])
 		return 0;
+	if (samba_require_daemon_absent("nmbd", "after stop") != 0)
+		return -1;
 
 	clean_smbd_trash();
 	return 0;

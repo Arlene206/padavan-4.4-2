@@ -295,7 +295,11 @@ jobs:
           stop_samba = function_body(stor, "stop_samba_locked(int force_stop)")
           assert "stop_status = kill_services(svcs, 5, 1)" in stop_samba
           assert "if (stop_status != 0)" in stop_samba
-          assert "clean_smbd_trash()" in stop_samba
+          assert 'samba_require_daemon_absent("smbd", "after stop")' in stop_samba
+          assert stop_samba.index('samba_require_daemon_absent("smbd"') < stop_samba.index("if (!svcs[nmbdidx])")
+          assert 'samba_require_daemon_absent("wsdd2", "after stop")' in stop_samba
+          assert 'samba_require_daemon_absent("nmbd", "after stop")' in stop_samba
+          assert stop_samba.index('samba_require_daemon_absent("nmbd"') < stop_samba.index("clean_smbd_trash()")
           public_stop_samba = function_body(stor, "int\nstop_samba(int force_stop)")
           assert public_stop_samba.index("storage_operation_lock_acquire(file_lock)") < public_stop_samba.index("stop_samba_locked(force_stop)")
           assert public_stop_samba.index("stop_samba_locked(force_stop)") < public_stop_samba.index("file_unlock(storage_lock);")
