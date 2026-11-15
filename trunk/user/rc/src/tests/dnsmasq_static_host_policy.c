@@ -77,7 +77,7 @@ mock_static_arp_command(const char *ip, const char *mac, int add, void *opaque)
 	size_t call = context->calls++;
 
 	assert(call < ARP_TRANSACTION_TEST_MAX);
-	assert(mac != NULL && mac[0] != '\\0');
+	assert(mac != NULL && mac[0] != '\0');
 	context->ips[call] = ip;
 	context->adds[call] = add;
 	if (add && context->fail_add_call == call + 1)
