@@ -1056,8 +1056,8 @@ stop_services(int stopall)
 	record_service_stop_status(&stop_status, "rstats", stop_rstats());
 	record_service_stop_status(&stop_status, "infosvr", stop_infosvr());
 	record_service_stop_status(&stop_status, "crond", stop_crond());
-	stop_igmpproxy(NULL);
-	/* Optional package stop hooks above still expose legacy void APIs. */
+	record_service_stop_status(&stop_status, "IPTV proxies", stop_igmpproxy(NULL));
+	/* Remaining optional package stop hooks still expose legacy void APIs. */
 	return stop_status;
 }
 

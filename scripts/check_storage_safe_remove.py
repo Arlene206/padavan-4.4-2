@@ -63,6 +63,7 @@ disk_header = read("trunk/user/libdisk/src/disk_initial.h")
 storage = read("trunk/user/rc/src/services_stor.c")
 services = read("trunk/user/rc/src/services.c")
 services_usb = read("trunk/user/rc/src/services_usb.c")
+net = read("trunk/user/rc/src/net.c")
 rc = read("trunk/user/rc/src/rc.c")
 rc_header = read("trunk/user/rc/src/rc.h")
 policy = read("trunk/user/rc/src/storage_service_stop_policy.h")
@@ -144,13 +145,25 @@ for signature in ("restart_usb_printer_spoolers(void)", "try_start_usb_printer_s
             "return;" in starter and "exec_printer_daemons(" in starter,
             "printer restart must abort launch after a failed stop: " + signature)
 stop_all = body(services, "int\nstop_services(int stopall)")
-for daemon in ("p910nd", "lpd", "u2ec"):
+for daemon in ("p910nd", "lpd", "u2ec", "IPTV proxies"):
     require('record_service_stop_status(&stop_status, "' + daemon + '"' in stop_all,
-            "stop_services must aggregate printer stop status: " + daemon)
+            "stop_services must aggregate stop status: " + daemon)
+igmp_stop = body(net, "int\nstop_igmpproxy(char *wan_ifname)")
+require("return 0;" in igmp_stop and "return kill_services(" in igmp_stop,
+        "IPTV proxy stop must report success only for intentional no-op or verified stop")
+igmp_start = body(net, "void\nstart_igmpproxy(char *wan_ifname)")
+require(igmp_start.index("stop_igmpproxy(wan_ifname) != 0") < igmp_start.index("start_udpxy(wan_ifname)"),
+        "IPTV restart must not launch replacements after a failed stop")
+iptv_restart = body(net, "void\nrestart_iptv(int is_ap_mode)")
+require('stop_igmpproxy(NULL) != 0' in iptv_restart and
+        iptv_restart.index('stop_igmpproxy(NULL) != 0') < iptv_restart.index("start_udpxy(IFNAME_BR)"),
+        "AP-mode IPTV restart must abort replacements after a failed stop")
+require("int stop_igmpproxy(char *wan_ifname);" in rc_header,
+        "RC header must export checked IPTV stop status")
 
 flash = body(rc, "flash_firmware(void)")
-require("stop_usb_printer_spoolers() != 0" in flash,
-        "firmware write must be blocked by a failed second printer stop")
+require("stop_usb_printer_spoolers() != 0" in flash and "stop_igmpproxy(NULL) != 0" in flash,
+        "firmware write must be blocked by failed printer or IPTV proxy stop")
 flash_gate = flash.index("if (safe_remove_all_stor_devices(0) != 0)")
 require(flash_gate < flash.index("storage_save_time(") < flash.index("write_storage_to_mtd(") <
         flash.index('eval("/tmp/mtd_write"'),

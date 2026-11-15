@@ -495,7 +495,7 @@ start_xupnpd(char *wan_ifname)
 }
 #endif
 
-void
+int
 stop_igmpproxy(char *wan_ifname)
 {
 	char *svcs[] = { "xupnpd", "udpxy", "msd_lite", "igmpproxy", NULL };
@@ -504,10 +504,10 @@ stop_igmpproxy(char *wan_ifname)
 	if (wan_ifname) {
 		char *viptv_iflast = nvram_safe_get("viptv_ifname");
 		if (*viptv_iflast && is_interface_exist(viptv_iflast) && strcmp(wan_ifname, viptv_iflast))
-			return;
+			return 0;
 	}
 
-	kill_services(svcs, 3, 1);
+	return kill_services(svcs, 3, 1);
 }
 
 void
@@ -522,8 +522,11 @@ start_igmpproxy(char *wan_ifname)
 	if (*viptv_iflast && is_interface_exist(viptv_iflast) && strcmp(wan_ifname, viptv_iflast))
 		return;
 
-	/* Always close old instance of igmpproxy and udpxy (interface may changed) */
-	stop_igmpproxy(wan_ifname);
+	/* Do not start replacements until every old IPTV process is confirmed stopped. */
+	if (stop_igmpproxy(wan_ifname) != 0) {
+		logmessage("IPTV", "proxy restart aborted because an existing proxy did not stop");
+		return;
+	}
 
 	start_udpxy(wan_ifname);
 #if defined(APP_XUPNPD)
@@ -570,7 +573,10 @@ restart_iptv(int is_ap_mode)
 			wan_ifname = get_man_ifname(0);
 		start_igmpproxy(wan_ifname);
 	} else {
-		stop_igmpproxy(NULL);
+		if (stop_igmpproxy(NULL) != 0) {
+			logmessage("IPTV", "AP-mode proxy restart aborted because an existing proxy did not stop");
+			return;
+		}
 		start_udpxy(IFNAME_BR);
 #if defined(APP_XUPNPD)
 		start_xupnpd(IFNAME_BR);

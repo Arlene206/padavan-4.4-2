@@ -563,7 +563,10 @@ flash_firmware(void)
 		return;
 	}
 #endif
-	stop_igmpproxy(NULL);
+	if (stop_igmpproxy(NULL) != 0) {
+		logmessage(LOGNAME, "firmware update aborted: IPTV proxy daemons did not stop");
+		return;
+	}
 	storage_save_time(60);
 	write_storage_to_mtd();
 	sync();

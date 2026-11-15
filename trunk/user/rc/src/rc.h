@@ -218,7 +218,7 @@ void start_xupnpd(char *wan_ifname);
 #endif
 void stop_udpxy(void);
 void start_udpxy(char *wan_ifname);
-void stop_igmpproxy(char *wan_ifname);
+int stop_igmpproxy(char *wan_ifname);
 void start_igmpproxy(char *wan_ifname);
 void restart_iptv(int is_ap_mode);
 void flush_conntrack_table(char *ip);

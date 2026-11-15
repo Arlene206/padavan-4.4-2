@@ -3,6 +3,7 @@ name: USB storage hotplug stability regression
 on:
   push:
     paths:
+      - "trunk/user/rc/src/net.c"
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/services_usb.c"
       - ".github/workflows/storage-hotplug-stability.yml"
@@ -44,6 +45,7 @@ on:
       - "trunk/user/busybox/busybox-1.24.x/**"
   pull_request:
     paths:
+      - "trunk/user/rc/src/net.c"
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/services_usb.c"
       - ".github/workflows/storage-hotplug-stability.yml"
