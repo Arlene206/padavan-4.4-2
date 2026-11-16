@@ -589,6 +589,9 @@ jobs:
           assert "if (switch_vlan_status != 0)" in full_wan_restart
           assert "return switch_vlan_status;" in full_wan_restart
           assert full_wan_restart.index("return switch_vlan_status;") < full_wan_restart.index("status = start_wan();")
+          assert "status = add_static_lan_routes(IFNAME_BR);" in full_wan_restart
+          assert "static LAN routes could not be restored" in full_wan_restart
+          assert full_wan_restart.index("return status;") < full_wan_restart.index("status = start_wan();")
           print("LAN bridge initialization status and caller aggregation: PASS")
           print("LAN startup error propagation and caller aggregation: PASS")
           PY

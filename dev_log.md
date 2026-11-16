@@ -9,6 +9,17 @@
 
 ---
 
+## 2026-11-16 — Restore static LAN routes before restarting WAN
+
+- Parent main: `43d0ebe973f06f578282531eed4abc0fdba1bb3b`. `full_restart_wan()` had already been updated to stop before WAN startup when switch VLAN reconfiguration failed, but it still discarded the int result from `add_static_lan_routes(IFNAME_BR)`.
+- The helper delegates to `control_static_routes()` and reports an error if the required static LAN routes are not restored after WAN teardown. The full restart now captures that result, logs the failure and returns before `start_wan()`; an incomplete route table is not treated as a successful WAN restart.
+- Process semantic source contract now asserts route restoration is checked and the failure return precedes WAN startup.
+- The previous exact-head Process run on `90ac78ccccb7acbf6ab75956999b4847a3628fd8` failed only at its final static source-contract assertion; commit `43d0ebe973f06f578282531eed4abc0fdba1bb3b` corrected the checker to require exactly two assigned LAN-member calls. Exact rerun Process `43860996821` and AI docs `43860997587` were still pending at last query.
+- THIS source slice needs fresh exact-head CI. No same-source-SHA firmware L3 or physical-router L4 result is claimed.
+- Next: verify exact Process/AI docs and inspect any additional int-returning `full_restart_wan()` callers before proceeding.
+
+---
+
 ## 2026-11-16 — Preserve bridge membership ioctl errno across close
 
 - Parent main: `1ce4ffe3b71e87bdc5143ccc802d252f190ab5b0`. The preceding commit preserves ioctl errno for `br_add_del_bridge()`; a sibling review found the same issue in `br_add_del_if_internal()` for bridge port add/delete.

@@ -2741,7 +2741,12 @@ full_restart_wan(void)
 	phy_clear_mac_table();
 	update_router_mode();
 	reset_wan_vars();
-	add_static_lan_routes(IFNAME_BR);
+	status = add_static_lan_routes(IFNAME_BR);
+	if (status != 0) {
+		logmessage(LOGNAME, "aborting full WAN restart because static LAN routes could not be restored (status=%d)",
+			   status);
+		return status;
+	}
 	select_usb_modem_to_wan();
 	notify_reset_detect_link();
 	switch_vlan_status = switch_config_vlan(0);

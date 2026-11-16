@@ -1,11 +1,9 @@
 ## Current source / CI checkpoint
 
-- Product-source baseline: `b715097b8fdb76ed1e96bdeed6bedafde47eeefd`. Required `iNIC_mii` load now uses post-load module-state verification and feeds bridge/PID 1 startup health; optional `hw_nat` offload is verified/logged but remains non-fatal.
-- Exact-head Process regression `43859397503` failed only in the final LAN source-contract step after its process inventory, GNU89/Werror/ASan/UBSan and policy regressions passed. The raw-call assertion is being replaced with explicit count/status-assignment checks for the router and AP LAN member calls.
-- Exact-head AI handoff documentation `43859397894` failed because the handoff omitted the required end-of-session checkpoint statement; that validator-required statement is restored in the current checkpoint.
-- XY-C1 firmware validation `43859397498` was still at Build XY-C1, with TRX verification and artifact upload pending. NVRAM transaction audit `43859397571` was auditing raw userland ioctl callers. No same-SHA firmware L3 or physical-router L4 result is claimed.
-- Other exact-head module Actions on `b715097...` passed, including Process inventory, AdGuardHome, infosvr, AliyunDrive, WAN DHCP, AliDDNS, detect_link, HTTPD security, DNSMasq and detect_internet.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Live main before THIS static LAN route restart-status slice: `43d0ebe973f06f578282531eed4abc0fdba1bb3b`. The current source baseline already propagates essential bridge/VLAN/switch/module status and aborts full WAN restart on switch VLAN ioctl failure.
+- THIS change also captures `add_static_lan_routes(IFNAME_BR)` during `full_restart_wan()` and returns before `start_wan()` if LAN route restoration fails; Process source contract covers that ordering.
+- On parent `90ac78ccccb7acbf6ab75956999b4847a3628fd8`, Process `43860760675` failed only at its final source contract due to the LAN member count assertion. Commit `43d0ebe973f06f578282531eed4abc0fdba1bb3b` tightened that check; exact Process `43860996821` and AI docs `43860997587` were pending on that checker-fix SHA.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. No same-source-SHA XY-C1 Build+TRX+artifact L3 or hardware L4 result is claimed.
 
 ## Whole-repository module status
 
