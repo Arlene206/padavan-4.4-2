@@ -11,9 +11,9 @@ For each logical task, create all changed files in one Git tree and one atomic m
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; active development ref: `main`.
-- Parent main for this static IPoE overlap status fix: `68643ba87132dedc5945679d13e6b0e216861cdc`; each write must use a fresh main/tree read and non-forced expected-SHA compare-and-swap.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only. Initial branch/handoff recovery is complete; do not repeat.
-- Root `dev_log.md` contains 27 entries before this source milestone.
+- Parent main for the static IPoE overlap correction: `c38c9d288707e98616c796bb0724e64fd3885eab`; subsequent writes must re-fetch main/tree and use non-forced expected-SHA compare-and-swap.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable/read-only. Startup and backup recovery was completed once; do not repeat it.
+- The rolling dev-log archive remains in part-012; root log currently has 29 records.
 
 ## Engineering baseline
 
@@ -23,22 +23,40 @@ For each logical task, create all changed files in one Git tree and one atomic m
 
 ## Active task
 
-Static IPoE WAN/LAN subnet overlap was already detected and prevented from continuing to `wan_up()`, but the rejection only set a local `wan_err`; it did not update the return value consumed by PID 1. The conflict branch now accumulates `EADDRINUSE` in `wan_start_status`. The WAN DHCP callback workflow now asserts this fail-closed status contract.
+Static IPoE WAN/LAN subnet overlap already prevented `wan_up()`, but the branch only set local `wan_err` and did not update the return status consumed by PID 1. It now accumulates `EADDRINUSE` using `rc_first_service_start_status()`. The WAN DHCP callback workflow checks that exact conflict branch and its caller-visible result.
 
 ## Verification boundary
 
-- Parent main: `68643ba87132dedc5945679d13e6b0e216861cdc`; the preceding miniupnpd checker correction now expects both PPP setup branches to capture `check_upnp_wanif_changed()` into `vlan_result`.
-- The latest parent exact-head Actions were still being triggered/settled when this slice began; no same-SHA XY-C1 Build + TRX + artifact L3 or hardware L4 is claimed.
-- Earlier verified successes on the preceding source/checker SHA included Process lifecycle, WAN route, HTTPD security, AI handoff, infosvr, AdGuardHome, AliyunDrive and AliDDNS.
-- Frozen backup remains unchanged and read-only.
+Exact-head Actions for parent `c38c9d288707e98616c796bb0724e64fd3885eab`:
+
+- `VPN server lifecycle stability regression` `43869140953`: completed / success
+- `AliDDNS signed API transport security regression` `43869140787`: completed / success
+- `AI handoff documentation contract` `43869140667`: completed / success
+- `WAN route operation status regression` `43869140499`: completed / success
+- `WAN interface teardown stability regression` `43869140587`: completed / success
+- `detect_internet signal lifecycle stability regression` `43869140477`: completed / success
+- `infosvr packet and signal lifecycle stability regression` `43869140608`: completed / success
+- `WAN gateway ARP probe socket stability regression` `43869140602`: completed / success
+- `XY-C1 Firmware Validation` `43869140714`: in_progress
+- `WAN DHCP callback state stability regression` `43869140586`: completed / success
+- `USB modem WDM/NDIS physical identity stability` `43869140444`: completed / success
+- `AliyunDrive WebDAV lifecycle stability regression` `43869140626`: completed / success
+- `detect_link signal lifecycle stability regression` `43869140381`: completed / success
+- `miniupnpd atomic configuration publication regression` `43869140553`: completed / success
+- `Process lifecycle inventory - c38c9d288707e98616c796bb0724e64fd3885eab` `43869140439`: completed / success
+- `Process inventory and lifecycle fail-closed regression` `43869140664`: completed / success
+- `AdGuardHome config security regression` `43869140393`: completed / success
+- `DNSMasq lifecycle stability regression` `43869140657`: completed / success
+- `HTTPD Authentication and Security Regression` `43869140668`: completed / success
+- `NVRAM transaction boundary audit` `43869140525`: completed / success
+
+- This source correction has not yet been verified on its new commit SHA.
+- No same-SHA XY-C1 Build + TRX + artifact L3 or physical-router L4 result is claimed without all required successful evidence.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head Process, XY-C1, WAN route, miniupnpd and NVRAM Actions for the IPTV/PPPoE passthrough status slice.
-2. Continue the targeted WAN callback review for any remaining required startup operation whose failure is logged but not returned; preserve core WAN availability while surfacing configured-service failures.
-3. Keep optional MTU, UPnP notification and cleanup paths best-effort.
-4. Claim firmware L3 only after same-SHA Build, TRX verification and artifact upload all pass. Physical-router L4 remains unverified.
+1. Verify exact-head WAN DHCP regression and Process/miniupnpd source checks for the static IPoE overlap correction; inspect the first causal failure if any.
+2. Check XY-C1 Build, TRX verification and artifact upload on one identical source SHA, plus NVRAM audit completion.
+3. Continue the WAN adjunct-service startup audit (IPTV and PPPoE passthrough), preserving WAN core availability while propagating configured-service failures to PID 1.
+4. Keep optional notification, tuning and cleanup best-effort; physical-router L4 remains unverified.
 
-## Governance
-
-Main only; frozen backup read-only. One full tree and atomic commit per logical task, then non-forced expected-SHA update. Update `dev_log.md` for source changes and preserve archive history. Distinguish host tests, exact-SHA Actions, firmware/TRX L3 and physical-router L4. Never claim an unrun result.

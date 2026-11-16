@@ -1,3 +1,11 @@
+## 2026-11-16 — Propagate static IPoE WAN/LAN subnet overlap to startup status
+
+- Parent main: `c38c9d288707e98616c796bb0724e64fd3885eab`. Static IPoE WAN/LAN subnet overlap prevented `wan_up()` but only set local `wan_err`; it did not update `wan_start_status`, allowing PID 1 to observe false success. The branch now propagates `EADDRINUSE` with first-error semantics.
+- Added a WAN DHCP callback regression asserting that the exact overlap branch records the error through `rc_first_service_start_status()`.
+- Next: verify exact-head WAN DHCP, Process and miniupnpd checks; inspect XY-C1 firmware Build/TRX/artifact and NVRAM audit before continuing the WAN IPTV/PPPoE adjunct status audit.
+
+---
+
 ## 2026-11-16 — Propagate static IPoE subnet conflict to WAN startup status
 
 - Parent main: `68643ba87132dedc5945679d13e6b0e216861cdc`. Static IPoE WAN/LAN subnet overlap already set `wan_err` and blocked `wan_up()`, but failed to update `wan_start_status`. This could return success to PID 1 for a rejected WAN configuration. The branch now aggregates `EADDRINUSE` using first-error semantics.

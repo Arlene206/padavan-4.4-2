@@ -1,11 +1,11 @@
 ## Current source / CI checkpoint
 
-- Parent product/source SHA: `68643ba87132dedc5945679d13e6b0e216861cdc`.
-- Required normal PPP and IPoE migration, physical setup, PPPD launch, demand readiness, static address, EAPOL and DHCP launch errors now reach `start_wan()` through first-error aggregation.
-- Static IPoE WAN/LAN subnet overlap previously set `wan_err` and skipped `wan_up()` but left the service return status at success. It now accumulates `EADDRINUSE`; the WAN DHCP callback source regression verifies the overlap branch.
-- The most recent miniupnpd checker correction covers both captured PPP migration sites. Other earlier source checks for Process lifecycle, WAN route, HTTPD security, AI docs, infosvr, AdGuardHome, AliyunDrive and AliDDNS passed on the preceding source/checker SHA.
-- Current parent has no confirmed same-SHA XY-C1 Build + TRX + artifact L3 or physical-router L4 result.
+- Parent product/source SHA: `c38c9d288707e98616c796bb0724e64fd3885eab`.
+- Required PPP/IPoE migration, physical setup, PPPD launch, demand readiness, static address, EAPOL and DHCP-launch failures are aggregated through `start_wan()`.
+- Static IPoE WAN/LAN subnet overlap previously set `wan_err` and skipped `wan_up()` but left the returned service status at success. It now accumulates `EADDRINUSE`; the WAN DHCP callback workflow asserts the exact branch.
+- Parent exact-head Actions are recorded in `SESSION_HANDOFF.md`; this change requires new exact-head source-check reruns.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- No same-SHA XY-C1 Build + TRX + artifact L3 or physical-router L4 result is claimed.
 
 ## Whole-repository module status
 
