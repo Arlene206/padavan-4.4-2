@@ -8,7 +8,7 @@ Before context exhaustion, record exact refs, Action states and the first next a
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Source baseline before this engineering slice: `0731e7aa932661260456a3f95f0fbebbecc42fa2` (`test(zerotier): assert tri-state process stop semantics`); live `main` before this slice was `b3e550a5dadf0607f2d7aba5b93db6da8e1c9d4d` (documentation checkpoint only).
+- Earlier source baseline: `0731e7aa932661260456a3f95f0fbebbecc42fa2`; documentation checkpoint: `b3e550a5dadf0607f2d7aba5b93db6da8e1c9d4d`. Main immediately before the current updater slice: `ca6f0786aa35f95331d031e38bca53dea189743a` (`fix(adbyby): capture pidof errors safely under errexit`).
 - `main` is the only development branch. The frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify or rewrite it.
 - Startup protocol, handoff, roadmap and log archive were recovered once in this session. Do not repeat the initial audit.
 - This documentation checkpoint updates this file and `dev_log.md` only; no source changes are included.
@@ -42,19 +42,22 @@ Before context exhaustion, record exact refs, Action states and the first next a
 - All PASS statements above refer to Actions for the exact SHA named in the same item.
 - The `952e97c` XY-C1 build/TRX/artifact result is complete and PASS.
 - The `8e0556d` XY-C1 run `43794003979` completed SUCCESS (Build, TRX verification and artifact upload).
-- The `fc867b5` XY-C1 run `43794661521` was still in progress at the latest check; TRX and artifact upload remain unverified. The standalone ZeroTier workflow is green on the follow-up checker commit `0731e7a`.
+- The `fc867b5` XY-C1 run `43794661521` later completed SUCCESS; `8e0556d` XY-C1 run `43794003979` also completed SUCCESS (Build/TRX/artifact). The standalone ZeroTier workflow on `0731e7a`, run `43794876436`, is PASS.
+- Exact push Actions for `ca6f0786aa35f95331d031e38bca53dea189743a`: Adbyby regression `43797496515` PASS; Process lifecycle `43797496441` PASS; process inventory `43797496503` PASS; AI handoff docs `43797496481` PASS; HTTPD security `43797496369` PASS. NVRAM boundary `43797496462` and XY-C1 `43797496451` were PENDING at the latest check.
 - No physical-router runtime or L4 validation was performed in this session.
 - No change was made to the frozen backup branch.
 
 ## Active task
 
-Adbyby stop postcondition slice is implemented on top of main `b3e550a5dadf0607f2d7aba5b93db6da8e1c9d4d`: `adbyby_close()` now requires a clean ABSENT pidof result before firewall, cron, DNS cleanup or dnsmasq restart. RUNNING triggers `killall -q adbyby` followed by five bounded one-second checks; malformed pid lists, pidof errors, scan ambiguity, sleep failure and timeout return failure without destructive cleanup. The lifecycle lock wrapper remains the serialization boundary. Added `trunk/user/adbyby/tests/adbyby_stop_postcondition.sh` and a Process lifecycle workflow step; exact-head Actions are pending.
+The Adbyby stop contract now uses a tri-state pidof inventory, verifies a bounded post-signal ABSENT state, and refuses teardown on UNKNOWN or timeout. Commit `ca6f0786aa35f95331d031e38bca53dea189743a` repaired the pidof-status capture so expected nonzero statuses are safely handled under callers using `set -e`. Exact-SHA Adbyby regression run `43797496515`, Process lifecycle `43797496441`, process inventory `43797496503`, AI docs `43797496481`, and HTTPD security `43797496369` all PASS.
+
+A new concrete caller gap remains: `adbyby_uprules()` still calls `adbyby_close` without checking its status. An UNKNOWN/timed-out stop can therefore be followed by rule staging and a replacement daemon launch. The current follow-up adds a fail-closed stop gate before `addscripts`, extends the shell regression to prove updater staging/launch does not happen after a failed stop, and extends `check_adbyby_hosts_config.py` to enforce the production/test wiring. Base SHA for this atomic slice: `ca6f0786aa35f95331d031e38bca53dea189743a`.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-main push Actions for the Adbyby regression commit; triage any failure from its first causal log and repair on main. Do not count a non-push or stale-SHA result.
-2. Check whether XY-C1 run `43794661521` (`fc867b`) has completed; it is independent of the Adbyby shell-only source change.
-3. Continue the repository-wide process lifecycle inventory from the highest-risk remaining unguarded direct signal/stop caller; avoid repeating completed OpenSSH, Transmission, ZeroTier or Adbyby work.
+1. Check exact-SHA push Actions for this updater-gate commit. Verify Adbyby configuration stability, Process lifecycle, process inventory, AI docs, HTTPD security, NVRAM boundary, and XY-C1; mark only completed/success runs PASS.
+2. Confirm the regression covers initial pidof UNKNOWN/malformed, stubborn timeout, post-signal UNKNOWN, sleep failure, confirmed ABSENT, successful stop, and the updater caller refusing staging/relaunch after stop failure.
+3. Continue repository-wide lifecycle governance from the next highest-risk remaining direct signal/stop caller in the inventory; do not repeat the completed Adbyby process-state capture or current updater gate.
 
 ## Governance and safety constraints
 

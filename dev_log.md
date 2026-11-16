@@ -1,3 +1,12 @@
+## 2026-11-16 — Gate Adbyby rule updates on verified daemon shutdown
+
+- Parent main: `ca6f0786aa35f95331d031e38bca53dea189743a`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact-SHA runs on `ca6f078`: Adbyby stability `43797496515` PASS; Process lifecycle `43797496441` PASS; inventory `43797496503` PASS; AI docs `43797496481` PASS; HTTPD security `43797496369` PASS. NVRAM boundary `43797496462` and XY-C1 `43797496451` were PENDING at the latest check.
+- Found that `adbyby_uprules()` ignored `adbyby_close` failure, so a daemon with UNKNOWN/timeout stop state could be followed by new rules and a replacement process. The follow-up makes the updater abort before staging, validates that contract statically, and adds a shell regression that checks no rules, dnsmasq or daemon launch side effects occur.
+- No physical-router test is claimed. This atomic source/test/checker/handoff transaction is based on `ca6f0786aa35f95331d031e38bca53dea189743a`; exact-SHA CI for the follow-up must be checked after publication.
+- Next: verify the current exact-SHA Actions and proceed to the next highest-risk remaining lifecycle stop/signal caller.
+---
+
 ## 2026-11-16 — Gate Adbyby teardown on confirmed daemon absence
 
 - Confirmed the lifecycle lock serializes Adbyby actions, but `adbyby_close()` previously removed firewall/cron/DNS state and restarted dnsmasq immediately after an unchecked `killall`. A still-running or unobservable daemon could therefore survive after its traffic/DNS integration was removed.

@@ -11,6 +11,7 @@ FIREWALL_TEST = ROOT / "trunk/user/adbyby/tests/firewall_snapshot.sh"
 WORKFLOW = ROOT / ".github/workflows/adbyby-config-stability.yml"
 SERVICE = ROOT / "trunk/user/rc/src/services.c"
 LIFECYCLE_TEST = ROOT / "trunk/user/adbyby/tests/lifecycle_lock.sh"
+STOP_TEST = ROOT / "trunk/user/adbyby/tests/adbyby_stop_postcondition.sh"
 RULES_TEST = ROOT / "trunk/user/adbyby/tests/rules_download.sh"
 EXTERNAL_TEST = ROOT / "trunk/user/adbyby/tests/external_downloads.sh"
 ANTI_AD_TEST = ROOT / "trunk/user/adbyby/tests/anti_ad_download.sh"
@@ -46,6 +47,7 @@ firewall_test = FIREWALL_TEST.read_text(encoding="utf-8")
 workflow = WORKFLOW.read_text(encoding="utf-8")
 service = SERVICE.read_text(encoding="utf-8")
 lifecycle_test = LIFECYCLE_TEST.read_text(encoding="utf-8")
+stop_test = STOP_TEST.read_text(encoding="utf-8")
 rules_test = RULES_TEST.read_text(encoding="utf-8")
 external_test = EXTERNAL_TEST.read_text(encoding="utf-8")
 anti_ad_test = ANTI_AD_TEST.read_text(encoding="utf-8")
@@ -290,6 +292,16 @@ require("if ! add_rules" in start and "return 1" in start,
         "normal start must not launch the daemon after managed rule preparation fails")
 require("if ! add_rules" in updater and "return 1" in updater,
         "update/restart must not relaunch after managed rule preparation fails")
+process_state = function_body(source, "adbyby_process_state")
+require("if adbyby_pid_output=$(pidof adbyby 2>/dev/null); then" in process_state
+        and "adbyby_pid_status=$?" in process_state,
+        "pidof result must be captured safely under errexit")
+require("adbyby_close ||" in updater and
+        updater.index("adbyby_close ||") < updater.index("addscripts"),
+        "rule update must abort before staging when daemon stop is unverified")
+require("rule update continued after Adbyby stop failure" in stop_test and
+        "adbyby_uprules" in stop_test,
+        "stop regression must cover the updateadb stop gate")
 for fixed_path in ("/tmp/local-md5.json", "/tmp/md5.json", "/tmp/lazy.txt", "/tmp/video.txt"):
     require(fixed_path not in source, f"predictable shared staging path remains: {fixed_path}")
 for marker in ("TLS outage", "redirect", "HTTP failure", "partial/corrupt body",
@@ -329,6 +341,7 @@ paths = (
     "trunk/user/adbyby/adbyby.sh",
     "trunk/user/adbyby/tests/hosts_config_preservation.sh",
     "trunk/user/adbyby/tests/lifecycle_lock.sh",
+    "trunk/user/adbyby/tests/adbyby_stop_postcondition.sh",
     "trunk/user/adbyby/tests/rules_download.sh",
     "trunk/user/adbyby/tests/external_downloads.sh",
     "trunk/user/adbyby/tests/anti_ad_download.sh",
@@ -354,12 +367,14 @@ for command in (
     "sh -n trunk/user/adbyby/adbyby.sh",
     "sh -n trunk/user/adbyby/tests/hosts_config_preservation.sh",
     "sh -n trunk/user/adbyby/tests/lifecycle_lock.sh",
+    "sh -n trunk/user/adbyby/tests/adbyby_stop_postcondition.sh",
     "sh -n trunk/user/adbyby/tests/rules_download.sh",
     "sh -n trunk/user/adbyby/tests/external_downloads.sh",
     "sh -n trunk/user/adbyby/tests/anti_ad_download.sh",
     "sh -n trunk/user/adbyby/tests/host_list_download.sh",
     "sh trunk/user/adbyby/tests/hosts_config_preservation.sh",
     "sh trunk/user/adbyby/tests/lifecycle_lock.sh",
+    "sh trunk/user/adbyby/tests/adbyby_stop_postcondition.sh",
     "sh trunk/user/adbyby/tests/rules_download.sh",
     "sh trunk/user/adbyby/tests/external_downloads.sh",
     "sh trunk/user/adbyby/tests/anti_ad_download.sh",

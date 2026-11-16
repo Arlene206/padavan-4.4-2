@@ -780,7 +780,10 @@ reload_rule()
 
 adbyby_uprules()
 {
-	adbyby_close
+	adbyby_close || {
+		logger -t "adbyby" "规则更新因Adbyby停止验证失败而取消。"
+		return 1
+	}
 	addscripts
 	if [ ! -f "$PROG_PATH/adbyby" ]; then
 	logger -t "adbyby" "adbyby程序文件不存在，正在解压..."

@@ -56,6 +56,20 @@ del_rule() { echo del_rule >> "$events_file"; }
 del_cron() { echo del_cron >> "$events_file"; }
 del_dns() { echo del_dns >> "$events_file"; }
 adbyby_restart_dhcpd() { echo restart_dhcpd >> "$events_file"; }
+addscripts() { echo addscripts >> "$events_file"; }
+add_rules() { echo add_rules >> "$events_file"; return 0; }
+add_dns() { echo add_dns >> "$events_file"; }
+add_rule() { echo add_rule >> "$events_file"; }
+hosts_ads() { echo hosts_ads >> "$events_file"; }
+PROG_PATH="$tmp/adbyby"
+mkdir -p "$PROG_PATH"
+printf '#!/bin/sh\\necho launch >> "$ADBYBY_TEST_EVENTS"\\n' > "$PROG_PATH/adbyby"
+chmod 755 "$PROG_PATH/adbyby"
+cat > "$tmp/bin/iptables-save" <<'STUB'
+#!/bin/sh
+echo ADBYBY
+STUB
+chmod 755 "$tmp/bin/iptables-save"
 # The shell builtin takes precedence over PATH's kill stub.
 kill() { echo mem_helper_kill >> "$events_file"; return 0; }
 
@@ -147,5 +161,15 @@ adbyby_close || fail "failed killall status overrode confirmed ABSENT postcondit
 [ "$(event_count 'killall:-q adbyby')" -eq 1 ] || fail "failed-signal path did not send one TERM"
 [ "$(event_count del_rule)" -eq 1 ] || fail "failed-signal path did not complete firewall cleanup"
 [ "$(event_count restart_dhcpd)" -eq 1 ] || fail "failed-signal path did not restart dnsmasq"
+
+# updateadb must stop before staging rules or launching a replacement when
+# the current daemon remains alive after the bounded stop window.
+echo stubborn > "$state_file"
+: > "$events_file"
+ADBYBY_TEST_KILL_MODE=keep
+if adbyby_uprules; then fail "update succeeded while the old daemon remained alive"; fi
+if grep -E '^(addscripts|add_rules|launch|add_dns|add_rule|hosts_ads|restart_dhcpd) "$events_file" >/dev/null; then
+	fail "rule update continued after Adbyby stop failure"
+fi
 
 echo "Adbyby stop postcondition and fail-closed cleanup regression: PASS"
