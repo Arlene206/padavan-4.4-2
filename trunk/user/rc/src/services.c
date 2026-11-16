@@ -1368,9 +1368,11 @@ start_services_once(int is_ap_mode)
 			br_set_fd(IFNAME_BR, 15);
 		}
 	} else {
-		start_udpxy(IFNAME_BR);
+		start_status = rc_first_service_start_status(start_status,
+							    start_udpxy(IFNAME_BR));
 #if defined(APP_XUPNPD)
-		start_xupnpd(IFNAME_BR);
+		start_status = rc_first_service_start_status(start_status,
+							    start_xupnpd(IFNAME_BR));
 #endif
 	}
 #if defined(APP_SKIPDBV2)

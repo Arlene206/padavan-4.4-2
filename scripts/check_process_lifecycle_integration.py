@@ -1168,14 +1168,21 @@ assert '#include "service_start_status.h"' in services_source
 for call in (
     "start_httpd(0)", "start_telnetd()", "start_sshd()", "start_watchdog()",
     "start_gpio_btn()", "start_infosvr()", "start_upnp()", "start_lltd()",
+    "start_udpxy(IFNAME_BR)", "start_xupnpd(IFNAME_BR)",
     "start_crond()", "start_networkmap(1)", "start_rstats()",
 ):
     assert call in boot_start
 for call in (
     "start_httpd(0)", "start_telnetd()", "start_sshd()", "start_watchdog()",
     "start_gpio_btn()", "start_upnp()",
+    "start_udpxy(IFNAME_BR)", "start_xupnpd(IFNAME_BR)",
 ):
     assert "rc_first_service_start_status(start_status, " + call + ")" in boot_start
+
+ap_mode_start = boot_start.split("} else {", 1)[1].split("\n\t}", 1)[0]
+assert "rc_first_service_start_status(start_status," in ap_mode_start
+assert "start_udpxy(IFNAME_BR)" in ap_mode_start
+assert "start_xupnpd(IFNAME_BR)" in ap_mode_start
 
 # networkmap's status is captured for diagnostics before it is aggregated.
 assert "int networkmap_start_status = start_networkmap(1);" in boot_start
