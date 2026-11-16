@@ -20,6 +20,7 @@ on:
       - "trunk/user/busybox/Makefile"
       - "trunk/user/shared/src/dhcp6c_duid_file_policy.h"
       - "trunk/user/httpd/src/web_ex.c"
+      - "trunk/user/httpd/src/httpd_watchdog_stop_policy.h"
       - "trunk/user/httpd/src/aidisk.c"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/wan_resolver_refresh_policy.h"

@@ -53,6 +53,7 @@
 #include <rstats.h>
 #include <bin_sem_asus.h>
 #include <gpioutils.h>
+#include <process_inventory.h>
 #include <process_pidfile.h>
 
 #include "common.h"
@@ -62,6 +63,7 @@
 #include "httpd_apply_request_policy.h"
 #include "httpd_update_output_policy.h"
 #include "httpd_nvram_restore_policy.h"
+#include "httpd_watchdog_stop_policy.h"
 #include "httpd_nvram_commit_policy.h"
 #include "httpd_js_output_policy.h"
 #include "dbapi.h"
@@ -4718,6 +4720,49 @@ do_upgrade_fw_cgi(const char *url, FILE *stream)
 	}
 }
 
+static enum process_presence
+httpd_watchdog_presence(void *context)
+{
+	struct process_snapshot snapshot;
+	enum process_presence presence;
+	int scan_error;
+
+	(void)context;
+	presence = process_inventory_scan("watchdog", &snapshot);
+	scan_error = snapshot.error;
+	process_snapshot_release(&snapshot);
+	if (presence == PROCESS_PRESENCE_UNKNOWN)
+		errno = scan_error > 0 ? scan_error : EIO;
+	return presence;
+}
+
+static int
+httpd_watchdog_signal(void *context, int signal_number)
+{
+	(void)context;
+	return process_pidfile_signal("/var/run/watchdog.pid", "watchdog",
+				      signal_number);
+}
+
+static void
+httpd_watchdog_wait(void *context)
+{
+	(void)context;
+	sleep(1);
+}
+
+static int
+httpd_stop_watchdog_for_nvram_restore(void)
+{
+	static const struct httpd_watchdog_stop_ops ops = {
+		httpd_watchdog_presence,
+		httpd_watchdog_signal,
+		httpd_watchdog_wait
+	};
+
+	return httpd_watchdog_stop_for_restore(&ops, NULL);
+}
+
 static void
 do_restore_nv_cgi(const char *url, FILE *stream)
 {
@@ -4726,24 +4771,29 @@ do_restore_nv_cgi(const char *url, FILE *stream)
 	int commit_result = -1;
 
 	if (f_exists(upload_file) && get_login_safe()) {
-		doSystem("killall %s %s", "-q", "watchdog");
-		sleep(1);
-		ret = eval("/usr/sbin/nvram", "restore", upload_file);
-		if (ret == 0)
-			commit_result = nvram_commit();
+		if (httpd_stop_watchdog_for_nvram_restore() != 0) {
+			int saved_errno = errno ? errno : EIO;
 
-		if (!httpd_nvram_restore_is_committed(ret, commit_result)) {
-			/* httpd_log() expands to a statement with its own semicolon.
-			 * Keep both branches braced so its expansion cannot detach else.
-			 */
-			if (ret != 0) {
-				httpd_log("%s: Unable to extract %s file!", "NVRAM restore", "profile");
-			} else {
-				httpd_log("%s: Unable to persist restored %s profile!", "NVRAM restore", "configuration");
+			httpd_log("NVRAM restore: watchdog stop could not be confirmed; refusing profile replacement (errno=%d)",
+				  saved_errno);
+		} else {
+			ret = eval("/usr/sbin/nvram", "restore", upload_file);
+			if (ret == 0)
+				commit_result = nvram_commit();
+
+			if (!httpd_nvram_restore_is_committed(ret, commit_result)) {
+				/* httpd_log() expands to a statement with its own semicolon.
+				 * Keep both branches braced so its expansion cannot detach else.
+				 */
+				if (ret != 0) {
+					httpd_log("%s: Unable to extract %s file!", "NVRAM restore", "profile");
+				} else {
+					httpd_log("%s: Unable to persist restored %s profile!", "NVRAM restore", "configuration");
+				}
+				/* The watchdog was stopped for the upload; restart it on either failure. */
+				eval("/sbin/watchdog");
+				ret = -1;
 			}
-			/* The watchdog was stopped for the upload; restart it on either failure. */
-			eval("/sbin/watchdog");
-			ret = -1;
 		}
 	}
 

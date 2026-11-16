@@ -128,6 +128,8 @@ on:
       - "trunk/user/httpd/src/httpd.h"
       - "trunk/user/shared/src/include/ralink_boards.h"
       - "trunk/user/httpd/src/web_ex.c"
+      - "trunk/user/httpd/src/httpd_watchdog_stop_policy.h"
+      - "trunk/user/httpd/src/tests/httpd_watchdog_stop_policy.c"
       - "trunk/user/httpd/src/nvram_x.c"
       - "trunk/user/httpd/src/nvram_x.h"
       - "trunk/user/httpd/src/httpd_nvram_group_policy.h"
@@ -310,6 +312,8 @@ on:
       - "trunk/user/httpd/src/httpd.c"
       - "trunk/user/httpd/src/ej.c"
       - "trunk/user/httpd/src/web_ex.c"
+      - "trunk/user/httpd/src/httpd_watchdog_stop_policy.h"
+      - "trunk/user/httpd/src/tests/httpd_watchdog_stop_policy.c"
       - "trunk/user/httpd/src/nvram_x.c"
       - "trunk/user/httpd/src/nvram_x.h"
       - "trunk/user/httpd/src/httpd_nvram_group_policy.h"
@@ -385,6 +389,8 @@ on:
       - "trunk/user/httpd/src/httpd.h"
       - "trunk/user/shared/src/include/ralink_boards.h"
       - "trunk/user/httpd/src/web_ex.c"
+      - "trunk/user/httpd/src/httpd_watchdog_stop_policy.h"
+      - "trunk/user/httpd/src/tests/httpd_watchdog_stop_policy.c"
       - "trunk/user/httpd/src/httpd_script_policy.h"
       - "trunk/user/httpd/src/tests/httpd_script_policy.c"
       - "trunk/user/httpd/src/httpd_apply_request_policy.h"
@@ -1345,6 +1351,69 @@ jobs:
               needle = f'      - "{path}"'
               assert needle in push_paths and needle in pr_paths
           print("NVRAM restore durability, watchdog recovery, semicolon-safe if/else, and exact workflow triggers: OK")
+          PY
+
+      - name: Verify watchdog identity stop before NVRAM restore
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/shared/src \
+            -I trunk/user/httpd/src \
+            trunk/user/httpd/src/tests/httpd_watchdog_stop_policy.c \
+            -o "$RUNNER_TEMP/httpd_watchdog_stop_policy"
+          "$RUNNER_TEMP/httpd_watchdog_stop_policy"
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/user/httpd/src/web_ex.c").read_text()
+          policy = Path("trunk/user/httpd/src/httpd_watchdog_stop_policy.h").read_text()
+          workflow = Path(".github/workflows/httpd-security.yml").read_text()
+
+          def body(source_text, signature):
+              start = source_text.index(signature)
+              brace = source_text.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source_text)):
+                  if source_text[pos] == "{":
+                      depth += 1
+                  elif source_text[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source_text[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          presence = body(source, "httpd_watchdog_presence(void *context)")
+          signal = body(source, "httpd_watchdog_signal(void *context, int signal_number)")
+          stop = body(source, "httpd_stop_watchdog_for_nvram_restore(void)")
+          restore = body(source, "do_restore_nv_cgi(const char *url")
+          assert 'process_inventory_scan("watchdog", &snapshot)' in presence
+          assert 'process_pidfile_signal("/var/run/watchdog.pid", "watchdog"' in signal
+          assert "httpd_watchdog_stop_for_restore(&ops, NULL)" in stop
+          assert "PROCESS_PRESENCE_UNKNOWN" in policy
+          assert "HTTPD_WATCHDOG_STOP_WAIT_ATTEMPTS" in policy
+          assert "SIGTERM" in policy and "ETIMEDOUT" in policy
+          assert 'doSystem("killall %s %s", "-q", "watchdog")' not in restore
+          assert restore.index("httpd_stop_watchdog_for_nvram_restore()") < restore.index(
+              'eval("/usr/sbin/nvram", "restore", upload_file)'
+          )
+          stop_failure = restore.split(
+              "if (httpd_stop_watchdog_for_nvram_restore() != 0)", 1
+          )[1].split("} else {", 1)[0]
+          assert "refusing profile replacement" in stop_failure
+          assert 'eval("/usr/sbin/nvram", "restore", upload_file)' not in stop_failure
+          assert 'eval("/sbin/watchdog")' not in stop_failure
+
+          push = workflow.split("  pull_request:\n", 1)[0]
+          rest = workflow.split("  pull_request:\n", 1)[1]
+          pr = rest.split("  workflow_dispatch:\n", 1)[0]
+          for path in (
+              "trunk/user/httpd/src/web_ex.c",
+              "trunk/user/httpd/src/httpd_watchdog_stop_policy.h",
+              "trunk/user/httpd/src/tests/httpd_watchdog_stop_policy.c",
+          ):
+              needle = f'      - "{path}"'
+              assert needle in push and needle in pr
+          print("NVRAM restore waits for identity-verified watchdog exit; UNKNOWN and timeout fail closed: OK")
           PY
 
       - name: Verify NVRAM group compaction fails closed
