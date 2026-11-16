@@ -552,6 +552,7 @@ for token in ('if ! touch "$slk"; then',
               'if ! mkdir -p -m 755 "$dir_storage"; then'):
     require(token in erase_body, "MTD erase postcondition check misses " + token)
 require(erase_body.index('if ! touch "$slk"; then') <
+        erase_body.index('if ! func_stop_apps; then') <
         erase_body.index('if ! mtd_write erase "$mtd_part_name"; then') <
         erase_body.index('if ! rm -f "$hsh"; then') <
         erase_body.index('if ! rm -rf "$dir_storage"; then') <
@@ -582,7 +583,7 @@ require("if func_reset && func_fill; then" in reset_dispatch and
         "reset dispatch must fill defaults before unlocking and starting applications")
 require("Reset preparation failed; storage save lock retained" in reset_dispatch,
         "failed reset preparation must not continue into default fill or app startup")
-for item in ("MTD_WRITE_STATUS", "FAIL_TOUCH_PATH", "FAIL_RM_PATH",
+for item in ("MTD_WRITE_STATUS", "EVENT_LOG", "erase-stop-failure", "FAIL_TOUCH_PATH", "FAIL_RM_PATH",
              "FAIL_MKDIR_PATH", "FILL_FAIL", "reset-lock-release-failure",
              "erase-directory-recreation-failure", "STOP_APPS_FAIL",
              "reset-stop-failure", 'grep -Fqx stop "$STOP_LOG"'):

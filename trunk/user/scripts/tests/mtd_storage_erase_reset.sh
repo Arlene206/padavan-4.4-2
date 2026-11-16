@@ -15,6 +15,7 @@ EOF_LOGGER
 cat > "$sandbox/bin/mtd_write" <<'EOF_MTD'
 #!/bin/sh
 printf '%s\n' "$*" >> "$MTD_WRITE_LOG"
+printf '%s\n' "mtd_write $*" >> "$EVENT_LOG"
 [ "${MTD_WRITE_STATUS:-0}" = 0 ]
 EOF_MTD
 cat > "$sandbox/bin/rm" <<'EOF_RM'
@@ -50,10 +51,11 @@ prepare_case()
 	printf '%s\n' 'old configuration' > "$base/storage/old.conf"
 	printf '%s\n' 'stale-checkpoint' > "$base/private/storage_md5"
 	printf '%s\n' 'dev:    size   erasesize  name' 'mtd5: 00010000 00010000 "Storage"' > "$base/proc-mtd"
-	export CALL_LOG="$base/calls.log" MTD_WRITE_LOG="$base/mtd-write.log" LOGGER_LOG="$base/logger.log"
+	export CALL_LOG="$base/calls.log" MTD_WRITE_LOG="$base/mtd-write.log" LOGGER_LOG="$base/logger.log" EVENT_LOG="$base/events.log"
 	: > "$CALL_LOG"
 	: > "$MTD_WRITE_LOG"
 	: > "$LOGGER_LOG"
+	: > "$EVENT_LOG"
 	FAIL_RM_PATH=
 	FAIL_MKDIR_PATH=
 	FAIL_TOUCH_PATH=
@@ -76,6 +78,7 @@ prepare_case()
 func_stop_apps()
 {
 	printf '%s\n' stop >> "$STOP_LOG"
+	printf '%s\n' stop >> "$EVENT_LOG"
 	[ "${STOP_APPS_FAIL:-0}" != 1 ]
 }
 func_fill()
@@ -126,6 +129,15 @@ expect_failure erase "MTD write"
 assert_old_storage
 grep -Fqx 'erase Storage' "$MTD_WRITE_LOG"
 
+prepare_case erase-stop-failure
+STOP_APPS_FAIL=1
+expect_failure erase "rstats stop"
+[ -e "$base/private/.storage_locked" ]
+[ -e "$base/private/storage_md5" ]
+assert_old_storage
+[ ! -s "$MTD_WRITE_LOG" ]
+grep -Fqx stop "$STOP_LOG"
+
 prepare_case erase-lock-creation-failure
 FAIL_TOUCH_PATH="$base/private/.storage_locked"
 export FAIL_TOUCH_PATH
@@ -165,6 +177,9 @@ run_mtd "$base/mtd_storage.sh" erase
 [ -e "$base/private/.storage_locked" ]
 [ ! -e "$base/private/storage_md5" ]
 assert_empty_storage
+grep -Fqx stop "$STOP_LOG"
+awk '$0 == "stop" { stop = NR } $0 == "mtd_write erase Storage" { erase = NR } END { exit !(stop > 0 && erase > stop) }' "$EVENT_LOG"
+assert_no_service_calls
 
 prepare_case reset-lock-creation-failure
 FAIL_TOUCH_PATH="$base/private/.storage_locked"

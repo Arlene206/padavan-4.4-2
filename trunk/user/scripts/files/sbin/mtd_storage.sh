@@ -488,6 +488,11 @@ func_erase()
 		logger -t "Storage" "Cannot create storage save lock before MTD erase: $slk"
 		return 1
 	fi
+	if ! func_stop_apps; then
+		result=1
+		logger -t "Storage" "MTD erase aborted because rstats did not stop cleanly; storage save lock retained"
+		return 1
+	fi
 	if ! mtd_write erase "$mtd_part_name"; then
 		# The flash may have been partially erased; retain the lock until boot
 		# can inspect the partition instead of allowing a possibly unsafe save.
