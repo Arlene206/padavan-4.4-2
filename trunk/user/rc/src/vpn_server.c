@@ -594,36 +594,53 @@ restart_vpn_server(void)
 	return restart_status;
 }
 
-static void
+static int
 reapply_vpn_server_locked(void)
 {
 	int i_type;
 
 	if (nvram_invmatch("vpns_enable", "1") || get_ap_mode())
-		return;
+		return 0;
 
 	i_type = nvram_get_int("vpns_type");
 #if defined(APP_OPENVPN)
 	if (i_type == 2)
-		restart_openvpn_server();
+		return restart_openvpn_server();
 	else
 #endif
-		gen_vpns_pppd_options(i_type);
+		return gen_vpns_pppd_options(i_type);
 }
 
-void
+int
 reapply_vpn_server(void)
 {
-	int lock_fd;
+	int lock_fd, result, release_status, saved_errno = 0, release_errno;
 
 	lock_fd = vpn_server_lifecycle_lock_acquire();
 	if (lock_fd < 0) {
-		logmessage(VPNS_LOG_NAME, "cannot lock VPN server lifecycle for reapply (errno=%d)", errno);
-		return;
+		saved_errno = errno ? errno : EIO;
+		logmessage(VPNS_LOG_NAME, "cannot lock VPN server lifecycle for reapply (errno=%d)", saved_errno);
+		errno = saved_errno;
+		return -1;
 	}
-	reapply_vpn_server_locked();
-	if (vpn_server_lifecycle_lock_release(lock_fd) != 0)
-		logmessage(VPNS_LOG_NAME, "cannot release VPN server lifecycle lock after reapply (errno=%d)", errno);
+
+	result = reapply_vpn_server_locked();
+	if (result != 0)
+		saved_errno = errno ? errno : EIO;
+
+	release_status = vpn_server_lifecycle_lock_release(lock_fd);
+	if (release_status != 0) {
+		release_errno = errno ? errno : EIO;
+		logmessage(VPNS_LOG_NAME, "cannot release VPN server lifecycle lock after reapply (errno=%d)",
+			   release_errno);
+		if (result == 0)
+			saved_errno = release_errno;
+		result = vpn_server_restart_first_error(result, -1);
+	}
+
+	if (result != 0 && saved_errno != 0)
+		errno = saved_errno;
+	return result;
 }
 
 

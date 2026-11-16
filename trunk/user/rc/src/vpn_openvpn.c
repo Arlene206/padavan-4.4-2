@@ -36,6 +36,7 @@
 #include "vpn_server_lease_lock.h"
 #include <process_inventory.h>
 #include "openvpn_process_stop_policy.h"
+#include "vpn_server_restart_policy.h"
 
 #define OPENVPN_EXE		"/usr/sbin/openvpn"
 #define COMMON_TEMP_DIR		"/tmp/openvpn"
@@ -1521,29 +1522,23 @@ out:
 	return result;
 }
 
-void
+int
 restart_openvpn_server(void)
 {
-	int start_status, stop_status;
+	int restart_status, saved_errno;
 
 	/* Note: SIGHUP is buggy with server drop privilegies. */
-	stop_status = stop_openvpn_server();
-	if (stop_status != 0) {
+	restart_status = vpn_openvpn_server_restart_run(stop_openvpn_server,
+						       openvpn_server_lease_clear,
+						       start_openvpn_server);
+	if (restart_status != 0) {
+		saved_errno = errno ? errno : EIO;
 		logmessage(SERVER_LOG_NAME,
-			   "OpenVPN server restart aborted because stop was incomplete (status=%d, errno=%d)",
-			   stop_status, errno ? errno : EIO);
-		return;
+			   "OpenVPN server restart aborted or failed (status=%d, errno=%d)",
+			   restart_status, saved_errno);
+		errno = saved_errno;
 	}
-	if (openvpn_server_lease_clear() != 0) {
-		logmessage(SERVER_LOG_NAME,
-			   "cannot clear lease inventory during OpenVPN restart (errno=%d)",
-			   errno);
-		return;
-	}
-	start_status = start_openvpn_server();
-	if (start_status != 0)
-		logmessage(SERVER_LOG_NAME, "OpenVPN server restart failed (status=%d, errno=%d)",
-			   start_status, errno);
+	return restart_status;
 }
 
 int

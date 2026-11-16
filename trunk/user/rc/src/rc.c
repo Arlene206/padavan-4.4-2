@@ -1609,7 +1609,7 @@ handle_notifications(void)
 		{
 			action_result = rc_notify_merge_action_result(action_result, restart_nmbd());
 			action_result = rc_notify_merge_action_result(action_result, restart_dhcpd());
-			reapply_vpn_server();
+			action_result = rc_notify_merge_action_result(action_result, reapply_vpn_server());
 		}
 #endif
 		else if (strcmp(entry->d_name, RCN_RESTART_LLTD) == 0)

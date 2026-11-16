@@ -49,6 +49,92 @@ test_positive_wait_status_is_not_lost(void)
     assert(vpn_server_restart_first_error(0, 256) == 256);
 }
 
+
+static int openvpn_step_order;
+static int openvpn_stop_status;
+static int openvpn_clear_status;
+static int openvpn_start_status;
+
+static int
+mock_openvpn_stop(void)
+{
+    openvpn_step_order = openvpn_step_order * 10 + 1;
+    return openvpn_stop_status;
+}
+
+static int
+mock_openvpn_clear_lease(void)
+{
+    openvpn_step_order = openvpn_step_order * 10 + 2;
+    return openvpn_clear_status;
+}
+
+static int
+mock_openvpn_start(void)
+{
+    openvpn_step_order = openvpn_step_order * 10 + 3;
+    return openvpn_start_status;
+}
+
+static void
+reset_openvpn_restart(int stop_status, int clear_status, int start_status)
+{
+    openvpn_step_order = 0;
+    openvpn_stop_status = stop_status;
+    openvpn_clear_status = clear_status;
+    openvpn_start_status = start_status;
+}
+
+static void
+test_openvpn_restart_runs_stop_clear_start_in_order(void)
+{
+    reset_openvpn_restart(0, 0, 0);
+    assert(vpn_openvpn_server_restart_run(mock_openvpn_stop,
+        mock_openvpn_clear_lease, mock_openvpn_start) == 0);
+    assert(openvpn_step_order == 123);
+}
+
+static void
+test_openvpn_restart_stop_failure_prevents_lease_clear_and_start(void)
+{
+    reset_openvpn_restart(EBUSY, 0, 0);
+    assert(vpn_openvpn_server_restart_run(mock_openvpn_stop,
+        mock_openvpn_clear_lease, mock_openvpn_start) == EBUSY);
+    assert(openvpn_step_order == 1);
+    assert(rc_notify_merge_action_result(0, EBUSY) == -1);
+}
+
+static void
+test_openvpn_restart_lease_clear_failure_prevents_start(void)
+{
+    reset_openvpn_restart(0, EIO, 0);
+    assert(vpn_openvpn_server_restart_run(mock_openvpn_stop,
+        mock_openvpn_clear_lease, mock_openvpn_start) == EIO);
+    assert(openvpn_step_order == 12);
+}
+
+static void
+test_openvpn_restart_start_failure_is_returned(void)
+{
+    reset_openvpn_restart(0, 0, ESRCH);
+    assert(vpn_openvpn_server_restart_run(mock_openvpn_stop,
+        mock_openvpn_clear_lease, mock_openvpn_start) == ESRCH);
+    assert(openvpn_step_order == 123);
+}
+
+static void
+test_openvpn_restart_rejects_invalid_steps(void)
+{
+    reset_openvpn_restart(0, 0, 0);
+    assert(vpn_openvpn_server_restart_run(NULL,
+        mock_openvpn_clear_lease, mock_openvpn_start) == EINVAL);
+    assert(vpn_openvpn_server_restart_run(mock_openvpn_stop,
+        NULL, mock_openvpn_start) == EINVAL);
+    assert(vpn_openvpn_server_restart_run(mock_openvpn_stop,
+        mock_openvpn_clear_lease, NULL) == EINVAL);
+    assert(openvpn_step_order == 0);
+}
+
 int
 main(void)
 {
@@ -58,6 +144,11 @@ main(void)
     test_first_failure_survives_later_restore_and_unlock_errors();
     test_unlock_failure_is_returned_after_successful_operations();
     test_positive_wait_status_is_not_lost();
-    puts("VPN server restart status propagation policy: PASS");
+    test_openvpn_restart_runs_stop_clear_start_in_order();
+    test_openvpn_restart_stop_failure_prevents_lease_clear_and_start();
+    test_openvpn_restart_lease_clear_failure_prevents_start();
+    test_openvpn_restart_start_failure_is_returned();
+    test_openvpn_restart_rejects_invalid_steps();
+    puts("VPN server and OpenVPN restart status propagation policy: PASS");
     return 0;
 }

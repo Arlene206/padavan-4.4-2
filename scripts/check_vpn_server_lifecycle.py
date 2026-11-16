@@ -534,10 +534,27 @@ ovpn_clear=body(openvpn,"static int\nopenvpn_server_lease_clear(void)")
 ordered(ovpn_clear,["vpn_server_lease_lock_acquire(VPN_SERVER_LEASE_LOCK_FILE)",
     "unlink(SERVER_PID_FILE)","unlink(VPN_SERVER_LEASE_FILE)",
     "vpn_server_lease_lock_release(lock_fd)"],"OpenVPN restart lease clear")
-ovpn_restart=body(openvpn,"void\nrestart_openvpn_server(void)")
-ordered(ovpn_restart,["stop_status = stop_openvpn_server()","if (stop_status != 0)",
-    "return;","if (openvpn_server_lease_clear() != 0)","start_openvpn_server()"],
-    "OpenVPN restart fail-closed stop/fence/start")
+ovpn_restart=body(openvpn,"int\nrestart_openvpn_server(void)")
+require('#include "vpn_server_restart_policy.h"' in openvpn,
+        "OpenVPN restart status policy is not integrated")
+ordered(ovpn_restart,["vpn_openvpn_server_restart_run(stop_openvpn_server,",
+    "openvpn_server_lease_clear","start_openvpn_server)",
+    "if (restart_status != 0)","return restart_status"],
+    "OpenVPN restart fail-closed stop/fence/start and result")
+reapply_locked=body(vpn,"static int\nreapply_vpn_server_locked(void)")
+reapply=body(vpn,"int\nreapply_vpn_server(void)")
+require("return restart_openvpn_server();" in reapply_locked and
+        "return gen_vpns_pppd_options(i_type);" in reapply_locked,
+        "VPN reapply must return OpenVPN and PPP configuration failures")
+ordered(reapply,["vpn_server_lifecycle_lock_acquire()",
+    "result = reapply_vpn_server_locked()",
+    "vpn_server_lifecycle_lock_release(lock_fd)","return result"],
+    "VPN reapply lifecycle result propagation")
+require("int reapply_vpn_server(void);" in rc_header and
+        "int restart_openvpn_server(void);" in rc_header,
+        "VPN reapply/OpenVPN restart declarations must expose status")
+require(rc.count("action_result = rc_notify_merge_action_result(action_result, reapply_vpn_server());") == 2,
+        "WINS and VPN reapply notifications must merge the reapply status")
 print("VPN server lifecycle, identity-bound OpenVPN stop and callback source contract: PASS")
 
 # The bcrelay presence policy and its shared scanner are VPN callback dependencies.
