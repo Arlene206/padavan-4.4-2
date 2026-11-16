@@ -1345,8 +1345,34 @@ start_services_once(int is_ap_mode)
 {
 	int start_status = 0;
 
-	start_status = rc_first_service_start_status(start_status, start_8021x_wl());
-	start_status = rc_first_service_start_status(start_status, start_8021x_rt());
+	{
+		int wl_auth_start_status = start_8021x_wl();
+
+		if (wl_auth_start_status != 0) {
+			logmessage(LOGNAME,
+				   "5GHz boot startup aborted: 802.1X authenticator launch failed (status=%d)",
+				   wl_auth_start_status);
+			if (stop_8021x_wl() != 0)
+				logmessage(LOGNAME, "5GHz boot rollback could not stop 802.1X authenticator");
+			if (stop_wifi_all_wl() < 0)
+				logmessage(LOGNAME, "5GHz boot rollback could not stop wireless interfaces");
+		}
+		start_status = rc_first_service_start_status(start_status, wl_auth_start_status);
+	}
+	{
+		int rt_auth_start_status = start_8021x_rt();
+
+		if (rt_auth_start_status != 0) {
+			logmessage(LOGNAME,
+				   "2.4GHz boot startup aborted: 802.1X authenticator launch failed (status=%d)",
+				   rt_auth_start_status);
+			if (stop_8021x_rt() != 0)
+				logmessage(LOGNAME, "2.4GHz boot rollback could not stop 802.1X authenticator");
+			if (stop_wifi_all_rt() < 0)
+				logmessage(LOGNAME, "2.4GHz boot rollback could not stop wireless interfaces");
+		}
+		start_status = rc_first_service_start_status(start_status, rt_auth_start_status);
+	}
 	start_status = rc_first_service_start_status(start_status, start_httpd(0));
 	start_status = rc_first_service_start_status(start_status, start_telnetd());
 #if defined(APP_SSHD)

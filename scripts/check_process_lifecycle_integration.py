@@ -890,8 +890,22 @@ assert "return start_status;" in start_8021x_wl
 assert "return start_status;" in start_8021x_rt
 services_source = (root / "trunk/user/rc/src/services.c").read_text()
 boot_services = services_source.split("start_services_once(int is_ap_mode)", 1)[1].split("\n}", 1)[0]
-assert "rc_first_service_start_status(start_status, start_8021x_wl())" in boot_services
-assert "rc_first_service_start_status(start_status, start_8021x_rt())" in boot_services
+wl_boot = boot_services.split("int wl_auth_start_status = start_8021x_wl();", 1)[1].split(
+    "int rt_auth_start_status = start_8021x_rt();", 1
+)[0]
+rt_boot = boot_services.split("int rt_auth_start_status = start_8021x_rt();", 1)[1].split(
+    "start_status = rc_first_service_start_status(start_status, start_httpd(0));", 1
+)[0]
+for band, block, stop_auth, stop_radio, status_var in (
+    ("5GHz", wl_boot, "stop_8021x_wl()", "stop_wifi_all_wl()", "wl_auth_start_status"),
+    ("2.4GHz", rt_boot, "stop_8021x_rt()", "stop_wifi_all_rt()", "rt_auth_start_status"),
+):
+    assert f"{band} boot startup aborted: 802.1X authenticator launch failed" in block
+    assert f"if ({status_var} != 0)" in block
+    assert block.index(f"if ({status_var} != 0)") < block.index(stop_auth) < block.index(stop_radio)
+    assert block.index(stop_radio) < block.index(
+        f"rc_first_service_start_status(start_status, {status_var})"
+    ), f"{band} boot status must be aggregated after rollback is attempted"
 watchdog_start = services_source.split("int" + chr(10) + "start_watchdog_cpu(void)", 1)[1].split(chr(10) + "}", 1)[0]
 assert 'module_smart_load("rt_timer_wdg", NULL)' in watchdog_start
 assert "CPU watchdog module startup failed" in watchdog_start
