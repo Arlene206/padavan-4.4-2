@@ -1,6 +1,7 @@
 #ifndef PADAVAN_FIREWALL_RESTORE_TRANSACTION_H
 #define PADAVAN_FIREWALL_RESTORE_TRANSACTION_H
 #include <stddef.h>
+#include <errno.h>
 #include <string.h>
 
 #define FIREWALL_RESTORE_TX_MAX_SNAPSHOTS 8
@@ -93,6 +94,17 @@ static int
 firewall_restore_transaction_ok(const firewall_restore_transaction_t *tx)
 {
 	return tx && !tx->failed;
+}
+
+/* Map any failed apply, rollback, or retained snapshot cleanup to an error. */
+static int
+firewall_restore_transaction_status(const firewall_restore_transaction_t *tx)
+{
+	if (!tx)
+		return EINVAL;
+	if (tx->failed || tx->rollback_failed || tx->cleanup_failed)
+		return EIO;
+	return 0;
 }
 
 static int

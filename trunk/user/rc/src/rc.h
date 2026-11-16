@@ -746,7 +746,7 @@ int ipt_nat_default(void);
 int ipt_filter_default(void);
 void fill_static_routes(char *buf, int len, const char *ift);
 void ip2class(const char *addr, const char *mask, char *out_buf, size_t out_len);
-void start_firewall_ex(void);
+int start_firewall_ex(void);
 
 /* ralink.c */
 int get_wired_mac_is_single(void);

@@ -102,6 +102,7 @@ test_success(void)
 	assert(t.rollback_count == 0);
 	assert(firewall_restore_transaction_finish(&tx, test_remove, &t) == 0);
 	assert(firewall_restore_transaction_ok(&tx) && tx.snapshot_count == 0);
+	assert(firewall_restore_transaction_status(&tx) == 0);
 	assert(t.remove_count == 2);
 }
 
@@ -119,6 +120,7 @@ test_apply_failure_reverse_rollback(void)
 		test_snapshot, test_command, test_remove, &t) == -1);
 	assert(!firewall_restore_transaction_ok(&tx));
 	assert(!firewall_restore_transaction_rollback_failed(&tx));
+	assert(firewall_restore_transaction_status(&tx) == EIO);
 	assert(t.rollback_count == 2 && t.remove_count == 2 && tx.snapshot_count == 0);
 	assert(strcmp(t.calls[4], "rollback:iptables:nat:/tmp/snapshot-1") == 0);
 	assert(strcmp(t.calls[5], "rollback:iptables:filter:/tmp/snapshot-0") == 0);
@@ -194,6 +196,7 @@ test_rollback_failure_retains_snapshots(void)
 		test_snapshot, test_command, test_remove, &t) == -1);
 	assert(firewall_restore_transaction_rollback_failed(&tx));
 	assert(t.rollback_count == 2 && t.remove_count == 0 && tx.snapshot_count == 2);
+	assert(firewall_restore_transaction_status(&tx) == EIO);
 	assert(strcmp(t.calls[4], "rollback:iptables:nat:/tmp/snapshot-1") == 0);
 	assert(strcmp(t.calls[5], "rollback:iptables:filter:/tmp/snapshot-0") == 0);
 	assert(strcmp(tx.snapshots[0].path, "/tmp/snapshot-0") == 0);
@@ -238,6 +241,7 @@ test_cleanup_failure_retains_snapshot_for_retry(void)
 	assert(firewall_restore_transaction_ok(&tx));
 	assert(tx.cleanup_failed && tx.snapshot_count == 1);
 	assert(strcmp(tx.snapshots[0].path, "/tmp/snapshot-0") == 0);
+	assert(firewall_restore_transaction_status(&tx) == EIO);
 	assert(t.remove_attempt_count == 1 && t.remove_count == 0);
 	t.fail_remove_path[0] = '\0';
 	assert(firewall_restore_transaction_finish(&tx, test_remove, &t) == 0);

@@ -2676,10 +2676,11 @@ ipt_nat_default(void)
 	return result;
 }
 
-void
+int
 start_firewall_ex(void)
 {
 	int unit, wan_proto, i_tcp_mss, i_use_man, i_rp;
+	int status = 0;
 	char int_iptables_staged[256] = {0};
 	char opt_iptables_staged[256] = {0};
 #if defined (APP_SHADOWSOCKS)
@@ -2709,7 +2710,7 @@ start_firewall_ex(void)
 			   "Refusing firewall rebuild: previous recovery state remains unresolved (%lu snapshots retained)",
 			   (unsigned long)firewall_core_restore_transaction.snapshot_count);
 		errno = EBUSY;
-		return;
+		return EBUSY;
 	}
 	firewall_core_restore_transaction_active = 0;
 	unit = 0;
@@ -2723,7 +2724,8 @@ start_firewall_ex(void)
 	if (man_if_value && *man_if_value &&
 	    !firewall_interface_name_is_safe(man_if_value)) {
 		logmessage(LOGNAME, "Unsafe management interface token; refusing firewall rebuild");
-		return;
+		errno = EINVAL;
+		return EINVAL;
 	}
 	snprintf(man_if, sizeof(man_if), "%s", man_if_value ? man_if_value : "");
 
@@ -2731,7 +2733,8 @@ start_firewall_ex(void)
 	if (wan_if_value && *wan_if_value) {
 		if (!firewall_interface_name_is_safe(wan_if_value)) {
 			logmessage(LOGNAME, "Unsafe WAN interface token; refusing firewall rebuild");
-			return;
+			errno = EINVAL;
+		return EINVAL;
 		}
 		snprintf(wan_if, sizeof(wan_if), "%s", wan_if_value);
 	} else {
@@ -2741,11 +2744,13 @@ start_firewall_ex(void)
 
 	if (!firewall_interface_name_is_safe(wan_if)) {
 		logmessage(LOGNAME, "No safe WAN interface token; refusing firewall rebuild");
-		return;
+		errno = EINVAL;
+		return EINVAL;
 	}
 	if (!firewall_interface_name_is_safe(lan_if)) {
 		logmessage(LOGNAME, "No safe LAN interface token; refusing firewall rebuild");
-		return;
+		errno = EINVAL;
+		return EINVAL;
 	}
 
 	snprintf(lan_ip, sizeof(lan_ip), "%s", nvram_safe_get("lan_ipaddr"));
@@ -2769,7 +2774,8 @@ start_firewall_ex(void)
 
 	if (i_use_man && !firewall_interface_name_is_safe(man_if)) {
 		logmessage(LOGNAME, "No safe management interface token; refusing firewall rebuild");
-		return;
+		errno = EINVAL;
+		return EINVAL;
 	}
 
 	/* mcast needs rp filter to be turned off only for non default iface */
@@ -2823,12 +2829,20 @@ start_firewall_ex(void)
 
 firewall_restore_complete:
 	firewall_core_restore_transaction_active = 0;
-	if (firewall_restore_transaction_ok(&firewall_core_restore_transaction))
-		(void)firewall_restore_transaction_finish(&firewall_core_restore_transaction,
-			firewall_remove_restore_snapshot, NULL);
-	else
+	if (firewall_restore_transaction_ok(&firewall_core_restore_transaction)) {
+		if (firewall_restore_transaction_finish(&firewall_core_restore_transaction,
+						firewall_remove_restore_snapshot, NULL) != 0)
+			status = EIO;
+	} else {
 		(void)firewall_restore_transaction_abort(&firewall_core_restore_transaction,
 			firewall_restore_core_table, firewall_remove_restore_snapshot, NULL);
+		status = EIO;
+	}
+	if (firewall_restore_transaction_status(&firewall_core_restore_transaction) != 0) {
+		status = EIO;
+		if (firewall_core_restore_transaction.cleanup_failed)
+			logmessage(LOGNAME, "Firewall ruleset result incomplete: snapshot cleanup remains pending");
+	}
 
 	if (firewall_restore_transaction_rollback_failed(&firewall_core_restore_transaction)) {
 		firewall_log_retained_restore_snapshots(&firewall_core_restore_transaction);
@@ -2839,7 +2853,8 @@ firewall_restore_complete:
 		/* IPv6 forwarding must also fail closed after an incomplete rollback. */
 		set_interface_conf_int("ipv6", "all", "forwarding", 0);
 #endif
-		return;
+		errno = EIO;
+		return EIO;
 	}
 	if (firewall_restore_transaction_ok(&firewall_core_restore_transaction)) {
 #if defined (APP_SHADOWSOCKS)
@@ -2865,13 +2880,16 @@ firewall_restore_complete:
 		firewall_remove_restore_snapshot,
 		firewall_adbyby_report_restore_failure,
 		(void *)adbyby_iptables);
+	if (adbyby_restore_result != FIREWALL_ADBYBY_RESTORE_OK)
+		status = EIO;
 	if (adbyby_restore_result == FIREWALL_ADBYBY_RESTORE_RECOVERY_FAILED) {
 		firewall_log_retained_adbyby_restore_snapshots(
 			&firewall_adbyby_restore_transaction);
 		logmessage(LOGNAME,
 			   "Adbyby firewall rollback incomplete; disabling IPv4 forwarding and aborting remaining extension hooks");
 		set_ipv4_forward(0);
-		return;
+		errno = EIO;
+		return EIO;
 	}
 #endif
 	/* Storage-restored hooks are privileged programs: reject links and unsafe
@@ -2901,7 +2919,8 @@ firewall_restore_complete:
 		 * Preserve the existing forwarding state and stop before enabling
 		 * forwarding or running post-firewall setup against an unapplied ruleset.
 		 */
-		return;
+		errno = status ? status : EIO;
+		return status ? status : EIO;
 	}
 
 	/* enable IPv4 forward only after every built-in table was applied */
@@ -2916,5 +2935,9 @@ firewall_restore_complete:
 	module_smart_unload("iptable_raw", 0);
 	module_smart_unload("iptable_mangle", 0);
 	module_smart_unload("ip6table_mangle", 0);
+
+	if (status != 0)
+		errno = status;
+	return status;
 }
 

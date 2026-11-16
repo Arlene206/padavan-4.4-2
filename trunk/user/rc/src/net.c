@@ -1060,21 +1060,27 @@ reload_nat_modules(void)
 int
 restart_firewall(void)
 {
-	int upnp_status;
+	int firewall_status, upnp_status;
+	int saved_errno = 0;
 
 	if (get_ap_mode())
 		return 0;
 
-	/* re-build iptables rules */
-	start_firewall_ex();
+	/* Rebuild the core ruleset, but always attempt the independent UPnP refresh. */
+	firewall_status = start_firewall_ex();
+	if (firewall_status != 0)
+		saved_errno = errno ? errno : firewall_status;
 
-	/* update UPnP forwards from lease file */
 	upnp_status = update_upnp();
 	if (upnp_status != 0)
 		logmessage(LOGNAME, "UPnP forward refresh incomplete after firewall restart (status=%d)",
 			   upnp_status);
 
-	return upnp_status;
+	if (firewall_status != 0) {
+		logmessage(LOGNAME, "Firewall rule refresh incomplete (status=%d)", firewall_status);
+		errno = saved_errno;
+	}
+	return rc_first_service_start_status(firewall_status, upnp_status);
 }
 
 void
