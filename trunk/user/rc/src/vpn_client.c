@@ -416,7 +416,8 @@ stop_vpn_client_force(void)
 static int
 restart_vpn_client_locked(void)
 {
-	int stop_status, start_status, restore_status;
+	int stop_status, start_status, restore_status, firewall_status;
+	int saved_errno = 0;
 
 	if (get_ap_mode())
 		return 0;
@@ -432,15 +433,28 @@ restart_vpn_client_locked(void)
 	restore_dns_from_vpnc();
 	sleep(1);
 	start_status = start_vpn_client_locked();
-	restart_firewall();
+	if (start_status != 0)
+		saved_errno = errno ? errno : EIO;
+	firewall_status = restart_firewall();
+	if (start_status == 0 && firewall_status != 0) {
+		start_status = firewall_status;
+		saved_errno = errno ? errno : EIO;
+		logmessage(VPNC_LOG_NAME,
+			   "VPN client restarted but firewall/UPnP refresh failed (status=%d)",
+			   firewall_status);
+	}
 
 	/* restore L2TP WAN client or L2TP VPNS */
 	if (xl2tpd_killed_vpnc &&
 	    (nvram_match("l2tp_wan_t", "1") || nvram_match("l2tp_srv_t", "1"))) {
 		restore_status = safe_start_xl2tpd_locked();
-		if (restore_status < 0 && start_status == 0)
+		if (restore_status < 0 && start_status == 0) {
 			start_status = -1;
+			saved_errno = errno ? errno : EIO;
+		}
 	}
+	if (start_status != 0 && saved_errno != 0)
+		errno = saved_errno;
 	return start_status;
 }
 

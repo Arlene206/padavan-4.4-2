@@ -13,6 +13,7 @@ SERVICES_SOURCE = (RC / "services.c").read_text()
 STORAGE_SOURCE = (RC / "services_stor.c").read_text()
 NET6_SOURCE = (RC / "net6.c").read_text()
 VPN_SERVER_SOURCE = (RC / "vpn_server.c").read_text()
+VPN_CLIENT_SOURCE = (RC / "vpn_client.c").read_text()
 SERVICES_EX_SOURCE = (RC / "services_ex.c").read_text()
 UPNP_POLICY_SOURCE = (RC / "upnp_restart_policy.h").read_text()
 UPNP_TEST_SOURCE = (RC / "tests/upnp_restart_policy.c").read_text()
@@ -462,3 +463,24 @@ for source_name, source in (("services_stor.c", STORAGE_SOURCE), ("net6.c", NET6
 print("WAN/storage/IPv6/VPN UPnP firewall result propagation: PASS")
 print("WAN firewall UPnP refresh status propagation: PASS")
 print("USB modem WAN startup status propagation: PASS")
+
+
+# VPN client is also a direct restart_firewall() consumer. Preserve its first
+# operation result and errno instead of silently discarding the firewall error.
+vpn_client_restart = compact(body(VPN_CLIENT_SOURCE, "restart_vpn_client_locked(void)"))
+assert "firewall_status = restart_firewall();" in vpn_client_restart
+assert "if (start_status == 0 && firewall_status != 0)" in vpn_client_restart
+assert "if (start_status != 0 && saved_errno != 0) errno = saved_errno;" in vpn_client_restart
+
+vpn_server_restart = compact(body(VPN_SERVER_SOURCE, "restart_vpn_server(void)"))
+assert "if (restart_status == 0) saved_errno = errno ? errno : EIO;" in vpn_server_restart
+
+direct_firewall_references = sum(
+    len(re.findall(r"\brestart_firewall\s*\(", source.read_text()))
+    for source in RC.glob("*.c")
+)
+assert direct_firewall_references == 16, (
+    "update the direct restart_firewall caller audit after a new call site: "
+    + str(direct_firewall_references)
+)
+print("VPN client/server and complete direct firewall caller status contracts: PASS")

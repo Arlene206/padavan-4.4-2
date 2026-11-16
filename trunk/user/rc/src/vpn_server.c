@@ -571,9 +571,12 @@ restart_vpn_server(void)
 	}
 
 	firewall_status = restart_firewall();
-	if (firewall_status != 0)
+	if (firewall_status != 0) {
+		if (restart_status == 0)
+			saved_errno = errno ? errno : EIO;
 		logmessage(VPNS_LOG_NAME, "VPN server restarted but firewall/UPnP refresh failed (status=%d)",
 			   firewall_status);
+	}
 	restart_status = vpn_server_restart_first_error(restart_status, firewall_status);
 #if defined(APP_NFSD)
 	reload_nfsd();

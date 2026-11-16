@@ -1,3 +1,12 @@
+## 2026-11-17 — Propagate VPN client firewall status and preserve VPN errno
+
+- Parent main: `987b3bc75261b8fed86ffd78c3bd58eb0ba79c80`. The direct caller inventory found `restart_vpn_client_locked()` still ignored the now-int-returning `restart_firewall()`; this commit propagates that status when first and preserves errno across later xl2tpd restore. VPN-server restart now snapshots errno when firewall refresh is its first error.
+- Parent Storage/Process/AI docs checks are in progress (`43935659776`, `43935659401`, `43935659456`). The previous Storage failure `43935227891` was a stale checker expectation (seven merges vs eight after firewall status aggregation), fixed in `987b3bc`; prior Process/AI checks passed.
+- Extended `check_modem_wan_start_status.py` for VPN client/server result and errno paths, and total direct caller count; Firewall Startup path filters now include `vpn_client.c`. Fresh XY-C1 Build/TRX/artifact validation is required for the changed production source.
+- Next: inspect exact-head runs, then audit `reload_nat_modules()` and `start_firewall_ex()`. No full local firmware/physical-router validation claimed; L4 NOT VERIFIED; backup unchanged.
+
+---
+
 ## 2026-11-17 — Repair storage firewall-status source contract
 
 - Parent main: `f0294dee852b0d9bcdd68693436f3fe83633b612`; exact-head Process `43935227981` and AI docs `43935227749` PASS. Storage hotplug `43935227891` failed at `scripts/check_storage_safe_remove.py:302` because its seven-result count had not been updated after storage startup began aggregating the firewall refresh result. Its prior full storage caller-graph check passed.
