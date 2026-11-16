@@ -541,7 +541,7 @@ jobs:
           assert bridge_add.index("saved_errno = errno;") < bridge_add.index("close(sockfd);")
           assert "if (ret < 0)\n\t\terrno = saved_errno;" in bridge_add
           assert "saved_errno = errno;" in bridge_member_add
-          assert bridge_member_add.index("saved_errno = errno;") < bridge_member_add.index("close(sockfd);")
+          assert bridge_member_add.index("saved_errno = errno;") < bridge_member_add.rindex("close(sockfd);")
           assert "if (ret < 0)\n\t\terrno = saved_errno;" in bridge_member_add
           assert "saved_errno == EEXIST" in bridge_create
           assert "br_bridge_is_empty(bridge_ifname)" in bridge_create

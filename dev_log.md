@@ -9,6 +9,14 @@
 
 ---
 
+## 2026-11-16 — Correct bridge-member errno assertion close ordering
+
+- Parent main: `73940a656e2c62e7d7d172b1ef4c622e07715ca4`. Process run `43860996821` on `43d0ebe973f06f578282531eed4abc0fdba1bb3b`, job `133277465787`, failed at the bridge-member errno source assertion after all compiled policy tests passed.
+- Root cause: `br_add_del_if_internal()` has an earlier `close(sockfd)` on the SIOCGIFINDEX error path; the checker used `.index("close(sockfd);")`, accidentally comparing errno save to that earlier close. The actual post-SIOCBRADDIF/DELIF close is the final close in the helper. Changed the assertion to compare against `.rindex("close(sockfd);")`.
+- No product source behavior changed in this contract repair. Exact-head Process/AI documentation results for the combined WAN restart work remain pending; verify this checker correction on its own SHA.
+
+---
+
 ## 2026-11-16 — Check WAN restart MAC table and L2TP service results
 
 - Parent main: `01d9147b742391933a22781b42eb1213063cb1c1`. Further `full_restart_wan()` tracing found ignored int-returning operations: `phy_clear_mac_table()` and `safe_start_xl2tpd()`. The former is an ioctl on MTK ESW and RTL8367; the latter returns negative on lock/process/config/start failure, zero on launch success, and positive one when the shared daemon is already running.

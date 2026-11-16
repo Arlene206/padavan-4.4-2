@@ -10,6 +10,8 @@ For each logical task, create all changed files in one Git tree and one atomic m
 
 ## Current repository state
 
+- Parent for THIS checker correction: `73940a656e2c62e7d7d172b1ef4c622e07715ca4`; non-forced exact-SHA update only.
+
 - Repository: Arlene206/padavan-4.4-2; active branch: main.
 - Parent for THIS WAN restart/return-status slice: `01d9147b742391933a22781b42eb1213063cb1c1`; fetch live main before the next write and use expected-SHA non-forced CAS.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. One-time startup comparison found main 588 commits ahead / 1 behind; do not repeat archive recovery.
@@ -21,6 +23,10 @@ For each logical task, create all changed files in one Git tree and one atomic m
 - Shared bridge-create and bridge-member ioctl helpers preserve original errno across socket close.
 
 ## Active task
+Mandatory handoff checkpoint: Every session MUST inspect the live repository state and compare it with `SESSION_HANDOFF.md` before ending or handing off. Verify the engineering/source baseline, active task, relevant exact-head Actions, validation boundary, blockers and exact first action. The checkpoint is mandatory; a document edit is conditional. If all checkpoint facts and the first action remain accurate, leave the file untouched and make no no-op commit.
+
+Before context exhaustion, finish or reduce the current safe slice, check exact-head Actions, commit any completed work atomically and preserve the precise first next action here.
+
 
 A further `full_restart_wan()` audit found two ignored int-returning operations:
 - `phy_clear_mac_table()` returns an ioctl status on both MTK ESW and RTL8367 drivers. The full restart now fails before WAN start if the forwarding table cannot be cleared, avoiding WAN reactivation with possibly stale switch entries.
@@ -28,6 +34,8 @@ A further `full_restart_wan()` audit found two ignored int-returning operations:
 - Existing full restart fails closed before WAN start on static LAN routes, switch VLAN and board-specific bridge teardown/reconfiguration failures.
 
 ## Verification boundary
+
+- Process source-contract run `43860996821` on `43d0ebe973f06f578282531eed4abc0fdba1bb3b`, job `133277465787`, failed at the bridge-member close-order assertion. The helper has earlier close calls on pre-ioctl error exits; the checker incorrectly compared against the first close. The source implementation saves errno after the ioctl and restores after the final close; change the static contract to use `rindex` for the post-ioctl close.
 
 - Exact-head Process run `43860996821` and AI docs run `43860997587` on `43d0ebe973f06f578282531eed4abc0fdba1bb3b` were in progress at last check; check for completion.
 - On parent `01d9147b742391933a22781b42eb1213063cb1c1`, Process `43861241910`, AI docs `43861242056`, NVRAM `43861243064` and XY-C1 `43861242089` were queued or in progress. No same-SHA firmware Build+TRX+artifact L3 or physical L4 was established.
