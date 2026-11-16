@@ -1,3 +1,13 @@
+## 2026-11-16 — Validate PPP IPCP IPv4 text before passing it to ifconfig
+
+- Parent main: `c5dfa15e8c0c4d3998ca01d2ee961f0897282855`. Shared `ifconfig()` relies on `inet_addr_safe()`; unparsable IPv4 text becomes `INADDR_ANY`, while interface setup may still appear successful. PPP ip-up required `IPLOCAL` and `IPREMOTE` to be non-empty, but did not validate their text or its netmask before calling that helper.
+- Reused strict `dhcp_lease_ipv4_is_valid()` for both negotiated IPCP endpoints and `dhcp_lease_netmask_is_valid()` for the mask. This rejects malformed/non-canonical dotted quads and `0.0.0.0` before the interface callback or lease publication.
+- Added regression coverage for malformed local/peer strings, zero addresses, non-canonical dotted quads and non-contiguous masks. Invalid callbacks must return EINVAL and leave fake interface/NVRAM state untouched.
+- Parent exact-head WAN DHCP callback `43872745445`, WAN route `43872745447`, AI docs `43872745205`, Process lifecycle `43872746090`, HTTPD `43872745252`, AdGuardHome `43872745181`, AliDDNS `43872745603`, infosvr `43872745324`, AliyunDrive `43872745057`, and NVRAM `43872745634`: PASS. Process inventory `43872745882` and XY-C1 `43872745244` were pending at last inspection.
+- Next: validate exact-head PPP callback and firmware Build/TRX/artifact workflows; no same-SHA L3 or hardware L4 result is claimed.
+
+---
+
 ## 2026-11-16 — Reject invalid static MAN masks and report optional MTU failures
 
 - Parent main: `b4c6a520bf3d95822bb7757987a51bc3b37b5a7a`. In `launch_wanx()`, malformed MAN netmask text was converted to `NULL`; shared `ifconfig()` still brought the interface up and assigned the IP while skipping netmask configuration, then returned success. A non-contiguous dotted mask could also pass legacy `is_valid_ipv4()`.

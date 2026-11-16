@@ -457,7 +457,11 @@ jobs:
           # PPP ip-up must apply the interface address successfully before
           # replacing the last-known-good WAN lease and publishing callback state.
           assert '#include "ppp_wan_ipup_policy.h"' in ppp_source
+          assert '#include "dhcp_lease_policy.h"' in ipup_policy
           ipup_apply = body(ipup_policy, "ppp_wan_ipup_apply_address(")
+          assert "dhcp_lease_ipv4_is_valid(ipaddr)" in ipup_apply
+          assert "dhcp_lease_ipv4_is_valid(remote_ip)" in ipup_apply
+          assert "dhcp_lease_netmask_is_valid(netmask)" in ipup_apply
           assert ipup_apply.index("ops->set_interface_address(context, ipaddr, netmask)") < ipup_apply.index("ops->publish_address(context, ipaddr, netmask)")
           assert "if (status != 0)\n\t\treturn status;" in ipup_apply
           ipup_set = body(ppp_source, "ppp_wan_ipup_set_interface_address(")
@@ -495,6 +499,7 @@ jobs:
               "test_success_applies_before_publishing",
               "test_interface_failure_preserves_published_state",
               "test_missing_ipcp_addresses_are_rejected",
+              "test_invalid_ipcp_values_have_no_side_effects",
               "test_route_setup_error_is_returned_after_unlock",
           ):
               assert case in ipup_test

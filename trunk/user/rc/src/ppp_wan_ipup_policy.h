@@ -3,6 +3,8 @@
 
 #include <errno.h>
 
+#include "dhcp_lease_policy.h"
+
 struct ppp_wan_ipup_ops {
 	int (*set_interface_address)(void *context, const char *ipaddr,
 				     const char *netmask);
@@ -21,9 +23,10 @@ ppp_wan_ipup_apply_address(const char *ipaddr, const char *remote_ip,
 {
 	int status;
 
-	if (!ipaddr || !*ipaddr || !remote_ip || !*remote_ip ||
-	    !netmask || !*netmask || !ops ||
-	    !ops->set_interface_address || !ops->publish_address) {
+	if (!ipaddr || !*ipaddr || !dhcp_lease_ipv4_is_valid(ipaddr) ||
+	    !remote_ip || !*remote_ip || !dhcp_lease_ipv4_is_valid(remote_ip) ||
+	    !netmask || !*netmask || !dhcp_lease_netmask_is_valid(netmask) ||
+	    !ops || !ops->set_interface_address || !ops->publish_address) {
 		errno = EINVAL;
 		return EINVAL;
 	}

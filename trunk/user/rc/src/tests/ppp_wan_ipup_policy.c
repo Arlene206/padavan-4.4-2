@@ -94,6 +94,28 @@ test_missing_ipcp_addresses_are_rejected(void)
 }
 
 static void
+test_invalid_ipcp_values_have_no_side_effects(void)
+{
+	struct fake_ipup fake = { 0, "", "", "" };
+
+	assert(ppp_wan_ipup_apply_address("not-an-ip", "198.51.100.1",
+					  "255.255.255.255", &fake_ops, &fake) == EINVAL);
+	assert(ppp_wan_ipup_apply_address("0.0.0.0", "198.51.100.1",
+					  "255.255.255.255", &fake_ops, &fake) == EINVAL);
+	assert(ppp_wan_ipup_apply_address("198.51.100.2", "not-an-ip",
+					  "255.255.255.255", &fake_ops, &fake) == EINVAL);
+	assert(ppp_wan_ipup_apply_address("198.51.100.2", "0.0.0.0",
+					  "255.255.255.255", &fake_ops, &fake) == EINVAL);
+	assert(ppp_wan_ipup_apply_address("198.51.100.2", "198.51.100.1",
+					  "255.0.255.0", &fake_ops, &fake) == EINVAL);
+	assert(ppp_wan_ipup_apply_address("198.051.100.2", "198.51.100.1",
+					  "255.255.255.255", &fake_ops, &fake) == EINVAL);
+	assert(fake.events[0] == '\0');
+	assert(fake.ipaddr[0] == '\0');
+	assert(fake.netmask[0] == '\0');
+}
+
+static void
 test_route_setup_error_is_returned_after_unlock(void)
 {
 	assert(ppp_wan_ipup_finish_status(0, 0) == 0);
@@ -108,6 +130,7 @@ main(void)
 	test_success_applies_before_publishing();
 	test_interface_failure_preserves_published_state();
 	test_missing_ipcp_addresses_are_rejected();
+	test_invalid_ipcp_values_have_no_side_effects();
 	test_route_setup_error_is_returned_after_unlock();
 	puts("PPP ip-up address and route status regression: PASS");
 	return 0;

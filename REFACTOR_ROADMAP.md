@@ -1,10 +1,8 @@
 ## Current source / CI checkpoint
 
-- Product-source parent: `b4c6a520bf3d95822bb7757987a51bc3b37b5a7a`; static IPoE address/netmask validation returns EINVAL before interface setup. Static MAN validation now rejects malformed/non-contiguous netmasks before `ifconfig()`, whose NULL-mask path could otherwise report success without applying a netmask.
-- Exact-head WAN DHCP callback `43872745445`, WAN route `43872745447`, AI docs `43872745205`, Process lifecycle inventory `43872746090`, HTTPD `43872745252`, AdGuardHome `43872745181`, AliDDNS `43872745603`, infosvr `43872745324`, AliyunDrive `43872745057`: PASS.
-- Process inventory/lifecycle `43872745882`, NVRAM `43872745634`, and XY-C1 firmware `43872745244` were still running at last poll. XY-C1 TRX/artifact remain pending; no same-SHA L3 claim. Physical-router L4 NOT VERIFIED.
-- Optional MTU ioctl errors on MAN, static IPoE, DHCP WAN/MAN and DHCP IPTV are diagnostic-only and must remain nonfatal.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Product-source parent: `c5dfa15e8c0c4d3998ca01d2ee961f0897282855`; static MAN/ IPoE address and mask validation prevents false-success ifconfig calls. PPP ip-up now validates strict canonical local/peer IPv4 text and netmask before applying interface state or publishing the lease.
+- WAN DHCP callback `43872745445`, WAN route `43872745447`, AI docs `43872745205`, Process lifecycle `43872746090`, HTTPD `43872745252`, AdGuardHome `43872745181`, AliDDNS `43872745603`, infosvr `43872745324`, AliyunDrive `43872745057`, NVRAM `43872745634`: PASS on the parent SHA.
+- XY-C1 `43872745244` and Process inventory `43872745882` were still in progress at last inspection; no same-SHA firmware L3 claim. Hardware L4 NOT VERIFIED.
 
 ## Whole-repository module status
 
