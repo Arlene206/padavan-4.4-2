@@ -118,7 +118,7 @@ require("address=/ads.example.com/0.0.0.0" in adblock_test and
 print("Shadowsocks adblock configuration source contract: PASS")
 
 
-require("'^[[:space:]]*(#|address=|$)' in adblock_helper,
+require("'^[[:space:]]*(#|address=|$)'" in adblock_helper,
         "downloaded dnsmasq configs must whitelist comments and address rules")
 require("dhcp-script=/tmp/attacker.sh" in adblock_test and
         "conf-file=/tmp/attacker.conf" in adblock_test,
