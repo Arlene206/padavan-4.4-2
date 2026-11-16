@@ -8,11 +8,11 @@ Before context exhaustion, record exact refs, Action states and the first next a
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Current product-source/test baseline: Redsocks tri-state stop/restart gate `39a2cb22ee211a42ab84214b4268b7d541c1babe` with regression harness/checker corrections through `831ebfbe3cf15d88d9f943c80d26545c6794e88b`; exact-head lifecycle and handoff Actions PASS. Recent exact-head validated slices: Adbyby updater gate `867e4812019a43276249b144a1d49cb1d90691c8` PASS; Shadowsocks watchcat `a8d50172afff0c081eb1b5c0f12d45dd07dc94f8` PASS; AliyunDrive `982ec548a132a5a06f4a81872f5ae920fb685da3` PASS; DDNSTO `7968c1eaeaa324066d850cef020ccebc238c8821` lifecycle/checker PASS. Product-source/test baseline remains `831ebfbe3cf15d88d9f943c80d26545c6794e88b`; documentation checkpoint commits may advance `main`, so always resolve the live branch HEAD before checking Actions or committing.
+- Active product-source/test baseline: shared POSIX lifecycle helper plus SCUTClient/MentoHUST start/stop/restart integration, including the SCUTClient stop-status propagation correction in THIS COMMIT (parent `8d47577174673576fa6b820d431b8a723ac4c8d0`). Earlier exact-head validated slices remain: Adbyby updater gate `867e4812019a43276249b144a1d49cb1d90691c8`; Shadowsocks watchcat `a8d50172afff0c081eb1b5c0f12d45dd07dc94f8`; AliyunDrive `982ec548a132a5a06f4a81872f5ae920fb685da3`; DDNSTO `7968c1eaeaa324066d850cef020ccebc238c8821`. The current commit's exact-head Actions must be checked after publication; always resolve live `main` before any write.
 - `main` is the only development branch. The frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify or rewrite it.
 - Startup protocol, handoff, roadmap, log archive, branch inventory and legacy PR #1 were recovered once in this session. The only refs are `main` and the frozen backup; do not repeat the initial audit.
 - Legacy PR #1 was inspected and is already CLOSED: head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`, base `9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74` (17 commits ahead of its old base; PR head is 765 commits behind current main). All substantive source/test work is already present on main identically or in a stronger successor: AliDDNS HMAC helper/package/tests and CA bootstrap are identical; current `aliddns.sh` has the stronger exact-argv `/proc` keeper rather than the PR's broad `kill_ps`; current `copyscripts.sh` retains CA failure propagation and stronger private FRP-script handling; main's workflow remains push-only. PR-only `pull_request` trigger and stale broad `kill_ps` implementation are intentionally not ported. The PR branch is absent from refs; no valid unmerged work remains to port and no close action is needed.
-- This documentation checkpoint updates this file and `dev_log.md` only; no source changes are included.
+- This atomic source/checkpoint milestone changes the SCUTClient stop dispatcher, `dev_log.md`, `SESSION_HANDOFF.md`, and the legacy-wrapper status row in `REFACTOR_ROADMAP.md`.
 
 ## Verified engineering progress in this session
 
@@ -66,13 +66,13 @@ Before context exhaustion, record exact refs, Action states and the first next a
 
 ## Active task
 
-The shared POSIX lifecycle helper and SCUTClient/MentoHUST wrapper changes are in commit dc740accb110bfb88d0003e9142c04113b6b4921. First exact-SHA CI identified two regression integration defects, not production-source failures: the new optional-app checker expected a text token different from the shell regression's actual assertion string; the legacy stale-pidfile fixture had not yet supplied the newly required shared helper and still asserted the old unconditional SIGKILL behavior. The follow-up changes align the static token and make the legacy test inject the real shared helper plus a pidof stub proving ABSENT; in that state both wrappers should avoid unnecessary signals while the SCUT logoff action remains unchanged.
+The shared POSIX lifecycle helper and SCUTClient/MentoHUST wrapper changes are in commit `dc740accb110bfb88d0003e9142c04113b6b4921`; regression-fixture alignment is in parent main `8d47577174673576fa6b820d431b8a723ac4c8d0`. Exact-head Process workflow run `43802207082` on that parent failed only when the real-wrapper checker exercised SCUTClient stop with an UNKNOWN process snapshot: it expected exit 2 but observed 0. Diagnosis: `func_stop()` correctly returned status 2 and skipped logoff, but the SCUTClient `stop)` dispatcher overwrote the result with zero. THIS COMMIT captures the result in `action_status=$?`. The existing `check_optional_app_start_status.py::check_scutclient` regression verifies UNKNOWN start/stop/restart all fail closed and that no launch, signal, or logout side effect occurs. A focused local POSIX smoke fixture returned 2 with no killall/logout; wrapper/helper shell syntax passed. Seven other parent-SHA push workflows passed. Exact-head Actions for THIS COMMIT must now be checked; no current-source L3 or L4 result is claimed.
 
 ## Exact first action for the next GPT
 
-1. Check exact-SHA Actions for the follow-up that corrects the process checker token and legacy wrapper fixture. Process lifecycle/inventory, legacy wrapper stale-pidfile, AI handoff, NVRAM boundary and any triggered XY-C1 build must be judged on the follow-up SHA.
-2. Diagnose any remaining failures from job logs. Once all relevant checks pass, proceed to the next inventory-ranked direct process signal/stop consumer; do not repeat this helper/wrapper slice.
-3. Keep the backup branch frozen at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+1. Check exact-SHA push Actions for THIS COMMIT, especially Process lifecycle/inventory and AI handoff. The parent Process run `43802207082` exposed SCUTClient's dropped stop status; validate that regression against the new pushed SHA.
+2. If any relevant check fails, inspect its first causal job log and fix it on current `main`. Once the process and handoff checks pass, use the lifecycle inventory to select the next direct process signal/stop consumer; do not repeat the SCUTClient/MentoHUST slice.
+3. Keep the backup branch frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Governance and safety constraints
 

@@ -1,3 +1,13 @@
+## 2026-11-16 — Preserve SCUTClient stop failure status
+
+- Parent main: `8d47577174673576fa6b820d431b8a723ac4c8d0`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact-head Process inventory/lifecycle run `43802207082` on parent `8d47577174673576fa6b820d431b8a723ac4c8d0` failed in `scripts/check_optional_app_start_status.py::check_scutclient`: the UNKNOWN-state stop test expected status 2 but received 0. The other seven exact-head push workflows on that SHA completed SUCCESS (AI handoff, AdGuardHome, infosvr, legacy wrapper stale-pidfile, AliyunDrive, AliDDNS and NVRAM boundary).
+- Root cause was production status loss: `func_stop()` correctly returned the shared helper's UNKNOWN/failure result and withheld logoff, but the SCUTClient `stop)` dispatcher overwrote it with `action_status=0`. The dispatcher now captures `$?`, preserving the fail-closed contract. Existing dynamic regression exercises UNKNOWN for start/stop/restart and asserts no signal, duplicate launch or logoff side effects.
+- Focused local POSIX smoke fixture: UNKNOWN stop returned 2, with no killall or logout invocation; `sh -n` passed for the wrapper and shared helper. Full repository checker was not run locally (no checkout); the failing Actions job did execute it.
+- Exact-head Actions for THIS COMMIT are pending after publication. No current-source XY-C1 build or physical-router/L4 result is claimed.
+- Next: check the Process lifecycle/inventory workflow and AI handoff workflow on this exact pushed SHA. Fix any remaining failure from its first causal log; after relevant checks pass, continue to the next inventory-ranked direct process signal/stop consumer.
+---
+
 ## 2026-11-16 — Correct SCUT/MentoHUST lifecycle regression integration
 
 - Parent main: dc740accb110bfb88d0003e9142c04113b6b4921.

@@ -82,7 +82,7 @@ start)
 	;;
 stop)
 	func_stop
-	action_status=0
+	action_status=$?
 	;;
 restart)
 	if func_stop; then
