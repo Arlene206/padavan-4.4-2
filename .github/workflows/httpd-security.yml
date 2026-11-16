@@ -8,6 +8,10 @@ on:
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c_common.c"
       - "trunk/user/busybox/Makefile"
       - "trunk/user/rc/src/net.c"
+      - "trunk/user/rc/src/hwnat_config_policy.h"
+      - "trunk/user/rc/src/tests/hwnat_config_policy.c"
+      - "trunk/user/rc/src/sfe_config_policy.h"
+      - "trunk/user/rc/src/tests/sfe_config_policy.c"
       - "trunk/user/rc/src/net_lan.c"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
@@ -259,6 +263,10 @@ on:
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c_common.c"
       - "trunk/user/busybox/Makefile"
       - "trunk/user/rc/src/net.c"
+      - "trunk/user/rc/src/hwnat_config_policy.h"
+      - "trunk/user/rc/src/tests/hwnat_config_policy.c"
+      - "trunk/user/rc/src/sfe_config_policy.h"
+      - "trunk/user/rc/src/tests/sfe_config_policy.c"
       - "trunk/user/rc/src/net_lan.c"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
@@ -1254,12 +1262,22 @@ jobs:
           assert config_start < start_wan.index("launch_viptv_wan()")
 
           hnat_update = body(net, "hwnat_configure(int wan_vid, int hwnat_allow)")
-          assert "if (!hwnat_allow || !is_module_loaded(\"hw_nat\"))" in hnat_update
-          assert hnat_update.index("if (wan_vid < 0)") < hnat_update.index('module_param_set_int("hw_nat", "wan_vid", wan_vid)')
+          assert "if (!hwnat_allow)" in hnat_update
+          assert hnat_update.index("rc_hwnat_configure_policy(") < hnat_update.index("if (!module_loaded)")
+          assert "module_param_set_int" not in hnat_update
+          hnat_setter = body(net, "hwnat_set_wan_vid(int wan_vid)")
+          assert 'module_param_set_int("hw_nat", "wan_vid", wan_vid)' in hnat_setter
+          assert "status = module_param_set_int" in hnat_setter
           hnat_reload = body(net, "reload_nat_modules(void)")
           assert "hwnat_wan_vid = get_vlan_vid_wan();" in hnat_reload
           assert hnat_reload.index("if (hwnat_wan_vid < 0)") < hnat_reload.index('snprintf(hnat_param, sizeof(hnat_param), "wan_vid=%d", hwnat_wan_vid)')
-          assert "hwnat_configure(hwnat_wan_vid, hwnat_allow);" in hnat_reload
+          assert "module_status = hwnat_configure(hwnat_wan_vid, hwnat_allow);" in hnat_reload
+          assert "reload_status = rc_first_service_start_status(reload_status," in hnat_reload
+          sfe_reload = body(net, "reload_nat_modules(void)")
+          assert "rc_sfe_configure_policy(sfe_enable," in sfe_reload
+          assert 'fput_int("/sys/fast_classifier/skip_to_bridge_ingress", skip)' in net
+          assert 'doSystem("echo 0 > /sys/fast_classifier/skip_to_bridge_ingress")' not in sfe_reload
+          assert 'doSystem("echo 1 > /sys/fast_classifier/skip_to_bridge_ingress")' not in sfe_reload
 
           lan_restart = body(net_lan, "restart_switch_config_vlan(void)")
           assert lan_restart.index("if (get_ap_mode())") < lan_restart.index("pvid_wan_before = phy_vlan_pvid_wan_get();")
@@ -1276,6 +1294,10 @@ jobs:
               "trunk/user/rc/src/net_wan.c",
               "trunk/user/rc/src/net_lan.c",
               "trunk/user/rc/src/net.c",
+              "trunk/user/rc/src/hwnat_config_policy.h",
+              "trunk/user/rc/src/tests/hwnat_config_policy.c",
+              "trunk/user/rc/src/sfe_config_policy.h",
+              "trunk/user/rc/src/tests/sfe_config_policy.c",
           ):
               assert f'"{path}"' in workflow
           push = workflow.split("  push:", 1)[1].split("  pull_request:", 1)[0]
@@ -1291,6 +1313,10 @@ jobs:
               "trunk/user/rc/src/net_wan.c",
               "trunk/user/rc/src/net_lan.c",
               "trunk/user/rc/src/net.c",
+              "trunk/user/rc/src/hwnat_config_policy.h",
+              "trunk/user/rc/src/tests/hwnat_config_policy.c",
+              "trunk/user/rc/src/sfe_config_policy.h",
+              "trunk/user/rc/src/tests/sfe_config_policy.c",
           ):
               assert f'"{path}"' in push, f"push filter missing {path}"
               assert f'"{path}"' in pull_request, f"PR filter missing {path}"

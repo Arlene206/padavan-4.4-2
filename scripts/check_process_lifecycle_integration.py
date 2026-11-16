@@ -1392,7 +1392,7 @@ for test_case in (
 assert "Compile and run RC wireless module post-load verification regression" in process_workflow
 assert '"trunk/user/rc/src/wireless_module_load_policy.h"' in process_workflow
 assert '"trunk/user/rc/src/tests/wireless_module_load_policy.c"' in process_workflow
-assert "Compile and run RC wireless module post-load verification regression" in xy_workflow
+assert "Compile and run RC module load/unload postcondition regression" in xy_workflow
 assert '"trunk/user/rc/src/wireless_module_load_policy.h"' in xy_workflow
 assert '"trunk/user/rc/src/tests/wireless_module_load_policy.c"' in xy_workflow
 assert "int boot_modules_status, boot_services_status;" in rc_source
