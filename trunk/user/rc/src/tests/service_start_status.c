@@ -120,6 +120,46 @@ test_usb_printer_optional_hook_failure_is_reported_and_core_launches_continue(vo
 }
 
 static void
+test_storage_app_startup_preserves_first_failure_and_continues(void)
+{
+	int status = 0;
+	int attempts = 0;
+
+	/* FTP failure must not suppress Samba/NFS, and remains the first error. */
+	attempts++;
+	status = rc_first_service_start_status(status, EIO);
+	attempts++;
+	status = rc_first_service_start_status(status, 0);
+	attempts++;
+	status = rc_first_service_start_status(status, EBUSY);
+	assert(attempts == 3);
+	assert(status == EIO);
+
+	/* Samba-only and NFS-only failures must also reach the caller. */
+	status = 0;
+	attempts = 0;
+	attempts++;
+	status = rc_first_service_start_status(status, 0);
+	attempts++;
+	status = rc_first_service_start_status(status, EACCES);
+	attempts++;
+	status = rc_first_service_start_status(status, 0);
+	assert(attempts == 3);
+	assert(status == EACCES);
+
+	status = 0;
+	attempts = 0;
+	attempts++;
+	status = rc_first_service_start_status(status, 0);
+	attempts++;
+	status = rc_first_service_start_status(status, 0);
+	attempts++;
+	status = rc_first_service_start_status(status, ENODEV);
+	assert(attempts == 3);
+	assert(status == ENODEV);
+}
+
+static void
 test_bridge_parameters_are_both_attempted_and_first_error_survives(void)
 {
 	int status = 0;
@@ -163,6 +203,7 @@ main(void)
 	test_usb_printer_launchers_preserve_first_failure_and_continue();
 	test_usb_printer_optional_hook_failure_is_reported_and_core_launches_continue();
 	test_bridge_parameters_are_both_attempted_and_first_error_survives();
+	test_storage_app_startup_preserves_first_failure_and_continues();
 	test_loopback_start_preserves_first_required_failure();
 	test_lan_start_preserves_first_required_failure();
 	puts("RC boot and LAN service first-failure aggregation policy: PASS");

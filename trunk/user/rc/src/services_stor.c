@@ -38,6 +38,7 @@
 #include <disk_share.h>
 
 #include "rc.h"
+#include "service_start_status.h"
 #include "modem_wan_start_policy.h"
 #include "process_inventory.h"
 #include "storage_operation_lock.h"
@@ -3065,23 +3066,34 @@ stop_stor_apps(void)
 }
 
 void
+int
 start_stor_apps(void)
 {
 	int need_restart_fw = 0;
+	int start_status = 0;
+#if defined (APP_FTPD) || defined (APP_SMBD) || defined (APP_NFSD)
+	int service_status;
+#endif
 
 #if defined (APP_FTPD)
-	if (run_ftp() != 0)
+	service_status = run_ftp();
+	if (service_status != 0)
 		logmessage("Storage", "FTP startup did not reach its daemon postconditions");
+	start_status = rc_first_service_start_status(start_status, service_status);
 	if (nvram_match("ftpd_wopen", "1"))
 		need_restart_fw |= is_ftp_run();
 #endif
 #if defined (APP_SMBD)
-	if (run_samba() != 0)
+	service_status = run_samba();
+	if (service_status != 0)
 		logmessage("Storage", "Samba startup did not reach its daemon postconditions");
+	start_status = rc_first_service_start_status(start_status, service_status);
 #endif
 #if defined (APP_NFSD)
-	if (run_nfsd_locked() != 0)
+	service_status = run_nfsd_locked();
+	if (service_status != 0)
 		logmessage("Storage", "NFS startup did not complete successfully");
+	start_status = rc_first_service_start_status(start_status, service_status);
 #endif
 #if defined (APP_MINIDLNA)
 	run_dms(0);
@@ -3100,6 +3112,8 @@ start_stor_apps(void)
 
 	if (need_restart_fw && nvram_match("fw_enable_x", "1"))
 		restart_firewall();
+
+	return start_status;
 }
 
 static int
@@ -3188,12 +3202,14 @@ failed:
 }
 
 static int
+static int
 try_start_stor_apps(void)
 {
 	int storage_lock;
 	int mounted_devices;
 	int need_optware;
 	int child_result;
+	int integrated_start_status = 0;
 
 	/*
 	 * Serialize integrated storage-service startup with safe removal, but do
@@ -3232,7 +3248,7 @@ try_start_stor_apps(void)
 	 * Samba/NFS/FTP and other integrated storage services every five seconds.
 	 */
 	if (nvram_match("usb_hotplug_ms", "1")) {
-		start_stor_apps();
+		integrated_start_status = start_stor_apps();
 		nvram_set_int_temp("usb_hotplug_ms", 0);
 	}
 	need_optware = nvram_get_int("usb_opt_start");
@@ -3242,24 +3258,25 @@ try_start_stor_apps(void)
 
 	child_result = storage_optware_start_result_read();
 	if (child_result == STORAGE_OPTWARE_START_CHILD_RUNNING)
-		return 1;
+		return rc_first_service_start_status(integrated_start_status, 1);
 	if (child_result == STORAGE_OPTWARE_START_CHILD_SUCCESS) {
 		if (need_optware)
 			nvram_set_int_temp("usb_opt_start", 0);
-		return 0;
+		return integrated_start_status;
 	}
 	if (child_result == STORAGE_OPTWARE_START_CHILD_FAILURE) {
 		if (need_optware)
 			logmessage("Storage", "deferred Optware startup failed; preserving pending state for retry");
-		return need_optware ? -1 : 0;
+		return rc_first_service_start_status(integrated_start_status,
+						     need_optware ? -1 : 0);
 	}
 
 	if (!need_optware)
-		return 0;
+		return integrated_start_status;
 	if (storage_optware_start_async() != 0)
-		return -1;
+		return rc_first_service_start_status(integrated_start_status, -1);
 
-	return 1;
+	return rc_first_service_start_status(integrated_start_status, 1);
 }
 
 void
@@ -3359,6 +3376,7 @@ safe_remove_stor_device(int port_b, int port_e, const char *dev_name, int do_spi
 	int storage_lock;
 	int port, has_mounted_port = 0, has_swapon_port = 0;
 	int unmount_status, ejected_status, mount_count;
+	int start_status;
 	disk_info_t *disks_info, *follow_disk;
 
 	storage_lock = storage_operation_lock_acquire(file_lock);
@@ -3400,7 +3418,9 @@ safe_remove_stor_device(int port_b, int port_e, const char *dev_name, int do_spi
 				logmessage("Storage", "safe removal incomplete; one or more mount/swap releases failed");
 			mount_count = count_stor_mountpoint();
 			if (mount_count > 0) {
-				start_stor_apps();
+				start_status = start_stor_apps();
+				if (start_status != 0)
+					logmessage("Storage", "storage services failed to restart after safe removal (status=%d)", start_status);
 #if defined(APP_NFSD)
 			} else if (mount_count == 0 && unmount_status == 0 && ejected_status == 0) {
 				unload_nfsd();
