@@ -128,6 +128,15 @@ mark_running_process()
 	printf '%s\n' "$process_name" > "$PROC_ROOT/$process_pid/comm"
 }
 
+prepare_running_nfs()
+{
+	mark_running_process nfsd
+	mark_running_process rpc.mountd
+	printf 'nfsd %s nfsd rw 0 0\n' "$tmp_dir/proc/fs/nfsd" > "$MOUNTS_FILE"
+	printf 'rpc_pipefs %s rpc_pipefs rw 0 0\n' "$tmp_dir/var/lib/nfs/rpc_pipefs" >> "$MOUNTS_FILE"
+	printf 'recovery-state\n' > "$tmp_dir/var/lib/nfs/etab"
+}
+
 run_command()
 {
 	fail_command=$1
@@ -452,15 +461,6 @@ assert_no_command umount
 # Verify stop postconditions under signal, export-withdrawal and unmount failures.
 # A failed signal with surviving daemons must not mutate exports or mount state.
 reset_fixture
-prepare_running_nfs()
-{
-	mark_running_process nfsd
-	mark_running_process rpc.mountd
-	printf 'nfsd %s nfsd rw 0 0\n' "$tmp_dir/proc/fs/nfsd" > "$MOUNTS_FILE"
-	printf 'rpc_pipefs %s rpc_pipefs rw 0 0\n' "$tmp_dir/var/lib/nfs/rpc_pipefs" >> "$MOUNTS_FILE"
-	printf 'recovery-state\n' > "$tmp_dir/var/lib/nfs/etab"
-}
-
 reset_fixture
 prepare_running_nfs
 status=$(run_command killall "" stop)
