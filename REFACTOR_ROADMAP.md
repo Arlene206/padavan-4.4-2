@@ -1,10 +1,9 @@
 ## Current source / CI checkpoint
 
-- Production parent for this source slice: `beee6893b7c14eccc94634fe51dc41d2e748b8b7`. It contains IPv6 disable cleanup result propagation plus exact-source checker fixes; its WAN route workflow was pending at last poll and AI handoff passed.
-- The prior source parent `eb566f3` passed XY-C1 Build/TRX/artifact upload. The IPv6 cleanup feature is newer and needs its own exact-SHA validation.
-- This slice completes strict tri-state module-load probing: the shared load verifier returns negative probe errno, and NAT, boot hardware, wireless driver and LAN bridge loaders use `is_module_loaded_status()`. Direct and multi-module injected regressions verify errno propagation and first-error retention.
-- Existing Process and XY-C1 workflow filters cover the touched sources/tests. Check fresh exact-head runs on the commit carrying this slice.
-- Continue evidence-backed RC/service status propagation and lifecycle reliability across userland. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. Physical-router L4 remains **NOT VERIFIED**.
+- Parent for this correction: `d5d07a7027457ecd56ec217d1f4191ab8227d7ea`; prior tri-state verifier implementation: `bca48425f16b97cdb2b599401bd105fbc5e652ad`.
+- Exact-head bca Firewall/WAN checks caught the final legacy Boolean module probe in `load_wireless_module()`; this correction migrates that final production callback to `is_module_loaded_status()`. The bca AI handoff validator also identified missing exact checkpoint wording, now restored.
+- Direct and multi-module injected tests cover probe errno propagation and first-error retention. Existing Process/WAN checker contracts bind the four production loader sites. Fresh exact-head WAN, Firewall, Process, HTTPD, AI handoff and XY-C1 runs are required for this correction SHA.
+- The newer IPv6 cleanup feature needs its own exact-source Build/TRX/artifact validation; the earlier `eb566f3` firmware pass predates it. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. Physical-router L4 remains **NOT VERIFIED**.
 
 ## Whole-repository module status
 

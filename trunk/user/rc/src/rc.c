@@ -163,7 +163,7 @@ load_wireless_module(const char *module_name)
 {
 	static const rc_module_load_ops_t ops = {
 		module_smart_load,
-		is_module_loaded
+		is_module_loaded_status
 	};
 	int status;
 
