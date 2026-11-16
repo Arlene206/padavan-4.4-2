@@ -1,3 +1,13 @@
+## 2026-11-16 — Match RAS WANX status aggregation across C formatting
+
+- Parent main: `f0902af4861fdbf496958b22871ae43e51bdcfd5`. Process run `43844256457`, job `133220324178`, passed both the RC boot service and modem WAN host policy binaries, then failed the new RAS physical WAN status source assertion because `rc_first_service_start_status()` is wrapped over multiple C lines.
+- Production now aggregates the nonzero RAS `launch_wanx()` physical WAN preparation result before continuing to the RAS modem launcher; the added source contract should match that exact call with a whitespace-tolerant regex. No behavior change is needed for this checker failure.
+- USB modem identity `43844254366`, WAN DHCP callback `43844254326`, miniupnpd `43844254468`, WAN teardown `43844254482`, WAN route `43844254309`, AI handoff docs `43844254359` and Process inventory `43844254197` passed on this exact SHA. XY-C1 `43844254098` was still running; no L3/L4 result is claimed yet.
+- HTTPD Authentication `43844254517` failed an unrelated switch-port ioctl contract. Other selected Actions were still in progress at last inspection.
+- Next source slice: make NDIS TTY fallback selection honor the selected interface's exact USB port ID + devnum, including constrained manual/preferred selection.
+
+---
+
 ## 2026-11-16 — Retain RAS physical WAN setup failures in modem startup status
 
 - Parent main: `d4952540d5742868cf5cbe8d84bc4bc53e9450ad`. Process run `43843270795` failed at the source checker’s exact RC notification-call formatting assertion after the boot-status and modem policy binaries passed. XY-C1 run `43843270817` was still in progress at last inspection but had hit the same checker failure after both host policy binaries passed; it had not reached Build/TRX/artifact.

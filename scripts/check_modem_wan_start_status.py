@@ -55,9 +55,10 @@ assert re.search(aggregate_pattern, wan_start[ras_migration_start:]), "RAS migra
 ras_launch_start = wan_start.index("char *ppp_ifname = IFNAME_RAS;")
 ras_launch_end = wan_start.index("vlan_result = launch_wan_modem_ras(unit);", ras_launch_start)
 ras_branch = wan_start[ras_launch_start:ras_launch_end]
-ras_wanx_status = "modem_start_status = rc_first_service_start_status(modem_start_status, wanx_status);"
-assert ras_wanx_status in ras_branch, "RAS physical WAN setup failure must reach modem startup status"
-assert ras_branch.index("if (wanx_status != 0)") < ras_branch.index(ras_wanx_status)
+ras_wanx_pattern = r"modem_start_status\s*=\s*rc_first_service_start_status\s*\(\s*modem_start_status\s*,\s*wanx_status\s*\)\s*;"
+ras_wanx_match = re.search(ras_wanx_pattern, ras_branch)
+assert ras_wanx_match, "RAS physical WAN setup failure must reach modem startup status"
+assert ras_branch.index("if (wanx_status != 0)") < ras_wanx_match.start()
 eapol_start = wan_start.index("if (auth_status != 0)")
 eapol_end = wan_start.index("/* We are done configuration */", eapol_start)
 assert "modem_start_status" not in wan_start[eapol_start:eapol_end]
