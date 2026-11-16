@@ -1,11 +1,10 @@
 ## Current source / CI checkpoint
 
-- Conntrack propagation fix `cffc1497fda9f65d9a0b163bad5acc1723c23f81` passed exact-source XY-C1 run `43973861873`: firmware build, TRX verification and artifact upload. L3 is verified for cffc149.
-- LAN teardown fix `759c18d860ba1c0cb547f43fa7ca8d21b6580987` captures and aggregates bridge route-flush errors with conntrack and bridge shutdown; exact Process source/regression passed.
-- Exact parent `2c503c9` WAN route `43977147385`, Process `43977147335` and AI handoff `43977147281` passed; NVRAM `43977147536` was still running.
-- Current P1 route-cache slice returns the `ip route flush cache` status, merges it with per-interface route errors before the full WAN restart gate, and adds injected GNU89/ASan/UBSan coverage. Exact-head WAN route, Process, AI handoff and XY-C1 are pending.
-- Exact 759c18 XY-C1 `43976717898` was still building at last poll; Build/TRX/artifact not yet complete. The new source change requires same-SHA product evidence before L3 can be claimed.
-- Frozen backup remains read-only; physical-router L4 remains **NOT VERIFIED**.
+- Product-source conntrack result-propagation remains L3 VERIFIED at cffc149 from XY-C1 run 43973861873 (Build/TRX/artifact).
+- LAN IPv4 static-route teardown fix 759c18d captures clear_if_route4() status; exact 2c503 Process 43977147335, WAN route 43977147385 and AI handoff 43977147281 passed.
+- Route-cache change 493f981e4db110923ca8d16328e29aec541a3734 returns global `ip route flush cache` status and combines it with interface route flushing before WAN restart. Exact 493f WAN route 43978255126, Process inventory 43978254677, Process lifecycle 43978254742 and WAN DHCP 43978255203 passed. AI handoff 43978255204 failed only because root log contained one record; restoration commit brings it to 23. XY-C1 43978254941 remained in progress; route-cache L3 is not yet verified.
+- Next source item: clear_lan_addr6() currently discards clear_if_addr6() result; change to int and aggregate into stop_lan() without skipping bridge shutdown. Add regression and Process/WAN source contracts; XY trigger needs net_lan6.c.
+- Frozen backup remains read-only; physical-router L4 remains NOT VERIFIED.
 
 ## Whole-repository module status
 
