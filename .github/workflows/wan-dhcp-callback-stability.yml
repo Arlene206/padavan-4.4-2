@@ -800,7 +800,7 @@ jobs:
           assert viptv_start.index(zcip_launch) < dynamic_return
           assert viptv_start.index(dhcp_launch) < dynamic_return
 
-          wan_start = body(source, "void" + chr(10) + "start_wan(void)")
+          wan_start = body(source, "start_wan(void)")
           apcli_wisp = body(source, "static int" + chr(10) + "config_apcli_wisp(void)")
           assert "static int man_up_internal(char *, int, int, int *);" in source
           gateway_helper = body(source, "static int" + chr(10) + "add_man_gateway_routes(char *man_ifname, int unit, int metric, int *gateway_route_status)")

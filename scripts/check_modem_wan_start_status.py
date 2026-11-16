@@ -52,6 +52,12 @@ ras_migration = "vlan_result = check_upnp_wanif_changed(ppp_ifname);"
 assert ras_migration in wan_start
 ras_migration_start = wan_start.index(ras_migration)
 assert re.search(aggregate_pattern, wan_start[ras_migration_start:]), "RAS migration failure must be retained"
+ras_launch_start = wan_start.index("char *ppp_ifname = IFNAME_RAS;")
+ras_launch_end = wan_start.index("vlan_result = launch_wan_modem_ras(unit);", ras_launch_start)
+ras_branch = wan_start[ras_launch_start:ras_launch_end]
+ras_wanx_status = "modem_start_status = rc_first_service_start_status(modem_start_status, wanx_status);"
+assert ras_wanx_status in ras_branch, "RAS physical WAN setup failure must reach modem startup status"
+assert ras_branch.index("if (wanx_status != 0)") < ras_branch.index(ras_wanx_status)
 eapol_start = wan_start.index("if (auth_status != 0)")
 eapol_end = wan_start.index("/* We are done configuration */", eapol_start)
 assert "modem_start_status" not in wan_start[eapol_start:eapol_end]
@@ -87,7 +93,12 @@ for call in (
     "auto_wan_reconnect_pause()",
     "manual_wan_reconnect()",
 ):
-    assert f"rc_notify_merge_action_result(action_result, {call})" in compact(RC_SOURCE)
+    notify_pattern = (
+        r"rc_notify_merge_action_result\s*\(\s*action_result\s*,\s*"
+        + re.escape(call)
+        + r"\s*\)"
+    )
+    assert re.search(notify_pattern, RC_SOURCE), f"RC notification must preserve {call} status"
 
 for declaration in (
     "int start_wan(void);",

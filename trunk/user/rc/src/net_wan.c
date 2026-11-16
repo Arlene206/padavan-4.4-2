@@ -1724,9 +1724,12 @@ start_wan(void)
 						wanx_status = launch_wanx(wan_ifname, unit, 0, 0);
 					else if (i_pppoe && i_pppoe_man == 2)
 						wanx_status = launch_wanx(wan_ifname, unit, 0, 1);
-					if (wanx_status != 0)
+										if (wanx_status != 0) {
+						modem_start_status = rc_first_service_start_status(
+							modem_start_status, wanx_status);
 						logmessage(LOGNAME, "WAN physical interface setup incomplete on %s (status=%d)",
-							   wan_ifname, wanx_status);
+							wan_ifname, wanx_status);
+					}
 				}
 				
 				/* re-build iptables rules (first stage w/o WAN IP) */

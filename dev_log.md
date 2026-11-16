@@ -1,3 +1,15 @@
+## 2026-11-16 — Retain RAS physical WAN setup failures in modem startup status
+
+- Parent main: `d4952540d5742868cf5cbe8d84bc4bc53e9450ad`. Process run `43843270795` failed at the source checker’s exact RC notification-call formatting assertion after the boot-status and modem policy binaries passed. XY-C1 run `43843270817` was still in progress at last inspection but had hit the same checker failure after both host policy binaries passed; it had not reached Build/TRX/artifact.
+- The RAS modem branch retained miniupnpd migration and RAS modem-launch failures, but a nonzero `launch_wanx()` physical-WAN result was only logged. Thus `start_wan()` could report success while its required physical WAN setup failed.
+- Added first-error aggregation of RAS `wanx_status` while preserving the best-effort sequence and still attempting `launch_wan_modem_ras()`. Extended the GNU89 policy regression and source checker to bind this behavior.
+- Replaced line-wrap-sensitive RC notification matching with a whitespace-tolerant source contract, fixed the WAN DHCP workflow's stale void-return `start_wan()` signature, and restored the required `SESSION_HANDOFF.md` checkpoint wording and `## Verification boundary` section.
+- AI handoff run `43843270727` failed the missing checkpoint wording; NVRAM run `43843270745` was IN_PROGRESS at last inspection. AdGuardHome `43843270763`, AliDDNS `43843270787` and AliyunDrive `43843270760` were SUCCESS on the exact parent. THIS commit's exact-head Actions remain pending. No current-SHA L3 or L4 result is claimed.
+- Temporary GNU89/Werror/ASan/UBSan policy harness for the RAS first-error/best-effort case: PASS. Full-tree compilation and source integration checks remain pending exact-head Actions.
+- Next: inspect this commit's exact-head Process, XY-C1, WAN DHCP callback, infosvr and AI handoff Actions and read any failing logs. Then continue the P1 NDIS TTY physical-identity selection fix, followed by device-aware modem module readiness.
+
+---
+
 ## 2026-11-16 — Accept multiline boot-status aggregation in modem checker
 
 - Parent main: `1e9f5f17d51ac43e9e6bd8911ba1e140f45634ab`. Exact-head Process run `43842801289` and XY-C1 run `43842801305` both passed the RC boot service and modem policy host regressions, then stopped at the modem source checker because `init_router()` wraps its `rc_first_service_start_status()` arguments across lines.

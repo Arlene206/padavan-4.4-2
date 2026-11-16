@@ -45,12 +45,30 @@ test_first_modem_error_survives_best_effort_followup(void)
 	assert(status == ENOENT);
 }
 
+static void
+test_ras_physical_setup_error_survives_ras_launch(void)
+{
+	int status = 0;
+	int wanx_status = EBUSY;
+	int ras_launch_status = EIO;
+	int ras_launch_attempts = 0;
+
+	status = rc_first_service_start_status(status, wanx_status);
+	/* RAS startup remains best-effort after physical setup reports failure. */
+	ras_launch_attempts++;
+	status = rc_first_service_start_status(status, ras_launch_status);
+
+	assert(ras_launch_attempts == 1);
+	assert(status == EBUSY);
+}
+
 int
 main(void)
 {
 	test_miniupnp_migration_failure_blocks_dhcp();
 	test_dhcp_launch_result_is_returned_after_migration();
 	test_first_modem_error_survives_best_effort_followup();
+	test_ras_physical_setup_error_survives_ras_launch();
 	puts("USB modem WAN startup status policy: PASS");
 	return 0;
 }
