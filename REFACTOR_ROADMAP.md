@@ -1,11 +1,11 @@
 ## Current source / CI checkpoint
 
-- Product-source baseline: `de6799e468caa60bfcd086b263e82bb149efd362` includes required WAN VLAN-parent/WAN-interface/AP-client IPv6 control checks; this correction changes no product source.
-- Exact-head Process `43864900710` and XY-C1 `43864901114` failed because the checker slice omitted the enclosing runtime IPv6 guard. Both GNU89 policy binaries passed first; XY-C1 Build/TRX/artifact steps were skipped.
-- AI handoff docs `43864900749` failed because root log reached 120 records. The oldest 100 records are preserved verbatim in indexed `part-012.md`; root retains the newest 20 plus this correction record (21 total).
-- Parent source tests passed for WAN route/DHCP/teardown, infosvr, AdGuardHome, AliDDNS, AliyunDrive, DNSMasq, miniupnpd, detect_link/internet, gateway ARP, USB modem identity, HTTPD, VPN and process inventory; NVRAM remained in progress.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. No L3/L4 claim.
-
+- Parent product-source SHA: `06bfa191302f0d53567a1cdb10652913b93cd92a`.
+- Required IPv6 disable/enable transitions in `config_vinet_wan()` / `config_apcli_wisp()` now fail before WAN interface publication; physical WAN IFUP failures propagate through startup before best-effort cleanup.
+- New fix: `launch_wanx()` previously logged but discarded a failed `man_up_internal()` static MAN route result unless the gateway out-parameter also failed. It now aggregates first-error status across static address, complete MAN route, gateway route and configured physical IPv6 setup; the WAN route workflow asserts these status paths.
+- Parent AI docs `43866012138`, infosvr `43866012145`, AdGuardHome `43866012153`, AliyunDrive `43866012166` and AliDDNS `43866012103`: SUCCESS. Process `43866012142`, XY-C1 `43866012127` and NVRAM audit `43866012113`: IN_PROGRESS at last inspection.
+- The previous checker regression and root-log 120-entry violation were repaired on `06bfa191302f0d53567a1cdb10652913b93cd92a`; part-012 archives 100 records and the root rolling window contains 21 entries before this new record.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. No current exact-head firmware L3 or physical-router L4 claim.
 
 ## Whole-repository module status
 

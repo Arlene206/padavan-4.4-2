@@ -1454,7 +1454,7 @@ launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)
 		} else
 			launch_status = start_zcip_wan(man_ifname);
 	} else {
-		int man_err = 0, gateway_route_status = 0, route_status;
+		int man_err = 0, gateway_route_status = 0, route_status, address_status;
 		char *lan_addr = nvram_safe_get("lan_ipaddr");
 		char *lan_mask = nvram_safe_get("lan_netmask");
 		
@@ -1468,19 +1468,23 @@ launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)
 			logmessage(LOGNAME, "%s (%s) ERROR! Static IP [%s/%s] in LAN subnet [%s/%s]!",
 				"MAN", man_ifname, man_addr, man_mask, lan_addr, lan_mask);
 		} else {
-			launch_status = ifconfig(man_ifname, IFUP, man_addr, man_mask);
-			if (launch_status != 0) {
+			address_status = ifconfig(man_ifname, IFUP, man_addr, man_mask);
+			if (address_status != 0) {
 				man_err = 1;
+				launch_status = route_status_accumulate(launch_status, address_status);
 				logmessage(LOGNAME, "failed to configure static WAN address on %s (status=%d)",
-					   man_ifname, launch_status);
+					   man_ifname, address_status);
 			} else {
 				route_status = man_up_internal(man_ifname, unit, 1, &gateway_route_status);
-				if (route_status != 0)
+				if (route_status != 0) {
+					man_err = 1;
 					logmessage(LOGNAME, "MAN route setup incomplete on %s (error=%d)",
 						   man_ifname, route_status);
+				}
+				launch_status = route_status_accumulate(launch_status, route_status);
 				if (gateway_route_status != 0) {
 					man_err = 1;
-					launch_status = gateway_route_status;
+					launch_status = route_status_accumulate(launch_status, gateway_route_status);
 				}
 			}
 		}
@@ -1494,6 +1498,7 @@ launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)
 		if (ipv6_status != 0)
 			logmessage(LOGNAME, "WAN physical IPv6 setup incomplete on %s (status=%d)",
 				   man_ifname, ipv6_status);
+		launch_status = route_status_accumulate(launch_status, ipv6_status);
 	}
 #endif
 

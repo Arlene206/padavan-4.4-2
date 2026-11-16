@@ -319,6 +319,15 @@ jobs:
           finish_status = body((rc / "route_status_policy.h").read_text(), "route_status_finish(")
           assert "return unlock_status ? unlock_status : operation_status;" in finish_status
 
+          wanx = body(wan, "launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)")
+          assert "address_status = ifconfig(man_ifname, IFUP, man_addr, man_mask);" in wanx
+          assert "route_status = man_up_internal(man_ifname, unit, 1, &gateway_route_status);" in wanx
+          assert "launch_status = route_status_accumulate(launch_status, route_status);" in wanx
+          assert "launch_status = route_status_accumulate(launch_status, gateway_route_status);" in wanx
+          assert "launch_status = route_status_accumulate(launch_status, ipv6_status);" in wanx
+          assert "MAN route setup incomplete" in wanx
+          assert "WAN physical IPv6 setup incomplete" in wanx
+
           bound = body(wan, "udhcpc_bound(char *wan_ifname, int is_renew_mode)")
           assert "int interface_status, rollback_status, route_setup_status;" in bound
           assert "route_setup_status = man_up_internal(wan_ifname, unit, 0, NULL);" in bound

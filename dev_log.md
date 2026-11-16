@@ -1,3 +1,13 @@
+## 2026-11-16 — Propagate manual WAN route and physical IPv6 startup failures
+
+- Parent main: `06bfa191302f0d53567a1cdb10652913b93cd92a`. `launch_wanx()` previously discarded a failed `man_up_internal()` static MAN route result unless the separate gateway-route out parameter also failed. It now preserves first-error status across static address setup, complete MAN route setup, gateway route and configured physical IPv6 tunnel setup, preventing false-success WAN bring-up.
+- Added source-contract assertions in the WAN route workflow for the MAN address, full route, gateway and physical IPv6 status paths.
+- Parent AI docs `43866012138`, infosvr `43866012145`, AdGuardHome `43866012153`, AliyunDrive `43866012166` and AliDDNS `43866012103`: PASS. Process `43866012142`, XY-C1 `43866012127` and NVRAM `43866012113` were still running at last inspection; no L3/L4 claim.
+- The immediately preceding main commit fixed the IPv6 source-checker gate ranges and rotated the 120-record root log; this entry keeps the root rolling log at 22 complete records.
+- Next: check exact-head Process, XY-C1, WAN route and AI docs; XY-C1 L3 still requires Build, TRX verification and artifact upload on the same source SHA.
+
+---
+
 ## 2026-11-16 — Correct WAN IPv6 contract scope and rotate the rolling development log
 
 - Parent main: `de6799e468caa60bfcd086b263e82bb149efd362`. Exact-head Process `43864900710` and XY-C1 `43864901114` failed at the new WAN source checker because its slices started at the `control_if_ipv6()` call and excluded the enclosing runtime `get_ipv6_type() != IPV6_DISABLED` guard. Both GNU89 C policy binaries passed before the checker failed; XY-C1 Build, TRX verification and artifact upload were skipped. This was a checker-scope false positive, not a product compile failure.

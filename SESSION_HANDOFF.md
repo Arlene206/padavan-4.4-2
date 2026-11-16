@@ -10,11 +10,10 @@ For each logical task, create all changed files in one Git tree and one atomic m
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2; only authorized development ref is `main`.
-- Main at the start of this correction: `de6799e468caa60bfcd086b263e82bb149efd362`. Refetch live main before every write and use a non-forced expected-SHA update.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only. Startup branch/backup comparison was already performed once; do not repeat it.
-- Startup governance recovery is complete. Root `dev_log.md` is restored to 21 records (this correction plus the newest 20 previous records); 100 older complete records are preserved in indexed `part-012.md`.
-- PR #1 (`fix/aliddns-ca-bundle-bootstrap`, head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`) is CLOSED and unmerged. HMAC helper source/Makefile, HMAC test, CA bootstrap test and transport fixture contents already match main; current main's package, launcher, workflow and checker have evolved and retain the functionality. No stale branch cherry-pick is needed.
+- Repository: `Arlene206/padavan-4.4-2`; only active development branch is `main`.
+- Parent main for this WAN route status slice: `06bfa191302f0d53567a1cdb10652913b93cd92a`; refetch live state and use non-forced expected-SHA compare-and-swap for the next write.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable and read-only. One-time startup/backup recovery is complete; do not repeat it.
+- The rolling log rotation is complete; part-012 preserves the 100 oldest records and the root currently has 21 recent entries. This source record will bring the root to 22.
 
 ## Engineering baseline
 
@@ -25,14 +24,18 @@ For each logical task, create all changed files in one Git tree and one atomic m
 
 ## Active task
 
-Repair the new IPv6 WAN source checker to include each enclosing runtime IPv6 guard when checking the control call and its fail-closed return path. Parent Process and XY-C1 runs failed only at that checker after GNU89 policy binaries passed. The AI docs parent run also detected 120 root log records; this correction losslessly rotates the oldest 100 into part-012 and leaves 21 root entries.
+`launch_wanx()` previously logged but discarded a nonzero `man_up_internal()` status for static MAN route setup unless the separate gateway-route output also failed. It now accumulates first-error status across static address, complete MAN route, gateway route and configured physical IPv6 setup. The WAN route workflow asserts these result paths.
 
 ## Verification boundary
 
-- Parent `de6799e468caa60bfcd086b263e82bb149efd362`: Process `43864900710` FAILED at `scripts/check_modem_wan_start_status.py:48`; service-status and modem WAN policy binaries passed first. XY-C1 `43864901114` failed at the same source checker; Build, TRX verification and artifact upload were skipped.
-- AI handoff docs `43864900749` FAILED because root `dev_log.md` reached 120 dated entries; this batch moves the oldest 100 verbatim and updates the index.
-- Parent successes: WAN route `43864900904`, WAN DHCP `43864900880`, WAN teardown `43864900911`, infosvr `43864900685`, AdGuardHome `43864901024`, AliDDNS `43864900761`, AliyunDrive `43864900934`, DNSMasq `43864900856`, miniupnpd `43864900839`, detect_link `43864900673`, detect_internet `43864900826`, WAN gateway ARP `43864900950`, USB modem identity `43864900745`, HTTPD `43864900784`, VPN server `43864900910` and Process inventory `43864900896`. NVRAM `43864900907` remained IN_PROGRESS at last inspection.
-- No same-SHA firmware Build/TRX/artifact L3 or physical-router L4 result exists for the IPv6-control source.
+On parent SHA `06bfa191302f0d53567a1cdb10652913b93cd92a`:
+
+- AI handoff docs `43866012138`: SUCCESS; infosvr `43866012145`: SUCCESS; AdGuardHome `43866012153`: SUCCESS; AliyunDrive `43866012166`: SUCCESS; AliDDNS `43866012103`: SUCCESS.
+- Process inventory/lifecycle `43866012142`: IN_PROGRESS at last inspection.
+- XY-C1 firmware validation `43866012127`: IN_PROGRESS at last inspection; no Build/TRX/artifact result yet.
+- NVRAM transaction audit `43866012113`: IN_PROGRESS at raw ioctl/kernel API audit.
+- This parent was created to repair the IPv6 checker and log rotation; the WAN route regression is added in this source commit.
+- No same-SHA XY-C1 Build + TRX + artifact L3 or physical-router L4 result is established.
 
 ## Exact first action for the next GPT
 
