@@ -65,12 +65,20 @@ lock_file="$tmpdir/fs_module.lock"
 
 # Catalog selection must retain the status of modprobe -l.
 : > "$MOCK_CATALOG_CALLS"
-MOCK_CATALOG_OUTPUT=$(printf '/lib/modules/test/kernel/fs/vfat/vfat.ko\n/lib/modules/test/kernel/fs/ext4/ext4.ko')
+MOCK_CATALOG_OUTPUT=$(printf '/lib/modules/test/kernel/fs/vfat/vfat.ko\n/lib/modules/test/kernel/fs/ext4/ext4.ko\n/lib/modules/test/kernel/fs/exfat/exfat.ko\n/lib/modules/test/kernel/fs/vfat-extra/vfat-extra.ko')
 MOCK_CATALOG_STATUS=0
 export MOCK_CATALOG_OUTPUT MOCK_CATALOG_STATUS
 func_read_module_catalog
 func_module_catalog_contains vfat
 func_module_catalog_contains ext4
+if func_module_catalog_contains fat; then
+	echo "module catalog matched a substring of exfat" >&2
+	exit 1
+fi
+if func_module_catalog_contains vfat2; then
+	echo "module catalog matched a similarly named vfat module" >&2
+	exit 1
+fi
 if func_module_catalog_contains ufsd; then
 	echo "module catalog matched an absent module" >&2
 	exit 1

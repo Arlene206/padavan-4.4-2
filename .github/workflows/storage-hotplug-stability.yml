@@ -516,6 +516,10 @@ jobs:
           assert "lock_file=" in module_loader
           assert "if module_catalog=$(modprobe -l 2>/dev/null); then" in module_loader
           assert "func_module_catalog_contains" in module_loader
+          catalog_lookup = module_loader[module_loader.index("func_module_catalog_contains()"):]
+          assert "module_catalog_file=${module_catalog_entry##*/}" in catalog_lookup
+          assert '"$1".ko' in catalog_lookup
+          assert '*"$1"*)' not in catalog_lookup
           assert "modprobe -l | grep" not in automount
           assert automount.count("if ! func_read_module_catalog; then") == 4
           assert "load_module_or_abort" in automount

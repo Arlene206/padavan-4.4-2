@@ -84,10 +84,30 @@ func_module_catalog_contains()
 	case "$1" in
 		''|*[!A-Za-z0-9_-]*) return 1 ;;
 	esac
-	case "$module_catalog" in
-		*"$1"*) return 0 ;;
-		*) return 1 ;;
-	esac
+
+	# Match the module basename exactly; substring matching would confuse
+	# "fat" with exfat or "vfat" with a similarly named module.
+	module_catalog_remaining=$module_catalog
+	while [ -n "$module_catalog_remaining" ]; do
+		case "$module_catalog_remaining" in
+			*'
+'*)
+				module_catalog_entry=${module_catalog_remaining%%'
+'*}
+				module_catalog_remaining=${module_catalog_remaining#*'
+'}
+				;;
+			*)
+				module_catalog_entry=$module_catalog_remaining
+				module_catalog_remaining=
+				;;
+		esac
+		module_catalog_file=${module_catalog_entry##*/}
+		case "$module_catalog_file" in
+			"$1".ko|"$1".ko.gz|"$1".ko.xz) return 0 ;;
+		esac
+	done
+	return 1
 }
 
 # Device names come from hotplug. Keep them as a single block-device component.

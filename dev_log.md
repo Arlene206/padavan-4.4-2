@@ -1,3 +1,12 @@
+## 2026-11-16 — Require exact filesystem module catalog names
+
+- Parent main: `78f7302dad5142402a10b39c08c66a2850abe836`. Review found `func_module_catalog_contains()` used a shell substring case over the entire multiline `modprobe -l` output. That could match a requested `fat` token inside `exfat.ko`, or `vfat` inside a different `vfat-extra.ko` path, and select an unavailable driver family.
+- Replaced substring search with a POSIX-shell line iterator that strips each directory prefix and matches the exact requested module basename with supported `.ko`, `.ko.gz`, and `.ko.xz` suffixes. No AWK or pipeline exit-status ambiguity was added.
+- Extended `storage_module_load_lock.sh` with negative substring cases for `fat` / `exfat` and `vfat` / `vfat-extra`. The storage workflow now asserts basename extraction and exact suffix matching, preventing a regression to substring membership.
+- Parent exact-head Actions at commit time: HTTPD Authentication and Security Regression 43917645930 completed/success; AdGuardHome config security regression 43917645405 completed/success; infosvr packet and signal lifecycle stability regression 43917645508 completed/success; AI handoff documentation contract 43917645337 completed/success; AliDDNS signed API transport security regression 43917645276 completed/success; XY-C1 Firmware Validation 43917645503 in_progress; AliyunDrive WebDAV lifecycle stability regression 43917645350 completed/success; Process inventory and lifecycle fail-closed regression 43917645410 completed/success; NVRAM transaction boundary audit 43917645866 completed/success. Exact-head USB storage/HTTPD runs for THIS COMMIT pending; previous NDIS XY-C1 validation `43917115679` remained IN_PROGRESS. POSIX `sh` and BusyBox `ash` 1.37.0 helper-only tests passed; no target BusyBox 1.24.2/full build claimed. Backup unchanged; L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Update the HTTPD umbrella's automount ownership contract
 
 - Parent main: `b54a701c35e35549a183eca6bf48c86d5dffb855`. Exact-head HTTPD umbrella run `43917116031` failed at the combined filesystem-checker assertion after the preceding HTTPD, NVRAM, wireless, DHCP, safe-eject and mount-inventory checks had passed. The immediate failure was a Python `ValueError: substring not found`: its old source contract still searched for `mountpoint -q` preflight and postcondition calls removed by the fail-closed mount-owner fix.
