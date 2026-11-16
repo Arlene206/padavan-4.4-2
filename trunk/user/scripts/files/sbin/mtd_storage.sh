@@ -9,6 +9,38 @@ slk="/tmp/.httpd-private/.storage_locked"
 tmp="/tmp/.httpd-private/storage.tar"
 tbz="${tmp}.bz2"
 hsh="/tmp/.httpd-private/storage_md5"
+lock_dir="/tmp/.httpd-private"
+lock_file="${lock_dir}/.mtd_storage.lock"
+
+# Serialize every MTD storage command (save, backup, restore, erase/reset,
+# load and fill). The marker file blocks later saves after destructive
+# operations; this advisory lock also closes the check-then-run race when a
+# save has already started as restore/erase begins.
+if [ -L "$lock_dir" ] || { [ -e "$lock_dir" ] && [ ! -d "$lock_dir" ]; }; then
+	logger -t "Storage" "Unsafe storage lock directory: $lock_dir"
+	exit 1
+fi
+if [ ! -d "$lock_dir" ] && ! mkdir -m 700 "$lock_dir"; then
+	logger -t "Storage" "Cannot create storage lock directory: $lock_dir"
+	exit 1
+fi
+if ! chmod 700 "$lock_dir"; then
+	logger -t "Storage" "Cannot secure storage lock directory: $lock_dir"
+	exit 1
+fi
+if [ -L "$lock_file" ] || { [ -e "$lock_file" ] && [ ! -f "$lock_file" ]; }; then
+	logger -t "Storage" "Unsafe storage operation lock file: $lock_file"
+	exit 1
+fi
+umask 077
+if ! exec 9>>"$lock_file"; then
+	logger -t "Storage" "Cannot open storage operation lock: $lock_file"
+	exit 1
+fi
+if ! flock -n 9; then
+	logger -t "Storage" "Another MTD storage operation is already running"
+	exit 1
+fi
 
 func_get_mtd()
 {

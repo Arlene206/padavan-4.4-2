@@ -90,6 +90,16 @@ ftp_test = read("trunk/user/rc/src/tests/ftp_daemon_policy.c")
 workflow = read(".github/workflows/storage-hotplug-stability.yml")
 xy_workflow = read(".github/workflows/xy-c1-firmware-validation.yml")
 mtd_storage = read("trunk/user/scripts/files/sbin/mtd_storage.sh")
+mtd_storage_lock_tests = tuple(
+    read("trunk/user/scripts/tests/" + name)
+    for name in (
+        "mtd_storage_save_retry.sh",
+        "mtd_storage_restore_transaction.sh",
+        "mtd_storage_load_transaction.sh",
+        "mtd_storage_erase_reset.sh",
+        "mtd_storage_backup_failure.sh",
+    )
+)
 persistence_policy = read("trunk/user/rc/src/storage_persistence_policy.h")
 persistence_test = read("trunk/user/rc/src/tests/storage_persistence_policy.c")
 mtd_storage_test = read("trunk/user/scripts/tests/mtd_storage_save_retry.sh")
@@ -717,6 +727,26 @@ for path in ("trunk/user/scripts/files/sbin/mtd_storage.sh",
              "trunk/user/rc/src/storage_persistence_policy.h"):
     require('"' + path + '"' in xy_workflow,
             "XY-C1 must trigger for product persistence dependency " + path)
+
+# All MTD storage commands share an OS-backed lock. A marker file alone
+# cannot stop an already-running save that passed its marker check earlier.
+lock_start = mtd_storage.index('lock_dir="/tmp/.httpd-private"')
+lock_end = mtd_storage.index("func_get_mtd()", lock_start)
+lock_setup = mtd_storage[lock_start:lock_end]
+require('if ! exec 9>>"$lock_file"; then' in lock_setup and
+        "flock -n 9" in lock_setup and
+        lock_setup.index("chmod 700") < lock_setup.index('exec 9>>"$lock_file"') <
+        lock_setup.index("flock -n 9"),
+        "MTD commands must acquire a nonblocking lock under the protected private directory")
+for index, fixture in enumerate(mtd_storage_lock_tests):
+    require('lock_dir="$sandbox/private"' in fixture or
+            'lock_dir="$base/private"' in fixture,
+            "MTD fixture must isolate the operation lock: index {}".format(index))
+save_fixture = mtd_storage_lock_tests[0]
+require("flock -n 8" in save_fixture and
+        "concurrent MTD save bypassed the operation lock" in save_fixture and
+        'sh "$sandbox/mtd_storage.sh" save' in save_fixture,
+        "MTD save regression must prove a competing process cannot enter an active transaction")
 
 presence_start = mtd_storage.index("func_rstats_presence()")
 presence_end = mtd_storage.index("\nfunc_stop_apps()", presence_start)

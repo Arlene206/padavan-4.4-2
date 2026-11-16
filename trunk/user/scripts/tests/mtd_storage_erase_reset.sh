@@ -69,6 +69,7 @@ prepare_case()
 	sed \
 		-e "s|^dir_storage=.*|dir_storage=\"$base/storage\"|" \
 		-e "s|^slk=.*|slk=\"$base/private/.storage_locked\"|" \
+  -e "s|^lock_dir=.*|lock_dir=\"$base/private\"|" \
 		-e "s|^tmp=.*|tmp=\"$base/private/storage.tar\"|" \
 		-e "s|^hsh=.*|hsh=\"$base/private/storage_md5\"|" \
 		-e "s|cat /proc/mtd|cat \"$base/proc-mtd\"|" \

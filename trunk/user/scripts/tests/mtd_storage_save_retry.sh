@@ -10,6 +10,7 @@ printf '%s\n' 'value=one' > "$sandbox/storage/config.conf"
 sed \
   -e "s|dir_storage=\"/etc/storage\"|dir_storage=\"$sandbox/storage\"|" \
   -e "s|slk=\"/tmp/.httpd-private/.storage_locked\"|slk=\"$sandbox/private/.storage_locked\"|" \
+  -e "s|^lock_dir=.*|lock_dir=\"$sandbox/private\"|" \
   -e "s|tmp=\"/tmp/.httpd-private/storage.tar\"|tmp=\"$sandbox/private/storage.tar\"|" \
   -e "s|hsh=\"/tmp/.httpd-private/storage_md5\"|hsh=\"$sandbox/private/storage_md5\"|" \
   -e "s|cat /proc/mtd|cat \"$sandbox/proc-mtd\"|" \
@@ -28,6 +29,18 @@ export PATH="$sandbox/bin:$PATH"
 export MTD_WRITE_LOG="$sandbox/mtd-write.log"
 MTD_WRITE_FAIL=0 sh "$sandbox/mtd_storage.sh" save
 [ -s "$sandbox/private/storage_md5" ] || { echo "initial hash checkpoint missing" >&2; exit 1; }
+
+# A process holding the operation lock excludes every concurrent MTD command.
+(
+	exec 8>"$sandbox/private/.mtd_storage.lock"
+	flock -n 8
+	if sh "$sandbox/mtd_storage.sh" save; then
+		echo "concurrent MTD save bypassed the operation lock" >&2
+		exit 1
+	fi
+)
+[ "$(wc -l < "$MTD_WRITE_LOG")" -eq 1 ]
+
 printf '%s\n' 'value=two' > "$sandbox/storage/config.conf"
 if MTD_WRITE_FAIL=1 sh "$sandbox/mtd_storage.sh" save; then
 	echo "injected MTD failure unexpectedly succeeded" >&2

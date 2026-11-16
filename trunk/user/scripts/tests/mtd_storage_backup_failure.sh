@@ -13,6 +13,7 @@ real_bzcat=$(command -v bzcat)
 sed \
   -e "s|^dir_storage=.*|dir_storage=\"$sandbox/storage\"|" \
   -e "s|^slk=.*|slk=\"$sandbox/private/.storage_locked\"|" \
+  -e "s|^lock_dir=.*|lock_dir=\"$sandbox/private\"|" \
   -e "s|^tmp=.*|tmp=\"$sandbox/private/storage.tar\"|" \
   -e "s|^hsh=.*|hsh=\"$sandbox/private/storage_md5\"|" \
   -e "s|cat /proc/mtd|cat \"$sandbox/proc-mtd\"|" \

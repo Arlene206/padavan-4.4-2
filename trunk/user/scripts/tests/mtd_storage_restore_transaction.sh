@@ -20,6 +20,7 @@ printf '%s\n' 'dev:    size   erasesize  name' 'mtd5: 00010000 00010000 "Storage
 sed \
   -e "s|^dir_storage=.*|dir_storage=\"$sandbox/storage\"|" \
   -e "s|^slk=.*|slk=\"$sandbox/private/storage_locked\"|" \
+  -e "s|^lock_dir=.*|lock_dir=\"$sandbox/private\"|" \
   -e "s|^tmp=.*|tmp=\"$sandbox/private/storage.tar\"|" \
   -e "s|proc_root=\"/proc\"|proc_root=\"$sandbox/proc\"|" \
   -e "s|tmp_storage=\"/tmp/.httpd-private/storage-restore\"|tmp_storage=\"$sandbox/restore\"|" \
