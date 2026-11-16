@@ -194,17 +194,18 @@ jobs:
           assert "return;" not in modem_start
 
           deferred_hotplug = body(services_stor, "on_deferred_hotplug_dev(void)")
-          assert "int modem_start_status;" in deferred_hotplug
+          assert "int modem_unplug_status = 0;" in deferred_hotplug
+          assert "int modem_plug_status = 0;" in deferred_hotplug
           unplug_start = deferred_hotplug[deferred_hotplug.index("if (unplug_modem)"):deferred_hotplug.index("if (plug_modem && !unplug_modem)")]
-          assert "modem_start_status = try_wan_reconnect(1, 0);" in unplug_start
-          assert "if (modem_start_status != 0)" in unplug_start
-          assert 'nvram_set_int_temp("usb_unplug_md", 1)' in unplug_start
-          assert unplug_start.index('nvram_set_int_temp("usb_unplug_md", 1)') < unplug_start.index("alarm(5)")
+          assert "modem_unplug_status = try_wan_reconnect(1, 0);" in unplug_start
+          assert "modem_unplug_status != 0" in unplug_start
 
           plug_start = deferred_hotplug[deferred_hotplug.index("if (plug_modem && !unplug_modem)"): ]
-          assert "modem_start_status = try_start_usb_modem_to_wan();" in plug_start
-          assert "if (modem_start_status != 0)" in plug_start
+          assert "modem_plug_status = try_start_usb_modem_to_wan();" in plug_start
+          assert "modem_plug_status != 0" in plug_start
+          assert 'nvram_set_int_temp("usb_unplug_md", 1)' in plug_start
           assert 'nvram_set_int_temp("usb_hotplug_md", 1)' in plug_start
+          assert plug_start.index('nvram_set_int_temp("usb_unplug_md", 1)') < plug_start.index("alarm(5)")
           assert plug_start.index('nvram_set_int_temp("usb_hotplug_md", 1)') < plug_start.index("alarm(5)")
 
           for marker in (
