@@ -1,3 +1,11 @@
+## 2026-11-16 — Repair SmartDNS lifecycle regression temporary fixtures
+
+- Parent main: `a4daa0fd1ec33223b2d9bfaf6e3bff442079119a` (`fix(smartdns): preserve adblock parser error status`). Exact-head Process inventory run `43916101921` on ancestor `06bfebfa986d6b6b0c7c61a98ee389327019a7af` failed after all process-state cases passed: `smartdns_process_lifecycle.sh: 86: tmpdir: parameter not set`. The same regression is also run inside USB storage workflow, so it can stop both larger suites before their own tests execute.
+- The test uses `set -u` but never created its `$tmpdir` before extracting `smartdns_prepare_adblock_filter()` and writing temporary fixtures. Added a private `mktemp -d` workspace with exit/signal cleanup. Corrected the invalid-input fixture's doubled backslash so `printf` writes a real newline instead of a literal `\\n` suffix.
+- This is a host-test-only correction; SmartDNS and automount production code are unchanged. Exact-head USB storage, Process inventory, Process lifecycle, AI docs, XY-C1 and NVRAM Actions for THIS COMMIT are pending; no local shell/firmware pass is claimed. Frozen backup untouched; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Correct the mount-owner source-contract range
 
 - Parent main: `06bfebfa986d6b6b0c7c61a98ee389327019a7af`. Review of the newly wired Python source assertion found its end marker was the earlier `# Device names come from hotplug` comment, which precedes `mount_from_device()`; the resulting slice would be empty and make the storage workflow fail before validating the actual helper.

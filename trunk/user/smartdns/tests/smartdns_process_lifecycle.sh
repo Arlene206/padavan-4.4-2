@@ -3,6 +3,9 @@ set -u
 . "$(dirname "$0")/../smartdns_process_lifecycle.sh"
 fail() { echo "FAIL: $*" >&2; exit 1; }
 pass() { echo "PASS: $*"; }
+tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/smartdns-process-lifecycle.XXXXXX") || fail "temporary directory creation failed"
+trap 'rm -rf "$tmpdir"' 0
+trap 'exit 1' HUP INT TERM
 PIDOF_STATUS=1
 PIDOF_OUTPUT=
 KILLALL_CALLS=0
@@ -116,7 +119,7 @@ cmp "$tmpdir/adblock/native-smartdns.conf" "$tmpdir/adblock/native-output.conf" 
 pass "native SmartDNS address rules remain unchanged"
 
 printf 'preserve-on-error\n' > "$tmpdir/adblock/preserved.conf"
-printf 'no supported filter rules\\n' > "$tmpdir/adblock/invalid.txt"
+printf 'no supported filter rules\n' > "$tmpdir/adblock/invalid.txt"
 if smartdns_prepare_adblock_filter "$tmpdir/adblock/invalid.txt" "$tmpdir/adblock/preserved.conf"; then
     fail "unsupported adblock input was accepted"
 fi
