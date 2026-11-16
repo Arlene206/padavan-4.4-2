@@ -184,6 +184,22 @@ assert_no_command rpcbind
 assert_no_command mount
 assert_no_command exportfs
 
+# An unknown process scan must not reset an existing recovery/export database.
+reset_fixture
+mark_running_process rpcbind
+prepare_running_nfs
+: > "$tmp_dir/etc/exports"
+printf 'preserve-rmtab\\n' > "$tmp_dir/var/lib/nfs/rmtab"
+printf 'preserve-xtab\\n' > "$tmp_dir/var/lib/nfs/xtab"
+status=$(NFSD_PROC_ROOT="$tmp_dir/missing-proc" run_command "" "" start)
+assert_failed "$status" "NFS start with unknown process state and existing recovery files"
+[ "$(cat "$tmp_dir/var/lib/nfs/etab")" = "recovery-state" ]
+[ "$(cat "$tmp_dir/var/lib/nfs/rmtab")" = "preserve-rmtab" ]
+[ "$(cat "$tmp_dir/var/lib/nfs/xtab")" = "preserve-xtab" ]
+assert_no_command rpcbind
+assert_no_command exportfs
+assert_no_command mount
+
 reset_fixture
 mark_running_process rpcbind
 mark_running_process nfsd
