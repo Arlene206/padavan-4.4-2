@@ -1,3 +1,11 @@
+## 2026-11-16 — Restore mandatory handoff checkpoint contract
+
+- Parent main: `2c0a0f1be6edf5a604a71ce02e726d0b2393a00c`. Exact-head AI handoff documentation run `43858670960`, job `133269446982`, failed because `SESSION_HANDOFF.md` no longer carried the validator-required explicit end-of-session accuracy-checkpoint wording.
+- Restored the mandatory live-state/source-baseline/Actions/first-action comparison wording and the conditional-document-edit anti-churn rule in the canonical handoff. No source behavior changed.
+- Re-run the AI handoff documentation contract on this exact commit; the prior failure is a real governance-check blocker, not a source-test failure.
+
+---
+
 ## 2026-11-16 — Propagate switch base, storm and link configuration errors
 
 - Parent main: `4322737edbbe77196e4380fc7506da3f0851dc0d`. The previous GMAC2 router conditional and AP-tagged LAN member accounting correction is in `4322737edbbe77196e4380fc7506da3f0851dc0d`; exact-head Actions were pending at last inspection.
