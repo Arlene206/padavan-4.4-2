@@ -11,34 +11,35 @@ For each logical task, create all changed files in one Git tree and one atomic m
 ## Current repository state
 
 - Repository: Arlene206/padavan-4.4-2; only authorized development ref is `main`.
-- Main at the start of this IPv6 WAN-control task: `cf45552d54488f6d64cc3d2c1118ba9385a0ea7b`; refetch live main before every write and use a non-forced expected-SHA update.
+- Main at the start of this correction: `de6799e468caa60bfcd086b263e82bb149efd362`. Refetch live main before every write and use a non-forced expected-SHA update.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only. Startup branch/backup comparison was already performed once; do not repeat it.
-- Startup governance and archive recovery are complete. Root `dev_log.md` contains 118 records before this commit; this entry brings it to 119, below the 120-record rotation threshold.
+- Startup governance recovery is complete. Root `dev_log.md` is restored to 21 records (this correction plus the newest 20 previous records); 100 older complete records are preserved in indexed `part-012.md`.
+- PR #1 (`fix/aliddns-ca-bundle-bootstrap`, head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`) is CLOSED and unmerged. HMAC helper source/Makefile, HMAC test, CA bootstrap test and transport fixture contents already match main; current main's package, launcher, workflow and checker have evolved and retain the functionality. No stale branch cherry-pick is needed.
 
 ## Engineering baseline
 
 - LAN bridge/VLAN/switch required startup errors and required iNIC MII post-load verification propagate into PID 1; optional hw_nat/LED paths remain best-effort.
-- Shared bridge-add and bridge-member ioctl helpers preserve ioctl errno across socket close.
-- Full WAN restart fails closed on switch VLAN setup, static LAN route restoration and switch MAC-table clear errors. L2TP server startup results are merged across full restart, reconnect and deferred reconnect.
-- `start_wan()` propagates static WAN route/service setup, configured IPv6 tunnel setup and physical WAN IFUP failures. `stop_wan_locked()` preserves static route teardown and USB modem stop errors through interface teardown.
-- `config_vinet_wan()` now returns required IPv6 disable/enable failures for the physical VLAN parent and published WAN interface. `config_apcli_wisp()` returns IPv6 enable failure before publishing the AP-client WAN interface. These checks are conditional on IPv6 WAN mode being enabled.
+- Shared bridge-add/member helpers preserve ioctl errno across socket close.
+- WAN startup includes required physical interface IFUP failure, static WAN route/service setup, and IPv6 tunnel errors. Required IPv6 controls on the VLAN parent, WAN interface and AP-client WISP interface now return failure before publishing WAN identity. Static route teardown and USB modem stop errors are preserved.
+- The current product-source SHA is `de6799e468caa60bfcd086b263e82bb149efd362`; this correction does not alter product source.
 
 ## Active task
 
-The current slice fixes three discarded `control_if_ipv6()` results in `trunk/user/rc/src/net_wan.c`: disabling IPv6 on the physical WAN VLAN parent, enabling it on the resulting WAN interface, and enabling it on an AP-client WISP WAN interface. The return status now aborts required interface setup and prevents `ifname` publication on failure. The parent Process run `43864471819` passed; parent XY-C1 `43864471994` was still compiling at last inspection. This source slice needs fresh exact-head validation.
+Repair the new IPv6 WAN source checker to include each enclosing runtime IPv6 guard when checking the control call and its fail-closed return path. Parent Process and XY-C1 runs failed only at that checker after GNU89 policy binaries passed. The AI docs parent run also detected 120 root log records; this correction losslessly rotates the oldest 100 into part-012 and leaves 21 root entries.
 
 ## Verification boundary
 
-- Prior source SHA `cf45552d54488f6d64cc3d2c1118ba9385a0ea7b`: Process inventory / WAN checker `43864471819` SUCCESS. XY-C1 `43864471994` was IN_PROGRESS at `Build XY-C1`, with TRX/artifact pending.
-- That parent commit's remaining Actions were still queued/in progress; no summary of uninspected checks is claimed.
-- No same-SHA firmware Build/TRX/artifact L3 or physical-router L4 result is claimed for the current IPv6-control changes.
+- Parent `de6799e468caa60bfcd086b263e82bb149efd362`: Process `43864900710` FAILED at `scripts/check_modem_wan_start_status.py:48`; service-status and modem WAN policy binaries passed first. XY-C1 `43864901114` failed at the same source checker; Build, TRX verification and artifact upload were skipped.
+- AI handoff docs `43864900749` FAILED because root `dev_log.md` reached 120 dated entries; this batch moves the oldest 100 verbatim and updates the index.
+- Parent successes: WAN route `43864900904`, WAN DHCP `43864900880`, WAN teardown `43864900911`, infosvr `43864900685`, AdGuardHome `43864901024`, AliDDNS `43864900761`, AliyunDrive `43864900934`, DNSMasq `43864900856`, miniupnpd `43864900839`, detect_link `43864900673`, detect_internet `43864900826`, WAN gateway ARP `43864900950`, USB modem identity `43864900745`, HTTPD `43864900784`, VPN server `43864900910` and Process inventory `43864900896`. NVRAM `43864900907` remained IN_PROGRESS at last inspection.
+- No same-SHA firmware Build/TRX/artifact L3 or physical-router L4 result exists for the IPv6-control source.
 
 ## Exact first action for the next GPT
 
-1. Check exact-main-SHA Process and XY-C1 Actions for the IPv6 WAN-control commit; inspect their job steps/logs, and claim L3 only after Build, TRX verification and artifact upload all pass on one SHA.
-2. Continue checking PPP launch and demand-readiness failures, static IP address setup, EAPOL startup and DHCP client launch so required WAN startup failures reach PID 1 while optional cleanup stays best-effort.
-3. Inspect the remaining ignored IPv6 control calls outside `config_vinet_wan()` / `config_apcli_wisp()` with their call-site purpose before deciding whether they are required.
-4. Keep optional MTU tuning best-effort unless the relevant product invariant establishes otherwise. Physical-router L4 remains unverified.
+1. Inspect this correction's exact-head Process, AI handoff docs and XY-C1 Actions. Diagnose any remaining failure at its first causal step.
+2. Once the source checker passes, continue the WAN startup failure-propagation slice: PPP interface migration/UPnP stop, PPTP/L2TP physical setup, PPPD launch, demand PPP readiness, static IP configuration, EAPOL startup and DHCP client launch failures must reach `start_wan()` status when required.
+3. Preserve first-error semantics if best-effort cleanup also fails. Do not make optional MTU tuning or optional UPnP notification errors fatal without a verified invariant.
+4. Claim firmware L3 only after Build, TRX verification and artifact upload all pass on one exact source SHA; physical-router L4 remains unverified.
 
 ## Governance
 

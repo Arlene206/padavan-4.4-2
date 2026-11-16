@@ -18,6 +18,7 @@
 | `docs/dev-log/2026/11/part-009.md` | 100 | 2026-11-13 14:21:06 CST (UTC+8) → 2026-11-15 — Add shared PID/start-time file identity helper | 219669 | `3dfc7bffc0e4f251aa15e58c9d1586e29f26096c` |
 | `docs/dev-log/2026/11/part-010.md` | 100 | 2026-11-14 → 2026-11-15 14:18 CST | 119850 | `d89ebd2529d3f8841d8145e212dff6d2d504c20d` |
 | `docs/dev-log/2026/11/part-011.md` | 100 | 2026-11-15 → 2026-11-15 | 110042 | `41f363e173869e271c08b603f4f06b990aa4beec` |
+| `docs/dev-log/2026/11/part-012.md` | 100 | 2026-11-15 — Check physical WAN interface bring-up before protocol startup → 2026-11-16 — Align storage IPTV source contract with aggregated restart results | 133040 | `07cadc2b9a77f5e7735faf769f954d9980ac4ebd` |
 
 
 - **Post-migration rotation:** the first evicted root-window record is preserved verbatim in `part-003.md`; its original root source blob was `733d3c678575611642b3f69fe4cfe5e19ece9b57`.
@@ -68,3 +69,5 @@
 
 - **Rolling-window continuation:** 100 oldest complete records evicted when root `dev_log.md` reached 120 entries are preserved verbatim, oldest first, in part-010; source root blob before rotation: `8142461da3a0bb0bf54a334a147c6de9570806d7`. Root retains the newest 20 complete records.
 - **Rolling-window continuation:** 100 oldest complete records evicted when root `dev_log.md` reached 120 entries are preserved verbatim, oldest first, in part-011; source root blob before rotation: `8c496aa2921a5cb0ba62f93d9f392b15ffdc9e84`. Root retains the newest 20 complete records.
+
+- **Rolling-window continuation:** 100 oldest complete records evicted when root `dev_log.md` reached 120 entries are preserved oldest-first in part-012; pre-rotation root blob: `db55a3ce0deb7397a834ef419a85cdb05fda2080`. The newest 20 existing records remain in root plus this correction record.

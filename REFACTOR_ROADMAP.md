@@ -1,10 +1,10 @@
 ## Current source / CI checkpoint
 
-- Product-source baseline before this slice: `cf45552d54488f6d64cc3d2c1118ba9385a0ea7b`; the WAN IFUP failure is now returned to PID 1 rather than being lost after best-effort cleanup.
-- This source slice checks three previously ignored required IPv6 interface controls: disable IPv6 on the WAN VLAN parent, enable IPv6 on the resulting WAN interface, and enable IPv6 on the AP-client WISP WAN interface before publishing it.
-- Parent exact-head Process `43864471819` passed the WAN status regression. Parent XY-C1 `43864471994` was still at firmware build; TRX/artifact had not completed at last check. New exact-head validation is required.
-- The checker additions are part of the existing Process and XY-C1 source-contract step; no workflow filter changes are needed. No L3/L4 claim for this source SHA.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Product-source baseline: `de6799e468caa60bfcd086b263e82bb149efd362` includes required WAN VLAN-parent/WAN-interface/AP-client IPv6 control checks; this correction changes no product source.
+- Exact-head Process `43864900710` and XY-C1 `43864901114` failed because the checker slice omitted the enclosing runtime IPv6 guard. Both GNU89 policy binaries passed first; XY-C1 Build/TRX/artifact steps were skipped.
+- AI handoff docs `43864900749` failed because root log reached 120 records. The oldest 100 records are preserved verbatim in indexed `part-012.md`; root retains the newest 20 plus this correction record (21 total).
+- Parent source tests passed for WAN route/DHCP/teardown, infosvr, AdGuardHome, AliDDNS, AliyunDrive, DNSMasq, miniupnpd, detect_link/internet, gateway ARP, USB modem identity, HTTPD, VPN and process inventory; NVRAM remained in progress.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. No L3/L4 claim.
 
 
 ## Whole-repository module status
