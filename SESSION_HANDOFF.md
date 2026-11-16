@@ -10,26 +10,28 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Current repository state
 
-- Live main before this HTTPD contract repair: `595bc6b6d78501ac833e721a51d9364063683e04` (`test(firewall): assert core and UPnP first-error status`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`; its preservation marker was read and the branch is read-only.
-- Exact-head 595bc6 push Actions: ten runs were returned; eight passed and two were IN_PROGRESS at last poll: XY-C1 firmware validation `43940508628` and NVRAM transaction audit `43940508621`.
-- Exact-head 595bc Firewall Startup `43940508528`, Process inventory/regression `43940508454`, AI handoff docs `43940508597`, infosvr `43940508523`, USB modem `43940509016`, AliDDNS `43940508780`, AdGuardHome `43940508442` and other listed runs passed. In particular, the old `return upnp_status;` checker failure is now fixed.
-- The prior HTTPD run `43939886670` on edeaf28 passed snapshot-descriptor testing and failed only because its embedded source checker still searched for a bare `return;`; the implementation now returns `return status ? status : EIO;`. This commit corrects the inline contract and triggers a fresh HTTPD run. PR #1 remains closed/unmerged; do not resume it.
+- Main parent for this slice: 46f7a9128cdc5c66d943d9d8093c002b336b5701. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807` and read-only.
+- Exact-head 595bc Firewall Startup `43940508528`, AI handoff `43940508597`, and NVRAM audit `43940508621` passed.
+- Exact-head 46f7 HTTPD `43941275581`, AI handoff `43941275602`, NVRAM `43941275573`, Process inventory `43941275869`, AliDDNS `43941275686`, AdGuardHome `43941275586`, AliyunDrive `43941275788`, and infosvr `43941277064` passed. Exact-head XY-C1 `43941275592` was still building when polled; TRX/artifact stages pending.
+- This commit closes partial-cleanup path diagnostics and broadens firewall helper regression CI. Its own exact-SHA Actions are pending; no build result is transferred from parent SHA.
+- Historical PR #1 remains closed/unmerged; backup remains read-only.
 
 ## Active task
 
-- `start_firewall_ex()` returns EBUSY/EINVAL/EIO for unresolved recovery, unsafe interface tokens, core restore/rollback/snapshot-cleanup and Adbyby extension-restore failures. Incomplete rollback disables IPv4/IPv6 forwarding and retains recovery snapshots. `restart_firewall()` always attempts UPnP refresh, returns the first nonzero firewall/UPnP result and restores errno from the core failure.
-- The core transaction fault-injection test passed in exact-head edeaf28 Firewall Startup `43939885812`. The canonical WAN/RC checker now verifies firewall-status capture and first-error propagation; current-head Firewall Startup `43940508528` and Process regression `43940508454` pass.
-- This commit repairs the remaining HTTPD inline assertion to require the actual error return before forwarding can be enabled, and asserts the transaction status accessor in the same source-contract block.
-- Next engineering task: audit the remaining Shadowsocks, persistent post-firewall and Optware hook execution/staging/cleanup results. They are currently logged but not merged into `start_firewall_ex()` status. Decide and test whether failure should be surfaced while allowing other independent hooks to run. Then continue NAT module unload/postcondition review.
+Core firewall status propagation is in place: failed built-in table restore/rollback stays fail-closed, and restart_firewall() attempts UPnP independently while returning the first failure. Cleanup-only partial snapshot state is now explicitly reported even when snapshot_count is zero; exact cleanup paths and separate table/partial-path counts are logged. The transaction regression asserts EIO for that state.
+
+Firewall Startup CI now covers all standalone firewall helper/security tests (Adbyby restore, command wait status, filter validation, hook-file staging, atomic rule files and snapshot-FD behavior) under GNU89/-Werror/ASan/UBSan.
+
+Next P1: inspect extension hook staging, execution, and temporary-file cleanup status for Shadowsocks, persistent firewall hook, and Optware. Decide best-effort versus required behavior explicitly; always attempt independent hooks, but surface nonzero outcomes in start_firewall_ex() when policy requires. Then audit NAT module unload/load postconditions in net.c.
 
 ## Verification boundary
 
-- Exact-head 595bc: eight of ten returned push runs passed; XY-C1 `43940508628` and NVRAM `43940508621` were pending at last observation. XY-C1 Build/TRX/artifact is NOT VERIFIED until that same SHA completes those steps.
-- The previous HTTPD run `43939886670` failed only at the stale bare-return source anchor after its firewall snapshot descriptor regression passed. This commit triggers a fresh HTTPD check; its result is not yet known.
-- No local full firmware build or physical-router validation is claimed. Physical-router L4 remains NOT VERIFIED; frozen backup unchanged.
+- Exact-head 46f7 non-firewall Actions listed above passed; XY-C1 `43941275592` was still building at last check. Parent SHA 595bc6 Firewall Startup and NVRAM passed, but these do not validate the new diagnostic/test-wiring commit.
+- This commit has not yet received exact-SHA Actions. Its Firewall Startup workflow adds six existing helper regressions plus an explicit cleanup-only EIO assertion and canonical source contract.
+- No local firmware build or physical-router validation is claimed. XY-C1 L3 requires same-SHA Build, TRX validation and artifact upload. Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head HTTPD security, XY-C1 Build/TRX/artifact, NVRAM audit, Firewall Startup, Process regression and AI handoff docs for this contract-repair commit. Do not wait on pending jobs before independent engineering work.
-2. Continue at `trunk/user/rc/src/firewall_ex.c`: inspect result propagation for Shadowsocks, persistent and Optware hooks, including staging and temporary-file cleanup. Add deterministic failure-injection coverage before changing the shared behavior; retain the fail-closed core rollback guarantees.
-3. Then audit NAT module unload/load postconditions in `trunk/user/rc/src/net.c`. Keep commits on main, each one complete-tree atomic with non-forced expected-SHA CAS; backup is read-only and router L4 is NOT VERIFIED.
+1. Inspect this commit's exact-SHA Firewall Startup helper/security regressions, XY-C1 Build/TRX/artifact, and AI handoff contract. Diagnose any first failing job.
+2. Continue with Shadowsocks, persistent post-firewall, and Optware hook staging/command/cleanup status propagation; add deterministic failure-injection coverage and preserve independent-hook attempts.
+3. Then audit NAT module unload/load postconditions. Main-only complete-tree atomic commits with non-forced expected-SHA CAS; frozen backup read-only; router L4 NOT VERIFIED.

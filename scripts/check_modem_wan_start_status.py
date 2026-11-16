@@ -538,3 +538,11 @@ assert firewall_restart.index("firewall_status = start_firewall_ex();") < firewa
 assert "return rc_first_service_start_status(firewall_status, upnp_status);" in firewall_restart
 assert "errno = saved_errno;" in firewall_restart
 print("Core firewall restore, rollback, cleanup and UPnP first-error propagation: PASS")
+
+retained_log = compact(body(FIREWALL_SOURCE, "firewall_log_retained_restore_snapshots("))
+assert "tx->cleanup_path_count" in retained_log
+assert "tx->cleanup_paths[i]" in retained_log
+assert "tx->snapshots[i].path" in retained_log
+assert "firewall_core_restore_transaction.cleanup_failed" in firewall_rebuild
+assert "partial cleanup paths retained" in firewall_rebuild
+print("Firewall recovery and partial-cleanup path diagnostics: PASS")

@@ -1,9 +1,10 @@
 ## Current source / CI checkpoint
 
-- Main source baseline: `595bc6b6d78501ac833e721a51d9364063683e04` asserts that `restart_firewall()` captures `start_firewall_ex()`, still runs UPnP refresh, and returns the first nonzero status. Core transaction fault-injection and checker coverage are in place.
-- Exact-head 595bc6 push Actions: ten runs returned; eight passed, two remained IN_PROGRESS at last poll: XY-C1 `43940508628` and NVRAM audit `43940508621`. Firewall Startup `43940508528`, Process regression `43940508454` and AI handoff docs `43940508597` passed.
-- The prior HTTPD security run `43939886670` reached its final source checker after snapshot-descriptor testing passed, then failed because the checker expected bare `return;`. The current function correctly returns `return status ? status : EIO;`; this commit aligns the HTTPD contract and triggers a fresh run.
-- After HTTPD passes, require same-SHA XY-C1 Build + TRX verification + artifact before claiming L3. Physical-router L4 remains NOT VERIFIED; frozen backup stays read-only. Next P1 audit is extension hook status/staging cleanup and NAT module unload postconditions.
+- Parent main: 46f7a9128cdc5c66d943d9d8093c002b336b5701. Exact-head 46f7 HTTPD `43941275581`, AI handoff `43941275602`, NVRAM `43941275573`, Process `43941275869`, AliDDNS `43941275686`, AdGuardHome `43941275586`, AliyunDrive `43941275788`, and infosvr `43941277064` passed. XY-C1 `43941275592` was still building; TRX/artifact pending.
+- Fixed partial-cleanup diagnostics: when `cleanup_path_count` is nonzero but `snapshot_count` is zero, the core firewall rebuild now logs the retained cleanup paths and separate counts. Transaction regression expects EIO for this failure state.
+- Firewall Startup CI is expanded to compile/run Adbyby restore, command-status, filter-input validation, hook-file staging, atomic rule-file and snapshot descriptor regressions under GNU89/-Werror/ASan/UBSan. New exact-SHA verification is pending; no XY-C1 L3 claim until Build/TRX/artifact all pass. Physical-router L4 remains NOT VERIFIED; frozen backup unchanged.
+- Next P1: audit Shadowsocks, persistent firewall and Optware hook command/staging/cleanup outcomes, then NAT module load/unload postconditions.
+
 
 ## Whole-repository module status
 

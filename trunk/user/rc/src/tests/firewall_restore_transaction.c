@@ -169,6 +169,7 @@ test_partial_snapshot_cleanup_failure_is_retryable(void)
 	assert(tx.snapshot_count == 0 && tx.cleanup_path_count == 1);
 	assert(tx.cleanup_failed);
 	assert(strcmp(tx.cleanup_paths[0], "/tmp/snapshot-1") == 0);
+	assert(firewall_restore_transaction_status(&tx) == EIO);
 	assert(t.rollback_count == 1 && t.remove_count == 1);
 	assert(t.remove_attempt_count == 3);
 

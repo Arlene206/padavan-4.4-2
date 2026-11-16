@@ -1,3 +1,12 @@
+## 2026-11-17 — Report retained firewall cleanup paths and run helper security regressions
+
+- Parent main: 46f7a9128cdc5c66d943d9d8093c002b336b5701. Exact-head Firewall Startup on SHA 595bc6 `43940508528`, AI handoff `43940508597`, and NVRAM ioctl/transaction audit `43940508621` passed. Parallel 46f7 HTTPD `43941275581`, AI handoff `43941275602`, NVRAM `43941275573`, Process inventory `43941275869`, AliDDNS `43941275686`, AdGuardHome `43941275586`, AliyunDrive `43941275788`, and infosvr `43941277064` passed. Exact 46f7 XY-C1 `43941275592` was still building when last polled; TRX/artifact pending.
+- Fixed a core recovery-diagnostics gap: a partial snapshot operation can leave `cleanup_path_count > 0` while `snapshot_count == 0`. Previously the logger returned unless rollback_failed and the refusal message counted only snapshots, hiding the orphan cleanup path. It now logs both retained table snapshots and cleanup-only paths, reports separate counts, and logs cleanup paths after both standalone and whole-ruleset restore failures.
+- Added an explicit EIO assertion for cleanup-only partial snapshot failure. Expanded Firewall Startup CI to compile/run the existing Adbyby restore, wait-status, firewall filter validation, privileged hook-file staging, atomic rule-file and snapshot-descriptor regressions using GNU89, `-Werror`, ASan and UBSan. The source checker and path-filter contract now include all these helper/test files.
+- New SHA Actions are pending. No physical-router test is claimed; L4 remains NOT VERIFIED and the frozen backup remains unchanged.
+
+---
+
 ## 2026-11-17 03:45 CST (UTC+8) — Align HTTPD firewall status-return source contract
 
 - Base main: `595bc6b6d78501ac833e721a51d9364063683e04`. Current-head Firewall Startup `43940508528`, Process regression `43940508454`, and AI handoff docs `43940508597` passed; XY-C1 `43940508628` and NVRAM audit `43940508621` were still running.

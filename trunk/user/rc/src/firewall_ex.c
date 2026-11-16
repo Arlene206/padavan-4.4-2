@@ -282,12 +282,27 @@ static void
 firewall_log_retained_restore_snapshots(const firewall_restore_transaction_t *tx)
 {
 	size_t i;
-	if (!firewall_restore_transaction_rollback_failed(tx))
+	int rollback_failed;
+
+	if (!tx)
 		return;
-	for (i = 0; i < tx->snapshot_count; ++i)
+	rollback_failed = firewall_restore_transaction_rollback_failed(tx);
+	for (i = 0; i < tx->snapshot_count; ++i) {
+		if (rollback_failed)
+			logmessage(LOGNAME,
+				   "Firewall rollback incomplete; recovery snapshot retained: %s table %s at %s",
+				   tx->snapshots[i].family, tx->snapshots[i].table,
+				   tx->snapshots[i].path);
+		else
+			logmessage(LOGNAME,
+				   "Firewall snapshot cleanup remains pending: %s table %s at %s",
+				   tx->snapshots[i].family, tx->snapshots[i].table,
+				   tx->snapshots[i].path);
+	}
+	for (i = 0; i < tx->cleanup_path_count; ++i)
 		logmessage(LOGNAME,
-			   "Firewall rollback incomplete; recovery snapshot retained: %s table %s at %s",
-			   tx->snapshots[i].family, tx->snapshots[i].table, tx->snapshots[i].path);
+			   "Firewall partial snapshot cleanup remains pending at %s",
+			   tx->cleanup_paths[i]);
 }
 
 static void
@@ -323,8 +338,10 @@ firewall_apply_core_restore(const char *operation, const char *family,
 		if (result == 0)
 			result = firewall_restore_transaction_finish(&firewall_core_restore_transaction,
 				firewall_remove_restore_snapshot, &context);
-		if (firewall_restore_transaction_rollback_failed(&firewall_core_restore_transaction)) {
+		if (firewall_core_restore_transaction.rollback_failed ||
+		    firewall_core_restore_transaction.cleanup_failed)
 			firewall_log_retained_restore_snapshots(&firewall_core_restore_transaction);
+		if (firewall_restore_transaction_rollback_failed(&firewall_core_restore_transaction)) {
 			logmessage(LOGNAME, "Firewall rollback incomplete outside rebuild; disabling IPv4 forwarding");
 			set_ipv4_forward(0);
 #if defined (USE_IPV6)
@@ -2704,11 +2721,13 @@ start_firewall_ex(void)
 	 * recovery state. Do not discard its paths or start another ruleset apply. */
 	if (firewall_restore_transaction_prepare_reset(&firewall_core_restore_transaction,
 						firewall_remove_restore_snapshot, NULL) != 0) {
-		if (firewall_restore_transaction_rollback_failed(&firewall_core_restore_transaction))
+		if (firewall_core_restore_transaction.rollback_failed ||
+		    firewall_core_restore_transaction.cleanup_failed)
 			firewall_log_retained_restore_snapshots(&firewall_core_restore_transaction);
 		logmessage(LOGNAME,
-			   "Refusing firewall rebuild: previous recovery state remains unresolved (%lu snapshots retained)",
-			   (unsigned long)firewall_core_restore_transaction.snapshot_count);
+			   "Refusing firewall rebuild: previous recovery state remains unresolved (%lu table snapshots, %lu partial cleanup paths retained)",
+			   (unsigned long)firewall_core_restore_transaction.snapshot_count,
+			   (unsigned long)firewall_core_restore_transaction.cleanup_path_count);
 		errno = EBUSY;
 		return EBUSY;
 	}
@@ -2840,8 +2859,10 @@ firewall_restore_complete:
 	}
 	if (firewall_restore_transaction_status(&firewall_core_restore_transaction) != 0) {
 		status = EIO;
-		if (firewall_core_restore_transaction.cleanup_failed)
+		if (firewall_core_restore_transaction.cleanup_failed) {
+			firewall_log_retained_restore_snapshots(&firewall_core_restore_transaction);
 			logmessage(LOGNAME, "Firewall ruleset result incomplete: snapshot cleanup remains pending");
+		}
 	}
 
 	if (firewall_restore_transaction_rollback_failed(&firewall_core_restore_transaction)) {
