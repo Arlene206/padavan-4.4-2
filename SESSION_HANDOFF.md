@@ -10,7 +10,7 @@ Every multi-file logical change must be created as one complete Git tree and one
 
 ## Current repository state
 
-- Latest main commit: `6acfd5cc088bb3eafc5116a7ab017dc53845ae13`. USB storage xtrace run `43912334160` exposed the AWK END-block behavior: an unreadable directory yielded status 1 and incorrectly proceeded to `modprobe`. THIS COMMIT now validates a `cat` snapshot before and after taking the module lock and adds the post-lock read-error regression. HTTPD lock-assertion fix is in parent `6acfd5cc088bb3eafc5116a7ab017dc53845ae13`; exact-head HTTPD run pending. Product parent eff340 XY-C1 `43911560375` was still in progress at last poll.
+- Latest main parent: `a52e5c460635cd0080b1857cb04ff92a42f575f5` (includes independent SmartDNS fix `fix(smartdns): preserve unrelated dnsmasq upstreams at boot`). Parent ac012 exact-head USB storage `43913404416`, HTTPD `43913404244`, NVRAM `43913404369`, Process lifecycle `43913404160`, Process inventory `43913404056`, AI docs `43913404348`, AdGuardHome `43913404058`, infosvr `43913404025`, AliyunDrive `43913404158`, and AliDDNS `43913404157` PASS; XY-C1 `43913404095` was IN_PROGRESS at last poll and needs final Build/TRX/artifact status. THIS COMMIT adds tri-state mount ownership handling; exact-head storage and XY-C1 checks pending.
 
 - Repository: `Arlene206/padavan-4.4-2`; current source parent before this slice: `e05ccbcb8c458ee2bc07c6020ed5af52b3d4cff8`.
 - Mount-link errno fix, GNU89 policy regression, storage source contracts, and workflow corrections are included together in THIS COMMIT.
@@ -21,18 +21,16 @@ Every multi-file logical change must be created as one complete Git tree and one
 
 ## Active task
 
-An exact-head test exposed the subtle AWK behavior in `func_load_module()`: when an input file cannot be opened, `END { exit !found }` can override the AWK input error and return 1, indistinguishable from `module absent`. Parent `8795f568cf1c53d8aa9b045b5a1074d3634e8f42` xtrace run `43912334160` proved the directory case passed through to `modprobe`. THIS COMMIT fixes this by taking a checked `cat` snapshot before AWK both outside and inside the lock. It also tests inventory becoming unreadable during lock wait; xtrace has been removed.
-
-Parent `6acfd5cc088bb3eafc5116a7ab017dc53845ae13` aligned the HTTPD cross-workflow checker; confirm its exact-head run before treating that contract as green.
+THIS COMMIT fixes a concrete fail-open path in `mount_from_device()`: its AWK `END` clause collapsed confirmed foreign ownership, no matching `/proc/mounts` record, and an unreadable mount table into one nonzero status. The caller treated every nonzero status as foreign and could fall back to the legacy path despite UNKNOWN ownership. It now snapshots `/proc/mounts` with checked `cat`, returns `0=owned`, `1=confirmed foreign owner`, `2=UNKNOWN/inconsistent`, permits fallback only for status 1, and aborts before any unmount/new mount on status 2. `storage_mountpoint_inventory.sh` tests the exact production function for owned, foreign, conflicting, missing and unreadable records.
 ## Verification boundary
 
-- Parent 8795 USB storage `43912334160`: all earlier checks passed; new shell test failed at unreadable-directory case because AWK status 1 masked an input-open error.
-- HTTPD lock-checker parent `6acfd5cc088bb3eafc5116a7ab017dc53845ae13`: exact-head run `43912642221` was queued at last poll.
-- Product parent eff340 XY-C1 `43911560375` was in progress; this commit changes product shell code and needs its own Build/TRX/artifact gate.
-- Frozen backup remains unchanged. Physical-router L4 NOT VERIFIED.
+- Parent ac012: USB storage `43913404416`, HTTPD `43913404244`, NVRAM `43913404369`, Process lifecycle `43913404160`, Process inventory `43913404056`, AI docs `43913404348`, AdGuardHome `43913404058`, infosvr `43913404025`, AliyunDrive `43913404158`, AliDDNS `43913404157` PASS.
+- Parent ac012: XY-C1 `43913404095` was IN_PROGRESS at last poll. Verify same-SHA Build, TRX verification and artifact upload.
+- New current parent a52 adds an unrelated SmartDNS autostart fix; this commit is built on the new main SHA. Exact-head USB storage and XY-C1 for this mount-ownership change are pending.
+- Backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 NOT VERIFIED.
 ## Exact first action for the next GPT
 
-1. Inspect exact-head USB storage for THIS COMMIT; verify inventory read failures both before and after lock do not reach modprobe, and all existing storage checks pass.
-2. Inspect HTTPD run `43912642221` and its exact-head rerun triggered by this commit; confirm the refreshed lock assertion passes.
-3. Inspect XY-C1 Build, TRX verification and artifact upload for THIS product SHA.
-4. Continue independent storage hotplug work only after those gates; preserve the frozen backup and L4 boundary.
+1. Inspect exact-head USB storage on THIS COMMIT; the mount-owner shell regression and workflow source assertions must pass.
+2. Inspect XY-C1 Build, TRX verification and artifact upload for the same SHA as the automount source change.
+3. Confirm the in-progress ac012 XY-C1 run `43913404095` final status without repeating its already-passing USB storage/HTTPD/NVRAM checks.
+4. Continue to the next concrete storage/hotplug defect only after exact-SHA gates.

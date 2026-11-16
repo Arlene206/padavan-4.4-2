@@ -143,28 +143,70 @@ umask "$automount_old_umask"
 # Never unmount a different disk that happens to use the same filesystem label.
 mount_from_device()
 {
-	awk -v mount="$1" -v device="$dev_full" '
+	mounts_file=/proc/mounts
+	if [ "$#" -ge 2 ]; then
+		mounts_file=$2
+	fi
+
+	# A failed procfs read is UNKNOWN, not proof that another disk owns the path.
+	if mount_inventory=$(cat "$mounts_file" 2>/dev/null); then
+		:
+	else
+		return 2
+	fi
+
+	if printf '%s\n' "$mount_inventory" | awk -v mount="$1" -v device="$dev_full" '
 		$2 == mount {
 			if ($1 == device)
 				found = 1
 			else
 				conflict = 1
 		}
-		END { exit !(found && !conflict) }
-	' /proc/mounts
+		END {
+			if (conflict)
+				exit 1
+			if (found)
+				exit 0
+			exit 2
+		}
+	'; then
+		return 0
+	else
+		mount_status=$?
+		case "$mount_status" in
+			1) return 1 ;; # Confirmed mountpoint belongs to another device.
+			*) return 2 ;; # Missing/inconsistent inventory or parser failure.
+		esac
+	fi
 }
 
 # If the label mountpoint belongs to another disk, use this device's unique
 # legacy mountpoint instead. Only unmount mounts created from this device.
 if mountpoint -q "$dev_mount" ; then
-	if ! mount_from_device "$dev_mount" ; then
-		dev_mount="$mnt_legacy"
-	fi
-	if mountpoint -q "$dev_mount" ; then
-		if ! mount_from_device "$dev_mount" ; then
-			logger -t "automount" "Mountpoint $dev_mount is already used by another device!"
+	mount_from_device "$dev_mount"
+	mount_status=$?
+	case "$mount_status" in
+		0) ;; # This device owns the current mount; it may be safely replaced.
+		1) dev_mount="$mnt_legacy" ;; # Confirmed foreign owner; use its private path.
+		*)
+			logger -t "automount" "Unable to verify mount ownership for $dev_mount; refusing to mount $dev_full"
 			exit 1
-		fi
+			;;
+	esac
+	if mountpoint -q "$dev_mount" ; then
+		mount_from_device "$dev_mount"
+		mount_status=$?
+		case "$mount_status" in
+			0) ;; # This device owns the legacy mount; it may be safely replaced.
+			1)
+				logger -t "automount" "Mountpoint $dev_mount is already used by another device!"
+				exit 1
+				;;
+			*)
+				logger -t "automount" "Unable to verify mount ownership for $dev_mount; refusing to unmount"
+				exit 1
+				;;
+		esac
 		if ! umount -f "$dev_mount" ; then
 			logger -t "automount" "Unable to prepare mountpoint $dev_mount!"
 			exit 1

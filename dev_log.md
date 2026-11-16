@@ -1,3 +1,13 @@
+## 2026-11-16 — Treat unknown automount mount ownership as fail-closed
+
+- Parent main: `a52e5c460635cd0080b1857cb04ff92a42f575f5`. Found a second `/proc` inventory error path in `mount_from_device()`: AWK's `END { exit !(found && !conflict) }` returned the same status for a confirmed different device, no matching mount record, and an unreadable `/proc/mounts`. The caller treated every nonzero result as a foreign owner and could fall back to the legacy path when ownership was UNKNOWN.
+- The helper now snapshots `/proc/mounts` with a checked `cat` read and returns tri-state status: `0` current device owns the mount, `1` a different source is confirmed, `2` missing/unreadable/inconsistent inventory. Only status 1 permits legacy fallback; status 2 aborts before any unmount or new mount. The same tri-state rule applies to the legacy mountpoint.
+- Added `storage_mountpoint_inventory.sh`, extracting and testing the exact production helper for own-device, foreign-device, conflicting-source, absent-record and unreadable-inventory cases; wired it into both USB storage workflow path filters, regression steps and source checks. XY-C1 workflow already watches `automount.sh`, so this product change triggers same-SHA firmware/TRX/artifact validation.
+- Exact parent `ac012a4da6e19256fc5e3b9f71b87449791c13e2`: USB storage `43913404416` PASS; HTTPD `43913404244` PASS; NVRAM `43913404369` PASS; AI docs `43913404348`, AdGuardHome `43913404058`, infosvr `43913404025`, Process lifecycle `43913404160`, AliyunDrive `43913404158`, AliDDNS `43913404157`, and Process inventory `43913404056` PASS. XY-C1 `43913404095` was IN_PROGRESS at last poll. Newer unrelated main commit `a52e5c460635cd0080b1857cb04ff92a42f575f5` adds a SmartDNS autostart fix; the current source slice is rebased on that SHA. Exact-head checks pending.
+- Frozen backup remains unchanged. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Fail closed when the module inventory cannot be read
 
 - Parent main: `6acfd5cc088bb3eafc5116a7ab017dc53845ae13`. USB storage xtrace run `43912334160` localized the regression failure: AWK returned status 1 on a directory because `END { exit !found }` masked the input-open error. The first implementation therefore proceeded to modprobe. This was a real gap in the product logic, not only a brittle test.
