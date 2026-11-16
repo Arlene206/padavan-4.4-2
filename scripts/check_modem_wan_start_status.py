@@ -563,7 +563,7 @@ assert "return EIO;" in command_errno
 assert "return system_errno;" in command_errno
 assert "firewall_command_status_to_errno(-1, EACCES) == EACCES" in FIREWALL_COMMAND_STATUS_TEST
 hook_dispatch = compact(body(FIREWALL_SOURCE, "start_firewall_ex(void)"))
-assert hook_dispatch.count("status=rc_first_service_start_status(status,hook_error);") >= 9
+assert len(re.findall(r"status\\s*=\\s*rc_first_service_start_status\\(status,\\s*hook_error\\);", hook_dispatch)) >= 9
 for hook in ("Shadowsocks firewall hook", "Persistent post-firewall hook", "Optware iptables update hook"):
     assert hook_dispatch.count(hook) >= 3
 assert "errno!=ENOENT" in hook_dispatch

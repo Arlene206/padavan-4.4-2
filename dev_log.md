@@ -1,3 +1,12 @@
+## 2026-11-17 — Repair extension-hook CI contracts after implementation
+
+- Parent main: `1fe9fd834f4fb735b7b23fb7005b5dd9a61f7e86`. The 2ed exact-head Firewall Startup `43944601860` and Process regression `43944601739` both failed only because the new canonical checker counted a whitespace-normalized C assignment using a no-whitespace literal. The actual source has all nine status merges; the checker now uses a whitespace-tolerant regex.
+- XY-C1 `43944601903` stopped at the same canonical checker before the firmware build. HTTPD `43944601745` independently failed because its older inline source contract expected bare cleanup calls, while the implementation correctly tests `firewall_hook_file_remove(...) != 0` and reports cleanup failure. Updated all three hook cleanup assertions to match the status-aware contract.
+- Existing helper parent `c0ffc7d3a1dc90a8c208662cf03f57e7f2b3cf15` had Firewall Startup, HTTPD, NVRAM, AI handoff, Process inventory and Process regression PASS. The current 2ed source change itself still needs fresh exact-SHA Actions and XY-C1 Build/TRX/artifact.
+- These are CI contract repairs, not production source changes. Physical-router L4 remains NOT VERIFIED; frozen backup unchanged.
+
+---
+
 ## 2026-11-17 — Propagate optional firewall extension hook failures
 
 - Helper parent `c0ffc7d3a1dc90a8c208662cf03f57e7f2b3cf15`: changed hook staging cleanup to return status, retain the pathname on unlink failure, and treat ENOENT as idempotent success. Exact-head c0 Firewall Startup `43944200570`, HTTPD `43944200665`, NVRAM `43944200581`, AI handoff `43944200578`, Process inventory `43944200566`, and Process regression `43944200736` passed.

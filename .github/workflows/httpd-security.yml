@@ -3125,15 +3125,15 @@ jobs:
           assert "firewall_hook_file_stage(" in dispatch
           assert 'firewall_log_command_failure("Shadowsocks firewall hook", doSystem("sh %s", shadowsocks_staged));' in dispatch
           assert 'doSystem("sh %s", shadowsocks_iptables_script);' not in dispatch
-          assert "firewall_hook_file_remove(shadowsocks_staged);" in dispatch
+          assert "firewall_hook_file_remove(shadowsocks_staged) != 0" in dispatch
           assert 'firewall_hook_file_stage(int_iptables_script, "/home/root", ".post-firewall-",' in dispatch
           assert 'firewall_log_command_failure("Persistent post-firewall hook",' in dispatch
           assert 'doSystem("%s", int_iptables_staged)' in dispatch
-          assert "firewall_hook_file_remove(int_iptables_staged);" in dispatch
+          assert "firewall_hook_file_remove(int_iptables_staged) != 0" in dispatch
           assert 'firewall_hook_file_stage(opt_iptables_script, "/home/root", ".opt-iptables-",' in dispatch
           assert 'firewall_log_command_failure("Optware iptables update hook",' in dispatch
           assert 'doSystem("%s update", opt_iptables_staged)' in dispatch
-          assert "firewall_hook_file_remove(opt_iptables_staged);" in dispatch
+          assert "firewall_hook_file_remove(opt_iptables_staged) != 0" in dispatch
           assert 'check_if_file_exist(int_iptables_script)' not in dispatch
           assert 'check_if_file_exist(opt_iptables_script)' not in dispatch
           assert "hook validation or staging failed" in firewall

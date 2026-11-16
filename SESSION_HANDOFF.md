@@ -10,26 +10,29 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Current repository state
 
-- Main: `2edafb7eede75ce643bcccf7170aa4ed1111bb93`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged/read-only.
-- Helper commit `c0ffc7d3a1dc90a8c208662cf03f57e7f2b3cf15` exact-head Firewall Startup `43944200570`, HTTPD `43944200665`, NVRAM `43944200581`, AI handoff `43944200578`, Process inventory `43944200566`, and Process regression `43944200736` passed.
-- Exact-head 2ed Actions: Firewall Startup `43944601860`, XY-C1 `43944601903`, HTTPD `43944601745`, NVRAM `43944601815`, AI handoff `43944601727`, Process inventory `43944601706`, Process regression `43944601739`, FULLCONENAT `43944601842`, and USB modem identity `43944601920` were all IN_PROGRESS at the last poll.
-- 5e486e exact-head Firewall Startup, HTTPD, NVRAM, AI and XY-C1 validation all completed successfully. Current 2ed source changes still require their own exact-SHA verification.
-- Historical PR #1 remains closed/unmerged. Frozen backup remains read-only.
+- Main parent for the validation correction: `1fe9fd834f4fb735b7b23fb7005b5dd9a61f7e86`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged/read-only.
+- Exact-head 2ed Firewall Startup `43944601860` and Process regression `43944601739` failed in the same canonical source assertion: checker expected no whitespace around `status = rc_first_service_start_status(status, hook_error)`, but the C source has nine valid merges. The checker is fixed with a whitespace-tolerant regex.
+- Exact-head 2ed HTTPD `43944601745` failed because its inline checker expected bare hook-file remove calls; the source now checks their return values. All three hook cleanups are aligned to the status-aware API.
+- Exact-head 2ed XY-C1 `43944601903` hit the shared WAN source checker before Build/TRX/artifact. NVRAM `43944601815`, AI handoff `43944601727`, Process inventory `43944601706`, FULLCONENAT `43944601842`, and USB modem identity `43944601920` were IN_PROGRESS at last poll.
+- Helper parent c0 exact Firewall Startup/HTTPD/NVRAM/AI/Process inventory/Process regression all passed.
 
 ## Active task
 
-Optional firewall hook failures are now surfaced without disabling a successfully applied built-in firewall. Absent optional scripts (ENOENT) are a no-op; invalid/unreadable staging, nonzero command status and staged-file cleanup errors are merged using first-error semantics, while the other independent Shadowsocks, persistent and Optware hooks continue. The staged-file remove helper preserves the path when unlink fails and treats already-removed paths as success.
+Optional Shadowsocks, persistent post-firewall and Optware hooks now propagate non-ENOENT staging errors, command failures and staged-file cleanup failures to start_firewall_ex(), while continuing independent hooks. Missing optional hooks remain no-op; hook errors do not disable successful built-in firewall rules. Failed unlink preserves the staged path.
 
-Next P1: audit NAT helper and HW NAT/SFE module load/unload postconditions in `net.c`. Verify that required PPTP/H.323/SIP/FTP helpers do not falsely report success after failed load/unload, that FTP conntrack/NAT dependency ordering is safe, and that optional hardware NAT/SFE failures do not block ordinary WAN/firewall startup. Add focused fault-injection coverage where the state transitions are testable.
+The implementation was green in the focused helper parent, but the subsequent source commit exposed stale exact-string assertions in two integration suites. Those checker contracts are now aligned; fresh exact-SHA verification must prove the complete source path and XY-C1 build.
+
+Next P1: after validation, audit NAT helper and HW NAT/SFE module load/unload postconditions in net.c, keeping required ALG helpers observable and optional accelerators non-blocking.
 
 ## Verification boundary
 
-- Exact-head helper commit `c0ffc7d3a1dc90a8c208662cf03f57e7f2b3cf15`: Firewall Startup, HTTPD, NVRAM, AI handoff, Process inventory and Process regression all PASS.
-- Exact-head current commit `2edafb7eede75ce643bcccf7170aa4ed1111bb93`: Firewall Startup, XY-C1 Firmware Validation, HTTPD, NVRAM, AI handoff, Process inventory/regression, FULLCONENAT and USB modem identity were IN_PROGRESS at the last poll.
-- No same-SHA XY-C1 build/TRX/artifact success is claimed for 2ed yet. No local full firmware build or physical-device test is claimed. Physical-router L4 remains NOT VERIFIED.
+- 2ed exact Firewall Startup `43944601860` and Process regression `43944601739` failed at one whitespace-sensitive count assertion in the canonical source checker, after prior module, UPnP, firewall and cleanup checks passed.
+- 2ed HTTPD `43944601745` failed at its stale assertion that hook-file removal was a bare call; it now checks the status-aware return condition.
+- 2ed XY-C1 `43944601903` stopped at the shared source checker before firmware build/TRX/artifact.
+- This commit updates only checker contracts and handoff records. No new-SHA verification or L3/physical-device claim yet; router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA 2ed Firewall Startup and HTTPD hook checks, XY-C1 Build/TRX/artifact, and NVRAM/AI/Process jobs; fix the first genuine failing step.
-2. Continue the NAT helper and optional HW NAT/SFE load/unload postcondition audit in `net.c`, with deterministic tests for failure paths where feasible.
-3. Expand stability coverage into another userland subsystem after this security/reliability slice. Main-only complete-tree atomic commits with non-forced expected-SHA CAS; frozen backup read-only; physical-router L4 NOT VERIFIED.
+1. Inspect exact-SHA Firewall Startup, Process, HTTPD, XY-C1 Build/TRX/artifact and remaining NVRAM/AI/service runs after this checker repair.
+2. If these pass, continue NAT helper and optional HW NAT/SFE load/unload postcondition auditing, with targeted tests for failed unload and stale module-state reports.
+3. Main-only complete-tree atomic commit, non-forced expected-SHA CAS. Frozen backup read-only; physical-router L4 NOT VERIFIED.

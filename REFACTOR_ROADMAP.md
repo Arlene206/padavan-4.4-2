@@ -1,9 +1,8 @@
 ## Current source / CI checkpoint
 
-- Main: `2edafb7eede75ce643bcccf7170aa4ed1111bb93`. Helper parent c0 exact-head Firewall Startup, HTTPD, NVRAM, AI handoff and both Process suites passed.
-- On 2ed, optional Shadowsocks, persistent post-firewall and Optware hook staging/command/cleanup failures are now propagated as first errno-style results; missing optional scripts remain successful no-ops, and other independent hooks still run. Built-in firewall success remains active even if an optional extension fails.
-- Exact-head 2ed Firewall Startup `43944601860`, XY-C1 `43944601903`, HTTPD `43944601745`, NVRAM `43944601815`, AI handoff `43944601727`, Process inventory `43944601706`, Process regression `43944601739`, FULLCONENAT `43944601842`, and USB modem `43944601920` were in progress at last poll.
-- Next P1: inspect NAT helper and HW NAT/SFE unload/load postconditions. No current-source L3 claim until same-SHA XY-C1 Build/TRX/artifact all pass; physical-router L4 remains NOT VERIFIED.
+- Main parent: `1fe9fd834f4fb735b7b23fb7005b5dd9a61f7e86`. Exact-head 2ed hook implementation produced nine valid first-error status merges, but Firewall Startup/Process regression source checks failed on a whitespace-sensitive literal; HTTPD failed on three old bare cleanup-call assertions. XY-C1 stopped at the same checker before Build/TRX/artifact.
+- This checker repair uses whitespace-tolerant status-merge matching and aligns HTTPD assertions to the return-value checked hook-file cleanup API. Helper parent c0 focused Firewall Startup/HTTPD/NVRAM/AI/Process suites all passed.
+- New exact-SHA verification is required. No 2ed XY-C1 L3 claim because its build was not reached; physical-router L4 remains NOT VERIFIED.
 
 
 ## Whole-repository module status
