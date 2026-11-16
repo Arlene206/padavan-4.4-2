@@ -60,7 +60,10 @@ prepare_case()
 	MTD_WRITE_STATUS=0
 	FILL_FAIL=0
 	START_FAIL=0
-	export FAIL_RM_PATH FAIL_MKDIR_PATH FAIL_TOUCH_PATH MTD_WRITE_STATUS FILL_FAIL START_FAIL
+	STOP_APPS_FAIL=0
+	export FAIL_RM_PATH FAIL_MKDIR_PATH FAIL_TOUCH_PATH MTD_WRITE_STATUS FILL_FAIL START_FAIL STOP_APPS_FAIL
+	export STOP_LOG="$base/stop-apps.log"
+	: > "$STOP_LOG"
 	sed \
 		-e "s|^dir_storage=.*|dir_storage=\"$base/storage\"|" \
 		-e "s|^slk=.*|slk=\"$base/private/.storage_locked\"|" \
@@ -70,7 +73,11 @@ prepare_case()
 		"$repo_root/trunk/user/scripts/files/sbin/mtd_storage.sh" > "$base/source.sh"
 	sed '/^case "\$1" in$/,$d' "$base/source.sh" > "$base/mtd_storage.sh"
 	cat >> "$base/mtd_storage.sh" <<'EOF_MOCK_FUNCTIONS'
-func_stop_apps() { return 0; }
+func_stop_apps()
+{
+	printf '%s\\n' stop >> "$STOP_LOG"
+	[ "${STOP_APPS_FAIL:-0}" != 1 ]
+}
 func_fill()
 {
 	printf '%s\n' fill >> "$CALL_LOG"
@@ -166,6 +173,15 @@ expect_failure reset "save-lock creation"
 assert_old_storage
 [ -e "$base/private/storage_md5" ]
 assert_no_service_calls
+
+prepare_case reset-stop-failure
+STOP_APPS_FAIL=1
+expect_failure reset "rstats stop"
+[ -e "$base/private/.storage_locked" ]
+[ -e "$base/private/storage_md5" ]
+assert_old_storage
+assert_no_service_calls
+grep -Fqx stop "$STOP_LOG"
 
 prepare_case reset-hash-removal-failure
 FAIL_RM_PATH="$base/private/storage_md5"

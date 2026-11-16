@@ -569,7 +569,8 @@ require("Reset preparation failed; storage save lock retained" in reset_dispatch
         "failed reset preparation must not continue into default fill or app startup")
 for item in ("MTD_WRITE_STATUS", "FAIL_TOUCH_PATH", "FAIL_RM_PATH",
              "FAIL_MKDIR_PATH", "FILL_FAIL", "reset-lock-release-failure",
-             "erase-directory-recreation-failure"):
+             "erase-directory-recreation-failure", "STOP_APPS_FAIL",
+             "reset-stop-failure", 'grep -Fqx stop "$STOP_LOG"'):
     require(item in mtd_storage_erase_reset_test,
             "erase/reset fixture lacks injection case: " + item)
 require('sh trunk/user/scripts/tests/mtd_storage_erase_reset.sh' in workflow and
