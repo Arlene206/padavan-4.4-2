@@ -46,20 +46,31 @@ for name in ("v2ray", "xray", "ss-redir", "ssr-redir", "ss-local",
 require("kill -9" not in script and "pidof v2ray" not in script and
         "pidof ss-redir" not in script and "grep ss-monitor" not in script,
         "service shutdown must not signal stale PID snapshots")
-ordered(helper, ['pidof "$ss_process_name"',
+require("ss_process_pid_state()" in helper and
+        'ss_pid_output=$(pidof "$ss_process_name" 2>/dev/null)' in helper and
+        'ss_validate_pid_list "$ss_pid_output" || return 2' in helper,
+        "pidof must distinguish confirmed absence from lookup errors and malformed output")
+require("ss_process_pattern_state()" in helper and
+        'ss_pid_output=$(pgrep -f "$ss_process_pattern" 2>/dev/null)' in helper and
+        "ss_named_processes_state()" in helper,
+        "pgrep and aggregate process inventories must retain tri-state status")
+ordered(helper, ['ss_named_processes_state "$@"',
+                 'ss_process_pid_state "$ss_process_name"',
                  'killall -q "$ss_process_name"',
-                 'while ss_any_named_process_running "$@"',
-                 'pidof "$ss_process_name"',
+                 'ss_wait_named_processes 3 "$@"',
                  'killall -q -KILL "$ss_process_name"',
-                 'if ss_any_named_process_running "$@"'],
-        "named process TERM/wait/fresh-name KILL/postcondition")
-ordered(helper, ['pgrep -f "$ss_process_pattern"',
+                 'ss_wait_named_processes 1 "$@"'],
+        "named preflight/TERM/wait/fresh-name KILL/postcondition")
+ordered(helper, ['ss_process_pattern_state "$ss_process_pattern"',
                  'pkill -TERM -f "$ss_process_pattern"',
-                 'while ss_any_process_pattern_running "$ss_process_pattern"',
-                 'pgrep -f "$ss_process_pattern"',
+                 'ss_wait_process_pattern 3 "$ss_process_pattern"',
                  'pkill -KILL -f "$ss_process_pattern"',
-                 'if ss_any_process_pattern_running "$ss_process_pattern"'],
-        "monitor TERM/wait/fresh-command KILL/postcondition")
+                 'ss_wait_process_pattern 1 "$ss_process_pattern"'],
+        "monitor preflight/TERM/wait/fresh-command KILL/postcondition")
+require("unknown after TERM blocks KILL" in test and "pidof error blocks named stop" in test and
+        "pgrep error blocks monitor stop" in test and
+        "unknown after monitor TERM blocks KILL" in test,
+        "regression must prove unknown inventory prevents signals and escalation")
 require('[ "$ss_wait_count" -lt 3 ]' in helper and
         '[ "$ss_wait_count" -lt 1 ]' in helper,
         "process shutdown waits must remain bounded")

@@ -1,94 +1,152 @@
 #!/bin/sh
 #
-# Bounded service shutdown without retaining process-ID snapshots across TERM.
+# Bounded service shutdown. Process lookup states: 0=running, 1=absent,
+# 2=unknown/error. Unknown inventory never authorizes a signal.
 
-ss_any_named_process_running() {
-	for ss_process_name in "$@"; do
-		if pidof "$ss_process_name" >/dev/null 2>&1; then
-			return 0
-		fi
-	done
-	return 1
-}
-
-ss_stop_named_processes() {
-	if [ "$#" -eq 0 ]; then
-		return 0
-	fi
-
-	for ss_process_name in "$@"; do
-		if pidof "$ss_process_name" >/dev/null 2>&1; then
-			log "Closing $ss_process_name process..."
-			killall -q "$ss_process_name" >/dev/null 2>&1
-		fi
-	done
-
-	ss_wait_count=0
-	while ss_any_named_process_running "$@" && [ "$ss_wait_count" -lt 3 ]; do
-		sleep 1
-		ss_wait_count=$((ss_wait_count + 1))
-	done
-
-	# A fresh name lookup prevents a delayed signal to a recycled PID.
-	for ss_process_name in "$@"; do
-		if pidof "$ss_process_name" >/dev/null 2>&1; then
-			log "Force-closing $ss_process_name process..."
-			killall -q -KILL "$ss_process_name" >/dev/null 2>&1
-		fi
-	done
-
-	ss_wait_count=0
-	while ss_any_named_process_running "$@" && [ "$ss_wait_count" -lt 1 ]; do
-		sleep 1
-		ss_wait_count=$((ss_wait_count + 1))
-	done
-	if ss_any_named_process_running "$@"; then
-		for ss_process_name in "$@"; do
-			if pidof "$ss_process_name" >/dev/null 2>&1; then
-				log "Failed to stop $ss_process_name: process remains active"
-			fi
-		done
-		return 1
-	fi
+ss_validate_pid_list() {
+	ss_pid_list=$1
+	[ -n "$ss_pid_list" ] || return 2
+	printf '%s\n' "$ss_pid_list" | awk '
+		{
+			for (i = 1; i <= NF; i++) {
+				if ($i !~ /^[1-9][0-9]*$/) bad = 1
+				count++
+			}
+		}
+		END { if (bad || count == 0) exit 1; exit 0 }
+	' >/dev/null 2>&1 || return 2
 	return 0
 }
 
-ss_any_process_pattern_running() {
-	pgrep -f "$1" >/dev/null 2>&1
+ss_process_pid_state() {
+	ss_process_name=$1
+	ss_pid_output=$(pidof "$ss_process_name" 2>/dev/null)
+	ss_pid_status=$?
+	case "$ss_pid_status" in
+		0) ss_validate_pid_list "$ss_pid_output" || return 2; return 0 ;;
+		1) [ -z "$ss_pid_output" ] && return 1; return 2 ;;
+		*) return 2 ;;
+	esac
+}
+
+ss_process_pattern_state() {
+	ss_process_pattern=$1
+	[ -n "$ss_process_pattern" ] || return 2
+	ss_pid_output=$(pgrep -f "$ss_process_pattern" 2>/dev/null)
+	ss_pid_status=$?
+	case "$ss_pid_status" in
+		0) ss_validate_pid_list "$ss_pid_output" || return 2; return 0 ;;
+		1) [ -z "$ss_pid_output" ] && return 1; return 2 ;;
+		*) return 2 ;;
+	esac
+}
+
+ss_named_processes_state() {
+	ss_any_running=0
+	ss_any_unknown=0
+	for ss_process_name in "$@"; do
+		if ss_process_pid_state "$ss_process_name"; then
+			ss_any_running=1
+		else
+			ss_lookup_status=$?
+			[ "$ss_lookup_status" -eq 1 ] || ss_any_unknown=1
+		fi
+	done
+	[ "$ss_any_unknown" -eq 0 ] || return 2
+	[ "$ss_any_running" -eq 1 ] && return 0
+	return 1
+}
+
+ss_wait_named_processes() {
+	ss_wait_limit=$1
+	shift
+	ss_wait_count=0
+	while :; do
+		if ss_named_processes_state "$@"; then ss_wait_state=0; else ss_wait_state=$?; fi
+		case "$ss_wait_state" in 0) ;; 1) return 0 ;; *) return 2 ;; esac
+		[ "$ss_wait_count" -lt "$ss_wait_limit" ] || return 1
+		sleep 1 || return 2
+		ss_wait_count=$((ss_wait_count + 1))
+	done
+}
+
+ss_wait_process_pattern() {
+	ss_wait_limit=$1
+	ss_process_pattern=$2
+	ss_wait_count=0
+	while :; do
+		if ss_process_pattern_state "$ss_process_pattern"; then ss_wait_state=0; else ss_wait_state=$?; fi
+		case "$ss_wait_state" in 0) ;; 1) return 0 ;; *) return 2 ;; esac
+		[ "$ss_wait_count" -lt "$ss_wait_limit" ] || return 1
+		sleep 1 || return 2
+		ss_wait_count=$((ss_wait_count + 1))
+	done
+}
+
+ss_stop_named_processes() {
+	[ "$#" -gt 0 ] || return 0
+	if ss_named_processes_state "$@"; then ss_state=0; else ss_state=$?; fi
+	case "$ss_state" in 1) return 0 ;; 0) ;; *) return 2 ;; esac
+
+	# Fresh validated lookups avoid stale PID snapshots and fail closed.
+	for ss_process_name in "$@"; do
+		if ss_process_pid_state "$ss_process_name"; then ss_state=0; else ss_state=$?; fi
+		case "$ss_state" in 1) continue ;; 0) ;; *) return 2 ;; esac
+		log "Closing $ss_process_name process..."
+		if killall -q "$ss_process_name" >/dev/null 2>&1; then
+			:
+		else
+			if ss_process_pid_state "$ss_process_name"; then ss_state=0; else ss_state=$?; fi
+			case "$ss_state" in 1) ;; 2) return 2 ;; *) return 1 ;; esac
+		fi
+	done
+
+	if ss_wait_named_processes 3 "$@"; then return 0; else ss_wait_status=$?; fi
+	case "$ss_wait_status" in 2) return 2 ;; 1) ;; *) return 1 ;; esac
+
+	# A new successful name lookup is required before KILL escalation.
+	for ss_process_name in "$@"; do
+		if ss_process_pid_state "$ss_process_name"; then ss_state=0; else ss_state=$?; fi
+		case "$ss_state" in 1) continue ;; 0) ;; *) return 2 ;; esac
+		log "Force-closing $ss_process_name process..."
+		if killall -q -KILL "$ss_process_name" >/dev/null 2>&1; then
+			:
+		else
+			if ss_process_pid_state "$ss_process_name"; then ss_state=0; else ss_state=$?; fi
+			case "$ss_state" in 1) ;; 2) return 2 ;; *) return 1 ;; esac
+		fi
+	done
+
+	if ss_wait_named_processes 1 "$@"; then return 0; else ss_wait_status=$?; fi
+	case "$ss_wait_status" in 1) return 1 ;; *) return 2 ;; esac
 }
 
 ss_stop_process_pattern() {
 	ss_process_pattern=$1
 	[ -n "$ss_process_pattern" ] || return 1
+	if ss_process_pattern_state "$ss_process_pattern"; then ss_state=0; else ss_state=$?; fi
+	case "$ss_state" in 1) return 0 ;; 0) ;; *) return 2 ;; esac
 
-	if pgrep -f "$ss_process_pattern" >/dev/null 2>&1; then
-		log "Closing process matching $ss_process_pattern..."
-		pkill -TERM -f "$ss_process_pattern" >/dev/null 2>&1
+	log "Closing process matching $ss_process_pattern..."
+	if pkill -TERM -f "$ss_process_pattern" >/dev/null 2>&1; then
+		:
+	else
+		if ss_process_pattern_state "$ss_process_pattern"; then ss_state=0; else ss_state=$?; fi
+		case "$ss_state" in 1) return 0 ;; 2) return 2 ;; *) return 1 ;; esac
 	fi
+	if ss_wait_process_pattern 3 "$ss_process_pattern"; then return 0; else ss_wait_status=$?; fi
+	case "$ss_wait_status" in 2) return 2 ;; 1) ;; *) return 1 ;; esac
 
-	ss_wait_count=0
-	while ss_any_process_pattern_running "$ss_process_pattern" &&
-	      [ "$ss_wait_count" -lt 3 ]; do
-		sleep 1
-		ss_wait_count=$((ss_wait_count + 1))
-	done
-
-	# pkill re-matches the full command line at escalation time. Do not reuse
-	# a PID list captured before the grace period.
-	if pgrep -f "$ss_process_pattern" >/dev/null 2>&1; then
-		log "Force-closing process matching $ss_process_pattern..."
-		pkill -KILL -f "$ss_process_pattern" >/dev/null 2>&1
+	# pgrep must succeed again before pkill rematches the command line.
+	if ss_process_pattern_state "$ss_process_pattern"; then ss_state=0; else ss_state=$?; fi
+	case "$ss_state" in 1) return 0 ;; 0) ;; *) return 2 ;; esac
+	log "Force-closing process matching $ss_process_pattern..."
+	if pkill -KILL -f "$ss_process_pattern" >/dev/null 2>&1; then
+		:
+	else
+		if ss_process_pattern_state "$ss_process_pattern"; then ss_state=0; else ss_state=$?; fi
+		case "$ss_state" in 1) return 0 ;; 2) return 2 ;; *) return 1 ;; esac
 	fi
-
-	ss_wait_count=0
-	while ss_any_process_pattern_running "$ss_process_pattern" &&
-	      [ "$ss_wait_count" -lt 1 ]; do
-		sleep 1
-		ss_wait_count=$((ss_wait_count + 1))
-	done
-	if ss_any_process_pattern_running "$ss_process_pattern"; then
-		log "Failed to stop process matching $ss_process_pattern"
-		return 1
-	fi
-	return 0
+	if ss_wait_process_pattern 1 "$ss_process_pattern"; then return 0; else ss_wait_status=$?; fi
+	case "$ss_wait_status" in 1) return 1 ;; *) return 2 ;; esac
 }
