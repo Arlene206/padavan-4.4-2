@@ -49,14 +49,17 @@ func_redsocks() {
 }
 func_save() { :; }
 
-# Import only the production lifecycle functions; skip the CLI dispatcher.
-sed -n \
-  -e '/^redsocks_process_state()/,/^}/p' \
-  -e '/^redsocks_wait_stopped()/,/^}/p' \
-  -e '/^func_start(){/,/^}/p' \
-  -e '/^func_stop(){/,/^}/p' \
-  "$ROOT/trunk/user/redsocks/redsocks.sh" > "$TEST_TMP/helpers.sh"
-. "$TEST_TMP/helpers.sh"
+# Source the complete production script with its explicit test-only
+# dispatcher guard; this keeps heredoc-containing functions intact.
+set -- check
+RED_SOCKS_TEST_MODE=1
+export RED_SOCKS_TEST_MODE
+. "$ROOT/trunk/user/redsocks/redsocks.sh"
+BINARY_NAME=redsocks
+REDSOCKS_DIR="$TEST_TMP"
+REDSOCKS_CONF="$TEST_TMP/redsocks.conf"
+BINARY_PATH="$TEST_TMP/redsocks"
+touch "$REDSOCKS_CONF"
 
 fail() { echo "Redsocks lifecycle regression: FAIL: $*" >&2; exit 1; }
 reset() {

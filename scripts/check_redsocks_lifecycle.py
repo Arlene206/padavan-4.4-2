@@ -45,6 +45,9 @@ require('redsocks_process_state' in start and
         "start must refuse duplicate launch when existing daemon stop fails")
 require('func_stop && func_start' in source,
         "restart must gate replacement start on successful stop")
+require('if [ "${RED_SOCKS_TEST_MODE:-0}" != 1 ]; then' in source and
+        'case "$ARG1" in' in source,
+        "test mode must skip only the CLI dispatcher while preserving production function definitions")
 for marker in ("UNKNOWN inventory", "UNKNOWN after TERM", "sleep failure",
                "force stop signal sequence incorrect", "stuck daemon was reported stopped",
                "replacement daemon launched after failed stop"):

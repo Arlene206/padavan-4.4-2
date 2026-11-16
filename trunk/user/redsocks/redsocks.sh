@@ -255,6 +255,7 @@ func_stop(){
 	return 1
 }
 
+if [ "${RED_SOCKS_TEST_MODE:-0}" != 1 ]; then
 case "$ARG1" in
 start)
 	func_start
@@ -276,3 +277,4 @@ restart)
 	exit 1
 	;;
 esac
+fi
