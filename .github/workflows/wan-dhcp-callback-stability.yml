@@ -6,6 +6,8 @@ on:
       - ".github/workflows/wan-dhcp-callback-stability.yml"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_wan6.c"
+      - "trunk/user/rc/src/wan6_teardown_policy.h"
+      - "trunk/user/rc/src/tests/wan6_teardown_policy.c"
       - "trunk/user/rc/src/common_ex.c"
       - "trunk/user/busybox/busybox-1.24.x/libbb/vfork_daemon_rexec.c"
       - "trunk/user/busybox/busybox-1.24.x/libbb/xfuncs.c"
@@ -37,6 +39,8 @@ on:
       - ".github/workflows/wan-dhcp-callback-stability.yml"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_wan6.c"
+      - "trunk/user/rc/src/wan6_teardown_policy.h"
+      - "trunk/user/rc/src/tests/wan6_teardown_policy.c"
       - "trunk/user/rc/src/common_ex.c"
       - "trunk/user/busybox/busybox-1.24.x/libbb/vfork_daemon_rexec.c"
       - "trunk/user/busybox/busybox-1.24.x/libbb/xfuncs.c"
@@ -124,6 +128,8 @@ jobs:
           rc = Path("trunk/user/rc/src")
           source = (rc / "net_wan.c").read_text()
           wan6_source = (rc / "net_wan6.c").read_text()
+          wan6_policy = (rc / "wan6_teardown_policy.h").read_text()
+          wan6_test = (rc / "tests/wan6_teardown_policy.c").read_text()
           ppp_source = (rc / "net_ppp.c").read_text()
           rc_header = (rc / "rc.h").read_text()
           net6_source = (rc / "net6.c").read_text()
@@ -418,9 +424,15 @@ jobs:
           assert "return operation_status;" in native_failure
           assert native_failure.index("return operation_status;") < native_failure.index("if (radv_touched)")
           wan6_down = body(wan6_source, "int wan6_down(char *wan_ifname, int unit)")
-          assert wan6_down.index("stop_status = stop_dhcp6c();") < wan6_down.index("if (ipv6_type == IPV6_DISABLED)")
+          assert wan6_down.index("stop_status = stop_dhcp6c();") < wan6_down.index('previous_ifname = get_wan_unit_value(unit, "ifname6");')
+          assert "if (ipv6_type == IPV6_DISABLED)" not in wan6_down
           assert "if (stop_status != 0)" in wan6_down
           assert wan6_down.index("return stop_status;") < wan6_down.index("control_if_ipv6_radv(")
+          assert "wan6_teardown_select_ifname(" in wan6_down
+          assert "wan6_ifname = wan_ifname;" not in wan6_down
+          assert "wan6_down.count(" not in wan6_down
+          assert "test_reconfiguration_prefers_previous_live_interface" in wan6_test
+          assert "return previous_ifname;" in wan6_policy
           stop_wan = body(source, "stop_wan_locked(void)")
           assert "if (is_wan_ipv6_type_sit() != 1)" in stop_wan
           stop_ipv6 = stop_wan.index("ipv6_status = wan6_down(man_ifname, unit);")
@@ -582,10 +594,16 @@ jobs:
           )
           teardown_positions = [wan6_down.index(item) for item in teardown_ops]
           assert teardown_positions == sorted(teardown_positions)
-          assert wan6_down.count("status = route_status_accumulate(status, operation_status);") == 6
-          dns_clear = wan6_down.index('set_wan_unit_value(unit, "dns6", "");')
+          assert wan6_down.count("status = route_status_accumulate(status, operation_status);") == 8
+          previous_interface = wan6_down.index("wan6_ifname = wan6_teardown_select_ifname(")
+          clear_routes = wan6_down.index("operation_status = clear_if_route6(wan6_ifname);")
+          clear_addresses = wan6_down.index("operation_status = clear_if_addr6(wan6_ifname);")
+          assert previous_interface < clear_routes < clear_addresses
+          assert "wan6_ifname = wan_ifname;" not in wan6_down
           dns_gate = wan6_down.index("if (status == 0)")
-          assert dns_gate < dns_clear
+          dns_clear = wan6_down.index('set_wan_unit_value(unit, "dns6", "");', dns_gate)
+          ifname_clear = wan6_down.index('set_wan_unit_value(unit, "ifname6", "");', dns_gate)
+          assert dns_gate < dns_clear < ifname_clear
           assert "retaining IPv6 DNS state after incomplete teardown" in wan6_down
           assert "return status;" in wan6_down
           assert "test_regular_file_write_and_close" in file_write_test

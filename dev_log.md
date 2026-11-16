@@ -1,3 +1,13 @@
+## 2026-11-16 — Preserve the selected previous interface through IPv6 route cleanup
+
+- Parent main: `ee722b0f0c475812c3fad536944fb521c4bf97d7`. Exact-head WAN DHCP callback `43872288966` failed at an outdated source assertion that still required `wan6_down()` to contain `if (ipv6_type == IPV6_DISABLED)`; it also encoded six accumulator calls from before the additional previous-interface RA/autoconf error gates.
+- While updating the contract, found a real production defect: after selecting saved runtime `ifname6`, a legacy non-SIT `else` reset `wan6_ifname = wan_ifname`. This silently discarded the selected PPP/native interface during mode transitions, so route/address cleanup still targeted the new interface. Removed that overwrite so the helper's selection is retained through `clear_if_route6()` and `clear_if_addr6()`.
+- Updated WAN DHCP workflow to track the IPv6 helper/test, inspect their policy contract, require the selected interface to survive through route/address teardown, and check eight status accumulations (including previous-interface RA/autoconf disable). Updated final state assertions to distinguish the no-interface disabled fast path from the common success path.
+- On SHA `ee722b0f0c475812c3fad536944fb521c4bf97d7`, WAN route `43872288931` and AI docs `43872288772` PASS. Process inventory `43872289006`, Process lifecycle `43872288846`, HTTPD `43872289253`, AdGuardHome `43872289035`, AliDDNS `43872288789`, infosvr `43872289116`, AliyunDrive `43872288716` PASS. NVRAM `43872289074` and XY-C1 `43872288829` were pending at last poll.
+- Next: verify new WAN DHCP, route, teardown, docs and XY-C1 exact-head runs; only claim firmware L3 after Build, TRX and artifact upload succeed on one SHA. Hardware L4 unverified.
+
+---
+
 ## 2026-11-16 — Tear down the last live IPv6 interface after configuration changes
 
 - Parent main: `fbd9a1554d30f394e9e0090b9148bdb574cc9f6a`. `full_restart_wan()` calls `stop_wan()` before `reset_wan_vars()`, and the latter invokes `reset_wan6_vars()`; therefore previous runtime `ifname6` is still available during stop even if NVRAM already describes the next IPv6 mode.

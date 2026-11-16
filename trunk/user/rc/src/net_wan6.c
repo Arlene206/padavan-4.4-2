@@ -851,8 +851,6 @@ int wan6_down(char *wan_ifname, int unit)
 				logmessage("WAN IPv6", "failed to bring SIT interface down (status=%d)",
 					   operation_status);
 		}
-	} else {
-		wan6_ifname = wan_ifname;
 	}
 
 	operation_status = clear_if_route6(wan6_ifname);

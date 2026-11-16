@@ -1,10 +1,9 @@
 ## Current source / CI checkpoint
 
-- Product-source parent: `fbd9a1554d30f394e9e0090b9148bdb574cc9f6a`; static IPoE rejects malformed IPv4 address/netmask before `ifconfig()`, and PPP ip-up requires both negotiated IPCP endpoints before interface/NVRAM publication.
-- Exact-head WAN route `43870829310`, WAN DHCP `43870829604`, WAN teardown `43870829555`, Process lifecycle `43870829665`, NVRAM `43870829549`, HTTPD `43870829629`, miniupnpd `43870829330`, DNSMasq `43870829617`, AliDDNS `43870829627`, VPN `43870829584`, AdGuardHome `43870829532`, AliyunDrive `43870829550`, infosvr `43870829594`, detect_internet `43870829447`, detect_link `43870829377`, USB identity `43870829507`, WAN ARP `43870829586`: PASS.
-- AI docs `43870829566` failed because the previous commit removed the entire module-status dashboard; the full dashboard is restored in this slice.
-- XY-C1 `43870829606` was still building; TRX/artifact pending. No same-SHA L3 claim. Physical-router L4 NOT VERIFIED.
-
+- Product-source parent: `ee722b0f0c475812c3fad536944fb521c4bf97d7`; static IPoE address/netmask validation and PPP IPCP endpoint fail-closed checks are in place.
+- WAN route `43872288931`, AI docs `43872288772`, Process inventory `43872289006`, Process lifecycle `43872288846`, HTTPD `43872289253`, AdGuardHome `43872289035`, AliDDNS `43872288789`, infosvr `43872289116`, AliyunDrive `43872288716`: PASS.
+- WAN DHCP callback `43872288966` failed only because its source checker expected the old disabled-mode early return and six status aggregations. The production teardown now preserves the selected previous runtime interface; workflow assertions and an additional overwrite defect are corrected in this follow-up.
+- NVRAM `43872289074` was still running; XY-C1 `43872288829` was building, TRX/artifact pending. No same-SHA L3 or physical L4 claim.
 
 ## Whole-repository module status
 
