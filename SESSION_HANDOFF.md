@@ -10,25 +10,25 @@ Every multi-file logical change must be created as one complete Git tree and one
 
 ## Current repository state
 
-- Source parent before THIS COMMIT: `74ac0ed17f6ffd61679371258451ab3683118116`. It contains the exact filesystem module-catalog membership fix and prior storage mount-owner hardening.
-- Frozen backup branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable and read-only.
-- The storage module inventory/catalog and mount-owner checks are fail-closed; exact catalog basenames avoid false matches such as `fat` matching `exfat.ko`.
-- NDIS initial interface bring-up failure propagation landed in `b54a701c35e35549a183eca6bf48c86d5dffb855`. On parent `74ac0ed17f6ffd61679371258451ab3683118116`, XY-C1 run `43918175205` passed the GNU89 modem regressions, Build XY-C1, TRX verification and artifact upload.
-- The HTTPD ownership contract repair was verified by exact-head HTTPD `43918175175` PASS. USB storage `43918175044`, NVRAM `43918174958`, AI docs `43918175240`, Process inventory `43918175194` and Process regression `43918175085` also PASS.
+- Source parent before THIS COMMIT: `b61ca225bc996bbace4000a7aa5aa6972f9cf5db`. It includes NDIS control-result propagation: QMI, Huawei NCM, CDC-NCM and Sierra control commands are marked required; failures stop WAN startup before DHCP. Optional no-control paths preserve their existing behavior.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable and read-only.
+- Exact-head USB modem identity regression `43921625498` completed SUCCESS, including GNU89 modem tests and source checks.
+- XY-C1 run `43921624845` failed only at checker execution line 48: literal full NDIS function signature did not match its line-wrapped C definition. The earlier GNU89 modem WAN policy regression passed. THIS COMMIT makes the checker use a stable prefix; XY-C1 must be rerun.
+- Process inventory/fail-closed run `43921624682` and WAN teardown run `43921624637` also reported failure on the parent SHA and need independent log diagnosis. NVRAM run `43921624686` was IN_PROGRESS at last poll. Other same-SHA successful runs include HTTPD `43921624642`, AI docs `43921624718`, infosvr `43921624706`, AliDDNS `43921624768`, AliyunDrive `43921624837`, AdGuardHome `43921624773`, and Process lifecycle inventory `43921624681`.
 
 ## Active task
 
-THIS COMMIT fixes a dropped NDIS modem control-session result. `launch_wan_usbnet()` previously ignored `ndis_control_network()` failure and continued to launch DHCP. QMI, Huawei NCM, CDC-NCM and Sierra operations now explicitly mark the control transaction required; a nonzero status sets WAN error and returns before DHCP. The MBIM stub remains an explicitly unsupported/no-user-space-control path and generic Ethernet/RNDIS no-control paths remain optional for compatibility. The stop path now distinguishes optional no-op from required failure. Added GNU89 policy tests and source-contract assertions. No unrelated storage changes.
+THIS COMMIT is a narrow test infrastructure repair: the semantic source checker now identifies the multiline `ndis_control_network()` definition using its stable function-name prefix, instead of a full prototype string that cannot match a line break. No production code changed.
 
 ## Verification boundary
 
-- Parent `74ac0ed17f6ffd61679371258451ab3683118116`: XY-C1 `43918175205` PASS through Build XY-C1, TRX verification and artifact upload. NVRAM `43918174958`, USB storage `43918175044`, HTTPD `43918175175`, AI docs `43918175240`, Process inventory `43918175194`, Process regression `43918175085`, infosvr `43918175001`, AliDDNS `43918175163`, AliyunDrive `43918175349` and AdGuardHome `43918175144` PASS.
-- THIS COMMIT changes `usb_modem.c`, the modem WAN policy/header tests and source checker; these paths are already included in USB modem identity and XY-C1 workflow triggers. Exact-head validation must be checked after push.
-- No local compiler/firmware run is claimed. Modem hardware behavior, target driver binding, BusyBox/MIPS runtime and physical-router L4 remain NOT VERIFIED. Frozen backup remains unchanged.
+- Parent source SHA `b61ca225bc996bbace4000a7aa5aa6972f9cf5db`: USB modem identity regression `43921625498` PASS; XY-C1 `43921624845` FAILED at the checker signature extraction after the modem policy C test passed. The XY build/TRX/artifact stages were not reached.
+- THIS COMMIT triggers another exact-head XY-C1 validation. Do not claim firmware L3 until the semantic checker, Build XY-C1, TRX verification and artifact upload all succeed on the same source SHA.
+- Physical-router L4 remains NOT VERIFIED. Frozen backup remains unchanged.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect this commit's exact-head USB modem WDM/NDIS regression and XY-C1 validation. Require GNU89/Werror/ASan/UBSan and the semantic checker to pass; then require Build XY-C1, TRX verification and artifact upload.
-2. If a test/source contract fails, fix that exact SHA with a small atomic main commit; if checks are pending, continue an independent WAN/RC service-start result-propagation issue.
-3. A separate later modem task should inspect `qmi_control_network()` teardown: its stop path currently ignores `uqmi --stop-network` and client-ID release results before deleting handle files. Keep that distinct from this startup fix.
-4. Keep the frozen backup branch untouched and physical-router L4 marked NOT VERIFIED.
+1. Inspect this commit's exact-head XY-C1 job; confirm `check_modem_wan_start_status.py` advances past the NDIS function extraction and all modem policy/source-contract tests pass, then inspect build/TRX/artifact steps.
+2. Diagnose exact failed steps and logs for WAN teardown `43921624637` and Process inventory/fail-closed `43921624682`; apply only confirmed independent defects.
+3. Recheck NVRAM audit `43921624686`; if pending, continue independent implementation rather than waiting.
+4. Keep the frozen backup read-only and physical-router L4 NOT VERIFIED.

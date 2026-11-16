@@ -1,3 +1,12 @@
+## 2026-11-17 01:47 CST — Handle multiline NDIS signature in source checker
+
+- Base main: `b61ca225bc996bbace4000a7aa5aa6972f9cf5db`.
+- XY-C1 exact-head run `43921624845` compiled and passed the GNU89 modem WAN policy regression, then failed in `scripts/check_modem_wan_start_status.py` at line 48. The C definition wraps its final parameter onto a second line, but the checker passed a single-line full prototype to its literal `body()` extractor, raising `ValueError: substring not found`.
+- Changed the extractor anchor to the stable function-name prefix `ndis_control_network(char *ndis_ifname`; the C implementation is unchanged. The host modem identity workflow `43921625498` passed on the same source SHA, but XY-C1 must rerun the checker and then complete firmware, TRX and artifact validation.
+- Other failures on this SHA are being triaged separately: WAN teardown regression `43921624637`, Process inventory/fail-closed regression `43921624682`; NVRAM audit `43921624686` was still in progress at the last poll. No conclusions are drawn from these failures yet.
+
+---
+
 ## 2026-11-17 01:42 CST — Gate NDIS DHCP on required modem control-session status
 
 - Base main: `74ac0ed17f6ffd61679371258451ab3683118116`.

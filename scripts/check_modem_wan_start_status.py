@@ -45,7 +45,7 @@ assert migration_failure < ndis.index(dhcp_launch)
 assert "return modem_wan_start_status(migration_status, dhcp_status);" in ndis
 assert 'set_wan_unit_value_int(unit, "err", dhcp_status != 0);' in ndis
 
-control = compact(body(USB_SOURCE, "ndis_control_network(char *ndis_ifname, int devnum, int is_start, int *control_required)"))
+control = compact(body(USB_SOURCE, "ndis_control_network(char *ndis_ifname"))
 assert "*control_required = 0;" in control
 for driver, operation in (
     ("qmi_wwan", "qmi_control_network(control_node_wdm, is_start)"),
