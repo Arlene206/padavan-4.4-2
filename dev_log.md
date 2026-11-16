@@ -1,3 +1,11 @@
+## 2026-11-17 00:13 CST — Make process lifecycle storage contract use structural C function extraction
+
+- Parent main: `e8a7aedab3bf7d1cc5b5487234ef2efc3b53ba5b`. Exact-head process-lifecycle run `43905023740`, job `133431436756`, failed only at step 38 (`Verify shared-library and RC integration boundaries`): the newly added mount-link adapter assertion searched for the literal characters `\\n` rather than the actual source newline and raised `IndexError`.
+- Replaced fragile newline-delimited source slicing for `create_mp_link()`, `create_mp_link_status()`, and its four media callers with the checker's existing brace-aware `body()` extractor. This keeps the assertions tied to actual function bodies and avoids matching prototypes or consuming subsequent functions.
+- Product source was unchanged. No local repository checkout was available, so no local full checker run is claimed. Exact-head process-lifecycle and AI handoff documentation Actions for THIS COMMIT are pending; current XY-C1 L3 remains tied to the d6 product-source SHA only until its same-SHA build/TRX/artifact stages finish. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Align process-lifecycle source contract with deterministic storage mount-link API
 
 - Parent main: `d6fac506d564e8277e6c81ec2dd18620b6509144`. Exact-head process-lifecycle run `43904136542`, job `133428303695`, passed all preceding shared file, MiniDLNA, Firefly, UPnP, VPN, DDNS, logger, optional-app, IAPP, IGMP, XUPnPD, MSD Lite, SSH and Transmission regressions, then failed only at `scripts/check_process_lifecycle_integration.py:200`: its source assertion still expected the former one-line cleanup predicate and `return link_created;`.

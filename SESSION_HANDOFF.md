@@ -10,7 +10,7 @@ Every multi-file logical change must be created as one complete Git tree and one
 
 ## Current repository state
 
-- Latest main commit: `d6fac506d564e8277e6c81ec2dd18620b6509144`; the mount-link errno implementation and storage workflow regression passed exact-head storage run `43904136310`. Exact-head Wireless `43904136184`, AI docs `43904136356`, NFS lifecycle `43904136537`, Samba `43904136473`, infosvr `43904136412`, vsftpd `43904136251`, modem identity `43904136447`, AdGuardHome `43904136471`, HTTPD security `43904136370`, AliDDNS `43904136262`, and AliyunDrive `43904136387` passed. Process lifecycle run `43904136542` failed at job `133428303695`, step 38 only because its source checker still expected the removed `return link_created` / single-line cleanup form; this checker-only correction is included in THIS COMMIT. XY-C1 run `43904136433` was still building at last poll; parent e05's success does not transfer to d6fac or this commit.
+- Latest main commit: `e8a7aedab3bf7d1cc5b5487234ef2efc3b53ba5b` (checker-only follow-up to product source SHA `d6fac506d564e8277e6c81ec2dd18620b6509144`). On exact e8a7 SHA: Process lifecycle run `43905023740` failed at job `133431436756`, step 38 with `IndexError` because the new mount-link adapter contract used a literal `\\n` delimiter; this commit replaces brittle text splitting with the brace-aware `body()` parser. AI handoff docs run `43905023611` was IN_PROGRESS at last poll; exact-head validation for this checker correction is pending. On d6fac, USB storage `43904136310`, Wireless `43904136184`, AI docs `43904136356`, NFS lifecycle `43904136537`, Samba `43904136473`, infosvr `43904136412`, vsftpd `43904136251`, modem identity `43904136447`, AdGuardHome `43904136471`, HTTPD security `43904136370`, AliDDNS `43904136262`, and AliyunDrive `43904136387` passed. Process lifecycle `43904136542` failed only due its pre-alignment stale checker; e8a7's replacement checker then exposed the escaped-delimiter bug fixed here. XY-C1 run `43904136433` must be checked for completion before making an L3 claim. XY-C1 run `43904136433` was still building at last poll; parent e05's success does not transfer to d6fac or this commit.
 
 - Repository: `Arlene206/padavan-4.4-2`; current source parent before this slice: `e05ccbcb8c458ee2bc07c6020ed5af52b3d4cff8`.
 - Mount-link errno fix, GNU89 policy regression, storage source contracts, and workflow corrections are included together in THIS COMMIT.
@@ -21,17 +21,15 @@ Every multi-file logical change must be created as one complete Git tree and one
 
 ## Active task
 
-The process-lifecycle failure on `d6fac506d564e8277e6c81ec2dd18620b6509144` was not a product-source failure: the checker still asserted the old mount-link implementation. The current source now returns explicit boolean branches and stages cleanup/read/close status separately. This commit aligns that checker with the current implementation and checks the errno adapter plus its four media callers. Re-run process-lifecycle on this exact new SHA; do not revert correct source code to satisfy a stale assertion.
-
-The bounded mount-link reliability slice is implemented in THIS COMMIT. Do not repeat its audit. It covers invalid input, `/proc/mounts` open/read/parse/close failures, path length, directory preparation, symlink creation, and failed link cleanup after an incomplete inventory. The GNU89 policy regression and storage source contract are wired into the USB storage workflow. Existing mount selection and fallback semantics are unchanged.
+The current product-source baseline is `d6fac506d564e8277e6c81ec2dd18620b6509144`; the mount-link errno fix and GNU89/ASan/UBSan regression are implemented there, and USB storage run `43904136310` passed on that exact SHA. The checker-only commit `e8a7aedab3bf7d1cc5b5487234ef2efc3b53ba5b` corrected the previous stale mount-link contract but its own exact-head Process inventory run `43905023740` exposed a second checker-only defect: a literal `\\n` split raised `IndexError`. THIS COMMIT uses the shared brace-aware `body()` extractor for the mount-link function, status adapter and all four callers. Re-run Process lifecycle against THIS COMMIT; do not change product source to satisfy brittle text slicing.
 
 After exact-head checks pass, continue P1 storage/router-service reliability with the next concrete defect in the remaining hotplug/eject/service-restart call graph. Do not repeat already-completed process inventory, modem retry, WAN IPv6, or mount-link audits without a new failure signal.
 
 ## Verification boundary
 
-- Source parent for this checker-only commit: `d6fac506d564e8277e6c81ec2dd18620b6509144`.
-- On parent d6fac: USB storage run `43904136310` PASS (includes the new GNU89/ASan/UBSan errno policy test and final source contract); Wireless `43904136184` PASS; AI docs `43904136356` PASS; process lifecycle `43904136542` FAILED only at stale assertion in `scripts/check_process_lifecycle_integration.py:200`; XY-C1 `43904136433` remained IN_PROGRESS at `Build XY-C1` at last poll. Other results listed in Current repository state.
-- The checker correction below must pass on its exact new SHA. XY-C1 current source L3 remains NOT VERIFIED until Build, TRX check and artifact upload all pass on one exact source SHA. Physical-router L4 remains NOT VERIFIED.
+- Product-source SHA: `d6fac506d564e8277e6c81ec2dd18620b6509144`; exact-head USB storage run `43904136310` PASS with mount-link policy regression and storage caller contracts. XY-C1 run `43904136433` was IN_PROGRESS at last check; verify Build, TRX and artifact-upload jobs on that same SHA before claiming L3.
+- Checker-only parent SHA: `e8a7aedab3bf7d1cc5b5487234ef2efc3b53ba5b`; Process lifecycle run `43905023740` FAILED at step 38, `scripts/check_process_lifecycle_integration.py:207`, due the escaped-delimiter source extraction. THIS COMMIT fixes that checker. Process workflow and AI handoff documentation exact-head checks for THIS COMMIT are pending.
+- Physical-router L4 remains NOT VERIFIED.
 
 - Product-source parent SHA: `e05ccbcb8c458ee2bc07c6020ed5af52b3d4cff8`; this commit contains a new product-source change and requires its own exact-head checks.
 - XY-C1 Firmware Validation on parent SHA `e05ccbcb8c458ee2bc07c6020ed5af52b3d4cff8`: PASS (run `43897222785`; Build XY-C1, Verify TRX output, and artifact upload all succeeded on that exact SHA). This L3 result does not transfer to THIS COMMIT.
@@ -41,7 +39,7 @@ After exact-head checks pass, continue P1 storage/router-service reliability wit
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head Process inventory/lifecycle regression for THIS COMMIT and verify the updated storage mount-link assertions pass; read the full log if another assertion fails.
-2. Inspect XY-C1 Build, TRX verification and artifact upload for THIS COMMIT as one same-SHA L3 gate; do not claim the parent e05 result for newer source.
-3. With those checks running, continue independently on concrete storage hotplug lifecycle defects (automount failure reporting/notification semantics) only after checking `notify_rc` and `_eval` contracts; do not repeat the mount-link task.
+1. Inspect the Process inventory/lifecycle push run on THIS COMMIT; confirm step 38 uses the brace-aware extractor and passes. Read the full job log and fix any new causal failure on main.
+2. Check AI handoff docs on THIS COMMIT and finish inspecting XY-C1 run `43904136433` for same-SHA Build, TRX validation and artifact upload on product SHA `d6fac506d564e8277e6c81ec2dd18620b6509144`.
+3. Continue P1 storage/eject reliability: repair the retry-loss path in `safe_remove_stor_device()` when remaining mounted storage exists but `start_stor_apps()` fails (or mount inventory is UNKNOWN). Reuse the existing `usb_hotplug_ms` / five-second deferred retry mechanism; add policy regression and source-contract coverage. Do not repeat the completed mount-link audit.
 4. Preserve frozen backup `backup/pre-plugin-overhaul-2026-11-14` unchanged. Physical-router L4 remains unverified.

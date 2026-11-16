@@ -192,7 +192,7 @@ assert "trunk/user/rc/src/tests/minidlna_config_file.c" in process_workflow
 assert "trunk/user/rc/src/minidlna_config_file.h" in xy_workflow
 print("MiniDLNA configuration publication and fail-closed startup contracts: PASS")
 
-mount_link = storage_services.split("int create_mp_link(", 1)[1].split("\\n#if defined (APP_MINIDLNA)", 1)[0]
+mount_link = body(storage_services, "int create_mp_link(")
 assert "storage_nfs_export_parse_mount_line(" in mount_link
 assert "read_error = ferror(procpt) ? 1 : 0;" in mount_link
 assert "close_status = fclose(procpt);" in mount_link
@@ -204,7 +204,7 @@ assert "errno = EINVAL;" in mount_link
 assert "errno = storage_nfs_export_errno_or_eio(first_error ? first_error : ENOENT);" in mount_link
 assert "return link_created;" not in mount_link
 assert "return 1;" in mount_link and "return 0;" in mount_link
-mount_status = storage_services.split("static int\\ncreate_mp_link_status(", 1)[1].split("\\n#if defined (APP_MINIDLNA)", 1)[0]
+mount_status = body(storage_services, "create_mp_link_status(")
 assert "create_mp_link(search_dir, link_path, force_first_valid)" in mount_status
 assert "status = storage_nfs_export_errno_or_eio(errno);" in mount_status
 assert "errno = status;" in mount_status
@@ -212,7 +212,7 @@ assert "return status;" in mount_status
 assert storage_services.index("static int create_mp_link_status(") < storage_services.index("int run_dms(int force_rescan)")
 for signature in ("int run_dms(int force_rescan)", "int run_itunes(void)",
                   "int run_torrent(void)", "int run_aria(void)"):
-    caller = storage_services.split(signature, 1)[1].split("\\nint restart_", 1)[0]
+    caller = body(storage_services, signature)
     assert "create_mp_link_status(" in caller
     assert "return link_status;" in caller
     assert "create_mp_link(" not in caller
