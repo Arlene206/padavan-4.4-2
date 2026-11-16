@@ -206,6 +206,151 @@ test_required_module_set_success_and_invalid_inputs(void)
 	assert(required_probe_calls == 2);
 }
 
+#define UNLOAD_TEST_MODULES 3
+
+static const char *unload_expected_names[UNLOAD_TEST_MODULES];
+static int unload_module_loaded[UNLOAD_TEST_MODULES];
+static int unload_remove_module[UNLOAD_TEST_MODULES];
+static int unload_command_results[UNLOAD_TEST_MODULES];
+static int unload_expected_count;
+static int unload_calls;
+static int unload_probe_calls;
+
+static int
+mock_module_unload(const char *module_name, int recurse_unload)
+{
+	int i;
+
+	assert(recurse_unload == 0 || recurse_unload == 1);
+	for (i = 0; i < unload_expected_count; ++i) {
+		if (strcmp(module_name, unload_expected_names[i]) == 0)
+			break;
+	}
+	assert(i < unload_expected_count);
+	++unload_calls;
+	if (unload_remove_module[i])
+		unload_module_loaded[i] = 0;
+	return unload_command_results[i];
+}
+
+static int
+mock_module_unload_probe(const char *module_name)
+{
+	int i;
+
+	for (i = 0; i < unload_expected_count; ++i) {
+		if (strcmp(module_name, unload_expected_names[i]) == 0)
+			break;
+	}
+	assert(i < unload_expected_count);
+	++unload_probe_calls;
+	return unload_module_loaded[i];
+}
+
+static const rc_module_unload_ops_t mock_unload_ops = {
+	mock_module_unload,
+	mock_module_unload_probe
+};
+
+static void
+reset_unload_case(const char *name, int loaded, int command_result,
+		  int remove_module)
+{
+	unload_expected_names[0] = name;
+	unload_module_loaded[0] = loaded;
+	unload_command_results[0] = command_result;
+	unload_remove_module[0] = remove_module;
+	unload_expected_count = 1;
+	unload_calls = 0;
+	unload_probe_calls = 0;
+}
+
+static void
+test_unload_absent_module_is_noop(void)
+{
+	reset_unload_case("nf_nat_pptp", 0, 0, 0);
+	assert(rc_module_unload_verified("nf_nat_pptp", 1,
+					 &mock_unload_ops) == 0);
+	assert(unload_calls == 0);
+	assert(unload_probe_calls == 1);
+}
+
+static void
+test_unload_postcondition_wins_over_command_result(void)
+{
+	/* A nonzero command result is harmless if another actor removed it. */
+	reset_unload_case("nf_nat_h323", 1, -1, 1);
+	assert(rc_module_unload_verified("nf_nat_h323", 1,
+					 &mock_unload_ops) == 0);
+	assert(unload_calls == 1);
+	assert(unload_probe_calls == 2);
+	assert(unload_module_loaded[0] == 0);
+}
+
+static void
+test_unload_busy_module_is_not_reported_as_removed(void)
+{
+	/* module_smart_unload() returns success for refcount > 0 but leaves it loaded. */
+	reset_unload_case("nf_nat_sip", 1, 1, 0);
+	assert(rc_module_unload_verified("nf_nat_sip", 1,
+					 &mock_unload_ops) == EBUSY);
+	assert(unload_calls == 1);
+	assert(unload_probe_calls == 2);
+	assert(unload_module_loaded[0] == 1);
+}
+
+static void
+test_unload_invalid_inputs_have_no_side_effects(void)
+{
+	rc_module_unload_ops_t no_unloader = {
+		NULL, mock_module_unload_probe
+	};
+	rc_module_unload_ops_t no_probe = {
+		mock_module_unload, NULL
+	};
+
+	reset_unload_case("nf_nat_ftp", 1, 0, 1);
+	assert(rc_module_unload_verified(NULL, 0, &mock_unload_ops) == EINVAL);
+	assert(rc_module_unload_verified("", 0, &mock_unload_ops) == EINVAL);
+	assert(rc_module_unload_verified("nf_nat_ftp", 0, NULL) == EINVAL);
+	assert(rc_module_unload_verified("nf_nat_ftp", 0, &no_unloader) == EINVAL);
+	assert(rc_module_unload_verified("nf_nat_ftp", 0, &no_probe) == EINVAL);
+	assert(unload_calls == 0);
+	assert(unload_probe_calls == 0);
+}
+
+static void
+test_unload_requirement_set_attempts_all_and_keeps_first_failure(void)
+{
+	static const char *names[UNLOAD_TEST_MODULES] = {
+		"nf_nat_pptp", "nf_nat_h323", "nf_nat_sip"
+	};
+	int i;
+	int first_status = 0;
+
+	unload_expected_count = UNLOAD_TEST_MODULES;
+	unload_calls = 0;
+	unload_probe_calls = 0;
+	for (i = 0; i < UNLOAD_TEST_MODULES; ++i) {
+		unload_expected_names[i] = names[i];
+		unload_module_loaded[i] = 1;
+		unload_command_results[i] = (i == 0) ? 1 : 0;
+		unload_remove_module[i] = (i != 0);
+	}
+	for (i = 0; i < UNLOAD_TEST_MODULES; ++i) {
+		int status = rc_module_unload_verified(names[i], 1,
+						       &mock_unload_ops);
+		if (first_status == 0 && status != 0)
+			first_status = status;
+	}
+	assert(first_status == EBUSY);
+	assert(unload_calls == UNLOAD_TEST_MODULES);
+	assert(unload_probe_calls == UNLOAD_TEST_MODULES * 2);
+	assert(unload_module_loaded[0] == 1);
+	assert(unload_module_loaded[1] == 0);
+	assert(unload_module_loaded[2] == 0);
+}
+
 int
 main(void)
 {
@@ -217,6 +362,11 @@ main(void)
 	test_invalid_inputs_fail_before_side_effects();
 	test_required_module_set_attempts_all_and_keeps_first_failure();
 	test_required_module_set_success_and_invalid_inputs();
-	puts("RC module post-load verification and required-module set policy: PASS");
+	test_unload_absent_module_is_noop();
+	test_unload_postcondition_wins_over_command_result();
+	test_unload_busy_module_is_not_reported_as_removed();
+	test_unload_invalid_inputs_have_no_side_effects();
+	test_unload_requirement_set_attempts_all_and_keeps_first_failure();
+	puts("RC module load/unload postcondition policies: PASS");
 	return 0;
 }

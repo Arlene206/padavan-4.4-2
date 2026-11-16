@@ -500,7 +500,21 @@ assert "if (rc_module_load_verified(" in nat_reload
 assert "sfe_loaded = 1;" in nat_reload
 assert "sfe_loaded = 0;" in nat_reload
 assert "continuing without SFE" in nat_reload
+assert 'rc_module_unload_verified("fast_classifier", 1, &module_unload_ops)' in nat_reload
+assert 'sfe_loaded = is_module_loaded("fast_classifier");' in nat_reload
+assert 'rc_module_load_verified("hw_nat", hnat_param, &module_ops)' in nat_reload
+assert 'rc_module_unload_verified("hw_nat", 0, &module_unload_ops)' in nat_reload
+assert "hwnat_configure(hwnat_wan_vid, hwnat_allow);" in nat_reload
+assert 'module_smart_load("hw_nat", hnat_param);' not in nat_reload
 assert 'module_smart_load("fast_classifier", NULL);' not in nat_reload
+assert 'rc_module_unload_verified("nf_nat_pptp", 1, &module_unload_ops)' in nat_reload
+assert 'rc_module_unload_verified("nf_nat_h323", 1, &module_unload_ops)' in nat_reload
+assert 'rc_module_unload_verified("nf_nat_sip", 1, &module_unload_ops)' in nat_reload
+assert 'rc_module_unload_verified("nf_nat_ftp", 0, &module_unload_ops)' in nat_reload
+assert 'rc_module_unload_verified("nf_conntrack_ftp", 0, &module_unload_ops)' in nat_reload
+assert "rc_module_unload_verified" in POLICY_SOURCE
+assert "test_unload_busy_module_is_not_reported_as_removed" in POLICY_TEST
+assert "test_unload_requirement_set_attempts_all_and_keeps_first_failure" in POLICY_TEST
 print("Optional SFE module post-load verification contract: PASS")
 
 # Configured NAT helper requirements must be post-load verified and their first

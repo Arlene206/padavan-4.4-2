@@ -60,6 +60,30 @@ rc_module_load_requirements_apply(const rc_module_load_requirement_t *requiremen
 	return first_status;
 }
 
+typedef struct {
+	int (*unload)(const char *module_name, int recurse_unload);
+	int (*is_loaded)(const char *module_name);
+} rc_module_unload_ops_t;
+
+/*
+ * module_smart_unload() can report that a module is busy without removing it.
+ * Verify the postcondition instead of treating the command result as proof.
+ */
+static inline int
+rc_module_unload_verified(const char *module_name, int recurse_unload,
+			  const rc_module_unload_ops_t *ops)
+{
+	if (!module_name || module_name[0] == '\0' ||
+	    !ops || !ops->unload || !ops->is_loaded)
+		return EINVAL;
+
+	if (!ops->is_loaded(module_name))
+		return 0;
+
+	(void)ops->unload(module_name, recurse_unload);
+	return ops->is_loaded(module_name) ? EBUSY : 0;
+}
+
 /* Preserve the existing call shape for wireless-driver users. */
 static inline int
 rc_wireless_module_load_verified(const char *module_name,
