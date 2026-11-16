@@ -45,9 +45,10 @@ wan_start = compact(body(WAN_SOURCE, "start_wan(void)"))
 assert "int modem_start_status = 0;" in wan_start
 assert "vlan_result = launch_wan_usbnet(unit);" in wan_start
 assert "vlan_result = launch_wan_modem_ras(unit);" in wan_start
-assert wan_start.count(
-    "modem_start_status = rc_first_service_start_status(modem_start_status, vlan_result);"
-) == 3
+assert len(re.findall(
+    r"modem_start_status\\s*=\\s*rc_first_service_start_status\\s*\\(\\s*modem_start_status\\s*,\\s*vlan_result\\s*\\)\\s*;",
+    wan_start,
+)) == 3
 ras_migration = "vlan_result = check_upnp_wanif_changed(ppp_ifname);"
 assert ras_migration in wan_start
 assert wan_start.index(ras_migration) < wan_start.index(

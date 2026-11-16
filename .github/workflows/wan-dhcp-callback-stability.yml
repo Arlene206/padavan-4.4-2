@@ -315,7 +315,7 @@ jobs:
           assert "route_status = manv_route_deconfig(man_ifname)" in zcip_deconfig
           assert zcip_deconfig.index("interface_status == 0 && route_status == 0") < zcip_deconfig.index('nvram_set_temp("manv_ipaddr", "0.0.0.0")')
           assert "stop_igmpproxy(man_ifname)" in zcip_deconfig
-          assert "return route_status_accumulate(interface_status, route_status)" in zcip_deconfig
+          assert "return route_status_accumulate( route_status_accumulate(interface_status, route_status), multicast_status);" in " ".join(zcip_deconfig.split())
           assert 'ret = zcip_viptv_deconfig(man_ifname)' in body(source, "zcip_viptv_main(int argc, char **argv)")
 
           zcip_viptv_start = body(source, "start_zcip_viptv(char *man_ifname)")

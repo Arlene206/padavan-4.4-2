@@ -1,3 +1,14 @@
+## 2026-11-16 — Repair WAN modem and callback regression contracts
+
+- Parent main: `58fced5de7155e7d90d5307f81a6f0a56c56ea39`. Exact-head Process `43841042079` and XY-C1 `43841041502` both ran the GNU89/Werror/ASan/UBSan policy binaries successfully, then failed in `check_modem_wan_start_status.py` because the checker counted a literal one-line C call while the valid source wraps its arguments across lines. Replace this with a whitespace-tolerant regex and retain the required three call sites.
+- WAN DHCP callback `43841041827` failed a stale ZeroConf IPTV deconfig assertion. Production correctly accumulates interface, route and multicast stop results; update the source contract to verify the nested first-error accumulation.
+- miniupnpd config run `43841038765` failed without creating a job because two new assertions were outdented from the YAML heredoc. Restore the script indentation.
+- WAN teardown `43841041737`, WAN route `43841041407`, USB modem identity `43841041397`, Process inventory `43841041807` and AI handoff docs `43841041398` were SUCCESS on the exact parent SHA.
+- XY-C1 did not reach Build/TRX/artifact on the parent SHA, so no L3 result is claimed. HTTPD auth run `43841041572` failed an independent switch-port ioctl contract unrelated to this slice.
+- THIS COMMIT contains checker/workflow corrections only; exact-head Process, XY-C1, WAN DHCP and miniupnpd Actions must verify them. Next production task remains NDIS control-TTY physical identity matching; no L4 result is claimed.
+
+---
+
 ## 2026-11-16 — Correct WAN modem status propagation integration checks
 
 - Parent main: `8c3772e33127c3870c4465c45a8fedc1142a06b3`, whose exact-head Process run `43838099251` and XY-C1 run `43838100294` failed at the added source checker. The host modem policy test passed; the checker failure exposed its over-escaped whitespace regex and a missing RAS migration error aggregation.
