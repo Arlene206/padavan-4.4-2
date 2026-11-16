@@ -892,10 +892,6 @@ services_source = (root / "trunk/user/rc/src/services.c").read_text()
 boot_services = services_source.split("start_services_once(int is_ap_mode)", 1)[1].split("\n}", 1)[0]
 assert "rc_first_service_start_status(start_status, start_8021x_wl())" in boot_services
 assert "rc_first_service_start_status(start_status, start_8021x_rt())" in boot_services
-assert "auth_start_status = start_8021x_wl();" in restart_wifi_wl
-assert "auth_start_status = start_8021x_rt();" in restart_wifi_rt
-assert "wireless restart aborted: 802.1X authenticator launch failed" in restart_wifi_wl
-assert "wireless restart aborted: 802.1X authenticator launch failed" in restart_wifi_rt
 assert start_8021x_rt.index('start_status = eval("rtinicapd"') < start_8021x_rt.index(
     '802.1X 2.4GHz authenticator launch failed'
 )
@@ -924,6 +920,10 @@ assert restart_wifi_rt.index("if (stop_8021x_rt() != 0)") < restart_wifi_rt.inde
 )
 assert "DBDC rollback could not stop the 5GHz 802.1X daemon" in restart_wifi_wl
 assert "DBDC rollback could not stop the 2.4GHz 802.1X daemon" in restart_wifi_rt
+assert "auth_start_status = start_8021x_wl();" in restart_wifi_wl
+assert "auth_start_status = start_8021x_rt();" in restart_wifi_rt
+assert "wireless restart aborted: 802.1X authenticator launch failed" in restart_wifi_wl
+assert "wireless restart aborted: 802.1X authenticator launch failed" in restart_wifi_rt
 shutdown_router = rc_source.split("shutdown_router(int level)", 1)[1].split("\n}\n", 1)[0]
 assert "auth_stop_status = stop_8021x_all();" in shutdown_router
 assert "auth_stop_status == 0" in shutdown_router
