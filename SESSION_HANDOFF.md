@@ -9,33 +9,36 @@ For each logical task, create all changed files in one Git tree and one atomic m
 ## Current repository state
 
 - Repository: Arlene206/padavan-4.4-2; active branch: main.
-- Parent for THIS loopback dependency/source-check correction: 1f232209a9aa41d520939c18ab783609e9b791b0; refetch live main before any later write and use expected-SHA non-forced CAS.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14 = 72f4f157a084f8184b9597ca5bf334b8080e5807; immutable.
-- Root dev_log.md has 101 newest-first records before THIS entry; this entry makes 102. Keep 20–119.
+- Parent for THIS essential bridge/VLAN initialization status slice: `9f71cebf2e323d8dc84bca7cfd312d027ca5aab1`; refetch live main before any later write and use expected-SHA non-forced CAS.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. The one-time backup comparison found main 588 commits ahead / 1 behind; do not repeat archive/backup recovery.
+- Root `dev_log.md` has 102 newest-first records before THIS entry; this entry makes 103. Keep 20–119 and preserve archive shards/indexes verbatim.
+- Startup governance and cross-session protocol repairs are complete. No open PR was found at the last startup checkpoint.
 
-## Active task
+## Active task completed in this slice
 
-Correct loopback initialization status propagation:
-- Commit 1f232209a9aa41d520939c18ab783609e9b791b0 changed init_loopback() to return status and PID1 aggregates it, but Process run 43852281303 failed its final source assertion due an over-escaped newline literal.
-- Review found the first implementation attempted route_add() even when ifconfig("lo", ...) failed. The route depends on successful loopback address setup. This correction returns immediately after IFUP failure, preserving the route from an invalid/incomplete interface state; route errors are returned after successful IFUP.
-- Process workflow now checks the actual order and early-return guard with chr(10), without escaped newline literals.
-- The existing status regression still verifies first-failure preservation for independent service steps; no separate callback harness is claimed.
+Essential LAN bridge initialization now reports checked setup failures without short-circuiting independent operations:
+
+- `init_bridge()` returns first-error status and records switch VLAN/bridge mode, MAC interface address/IFUP, switch PHY power, configured VLAN creation, bridge creation/STP/forward delay/address, bridge member attachment, and final bridge IFUP.
+- Duplicate bridge-add `EEXIST` is accepted only if the kernel confirms the named interface is an existing bridge through `br_bridge_is_empty()`. Bridge member attachment already uses fail-closed full inventory and idempotent membership checks; existing shared policy tests are now run by the Process workflow.
+- `switch_config_vlan()` attempts all VLAN rule writes and bridge-mode update while preserving the first failure. Optional iNIC isolation reset is separately logged and is not reclassified as an essential boot failure.
+- `init_router()` merges bridge initialization status into PID 1 boot health. Switch config/VLAN notification handlers now preserve status results. Optional multicast configuration remains separate in `config_bridge()`.
+- Added GNU89/Werror/ASan/UBSan policy regression coverage and Process source contracts. The standalone bridge-init policy test passed locally before publication. No full firmware build or router hardware test is claimed.
 
 ## Verification boundary
 
-On parent 1f232209a9aa41d520939c18ab783609e9b791b0:
-- Process run 43852281303: FAILED only at the loopback source return-type literal assertion after all prior lifecycle, bridge and status regressions passed.
-- XY-C1 run 43852281447: IN_PROGRESS at ccache setup at last inspection; no build/TRX/artifact result recorded yet.
-- USB storage run 43852281602 and NVRAM 43852281469 were IN_PROGRESS at earlier inspection; recheck exact current status.
-- Handoff 43852281119 and numerous service stability workflows passed, including HTTPD, AdGuardHome, infosvr, detect_internet, detect_link, Firewall, rstats, DNSMasq, VPN and USB modem identity.
-- No physical-router/L4 result.
+- Source/test parent before this commit: `9f71cebf2e323d8dc84bca7cfd312d027ca5aab1`.
+- On parent `1f232209a9aa41d520939c18ab783609e9b791b0`, Process run `43852281303` failed only its loopback function-definition assertion after preceding policy tests passed. Commit `9f71cebf2e323d8dc84bca7cfd312d027ca5aab1` corrected that source contract; an exact-head Process rerun for the bridge change is pending publication.
+- XY-C1 `43852281447`, USB storage `43852281602`, and NVRAM `43852281469` were IN_PROGRESS at the previous handoff inspection on an ancestor SHA; their current exact status must be checked, not assumed.
+- Local host test: GNU89/Werror/ASan/UBSan bridge-init policy regression PASS.
+- No exact-head CI result for THIS commit yet. No same-SHA Build+TRX+artifact L3 and no physical-router L4 result established.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect the exact-head Process rerun of the corrected loopback source contract, plus current XY-C1 Build/TRX/artifact and storage/NVRAM Actions.
-2. Audit init_bridge()/switch_config_vlan() and bridge/member setup for required interface/VLAN status handling. Preserve best-effort independent operations; keep optional board-specific multicast/switch APIs separate from required bridge setup.
-3. Continue wider RC stability/security work and update this handoff with exact run evidence before context end.
+1. Fetch live main and inspect exact-SHA Process, XY-C1, USB storage and NVRAM Actions for THIS change. Resolve the first causal failure before treating downstream evidence as valid.
+2. Record XY-C1 L3 only when Build, TRX verification and artifact upload all pass for the same production-source SHA; hardware behavior remains L4-only.
+3. Continue evidence-based RC startup result coverage, particularly the currently void `switch_config_base()`, `switch_config_storm()`, and `switch_config_link()` call graphs. Distinguish mandatory Ethernet forwarding setup from board-/feature-specific optional capabilities.
+4. Update this handoff with exact run IDs/results at the next material source commit or before context exhaustion.
 
 ## Governance constraints
 
-Preserve security, architecture, compatibility, target toolchain and mandatory tests. Main only; frozen backup read-only. One complete Git tree and one atomic commit per logical task, non-forced expected-SHA update. Update dev_log.md for each source/documentation commit and keep 20–119 records; preserve archive shards/indexes. Distinguish host tests, source contracts, exact-SHA CI, firmware/TRX and physical-router evidence. Never claim an unrun result.
+Preserve security, architecture, compatibility, target toolchain and mandatory tests. Main only; frozen backup read-only. One complete Git tree and one atomic commit per logical task, non-forced expected-SHA update. Update `dev_log.md` for each source/documentation change and keep 20–119 records. Distinguish host tests, source contracts, exact-SHA CI, firmware/TRX and physical-router evidence. Never claim an unrun result.

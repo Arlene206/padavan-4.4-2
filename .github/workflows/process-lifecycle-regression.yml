@@ -281,6 +281,18 @@ jobs:
             -o "$RUNNER_TEMP/modem-wan-start-policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/modem-wan-start-policy"
           python3 scripts/check_modem_wan_start_status.py
+      - name: Compile and run bridge initialization status regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/bridge_init_policy.c \
+            -o "$RUNNER_TEMP/bridge-init-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/bridge-init-policy"
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/shared/src \
+            trunk/user/shared/src/tests/bridge_membership_policy.c \
+            -o "$RUNNER_TEMP/bridge-membership-policy"
+          "$RUNNER_TEMP/bridge-membership-policy"
       - name: Compile and run bridge multicast setup status regression
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
@@ -415,6 +427,8 @@ jobs:
           net = (rc / "net.c").read_text()
           bridge_policy = (rc / "bridge_config_policy.h").read_text()
           bridge_regression = (rc / "tests/bridge_config_policy.c").read_text()
+          bridge_init_policy = (rc / "bridge_init_policy.h").read_text()
+          bridge_init_regression = (rc / "tests/bridge_init_policy.c").read_text()
 
           def body(source, signature):
               start = source.index(signature)
@@ -488,6 +502,43 @@ jobs:
           assert "return rc_first_service_start_status(start_status, stop_status);" in iptv
           assert "test_first_failure_is_returned_after_all_operations" in bridge_regression
 
+          init_bridge = body(lan, "init_bridge(int is_ap_mode)")
+          switch_vlan = body(lan, "switch_config_vlan(int first_call)")
+          switch_vlan_restart = body(lan, "restart_switch_config_vlan(void)")
+          bridge_create = body(lan, "init_bridge_add_bridge(const char *bridge_ifname)")
+          assert ("int" + chr(10) + "init_bridge(int is_ap_mode)") in lan
+          assert "int init_bridge(int is_ap_mode);" in header
+          assert "operation_status = switch_config_vlan(1);" in init_bridge
+          assert 'rc_bridge_init_record(&bridge_status, "switch VLAN setup", operation_status);' in init_bridge
+          for operation in ("set MAC interface address", "bring up MAC interface",
+                            "power up switch PHYs", "create LAN bridge",
+                            "set LAN bridge STP", "set LAN bridge forward delay",
+                            "set LAN bridge address", "bring up LAN bridge"):
+              assert operation in init_bridge
+          assert "return rc_bridge_init_result(&bridge_status);" in init_bridge
+          assert "br_add_del_bridge(bridge_ifname, 1)" in bridge_create
+          assert "saved_errno == EEXIST" in bridge_create
+          assert "br_bridge_is_empty(bridge_ifname)" in bridge_create
+          assert "rc_bridge_init_add_bridge_result" in bridge_create
+          assert ("int" + chr(10) + "switch_config_vlan(int first_call)") in lan
+          assert "int switch_config_vlan(int first_call);" in header
+          assert "operation_status = phy_vlan_rule_set(vrule, vlan_vid[vrule], vlan_pri[vrule], vlan_tag[vrule]);" in switch_vlan
+          assert 'rc_bridge_init_record(&vlan_status, "VLAN rule", operation_status);' in switch_vlan
+          assert "operation_status = phy_bridge_mode(bridge_mode, bwan_isolation);" in switch_vlan
+          assert 'rc_bridge_init_record(&vlan_status, "switch bridge mode", operation_status);' in switch_vlan
+          assert "return rc_bridge_init_result(&vlan_status);" in switch_vlan
+          assert "optional iNIC isolation reset failed" in switch_vlan
+          assert "operation_status = switch_config_vlan(0);" in switch_vlan_restart
+          assert "operation_status = full_restart_wan();" in switch_vlan_restart
+          assert "return start_status;" in switch_vlan_restart
+          assert "int restart_switch_config_vlan(void);" in header
+          assert "int bridge_start_status = init_bridge(is_ap_mode);" in init_body
+          assert "boot_services_status, bridge_start_status);" in init_body
+          assert "rc_notify_merge_action_result(action_result, config_bridge(get_ap_mode()))" in body(init, "handle_notifications(void)")
+          assert "rc_notify_merge_action_result(action_result, restart_switch_config_vlan())" in body(init, "handle_notifications(void)")
+          assert "test_bridge_add_idempotency_requires_confirmed_bridge();" in bridge_init_regression
+          assert "rc_bridge_init_record" in bridge_init_policy
+          print("LAN bridge initialization status and caller aggregation: PASS")
           print("LAN startup error propagation and caller aggregation: PASS")
           PY
 

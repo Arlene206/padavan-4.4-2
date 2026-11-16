@@ -1,3 +1,14 @@
+## 2026-11-16 — Propagate essential bridge/VLAN initialization status
+
+- Parent main: `9f71cebf2e323d8dc84bca7cfd312d027ca5aab1`. This slice covers required Ethernet/bridge/VLAN initialization; the existing `config_bridge()` multicast policy remains a distinct optional-feature path.
+- Found `init_bridge()` discarded results from switch bridge/VLAN setup, MAC interface setup, switch PHY power, VLAN creation, bridge creation/configuration, member attachment and final bridge IFUP. `switch_config_vlan()` also discarded every VLAN rule and bridge-mode ioctl result.
+- Added a separate bridge-init first-error policy; all independent VLAN and bridge operations are attempted. Duplicate `br_add_del_bridge()` EEXIST is treated as idempotent only after a successful kernel bridge inventory probe. Existing bridge-port attachment and VLAN helper operations retain their fail-closed/idempotent semantics.
+- `init_bridge()` now returns status to PID 1, `switch_config_vlan()` and its restart notification propagate results, and switch configuration notifications preserve `config_bridge()` status. Optional iNIC isolation errors are diagnostic only; multicast controls remain distinct.
+- GNU89/Werror/ASan/UBSan bridge-init policy regression passed locally. Process workflow now compiles this regression and the existing bridge-membership policy regression, and checks production definitions/callers/ordering. Exact-head CI is pending after publication; no firmware L3 or hardware L4 result is claimed.
+- Next: inspect exact-head Process, XY-C1, storage and NVRAM runs; then continue independent RC status coverage around switch base/storm/link setup.
+
+---
+
 ## 2026-11-16 — Gate loopback route setup on successful IFUP
 
 - Parent main: 1f232209a9aa41d520939c18ab783609e9b791b0. Process run 43852281303 failed only at the new loopback source return-type assertion after preceding lifecycle and bridge regressions passed.

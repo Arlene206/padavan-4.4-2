@@ -39,6 +39,7 @@
 #include "switch_status_policy.h"
 #include "service_start_status.h"
 #include "bridge_config_policy.h"
+#include "bridge_init_policy.h"
 #include <gpioutils.h>
 
 #if BOARD_RAM_SIZE < 32
@@ -103,9 +104,32 @@ init_loopback(void)
 	return status;
 }
 
-void
+static int
+init_bridge_add_bridge(const char *bridge_ifname)
+{
+	int status;
+	int saved_errno;
+	int bridge_probe_status;
+
+	status = br_add_del_bridge(bridge_ifname, 1);
+	if (status == 0)
+		return 0;
+
+	saved_errno = errno;
+	bridge_probe_status = (status < 0 && saved_errno == EEXIST) ?
+		br_bridge_is_empty(bridge_ifname) : -1;
+	status = rc_bridge_init_add_bridge_result(status, saved_errno,
+						  bridge_probe_status);
+	if (status != 0)
+		errno = saved_errno;
+	return status;
+}
+
+int
 init_bridge(int is_ap_mode)
 {
+	rc_bridge_init_status_t bridge_status;
+	int operation_status;
 	int rt_radio_on = get_enabled_radio_rt();
 #if !defined(USE_RT3352_MII)
 	int rt_mode_x = get_mode_radio_rt();
@@ -116,49 +140,60 @@ init_bridge(int is_ap_mode)
 #endif
 	char *lan_hwaddr = nvram_safe_get("lan_hwaddr");
 
+	rc_bridge_init_status_reset(&bridge_status);
+
 	if (!is_ap_mode)
 	{
 		/* set switch bridge mode and vlan isolation */
-		switch_config_vlan(1);
+		operation_status = switch_config_vlan(1);
+		rc_bridge_init_record(&bridge_status, "switch VLAN setup", operation_status);
 	}
 	else
 	{
 		/* set switch bridge mode to LLLLL */
-		phy_bridge_mode(SWAPI_WAN_BRIDGE_DISABLE_WAN, SWAPI_WAN_BWAN_ISOLATION_NONE);
+		operation_status = phy_bridge_mode(SWAPI_WAN_BRIDGE_DISABLE_WAN, SWAPI_WAN_BWAN_ISOLATION_NONE);
+		rc_bridge_init_record(&bridge_status, "AP switch bridge mode", operation_status);
 	}
 
 #if BOARD_RAM_SIZE < 64
 	doSystem("ifconfig %s txqueuelen %d", IFNAME_MAC, SHRINK_TX_QUEUE_LEN);
 #endif
-	set_interface_hwaddr(IFNAME_MAC, lan_hwaddr);
-	ifconfig(IFNAME_MAC, IFUP, NULL, NULL);
+	operation_status = set_interface_hwaddr(IFNAME_MAC, lan_hwaddr);
+	rc_bridge_init_record(&bridge_status, "set MAC interface address", operation_status);
+	operation_status = ifconfig(IFNAME_MAC, IFUP, NULL, NULL);
+	rc_bridge_init_record(&bridge_status, "bring up MAC interface", operation_status);
 
 	switch_config_base();
 	switch_config_storm();
 	switch_config_link();
 
 	/* power up all switch PHY */
-	phy_ports_power(1);
+	operation_status = phy_ports_power(1);
+	rc_bridge_init_record(&bridge_status, "power up switch PHYs", operation_status);
 
 #if defined (USE_SINGLE_MAC)
 	if (!is_ap_mode)
 	{
 		/* create VLAN1/2 */
-		create_vlan_iface(IFNAME_MAC, 1, -1, -1, lan_hwaddr, 1);
-		create_vlan_iface(IFNAME_MAC, 2, -1, -1, NULL, 0);
+		operation_status = create_vlan_iface(IFNAME_MAC, 1, -1, -1, lan_hwaddr, 1);
+		rc_bridge_init_record(&bridge_status, "create MAC VLAN1", operation_status);
+		operation_status = create_vlan_iface(IFNAME_MAC, 2, -1, -1, NULL, 0);
+		rc_bridge_init_record(&bridge_status, "create MAC VLAN2", operation_status);
 	}
 #if defined (AP_MODE_LAN_TAGGED)
 	else
 	{
 		/* create VLAN1 */
-		create_vlan_iface(IFNAME_MAC, 1, -1, -1, lan_hwaddr, 1);
+		operation_status = create_vlan_iface(IFNAME_MAC, 1, -1, -1, lan_hwaddr, 1);
+		rc_bridge_init_record(&bridge_status, "create AP MAC VLAN1", operation_status);
 	}
 #endif
 #endif
 
 #if defined (USE_RT3352_MII)
 	/* create VLAN3 for guest AP */
-	create_vlan_iface(IFNAME_MAC, INIC_GUEST_VLAN_VID, -1, -1, lan_hwaddr, 1);
+	operation_status = create_vlan_iface(IFNAME_MAC, INIC_GUEST_VLAN_VID, -1, -1, lan_hwaddr, 1);
+	rc_bridge_init_record(&bridge_status, "create iNIC guest VLAN", operation_status);
 #endif
 
 #if BOARD_2G_IN_SOC || defined (BOARD_MT7915_DBDC)
@@ -197,32 +232,42 @@ init_bridge(int is_ap_mode)
 #endif
 #endif
 
-	br_add_del_bridge(IFNAME_BR, 1);
-	br_set_stp(IFNAME_BR, 0);
-	br_set_fd(IFNAME_BR, 2);
-	set_interface_hwaddr(IFNAME_BR, lan_hwaddr);
+	operation_status = init_bridge_add_bridge(IFNAME_BR);
+	rc_bridge_init_record(&bridge_status, "create LAN bridge", operation_status);
+	operation_status = br_set_stp(IFNAME_BR, 0);
+	rc_bridge_init_record(&bridge_status, "set LAN bridge STP", operation_status);
+	operation_status = br_set_fd(IFNAME_BR, 2);
+	rc_bridge_init_record(&bridge_status, "set LAN bridge forward delay", operation_status);
+	operation_status = set_interface_hwaddr(IFNAME_BR, lan_hwaddr);
+	rc_bridge_init_record(&bridge_status, "set LAN bridge address", operation_status);
 
 	if (!is_ap_mode) {
 		/* add eth2 (or eth2.1) to bridge */
 #if defined (USE_GMAC2_TO_GPHY) || defined (USE_GMAC2_TO_GSW)
 		if (get_wan_bridge_mode() != SWAPI_WAN_BRIDGE_DISABLE) {
-			create_vlan_iface(IFNAME_MAC, 1, -1, -1, lan_hwaddr, 1);
-			br_add_del_if(IFNAME_BR, "eth2.1", 1);
+			operation_status = create_vlan_iface(IFNAME_MAC, 1, -1, -1, lan_hwaddr, 1);
+			rc_bridge_init_record(&bridge_status, "create GMAC2 VLAN1", operation_status);
+			operation_status = br_add_del_if(IFNAME_BR, "eth2.1", 1);
+			rc_bridge_init_record(&bridge_status, "attach GMAC2 VLAN1", operation_status);
 		} else
 #endif
-		br_add_del_if(IFNAME_BR, IFNAME_LAN, 1);
+operation_status = br_add_del_if(IFNAME_BR, IFNAME_LAN, 1);
+		rc_bridge_init_record(&bridge_status, "attach LAN bridge port", operation_status);
 	} else {
 #if defined (AP_MODE_LAN_TAGGED)
 		/* add eth2 (or eth2.1) to bridge */
 		br_add_del_if(IFNAME_BR, IFNAME_LAN, 1);
 #else
 		/* add only eth2 to bridge */
-		br_add_del_if(IFNAME_BR, IFNAME_MAC, 1);
+		operation_status = br_add_del_if(IFNAME_BR, IFNAME_MAC, 1);
+		rc_bridge_init_record(&bridge_status, "attach AP MAC port", operation_status);
 #endif
 #if defined (USE_GMAC2_TO_GPHY) || defined (USE_GMAC2_TO_GSW)
 		/* add eth3 to bridge */
-		ifconfig(IFNAME_MAC2, IFUP, NULL, NULL);
-		br_add_del_if(IFNAME_BR, IFNAME_MAC2, 1);
+		operation_status = ifconfig(IFNAME_MAC2, IFUP, NULL, NULL);
+		rc_bridge_init_record(&bridge_status, "bring up GMAC2 secondary interface", operation_status);
+		operation_status = br_add_del_if(IFNAME_BR, IFNAME_MAC2, 1);
+		rc_bridge_init_record(&bridge_status, "attach GMAC2 secondary interface", operation_status);
 #if defined (USE_HW_NAT)
 		/* enable PPE to forward bridge traffic */
 		module_smart_load("hw_nat", "ttl_regen=0");
@@ -280,7 +325,8 @@ init_bridge(int is_ap_mode)
 	doSystem("ifconfig %s txqueuelen %d", IFNAME_2G_WDS3, SHRINK_TX_QUEUE_LEN);
 #endif
 
-	ifconfig(IFNAME_BR, IFUP, NULL, NULL);
+	operation_status = ifconfig(IFNAME_BR, IFUP, NULL, NULL);
+	rc_bridge_init_record(&bridge_status, "bring up LAN bridge", operation_status);
 
 #if BOARD_HAS_5G_RADIO
 	if (!wl_radio_on || (wl_mode_x == 1 || wl_mode_x == 3)) {
@@ -308,6 +354,13 @@ init_bridge(int is_ap_mode)
 
 	nvram_set_int_temp("reload_svc_wl", 0);
 	nvram_set_int_temp("reload_svc_rt", 0);
+
+	if (bridge_status.first_status != 0)
+		logmessage(LOGNAME,
+			   "LAN bridge initialization incomplete: %s failed first (status=%d; failed_operations=%u)",
+			   bridge_status.first_operation ? bridge_status.first_operation : "unknown",
+			   bridge_status.first_status, bridge_status.failure_count);
+	return rc_bridge_init_result(&bridge_status);
 }
 
 int
@@ -435,15 +488,18 @@ switch_config_storm(void)
 	phy_storm_broadcast(controlrate_broadcast);
 }
 
-void
+int
 switch_config_vlan(int first_call)
 {
+	rc_bridge_init_status_t vlan_status;
+	int operation_status;
 	int bridge_mode, bwan_isolation, is_vlan_filter;
 	int vlan_vid[SWAPI_VLAN_RULE_NUM] = {0};
 	int vlan_pri[SWAPI_VLAN_RULE_NUM] = {0};
 	int vlan_tag[SWAPI_VLAN_RULE_NUM] = {0};
 	unsigned int vrule;
 
+	rc_bridge_init_status_reset(&vlan_status);
 	bridge_mode = get_wan_bridge_mode();
 	bwan_isolation = get_wan_bridge_iso_mode(bridge_mode);
 
@@ -487,36 +543,52 @@ switch_config_vlan(int first_call)
 	}
 
 	/* set vlan rule before change bridge mode! */
-	for (vrule = 0; vrule < SWAPI_VLAN_RULE_NUM; vrule++)
-		phy_vlan_rule_set(vrule, vlan_vid[vrule], vlan_pri[vrule], vlan_tag[vrule]);
+	for (vrule = 0; vrule < SWAPI_VLAN_RULE_NUM; vrule++) {
+		operation_status = phy_vlan_rule_set(vrule, vlan_vid[vrule], vlan_pri[vrule], vlan_tag[vrule]);
+		rc_bridge_init_record(&vlan_status, "VLAN rule", operation_status);
+	}
 
-	phy_bridge_mode(bridge_mode, bwan_isolation);
+	operation_status = phy_bridge_mode(bridge_mode, bwan_isolation);
+	rc_bridge_init_record(&vlan_status, "switch bridge mode", operation_status);
 
 #if defined(USE_RT3352_MII)
 	if (!first_call) {
 		// clear isolation iNIC port from all LAN ports
-		if (is_interface_up(IFNAME_INIC_MAIN) && get_mlme_radio_rt())
-			phy_isolate_inic(0);
+		if (is_interface_up(IFNAME_INIC_MAIN) && get_mlme_radio_rt()) {
+			operation_status = phy_isolate_inic(0);
+			if (operation_status != 0)
+				logmessage(LOGNAME, "optional iNIC isolation reset failed (status=%d)", operation_status);
+		}
 	}
 #endif
+
+	if (vlan_status.first_status != 0)
+		logmessage(LOGNAME,
+			   "switch VLAN initialization incomplete: %s failed first (status=%d; failed_operations=%u)",
+			   vlan_status.first_operation ? vlan_status.first_operation : "unknown",
+			   vlan_status.first_status, vlan_status.failure_count);
+	return rc_bridge_init_result(&vlan_status);
 }
 
-void
+int
 restart_switch_config_vlan(void)
 {
+	int start_status = 0;
+	int operation_status;
 #if !defined (USE_GMAC2_TO_GPHY) && !defined (USE_GMAC2_TO_GSW)
 	int pvid_wan_before, pvid_wan_after;
 #endif
 
 	if (get_ap_mode())
-		return;
+		return 0;
 
 #if !defined (USE_GMAC2_TO_GPHY) && !defined (USE_GMAC2_TO_GSW)
 	pvid_wan_before = phy_vlan_pvid_wan_get();
 #endif
 
 	notify_reset_detect_link();
-	switch_config_vlan(0);
+	operation_status = switch_config_vlan(0);
+	start_status = rc_first_service_start_status(start_status, operation_status);
 
 #if !defined (USE_GMAC2_TO_GPHY) && !defined (USE_GMAC2_TO_GSW)
 	pvid_wan_after = phy_vlan_pvid_wan_get();
@@ -524,9 +596,11 @@ restart_switch_config_vlan(void)
 		logmessage(LOGNAME, "unable to compare WAN switch PVID after VLAN reconfiguration (%d, %d)",
 			   pvid_wan_before, pvid_wan_after);
 	} else if (switch_status_vlan_pvid_changed(pvid_wan_before, pvid_wan_after)) {
-		full_restart_wan();
+		operation_status = full_restart_wan();
+		start_status = rc_first_service_start_status(start_status, operation_status);
 	}
 #endif
+	return start_status;
 }
 
 int

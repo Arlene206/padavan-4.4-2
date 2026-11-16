@@ -1006,7 +1006,13 @@ init_router(void)
 		boot_services_status = rc_first_service_start_status(
 			boot_services_status, loopback_start_status);
 	}
-	init_bridge(is_ap_mode);
+	{
+		int bridge_start_status = init_bridge(is_ap_mode);
+		if (bridge_start_status != 0)
+			logmessage(LOGNAME, "LAN bridge boot initialization incomplete (status=%d)", bridge_start_status);
+		boot_services_status = rc_first_service_start_status(
+			boot_services_status, bridge_start_status);
+	}
 #if defined (USE_IPV6)
 	init_ipv6();
 #endif
@@ -1766,14 +1772,14 @@ handle_notifications(void)
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_SWITCH_CFG) == 0)
 		{
-			config_bridge(get_ap_mode());
+			action_result = rc_notify_merge_action_result(action_result, config_bridge(get_ap_mode()));
 			switch_config_base();
 			switch_config_storm();
 			switch_config_link();
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_SWITCH_VLAN) == 0)
 		{
-			restart_switch_config_vlan();
+			action_result = rc_notify_merge_action_result(action_result, restart_switch_config_vlan());
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_SYSLOG) == 0)
 		{
