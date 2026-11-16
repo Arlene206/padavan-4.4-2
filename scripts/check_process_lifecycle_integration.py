@@ -226,7 +226,7 @@ assert "PROCESS_PRESENCE_RUNNING" in pppoe_confirm
 assert "PROCESS_PRESENCE_UNKNOWN" in pppoe_confirm
 assert "sleep(1);" in pppoe_confirm
 assert "pppoe_relay_start_status(launch_status, presence)" in pppoe_confirm
-udpxy_start = net_source.split("int\nstart_udpxy(char *wan_ifname)", 1)[1].split("\n}\n#if defined(APP_XUPNPD)", 1)[0]
+udpxy_start = net_source.split("int\nstart_udpxy(char *wan_ifname)", 1)[1].split("\n#if defined(APP_XUPNPD)", 1)[0]
 assert "if (port < 1024)" in udpxy_start
 assert 'launch_status = eval("/usr/bin/msd_lite"' in udpxy_start
 assert 'MSD Lite launch failed (status=%d)' in udpxy_start
@@ -235,7 +235,7 @@ assert 'udpxy launch failed (status=%d)' in udpxy_start
 assert udpxy_start.count("if (launch_status != 0)") == 2
 assert "return launch_status;" in udpxy_start
 assert "int start_udpxy(char *wan_ifname);" in rc_header
-xupnpd_start = net_source.split("int\nstart_xupnpd(char *wan_ifname)", 1)[1].split("\n}\n#endif", 1)[0]
+xupnpd_start = net_source.split("int\nstart_xupnpd(char *wan_ifname)", 1)[1].split("\n#endif", 1)[0]
 assert "if (!is_xupnpd_support())" in xupnpd_start
 assert "if (xport < 1024)" in xupnpd_start
 assert 'launch_status = eval("/usr/bin/xupnpd");' in xupnpd_start
@@ -249,7 +249,7 @@ assert "fsync(fileno(fp1))" in xupnpd_start and "rename(tmp1, tmp2)" in xupnpd_s
 assert "unlink(tmp1)" in xupnpd_start
 assert xupnpd_start.index("if (has_daemon)") < xupnpd_start.index('launch_status = eval("/usr/bin/xupnpd");')
 assert xupnpd_start.index('launch_status = system("/usr/bin/xupnpd &");') < xupnpd_start.index("if (launch_status != 0)")
-igmpproxy_start = net_source.split("int\nstart_igmpproxy(char *wan_ifname)", 1)[1].split("\n}\n\nint\nrestart_iptv", 1)[0]
+igmpproxy_start = net_source.split("int\nstart_igmpproxy(char *wan_ifname)", 1)[1].split("\nint\nrestart_iptv", 1)[0]
 assert '#include "service_start_status.h"' in net_source
 assert "rc_first_service_start_status(start_status, start_udpxy(wan_ifname))" in igmpproxy_start
 assert "rc_first_service_start_status(start_status, start_xupnpd(wan_ifname))" in igmpproxy_start
@@ -1111,7 +1111,7 @@ print("optional AdGuardHome/DDNS.to/Adbyby/AliDDNS launch diagnostics: PASS")
 # MSD Lite config publication must finish before enabling or launching the daemon.
 msd_config_header = (root / "trunk/user/rc/src/msd_lite_config_file.h").read_text()
 msd_config_test = (root / "trunk/user/rc/src/tests/msd_lite_config_file.c").read_text()
-udpxy_start = net_source.split("void\nstart_udpxy(char *wan_ifname)", 1)[1].split(
+udpxy_start = net_source.split("int\nstart_udpxy(char *wan_ifname)", 1)[1].split(
     "\n#if defined(APP_XUPNPD)", 1
 )[0]
 msd_lite_branch = udpxy_start.split("#if defined (APP_MSD_LITE)", 1)[1].split("#else", 1)[0]
