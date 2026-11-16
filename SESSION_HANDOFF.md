@@ -10,7 +10,7 @@ Every multi-file logical change must be created as one complete Git tree and one
 
 ## Current repository state
 
-- Latest main commit: `393c1c489e0558d4638e37fef29ce236e1b9d0bd` (exact-head USB storage `43909013086`, Process lifecycle `43909012933`, and AI docs `43909013100` all PASS). Product parent c1aca `c1aca046300ec7738a3455c779afb988f5d71cb6` passed NVRAM `43907888090` and XY-C1 `43907888399`, with Build, TRX and artifact upload all successful on that same SHA. THIS COMMIT adds fail-closed filesystem module-load locking and its extracted-function regression; exact-head storage and XY-C1 checks are pending.
+- Latest main commit: `eff340da753ab117ee243d1451d2c5080d99e046`. USB storage `43911560366` passed the preceding 23 checks but failed at new module-loader shell test step 24 with exit 1 and insufficient trace; THIS COMMIT enables xtrace to expose the exact failing command. Docs `43911560363` and Process lifecycle `43911560429` PASS; XY-C1 `43911560375` was IN_PROGRESS at last poll. HTTPD `43911560358` independently failed at step 27; inspect its own log.
 
 - Repository: `Arlene206/padavan-4.4-2`; current source parent before this slice: `e05ccbcb8c458ee2bc07c6020ed5af52b3d4cff8`.
 - Mount-link errno fix, GNU89 policy regression, storage source contracts, and workflow corrections are included together in THIS COMMIT.
@@ -21,16 +21,15 @@ Every multi-file logical change must be created as one complete Git tree and one
 
 ## Active task
 
-THIS COMMIT fixes a specific automount race: `func_load_module()` previously ignored `flock 9` failure and continued to `modprobe`, so concurrent hotplug workers could load filesystem modules without serialization. It also treated an unreadable `/proc/modules` as an absent module. The helper now distinguishes UNKNOWN inventory from absence, refuses `modprobe` without the lock, rechecks under lock, propagates `modprobe` failure, and mount branches abort on error. New `storage_module_load_lock.sh` extracts and executes the production function against mock `flock`/`modprobe`, covering lock failure, the post-lock race, failure propagation and invalid inputs. The equivalent local shell harness passed; exact-head Actions are pending.
+Module-loader production fix is in parent `eff340da753ab117ee243d1451d2c5080d99e046`, but exact-head USB storage `43911560366` failed only at its new shell regression (step 24), after source syntax passed. The test exited 1 without a diagnostic. THIS COMMIT turns on shell xtrace so the next run reveals the failing command. Do not modify product code until the root cause is visible.
 ## Verification boundary
 
-- Parent `393c1c489e0558d4638e37fef29ce236e1b9d0bd`: USB storage `43909013086`, Process lifecycle `43909012933`, AI docs `43909013100` PASS.
-- Product parent c1aca: NVRAM `43907888090` PASS; XY-C1 `43907888399` PASS with Build, TRX verification and artifact upload on the same SHA.
-- THIS COMMIT changes `automount.sh` and adds an extracted-function shell regression; exact-head USB storage and XY-C1 Build/TRX/artifact are pending. Physical-router L4 NOT VERIFIED.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at SHA `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Parent eff340: USB storage `43911560366` FAILED at new module-loader test step 24; preceding 23 steps passed. Root cause not yet known; xtrace added here.
+- Parent eff340: Docs `43911560363` and Process `43911560429` PASS. XY-C1 `43911560375` was IN_PROGRESS. HTTPD `43911560358` failed independently at step 27; separate diagnosis is required.
+- Frozen backup SHA `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged. Physical-router L4 remains NOT VERIFIED.
 ## Exact first action for the next GPT
 
-1. Inspect exact-head USB storage on THIS COMMIT; the extracted-function shell regression and Python caller-graph checks must pass.
-2. Inspect exact-head XY-C1 Build, TRX verification and artifact upload on the same product SHA; do not carry c1aca L3 through this automount change.
-3. After those gates, continue the remaining automount/notification reliability work. The existing contracts were checked: `_eval()` is synchronous and returns child exit status when `ppid` is NULL; `notify_rc()` is a void asynchronous queue/signal API.
-4. Preserve the frozen backup and keep physical-router L4 marked NOT VERIFIED.
+1. Inspect exact-head USB storage test trace for THIS COMMIT and repair the first failing test command while keeping the production fix only if it remains justified.
+2. Check XY-C1 Build, TRX verification and artifact upload on product SHA eff340 `eff340da753ab117ee243d1451d2c5080d99e046`.
+3. Inspect HTTPD run `43911560358` step-27 assertion separately; it is outside the automount files in this change.
+4. Keep backup branch frozen; L4 remains unverified.

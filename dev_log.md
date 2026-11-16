@@ -1,3 +1,11 @@
+## 2026-11-16 — Diagnose the new module-loader regression CI failure
+
+- Parent main: `eff340da753ab117ee243d1451d2c5080d99e046`. USB storage run `43911560366` passed all 23 preceding checks, including automount syntax, then the new module-loader test (step 24) exited 1 without enough context. The production shell syntax check passed. This is a test-harness failure until proven otherwise, not a product-source failure.
+- Enabled POSIX shell xtrace in `storage_module_load_lock.sh` so the exact extraction/setup/assertion command is visible on the next exact-SHA run. No product source changed in this diagnostic commit.
+- XY-C1 run `43911560375` was still IN_PROGRESS; docs `43911560363` and Process `43911560429` PASS on parent eff340. HTTPD run `43911560358` independently failed at an existing step-27 integration assertion and needs its own log review.
+
+---
+
 ## 2026-11-16 — Fail closed on filesystem module-load lock and inventory errors
 
 - Parent main: `393c1c489e0558d4638e37fef29ce236e1b9d0bd`. Found `func_load_module()` in `automount.sh` ignored `flock 9` failure and proceeded to `modprobe`, allowing concurrent hotplug workers to bypass intended filesystem-module serialization. It also treated AWK read/parse errors on `/proc/modules` as evidence that a module was absent.
