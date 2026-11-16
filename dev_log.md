@@ -1,3 +1,11 @@
+## 2026-11-16 — Normalize conntrack deconfig status contract after exact-head test
+
+- Parent main: `cffc1497fda9f65d9a0b163bad5acc1723c23f81`. Exact-head WAN route run `43973861975` compiled and passed the new conntrack errno policy regression (GNU89, ASan, UBSan), all existing route/IPv6/bridge tests and the WAN VLAN source check. Its final source-contract step failed only because the new assertion compared whitespace-formatted `udhcpc_deconfig()` code without removing all whitespace; the production return aggregation is intentionally split across lines.
+- Exact-head Process `43973862332`, Firewall Startup `43973861431` and AI handoff `43973861519` passed. XY-C1 `43973861873` was queued at last poll. This fix removes whitespace before comparing the nested first-error aggregation expression; no production source changes.
+- Earlier exact `1f829937` XY-C1 run `43971856235` passed the complete firmware build, TRX output verification and artifact upload. That L3 evidence predates the conntrack source/API change. Current cffc source L3 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Propagate conntrack table flush failures through RC teardown
 
 - Parent main: `1f8299371114d2fb846ec1c47a0116afd584668c`. Traced all RC references: `flush_conntrack_table()` was declared `void` and discarded the errno-style result of shared `fput_string("/proc/net/nf_conntrack", ip)`. All four callers ignored write failure: PID 1 `RCN_RESTART_NETFILTER`, LAN teardown, WAN teardown and MAN DHCP deconfig. The shared writer returns errors from buffered writes and close.

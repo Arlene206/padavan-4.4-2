@@ -9,23 +9,25 @@ Every logical multi-file change must be one complete Git tree and one atomic mai
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main`.
-- Parent for this conntrack-flush slice: `1f8299371114d2fb846ec1c47a0116afd584668c`. Strict HW NAT/FTP/SFE tri-state source changes are in `1554a5f3`; checker/handoff repairs are in `99d8562d` and `1f829937`.
-- Exact-head `1f829937` Process `43971856210`, Firewall Startup `43971856255` and AI handoff `43971856365` passed. WAN/XY and other Actions were still running at last poll; inspect their exact-head status.
-- The new source slice changes `flush_conntrack_table()` from `void` to errno-style `int`, returning shared `fput_string()` status. It covers all four callers: PID 1 netfilter notification, LAN teardown, WAN teardown and MAN DHCP deconfig. An injected regression verifies the write path and errno.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at its recorded SHA `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. Never modify it. Physical-router L4 remains **NOT VERIFIED**.
+- Conntrack flush implementation parent: `cffc1497fda9f65d9a0b163bad5acc1723c23f81`; checker correction parent: `cffc1497fda9f65d9a0b163bad5acc1723c23f81`.
+- Exact-head WAN route `43973861975` compiled/passed the injected conntrack flush policy test, all pre-existing C policy tests and WAN VLAN source check. It then failed one newly added source assertion at Python line 56 because the assertion expected a compact nested first-error return but used only whitespace-collapsing, not whitespace-removing, normalization. This commit fixes only that assertion.
+- Exact-head Process `43973862332`, Firewall Startup `43973861431` and AI handoff `43973861519` passed. XY-C1 `43973861873` was queued at last poll.
+- Previous exact `1f829937` XY-C1 run `43971856235` passed Build XY-C1, TRX verification and artifact upload. This L3 evidence predates cffc's conntrack API/source changes and is not reused.
+- The implementation now returns errno-style status from `flush_conntrack_table()` and propagates it through PID 1 netfilter notifications, LAN teardown, WAN teardown and MAN DHCP deconfig. The injected test verifies target IP, full flush, EACCES propagation and invalid writer handling.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Never modify it. Physical-router L4 remains **NOT VERIFIED**.
 
 ## Active task
 
-Complete and verify conntrack flush failure propagation. Compile/run the injectable policy test with GNU89/ASan/UBSan, confirm all callers aggregate or return the status without short-circuiting later cleanup, then inspect exact-head WAN/Process/Firewall/XY/AI Actions.
+Verify the conntrack flush status API and all four callsites after this test-contract correction. Require WAN route source checks, Process, Firewall, AI handoff and XY-C1 exact-head results. Do not declare current firmware L3 until cffc-descendant same-SHA Build/TRX/artifact succeeds.
 
 ## Verification boundary
 
-- `fput_string()` returns errno-style status from its checked stream write/close path; the previous `flush_conntrack_table()` discarded it.
-- Previous exact `1f829937` Process, Firewall Startup and AI handoff passed but do not cover this new conntrack source change. XY-C1 was building at last poll; no current-source L3 claim.
-- The new exact-head C regression and source-contract run have not yet executed. Physical-router L4 remains **NOT VERIFIED**.
+- Exact cffc WAN route run passed the new GNU89/ASan/UBSan conntrack policy regression; its only failure was the whitespace-sensitive Python source assertion.
+- Process, Firewall and AI handoff passed on cffc. XY-C1 was queued at last poll; exact result must be fetched.
+- Exact 1f829 XY-C1 L3 success does not validate cffc source changes. Physical-router L4 remains **NOT VERIFIED**.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; inspect exact-head WAN route, Process lifecycle, Firewall Startup, XY-C1 and AI handoff runs for the conntrack change. Fix real failures from their job logs and confirm same-SHA firmware Build/TRX/artifact.
-2. Continue auditing RC/network result-value loss only where an actual operational error is discarded.
-3. Keep one complete-tree atomic main commit per logical slice with non-forced expected-SHA CAS; keep the backup read-only and do not claim physical-router L4 without hardware evidence.
+1. Fetch live `main`; inspect exact-head WAN route, XY-C1 and all other cffc-triggered workflows after the assertion correction. Diagnose real failures from their job logs and confirm same-SHA firmware Build/TRX/artifact.
+2. Continue reviewing RC/network teardown for discarded operational status, tracing each callee/caller before changing an API.
+3. Keep each logical task in one complete-tree atomic main commit using non-forced expected-SHA CAS; leave backup read-only and do not claim router L4 without physical hardware evidence.

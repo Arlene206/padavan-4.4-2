@@ -1,10 +1,10 @@
 ## Current source / CI checkpoint
 
-- Parent: `1f8299371114d2fb846ec1c47a0116afd584668c`. Exact-head `1f829937` Process `43971856210`, Firewall Startup `43971856255` and AI handoff `43971856365` passed; XY-C1 `43971856235` was still building at last poll.
-- Traced `flush_conntrack_table()`: its `void` API discarded the errno-style result of `fput_string()`. All four callers (PID 1 netfilter notification, LAN teardown, WAN teardown and MAN DHCP deconfig) ignored failures. This atomic change returns write/close status and aggregates it at every caller while allowing later cleanup to proceed.
-- Added `conntrack_flush_policy.h` and GNU89/ASan/UBSan tests for targeted IP, full-table flush, errno propagation and missing writer; WAN route workflow compiles the test and checks production caller contracts.
-- Strict HW NAT/FTP/SFE handling remains in the source line. New exact-head WAN/Process/Firewall/XY regressions are required. Previous `d287` firmware L3 does not apply to current source. Physical-router L4 remains **NOT VERIFIED**.
-- Frozen backup remains read-only. Continue evidence-backed RC/network result propagation across userland.
+- Conntrack flush source commit: `cffc1497fda9f65d9a0b163bad5acc1723c23f81`; source-checker correction parent: `cffc1497fda9f65d9a0b163bad5acc1723c23f81`.
+- Exact cffc WAN route `43973861975` passed the injected C conntrack policy regression and existing route tests, then failed only at a whitespace-sensitive nested return assertion in `udhcpc_deconfig()`. This follow-up normalizes all whitespace. Exact cffc Process `43973862332`, Firewall Startup `43973861431` and AI handoff `43973861519` passed. XY-C1 `43973861873` was queued at last poll.
+- `flush_conntrack_table()` now propagates the shared write/close result to PID 1, LAN, WAN and MAN teardown. A GNU89/ASan/UBSan injected policy regression passed.
+- Earlier exact `1f829937` XY-C1 Build/TRX/artifact passed, but predates conntrack source/API changes. Current production L3 is NOT VERIFIED pending same-SHA XY-C1 success. Physical-router L4 remains **NOT VERIFIED**.
+- Frozen backup remains read-only. Continue evidence-backed network/service error propagation.
 
 ## Whole-repository module status
 
