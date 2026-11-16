@@ -63,7 +63,7 @@ add_rule() { echo add_rule >> "$events_file"; }
 hosts_ads() { echo hosts_ads >> "$events_file"; }
 PROG_PATH="$tmp/adbyby"
 mkdir -p "$PROG_PATH"
-printf '#!/bin/sh\\necho launch >> "$ADBYBY_TEST_EVENTS"\\n' > "$PROG_PATH/adbyby"
+printf '%s\n' '#!/bin/sh' 'echo launch >> "$ADBYBY_TEST_EVENTS"' > "$PROG_PATH/adbyby"
 chmod 755 "$PROG_PATH/adbyby"
 cat > "$tmp/bin/iptables-save" <<'STUB'
 #!/bin/sh
@@ -157,6 +157,7 @@ echo running > "$state_file"
 : > "$events_file"
 ADBYBY_TEST_KILL_MODE=stop-fail
 ADBYBY_TEST_KILL_STATUS=29
+export ADBYBY_TEST_KILL_STATUS
 adbyby_close || fail "failed killall status overrode confirmed ABSENT postcondition"
 [ "$(event_count 'killall:-q adbyby')" -eq 1 ] || fail "failed-signal path did not send one TERM"
 [ "$(event_count del_rule)" -eq 1 ] || fail "failed-signal path did not complete firewall cleanup"
@@ -168,7 +169,12 @@ echo stubborn > "$state_file"
 : > "$events_file"
 ADBYBY_TEST_KILL_MODE=keep
 if adbyby_uprules; then fail "update succeeded while the old daemon remained alive"; fi
-if grep -E '^(addscripts|add_rules|launch|add_dns|add_rule|hosts_ads|restart_dhcpd) "$events_file" >/dev/null; then
+if grep -E '^(addscripts|add_rules|launch|add_dns|add_rule|hosts_ads|restart_dhcpd)
+	fail "rule update continued after Adbyby stop failure"
+fi
+
+echo "Adbyby stop postcondition and fail-closed cleanup regression: PASS"
+ "$events_file" >/dev/null; then
 	fail "rule update continued after Adbyby stop failure"
 fi
 
