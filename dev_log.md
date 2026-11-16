@@ -1,3 +1,12 @@
+## 2026-11-16 — Correct SCUT/MentoHUST lifecycle regression integration
+
+- Parent main: dc740accb110bfb88d0003e9142c04113b6b4921.
+- Exact-SHA run 43801979640 (Process inventory and lifecycle fail-closed regression) failed because the static checker expected the phrase "UNKNOWN after TERM", while the shell test's actual negative assertion is "post-TERM UNKNOWN accepted". Correct the contract to match the regression.
+- Exact-SHA run 43801979688 (Legacy wrapper stale pidfile safety) failed because the existing legacy test invoked wrappers without the newly installed shared helper and expected direct SIGKILL commands. It now supplies PROCESS_LIFECYCLE_LIB and a pidof stub returning confirmed ABSENT; the correct behavior is no killall invocation, with SCUT's one-shot logoff action preserved.
+- Job logs isolated these integration failures. This follow-up modifies regression wiring only; production helper/wrapper source remains unchanged. The follow-up SHA must run all affected Actions again before PASS is claimed.
+- Next: check exact-head CI for this regression repair and continue only after the checks are reconciled.
+---
+
 ## 2026-11-16 — Add verified shared process shutdown for SCUTClient and MentoHUST
 
 - Parent main: 9e9e0a42da9154b497c9dbaba7319bdbae5eaf61; frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.

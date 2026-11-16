@@ -35,7 +35,14 @@ exit 0
 MOCK
 chmod 755 "$TEST_BIN/"*
 PATH="$TEST_BIN:$PATH"
-export PATH KILLALL_LOG SCUT_LOG
+PROCESS_LIFECYCLE_LIB="$ROOT/trunk/user/shared/scripts/process_lifecycle.sh"
+export PATH KILLALL_LOG SCUT_LOG PROCESS_LIFECYCLE_LIB
+cat > "$TEST_BIN/pidof" <<'MOCK'
+#!/bin/sh
+# Both short-lived wrappers have no resident daemon in this regression.
+exit 1
+MOCK
+chmod 755 "$TEST_BIN/pidof"
 
 # A stale pidfile can point at an unrelated process. These wrappers do not
 # own a persistent shell process, so they must never signal or rewrite it.
@@ -54,9 +61,8 @@ MENTOHUST_PIDFILE="$MENTO_PIDFILE" sh "$ROOT/trunk/user/mentohust/scripts/mentoh
   echo "FAIL: mentohust wrapper consumed or rewrote a stale pidfile" >&2; exit 1;
 }
 
-expected=$(printf '%s\n' '-q -9 bin_scutclient' '-q -9 bin_mentohust')
-[ "$(cat "$KILLALL_LOG")" = "$expected" ] || {
-  echo "FAIL: daemon stop commands changed unexpectedly" >&2; exit 1;
+[ ! -s "$KILLALL_LOG" ] || {
+  echo "FAIL: confirmed-absent wrappers sent an unnecessary signal" >&2; exit 1;
 }
 
 echo "Legacy scutclient/mentohust wrappers never signal stale pidfile PIDs: PASS"

@@ -546,7 +546,7 @@ def check_shared_process_lifecycle():
     assert "pl_wait_stopped()" in helper
     assert "pl_stop_named()" in helper
     assert "$(INSTALL_BIN) $(CURDIR)/scripts/process_lifecycle.sh $(ROMFSDIR)/usr/lib/process_lifecycle.sh" in makefile
-    for token in ("empty-success", "malformed", "inconsistent", "UNKNOWN after TERM",
+    for token in ("empty-success", "malformed", "inconsistent", "post-TERM UNKNOWN accepted",
                   "sleep failure", "stubborn process", "UNKNOWN authorized a signal",
                   "KILL:-q -9 test-daemon"):
         assert token in test, f"shared lifecycle regression missing {token}"

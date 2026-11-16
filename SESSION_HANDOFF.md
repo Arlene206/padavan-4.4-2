@@ -66,17 +66,13 @@ Before context exhaustion, record exact refs, Action states and the first next a
 
 ## Active task
 
-The next inventory-selected daemon shutdown gap is addressed by the shared POSIX lifecycle helper, installed by the always-built shared package at /usr/lib/process_lifecycle.sh. It strictly validates pidof output and distinguishes RUNNING / confirmed ABSENT / UNKNOWN. pl_stop_named sends TERM only from a validated RUNNING state, performs bounded postcondition checks, revalidates before SIGKILL escalation, and reports success only after a fresh ABSENT result. Missing pidof/killall, malformed PID output, UNKNOWN after TERM, and sleep failures fail closed.
-
-SCUTClient and MentoHUST now source the common helper, refuse duplicate starts while RUNNING, refuse start/stop/restart when process state is UNKNOWN, and gate restart on verified stop. SCUTClient retains its post-stop logoff action but never runs it when daemon absence is unverified. The shared shell regression covers tri-state inventory, error/malformed/inconsistent scans, ABSENT idempotence, ambiguous killall status with successful postcondition, SIGKILL escalation, UNKNOWN after TERM, wait failure, and stuck daemon. The optional-app host checker additionally exercises both real wrappers using stubbed pidof/start-stop-daemon/killall commands, including launch status, duplicate-start prevention, stop status and restart gating.
-
-Parent main for this atomic transaction: 9e9e0a42da9154b497c9dbaba7319bdbae5eaf61. At that exact SHA, Process lifecycle/inventory run 43800309439, AI handoff docs 43800309443, AliDDNS transport security 43800309472, AliyunDrive lifecycle 43800309429, AdGuardHome config security 43800309435, infosvr lifecycle 43800309421, and NVRAM boundary 43800309440 all completed SUCCESS. The frozen backup remains unchanged. This transaction's resulting SHA and its own exact-head Actions must be checked after publication; no firmware or physical-router result is claimed for it.
+The shared POSIX lifecycle helper and SCUTClient/MentoHUST wrapper changes are in commit dc740accb110bfb88d0003e9142c04113b6b4921. First exact-SHA CI identified two regression integration defects, not production-source failures: the new optional-app checker expected a text token different from the shell regression's actual assertion string; the legacy stale-pidfile fixture had not yet supplied the newly required shared helper and still asserted the old unconditional SIGKILL behavior. The follow-up changes align the static token and make the legacy test inject the real shared helper plus a pidof stub proving ABSENT; in that state both wrappers should avoid unnecessary signals while the SCUT logoff action remains unchanged.
 
 ## Exact first action for the next GPT
 
-1. Resolve live main and check exact-SHA Actions for the shared lifecycle helper / SCUTClient / MentoHUST transaction: Process lifecycle/inventory, AI handoff, NVRAM boundary, and XY-C1 only if triggered. Diagnose real failed job logs before deciding the slice is complete.
-2. If those checks pass, inspect the next inventory-ranked direct process signal/stop caller, not these wrappers again. Preserve separate host L2, firmware L3, and physical-router L4 boundaries.
-3. Do not create a documentation-only commit when the handoff facts and next action are already accurate. The frozen backup must remain at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+1. Check exact-SHA Actions for the follow-up that corrects the process checker token and legacy wrapper fixture. Process lifecycle/inventory, legacy wrapper stale-pidfile, AI handoff, NVRAM boundary and any triggered XY-C1 build must be judged on the follow-up SHA.
+2. Diagnose any remaining failures from job logs. Once all relevant checks pass, proceed to the next inventory-ranked direct process signal/stop consumer; do not repeat this helper/wrapper slice.
+3. Keep the backup branch frozen at 72f4f157a084f8184b9597ca5bf334b8080e5807.
 
 ## Governance and safety constraints
 
