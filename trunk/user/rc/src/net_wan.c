@@ -1895,17 +1895,22 @@ start_wan(void)
 				char *lan_addr = nvram_safe_get("lan_ipaddr");
 				char *lan_mask = nvram_safe_get("lan_netmask");
 				
-				if (wan_mtu >= 1300 && wan_mtu < 1500)
-					set_interface_mtu(wan_ifname, wan_mtu);
-				
-				if (is_same_subnet2(wan_addr, lan_addr, wan_mask, lan_mask)) {
+				if (!dhcp_lease_ipv4_is_valid(wan_addr) ||
+				    !dhcp_lease_netmask_is_valid(wan_mask)) {
+					wan_err = 1;
+					wan_start_status = rc_first_service_start_status(
+						wan_start_status, EINVAL);
+					logmessage(LOGNAME, "invalid static WAN IPv4 address or netmask on %s",
+						   wan_ifname);
+				} else if (is_same_subnet2(wan_addr, lan_addr, wan_mask, lan_mask)) {
 					wan_err = 1;
 					wan_start_status = rc_first_service_start_status(
 						wan_start_status, EADDRINUSE);
-					
 					logmessage(LOGNAME, "%s (%s) ERROR! Static IP [%s/%s] in LAN subnet [%s/%s]!",
 						"WAN", wan_ifname, wan_addr, wan_mask, lan_addr, lan_mask);
 				} else {
+					if (wan_mtu >= 1300 && wan_mtu < 1500)
+						set_interface_mtu(wan_ifname, wan_mtu);
 					int address_status, clear_status;
 					
 					address_status = ifconfig(wan_ifname, IFUP, wan_addr, wan_mask);

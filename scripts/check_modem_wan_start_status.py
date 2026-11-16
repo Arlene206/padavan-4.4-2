@@ -141,6 +141,22 @@ ipoe_branch = wan_start[ipoe_branch_start:ipoe_end]
 migration_pos = ipoe_branch.index("vlan_result = check_upnp_wanif_changed(wan_ifname);")
 migration_end = ipoe_branch.index("continue;", migration_pos)
 assert "wan_start_status = rc_first_service_start_status" in ipoe_branch[migration_pos:migration_end]
+static_config_start = ipoe_branch.index("if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC)")
+static_config_end = ipoe_branch.index('set_wan_unit_value_int(unit, "err", wan_err);', static_config_start)
+static_config = compact(ipoe_branch[static_config_start:static_config_end])
+invalid_config = "if (!dhcp_lease_ipv4_is_valid(wan_addr) || !dhcp_lease_netmask_is_valid(wan_mask))"
+assert invalid_config in static_config, "static WAN IPoE must strictly validate address and netmask"
+invalid_config_start = static_config.index(invalid_config)
+subnet_conflict_start = static_config.index("else if (is_same_subnet2(wan_addr, lan_addr, wan_mask, lan_mask))")
+assert invalid_config_start < subnet_conflict_start
+invalid_config_path = static_config[invalid_config_start:subnet_conflict_start]
+assert "wan_err = 1;" in invalid_config_path
+assert re.search(
+    r"wan_start_status\s*=\s*rc_first_service_start_status\s*\(\s*wan_start_status\s*,\s*EINVAL\s*\)\s*;",
+    invalid_config_path,
+), "invalid static WAN config must not be reported as successful startup"
+assert static_config.index("address_status = ifconfig(wan_ifname, IFUP, wan_addr, wan_mask);") > subnet_conflict_start
+
 address_pos = ipoe_branch.index("if (address_status != 0)")
 address_end = ipoe_branch.index("/* re-build iptables rules (final stage for IPoE static) */", address_pos)
 assert "wan_start_status = rc_first_service_start_status" in ipoe_branch[address_pos:address_end]

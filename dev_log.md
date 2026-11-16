@@ -1,3 +1,13 @@
+## 2026-11-16 — Validate static IPoE IPv4 configuration before ifconfig
+
+- Parent main: `c3b02529703add66cbd811b8dfa729edef50ad74`. The shared `ifconfig()` helper converts invalid address/netmask text to `INADDR_ANY` and can still return success, so a malformed static WAN config could be published as a successful WAN start.
+- Static IPoE now validates the IPv4 address and contiguous nonzero netmask with `dhcp_lease_ipv4_is_valid()` and `dhcp_lease_netmask_is_valid()` before MTU/address configuration. Invalid values set the unit error and aggregate `EINVAL`; WAN/LAN subnet overlap remains `EADDRINUSE`.
+- Added GNU89 regression cases for invalid address and netmask text and source-contract checks that validate before `ifconfig()`. Also normalized any remaining old-arity PPP IP-up test calls to pass `NULL` for an absent peer address after the latest test failure.
+- Parent run `43870165716` had failed compiling the IP-up test because two invocations omitted the optional peer-address parameter. This source/test commit includes the arity correction; its exact-SHA callback run must verify it.
+- Next: inspect exact-head Process, WAN DHCP and XY-C1 Actions; no L3 claim until same-SHA Build, TRX verification and artifact upload all pass.
+
+---
+
 ## 2026-11-16 — Fix PPP IPCP regression call arity after exact-head compile failure
 
 - Parent main: `bacfb1d9d9c814fdc6d122de5e8e34cf85dcb900`. Exact-head WAN DHCP callback run `43870165716` reached the PPP IPv4 callback test compile and failed because `test_interface_failure_preserves_published_state()` retained a four-argument call after `ppp_wan_ipup_apply_address()` gained its required remote-address argument. The failure was confined to the regression call site; the production change was not compiled by that step.

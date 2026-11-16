@@ -4,6 +4,7 @@
 
 #include "modem_wan_start_policy.h"
 #include "service_start_status.h"
+#include "dhcp_lease_policy.h"
 
 static void
 test_miniupnp_migration_failure_blocks_dhcp(void)
@@ -117,6 +118,19 @@ test_wan_adjunct_service_failures_reach_start_status(void)
 	assert(rc_first_service_start_status(0, passthrough_status) == EIO);
 }
 
+static void
+test_static_ipoe_address_and_netmask_validation(void)
+{
+	assert(dhcp_lease_ipv4_is_valid("192.0.2.10"));
+	assert(!dhcp_lease_ipv4_is_valid("not-an-ip"));
+	assert(!dhcp_lease_ipv4_is_valid("0.0.0.0"));
+	assert(dhcp_lease_netmask_is_valid("255.255.255.0"));
+	assert(dhcp_lease_netmask_is_valid("255.255.255.255"));
+	assert(!dhcp_lease_netmask_is_valid("255.0.255.0"));
+	assert(!dhcp_lease_netmask_is_valid("255.255.255.256"));
+	assert(!dhcp_lease_netmask_is_valid("0.0.0.0"));
+}
+
 int
 main(void)
 {
@@ -128,6 +142,7 @@ main(void)
 	test_required_ppp_failures_reach_wan_start_status();
 	test_required_ipoe_failures_reach_wan_start_status();
 	test_wan_adjunct_service_failures_reach_start_status();
+	test_static_ipoe_address_and_netmask_validation();
 	puts("USB modem WAN startup status policy: PASS");
 	return 0;
 }
