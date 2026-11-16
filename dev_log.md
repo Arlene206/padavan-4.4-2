@@ -1,3 +1,11 @@
+## 2026-11-16 — Correct exact-head Process and handoff contracts
+
+- Parent main: `b715097b8fdb76ed1e96bdeed6bedafde47eeefd`. Exact-head Process run `43858811934`, job `133269937845`, failed only at the new negative bridge-member source assertion after all compiled policy regressions (including bridge, wireless-module post-load and bridge membership) had passed. The check used substring containment and falsely matched the unchecked-call text inside the assignment form; changed it to compare complete stripped source lines.
+- Exact-head AI handoff docs run `43858811955`, job `133269937387`, failed because the handoff lacked the validator-required literal `Before context exhaustion`. Restored the full mandatory end-of-session live-state checkpoint and explicit pre-exhaustion instruction.
+- These are test/governance contract fixes, not new product-source changes. Exact reruns on THIS commit are required; no build or hardware outcome is claimed.
+
+---
+
 ## 2026-11-16 — Verify required and optional LAN bridge modules after load
 
 - Parent main: `59047eb21838e0cf78dd24e0a6eab78bea7fc886`. The existing `rc_module_load_verified()` policy explicitly documents that `module_smart_load()` can return zero after a failed `modprobe`; post-load `is_module_loaded()` state is authoritative. Its regression is already part of Process CI.

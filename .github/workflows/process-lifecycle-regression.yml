@@ -523,7 +523,7 @@ jobs:
           assert 'rc_bridge_init_record(&bridge_status, "attach router LAN port", operation_status);' in init_bridge
           assert 'rc_bridge_init_record(&bridge_status, "attach AP LAN port", operation_status);' in init_bridge
           assert "operation_status = br_add_del_if(IFNAME_BR, IFNAME_LAN, 1);" in init_bridge
-          assert "br_add_del_if(IFNAME_BR, IFNAME_LAN, 1);" not in init_bridge
+          assert all(line.strip() != "br_add_del_if(IFNAME_BR, IFNAME_LAN, 1);" for line in init_bridge.splitlines())
           assert "br_add_del_bridge(bridge_ifname, 1)" in bridge_create
           assert "saved_errno == EEXIST" in bridge_create
           assert "br_bridge_is_empty(bridge_ifname)" in bridge_create
