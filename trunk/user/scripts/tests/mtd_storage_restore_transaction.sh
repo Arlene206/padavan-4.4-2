@@ -116,7 +116,6 @@ test ! -e "$sandbox/private/storage_locked"
 test ! -s "$RSTAT_KILL_LOG"
 test ! -s "$MV_COUNT_FILE"
 
-touch "$sandbox/private/storage_locked"
 if RESTORE_FAIL_CP=1 run_restore; then
 	echo "injected restore staging-copy failure unexpectedly succeeded" >&2
 	exit 1
@@ -125,6 +124,13 @@ grep -Fqx 'old=preserve-me' "$sandbox/storage/original.conf"
 test ! -e "$sandbox/storage/new.conf"
 test -f "$sandbox/private/storage.tar.bz2"
 test -f "$sandbox/private/storage_locked"
+# The marker created by restore must make a concurrent MTD save fail before
+# it reads or writes the flash partition.
+if sh "$sandbox/mtd_storage.sh" save; then
+	echo "MTD save ignored the restore save barrier" >&2
+	exit 1
+fi
+test ! -s "$MV_COUNT_FILE"
 
 # An incomplete procfs inventory is UNKNOWN, not ABSENT; do not signal or
 # replace the live storage directory when any numeric process entry is unreadable.

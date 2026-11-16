@@ -531,6 +531,10 @@ require('if ! touch "$slk"; then' in restore_body and
 require("RESTORE_FAIL_TOUCH_PATH" in mtd_storage_restore_test and
         "restore lock creation failure unexpectedly succeeded" in mtd_storage_restore_test,
         "restore transaction regression must reject save-lock creation failure without mutation")
+require('test -f "$sandbox/private/storage_locked"' in mtd_storage_restore_test and
+        'if sh "$sandbox/mtd_storage.sh" save; then' in mtd_storage_restore_test and
+        "MTD save ignored the restore save barrier" in mtd_storage_restore_test,
+        "restore transaction regression must prove that its barrier blocks MTD save after staging failure")
 restore_start_guard = 'if [ -d "$dir_storage" ] && [ ! -L "$dir_storage" ] && [ -f "$dir_storage/start_script.sh" ]; then'
 require(restore_body.count(restore_start_guard) == 2 and
         restore_body.count('rstats remains stopped because no storage tree is available') == 2,
