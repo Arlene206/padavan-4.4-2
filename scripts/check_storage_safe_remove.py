@@ -517,7 +517,7 @@ require('tar xf "$tmp" -C "$dir_storage"' not in mtd_load and
 # If both restore publication and rollback fail, keep rstats stopped unless
 # a valid active storage tree is still present.
 restore_start = mtd_storage.index("func_restore()")
-restore_end = mtd_storage.index("\\nfunc_erase()", restore_start)
+restore_end = mtd_storage.index("\nfunc_erase()", restore_start)
 restore_body = mtd_storage[restore_start:restore_end]
 restore_start_guard = 'if [ -d "$dir_storage" ] && [ ! -L "$dir_storage" ] && [ -f "$dir_storage/start_script.sh" ]; then'
 require(restore_body.count(restore_start_guard) == 2 and
