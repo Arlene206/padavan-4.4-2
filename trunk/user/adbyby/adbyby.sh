@@ -58,19 +58,93 @@ adbyby_start()
 	logger -t "adbyby" "Adbyby启动完成。"
 }
 
+# pidof has three outcomes here: RUNNING, confirmed ABSENT, or UNKNOWN.
+# Only a clean "not found" result is allowed to authorize destructive cleanup.
+adbyby_process_state()
+{
+	adbyby_pid_output=$(pidof adbyby 2>/dev/null)
+	adbyby_pid_status=$?
+	case "$adbyby_pid_status" in
+		0)
+			if [ -z "$adbyby_pid_output" ] ||
+			   ! printf '%s\n' "$adbyby_pid_output" | awk '
+				NF == 0 { invalid = 1 }
+				{
+					for (i = 1; i <= NF; i++) {
+						if ($i !~ /^[0-9]+$/ || $i + 0 <= 0)
+							invalid = 1
+					}
+				}
+				END { if (invalid) exit 1 }
+			   '; then
+				printf '%s\n' UNKNOWN
+				return 0
+			fi
+			printf '%s\n' RUNNING
+			;;
+		1)
+			if [ -z "$adbyby_pid_output" ]; then
+				printf '%s\n' ABSENT
+			else
+				printf '%s\n' UNKNOWN
+			fi
+			;;
+		*)
+			printf '%s\n' UNKNOWN
+			;;
+	esac
+}
+
+adbyby_stop_daemon()
+{
+	adbyby_state=$(adbyby_process_state) || adbyby_state=UNKNOWN
+	case "$adbyby_state" in
+		ABSENT) return 0 ;;
+		RUNNING) ;;
+		*)
+			logger -t "adbyby" "无法确认Adbyby进程状态，拒绝清理服务状态。"
+			return 1
+			;;
+	esac
+
+	killall -q adbyby >/dev/null 2>&1
+	adbyby_stop_attempt=0
+	while [ "$adbyby_stop_attempt" -lt 5 ]; do
+		sleep 1 || {
+			logger -t "adbyby" "等待Adbyby退出时sleep失败，拒绝清理服务状态。"
+			return 1
+		}
+		adbyby_state=$(adbyby_process_state) || adbyby_state=UNKNOWN
+		case "$adbyby_state" in
+			ABSENT) return 0 ;;
+			RUNNING) ;;
+			*)
+				logger -t "adbyby" "无法确认Adbyby退出状态，拒绝清理服务状态。"
+				return 1
+				;;
+		esac
+		adbyby_stop_attempt=$((adbyby_stop_attempt + 1))
+	done
+	logger -t "adbyby" "Adbyby在有界等待后仍运行，拒绝清理服务状态。"
+	return 1
+}
+
 adbyby_close()
 {
-	del_rule
-	del_cron
-	del_dns
-	killall -q adbyby
-	if [ $mem_mode -eq 1 ]; then
-	echo "stop mem mode"
+	# Keep firewall/DNS state intact unless daemon absence is confirmed.
+	if ! adbyby_stop_daemon; then
+		return 1
 	fi
-	kill -9 $(ps | grep admem.sh | grep -v grep | awk '{print $1}') >/dev/null 2>&1 
-	adbyby_restart_dhcpd
+	del_rule || return 1
+	del_cron || return 1
+	del_dns || return 1
+	if [ "${mem_mode:-0}" -eq 1 ]; then
+		echo "stop mem mode"
+	fi
+	kill -9 $(ps | grep admem.sh | grep -v grep | awk '{print $1}') >/dev/null 2>&1
+	adbyby_restart_dhcpd || return 1
 	logger -t "adbyby" "Adbyby已关闭。"
-
+	return 0
 }
 
 adbyby_valid_md5()

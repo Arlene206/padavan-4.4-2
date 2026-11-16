@@ -1,3 +1,12 @@
+## 2026-11-16 — Gate Adbyby teardown on confirmed daemon absence
+
+- Confirmed the lifecycle lock serializes Adbyby actions, but `adbyby_close()` previously removed firewall/cron/DNS state and restarted dnsmasq immediately after an unchecked `killall`. A still-running or unobservable daemon could therefore survive after its traffic/DNS integration was removed.
+- Added strict pidof tri-state classification (RUNNING / confirmed ABSENT / UNKNOWN), a five-second bounded stop postcondition, and fail-closed handling for malformed output, pidof errors, sleep errors and timeout. Firewall, cron, DNS and dnsmasq restart now occur only after confirmed absence; an already-absent daemon remains an idempotent success.
+- Added `trunk/user/adbyby/tests/adbyby_stop_postcondition.sh` for UNKNOWN/malformed/stubborn process blocking, confirmed-absent idempotence and successful signal-to-absence cleanup. Wired it into Process lifecycle regression.
+- Parent main: `b3e550a5dadf0607f2d7aba5b93db6da8e1c9d4d`. Exact-head Actions pending; no local BusyBox/target firmware or L3/L4 validation claimed. XY-C1 `8e0556d` run #43794003979 is SUCCESS; `fc867b5` run #43794661521 was still in progress at the latest check. Frozen backup unchanged.
+
+---
+
 ## 2026-11-16 — OpenSSH, Transmission and ZeroTier lifecycle fail-closed slices
 
 - OpenSSH commit `952e97ccbf9bc8d913bfa6a084e59ae3cda0d8bc`: reload now validates PID-file shape, sshd procfs command identity and start-time identity, rereads the PID file before SIGHUP, and propagates signal errors. Added PID reuse, malformed/symlink/stale file and signal-failure regressions. Exact-SHA Process, inventory, AI-doc, NVRAM and XY-C1 Actions #43793042766, #43793042723, #43793042720, #43793042760 and #43793042756 PASS.

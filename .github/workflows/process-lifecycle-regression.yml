@@ -139,6 +139,12 @@ jobs:
           sh -n trunk/user/smartdns/tests/smartdns_process_lifecycle.sh
           sh trunk/user/smartdns/tests/smartdns_process_lifecycle.sh
           python3 scripts/check_smartdns_lifecycle.py
+      - name: Validate Adbyby stop postcondition and cleanup gate
+        run: |
+          set -eu
+          sh -n trunk/user/adbyby/adbyby.sh
+          sh -n trunk/user/adbyby/tests/adbyby_stop_postcondition.sh
+          sh trunk/user/adbyby/tests/adbyby_stop_postcondition.sh
       - name: Compile production scanner and injected regression (GNU89, ASan, UBSan)
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror \

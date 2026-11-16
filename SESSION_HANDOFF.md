@@ -8,7 +8,7 @@ Before context exhaustion, record exact refs, Action states and the first next a
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Source baseline before this documentation checkpoint: `0731e7aa932661260456a3f95f0fbebbecc42fa2` (`test(zerotier): assert tri-state process stop semantics`).
+- Source baseline before this engineering slice: `0731e7aa932661260456a3f95f0fbebbecc42fa2` (`test(zerotier): assert tri-state process stop semantics`); live `main` before this slice was `b3e550a5dadf0607f2d7aba5b93db6da8e1c9d4d` (documentation checkpoint only).
 - `main` is the only development branch. The frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify or rewrite it.
 - Startup protocol, handoff, roadmap and log archive were recovered once in this session. Do not repeat the initial audit.
 - This documentation checkpoint updates this file and `dev_log.md` only; no source changes are included.
@@ -41,20 +41,20 @@ Before context exhaustion, record exact refs, Action states and the first next a
 
 - All PASS statements above refer to Actions for the exact SHA named in the same item.
 - The `952e97c` XY-C1 build/TRX/artifact result is complete and PASS.
-- The `8e0556d` XY-C1 run `43794003979` was in progress at the latest verified checkpoint; do not claim PASS without checking its conclusion.
-- The `fc867b5` XY-C1 run `43794661521` was still building at the latest verified checkpoint; TRX and upload were pending. The standalone ZeroTier workflow is green on the follow-up checker commit `0731e7a`.
+- The `8e0556d` XY-C1 run `43794003979` completed SUCCESS (Build, TRX verification and artifact upload).
+- The `fc867b5` XY-C1 run `43794661521` was still in progress at the latest check; TRX and artifact upload remain unverified. The standalone ZeroTier workflow is green on the follow-up checker commit `0731e7a`.
 - No physical-router runtime or L4 validation was performed in this session.
 - No change was made to the frozen backup branch.
 
 ## Active task
 
-Continue repository-wide reliability/security hardening using the existing process-lifecycle inventory and current roadmap. The next source candidate is Adbyby stop postcondition safety: `trunk/user/adbyby/adbyby.sh` currently has an `adbyby_close()` path that issues `killall -q adbyby` and immediately removes firewall/DNS state and restarts dnsmasq without a bounded, tri-state process-absence postcondition. Confirm its lock/wrapper and test coverage before changing it. If the stop contract is indeed unguarded, add UNKNOWN-safe pidof parsing, bounded wait and a regression proving cleanup/restart are blocked while the daemon may remain alive; wire the relevant workflow path filters and validate.
+Adbyby stop postcondition slice is implemented on top of main `b3e550a5dadf0607f2d7aba5b93db6da8e1c9d4d`: `adbyby_close()` now requires a clean ABSENT pidof result before firewall, cron, DNS cleanup or dnsmasq restart. RUNNING triggers `killall -q adbyby` followed by five bounded one-second checks; malformed pid lists, pidof errors, scan ambiguity, sleep failure and timeout return failure without destructive cleanup. The lifecycle lock wrapper remains the serialization boundary. Added `trunk/user/adbyby/tests/adbyby_stop_postcondition.sh` and a Process lifecycle workflow step; exact-head Actions are pending.
 
 ## Exact first action for the next GPT
 
-1. Read the exact final state of XY-C1 runs `43794003979` (`8e0556d`) and `43794661521` (`fc867b`), including Build, TRX and artifact steps; record their real conclusion only.
-2. Inspect Adbyby's `adbyby_close()`, lifecycle lock wrapper and existing tests; implement the stop postcondition only if the gap is confirmed.
-3. Continue with one logical source/test/CI slice per atomic main commit and exact-SHA Actions checks. While a run is pending, work on an independent task.
+1. Inspect exact-main push Actions for the Adbyby regression commit; triage any failure from its first causal log and repair on main. Do not count a non-push or stale-SHA result.
+2. Check whether XY-C1 run `43794661521` (`fc867b`) has completed; it is independent of the Adbyby shell-only source change.
+3. Continue the repository-wide process lifecycle inventory from the highest-risk remaining unguarded direct signal/stop caller; avoid repeating completed OpenSSH, Transmission, ZeroTier or Adbyby work.
 
 ## Governance and safety constraints
 
