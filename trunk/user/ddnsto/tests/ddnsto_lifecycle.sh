@@ -233,8 +233,13 @@ done
 : > "$TEST_OPS"
 echo error > "$TEST_STATE"
 if run_action normal start; then fail "start accepted UNKNOWN process inventory"; fi
-[ ! -s "$TEST_LOG" ] && [ ! -s "$TEST_NVRAM_LOG" ] && [ ! -s "$TEST_OPS" ] ||
-	fail "UNKNOWN start signalled, queried identity or launched a duplicate"
+[ ! -s "$TEST_LOG" ] && [ ! -s "$TEST_OPS" ] ||
+	fail "UNKNOWN start signalled or launched a duplicate"
+grep -Fqx 'get ddnsto_enable' "$TEST_NVRAM_LOG" ||
+	fail "start did not read the enable switch under the lifecycle lock"
+if grep -Fqx 'get ddnsto_id' "$TEST_NVRAM_LOG"; then
+	fail "UNKNOWN start read daemon credentials before the stop gate"
+fi
 
 # UNKNOWN after TERM blocks name-wide SIGKILL escalation.
 : > "$TEST_LOG"
