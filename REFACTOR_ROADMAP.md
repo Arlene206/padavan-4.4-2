@@ -1,12 +1,10 @@
 ## Current source / CI checkpoint
 
-- Parent product/source SHA: `c38c9d288707e98616c796bb0724e64fd3885eab`.
-- Required PPP/IPoE migration, physical setup, PPPD launch, demand readiness, static address, EAPOL and DHCP-launch failures are aggregated through `start_wan()`.
-- Static IPoE WAN/LAN subnet overlap previously set `wan_err` and skipped `wan_up()` but left the returned service status at success. It now accumulates `EADDRINUSE`; the WAN DHCP callback workflow asserts the exact branch.
-- Parent exact-head Actions are recorded in `SESSION_HANDOFF.md`; this change requires new exact-head source-check reruns.
+- Product/source baseline: `c38c9d288707e98616c796bb0724e64fd3885eab`; configured IPTV/PPPoE passthrough failures and static-IPoE WAN/LAN overlap reach WAN first-error status.
+- PPP ip-up previously skipped address application when `IPLOCAL` was missing and retained the previous gateway when `IPREMOTE` was missing. Both negotiated IPv4 endpoints are now mandatory before interface/NVRAM state changes; regression covers missing and empty values.
+- Parent exact-head WAN DHCP callback `43869140586`, WAN route `43869140499`, Process lifecycle `43869140664`, Process inventory `43869140439`, miniupnpd `43869140553`, AI docs `43869140667`, HTTPD `43869140668`, infosvr `43869140608`, AliDDNS `43869140787`, VPN `43869140953`, DNSMasq `43869140657`, AdGuardHome `43869140393`, AliyunDrive `43869140626`, WAN teardown `43869140587`, WAN ARP `43869140602`, detect_internet `43869140477`, detect_link `43869140381`, USB identity `43869140444`, and NVRAM `43869140525` passed.
+- XY-C1 `43869140714` was still in Build XY-C1 with TRX/artifact pending. No same-SHA firmware L3 or physical-router L4 claim.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- No same-SHA XY-C1 Build + TRX + artifact L3 or physical-router L4 result is claimed.
-
 ## Whole-repository module status
 
 ### P1 process inventory / service lifecycle — tri-state foundation L2 VERIFIED; strict PID identity migration extended through PPPD/udhcpc/INICD and VPN/WAN/LAN/USB stop gates; xl2tpd and crond UNKNOWN start gates migrated; product-source L3 VERIFIED on be7fd XY-C1 build/TRX/artifact

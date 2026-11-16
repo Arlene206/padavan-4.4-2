@@ -1,3 +1,14 @@
+## 2026-11-16 — Reject incomplete PPP IPCP addresses before publishing WAN state
+
+- Parent main: `8ab4d6ecb4e6b39078aaf5b944c91085f9bc8668`. `ipup_main()` treated missing `IPLOCAL` as optional, skipping interface-address application but still publishing interface identity and continuing into `wan_up()`. Missing `IPREMOTE` left the previous NVRAM gateway in place. PPPD invokes `ip-up` when IPCP has come up and provides both IPv4 endpoint variables; absent/empty values are an inconsistent callback contract.
+- `ppp_wan_ipup_apply_address()` now requires non-empty local and remote IPCP endpoints before calling ifconfig or publishing the lease. `ipup_main()` retrieves both unconditionally and writes the current peer gateway only after validation.
+- Added GNU89 policy coverage for NULL/empty local and remote endpoint values plus no side effects; strengthened the WAN DHCP callback workflow to prevent reintroducing the optional branches.
+- Parent exact-head WAN DHCP callback `43869140586`, WAN route `43869140499`, Process lifecycle `43869140664`, Process inventory `43869140439`, miniupnpd `43869140553`, AI docs `43869140667`, HTTPD `43869140668`, infosvr `43869140608`, AliDDNS `43869140787`, VPN `43869140953`, DNSMasq `43869140657`, AdGuardHome `43869140393`, AliyunDrive `43869140626`, WAN teardown `43869140587`, WAN ARP `43869140602`, detect_internet `43869140477`, detect_link `43869140381`, USB identity `43869140444`, and NVRAM `43869140525` passed. XY-C1 `43869140714` was still building.
+- This commit requires exact-head WAN DHCP and XY-C1 validation. Firmware L3 remains unverified until one SHA passes Build, TRX and artifact upload; hardware L4 remains unverified.
+- Next: inspect exact-head Actions, then continue the bounded PPP IPv6/DHCPv6 callback state audit without weakening generation fencing.
+
+---
+
 ## 2026-11-16 — Propagate static IPoE WAN/LAN subnet overlap to startup status
 
 - Parent main: `c38c9d288707e98616c796bb0724e64fd3885eab`. Static IPoE WAN/LAN subnet overlap prevented `wan_up()` but only set local `wan_err`; it did not update `wan_start_status`, allowing PID 1 to observe false success. The branch now propagates `EADDRINUSE` with first-error semantics.

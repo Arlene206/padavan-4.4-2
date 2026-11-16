@@ -15,13 +15,15 @@ struct ppp_wan_ipup_ops {
  * ifconfig must not replace the last-known-good WAN address in NVRAM.
  */
 static inline int
-ppp_wan_ipup_apply_address(const char *ipaddr, const char *netmask,
-			   const struct ppp_wan_ipup_ops *ops, void *context)
+ppp_wan_ipup_apply_address(const char *ipaddr, const char *remote_ip,
+			   const char *netmask, const struct ppp_wan_ipup_ops *ops,
+			   void *context)
 {
 	int status;
 
-	if (!ipaddr || !*ipaddr || !netmask || !*netmask ||
-	    !ops || !ops->set_interface_address || !ops->publish_address) {
+	if (!ipaddr || !*ipaddr || !remote_ip || !*remote_ip ||
+	    !netmask || !*netmask || !ops ||
+	    !ops->set_interface_address || !ops->publish_address) {
 		errno = EINVAL;
 		return EINVAL;
 	}

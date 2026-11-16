@@ -1058,7 +1058,7 @@ ipup_main(int argc, char **argv)
 	int unit, ppp_idx, interface_status, route_status, unlock_status;
 	int callback_fd, callback_state;
 	struct ppp_wan_ipup_context interface_context;
-	char buf[256], *value;
+	char buf[256], *value, *local_ip, *remote_ip;
 	char *ppp_ifname = safe_getenv("IFNAME");
 	char *ppp_linkname = safe_getenv("LINKNAME");
 	char *ppp_mask = "255.255.255.255";
@@ -1077,26 +1077,25 @@ ipup_main(int argc, char **argv)
 
 	umask(0000);
 
-	if ((value = getenv("IPLOCAL"))) {
-		interface_context.ifname = ppp_ifname;
-		interface_context.unit = unit;
-		interface_status = ppp_wan_ipup_apply_address(
-			value, ppp_mask, &ppp_wan_ipup_ops, &interface_context);
-		if (interface_status != 0) {
-			logmessage(LOGNAME,
-				   "refusing PPP ip-up state publication on %s after address configuration failed (status=%d)",
-				   ppp_ifname, interface_status);
-			if (ppp_wan_session_state_unlock(callback_fd) != 0)
-				return -1;
-			return interface_status;
-		}
+	local_ip = getenv("IPLOCAL");
+	remote_ip = getenv("IPREMOTE");
+	interface_context.ifname = ppp_ifname;
+	interface_context.unit = unit;
+	interface_status = ppp_wan_ipup_apply_address(
+		local_ip, remote_ip, ppp_mask, &ppp_wan_ipup_ops, &interface_context);
+	if (interface_status != 0) {
+		logmessage(LOGNAME,
+			   "refusing PPP ip-up state publication on %s without complete IPCP IPv4 addresses or after interface configuration failure (status=%d)",
+			   ppp_ifname, interface_status);
+		if (ppp_wan_session_state_unlock(callback_fd) != 0)
+			return -1;
+		return interface_status;
 	}
 
 	/* Publish the interface identity only after its address is applied. */
 	set_wan_unit_value(unit, "ifname_t", ppp_ifname);
 
-	if ((value = getenv("IPREMOTE")))
-		set_wan_unit_value(unit, "gateway", value);
+	set_wan_unit_value(unit, "gateway", remote_ip);
 
 	buf[0] = 0;
 	value = getenv("DNS1");
