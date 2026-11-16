@@ -268,10 +268,71 @@ func_stop()
 
 func_reload()
 {
-	if [ -n "`pidof transmission-daemon`" ] ; then
-		echo -n "Reload $SVC_NAME config:."
-		killall -SIGHUP transmission-daemon
+	if tr_reload_pids=$(pidof transmission-daemon 2>/dev/null); then
+		tr_reload_pidof_status=0
+	else
+		tr_reload_pidof_status=$?
+	fi
+	case "$tr_reload_pidof_status" in
+	0)
+		if [ -z "$tr_reload_pids" ]; then
+			echo "[FAILED]"
+			logger -t "$SVC_NAME" "Cannot reload: daemon PID lookup returned an empty process list" >/dev/null 2>&1 || true
+			return 1
+		fi
+		case "$tr_reload_pids" in
+			*[!0-9\ ]*)
+				echo "[FAILED]"
+				logger -t "$SVC_NAME" "Cannot reload: invalid daemon PID list" >/dev/null 2>&1 || true
+				return 1
+				;;
+		esac
+		tr_reload_pid_count=0
+		for tr_reload_pid in $tr_reload_pids; do
+			case "$tr_reload_pid" in
+				''|0*|1|*[!0-9]*)
+					echo "[FAILED]"
+					logger -t "$SVC_NAME" "Cannot reload: invalid daemon PID list" >/dev/null 2>&1 || true
+					return 1
+					;;
+			esac
+			[ "$tr_reload_pid" -gt 1 ] 2>/dev/null || {
+				echo "[FAILED]"
+				logger -t "$SVC_NAME" "Cannot reload: invalid daemon PID list" >/dev/null 2>&1 || true
+				return 1
+			}
+			tr_reload_pid_count=$((tr_reload_pid_count + 1))
+		done
+		[ "$tr_reload_pid_count" -gt 0 ] || {
+			echo "[FAILED]"
+			logger -t "$SVC_NAME" "Cannot reload: invalid daemon PID list" >/dev/null 2>&1 || true
+			return 1
+		}
+		;;
+	1)
+		if [ -n "$tr_reload_pids" ]; then
+			echo "[FAILED]"
+			logger -t "$SVC_NAME" "Cannot reload: inconsistent daemon process state" >/dev/null 2>&1 || true
+			return 1
+		fi
+		return 0
+		;;
+	*)
+		echo "[FAILED]"
+		logger -t "$SVC_NAME" "Cannot reload: unable to inspect daemon PIDs (status=$tr_reload_pidof_status)" >/dev/null 2>&1 || true
+		return 1
+		;;
+	esac
+
+	echo -n "Reload $SVC_NAME config:."
+	if killall -SIGHUP transmission-daemon; then
 		echo "[  OK  ]"
+		return 0
+	else
+		tr_reload_status=$?
+		echo "[FAILED]"
+		logger -t "$SVC_NAME" "daemon reload signal failed (status=$tr_reload_status)" >/dev/null 2>&1 || true
+		return "$tr_reload_status"
 	fi
 }
 

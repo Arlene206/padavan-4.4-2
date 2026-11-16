@@ -279,5 +279,10 @@ jobs:
           sh -n trunk/user/openssh/sshd.sh
           sh -n trunk/user/openssh/tests/sshd_pidfile_lifecycle.sh
           sh trunk/user/openssh/tests/sshd_pidfile_lifecycle.sh
+      - name: Verify Transmission reload status propagation
+        run: |
+          sh -n trunk/user/transmission/transmission.sh
+          sh -n trunk/user/transmission/tests/reload_status.sh
+          sh trunk/user/transmission/tests/reload_status.sh
       - name: Verify shared-library and RC integration boundaries
         run: python3 scripts/check_process_lifecycle_integration.py
