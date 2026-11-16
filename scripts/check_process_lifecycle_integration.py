@@ -1177,7 +1177,11 @@ for call in (
     "start_gpio_btn()", "start_upnp()",
     "start_udpxy(IFNAME_BR)", "start_xupnpd(IFNAME_BR)",
 ):
-    assert "rc_first_service_start_status(start_status, " + call + ")" in boot_start
+    assert re.search(
+        r"rc_first_service_start_status\\(start_status,\\s*" +
+        re.escape(call) + r"\\)",
+        boot_start,
+    ), "boot service status aggregation missing for " + call
 
 ap_mode_start = boot_start.split("} else {", 1)[1].split("\n\t}", 1)[0]
 assert "rc_first_service_start_status(start_status," in ap_mode_start
