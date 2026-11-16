@@ -605,8 +605,15 @@ jobs:
           assert "service_status = run_itunes();" in storage_start
           assert "service_status = run_torrent();" in storage_start
           assert "service_status = run_aria();" in storage_start
-          assert storage_start.count("rc_first_service_start_status(") == 7
+          assert storage_start.count("rc_first_service_start_status(") == 8
+          assert "firewall_status = restart_firewall();" in storage_start
+          assert "start_status = rc_first_service_start_status(start_status, firewall_status);" in storage_start
+          assert storage_start.index("firewall_status = restart_firewall();") < storage_start.index("return start_status;")
           assert "return start_status;" in storage_start
+          storage_stop = function_body(storage, "stop_stor_apps(void)")
+          assert "firewall_status = restart_firewall();" in storage_stop
+          assert "stop_status = rc_first_service_start_status(stop_status, firewall_status);" in storage_stop
+          assert storage_stop.index("firewall_status = restart_firewall();") < storage_stop.index("return stop_status;")
 
           restart_wrappers = (
               ("int restart_dms(int force_rescan)", "restart_status = run_dms(force_rescan);"),

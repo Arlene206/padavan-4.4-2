@@ -1,3 +1,12 @@
+## 2026-11-17 — Repair exact-head Process and storage caller-graph contracts
+
+- Parent main: f6d4192686dc3432e8615731eb1d0cbbe2942ada. Exact-head cb0e8e58eae7a841eee435d9d08ad84e8bd0e09c exposed two stale integration assertions, not production failures: Process expected a removed UPnP stop-test name at line 1580; storage still expected seven startup status merges after the new firewall refresh merge added an eighth.
+- Updated the Process contract to require all five current UPnP restart policy cases in f6d4192686dc3432e8615731eb1d0cbbe2942ada. Updated the storage caller-graph contract to assert the eighth firewall status aggregation and its return ordering, including storage stop propagation.
+- All preceding storage ash/C/lock/eject regressions passed on the failing cb0 SHA; Process tests and source contracts passed through the VPN server case before the obsolete assertion. New exact-head Actions are pending for this validation-only correction. No production source changed; current-source XY-C1 L3 remains dependent on same-SHA Build/TRX/artifact, physical-router L4 remains NOT VERIFIED.
+- Next: confirm the repaired Process/storage suites and current XY-C1 Build/TRX/artifact, then resume the P1 RC module load/unload result audit around reload_nat_modules() and start_firewall_ex().
+
+---
+
 ## 2026-11-17 02:58 CST (UTC+8) — Complete firewall/UPnP result propagation through service callers
 
 - Parent main: 03ad069f57518208d4546ce844b9e5e09b00a365; preceding commit 03ad069 changed the generic API and covered PID 1 notifications, CLI, SSH and HTTPD, but storage services, IPv6 disable, VPN server restart and restart_upnp callback still discarded the result.
