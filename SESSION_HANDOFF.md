@@ -8,33 +8,30 @@ Before context exhaustion, finish the current safe slice, check exact-head Actio
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2; active branch: main.
-- Current product-source baseline: be65a873365598d99cccce9513e1e720203b6d8a (USB modem WAN reconnect failure propagation and retry-event repair).
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only. Startup recovery is complete; do not repeat.
-- PPP IPCP address/netmask validation, WAN IPv6 teardown identity preservation and DHCPv6 generation fencing remain required. Optional WAN MTU ioctl errors remain diagnostic-only.
+- Repository: Arlene206/padavan-4.4-2; product development remains on `main` only.
+- This storage retry fix is one atomic commit parented at `7b8b3129261fc846cb972cee4fdc73dfca0344bd`; fetch live `main` after publication for this commit's exact resulting SHA.
+- Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only, never modify or delete.
+- PR #1 (`fix/aliddns-ca-bundle-bootstrap`) is closed and unmerged, 17 commits ahead of its base. Current main has independently changed the CA bootstrap implementation; the PR branch is archival, not a development base.
 
-## Active task
+## Active task — USB storage integrated-service startup retry
 
-USB modem hotplug no longer loses WAN reconnect errors. try_start_usb_modem_to_wan() now returns int, returns 0 for existing ineligible/no-op cases, and returns the actual try_wan_reconnect() result for attempted startup. on_deferred_hotplug_dev() now checks modem unplug/plug results, re-arms usb_unplug_md or usb_hotplug_md on failure, and schedules the existing five-second retry.
+- `start_stor_apps()` returns the first required failure while continuing independent FTP/Samba/NFS and optional media starts. Its duplicate declaration defects were fixed in `0111177585699cfacbf7878d1554eeb6bc861537`; exact-head XY-C1 run `43888486194` passed Build, TRX verification and artifact upload on that then-current source SHA. Subsequent source changes mean this result does not establish L3 for the current code.
+- Remaining defect fixed here: `try_start_stor_apps()` formerly cleared `usb_hotplug_ms` even when the integrated daemon startup result was nonzero. The deferred callback then scheduled `alarm(5)` but had already discarded its retry event. The new path clears the flag only on status 0 and keeps failure pending.
+- The Optware child result is consumed once before retrying integrated daemons. If the asynchronous child is still running, the callback returns before restarting FTP/Samba/NFS/media daemons; the Optware script is still launched only after releasing `storage.lock`.
+- Regression coverage: `trunk/user/rc/src/tests/service_start_status.c`, `trunk/user/rc/src/service_start_status.h`, and `.github/workflows/storage-hotplug-stability.yml`.
 
-The USB modem regression workflow checks the helper-to-deferred-caller path and includes services_stor.c/services_usb.c in both push and pull_request filters. The checker includes rc.h to cover the public int prototype.
+## Verification boundary and unresolved failures
 
-## Verification boundary
-
-Exact-head Actions for product-source commit be65a873365598d99cccce9513e1e720203b6d8a, at last inspection:
-- USB modem WDM/NDIS physical identity stability 43884258738: QUEUED.
-- XY-C1 Firmware Validation 43884258941: IN_PROGRESS. Build/TRX/artifact result not yet available.
-- USB storage hotplug 43884258495: IN_PROGRESS.
-- Process lifecycle inventory 43884258642: IN_PROGRESS.
-- NVRAM transaction 43884258482: IN_PROGRESS.
-- Other independent services/security workflows (including vsftpd, WAN route, AdGuardHome, AliDDNS, VPN, OpenVPN and several lifecycle suites) were split between QUEUED, IN_PROGRESS and completed PASS at last inspection; consult exact SHA Actions rather than carrying a stale summary.
-- The immediately preceding parent ea794e3 storage run 43882865182: PASS all 24 steps, including the full ash/C suites, caller graph, storage eject and persistence gates.
-- The immediately preceding parent ea794e3 AI docs run 43882864787: FAIL because this handoff had omitted the required exact phrase "Mandatory handoff checkpoint" and conditional-edit statement. This document now contains the required phrase. Check the new exact-SHA docs run.
-- Firmware product-source L3 remains verified on earlier cd5ccbefc26a9f71b0c971800b2f5b0d9cad450d only (same-SHA Build, TRX and artifact upload all passed). Do not extend L3 to be65a873365598d99cccce9513e1e720203b6d8a until its own exact-SHA XY-C1 stages pass. Physical-router L4 remains NOT VERIFIED.
+- Local host service-start policy regression compiled with GNU89, `-Wall -Wextra -Werror`, AddressSanitizer and UndefinedBehaviorSanitizer: PASS, including positive/negative failure retention.
+- Latest parent exact-head Actions on `7b8b3129261fc846cb972cee4fdc73dfca0344bd`: AI handoff docs `43890908405` PASS; Process inventory/lifecycle fail-closed `43890908528` PASS. This parent did not rerun storage or XY-C1 for the final retry fix.
+- Last exact-head storage run before this fix: `72064974e7b099112e587d1c5aad1c410c2b3789`, run `43890786101` PASS. It covers the prior media start/stop API, not this new retry gate.
+- XY-C1 run `43890644424` on source commit `a706e2470bbb381cbd8acd2afb150db30e069839` was still IN_PROGRESS at the last query. The prior syntax failure on `847089c17ac34880436527384f73f60d7b7b74e6` (run `43887049459`) was diagnosed and repaired in `0111177`; do not extend the older `0111177` build success to later source commits.
+- WAN route status run `43890645171` on `a706e247` FAILED its source-verification step with an AssertionError in the embedded checker. Process-lifecycle regression run `43890644968` also FAILED with an IndexError in its source checker; checker edits were made in `7b8b312`, but an exact-head rerun of that specific workflow is still needed. Treat these as open CI blockers, not source PASS.
+- No same-SHA current MIPS firmware L3 evidence yet; physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA USB modem identity, XY-C1, storage, AI handoff docs and process-inventory Actions; repair their first causal failures without weakening contracts.
-2. Require same-SHA XY-C1 Build, TRX verification and artifact upload before claiming firmware L3 for be65a873365598d99cccce9513e1e720203b6d8a.
-3. Continue the cross-userland P1 startup-result audit after the current modem task passes; trace every caller before altering helper APIs and preserve process identity/lock rules.
-4. Keep physical-router L4 NOT VERIFIED until actual router validation evidence exists.
+1. Query push-triggered Actions for the exact SHA now at `main`. Inspect the storage workflow added by this commit, XY-C1 Build/TRX/artifact stages, and process-lifecycle regression. Repair first causal failures without weakening contracts.
+2. Re-run WAN route status on the current SHA and isolate the AssertionError from run `43890645171`; also confirm the process-lifecycle checker IndexError is resolved after `7b8b312`.
+3. Require same-SHA XY-C1 Build, TRX verification and artifact upload before claiming firmware L3. Physical-router L4 remains NOT VERIFIED.
+4. Then continue the P1 cross-userland RC startup-result audit, preserving process identity, lock ordering and first-error semantics.

@@ -1,3 +1,89 @@
+## 2026-11-16 — Preserve failed integrated storage startup events for retry
+
+- Parent main: 7b8b3129261fc846cb972cee4fdc73dfca0344bd. This source slice fixes a real retry-loss path: `try_start_stor_apps()` formerly cleared `usb_hotplug_ms` after a failed FTP/Samba/NFS/media-daemon start, despite returning a failure that caused `on_deferred_hotplug_dev()` to schedule `alarm(5)`. The event now clears only after status 0; failures remain queued.
+- The nonblocking Optware child result is read once before integrated startup retries. A still-running child defers the retry without launching duplicate integrated daemons; completed child outcomes are consumed once, and the Optware hook remains outside `storage.lock`.
+- Added a production-used event-completion predicate, host test for positive/negative startup errors retaining the event, and stronger storage source contracts for function declarations, single result read, worker-running deferral and success-only acknowledgement.
+- Local GNU89/Werror/ASan/UBSan host policy test: PASS. Exact-head Actions after publication are the required next verification; firmware L3 and physical-router L4 remain NOT VERIFIED.
+
+---
+
+## 2026-11-16 — Align RC process inventory checks with status-bearing storage APIs
+
+- Commit: 7b8b3129261fc846cb972cee4fdc73dfca0344bd. Exact-head Process inventory and lifecycle fail-closed run 43890908528 PASS; AI handoff docs 43890908405 PASS.
+- Updated the process-lifecycle integration checker to follow the status-returning storage/media daemon signatures. This was a checker adjustment; the latest source implementation is inherited from a706e247.
+
+---
+
+## 2026-11-16 — Assert storage restart wrapper stop-status propagation
+
+- Commit: 72064974e7b099112e587d1c5aad1c410c2b3789. Exact-head USB storage run 43890786101 PASS; AI docs 43890785916 PASS.
+- Extended the storage workflow contract to verify that media restart wrappers preserve stop failures and do not launch replacement daemons after an unsuccessful stop.
+
+---
+
+## 2026-11-16 — Propagate optional media daemon restart results
+
+- Commit: a706e2470bbb381cbd8acd2afb150db30e069839. Exact-head storage run 43890645158 PASS; Process lifecycle inventory run 43890651174 PASS; broad lifecycle/security workflows mostly PASS. Process-lifecycle regression 43890644968 and WAN route result 43890645171 FAILED their source-check steps. XY-C1 Firmware Validation 43890644424 was IN_PROGRESS at last inspection; do not claim same-SHA L3.
+- Updated `rc.c`, `rc.h` and `services_stor.c` so optional media daemon restart results are propagated through the notification path. Follow-up work must isolate the WAN-route checker AssertionError and rerun the process-lifecycle regression on a current SHA.
+
+---
+
+## 2026-11-16 — Update storage restart wrapper source contracts
+
+- Commit: 185df64bc5fe1474c088ec802cea4737f09dc4f3. Exact-head USB storage run 43890141411 PASS; AI docs run 43890141441 PASS.
+- Updated the embedded storage checker for the status-bearing media daemon restart contract after the production API changed. No product source changed in this commit.
+
+---
+
+## 2026-11-16 — Propagate IPv6 restart failures through notifications
+
+- Commit: 43ba6d5379fe15294cf67774638cd470fda069b9. Exact-head WAN route status 43889906249 FAILED its result-propagation checker; USB storage 43889906361 FAILED an outdated media-daemon signature assertion; Process lifecycle regression 43889906502 FAILED in the checker with an IndexError. XY-C1 43889906595 was IN_PROGRESS at last inspection.
+- Added `ipv6_restart_policy.h` and returned full IPv6 restart errors to notification aggregation, preserving runtime mode until restart success. The WAN-route source-contract failure remains open for a precise first-failure diagnosis; later runs still reproduced it.
+
+---
+
+## 2026-11-16 — Propagate media daemon readiness failures
+
+- Commit: c7f26f0291b52b3e8ee5ade59f30635064575afb. Exact-head XY-C1 43889104925 PASS; Process inventory job 43889104967 PASS; Process-lifecycle regression 43889104590 FAILED with a checker IndexError; USB storage 43889104698 FAILED because its checker still expected the old `void run_dms` definition after the production API became status-returning.
+- Extended `start_stor_apps()` to include MiniDLNA, Firefly, Transmission and Aria readiness statuses in addition to FTP/Samba/NFS. Later workflow-only fixes addressed the stale media signature assertion, but process-lifecycle integration still needs an exact-current-head regression run.
+
+---
+
+## 2026-11-16 — Restore valid storage startup function declarations
+
+- Commit: 0111177585699cfacbf7878d1554eeb6bc861537. Exact-head XY-C1 Build/TRX/artifact workflow 43888486194 PASS; USB storage 43888486392 PASS; modem identity 43888486233 PASS; Process inventory 43888486156 PASS; NFS 43888486225 PASS; VSFTPD 43888486195 PASS; HTTPD security 43888486191 PASS; Samba 43888486235 PASS; AI docs 43888486129 PASS.
+- Corrected the duplicate `void int start_stor_apps` and `static int static int try_start_stor_apps` declaration errors introduced in 847089c. The same-SHA XY-C1 stages completed successfully on this SHA; later product-source commits require their own build evidence.
+
+---
+
+## 2026-11-16 — Update the storage FTP startup source contract
+
+- Commit: d9c3a5f5b7909da615ecce96b2bcd30f55472a99; exact-head VSFTPD run 43887302690 PASS and AI handoff documentation run 43887302364 PASS.
+- Updated only `.github/workflows/vsftpd-stability.yml` so its source contract expects `run_ftp()` status capture and first-error aggregation after the storage startup API became status-returning. No product source changed.
+
+---
+
+## 2026-11-16 — Align the USB modem hotplug contract with retry-state handling
+
+- Commit: 9e06fc918801d858c2ddd51e2dd88bb93d0dc4d3. Exact-head USB modem identity run 43887173584 and AI docs run 43887173552 both PASS.
+- Updated USB modem workflow assertions to match the production retry-mask policy for coalesced unplug/replug events. No production source changed in this checker-only correction.
+
+---
+
+## 2026-11-16 — Normalize USB modem retry source assertions
+
+- Commit: d191f227845d5a7ff13960c07ac29c32abf86a76. Exact-head USB modem identity run 43886677055 FAIL; AI docs 43886677149 PASS.
+- Normalized whitespace in the retry-policy expression assertion. A later exact-head contract revision (9e06fc9) aligned the remaining status-variable assertions, and the workflow passed on 9e06fc9.
+
+---
+
+## 2026-11-16 — Preserve coalesced USB modem hotplug events
+
+- Commit: f38dc1c89f7f0d506dfa673bc145d65f6fcaa3d3. Exact-head storage 43885842312, XY-C1 43885842274, Process inventory 43885842187, Process lifecycle inventory 43885842518, HTTPD security 43885842320, and AI docs 43885842849 PASS. USB modem identity run 43885842214 FAIL; its stale checker was corrected in subsequent checker-only commits d191f22/9e06fc9, with exact-head pass on 9e06fc9.
+- Added a retry mask so simultaneous modem unplug/replug preserves the replug event until the unplug transition completes. Failed reconnects re-arm the appropriate event flags and schedule the existing five-second retry.
+
+---
+
 ## 2026-11-16 — Restore complete development history after log truncation
 
 - Parent main: be65a873365598d99cccce9513e1e720203b6d8a. While recording the new modem WAN hotplug result-propagation task, the prior commit accidentally replaced the entire root dev_log.md rather than prepending its new entry. Detected immediately from the commit diff (+8/-432); restored the complete prior root log from ea794e3ef680da5b03ca0ffdd621601c97dc7d86 and preserved this recovery entry above it.

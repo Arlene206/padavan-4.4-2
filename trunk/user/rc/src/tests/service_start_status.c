@@ -180,6 +180,25 @@ test_storage_app_startup_preserves_first_failure_and_continues(void)
 }
 
 static void
+test_storage_event_remains_pending_after_failure(void)
+{
+	int pending = 1;
+
+	if (rc_service_start_event_is_complete(EIO))
+		pending = 0;
+	assert(pending == 1);
+
+	if (rc_service_start_event_is_complete(EBUSY))
+		pending = 0;
+	assert(pending == 1);
+
+	if (rc_service_start_event_is_complete(0))
+		pending = 0;
+	assert(pending == 0);
+	assert(!rc_service_start_event_is_complete(-1));
+}
+
+static void
 test_bridge_parameters_are_both_attempted_and_first_error_survives(void)
 {
 	int status = 0;
@@ -224,6 +243,7 @@ main(void)
 	test_usb_printer_optional_hook_failure_is_reported_and_core_launches_continue();
 	test_bridge_parameters_are_both_attempted_and_first_error_survives();
 	test_storage_app_startup_preserves_first_failure_and_continues();
+	test_storage_event_remains_pending_after_failure();
 	test_loopback_start_preserves_first_required_failure();
 	test_lan_start_preserves_first_required_failure();
 	puts("RC boot and LAN service first-failure aggregation policy: PASS");

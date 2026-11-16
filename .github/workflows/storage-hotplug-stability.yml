@@ -547,6 +547,10 @@ jobs:
           assert "static int\ntry_start_stor_apps(void)" in storage
           assert "static int\nstatic int\ntry_start_stor_apps(void)" not in storage
           storage_start = function_body(storage, "start_stor_apps(void)")
+          assert "\\nint\\nstart_stor_apps(void)" in storage
+          assert "\\nvoid\\nint\\nstart_stor_apps(void)" not in storage
+          assert "\\nstatic int\\ntry_start_stor_apps(void)" in storage
+          assert "\\nstatic int\\nstatic int\\ntry_start_stor_apps(void)" not in storage
           assert "int start_status = 0;" in storage_start
           assert "service_status = run_ftp();" in storage_start
           assert "service_status = run_samba();" in storage_start
@@ -606,9 +610,17 @@ jobs:
 
           deferred_start = function_body(storage, "try_start_stor_apps(void)")
           assert deferred_start.index("storage_operation_lock_acquire(file_lock)") < deferred_start.index("storage_has_mounted_devices(")
+          child_result_read = deferred_start.index("child_result = storage_optware_start_result_read();")
+          worker_running_gate = deferred_start.index("if (child_result == STORAGE_OPTWARE_START_CHILD_RUNNING)")
+          integrated_start = deferred_start.index("integrated_start_status = start_stor_apps();")
+          assert child_result_read < worker_running_gate < integrated_start
+          assert deferred_start.count("storage_optware_start_result_read()") == 1
+          assert worker_running_gate < deferred_start.index("if (mounted_devices == 0)")
           storage_event = deferred_start[deferred_start.index('if (nvram_match("usb_hotplug_ms", "1"))'):]
           assert "integrated_start_status = start_stor_apps();" in storage_event
-          assert storage_event.index("integrated_start_status = start_stor_apps();") < storage_event.index('nvram_set_int_temp("usb_hotplug_ms", 0)')
+          assert "rc_service_start_event_is_complete(integrated_start_status)" in storage_event
+          assert storage_event.index("rc_service_start_event_is_complete(integrated_start_status)") < storage_event.index('nvram_set_int_temp("usb_hotplug_ms", 0)')
+          assert "preserving USB storage startup event for retry" in storage_event
           assert "return integrated_start_status;" in deferred_start
           assert "return rc_first_service_start_status(integrated_start_status, 1);" in deferred_start
           assert "need_optware ? -1 : 0" in deferred_start
@@ -621,6 +633,7 @@ jobs:
 
           service_start_test = (rc_dir / "tests/service_start_status.c").read_text()
           assert "test_storage_app_startup_preserves_first_failure_and_continues" in service_start_test
+          assert "test_storage_event_remains_pending_after_failure" in service_start_test
           inventory_check = deferred_start.index('mounted_devices = storage_has_mounted_devices("starting storage applications");')
           start_apps_call = deferred_start.index("start_stor_apps();")
           assert inventory_check < start_apps_call

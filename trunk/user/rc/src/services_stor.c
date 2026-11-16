@@ -3259,13 +3259,18 @@ try_start_stor_apps(void)
 		return -1;
 	}
 
-	if (mounted_devices == 0) {
-		child_result = storage_optware_start_result_read();
-		if (child_result == STORAGE_OPTWARE_START_CHILD_RUNNING) {
-			file_unlock(storage_lock);
-			return 1;
-		}
+	/*
+	 * Inspect the asynchronous Optware child before retrying integrated
+	 * services. A five-second wakeup must not duplicate FTP/Samba/NFS starts
+	 * while the previous Optware attempt is still running.
+	 */
+	child_result = storage_optware_start_result_read();
+	if (child_result == STORAGE_OPTWARE_START_CHILD_RUNNING) {
+		file_unlock(storage_lock);
+		return 1;
+	}
 
+	if (mounted_devices == 0) {
 		/* A complete empty inventory makes any old hotplug request stale. */
 		nvram_set_int_temp("usb_hotplug_ms", 0);
 		nvram_set_int_temp("usb_opt_start", 0);
@@ -3274,22 +3279,24 @@ try_start_stor_apps(void)
 	}
 
 	/*
-	 * This event flag covers the integrated RC services only. Clear it after
-	 * one complete inventory/start attempt so Optware retries do not rerun
-	 * Samba/NFS/FTP and other integrated storage services every five seconds.
+	 * Keep usb_hotplug_ms pending when a required integrated daemon fails.
+	 * The normal deferred alarm will retry it; only a successful start
+	 * acknowledges the event. Optware runs after the storage lock is released.
 	 */
 	if (nvram_match("usb_hotplug_ms", "1")) {
 		integrated_start_status = start_stor_apps();
-		nvram_set_int_temp("usb_hotplug_ms", 0);
+		if (rc_service_start_event_is_complete(integrated_start_status)) {
+			nvram_set_int_temp("usb_hotplug_ms", 0);
+		} else {
+			logmessage("Storage", "integrated storage application startup failed; preserving USB storage startup event for retry (status=%d)",
+				   integrated_start_status);
+		}
 	}
 	need_optware = nvram_get_int("usb_opt_start");
 
 	/* External init scripts must never inherit storage.lock. */
 	file_unlock(storage_lock);
 
-	child_result = storage_optware_start_result_read();
-	if (child_result == STORAGE_OPTWARE_START_CHILD_RUNNING)
-		return rc_first_service_start_status(integrated_start_status, 1);
 	if (child_result == STORAGE_OPTWARE_START_CHILD_SUCCESS) {
 		if (need_optware)
 			nvram_set_int_temp("usb_opt_start", 0);
