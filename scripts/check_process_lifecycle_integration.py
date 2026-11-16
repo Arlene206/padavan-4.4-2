@@ -1304,7 +1304,8 @@ for module_group in (
     "boot_modules_status, load_ipset_modules());",
 ):
     assert wireless_boot_load < rc_source.index(module_group), module_group
-assert "int boot_services_status = boot_modules_status;" in rc_source
+assert "int boot_modules_status, boot_services_status;" in rc_source
+assert "boot_services_status = boot_modules_status;" in rc_source
 assert "int service_start_status = start_services_once(is_ap_mode);" in rc_source
 assert "rc_first_service_start_status(boot_services_status," in rc_source
 for test_case in (
@@ -1322,7 +1323,8 @@ assert '"trunk/user/rc/src/tests/wireless_module_load_policy.c"' in process_work
 assert "Compile and run RC wireless module post-load verification regression" in xy_workflow
 assert '"trunk/user/rc/src/wireless_module_load_policy.h"' in xy_workflow
 assert '"trunk/user/rc/src/tests/wireless_module_load_policy.c"' in xy_workflow
-assert "int boot_services_status = boot_modules_status;" in rc_source
+assert "int boot_modules_status, boot_services_status;" in rc_source
+assert "boot_services_status = boot_modules_status;" in rc_source
 assert "int service_start_status = start_services_once(is_ap_mode);" in rc_source
 assert "rc_first_service_start_status(boot_services_status," in rc_source
 assert "one or more boot service startup operations failed (first status=%d)" in rc_source

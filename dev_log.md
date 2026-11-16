@@ -1,3 +1,11 @@
+## 2026-11-16 16:35 Beijing — Align boot-service source contract with separated status declaration
+
+- Parent main: `760ecfa9d1ff115e62b2df45afb9fda398229ba6`. Exact-head Process run `43831778050`, job `133178573988`, passed all earlier GNU89/ASan/UBSan host regressions and subsystem/source checks, then failed at line 1307 because the checker expected `int boot_services_status = boot_modules_status;`.
+- Production `init_router()` intentionally declares `int boot_modules_status, boot_services_status;` together and separately assigns `boot_services_status = boot_modules_status;`. Updated both stale checker assertions to verify this real declaration and assignment; no C source behavior changed.
+- Exact-head XY-C1 modem-option run `43827946528`, job `133166106689`, completed Build XY-C1, TRX verification and artifact upload SUCCESS on the previous source/config SHA `7630958...`. The new boot-services source SHA `760ecfa...` run `43831778029` was IN_PROGRESS when last checked.
+- THIS COMMIT requires exact-head Process rerun. Next source slice: NDIS modem launcher drops miniupnpd interface-migration and DHCP-client launch errors, and its start/restart callers currently fail to propagate modem startup status. No L4 physical-router validation claimed.
+---
+
 ## 2026-11-16 13:16 Beijing — Aggregate all return-bearing init_router service starts
 
 - Parent main: `7630958f12938ae6014ee859d9eccfd21cdf7503`. All ten exact-head push Actions on that parent completed SUCCESS, including Process inventory `43827946437`, AI handoff `43827946538`, NVRAM `43827946578`, and XY-C1 Firmware Validation `43827946528`.
