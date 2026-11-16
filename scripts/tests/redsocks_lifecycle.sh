@@ -60,6 +60,12 @@ REDSOCKS_DIR="$TEST_TMP"
 REDSOCKS_CONF="$TEST_TMP/redsocks.conf"
 BINARY_PATH="$TEST_TMP/redsocks"
 touch "$REDSOCKS_CONF"
+# Reinstall launch/save stubs after sourcing, which defines production versions.
+func_redsocks() {
+  echo start >> "$TEST_START_LOG"
+  return 0
+}
+func_save() { :; }
 
 fail() { echo "Redsocks lifecycle regression: FAIL: $*" >&2; exit 1; }
 reset() {
