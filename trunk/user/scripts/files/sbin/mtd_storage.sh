@@ -354,6 +354,13 @@ func_restore()
 
 	[ ! -f "$tbz" ] && exit 1
 
+	# Block concurrent MTD saves before reading or replacing the restore archive.
+	if ! touch "$slk"; then
+		result=1
+		logger -t "Storage restore" "Cannot create storage save lock before restore: $slk"
+		return 1
+	fi
+
 	fsz=`stat -c %s "$tbz" 2>/dev/null`
 	if [ -z "$fsz" ] || [ "$fsz" -lt 16 ] || [ "$fsz" -gt "$mtd_part_size" ] ; then
 		result=1

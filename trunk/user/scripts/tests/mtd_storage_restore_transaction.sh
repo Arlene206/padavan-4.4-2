@@ -39,6 +39,13 @@ cat > "$sandbox/bin/cp" <<'EOF'
 [ "${RESTORE_FAIL_CP:-0}" != 1 ] || exit 1
 exec /bin/cp "$@"
 EOF
+cat > "$sandbox/bin/touch" <<'EOF'
+#!/bin/sh
+for path do
+	[ "${RESTORE_FAIL_TOUCH_PATH:-}" != "$path" ] || exit 1
+done
+exec /bin/touch "$@"
+EOF
 cat > "$sandbox/bin/mv" <<'EOF'
 #!/bin/sh
 count=0
@@ -95,6 +102,19 @@ run_restore()
 {
 	"$sandbox/mtd_storage.sh" restore >/dev/null 2>&1
 }
+
+# Restore must establish the same save barrier used by the save command before
+# inspecting the archive or touching the live tree.
+if RESTORE_FAIL_TOUCH_PATH="$sandbox/private/storage_locked" run_restore; then
+	echo "restore lock creation failure unexpectedly succeeded" >&2
+	exit 1
+fi
+grep -Fqx 'old=preserve-me' "$sandbox/storage/original.conf"
+test -f "$sandbox/proc/321/stat"
+test -s "$sandbox/private/storage.tar.bz2"
+test ! -e "$sandbox/private/storage_locked"
+test ! -s "$RSTAT_KILL_LOG"
+test ! -s "$MV_COUNT_FILE"
 
 touch "$sandbox/private/storage_locked"
 if RESTORE_FAIL_CP=1 run_restore; then

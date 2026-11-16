@@ -519,6 +519,13 @@ require('tar xf "$tmp" -C "$dir_storage"' not in mtd_load and
 restore_start = mtd_storage.index("func_restore()")
 restore_end = mtd_storage.index("\nfunc_erase()", restore_start)
 restore_body = mtd_storage[restore_start:restore_end]
+require('if ! touch "$slk"; then' in restore_body and
+        restore_body.index('if ! touch "$slk"; then') < restore_body.index('stat -c %s "$tbz"') <
+        restore_body.index("func_stop_apps"),
+        "restore must establish the save barrier before validating or replacing its archive")
+require("RESTORE_FAIL_TOUCH_PATH" in mtd_storage_restore_test and
+        "restore lock creation failure unexpectedly succeeded" in mtd_storage_restore_test,
+        "restore transaction regression must reject save-lock creation failure without mutation")
 restore_start_guard = 'if [ -d "$dir_storage" ] && [ ! -L "$dir_storage" ] && [ -f "$dir_storage/start_script.sh" ]; then'
 require(restore_body.count(restore_start_guard) == 2 and
         restore_body.count('rstats remains stopped because no storage tree is available') == 2,
