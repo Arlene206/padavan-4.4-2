@@ -26,8 +26,21 @@ policy = (RC / "wireless_module_load_policy.h").read_text()
 common = (RC / "common_ex.c").read_text()
 
 assert "rc_module_load_verified(module_name, module_param, &ops)" in source
-assert "return ops->is_loaded(module_name) ? 0 : EIO;" in policy
+assert "loaded = ops->is_loaded(module_name);" in policy
+assert "if (loaded < 0)" in policy
+assert "return -loaded;" in policy
+assert "return loaded == 1 ? 0 : EIO;" in policy
 assert '"/sys/module/%s"' in common and "opendir(mod_path)" in common
+assert "if (errno == ENOENT)" in common
+assert "return is_module_loaded_status(module_name) > 0;" in common
+
+for signature in (
+    "load_boot_module(const char *module_name, const char *module_param)",
+    "load_wireless_module(const char *module_name)",
+):
+    loader = " ".join(body(source, signature).split())
+    assert "module_smart_load, is_module_loaded_status" in loader, signature
+    assert "module_smart_load, is_module_loaded)" not in loader, signature
 
 for signature, calls in (
     ("load_usb_modules(void)", (

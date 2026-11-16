@@ -1,9 +1,10 @@
 ## Current source / CI checkpoint
 
-- Parent for this correction: `d5d07a7027457ecd56ec217d1f4191ab8227d7ea`; prior tri-state verifier implementation: `bca48425f16b97cdb2b599401bd105fbc5e652ad`.
-- Exact-head bca Firewall/WAN checks caught the final legacy Boolean module probe in `load_wireless_module()`; this correction migrates that final production callback to `is_module_loaded_status()`. The bca AI handoff validator also identified missing exact checkpoint wording, now restored.
-- Direct and multi-module injected tests cover probe errno propagation and first-error retention. Existing Process/WAN checker contracts bind the four production loader sites. Fresh exact-head WAN, Firewall, Process, HTTPD, AI handoff and XY-C1 runs are required for this correction SHA.
-- The newer IPv6 cleanup feature needs its own exact-source Build/TRX/artifact validation; the earlier `eb566f3` firmware pass predates it. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. Physical-router L4 remains **NOT VERIFIED**.
+- Production source parent: `b6ff015c1a70e9b61bebfbcf33aae9d1de113946`. Strict tri-state module-load migration is complete across NAT, boot hardware, wireless drivers and LAN bridge. The last legacy wireless callback was changed in `b6ff015c`.
+- Exact-parent Firewall Startup `43966109926` passed. WAN route `43966109986` failed a whitespace-sensitive multiline IPv6 cleanup assertion; XY-C1 `43966109916` stopped at a stale Boolean-policy checker; AI handoff `43966109747` found the developer-log root file had only one entry. This atomic follow-up repairs the assertions and restores the prior 109-entry history plus the current entry.
+- Process regression `43966109822`, XY-C1 `43966109916`, NVRAM `43966109901`, GPIO `43966109653`, notification queue `43966109981`, AliDDNS `43966109957` and USB storage `43966109731` were pending/in progress at last poll; query exact-head statuses.
+- Earlier source SHA `eb566f346f63d3d6ed295c08170ac6d834ff7f04` passed XY-C1 Build/TRX/artifact [`43961726533`], but predates the current IPv6/module-load changes. L3 for current production source remains NOT VERIFIED until same-SHA Build, TRX and artifact upload pass.
+- Continue evidence-backed RC/service result-propagation and lifecycle reliability work across userland. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at its recorded SHA. Physical-router L4 remains **NOT VERIFIED**.
 
 ## Whole-repository module status
 

@@ -488,7 +488,8 @@ jobs:
           assert "ipv6-cleanup-policy" in workflow
           ipv6_restart = body(net6, "full_restart_ipv6(int ipv6_type_old)")
           ipv6_restart_compact = " ".join(ipv6_restart.split())
-          assert "rc_ipv6_disable_cleanup_apply(clear_all_route6, clear_all_addr6, clear_if_neigh6, IFNAME_BR)" in ipv6_restart_compact
+          ipv6_restart_tokens = "".join(ipv6_restart.split())
+          assert "rc_ipv6_disable_cleanup_apply(clear_all_route6,clear_all_addr6,clear_if_neigh6,IFNAME_BR)" in ipv6_restart_tokens
           assert "operation_status = clear_all_addr6();" in ipv6_restart
           assert ipv6_restart.count("operation_status = reload_nat_modules();") == 2
           assert "restart_status = rc_first_service_start_status(restart_status, operation_status);" in ipv6_restart_compact
