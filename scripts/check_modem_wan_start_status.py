@@ -45,6 +45,18 @@ wan_start = compact(body(WAN_SOURCE, "start_wan(void)"))
 assert "int modem_start_status = 0;" in wan_start
 assert "wan_up_status = wan_up(wan_ifname, unit, 1);" in wan_start
 assert re.search(r"wan_start_status\s*=\s*rc_first_service_start_status\s*\(\s*wan_start_status\s*,\s*wan_up_status\s*\)\s*;", wan_start)
+interface_failure_start = wan_start.index("if (interface_status != 0)")
+interface_failure_end = wan_start.index("/* perform ApCli reconnect */", interface_failure_start)
+interface_failure = wan_start[interface_failure_start:interface_failure_end]
+interface_error_record = re.search(
+    r"wan_start_status\s*=\s*rc_first_service_start_status\s*\(\s*wan_start_status\s*,\s*interface_status\s*\)\s*;",
+    interface_failure,
+)
+assert interface_error_record, "physical WAN IFUP failure must reach start_wan() status"
+assert interface_failure.index(interface_error_record.group(0)) < interface_failure.index(
+    "interface_cleanup_status = ifconfig("
+), "best-effort interface cleanup must not replace the original IFUP failure"
+assert "continue;" in interface_failure
 assert "return rc_first_service_start_status(modem_start_status, wan_start_status);" in wan_start
 assert re.search(r"wan_start_status\s*=\s*rc_first_service_start_status\s*\(\s*wan_start_status\s*,\s*ipv6_status\s*\)\s*;", wan_start)
 assert "vlan_result = launch_wan_usbnet(unit);" in wan_start

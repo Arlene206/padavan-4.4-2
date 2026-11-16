@@ -62,6 +62,20 @@ test_ras_physical_setup_error_survives_ras_launch(void)
 	assert(status == EBUSY);
 }
 
+static void
+test_physical_wan_ifup_failure_survives_cleanup(void)
+{
+	int status = 0;
+	int interface_status = ENODEV;
+	int cleanup_status = EIO;
+
+	status = rc_first_service_start_status(status, interface_status);
+	/* Cleanup is best-effort and must not overwrite the original IFUP error. */
+	status = rc_first_service_start_status(status, cleanup_status);
+
+	assert(status == ENODEV);
+}
+
 int
 main(void)
 {
@@ -69,6 +83,7 @@ main(void)
 	test_dhcp_launch_result_is_returned_after_migration();
 	test_first_modem_error_survives_best_effort_followup();
 	test_ras_physical_setup_error_survives_ras_launch();
+	test_physical_wan_ifup_failure_survives_cleanup();
 	puts("USB modem WAN startup status policy: PASS");
 	return 0;
 }

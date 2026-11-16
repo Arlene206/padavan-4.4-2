@@ -1,3 +1,13 @@
+## 2026-11-16 — Propagate physical WAN interface bring-up failure to PID 1
+
+- Parent main: `f16026b0af5d00087e36929b14843cf6b94a8b6a`. `start_wan()` checked and logged a failed physical WAN `ifconfig(..., IFUP, ...)`, attempted cleanup and continued, but never merged that required interface-readiness failure into its return status. PID 1 could therefore observe a successful WAN start when the physical interface was unavailable.
+- The failure now enters the first-error WAN startup accumulator before best-effort interface-down cleanup. The original IFUP error is retained even if cleanup also fails.
+- Added a GNU89 policy regression for first-error preservation and strengthened `check_modem_wan_start_status.py` to require the production IFUP failure path to aggregate before cleanup/continue. Both Process and XY-C1 workflows already compile/run this test and checker; no workflow expansion was necessary.
+- Parent exact-head Process `43863800540`, AI docs `43863800477`, infosvr `43863800722`, NVRAM `43863800497`, AliDDNS `43863800501`, AliyunDrive `43863800566` and AdGuardHome `43863800941` passed. Parent XY-C1 `43863800656` was still running; this source change requires fresh exact-head verification. No L3 or L4 claim.
+- Next: verify this commit's Process and XY-C1 Actions; continue the remaining WAN failure-propagation review, especially PPP launch/readiness and ignored IPv6 interface-control results.
+
+---
+
 ## 2026-11-16 — Repair WAN checker formatting and canonical handoff headings
 
 - Parent main: `5825e35e0987fab26b4f588f879a885094e1708b`. Process `43862972148` passed compiled host policy binaries then failed at whitespace-sensitive `wan_start_status` assertions and an obsolete expectation of `return modem_start_status;`. Updated the checker to accept formatting across helper-call line breaks and assert the combined modem/route return.

@@ -1673,6 +1673,8 @@ start_wan(void)
 				   wan_ifname, mtu_status);
 		interface_status = ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
 		if (interface_status != 0) {
+			wan_start_status = rc_first_service_start_status(
+				wan_start_status, interface_status);
 			logmessage(LOGNAME, "aborting WAN startup for unit %d: failed to bring up physical interface %s (status=%d)",
 				   unit, wan_ifname, interface_status);
 			interface_cleanup_status = ifconfig(wan_ifname, 0, NULL, NULL);

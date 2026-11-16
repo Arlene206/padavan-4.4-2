@@ -10,38 +10,36 @@ For each logical task, create all changed files in one Git tree and one atomic m
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2; active branch: main.
-- Parent for THIS WAN route status slice: `066697195b12b3bbc8bad1efa4a4c4abea5052fa`; refetch live main before the next write and use non-forced expected-SHA update.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only. One-time comparison found main 588 commits ahead / 1 behind; do not repeat recovery.
-- Startup governance/archive recovery is complete.
+- Repository: Arlene206/padavan-4.4-2; only authorized development ref is `main`.
+- Main at the start of the current WAN IFUP task: `f16026b0af5d00087e36929b14843cf6b94a8b6a`; all work must refetch main before the next write and use a non-forced expected-SHA update.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; preserved read-only. The startup branch/backup comparison was already performed once; do not repeat it.
+- Startup governance and archive recovery are complete. Root `dev_log.md` has 118 complete entries before this milestone; this entry brings it to 119, below rotation thresholds.
 
 ## Engineering baseline
 
-- LAN bridge/VLAN/switch startup errors and required iNIC MII post-load verification propagate into PID1. Optional hw_nat offload and LED paths remain best-effort.
-- Shared bridge-add and bridge-member ioctl helpers preserve ioctl errno across socket close.
-- Full WAN restart fails closed before starting WAN on switch VLAN failure, static LAN route restoration failure, and switch MAC-table clear failure.
-- L2TP server start failures are merged for full restart, reconnect and deferred reconnect; positive already-running status remains success.
-- `start_wan()` now also propagates static WAN route/service setup errors and configured IPv6 tunnel setup failure. `stop_wan_locked()` records static WAN route teardown errors and preserves them through USB modem shutdown/physical interface teardown.
+- LAN bridge/VLAN/switch required startup errors and required iNIC MII post-load verification propagate into PID 1; optional hw_nat/LED paths remain best-effort.
+- Shared bridge-add and bridge-member ioctl helpers preserve errno across socket close.
+- Full WAN restart fails closed before WAN startup on switch VLAN setup, static LAN route restoration and switch MAC-table clear errors.
+- L2TP server startup results are merged across full restart, reconnect and deferred reconnect; positive already-running remains success.
+- `start_wan()` propagates static WAN route/service setup and configured IPv6 tunnel setup errors. `stop_wan_locked()` preserves static route teardown and USB modem stop errors through interface teardown.
+- This milestone closes one more false-success path: a failed physical WAN interface bring-up is now included in the first-error WAN startup status before best-effort down cleanup.
 
 ## Active task
 
-Process run `43862663789` on parent `066697195b12b3bbc8bad1efa4a4c4abea5052fa` was in progress at the last check. That parent's code had updated all three WAN connect paths to return `merge_l2tp_server_start_status(status)`; the older `scripts/check_modem_wan_start_status.py` still expected raw `return status;`. This correction updates the checker to verify the shared helper's semantics and three callers.
+The current source slice adds `rc_first_service_start_status(wan_start_status, interface_status)` inside the physical WAN IFUP failure branch in `trunk/user/rc/src/net_wan.c:start_wan()`. Previously the branch logged and attempted cleanup but continued without preserving the required IFUP failure. The policy regression in `trunk/user/rc/src/tests/modem_wan_start_policy.c` verifies that an additional cleanup error cannot replace the original IFUP failure; `scripts/check_modem_wan_start_status.py` checks the aggregation occurs before cleanup and continue. Existing Process and XY-C1 workflows already run both.
 
 ## Verification boundary
 
-- Process run `43863503850` on `4516b9c3f3fc8e117bf654698f515a63551b9ddc`: FAILED after the compiled RC boot and modem policy binaries passed. The checker used over-escaped raw-regex patterns (`\\s` rather than `\s`); the replacement uses single-backslash whitespace expressions and is tested against the exact source text.
-- AI handoff documentation `43863503814`: SUCCESS. infosvr packet/signal regression `43863503915`: SUCCESS, including its source-contract check. The restored canonical section names resolve both earlier failures.
-- AdGuardHome `43863503943`, AliDDNS `43863503892`, AliyunDrive `43863503887`: SUCCESS.
-- XY-C1 firmware validation `43863503907`: IN_PROGRESS at last inspection; verify Build, TRX verification and artifact upload before any L3 claim.
-- NVRAM transaction audit `43863503976`: IN_PROGRESS at last inspection.
-- No same-SHA XY-C1 L3 or physical-router L4 result is claimed yet.
+- Parent `f16026b0af5d00087e36929b14843cf6b94a8b6a`: Process `43863800540` SUCCESS; AI docs `43863800477` SUCCESS; infosvr `43863800722` SUCCESS; NVRAM `43863800497` SUCCESS; AliDDNS `43863800501` SUCCESS; AliyunDrive `43863800566` SUCCESS; AdGuardHome `43863800941` SUCCESS.
+- Parent XY-C1 `43863800656` was IN_PROGRESS at last inspection. It does not validate this new product-source SHA.
+- This IFUP change requires fresh exact-head Process and XY-C1 push Actions. No same-SHA Build/TRX/artifact L3 or physical-router L4 result is claimed.
 
 ## Exact first action for the next GPT
 
-1. Verify the exact-head Process rerun against the corrected single-backslash regex and check AI docs/infosvr remain green.
-2. Recheck XY-C1 `43863503907` for completed Build, TRX verification and artifact upload, and NVRAM `43863503976` for completion.
-3. Continue auditing `set_interface_mtu()`, `control_if_ipv6()` and interface-address setup calls for ignored return values; distinguish required interface readiness from best-effort operations.
-4. Claim XY-C1 L3 only when Build, TRX verification and artifact upload all pass on one exact production-source SHA; physical-router testing remains L4-only.
+1. Inspect the exact-main-SHA Process and XY-C1 Actions triggered by this IFUP status fix. Diagnose any first causal failure; require Build, TRX verification and artifact upload on the same SHA before claiming L3.
+2. Continue the bounded WAN review from `start_wan()`: propagate actual PPP launch / demand-readiness failures and static address or EAPOL startup failures to the PID 1 startup result without treating intentional best-effort cleanup or MTU tuning as fatal.
+3. Inspect ignored `control_if_ipv6()` results in `config_vinet_wan()` and `config_apcli_wisp()`; required IPv6 enable/disable failures should not be silently ignored before interface state is published.
+4. Keep optional MTU tuning best-effort unless a product-specific invariant establishes otherwise. No physical-router L4 validation is available.
 
 ## Governance
 

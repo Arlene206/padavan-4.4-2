@@ -1,11 +1,11 @@
 ## Current source / CI checkpoint
 
-- Source baseline: `5825e35e0987fab26b4f588f879a885094e1708b`; this commit repairs its checker contract and handoff schema.
-- `start_wan()` returns static route/session setup and configured IPv6 setup errors; `stop_wan_locked()` preserves static route teardown status through USB modem shutdown and interface teardown.
-- WAN route status `43862971906` and WAN teardown `43862972252` passed on the product-source baseline. AI handoff docs `43863503814` and infosvr `43863503915` passed on exact checker-correction SHA `4516b9c3f3fc8e117bf654698f515a63551b9ddc`.
-- Process `43863503850` failed because its new raw-regex pattern was accidentally double-escaped; a single-backslash regex correction is now committed for the exact-source rerun.
-- XY-C1 `43863503907` and NVRAM `43863503976` were in progress; no same-SHA firmware Build/TRX/artifact L3 or physical-router L4 is claimed.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Product-source baseline before this slice: `f16026b0af5d00087e36929b14843cf6b94a8b6a`; this main-only source change carries required physical WAN IFUP failure into the WAN startup return status before best-effort cleanup.
+- Previously validated required boot/WAN propagation includes LAN bridge/VLAN/switch/iNIC MII, full WAN restart switch/static-LAN-route/MAC-table checks, L2TP service status, static WAN route/IPv6 startup, and static route/USB modem teardown status.
+- Parent f160 exact-head Process `43863800540`, AI docs `43863800477`, infosvr `43863800722`, NVRAM `43863800497`, AliDDNS `43863800501`, AliyunDrive `43863800566` and AdGuardHome `43863800941` passed. XY-C1 `43863800656` was still running; current source requires new exact-SHA validation.
+- Added GNU89 policy coverage for first physical IFUP error surviving cleanup and strengthened the Process/XY-C1 WAN source checker to require accumulation before cleanup.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. No L3/L4 claim for this source slice.
+
 
 ## Whole-repository module status
 
