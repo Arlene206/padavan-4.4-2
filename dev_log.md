@@ -1,3 +1,14 @@
+## 2026-11-17 02:58 CST (UTC+8) — Complete firewall/UPnP result propagation through service callers
+
+- Parent main: 03ad069f57518208d4546ce844b9e5e09b00a365; preceding commit 03ad069 changed the generic API and covered PID 1 notifications, CLI, SSH and HTTPD, but storage services, IPv6 disable, VPN server restart and restart_upnp callback still discarded the result.
+- Propagate firewall/UPnP refresh errors through FTP/Transmission/Aria and storage start/stop paths, IPv6 first-error aggregation, VPN server first-error aggregation and the UPnP restart callback. Preserve earlier service-start/teardown failures as first error.
+- Added UPnP policy failure-injection coverage and extended the canonical WAN checker to bind all added caller results. Firewall workflow compiles the GNU89/-Werror/ASan/UBSan policy test and runs the source checker for push and PR changes.
+- Parent exact-head firewall workflow 43932064517, AI docs 43932065074, USB modem identity 43932065139, WAN route 43932065079, WAN DHCP 43932065052, VPN server 43932064898, Process lifecycle inventory 43932065105 and multiple service suites passed. Process aggregate 43932065043, XY-C1 43932065369, USB storage 43932065453, SkipDBv2 43932064473 and NVRAM audit 43932064356 were pending at last poll. THIS COMMIT exact-head results remain pending; no L3 claim until same-SHA XY-C1 Build/TRX/artifact all pass. Physical-router L4 remains NOT VERIFIED.
+- Resulting commit: THIS COMMIT.
+- Next: inspect exact-head firewall, Process, XY-C1 and AI docs; continue P1 audit of reload_nat_modules() and start_firewall_ex() result/postcondition handling.
+
+---
+
 ## 2026-11-17 — Propagate UPnP refresh failures through firewall restart callers
 
 - Parent main: `11e166fc85af30acb12165a198943b0be04f5117`; checker/handoff repair commit `11e166fc85af30acb12165a198943b0be04f5117`.

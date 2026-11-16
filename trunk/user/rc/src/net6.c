@@ -237,7 +237,11 @@ full_restart_ipv6(int ipv6_type_old)
 		/* This no-notify refresh cannot recurse into restart_dns(). */
 		refresh_resolvconf_nonfatal_no_notify("IPv6 disabled", 0);
 		reload_nat_modules();
-		restart_firewall();
+		operation_status = restart_firewall();
+		if (operation_status != 0)
+			logmessage(LOGNAME, "IPv6 disable could not refresh firewall/UPnP mappings (status=%d)",
+				   operation_status);
+		restart_status = rc_first_service_start_status(restart_status, operation_status);
 		dnsmasq_start_status = start_dns_dhcpd_locked(0);
 		if (dnsmasq_start_status != 0)
 			logmessage(LOGNAME, "IPv6 disable completed but DNSMasq did not restart (status=%d)",

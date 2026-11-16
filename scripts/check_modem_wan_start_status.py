@@ -11,6 +11,11 @@ WAN_SOURCE = (RC / "net_wan.c").read_text()
 NET_SOURCE = (RC / "net.c").read_text()
 SERVICES_SOURCE = (RC / "services.c").read_text()
 STORAGE_SOURCE = (RC / "services_stor.c").read_text()
+NET6_SOURCE = (RC / "net6.c").read_text()
+VPN_SERVER_SOURCE = (RC / "vpn_server.c").read_text()
+SERVICES_EX_SOURCE = (RC / "services_ex.c").read_text()
+UPNP_POLICY_SOURCE = (RC / "upnp_restart_policy.h").read_text()
+UPNP_TEST_SOURCE = (RC / "tests/upnp_restart_policy.c").read_text()
 SERVICES_USB_SOURCE = (RC / "services_usb.c").read_text()
 RC_SOURCE = (RC / "rc.c").read_text()
 HEADER = (RC / "rc.h").read_text()
@@ -427,5 +432,33 @@ assert "operation_status != 0" in notify_policy
 assert "rc_notify_merge_action_result(0, EBUSY) == -1" in notify_test
 assert "rc_notify_merge_action_result(0, EIO) == -1" in notify_test
 
+
+ftp_fw = compact(body(STORAGE_SOURCE, "control_ftp_fw(int is_run_before)"))
+assert "return restart_firewall();" in ftp_fw
+assert "int control_ftp_fw(int is_run_before);" in HEADER
+ftp_restart = compact(body(STORAGE_SOURCE, "restart_ftpd(void)"))
+assert "firewall_status = control_ftp_fw(is_run_before);" in ftp_restart
+assert "rc_first_service_start_status(start_status, firewall_status)" in ftp_restart
+for signature in ("restart_torrent(void)", "restart_aria(void)", "stop_stor_apps(void)", "start_stor_apps(void)"):
+    service_body = compact(body(STORAGE_SOURCE, signature))
+    assert "firewall_status = restart_firewall();" in service_body, signature
+    assert "rc_first_service_start_status" in service_body
+ipv6_restart = compact(body(NET6_SOURCE, "full_restart_ipv6(int ipv6_type_old)"))
+assert "operation_status = restart_firewall();" in ipv6_restart
+assert "rc_first_service_start_status(restart_status, operation_status)" in ipv6_restart
+vpn_restart = compact(body(VPN_SERVER_SOURCE, "restart_vpn_server(void)"))
+assert "firewall_status = restart_firewall();" in vpn_restart
+assert "vpn_server_restart_first_error(restart_status, firewall_status)" in vpn_restart
+upnp_restart = compact(body(SERVICES_EX_SOURCE, "restart_upnp(void)"))
+assert "rc_upnp_restart_run(stop_upnp, restart_firewall)" in upnp_restart
+assert "typedef int (*rc_upnp_firewall_restart_fn)(void);" in UPNP_POLICY_SOURCE
+upnp_runner = compact(body(UPNP_POLICY_SOURCE, "rc_upnp_restart_run("))
+assert "return restart_firewall();" in upnp_runner
+assert "test_firewall_refresh_failure_is_propagated" in UPNP_TEST_SOURCE
+for source_name, source in (("services_stor.c", STORAGE_SOURCE), ("net6.c", NET6_SOURCE), ("vpn_server.c", VPN_SERVER_SOURCE)):
+    assert not any(line.strip() == "restart_firewall();" for line in source.splitlines()), (
+        "unchecked firewall result remains in " + source_name
+    )
+print("WAN/storage/IPv6/VPN UPnP firewall result propagation: PASS")
 print("WAN firewall UPnP refresh status propagation: PASS")
 print("USB modem WAN startup status propagation: PASS")

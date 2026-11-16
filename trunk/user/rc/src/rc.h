@@ -667,7 +667,7 @@ void spindown_hdd(char *sd_dev);
 int is_ftp_run(void);
 int stop_ftp(void);
 int run_ftp(void);
-void control_ftp_fw(int is_run_before);
+int control_ftp_fw(int is_run_before);
 int restart_ftpd(void);
 #endif
 #if defined (APP_SMBD)

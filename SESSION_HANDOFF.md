@@ -10,26 +10,24 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Current repository state
 
-- Parent main before THIS COMMIT: `11e166fc85af30acb12165a198943b0be04f5117`. It contains the manual PPPoE physical-WAN status fix `4e1d18dd4d95ab16163a2373d70a674e00990db3` and the repaired WANX checker/handoff contract in `11e166fc85af30acb12165a198943b0be04f5117`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable and read-only.
-- On parent `11e166fc85af30acb12165a198943b0be04f5117`, Process `43930702272` PASS and AI docs `43930702155` PASS; XY-C1 `43930702412` remained IN_PROGRESS at last poll. Previous completed parent `59681e0b5edf6803a47280c0c0256f596d217392` had Process `43927478287`, AI docs `43927478510`, USB modem identity `43927478496`, and XY-C1 `43927478225` all PASS, including Build/TRX/artifact.
-- On parent `4e1d18dd4d95ab16163a2373d70a674e00990db3`, Process `43928812921` and XY-C1 `43928812622` failed at the new double-escaped WANX regex; the policy binary passed. AI docs `43928812779` failed because the shortened handoff dropped its mandatory checkpoint contract. Both issues were fixed in `11e166f`.
-- PR #1 is historical closed/unmerged work, superseded by mainline port `74b66ff960457379518d13c723c44a3515e6a228`; do not resume that PR head.
+- Parent main: 03ad069f57518208d4546ce844b9e5e09b00a365; preceding commit 03ad069 made restart_firewall() return update_upnp() status and covered notification/CLI/SSH/HTTPD callers. THIS COMMIT completes remaining storage, IPv6, VPN and UPnP-restart callback consumers.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; immutable and read-only.
+- Parent exact-head firewall-startup 43932064517, AI docs 43932065074, USB modem 43932065139, WAN route 43932065079, WAN DHCP 43932065052, VPN server 43932064898 and multiple suites passed. Process aggregate 43932065043, XY-C1 43932065369, USB storage 43932065453, SkipDBv2 43932064473 and NVRAM audit 43932064356 were pending at last poll.
+- Historical PR #1 remains closed/unmerged and superseded by mainline commit 74b66ff960457379518d13c723c44a3515e6a228; do not resume.
 
 ## Active task
 
-THIS COMMIT fixes the generic firewall-refresh UPnP status propagation gap. `restart_firewall()` previously called int-returning `update_upnp()` then discarded its result behind a `void` API. It now returns/logs the refresh status. Four RC notification paths merge it into `action_result` so a failed refresh keeps the incomplete marker; the direct CLI path returns it; SSH/HTTPD restart paths return it after preserving earlier start/postcondition errors. The existing RC notification policy tests normalization of positive EBUSY/EIO failures; the semantic WAN checker now binds the production return to every consumer. Static-IPoE and PPPoE-MAN startup fixes remain present.
+The generic restart_firewall() result is already returned by the preceding commit, and PID 1, CLI, SSH and HTTPD now preserve it. THIS COMMIT closes the remaining dropped-return paths: FTP/Transmission/Aria/storage, IPv6 disable, VPN server restart and restart_upnp() callback policy. Existing service/teardown status retains first-error precedence. The firewall rebuild helper itself remains void, so the reported result specifically covers the UPnP mapping refresh.
 
 ## Verification boundary
 
-- Source-level and C policy checks for THIS COMMIT run in existing Process and XY-C1 workflows. The checker verifies all four RC notification consumers, CLI, SSH and HTTPD status paths; existing RC notification policy tests positive errno normalization.
-- A full local repository checkout/build is unavailable in this session; no local full C test is claimed. Previous GNU89/Werror/ASan/UBSan smoke coverage applied only to first-error aggregation helper semantics.
-- Exact-head Process and AI docs must pass. L3 requires Build XY-C1, TRX verification and artifact upload together on THIS COMMIT's exact SHA. Physical-router L4 remains NOT VERIFIED.
-- Frozen backup remains unchanged.
+- Added the upnp_restart_policy.c failure-injection case verifying that a successful UPnP stop followed by firewall/UPnP refresh failure returns that error; stop errors still prevent firewall restart.
+- Extended scripts/check_modem_wan_start_status.py to assert status propagation through storage, IPv6, VPN and UPnP restart callbacks; firewall workflow compiles the policy with GNU89/-Werror/ASan/UBSan and runs the checker.
+- No local full-tree checkout/build is available. THIS COMMIT exact-head firewall, Process, XY-C1 and AI docs results must be inspected. L3 only after same-SHA XY-C1 Build/TRX/artifact all pass. Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head Process, XY-C1 and AI docs runs for THIS COMMIT. Confirm the checker and notification policy tests, then confirm same-SHA Build/TRX/artifact separately. Diagnose failures from the first causal step.
-2. Continue the P1 RC status audit around `reload_nat_modules()` and `start_firewall_ex()`: trace enabled module load/unload results and callers; distinguish required configured services from optional work before aggregating.
-3. Keep the main-only atomic commit/CAS workflow, leave the frozen backup read-only, and keep physical-router L4 NOT VERIFIED.
-
+1. Inspect exact-head firewall-startup, Process, XY-C1 and AI docs runs for THIS COMMIT; diagnose failures from the first causal job step.
+2. Confirm the new UPnP policy test, complete source-contract checker and same-SHA XY-C1 Build/TRX/artifact results.
+3. Continue P1 investigation of reload_nat_modules() and start_firewall_ex(): trace module-load/unload postconditions and each configured vs optional feature before defining a failure policy.
+4. Keep the frozen backup read-only and physical-router L4 marked NOT VERIFIED.

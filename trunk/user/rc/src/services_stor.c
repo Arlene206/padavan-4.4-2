@@ -360,7 +360,7 @@ run_ftp(void)
 	return 0;
 }
 
-void
+int
 control_ftp_fw(int is_run_before)
 {
 	int is_run_after = is_ftp_run();
@@ -371,7 +371,9 @@ control_ftp_fw(int is_run_before)
 	     (is_run_before == PROCESS_PRESENCE_ABSENT &&
 	      is_run_after == PROCESS_PRESENCE_RUNNING)) &&
 	    nvram_match("ftpd_wopen", "1") && nvram_match("fw_enable_x", "1"))
-		restart_firewall();
+		return restart_firewall();
+
+	return 0;
 }
 
 int
@@ -379,6 +381,7 @@ restart_ftpd(void)
 {
 	int storage_lock, is_run_before;
 	int stop_status, mount_status, start_status = 0, restart_status = -1;
+	int firewall_status = 0;
 
 	/* Serialize stop/inventory/start with hotplug and safe storage removal. */
 	storage_lock = storage_operation_lock_acquire(file_lock);
@@ -406,10 +409,13 @@ restart_ftpd(void)
 			restart_status = start_status;
 			goto out;
 		}
-		control_ftp_fw(is_run_before);
+		firewall_status = control_ftp_fw(is_run_before);
+		if (firewall_status != 0)
+			logmessage("FTP server", "firewall/UPnP refresh failed after FTP restart (status=%d)",
+				   firewall_status);
 	}
 
-	restart_status = start_status;
+	restart_status = rc_first_service_start_status(start_status, firewall_status);
 out:
 	file_unlock(storage_lock);
 	return restart_status;
@@ -2453,7 +2459,7 @@ int run_torrent(void)
 int restart_torrent(void)
 {
 	int storage_lock, is_run_before, is_run_after;
-	int stop_status, mount_status;
+	int stop_status, mount_status, firewall_status;
 	int restart_status = 0;
 
 	/* Hold the storage eject barrier through Transmission and firewall updates. */
@@ -2481,8 +2487,13 @@ int restart_torrent(void)
 
 	is_run_after = is_torrent_run();
 	if (storage_service_process_presence_changed(is_run_before, is_run_after) &&
-	    nvram_match("fw_enable_x", "1"))
-		restart_firewall();
+	    nvram_match("fw_enable_x", "1")) {
+		firewall_status = restart_firewall();
+		if (firewall_status != 0)
+			logmessage("Transmission", "firewall/UPnP refresh failed after restart (status=%d)",
+				   firewall_status);
+		restart_status = rc_first_service_start_status(restart_status, firewall_status);
+	}
 
 out:
 	file_unlock(storage_lock);
@@ -2590,7 +2601,7 @@ int run_aria(void)
 int restart_aria(void)
 {
 	int storage_lock, is_run_before, is_run_after;
-	int stop_status, mount_status;
+	int stop_status, mount_status, firewall_status;
 	int restart_status = 0;
 
 	/* Hold the storage eject barrier through Aria and firewall updates. */
@@ -2618,8 +2629,13 @@ int restart_aria(void)
 
 	is_run_after = is_aria_run();
 	if (storage_service_process_presence_changed(is_run_before, is_run_after) &&
-	    nvram_match("fw_enable_x", "1"))
-		restart_firewall();
+	    nvram_match("fw_enable_x", "1")) {
+		firewall_status = restart_firewall();
+		if (firewall_status != 0)
+			logmessage("Aria", "firewall/UPnP refresh failed after restart (status=%d)",
+				   firewall_status);
+		restart_status = rc_first_service_start_status(restart_status, firewall_status);
+	}
 
 out:
 	file_unlock(storage_lock);
@@ -3132,6 +3148,7 @@ stop_stor_apps(void)
 	int need_restart_fw = 0;
 
 	int stop_status = 0;
+	int firewall_status;
 
 #if defined (APP_NFSD)
 	if (stop_nfsd_locked() != 0) {
@@ -3180,8 +3197,13 @@ stop_stor_apps(void)
 	}
 #endif
 
-	if (need_restart_fw && nvram_match("fw_enable_x", "1"))
-		restart_firewall();
+	if (need_restart_fw && nvram_match("fw_enable_x", "1")) {
+		firewall_status = restart_firewall();
+		if (firewall_status != 0)
+			logmessage("Storage", "firewall/UPnP refresh failed after storage stop (status=%d)",
+				   firewall_status);
+		stop_status = rc_first_service_start_status(stop_status, firewall_status);
+	}
 
 	return stop_status;
 }
@@ -3191,6 +3213,7 @@ start_stor_apps(void)
 {
 	int need_restart_fw = 0;
 	int start_status = 0;
+	int firewall_status;
 #if defined (APP_FTPD) || defined (APP_SMBD) || defined (APP_NFSD) || \
     defined (APP_MINIDLNA) || defined (APP_FIREFLY) || \
     defined (APP_TRMD) || defined (APP_ARIA)
@@ -3236,8 +3259,13 @@ start_stor_apps(void)
 	need_restart_fw |= (is_aria_run() == PROCESS_PRESENCE_RUNNING);
 #endif
 
-	if (need_restart_fw && nvram_match("fw_enable_x", "1"))
-		restart_firewall();
+	if (need_restart_fw && nvram_match("fw_enable_x", "1")) {
+		firewall_status = restart_firewall();
+		if (firewall_status != 0)
+			logmessage("Storage", "firewall/UPnP refresh failed after storage start (status=%d)",
+				   firewall_status);
+		start_status = rc_first_service_start_status(start_status, firewall_status);
+	}
 
 	return start_status;
 }

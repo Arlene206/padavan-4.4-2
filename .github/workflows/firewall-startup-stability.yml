@@ -4,12 +4,26 @@ on:
   push:
     paths:
       - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/net6.c"
+      - "trunk/user/rc/src/vpn_server.c"
+      - "trunk/user/rc/src/upnp_restart_policy.h"
+      - "trunk/user/rc/src/tests/upnp_restart_policy.c"
+      - "trunk/user/rc/src/rc.h"
+      - "scripts/check_modem_wan_start_status.py"
       - "trunk/user/rc/src/firewall_startup_policy.h"
       - "trunk/user/rc/src/tests/firewall_startup_policy.c"
       - ".github/workflows/firewall-startup-stability.yml"
   pull_request:
     paths:
       - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/net6.c"
+      - "trunk/user/rc/src/vpn_server.c"
+      - "trunk/user/rc/src/upnp_restart_policy.h"
+      - "trunk/user/rc/src/tests/upnp_restart_policy.c"
+      - "trunk/user/rc/src/rc.h"
+      - "scripts/check_modem_wan_start_status.py"
       - "trunk/user/rc/src/firewall_startup_policy.h"
       - "trunk/user/rc/src/tests/firewall_startup_policy.c"
       - ".github/workflows/firewall-startup-stability.yml"
@@ -81,3 +95,9 @@ jobs:
 
           print("Required NAT restore, filter safety and push/PR workflow contracts: PASS")
           PY
+      - name: Compile UPnP/firewall restart result regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I trunk/user/rc/src trunk/user/rc/src/tests/upnp_restart_policy.c -o "$RUNNER_TEMP/upnp-restart-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/upnp-restart-policy"
+          python3 scripts/check_modem_wan_start_status.py

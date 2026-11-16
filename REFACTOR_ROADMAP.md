@@ -1,10 +1,9 @@
 ## Current source / CI checkpoint
 
-- Parent main: `11e166fc85af30acb12165a198943b0be04f5117`. This slice extends static-IPoE `update_upnp()` first-error propagation to generic `restart_firewall()` callers (RC notifications, CLI, SSH and HTTPD).
-- Checker/handoff repair parent `11e166fc85af30acb12165a198943b0be04f5117`: exact-head Process `43930702272` PASS, AI docs `43930702155` PASS, and XY-C1 `43930702412` IN_PROGRESS at last poll.
-- Earlier parent `59681e0b5edf6803a47280c0c0256f596d217392` passed Process `43927478287`, AI docs `43927478510`, USB modem identity `43927478496`, and XY-C1 Build/TRX/artifact `43927478225`.
-- THIS COMMIT exact-head Process, XY-C1 and AI docs results pending. Current-source L3 requires same-SHA Build, TRX verification and artifact upload; physical-router L4 remains NOT VERIFIED.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Parent main: 03ad069f57518208d4546ce844b9e5e09b00a365. Generic firewall restart status propagation was added in 03ad069; THIS COMMIT completes the remaining FTP/Transmission/Aria/storage, IPv6, VPN and UPnP restart callback callers.
+- Parent exact-head firewall-startup 43932064517, AI docs 43932065074, USB modem 43932065139, WAN route 43932065079, WAN DHCP 43932065052, VPN server 43932064898 and multiple service suites passed. Process aggregate 43932065043, XY-C1 43932065369, USB storage 43932065453, SkipDBv2 43932064473 and NVRAM audit 43932064356 were pending.
+- The updated firewall workflow adds a GNU89/-Werror/ASan/UBSan callback policy regression and runs the canonical source checker. Current-source L3 pending exact-head XY-C1 Build/TRX/artifact; physical-router L4 remains NOT VERIFIED.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains immutable and read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
 
 ## Whole-repository module status
 
