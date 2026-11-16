@@ -3361,10 +3361,14 @@ jobs:
                             "firewall_hook_file_stage(opt_iptables_script"):
               assert restore_gate < firewall_main.index(hook_call), hook_call
           assert "Skipping extension firewall hooks after built-in table restore failure" in firewall_main[restore_gate:]
+          assert re.search(r"\bint\s+start_firewall_ex\(void\)", firewall)
+          assert "firewall_restore_transaction_status(&firewall_core_restore_transaction)" in firewall_main
+          assert "firewall_restore_transaction_status" in transaction_helper
+          assert "firewall_restore_transaction_status(&tx) == EIO" in transaction_test
           failure_notice = firewall_main.index(
               '"Skipping extension firewall hooks after built-in table restore failure"'
           )
-          failure_return = firewall_main.index("return;", failure_notice)
+          failure_return = firewall_main.index("return status ? status : EIO;", failure_notice)
           forwarding_enable = firewall_main.index("set_ipv4_forward(1);", failure_notice)
           # A successful rollback restores the previous policy, not the new
           # ruleset. Do not enable forwarding or run later setup on this path.

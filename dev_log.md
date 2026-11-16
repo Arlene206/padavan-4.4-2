@@ -1,3 +1,12 @@
+## 2026-11-17 03:45 CST (UTC+8) — Align HTTPD firewall status-return source contract
+
+- Base main: `595bc6b6d78501ac833e721a51d9364063683e04`. Current-head Firewall Startup `43940508528`, Process regression `43940508454`, and AI handoff docs `43940508597` passed; XY-C1 `43940508628` and NVRAM audit `43940508621` were still running.
+- The earlier HTTPD run `43939886670` passed the firewall snapshot-descriptor regression and then failed because its embedded Python source checker searched for a bare `return;`. The current `start_firewall_ex()` deliberately returns `return status ? status : EIO;` before the IPv4-forwarding enable path when core table restore fails.
+- Updated the HTTPD contract to require the explicit error-valued return, validate the integer-returning function declaration and retained transaction status helper, and preserve the ordering assertion that forwarding cannot be enabled on the failed core restore path. No product source behavior changes.
+- Next: check this commit's exact-head HTTPD result and the pending XY-C1/NVRAM runs; continue auditing hook command/status and staged-file cleanup result handling. Physical-router L4 NOT VERIFIED; backup unchanged.
+
+---
+
 ## 2026-11-17 — Align legacy UPnP source assertion with firewall first-error return
 
 - Parent main: edeaf28ec35ad24aebaf6b1a82272cfe72939fd5. The new core firewall transaction host regression passed in exact-head Firewall Startup run 43939885812. The workflow then failed in the canonical checker at an older assertion that still required restart_firewall() to return upnp_status directly. The same assertion stopped exact-head XY-C1 run 43939886057 before Build/TRX/artifact; earlier XY host regressions passed.
