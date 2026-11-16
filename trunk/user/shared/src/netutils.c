@@ -863,6 +863,7 @@ br_add_del_if_internal(const char *brname, const char *ifname, int is_add,
 	}
 
 	ret = ioctl(sockfd, (is_add) ? SIOCBRADDIF : SIOCBRDELIF, &ifr);
+	saved_errno = errno;
 	if (ret == 0 && changed_out)
 		*changed_out = bridge_membership_operation_changed(is_add, membership, ret);
 	if (ret < 0 && bridge_membership_race_is_idempotent(is_add, errno)) {
@@ -877,6 +878,8 @@ br_add_del_if_internal(const char *brname, const char *ifname, int is_add,
 	}
 
 	close(sockfd);
+	if (ret < 0)
+		errno = saved_errno;
 
 	return ret;
 }

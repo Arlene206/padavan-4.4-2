@@ -1,3 +1,13 @@
+## 2026-11-16 — Preserve bridge membership ioctl errno across close
+
+- Parent main: `1ce4ffe3b71e87bdc5143ccc802d252f190ab5b0`. The preceding commit preserves ioctl errno for `br_add_del_bridge()`; a sibling review found the same issue in `br_add_del_if_internal()` for bridge port add/delete.
+- If SIOCBRADDIF/SIOCBRDELIF failed with an error other than a subsequently-confirmed idempotent race, the helper called `close(sockfd)` and returned `-1` without restoring ioctl errno. Now save errno immediately after ioctl and restore it after close for any still-failed operation. Successful concurrent idempotency re-probes remain success.
+- Process source contract now checks the production bridge membership helper as well as bridge creation for save-before-close and restore-on-failure behavior.
+- Exact parent Actions Process `43860541389` and AI docs `43860541304` were pending; the preceding SHA `7ce9978...` Process `43860044486` and AI docs `43860044408` passed. This change needs exact-head verification; no L3/L4 claim.
+- Next: inspect exact-head Process/AI docs and prior XY-C1 `43860044821`, then continue focused ioctl errno/callsite checks.
+
+---
+
 ## 2026-11-16 — Preserve bridge ioctl errno across socket close
 
 - Parent main: `7ce997801add3b30e42cd1cc76f14ddc0c45ef5c`. The bridge-add idempotency wrapper distinguishes EEXIST from other bridge-add failures before probing kernel bridge membership. The shared `br_add_del_bridge()` helper did not preserve the ioctl errno across its subsequent `close(sockfd)`.

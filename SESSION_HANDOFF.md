@@ -11,37 +11,42 @@ For each logical task, create all changed files in one Git tree and one atomic m
 ## Current repository state
 
 - Repository: Arlene206/padavan-4.4-2; active branch: main.
-- Parent for THIS bridge ioctl errno-preservation slice: `7ce997801add3b30e42cd1cc76f14ddc0c45ef5c`; fetch live main and use expected-SHA non-forced CAS on the next write.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. One-time startup comparison found main 588 commits ahead / 1 behind; do not repeat archive recovery.
-- Latest LAN/switch module status source baseline: `b715097b8fdb76ed1e96bdeed6bedafde47eeefd`.
-- Latest WAN restart switch-VLAN fail-closed fix: `7ce997801add3b30e42cd1cc76f14ddc0c45ef5c`.
+- Parent for THIS bridge membership ioctl errno slice: `1ce4ffe3b71e87bdc5143ccc802d252f190ab5b0`; fetch live main before the next write and use expected-SHA non-forced CAS.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. One-time startup comparison found main 588 commits ahead / 1 behind; do not repeat backup/archive recovery.
 
 ## Active task
 
-The new bridge initializer classifies `br_add_del_bridge()` EEXIST using `errno`, then verifies the interface is an existing bridge. The shared helper performed its ioctl and then called `close(sockfd)` before returning without preserving the ioctl error number. A failed close could overwrite the original ioctl `errno`, preventing correct EEXIST classification (or changing the reported failure). This slice saves `errno` immediately after ioctl and restores it after close whenever the ioctl failed.
+The prior slice fixed `br_add_del_bridge()` preserving ioctl errno across close. Sibling audit found `br_add_del_if_internal()` had the same hole for SIOCBRADDIF/SIOCBRDELIF:
+- After a failed add/delete ioctl, a non-idempotent errno could be overwritten by `close(sockfd)`, so callers receive an unreliable cause and duplicate-race decisions/logging lose accurate failure information.
+- Now save errno immediately after the bridge member ioctl and restore it after close whenever the operation remains failed. If the idempotency re-probe proves the requested membership is already satisfied, the operation still returns success.
+- Process source contract now checks the shared bridge-create and bridge-member helpers both save and restore ioctl errno across close.
 
-Process regression now inspects the production helper and asserts that the ioctl errno is saved before close and restored on failure. Existing bridge idempotency policy tests exercise EEXIST/other-error/unknown-inventory cases.
+Previous reliability fixes remain on main: first-error bridge/VLAN/switch startup aggregation, required iNIC module verification, optional hw_nat offload verification, full WAN restart fail-closed switch VLAN status.
 
 ## Verification boundary
 
-On source SHA `7ce997801add3b30e42cd1cc76f14ddc0c45ef5c`:
-- Process inventory and lifecycle fail-closed regression `43860044486`: SUCCESS.
-- AI handoff documentation contract `43860044408`: SUCCESS.
-- HTTPD Authentication and Security `43860044873`: SUCCESS.
-- WAN route operation status `43860044772`: SUCCESS.
-- WAN interface teardown `43860044356`: SUCCESS.
-- AliDDNS signed API transport `43860044474`: SUCCESS.
-- AdGuardHome configuration security `43860044911`: SUCCESS.
-- detect_link `43860044785`, detect_internet `43860044834`, DNSMasq `43860044694`, VPN `43860044807`, infosvr `43860044473`, USB modem identity `43860044356`, WAN DHCP callback `43860044830`, and secondary Process inventory `43860044744`: SUCCESS.
-- XY-C1 Firmware Validation `43860044821` and NVRAM transaction boundary audit `43860044318`: IN_PROGRESS at last inspection; check exact current results, do not assume.
-- No same-SHA XY-C1 Build+TRX+artifact L3 or physical-router L4 was established at last inspection.
+On exact parent SHA `1ce4ffe3b71e87bdc5143ccc802d252f190ab5b0`, runs were pending at last query:
+- Process inventory and lifecycle fail-closed `43860541389`
+- NVRAM transaction boundary audit `43860541296`
+- AI handoff documentation contract `43860541304`
+- WAN DHCP callback `43860541545`
+- AliDDNS signed transport `43860541276`
+- AliyunDrive WebDAV `43860541216`
+- AdGuardHome config security `43860541356`
+- infosvr packet/signal `43860541489`
+- Wireless radio state `43860541030`
+- WAN route result `43860541365`
+- Process lifecycle inventory `43860541379`.
+On the previous exact source SHA `7ce997801add3b30e42cd1cc76f14ddc0c45ef5c`, Process `43860044486` and AI docs `43860044408` passed; HTTPD auth `43860044873`, WAN route `43860044772`, DNSMasq `43860044694`, VPN `43860044807`, AdGuardHome `43860044911`, AliDDNS `43860044474`, detect_link `43860044785`, detect_internet `43860044834`, infosvr `43860044473`, WAN DHCP `43860044830`, secondary Process inventory `43860044744` and USB modem identity `43860044356` all passed. XY-C1 `43860044821` remained in progress at last inspection; prior NVRAM `43860044318` subsequently passed.
+- No same-SHA XY-C1 Build+TRX+artifact L3 or physical-router L4 has been established.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head Process and AI handoff checks for this errno fix; check whether the prior XY-C1 run `43860044821` and NVRAM run `43860044318` have completed.
-2. Verify Process source contract and bridge policy regression, then continue the RC/shared network utility callsite audit for other newly status-bearing APIs or reliable errno propagation defects.
-3. Record XY-C1 L3 only when Build, TRX validation and artifact upload pass on the same production-source SHA. Physical router verification remains L4-only.
+1. Inspect exact-head Process and AI docs for this commit and return to prior pending XY-C1 run `43860044821`; check remaining service/security Actions without waiting idly.
+2. Verify both bridge ioctl errno source assertions and existing bridge-init/member policy regressions pass.
+3. Continue source-backed reliability audit of shared network ioctl wrappers and callers; preserve error contracts across cleanup calls.
+4. XY-C1 L3 requires Build, TRX verification and artifact upload on the same source SHA; hardware behavior remains L4-only.
 
 ## Verification and governance
 
-Preserve security, architecture, compatibility, target toolchain and necessary tests. Main only; frozen backup read-only. One full Git tree and atomic commit per logical task, non-forced expected-SHA update. Update `dev_log.md` for source milestones and retain 20–119 entries. Distinguish host regression, exact-SHA CI, firmware/TRX L3 and physical router L4. Never claim an unrun result.
+Preserve security, architecture, compatibility, target toolchain and mandatory tests. Main only; frozen backup read-only. One full Git tree and one atomic commit per logical task; non-forced expected-SHA update. Update `dev_log.md` for source milestones and retain 20–119 entries. Distinguish host tests, exact-SHA Actions, firmware/TRX L3 and physical router L4. Never claim an unrun result.

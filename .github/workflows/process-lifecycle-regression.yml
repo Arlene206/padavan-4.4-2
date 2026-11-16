@@ -513,6 +513,7 @@ jobs:
           full_wan_restart = body(net_wan, "full_restart_wan(void)")
           bridge_create = body(lan, "init_bridge_add_bridge(const char *bridge_ifname)")
           bridge_add = body(netutils, "br_add_del_bridge(const char *brname, int is_add)")
+          bridge_member_add = body(netutils, "br_add_del_if_internal(const char *brname, const char *ifname, int is_add,")
           module_loader = body(lan, "init_bridge_load_module_verified(const char *module_name, const char *module_param)")
           assert ("int" + chr(10) + "init_bridge(int is_ap_mode)") in lan
           assert "int init_bridge(int is_ap_mode);" in header
@@ -532,6 +533,9 @@ jobs:
           assert "saved_errno = errno;" in bridge_add
           assert bridge_add.index("saved_errno = errno;") < bridge_add.index("close(sockfd);")
           assert "if (ret < 0)\n\t\terrno = saved_errno;" in bridge_add
+          assert "saved_errno = errno;" in bridge_member_add
+          assert bridge_member_add.index("saved_errno = errno;") < bridge_member_add.index("close(sockfd);")
+          assert "if (ret < 0)\n\t\terrno = saved_errno;" in bridge_member_add
           assert "saved_errno == EEXIST" in bridge_create
           assert "br_bridge_is_empty(bridge_ifname)" in bridge_create
           assert "rc_bridge_init_add_bridge_result" in bridge_create
