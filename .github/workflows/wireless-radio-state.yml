@@ -94,6 +94,11 @@ jobs:
               assert "wireless_restart_preflight(need_reload_conf, " + generator + ")" in body
               assert body.index("wireless_restart_preflight(") < body.index("return -1;") < body.index("stop_8021x_")
 
+          interface_control = function_body(source, "wif_control(const char *wifname, int is_up)")
+          assert "ret = ifconfig(wifname, is_up ? IFUP : 0, NULL, NULL);" in interface_control
+          assert 'doSystem("ifconfig %s %s 2>/dev/null", wifname' not in interface_control
+          assert "return ret;" in interface_control
+
           control = function_body(source, "wif_control_success(const char *wifname, int is_up)")
           assert "ret = wif_control(wifname, is_up)" in control
           assert "wireless_radio_status_success(ret)" in control

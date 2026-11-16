@@ -39,7 +39,7 @@ wif_control(const char *wifname, int is_up)
 {
 	int ret;
 	logmessage(LOGNAME, "%s: ifname: %s, isup: %d", __func__, wifname, is_up);
-	ret = doSystem("ifconfig %s %s 2>/dev/null", wifname, (is_up) ? "up" : "down");
+	ret = ifconfig(wifname, is_up ? IFUP : 0, NULL, NULL);
 #if defined (USE_MT7615_AP) || defined (USE_MT7915_AP) || defined (USE_MT76X2_AP)
 	if (is_up && is_module_loaded("hw_nat")) {
 		doSystem("iwpriv %s set hw_nat_register=%d", wifname, 1);
