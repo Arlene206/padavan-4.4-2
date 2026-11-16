@@ -224,8 +224,8 @@ ftp_start = body(storage, "run_ftp(void)")
 require("process_state != PROCESS_PRESENCE_ABSENT" in ftp_start and
         "PROCESS_PRESENCE_RUNNING" in ftp_start,
         "FTP start must refuse unknown daemon presence")
-for signature in ("void run_dms(int force_rescan)", "void run_itunes(void)",
-                  "void run_torrent(void)", "void run_aria(void)"):
+for signature in ("int run_dms(int force_rescan)", "int run_itunes(void)",
+                  "int run_torrent(void)", "int run_aria(void)"):
     run_body = body(storage, signature)
     require("process_state != PROCESS_PRESENCE_ABSENT" in run_body and
             "PROCESS_PRESENCE_RUNNING" in run_body,
@@ -262,12 +262,42 @@ ftp_start = body(storage, "run_ftp(void)")
 require("process_state != PROCESS_PRESENCE_ABSENT" in ftp_start and
         "PROCESS_PRESENCE_RUNNING" in ftp_start,
         "FTP start must refuse unknown daemon presence")
-for signature in ("void run_dms(int force_rescan)", "void run_itunes(void)",
-                  "void run_torrent(void)", "void run_aria(void)"):
+for signature in ("int run_dms(int force_rescan)", "int run_itunes(void)",
+                  "int run_torrent(void)", "int run_aria(void)"):
     run_body = body(storage, signature)
     require("process_state != PROCESS_PRESENCE_ABSENT" in run_body and
             "PROCESS_PRESENCE_RUNNING" in run_body,
             "storage daemon start must fail closed on unknown presence: " + signature)
+
+# Media/download helpers now return launch and daemon-readiness postconditions.
+for signature in ("int run_dms(int force_rescan)", "int run_itunes(void)",
+                  "int run_torrent(void)", "int run_aria(void)"):
+    run_body = body(storage, signature)
+    require("return storage_log_daemon_start_result(" in run_body and
+            "return errno ? errno : EIO;" in run_body,
+            "storage daemon must return launch/readiness failures: " + signature)
+    require(signature + ";" in rc_header,
+            "status-bearing daemon prototype missing: " + signature)
+
+daemon_result = body(storage, "storage_log_daemon_start_result(")
+require("status = rc_first_service_start_status(status, ENOENT);" in daemon_result and
+        "status = rc_first_service_start_status(status, process_status);" in daemon_result and
+        "return status;" in daemon_result,
+        "daemon readiness helper must return absent and unknown process failures")
+
+storage_start = body(storage, "start_stor_apps(void)")
+require(storage_start.count("rc_first_service_start_status(") == 7 and
+        all(call in storage_start for call in (
+            "service_status = run_ftp();",
+            "service_status = run_samba();",
+            "service_status = run_nfsd_locked();",
+            "service_status = run_dms(0);",
+            "service_status = run_itunes();",
+            "service_status = run_torrent();",
+            "service_status = run_aria();",
+        )),
+        "all seven storage service return statuses must be aggregated")
+
 require("PROCESS_PRESENCE_UNKNOWN" in ftp_policy and
         "return -1;" in ftp_policy and "EIO" in ftp_policy,
         "FTP daemon wait must fail immediately on unknown process state")
