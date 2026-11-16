@@ -10,6 +10,10 @@ USB_SOURCE = (RC / "usb_modem.c").read_text()
 WAN_SOURCE = (RC / "net_wan.c").read_text()
 NET_SOURCE = (RC / "net.c").read_text()
 FIREWALL_SOURCE = (RC / "firewall_ex.c").read_text()
+FIREWALL_HOOK_SOURCE = (RC / "firewall_hook_file.h").read_text()
+FIREWALL_COMMAND_STATUS_SOURCE = (RC / "firewall_command_status.h").read_text()
+FIREWALL_HOOK_TEST = (RC / "tests/firewall_hook_file.c").read_text()
+FIREWALL_COMMAND_STATUS_TEST = (RC / "tests/firewall_command_status.c").read_text()
 SERVICES_SOURCE = (RC / "services.c").read_text()
 STORAGE_SOURCE = (RC / "services_stor.c").read_text()
 NET6_SOURCE = (RC / "net6.c").read_text()
@@ -546,3 +550,22 @@ assert "tx->snapshots[i].path" in retained_log
 assert "firewall_core_restore_transaction.cleanup_failed" in firewall_rebuild
 assert "partial cleanup paths retained" in firewall_rebuild
 print("Firewall recovery and partial-cleanup path diagnostics: PASS")
+
+hook_remove = compact(body(FIREWALL_HOOK_SOURCE, "firewall_hook_file_remove_with("))
+assert "unlink_fn(staged_path)" in hook_remove
+assert "errno == ENOENT" in hook_remove
+assert "return -1;" in hook_remove
+assert "staged_path[0] = '\\0';" in hook_remove
+assert "test_unlink_once" in FIREWALL_HOOK_TEST
+assert "firewall_hook_file_remove_with(staged,test_unlink_once)==-1" in FIREWALL_HOOK_TEST
+command_errno = compact(body(FIREWALL_COMMAND_STATUS_SOURCE, "firewall_command_status_to_errno("))
+assert "return EIO;" in command_errno
+assert "return system_errno;" in command_errno
+assert "firewall_command_status_to_errno(-1, EACCES) == EACCES" in FIREWALL_COMMAND_STATUS_TEST
+hook_dispatch = compact(body(FIREWALL_SOURCE, "start_firewall_ex(void)"))
+assert hook_dispatch.count("status=rc_first_service_start_status(status,hook_error);") >= 9
+for hook in ("Shadowsocks firewall hook", "Persistent post-firewall hook", "Optware iptables update hook"):
+    assert hook_dispatch.count(hook) >= 3
+assert "errno!=ENOENT" in hook_dispatch
+assert "firewall_log_hook_cleanup_failure" in hook_dispatch
+print("Optional firewall hook failure and staged-file cleanup propagation: PASS")

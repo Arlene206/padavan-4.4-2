@@ -4,6 +4,7 @@
 #ifndef FIREWALL_COMMAND_STATUS_H
 #define FIREWALL_COMMAND_STATUS_H
 
+#include <errno.h>
 #include <sys/wait.h>
 
 static int
@@ -28,6 +29,17 @@ firewall_command_status_signal(int status)
 		return 0;
 
 	return WTERMSIG(status);
+}
+
+/* Convert system(3)'s encoded result to the errno domain used by RC actions. */
+static int
+firewall_command_status_to_errno(int status, int system_errno)
+{
+	if (firewall_command_status_ok(status))
+		return 0;
+	if (status == -1 && system_errno > 0)
+		return system_errno;
+	return EIO;
 }
 
 typedef struct {

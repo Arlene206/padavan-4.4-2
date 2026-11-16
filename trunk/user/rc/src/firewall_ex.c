@@ -58,33 +58,36 @@ static firewall_adbyby_restore_transaction_t firewall_adbyby_restore_transaction
 
 #define MODULE_WEBSTR_MASK	0x01
 
-static void
+static int
 firewall_log_command_failure(const char *operation, int status)
 {
 	int exit_code, signal_number, saved_errno;
+	int error_number;
 
-	if (firewall_command_status_ok(status))
-		return;
+	saved_errno = (status == -1) ? errno : 0;
+	error_number = firewall_command_status_to_errno(status, saved_errno);
+	if (error_number == 0)
+		return 0;
 
 	if (status == -1) {
-		saved_errno = errno;
 		logmessage(LOGNAME, "%s: system() failed (errno=%d)", operation, saved_errno);
-		return;
+		return error_number;
 	}
 
 	exit_code = firewall_command_status_exit_code(status);
 	if (exit_code >= 0) {
 		logmessage(LOGNAME, "%s: command exited with status %d", operation, exit_code);
-		return;
+		return error_number;
 	}
 
 	signal_number = firewall_command_status_signal(status);
 	if (signal_number > 0) {
 		logmessage(LOGNAME, "%s: command terminated by signal %d", operation, signal_number);
-		return;
+		return error_number;
 	}
 
 	logmessage(LOGNAME, "%s: command failed with wait status %d", operation, status);
+	return error_number;
 }
 
 #if defined (APP_ADBYBY)
@@ -353,11 +356,25 @@ firewall_apply_core_restore(const char *operation, const char *family,
 	return result;
 }
 
-static void
+static int
 firewall_log_hook_stage_failure(const char *operation, int error_number)
 {
+	if (error_number <= 0)
+		error_number = EIO;
 	logmessage(LOGNAME, "%s: hook validation or staging failed (errno=%d)",
 		   operation, error_number);
+	return error_number;
+}
+
+static int
+firewall_log_hook_cleanup_failure(const char *operation, const char *path,
+				  int error_number)
+{
+	if (error_number <= 0)
+		error_number = EIO;
+	logmessage(LOGNAME, "%s: cannot remove staged hook %s (errno=%d)",
+		   operation, path ? path : "(unknown)", error_number);
+	return error_number;
 }
 
 /* Rule-file preparation failures are distinct from restore-command failures:
@@ -2698,6 +2715,7 @@ start_firewall_ex(void)
 {
 	int unit, wan_proto, i_tcp_mss, i_use_man, i_rp;
 	int status = 0;
+	int hook_error;
 	char int_iptables_staged[256] = {0};
 	char opt_iptables_staged[256] = {0};
 #if defined (APP_SHADOWSOCKS)
@@ -2879,12 +2897,20 @@ firewall_restore_complete:
 	}
 	if (firewall_restore_transaction_ok(&firewall_core_restore_transaction)) {
 #if defined (APP_SHADOWSOCKS)
-	/* /tmp is shared-writable: execute only a validated private snapshot. */
+	/* Missing optional hooks are a no-op; configured failures reach the caller. */
 	if (firewall_hook_file_stage(shadowsocks_iptables_script, "/home/root",
 				     ".firewall-hook-", shadowsocks_staged,
 				     sizeof(shadowsocks_staged)) == 0) {
-		firewall_log_command_failure("Shadowsocks firewall hook", doSystem("sh %s", shadowsocks_staged));
-		firewall_hook_file_remove(shadowsocks_staged);
+		hook_error = firewall_log_command_failure("Shadowsocks firewall hook", doSystem("sh %s", shadowsocks_staged));
+		status = rc_first_service_start_status(status, hook_error);
+		if (firewall_hook_file_remove(shadowsocks_staged) != 0) {
+			hook_error = firewall_log_hook_cleanup_failure("Shadowsocks firewall hook",
+						       shadowsocks_staged, errno);
+			status = rc_first_service_start_status(status, hook_error);
+		}
+	} else if (errno != ENOENT) {
+		hook_error = firewall_log_hook_stage_failure("Shadowsocks firewall hook", errno);
+		status = rc_first_service_start_status(status, hook_error);
 	}
 #endif
 #if defined (APP_ADBYBY)
@@ -2917,21 +2943,33 @@ firewall_restore_complete:
 	 * metadata, then execute only a root-private snapshot of the opened inode. */
 	if (firewall_hook_file_stage(int_iptables_script, "/home/root", ".post-firewall-",
 				     int_iptables_staged, sizeof(int_iptables_staged)) == 0) {
-		firewall_log_command_failure("Persistent post-firewall hook",
-					     doSystem("%s", int_iptables_staged));
-		firewall_hook_file_remove(int_iptables_staged);
+		hook_error = firewall_log_command_failure("Persistent post-firewall hook",
+						  doSystem("%s", int_iptables_staged));
+		status = rc_first_service_start_status(status, hook_error);
+		if (firewall_hook_file_remove(int_iptables_staged) != 0) {
+			hook_error = firewall_log_hook_cleanup_failure("Persistent post-firewall hook",
+						       int_iptables_staged, errno);
+			status = rc_first_service_start_status(status, hook_error);
+		}
 	} else if (errno != ENOENT) {
-		firewall_log_hook_stage_failure("Persistent post-firewall hook", errno);
+		hook_error = firewall_log_hook_stage_failure("Persistent post-firewall hook", errno);
+		status = rc_first_service_start_status(status, hook_error);
 	}
 
 	/* /opt is externally managed storage; apply the same root-hook trust gate. */
 	if (firewall_hook_file_stage(opt_iptables_script, "/home/root", ".opt-iptables-",
 				     opt_iptables_staged, sizeof(opt_iptables_staged)) == 0) {
-		firewall_log_command_failure("Optware iptables update hook",
-					     doSystem("%s update", opt_iptables_staged));
-		firewall_hook_file_remove(opt_iptables_staged);
+		hook_error = firewall_log_command_failure("Optware iptables update hook",
+						  doSystem("%s update", opt_iptables_staged));
+		status = rc_first_service_start_status(status, hook_error);
+		if (firewall_hook_file_remove(opt_iptables_staged) != 0) {
+			hook_error = firewall_log_hook_cleanup_failure("Optware iptables update hook",
+						       opt_iptables_staged, errno);
+			status = rc_first_service_start_status(status, hook_error);
+		}
 	} else if (errno != ENOENT) {
-		firewall_log_hook_stage_failure("Optware iptables update hook", errno);
+		hook_error = firewall_log_hook_stage_failure("Optware iptables update hook", errno);
+		status = rc_first_service_start_status(status, hook_error);
 	}
 	} else {
 		logmessage(LOGNAME, "Skipping extension firewall hooks after built-in table restore failure");

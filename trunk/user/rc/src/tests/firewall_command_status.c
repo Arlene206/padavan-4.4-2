@@ -21,6 +21,12 @@ main(void)
 	assert(firewall_command_status_signal(1 << 8) == 0);
 	assert(firewall_command_status_signal(-1) == 0);
 
+	assert(firewall_command_status_to_errno(0, 0) == 0);
+	assert(firewall_command_status_to_errno(7 << 8, 0) == EIO);
+	assert(firewall_command_status_to_errno(SIGTERM, 0) == EIO);
+	assert(firewall_command_status_to_errno(-1, EACCES) == EACCES);
+	assert(firewall_command_status_to_errno(-1, 0) == EIO);
+
 	status = 127 << 8;
 	assert(!firewall_command_status_ok(status));
 	assert(firewall_command_status_exit_code(status) == 127);
