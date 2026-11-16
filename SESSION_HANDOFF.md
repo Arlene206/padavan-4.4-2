@@ -4,42 +4,41 @@ Mandatory handoff checkpoint: Every session MUST inspect live repository state a
 
 Continue the recorded engineering task across ChatGPT conversations. Recover live repository state once, do not repeat completed audits, and do not ask the user what to do next.
 
-For each logical task, create all changed files in one Git tree and one atomic main commit parented to freshly fetched `main`; update `main` with exact expected SHA using a non-forced compare-and-swap. Never force-push, rewrite history, create partial commits, or touch the frozen backup.
+For each logical task, create all changed files in one Git tree and one atomic main commit parented to freshly fetched `main`; update `main` with exact expected SHA using a non-forced compare-and-swap. Never force-push, rewrite history, create partial commits, or touch the frozen backup. Before context exhaustion, record precise live refs, exact Action results and the next concrete task.
 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; active branch: `main`.
-- Parent for THIS HTTPD workflow contract correction: `70e20841ef6dc6198fda5036521760f99d43a46d`. Refetch live main before every subsequent write and use expected-SHA non-forced CAS.
+- Parent for THIS HTTPD and handoff contract correction: `1b9571f272b74fcbd72085d229e17ca855344432`. Refetch live `main` before every later write and use expected-SHA non-forced compare-and-swap.
 - Frozen archive: `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only.
-- Startup governance/archive/backup/PR recovery are already complete; do not repeat the startup audit.
-- `dev_log.md` contains 88 records before this change; this entry will make 89. Keep the file within 20–119 records.
+- Startup governance/archive/backup/PR recovery are complete; do not repeat the startup audit.
+- Root `dev_log.md` contains 89 newest-first records before THIS entry; it will contain 90 afterward. Keep 20–119 records and preserve archived shards/indexes.
 
 ## Active task
 
-The exact-parent HTTPD Authentication workflow run exposed one more stale source contract in its USB metadata step:
-- Workflow `43845149417`, job `133223331331`, passed the standalone modem metadata policy binary and the USB hotplug metadata staging check.
-- The embedded Python assertion then failed because it expected the removed generic `get_modem_node("ttyUSB", devnum, NULL)` selector to remain in `usb_modem.c`.
-- The NDIS TTY control path now correctly uses `get_modem_node_by_usb_identity("ttyUSB", ndis_port_id, devnum)`; THIS commit updates the workflow's source assertion to require that identity-bound selection instead.
-- This is a checker correction only; no production behavior is changed here.
+Synchronize two stale validation/documentation contracts with current repository state:
+- HTTPD bounded-service/WAN-stop test expected the old direct expression `if (stop_wan() != 0)` in `try_wan_reconnect()`. Current production code correctly stores `status = stop_wan();`, gates on `if (status != 0)`, and only then resets WAN state. THIS commit asserts the actual status variable and ordering.
+- The handoff omitted the exact mandatory `Before context exhaustion` checkpoint phrase required by the AI documentation validator. THIS commit restores it.
+- Both changes are validation/documentation-only; no product runtime behavior changes here.
 
 ## Verification boundary
 
-Exact-head observations on parent `70e20841ef6dc6198fda5036521760f99d43a46d`:
+Exact-head observations on parent `1b9571f272b74fcbd72085d229e17ca855344432`:
 
-- Process inventory/lifecycle run `43845149493`: SUCCESS after the current int-return `start_wan(void)` source-checker fix.
-- XY-C1 run `43845149433`: IN_PROGRESS at the `Build XY-C1` step on last inspection. Earlier policy regression steps had passed; no TRX verification or artifact-upload result yet, so no L3 pass is claimed.
-- AI handoff docs `43845149351`, infosvr `43845149279`, AdGuardHome `43845149408`, AliDDNS `43845149268`, AliyunDrive `43845149455`: SUCCESS.
-- HTTPD Authentication `43845149417`: FAIL at `Verify USB modem node metadata staging`. The metadata policy binary and preceding hotplug metadata contract printed PASS; the only observed failure was the stale generic TTY getter assertion fixed by THIS commit.
-- NVRAM transaction boundary `43845149529`: IN_PROGRESS at last inspection.
-- USB WDM/NDIS identity test `43844807532` on parent `9e284e758526ac281228e86b81dc349adbeff783`: SUCCESS, including GNU89/Werror/ASan/UBSan test and the same-device TTY source contract.
-- No exact-parent XY-C1 TRX/artifact L3 result or physical-router/L4 result is established.
+- Process inventory/lifecycle run `43845655106`: SUCCESS.
+- AdGuardHome `43845655273`, infosvr `43845655392`, AliDDNS `43845655240`, and AliyunDrive `43845655067`: SUCCESS.
+- HTTPD Authentication `43845655325`: FAIL at `Verify bounded service termination and WAN stop failure gates`, embedded Python line 62, because its checker required `if (stop_wan() != 0)` inside `try_wan_reconnect()`; actual code uses the equivalent explicit `status` variable. THIS commit updates the contract to check its assignment, error gate, and ordering before state reset.
+- AI handoff docs `43845655144`: FAIL because the handoff omitted the literal `Before context exhaustion`. THIS commit restores the required phrase.
+- XY-C1 `43845655207`: IN_PROGRESS at last inspection; NVRAM `43845655244`: IN_PROGRESS. No TRX/artifact or physical-router result is claimed.
+- USB modem identity run `43844807532` on ancestor `9e284e758526ac281228e86b81dc349adbeff783`: SUCCESS. Process run `43845149493` on ancestor `70e20841ef6dc6198fda5036521760f99d43a46d`: SUCCESS.
+- No current-parent XY-C1 Build/TRX/artifact L3 result or physical-router/L4 result is established.
 
 ## Exact first action for the next GPT
 
-1. Fetch current main and inspect exact-head HTTPD, XY-C1, NVRAM, Process and AI handoff actions. Read failures, and do not count XY-C1 L3 until Build, TRX verification and artifact upload all complete.
-2. Inspect the unresolved `reload_modem_modules()` contract carefully. `module_smart_load()` can return zero both for an already-loaded module and for a failed load; `/sys/module` post-load state is authoritative. Do not require every alternative NDIS driver to load. Determine which selected-device readiness condition can be tested after USB host initialization, and propagate only well-defined failures.
-3. Broaden stability/security governance beyond USB modem work when the above integration gates are green.
+1. Fetch live `main` and inspect this commit's exact-head HTTPD and AI handoff jobs, plus XY-C1 and NVRAM. Read any failed logs. Record L3 only after Build XY-C1, TRX verification and artifact upload all pass.
+2. Inspect `reload_modem_modules()` and startup/reconfiguration callers. `module_smart_load()` can return zero both for an already-loaded module and for a failed load; where needed, verify actual `/sys/module` state. Do not make every alternative NDIS driver mandatory. Establish selected-device readiness only after USB host initialization.
+3. Broaden stability/security coverage beyond the modem subsystem when the outstanding integration gates are closed.
 
 ## Governance constraints
 
-Preserve security, architecture, compatibility, target-toolchain and mandatory tests. Use only `main`; the frozen backup remains read-only. Update `dev_log.md` for every code/documentation commit and preserve archived shards/indexes verbatim. Distinguish source, CI, firmware and physical-router validation. Never claim an unrun test/build/hardware result.
+Preserve security, architecture, compatibility, target-toolchain and mandatory tests. Use only `main`; frozen backup remains read-only. Update root `dev_log.md` for every code/documentation commit, keep 20–119 records and preserve archive shards/indexes verbatim. Distinguish source, CI, firmware and physical-router validation. Never claim an unrun test/build/hardware result.

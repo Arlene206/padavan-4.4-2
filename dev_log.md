@@ -1,3 +1,13 @@
+## 2026-11-16 — Align HTTPD reconnect and AI handoff contracts
+
+- Parent main: `1b9571f272b74fcbd72085d229e17ca855344432`. HTTPD Authentication run `43845655325` failed at embedded Python line 62 because its contract searched for the obsolete direct `if (stop_wan() != 0)` in `try_wan_reconnect()`. Production uses `status = stop_wan();`, checks `if (status != 0)`, then resets WAN state. Updated the contract to verify this actual status flow and ordering.
+- AI handoff docs run `43845655144` failed because the handoff omitted the required literal `Before context exhaustion`; restored the mandatory checkpoint sentence.
+- Process inventory `43845655106`, AdGuardHome `43845655273`, infosvr `43845655392`, AliDDNS `43845655240` and AliyunDrive `43845655067` passed on the exact parent.
+- XY-C1 `43845655207` and NVRAM `43845655244` were in progress at last inspection. No L3/L4 result is claimed.
+- Next: inspect exact-head HTTPD/AI docs plus XY-C1/NVRAM, then assess `reload_modem_modules()` readiness without making alternative drivers mandatory.
+
+---
+
 ## 2026-11-16 — Correct USB TTY selector contract in HTTPD workflow
 
 - Parent main: `70e20841ef6dc6198fda5036521760f99d43a46d`. HTTPD Authentication run `43845149417`, job `133223331331`, passed the modem metadata policy binary and hotplug metadata atomic-staging source contract, then failed only because the workflow still expected the removed generic `get_modem_node("ttyUSB", devnum, NULL)` call.

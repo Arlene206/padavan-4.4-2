@@ -4933,8 +4933,9 @@ jobs:
           assert wan_stop_lock.index("vpn_server_lifecycle_lock_acquire()") < wan_stop_lock.index("result = operation()") < wan_stop_lock.index("vpn_server_lifecycle_lock_release(lock_fd)")
           assert "if (stop_wan() != 0)" in full_restart
           assert full_restart.index("if (stop_wan() != 0)") < full_restart.index("reset_wan_vars();")
-          assert "if (stop_wan() != 0)" in reconnect
-          assert reconnect.index("if (stop_wan() != 0)") < reconnect.index("reset_wan_vars();")
+          assert "status = stop_wan();" in reconnect
+          assert "if (status != 0)" in reconnect
+          assert reconnect.index("status = stop_wan();") < reconnect.index("if (status != 0)") < reconnect.index("reset_wan_vars();")
           assert "if (stop_wan_ppp() != 0)" in manual_disconnect
 
           stop_misc = body(services, "stop_misc(void)")
