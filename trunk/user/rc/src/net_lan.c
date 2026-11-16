@@ -217,7 +217,8 @@ init_bridge(int is_ap_mode)
 	{
 		/* workaround for create all pseudo interfaces and fix iNIC issue (common PLL config) */
 		gen_ralink_config_2g(1);
-		doSystem("ifconfig %s %s", IFNAME_2G_MAIN, "up");
+		operation_status = ifconfig(IFNAME_2G_MAIN, IFUP, NULL, NULL);
+		rc_bridge_init_record(&bridge_status, "bring up 2.4GHz main interface for radio configuration", operation_status);
 	}
 #endif
 #if BOARD_HAS_5G_RADIO
@@ -225,7 +226,8 @@ init_bridge(int is_ap_mode)
 	{
 		/* workaround for create all pseudo interfaces */
 		gen_ralink_config_5g(1);
-		doSystem("ifconfig %s %s", IFNAME_5G_MAIN, "up");
+		operation_status = ifconfig(IFNAME_5G_MAIN, IFUP, NULL, NULL);
+		rc_bridge_init_record(&bridge_status, "bring up 5GHz main interface for radio configuration", operation_status);
 	}
 #endif
 #else /* BOARD_2G_IN_SOC || defined (BOARD_MT7915_DBDC) */
@@ -234,7 +236,8 @@ init_bridge(int is_ap_mode)
 	{
 		/* workaround for create all pseudo interfaces and fix iNIC issue (common PLL config) */
 		gen_ralink_config_5g(1);
-		doSystem("ifconfig %s %s", IFNAME_5G_MAIN, "up");
+		operation_status = ifconfig(IFNAME_5G_MAIN, IFUP, NULL, NULL);
+		rc_bridge_init_record(&bridge_status, "bring up 5GHz main interface for radio configuration", operation_status);
 	}
 #endif
 #if !defined (USE_RT3352_MII)
@@ -242,7 +245,8 @@ init_bridge(int is_ap_mode)
 	{
 		/* workaround for create all pseudo interfaces */
 		gen_ralink_config_2g(1);
-		doSystem("ifconfig %s %s", IFNAME_2G_MAIN, "up");
+		operation_status = ifconfig(IFNAME_2G_MAIN, IFUP, NULL, NULL);
+		rc_bridge_init_record(&bridge_status, "bring up 2.4GHz main interface for radio configuration", operation_status);
 	}
 #endif
 #endif
@@ -366,7 +370,8 @@ init_bridge(int is_ap_mode)
 #if BOARD_HAS_5G_RADIO
 	if (!wl_radio_on || (wl_mode_x == 1 || wl_mode_x == 3)) {
 		usleep(500000);
-		doSystem("ifconfig %s %s", IFNAME_5G_MAIN, "down");
+		operation_status = ifconfig(IFNAME_5G_MAIN, 0, NULL, NULL);
+		rc_bridge_init_record(&bridge_status, "restore 5GHz main interface down", operation_status);
 		gen_ralink_config_5g(0);
 	}
 
@@ -377,7 +382,8 @@ init_bridge(int is_ap_mode)
 #if !defined(USE_RT3352_MII)
 	if (!rt_radio_on || (rt_mode_x == 1 || rt_mode_x == 3)) {
 		usleep(500000);
-		doSystem("ifconfig %s %s", IFNAME_2G_MAIN, "down");
+		operation_status = ifconfig(IFNAME_2G_MAIN, 0, NULL, NULL);
+		rc_bridge_init_record(&bridge_status, "restore 2.4GHz main interface down", operation_status);
 		gen_ralink_config_2g(0);
 	}
 
