@@ -22,6 +22,7 @@
 #define RCN_RESTART_DHCPD		"restart_dhcpd"
 #define RCN_RESTART_RADV		"restart_radv"
 #define RCN_RESTART_DDNS		"restart_ddns"
+#define RCN_MANUAL_DDNS_UPDATE		"manual_ddns_update"
 #define RCN_RESTART_UPNP		"restart_upnp"
 #define RCN_RESTART_TIME		"restart_time"
 #define RCN_RESTART_NTPC		"restart_ntpc"

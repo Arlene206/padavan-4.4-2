@@ -9,6 +9,9 @@ on:
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/inadyn_daemon_policy.h"
       - "trunk/user/rc/src/tests/inadyn_daemon_policy.c"
+      - "trunk/user/httpd/src/web_ex.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/shared/src/notify_rc.h"
   pull_request:
     paths:
       - ".github/workflows/inadyn-lifecycle-stability.yml"
@@ -17,6 +20,9 @@ on:
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/inadyn_daemon_policy.h"
       - "trunk/user/rc/src/tests/inadyn_daemon_policy.c"
+      - "trunk/user/httpd/src/web_ex.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/shared/src/notify_rc.h"
 
 permissions:
   contents: read

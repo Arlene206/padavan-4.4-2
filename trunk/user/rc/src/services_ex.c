@@ -2348,6 +2348,59 @@ notify_ddns_update(void)
 	return 0;
 }
 
+
+/*
+ * Manual UI refresh sends SIGUSR1 only to identities captured by the process
+ * inventory. ABSENT remains a no-op; UNKNOWN must fail closed.
+ */
+int
+notify_ddns_manual_update(void)
+{
+	struct process_snapshot snapshot;
+	enum process_presence state;
+	int result;
+	int saved_errno;
+
+	state = process_inventory_scan("inadyn", &snapshot);
+	if (state == PROCESS_PRESENCE_UNKNOWN) {
+		saved_errno = snapshot.error > 0 ? snapshot.error : EIO;
+		process_snapshot_release(&snapshot);
+		errno = saved_errno;
+		logmessage(LOGNAME,
+			   "manual DDNS refresh aborted: inadyn inventory unknown (errno %d)",
+			   errno);
+		return -1;
+	}
+	if (state == PROCESS_PRESENCE_ABSENT) {
+		process_snapshot_release(&snapshot);
+		return 0;
+	}
+	if (state != PROCESS_PRESENCE_RUNNING) {
+		process_snapshot_release(&snapshot);
+		errno = EINVAL;
+		return -1;
+	}
+	if (inadyn_validate_snapshot(&snapshot, inadyn_validate_identity, NULL) != 0) {
+		saved_errno = errno ? errno : EIO;
+		process_snapshot_release(&snapshot);
+		errno = saved_errno;
+		logmessage(LOGNAME,
+			   "manual DDNS refresh aborted: inadyn identity preflight failed (errno %d)",
+			   errno);
+		return -1;
+	}
+	result = inadyn_signal_snapshot(&snapshot, SIGUSR1, inadyn_validate_identity,
+					inadyn_send_signal, NULL);
+	saved_errno = errno;
+	process_snapshot_release(&snapshot);
+	if (result != 0) {
+		errno = saved_errno ? saved_errno : EIO;
+		logmessage(LOGNAME, "manual DDNS refresh signal failed (errno %d)", errno);
+		return -1;
+	}
+	return 0;
+}
+
 char *
 get_ddns_fqdn(void)
 {

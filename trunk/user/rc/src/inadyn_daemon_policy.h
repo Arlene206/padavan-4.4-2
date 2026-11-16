@@ -64,7 +64,7 @@ inadyn_validate_snapshot(const struct process_snapshot *snapshot,
 	return 0;
 }
 
-/* HUP only the original identities; never fan out to a reused process name. */
+/* Signal only captured identities; never fan out by process name. */
 static int
 inadyn_signal_snapshot(const struct process_snapshot *snapshot, int sig,
 		       inadyn_identity_validate_fn validate,
@@ -74,7 +74,8 @@ inadyn_signal_snapshot(const struct process_snapshot *snapshot, int sig,
 	int saved_errno;
 	enum process_presence state;
 
-	if (!snapshot || !validate || !send_signal || sig != SIGHUP) {
+	if (!snapshot || !validate || !send_signal ||
+	    (sig != SIGHUP && sig != SIGUSR1)) {
 		errno = EINVAL;
 		return -1;
 	}

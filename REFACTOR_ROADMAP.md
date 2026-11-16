@@ -1,10 +1,10 @@
 ## Current source / CI checkpoint
 
-- Main parent for the AiDisk Samba/FTP stop-path fix: `8f55030bb5b7ec29f1cd6bc199a530b9eecfab53`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact 8f550 Actions PASS: Process inventory/lifecycle #43776730111, full-tree inventory #43776729995, AI docs #43776730107, NVRAM #43776730059, AdGuardHome #43776730000, infosvr #43776730049, AliyunDrive #43776730004 and AliDDNS #43776731279.
-- Exact 8f550 inventory PASS: 9,501 tracked entries, 6,255 scanned text files, 0 missing candidates / read errors; full JSON/Markdown artifact #14186597970 uploaded. The scan found 27 real legacy `pids()` callers; `is_dns_dhcpd_run()` has no callers inside `trunk/user/**`.
-- Exact aebfd65 XY-C1 #43775390773 passed Build, TRX and artifact upload; this remains the last verified product-source L3 baseline. THIS COMMIT changes `httpd/src/aidisk.c`, so current-source L3 must be re-established by its exact-head XY-C1 run. No L4.
-- THIS COMMIT removes both AiDisk Samba/FTP disable branches' legacy `pids()` prechecks; each disable now reaches its fail-closed RC stop handler, which returns an error for UNKNOWN or failed stop. Process/AI/XY exact-head validation pending.
+- Main parent for the Inadyn manual-refresh signal migration: `eee736ad62722846db11e035613a26a8433ffc12`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact eee Process lifecycle #43778610041 and AI docs #43778609888 PASS. These runs include the SmartDNS checker correction; c679's earlier Process failure #43778456682 was the stale checker assertion and is superseded by eee exact-head PASS.
+- AiDisk Samba/FTP fix 891b exact Process #43777935786 and AI docs #43777935812 PASS; HTTPD security #43777935793 and module Actions also pass. XY-C1 #43777935841 / #43778456640 remained in Build XY-C1 at last poll; TRX/artifact pending.
+- 8f550 inventory #43776729995 PASS: 9,501 tracked entries, 6,255 scanned text files, no missing candidates / read errors; report artifact #14186597970. It identified 27 real `pids()` callsites and no tracked-user-tree callers of `is_dns_dhcpd_run()`.
+- THIS COMMIT replaces HTTPD's legacy `pids("inadyn")` + name-wide `killall -SIGUSR1` path with RC notification and identity-validated SIGUSR1 to captured Inadyn PIDs. Exact-head Inadyn, Process, AI-doc and XY-C1 validation pending.
 
 
 ### P1 — Storage daemon startup and config publication
@@ -69,7 +69,8 @@
 8. P1 ACTIVE — Continue eliminating silent failures at enabled RC/service startup boundaries; completed slices cover Firefly, Transmission, Aria and RC logger status. THIS COMMIT propagates first failures from enabled int-returning `start_services_once()` boot services to the RC caller while preserving disabled-feature sentinels.
 
 9. P2 ACTIVE — Publish `/etc/igmpproxy.conf` through checked same-directory staging and atomic rename; refuse daemon launch on publication failure. Exact Process host regression and XY-C1 build/TRX/artifact are required.
-10. P1 ACTIVE — AiDisk Samba/FTP disable previously skipped the stop command when legacy `pids()` returned 0, conflating UNKNOWN procfs scans with confirmed ABSENT. THIS COMMIT always calls the tri-state RC stop handlers and adds a source regression; exact-head Process and XY-C1 Build/TRX/artifact validation pending.
+11. P1 ACTIVE — Manual DDNS UI refresh previously used `pids("inadyn")` and name-wide `killall -SIGUSR1`. THIS COMMIT routes it through RC and the PID-identity policy extended to SIGUSR1; UNKNOWN aborts and ABSENT stays a no-op.
+10. P1 SOURCE/HOST FIX COMPLETE — AiDisk Samba/FTP disable now always invokes fail-closed RC stop handlers; exact 891b Process #43777935786 and AI docs #43777935812 PASS. XY-C1 Build/TRX/artifact remained pending at last poll.
 
 ## Working rules
 

@@ -651,6 +651,7 @@ int update_upnp(void);
 void restart_upnp(void);
 int ddns_updated_main(int argc, char *argv[]);
 int notify_ddns_update(void);
+int notify_ddns_manual_update(void);
 int start_ddns(int clear_cache);
 int stop_ddns(void);
 int stop_ftpsamba(void);

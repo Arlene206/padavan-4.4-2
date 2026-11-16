@@ -1,3 +1,13 @@
+## 2026-11-15 — Route manual DDNS refresh through identity-bound signaling
+
+- HTTPD `ddnsclient` used `pids("inadyn")` as a lossy presence gate followed by `killall -SIGUSR1 inadyn`. Procfs inventory errors were silently treated as absent, and name-wide signaling was not bound to identities captured by the scanner.
+- Routed manual refresh through a dedicated RC notification. The helper preserves ABSENT as a no-op, aborts on UNKNOWN, validates the captured Inadyn snapshot and revalidates before sending SIGUSR1 only to captured PIDs. Existing SIGHUP configuration-reload behavior remains unchanged.
+- Added GNU89/ASan/UBSan host coverage for SIGUSR1 success and UNKNOWN rejection, source contracts for HTTPD→notify_rc→RC→signal, dedicated Inadyn workflow path filters and XY-C1 product-source triggers.
+- Parent main: `eee736ad62722846db11e035613a26a8433ffc12`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807`. Exact eee Process #43778610041 and AI docs #43778609888 PASS. Parent XY-C1 runs #43777935841 / #43778456640 remained in Build with TRX/artifact pending at last poll.
+- THIS COMMIT exact-head Inadyn lifecycle, Process, AI docs and XY-C1 Build/TRX/artifact validations pending. No L3/L4 claim.
+
+---
+
 ## 2026-11-16 — Always execute fail-closed Samba/FTP stop from AiDisk UI
 
 - Whole-tree lifecycle inventory on exact source SHA `8f55030bb5b7ec29f1cd6bc199a530b9eecfab53` passed: scanner self-test and 6,255 text files across 9,501 tracked tree entries; 0 missing candidates and 0 read errors. Artifact #14186597970 contains the complete JSON/Markdown report.

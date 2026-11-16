@@ -9,30 +9,26 @@ Only edit it when the live facts or first next action change materially.
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Current main parent for whole-tree lifecycle inventory integration: `4997afa4c480230727aa095f55b89b04f1e4fa73`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
-- All eight exact-head 4997 Actions PASS: infosvr #43775696102, AdGuardHome #43775696141, Process inventory/lifecycle #43775696137, NVRAM #43775696126, SkipDBv2 #43775696130, AliyunDrive #43775696121, AI handoff docs #43775695951 and AliDDNS #43775696124.
-- Exact 4997 SkipDB job #133001359689 passed the reducer-wrapped GPIO preflight, Configure, all SkipDBv2 targets and regression tests.
-- Exact aebfd65 USB storage #43775390744 PASS including Transmission/Aria host + firmware BusyBox 1.24.2 ash PID-state regressions; Process inventory #43775390816, Process lifecycle #43775390764, AI docs #43775390851, infosvr #43775390910, AdGuardHome #43775390873, AliDDNS #43775390953, AliyunDrive #43775390850 and NVRAM #43775390849 PASS.
-- Exact aebfd65 XY-C1 #43775390773 SUCCESS: Build XY-C1, TRX verification and artifact upload all passed on this source SHA. Commits after aebfd65 through 4997 changed only CI contracts/docs, not firmware product files; L3 is VERIFIED for current product-source tree aebfd65. No physical-router/L4 validation.
-- Current source investigation: residual legacy process APIs and direct name-wide commands across `trunk/user/**`. `services_ex.c:is_dns_dhcpd_run()` still calls legacy `pids("dnsmasq")`; `dnsmasq_process_status()` already provides RUNNING/ABSENT/UNKNOWN nearby, but external callsites must be located/classified before changing legacy semantics.
-- The 8f550 inventory commit integrated whole tracked-user-tree lifecycle scanning into Process CI, prints `pids`, DNSMasq status APIs and `killall` candidates, and runs on every `trunk/user/**` change; exact-head inventory passed and uploaded artifact #14186597970.
+- Current main parent for the Inadyn manual-refresh identity migration: `eee736ad62722846db11e035613a26a8433ffc12`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
+- Exact 8f550 whole-tree lifecycle inventory #43776729995 PASS: 9,501 tracked entries, 6,255 scanned text files, 0 missing candidates / read errors; artifact #14186597970. It identified 27 actual legacy `pids()` consumers and no in-tree callers of `is_dns_dhcpd_run()`.
+- AiDisk Samba/FTP off-path fix commit `891b46b51481d171aab6de88ac6634f4d6f56124`: exact Process lifecycle #43777935786, inventory #43777935804, AI docs #43777935812, HTTPD security #43777935793, AdGuardHome #43777935745, infosvr #43777935794, AliDDNS #43777935756, AliyunDrive #43777935761 and NVRAM #43777935755 PASS. XY-C1 #43777935841 was still building at last poll; TRX/artifact pending.
+- SmartDNS commit `c679c2eeaad06c44410ce38ae051a09bd5f30a19` had Process regression #43778456682 FAIL due to a stale checker path assertion. Follow-up `eee736ad62722846db11e035613a26a8433ffc12` fixed the assertion; exact eee Process #43778610041 and AI docs #43778609888 PASS. XY-C1 #43778456640 was still building at last poll; it includes c679 SmartDNS source and 891b AiDisk source.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. No physical-router/L4 validation.
+
 ## Active task
 
-### Fail closed when AiDisk disables Samba or FTP
+### Route manual DDNS refresh through PID-identity-bound signaling
 
-The exact 8f550 whole-tree report established there are no callers of `is_dns_dhcpd_run()` in the tracked user tree; its only hits are the `rc.h` declaration and `services_ex.c` definition. It also identified 27 real `pids()` callsites. In `httpd/src/aidisk.c:ej_set_AiDisk_status()`, both disable branches used `if (!pids(...)) goto success` before invoking the RC stop handler. Since legacy `pids()` returns 0 for a NULL list, an UNKNOWN procfs scan could be misreported as ABSENT, skipping shutdown and returning UI success after only changing NVRAM.
-
-THIS COMMIT removes those two prechecks: disabling SMB/FTP always invokes `/sbin/stop_samba` or `/sbin/stop_ftp`. Both RC stop handlers already use tri-state process inventory, check the stop postcondition and return failure for UNKNOWN; the UI propagates nonzero status. A source-integration regression rejects `pids()` in this callback and requires both commands. XY-C1 path filters now include `aidisk.c`.
-
+The HTTPD `ddnsclient` action currently uses `pids("inadyn")` and then `killall -SIGUSR1 inadyn`. This loses UNKNOWN process-inventory errors and sends a name-wide signal instead of signaling only identities captured from procfs. The RC already has an identity-validating Inadyn signal policy for SIGHUP; this change extends it to SIGUSR1, adds a dedicated RC event and a helper that treats ABSENT as a no-op but fails closed on UNKNOWN, validates captured identities and signals only those PIDs. GNU89/ASan/UBSan host coverage and integration assertions cover HTTPD→notify_rc→RC→signal policy. Exact-head Inadyn, Process, AI-doc and XY-C1 Build/TRX/artifact results are pending.
 
 ## Verification boundary
 
-- The complete inventory is verified on 8f550: Process inventory #43776729995 PASS, scanner self-test PASS, 6,255 text files / 9,501 tree entries, no unread candidates or read errors; artifact #14186597970.
-- THIS COMMIT changes the AiDisk CGI source, Process source-integration checker, XY-C1 path filter and canonical dev log / handoff / roadmap. Exact-head Process, AI docs and XY-C1 Actions must validate this fix; L3 only after Build XY-C1, TRX verification and artifact upload all pass on the same SHA.
-- aebfd65 remains the verified product-source L3 baseline (Build/TRX/artifact #43775390773 PASS); this commit changes HTTPD product source, so that earlier L3 does not cover the new AiDisk code. No physical-router/L4 validation is claimed.
+- Exact 8f550 inventory #43776729995 and AiDisk parent validations as above. Exact 891b Process #43777935786 and AI docs #43777935812 pass; XY-C1 #43777935841 was still in Build at the last poll.
+- SmartDNS checker failure on c679 was corrected by eee; exact eee Process #43778610041 and AI docs #43778609888 pass.
+- THIS COMMIT changes HTTPD / RC product source, Inadyn signal policy/test, event header, two workflow filters, checker and live docs. Exact-head Inadyn lifecycle, Process lifecycle, AI docs and XY-C1 Build/TRX/artifact must be checked. No L3/L4 is claimed unless current-SHA firmware Build, TRX and artifact upload all pass.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head Process lifecycle, AI handoff-doc and XY-C1 Actions for THIS COMMIT. Confirm the AiDisk source contract passes and the firmware workflow completes Build XY-C1, TRX verification and artifact upload on the exact same SHA.
-2. Continue the remaining 25 real legacy `pids()` callsites from the 8f550 inventory, prioritizing consequential state-changing consumers; do not globally alter `pids()`. The `is_dns_dhcpd_run()` wrapper has no in-tree callers and is not an active migration target.
-3. Continue auditing direct name-wide signals/shutdown hooks from the inventory artifact; preserve frozen backup and archived log inventory. No L4 without hardware.
+1. Inspect exact-head Inadyn lifecycle, Process regression, AI handoff-doc and XY-C1 Actions for THIS COMMIT. Confirm SIGUSR1 policy compile/test, HTTPD→RC source contracts and same-SHA Build XY-C1 / TRX / artifact upload.
+2. Remove the now-unused `SET_AIDISK_STATUS_SUCCESS:` label from `ej_set_AiDisk_status()` and adjust the AiDisk integration checker to delimit the function at `ej_get_all_accounts()`; verify no unused-label warning or firmware failure.
+3. Continue reviewing remaining real `pids()` consumers and name-wide signals from the 8f550 inventory artifact; do not rewrite legacy `pids()` globally. No L4 without hardware.

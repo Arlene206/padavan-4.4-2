@@ -175,12 +175,50 @@ test_identity_bound_hup_signal(void)
 	assert(errno == EINVAL);
 }
 
+static void
+test_identity_bound_usr1_signal(void)
+{
+	struct process_identity identity;
+	struct process_snapshot snapshot;
+	struct fake_signal fake;
+	const enum process_presence live[] = {
+		PROCESS_PRESENCE_RUNNING, PROCESS_PRESENCE_RUNNING
+	};
+	const enum process_presence unknown[] = { PROCESS_PRESENCE_UNKNOWN };
+
+	memset(&identity, 0, sizeof(identity));
+	identity.pid = 303;
+	memset(&snapshot, 0, sizeof(snapshot));
+	snapshot.state = PROCESS_PRESENCE_RUNNING;
+	snapshot.items = &identity;
+	snapshot.count = 1;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.states = live;
+	fake.state_count = sizeof(live) / sizeof(live[0]);
+	assert(inadyn_signal_snapshot(&snapshot, SIGUSR1, fake_validate,
+				      fake_send_signal, &fake) == 0);
+	assert(fake.next_state == 2 && fake.signal_count == 1);
+	assert(fake.signalled_pids[0] == identity.pid);
+	assert(fake.signalled_signals[0] == SIGUSR1);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.states = unknown;
+	fake.state_count = sizeof(unknown) / sizeof(unknown[0]);
+	fake.validation_error = EACCES;
+	errno = 0;
+	assert(inadyn_signal_snapshot(&snapshot, SIGUSR1, fake_validate,
+				      fake_send_signal, &fake) == -1);
+	assert(errno == EACCES && fake.signal_count == 0);
+}
+
 int
 main(void)
 {
 	test_presence_decisions();
 	test_config_preflight_requires_all_live_identities();
 	test_identity_bound_hup_signal();
-	puts("inadyn tri-state daemon and PID-bound HUP policy: PASS");
+	test_identity_bound_usr1_signal();
+	puts("inadyn tri-state daemon and PID-bound HUP/USR1 policy: PASS");
 	return 0;
 }

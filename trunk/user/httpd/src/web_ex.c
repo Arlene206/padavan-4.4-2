@@ -343,8 +343,8 @@ sys_script(char *name)
 	}
 	else if (strcmp(name,"ddnsclient")==0)
 	{
-		if (pids("inadyn"))
-			doSystem("killall %s %s", "-SIGUSR1", "inadyn");
+		/* RC validates captured Inadyn identities before signaling. */
+		notify_rc(RCN_MANUAL_DDNS_UPDATE);
 	}
 	else if (strcmp(name,"hostname_check") == 0)
 	{

@@ -1257,6 +1257,11 @@ handle_notifications(void)
 		{
 			manual_wisp_reassoc();
 		}
+		else if(!strcmp(entry->d_name, RCN_MANUAL_DDNS_UPDATE))
+		{
+			action_result = rc_notify_merge_action_result(action_result,
+										  notify_ddns_manual_update());
+		}
 		else if(!strcmp(entry->d_name, "manual_ddns_hostname_check"))
 		{
 			manual_ddns_hostname_check();
