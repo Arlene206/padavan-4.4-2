@@ -43,6 +43,7 @@
 #include "service_start_status.h"
 #include "wireless_module_load_policy.h"
 #include "hwnat_config_policy.h"
+#include "sfe_config_policy.h"
 #include "xupnpd_config_file.h"
 #if defined (APP_MSD_LITE)
 #include "msd_lite_config_file.h"
@@ -806,7 +807,7 @@ hwnat_configure(int wan_vid, int hwnat_allow)
 	int module_loaded = is_hwnat_loaded();
 	int status;
 
-	if (!hwnat_allow || !module_loaded) {
+	if (!hwnat_allow) {
 		logmessage(LOGNAME, "%s: %s", "Hardware NAT/Routing", hwnat_status);
 		return 0;
 	}
@@ -822,12 +823,24 @@ hwnat_configure(int wan_vid, int hwnat_allow)
 				   wan_vid, status);
 		return status;
 	}
+	if (!module_loaded) {
+		logmessage(LOGNAME, "%s: %s", "Hardware NAT/Routing", hwnat_status);
+		return 0;
+	}
 
 	hwnat_status = "Enabled, IPoE/PPPoE offload [WAN]<->[LAN/WLAN]";
 	logmessage(LOGNAME, "%s: %s", "Hardware NAT/Routing", hwnat_status);
 	return 0;
 }
 #endif /* USE_HW_NAT */
+
+#if defined (USE_SFE)
+static int
+sfe_set_skip_to_bridge_ingress(int skip)
+{
+	return fput_int("/sys/fast_classifier/skip_to_bridge_ingress", skip);
+}
+#endif
 
 void
 hw_vlan_tx_map(int idx, int vid)
@@ -1119,10 +1132,14 @@ reload_nat_modules(void)
 		}
 	}
 	if (sfe_loaded) {
-		if (sfe_enable == 1)
-			doSystem("echo 0 > /sys/fast_classifier/skip_to_bridge_ingress");
-		else if (sfe_enable == 2)
-			doSystem("echo 1 > /sys/fast_classifier/skip_to_bridge_ingress");
+		module_status = rc_sfe_configure_policy(sfe_enable,
+						       sfe_set_skip_to_bridge_ingress);
+		if (module_status != 0) {
+			logmessage(LOGNAME, "SFE is loaded but skip_to_bridge_ingress configuration failed (status=%d); continuing without configured SFE acceleration",
+				   module_status);
+			reload_status = rc_first_service_start_status(reload_status,
+								 module_status);
+		}
 	}
 #endif
 

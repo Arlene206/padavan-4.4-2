@@ -29,6 +29,8 @@ MODULE_POLICY_SOURCE = (RC / "wireless_module_load_policy.h").read_text()
 MODULE_POLICY_TEST = (RC / "tests/wireless_module_load_policy.c").read_text()
 HWNAT_POLICY_SOURCE = (RC / "hwnat_config_policy.h").read_text()
 HWNAT_POLICY_TEST = (RC / "tests/hwnat_config_policy.c").read_text()
+SFE_POLICY_SOURCE = (RC / "sfe_config_policy.h").read_text()
+SFE_POLICY_TEST = (RC / "tests/sfe_config_policy.c").read_text()
 POLICY_SOURCE = (RC / "modem_wan_start_policy.h").read_text()
 WAN_TEST = (RC / "tests/modem_wan_start_policy.c").read_text()
 
@@ -525,9 +527,16 @@ hwnat_config = compact(body(NET_SOURCE, "hwnat_configure(int wan_vid, int hwnat_
 assert "rc_hwnat_configure_policy(hwnat_allow, module_loaded, wan_vid, hwnat_set_wan_vid)" in hwnat_config
 assert "return status;" in hwnat_config
 assert "module_param_set_int" not in hwnat_config
+assert hwnat_config.index("rc_hwnat_configure_policy(") < hwnat_config.index("if (!module_loaded)")
 assert "hwnat_set_wan_vid(int wan_vid)" in compact(NET_SOURCE)
 assert "test_wan_vid_write_failure_is_reported" in HWNAT_POLICY_TEST
 assert "test_missing_wan_vid_is_reported" in HWNAT_POLICY_TEST
+assert "rc_sfe_configure_policy(sfe_enable, sfe_set_skip_to_bridge_ingress)" in nat_reload
+assert "fput_int(\"/sys/fast_classifier/skip_to_bridge_ingress\", skip)" in NET_SOURCE
+assert "doSystem(\"echo 0 > /sys/fast_classifier/skip_to_bridge_ingress\")" not in nat_reload
+assert "doSystem(\"echo 1 > /sys/fast_classifier/skip_to_bridge_ingress\")" not in nat_reload
+assert "test_failed_sfe_config_write_is_reported" in SFE_POLICY_TEST
+assert "sfe_config_policy.h" in NET_SOURCE
 assert "wan_vid, status" in hwnat_config
 assert '#include "hwnat_config_policy.h"' in NET_SOURCE
 print("Optional SFE module post-load and HW NAT configuration postcondition contracts: PASS")
