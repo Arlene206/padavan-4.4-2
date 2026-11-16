@@ -1,7 +1,12 @@
 #!/bin/sh
 
-
 mentohust_exec="bin_mentohust"
+PROCESS_LIFECYCLE_LIB="${PROCESS_LIFECYCLE_LIB:-/usr/lib/process_lifecycle.sh}"
+if [ ! -r "$PROCESS_LIFECYCLE_LIB" ]; then
+	logger -st "mentohust" "process lifecycle helper is unavailable"
+	exit 127
+fi
+. "$PROCESS_LIFECYCLE_LIB" || exit 127
 conf_file="${MENTOHUST_CONF_FILE:-/var/mentohust.conf}"
 bin_conf_file="${MENTOHUST_BIN_CONF_FILE:-/etc/storage/mentohust.conf}"
 
@@ -40,7 +45,17 @@ func_gen_conf(){
 }
 
 func_start(){
-	if [ -f $bin_conf_file ] && [ ! -L $bin_conf_file ]; then
+	if pl_process_state "$mentohust_exec"; then
+		func_log "Daemon is already running"
+		return 0
+	else
+		process_status=$?
+	fi
+	if [ "$process_status" -ne 1 ]; then
+		func_log "Daemon state is unknown; refusing duplicate launch"
+		return 2
+	fi
+	if [ -f "$bin_conf_file" ] && [ ! -L "$bin_conf_file" ]; then
 		func_log "Using existed conf: $bin_conf_file"
 	else
 		func_gen_conf
@@ -61,7 +76,7 @@ func_start(){
 
 func_stop(){
 	echo -n "Stopping mentohust:..."
-	if killall -q -9 "$mentohust_exec"; then
+	if pl_stop_named "$mentohust_exec" 3 2; then
 		echo "[  OK  ]"
 		func_log "Stopped"
 		return 0
@@ -84,13 +99,11 @@ stop)
 	action_status=$?
 	;;
 restart)
-	func_stop
-	stop_status=$?
-	if [ "$stop_status" -eq 0 ]; then
+	if func_stop; then
 		func_start
 		action_status=$?
 	else
-		action_status=$stop_status
+		action_status=$?
 	fi
 	;;
 *)

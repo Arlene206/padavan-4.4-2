@@ -1,5 +1,11 @@
 #!/bin/sh
 scutclient_exec="bin_scutclient"
+PROCESS_LIFECYCLE_LIB="${PROCESS_LIFECYCLE_LIB:-/usr/lib/process_lifecycle.sh}"
+if [ ! -r "$PROCESS_LIFECYCLE_LIB" ]; then
+	logger -st "scutclient" "process lifecycle helper is unavailable"
+	exit 127
+fi
+. "$PROCESS_LIFECYCLE_LIB" || exit 127
 LOG="$2"
 
 
@@ -16,6 +22,16 @@ get_arg_skip_udp_hb(){
 }
 
 func_start(){
+	if pl_process_state "$scutclient_exec"; then
+		func_log "Daemon is already running"
+		return 0
+	else
+		process_status=$?
+	fi
+	if [ "$process_status" -ne 1 ]; then
+		func_log "Daemon state is unknown; refusing duplicate launch"
+		return 2
+	fi
 #	[ "$(mtk_esw 11)" = "WAN ports link state: 0" ] && func_log "WAN has no link!" && exit 1
 	auth_hook=$(nvram get scutclient_auth_exec)
 	fail_hook=$(nvram get scutclient_fail_exec)
@@ -44,10 +60,18 @@ func_start(){
 
 func_stop(){
 	echo -n "Stopping scutclient:..."
-	killall -q -9 $scutclient_exec
-	$scutclient_exec -o -i "$(nvram get wan_ifname)" >/dev/null 2>&1
+	if pl_stop_named "$scutclient_exec" 3 2; then
+		:
+	else
+		stop_status=$?
+		echo "[FAILED]"
+		func_log "Daemon stop failed (status=$stop_status)"
+		return "$stop_status"
+	fi
+	"$scutclient_exec" -o -i "$(nvram get wan_ifname)" >/dev/null 2>&1
 	echo "[  OK  ]"
 	func_log "Stopped"
+	return 0
 }
 
 action_status=0
@@ -61,12 +85,16 @@ stop)
 	action_status=0
 	;;
 restart)
-	func_stop
-	func_start
-	action_status=$?
+	if func_stop; then
+		func_start
+		action_status=$?
+	else
+		action_status=$?
+	fi
 	;;
 *)
 	echo "Usage: $0 { start | stop | restart }"
+	action_status=2
 	;;
 esac
 exit "$action_status"

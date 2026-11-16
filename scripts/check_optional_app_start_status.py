@@ -6,6 +6,10 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 SCUT_SCRIPT = ROOT / "trunk/user/scutclient/scripts/scutclient.sh"
+MENTOHUST_SCRIPT = ROOT / "trunk/user/mentohust/scripts/mentohust.sh"
+PROCESS_LIFECYCLE_LIB = ROOT / "trunk/user/shared/scripts/process_lifecycle.sh"
+PROCESS_LIFECYCLE_TEST = ROOT / "trunk/user/shared/tests/process_lifecycle.sh"
+SHARED_MAKEFILE = ROOT / "trunk/user/shared/Makefile"
 VLM_SCRIPT = ROOT / "trunk/user/vlmcsd/vlmcsd.sh"
 
 
@@ -59,7 +63,10 @@ exit "${MOCK_LAUNCH_STATUS:-0}"
 
 
 def check_scutclient():
-    with tempfile.TemporaryDirectory(prefix="scutclient-start-") as tmp:
+    source = SCUT_SCRIPT.read_text()
+    assert '. "$PROCESS_LIFECYCLE_LIB" || exit 127' in source
+    assert 'pl_stop_named "$scutclient_exec" 3 2' in source
+    with tempfile.TemporaryDirectory(prefix="scutclient-lifecycle-") as tmp:
         base = Path(tmp)
         bin_dir = mock_bin(base / "bin")
         executable(bin_dir / "nvram", """#!/bin/sh
@@ -67,40 +74,96 @@ if [ "$1" = get ]; then
     case "$2" in
         scutclient_debug|scutclient_skip_udp_hb) echo 0 ;;
         wan_dns1_x) echo 1.1.1.1 ;;
+        wan_ifname) echo br0 ;;
         *) echo test ;;
     esac
 fi
 """)
-        executable(bin_dir / "start-stop-daemon", """#!/bin/sh
-exit "${MOCK_START_STATUS:-0}"
+        executable(bin_dir / "pidof", """#!/bin/sh
+case "$(cat "$MOCK_STATE_FILE")" in
+    running) echo 123; exit 0 ;;
+    absent) exit 1 ;;
+    unknown) exit 2 ;;
+    *) exit 2 ;;
+esac
 """)
+        executable(bin_dir / "start-stop-daemon", """#!/bin/sh
+echo "$*" >> "$MOCK_START_LOG"
+status="$MOCK_START_STATUS"
+[ "$status" -eq 0 ] || exit "$status"
+[ "$MOCK_START_APPEARS" = 1 ] && echo running > "$MOCK_STATE_FILE"
+exit 0
+""")
+        executable(bin_dir / "killall", """#!/bin/sh
+echo "$*" >> "$MOCK_STOP_LOG"
+echo "$MOCK_TERM_STATE" > "$MOCK_STATE_FILE"
+exit "$MOCK_STOP_STATUS"
+""")
+        executable(bin_dir / "sleep", """#!/bin/sh
+exit "$MOCK_SLEEP_STATUS"
+""")
+        executable(bin_dir / "bin_scutclient", """#!/bin/sh
+echo logout >> "$MOCK_LOGOUT_LOG"
+exit 0
+""")
+        state = base / "state"
+        state.write_text("absent")
+        start_log = base / "start.log"
+        stop_log = base / "stop.log"
+        logout_log = base / "logout.log"
         log = base / "logger.log"
-        pidfile = base / "scutclient.pid"
         env = os.environ.copy()
         env.update({
             "PATH": str(bin_dir) + os.pathsep + env.get("PATH", ""),
             "MOCK_LOG": str(log),
+            "MOCK_STATE_FILE": str(state),
+            "MOCK_START_LOG": str(start_log),
+            "MOCK_STOP_LOG": str(stop_log),
+            "MOCK_LOGOUT_LOG": str(logout_log),
             "MOCK_START_STATUS": "29",
-            "SCUTCLIENT_PIDFILE": str(pidfile),
+            "MOCK_START_APPEARS": "1",
+            "MOCK_STOP_STATUS": "47",
+            "MOCK_TERM_STATE": "absent",
+            "MOCK_SLEEP_STATUS": "0",
+            "PROCESS_LIFECYCLE_LIB": str(PROCESS_LIFECYCLE_LIB),
         })
+
         failed = run(["/bin/sh", str(SCUT_SCRIPT), "start"], env)
         assert failed.returncode == 29, (
-            f"SCUT must propagate launcher status 29, got "
-            f"{failed.returncode}: {failed.stderr}"
+            f"SCUT must propagate launcher status 29, got {failed.returncode}: {failed.stderr}"
         )
         assert "[FAILED]" in failed.stdout
         assert "Daemon launch failed (status=29)" in log.read_text()
-        assert not pidfile.exists(), "temporary SCUT pidfile was not cleaned"
+        assert state.read_text().strip() == "absent"
 
-        log.write_text("")
         env["MOCK_START_STATUS"] = "0"
-        succeeded = run(["/bin/sh", str(SCUT_SCRIPT), "start"], env)
-        assert succeeded.returncode == 0, succeeded.stderr
-        assert "[  OK  ]" in succeeded.stdout
-        assert "Daemon is started" in log.read_text()
+        started = run(["/bin/sh", str(SCUT_SCRIPT), "start"], env)
+        assert started.returncode == 0, started.stderr
+        assert state.read_text().strip() == "running"
+        starts_before = len(start_log.read_text().splitlines())
+        duplicate = run(["/bin/sh", str(SCUT_SCRIPT), "start"], env)
+        assert duplicate.returncode == 0, duplicate.stderr
+        assert len(start_log.read_text().splitlines()) == starts_before
 
+        # A nonzero signal result is harmless when a fresh scan proves ABSENT.
+        stopped = run(["/bin/sh", str(SCUT_SCRIPT), "stop"], env)
+        assert stopped.returncode == 0, stopped.stderr
+        assert state.read_text().strip() == "absent"
+        assert len(stop_log.read_text().splitlines()) == 1
+        assert len(logout_log.read_text().splitlines()) == 1
 
-
+        # UNKNOWN blocks start, stop, restart, signal and logoff.
+        state.write_text("unknown")
+        starts_before = len(start_log.read_text().splitlines())
+        stops_before = len(stop_log.read_text().splitlines())
+        for action in ("start", "stop", "restart"):
+            result = run(["/bin/sh", str(SCUT_SCRIPT), action], env)
+            assert result.returncode == 2, (
+                f"SCUT {action} must reject UNKNOWN, got {result.returncode}"
+            )
+        assert len(start_log.read_text().splitlines()) == starts_before
+        assert len(stop_log.read_text().splitlines()) == stops_before
+        assert len(logout_log.read_text().splitlines()) == 1
 
 
 IPERF_SCRIPT = ROOT / "trunk/user/iperf3/iperf3.sh"
@@ -217,53 +280,91 @@ MENTOHUST_SCRIPT = ROOT / "trunk/user/mentohust/scripts/mentohust.sh"
 
 
 def check_mentohust():
+    source = MENTOHUST_SCRIPT.read_text()
+    assert '. "$PROCESS_LIFECYCLE_LIB" || exit 127' in source
+    assert 'pl_stop_named "$mentohust_exec" 3 2' in source
     with tempfile.TemporaryDirectory(prefix="mentohust-lifecycle-") as tmp:
         base = Path(tmp)
         bin_dir = mock_bin(base / "bin")
+        executable(bin_dir / "pidof", """#!/bin/sh
+case "$(cat "$MOCK_STATE_FILE")" in
+    running) echo 456; exit 0 ;;
+    absent) exit 1 ;;
+    unknown) exit 2 ;;
+    *) exit 2 ;;
+esac
+""")
         executable(bin_dir / "start-stop-daemon", """#!/bin/sh
-exit "${MOCK_START_STATUS:-0}"
+echo "$*" >> "$MOCK_START_LOG"
+status="$MOCK_START_STATUS"
+[ "$status" -eq 0 ] || exit "$status"
+[ "$MOCK_START_APPEARS" = 1 ] && echo running > "$MOCK_STATE_FILE"
+exit 0
 """)
         executable(bin_dir / "killall", """#!/bin/sh
-exit "${MOCK_STOP_STATUS:-0}"
+echo "$*" >> "$MOCK_STOP_LOG"
+echo "$MOCK_TERM_STATE" > "$MOCK_STATE_FILE"
+exit "$MOCK_STOP_STATUS"
+""")
+        executable(bin_dir / "sleep", """#!/bin/sh
+exit "$MOCK_SLEEP_STATUS"
 """)
         config = base / "existing-mentohust.conf"
-        config.write_text("[MentoHUST]\\n")
-        pidfile = base / "mentohust.pid"
+        config.write_text("[MentoHUST]\n")
+        state = base / "state"
+        state.write_text("absent")
+        start_log = base / "start.log"
+        stop_log = base / "stop.log"
         log = base / "logger.log"
         env = os.environ.copy()
         env.update({
             "PATH": str(bin_dir) + os.pathsep + env.get("PATH", ""),
+            "MOCK_START_LOG": str(start_log),
+            "MOCK_STOP_LOG": str(stop_log),
+            "MOCK_STATE_FILE": str(state),
             "MOCK_START_STATUS": "43",
+            "MOCK_START_APPEARS": "1",
             "MOCK_STOP_STATUS": "47",
+            "MOCK_TERM_STATE": "absent",
+            "MOCK_SLEEP_STATUS": "0",
             "MOCK_LOG": str(log),
-            "MENTOHUST_PIDFILE": str(pidfile),
             "MENTOHUST_BIN_CONF_FILE": str(config),
+            "PROCESS_LIFECYCLE_LIB": str(PROCESS_LIFECYCLE_LIB),
         })
 
         failed_start = run(["/bin/sh", str(MENTOHUST_SCRIPT), "start"], env)
         assert failed_start.returncode == 43, (
             f"mentohust must propagate launch status 43, got {failed_start.returncode}"
         )
-        assert "[FAILED]" in failed_start.stdout
         assert "Daemon launch failed (status=43)" in log.read_text()
-        assert not pidfile.exists(), "temporary mentohust pidfile was not cleaned"
+        assert state.read_text().strip() == "absent"
 
-        log.write_text("")
         env["MOCK_START_STATUS"] = "0"
         started = run(["/bin/sh", str(MENTOHUST_SCRIPT), "start"], env)
         assert started.returncode == 0, started.stderr
-        assert "[  OK  ]" in started.stdout
-        assert "Daemon is started" in log.read_text()
+        assert state.read_text().strip() == "running"
+        starts_before = len(start_log.read_text().splitlines())
+        duplicate = run(["/bin/sh", str(MENTOHUST_SCRIPT), "start"], env)
+        assert duplicate.returncode == 0, duplicate.stderr
+        assert len(start_log.read_text().splitlines()) == starts_before
 
-        log.write_text("")
+        # killall returns nonzero, but confirmed process absence is authoritative.
         stopped = run(["/bin/sh", str(MENTOHUST_SCRIPT), "stop"], env)
-        assert stopped.returncode == 47, (
-            f"mentohust must propagate stop status 47, got {stopped.returncode}"
-        )
-        assert "[FAILED]" in stopped.stdout
-        assert "Daemon stop failed (status=47)" in log.read_text()
+        assert stopped.returncode == 0, stopped.stderr
+        assert "[  OK  ]" in stopped.stdout
+        assert state.read_text().strip() == "absent"
 
-
+        # UNKNOWN blocks both stop and restart; no signal or replacement launch.
+        state.write_text("unknown")
+        starts_before = len(start_log.read_text().splitlines())
+        stops_before = len(stop_log.read_text().splitlines())
+        for action in ("stop", "restart"):
+            result = run(["/bin/sh", str(MENTOHUST_SCRIPT), action], env)
+            assert result.returncode == 2, (
+                f"mentohust {action} must reject UNKNOWN, got {result.returncode}"
+            )
+        assert len(start_log.read_text().splitlines()) == starts_before
+        assert len(stop_log.read_text().splitlines()) == stops_before
 
 
 TTYD_SCRIPT = ROOT / "trunk/user/ttyd/ttyd.sh"
@@ -437,7 +538,28 @@ exit "$MOCK_KILLALL_STATUS"
         )
 
 
+def check_shared_process_lifecycle():
+    helper = PROCESS_LIFECYCLE_LIB.read_text()
+    test = PROCESS_LIFECYCLE_TEST.read_text()
+    makefile = SHARED_MAKEFILE.read_text()
+    assert "pl_process_state()" in helper
+    assert "pl_wait_stopped()" in helper
+    assert "pl_stop_named()" in helper
+    assert "$(INSTALL_BIN) $(CURDIR)/scripts/process_lifecycle.sh $(ROMFSDIR)/usr/lib/process_lifecycle.sh" in makefile
+    for token in ("empty-success", "malformed", "inconsistent", "UNKNOWN after TERM",
+                  "sleep failure", "stubborn process", "UNKNOWN authorized a signal",
+                  "KILL:-q -9 test-daemon"):
+        assert token in test, f"shared lifecycle regression missing {token}"
+    for path in (PROCESS_LIFECYCLE_LIB, PROCESS_LIFECYCLE_TEST):
+        syntax = run(["/bin/sh", "-n", str(path)], os.environ.copy())
+        assert syntax.returncode == 0, syntax.stderr
+    result = run(["/bin/sh", str(PROCESS_LIFECYCLE_TEST)], os.environ.copy())
+    assert result.returncode == 0, result.stderr
+    assert "shared process lifecycle regression: PASS" in result.stdout
+
+
 if __name__ == "__main__":
+    check_shared_process_lifecycle()
     check_scutclient()
     check_vlmcsd()
     check_iperf3()

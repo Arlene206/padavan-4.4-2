@@ -1,3 +1,15 @@
+## 2026-11-16 — Add verified shared process shutdown for SCUTClient and MentoHUST
+
+- Parent main: 9e9e0a42da9154b497c9dbaba7319bdbae5eaf61; frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Parent exact-head checks completed SUCCESS: Process lifecycle/inventory 43800309439; AI handoff 43800309443; AliDDNS 43800309472; AliyunDrive 43800309429; AdGuardHome 43800309435; infosvr 43800309421; NVRAM boundary 43800309440.
+- Found both wrappers relied on killall exit status rather than verified process absence. SCUTClient used unconditional SIGKILL, ran logoff even if shutdown was not verified, and its stop action reported success unconditionally; its restart ignored stop failure. MentoHUST also treated successful killall invocation as proof of daemon exit.
+- Added a shared POSIX process lifecycle helper installed by the always-built shared package. It classifies pidof state as RUNNING / confirmed ABSENT / UNKNOWN, validates positive decimal PIDs, waits with bounded polling, verifies TERM shutdown, revalidates before SIGKILL, and only returns success after a fresh ABSENT state.
+- Updated SCUTClient and MentoHUST wrappers for duplicate-start prevention, fail-closed UNKNOWN handling, verified stop, and restart gating. Kept SCUTClient's logoff action after confirmed stop only.
+- Added helper-level shell regression and real-wrapper host tests in check_optional_app_start_status.py. Expanded process-lifecycle pull_request path filters to cover helper/package/test, both wrappers, and the checker.
+- This atomic source/test/checker/workflow/handoff transaction is based on parent 9e9e0a42da9154b497c9dbaba7319bdbae5eaf61. The resulting exact-SHA Actions must be checked after publication. No firmware/TRX or physical-router L4 test is claimed for this change.
+- Next: validate exact-head CI, then continue with the next inventory-ranked lifecycle consumer.
+---
+
 ## 2026-11-16 — Fail closed on unknown AliyunDrive WebDAV process state
 
 - Commit `982ec548a132a5a06f4a81872f5ae920fb685da3` adds tri-state pidof validation, bounded waits, UNKNOWN propagation and fresh name revalidation before SIGKILL. UNKNOWN blocks duplicate start, successful stop and destructive escalation.

@@ -89,6 +89,12 @@ on:
 
   pull_request:
     paths:
+      - "trunk/user/shared/Makefile"
+      - "trunk/user/shared/scripts/process_lifecycle.sh"
+      - "trunk/user/shared/tests/process_lifecycle.sh"
+      - "trunk/user/scutclient/scripts/scutclient.sh"
+      - "trunk/user/mentohust/scripts/mentohust.sh"
+      - "scripts/check_optional_app_start_status.py"
       - "trunk/user/adbyby/adbyby.sh"
       - "trunk/user/adbyby/tests/adbyby_stop_postcondition.sh"
       - "trunk/user/rc/src/rc.c"
