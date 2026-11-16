@@ -27,6 +27,7 @@ fail() {
 # Import the exact production helpers without executing the installed command dispatcher.
 sed -n \
 	-e '/^start_zero() {$/,/^}/p' \
+	-e '/^ddnsto_process_state() {$/,/^}/p' \
 	-e '/^ddnsto_wait_stopped() {$/,/^}/p' \
 	-e '/^kill_z() {$/,/^}/p' \
 	-e '/^stop_zero() {$/,/^}/p' \
