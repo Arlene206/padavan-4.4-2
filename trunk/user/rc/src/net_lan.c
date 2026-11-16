@@ -926,8 +926,13 @@ start_lan(int is_ap_mode, int do_wait)
 	}
 
 #if defined (USE_IPV6)
-	if (get_ipv6_type() != IPV6_DISABLED)
-		reload_lan_addr6();
+	if (get_ipv6_type() != IPV6_DISABLED) {
+		operation_status = reload_lan_addr6();
+		if (operation_status != 0)
+			logmessage(LOGNAME, "LAN IPv6 address reload failed (status=%d)",
+				   operation_status);
+		start_status = rc_first_service_start_status(start_status, operation_status);
+	}
 #endif
 
 	operation_status = config_bridge(is_ap_mode);

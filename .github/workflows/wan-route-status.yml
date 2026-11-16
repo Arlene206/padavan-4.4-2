@@ -6,6 +6,9 @@ on:
       - ".github/workflows/wan-route-status.yml"
       - "trunk/user/rc/src/net.c"
       - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/tests/lan_addr6_reload_policy.c"
+      - "trunk/user/rc/src/lan_addr6_reload_policy.h"
+      - "trunk/user/rc/src/net_lan6.c"
       - "trunk/user/rc/src/conntrack_flush_policy.h"
       - "trunk/user/rc/src/tests/conntrack_flush_policy.c"
       - "trunk/user/rc/src/net_wan.c"
@@ -42,6 +45,9 @@ on:
       - ".github/workflows/wan-route-status.yml"
       - "trunk/user/rc/src/net.c"
       - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/tests/lan_addr6_reload_policy.c"
+      - "trunk/user/rc/src/lan_addr6_reload_policy.h"
+      - "trunk/user/rc/src/net_lan6.c"
       - "trunk/user/rc/src/conntrack_flush_policy.h"
       - "trunk/user/rc/src/tests/conntrack_flush_policy.c"
       - "trunk/user/rc/src/net_wan.c"
@@ -103,6 +109,14 @@ jobs:
             trunk/user/rc/src/tests/ipv6_cleanup_policy.c \
             -o /tmp/ipv6-cleanup-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/ipv6-cleanup-policy
+      - name: Compile and run LAN IPv6 address reload sequencing regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/lan_addr6_reload_policy.c \
+            -o /tmp/lan-addr6-reload-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/lan-addr6-reload-policy
       - name: Compile and run WAN IPv6 teardown selection regression
         run: |
           set -eu
@@ -158,6 +172,9 @@ jobs:
           rc = Path("trunk/user/rc/src")
           net = (rc / "net.c").read_text()
           net_lan = (rc / "net_lan.c").read_text()
+          net_lan6 = (rc / "net_lan6.c").read_text()
+          lan6_reload_policy = (rc / "lan_addr6_reload_policy.h").read_text()
+          lan6_reload_test = (rc / "tests/lan_addr6_reload_policy.c").read_text()
           wan = (rc / "net_wan.c").read_text()
           ppp = (rc / "net_ppp.c").read_text()
           wan6 = (rc / "net_wan6.c").read_text()
@@ -212,6 +229,25 @@ jobs:
           ipv6_cleanup_at = stop_lan_compact.index("ipv6_status=clear_lan_addr6();")
           bridge_down_at = stop_lan_compact.index("ifconfig(IFNAME_BR,0,NULL,NULL);")
           assert route_flush_at < ipv6_cleanup_at < bridge_down_at
+
+          reload_lan6 = body(net_lan6, "reload_lan_addr6(void)")
+          reload_policy = body(lan6_reload_policy, "rc_lan_addr6_reload_apply(")
+          assert "status = clear_address();" in reload_policy
+          assert "if (status != 0 || !has_address)" in reload_policy
+          assert "return add_address(context);" in reload_policy
+          assert "rc_lan_addr6_reload_apply(" in reload_lan6
+          assert 'return eval("ip", "-6", "addr", "add", lan_addr6, "dev", IFNAME_BR);' in net_lan6
+          assert 'doSystem("ip -6 addr add %s dev %s"' not in net_lan6
+          assert "int reload_lan_addr6(void);" in header
+          assert "void reload_lan_addr6(void);" not in header
+          lan_start = body(net_lan, "start_lan(int is_ap_mode, int do_wait)")
+          assert "operation_status = reload_lan_addr6();" in lan_start
+          assert "start_status = rc_first_service_start_status(start_status, operation_status);" in lan_start
+          ipv6_restart = body(net6, "full_restart_ipv6(int ipv6_type_old)")
+          assert "operation_status = reload_lan_addr6();" in ipv6_restart
+          assert "restart_status = rc_first_service_start_status(restart_status, operation_status);" in ipv6_restart
+          assert "test_clear_failure_prevents_new_address_publication" in lan6_reload_test
+          assert "test_add_failure_is_returned_after_successful_clear" in lan6_reload_test
 
           route_cache = body(net, "flush_route_caches(void)")
           assert 'return eval("ip", "route", "flush", "cache");' in route_cache

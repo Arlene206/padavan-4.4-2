@@ -31,6 +31,7 @@
 #include <net/if.h>
 
 #include "rc.h"
+#include "lan_addr6_reload_policy.h"
 
 #if defined (USE_IPV6)
 
@@ -140,14 +141,33 @@ int store_lan_addr6(char *lan_addr6_new)
 	return 0;
 }
 
-void reload_lan_addr6(void)
+static int
+clear_lan_addr6_for_reload(void)
 {
-	char *lan_addr6;
+	return clear_if_addr6(IFNAME_BR);
+}
 
-	clear_if_addr6(IFNAME_BR);
-	lan_addr6 = nvram_safe_get("lan_addr6");
-	if (*lan_addr6)
-		doSystem("ip -6 addr add %s dev %s", lan_addr6, IFNAME_BR);
+static int
+add_lan_addr6_for_reload(void *context)
+{
+	char *lan_addr6 = (char *)context;
+
+	if (!lan_addr6 || !lan_addr6[0]) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	/* Pass the NVRAM address as one argv element, never through a shell. */
+	return eval("ip", "-6", "addr", "add", lan_addr6, "dev", IFNAME_BR);
+}
+
+int reload_lan_addr6(void)
+{
+	char *lan_addr6 = nvram_safe_get("lan_addr6");
+
+	return rc_lan_addr6_reload_apply(lan_addr6 && lan_addr6[0],
+					 clear_lan_addr6_for_reload,
+					 add_lan_addr6_for_reload, lan_addr6);
 }
 
 int clear_lan_addr6(void)

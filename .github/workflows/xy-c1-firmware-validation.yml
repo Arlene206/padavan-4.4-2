@@ -85,6 +85,8 @@ on:
       - "trunk/user/rc/src/ipv6_cleanup_policy.h"
       - "trunk/user/rc/src/tests/ipv6_cleanup_policy.c"
       - "trunk/user/rc/src/tests/service_start_status.c"
+      - "trunk/user/rc/src/tests/lan_addr6_reload_policy.c"
+      - "trunk/user/rc/src/lan_addr6_reload_policy.h"
       - "trunk/user/rc/src/modem_wan_start_policy.h"
       - "trunk/user/rc/src/tests/modem_wan_start_policy.c"
       - "scripts/check_modem_wan_start_status.py"
@@ -313,6 +315,15 @@ jobs:
             trunk/user/rc/src/tests/ipv6_cleanup_policy.c \
             -o "$RUNNER_TEMP/ipv6-cleanup-policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/ipv6-cleanup-policy"
+
+      - name: Compile and run LAN IPv6 address reload sequencing regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/lan_addr6_reload_policy.c \
+            -o "$RUNNER_TEMP/lan-addr6-reload-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/lan-addr6-reload-policy"
 
       - name: Build XY-C1
         run: |

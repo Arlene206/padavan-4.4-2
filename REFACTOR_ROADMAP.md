@@ -1,10 +1,10 @@
 ## Current source / CI checkpoint
 
-- Conntrack propagation source cffc149 is L3 VERIFIED by XY-C1 run 43973861873 (Build/TRX/artifact). LAN IPv4 route cleanup source 759c18d also passed exact XY-C1 run 43976717898.
-- Route-cache source 493f981 returns the global ip route flush cache result and combines it with interface route flushes; exact WAN route run 43978255126 PASS, but exact XY-C1 run 43978254941 FAILED, so latest route-cache L3 is not verified.
-- Exact 8bef shared WAN checker correction is in place. AI handoff 43979147640 PASS, Firewall Startup 43979147580 PASS, USB modem 43979148326 PASS, AdGuardHome 43979147629 PASS, infosvr 43979147611 PASS, AliDDNS 43979147585 PASS. Process 43979148973 and XY-C1 43979147638 pending; NVRAM/HTTPD/AliyunDrive pending at last poll.
-- Current P1 slice makes clear_lan_addr6() return clear_if_addr6() status and propagates it through stop_lan() after conntrack/IPv4 route cleanup, while still attempting bridge shutdown. Added first-error tests, Process integration assertions, WAN source contracts and XY-C1 trigger for net_lan6.c.
-- Exact-head Process, WAN route, AI handoff, XY-C1 Build/TRX/artifact required before latest-source L3 can be claimed. Frozen backup remains immutable; physical-router L4 NOT VERIFIED.
+- LAN IPv6 teardown slice `7c46a60` propagates the address-flush result through `stop_lan()`; exact Process, Firewall, AI and HTTPD checks passed.
+- The current LAN IPv6 reload slice returns clear/add errors, prevents add after failed clear, uses argv-based execution instead of shell interpolation, and propagates failures through LAN startup and IPv6 restart. Injectable GNU89/ASan/UBSan tests and Process/Firewall/WAN/XY source contracts are included.
+- Route-cache source `493f981` has exact WAN route PASS, but its same-SHA XY-C1 run failed before build due stale checker expectations; the checker corrections are now in main. Do not claim route-cache L3 until a same-source XY-C1 Build/TRX/artifact succeeds.
+- Exact parent `7c46a6055c60c2fc534610cedd9189cf30ace4d6` Process/Firewall/AI/HTTPD checks passed; WAN route was in progress and XY-C1 was building with TRX/artifact pending. This reload slice requires its own exact-SHA CI and XY-C1 product verification.
+- Frozen backup remains read-only; physical-router L4 remains **NOT VERIFIED**.
 
 ## Whole-repository module status
 

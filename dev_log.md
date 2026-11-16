@@ -1,3 +1,13 @@
+## 2026-11-16 — Make LAN IPv6 address reload fail-visible and shell-safe
+
+- Parent main: `7c46a6055c60c2fc534610cedd9189cf30ace4d6`. The previous `reload_lan_addr6()` returned void, discarded stale-address flush and address-add results, and interpolated the NVRAM address into shell-formatted `doSystem()`. LAN startup and IPv6 restart could report success after address setup failed.
+- Added an injectable reload policy: stale-address clear must succeed before publishing a new address; empty configuration only clears; add failures are returned; missing callbacks fail closed. Production addition uses argv-based `eval("ip", "-6", "addr", "add", ...)` rather than shell interpolation.
+- Changed `reload_lan_addr6()` to return int and propagate its result through `start_lan()` and `full_restart_ipv6()` while preserving first-error semantics and continuing independent bridge/WAN/DNS work.
+- Added GNU89/ASan/UBSan tests for clear-failure gating, add failure, empty configuration and missing callbacks. Updated Process, Firewall, WAN route and XY-C1 checks.
+- Parent exact Actions: Process `43979698102`, Firewall `43979698600`, AI docs `43979698471`, HTTPD security `43979698034` PASS; WAN route `43979698355` in progress; XY-C1 `43979698609` building after host/source tests, with TRX/artifact pending. New source requires exact-SHA verification. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Propagate LAN IPv6 address cleanup failures
 
 - Parent main: 8befa2b20295be8182053dc4e224174db471ed82. clear_lan_addr6() currently discarded clear_if_addr6(IFNAME_BR)'s errno-style result, allowing stop_lan() to report success after failed IPv6 address cleanup.

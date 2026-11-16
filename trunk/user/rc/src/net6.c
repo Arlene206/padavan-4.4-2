@@ -282,7 +282,11 @@ full_restart_ipv6(int ipv6_type_old)
 		restart_status = rc_first_service_start_status(restart_status,
 								operation_status);
 		reset_lan6_vars();
-		reload_lan_addr6();
+		operation_status = reload_lan_addr6();
+		if (operation_status != 0)
+			logmessage(LOGNAME, "IPv6 enable could not reload LAN address (status=%d)",
+				   operation_status);
+		restart_status = rc_first_service_start_status(restart_status, operation_status);
 
 		/*
 		 * Release before full_restart_wan(): WAN teardown owns the VPN lock and
