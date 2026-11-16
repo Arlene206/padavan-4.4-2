@@ -1944,9 +1944,12 @@ jobs:
           assert "if (dnsmasq_status == 0)" in lan_restart_body
           assert "dnsmasq_start_status = start_dns_dhcpd_locked(is_ap_mode);" in lan_restart_body
           assert "dnsmasq_status = dnsmasq_start_status;" in lan_restart_body
-          assert "return dnsmasq_status;" in lan_restart_body
-          assert "return dnsmasq_lock_errno;" in lan_restart_body
-          assert "dnsmasq_status = dnsmasq_lock_errno;" in lan_restart_body
+          assert "return restart_status;" in lan_restart_body
+          assert "restart_status = dnsmasq_lock_errno;" in lan_restart_body
+          assert 'lan_restart_record_status(&restart_status, "restore VPN after DNSMasq lock failure",' in lan_restart_body
+          assert 'lan_restart_record_status(&restart_status, "stop DNSMasq", dnsmasq_status)' in lan_restart_body
+          assert "return dnsmasq_status;" not in lan_restart_body
+          assert "return dnsmasq_lock_errno;" not in lan_restart_body
           assert lan_restart_body.index("dnsmasq_lifecycle_lock_acquire()") < lan_restart_body.index("stop_dns_dhcpd_locked()")
           assert lan_restart_body.index("if (dnsmasq_status == 0)") < lan_restart_body.index("start_dns_dhcpd_locked(is_ap_mode)")
           assert "DNSMasq restart skipped because the previous process did not stop" in lan_restart_body

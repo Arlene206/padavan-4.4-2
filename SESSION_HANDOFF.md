@@ -7,35 +7,38 @@ For each logical task, create all changed files in one Git tree and one atomic m
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; active branch: `main`.
-- Current main before this checker/handoff repair: `f66dc26260ba426245ad403b6703b5ba6d52336a`.
-- Latest product-source commit: `b2d3288b6282c16cf23859eb9e7f8fdce083cd62` (LAN restart first-error propagation).
+- Main immediately before this log-integrity and CI-contract repair: `7b82bc0826ebf93c66b6ed42811990222f2b98e5`.
+- Latest product-source commit: `b2d3288b6282c16cf23859eb9e7f8fdce083cd62` (full LAN restart first-error aggregation). Commits `f66dc26`, `7ac9582`, and `7b82bc0` after it changed workflow/test contracts and handoff records, not firmware production source.
 - Frozen archival ref: `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify, move, rewrite or delete.
-- Startup protocol, bootstrap, handoff, roadmap, log archive/index, branch inventory and legacy PR #1 were audited earlier. PR #1 is closed, valid AliDDNS work already on main. Do not repeat the audit.
-- UPnP stop-result work at `68da0e2bd19dab24b3ab0b576c87cbf43e25832a`, with workflow follow-up `c6cf7147ee636ab6a715ee35f9219f4c5c92a3e1`, is complete. Exact c6 Process `43811174980`, miniupnpd `43811175012`, AI docs `43811174933`, and XY-C1 `43811175036` all PASS; XY Build, TRX and artifact upload succeeded on c6 only.
+- Bootstrap, development protocol, handoff, roadmap, archive index, branch inventory, backup marker and legacy PR #1 have already been recovered. PR #1 is closed; valid AliDDNS changes are on main. Do not repeat that audit.
+- The current root log had been truncated to three records by the LAN restart checkpoint sequence. The parent `2c75de8133751e8063ded244faa225011f2891b6` retained 61 complete records; THIS COMMIT restores those records verbatim after the three newer records, then adds this repair entry. The resulting root window remains within 20–119 records, without touching archived shards or indexes.
 
 ## Active task
 
-The LAN restart source commit `b2d3288` now aggregates first failures from status-bearing stop, restore, restart, reload, start and HTTPD logout operations in `full_restart_lan()`. It reuses `rc_first_service_start_status()`, extends the GNU89 service-status regression, and checks PID 1 notification aggregation. The test itself passed in both Process and XY-C1 jobs on b2.
+The product-source slice `b2d3288` changed `full_restart_lan()` to retain the first nonzero result from status-bearing stop, restoration, restart, reload, start and HTTPD logout operations. It reuses `rc_first_service_start_status()`, preserves the DNSMasq lock/start gates and VPN rollback order, extends the GNU89/Werror/ASan/UBSan policy regression, and merges the aggregate into PID 1's LAN notification result.
 
-There are two concrete follow-ups from exact Actions:
-
-1. Process workflow was malformed in b2 because PR path entries were concatenated on one line. Commit `f66dc26260ba426245ad403b6703b5ba6d52336a` repaired the YAML. The resulting Process run `43814587870` reached its final source checker but failed at the pre-existing assertion expecting literal `stop_lltd();`, which the production change intentionally wrapped in `lan_restart_record_status(..., stop_lltd())`. THIS COMMIT updates the ordering contract to match the new checked callsites and preserve the lock/rollback ordering assertion.
-2. AI handoff run `43814587897` failed because the current handoff did not preserve the exact required checkpoint sentence and canonical section headings. THIS COMMIT restores the mandatory checkpoint language and all validator-required headings.
-
-No production source behavior is changed in this checker/document repair.
+Validation and CI repair status:
+- The LAN policy regression passed in the Process regression and XY-C1 pre-build jobs. Process path-filter YAML was repaired at `f66dc26260ba426245ad403b6703b5ba6d52336a`; the source-order checker was aligned at `7ac958281702b5d3b39284a3666a90b17e01f75f`, and its exact-head Process run `43815025586` passed.
+- Exact product-source XY-C1 run `43814395678` on `b2d3288` completed successfully through Build XY-C1, TRX verification and artifact upload. This is the current L3 evidence; the later commits are test/documentation-only.
+- Exact b2 DNSMasq lifecycle `43814395657` and HTTPD security `43814395687` both failed because their embedded source contracts still demanded the previous `full_restart_lan()` returns (`return dnsmasq_status;`, `return dnsmasq_lock_errno;`) after production was correctly changed to aggregate and return `restart_status`. THIS COMMIT updates both contracts to assert the new failure-recording behavior, including the VPN restore result after lock acquisition failure.
+- Exact 7b AI handoff run `43815228477` failed because the root `dev_log.md` contained only three records, below the validator's required minimum of 20. THIS COMMIT restores the 61-record parent log verbatim, preserving the three newer records and all archive shards/indexes.
+- Exact 7b infosvr `43815228434`, Process inventory `43815228506`, AliDDNS `43815228432`, AliyunDrive `43815228496`, and AdGuardHome `43815228480` passed. NVRAM run `43815228491` was still in progress at the last check.
 
 ## Verification boundary
 
-- Exact `b2d3288b6282c16cf23859eb9e7f8fdce083cd62`: service-status regression passed in Process and XY-C1. Process workflow run `43814394160` failed before a job ran due to malformed YAML. AI docs `43814395799` failed because the handoff omitted the mandatory end-of-session accuracy checkpoint. XY-C1 run `43814395678` remained IN_PROGRESS at last check, after the LAN service status test passed; Build, TRX and artifact upload were still pending.
-- Exact `f66dc26260ba426245ad403b6703b5ba6d52336a`: Process `43814587870` failed only at the old literal stop-call ordering assertion (compile and preceding regressions passed); AI docs `43814587897` failed on the same missing handoff phrase. Other exact-head Adbyby/AliDDNS/AliyunDrive workflows `43814588010`, `43814587964`, `43814587985` passed.
-- The latest confirmed L3 firmware baseline is older exact SHA `c6cf7147ee636ab6a715ee35f9219f4c5c92a3e1`. No Build/TRX/artifact success is claimed for b2, f66, or current main. No L4 physical-router test has been performed.
+- L1/L2 source and policy regression: PASS on the exact b2/7ac evidence above.
+- L3 firmware: PASS on product-source SHA `b2d3288b6282c16cf23859eb9e7f8fdce083cd62`, XY-C1 run `43814395678` — Build XY-C1, TRX verification and artifact upload all succeeded. The exact source is unchanged by later CI/documentation commits.
+- Exact 7b AI handoff `43815228477` is FAIL solely at the root log-retention check (3 records found); the retained-record restoration is in THIS COMMIT and must be checked on its new exact SHA.
+- Exact b2 DNSMasq `43814395657` and HTTPD `43814395687` failed at stale source assertions; their corrected workflow contracts are in THIS COMMIT and must be rerun.
+- NVRAM `43815228491` remained IN_PROGRESS at last observation; do not claim a result before checking it.
+- No physical-router L4 validation has been performed.
 
 ## Exact first action for the next GPT
 
-1. Check the exact-head Process lifecycle and AI handoff Actions after THIS repair. Confirm the process source checker reaches PASS and the handoff validator accepts this record; inspect first causal logs if not.
-2. Check b2 XY-C1 run `43814395678` for its final Build, TRX verification and artifact upload status. For current L3, require all three on the latest product-source SHA; do not transfer c6 evidence.
-3. Continue the P1 full-repository RC status-return audit outside `full_restart_lan()`, fixing only confirmed dropped results with caller-aware regression tests, and work on independent modules while unrelated checks are pending.
+1. Check the exact-head AI handoff, DNSMasq lifecycle, HTTPD security and Process regression Actions for THIS COMMIT. Confirm the validator now sees at least 20 complete root log records and both source contracts accept `full_restart_lan()` returning the first-error aggregate. Diagnose the first causal failure if any.
+2. Recheck the pending NVRAM run `43815228491` only as a useful checkpoint; do not let unrelated pending checks block independent work.
+3. Continue the P1 repository-wide RC service-result audit outside `full_restart_lan()`: trace enabled notification/startup callers through helper return values and cleanup/rollback paths; implement only confirmed dropped results with caller-aware regression coverage.
 
 ## Governance constraints
 
-Preserve security, architecture, compatibility, target-toolchain and mandatory testing. Use only `main`; do not touch the frozen backup. Update root dev_log for every code/documentation commit. Keep root log within 20–119 records and 384 KiB; preserve archives and index. At every handoff checkpoint distinguish product-source SHA from current docs/checker SHA and record exact run IDs/statuses.
+Preserve security, architecture, compatibility, target-toolchain and mandatory testing. Use only `main`; do not touch the frozen backup. Update root `dev_log.md` for each code/documentation commit; keep it within 20–119 records and the size limits; preserve archived shards/indexes verbatim. Distinguish source, CI and firmware validation levels. No force-push, published history rewrite, or unrun-test/build/hardware claim.
