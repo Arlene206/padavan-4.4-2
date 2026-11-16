@@ -3,6 +3,60 @@
 import re
 from pathlib import Path
 
+def c_function_body(source, signature):
+    start = source.find(signature)
+    while start >= 0:
+        signature_end = start + len(signature)
+        brace = source.find("{", signature_end)
+        semicolon = source.find(";", signature_end)
+        if brace >= 0 and (semicolon < 0 or brace < semicolon):
+            break
+        start = source.find(signature, semicolon + 1) if semicolon >= 0 else -1
+    if start < 0:
+        raise AssertionError("missing function definition: " + signature)
+    brace = source.find("{", start + len(signature))
+    if brace < 0:
+        raise AssertionError("missing function body: " + signature)
+
+    depth = 0
+    state = "code"
+    index = brace
+    while index < len(source):
+        char = source[index]
+        nxt = source[index + 1] if index + 1 < len(source) else ""
+        if state == "code":
+            if char == "/" and nxt == "*":
+                state = "block"
+                index += 1
+            elif char == "/" and nxt == "/":
+                state = "line"
+                index += 1
+            elif char == '"':
+                state = "string"
+            elif char == "'":
+                state = "char"
+            elif char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    return source[brace + 1:index]
+        elif state in ("string", "char"):
+            if char == "\\":
+                index += 1
+            elif (state == "string" and char == '"') or (state == "char" and char == "'"):
+                state = "code"
+        elif state == "block" and char == "*" and nxt == "/":
+            state = "code"
+            index += 1
+        elif state == "line" and char == "\n":
+            state = "code"
+        index += 1
+
+    raise AssertionError("unterminated function: " + signature)
+
+
+
 root = Path(__file__).resolve().parents[1]
 shared_makefile = (root / "trunk/user/shared/src/Makefile").read_text()
 shared_header = (root / "trunk/user/shared/src/shutils.h").read_text()
@@ -192,7 +246,7 @@ assert "trunk/user/rc/src/tests/minidlna_config_file.c" in process_workflow
 assert "trunk/user/rc/src/minidlna_config_file.h" in xy_workflow
 print("MiniDLNA configuration publication and fail-closed startup contracts: PASS")
 
-mount_link = body(storage_services, "int create_mp_link(")
+mount_link = c_function_body(storage_services, "int create_mp_link(")
 assert "storage_nfs_export_parse_mount_line(" in mount_link
 assert "read_error = ferror(procpt) ? 1 : 0;" in mount_link
 assert "close_status = fclose(procpt);" in mount_link
@@ -204,7 +258,7 @@ assert "errno = EINVAL;" in mount_link
 assert "errno = storage_nfs_export_errno_or_eio(first_error ? first_error : ENOENT);" in mount_link
 assert "return link_created;" not in mount_link
 assert "return 1;" in mount_link and "return 0;" in mount_link
-mount_status = body(storage_services, "create_mp_link_status(")
+mount_status = c_function_body(storage_services, "create_mp_link_status(")
 assert "create_mp_link(search_dir, link_path, force_first_valid)" in mount_status
 assert "status = storage_nfs_export_errno_or_eio(errno);" in mount_status
 assert "errno = status;" in mount_status
@@ -212,7 +266,7 @@ assert "return status;" in mount_status
 assert storage_services.index("static int create_mp_link_status(") < storage_services.index("int run_dms(int force_rescan)")
 for signature in ("int run_dms(int force_rescan)", "int run_itunes(void)",
                   "int run_torrent(void)", "int run_aria(void)"):
-    caller = body(storage_services, signature)
+    caller = c_function_body(storage_services, signature)
     assert "create_mp_link_status(" in caller
     assert "return link_status;" in caller
     assert "create_mp_link(" not in caller

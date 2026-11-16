@@ -1,3 +1,11 @@
+## 2026-11-17 00:21 CST — Add the missing local C-function extractor to process checker
+
+- Parent main: `d935aed8045f940a42d4c19d46b26bcfdcdd09cb`. Exact-head Process inventory/lifecycle run `43906449302`, job `133436469037`, failed at step 38 because the checker-only fix called `body()`, but `scripts/check_process_lifecycle_integration.py` has no such helper (the similarly named helper exists only in a different standalone checker and is not imported). The failure was `NameError: name 'body' is not defined`.
+- Added a local brace-aware `c_function_body()` implementation that skips C comments, strings, character literals and forward declarations; mount-link implementation, adapter and four callers now use that local parser. This corrects the checker without modifying product source.
+- AI handoff docs run `43906449223` passed on parent d935. XY-C1 product build `43904136433` has since passed Build XY-C1, TRX verification and artifact upload on exact product SHA `d6fac506d564e8277e6c81ec2dd18620b6509144`. Exact-head Process and docs checks for THIS COMMIT are pending. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 00:13 CST — Make process lifecycle storage contract use structural C function extraction
 
 - Parent main: `e8a7aedab3bf7d1cc5b5487234ef2efc3b53ba5b`. Exact-head process-lifecycle run `43905023740`, job `133431436756`, failed only at step 38 (`Verify shared-library and RC integration boundaries`): the newly added mount-link adapter assertion searched for the literal characters `\\n` rather than the actual source newline and raised `IndexError`.
