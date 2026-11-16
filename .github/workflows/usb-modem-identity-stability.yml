@@ -181,7 +181,7 @@ jobs:
           assert remove.index("if (stop_status != 0)") < remove.index("set_usb_modem_dev_wan(0, 0)")
 
           deferred_hotplug = body(services_stor, "on_deferred_hotplug_dev(void)")
-          assert "modem_wan_hotplug_retry_mask(unplug_modem, plug_modem, modem_unplug_status, modem_plug_status)" in deferred_hotplug
+          assert "modem_wan_hotplug_retry_mask(unplug_modem, plug_modem, modem_unplug_status, modem_plug_status)" in " ".join(deferred_hotplug.split())
           plug_event = deferred_hotplug[deferred_hotplug.index('if (nvram_match("usb_hotplug_md", "1"))'):deferred_hotplug.index("if (unplug_modem)")]
           assert "if (!unplug_modem)" in plug_event
           assert plug_event.index("if (!unplug_modem)") < plug_event.index('nvram_set_int_temp("usb_hotplug_md", 0)')
