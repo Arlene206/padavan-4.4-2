@@ -1,11 +1,9 @@
 ## Current source / CI checkpoint
 
-- Live main before THIS storage-checker correction: `c066d1f230a2cadfceb091ccc9f45233f17dff09`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- LAN/IPTV bridge status propagation and injected GNU89/Werror/ASan/UBSan bridge policy tests are in `b81207777615d31b096c1425ff1fa8110898b0c2`. The Process source assertion escaping fix is in `c066d1f230a2cadfceb091ccc9f45233f17dff09`; exact-head Process `43850767730` passes all steps.
-- USB storage hotplug run `43850461648` on source SHA `b81207777615d31b096c1425ff1fa8110898b0c2` failed at a stale IPTV source assertion: production now aggregates bridge setup + proxy launch/stop statuses rather than direct-returning the proxy result. THIS checker-only commit updates the asserted behavior. Storage's earlier caller graph, BusyBox/ash and lock regression checks all passed.
-- On current main `c066d1f230a2cadfceb091ccc9f45233f17dff09`, AI docs `43850767697`, infosvr `43850767611`, AdGuardHome `43850767872`, AliDDNS `43850767755`, AliyunDrive `43850767862` and Process regression `43850767730` passed; NVRAM `43850767802` was still running.
-- XY-C1 `43850461476` for production source SHA `b81207777615d31b096c1425ff1fa8110898b0c2` was at Build, TRX/artifact pending; no current-main firmware L3 and no physical L4 result established.
-- Next: verify exact-head storage re-run, then continue loopback or another independent RC boot result-propagation task.
+- Current main before THIS loopback source-check correction: 1f232209a9aa41d520939c18ab783609e9b791b0; loopback setup return propagation is in 1f232209a9aa41d520939c18ab783609e9b791b0.
+- Process run 43852281303 failed at its new over-escaped source assertion after preceding lifecycle and bridge tests passed. THIS patch checks the int return declaration safely and verifies that failed IFUP returns before route_add(); successful IFUP still propagates route errors.
+- XY-C1 43852281447 was IN_PROGRESS at ccache setup; storage 43852281602 and NVRAM 43852281469 were in progress at last inspection. Handoff and numerous independent service Actions passed. No exact-source L3/TRX/artifact or physical L4 result recorded.
+- Next: verify Process rerun plus current XY-C1/storage/NVRAM; audit init_bridge()/switch_config_vlan() required interface and VLAN status while preserving optional feature behavior. Frozen backup remains immutable at 72f4f157a084f8184b9597ca5bf334b8080e5807.
 
 ## Whole-repository module status
 

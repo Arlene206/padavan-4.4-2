@@ -1,3 +1,13 @@
+## 2026-11-16 — Gate loopback route setup on successful IFUP
+
+- Parent main: 1f232209a9aa41d520939c18ab783609e9b791b0. Process run 43852281303 failed only at the new loopback source return-type assertion after preceding lifecycle and bridge regressions passed.
+- Review found the first init_loopback() status patch attempted route_add() even when ifconfig("lo", ...) failed. Since route installation depends on a configured loopback address, init_loopback() now returns the IFUP error immediately, and only attempts the route after successful address setup. Route-add failures are logged and returned.
+- Corrected the Process source contract to use a newline-safe return-type assertion and verify the early-return ordering ahead of route_add().
+- XY-C1 43852281447 was still IN_PROGRESS at ccache setup at the last inspection; storage 43852281602 and NVRAM 43852281469 were also pending then. No L3 or L4 result is claimed in this record.
+- Next: inspect exact-head Process, XY-C1 Build/TRX/artifact, storage and NVRAM; then audit init_bridge()/switch_config_vlan() required versus optional status handling.
+
+---
+
 ## 2026-11-16 — Propagate loopback interface and route startup failures
 
 - Parent main: `b85754180a56755c97a03bb5ab3013b30561f48c`. USB storage hotplug `43851311951` and NVRAM transaction boundary `43851311965` passed; storage included BusyBox 1.24.2/ash lifecycle, lock/eject and persistence regressions. Process inventory `43851311871`, AI docs `43851312213`, AdGuardHome `43851311939`, infosvr `43851311935`, AliDDNS `43851311972`, AliyunDrive `43851311982` passed.
