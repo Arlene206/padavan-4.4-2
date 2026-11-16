@@ -222,7 +222,7 @@ int start_udpxy(char *wan_ifname);
 int stop_igmpproxy(char *wan_ifname);
 int start_igmpproxy(char *wan_ifname);
 int restart_iptv(int is_ap_mode);
-void flush_conntrack_table(char *ip);
+int flush_conntrack_table(char *ip);
 void flush_route_caches(void);
 int clear_if_route4(char *ifname);
 int  is_ftp_conntrack_loaded(int ftp_port0, int ftp_port1);

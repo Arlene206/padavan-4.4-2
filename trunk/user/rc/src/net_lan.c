@@ -938,6 +938,7 @@ start_lan(int is_ap_mode, int do_wait)
 int
 stop_lan(int is_ap_mode)
 {
+	int conntrack_status = 0;
 	if (is_ap_mode) {
 		char *svcs[] = { "detect_wan", NULL };
 		const char *pidfiles[] = { "/var/run/udhcpc_lan.pid", NULL };
@@ -958,8 +959,12 @@ stop_lan(int is_ap_mode)
 		char *lan_ip = nvram_safe_get("lan_ipaddr_t");
 
 		/* flush conntrack table (only old LAN IP records) */
-		if (is_valid_ipv4(lan_ip))
-			flush_conntrack_table(lan_ip);
+		if (is_valid_ipv4(lan_ip)) {
+			conntrack_status = flush_conntrack_table(lan_ip);
+			if (conntrack_status != 0)
+				logmessage(LOGNAME, "LAN conntrack cleanup failed (status=%d)",
+					   conntrack_status);
+		}
 
 		/* Remove static routes */
 		clear_if_route4(IFNAME_BR);
@@ -974,7 +979,7 @@ stop_lan(int is_ap_mode)
 		int status = ifconfig(IFNAME_BR, 0, NULL, NULL);
 		if (status != 0 && is_ap_mode)
 			notify_run_detect_internet(2);
-		return status;
+		return rc_first_service_start_status(conntrack_status, status);
 	}
 }
 

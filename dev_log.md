@@ -1,3 +1,12 @@
+## 2026-11-16 — Propagate conntrack table flush failures through RC teardown
+
+- Parent main: `1f8299371114d2fb846ec1c47a0116afd584668c`. Traced all RC references: `flush_conntrack_table()` was declared `void` and discarded the errno-style result of shared `fput_string("/proc/net/nf_conntrack", ip)`. All four callers ignored write failure: PID 1 `RCN_RESTART_NETFILTER`, LAN teardown, WAN teardown and MAN DHCP deconfig. The shared writer returns errors from buffered writes and close.
+- Changed the API to return the writer result and added an injectable policy regression for targeted IP writes, full-table `"f"` flush, exact errno propagation and missing writer rejection. PID 1 merges the status into its notification result; LAN, WAN and MAN teardown retain the flush error while still performing later cleanup.
+- Added the test to the GNU89/ASan/UBSan WAN route workflow and source-contract checks for every production caller. New exact-head WAN, Process, Firewall Startup, XY-C1 and AI handoff actions are required after publication.
+- Exact `1f829937` Process `43971856210`, Firewall Startup `43971856255` and AI handoff `43971856365` passed; XY-C1 `43971856235` was still building at last poll. This evidence predates the conntrack source change. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Finish strict HW NAT CI contract and exact checkpoint wording
 
 - Parent main: `99d8562d8b007e83ceaff397f7c11337b9c6277a`. Exact 99d856 actions exposed one last stale common source assertion: `reload_nat_modules()` now configures radio settings only under `hwnat_loaded == 1`, passing literal 1 to the policy callback, but the checker still required the old raw `hwnat_loaded` argument. Replaced it with explicit verified-loaded gating and no-legacy-helper assertions.

@@ -5,6 +5,9 @@ on:
     paths:
       - ".github/workflows/wan-route-status.yml"
       - "trunk/user/rc/src/net.c"
+      - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/conntrack_flush_policy.h"
+      - "trunk/user/rc/src/tests/conntrack_flush_policy.c"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net6.c"
       - "trunk/user/rc/src/rc.c"
@@ -36,6 +39,9 @@ on:
     paths:
       - ".github/workflows/wan-route-status.yml"
       - "trunk/user/rc/src/net.c"
+      - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/conntrack_flush_policy.h"
+      - "trunk/user/rc/src/tests/conntrack_flush_policy.c"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net6.c"
       - "trunk/user/rc/src/rc.c"
@@ -123,6 +129,14 @@ jobs:
             trunk/user/shared/src/tests/bridge_membership_policy.c \
             -o /tmp/bridge-membership-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/bridge-membership-policy
+      - name: Compile and run conntrack flush result propagation regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/conntrack_flush_policy.c \
+            -o /tmp/conntrack-flush-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/conntrack-flush-policy
       - name: Verify WAN VLAN and bridge error propagation
         run: python3 scripts/check_wan_vlan_setup.py
       - name: Verify route result propagation and cleanup ordering
@@ -131,6 +145,7 @@ jobs:
           from pathlib import Path
           rc = Path("trunk/user/rc/src")
           net = (rc / "net.c").read_text()
+          net_lan = (rc / "net_lan.c").read_text()
           wan = (rc / "net_wan.c").read_text()
           ppp = (rc / "net_ppp.c").read_text()
           wan6 = (rc / "net_wan6.c").read_text()
@@ -143,6 +158,8 @@ jobs:
           wan6_policy = (rc / "wan6_teardown_policy.h").read_text()
           wan6_test = (rc / "tests/wan6_teardown_policy.c").read_text()
           header = (rc / "rc.h").read_text()
+          conntrack_policy = (rc / "conntrack_flush_policy.h").read_text()
+          conntrack_test = (rc / "tests/conntrack_flush_policy.c").read_text()
           policy = (rc / "route_status_policy.h").read_text()
           fib_trie = Path("trunk/linux-4.4.x/net/ipv4/fib_trie.c").read_text()
           fib_semantics = Path("trunk/linux-4.4.x/net/ipv4/fib_semantics.c").read_text()
@@ -161,6 +178,32 @@ jobs:
                       if depth == 0:
                           return source[brace + 1:pos]
               raise AssertionError(f"unterminated function: {signature}")
+
+          flush_apply = body(conntrack_policy, "rc_conntrack_flush_apply(")
+          assert 'return write_file("/proc/net/nf_conntrack", ip ? ip : "f");' in flush_apply
+          flush_entry = body(net, "flush_conntrack_table(char *ip)")
+          assert "return rc_conntrack_flush_apply(ip, fput_string);" in flush_entry
+          assert "int flush_conntrack_table(char *ip);" in header
+          assert "void flush_conntrack_table(char *ip);" not in header
+          assert 'rc_conntrack_flush_apply(NULL, fake_write)' in conntrack_test
+          assert '== EACCES' in conntrack_test
+
+          stop_lan_body = body(net_lan, "stop_lan(int is_ap_mode)")
+          assert "conntrack_status = flush_conntrack_table(lan_ip);" in stop_lan_body
+          assert "return rc_first_service_start_status(conntrack_status, status);" in stop_lan_body
+
+          wan_down_body = body(wan, "wan_down_internal(char *wan_ifname, int unit, int is_static)")
+          assert "route_status = flush_conntrack_table(wan_addr);" in wan_down_body
+          assert "status = route_status_accumulate(status, route_status);" in wan_down_body
+          deconfig_body = body(wan, "udhcpc_deconfig(char *wan_ifname, int is_zcip)")
+          assert "conntrack_status = flush_conntrack_table(man_addr);" in deconfig_body
+          assert "return route_status_accumulate(route_status_accumulate(interface_status, conntrack_status), cleanup_status);" in " ".join(deconfig_body.split())
+
+          netfilter_start = rc_source.index('else if (strcmp(entry->d_name, RCN_RESTART_NETFILTER) == 0)')
+          netfilter_end = rc_source.index('else if (strcmp(entry->d_name, RCN_RESTART_FIREWALL) == 0)', netfilter_start)
+          netfilter_case = rc_source[netfilter_start:netfilter_end]
+          assert "conntrack_status = flush_conntrack_table(NULL);" in netfilter_case
+          assert "action_result = rc_notify_merge_action_result(action_result, conntrack_status);" in netfilter_case
 
           assert '#include "route_status_policy.h"' in net
           assert '#include "route_status_policy.h"' in wan
@@ -407,6 +450,9 @@ jobs:
           paths = (
               ".github/workflows/wan-route-status.yml",
               "trunk/user/rc/src/net.c",
+              "trunk/user/rc/src/net_lan.c",
+              "trunk/user/rc/src/conntrack_flush_policy.h",
+              "trunk/user/rc/src/tests/conntrack_flush_policy.c",
               "trunk/linux-4.4.x/net/ipv4/fib_trie.c",
               "trunk/linux-4.4.x/net/ipv4/fib_semantics.c",
               "trunk/linux-4.4.x/net/ipv4/fib_frontend.c",

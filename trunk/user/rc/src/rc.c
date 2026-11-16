@@ -1812,11 +1812,17 @@ handle_notifications(void)
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_NETFILTER) == 0)
 		{
+			int conntrack_status;
+
 			update_router_mode();
 			action_result = rc_notify_merge_action_result(action_result, reload_nat_modules());
 			action_result = rc_notify_merge_action_result(
 				action_result, restart_firewall());
-			flush_conntrack_table(NULL);
+			conntrack_status = flush_conntrack_table(NULL);
+			if (conntrack_status != 0)
+				logmessage(LOGNAME, "conntrack flush after netfilter restart failed (status=%d)",
+					   conntrack_status);
+			action_result = rc_notify_merge_action_result(action_result, conntrack_status);
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_FIREWALL) == 0)
 		{

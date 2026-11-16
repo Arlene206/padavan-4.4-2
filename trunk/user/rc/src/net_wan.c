@@ -2805,9 +2805,13 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 
 	/* flush conntrack table (only old WAN IP records) */
 	wan_addr = get_wan_unit_value(unit, "ipaddr");
-	if (is_valid_ipv4(wan_addr))
-		flush_conntrack_table(wan_addr);
-	else
+	if (is_valid_ipv4(wan_addr)) {
+		route_status = flush_conntrack_table(wan_addr);
+		status = route_status_accumulate(status, route_status);
+		if (route_status != 0)
+			logmessage(LOGNAME, "WAN conntrack cleanup failed on %s (status=%d)",
+				   wan_ifname, route_status);
+	} else
 		wan_addr = "0.0.0.0";
 
 	control_wan_led_isp_state(0, 0);
@@ -3752,6 +3756,7 @@ udhcpc_deconfig(char *wan_ifname, int is_zcip)
 {
 	int unit, wan_proto, is_man;
 	int interface_status = 0, reset_man_address = 0;
+	int conntrack_status = 0;
 	int cleanup_status;
 	char log_prefix[32], *udhcpc_state;
 
@@ -3780,8 +3785,12 @@ udhcpc_deconfig(char *wan_ifname, int is_zcip)
 			char *man_addr = nvram_safe_get("wanx_ipaddr");
 
 			/* flush conntrack table (only old WAN IP records) */
-			if (is_valid_ipv4(man_addr))
-				flush_conntrack_table(man_addr);
+			if (is_valid_ipv4(man_addr)) {
+				conntrack_status = flush_conntrack_table(man_addr);
+				if (conntrack_status != 0)
+					logmessage(log_prefix, "MAN conntrack cleanup failed (status=%d)",
+						   conntrack_status);
+			}
 
 			/* man_down_internal() needs the old address to remove its host route. */
 			reset_man_address = (interface_status == 0);
@@ -3800,7 +3809,9 @@ udhcpc_deconfig(char *wan_ifname, int is_zcip)
 		logmessage(log_prefix, "route teardown incomplete on %s (error=%d)",
 			   wan_ifname, cleanup_status);
 
-	return route_status_accumulate(interface_status, cleanup_status);
+	return route_status_accumulate(
+		route_status_accumulate(interface_status, conntrack_status),
+		cleanup_status);
 }
 
 struct wan_dhcp_interface_context {

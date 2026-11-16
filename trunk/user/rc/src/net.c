@@ -39,6 +39,7 @@
 #include "process_inventory.h"
 #include "pppoe_relay_policy.h"
 #include "route_status_policy.h"
+#include "conntrack_flush_policy.h"
 #include "igmpproxy_config_file.h"
 #include "service_start_status.h"
 #include "wireless_module_load_policy.h"
@@ -717,12 +718,10 @@ restart_iptv(int is_ap_mode)
     return start_status;
 }
 
-void
+int
 flush_conntrack_table(char *ip)
 {
-	if (!ip)
-		ip = "f"; // flush all table
-	fput_string("/proc/net/nf_conntrack", ip);
+	return rc_conntrack_flush_apply(ip, fput_string);
 }
 
 void

@@ -1,11 +1,10 @@
 ## Current source / CI checkpoint
 
-- Production tri-state HW NAT/FTP/SFE implementation: `1554a5f3fbb1bf13c3325ad765b7e806d74d1537`; current source/checker/doc parent: `99d8562d8b007e83ceaff397f7c11337b9c6277a`.
-- Exact 99d856 Process `43971105805`, Firewall Startup `43971105848` and XY-C1 `43971105719` failed at the common assertion expecting the old HW NAT radio argument. This commit requires verified-loaded gating and literal enabled state. AI handoff `43971105596` failed because it lacked the required end-of-session checkpoint sentence; fixed in the same atomic tree.
-- Exact 99d856 PASS: NVRAM `43971105616`, USB modem identity `43971105688`, infosvr `43971105912`, HTTPD `43971105585`, AliyunDrive `43971106167`, AliDDNS `43971105599`, AdGuardHome `43971106008`.
-- Existing tri-state policy tests cover probe errors/unload postconditions; exact-head Process, Firewall Startup, XY-C1 and AI handoff need to pass after this correction.
-- d287 Build/TRX/artifact L3 is only for d287. Current source L3 is **NOT VERIFIED** until same-SHA XY-C1 Build, TRX and artifact upload pass. Physical-router L4 remains **NOT VERIFIED**.
-- Frozen backup remains read-only. Independent next candidate: ignored `flush_conntrack_table()` result in `RCN_RESTART_NETFILTER`; locate definition and every caller before altering API.
+- Parent: `1f8299371114d2fb846ec1c47a0116afd584668c`. Exact-head `1f829937` Process `43971856210`, Firewall Startup `43971856255` and AI handoff `43971856365` passed; XY-C1 `43971856235` was still building at last poll.
+- Traced `flush_conntrack_table()`: its `void` API discarded the errno-style result of `fput_string()`. All four callers (PID 1 netfilter notification, LAN teardown, WAN teardown and MAN DHCP deconfig) ignored failures. This atomic change returns write/close status and aggregates it at every caller while allowing later cleanup to proceed.
+- Added `conntrack_flush_policy.h` and GNU89/ASan/UBSan tests for targeted IP, full-table flush, errno propagation and missing writer; WAN route workflow compiles the test and checks production caller contracts.
+- Strict HW NAT/FTP/SFE handling remains in the source line. New exact-head WAN/Process/Firewall/XY regressions are required. Previous `d287` firmware L3 does not apply to current source. Physical-router L4 remains **NOT VERIFIED**.
+- Frozen backup remains read-only. Continue evidence-backed RC/network result propagation across userland.
 
 ## Whole-repository module status
 
