@@ -1248,6 +1248,15 @@ for function_name, log_label in optional_start_contracts:
     assert eval_at < failure_guard < failure_log
 print("optional AdGuardHome/DDNS.to/Adbyby/AliDDNS launch diagnostics: PASS")
 
+# Adbyby rule updates are RC notification actions too: propagate eval()'s
+# wait status through PID 1 instead of discarding it in a void wrapper.
+update_adb_body = services_source.split("int update_adb(void)", 1)[1].split("\n}", 1)[0]
+assert 'return eval("/usr/bin/adbyby.sh","updateadb");' in update_adb_body
+assert "int update_adb(void);" in rc_header
+update_adb_notify = rc_source.split("RCN_RESTART_UPDATEADB) == 0)", 1)[1].split("\n\t\t}", 1)[0]
+assert "rc_notify_merge_action_result(action_result, update_adb())" in update_adb_notify
+print("Adbyby update action result propagation: PASS")
+
 
 # MSD Lite config publication must finish before enabling or launching the daemon.
 msd_config_header = (root / "trunk/user/rc/src/msd_lite_config_file.h").read_text()

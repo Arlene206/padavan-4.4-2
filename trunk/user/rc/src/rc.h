@@ -578,7 +578,7 @@ int restart_dnsforwarder(void);
 int stop_adbyby(void);
 void start_adbyby(void);
 int restart_adbyby(void);
-void update_adb(void);
+int update_adb(void);
 #endif
 #if defined(APP_ADGUARDHOME)
 int stop_adguardhome(void);

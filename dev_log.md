@@ -1,3 +1,11 @@
+## 2026-11-16 — Propagate Adbyby update action failure to PID 1
+
+- Main parent: `e09e044195fd936142ed0b42ead1bd73f6262c02`. In the RC notification dispatcher, `RCN_RESTART_UPDATEADB` called `update_adb()`; that void wrapper ignored the wait status returned by `eval("/usr/bin/adbyby.sh", "updateadb")`. A failed update therefore left the notification action result unchanged.
+- Changed `update_adb()` to return int, updated its public prototype, and merged its result into `action_result` with `rc_notify_merge_action_result()`. Added an integration-checker contract for the helper, declaration and actual notification caller.
+- Strict module-probe commit 4c435 had 38/39 Actions passed at last poll; its XY-C1 Build/TRX/artifact run `43953778444` was still in progress. The Adbyby fix requires a new exact-SHA verification. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Fail closed on RC module-state probe errors
 
 - Main parent: `1aca5ab3a776a66138814769b84d5e5ceb43b46c`. Audited `common_ex.c:is_module_loaded()`: it returned 0 for all `opendir("/sys/module/<name>")` failures, conflating absence (ENOENT) with permission/resource/sysfs errors. `rc_module_unload_verified()` could consequently skip an unload and falsely report absence.

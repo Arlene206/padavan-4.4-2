@@ -1680,7 +1680,7 @@ handle_notifications(void)
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_UPDATEADB) == 0)
 		{
-			update_adb();
+			action_result = rc_notify_merge_action_result(action_result, update_adb());
 		}
 #endif
 #if defined(APP_ADGUARDHOME)

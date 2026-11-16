@@ -1,9 +1,8 @@
 ## Current source / CI checkpoint
 
-- Main parent for the strict module-probe change: `1aca5ab3a776a66138814769b84d5e5ceb43b46c`. Exact-head Process lifecycle regression `43952107815`, HTTPD `43952107789`, and AI handoff `43952107818` passed; XY-C1 `43952107870` was `in_progress`. New source changes require fresh exact-SHA validation.
-- NAT load/unload verification found that legacy `is_module_loaded()` conflates a missing module with any sysfs lookup failure. The current change adds strict tri-state `is_module_loaded_status()`, validates the sysfs module root before treating ENOENT as absence, preserves the legacy boolean wrapper, and propagates initial/post-unload probe errors through `rc_module_unload_verified()`. Two injectable failure-path tests are added.
-- The ec923 XY-C1 build/TRX/artifact passed but predates subsequent HW NAT/SFE work; it is not current-source L3 evidence. Next: verify the strict-probe and latest XY-C1 runs, then continue broad RC service launcher result propagation. Physical-router L4 remains NOT VERIFIED.
-
+- Main parent for the Adbyby update-action fix: `e09e044195fd936142ed0b42ead1bd73f6262c02`. Strict module-state probing is committed at `4c43578509463afc2d25c05892ff39075245f173`; its exact-head Firewall Startup, Process integration, HTTPD, AI handoff and Process inventory suites passed. 38/39 Actions were complete and green at last poll; XY-C1 `43953778444` was still in progress.
+- Confirmed dropped result: `RCN_RESTART_UPDATEADB` invoked `void update_adb()`, which discarded the wait status from `eval("/usr/bin/adbyby.sh", "updateadb")`. The current commit makes the wrapper return int and merges it into RC notification action status. The integration checker enforces the wrapper, prototype and caller contract.
+- 4c435 strict-probe firmware Build/TRX/artifact remains pending until its XY-C1 run completes. After this new SHA, revalidate the status merge and firmware. Physical-router L4 remains NOT VERIFIED.
 
 
 

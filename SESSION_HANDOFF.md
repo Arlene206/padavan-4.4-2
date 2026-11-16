@@ -10,25 +10,25 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Current repository state
 
-- Main parent for the strict module-probe slice: `1aca5ab3a776a66138814769b84d5e5ceb43b46c`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged/read-only.
-- Recent source changes verify configured NAT helper loads, HW NAT WAN-VID configuration and SFE sysfs configuration. A fail-open edge remains in the legacy module probe: `is_module_loaded()` returns 0 for both ENOENT and other `opendir("/sys/module/<name>")` errors. This slice adds a tri-state probe, preserves the legacy boolean API, and makes verified unload propagate probe errors.
-- Exact-head 1aca Actions: Process lifecycle regression `43952107815`, HTTPD `43952107789`, and AI handoff `43952107818` passed. XY-C1 `43952107870` status is recorded below; these runs do not include this new strict-probe commit.
-- ec923 previously passed XY-C1 module-policy regression, firmware build, TRX and artifact upload. That build predates later HW NAT/SFE source changes and must not be treated as current-source L3 evidence.
+- Main parent for this service-action fix: `e09e044195fd936142ed0b42ead1bd73f6262c02`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged/read-only.
+- The strict module-state probe hardening is on main at `4c43578509463afc2d25c05892ff39075245f173`: tri-state `is_module_loaded_status()`, legacy boolean wrapper, verified-unload error propagation and two injected failure-path tests.
+- Exact-head 4c435 Actions at last poll: 38 of 39 completed runs passed, none failed; XY-C1 `43953778444` was still in progress. Firewall Startup `43953778572`, Process integration `43953778499`, HTTPD `43953778353`, AI handoff `43953778474`, and Process inventory `43953778187` passed.
+- A further RC notification defect is confirmed: `RCN_RESTART_UPDATEADB` called a void `update_adb()` wrapper that discarded the `eval()` wait status. This slice changes it to return the status and merges it into the RC action result.
 
 ## Active task
 
-Harden NAT module unload postconditions. The previous verifier treated any zero-valued presence probe as "absent", while `is_module_loaded()` conflates ENOENT and sysfs permission/resource failures. The strict probe returns 1 for loaded, 0 only for a missing module after confirming the sysfs module root is readable, and negative errno for lookup failures. Existing boolean callers keep their legacy API.
+Finish the Adbyby rule-update result path. The `RCN_RESTART_UPDATEADB` notification previously invoked a void wrapper that called `eval("/usr/bin/adbyby.sh", "updateadb")` and discarded its wait status. `update_adb()` now returns the status, the header matches, and the RC notification branch merges it with `rc_notify_merge_action_result()`.
 
-Injectable policy regressions prove an initial probe failure prevents unload and a post-unload probe failure is returned rather than reported as success. Configured helper unloads must still be attempted independently, retaining the first failure.
+The preceding strict module-probe change is under exact-SHA verification; keep its results tied to SHA `4c43578509463afc2d25c05892ff39075245f173`.
 
 ## Verification boundary
 
-- Exact-head 1aca Process lifecycle regression `43952107815`, HTTPD `43952107789`, and AI handoff `43952107818` passed. XY-C1 `43952107870` was `in_progress` at the last poll.
-- Earlier ec923 XY-C1 run `43948787188` passed the module policy test, firmware build, TRX verification and artifact upload. It predates subsequent HW NAT/SFE source modifications and is not current-source L3 evidence.
-- The strict module-probe source changes and two injected failure cases are in this commit; no new-SHA CI or firmware result is claimed until exact-head Actions complete. Physical-router L4 remains NOT VERIFIED.
+- Exact-head 4c435 Process integration `43953778499`, Firewall Startup `43953778572`, HTTPD `43953778353`, AI handoff `43953778474`, and Process inventory `43953778187` passed. Overall 38/39 Actions were complete and green at last poll; XY-C1 `43953778444` remained in progress.
+- Strict-probe initial/final error tests are included in 4c435 and passed in Process and Firewall Startup workflows. Firmware Build/TRX/artifact on 4c435 is still pending until the XY-C1 job completes.
+- The Adbyby update status fix in this commit has not yet been built or tested on its new exact SHA. Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect new-SHA Process, Firewall Startup, HTTPD and XY-C1 Actions. Require the strict-probe regressions to pass and inspect Build/TRX/artifact before claiming firmware validation.
-2. Continue the cross-userland RC startup-result audit: trace enabled service launchers through actual callers and PID 1 action-result merges; fix only demonstrated dropped errors.
-3. Keep main-only complete-tree commits with non-forced expected-SHA CAS. Frozen backup read-only; physical-router L4 NOT VERIFIED.
+1. Check exact-SHA Process integration, HTTPD, Firewall Startup and XY-C1 for the Adbyby update action status fix; inspect Build/TRX/artifact before claiming current firmware verification.
+2. Recheck the 4c435 XY-C1 Build/TRX/artifact completion, then continue auditing demonstrated dropped RC service-action results across the remaining notifier handlers.
+3. Main-only atomic complete-tree commits; expected-SHA CAS, no force push. Frozen backup read-only; physical-router L4 NOT VERIFIED.

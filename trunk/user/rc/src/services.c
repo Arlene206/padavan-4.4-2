@@ -973,8 +973,8 @@ int restart_adbyby(void){
 	return eval("/usr/bin/adbyby.sh","restart");
 }
 
-void update_adb(void){
-	eval("/usr/bin/adbyby.sh","updateadb");
+int update_adb(void){
+	return eval("/usr/bin/adbyby.sh","updateadb");
 }
 #endif
 
