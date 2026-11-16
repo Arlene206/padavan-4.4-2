@@ -116,3 +116,11 @@ require("address=/ads.example.com/0.0.0.0" in adblock_test and
         "last known-good" in adblock_test,
         "adblock regression must cover conversion and fail-safe replacement")
 print("Shadowsocks adblock configuration source contract: PASS")
+
+
+require("'^[[:space:]]*(#|address=|$)' in adblock_helper,
+        "downloaded dnsmasq configs must whitelist comments and address rules")
+require("dhcp-script=/tmp/attacker.sh" in adblock_test and
+        "conf-file=/tmp/attacker.conf" in adblock_test,
+        "adblock regression must reject arbitrary dnsmasq directive injection")
+print("Downloaded dnsmasq directive whitelist contract: PASS")

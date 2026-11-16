@@ -429,11 +429,24 @@ ss_publish_adblock_config() {
 	local ss_adblock_output="$2"
 	local ss_adblock_tmp=""
 	local ss_adblock_rules=""
+	local ss_adblock_status=""
 
 	[ -r "$ss_adblock_input" ] && [ -s "$ss_adblock_input" ] || return 1
 	ss_adblock_tmp=$(mktemp "${ss_adblock_output}.tmp.XXXXXX") || return 1
 	if grep -q '^[[:space:]]*address=' "$ss_adblock_input"; then
-		if ! cp "$ss_adblock_input" "$ss_adblock_tmp"; then
+		# Downloaded dnsmasq input is untrusted: allow comments, blank lines
+		# and address rules only; reject unrelated executable/config directives.
+		if grep -Ev '^[[:space:]]*(#|address=|$)' "$ss_adblock_input" >/dev/null; then
+			rm -f "$ss_adblock_tmp"
+			return 1
+		else
+			ss_adblock_status=$?
+			if [ "$ss_adblock_status" -ne 1 ]; then
+				rm -f "$ss_adblock_tmp"
+				return 1
+			fi
+		fi
+		if ! grep '^[[:space:]]*address=' "$ss_adblock_input" > "$ss_adblock_tmp"; then
 			rm -f "$ss_adblock_tmp"
 			return 1
 		fi

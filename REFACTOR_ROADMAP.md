@@ -1,15 +1,10 @@
 ## Current source / CI checkpoint
 
-- Main parent for the Shadowsocks shell-expansion repair: `b33ed42356995a1ab6dcce42c29db7f9cdf5e67b`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact b33 Shadowsocks #43781109010 failed because shell variable expansions in mktemp templates were written with literal backslashes; shell syntax and the existing process-lifecycle test passed. THIS COMMIT removes the escapes.
-- Exact b33 Process #43781108999, inventory #43781109077, AI docs #43781108988, AdGuardHome #43781109013, infosvr #43781108991, AliyunDrive #43781109183 and AliDDNS #43781109014 PASS; NVRAM #43781109000 pending at last poll.
-- Exact 9cd XY-C1 #43779833547 PASS: Build, TRX verification and artifact upload.
-- The adblock parser stages complete, validated dnsmasq/Adblock output and atomically preserves last-good config. XY-C1 push filters now include the changed Shadowsocks script; exact follow-up Actions pending.
+- Main parent for downloaded dnsmasq directive validation: `a22914f4de9a47b7a7e6c28711b9927c93ae8120`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact a229 Shadowsocks #43782262134, Process #43782262196, inventory #43782262138, AI docs #43782262148, infosvr #43782262209, AdGuardHome #43782262073 and AliyunDrive #43782262128 PASS.
+- Exact a229 AliDDNS #43782262168, NVRAM #43782262086 and XY-C1 #43782262108 were running; XY-C1 Build was in progress and TRX/artifact pending.
+- THIS COMMIT restricts downloaded dnsmasq-format input to comments, blank lines and address rules, rejects arbitrary directives, and preserves last-good output. Exact-head regression and XY-C1 validation pending.
 
-
-### P1 — Shadowsocks adblock configuration parser
-
-- Fix `start_AD()` format detection and atomically preserve the last known-good dnsmasq filter file; exact-head shell regression and XY-C1 validation required.
 
 ### P1 — Storage daemon startup and config publication
 

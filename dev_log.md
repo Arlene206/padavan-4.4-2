@@ -1,3 +1,13 @@
+## 2026-11-15 — Reject injected dnsmasq directives in downloaded adblock lists
+
+- Security review found the parser copied a complete remote file unchanged whenever it contained an `address=` line. A mixed file could therefore add unrelated dnsmasq directives such as `dhcp-script=` or `conf-file=`, despite the source being configurable remote input.
+- Restricted the dnsmasq-format branch to blank lines, comments and `address=` rules; only address rules are emitted. All other directives are rejected. Grep errors are distinguished from normal no-match; rejection cleans temporary files and does not replace last-good output.
+- Added a malicious mixed-input regression containing `dhcp-script=` and `conf-file=`; it must fail and preserve the prior output. The static source checker enforces the whitelist and both injection examples.
+- Parent main: `a22914f4de9a47b7a7e6c28711b9927c93ae8120`; exact a229 Shadowsocks #43782262134, Process #43782262196, inventory #43782262138 and AI docs #43782262148 PASS. XY-C1 #43782262108, NVRAM #43782262086 and AliDDNS #43782262168 were pending at last poll.
+- THIS COMMIT exact-head Shadowsocks/Process/AI-doc and XY-C1 checks pending.
+
+---
+
 ## 2026-11-16 08:35 Beijing — Use shell comment syntax for the Shadowsocks adblock publisher
 
 - The explanatory preamble above `ss_publish_adblock_config()` used C-style `/* ... */` syntax in a shell script. Ash treated the opening token as a command, producing an avoidable command-not-found attempt whenever the script was parsed.

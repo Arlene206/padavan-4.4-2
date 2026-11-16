@@ -9,29 +9,28 @@ Only edit it when the live facts or first next action change materially.
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Parent main SHA for this source/test slice: `59feb2da538a282d9929d5a48bd97c4a8861c6ae`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
-- Exact-parent Shadowsocks workflow #43781489845 PASS: shell syntax, process lifecycle regression, adblock publication regression and source/ROMFS checker all succeeded.
-- Exact-parent AI handoff docs #43781489871, Process lifecycle #43781489848, Process inventory #43781489882, NVRAM #43781489851, infosvr #43781489801, AliDDNS #43781489923, AdGuardHome #43781489834 and AliyunDrive #43781489841 PASS.
-- Exact-parent XY-C1 firmware validation #43781489913 is IN_PROGRESS at Build XY-C1; TRX verification and artifact upload have not run yet.
-- This slice corrects the remaining C-style `/* ... */` preamble immediately before `ss_publish_adblock_config()` in a shell script. It is now a valid shell `#` comment; the regression extracts from that comment line so a non-shell preamble fails the test before exercising the parser.
-- The parser still publishes supported dnsmasq/address input or simple `||domain^` rules with a same-directory temporary file and atomic rename; unsupported/empty input leaves the prior configuration untouched.
-- No physical-router/L4 result is available.
+- Main parent for downloaded dnsmasq directive validation: `a22914f4de9a47b7a7e6c28711b9927c93ae8120`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
+- Exact a229 Shadowsocks lifecycle #43782262134, Process #43782262196, full inventory #43782262138, AI docs #43782262148, infosvr #43782262209, AdGuardHome #43782262073 and AliyunDrive #43782262128 PASS.
+- Exact a229 AliDDNS #43782262168, NVRAM #43782262086 and XY-C1 #43782262108 were still running at last poll; XY-C1 Build was in progress, with TRX/artifact pending.
+- Exact 59feb Shadowsocks #43781489845, Process #43781489882, inventory #43781489848 and AI docs #43781489871 PASS; exact 9cd XY-C1 #43779833547 PASS (Build/TRX/artifact).
+- THIS COMMIT whitelists downloaded dnsmasq-style input to comments, blank lines and `address=` rules, rejecting additional `dhcp-script=` / `conf-file=` directives without replacing last-good config.
+- Frozen backup unchanged; no physical-router/L4 validation.
 
 ## Active task
 
-### Verify the shell-comment correction, then continue the process-consumer review
+### Reject non-address dnsmasq directives in downloaded adblock lists
 
-The production Shadowsocks script had a C block-comment token immediately before a shell function. Since the file is parsed as shell, that token was treated as a command rather than a comment. This commit replaces it with shell comments and strengthens the host regression to include the preamble in the extracted production helper. First verify this commit's exact-head Actions; then continue reviewing consequential legacy process-presence and name-wide signal consumers from inventory artifact #14186597970 without changing global Boolean API semantics.
+The configured remote adblock URL is untrusted input. The publisher previously copied every line of a dnsmasq-style file if it contained at least one `address=` line. Restrict it to comments, blank lines and `address=` rules; reject any other directive, including `dhcp-script=` and `conf-file=`, and preserve prior output on rejection. Extend the regression and source contract.
 
 ## Verification boundary
 
-- Exact `59feb2d` parent Shadowsocks #43781489845 PASS, including the adblock regression. Local POSIX-shell syntax and publication regression also PASS; a negative fixture using the former C-style preamble is rejected by the strengthened extraction guard.
-- Exact-parent AI docs, Process lifecycle, Process inventory, NVRAM, infosvr, AliDDNS, AdGuardHome and AliyunDrive Actions PASS (run IDs above).
-- Exact-parent XY-C1 #43781489913 remains IN_PROGRESS at Build XY-C1. No TRX/artifact or L3 claim is made yet.
-- The current commit requires exact-head Shadowsocks, AI-doc, Process and XY-C1 Build/TRX/artifact checks. No physical-router/L4 validation is claimed.
+- Exact a229 Shadowsocks #43782262134, Process #43782262196, inventory #43782262138, AI docs #43782262148, infosvr #43782262209, AdGuardHome #43782262073 and AliyunDrive #43782262128 PASS.
+- Exact a229 AliDDNS #43782262168, NVRAM #43782262086 and XY-C1 #43782262108 were running at last poll; XY-C1 Build had not completed and TRX/artifact remained pending.
+- THIS COMMIT adds a mixed dnsmasq injection regression for `dhcp-script=` / `conf-file=`, requires last-good preservation, and extends the source contract. Exact-head Actions pending.
+- No L3/L4 claim unless current exact-SHA Build XY-C1, TRX and artifact all pass.
 
 ## Exact first action for the next GPT
 
-1. Fetch the live `main` SHA, then inspect exact-head Shadowsocks, AI handoff documentation, Process lifecycle/inventory and XY-C1 Actions for this shell-comment correction. Confirm the strengthened adblock test and same-SHA Build XY-C1 / TRX / artifact upload.
-2. Once this slice is green, continue the whole-tree process-presence/name-wide signal consumer review driven by inventory artifact #14186597970; preserve the legacy Boolean API semantics and avoid repeating already-completed callsite audits.
-3. Preserve `backup/pre-plugin-overhaul-2026-11-14` and archived `dev_log.md` shards/index byte-for-byte; no L4 claim without physical hardware.
+1. Inspect exact-head Shadowsocks parser/source, Process/AI-doc and XY-C1 Build/TRX/artifact Actions for THIS COMMIT; fix any regression failures.
+2. Continue reviewing consequential process-presence/name-wide signal consumers from inventory artifact #14186597970 without changing legacy global Boolean API semantics.
+3. Preserve frozen backup and archived log inventory; no physical-router/L4 claims.

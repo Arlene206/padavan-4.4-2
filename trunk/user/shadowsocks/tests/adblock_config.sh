@@ -15,12 +15,17 @@ sed -n '/^# Publish either a dnsmasq address configuration/,/^}/p' "$SCRIPT" > "
 . "$TMP_DIR/helper.sh"
 
 cat > "$TMP_DIR/dnsmasq.conf" <<'EOF_DNSMASQ'
+# Adblock rules for dnsmasq
 address=/ads.example.com/0.0.0.0
-server=1.1.1.1
+address=/tracker.example.net/0.0.0.0
 EOF_DNSMASQ
+cat > "$TMP_DIR/dnsmasq.expected" <<'EOF_EXPECTED'
+address=/ads.example.com/0.0.0.0
+address=/tracker.example.net/0.0.0.0
+EOF_EXPECTED
 ss_publish_adblock_config "$TMP_DIR/dnsmasq.conf" "$OUTPUT"
-cmp -s "$TMP_DIR/dnsmasq.conf" "$OUTPUT" || {
-	echo "dnsmasq address configuration was not preserved" >&2
+cmp -s "$TMP_DIR/dnsmasq.expected" "$OUTPUT" || {
+	echo "dnsmasq address rules were not preserved safely" >&2
 	exit 1
 }
 
@@ -43,6 +48,21 @@ cmp -s "$TMP_DIR/expected.conf" "$OUTPUT" || {
 }
 
 cp "$OUTPUT" "$TMP_DIR/last-good.conf"
+# Mixed dnsmasq config must not smuggle arbitrary directives.
+cat > "$TMP_DIR/injected-dnsmasq.conf" <<'EOF_INJECTED'
+address=/ads.example.com/0.0.0.0
+dhcp-script=/tmp/attacker.sh
+conf-file=/tmp/attacker.conf
+EOF_INJECTED
+if ss_publish_adblock_config "$TMP_DIR/injected-dnsmasq.conf" "$OUTPUT"; then
+	echo "untrusted dnsmasq directives were incorrectly accepted" >&2
+	exit 1
+fi
+cmp -s "$TMP_DIR/last-good.conf" "$OUTPUT" || {
+	echo "untrusted dnsmasq directives replaced last-good config" >&2
+	exit 1
+}
+
 printf '%s\n' '! comments only' '@@||allowed.example.com^' '||wild.*.example.com^' > "$TMP_DIR/unsupported.txt"
 if ss_publish_adblock_config "$TMP_DIR/unsupported.txt" "$OUTPUT"; then
 	echo "unsupported-only Adblock input was incorrectly accepted" >&2
