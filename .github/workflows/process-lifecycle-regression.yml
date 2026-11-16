@@ -95,6 +95,8 @@ on:
       - "trunk/user/ralinkiappd/tests/iappd_lifecycle.sh"
       - "trunk/user/iperf3/Makefile"
       - "trunk/user/iperf3/iperf3.sh"
+      - "trunk/user/scripts/files/usr/bin/autostart.sh"
+      - "trunk/user/scripts/tests/autostart_optional_start_status.sh"
       - "SESSION_HANDOFF.md"
       - "REFACTOR_ROADMAP.md"
       - "dev_log.md"
@@ -106,6 +108,8 @@ on:
       - "trunk/user/shared/tests/process_lifecycle.sh"
       - "trunk/user/scutclient/scripts/scutclient.sh"
       - "trunk/user/mentohust/scripts/mentohust.sh"
+      - "trunk/user/scripts/files/usr/bin/autostart.sh"
+      - "trunk/user/scripts/tests/autostart_optional_start_status.sh"
       - "scripts/check_optional_app_start_status.py"
       - "trunk/user/adbyby/adbyby.sh"
       - "trunk/user/adbyby/tests/adbyby_stop_postcondition.sh"
@@ -325,6 +329,11 @@ jobs:
             trunk/user/rc/src/tests/minidlna_config_file.c \
             -o "$RUNNER_TEMP/minidlna-config-file-regression"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/minidlna-config-file-regression"
+      - name: Verify optional add-on boot startup status propagation
+        run: |
+          sh -n trunk/user/scripts/files/usr/bin/autostart.sh
+          sh -n trunk/user/scripts/tests/autostart_optional_start_status.sh
+          sh trunk/user/scripts/tests/autostart_optional_start_status.sh
       - name: Check SCUT, vlmcsd, iperf3, mentohust, ttyd, OpenSSH and Dropbear lifecycle status propagation
         run: python3 scripts/check_optional_app_start_status.py
       - name: Exercise Ralink IAPP daemon lifecycle postconditions

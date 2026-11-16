@@ -31,12 +31,12 @@ count=0
 while :
 do
 	ping -c 1 -W 1 -q 223.5.5.5 1>/dev/null 2>&1
-	if [ "$?" == "0" ]; then
+	if [ "$?" = "0" ]; then
 		break
 	fi
 	sleep 5
 	ping -c 1 -W 1 -q baidu.com 1>/dev/null 2>&1
-	if [ "$?" == "0" ]; then
+	if [ "$?" = "0" ]; then
 		break
 	fi
 	sleep 5
@@ -56,19 +56,32 @@ logger -t "自动启动" "正在启动 SQM QOS..."
 /usr/lib/sqm/run.sh
 fi
 
+run_optional_start()
+{
+	_autostart_label=$1
+	shift
+	"$@"
+	_autostart_status=$?
+	if [ "$_autostart_status" -ne 0 ]; then
+		logger -t "自动启动" "$_autostart_label autostart failed (status=$_autostart_status)"
+	fi
+	# One optional add-on must not abort the independent boot launchers.
+	return 0
+}
+
 if [ $(nvram get adbyby_enable) = 1 ] ; then
 logger -t "自动启动" "正在启动 Adbyby plus..."
-/usr/bin/adbyby.sh start
+run_optional_start "Adbyby" /usr/bin/adbyby.sh start
 fi
 
 if [ $(nvram get adg_enable) = 1 ] ; then
 logger -t "自动启动" "正在启动 adguardhome..."
-/usr/bin/adguardhome.sh start
+run_optional_start "AdGuardHome" /usr/bin/adguardhome.sh start
 fi
 
 if [ $(nvram get ss_enable) = 1 ] ; then
 logger -t "自动启动" "正在启动科学上网..."
-/usr/bin/shadowsocks.sh start
+run_optional_start "Shadowsocks" /usr/bin/shadowsocks.sh start
 fi
 
 if [ $(nvram get sdns_enable) = 1 ] ; then
@@ -81,32 +94,32 @@ if [ $(nvram get sdns_enable) = 1 ] ; then
        rm  -f "$smartdns_Ini"
    fi
 logger -t "自动启动" "正在启动 SmartDNS..."
-/usr/bin/smartdns.sh start
+run_optional_start "SmartDNS" /usr/bin/smartdns.sh start
 fi
 
 if [ $(nvram get aliddns_enable) = 1 ] ; then
 logger -t "自动启动" "正在启动阿里 ddns..."
-/usr/bin/aliddns.sh start
+run_optional_start "AliDDNS" /usr/bin/aliddns.sh start
 fi
 
 if [ $(nvram get ddnsto_enable) = 1 ] ; then
 logger -t "自动启动" "正在启动 ddnsto..."
-/usr/bin/ddnsto.sh start
+run_optional_start "DDNSTO" /usr/bin/ddnsto.sh start
 fi
 
 if [ $(nvram get aliyundrive_enable) = 1 ] ; then
 logger -t "自动启动" "正在启动阿里云盘..."
-/usr/bin/aliyundrive-webdav.sh start
+run_optional_start "AliyunDrive WebDAV" /usr/bin/aliyundrive-webdav.sh start
 fi
 
 if [ $(nvram get zerotier_enable) = 1 ] ; then
 logger -t "自动启动" "正在启动 zerotier..."
-/usr/bin/zerotier.sh start
+run_optional_start "ZeroTier" /usr/bin/zerotier.sh start
 fi
 
 if [ $(nvram get wireguard_enable) = 1 ] ; then
 logger -t "自动启动" "正在启动 wireguard..."
-/usr/bin/wireguard.sh start
+run_optional_start "WireGuard" /usr/bin/wireguard.sh start
 fi
 
 frp_launch()
@@ -121,8 +134,9 @@ frp_autostart()
 	if [ "$frp_client_enabled" = "1" ] || [ "$frp_server_enabled" = "1" ]; then
 		logger -t "自动启动" "正在启动 FRP..."
 		frp_launch
+		return $?
 	fi
 	return 0
 }
 
-frp_autostart
+run_optional_start "FRP" frp_autostart
