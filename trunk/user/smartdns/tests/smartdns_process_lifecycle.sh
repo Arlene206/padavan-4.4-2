@@ -80,4 +80,51 @@ KILLALL_CALLS=0; PIDOF_STATUS=0; PIDOF_OUTPUT=123
 KILLALL_GRACEFUL_BEHAVIOR=keep; KILLALL_FORCE_BEHAVIOR=keep
 expect_stop 1 "daemon still running after force escalation is reported"
 [ "$KILLALL_CALLS" -eq 2 ] || fail "expected exactly two signal attempts"
+
+# Verify the downloaded Adblock Plus list is converted to SmartDNS syntax.
+SMARTDNS_TEST_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
+sed -n '/^smartdns_prepare_adblock_filter()/,/^}/p' "$SMARTDNS_TEST_DIR/../smartdns.sh" > "$tmpdir/adblock-function.sh"
+[ -s "$tmpdir/adblock-function.sh" ] || fail "adblock filter helper missing"
+. "$tmpdir/adblock-function.sh"
+mkdir -p "$tmpdir/adblock"
+
+cat > "$tmpdir/adblock/adblock-plus.txt" <<'RULES'
+! Example filter list
+||ads.example^
+||tracker.example^
+@@||allowed.example^
+||wildcard.*.example^
+||-invalid.example^
+||bad..example^
+||ads.example^$important
+RULES
+cat > "$tmpdir/adblock/adblock-plus.expected" <<'RULES'
+address=/ads.example/0.0.0.0
+address=/tracker.example/0.0.0.0
+RULES
+smartdns_prepare_adblock_filter "$tmpdir/adblock/adblock-plus.txt" "$tmpdir/adblock/converted.conf" || fail "Adblock Plus conversion failed"
+cmp "$tmpdir/adblock/adblock-plus.expected" "$tmpdir/adblock/converted.conf" || fail "Adblock Plus rules were not converted precisely"
+pass "Adblock Plus rules convert to SmartDNS address directives"
+
+cat > "$tmpdir/adblock/native-smartdns.conf" <<'RULES'
+# Native SmartDNS address rules
+address=/ads.example/0.0.0.0
+address=/tracker.example/0.0.0.0
+RULES
+smartdns_prepare_adblock_filter "$tmpdir/adblock/native-smartdns.conf" "$tmpdir/adblock/native-output.conf" || fail "native SmartDNS filter copy failed"
+cmp "$tmpdir/adblock/native-smartdns.conf" "$tmpdir/adblock/native-output.conf" || fail "native SmartDNS address directives were altered"
+pass "native SmartDNS address rules remain unchanged"
+
+printf 'preserve-on-error\\n' > "$tmpdir/adblock/preserved.conf"
+printf 'no supported filter rules\\n' > "$tmpdir/adblock/invalid.txt"
+if smartdns_prepare_adblock_filter "$tmpdir/adblock/invalid.txt" "$tmpdir/adblock/preserved.conf"; then
+    fail "unsupported adblock input was accepted"
+fi
+grep -Fxq 'preserve-on-error' "$tmpdir/adblock/preserved.conf" || fail "failed conversion replaced the previous output"
+if smartdns_prepare_adblock_filter "$tmpdir/adblock/missing.txt" "$tmpdir/adblock/preserved.conf"; then
+    fail "missing adblock input was accepted"
+fi
+grep -Fxq 'preserve-on-error' "$tmpdir/adblock/preserved.conf" || fail "missing input replaced the previous output"
+pass "failed adblock conversion preserves the previous output"
+
 echo "SmartDNS process lifecycle regression: PASS"

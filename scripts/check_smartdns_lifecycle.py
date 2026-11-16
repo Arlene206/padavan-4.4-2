@@ -45,6 +45,21 @@ for phrase in ('status 1 plus empty output means absent','status 0 plus empty ou
                'force escalation occurs only after graceful timeout',
                'daemon still running after force escalation is reported'):
     assert phrase in test, phrase
+adblock = body(script, 'smartdns_prepare_adblock_filter()', '\n}\n\nStart_AD')
+adblock_start = body(script, 'Start_AD () {', '\n}\n\nChange_adbyby')
+assert 'mktemp ' in adblock and 'cat "$_smartdns_adblock_input"' in adblock
+assert 'grep -Eq' in adblock and 'awk ' in adblock
+assert 'index(rule, "||") != 1' in adblock
+assert 'converted == 0' in adblock
+assert 'mv -f "$_smartdns_adblock_tmp" "$_smartdns_adblock_output"' in adblock
+assert 'curl -fsS' in adblock_start
+assert 'smartdns_prepare_adblock_filter "$_smartdns_adblock_download" "$_smartdns_adblock_output"' in adblock_start
+assert 'check =' not in adblock_start
+assert 'sdns_adblock_url' in adblock_start
+for phrase in ('Adblock Plus rules convert to SmartDNS address directives',
+               'native SmartDNS address rules remain unchanged',
+               'failed adblock conversion preserves the previous output'):
+    assert phrase in test, phrase
 assert 'scripts/check_smartdns_lifecycle.py' in process_workflow
 assert 'sh trunk/user/smartdns/tests/smartdns_process_lifecycle.sh' in process_workflow
 assert 'python3 scripts/check_smartdns_lifecycle.py' in process_workflow

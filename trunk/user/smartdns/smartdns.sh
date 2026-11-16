@@ -352,23 +352,107 @@ Check_ip_addr () {
     return 0
 }
 
-Start_AD () {
-# 【下载广告过滤文件】
-    curl -s -o /tmp/sdnsadnew.conf --connect-timeout 10 --retry 3 $(nvram get sdns_adblock_url)
-    if [ ! -f "/tmp/sdnsadnew.conf" ]; then
-        logger -t "SmartDNS" "广告过滤功能未开启或者过滤地址失效，网络异常等 ！！！"
+smartdns_prepare_adblock_filter()
+{
+    _smartdns_adblock_input=$1
+    _smartdns_adblock_output=$2
+    _smartdns_adblock_snapshot=$(mktemp "${_smartdns_adblock_output}.input.XXXXXX") || return 1
+    _smartdns_adblock_tmp=$(mktemp "${_smartdns_adblock_output}.tmp.XXXXXX") || {
+        rm -f "$_smartdns_adblock_snapshot"
+        return 1
+    }
+
+    # Snapshot with a checked read: awk's END block can otherwise mask an
+    # input-open error and make an incomplete list look like a valid empty one.
+    if ! cat "$_smartdns_adblock_input" > "$_smartdns_adblock_snapshot"; then
+        rm -f "$_smartdns_adblock_snapshot" "$_smartdns_adblock_tmp"
+        return 1
+    fi
+
+    if grep -Eq '^[[:space:]]*address=' "$_smartdns_adblock_snapshot"; then
+        if ! cp "$_smartdns_adblock_snapshot" "$_smartdns_adblock_tmp"; then
+            rm -f "$_smartdns_adblock_snapshot" "$_smartdns_adblock_tmp"
+            return 1
+        fi
     else
-        logger -t "SmartDNS" "去广告文件下载成功广告过滤功能已启用..."
-        if [ -f "/tmp/sdnsadnew.conf" ]; then
-            check = `grep -wq "address=" /tmp/sdnsadnew.conf`
-            if [ ! -n "$check" ] ; then
-                cp /tmp/sdnsadnew.conf /tmp/anti-ad-for-smartdns.conf
-            else
-                cat /tmp/sdnsadnew.conf | grep ^\|\|[^\*]*\^$ | sed -e 's:||:address\=\/:' -e 's:\^:/0\.0\.0\.0:' > /tmp/anti-ad-for-smartdns.conf
-            fi
+        _smartdns_adblock_grep_status=$?
+        if [ "$_smartdns_adblock_grep_status" -ne 1 ]; then
+            rm -f "$_smartdns_adblock_snapshot" "$_smartdns_adblock_tmp"
+            return "$_smartdns_adblock_grep_status"
+        fi
+
+        if ! awk '
+            /^[[:space:]]*!/ || /^[[:space:]]*$/ { next }
+            {
+                rule = $0
+                sub(/\r$/, "", rule)
+                if (index(rule, "||") != 1 || substr(rule, length(rule), 1) != "^")
+                    next
+
+                domain = substr(rule, 3, length(rule) - 3)
+                if (length(domain) <= 253 &&
+                    domain ~ /^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*$/) {
+                    printf "address=/%s/0.0.0.0\\n", domain
+                    converted++
+                }
+            }
+            END {
+                if (converted == 0)
+                    exit 1
+            }
+        ' "$_smartdns_adblock_snapshot" > "$_smartdns_adblock_tmp"; then
+            _smartdns_adblock_status=$?
+            rm -f "$_smartdns_adblock_snapshot" "$_smartdns_adblock_tmp"
+            return "$_smartdns_adblock_status"
         fi
     fi
-    rm -f /tmp/sdnsadnew.conf
+
+    rm -f "$_smartdns_adblock_snapshot"
+    if ! mv -f "$_smartdns_adblock_tmp" "$_smartdns_adblock_output"; then
+        rm -f "$_smartdns_adblock_tmp"
+        return 1
+    fi
+    return 0
+}
+
+Start_AD () {
+# Download and normalize the optional Adblock Plus/SmartDNS rule list.
+    _smartdns_adblock_output=/tmp/anti-ad-for-smartdns.conf
+    _smartdns_adblock_empty=$(mktemp "${_smartdns_adblock_output}.empty.XXXXXX") || {
+        logger -t "SmartDNS" "无法创建广告过滤临时文件，跳过广告过滤"
+        return 1
+    }
+    if ! mv -f "$_smartdns_adblock_empty" "$_smartdns_adblock_output"; then
+        rm -f "$_smartdns_adblock_empty"
+        logger -t "SmartDNS" "无法初始化广告过滤文件，跳过广告过滤"
+        return 1
+    fi
+
+    _smartdns_adblock_download=$(mktemp /tmp/sdnsadnew.conf.XXXXXX) || {
+        logger -t "SmartDNS" "无法创建广告过滤下载文件，跳过广告过滤"
+        return 1
+    }
+    _smartdns_adblock_url=$(nvram get sdns_adblock_url)
+    if [ -z "$_smartdns_adblock_url" ] ||
+        ! curl -fsS -o "$_smartdns_adblock_download" --connect-timeout 10 --retry 3 "$_smartdns_adblock_url"; then
+        logger -t "SmartDNS" "广告过滤文件下载失败，继续使用空过滤列表"
+        rm -f "$_smartdns_adblock_download"
+        return 1
+    fi
+    if [ ! -s "$_smartdns_adblock_download" ]; then
+        logger -t "SmartDNS" "广告过滤文件为空，继续使用空过滤列表"
+        rm -f "$_smartdns_adblock_download"
+        return 1
+    fi
+    if ! smartdns_prepare_adblock_filter "$_smartdns_adblock_download" "$_smartdns_adblock_output"; then
+        logger -t "SmartDNS" "广告过滤文件格式无效，继续使用空过滤列表"
+        rm -f "$_smartdns_adblock_download"
+        return 1
+    fi
+
+    logger -t "SmartDNS" "去广告文件下载并处理成功..."
+    rm -f "$_smartdns_adblock_download"
+    return 0
 }
 
 Change_adbyby () {
