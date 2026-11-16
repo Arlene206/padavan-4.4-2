@@ -38,6 +38,7 @@ on:
       - "trunk/user/transmission/transmission.sh"
       - "trunk/user/aria2/aria.sh"
       - "trunk/user/scripts/tests/storage_app_start_status.sh"
+      - "trunk/user/smartdns/**"
       - "trunk/user/rc/src/storage_optware_start_policy.h"
       - "trunk/user/rc/src/tests/storage_optware_start_policy.c"
       - "trunk/user/rc/src/storage_service_stop_policy.h"
@@ -95,6 +96,7 @@ on:
       - "trunk/user/transmission/transmission.sh"
       - "trunk/user/aria2/aria.sh"
       - "trunk/user/scripts/tests/storage_app_start_status.sh"
+      - "trunk/user/smartdns/**"
       - "trunk/user/rc/src/storage_optware_start_policy.h"
       - "trunk/user/rc/src/tests/storage_optware_start_policy.c"
       - "trunk/user/rc/src/storage_service_stop_policy.h"
@@ -220,6 +222,9 @@ jobs:
           "$busybox_bin" ash trunk/user/scripts/tests/optware_lifecycle_teardown.sh
           "$busybox_bin" ash trunk/user/scripts/tests/optware_lifecycle_startup.sh
           BUSYBOX_BIN="$busybox_bin" sh trunk/user/scripts/tests/storage_app_start_status.sh
+          "$busybox_bin" ash -n trunk/user/smartdns/smartdns.sh
+          "$busybox_bin" ash -n trunk/user/smartdns/smartdns_process_lifecycle.sh
+          "$busybox_bin" ash trunk/user/smartdns/tests/smartdns_process_lifecycle.sh
       - name: Check MTD storage save script syntax
         run: sh -n trunk/user/scripts/files/sbin/mtd_storage.sh
       - name: Verify MTD storage save retry after flash failure

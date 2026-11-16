@@ -1,0 +1,53 @@
+#!/usr/bin/env python3
+"""Guard SmartDNS process-state handling and stop postconditions."""
+from pathlib import Path
+
+root = Path(__file__).resolve().parents[1]
+script = (root / "trunk/user/smartdns/smartdns.sh").read_text()
+helper = (root / "trunk/user/smartdns/smartdns_process_lifecycle.sh").read_text()
+test = (root / "trunk/user/smartdns/tests/smartdns_process_lifecycle.sh").read_text()
+makefile = (root / "trunk/user/smartdns/Makefile").read_text()
+process_workflow = (root / ".github/workflows/process-lifecycle-regression.yml").read_text()
+storage_workflow = (root / ".github/workflows/storage-hotplug-stability.yml").read_text()
+xy_workflow = (root / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
+
+def body(source, start, end):
+    assert source.count(start) == 1, f"expected one function marker: {start}"
+    return source.split(start, 1)[1].split(end, 1)[0]
+
+assert '. /usr/bin/smartdns_process_lifecycle.sh' in script
+assert '$(INSTALL_BIN) ./smartdns_process_lifecycle.sh $(ROMFSDIR)/usr/bin/smartdns_process_lifecycle.sh' in makefile
+assert 'smartdns_process_state()' in helper and 'smartdns_stop_process()' in helper
+assert '[ -z "$_smartdns_pid_output" ] && return 1' in helper
+assert '*)\n            return 2' in helper
+assert 'killall smartdns' in helper and 'killall -9 smartdns' in helper
+assert 'smartdns_wait_stopped' in helper
+start = body(script, 'Start_smartdns () {', '\n}\n\nStop_smartdns')
+stop = body(script, 'Stop_smartdns () {', '\n}\n\nMain')
+main = body(script, 'Main () {', '\n}\n\nRead_ini')
+assert start.index('smartdns_process_state') < start.index(':>"$smartdns_Ini"')
+assert start.index('smartdns_stop_process') < start.index('Change_dnsmasq')
+assert 'return 2' in start and 'return 1' in start
+assert 'Cannot verify SmartDNS after launch' in start
+assert 'pidof smartdns' not in script and 'killall' not in script
+assert stop.index('smartdns_stop_process') < stop.index('Change_adbyby')
+assert stop.index('if [ "$stop_status" -ne 0 ]') < stop.index('Change_adbyby')
+assert 'return "$stop_status"' in stop
+assert 'Start_smartdns\n        start_status=$?' in main
+assert 'Stop_smartdns\n        stop_status=$?' in main
+assert main.count('return "$start_status"') == 2
+assert 'return "$stop_status"' in main
+for phrase in ('status 1 plus empty output means absent','status 0 plus empty output is unknown',
+               'pidof error is unknown','malformed PID list is unknown',
+               'unknown daemon state fails closed','graceful signal is verified by fresh absent snapshot',
+               'unknown post-signal state prevents force escalation',
+               'force escalation occurs only after graceful timeout',
+               'daemon still running after force escalation is reported'):
+    assert phrase in test, phrase
+assert 'scripts/check_smartdns_lifecycle.py' in process_workflow
+assert 'sh trunk/user/smartdns/tests/smartdns_process_lifecycle.sh' in process_workflow
+assert 'python3 scripts/check_smartdns_lifecycle.py' in process_workflow
+assert storage_workflow.count('trunk/user/smartdns/**') == 2
+assert '"$busybox_bin" ash trunk/user/smartdns/tests/smartdns_process_lifecycle.sh' in storage_workflow
+assert xy_workflow.count('trunk/user/smartdns/**') == 1
+print("SmartDNS lifecycle wiring and fail-closed stop contract: PASS")

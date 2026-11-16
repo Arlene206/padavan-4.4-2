@@ -7,6 +7,7 @@ on:
       - ".github/workflows/xy-c1-firmware-validation.yml"
       - "trunk/user/**"
       - "scripts/audit_process_lifecycle.py"
+      - "scripts/check_smartdns_lifecycle.py"
       - "trunk/user/shared/src/process_inventory.c"
       - "trunk/user/shared/src/process_inventory.h"
       - "trunk/user/shared/src/process_pidfile.c"
@@ -117,6 +118,14 @@ jobs:
           if len(killall) > 120:
               print(f"  ... {len(killall) - 120} additional candidates in the full report")
           PY
+      - name: Validate SmartDNS process-state and stop postconditions
+        run: |
+          set -eu
+          sh -n trunk/user/smartdns/smartdns.sh
+          sh -n trunk/user/smartdns/smartdns_process_lifecycle.sh
+          sh -n trunk/user/smartdns/tests/smartdns_process_lifecycle.sh
+          sh trunk/user/smartdns/tests/smartdns_process_lifecycle.sh
+          python3 scripts/check_smartdns_lifecycle.py
       - name: Compile production scanner and injected regression (GNU89, ASan, UBSan)
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror \
