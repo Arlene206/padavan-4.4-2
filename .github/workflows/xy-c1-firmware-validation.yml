@@ -71,6 +71,8 @@ on:
       - "trunk/user/scripts/files/sbin/mtd_storage.sh"
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/service_start_status.h"
+      - "trunk/user/rc/src/ipv6_restart_policy.h"
+      - "trunk/user/rc/src/tests/ipv6_restart_policy.c"
       - "trunk/user/rc/src/tests/service_start_status.c"
       - "trunk/user/rc/src/modem_wan_start_policy.h"
       - "trunk/user/rc/src/tests/modem_wan_start_policy.c"

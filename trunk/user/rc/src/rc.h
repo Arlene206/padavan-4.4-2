@@ -347,7 +347,7 @@ int control_if_ipv6_autoconf(const char *ifname, int enable);
 int control_if_ipv6_radv(const char *ifname, int enable);
 int control_if_ipv6_dad(const char *ifname, int enable);
 int control_if_ipv6_privacy(const char *ifname, int enable);
-void full_restart_ipv6(int ipv6_type_old);
+int full_restart_ipv6(int ipv6_type_old);
 int clear_if_addr6(char *ifname);
 int clear_if_route6(char *ifname);
 void clear_if_neigh6(char *ifname);

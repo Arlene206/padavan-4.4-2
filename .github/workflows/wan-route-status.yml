@@ -6,6 +6,11 @@ on:
       - ".github/workflows/wan-route-status.yml"
       - "trunk/user/rc/src/net.c"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/net6.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/ipv6_restart_policy.h"
+      - "trunk/user/rc/src/tests/ipv6_restart_policy.c"
+      - "trunk/user/rc/src/service_start_status.h"
       - "trunk/user/rc/src/net_wan6.c"
       - "trunk/user/rc/src/wan6_teardown_policy.h"
       - "trunk/user/rc/src/tests/wan6_teardown_policy.c"
@@ -30,6 +35,11 @@ on:
       - ".github/workflows/wan-route-status.yml"
       - "trunk/user/rc/src/net.c"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/net6.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/ipv6_restart_policy.h"
+      - "trunk/user/rc/src/tests/ipv6_restart_policy.c"
+      - "trunk/user/rc/src/service_start_status.h"
       - "trunk/user/rc/src/net_wan6.c"
       - "trunk/user/rc/src/wan6_teardown_policy.h"
       - "trunk/user/rc/src/tests/wan6_teardown_policy.c"
@@ -63,6 +73,14 @@ jobs:
             trunk/user/rc/src/tests/route_status_policy.c \
             -o /tmp/route-status-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/route-status-policy
+      - name: Compile and run IPv6 restart runtime-mode commit regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/ipv6_restart_policy.c \
+            -o /tmp/ipv6-restart-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/ipv6-restart-policy
       - name: Compile and run WAN IPv6 teardown selection regression
         run: |
           set -eu
@@ -104,6 +122,10 @@ jobs:
           wan = (rc / "net_wan.c").read_text()
           ppp = (rc / "net_ppp.c").read_text()
           wan6 = (rc / "net_wan6.c").read_text()
+          net6 = (rc / "net6.c").read_text()
+          rc_source = (rc / "rc.c").read_text()
+          ipv6_policy = (rc / "ipv6_restart_policy.h").read_text()
+          ipv6_test = (rc / "tests/ipv6_restart_policy.c").read_text()
           wan6_policy = (rc / "wan6_teardown_policy.h").read_text()
           wan6_test = (rc / "tests/wan6_teardown_policy.c").read_text()
           header = (rc / "rc.h").read_text()
@@ -375,6 +397,11 @@ jobs:
               "trunk/linux-4.4.x/net/ipv4/fib_semantics.c",
               "trunk/linux-4.4.x/net/ipv4/fib_frontend.c",
               "trunk/user/rc/src/net_wan.c",
+              "trunk/user/rc/src/net6.c",
+              "trunk/user/rc/src/rc.c",
+              "trunk/user/rc/src/ipv6_restart_policy.h",
+              "trunk/user/rc/src/tests/ipv6_restart_policy.c",
+              "trunk/user/rc/src/service_start_status.h",
               "trunk/user/rc/src/net_wan6.c",
               "trunk/user/rc/src/wan6_teardown_policy.h",
               "trunk/user/rc/src/tests/wan6_teardown_policy.c",
@@ -405,6 +432,43 @@ jobs:
           assert "return validation_status != 0 ? validation_status : EIO;" in resolver_policy
           for token in ("(1, 0) == 0", "(0, EPERM) == EPERM", "(0, EACCES) == EACCES", "(0, 0) == EIO"):
               assert token in resolver_test, token
+
+          assert '#include "service_start_status.h"' in net6
+          assert '#include "ipv6_restart_policy.h"' in rc_source
+          assert "int full_restart_ipv6(int ipv6_type_old);" in header
+          full_ipv6 = body(net6, "full_restart_ipv6(int ipv6_type_old)")
+          for call in (
+              "stop_lltd()", "stop_httpd()", "stop_nfsd()", "stop_upnp()",
+              "stop_dhcp6c()", "stop_dns_dhcpd_locked()", "stop_sit_tunnel()",
+              "full_restart_wan()", "run_nfsd()", "start_httpd(0)", "start_lltd()",
+              "start_dns_dhcpd_locked(0)",
+          ):
+              assert call in full_ipv6, call
+          assert "restart_status = rc_first_service_start_status(restart_status, dnsmasq_stop_status);" in full_ipv6
+          assert "restart_status = rc_first_service_start_status(restart_status, operation_status);" in full_ipv6
+          assert "return restart_status;" in full_ipv6
+          assert "if (lock_release_status != 0)" in full_ipv6
+          assert "operation_status = full_restart_wan();" in full_ipv6
+          assert full_ipv6.index("lock_release_status = dnsmasq_lifecycle_lock_release(dnsmasq_lock);") < full_ipv6.index("operation_status = full_restart_wan();")
+          assert "if (httpd_stop_status == 0)" in full_ipv6
+          assert "if (lltd_stop_status == 0 && nvram_match(\"lltd_enable\", \"1\"))" in full_ipv6
+          should_publish = body(ipv6_policy, "ipv6_restart_should_publish_type(")
+          assert "return restart_status == 0;" in should_publish
+          notification = body(rc_source, "handle_notifications(void)")
+          ipv6_case_start = notification.index('else if (!strcmp(entry->d_name, RCN_RESTART_IPV6))')
+          ipv6_case_end = notification.index('else if (strcmp(entry->d_name, RCN_RESTART_RADV)', ipv6_case_start)
+          ipv6_case = notification[ipv6_case_start:ipv6_case_end]
+          assert "action_result = rc_notify_merge_action_result(" in ipv6_case
+          assert "action_result, ipv6_restart_status);" in ipv6_case
+          assert "if (ipv6_restart_should_publish_type(ipv6_restart_status))" in ipv6_case
+          assert ipv6_case.index("full_restart_ipv6(") < ipv6_case.index("action_result = rc_notify_merge_action_result(") < ipv6_case.index("nvram_ipv6_type = get_ipv6_type();")
+          for marker in (
+              "check_runtime_type(EBUSY, 0, 1, 0)",
+              "check_runtime_type(EIO, 1, 0, 1)",
+              "check_runtime_type(-1, 0, 1, 0)",
+              "IPv6 restart runtime-mode commit policy: PASS",
+          ):
+              assert marker in ipv6_test, marker
 
           wan6_down = body(wan6, "int wan6_down(char *wan_ifname, int unit)")
           assert '#include "wan6_teardown_policy.h"' in wan6

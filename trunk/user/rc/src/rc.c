@@ -51,6 +51,9 @@
 #include "vpn_server_lifecycle_lock.h"
 #include "rc_notify_batch_policy.h"
 #include "ddns_restart_policy.h"
+#if defined (USE_IPV6)
+#include "ipv6_restart_policy.h"
+#endif
 #include <rc_notify_queue.h>
 #include "gpio_pins.h"
 #include "switch.h"
@@ -1328,8 +1331,12 @@ handle_notifications(void)
 		else if (!strcmp(entry->d_name, RCN_RESTART_IPV6))
 		{
 			if (!get_ap_mode()) {
-				full_restart_ipv6(nvram_ipv6_type);
-				nvram_ipv6_type = get_ipv6_type();
+				int ipv6_restart_status = full_restart_ipv6(nvram_ipv6_type);
+
+				action_result = rc_notify_merge_action_result(
+					action_result, ipv6_restart_status);
+				if (ipv6_restart_should_publish_type(ipv6_restart_status))
+					nvram_ipv6_type = get_ipv6_type();
 			}
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_RADV) == 0)
