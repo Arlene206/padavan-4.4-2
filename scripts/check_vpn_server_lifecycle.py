@@ -132,7 +132,7 @@ require("strcmp(entry->d_name, RCN_RESTART_VPNSVR)" in notifications and
         "PID1 restart entry must retain failed VPN restart notifications")
 require("stop_vpn_server();" not in r and "start_vpn_server();" not in r,"restart must use private non-recursive helpers")
 require("reload_nfsd();" in r,"restart lost conditional NFS reload")
-ordered(a,["vpn_server_lifecycle_lock_acquire()","if (lock_fd < 0)","return;","reapply_vpn_server_locked()","vpn_server_lifecycle_lock_release(lock_fd)"],"reapply")
+ordered(a,["vpn_server_lifecycle_lock_acquire()","if (lock_fd < 0)","return -1;","result = reapply_vpn_server_locked()","vpn_server_lifecycle_lock_release(lock_fd)","return result;"],"reapply")
 require("gen_vpns_pppd_options(i_type)" in ap or "restart_openvpn_server()" in ap,"reapply lost update behavior")
 require("reapply_vpn_server();" not in ap,"private reapply must not recurse")
 
