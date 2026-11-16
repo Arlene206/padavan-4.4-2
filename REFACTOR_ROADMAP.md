@@ -1,10 +1,13 @@
 ## Current source / CI checkpoint
 
-- Live main before THIS WAN route-result slice: `066697195b12b3bbc8bad1efa4a4c4abea5052fa`.
-- LAN bridge/VLAN/switch and required module status propagates into PID1. Shared bridge ioctl helpers preserve errno across close. Full WAN restart fails closed on switch VLAN, static LAN route and MAC table clear errors; L2TP server startup failure is merged across full restart/reconnect/deferred reconnect.
-- THIS slice captures static `wan_up()` route/session setup and configured IPv6 setup results in `start_wan()`; `stop_wan_locked()` retains static route teardown status and merges USB modem stop status before interface teardown.
-- Parent exact-head Process `43862663789`, AI docs `43862663478`, XY-C1 `43862663471`, NVRAM `43862663293`, AdGuardHome `43862663396`, infosvr `43862663310`, AliyunDrive `43862663359` and AliDDNS `43862663392` were in progress at last inspection. The parent Process reached a stale checker expecting raw `return status;` after L2TP wrapper changes; checker fixed on `066697195b12b3bbc8bad1efa4a4c4abea5052fa`.
-- THIS slice requires fresh exact-head Actions. No same-SHA XY-C1 Build+TRX+artifact L3 or physical-router L4 result claimed.
+- Live source head before this exact-head checker repair: `5825e35e0987fab26b4f588f879a885094e1708b`.
+- LAN bridge/VLAN/switch and required iNIC MII startup status propagates to PID1. Bridge ioctl errno is preserved. Full WAN restart fails closed on switch VLAN, static LAN route and MAC-table errors; L2TP server start status is merged across full restart/reconnect/deferred reconnect.
+- `start_wan()` now includes static WAN route/session and configured IPv6 tunnel setup failures in its return status. `stop_wan_locked()` preserves static WAN route teardown failure through USB modem shutdown and interface-down operations.
+- Exact-head WAN route status `43862971906` and WAN teardown `43862972252`: SUCCESS.
+- Process `43862972148`: FAILED in the modem WAN checker on whitespace-fragile assertions and one stale raw-return assertion; the compiled host-policy tests passed before the checker. This correction uses whitespace-tolerant expressions and validates the aggregated return.
+- AI docs `43862972023` and infosvr `43862972198`: FAILED because both require the canonical handoff headings `## Current repository state` / `## Active task`. Those headings are restored in this checkpoint.
+- AdGuardHome, AliyunDrive, AliDDNS, detect_internet, detect_link, DNSMasq, WAN gateway ARP, miniupnpd, VPN server, USB modem identity and HTTPD security Actions passed on this source SHA.
+- NVRAM `43862972028`: IN_PROGRESS. XY-C1 `43862972095`: its pre-build source-contract step failed, so Build, TRX and artifact upload were skipped; no L3/L4 claim.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Whole-repository module status

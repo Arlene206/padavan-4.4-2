@@ -44,9 +44,9 @@ assert 'set_wan_unit_value_int(unit, "err", dhcp_status != 0);' in ndis
 wan_start = compact(body(WAN_SOURCE, "start_wan(void)"))
 assert "int modem_start_status = 0;" in wan_start
 assert "wan_up_status = wan_up(wan_ifname, unit, 1);" in wan_start
-assert "wan_start_status = rc_first_service_start_status(wan_start_status, wan_up_status);" in wan_start
+assert re.search(r"wan_start_status\\s*=\\s*rc_first_service_start_status\\s*\\(\\s*wan_start_status\\s*,\\s*wan_up_status\\s*\\)\\s*;", wan_start)
 assert "return rc_first_service_start_status(modem_start_status, wan_start_status);" in wan_start
-assert "wan_start_status = rc_first_service_start_status(wan_start_status, ipv6_status);" in wan_start
+assert re.search(r"wan_start_status\\s*=\\s*rc_first_service_start_status\\s*\\(\\s*wan_start_status\\s*,\\s*ipv6_status\\s*\\)\\s*;", wan_start)
 assert "vlan_result = launch_wan_usbnet(unit);" in wan_start
 assert "vlan_result = launch_wan_modem_ras(unit);" in wan_start
 aggregate_pattern = r"modem_start_status\s*=\s*rc_first_service_start_status\s*\(\s*modem_start_status\s*,\s*vlan_result\s*\)\s*;"
@@ -66,7 +66,7 @@ assert ras_branch.index("if (wanx_status != 0)") < ras_wanx_match.start()
 eapol_start = wan_start.index("if (auth_status != 0)")
 eapol_end = wan_start.index("/* We are done configuration */", eapol_start)
 assert "modem_start_status" not in wan_start[eapol_start:eapol_end]
-assert wan_start.index("set_passthrough_pppoe(1)") < wan_start.index("return modem_start_status;")
+assert wan_start.index("set_passthrough_pppoe(1)") < wan_start.index("return rc_first_service_start_status(modem_start_status, wan_start_status);")
 
 l2tp_start_merge = compact(
     body(WAN_SOURCE, "merge_l2tp_server_start_status(int wan_status)")

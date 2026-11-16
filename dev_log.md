@@ -1,3 +1,13 @@
+## 2026-11-16 — Repair WAN checker formatting and canonical handoff headings
+
+- Parent main: `5825e35e0987fab26b4f588f879a885094e1708b`. Process `43862972148` passed compiled host policy binaries then failed at whitespace-sensitive `wan_start_status` assertions and an obsolete expectation of `return modem_start_status;`. Updated the checker to accept formatting across helper-call line breaks and assert the combined modem/route return.
+- AI docs `43862972023` and infosvr `43862972198` both failed because `SESSION_HANDOFF.md` renamed canonical `## Current repository state` / `## Active task` headings. Restored both names so existing validators and cross-repository consumers keep one stable handoff schema.
+- WAN route status `43862971906` and WAN interface teardown `43862972252` passed on the parent SHA. AdGuardHome, AliyunDrive, AliDDNS, detect_internet, detect_link, DNSMasq, WAN gateway ARP, miniupnpd, VPN server, USB modem identity and HTTPD security also passed.
+- NVRAM `43862972028` remained in progress. XY-C1 `43862972095` stopped before firmware Build because the pre-build source-contract step failed; TRX/artifact were skipped.
+- Next: check exact-head Process/AI docs/infosvr reruns, then audit ignored MTU/interface/IPv6 configuration return values.
+
+---
+
 ## 2026-11-16 — Repair exact-head LAN and handoff CI contract failures
 
 - Parent main: `90ac78ccccb7acbf6ab75956999b4847a3628fd8`; product-source baseline under validation: `b715097b8fdb76ed1e96bdeed6bedafde47eeefd`.
