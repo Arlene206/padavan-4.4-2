@@ -1,11 +1,10 @@
 ## Current source / CI checkpoint
 
-- Product-source baseline `f6fba229aba497988d2308c8c99879aca5da1214`: static MAN/IPoE validation rejects malformed IPv4/netmasks before interface setup; PPP ip-up validates IPCP endpoints; DHCPv6 teardown preserves previous runtime interface state; optional WAN MTU errors remain diagnostic-only.
-- Parent main `cd5ccbefc26a9f71b0c971800b2f5b0d9cad450d`: USB printer launcher return-status propagation and optional hook first-error aggregation are present; u2ec/LPRng use an FD_CLOEXEC fork/exec pipe to expose exec failures.
-- Exact-head storage-hotplug `43880814702`, job `133345880304`: FAIL at line 139 of the embedded Python check because the workflow file was committed truncated at `filters.split("`; previous C regression and USB launch-source assertions passed. This commit restores the missing workflow suffix from the intact `0409c2b` version, preserving newer USB printer assertions.
-- Exact-head XY-C1 `43880814725`: IN_PROGRESS at last inspection. AI docs `43880814989`, infosvr `43880814630`, NVRAM `43880814712`, AdGuardHome `43880814663`, AliDDNS `43880814812`, AliyunDrive `43880814843`, process lifecycle `43880814751`, process inventory `43880814602`: PASS on parent.
-- Product-source firmware L3 remains verified only on `f6fba229aba497988d2308c8c99879aca5da1214`; current/newer SHA must pass Build, TRX and artifact upload before L3 is claimed. Physical-router L4 NOT VERIFIED.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Product-source tree cd5ccbefc26a9f71b0c971800b2f5b0d9cad450d: XY-C1 Build, TRX verification and artifact upload all PASS on that same SHA. Later commit 52a5 only restored CI workflow/documentation; product sources are unchanged. Firmware L3 VERIFIED for that product tree; physical-router L4 NOT VERIFIED.
+- Storage-hotplug 43882073147 on parent 52a5cc63419686af16b23c9aee973d262f3e4529: main caller graph and all ash/C regressions passed. Final safety checker failed because it expected old void-return printer restart code (bare return) while production now returns stop_status from int helpers. Updated checker to assert status propagation and stop-before-launch ordering.
+- Parent exact-SHA AI docs, infosvr, AdGuardHome, AliyunDrive, NVRAM, process inventory/lifecycle and AliDDNS runs all PASS.
+- Next P1 defect: USB modem WAN hotplug discards try_wan_reconnect() failure and loses its pending NVRAM event; propagate its result and re-arm/retry on failure.
+- Frozen backup remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
 
 ## Whole-repository module status
 

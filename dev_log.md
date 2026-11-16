@@ -1,3 +1,13 @@
+## 2026-11-16 — Align storage safety checker with checked printer restart API
+
+- Parent main: 52a5cc63419686af16b23c9aee973d262f3e4529. Exact-head storage run 43882073147 passed all BusyBox ash, storage persistence/eject, C regressions and the whole caller graph/lock-order checker (step 23), but final scripts/check_storage_safe_remove.py failed at line 294.
+- The checker still expected the old void API shape (direct stop comparison and bare return). Current restart helpers correctly retain int stop_status, return that error, and only call exec_printer_daemons() after a successful stop. Updated the checker to assert this status-return contract and ordering.
+- XY-C1 run 43880814725 on product-source SHA cd5ccbefc26a9f71b0c971800b2f5b0d9cad450d passed Build, TRX verification and artifact upload on the identical SHA. Commit 52a5 contains only workflow/docs changes. Physical-router L4 remains NOT VERIFIED.
+- Next independent defect: USB modem hotplug loses WAN reconnect failure status and does not re-arm the cleared event flag. Convert the called helper to int and preserve retry state on failed reconnect.
+- Re-run storage on this checker commit's exact SHA; modem source slice should trigger USB modem identity and XY-C1 validation.
+
+---
+
 ## 2026-11-16 — Restore the complete USB storage stability workflow
 
 - Parent main: `cd5ccbefc26a9f71b0c971800b2f5b0d9cad450d`. Its storage-hotplug run `43880814702` / job `133345880304` failed at the embedded source-contract step with an unterminated Python string. The workflow file ended at `push_filters, pr_filters = filters.split("`, deleting the remaining storage caller graph, locking and teardown assertions, and the checked firmware-persistence gate.

@@ -291,9 +291,13 @@ require("record_usb_printer_stop_status" in printer_stop and "return stop_status
         "printer group must aggregate every stop result")
 for signature in ("restart_usb_printer_spoolers(void)", "try_start_usb_printer_spoolers(void)"):
     starter = body(services_usb, signature)
-    require("stop_usb_printer_spoolers() != 0" in starter and
-            "return;" in starter and "exec_printer_daemons(" in starter,
-            "printer restart must abort launch after a failed stop: " + signature)
+    require("int stop_status = stop_usb_printer_spoolers();" in starter and
+            "if (stop_status != 0)" in starter and
+            "return stop_status;" in starter and "return exec_printer_daemons(" in starter,
+            "printer restart must propagate stop failure and abort launch: " + signature)
+    require(starter.index("if (stop_status != 0)") <
+            starter.index("return exec_printer_daemons("),
+            "printer restart must not launch after a failed stop: " + signature)
 stop_all = body(services, "int\nstop_services(int stopall)")
 for daemon in ("p910nd", "lpd", "u2ec", "IPTV proxies",
                "scutclient", "mentohust", "vlmcsd", "iperf3",

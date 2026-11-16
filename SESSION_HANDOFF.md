@@ -1,38 +1,33 @@
 # Cross-session execution mandate
 
-Mandatory handoff checkpoint: Every session MUST inspect the live repository state and compare it with `SESSION_HANDOFF.md` before ending or handing off. Verify source baseline, active task, exact-head Actions, validation boundary, blockers and exact first action. The checkpoint is mandatory; a document edit is conditional. If all checkpoint facts and the first action remain accurate, leave the file untouched and make no no-op commit.
+Every session MUST inspect live repository state and compare it with this handoff before ending. Verify source baseline, active work, exact-head Actions, validation boundary, blockers and precise next action. If nothing material changes, avoid documentation-only commits.
 
-Before context exhaustion, finish or reduce the current safe slice, check exact-head Actions, commit completed work atomically and preserve the precise first next action here.
-
-Continue this engineering task across ChatGPT conversations. Recover live repository state once, do not repeat completed audits, and do not ask the user what to do next.
-
-For each logical task, create all changed files in one Git tree and one atomic main commit parented to freshly fetched main; update main with exact expected SHA using non-forced compare-and-swap. Never force-push, create partial commits, or touch the frozen backup.
+For each logical task, create every changed file in one Git tree/commit parented to freshly fetched main and update main by non-forced expected-SHA compare-and-swap. Never force-push, create partial commits, or touch the frozen backup.
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; active ref: `main`.
-- Parent main for the storage workflow restoration: `cd5ccbefc26a9f71b0c971800b2f5b0d9cad450d`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. Startup recovery is complete; do not repeat.
-- Root dev log has 42 records before this restoration entry; archive part-012 retains older entries.
-- PPP ip-up validates canonical local/peer IPCP IPv4 addresses and contiguous netmask before interface setup or lease publication.
-- WAN IPv6 teardown preserves the last live runtime `ifname6` through RA/autoconfiguration and route/address cleanup; DHCPv6 callback generation fencing remains required.
-- Optional WAN MTU ioctl failures remain diagnostic-only and do not set DHCP, interface or route failure state.
+- Repository: Arlene206/padavan-4.4-2; active development branch: main.
+- Parent for the current storage checker correction: 52a5cc63419686af16b23c9aee973d262f3e4529.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only.
+- Root dev log has 43 dated entries before this correction.
+- PPP IPCP address/netmask validation, WAN IPv6 teardown identity preservation and DHCPv6 generation fencing remain required. Optional WAN MTU ioctl errors remain diagnostic-only.
 
 ## Active task
 
-The current main commit `cd5ccbefc26a9f71b0c971800b2f5b0d9cad450d` truncated `.github/workflows/storage-hotplug-stability.yml` after the embedded Python line `push_filters, pr_filters = filters.split("`; its storage-hotplug Action failed with an unterminated-string SyntaxError before the remaining storage-caller contracts and persistence gate could run. The complete suffix is being restored from the last intact version at `0409c2b90d8da55531b8370dbb16e7a1ed978d67`, retaining the newer USB printer exec/aggregation contracts and the required push/PR path filters. The repaired file is validated as 1,163 lines with the embedded Python heredoc and final storage gate intact.
+The USB storage workflow was restored in full and its embedded end-to-end caller graph now passes. Its final safety checker still encoded the old void-return printer helper contract: it expected a direct comparison and bare return, but the current int-returning restart helpers intentionally capture stop_status, return that exact failure and only launch after successful stop. Updated scripts/check_storage_safe_remove.py to assert the actual status-return contract and ordering, rather than weakening the production behavior.
+
+The next concrete P1 defect is USB modem hotplug result loss: try_start_usb_modem_to_wan() is void and discards try_wan_reconnect()'s status; on_deferred_hotplug_dev() clears usb_unplug_md / usb_hotplug_md before the reconnect attempt and does not restore them or schedule a retry when WAN restart fails. Convert the helper to int and re-arm the correct pending flag with the existing five-second alarm on failure.
 
 ## Verification boundary
 
-Exact-head Actions for parent `cd5ccbefc26a9f71b0c971800b2f5b0d9cad450d`:
-- USB storage hotplug `43880814702`, job `133345880304`: FAIL at the embedded Python source-contract step. The preceding assertions, including first-error propagation, optional printer-hook aggregation, and deferred retry ordering, passed. The script then hit a literal newline inside `filters.split("` at line 139 because the committed workflow was truncated. This commit restores the complete 1,163-line workflow from intact parent content, while preserving the latest USB contract additions.
-- XY-C1 Firmware Validation `43880814725`: IN_PROGRESS at last inspection; no same-SHA Build/TRX/artifact outcome yet.
-- AI docs `43880814989`, infosvr `43880814630`, NVRAM `43880814712`, AdGuardHome `43880814663`, AliDDNS `43880814812`, AliyunDrive `43880814843`, process lifecycle `43880814751`, process inventory `43880814602`: PASS on the parent.
-- Firmware product-source L3 was previously verified on `f6fba229aba497988d2308c8c99879aca5da1214` only; do not transfer it to newer SHAs without their own Build, TRX and artifact upload. Physical-router L4 remains NOT VERIFIED.
+- Current parent 52a5cc63419686af16b23c9aee973d262f3e4529 storage run 43882073147: step 23 whole caller graph, lock ordering and teardown contracts PASS; step 24 scripts/check_storage_safe_remove.py FAIL at line 294 because it still expected the old bare-return API. This correction changes only that stale checker assertion.
+- Same product-source SHA cd5ccbefc26a9f71b0c971800b2f5b0d9cad450d XY-C1 run 43880814725: PASS, including Build XY-C1, TRX output verification and artifact upload. Commit 52a5 changed workflow/docs only, not firmware product sources. Firmware L3 is VERIFIED for that product-source tree; physical-router L4 remains NOT VERIFIED.
+- On parent 52a5, AI docs 43882073167, infosvr 43882073278, AdGuardHome 43882073332, AliyunDrive 43882073264, NVRAM 43882073244, process inventory/lifecycle 43882073208 and AliDDNS 43882073128: PASS.
+- The new storage checker commit must be checked on its exact SHA. The next modem-source slice should trigger both USB modem identity and XY-C1 firmware validation.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head storage-hotplug on the restored workflow; repair any first causal source-contract/runtime failure without weakening storage checks.
-2. Inspect exact-head XY-C1 Build, TRX verification and artifact upload; claim firmware L3 only if all three pass on the same SHA.
-3. Continue P1 broad RC startup-result propagation across independent userland modules, tracing all real callers and preserving process/lock contracts.
-4. Preserve the frozen backup branch and leave physical-router L4 NOT VERIFIED until hardware evidence exists.
+1. Check the exact-SHA storage-hotplug run; its final checker should now accept the int-returning printer restart semantics.
+2. Implement USB modem WAN reconnect status propagation and retry-flag re-arming in services_usb.c/services_stor.c, add source contracts and update USB modem + XY-C1 path filters if needed.
+3. Require same-SHA XY-C1 Build, TRX and artifact upload to pass for the modem changes; continue independent RC start-result auditing.
+4. Keep hardware L4 explicitly NOT VERIFIED.
