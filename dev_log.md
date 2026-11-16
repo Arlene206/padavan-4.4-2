@@ -1,3 +1,12 @@
+## 2026-11-16 13:10 Beijing — Align VPN restart checker and execute status regression
+
+- Parent main: `f9e24531c59e681cf866acc00e2534911f7219b9`. The product-source commit `f9e24531c59e681cf866acc00e2534911f7219b9` changes `restart_vpn_server()` from a void best-effort operation to an int result, retains the first stop/start/restore/unlock failure, and merges the notification result into PID 1's `RCN_RESTART_VPNSVR` status.
+- Exact-head VPN server lifecycle run `43809878340` failed in the Python source contract after all three host policy executables passed. The stale ordering assertion still required two bare `return;` statements from the former void implementation; production now releases the lifecycle lock and returns `vpn_server_restart_first_error(stop_status, ...)`. This is a checker/API expectation mismatch, not a failure in the compiled lock, xl2tpd or lease-lock regressions.
+- Updated the semantic checker for the int return path, explicit notification error aggregation and first-error policy; wired `vpn_server_restart_policy.h` and its test into both push/pull_request path filters and added a GNU89/Werror compile/run step. This does not change production behavior.
+- Exact `f9e2453` evidence: Process inventory `43809878266`, AI docs `43809878572`, HTTPD lifecycle `43809878807`, Inadyn `43809878543`, AliDDNS `43809878657`, FRP `43809878472`, miniupnpd `43809878648`, and multiple other returned workflows PASS; VPN server `43809878340` FAILS at the stale checker; XY-C1 `43809878569`, Process `43809878580`, DNSMasq `43809878632`, USB storage `43809878424`, and several other exact-head workflows were PENDING at last inspection. No L3/L4 completion is claimed for `f9e2453`.
+- THIS COMMIT exact-head VPN server and AI handoff checks are pending. Next independent source slice: propagate UPnP stop failures from `restart_upnp()` into PID 1 notification aggregation, with a callback regression proving that a failed stop suppresses firewall restart.
+---
+
 ## 2026-11-16 — Verify CPU watchdog hot-restart module state
 
 - Parent main: `c5e4ae21a3a634cb513b48e26f15deb2fbb7b050`. The preceding workflow-filter checkpoint `c5e4ae21a3a634cb513b48e26f15deb2fbb7b050` exact-head Actions all completed SUCCESS: Process lifecycle `43805487835`, AI handoff `43805487861`, infosvr `43805487901`, AdGuardHome `43805487863`, AliDDNS `43805487891`, AliyunDrive `43805487934`, and NVRAM boundary `43805487932`.

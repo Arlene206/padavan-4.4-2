@@ -62,6 +62,8 @@ workflow=read(".github/workflows/vpn-server-stability.yml")
 test=read("trunk/user/rc/src/tests/vpn_server_lifecycle_lock.c")
 callback_policy=read("trunk/user/rc/src/vpn_server_callback_policy.h")
 callback_test=read("trunk/user/rc/src/tests/vpn_server_callback_policy.c")
+restart_policy=read("trunk/user/rc/src/vpn_server_restart_policy.h")
+restart_policy_test=read("trunk/user/rc/src/tests/vpn_server_restart_policy.c")
 process_pidfile=read("trunk/user/shared/src/process_pidfile.c")
 pppd_ipcp=read("trunk/user/pppd/ppp-2.4.7/pppd/ipcp.c")
 pppd_main=read("trunk/user/pppd/ppp-2.4.7/pppd/main.c")
@@ -114,7 +116,18 @@ ordered(s,["vpn_server_lifecycle_lock_acquire()","if (lock_fd < 0)","start_vpn_s
 require("return -1;" in s and "gen_vpns_pppd_options(i_type)" in sp,"start wrapper/private helper incomplete")
 ordered(t,["vpn_server_lifecycle_lock_acquire()","if (lock_fd < 0)","return -1;","stop_vpn_server_locked()","vpn_server_lifecycle_lock_release(lock_fd)"],"stop")
 require("kill_services_with_pidfiles(svcs, pidfile_paths, \"pppd\", 1, 5, 1)" in tp and "kill_pidfile_s" not in tp,"private stop helper must preflight all PPP clients before signaling")
-ordered(r,["vpn_server_lifecycle_lock_acquire()","if (lock_fd < 0)","return;","stop_vpn_server_locked()","if (stop_status != 0)","return;","start_vpn_server_locked()","restart_firewall()","safe_start_xl2tpd_locked()","vpn_server_lifecycle_lock_release(lock_fd)"],"restart")
+ordered(r,["vpn_server_lifecycle_lock_acquire()","if (lock_fd < 0)","stop_vpn_server_locked()","if (stop_status != 0)","vpn_server_lifecycle_lock_release(lock_fd)","return vpn_server_restart_first_error(stop_status,","start_vpn_server_locked()","restart_firewall()","safe_start_xl2tpd_locked()","vpn_server_lifecycle_lock_release(lock_fd)","return restart_status;"],"restart")
+require("return;" not in r and "return restart_status;" in r,
+        "restart must return the accumulated stop/start/restore/unlock status")
+require("int restart_vpn_server(void);" in rc_header,
+        "restart status must be part of the public RC declaration")
+require('#include "vpn_server_restart_policy.h"' in vpn,
+        "restart error policy helper is not integrated")
+require("vpn_server_restart_first_error" in restart_policy and
+        "vpn_server_restart_first_error" in restart_policy_test,
+        "restart first-error policy or its regression is missing")
+require(re.search(r'RCN_RESTART_VPNSVR[\\s\\S]{0,260}rc_notify_merge_action_result\\(action_result,\\s*restart_vpn_server\\(\\)\\)',rc),
+        "PID1 restart entry must retain failed VPN restart notifications")
 require("stop_vpn_server();" not in r and "start_vpn_server();" not in r,"restart must use private non-recursive helpers")
 require("reload_nfsd();" in r,"restart lost conditional NFS reload")
 ordered(a,["vpn_server_lifecycle_lock_acquire()","if (lock_fd < 0)","return;","reapply_vpn_server_locked()","vpn_server_lifecycle_lock_release(lock_fd)"],"reapply")
@@ -132,7 +145,9 @@ for p in ("trunk/user/rc/src/vpn_server.c","trunk/user/rc/src/vpn_openvpn.c",
           "trunk/user/rc/src/vpn_server_lifecycle_lock.h",
           "trunk/user/rc/src/vpn_server_lease_lock.h",
           "trunk/user/rc/src/tests/vpn_server_lease_lock.c",
-          "trunk/user/rc/src/tests/vpn_server_lifecycle_lock.c","trunk/user/rc/src/rc.c",
+          "trunk/user/rc/src/tests/vpn_server_lifecycle_lock.c",
+          "trunk/user/rc/src/vpn_server_restart_policy.h",
+          "trunk/user/rc/src/tests/vpn_server_restart_policy.c","trunk/user/rc/src/rc.c",
           "trunk/user/rc/src/services.c","trunk/user/rc/src/rc.h",
           "trunk/user/pppoe/mwan.sh",
           "trunk/user/rc/src/net_ppp.c",
@@ -147,6 +162,9 @@ openvpn_filter="      - 'trunk/user/rc/src/vpn_openvpn.c'"
 require(push_paths.count(openvpn_filter) == 1 and pull_paths.count(openvpn_filter) == 1,
         "OpenVPN production source path must appear exactly once in push and pull_request filters")
 require("fork()" in test and "errno==EBUSY" in test.replace(" ",""),"cross-process contention regression missing")
+require("test_first_failure_survives_later_restore_and_unlock_errors" in restart_policy_test and
+        "rc_notify_merge_action_result(0, status) == -1" in restart_policy_test,
+        "VPN restart policy regression must preserve first error through notification aggregation")
 
 # Every RC path that starts/stops the shared PPP/L2TP transport must
 # participate in the same lifecycle barrier as server callbacks.
