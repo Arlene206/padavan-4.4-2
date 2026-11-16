@@ -636,9 +636,14 @@ ncm_control_network(const char* control_node, int is_start)
 #endif
 
 static int
-ndis_control_network(char *ndis_ifname, int devnum, int is_start)
+ndis_control_network(char *ndis_ifname, int devnum, int is_start,
+		    int *control_required)
 {
 	int valid_node;
+
+	if (!control_required)
+		return -1;
+	*control_required = 0;
 	char control_node_wdm[16] = {0}, control_node_tty[16] = {0};
 	char ndis_port_id[64] = {0};
 
@@ -666,22 +671,30 @@ ndis_control_network(char *ndis_ifname, int devnum, int is_start)
 	}
 
 	if (strlen(control_node_wdm) > 0) {
-		if (is_usbnet_has_module(ndis_ifname, "qmi_wwan"))
+		if (is_usbnet_has_module(ndis_ifname, "qmi_wwan")) {
+			*control_required = 1;
 			return qmi_control_network(control_node_wdm, is_start);
+		}
 
 		if (is_usbnet_has_module(ndis_ifname, "cdc_mbim"))
 			return mbim_control_network(control_node_wdm, is_start);
 
-		if (is_usbnet_has_module(ndis_ifname, "huawei_cdc_ncm"))
+		if (is_usbnet_has_module(ndis_ifname, "huawei_cdc_ncm")) {
+			*control_required = 1;
 			return ncm_control_network(control_node_wdm, is_start);
+		}
 	}
 
 	if (strlen(control_node_tty) > 0) {
-		if (is_usbnet_has_module(ndis_ifname, "cdc_ncm"))
+		if (is_usbnet_has_module(ndis_ifname, "cdc_ncm")) {
+			*control_required = 1;
 			return ncm_control_network(control_node_tty, is_start);
+		}
 
-		if (is_usbnet_has_module(ndis_ifname, "sierra_net"))
+		if (is_usbnet_has_module(ndis_ifname, "sierra_net")) {
+			*control_required = 1;
 			return sierra_control_network(control_node_tty, is_start);
+		}
 	}
 
 	return 1;
@@ -974,7 +987,8 @@ int
 launch_wan_usbnet(int unit)
 {
 	int modem_devnum = 0;
-	int migration_status, interface_status, dhcp_status;
+	int migration_status, interface_status, control_status;
+	int control_required = 0, dhcp_status;
 	char ndis_ifname[16] = {0};
 
 	if (get_modem_ndis_ifname(ndis_ifname, &modem_devnum) &&
@@ -1002,7 +1016,16 @@ launch_wan_usbnet(int unit)
 		}
 		start_firewall_ex();
 
-		if (ndis_control_network(ndis_ifname, modem_devnum, 1) == 0)
+		control_status = ndis_control_network(ndis_ifname, modem_devnum, 1,
+						     &control_required);
+		if (modem_ndis_control_failed(control_required, control_status)) {
+			set_wan_unit_value_int(unit, "err", 1);
+			logmessage(LOGNAME,
+				   "USB modem control-session startup failed on %s (status=%d)",
+				   ndis_ifname, control_status);
+			return modem_wan_start_status(migration_status, control_status);
+		}
+		if (control_required)
 			sleep(1);
 
 		dhcp_status = start_udhcpc_wan(ndis_ifname, unit, 0);
@@ -1024,7 +1047,8 @@ int
 stop_wan_usbnet(void)
 {
 	int modem_devnum = 0;
-	int interface_present, control_status = 0, ifdown_status;
+	int interface_present, control_status = 0, control_required = 0;
+	int ifdown_status;
 	int result = 0;
 	char ndis_ifname[16] = {0};
 
@@ -1033,8 +1057,9 @@ stop_wan_usbnet(void)
 
 	interface_present = is_interface_exist(ndis_ifname);
 	if (interface_present && !is_usbnet_has_module(ndis_ifname, "cdc_mbim")) {
-		control_status = ndis_control_network(ndis_ifname, modem_devnum, 0);
-		if (control_status != 0) {
+		control_status = ndis_control_network(ndis_ifname, modem_devnum, 0,
+						     &control_required);
+		if (modem_ndis_control_failed(control_required, control_status)) {
 			logmessage(LOGNAME, "failed to disconnect USB modem control session on %s (status=%d)",
 				   ndis_ifname, control_status);
 			result = -1;

@@ -1,3 +1,14 @@
+## 2026-11-17 01:42 CST — Gate NDIS DHCP on required modem control-session status
+
+- Base main: `74ac0ed17f6ffd61679371258451ab3683118116`.
+- Confirmed a WAN startup result gap in `launch_wan_usbnet()`: it discarded `ndis_control_network()` failures and proceeded to launch DHCP. For QMI, Huawei NCM, CDC-NCM and Sierra, a failed modem data-session command could therefore be hidden by a successful `udhcpc` process launch.
+- Added an explicit required-vs-optional contract. Those four implemented control paths now mark the operation required; a nonzero command status sets WAN error and returns before DHCP. The MBIM branch remains an explicitly unsupported/no-user-space-control path, and generic Ethernet/RNDIS paths remain optional to preserve current behavior. The stop path also distinguishes optional no-op from a required control error.
+- Added GNU89 policy regressions for optional control, successful required control and required control failure blocking DHCP. Extended the semantic checker to verify every implemented command branch sets the required flag and the startup guard precedes DHCP.
+- Parent exact-head evidence: XY-C1 run `43918175205` PASS through Build XY-C1, Verify TRX output and artifact upload; NVRAM `43918174958`, USB storage `43918175044`, HTTPD `43918175175`, AI docs `43918175240`, Process inventory `43918175194`, Process regression `43918175085`, infosvr `43918175001`, AliDDNS `43918175163`, AliyunDrive `43918175349` and AdGuardHome `43918175144` PASS.
+- Product source, tests, checker and handoff/dashboard changes are included atomically in THIS COMMIT and trigger USB modem regression plus XY-C1 firmware validation. No local compiler or MIPS build is claimed. Physical-router L4 remains NOT VERIFIED; frozen backup remains unchanged.
+
+---
+
 ## 2026-11-16 — Require exact filesystem module catalog names
 
 - Parent main: `78f7302dad5142402a10b39c08c66a2850abe836`. Review found `func_module_catalog_contains()` used a shell substring case over the entire multiline `modprobe -l` output. That could match a requested `fat` token inside `exfat.ko`, or `vfat` inside a different `vfat-extra.ko` path, and select an unavailable driver family.

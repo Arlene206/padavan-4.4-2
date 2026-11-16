@@ -8,6 +8,17 @@ modem_wan_start_migration_succeeded(int migration_status)
 	return migration_status == 0;
 }
 
+/*
+ * Some NDIS drivers establish data sessions through a required user-space
+ * control command; others have no user-space control path. Do not treat an
+ * optional no-op as a failure, but never discard a required command failure.
+ */
+static inline int
+modem_ndis_control_failed(int control_required, int control_status)
+{
+	return control_required && control_status != 0;
+}
+
 /* Preserve the first failed transition; DHCP status matters only afterward. */
 static inline int
 modem_wan_start_status(int migration_status, int dhcp_status)

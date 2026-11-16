@@ -51,6 +51,44 @@ test_ndis_interface_bringup_failure_skips_network_start(void)
 }
 
 static void
+test_ndis_optional_control_path_does_not_block_dhcp(void)
+{
+	int control_required = 0;
+	int control_status = 1; /* No user-space control operation was performed. */
+	int dhcp_calls = 0;
+
+	if (!modem_ndis_control_failed(control_required, control_status))
+		dhcp_calls++;
+
+	assert(dhcp_calls == 1);
+	assert(!modem_ndis_control_failed(control_required, control_status));
+}
+
+static void
+test_ndis_required_control_failure_blocks_dhcp(void)
+{
+	int control_required = 1;
+	int control_status = EIO;
+	int startup_status = 0;
+	int dhcp_calls = 0;
+
+	if (modem_ndis_control_failed(control_required, control_status))
+		startup_status = modem_wan_start_status(0, control_status);
+	else
+		dhcp_calls++;
+
+	assert(startup_status == EIO);
+	assert(dhcp_calls == 0);
+	assert(modem_ndis_control_failed(1, -1));
+}
+
+static void
+test_ndis_required_control_success_allows_dhcp(void)
+{
+	assert(!modem_ndis_control_failed(1, 0));
+}
+
+static void
 test_first_modem_error_survives_best_effort_followup(void)
 {
 	int status = 0;
@@ -188,6 +226,9 @@ main(void)
 	test_miniupnp_migration_failure_blocks_dhcp();
 	test_dhcp_launch_result_is_returned_after_migration();
 	test_ndis_interface_bringup_failure_skips_network_start();
+	test_ndis_optional_control_path_does_not_block_dhcp();
+	test_ndis_required_control_failure_blocks_dhcp();
+	test_ndis_required_control_success_allows_dhcp();
 	test_first_modem_error_survives_best_effort_followup();
 	test_ras_physical_setup_error_survives_ras_launch();
 	test_physical_wan_ifup_failure_survives_cleanup();

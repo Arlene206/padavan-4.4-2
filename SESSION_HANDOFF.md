@@ -2,7 +2,7 @@
 
 Mandatory handoff checkpoint: Every session MUST inspect live repository state and compare it with this file before ending or handing off. Verify the source baseline, active task, relevant exact-head Actions, validation boundary, blockers and precise first action. The checkpoint is mandatory; a document edit is conditional. If all checkpoint facts and the first action remain accurate, leave this file untouched and do not create a no-op commit.
 
-Before context exhaustion, finish or reduce the current safe slice, run its regression checks, inspect exact-SHA Actions, commit completed work atomically, and preserve the exact next task here.
+Before context exhaustion, finish or reduce the current safe slice, run its regression checks, inspect exact-SHA Actions, commit completed work atomically, and preserve the exact next task.
 
 Continue this repository as one continuous engineering effort across ChatGPT conversations. Recover once, do not repeat completed audits, and do not ask the user to choose the next task.
 
@@ -10,25 +10,25 @@ Every multi-file logical change must be created as one complete Git tree and one
 
 ## Current repository state
 
-- Latest main parent before THIS COMMIT: `78f7302dad5142402a10b39c08c66a2850abe836`. Exact-head Actions at last poll: HTTPD Authentication and Security Regression 43917645930 completed/success; AdGuardHome config security regression 43917645405 completed/success; infosvr packet and signal lifecycle stability regression 43917645508 completed/success; AI handoff documentation contract 43917645337 completed/success; AliDDNS signed API transport security regression 43917645276 completed/success; XY-C1 Firmware Validation 43917645503 in_progress; AliyunDrive WebDAV lifecycle stability regression 43917645350 completed/success; Process inventory and lifecycle fail-closed regression 43917645410 completed/success; NVRAM transaction boundary audit 43917645866 completed/success
+- Source parent before THIS COMMIT: `74ac0ed17f6ffd61679371258451ab3683118116`. It contains the exact filesystem module-catalog membership fix and prior storage mount-owner hardening.
 - Frozen backup branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable and read-only.
-- Storage module loading and mount ownership are fail-closed. A further review found the filesystem module catalog membership predicate matched any substring in the returned path, so a query for `fat` could match `exfat.ko`, and `vfat` could match `vfat-extra.ko`.
-- NDIS bring-up status propagation landed in `b54a701c35e35549a183eca6bf48c86d5dffb855`; exact-head XY-C1 run `43917115679` was IN_PROGRESS at last poll.
+- The storage module inventory/catalog and mount-owner checks are fail-closed; exact catalog basenames avoid false matches such as `fat` matching `exfat.ko`.
+- NDIS initial interface bring-up failure propagation landed in `b54a701c35e35549a183eca6bf48c86d5dffb855`. On parent `74ac0ed17f6ffd61679371258451ab3683118116`, XY-C1 run `43918175205` passed the GNU89 modem regressions, Build XY-C1, TRX verification and artifact upload.
+- The HTTPD ownership contract repair was verified by exact-head HTTPD `43918175175` PASS. USB storage `43918175044`, NVRAM `43918174958`, AI docs `43918175240`, Process inventory `43918175194` and Process regression `43918175085` also PASS.
 
 ## Active task
 
-THIS COMMIT fixes false-positive filesystem-module catalog membership. `func_module_catalog_contains()` previously searched the complete multi-line path string for a substring; this could mistake `exfat.ko` for `fat`, or `vfat-extra.ko` for `vfat`. It now iterates catalog entries in POSIX shell, extracts the basename, and accepts only exact `.ko` / supported compressed-module suffixes. The regression adds exfat and similarly named vfat entries and requires both substring false-positives to remain absent. The storage workflow statically requires exact basename matching.
+THIS COMMIT fixes a dropped NDIS modem control-session result. `launch_wan_usbnet()` previously ignored `ndis_control_network()` failure and continued to launch DHCP. QMI, Huawei NCM, CDC-NCM and Sierra operations now explicitly mark the control transaction required; a nonzero status sets WAN error and returns before DHCP. The MBIM stub remains an explicitly unsupported/no-user-space-control path and generic Ethernet/RNDIS no-control paths remain optional for compatibility. The stop path now distinguishes optional no-op from required failure. Added GNU89 policy tests and source-contract assertions. No unrelated storage changes.
 
 ## Verification boundary
 
-- Parent `78f7302dad5142402a10b39c08c66a2850abe836` exact-head Actions at commit time: HTTPD Authentication and Security Regression 43917645930 completed/success; AdGuardHome config security regression 43917645405 completed/success; infosvr packet and signal lifecycle stability regression 43917645508 completed/success; AI handoff documentation contract 43917645337 completed/success; AliDDNS signed API transport security regression 43917645276 completed/success; XY-C1 Firmware Validation 43917645503 in_progress; AliyunDrive WebDAV lifecycle stability regression 43917645350 completed/success; Process inventory and lifecycle fail-closed regression 43917645410 completed/success; NVRAM transaction boundary audit 43917645866 completed/success
-- Previous NDIS source change `b54a701c35e35549a183eca6bf48c86d5dffb855` has exact-head XY-C1 run `43917115679` still IN_PROGRESS at last poll; the HTTPD umbrella stale storage assertion was corrected in parent `78f7302dad5142402a10b39c08c66a2850abe836`, whose HTTPD run was IN_PROGRESS.
-- A local POSIX `sh` and BusyBox `ash` 1.37.0 helper-only test verified exact basename matching, exfat/vfat substring negatives, and `.ko.gz` / `.ko.xz` suffixes. This is not a target BusyBox 1.24.2 or full storage workflow run.
-- Physical-router L4 remains NOT VERIFIED; frozen backup remains unchanged.
+- Parent `74ac0ed17f6ffd61679371258451ab3683118116`: XY-C1 `43918175205` PASS through Build XY-C1, TRX verification and artifact upload. NVRAM `43918174958`, USB storage `43918175044`, HTTPD `43918175175`, AI docs `43918175240`, Process inventory `43918175194`, Process regression `43918175085`, infosvr `43918175001`, AliDDNS `43918175163`, AliyunDrive `43918175349` and AdGuardHome `43918175144` PASS.
+- THIS COMMIT changes `usb_modem.c`, the modem WAN policy/header tests and source checker; these paths are already included in USB modem identity and XY-C1 workflow triggers. Exact-head validation must be checked after push.
+- No local compiler/firmware run is claimed. Modem hardware behavior, target driver binding, BusyBox/MIPS runtime and physical-router L4 remain NOT VERIFIED. Frozen backup remains unchanged.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head USB storage and HTTPD umbrella workflows for THIS COMMIT; require the catalog regression, all mount-owner checks, and the updated cross-workflow source contract to pass.
-2. Inspect exact-head XY-C1 Build/TRX/artifact run for NDIS source SHA `b54a701c35e35549a183eca6bf48c86d5dffb855`; do not infer a later product result from this storage-only commit.
-3. Continue with an independent WAN/security issue while checks are pending.
-4. Preserve frozen backup and keep physical-router L4 NOT VERIFIED.
+1. Fetch live main and inspect this commit's exact-head USB modem WDM/NDIS regression and XY-C1 validation. Require GNU89/Werror/ASan/UBSan and the semantic checker to pass; then require Build XY-C1, TRX verification and artifact upload.
+2. If a test/source contract fails, fix that exact SHA with a small atomic main commit; if checks are pending, continue an independent WAN/RC service-start result-propagation issue.
+3. A separate later modem task should inspect `qmi_control_network()` teardown: its stop path currently ignores `uqmi --stop-network` and client-ID release results before deleting handle files. Keep that distinct from this startup fix.
+4. Keep the frozen backup branch untouched and physical-router L4 marked NOT VERIFIED.
