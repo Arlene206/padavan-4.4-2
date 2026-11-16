@@ -1,3 +1,13 @@
+## 2026-11-16 — Propagate switch base, storm and link configuration errors
+
+- Parent main: `4322737edbbe77196e4380fc7506da3f0851dc0d`. The previous GMAC2 router conditional and AP-tagged LAN member accounting correction is in `4322737edbbe77196e4380fc7506da3f0851dc0d`; exact-head Actions were pending at last inspection.
+- Further source tracing showed `switch_config_base()`, `switch_config_storm()`, and `switch_config_link()` discarded all return-bearing PHY ioctl results. The switch API returns int on MTK ESW and RTL8367; MTK ESW unsupported optional storm/green/EEE capabilities explicitly return success/no-op.
+- Converted the three helpers to return first-error status while still attempting each independent setting. PID1 bridge startup and the switch-config notification now aggregate those results. LED indication remains explicitly best-effort and is not part of the forwarding status.
+- Process semantic source assertions check all base settings, four storm controls, WAN plus each LAN link setting, and PID1/notification aggregation. Exact-head tests are pending after publication; no firmware L3 or physical router L4 result is claimed.
+- Next: inspect exact-head Process, XY-C1, storage, NVRAM, docs and HTTPD/security Actions; then continue evidence-backed switch/PHY or other userland reliability fixes.
+
+---
+
 ## 2026-11-16 — Correct conditional LAN bridge member status accounting
 
 - Parent main: `aa5d3c9f2566927a4b17fce5d391f525cccc8095`. Exact-head Process run `43857640159` on that parent passed. Job `133265909696` confirms the bridge-init policy binary, multicast policy binary, bridge-membership regression and LAN production source contract all passed.

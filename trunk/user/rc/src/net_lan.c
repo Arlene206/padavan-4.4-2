@@ -163,9 +163,12 @@ init_bridge(int is_ap_mode)
 	operation_status = ifconfig(IFNAME_MAC, IFUP, NULL, NULL);
 	rc_bridge_init_record(&bridge_status, "bring up MAC interface", operation_status);
 
-	switch_config_base();
-	switch_config_storm();
-	switch_config_link();
+	operation_status = switch_config_base();
+	rc_bridge_init_record(&bridge_status, "switch base configuration", operation_status);
+	operation_status = switch_config_storm();
+	rc_bridge_init_record(&bridge_status, "switch storm-control configuration", operation_status);
+	operation_status = switch_config_link();
+	rc_bridge_init_record(&bridge_status, "switch port link configuration", operation_status);
 
 	/* power up all switch PHY */
 	operation_status = phy_ports_power(1);
@@ -423,18 +426,21 @@ config_bridge(int is_ap_mode)
     return status;
 }
 
-void
+int
 switch_config_link(void)
 {
+	rc_bridge_init_status_t link_status;
+	int operation_status;
 	int i, i_flow_mode, i_link_mode;
 	char nvram_param[20];
 
-	// WAN
+	rc_bridge_init_status_reset(&link_status);
 	i_link_mode = nvram_safe_get_int("ether_link_wan", SWAPI_LINK_SPEED_MODE_AUTO,
 			SWAPI_LINK_SPEED_MODE_AUTO, SWAPI_LINK_SPEED_MODE_FORCE_POWER_OFF);
 	i_flow_mode = nvram_safe_get_int("ether_flow_wan", SWAPI_LINK_FLOW_CONTROL_TX_RX,
 			SWAPI_LINK_FLOW_CONTROL_TX_RX, SWAPI_LINK_FLOW_CONTROL_DISABLE);
-	phy_set_link_port(SWAPI_PORT_WAN, i_link_mode, i_flow_mode);
+	operation_status = phy_set_link_port(SWAPI_PORT_WAN, i_link_mode, i_flow_mode);
+	rc_bridge_init_record(&link_status, "WAN link control", operation_status);
 
 	for (i = 0; i < BOARD_NUM_ETH_EPHY-1; i++) {
 		snprintf(nvram_param, sizeof(nvram_param), "ether_link_lan%d", i+1);
@@ -443,52 +449,82 @@ switch_config_link(void)
 		snprintf(nvram_param, sizeof(nvram_param), "ether_flow_lan%d", i+1);
 		i_flow_mode = nvram_safe_get_int(nvram_param, SWAPI_LINK_FLOW_CONTROL_TX_RX,
 				SWAPI_LINK_FLOW_CONTROL_TX_RX, SWAPI_LINK_FLOW_CONTROL_DISABLE);
-		phy_set_link_port(SWAPI_PORT_LAN1+i, i_link_mode, i_flow_mode);
+		operation_status = phy_set_link_port(SWAPI_PORT_LAN1+i, i_link_mode, i_flow_mode);
+		rc_bridge_init_record(&link_status, "LAN link control", operation_status);
 	}
+
+	if (link_status.first_status != 0)
+		logmessage(LOGNAME,
+			   "switch port link configuration incomplete: %s failed first (status=%d; failed_operations=%u)",
+			   link_status.first_operation ? link_status.first_operation : "unknown",
+			   link_status.first_status, link_status.failure_count);
+	return rc_bridge_init_result(&link_status);
 }
 
-void
+int
 switch_config_base(void)
 {
+	rc_bridge_init_status_t base_status;
+	int operation_status;
+
+	rc_bridge_init_status_reset(&base_status);
+	/* LED indication is best-effort; it does not affect forwarding setup. */
 	update_ether_leds();
 
-	phy_jumbo_frames(nvram_get_int("ether_jumbo"));
-	phy_green_ethernet(nvram_get_int("ether_green"));
-	phy_eee_lpi(nvram_get_int("ether_eee"));
+	operation_status = phy_jumbo_frames(nvram_get_int("ether_jumbo"));
+	rc_bridge_init_record(&base_status, "jumbo frame setting", operation_status);
+	operation_status = phy_green_ethernet(nvram_get_int("ether_green"));
+	rc_bridge_init_record(&base_status, "green Ethernet setting", operation_status);
+	operation_status = phy_eee_lpi(nvram_get_int("ether_eee"));
+	rc_bridge_init_record(&base_status, "EEE LPI setting", operation_status);
+
+	if (base_status.first_status != 0)
+		logmessage(LOGNAME,
+			   "switch base configuration incomplete: %s failed first (status=%d; failed_operations=%u)",
+			   base_status.first_operation ? base_status.first_operation : "unknown",
+			   base_status.first_status, base_status.failure_count);
+	return rc_bridge_init_result(&base_status);
 }
 
-void
+int
 switch_config_storm(void)
 {
+	rc_bridge_init_status_t storm_status;
+	int operation_status;
 	int controlrate_unknown_unicast;
 	int controlrate_unknown_multicast;
 	int controlrate_multicast;
 	int controlrate_broadcast;
 
-	/* unknown unicast storm control */
+	rc_bridge_init_status_reset(&storm_status);
 	controlrate_unknown_unicast = nvram_get_int("controlrate_unknown_unicast");
 	if (controlrate_unknown_unicast <= 0 || controlrate_unknown_unicast > 1024)
 		controlrate_unknown_unicast = 1024;
-
-	/* unknown multicast storm control */
 	controlrate_unknown_multicast = nvram_get_int("controlrate_unknown_multicast");
 	if (controlrate_unknown_multicast <= 0 || controlrate_unknown_multicast > 1024)
 		controlrate_unknown_multicast = 1024;
-
-	/* multicast storm control */
 	controlrate_multicast = nvram_get_int("controlrate_multicast");
 	if (controlrate_multicast <= 0 || controlrate_multicast > 1024)
 		controlrate_multicast = 1024;
-
-	/* broadcast storm control */
 	controlrate_broadcast = nvram_get_int("controlrate_broadcast");
 	if (controlrate_broadcast <= 0 || controlrate_broadcast > 1024)
 		controlrate_broadcast = 1024;
 
-	phy_storm_unicast_unknown(controlrate_unknown_unicast);
-	phy_storm_multicast_unknown(controlrate_unknown_multicast);
-	phy_storm_multicast(controlrate_multicast);
-	phy_storm_broadcast(controlrate_broadcast);
+	operation_status = phy_storm_unicast_unknown(controlrate_unknown_unicast);
+	rc_bridge_init_record(&storm_status, "unknown-unicast storm control", operation_status);
+	operation_status = phy_storm_multicast_unknown(controlrate_unknown_multicast);
+	rc_bridge_init_record(&storm_status, "unknown-multicast storm control", operation_status);
+	operation_status = phy_storm_multicast(controlrate_multicast);
+	rc_bridge_init_record(&storm_status, "multicast storm control", operation_status);
+	operation_status = phy_storm_broadcast(controlrate_broadcast);
+	rc_bridge_init_record(&storm_status, "broadcast storm control", operation_status);
+
+	if (storm_status.first_status != 0)
+		logmessage(LOGNAME,
+			   "switch storm-control configuration incomplete: %s failed first (status=%d; failed_operations=%u)",
+			   storm_status.first_operation ? storm_status.first_operation : "unknown",
+			   storm_status.first_status, storm_status.failure_count);
+	return rc_bridge_init_result(&storm_status);
 }
 
 int

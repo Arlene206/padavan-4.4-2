@@ -505,6 +505,9 @@ jobs:
           init_bridge = body(lan, "init_bridge(int is_ap_mode)")
           switch_vlan = body(lan, "switch_config_vlan(int first_call)")
           switch_vlan_restart = body(lan, "restart_switch_config_vlan(void)")
+          switch_base = body(lan, "switch_config_base(void)")
+          switch_storm = body(lan, "switch_config_storm(void)")
+          switch_link = body(lan, "switch_config_link(void)")
           bridge_create = body(lan, "init_bridge_add_bridge(const char *bridge_ifname)")
           assert ("int" + chr(10) + "init_bridge(int is_ap_mode)") in lan
           assert "int init_bridge(int is_ap_mode);" in header
@@ -542,6 +545,24 @@ jobs:
           assert "rc_notify_merge_action_result(action_result, restart_switch_config_vlan())" in body(init, "handle_notifications(void)")
           assert "test_bridge_add_idempotency_requires_confirmed_bridge();" in bridge_init_regression
           assert "rc_bridge_init_record" in bridge_init_policy
+          for operation in ("jumbo frame setting", "green Ethernet setting", "EEE LPI setting"):
+              assert operation in switch_base
+          for operation in ("unknown-unicast storm control", "unknown-multicast storm control",
+                            "multicast storm control", "broadcast storm control"):
+              assert operation in switch_storm
+          assert switch_storm.count("rc_bridge_init_record(&storm_status") == 4
+          assert 'rc_bridge_init_record(&link_status, "WAN link control", operation_status);' in switch_link
+          assert 'rc_bridge_init_record(&link_status, "LAN link control", operation_status);' in switch_link
+          assert "phy_set_link_port(SWAPI_PORT_WAN" in switch_link
+          assert "phy_set_link_port(SWAPI_PORT_LAN1+i" in switch_link
+          assert "int switch_config_base(void);" in header
+          assert "int switch_config_storm(void);" in header
+          assert "int switch_config_link(void);" in header
+          for operation in ("switch_config_base()", "switch_config_storm()", "switch_config_link()"):
+              assert operation in init_bridge
+          assert "rc_notify_merge_action_result(action_result, switch_config_base())" in body(init, "handle_notifications(void)")
+          assert "rc_notify_merge_action_result(action_result, switch_config_storm())" in body(init, "handle_notifications(void)")
+          assert "rc_notify_merge_action_result(action_result, switch_config_link())" in body(init, "handle_notifications(void)")
           print("LAN bridge initialization status and caller aggregation: PASS")
           print("LAN startup error propagation and caller aggregation: PASS")
           PY

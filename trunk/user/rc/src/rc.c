@@ -1773,9 +1773,9 @@ handle_notifications(void)
 		else if (strcmp(entry->d_name, RCN_RESTART_SWITCH_CFG) == 0)
 		{
 			action_result = rc_notify_merge_action_result(action_result, config_bridge(get_ap_mode()));
-			switch_config_base();
-			switch_config_storm();
-			switch_config_link();
+			action_result = rc_notify_merge_action_result(action_result, switch_config_base());
+			action_result = rc_notify_merge_action_result(action_result, switch_config_storm());
+			action_result = rc_notify_merge_action_result(action_result, switch_config_link());
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_SWITCH_VLAN) == 0)
 		{
