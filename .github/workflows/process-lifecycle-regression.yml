@@ -527,8 +527,12 @@ jobs:
           assert "return rc_bridge_init_result(&bridge_status);" in init_bridge
           assert 'rc_bridge_init_record(&bridge_status, "attach router LAN port", operation_status);' in init_bridge
           assert 'rc_bridge_init_record(&bridge_status, "attach AP LAN port", operation_status);' in init_bridge
-          assert "operation_status = br_add_del_if(IFNAME_BR, IFNAME_LAN, 1);" in init_bridge
-          assert all(line.strip() != "br_add_del_if(IFNAME_BR, IFNAME_LAN, 1);" for line in init_bridge.splitlines())
+          lan_member_calls = [
+              line.strip() for line in init_bridge.splitlines()
+              if "br_add_del_if(IFNAME_BR, IFNAME_LAN, 1);" in line
+          ]
+          assert len(lan_member_calls) == 2
+          assert all(call.startswith("operation_status = ") for call in lan_member_calls)
           assert "br_add_del_bridge(bridge_ifname, 1)" in bridge_create
           assert "saved_errno = errno;" in bridge_add
           assert bridge_add.index("saved_errno = errno;") < bridge_add.index("close(sockfd);")

@@ -10,43 +10,38 @@ For each logical task, create all changed files in one Git tree and one atomic m
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2; active branch: main.
-- Parent for THIS bridge membership ioctl errno slice: `1ce4ffe3b71e87bdc5143ccc802d252f190ab5b0`; fetch live main before the next write and use expected-SHA non-forced CAS.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. One-time startup comparison found main 588 commits ahead / 1 behind; do not repeat backup/archive recovery.
+- Repository: `Arlene206/padavan-4.4-2`; development branch: `main`.
+- Product-source baseline under validation: `b715097b8fdb76ed1e96bdeed6bedafde47eeefd` (`fix(lan): verify required bridge module loads`). The CI-contract repair now being committed has no firmware C change.
+- Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable and read-only. One-time startup comparison is already recorded; do not repeat the archive recovery.
+- The branch inventory contains only `main` and the frozen backup. Legacy PR #1 is closed and unmerged; its history was inspected, but it is not an active development target.
 
 ## Active task
 
-The prior slice fixed `br_add_del_bridge()` preserving ioctl errno across close. Sibling audit found `br_add_del_if_internal()` had the same hole for SIOCBRADDIF/SIOCBRDELIF:
-- After a failed add/delete ioctl, a non-idempotent errno could be overwritten by `close(sockfd)`, so callers receive an unreliable cause and duplicate-race decisions/logging lose accurate failure information.
-- Now save errno immediately after the bridge member ioctl and restore it after close whenever the operation remains failed. If the idempotency re-probe proves the requested membership is already satisfied, the operation still returns success.
-- Process source contract now checks the shared bridge-create and bridge-member helpers both save and restore ioctl errno across close.
+The LAN bridge module-load slice is implemented on product-source baseline `b715097b8fdb76ed1e96bdeed6bedafde47eeefd`:
 
-Previous reliability fixes remain on main: first-error bridge/VLAN/switch startup aggregation, required iNIC module verification, optional hw_nat offload verification, full WAN restart fail-closed switch VLAN status.
+- `init_bridge_load_module_verified()` reuses `rc_module_load_verified()`, whose post-load `/sys/module` probe avoids treating `module_smart_load()`'s ambiguous zero return as proof of success.
+- Required `iNIC_mii` load status is included in `init_bridge()` first-error aggregation and therefore PID 1 boot health on `USE_RT3352_MII` boards.
+- Optional `hw_nat` bridge offload is post-load verified and logged accurately; its absence remains non-fatal.
+- The Process workflow compiles/runs the existing GNU89/Werror/ASan/UBSan module-load policy regression and checks both required/optional production call sites.
+
+The active continuation is to close the two exact-head CI contract failures below, then continue the RC initialization audit for unchecked required module loads and startup operations. Keep required hardware readiness separate from optional acceleration/LED behavior.
 
 ## Verification boundary
 
-On exact parent SHA `1ce4ffe3b71e87bdc5143ccc802d252f190ab5b0`, runs were pending at last query:
-- Process inventory and lifecycle fail-closed `43860541389`
-- NVRAM transaction boundary audit `43860541296`
-- AI handoff documentation contract `43860541304`
-- WAN DHCP callback `43860541545`
-- AliDDNS signed transport `43860541276`
-- AliyunDrive WebDAV `43860541216`
-- AdGuardHome config security `43860541356`
-- infosvr packet/signal `43860541489`
-- Wireless radio state `43860541030`
-- WAN route result `43860541365`
-- Process lifecycle inventory `43860541379`.
-On the previous exact source SHA `7ce997801add3b30e42cd1cc76f14ddc0c45ef5c`, Process `43860044486` and AI docs `43860044408` passed; HTTPD auth `43860044873`, WAN route `43860044772`, DNSMasq `43860044694`, VPN `43860044807`, AdGuardHome `43860044911`, AliDDNS `43860044474`, detect_link `43860044785`, detect_internet `43860044834`, infosvr `43860044473`, WAN DHCP `43860044830`, secondary Process inventory `43860044744` and USB modem identity `43860044356` all passed. XY-C1 `43860044821` remained in progress at last inspection; prior NVRAM `43860044318` subsequently passed.
-- No same-SHA XY-C1 Build+TRX+artifact L3 or physical-router L4 has been established.
+On product-source SHA `b715097b8fdb76ed1e96bdeed6bedafde47eeefd`, push-triggered Actions observed during recovery:
+
+- Process lifecycle regression `43859397503`: FAILED at the final LAN startup/source-contract step (step 39, embedded Python line 107); all preceding process inventory, compile, sanitizer and policy regression steps passed. The failed assertion was the broad raw LAN-member-call scan; the workflow contract is being narrowed to count the two expected router/AP calls and require each to assign `operation_status`.
+- AI handoff documentation contract `43859397894`: FAILED because `SESSION_HANDOFF.md` omitted the required end-of-session accuracy-checkpoint wording. The validator-required wording is restored in this checkpoint.
+- XY-C1 firmware validation `43859397498`: IN_PROGRESS at `Build XY-C1`; TRX verification and artifact upload had not started at last inspection.
+- NVRAM transaction audit `43859397571`: IN_PROGRESS at the raw userland ioctl/kernel API caller audit; preceding transaction and permission regressions passed.
+- Other exact-head passing checks: Process inventory `43859397823`, AdGuardHome `43859397634`, infosvr `43859397632`, AliyunDrive `43859397583`, WAN DHCP `43859397570`, AliDDNS `43859397505`, detect_link `43859397835`, HTTPD security `43859397626`, DNSMasq `43859397688`, and detect_internet `43859397829`.
+
+No same-source-SHA XY-C1 Build + TRX verification + artifact upload result was established at recovery, so L3 is not yet claimed. No physical-router L4 result is claimed.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head Process and AI docs for this commit and return to prior pending XY-C1 run `43860044821`; check remaining service/security Actions without waiting idly.
-2. Verify both bridge ioctl errno source assertions and existing bridge-init/member policy regressions pass.
-3. Continue source-backed reliability audit of shared network ioctl wrappers and callers; preserve error contracts across cleanup calls.
-4. XY-C1 L3 requires Build, TRX verification and artifact upload on the same source SHA; hardware behavior remains L4-only.
+1. Inspect exact-head Process and AI handoff documentation runs created by the CI-contract repair commit; fix the first causal failure if either remains red.
+2. Recheck XY-C1 run `43859397498` and NVRAM audit `43859397571` for product-source SHA `b715097b8fdb76ed1e96bdeed6bedafde47eeefd`. XY-C1 L3 requires Build, TRX verification and artifact upload on that same production-source SHA.
+3. Continue auditing `init_router()` / `init_bridge()` for ignored required module-load and service-operation results. Keep optional hardware features non-fatal.
+4. Keep development on `main`, create one complete Git tree and atomic commit per logical slice, and update main with a non-forced expected-SHA compare-and-swap.
 
-## Verification and governance
-
-Preserve security, architecture, compatibility, target toolchain and mandatory tests. Main only; frozen backup read-only. One full Git tree and one atomic commit per logical task; non-forced expected-SHA update. Update `dev_log.md` for source milestones and retain 20–119 entries. Distinguish host tests, exact-SHA Actions, firmware/TRX L3 and physical router L4. Never claim an unrun result.

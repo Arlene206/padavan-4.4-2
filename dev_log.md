@@ -1,3 +1,14 @@
+## 2026-11-16 — Repair exact-head LAN and handoff CI contract failures
+
+- Parent main: `90ac78ccccb7acbf6ab75956999b4847a3628fd8`; product-source baseline under validation: `b715097b8fdb76ed1e96bdeed6bedafde47eeefd`.
+- Exact-head Process regression `43859397503` reached the final LAN startup source-contract step after process inventory, GNU89/Werror/ASan/UBSan and policy regressions passed, then failed at the broad raw LAN member-call assertion. Tightened the contract to require exactly two router/AP LAN member calls and require each to assign `operation_status`; the existing source assertions continue to require both first-error records.
+- Exact-head AI handoff docs `43859397894` failed because `SESSION_HANDOFF.md` omitted the required end-of-session accuracy-checkpoint statement. Restored the exact validator-required wording.
+- XY-C1 `43859397498` was still building the firmware; TRX verification and artifact upload were pending. NVRAM `43859397571` was still tracing raw ioctl callers. Other exact-head module Actions were passing as listed in the handoff.
+- This is a workflow/governance repair only; no firmware C source changed. No L3/L4 claim is made.
+- Next: verify exact-head Process/AI docs reruns, inspect XY-C1/NVRAM results, and continue the RC initialization audit for unchecked required startup operations.
+
+---
+
 ## 2026-11-16 — Preserve bridge membership ioctl errno across close
 
 - Parent main: `1ce4ffe3b71e87bdc5143ccc802d252f190ab5b0`. The preceding commit preserves ioctl errno for `br_add_del_bridge()`; a sibling review found the same issue in `br_add_del_if_internal()` for bridge port add/delete.

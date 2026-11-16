@@ -1,9 +1,11 @@
 ## Current source / CI checkpoint
 
-- Live main before THIS WAN-restart result-propagation fix: `0828b3a8acf119345bc2381f89772f213288862d`. The previous source milestone `b715097b8fdb76ed1e96bdeed6bedafde47eeefd` verifies required iNIC MII module load and treats hw_nat offload as optional.
-- Found `full_restart_wan()` discarded the return from the newly status-bearing `switch_config_vlan(0)`; it now fails closed before `start_wan()` when required VLAN/switch-mode configuration fails. Process source regression checks this ordering and the workflow watches `net_wan.c`.
-- Process `43858811934` on `59047...` failed only because the negative bare-call assertion matched an assignment substring; fixed in `0828b3a8acf119345bc2381f89772f213288862d`. AI docs `43858811955` failed because the handoff missed literal `Before context exhaustion`; also fixed in `0828...`. Exact reruns were pending at last check.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. No same-SHA XY-C1 Build+TRX+artifact L3 or physical router L4 result claimed.
+- Product-source baseline: `b715097b8fdb76ed1e96bdeed6bedafde47eeefd`. Required `iNIC_mii` load now uses post-load module-state verification and feeds bridge/PID 1 startup health; optional `hw_nat` offload is verified/logged but remains non-fatal.
+- Exact-head Process regression `43859397503` failed only in the final LAN source-contract step after its process inventory, GNU89/Werror/ASan/UBSan and policy regressions passed. The raw-call assertion is being replaced with explicit count/status-assignment checks for the router and AP LAN member calls.
+- Exact-head AI handoff documentation `43859397894` failed because the handoff omitted the required end-of-session checkpoint statement; that validator-required statement is restored in the current checkpoint.
+- XY-C1 firmware validation `43859397498` was still at Build XY-C1, with TRX verification and artifact upload pending. NVRAM transaction audit `43859397571` was auditing raw userland ioctl callers. No same-SHA firmware L3 or physical-router L4 result is claimed.
+- Other exact-head module Actions on `b715097...` passed, including Process inventory, AdGuardHome, infosvr, AliyunDrive, WAN DHCP, AliDDNS, detect_link, HTTPD security, DNSMasq and detect_internet.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Whole-repository module status
 
