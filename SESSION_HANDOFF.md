@@ -10,26 +10,26 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Current repository state
 
-- Main parent for this validation repair: 56da21749779b8de17d29acec7666808f0828269. Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains unchanged at 72f4f157a084f8184b9597ca5bf334b8080e5807 and read-only.
-- Exact-head 56da Firewall Startup 43937616937 passed firewall policy/NAT WAN-gate tests and the new required-module C regression, then failed at the final canonical source checker. Cause: the SFE assertion expected the former local variable name sfe_module_ops; the shared module ops variable is module_ops. This commit corrects the assertion and adds module source-contract coverage.
-- Exact-head 56da XY-C1 43937617363 and NVRAM 43937617096 remained IN_PROGRESS at last poll. Same-SHA XY-C1 Build/TRX/artifact is not yet verified.
+- Main parent for the current validation work: c3cf016298907f704ef1724ca317a5fc61d329e2. Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains unchanged at 72f4f157a084f8184b9597ca5bf334b8080e5807 and read-only.
+- Exact-head c3 Firewall Startup 43938857743 failed in the canonical checker because its body() signature for reload_nat_modules still included the former return type; source regressions preceding it passed. Exact-head c3 XY-C1 43938857763 hit the same checker and skipped firmware Build/TRX/artifact.
+- Exact-head c3 AI handoff contract 43938858001 passed. NVRAM 43938857987, USB storage 43938857733, HTTPD 43938857658, Process inventory 43938857476, Process regression 43938857455 and several other jobs were in progress at last poll; other network/service/security checks passed.
 - Parent 10ab Firewall Startup 43936882423, Process 43936882692, Storage 43936881877, AI docs 43936882570, WAN route 43936881887, USB modem identity 43936881865, HTTPD security 43936882544, AliDDNS 43936881919 and DNSMasq 43936881899 passed.
 - Historical PR #1 remains closed/unmerged; do not resume.
 
 ## Active task
 
-Configured PPTP/H.323/SIP/FTP conntrack/NAT helpers are post-load verified. The required-module policy attempts every independent requirement and preserves the first failure; FTP parameter-read failures and unload races return EIO/EBUSY rather than claiming the requested state was applied. Both RC NETFILTER/FIREWALL notification branches merge module reload status while still proceeding with firewall refresh.
+start_firewall_ex() now returns errno-style failures for unsafe interface tokens, retained transaction recovery, failed core table restore/rollback, snapshot cleanup, and Adbyby restore errors. Incomplete rollback disables forwarding and preserves recovery snapshots. restart_firewall() always attempts the independent UPnP refresh and merges its status after the core ruleset result.
 
-Next P1 task: convert start_firewall_ex() to return actionable status for input validation, core table restore/rollback and snapshot cleanup. Preserve fail-closed forwarding when rollback is incomplete. Then aggregate core firewall status and UPnP refresh status in restart_firewall() without skipping either operation.
+Next, verify this return-status contract with the transaction fault-injection test and exact-SHA CI, then inspect restart_firewall() callers and the firewall extension-hook error boundaries. Never enable IPv4 forwarding on an unapplied core ruleset.
 
 ## Verification boundary
 
-- Exact-head 56da Firewall Startup 43937616937 passed the firewall policy and required-NAT gate tests and the new module-policy regression, then failed in the source checker on the stale SFE local-variable name. This commit corrects the contract and adds coverage for configured ALG/FTP status propagation.
-- Exact-head 56da XY-C1 43937617363 and NVRAM audit 43937617096 were in progress at last poll. New source SHA requires fresh exact-SHA Build/TRX/artifact verification.
+- On c3, the core firewall status change is committed as c3cf016298907f704ef1724ca317a5fc61d329e2. Exact-head Firewall Startup 43938857743 and XY-C1 43938857763 both failed in the stale checker signature for reload_nat_modules(); preceding host regressions passed, but firmware build/TRX/artifact were skipped.
+- This correction matches the stable symbol name, adds source contracts for firewall transaction/restart status, and wires tests/firewall_restore_transaction.c into a GNU89/-Werror/ASan/UBSan CI step.
 - No full local firmware build or physical-router validation is claimed. Physical-router L4 remains NOT VERIFIED; frozen backup unchanged.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA Firewall Startup, XY-C1 Build/TRX/artifact, Process, Storage, and AI handoff runs for the validation repair.
-2. Continue the start_firewall_ex() status-return slice, including failure injection for validation, core restore, rollback, and snapshot cleanup; then merge the first error with UPnP refresh in restart_firewall().
-3. Use fresh main SHA, one complete Git tree/commit, and non-forced expected-SHA CAS. Keep the frozen backup read-only and router L4 NOT VERIFIED.
+1. Inspect exact-SHA Firewall Startup, XY-C1 Build/TRX/artifact, Process, Storage, NVRAM and AI handoff runs after the checker/test wiring correction.
+2. If the firewall transaction test or source checker fails, repair the first causal issue. Once green, continue auditing restart_firewall() callers and privileged extension-hook result boundaries.
+3. Keep commits main-only, complete-tree atomic with non-forced expected-SHA CAS. Frozen backup stays read-only; physical-router L4 stays NOT VERIFIED.

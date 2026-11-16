@@ -1,8 +1,8 @@
 ## Current source / CI checkpoint
 
-- Parent main for the source-contract repair: 56da21749779b8de17d29acec7666808f0828269. Exact-head Firewall Startup 43937616937 passed firewall policy, required-NAT WAN gate, and required-module C regression; its final canonical checker failed on a stale SFE ops variable name. This commit corrects the contract and adds required ALG/FTP result checks.
-- Exact-head XY-C1 43937617363 and NVRAM 43937617096 were in progress at last poll. No current-source L3 claim until same-SHA XY-C1 Build/TRX/artifact all pass. Physical-router L4 remains NOT VERIFIED.
-- Next P1: make start_firewall_ex() return input-validation, core restore/rollback and snapshot cleanup errors; aggregate that result with UPnP refresh. Frozen backup remains read-only.
+- Main parent: c3cf016298907f704ef1724ca317a5fc61d329e2. start_firewall_ex() now reports transaction/validation failures; restart_firewall() preserves core firewall status while always attempting UPnP refresh. Incomplete rollback remains fail-closed; snapshot cleanup failure retains cleanup state and reports EIO.
+- Exact-head c3 Firewall Startup 43938857743 and XY-C1 43938857763 failed before firmware build at the canonical checker, whose reload_nat_modules() signature still included its old int return type. This is fixed by matching the stable symbol name; the checker now covers firewall transaction/restart result propagation.
+- New Firewall Startup workflow compiles/runs the transaction regression under GNU89/-Werror/ASan/UBSan. Fresh exact-SHA XY-C1 Build/TRX/artifact is required; no current L3 build claim yet. Physical-router L4 remains NOT VERIFIED; backup remains read-only.
 
 
 ## Whole-repository module status

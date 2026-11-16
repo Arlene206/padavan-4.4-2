@@ -9,6 +9,7 @@ RC = ROOT / "trunk/user/rc/src"
 USB_SOURCE = (RC / "usb_modem.c").read_text()
 WAN_SOURCE = (RC / "net_wan.c").read_text()
 NET_SOURCE = (RC / "net.c").read_text()
+FIREWALL_SOURCE = (RC / "firewall_ex.c").read_text()
 SERVICES_SOURCE = (RC / "services.c").read_text()
 STORAGE_SOURCE = (RC / "services_stor.c").read_text()
 NET6_SOURCE = (RC / "net6.c").read_text()
@@ -499,7 +500,7 @@ print("Optional SFE module post-load verification contract: PASS")
 
 # Configured NAT helper requirements must be post-load verified and their first
 # failure must be merged into RC notification results.
-reload_modules = compact(body(NET_SOURCE, "int reload_nat_modules(void)"))
+reload_modules = compact(body(NET_SOURCE, "reload_nat_modules(void)"))
 assert "rc_module_load_requirements_apply(pptp_modules, 2, &module_ops)" in reload_modules
 assert "rc_module_load_requirements_apply(h323_modules, 2, &module_ops)" in reload_modules
 assert "rc_module_load_requirements_apply(sip_modules, 2, &module_ops)" in reload_modules
@@ -511,3 +512,28 @@ assert "int reload_nat_modules(void);" in HEADER
 assert RC_SOURCE.count("rc_notify_merge_action_result(action_result, reload_nat_modules())") == 2
 assert RC_SOURCE.count("reload_nat_modules();") == 0
 print("Configured NAT helper post-load verification and RC result propagation: PASS")
+
+# Core firewall rebuilding must report validation, transaction and cleanup
+# failures; restart must still attempt UPnP refresh and preserve the first error.
+firewall_rebuild = compact(body(FIREWALL_SOURCE, "start_firewall_ex(void)"))
+assert "firewall_restore_transaction_prepare_reset(" in firewall_rebuild
+assert "firewall_restore_transaction_status(&firewall_core_restore_transaction)" in firewall_rebuild
+assert "firewall_restore_transaction_finish(" in firewall_rebuild
+assert "firewall_restore_transaction_abort(" in firewall_rebuild
+assert "return EBUSY;" in firewall_rebuild
+assert "return EINVAL;" in firewall_rebuild
+assert "return EIO;" in firewall_rebuild
+assert "FIREWALL_ADBYBY_RESTORE_RECOVERY_FAILED" in firewall_rebuild
+assert "adbyby_restore_result != FIREWALL_ADBYBY_RESTORE_OK" in firewall_rebuild
+assert "set_ipv4_forward(0);" in firewall_rebuild
+assert not re.search(r"\breturn\s*;", firewall_rebuild)
+assert "int start_firewall_ex(void);" in HEADER
+
+firewall_restart = compact(body(NET_SOURCE, "restart_firewall(void)"))
+assert "firewall_status = start_firewall_ex();" in firewall_restart
+assert "saved_errno = errno ? errno : firewall_status;" in firewall_restart
+assert "upnp_status = update_upnp();" in firewall_restart
+assert firewall_restart.index("firewall_status = start_firewall_ex();") < firewall_restart.index("upnp_status = update_upnp();")
+assert "return rc_first_service_start_status(firewall_status, upnp_status);" in firewall_restart
+assert "errno = saved_errno;" in firewall_restart
+print("Core firewall restore, rollback, cleanup and UPnP first-error propagation: PASS")

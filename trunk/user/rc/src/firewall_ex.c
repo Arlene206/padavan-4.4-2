@@ -2734,7 +2734,7 @@ start_firewall_ex(void)
 		if (!firewall_interface_name_is_safe(wan_if_value)) {
 			logmessage(LOGNAME, "Unsafe WAN interface token; refusing firewall rebuild");
 			errno = EINVAL;
-		return EINVAL;
+			return EINVAL;
 		}
 		snprintf(wan_if, sizeof(wan_if), "%s", wan_if_value);
 	} else {

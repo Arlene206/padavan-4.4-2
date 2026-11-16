@@ -1,3 +1,12 @@
+## 2026-11-17 — Propagate core firewall transaction outcomes
+
+- Parent main: c3cf016298907f704ef1724ca317a5fc61d329e2. Converted start_firewall_ex() to return EBUSY for unresolved retained recovery state, EINVAL for unsafe interface tokens, and EIO for failed core restore/rollback/snapshot cleanup. Incomplete core or Adbyby rollback keeps forwarding fail-closed; successful core rules with only snapshot-cleanup failure remain active but report EIO so cleanup is retried before the next rebuild.
+- restart_firewall() now captures the core firewall status, still attempts the independent UPnP lease refresh, returns the first nonzero result, and preserves errno from the core failure. Added transaction-status mapping assertions to the existing fault-injection regression.
+- Exact-head c3 Firewall Startup 43938857743 failed only in the canonical checker: body() still required the old return-type-specific text "int reload_nat_modules(void)" instead of matching the symbol name. XY-C1 43938857763 failed at the same checker before Build/TRX/artifact; earlier firmware regression steps passed. This correction fixes the checker and adds the firewall transaction test to CI.
+- c3 AI handoff contract 43938858001 passed; NVRAM 43938857987, Storage 43938857733, HTTPD 43938857658 and several process checks were in progress at last poll. The c3 exact-SHA XY-C1 Build/TRX/artifact did not run. Physical-router L4 remains NOT VERIFIED; backup unchanged.
+
+---
+
 ## 2026-11-17 — Repair NAT reload source contract and record CI failure
 
 - Parent main: 56da21749779b8de17d29acec7666808f0828269. The required-module-set C regression compiled and passed under GNU89/-Werror/ASan/UBSan in exact-head Firewall Startup run 43937616937 (step 5 PASS). Firewall startup policy and required-NAT WAN-gate tests also passed. The run then failed only in the canonical source checker because the SFE assertion still expected the old local ops variable name; production now shares module_ops.
