@@ -89,6 +89,19 @@ wireless_stop_interface(const char *ifname, const char *bridge_ifname)
 	return 1;
 }
 
+static void
+wireless_bridge_membership_record(int *all_started, const char *ifname, int is_add)
+{
+	int status = br_add_del_if(IFNAME_BR, ifname, is_add);
+
+	if (status != 0)
+		logmessage(LOGNAME, "%s: failed to %s wireless interface %s %s (status=%d)",
+			   __func__, is_add ? "attach" : "detach", ifname, IFNAME_BR, status);
+
+	*all_started = wireless_radio_startup_status(
+		*all_started, wireless_radio_status_success(status));
+}
+
 void
 mlme_state_wl(int is_on)
 {
@@ -542,13 +555,14 @@ int
 start_wifi_ap_wl(int radio_on)
 {
 #if BOARD_HAS_5G_RADIO
+	int all_started = 1;
 	int i_mode_x = get_mode_radio_wl();
 
 	// check WDS only, ApCli only or Radio disabled
 	if (i_mode_x == 1 || i_mode_x == 3 || !radio_on)
 	{
-		br_add_del_if(IFNAME_BR, IFNAME_5G_GUEST, 0);
-		br_add_del_if(IFNAME_BR, IFNAME_5G_MAIN, 0);
+		wireless_bridge_membership_record(&all_started, IFNAME_5G_GUEST, 0);
+		wireless_bridge_membership_record(&all_started, IFNAME_5G_MAIN, 0);
 	}
 
 	mlme_state_wl(radio_on);
@@ -558,25 +572,29 @@ start_wifi_ap_wl(int radio_on)
 	{
 		if (!wif_control_success(IFNAME_5G_MAIN, 1))
 			return -EIO;
-		br_add_del_if(IFNAME_BR, IFNAME_5G_MAIN, 1);
+		wireless_bridge_membership_record(&all_started, IFNAME_5G_MAIN, 1);
 		wif_control_m2u(1, IFNAME_5G_MAIN);
 		
 		if (is_guest_allowed_wl())
 		{
 			if (!wif_control_success(IFNAME_5G_GUEST, 1))
 				return -EIO;
-			br_add_del_if(IFNAME_BR, IFNAME_5G_GUEST, 1);
+			wireless_bridge_membership_record(&all_started, IFNAME_5G_GUEST, 1);
 			wif_control_m2u(1, IFNAME_5G_GUEST);
 		}
 	}
 #endif
-
+#if BOARD_HAS_5G_RADIO
+	return wireless_radio_startup_result(all_started);
+#else
 	return 0;
+#endif
 }
 
 int 
 start_wifi_ap_rt(int radio_on)
 {
+	int all_started = 1;
 	int i_mode_x = get_mode_radio_rt();
 #if defined(USE_RT3352_MII)
 	int is_ap_mode = get_ap_mode();
@@ -587,10 +605,10 @@ start_wifi_ap_rt(int radio_on)
 	{
 #if defined(USE_RT3352_MII)
 		if (!is_ap_mode)
-			br_add_del_if(IFNAME_BR, IFNAME_INIC_GUEST_VLAN, 0);
+			wireless_bridge_membership_record(&all_started, IFNAME_INIC_GUEST_VLAN, 0);
 #else
-		br_add_del_if(IFNAME_BR, IFNAME_2G_GUEST, 0);
-		br_add_del_if(IFNAME_BR, IFNAME_2G_MAIN, 0);
+		wireless_bridge_membership_record(&all_started, IFNAME_2G_GUEST, 0);
+		wireless_bridge_membership_record(&all_started, IFNAME_2G_MAIN, 0);
 #endif
 	}
 
@@ -610,7 +628,7 @@ start_wifi_ap_rt(int radio_on)
 		if (!wif_control_success(IFNAME_INIC_GUEST, 1))
 			return -EIO;
 		if (!is_ap_mode)
-			br_add_del_if(IFNAME_BR, IFNAME_INIC_GUEST_VLAN, 1);
+			wireless_bridge_membership_record(&all_started, IFNAME_INIC_GUEST_VLAN, 1);
 	}
 
 	// start iNIC_mii checking daemon
@@ -622,20 +640,20 @@ start_wifi_ap_rt(int radio_on)
 	{
 		if (!wif_control_success(IFNAME_2G_MAIN, 1))
 			return -EIO;
-		br_add_del_if(IFNAME_BR, IFNAME_2G_MAIN, 1);
+		wireless_bridge_membership_record(&all_started, IFNAME_2G_MAIN, 1);
 		wif_control_m2u(0, IFNAME_2G_MAIN);
 		
 		if (is_guest_allowed_rt())
 		{
 			if (!wif_control_success(IFNAME_2G_GUEST, 1))
 				return -EIO;
-			br_add_del_if(IFNAME_BR, IFNAME_2G_GUEST, 1);
+			wireless_bridge_membership_record(&all_started, IFNAME_2G_GUEST, 1);
 			wif_control_m2u(0, IFNAME_2G_GUEST);
 		}
 	}
 #endif
 
-	return 0;
+	return wireless_radio_startup_result(all_started);
 }
 
 int
@@ -657,34 +675,34 @@ start_wifi_wds_wl(int radio_on)
 			interface_started = wif_control_success(IFNAME_5G_WDS3, 1);
 			all_started = wireless_radio_startup_status(all_started, interface_started);
 			if (interface_started)
-				br_add_del_if(IFNAME_BR, IFNAME_5G_WDS3, 1);
+				wireless_bridge_membership_record(&all_started, IFNAME_5G_WDS3, 1);
 		}
 		
 		if (i_wds_num > 2) {
 			interface_started = wif_control_success(IFNAME_5G_WDS2, 1);
 			all_started = wireless_radio_startup_status(all_started, interface_started);
 			if (interface_started)
-				br_add_del_if(IFNAME_BR, IFNAME_5G_WDS2, 1);
+				wireless_bridge_membership_record(&all_started, IFNAME_5G_WDS2, 1);
 		}
 		
 		if (i_wds_num > 1) {
 			interface_started = wif_control_success(IFNAME_5G_WDS1, 1);
 			all_started = wireless_radio_startup_status(all_started, interface_started);
 			if (interface_started)
-				br_add_del_if(IFNAME_BR, IFNAME_5G_WDS1, 1);
+				wireless_bridge_membership_record(&all_started, IFNAME_5G_WDS1, 1);
 		}
 		
 		interface_started = wif_control_success(IFNAME_5G_WDS0, 1);
 		all_started = wireless_radio_startup_status(all_started, interface_started);
 		if (interface_started)
-			br_add_del_if(IFNAME_BR, IFNAME_5G_WDS0, 1);
+			wireless_bridge_membership_record(&all_started, IFNAME_5G_WDS0, 1);
 	}
 	else
 	{
-		br_add_del_if(IFNAME_BR, IFNAME_5G_WDS3, 0);
-		br_add_del_if(IFNAME_BR, IFNAME_5G_WDS2, 0);
-		br_add_del_if(IFNAME_BR, IFNAME_5G_WDS1, 0);
-		br_add_del_if(IFNAME_BR, IFNAME_5G_WDS0, 0);
+		wireless_bridge_membership_record(&all_started, IFNAME_5G_WDS3, 0);
+		wireless_bridge_membership_record(&all_started, IFNAME_5G_WDS2, 0);
+		wireless_bridge_membership_record(&all_started, IFNAME_5G_WDS1, 0);
+		wireless_bridge_membership_record(&all_started, IFNAME_5G_WDS0, 0);
 	}
 #endif
 
@@ -711,7 +729,7 @@ start_wifi_wds_rt(int radio_on)
 			all_started = wireless_radio_startup_status(all_started, interface_started);
 			if (interface_started) {
 #if !defined(USE_RT3352_MII)
-				br_add_del_if(IFNAME_BR, IFNAME_2G_WDS3, 1);
+				wireless_bridge_membership_record(&all_started, IFNAME_2G_WDS3, 1);
 #endif
 			}
 		}
@@ -721,7 +739,7 @@ start_wifi_wds_rt(int radio_on)
 			all_started = wireless_radio_startup_status(all_started, interface_started);
 			if (interface_started) {
 #if !defined(USE_RT3352_MII)
-				br_add_del_if(IFNAME_BR, IFNAME_2G_WDS2, 1);
+				wireless_bridge_membership_record(&all_started, IFNAME_2G_WDS2, 1);
 #endif
 			}
 		}
@@ -731,7 +749,7 @@ start_wifi_wds_rt(int radio_on)
 			all_started = wireless_radio_startup_status(all_started, interface_started);
 			if (interface_started) {
 #if !defined(USE_RT3352_MII)
-				br_add_del_if(IFNAME_BR, IFNAME_2G_WDS1, 1);
+				wireless_bridge_membership_record(&all_started, IFNAME_2G_WDS1, 1);
 #endif
 			}
 		}
@@ -740,17 +758,17 @@ start_wifi_wds_rt(int radio_on)
 		all_started = wireless_radio_startup_status(all_started, interface_started);
 		if (interface_started) {
 #if !defined(USE_RT3352_MII)
-			br_add_del_if(IFNAME_BR, IFNAME_2G_WDS0, 1);
+			wireless_bridge_membership_record(&all_started, IFNAME_2G_WDS0, 1);
 #endif
 		}
 	}
 #if !defined(USE_RT3352_MII)
 	else
 	{
-		br_add_del_if(IFNAME_BR, IFNAME_2G_WDS3, 0);
-		br_add_del_if(IFNAME_BR, IFNAME_2G_WDS2, 0);
-		br_add_del_if(IFNAME_BR, IFNAME_2G_WDS1, 0);
-		br_add_del_if(IFNAME_BR, IFNAME_2G_WDS0, 0);
+		wireless_bridge_membership_record(&all_started, IFNAME_2G_WDS3, 0);
+		wireless_bridge_membership_record(&all_started, IFNAME_2G_WDS2, 0);
+		wireless_bridge_membership_record(&all_started, IFNAME_2G_WDS1, 0);
+		wireless_bridge_membership_record(&all_started, IFNAME_2G_WDS0, 0);
 	}
 #endif
 
@@ -761,6 +779,7 @@ int
 start_wifi_apcli_wl(int radio_on)
 {
 #if BOARD_HAS_5G_RADIO
+	int all_started = 1;
 	const char *ifname_apcli = IFNAME_5G_APCLI;
 	int i_mode_x = get_mode_radio_wl();
 
@@ -768,7 +787,7 @@ start_wifi_apcli_wl(int radio_on)
 	{
 		if (!wif_control_success(ifname_apcli, 1))
 			return -EIO;
-		br_add_del_if(IFNAME_BR, ifname_apcli, !is_apcli_wisp_wl() || get_ap_mode());
+		wireless_bridge_membership_record(&all_started, ifname_apcli, !is_apcli_wisp_wl() || get_ap_mode());
 		if (nvram_wlan_get_int(1, "sta_auto"))
 #if defined (USE_WID_5G) && (USE_WID_5G==7615 || USE_WID_5G==7915)
 		{
@@ -790,16 +809,20 @@ start_wifi_apcli_wl(int radio_on)
 	}
 	else
 	{
-		br_add_del_if(IFNAME_BR, ifname_apcli, 0);
+		wireless_bridge_membership_record(&all_started, ifname_apcli, 0);
 	}
 #endif
-
+#if BOARD_HAS_5G_RADIO
+	return wireless_radio_startup_result(all_started);
+#else
 	return 0;
+#endif
 }
 
 int
 start_wifi_apcli_rt(int radio_on)
 {
+	int all_started = 1;
 	const char *ifname_apcli = IFNAME_2G_APCLI;
 	int i_mode_x = get_mode_radio_rt();
 
@@ -808,7 +831,7 @@ start_wifi_apcli_rt(int radio_on)
 		if (!wif_control_success(ifname_apcli, 1))
 			return -EIO;
 #if !defined(USE_RT3352_MII)
-		br_add_del_if(IFNAME_BR, ifname_apcli, !is_apcli_wisp_rt() || get_ap_mode());
+		wireless_bridge_membership_record(&all_started, ifname_apcli, !is_apcli_wisp_rt() || get_ap_mode());
 		if (nvram_wlan_get_int(0, "sta_auto"))
 #if defined (USE_WID_2G) && (USE_WID_2G==7615 || USE_WID_2G==7915)
 		{
@@ -832,11 +855,11 @@ start_wifi_apcli_rt(int radio_on)
 #if !defined(USE_RT3352_MII)
 	else
 	{
-		br_add_del_if(IFNAME_BR, ifname_apcli, 0);
+		wireless_bridge_membership_record(&all_started, ifname_apcli, 0);
 	}
 #endif
 
-	return 0;
+	return wireless_radio_startup_result(all_started);
 }
 
 void

@@ -114,25 +114,25 @@ jobs:
           for name, gates in (
               ("start_wifi_ap_wl", (
                   ("if (!wif_control_success(IFNAME_5G_MAIN, 1))",
-                   ("br_add_del_if(IFNAME_BR, IFNAME_5G_MAIN, 1)", "wif_control_m2u(1, IFNAME_5G_MAIN)")),
+                   ("wireless_bridge_membership_record(&all_started, IFNAME_5G_MAIN, 1)", "wif_control_m2u(1, IFNAME_5G_MAIN)")),
                   ("if (!wif_control_success(IFNAME_5G_GUEST, 1))",
-                   ("br_add_del_if(IFNAME_BR, IFNAME_5G_GUEST, 1)", "wif_control_m2u(1, IFNAME_5G_GUEST)")),
+                   ("wireless_bridge_membership_record(&all_started, IFNAME_5G_GUEST, 1)", "wif_control_m2u(1, IFNAME_5G_GUEST)")),
               )),
               ("start_wifi_ap_rt", (
                   ("if (!wif_control_success(IFNAME_INIC_GUEST, 1))",
-                   ("br_add_del_if(IFNAME_BR, IFNAME_INIC_GUEST_VLAN, 1)",)),
+                   ("wireless_bridge_membership_record(&all_started, IFNAME_INIC_GUEST_VLAN, 1)",)),
                   ("if (!wif_control_success(IFNAME_2G_MAIN, 1))",
-                   ("br_add_del_if(IFNAME_BR, IFNAME_2G_MAIN, 1)", "wif_control_m2u(0, IFNAME_2G_MAIN)")),
+                   ("wireless_bridge_membership_record(&all_started, IFNAME_2G_MAIN, 1)", "wif_control_m2u(0, IFNAME_2G_MAIN)")),
                   ("if (!wif_control_success(IFNAME_2G_GUEST, 1))",
-                   ("br_add_del_if(IFNAME_BR, IFNAME_2G_GUEST, 1)", "wif_control_m2u(0, IFNAME_2G_GUEST)")),
+                   ("wireless_bridge_membership_record(&all_started, IFNAME_2G_GUEST, 1)", "wif_control_m2u(0, IFNAME_2G_GUEST)")),
               )),
               ("start_wifi_apcli_wl", (
                   ("if (!wif_control_success(ifname_apcli, 1))",
-                   ("br_add_del_if(IFNAME_BR, ifname_apcli,", "ApCliAutoConnect")),
+                   ("wireless_bridge_membership_record(&all_started, ifname_apcli,", "ApCliAutoConnect")),
               )),
               ("start_wifi_apcli_rt", (
                   ("if (!wif_control_success(ifname_apcli, 1))",
-                   ("br_add_del_if(IFNAME_BR, ifname_apcli,", "ApCliAutoConnect")),
+                   ("wireless_bridge_membership_record(&all_started, ifname_apcli,", "ApCliAutoConnect")),
               )),
           ):
               body = function_body(source, name + "(int radio_on)")
@@ -182,7 +182,7 @@ jobs:
                   assert aggregate in body, f"{name}: failed {ifname} status is not aggregated"
                   aggregate_pos = body.index(aggregate, gate_pos)
                   assert gate_pos < aggregate_pos
-                  bridge = "br_add_del_if(IFNAME_BR, " + ifname + ", 1)"
+                  bridge = "wireless_bridge_membership_record(&all_started, " + ifname + ", 1)"
                   if bridge in body:
                       bridge_pos = body.index(bridge, aggregate_pos)
                       assert aggregate_pos < bridge_pos, (
@@ -321,6 +321,32 @@ jobs:
               netutils_source, "vconfig_del_if(const char *vifname)")
           assert "ret = ioctl(sockfd, SIOCSIFVLAN, &ifr)" in vlan_delete
           assert "return ret;" in vlan_delete
+
+          # Bridge membership is part of radio readiness; preserve ioctl failures.
+          bridge_record = function_body(
+              source,
+              "wireless_bridge_membership_record(int *all_started, const char *ifname, int is_add)")
+          assert "status = br_add_del_if(IFNAME_BR, ifname, is_add);" in bridge_record
+          assert 'is_add ? "attach" : "detach"' in bridge_record
+          assert "*all_started = wireless_radio_startup_status(" in bridge_record
+          assert "wireless_radio_status_success(status)" in bridge_record
+          for name in (
+              "start_wifi_ap_rt", "start_wifi_ap_wl", "start_wifi_wds_rt",
+              "start_wifi_wds_wl", "start_wifi_apcli_rt", "start_wifi_apcli_wl",
+          ):
+              body = function_body(source, name + "(int radio_on)")
+              assert "br_add_del_if(" not in body, f"{name}: unchecked bridge call remains"
+              assert "wireless_bridge_membership_record(&all_started," in body
+              assert "wireless_radio_startup_result(all_started)" in body
+          for name, ifnames in (
+              ("start_wifi_wds_rt", ("IFNAME_2G_WDS3", "IFNAME_2G_WDS2", "IFNAME_2G_WDS1", "IFNAME_2G_WDS0")),
+              ("start_wifi_wds_wl", ("IFNAME_5G_WDS3", "IFNAME_5G_WDS2", "IFNAME_5G_WDS1", "IFNAME_5G_WDS0")),
+          ):
+              body = function_body(source, name + "(int radio_on)")
+              assert body.count("wireless_bridge_membership_record(&all_started,") == 8
+              for ifname in ifnames:
+                  assert "wireless_bridge_membership_record(&all_started, " + ifname + ", 1)" in body
+                  assert "wireless_bridge_membership_record(&all_started, " + ifname + ", 0)" in body
 
           # The periodic iNIC health check must retain the guest-up result.
           inic_check = function_body(source, "check_inic_mii_rebooted(void)")
