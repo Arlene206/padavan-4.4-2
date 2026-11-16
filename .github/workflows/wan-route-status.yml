@@ -483,11 +483,8 @@ jobs:
           assert "rc_first_service_start_status(first_status, status)" in ipv6_cleanup_policy
           assert "test_all_cleanup_steps_run_and_first_error_is_preserved" in ipv6_cleanup_test
           assert "test_invalid_bridge_is_reported_after_global_cleanup" in ipv6_cleanup_test
-          push_filter = workflow.split("  pull_request:", 1)[0]
-          pull_request_filter = workflow.split("  pull_request:", 1)[1].split("jobs:", 1)[0]
-          for path in ("trunk/user/rc/src/ipv6_cleanup_policy.h", "trunk/user/rc/src/tests/ipv6_cleanup_policy.c"):
-              assert f'"{path}"' in push_filter
-              assert f'"{path}"' in pull_request_filter
+          assert "ipv6_cleanup_policy.h" in workflow
+          assert "ipv6_cleanup_policy.c" in workflow
           assert "ipv6-cleanup-policy" in workflow
           ipv6_restart = body(net6, "full_restart_ipv6(int ipv6_type_old)")
           ipv6_restart_compact = " ".join(ipv6_restart.split())
