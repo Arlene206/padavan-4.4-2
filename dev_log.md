@@ -1,3 +1,12 @@
+## 2026-11-16 — Trigger XY-C1 firmware validation for PPP policy dependencies
+
+- Parent main: `f16167cf2ea3666810341f1edd65bfcafeda28dc`. PPP ip-up strict-address validation lives in `ppp_wan_ipup_policy.h` and its `dhcp_lease_policy.h` dependency, with production-linked regression coverage in `tests/ppp_wan_ipup_policy.c`. WAN DHCP regression `43873889736` had passed on the previous tested SHA, but the XY-C1 workflow only watched `net_ppp.c`, so header/test-only changes did not schedule a firmware cross-build.
+- Added all three policy/test paths to `.github/workflows/xy-c1-firmware-validation.yml`. The workflow watches its own file on push, so this workflow-only commit should dispatch XY-C1 validation against the current strict-address source.
+- Parent exact-head WAN route `43874341443`, AI docs `43874341634`, Process inventory/lifecycle `43874341728`, AliDDNS `43874341573`, AdGuardHome `43874341534`, AliyunDrive `43874341457`, infosvr `43874341851`: PASS. NVRAM `43874341561` was IN_PROGRESS at last poll.
+- Next: verify exact-SHA XY-C1 Build, TRX and artifact upload. No firmware L3 or physical L4 claim until the required evidence exists.
+
+---
+
 ## 2026-11-16 — Fix the WAN route source contract after optional MTU reporting
 
 - Parent main: `3375e565983097af355395bffd32a41dcf442b18`. Exact-head WAN route run `43873631807` for source parent `c5dfa15e8c0c4d3998ca01d2ee961f0897282855` failed only at the final source-contract step. Six preceding compile/regression steps passed.

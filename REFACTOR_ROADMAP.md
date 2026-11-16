@@ -1,12 +1,10 @@
 ## Current source / CI checkpoint
 
-- Product-source parent: `3375e565983097af355395bffd32a41dcf442b18`; static MAN/IPoE address and netmask validation rejects malformed inputs before `ifconfig()`. PPP ip-up validates strict canonical local/peer IPv4 and netmask before interface state or lease publication.
-- WAN DHCP callback `43873889736` and AI docs `43873889717`: PASS on current main.
-- Process inventory/lifecycle `43873889642` and NVRAM transaction `43873889718`: IN_PROGRESS at last poll.
-- WAN route `43873631807` on source SHA `c5dfa15e8c0c4d3998ca01d2ee961f0897282855`: FAIL only in the final source contract. It still expected the pre-MTU declaration in `udhcpc_bound()`; prior compile/regression steps passed. The current repair updates the contract and requires MTU ioctl failure to remain diagnostic/nonfatal.
-- XY-C1 `43873631679` on `c5dfa15e8c0c4d3998ca01d2ee961f0897282855`: Build still running at last poll; TRX/artifact pending. It is not the current HEAD, so no same-SHA L3 claim. Physical-router L4 NOT VERIFIED.
-- Optional MTU errors on MAN, static IPoE, DHCP WAN/MAN and DHCP IPTV remain diagnostic-only, not WAN startup errors.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Product-source parent: `f16167cf2ea3666810341f1edd65bfcafeda28dc`; PPP ip-up validates canonical local/peer IPCP IPv4 addresses and contiguous netmask before interface setup or lease publication.
+- Exact-head WAN route `43874341443`, AI docs `43874341634`, Process inventory/lifecycle `43874341728`, AliDDNS `43874341573`, AdGuardHome `43874341534`, AliyunDrive `43874341457`, infosvr `43874341851`: PASS.
+- NVRAM transaction `43874341561`: IN_PROGRESS at last poll.
+- XY-C1 was not triggered for the PPP policy header/test changes because the path filter omitted those dependencies. This commit adds all relevant headers/tests; confirm the same-SHA Build, TRX and artifact upload.
+- Firmware L3 and physical-router L4 are NOT VERIFIED.
 
 ## Whole-repository module status
 
