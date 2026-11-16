@@ -551,8 +551,8 @@ require('#define STORAGE_RESTORE_FIFO_FILENAME\t"/tmp/.httpd-private/storage-res
         'sizeof(STORAGE_RESTORE_FIFO_FILENAME)' in httpd_upload and
         'const char *upload_file = STORAGE_RESTORE_FIFO_FILENAME;' in httpd_web_ex,
         "HTTPD restore upload and CGI must use the dedicated restore archive")
-backup_handler_start = httpd_web_ex.index("static void\\ndo_storage_file")
-backup_handler_end = httpd_web_ex.index("static void\\ndo_syslog_file", backup_handler_start)
+backup_handler_start = httpd_web_ex.index("do_storage_file(const char *url, FILE *stream)")
+backup_handler_end = httpd_web_ex.index(chr(10) + "static void" + chr(10) + "do_syslog_file", backup_handler_start)
 backup_handler = httpd_web_ex[backup_handler_start:backup_handler_end]
 require('char *storage_file = STORAGE_FIFO_FILENAME;' in backup_handler and
         'STORAGE_RESTORE_FIFO_FILENAME' not in backup_handler,
