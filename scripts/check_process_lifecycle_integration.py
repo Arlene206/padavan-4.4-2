@@ -1574,7 +1574,8 @@ assert "action_result = rc_notify_merge_action_result(action_result, restart_upn
 for test_case in (
     "test_success_stops_then_restarts_firewall",
     "test_stop_failure_aborts_firewall_restart_and_propagates",
-    "test_stop_error_codes_are_preserved",
+    "test_firewall_refresh_failure_is_propagated",
+    "test_stop_error_wins_when_firewall_is_not_attempted",
     "test_invalid_callbacks_fail_without_side_effects",
 ):
     assert test_case in upnp_restart_test
