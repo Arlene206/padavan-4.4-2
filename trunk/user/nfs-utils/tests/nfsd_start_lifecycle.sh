@@ -189,8 +189,8 @@ reset_fixture
 mark_running_process rpcbind
 prepare_running_nfs
 : > "$tmp_dir/etc/exports"
-printf 'preserve-rmtab\\n' > "$tmp_dir/var/lib/nfs/rmtab"
-printf 'preserve-xtab\\n' > "$tmp_dir/var/lib/nfs/xtab"
+printf 'preserve-rmtab\n' > "$tmp_dir/var/lib/nfs/rmtab"
+printf 'preserve-xtab\n' > "$tmp_dir/var/lib/nfs/xtab"
 status=$(NFSD_PROC_ROOT="$tmp_dir/missing-proc" run_command "" "" start)
 assert_failed "$status" "NFS start with unknown process state and existing recovery files"
 [ "$(cat "$tmp_dir/var/lib/nfs/etab")" = "recovery-state" ]
