@@ -126,7 +126,9 @@ require('#include "vpn_server_restart_policy.h"' in vpn,
 require("vpn_server_restart_first_error" in restart_policy and
         "vpn_server_restart_first_error" in restart_policy_test,
         "restart first-error policy or its regression is missing")
-require(re.search(r'RCN_RESTART_VPNSVR[\\s\\S]{0,260}rc_notify_merge_action_result\\(action_result,\\s*restart_vpn_server\\(\\)\\)',rc),
+notifications=body(rc,"handle_notifications(void)")
+require("strcmp(entry->d_name, RCN_RESTART_VPNSVR)" in notifications and
+        "action_result = rc_notify_merge_action_result(action_result, restart_vpn_server());" in notifications,
         "PID1 restart entry must retain failed VPN restart notifications")
 require("stop_vpn_server();" not in r and "start_vpn_server();" not in r,"restart must use private non-recursive helpers")
 require("reload_nfsd();" in r,"restart lost conditional NFS reload")

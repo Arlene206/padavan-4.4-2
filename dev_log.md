@@ -1,3 +1,11 @@
+## 2026-11-16 13:12 Beijing — Use direct notification-body assertion in VPN checker
+
+- Parent main: `f59d0a228a1c1c7bf3196c886d4a68baeccb35e6`. The preceding checker repair commit `f59d0a228a1c1c7bf3196c886d4a68baeccb35e6` corrected the VPN restart int-return ordering contract and added compilation for the new first-error regression.
+- Before the workflow completed, source review caught over-escaped backslashes in its newly added raw Python regular expression. Replace the fragile regex with a direct assertion against `handle_notifications()`: the `RCN_RESTART_VPNSVR` branch must call `rc_notify_merge_action_result(action_result, restart_vpn_server())`. This avoids making the source checker depend on regex metacharacter escaping.
+- The preceding exact-head VPN workflow `43810407149` and AI handoff `43810407150` were IN_PROGRESS at last observation; no PASS/FAIL is claimed for that SHA. THIS COMMIT's exact-head VPN/AI checks are pending after publication.
+- Next: check the exact-head VPN lifecycle job and confirm the new `vpn_server_restart_policy.c` compile/run plus checker pass. Then continue the independent UPnP notification-result fix; do not wait on other unrelated pending Actions.
+---
+
 ## 2026-11-16 13:10 Beijing — Align VPN restart checker and execute status regression
 
 - Parent main: `f9e24531c59e681cf866acc00e2534911f7219b9`. The product-source commit `f9e24531c59e681cf866acc00e2534911f7219b9` changes `restart_vpn_server()` from a void best-effort operation to an int result, retains the first stop/start/restore/unlock failure, and merges the notification result into PID 1's `RCN_RESTART_VPNSVR` status.
