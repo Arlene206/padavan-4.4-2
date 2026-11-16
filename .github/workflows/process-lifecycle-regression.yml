@@ -136,7 +136,10 @@ on:
       - "trunk/user/rc/src/services_ex.c"
       - "trunk/user/rc/src/upnp_restart_policy.h"
       - "trunk/user/rc/src/tests/upnp_restart_policy.c"
-      - "trunk/user/rc/src/rc.h"      - "trunk/user/rc/src/net_lan.c"      - "trunk/user/rc/src/service_start_status.h"      - "trunk/user/rc/src/tests/service_start_status.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/service_start_status.h"
+      - "trunk/user/rc/src/tests/service_start_status.c"
 permissions:
   contents: read
 
