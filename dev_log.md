@@ -1,3 +1,11 @@
+## 2026-11-17 — Repair NAT reload source contract and record CI failure
+
+- Parent main: 56da21749779b8de17d29acec7666808f0828269. The required-module-set C regression compiled and passed under GNU89/-Werror/ASan/UBSan in exact-head Firewall Startup run 43937616937 (step 5 PASS). Firewall startup policy and required-NAT WAN-gate tests also passed. The run then failed only in the canonical source checker because the SFE assertion still expected the old local ops variable name; production now shares module_ops.
+- Corrected that contract and expanded it to cover verified PPTP/H.323/SIP/FTP requirements, FTP parameter/unload guards, and both RC notification result merges. Workflow path checks now include every module reload implementation/test dependency.
+- Exact-head XY-C1 43937617363 and NVRAM audit 43937617096 were still in progress at last observation. This validation repair triggers fresh exact-SHA runs. Host regression success is not a full firmware or physical-router result; L4 remains NOT VERIFIED; backup unchanged.
+
+---
+
 ## 2026-11-17 — Verify SFE module state before sysfs configuration
 
 - Parent main: `086466e8e9dab3b198585cf5ec0033ff6ff82749`. Auditing the remaining optional-module path found that `reload_nat_modules()` set `sfe_loaded = 1` unconditionally after `module_smart_load("fast_classifier")`. The loader intentionally returns zero for both already-loaded and failed cases, so a failed load could still trigger writes under `/sys/fast_classifier`.

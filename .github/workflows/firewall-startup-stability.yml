@@ -90,7 +90,11 @@ jobs:
           assert "if (ipv6_filter_required && ipv6_filter_status != 0)" in policy
 
           paths = (
+              "trunk/user/rc/src/net.c",
               "trunk/user/rc/src/rc.c",
+              "trunk/user/rc/src/rc.h",
+              "trunk/user/rc/src/wireless_module_load_policy.h",
+              "trunk/user/rc/src/tests/wireless_module_load_policy.c",
               "trunk/user/rc/src/firewall_startup_policy.h",
               "trunk/user/rc/src/tests/firewall_startup_policy.c",
               ".github/workflows/firewall-startup-stability.yml",

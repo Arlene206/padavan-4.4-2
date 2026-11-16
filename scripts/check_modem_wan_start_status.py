@@ -489,10 +489,25 @@ print("VPN client/server and complete direct firewall caller status contracts: P
 # post-load probe confirms the module actually exists.
 assert '#include "wireless_module_load_policy.h"' in NET_SOURCE
 nat_reload = compact(body(NET_SOURCE, "reload_nat_modules(void)"))
-assert 'rc_module_load_verified("fast_classifier", NULL, &sfe_module_ops)' in nat_reload
+assert 'rc_module_load_verified("fast_classifier", NULL, &module_ops)' in nat_reload
 assert "if (rc_module_load_verified(" in nat_reload
 assert "sfe_loaded = 1;" in nat_reload
 assert "sfe_loaded = 0;" in nat_reload
 assert "continuing without SFE" in nat_reload
 assert 'module_smart_load("fast_classifier", NULL);' not in nat_reload
 print("Optional SFE module post-load verification contract: PASS")
+
+# Configured NAT helper requirements must be post-load verified and their first
+# failure must be merged into RC notification results.
+reload_modules = compact(body(NET_SOURCE, "int reload_nat_modules(void)"))
+assert "rc_module_load_requirements_apply(pptp_modules, 2, &module_ops)" in reload_modules
+assert "rc_module_load_requirements_apply(h323_modules, 2, &module_ops)" in reload_modules
+assert "rc_module_load_requirements_apply(sip_modules, 2, &module_ops)" in reload_modules
+assert "rc_module_load_requirements_apply(ftp_modules, 2, &module_ops)" in reload_modules
+assert "Cannot read active nf_conntrack_ftp ports" in reload_modules
+assert "still referenced" in reload_modules
+assert "return reload_status;" in reload_modules
+assert "int reload_nat_modules(void);" in HEADER
+assert RC_SOURCE.count("rc_notify_merge_action_result(action_result, reload_nat_modules())") == 2
+assert RC_SOURCE.count("reload_nat_modules();") == 0
+print("Configured NAT helper post-load verification and RC result propagation: PASS")

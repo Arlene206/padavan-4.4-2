@@ -1,10 +1,9 @@
 ## Current source / CI checkpoint
 
-- Parent main: `987b3bc75261b8fed86ffd78c3bd58eb0ba79c80`. Storage, IPv6 and VPN server firewall/UPnP errors propagate through their first-error results. This follow-up closes VPN-client propagation and preserves errno when firewall refresh is the first VPN restart error.
-- Previous storage checker run `43935227891` failed only because it still expected seven startup status merges; validation-only commit `987b3bc` changes it to require eight and assert firewall result aggregation before return. Previous Process `43935227981` and AI docs `43935227749` passed.
-- Current parent Actions: Storage `43935659776`, Process `43935659401`, AI docs `43935659456`, and NVRAM `43935659452` IN_PROGRESS at last poll. Older XY-C1 `43934498984` was on `cb0e8e5); fresh same-SHA Build/TRX/artifact is required after this VPN source update.
-- Canonical WAN/RC checker adds VPN client/server first-error and errno contracts plus a count of all direct C firewall references; Firewall Startup push/PR filters include `vpn_client.c`.
-- `start_firewall_ex()` and `reload_nat_modules()` remain the next P1 audit. Current-source L3 requires same-SHA XY-C1 Build/TRX/artifact; physical-router L4 remains NOT VERIFIED. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Parent main for the source-contract repair: 56da21749779b8de17d29acec7666808f0828269. Exact-head Firewall Startup 43937616937 passed firewall policy, required-NAT WAN gate, and required-module C regression; its final canonical checker failed on a stale SFE ops variable name. This commit corrects the contract and adds required ALG/FTP result checks.
+- Exact-head XY-C1 43937617363 and NVRAM 43937617096 were in progress at last poll. No current-source L3 claim until same-SHA XY-C1 Build/TRX/artifact all pass. Physical-router L4 remains NOT VERIFIED.
+- Next P1: make start_firewall_ex() return input-validation, core restore/rollback and snapshot cleanup errors; aggregate that result with UPnP refresh. Frozen backup remains read-only.
+
 
 ## Whole-repository module status
 

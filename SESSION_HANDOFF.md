@@ -10,30 +10,26 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Current repository state
 
-- Parent main: `987b3bc75261b8fed86ffd78c3bd58eb0ba79c80`. It includes generic firewall/UPnP result propagation through storage, IPv6, VPN server and the storage source-contract repair.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable and read-only.
-- On the previous validation head `f0294dee`, Process `43935227981` PASS and AI docs `43935227749` PASS; Storage hotplug `43935227891` failed at a stale count-7 assertion in `check_storage_safe_remove.py:302`. Commit `987b3bc` fixes that checker. On current parent `987b3bc75261b8fed86ffd78c3bd58eb0ba79c80`, Storage `43935659776`, Process `43935659401`, AI docs `43935659456`, and NVRAM `43935659452` are IN_PROGRESS at last poll.
-- XY-C1 run `43934498984` is still associated with production SHA `cb0e8e5`; it was IN_PROGRESS at last poll. This follow-up changes VPN production source and must get a new exact-SHA XY-C1 Build/TRX/artifact result.
-- PR #1 remains historical closed/unmerged work; do not resume it.
+- Main parent for this validation repair: 56da21749779b8de17d29acec7666808f0828269. Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains unchanged at 72f4f157a084f8184b9597ca5bf334b8080e5807 and read-only.
+- Exact-head 56da Firewall Startup 43937616937 passed firewall policy/NAT WAN-gate tests and the new required-module C regression, then failed at the final canonical source checker. Cause: the SFE assertion expected the former local variable name sfe_module_ops; the shared module ops variable is module_ops. This commit corrects the assertion and adds module source-contract coverage.
+- Exact-head 56da XY-C1 43937617363 and NVRAM 43937617096 remained IN_PROGRESS at last poll. Same-SHA XY-C1 Build/TRX/artifact is not yet verified.
+- Parent 10ab Firewall Startup 43936882423, Process 43936882692, Storage 43936881877, AI docs 43936882570, WAN route 43936881887, USB modem identity 43936881865, HTTPD security 43936882544, AliDDNS 43936881919 and DNSMasq 43936881899 passed.
+- Historical PR #1 remains closed/unmerged; do not resume.
 
 ## Active task
 
-The last direct `restart_firewall()` caller not yet returning its result is `restart_vpn_client_locked()`. This commit captures its firewall/UPnP refresh result, returns it when VPN startup succeeded, and preserves the first prior VPN-start or xl2tpd-restore failure including errno. VPN-server restart already returned the firewall result but did not snapshot errno when that was the first failure; this commit fixes that before later NFS/daemon restoration and lock release can clobber it.
+Configured PPTP/H.323/SIP/FTP conntrack/NAT helpers are post-load verified. The required-module policy attempts every independent requirement and preserves the first failure; FTP parameter-read failures and unload races return EIO/EBUSY rather than claiming the requested state was applied. Both RC NETFILTER/FIREWALL notification branches merge module reload status while still proceeding with firewall refresh.
 
-The prior Process failure caused by a stale UPnP test-name assertion has been fixed in `f6d4192`; the subsequent Process run passed. The storage source-contract failure caused by its stale count-7 expectation has been fixed in `987b3bc`; exact-head Storage validation is now running. The canonical WAN/RC checker is extended to verify VPN client/server status and errno handling and inventory the total direct firewall references. Firewall Startup triggers now include `vpn_client.c`.
-
-Next P1 task: audit `reload_nat_modules()` and `start_firewall_ex()`, distinguishing configured required modules from optional modules and tracing command/snapshot/restore results before API changes. The rule builder remains void; no claim is made that iptables rule application errors are propagated.
+Next P1 task: convert start_firewall_ex() to return actionable status for input validation, core table restore/rollback and snapshot cleanup. Preserve fail-closed forwarding when rollback is incomplete. Then aggregate core firewall status and UPnP refresh status in restart_firewall() without skipping either operation.
 
 ## Verification boundary
 
-- On `f0294dee`, Process `43935227981` and AI docs `43935227749` passed. Storage hotplug `43935227891` failed only at its stale count-7 checker assertion; commit `987b3bc` updates it to require the eighth firewall-result aggregation and return ordering.
-- On current parent `987b3bc75261b8fed86ffd78c3bd58eb0ba79c80`, Storage `43935659776`, Process `43935659401`, AI docs `43935659456` and NVRAM `43935659452` are in progress. Older XY-C1 `43934498984` applies to `cb0e8e5`, not this pending VPN source update.
-- No full local firmware build or physical-device validation is claimed. Physical-router L4 remains NOT VERIFIED.
-- `start_firewall_ex()` and `reload_nat_modules()` remain void result boundaries; internal rule/module failures remain open.
-- Frozen backup remains unchanged.
+- Exact-head 56da Firewall Startup 43937616937 passed the firewall policy and required-NAT gate tests and the new module-policy regression, then failed in the source checker on the stale SFE local-variable name. This commit corrects the contract and adds coverage for configured ALG/FTP status propagation.
+- Exact-head 56da XY-C1 43937617363 and NVRAM audit 43937617096 were in progress at last poll. New source SHA requires fresh exact-SHA Build/TRX/artifact verification.
+- No full local firmware build or physical-router validation is claimed. Physical-router L4 remains NOT VERIFIED; frozen backup unchanged.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head VPN caller commit Actions: Process, Firewall Startup, Storage hotplug, XY-C1 Build/TRX/artifact and AI docs. Diagnose failures from the first causal step; confirm the storage count-8 checker fix.
-2. Continue the P1 audit at `reload_nat_modules()` and `start_firewall_ex()`, tracing full callers and configured/optional module gates before changing the APIs.
-3. Keep main-only expected-SHA commits, leave the frozen backup read-only, and keep physical-router L4 NOT VERIFIED.
+1. Inspect exact-SHA Firewall Startup, XY-C1 Build/TRX/artifact, Process, Storage, and AI handoff runs for the validation repair.
+2. Continue the start_firewall_ex() status-return slice, including failure injection for validation, core restore, rollback, and snapshot cleanup; then merge the first error with UPnP refresh in restart_firewall().
+3. Use fresh main SHA, one complete Git tree/commit, and non-forced expected-SHA CAS. Keep the frozen backup read-only and router L4 NOT VERIFIED.
