@@ -31,6 +31,7 @@
 
 #include "rc.h"
 #include "route_status_policy.h"
+#include "wan6_teardown_policy.h"
 #include <dhcp6c_duid_file_policy.h>
 #include "dhcp6c_config_file.h"
 #include "dhcp6c_callback_generation_policy.h"
@@ -783,7 +784,8 @@ native_failed:
 int wan6_down(char *wan_ifname, int unit)
 {
 	int ipv6_type, stop_status, status, operation_status;
-	char *wan6_ifname;
+	int previous_if_exists, sit_if_exists, ipv6_sit;
+	char *previous_ifname, *wan6_ifname;
 
 	stop_status = stop_dhcp6c();
 	if (stop_status != 0) {
@@ -792,8 +794,24 @@ int wan6_down(char *wan_ifname, int unit)
 		return stop_status;
 	}
 	ipv6_type = get_ipv6_type();
-	if (ipv6_type == IPV6_DISABLED)
+	previous_ifname = get_wan_unit_value(unit, "ifname6");
+	previous_if_exists = previous_ifname && previous_ifname[0] &&
+		is_interface_exist(previous_ifname);
+	sit_if_exists = is_interface_exist(IFNAME_SIT);
+	ipv6_sit = ipv6_type == IPV6_6IN4 || ipv6_type == IPV6_6TO4 ||
+		ipv6_type == IPV6_6RD;
+	wan6_ifname = wan6_teardown_select_ifname(
+		previous_ifname, previous_if_exists,
+		ipv6_type == IPV6_DISABLED, ipv6_sit, sit_if_exists,
+		wan_ifname, IFNAME_SIT);
+	if (!wan6_ifname) {
+		/* A vanished PPP/device interface has already lost its kernel routes
+		 * and addresses. Do not turn an ordinary disabled-WAN stop into a
+		 * failure by issuing IPv6 flushes against a nonexistent interface. */
+		set_wan_unit_value(unit, "dns6", "");
+		set_wan_unit_value(unit, "ifname6", "");
 		return 0;
+	}
 
 	status = 0;
 
@@ -810,8 +828,22 @@ int wan6_down(char *wan_ifname, int unit)
 		logmessage("WAN IPv6", "failed to disable address autoconfiguration on %s (status=%d)",
 			   wan_ifname, operation_status);
 
-	if (ipv6_type == IPV6_6IN4 || ipv6_type == IPV6_6TO4 || ipv6_type == IPV6_6RD) {
-		wan6_ifname = IFNAME_SIT;
+	if (strcmp(wan6_ifname, wan_ifname) != 0 &&
+	    strcmp(wan6_ifname, IFNAME_SIT) != 0) {
+		operation_status = control_if_ipv6_radv(wan6_ifname, 0);
+		status = route_status_accumulate(status, operation_status);
+		if (operation_status != 0)
+			logmessage("WAN IPv6", "failed to disable router advertisements on previous interface %s (status=%d)",
+				   wan6_ifname, operation_status);
+
+		operation_status = control_if_ipv6_autoconf(wan6_ifname, 0);
+		status = route_status_accumulate(status, operation_status);
+		if (operation_status != 0)
+			logmessage("WAN IPv6", "failed to disable address autoconfiguration on previous interface %s (status=%d)",
+				   wan6_ifname, operation_status);
+	}
+
+	if (strcmp(wan6_ifname, IFNAME_SIT) == 0) {
 		if (is_interface_exist(IFNAME_SIT)) {
 			operation_status = doSystem("ip link set dev %s down", IFNAME_SIT);
 			status = route_status_accumulate(status, operation_status);
@@ -843,6 +875,7 @@ int wan6_down(char *wan_ifname, int unit)
 
 	if (status == 0) {
 		set_wan_unit_value(unit, "dns6", "");
+		set_wan_unit_value(unit, "ifname6", "");
 	} else {
 		logmessage("WAN IPv6", "retaining IPv6 DNS state after incomplete teardown (status=%d)",
 			   status);

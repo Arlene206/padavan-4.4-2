@@ -6,6 +6,9 @@ on:
       - ".github/workflows/wan-route-status.yml"
       - "trunk/user/rc/src/net.c"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/net_wan6.c"
+      - "trunk/user/rc/src/wan6_teardown_policy.h"
+      - "trunk/user/rc/src/tests/wan6_teardown_policy.c"
       - "trunk/user/rc/src/wan_viptv_static_policy.h"
       - "trunk/user/rc/src/tests/wan_viptv_static_policy.c"
       - "trunk/user/rc/src/wan_resolver_refresh_policy.h"
@@ -27,6 +30,9 @@ on:
       - ".github/workflows/wan-route-status.yml"
       - "trunk/user/rc/src/net.c"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/net_wan6.c"
+      - "trunk/user/rc/src/wan6_teardown_policy.h"
+      - "trunk/user/rc/src/tests/wan6_teardown_policy.c"
       - "trunk/user/rc/src/wan_viptv_static_policy.h"
       - "trunk/user/rc/src/tests/wan_viptv_static_policy.c"
       - "trunk/user/rc/src/wan_resolver_refresh_policy.h"
@@ -57,6 +63,14 @@ jobs:
             trunk/user/rc/src/tests/route_status_policy.c \
             -o /tmp/route-status-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/route-status-policy
+      - name: Compile and run WAN IPv6 teardown selection regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/wan6_teardown_policy.c \
+            -o /tmp/wan6-teardown-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/wan6-teardown-policy
       - name: Compile and run static IPTV multicast startup status regression
         run: |
           set -eu
@@ -89,6 +103,9 @@ jobs:
           net = (rc / "net.c").read_text()
           wan = (rc / "net_wan.c").read_text()
           ppp = (rc / "net_ppp.c").read_text()
+          wan6 = (rc / "net_wan6.c").read_text()
+          wan6_policy = (rc / "wan6_teardown_policy.h").read_text()
+          wan6_test = (rc / "tests/wan6_teardown_policy.c").read_text()
           header = (rc / "rc.h").read_text()
           policy = (rc / "route_status_policy.h").read_text()
           fib_trie = Path("trunk/linux-4.4.x/net/ipv4/fib_trie.c").read_text()
@@ -352,6 +369,9 @@ jobs:
               "trunk/linux-4.4.x/net/ipv4/fib_semantics.c",
               "trunk/linux-4.4.x/net/ipv4/fib_frontend.c",
               "trunk/user/rc/src/net_wan.c",
+              "trunk/user/rc/src/net_wan6.c",
+              "trunk/user/rc/src/wan6_teardown_policy.h",
+              "trunk/user/rc/src/tests/wan6_teardown_policy.c",
               "trunk/user/rc/src/net_ppp.c",
               "trunk/user/rc/src/rc.h",
               "trunk/user/rc/src/route_status_policy.h",
@@ -379,6 +399,33 @@ jobs:
           assert "return validation_status != 0 ? validation_status : EIO;" in resolver_policy
           for token in ("(1, 0) == 0", "(0, EPERM) == EPERM", "(0, EACCES) == EACCES", "(0, 0) == EIO"):
               assert token in resolver_test, token
+
+          wan6_down = body(wan6, "int wan6_down(char *wan_ifname, int unit)")
+          assert '#include "wan6_teardown_policy.h"' in wan6
+          assert 'previous_ifname = get_wan_unit_value(unit, "ifname6");' in wan6_down
+          assert "previous_if_exists = previous_ifname && previous_ifname[0] &&" in wan6_down
+          assert "wan6_teardown_select_ifname(" in wan6_down
+          assert "if (ipv6_type == IPV6_DISABLED)" not in wan6_down
+          select_at = wan6_down.index("wan6_teardown_select_ifname(")
+          flush_at = wan6_down.index("clear_if_route6(wan6_ifname)")
+          addr_at = wan6_down.index("clear_if_addr6(wan6_ifname)")
+          sit_stop_at = wan6_down.index("stop_sit_tunnel()")
+          assert select_at < flush_at < addr_at < sit_stop_at
+          assert "if (!wan6_ifname)" in wan6_down
+          assert 'set_wan_unit_value(unit, "dns6", "");' in wan6_down
+          assert 'set_wan_unit_value(unit, "ifname6", "");' in wan6_down
+          disabled_policy = body(wan6_policy, "wan6_teardown_select_ifname(")
+          assert "if (previous_ifname && previous_ifname[0] && previous_if_exists)" in disabled_policy
+          assert "if (ipv6_disabled)" in disabled_policy
+          assert "return sit_if_exists ? sit_ifname : (char *)0;" in disabled_policy
+          for case in (
+              "test_disabled_mode_cleans_last_live_native_interface",
+              "test_disabled_mode_cleans_last_live_sit_interface",
+              "test_disabled_mode_falls_back_to_orphaned_sit_device",
+              "test_disabled_mode_skips_absent_runtime_interface",
+              "test_reconfiguration_prefers_previous_live_interface",
+          ):
+              assert case in wan6_test, case
 
           print("WAN route result propagation and cleanup ordering contracts: PASS")
           PY

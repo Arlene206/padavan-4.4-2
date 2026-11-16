@@ -1,3 +1,15 @@
+## 2026-11-16 — Tear down the last live IPv6 interface after configuration changes
+
+- Parent main: `fbd9a1554d30f394e9e0090b9148bdb574cc9f6a`. `full_restart_wan()` calls `stop_wan()` before `reset_wan_vars()`, and the latter invokes `reset_wan6_vars()`; therefore previous runtime `ifname6` is still available during stop even if NVRAM already describes the next IPv6 mode.
+- Defect: `wan6_down()` returned success immediately when the *new* `get_ipv6_type()` was `IPV6_DISABLED`. This skipped RA/autoconfiguration shutdown, IPv6 route/address cleanup and SIT teardown when disabling IPv6; switching modes could also select the new interface instead of the old live one.
+- Added `wan6_teardown_policy.h` to prefer the saved runtime interface while it exists. Disabled mode cleans a surviving SIT device or safely skips a vanished interface whose kernel link teardown already purged its routes/addresses. `dns6` and `ifname6` are cleared only after successful cleanup, retaining retry state on failure.
+- Added GNU89/Werror/ASan/UBSan policy coverage for disabled native/SIT, vanished PPP interface, orphaned SIT, and active-mode reconfiguration. Extended WAN route workflow path filters, compile step and semantic source checks.
+- Parent exact-head WAN route `43870829310`, WAN DHCP `43870829604`, WAN teardown `43870829555`, Process lifecycle `43870829665`, NVRAM `43870829549`, HTTPD `43870829629`, miniupnpd `43870829330`, DNSMasq `43870829617`, AliDDNS `43870829627`, VPN `43870829584`, AdGuardHome `43870829532`, AliyunDrive `43870829550`, infosvr `43870829594`, detect_internet `43870829447`, detect_link `43870829377`, USB identity `43870829507`, and WAN ARP `43870829586`: PASS.
+- AI docs `43870829566` failed because the preceding source commit truncated the whole roadmap dashboard; the complete previous dashboard is restored here. XY-C1 `43870829606` was still building; no L3/L4 claim.
+- Next: validate exact-head WAN route, teardown, AI docs and XY-C1 Actions; continue only on a concrete failure.
+
+---
+
 ## 2026-11-16 — Validate static IPoE IPv4 configuration before ifconfig
 
 - Parent main: `c3b02529703add66cbd811b8dfa729edef50ad74`. The shared `ifconfig()` helper converts invalid address/netmask text to `INADDR_ANY` and can still return success, so a malformed static WAN config could be published as a successful WAN start.

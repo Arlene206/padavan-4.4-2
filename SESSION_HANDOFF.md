@@ -10,28 +10,37 @@ For each logical task, create all changed files in one Git tree and one atomic m
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2; active development ref is main.
-- Main at start of this slice: `c3b02529703add66cbd811b8dfa729edef50ad74`. Re-fetch live main before writes and update with a non-forced expected-SHA.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; read-only. Startup/handoff recovery is complete and must not be repeated.
-- Root dev_log.md has 33 records after this entry; part-012.md holds the oldest 100 records.
-- WAN reliability fixes cover required physical IFUP, IPv6, MAN routes, PPP/IPoE/USB modem startup, IPTV and PPPoE passthrough; static WAN/LAN overlap is EADDRINUSE.
-- Current source fix rejects malformed static IPv4 address/netmask before ifconfig(), which otherwise maps invalid strings to INADDR_ANY and may return success.
+- Repository: `Arlene206/padavan-4.4-2`; active development ref: `main`.
+- Parent main for this IPv6 teardown slice: `fbd9a1554d30f394e9e0090b9148bdb574cc9f6a`; all writes use a freshly fetched tree and a non-forced expected-SHA compare-and-swap.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only. Startup recovery is complete and must not be repeated.
+- Root dev log has 34 records including this slice; part-012 retains the oldest 100 records.
+- WAN reliability fixes cover required physical IFUP, IPv6 controls, MAN routes, PPP/IPoE/USB RAS transitions, IPTV and PPPoE passthrough. Static IPoE rejects malformed address/netmask with EINVAL; WAN/LAN overlap remains EADDRINUSE.
+- PPP ip-up fails closed unless both negotiated IPCP IPv4 endpoints are present before interface/NVRAM publication.
+
+## Engineering baseline
+
+- Stop order invalidates PPP/DHCPv6 callback generations before service/device teardown; preserve lock and generation fencing.
+- `reset_wan_vars()` invokes `reset_wan6_vars()` only after `stop_wan()` completes, so `ifname6` still identifies the last live interface during teardown.
+- L3 firmware and L4 physical-router claims require exact evidence on the same source SHA; no L4 result is currently established.
 
 ## Active task
 
-Validate static IPoE address/netmask using `dhcp_lease_ipv4_is_valid()` and `dhcp_lease_netmask_is_valid()` before interface configuration; invalid config aggregates EINVAL, subnet conflict aggregates EADDRINUSE. Add C policy and source-contract regressions. Also ensure PPP IP-up tests use the five-argument helper signature.
+`wan6_down()` previously returned immediately when the current IPv6 configuration was disabled. During a full WAN restart, `stop_wan()` runs before `reset_wan_vars()` clears the previous runtime `ifname6`; NVRAM may already describe the next mode. The early return skipped RA/autoconfiguration disable, route/address cleanup and SIT teardown. Teardown now selects the still-live previous runtime interface first, falls back to a surviving SIT device when disabled, and clears `ifname6` only after successful cleanup. GNU89 policy tests and source contracts cover disabled/native/SIT/reconfiguration cases.
 
 ## Verification boundary
 
-- Parent SHA: `c3b02529703add66cbd811b8dfa729edef50ad74`.
-- WAN DHCP callback parent run `43870165716` FAILED compiling `ppp_wan_ipup_policy.c` because two test calls omitted the optional `remote_ip` argument after the helper signature extension. The current test content has been normalized so all calls use five arguments.
-- Static IPoE malformed-input false-success was confirmed from shared `ifconfig()` parsing behavior; this commit adds validation before it can map bad text to `INADDR_ANY`.
-- This change requires fresh exact-SHA Process, WAN DHCP and XY-C1 checks. No same-SHA L3 or physical-router L4 claim.
-
+Exact-head validation for parent `fbd9a1554d30f394e9e0090b9148bdb574cc9f6a`:
+- WAN route `43870829310`: PASS.
+- WAN DHCP callback `43870829604`: PASS.
+- WAN interface teardown `43870829555`: PASS.
+- Process lifecycle `43870829665`, NVRAM `43870829549`, HTTPD `43870829629`, miniupnpd `43870829330`, DNSMasq `43870829617`, AliDDNS `43870829627`, VPN `43870829584`, AdGuardHome `43870829532`, AliyunDrive `43870829550`, infosvr `43870829594`, detect_internet `43870829447`, detect_link `43870829377`, USB modem identity `43870829507`, WAN ARP `43870829586`: PASS.
+- AI handoff docs `43870829566`: FAIL because the previous commit removed the required `## Whole-repository module status` dashboard heading; this slice restores the complete prior dashboard and heading.
+- XY-C1 firmware `43870829606`: IN_PROGRESS at last query, Build XY-C1 active and TRX/artifact pending. No exact-SHA L3 claim.
+- Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head Process/WAN source checker, WAN DHCP callback and XY-C1 Actions for the static IPv4 validation and PPP IP-up test arity repair.
-2. Claim firmware L3 only after Build, TRX verification and artifact upload all pass on one exact source SHA.
-3. Continue only on concrete additional false-success/stability defects. Do not repeat completed audits.
-4. Keep the frozen backup read-only; physical-router L4 remains unverified.
+1. Inspect exact-head WAN route, WAN teardown and XY-C1 runs for this IPv6 teardown commit; repair the first causal failure only.
+2. Confirm the AI handoff docs workflow passes after restoring the complete module-status dashboard.
+3. Continue bounded PPP IPv6/DHCPv6 review only for concrete stale-state or error-propagation defects; preserve generation fencing.
+4. Claim L3 only after Build, TRX verification and artifact upload pass on one identical SHA. Physical-router L4 remains unverified.
