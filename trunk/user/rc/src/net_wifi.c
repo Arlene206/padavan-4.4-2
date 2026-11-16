@@ -352,68 +352,102 @@ static int
 start_inic_mii(void)
 {
 	const char *ifname_inic = IFNAME_INIC_MAIN;
+	int operation_status, all_started = 1;
 
 	if (nvram_get_int("inic_disable") != 1) {
 		/* release iNIC reset pin */
 		cpu_gpio_set_pin(1, 1);
-		
+
 		usleep(50000);
-		
-		/* enable iNIC RGMII port */
-		phy_disable_inic(0);
-		
+
+		/* Enable the RGMII port before bringing rai0 up. */
+		operation_status = phy_disable_inic(0);
+		if (operation_status != 0) {
+			logmessage(LOGNAME, "failed to enable iNIC RGMII port (status=%d)",
+				   operation_status);
+			goto fail_start;
+		}
+
 		/* start iNIC boot */
 		if (!wif_control_success(ifname_inic, 1)) {
-			/*
-			 * A failed interface-up must not publish iNIC as usable.
-			 * Remove stale bridge membership and leave the switch port
-			 * isolated, disabled, and the module held in reset.
-			 */
-			br_add_del_if(IFNAME_BR, ifname_inic, 0);
-			if (phy_isolate_inic(1) != 0)
-				logmessage(LOGNAME, "failed to isolate iNIC after %s startup failure", ifname_inic);
-			if (phy_disable_inic(1) != 0)
-				logmessage(LOGNAME, "failed to disable iNIC RGMII after %s startup failure", ifname_inic);
-			cpu_gpio_set_pin(1, 0);
+			operation_status = -EIO;
 			logmessage(LOGNAME, "iNIC startup aborted: failed to bring %s up", ifname_inic);
-			return -EIO;
+			goto fail_start;
 		}
-		
+
 		/* update some iNIC params */
 		update_inic_mii();
-		
+
 		if (get_mlme_radio_rt()) {
 			/* clear isolation iNIC port from all LAN ports */
-			phy_isolate_inic(0);
+			operation_status = phy_isolate_inic(0);
+			if (operation_status != 0) {
+				logmessage(LOGNAME, "failed to remove iNIC port isolation (status=%d)",
+					   operation_status);
+				goto fail_start;
+			}
 		} else {
 			/* disable mlme radio */
-			doSystem("iwpriv %s set %s=%d", ifname_inic, "RadioOn", 0);
+			operation_status = doSystem("iwpriv %s set %s=%d",
+						    ifname_inic, "RadioOn", 0);
+			if (!wireless_radio_status_success(operation_status)) {
+				logmessage(LOGNAME, "failed to disable iNIC MLME radio (status=%d)",
+					   operation_status);
+				operation_status = -EIO;
+				goto fail_start;
+			}
 		}
-		
-		/* add rai0 to bridge (needed for RADIUS) */
-		br_add_del_if(IFNAME_BR, ifname_inic, is_need_8021x(nvram_wlan_get(0, "auth_mode")));
-	} else {
-		/* force disable iNIC (e.g. broken module) */
-		
-		/* down iNIC interface; always continue the fail-safe sequence */
-		(void)wif_control_success(ifname_inic, 0);
-		br_add_del_if(IFNAME_BR, ifname_inic, 0);
-		
-		// set isolate iNIC port from all LAN ports
+
+		/* Add rai0 to bridge when 802.1X requires it. */
+		wireless_bridge_membership_record(
+			&all_started, ifname_inic,
+			is_need_8021x(nvram_wlan_get(0, "auth_mode")));
+		if (!all_started) {
+			operation_status = -EIO;
+			goto fail_start;
+		}
+		return 0;
+
+fail_start:
+		/*
+		 * A failed hardware, radio or bridge transition must not leave a
+		 * partially initialized iNIC active. Continue every safe cleanup
+		 * operation even when interface shutdown or bridge detach fails.
+		 */
+		if (!wif_control_success(ifname_inic, 0))
+			logmessage(LOGNAME, "best-effort iNIC interface shutdown failed");
+		wireless_bridge_membership_record(&all_started, ifname_inic, 0);
 		if (phy_isolate_inic(1) != 0)
-			logmessage(LOGNAME, "failed to isolate disabled iNIC port");
-		
-		/* disable iNIC RGMII port */
+			logmessage(LOGNAME, "failed to isolate iNIC after startup failure");
 		if (phy_disable_inic(1) != 0)
-			logmessage(LOGNAME, "failed to disable iNIC RGMII port");
-		
-		/* raise iNIC reset pin */
+			logmessage(LOGNAME, "failed to disable iNIC RGMII after startup failure");
 		cpu_gpio_set_pin(1, 0);
-		
-		logmessage(LOGNAME, "iNIC module disabled! (NVRAM %s=1)", "inic_disable");
+		return -EIO;
 	}
 
-	return 0;
+	/* Force-disable path: always complete every fail-safe action. */
+	(void)wif_control_success(ifname_inic, 0);
+	wireless_bridge_membership_record(&all_started, ifname_inic, 0);
+
+	operation_status = phy_isolate_inic(1);
+	if (operation_status != 0)
+		logmessage(LOGNAME, "failed to isolate disabled iNIC port (status=%d)",
+			   operation_status);
+	all_started = wireless_radio_startup_status(
+		all_started, wireless_radio_status_success(operation_status));
+
+	operation_status = phy_disable_inic(1);
+	if (operation_status != 0)
+		logmessage(LOGNAME, "failed to disable iNIC RGMII port (status=%d)",
+			   operation_status);
+	all_started = wireless_radio_startup_status(
+		all_started, wireless_radio_status_success(operation_status));
+
+	/* Raise iNIC reset pin regardless of preceding cleanup failures. */
+	cpu_gpio_set_pin(1, 0);
+	logmessage(LOGNAME, "iNIC module disabled! (NVRAM %s=1)", "inic_disable");
+
+	return wireless_radio_startup_result(all_started);
 }
 
 void

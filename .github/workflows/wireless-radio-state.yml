@@ -193,36 +193,59 @@ jobs:
               )
               assert "return wireless_radio_startup_result(all_started);" in body
 
-          # RT3352 iNIC startup must not continue publishing bridge/radio
-          # state when rai0 fails to transition up. Recovery must isolate,
-          # disable the RGMII path, and assert reset in that order.
+          # RT3352 iNIC startup must verify every state-changing dependency:
+          # RGMII enable, rai0 up, isolation/MLME configuration and RADIUS bridge.
           inic = function_body(source, "start_inic_mii(void)")
-          startup_gate = "if (!wif_control_success(ifname_inic, 1))"
-          assert startup_gate in inic, "start_inic_mii: missing checked rai0 interface-up gate"
-          gate_pos = inic.index(startup_gate)
-          failure_return = inic.index("return -EIO;", gate_pos)
-          failure_path = inic[gate_pos:failure_return]
-          recovery_steps = (
-              "br_add_del_if(IFNAME_BR, ifname_inic, 0)",
+          assert "operation_status = phy_disable_inic(0);" in inic
+          assert "if (operation_status != 0)" in inic
+          assert "if (!wif_control_success(ifname_inic, 1))" in inic
+          assert "operation_status = phy_isolate_inic(0);" in inic
+          assert 'operation_status = doSystem("iwpriv %s set %s=%d",' in inic
+          assert "wireless_radio_status_success(operation_status)" in inic
+          assert "wireless_bridge_membership_record(" in inic
+          assert "if (!all_started)" in inic
+          assert "return -EIO;" in inic
+          enabled_start = inic.index("operation_status = phy_disable_inic(0);")
+          fail_start = inic.index("fail_start:")
+          assert enabled_start < fail_start
+          assert inic.index("if (operation_status != 0)", enabled_start) < fail_start
+          for effect in (
+              "update_inic_mii();",
+              "operation_status = phy_isolate_inic(0);",
+              'operation_status = doSystem("iwpriv %s set %s=%d",',
+              "wireless_bridge_membership_record(\n\t\t\t&all_started, ifname_inic,",
+          ):
+              assert fail_start > inic.index(effect), (
+                  f"start_inic_mii: setup effect {effect} must be after RGMII enable"
+              )
+          failure_path = inic[fail_start:]
+          cleanup_steps = (
+              "if (!wif_control_success(ifname_inic, 0))",
+              "wireless_bridge_membership_record(&all_started, ifname_inic, 0);",
               "phy_isolate_inic(1)",
               "phy_disable_inic(1)",
               "cpu_gpio_set_pin(1, 0)",
           )
-          recovery_positions = [failure_path.index(step) for step in recovery_steps]
-          assert recovery_positions == sorted(recovery_positions), (
-              "start_inic_mii: failed rai0 startup must remove bridge membership, "
-              "isolate, disable RGMII, and assert reset"
+          cleanup_positions = [failure_path.index(step) for step in cleanup_steps]
+          assert cleanup_positions == sorted(cleanup_positions), (
+              "start_inic_mii: startup failure must continue all iNIC cleanup steps"
           )
-          for effect in (
-              "update_inic_mii();",
-              'doSystem("iwpriv %s set %s=%d", ifname_inic, "RadioOn", 0)',
-              "br_add_del_if(IFNAME_BR, ifname_inic, is_need_8021x(",
-          ):
-              assert failure_return < inic.index(effect, gate_pos), (
-                  f"start_inic_mii: failed rai0 startup may still reach {effect}"
-              )
+          assert "return 0;" in inic, "start_inic_mii: enabled success path must return success"
+          assert "return wireless_radio_startup_result(all_started);" in inic
+          disable_pos = inic.index("/* Force-disable path:")
+          disable_path = inic[disable_pos:]
+          disabled_steps = (
+              "wireless_bridge_membership_record(&all_started, ifname_inic, 0);",
+              "operation_status = phy_isolate_inic(1);",
+              "operation_status = phy_disable_inic(1);",
+              "cpu_gpio_set_pin(1, 0)",
+          )
+          disabled_positions = [disable_path.index(step) for step in disabled_steps]
+          assert disabled_positions == sorted(disabled_positions), (
+              "start_inic_mii: forced disable must complete bridge/isolation/RGMII/reset"
+          )
+          assert "return;" not in disable_path
 
-          assert "return 0;" in inic, "start_inic_mii: successful/disabled path must return success"
           ap_rt = function_body(source, "start_wifi_ap_rt(int radio_on)")
           assert "if (start_inic_mii() < 0)" in ap_rt, (
               "start_wifi_ap_rt must propagate an iNIC interface-up failure"
