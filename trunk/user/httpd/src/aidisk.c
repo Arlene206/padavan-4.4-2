@@ -701,7 +701,7 @@ ej_set_AiDisk_status(int eid, webs_t wp, int argc, char **argv)
 		return -1;
 	}
 
-SET_AIDISK_STATUS_SUCCESS:
+
 	websWrite(wp, "<script>\n");
 	websWrite(wp, "parent.resultOfSwitchAppStatus();\n");
 	websWrite(wp, "</script>\n");

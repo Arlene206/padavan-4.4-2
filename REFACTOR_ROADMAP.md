@@ -1,10 +1,10 @@
 ## Current source / CI checkpoint
 
-- Main parent for the Inadyn manual-refresh signal migration: `eee736ad62722846db11e035613a26a8433ffc12`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact eee Process lifecycle #43778610041 and AI docs #43778609888 PASS. These runs include the SmartDNS checker correction; c679's earlier Process failure #43778456682 was the stale checker assertion and is superseded by eee exact-head PASS.
-- AiDisk Samba/FTP fix 891b exact Process #43777935786 and AI docs #43777935812 PASS; HTTPD security #43777935793 and module Actions also pass. XY-C1 #43777935841 / #43778456640 remained in Build XY-C1 at last poll; TRX/artifact pending.
-- 8f550 inventory #43776729995 PASS: 9,501 tracked entries, 6,255 scanned text files, no missing candidates / read errors; report artifact #14186597970. It identified 27 real `pids()` callsites and no tracked-user-tree callers of `is_dns_dhcpd_run()`.
-- THIS COMMIT replaces HTTPD's legacy `pids("inadyn")` + name-wide `killall -SIGUSR1` path with RC notification and identity-validated SIGUSR1 to captured Inadyn PIDs. Exact-head Inadyn, Process, AI-doc and XY-C1 validation pending.
+- Main parent for the AiDisk orphaned-label cleanup: `f71ee12cbca49972cc927457338d395e64818381`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact f71 Inadyn lifecycle #43779424646 PASS, including GNU89/ASan/UBSan compile, SIGUSR1 policy tests and production integration contract. Process regression #43779424653, inventory #43779424644 and AI docs #43779424703 queued; XY-C1 #43779424777 had not reached Build at last poll.
+- AiDisk Samba/FTP code contract passed exact 891b Process #43777935786 and AI docs #43777935812. This commit removes the orphaned success label left after the two prechecks/gotos were deleted; exact-head Process and XY-C1 Build/TRX/artifact required.
+- SmartDNS exact-source Process/AI-doc validation passed on eee (#43778610041 / #43778609888) after its c679 checker-only failure was repaired.
+- 8f550 inventory #43776729995 PASS: 9,501 entries, 6,255 scanned text files, no missing candidates/read errors; artifact #14186597970. It found 27 actual legacy `pids()` callsites and no in-tree `is_dns_dhcpd_run()` callers.
 
 
 ### P1 — Storage daemon startup and config publication

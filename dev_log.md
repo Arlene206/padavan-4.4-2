@@ -1,3 +1,12 @@
+## 2026-11-15 — Remove orphaned AiDisk CGI success label
+
+- The AiDisk Samba/FTP disable fix removed both `goto SET_AIDISK_STATUS_SUCCESS` guards, but retained the now-unreferenced C label. A label with no goto can trigger `-Wunused-label` under `-Wall` in the target firmware build.
+- Removed the unused label and changed the Process integration checker to delimit `ej_set_AiDisk_status()` at the following `ej_get_all_accounts()` definition; the source contract also asserts the orphan label is absent while retaining the no-`pids()` and stop-handler assertions.
+- Parent main: `f71ee12cbca49972cc927457338d395e64818381`. Exact f71 Inadyn policy/integration #43779424646 PASS; Process #43779424653, inventory #43779424644, AI docs #43779424703 and XY-C1 #43779424777 had queued/in-progress states at last poll. Frozen backup unchanged.
+- THIS COMMIT exact-head Process, inventory, AI docs and XY-C1 Build/TRX/artifact validation pending.
+
+---
+
 ## 2026-11-15 — Route manual DDNS refresh through identity-bound signaling
 
 - HTTPD `ddnsclient` used `pids("inadyn")` as a lossy presence gate followed by `killall -SIGUSR1 inadyn`. Procfs inventory errors were silently treated as absent, and name-wide signaling was not bound to identities captured by the scanner.

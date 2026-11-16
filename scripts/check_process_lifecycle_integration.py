@@ -1188,10 +1188,11 @@ print("RC boot-service status aggregation and disabled-feature sentinel handling
 # a failed legacy Boolean presence query as confirmed ABSENT.
 aidisk_source = (root / "trunk/user/httpd/src/aidisk.c").read_text()
 aidisk_handler_start = aidisk_source.index("int\nej_set_AiDisk_status")
-aidisk_handler_end = aidisk_source.index("SET_AIDISK_STATUS_SUCCESS:", aidisk_handler_start)
+aidisk_handler_end = aidisk_source.index("\nint\nej_get_all_accounts", aidisk_handler_start)
 aidisk_handler = aidisk_source[aidisk_handler_start:aidisk_handler_end]
 aidisk_handler_code = re.sub(r"/\*.*?\*/|//[^\n]*", "", aidisk_handler, flags=re.S)
 assert not re.search(r"\bpids\s*\(", aidisk_handler_code)
 assert 'result = system("/sbin/stop_samba");' in aidisk_handler
 assert 'result = system("/sbin/stop_ftp");' in aidisk_handler
+assert "SET_AIDISK_STATUS_SUCCESS:" not in aidisk_handler
 print("AiDisk Samba/FTP disable uses tri-state RC stop handlers without legacy Boolean prechecks: PASS")
