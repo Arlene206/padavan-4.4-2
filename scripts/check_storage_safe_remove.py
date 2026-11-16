@@ -299,7 +299,7 @@ require("status = rc_first_service_start_status(status, ENOENT);" in daemon_resu
         "daemon readiness helper must return absent and unknown process failures")
 
 storage_start = body(storage, "start_stor_apps(void)")
-require(storage_start.count("rc_first_service_start_status(") == 7 and
+require(storage_start.count("rc_first_service_start_status(") == 8 and
         all(call in storage_start for call in (
             "service_status = run_ftp();",
             "service_status = run_samba();",
@@ -308,8 +308,12 @@ require(storage_start.count("rc_first_service_start_status(") == 7 and
             "service_status = run_itunes();",
             "service_status = run_torrent();",
             "service_status = run_aria();",
-        )),
-        "all seven storage service return statuses must be aggregated")
+            "firewall_status = restart_firewall();",
+            "start_status = rc_first_service_start_status(start_status, firewall_status);",
+        )) and
+        storage_start.index("firewall_status = restart_firewall();") <
+        storage_start.index("return start_status;"),
+        "all seven storage service statuses and firewall refresh result must be aggregated")
 
 require("PROCESS_PRESENCE_UNKNOWN" in ftp_policy and
         "return -1;" in ftp_policy and "EIO" in ftp_policy,

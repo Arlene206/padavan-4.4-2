@@ -10,24 +10,27 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Current repository state
 
-- Parent main: 03ad069f57518208d4546ce844b9e5e09b00a365; preceding commit 03ad069 made restart_firewall() return update_upnp() status and covered notification/CLI/SSH/HTTPD callers. THIS COMMIT completes remaining storage, IPv6, VPN and UPnP-restart callback consumers.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; immutable and read-only.
-- Parent exact-head firewall-startup 43932064517, AI docs 43932065074, USB modem 43932065139, WAN route 43932065079, WAN DHCP 43932065052, VPN server 43932064898 and multiple suites passed. Process aggregate 43932065043, XY-C1 43932065369, USB storage 43932065453, SkipDBv2 43932064473 and NVRAM audit 43932064356 were pending at last poll.
-- Historical PR #1 remains closed/unmerged and superseded by mainline commit 74b66ff960457379518d13c723c44a3515e6a228; do not resume.
+- Parent main: `f0294dee852b0d9bcdd68693436f3fe83633b612`. It includes generic firewall/UPnP result propagation through storage, IPv6, VPN server and the corresponding policy/source checks.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable and read-only.
+- Parent exact-head Process `43935227981` PASS and AI docs `43935227749` PASS. Storage hotplug `43935227891` FAIL at `scripts/check_storage_safe_remove.py:302`: its count of `rc_first_service_start_status()` in `start_stor_apps()` still expected 7 after firewall status propagation added an eighth aggregation. The storage workflow's earlier full caller-graph contract passed. NVRAM audit `43935227925` was IN_PROGRESS at last poll.
+- Parent `cb0e8e5` Firewall Startup `43934499510` and VPN server `43934499223` PASS; XY-C1 `43934498984` was IN_PROGRESS on that production-source SHA. Parent `f6d4192` AI docs `43935073720` PASS; its Process run was later repaired and passed at `43935227981`.
+- PR #1 remains historical closed/unmerged work; do not resume it.
 
 ## Active task
 
-The generic restart_firewall() result is already returned by the preceding commit, and PID 1, CLI, SSH and HTTPD now preserve it. THIS COMMIT closes the remaining dropped-return paths: FTP/Transmission/Aria/storage, IPv6 disable, VPN server restart and restart_upnp() callback policy. Existing service/teardown status retains first-error precedence. The firewall rebuild helper itself remains void, so the reported result specifically covers the UPnP mapping refresh.
+The storage implementation now propagates firewall/UPnP refresh failure from `start_stor_apps()`, but the second independent source-contract checker `scripts/check_storage_safe_remove.py` still expected seven first-error merges and did not account for the new firewall aggregation. This commit updates that checker to expect the eighth status merge and assert it occurs before the function returns. The storage workflow already had a matching eighth-merge assertion and its caller-graph validation step passed.
+
+After this checker repair, continue the direct-call audit at `restart_vpn_client_locked()`: propagate the newly int-returning `restart_firewall()` status and preserve the first VPN failure's errno. Then resume the P1 `reload_nat_modules()` / `start_firewall_ex()` result audit.
 
 ## Verification boundary
 
-- Added the upnp_restart_policy.c failure-injection case verifying that a successful UPnP stop followed by firewall/UPnP refresh failure returns that error; stop errors still prevent firewall restart.
-- Extended scripts/check_modem_wan_start_status.py to assert status propagation through storage, IPv6, VPN and UPnP restart callbacks; firewall workflow compiles the policy with GNU89/-Werror/ASan/UBSan and runs the checker.
-- No local full-tree checkout/build is available. THIS COMMIT exact-head firewall, Process, XY-C1 and AI docs results must be inspected. L3 only after same-SHA XY-C1 Build/TRX/artifact all pass. Physical-router L4 remains NOT VERIFIED.
+- Parent Process `43935227981` and AI docs `43935227749` PASS. Storage hotplug `43935227891` failed only at the stale count-7 assertion in `scripts/check_storage_safe_remove.py:302`; the preceding storage caller-graph checker passed. This commit fixes the expected count and verifies the firewall aggregation/return ordering.
+- NVRAM audit `43935227925` was IN_PROGRESS at last poll. XY-C1 `43934498984` is a prior production-source run on `cb0e8e5`; a later VPN source fix will require a new exact-SHA Build/TRX/artifact run.
+- No full local firmware build or physical-device validation is claimed. Physical-router L4 remains NOT VERIFIED.
+- Frozen backup remains unchanged.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head firewall-startup, Process, XY-C1 and AI docs runs for THIS COMMIT; diagnose failures from the first causal job step.
-2. Confirm the new UPnP policy test, complete source-contract checker and same-SHA XY-C1 Build/TRX/artifact results.
-3. Continue P1 investigation of reload_nat_modules() and start_firewall_ex(): trace module-load/unload postconditions and each configured vs optional feature before defining a failure policy.
-4. Keep the frozen backup read-only and physical-router L4 marked NOT VERIFIED.
+1. Inspect exact-head Storage hotplug and NVRAM Actions for THIS COMMIT; confirm `check_storage_safe_remove.py` now accepts all eight first-error merges without suppressing any earlier service failure.
+2. Fix the remaining VPN client `restart_firewall()` result/errno propagation and extend the WAN semantic checker plus Firewall Startup workflow triggers.
+3. Continue the P1 audit at `reload_nat_modules()` and `start_firewall_ex()`; keep backup read-only and physical-router L4 NOT VERIFIED.

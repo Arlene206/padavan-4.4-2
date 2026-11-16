@@ -1,9 +1,9 @@
 ## Current source / CI checkpoint
 
-- Parent main: 03ad069f57518208d4546ce844b9e5e09b00a365. Generic firewall restart status propagation was added in 03ad069; THIS COMMIT completes the remaining FTP/Transmission/Aria/storage, IPv6, VPN and UPnP restart callback callers.
-- Parent exact-head firewall-startup 43932064517, AI docs 43932065074, USB modem 43932065139, WAN route 43932065079, WAN DHCP 43932065052, VPN server 43932064898 and multiple service suites passed. Process aggregate 43932065043, XY-C1 43932065369, USB storage 43932065453, SkipDBv2 43932064473 and NVRAM audit 43932064356 were pending.
-- The updated firewall workflow adds a GNU89/-Werror/ASan/UBSan callback policy regression and runs the canonical source checker. Current-source L3 pending exact-head XY-C1 Build/TRX/artifact; physical-router L4 remains NOT VERIFIED.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains immutable and read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Parent main: `f0294dee852b0d9bcdd68693436f3fe83633b612`. Firewall/UPnP result propagation now includes FTP, Transmission, Aria, storage stop/start, IPv6 disable and VPN server restart. This validation-only slice repairs the independent storage checker that still counted only the seven service startup results after the firewall result merge was added.
+- Exact-head Process `43935227981` and AI docs `43935227749` PASS. Storage hotplug `43935227891` failed at `scripts/check_storage_safe_remove.py:302` on the stale count-7 assertion; its preceding source caller-graph step passed. NVRAM audit `43935227925` was IN_PROGRESS at last poll.
+- This commit updates the checker to require eight aggregation calls and explicitly assert the firewall refresh result is merged before return. Next production task is the remaining VPN client result propagation; then audit `reload_nat_modules()` and `start_firewall_ex()`.
+- Current-source L3 remains contingent on same-SHA Build XY-C1/TRX/artifact. Physical-router L4 remains NOT VERIFIED; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Whole-repository module status
 

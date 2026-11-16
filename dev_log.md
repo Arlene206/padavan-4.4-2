@@ -1,3 +1,12 @@
+## 2026-11-17 — Repair storage firewall-status source contract
+
+- Parent main: `f0294dee852b0d9bcdd68693436f3fe83633b612`; exact-head Process `43935227981` and AI docs `43935227749` PASS. Storage hotplug `43935227891` failed at `scripts/check_storage_safe_remove.py:302` because its seven-result count had not been updated after storage startup began aggregating the firewall refresh result. Its prior full storage caller-graph check passed.
+- Updated the second storage source checker to expect eight first-error aggregation calls and verify the firewall result merge precedes `return start_status;`. The production source and regression behavior are unchanged in this validation-only repair.
+- NVRAM audit `43935227925` was IN_PROGRESS; XY-C1 `43934498984` remained the prior production-source run on `cb0e8e5`.
+- Next: close the remaining VPN client firewall status/errno caller, then audit `reload_nat_modules()` and `start_firewall_ex()`. Physical-router L4 remains NOT VERIFIED; frozen backup unchanged.
+
+---
+
 ## 2026-11-17 — Repair exact-head Process and storage caller-graph contracts
 
 - Parent main: f6d4192686dc3432e8615731eb1d0cbbe2942ada. Exact-head cb0e8e58eae7a841eee435d9d08ad84e8bd0e09c exposed two stale integration assertions, not production failures: Process expected a removed UPnP stop-test name at line 1580; storage still expected seven startup status merges after the new firewall refresh merge added an eighth.
