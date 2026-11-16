@@ -1,3 +1,11 @@
+## 2026-11-16 — Normalize whitespace in PPPoE sysctl status assertion
+
+- Parent main: 1554a5f3fbb1bf13c3325ad765b7e806d74d1537. Exact-head Process run 43969335166 reached the new sysctl integration contract, then failed because the multiline rc_first_service_start_status() call left whitespace immediately after its opening parenthesis. The checker expected a no-space argument sequence.
+- Updated the assertion to remove all whitespace from the function body before matching the exact helper call, without weakening the production definition/prototype/dispatcher contract.
+- The d287 exact-head XY-C1 run 43967039935 passed Build, TRX verification and artifact upload; it predates the new sysctl source. Current-main Process/XY-C1 validation is pending.
+- Physical-router L4 remains NOT VERIFIED.
+
+---
 ## 2026-11-16 — Propagate unknown NAT module state through HW NAT, FTP and SFE
 
 - Parent main: `d83760b4c8e5514fd996f986b1400b7b794876f4`. Confirmed a remaining module-state defect in `net.c`: HW NAT, FTP and SFE branches used the legacy Boolean probe before invoking strict load/unload helpers. A negative `/sys/module` probe could be treated as absence and silently skip a required teardown or configuration check.
@@ -9,7 +17,7 @@
 
 ## 2026-11-16 — Correct whitespace contract in sysctl status checker
 
-- Parent main: 1e10514145025ceb0ce9e0a0cd5468e28e6b7fa0. Review of the new Process integration assertion found its raw-string regex had doubled backslashes, so it looked for literal slash-s tokens rather than whitespace. Replaced that unnecessary regex with a whitespace-compacted exact signature assertion; the C function-body and actual caller contracts remain in place.
+- Parent main: 1e10514145025ceb0ce9e0a0cd5468e28e6b7fa0. The first follow-up tried to make the function-signature assertion independent of line formatting, but exact Process CI later showed the remaining failure was a separate multiline rc_first_service_start_status() call assertion: whitespace remained after the opening parenthesis. This is corrected by the next entry.
 - XY-C1 exact-head run 43967039935 on d28729a completed successfully: Build XY-C1, TRX verification and artifact upload all PASS. The later 1e105 sysctl source change still requires its own exact-head Build/TRX/artifact run.
 - The Process lifecycle regression on 1e105 was queued when last checked; this checker correction is included before its first execution. Exact-head Process/XY-C1 results for this repair remain pending.
 - Physical-router L4 remains NOT VERIFIED.

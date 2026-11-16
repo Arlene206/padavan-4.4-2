@@ -1,9 +1,9 @@
 ## Current source / CI checkpoint
 
 - Parent source: `d83760b4c8e5514fd996f986b1400b7b794876f4`. d287 exact-head XY-C1 `43967039935` passed Build, TRX verification and artifact upload; d287 WAN, Process, AI handoff, NVRAM, HTTPD/AdGuardHome, infosvr, AliyunDrive and AliDDNS also passed.
-- d837 is an independent checker-only correction for the PPPoE sysctl result-propagation work; AI handoff `43969335259` passed, while Process/NVRAM/AdGuardHome/AliDDNS were still in progress at last poll.
+- The separate PPPoE sysctl slice in `1e105141` propagates set_passthrough_pppoe() failure to PID 1. Its first Process job `43969335166` failed only because a multiline first-error helper call was whitespace-sensitive in the checker; current commit normalizes all whitespace before the comparison. d837 AI handoff `43969335259` passed.
 - This source slice fixes lossy Boolean module-state gates in HW NAT, FTP helper and SFE transitions. Unknown sysfs state now propagates errno, blocks FTP helper parameter mutation, and cannot silently suppress strict unload or load postcondition checks.
-- `scripts/check_modem_wan_start_status.py` now asserts caller-side strict tri-state behavior in addition to existing injected module policy tests. Exact-head Process, Firewall Startup, XY-C1 and AI handoff checks are required.
+- `scripts/check_modem_wan_start_status.py` now asserts caller-side strict tri-state behavior in addition to existing injected module policy tests. Exact-head Process, Firewall Startup, XY-C1 and AI handoff checks are required. The separate sysctl checker follow-up also requires exact-head Process and XY-C1 runs.
 - Firmware L3 is verified for d287 only; this newer production-source change requires its own same-SHA Build/TRX/artifact validation. Physical-router L4 remains **NOT VERIFIED**.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` stays read-only. Continue P1 RC/network result-propagation work across userland.
 

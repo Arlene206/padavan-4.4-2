@@ -1707,7 +1707,8 @@ sysctl_body = c_function_body(sysctl_common, "restart_all_sysctl(void)")
 assert "int restart_all_sysctl(void)" in " ".join(sysctl_common.split())
 assert '#include "service_start_status.h"' in sysctl_common
 assert "passthrough_status = set_passthrough_pppoe(1);" in sysctl_body
-assert "rc_first_service_start_status(restart_status, passthrough_status)" in " ".join(sysctl_body.split())
+sysctl_body_compact = "".join(sysctl_body.split())
+assert "rc_first_service_start_status(restart_status,passthrough_status)" in sysctl_body_compact
 assert "return restart_status;" in sysctl_body
 assert "int restart_all_sysctl(void);" in sysctl_header
 sysctl_dispatch = " ".join(sysctl_rc.split("RCN_RESTART_SYSCTL) == 0)", 1)[1].split(";", 1)[0].split())
