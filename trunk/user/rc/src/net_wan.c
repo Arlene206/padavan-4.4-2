@@ -1454,20 +1454,29 @@ launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)
 		} else
 			launch_status = start_zcip_wan(man_ifname);
 	} else {
-		int man_err = 0, gateway_route_status = 0, route_status, address_status;
+		int man_err = 0, gateway_route_status = 0, route_status, address_status, mtu_status;
 		char *lan_addr = nvram_safe_get("lan_ipaddr");
 		char *lan_mask = nvram_safe_get("lan_netmask");
 		
-		if (man_mtu >= 1300 && man_mtu < 1500)
-			set_interface_mtu(man_ifname, man_mtu);
-		
-		if (is_same_subnet2(man_addr, lan_addr, man_mask, lan_mask)) {
+		if (!dhcp_lease_ipv4_is_valid(man_addr) ||
+		    !dhcp_lease_netmask_is_valid(man_mask)) {
+			man_err = 1;
+			launch_status = EINVAL;
+			logmessage(LOGNAME, "invalid static WAN IPv4 address or netmask on %s",
+				   man_ifname);
+		} else if (is_same_subnet2(man_addr, lan_addr, man_mask, lan_mask)) {
 			man_err = 1;
 			launch_status = EINVAL;
 			
 			logmessage(LOGNAME, "%s (%s) ERROR! Static IP [%s/%s] in LAN subnet [%s/%s]!",
 				"MAN", man_ifname, man_addr, man_mask, lan_addr, lan_mask);
 		} else {
+			if (man_mtu >= 1300 && man_mtu < 1500) {
+				mtu_status = set_interface_mtu(man_ifname, man_mtu);
+				if (mtu_status != 0)
+					logmessage(LOGNAME, "MAN interface %s MTU setup incomplete (status=%d)",
+						   man_ifname, mtu_status);
+			}
 			address_status = ifconfig(man_ifname, IFUP, man_addr, man_mask);
 			if (address_status != 0) {
 				man_err = 1;
@@ -1890,6 +1899,7 @@ start_wan(void)
 			/* Assign static IP address to i/f */
 			if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC) {
 				int wan_mtu = get_wan_unit_value_int(unit, "mtu");
+				int mtu_status, address_status, clear_status;
 				char *wan_addr = get_wan_unit_value(unit, "ipaddr");
 				char *wan_mask = get_wan_unit_value(unit, "netmask");
 				char *lan_addr = nvram_safe_get("lan_ipaddr");
@@ -1909,9 +1919,12 @@ start_wan(void)
 					logmessage(LOGNAME, "%s (%s) ERROR! Static IP [%s/%s] in LAN subnet [%s/%s]!",
 						"WAN", wan_ifname, wan_addr, wan_mask, lan_addr, lan_mask);
 				} else {
-					if (wan_mtu >= 1300 && wan_mtu < 1500)
-						set_interface_mtu(wan_ifname, wan_mtu);
-					int address_status, clear_status;
+					if (wan_mtu >= 1300 && wan_mtu < 1500) {
+						mtu_status = set_interface_mtu(wan_ifname, wan_mtu);
+						if (mtu_status != 0)
+							logmessage(LOGNAME, "static WAN interface %s MTU setup incomplete (status=%d)",
+								   wan_ifname, mtu_status);
+					}
 					
 					address_status = ifconfig(wan_ifname, IFUP, wan_addr, wan_mask);
 					if (address_status != 0) {
@@ -3908,7 +3921,7 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	unsigned int parsed_value;
 	int unit, is_man, is_changed, i_err, has_gateway, lease_dur, dhcp_mtu;
 	int wan_proto, modem_unit_id, route_result, route_metric;
-	int interface_status, rollback_status, route_setup_status;
+	int interface_status, rollback_status, route_setup_status, mtu_status;
 	int remove_old_host_route, remove_old_dhcp_routes;
 	int route_cleanup_status, route_rollback_status;
 	struct wan_dhcp_interface_context interface_context;
@@ -4135,8 +4148,12 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	nvram_set_temp(strcat_r(prefix, "gateway", tmp), gateway_buf);
 
 	if (!i_err) {
-		if (!is_renew_mode && (dhcp_mtu >= 1300 && dhcp_mtu < 1500))
-			set_interface_mtu(wan_ifname, dhcp_mtu);
+		if (!is_renew_mode && (dhcp_mtu >= 1300 && dhcp_mtu < 1500)) {
+			mtu_status = set_interface_mtu(wan_ifname, dhcp_mtu);
+			if (mtu_status != 0)
+				logmessage(log_prefix, "%s (%s) MTU setup incomplete (status=%d)",
+					   udhcpc_state, wan_ifname, mtu_status);
+		}
 
 		wan_gw = nvram_safe_get(strcat_r(prefix, "gateway", tmp));
 		logmessage(log_prefix,
@@ -4323,8 +4340,12 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 
 	route_setup_status = 0;
 	if (!i_err) {
-		if (!is_renew_mode && dhcp_mtu >= 1300 && dhcp_mtu < 1500)
-			set_interface_mtu(man_ifname, dhcp_mtu);
+		if (!is_renew_mode && dhcp_mtu >= 1300 && dhcp_mtu < 1500) {
+			mtu_status = set_interface_mtu(man_ifname, dhcp_mtu);
+			if (mtu_status != 0)
+				logmessage(log_prefix, "%s (%s) MTU setup incomplete (status=%d)",
+					   udhcpc_state, man_ifname, mtu_status);
+		}
 
 		logmessage(log_prefix,
 			"%s (%s), IP: %s, GW: %s, lease time: %d",

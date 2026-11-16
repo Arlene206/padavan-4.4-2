@@ -1,9 +1,10 @@
 ## Current source / CI checkpoint
 
-- Product-source parent: `ee722b0f0c475812c3fad536944fb521c4bf97d7`; static IPoE address/netmask validation and PPP IPCP endpoint fail-closed checks are in place.
-- WAN route `43872288931`, AI docs `43872288772`, Process inventory `43872289006`, Process lifecycle `43872288846`, HTTPD `43872289253`, AdGuardHome `43872289035`, AliDDNS `43872288789`, infosvr `43872289116`, AliyunDrive `43872288716`: PASS.
-- WAN DHCP callback `43872288966` failed only because its source checker expected the old disabled-mode early return and six status aggregations. The production teardown now preserves the selected previous runtime interface; workflow assertions and an additional overwrite defect are corrected in this follow-up.
-- NVRAM `43872289074` was still running; XY-C1 `43872288829` was building, TRX/artifact pending. No same-SHA L3 or physical L4 claim.
+- Product-source parent: `b4c6a520bf3d95822bb7757987a51bc3b37b5a7a`; static IPoE address/netmask validation returns EINVAL before interface setup. Static MAN validation now rejects malformed/non-contiguous netmasks before `ifconfig()`, whose NULL-mask path could otherwise report success without applying a netmask.
+- Exact-head WAN DHCP callback `43872745445`, WAN route `43872745447`, AI docs `43872745205`, Process lifecycle inventory `43872746090`, HTTPD `43872745252`, AdGuardHome `43872745181`, AliDDNS `43872745603`, infosvr `43872745324`, AliyunDrive `43872745057`: PASS.
+- Process inventory/lifecycle `43872745882`, NVRAM `43872745634`, and XY-C1 firmware `43872745244` were still running at last poll. XY-C1 TRX/artifact remain pending; no same-SHA L3 claim. Physical-router L4 NOT VERIFIED.
+- Optional MTU ioctl errors on MAN, static IPoE, DHCP WAN/MAN and DHCP IPTV are diagnostic-only and must remain nonfatal.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Whole-repository module status
 

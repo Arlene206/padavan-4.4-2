@@ -1,3 +1,14 @@
+## 2026-11-16 — Reject invalid static MAN masks and report optional MTU failures
+
+- Parent main: `b4c6a520bf3d95822bb7757987a51bc3b37b5a7a`. In `launch_wanx()`, malformed MAN netmask text was converted to `NULL`; shared `ifconfig()` still brought the interface up and assigned the IP while skipping netmask configuration, then returned success. A non-contiguous dotted mask could also pass legacy `is_valid_ipv4()`.
+- Static MAN now validates its host IPv4 address and contiguous nonzero netmask with the shared strict DHCP lease predicates before setting MTU or calling `ifconfig()`. Invalid static values set `wanx_err`, return EINVAL through `launch_status`, and do not configure the interface.
+- Optional MTU syscall failures are logged on static MAN, static IPoE, DHCP WAN/MAN and DHCP IPTV paths; they deliberately remain nonfatal to preserve the existing compatibility contract.
+- Extended the GNU89 modem WAN policy regression with malformed host/netmask cases and expanded `check_modem_wan_start_status.py` to enforce validation-before-side-effects and nonfatal MTU diagnostics.
+- Parent exact-head WAN DHCP callback `43872745445`, WAN route `43872745447`, AI docs `43872745205`, Process lifecycle inventory `43872746090`, HTTPD `43872745252`, AdGuardHome `43872745181`, AliDDNS `43872745603`, infosvr `43872745324`, AliyunDrive `43872745057`: PASS. Process inventory `43872745882`, NVRAM `43872745634`, XY-C1 `43872745244` were in progress at last poll.
+- Next: inspect exact-SHA checks for this source/test/checker slice; firmware L3 requires Build, TRX and artifact upload on one SHA. Physical-router L4 remains unverified.
+
+---
+
 ## 2026-11-16 — Preserve the selected previous interface through IPv6 route cleanup
 
 - Parent main: `ee722b0f0c475812c3fad536944fb521c4bf97d7`. Exact-head WAN DHCP callback `43872288966` failed at an outdated source assertion that still required `wan6_down()` to contain `if (ipv6_type == IPV6_DISABLED)`; it also encoded six accumulator calls from before the additional previous-interface RA/autoconf error gates.

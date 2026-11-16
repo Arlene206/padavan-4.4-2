@@ -132,6 +132,20 @@ for operation in (
     assert "wan_start_status = rc_first_service_start_status" in failure_path, (
         operation + " failures must reach the WAN startup result"
     )
+wanx = compact(body(WAN_SOURCE, "launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)"))
+static_man_validation = "if (!dhcp_lease_ipv4_is_valid(man_addr) || !dhcp_lease_netmask_is_valid(man_mask))"
+assert static_man_validation in wanx, "static MAN must reject malformed IPv4 address/netmask"
+man_invalid_pos = wanx.index(static_man_validation)
+man_subnet_pos = wanx.index("else if (is_same_subnet2(man_addr, lan_addr, man_mask, lan_mask))")
+man_mtu_pos = wanx.index("mtu_status = set_interface_mtu(man_ifname, man_mtu);")
+man_address_pos = wanx.index("address_status = ifconfig(man_ifname, IFUP, man_addr, man_mask);")
+assert man_invalid_pos < man_subnet_pos < man_mtu_pos < man_address_pos
+man_invalid_path = wanx[man_invalid_pos:man_subnet_pos]
+assert "man_err = 1;" in man_invalid_path
+assert "launch_status = EINVAL;" in man_invalid_path
+assert "invalid static WAN IPv4 address or netmask" in man_invalid_path
+assert 'logmessage(LOGNAME, "MAN interface %s MTU setup incomplete (status=%d)"' in wanx
+assert "if (mtu_status != 0)" in wanx
 wanx_failure_pos = ppp_branch.index("if (!i_pppoe && wanx_status != 0)")
 wanx_failure_end = ppp_branch.index("continue;", wanx_failure_pos)
 assert "wan_start_status = rc_first_service_start_status" in ppp_branch[wanx_failure_pos:wanx_failure_end]
@@ -155,7 +169,22 @@ assert re.search(
     r"wan_start_status\s*=\s*rc_first_service_start_status\s*\(\s*wan_start_status\s*,\s*EINVAL\s*\)\s*;",
     invalid_config_path,
 ), "invalid static WAN config must not be reported as successful startup"
-assert static_config.index("address_status = ifconfig(wan_ifname, IFUP, wan_addr, wan_mask);") > subnet_conflict_start
+assert "mtu_status = set_interface_mtu(wan_ifname, wan_mtu);" in static_config
+assert 'logmessage(LOGNAME, "static WAN interface %s MTU setup incomplete (status=%d)"' in static_config
+assert static_config.index("mtu_status = set_interface_mtu(wan_ifname, wan_mtu);") > subnet_conflict_start
+assert static_config.index("mtu_status = set_interface_mtu(wan_ifname, wan_mtu);") < static_config.index("address_status = ifconfig(wan_ifname, IFUP, wan_addr, wan_mask);")
+
+wan_dhcp_bound = compact(body(WAN_SOURCE, "udhcpc_bound(char *wan_ifname, int is_renew_mode)"))
+assert "mtu_status = set_interface_mtu(wan_ifname, dhcp_mtu);" in wan_dhcp_bound
+assert 'logmessage(log_prefix, "%s (%s) MTU setup incomplete (status=%d)"' in wan_dhcp_bound
+wan_mtu_failure = wan_dhcp_bound[wan_dhcp_bound.index("if (mtu_status != 0)"):wan_dhcp_bound.index("wan_gw = nvram_safe_get", wan_dhcp_bound.index("if (mtu_status != 0)"))]
+assert "i_err =" not in wan_mtu_failure and "route_setup_status =" not in wan_mtu_failure and "return " not in wan_mtu_failure
+
+iptv_dhcp_bound = compact(body(WAN_SOURCE, "udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)"))
+assert "mtu_status = set_interface_mtu(man_ifname, dhcp_mtu);" in iptv_dhcp_bound
+assert 'logmessage(log_prefix, "%s (%s) MTU setup incomplete (status=%d)"' in iptv_dhcp_bound
+iptv_mtu_failure = iptv_dhcp_bound[iptv_dhcp_bound.index("if (mtu_status != 0)"):iptv_dhcp_bound.index("logmessage(log_prefix,", iptv_dhcp_bound.index("if (mtu_status != 0)"))]
+assert "i_err =" not in iptv_mtu_failure and "route_setup_status =" not in iptv_mtu_failure and "return " not in iptv_mtu_failure
 
 address_pos = ipoe_branch.index("if (address_status != 0)")
 address_end = ipoe_branch.index("/* re-build iptables rules (final stage for IPoE static) */", address_pos)

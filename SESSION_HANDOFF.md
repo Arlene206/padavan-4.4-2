@@ -11,29 +11,29 @@ For each logical task, create all changed files in one Git tree and one atomic m
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; active ref: `main`.
-- Parent main for this IPv6 teardown follow-up: `ee722b0f0c475812c3fad536944fb521c4bf97d7`; use fresh-tree commits and non-forced expected-SHA updates.
+- Parent main for this static MAN validation / MTU diagnostics slice: `b4c6a520bf3d95822bb7757987a51bc3b37b5a7a`; use fresh-tree commits and non-forced expected-SHA updates.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. Startup recovery complete; do not repeat.
-- Root dev log has 35 records after this entry; part-012 keeps the oldest 100 records.
+- Root dev log has 36 records including this slice; part-012 keeps the oldest 100 records.
 - Static IPoE rejects malformed IPv4/netmask before `ifconfig()` (EINVAL); WAN/LAN overlap returns EADDRINUSE. PPP ip-up rejects missing IPCP endpoints before state publication.
 - IPv6 teardown is generation-safe: stop DHCPv6 and invalidate callbacks before any route/address/SIT cleanup; saved runtime `ifname6` identifies the previous live interface until reset.
 
 ## Active task
 
-A legacy `else { wan6_ifname = wan_ifname; }` inside `wan6_down()` overwrote the previous runtime interface selected by `wan6_teardown_select_ifname()` whenever it was not `sit0`. That defeated the fix when transitioning between native/PPP/SIT modes and flushed the new interface instead of the old interface's routes/addresses. The overwrite is removed; the selected live runtime interface now reaches route and address cleanup. WAN DHCP source contracts are updated to cover disabled mode, prior-interface selection, ordering and first-error aggregation.
+`launch_wanx()` has a false-success path for static MAN: malformed netmask text is normalized to `NULL`, then `ifconfig(ifname, IFUP, addr, NULL)` raises the interface and sets the address but skips netmask configuration while returning success. Non-contiguous dotted masks also pass legacy `is_valid_ipv4()`. The fix uses `dhcp_lease_ipv4_is_valid()` and `dhcp_lease_netmask_is_valid()` before MTU/address setup, returns EINVAL and sets `wanx_err` on invalid configuration. Optional MAN, static IPoE, DHCP WAN/MAN and DHCP IPTV MTU ioctl failures are logged but remain nonfatal. Existing GNU89 policy coverage and the modem WAN source checker verify validation order and nonfatal diagnostics.
 
 ## Verification boundary
 
-Exact-head validation for `ee722b0f0c475812c3fad536944fb521c4bf97d7`:
-- WAN route `43872288931`: PASS, including the GNU89/Werror/ASan/UBSan IPv6 selection regression and route workflow source contracts.
-- AI handoff docs `43872288772`: PASS; full module dashboard was restored.
-- Process inventory `43872289006`, Process lifecycle `43872288846`, HTTPD `43872289253`, NVRAM `43872289074` (still running at last poll), AdGuardHome `43872289035`, AliDDNS `43872288789`, infosvr `43872289116`, AliyunDrive `43872288716`: pass except NVRAM pending.
-- WAN DHCP callback `43872288966`: FAIL because its source checker still expected the removed `IPV6_DISABLED` early-return. It also encodes the old six-accumulator count; current additional previous-interface handling has eight.
-- XY-C1 firmware `43872288829`: IN_PROGRESS at last poll; Build active, TRX/artifact pending. No same-SHA L3 claim.
-- Physical-router L4: NOT VERIFIED.
+Exact-head validation for parent `b4c6a520bf3d95822bb7757987a51bc3b37b5a7a`:
+- WAN DHCP callback `43872745445`: PASS.
+- WAN route operation `43872745447`: PASS.
+- AI handoff documentation `43872745205`: PASS.
+- Process lifecycle inventory `43872746090`, HTTPD `43872745252`, AdGuardHome `43872745181`, AliDDNS `43872745603`, infosvr `43872745324`, AliyunDrive `43872745057`: PASS.
+- Process inventory/lifecycle `43872745882`, NVRAM `43872745634`, and XY-C1 firmware `43872745244`: IN_PROGRESS at last poll. XY-C1 Build/TRX/artifact not yet verified on this exact SHA. No L3 claim.
+- Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Verify exact-head WAN DHCP callback run after replacing stale IPv6 teardown assertions; inspect any first causal test/source error.
-2. Verify WAN route and WAN teardown runs on the same new SHA.
-3. Inspect XY-C1 Build, TRX verification and artifact upload on that identical SHA before claiming L3.
-4. Continue bounded IPv6 callback work only on a concrete defect; preserve DHCPv6 generation/lock fencing. Physical-router L4 remains unverified.
+1. Inspect exact-head XY-C1, WAN DHCP callback, WAN route, and AI-doc Actions for this static MAN validation / optional MTU diagnostic slice.
+2. Repair only the first causal failure. Keep optional MTU ioctl failures diagnostic/nonfatal; do not convert them into startup failure.
+3. Continue auditing concrete false-success/error-propagation defects across WAN and remaining userland modules; avoid repeating the completed IPv6 source-contract audit.
+4. Claim L3 only after Build, TRX verification and artifact upload pass on one identical source SHA. Physical-router L4 remains unverified.
