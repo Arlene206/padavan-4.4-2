@@ -118,7 +118,7 @@ test -f "$sandbox/proc/321/stat"
 test -s "$sandbox/private/storage.tar.bz2"
 test -f "$sandbox/private/storage_locked"
 test ! -s "$RSTAT_KILL_LOG"
-test "$(/bin/cat "$MV_COUNT_FILE")" -eq 0
+test ! -s "$MV_COUNT_FILE"
 rm -rf "$RSTAT_PROC_ROOT/1"
 
 # A failed name-wide stop must not be treated as success or permit directory
@@ -133,7 +133,7 @@ test -f "$sandbox/proc/321/stat"
 test -s "$RSTAT_KILL_LOG"
 test -s "$sandbox/private/storage.tar.bz2"
 test -f "$sandbox/private/storage_locked"
-test "$(/bin/cat "$MV_COUNT_FILE")" -eq 0
+test ! -s "$MV_COUNT_FILE"
 
 : > "$MV_COUNT_FILE"
 if RESTORE_FAIL_MV_AT=2 run_restore; then
