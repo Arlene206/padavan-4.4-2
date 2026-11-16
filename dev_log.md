@@ -1,3 +1,12 @@
+## 2026-11-16 — Align WAN route regressions with first-error MAN status accumulation
+
+- Parent main: `acf73fd0fa217560ed670beb2d92bdd0d0a4a924`. The MAN route source fix correctly replaced `launch_status = gateway_route_status` with first-error `route_status_accumulate()` for both the complete MAN route result and the separate gateway-route result. The WAN route and WAN DHCP callback workflows still asserted the old overwrite assignment, so exact-head runs `43866344779` and `43866344884` failed at those stale expectations; no product source/build failure was indicated.
+- Updated both workflow source contracts to require preservation of the first failure from both route results. The source change is retained unchanged.
+- On parent acf73: AI docs `43866344868`, infosvr `43866344724`, USB modem identity `43866344763`, VPN `43866344749`, miniupnpd `43866345059`, WAN gateway ARP `43866344761`, detect_internet `43866344886`, WAN teardown `43866344963`, AdGuardHome `43866344879`, Process inventory `43866344891`, DNSMasq `43866344739`, detect_link `43866344715`, AliDDNS `43866344897` passed. Process `43866345006`, XY-C1 `43866344767`, NVRAM `43866344923` and HTTPD `43866344906` remained in progress at last inspection.
+- Next: verify both corrected WAN regression workflows on the exact repair SHA; continue the required PPP/IPoE status propagation review without claiming L3 until Build/TRX/artifact pass on one SHA.
+
+---
+
 ## 2026-11-16 — Propagate manual WAN route and physical IPv6 startup failures
 
 - Parent main: `06bfa191302f0d53567a1cdb10652913b93cd92a`. `launch_wanx()` previously discarded a failed `man_up_internal()` static MAN route result unless the separate gateway-route out parameter also failed. It now preserves first-error status across static address setup, complete MAN route setup, gateway route and configured physical IPv6 tunnel setup, preventing false-success WAN bring-up.

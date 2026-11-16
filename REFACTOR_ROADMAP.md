@@ -1,11 +1,11 @@
 ## Current source / CI checkpoint
 
-- Parent product-source SHA: `06bfa191302f0d53567a1cdb10652913b93cd92a`.
-- Required IPv6 disable/enable transitions in `config_vinet_wan()` / `config_apcli_wisp()` now fail before WAN interface publication; physical WAN IFUP failures propagate through startup before best-effort cleanup.
-- New fix: `launch_wanx()` previously logged but discarded a failed `man_up_internal()` static MAN route result unless the gateway out-parameter also failed. It now aggregates first-error status across static address, complete MAN route, gateway route and configured physical IPv6 setup; the WAN route workflow asserts these status paths.
-- Parent AI docs `43866012138`, infosvr `43866012145`, AdGuardHome `43866012153`, AliyunDrive `43866012166` and AliDDNS `43866012103`: SUCCESS. Process `43866012142`, XY-C1 `43866012127` and NVRAM audit `43866012113`: IN_PROGRESS at last inspection.
-- The previous checker regression and root-log 120-entry violation were repaired on `06bfa191302f0d53567a1cdb10652913b93cd92a`; part-012 archives 100 records and the root rolling window contains 21 entries before this new record.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. No current exact-head firmware L3 or physical-router L4 claim.
+- Product-source baseline: `acf73fd0fa217560ed670beb2d92bdd0d0a4a924`; `launch_wanx()` first-error accumulation is retained across static MAN address, complete MAN route, gateway route and physical IPv6 operations.
+- Exact-head WAN route `43866344779` and WAN DHCP callback `43866344884` failed on stale workflow assertions that still expected `launch_status = gateway_route_status`; the source fix intentionally replaced that overwrite with first-error aggregation.
+- This workflow-only correction updates both contracts to require accumulation of both route operation results.
+- Parent AI docs `43866344868`, infosvr `43866344724`, USB modem identity `43866344763`, VPN `43866344749`, miniupnpd `43866345059`, gateway ARP `43866344761`, detect_internet `43866344886`, WAN teardown `43866344963`, AdGuardHome `43866344879`, Process inventory `43866344891`, DNSMasq `43866344739`, detect_link `43866344715` and AliDDNS `43866344897` passed. Process/XY-C1/NVRAM/HTTPD were still running.
+- No L3/L4 claim. Frozen backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
 
 ## Whole-repository module status
 

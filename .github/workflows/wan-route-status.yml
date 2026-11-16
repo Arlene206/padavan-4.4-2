@@ -231,7 +231,8 @@ jobs:
           assert required_accumulate in gateway_host and required_accumulate in gateway_default
           assert "*gateway_route_status" not in gateway_dns
           assert "if (gateway_route_status != 0)" in wan
-          assert "launch_status = gateway_route_status;" in wan
+          assert "launch_status = route_status_accumulate(launch_status, route_status);" in wan
+          assert "launch_status = route_status_accumulate(launch_status, gateway_route_status);" in wan
 
           man_up = body(wan, "man_up_internal(char *man_ifname, int unit, int is_static, int *gateway_route_status)")
           assert "static int" + chr(10) + "man_up_internal(" in wan

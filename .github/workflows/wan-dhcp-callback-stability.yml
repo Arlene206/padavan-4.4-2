@@ -822,7 +822,8 @@ jobs:
           wanx_static = wanx[wanx.index("if (is_same_subnet2("):]
           assert "route_status = man_up_internal(man_ifname, unit, 1, &gateway_route_status);" in wanx_static
           assert "if (gateway_route_status != 0)" in wanx_static
-          assert "launch_status = gateway_route_status;" in wanx_static
+          assert "launch_status = route_status_accumulate(launch_status, route_status);" in wanx_static
+          assert "launch_status = route_status_accumulate(launch_status, gateway_route_status);" in wanx_static
           assert "man_err = 1;" in wanx_static
           assert 'nvram_set_int_temp("wanx_err", man_err);' in wanx_static
           assert 'address_status = ifconfig(man_ifname, IFUP, "0.0.0.0", NULL);' in apcli_wisp
