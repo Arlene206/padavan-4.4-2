@@ -1,3 +1,13 @@
+## 2026-11-16 14:39 Beijing — Propagate IGMP proxy lifecycle results through WAN/IPTV callbacks
+
+- Parent main: d552d85d79196f95d88d22ea2b29f45061cda4f2; frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Confirmed start_igmpproxy() / stop_igmpproxy() already return meaningful status, but MAN/WAN up/down and static, DHCP, and ZeroConf IPTV paths discarded it. Static IPTV's policy callback was void and its policy returned only route-add status.
+- THIS COMMIT propagates first-error status through all identified callers, preserves independent DHCP route retry state, and still attempts multicast after an earlier route failure. ZeroConf teardown reports proxy-stop failure without changing the existing address/route identity cleanup condition.
+- Added a GNU89/Werror/ASan/UBSan static IPTV callback regression for multicast failure and first-error preservation; extended WAN source checker with semantic call-site contracts and the workflow to compile/run this test.
+- L1 review: PASS. Local host execution: NOT RUN (no local repository checkout). Exact-head WAN-route and XY-C1 Actions: PENDING until publication. No L4 hardware validation is claimed.
+- Next: inspect exact-head WAN-route and XY-C1 push runs; then continue P1 RC startup-result audit in services_ex.c with full caller tracing.
+---
+
 ## 2026-11-16 — Restore YAML block indentation in DNSMasq source contract
 
 - Parent main: `78af5220da96994440003d1e794ea948457dbd5f`; product-source baseline remains `b2d3288b6282c16cf23859eb9e7f8fdce083cd62`.

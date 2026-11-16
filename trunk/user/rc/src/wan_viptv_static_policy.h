@@ -2,13 +2,14 @@
 #define WAN_VIPTV_STATIC_POLICY_H
 
 #include <errno.h>
+#include "route_status_policy.h"
 
 struct wan_viptv_static_ops {
 	int (*configure_address)(void *context);
 	void (*publish_address)(void *context);
 	void (*publish_gateway)(void *context);
 	int (*add_default_route)(void *context);
-	void (*start_multicast)(void *context);
+	int (*start_multicast)(void *context);
 };
 
 /*
@@ -21,7 +22,7 @@ static inline int
 wan_viptv_static_start(int has_gateway,
 		       const struct wan_viptv_static_ops *ops, void *context)
 {
-	int status;
+	int status, multicast_status;
 
 	if ((has_gateway != 0 && has_gateway != 1) ||
 	    !ops || !ops->configure_address ||
@@ -41,8 +42,9 @@ wan_viptv_static_start(int has_gateway,
 	if (has_gateway)
 		status = ops->add_default_route(context);
 
-	ops->start_multicast(context);
-	return status;
+	/* A route failure must not skip multicast setup; keep the first error. */
+	multicast_status = ops->start_multicast(context);
+	return route_status_accumulate(status, multicast_status);
 }
 
 #endif /* WAN_VIPTV_STATIC_POLICY_H */

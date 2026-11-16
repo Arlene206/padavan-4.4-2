@@ -247,4 +247,45 @@ for path in ("trunk/user/shared/src/netutils.c",
             f"WAN workflow push/PR paths must include {path}")
 require("python3 scripts/check_wan_vlan_setup.py" in workflow,
         "WAN workflow must execute the VLAN/bridge source contract")
-print("WAN VLAN and bridge error-propagation contracts: PASS")
+
+viptv_policy = (rc / "wan_viptv_static_policy.h").read_text()
+viptv_test = (rc / "tests/wan_viptv_static_policy.c").read_text()
+static_multicast = body(wan, "wan_viptv_static_start_multicast(void *opaque)")
+require(("static int" + chr(10) + "wan_viptv_static_start_multicast") in wan and
+        "return start_igmpproxy(context->ifname);" in static_multicast,
+        "static IPTV must return its IGMP proxy startup result")
+static_start = body(viptv_policy, "wan_viptv_static_start(")
+require("int (*start_multicast)(void *context);" in viptv_policy and
+        "multicast_status = ops->start_multicast(context);" in static_start and
+        "return route_status_accumulate(status, multicast_status);" in static_start,
+        "static IPTV policy must aggregate proxy status and still run multicast after route failure")
+for test_name in ("test_multicast_failure_is_returned_without_gateway",
+                  "test_first_route_error_is_preserved_when_multicast_also_fails"):
+    require(test_name in viptv_test, f"static IPTV regression missing {test_name}")
+for signature, operation, description in (
+    ("man_up_internal(char *man_ifname, int unit, int is_static, int *gateway_route_status)", "start_igmpproxy(man_ifname)", "MAN startup"),
+    ("man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)", "stop_igmpproxy(man_ifname)", "MAN teardown"),
+    ("wan_up_internal(char *wan_ifname, int unit, int is_static)", "start_igmpproxy(wan_ifname)", "WAN startup"),
+    ("wan_down_internal(char *wan_ifname, int unit, int is_static)", "stop_igmpproxy(wan_ifname)", "WAN teardown"),
+):
+    function = body(wan, signature)
+    require(f"route_status = {operation};" in function and
+            "status = route_status_accumulate(status, route_status);" in function,
+            f"{description} must preserve IGMP proxy status")
+iptv_dhcp = body(wan, "udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)")
+require("multicast_status = start_igmpproxy(man_ifname);" in iptv_dhcp and
+        "return route_status_accumulate(route_setup_status, multicast_status);" in iptv_dhcp and
+        'nvram_set_int_temp("manv_route_err", route_setup_status);' in iptv_dhcp,
+        "IPTV DHCP must return proxy failure without polluting route retry state")
+iptv_zcip = body(wan, "zcip_viptv_bound(char *man_ifname)")
+require("return start_igmpproxy(man_ifname);" in iptv_zcip,
+        "ZeroConf IPTV bound must return proxy startup status")
+iptv_zcip_down = body(wan, "zcip_viptv_deconfig(char *man_ifname)")
+require("multicast_status = stop_igmpproxy(man_ifname);" in iptv_zcip_down and
+        "route_status_accumulate(route_status_accumulate(interface_status, route_status), multicast_status)" in iptv_zcip_down,
+        "ZeroConf IPTV deconfig must return proxy stop failure")
+for path in ("trunk/user/rc/src/wan_viptv_static_policy.h",
+             "trunk/user/rc/src/tests/wan_viptv_static_policy.c"):
+    require(path in workflow, f"WAN workflow path missing {path}")
+
+print("WAN VLAN/bridge and IGMP proxy result-propagation contracts: PASS")

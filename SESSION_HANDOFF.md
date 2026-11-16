@@ -15,32 +15,50 @@ For each logical task, create all changed files in one Git tree and one atomic m
 
 ## Active task
 
-The product-source slice `b2d3288` changed `full_restart_lan()` to retain the first nonzero result from status-bearing stop, restoration, restart, reload, start and HTTPD logout operations. It reuses `rc_first_service_start_status()`, preserves the DNSMasq lock/start gates and VPN rollback order, extends the GNU89/Werror/ASan/UBSan policy regression, and merges the aggregate into PID 1's LAN notification result.
+The preceding full-LAN restart aggregation and DNSMasq/CI contract repairs are complete. Latest live main at recovery was d552d85d79196f95d88d22ea2b29f45061cda4f2; this IGMP-proxy slice is the next production-source milestone.
 
-Validation and CI repair status:
-- The LAN policy regression passed in the Process regression and XY-C1 pre-build jobs. Process path-filter YAML was repaired at `f66dc26260ba426245ad403b6703b5ba6d52336a`; the source-order checker was aligned at `7ac958281702b5d3b39284a3666a90b17e01f75f`, and its exact-head Process run `43815025586` passed.
-- Exact product-source XY-C1 run `43814395678` on `b2d3288` completed successfully through Build XY-C1, TRX verification and artifact upload. This is the current L3 evidence; the later commits are test/documentation-only.
-- Exact b2 DNSMasq lifecycle `43814395657` and HTTPD security `43814395687` both failed because their embedded source contracts still demanded the previous `full_restart_lan()` returns (`return dnsmasq_status;`, `return dnsmasq_lock_errno;`) after production was correctly changed to aggregate and return `restart_status`. THIS COMMIT updates both contracts to assert the new failure-recording behavior, including the VPN restore result after lock acquisition failure.
-- Exact 7b AI handoff run `43815228477` failed because the root `dev_log.md` contained only three records, below the validator's required minimum of 20. THIS COMMIT restores the 61-record parent log verbatim, preserving the three newer records and all archive shards/indexes.
-- Exact 7b infosvr `43815228434`, Process inventory `43815228506`, AliDDNS `43815228432`, AliyunDrive `43815228496`, and AdGuardHome `43815228480` passed. NVRAM run `43815228491` was still in progress at the last check.
+This slice closes a P1 dropped-status defect in trunk/user/rc/src/net_wan.c: start_igmpproxy() and stop_igmpproxy() already returned meaningful statuses, but MAN/WAN route setup/teardown, static IPTV, DHCP IPTV and ZeroConf IPTV callbacks discarded them. Static IPTV's policy also used a void multicast callback and returned only the default-route result.
+
+The change retains IGMP proxy start/stop failures in:
+- man_up_internal() / man_down_internal();
+- wan_up_internal() / wan_down_internal();
+- static IPTV startup via an int-return multicast policy callback;
+- DHCP IPTV bound callbacks, while keeping manv_route_err strictly route-specific so a proxy failure does not cause a false route-retry classification;
+- ZeroConf IPTV bound/deconfig callbacks.
+
+The callback still runs after a route-add failure so independent multicast setup is not silently skipped; first-error aggregation retains the route failure. ZeroConf teardown still clears address identity based on interface/route teardown success, while its proxy stop failure is returned separately.
+
+## Files and caller chain reviewed
+
+- trunk/user/rc/src/net.c: start_igmpproxy() / stop_igmpproxy() return meaningful start/stop errors. Start first gates replacement on successful old-process stop, then aggregates udpxy/xupnpd/config publication/igmpproxy launch status. No helper API change was needed.
+- trunk/user/rc/src/rc.h: both helper declarations already return int.
+- trunk/user/rc/src/net_wan.c: static IPTV callback; man_up_internal, man_down_internal, wan_up_internal, wan_down_internal; DHCP IPTV bound; ZeroConf IPTV bound/deconfig. First-error aggregation leaves route and gateway outputs independent where they feed recovery/retry state.
+- trunk/user/rc/src/wan_viptv_static_policy.h: multicast callback now returns status; callback still runs after route-add failure.
+- trunk/user/rc/src/tests/wan_viptv_static_policy.c: multicast failure propagation, callback-always-attempted, and route-first-error preservation.
+- scripts/check_wan_vlan_setup.py and .github/workflows/wan-route-status.yml: semantic caller contracts, exact push/PR path filters, and GNU89/Werror/ASan/UBSan regression execution.
+- No unrelated source modules, network policy, DHCP wire behavior, NVRAM format, or persistent configuration format was changed.
+
+## Compatibility and sequencing notes
+
+- Existing helper int APIs and stop-before-start behavior are unchanged.
+- MAN/WAN up/down continue independent cleanup and other route operations after a multicast error; first nonzero status is returned to the int-return caller.
+- Static IPTV policy attempts multicast even if its gateway route failed, then returns the first nonzero status.
+- DHCP IPTV writes only route setup failure to manv_route_err; proxy failure reaches the DHCP script caller without poisoning route-only renew retry semantics.
+- ZeroConf IPTV teardown reports proxy stop failure, but the existing address identity decision remains based on address/route teardown outcomes.
 
 ## Verification boundary
 
-- Exact `e2a43d79ca372a70af9262e1b0463945d64d644c`: AI handoff `43815932791`, Process lifecycle `43815932847`, HTTPD security `43815932882`, AliyunDrive `43815932706`, AliDDNS `43815932894`, AdGuardHome `43815932884`, infosvr `43815932852`, and NVRAM `43815932797` PASS. DNSMasq `43815932909` reached its embedded source contract but failed while finding the old lock-return statement. Follow-up `78af5220da96994440003d1e794ea948457dbd5f` corrected the assertion target but accidentally removed YAML block indentation: its exact workflow `43816311414` failed before creating a job. THIS COMMIT restores the Python indentation. XY-C1 `43815932794` was still IN_PROGRESS at last e2 observation; exact b2 XY-C1 `43814395678` later completed Build, TRX verification and artifact upload SUCCESS.
-
-
-- L1/L2 source and policy regression: PASS on the exact b2/7ac evidence above.
-- L3 firmware: PASS on product-source SHA `b2d3288b6282c16cf23859eb9e7f8fdce083cd62`, XY-C1 run `43814395678` — Build XY-C1, TRX verification and artifact upload all succeeded. The exact source is unchanged by later CI/documentation commits.
-- Exact 7b AI handoff `43815228477` is FAIL solely at the root log-retention check (3 records found); the retained-record restoration is in THIS COMMIT and must be checked on its new exact SHA.
-- Exact b2 DNSMasq `43814395657` and HTTPD `43814395687` failed at stale source assertions; their corrected workflow contracts are in THIS COMMIT and must be rerun.
-- NVRAM `43815228491` remained IN_PROGRESS at last observation; do not claim a result before checking it.
-- No physical-router L4 validation has been performed.
+- Previous source L3: b2d3288b6282c16cf23859eb9e7f8fdce083cd62, XY-C1 run 43814395678 completed Build, TRX verification and artifact upload successfully. This evidence predates the current IGMP source change.
+- Previous live main d552d85d79196f95d88d22ea2b29f45061cda4f2: AI handoff 43816938416, DNSMasq 43816938423, Process lifecycle 43816938428, NVRAM 43816938384, AdGuardHome 43816938365, infosvr 43816938338, AliyunDrive 43816938443, and AliDDNS 43816938506 all completed SUCCESS on that exact SHA. NVRAM run 43815228491 also completed SUCCESS.
+- The earlier DNSMasq YAML indentation failure 43816311414 on 78af5220da96994440003d1e794ea948457dbd5f was fixed; d552 exact-head DNSMasq is PASS.
+- THIS COMMIT: L1 source review is complete. Static IPTV host regression and semantic caller checks are wired into the WAN-route workflow but their exact-head Actions result is not yet known until publication. Exact-source XY-C1 build/TRX/artifact result is also pending after publication.
+- No local full repository checkout or local host test execution was available during this slice. No L4 physical-router validation is claimed.
 
 ## Exact first action for the next GPT
 
-1. Check the exact-head DNSMasq lifecycle, AI handoff, and XY-C1 Actions for THIS COMMIT. Confirm the embedded Python source checker executes with the corrected YAML indentation and validates the real lock-failure rollback source; diagnose first causal failure if any. AI log-retention should remain PASS after restoration.
-2. Recheck the pending NVRAM run `43815228491` only as a useful checkpoint; do not let unrelated pending checks block independent work.
-3. Continue the P1 repository-wide RC service-result audit outside `full_restart_lan()`: trace enabled notification/startup callers through helper return values and cleanup/rollback paths; implement only confirmed dropped results with caller-aware regression coverage.
+1. Fetch live main, then inspect exact-head WAN route operation status regression and XY-C1 Firmware Validation push runs for THIS COMMIT. Confirm static IPTV callback test and MAN/WAN/DHCP/ZeroConf caller contracts actually ran. If either fails, inspect the first causal job/log and repair it with a new atomic main commit; do not count older-SHA runs.
+2. Continue P1 RC service startup-result audit outside WAN/IPTV: trace remaining enabled daemon/module launch helpers and their notification/startup callers for discarded nonzero results. Start with trunk/user/rc/src/services_ex.c plus declarations/callers; add a production-linked regression for a confirmed defect rather than changing void APIs without an end-to-end caller.
+3. Preserve the frozen backup and keep L3/L4 validation boundary explicit.
 
 ## Governance constraints
 

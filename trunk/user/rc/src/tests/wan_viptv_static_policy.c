@@ -8,6 +8,7 @@
 struct fake_start {
 	int address_status;
 	int route_status;
+	int multicast_status;
 	char events[16];
 	int address_published;
 	int gateway_published;
@@ -60,13 +61,14 @@ fake_add_default_route(void *opaque)
 	return fake->route_status;
 }
 
-static void
+static int
 fake_start_multicast(void *opaque)
 {
 	struct fake_start *fake = (struct fake_start *)opaque;
 
 	fake->multicast_started = 1;
 	record_event(fake, 'M');
+	return fake->multicast_status;
 }
 
 static const struct wan_viptv_static_ops fake_ops = {
@@ -80,7 +82,7 @@ static const struct wan_viptv_static_ops fake_ops = {
 static void
 test_address_failure_does_not_publish_or_start_services(void)
 {
-	struct fake_start fake = { EIO, 0, "", 0, 0, 0 };
+	struct fake_start fake = { EIO, 0, 0, "", 0, 0, 0 };
 
 	assert(wan_viptv_static_start(1, &fake_ops, &fake) == EIO);
 	assert(strcmp(fake.events, "A") == 0);
@@ -92,7 +94,7 @@ test_address_failure_does_not_publish_or_start_services(void)
 static void
 test_successful_start_orders_address_state_route_and_multicast(void)
 {
-	struct fake_start fake = { 0, 0, "", 0, 0, 0 };
+	struct fake_start fake = { 0, 0, 0, "", 0, 0, 0 };
 
 	assert(wan_viptv_static_start(1, &fake_ops, &fake) == 0);
 	assert(strcmp(fake.events, "APGRM") == 0);
@@ -104,7 +106,7 @@ test_successful_start_orders_address_state_route_and_multicast(void)
 static void
 test_route_failure_is_reported_after_recovery_state_publication(void)
 {
-	struct fake_start fake = { 0, EIO, "", 0, 0, 0 };
+	struct fake_start fake = { 0, EIO, 0, "", 0, 0, 0 };
 
 	assert(wan_viptv_static_start(1, &fake_ops, &fake) == EIO);
 	assert(strcmp(fake.events, "APGRM") == 0);
@@ -114,9 +116,29 @@ test_route_failure_is_reported_after_recovery_state_publication(void)
 }
 
 static void
+test_multicast_failure_is_returned_without_gateway(void)
+{
+	struct fake_start fake = { 0, 0, EBUSY, "", 0, 0, 0 };
+
+	assert(wan_viptv_static_start(0, &fake_ops, &fake) == EBUSY);
+	assert(strcmp(fake.events, "APGM") == 0);
+	assert(fake.multicast_started);
+}
+
+static void
+test_first_route_error_is_preserved_when_multicast_also_fails(void)
+{
+	struct fake_start fake = { 0, EIO, EPERM, "", 0, 0, 0 };
+
+	assert(wan_viptv_static_start(1, &fake_ops, &fake) == EIO);
+	assert(strcmp(fake.events, "APGRM") == 0);
+	assert(fake.multicast_started);
+}
+
+static void
 test_missing_gateway_skips_default_route(void)
 {
-	struct fake_start fake = { 0, 0, "", 0, 0, 0 };
+	struct fake_start fake = { 0, 0, 0, "", 0, 0, 0 };
 
 	assert(wan_viptv_static_start(0, &fake_ops, &fake) == 0);
 	assert(strcmp(fake.events, "APGM") == 0);
@@ -128,7 +150,7 @@ test_missing_gateway_skips_default_route(void)
 static void
 test_invalid_arguments_fail_before_side_effects(void)
 {
-	struct fake_start fake = { 0, 0, "", 0, 0, 0 };
+	struct fake_start fake = { 0, 0, 0, "", 0, 0, 0 };
 	struct wan_viptv_static_ops missing_route_ops = {
 		fake_configure_address,
 		fake_publish_address,
@@ -149,6 +171,8 @@ main(void)
 	test_address_failure_does_not_publish_or_start_services();
 	test_successful_start_orders_address_state_route_and_multicast();
 	test_route_failure_is_reported_after_recovery_state_publication();
+	test_multicast_failure_is_returned_without_gateway();
+	test_first_route_error_is_preserved_when_multicast_also_fails();
 	test_missing_gateway_skips_default_route();
 	test_invalid_arguments_fail_before_side_effects();
 	puts("Static IPTV startup status regression: PASS");

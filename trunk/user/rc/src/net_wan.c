@@ -1237,13 +1237,13 @@ wan_viptv_static_add_default_route(void *opaque)
 			 context->gateway, "0.0.0.0");
 }
 
-static void
+static int
 wan_viptv_static_start_multicast(void *opaque)
 {
 	struct wan_viptv_static_start_context *context =
 		(struct wan_viptv_static_start_context *)opaque;
 
-	start_igmpproxy(context->ifname);
+	return start_igmpproxy(context->ifname);
 }
 
 static const struct wan_viptv_static_ops wan_viptv_static_start_ops = {
@@ -2276,8 +2276,12 @@ man_up_internal(char *man_ifname, int unit, int is_static, int *gateway_route_st
 		notify_rc("restart_firewall_wan");
 	}
 
-	/* start multicast router */
-	start_igmpproxy(man_ifname);
+	/* Start multicast services and preserve their status for DHCP callers. */
+	route_status = start_igmpproxy(man_ifname);
+	status = route_status_accumulate(status, route_status);
+	if (route_status != 0)
+		logmessage(LOGNAME, "MAN multicast startup incomplete on %s (error=%d)",
+			   man_ifname, route_status);
 
 	return status;
 }
@@ -2362,7 +2366,11 @@ man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)
 
 	refresh_resolvconf_nonfatal("MAN down", 0);
 	notify_rc("restart_firewall_wan");
-	stop_igmpproxy(man_ifname);
+	route_status = stop_igmpproxy(man_ifname);
+	status = route_status_accumulate(status, route_status);
+	if (route_status != 0)
+		logmessage(LOGNAME, "MAN multicast teardown incomplete on %s (error=%d)",
+			   man_ifname, route_status);
 	return status;
 }
 
@@ -2497,9 +2505,14 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 		}
 	}
 
-	/* start multicast router (for NDIS or IPoE) */
-	if (ppp_ifindex(wan_ifname) < 0)
-		start_igmpproxy(wan_ifname);
+	/* Start multicast router (for NDIS or IPoE) and retain its status. */
+	if (ppp_ifindex(wan_ifname) < 0) {
+		route_status = start_igmpproxy(wan_ifname);
+		status = route_status_accumulate(status, route_status);
+		if (route_status != 0)
+			logmessage(LOGNAME, "WAN multicast startup incomplete on %s (error=%d)",
+				   wan_ifname, route_status);
+	}
 
 	/* notify DDNS client */
 	notify_ddns_update();
@@ -2603,9 +2616,14 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 				   wan_ifname, route_status);
 	}
 
-	/* Stop multicast router (for NDIS or IPoE) */
-	if (ppp_ifindex(wan_ifname) < 0)
-		stop_igmpproxy(wan_ifname);
+	/* Stop multicast router (for NDIS or IPoE) and retain its status. */
+	if (ppp_ifindex(wan_ifname) < 0) {
+		route_status = stop_igmpproxy(wan_ifname);
+		status = route_status_accumulate(status, route_status);
+		if (route_status != 0)
+			logmessage(LOGNAME, "WAN multicast teardown incomplete on %s (error=%d)",
+				   wan_ifname, route_status);
+	}
 
 	/* Stop kabinet authenticator (for IPoE) */
 	if (!modem_unit_id && (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC || wan_proto == IPV4_WAN_PROTO_IPOE_DHCP)) {
@@ -4019,7 +4037,7 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 	unsigned int parsed_value;
 	int lease_dur, is_changed, i_err, dhcp_mtu, mtu_seen, route_result;
 	int interface_status, rollback_status, route_setup_status;
-	int route_cleanup_status, route_rollback_status;
+	int route_cleanup_status, route_rollback_status, multicast_status = 0;
 	struct wan_dhcp_interface_context interface_context;
 	struct wan_dhcp_route_transition_context route_context;
 
@@ -4197,12 +4215,17 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 			logmessage(log_prefix,
 				"%s (%s) accepted but route setup is incomplete (error=%d)",
 				udhcpc_state, man_ifname, route_setup_status);
-		start_igmpproxy(man_ifname);
+		multicast_status = start_igmpproxy(man_ifname);
+		if (multicast_status != 0)
+			logmessage(log_prefix,
+				"%s (%s) multicast startup is incomplete (error=%d)",
+				udhcpc_state, man_ifname, multicast_status);
 	}
 
+	/* Keep route retry state independent from the IPTV proxy lifecycle. */
 	nvram_set_int_temp("manv_route_err", route_setup_status);
 	nvram_set_int_temp("manv_err", i_err);
-	return route_setup_status;
+	return route_status_accumulate(route_setup_status, multicast_status);
 }
 
 static int
@@ -4286,8 +4309,7 @@ zcip_viptv_bound(char *man_ifname)
 	nvram_set_temp(strcat_r(prefix, "netmask", tmp), zeroconf_mask);
 	nvram_set_temp(strcat_r(prefix, "gateway", tmp), "");
 	nvram_set_temp(strcat_r(prefix, "ipaddr", tmp), ip);
-	start_igmpproxy(man_ifname);
-	return 0;
+	return start_igmpproxy(man_ifname);
 }
 
 static int
@@ -4603,7 +4625,7 @@ zcip_main(int argc, char **argv)
 static int
 zcip_viptv_deconfig(char *man_ifname)
 {
-	int interface_status, route_status;
+	int interface_status, route_status, multicast_status;
 
 	interface_status = ifconfig(man_ifname, IFUP, "0.0.0.0", NULL);
 	if (interface_status != 0)
@@ -4614,8 +4636,13 @@ zcip_viptv_deconfig(char *man_ifname)
 	} else {
 		logmessage(LOGNAME, "ZeroConf IPTV deconfig incomplete on %s (interface=%d route=%d); preserving address identity", man_ifname, interface_status, route_status);
 	}
-	stop_igmpproxy(man_ifname);
-	return route_status_accumulate(interface_status, route_status);
+	multicast_status = stop_igmpproxy(man_ifname);
+	if (multicast_status != 0)
+		logmessage(LOGNAME, "ZeroConf IPTV multicast teardown incomplete on %s (error=%d)",
+			   man_ifname, multicast_status);
+	return route_status_accumulate(
+		route_status_accumulate(interface_status, route_status),
+		multicast_status);
 }
 
 int

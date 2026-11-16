@@ -6,6 +6,8 @@ on:
       - ".github/workflows/wan-route-status.yml"
       - "trunk/user/rc/src/net.c"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/wan_viptv_static_policy.h"
+      - "trunk/user/rc/src/tests/wan_viptv_static_policy.c"
       - "trunk/user/rc/src/wan_resolver_refresh_policy.h"
       - "trunk/user/rc/src/tests/wan_resolver_refresh_policy.c"
       - "scripts/check_wan_vlan_setup.py"
@@ -25,6 +27,8 @@ on:
       - ".github/workflows/wan-route-status.yml"
       - "trunk/user/rc/src/net.c"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/wan_viptv_static_policy.h"
+      - "trunk/user/rc/src/tests/wan_viptv_static_policy.c"
       - "trunk/user/rc/src/wan_resolver_refresh_policy.h"
       - "trunk/user/rc/src/tests/wan_resolver_refresh_policy.c"
       - "scripts/check_wan_vlan_setup.py"
@@ -53,6 +57,14 @@ jobs:
             trunk/user/rc/src/tests/route_status_policy.c \
             -o /tmp/route-status-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/route-status-policy
+      - name: Compile and run static IPTV multicast startup status regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/wan_viptv_static_policy.c \
+            -o /tmp/wan-viptv-static-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/wan-viptv-static-policy
       - name: Compile and run WAN resolver blocked-upstream regression
         run: |
           set -eu
