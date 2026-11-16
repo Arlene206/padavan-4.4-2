@@ -1,3 +1,13 @@
+## 2026-11-16 — Update WAN DHCP callback contract for conntrack cleanup status
+
+- Parent main: `44fd9bedf4b7b1ab4e9d4408a6157681158774d3`. Exact `44fd9bed` WAN route, Process inventory, AI handoff, NVRAM, AdGuardHome, AliDDNS, AliyunDrive and infosvr Actions passed.
+- Exact cffc WAN DHCP callback run `43973861977` passed its C regressions, then failed its final source-contract assertion because the test still required `return route_status_accumulate(interface_status, cleanup_status);`. `udhcpc_deconfig()` now also aggregates the conntrack write result, so the old two-status assertion was stale.
+- Updated the WAN DHCP workflow to require `conntrack_status` initialization, MAN address flush, error check, flush-before-cleanup order and the full nested first-error return. No production source changes; exact-head WAN DHCP rerun is pending.
+- XY-C1 run `43973861873` for product source SHA cffc was still building at last poll. Current product L3 and physical L4 remain NOT VERIFIED.
+- Next: inspect the exact-head WAN DHCP run and complete XY-C1 Build/TRX/artifact verification, then trace `flush_route_caches()` and every caller before any API change.
+
+---
+
 ## 2026-11-16 — Fix second stale MAN conntrack status contract
 
 - Parent main: c3bcb486aa97e0dbb478f05585e6c24ab33407bc. Exact c3b WAN route run 43974249410 passed earlier injected conntrack, bridge/IPv6 and route tests; its final source contract failed at Python line 304 because a legacy assertion still expected return route_status_accumulate(interface_status, cleanup_status). Since conntrack_status is now a first-class teardown result, production correctly returns the nested first-error aggregate that includes it.

@@ -1,10 +1,11 @@
 ## Current source / CI checkpoint
 
-- Conntrack production source commit: cffc1497fda9f65d9a0b163bad5acc1723c23f81; current WAN contract repair parent: c3bcb486aa97e0dbb478f05585e6c24ab33407bc.
-- Exact cffc WAN route 43973861975 passed the injected conntrack policy regression and existing route tests, then failed at the first whitespace-sensitive checker. Exact c3b WAN route 43974249410 normalized that check and exposed a second stale assertion that still expected the old two-status MAN deconfig return. This commit updates it to include conntrack_status.
-- Exact c3b Process 43974249384 and AI handoff 43974249444 passed; cffc Firewall Startup 43973861431 passed. cffc XY-C1 43973861873 remained in progress at last poll. Current-source L3 requires an exact product-source build/TRX/artifact pass.
-- flush_conntrack_table() now returns write/close errno from fput_string(); PID 1, LAN, WAN and MAN teardown all propagate that result while continuing independent cleanup. Injected GNU89/ASan/UBSan test passed.
-- Frozen backup remains read-only; physical-router L4 remains NOT VERIFIED.
+- Conntrack production implementation: `cffc1497fda9f65d9a0b163bad5acc1723c23f81`; parent before the current WAN DHCP checker repair: `44fd9bedf4b7b1ab4e9d4408a6157681158774d3`.
+- Exact `44fd9bed` WAN route `43974652676`, Process `43974652670`, AI handoff `43974652705`, NVRAM `43974652715`, AdGuardHome `43974653150`, AliDDNS `43974652681`, AliyunDrive `43974652664` and infosvr `43974652631` passed.
+- The cffc WAN DHCP callback run `43973861977` passed its C regressions but failed its final source assertion because it still expected the former two-status `udhcpc_deconfig()` return. Production now retains `conntrack_status` in the nested first-error aggregate. This commit updates the workflow to assert the three-status path and cleanup ordering; exact-head rerun is pending.
+- `flush_conntrack_table()` returns errno from `fput_string()`; PID 1, LAN, WAN and MAN teardown propagate/merge it while continuing independent cleanup. Injected GNU89/ASan/UBSan regression passed.
+- XY-C1 exact production source SHA `cffc149` was still in Build XY-C1 at last poll; TRX/artifact remain pending. Do not claim current product L3 until all three finish successfully. Physical-router L4 remains **NOT VERIFIED**.
+- Frozen backup remains read-only.
 
 ## Whole-repository module status
 
