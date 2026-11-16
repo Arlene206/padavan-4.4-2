@@ -689,27 +689,27 @@ int is_dms_run(void);
 int update_minidlna_conf(const char *link_path, const char *conf_path);
 int stop_dms(void);
 int run_dms(int force_rescan);
-void restart_dms(int force_rescan);
+int restart_dms(int force_rescan);
 #endif
 #if defined (APP_FIREFLY)
 int is_itunes_run(void);
 int stop_itunes(void);
 int run_itunes(void);
-void restart_itunes(void);
+int restart_itunes(void);
 #endif
 #if defined (APP_TRMD)
 int is_torrent_run(void);
 int is_torrent_support(void);
 int stop_torrent(void);
 int run_torrent(void);
-void restart_torrent(void);
+int restart_torrent(void);
 #endif
 #if defined (APP_ARIA)
 int is_aria_run(void);
 int is_aria_support(void);
 int stop_aria(void);
 int run_aria(void);
-void restart_aria(void);
+int restart_aria(void);
 #endif
 /* Returns mounted-device count, or -1 if /proc/mounts is incomplete. */
 int count_stor_mountpoint(void);

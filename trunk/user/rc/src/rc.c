@@ -1527,29 +1527,29 @@ handle_notifications(void)
 #if defined(APP_MINIDLNA)
 		else if (strcmp(entry->d_name, "restart_dms_rescan") == 0)
 		{
-			restart_dms(1);
+			action_result = rc_notify_merge_action_result(action_result, restart_dms(1));
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_DMS) == 0)
 		{
-			restart_dms(0);
+			action_result = rc_notify_merge_action_result(action_result, restart_dms(0));
 		}
 #endif
 #if defined(APP_FIREFLY)
 		else if (strcmp(entry->d_name, RCN_RESTART_ITUNES) == 0)
 		{
-			restart_itunes();
+			action_result = rc_notify_merge_action_result(action_result, restart_itunes());
 		}
 #endif
 #if defined(APP_TRMD)
 		else if (strcmp(entry->d_name, RCN_RESTART_TRMD) == 0)
 		{
-			restart_torrent();
+			action_result = rc_notify_merge_action_result(action_result, restart_torrent());
 		}
 #endif
 #if defined(APP_ARIA)
 		else if (strcmp(entry->d_name, RCN_RESTART_ARIA) == 0)
 		{
-			restart_aria();
+			action_result = rc_notify_merge_action_result(action_result, restart_aria());
 		}
 #endif
 #endif
@@ -2139,22 +2139,22 @@ main(int argc, char **argv)
 #endif
 #if defined(APP_MINIDLNA)
 	else if (!strcmp(base, "run_minidlna")) {
-		restart_dms(0);
+		ret = restart_dms(0);
 	}
 #endif
 #if defined(APP_FIREFLY)
 	else if (!strcmp(base, "run_firefly")) {
-		restart_itunes();
+		ret = restart_itunes();
 	}
 #endif
 #if defined(APP_TRMD)
 	else if (!strcmp(base, "run_transmission")) {
-		restart_torrent();
+		ret = restart_torrent();
 	}
 #endif
 #if defined(APP_ARIA)
 	else if (!strcmp(base, "run_aria")) {
-		restart_aria();
+		ret = restart_aria();
 	}
 #endif
 #if defined(APP_FTPD)

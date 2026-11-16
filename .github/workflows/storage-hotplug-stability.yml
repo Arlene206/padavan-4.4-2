@@ -558,6 +558,33 @@ jobs:
           assert storage_start.count("rc_first_service_start_status(") == 7
           assert "return start_status;" in storage_start
 
+          restart_wrappers = (
+              ("int restart_dms(int force_rescan)", "restart_status = run_dms(force_rescan);"),
+              ("int restart_itunes(void)", "restart_status = run_itunes();"),
+              ("int restart_torrent(void)", "restart_status = run_torrent();"),
+              ("int restart_aria(void)", "restart_status = run_aria();"),
+          )
+          for signature, start_call in restart_wrappers:
+              restart_body = function_body(storage, signature)
+              assert "return errno ? errno : EIO;" in restart_body
+              assert "restart_status = stop_" in restart_body
+              assert "restart_status = " + start_call.split(" = ", 1)[1] in restart_body
+              assert "return restart_status;" in restart_body
+          for declaration in (
+              "int restart_dms(int force_rescan);", "int restart_itunes(void);",
+              "int restart_torrent(void);", "int restart_aria(void);",
+          ):
+              assert declaration in rc_header
+          for call in (
+              "restart_dms(1)", "restart_dms(0)", "restart_itunes()",
+              "restart_torrent()", "restart_aria()",
+          ):
+              assert "rc_notify_merge_action_result(action_result, " + call + ")" in rc
+          for call in (
+              "ret = restart_dms(0);", "ret = restart_itunes();",
+              "ret = restart_torrent();", "ret = restart_aria();",
+          ):
+              assert call in rc
           for signature in ("run_dms(int force_rescan)", "run_itunes(void)",
                             "run_torrent(void)", "run_aria(void)"):
               daemon_start = function_body(storage, signature)

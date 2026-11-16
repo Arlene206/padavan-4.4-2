@@ -2062,33 +2062,37 @@ int run_dms(int force_rescan)
 						(enum process_presence)process_state);
 }
 
-void restart_dms(int force_rescan)
+int restart_dms(int force_rescan)
 {
 	int storage_lock, stop_status, mount_status;
+	int restart_status = 0;
 
 	/* Serialize media-server restart with hotplug and safe storage removal. */
 	storage_lock = storage_operation_lock_acquire(file_lock);
 	if (storage_lock < 0) {
 		logmessage("MiniDLNA", "cannot acquire storage operation lock; refusing restart");
-		return;
+		return errno ? errno : EIO;
 	}
 
 	stop_status = stop_dms_locked();
 	if (stop_status != 0) {
 		logmessage("MiniDLNA", "restart aborted because the existing daemon did not stop");
+		restart_status = stop_status;
 		goto out;
 	}
 
 	mount_status = storage_has_mounted_devices("restarting DLNA");
 	if (mount_status < 0) {
 		logmessage("MiniDLNA", "restart aborted because mounted storage state is unknown");
+		restart_status = errno ? errno : EIO;
 		goto out;
 	}
 	if (mount_status > 0)
-		run_dms(force_rescan);
+		restart_status = run_dms(force_rescan);
 
 out:
 	file_unlock(storage_lock);
+	return restart_status;
 }
 #endif
 
@@ -2227,33 +2231,37 @@ int run_itunes(void)
 						(enum process_presence)process_state);
 }
 
-void restart_itunes(void)
+int restart_itunes(void)
 {
 	int storage_lock, stop_status, mount_status;
+	int restart_status = 0;
 
-	/* Serialize Firefly's storage-backed database with safe removal. */
+	/* Serialize Firefly's storage-backed database with safe storage removal. */
 	storage_lock = storage_operation_lock_acquire(file_lock);
 	if (storage_lock < 0) {
 		logmessage("Firefly", "cannot acquire storage operation lock; refusing restart");
-		return;
+		return errno ? errno : EIO;
 	}
 
 	stop_status = stop_itunes_locked();
 	if (stop_status != 0) {
 		logmessage("Firefly", "restart aborted because the existing daemon did not stop");
+		restart_status = stop_status;
 		goto out;
 	}
 
 	mount_status = storage_has_mounted_devices("restarting Firefly");
 	if (mount_status < 0) {
 		logmessage("Firefly", "restart aborted because mounted storage state is unknown");
+		restart_status = errno ? errno : EIO;
 		goto out;
 	}
 	if (mount_status > 0)
-		run_itunes();
+		restart_status = run_itunes();
 
 out:
 	file_unlock(storage_lock);
+	return restart_status;
 }
 #endif
 
@@ -2351,30 +2359,34 @@ int run_torrent(void)
 						(enum process_presence)process_state);
 }
 
-void restart_torrent(void)
+int restart_torrent(void)
 {
 	int storage_lock, is_run_before, is_run_after;
 	int stop_status, mount_status;
+	int restart_status = 0;
 
 	/* Hold the storage eject barrier through Transmission and firewall updates. */
 	storage_lock = storage_operation_lock_acquire(file_lock);
 	if (storage_lock < 0) {
 		logmessage("Transmission", "cannot acquire storage operation lock; refusing restart");
-		return;
+		return errno ? errno : EIO;
 	}
 
 	is_run_before = is_torrent_run();
 	stop_status = stop_torrent_locked();
 	if (stop_status != 0) {
 		logmessage("Transmission", "restart aborted because the existing daemon did not stop");
+		restart_status = stop_status;
 		goto out;
 	}
 
 	mount_status = storage_has_mounted_devices("restarting Transmission");
 	if (mount_status > 0)
-		run_torrent();
-	else if (mount_status < 0)
+		restart_status = run_torrent();
+	else if (mount_status < 0) {
 		logmessage("Transmission", "restart aborted because mounted storage state is unknown");
+		restart_status = errno ? errno : EIO;
+	}
 
 	is_run_after = is_torrent_run();
 	if (storage_service_process_presence_changed(is_run_before, is_run_after) &&
@@ -2383,6 +2395,7 @@ void restart_torrent(void)
 
 out:
 	file_unlock(storage_lock);
+	return restart_status;
 }
 #endif
 
@@ -2480,30 +2493,34 @@ int run_aria(void)
 						(enum process_presence)process_state);
 }
 
-void restart_aria(void)
+int restart_aria(void)
 {
 	int storage_lock, is_run_before, is_run_after;
 	int stop_status, mount_status;
+	int restart_status = 0;
 
 	/* Hold the storage eject barrier through Aria and firewall updates. */
 	storage_lock = storage_operation_lock_acquire(file_lock);
 	if (storage_lock < 0) {
 		logmessage("Aria", "cannot acquire storage operation lock; refusing restart");
-		return;
+		return errno ? errno : EIO;
 	}
 
 	is_run_before = is_aria_run();
 	stop_status = stop_aria_locked();
 	if (stop_status != 0) {
 		logmessage("Aria", "restart aborted because the existing daemon did not stop");
+		restart_status = stop_status;
 		goto out;
 	}
 
 	mount_status = storage_has_mounted_devices("restarting Aria");
 	if (mount_status > 0)
-		run_aria();
-	else if (mount_status < 0)
+		restart_status = run_aria();
+	else if (mount_status < 0) {
 		logmessage("Aria", "restart aborted because mounted storage state is unknown");
+		restart_status = errno ? errno : EIO;
+	}
 
 	is_run_after = is_aria_run();
 	if (storage_service_process_presence_changed(is_run_before, is_run_after) &&
@@ -2512,6 +2529,7 @@ void restart_aria(void)
 
 out:
 	file_unlock(storage_lock);
+	return restart_status;
 }
 #endif
 
