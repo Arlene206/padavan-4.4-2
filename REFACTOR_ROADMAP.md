@@ -1,9 +1,9 @@
 ## Current source / CI checkpoint
 
-- Product-source conntrack result-propagation commit: cffc1497fda9f65d9a0b163bad5acc1723c23f81. Exact-source XY-C1 run 43973861873 PASS, including firmware build, TRX verification and artifact upload; product-source L3 is VERIFIED at cffc149.
-- Exact 44fd WAN route 43974652676, Process 43974652670 and AI handoff 43974652705 passed. Exact 0b934 WAN DHCP callback 43975364179, Process 43975363957, AdGuardHome 43975363862, infosvr 43975363999 and AliyunDrive 43975363922 passed. AI handoff 43975363964 failed only because root log count reached 120; 344db6b rotates 100 records into part-013 and retains 20.
-- Current P1 slice fixes stop_lan() discarding clear_if_route4(IFNAME_BR). It aggregates conntrack, static-route flush and bridge-down statuses while continuing IPv6/interface cleanup; the first-error regression covers route-only, earlier conntrack and later bridge failure.
-- Exact-head Process, WAN route, AI handoff and XY-C1 runs are required for this slice. Frozen backup is immutable; physical-router L4 remains NOT VERIFIED.
+- Product-source conntrack result-propagation commit cffc149 is L3 VERIFIED by XY-C1 run 43973861873 (firmware Build, TRX verification and artifact upload all passed).
+- LAN teardown commit 759c18d captures clear_if_route4(IFNAME_BR)'s return, logs failure and aggregates conntrack→route→bridge-down errors while continuing IPv6 and interface cleanup. Process source integration and status regression passed on 759c18d (Process 43976717949 and Process lifecycle 43976718109).
+- WAN route run 43976718132 failed only because its inline assertion still expected the old stop_lan() return that omitted route_status; this commit updates it to enforce the new nested aggregator and cleanup order. WAN DHCP 43976717974 and AI handoff 43976717913 passed.
+- XY-C1 43976717898 for LAN teardown source SHA 759c18d was pending at last poll. Same-SHA Build/TRX/artifact is required for current L3. Physical-router L4 remains NOT VERIFIED.
 
 ## Whole-repository module status
 

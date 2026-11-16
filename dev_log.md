@@ -1,3 +1,12 @@
+## 2026-11-16 — Align WAN route checker with LAN teardown status propagation
+
+- Parent main: 759c18d860ba1c0cb547f43fa7ca8d21b6580987. The LAN route cleanup source change in 759c18d correctly captures clear_if_route4(IFNAME_BR), logs a nonzero result, and returns the first failure across conntrack, route cleanup and bridge shutdown while continuing IPv6/interface cleanup.
+- Process integration and service-status regression passed on 759c18d (43976717949 and 43976718109); WAN DHCP callback 43976717974 and AI handoff 43976717913 passed. WAN route run 43976718132 failed at its inline stop_lan() contract because it still required the previous two-status return rc_first_service_start_status(conntrack_status, status).
+- Updated the WAN route workflow assertion to require the nested conntrack/route/bridge status aggregator and verify route flush precedes IPv6 and interface cleanup. Checker-only change; production source unchanged. Exact-head WAN route rerun required.
+- XY-C1 43976717898 was pending at last poll. Product-source baseline cffc149 remains L3 VERIFIED by successful Build/TRX/artifact; LAN route slice still awaits same-SHA L3 evidence.
+
+---
+
 ## 2026-11-16 — Preserve LAN static-route flush failures during teardown
 
 - Parent main: 344db6b6cb4309ad1a2cdbf29b2cc0ee50ad5898. In stop_lan(), clear_if_route4(IFNAME_BR) returned the route-flush result but its caller discarded it. If conntrack and bridge ifconfig succeeded, a failed static-route cleanup was silently reported as a successful LAN teardown.

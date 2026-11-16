@@ -190,7 +190,13 @@ jobs:
 
           stop_lan_body = body(net_lan, "stop_lan(int is_ap_mode)")
           assert "conntrack_status = flush_conntrack_table(lan_ip);" in stop_lan_body
-          assert "return rc_first_service_start_status(conntrack_status, status);" in stop_lan_body
+          stop_lan_compact = "".join(stop_lan_body.split())
+          assert "route_status = clear_if_route4(IFNAME_BR);" in stop_lan_body
+          assert "returnrc_first_service_start_status(rc_first_service_start_status(conntrack_status,route_status),status);" in stop_lan_compact
+          route_flush_at = stop_lan_compact.index("route_status=clear_if_route4(IFNAME_BR);")
+          ipv6_cleanup_at = stop_lan_compact.index("clear_lan_addr6();")
+          bridge_down_at = stop_lan_compact.index("ifconfig(IFNAME_BR,0,NULL,NULL);")
+          assert route_flush_at < ipv6_cleanup_at < bridge_down_at
 
           wan_down_body = body(wan, "wan_down_internal(char *wan_ifname, int unit, int is_static)")
           assert "route_status = flush_conntrack_table(wan_addr);" in wan_down_body
