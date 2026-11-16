@@ -1247,9 +1247,9 @@ jobs:
           callback_setup = start_wan.index("if (create_cb_links() != 0)")
           config_start = start_wan.index("vlan_result = config_vinet_wan()")
           remove_links = start_wan.index("remove_cb_links();", config_start)
-          return_after_config = start_wan.index("return;", config_start)
+          return_after_config = start_wan.index("return vlan_result;", config_start)
           assert callback_setup < config_start
-          assert start_wan.index("return;", callback_setup) < config_start
+          assert start_wan.index("return errno ? errno : EIO;", callback_setup) < config_start
           assert config_start < remove_links < return_after_config
           assert config_start < start_wan.index("launch_viptv_wan()")
 

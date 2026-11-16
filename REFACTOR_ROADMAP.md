@@ -1,21 +1,9 @@
 ## Current source / CI checkpoint
 
-- Parent `d0d75c6925c2640df348f9a16e55f612356a88ac` passed exact-head Process `43833861533` and XY-C1 `43833861360`. Successor `8c3772e33127c3870c4465c45a8fedc1142a06b3` FAILED multiple exact-head integration checks: source checker regex/RAS migration status, legacy WAN bridge gate shape and stale int-return source assertions. THIS corrective commit fixes the missing RAS error aggregation, removes the unrelated EAPOL contamination, restores the original full-restart gates, and updates the affected source contracts. Re-run all exact-head Process/XY-C1/WAN teardown/miniupnpd/DHCP/route workflows before considering the modem startup propagation slice complete.
-- Latest modem build-profile evidence remains `7630958f12938ae6014ee859d9eccfd21cdf7503`, XY-C1 run `43827946528`, Build/TRX/artifact PASS. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; resolve live `main` before subsequent writes.
-
-- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; fetch live `main` rather than updating this note merely to chase the resulting documentation commit SHA.
-- Exact-head L2 PASS: Adbyby updater `867e481`; Shadowsocks watchcat `a8d5017`; AliyunDrive `982ec54`; DDNSTO lifecycle/checker `7968c1e`; legacy wrapper stale-pidfile workflow `1e43d33` (its XY-C1 build is still pending).
-- Redsocks `831ebfb`: exact-head shell syntax, dynamic lifecycle regression and source checker PASS; Redsocks `43800078490` and handoff `43800078518` both SUCCESS. L2 host verification is closed; target Bash/BusyBox and live service behavior remain unverified.
-- Legacy PR #1 is closed; all substantive AliDDNS/CA source work is already on main in identical or stronger form. No unmerged product work remains to port.
-- No physical-router runtime or L4 validation is claimed. L3 build/TRX/artifact verification passed on `1e43d33` only; later source changes through `831ebfb` have not had a corresponding XY-C1 build.
-
-### P1 — Storage daemon startup and config publication
-
-- Transmission settings staging remains process-unique (`settings.json.tmp.$$`) and ownership-aware; stop validates PID inventories, signals individual PIDs, verifies absence and gates restart.
-- Aria2 default config remains staged as `aria2.conf.tmp.$$` with two-phase concurrency markers; stop/restart postconditions remain verified by exact USB storage #43772230269 on parent 323 (host + BusyBox 1.24.2 ash).
-- THIS COMMIT closes the start-time UNKNOWN-state gap for both launchers; exact-head USB storage is required to verify host and firmware shell behavior.
-- Firefly and MiniDLNA retain checked same-directory configuration publication; IGMP proxy rejects same-line whitespace/comment input injection.
-
+- Current parent main for THIS corrective checker slice: `9e284e758526ac281228e86b81dc349adbeff783`. The preceding source commit `37f0046` passed its WAN modem/boot first-error checks but Process lifecycle failed on a stale `void start_wan()` parser. This repair changes the parser to `int start_wan()` and aligns the HTTPD security workflow with the real int-return callback/VLAN fail-fast status contract.
+- The latest product source commit `9e284e7` implements same-device NDIS TTY selection by physical USB port ID + devnum, including manual/preferred selection constraints and host regression. USB modem WDM/NDIS identity run `43844807532` PASSED. Process `43844807348` and XY-C1 `43844807421` were still IN_PROGRESS at last observation; HTTPD run `43844807351` failed the stale return contract now corrected in THIS commit.
+- AI handoff `43844807461`, Infosvr `43844807516`, WAN teardown `43844807410`, AdGuardHome `43844807404`, AliyunDrive `43844807369`, AliDDNS `43844807524`, prior WAN DHCP `43844254326`, miniupnpd `43844254468` and WAN route `43844254309` passed on their recorded heads. Confirm exact SHA before relying on them.
+- Next product review: map `reload_modem_modules()` and module load/unload return semantics before changing any optional-driver failure policy. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` stays at `72f4f157a084f8184b9597ca5bf334b8080e5807` and remains immutable. No current-head L3 build/TRX or L4 hardware result is established.
 ## Whole-repository module status
 
 ### P1 process inventory / service lifecycle — tri-state foundation L2 VERIFIED; strict PID identity migration extended through PPPD/udhcpc/INICD and VPN/WAN/LAN/USB stop gates; xl2tpd and crond UNKNOWN start gates migrated; product-source L3 VERIFIED on be7fd XY-C1 build/TRX/artifact

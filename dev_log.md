@@ -1,3 +1,12 @@
+## 2026-11-16 — Fix process lifecycle and HTTPD WAN return contracts
+
+- Parent main `9e284e758526ac281228e86b81dc349adbeff783` introduced NDIS control-TTY same-device matching by physical USB port ID + devnum; USB modem WDM/NDIS identity run `43844807532` passed. Process lifecycle run `43844807348` still contained an old `void\nstart_wan(void)` parser; updated it to the current int-return signature.
+- HTTPD Authentication/Security run `43844807351` failed because the embedded source check looked for `return;` after callback and VLAN setup. Updated it to check `return errno ? errno : EIO;` and `return vlan_result;` in the expected order.
+- At last inspection AI handoff `43844807461`, Infosvr `43844807516`, WAN teardown `43844807410`, AdGuardHome `43844807404`, AliyunDrive `43844807369` and AliDDNS `43844807524` passed. Process `43844807348` and XY-C1 `43844807421` were still running; no L3 result is claimed.
+- No product C source change in this contract repair. Exact-head Process, XY-C1 and HTTPD reruns are required after publication.
+- Next independent product investigation: trace `reload_modem_modules()` and all `module_smart_load/unload` callers to distinguish optional modem-driver absence from selected-device readiness failures.
+
+---
 ## 2026-11-16 — Bind NDIS control TTY selection to physical USB identity
 
 - Parent main: `37f00465dec9af78f3e366a16e903ddc600603c2`. NDIS control path previously selected `ttyUSB` through the generic `get_modem_node()` selector, which compares the shared USB devnum but does not bind the candidate TTY to the selected NDIS interface's physical USB port ID. On multi-modem hubs this can select another device's AT/control port.

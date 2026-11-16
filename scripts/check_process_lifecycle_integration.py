@@ -588,7 +588,7 @@ assert "if (lan_status != 0)" in lan_restart
 assert "LAN restart aborted" in lan_restart
 print("WAN/LAN udhcpc identity-bound stop integration: PASS")
 
-wan_start = net_wan.split("void\nstart_wan(void)", 1)[1].split(
+wan_start = net_wan.split("int\nstart_wan(void)", 1)[1].split(
     "\nstatic int\nstop_wan_ppp_locked", 1
 )[0]
 wan_up = net_wan.split("wan_up_internal(char *wan_ifname, int unit, int is_static)", 1)[1].split(
