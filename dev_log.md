@@ -1,3 +1,13 @@
+## 2026-11-15 — RC lifecycle hardening handoff (97d4d6720b8a)
+
+- Live source baseline at handoff: `97d4d6720b8aff12d6a10b8b816084f870d9e468`; backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- This cycle's delivered stability/security work: HTTPD watchdog-stop gate for NVRAM restore; Inadyn daemon postcondition verification; IPTV/udpxy/xupnpd startup status propagation; XUPnPD unique no-follow config staging and directory/symlink checks; 802.1X boot/restart failure propagation with rollback; CPU-watchdog module-load status propagation.
+- XUPnPD directory regression now covers real directories, pre-existing symlinks, regular files, missing paths, and NULL input. The source checks `/etc/storage`, the XUPnPD root, and its config directory before privileged config mutations.
+- Exact-SHA Actions for `97d4d6720b8aff12d6a10b8b816084f870d9e468` at handoff time:
+  - Shadowsocks proxy process lifecycle regression — run 43793708284: PASS (completed, success).
+  - AI handoff documentation contract — run 43793708307: PASS (completed, success).
+- Next: continue auditing enabled RC service startup boundaries for concrete ignored launch/module failures; do not repeat already-completed audits or overfocus one module.
+
 ## 2026-11-15 — Reject injected dnsmasq directives in downloaded adblock lists
 
 - Security review found the parser copied a complete remote file unchanged whenever it contained an `address=` line. A mixed file could therefore add unrelated dnsmasq directives such as `dhcp-script=` or `conf-file=`, despite the source being configurable remote input.

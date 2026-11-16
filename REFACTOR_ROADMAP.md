@@ -58,18 +58,11 @@
 
 ## Priority queue
 
-1. P1 COMPLETE — Blank-MTD hash-before-lock ordering and both injected failure paths are implemented; exact-head USB #43698297016 and AI docs #43698297005 PASS on `de14e2e`.
-2. P1 COMPLETE — HTTPD restore upload now stages the complete payload privately, verifies flush/fsync/close and atomically replaces the retained retry archive; only the same POST's ready latch can invoke restore. Local GNU89 upload-helper regression PASS; exact-head CI and current-source XY-C1 pending.
-3. P2 REVIEWED / RESIDUAL LIMIT — DNSMasq resolver publication and public/locked lifecycle caller graph reviewed; no additional lock-order defect confirmed. Static-ARP transaction, unsafe-upstream error propagation, retryable staging discard and rollback-snapshot cleanup reporting are implemented. Linux 4.4 PID reuse between final identity validation and kill remains blocked pending a genuinely atomic kernel primitive.
-4. P2 — DNS Forwarder locked lifecycle, failed-stop gate, launch status and PID1 notification propagation remain L2 VERIFIED on 479f0d7; do not repeat this slice.
-5. P2 PARTIALLY FIXED / RESIDUAL BLOCKER — Failed non-exclusive STOR no longer makes a pre-existing destination cleanup-eligible; only the session that successfully creates the leaf with O_EXCL may roll back. Exact VSFTPD #43744355353 PASS on 079f. The fstatat()-then-unlinkat() replacement window remains unresolved on Linux 4.4; require a proven no-loss strategy for STOR/APPE/REST/STOU and concurrent writers before changing it.
-6. P2 — NFS async durability, AUTH_SYS/root-squash and external-mount compatibility require real client/storage evidence; do not infer guarantees from host mocks.
-7. P1 SOURCE/HOST FIX COMPLETE — LPD printer-removal SIGUSR2 requires verified PID/start_time identity; exact-head process lifecycle, HTTPD security and AI docs pass on 022bc. Current XY-C1 checks still gate firmware L3.
-8. P1 ACTIVE — Continue eliminating silent failures at enabled RC/service startup boundaries; completed slices cover Firefly, Transmission, Aria and RC logger status. THIS COMMIT propagates first failures from enabled int-returning `start_services_once()` boot services to the RC caller while preserving disabled-feature sentinels.
-
-9. P2 ACTIVE — Publish `/etc/igmpproxy.conf` through checked same-directory staging and atomic rename; refuse daemon launch on publication failure. Exact Process host regression and XY-C1 build/TRX/artifact are required.
-11. P1 ACTIVE — Manual DDNS UI refresh previously used `pids("inadyn")` and name-wide `killall -SIGUSR1`. THIS COMMIT routes it through RC and the PID-identity policy extended to SIGUSR1; UNKNOWN aborts and ABSENT stays a no-op.
-10. P1 SOURCE/HOST FIX COMPLETE — AiDisk Samba/FTP disable now always invokes fail-closed RC stop handlers; exact 891b Process #43777935786 and AI docs #43777935812 PASS. XY-C1 Build/TRX/artifact remained pending at last poll.
+1. **P0 — Verify exact-SHA CI after each source/handoff commit.** Resolve any FAIL at the corresponding SHA; treat runs without a conclusion as PENDING and work on independent tasks.
+2. **P1 — Continue broad RC startup-result propagation.** Find remaining enabled service launch/module-load paths whose failures are discarded by `void` helpers or callers. Fix concrete defects with tests; cover service callers, not just helper return types.
+3. **P1 — Extend lifecycle and rollback coverage across independent services.** Preserve process-identity checks, bounded waits, fail-closed UNKNOWN handling, and rollback semantics; prioritize network/service availability and privilege boundaries.
+4. **P2 — Continue storage/configuration boundary hardening.** Inspect other privileged writers for predictable temp names, symlink substitution, unchecked file operations, and unsafe config interpolation; add host regressions where practical.
+5. **P2 — Keep handoff state current.** Update `SESSION_HANDOFF.md`, this roadmap, and `dev_log.md` after material commits; do not duplicate verified work.
 
 ## Working rules
 
