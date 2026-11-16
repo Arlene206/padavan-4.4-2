@@ -1,3 +1,13 @@
+## 2026-11-16 — Propagate boot hardware module load failures into init_router()
+
+- Baseline main: 5095abd71bf199547e2ba846d3e3d94343d03ebc; immutable backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Confirmed dropped status: init_router() aggregated wireless module failures but ignored module_smart_load() outcomes for USB/XHCI/EHCI/OHCI, AHCI, MMC/SDHCI, MTK AES and IPSet. common_ex.c confirms is_module_loaded() verifies the live /sys/module/<name> directory after load.
+- Generalized verified post-load policy while keeping the legacy wireless wrapper; forwarded XHCI usb3_disable unchanged; made module groups return first failure while still attempting remaining modules; aggregated enabled group results into init_router(). reload_modem_modules() remains unchanged pending its own internal/caller review.
+- Extended GNU89/Werror/ASan/UBSan policy regression for non-NULL module parameter forwarding. Added scripts/check_rc_boot_module_loads.py and wired semantic checking into XY-C1 validation.
+- L1 source review PASS. Local full MIPS build NOT RUN. Exact-head WAN-route and XY-C1 Actions PENDING after publication. No L4 hardware claim.
+- Next: inspect exact-head Actions and XY-C1 build/TRX/artifact; then trace reload_modem_modules() before any API change.
+---
+
 ## 2026-11-16 — Update MAN teardown regression count for captured IGMP status
 
 - Parent: 73be5eb266a47b7b610a07880ee791d98e1a1279. Exact-head WAN workflow `43821468810` passed its first source checker after whitespace normalization, including static IPTV host regression, then failed the second route/cleanup checker because MAN teardown's expected aggregation count was stale (5; now 6 after adding the IGMP proxy stop result).

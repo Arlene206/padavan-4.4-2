@@ -57,6 +57,7 @@ on:
       - "trunk/user/rc/src/service_lifecycle_policy.h"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/wireless_module_load_policy.h"
+      - "scripts/check_rc_boot_module_loads.py"
       - "trunk/user/rc/src/tests/wireless_module_load_policy.c"
       - "trunk/user/rc/src/storage_persistence_policy.h"
       - "trunk/user/scripts/files/sbin/mtd_storage.sh"
@@ -204,6 +205,9 @@ jobs:
             trunk/user/rc/src/tests/wireless_module_load_policy.c \
             -o "$RUNNER_TEMP/wireless-module-load-policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/wireless-module-load-policy"
+
+      - name: Verify boot hardware module result propagation
+        run: python3 scripts/check_rc_boot_module_loads.py
 
       - name: Compile and run RC watchdog module restart postcondition regression
         run: |

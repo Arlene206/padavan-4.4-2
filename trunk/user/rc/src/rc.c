@@ -139,15 +139,32 @@ nvram_restore_defaults(void)
 }
 
 static int
-load_wireless_module(const char *module_name)
+load_boot_module(const char *module_name, const char *module_param)
 {
-	static const rc_wireless_module_load_ops_t ops = {
+	static const rc_module_load_ops_t ops = {
 		module_smart_load,
 		is_module_loaded
 	};
 	int status;
 
-	status = rc_wireless_module_load_verified(module_name, &ops);
+	status = rc_module_load_verified(module_name, module_param, &ops);
+	if (status != 0)
+		logmessage(LOGNAME,
+			   "boot hardware module load failed or module is unavailable: %s",
+			   module_name);
+	return status;
+}
+
+static int
+load_wireless_module(const char *module_name)
+{
+	static const rc_module_load_ops_t ops = {
+		module_smart_load,
+		is_module_loaded
+	};
+	int status;
+
+	status = rc_module_load_verified(module_name, NULL, &ops);
 	if (status != 0)
 		logmessage(LOGNAME,
 			   "wireless driver module load failed or module is unavailable: %s",
@@ -196,16 +213,19 @@ load_wireless_modules(void)
 }
 
 #if defined (USE_USB_SUPPORT)
-static void
+static int
 load_usb_modules(void)
 {
+	int start_status = 0;
+
 	/* load usb printer module before storage */
-	module_smart_load("usblp", NULL);
-
+	start_status = rc_first_service_start_status(start_status,
+						     load_boot_module("usblp", NULL));
 	/* load usb storage module */
-	module_smart_load("usb_storage", NULL);
+	start_status = rc_first_service_start_status(start_status,
+						     load_boot_module("usb_storage", NULL));
 
-	/* load usb modem modules */
+	/* load usb modem modules; this legacy void API handles its own failures. */
 	if (!get_ap_mode() && nvram_get_int("modem_rule") > 0)
 		reload_modem_modules(nvram_get_int("modem_type"), 0);
 
@@ -214,64 +234,76 @@ load_usb_modules(void)
 	{
 		char xhci_param[32];
 		snprintf(xhci_param, sizeof(xhci_param), "%s=%d", "usb3_disable", nvram_get_int("usb3_disable"));
-		module_smart_load("xhci_hcd", xhci_param);
-		module_smart_load("xhci_mtk", NULL);
+		start_status = rc_first_service_start_status(start_status,
+							     load_boot_module("xhci_hcd", xhci_param));
+		start_status = rc_first_service_start_status(start_status,
+							     load_boot_module("xhci_mtk", NULL));
 	}
 #else
-	module_smart_load("ehci_hcd", NULL);
-	module_smart_load("ohci_hcd", NULL);
+	start_status = rc_first_service_start_status(start_status,
+						     load_boot_module("ehci_hcd", NULL));
+	start_status = rc_first_service_start_status(start_status,
+						     load_boot_module("ohci_hcd", NULL));
 #endif
+	return start_status;
 }
 #endif
 
 #if defined (USE_ATA_SUPPORT)
-static void
+static int
 load_ata_modules(void)
 {
 	/* start ahci device */
-	module_smart_load("ahci", NULL);
+	return load_boot_module("ahci", NULL);
 }
 #endif
 
 #if defined (USE_MMC_SUPPORT)
-static void
+static int
 load_mmc_modules(void)
 {
+	int start_status = 0;
+
 	/* start mmc block device */
-	module_smart_load("mmc_block", NULL);
-
-	module_smart_load("sdhci", NULL);
-	module_smart_load("sdhci-pltfm", NULL);
-
+	start_status = rc_first_service_start_status(start_status,
+						     load_boot_module("mmc_block", NULL));
+	start_status = rc_first_service_start_status(start_status,
+						     load_boot_module("sdhci", NULL));
+	start_status = rc_first_service_start_status(start_status,
+						     load_boot_module("sdhci-pltfm", NULL));
 	/* start mmc host */
 #if defined (USE_MTK_MMC)
-	module_smart_load("mt7621-sd", NULL);
+	start_status = rc_first_service_start_status(start_status,
+						     load_boot_module("mt7621-sd", NULL));
 #endif
+	return start_status;
 }
 #endif
 
 #if defined (USE_MTK_AES)
-static void
+static int
 load_crypto_modules(void)
 {
 	/* start aes engine */
-	module_smart_load("mtk_aes", NULL);
-
-#if 0
-	/* start cryptodev-linux */
-	module_smart_load("cryptodev", NULL);
-#endif
+	return load_boot_module("mtk_aes", NULL);
 }
 #endif
 
 #if defined (USE_IPSET)
-static void
+static int
 load_ipset_modules(void)
 {
-	module_smart_load("xt_set", NULL);
-	module_smart_load("ip_set_hash_ip", NULL);
-	module_smart_load("ip_set_hash_mac", NULL);
-	module_smart_load("ip_set_hash_net", NULL);
+	int start_status = 0;
+
+	start_status = rc_first_service_start_status(start_status,
+						     load_boot_module("xt_set", NULL));
+	start_status = rc_first_service_start_status(start_status,
+						     load_boot_module("ip_set_hash_ip", NULL));
+	start_status = rc_first_service_start_status(start_status,
+						     load_boot_module("ip_set_hash_mac", NULL));
+	start_status = rc_first_service_start_status(start_status,
+						     load_boot_module("ip_set_hash_net", NULL));
+	return start_status;
 }
 #endif
 
@@ -882,7 +914,7 @@ init_router(void)
 {
 	int log_remote, is_ap_mode, nvram_need_commit;
 	int storage_save_status, dnsmasq_start_status;
-	int wireless_modules_status;
+	int boot_modules_status;
 
 #if defined (USE_RTL8367)
 	rtl8367_node();
@@ -922,26 +954,31 @@ init_router(void)
 		return -1;
 	}
 #endif
-	wireless_modules_status = load_wireless_modules();
-	if (wireless_modules_status != 0)
-		logmessage(LOGNAME,
-			   "Router initialization continuing with unavailable wireless driver(s) (first status=%d)",
-			   wireless_modules_status);
+	boot_modules_status = load_wireless_modules();
 #if defined (USE_MMC_SUPPORT)
-	load_mmc_modules();
+	boot_modules_status = rc_first_service_start_status(
+		boot_modules_status, load_mmc_modules());
 #endif
 #if defined (USE_USB_SUPPORT)
-	load_usb_modules();
+	boot_modules_status = rc_first_service_start_status(
+		boot_modules_status, load_usb_modules());
 #endif
 #if defined (USE_ATA_SUPPORT)
-	load_ata_modules();
+	boot_modules_status = rc_first_service_start_status(
+		boot_modules_status, load_ata_modules());
 #endif
 #if defined (USE_MTK_AES)
-	load_crypto_modules();
+	boot_modules_status = rc_first_service_start_status(
+		boot_modules_status, load_crypto_modules());
 #endif
 #if defined (USE_IPSET)
-	load_ipset_modules();
+	boot_modules_status = rc_first_service_start_status(
+		boot_modules_status, load_ipset_modules());
 #endif
+	if (boot_modules_status != 0)
+		logmessage(LOGNAME,
+			   "Router initialization continuing with one or more unavailable hardware modules (first status=%d)",
+			   boot_modules_status);
 
 	recreate_passwd_unix(1);
 
@@ -1017,7 +1054,7 @@ init_router(void)
 	}
 
 	{
-		int boot_services_status = wireless_modules_status;
+		int boot_services_status = boot_modules_status;
 		int service_start_status = start_services_once(is_ap_mode);
 
 		boot_services_status = rc_first_service_start_status(boot_services_status,

@@ -11,13 +11,16 @@ static int make_module_visible;
 static int load_calls;
 static int probe_calls;
 static const char *expected_module;
+static const char *expected_param;
 
 static int
 mock_module_load(const char *module_name, const char *module_param)
 {
 	assert(module_name != NULL);
 	assert(strcmp(module_name, expected_module) == 0);
-	assert(module_param == NULL);
+	assert((module_param == NULL && expected_param == NULL) ||
+	       (module_param != NULL && expected_param != NULL &&
+		strcmp(module_param, expected_param) == 0));
 	load_calls++;
 	if (make_module_visible)
 		module_loaded = 1;
@@ -47,6 +50,7 @@ reset_case(int loaded, int result, int visible)
 	load_calls = 0;
 	probe_calls = 0;
 	expected_module = "mt_7615e";
+	expected_param = NULL;
 }
 
 static void
@@ -89,6 +93,19 @@ test_visible_module_state_wins_over_loader_status(void)
 }
 
 static void
+test_module_parameter_is_forwarded(void)
+{
+	reset_case(0, 1, 1);
+	expected_module = "xhci_hcd";
+	expected_param = "usb3_disable=1";
+	assert(rc_module_load_verified("xhci_hcd", "usb3_disable=1",
+				       (const rc_module_load_ops_t *)&mock_ops) == 0);
+	assert(load_calls == 1);
+	assert(probe_calls == 1);
+	assert(module_loaded == 1);
+}
+
+static void
 test_invalid_inputs_fail_before_side_effects(void)
 {
 	rc_wireless_module_load_ops_t no_loader = {
@@ -115,7 +132,8 @@ main(void)
 	test_newly_loaded_is_success();
 	test_failed_modprobe_is_not_success();
 	test_visible_module_state_wins_over_loader_status();
+	test_module_parameter_is_forwarded();
 	test_invalid_inputs_fail_before_side_effects();
-	puts("RC wireless module post-load verification policy: PASS");
+	puts("RC module post-load verification policy: PASS");
 	return 0;
 }
