@@ -9,27 +9,29 @@ Only edit it when the live facts or first next action change materially.
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Current main parent for the HTTPD security-checker update: `2d97d3b11b48464a21ace2113a04ab26769aff2a`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
-- Exact 2d97 Process lifecycle #43779569397 PASS, whole-tree inventory #43779569493 PASS, AI handoff docs #43779569387 PASS, infosvr #43779569427 PASS, AliyunDrive #43779569474 PASS, AdGuardHome #43779569325 PASS, AliDDNS #43779569367 PASS. XY-C1 #43779569458 and NVRAM #43779569419 remained in progress at last poll.
-- Exact 2d97 HTTPD security #43779569517 FAIL only in its source-wiring assertion: `privileged_script_sinks["ddnsclient"]` still expected the old name-wide `killall -SIGUSR1`; the production handler now correctly calls `notify_rc(RCN_MANUAL_DDNS_UPDATE)`. All earlier compile, policy and HTTPD security checks in the same job passed.
-- Manual DDNS identity-bound refresh commit `f71ee12cbca49972cc927457338d395e64818381`: exact Inadyn lifecycle #43779424646 PASS (GNU89/ASan/UBSan compile, SIGUSR1 success and UNKNOWN rejection, production integration checker).
-- AiDisk orphaned-label cleanup commit `2d97d3b11b48464a21ace2113a04ab26769aff2a` removes the unreferenced success label and updates Process source-contract boundaries. Exact Process #43779569397 and AI docs #43779569387 PASS; XY-C1 still in progress.
-- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; no physical-router/L4 validation.
+- Main parent for the Shadowsocks adblock parser/publication fix: `9cd5348bba7bee2a2f163d46cc553e32ffb44daa`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
+- Exact 9cd HTTPD security #43779833479 PASS; AI docs #43779833509 PASS; Process lifecycle #43779833453 PASS; NVRAM #43779833462 PASS; AdGuardHome #43779833447 PASS; infosvr #43779833483 PASS; AliDDNS #43779833617 PASS; AliyunDrive #43779833471 PASS.
+- Exact 9cd XY-C1 #43779833547 remains in progress. Last poll: Build XY-C1 running; TRX verification and artifact upload pending. This SHA includes the AiDisk unused-label cleanup and identity-bound Inadyn SIGUSR1 change.
+- Manual DDNS identity-bound refresh commit `f71ee12cbca49972cc927457338d395e64818381`: exact Inadyn lifecycle #43779424646 PASS (GNU89/ASan/UBSan, PID-bound SIGUSR1 success + UNKNOWN rejection).
+- AiDisk fail-closed Samba/FTP change `891b46b51481d171aab6de88ac6634f4d6f56124`; unused success label cleaned in `2d97d3b11b48464a21ace2113a04ab26769aff2a`. Exact 9cd Process/HTTPD/AI-doc checks pass.
+- Current independent source defect: `trunk/user/shadowsocks/scripts/shadowsocks.sh:start_AD()` contains invalid `check = ...` shell syntax, so intended dnsmasq/Adblock format detection is not performed. THIS COMMIT adds a tested parser and atomic last-good publication.
+- Frozen backup unchanged; no physical-router/L4 validation.
 
 ## Active task
 
-### Repair the HTTPD security source-contract for identity-bound DDNS refresh
+### Fix Shadowsocks adblock format detection and preserve last-good configuration
 
-The manual DDNS change moved the privileged `ddnsclient` handler from name-wide `killall -SIGUSR1 inadyn` to `notify_rc(RCN_MANUAL_DDNS_UPDATE)`. The exact 2d97 HTTPD security workflow still asserted the former sink, so the job failed after all earlier security/policy checks passed. Update the allowlisted sink contract to the new RC event; the dedicated Inadyn checker already verifies the complete HTTPD→notify_rc→RC→identity-bound SIGUSR1 implementation.
+The `start_AD()` function contains `check = `grep -wq ...``, which attempts to execute a command instead of assigning a variable; quiet grep also cannot provide the intended content test. Correctly distinguish dnsmasq `address=` files from simple `||domain^` rules, convert only supported domain rules, reject empty/unsupported input, and publish through a same-directory temporary file and atomic rename. A focused shell regression and Shadowsocks CI workflow test this behavior.
 
 ## Verification boundary
 
-- Exact 2d97 Process #43779569397, full-tree inventory #43779569493 and AI-doc #43779569387 PASS; XY-C1 #43779569458 / NVRAM #43779569419 were in progress at last poll.
-- Exact 2d97 HTTPD security #43779569517 failed only because the source allowlist still expected the removed `killall -SIGUSR1 inadyn` string. The expected source sink is corrected in THIS COMMIT; exact-head HTTPD security must rerun and pass.
-- Exact f71 Inadyn lifecycle #43779424646 PASS, including GNU89/ASan/UBSan and SIGUSR1/UNKNOWN tests. No L3/L4 claim until current exact-SHA XY-C1 Build/TRX/artifact pass.
+- Exact 9cd HTTPD security, Process lifecycle, NVRAM, AI docs, AdGuardHome, infosvr, AliDDNS and AliyunDrive Actions all PASS.
+- Exact 9cd XY-C1 #43779833547 remained at Build XY-C1 at last poll; TRX verification and artifact upload pending.
+- THIS COMMIT adds a host shell regression for dnsmasq passthrough, Adblock domain conversion, unsupported/empty input rejection and last-good preservation. The Shadowsocks lifecycle workflow must run on this exact source SHA.
+- No L3/L4 claim until exact-source XY-C1 Build, TRX validation and artifact upload all pass; no hardware testing is available.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head HTTPD security, Process, inventory, AI-doc and XY-C1 Actions for THIS COMMIT; confirm the ddnsclient sink assertion, identity-bound signal regressions and same-SHA Build/TRX/artifact.
-2. Continue the process-lifecycle inventory review on consequential state-changing consumers; the next clear candidate is the dormant `wpacli_main()` DHCP force-renew branch, currently disabled under `#if 0`, so do not re-enable it without an explicit product compatibility requirement.
+1. Inspect exact-head Shadowsocks lifecycle and XY-C1 Actions. Confirm both new adblock regressions and same-SHA Build XY-C1 / TRX / artifact upload.
+2. Review remaining high-impact legacy process-presence and name-wide signal consumers from artifact #14186597970, without changing global Boolean API semantics.
 3. Preserve the frozen backup and archived log inventory; no L4 without physical hardware.

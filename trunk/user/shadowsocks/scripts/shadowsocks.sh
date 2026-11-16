@@ -421,23 +421,84 @@ EOF
 	/sbin/restart_dhcpd
 }
 
-start_AD() {
-	mkdir -p /tmp/dnsmasq.dom
-	curl -s -o /tmp/adnew.conf --connect-timeout 10 --retry 3 $(nvram get ss_adblock_url)
-	if [ ! -f "/tmp/adnew.conf" ]; then
-		log "广告过滤功能未开启或者过滤地址失效，网络异常等 ！！！"
-	else
-		log "去广告文件下载成功广告过滤功能已启用..."
-		if [ -f "/tmp/adnew.conf" ]; then
-			check = `grep -wq "address=" /tmp/adnew.conf`
-	  		if [ ! -n "$check" ] ; then
-				cp /tmp/adnew.conf /tmp/dnsmasq.dom/anti-ad-for-dnsmasq.conf
-	  		else
-			    cat /tmp/adnew.conf | grep ^\|\|[^\*]*\^$ | sed -e 's:||:address\=\/:' -e 's:\^:/0\.0\.0\.0:' > /tmp/dnsmasq.dom/anti-ad-for-dnsmasq.conf
-			fi
+/*
+ * Publish either a dnsmasq address configuration or a simple Adblock domain
+ * list. Never truncate the live file until a complete replacement is ready.
+ */
+ss_publish_adblock_config() {
+	[ "$#" -eq 2 ] || return 2
+	local ss_adblock_input="$1"
+	local ss_adblock_output="$2"
+	local ss_adblock_tmp=""
+	local ss_adblock_rules=""
+
+	[ -r "$ss_adblock_input" ] && [ -s "$ss_adblock_input" ] || return 1
+	ss_adblock_tmp=$(mktemp "\${ss_adblock_output}.tmp.XXXXXX") || return 1
+	if grep -q '^[[:space:]]*address=' "$ss_adblock_input"; then
+		if ! cp "$ss_adblock_input" "$ss_adblock_tmp"; then
+			rm -f "$ss_adblock_tmp"
+			return 1
 		fi
+	else
+		ss_adblock_rules=$(mktemp "\${ss_adblock_output}.rules.XXXXXX") || {
+			rm -f "$ss_adblock_tmp"
+			return 1
+		}
+		if ! grep '^[|][|][A-Za-z0-9][A-Za-z0-9.-]*\^$' \
+			"$ss_adblock_input" > "$ss_adblock_rules"; then
+			rm -f "$ss_adblock_rules" "$ss_adblock_tmp"
+			return 1
+		fi
+		if ! sed -e 's:^[|][|]:address=/:' \
+			-e 's:\^$:/0.0.0.0:' "$ss_adblock_rules" > "$ss_adblock_tmp"; then
+			rm -f "$ss_adblock_rules" "$ss_adblock_tmp"
+			return 1
+		fi
+		rm -f "$ss_adblock_rules"
 	fi
-	rm -f /tmp/adnew.conf
+
+	if [ ! -s "$ss_adblock_tmp" ] || ! chmod 644 "$ss_adblock_tmp"; then
+		rm -f "$ss_adblock_tmp"
+		return 1
+	fi
+	if ! mv -f "$ss_adblock_tmp" "$ss_adblock_output"; then
+		rm -f "$ss_adblock_tmp"
+		return 1
+	fi
+	return 0
+}
+
+start_AD() {
+	local ss_adblock_url=""
+	local ss_adblock_input=""
+	local ss_adblock_output="/tmp/dnsmasq.dom/anti-ad-for-dnsmasq.conf"
+
+	if ! mkdir -p /tmp/dnsmasq.dom; then
+		log "Unable to prepare adblock configuration directory"
+		return 1
+	fi
+	ss_adblock_url=$(nvram get ss_adblock_url)
+	if [ -z "$ss_adblock_url" ] || [ "$ss_adblock_url" = "nil" ]; then
+		log "广告过滤地址未配置，保留上次可用配置"
+		return 1
+	fi
+	ss_adblock_input=$(mktemp /tmp/adnew.conf.XXXXXX) || {
+		log "Unable to create temporary adblock download"
+		return 1
+	}
+	if ! curl -fsS -o "$ss_adblock_input" --connect-timeout 10 --retry 3 "$ss_adblock_url"; then
+		rm -f "$ss_adblock_input"
+		log "广告过滤文件下载失败，保留上次可用配置"
+		return 1
+	fi
+	if ! ss_publish_adblock_config "$ss_adblock_input" "$ss_adblock_output"; then
+		rm -f "$ss_adblock_input"
+		log "广告过滤文件格式无效，保留上次可用配置"
+		return 1
+	fi
+	rm -f "$ss_adblock_input"
+	log "去广告文件下载并发布成功"
+	return 0
 }
 
 # ========== 启动 Socks5 代理 ==========

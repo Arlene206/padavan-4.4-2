@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Source contract for bounded Shadowsocks proxy-process shutdown."""
+"""Source contracts for Shadowsocks process shutdown and adblock publication."""
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -26,6 +26,7 @@ script = read("trunk/user/shadowsocks/scripts/shadowsocks.sh")
 helper = read("trunk/user/shadowsocks/scripts/shadowsocks_process_lifecycle.sh")
 makefile = read("trunk/user/shadowsocks/Makefile")
 test = read("trunk/user/shadowsocks/tests/process_lifecycle.sh")
+adblock_test = read("trunk/user/shadowsocks/tests/adblock_config.sh")
 workflow = read(".github/workflows/shadowsocks-lifecycle.yml")
 busybox_config = read("trunk/user/busybox/busybox-1.24.x/procps/Config.src")
 busybox_pgrep = read("trunk/user/busybox/busybox-1.24.x/procps/pgrep.c")
@@ -91,3 +92,27 @@ for path in ("trunk/user/shadowsocks/scripts/shadowsocks.sh",
     require(path in workflow, f"workflow path filter missing {path}")
 
 print("Shadowsocks process lifecycle source contract: PASS")
+
+
+adblock_start = script.index("ss_publish_adblock_config() {")
+adblock_end = script.index("\nstart_AD() {", adblock_start)
+adblock_helper = script[adblock_start:adblock_end]
+adblock_action_start = script.index("start_AD() {", adblock_end)
+adblock_action_end = script.index("\n\n# ========== 启动 Socks5 代理", adblock_action_start)
+adblock_action = script[adblock_action_start:adblock_action_end]
+require("mktemp" in adblock_helper and "chmod 644" in adblock_helper and
+        'mv -f "$ss_adblock_tmp" "$ss_adblock_output"' in adblock_helper,
+        "adblock publication must use a complete same-directory atomic replacement")
+require("'^[[:space:]]*address='" in adblock_helper and
+        "'^[|][|][A-Za-z0-9][A-Za-z0-9.-]*\\^$'" in adblock_helper,
+        "adblock parser must distinguish dnsmasq configs from simple domain rules")
+require("check =" not in adblock_action and "grep -wq" not in adblock_action,
+        "adblock detection must not use a command as a shell assignment")
+ordered(adblock_action, ["curl -fsS", "ss_publish_adblock_config",
+                         "去广告文件下载并发布成功"],
+        "download then validate/publish adblock config")
+require("address=/ads.example.com/0.0.0.0" in adblock_test and
+        "unsupported-only Adblock input" in adblock_test and
+        "last known-good" in adblock_test,
+        "adblock regression must cover conversion and fail-safe replacement")
+print("Shadowsocks adblock configuration source contract: PASS")

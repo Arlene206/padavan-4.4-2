@@ -1,10 +1,14 @@
 ## Current source / CI checkpoint
 
-- Main parent for the HTTPD security-checker correction: `2d97d3b11b48464a21ace2113a04ab26769aff2a`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact 2d97 Process lifecycle #43779569397, full-tree inventory #43779569493, AI docs #43779569387, infosvr #43779569427, AliyunDrive #43779569474, AdGuardHome #43779569325 and AliDDNS #43779569367 PASS. XY-C1 #43779569458 and NVRAM #43779569419 remained in progress at last poll.
-- Exact 2d97 HTTPD security #43779569517 failed only on stale assertion expecting the removed `killall -SIGUSR1 inadyn` sink. THIS COMMIT changes its expectation to `notify_rc(RCN_MANUAL_DDNS_UPDATE)`; its exact-head rerun must pass.
-- Exact f71 Inadyn lifecycle #43779424646 PASS (GNU89/ASan/UBSan SIGUSR1 success/UNKNOWN rejection + production integration).
+- Main parent for the Shadowsocks adblock parser/publication fix: `9cd5348bba7bee2a2f163d46cc553e32ffb44daa`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact 9cd HTTPD security #43779833479, Process lifecycle #43779833453, NVRAM #43779833462, AI docs #43779833509, AdGuardHome #43779833447, infosvr #43779833483, AliDDNS #43779833617 and AliyunDrive #43779833471 PASS.
+- Exact 9cd XY-C1 #43779833547 remained in Build XY-C1 at last poll; TRX/artifact pending.
+- THIS COMMIT fixes Shadowsocks `start_AD()` malformed `check =` command syntax and unvalidated adblock publication. It stages a fully parsed config beside the destination and atomically renames only a valid non-empty result; host regression covers supported formats and last-good preservation.
 
+
+### P1 — Shadowsocks adblock configuration parser
+
+- Fix `start_AD()` format detection and atomically preserve the last known-good dnsmasq filter file; exact-head shell regression and XY-C1 validation required.
 
 ### P1 — Storage daemon startup and config publication
 

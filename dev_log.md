@@ -1,3 +1,14 @@
+## 2026-11-15 — Fix Shadowsocks adblock parser and atomic publication
+
+- `start_AD()` used `check = `grep -wq ...``, which is not a shell assignment; quiet grep also emits no value for command substitution. The intended dnsmasq/address versus Adblock-list detection was therefore not reliable.
+- Added `ss_publish_adblock_config()`: direct `address=` configurations are copied unchanged; only simple anchored `||hostname^` rules are converted to `address=/hostname/0.0.0.0`. Comments, allow rules, wildcard rules, unsupported forms and empty input are rejected if no supported rules remain.
+- The publisher stages beside the destination, verifies non-empty output, sets mode 0644 and atomically renames it over the active config. Failed downloads/parsing leave the last-good file untouched; download input names are unique per invocation.
+- Added `tests/adblock_config.sh` for dnsmasq passthrough, Adblock conversion, unsupported/empty input rejection, no temp-file leaks and last-good preservation; wired it into the Shadowsocks workflow and source checker.
+- Parent main: `9cd5348bba7bee2a2f163d46cc553e32ffb44daa`; frozen backup unchanged. Exact 9cd HTTPD/Process/NVRAM/AI-doc/module checks PASS; XY-C1 #43779833547 remained at Build XY-C1 with TRX/artifact pending.
+- THIS COMMIT requires exact-head Shadowsocks shell/source regressions and XY-C1 Build/TRX/artifact. No L3/L4 claim.
+
+---
+
 ## 2026-11-15 — Align HTTPD security wiring assertion with safe DDNS signal route
 
 - Exact 2d97 HTTPD Authentication and Security Regression #43779569517 failed at the final source-wiring assertion. The workflow still required `doSystem("killall ...", "-SIGUSR1", "inadyn")` in the `ddnsclient` handler, although the production code now queues `RCN_MANUAL_DDNS_UPDATE` and the dedicated Inadyn regression verifies tri-state scan + PID-identity-bound SIGUSR1.
