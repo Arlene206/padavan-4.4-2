@@ -10,27 +10,25 @@ Every multi-file logical change must be created as one complete Git tree and one
 
 ## Current repository state
 
-- Latest main parent: `a52e5c460635cd0080b1857cb04ff92a42f575f5` (includes independent SmartDNS fix `fix(smartdns): preserve unrelated dnsmasq upstreams at boot`). Parent ac012 exact-head USB storage `43913404416`, HTTPD `43913404244`, NVRAM `43913404369`, Process lifecycle `43913404160`, Process inventory `43913404056`, AI docs `43913404348`, AdGuardHome `43913404058`, infosvr `43913404025`, AliyunDrive `43913404158`, and AliDDNS `43913404157` PASS; XY-C1 `43913404095` was IN_PROGRESS at last poll and needs final Build/TRX/artifact status. THIS COMMIT adds tri-state mount ownership handling; exact-head storage and XY-C1 checks pending.
-
-- Repository: `Arlene206/padavan-4.4-2`; current source parent before this slice: `e05ccbcb8c458ee2bc07c6020ed5af52b3d4cff8`.
-- Mount-link errno fix, GNU89 policy regression, storage source contracts, and workflow corrections are included together in THIS COMMIT.
+- Latest main parent before THIS COMMIT: `1dbfc53c7d9e37fb4a6a5e8358644652a6b3dbfa`. Exact-head checks at last poll: XY-C1 Firmware Validation 43914350624 in_progress; AI handoff documentation contract 43914350195 completed/success; AdGuardHome config security regression 43914350664 completed/success; infosvr packet and signal lifecycle stability regression 43914350210 completed/success; HTTPD Authentication and Security Regression 43914350403 completed/success; AliDDNS signed API transport security regression 43914350230 completed/success; Process lifecycle inventory - 1dbfc53c7d9e37fb4a6a5e8358644652a6b3dbfa 43914350160 completed/success; AliyunDrive WebDAV lifecycle stability regression 43914350198 completed/success; Process inventory and lifecycle fail-closed regression 43914350286 completed/success; USB storage hotplug stability regression 43914350905 completed/success; NVRAM transaction boundary audit 43914350178 completed/success
 - Frozen backup branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable and read-only.
-- Storage application startup returns first errors from all seven configured services; media/download daemon launch and readiness errors flow through the common startup result, and deferred hotplug preserves retry events until success.
-- `create_mp_link()` retains its boolean API but now initializes errno, normalizes mount inventory/path/directory/symlink/cleanup failures, keeps the first actionable error, and exposes `create_mp_link_status()` before all four media callers. MiniDLNA/Firefly retain the 0→1 directory fallback; Transmission/Aria retain mode 0 only.
-- USB modem hotplug preserves coalesced unplug/replug events and retries failed reconnects; WAN IPv6 and LAN/Wi-Fi startup paths propagate failures.
+- `automount.sh` already uses checked `/proc/modules` snapshots and tri-state `/proc/mounts` ownership. Parent `1dbfc53c7d9e37fb4a6a5e8358644652a6b3dbfa` USB storage run 43914350905 was completed/success.
+- A separate review found four `modprobe -l | grep` pipelines for vfat, antfs/ufsd, hfsplus and ext2/ext3. Pipeline status hides a failing BusyBox `modprobe -l`; THIS COMMIT captures the catalog command and propagates its status before selecting a kernel driver.
 
 ## Active task
 
-THIS COMMIT fixes a concrete fail-open path in `mount_from_device()`: its AWK `END` clause collapsed confirmed foreign ownership, no matching `/proc/mounts` record, and an unreadable mount table into one nonzero status. The caller treated every nonzero status as foreign and could fall back to the legacy path despite UNKNOWN ownership. It now snapshots `/proc/mounts` with checked `cat`, returns `0=owned`, `1=confirmed foreign owner`, `2=UNKNOWN/inconsistent`, permits fallback only for status 1, and aborts before any unmount/new mount on status 2. `storage_mountpoint_inventory.sh` tests the exact production function for owned, foreign, conflicting, missing and unreadable records.
+THIS COMMIT closes a module-catalog error-propagation gap: FAT, NTFS, HFS+ and ext2/ext3 selection previously used `modprobe -l | grep`. POSIX pipeline status reflected only grep, so a failing BusyBox `modprobe -l` could be mistaken for a missing driver and lead to fallback-driver selection. Added `func_read_module_catalog()` to capture `modprobe -l` separately and preserve its error status, plus a constrained membership predicate. All four filesystem-family selection groups now refuse to mount if the catalog cannot be read. The regression covers present/missing module names and a nonzero catalog status; the workflow requires four checked call sites and forbids the old masked pipeline.
+
 ## Verification boundary
 
-- Parent ac012: USB storage `43913404416`, HTTPD `43913404244`, NVRAM `43913404369`, Process lifecycle `43913404160`, Process inventory `43913404056`, AI docs `43913404348`, AdGuardHome `43913404058`, infosvr `43913404025`, AliyunDrive `43913404158`, AliDDNS `43913404157` PASS.
-- Parent ac012: XY-C1 `43913404095` was IN_PROGRESS at last poll. Verify same-SHA Build, TRX verification and artifact upload.
-- New current parent a52 adds an unrelated SmartDNS autostart fix; this commit is built on the new main SHA. Exact-head USB storage and XY-C1 for this mount-ownership change are pending.
-- Backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 NOT VERIFIED.
+- Parent `1dbfc53c7d9e37fb4a6a5e8358644652a6b3dbfa`: USB storage 43914350905 completed/success; XY-C1 43914350624 in_progress.
+- Local POSIX shell helper test and BusyBox ash 1.37.0 helper test passed; this is not firmware BusyBox 1.24.2 and not a full repository test/build.
+- Exact-head USB storage and XY-C1 Build/TRX/artifact validation for THIS COMMIT must establish the source boundary. Physical-router L4 remains NOT VERIFIED.
+- Frozen backup remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
 ## Exact first action for the next GPT
 
-1. Inspect exact-head USB storage on THIS COMMIT; the mount-owner shell regression and workflow source assertions must pass.
-2. Inspect XY-C1 Build, TRX verification and artifact upload for the same SHA as the automount source change.
-3. Confirm the in-progress ac012 XY-C1 run `43913404095` final status without repeating its already-passing USB storage/HTTPD/NVRAM checks.
-4. Continue to the next concrete storage/hotplug defect only after exact-SHA gates.
+1. Inspect exact-head USB storage; require module-load, module-catalog and mount-owner regressions plus source contracts to pass.
+2. Inspect exact-head XY-C1 Build, TRX verification and artifact upload on THIS product SHA.
+3. While either run is pending, continue an independent userland stability/security task instead of waiting.
+4. Keep backup read-only and physical-router L4 marked NOT VERIFIED.

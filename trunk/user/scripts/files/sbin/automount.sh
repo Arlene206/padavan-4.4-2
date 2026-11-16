@@ -67,6 +67,29 @@ func_load_module()
 	) 9>>"$lock_file"
 }
 
+func_read_module_catalog()
+{
+	# Do not hide modprobe -l failures behind a grep pipeline's status.
+	if module_catalog=$(modprobe -l 2>/dev/null); then
+		return 0
+	else
+		module_catalog_status=$?
+		logger -t "automount" "Unable to read available filesystem-module catalog (status=$module_catalog_status)"
+		return "$module_catalog_status"
+	fi
+}
+
+func_module_catalog_contains()
+{
+	case "$1" in
+		''|*[!A-Za-z0-9_-]*) return 1 ;;
+	esac
+	case "$module_catalog" in
+		*"$1"*) return 0 ;;
+		*) return 1 ;;
+	esac
+}
+
 # Device names come from hotplug. Keep them as a single block-device component.
 load_module_or_abort()
 {
@@ -243,8 +266,12 @@ if [ "$ID_FS_TYPE" == "msdos" -o "$ID_FS_TYPE" == "vfat" ] ; then
 			exit 1
 		fi
 	fi
-	kernel_vfat=`modprobe -l | grep vfat`
-	if [ -n "$kernel_vfat" ] ; then
+	if ! func_read_module_catalog; then
+		logger -t "automount" "Refusing to mount $dev_full: filesystem-module catalog is unavailable"
+		rmdir "$dev_mount"
+		exit 1
+	fi
+	if func_module_catalog_contains vfat ; then
 		load_module_or_abort vfat
 		mount -t vfat "$dev_full" "$dev_mount" -o noatime,umask=0,iocharset=utf8,codepage=936,shortname=winnt 8>&-
 	else
@@ -270,12 +297,15 @@ elif [ "$ID_FS_TYPE" == "ntfs" ] ; then
 			exit 1
 		fi
 	fi
-	kernel_ufsd=`modprobe -l | grep ufsd`
-	kernel_antfs=`modprobe -l | grep antfs`
-	if [ -n "$kernel_antfs" ]; then
+	if ! func_read_module_catalog; then
+		logger -t "automount" "Refusing to mount $dev_full: filesystem-module catalog is unavailable"
+		rmdir "$dev_mount"
+		exit 1
+	fi
+	if func_module_catalog_contains antfs; then
 		load_module_or_abort antfs
 		mount -t antfs "$dev_full" "$dev_mount" -o noatime,utf8 8>&-
-	elif [ -n "$kernel_ufsd" ] ; then
+	elif func_module_catalog_contains ufsd ; then
 		load_module_or_abort ufsd
 		mount -t ufsd "$dev_full" "$dev_mount" -o noatime,sparse,nls=utf8,force 8>&-
 	elif [ -x /sbin/ntfs-3g ] ; then
@@ -285,8 +315,12 @@ elif [ "$ID_FS_TYPE" == "ntfs" ] ; then
 		fi
 	fi
 elif [ "$ID_FS_TYPE" == "hfsplus" -o "$ID_FS_TYPE" == "hfs" ] ; then
-	kernel_hfsplus=`modprobe -l | grep hfsplus`
-	if [ -n "$kernel_hfsplus" ] ; then
+	if ! func_read_module_catalog; then
+		logger -t "automount" "Refusing to mount $dev_full: filesystem-module catalog is unavailable"
+		rmdir "$dev_mount"
+		exit 1
+	fi
+	if func_module_catalog_contains hfsplus ; then
 		load_module_or_abort hfsplus
 		mount -t $ID_FS_TYPE -o noatime,umask=0,nls=utf8 "$dev_full" "$dev_mount" 8>&-
 	else
@@ -307,18 +341,23 @@ elif [ "$ID_FS_TYPE" == "ext4" -o "$ID_FS_TYPE" == "ext3" -o "$ID_FS_TYPE" == "e
 			exit 1
 		fi
 	fi
+	if [ "$ID_FS_TYPE" != "ext4" ]; then
+		if ! func_read_module_catalog; then
+			logger -t "automount" "Refusing to mount $dev_full: filesystem-module catalog is unavailable"
+			rmdir "$dev_mount"
+			exit 1
+		fi
+	fi
 	if [ "$ID_FS_TYPE" == "ext4" ] ; then
 		load_module_or_abort ext4
 	elif [ "$ID_FS_TYPE" == "ext3" ] ; then
-		kernel_ext3=`modprobe -l | grep ext3`
-		if [ -n "$kernel_ext3" ] ; then
+		if func_module_catalog_contains ext3 ; then
 			load_module_or_abort ext3
 		else
 			load_module_or_abort ext4
 		fi
 	elif [ "$ID_FS_TYPE" == "ext2" ] ; then
-		kernel_ext2=`modprobe -l | grep ext2`
-		if [ -n "$kernel_ext2" ] ; then
+		if func_module_catalog_contains ext2 ; then
 			load_module_or_abort ext2
 		else
 			load_module_or_abort ext4

@@ -514,6 +514,10 @@ jobs:
           assert "modules_file=" in module_loader
           assert "/proc/modules" in module_loader
           assert "lock_file=" in module_loader
+          assert "if module_catalog=$(modprobe -l 2>/dev/null); then" in module_loader
+          assert "func_module_catalog_contains" in module_loader
+          assert "modprobe -l | grep" not in automount
+          assert automount.count("if ! func_read_module_catalog; then") == 4
           assert "load_module_or_abort" in automount
           mount_owner = automount[automount.index("mount_from_device()"):automount.index("# If the label mountpoint")]
           assert 'mount_inventory=$(cat "$mounts_file" 2>/dev/null)' in mount_owner

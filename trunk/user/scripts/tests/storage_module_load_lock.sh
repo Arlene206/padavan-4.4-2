@@ -7,7 +7,7 @@ tmpdir=$(mktemp -d /tmp/padavan-module-load-lock.XXXXXX)
 trap 'rm -rf "$tmpdir"' 0 HUP INT TERM
 mkdir -p "$tmpdir/bin"
 
-sed -n '/^func_load_module()/,/^}/p' "$automount" > "$tmpdir/module-function.sh"
+sed -n '/^func_load_module()/,/^}/p; /^func_read_module_catalog()/,/^}/p; /^func_module_catalog_contains()/,/^}/p' "$automount" > "$tmpdir/module-function.sh"
 [ -s "$tmpdir/module-function.sh" ]
 . "$tmpdir/module-function.sh"
 
@@ -25,6 +25,13 @@ exit "$MOCK_FLOCK_STATUS"
 MOCK
 cat > "$tmpdir/bin/modprobe" <<'MOCK'
 #!/bin/sh
+if [ "$1" = "-l" ]; then
+	printf 'modprobe -l\n' >> "$MOCK_CATALOG_CALLS"
+	if [ -n "$MOCK_CATALOG_OUTPUT" ]; then
+		printf '%s\n' "$MOCK_CATALOG_OUTPUT"
+	fi
+	exit "$MOCK_CATALOG_STATUS"
+fi
 printf 'modprobe %s\n' "$*" >> "$MOCK_CALLS"
 exit "$MOCK_MODPROBE_STATUS"
 MOCK
@@ -43,15 +50,45 @@ PATH="$tmpdir/bin:$PATH"
 export PATH
 MOCK_CALLS="$tmpdir/calls"
 MOCK_LOG="$tmpdir/log"
+MOCK_CATALOG_CALLS="$tmpdir/catalog-calls"
+MOCK_CATALOG_OUTPUT=
+MOCK_CATALOG_STATUS=0
 MOCK_MODULES_FILE="$tmpdir/modules"
 MOCK_FLOCK_STATUS=0
 MOCK_MODPROBE_STATUS=0
 MOCK_RACE_LOAD=0
 MOCK_RACE_MODULE=
 MOCK_RACE_INVENTORY_ERROR=0
-export MOCK_CALLS MOCK_LOG MOCK_MODULES_FILE
+export MOCK_CALLS MOCK_LOG MOCK_CATALOG_CALLS MOCK_CATALOG_OUTPUT MOCK_CATALOG_STATUS MOCK_MODULES_FILE
 export MOCK_FLOCK_STATUS MOCK_MODPROBE_STATUS MOCK_RACE_LOAD MOCK_RACE_MODULE MOCK_RACE_INVENTORY_ERROR
 lock_file="$tmpdir/fs_module.lock"
+
+# Catalog selection must retain the status of modprobe -l.
+: > "$MOCK_CATALOG_CALLS"
+MOCK_CATALOG_OUTPUT=$(printf '/lib/modules/test/kernel/fs/vfat/vfat.ko\n/lib/modules/test/kernel/fs/ext4/ext4.ko')
+MOCK_CATALOG_STATUS=0
+export MOCK_CATALOG_OUTPUT MOCK_CATALOG_STATUS
+func_read_module_catalog
+func_module_catalog_contains vfat
+func_module_catalog_contains ext4
+if func_module_catalog_contains ufsd; then
+	echo "module catalog matched an absent module" >&2
+	exit 1
+fi
+grep -qx 'modprobe -l' "$MOCK_CATALOG_CALLS"
+
+MOCK_CATALOG_STATUS=17
+export MOCK_CATALOG_STATUS
+if func_read_module_catalog; then
+	echo "module catalog swallowed modprobe -l failure" >&2
+	exit 1
+else
+	catalog_status=$?
+fi
+[ "$catalog_status" -eq 17 ]
+MOCK_CATALOG_STATUS=0
+MOCK_CATALOG_OUTPUT=
+export MOCK_CATALOG_STATUS MOCK_CATALOG_OUTPUT
 
 # An already-loaded module needs neither the lock nor a second modprobe.
 : > "$MOCK_CALLS"

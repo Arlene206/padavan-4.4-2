@@ -1,3 +1,12 @@
+## 2026-11-16 — Preserve modprobe catalog failures during filesystem selection
+
+- Parent main: `1dbfc53c7d9e37fb4a6a5e8358644652a6b3dbfa`. FAT, NTFS, HFS+ and ext2/ext3 automount paths used `modprobe -l | grep <module>`; POSIX shell reports only the final grep status, masking a failed BusyBox `modprobe -l`. The BusyBox 1.24.x `modprobe -l` implementation opens modules.dep through a fatal `config_open2(..., xfopen_for_read)` path.
+- Added `func_read_module_catalog()` to capture the list command separately and propagate failures; added a constrained module-name membership predicate; replaced all four pipelines. Each selector now aborts before mount on catalog read failure rather than guessing which driver is available.
+- Extended `storage_module_load_lock.sh` with present/missing-module and nonzero catalog-status tests. Extended storage workflow source checks to require checked capture, four guarded call sites and absence of the old masked pipeline.
+- Parent `1dbfc53c7d9e37fb4a6a5e8358644652a6b3dbfa` USB storage 43914350905 was completed/success; XY-C1 43914350624 was in_progress. Exact-head storage and Build/TRX/artifact checks for THIS COMMIT pending. Local host POSIX sh and BusyBox ash 1.37.0 helper tests pass; no full firmware build claimed. Frozen backup unchanged; L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Treat unknown automount mount ownership as fail-closed
 
 - Parent main: `a52e5c460635cd0080b1857cb04ff92a42f575f5`. Found a second `/proc` inventory error path in `mount_from_device()`: AWK's `END { exit !(found && !conflict) }` returned the same status for a confirmed different device, no matching mount record, and an unreadable `/proc/mounts`. The caller treated every nonzero result as a foreign owner and could fall back to the legacy path when ownership was UNKNOWN.
