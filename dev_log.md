@@ -1,3 +1,12 @@
+## 2026-11-17 — Propagate optional firewall extension hook failures
+
+- Helper parent `c0ffc7d3a1dc90a8c208662cf03f57e7f2b3cf15`: changed hook staging cleanup to return status, retain the pathname on unlink failure, and treat ENOENT as idempotent success. Exact-head c0 Firewall Startup `43944200570`, HTTPD `43944200665`, NVRAM `43944200581`, AI handoff `43944200578`, Process inventory `43944200566`, and Process regression `43944200736` passed.
+- Current source parent `2edafb7eede75ce643bcccf7170aa4ed1111bb93`: system(3) wait statuses now map to positive errno-style results. Shadowsocks, persistent post-firewall and Optware hooks merge staging, command and cleanup errors into `start_firewall_ex()` while still attempting other independent hooks. ENOENT remains a no-op for optional absent hooks; failures do not disable forwarding after the built-in ruleset succeeds.
+- Exact-head 2ed Firewall Startup `43944601860`, XY-C1 `43944601903`, HTTPD `43944601745`, NVRAM `43944601815`, AI handoff `43944601727`, Process inventory `43944601706`, Process regression `43944601739`, FULLCONENAT `43944601842`, and USB modem identity `43944601920` were IN_PROGRESS at the last poll. New source and helper regression results are not yet claimed.
+- Next P1: audit NAT helper and HW NAT/SFE module load/unload postconditions in `net.c`; required configured ALG failures must remain visible, optional acceleration stays non-blocking. Then return to broader userland stability coverage. No physical-router L4 claim; frozen backup unchanged.
+
+---
+
 ## 2026-11-17 — Report retained firewall cleanup paths and run helper security regressions
 
 - Parent main: 46f7a9128cdc5c66d943d9d8093c002b336b5701. Exact-head Firewall Startup on SHA 595bc6 `43940508528`, AI handoff `43940508597`, and NVRAM ioctl/transaction audit `43940508621` passed. Parallel 46f7 HTTPD `43941275581`, AI handoff `43941275602`, NVRAM `43941275573`, Process inventory `43941275869`, AliDDNS `43941275686`, AdGuardHome `43941275586`, AliyunDrive `43941275788`, and infosvr `43941277064` passed. Exact 46f7 XY-C1 `43941275592` was still building when last polled; TRX/artifact pending.

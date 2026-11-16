@@ -1,9 +1,9 @@
 ## Current source / CI checkpoint
 
-- Parent main: 46f7a9128cdc5c66d943d9d8093c002b336b5701. Exact-head 46f7 HTTPD `43941275581`, AI handoff `43941275602`, NVRAM `43941275573`, Process `43941275869`, AliDDNS `43941275686`, AdGuardHome `43941275586`, AliyunDrive `43941275788`, and infosvr `43941277064` passed. XY-C1 `43941275592` was still building; TRX/artifact pending.
-- Fixed partial-cleanup diagnostics: when `cleanup_path_count` is nonzero but `snapshot_count` is zero, the core firewall rebuild now logs the retained cleanup paths and separate counts. Transaction regression expects EIO for this failure state.
-- Firewall Startup CI is expanded to compile/run Adbyby restore, command-status, filter-input validation, hook-file staging, atomic rule-file and snapshot descriptor regressions under GNU89/-Werror/ASan/UBSan. New exact-SHA verification is pending; no XY-C1 L3 claim until Build/TRX/artifact all pass. Physical-router L4 remains NOT VERIFIED; frozen backup unchanged.
-- Next P1: audit Shadowsocks, persistent firewall and Optware hook command/staging/cleanup outcomes, then NAT module load/unload postconditions.
+- Main: `2edafb7eede75ce643bcccf7170aa4ed1111bb93`. Helper parent c0 exact-head Firewall Startup, HTTPD, NVRAM, AI handoff and both Process suites passed.
+- On 2ed, optional Shadowsocks, persistent post-firewall and Optware hook staging/command/cleanup failures are now propagated as first errno-style results; missing optional scripts remain successful no-ops, and other independent hooks still run. Built-in firewall success remains active even if an optional extension fails.
+- Exact-head 2ed Firewall Startup `43944601860`, XY-C1 `43944601903`, HTTPD `43944601745`, NVRAM `43944601815`, AI handoff `43944601727`, Process inventory `43944601706`, Process regression `43944601739`, FULLCONENAT `43944601842`, and USB modem `43944601920` were in progress at last poll.
+- Next P1: inspect NAT helper and HW NAT/SFE unload/load postconditions. No current-source L3 claim until same-SHA XY-C1 Build/TRX/artifact all pass; physical-router L4 remains NOT VERIFIED.
 
 
 ## Whole-repository module status
