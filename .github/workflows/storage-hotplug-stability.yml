@@ -567,7 +567,8 @@ jobs:
           for signature, start_call in restart_wrappers:
               restart_body = function_body(storage, signature)
               assert "return errno ? errno : EIO;" in restart_body
-              assert "restart_status = stop_" in restart_body
+              assert "stop_status = stop_" in restart_body
+              assert "restart_status = stop_status;" in restart_body
               assert "restart_status = " + start_call.split(" = ", 1)[1] in restart_body
               assert "return restart_status;" in restart_body
           for declaration in (
