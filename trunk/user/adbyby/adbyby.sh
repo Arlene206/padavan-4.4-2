@@ -62,8 +62,11 @@ adbyby_start()
 # Only a clean "not found" result is allowed to authorize destructive cleanup.
 adbyby_process_state()
 {
-	adbyby_pid_output=$(pidof adbyby 2>/dev/null)
-	adbyby_pid_status=$?
+	if adbyby_pid_output=$(pidof adbyby 2>/dev/null); then
+		adbyby_pid_status=0
+	else
+		adbyby_pid_status=$?
+	fi
 	case "$adbyby_pid_status" in
 		0)
 			if [ -z "$adbyby_pid_output" ] ||
@@ -107,7 +110,12 @@ adbyby_stop_daemon()
 			;;
 	esac
 
-	killall -q adbyby >/dev/null 2>&1
+	if killall -q adbyby >/dev/null 2>&1; then
+		adbyby_kill_status=0
+	else
+		adbyby_kill_status=$?
+		logger -t "adbyby" "Adbyby停止信号返回错误(status=$adbyby_kill_status)，继续验证进程状态。"
+	fi
 	adbyby_stop_attempt=0
 	while [ "$adbyby_stop_attempt" -lt 5 ]; do
 		sleep 1 || {

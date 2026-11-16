@@ -24,10 +24,11 @@ cat > "$tmp/bin/killall" <<'STUB'
 #!/bin/sh
 printf 'killall:%s\n' "$*" >> "$ADBYBY_TEST_EVENTS"
 case "$ADBYBY_TEST_KILL_MODE" in
-	stop) echo absent > "$ADBYBY_TEST_STATE" ;;
+	stop|stop-fail) echo absent > "$ADBYBY_TEST_STATE" ;;
 	unknown) echo unknown > "$ADBYBY_TEST_STATE" ;;
 esac
-exit 0
+[ "${ADBYBY_TEST_KILL_STATUS:-0}" -eq 0 ] && exit 0
+exit "$ADBYBY_TEST_KILL_STATUS"
 STUB
 cat > "$tmp/bin/sleep" <<'STUB'
 #!/bin/sh
@@ -136,5 +137,15 @@ adbyby_close || fail "RUNNING-to-ABSENT stop failed"
 [ "$(event_count del_cron)" -eq 1 ] || fail "successful cron cleanup count was not one"
 [ "$(event_count del_dns)" -eq 1 ] || fail "successful DNS cleanup count was not one"
 [ "$(event_count restart_dhcpd)" -eq 1 ] || fail "successful dnsmasq restart count was not one"
+
+# A nonzero killall result is not decisive when the fresh inventory proves ABSENT.
+echo running > "$state_file"
+: > "$events_file"
+ADBYBY_TEST_KILL_MODE=stop-fail
+ADBYBY_TEST_KILL_STATUS=29
+adbyby_close || fail "failed killall status overrode confirmed ABSENT postcondition"
+[ "$(event_count 'killall:-q adbyby')" -eq 1 ] || fail "failed-signal path did not send one TERM"
+[ "$(event_count del_rule)" -eq 1 ] || fail "failed-signal path did not complete firewall cleanup"
+[ "$(event_count restart_dhcpd)" -eq 1 ] || fail "failed-signal path did not restart dnsmasq"
 
 echo "Adbyby stop postcondition and fail-closed cleanup regression: PASS"
