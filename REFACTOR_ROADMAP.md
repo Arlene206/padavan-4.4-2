@@ -1,9 +1,9 @@
 ## Current source / CI checkpoint
 
-- Product-source checkpoint: d8d59acfb40c8d439682d8764e872283bed4a23c; required PPP/IPoE failures are accumulated into PID 1 status and demand PPP readiness returns 0 only on success.
-- Exact-head WAN route, Process inventory/lifecycle, HTTPD, AI docs, infosvr, AdGuardHome, AliyunDrive and AliDDNS checks passed.
-- miniupnpd failed only because its old assertion expected one captured PPP migration call, while the source has two separate calls (USB RAS and ordinary PPP). This workflow-only correction changes expected count to two and preserves separate IPoE and rollback gates.
-- XY-C1 was still compiling, TRX/artifact pending. NVRAM audit in progress. No L3/L4 claim.
+- Product-source baseline: 168527e76b4ba78f45d2268ecf8992563d93fbf6; PPP/IPoE required WAN errors are accumulated, and configured IPTV and PPPoE passthrough startup failures now also reach PID 1 via the first-error WAN status.
+- Added a C policy case for first-error preservation across IPTV and passthrough launch failures; shared source checker now verifies both call sites.
+- Parent d8d59 WAN route, Process inventory/lifecycle, HTTPD, AI docs, infosvr, AdGuardHome, AliyunDrive and AliDDNS passed. miniupnpd failed only on a stale expected call count of one versus two PPP paths; corrected on 168527.
+- XY-C1 was still building and NVRAM audit in progress on d8d59. No same-SHA L3/L4 claim.
 
 
 ## Whole-repository module status

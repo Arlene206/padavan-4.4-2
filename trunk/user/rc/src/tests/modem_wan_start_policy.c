@@ -103,6 +103,20 @@ test_required_ipoe_failures_reach_wan_start_status(void)
 	assert(status == EBUSY);
 }
 
+static void
+test_wan_adjunct_service_failures_reach_start_status(void)
+{
+	int status = 0;
+	int iptv_status = ENODEV;
+	int passthrough_status = EIO;
+
+	status = rc_first_service_start_status(status, iptv_status);
+	status = rc_first_service_start_status(status, passthrough_status);
+
+	assert(status == ENODEV);
+	assert(rc_first_service_start_status(0, passthrough_status) == EIO);
+}
+
 int
 main(void)
 {
@@ -113,6 +127,7 @@ main(void)
 	test_physical_wan_ifup_failure_survives_cleanup();
 	test_required_ppp_failures_reach_wan_start_status();
 	test_required_ipoe_failures_reach_wan_start_status();
+	test_wan_adjunct_service_failures_reach_start_status();
 	puts("USB modem WAN startup status policy: PASS");
 	return 0;
 }

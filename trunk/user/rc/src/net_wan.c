@@ -1672,8 +1672,11 @@ start_wan(void)
 	}
 
 	vlan_result = launch_viptv_wan();
-	if (vlan_result != 0)
+	if (vlan_result != 0) {
+		wan_start_status = rc_first_service_start_status(
+			wan_start_status, vlan_result);
 		logmessage(LOGNAME, "IPTV VLAN or service setup incomplete (error=%d)", vlan_result);
+	}
 
 	reload_nat_modules();
 
@@ -1980,9 +1983,12 @@ start_wan(void)
 
 	{
 		int passthrough_status = set_passthrough_pppoe(1);
-		if (passthrough_status != 0)
+		if (passthrough_status != 0) {
+			wan_start_status = rc_first_service_start_status(
+				wan_start_status, passthrough_status);
 			logmessage(LOGNAME, "PPPoE passthrough startup incomplete (status=%d)",
 				   passthrough_status);
+		}
 	}
 
 	return rc_first_service_start_status(modem_start_status, wan_start_status);

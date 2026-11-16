@@ -11,34 +11,33 @@ For each logical task, create all changed files in one Git tree and one atomic m
 ## Current repository state
 
 - Repository: Arlene206/padavan-4.4-2; active development ref is main.
-- Main baseline for this correction: d8d59acfb40c8d439682d8764e872283bed4a23c. Refetch before every write and use non-forced expected-SHA update.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; read-only. Startup branch recovery is complete and not to be repeated.
-- Root dev_log.md remains below 30 records; part-012 preserves the 100 oldest entries and is indexed.
-- Main includes the PPP/IPoE startup-status refactor and its errno-preserving demand PPP error contract.
+- Main baseline for this WAN adjunct-service status slice: 168527e76b4ba78f45d2268ecf8992563d93fbf6. Refetch main before each write and use a non-forced expected-SHA update.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; read-only. Startup branch recovery is complete.
+- Root dev_log.md remains far below the 120-entry archive threshold; part-012 preserves the oldest 100 complete records.
 
 ## Engineering baseline
 
-- Required LAN bridge/VLAN/switch and iNIC MII failures propagate; optional hw_nat/LED remain best-effort.
-- WAN startup returns the first required failure across physical IFUP, IPv6 controls, MAN address/routes/gateway, PPP migration/launch/demand readiness, IPoE address/EAPOL/DHCP, and USB modem RAS. Optional tuning, UPnP notification and cleanup remain best-effort.
-- check_modem_wan_start_status.py verifies the demand PPP helper's errno-normalized interface timeout, socket error, route preinstall failure, and the production first-error aggregation call sites.
+- Required LAN bridge/VLAN/switch and iNIC MII errors propagate; optional hw_nat/LED remain best-effort.
+- WAN startup now preserves required physical IFUP, IPv6 controls, MAN static address/routes/gateway, PPP/IPoE start failures, USB RAS launch and cleanup results.
+- This slice adds first-error status return for configured IPTV setup and PPPoE pass-through/relay setup, without preventing the main WAN protocol and other adjunct services from starting. Optional MTU and UPnP notification failures remain nonfatal.
 
 ## Active task
 
-The miniupnpd workflow now expects two captured PPP migration calls in start_wan(): USB RAS and ordinary PPP. It also checks one captured IPoE migration call and retains the independent rollback-helper stop gate. Parent d8d59 failed only because the old contract asserted one PPP call.
+launch_viptv_wan() and set_passthrough_pppoe(1) previously logged startup errors but discarded them. Both results now feed wan_start_status. C policy tests cover first-error retention; check_modem_wan_start_status.py checks both production call sites and aggregation ordering.
 
 ## Verification boundary
 
-- Parent d8d59 exact-SHA successes: AI docs 43868343106, Process inventory/lifecycle 43868343273, infosvr 43868343256, AdGuardHome 43868343268, WAN route 43868343214, HTTPD security 43868343265, AliyunDrive 43868343283 and AliDDNS 43868343245.
-- miniupnpd 43868343344 failed at the exact PPP call count (expected 1, source has 2: RAS plus PPP); no product source failure.
-- XY-C1 43868343338 was IN_PROGRESS at Build XY-C1, with TRX and artifact pending. NVRAM 43868343257 was IN_PROGRESS. No same-SHA firmware L3 is claimed yet.
-- Hardware L4 is unverified.
+- Parent d8d59 exact-SHA successes: WAN route 43868343214, Process inventory/lifecycle 43868343273, HTTPD security 43868343265, AI docs 43868343106, infosvr 43868343256, AdGuardHome 43868343268, AliyunDrive 43868343283 and AliDDNS 43868343245.
+- miniupnpd 43868343344 failed only because the test asserted one captured PPP migration call; the source correctly has two (USB RAS and ordinary PPP). The expected count is corrected on 168527.
+- XY-C1 43868343338 was still in Build XY-C1, TRX and artifact pending. NVRAM 43868343257 was still auditing. No L3/L4 claim.
+- The current adjunct-service source changes require fresh exact-SHA Process/XY-C1/WAN route validation.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head miniupnpd workflow repair, XY-C1 Build/TRX/artifact and NVRAM run.
-2. Continue the bounded WAN adjunct-service status pass (IPTV startup and PPPoE passthrough), preserving WAN core availability while returning the first configured-service error to PID 1.
-3. Preserve best-effort status only for optional notification, tuning and cleanup paths.
-4. Claim L3 only after same-SHA Build, TRX verification and artifact upload all pass. Physical-router L4 remains unverified.
+1. Inspect exact-head Process, XY-C1, WAN route, miniupnpd and NVRAM Actions for the IPTV/PPPoE passthrough status slice.
+2. Continue the targeted WAN callback review for any remaining required startup operation whose failure is logged but not returned; preserve core WAN availability while surfacing configured-service failures.
+3. Keep optional MTU, UPnP notification and cleanup paths best-effort.
+4. Claim firmware L3 only after same-SHA Build, TRX verification and artifact upload all pass. Physical-router L4 remains unverified.
 
 ## Governance
 

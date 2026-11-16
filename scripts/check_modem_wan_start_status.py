@@ -92,6 +92,25 @@ assert re.search(r"wan_start_status\s*=\s*rc_first_service_start_status\s*\(\s*w
 assert "vlan_result = launch_wan_usbnet(unit);" in wan_start
 assert "vlan_result = launch_wan_modem_ras(unit);" in wan_start
 
+iptv_call = "vlan_result = launch_viptv_wan();"
+assert iptv_call in wan_start
+iptv_call_pos = wan_start.index(iptv_call)
+iptv_error_pos = wan_start.index("if (vlan_result != 0)", iptv_call_pos)
+iptv_log_pos = wan_start.index("IPTV VLAN or service setup incomplete", iptv_error_pos)
+assert re.search(
+    r"wan_start_status\s*=\s*rc_first_service_start_status\s*\(\s*wan_start_status\s*,\s*vlan_result\s*\)\s*;",
+    wan_start[iptv_error_pos:iptv_log_pos],
+), "configured IPTV startup failure must be returned without aborting WAN core startup"
+
+passthrough_call = "int passthrough_status = set_passthrough_pppoe(1);"
+assert passthrough_call in wan_start
+passthrough_pos = wan_start.index(passthrough_call)
+passthrough_error_pos = wan_start.index("if (passthrough_status != 0)", passthrough_pos)
+passthrough_status_pos = wan_start.index("wan_start_status = rc_first_service_start_status(", passthrough_error_pos)
+passthrough_status_end = wan_start.index(";", passthrough_status_pos)
+assert "wan_start_status, passthrough_status" in wan_start[passthrough_status_pos:passthrough_status_end]
+assert passthrough_status_pos < wan_start.index("return rc_first_service_start_status(modem_start_status, wan_start_status);")
+
 wait_ppp = compact(body(WAN_SOURCE, "wait_ppp_up(char *ppp_ifname, int unit)"))
 assert "failure_status = (interface_status < 0 && errno != 0) ?" in wait_ppp
 assert "return failure_status;" in wait_ppp

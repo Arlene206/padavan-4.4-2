@@ -1,3 +1,13 @@
+## 2026-11-16 — Return configured IPTV and PPPoE passthrough startup failures
+
+- Parent main: 168527e76b4ba78f45d2268ecf8992563d93fbf6. Review of the WAN startup tail found two configured adjunct services whose failures were logged but discarded: launch_viptv_wan() (IPTV VLAN/static/DHCP service setup) and set_passthrough_pppoe(1) (including PPPoE-relay launch/readiness or stale-relay stop failure when passthrough is disabled).
+- Both statuses now enter wan_start_status using first-error semantics while allowing the core WAN/other services to continue. No required WAN core startup is aborted solely because the IPTV or passthrough adjunct fails; PID 1 now receives the first configured-service error.
+- Added a GNU89 policy regression for preserving the first IPTV/passthrough failure and strengthened the shared WAN checker to bind both statuses to their production call sites.
+- Parent d8d59 exact-head WAN route 43868343214, Process inventory/lifecycle 43868343273, HTTPD 43868343265, AI docs 43868343106, infosvr 43868343256, AdGuardHome 43868343268, AliyunDrive 43868343283 and AliDDNS 43868343245 passed. miniupnpd 43868343344 failed only at a stale call-count assertion (fixed in 168527). XY-C1 43868343338 was still building and NVRAM 43868343257 auditing.
+- Next: verify the configured adjunct-service change with Process/XY-C1/WAN route and the miniupnpd call-count repair; check same-SHA Build/TRX/artifact before any L3 claim.
+
+---
+
 ## 2026-11-16 — Correct miniupnpd migration call-count contract after PPP refactor
 
 - Parent main: d8d59acfb40c8d439682d8764e872283bed4a23c. WAN route `43868343214`, Process inventory/lifecycle `43868343273`, HTTPD security `43868343265`, AI docs `43868343106`, infosvr `43868343256`, AdGuardHome `43868343268`, AliyunDrive `43868343283` and AliDDNS `43868343245` passed.
