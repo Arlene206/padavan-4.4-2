@@ -547,7 +547,22 @@ assert "test_failed_sfe_config_write_is_reported" in SFE_POLICY_TEST
 assert "sfe_config_policy.h" in NET_SOURCE
 assert "wan_vid, status" in hwnat_config
 assert '#include "hwnat_config_policy.h"' in NET_SOURCE
-print("Optional SFE module post-load and HW NAT configuration postcondition contracts: PASS")
+
+# doSystem() returns system(3)'s encoded wait status. Normalize failures and
+# still attempt independent 2.4 GHz, 5 GHz and IPv6 settings.
+radio_policy = compact(body(NET_SOURCE, "hwnat_set_radio_registration(const char *ifname, int enabled)"))
+ipv6_policy = compact(body(NET_SOURCE, "hwnat_set_ipv6_nat_debug(int enabled)"))
+assert 'doSystem("iwpriv %s set hw_nat_register=%d", ifname, enabled)' in radio_policy
+assert 'doSystem("echo 7 %d > /sys/kernel/debug/hnat/hnat_setting", enabled)' in ipv6_policy
+assert "rc_hwnat_command_status_policy(command_status, saved_errno)" in compact(NET_SOURCE)
+assert "WIFEXITED(wait_status)" in HWNAT_POLICY_SOURCE
+assert "rc_hwnat_configure_radio_policy(" in nat_reload
+assert "hwnat_loaded, nvram_get_int(\"hw_nat_mode\")" in nat_reload
+assert "hwnat_set_radio_registration, hwnat_set_ipv6_nat_debug" in nat_reload
+assert "test_system_wait_status_is_normalized" in HWNAT_POLICY_TEST
+assert "test_radio_failures_do_not_skip_independent_writes" in HWNAT_POLICY_TEST
+assert "test_disabled_or_unloaded_radio_policy_has_no_side_effects" in HWNAT_POLICY_TEST
+print("Optional SFE, HW NAT WAN VID and radio/debugfs configuration result contracts: PASS")
 
 # Configured NAT helper requirements must be post-load verified and their first
 # failure must be merged into RC notification results.

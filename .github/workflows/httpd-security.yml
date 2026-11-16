@@ -1166,6 +1166,8 @@ jobs:
           net_wan = (root / "net_wan.c").read_text()
           net_lan = (root / "net_lan.c").read_text()
           net = (root / "net.c").read_text()
+          hwnat_policy = (root / "hwnat_config_policy.h").read_text()
+          hwnat_test = (root / "tests/hwnat_config_policy.c").read_text()
           test = (root / "tests/switch_status_policy.c").read_text()
           workflow = Path(".github/workflows/httpd-security.yml").read_text()
 
@@ -1273,6 +1275,16 @@ jobs:
           assert hnat_reload.index("if (hwnat_wan_vid < 0)") < hnat_reload.index('snprintf(hnat_param, sizeof(hnat_param), "wan_vid=%d", hwnat_wan_vid)')
           assert "module_status = hwnat_configure(hwnat_wan_vid, hwnat_allow);" in hnat_reload
           assert "reload_status = rc_first_service_start_status(reload_status," in hnat_reload
+          assert "rc_hwnat_configure_radio_policy(" in hnat_reload
+          assert "hwnat_loaded, nvram_get_int(\"hw_nat_mode\")" in hnat_reload
+          radio_setter = body(net, "hwnat_set_radio_registration(const char *ifname, int enabled)")
+          ipv6_setter = body(net, "hwnat_set_ipv6_nat_debug(int enabled)")
+          assert 'doSystem("iwpriv %s set hw_nat_register=%d", ifname, enabled)' in radio_setter
+          assert 'doSystem("echo 7 %d > /sys/kernel/debug/hnat/hnat_setting", enabled)' in ipv6_setter
+          assert "rc_hwnat_command_status_policy(command_status, saved_errno)" in net
+          assert "WIFEXITED(wait_status)" in hwnat_policy
+          assert "test_radio_failures_do_not_skip_independent_writes" in hwnat_test
+          assert "test_system_wait_status_is_normalized" in hwnat_test
           sfe_reload = body(net, "reload_nat_modules(void)")
           assert "rc_sfe_configure_policy(sfe_enable," in sfe_reload
           assert 'fput_int("/sys/fast_classifier/skip_to_bridge_ingress", skip)' in net

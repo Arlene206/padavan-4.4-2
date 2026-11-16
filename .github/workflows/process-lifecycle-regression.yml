@@ -121,6 +121,8 @@ on:
       - "trunk/user/rc/src/wireless_module_load_policy.h"
       - "trunk/user/rc/src/tests/wireless_module_load_policy.c"
       - "trunk/user/rc/src/net.c"
+      - "trunk/user/rc/src/hwnat_config_policy.h"
+      - "trunk/user/rc/src/tests/hwnat_config_policy.c"
       - "trunk/user/rc/src/xupnpd_config_file.h"
       - "trunk/user/rc/src/tests/xupnpd_config_file.c"
       - "scripts/check_process_lifecycle_integration.py"

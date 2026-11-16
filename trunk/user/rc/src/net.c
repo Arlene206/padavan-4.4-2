@@ -801,6 +801,42 @@ hwnat_set_wan_vid(int wan_vid)
 }
 
 static int
+hwnat_report_command_status(const char *operation, int command_status,
+			    int saved_errno)
+{
+	int status = rc_hwnat_command_status_policy(command_status, saved_errno);
+
+	if (status != 0)
+		logmessage(LOGNAME, "%s failed (status=%d)", operation, status);
+	return status;
+}
+
+static int
+hwnat_set_radio_registration(const char *ifname, int enabled)
+{
+	int command_status, saved_errno;
+
+	errno = 0;
+	command_status = doSystem("iwpriv %s set hw_nat_register=%d", ifname, enabled);
+	saved_errno = errno;
+	return hwnat_report_command_status("Hardware NAT radio registration",
+					   command_status, saved_errno);
+}
+
+static int
+hwnat_set_ipv6_nat_debug(int enabled)
+{
+	int command_status, saved_errno;
+
+	errno = 0;
+	command_status = doSystem("echo 7 %d > /sys/kernel/debug/hnat/hnat_setting",
+				   enabled);
+	saved_errno = errno;
+	return hwnat_report_command_status("Hardware NAT IPv6 debug setting",
+					   command_status, saved_errno);
+}
+
+static int
 hwnat_configure(int wan_vid, int hwnat_allow)
 {
 	const char *hwnat_status = "Disabled";
@@ -1084,21 +1120,18 @@ reload_nat_modules(void)
 			}
 			hwnat_loaded = is_hwnat_loaded();
 		}
-		{
-			int hw_nat_mode = nvram_get_int("hw_nat_mode");
 #if defined (USE_MT7615_AP) || defined (USE_MT7915_AP) || defined (USE_MT76X2_AP)
-		if (hw_nat_mode == 1)
-		{doSystem("iwpriv %s set hw_nat_register=%d", IFNAME_2G_MAIN, 1);
-		doSystem("iwpriv %s set hw_nat_register=%d", IFNAME_5G_MAIN, 1);}
-		else
-		{doSystem("iwpriv %s set hw_nat_register=%d", IFNAME_2G_MAIN, 0);
-		doSystem("iwpriv %s set hw_nat_register=%d", IFNAME_5G_MAIN, 0);}
-		if(ipv6_nat==1)
-		{doSystem("echo 7 1 > /sys/kernel/debug/hnat/hnat_setting");}
-		else
-		{doSystem("echo 7 0 > /sys/kernel/debug/hnat/hnat_setting");}
-#endif
+		module_status = rc_hwnat_configure_radio_policy(
+			hwnat_allow, hwnat_loaded, nvram_get_int("hw_nat_mode"),
+			ipv6_nat, IFNAME_2G_MAIN, IFNAME_5G_MAIN,
+			hwnat_set_radio_registration, hwnat_set_ipv6_nat_debug);
+		if (module_status != 0) {
+			logmessage(LOGNAME, "Hardware NAT radio configuration incomplete (status=%d)",
+				   module_status);
+			reload_status = rc_first_service_start_status(reload_status,
+								 module_status);
 		}
+#endif
 	}
 
 	module_status = hwnat_configure(hwnat_wan_vid, hwnat_allow);
