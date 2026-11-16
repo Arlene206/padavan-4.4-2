@@ -46,6 +46,8 @@
 #include "firewall_startup_policy.h"
 #include "rc_nvram_policy.h"
 #include "storage_persistence_policy.h"
+#include "service_start_status.h"
+#include "wireless_module_load_policy.h"
 #include "vpn_server_lifecycle_lock.h"
 #include "rc_notify_batch_policy.h"
 #include <rc_notify_queue.h>
@@ -135,40 +137,61 @@ nvram_restore_defaults(void)
 	return need_commit;
 }
 
-static void
+static int
+load_wireless_module(const char *module_name)
+{
+	static const rc_wireless_module_load_ops_t ops = {
+		module_smart_load,
+		is_module_loaded
+	};
+	int status;
+
+	status = rc_wireless_module_load_verified(module_name, &ops);
+	if (status != 0)
+		logmessage(LOGNAME,
+			   "wireless driver module load failed or module is unavailable: %s",
+			   module_name);
+	return status;
+}
+
+static int
 load_wireless_modules(void)
 {
+	int start_status = 0;
+
 #if defined (USE_RT2860V2_AP)
-	module_smart_load("rt2860v2_ap", NULL);
+	start_status = rc_first_service_start_status(start_status, load_wireless_module("rt2860v2_ap"));
 #endif
 
 #if defined (USE_MT7628_AP)
-	module_smart_load("mt7628_ap", NULL);
+	start_status = rc_first_service_start_status(start_status, load_wireless_module("mt7628_ap"));
 #endif
 
 #if defined (USE_MT76X2_AP)
-	module_smart_load("mt76x2_ap", NULL);
+	start_status = rc_first_service_start_status(start_status, load_wireless_module("mt76x2_ap"));
 #endif
 
 #if defined (USE_MT7615_AP)
-	module_smart_load("mt_7615e", NULL);
+	start_status = rc_first_service_start_status(start_status, load_wireless_module("mt_7615e"));
 #endif
 
 #if defined (USE_RT3090_AP)
-	module_smart_load("rt3090_ap", NULL);
+	start_status = rc_first_service_start_status(start_status, load_wireless_module("rt3090_ap"));
 #elif defined (USE_RT5392_AP)
-	module_smart_load("rt5392_ap", NULL);
+	start_status = rc_first_service_start_status(start_status, load_wireless_module("rt5392_ap"));
 #elif defined (USE_MT76X3_AP)
-	module_smart_load("mt76x3_ap", NULL);
+	start_status = rc_first_service_start_status(start_status, load_wireless_module("mt76x3_ap"));
 #endif
 
 #if defined (USE_RT5592_AP)
-	module_smart_load("rt5592_ap", NULL);
+	start_status = rc_first_service_start_status(start_status, load_wireless_module("rt5592_ap"));
 #elif defined (USE_RT3593_AP)
-	module_smart_load("rt3593_ap", NULL);
+	start_status = rc_first_service_start_status(start_status, load_wireless_module("rt3593_ap"));
 #elif defined (USE_MT7610_AP)
-	module_smart_load("mt7610_ap", NULL);
+	start_status = rc_first_service_start_status(start_status, load_wireless_module("mt7610_ap"));
 #endif
+
+	return start_status;
 }
 
 #if defined (USE_USB_SUPPORT)
@@ -858,6 +881,7 @@ init_router(void)
 {
 	int log_remote, is_ap_mode, nvram_need_commit;
 	int storage_save_status, dnsmasq_start_status;
+	int wireless_modules_status;
 
 #if defined (USE_RTL8367)
 	rtl8367_node();
@@ -897,7 +921,11 @@ init_router(void)
 		return -1;
 	}
 #endif
-	load_wireless_modules();
+	wireless_modules_status = load_wireless_modules();
+	if (wireless_modules_status != 0)
+		logmessage(LOGNAME,
+			   "Router initialization continuing with unavailable wireless driver(s) (first status=%d)",
+			   wireless_modules_status);
 #if defined (USE_MMC_SUPPORT)
 	load_mmc_modules();
 #endif
@@ -988,7 +1016,11 @@ init_router(void)
 	}
 
 	{
-		int boot_services_status = start_services_once(is_ap_mode);
+		int boot_services_status = wireless_modules_status;
+		int service_start_status = start_services_once(is_ap_mode);
+
+		boot_services_status = rc_first_service_start_status(boot_services_status,
+								      service_start_status);
 		if (boot_services_status != 0)
 			logmessage(LOGNAME,
 				   "one or more boot service startup operations failed (first status=%d)",

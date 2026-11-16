@@ -89,6 +89,9 @@ on:
 
   pull_request:
     paths:
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/wireless_module_load_policy.h"
+      - "trunk/user/rc/src/tests/wireless_module_load_policy.c"
       - "trunk/user/rc/src/net.c"
       - "trunk/user/rc/src/xupnpd_config_file.h"
       - "trunk/user/rc/src/tests/xupnpd_config_file.c"
@@ -218,6 +221,13 @@ jobs:
             trunk/user/rc/src/tests/service_start_status.c \
             -o "$RUNNER_TEMP/service-start-status"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/service-start-status"
+      - name: Compile and run RC wireless module post-load verification regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/wireless_module_load_policy.c \
+            -o "$RUNNER_TEMP/wireless-module-load-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/wireless-module-load-policy"
       - name: Compile and run RC logger startup result policy regression
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
