@@ -42,6 +42,7 @@
 #include "igmpproxy_config_file.h"
 #include "service_start_status.h"
 #include "wireless_module_load_policy.h"
+#include "hwnat_config_policy.h"
 #include "xupnpd_config_file.h"
 #if defined (APP_MSD_LITE)
 #include "msd_lite_config_file.h"
@@ -785,25 +786,46 @@ is_hwnat_allow(void)
 	return 1;
 }
 
-static void
+static int
+hwnat_set_wan_vid(int wan_vid)
+{
+	int status;
+
+	errno = 0;
+	status = module_param_set_int("hw_nat", "wan_vid", wan_vid);
+	if (status == 0)
+		return 0;
+
+	return errno ? errno : EIO;
+}
+
+static int
 hwnat_configure(int wan_vid, int hwnat_allow)
 {
 	const char *hwnat_status = "Disabled";
+	int module_loaded = is_hwnat_loaded();
+	int status;
 
-	if (!hwnat_allow || !is_module_loaded("hw_nat")) {
+	if (!hwnat_allow || !module_loaded) {
 		logmessage(LOGNAME, "%s: %s", "Hardware NAT/Routing", hwnat_status);
-		return;
+		return 0;
 	}
 
-	if (wan_vid < 0) {
-		logmessage(LOGNAME, "Hardware NAT/Routing: retaining current WAN VID; lookup failed (%d)", wan_vid);
-		return;
+	status = rc_hwnat_configure_policy(hwnat_allow, module_loaded, wan_vid,
+					   hwnat_set_wan_vid);
+	if (status != 0) {
+		if (wan_vid < 0)
+			logmessage(LOGNAME, "Hardware NAT/Routing: retaining current WAN VID; lookup failed (status=%d)",
+				   status);
+		else
+			logmessage(LOGNAME, "Hardware NAT/Routing: failed to set WAN VID %d (status=%d)",
+				   wan_vid, status);
+		return status;
 	}
-
-	module_param_set_int("hw_nat", "wan_vid", wan_vid);
 
 	hwnat_status = "Enabled, IPoE/PPPoE offload [WAN]<->[LAN/WLAN]";
 	logmessage(LOGNAME, "%s: %s", "Hardware NAT/Routing", hwnat_status);
+	return 0;
 }
 #endif /* USE_HW_NAT */
 
@@ -1066,7 +1088,10 @@ reload_nat_modules(void)
 		}
 	}
 
-	hwnat_configure(hwnat_wan_vid, hwnat_allow);
+	module_status = hwnat_configure(hwnat_wan_vid, hwnat_allow);
+	if (module_status != 0)
+		reload_status = rc_first_service_start_status(reload_status,
+							 module_status);
 #endif
 #if defined (USE_SFE)
 	sfe_enable = nvram_get_int("sfe_enable");

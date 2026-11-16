@@ -27,6 +27,8 @@ RC_SOURCE = (RC / "rc.c").read_text()
 HEADER = (RC / "rc.h").read_text()
 MODULE_POLICY_SOURCE = (RC / "wireless_module_load_policy.h").read_text()
 MODULE_POLICY_TEST = (RC / "tests/wireless_module_load_policy.c").read_text()
+HWNAT_POLICY_SOURCE = (RC / "hwnat_config_policy.h").read_text()
+HWNAT_POLICY_TEST = (RC / "tests/hwnat_config_policy.c").read_text()
 POLICY_SOURCE = (RC / "modem_wan_start_policy.h").read_text()
 WAN_TEST = (RC / "tests/modem_wan_start_policy.c").read_text()
 
@@ -517,7 +519,18 @@ assert 'rc_module_unload_verified("nf_conntrack_ftp", 0, &module_unload_ops)' in
 assert "rc_module_unload_verified" in MODULE_POLICY_SOURCE
 assert "test_unload_busy_module_is_not_reported_as_removed" in MODULE_POLICY_TEST
 assert "test_unload_requirement_set_attempts_all_and_keeps_first_failure" in MODULE_POLICY_TEST
-print("Optional SFE module post-load verification contract: PASS")
+
+# HW NAT must not be reported enabled unless the WAN VID sysfs write succeeds.
+hwnat_config = compact(body(NET_SOURCE, "hwnat_configure(int wan_vid, int hwnat_allow)"))
+assert "rc_hwnat_configure_policy(hwnat_allow, module_loaded, wan_vid, hwnat_set_wan_vid)" in hwnat_config
+assert "return status;" in hwnat_config
+assert "module_param_set_int" not in hwnat_config
+assert "hwnat_set_wan_vid(int wan_vid)" in compact(NET_SOURCE)
+assert "test_wan_vid_write_failure_is_reported" in HWNAT_POLICY_TEST
+assert "test_missing_wan_vid_is_reported" in HWNAT_POLICY_TEST
+assert "wan_vid, status" in hwnat_config
+assert '#include "hwnat_config_policy.h"' in NET_SOURCE
+print("Optional SFE module post-load and HW NAT configuration postcondition contracts: PASS")
 
 # Configured NAT helper requirements must be post-load verified and their first
 # failure must be merged into RC notification results.
@@ -532,7 +545,24 @@ assert "return reload_status;" in reload_modules
 assert "int reload_nat_modules(void);" in HEADER
 assert RC_SOURCE.count("rc_notify_merge_action_result(action_result, reload_nat_modules())") == 2
 assert RC_SOURCE.count("reload_nat_modules();") == 0
-print("Configured NAT helper post-load verification and RC result propagation: PASS")
+
+# WAN startup must retain NAT helper/accelerator errors without aborting the
+# independent WAN path: all configured interfaces and services are still tried.
+wan_start = compact(body(WAN_SOURCE, "start_wan(void)"))
+nat_reload_call = "vlan_result = reload_nat_modules();"
+assert nat_reload_call in wan_start
+nat_reload_pos = wan_start.index(nat_reload_call)
+nat_failure_pos = wan_start.index("if (vlan_result != 0)", nat_reload_pos)
+nat_failure_end = wan_start.index("refresh_resolvconf_nonfatal(", nat_failure_pos)
+nat_failure = wan_start[nat_failure_pos:nat_failure_end]
+assert re.search(
+    r"wan_start_status\s*=\s*rc_first_service_start_status\s*\(\s*wan_start_status\s*,\s*vlan_result\s*\)\s*;",
+    nat_failure,
+)
+assert "continuing WAN startup" in nat_failure
+assert not re.search(r"\b(return|continue)\b", nat_failure)
+assert nat_reload_pos < wan_start.index("refresh_resolvconf_nonfatal(")
+print("Configured NAT helper/accelerator errors reach WAN status without blocking WAN startup: PASS")
 
 # Core firewall rebuilding must report validation, transaction and cleanup
 # failures; restart must still attempt UPnP refresh and preserve the first error.

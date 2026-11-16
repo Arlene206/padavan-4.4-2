@@ -1687,7 +1687,13 @@ start_wan(void)
 		logmessage(LOGNAME, "IPTV VLAN or service setup incomplete (error=%d)", vlan_result);
 	}
 
-	reload_nat_modules();
+	vlan_result = reload_nat_modules();
+	if (vlan_result != 0) {
+		wan_start_status = rc_first_service_start_status(
+			wan_start_status, vlan_result);
+		logmessage(LOGNAME, "NAT helper or acceleration setup incomplete (status=%d); continuing WAN startup",
+			   vlan_result);
+	}
 
 	refresh_resolvconf_nonfatal("WAN startup", 1);
 
