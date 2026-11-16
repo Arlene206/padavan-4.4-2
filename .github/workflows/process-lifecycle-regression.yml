@@ -452,9 +452,20 @@ jobs:
           assert "lan_start_status = start_lan(is_ap_mode, 1);" in restart
           assert 'lan_restart_record_status(&restart_status, "start LAN services", lan_start_status);' in restart
 
+          loopback = body(lan, "init_loopback(void)")
+          assert "\\nint\\ninit_loopback(void)" in lan
+          assert 'operation_status = ifconfig("lo", IFUP, "127.0.0.1", "255.0.0.0");' in loopback
+          assert 'operation_status = route_add("lo", 0, "127.0.0.0", "0.0.0.0", "255.0.0.0");' in loopback
+          assert loopback.index('ifconfig("lo"') < loopback.index('route_add("lo"')
+          assert loopback.count("rc_first_service_start_status(start_status, operation_status)") == 2
+          assert "return start_status;" in loopback
+          assert "test_loopback_start_preserves_first_required_failure();" in regression
+
           init_body = body(init, "init_router(void)")
           assert "int lan_start_status = start_lan(is_ap_mode, 0);" in init_body
           assert "boot_services_status = rc_first_service_start_status(" in init_body
+          assert "int loopback_start_status = init_loopback();" in init_body
+          assert "boot_services_status, loopback_start_status);" in init_body
           assert "int start_lan(int is_ap_mode, int do_wait);" in header
           assert "int lan_up_manual(char *lan_ifname, char *lan_dname);" in header
           assert "test_lan_start_preserves_first_required_failure();" in regression

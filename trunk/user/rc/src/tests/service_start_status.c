@@ -51,6 +51,29 @@ test_lan_start_preserves_first_required_failure(void)
 }
 
 static void
+test_loopback_start_preserves_first_required_failure(void)
+{
+	int status = 0;
+	int interface_attempts = 0;
+	int route_attempts = 0;
+
+	/* Route setup must still run after the loopback interface operation fails. */
+	interface_attempts++;
+	status = rc_first_service_start_status(status, ENETDOWN);
+	route_attempts++;
+	status = rc_first_service_start_status(status, EIO);
+	assert(interface_attempts == 1);
+	assert(route_attempts == 1);
+	assert(status == ENETDOWN);
+
+	/* A route-only failure must also be returned. */
+	status = 0;
+	status = rc_first_service_start_status(status, 0);
+	status = rc_first_service_start_status(status, EIO);
+	assert(status == EIO);
+}
+
+static void
 test_bridge_parameters_are_both_attempted_and_first_error_survives(void)
 {
 	int status = 0;
@@ -92,6 +115,7 @@ main(void)
 	test_first_error_survives_lan_restart_recovery();
 	test_negative_and_positive_statuses_are_preserved();
 	test_bridge_parameters_are_both_attempted_and_first_error_survives();
+	test_loopback_start_preserves_first_required_failure();
 	test_lan_start_preserves_first_required_failure();
 	puts("RC boot and LAN service first-failure aggregation policy: PASS");
 	return 0;

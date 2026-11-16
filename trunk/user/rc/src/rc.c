@@ -998,7 +998,14 @@ init_router(void)
 
 	is_ap_mode = get_ap_mode();
 
-	init_loopback();
+	{
+		int loopback_start_status = init_loopback();
+		if (loopback_start_status != 0)
+			logmessage(LOGNAME, "loopback boot initialization incomplete (status=%d)",
+				   loopback_start_status);
+		boot_services_status = rc_first_service_start_status(
+			boot_services_status, loopback_start_status);
+	}
 	init_bridge(is_ap_mode);
 #if defined (USE_IPV6)
 	init_ipv6();

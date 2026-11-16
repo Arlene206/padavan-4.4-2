@@ -1,3 +1,14 @@
+## 2026-11-16 — Propagate loopback interface and route startup failures
+
+- Parent main: `b85754180a56755c97a03bb5ab3013b30561f48c`. USB storage hotplug `43851311951` and NVRAM transaction boundary `43851311965` passed; storage included BusyBox 1.24.2/ash lifecycle, lock/eject and persistence regressions. Process inventory `43851311871`, AI docs `43851312213`, AdGuardHome `43851311939`, infosvr `43851311935`, AliDDNS `43851311972`, AliyunDrive `43851311982` passed.
+- Found that PID 1 `init_loopback()` silently discarded both loopback `ifconfig()` and route-add failures because it returned `void`.
+- Converted it to return first-error status while still attempting route setup after an interface failure; `init_router()` now merges and logs the result in `boot_services_status`. Added GNU89 first-error regression and a Process source contract for definition, operation order, both status aggregations and caller wiring.
+- XY-C1 `43850461476` on ancestor production SHA `b81207777615d31b096c1425ff1fa8110898b0c2` was still at Build XY-C1 last checked; no TRX/artifact L3 or physical-router L4 result is claimed.
+- Exact-head Actions for THIS commit pending after publication.
+- Next: validate Process loopback source/test contract, then implement capability-aware essential bridge/VLAN initialization status propagation without promoting optional multicast features to fatal boot errors.
+
+---
+
 ## 2026-11-16 — Align storage IPTV source contract with aggregated restart results
 
 - Parent main: `c066d1f230a2cadfceb091ccc9f45233f17dff09`. USB storage workflow run `43850461648` on source commit `b81207777615d31b096c1425ff1fa8110898b0c2` passed storage/eject lock, BusyBox 1.24.2/ash, caller graph and persistence checks, then failed at `scripts/check_storage_safe_remove.py` because it expected the old direct `return start_igmpproxy(...)` and bare stop return.

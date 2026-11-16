@@ -84,14 +84,25 @@ del_static_lan_routes(char *lan_ifname)
 	return control_static_routes(SR_PREFIX_LAN, lan_ifname, 0);
 }
 
-void
+int
 init_loopback(void)
 {
-	/* Bring up loopback interface */
-	ifconfig("lo", IFUP, "127.0.0.1", "255.0.0.0");
+	int start_status = 0;
+	int operation_status;
 
-	/* Add to routing table */
-	route_add("lo", 0, "127.0.0.0", "0.0.0.0", "255.0.0.0");
+	/* Bring up loopback interface. */
+	operation_status = ifconfig("lo", IFUP, "127.0.0.1", "255.0.0.0");
+	if (operation_status != 0)
+		logmessage(LOGNAME, "loopback interface setup failed (status=%d)", operation_status);
+	start_status = rc_first_service_start_status(start_status, operation_status);
+
+	/* Continue route setup even if interface configuration failed. */
+	operation_status = route_add("lo", 0, "127.0.0.0", "0.0.0.0", "255.0.0.0");
+	if (operation_status != 0)
+		logmessage(LOGNAME, "loopback route installation failed (status=%d)", operation_status);
+	start_status = rc_first_service_start_status(start_status, operation_status);
+
+	return start_status;
 }
 
 void

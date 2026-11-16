@@ -250,7 +250,7 @@ int stop_lan(int is_ap_mode);
 int lan_up_manual(char *lan_ifname, char *lan_dname);
 void update_lan_status(int is_auto);
 int full_restart_lan(void);
-void init_loopback(void);
+int init_loopback(void);
 void init_bridge(int is_ap_mode);
 int config_bridge(int is_ap_mode);
 void switch_config_base(void);
