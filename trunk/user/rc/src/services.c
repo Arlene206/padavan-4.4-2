@@ -1319,11 +1319,16 @@ stop_logger(void)
 	return kill_services(svcs, 3, 1);
 }
 
-void
+int
 start_watchdog_cpu(void)
 {
-	if (nvram_get_int("watchdog_cpu") != 0)
-		module_smart_load("rt_timer_wdg", NULL);
+	if (nvram_get_int("watchdog_cpu") == 0)
+		return 0;
+	if (!module_smart_load("rt_timer_wdg", NULL)) {
+		logmessage(LOGNAME, "CPU watchdog module startup failed");
+		return EIO;
+	}
+	return 0;
 }
 
 void
@@ -1430,7 +1435,7 @@ start_services_once(int is_ap_mode)
 #endif
 	if (nvram_match("lltd_enable", "1"))
 		start_status = rc_first_service_start_status(start_status, start_lltd());
-	start_watchdog_cpu();
+	start_status = rc_first_service_start_status(start_status, start_watchdog_cpu());
 	if (nvram_match("crond_enable", "1"))
 		start_status = rc_first_service_start_status(start_status, start_crond());
 	{

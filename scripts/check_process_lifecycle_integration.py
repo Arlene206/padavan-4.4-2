@@ -892,6 +892,11 @@ services_source = (root / "trunk/user/rc/src/services.c").read_text()
 boot_services = services_source.split("start_services_once(int is_ap_mode)", 1)[1].split("\n}", 1)[0]
 assert "rc_first_service_start_status(start_status, start_8021x_wl())" in boot_services
 assert "rc_first_service_start_status(start_status, start_8021x_rt())" in boot_services
+watchdog_start = services_source.split("int\\nstart_watchdog_cpu(void)", 1)[1].split("\\n}", 1)[0]
+assert 'module_smart_load("rt_timer_wdg", NULL)' in watchdog_start
+assert "CPU watchdog module startup failed" in watchdog_start
+assert "return EIO;" in watchdog_start and "return 0;" in watchdog_start
+assert "rc_first_service_start_status(start_status, start_watchdog_cpu())" in boot_services
 assert start_8021x_rt.index('start_status = eval("rtinicapd"') < start_8021x_rt.index(
     '802.1X 2.4GHz authenticator launch failed'
 )
