@@ -1,8 +1,8 @@
 ## Current source / CI checkpoint
 
-- LAN IPv6 address cleanup and reload status are now propagated across stop/start/restart paths. New reload policy regression ran PASS on exact commit `176e93e`; WAN route suite and inline source contracts PASS.
-- Exact `176e93e` Process, Firewall and XY-C1 failed on the shared checker only: an assertion treated `compact()` as removing whitespace instead of collapsing it to spaces. This commit corrects the assertion normalization; production sources are unchanged.
-- AI handoff PASS; WAN route PASS. XY-C1 Build/TRX/artifact were skipped on the parent SHA and remain NOT VERIFIED pending corrected exact-head run.
+- LAN IPv6 teardown and reload status are propagated through the relevant stop/start/restart paths. The reload policy tests passed and the checker normalization fix passed exact Process, Firewall and AI jobs.
+- WAN IPv6 address creation now passes three dynamic address strings as argv values rather than shell-formatted `doSystem()` inputs. Inputs remain generated from IPv6 structs or validated with `format_ipv6_literal()`; WAN-specific source contracts and shared checker assertions are added.
+- Exact parent `4cdf852` Process/Firewall/AI jobs passed; XY-C1 was in firmware Build with TRX/artifact pending. The source slice here requires exact-head WAN, Process, Firewall, AI and XY-C1 verification.
 - Frozen backup remains read-only; physical-router L4 remains **NOT VERIFIED**.
 
 ## Whole-repository module status

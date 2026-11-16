@@ -525,7 +525,7 @@ int start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4,
 		       "enable IPv6 on SIT interface");
 	WAN6_SIT_CHECK(clear_if_addr6(IFNAME_SIT),
 		       "clear stale SIT IPv6 addresses");
-	WAN6_SIT_CHECK(doSystem("ip -6 addr add %s dev %s", addr6s, IFNAME_SIT),
+	WAN6_SIT_CHECK(eval("ip", "-6", "addr", "add", addr6s, "dev", IFNAME_SIT),
 		       "add SIT WAN IPv6 address");
 
 	if (ipv6_type == IPV6_6TO4 || ipv6_type == IPV6_6RD)
@@ -540,8 +540,7 @@ int start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4,
 	if (*lan_addr6s) {
 		WAN6_SIT_CHECK(clear_if_addr6(IFNAME_BR),
 			       "clear previous LAN IPv6 address");
-		WAN6_SIT_CHECK(doSystem("ip -6 addr add %s dev %s",
-					lan_addr6s, IFNAME_BR), "add derived LAN IPv6 address");
+		WAN6_SIT_CHECK(eval("ip", "-6", "addr", "add", lan_addr6s, "dev", IFNAME_BR), "add derived LAN IPv6 address");
 		store_lan_addr6(lan_addr6s);
 	}
 
@@ -691,8 +690,7 @@ int wan6_up(char *wan_ifname, int unit)
 		addresses_touched = 1;
 		WAN6_NATIVE_CHECK(clear_if_addr6(wan_ifname),
 				  "clear previous native static IPv6 addresses");
-		WAN6_NATIVE_CHECK(doSystem("ip -6 addr add %s dev %s",
-					   addr6_text, wan_ifname),
+		WAN6_NATIVE_CHECK(eval("ip", "-6", "addr", "add", addr6_text, "dev", wan_ifname),
 				  "add native static IPv6 address");
 
 		if (*wan_gate6) {

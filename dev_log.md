@@ -1,3 +1,13 @@
+## 2026-11-16 — Pass dynamic WAN IPv6 address arguments without a shell
+
+- Parent: `4cdf85227650738b7a9c105322fab12e5b5d06cc`. Audited `net_wan6.c`: three dynamic IPv6 address additions used `doSystem("ip -6 addr add %s dev %s", ...)`. The IPv6 address strings are generated from validated binary IPv6 structs or passed through `format_ipv6_literal()`; replacing shell formatting with argv execution removes unnecessary shell parsing and prevents future input regressions.
+- Converted SIT WAN address, derived SIT LAN address and native static WAN address additions to `eval("ip", "-6", "addr", "add", ...)`. Existing WAN startup macros retain the exact command status and failure rollback path.
+- Added shared checker and WAN route workflow assertions for all three argv calls, absence of the shell-formatted form, and preservation of address construction/validation.
+- Exact parent checks: Process `43983013930`, Firewall `43983014009`, AI handoff `43983014049` PASS; XY-C1 `43983014153` was building with TRX/artifact pending. WAN route had passed on preceding source SHA `176e93e`; this new slice needs its own exact-head checks.
+- Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Correct LAN IPv6 reload checker normalization
 
 - Parent: `176e93e3e20889bdddcdab8769f3a4e9665ef01e`. Exact-source CI exposed a checker-only regression: `compact()` collapses whitespace to a single space, but newly added assertions expected all whitespace to be removed.

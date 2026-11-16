@@ -11,6 +11,7 @@ WAN_SOURCE = (RC / "net_wan.c").read_text()
 NET_SOURCE = (RC / "net.c").read_text()
 NET_LAN_SOURCE = (RC / "net_lan.c").read_text()
 NET_LAN6_SOURCE = (RC / "net_lan6.c").read_text()
+NET_WAN6_SOURCE = (RC / "net_wan6.c").read_text()
 LAN_ADDR6_RELOAD_POLICY_SOURCE = (RC / "lan_addr6_reload_policy.h").read_text()
 LAN_ADDR6_RELOAD_POLICY_TEST = (RC / "tests/lan_addr6_reload_policy.c").read_text()
 FIREWALL_SOURCE = (RC / "firewall_ex.c").read_text()
@@ -371,6 +372,13 @@ ipv6_restart = compact(body(NET6_SOURCE, "full_restart_ipv6(int ipv6_type_old)")
 assert "operation_status = reload_lan_addr6();" in ipv6_restart
 assert "restart_status = rc_first_service_start_status(restart_status, operation_status);" in ipv6_restart
 assert "IPv6 enable could not reload LAN address (status=%d)" in ipv6_restart
+
+# Dynamic WAN IPv6 addresses are passed directly as argv, not through a shell.
+assert 'doSystem("ip -6 addr add %s dev %s"' not in NET_WAN6_SOURCE
+assert NET_WAN6_SOURCE.count('eval("ip", "-6", "addr", "add",') == 3
+assert 'inet_ntop(AF_INET6, &addr6, addr6s, INET6_ADDRSTRLEN)' in NET_WAN6_SOURCE
+assert 'inet_ntop(AF_INET6, &lan_addr6, lan_addr6s, INET6_ADDRSTRLEN)' in NET_WAN6_SOURCE
+assert 'format_ipv6_literal(wan_addr6, addr6_text,' in NET_WAN6_SOURCE
 
 for signature in (
     "full_restart_wan(void)",
