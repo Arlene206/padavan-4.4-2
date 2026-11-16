@@ -1,3 +1,12 @@
+## 2026-11-16 — Align process-lifecycle source contract with deterministic storage mount-link API
+
+- Parent main: `d6fac506d564e8277e6c81ec2dd18620b6509144`. Exact-head process-lifecycle run `43904136542`, job `133428303695`, passed all preceding shared file, MiniDLNA, Firefly, UPnP, VPN, DDNS, logger, optional-app, IAPP, IGMP, XUPnPD, MSD Lite, SSH and Transmission regressions, then failed only at `scripts/check_process_lifecycle_integration.py:200`: its source assertion still expected the former one-line cleanup predicate and `return link_created;`.
+- The source implementation in `d6fac506d564e8277e6c81ec2dd18620b6509144` intentionally stages cleanup and returns explicit boolean branches so it can normalize errno for read/close/parse/symlink failures. Updated the checker to assert the actual staged cleanup, boolean API, status adapter and all four media callers. No product source was changed.
+- Exact-head USB storage workflow `43904136310` PASS, including the new GNU89/ASan/UBSan mount-link policy test and storage source contract. Wireless `43904136184`, AI docs `43904136356`, HTTPD `43904136370`, AliDDNS `43904136262`, AliyunDrive `43904136387`, NFS `43904136537`, Samba `43904136473`, infosvr `43904136412`, vsftpd `43904136251`, modem identity `43904136447`, AdGuardHome `43904136471` also passed on the parent SHA.
+- XY-C1 Build `43904136433` was still in progress at last poll; current-SHA L3 and physical-router L4 are NOT VERIFIED.
+
+---
+
 ## 2026-11-16 23:57 CST — Make storage media mount-link failures deterministic
 
 - Parent main: `e05ccbcb8c458ee2bc07c6020ed5af52b3d4cff8`. Implemented deterministic errno handling in `create_mp_link()` while retaining its boolean API and current mount-selection/fallback behavior. Invalid input, mount inventory open/read/parse/close, path length, directory preparation, symlink creation and incomplete-inventory cleanup now produce normalized errors; the first actionable non-ENOENT error is preserved.

@@ -195,12 +195,28 @@ print("MiniDLNA configuration publication and fail-closed startup contracts: PAS
 mount_link = storage_services.split("int create_mp_link(", 1)[1].split("\\n#if defined (APP_MINIDLNA)", 1)[0]
 assert "storage_nfs_export_parse_mount_line(" in mount_link
 assert "read_error = ferror(procpt) ? 1 : 0;" in mount_link
-assert "close_error = (fclose(procpt) != 0);" in mount_link
+assert "close_status = fclose(procpt);" in mount_link
+assert "close_error = close_status != 0;" in mount_link
 assert "storage_nfs_export_inventory_complete(read_error, close_error" in mount_link
-assert "if (link_created && unlink(link_path) != 0)" in mount_link
+assert "if (link_created)" in mount_link and "unlink(link_path)" in mount_link
 assert "incomplete /proc/mounts inventory; refusing storage link" in mount_link
-assert mount_link.index("storage_nfs_export_inventory_complete(") < mount_link.index("return link_created;")
-print("Storage mount-link inventory read/parse/close fail-closed contract: PASS")
+assert "errno = EINVAL;" in mount_link
+assert "errno = storage_nfs_export_errno_or_eio(first_error ? first_error : ENOENT);" in mount_link
+assert "return link_created;" not in mount_link
+assert "return 1;" in mount_link and "return 0;" in mount_link
+mount_status = storage_services.split("static int\\ncreate_mp_link_status(", 1)[1].split("\\n#if defined (APP_MINIDLNA)", 1)[0]
+assert "create_mp_link(search_dir, link_path, force_first_valid)" in mount_status
+assert "status = storage_nfs_export_errno_or_eio(errno);" in mount_status
+assert "errno = status;" in mount_status
+assert "return status;" in mount_status
+assert storage_services.index("static int create_mp_link_status(") < storage_services.index("int run_dms(int force_rescan)")
+for signature in ("int run_dms(int force_rescan)", "int run_itunes(void)",
+                  "int run_torrent(void)", "int run_aria(void)"):
+    caller = storage_services.split(signature, 1)[1].split("\\nint restart_", 1)[0]
+    assert "create_mp_link_status(" in caller
+    assert "return link_status;" in caller
+    assert "create_mp_link(" not in caller
+print("Storage mount-link deterministic errno and media caller propagation contract: PASS")
 
 pppoe_test = (root / "trunk/user/rc/src/tests/pppoe_relay_policy.c").read_text()
 

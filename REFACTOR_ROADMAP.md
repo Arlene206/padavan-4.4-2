@@ -3,7 +3,7 @@
 - Main source parent for this checkpoint: `e05ccbcb8c458ee2bc07c6020ed5af52b3d4cff8`; mount-link source, regression and CI-contract changes are included in THIS COMMIT.
 - Storage application startup returns first errors from all seven configured services, with daemon process-readiness checks. The deferred storage hotplug path merges service results with Optware async status and keeps the existing one-shot event behavior.
 - USB modem hotplug preserves simultaneous unplug/replug events until the unplug transition completes and retries failed transitions after five seconds. WAN IPv6 and LAN/Wi-Fi startup paths propagate service failures.
-- Mount-link errno normalization is implemented in THIS COMMIT: `create_mp_link()` keeps its boolean API, records the first actionable error and normalizes failures through `create_mp_link_status()` before all four media callers. GNU89/ASan/UBSan policy regression and storage source contracts are wired; exact-head CI pending.
+- Mount-link errno normalization was implemented in `d6fac506d564e8277e6c81ec2dd18620b6509144`: `create_mp_link()` keeps its boolean API, records the first actionable error and normalizes failures through `create_mp_link_status()` before all four media callers. Exact-head storage regression `43904136310` passed; the process integration checker needed alignment with the changed return/cleanup shape and is corrected in THIS COMMIT. Current SHA XY-C1 L3 pending.
 - XY-C1 Firmware Validation on exact source SHA `339d62070960aea11fee1d0b5b18fbf7e373cb86`: UNVERIFIED. Do not mark current L3 verified without same-SHA Build, TRX verification and artifact upload. Physical-router L4 remains NOT VERIFIED.
 - Frozen backup remains read-only at `backup/pre-plugin-overhaul-2026-11-14` (`not returned`).
 
