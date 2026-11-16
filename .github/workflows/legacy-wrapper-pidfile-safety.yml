@@ -1,0 +1,35 @@
+name: Legacy wrapper stale pidfile safety
+
+on:
+  push:
+    paths:
+      - ".github/workflows/legacy-wrapper-pidfile-safety.yml"
+      - "scripts/check_legacy_wrapper_pidfile_safety.py"
+      - "scripts/tests/legacy_wrapper_pidfile_safety.sh"
+      - "trunk/user/scutclient/scripts/scutclient.sh"
+      - "trunk/user/mentohust/scripts/mentohust.sh"
+  pull_request:
+    paths:
+      - ".github/workflows/legacy-wrapper-pidfile-safety.yml"
+      - "scripts/check_legacy_wrapper_pidfile_safety.py"
+      - "scripts/tests/legacy_wrapper_pidfile_safety.sh"
+      - "trunk/user/scutclient/scripts/scutclient.sh"
+      - "trunk/user/mentohust/scripts/mentohust.sh"
+
+permissions:
+  contents: read
+
+jobs:
+  legacy-wrapper-pidfile-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check shell syntax
+        run: |
+          sh -n trunk/user/scutclient/scripts/scutclient.sh
+          sh -n trunk/user/mentohust/scripts/mentohust.sh
+          sh -n scripts/tests/legacy_wrapper_pidfile_safety.sh
+      - name: Test stale pidfile safety
+        run: sh scripts/tests/legacy_wrapper_pidfile_safety.sh
+      - name: Check source contracts
+        run: python3 scripts/check_legacy_wrapper_pidfile_safety.py

@@ -1,7 +1,5 @@
 #!/bin/sh
 
-pidfile="${MENTOHUST_PIDFILE:-/var/sh_mentohust.pid}"
-[ -f $pidfile ] && kill -9 "$(cat $pidfile)" || echo "$$" > $pidfile
 
 mentohust_exec="bin_mentohust"
 conf_file="${MENTOHUST_CONF_FILE:-/var/mentohust.conf}"
@@ -100,6 +98,5 @@ restart)
 	action_status=2
 	;;
 esac
-rm -f "$pidfile"
 exit "$action_status"
 
