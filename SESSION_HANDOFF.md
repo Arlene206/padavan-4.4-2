@@ -8,7 +8,7 @@ Before context exhaustion, record exact refs, Action states and the first next a
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Current product-source/test baseline: Redsocks tri-state stop/restart gate `081c53bab84b5850dec61f2fe8cc607c6e6b9d08` (exact-head Actions pending). Recent exact-head validated slices: Adbyby updater gate `867e4812019a43276249b144a1d49cb1d90691c8` PASS; Shadowsocks watchcat `a8d50172afff0c081eb1b5c0f12d45dd07dc94f8` PASS; AliyunDrive `982ec548a132a5a06f4a81872f5ae920fb685da3` PASS; DDNSTO `7968c1eaeaa324066d850cef020ccebc238c8821` lifecycle/checker PASS. Live main at checkpoint before this documentation commit: `081c53bab84b5850dec61f2fe8cc607c6e6b9d08`.
+- Current product-source/test baseline: Redsocks tri-state stop/restart gate `fbc61e15eb5365bbcc7b000e99e053ebf1adf734` (test harness now passes `check nolog` to the sourced script; exact-head Actions pending). Recent exact-head validated slices: Adbyby updater gate `867e4812019a43276249b144a1d49cb1d90691c8` PASS; Shadowsocks watchcat `a8d50172afff0c081eb1b5c0f12d45dd07dc94f8` PASS; AliyunDrive `982ec548a132a5a06f4a81872f5ae920fb685da3` PASS; DDNSTO `7968c1eaeaa324066d850cef020ccebc238c8821` lifecycle/checker PASS. Live main at checkpoint before this documentation commit: `fbc61e15eb5365bbcc7b000e99e053ebf1adf734`.
 - `main` is the only development branch. The frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify or rewrite it.
 - Startup protocol, handoff, roadmap, log archive, branch inventory and legacy PR #1 were recovered once in this session. The only refs are `main` and the frozen backup; do not repeat the initial audit.
 - Legacy PR #1 was inspected and is already CLOSED: head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`, base `9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74` (17 commits ahead of its old base; PR head is 765 commits behind current main). All substantive source/test work is already present on main identically or in a stronger successor: AliDDNS HMAC helper/package/tests and CA bootstrap are identical; current `aliddns.sh` has the stronger exact-argv `/proc` keeper rather than the PR's broad `kill_ps`; current `copyscripts.sh` retains CA failure propagation and stronger private FRP-script handling; main's workflow remains push-only. PR-only `pull_request` trigger and stale broad `kill_ps` implementation are intentionally not ported. The PR branch is absent from refs; no valid unmerged work remains to port and no close action is needed.
@@ -52,7 +52,7 @@ Before context exhaustion, record exact refs, Action states and the first next a
 
 8. Redsocks stop/restart gate — source/test/checker commit `39a2cb22ee211a42ab84214b4268b7d541c1babe`; test harness correction `081c53bab84b5850dec61f2fe8cc607c6e6b9d08`.
    - Added tri-state pidof inventory, bounded stop postcondition, fresh pre-KILL revalidation and start/restart fail-closed gates. Regression covers malformed/error inventories, UNKNOWN after TERM, sleep failure, graceful stop, bounded KILL escalation, stuck daemon and replacement-launch prevention.
-   - Exact `39a2cb2` Redsocks job failed because sed function extraction cut through a heredoc in `func_start`. The follow-up adds a test-only CLI-dispatch guard and sources the complete production script, preserving heredoc content. Exact-head Actions on `081c53b` are pending: inventory `43799550922`, process lifecycle `43799550880`, NVRAM `43799550890`, Redsocks lifecycle `43799550943`, handoff `43799550886`.
+   - Exact `39a2cb2` Redsocks job failed because sed function extraction cut through a heredoc in `func_start`. The follow-up adds a test-only CLI-dispatch guard and sources the complete production script, preserving heredoc content. Exact-head `081c53b` inventory `43799550922`, process lifecycle `43799550880` and handoff `43799550886` PASS; NVRAM `43799550890` was IN PROGRESS; Redsocks `43799550943` failed only on the missing second script argument. Follow-up `fbc61e1` reruns Redsocks and handoff on exact SHA.
 
 ## Verification boundary
 
@@ -66,7 +66,7 @@ Before context exhaustion, record exact refs, Action states and the first next a
 
 ## Active task
 
-Redsocks lifecycle regression correction is the current active slice. Production source and regression are on main at `081c53bab84b5850dec61f2fe8cc607c6e6b9d08`; the preceding `39a2cb2` exact-head job failed only because the test harness's sed range truncated the heredoc-containing production `func_start`. The corrected test sources the whole script behind a test-only CLI-dispatch guard. The exact `081c53b` push checks are PENDING/IN PROGRESS; do not claim L2 closure until the Redsocks workflow and sibling checks pass.
+Redsocks lifecycle regression correction is the current active slice. Production source is on main at `39a2cb22ee211a42ab84214b4268b7d541c1babe`; regression harness corrections are `081c53bab84b5850dec61f2fe8cc607c6e6b9d08` (test-only CLI-dispatch guard, source complete script) and `fbc61e15eb5365bbcc7b000e99e053ebf1adf734` (pass both required script arguments). The exact `081c53b` Redsocks job failed because `$2` was unbound; `fbc61e1` supplies `check nolog`. Exact-head `fbc61e1` Redsocks run `43799698732` and handoff run `43799698728` were QUEUED at checkpoint; do not claim L2 closure until both pass.
 
 Completed source/host slices with exact-head PASS: Adbyby updater gate `867e481`; Shadowsocks watchcat `a8d5017`; AliyunDrive process inventory `982ec54`; DDNSTO lifecycle/checker `7968c1e`; legacy scutclient/mentohust stale-pidfile regression `1e43d33` (XY-C1 build remains pending). The AdGuardHome checker correction `bcc06e5` is already on main. Frozen backup remains unchanged.
 
@@ -74,7 +74,7 @@ Legacy PR #1 is CLOSED and its branch ref is absent. The 17-commit PR diff was c
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head push Actions for `081c53bab84b5850dec61f2fe8cc607c6e6b9d08`, especially Redsocks run `43799550943`; triage the first causal failure from logs and repair on latest main. Check sibling inventory/process/NVRAM/handoff runs by exact head SHA.
+1. Inspect exact-head push Actions for `fbc61e15eb5365bbcc7b000e99e053ebf1adf734`, especially Redsocks run `43799698732` and handoff run `43799698728`; triage any failure from logs and repair on latest main. The prior `081c53b` inventory/process/handoff checks passed; NVRAM was still in progress.
 2. If all pass, mark Redsocks L2 host-verified and continue from the latest whole-tree process inventory; do not repeat Adbyby, Shadowsocks, AliyunDrive, DDNSTO or legacy PID-file work.
 3. Recheck XY-C1 run `43799216333` on source SHA `1e43d33ce171a0ea4fd5c9cc81ff67a21d017468`; claim L3 only if Build, TRX verification and artifact upload all complete on that exact SHA.
 4. Keep all target BusyBox/MIPS/uClibc and physical-router L4 claims separate; none is established by host tests alone.
