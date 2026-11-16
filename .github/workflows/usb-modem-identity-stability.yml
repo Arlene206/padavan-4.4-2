@@ -8,6 +8,8 @@ on:
       - "trunk/user/libdisk/src/dev_info.h"
       - "trunk/user/libdisk/src/usb_info.c"
       - "trunk/user/rc/src/hotplug_usb.c"
+      - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/services_usb.c"
       - "trunk/user/rc/src/usb_modem.c"
       - "trunk/user/rc/src/modem_node_file.h"
       - "trunk/user/rc/src/modem_node_identity_policy.h"
@@ -25,6 +27,8 @@ on:
       - "trunk/user/libdisk/src/dev_info.h"
       - "trunk/user/libdisk/src/usb_info.c"
       - "trunk/user/rc/src/hotplug_usb.c"
+      - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/services_usb.c"
       - "trunk/user/rc/src/usb_modem.c"
       - "trunk/user/rc/src/modem_node_file.h"
       - "trunk/user/rc/src/modem_node_identity_policy.h"
@@ -72,6 +76,8 @@ jobs:
           usb_info = (libdisk / "usb_info.c").read_text()
           hotplug = (rc / "hotplug_usb.c").read_text()
           modem = (rc / "usb_modem.c").read_text()
+          services_stor = (rc / "services_stor.c").read_text()
+          services_usb = (rc / "services_usb.c").read_text()
           metadata = (rc / "modem_node_file.h").read_text()
           identity = (rc / "modem_node_identity_policy.h").read_text()
           test = (rc / "tests/modem_node_file.c").read_text()
@@ -157,6 +163,24 @@ jobs:
           assert "set_usb_modem_dev_wan(0, 0)" in remove
           assert remove.index("if (stop_status != 0)") < remove.index("set_usb_modem_dev_wan(0, 0)")
 
+          modem_start = body(services_usb, "try_start_usb_modem_to_wan(void)")
+          assert "return try_wan_reconnect(1, 0);" in modem_start
+          assert "return;" not in modem_start
+
+          deferred_hotplug = body(services_stor, "on_deferred_hotplug_dev(void)")
+          assert "int modem_start_status;" in deferred_hotplug
+          unplug_start = deferred_hotplug[deferred_hotplug.index("if (unplug_modem)"):deferred_hotplug.index("if (plug_modem && !unplug_modem)")]
+          assert "modem_start_status = try_wan_reconnect(1, 0);" in unplug_start
+          assert "if (modem_start_status != 0)" in unplug_start
+          assert 'nvram_set_int_temp("usb_unplug_md", 1)' in unplug_start
+          assert unplug_start.index('nvram_set_int_temp("usb_unplug_md", 1)') < unplug_start.index("alarm(5)")
+
+          plug_start = deferred_hotplug[deferred_hotplug.index("if (plug_modem && !unplug_modem)"): ]
+          assert "modem_start_status = try_start_usb_modem_to_wan();" in plug_start
+          assert "if (modem_start_status != 0)" in plug_start
+          assert 'nvram_set_int_temp("usb_hotplug_md", 1)' in plug_start
+          assert plug_start.index('nvram_set_int_temp("usb_hotplug_md", 1)') < plug_start.index("alarm(5)")
+
           for marker in (
               'modem_node_manual_index_matches(-1, 0)',
               'modem_node_manual_index_matches(4, 4)',
@@ -177,6 +201,9 @@ jobs:
               "trunk/user/libdisk/src/dev_info.h",
               "trunk/user/libdisk/src/usb_info.c",
               "trunk/user/rc/src/hotplug_usb.c",
+              "trunk/user/rc/src/services_stor.c",
+              "trunk/user/rc/src/services_usb.c",
+              "trunk/user/rc/src/rc.h",
               "trunk/user/rc/src/usb_modem.c",
               "trunk/user/rc/src/modem_node_file.h",
               "trunk/user/rc/src/modem_node_identity_policy.h",

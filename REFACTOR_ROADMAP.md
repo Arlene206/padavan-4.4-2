@@ -1,10 +1,11 @@
 ## Current source / CI checkpoint
 
-- Product-source tree cd5ccbefc26a9f71b0c971800b2f5b0d9cad450d: XY-C1 Build, TRX verification and artifact upload all PASS on that same SHA. Later commit 52a5 only restored CI workflow/documentation; product sources are unchanged. Firmware L3 VERIFIED for that product tree; physical-router L4 NOT VERIFIED.
-- Storage-hotplug 43882073147 on parent 52a5cc63419686af16b23c9aee973d262f3e4529: main caller graph and all ash/C regressions passed. Final safety checker failed because it expected old void-return printer restart code (bare return) while production now returns stop_status from int helpers. Updated checker to assert status propagation and stop-before-launch ordering.
-- Parent exact-SHA AI docs, infosvr, AdGuardHome, AliyunDrive, NVRAM, process inventory/lifecycle and AliDDNS runs all PASS.
-- Next P1 defect: USB modem WAN hotplug discards try_wan_reconnect() failure and loses its pending NVRAM event; propagate its result and re-arm/retry on failure.
-- Frozen backup remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Product-source baseline cd5ccbefc26a9f71b0c971800b2f5b0d9cad450d: same-SHA XY-C1 Build, TRX output verification and artifact upload PASS; firmware L3 VERIFIED for that product tree only. Physical-router L4 NOT VERIFIED.
+- Storage-hotplug ea794e3 run 43882865182: PASS all 24 steps, including BusyBox ash lifecycle, storage regressions, complete caller graph and final checked-eject/persistence gate.
+- AI docs ea794e3 run 43882864787: FAIL because SESSION_HANDOFF.md lacked the exact end-of-session checkpoint sentence required by the live checker; this commit restores the required phrase and full checkpoint statement.
+- New P1 source fix: USB modem WAN reconnect results now propagate from try_start_usb_modem_to_wan() to deferred hotplug; failed unplug/plug attempts restore usb_unplug_md/usb_hotplug_md and schedule the existing alarm(5) retry. USB modem workflow gains helper/caller contracts and push/PR paths for services_stor.c/services_usb.c.
+- Other exact-parent runs: AdGuardHome 43882869197, infosvr 43882865220, AliyunDrive 43882864990, process inventory 43882864867, NVRAM 43882864826 and AliDDNS 43882864791 PASS.
+- Next: verify exact-head modem/XY-C1/docs Actions; then continue cross-userland startup-result audit.
 
 ## Whole-repository module status
 

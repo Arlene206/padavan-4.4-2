@@ -738,7 +738,7 @@ void safe_remove_usb_device(int port, const char *dev_name);
 int restart_usb_printer_spoolers(void);
 int stop_usb_printer_spoolers(void);
 int try_start_usb_printer_spoolers(void);
-void try_start_usb_modem_to_wan(void);
+int try_start_usb_modem_to_wan(void);
 #endif
 
 /* firewall_ex.c */

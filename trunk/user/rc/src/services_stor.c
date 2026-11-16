@@ -3268,6 +3268,7 @@ on_deferred_hotplug_dev(void)
 	int plug_modem = 0;
 	int unplug_modem = 0;
 	int printer_start_status;
+	int modem_start_status;
 #endif
 	int storage_start_result;
 
@@ -3315,12 +3316,26 @@ on_deferred_hotplug_dev(void)
 
 	if (unplug_modem)
 	{
-		try_wan_reconnect(1, 0);
+		modem_start_status = try_wan_reconnect(1, 0);
+		if (modem_start_status != 0) {
+			logmessage("USB hotplug",
+				   "WAN reconnect after USB modem unplug failed; preserving event for retry (status=%d)",
+				   modem_start_status);
+			nvram_set_int_temp("usb_unplug_md", 1);
+			alarm(5);
+		}
 	}
 
 	if (plug_modem && !unplug_modem)
 	{
-		try_start_usb_modem_to_wan();
+		modem_start_status = try_start_usb_modem_to_wan();
+		if (modem_start_status != 0) {
+			logmessage("USB hotplug",
+				   "USB modem WAN startup failed; preserving event for retry (status=%d)",
+				   modem_start_status);
+			nvram_set_int_temp("usb_hotplug_md", 1);
+			alarm(5);
+		}
 	}
 #endif
 }

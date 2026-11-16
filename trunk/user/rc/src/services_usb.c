@@ -349,41 +349,41 @@ try_start_usb_printer_spoolers(void)
 	return exec_printer_daemons(1);
 }
 
-void
+int
 try_start_usb_modem_to_wan(void)
 {
 	int modem_prio, has_link;
 
 	if (get_ap_mode())
-		return;
+		return 0;
 
 	/* check modem prio mode  */
 	modem_prio = nvram_get_int("modem_prio");
 	if (modem_prio < 1)
-		return;
+		return 0;
 
 	/* check modem already selected to WAN */
 	if (get_usb_modem_wan(0))
-		return;
+		return 0;
 
 	/* check modem enabled and ready */
 	if (!get_modem_devnum())
-		return;
+		return 0;
 
 	if (modem_prio == 2) {
 		if (get_apcli_wisp_ifname())
-			return;
+			return 0;
 		
 		has_link = get_wan_ether_link_direct(0);
 		if (has_link < 0)
 			has_link = 0;
 		
 		if (has_link)
-			return;
+			return 0;
 	}
 
 	logmessage("USB hotplug", "try start USB Modem as WAN connection...");
 
-	try_wan_reconnect(1, 0);
+	return try_wan_reconnect(1, 0);
 }
 

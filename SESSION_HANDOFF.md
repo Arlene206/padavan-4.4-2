@@ -1,33 +1,35 @@
 # Cross-session execution mandate
 
-Every session MUST inspect live repository state and compare it with this handoff before ending. Verify source baseline, active work, exact-head Actions, validation boundary, blockers and precise next action. If nothing material changes, avoid documentation-only commits.
+Mandatory handoff checkpoint: The checkpoint is mandatory; a document edit is conditional. Every session MUST inspect live repository state and compare it with SESSION_HANDOFF.md before ending or handing off. Verify source baseline, active task, exact-head Actions, validation boundary, blockers and precise first action. If the checkpoint remains accurate, do not make a documentation-only commit.
 
-For each logical task, create every changed file in one Git tree/commit parented to freshly fetched main and update main by non-forced expected-SHA compare-and-swap. Never force-push, create partial commits, or touch the frozen backup.
+For each logical task, create all changed files in one Git tree and one atomic main commit parented to freshly fetched main; update main with exact expected SHA using non-forced compare-and-swap. Never force-push, create partial commits, or touch the frozen backup.
+
+Before context exhaustion, finish the current safe slice, check exact-head Actions and preserve the precise first next action here.
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2; active development branch: main.
-- Parent for the current storage checker correction: 52a5cc63419686af16b23c9aee973d262f3e4529.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only.
-- Root dev log has 43 dated entries before this correction.
+- Repository: Arlene206/padavan-4.4-2; active branch: main.
+- Parent main for the modem WAN reconnect status slice: ea794e3ef680da5b03ca0ffdd621601c97dc7d86.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only. Startup recovery is complete; do not repeat.
 - PPP IPCP address/netmask validation, WAN IPv6 teardown identity preservation and DHCPv6 generation fencing remain required. Optional WAN MTU ioctl errors remain diagnostic-only.
 
 ## Active task
 
-The USB storage workflow was restored in full and its embedded end-to-end caller graph now passes. Its final safety checker still encoded the old void-return printer helper contract: it expected a direct comparison and bare return, but the current int-returning restart helpers intentionally capture stop_status, return that exact failure and only launch after successful stop. Updated scripts/check_storage_safe_remove.py to assert the actual status-return contract and ordering, rather than weakening the production behavior.
+USB modem hotplug lost WAN reconnect failures. The public helper try_start_usb_modem_to_wan() was void and discarded try_wan_reconnect()'s return. The deferred hotplug handler cleared usb_unplug_md and usb_hotplug_md before running the reconnect, then never restored the event flags or scheduled retry on failure. The helper now returns int (0 for existing no-op eligibility cases, otherwise the reconnect result); on modem-unplug reconnect failure the handler re-arms usb_unplug_md and alarm(5), and on modem-plug startup failure it re-arms usb_hotplug_md and alarm(5). The USB modem workflow now checks the helper-to-caller error path and tracks services_stor.c/services_usb.c in both event filters.
 
-The next concrete P1 defect is USB modem hotplug result loss: try_start_usb_modem_to_wan() is void and discards try_wan_reconnect()'s status; on_deferred_hotplug_dev() clears usb_unplug_md / usb_hotplug_md before the reconnect attempt and does not restore them or schedule a retry when WAN restart fails. Convert the helper to int and re-arm the correct pending flag with the existing five-second alarm on failure.
+The previous exact-head storage run 43882865182 on ea794e3 passed all 24 steps, including the corrected stop-status safety checker. The AI documentation run 43882864787 failed because the current handoff omitted the exact checkpoint sentence required by scripts/check_ai_handoff_docs.py. This handoff restores that required phrase.
 
 ## Verification boundary
 
-- Current parent 52a5cc63419686af16b23c9aee973d262f3e4529 storage run 43882073147: step 23 whole caller graph, lock ordering and teardown contracts PASS; step 24 scripts/check_storage_safe_remove.py FAIL at line 294 because it still expected the old bare-return API. This correction changes only that stale checker assertion.
-- Same product-source SHA cd5ccbefc26a9f71b0c971800b2f5b0d9cad450d XY-C1 run 43880814725: PASS, including Build XY-C1, TRX output verification and artifact upload. Commit 52a5 changed workflow/docs only, not firmware product sources. Firmware L3 is VERIFIED for that product-source tree; physical-router L4 remains NOT VERIFIED.
-- On parent 52a5, AI docs 43882073167, infosvr 43882073278, AdGuardHome 43882073332, AliyunDrive 43882073264, NVRAM 43882073244, process inventory/lifecycle 43882073208 and AliDDNS 43882073128: PASS.
-- The new storage checker commit must be checked on its exact SHA. The next modem-source slice should trigger both USB modem identity and XY-C1 firmware validation.
+On parent ea794e3ef680da5b03ca0ffdd621601c97dc7d86:
+- USB storage hotplug 43882865182: PASS, all 24 steps, including ash/C regressions, complete caller graph, checked storage eject and firmware persistence gates.
+- AI handoff docs 43882864787: FAIL, step 4, exact message: current handoff does not require an end-of-session accuracy checkpoint. Source checker requires both "Mandatory handoff checkpoint" and "The checkpoint is mandatory; a document edit is conditional."; this handoff now contains both.
+- AdGuardHome 43882869197, infosvr 43882865220, AliyunDrive 43882864990, process inventory/lifecycle 43882864867, NVRAM transaction 43882864826, AliDDNS signed API 43882864791: PASS.
+- Firmware product-source L3 is verified on cd5ccbefc26a9f71b0c971800b2f5b0d9cad450d: same-SHA XY-C1 run 43880814725 passed Build XY-C1, TRX verification and artifact upload. ea794e3 changed only CI checker and docs, not firmware products. Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Check the exact-SHA storage-hotplug run; its final checker should now accept the int-returning printer restart semantics.
-2. Implement USB modem WAN reconnect status propagation and retry-flag re-arming in services_usb.c/services_stor.c, add source contracts and update USB modem + XY-C1 path filters if needed.
-3. Require same-SHA XY-C1 Build, TRX and artifact upload to pass for the modem changes; continue independent RC start-result auditing.
-4. Keep hardware L4 explicitly NOT VERIFIED.
+1. Inspect exact-head USB modem identity and XY-C1 Actions; repair any source-contract/build regression on the exact SHA.
+2. Check the AI handoff docs workflow result after restoring the required checkpoint wording.
+3. Continue P1 RC startup-result propagation through independent userland service paths; preserve process identity, generation fences and lifecycle locks.
+4. Keep physical-router L4 NOT VERIFIED until actual router evidence exists.
