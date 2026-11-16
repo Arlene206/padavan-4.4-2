@@ -10,25 +10,25 @@ Every multi-file logical change must be created as one complete Git tree and one
 
 ## Current repository state
 
-- Latest main parent before THIS COMMIT: `1dbfc53c7d9e37fb4a6a5e8358644652a6b3dbfa`. Exact-head checks at last poll: XY-C1 Firmware Validation 43914350624 in_progress; AI handoff documentation contract 43914350195 completed/success; AdGuardHome config security regression 43914350664 completed/success; infosvr packet and signal lifecycle stability regression 43914350210 completed/success; HTTPD Authentication and Security Regression 43914350403 completed/success; AliDDNS signed API transport security regression 43914350230 completed/success; Process lifecycle inventory - 1dbfc53c7d9e37fb4a6a5e8358644652a6b3dbfa 43914350160 completed/success; AliyunDrive WebDAV lifecycle stability regression 43914350198 completed/success; Process inventory and lifecycle fail-closed regression 43914350286 completed/success; USB storage hotplug stability regression 43914350905 completed/success; NVRAM transaction boundary audit 43914350178 completed/success
+- Latest main parent before THIS COMMIT: `dc4630eb436381b0c19bdbcf067fc2cdc2cfa7df`. Exact-head checks at last poll: XY-C1 Firmware Validation 43915736119 in_progress; Process inventory and lifecycle fail-closed regression 43915736081 completed/failure; NVRAM transaction boundary audit 43915735838 in_progress; AI handoff documentation contract 43915735818 completed/success; Process lifecycle inventory - dc4630eb436381b0c19bdbcf067fc2cdc2cfa7df 43915735556 completed/success; USB storage hotplug stability regression 43915735430 completed/failure
 - Frozen backup branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable and read-only.
-- `automount.sh` already uses checked `/proc/modules` snapshots and tri-state `/proc/mounts` ownership. Parent `1dbfc53c7d9e37fb4a6a5e8358644652a6b3dbfa` USB storage run 43914350905 was completed/success.
-- A separate review found four `modprobe -l | grep` pipelines for vfat, antfs/ufsd, hfsplus and ext2/ext3. Pipeline status hides a failing BusyBox `modprobe -l`; THIS COMMIT captures the catalog command and propagates its status before selecting a kernel driver.
+- `automount.sh` now uses checked module inventory snapshots and checked module-catalog queries; filesystem-driver selection aborts instead of guessing when `modprobe -l` fails.
+- The previous mount-owner helper correctly distinguished owned/foreign/absent/unknown inventory states, but callers still gated it behind `mountpoint -q`. A generic nonzero result from that command was treated as "not mounted", bypassing the checked inventory on an uncertain mountpoint. THIS COMMIT removes that gate and uses one checked `/proc/mounts` tri-state query for preflight, revalidation, safe unmount and final device-ownership verification.
 
 ## Active task
 
-THIS COMMIT closes a module-catalog error-propagation gap: FAT, NTFS, HFS+ and ext2/ext3 selection previously used `modprobe -l | grep`. POSIX pipeline status reflected only grep, so a failing BusyBox `modprobe -l` could be mistaken for a missing driver and lead to fallback-driver selection. Added `func_read_module_catalog()` to capture `modprobe -l` separately and preserve its error status, plus a constrained membership predicate. All four filesystem-family selection groups now refuse to mount if the catalog cannot be read. The regression covers present/missing module names and a nonzero catalog status; the workflow requires four checked call sites and forbids the old masked pipeline.
+THIS COMMIT makes mount ownership the authoritative decision for the whole automount transaction. `mount_from_device()` returns 0=owned, 1=confirmed foreign, 2=absent, 3=UNKNOWN/malformed. Callers permit fallback only for confirmed foreign ownership, abort on UNKNOWN, re-read immediately before unmount, and require the final mount-table entry to name the exact source device. The script no longer relies on `mountpoint -q` for either initial ownership or mount postcondition. The extracted regression covers owned, foreign/conflicting, absent, unreadable and malformed mount inventories.
 
 ## Verification boundary
 
-- Parent `1dbfc53c7d9e37fb4a6a5e8358644652a6b3dbfa`: USB storage 43914350905 completed/success; XY-C1 43914350624 in_progress.
-- Local POSIX shell helper test and BusyBox ash 1.37.0 helper test passed; this is not firmware BusyBox 1.24.2 and not a full repository test/build.
-- Exact-head USB storage and XY-C1 Build/TRX/artifact validation for THIS COMMIT must establish the source boundary. Physical-router L4 remains NOT VERIFIED.
+- Parent `dc4630eb436381b0c19bdbcf067fc2cdc2cfa7df` exact-head Actions at last poll: XY-C1 Firmware Validation 43915736119 in_progress; Process inventory and lifecycle fail-closed regression 43915736081 completed/failure; NVRAM transaction boundary audit 43915735838 in_progress; AI handoff documentation contract 43915735818 completed/success; Process lifecycle inventory - dc4630eb436381b0c19bdbcf067fc2cdc2cfa7df 43915735556 completed/success; USB storage hotplug stability regression 43915735430 completed/failure
+- The preceding catalog-helper host test passed under POSIX `sh` and BusyBox `ash` 1.37.0. This does not substitute for target BusyBox 1.24.2 or full firmware validation.
+- Exact-head USB storage and XY-C1 Build/TRX/artifact validation for THIS COMMIT are required. Physical-router L4 remains NOT VERIFIED.
 - Frozen backup remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head USB storage; require module-load, module-catalog and mount-owner regressions plus source contracts to pass.
-2. Inspect exact-head XY-C1 Build, TRX verification and artifact upload on THIS product SHA.
-3. While either run is pending, continue an independent userland stability/security task instead of waiting.
-4. Keep backup read-only and physical-router L4 marked NOT VERIFIED.
+1. Inspect exact-head USB storage; require module-load/catalog, mount-owner tri-state and source-contract checks to pass.
+2. Inspect exact-head XY-C1 Build, TRX inspection and artifact upload for THIS source SHA.
+3. If Actions are pending, continue an independent WAN/DHCP or modem lifecycle task rather than waiting.
+4. Preserve backup and do not claim physical-router L4.

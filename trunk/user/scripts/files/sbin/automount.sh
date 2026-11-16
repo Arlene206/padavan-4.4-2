@@ -171,14 +171,16 @@ mount_from_device()
 		mounts_file=$2
 	fi
 
-	# A failed procfs read is UNKNOWN, not proof that another disk owns the path.
+	# Read errors and malformed records are UNKNOWN, never "not mounted".
 	if mount_inventory=$(cat "$mounts_file" 2>/dev/null); then
 		:
 	else
-		return 2
+		return 3
 	fi
 
-	if printf '%s\n' "$mount_inventory" | awk -v mount="$1" -v device="$dev_full" '
+	if mount_state=$(printf '%s\n' "$mount_inventory" | awk -v mount="$1" -v device="$dev_full" '
+		NF == 0 { next }
+		NF < 6 { invalid = 1; next }
 		$2 == mount {
 			if ($1 == device)
 				found = 1
@@ -186,56 +188,61 @@ mount_from_device()
 				conflict = 1
 		}
 		END {
-			if (conflict)
-				exit 1
-			if (found)
-				exit 0
-			exit 2
+			if (invalid)
+				print "unknown"
+			else if (conflict)
+				print "foreign"
+			else if (found)
+				print "owned"
+			else
+				print "absent"
 		}
-	'; then
-		return 0
-	else
-		mount_status=$?
-		case "$mount_status" in
-			1) return 1 ;; # Confirmed mountpoint belongs to another device.
-			*) return 2 ;; # Missing/inconsistent inventory or parser failure.
+	'); then
+		case "$mount_state" in
+			owned) return 0 ;;
+			foreign) return 1 ;; # Confirmed mountpoint belongs to another device.
+			absent) return 2 ;; # No mount entry for this mountpoint.
+			*) return 3 ;; # Malformed/inconsistent inventory or parser output.
 		esac
+	else
+		return 3
 	fi
 }
 
-# If the label mountpoint belongs to another disk, use this device's unique
-# legacy mountpoint instead. Only unmount mounts created from this device.
-if mountpoint -q "$dev_mount" ; then
-	mount_from_device "$dev_mount"
-	mount_status=$?
-	case "$mount_status" in
-		0) ;; # This device owns the current mount; it may be safely replaced.
-		1) dev_mount="$mnt_legacy" ;; # Confirmed foreign owner; use its private path.
-		*)
-			logger -t "automount" "Unable to verify mount ownership for $dev_mount; refusing to mount $dev_full"
-			exit 1
-			;;
-	esac
-	if mountpoint -q "$dev_mount" ; then
-		mount_from_device "$dev_mount"
-		mount_status=$?
-		case "$mount_status" in
-			0) ;; # This device owns the legacy mount; it may be safely replaced.
-			1)
-				logger -t "automount" "Mountpoint $dev_mount is already used by another device!"
-				exit 1
-				;;
-			*)
-				logger -t "automount" "Unable to verify mount ownership for $dev_mount; refusing to unmount"
-				exit 1
-				;;
-		esac
+# Confirm ownership directly from the checked mount table; do not interpret
+# mountpoint(1)'s generic nonzero status as proof that a path is unmounted.
+mount_from_device "$dev_mount"
+mount_status=$?
+case "$mount_status" in
+	0) ;; # This device owns the selected path; revalidate before unmount.
+	1) dev_mount="$mnt_legacy" ;; # A confirmed foreign owner uses its private path.
+	2) ;; # The selected path is not mounted.
+	*)
+		logger -t "automount" "Unable to verify mount ownership for $dev_mount; refusing to mount $dev_full"
+		exit 1
+		;;
+esac
+
+# Recheck the final target. Only an owned mount can be replaced; absence is safe.
+mount_from_device "$dev_mount"
+mount_status=$?
+case "$mount_status" in
+	0)
 		if ! umount -f "$dev_mount" ; then
 			logger -t "automount" "Unable to prepare mountpoint $dev_mount!"
 			exit 1
 		fi
-	fi
-fi
+		;;
+	2) ;; # Not mounted; proceed.
+	1)
+		logger -t "automount" "Mountpoint $dev_mount is already used by another device!"
+		exit 1
+		;;
+	*)
+		logger -t "automount" "Unable to verify mount ownership for $dev_mount; refusing to unmount"
+		exit 1
+		;;
+esac
 
 logger -t "automount" "mount  device $dev_full ($ID_FS_TYPE) to $dev_mount @@@@@ $mnt_legacy"
 
@@ -369,14 +376,23 @@ elif [ "$ID_FS_TYPE" == "xfs" ] ; then
 	mount -t $ID_FS_TYPE -o noatime "$dev_full" "$dev_mount" 8>&-
 fi
 
-# check failed to mount, clean up mountpoint
-if ! mountpoint -q "$dev_mount" ; then
-	if [ -n "$ID_FS_TYPE" ] ; then
-		logger -t "automount" "Unable to mount device $dev_full ($ID_FS_TYPE) to $dev_mount!"
-	fi
-	rmdir "$dev_mount"
-	exit 1
-fi
+# Verify the mount table names this exact device as the owner of the target.
+mount_from_device "$dev_mount"
+mount_status=$?
+case "$mount_status" in
+	0) ;; # The intended device is mounted at the selected path.
+	1)
+		logger -t "automount" "Mount result for $dev_mount belongs to another device; refusing to continue"
+		exit 1
+		;;
+	*)
+		if [ -n "$ID_FS_TYPE" ] ; then
+			logger -t "automount" "Unable to verify mount of $dev_full ($ID_FS_TYPE) at $dev_mount (status=$mount_status)"
+		fi
+		rmdir "$dev_mount"
+		exit 1
+		;;
+esac
 
 # The ownership decision and mount are complete; do not let hooks inherit the lock.
 exec 8>&-

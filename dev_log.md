@@ -1,3 +1,13 @@
+## 2026-11-16 — Make the checked mount table authoritative for automount ownership
+
+- Parent main: `dc4630eb436381b0c19bdbcf067fc2cdc2cfa7df`. The preceding fix made `mount_from_device()` tri-state for `/proc/mounts`, but every call remained guarded by `mountpoint -q "$dev_mount"`. That command's generic nonzero result was interpreted as "not mounted", so the script could bypass the checked inventory and proceed when mountpoint status was uncertain.
+- Reworked `mount_from_device()` to report 0=owned, 1=confirmed foreign/conflicting source, 2=absent, 3=unreadable/malformed/UNKNOWN. It checks procfs read status and rejects malformed records rather than interpreting a truncated table as an empty mount set.
+- Removed all `mountpoint -q` gates. The script now checks the mount table directly before choosing a fallback, re-reads before unmount, and verifies after mount that the exact source device owns the target path. Only confirmed foreign ownership permits legacy fallback; UNKNOWN aborts.
+- Extended `storage_mountpoint_inventory.sh` to test status 3 for unreadable and truncated inventories; updated storage workflow source checks for all status paths, three ownership queries and absence of the old `mountpoint -q` shortcut.
+- Parent `dc4630eb436381b0c19bdbcf067fc2cdc2cfa7df` exact-head Actions status at commit time: XY-C1 Firmware Validation 43915736119 in_progress; Process inventory and lifecycle fail-closed regression 43915736081 completed/failure; NVRAM transaction boundary audit 43915735838 in_progress; AI handoff documentation contract 43915735818 completed/success; Process lifecycle inventory - dc4630eb436381b0c19bdbcf067fc2cdc2cfa7df 43915735556 completed/success; USB storage hotplug stability regression 43915735430 completed/failure. Exact-head USB storage and XY-C1 Build/TRX/artifact for THIS COMMIT must verify these source changes. Frozen backup unchanged; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Preserve modprobe catalog failures during filesystem selection
 
 - Parent main: `1dbfc53c7d9e37fb4a6a5e8358644652a6b3dbfa`. FAT, NTFS, HFS+ and ext2/ext3 automount paths used `modprobe -l | grep <module>`; POSIX shell reports only the final grep status, masking a failed BusyBox `modprobe -l`. The BusyBox 1.24.x `modprobe -l` implementation opens modules.dep through a fatal `config_open2(..., xfopen_for_read)` path.

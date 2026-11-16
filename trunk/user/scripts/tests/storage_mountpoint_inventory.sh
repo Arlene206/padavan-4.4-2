@@ -43,8 +43,12 @@ expect_status 1 /media/usb "$mounts"
 : > "$mounts"
 expect_status 2 /media/usb "$mounts"
 
-# Unreadable inventory (directory in place of procfs file) is UNKNOWN.
+# An unreadable inventory is UNKNOWN, not an absent mountpoint.
 mkdir "$tmpdir/not-a-mount-table"
-expect_status 2 /media/usb "$tmpdir/not-a-mount-table"
+expect_status 3 /media/usb "$tmpdir/not-a-mount-table"
+
+# A truncated/malformed procfs record must also fail closed.
+printf '/dev/sda1 /media/usb ext4 rw\n' > "$mounts"
+expect_status 3 /media/usb "$mounts"
 
 echo "Automount mount ownership tri-state inventory policy: PASS"
