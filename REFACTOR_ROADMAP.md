@@ -1,10 +1,10 @@
 ## Current source / CI checkpoint
 
-- Product-source baseline before this slice: `f16026b0af5d00087e36929b14843cf6b94a8b6a`; this main-only source change carries required physical WAN IFUP failure into the WAN startup return status before best-effort cleanup.
-- Previously validated required boot/WAN propagation includes LAN bridge/VLAN/switch/iNIC MII, full WAN restart switch/static-LAN-route/MAC-table checks, L2TP service status, static WAN route/IPv6 startup, and static route/USB modem teardown status.
-- Parent f160 exact-head Process `43863800540`, AI docs `43863800477`, infosvr `43863800722`, NVRAM `43863800497`, AliDDNS `43863800501`, AliyunDrive `43863800566` and AdGuardHome `43863800941` passed. XY-C1 `43863800656` was still running; current source requires new exact-SHA validation.
-- Added GNU89 policy coverage for first physical IFUP error surviving cleanup and strengthened the Process/XY-C1 WAN source checker to require accumulation before cleanup.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. No L3/L4 claim for this source slice.
+- Product-source baseline before this slice: `cf45552d54488f6d64cc3d2c1118ba9385a0ea7b`; the WAN IFUP failure is now returned to PID 1 rather than being lost after best-effort cleanup.
+- This source slice checks three previously ignored required IPv6 interface controls: disable IPv6 on the WAN VLAN parent, enable IPv6 on the resulting WAN interface, and enable IPv6 on the AP-client WISP WAN interface before publishing it.
+- Parent exact-head Process `43864471819` passed the WAN status regression. Parent XY-C1 `43864471994` was still at firmware build; TRX/artifact had not completed at last check. New exact-head validation is required.
+- The checker additions are part of the existing Process and XY-C1 source-contract step; no workflow filter changes are needed. No L3/L4 claim for this source SHA.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 
 ## Whole-repository module status

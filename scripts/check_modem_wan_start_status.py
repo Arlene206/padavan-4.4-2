@@ -41,6 +41,32 @@ assert migration_failure < ndis.index(dhcp_launch)
 assert "return modem_wan_start_status(migration_status, dhcp_status);" in ndis
 assert 'set_wan_unit_value_int(unit, "err", dhcp_status != 0);' in ndis
 
+vinet_setup = compact(body(WAN_SOURCE, "config_vinet_wan(void)"))
+parent_ipv6_start = vinet_setup.index("ret = control_if_ipv6(ifname_wan_cpu, 0);")
+parent_ipv6_end = vinet_setup.index("ret = create_vlan_iface(", parent_ipv6_start)
+parent_ipv6 = vinet_setup[parent_ipv6_start:parent_ipv6_end]
+assert "get_ipv6_type() != IPV6_DISABLED" in parent_ipv6
+assert re.search(r"if\s*\(ret\s*!=\s*0\)\s*\{[^}]*return\s+ret\s*;", parent_ipv6), (
+    "WAN VLAN creation must stop when required IPv6 disable on the parent fails"
+)
+
+vinet_publish = vinet_setup.index('set_wan_unit_value(0, "ifname", vinet_ifname);')
+vinet_enable_start = vinet_setup.index("ret = control_if_ipv6(vinet_ifname, 1);")
+vinet_enable = vinet_setup[vinet_enable_start:vinet_publish]
+assert "get_ipv6_type() != IPV6_DISABLED" in vinet_enable
+assert re.search(r"if\s*\(ret\s*!=\s*0\)\s*\{[^}]*return\s+ret\s*;", vinet_enable), (
+    "WAN interface publication must wait for successful IPv6 enable"
+)
+
+wisp_setup = compact(body(WAN_SOURCE, "config_apcli_wisp(void)"))
+wisp_publish = wisp_setup.index('set_wan_unit_value(0, "ifname", wisp_ifname);')
+wisp_enable_start = wisp_setup.index("int ipv6_status = control_if_ipv6(wisp_ifname, 1);")
+wisp_enable = wisp_setup[wisp_enable_start:wisp_publish]
+assert "get_ipv6_type() != IPV6_DISABLED" in wisp_enable
+assert re.search(r"if\s*\(ipv6_status\s*!=\s*0\)\s*\{[^}]*return\s+ipv6_status\s*;", wisp_enable), (
+    "AP-client WAN publication must wait for successful IPv6 enable"
+)
+
 wan_start = compact(body(WAN_SOURCE, "start_wan(void)"))
 assert "int modem_start_status = 0;" in wan_start
 assert "wan_up_status = wan_up(wan_ifname, unit, 1);" in wan_start

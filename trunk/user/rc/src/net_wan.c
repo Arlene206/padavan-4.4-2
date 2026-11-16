@@ -1084,7 +1084,14 @@ config_vinet_wan(void)
 	/* create VLAN interface for INET */
 	if (is_vlan_ifname) {
 #if defined (USE_IPV6)
-		control_if_ipv6(ifname_wan_cpu, 0);
+		if (get_ipv6_type() != IPV6_DISABLED) {
+			ret = control_if_ipv6(ifname_wan_cpu, 0);
+			if (ret != 0) {
+				logmessage(LOGNAME, "failed to disable IPv6 on WAN VLAN parent %s (status=%d)",
+					   ifname_wan_cpu, ret);
+				return ret;
+			}
+		}
 #endif
 		ret = create_vlan_iface(ifname_wan_cpu, vlan_vid[0], vlan_pri, 1500, wan_hwaddr, 1);
 		if (ret != 0) {
@@ -1120,8 +1127,14 @@ config_vinet_wan(void)
 	}
 
 #if defined (USE_IPV6)
-	if (get_ipv6_type() != IPV6_DISABLED)
-		control_if_ipv6(vinet_ifname, 1);
+	if (get_ipv6_type() != IPV6_DISABLED) {
+		ret = control_if_ipv6(vinet_ifname, 1);
+		if (ret != 0) {
+			logmessage(LOGNAME, "failed to enable IPv6 on WAN interface %s (status=%d)",
+				   vinet_ifname, ret);
+			return ret;
+		}
+	}
 #endif
 	set_wan_unit_value(0, "ifname", vinet_ifname);
 	return 0;
@@ -1170,8 +1183,14 @@ config_apcli_wisp(void)
 	}
 
 #if defined (USE_IPV6)
-	if (get_ipv6_type() != IPV6_DISABLED)
-		control_if_ipv6(wisp_ifname, 1);
+	if (get_ipv6_type() != IPV6_DISABLED) {
+		int ipv6_status = control_if_ipv6(wisp_ifname, 1);
+		if (ipv6_status != 0) {
+			logmessage(LOGNAME, "failed to enable IPv6 on AP-client WAN interface %s (status=%d)",
+				   wisp_ifname, ipv6_status);
+			return ipv6_status;
+		}
+	}
 #endif
 	set_wan_unit_value(0, "ifname", wisp_ifname);
 	return 0;

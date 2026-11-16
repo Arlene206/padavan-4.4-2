@@ -1,3 +1,13 @@
+## 2026-11-16 — Propagate required IPv6 control failures during WAN interface publication
+
+- Parent main: `cf45552d54488f6d64cc3d2c1118ba9385a0ea7b`. A targeted WAN call-site audit found `config_vinet_wan()` ignored the result of disabling IPv6 on the physical VLAN parent and enabling it on the selected WAN interface; `config_apcli_wisp()` likewise published the AP-client interface after discarding its IPv6 enable result.
+- These controls are required whenever IPv6 WAN mode is active: an incomplete parent disable can leave IPv6 on the wrong VLAN device, while failed enable can publish an interface whose IPv6 stack is not ready. The code now checks each return, logs the exact interface/status, aborts the migration before publishing `ifname`, and skips unnecessary parent-disable work when IPv6 is globally disabled.
+- Strengthened `scripts/check_modem_wan_start_status.py` with semantic source contracts for all three checked operations and publication/ordering gates. The existing Process and XY-C1 workflows already run this checker.
+- Parent exact-head Process `43864471819` SUCCESS. XY-C1 `43864471994` remained IN_PROGRESS in `Build XY-C1`; TRX and artifact steps were still pending. The new source change needs its own exact-head Process/XY-C1 validation; no L3/L4 claim.
+- Next: inspect the exact-head Actions for both WAN slices, then continue tracing unchecked PPP, static-address and DHCP launch results. Root `dev_log.md` will contain 119 complete records after this entry, below its 120-record rotation threshold.
+
+---
+
 ## 2026-11-16 — Propagate physical WAN interface bring-up failure to PID 1
 
 - Parent main: `f16026b0af5d00087e36929b14843cf6b94a8b6a`. `start_wan()` checked and logged a failed physical WAN `ifconfig(..., IFUP, ...)`, attempted cleanup and continued, but never merged that required interface-readiness failure into its return status. PID 1 could therefore observe a successful WAN start when the physical interface was unavailable.
