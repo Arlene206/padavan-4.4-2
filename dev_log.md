@@ -1,3 +1,12 @@
+## 2026-11-17 — Repair escaped firewall checker regex and HTTPD hook helper signature
+
+- Exact-head 8956 Firewall Startup `43945597477`, Process regression `43945597663`, and XY-C1 `43945597624` failed because the checker regex was emitted with two backslashes in a raw string, matching literal backslashes rather than whitespace. The production source contains nine status-aggregation calls; the regex now uses one escape level.
+- Exact-head 8956 HTTPD `43945597526` failed at its inline helper boundary because the assertion expected `static void firewall_log_hook_stage_failure`, while the implementation now returns `int` to propagate staging failures. Updated the expected signature.
+- Exact-head 8956 AliyunDrive `43945597544`, AliDDNS `43945597596`, AdGuardHome `43945597557`, AI handoff `43945597849`, USB modem `43945597613`, and infosvr `43945597566` passed; NVRAM `43945597771` was pending. The old SHA's failures are not treated as fixed until the new exact-head suites pass.
+- Next P1: audit module unload/load postconditions for configured NAT helpers and optional HW NAT/SFE. No XY-C1 L3 or physical-router L4 claim for this source state.
+
+---
+
 ## 2026-11-17 — Repair extension-hook CI contracts after implementation
 
 - Parent main: `1fe9fd834f4fb735b7b23fb7005b5dd9a61f7e86`. The 2ed exact-head Firewall Startup `43944601860` and Process regression `43944601739` both failed only because the new canonical checker counted a whitespace-normalized C assignment using a no-whitespace literal. The actual source has all nine status merges; the checker now uses a whitespace-tolerant regex.

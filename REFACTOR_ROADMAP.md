@@ -1,8 +1,10 @@
 ## Current source / CI checkpoint
 
-- Main parent: `1fe9fd834f4fb735b7b23fb7005b5dd9a61f7e86`. Exact-head 2ed hook implementation produced nine valid first-error status merges, but Firewall Startup/Process regression source checks failed on a whitespace-sensitive literal; HTTPD failed on three old bare cleanup-call assertions. XY-C1 stopped at the same checker before Build/TRX/artifact.
-- This checker repair uses whitespace-tolerant status-merge matching and aligns HTTPD assertions to the return-value checked hook-file cleanup API. Helper parent c0 focused Firewall Startup/HTTPD/NVRAM/AI/Process suites all passed.
-- New exact-SHA verification is required. No 2ed XY-C1 L3 claim because its build was not reached; physical-router L4 remains NOT VERIFIED.
+- Main parent: `8956d722b51b7a5b8fd3fab09750bf96dc0753be`. Exact-head 8956 Firewall Startup, Process regression and XY-C1 stopped at the canonical checker because its raw Python whitespace regex was double-escaped; HTTPD stopped at a stale `static void` signature assertion for a helper that now correctly returns `int`.
+- The current correction makes the whitespace pattern match actual C formatting and updates the HTTPD contract to the status-returning hook-stage helper. Other exact-head 8956 AliyunDrive, AliDDNS, AdGuardHome, AI handoff, USB modem and infosvr suites passed; NVRAM was pending at last poll.
+- Hook command/staging/cleanup source work is present. No new-SHA validation yet, no 8956 XY-C1 build/TRX/artifact result because its source checker stopped first, and physical-router L4 remains NOT VERIFIED. Next P1: audit NAT helper and optional HW NAT/SFE unload/load postconditions.
+
+
 
 
 ## Whole-repository module status

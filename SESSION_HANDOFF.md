@@ -10,29 +10,29 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Current repository state
 
-- Main parent for the validation correction: `1fe9fd834f4fb735b7b23fb7005b5dd9a61f7e86`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged/read-only.
-- Exact-head 2ed Firewall Startup `43944601860` and Process regression `43944601739` failed in the same canonical source assertion: checker expected no whitespace around `status = rc_first_service_start_status(status, hook_error)`, but the C source has nine valid merges. The checker is fixed with a whitespace-tolerant regex.
-- Exact-head 2ed HTTPD `43944601745` failed because its inline checker expected bare hook-file remove calls; the source now checks their return values. All three hook cleanups are aligned to the status-aware API.
-- Exact-head 2ed XY-C1 `43944601903` hit the shared WAN source checker before Build/TRX/artifact. NVRAM `43944601815`, AI handoff `43944601727`, Process inventory `43944601706`, FULLCONENAT `43944601842`, and USB modem identity `43944601920` were IN_PROGRESS at last poll.
-- Helper parent c0 exact Firewall Startup/HTTPD/NVRAM/AI/Process inventory/Process regression all passed.
+- Main parent for this checker correction: `8956d722b51b7a5b8fd3fab09750bf96dc0753be`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged/read-only.
+- Exact-head 8956 Firewall Startup `43945597477`, Process regression `43945597663`, and XY-C1 `43945597624` failed at the canonical hook-status count because the raw Python regex was double-escaped and matched literal backslashes instead of source whitespace. The C source contains nine valid first-error merges.
+- Exact-head 8956 HTTPD `43945597526` failed because its inline checker still searched for a `static void` hook-stage logger; the implementation correctly changed this helper to return `int` so stage failures reach RC status.
+- Exact-head 8956 AliyunDrive `43945597544`, AliDDNS `43945597596`, AdGuardHome `43945597557`, AI handoff `43945597849`, USB modem `43945597613`, and infosvr `43945597566` passed. NVRAM `43945597771` was still in progress at last poll.
+- The repair corrects the regex to a single escaped whitespace token and updates the HTTPD helper-signature contract. No result transfers from SHA 8956 to the new commit.
 
 ## Active task
 
-Optional Shadowsocks, persistent post-firewall and Optware hooks now propagate non-ENOENT staging errors, command failures and staged-file cleanup failures to start_firewall_ex(), while continuing independent hooks. Missing optional hooks remain no-op; hook errors do not disable successful built-in firewall rules. Failed unlink preserves the staged path.
+The Shadowsocks, persistent post-firewall and Optware hook paths now propagate non-ENOENT staging failures, command failures and staged-file cleanup errors to `start_firewall_ex()`, while continuing independent hooks. Missing optional scripts remain no-op; a successful built-in firewall stays enabled even when an extension fails. Staged-path removal retains its path when unlink fails.
 
-The implementation was green in the focused helper parent, but the subsequent source commit exposed stale exact-string assertions in two integration suites. Those checker contracts are now aligned; fresh exact-SHA verification must prove the complete source path and XY-C1 build.
+The implementation is present, but the integration suites exposed two stale checker assumptions: a doubly escaped whitespace regex and an outdated `static void` signature. This slice fixes those validation contracts only.
 
-Next P1: after validation, audit NAT helper and HW NAT/SFE module load/unload postconditions in net.c, keeping required ALG helpers observable and optional accelerators non-blocking.
+Next P1: audit NAT helper and HW NAT/SFE module load/unload postconditions in `net.c`. Verify required ALG failures remain visible and optional accelerator failures do not block ordinary WAN/firewall service. Add injectable unload postcondition tests.
 
 ## Verification boundary
 
-- 2ed exact Firewall Startup `43944601860` and Process regression `43944601739` failed at one whitespace-sensitive count assertion in the canonical source checker, after prior module, UPnP, firewall and cleanup checks passed.
-- 2ed HTTPD `43944601745` failed at its stale assertion that hook-file removal was a bare call; it now checks the status-aware return condition.
-- 2ed XY-C1 `43944601903` stopped at the shared source checker before firmware build/TRX/artifact.
-- This commit updates only checker contracts and handoff records. No new-SHA verification or L3/physical-device claim yet; router L4 remains NOT VERIFIED.
+- Exact-head 8956 Firewall Startup `43945597477`, Process regression `43945597663`, and XY-C1 `43945597624` failed before any new firmware build because the canonical Python regex used double backslashes and could not match the nine source status merges.
+- Exact-head 8956 HTTPD `43945597526` failed after the hook-staging checks, at an inline source-boundary assertion that expected `static void firewall_log_hook_stage_failure`; the actual helper now returns `int`.
+- Exact-head 8956 AliyunDrive, AliDDNS, AdGuardHome, AI handoff, USB modem identity and infosvr passed. NVRAM was in progress at last poll.
+- This commit repairs test contracts; all exact-head CI and XY-C1 Build/TRX/artifact checks must run again on the new SHA. No local firmware or physical-router claim; router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA Firewall Startup, Process, HTTPD, XY-C1 Build/TRX/artifact and remaining NVRAM/AI/service runs after this checker repair.
-2. If these pass, continue NAT helper and optional HW NAT/SFE load/unload postcondition auditing, with targeted tests for failed unload and stale module-state reports.
-3. Main-only complete-tree atomic commit, non-forced expected-SHA CAS. Frozen backup read-only; physical-router L4 NOT VERIFIED.
+1. Inspect the new commit's exact-SHA Firewall Startup, Process regression, HTTPD, XY-C1 Build/TRX/artifact and remaining NVRAM/AI/service Actions. Diagnose any first new failure.
+2. Continue with NAT helper, HW NAT and SFE unload/load postconditions; add deterministic failed-unload and stale-state regression cases.
+3. Keep commits main-only and atomic with non-forced expected-SHA CAS. Frozen backup read-only; physical-router L4 NOT VERIFIED.

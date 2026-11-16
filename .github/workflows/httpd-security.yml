@@ -3381,7 +3381,7 @@ jobs:
           assert "Refusing firewall rebuild: previous recovery state remains unresolved" in firewall_main
 
           standalone_start = firewall.index("static int" + chr(10) + "firewall_apply_core_restore(")
-          standalone_end = firewall.index(chr(10) + "static void" + chr(10) + "firewall_log_hook_stage_failure", standalone_start)
+          standalone_end = firewall.index(chr(10) + "static int" + chr(10) + "firewall_log_hook_stage_failure", standalone_start)
           standalone_restore = firewall[standalone_start:standalone_end]
           assert "firewall_restore_transaction_prepare_reset" in standalone_restore
           assert standalone_restore.index("firewall_restore_transaction_prepare_reset") < standalone_restore.index("firewall_restore_transaction_apply")
