@@ -1,10 +1,9 @@
 ## Current source / CI checkpoint
 
-- Main parent for the AiDisk orphaned-label cleanup: `f71ee12cbca49972cc927457338d395e64818381`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact f71 Inadyn lifecycle #43779424646 PASS, including GNU89/ASan/UBSan compile, SIGUSR1 policy tests and production integration contract. Process regression #43779424653, inventory #43779424644 and AI docs #43779424703 queued; XY-C1 #43779424777 had not reached Build at last poll.
-- AiDisk Samba/FTP code contract passed exact 891b Process #43777935786 and AI docs #43777935812. This commit removes the orphaned success label left after the two prechecks/gotos were deleted; exact-head Process and XY-C1 Build/TRX/artifact required.
-- SmartDNS exact-source Process/AI-doc validation passed on eee (#43778610041 / #43778609888) after its c679 checker-only failure was repaired.
-- 8f550 inventory #43776729995 PASS: 9,501 entries, 6,255 scanned text files, no missing candidates/read errors; artifact #14186597970. It found 27 actual legacy `pids()` callsites and no in-tree `is_dns_dhcpd_run()` callers.
+- Main parent for the HTTPD security-checker correction: `2d97d3b11b48464a21ace2113a04ab26769aff2a`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact 2d97 Process lifecycle #43779569397, full-tree inventory #43779569493, AI docs #43779569387, infosvr #43779569427, AliyunDrive #43779569474, AdGuardHome #43779569325 and AliDDNS #43779569367 PASS. XY-C1 #43779569458 and NVRAM #43779569419 remained in progress at last poll.
+- Exact 2d97 HTTPD security #43779569517 failed only on stale assertion expecting the removed `killall -SIGUSR1 inadyn` sink. THIS COMMIT changes its expectation to `notify_rc(RCN_MANUAL_DDNS_UPDATE)`; its exact-head rerun must pass.
+- Exact f71 Inadyn lifecycle #43779424646 PASS (GNU89/ASan/UBSan SIGUSR1 success/UNKNOWN rejection + production integration).
 
 
 ### P1 — Storage daemon startup and config publication

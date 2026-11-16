@@ -1,3 +1,12 @@
+## 2026-11-15 — Align HTTPD security wiring assertion with safe DDNS signal route
+
+- Exact 2d97 HTTPD Authentication and Security Regression #43779569517 failed at the final source-wiring assertion. The workflow still required `doSystem("killall ...", "-SIGUSR1", "inadyn")` in the `ddnsclient` handler, although the production code now queues `RCN_MANUAL_DDNS_UPDATE` and the dedicated Inadyn regression verifies tri-state scan + PID-identity-bound SIGUSR1.
+- Updated the HTTPD security allowlist sink to `notify_rc(RCN_MANUAL_DDNS_UPDATE)`; no production behavior changed in this task.
+- Parent main: `2d97d3b11b48464a21ace2113a04ab26769aff2a`. Exact Process #43779569397, inventory #43779569493 and AI docs #43779569387 PASS. XY-C1 #43779569458 and NVRAM #43779569419 pending at last poll.
+- THIS COMMIT requires exact-head HTTPD security rerun and AI-doc validation.
+
+---
+
 ## 2026-11-15 — Remove orphaned AiDisk CGI success label
 
 - The AiDisk Samba/FTP disable fix removed both `goto SET_AIDISK_STATUS_SUCCESS` guards, but retained the now-unreferenced C label. A label with no goto can trigger `-Wunused-label` under `-Wall` in the target firmware build.

@@ -3987,7 +3987,7 @@ jobs:
               "lpr_remove": 'process_pidfile_signal("/var/run/lpdparent.pid", "lpd", SIGUSR2)',
               "mfp_requeue": 'nvram_set_temp("mfp_ip_requeue", s_addr)',
               "mfp_monopolize": 'nvram_set_temp("mfp_ip_monopoly", s_addr)',
-              "ddnsclient": 'doSystem("killall %s %s", "-SIGUSR1", "inadyn")',
+              "ddnsclient": "notify_rc(RCN_MANUAL_DDNS_UPDATE)",
               "hostname_check": 'notify_rc("manual_ddns_hostname_check")',
               "dlna_rescan": 'notify_rc("restart_dms_rescan")',
           }
