@@ -3,19 +3,67 @@ logger -t "automount" "/sbin/automount.sh $1    $2"
 func_load_module()
 {
 	module_name=$1
+	modules_file=/proc/modules
+	lock_file=/var/lock/fs_module.lock
+	if [ "$#" -ge 2 ]; then
+		modules_file=$2
+	fi
+	if [ "$#" -ge 3 ]; then
+		lock_file=$3
+	fi
 	case "$module_name" in
 		''|*[!A-Za-z0-9_-]*) return 1 ;;
 	esac
-	(
-		flock 9
-		if ! awk -v module="$module_name" '$1 == module { found=1 } END { exit !found }' /proc/modules; then
-			modprobe -q "$module_name"
-			[ $? -eq 0 ] && usleep 300000
+
+	# Distinguish an absent module from an unreadable /proc/modules inventory.
+	if awk -v module="$module_name" '$1 == module { found=1 } END { exit !found }' "$modules_file" 2>/dev/null; then
+		return 0
+	else
+		module_status=$?
+		if [ "$module_status" -ne 1 ]; then
+			logger -t "automount" "Unable to read loaded-module inventory $modules_file (status=$module_status)"
+			return "$module_status"
 		fi
-	) 9>/var/lock/fs_module.lock
+	fi
+
+	(
+		# Never run modprobe without the cross-process serialization lock.
+		if ! flock 9; then
+			logger -t "automount" "Unable to acquire filesystem-module lock $lock_file"
+			exit 1
+		fi
+
+		# Another hotplug worker may have loaded it while this process waited.
+		if awk -v module="$module_name" '$1 == module { found=1 } END { exit !found }' "$modules_file" 2>/dev/null; then
+			exit 0
+		else
+			module_status=$?
+			if [ "$module_status" -ne 1 ]; then
+				logger -t "automount" "Unable to recheck loaded-module inventory $modules_file (status=$module_status)"
+				exit "$module_status"
+			fi
+		fi
+
+		modprobe -q "$module_name"
+		module_status=$?
+		if [ "$module_status" -ne 0 ]; then
+			logger -t "automount" "Unable to load filesystem module $module_name (status=$module_status)"
+			exit "$module_status"
+		fi
+		usleep 300000
+	) 9>>"$lock_file"
 }
 
 # Device names come from hotplug. Keep them as a single block-device component.
+load_module_or_abort()
+{
+	if ! func_load_module "$1"; then
+		logger -t "automount" "Refusing to mount $dev_full: filesystem module $1 could not be loaded safely"
+		rmdir "$dev_mount"
+		exit 1
+	fi
+}
+
 case "$1" in
 	''|[!A-Za-z0-9]*|*[!A-Za-z0-9_-]*) exit 1 ;;
 esac
@@ -142,14 +190,14 @@ if [ "$ID_FS_TYPE" == "msdos" -o "$ID_FS_TYPE" == "vfat" ] ; then
 	fi
 	kernel_vfat=`modprobe -l | grep vfat`
 	if [ -n "$kernel_vfat" ] ; then
-		func_load_module vfat
+		load_module_or_abort vfat
 		mount -t vfat "$dev_full" "$dev_mount" -o noatime,umask=0,iocharset=utf8,codepage=936,shortname=winnt 8>&-
 	else
-		func_load_module exfat
+		load_module_or_abort exfat
 		mount -t exfat "$dev_full" "$dev_mount" -o noatime,umask=0,iocharset=utf8 8>&-
 	fi
 elif [ "$ID_FS_TYPE" == "exfat" ] ; then
-	func_load_module exfat
+	load_module_or_abort exfat
 	mount -t exfat "$dev_full" "$dev_mount" -o noatime,umask=0,iocharset=utf8 8>&-
 elif [ "$ID_FS_TYPE" == "ntfs" ] ; then
 	if [ "$achk_enable" != "0" ] && [ -x /sbin/chkntfs ] ; then
@@ -170,10 +218,10 @@ elif [ "$ID_FS_TYPE" == "ntfs" ] ; then
 	kernel_ufsd=`modprobe -l | grep ufsd`
 	kernel_antfs=`modprobe -l | grep antfs`
 	if [ -n "$kernel_antfs" ]; then
-		func_load_module antfs
+		load_module_or_abort antfs
 		mount -t antfs "$dev_full" "$dev_mount" -o noatime,utf8 8>&-
 	elif [ -n "$kernel_ufsd" ] ; then
-		func_load_module ufsd
+		load_module_or_abort ufsd
 		mount -t ufsd "$dev_full" "$dev_mount" -o noatime,sparse,nls=utf8,force 8>&-
 	elif [ -x /sbin/ntfs-3g ] ; then
 		/sbin/ntfs-3g "$dev_full" "$dev_mount" -o noatime,umask=0,big_writes 8>&-
@@ -184,10 +232,10 @@ elif [ "$ID_FS_TYPE" == "ntfs" ] ; then
 elif [ "$ID_FS_TYPE" == "hfsplus" -o "$ID_FS_TYPE" == "hfs" ] ; then
 	kernel_hfsplus=`modprobe -l | grep hfsplus`
 	if [ -n "$kernel_hfsplus" ] ; then
-		func_load_module hfsplus
+		load_module_or_abort hfsplus
 		mount -t $ID_FS_TYPE -o noatime,umask=0,nls=utf8 "$dev_full" "$dev_mount" 8>&-
 	else
-		func_load_module ufsd
+		load_module_or_abort ufsd
 		mount -t ufsd -o noatime,nls=utf8,force "$dev_full" "$dev_mount" 8>&-
 	fi
 elif [ "$ID_FS_TYPE" == "ext4" -o "$ID_FS_TYPE" == "ext3" -o "$ID_FS_TYPE" == "ext2" ] ; then
@@ -205,25 +253,25 @@ elif [ "$ID_FS_TYPE" == "ext4" -o "$ID_FS_TYPE" == "ext3" -o "$ID_FS_TYPE" == "e
 		fi
 	fi
 	if [ "$ID_FS_TYPE" == "ext4" ] ; then
-		func_load_module ext4
+		load_module_or_abort ext4
 	elif [ "$ID_FS_TYPE" == "ext3" ] ; then
 		kernel_ext3=`modprobe -l | grep ext3`
 		if [ -n "$kernel_ext3" ] ; then
-			func_load_module ext3
+			load_module_or_abort ext3
 		else
-			func_load_module ext4
+			load_module_or_abort ext4
 		fi
 	elif [ "$ID_FS_TYPE" == "ext2" ] ; then
 		kernel_ext2=`modprobe -l | grep ext2`
 		if [ -n "$kernel_ext2" ] ; then
-			func_load_module ext2
+			load_module_or_abort ext2
 		else
-			func_load_module ext4
+			load_module_or_abort ext4
 		fi
 	fi
 	mount -t $ID_FS_TYPE -o noatime "$dev_full" "$dev_mount" 8>&-
 elif [ "$ID_FS_TYPE" == "xfs" ] ; then
-	func_load_module xfs
+	load_module_or_abort xfs
 	mount -t $ID_FS_TYPE -o noatime "$dev_full" "$dev_mount" 8>&-
 fi
 

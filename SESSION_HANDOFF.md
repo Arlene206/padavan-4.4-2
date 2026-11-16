@@ -10,7 +10,7 @@ Every multi-file logical change must be created as one complete Git tree and one
 
 ## Current repository state
 
-- Latest main commit: `528da87938e245b3c45c0bf95839b9a0d9676ec1` (checker-only whitespace normalizer for targeted eject). Parent c1aca USB storage `43907888057` passed policy/graph steps 1–24 and failed only at step 25 on a wrapped C-call assertion. This commit replaces the first correction's unavailable `re.sub()` dependency with `" ".join(text.split())`. Run `43908320511` is the exact-head USB storage test on 528da; inspect its result/log. Parent c1aca XY-C1 `43907888399` and NVRAM `43907888090` were in progress at last poll; verify same-SHA Build/TRX/artifact.
+- Latest main commit: `393c1c489e0558d4638e37fef29ce236e1b9d0bd` (exact-head USB storage `43909013086`, Process lifecycle `43909012933`, and AI docs `43909013100` all PASS). Product parent c1aca `c1aca046300ec7738a3455c779afb988f5d71cb6` passed NVRAM `43907888090` and XY-C1 `43907888399`, with Build, TRX and artifact upload all successful on that same SHA. THIS COMMIT adds fail-closed filesystem module-load locking and its extracted-function regression; exact-head storage and XY-C1 checks are pending.
 
 - Repository: `Arlene206/padavan-4.4-2`; current source parent before this slice: `e05ccbcb8c458ee2bc07c6020ed5af52b3d4cff8`.
 - Mount-link errno fix, GNU89 policy regression, storage source contracts, and workflow corrections are included together in THIS COMMIT.
@@ -21,15 +21,16 @@ Every multi-file logical change must be created as one complete Git tree and one
 
 ## Active task
 
-The targeted-eject policy and product source changes are in parent c1aca. USB storage `43907888057` passed the policy and full storage graph through step 24, then step 25 failed only on a multiline C-call assertion. Parent 528da queued USB storage run `43908320511`; its checker correction used `re.sub` without importing `re`. THIS COMMIT changes normalization to built-in `str.split()`; product source is unchanged. Inspect the exact-head rerun and check the replacement workflow on THIS COMMIT.
+THIS COMMIT fixes a specific automount race: `func_load_module()` previously ignored `flock 9` failure and continued to `modprobe`, so concurrent hotplug workers could load filesystem modules without serialization. It also treated an unreadable `/proc/modules` as an absent module. The helper now distinguishes UNKNOWN inventory from absence, refuses `modprobe` without the lock, rechecks under lock, propagates `modprobe` failure, and mount branches abort on error. New `storage_module_load_lock.sh` extracts and executes the production function against mock `flock`/`modprobe`, covering lock failure, the post-lock race, failure propagation and invalid inputs. The equivalent local shell harness passed; exact-head Actions are pending.
 ## Verification boundary
 
-- Product parent c1aca: USB storage `43907888057` passed steps 1–24, failed step 25 on checker formatting. XY-C1 `43907888399` and NVRAM `43907888090` were in progress at last poll.
-- Checker-only parent 528da: USB storage `43908320511` was queued after an incomplete regex-based whitespace fix. THIS COMMIT uses built-in whitespace normalization and needs its own exact-head storage run.
-- The previous product L3 on d6 does not transfer to later source changes. Physical-router L4 remains NOT VERIFIED.
+- Parent `393c1c489e0558d4638e37fef29ce236e1b9d0bd`: USB storage `43909013086`, Process lifecycle `43909012933`, AI docs `43909013100` PASS.
+- Product parent c1aca: NVRAM `43907888090` PASS; XY-C1 `43907888399` PASS with Build, TRX verification and artifact upload on the same SHA.
+- THIS COMMIT changes `automount.sh` and adds an extracted-function shell regression; exact-head USB storage and XY-C1 Build/TRX/artifact are pending. Physical-router L4 NOT VERIFIED.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at SHA `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 ## Exact first action for the next GPT
 
-1. Inspect exact-head USB storage for THIS COMMIT; verify checker step 25 and the retry policy/source contracts pass. Read full logs if not.
-2. Check XY-C1 and NVRAM runs on parent c1aca (`43907888399` and `43907888090`), and confirm whether Build/TRX/artifact completed on the same SHA.
-3. Resume targeted storage/hotplug audit at automount/notification semantics only after confirming `notify_rc()` and `_eval()` contracts. Do not revisit finished mount-link/eject retry work.
-4. Preserve the frozen backup branch; L4 remains unverified.
+1. Inspect exact-head USB storage on THIS COMMIT; the extracted-function shell regression and Python caller-graph checks must pass.
+2. Inspect exact-head XY-C1 Build, TRX verification and artifact upload on the same product SHA; do not carry c1aca L3 through this automount change.
+3. After those gates, continue the remaining automount/notification reliability work. The existing contracts were checked: `_eval()` is synchronous and returns child exit status when `ppid` is NULL; `notify_rc()` is a void asynchronous queue/signal API.
+4. Preserve the frozen backup and keep physical-router L4 marked NOT VERIFIED.

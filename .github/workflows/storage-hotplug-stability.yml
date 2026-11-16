@@ -36,6 +36,7 @@ on:
       - "scripts/check_storage_safe_remove.py"
       - "trunk/user/libdisk/src/storage_swap_policy.h"
       - "trunk/user/scripts/files/sbin/automount.sh"
+      - "trunk/user/scripts/tests/storage_module_load_lock.sh"
       - "trunk/user/scripts/files/sbin/spindown.sh"
       - "trunk/user/optware/opt-mount.sh"
       - "trunk/user/rc/src/tests/storage_operation_lock.c"
@@ -101,6 +102,7 @@ on:
       - "scripts/check_storage_safe_remove.py"
       - "trunk/user/libdisk/src/storage_swap_policy.h"
       - "trunk/user/scripts/files/sbin/automount.sh"
+      - "trunk/user/scripts/tests/storage_module_load_lock.sh"
       - "trunk/user/scripts/files/sbin/spindown.sh"
       - "trunk/user/optware/opt-mount.sh"
       - "trunk/user/rc/src/tests/storage_operation_lock.c"
@@ -339,6 +341,11 @@ jobs:
             trunk/user/rc/src/tests/service_start_status.c \
             -o /tmp/service-start-status
           /tmp/service-start-status
+      - name: Verify filesystem module-load lock failure and race handling
+        run: |
+          set -eu
+          sh -n trunk/user/scripts/files/sbin/automount.sh
+          sh trunk/user/scripts/tests/storage_module_load_lock.sh
       - name: Verify whole storage caller graph, operation locks and failure propagation
         run: |
           python3 - <<'PY'
@@ -494,6 +501,13 @@ jobs:
           disk_inventory_test = (libdisk_dir / "tests/disk_inventory_policy.c").read_text()
           swap_policy = (libdisk_dir / "storage_swap_policy.h").read_text()
           automount = Path("trunk/user/scripts/files/sbin/automount.sh").read_text()
+          module_loader = automount[automount.index("func_load_module()"):automount.index("# Device names")]
+          assert "if ! flock 9; then" in module_loader
+          assert "modules_file=" in module_loader
+          assert "/proc/modules" in module_loader
+          assert "lock_file=" in module_loader
+          assert "load_module_or_abort" in automount
+          assert "func_load_module vfat" not in automount
           spindown = Path("trunk/user/scripts/files/sbin/spindown.sh").read_text()
           opt_mount = Path("trunk/user/optware/opt-mount.sh").read_text()
           lock_policy = (rc_dir / "storage_operation_lock.h").read_text()
@@ -1041,6 +1055,7 @@ jobs:
               "trunk/user/libdisk/src/tests/disk_inventory_policy.c",
               "trunk/user/libdisk/src/storage_swap_policy.h",
               "trunk/user/scripts/files/sbin/automount.sh",
+              "trunk/user/scripts/tests/storage_module_load_lock.sh",
               "trunk/user/scripts/files/sbin/spindown.sh",
               "trunk/user/optware/opt-mount.sh",
               "trunk/user/nfs-utils/nfsd.sh",

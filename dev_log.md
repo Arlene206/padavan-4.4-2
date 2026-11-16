@@ -1,3 +1,13 @@
+## 2026-11-16 — Fail closed on filesystem module-load lock and inventory errors
+
+- Parent main: `393c1c489e0558d4638e37fef29ce236e1b9d0bd`. Found `func_load_module()` in `automount.sh` ignored `flock 9` failure and proceeded to `modprobe`, allowing concurrent hotplug workers to bypass intended filesystem-module serialization. It also treated AWK read/parse errors on `/proc/modules` as evidence that a module was absent.
+- Reworked the helper to distinguish a missing module (AWK exit 1) from an inventory error, require successful lock acquisition before `modprobe`, recheck module presence after acquiring the lock, and propagate `modprobe` status. All filesystem mount branches now abort before attempting the mount if module loading cannot be completed safely.
+- Added `storage_module_load_lock.sh`, which extracts the exact production function and tests already-loaded modules, lock failure/no-modprobe, successful operation ordering, a competing worker loading the module during lock wait, modprobe failure, invalid module names, and unreadable module inventory. An equivalent POSIX-shell mock harness for the function passed locally; no complete repository checkout or firmware compiler is available locally.
+- Exact-head parent Actions: USB storage `43909013086`, Process lifecycle `43909012933`, and AI handoff docs `43909013100` PASS. Product parent c1aca `c1aca046300ec7738a3455c779afb988f5d71cb6` passed NVRAM `43907888090` and XY-C1 `43907888399`, including Build XY-C1, TRX verification and artifact upload on that same SHA. Exact-head USB storage and XY-C1 validation for THIS COMMIT pending.
+- Frozen backup remains untouched. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 00:39 CST — Keep storage checker self-contained
 
 - Parent main: `528da87938e245b3c45c0bf95839b9a0d9676ec1`. The prior checker correction normalized whitespace with `re.sub()` but the standalone checker did not import `re`; it would raise `NameError`. Replaced it with Python's built-in `" ".join(text.split())`, requiring no additional import or dependency.
