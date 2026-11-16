@@ -82,9 +82,20 @@ route_wait_body = function_body(script, "zerotier_wait_route()")
 rules_section = script.split("rules() {", 1)[1].split("\ndel_rules() {", 1)[0]
 cleanup_section = script.split("del_rules() {", 1)[1].split("\nzero_route() {", 1)[0]
 
+process_state_body = function_body(script, "zerotier_process_state()")
 require('while [ "$zerotier_wait" -lt 5 ]; do' in wait_body and
-        'pidof zerotier-one' in wait_body and 'sleep 1' in wait_body,
-        "daemon absence must be checked through five bounded one-second live-PID polls")
+        'zerotier_process_state' in wait_body and 'sleep 1' in wait_body,
+        "daemon absence must be checked through five bounded one-second tri-state process polls")
+require('pidof zerotier-one' in process_state_body and
+        'zt_process_pidof_status' in process_state_body and
+        'return 2' in process_state_body and
+        'return 1' in process_state_body and
+        'return 0' in process_state_body,
+        "process inventory must distinguish RUNNING, confirmed ABSENT and UNKNOWN")
+require('if [ "$zerotier_stop_state" -ne 1 ]; then' in kill_body and
+        kill_body.index('zerotier_wait_stopped') < kill_body.index('if [ "$zerotier_stop_state" -ne 1 ]; then') <
+        kill_body.index('killall -9 zerotier-one'),
+        "UNKNOWN during graceful stop must block name-wide SIGKILL escalation")
 require(kill_body.count('killall zerotier-one') == 1 and
         kill_body.count('killall -9 zerotier-one') == 1,
         "stop must send one TERM and at most one process-name SIGKILL")
