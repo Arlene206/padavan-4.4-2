@@ -1630,7 +1630,7 @@ handle_notifications(void)
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_VPNSVR) == 0)
 		{
-			restart_vpn_server();
+			action_result = rc_notify_merge_action_result(action_result, restart_vpn_server());
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_VPNCLI) == 0)
 		{
@@ -2105,7 +2105,7 @@ main(int argc, char **argv)
 		ret = restart_dhcpd();
 	}
 	else if (!strcmp(base, "restart_vpn_server")) {
-		restart_vpn_server();
+		ret = restart_vpn_server();
 	}
 	else if (!strcmp(base, "restart_vpn_client")) {
 		ret = restart_vpn_client();

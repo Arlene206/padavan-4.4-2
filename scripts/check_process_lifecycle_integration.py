@@ -1425,3 +1425,47 @@ for required_path in (
     assert required_path in process_workflow
     assert required_path in xy_workflow
 print("RC DDNS restart notification preserves disabled/AP behavior and operation failures: PASS")
+
+
+# VPN server restart must preserve failures through teardown, start, shared
+# xl2tpd restoration and lifecycle-lock release. Both the PID-1 notification
+# and direct rc applet return the same status to their caller.
+vpn_restart_policy = (root / "trunk/user/rc/src/vpn_server_restart_policy.h").read_text()
+vpn_restart_test = (root / "trunk/user/rc/src/tests/vpn_server_restart_policy.c").read_text()
+vpn_restart_source = (root / "trunk/user/rc/src/vpn_server.c").read_text()
+vpn_restart_rc = (root / "trunk/user/rc/src/rc.c").read_text()
+vpn_restart_header = (root / "trunk/user/rc/src/rc.h").read_text()
+vpn_restart_body = vpn_restart_source.split(
+    "int" + chr(10) + "restart_vpn_server(void)", 1
+)[1].split(chr(10) + "static void" + chr(10) + "reapply_vpn_server_locked", 1)[0]
+assert '#include "vpn_server_restart_policy.h"' in vpn_restart_source
+assert "int restart_vpn_server(void);" in vpn_restart_header
+assert "void restart_vpn_server(void);" not in vpn_restart_header
+assert "return vpn_server_restart_first_error(stop_status," in vpn_restart_body
+assert "vpn_server_restart_first_error(restart_status, start_status)" in vpn_restart_body
+assert "vpn_server_restart_first_error(restart_status, restore_status)" in vpn_restart_body
+assert "vpn_server_restart_first_error(restart_status, -1)" in vpn_restart_body
+assert "restore_status != 0" in vpn_restart_body
+assert "release_status = vpn_server_lifecycle_lock_release(lock_fd);" in vpn_restart_body
+assert "action_result = rc_notify_merge_action_result(action_result, restart_vpn_server());" in vpn_restart_rc
+assert 'ret = restart_vpn_server();' in vpn_restart_rc
+for test_case in (
+    "test_success_stays_success",
+    "test_start_failure_is_returned",
+    "test_restore_failure_is_returned_when_start_succeeded",
+    "test_first_failure_survives_later_restore_and_unlock_errors",
+    "test_unlock_failure_is_returned_after_successful_operations",
+    "test_positive_wait_status_is_not_lost",
+):
+    assert test_case in vpn_restart_test
+assert "Compile and run VPN server restart status propagation regression" in process_workflow
+assert "Compile and run VPN server restart status propagation regression" in xy_workflow
+for required_path in (
+    '"trunk/user/rc/src/vpn_server_restart_policy.h"',
+    '"trunk/user/rc/src/tests/vpn_server_restart_policy.c"',
+    '"trunk/user/rc/src/vpn_server.c"',
+    '"trunk/user/rc/src/rc.h"',
+):
+    assert required_path in process_workflow
+    assert required_path in xy_workflow
+print("VPN server restart propagates teardown, start, restoration and unlock failures: PASS")

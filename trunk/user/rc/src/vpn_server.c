@@ -30,6 +30,7 @@
 #include "vpn_server_lease_policy.h"
 #include "vpn_server_lease_lock.h"
 #include "vpn_server_lifecycle_lock.h"
+#include "vpn_server_restart_policy.h"
 #include "vpn_server_callback_policy.h"
 #include "process_presence_start_policy.h"
 #include <process_inventory.h>
@@ -522,17 +523,20 @@ stop_vpn_server(void)
 	return result;
 }
 
-void
+int
 restart_vpn_server(void)
 {
-	int lock_fd, start_status, stop_status, saved_errno, restore_status;
+	int lock_fd, start_status, stop_status, saved_errno = 0, restore_status;
+	int release_status, restart_status = 0, release_errno;
 
 	if (get_ap_mode())
-		return;
+		return 0;
 	lock_fd = vpn_server_lifecycle_lock_acquire();
 	if (lock_fd < 0) {
-		logmessage(VPNS_LOG_NAME, "cannot lock VPN server lifecycle for restart (errno=%d)", errno);
-		return;
+		saved_errno = errno ? errno : EIO;
+		logmessage(VPNS_LOG_NAME, "cannot lock VPN server lifecycle for restart (errno=%d)", saved_errno);
+		errno = saved_errno;
+		return -1;
 	}
 
 	xl2tpd_killed_vpns = 0;
@@ -542,14 +546,21 @@ restart_vpn_server(void)
 	if (stop_status != 0) {
 		saved_errno = errno ? errno : EIO;
 		logmessage(VPNS_LOG_NAME, "VPN server restart aborted because stop was incomplete (errno=%d)", saved_errno);
-		if (vpn_server_lifecycle_lock_release(lock_fd) != 0)
-			logmessage(VPNS_LOG_NAME, "cannot release VPN server lifecycle lock after aborted restart (errno=%d)", errno);
+		release_status = vpn_server_lifecycle_lock_release(lock_fd);
+		if (release_status != 0)
+			logmessage(VPNS_LOG_NAME, "cannot release VPN server lifecycle lock after aborted restart (errno=%d)",
+				   errno ? errno : EIO);
 		errno = saved_errno;
-		return;
+		return vpn_server_restart_first_error(stop_status,
+						      release_status == 0 ? 0 : -1);
 	}
 	start_status = start_vpn_server_locked();
-	if (start_status != 0)
-		logmessage(VPNS_LOG_NAME, "VPN server restart failed (status=%d, errno=%d)", start_status, errno);
+	restart_status = vpn_server_restart_first_error(restart_status, start_status);
+	if (start_status != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(VPNS_LOG_NAME, "VPN server restart failed (status=%d, errno=%d)",
+			   start_status, saved_errno);
+	}
 
 	restart_firewall();
 #if defined(APP_NFSD)
@@ -559,12 +570,28 @@ restart_vpn_server(void)
 	if (xl2tpd_killed_vpns &&
 	    (nvram_match("l2tp_wan_t", "1") || nvram_match("l2tp_cli_t", "1"))) {
 		restore_status = safe_start_xl2tpd_locked();
-		if (restore_status < 0)
-			logmessage(VPNS_LOG_NAME, "cannot restore shared xl2tpd daemon after VPN server restart (errno=%d)", errno);
+		if (restore_status != 0) {
+			if (restart_status == 0)
+				saved_errno = errno ? errno : EIO;
+			logmessage(VPNS_LOG_NAME, "cannot restore shared xl2tpd daemon after VPN server restart (status=%d, errno=%d)",
+				   restore_status, errno ? errno : EIO);
+			restart_status = vpn_server_restart_first_error(restart_status, restore_status);
+		}
 	}
 
-	if (vpn_server_lifecycle_lock_release(lock_fd) != 0)
-		logmessage(VPNS_LOG_NAME, "cannot release VPN server lifecycle lock after restart (errno=%d)", errno);
+	release_status = vpn_server_lifecycle_lock_release(lock_fd);
+	if (release_status != 0) {
+		release_errno = errno ? errno : EIO;
+		logmessage(VPNS_LOG_NAME, "cannot release VPN server lifecycle lock after restart (errno=%d)",
+			   release_errno);
+		if (restart_status == 0)
+			saved_errno = release_errno;
+		restart_status = vpn_server_restart_first_error(restart_status, -1);
+	}
+
+	if (restart_status != 0 && saved_errno != 0)
+		errno = saved_errno;
+	return restart_status;
 }
 
 static void
