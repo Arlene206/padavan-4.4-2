@@ -506,28 +506,35 @@ export TEST_ADG_CLEANUP_LOG TEST_ADG_EFFECTS_LOG
 
 pidof() {
 	[ "$1" = AdGuardHome ] || return 1
-	if [ -f "$TEST_ADG_STATE" ] && [ "$(cat "$TEST_ADG_STATE")" = running ]; then
-		echo 24680
-		return 0
-	fi
-	return 1
+	case "$(cat "$TEST_ADG_STATE")" in
+		running) echo 24680; return 0 ;;
+		error|unknown) return 2 ;;
+		malformed) echo "24680 invalid"; return 0 ;;
+		empty-success) return 0 ;;
+		inconsistent) echo 24680; return 1 ;;
+		*) return 1 ;;
+	esac
 }
 
 killall() {
 	printf '%s\n' "$*" >> "$TEST_ADG_KILL_LOG"
 	case "$TEST_ADG_MODE:$*" in
-		graceful:AdGuardHome|-9-exits:-9\ AdGuardHome)
+		graceful:AdGuardHome|nonzero-graceful:AdGuardHome|-9-exits:-9\ AdGuardHome)
 			echo stopped > "$TEST_ADG_STATE"
+			;;
+		unknown-after-term:AdGuardHome)
+			echo error > "$TEST_ADG_STATE"
 			;;
 		*)
 			;;
 	esac
+	[ "$TEST_ADG_MODE" != nonzero-graceful ] || return 29
 	return 0
 }
 
 sleep() {
 	printf '%s\n' "$*" >> "$TEST_ADG_SLEEP_LOG"
-	return 0
+	[ "${TEST_ADG_SLEEP_FAIL:-0}" = 0 ]
 }
 
 rm() {
@@ -568,6 +575,15 @@ if ! start_adg; then
 fi
 [ ! -s "$TEST_ADG_EFFECTS_LOG" ] || fail "duplicate start changed config/DNS/firewall state or launched again"
 
+# Unknown process inventory must not be treated as ABSENT on start.
+echo error > "$TEST_ADG_STATE"
+: > "$TEST_ADG_EFFECTS_LOG"
+if start_adg; then
+	fail "start accepted an UNKNOWN process inventory"
+fi
+[ ! -s "$TEST_ADG_EFFECTS_LOG" ] || fail "UNKNOWN start changed config/DNS/firewall state or launched a duplicate"
+echo running > "$TEST_ADG_STATE"
+
 # No-process stop should clean stale DNS/firewall/workdir state without signalling.
 : > "$TEST_ADG_KILL_LOG"
 : > "$TEST_ADG_SLEEP_LOG"
@@ -580,6 +596,59 @@ fi
 [ ! -s "$TEST_ADG_KILL_LOG" ] || fail "no-process stop sent a signal"
 [ ! -s "$TEST_ADG_SLEEP_LOG" ] || fail "no-process stop waited"
 [ "$(cat "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\ndel_dns\nrm:-rf /tmp/AdGuardHome')" ] || fail "no-process cleanup ordering changed"
+
+# pidof errors, malformed successful output and inconsistent status/output
+# are UNKNOWN; none may be interpreted as a confirmed ABSENT process.
+for unknown_state in error malformed empty-success inconsistent; do
+	: > "$TEST_ADG_KILL_LOG"
+	: > "$TEST_ADG_SLEEP_LOG"
+	: > "$TEST_ADG_CLEANUP_LOG"
+	echo "$unknown_state" > "$TEST_ADG_STATE"
+	TEST_ADG_MODE=unused
+	if stop_adg; then
+		fail "stop accepted UNKNOWN process inventory: $unknown_state"
+	fi
+	[ ! -s "$TEST_ADG_KILL_LOG" ] || fail "stop signalled AdGuardHome with UNKNOWN inventory: $unknown_state"
+	[ ! -s "$TEST_ADG_SLEEP_LOG" ] || fail "stop waited with UNKNOWN initial inventory: $unknown_state"
+	[ "$(cat "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\ndel_dns')" ] ||
+		fail "stop removed workdir or changed pre-stop cleanup for UNKNOWN inventory: $unknown_state"
+done
+
+# UNKNOWN after TERM blocks name-wide SIGKILL escalation.
+: > "$TEST_ADG_KILL_LOG"
+: > "$TEST_ADG_SLEEP_LOG"
+: > "$TEST_ADG_CLEANUP_LOG"
+echo running > "$TEST_ADG_STATE"
+TEST_ADG_MODE=unknown-after-term
+if stop_adg; then fail "stop accepted UNKNOWN state after TERM"; fi
+[ "$(cat "$TEST_ADG_KILL_LOG")" = AdGuardHome ] || fail "UNKNOWN after TERM triggered name-wide SIGKILL"
+[ ! -s "$TEST_ADG_SLEEP_LOG" ] || fail "UNKNOWN after TERM did not abort immediately"
+[ "$(cat "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\ndel_dns')" ] ||
+	fail "UNKNOWN after TERM removed workdir or skipped resolver cleanup"
+
+# A failed wait primitive is UNKNOWN and also blocks escalation.
+: > "$TEST_ADG_KILL_LOG"
+: > "$TEST_ADG_SLEEP_LOG"
+: > "$TEST_ADG_CLEANUP_LOG"
+echo running > "$TEST_ADG_STATE"
+TEST_ADG_MODE=unused
+TEST_ADG_SLEEP_FAIL=1
+if stop_adg; then fail "stop accepted a failed wait primitive"; fi
+[ "$(cat "$TEST_ADG_KILL_LOG")" = AdGuardHome ] || fail "sleep failure triggered SIGKILL"
+[ "$(wc -l < "$TEST_ADG_SLEEP_LOG" | tr -d ' ')" = 1 ] || fail "sleep failure was not observed once"
+[ "$(cat "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\ndel_dns')" ] ||
+	fail "sleep failure removed workdir or skipped resolver cleanup"
+TEST_ADG_SLEEP_FAIL=0
+
+# A failed TERM command is not decisive when a fresh snapshot confirms ABSENT.
+: > "$TEST_ADG_KILL_LOG"
+: > "$TEST_ADG_SLEEP_LOG"
+: > "$TEST_ADG_CLEANUP_LOG"
+echo running > "$TEST_ADG_STATE"
+TEST_ADG_MODE=nonzero-graceful
+if ! stop_adg; then fail "nonzero TERM status overrode confirmed ABSENT"; fi
+[ "$(cat "$TEST_ADG_KILL_LOG")" = AdGuardHome ] || fail "failed TERM used an unexpected signal"
+[ ! -s "$TEST_ADG_SLEEP_LOG" ] || fail "failed TERM waited after confirmed ABSENT"
 
 # A daemon that exits on TERM must not receive SIGKILL.
 : > "$TEST_ADG_KILL_LOG"

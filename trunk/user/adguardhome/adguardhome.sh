@@ -471,9 +471,15 @@ EEE
 
 start_adg(){
   # Avoid duplicate daemon instances and repeated DNS/firewall mutations.
-  if pidof AdGuardHome >/dev/null 2>&1; then
+  if adg_process_state; then
     logger -t "AdGuardHome" "AdGuardHome 已在运行，跳过重复启动"
     return 0
+  else
+    adg_start_state=$?
+  fi
+  if [ "$adg_start_state" -ne 1 ]; then
+    logger -t "AdGuardHome" "无法确认AdGuardHome进程状态，拒绝启动"
+    return 1
   fi
 
   # Do not alter resolver/firewall state until the credential-bearing config
@@ -500,35 +506,127 @@ start_adg(){
 	( exec 9>&-; eval "AdGuardHome -c $adg_file -w /tmp/AdGuardHome -v" ) &
 }
 
+# Return 0 for RUNNING, 1 only for confirmed ABSENT, and 2 for UNKNOWN.
+# pidof errors and malformed output must never authorize duplicate starts or stop cleanup.
+adg_process_state() {
+  if adg_process_pids=$(pidof AdGuardHome 2>/dev/null); then
+    adg_pidof_status=0
+  else
+    adg_pidof_status=$?
+  fi
+  case "$adg_pidof_status" in
+    0)
+      [ -n "$adg_process_pids" ] || return 2
+      case "$adg_process_pids" in
+        *[!0123456789\ ]*) return 2 ;;
+      esac
+      adg_process_count=0
+      for adg_process_pid in $adg_process_pids; do
+        case "$adg_process_pid" in
+          ''|0*|1|*[!0-9]*) return 2 ;;
+        esac
+        [ "${#adg_process_pid}" -le 10 ] || return 2
+        [ "$adg_process_pid" -gt 1 ] 2>/dev/null || return 2
+        adg_process_count=$((adg_process_count + 1))
+      done
+      [ "$adg_process_count" -gt 0 ] || return 2
+      return 0
+      ;;
+    1)
+      [ -z "$adg_process_pids" ] && return 1
+      return 2
+      ;;
+    *) return 2 ;;
+  esac
+}
+
+# Return 0 when absent, 1 when still running after five polls, 2 when UNKNOWN.
 adg_wait_stopped() {
   adg_wait=0
   while [ "$adg_wait" -lt 5 ]; do
-    if ! pidof AdGuardHome >/dev/null 2>&1; then
-      return 0
+    if adg_process_state; then
+      adg_wait_state=0
+    else
+      adg_wait_state=$?
     fi
-    sleep 1
+    case "$adg_wait_state" in
+      1) return 0 ;;
+      0) ;;
+      *) return 2 ;;
+    esac
+    if ! sleep 1; then
+      return 2
+    fi
     adg_wait=$((adg_wait + 1))
   done
-  if pidof AdGuardHome >/dev/null 2>&1; then
+  if adg_process_state; then
     return 1
+  else
+    adg_wait_state=$?
   fi
-  return 0
+  case "$adg_wait_state" in
+    1) return 0 ;;
+    2) return 2 ;;
+    *) return 1 ;;
+  esac
 }
 
 adg_stop_daemon() {
-  if ! pidof AdGuardHome >/dev/null 2>&1; then
-    return 0
+  if adg_process_state; then
+    adg_stop_state=0
+  else
+    adg_stop_state=$?
   fi
+  case "$adg_stop_state" in
+    1) return 0 ;;
+    0) ;;
+    *)
+      logger -t "AdGuardHome" "无法读取AdGuardHome进程状态，拒绝发送信号"
+      return 1
+      ;;
+  esac
 
-  killall AdGuardHome >/dev/null 2>&1
+  if killall AdGuardHome >/dev/null 2>&1; then
+    adg_term_status=0
+  else
+    adg_term_status=$?
+    logger -t "AdGuardHome" "TERM信号命令返回错误(status=$adg_term_status)，继续验证进程状态"
+  fi
   if adg_wait_stopped; then
     return 0
+  else
+    adg_wait_status=$?
   fi
+  case "$adg_wait_status" in
+    1) ;;
+    *)
+      logger -t "AdGuardHome" "TERM后进程状态未知，拒绝升级信号"
+      return 1
+      ;;
+  esac
 
   logger -t "AdGuardHome" "正常停止超时，尝试强制停止"
-  # Re-enumerate by process name; do not signal a stale numeric PID snapshot.
-  killall -9 AdGuardHome >/dev/null 2>&1
-  adg_wait_stopped
+  # Re-enumerate by process name; never signal a cached PID or after UNKNOWN.
+  if killall -9 AdGuardHome >/dev/null 2>&1; then
+    adg_kill_status=0
+  else
+    adg_kill_status=$?
+    logger -t "AdGuardHome" "SIGKILL命令返回错误(status=$adg_kill_status)，继续验证进程状态"
+  fi
+  if adg_wait_stopped; then
+    return 0
+  else
+    adg_wait_status=$?
+  fi
+  case "$adg_wait_status" in
+    1)
+      logger -t "AdGuardHome" "SIGKILL后进程仍在运行"
+      ;;
+    *)
+      logger -t "AdGuardHome" "SIGKILL后无法确认AdGuardHome进程状态"
+      ;;
+  esac
+  return 1
 }
 
 stop_adg(){

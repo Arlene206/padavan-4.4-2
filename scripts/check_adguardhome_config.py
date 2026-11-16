@@ -62,6 +62,7 @@ start = function_body(script, "start_adg(){")
 remove_redirect = function_body(script, "adg_remove_redirect_rule()" + chr(10) + "{")
 set_redirect = function_body(script, "set_iptable()" + chr(10) + "{")
 clear_redirect = function_body(script, "clear_iptable()" + chr(10) + "{")
+process_state = function_body(script, "adg_process_state() {")
 wait_stopped = function_body(script, "adg_wait_stopped() {")
 stop_daemon = function_body(script, "adg_stop_daemon() {")
 stop = function_body(script, "stop_adg(){")
@@ -162,19 +163,29 @@ require('if ! change_dns; then' in start and 'if ! clear_iptable; then' in start
         start.index('if ! change_dns; then') < start.index('if ! clear_iptable; then'),
         "failed resolver setup must roll back firewall rules before daemon launch")
 
-require('if pidof AdGuardHome >/dev/null 2>&1; then' in start and
-        start.index('if pidof AdGuardHome') < start.index('getconfig') <
+require('if adg_process_state; then' in start and
+        'adg_start_state=$?' in start and 'if [ "$adg_start_state" -ne 1 ]; then' in start and
+        'if pidof AdGuardHome' not in start and
+        start.index('if adg_process_state; then') < start.index('getconfig') <
         start.index('if ! set_iptable; then') < start.index('change_dns') <
         start.index('eval "AdGuardHome'),
-        "duplicate starts must be detected before config, firewall, DNS or daemon side effects")
+        "duplicate start must require a validated process inventory before side effects")
+require('pidof AdGuardHome' in process_state and 'adg_pidof_status' in process_state and
+        'return 2' in process_state and 'return 1' in process_state and
+        'return 0' in process_state,
+        "AdGuardHome process inventory must distinguish RUNNING, ABSENT and UNKNOWN")
 require('while [ "$adg_wait" -lt 5 ]; do' in wait_stopped and
-        'sleep 1' in wait_stopped and 'pidof AdGuardHome' in wait_stopped,
-        "daemon absence polling must use the live process name and a five-second bound")
-require(stop_daemon.index('killall AdGuardHome') <
+        'adg_process_state' in wait_stopped and 'sleep 1' in wait_stopped and
+        'return 2' in wait_stopped,
+        "daemon wait must use bounded tri-state polling and propagate UNKNOWN")
+require('adg_process_state' in stop_daemon and 'adg_wait_status' in stop_daemon and
+        'TERM后进程状态未知' in stop_daemon and
+        stop_daemon.index('killall AdGuardHome') <
         stop_daemon.index('adg_wait_stopped') <
         stop_daemon.index('killall -9 AdGuardHome') <
-        stop_daemon.rindex('adg_wait_stopped'),
-        "daemon stop must verify TERM grace before name-based KILL and post-verify absence")
+        stop_daemon.rindex('adg_wait_stopped') and
+        'if ! pidof AdGuardHome' not in stop_daemon,
+        "daemon stop must verify TERM grace, block KILL on UNKNOWN, and post-verify absence")
 require('if ! clear_iptable; then' in stop and
         'if ! del_dns; then' in stop and 'if ! adg_stop_daemon; then' in stop and
         stop.index('if ! clear_iptable; then') < stop.index('if ! del_dns; then') <
@@ -244,6 +255,10 @@ for marker in (
     "chmod failure published a config",
     "startup changed DNS/firewall before config validation",
     "duplicate start changed config/DNS/firewall state or launched again",
+    "stop accepted UNKNOWN process inventory: error",
+    "UNKNOWN after TERM triggered name-wide SIGKILL",
+    "sleep failure triggered SIGKILL",
+    "nonzero TERM status overrode confirmed ABSENT",
     "stop reported success while AdGuardHome remained alive after SIGKILL",
     "failed stop removed the workdir or skipped pre-stop resolver cleanup",
     "address-independent IPv4/IPv6 DNS redirects, duplicate cleanup and rollback: PASS",
