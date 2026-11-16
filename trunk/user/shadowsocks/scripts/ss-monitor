@@ -165,11 +165,11 @@ do
 			fi
 			#kill -9 dns2tcp
 			#dns2tcp -L"127.0.0.1#5353" -R"$(nvram get tunnel_forward)" >/dev/null 2>&1 &
-			if stop_dns_proxy; then
-				start_dns_proxy
-			else
-				log "DNS proxy stop unverified; refusing replacement launch"
+			if ! stop_dns_proxy; then
+				log "DNS proxy stop unverified; refusing chinadns-ng restart"
+				continue
 			fi
+			start_dns_proxy
 			local_chnlist_file='/etc/storage/chinadns/chnlist_mini.txt'
 			if [ -f "$local_chnlist_file" ]; then
 			  log "启动chinadns分流，仅国外域名走DNS代理..."

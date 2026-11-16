@@ -39,16 +39,18 @@ require(". /usr/bin/shadowsocks_process_lifecycle.sh || exit 1" in monitor and
         "ss_stop_named_processes dns2tcp dnsproxy" in monitor and
         "killall -q -9 ssr-server" not in monitor and
         "killall -q -9 $bin" not in monitor and
-        "kill -9 chinadns-ng" not in monitor and
-        monitor.count("if stop_dns_proxy; then") == 3,
+        "kill -9 chinadns-ng" not in monitor,
+        "watchcat restarts must use the shared tri-state lifecycle helper")
 require("if ss_stop_named_processes ssr-server; then" in monitor and
         monitor.index("if ss_stop_named_processes ssr-server; then") < monitor.index("run_bin /usr/bin/ssr-server") and
         'if ss_stop_named_processes "$bin"; then' in monitor and
         monitor.index('if ss_stop_named_processes "$bin"; then') < monitor.index('run_bin "/usr/bin/$bin"') and
         "if ! ss_stop_named_processes chinadns-ng; then" in monitor and
         monitor.index("if ! ss_stop_named_processes chinadns-ng; then") < monitor.index("chinadns-ng -b 0.0.0.0") and
-        monitor.count("if stop_dns_proxy; then") == 3,
-        "watchcat must verify stop postconditions before launching replacements");
+        monitor.count("if stop_dns_proxy; then") == 2 and
+        "if ! stop_dns_proxy; then" in monitor and
+        monitor.index("if ! stop_dns_proxy; then") < monitor.index("chinadns-ng -b 0.0.0.0"),
+        "watchcat must verify daemon and DNS proxy absence before launching replacements")
 require(". /usr/bin/shadowsocks_process_lifecycle.sh || exit 1" in script,
         "runtime script must load the installed lifecycle helper")
 require("$(ROMFSINST) $(THISDIR)/scripts/ /usr/bin/" in makefile,
