@@ -25,6 +25,35 @@ test_negative_and_positive_statuses_are_preserved(void)
 	assert(status == 17);
 }
 
+static void
+test_bridge_parameters_are_both_attempted_and_first_error_survives(void)
+{
+	int status = 0;
+	int stp_attempts = 0;
+	int forward_delay_attempts = 0;
+
+	/* STP failure must not skip the independent forward-delay write. */
+	stp_attempts++;
+	status = rc_first_service_start_status(status, EIO);
+	forward_delay_attempts++;
+	status = rc_first_service_start_status(status, 0);
+	assert(stp_attempts == 1);
+	assert(forward_delay_attempts == 1);
+	assert(status == EIO);
+
+	/* A forward-delay-only failure is also returned. */
+	status = 0;
+	stp_attempts = 0;
+	forward_delay_attempts = 0;
+	stp_attempts++;
+	status = rc_first_service_start_status(status, 0);
+	forward_delay_attempts++;
+	status = rc_first_service_start_status(status, EINVAL);
+	assert(stp_attempts == 1);
+	assert(forward_delay_attempts == 1);
+	assert(status == EINVAL);
+}
+
 int
 main(void)
 {
@@ -37,6 +66,7 @@ main(void)
 	assert(rc_first_service_start_status(4, 0) == 4);
 	test_first_error_survives_lan_restart_recovery();
 	test_negative_and_positive_statuses_are_preserved();
+	test_bridge_parameters_are_both_attempted_and_first_error_survives();
 	puts("RC boot and LAN service first-failure aggregation policy: PASS");
 	return 0;
 }

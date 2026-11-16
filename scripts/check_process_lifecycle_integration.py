@@ -1565,3 +1565,25 @@ assert "rc_notify_merge_action_result(action_result, full_restart_lan())" in lan
 assert "test_first_error_survives_lan_restart_recovery" in lan_test
 assert "test_negative_and_positive_statuses_are_preserved" in lan_test
 print("RC full LAN restart first-error propagation and PID 1 integration: PASS")
+
+
+# Router-mode bridge STP and forward-delay configuration are fallible sysfs
+# writes. Both operations must be attempted and the first failure retained.
+bridge_source = (root / "trunk/user/rc/src/services.c").read_text()
+bridge_start = bridge_source.split("start_services_once(int is_ap_mode)", 1)[1].split(
+    "stop_services(int stopall)", 1
+)[0]
+for status_name, call in (
+    ("bridge_stp_status", "br_set_stp(IFNAME_BR, 1)"),
+    ("bridge_forward_delay_status", "br_set_fd(IFNAME_BR, 15)"),
+):
+    assert f"{status_name} = {call};" in bridge_start, status_name
+    assert f"start_status, {status_name});" in bridge_start, status_name
+assert "LAN bridge STP enable failed" in bridge_start
+assert "LAN bridge forward-delay configuration failed" in bridge_start
+assert "return start_status;" in bridge_start
+bridge_test = (root / "trunk/user/rc/src/tests/service_start_status.c").read_text()
+assert "test_bridge_parameters_are_both_attempted_and_first_error_survives" in bridge_test
+assert "Compile and run RC boot service status aggregation regression" in process_workflow
+assert "Compile and run RC LAN restart first-error aggregation regression" in xy_workflow
+print("RC bridge STP and forward-delay result propagation: PASS")

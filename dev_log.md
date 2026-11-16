@@ -1,3 +1,13 @@
+## 2026-11-16 16:45 Beijing — Propagate router bridge STP configuration failures
+
+- Parent main: `d4616682786618314044bcb29ef3c103905247b1`. Early `init_router()` launch-status aggregation is present via `760ecfa`; parent Process run `43832485163`, job `133180887500`, passed after the stale declaration checker was corrected. Parent XY-C1 run `43831778029`, job `133178574224`, passed Build XY-C1, TRX verification and artifact upload.
+- Audited the remaining router-mode startup path in `start_services_once()`. With LAN STP enabled, `br_set_stp(IFNAME_BR, 1)` and `br_set_fd(IFNAME_BR, 15)` returned fallible sysfs write statuses that were discarded. A lost STP-enable failure can conceal a bridge loop-prevention configuration fault.
+- Captured/logged both return values and merged them into `start_status` with first-nonzero semantics. The forward-delay write is still attempted after STP fails; AP-mode and disabled-STP conditions are unchanged.
+- Added GNU89 status-policy regressions for both error orderings and extended `check_process_lifecycle_integration.py` to bind the new contract to production `services.c`. The checker also retains the corrected boot-status declarations from parent `d461668`.
+- THIS COMMIT's exact-head Process and XY-C1 Actions are pending. No local checkout execution or L4 physical-router validation is claimed.
+
+---
+
 ## 2026-11-16 16:35 Beijing — Align boot-service source contract with separated status declaration
 
 - Parent main: `760ecfa9d1ff115e62b2df45afb9fda398229ba6`. Exact-head Process run `43831778050`, job `133178573988`, passed all earlier GNU89/ASan/UBSan host regressions and subsystem/source checks, then failed at line 1307 because the checker expected `int boot_services_status = boot_modules_status;`.
