@@ -161,8 +161,9 @@ require("storage_safe_remove_complete(path_status, fallback_status, mount_count)
         "eject must use the fail-closed postcondition")
 require("return result;" in eject, "eject must return operation status")
 targeted_eject = body(storage, "safe_remove_stor_device(")
-require("storage_ejected_storage_start_retry_required(mount_count, start_status)" in targeted_eject and
-        "storage_ejected_storage_start_retry_required(mount_count, 0)" in targeted_eject,
+targeted_eject_contract = re.sub(r"\\s+", " ", targeted_eject)
+require("storage_ejected_storage_start_retry_required( mount_count, start_status)" in targeted_eject_contract and
+        "storage_ejected_storage_start_retry_required( mount_count, 0)" in targeted_eject_contract,
         "targeted eject must retry failed service startup and unknown mount inventory")
 retry_schedule = targeted_eject.rsplit("if (retry_storage_start)", 1)[-1]
 require('nvram_set_int_temp("usb_hotplug_ms", 1);' in retry_schedule and "alarm(5);" in retry_schedule,

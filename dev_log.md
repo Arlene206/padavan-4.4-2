@@ -1,3 +1,12 @@
+## 2026-11-17 00:32 CST — Normalize multiline targeted-eject source assertions
+
+- Parent main: `c1aca046300ec7738a3455c779afb988f5d71cb6`. The targeted-eject source, policy and regression binary all passed steps 18–24 of USB storage run `43907888057`; step 25 failed only because `scripts/check_storage_safe_remove.py` compared a function call split across two C source lines against a single-line exact substring. No product-source/test failure was reported.
+- Normalized C function-body whitespace before asserting the retry helper calls, so the source contract is formatting-robust while still requiring both the failed-start and UNKNOWN-inventory paths. The rest of step 25's scheduling-after-unlock contract remains unchanged.
+- Exact-head Process lifecycle run `43907888085`, AI handoff docs `43907888032`, HTTPD security `43907888445`, Samba `43907888436`, NFS `43907888144`, vsftpd `43907888072`, modem identity `43907888115`, infosvr `43907888362`, AdGuardHome `43907887961`, AliDDNS `43907888339` and AliyunDrive `43907888387` passed on parent c1aca. XY-C1 run `43907888399` and NVRAM audit `43907888090` were IN_PROGRESS at last poll. The parent storage run's only failure is this checker assertion; exact-head reruns are pending for THIS COMMIT.
+- No local checkout is available; no local compile/checker pass is claimed. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 00:25 CST — Preserve storage-app retries after targeted eject
 
 - Parent main: `8fca58d5479d65fcc8811934f41a71026a240c37`. Found a reliability gap in `safe_remove_stor_device()`: after stopping integrated storage services, a failed restart while other mounts remained was logged but did not restore `usb_hotplug_ms` or arm the deferred five-second retry. An UNKNOWN final mount inventory also left services safely stopped but had no scheduled re-check.
