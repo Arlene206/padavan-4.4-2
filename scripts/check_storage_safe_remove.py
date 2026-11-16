@@ -161,7 +161,7 @@ require("storage_safe_remove_complete(path_status, fallback_status, mount_count)
         "eject must use the fail-closed postcondition")
 require("return result;" in eject, "eject must return operation status")
 targeted_eject = body(storage, "safe_remove_stor_device(")
-targeted_eject_contract = re.sub(r"\\s+", " ", targeted_eject)
+targeted_eject_contract = " ".join(targeted_eject.split())
 require("storage_ejected_storage_start_retry_required( mount_count, start_status)" in targeted_eject_contract and
         "storage_ejected_storage_start_retry_required( mount_count, 0)" in targeted_eject_contract,
         "targeted eject must retry failed service startup and unknown mount inventory")

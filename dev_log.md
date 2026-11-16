@@ -1,3 +1,11 @@
+## 2026-11-17 00:39 CST — Keep storage checker self-contained
+
+- Parent main: `528da87938e245b3c45c0bf95839b9a0d9676ec1`. The prior checker correction normalized whitespace with `re.sub()` but the standalone checker did not import `re`; it would raise `NameError`. Replaced it with Python's built-in `" ".join(text.split())`, requiring no additional import or dependency.
+- On parent c1aca, USB storage `43907888057` passed steps 18–24 and failed step 25 at the formatting-sensitive source assertion. The first checker retry on parent `528da87938e245b3c45c0bf95839b9a0d9676ec1` was queued as run `43908320511`; its final state must be checked, but this new commit removes the unimported regex dependency. No product source changed.
+- Parent c1aca XY-C1 run `43907888399` and NVRAM `43907888090` were in progress at last poll; exact source L3 remains tied to whichever product SHA completes all three gates. No local checkout/compile is available. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 00:32 CST — Normalize multiline targeted-eject source assertions
 
 - Parent main: `c1aca046300ec7738a3455c779afb988f5d71cb6`. The targeted-eject source, policy and regression binary all passed steps 18–24 of USB storage run `43907888057`; step 25 failed only because `scripts/check_storage_safe_remove.py` compared a function call split across two C source lines against a single-line exact substring. No product-source/test failure was reported.

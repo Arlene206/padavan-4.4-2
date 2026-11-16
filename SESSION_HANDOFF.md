@@ -10,7 +10,7 @@ Every multi-file logical change must be created as one complete Git tree and one
 
 ## Current repository state
 
-- Latest main commit: `c1aca046300ec7738a3455c779afb988f5d71cb6`. Targeted-eject product code and GNU89 policy test passed USB storage steps 18–24 on exact SHA; run `43907888057` failed only at step 25 because the checker compared a wrapped C helper call without whitespace normalization. THIS COMMIT fixes the checker contract. On c1aca, Process lifecycle `43907888085`, AI docs `43907888032`, HTTPD security `43907888445`, Samba `43907888436`, NFS `43907888144`, vsftpd `43907888072`, modem identity `43907888115`, infosvr `43907888362`, AdGuardHome `43907887961`, AliDDNS `43907888339` and AliyunDrive `43907888387` passed. XY-C1 `43907888399` and NVRAM `43907888090` were in progress at last poll. Prior product SHA d6 passed XY-C1 Build/TRX/artifact; physical-router L4 remains unverified.
+- Latest main commit: `528da87938e245b3c45c0bf95839b9a0d9676ec1` (checker-only whitespace normalizer for targeted eject). Parent c1aca USB storage `43907888057` passed policy/graph steps 1–24 and failed only at step 25 on a wrapped C-call assertion. This commit replaces the first correction's unavailable `re.sub()` dependency with `" ".join(text.split())`. Run `43908320511` is the exact-head USB storage test on 528da; inspect its result/log. Parent c1aca XY-C1 `43907888399` and NVRAM `43907888090` were in progress at last poll; verify same-SHA Build/TRX/artifact.
 
 - Repository: `Arlene206/padavan-4.4-2`; current source parent before this slice: `e05ccbcb8c458ee2bc07c6020ed5af52b3d4cff8`.
 - Mount-link errno fix, GNU89 policy regression, storage source contracts, and workflow corrections are included together in THIS COMMIT.
@@ -21,21 +21,15 @@ Every multi-file logical change must be created as one complete Git tree and one
 
 ## Active task
 
-
-The current targeted-eject product slice is in parent `c1aca046300ec7738a3455c779afb988f5d71cb6`: helper policy and regression steps 18–24 passed, while USB storage run `43907888057` failed only because the source checker expected a helper call on one line although the C source wraps the argument list. THIS COMMIT normalizes whitespace in the checker assertion; product source is unchanged. Re-run the USB storage workflow on THIS COMMIT and verify the policy, source contract and full caller graph all pass.
-
-The earlier checker hardening and all other exact-head checks listed above passed on parent c1aca. XY-C1 run `43907888399` was in progress and NVRAM `43907888090` was in progress at last poll. Recheck the relevant exact-SHA results rather than carrying results to this checker-only commit.
-
+The targeted-eject policy and product source changes are in parent c1aca. USB storage `43907888057` passed the policy and full storage graph through step 24, then step 25 failed only on a multiline C-call assertion. Parent 528da queued USB storage run `43908320511`; its checker correction used `re.sub` without importing `re`. THIS COMMIT changes normalization to built-in `str.split()`; product source is unchanged. Inspect the exact-head rerun and check the replacement workflow on THIS COMMIT.
 ## Verification boundary
 
-
-- Parent c1aca: USB storage `43907888057` passed BusyBox and storage policy/graph steps 1–24, then failed at step 25 solely on exact whitespace in the new source assertion; this commit normalizes whitespace and needs exact-head rerun.
-- Parent c1aca: Process `43907888085`, AI docs `43907888032`, HTTPD `43907888445`, Samba `43907888436`, NFS `43907888144`, vsftpd `43907888072`, modem `43907888115`, infosvr `43907888362`, AdGuardHome `43907887961`, AliDDNS `43907888339`, AliyunDrive `43907888387` passed. XY-C1 `43907888399` and NVRAM `43907888090` were in progress at last poll.
-- Product SHA d6 exact USB storage and XY-C1 Build/TRX/artifact both passed, but later c1aca product changes invalidate L3 carry-forward. Physical-router L4 remains NOT VERIFIED.
-
+- Product parent c1aca: USB storage `43907888057` passed steps 1–24, failed step 25 on checker formatting. XY-C1 `43907888399` and NVRAM `43907888090` were in progress at last poll.
+- Checker-only parent 528da: USB storage `43908320511` was queued after an incomplete regex-based whitespace fix. THIS COMMIT uses built-in whitespace normalization and needs its own exact-head storage run.
+- The previous product L3 on d6 does not transfer to later source changes. Physical-router L4 remains NOT VERIFIED.
 ## Exact first action for the next GPT
 
-
-1. Inspect exact-head USB storage for THIS COMMIT and confirm the whitespace-normalized targeted-eject assertions pass. If another failure appears, read full logs and fix its first cause.
-2. Inspect XY-C1 Build, TRX and artifact upload for product source SHA `c1aca046300ec7738a3455c779afb988f5d71cb6` (run `43907888399`) and NVRAM run `43907888090`; do not carry d6 L3 across source changes.
-3. After exact-head checks are green, continue storage/hotplug lifecycle work on a new concrete defect. Preserve backup branch and physical-router L4 boundary.
+1. Inspect exact-head USB storage for THIS COMMIT; verify checker step 25 and the retry policy/source contracts pass. Read full logs if not.
+2. Check XY-C1 and NVRAM runs on parent c1aca (`43907888399` and `43907888090`), and confirm whether Build/TRX/artifact completed on the same SHA.
+3. Resume targeted storage/hotplug audit at automount/notification semantics only after confirming `notify_rc()` and `_eval()` contracts. Do not revisit finished mount-link/eject retry work.
+4. Preserve the frozen backup branch; L4 remains unverified.
