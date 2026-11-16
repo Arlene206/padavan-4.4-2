@@ -15,7 +15,8 @@ def body(source, start, end):
     assert source.count(start) == 1, f"expected one function marker: {start}"
     return source.split(start, 1)[1].split(end, 1)[0]
 
-assert '. /usr/bin/smartdns_process_lifecycle.sh' in script
+assert 'smartdns_process_lifecycle_lib="/usr/bin/smartdns_process_lifecycle.sh"' in script
+assert '. "$smartdns_process_lifecycle_lib"' in script
 assert '$(INSTALL_BIN) ./smartdns_process_lifecycle.sh $(ROMFSDIR)/usr/bin/smartdns_process_lifecycle.sh' in makefile
 assert 'smartdns_process_state()' in helper and 'smartdns_stop_process()' in helper
 assert '[ -z "$_smartdns_pid_output" ] && return 1' in helper
