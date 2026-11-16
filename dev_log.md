@@ -1,3 +1,11 @@
+## 2026-11-16 — Remove duplicate escaped storage declaration assertions
+
+- Parent main: 8f0d792ec0ab7569ffd1ecf7216008b2396b2faf. Exact-head USB storage run 43893228398 failed at source-check line 218 because an earlier editing script accidentally duplicated four declaration checks with literal double-escaped \\n sequences. The original newline-aware C declaration assertions immediately above were correct; they remain unchanged.
+- Removed only the four redundant, incorrectly escaped assertions. No product source or host regression was changed. WAN route 43893228430, NVRAM transaction 43893228512, process inventory/fail-closed 43893228310, process lifecycle inventory 43893228288 and the other named exact-head checks passed. XY-C1 run 43893228097 was still IN_PROGRESS at last query.
+- This checker-only correction requires its own exact-SHA storage run before the storage workflow is considered green.
+
+---
+
 ## 2026-11-16 — Preserve failed integrated storage startup events for retry
 
 - Parent main: 7b8b3129261fc846cb972cee4fdc73dfca0344bd. This source slice fixes a real retry-loss path: `try_start_stor_apps()` formerly cleared `usb_hotplug_ms` after a failed FTP/Samba/NFS/media-daemon start, despite returning a failure that caused `on_deferred_hotplug_dev()` to schedule `alarm(5)`. The event now clears only after status 0; failures remain queued.

@@ -547,10 +547,6 @@ jobs:
           assert "static int\ntry_start_stor_apps(void)" in storage
           assert "static int\nstatic int\ntry_start_stor_apps(void)" not in storage
           storage_start = function_body(storage, "start_stor_apps(void)")
-          assert "\\nint\\nstart_stor_apps(void)" in storage
-          assert "\\nvoid\\nint\\nstart_stor_apps(void)" not in storage
-          assert "\\nstatic int\\ntry_start_stor_apps(void)" in storage
-          assert "\\nstatic int\\nstatic int\\ntry_start_stor_apps(void)" not in storage
           assert "int start_status = 0;" in storage_start
           assert "service_status = run_ftp();" in storage_start
           assert "service_status = run_samba();" in storage_start
