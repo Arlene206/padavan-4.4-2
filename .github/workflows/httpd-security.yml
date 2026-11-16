@@ -1276,7 +1276,11 @@ jobs:
 
           hnat_update = body(net, "hwnat_configure(int wan_vid, int hwnat_allow)")
           assert "if (!hwnat_allow)" in hnat_update
-          assert hnat_update.index("rc_hwnat_configure_policy(") < hnat_update.index("if (!module_loaded)")
+          assert "module_loaded = is_hwnat_loaded_status();" in hnat_update
+          assert "if (module_loaded < 0)" in hnat_update
+          assert "status = -module_loaded;" in hnat_update
+          assert "rc_hwnat_configure_policy(hwnat_allow, module_loaded == 1," in hnat_update
+          assert hnat_update.index("if (!hwnat_allow)") < hnat_update.index("module_loaded = is_hwnat_loaded_status()") < hnat_update.index("rc_hwnat_configure_policy(")
           assert "module_param_set_int" not in hnat_update
           hnat_setter = body(net, "hwnat_set_wan_vid(int wan_vid)")
           assert 'module_param_set_int("hw_nat", "wan_vid", wan_vid)' in hnat_setter
@@ -1287,7 +1291,10 @@ jobs:
           assert "module_status = hwnat_configure(hwnat_wan_vid, hwnat_allow);" in hnat_reload
           assert "reload_status = rc_first_service_start_status(reload_status," in hnat_reload
           assert "rc_hwnat_configure_radio_policy(" in hnat_reload
-          assert "hwnat_loaded, nvram_get_int(\"hw_nat_mode\")" in hnat_reload
+          assert "if (hwnat_loaded == 1)" in hnat_reload
+          assert "hwnat_allow, 1, nvram_get_int(\"hw_nat_mode\")" in hnat_reload
+          assert "is_hwnat_loaded();" not in hnat_reload
+          assert "if (hwnat_loaded && !hwnat_allow)" not in hnat_reload
           radio_setter = body(net, "hwnat_set_radio_registration(const char *ifname, int enabled)")
           ipv6_setter = body(net, "hwnat_set_ipv6_nat_debug(int enabled)")
           assert 'doSystem("iwpriv %s set hw_nat_register=%d", ifname, enabled)' in radio_setter

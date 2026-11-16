@@ -1,3 +1,12 @@
+## 2026-11-16 — Align NAT tri-state caller contracts across CI
+
+- Parent main: `ebf2d285454eba3480fe594808aa31367513ffe4`; source implementation is already in `1554a5f3`. Exact-head 1554 Process `43969810170`, Firewall Startup `43969809710` and XY-C1 `43969809836` all reached `check_modem_wan_start_status.py` and failed at the same stale assertion: the source stores `-module_loaded` in `status` then returns `status`, while the checker incorrectly required a direct `return -module_loaded`. Exact 1554 HTTPD `43969809668` failed its stale HW NAT radio assertion, which still expected the pre-change `hwnat_loaded` argument.
+- Updated the common source checker to assert the actual errno assignment and the HTTPD integration contract to require a successful tri-state probe before policy/config use and to guard radio writes on `hwnat_loaded == 1`. This is a test-contract correction; production source remains unchanged in this commit.
+- Exact-head ebf2 AI handoff `43970209185`, NVRAM `43970209177`, AdGuardHome `43970209909`, infosvr `43970209228`, AliyunDrive `43970209300`, AliDDNS `43970209283` passed. Process inventory `43970209366` failed at the same stale `return -module_loaded` checker assertion; it is corrected here.
+- d287 exact-head XY-C1 `43967039935` previously passed Build, TRX output and artifact upload; that L3 evidence does not cover the newer HW NAT/FTP/SFE source. Exact-head reruns are required after this checker correction. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Normalize whitespace in PPPoE sysctl status assertion
 
 - Parent main: 1554a5f3fbb1bf13c3325ad765b7e806d74d1537. Exact-head Process run 43969335166 reached the new sysctl integration contract, then failed because the multiline rc_first_service_start_status() call left whitespace immediately after its opening parenthesis. The checker expected a no-space argument sequence.

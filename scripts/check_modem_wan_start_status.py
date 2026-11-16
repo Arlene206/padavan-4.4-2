@@ -583,7 +583,7 @@ hwnat_config = compact(body(NET_SOURCE, "hwnat_configure(int wan_vid, int hwnat_
 assert "if (!hwnat_allow)" in hwnat_config
 assert "module_loaded = is_hwnat_loaded_status();" in hwnat_config
 assert "if (module_loaded < 0)" in hwnat_config
-assert "return -module_loaded;" in hwnat_config
+assert "status = -module_loaded;" in hwnat_config
 assert "rc_hwnat_configure_policy(hwnat_allow, module_loaded == 1, wan_vid, hwnat_set_wan_vid)" in hwnat_config
 assert "return status;" in hwnat_config
 assert "module_param_set_int" not in hwnat_config
