@@ -1299,6 +1299,9 @@ print("MSD Lite atomic config publication and launch gate integration: PASS")
 service_start_policy = (root / "trunk/user/rc/src/service_start_status.h").read_text()
 wireless_module_load_policy = (root / "trunk/user/rc/src/wireless_module_load_policy.h").read_text()
 wireless_module_load_test = (root / "trunk/user/rc/src/tests/wireless_module_load_policy.c").read_text()
+module_rc_source = (root / "trunk/user/rc/src/rc.c").read_text()
+module_net_source = (root / "trunk/user/rc/src/net.c").read_text()
+module_net_lan_source = (root / "trunk/user/rc/src/net_lan.c").read_text()
 wireless_loader = rc_source.split("static int" + chr(10) + "load_wireless_module(", 1)[1].split(
     chr(10) + "#if defined (USE_USB_SUPPORT)", 1
 )[0]
@@ -1358,9 +1361,26 @@ for contract in (
     assert contract in service_start_test
 assert '#include "wireless_module_load_policy.h"' in rc_source
 assert "(void)ops->load(module_name, module_param);" in wireless_module_load_policy
-assert "return ops->is_loaded(module_name) ? 0 : EIO;" in wireless_module_load_policy
+assert "loaded = ops->is_loaded(module_name);" in wireless_module_load_policy
+assert "if (loaded < 0)" in wireless_module_load_policy
+assert "return -loaded;" in wireless_module_load_policy
+assert "return loaded == 1 ? 0 : EIO;" in wireless_module_load_policy
 assert "return rc_module_load_verified(module_name, NULL, ops);" in wireless_module_load_policy
 assert "if (!module_name || module_name[0] == '\\0' ||" in wireless_module_load_policy
+module_loaders = (
+    c_function_body(module_net_source, "reload_nat_modules(void)"),
+    c_function_body(module_rc_source, "load_boot_module(const char *module_name, const char *module_param)"),
+    c_function_body(module_rc_source, "load_wireless_module(const char *module_name)"),
+    c_function_body(module_net_lan_source, "init_bridge_load_module_verified(const char *module_name, const char *module_param)"),
+)
+for loader_body in module_loaders:
+    loader_code = " ".join(loader_body.split())
+    assert "module_smart_load, is_module_loaded_status" in loader_code
+    assert "module_smart_load, is_module_loaded)" not in loader_code
+assert '"trunk/user/rc/src/net.c"' in process_workflow
+assert '"trunk/user/rc/src/net_lan.c"' in process_workflow
+assert '"trunk/user/rc/src/net.c"' in xy_workflow
+assert '"trunk/user/rc/src/net_lan.c"' in xy_workflow
 assert "rc_module_load_verified(module_name, NULL, &ops)" in wireless_loader
 assert "module_smart_load(module_name, NULL)" not in wireless_loader
 assert "is_module_loaded(module_name)" not in wireless_loader
@@ -1394,6 +1414,8 @@ for test_case in (
     "test_newly_loaded_is_success",
     "test_failed_modprobe_is_not_success",
     "test_visible_module_state_wins_over_loader_status",
+    "test_load_probe_error_is_reported",
+    "test_required_module_set_probe_error_attempts_all_and_keeps_first_failure",
     "test_module_parameter_is_forwarded",
     "test_invalid_inputs_fail_before_side_effects",
     "test_unload_initial_probe_error_fails_closed",

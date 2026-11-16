@@ -131,7 +131,7 @@ init_bridge_load_module_verified(const char *module_name, const char *module_par
 {
 	static const rc_module_load_ops_t ops = {
 		module_smart_load,
-		is_module_loaded
+		is_module_loaded_status
 	};
 
 	return rc_module_load_verified(module_name, module_param, &ops);

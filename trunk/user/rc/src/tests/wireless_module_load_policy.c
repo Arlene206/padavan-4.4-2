@@ -6,6 +6,7 @@
 #include "wireless_module_load_policy.h"
 
 static int module_loaded;
+static int module_probe_result;
 static int load_result;
 static int make_module_visible;
 static int load_calls;
@@ -22,8 +23,10 @@ mock_module_load(const char *module_name, const char *module_param)
 	       (module_param != NULL && expected_param != NULL &&
 		strcmp(module_param, expected_param) == 0));
 	load_calls++;
-	if (make_module_visible)
+	if (make_module_visible) {
 		module_loaded = 1;
+		module_probe_result = 1;
+	}
 	return load_result;
 }
 
@@ -33,7 +36,7 @@ mock_is_module_loaded(const char *module_name)
 	assert(module_name != NULL);
 	assert(strcmp(module_name, expected_module) == 0);
 	probe_calls++;
-	return module_loaded;
+	return module_probe_result;
 }
 
 static const rc_wireless_module_load_ops_t mock_ops = {
@@ -45,6 +48,7 @@ static void
 reset_case(int loaded, int result, int visible)
 {
 	module_loaded = loaded;
+	module_probe_result = loaded;
 	load_result = result;
 	make_module_visible = visible;
 	load_calls = 0;
@@ -90,6 +94,17 @@ test_visible_module_state_wins_over_loader_status(void)
 	assert(load_calls == 1);
 	assert(probe_calls == 1);
 	assert(module_loaded == 1);
+}
+
+static void
+test_load_probe_error_is_reported(void)
+{
+	reset_case(0, 0, 0);
+	module_probe_result = -EACCES;
+	assert(rc_wireless_module_load_verified("mt_7615e", &mock_ops) == EACCES);
+	assert(load_calls == 1);
+	assert(probe_calls == 1);
+	assert(module_loaded == 0);
 }
 
 static void
@@ -176,6 +191,27 @@ test_required_module_set_attempts_all_and_keeps_first_failure(void)
 
 	assert(rc_module_load_requirements_apply(requirements, 3,
 						 &required_mock_ops) == EIO);
+	assert(required_load_calls == 2);
+	assert(required_probe_calls == 2);
+}
+
+static void
+test_required_module_set_probe_error_attempts_all_and_keeps_first_failure(void)
+{
+	const rc_module_load_requirement_t requirements[] = {
+		{ "nf_conntrack_pptp", NULL, 1 },
+		{ "nf_nat_pptp", NULL, 1 }
+	};
+
+	required_expected_names[0] = "nf_conntrack_pptp";
+	required_expected_names[1] = "nf_nat_pptp";
+	required_expected_visible[0] = -EPERM;
+	required_expected_visible[1] = 1;
+	required_load_calls = 0;
+	required_probe_calls = 0;
+
+	assert(rc_module_load_requirements_apply(requirements, 2,
+						 &required_mock_ops) == EPERM);
 	assert(required_load_calls == 2);
 	assert(required_probe_calls == 2);
 }
@@ -390,9 +426,11 @@ main(void)
 	test_newly_loaded_is_success();
 	test_failed_modprobe_is_not_success();
 	test_visible_module_state_wins_over_loader_status();
+	test_load_probe_error_is_reported();
 	test_module_parameter_is_forwarded();
 	test_invalid_inputs_fail_before_side_effects();
 	test_required_module_set_attempts_all_and_keeps_first_failure();
+	test_required_module_set_probe_error_attempts_all_and_keeps_first_failure();
 	test_required_module_set_success_and_invalid_inputs();
 	test_unload_absent_module_is_noop();
 	test_unload_postcondition_wins_over_command_result();

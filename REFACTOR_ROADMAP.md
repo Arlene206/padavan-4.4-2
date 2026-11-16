@@ -1,11 +1,10 @@
 ## Current source / CI checkpoint
 
-- Current source baseline: `eb566f346f63d3d6ed295c08170ac6d834ff7f04`. The latest production changes are the HW NAT radio/debugfs status propagation (`0b32b911`, checker repair `e928181d`) and fail-closed WAN interface-route cleanup (`58318f53`, workflow filter repair `f2d9ccef`, whitespace-tolerant HTTPD checker `eb566f34`).
-- HW NAT exact-head XY-C1 Build/TRX/artifact passed on `e928181d`. The later WAN route cleanup host regression passed in exact-head Process run `43960589874`; Firewall Startup `43961249138` and HTTPD `43961727463` passed on the route-change lineage. Current exact-head XY-C1 `43961726533` passed all pre-build checks, including the WAN route-flush test, and was building at the last poll; TRX/artifact are not yet verified for this source.
-- The route cleanup change makes `clear_if_route4()` return status using argv-safe `eval()`. Both physical WAN and bridge flushes are attempted; `full_restart_wan()` returns the first failure before MAC-table clearing and WAN rebuild. The policy and injected regression are in `wan_route_flush_policy.h` and `tests/wan_route_flush_policy.c`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged/read-only. Physical-router L4 remains **NOT VERIFIED**. Next: complete exact-SHA XY-C1 Build/TRX/artifact validation, then continue only with evidence-backed network/RC result-loss defects.
-
-
+- Production parent for this source slice: `beee6893b7c14eccc94634fe51dc41d2e748b8b7`. It contains IPv6 disable cleanup result propagation plus exact-source checker fixes; its WAN route workflow was pending at last poll and AI handoff passed.
+- The prior source parent `eb566f3` passed XY-C1 Build/TRX/artifact upload. The IPv6 cleanup feature is newer and needs its own exact-SHA validation.
+- This slice completes strict tri-state module-load probing: the shared load verifier returns negative probe errno, and NAT, boot hardware, wireless driver and LAN bridge loaders use `is_module_loaded_status()`. Direct and multi-module injected regressions verify errno propagation and first-error retention.
+- Existing Process and XY-C1 workflow filters cover the touched sources/tests. Check fresh exact-head runs on the commit carrying this slice.
+- Continue evidence-backed RC/service status propagation and lifecycle reliability across userland. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. Physical-router L4 remains **NOT VERIFIED**.
 
 ## Whole-repository module status
 

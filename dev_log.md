@@ -1,3 +1,12 @@
+## 2026-11-16 — Preserve tri-state module-load probe failures
+
+- Main parent: `beee6893b7c14eccc94634fe51dc41d2e748b8b7`. Strict `is_module_loaded_status()` already served unload checks, but the load verifier still treated any nonzero callback value as success and four production loaders still used the lossy Boolean wrapper.
+- Updated `rc_module_load_verified()` for 1=loaded, 0=absent and negative errno=probe failure. Migrated NAT, boot hardware, wireless driver and LAN bridge module-load sites to the strict probe.
+- Added injected tests for direct errno propagation and for trying all required modules while retaining the first failure. Extended Process/WAN source contracts to cover every production loader and both regression cases.
+- Parent exact-head AI handoff passed; WAN route regression was running after correcting its path-filter assertion. The prior `eb566f3` XY-C1 Build/TRX/artifact passed, but the newer IPv6 cleanup change and this source slice require exact-head verification. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Fail closed when WAN interface route cleanup fails
 
 - Parent main: `e928181da3a52b4035d1ccf03307f212cafa2a4e`. `full_restart_wan()` ignored both `clear_if_route4()` command results and continued into switch table clearing, WAN variable reset, static route restoration and WAN restart. A stale interface route could survive undetected.

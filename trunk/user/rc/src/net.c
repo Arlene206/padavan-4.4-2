@@ -915,7 +915,7 @@ reload_nat_modules(void)
 	int reload_status = 0;
 	int module_status;
 	static const rc_module_load_ops_t module_ops = {
-		module_smart_load, is_module_loaded
+		module_smart_load, is_module_loaded_status
 	};
 	static const rc_module_unload_ops_t module_unload_ops = {
 		module_smart_unload, is_module_loaded_status

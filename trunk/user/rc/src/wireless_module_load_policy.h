@@ -6,6 +6,7 @@
 
 typedef struct {
 	int (*load)(const char *module_name, const char *module_param);
+	/* 1 = loaded, 0 = absent, negative errno = probe failed. */
 	int (*is_loaded)(const char *module_name);
 } rc_module_load_ops_t;
 
@@ -15,17 +16,23 @@ typedef rc_module_load_ops_t rc_wireless_module_load_ops_t;
  * module_smart_load() is not a reliable success indicator: it returns zero
  * both when a module is already present and when modprobe fails. The
  * /sys/module post-load state is authoritative; preserve module parameters.
+ * A failed state probe is not proof that the module is absent.
  */
 static inline int
 rc_module_load_verified(const char *module_name, const char *module_param,
 			const rc_module_load_ops_t *ops)
 {
+	int loaded;
+
 	if (!module_name || module_name[0] == '\0' ||
 	    !ops || !ops->load || !ops->is_loaded)
 		return EINVAL;
 
 	(void)ops->load(module_name, module_param);
-	return ops->is_loaded(module_name) ? 0 : EIO;
+	loaded = ops->is_loaded(module_name);
+	if (loaded < 0)
+		return -loaded;
+	return loaded == 1 ? 0 : EIO;
 }
 
 

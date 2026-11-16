@@ -146,7 +146,7 @@ load_boot_module(const char *module_name, const char *module_param)
 {
 	static const rc_module_load_ops_t ops = {
 		module_smart_load,
-		is_module_loaded
+		is_module_loaded_status
 	};
 	int status;
 

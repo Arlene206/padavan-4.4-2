@@ -9,6 +9,7 @@ RC = ROOT / "trunk/user/rc/src"
 USB_SOURCE = (RC / "usb_modem.c").read_text()
 WAN_SOURCE = (RC / "net_wan.c").read_text()
 NET_SOURCE = (RC / "net.c").read_text()
+NET_LAN_SOURCE = (RC / "net_lan.c").read_text()
 FIREWALL_SOURCE = (RC / "firewall_ex.c").read_text()
 FIREWALL_HOOK_SOURCE = (RC / "firewall_hook_file.h").read_text()
 FIREWALL_COMMAND_STATUS_SOURCE = (RC / "firewall_command_status.h").read_text()
@@ -538,6 +539,22 @@ assert 'rc_module_unload_verified("nf_nat_sip", 1, &module_unload_ops)' in nat_r
 assert 'rc_module_unload_verified("nf_nat_ftp", 0, &module_unload_ops)' in nat_reload
 assert 'rc_module_unload_verified("nf_conntrack_ftp", 0, &module_unload_ops)' in nat_reload
 assert "rc_module_unload_verified" in MODULE_POLICY_SOURCE
+load_policy = compact(body(MODULE_POLICY_SOURCE, "rc_module_load_verified("))
+assert "loaded = ops->is_loaded(module_name);" in load_policy
+assert "if (loaded < 0)" in load_policy
+assert "return -loaded;" in load_policy
+assert "return loaded == 1 ? 0 : EIO;" in load_policy
+module_loaders = (
+    compact(body(NET_SOURCE, "reload_nat_modules(void)")),
+    compact(body(RC_SOURCE, "load_boot_module(const char *module_name, const char *module_param)")),
+    compact(body(RC_SOURCE, "load_wireless_module(const char *module_name)")),
+    compact(body(NET_LAN_SOURCE, "init_bridge_load_module_verified(const char *module_name, const char *module_param)")),
+)
+for loader_body in module_loaders:
+    assert "module_smart_load, is_module_loaded_status" in loader_body
+    assert "module_smart_load, is_module_loaded)" not in loader_body
+assert "test_load_probe_error_is_reported" in MODULE_POLICY_TEST
+assert "test_required_module_set_probe_error_attempts_all_and_keeps_first_failure" in MODULE_POLICY_TEST
 assert "is_module_loaded_status(const char *module_name)" in COMMON_EX_SOURCE
 assert "opendir(\"/sys/module\")" in COMMON_EX_SOURCE
 assert "return is_module_loaded_status(module_name) > 0;" in COMMON_EX_SOURCE
