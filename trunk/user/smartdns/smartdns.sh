@@ -381,7 +381,7 @@ smartdns_prepare_adblock_filter()
             return "$_smartdns_adblock_grep_status"
         fi
 
-        if ! awk '
+        awk '
             /^[[:space:]]*!/ || /^[[:space:]]*$/ { next }
             {
                 rule = $0
@@ -392,7 +392,7 @@ smartdns_prepare_adblock_filter()
                 domain = substr(rule, 3, length(rule) - 3)
                 if (length(domain) <= 253 &&
                     domain ~ /^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*$/) {
-                    printf "address=/%s/0.0.0.0\\n", domain
+                    printf "address=/%s/0.0.0.0\n", domain
                     converted++
                 }
             }
@@ -400,8 +400,9 @@ smartdns_prepare_adblock_filter()
                 if (converted == 0)
                     exit 1
             }
-        ' "$_smartdns_adblock_snapshot" > "$_smartdns_adblock_tmp"; then
-            _smartdns_adblock_status=$?
+        ' "$_smartdns_adblock_snapshot" > "$_smartdns_adblock_tmp"
+        _smartdns_adblock_status=$?
+        if [ "$_smartdns_adblock_status" -ne 0 ]; then
             rm -f "$_smartdns_adblock_snapshot" "$_smartdns_adblock_tmp"
             return "$_smartdns_adblock_status"
         fi

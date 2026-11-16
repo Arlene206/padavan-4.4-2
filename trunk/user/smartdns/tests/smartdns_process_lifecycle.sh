@@ -115,7 +115,7 @@ smartdns_prepare_adblock_filter "$tmpdir/adblock/native-smartdns.conf" "$tmpdir/
 cmp "$tmpdir/adblock/native-smartdns.conf" "$tmpdir/adblock/native-output.conf" || fail "native SmartDNS address directives were altered"
 pass "native SmartDNS address rules remain unchanged"
 
-printf 'preserve-on-error\\n' > "$tmpdir/adblock/preserved.conf"
+printf 'preserve-on-error\n' > "$tmpdir/adblock/preserved.conf"
 printf 'no supported filter rules\\n' > "$tmpdir/adblock/invalid.txt"
 if smartdns_prepare_adblock_filter "$tmpdir/adblock/invalid.txt" "$tmpdir/adblock/preserved.conf"; then
     fail "unsupported adblock input was accepted"
