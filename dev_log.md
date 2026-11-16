@@ -1,3 +1,14 @@
+## 2026-11-16 — Propagate NDIS modem WAN startup failures
+
+- Parent main: `d0d75c6925c2640df348f9a16e55f612356a88ac`. Exact-head Process run `43833861533` and XY-C1 run `43833861360` both SUCCESS; XY-C1 completed build and TRX/artifact verification. These runs verify the preceding bridge STP/forward-delay status fix.
+- `launch_wan_usbnet()` previously discarded miniupnpd interface-migration and DHCP-client launch results, then returned success unconditionally. It now fails closed when `check_upnp_wanif_changed()` is nonzero, preserves the original status, captures `start_udhcpc_wan()`, records WAN error state and returns the DHCP result.
+- `start_wan()` aggregates NDIS/RAS modem migration and launch failures with first-error semantics while continuing unrelated best-effort setup. The result reaches full restart, reconnect/deferred/automatic/manual wrappers, `init_router()` boot status and PID1 notification action results. Stop-before-reload and WAN reset/cache order remain unchanged.
+- Added GNU89/Werror/ASan/UBSan policy regression for migration gating, DHCP result propagation and first-error preservation. Added source-contract checker and wired both into Process and XY-C1 push/PR path filters and execution.
+- Host policy regression PASS. Full-tree source checker and exact-head Process/XY-C1 Build/TRX/artifact for THIS COMMIT remain pending its push Actions; no new L3/L4 or physical-router result is claimed.
+- Next: verify exact-head Actions, then bind NDIS control TTY selection to exact physical USB port ID + devnum while preserving same-device manual/preferred selection.
+
+---
+
 ## 2026-11-16 16:45 Beijing — Propagate router bridge STP configuration failures
 
 - Parent main: `d4616682786618314044bcb29ef3c103905247b1`. Early `init_router()` launch-status aggregation is present via `760ecfa`; parent Process run `43832485163`, job `133180887500`, passed after the stale declaration checker was corrected. Parent XY-C1 run `43831778029`, job `133178574224`, passed Build XY-C1, TRX verification and artifact upload.

@@ -7,50 +7,53 @@ For each logical task, create all changed files in one Git tree and one atomic m
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; active branch: `main`.
-- Parent `main` for THIS COMMIT: `d4616682786618314044bcb29ef3c103905247b1`. Fetch the live ref again before each subsequent write.
-- Parent `d461668` includes the early `init_router()` status aggregation from `760ecfa9d1ff115e62b2df45afb9fda398229ba6`. The exact-head Process correction run `43832485163`, job `133180887500`, completed SUCCESS after fixing the stale inline-declaration source assertions. The parent `760ecfa` exact-head XY-C1 run `43831778029`, job `133178574224`, completed SUCCESS including Build XY-C1, TRX verification and artifact upload.
-- The prior USB modem profile change remains L3 proven: `CONFIG_USB_SERIAL_OPTION=m` and its 11-module mapping check passed on `7630958f12938ae6014ee859d9eccfd21cdf7503`, run `43827946528`.
-- Frozen archival ref: `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. Root `dev_log.md` has 78 records before THIS COMMIT and will have 79 after the new entry.
+- Parent `main` immediately before THIS COMMIT: `d0d75c6925c2640df348f9a16e55f612356a88ac`. Refetch live main before future writes and use expected-SHA non-forced updates.
+- Parent `d0d75c6925c2640df348f9a16e55f612356a88ac` closes router-mode bridge startup status loss: both `br_set_stp()` and `br_set_fd()` return values are captured with first-error semantics while forward-delay programming is still attempted after STP failure.
+- Exact-head parent Actions: Process lifecycle run `43833861533` SUCCESS and XY-C1 Firmware Validation run `43833861360` SUCCESS. Both run `head_sha` values equal `d0d75c6925c2640df348f9a16e55f612356a88ac`; XY-C1 completed the build and TRX/artifact steps.
+- Prior modem build-profile L3 baseline: `7630958f12938ae6014ee859d9eccfd21cdf7503`, XY-C1 run `43827946528` passed `CONFIG_USB_SERIAL_OPTION=m`, build, TRX verification and artifact upload. This does not verify later source edits.
+- Frozen archive: `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable.
+- Startup protocol, root governance, archive index, backup marker and PR #1 recovery are complete; do not repeat that audit.
+- Root `dev_log.md` had 79 complete newest-first records before THIS COMMIT; this entry brings it to 80, within the 20–119 limit.
 
 ## Active task
 
-The early `init_router()` failure accounting is now present on main. Exact-head Process run `43832485163` passes after the stale source checker fix, and the exact parent firmware run `43831778029` also passed Build/TRX/artifact.
+THIS COMMIT fixes the NDIS modem WAN result-loss path:
 
-A remaining concrete defect is in `start_services_once()`:
+- `launch_wan_usbnet()` previously ignored `check_upnp_wanif_changed(ndis_ifname)` and `start_udhcpc_wan(ndis_ifname, unit, 0)`, then reported success even when interface migration or DHCP launch failed.
+- It now stops before interface publication/migration if miniupnpd cannot stop, records WAN error state and returns the migration failure. After successful migration it captures the DHCP launch result, updates the WAN error flag and returns that result.
+- `start_wan()` aggregates NDIS and RAS modem migration/launch failures with first-error semantics while continuing unrelated best-effort setup, including PPPoE passthrough.
+- Results propagate through full WAN restart, immediate/deferred/automatic/manual reconnect wrappers, `init_router()` boot-service health and PID1 notification action results. Existing stop-before-reload and WAN reset/cache ordering is unchanged.
+- A GNU89/Werror/ASan/UBSan policy regression covers migration failure suppressing DHCP, DHCP status preservation and first-error retention across best-effort work. A source-contract checker covers the production caller chain; both are wired into Process and XY-C1 workflows.
 
-- In router mode when LAN STP is enabled, code calls `br_set_stp(IFNAME_BR, 1)` and `br_set_fd(IFNAME_BR, 15)` but discards both return values.
-- Both wrappers return the underlying `br_set_param_int()` / sysfs file-write status. Losing a failed STP enable can conceal a bridge loop-prevention configuration failure. Forward-delay programming is independent and must still be attempted even if STP programming fails.
-- THIS COMMIT captures/logs both results and merges them into `start_status` with first-nonzero semantics; the second write remains unconditional within the existing STP-enabled block.
-- The GNU89 boot service status regression now covers STP-fails/forward-delay-succeeds and STP-succeeds/forward-delay-fails. The Process integration checker binds the assertions to actual production call sites. Existing Process and XY-C1 workflow filters/steps cover the source, checker and test.
+## Files and caller chain
 
-## Files and caller chain reviewed
+- `trunk/user/rc/src/usb_modem.c`: NDIS miniupnpd migration gate, DHCP launch result and per-WAN error state.
+- `trunk/user/rc/src/modem_wan_start_policy.h` / `tests/modem_wan_start_policy.c`: migration/DHCP policy and host regression.
+- `trunk/user/rc/src/net_wan.c`: NDIS/RAS modem status aggregation in `start_wan()`; result propagation through restart/reconnect/deferred entry points.
+- `trunk/user/rc/src/rc.c` / `rc.h`: boot aggregation, PID1 notification result propagation and updated public prototypes.
+- `scripts/check_modem_wan_start_status.py`: checks migration ordering, DHCP return, first-error aggregation and caller edges.
+- `.github/workflows/process-lifecycle-regression.yml` and `.github/workflows/xy-c1-firmware-validation.yml`: new test/checker path filters and execution.
 
-- `trunk/user/rc/src/rc.c::init_router()`: early boot result aggregation for both logger paths, detect_link, detect_internet, DNSMasq, WINS and the final service group is in parent `760ecfa`.
-- `trunk/user/rc/src/services.c::start_services_once()`: router-mode LAN bridge STP and forward-delay sysfs writes; THIS COMMIT captures both.
-- `trunk/user/shared/src/netutils.c::br_set_stp()` / `br_set_fd()`: return `br_set_param_int()` / sysfs file-write errors.
-- `trunk/user/rc/src/service_start_status.h` and `tests/service_start_status.c`: first-nonzero policy and regression.
-- `scripts/check_process_lifecycle_integration.py`: repaired stale boot-status declaration assumptions in parent `d461668`; THIS COMMIT adds bridge result-source assertions.
-- Existing Process and XY-C1 workflow path filters and compile/run steps cover `services.c`, the integration checker and the status regression.
+## Compatibility and sequencing
 
-## Compatibility and sequencing notes
-
-- Keep boot best-effort and preserve the existing `!is_ap_mode && lan_stp != 0` gate. No change is made to AP mode or disabled-STP behavior.
-- Preserve first nonzero status; later success must not erase an earlier STP error.
-- Always attempt the forward-delay write after STP configuration, even when STP fails. Do not short-circuit unrelated services.
-- No new API, NVRAM schema or device behavior is introduced.
+- Nonzero miniupnpd migration status prevents NDIS interface publication and DHCP launch; that original status is preserved.
+- DHCP launch failure is returned and recorded in the WAN `err` value. Interface teardown behavior remains unchanged so a later reconnect may retry.
+- `start_wan()` exposes modem-related failures; unrelated existing best-effort setup continues. Callback-link creation, WAN VLAN setup and AP-client migration failures now return their actual status rather than appearing successful.
+- RAS/NDIS module selection, modem protocol, NVRAM schema, WAN stop-before-reload and reset/cache sequencing remain unchanged.
+- A separate P1 multi-modem issue remains queued: NDIS `cdc-wdm` selection enforces physical USB port ID + devnum, but the generic `ttyUSB` control fallback can ignore physical identity and a manual `modem_node` can point to another modem. Hotplug TTY metadata already publishes `portid` and `devnum`; constrain manual/preferred TTY selection to that same identity in the next slice.
 
 ## Verification boundary
 
-- Parent `d4616682786618314044bcb29ef3c103905247b1`: Process run `43832485163`, job `133180887500`, SUCCESS for the corrected integration checker and full Process regression.
-- Parent `760ecfa9d1ff115e62b2df45afb9fda398229ba6`: XY-C1 run `43831778029`, job `133178574224`, SUCCESS including Build XY-C1, TRX verification and artifact upload. This verifies the early `rc.c` boot-status slice but not THIS COMMIT's new `services.c` changes.
-- Prior exact modem-profile firmware run `43827946528` remains SUCCESS on SHA `7630958...`; no L4 modem/router behavior is claimed.
-- THIS COMMIT requires exact-head Process and XY-C1 validation. No local checkout execution or physical-router test is claimed.
+- Host policy regression: PASS under GNU89, `-Wall -Wextra -Werror`, AddressSanitizer and UndefinedBehaviorSanitizer.
+- Full-tree source checker is wired into both workflows; there is no full local checkout, so its production-source result must come from exact-head Actions.
+- Parent `d0d75c6925c2640df348f9a16e55f612356a88ac`: Process run `43833861533` and XY-C1 run `43833861360` completed SUCCESS at exact head. These validate the preceding bridge status change, not THIS COMMIT.
+- Exact-head Process and XY-C1 Build/TRX/artifact for THIS COMMIT are pending its push Actions. No new L3/L4 or physical-router result is claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect the exact-head Process run for THIS COMMIT. Confirm the bridge status source assertions and GNU89/Werror/ASan/UBSan policy regression pass.
-2. Inspect the exact-head XY-C1 run. Confirm `services.c` cross-compiles and the TRX verification plus artifact upload complete.
-3. After this slice passes, continue the next P1 modem launcher audit: identify `start_modem_ndis()` paths that discard miniupnpd interface-migration and DHCP-client launch statuses, then verify propagation through start/restart callers before changing behavior. Do not repeat the completed early `init_router()` status aggregation or checker repair.
+1. Fetch live `main`, then inspect push-triggered Process and XY-C1 runs whose `head_sha` equals the new main SHA. Confirm the policy test, semantic source checker, full Process suite, MIPS build, TRX verification and artifact upload.
+2. If exact-head validation passes, fix the queued NDIS control-TTY cross-device issue. Match the TTY metadata's exact physical USB port ID + devnum to the selected NDIS interface; preserve manual `modem_node` and `pref > 0` selection only among same-identity nodes.
+3. Then resume the device-aware `reload_modem_modules()` result/readiness contract. Keep host/source, exact-SHA Actions, firmware and physical-hardware evidence distinct. Preserve the frozen backup and do not repeat the bridge or NDIS launcher status fixes.
 
 ## Governance constraints
 

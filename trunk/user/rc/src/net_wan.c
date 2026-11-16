@@ -31,6 +31,7 @@
 #include <signal.h>
 
 #include "rc.h"
+#include "service_start_status.h"
 #include <process_inventory.h>
 #include <process_pidfile.h>
 #include "process_presence_start_policy.h"
@@ -1602,25 +1603,26 @@ remove_cb_links(void)
 #endif
 }
 
-void
+int
 start_wan(void)
 {
 	int unit, wan_proto;
 	int vlan_result, mtu_status, interface_status, interface_cleanup_status;
+	int modem_start_status = 0;
 	char *wan_ifname;
 
 	/* Secure PPP callback/peer storage before publishing callback links. */
 	if (create_cb_links() != 0) {
 		logmessage(LOGNAME, "aborting WAN startup: PPP callback/peer directory setup failed (errno=%d)",
 			   errno ? errno : EIO);
-		return;
+		return errno ? errno : EIO;
 	}
 
 	vlan_result = config_vinet_wan();
 	if (vlan_result != 0) {
 		logmessage(LOGNAME, "aborting WAN startup: WAN VLAN configuration failed (%d)", vlan_result);
 		remove_cb_links();
-		return;
+		return vlan_result;
 	}
 
 	/*
@@ -1633,7 +1635,7 @@ start_wan(void)
 		logmessage(LOGNAME, "aborting WAN startup: AP-client WISP migration failed (status=%d)",
 			   vlan_result);
 		remove_cb_links();
-		return;
+		return vlan_result;
 	}
 
 	vlan_result = launch_viptv_wan();
@@ -1687,13 +1689,19 @@ start_wan(void)
 		{
 			if (nvram_get_int("modem_type") == 3)
 			{
-				launch_wan_usbnet(unit);
+				vlan_result = launch_wan_usbnet(unit);
+				modem_start_status = rc_first_service_start_status(
+					modem_start_status, vlan_result);
+				if (vlan_result != 0)
+					logmessage(LOGNAME, "USB modem WAN startup incomplete (status=%d)",
+						   vlan_result);
 			}
 			else
 			{
 				char *ppp_ifname = IFNAME_RAS;
 				
-				if (check_upnp_wanif_changed(ppp_ifname) != 0) {
+				vlan_result = check_upnp_wanif_changed(ppp_ifname);
+				if (vlan_result != 0) {
 				logmessage(LOGNAME, "aborting WAN startup for unit %d: miniupnpd did not stop before interface migration", unit);
 				continue;
 			}
@@ -1721,7 +1729,12 @@ start_wan(void)
 				/* re-build iptables rules (first stage w/o WAN IP) */
 				start_firewall_ex();
 				
-				launch_wan_modem_ras(unit);
+				vlan_result = launch_wan_modem_ras(unit);
+				modem_start_status = rc_first_service_start_status(
+					modem_start_status, vlan_result);
+				if (vlan_result != 0)
+					logmessage(LOGNAME, "USB modem RAS startup incomplete (status=%d)",
+						   vlan_result);
 			}
 		}
 		else
@@ -1858,6 +1871,8 @@ start_wan(void)
 					if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC &&
 					    ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL) != 0)
 						logmessage(LOGNAME, "failed to clear static WAN address after EAPOL startup failure on %s", wan_ifname);
+						modem_start_status = rc_first_service_start_status(
+						modem_start_status, vlan_result);
 					continue;
 				}
 			}
@@ -1897,6 +1912,8 @@ start_wan(void)
 			logmessage(LOGNAME, "PPPoE passthrough startup incomplete (status=%d)",
 				   passthrough_status);
 	}
+
+	return modem_start_status;
 }
 
 static int
@@ -2702,14 +2719,16 @@ wan_down(char *wan_ifname, int unit, int is_static)
 	return status;
 }
 
-void
+int
 full_restart_wan(void)
 {
+	int status;
 	if (get_ap_mode())
-		return;
-	if (stop_wan() != 0) {
-		logmessage(LOGNAME, "aborting full WAN restart because services did not stop");
-		return;
+		return 0;
+	status = stop_wan();
+	if (status != 0) {
+		logmessage(LOGNAME, "aborting full WAN restart because services did not stop (status=%d)", status);
+		return status;
 	}
 	clear_if_route4(get_man_ifname(0));
 	clear_if_route4(IFNAME_BR);
@@ -2722,28 +2741,33 @@ full_restart_wan(void)
 	notify_reset_detect_link();
 	switch_config_vlan(0);
 #if defined (USE_GMAC2_TO_GPHY) || defined (USE_GMAC2_TO_GSW)
-	if (disassembly_bridges_wan() != 0) {
-		logmessage(LOGNAME, "aborting full WAN restart because WAN bridge teardown failed");
-		return;
+	status = disassembly_bridges_wan();
+	if (status != 0) {
+		logmessage(LOGNAME, "aborting full WAN restart because WAN bridge teardown failed (status=%d)", status);
+		return status;
 	}
-	if (config_soft_bridge_lan() != 0) {
-		logmessage(LOGNAME, "aborting full WAN restart because LAN bridge VLAN setup failed");
-		return;
+	status = config_soft_bridge_lan();
+	if (status != 0) {
+		logmessage(LOGNAME, "aborting full WAN restart because LAN bridge VLAN setup failed (status=%d)", status);
+		return status;
 	}
 #endif
-	start_wan();
+	status = start_wan();
 	if (nvram_match("l2tp_srv_t", "1"))
 		safe_start_xl2tpd();
+	return status;
 }
 
-void
+int
 try_wan_reconnect(int try_use_modem, long pause_in_seconds)
 {
+	int status;
 	if (get_ap_mode())
-		return;
-	if (stop_wan() != 0) {
-		logmessage(LOGNAME, "aborting WAN reconnect because services did not stop");
-		return;
+		return 0;
+	status = stop_wan();
+	if (status != 0) {
+		logmessage(LOGNAME, "aborting WAN reconnect because services did not stop (status=%d)", status);
+		return status;
 	}
 	reset_wan_vars();
 	if (pause_in_seconds > 0) {
@@ -2753,34 +2777,30 @@ try_wan_reconnect(int try_use_modem, long pause_in_seconds)
 		nvram_set_int_temp("deferred_wanup_t", deferred_up_time);
 		start_watchdog();
 		logmessage(LOGNAME, "WAN up delay: %lds.", pause_in_seconds);
-		return;
+		return 0;
 	}
 	if (try_use_modem)
 		select_usb_modem_to_wan();
 	notify_reset_detect_link();
-	start_wan();
+	status = start_wan();
 	if (nvram_match("l2tp_srv_t", "1"))
 		safe_start_xl2tpd();
+	return status;
 }
 
-void
+int
 deferred_wan_connect(void)
 {
-	/* check wan already started */
+	int status;
 	if (check_if_file_exist(SCRIPT_UDHCPC_WAN))
-		return;
-
+		return 0;
 	nvram_set_int_temp("deferred_wanup_t", 0);
-
 	select_usb_modem_to_wan();
-
 	notify_reset_detect_link();
-
-	start_wan();
-
-	/* restore L2TP VPN server after L2TP WAN client closed */
+	status = start_wan();
 	if (nvram_match("l2tp_srv_t", "1"))
 		safe_start_xl2tpd();
+	return status;
 }
 
 void
@@ -2808,12 +2828,11 @@ manual_wan_disconnect(void)
 	}
 }
 
-void
+int
 manual_wan_reconnect(void)
 {
 	logmessage(LOGNAME, "Perform WAN %s %s", "manual", "reconnect");
-
-	try_wan_reconnect(1, 0);
+	return try_wan_reconnect(1, 0);
 }
 
 void
@@ -2829,20 +2848,18 @@ manual_wisp_reassoc(void)
 	reconnect_apcli(wisp_ifname, 1);
 }
 
-void
+int
 auto_wan_reconnect(void)
 {
 	logmessage(LOGNAME, "Perform WAN %s %s", "auto", "reconnect");
-
-	try_wan_reconnect(1, 0);
+	return try_wan_reconnect(1, 0);
 }
 
-void
+int
 auto_wan_reconnect_pause(void)
 {
 	logmessage(LOGNAME, "Perform WAN %s %s", "auto", "reconnect");
-
-	try_wan_reconnect(1, nvram_get_int("di_recon_pause"));
+	return try_wan_reconnect(1, nvram_get_int("di_recon_pause"));
 }
 
 void

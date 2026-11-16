@@ -1079,7 +1079,11 @@ init_router(void)
 				set_interface_conf_int("ipv6", "all", "forwarding", 0);
 #endif
 		} else {
-			start_wan();
+			int wan_start_status = start_wan();
+			if (wan_start_status != 0)
+				logmessage(LOGNAME, "WAN boot startup incomplete (status=%d)", wan_start_status);
+			boot_services_status = rc_first_service_start_status(
+				boot_services_status, wan_start_status);
 		}
 	}
 
@@ -1315,7 +1319,8 @@ handle_notifications(void)
 #endif
 		else if (!strcmp(entry->d_name, RCN_RESTART_WAN))
 		{
-			full_restart_wan();
+			action_result = rc_notify_merge_action_result(
+				action_result, full_restart_wan());
 		}
 		else if (!strcmp(entry->d_name, RCN_RESTART_LAN))
 		{
@@ -1334,19 +1339,23 @@ handle_notifications(void)
 		}
 		else if(!strcmp(entry->d_name, "deferred_wan_connect"))
 		{
-			deferred_wan_connect();
+			action_result = rc_notify_merge_action_result(
+				action_result, deferred_wan_connect());
 		}
 		else if(!strcmp(entry->d_name, "auto_wan_reconnect"))
 		{
-			auto_wan_reconnect();
+			action_result = rc_notify_merge_action_result(
+				action_result, auto_wan_reconnect());
 		}
 		else if(!strcmp(entry->d_name, "auto_wan_reconnect_pause"))
 		{
-			auto_wan_reconnect_pause();
+			action_result = rc_notify_merge_action_result(
+				action_result, auto_wan_reconnect_pause());
 		}
 		else if(!strcmp(entry->d_name, "manual_wan_reconnect"))
 		{
-			manual_wan_reconnect();
+			action_result = rc_notify_merge_action_result(
+				action_result, manual_wan_reconnect());
 		}
 		else if(!strcmp(entry->d_name, "manual_wan_disconnect"))
 		{
@@ -1419,7 +1428,8 @@ handle_notifications(void)
 					nvram_modem_type = modem_type;
 			}
 			if (!stop_failed && need_restart_wan)
-				full_restart_wan();
+				action_result = rc_notify_merge_action_result(
+					action_result, full_restart_wan());
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_SPOOLER) == 0)
 		{

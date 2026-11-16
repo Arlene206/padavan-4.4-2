@@ -31,6 +31,7 @@
 #include <disk_share.h>
 
 #include "rc.h"
+#include "modem_wan_start_policy.h"
 #include <process_inventory.h>
 #include "ppp_options_file.h"
 #include "modem_node_identity_policy.h"
@@ -893,30 +894,42 @@ int
 launch_wan_usbnet(int unit)
 {
 	int modem_devnum = 0;
+	int migration_status, dhcp_status;
 	char ndis_ifname[16] = {0};
 
-	if (get_modem_ndis_ifname(ndis_ifname, &modem_devnum) && is_interface_exist(ndis_ifname)) {
+	if (get_modem_ndis_ifname(ndis_ifname, &modem_devnum) &&
+	    is_interface_exist(ndis_ifname)) {
 		int ndis_mtu = nvram_safe_get_int("modem_mtu", 1500, 1000, 1500);
-		
-		check_upnp_wanif_changed(ndis_ifname);
+
+		migration_status = check_upnp_wanif_changed(ndis_ifname);
+		if (migration_status != 0) {
+			set_wan_unit_value_int(unit, "err", 1);
+			logmessage(LOGNAME,
+				   "aborting USB modem WAN startup: miniupnpd did not stop before interface migration (status=%d)",
+				   migration_status);
+			return modem_wan_start_status(migration_status, 0);
+		}
+
 		set_wan_unit_value(unit, "proto_t", "NDIS Modem");
 		set_wan_unit_value(unit, "ifname_t", ndis_ifname);
-		
-		/* bring up NDIS interface */
 		doSystem("ifconfig %s mtu %d up %s", ndis_ifname, ndis_mtu, "0.0.0.0");
-		
-		/* re-build iptables rules (first stage w/o WAN IP) */
 		start_firewall_ex();
-		
+
 		if (ndis_control_network(ndis_ifname, modem_devnum, 1) == 0)
 			sleep(1);
-		
-		start_udhcpc_wan(ndis_ifname, unit, 0);
-		
-		return 0;
+
+		dhcp_status = start_udhcpc_wan(ndis_ifname, unit, 0);
+		set_wan_unit_value_int(unit, "err", dhcp_status != 0);
+		if (dhcp_status != 0)
+			logmessage(LOGNAME,
+				   "USB modem WAN DHCP client launch failed on %s (status=%d)",
+				   ndis_ifname, dhcp_status);
+		return modem_wan_start_status(migration_status, dhcp_status);
 	}
 
 	set_wan_unit_value(unit, "ifname_t", "");
+	set_wan_unit_value_int(unit, "err", 1);
+	logmessage(LOGNAME, "USB modem WAN startup failed: selected NDIS interface is unavailable");
 	return -1;
 }
 
