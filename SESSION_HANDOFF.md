@@ -10,11 +10,10 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Current repository state
 
-- Main parent for this checker correction: `8956d722b51b7a5b8fd3fab09750bf96dc0753be`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged/read-only.
-- Exact-head 8956 Firewall Startup `43945597477`, Process regression `43945597663`, and XY-C1 `43945597624` failed at the canonical hook-status count because the raw Python regex was double-escaped and matched literal backslashes instead of source whitespace. The C source contains nine valid first-error merges.
-- Exact-head 8956 HTTPD `43945597526` failed because its inline checker still searched for a `static void` hook-stage logger; the implementation correctly changed this helper to return `int` so stage failures reach RC status.
-- Exact-head 8956 AliyunDrive `43945597544`, AliDDNS `43945597596`, AdGuardHome `43945597557`, AI handoff `43945597849`, USB modem `43945597613`, and infosvr `43945597566` passed. NVRAM `43945597771` was still in progress at last poll.
-- The repair corrects the regex to a single escaped whitespace token and updates the HTTPD helper-signature contract. No result transfers from SHA 8956 to the new commit.
+- Main parent for this validation correction: `8c77a050018df9e3db1dfc3afd73b7f646c47e5a`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged/read-only.
+- Exact-head 8c77 Firewall Startup `43946213665` and Process regression `43946213545` reached the canonical optional-hook contract but failed because `compact()` collapses whitespace to a single space while the checker expected the impossible literal `errno!=ENOENT`. The source correctly uses `errno != ENOENT`; the assertion now accepts C whitespace.
+- Exact-head 8c77 XY-C1 `43946213553` failed at the same source checker before Build/TRX/artifact. HTTPD `43946213772`, NVRAM `43946213544`, AI handoff `43946213616`, AliyunDrive `43946213652`, AliDDNS `43946213539`, AdGuardHome `43946213561`, USB modem `43946213534`, and infosvr `43946213737` passed.
+- The 8c77 checker regex and HTTPD signature fixes were effective; HTTPD is now green. This commit only corrects the remaining whitespace-sensitive assertion. New-SHA validation is required.
 
 ## Active task
 
@@ -26,13 +25,12 @@ Next P1: audit NAT helper and HW NAT/SFE module load/unload postconditions in `n
 
 ## Verification boundary
 
-- Exact-head 8956 Firewall Startup `43945597477`, Process regression `43945597663`, and XY-C1 `43945597624` failed before any new firmware build because the canonical Python regex used double backslashes and could not match the nine source status merges.
-- Exact-head 8956 HTTPD `43945597526` failed after the hook-staging checks, at an inline source-boundary assertion that expected `static void firewall_log_hook_stage_failure`; the actual helper now returns `int`.
-- Exact-head 8956 AliyunDrive, AliDDNS, AdGuardHome, AI handoff, USB modem identity and infosvr passed. NVRAM was in progress at last poll.
-- This commit repairs test contracts; all exact-head CI and XY-C1 Build/TRX/artifact checks must run again on the new SHA. No local firmware or physical-router claim; router L4 remains NOT VERIFIED.
+- Exact-head 8c77 Firewall Startup `43946213665` and Process regression `43946213545` failed at `assert "errno!=ENOENT" in hook_dispatch`. The checker compacts whitespace to one space, whereas the actual C source uses `errno != ENOENT`; the new regex accepts spacing.
+- Exact-head 8c77 XY-C1 `43946213553` was blocked by the same source checker before Build/TRX/artifact. HTTPD, NVRAM, AI handoff, AliyunDrive, AliDDNS, AdGuardHome, USB modem identity and infosvr passed on 8c77.
+- This is a checker-only correction. No new-SHA Actions or firmware verification claimed yet; physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect the new commit's exact-SHA Firewall Startup, Process regression, HTTPD, XY-C1 Build/TRX/artifact and remaining NVRAM/AI/service Actions. Diagnose any first new failure.
-2. Continue with NAT helper, HW NAT and SFE unload/load postconditions; add deterministic failed-unload and stale-state regression cases.
-3. Keep commits main-only and atomic with non-forced expected-SHA CAS. Frozen backup read-only; physical-router L4 NOT VERIFIED.
+1. Inspect new-SHA Firewall Startup, Process regression and XY-C1 Build/TRX/artifact; also confirm the 8c77 exact-head suites that were already green remain understood.
+2. Continue NAT helper, HW NAT and SFE load/unload postcondition work in `net.c`, with deterministic injectable unload tests.
+3. Keep main-only atomic commits with non-forced expected-SHA CAS. Frozen backup read-only; physical-router L4 NOT VERIFIED.

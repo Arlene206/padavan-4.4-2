@@ -566,6 +566,6 @@ hook_dispatch = compact(body(FIREWALL_SOURCE, "start_firewall_ex(void)"))
 assert len(re.findall(r"status\s*=\s*rc_first_service_start_status\(status,\s*hook_error\);", hook_dispatch)) >= 9
 for hook in ("Shadowsocks firewall hook", "Persistent post-firewall hook", "Optware iptables update hook"):
     assert hook_dispatch.count(hook) >= 3
-assert "errno!=ENOENT" in hook_dispatch
+assert re.search(r"errno\s*!=\s*ENOENT", hook_dispatch)
 assert "firewall_log_hook_cleanup_failure" in hook_dispatch
 print("Optional firewall hook failure and staged-file cleanup propagation: PASS")

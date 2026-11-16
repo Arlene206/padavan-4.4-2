@@ -1,9 +1,8 @@
 ## Current source / CI checkpoint
 
-- Main parent: `8956d722b51b7a5b8fd3fab09750bf96dc0753be`. Exact-head 8956 Firewall Startup, Process regression and XY-C1 stopped at the canonical checker because its raw Python whitespace regex was double-escaped; HTTPD stopped at a stale `static void` signature assertion for a helper that now correctly returns `int`.
-- The current correction makes the whitespace pattern match actual C formatting and updates the HTTPD contract to the status-returning hook-stage helper. Other exact-head 8956 AliyunDrive, AliDDNS, AdGuardHome, AI handoff, USB modem and infosvr suites passed; NVRAM was pending at last poll.
-- Hook command/staging/cleanup source work is present. No new-SHA validation yet, no 8956 XY-C1 build/TRX/artifact result because its source checker stopped first, and physical-router L4 remains NOT VERIFIED. Next P1: audit NAT helper and optional HW NAT/SFE unload/load postconditions.
-
+- Main parent: `8c77a050018df9e3db1dfc3afd73b7f646c47e5a`. Exact-head 8c77 Firewall Startup `43946213665` and Process regression `43946213545` failed on the optional-hook ENOENT assertion: the canonical checker normalizes whitespace but expected a no-space literal, while the C source correctly uses `errno != ENOENT`. XY-C1 `43946213553` stopped at the same checker before Build/TRX/artifact.
+- HTTPD `43946213772`, NVRAM `43946213544`, AI handoff `43946213616`, AliyunDrive `43946213652`, AliDDNS `43946213539`, AdGuardHome `43946213561`, USB modem `43946213534`, and infosvr `43946213737` passed on 8c77.
+- The new checker uses a whitespace-tolerant regex for ENOENT. New exact-SHA verification is still required. Next P1: audit NAT helper and optional HW NAT/SFE load/unload postconditions. Physical-router L4 remains NOT VERIFIED.
 
 
 

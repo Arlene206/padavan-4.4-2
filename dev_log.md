@@ -1,3 +1,11 @@
+## 2026-11-17 — Normalize optional firewall hook ENOENT checker
+
+- Exact-head 8c77 Firewall Startup `43946213665` and Process regression `43946213545` passed all preceding firewall/module/status policy tests but the canonical checker expected `errno!=ENOENT` after `compact()`; the normalized actual source is `errno != ENOENT`. Changed the assertion to a whitespace-tolerant `re.search`.
+- Exact-head 8c77 XY-C1 `43946213553` stopped at this checker before Build/TRX/artifact. HTTPD `43946213772`, NVRAM `43946213544`, AI handoff `43946213616`, AliyunDrive `43946213652`, AliDDNS `43946213539`, AdGuardHome `43946213561`, USB modem `43946213534`, and infosvr `43946213737` passed.
+- Next P1 remains NAT helper and HW NAT/SFE module unload/load postconditions. No physical-router L4 claim.
+
+---
+
 ## 2026-11-17 — Repair escaped firewall checker regex and HTTPD hook helper signature
 
 - Exact-head 8956 Firewall Startup `43945597477`, Process regression `43945597663`, and XY-C1 `43945597624` failed because the checker regex was emitted with two backslashes in a raw string, matching literal backslashes rather than whitespace. The production source contains nine status-aggregation calls; the regex now uses one escape level.
