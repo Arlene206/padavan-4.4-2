@@ -1813,14 +1813,14 @@ handle_notifications(void)
 		else if (strcmp(entry->d_name, RCN_RESTART_NETFILTER) == 0)
 		{
 			update_router_mode();
-			reload_nat_modules();
+			action_result = rc_notify_merge_action_result(action_result, reload_nat_modules());
 			action_result = rc_notify_merge_action_result(
 				action_result, restart_firewall());
 			flush_conntrack_table(NULL);
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_FIREWALL) == 0)
 		{
-			reload_nat_modules();
+			action_result = rc_notify_merge_action_result(action_result, reload_nat_modules());
 			action_result = rc_notify_merge_action_result(
 				action_result, restart_firewall());
 		}

@@ -226,7 +226,7 @@ void flush_route_caches(void);
 void clear_if_route4(char *ifname);
 int  is_ftp_conntrack_loaded(int ftp_port0, int ftp_port1);
 void hw_vlan_tx_map(int idx, int vid);
-void reload_nat_modules(void);
+int reload_nat_modules(void);
 int restart_firewall(void);
 void set_ipv4_forward(int is_on);
 void set_nf_conntrack(void);

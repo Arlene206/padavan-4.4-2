@@ -827,22 +827,47 @@ hw_vlan_tx_map(int idx, int vid)
 #endif
 }
 
-void
+int
 reload_nat_modules(void)
 {
-	int loaded_ftp;
+	int loaded_ftp, ftp_module_loaded, ftp_reconfigure_allowed;
 	int needed_ftp0 = 0;
 	int needed_ftp1 = 0;
 	int needed_sip = 0;
 	int needed_h323 = 0;
 	int needed_pptp = 0;
 	int wan_nat_x = nvram_get_int("wan_nat_x");
+	int reload_status = 0;
+	int module_status;
+	static const rc_module_load_ops_t module_ops = {
+		module_smart_load, is_module_loaded
+	};
+	rc_module_load_requirement_t pptp_modules[2] = {
+		{ "nf_conntrack_pptp", NULL, 1 },
+		{ "nf_nat_pptp", NULL, 0 }
+	};
+	rc_module_load_requirement_t h323_modules[2] = {
+		{ "nf_conntrack_h323", NULL, 1 },
+		{ "nf_nat_h323", NULL, 0 }
+	};
+	rc_module_load_requirement_t sip_modules[2] = {
+		{ "nf_conntrack_sip", NULL, 1 },
+		{ "nf_nat_sip", NULL, 0 }
+	};
+	rc_module_load_requirement_t ftp_modules[2] = {
+		{ "nf_conntrack_ftp", NULL, 0 },
+		{ "nf_nat_ftp", NULL, 0 }
+	};
 #if defined (USE_HW_NAT)
 	char hnat_param[80];
 	int hwnat_wan_vid = -1;
 	int hwnat_allow = is_hwnat_allow();
 	int hwnat_loaded = is_hwnat_loaded();
 	int ipv6_nat = nvram_get_int("ip6_lan_auto");
+#endif
+#if defined (USE_SFE)
+	int sfe_enable;
+	int sfe_loaded;
 #endif
 
 	if (!get_ap_mode())
@@ -851,16 +876,20 @@ reload_nat_modules(void)
 		needed_ftp1 = nvram_get_int("nf_alg_ftp1");
 		if (needed_ftp0 <   21 || needed_ftp0 > 65535) needed_ftp0 = 0;
 		if (needed_ftp1 < 1024 || needed_ftp1 > 65535) needed_ftp1 = 0;
-		
+
 		if (nvram_match("nf_alg_pptp", "1"))
 			needed_pptp = 1;
-		
+
 		if (nvram_match("nf_alg_h323", "1"))
 			needed_h323 = 1;
-		
+
 		if (nvram_match("nf_alg_sip", "1"))
 			needed_sip = 1;
 	}
+
+	pptp_modules[1].required = (wan_nat_x != 0);
+	h323_modules[1].required = (wan_nat_x != 0);
+	sip_modules[1].required = (wan_nat_x != 0);
 
 #if defined (USE_HW_NAT)
 	if ((hwnat_loaded) && ((!hwnat_allow) || (hwnat_loaded != hwnat_allow)))
@@ -872,54 +901,101 @@ reload_nat_modules(void)
 	}
 #endif
 
-	if (needed_pptp)
-	{
-		module_smart_load("nf_conntrack_pptp", NULL);
-		if (wan_nat_x != 0)
-			module_smart_load("nf_nat_pptp", NULL);
-	}
-	else
+	/* Configured ALGs are required; keep trying independent modules after one fails. */
+	if (needed_pptp) {
+		module_status = rc_module_load_requirements_apply(pptp_modules, 2, &module_ops);
+		if (module_status != 0) {
+			logmessage(LOGNAME, "PPTP conntrack/NAT helper load failed (status=%d)", module_status);
+			reload_status = rc_first_service_start_status(reload_status, module_status);
+		}
+		if (wan_nat_x == 0)
+			module_smart_unload("nf_nat_pptp", 1);
+	} else
 		module_smart_unload("nf_nat_pptp", 1);
 
-	if (needed_h323)
-	{
-		module_smart_load("nf_conntrack_h323", NULL);
-		if (wan_nat_x != 0)
-			module_smart_load("nf_nat_h323", NULL);
-	}
-	else
+	if (needed_h323) {
+		module_status = rc_module_load_requirements_apply(h323_modules, 2, &module_ops);
+		if (module_status != 0) {
+			logmessage(LOGNAME, "H.323 conntrack/NAT helper load failed (status=%d)", module_status);
+			reload_status = rc_first_service_start_status(reload_status, module_status);
+		}
+		if (wan_nat_x == 0)
+			module_smart_unload("nf_nat_h323", 1);
+	} else
 		module_smart_unload("nf_nat_h323", 1);
 
-	if (needed_sip)
-	{
-		module_smart_load("nf_conntrack_sip", NULL);
-		if (wan_nat_x != 0)
-			module_smart_load("nf_nat_sip", NULL);
-	}
-	else
+	if (needed_sip) {
+		module_status = rc_module_load_requirements_apply(sip_modules, 2, &module_ops);
+		if (module_status != 0) {
+			logmessage(LOGNAME, "SIP conntrack/NAT helper load failed (status=%d)", module_status);
+			reload_status = rc_first_service_start_status(reload_status, module_status);
+		}
+		if (wan_nat_x == 0)
+			module_smart_unload("nf_nat_sip", 1);
+	} else
 		module_smart_unload("nf_nat_sip", 1);
 
-	loaded_ftp = is_ftp_conntrack_loaded(needed_ftp0, needed_ftp1);
-	if (loaded_ftp == 1)
-	{
-		module_smart_unload("nf_nat_ftp", 0);
-		module_smart_unload("nf_conntrack_ftp", 0);
+	ftp_module_loaded = is_module_loaded("nf_conntrack_ftp");
+	loaded_ftp = ftp_module_loaded ?
+		is_ftp_conntrack_loaded(needed_ftp0, needed_ftp1) : 0;
+	ftp_reconfigure_allowed = 1;
+	if (ftp_module_loaded && loaded_ftp == 0) {
+		/* A failed parameter read is not the same as an absent module. */
+		logmessage(LOGNAME, "Cannot read active nf_conntrack_ftp ports; preserving the current helper");
+		reload_status = rc_first_service_start_status(reload_status, EIO);
+		ftp_reconfigure_allowed = 0;
+	} else if (loaded_ftp == 1) {
+		/* Remove the NAT consumer before changing conntrack module parameters. */
+		if (is_module_loaded("nf_nat_ftp")) {
+			module_smart_unload("nf_nat_ftp", 0);
+			if (is_module_loaded("nf_nat_ftp")) {
+				logmessage(LOGNAME, "Cannot reconfigure FTP helper while nf_nat_ftp is still referenced");
+				reload_status = rc_first_service_start_status(reload_status, EBUSY);
+				ftp_reconfigure_allowed = 0;
+			}
+		}
+		if (ftp_reconfigure_allowed && is_module_loaded("nf_conntrack_ftp")) {
+			module_smart_unload("nf_conntrack_ftp", 0);
+			if (is_module_loaded("nf_conntrack_ftp")) {
+				logmessage(LOGNAME, "Cannot reconfigure FTP helper while nf_conntrack_ftp is still referenced");
+				reload_status = rc_first_service_start_status(reload_status, EBUSY);
+				ftp_reconfigure_allowed = 0;
+			}
+		}
+		if (ftp_reconfigure_allowed)
+			loaded_ftp = 0;
 	}
 
-	if ((loaded_ftp != 2) && (needed_ftp0 || needed_ftp1))
-	{
+	if (ftp_reconfigure_allowed && (needed_ftp0 || needed_ftp1)) {
 		char ports_val[32];
-		
+
 		if (needed_ftp0 && needed_ftp1)
-			sprintf(ports_val, "ports=%d,%d", needed_ftp0, needed_ftp1);
+			snprintf(ports_val, sizeof(ports_val), "ports=%d,%d", needed_ftp0, needed_ftp1);
 		else if (needed_ftp0)
-			sprintf(ports_val, "ports=%d", needed_ftp0);
+			snprintf(ports_val, sizeof(ports_val), "ports=%d", needed_ftp0);
 		else
-			sprintf(ports_val, "ports=%d", needed_ftp1);
-		
-		module_smart_load("nf_conntrack_ftp", ports_val);
-		if (wan_nat_x != 0)
-			module_smart_load("nf_nat_ftp", NULL);
+			snprintf(ports_val, sizeof(ports_val), "ports=%d", needed_ftp1);
+
+		ftp_modules[0].module_param = ports_val;
+		ftp_modules[0].required = (loaded_ftp != 2);
+		ftp_modules[1].required = (wan_nat_x != 0);
+		module_status = rc_module_load_requirements_apply(ftp_modules, 2, &module_ops);
+		if (module_status != 0) {
+			logmessage(LOGNAME, "FTP conntrack/NAT helper load failed (status=%d)", module_status);
+			reload_status = rc_first_service_start_status(reload_status, module_status);
+		}
+		if (ftp_modules[0].required &&
+		    is_ftp_conntrack_loaded(needed_ftp0, needed_ftp1) != 2) {
+			logmessage(LOGNAME, "nf_conntrack_ftp did not retain the requested ports");
+			reload_status = rc_first_service_start_status(reload_status, EIO);
+		}
+	} else if (ftp_reconfigure_allowed && loaded_ftp == 2 && wan_nat_x != 0) {
+		ftp_modules[1].required = 1;
+		module_status = rc_module_load_requirements_apply(ftp_modules, 2, &module_ops);
+		if (module_status != 0) {
+			logmessage(LOGNAME, "FTP NAT helper load failed (status=%d)", module_status);
+			reload_status = rc_first_service_start_status(reload_status, module_status);
+		}
 	}
 
 #if defined (USE_HW_NAT)
@@ -953,18 +1029,15 @@ reload_nat_modules(void)
 	hwnat_configure(hwnat_wan_vid);
 #endif
 #if defined (USE_SFE)
-	static const rc_module_load_ops_t sfe_module_ops = {
-		module_smart_load, is_module_loaded
-	};
-	int sfe_enable = nvram_get_int("sfe_enable");
-	int sfe_loaded = is_module_loaded("fast_classifier");
+	sfe_enable = nvram_get_int("sfe_enable");
+	sfe_loaded = is_module_loaded("fast_classifier");
 
 	if (sfe_loaded && !sfe_enable) {
 		module_smart_unload("fast_classifier", 1);
 		sfe_loaded = 0;
 	}
 	if (sfe_enable && !sfe_loaded) {
-		if (rc_module_load_verified("fast_classifier", NULL, &sfe_module_ops) == 0)
+		if (rc_module_load_verified("fast_classifier", NULL, &module_ops) == 0)
 			sfe_loaded = 1;
 		else {
 			sfe_loaded = 0;
@@ -978,6 +1051,10 @@ reload_nat_modules(void)
 			doSystem("echo 1 > /sys/fast_classifier/skip_to_bridge_ingress");
 	}
 #endif
+
+	if (reload_status != 0)
+		errno = reload_status;
+	return reload_status;
 }
 
 int

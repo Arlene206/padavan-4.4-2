@@ -125,6 +125,87 @@ test_invalid_inputs_fail_before_side_effects(void)
 	assert(probe_calls == 0);
 }
 
+
+static const char *required_expected_names[3];
+static int required_expected_visible[3];
+static int required_load_calls;
+static int required_probe_calls;
+
+static int
+mock_required_module_load(const char *module_name, const char *module_param)
+{
+	assert(required_load_calls < 3);
+	assert(module_name != NULL);
+	assert(strcmp(module_name, required_expected_names[required_load_calls]) == 0);
+	assert(module_param == NULL);
+	++required_load_calls;
+	return 0;
+}
+
+static int
+mock_required_module_probe(const char *module_name)
+{
+	assert(required_probe_calls < required_load_calls);
+	assert(module_name != NULL);
+	assert(strcmp(module_name, required_expected_names[required_probe_calls]) == 0);
+	return required_expected_visible[required_probe_calls++];
+}
+
+static const rc_module_load_ops_t required_mock_ops = {
+	mock_required_module_load,
+	mock_required_module_probe
+};
+
+static void
+test_required_module_set_attempts_all_and_keeps_first_failure(void)
+{
+	const rc_module_load_requirement_t requirements[] = {
+		{ "nf_conntrack_pptp", NULL, 1 },
+		{ "nf_nat_pptp", NULL, 1 },
+		{ "fast_classifier", NULL, 0 }
+	};
+
+	required_expected_names[0] = "nf_conntrack_pptp";
+	required_expected_names[1] = "nf_nat_pptp";
+	required_expected_names[2] = "fast_classifier";
+	required_expected_visible[0] = 0;
+	required_expected_visible[1] = 1;
+	required_expected_visible[2] = 0;
+	required_load_calls = 0;
+	required_probe_calls = 0;
+
+	assert(rc_module_load_requirements_apply(requirements, 3,
+						 &required_mock_ops) == EIO);
+	assert(required_load_calls == 2);
+	assert(required_probe_calls == 2);
+}
+
+static void
+test_required_module_set_success_and_invalid_inputs(void)
+{
+	const rc_module_load_requirement_t requirements[] = {
+		{ "nf_conntrack_sip", NULL, 1 },
+		{ "nf_nat_sip", NULL, 1 }
+	};
+
+	required_expected_names[0] = "nf_conntrack_sip";
+	required_expected_names[1] = "nf_nat_sip";
+	required_expected_visible[0] = 1;
+	required_expected_visible[1] = 1;
+	required_load_calls = 0;
+	required_probe_calls = 0;
+	assert(rc_module_load_requirements_apply(requirements, 2,
+						 &required_mock_ops) == 0);
+	assert(required_load_calls == 2);
+	assert(required_probe_calls == 2);
+	assert(rc_module_load_requirements_apply(NULL, 1,
+						 &required_mock_ops) == EINVAL);
+	assert(rc_module_load_requirements_apply(requirements, 2, NULL) == EINVAL);
+	assert(rc_module_load_requirements_apply(NULL, 0, &required_mock_ops) == 0);
+	assert(required_load_calls == 2);
+	assert(required_probe_calls == 2);
+}
+
 int
 main(void)
 {
@@ -134,6 +215,8 @@ main(void)
 	test_visible_module_state_wins_over_loader_status();
 	test_module_parameter_is_forwarded();
 	test_invalid_inputs_fail_before_side_effects();
-	puts("RC module post-load verification policy: PASS");
+	test_required_module_set_attempts_all_and_keeps_first_failure();
+	test_required_module_set_success_and_invalid_inputs();
+	puts("RC module post-load verification and required-module set policy: PASS");
 	return 0;
 }

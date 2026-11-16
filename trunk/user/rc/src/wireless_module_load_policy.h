@@ -28,6 +28,38 @@ rc_module_load_verified(const char *module_name, const char *module_param,
 	return ops->is_loaded(module_name) ? 0 : EIO;
 }
 
+
+typedef struct {
+	const char *module_name;
+	const char *module_param;
+	int required;
+} rc_module_load_requirement_t;
+
+/* Try every configured requirement and retain the first load/probe failure. */
+static inline int
+rc_module_load_requirements_apply(const rc_module_load_requirement_t *requirements,
+				  size_t requirement_count,
+				  const rc_module_load_ops_t *ops)
+{
+	size_t i;
+	int first_status = 0;
+
+	if ((!requirements && requirement_count != 0) ||
+	    !ops || !ops->load || !ops->is_loaded)
+		return EINVAL;
+
+	for (i = 0; i < requirement_count; ++i) {
+		int status;
+		if (!requirements[i].required)
+			continue;
+		status = rc_module_load_verified(requirements[i].module_name,
+						 requirements[i].module_param, ops);
+		if (first_status == 0 && status != 0)
+			first_status = status;
+	}
+	return first_status;
+}
+
 /* Preserve the existing call shape for wireless-driver users. */
 static inline int
 rc_wireless_module_load_verified(const char *module_name,
