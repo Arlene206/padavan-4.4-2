@@ -26,6 +26,31 @@ test_negative_and_positive_statuses_are_preserved(void)
 }
 
 static void
+test_lan_start_preserves_first_required_failure(void)
+{
+	int status = 0;
+	int ifup_attempts = 0;
+	int dhcp_attempts = 0;
+	int route_attempts = 0;
+
+	/* A later DHCP success must not erase an earlier bridge setup failure. */
+	ifup_attempts++;
+	status = rc_first_service_start_status(status, ENODEV);
+	dhcp_attempts++;
+	status = rc_first_service_start_status(status, 0);
+	assert(ifup_attempts == 1);
+	assert(dhcp_attempts == 1);
+	assert(status == ENODEV);
+
+	/* Router-mode static-route failures must be observable too. */
+	status = 0;
+	route_attempts++;
+	status = rc_first_service_start_status(status, EIO);
+	assert(route_attempts == 1);
+	assert(status == EIO);
+}
+
+static void
 test_bridge_parameters_are_both_attempted_and_first_error_survives(void)
 {
 	int status = 0;
@@ -67,6 +92,7 @@ main(void)
 	test_first_error_survives_lan_restart_recovery();
 	test_negative_and_positive_statuses_are_preserved();
 	test_bridge_parameters_are_both_attempted_and_first_error_survives();
+	test_lan_start_preserves_first_required_failure();
 	puts("RC boot and LAN service first-failure aggregation policy: PASS");
 	return 0;
 }

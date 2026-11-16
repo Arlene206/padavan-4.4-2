@@ -1,3 +1,14 @@
+## 2026-11-16 — Propagate LAN boot and restart setup failures
+
+- Parent main: `aeba90439f0b68cd35a67be7d3e821164597bc4f`. USB identity `43848100315` passed. AI docs `43848100602`, HTTPD `43848100398`, WAN route `43848100725`, WAN teardown `43848100704`, infosvr `43848100855`, Adbyby `43848100618`, OpenVPN client `43848100354`, AliyunDrive `43848100655`, ZeroTier `43848100633`, Crond `43848100348`, NFS `43848100601`, iNIC `43848100591`, Firewall `43848100711`, VPN server `43848100283`, miniupnpd `43848100903`, wireless `43848100599`, rstats `43848100463`, watchdog `43848100503`, PID 1 notifications `43848100441`, networkmap `43848100396`, detect_internet `43848100598`, detect_link `43848100654`, FRP `43848100482` passed.
+- Process inventory `43848100470`, XY-C1 `43848100619`, USB storage `43848100656`, Inadyn `43848100652`, AliDDNS `43848100545`, Samba `43848100636`, DDNSTO `43848100671`, AdGuardHome `43848100509`, DNSMasq `43848100501`, NVRAM `43848100605` were still in progress at last inspection.
+- Found that `start_lan()` discarded bridge IFUP, AP DHCP launch, manual resolver/gateway and router static-route statuses, so neither PID 1 nor `full_restart_lan()` could account for these failures.
+- Converted `start_lan()` and `lan_up_manual()` to status-returning APIs, aggregate first errors while continuing independent follow-up work, and propagated status through `init_router()` and `full_restart_lan()`. Added GNU89 policy regression cases and a Process CI semantic source contract.
+- New exact-head Actions pending. No local full target build or hardware test is claimed.
+- Next: inspect exact-head Process/XY-C1, then audit remaining `config_bridge()` and `init_bridge()` ignored status operations.
+
+---
+
 ## 2026-11-16 — Report modem module family readiness through boot and RC actions
 
 - Parent main: `a445812cf9e168d21f24f51e035cddf6934c12d9`. Exact-parent USB identity `43847475018`, Process inventory `43847475193`, AI docs `43847474937`, infosvr `43847475001`, AdGuardHome `43847475008`, AliDDNS `43847475086`, AliyunDrive `43847474932` and HTTPD check `43847474960` were observed; NVRAM `43847475238` and Process integration `43847474942` were in progress, while HTTPD reported failure in the parent run. Do not treat this parent evidence as current-SHA verification.

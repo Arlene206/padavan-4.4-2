@@ -1021,7 +1021,13 @@ init_router(void)
 		boot_services_status = rc_first_service_start_status(
 			boot_services_status, detect_internet_start_status);
 	}
-	start_lan(is_ap_mode, 0);
+	{
+		int lan_start_status = start_lan(is_ap_mode, 0);
+		if (lan_start_status != 0)
+			logmessage(LOGNAME, "LAN boot startup incomplete (status=%d)", lan_start_status);
+		boot_services_status = rc_first_service_start_status(
+			boot_services_status, lan_start_status);
+	}
 
 	if (log_remote) {
 		int logger_start_status = start_logger(1);

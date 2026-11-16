@@ -678,26 +678,33 @@ update_hosts_ap(void)
 }
 
 void
+int
 start_lan(int is_ap_mode, int do_wait)
 {
 	char *lan_ipaddr;
 	char *lan_netmsk;
 	char *lan_ifname = IFNAME_BR;
+	int start_status = 0;
+	int operation_status;
 
 	lan_ipaddr = nvram_safe_get("lan_ipaddr");
 	lan_netmsk = nvram_safe_get("lan_netmask");
 
-	/* bring up and configure LAN interface */
-	ifconfig(lan_ifname, IFUP, lan_ipaddr, lan_netmsk);
+	/* Bring up and configure the LAN bridge. */
+	operation_status = ifconfig(lan_ifname, IFUP, lan_ipaddr, lan_netmsk);
+	if (operation_status != 0)
+		logmessage(LOGNAME, "LAN bridge address setup failed (status=%d)",
+			   operation_status);
+	start_status = rc_first_service_start_status(start_status, operation_status);
 
 	/*
-	* Configure DHCP connection. The DHCP client will run 
-	* 'udhcpc bound'/'udhcpc deconfig' upon finishing IP address 
+	* Configure DHCP connection. The DHCP client will run
+	* 'udhcpc bound'/'udhcpc deconfig' upon finishing IP address
 	* renew and release.
 	*/
 	if (is_ap_mode) {
 		char *lan_dname = nvram_safe_get("lan_domain");
-		
+
 		{
 			int hosts_status = create_hosts_lan(lan_ipaddr, lan_dname);
 			if (hosts_status != 0)
@@ -705,36 +712,48 @@ start_lan(int is_ap_mode, int do_wait)
 					   "initial AP hostname publication failed; DNSMasq preparation will retry (status=%d)",
 					   hosts_status);
 		}
-		
+
 		if (nvram_match("lan_proto_x", "1")) {
-			
+
 			symlink("/sbin/rc", SCRIPT_UDHCPC_LAN);
-			
+
 			/* early fill XXX_t fields */
 			update_lan_status(0);
-			
+
 			/* wait PHY ports link ready */
 			if (do_wait)
 				sleep(1);
-			
+
 			/* di wakeup after 60 secs */
 			notify_run_detect_internet(60);
-			
+
 			/* start dhcp daemon */
-			start_udhcpc_lan(lan_ifname);
+			operation_status = start_udhcpc_lan(lan_ifname);
+			if (operation_status != 0)
+				logmessage(LOGNAME, "LAN DHCP client launch failed (status=%d)",
+					   operation_status);
+			start_status = rc_first_service_start_status(start_status, operation_status);
 		} else {
-			
+
 			/* manual config lan gateway and dns */
-			lan_up_manual(lan_ifname, lan_dname);
-			
+			operation_status = lan_up_manual(lan_ifname, lan_dname);
+			if (operation_status != 0)
+				logmessage(LOGNAME, "manual LAN gateway/resolver setup failed (status=%d)",
+					   operation_status);
+			start_status = rc_first_service_start_status(start_status, operation_status);
+
 			/* di wakeup after 2 secs */
 			notify_run_detect_internet(2);
 		}
 	} else {
-		
+
 		/* install lan specific static routes */
-		add_static_lan_routes(lan_ifname);
-		
+		operation_status = add_static_lan_routes(lan_ifname);
+		if (operation_status != 0)
+			logmessage(LOGNAME, "LAN static route installation failed (status=%d)",
+				   operation_status);
+		start_status = rc_first_service_start_status(start_status, operation_status);
+
 		/* fill XXX_t fields */
 		update_lan_status(0);
 	}
@@ -745,6 +764,7 @@ start_lan(int is_ap_mode, int do_wait)
 #endif
 
 	config_bridge(is_ap_mode);
+	return start_status;
 }
 
 int
@@ -805,6 +825,7 @@ full_restart_lan(void)
 	int is_ap_mode, log_remote, lan_status;
 	int dnsmasq_lock, dnsmasq_lock_errno, release_status;
 	int dnsmasq_status, dnsmasq_start_status, vpn_status;
+	int lan_start_status;
 	int restart_status = 0;
 
 	is_ap_mode = get_ap_mode();
@@ -887,7 +908,8 @@ full_restart_lan(void)
 	sleep(1);
 	phy_ports_lan_power(1);
 
-	start_lan(is_ap_mode, 1);
+	lan_start_status = start_lan(is_ap_mode, 1);
+	lan_restart_record_status(&restart_status, "start LAN services", lan_start_status);
 
 	/* start logger if remote */
 	if (log_remote)
@@ -974,6 +996,7 @@ lan_up_manual(char *lan_ifname, char *lan_dname)
 	FILE *fp;
 	int lock, saved_errno;
 	int dns_count = 0;
+	int status = 0;
 	char *dns_ip, *gateway_ip;
 	char resolv_temp[] = "/etc/resolv.conf.XXXXXX";
 
@@ -984,7 +1007,7 @@ lan_up_manual(char *lan_ifname, char *lan_dname)
 	    (*lan_dname && !dnsmasq_valid_server_domain(lan_dname))) {
 		errno = EINVAL;
 		logmessage(LOGNAME, "refusing unsafe manual LAN resolver domain");
-		return;
+		return EINVAL;
 	}
 
 	gateway_ip = nvram_safe_get("lan_gateway");
@@ -995,12 +1018,17 @@ lan_up_manual(char *lan_ifname, char *lan_dname)
 		logmessage(LOGNAME, "cannot acquire resolver publication lock; refusing manual LAN update (errno=%d)",
 			   saved_errno);
 		errno = saved_errno;
-		return;
+		return saved_errno;
 	}
 
 	/* Set default route to gateway if specified. */
-	if (is_valid_ipv4(gateway_ip))
-		route_add(lan_ifname, 0, "0.0.0.0", gateway_ip, "0.0.0.0");
+	if (is_valid_ipv4(gateway_ip)) {
+		int route_status = route_add(lan_ifname, 0, "0.0.0.0", gateway_ip, "0.0.0.0");
+		if (route_status != 0)
+			logmessage(LOGNAME, "manual LAN gateway route setup failed (status=%d)",
+				   route_status);
+		status = rc_first_service_start_status(status, route_status);
+	}
 
 	/* Keep the old resolver visible until the complete replacement is ready. */
 	fp = dnsmasq_file_open(resolv_temp);
@@ -1013,7 +1041,7 @@ lan_up_manual(char *lan_ifname, char *lan_dname)
 		logmessage(LOGNAME, "cannot stage manual LAN resolver configuration (errno=%d)",
 			   saved_errno);
 		errno = saved_errno;
-		return;
+		return rc_first_service_start_status(status, saved_errno);
 	}
 
 	if (*lan_dname)
@@ -1043,7 +1071,7 @@ lan_up_manual(char *lan_ifname, char *lan_dname)
 		logmessage(LOGNAME, "cannot publish manual LAN resolver configuration (errno=%d)",
 			   saved_errno);
 		errno = saved_errno;
-		return;
+		return rc_first_service_start_status(status, saved_errno);
 	}
 
 	file_unlock(lock);
@@ -1053,6 +1081,7 @@ lan_up_manual(char *lan_ifname, char *lan_dname)
 
 	/* fill XXX_t fields */
 	update_lan_status(0);
+	return status;
 }
 
 static int

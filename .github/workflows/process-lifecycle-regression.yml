@@ -394,3 +394,56 @@ jobs:
           sh trunk/user/zerotier/tests/zerotier_lifecycle.sh
       - name: Verify shared-library and RC integration boundaries
         run: python3 scripts/check_process_lifecycle_integration.py
+
+      - name: Verify LAN startup error propagation through PID 1 and LAN restart
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          rc = Path("trunk/user/rc/src")
+          lan = (rc / "net_lan.c").read_text()
+          init = (rc / "rc.c").read_text()
+          header = (rc / "rc.h").read_text()
+          regression = (rc / "tests/service_start_status.c").read_text()
+
+          def body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          start_lan = body(lan, "start_lan(int is_ap_mode, int do_wait)")
+          assert "operation_status = ifconfig(lan_ifname, IFUP, lan_ipaddr, lan_netmsk);" in start_lan
+          assert "operation_status = start_udhcpc_lan(lan_ifname);" in start_lan
+          assert "operation_status = lan_up_manual(lan_ifname, lan_dname);" in start_lan
+          assert "operation_status = add_static_lan_routes(lan_ifname);" in start_lan
+          assert start_lan.count("rc_first_service_start_status(start_status, operation_status)") >= 4
+          assert "return start_status;" in start_lan
+
+          manual = body(lan, "lan_up_manual(char *lan_ifname, char *lan_dname)")
+          assert "return EINVAL;" in manual
+          assert "return saved_errno;" in manual
+          assert "int route_status = route_add(" in manual
+          assert "return rc_first_service_start_status(status, saved_errno);" in manual
+          assert "return status;" in manual
+
+          restart = body(lan, "full_restart_lan(void)")
+          assert "lan_start_status = start_lan(is_ap_mode, 1);" in restart
+          assert 'lan_restart_record_status(&restart_status, "start LAN services", lan_start_status);' in restart
+
+          init_body = body(init, "init_router(void)")
+          assert "int lan_start_status = start_lan(is_ap_mode, 0);" in init_body
+          assert "boot_services_status = rc_first_service_start_status(" in init_body
+          assert "int start_lan(int is_ap_mode, int do_wait);" in header
+          assert "int lan_up_manual(char *lan_ifname, char *lan_dname);" in header
+          assert "test_lan_start_preserves_first_required_failure();" in regression
+          print("LAN startup error propagation and caller aggregation: PASS")
+          PY
+
