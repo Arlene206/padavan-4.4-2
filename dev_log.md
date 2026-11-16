@@ -1,3 +1,15 @@
+## 2026-11-16 — Bind NDIS control TTY selection to physical USB identity
+
+- Parent main: `37f00465dec9af78f3e366a16e903ddc600603c2`. NDIS control path previously selected `ttyUSB` through the generic `get_modem_node()` selector, which compares the shared USB devnum but does not bind the candidate TTY to the selected NDIS interface's physical USB port ID. On multi-modem hubs this can select another device's AT/control port.
+- Updated the metadata reader to validate `pref=0|1`, `devnum` and `portid` together, rejecting missing, duplicate or malformed priority fields. Added a pure identity eligibility policy.
+- NDIS TTY fallback now executes only after resolving the NDIS interface's USB parent and matches the exact port ID + devnum. A manual `modem_node` index is a hard pin only when its node belongs to that same device; automatic selection prefers a same-device preferred TTY and then allows a same-device fallback. WDM identity matching remains same-device and does not use manual TTY preference.
+- Added GNU89 host assertions for preferred-first, fallback, wrong port, wrong devnum, manual-index exact match and manual cross-device rejection. Extended the exact production source contract.
+- Parent `37f00465dec9af78f3e366a16e903ddc600603c2` Process run `43844536051` was still running with the prior RAS WANX checker failure not yet updated; XY-C1 `43844536067` and NVRAM `43844536110` were in progress; AI handoff `43844536085` was SUCCESS. The earlier parent `f0902af` passed identity, WAN DHCP, miniupnpd, WAN teardown, WAN route, AI docs and Process inventory Actions; its Process WAN-start checker failed on multiline WANX formatting. No current-slice L3/L4 result is claimed.
+- THIS source/test commit's identity, Process, XY-C1 and handoff Actions must be checked exactly. XY-C1 must complete build, TRX verification and artifact upload to establish L3.
+- Next: inspect exact-head results and then trace `reload_modem_modules()` readiness/error semantics without treating alternative drivers as mandatory.
+
+---
+
 ## 2026-11-16 — Match RAS WANX status aggregation across C formatting
 
 - Parent main: `f0902af4861fdbf496958b22871ae43e51bdcfd5`. Process run `43844256457`, job `133220324178`, passed both the RC boot service and modem WAN host policy binaries, then failed the new RAS physical WAN status source assertion because `rc_first_service_start_status()` is wrapped over multiple C lines.

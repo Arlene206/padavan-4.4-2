@@ -29,6 +29,15 @@ main(void)
 	assert(!modem_node_usb_identity_matches("1-1", 7, "1-1", 8));
 	assert(!modem_node_usb_identity_matches("1-1", 0, "1-1", 0));
 	assert(!modem_node_usb_identity_matches(NULL, 7, "1-1", 7));
+	assert(!modem_node_usb_identity_node_is_eligible("1-1", 7, "1-1", 7, 2, 0, -1, 1));
+	assert(modem_node_usb_identity_node_is_eligible("1-1", 7, "1-1", 7, 2, 1, -1, 1));
+	assert(modem_node_usb_identity_node_is_eligible("1-1", 7, "1-1", 7, 2, 0, -1, 0));
+	assert(!modem_node_usb_identity_node_is_eligible("1-1", 7, "1-2", 7, 2, 1, -1, 0));
+	assert(!modem_node_usb_identity_node_is_eligible("1-1", 7, "1-1", 8, 2, 1, -1, 0));
+	/* Manual selection pins an index but bypasses preferred-port ranking. */
+	assert(modem_node_usb_identity_node_is_eligible("1-1", 7, "1-1", 7, 4, 0, 4, 1));
+	assert(!modem_node_usb_identity_node_is_eligible("1-1", 7, "1-1", 7, 5, 1, 4, 0));
+	assert(!modem_node_usb_identity_node_is_eligible("1-1", 7, "1-2", 7, 4, 1, 4, 0));
 	assert(modem_node_name_is_safe("ttyUSB0"));
 	assert(modem_node_name_is_safe("ttyACM12"));
 	assert(modem_node_name_is_safe("cdc-wdm0"));

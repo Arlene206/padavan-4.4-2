@@ -94,13 +94,23 @@ jobs:
           assert "strtol(buf + 7, &endptr, 10)" in reader
           assert 'strncmp(buf, "portid=", 7)' in reader
           assert "ferror(fp)" in reader and "fclose(fp)" in reader
-          assert "modem_node_usb_identity_matches(" in reader
-          assert "have_devnum && have_port_id" in reader
+          assert 'strncmp(buf, "pref=", 5)' in reader
+          assert "have_pref && have_devnum && have_port_id" in reader
+          assert "modem_node_usb_identity_node_is_eligible(" in reader
+
+          selector = body(modem, "get_modem_node_by_usb_identity(")
+          assert 'nvram_get_int("modem_node") - 1' in selector
+          assert "manual_index, 0" in selector
+          assert "expected_devnum, -1, 1" in selector
+          assert "expected_devnum, -1, 0" in selector
 
           ndis = body(modem, "ndis_control_network(")
           assert "get_usb_port_by_device(ndis_ifname" in ndis
           assert 'find_modem_node_by_usb_identity("cdc-wdm"' in ndis
-          assert ndis.index("get_usb_port_by_device(ndis_ifname") < ndis.index("find_modem_node_by_usb_identity")
+          tty_select = 'get_modem_node_by_usb_identity("ttyUSB", ndis_port_id, devnum)'
+          assert tty_select in ndis
+          assert 'get_modem_node("ttyUSB", devnum, NULL)' not in ndis
+          assert ndis.index("get_usb_port_by_device(ndis_ifname") < ndis.index("find_modem_node_by_usb_identity") < ndis.index(tty_select)
           assert 'find_modem_node("cdc-wdm", 0, 0, -1, NULL)' not in ndis
           assert "modem_node_usb_identity_matches" in identity
           assert "modem_node_identity_policy.h" in metadata
@@ -116,6 +126,8 @@ jobs:
               'modem_node_usb_identity_matches("1-1", 7, "1-1", 7)',
               'modem_node_usb_identity_matches("1-1", 7, "1-2", 7)',
               'modem_node_usb_identity_matches("1-1", 7, "1-1", 8)',
+              'modem_node_usb_identity_node_is_eligible("1-1", 7, "1-1", 7, 2, 0, -1, 1)',
+              'modem_node_usb_identity_node_is_eligible("1-1", 7, "1-1", 7, 4, 0, 4, 1)',
               "USB modem node identity and private metadata staging: PASS",
           ):
               assert marker in test
@@ -137,5 +149,5 @@ jobs:
               assert push_filters.count(path) == 1, f"push path missing/duplicated: {path}"
               assert pr_filters.count(path) == 1, f"pull_request path missing/duplicated: {path}"
 
-          print("USB modem WDM/NDIS physical identity contract: PASS")
+          print("USB modem WDM/NDIS physical identity and TTY selection contract: PASS")
           PY

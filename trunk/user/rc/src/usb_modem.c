@@ -205,10 +205,12 @@ find_modem_node(const char* pattern, int fetch_pref, int fetch_devnum, int fetch
 static int
 find_modem_node_by_usb_identity(const char *pattern,
 				const char *expected_port_id,
-				int expected_devnum)
+				int expected_devnum,
+				int manual_index,
+				int require_preferred)
 {
 	FILE *fp;
-	int i, node_devnum, have_devnum, have_port_id, read_error;
+	int i, node_pref, node_devnum, have_pref, have_devnum, have_port_id, read_error;
 	long parsed_devnum;
 	char *endptr;
 	char node_fname[64], node_port_id[64], buf[96], *newline;
@@ -228,7 +230,9 @@ find_modem_node_by_usb_identity(const char *pattern,
 		if (!fp)
 			continue;
 
+		node_pref = 0;
 		node_devnum = 0;
+		have_pref = 0;
 		have_devnum = 0;
 		have_port_id = 0;
 		read_error = 0;
@@ -242,7 +246,15 @@ find_modem_node_by_usb_identity(const char *pattern,
 			}
 			*newline = '\0';
 
-			if (!strncmp(buf, "devnum=", 7)) {
+			if (!strncmp(buf, "pref=", 5)) {
+				if (have_pref || (buf[5] != '0' && buf[5] != '1') ||
+				    buf[6] != '\0') {
+					read_error = 1;
+					break;
+				}
+				node_pref = buf[5] - '0';
+				have_pref = 1;
+			} else if (!strncmp(buf, "devnum=", 7)) {
 				const char *digit;
 				if (have_devnum || !buf[7]) {
 					read_error = 1;
@@ -285,13 +297,37 @@ find_modem_node_by_usb_identity(const char *pattern,
 		if (fclose(fp) != 0)
 			read_error = 1;
 
-		if (!read_error && have_devnum && have_port_id &&
-		    modem_node_usb_identity_matches(expected_port_id, expected_devnum,
-					    node_port_id, node_devnum))
+		if (!read_error && have_pref && have_devnum && have_port_id &&
+		    modem_node_usb_identity_node_is_eligible(
+			    expected_port_id, expected_devnum, node_port_id, node_devnum,
+			    i, node_pref, manual_index, require_preferred))
 			return i;
 	}
 
 	return -1;
+}
+
+static int
+get_modem_node_by_usb_identity(const char *pattern,
+			       const char *expected_port_id,
+			       int expected_devnum)
+{
+	int manual_index = nvram_get_int("modem_node") - 1;
+	int valid_node;
+
+	/* A manual index is a hard pin, but it must belong to this USB device. */
+	if (manual_index >= 0)
+		return find_modem_node_by_usb_identity(pattern, expected_port_id,
+					       expected_devnum, manual_index, 0);
+
+	/* Preserve the legacy preferred-control-port selection within this modem. */
+	valid_node = find_modem_node_by_usb_identity(pattern, expected_port_id,
+					     expected_devnum, -1, 1);
+	if (valid_node < 0)
+		valid_node = find_modem_node_by_usb_identity(pattern, expected_port_id,
+					     expected_devnum, -1, 0);
+
+	return valid_node;
 }
 
 static int
@@ -617,17 +653,20 @@ ndis_control_network(char *ndis_ifname, int devnum, int is_start)
 	if (get_usb_port_by_device(ndis_ifname, ndis_port_id, sizeof(ndis_port_id))) {
 		ndis_port_id[sizeof(ndis_port_id) - 1] = '\0';
 		valid_node = find_modem_node_by_usb_identity("cdc-wdm",
-						       ndis_port_id, devnum);
+						       ndis_port_id, devnum, -1, 0);
 		if (valid_node >= 0)
 			snprintf(control_node_wdm, sizeof(control_node_wdm),
 				 "cdc-wdm%d", valid_node);
-	}
 
-	/* check matching TTY device */
-	valid_node = get_modem_node("ttyUSB", devnum, NULL);
-	if (valid_node >= 0)
-		snprintf(control_node_tty, sizeof(control_node_tty),
-			 "ttyUSB%d", valid_node);
+		/*
+		 * TTY fallback obeys the same physical identity. A manual index or
+		 * preferred port on another modem must never control this interface.
+		 */
+		valid_node = get_modem_node_by_usb_identity("ttyUSB", ndis_port_id, devnum);
+		if (valid_node >= 0)
+			snprintf(control_node_tty, sizeof(control_node_tty),
+				 "ttyUSB%d", valid_node);
+	}
 
 	if (strlen(control_node_wdm) > 0) {
 		if (is_usbnet_has_module(ndis_ifname, "qmi_wwan"))
