@@ -169,12 +169,7 @@ echo stubborn > "$state_file"
 : > "$events_file"
 ADBYBY_TEST_KILL_MODE=keep
 if adbyby_uprules; then fail "update succeeded while the old daemon remained alive"; fi
-if grep -E '^(addscripts|add_rules|launch|add_dns|add_rule|hosts_ads|restart_dhcpd)
-	fail "rule update continued after Adbyby stop failure"
-fi
-
-echo "Adbyby stop postcondition and fail-closed cleanup regression: PASS"
- "$events_file" >/dev/null; then
+if grep -E '^(addscripts|add_rules|launch|add_dns|add_rule|hosts_ads|restart_dhcpd)$' "$events_file" >/dev/null; then
 	fail "rule update continued after Adbyby stop failure"
 fi
 
