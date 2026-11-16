@@ -1295,7 +1295,15 @@ for module_name in (
 assert "return start_status;" in wireless_bulk_loader
 assert "boot_modules_status = load_wireless_modules();" in rc_source
 assert "Router initialization continuing with one or more unavailable hardware modules" in rc_source
-assert rc_source.index("boot_modules_status = load_wireless_modules();") < rc_source.index("load_mmc_modules();")
+wireless_boot_load = rc_source.index("boot_modules_status = load_wireless_modules();")
+for module_group in (
+    "boot_modules_status, load_mmc_modules());",
+    "boot_modules_status, load_usb_modules());",
+    "boot_modules_status, load_ata_modules());",
+    "boot_modules_status, load_crypto_modules());",
+    "boot_modules_status, load_ipset_modules());",
+):
+    assert wireless_boot_load < rc_source.index(module_group), module_group
 assert "int boot_services_status = boot_modules_status;" in rc_source
 assert "int service_start_status = start_services_once(is_ap_mode);" in rc_source
 assert "rc_first_service_start_status(boot_services_status," in rc_source

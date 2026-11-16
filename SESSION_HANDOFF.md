@@ -15,11 +15,11 @@ For each logical task, create all changed files in one Git tree and one atomic m
 
 ## Active task
 
-Production-source commit `8a8dfed5441936dc9fcf8e9414f45a21684aff33` adds post-load-verified status reporting for USB/XHCI/EHCI/OHCI, AHCI, MMC/SDHCI, MTK AES and IPSet module groups, retaining XHCI's `usb3_disable` parameter and aggregating first errors into `init_router()`. Its exact-source XY-C1 workflow completed SUCCESS on run `43823036488`, job `133150286335`: boot module policy regression, semantic module-group check, Build XY-C1, TRX verification and artifact upload all passed.
+Production-source commit `8a8dfed5441936dc9fcf8e9414f45a21684aff33` adds post-load-verified status reporting for USB/XHCI/EHCI/OHCI, AHCI, MMC/SDHCI, MTK AES and IPSet module groups, retains XHCI's `usb3_disable` parameter, and aggregates first errors into `init_router()`. Exact-source XY-C1 workflow `43823036488`, job `133150286335`, completed SUCCESS including module policy regression, semantic module-group check, Build XY-C1, TRX verification and artifact upload.
 
-WAN-route regression is green on exact main `f9de514198a1b6cb90b1e12528b87e7d16f955c2`: run `43823916390` SUCCESS. The process-lifecycle exact-head run `43823916381`, job `133153102957`, failed only at the final shared-library/RC source contract because its checker still required the former wireless-only `rc_wireless_module_load_verified()` implementation and `wireless_modules_status` variable. The production code intentionally generalized policy to `rc_module_load_verified(module_name, module_param, &ops)` and aggregates all optional hardware groups as `boot_modules_status`; earlier host regressions and the generalized module policy test passed. THIS COMMIT updates those stale checker assumptions, explicitly verifies the retained wireless compatibility wrapper and XHCI parameter-forwarding test, and does not change production behavior. The Process workflow already watches this checker path in both push and pull_request filters.
+The process-lifecycle exact-head run `43825080891`, job `133156882058`, passed all compile/runtime regressions but failed its final RC integration checker at line 1298: it searched for the obsolete bare call `load_mmc_modules();`, while the production caller correctly wraps the call as an argument to `rc_first_service_start_status()`. THIS COMMIT makes the ordering contract compare the actual aggregate-call expressions for MMC/USB/ATA/AES/IPSet against the earlier wireless load. The preceding stale generic-vs-wireless loader contracts were corrected in parent `4bfc47d4aec1548c600039c89a98dc7464e022dc`; this follow-up remains checker-only.
 
-The next engineering item is the legacy `reload_modem_modules()` API. Trace its full implementation, all callers, modem type/rule configuration paths, module availability semantics, and restart/rollback behavior before deciding whether to alter its void return contract. Do not change the prototype without an end-to-end caller contract and regression.
+WAN-route is green on parent exact main `f9de514198a1b6cb90b1e12528b87e7d16f955c2` (`43823916390`). The next production audit is legacy `reload_modem_modules()`: inspect module helper semantics and all callers before changing its void interface. Its NDIS and serial module sets include alternative drivers, so individual missing drivers cannot be treated as fatal without a device-aware selection policy.
 
 ## Files and caller chain reviewed
 
@@ -41,16 +41,16 @@ The next engineering item is the legacy `reload_modem_modules()` API. Trace its 
 
 ## Verification boundary
 
-- L3 firmware verification for boot-module source `8a8dfed5441936dc9fcf8e9414f45a21684aff33`: XY-C1 run `43823036488`, job `133150286335`, completed SUCCESS including module policy regression, semantic group checker, Build XY-C1, TRX verification and artifact upload.
-- Exact main `f9de514198a1b6cb90b1e12528b87e7d16f955c2`: WAN-route `43823916390`, AI handoff `43823916418`, AliDDNS `43823916394`, AliyunDrive `43823916419`, infosvr `43823916437` and AdGuardHome `43823916443` completed SUCCESS. NVRAM `43823916423` was still IN_PROGRESS when checked. Process lifecycle `43823916381` FAILED only in the final RC source-integration checker (job `133153102957`, assertion line 1279); all preceding compile/runtime regressions passed.
-- THIS COMMIT is test/source-contract and handoff-only. Exact-head Process rerun is required. No new firmware build is implied; L3 evidence remains attached to source SHA `8a8dfed...`.
-- Previous IGMP source `3e7acc5caeb8b8a9d0588edbcc8ab9292b750479` also completed XY-C1 Build/TRX/artifact on run `43820348179`. No L4 physical-router validation is claimed; no local full checkout/host execution was available in this session.
+- L3 firmware verification for boot-module source `8a8dfed5441936dc9fcf8e9414f45a21684aff33`: XY-C1 run `43823036488`, job `133150286335`, SUCCESS including module policy regression, source contract, Build XY-C1, TRX verification and artifact upload.
+- Exact main `4bfc47d4aec1548c600039c89a98dc7464e022dc`: Process lifecycle `43825080891` FAILED only in final RC integration checker at line 1298 (stale bare call `load_mmc_modules();`); every prior compile/runtime host regression passed. The other exact-head checks AI handoff `43825080774`, AliDDNS `43825080850`, infosvr `43825080775`, AdGuardHome `43825080872`, AliyunDrive `43825080731`, NVRAM `43825080908` completed SUCCESS.
+- Earlier exact main `f9de514198a1b6cb90b1e12528b87e7d16f955c2`: WAN-route `43823916390` SUCCESS.
+- THIS COMMIT is checker/docs-only; exact-head Process rerun required. No new firmware build is implied; L3 remains attached to `8a8dfed...`. No physical-router L4 validation claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect the exact-head Process inventory/lifecycle Action for THIS COMMIT. Confirm the RC integration checker now validates the generic post-load module helper, wireless compatibility wrapper, boot-module aggregate and parameter-forwarding test. Diagnose any remaining assertion against current source semantics rather than weakening unrelated checks.
-2. Once Process is green, continue the P1 `reload_modem_modules()` audit: trace implementation, declarations, all callers, module helper semantics, modem type/rule transitions, and failure cleanup. Add a regression and propagate a first error only where the end-to-end contract can be preserved. Make a small atomic source/test commit and verify its exact-SHA Actions.
-3. Preserve the immutable backup and distinguish source, CI, XY-C1 and hardware validation. Do not repeat the completed bootstrap or boot-module source audit.
+1. Fetch live `main` and inspect its exact-head Process inventory/lifecycle Action. Confirm the final shared-library/RC integration checker accepts each aggregate module-group call in the correct order and all prior tests remain green.
+2. Once Process is green, continue the P1 `reload_modem_modules()` audit: establish actual supported modem/module combinations, trace all callers and configuration changes, distinguish optional alternative drivers from required module dependencies, and inspect unload/refcount behavior. Do not change the void API until an accurate end-to-end error contract and regression are available.
+3. Preserve the immutable backup; keep source, CI, XY-C1 and hardware validation levels separate. Do not repeat the boot-module source investigation or full bootstrap.
 
 ## Governance constraints
 

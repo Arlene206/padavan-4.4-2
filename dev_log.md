@@ -1,3 +1,11 @@
+## 2026-11-16 15:38 Beijing — Fix boot module aggregate call-order contract
+
+- Parent main: `4bfc47d4aec1548c600039c89a98dc7464e022dc`. Process exact-head run `43825080891`, job `133156882058`, completed all compiled/runtime tests successfully, then failed its final source integration checker at line 1298 because the checker searched for a bare `load_mmc_modules();` call.
+- The production code correctly calls that function as an argument to `rc_first_service_start_status()`. Replaced the obsolete bare-call comparison with ordered checks for the actual aggregate expressions for MMC, USB, ATA, crypto and IPSet after the initial wireless load.
+- This is checker/docs-only; no firmware source or policy test changed. Previous source SHA `8a8dfed...` has exact XY-C1 Build/TRX/artifact SUCCESS on run `43823036488`; prior WAN-route exact main `f9de514...` passed run `43823916390`.
+- Exact-head Process rerun required. Next production investigation remains `reload_modem_modules()`, with special care because driver lists contain alternative modules and unload return values are overloaded.
+---
+
 ## 2026-11-16 15:34 Beijing — Align RC process integration checker with generalized module loader
 
 - Parent main: `f9de514198a1b6cb90b1e12528b87e7d16f955c2`. Exact-head Process run `43823916381`, job `133153102957`, passed all compile/runtime policy tests, then failed only in the final RC source-integration checker because it still required `ops->load(module_name, NULL)`, the wireless-only helper call and `wireless_modules_status`.
