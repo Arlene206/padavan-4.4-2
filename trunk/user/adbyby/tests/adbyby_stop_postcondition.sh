@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-repo_root=$(CDPATH= cd -- "$(dirname "$0")/../../.." && pwd)
+repo_root=$(CDPATH= cd -- "$(dirname "$0")/../../../.." && pwd)
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 mkdir -p "$tmp/bin"
@@ -15,6 +15,7 @@ case "$(cat "$ADBYBY_TEST_STATE")" in
 	absent) exit 1 ;;
 	error) exit 2 ;;
 	malformed) echo "123 nope"; exit 0 ;;
+	stubborn) echo "123"; exit 0 ;;
 	running) echo "123"; exit 0 ;;
 	*) exit 2 ;;
 esac
