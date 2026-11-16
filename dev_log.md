@@ -1,3 +1,11 @@
+## 2026-11-16 — Update the HTTPD umbrella's automount ownership contract
+
+- Parent main: `b54a701c35e35549a183eca6bf48c86d5dffb855`. Exact-head HTTPD umbrella run `43917116031` failed at the combined filesystem-checker assertion after the preceding HTTPD, NVRAM, wireless, DHCP, safe-eject and mount-inventory checks had passed. The immediate failure was a Python `ValueError: substring not found`: its old source contract still searched for `mountpoint -q` preflight and postcondition calls removed by the fail-closed mount-owner fix.
+- Replaced the stale assertion with the current contract: the mount lock precedes the first checked owner lookup; all three preflight/revalidation/postcondition lookups occur; owned/foreign/absent/UNKNOWN return states are retained; the exact-device postcondition precedes lock release; and no `mountpoint -q` shortcut remains.
+- Workflow-contract-only change; no product source modified. Exact-head HTTPD rerun for THIS COMMIT pending. Frozen backup unchanged; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Fail closed when NDIS modem interface bring-up fails
 
 - Parent main: `4a299088849a2f22993ea89f551da1bf1a56be67`. `launch_wan_usbnet()` set the selected NDIS interface's MTU and `up` state via `doSystem("ifconfig ...")` but ignored its return value, then continued firewall setup, USB modem control and WAN DHCP. An IFUP/MTU failure could therefore be hidden behind a later successful DHCP launch.
