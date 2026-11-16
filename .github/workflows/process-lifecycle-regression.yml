@@ -421,6 +421,7 @@ jobs:
 
           rc = Path("trunk/user/rc/src")
           lan = (rc / "net_lan.c").read_text()
+          wifi = (rc / "net_wifi.c").read_text()
           init = (rc / "rc.c").read_text()
           header = (rc / "rc.h").read_text()
           regression = (rc / "tests/service_start_status.c").read_text()
@@ -549,7 +550,33 @@ jobs:
           assert "rc_module_load_verified(module_name, module_param, &ops)" in module_loader
           assert "is_module_loaded" in module_loader
           assert 'init_bridge_load_module_verified("iNIC_mii", inic_param)' in init_bridge
-          assert 'rc_bridge_init_record(&bridge_status, "required iNIC MII module", operation_status);' in init_bridge
+
+          # Every requested radio mode/interface must feed its real start result
+          # into the bridge initializer; otherwise init_router() reports success
+          # even when an enabled AP/WDS/APCLI interface failed to come up.
+          for signature in (
+              "start_wifi_ap_rt(int radio_on)", "start_wifi_wds_rt(int radio_on)",
+              "start_wifi_apcli_rt(int radio_on)", "start_wifi_ap_wl(int radio_on)",
+              "start_wifi_wds_wl(int radio_on)", "start_wifi_apcli_wl(int radio_on)",
+          ):
+              assert signature in wifi, signature
+          for call, operation in (
+              ("start_wifi_ap_rt(rt_radio_on)", "2.4GHz AP radio startup"),
+              ("start_wifi_wds_rt(rt_radio_on)", "2.4GHz WDS radio startup"),
+              ("start_wifi_apcli_rt(rt_radio_on)", "2.4GHz APCLI radio startup"),
+              ("start_wifi_ap_wl(wl_radio_on)", "5GHz AP radio startup"),
+              ("start_wifi_wds_wl(wl_radio_on)", "5GHz WDS radio startup"),
+              ("start_wifi_apcli_wl(wl_radio_on)", "5GHz APCLI radio startup"),
+          ):
+              expected = "operation_status = " + call + ";"
+              recorded = 'rc_bridge_init_record(&bridge_status, "' + operation + '", operation_status);'
+              assert expected in init_bridge, expected
+              assert recorded in init_bridge, recorded
+          assert init_bridge.index("operation_status = start_wifi_ap_rt(rt_radio_on);") < init_bridge.index('rc_bridge_init_record(&bridge_status, "2.4GHz AP radio startup", operation_status);')
+          assert init_bridge.index('rc_bridge_init_record(&bridge_status, "2.4GHz AP radio startup", operation_status);') < init_bridge.index("operation_status = ifconfig(IFNAME_BR, IFUP, NULL, NULL);")
+          assert "return rc_bridge_init_result(&bridge_status);" in init_bridge
+
+                    assert 'rc_bridge_init_record(&bridge_status, "required iNIC MII module", operation_status);' in init_bridge
           assert "optional hw_nat bridge offload unavailable" in init_bridge
           assert 'init_bridge_load_module_verified("hw_nat", "ttl_regen=0")' in init_bridge
           assert ("int" + chr(10) + "switch_config_vlan(int first_call)") in lan

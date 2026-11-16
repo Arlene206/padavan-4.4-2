@@ -309,23 +309,35 @@ init_bridge(int is_ap_mode)
 #endif
 
 #if BOARD_2G_IN_SOC || defined (BOARD_MT7915_DBDC)
-	start_wifi_ap_rt(rt_radio_on);
-	start_wifi_wds_rt(rt_radio_on);
-	start_wifi_apcli_rt(rt_radio_on);
+	operation_status = start_wifi_ap_rt(rt_radio_on);
+	rc_bridge_init_record(&bridge_status, "2.4GHz AP radio startup", operation_status);
+	operation_status = start_wifi_wds_rt(rt_radio_on);
+	rc_bridge_init_record(&bridge_status, "2.4GHz WDS radio startup", operation_status);
+	operation_status = start_wifi_apcli_rt(rt_radio_on);
+	rc_bridge_init_record(&bridge_status, "2.4GHz APCLI radio startup", operation_status);
 #if BOARD_HAS_5G_RADIO
-	start_wifi_ap_wl(wl_radio_on);
-	start_wifi_wds_wl(wl_radio_on);
-	start_wifi_apcli_wl(wl_radio_on);
+	operation_status = start_wifi_ap_wl(wl_radio_on);
+	rc_bridge_init_record(&bridge_status, "5GHz AP radio startup", operation_status);
+	operation_status = start_wifi_wds_wl(wl_radio_on);
+	rc_bridge_init_record(&bridge_status, "5GHz WDS radio startup", operation_status);
+	operation_status = start_wifi_apcli_wl(wl_radio_on);
+	rc_bridge_init_record(&bridge_status, "5GHz APCLI radio startup", operation_status);
 #endif
 #else /* BOARD_2G_IN_SOC || defined (BOARD_MT7915_DBDC) */
 #if BOARD_HAS_5G_RADIO
-	start_wifi_ap_wl(wl_radio_on);
-	start_wifi_wds_wl(wl_radio_on);
-	start_wifi_apcli_wl(wl_radio_on);
+	operation_status = start_wifi_ap_wl(wl_radio_on);
+	rc_bridge_init_record(&bridge_status, "5GHz AP radio startup", operation_status);
+	operation_status = start_wifi_wds_wl(wl_radio_on);
+	rc_bridge_init_record(&bridge_status, "5GHz WDS radio startup", operation_status);
+	operation_status = start_wifi_apcli_wl(wl_radio_on);
+	rc_bridge_init_record(&bridge_status, "5GHz APCLI radio startup", operation_status);
 #endif
-	start_wifi_ap_rt(rt_radio_on);
-	start_wifi_wds_rt(rt_radio_on);
-	start_wifi_apcli_rt(rt_radio_on);
+	operation_status = start_wifi_ap_rt(rt_radio_on);
+	rc_bridge_init_record(&bridge_status, "2.4GHz AP radio startup", operation_status);
+	operation_status = start_wifi_wds_rt(rt_radio_on);
+	rc_bridge_init_record(&bridge_status, "2.4GHz WDS radio startup", operation_status);
+	operation_status = start_wifi_apcli_rt(rt_radio_on);
+	rc_bridge_init_record(&bridge_status, "2.4GHz APCLI radio startup", operation_status);
 #endif
 
 	if (rt_radio_on)
