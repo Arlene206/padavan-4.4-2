@@ -75,7 +75,10 @@ for signature, call in (
 
 init = compact(body(RC_SOURCE, "init_router(void)"))
 assert "wan_start_status = start_wan();" in init
-assert "boot_services_status = rc_first_service_start_status(boot_services_status, wan_start_status);" in init
+assert re.search(
+    r"boot_services_status\s*=\s*rc_first_service_start_status\s*\(\s*boot_services_status\s*,\s*wan_start_status\s*\)\s*;",
+    init,
+)
 
 for call in (
     "full_restart_wan()",

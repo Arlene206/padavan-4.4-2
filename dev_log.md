@@ -1,3 +1,12 @@
+## 2026-11-16 — Accept multiline boot-status aggregation in modem checker
+
+- Parent main: `1e9f5f17d51ac43e9e6bd8911ba1e140f45634ab`. Exact-head Process run `43842801289` and XY-C1 run `43842801305` both passed the RC boot service and modem policy host regressions, then stopped at the modem source checker because `init_router()` wraps its `rc_first_service_start_status()` arguments across lines.
+- The previous checker correction made the three `start_wan()` modem aggregation checks whitespace-tolerant; this follow-up applies the same semantic regex rule to the boot-service WAN aggregation assertion. No C behavior changed.
+- XY-C1 did not reach its cross-build, TRX or artifact steps on this parent. No L3/L4 result is claimed. New exact-head Process/XY Actions must verify the checker before the TTY identity slice is considered covered.
+- Next: bind NDIS TTY fallback selection to the exact physical USB port ID + devnum, preserving manual-index and preferred-node behavior only within that device.
+
+---
+
 ## 2026-11-16 — Make modem status source checker whitespace-safe
 
 - Parent main: `3d0a5692490b6eb1bc35fae74c74764be4fa234d`. Review of the newly committed checker correction found that the Python raw regex still contained doubled backslashes, so it matched a literal backslash instead of C whitespace; the adjacent RAS-order assertion also still assumed a single-line call.
