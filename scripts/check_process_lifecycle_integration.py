@@ -1469,3 +1469,39 @@ for required_path in (
     assert required_path in process_workflow
     assert required_path in xy_workflow
 print("VPN server restart propagates teardown, start, restoration and unlock failures: PASS")
+
+
+# UPnP restart refuses to reapply firewall rules when stop_upnp() cannot
+# prove that the old daemon stopped; preserve that status to PID 1.
+upnp_restart_policy = (root / "trunk/user/rc/src/upnp_restart_policy.h").read_text()
+upnp_restart_test = (root / "trunk/user/rc/src/tests/upnp_restart_policy.c").read_text()
+upnp_restart_source = (root / "trunk/user/rc/src/services_ex.c").read_text()
+upnp_restart_rc = (root / "trunk/user/rc/src/rc.c").read_text()
+upnp_restart_header = (root / "trunk/user/rc/src/rc.h").read_text()
+upnp_restart_body = upnp_restart_source.split(
+    "int" + chr(10) + "restart_upnp(void)", 1
+)[1].split("int" + chr(10) + "ddns_updated_main", 1)[0]
+assert '#include "upnp_restart_policy.h"' in upnp_restart_source
+assert "int restart_upnp(void);" in upnp_restart_header
+assert "void restart_upnp(void);" not in upnp_restart_header
+assert "rc_upnp_restart_run(stop_upnp, restart_firewall)" in upnp_restart_body
+assert "return ret;" in upnp_restart_body
+assert "action_result = rc_notify_merge_action_result(action_result, restart_upnp());" in upnp_restart_rc
+for test_case in (
+    "test_success_stops_then_restarts_firewall",
+    "test_stop_failure_aborts_firewall_restart_and_propagates",
+    "test_stop_error_codes_are_preserved",
+    "test_invalid_callbacks_fail_without_side_effects",
+):
+    assert test_case in upnp_restart_test
+assert "Compile and run RC UPnP restart stop-result regression" in process_workflow
+assert "Compile and run RC UPnP restart stop-result regression" in xy_workflow
+for required_path in (
+    '"trunk/user/rc/src/upnp_restart_policy.h"',
+    '"trunk/user/rc/src/tests/upnp_restart_policy.c"',
+    '"trunk/user/rc/src/services_ex.c"',
+    '"trunk/user/rc/src/rc.h"',
+):
+    assert required_path in process_workflow
+    assert required_path in xy_workflow
+print("RC UPnP restart preserves daemon stop failure in PID 1 result: PASS")

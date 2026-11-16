@@ -33,6 +33,7 @@
 #include <net/ethernet.h>
 
 #include "rc.h"
+#include "upnp_restart_policy.h"
 #include "dnsmasq_file.h"
 #include "dnsmasq_dhcp_range_policy.h"
 #include "dnsmasq_static_host_policy.h"
@@ -1950,19 +1951,15 @@ update_upnp(void)
 	return 0;
 }
 
-void
+int
 restart_upnp(void)
 {
 	int ret;
 
-	ret = stop_upnp();
-	if (ret != 0) {
+	ret = rc_upnp_restart_run(stop_upnp, restart_firewall);
+	if (ret != 0)
 		logmessage(LOGNAME, "skipping firewall restart because miniupnpd is still active (status %d)", ret);
-		return;
-	}
-
-	/* restart_firewall call update_upnp */
-	restart_firewall();
+	return ret;
 }
 
 ///////////////////////////////////////////////////////////////////////
