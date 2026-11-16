@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Ensure XY-C1 builds every USB modem driver requested by the RC loader."""
+"""Ensure XY-C1 builds every optional USB modem driver requested by RC."""
 
 from pathlib import Path
 import re
@@ -9,6 +9,7 @@ CONFIG = (ROOT / "trunk/configs/boards/XY-C1/kernel-4.4.x.config").read_text()
 KCONFIG = (ROOT / "trunk/linux-4.4.x/drivers/usb/serial/Kconfig").read_text()
 SERIAL_MAKEFILE = (ROOT / "trunk/linux-4.4.x/drivers/usb/serial/Makefile").read_text()
 MODEM_SOURCE = (ROOT / "trunk/user/rc/src/usb_modem.c").read_text()
+MODULE_POLICY = (ROOT / "trunk/user/rc/src/modem_module_reload_policy.h").read_text()
 OPTION_SOURCE = ROOT / "trunk/linux-4.4.x/drivers/usb/serial/option.c"
 
 
@@ -26,6 +27,17 @@ def function_body(source: str, signature: str) -> str:
     raise AssertionError(f"unterminated function: {signature}")
 
 
+def string_array(source: str, array_name: str) -> list[str]:
+    match = re.search(
+        rf"static\s+const\s+char\s+\*const\s+{re.escape(array_name)}"
+        rf"\s*\[\]\s*=\s*\{{(.*?)\}};",
+        source,
+        flags=re.DOTALL,
+    )
+    assert match, f"missing RC modem driver array: {array_name}"
+    return re.findall(r'"([^"]+)"', match.group(1))
+
+
 def require_module(symbol: str) -> None:
     assignments = re.findall(
         rf"^{re.escape(symbol)}=(\S+)$", CONFIG, flags=re.MULTILINE
@@ -41,10 +53,14 @@ def require_module(symbol: str) -> None:
     )
 
 
-loader = function_body(
+reload_body = function_body(
     MODEM_SOURCE, "reload_modem_modules(int modem_type, int reload)"
 )
-module_config = {
+group_loader = function_body(
+    MODEM_SOURCE, "load_modem_module_group(const char *group_name,"
+)
+
+ndis_config = {
     "cdc_ether": "CONFIG_USB_NET_CDCETHER",
     "rndis_host": "CONFIG_USB_NET_RNDIS_HOST",
     "qmi_wwan": "CONFIG_USB_NET_QMI_WWAN",
@@ -52,20 +68,65 @@ module_config = {
     "huawei_cdc_ncm": "CONFIG_USB_NET_HUAWEI_CDC_NCM",
     "cdc_mbim": "CONFIG_USB_NET_CDC_MBIM",
     "sierra_net": "CONFIG_USB_SIERRA_NET",
+}
+ras_config = {
     "cdc_acm": "CONFIG_USB_ACM",
     "qcserial": "CONFIG_USB_SERIAL_QUALCOMM",
     "sierra": "CONFIG_USB_SERIAL_SIERRAWIRELESS",
     "option": "CONFIG_USB_SERIAL_OPTION",
 }
 
-require_module("CONFIG_USB_USBNET")
-require_module("CONFIG_USB_SERIAL")
-require_module("CONFIG_USB_SERIAL_WWAN")
+# Driver names are held in alternative-family arrays and passed to a verified
+# generic loader; they are not direct module_smart_load() call literals here.
+assert string_array(reload_body, "ndis_modules") == list(ndis_config), (
+    "NDIS candidate array no longer matches the supported USB driver family"
+)
+assert string_array(reload_body, "ras_modules") == list(ras_config), (
+    "RAS candidate array no longer matches the supported serial driver family"
+)
+assert string_array(reload_body, "serial_aux_modules") == [
+    "qcserial", "sierra", "option"
+], "NDIS supplemental AT/control driver candidates changed unexpectedly"
 
-for module_name, symbol in module_config.items():
-    assert f'module_smart_load("{module_name}",' in loader, (
-        f"RC modem reload no longer requests expected module {module_name}"
-    )
+params_match = re.search(
+    r"static\s+const\s+char\s+\*const\s+ndis_params\s*\[\]\s*=\s*\{(.*?)\};",
+    reload_body,
+    flags=re.DOTALL,
+)
+assert params_match, "missing NDIS per-driver parameter array"
+params = re.findall(r'NULL|"([^"]*)"', params_match.group(1))
+assert params == ["", "", "", "prefer_mbim=0", "", "", ""], (
+    f"unexpected NDIS module parameters: {params}"
+)
+
+compact_reload = re.sub(r"\s+", " ", reload_body)
+assert re.search(
+    r'if\s*\(modem_type\s*==\s*3\).*?'
+    r'load_modem_module_group\("NDIS",\s*ndis_modules,\s*ndis_params,',
+    compact_reload,
+), "NDIS driver family is no longer selected for modem_type 3"
+assert re.search(
+    r'else\s*\{.*?load_modem_module_group\("RAS",\s*ras_modules,\s*NULL,',
+    compact_reload,
+), "RAS driver family is no longer selected for non-NDIS modem types"
+
+# The generic loader attempts every optional candidate and probes observable
+# /sys/module state; the legacy modprobe return value is not treated as proof.
+assert "module_smart_load" in group_loader
+assert "is_module_loaded" in group_loader
+assert "rc_modem_module_load_group_verified(module_names, module_params" in group_loader
+load_index = MODULE_POLICY.index("(void)ops->load(module_names[i]")
+probe_index = MODULE_POLICY.index("ops->is_loaded(module_names[i])")
+assert load_index < probe_index
+assert "return available > 0 ? 0 : ENODEV;" in MODULE_POLICY
+
+for symbol in (
+    "CONFIG_USB_USBNET",
+    "CONFIG_USB_SERIAL",
+    "CONFIG_USB_SERIAL_WWAN",
+    *ndis_config.values(),
+    *ras_config.values(),
+):
     require_module(symbol)
 
 option_start = KCONFIG.index("config USB_SERIAL_OPTION\n")
@@ -81,5 +142,6 @@ assert OPTION_SOURCE.is_file(), "USB serial option driver source is missing"
 
 print(
     "XY-C1 USB modem driver configuration: PASS "
-    f"({len(module_config)} runtime modules mapped to loadable kernel modules)"
+    f"({len(ndis_config)} NDIS + {len(ras_config)} RAS optional modules mapped "
+    "to loadable kernel modules)"
 )

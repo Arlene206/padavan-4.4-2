@@ -1,3 +1,13 @@
+## 2026-11-16 — Align XY-C1 modem config checker with alternative driver arrays
+
+- Parent main: 5c74753c5af2951f477f733b1f3d6e1d78dc1824. Prior XY-C1 run 43848100619 failed before firmware Build because the checker still required module_smart_load("cdc_ether", ...) to be a direct call in reload_modem_modules(); the loader now dispatches NDIS/RAS array candidates through load_modem_module_group().
+- Reworked scripts/check_usb_modem_driver_config.py to verify exact NDIS/RAS candidate arrays, parameter alignment (cdc_ncm: prefer_mbim=0), family branch routing, verified generic loader callbacks and post-load /sys/module probe order. It still enforces all 11 driver Kconfig symbols as modules plus USB serial option Kconfig/Makefile wiring.
+- Live-source precommit checks confirmed both arrays, the branch calls and group loader semantics. The prior exact-head modem module regression 43848100315 passed; this is a checker-only correction, not a driver-code change.
+- Parent 5c74753c5af2951f477f733b1f3d6e1d78dc1824 XY-C1 run 43848474467 and Process/LAN run 43848475098 were in progress at last inspection. No Build/TRX/artifact L3 or physical-router/L4 result is claimed.
+- Next: inspect exact-head checker rerun and current LAN/Process/XY results; then continue evidence-based device binding and broader RC service reliability work.
+
+---
+
 ## 2026-11-16 — Propagate LAN boot and restart setup failures
 
 - Parent main: `aeba90439f0b68cd35a67be7d3e821164597bc4f`. USB identity `43848100315` passed. AI docs `43848100602`, HTTPD `43848100398`, WAN route `43848100725`, WAN teardown `43848100704`, infosvr `43848100855`, Adbyby `43848100618`, OpenVPN client `43848100354`, AliyunDrive `43848100655`, ZeroTier `43848100633`, Crond `43848100348`, NFS `43848100601`, iNIC `43848100591`, Firewall `43848100711`, VPN server `43848100283`, miniupnpd `43848100903`, wireless `43848100599`, rstats `43848100463`, watchdog `43848100503`, PID 1 notifications `43848100441`, networkmap `43848100396`, detect_internet `43848100598`, detect_link `43848100654`, FRP `43848100482` passed.

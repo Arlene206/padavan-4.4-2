@@ -1,10 +1,10 @@
 ## Current source / CI checkpoint
 
-- Current main before THIS HTTPD checker correction: `b83383f9798d5a3e43d86877f9f37c0b1594ffd0`; production NDIS metadata cleanup is implemented in `b83383f9798d5a3e43d86877f9f37c0b1594ffd0`.
-- Exact-head USB identity `43847475018` and AI handoff `43847474937` SUCCESS. Process lifecycle `43847474942` and infosvr `43847475001` SUCCESS. HTTPD umbrella `43847474960` failed only because its metadata step still required direct network-handler writes after NDIS moved to the cleanup helper; this correction updates those source assertions.
-- NVRAM `43847475238` IN_PROGRESS at last inspection. Ancestor XY-C1 `43846822718` was IN_PROGRESS while Build XY-C1 ran; recheck live runs before claiming L3. No physical-router/L4 result.
-- Next: verify exact-head HTTPD/USB/AI and XY-C1/NVRAM; continue the safe `reload_modem_modules()` readiness assessment and broaden RC startup result propagation.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Current main before THIS checker correction: 5c74753c5af2951f477f733b1f3d6e1d78dc1824; LAN startup result propagation landed in 5c74753c5af2951f477f733b1f3d6e1d78dc1824.
+- Modem loader uses 7 NDIS and 4 RAS optional-driver alternatives; ancestor XY-C1 43848100619 failed at a stale literal-call assertion, not a firmware compile error. This patch checks alternative arrays, parameters, Kconfig modules and verified loader semantics. Exact-head XY-C1 rerun required.
+- On parent 5c74753c5af2951f477f733b1f3d6e1d78dc1824: XY-C1 43848474467 and Process/LAN 43848475098 were IN_PROGRESS at last inspection; WAN ARP 43848474894, VPN 43848474624, Inadyn 43848474126, detect_internet 43848474938, PID 1 queue 43848474904 SUCCESS. No current-source Build/TRX/artifact L3 or physical L4 result.
+- USB identity/module-family regression on ancestor aeba90439f0b68cd35a67be7d3e821164597bc4f passed as 43848100315. Module presence still does not prove selected-interface binding.
+- Next: check exact-head checker and LAN/Process results; then continue reliable device-binding evidence and broader RC startup/stop governance. Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains immutable at 72f4f157a084f8184b9597ca5bf334b8080e5807.
 
 ## Whole-repository module status
 
