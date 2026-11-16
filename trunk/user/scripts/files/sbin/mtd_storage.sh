@@ -436,7 +436,11 @@ func_restore()
 		if ! mv "$dir_storage" "$rollback_storage"; then
 			result=1
 			rm -rf "$stage_storage" "$tmp_storage"
-			func_start_apps
+			if [ -d "$dir_storage" ] && [ ! -L "$dir_storage" ] && [ -f "$dir_storage/start_script.sh" ]; then
+				func_start_apps
+			else
+				logger -t "Storage restore" "rstats remains stopped because no storage tree is available: $dir_storage"
+			fi
 			logger -t "Storage restore" "Cannot preserve the previous storage directory before restore"
 			return 1
 		fi
@@ -451,7 +455,11 @@ func_restore()
 		fi
 		result=1
 		rm -rf "$stage_storage" "$tmp_storage"
-		func_start_apps
+		if [ -d "$dir_storage" ] && [ ! -L "$dir_storage" ] && [ -f "$dir_storage/start_script.sh" ]; then
+			func_start_apps
+		else
+			logger -t "Storage restore" "rstats remains stopped because no storage tree is available: $dir_storage"
+		fi
 		logger -t "Storage restore" "Cannot install the staged storage directory"
 		return 1
 	fi

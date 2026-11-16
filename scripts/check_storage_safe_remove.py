@@ -514,6 +514,21 @@ require('tar xf "$tmp" -C "$dir_storage"' not in mtd_load and
         'rm -rf "$dir_storage"' not in mtd_load,
         "MTD load must never extract over or delete live config")
 
+# If both restore publication and rollback fail, keep rstats stopped unless
+# a valid active storage tree is still present.
+restore_start = mtd_storage.index("func_restore()")
+restore_end = mtd_storage.index("\\nfunc_erase()", restore_start)
+restore_body = mtd_storage[restore_start:restore_end]
+restore_start_guard = 'if [ -d "$dir_storage" ] && [ ! -L "$dir_storage" ] && [ -f "$dir_storage/start_script.sh" ]; then'
+require(restore_body.count(restore_start_guard) == 2 and
+        restore_body.count('rstats remains stopped because no storage tree is available') == 2,
+        "restore failure paths must only restart rstats when an active storage tree is available")
+require("RESTORE_FAIL_MV_AT=3" in mtd_storage_restore_test and
+        "double restore rename failure unexpectedly succeeded" in mtd_storage_restore_test and
+        'test ! -s "$RSTAT_LOG"' in mtd_storage_restore_test and
+        'grep -Fqx \'old=preserve-me\' "$1/original.conf"' in mtd_storage_restore_test,
+        "restore transaction regression must preserve rollback data and keep rstats stopped after double rename failure")
+
 # func_erase() creates the one-shot marker to stop runtime repopulating flash.
 # At next boot only zero-byte output proves the partition is blank and allows
 # the lock to be released; nonempty failed decompression remains fail-closed.

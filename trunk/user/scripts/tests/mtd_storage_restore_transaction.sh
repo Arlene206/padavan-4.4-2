@@ -147,6 +147,27 @@ test -f "$sandbox/private/storage_locked"
 set -- "$sandbox"/storage.rollback.*
 test ! -e "$1"
 
+# If publishing the new tree and restoring the prior tree both fail, the
+# previous settings remain in the rollback directory. Never restart rstats
+# against a missing /etc/storage tree.
+: > "$MV_COUNT_FILE"
+: > "$RSTAT_LOG"
+if RESTORE_FAIL_MV_AT=3 run_restore; then
+	echo "double restore rename failure unexpectedly succeeded" >&2
+	exit 1
+fi
+test ! -e "$sandbox/storage"
+set -- "$sandbox"/storage.rollback.*
+test -d "$1"
+grep -Fqx 'old=preserve-me' "$1/original.conf"
+test ! -e "$RSTAT_PROC_ROOT/321/stat"
+test ! -s "$RSTAT_LOG"
+test -f "$sandbox/private/storage.tar.bz2"
+test -f "$sandbox/private/storage_locked"
+set -- "$sandbox"/storage.restore.*
+test ! -e "$1"
+rm -rf "$sandbox"/storage.rollback.*
+
 : > "$MV_COUNT_FILE"
 run_restore
 test ! -e "$sandbox/storage/original.conf"
