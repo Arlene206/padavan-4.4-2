@@ -351,7 +351,13 @@ jobs:
           assert "WAN physical IPv6 setup incomplete" in wanx
 
           bound = body(wan, "udhcpc_bound(char *wan_ifname, int is_renew_mode)")
-          assert "int interface_status, rollback_status, route_setup_status;" in bound
+          assert "int interface_status, rollback_status, route_setup_status, mtu_status;" in bound
+          assert "mtu_status = set_interface_mtu(wan_ifname, dhcp_mtu);" in bound
+          assert 'logmessage(log_prefix, "%s (%s) MTU setup incomplete (status=%d)"' in bound
+          mtu_failure = bound[bound.index("if (mtu_status != 0)"):bound.index("wan_gw = nvram_safe_get", bound.index("if (mtu_status != 0)"))]
+          assert "i_err =" not in mtu_failure
+          assert "route_setup_status =" not in mtu_failure
+          assert "return " not in mtu_failure
           assert "route_setup_status = man_up_internal(wan_ifname, unit, 0, NULL);" in bound
           assert "route_setup_status = wan_up_internal(wan_ifname, unit, 0);" in bound
           assert "accepted but route setup is incomplete" in bound

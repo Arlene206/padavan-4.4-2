@@ -1,3 +1,12 @@
+## 2026-11-16 — Fix the WAN route source contract after optional MTU reporting
+
+- Parent main: `3375e565983097af355395bffd32a41dcf442b18`. Exact-head WAN route run `43873631807` for source parent `c5dfa15e8c0c4d3998ca01d2ee961f0897282855` failed only at the final source-contract step. Six preceding compile/regression steps passed.
+- Cause: the checker required the old exact declaration `int interface_status, rollback_status, route_setup_status;` in `udhcpc_bound()`, but the preceding source slice correctly added `mtu_status` to capture the optional MTU ioctl result. The workflow now checks the extended declaration and verifies the MTU failure diagnostic does not set `i_err`, mutate `route_setup_status` or return early.
+- Latest main `3375e565983097af355395bffd32a41dcf442b18`: WAN DHCP callback `43873889736` and AI docs `43873889717` PASS. Process inventory/lifecycle `43873889642` and NVRAM `43873889718` were running at last poll. XY-C1 `43873631679` on older SHA `c5dfa15e8c0c4d3998ca01d2ee961f0897282855` was still building; TRX/artifact pending. No L3/L4 claim.
+- Next: verify the WAN route contract repair on its exact SHA, then continue independent process/NVRAM/PPP tasks.
+
+---
+
 ## 2026-11-16 — Validate PPP IPCP IPv4 text before passing it to ifconfig
 
 - Parent main: `c5dfa15e8c0c4d3998ca01d2ee961f0897282855`. Shared `ifconfig()` relies on `inet_addr_safe()`; unparsable IPv4 text becomes `INADDR_ANY`, while interface setup may still appear successful. PPP ip-up required `IPLOCAL` and `IPREMOTE` to be non-empty, but did not validate their text or its netmask before calling that helper.

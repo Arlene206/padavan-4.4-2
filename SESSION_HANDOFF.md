@@ -11,27 +11,26 @@ For each logical task, create all changed files in one Git tree and one atomic m
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; active ref: `main`.
-- Parent main for this PPP IPCP validation slice: `c5dfa15e8c0c4d3998ca01d2ee961f0897282855`; all writes are complete-tree atomic commits followed by non-forced expected-SHA compare-and-swap.
+- Parent main for this WAN-route contract repair: `3375e565983097af355395bffd32a41dcf442b18`; all writes are complete-tree atomic commits followed by non-forced expected-SHA compare-and-swap.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. Startup recovery complete; do not repeat.
-- Root dev log has 36 records before this entry; part-012 retains the oldest 100.
+- Root dev log has 37 records before this entry; part-012 retains the oldest 100.
 - Static MAN and static IPoE reject malformed IPv4/netmask before `ifconfig()`; WAN/LAN overlap returns EADDRINUSE. PPP ip-up requires and validates both IPCP endpoints before configuring the interface or publishing lease state.
 - IPv6 teardown preserves the previous live `ifname6` through RA/autoconf, route and address cleanup; DHCPv6 callback generation fencing is retained.
 
 ## Active task
 
-The shared `ifconfig()` helper uses `inet_addr_safe()`, which returns `INADDR_ANY` for malformed address text. PPP ip-up previously rejected only missing/empty `IPLOCAL` and `IPREMOTE`; malformed non-empty strings such as `not-an-ip`, non-canonical dotted quads, or `0.0.0.0` could still be passed to ifconfig and published as a successful WAN lease. The PPP ip-up policy now reuses the existing strict `dhcp_lease_ipv4_is_valid()` validator for local and peer addresses plus `dhcp_lease_netmask_is_valid()` for the mask. Regression tests require EINVAL and no interface/NVRAM side effects for malformed values.
+The exact-head WAN route workflow on `c5dfa15e8c0c4d3998ca01d2ee961f0897282855` failed only in its final source-contract step. The failing assertion still expected `udhcpc_bound()` to declare only `interface_status, rollback_status, route_setup_status`; static MTU result capture had correctly extended it with `mtu_status`. The workflow now checks the updated declaration and verifies MTU ioctl failures are logged but do not set lease/route failure state or return early. Product code and the DHCP WAN callback test already passed their own exact-head checks.
 
 ## Verification boundary
 
-Parent `c5dfa15e8c0c4d3998ca01d2ee961f0897282855` was the latest verified source baseline when this slice started:
-- WAN DHCP callback `43872745445`: PASS; WAN route `43872745447`: PASS; AI docs `43872745205`: PASS.
-- Process lifecycle `43872746090`, HTTPD `43872745252`, AdGuardHome `43872745181`, AliDDNS `43872745603`, infosvr `43872745324`, AliyunDrive `43872745057`, NVRAM `43872745634`: PASS.
-- Process inventory/lifecycle `43872745882` and XY-C1 firmware `43872745244` were still running at last inspection; XY-C1 Build/TRX/artifact not yet verified on that same SHA.
-- This PPP strict-address validation commit has not yet had exact-head Actions. No same-SHA firmware L3 or hardware L4 result is claimed.
+- Current main before this contract repair: `3375e565983097af355395bffd32a41dcf442b18`, parent of this commit. PPP strict IPCP validation is present.
+- On product/workflow SHA `c5dfa15e8c0c4d3998ca01d2ee961f0897282855`: WAN DHCP `43873631601` PASS; WAN interface teardown `43873631728` PASS; AI docs `43873631558` PASS; WAN route `43873631807` FAIL only in final source-contract step due the stale declaration assertion; all six preceding route regressions passed.
+- XY-C1 `43873631679`: Build XY-C1 still in progress at last poll; TRX/artifact pending. No same-SHA L3 claim.
+- On latest main `3375e565983097af355395bffd32a41dcf442b18`: WAN DHCP `43873889736` PASS; AI docs `43873889717` PASS; Process inventory/lifecycle `43873889642` and NVRAM `43873889718` IN_PROGRESS. WAN-route contract repair has not yet run. Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head WAN DHCP callback regression and source contract for strict PPP local/peer IPv4 validation.
-2. Inspect XY-C1 Build, TRX verification and artifact upload on that identical SHA; repair any first causal failure.
-3. Continue bounded WAN/PPP callback review only for concrete stability/security defects; preserve session generation and lock fencing.
-4. Claim L3 only after same-SHA Build, TRX and artifact upload pass. Physical-router L4 remains unverified.
+1. Check the exact-head WAN route workflow triggered by this source-contract repair; repair any genuine first causal failure.
+2. Check exact-head NVRAM, Process inventory and XY-C1 statuses; continue independent tasks while any Actions remain pending.
+3. Continue PPP IPv4/IPv6 callback review only for concrete error-propagation or stale-state defects; preserve callback lock/generation fencing.
+4. Claim L3 only after Build, TRX verification and artifact upload pass on one identical source SHA. Physical-router L4 remains unverified.

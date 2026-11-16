@@ -1,8 +1,12 @@
 ## Current source / CI checkpoint
 
-- Product-source parent: `c5dfa15e8c0c4d3998ca01d2ee961f0897282855`; static MAN/ IPoE address and mask validation prevents false-success ifconfig calls. PPP ip-up now validates strict canonical local/peer IPv4 text and netmask before applying interface state or publishing the lease.
-- WAN DHCP callback `43872745445`, WAN route `43872745447`, AI docs `43872745205`, Process lifecycle `43872746090`, HTTPD `43872745252`, AdGuardHome `43872745181`, AliDDNS `43872745603`, infosvr `43872745324`, AliyunDrive `43872745057`, NVRAM `43872745634`: PASS on the parent SHA.
-- XY-C1 `43872745244` and Process inventory `43872745882` were still in progress at last inspection; no same-SHA firmware L3 claim. Hardware L4 NOT VERIFIED.
+- Product-source parent: `3375e565983097af355395bffd32a41dcf442b18`; static MAN/IPoE address and netmask validation rejects malformed inputs before `ifconfig()`. PPP ip-up validates strict canonical local/peer IPv4 and netmask before interface state or lease publication.
+- WAN DHCP callback `43873889736` and AI docs `43873889717`: PASS on current main.
+- Process inventory/lifecycle `43873889642` and NVRAM transaction `43873889718`: IN_PROGRESS at last poll.
+- WAN route `43873631807` on source SHA `c5dfa15e8c0c4d3998ca01d2ee961f0897282855`: FAIL only in the final source contract. It still expected the pre-MTU declaration in `udhcpc_bound()`; prior compile/regression steps passed. The current repair updates the contract and requires MTU ioctl failure to remain diagnostic/nonfatal.
+- XY-C1 `43873631679` on `c5dfa15e8c0c4d3998ca01d2ee961f0897282855`: Build still running at last poll; TRX/artifact pending. It is not the current HEAD, so no same-SHA L3 claim. Physical-router L4 NOT VERIFIED.
+- Optional MTU errors on MAN, static IPoE, DHCP WAN/MAN and DHCP IPTV remain diagnostic-only, not WAN startup errors.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Whole-repository module status
 
