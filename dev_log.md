@@ -1,3 +1,11 @@
+## 2026-11-16 — Align WAN DHCP callback contract with the static MAN address status variable
+
+- Parent main: `3c7a5a125f670335cb1b305674790eece80b1dcc`. WAN route operation regression `43866768822` and AI handoff docs `43866769102` passed. WAN DHCP callback `43866769025` passed all six native GNU89 regression binaries, then failed in its final source-contract step because it still expected `launch_status = ifconfig(...)`. The MAN startup fix intentionally records the direct address result in `address_status` before aggregating route and gateway failures.
+- Updated the WAN DHCP workflow to assert the current `address_status` contract and verify its order before MAN route setup. Product source is unchanged.
+- Next: re-run exact-head WAN DHCP callback and then continue the required PPP/IPoE start-status propagation slice. No L3 claim.
+
+---
+
 ## 2026-11-16 — Align WAN route regressions with first-error MAN status accumulation
 
 - Parent main: `acf73fd0fa217560ed670beb2d92bdd0d0a4a924`. The MAN route source fix correctly replaced `launch_status = gateway_route_status` with first-error `route_status_accumulate()` for both the complete MAN route result and the separate gateway-route result. The WAN route and WAN DHCP callback workflows still asserted the old overwrite assignment, so exact-head runs `43866344779` and `43866344884` failed at those stale expectations; no product source/build failure was indicated.

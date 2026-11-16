@@ -1,10 +1,9 @@
 ## Current source / CI checkpoint
 
-- Product-source baseline: `acf73fd0fa217560ed670beb2d92bdd0d0a4a924`; `launch_wanx()` first-error accumulation is retained across static MAN address, complete MAN route, gateway route and physical IPv6 operations.
-- Exact-head WAN route `43866344779` and WAN DHCP callback `43866344884` failed on stale workflow assertions that still expected `launch_status = gateway_route_status`; the source fix intentionally replaced that overwrite with first-error aggregation.
-- This workflow-only correction updates both contracts to require accumulation of both route operation results.
-- Parent AI docs `43866344868`, infosvr `43866344724`, USB modem identity `43866344763`, VPN `43866344749`, miniupnpd `43866345059`, gateway ARP `43866344761`, detect_internet `43866344886`, WAN teardown `43866344963`, AdGuardHome `43866344879`, Process inventory `43866344891`, DNSMasq `43866344739`, detect_link `43866344715` and AliDDNS `43866344897` passed. Process/XY-C1/NVRAM/HTTPD were still running.
-- No L3/L4 claim. Frozen backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Product-source checkpoint: `3c7a5a125f670335cb1b305674790eece80b1dcc`; required MAN address/route/gateway/physical IPv6 result aggregation uses first-error semantics.
+- WAN route `43866768822` and AI docs `43866769102`: SUCCESS. WAN DHCP callback `43866769025`: stale source assertion expected the superseded direct `launch_status = ifconfig(...)` assignment after six native regressions passed.
+- This correction updates the workflow to verify `address_status = ifconfig(...)` and preserves the source implementation.
+- No same-SHA L3/L4 claim.
 
 
 ## Whole-repository module status
