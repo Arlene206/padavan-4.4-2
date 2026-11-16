@@ -914,7 +914,7 @@ init_router(void)
 {
 	int log_remote, is_ap_mode, nvram_need_commit;
 	int storage_save_status, dnsmasq_start_status;
-	int boot_modules_status;
+	int boot_modules_status, boot_services_status;
 
 #if defined (USE_RTL8367)
 	rtl8367_node();
@@ -975,6 +975,7 @@ init_router(void)
 	boot_modules_status = rc_first_service_start_status(
 		boot_modules_status, load_ipset_modules());
 #endif
+	boot_services_status = boot_modules_status;
 	if (boot_modules_status != 0)
 		logmessage(LOGNAME,
 			   "Router initialization continuing with one or more unavailable hardware modules (first status=%d)",
@@ -988,8 +989,11 @@ init_router(void)
 	storage_load_time();
 
 	log_remote = nvram_invmatch("log_ipaddr", "");
-	if (!log_remote)
-		start_logger(1);
+	if (!log_remote) {
+		int logger_start_status = start_logger(1);
+		boot_services_status = rc_first_service_start_status(
+			boot_services_status, logger_start_status);
+	}
 
 	is_ap_mode = get_ap_mode();
 
@@ -1000,20 +1004,46 @@ init_router(void)
 #endif
 	set_cpu_affinity();
 
-	start_detect_link();
-	start_detect_internet(0);
+	{
+		int detect_link_start_status = start_detect_link();
+		if (detect_link_start_status != 0)
+			logmessage(LOGNAME, "detect_link boot launch failed (status=%d)",
+				   detect_link_start_status);
+		boot_services_status = rc_first_service_start_status(
+			boot_services_status, detect_link_start_status);
+	}
+	{
+		int detect_internet_start_status = start_detect_internet(0);
+		if (detect_internet_start_status != 0)
+			logmessage(LOGNAME, "detect_internet boot launch failed (status=%d)",
+				   detect_internet_start_status);
+		boot_services_status = rc_first_service_start_status(
+			boot_services_status, detect_internet_start_status);
+	}
 	start_lan(is_ap_mode, 0);
 
-	if (log_remote)
-		start_logger(1);
+	if (log_remote) {
+		int logger_start_status = start_logger(1);
+		boot_services_status = rc_first_service_start_status(
+			boot_services_status, logger_start_status);
+	}
 
 	dnsmasq_start_status = start_dns_dhcpd(is_ap_mode);
 	if (dnsmasq_start_status != 0)
 		logmessage(LOGNAME,
 			   "Router initialization continuing without DNSMasq (start status=%d)",
 			   dnsmasq_start_status);
+	boot_services_status = rc_first_service_start_status(
+		boot_services_status, dnsmasq_start_status);
 #if defined (APP_SMBD) || defined (APP_NMBD)
-	start_wins();
+	{
+		int wins_start_status = start_wins();
+		if (wins_start_status != 0)
+			logmessage(LOGNAME, "WINS boot startup failed (status=%d)",
+				   wins_start_status);
+		boot_services_status = rc_first_service_start_status(
+			boot_services_status, wins_start_status);
+	}
 #endif
 
 	if (!is_ap_mode) {
@@ -1054,7 +1084,6 @@ init_router(void)
 	}
 
 	{
-		int boot_services_status = boot_modules_status;
 		int service_start_status = start_services_once(is_ap_mode);
 
 		boot_services_status = rc_first_service_start_status(boot_services_status,

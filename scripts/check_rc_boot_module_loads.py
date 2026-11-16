@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify boot module launch results reach init_router() health reporting."""
+"""Verify boot module and service launch results reach init_router() health reporting."""
 
 from pathlib import Path
 
@@ -66,7 +66,28 @@ assert "boot_modules_status = load_wireless_modules();" in init
 for group in ("load_mmc_modules()", "load_usb_modules()", "load_ata_modules()",
               "load_crypto_modules()", "load_ipset_modules()"):
     assert f"boot_modules_status, {group});" in init, f"init_router must aggregate {group}"
-assert "int boot_services_status = boot_modules_status;" in init
+assert "boot_services_status = boot_modules_status;" in init
 assert "one or more unavailable hardware modules" in init
 
-print("RC boot hardware module result aggregation contracts: PASS")
+normalized_init = " ".join(init.split())
+for name, call in (
+    ("detect_link_start_status", "start_detect_link()"),
+    ("detect_internet_start_status", "start_detect_internet(0)"),
+    ("dnsmasq_start_status", "start_dns_dhcpd(is_ap_mode)"),
+    ("wins_start_status", "start_wins()"),
+    ("service_start_status", "start_services_once(is_ap_mode)"),
+):
+    assert f"{name} = {call};" in normalized_init, (
+        f"init_router must capture {call}"
+    )
+    assert f"boot_services_status, {name});" in normalized_init, (
+        f"init_router must aggregate {name}"
+    )
+
+assert normalized_init.count("logger_start_status = start_logger(1);") == 2
+assert normalized_init.count(
+    "boot_services_status, logger_start_status);"
+) == 2, "both mutually exclusive logger paths must aggregate status"
+assert "one or more boot service startup operations failed" in init
+
+print("RC boot module and service result aggregation contracts: PASS")

@@ -1,3 +1,14 @@
+## 2026-11-16 13:16 Beijing — Aggregate all return-bearing init_router service starts
+
+- Parent main: `7630958f12938ae6014ee859d9eccfd21cdf7503`. All ten exact-head push Actions on that parent completed SUCCESS, including Process inventory `43827946437`, AI handoff `43827946538`, NVRAM `43827946578`, and XY-C1 Firmware Validation `43827946528`.
+- Exact 763 XY-C1 run `43827946528` passed the modem module configuration checker, all staged host regressions, Build XY-C1, TRX verification and artifact upload. TRX size: 12,680,451 bytes; artifact `14207562837`, 12,633,711 bytes, SHA-256 `bf5a475c7d2b599cc07a6ce5c3b6a0ed89410c1857f45fb4bc8d462ded0ac9c8`. This is L3 evidence for 763 only.
+- Source review found `init_router()` discarded both `start_logger()` outcomes, `start_detect_link()`, `start_detect_internet()` and `start_wins()`; it logged `start_dns_dhcpd()` failure but did not include it in the consolidated boot-service result. Thus the final first-error health summary could report success despite one of these startup failures.
+- Captured and merged those return values into the existing first-nonzero `boot_services_status`; added explicit detector and WINS failure logs. The existing `service_start_status.c` GNU89/Werror/ASan/UBSan regression already verifies first-error preservation and signed/positive statuses. Extended `scripts/check_rc_boot_module_loads.py` to enforce all init-router capture/aggregate call sites.
+- No local checkout was available for direct execution. THIS COMMIT's exact-head XY-C1/Process checks are pending after publication; 763's L3 result must not be generalized to the new `rc.c` changes. No L4 router validation is claimed.
+- Next: inspect THIS COMMIT's exact-head source checker, first-error regression and XY-C1 Build/TRX/artifact results. Then continue the device-aware USB modem loader status contract without treating every alternative driver as mandatory.
+
+---
+
 ## 2026-11-16 15:52 Beijing — Enable XY-C1 USB serial option modem driver
 
 - Parent main: `3905bc882d54ee5a37f5dd0493742d9a752565ff`. Process lifecycle exact-main run `43826215394`, job `133160569142`, and the exact-head AI handoff, AdGuardHome, AliDDNS, infosvr, AliyunDrive and NVRAM checks all completed SUCCESS on this parent SHA.
