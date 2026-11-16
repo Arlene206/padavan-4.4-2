@@ -13,33 +13,122 @@ start_zero() {
 	"$DDNSTO_BIN" -u "$(nvram get ddnsto_id)" >/dev/null 2>&1 9>&- &
 }
 
+# Return 0 for RUNNING, 1 only for confirmed ABSENT, and 2 for UNKNOWN.
+# A failed or malformed pidof result must never authorize a new daemon launch.
+ddnsto_process_state() {
+	if ddnsto_process_pids=$(pidof ddnsto 2>/dev/null); then
+		ddnsto_pidof_status=0
+	else
+		ddnsto_pidof_status=$?
+	fi
+	case "$ddnsto_pidof_status" in
+		0)
+			[ -n "$ddnsto_process_pids" ] || return 2
+			case "$ddnsto_process_pids" in
+				*[!0123456789\ ]*) return 2 ;;
+			esac
+			ddnsto_process_count=0
+			for ddnsto_process_pid in $ddnsto_process_pids; do
+				case "$ddnsto_process_pid" in
+					''|0*|1|*[!0-9]*) return 2 ;;
+				esac
+				[ "${#ddnsto_process_pid}" -le 10 ] || return 2
+				[ "$ddnsto_process_pid" -gt 1 ] 2>/dev/null || return 2
+				ddnsto_process_count=$((ddnsto_process_count + 1))
+			done
+			[ "$ddnsto_process_count" -gt 0 ] || return 2
+			return 0
+			;;
+		1)
+			[ -z "$ddnsto_process_pids" ] && return 1
+			return 2
+			;;
+		*) return 2 ;;
+	esac
+}
+
+# Return 0 when absent, 1 when still running after five polls, 2 when UNKNOWN.
 ddnsto_wait_stopped() {
 	ddnsto_wait=0
 	while [ "$ddnsto_wait" -lt 5 ]; do
-		if ! pidof ddnsto >/dev/null 2>&1; then
-			return 0
+		if ddnsto_process_state; then
+			ddnsto_wait_state=0
+		else
+			ddnsto_wait_state=$?
+		fi
+		case "$ddnsto_wait_state" in
+			1) return 0 ;;
+			0) ;;
+			*) return 2 ;;
+		esac
+		if ! sleep 1; then
+			return 2
 		fi
 		ddnsto_wait=$((ddnsto_wait + 1))
-		sleep 1
 	done
-	! pidof ddnsto >/dev/null 2>&1
+	if ddnsto_process_state; then
+		return 1
+	else
+		ddnsto_wait_state=$?
+	fi
+	case "$ddnsto_wait_state" in
+		1) return 0 ;;
+		2) return 2 ;;
+		*) return 1 ;;
+	esac
 }
 
 kill_z() {
-	if ! pidof ddnsto >/dev/null 2>&1; then
-		return 0
+	if ddnsto_process_state; then
+		ddnsto_stop_state=0
+	else
+		ddnsto_stop_state=$?
 	fi
+	case "$ddnsto_stop_state" in
+		1) return 0 ;;
+		0) ;;
+		*)
+			logger -t "DDNSTO" "无法读取DDNSTO进程状态，拒绝发送信号"
+			return 1
+			;;
+	esac
+
 	logger -t "DDNSTO" "关闭进程..."
-	killall ddnsto >/dev/null 2>&1
+	if killall ddnsto >/dev/null 2>&1; then
+		ddnsto_term_status=0
+	else
+		ddnsto_term_status=$?
+		logger -t "DDNSTO" "TERM信号命令返回错误(status=$ddnsto_term_status)，继续验证进程状态"
+	fi
 	if ddnsto_wait_stopped; then
 		return 0
+	else
+		ddnsto_wait_status=$?
 	fi
+	case "$ddnsto_wait_status" in
+		1) ;;
+		*)
+			logger -t "DDNSTO" "TERM后进程状态未知，拒绝升级信号"
+			return 1
+			;;
+	esac
+
 	logger -t "DDNSTO" "正常停止超时，强制结束进程..."
-	killall -9 ddnsto >/dev/null 2>&1
+	if killall -9 ddnsto >/dev/null 2>&1; then
+		ddnsto_kill_status=0
+	else
+		ddnsto_kill_status=$?
+		logger -t "DDNSTO" "SIGKILL命令返回错误(status=$ddnsto_kill_status)，继续验证进程状态"
+	fi
 	if ddnsto_wait_stopped; then
 		return 0
+	else
+		ddnsto_wait_status=$?
 	fi
-	logger -t "DDNSTO" "进程仍未退出，保留服务状态并取消后续启动"
+	case "$ddnsto_wait_status" in
+		1) logger -t "DDNSTO" "SIGKILL后DDNSTO仍在运行" ;;
+		*) logger -t "DDNSTO" "SIGKILL后无法确认DDNSTO进程状态" ;;
+	esac
 	return 1
 }
 

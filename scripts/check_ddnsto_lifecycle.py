@@ -31,6 +31,7 @@ def function_body(source: str, signature: str) -> str:
     return match.group(1)
 
 
+state_body = function_body(script, "ddnsto_process_state()")
 wait_body = function_body(script, "ddnsto_wait_stopped()")
 kill_body = function_body(script, "kill_z()")
 start_body = function_body(script, "start_zero()")
@@ -41,17 +42,23 @@ lock_execute_body = function_body(script, "ddnsto_lifecycle_lock_execute()")
 locked_action_body = function_body(script, "ddnsto_lifecycle_locked_action()")
 lock_run_body = function_body(script, "ddnsto_lifecycle_lock_run()")
 
-require('if ! pidof ddnsto >/dev/null 2>&1; then' in wait_body,
-        "wait loop must query live process identity rather than cached numeric PIDs")
-require('while [ "$ddnsto_wait" -lt 5 ]; do' in wait_body and 'sleep 1' in wait_body,
-        "stop wait must be bounded to five one-second polls")
+require('pidof ddnsto' in state_body and 'ddnsto_pidof_status' in state_body and
+        'return 2' in state_body and 'return 1' in state_body and 'return 0' in state_body,
+        "DDNSTO process inventory must distinguish RUNNING, confirmed ABSENT and UNKNOWN")
+require('while [ "$ddnsto_wait" -lt 5 ]; do' in wait_body and
+        'ddnsto_process_state' in wait_body and 'sleep 1' in wait_body and
+        'return 2' in wait_body,
+        "stop wait must use five bounded tri-state polls and preserve UNKNOWN")
 require(kill_body.count('killall ddnsto') == 1 and kill_body.count('killall -9 ddnsto') == 1,
         "stop must send TERM then a name-re-enumerated SIGKILL only once")
 require(kill_body.index('killall ddnsto') < kill_body.index('ddnsto_wait_stopped') <
         kill_body.index('killall -9 ddnsto'), "TERM grace period must precede force kill")
 require(kill_body.rfind('ddnsto_wait_stopped') > kill_body.index('killall -9 ddnsto'),
         "force kill must have a bounded process-absence postcondition")
-require('return 1' in kill_body, "failed stop postcondition must propagate failure")
+require('return 1' in kill_body and 'ddnsto_process_state' in kill_body and
+        'ddnsto_wait_status' in kill_body and 'TERM后进程状态未知' in kill_body and
+        'ddnsto_process_state' in start_body,
+        "UNKNOWN must block TERM/KILL escalation and replacement daemon launch")
 require('if ! kill_z; then' in start_body and start_body.index('if ! kill_z; then') <
         start_body.index('"$DDNSTO_BIN"'), "start must fail closed before launching a replacement")
 require('9>&- &' in start_body and 'DDNSTO_BIN="/usr/bin/ddnsto"' in script,
@@ -101,7 +108,8 @@ require('return eval("/usr/bin/ddnsto.sh","restart");' in restart_body and
         "RC must not split DDNSTO restart across independently locked commands")
 require('int restart_ddnsto(void);' in rc_header and 'rc_notify_merge_action_result(action_result, restart_ddnsto())' in rc,
         "RC declaration / notification caller must remain wired")
-for marker in ("private inode", "unsafe paths", "bounds lock contention",
+for marker in ("UNKNOWN process inventory", "UNKNOWN after TERM", "sleep failure",
+               "nonzero TERM result overrode confirmed ABSENT", "private inode", "unsafe paths", "bounds lock contention",
                "inherited FD 9", "concurrent start", "TERM-END",
                "detached daemons do not retain FD 9", "serialized restart",
                "numeric PID signalling"):

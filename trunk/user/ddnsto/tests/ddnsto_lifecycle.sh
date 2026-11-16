@@ -49,11 +49,14 @@ export DDNSTO_BIN DDNSTO_LOCK_WAIT_SECONDS
 cat > "$TEST_BIN/pidof" <<'MOCK'
 #!/bin/sh
 [ "$1" = ddnsto ] || exit 1
-if [ "$(cat "$TEST_STATE")" = running ]; then
-	echo "$(cat "$TEST_DAEMON_PID" 2>/dev/null || echo 12345)"
-	exit 0
-fi
-exit 1
+case "$(cat "$TEST_STATE")" in
+	running) echo "$(cat "$TEST_DAEMON_PID" 2>/dev/null || echo 12345)"; exit 0 ;;
+	error|unknown) exit 2 ;;
+	malformed) echo "12345 invalid"; exit 0 ;;
+	empty-success) exit 0 ;;
+	inconsistent) echo 12345; exit 1 ;;
+	*) exit 1 ;;
+esac
 MOCK
 
 cat > "$TEST_BIN/killall" <<'MOCK'
@@ -71,7 +74,7 @@ stop_pid()
 	done
 }
 case "$TEST_MODE:$*" in
-	graceful:ddnsto)
+	graceful:ddnsto|nonzero-graceful:ddnsto)
 		stop_pid TERM
 		echo stopped > "$TEST_STATE"
 		;;
@@ -85,6 +88,9 @@ case "$TEST_MODE:$*" in
 	stuck:ddnsto|stuck:-9\ ddnsto)
 		: # Simulate an unkillable process; the test trap removes the fixture.
 		;;
+	unknown-after-term:ddnsto)
+		echo error > "$TEST_STATE"
+		;;
 	slow:ddnsto)
 		echo TERM-BEGIN >> "$TEST_OPS"
 		/bin/sleep 0.1
@@ -94,12 +100,14 @@ case "$TEST_MODE:$*" in
 		;;
 	*) exit 2 ;;
 esac
+[ "$TEST_MODE" != nonzero-graceful ] || exit 29
 exit 0
 MOCK
 
 cat > "$TEST_BIN/sleep" <<'MOCK'
 #!/bin/sh
 printf '%s\n' "$*" >> "$TEST_SLEEP_LOG"
+[ "${TEST_SLEEP_FAIL:-0}" = 0 ] || exit 7
 exec /bin/sleep 0.05
 MOCK
 
@@ -206,6 +214,54 @@ if run_action unused start; then fail "contended zero-wait start unexpectedly su
 wait "$holder_pid" || fail "competing lock holder failed"
 DDNSTO_LOCK_WAIT_SECONDS=5
 echo "DDNSTO lifecycle lock propagates failures and bounds lock contention: PASS"
+
+# Process inventory errors and malformed PID lists are UNKNOWN, never ABSENT.
+for unknown_state in error malformed empty-success inconsistent; do
+	: > "$TEST_LOG"
+	: > "$TEST_SLEEP_LOG"
+	echo "$unknown_state" > "$TEST_STATE"
+	if run_action unused stop; then fail "stop accepted UNKNOWN process inventory: $unknown_state"; fi
+	[ ! -s "$TEST_LOG" ] || fail "stop signalled with UNKNOWN process inventory: $unknown_state"
+	[ ! -s "$TEST_SLEEP_LOG" ] || fail "stop waited with UNKNOWN initial inventory: $unknown_state"
+done
+
+# start_zero must not launch a replacement when the old process cannot be inventoried.
+: > "$TEST_LOG"
+: > "$TEST_SLEEP_LOG"
+: > "$TEST_NVRAM_LOG"
+: > "$TEST_OPS"
+echo error > "$TEST_STATE"
+if run_action normal start; then fail "start accepted UNKNOWN process inventory"; fi
+[ ! -s "$TEST_LOG" ] && [ ! -s "$TEST_NVRAM_LOG" ] && [ ! -s "$TEST_OPS" ] ||
+	fail "UNKNOWN start signalled, queried identity or launched a duplicate"
+
+# UNKNOWN after TERM blocks name-wide SIGKILL escalation.
+: > "$TEST_LOG"
+: > "$TEST_SLEEP_LOG"
+echo running > "$TEST_STATE"
+if run_action unknown-after-term stop; then fail "stop accepted UNKNOWN state after TERM"; fi
+[ "$(cat "$TEST_LOG")" = ddnsto ] || fail "UNKNOWN after TERM triggered SIGKILL"
+[ ! -s "$TEST_SLEEP_LOG" ] || fail "UNKNOWN after TERM did not abort immediately"
+
+# Sleep failure is UNKNOWN and cannot trigger force-kill escalation.
+: > "$TEST_LOG"
+: > "$TEST_SLEEP_LOG"
+echo running > "$TEST_STATE"
+TEST_SLEEP_FAIL=1
+export TEST_SLEEP_FAIL
+if run_action unused stop; then fail "stop accepted a failed wait primitive"; fi
+[ "$(cat "$TEST_LOG")" = ddnsto ] || fail "sleep failure triggered SIGKILL"
+[ "$(wc -l < "$TEST_SLEEP_LOG" | tr -d ' ')" = 1 ] || fail "sleep failure was not observed once"
+TEST_SLEEP_FAIL=0
+export TEST_SLEEP_FAIL
+
+# A failed TERM command is harmless when a fresh process inventory confirms ABSENT.
+: > "$TEST_LOG"
+: > "$TEST_SLEEP_LOG"
+echo running > "$TEST_STATE"
+if run_action nonzero-graceful stop; then :; else fail "nonzero TERM result overrode confirmed ABSENT"; fi
+[ "$(cat "$TEST_LOG")" = ddnsto ] || fail "failed TERM path used unexpected signals"
+[ ! -s "$TEST_SLEEP_LOG" ] || fail "failed TERM path waited after confirmed ABSENT"
 
 # Existing stop postconditions remain intact under the lifecycle dispatcher.
 : > "$TEST_LOG"
