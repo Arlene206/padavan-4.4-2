@@ -44,9 +44,9 @@ assert 'set_wan_unit_value_int(unit, "err", dhcp_status != 0);' in ndis
 wan_start = compact(body(WAN_SOURCE, "start_wan(void)"))
 assert "int modem_start_status = 0;" in wan_start
 assert "wan_up_status = wan_up(wan_ifname, unit, 1);" in wan_start
-assert re.search(r"wan_start_status\\s*=\\s*rc_first_service_start_status\\s*\\(\\s*wan_start_status\\s*,\\s*wan_up_status\\s*\\)\\s*;", wan_start)
+assert re.search(r"wan_start_status\s*=\s*rc_first_service_start_status\s*\(\s*wan_start_status\s*,\s*wan_up_status\s*\)\s*;", wan_start)
 assert "return rc_first_service_start_status(modem_start_status, wan_start_status);" in wan_start
-assert re.search(r"wan_start_status\\s*=\\s*rc_first_service_start_status\\s*\\(\\s*wan_start_status\\s*,\\s*ipv6_status\\s*\\)\\s*;", wan_start)
+assert re.search(r"wan_start_status\s*=\s*rc_first_service_start_status\s*\(\s*wan_start_status\s*,\s*ipv6_status\s*\)\s*;", wan_start)
 assert "vlan_result = launch_wan_usbnet(unit);" in wan_start
 assert "vlan_result = launch_wan_modem_ras(unit);" in wan_start
 aggregate_pattern = r"modem_start_status\s*=\s*rc_first_service_start_status\s*\(\s*modem_start_status\s*,\s*vlan_result\s*\)\s*;"

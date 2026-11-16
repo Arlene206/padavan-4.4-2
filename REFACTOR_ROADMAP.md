@@ -1,13 +1,10 @@
 ## Current source / CI checkpoint
 
-- Live source head before this exact-head checker repair: `5825e35e0987fab26b4f588f879a885094e1708b`.
-- LAN bridge/VLAN/switch and required iNIC MII startup status propagates to PID1. Bridge ioctl errno is preserved. Full WAN restart fails closed on switch VLAN, static LAN route and MAC-table errors; L2TP server start status is merged across full restart/reconnect/deferred reconnect.
-- `start_wan()` now includes static WAN route/session and configured IPv6 tunnel setup failures in its return status. `stop_wan_locked()` preserves static WAN route teardown failure through USB modem shutdown and interface-down operations.
-- Exact-head WAN route status `43862971906` and WAN teardown `43862972252`: SUCCESS.
-- Process `43862972148`: FAILED in the modem WAN checker on whitespace-fragile assertions and one stale raw-return assertion; the compiled host-policy tests passed before the checker. This correction uses whitespace-tolerant expressions and validates the aggregated return.
-- AI docs `43862972023` and infosvr `43862972198`: FAILED because both require the canonical handoff headings `## Current repository state` / `## Active task`. Those headings are restored in this checkpoint.
-- AdGuardHome, AliyunDrive, AliDDNS, detect_internet, detect_link, DNSMasq, WAN gateway ARP, miniupnpd, VPN server, USB modem identity and HTTPD security Actions passed on this source SHA.
-- NVRAM `43862972028`: IN_PROGRESS. XY-C1 `43862972095`: its pre-build source-contract step failed, so Build, TRX and artifact upload were skipped; no L3/L4 claim.
+- Source baseline: `5825e35e0987fab26b4f588f879a885094e1708b`; this commit repairs its checker contract and handoff schema.
+- `start_wan()` returns static route/session setup and configured IPv6 setup errors; `stop_wan_locked()` preserves static route teardown status through USB modem shutdown and interface teardown.
+- WAN route status `43862971906` and WAN teardown `43862972252` passed on the product-source baseline. AI handoff docs `43863503814` and infosvr `43863503915` passed on exact checker-correction SHA `4516b9c3f3fc8e117bf654698f515a63551b9ddc`.
+- Process `43863503850` failed because its new raw-regex pattern was accidentally double-escaped; a single-backslash regex correction is now committed for the exact-source rerun.
+- XY-C1 `43863503907` and NVRAM `43863503976` were in progress; no same-SHA firmware Build/TRX/artifact L3 or physical-router L4 is claimed.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Whole-repository module status

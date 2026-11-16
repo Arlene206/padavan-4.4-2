@@ -29,21 +29,19 @@ Process run `43862663789` on parent `066697195b12b3bbc8bad1efa4a4c4abea5052fa` w
 
 ## Verification boundary
 
-- Process `43862972148` on `5825e35e0987fab26b4f588f879a885094e1708b`: FAILED in `scripts/check_modem_wan_start_status.py` after compiled host policy binaries passed. The first failure was two string assertions that did not allow the line break after the helper opening parenthesis; a later assertion also still expected the old `return modem_start_status;` even though `start_wan()` now returns the combined modem + route result.
-- AI handoff docs `43862972023`: FAILED because `SESSION_HANDOFF.md` did not contain the required literal heading `## Current repository state`; the handoff had renamed it to `## Current state`.
-- infosvr `43862972198`: packet initialization, SIGTERM and daemon policy binaries all passed; its final source-contract checker failed on the same missing `## Current repository state` heading.
-- WAN route status regression `43862971906`: SUCCESS. WAN interface teardown regression `43862972252`: SUCCESS.
-- AdGuardHome `43862971988`, AliyunDrive `43862972110`, AliDDNS `43862972291`, detect_internet `43862972308`, detect_link `43862972331`, DNSMasq `43862972062`, WAN gateway ARP `43862971946`, miniupnpd `43862972021`, VPN server `43862971917`, USB modem identity `43862972228`, and HTTPD security `43862972414`: SUCCESS.
-- NVRAM audit `43862972028`: IN_PROGRESS at raw ioctl/kernel API audit.
-- XY-C1 `43862972095`: FAILED before `Build XY-C1`; the preceding RC source-contract step failed, so Build/TRX/artifact were skipped. This is not a firmware compile failure and no L3 result is claimed.
-- No physical-router L4 result is claimed.
+- Process run `43863503850` on `4516b9c3f3fc8e117bf654698f515a63551b9ddc`: FAILED after the compiled RC boot and modem policy binaries passed. The checker used over-escaped raw-regex patterns (`\\s` rather than `\s`); the replacement uses single-backslash whitespace expressions and is tested against the exact source text.
+- AI handoff documentation `43863503814`: SUCCESS. infosvr packet/signal regression `43863503915`: SUCCESS, including its source-contract check. The restored canonical section names resolve both earlier failures.
+- AdGuardHome `43863503943`, AliDDNS `43863503892`, AliyunDrive `43863503887`: SUCCESS.
+- XY-C1 firmware validation `43863503907`: IN_PROGRESS at last inspection; verify Build, TRX verification and artifact upload before any L3 claim.
+- NVRAM transaction audit `43863503976`: IN_PROGRESS at last inspection.
+- No same-SHA XY-C1 L3 or physical-router L4 result is claimed yet.
 
 ## Exact first action for the next GPT
 
-1. Verify Process, AI handoff and infosvr exact-head reruns after the whitespace-tolerant WAN checker and canonical handoff-heading repairs.
-2. Recheck NVRAM audit `43862972028` and rerun XY-C1; the prior XY-C1 run stopped before Build because the source-contract checker failed.
-3. Continue auditing ignored `set_interface_mtu()`, `ifconfig()` and `control_if_ipv6()` results in WAN startup/teardown, distinguishing required interface readiness from best-effort optional MTU configuration.
-4. Claim XY-C1 L3 only when Build, TRX verification and artifact upload all pass on one exact production-source SHA; hardware testing remains L4-only.
+1. Verify the exact-head Process rerun against the corrected single-backslash regex and check AI docs/infosvr remain green.
+2. Recheck XY-C1 `43863503907` for completed Build, TRX verification and artifact upload, and NVRAM `43863503976` for completion.
+3. Continue auditing `set_interface_mtu()`, `control_if_ipv6()` and interface-address setup calls for ignored return values; distinguish required interface readiness from best-effort operations.
+4. Claim XY-C1 L3 only when Build, TRX verification and artifact upload all pass on one exact production-source SHA; physical-router testing remains L4-only.
 
 ## Governance
 
