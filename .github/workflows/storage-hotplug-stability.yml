@@ -519,7 +519,7 @@ jobs:
           assert "modprobe -l | grep" not in automount
           assert automount.count("if ! func_read_module_catalog; then") == 4
           assert "load_module_or_abort" in automount
-          mount_owner = automount[automount.index("mount_from_device()"):automount.index("# Device names come from hotplug")]
+          mount_owner = automount[automount.index("mount_from_device()"):automount.index("# Confirm ownership directly from the checked mount table")]
           assert 'mount_inventory=$(cat "$mounts_file" 2>/dev/null)' in mount_owner
           assert "return 1" in mount_owner and "return 2" in mount_owner and "return 3" in mount_owner
           assert "mount_state=$(printf" in mount_owner

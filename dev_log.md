@@ -1,3 +1,11 @@
+## 2026-11-16 — Correct the mount-owner source-contract range
+
+- Parent main: `06bfebfa986d6b6b0c7c61a98ee389327019a7af`. Review of the newly wired Python source assertion found its end marker was the earlier `# Device names come from hotplug` comment, which precedes `mount_from_device()`; the resulting slice would be empty and make the storage workflow fail before validating the actual helper.
+- Changed the extraction boundary to the precise caller comment immediately after `mount_from_device()`. This is a test-contract correction only; production automount source and mount-owner regression behavior are unchanged.
+- Parent exact-head Actions at commit time: NVRAM transaction boundary audit 43916101346 queued; AliyunDrive WebDAV lifecycle stability regression 43916101333 queued; XY-C1 Firmware Validation 43916101276 in_progress; Process lifecycle inventory - 06bfebfa986d6b6b0c7c61a98ee389327019a7af 43916101950 in_progress; AdGuardHome config security regression 43916101942 completed/success; AliDDNS signed API transport security regression 43916101928 in_progress; infosvr packet and signal lifecycle stability regression 43916101447 in_progress; USB storage hotplug stability regression 43916101880 in_progress; Process inventory and lifecycle fail-closed regression 43916101921 in_progress; HTTPD Authentication and Security Regression 43916101999 in_progress; AI handoff documentation contract 43916102006 completed/success. This commit triggers a fresh storage regression. Frozen backup unchanged; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Make the checked mount table authoritative for automount ownership
 
 - Parent main: `dc4630eb436381b0c19bdbcf067fc2cdc2cfa7df`. The preceding fix made `mount_from_device()` tri-state for `/proc/mounts`, but every call remained guarded by `mountpoint -q "$dev_mount"`. That command's generic nonzero result was interpreted as "not mounted", so the script could bypass the checked inventory and proceed when mountpoint status was uncertain.
