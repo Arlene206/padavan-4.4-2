@@ -677,7 +677,6 @@ update_hosts_ap(void)
 	return create_hosts_lan(nvram_safe_get("lan_ipaddr_t"), nvram_safe_get("lan_domain_t"));
 }
 
-void
 int
 start_lan(int is_ap_mode, int do_wait)
 {
@@ -990,7 +989,7 @@ full_restart_lan(void)
 	return restart_status;
 }
 
-void
+int
 lan_up_manual(char *lan_ifname, char *lan_dname)
 {
 	FILE *fp;

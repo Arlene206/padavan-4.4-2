@@ -8,37 +8,37 @@ For each logical task, create all changed files in one Git tree and one atomic m
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2; active branch: main.
-- Parent for THIS XY-C1 modem checker correction: 5c74753c5af2951f477f733b1f3d6e1d78dc1824. Refetch live main before any later write and use expected-SHA non-forced CAS.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14 = 72f4f157a084f8184b9597ca5bf334b8080e5807; immutable. Startup protocol/archive/PR recovery are complete; do not repeat.
-- Root dev_log.md has 95 newest-first records before THIS entry; this entry makes 96 (keep 20–119).
+- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`.
+- Parent for THIS LAN definition and DNSMasq/Process contract correction: `be64a1990828e92895b4ce507216c509e1b35ff3`. Refetch live main before every further write and use expected-SHA non-forced compare-and-swap.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. Startup governance/archive/PR recovery are complete; do not repeat.
+- Root `dev_log.md` has 96 newest-first records before THIS entry; it will contain 97 afterward. Maintain 20–119 records and preserve archive shards/indexes.
 
 ## Active task
 
-Repair the XY-C1 modem configuration checker after the modem loader was refactored to alternative arrays:
-- reload_modem_modules() stores 7 NDIS and 4 RAS alternatives in ndis_modules[] / ras_modules[], forwards prefer_mbim=0 through the aligned NDIS parameter array, and calls load_modem_module_group().
-- load_modem_module_group() uses rc_modem_module_load_group_verified() with module_smart_load plus is_module_loaded; it is intentionally incorrect for a source checker to require literal module_smart_load("cdc_ether", ...) calls inside reload_modem_modules().
-- The previous exact-head XY-C1 run 43848100619 on aeba90439f0b68cd35a67be7d3e821164597bc4f failed before firmware build at scripts/check_usb_modem_driver_config.py:66 with AssertionError: RC modem reload no longer requests expected module cdc_ether. The actual USB identity/readiness regression 43848100315 passed.
-- THIS patch changes only checker semantics: it verifies exact NDIS/RAS array contents/order, all 11 mapped Kconfig symbols as modules, the cdc_ncm parameter alignment, NDIS/RAS branch dispatch, generic verified loader callbacks and /sys/module post-load probe order. It retains USB serial option Kconfig/Makefile checks.
-- Concurrent commit 5c74753c5af2951f477f733b1f3d6e1d78dc1824 propagated LAN startup errors from bridge IFUP, AP DHCP/manual setup and router static routes through PID 1 boot status and full_restart_lan(). Its Process, XY-C1 and several Actions were queued/in progress at last inspection; do not claim their result before rechecking.
-- USB interface-to-driver binding remains distinct from module-family presence under /sys/module; not proven by this change.
+Fix the real compile-blocking return-type regression introduced while converting LAN helpers to status-returning APIs:
+- `start_lan()` had `void\nint\nstart_lan(...)`; `lan_up_manual()` had `void\nlan_up_manual(...)` despite returning error values and having int prototypes. THIS commit removes the stale void tokens.
+- The Process workflow now asserts the production definitions are `int`, not only that their bodies and caller status merges look correct.
+- DNSMasq lifecycle's manual resolver lock-failure contract now expects `return saved_errno;` from the status-returning helper rather than a bare void return.
+- The XY-C1 driver source checker was independently corrected by commit `be64a1990828e92895b4ce507216c509e1b35ff3` to validate exact NDIS/RAS driver arrays, aligned params and verified module-family loading.
 
 ## Verification boundary
 
-Exact-head observations on parent 5c74753c5af2951f477f733b1f3d6e1d78dc1824:
-- XY-C1 Firmware Validation 43848474467: IN_PROGRESS at last inspection, still before the modem configuration step; no Build/TRX/artifact L3 result is claimed.
-- Process inventory and lifecycle 43848475098: IN_PROGRESS (inventory step running); the LAN host regression/source contract is part of this workflow.
-- WAN ARP 43848474894, VPN server 43848474624, Inadyn 43848474126, detect_internet 43848474938, PID 1 notification queue 43848474904: SUCCESS.
-- Other Actions on parent 5c74753c5af2951f477f733b1f3d6e1d78dc1824 were queued/in progress at last snapshot; re-fetch exact run list instead of reusing ancestor results.
-- Ancestor aeba90439f0b68cd35a67be7d3e821164597bc4f: USB identity 43848100315 SUCCESS, HTTPD 43848100398 SUCCESS, AI docs 43848100602 SUCCESS, WAN route 43848100725 SUCCESS, WAN teardown 43848100704 SUCCESS, WAN DHCP 43848100491 SUCCESS, NVRAM 43848100605 was IN_PROGRESS. Ancestor XY-C1 43848100619 FAILED solely at the stale source checker described above.
-- No current-parent Build XY-C1, TRX verification, artifact upload or physical-router/L4 success is established.
+Exact-head observations on parent `be64a1990828e92895b4ce507216c509e1b35ff3`:
+
+- Process inventory/lifecycle regression `43849012514`: SUCCESS, including the LAN source/caller contract from the previous slice. THIS correction adds definition-level return-type assertions.
+- AI handoff documentation `43849012491`, infosvr `43849012433`, AdGuardHome `43849012473`, AliDDNS `43849012496`, AliyunDrive `43849012441`: SUCCESS.
+- XY-C1 firmware run `43849012639`: IN_PROGRESS at `Build XY-C1`; it had passed the corrected `Verify XY-C1 USB modem driver configuration` step and all preceding policy regressions. This run is against parent `be64a1990828e92895b4ce507216c509e1b35ff3`, which still has the LAN return-prefix bug fixed by THIS commit; no TRX/artifact result yet.
+- NVRAM transaction audit `43849012584`: IN_PROGRESS at raw userland ioctl/kernel NVRAM API audit after lock, permission, contention and crash-release regressions passed.
+- On earlier parent `5c74753c5af2951f477f733b1f3d6e1d78dc1824`, DNSMasq run `43848474699` failed at embedded Python line 107 because the contract expected `return;`; production now returns `saved_errno`. THIS commit updates the source assertion; exact-head DNSMasq rerun will be pending.
+- The previous parent `5c74753` XY-C1 run `43848474467` failed before build at the stale direct-module-load checker; that checker passed on `be64a1990828e92895b4ce507216c509e1b35ff3` run `43849012639`.
+- No confirmed current-source Build+TRX+artifact L3 result or physical-router/L4 result is established yet.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main; inspect this checker-fix commit's exact-head XY-C1, USB modem identity, Process/LAN, AI handoff, NVRAM and other relevant Actions. For L3, require Build XY-C1, TRX verification and artifact upload all PASS on one exact SHA.
-2. Continue checking real NDIS interface-to-driver binding only if USB sysfs/hotplug exposes a reliable same-device association; module presence alone does not establish binding.
-3. Audit the next concrete RC service failure propagation or stability defect outside the modem/LAN slices, and add the source regression before claiming closure.
+1. Inspect this commit's exact-head Process, DNSMasq and XY-C1 workflows. The XY run on parent `be64a1990828e92895b4ce507216c509e1b35ff3` was already at Build; also require its TRX verification and artifact upload to succeed before recording L3. Confirm target compilation after the LAN definition fix.
+2. Audit `config_bridge()` / bridge setup result APIs carefully. `br_set_param_int()`, `brport_set_m2u()`, `phy_igmp_static_port()` and `phy_igmp_snooping()` return status, but unsupported multicast sysfs attributes or board-specific switch ioctls may be expected. Do not convert optional feature absence into boot-fatal errors without capability-specific semantics.
+3. Continue wider RC/service-start result propagation beyond this completed LAN start slice; separately verify selected-device driver binding, since module-family presence alone does not prove the chosen USB device bound to the driver.
 
 ## Governance constraints
 
-Preserve security, architecture, compatibility, target toolchain and mandatory tests. Main only; frozen backup read-only. One complete Git tree and one atomic commit per logical task, non-forced expected-SHA update. Update dev_log.md for every source/documentation commit; keep 20–119 records and preserve archive shards/indexes. Distinguish host tests, exact-head CI, firmware/TRX and physical-router evidence. Never claim an unrun result.
+Preserve security, architecture, compatibility, target toolchain and mandatory tests. Main only; frozen backup read-only. One complete Git tree and one atomic commit per logical task, non-forced expected-SHA update. Update `dev_log.md` for source/documentation changes; keep 20–119 records and preserve archives/indexes verbatim. Distinguish host tests, source contracts, exact-SHA CI, firmware/TRX and physical-router evidence. Never claim an unrun result.

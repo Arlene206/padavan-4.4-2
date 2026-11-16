@@ -1,3 +1,14 @@
+## 2026-11-16 — Fix LAN status function return types and resolver contract
+
+- Parent main: `be64a1990828e92895b4ce507216c509e1b35ff3`. Process inventory/lifecycle run `43849012514` passed the earlier LAN function-body/caller checks; AI docs `43849012491`, infosvr `43849012433`, AdGuardHome `43849012473`, AliDDNS `43849012496`, AliyunDrive `43849012441` also passed.
+- Source review found the previous conversion left stale `void` tokens before `start_lan()` and `lan_up_manual()`, yielding invalid/conflicting return declarations despite int prototypes and return statements. Removed both stale tokens and added exact production-definition assertions to Process CI.
+- XY-C1 `43849012639` passed the corrected driver-candidate checker and all preceding policy tests; Build XY-C1 was in progress at last inspection on the parent SHA. The parent still contained the LAN prefix defect; no TRX/artifact L3 result has been established.
+- DNSMasq `43848474699` on ancestor `5c74753` failed because its lock-failure source contract still expected bare `return;`; the status-returning implementation returns `saved_errno`. Updated the contract accordingly.
+- Exact-head DNSMasq/Process/XY-C1 runs for THIS commit are pending. No full firmware/TRX or physical-router result is claimed.
+- Next: inspect the exact-head reruns and confirm corrected LAN definitions compile; then continue capability-aware bridge setup audit.
+
+---
+
 ## 2026-11-16 — Align XY-C1 modem config checker with alternative driver arrays
 
 - Parent main: 5c74753c5af2951f477f733b1f3d6e1d78dc1824. Prior XY-C1 run 43848100619 failed before firmware Build because the checker still required module_smart_load("cdc_ether", ...) to be a direct call in reload_modem_modules(); the loader now dispatches NDIS/RAS array candidates through load_modem_module_group().

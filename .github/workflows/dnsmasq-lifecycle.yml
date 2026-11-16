@@ -424,7 +424,8 @@ jobs:
           lan_guard = lan_manual[lan_failure:lan_route]
           assert "saved_errno = errno ? errno : EIO;" in lan_guard
           assert "errno = saved_errno;" in lan_guard
-          assert "return;" in lan_guard
+          assert "return saved_errno;" in lan_guard
+          assert "return;" not in lan_guard
           assert "file_unlock(lock)" not in lan_guard
 
           lan_auto = function_body(net_lan, "lan_publish_resolver_auto(")

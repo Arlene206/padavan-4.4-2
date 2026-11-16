@@ -419,6 +419,10 @@ jobs:
                           return source[brace + 1:pos]
               raise AssertionError("unterminated function: " + signature)
 
+          assert "\nint\nstart_lan(int is_ap_mode, int do_wait)" in lan
+          assert "\nint\nlan_up_manual(char *lan_ifname, char *lan_dname)" in lan
+          assert "\nvoid\nint\nstart_lan(" not in lan
+          assert "\nvoid\nlan_up_manual(" not in lan
           start_lan = body(lan, "start_lan(int is_ap_mode, int do_wait)")
           assert "operation_status = ifconfig(lan_ifname, IFUP, lan_ipaddr, lan_netmsk);" in start_lan
           assert "operation_status = start_udhcpc_lan(lan_ifname);" in start_lan
