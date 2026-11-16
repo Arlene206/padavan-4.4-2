@@ -16,6 +16,7 @@ on:
   pull_request:
     paths:
       - 'trunk/user/shadowsocks/scripts/shadowsocks.sh'
+      - 'trunk/user/shadowsocks/scripts/ss-monitor'
       - 'trunk/user/shadowsocks/scripts/shadowsocks_process_lifecycle.sh'
       - 'trunk/user/shadowsocks/tests/process_lifecycle.sh'
       - 'trunk/user/shadowsocks/tests/adblock_config.sh'
