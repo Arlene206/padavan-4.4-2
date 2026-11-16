@@ -368,42 +368,23 @@ exit "$MOCK_SLEEP_STATUS"
 
 
 TTYD_SCRIPT = ROOT / "trunk/user/ttyd/ttyd.sh"
+TTYD_TEST = ROOT / "trunk/user/ttyd/tests/ttyd_lifecycle.sh"
 
 
 def check_ttyd():
-    with tempfile.TemporaryDirectory(prefix="ttyd-lifecycle-") as tmp:
-        base = Path(tmp)
-        bin_dir = mock_bin(base / "bin")
-        executable(bin_dir / "nvram", """#!/bin/sh
-if [ "$1" = get ]; then
-    echo 7681
-fi
-exit 0
-""")
-        executable(bin_dir / "start-stop-daemon", """#!/bin/sh
-exit "${MOCK_START_STATUS:-0}"
-""")
-        executable(bin_dir / "killall", """#!/bin/sh
-exit "${MOCK_STOP_STATUS:-0}"
-""")
-        env = os.environ.copy()
-        env.update({
-            "PATH": str(bin_dir) + os.pathsep + env.get("PATH", ""),
-            "MOCK_START_STATUS": "53",
-            "MOCK_STOP_STATUS": "54",
-        })
-        failed_start = run(["/bin/sh", str(TTYD_SCRIPT), "start"], env)
-        assert failed_start.returncode == 53, (
-            f"ttyd script must propagate start-stop-daemon status 53, got {failed_start.returncode}"
-        )
-        env["MOCK_START_STATUS"] = "0"
-        started = run(["/bin/sh", str(TTYD_SCRIPT), "start"], env)
-        assert started.returncode == 0, started.stderr
-        stopped = run(["/bin/sh", str(TTYD_SCRIPT), "stop"], env)
-        assert stopped.returncode == 54, (
-            f"ttyd script must propagate killall status 54, got {stopped.returncode}"
-        )
+    for path in (TTYD_SCRIPT, TTYD_TEST):
+        syntax_check = run(["/bin/sh", "-n", str(path)], os.environ.copy())
+        assert syntax_check.returncode == 0, syntax_check.stderr
 
+    env = os.environ.copy()
+    env["PROCESS_LIFECYCLE_LIB"] = str(
+        ROOT / "trunk/user/shared/scripts/process_lifecycle.sh"
+    )
+    result = run(["/bin/sh", str(TTYD_TEST)], env)
+    assert result.returncode == 0, (
+        f"ttyd tri-state lifecycle regression failed: {result.stderr}\n{result.stdout}"
+    )
+    assert "ttyd tri-state lifecycle, restart gate and NVRAM initialization regression: PASS" in result.stdout
 
 
 SSHD_SCRIPT = ROOT / "trunk/user/openssh/sshd.sh"

@@ -1,3 +1,14 @@
+## 2026-11-16 — Gate ttyd lifecycle on verified process state
+
+- Parent main: 0c9fa82488838d7069ad7a043e3307a88ed19afb; frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Closed the prior SCUTClient fix: exact-head Process lifecycle 43803219812, process inventory 43803220093, AI handoff 43803219836, legacy wrapper safety 43803219806, infosvr 43803220008, AdGuardHome 43803220094, AliyunDrive 43803219984, AliDDNS 43803219861, and NVRAM boundary 43803219986 all completed SUCCESS on 0c9fa82488838d7069ad7a043e3307a88ed19afb. XY-C1 firmware run 43803219866 remained IN_PROGRESS at last observation; no L3 claim is made for that SHA.
+- Process inventory artifact 14197222958 (exact source SHA 0c9fa82488838d7069ad7a043e3307a88ed19afb) covered 6,269 text files and identified ttyd as a remaining direct stop consumer. trunk/user/ttyd/ttyd.sh previously trusted bare killall -q ttyd; UNKNOWN process inventories could be treated as a successful stop, and its top-level default-port code wrote/committed NVRAM for stop actions.
+- The ttyd wrapper now uses the installed shared RUNNING/ABSENT/UNKNOWN lifecycle helper, rejects unknown start/stop states, verifies bounded TERM/KILL postconditions, propagates failures, and blocks replacement start after failed stop. It preserves the existing br0/login launch arguments. Default port persistence now occurs only on a confirmed-ABSENT start and NVRAM read/set/commit errors block launch.
+- Replaced the old killall-exit-code-only ttyd checker fixture with a real-helper host regression. It covers absent/unknown/malformed/inconsistent/error inventories, graceful stop, escalation, post-TERM UNKNOWN, sleep failure, stubborn daemon, duplicate start, launcher error propagation, stop-gated restart, configured/default port behavior, and NVRAM write/commit failures. The shell regression and syntax checks passed locally against a temporary POSIX helper-compatible fixture; full GitHub regression must pass on THIS COMMIT.
+- Exact-head Process lifecycle, AI handoff, process inventory and XY-C1 Actions for THIS COMMIT are pending after publication. No current-source MIPS/TRX or physical-router/L4 result is claimed.
+- Next: inspect the exact-SHA Process workflow (including the ttyd regression) and AI handoff check. Fix first causal failures if any; once green, continue the roadmap P1 RC startup-result propagation queue rather than broadening this ttyd slice.
+---
+
 ## 2026-11-16 — Preserve SCUTClient stop failure status
 
 - Parent main: `8d47577174673576fa6b820d431b8a723ac4c8d0`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
