@@ -1,3 +1,11 @@
+## 2026-11-16 — Propagate PPPoE relay failure through sysctl notification
+
+- Parent main: d28729af83c9692f376539c31d9578f129774d20. set_passthrough_pppoe(1) returns an errno-style status, but restart_all_sysctl() discarded it and its only RCN_RESTART_SYSCTL caller also ignored the helper result. PID 1 could therefore acknowledge a failed PPPoE relay startup/readiness operation.
+- Changed restart_all_sysctl() to return/log the relay status, keep optional Samba fastpath work independent, update the public prototype and merge the result through rc_notify_merge_action_result() at the sole PID 1 dispatcher callsite.
+- Added a host regression for positive errno retention across later independent work and conversion to a negative/unacknowledged notification result, plus an integration contract checking the actual definition, prototype and caller. Exact-head Process/XY-C1 verification is pending.
+- Physical-router L4 remains NOT VERIFIED.
+
+---
 ## 2026-11-16 — Restore strict module-probe CI contracts and developer-log history
 
 - Parent main: `b6ff015c1a70e9b61bebfbcf33aae9d1de113946`. Commit `b6ff015c` finishes migration of all four module-load sites to the strict tri-state probe; the source checker now verifies the boot and wireless callbacks plus negative errno propagation.

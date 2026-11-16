@@ -1853,7 +1853,8 @@ handle_notifications(void)
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_SYSCTL) == 0)
 		{
-			restart_all_sysctl();
+			action_result = rc_notify_merge_action_result(
+				action_result, restart_all_sysctl());
 		}
 		else if (!strcmp(entry->d_name, RCN_RESTART_WIFI5))
 		{

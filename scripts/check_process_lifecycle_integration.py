@@ -1698,3 +1698,22 @@ assert "test_bridge_parameters_are_both_attempted_and_first_error_survives" in b
 assert "Compile and run RC boot service status aggregation regression" in process_workflow
 assert "Compile and run RC LAN restart first-error aggregation regression" in xy_workflow
 print("RC bridge STP and forward-delay result propagation: PASS")
+
+# RCN_RESTART_SYSCTL must preserve the errno-style PPPoE relay postcondition.
+sysctl_common = (root / "trunk/user/rc/src/common_ex.c").read_text()
+sysctl_header = (root / "trunk/user/rc/src/rc.h").read_text()
+sysctl_rc = (root / "trunk/user/rc/src/rc.c").read_text()
+sysctl_body = c_function_body(sysctl_common, "restart_all_sysctl(void)")
+assert re.search(r"(?m)^int\\s+restart_all_sysctl\\(void\\)", sysctl_common)
+assert '#include "service_start_status.h"' in sysctl_common
+assert "passthrough_status = set_passthrough_pppoe(1);" in sysctl_body
+assert "rc_first_service_start_status(restart_status, passthrough_status)" in " ".join(sysctl_body.split())
+assert "return restart_status;" in sysctl_body
+assert "int restart_all_sysctl(void);" in sysctl_header
+sysctl_dispatch = " ".join(sysctl_rc.split("RCN_RESTART_SYSCTL) == 0)", 1)[1].split(";", 1)[0].split())
+assert "rc_notify_merge_action_result(" in sysctl_dispatch
+assert "restart_all_sysctl()" in sysctl_dispatch
+sysctl_regression = (root / "trunk/user/rc/src/tests/service_start_status.c").read_text()
+assert "test_sysctl_pppoe_relay_failure_keeps_notification_pending" in sysctl_regression
+assert "rc_notify_merge_action_result(action_result, restart_status)" in sysctl_regression
+print("RC sysctl PPPoE relay status reaches PID 1 notification result: PASS")

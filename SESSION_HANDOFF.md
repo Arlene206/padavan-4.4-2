@@ -2,32 +2,30 @@
 
 Mandatory handoff checkpoint: Every session MUST inspect the live repository state before ending or handing off. Verify live main/source baseline, active task, exact-head Actions, validation boundary, blockers, frozen backup and the first next action. The checkpoint is mandatory; a document edit is conditional. If all facts remain accurate, do not create a no-op commit.
 
-Before context exhaustion, finish the current safe slice, run regression checks, inspect exact-SHA Actions, commit completed work atomically, and preserve the exact next task. Continue as one cross-chat engineering effort: recover once, avoid repeat audits, do not wait on pending CI when independent work is available, and do not ask the user for the next task.
+Before context exhaustion, finish or reduce the current safe slice, run regression checks, inspect exact-SHA Actions, commit completed work atomically, and preserve the exact next task. Continue one continuous engineering effort across GPT conversations: recover once, avoid repeated audits, do not wait for pending CI when independent work is available, and do not ask the user what to do next.
 
-Every logical multi-file change must be published as one complete Git tree and one atomic main commit, parented to freshly fetched main, followed by a non-forced expected-SHA compare-and-swap. Never force-push, split a logical change into half-commits, create work branches/PRs, or modify the frozen backup.
+Every logical multi-file change must be one complete Git tree and one atomic main commit, parented to freshly fetched main, followed by a non-forced expected-SHA compare-and-swap. Never force-push, split a logical change into half-commits, create a work branch/PR, or modify the frozen backup branch.
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; development branch: `main`.
-- Parent at this checkpoint: `b6ff015c1a70e9b61bebfbcf33aae9d1de113946`. Commit `b6ff015c` completes strict tri-state module-load callbacks across NAT, boot hardware, wireless drivers and LAN bridge.
-- Exact-parent Firewall Startup `43966109926` passed. WAN route `43966109986` failed at a whitespace-sensitive IPv6 cleanup call assertion; XY-C1 `43966109916` failed at a stale checker that expected the old Boolean policy; AI handoff `43966109747` found that root `dev_log.md` had only one retained entry. This follow-up normalizes the call check, upgrades the boot checker to tri-state semantics and restores the 109-entry historical developer log.
-- Process regression `43966109822`, XY-C1 `43966109916`, NVRAM `43966109901`, GPIO `43966109653`, notification queue `43966109981`, AliDDNS `43966109957` and USB storage `43966109731` were in progress/pending at last poll. Recheck exact-head statuses; other completed b6ff runs passed apart from the failures above.
-- Earlier source `eb566f346f63d3d6ed295c08170ac6d834ff7f04` passed XY-C1 Build, TRX verification and artifact upload. That predates the later IPv6 cleanup and module-load changes. The b6ff XY-C1 run did not pass its source checker and did not reach Build/TRX/artifact. Newer L3 remains NOT VERIFIED.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains recorded at `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. Never alter it. Physical-router L4 remains **NOT VERIFIED**.
+- Repository: Arlene206/padavan-4.4-2; current parent for this source slice: d28729af83c9692f376539c31d9578f129774d20.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807, unchanged/read-only.
+- Source status: IPv6 global route/address/neighbor cleanup failure propagation and strict tri-state module loading are implemented. The last wireless Boolean module-load caller was migrated to is_module_loaded_status() in b6ff015.
+- Exact-head d28729a results: WAN route 43967040074 PASS; AI handoff 43967040010 PASS; Process inventory 43967040068 PASS; NVRAM transaction audit 43967039938 PASS; AliDDNS 43967040108 PASS; AliyunDrive 43967040044 PASS; infosvr 43967039889 PASS; AdGuardHome 43967039819 PASS. XY-C1 run 43967039935 was compiling at last poll; TRX and artifact steps were pending.
 
 ## Active task
 
-Close exact-head CI contracts for the strict module-state migration: check the multiline IPv6 cleanup helper after removing all whitespace; validate the updated tri-state verifier plus strict boot/wireless callbacks in `check_rc_boot_module_loads.py`; and preserve the root developer-log history window of 20–119 complete newest entries. The production wireless callback fix is already included in parent `b6ff015c`.
+Propagate the errno-style status from set_passthrough_pppoe(1) through restart_all_sysctl() and the RCN_RESTART_SYSCTL PID 1 notification. The setter returns a status, but the void sysctl helper discarded it and its only caller ignored the helper result. This commit returns/logs the PPPoE relay status, merges it into the notification result, and adds a regression plus a production source contract.
 
 ## Verification boundary
 
-- Exact-parent WAN route `43966109986` failed only at the whitespace-sensitive call check after its compiled C policy tests passed.
-- Exact-parent XY-C1 `43966109916` failed the outdated assertion `return ops->is_loaded(module_name) ? 0 : EIO;`; the revised contract now tests negative errno propagation and strict callbacks. No Build/TRX/artifact on b6ff.
-- Exact-parent AI handoff `43966109747` failed because the root log had only one entry; this update restores 109 historical entries plus the current record (110 total).
-- Exact-parent Firewall Startup `43966109926` passed. The older `eb566f3` firmware result is not reused for this source. Physical-router L4 remains NOT VERIFIED.
+- Parent d28729af: WAN route regression 43967040074 PASS; AI handoff 43967040010 PASS; Process inventory 43967040068 PASS; NVRAM 43967039938 PASS; several service/security regressions also PASS.
+- Parent d28729af XY-C1 run 43967039935 was in progress with Build XY-C1 running and TRX/artifact pending at last poll. Do not report L3 until Build, TRX verification and artifact upload pass on one exact SHA.
+- Current sysctl/PPPoE source, unit regression and integration contract require exact-head Process lifecycle and XY-C1 verification after this commit.
+- Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; inspect exact-head WAN route, XY-C1, AI handoff, Process regression, Firewall Startup and every previously pending run. Diagnose any failure from its exact job log.
-2. Confirm same-SHA XY-C1 Build, TRX and artifact upload after the source checker passes. Then audit remaining direct Boolean `is_module_loaded()` consumers only where probe uncertainty affects a state transition.
-3. Keep one logical change per complete-tree atomic main commit with a non-forced expected-SHA update. Keep the backup read-only; do not claim router L4 without hardware evidence.
+1. Inspect exact-head Process lifecycle and XY-C1 Actions for this sysctl notification commit. Check the host regression/source contract and separately verify same-SHA Build XY-C1, TRX and artifact upload.
+2. Once verified, continue auditing concrete dropped network/RC results. The next candidate is flush_conntrack_table() in RCN_RESTART_NETFILTER, which currently has its result ignored; trace the writer's contract and every caller before changing any API.
+3. Keep complete-tree atomic main commits with freshly fetched expected-SHA non-forced CAS. Frozen backup remains read-only; do not claim physical-router L4 without device evidence.

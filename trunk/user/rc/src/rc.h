@@ -171,7 +171,7 @@ int stop_auth_kabinet(void);
 long uptime(void);
 int rand_seed_by_time(void);
 void set_pagecache_reclaim(void);
-void restart_all_sysctl(void);
+int restart_all_sysctl(void);
 void update_router_mode();
 char *mac_conv(const char *mac_nvkey, int idx, char *buf);
 char *mac_conv2(const char *mac_nvkey, int idx, char *buf);

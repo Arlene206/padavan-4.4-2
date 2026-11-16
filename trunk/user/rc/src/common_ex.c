@@ -36,6 +36,7 @@
 #include <sys/wait.h>
 
 #include "storage_optware_start_policy.h"
+#include "service_start_status.h"
 
 #include <ralink_priv.h>
 #include <flash_mtd.h>
@@ -424,19 +425,32 @@ set_pagecache_reclaim(void)
 	fput_int("/proc/sys/vm/pagecache_ratio", pagecache_ratio);
 }
 
-void
+int
 restart_all_sysctl(void)
 {
+	int restart_status = 0;
+
 	if (!get_ap_mode()) {
+		int passthrough_status;
+
 		set_nf_conntrack();
 		set_tcp_syncookies();
 		set_igmp_mld_version();
-		set_passthrough_pppoe(1);
+		passthrough_status = set_passthrough_pppoe(1);
+		if (passthrough_status != 0) {
+			logmessage(LOGNAME,
+				   "system control refresh could not reconcile PPPoE relay (status=%d)",
+				   passthrough_status);
+			restart_status = rc_first_service_start_status(
+				restart_status, passthrough_status);
+		}
 	}
 
 #if defined(APP_SMBD)
 	config_smb_fastpath(1);
 #endif
+
+	return restart_status;
 }
 
 void

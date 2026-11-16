@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include "service_start_status.h"
+#include "rc_notify_batch_policy.h"
 
 static void
 test_first_error_survives_lan_restart_recovery(void)
@@ -227,6 +228,27 @@ test_bridge_parameters_are_both_attempted_and_first_error_survives(void)
 	assert(status == EINVAL);
 }
 
+
+static void
+test_sysctl_pppoe_relay_failure_keeps_notification_pending(void)
+{
+	int restart_status = 0;
+	int action_result = 0;
+	int samba_attempts = 0;
+
+	/* A positive errno from PPPoE relay must survive later independent work. */
+	restart_status = rc_first_service_start_status(restart_status, EBUSY);
+	samba_attempts++;
+	restart_status = rc_first_service_start_status(restart_status, 0);
+	assert(samba_attempts == 1);
+	assert(restart_status == EBUSY);
+
+	/* PID 1 converts any nonzero service status into an unacknowledged event. */
+	action_result = rc_notify_merge_action_result(action_result, restart_status);
+	assert(action_result < 0);
+	assert(rc_notify_merge_action_result(0, 0) == 0);
+}
+
 int
 main(void)
 {
@@ -242,6 +264,7 @@ main(void)
 	test_usb_printer_launchers_preserve_first_failure_and_continue();
 	test_usb_printer_optional_hook_failure_is_reported_and_core_launches_continue();
 	test_bridge_parameters_are_both_attempted_and_first_error_survives();
+	test_sysctl_pppoe_relay_failure_keeps_notification_pending();
 	test_storage_app_startup_preserves_first_failure_and_continues();
 	test_storage_event_remains_pending_after_failure();
 	test_loopback_start_preserves_first_required_failure();

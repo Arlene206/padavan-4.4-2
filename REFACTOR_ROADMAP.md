@@ -1,10 +1,10 @@
 ## Current source / CI checkpoint
 
-- Production source parent: `b6ff015c1a70e9b61bebfbcf33aae9d1de113946`. Strict tri-state module-load migration is complete across NAT, boot hardware, wireless drivers and LAN bridge. The last legacy wireless callback was changed in `b6ff015c`.
-- Exact-parent Firewall Startup `43966109926` passed. WAN route `43966109986` failed a whitespace-sensitive multiline IPv6 cleanup assertion; XY-C1 `43966109916` stopped at a stale Boolean-policy checker; AI handoff `43966109747` found the developer-log root file had only one entry. This atomic follow-up repairs the assertions and restores the prior 109-entry history plus the current entry.
-- Process regression `43966109822`, XY-C1 `43966109916`, NVRAM `43966109901`, GPIO `43966109653`, notification queue `43966109981`, AliDDNS `43966109957` and USB storage `43966109731` were pending/in progress at last poll; query exact-head statuses.
-- Earlier source SHA `eb566f346f63d3d6ed295c08170ac6d834ff7f04` passed XY-C1 Build/TRX/artifact [`43961726533`], but predates the current IPv6/module-load changes. L3 for current production source remains NOT VERIFIED until same-SHA Build, TRX and artifact upload pass.
-- Continue evidence-backed RC/service result-propagation and lifecycle reliability work across userland. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at its recorded SHA. Physical-router L4 remains **NOT VERIFIED**.
+- Current production/code parent for this slice: d28729af83c9692f376539c31d9578f129774d20. IPv6 disable cleanup and strict tri-state module-load verification are in place; the last wireless module loader uses is_module_loaded_status() rather than the lossy Boolean probe.
+- Exact-head d28729a WAN route 43967040074, AI handoff 43967040010, Process inventory 43967040068 and NVRAM transaction audit 43967039938 passed. XY-C1 43967039935 was building at last poll; TRX/artifact pending.
+- Confirmed result-loss defect: set_passthrough_pppoe(1) returns an errno-style status, but void restart_all_sysctl() discarded it and its sole RCN_RESTART_SYSCTL dispatcher also ignored the helper result. This commit returns/logs the PPPoE status, updates the prototype and merges it through rc_notify_merge_action_result() to keep the notification pending on failure.
+- Added a service_start_status host regression for positive errno retention and PID 1 notification failure mapping, and an integration contract for the real function/prototype/caller. Exact-head Process and XY-C1 results for this commit are pending.
+- Next source candidate: flush_conntrack_table() under RCN_RESTART_NETFILTER discards its result; inspect function return semantics and all callers before deciding whether/how to propagate. Frozen backup remains read-only. Physical-router L4 remains NOT VERIFIED.
 
 ## Whole-repository module status
 
