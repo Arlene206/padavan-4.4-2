@@ -45,7 +45,9 @@ count=0
 [ -f "$MV_COUNT_FILE" ] && count=$(/bin/cat "$MV_COUNT_FILE")
 count=$((count + 1))
 printf '%s\n' "$count" > "$MV_COUNT_FILE"
-[ "${RESTORE_FAIL_MV_AT:-0}" != "$count" ] || exit 1
+case ",${RESTORE_FAIL_MV_AT:-}," in
+	*,"$count",*) exit 1 ;;
+esac
 exec /bin/mv "$@"
 EOF
 cat > "$sandbox/bin/killall" <<'EOF'
@@ -152,7 +154,7 @@ test ! -e "$1"
 # against a missing /etc/storage tree.
 : > "$MV_COUNT_FILE"
 : > "$RSTAT_LOG"
-if RESTORE_FAIL_MV_AT=3 run_restore; then
+if RESTORE_FAIL_MV_AT="2,3" run_restore; then
 	echo "double restore rename failure unexpectedly succeeded" >&2
 	exit 1
 fi

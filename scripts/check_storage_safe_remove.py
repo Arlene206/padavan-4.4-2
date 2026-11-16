@@ -523,7 +523,7 @@ restore_start_guard = 'if [ -d "$dir_storage" ] && [ ! -L "$dir_storage" ] && [ 
 require(restore_body.count(restore_start_guard) == 2 and
         restore_body.count('rstats remains stopped because no storage tree is available') == 2,
         "restore failure paths must only restart rstats when an active storage tree is available")
-require("RESTORE_FAIL_MV_AT=3" in mtd_storage_restore_test and
+require('RESTORE_FAIL_MV_AT="2,3" run_restore' in mtd_storage_restore_test and
         "double restore rename failure unexpectedly succeeded" in mtd_storage_restore_test and
         'test ! -s "$RSTAT_LOG"' in mtd_storage_restore_test and
         'grep -Fqx \'old=preserve-me\' "$1/original.conf"' in mtd_storage_restore_test,
