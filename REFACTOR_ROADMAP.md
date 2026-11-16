@@ -1,10 +1,10 @@
 ## Current source / CI checkpoint
 
-- Conntrack flush source commit: `cffc1497fda9f65d9a0b163bad5acc1723c23f81`; source-checker correction parent: `cffc1497fda9f65d9a0b163bad5acc1723c23f81`.
-- Exact cffc WAN route `43973861975` passed the injected C conntrack policy regression and existing route tests, then failed only at a whitespace-sensitive nested return assertion in `udhcpc_deconfig()`. This follow-up normalizes all whitespace. Exact cffc Process `43973862332`, Firewall Startup `43973861431` and AI handoff `43973861519` passed. XY-C1 `43973861873` was queued at last poll.
-- `flush_conntrack_table()` now propagates the shared write/close result to PID 1, LAN, WAN and MAN teardown. A GNU89/ASan/UBSan injected policy regression passed.
-- Earlier exact `1f829937` XY-C1 Build/TRX/artifact passed, but predates conntrack source/API changes. Current production L3 is NOT VERIFIED pending same-SHA XY-C1 success. Physical-router L4 remains **NOT VERIFIED**.
-- Frozen backup remains read-only. Continue evidence-backed network/service error propagation.
+- Conntrack production source commit: cffc1497fda9f65d9a0b163bad5acc1723c23f81; current WAN contract repair parent: c3bcb486aa97e0dbb478f05585e6c24ab33407bc.
+- Exact cffc WAN route 43973861975 passed the injected conntrack policy regression and existing route tests, then failed at the first whitespace-sensitive checker. Exact c3b WAN route 43974249410 normalized that check and exposed a second stale assertion that still expected the old two-status MAN deconfig return. This commit updates it to include conntrack_status.
+- Exact c3b Process 43974249384 and AI handoff 43974249444 passed; cffc Firewall Startup 43973861431 passed. cffc XY-C1 43973861873 remained in progress at last poll. Current-source L3 requires an exact product-source build/TRX/artifact pass.
+- flush_conntrack_table() now returns write/close errno from fput_string(); PID 1, LAN, WAN and MAN teardown all propagate that result while continuing independent cleanup. Injected GNU89/ASan/UBSan test passed.
+- Frozen backup remains read-only; physical-router L4 remains NOT VERIFIED.
 
 ## Whole-repository module status
 

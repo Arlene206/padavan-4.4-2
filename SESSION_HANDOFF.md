@@ -8,26 +8,24 @@ Every logical multi-file change must be one complete Git tree and one atomic mai
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; development branch: `main`.
-- Conntrack flush implementation parent: `cffc1497fda9f65d9a0b163bad5acc1723c23f81`; checker correction parent: `cffc1497fda9f65d9a0b163bad5acc1723c23f81`.
-- Exact-head WAN route `43973861975` compiled/passed the injected conntrack flush policy test, all pre-existing C policy tests and WAN VLAN source check. It then failed one newly added source assertion at Python line 56 because the assertion expected a compact nested first-error return but used only whitespace-collapsing, not whitespace-removing, normalization. This commit fixes only that assertion.
-- Exact-head Process `43973862332`, Firewall Startup `43973861431` and AI handoff `43973861519` passed. XY-C1 `43973861873` was queued at last poll.
-- Previous exact `1f829937` XY-C1 run `43971856235` passed Build XY-C1, TRX verification and artifact upload. This L3 evidence predates cffc's conntrack API/source changes and is not reused.
-- The implementation now returns errno-style status from `flush_conntrack_table()` and propagates it through PID 1 netfilter notifications, LAN teardown, WAN teardown and MAN DHCP deconfig. The injected test verifies target IP, full flush, EACCES propagation and invalid writer handling.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Never modify it. Physical-router L4 remains **NOT VERIFIED**.
+- Repository: Arlene206/padavan-4.4-2; development branch: main. Current parent for WAN source-contract repairs: c3bcb486aa97e0dbb478f05585e6c24ab33407bc; production conntrack source is in cffc1497fda9f65d9a0b163bad5acc1723c23f81.
+- Exact cffc WAN route 43973861975 passed the injected conntrack C regression and existing route tests, then failed a whitespace-sensitive status assertion. Follow-up c3b normalized that first assertion, but exact c3b WAN route 43974249410 exposed a second stale check at Python line 304 that still expected the pre-conntrack return value from udhcpc_deconfig(). Production now correctly aggregates interface, conntrack and cleanup statuses.
+- Exact c3b Process 43974249384 and AI handoff 43974249444 passed. cffc Firewall Startup 43973861431 passed. XY-C1 43973861873 was still IN_PROGRESS at last poll; current-source firmware L3 remains NOT VERIFIED until a matching build/TRX/artifact pass.
+- The conntrack API now returns fput_string() errno-style status; PID 1, LAN, WAN and MAN teardown preserve/merge it while attempting later independent cleanup. The focused GNU89/ASan/UBSan policy test passed in the WAN route run before its final source-contract assertion failed.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807. Physical-router L4 remains NOT VERIFIED.
 
 ## Active task
 
-Verify the conntrack flush status API and all four callsites after this test-contract correction. Require WAN route source checks, Process, Firewall, AI handoff and XY-C1 exact-head results. Do not declare current firmware L3 until cffc-descendant same-SHA Build/TRX/artifact succeeds.
+Finish repairing the WAN route integration contract for the conntrack flush API. The current failure is a stale legacy assertion in the later udhcpc_deconfig() check: it still expects route_status_accumulate(interface_status, cleanup_status) and must assert the nested aggregation including conntrack_status. Re-run exact-head WAN route; address any further genuine assertion failures rather than weakening production behavior.
 
 ## Verification boundary
 
-- Exact cffc WAN route run passed the new GNU89/ASan/UBSan conntrack policy regression; its only failure was the whitespace-sensitive Python source assertion.
-- Process, Firewall and AI handoff passed on cffc. XY-C1 was queued at last poll; exact result must be fetched.
-- Exact 1f829 XY-C1 L3 success does not validate cffc source changes. Physical-router L4 remains **NOT VERIFIED**.
+- The cffc WAN route run compiled and passed the injected conntrack policy test, existing C policy regressions and WAN VLAN checks; c3b WAN route failed only at the second stale deconfig assertion in the source checker. This commit repairs that contract; exact-head WAN route rerun is required.
+- Exact c3b Process 43974249384 and AI handoff 43974249444 passed; cffc Firewall Startup 43973861431 passed. cffc XY-C1 43973861873 remained IN_PROGRESS at last poll. Do not claim current-source L3 without same-product-source Build/TRX/artifact evidence.
+- Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; inspect exact-head WAN route, XY-C1 and all other cffc-triggered workflows after the assertion correction. Diagnose real failures from their job logs and confirm same-SHA firmware Build/TRX/artifact.
-2. Continue reviewing RC/network teardown for discarded operational status, tracing each callee/caller before changing an API.
-3. Keep each logical task in one complete-tree atomic main commit using non-forced expected-SHA CAS; leave backup read-only and do not claim router L4 without physical hardware evidence.
+1. Fetch live main; inspect WAN route regression after this source-contract correction and finish all remaining exact-head checks. Use failed-step logs to distinguish stale assertions from real behavior defects.
+2. Continue an independent RC/network stability fix once the conntrack validation gate passes; do not wait on queued firmware CI.
+3. Keep complete-tree atomic commits, expected-SHA non-forced main updates and the frozen backup unchanged. Hardware L4 requires device evidence.

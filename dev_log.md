@@ -1,3 +1,11 @@
+## 2026-11-16 — Fix second stale MAN conntrack status contract
+
+- Parent main: c3bcb486aa97e0dbb478f05585e6c24ab33407bc. Exact c3b WAN route run 43974249410 passed earlier injected conntrack, bridge/IPv6 and route tests; its final source contract failed at Python line 304 because a legacy assertion still expected return route_status_accumulate(interface_status, cleanup_status). Since conntrack_status is now a first-class teardown result, production correctly returns the nested first-error aggregate that includes it.
+- Updated that remaining assertion to remove whitespace before comparing the full expression. This is a checker-only correction; no production source changes. Exact c3b Process 43974249384 and AI handoff 43974249444 passed; cffc Firewall Startup 43973861431 passed. cffc XY-C1 43973861873 remained in progress at last poll.
+- Current product-source L3 and physical-router L4 remain NOT VERIFIED until exact evidence exists.
+
+---
+
 ## 2026-11-16 — Normalize conntrack deconfig status contract after exact-head test
 
 - Parent main: `cffc1497fda9f65d9a0b163bad5acc1723c23f81`. Exact-head WAN route run `43973861975` compiled and passed the new conntrack errno policy regression (GNU89, ASan, UBSan), all existing route/IPv6/bridge tests and the WAN VLAN source check. Its final source-contract step failed only because the new assertion compared whitespace-formatted `udhcpc_deconfig()` code without removing all whitespace; the production return aggregation is intentionally split across lines.
