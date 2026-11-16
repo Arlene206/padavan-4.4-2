@@ -1312,7 +1312,9 @@ assert '"trunk/user/rc/src/tests/wireless_module_load_policy.c"' in process_work
 assert "Compile and run RC wireless module post-load verification regression" in xy_workflow
 assert '"trunk/user/rc/src/wireless_module_load_policy.h"' in xy_workflow
 assert '"trunk/user/rc/src/tests/wireless_module_load_policy.c"' in xy_workflow
-assert "boot_services_status = start_services_once(is_ap_mode);" in rc_source
+assert "int boot_services_status = wireless_modules_status;" in rc_source
+assert "int service_start_status = start_services_once(is_ap_mode);" in rc_source
+assert "rc_first_service_start_status(boot_services_status," in rc_source
 assert "one or more boot service startup operations failed (first status=%d)" in rc_source
 assert "boot_services_status != 0" in rc_source
 assert "Compile and run RC boot service status aggregation regression" in process_workflow
