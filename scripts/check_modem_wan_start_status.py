@@ -93,7 +93,9 @@ assert "vlan_result = launch_wan_usbnet(unit);" in wan_start
 assert "vlan_result = launch_wan_modem_ras(unit);" in wan_start
 
 wait_ppp = compact(body(WAN_SOURCE, "wait_ppp_up(char *ppp_ifname, int unit)"))
-assert "return interface_status;" in wait_ppp
+assert "failure_status = (interface_status < 0 && errno != 0) ?" in wait_ppp
+assert "return failure_status;" in wait_ppp
+assert "socket_status = errno ? errno : EIO;" in wait_ppp
 assert "return socket_status;" in wait_ppp
 assert "return route_status ? route_status : EIO;" in wait_ppp
 assert "return 0;" in wait_ppp[wait_ppp.index('doSystem("ping -c1 %s", ppp_gate);'):]

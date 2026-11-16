@@ -1,9 +1,10 @@
 ## Current source / CI checkpoint
 
-- Product-source baseline: `48ff82881c7e83c29ab64a5285ee9d2bf8be6955`; required PPP/IPoE migration, physical PPTP/L2TP setup, pppd launch, demand readiness, static IPv4, EAPOL and DHCP failures now aggregate into PID 1's first-error WAN status.
-- `wait_ppp_up()` returns 0 only after readiness and preserves interface/socket/route failure status. Added GNU89 first-error tests and source contracts for the required PPP/IPoE operations.
-- The WAN route workflow now asserts the explicit demand readiness status contract and that the failure is aggregated before physical WAN restore.
-- Parent `48ff8288` exact-head checks were queued; this source SHA requires fresh Process, XY-C1 and WAN route/DHCP validation. No L3/L4 claim.
+- Product-source checkpoint: ccca92b531d44c2476b6041a8adc3cbdec2f3a9f; PPP/IPoE required startup failures are accumulated and demand PPP readiness returns zero only on success.
+- Modem WAN policy and RC first-error tests passed under GNU89 + ASan/UBSan. The shared checker failed because it expected raw interface_status instead of errno-normalized failure_status.
+- WAN route, miniupnpd and HTTPD workflows failed on stale/misformatted source assertions from before the PPP refactor; production source was not modified for these validator failures.
+- Same-SHA successes: AI docs, infosvr, VPN, WAN ARP, detect_link, USB modem identity, WAN DHCP, DNSMasq, process inventory, detect_internet, AliDDNS, AdGuardHome, WAN teardown and AliyunDrive. NVRAM was pending.
+- No same-SHA XY-C1 Build/TRX/artifact L3 or physical-router L4.
 
 
 ## Whole-repository module status

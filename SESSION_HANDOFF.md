@@ -10,34 +10,37 @@ For each logical task, create all changed files in one Git tree and one atomic m
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2; only active development ref is `main`.
-- Main at start of PPP/IPoE propagation slice: `48ff82881c7e83c29ab64a5285ee9d2bf8be6955`. Refetch current main before each write and use non-forced expected-SHA updates.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only. Startup/backup recovery is complete and must not be repeated.
-- Root `dev_log.md` has 24 records before this slice; part-012 preserves the oldest 100 complete records verbatim.
-- Closed unmerged PR #1's HMAC/CA features remain integrated in main; no stale cherry-pick is needed.
+- Repository: Arlene206/padavan-4.4-2; active development ref is main.
+- Main baseline for this validator repair: ccca92b531d44c2476b6041a8adc3cbdec2f3a9f. Refetch current main before each write and use non-forced expected-SHA update.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; read-only. Startup branch recovery was done once and must not be repeated.
+- Root dev_log.md remains below 30 records; archive part-012.md preserves the oldest 100 entries.
+- Closed unmerged PR #1 HMAC/CA feature work is already represented in main.
 
 ## Engineering baseline
 
-- Required LAN bridge/VLAN/switch and iNIC MII startup errors propagate to PID 1; optional hw_nat/LED remain best-effort.
-- WAN startup preserves physical IFUP, MAN route and required IPv6-control failures. The recent MAN route fix aggregates static address, full route, gateway and physical IPv6 results.
-- This slice propagates all identified required PPP/IPoE launch failures (UPnP-stop migration gate, PPTP/L2TP physical setup, pppd launch, demand readiness, static IPv4 address, EAPOL and DHCP) into the first-error WAN status. Best-effort cleanup remains secondary.
+- Required LAN bridge/VLAN/switch and iNIC MII startup errors propagate; optional hw_nat/LED paths remain best-effort.
+- Required WAN physical IFUP, IPv6 control, MAN static address/route/gateway, PPP migration/launch/demand readiness, IPoE static address, EAPOL and DHCP failures now enter first-error startup status. PPPoE optional physical setup, MTU tuning, UPnP notifications and cleanup remain best-effort.
+- wait_ppp_up() returns zero on success and specific nonzero errors on interface timeout, socket inspection and demand route preinstallation.
 
 ## Active task
 
-`start_wan()` now aggregates required PPP/IPoE transition errors. `wait_ppp_up()` changes to a 0-success/nonzero-error contract and returns the specific interface, socket or demand-route failure, rather than boolean false. The modem WAN policy binary gains first-error cases, the shared source checker verifies all production branches, and the WAN route workflow asserts status return/propagation before fallback.
+This repair aligns WAN route, miniupnpd and HTTPD cross-module source contracts with the PPP status refactor and corrects check_modem_wan_start_status.py to verify errno-normalized failure_status rather than expecting an unnormalized raw interface return.
 
 ## Verification boundary
 
-- Parent `48ff82881c7e83c29ab64a5285ee9d2bf8be6955` Actions were queued at last inspection, including AI docs `43867282875`, WAN DHCP callback `43867282815`, Process `43867282752`, NVRAM `43867282884`, AliDDNS `43867282992`, infosvr `43867282926`, AliyunDrive `43867282758` and AdGuardHome `43867282753`.
-- Parent `3c7a5a125f670335cb1b305674790eece80b1dcc`: WAN route `43866768822`, AI docs `43866769102`, infosvr `43866769082`, AdGuardHome `43866769028`, AliyunDrive `43866768813`, AliDDNS `43866768867`, NVRAM `43866768743` and Process `43866769041` passed. WAN DHCP `43866769025` failed only because a source assertion still expected the old MAN address variable, corrected on `48ff8288`.
-- No same-SHA firmware Build/TRX/artifact L3 or hardware L4 result is claimed.
+- Parent exact SHA ccca92b531d44c2476b6041a8adc3cbdec2f3a9f: Process 43867497793 failed at shared checker assertion return interface_status; XY-C1 43867497757 failed at the same checker before Build, TRX verification or artifact upload.
+- WAN route 43867497676 failed because its source checker searched for a multi-line C accumulator call as a single-line string.
+- miniupnpd 43867497529 failed because its contract expected the pre-refactor inline PPP/IPoE migration guards.
+- HTTPD security 43867497805 failed because its PPP credential policy expected the pre-refactor inline launch_wan_pppd() and boolean demand-readiness call.
+- Same-SHA successes: AI docs 43867497763, infosvr 43867497744, VPN 43867497759, WAN gateway ARP 43867497652, detect_link 43867497598, USB modem identity 43867497710, WAN DHCP callback 43867497514, DNSMasq 43867497551, process lifecycle inventory 43867497797, detect_internet 43867497877, AliDDNS 43867497543, AdGuardHome 43867497706, WAN teardown 43867497629, AliyunDrive 43867497557. NVRAM 43867497808 was still in progress.
+- No successful same-SHA XY-C1 Build/TRX/artifact or hardware L4 result is claimed.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head Process, XY-C1, WAN route, WAN DHCP and AI docs for this PPP/IPoE change; repair the first concrete failure.
-2. Continue reviewing required WAN authentication, lease and PPP callback transitions, ensuring failures reach their originating callback / startup status without undoing valid lease state.
-3. Preserve first-error semantics; do not escalate optional MTU, notifications or cleanup.
-4. Claim firmware L3 only after same-SHA Build, TRX verification and artifact upload pass. Physical-router L4 remains unverified.
+1. Inspect exact-head WAN route, miniupnpd, HTTPD, Process/WAN checker and XY-C1 Actions for this repair.
+2. If they pass, continue review of other required start_wan() transitions and WAN callbacks for failures still hidden behind logging.
+3. Preserve first-error semantics and keep optional MTU, notifications and cleanup best-effort.
+4. Claim L3 only when Build, TRX verification and artifact upload all pass for one exact source SHA. Router L4 remains unverified.
 
 ## Governance
 

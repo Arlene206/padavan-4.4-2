@@ -1,3 +1,14 @@
+## 2026-11-16 — Align WAN/PPP integration checks with the explicit startup status contract
+
+- Parent main: ccca92b531d44c2476b6041a8adc3cbdec2f3a9f. Modem WAN policy and RC first-error tests compiled and passed under GNU89 + ASan/UBSan. The shared checker then failed because it expected raw interface_status, while the implementation converts negative ifconfig results to captured errno and returns failure_status.
+- The WAN route workflow searched for a multi-line first-error C assignment as a single-line string. The miniupnpd and HTTPD workflows still expected pre-refactor inline migration/launch checks and boolean demand readiness.
+- These are stale cross-module source assertions; no HTTPD or miniupnpd production source failed or was modified. The validator repair updates them to check captured status aggregation before fallback/cleanup.
+- Exact-head AI docs, infosvr, VPN, WAN gateway ARP, detect_link, USB modem identity, WAN DHCP callback, DNSMasq, process inventory, detect_internet, AliDDNS, AdGuardHome, WAN teardown and AliyunDrive passed. NVRAM was in progress at last inspection.
+- XY-C1 Build/TRX/artifact, WAN route, miniupnpd and HTTPD did not pass because of these contract mismatches; Process inventory failed at the shared WAN checker. No L3/L4 claim.
+- Next: inspect exact-head repair Actions; continue WAN error-return review after the validators are green.
+
+---
+
 ## 2026-11-16 — Propagate required PPP and IPoE startup failures to PID 1
 
 - Parent main: `48ff82881c7e83c29ab64a5285ee9d2bf8be6955`. Targeted review of `start_wan()` found required PPP/IPoE transitions that aborted startup or set a per-WAN error flag without entering the status returned to PID 1: PPP/IPoE UPnP migration stop, PPTP/L2TP physical setup, pppd launch, demand PPP readiness, static IPv4 assignment, EAPOL startup and DHCP client launch.
