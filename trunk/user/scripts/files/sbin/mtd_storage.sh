@@ -129,7 +129,7 @@ func_stop_apps()
 
 func_start_apps()
 {
-	/sbin/rstats
+	/sbin/rstats 9>&-
 }
 
 func_load()

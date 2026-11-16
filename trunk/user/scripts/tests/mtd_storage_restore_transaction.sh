@@ -4,7 +4,20 @@ set -eu
 script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/../../../.." && pwd)
 sandbox=$(mktemp -d "${TMPDIR:-/tmp}/mtd-storage-restore.XXXXXX")
-trap 'rm -rf "$sandbox"' EXIT HUP INT TERM
+rstats_daemon_pid_file="$sandbox/rstats-daemon.pid"
+cleanup()
+{
+	if [ -s "$rstats_daemon_pid_file" ]; then
+		daemon_pid=$(/bin/cat "$rstats_daemon_pid_file")
+		case "$daemon_pid" in
+			''|*[!0-9]*) ;;
+			*) kill "$daemon_pid" 2>/dev/null || : ;;
+		esac
+	fi
+	rm -rf "$sandbox"
+}
+trap cleanup EXIT
+trap 'exit 1' HUP INT TERM
 
 real_tar=$(command -v tar)
 mkdir -p "$sandbox/storage" "$sandbox/private" "$sandbox/incoming" "$sandbox/bin"
@@ -84,6 +97,11 @@ cat > "$sandbox/bin/rstats" <<'EOF'
 printf '%s\n' started >> "$RSTAT_LOG"
 mkdir -p "$RSTAT_PROC_ROOT/321"
 printf '%s\n' '321 (rstats) S 1 321 321' > "$RSTAT_PROC_ROOT/321/stat"
+if [ "${RSTAT_DAEMON_TEST:-0}" = 1 ]; then
+	# Mimic the long-lived rstats daemon retaining inherited non-stdio FDs.
+	/bin/sleep 30 </dev/null >/dev/null 2>&1 &
+	echo "$!" > "$RSTAT_DAEMON_PID"
+fi
 EOF
 chmod +x "$sandbox/bin/"*
 
@@ -93,6 +111,7 @@ export MV_COUNT_FILE="$sandbox/mv-count"
 export RSTAT_LOG="$sandbox/rstats-starts"
 export RSTAT_PROC_ROOT="$sandbox/proc"
 export RSTAT_KILL_LOG="$sandbox/rstats-kill.log"
+export RSTAT_DAEMON_PID="$rstats_daemon_pid_file"
 mkdir -p "$RSTAT_PROC_ROOT/321"
 printf '%s\n' '321 (rstats) S 1 321 321' > "$RSTAT_PROC_ROOT/321/stat"
 : > "$MV_COUNT_FILE"
@@ -198,7 +217,23 @@ test ! -e "$1"
 rm -rf "$sandbox"/storage.rollback.*
 
 : > "$MV_COUNT_FILE"
+RSTAT_DAEMON_TEST=1
+export RSTAT_DAEMON_TEST
 run_restore
+unset RSTAT_DAEMON_TEST
+test -s "$RSTAT_DAEMON_PID"
+daemon_pid=$(/bin/cat "$RSTAT_DAEMON_PID")
+kill -0 "$daemon_pid" 2>/dev/null || {
+	echo "rstats daemon fixture exited before lock inheritance check" >&2
+	exit 1
+}
+if (exec 8>>"$sandbox/private/.mtd_storage.lock"; flock -n 8); then
+	:
+else
+	echo "rstats daemon inherited the MTD operation lock" >&2
+	exit 1
+fi
+kill "$daemon_pid" 2>/dev/null || :
 test ! -e "$sandbox/storage/original.conf"
 grep -Fqx 'new=restored-value' "$sandbox/storage/new.conf"
 test -f "$sandbox/storage/start_script.sh"

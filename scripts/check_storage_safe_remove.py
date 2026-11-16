@@ -545,6 +545,14 @@ require('test -f "$sandbox/private/storage_locked"' in mtd_storage_restore_test 
         'if sh "$sandbox/mtd_storage.sh" save; then' in mtd_storage_restore_test and
         "MTD save ignored the restore save barrier" in mtd_storage_restore_test,
         "restore transaction regression must prove that its barrier blocks MTD save after staging failure")
+start_apps_start = mtd_storage.index("func_start_apps()")
+start_apps_end = mtd_storage.index("\nfunc_load()", start_apps_start)
+start_apps = mtd_storage[start_apps_start:start_apps_end]
+require('/sbin/rstats 9>&-' in start_apps and
+        'RSTAT_DAEMON_TEST=1' in mtd_storage_restore_test and
+        'flock -n 8' in mtd_storage_restore_test and
+        'rstats daemon inherited the MTD operation lock' in mtd_storage_restore_test,
+        "rstats must not retain the MTD operation lock after restore restarts the daemon")
 restore_start_guard = 'if [ -d "$dir_storage" ] && [ ! -L "$dir_storage" ] && [ -f "$dir_storage/start_script.sh" ]; then'
 require(restore_body.count(restore_start_guard) == 2 and
         restore_body.count('rstats remains stopped because no storage tree is available') == 2,
