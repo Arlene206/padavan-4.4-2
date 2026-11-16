@@ -57,7 +57,8 @@ require(kill_body.rfind('ddnsto_wait_stopped') > kill_body.index('killall -9 ddn
         "force kill must have a bounded process-absence postcondition")
 require('return 1' in kill_body and 'ddnsto_process_state' in kill_body and
         'ddnsto_wait_status' in kill_body and 'TERM后进程状态未知' in kill_body and
-        'ddnsto_process_state' in start_body,
+        'if ! kill_z; then' in start_body and
+        start_body.index('if ! kill_z; then') < start_body.index('"$DDNSTO_BIN"'),
         "UNKNOWN must block TERM/KILL escalation and replacement daemon launch")
 require('if ! kill_z; then' in start_body and start_body.index('if ! kill_z; then') <
         start_body.index('"$DDNSTO_BIN"'), "start must fail closed before launching a replacement")
