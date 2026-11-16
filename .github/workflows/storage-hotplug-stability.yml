@@ -391,14 +391,24 @@ jobs:
           assert "Wireless notification %s failed" not in notifications
 
           # USB printer startup must report launcher errors to both retry paths.
+          spawn_daemon = function_body(usb, "start_usb_printer_daemon(char *const argv[])")
+          assert "pipe(exec_pipe)" in spawn_daemon
+          assert "FD_CLOEXEC" in spawn_daemon
+          assert "child = fork();" in spawn_daemon
+          assert "execv(argv[0], argv);" in spawn_daemon
+          assert "return exec_error;" in spawn_daemon
+          assert "return EIO;" in spawn_daemon
+
           u2ec = function_body(usb, "start_u2ec(void)")
-          assert 'start_status = system("/usr/sbin/u2ec &");' in u2ec
+          assert "start_status = start_usb_printer_daemon(argv);" in u2ec
+          assert "system(" not in u2ec
           assert "if (start_status != 0)" in u2ec
           assert u2ec.index("if (start_status != 0)") < u2ec.index('nvram_set("apps_u2ec_ex", "1");')
           assert "return start_status;" in u2ec and "return 0;" in u2ec
 
           lpd = function_body(usb, "start_lpd(void)")
-          assert 'start_status = system("/usr/sbin/lpd &");' in lpd
+          assert "start_status = start_usb_printer_daemon(argv);" in lpd
+          assert "system(" not in lpd
           assert "if (start_status != 0)" in lpd and "return start_status;" in lpd
 
           p910nd = function_body(usb, "start_p910nd(char *devlp)")
@@ -432,7 +442,8 @@ jobs:
           assert "printer_start_status = try_start_usb_printer_spoolers();" in deferred_printer
           assert "if (printer_start_status != 0)" in deferred_printer
           assert deferred_printer.index('nvram_set_int_temp("usb_hotplug_lp", 0)') < deferred_printer.index("printer_start_status = try_start_usb_printer_spoolers();")
-          assert deferred_printer.index("if (printer_start_status != 0)") < deferred_printer.index('nvram_set_int_temp("usb_hotplug_lp", 1)') < deferred_printer.index("alarm(5)")
+          retry_block = deferred_printer[deferred_printer.index("if (printer_start_status != 0)"): ]
+          assert retry_block.index('nvram_set_int_temp("usb_hotplug_lp", 1)') < retry_block.index("alarm(5)")
 
           service_start_test = (rc_dir / "tests/service_start_status.c").read_text()
           assert "test_usb_printer_launchers_preserve_first_failure_and_continue" in service_start_test

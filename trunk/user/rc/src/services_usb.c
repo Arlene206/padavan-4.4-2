@@ -94,19 +94,97 @@ safe_remove_usb_device(int port, const char *dev_name)
 	}
 }
 
+/* Launch a detached daemon and report execve errors to the caller.  The
+ * close-on-exec pipe distinguishes successful exec from an immediate failure;
+ * a shell background-list status would always mask the daemon's exit status. */
+static int
+start_usb_printer_daemon(char *const argv[])
+{
+	int exec_pipe[2];
+	int pipe_flags, exec_error = 0, read_error = 0, saved_error;
+	pid_t child;
+	ssize_t count;
+	size_t received = 0, written = 0;
+
+	if (pipe(exec_pipe) < 0)
+		return errno;
+
+	pipe_flags = fcntl(exec_pipe[1], F_GETFD);
+	if (pipe_flags < 0) {
+		saved_error = errno;
+		close(exec_pipe[0]);
+		close(exec_pipe[1]);
+		return saved_error;
+	}
+	if (fcntl(exec_pipe[1], F_SETFD, pipe_flags | FD_CLOEXEC) < 0) {
+		saved_error = errno;
+		close(exec_pipe[0]);
+		close(exec_pipe[1]);
+		return saved_error;
+	}
+
+	child = fork();
+	if (child < 0) {
+		saved_error = errno;
+		close(exec_pipe[0]);
+		close(exec_pipe[1]);
+		return saved_error;
+	}
+	if (child == 0) {
+		close(exec_pipe[0]);
+		execv(argv[0], argv);
+		exec_error = errno;
+		while (written < sizeof(exec_error)) {
+			count = write(exec_pipe[1], (char *)&exec_error + written,
+				      sizeof(exec_error) - written);
+			if (count < 0 && errno == EINTR)
+				continue;
+			if (count <= 0)
+				break;
+			written += (size_t)count;
+		}
+		_exit(127);
+	}
+
+	close(exec_pipe[1]);
+	while (received < sizeof(exec_error)) {
+		count = read(exec_pipe[0], (char *)&exec_error + received,
+			     sizeof(exec_error) - received);
+		if (count < 0 && errno == EINTR)
+			continue;
+		if (count < 0) {
+			read_error = errno;
+			break;
+		}
+		if (count == 0)
+			break;
+		received += (size_t)count;
+	}
+	close(exec_pipe[0]);
+
+	if (read_error != 0)
+		return read_error;
+	if (received == 0)
+		return 0;
+	if (received == sizeof(exec_error))
+		return exec_error;
+	return EIO;
+}
+
 #if defined(SRV_U2EC)
 int
 start_u2ec(void)
 {
 	int start_status;
+	char *argv[] = { "/usr/sbin/u2ec", NULL };
 
 	if (nvram_match("u2ec_enable", "0"))
 		return 0;
 
 	unlink("/var/run/u2ec.pid");
-	start_status = system("/usr/sbin/u2ec &");
+	start_status = start_usb_printer_daemon(argv);
 	if (start_status != 0) {
-		logmessage("USB Printer", "u2ec launcher failed (status=%d)", start_status);
+		logmessage("USB Printer", "u2ec exec failed (status=%d)", start_status);
 		return start_status;
 	}
 
@@ -127,14 +205,15 @@ int
 start_lpd(void)
 {
 	int start_status;
+	char *argv[] = { "/usr/sbin/lpd", NULL };
 
 	if (nvram_match("lprd_enable", "0"))
 		return 0;
 
 	unlink("/var/run/lpdparent.pid");
-	start_status = system("/usr/sbin/lpd &");
+	start_status = start_usb_printer_daemon(argv);
 	if (start_status != 0)
-		logmessage("USB Printer", "lpd launcher failed (status=%d)", start_status);
+		logmessage("USB Printer", "lpd exec failed (status=%d)", start_status);
 
 	return start_status;
 }
