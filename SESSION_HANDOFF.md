@@ -8,7 +8,7 @@ Before context exhaustion, record exact refs, Action states and the first next a
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Earlier source baseline: `0731e7aa932661260456a3f95f0fbebbecc42fa2`; documentation checkpoint: `b3e550a5dadf0607f2d7aba5b93db6da8e1c9d4d`. Main immediately before the current updater slice: `ca6f0786aa35f95331d031e38bca53dea189743a` (`fix(adbyby): capture pidof errors safely under errexit`).
+- Earlier source baseline: `0731e7aa932661260456a3f95f0fbebbecc42fa2`. Current meaningful engineering baseline: Adbyby updater gate + regression correction `867e4812019a43276249b144a1d49cb1d90691c8`; Shadowsocks watchcat lifecycle gate `a8d50172afff0c081eb1b5c0f12d45dd07dc94f8`. Live main at this checkpoint: `a8d50172afff0c081eb1b5c0f12d45dd07dc94f8`.
 - `main` is the only development branch. The frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify or rewrite it.
 - Startup protocol, handoff, roadmap and log archive were recovered once in this session. Do not repeat the initial audit.
 - This documentation checkpoint updates this file and `dev_log.md` only; no source changes are included.
@@ -43,21 +43,23 @@ Before context exhaustion, record exact refs, Action states and the first next a
 - The `952e97c` XY-C1 build/TRX/artifact result is complete and PASS.
 - The `8e0556d` XY-C1 run `43794003979` completed SUCCESS (Build, TRX verification and artifact upload).
 - The `fc867b5` XY-C1 run `43794661521` later completed SUCCESS; `8e0556d` XY-C1 run `43794003979` also completed SUCCESS (Build/TRX/artifact). The standalone ZeroTier workflow on `0731e7a`, run `43794876436`, is PASS.
-- Exact push Actions for `ca6f0786aa35f95331d031e38bca53dea189743a`: Adbyby regression `43797496515` PASS; Process lifecycle `43797496441` PASS; process inventory `43797496503` PASS; AI handoff docs `43797496481` PASS; HTTPD security `43797496369` PASS. NVRAM boundary `43797496462` and XY-C1 `43797496451` were PENDING at the latest check.
+- Exact push Actions for Adbyby updater regression correction `867e4812019a43276249b144a1d49cb1d90691c8`: inventory, process lifecycle, handoff validation, Adbyby host/config, and NVRAM boundary all PASS. No XY-C1 firmware build was triggered or claimed for this shell/test-only correction.
 - No physical-router runtime or L4 validation was performed in this session.
 - No change was made to the frozen backup branch.
 
 ## Active task
 
-The Adbyby stop contract now uses a tri-state pidof inventory, verifies a bounded post-signal ABSENT state, and refuses teardown on UNKNOWN or timeout. Commit `ca6f0786aa35f95331d031e38bca53dea189743a` repaired the pidof-status capture so expected nonzero statuses are safely handled under callers using `set -e`. Exact-SHA Adbyby regression run `43797496515`, Process lifecycle `43797496441`, process inventory `43797496503`, AI docs `43797496481`, and HTTPD security `43797496369` all PASS.
+Adbyby updater shutdown gating is complete. The stop-gate source change is in `11b27a31408148389f77a852b7b7414661be2149`; its regression test syntax was repaired on `867e4812019a43276249b144a1d49cb1d90691c8`. Exact-SHA checks on `867e481`: inventory, process lifecycle, handoff validation, Adbyby host/config regression, and NVRAM transaction boundary all PASS. The regression now asserts that failed/unknown shutdown prevents updater staging, rules, DNS, and replacement-daemon launch.
 
-A new concrete caller gap remains: `adbyby_uprules()` still calls `adbyby_close` without checking its status. An UNKNOWN/timed-out stop can therefore be followed by rule staging and a replacement daemon launch. The current follow-up adds a fail-closed stop gate before `addscripts`, extends the shell regression to prove updater staging/launch does not happen after a failed stop, and extends `check_adbyby_hosts_config.py` to enforce the production/test wiring. Base SHA for this atomic slice: `ca6f0786aa35f95331d031e38bca53dea189743a`.
+Current active lifecycle slice: Shadowsocks watchcat previously used unchecked name-wide `killall -9` for SSR server and V2Ray/XRay/Trojan recovery, and invalid `kill -9 chinadns-ng` (a process name is not a PID). The `ss-monitor` script now loads the shared tri-state lifecycle helper and gates SSR server, selected proxy, ChinaDNS-ng, and DNS proxy replacement on verified bounded stop results. Source contract and workflow path/syntax checks were integrated. Commits: source/checker/workflow `ecaabcad6af552b21f135b90d9109962df5d8daa`; workflow path + stop-before-restart contract `2498b18c2c98fd588529fd96676dee5de03985fe`; ChinaDNS DNS-proxy failure gate and checker repair `a8d50172afff0c081eb1b5c0f12d45dd07dc94f8`.
+
+Exact-head push Actions for `a8d5017` are pending at checkpoint: inventory run `43798722181`, process lifecycle `43798722252`, handoff validation `43798722254`, Shadowsocks lifecycle `43798722278`, and NVRAM boundary `43798722201`. Do not claim the Shadowsocks slice validated until these exact-SHA checks finish. The earlier exact-head Shadowsocks run on `ecaabca` completed successfully; its exact current-source successor is `a8d5017`.
 
 ## Exact first action for the next GPT
 
-1. Check exact-SHA push Actions for this updater-gate commit. Verify Adbyby configuration stability, Process lifecycle, process inventory, AI docs, HTTPD security, NVRAM boundary, and XY-C1; mark only completed/success runs PASS.
-2. Confirm the regression covers initial pidof UNKNOWN/malformed, stubborn timeout, post-signal UNKNOWN, sleep failure, confirmed ABSENT, successful stop, and the updater caller refusing staging/relaunch after stop failure.
-3. Continue repository-wide lifecycle governance from the next highest-risk remaining direct signal/stop caller in the inventory; do not repeat the completed Adbyby process-state capture or current updater gate.
+1. Inspect only the exact-head push Actions for `a8d50172afff0c081eb1b5c0f12d45dd07dc94f8`; triage the first causal failure from its job log and repair on latest `main`. If all pass, record the verified boundary without a docs-only CI-status refresh.
+2. Use the process lifecycle inventory artifact from run `43798722181` to select the next highest-risk remaining direct signal/stop caller. Do not repeat the completed Adbyby updater gate or Shadowsocks watchcat stop-gate work.
+3. Keep L3/L4 claims separate: no physical-router validation was performed for these shell-only slices.
 
 ## Governance and safety constraints
 

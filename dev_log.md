@@ -1,3 +1,13 @@
+## 2026-11-16 — Gate Shadowsocks watchcat restarts on verified shutdown
+
+- Adbyby updater stop-gate regression correction `867e4812019a43276249b144a1d49cb1d90691c8` fixed a malformed shell assertion; exact-head inventory, process lifecycle, handoff, Adbyby config and NVRAM checks all PASS.
+- Found unchecked name-wide restart signals in `trunk/user/shadowsocks/scripts/ss-monitor`: SSR server and proxy restart used `killall -9`, while ChinaDNS-ng used `kill -9 chinadns-ng` (invalid name-as-PID usage). The monitor now uses the shared tri-state bounded stop helper and refuses replacement launches on unverified stop; DNS proxy restarts are also gated.
+- Source/checker/workflow commit `ecaabcad6af552b21f135b90d9109962df5d8daa`; path and stop-before-restart contract commit `2498b18c2c98fd588529fd96676dee5de03985fe`; ChinaDNS proxy failure gate and checker syntax repair `a8d50172afff0c081eb1b5c0f12d45dd07dc94f8`.
+- Exact-head Actions for `a8d5017`: inventory `43798722181`, process lifecycle `43798722252`, handoff `43798722254`, Shadowsocks lifecycle `43798722278`, NVRAM `43798722201` were in progress at last check. No target firmware or hardware validation claimed.
+- Next: verify exact-head Actions, then use the inventory artifact to select the next direct process signal/stop caller.
+
+---
+
 ## 2026-11-16 — Gate Adbyby rule updates on verified daemon shutdown
 
 - Parent main: `ca6f0786aa35f95331d031e38bca53dea189743a`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
