@@ -90,6 +90,12 @@ jobs:
           assert '"pref=%d\\ndevnum=%d\\nportid=%s\\n"' in wdm
           assert wdm.count("modem_node_file_remove(MODEM_NODE_DIR, device_name)") >= 3
 
+          legacy_finder = body(modem, "find_modem_node(")
+          assert "modem_node_manual_index_matches(fetch_index, i)" in legacy_finder
+          assert "node_valid_last" not in legacy_finder
+          assert "return -1;" in legacy_finder
+          assert "modem_node_manual_index_matches" in identity
+
           reader = body(modem, "find_modem_node_by_usb_identity(")
           assert "strtol(buf + 7, &endptr, 10)" in reader
           assert 'strncmp(buf, "portid=", 7)' in reader
@@ -123,6 +129,10 @@ jobs:
           assert remove.index("if (stop_status != 0)") < remove.index("set_usb_modem_dev_wan(0, 0)")
 
           for marker in (
+              'modem_node_manual_index_matches(-1, 0)',
+              'modem_node_manual_index_matches(4, 4)',
+              '!modem_node_manual_index_matches(4, 3)',
+              'modem_node_manual_index_matches(4, -1)',
               'modem_node_usb_identity_matches("1-1", 7, "1-1", 7)',
               'modem_node_usb_identity_matches("1-1", 7, "1-2", 7)',
               'modem_node_usb_identity_matches("1-1", 7, "1-1", 8)',

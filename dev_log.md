@@ -1,3 +1,13 @@
+## 2026-11-16 — Make manual RAS modem-node selection fail closed
+
+- Parent main: `1c1fa9679e625a468b04fc12cbd2794683e810fc`. Exact-head Process, HTTPD, AI handoff, infosvr, AdGuardHome, AliDDNS, AliyunDrive and NVRAM regressions all passed. XY-C1 run `43846110844` remained in progress after its policy tests; target Build/TRX/artifact was not yet complete.
+- Found a remaining legacy RAS selector defect: `find_modem_node()` returned the last existing node when the explicitly configured `modem_node` index was absent. `get_modem_node_ras()` uses this for both `ttyACM` and `ttyUSB`, so manual selection could silently substitute a different modem.
+- Changed manual lookup to inspect only the configured index and return `-1` when that exact node is unavailable. Automatic preferred/any-node search remains unchanged.
+- Added GNU89 policy cases for auto selection, exact manual match, mismatched candidate and missing candidate; extended the USB identity workflow's semantic production-source contract to ensure the old `node_valid_last` fallback cannot return.
+- Next: inspect this commit's exact-head USB identity and XY-C1 Actions; then complete the device-aware module readiness review and resume broad RC startup-result coverage outside the modem subsystem.
+
+---
+
 ## 2026-11-16 — Align HTTPD reconnect and AI handoff contracts
 
 - Parent main: `1b9571f272b74fcbd72085d229e17ca855344432`. HTTPD Authentication run `43845655325` failed at embedded Python line 62 because its contract searched for the obsolete direct `if (stop_wan() != 0)` in `try_wan_reconnect()`. Production uses `status = stop_wan();`, checks `if (status != 0)`, then resets WAN state. Updated the contract to verify this actual status flow and ordering.

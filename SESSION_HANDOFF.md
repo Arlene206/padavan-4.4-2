@@ -9,36 +9,37 @@ For each logical task, create all changed files in one Git tree and one atomic m
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; active branch: `main`.
-- Parent for THIS HTTPD and handoff contract correction: `1b9571f272b74fcbd72085d229e17ca855344432`. Refetch live `main` before every later write and use expected-SHA non-forced compare-and-swap.
+- Parent for THIS RAS manual-node hard-pin correction: `1c1fa9679e625a468b04fc12cbd2794683e810fc`. Re-fetch main before each later write and use expected-SHA non-forced CAS.
 - Frozen archive: `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only.
-- Startup governance/archive/backup/PR recovery are complete; do not repeat the startup audit.
-- Root `dev_log.md` contains 89 newest-first records before THIS entry; it will contain 90 afterward. Keep 20–119 records and preserve archived shards/indexes.
+- Startup protocol/archive/backup/PR recovery are already complete; do not repeat them.
+- `dev_log.md` contains 90 newest-first records before THIS entry and will contain 91 afterward. Keep 20–119 and preserve archived shards/indexes.
 
 ## Active task
 
-Synchronize two stale validation/documentation contracts with current repository state:
-- HTTPD bounded-service/WAN-stop test expected the old direct expression `if (stop_wan() != 0)` in `try_wan_reconnect()`. Current production code correctly stores `status = stop_wan();`, gates on `if (status != 0)`, and only then resets WAN state. THIS commit asserts the actual status variable and ordering.
-- The handoff omitted the exact mandatory `Before context exhaustion` checkpoint phrase required by the AI documentation validator. THIS commit restores it.
-- Both changes are validation/documentation-only; no product runtime behavior changes here.
+A remaining manual-index fallback defect existed in the legacy RAS selector:
+- `find_modem_node()` honored a configured `modem_node` when that exact index existed, but if absent returned `node_valid_last`. Since `get_modem_node_ras()` tries `ttyACM` and `ttyUSB` through this finder, a missing configured index could silently select a different device.
+- THIS commit makes a configured index a hard pin: only the exact candidate is examined; if it is absent, the finder returns `-1`. Automatic selection remains unchanged.
+- A small GNU89 policy helper and regression cover auto mode, exact match, mismatch and absent-candidate rejection; the USB identity workflow checks production integration and forbids the old last-node fallback.
+- The earlier NDIS selector already validates physical port ID + devnum for WDM/TTY and preserves manual/preferred choices only within that identity.
 
 ## Verification boundary
 
-Exact-head observations on parent `1b9571f272b74fcbd72085d229e17ca855344432`:
+Exact-head observations on parent `1c1fa9679e625a468b04fc12cbd2794683e810fc`:
 
-- Process inventory/lifecycle run `43845655106`: SUCCESS.
-- AdGuardHome `43845655273`, infosvr `43845655392`, AliDDNS `43845655240`, and AliyunDrive `43845655067`: SUCCESS.
-- HTTPD Authentication `43845655325`: FAIL at `Verify bounded service termination and WAN stop failure gates`, embedded Python line 62, because its checker required `if (stop_wan() != 0)` inside `try_wan_reconnect()`; actual code uses the equivalent explicit `status` variable. THIS commit updates the contract to check its assignment, error gate, and ordering before state reset.
-- AI handoff docs `43845655144`: FAIL because the handoff omitted the literal `Before context exhaustion`. THIS commit restores the required phrase.
-- XY-C1 `43845655207`: IN_PROGRESS at last inspection; NVRAM `43845655244`: IN_PROGRESS. No TRX/artifact or physical-router result is claimed.
-- USB modem identity run `43844807532` on ancestor `9e284e758526ac281228e86b81dc349adbeff783`: SUCCESS. Process run `43845149493` on ancestor `70e20841ef6dc6198fda5036521760f99d43a46d`: SUCCESS.
-- No current-parent XY-C1 Build/TRX/artifact L3 result or physical-router/L4 result is established.
+- HTTPD Authentication `43846110941`: SUCCESS.
+- AI handoff docs `43846110910`: SUCCESS.
+- Process lifecycle `43846111322`: SUCCESS.
+- AdGuardHome `43846110895`, infosvr `43846111062`, AliDDNS `43846111039`, AliyunDrive `43846111006`, NVRAM transaction boundary `43846110999`: SUCCESS.
+- XY-C1 firmware validation `43846110844`: IN_PROGRESS at last inspection. Policy/host regression steps had passed and target build remained active; no TRX/artifact result or L3 pass yet.
+- USB modem WDM/NDIS identity test `43844807532` on ancestor `9e284e758526ac281228e86b81dc349adbeff783`: SUCCESS. The new generic RAS manual-index behavior has not yet been validated by exact-head Actions.
+- No physical-router/L4 result is established.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect this commit's exact-head HTTPD and AI handoff jobs, plus XY-C1 and NVRAM. Read any failed logs. Record L3 only after Build XY-C1, TRX verification and artifact upload all pass.
-2. Inspect `reload_modem_modules()` and startup/reconfiguration callers. `module_smart_load()` can return zero both for an already-loaded module and for a failed load; where needed, verify actual `/sys/module` state. Do not make every alternative NDIS driver mandatory. Establish selected-device readiness only after USB host initialization.
-3. Broaden stability/security coverage beyond the modem subsystem when the outstanding integration gates are closed.
+1. Fetch live main and inspect this commit's exact-head USB modem identity and XY-C1 Actions. Verify the hard-pin regression and the full Build XY-C1 → TRX verification → artifact upload sequence before claiming L3.
+2. Finish the `reload_modem_modules()` review. `module_smart_load()` returns zero both for already-loaded and failed loads, so post-load `/sys/module` state—not the return code—is authoritative. Keep alternative modem drivers optional; verify device readiness only after USB host initialization.
+3. Resume broad RC/service-start result propagation outside modem-only work. The roadmap's remaining P1 is to identify enabled launch paths whose failures are still discarded; add caller-level regressions, not just helper tests.
 
 ## Governance constraints
 
-Preserve security, architecture, compatibility, target-toolchain and mandatory tests. Use only `main`; frozen backup remains read-only. Update root `dev_log.md` for every code/documentation commit, keep 20–119 records and preserve archive shards/indexes verbatim. Distinguish source, CI, firmware and physical-router validation. Never claim an unrun test/build/hardware result.
+Preserve security, architecture, compatibility, target-toolchain and mandatory tests. Use only `main`; the frozen backup is immutable. Update root `dev_log.md` for each source or documentation commit, preserve archives verbatim, and distinguish source, CI, firmware and physical-router validation. Never claim an unrun test/build/hardware result.

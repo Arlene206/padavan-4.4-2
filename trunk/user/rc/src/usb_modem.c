@@ -148,14 +148,15 @@ static int
 find_modem_node(const char* pattern, int fetch_pref, int fetch_devnum, int fetch_index, int *devnum_out)
 {
 	FILE *fp;
-	int i, node_pref, node_devnum, node_valid_last;
+	int i, node_pref, node_devnum;
 	char node_fname[64];
 	
-	node_valid_last = -1;
 	if (devnum_out)
 		*devnum_out = 0;
 	
 	for (i=0; i<MAX_USB_NODE; i++) {
+		if (!modem_node_manual_index_matches(fetch_index, i))
+			continue;
 		node_pref = 0;
 		node_devnum = 0;
 		sprintf(node_fname, "%s/%s%d", MODEM_NODE_DIR, pattern, i);
@@ -181,7 +182,6 @@ find_modem_node(const char* pattern, int fetch_pref, int fetch_devnum, int fetch
 			}
 			fclose(fp);
 			
-			node_valid_last = i;
 			
 			if (fetch_index >= 0) {
 				if (i == fetch_index)
@@ -195,10 +195,6 @@ find_modem_node(const char* pattern, int fetch_pref, int fetch_devnum, int fetch
 			}
 		}
 	}
-	
-	if (fetch_index >= 0 && node_valid_last >= 0)
-		return node_valid_last;
-	
 	return -1;
 }
 

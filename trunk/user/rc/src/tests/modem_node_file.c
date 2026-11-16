@@ -17,6 +17,10 @@ main(void)
 	char line[64];
 	int n;
 
+	assert(modem_node_manual_index_matches(-1, 0));
+	assert(modem_node_manual_index_matches(4, 4));
+	assert(!modem_node_manual_index_matches(4, 3));
+	assert(!modem_node_manual_index_matches(4, -1));
 	assert(modem_node_usb_identity_is_valid("1-1", 7));
 	assert(modem_node_usb_identity_is_valid("1-2.3", 127));
 	assert(!modem_node_usb_identity_is_valid(NULL, 7));

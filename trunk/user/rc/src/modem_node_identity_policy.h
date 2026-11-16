@@ -3,6 +3,13 @@
 
 #include <string.h>
 
+/* A configured manual node is exact; never substitute another index. */
+static inline int
+modem_node_manual_index_matches(int manual_index, int candidate_index)
+{
+	return manual_index < 0 || manual_index == candidate_index;
+}
+
 /* USB devnum is meaningful only when bound to its physical port identity. */
 static inline int
 modem_node_usb_identity_is_valid(const char *port_id, int devnum)
