@@ -1,11 +1,11 @@
 ## Current source / CI checkpoint
 
-- Product-source baseline `f6fba229aba497988d2308c8c99879aca5da1214`: static MAN/IPoE validates IPv4/netmasks before interface setup; PPP ip-up validates canonical IPCP endpoints before lease publication; WAN IPv6 teardown preserves prior runtime interface identity; optional MTU ioctl failures are diagnostic-only.
-- XY-C1 Firmware Validation `43880100797` on `0409c2b90d8da55531b8370dbb16e7a1ed978d67`: IN_PROGRESS at last inspection; same-SHA Build/TRX/artifact still unconfirmed. Earlier baseline `f6fba...` passed all firmware stages on one SHA; physical-router L4 NOT VERIFIED.
-- USB storage hotplug `43880100890`, job `133343396256`, on `0409c2b90d8da55531b8370dbb16e7a1ed978d67`: final source contract failed because the PR path filters omitted `service_start_status.h` and `tests/service_start_status.c`; all preceding BusyBox ash and C regression steps passed. The corrected workflow now filters those paths for both push and pull_request.
-- USB printer u2ec/LPRng launch now uses a fork/exec close-on-exec pipe to expose exec/setup failures rather than trusting a background shell status. The optional printer hook status is also included in first-error aggregation while core printer/spooler launches continue; a focused GNU89 regression covers this behavior.
-- Exact-parent AI docs `43880101001`, process inventory `43880100870` and process lifecycle `43880100789`: PASS. NVRAM `43880100873` remained IN_PROGRESS at last inspection.
-- Next engineering target: P1 broad RC startup-result propagation. No current-SHA firmware L3 or physical-router L4 claim until exact evidence exists.
+- Product-source baseline `f6fba229aba497988d2308c8c99879aca5da1214`: static MAN/IPoE validation rejects malformed IPv4/netmasks before interface setup; PPP ip-up validates IPCP endpoints; DHCPv6 teardown preserves previous runtime interface state; optional WAN MTU errors remain diagnostic-only.
+- Parent main `cd5ccbefc26a9f71b0c971800b2f5b0d9cad450d`: USB printer launcher return-status propagation and optional hook first-error aggregation are present; u2ec/LPRng use an FD_CLOEXEC fork/exec pipe to expose exec failures.
+- Exact-head storage-hotplug `43880814702`, job `133345880304`: FAIL at line 139 of the embedded Python check because the workflow file was committed truncated at `filters.split("`; previous C regression and USB launch-source assertions passed. This commit restores the missing workflow suffix from the intact `0409c2b` version, preserving newer USB printer assertions.
+- Exact-head XY-C1 `43880814725`: IN_PROGRESS at last inspection. AI docs `43880814989`, infosvr `43880814630`, NVRAM `43880814712`, AdGuardHome `43880814663`, AliDDNS `43880814812`, AliyunDrive `43880814843`, process lifecycle `43880814751`, process inventory `43880814602`: PASS on parent.
+- Product-source firmware L3 remains verified only on `f6fba229aba497988d2308c8c99879aca5da1214`; current/newer SHA must pass Build, TRX and artifact upload before L3 is claimed. Physical-router L4 NOT VERIFIED.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Whole-repository module status
 

@@ -1,3 +1,13 @@
+## 2026-11-16 — Restore the complete USB storage stability workflow
+
+- Parent main: `cd5ccbefc26a9f71b0c971800b2f5b0d9cad450d`. Its storage-hotplug run `43880814702` / job `133345880304` failed at the embedded source-contract step with an unterminated Python string. The workflow file ended at `push_filters, pr_filters = filters.split("`, deleting the remaining storage caller graph, locking and teardown assertions, and the checked firmware-persistence gate.
+- Restored the entire suffix from intact workflow parent `0409c2b90d8da55531b8370dbb16e7a1ed978d67`, preserving the current prefix's newer USB printer source checks, first-error aggregation tests and both push/PR path filters. Structural validation: 1,163 lines; source-check heredoc terminator and final `check_storage_safe_remove.py` step restored.
+- Parent XY-C1 `43880814725` was IN_PROGRESS at last poll; AI docs `43880814989`, infosvr `43880814630`, NVRAM `43880814712`, AdGuardHome `43880814663`, AliDDNS `43880814812`, AliyunDrive `43880814843`, process lifecycle `43880814751`, process inventory `43880814602`: PASS.
+- Firmware L3 remains verified only for baseline `f6fba229aba497988d2308c8c99879aca5da1214`; no current-SHA L3 claim. Physical-router L4 NOT VERIFIED.
+- Next: inspect exact-head storage-hotplug and XY-C1 Actions for the restored workflow/source.
+
+---
+
 ## 2026-11-16 — Repair USB storage workflow PR filters and report optional hook failures
 
 - Parent main: `0409c2b90d8da55531b8370dbb16e7a1ed978d67`. Exact-head storage-hotplug run `43880100890` / job `133343396256` failed at embedded source-check line 138: the checker correctly required every test input in both event filters, but `service_start_status.h` and `tests/service_start_status.c` were included only in push paths. Added both to pull_request paths.
