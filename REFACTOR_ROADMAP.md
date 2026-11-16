@@ -1,11 +1,9 @@
 ## Current source / CI checkpoint
 
-- Conntrack production implementation: `cffc1497fda9f65d9a0b163bad5acc1723c23f81`; parent before the current WAN DHCP checker repair: `44fd9bedf4b7b1ab4e9d4408a6157681158774d3`.
-- Exact `44fd9bed` WAN route `43974652676`, Process `43974652670`, AI handoff `43974652705`, NVRAM `43974652715`, AdGuardHome `43974653150`, AliDDNS `43974652681`, AliyunDrive `43974652664` and infosvr `43974652631` passed.
-- The cffc WAN DHCP callback run `43973861977` passed its C regressions but failed its final source assertion because it still expected the former two-status `udhcpc_deconfig()` return. Production now retains `conntrack_status` in the nested first-error aggregate. This commit updates the workflow to assert the three-status path and cleanup ordering; exact-head rerun is pending.
-- `flush_conntrack_table()` returns errno from `fput_string()`; PID 1, LAN, WAN and MAN teardown propagate/merge it while continuing independent cleanup. Injected GNU89/ASan/UBSan regression passed.
-- XY-C1 exact production source SHA `cffc149` was still in Build XY-C1 at last poll; TRX/artifact remain pending. Do not claim current product L3 until all three finish successfully. Physical-router L4 remains **NOT VERIFIED**.
-- Frozen backup remains read-only.
+- Product-source conntrack result-propagation commit: cffc1497fda9f65d9a0b163bad5acc1723c23f81. Exact-source XY-C1 run 43973861873 PASS, including Build XY-C1, TRX output verification and artifact upload; product-source L3 is VERIFIED at cffc149.
+- Exact 44fd WAN route 43974652676, Process 43974652670 and AI handoff 43974652705 all passed. Exact 0b934 WAN DHCP callback 43975364179, AdGuardHome 43975363862, infosvr 43975363999 and AliyunDrive 43975363922 passed. AI handoff 43975363964 failed only because dev_log.md exceeded the 119-record window; this commit archives 100 oldest records into part-013 and retains 20. Process 43975363957 and NVRAM 43975364308 were pending at last poll.
+- Next P1 defect: stop_lan() discards clear_if_route4(IFNAME_BR)'s status. Capture/aggregate it with conntrack and bridge-down results while continuing cleanup; test both first-error retention and attempted interface shutdown.
+- Frozen backup remains read-only. Physical-router L4 remains NOT VERIFIED.
 
 ## Whole-repository module status
 
