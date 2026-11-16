@@ -15,18 +15,11 @@ For each logical task, create all changed files in one Git tree and one atomic m
 
 ## Active task
 
-The preceding full-LAN restart aggregation and DNSMasq/CI contract repairs are complete. Latest live main at recovery was d552d85d79196f95d88d22ea2b29f45061cda4f2; this IGMP-proxy slice is the next production-source milestone.
+Production source commit `3e7acc5caeb8b8a9d0588edbcc8ab9292b750479` fixes dropped IGMP proxy lifecycle results in MAN/WAN up/down and static/DHCP/ZeroConf IPTV callbacks. The exact-SHA static IPTV regression compiled and passed under GNU89, `-Wall -Wextra -Werror`, ASan and UBSan in WAN workflow job `133141761374`. The same exact-SHA workflow initially failed only in the added source-contract checker: it compared a normalized C call as a single-line literal, but the production return expression is correctly split across lines. Follow-up checker patch THIS COMMIT normalizes whitespace before that assertion; production source and callback test are unchanged.
 
-This slice closes a P1 dropped-status defect in trunk/user/rc/src/net_wan.c: start_igmpproxy() and stop_igmpproxy() already returned meaningful statuses, but MAN/WAN route setup/teardown, static IPTV, DHCP IPTV and ZeroConf IPTV callbacks discarded them. Static IPTV's policy also used a void multicast callback and returned only the default-route result.
+The XY-C1 firmware validation on `3e7acc5caeb8b8a9d0588edbcc8ab9292b750479` was still running when inspected: run `43820348179`, job `133141761523`, completed all policy regression steps (including wireless module and watchdog policy) and was building XY-C1. TRX verification/artifact upload pending. AI handoff docs contract on the same SHA passed (`43820348178`). Exact-head WAN-route outcome for the follow-up checker commit and XY-C1 outcome after source change require re-check.
 
-The change retains IGMP proxy start/stop failures in:
-- man_up_internal() / man_down_internal();
-- wan_up_internal() / wan_down_internal();
-- static IPTV startup via an int-return multicast policy callback;
-- DHCP IPTV bound callbacks, while keeping manv_route_err strictly route-specific so a proxy failure does not cause a false route-retry classification;
-- ZeroConf IPTV bound/deconfig callbacks.
-
-The callback still runs after a route-add failure so independent multicast setup is not silently skipped; first-error aggregation retains the route failure. ZeroConf teardown still clears address identity based on interface/route teardown success, while its proxy stop failure is returned separately.
+Next engineering audit identified discarded boot hardware module load outcomes in `rc.c`: USB/XHCI/EHCI/OHCI, AHCI, MMC/SDHCI, MTK AES and IPSet module loader functions return void and do not contribute failures to boot health aggregation. Before changing this, establish `is_module_loaded()` behavior for built-in modules and inspect module config/loader semantics to avoid false failures when a driver is compiled into the kernel.
 
 ## Files and caller chain reviewed
 

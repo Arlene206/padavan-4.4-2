@@ -1,3 +1,11 @@
+## 2026-11-16 — Fix exact-head WAN proxy source-contract false negative
+
+- Parent: 3e7acc5caeb8b8a9d0588edbcc8ab9292b750479. The exact-SHA WAN route run 43820348062 reached all host tests; the static IPTV regression printed PASS under GNU89/Werror/ASan/UBSan. The source-contract script alone failed because it searched for a whitespace-sensitive one-line rendering of a correctly multi-line nested route_status_accumulate() return.
+- Updated the checker to normalize the function body before matching the return expression. No product source or runtime behavior changed.
+- XY-C1 run 43820348179 on parent 3e7acc5... was still compiling when last inspected; all pre-build policy regressions completed, including static IPTV, wireless module, watchdog, VPN, UPnP, and LAN restart tests. TRX/artifact steps pending at that observation.
+- Next: check exact-head WAN route and XY-C1 runs for this checker-only commit; then continue the boot hardware module-load status audit after verifying built-in module detection semantics.
+---
+
 ## 2026-11-16 14:39 Beijing — Propagate IGMP proxy lifecycle results through WAN/IPTV callbacks
 
 - Parent main: d552d85d79196f95d88d22ea2b29f45061cda4f2; frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.

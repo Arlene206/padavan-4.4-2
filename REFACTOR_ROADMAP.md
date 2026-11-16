@@ -1,6 +1,6 @@
 ## Current source / CI checkpoint
 
-- Latest main engineering source after this IGMP proxy propagation slice: THIS COMMIT (net_wan.c and wan_viptv_static_policy.h); exact-head WAN-route and XY-C1 Actions must be checked.
+- Latest main: parent source commit 3e7acc5caeb8b8a9d0588edbcc8ab9292b750479; IGMP caller propagation source is in that commit. Exact-SHA static IPTV regression passed, but WAN-route job failed at a whitespace-sensitive source-contract assertion; THIS COMMIT corrects the test's whitespace handling only. XY-C1 was still building parent source at last check.
 - Last meaningful product-source/test baseline: `831ebfbe3cf15d88d9f943c80d26545c6794e88b`; documentation checkpoint commits may advance `main`, so resolve live HEAD before any further action. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - Exact-head L2 PASS: Adbyby updater `867e481`; Shadowsocks watchcat `a8d5017`; AliyunDrive `982ec54`; DDNSTO lifecycle/checker `7968c1e`; legacy wrapper stale-pidfile workflow `1e43d33` (its XY-C1 build is still pending).
 - Redsocks `831ebfb`: exact-head shell syntax, dynamic lifecycle regression and source checker PASS; Redsocks `43800078490` and handoff `43800078518` both SUCCESS. L2 host verification is closed; target Bash/BusyBox and live service behavior remain unverified.
