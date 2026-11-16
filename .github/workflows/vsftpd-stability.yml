@@ -499,7 +499,9 @@ jobs:
           assert "if (stop_ftp_locked() != 0)" in stop_stor
           assert "FTP server did not stop cleanly" in stop_stor
           start_stor = function_body(source, "start_stor_apps(void)")
-          assert "if (run_ftp() != 0)" in start_stor
+          assert "service_status = run_ftp();" in start_stor
+          assert "if (service_status != 0)" in start_stor
+          assert "start_status = rc_first_service_start_status(start_status, service_status);" in start_stor
 
           ftp_proto = header[header.index("#if defined (APP_FTPD)"):header.index("#endif", header.index("#if defined (APP_FTPD)"))]
           assert "int stop_ftp(void);" in ftp_proto
