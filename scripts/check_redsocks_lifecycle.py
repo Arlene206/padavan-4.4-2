@@ -39,9 +39,12 @@ require('TERM postcondition unknown; refusing KILL escalation' in stop and
         'pre-KILL process inventory unknown; refusing signal' in stop and
         'return 1' in stop,
         "UNKNOWN must block destructive escalation and propagate stop failure")
+start_offset = source.index("func_start(){")
+start_gate_offset = source.index("if ! func_stop; then", start_offset)
+start_launch_offset = source.index("func_redsocks", start_offset)
 require('redsocks_process_state' in start and
         'if ! func_stop; then' in start and
-        start.index('if ! func_stop; then') < start.index('func_redsocks'),
+        start_gate_offset < start_launch_offset,
         "start must refuse duplicate launch when existing daemon stop fails")
 require('func_stop && func_start' in source,
         "restart must gate replacement start on successful stop")
