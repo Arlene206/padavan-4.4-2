@@ -1280,7 +1280,7 @@ jobs:
           radio_setter = body(net, "hwnat_set_radio_registration(const char *ifname, int enabled)")
           ipv6_setter = body(net, "hwnat_set_ipv6_nat_debug(int enabled)")
           assert 'doSystem("iwpriv %s set hw_nat_register=%d", ifname, enabled)' in radio_setter
-          assert 'doSystem("echo 7 %d > /sys/kernel/debug/hnat/hnat_setting", enabled)' in ipv6_setter
+          assert 'doSystem("echo 7 %d > /sys/kernel/debug/hnat/hnat_setting", enabled)' in " ".join(ipv6_setter.split())
           assert "rc_hwnat_command_status_policy(command_status, saved_errno)" in net
           assert "WIFEXITED(wait_status)" in hwnat_policy
           assert "test_radio_failures_do_not_skip_independent_writes" in hwnat_test
