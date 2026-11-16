@@ -622,6 +622,19 @@ require("BZCAT_STATUS=2" in mtd_storage_load_test and
         'BUSYBOX_BIN="$busybox_bin" sh trunk/user/scripts/tests/mtd_storage_load_transaction.sh' in workflow,
         "MTD load fixture must cover erased MTD, corruption, extraction, rollback and BusyBox ash")
 
+tar_builder_start = mtd_storage.index("func_tarb()")
+tar_builder_end = mtd_storage.index(chr(10) + "func_save()", tar_builder_start)
+tar_builder = mtd_storage[tar_builder_start:tar_builder_end]
+require('find . ! -name . -print0' in tar_builder and
+        'find *' not in tar_builder and
+        'sort -z | xargs -0 tar -cf "$tmp"' in tar_builder and
+        '! -type d' not in tar_builder,
+        "storage backup must include hidden files and empty directories in the complete tree")
+require('storage/.hidden.conf' in mtd_storage_backup_test and
+        'storage/empty-dir' in mtd_storage_backup_test and
+        "'./.hidden.conf'" in mtd_storage_backup_test and
+        "'./empty-dir/'" in mtd_storage_backup_test,
+        "backup regression must verify hidden files and empty directories")
 backup_start = mtd_storage.index("func_backup()")
 backup_end = mtd_storage.index(chr(10) + "func_restore()", backup_start)
 backup = mtd_storage[backup_start:backup_end]

@@ -247,12 +247,25 @@ func_load()
 }
 func_tarb()
 {
-	rm -f $tmp
-	cd $dir_storage
-	find * -print0 | xargs -0 touch -c -h -t 201001010000.00
-	find * ! -type d -print0 | sort -z | xargs -0 tar -cf $tmp 2>/dev/null
-	cd - >>/dev/null
-	if [ ! -f "$tmp" ] ; then
+	rm -f "$tmp"
+	if ! cd "$dir_storage"; then
+		logger -t "Storage" "Cannot enter storage directory: $dir_storage"
+		exit 1
+	fi
+	# A shell glob omits dotfiles, and filtering directories drops empty dirs.
+	# Enumerate from dot so the backup preserves the complete storage tree.
+	if ! find . ! -name . -print0 | xargs -0 touch -c -h -t 201001010000.00; then
+		cd - >/dev/null
+		logger -t "Storage" "Cannot normalize storage file timestamps"
+		exit 1
+	fi
+	if ! find . ! -name . -print0 | sort -z | xargs -0 tar -cf "$tmp" 2>/dev/null; then
+		cd - >/dev/null
+		logger -t "Storage" "Cannot create tarball file: $tmp"
+		exit 1
+	fi
+	cd - >/dev/null
+	if [ ! -f "$tmp" ] || [ ! -s "$tmp" ]; then
 		logger -t "Storage" "Cannot create tarball file: $tmp"
 		exit 1
 	fi

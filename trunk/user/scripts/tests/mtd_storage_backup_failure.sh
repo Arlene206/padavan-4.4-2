@@ -4,9 +4,10 @@ script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/../../../.." && pwd)
 sandbox=$(mktemp -d "${TMPDIR:-/tmp}/mtd-storage-backup.XXXXXX")
 trap 'rm -rf "$sandbox"' EXIT HUP INT TERM
-mkdir -p "$sandbox/storage" "$sandbox/private" "$sandbox/bin"
+mkdir -p "$sandbox/storage/empty-dir" "$sandbox/private" "$sandbox/bin"
 printf '%s\n' 'mtd5: 00010000 00010000 "Storage"' > "$sandbox/proc-mtd"
 printf '%s\n' 'backup configuration payload' > "$sandbox/storage/config.conf"
+printf '%s\n' 'hidden backup payload' > "$sandbox/storage/.hidden.conf"
 real_bzip2=$(command -v bzip2)
 real_bzcat=$(command -v bzcat)
 sed \
@@ -89,5 +90,8 @@ if ! run_backup; then echo "valid backup unexpectedly failed" >&2; exit 1; fi
 [ -s "$sandbox/private/storage.tar.bz2" ] || { echo "valid backup archive missing" >&2; exit 1; }
 size=$(stat -c %s "$sandbox/private/storage.tar.bz2")
 [ "$size" -ge 16 ] && [ "$size" -le 65536 ] || { echo "valid archive outside MTD size bounds: $size" >&2; exit 1; }
-"$REAL_BZCAT" "$sandbox/private/storage.tar.bz2" | tar tf - | grep -Fqx config.conf
+archive_listing=$("$REAL_BZCAT" "$sandbox/private/storage.tar.bz2" | tar tf -)
+printf '%s\n' "$archive_listing" | grep -Fqx './config.conf'
+printf '%s\n' "$archive_listing" | grep -Fqx './.hidden.conf'
+printf '%s\n' "$archive_listing" | grep -Fqx './empty-dir/'
 echo "MTD storage backup failure and integrity regression: PASS"
