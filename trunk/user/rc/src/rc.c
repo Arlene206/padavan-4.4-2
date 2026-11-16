@@ -1694,7 +1694,7 @@ handle_notifications(void)
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_WDG) == 0)
 		{
-			restart_watchdog_cpu();
+			action_result = rc_notify_merge_action_result(action_result, restart_watchdog_cpu());
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_TWEAKS) == 0)
 		{

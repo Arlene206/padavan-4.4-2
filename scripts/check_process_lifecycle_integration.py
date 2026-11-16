@@ -1338,3 +1338,50 @@ assert 'result = system("/sbin/stop_samba");' in aidisk_handler
 assert 'result = system("/sbin/stop_ftp");' in aidisk_handler
 assert "SET_AIDISK_STATUS_SUCCESS:" not in aidisk_handler
 print("AiDisk Samba/FTP disable uses tri-state RC stop handlers without legacy Boolean prechecks: PASS")
+
+
+# CPU watchdog hot-restart notifications must return verified module-state
+# failures to rc_notify instead of discarding them in a void helper.
+watchdog_cpu_restart_policy = (
+    root / "trunk/user/rc/src/watchdog_cpu_restart_policy.h"
+).read_text()
+watchdog_cpu_restart_test = (
+    root / "trunk/user/rc/src/tests/watchdog_cpu_restart_policy.c"
+).read_text()
+watchdog_cpu_services = (root / "trunk/user/rc/src/services.c").read_text()
+watchdog_cpu_rc = (root / "trunk/user/rc/src/rc.c").read_text()
+watchdog_cpu_header = (root / "trunk/user/rc/src/rc.h").read_text()
+watchdog_restart_body = watchdog_cpu_services.split(
+    "int" + chr(10) + "restart_watchdog_cpu(void)", 1
+)[1].split(chr(10) + "}", 1)[0]
+assert '#include "watchdog_cpu_restart_policy.h"' in watchdog_cpu_services
+assert 'rc_watchdog_cpu_restart_verified("rt_timer_wdg", should_load,' in watchdog_restart_body
+assert "watchdog_cpu_restart_module_load" in watchdog_cpu_services
+assert "watchdog_cpu_restart_module_unload" in watchdog_cpu_services
+assert "watchdog_cpu_restart_module_is_loaded" in watchdog_cpu_services
+assert "int restart_watchdog_cpu(void);" in watchdog_cpu_header
+assert "void restart_watchdog_cpu(void);" not in watchdog_cpu_header
+assert "action_result = rc_notify_merge_action_result(action_result, restart_watchdog_cpu());" in watchdog_cpu_rc
+assert "return should_load ? 0 : EBUSY;" in watchdog_cpu_restart_policy
+assert "return should_load ? EIO : 0;" in watchdog_cpu_restart_policy
+for test_case in (
+    "test_enabled_module_already_loaded_is_success",
+    "test_enabled_new_module_is_verified",
+    "test_failed_load_is_not_success",
+    "test_visible_module_state_wins_over_loader_status",
+    "test_disabled_module_unload_is_verified",
+    "test_disabled_already_absent_is_success",
+    "test_busy_module_prevents_false_disable_success",
+    "test_absent_postcondition_wins_over_unloader_status",
+    "test_invalid_inputs_fail_before_side_effects",
+):
+    assert test_case in watchdog_cpu_restart_test
+assert "Compile and run RC watchdog module restart postcondition regression" in process_workflow
+assert "Compile and run RC watchdog module restart postcondition regression" in xy_workflow
+for required_path in (
+    '"trunk/user/rc/src/watchdog_cpu_restart_policy.h"',
+    '"trunk/user/rc/src/tests/watchdog_cpu_restart_policy.c"',
+):
+    assert required_path in process_workflow
+    assert required_path in xy_workflow
+print("RC CPU watchdog restart verifies module state and propagates notification failures: PASS")

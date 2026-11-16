@@ -522,7 +522,7 @@ int restart_rstats(void);
 int start_logger(int showinfo);
 int stop_logger(void);
 int start_watchdog_cpu(void);
-void restart_watchdog_cpu(void);
+int restart_watchdog_cpu(void);
 int start_services_once(int is_ap_mode);
 int stop_services(int stopall);
 int stop_services_lan_wan(void);

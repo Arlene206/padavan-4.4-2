@@ -32,6 +32,8 @@ on:
       - "trunk/user/rc/src/igmpproxy_config_file.h"
       - "trunk/user/rc/src/tests/igmpproxy_config_file.c"
       - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/watchdog_cpu_restart_policy.h"
+      - "trunk/user/rc/src/tests/watchdog_cpu_restart_policy.c"
       - "trunk/user/rc/src/service_start_status.h"
       - "trunk/user/rc/src/tests/service_start_status.c"
       - "trunk/user/rc/src/logger_start_policy.h"
@@ -109,6 +111,10 @@ on:
 
       - "trunk/user/ttyd/ttyd.sh"
       - "trunk/user/ttyd/tests/ttyd_lifecycle.sh"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/watchdog_cpu_restart_policy.h"
+      - "trunk/user/rc/src/tests/watchdog_cpu_restart_policy.c"
 permissions:
   contents: read
 
@@ -245,6 +251,13 @@ jobs:
             trunk/user/rc/src/tests/wireless_module_load_policy.c \
             -o "$RUNNER_TEMP/wireless-module-load-policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/wireless-module-load-policy"
+      - name: Compile and run RC watchdog module restart postcondition regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/watchdog_cpu_restart_policy.c \
+            -o "$RUNNER_TEMP/watchdog-cpu-restart-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/watchdog-cpu-restart-policy"
       - name: Compile and run RC logger startup result policy regression
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \

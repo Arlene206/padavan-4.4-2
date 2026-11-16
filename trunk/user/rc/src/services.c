@@ -29,6 +29,7 @@
 #include "optional_daemon_policy.h"
 #include "logger_start_policy.h"
 #include "service_start_status.h"
+#include "watchdog_cpu_restart_policy.h"
 
 static int optional_daemon_start_status(const char *service_name, const char *process_name);
 static int optional_daemon_stop_status(const char *service_name, const char *process_name, int command_status);
@@ -1337,13 +1338,46 @@ start_watchdog_cpu(void)
 	return 0;
 }
 
-void
+static int
+watchdog_cpu_restart_module_load(const char *module_name, const char *module_param)
+{
+	return module_smart_load(module_name, module_param);
+}
+
+static int
+watchdog_cpu_restart_module_unload(const char *module_name, int recurse_unload)
+{
+	return module_smart_unload(module_name, recurse_unload);
+}
+
+static int
+watchdog_cpu_restart_module_is_loaded(const char *module_name)
+{
+	return is_module_loaded(module_name);
+}
+
+static const rc_watchdog_cpu_restart_ops_t watchdog_cpu_restart_ops = {
+	watchdog_cpu_restart_module_load,
+	watchdog_cpu_restart_module_unload,
+	watchdog_cpu_restart_module_is_loaded
+};
+
+int
 restart_watchdog_cpu(void)
 {
-	if (nvram_get_int("watchdog_cpu") == 0)
-		module_smart_unload("rt_timer_wdg", 0);
-	else
-		module_smart_load("rt_timer_wdg", NULL);
+	int should_load = (nvram_get_int("watchdog_cpu") != 0);
+	int status = rc_watchdog_cpu_restart_verified("rt_timer_wdg", should_load,
+						      &watchdog_cpu_restart_ops);
+
+	if (status != 0) {
+		if (should_load)
+			logmessage(LOGNAME, "CPU watchdog module enable failed or module is unavailable (status=%d)",
+				   status);
+		else
+			logmessage(LOGNAME, "CPU watchdog module disable failed; module remains loaded (status=%d)",
+				   status);
+	}
+	return status;
 }
 
 int
