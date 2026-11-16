@@ -26,6 +26,9 @@ Validation and CI repair status:
 
 ## Verification boundary
 
+- Exact `e2a43d7` AI handoff `43815932791`, Process lifecycle `43815932847`, HTTPD security `43815932882`, AliyunDrive `43815932706`, AliDDNS `43815932894`, AdGuardHome `43815932884`, and infosvr `43815932852` PASS. DNSMasq `43815932909` failed only because its source checker expected the old `return dnsmasq_lock_errno;`; this commit aligns it with LAN's aggregate `return restart_status;`. XY-C1 `43815932794` was still in progress. Exact b2 XY-C1 `43814395678` later completed Build, TRX verification and artifact upload SUCCESS.
+
+
 - L1/L2 source and policy regression: PASS on the exact b2/7ac evidence above.
 - L3 firmware: PASS on product-source SHA `b2d3288b6282c16cf23859eb9e7f8fdce083cd62`, XY-C1 run `43814395678` — Build XY-C1, TRX verification and artifact upload all succeeded. The exact source is unchanged by later CI/documentation commits.
 - Exact 7b AI handoff `43815228477` is FAIL solely at the root log-retention check (3 records found); the retained-record restoration is in THIS COMMIT and must be checked on its new exact SHA.

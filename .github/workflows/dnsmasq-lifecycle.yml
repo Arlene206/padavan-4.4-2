@@ -715,9 +715,10 @@ jobs:
           vpn_return = lan_restart.index("return vpn_status;", vpn_failure)
           assert vpn_return < dnsmasq_acquire
           lock_failure = lan_restart.index("if (dnsmasq_lock < 0)", dnsmasq_acquire)
-          lock_return = lan_restart.index("return dnsmasq_lock_errno;", lock_failure)
-          assert "restart_vpn_server();" in lan_restart[lock_failure:lock_return]
-          assert "errno = dnsmasq_lock_errno;" in lan_restart[lock_failure:lock_return]
+          lock_return = lan_restart.index("return restart_status;", lock_failure)
+assert 'lan_restart_record_status(&restart_status, "restore VPN after DNSMasq lock failure",' in lan_restart[lock_failure:lock_return]
+assert "restart_vpn_server());" in lan_restart[lock_failure:lock_return]
+assert "errno = dnsmasq_lock_errno;" in lan_restart[lock_failure:lock_return]
           assert 'refresh_resolvconf_nonfatal("WAN down", 0)' in wan_down
 
           print("DNSMasq postconditions and RC service status propagation contract: PASS")

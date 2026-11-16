@@ -1,3 +1,12 @@
+## 2026-11-16 14:36 Beijing — Align DNSMasq lock-recovery contract with LAN status aggregation
+
+- Parent main: `e2a43d79ca372a70af9262e1b0463945d64d644c`; product-source baseline remains `b2d3288b6282c16cf23859eb9e7f8fdce083cd62`.
+- Exact `e2a43d79ca372a70af9262e1b0463945d64d644c`: AI handoff `43815932791` PASS; Process lifecycle `43815932847` PASS; HTTPD security `43815932882`, AliyunDrive `43815932706`, AliDDNS `43815932894`, AdGuardHome `43815932884`, and infosvr `43815932852` PASS. XY-C1 `43815932794` was IN_PROGRESS. DNSMasq `43815932909` failed in its final embedded source contract because it still searched for the former `return dnsmasq_lock_errno;` after the LAN transaction correctly began returning the aggregate `restart_status` and recording VPN recovery status. The host policy regressions preceding that source checker passed.
+- Updated the DNSMasq checker to assert the actual recorder call, its nested `restart_vpn_server()`, preserved `errno` and `return restart_status;`. No production source behavior changes.
+- Exact b2 XY-C1 `43814395678` completed SUCCESS including Build XY-C1, TRX verification and artifact upload. This establishes L3 for b2 source only; no L4 hardware validation exists.
+- Next source task: propagate discarded IGMP-proxy start/stop statuses through the int-return MAN/WAN/ZeroConf IPTV paths in `net_wan.c`, extending the existing route-status policy regression and callback policy where applicable.
+---
+
 ## 2026-11-16 — Restore log retention and align LAN restart CI contracts
 
 - Parent main: `7b82bc0826ebf93c66b6ed42811990222f2b98e5`; latest product-source baseline remains `b2d3288b6282c16cf23859eb9e7f8fdce083cd62`.
