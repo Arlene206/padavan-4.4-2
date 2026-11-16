@@ -7,9 +7,9 @@ trap 'rm -rf "$TMP_DIR"' EXIT HUP INT TERM
 SCRIPT="$TEST_DIR/../scripts/shadowsocks.sh"
 OUTPUT="$TMP_DIR/anti-ad-for-dnsmasq.conf"
 
-sed -n '/^ss_publish_adblock_config() {/,/^}/p' "$SCRIPT" > "$TMP_DIR/helper.sh"
+sed -n '/^# Publish either a dnsmasq address configuration/,/^}/p' "$SCRIPT" > "$TMP_DIR/helper.sh"
 [ -s "$TMP_DIR/helper.sh" ] || {
-	echo "could not extract production adblock publisher" >&2
+	echo "could not extract shell-commented production adblock publisher" >&2
 	exit 1
 }
 . "$TMP_DIR/helper.sh"

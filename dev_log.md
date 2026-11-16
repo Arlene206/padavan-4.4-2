@@ -1,3 +1,13 @@
+## 2026-11-16 08:35 Beijing — Use shell comment syntax for the Shadowsocks adblock publisher
+
+- The explanatory preamble above `ss_publish_adblock_config()` used C-style `/* ... */` syntax in a shell script. Ash treated the opening token as a command, producing an avoidable command-not-found attempt whenever the script was parsed.
+- Replaced the preamble with shell `#` comments. Strengthened `tests/adblock_config.sh` to extract from the comment line as well as the function body; the old C-style preamble therefore produces an empty extraction and fails closed before parser assertions.
+- Local POSIX `sh -n` checks and the adblock publication regression PASS. A negative fixture restoring the former C-style preamble was rejected by the strengthened test.
+- Parent main: `59feb2da538a282d9929d5a48bd97c4a8861c6ae`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. Exact-parent Shadowsocks #43781489845 PASS; AI docs #43781489871, Process #43781489848, inventory #43781489882, NVRAM #43781489851, infosvr #43781489801, AliDDNS #43781489923, AdGuardHome #43781489834 and AliyunDrive #43781489841 PASS.
+- Exact-parent XY-C1 #43781489913 remained at Build XY-C1 when inspected; TRX and artifact steps pending. This commit needs exact-head revalidation; no L3/L4 claim is made.
+
+---
+
 ## 2026-11-15 — Correct shell mktemp template expansion and add XY-C1 source trigger
 
 - Exact b33 Shadowsocks Action #43781109010 failed in the new adblock test: literal backslashes before `${TMPDIR:-/tmp}` and `${ss_adblock_output}` prevented shell expansion in mktemp templates. The shell syntax and existing process-lifecycle test both passed.

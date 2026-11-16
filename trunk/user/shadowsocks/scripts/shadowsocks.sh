@@ -421,10 +421,8 @@ EOF
 	/sbin/restart_dhcpd
 }
 
-/*
- * Publish either a dnsmasq address configuration or a simple Adblock domain
- * list. Never truncate the live file until a complete replacement is ready.
- */
+# Publish either a dnsmasq address configuration or a simple Adblock domain
+# list. Never truncate the live file until a complete replacement is ready.
 ss_publish_adblock_config() {
 	[ "$#" -eq 2 ] || return 2
 	local ss_adblock_input="$1"
