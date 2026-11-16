@@ -233,34 +233,118 @@ start_zero() {
 	fi
 	start_instance 'zerotier'
 }
+# Return 0 when running, 1 only when pidof confirms absence, and 2 when
+# process state cannot be trusted. A scan failure must never look like absence.
+zerotier_process_state() {
+	if zt_process_pids=$(pidof zerotier-one 2>/dev/null); then
+		zt_process_pidof_status=0
+	else
+		zt_process_pidof_status=$?
+	fi
+	case "$zt_process_pidof_status" in
+		0)
+			[ -n "$zt_process_pids" ] || return 2
+			case "$zt_process_pids" in
+				*[!0-9\ ]*) return 2 ;;
+			esac
+			zt_process_pid_count=0
+			for zt_process_pid in $zt_process_pids; do
+				case "$zt_process_pid" in
+					''|0*|1|*[!0-9]*) return 2 ;;
+				esac
+				[ "$zt_process_pid" -gt 1 ] 2>/dev/null || return 2
+				zt_process_pid_count=$((zt_process_pid_count + 1))
+			done
+			[ "$zt_process_pid_count" -gt 0 ] || return 2
+			return 0
+			;;
+		1)
+			[ -z "$zt_process_pids" ] && return 1
+			return 2
+			;;
+		*)
+			return 2
+			;;
+	esac
+}
+
 zerotier_wait_stopped() {
 	zerotier_wait=0
 	while [ "$zerotier_wait" -lt 5 ]; do
-		if ! pidof zerotier-one >/dev/null 2>&1; then
-			return 0
+		if zerotier_process_state; then
+			zerotier_state=0
+		else
+			zerotier_state=$?
 		fi
-		sleep 1
-		zerotier_wait=$((zerotier_wait + 1))
+		case "$zerotier_state" in
+			0)
+				sleep 1
+				zerotier_wait=$((zerotier_wait + 1))
+				;;
+			1)
+				return 0
+				;;
+			*)
+				return 2
+				;;
+		esac
 	done
-	if pidof zerotier-one >/dev/null 2>&1; then
+	if zerotier_process_state; then
 		return 1
+	else
+		zerotier_state=$?
 	fi
-	return 0
+	case "$zerotier_state" in
+		1) return 0 ;;
+		2) return 2 ;;
+		*) return 1 ;;
+	esac
 }
+
 kill_z() {
-	if ! pidof zerotier-one >/dev/null 2>&1; then
-		return 0
+	if zerotier_process_state; then
+		zerotier_state=0
+	else
+		zerotier_state=$?
 	fi
+	case "$zerotier_state" in
+		1) return 0 ;;
+		2)
+			logger -t "zerotier" "无法读取ZeroTier进程状态，拒绝发送信号"
+			return 1
+			;;
+	esac
+
 	logger -t "zerotier" "关闭进程..."
-	killall zerotier-one >/dev/null 2>&1
+	killall zerotier-one >/dev/null 2>&1 || true
 	if zerotier_wait_stopped; then
 		return 0
+	else
+		zerotier_stop_state=$?
+	fi
+	if [ "$zerotier_stop_state" -ne 1 ]; then
+		logger -t "zerotier" "停止期间进程状态变为未知，拒绝升级信号"
+		return 1
 	fi
 
 	logger -t "zerotier" "进程未响应TERM，尝试强制停止..."
 	# Re-enumerate by process name; never signal a cached numeric PID.
-	killall -9 zerotier-one >/dev/null 2>&1
-	zerotier_wait_stopped
+	killall -9 zerotier-one >/dev/null 2>&1 || true
+	if zerotier_wait_stopped; then
+		return 0
+	else
+		zerotier_stop_state=$?
+	fi
+	case "$zerotier_stop_state" in
+		1)
+			logger -t "zerotier" "ZeroTier守护进程在SIGKILL后仍运行"
+			return 1
+			;;
+		*)
+			logger -t "zerotier" "SIGKILL后无法确认ZeroTier进程状态"
+			return 1
+			;;
+	esac
 }
 stop_zero() {
 	# Keep the persistent identity/configuration and live network state intact

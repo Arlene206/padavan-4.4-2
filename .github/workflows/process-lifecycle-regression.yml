@@ -294,5 +294,10 @@ jobs:
           sh -n trunk/user/transmission/transmission.sh
           sh -n trunk/user/transmission/tests/reload_status.sh
           sh trunk/user/transmission/tests/reload_status.sh
+      - name: Verify ZeroTier tri-state process lifecycle
+        run: |
+          sh -n trunk/user/zerotier/zerotier.sh
+          sh -n trunk/user/zerotier/tests/zerotier_lifecycle.sh
+          sh trunk/user/zerotier/tests/zerotier_lifecycle.sh
       - name: Verify shared-library and RC integration boundaries
         run: python3 scripts/check_process_lifecycle_integration.py

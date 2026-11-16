@@ -32,10 +32,20 @@ set -- __test__
 
 pidof() {
 	[ "$1" = zerotier-one ] || return 1
-	if [ "$(cat "$TEST_STATE")" = running ]; then
-		echo 4321
-		return 0
-	fi
+	case "${TEST_PIDOF_MODE:-}" in
+		error) return 2 ;;
+		malformed) echo invalid; return 0 ;;
+		empty-success) return 0 ;;
+	esac
+	case "$(cat "$TEST_STATE")" in
+		running)
+			echo 4321
+			return 0
+			;;
+		unknown)
+			return 2
+			;;
+	esac
 	return 1
 }
 
@@ -44,6 +54,9 @@ killall() {
 	case "$TEST_MODE:$*" in
 		graceful:zerotier-one|-9-exits:-9\ zerotier-one)
 			echo stopped > "$TEST_STATE"
+			;;
+		unknown-after-term:zerotier-one)
+			echo unknown > "$TEST_STATE"
 			;;
 		*)
 			;;
@@ -153,6 +166,32 @@ kill_z || fail "no-process stop returned failure"
 [ ! -s "$TEST_KILL_LOG" ] || fail "stop signalled a process when pidof found none"
 [ ! -s "$TEST_SLEEP_LOG" ] || fail "no-process stop waited unnecessarily"
 
+# pidof errors, empty-success output and malformed PID lists are UNKNOWN, not ABSENT.
+for TEST_PIDOF_MODE in error malformed empty-success; do
+	: > "$TEST_KILL_LOG"
+	: > "$TEST_SLEEP_LOG"
+	echo running > "$TEST_STATE"
+	if kill_z; then
+		fail "stop accepted unknown process inventory mode $TEST_PIDOF_MODE"
+	fi
+	[ ! -s "$TEST_KILL_LOG" ] || fail "stop signalled a process after unknown inventory mode $TEST_PIDOF_MODE"
+	[ ! -s "$TEST_SLEEP_LOG" ] || fail "stop waited after unknown inventory mode $TEST_PIDOF_MODE"
+done
+TEST_PIDOF_MODE=""
+
+# A transition to UNKNOWN after TERM must not be mistaken for process exit or
+# trigger a name-wide SIGKILL escalation.
+: > "$TEST_KILL_LOG"
+: > "$TEST_SLEEP_LOG"
+echo running > "$TEST_STATE"
+TEST_MODE=unknown-after-term
+if kill_z; then
+	fail "stop accepted an unknown process state after TERM"
+fi
+[ "$(cat "$TEST_KILL_LOG")" = zerotier-one ] || fail "stop escalated after process inventory became unknown"
+[ ! -s "$TEST_SLEEP_LOG" ] || fail "stop waited after process inventory became unknown"
+
+
 : > "$TEST_KILL_LOG"
 : > "$TEST_SLEEP_LOG"
 echo running > "$TEST_STATE"
@@ -195,6 +234,20 @@ if start_zero; then
 fi
 [ ! -s "$TEST_ACTION_LOG" ] || fail "start reached start_instance after stop failure"
 
+# A failed pidof scan must also block restart rather than start a duplicate.
+: > "$TEST_KILL_LOG"
+: > "$TEST_ACTION_LOG"
+echo running > "$TEST_STATE"
+TEST_MODE=none
+TEST_PIDOF_MODE=error
+if start_zero; then
+	fail "start proceeded while the process inventory was unknown"
+fi
+[ ! -s "$TEST_KILL_LOG" ] || fail "start signalled after an initial process inventory error"
+[ ! -s "$TEST_ACTION_LOG" ] || fail "start reached start_instance after an initial process inventory error"
+TEST_PIDOF_MODE=""
+
+
 : > "$TEST_KILL_LOG"
 : > "$TEST_SLEEP_LOG"
 : > "$TEST_ACTION_LOG"
@@ -209,6 +262,22 @@ if stop_zero; then
 fi
 [ -f "$TEST_CONFIG/identity.secret" ] || fail "failed stop deleted the persistent ZeroTier identity"
 [ ! -s "$TEST_ACTION_LOG" ] || fail "failed stop changed routes, firewall rules or persistent config"
+
+# An unreadable process inventory must preserve identity and all live state.
+: > "$TEST_KILL_LOG"
+: > "$TEST_SLEEP_LOG"
+: > "$TEST_ACTION_LOG"
+echo running > "$TEST_STATE"
+TEST_MODE=none
+TEST_PIDOF_MODE=error
+if stop_zero; then
+	fail "stop accepted an unknown process inventory"
+fi
+[ -f "$TEST_CONFIG/identity.secret" ] || fail "unknown process state deleted the persistent ZeroTier identity"
+[ ! -s "$TEST_KILL_LOG" ] || fail "unknown process state triggered killall"
+[ ! -s "$TEST_ACTION_LOG" ] || fail "unknown process state changed routes, firewall rules or persistent config"
+TEST_PIDOF_MODE=""
+
 
 : > "$TEST_KILL_LOG"
 : > "$TEST_SLEEP_LOG"
