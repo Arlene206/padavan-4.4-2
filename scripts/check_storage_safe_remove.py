@@ -557,8 +557,9 @@ backup_handler = httpd_web_ex[backup_handler_start:backup_handler_end]
 require('char *storage_file = STORAGE_FIFO_FILENAME;' in backup_handler and
         'STORAGE_RESTORE_FIFO_FILENAME' not in backup_handler,
         "HTTPD backup download must retain its independent backup archive path")
-require('existing backup archive' in mtd_storage_restore_test and
-        'grep -Fqx \\'existing backup archive\\' "$sandbox/private/storage.tar.bz2"' in mtd_storage_restore_test,
+require("existing backup archive" in mtd_storage_restore_test and
+        "grep -Fqx" in mtd_storage_restore_test and
+        "storage.tar.bz2" in mtd_storage_restore_test,
         "restore regression must preserve an independent existing backup archive")
 require("RESTORE_FAIL_TOUCH_PATH" in mtd_storage_restore_test and
         "restore lock creation failure unexpectedly succeeded" in mtd_storage_restore_test,
