@@ -1,10 +1,10 @@
 ## Current source / CI checkpoint
 
-- Live source parent at takeover: `6e4511c0607b892bdc101f38f5bbf7c40b86fa49`. The preceding NDIS fix makes QMI, Huawei NCM, CDC-NCM and Sierra control-session failures block DHCP; optional generic Ethernet/RNDIS and explicitly unsupported MBIM no-control paths retain their prior behavior.
-- XY-C1 run `43922140859` passed Build XY-C1, TRX verification and artifact upload on source SHA `f5536dd46d24c8d0143c94a81a24a78a4d3cb15f`; that is prior-source evidence and does not cover THIS COMMIT.
-- Exact-parent Process regression `43923656497` and AI handoff docs `43923656691` passed on `6e4511c0607b892bdc101f38f5bbf7c40b86fa49` as `push` runs; AdGuardHome, NVRAM, infosvr, AliyunDrive and AliDDNS exact-parent checks also passed.
-- THIS COMMIT makes static-IPoE `start_wan()` merge `update_upnp()` failure into its first-error result and adds policy/source regressions. Exact-head Process, AI docs and XY-C1 Build/TRX/artifact results are pending after publication.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Physical-router L4 remains NOT VERIFIED.
+- Live source parent at takeover: `1b06d3178c366ae764f894d6bb15847b8f5f6e21`. Commit `1b06d3178c366ae764f894d6bb15847b8f5f6e21` propagates static-IPoE `update_upnp()` failures through the WAN first-error result; the checker-only escape correction is THIS COMMIT.
+- Exact-parent test runs from `6e4511c0607b892bdc101f38f5bbf7c40b86fa49`: Process `43923656497` and AI docs `43923656691` passed. Prior product-source XY-C1 run `43922140859` passed Build, TRX and artifact upload on `f5536dd46d24c8d0143c94a81a24a78a4d3cb15f`, before the UPnP fix.
+- Parent `1b06d3178c366ae764f894d6bb15847b8f5f6e21` triggered Process `43927158630`, XY-C1 `43927159072` and AI docs `43927158209`; they were queued/running at last inspection. The checker regex issue found by review is corrected in THIS COMMIT.
+- Re-run Process and XY-C1 on the exact current main SHA. Current product-source L3 requires Build, TRX verification and artifact upload on one SHA; physical-router L4 remains NOT VERIFIED.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Whole-repository module status
 

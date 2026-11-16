@@ -1,3 +1,12 @@
+## 2026-11-16 — Correct WAN UPnP checker regex escaping
+
+- Parent main: `1b06d3178c366ae764f894d6bb15847b8f5f6e21`; production UPnP result propagation is in `1b06d3178c366ae764f894d6bb15847b8f5f6e21`.
+- Direct review caught a defect in the newly added source-contract regex: the Python raw string contained doubled backslashes, so `\\s` matched a literal slash-plus-s rather than whitespace. That would reject the correctly formatted production status call and fail Process/XY-C1 source validation.
+- Reduced the regex to single raw-string escapes (`\s`) while keeping the exact call, error branch and diagnostic-order assertions. This is a test-only fix; WAN production source and regression behavior are unchanged.
+- Parent `1b06d317...` Process run `43927158630`, XY-C1 `43927159072` and AI docs `43927158209` were queued/running at last inspection; exact-head results for THIS COMMIT must be checked. No current-source L3 claim until XY-C1 Build/TRX/artifact pass on one SHA; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Propagate static IPoE UPnP mapping reload failures
 
 - Parent main: `6e4511c0607b892bdc101f38f5bbf7c40b86fa49`.
