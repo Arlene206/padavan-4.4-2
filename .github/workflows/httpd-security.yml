@@ -1253,12 +1253,13 @@ jobs:
           assert config_start < remove_links < return_after_config
           assert config_start < start_wan.index("launch_viptv_wan()")
 
-          hnat_update = body(net, "hwnat_configure(int wan_vid)")
+          hnat_update = body(net, "hwnat_configure(int wan_vid, int hwnat_allow)")
+          assert "if (!hwnat_allow || !is_module_loaded(\"hw_nat\"))" in hnat_update
           assert hnat_update.index("if (wan_vid < 0)") < hnat_update.index('module_param_set_int("hw_nat", "wan_vid", wan_vid)')
           hnat_reload = body(net, "reload_nat_modules(void)")
           assert "hwnat_wan_vid = get_vlan_vid_wan();" in hnat_reload
           assert hnat_reload.index("if (hwnat_wan_vid < 0)") < hnat_reload.index('snprintf(hnat_param, sizeof(hnat_param), "wan_vid=%d", hwnat_wan_vid)')
-          assert "hwnat_configure(hwnat_wan_vid);" in hnat_reload
+          assert "hwnat_configure(hwnat_wan_vid, hwnat_allow);" in hnat_reload
 
           lan_restart = body(net_lan, "restart_switch_config_vlan(void)")
           assert lan_restart.index("if (get_ap_mode())") < lan_restart.index("pvid_wan_before = phy_vlan_pvid_wan_get();")

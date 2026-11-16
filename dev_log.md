@@ -1,3 +1,12 @@
+## 2026-11-17 — Align NAT module assertions with policy inputs and HW NAT API
+
+- Exact-head 39190 Firewall Startup `43947724068` and Process regression `43947724044` failed at the new source checker because it reused `POLICY_SOURCE/POLICY_TEST`, which refer to modem-WAN policy files. Added dedicated `MODULE_POLICY_SOURCE/MODULE_POLICY_TEST` bindings for the wireless module policy and regression.
+- Exact-head 39190 HTTPD `43947724129` failed because its inline checker expected the old single-argument `hwnat_configure` signature. Updated the contract to the allow-aware two-argument function and its call.
+- 39190 USB modem identity `43947724775`, AI handoff `43947724226`, process inventory `43947724196`, and WAN route `43947724172` passed; NVRAM, USB storage and XY-C1 were pending. This is validation repair only; no firmware result inferred.
+- NAT module unload policy remains under exact-head validation; physical-router L4 is NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Normalize optional firewall hook ENOENT checker
 
 - Exact-head 8c77 Firewall Startup `43946213665` and Process regression `43946213545` passed all preceding firewall/module/status policy tests but the canonical checker expected `errno!=ENOENT` after `compact()`; the normalized actual source is `errno != ENOENT`. Changed the assertion to a whitespace-tolerant `re.search`.

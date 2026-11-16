@@ -10,10 +10,11 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Current repository state
 
-- Main parent for this validation correction: `8c77a050018df9e3db1dfc3afd73b7f646c47e5a`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged/read-only.
-- Exact-head 8c77 Firewall Startup `43946213665` and Process regression `43946213545` reached the canonical optional-hook contract but failed because `compact()` collapses whitespace to a single space while the checker expected the impossible literal `errno!=ENOENT`. The source correctly uses `errno != ENOENT`; the assertion now accepts C whitespace.
-- Exact-head 8c77 XY-C1 `43946213553` failed at the same source checker before Build/TRX/artifact. HTTPD `43946213772`, NVRAM `43946213544`, AI handoff `43946213616`, AliyunDrive `43946213652`, AliDDNS `43946213539`, AdGuardHome `43946213561`, USB modem `43946213534`, and infosvr `43946213737` passed.
-- The 8c77 checker regex and HTTPD signature fixes were effective; HTTPD is now green. This commit only corrects the remaining whitespace-sensitive assertion. New-SHA validation is required.
+- Main parent for this validation update: `391902a4f936c8967d6e83999892853683333d1f`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged/read-only.
+- Exact-head 39190 Firewall Startup `43947724068` and Process regression `43947724044` failed because the new NAT module assertions incorrectly read `POLICY_SOURCE` / `POLICY_TEST`, which are bound to the modem-WAN policy files; the wireless module policy/test inputs now have separate names.
+- Exact-head 39190 HTTPD `43947724129` failed on old source contracts that expected `hwnat_configure(int wan_vid)` and a one-argument call. The implementation now accepts the current allowed-state flag so a stuck disabled module cannot be logged as enabled; assertions are updated.
+- Exact-head 39190 USB modem `43947724775`, AI handoff `43947724226`, process inventory `43947724196`, and WAN route `43947724172` passed. NVRAM `43947724501`, USB storage `43947724065`, and XY-C1 `43947724308` were pending at last poll.
+- The prior checker-only commit 09eaad9 exact-head Firewall Startup `43947164711`, Process regression `43947164786`, NVRAM `43947165067`, AI handoff `43947164930`, USB modem `43947164727`, AliyunDrive `43947164893`, AliDDNS `43947164823`, AdGuardHome `43947165007`, and infosvr `43947165154` passed; XY-C1 `43947164750` was still running. The new NAT source SHA must be validated independently.
 
 ## Active task
 
@@ -25,12 +26,13 @@ Next P1: audit NAT helper and HW NAT/SFE module load/unload postconditions in `n
 
 ## Verification boundary
 
-- Exact-head 8c77 Firewall Startup `43946213665` and Process regression `43946213545` failed at `assert "errno!=ENOENT" in hook_dispatch`. The checker compacts whitespace to one space, whereas the actual C source uses `errno != ENOENT`; the new regex accepts spacing.
-- Exact-head 8c77 XY-C1 `43946213553` was blocked by the same source checker before Build/TRX/artifact. HTTPD, NVRAM, AI handoff, AliyunDrive, AliDDNS, AdGuardHome, USB modem identity and infosvr passed on 8c77.
-- This is a checker-only correction. No new-SHA Actions or firmware verification claimed yet; physical-router L4 remains NOT VERIFIED.
+- 39190 Firewall Startup `43947724068` and Process regression `43947724044` both reached the NAT checks but failed because the canonical script reused the modem-WAN `POLICY_SOURCE/POLICY_TEST` bindings for the newly added wireless-module policy assertions.
+- 39190 HTTPD `43947724129` reached switch status regression successfully, then failed at its old `hwnat_configure` function signature assertion. Updated to match the allow-aware two-argument helper and call.
+- 39190 USB modem identity, AI handoff, process inventory, and WAN route suites passed; NVRAM, USB storage, and XY-C1 were pending at last poll.
+- 09ea checker-only source SHA had Firewall Startup, Process regression and all reported non-XY suites pass; its XY-C1 remained pending. No exact-SHA firmware Build/TRX/artifact claim for 39190 yet. Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect new-SHA Firewall Startup, Process regression and XY-C1 Build/TRX/artifact; also confirm the 8c77 exact-head suites that were already green remain understood.
-2. Continue NAT helper, HW NAT and SFE load/unload postcondition work in `net.c`, with deterministic injectable unload tests.
-3. Keep main-only atomic commits with non-forced expected-SHA CAS. Frozen backup read-only; physical-router L4 NOT VERIFIED.
+1. Check new-SHA Firewall Startup, Process regression, HTTPD and XY-C1 Build/TRX/artifact. Fix any first source/test failure; do not transfer results from 39190.
+2. If the module policy tests and cross-workflow assertions pass, inspect the completed NAT unload postcondition behavior and continue the whole-userland stability rotation.
+3. Keep main-only complete-tree commits with expected-SHA CAS. Frozen backup remains read-only; physical-router L4 NOT VERIFIED.

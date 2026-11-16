@@ -25,6 +25,8 @@ UPNP_TEST_SOURCE = (RC / "tests/upnp_restart_policy.c").read_text()
 SERVICES_USB_SOURCE = (RC / "services_usb.c").read_text()
 RC_SOURCE = (RC / "rc.c").read_text()
 HEADER = (RC / "rc.h").read_text()
+MODULE_POLICY_SOURCE = (RC / "wireless_module_load_policy.h").read_text()
+MODULE_POLICY_TEST = (RC / "tests/wireless_module_load_policy.c").read_text()
 POLICY_SOURCE = (RC / "modem_wan_start_policy.h").read_text()
 WAN_TEST = (RC / "tests/modem_wan_start_policy.c").read_text()
 
@@ -512,9 +514,9 @@ assert 'rc_module_unload_verified("nf_nat_h323", 1, &module_unload_ops)' in nat_
 assert 'rc_module_unload_verified("nf_nat_sip", 1, &module_unload_ops)' in nat_reload
 assert 'rc_module_unload_verified("nf_nat_ftp", 0, &module_unload_ops)' in nat_reload
 assert 'rc_module_unload_verified("nf_conntrack_ftp", 0, &module_unload_ops)' in nat_reload
-assert "rc_module_unload_verified" in POLICY_SOURCE
-assert "test_unload_busy_module_is_not_reported_as_removed" in POLICY_TEST
-assert "test_unload_requirement_set_attempts_all_and_keeps_first_failure" in POLICY_TEST
+assert "rc_module_unload_verified" in MODULE_POLICY_SOURCE
+assert "test_unload_busy_module_is_not_reported_as_removed" in MODULE_POLICY_TEST
+assert "test_unload_requirement_set_attempts_all_and_keeps_first_failure" in MODULE_POLICY_TEST
 print("Optional SFE module post-load verification contract: PASS")
 
 # Configured NAT helper requirements must be post-load verified and their first

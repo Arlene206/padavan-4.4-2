@@ -1,8 +1,8 @@
 ## Current source / CI checkpoint
 
-- Main parent: `8c77a050018df9e3db1dfc3afd73b7f646c47e5a`. Exact-head 8c77 Firewall Startup `43946213665` and Process regression `43946213545` failed on the optional-hook ENOENT assertion: the canonical checker normalizes whitespace but expected a no-space literal, while the C source correctly uses `errno != ENOENT`. XY-C1 `43946213553` stopped at the same checker before Build/TRX/artifact.
-- HTTPD `43946213772`, NVRAM `43946213544`, AI handoff `43946213616`, AliyunDrive `43946213652`, AliDDNS `43946213539`, AdGuardHome `43946213561`, USB modem `43946213534`, and infosvr `43946213737` passed on 8c77.
-- The new checker uses a whitespace-tolerant regex for ENOENT. New exact-SHA verification is still required. Next P1: audit NAT helper and optional HW NAT/SFE load/unload postconditions. Physical-router L4 remains NOT VERIFIED.
+- Main parent: `391902a4f936c8967d6e83999892853683333d1f`. Exact-head 39190 Firewall Startup and Process regression failed because the canonical checker read the module-policy assertions from the existing modem-WAN policy variables; it now binds the wireless module policy header and test separately. HTTPD failed on the stale one-argument `hwnat_configure` contract; the implementation now accepts the allow-state to avoid logging a still-loaded disabled module as enabled.
+- Exact-head 39190 USB modem identity, AI handoff, process inventory and WAN route suites passed. NVRAM, USB storage and XY-C1 Build/TRX/artifact were pending at last poll. 09ea checker-only SHA passed Firewall Startup and Process regression; its XY-C1 run remained pending.
+- NAT module unload postcondition code and ASan/UBSan unit tests are present on 39190 but its own exact-head build/test validation is not yet complete. No physical-router L4 claim.
 
 
 
