@@ -461,7 +461,7 @@ jobs:
           bridge = body(lan, "config_bridge(int is_ap_mode)")
           bridge_policy_body = body(bridge_policy, "rc_bridge_config_apply(")
           iptv = body(net, "restart_iptv(int is_ap_mode)")
-          assert "\\nint\\nconfig_bridge(int is_ap_mode)" in lan
+          assert ("int" + chr(10) + "config_bridge(int is_ap_mode)") in lan
           assert "int config_bridge(int is_ap_mode);" in header
           assert "rc_bridge_config_apply(" in bridge and "return status;" in bridge
           assert "failure_count" in bridge and "first_failure" in bridge

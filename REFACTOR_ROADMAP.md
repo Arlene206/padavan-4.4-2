@@ -1,10 +1,9 @@
 ## Current source / CI checkpoint
 
-- Current main before THIS bridge configuration status slice: 47f1534749d11be908c9af57d5f1d31e28029ff8; status-returning LAN start/helper functions were repaired in 47f1534749d11be908c9af57d5f1d31e28029ff8.
-- config_bridge() now returns the first error from seven bridge/port/PHY setup operations after attempting every independent operation. start_lan() and restart_iptv() aggregate that status with their own results. New GNU89/Werror/ASan/UBSan host regression passed locally; exact-head Process source contract pending.
-- On parent 47f1534749d11be908c9af57d5f1d31e28029ff8: Process inventory 43849407767 and Process regression 43849407856, DNSMasq 43849407985, AI docs 43849407655, infosvr 43849407642, AdGuardHome 43849407657, AliDDNS 43849407685, AliyunDrive 43849407661, HTTPD 43849408102, WAN DHCP 43849408056, detect_internet 43849407600, detect_link 43849407631 and NVRAM 43849408107 SUCCESS. XY-C1 43849407925 was IN_PROGRESS at Build XY-C1; TRX/artifact result not confirmed.
-- No physical-router/L4 result. Board-specific optional IGMP sysfs/switch ioctl behavior still needs capability/hardware validation. Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains immutable at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- Next: verify exact-head bridge policy and Process source wiring, XY-C1 Build/TRX/artifact and NVRAM; audit remaining bridge/IPTV status propagation.
+- Current main before THIS workflow assertion correction: b81207777615d31b096c1425ff1fa8110898b0c2. Production bridge configuration result propagation and GNU89/Werror/ASan/UBSan callback regression are in b81207777615d31b096c1425ff1fa8110898b0c2; local policy test passed.
+- The Process source checker had an over-escaped newline literal for the config_bridge() return type. THIS update uses chr(10), leaving production code and regression unchanged. Exact-head Process rerun required.
+- On parent b81207777615d31b096c1425ff1fa8110898b0c2: Process regression 43850461801 was in progress at LAN status tests; XY-C1 43850461476 was in progress at dependency setup. Process inventory 43850461826 passed. No current-SHA firmware/TRX/artifact L3 or physical L4 result.
+- Next: inspect exact-head Process bridge policy and XY-C1 Build/TRX/artifact; continue capability-aware bridge/IPTV status handling. Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains immutable at 72f4f157a084f8184b9597ca5bf334b8080e5807.
 
 ## Whole-repository module status
 

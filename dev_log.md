@@ -1,3 +1,12 @@
+## 2026-11-16 — Correct bridge return-type source assertion escaping
+
+- Parent main: b81207777615d31b096c1425ff1fa8110898b0c2. The bridge policy source and test commit b81207777615d31b096c1425ff1fa8110898b0c2 is published; local GNU89/Werror/ASan/UBSan policy test had passed.
+- Exact-head Process run 43850461801 was in progress at the earlier LAN status regression; the new bridge C test and source contract had not yet completed. XY-C1 run 43850461476 was still before Build. Process inventory 43850461826 passed.
+- Source review found the newly inserted C return-type assertion was over-escaped in Python text. Replaced it with a chr(10)-based exact declaration check; no production C change.
+- Next: verify Process bridge test/source checker and XY-C1 current-SHA Build/TRX/artifact; then continue capability-aware bridge/IPTV result handling.
+
+---
+
 ## 2026-11-16 — Propagate bridge multicast setup errors through LAN/IPTV status
 
 - Parent main: 47f1534749d11be908c9af57d5f1d31e28029ff8. Process inventory 43849407767 and Process/LAN regression 43849407856 passed; DNSMasq 43849407985, AI docs 43849407655, infosvr 43849407642, AdGuardHome 43849407657, AliDDNS 43849407685, AliyunDrive 43849407661, HTTPD 43849408102, WAN DHCP 43849408056, detect_internet 43849407600, detect_link 43849407631 and NVRAM 43849408107 passed.
