@@ -8,37 +8,34 @@ For each logical task, create all changed files in one Git tree and one atomic m
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`.
-- Parent for THIS LAN definition and DNSMasq/Process contract correction: `be64a1990828e92895b4ce507216c509e1b35ff3`. Refetch live main before every further write and use expected-SHA non-forced compare-and-swap.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. Startup governance/archive/PR recovery are complete; do not repeat.
-- Root `dev_log.md` has 96 newest-first records before THIS entry; it will contain 97 afterward. Maintain 20–119 records and preserve archive shards/indexes.
+- Repository: Arlene206/padavan-4.4-2; active branch: main.
+- Parent for THIS bridge configuration status slice: 47f1534749d11be908c9af57d5f1d31e28029ff8. Refetch live main before any subsequent write and use expected-SHA non-forced CAS.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14 = 72f4f157a084f8184b9597ca5bf334b8080e5807; immutable. Startup governance/archive/PR recovery are complete; do not repeat.
+- Root dev_log.md has 97 newest-first records before THIS entry; this entry makes 98. Keep 20–119 and preserve archived shards/indexes.
 
 ## Active task
 
-Fix the real compile-blocking return-type regression introduced while converting LAN helpers to status-returning APIs:
-- `start_lan()` had `void\nint\nstart_lan(...)`; `lan_up_manual()` had `void\nlan_up_manual(...)` despite returning error values and having int prototypes. THIS commit removes the stale void tokens.
-- The Process workflow now asserts the production definitions are `int`, not only that their bodies and caller status merges look correct.
-- DNSMasq lifecycle's manual resolver lock-failure contract now expects `return saved_errno;` from the status-returning helper rather than a bare void return.
-- The XY-C1 driver source checker was independently corrected by commit `be64a1990828e92895b4ce507216c509e1b35ff3` to validate exact NDIS/RAS driver arrays, aligned params and verified module-family loading.
+Propagate status from LAN bridge multicast setup without short-circuiting independent operations:
+- config_bridge() returned void and discarded return values from four br_set_param_int() writes, brport_set_m2u(), phy_igmp_static_port() and phy_igmp_snooping(). All APIs return int.
+- New bridge_config_policy.h invokes all seven operations even when one fails, returns the first nonzero status, and exposes failure count/first operation for aggregate logging. The GNU89/Werror/ASan/UBSan regression verifies exact ordering/values, multiple injected failures, and fail-before-side-effects argument validation.
+- config_bridge() now returns this status; start_lan() folds it into its LAN-start first error, and restart_iptv() folds it with proxy stop/start results for both router and AP paths. Follow-up proxy starts are still attempted when bridge setup fails; a failed AP proxy stop still blocks replacing a live proxy.
+- This records setup failure; it does not abort PID 1 or suppress unrelated service start. Board-specific optional sysfs/switch feature support still requires hardware validation.
 
 ## Verification boundary
 
-Exact-head observations on parent `be64a1990828e92895b4ce507216c509e1b35ff3`:
-
-- Process inventory/lifecycle regression `43849012514`: SUCCESS, including the LAN source/caller contract from the previous slice. THIS correction adds definition-level return-type assertions.
-- AI handoff documentation `43849012491`, infosvr `43849012433`, AdGuardHome `43849012473`, AliDDNS `43849012496`, AliyunDrive `43849012441`: SUCCESS.
-- XY-C1 firmware run `43849012639`: IN_PROGRESS at `Build XY-C1`; it had passed the corrected `Verify XY-C1 USB modem driver configuration` step and all preceding policy regressions. This run is against parent `be64a1990828e92895b4ce507216c509e1b35ff3`, which still has the LAN return-prefix bug fixed by THIS commit; no TRX/artifact result yet.
-- NVRAM transaction audit `43849012584`: IN_PROGRESS at raw userland ioctl/kernel NVRAM API audit after lock, permission, contention and crash-release regressions passed.
-- On earlier parent `5c74753c5af2951f477f733b1f3d6e1d78dc1824`, DNSMasq run `43848474699` failed at embedded Python line 107 because the contract expected `return;`; production now returns `saved_errno`. THIS commit updates the source assertion; exact-head DNSMasq rerun will be pending.
-- The previous parent `5c74753` XY-C1 run `43848474467` failed before build at the stale direct-module-load checker; that checker passed on `be64a1990828e92895b4ce507216c509e1b35ff3` run `43849012639`.
-- No confirmed current-source Build+TRX+artifact L3 result or physical-router/L4 result is established yet.
+Exact-parent observations on 47f1534749d11be908c9af57d5f1d31e28029ff8:
+- Process inventory run 43849407767 and Process regression 43849407856: SUCCESS. The latter included prior LAN startup error propagation.
+- DNSMasq lifecycle 43849407985, AI handoff docs 43849407655, infosvr 43849407642, AdGuardHome 43849407657, AliDDNS 43849407685, AliyunDrive 43849407661, HTTPD 43849408102, WAN DHCP callback 43849408056, detect_internet 43849407600, detect_link 43849407631 and NVRAM 43849408107: SUCCESS.
+- XY-C1 43849407925 was IN_PROGRESS at Build XY-C1; no TRX/artifact completion recorded yet.
+- Previous driver-array checker correction passed its XY-C1 check before Build on parent be64a1990828e92895b4ce507216c509e1b35ff3, run 43849012639; do not reuse the rest of that run as current-parent firmware evidence.
+- No physical-router/L4 result is established.
 
 ## Exact first action for the next GPT
 
-1. Inspect this commit's exact-head Process, DNSMasq and XY-C1 workflows. The XY run on parent `be64a1990828e92895b4ce507216c509e1b35ff3` was already at Build; also require its TRX verification and artifact upload to succeed before recording L3. Confirm target compilation after the LAN definition fix.
-2. Audit `config_bridge()` / bridge setup result APIs carefully. `br_set_param_int()`, `brport_set_m2u()`, `phy_igmp_static_port()` and `phy_igmp_snooping()` return status, but unsupported multicast sysfs attributes or board-specific switch ioctls may be expected. Do not convert optional feature absence into boot-fatal errors without capability-specific semantics.
-3. Continue wider RC/service-start result propagation beyond this completed LAN start slice; separately verify selected-device driver binding, since module-family presence alone does not prove the chosen USB device bound to the driver.
+1. Fetch live main and inspect this bridge-policy commit's exact-head Process regression, XY-C1 Build/TRX/artifact and NVRAM. Confirm GNU89 bridge regression and production source wiring. Only claim L3 if Build XY-C1, TRX verification and artifact upload all pass on the same SHA.
+2. Audit remaining LAN bridge and IPTV operations for status handling, including unsupported-feature capability semantics; do not turn optional board feature absence into a service abort.
+3. Continue broad RC stability/security coverage. Selected NDIS interface-to-driver binding is separate from module-family presence under /sys/module.
 
 ## Governance constraints
 
-Preserve security, architecture, compatibility, target toolchain and mandatory tests. Main only; frozen backup read-only. One complete Git tree and one atomic commit per logical task, non-forced expected-SHA update. Update `dev_log.md` for source/documentation changes; keep 20–119 records and preserve archives/indexes verbatim. Distinguish host tests, source contracts, exact-SHA CI, firmware/TRX and physical-router evidence. Never claim an unrun result.
+Preserve security, architecture, compatibility, target toolchain and mandatory tests. Main only; frozen backup read-only. One complete Git tree and one atomic commit per logical task, non-forced expected-SHA update. Update dev_log.md for every source/documentation change; keep 20–119 records and preserve archives/indexes verbatim. Distinguish host tests, source contracts, exact-SHA CI, firmware/TRX and physical-router evidence. Never claim an unrun result.

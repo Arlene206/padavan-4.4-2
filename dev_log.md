@@ -1,3 +1,13 @@
+## 2026-11-16 — Propagate bridge multicast setup errors through LAN/IPTV status
+
+- Parent main: 47f1534749d11be908c9af57d5f1d31e28029ff8. Process inventory 43849407767 and Process/LAN regression 43849407856 passed; DNSMasq 43849407985, AI docs 43849407655, infosvr 43849407642, AdGuardHome 43849407657, AliDDNS 43849407685, AliyunDrive 43849407661, HTTPD 43849408102, WAN DHCP 43849408056, detect_internet 43849407600, detect_link 43849407631 and NVRAM 43849408107 passed.
+- Found config_bridge() discarded seven status-returning bridge/port/PHY operations. Added an injected-operation policy that attempts all seven, preserves the first error and reports failure count/first operation; GNU89/Werror/ASan/UBSan host regression passed locally.
+- config_bridge() now returns status. start_lan() aggregates it after other LAN setup; restart_iptv() aggregates it with IPTV proxy actions while still attempting independent starts and preserving the AP stop-before-replace safety gate.
+- XY-C1 run 43849407925 was still at Build XY-C1 on parent 47f1534749d11be908c9af57d5f1d31e28029ff8; no TRX/artifact L3 or physical-router/L4 result was available. This commit requires new exact-head Process and XY-C1 validations.
+- Next: check exact-head bridge policy tests, Process source wiring, XY-C1 Build/TRX/artifact and NVRAM; continue capability-aware bridge setup audit.
+
+---
+
 ## 2026-11-16 — Fix LAN status function return types and resolver contract
 
 - Parent main: `be64a1990828e92895b4ce507216c509e1b35ff3`. Process inventory/lifecycle run `43849012514` passed the earlier LAN function-body/caller checks; AI docs `43849012491`, infosvr `43849012433`, AdGuardHome `43849012473`, AliDDNS `43849012496`, AliyunDrive `43849012441` also passed.

@@ -38,6 +38,7 @@
 #include "switch.h"
 #include "switch_status_policy.h"
 #include "service_start_status.h"
+#include "bridge_config_policy.h"
 #include <gpioutils.h>
 
 #if BOARD_RAM_SIZE < 32
@@ -300,51 +301,61 @@ init_bridge(int is_ap_mode)
 	nvram_set_int_temp("reload_svc_rt", 0);
 }
 
-void
+int
 config_bridge(int is_ap_mode)
 {
-	const char *wired_ifname;
-	int multicast_router, multicast_querier, igmp_static_port;
-	int igmp_snoop = nvram_get_int("ether_igmp");
-	int wired_m2u = nvram_get_int("ether_m2u");
+    const char *wired_ifname;
+    const char *first_failure = NULL;
+    int multicast_router, multicast_querier, igmp_static_port;
+    int igmp_snoop = nvram_get_int("ether_igmp");
+    int wired_m2u = nvram_get_int("ether_m2u");
+    int failure_count = 0;
+    int status;
+    static const rc_bridge_config_ops_t ops = {
+        br_set_param_int,
+        brport_set_m2u,
+        phy_igmp_static_port,
+        phy_igmp_snooping
+    };
 
-	if (!is_ap_mode) {
-		igmp_static_port = -1;
-		if (nvram_match("mr_enable_x", "1")) {
-			multicast_router = 2;   // bridge is mcast router path (br0 <--igmpproxy--> eth3)
-			multicast_querier = 0;  // bridge is not needed internal mcast querier (igmpproxy is mcast querier)
-		} else {
-			multicast_router = 1;   // bridge may be mcast router path
-			multicast_querier = 1;  // bridge is needed internal mcast querier (for eth2-ra0-rai0 snooping work)
-		}
-		wired_ifname = IFNAME_LAN;
+    if (!is_ap_mode) {
+        igmp_static_port = -1;
+        if (nvram_match("mr_enable_x", "1")) {
+            multicast_router = 2;
+            multicast_querier = 0;
+        } else {
+            multicast_router = 1;
+            multicast_querier = 1;
+        }
+        wired_ifname = IFNAME_LAN;
 #if defined (USE_GMAC2_TO_GPHY) || defined (USE_GMAC2_TO_GSW)
-		if (get_wan_bridge_mode() != SWAPI_WAN_BRIDGE_DISABLE)
-			wired_ifname = "eth2.1";
+        if (get_wan_bridge_mode() != SWAPI_WAN_BRIDGE_DISABLE)
+            wired_ifname = "eth2.1";
 #endif
-	} else {
-		igmp_static_port = nvram_get_int("ether_uport");
-		multicast_router = 0;   // bridge is not mcast router path
-		multicast_querier = 1;  // bridge is needed internal mcast querier (for eth2-ra0-rai0 snooping work)
+    } else {
+        igmp_static_port = nvram_get_int("ether_uport");
+        multicast_router = 0;
+        multicast_querier = 1;
 #if defined (AP_MODE_LAN_TAGGED)
-		wired_ifname = IFNAME_LAN;
+        wired_ifname = IFNAME_LAN;
 #else
-		wired_ifname = IFNAME_MAC;
+        wired_ifname = IFNAME_MAC;
 #endif
-	}
+    }
 
-	br_set_param_int(IFNAME_BR, "multicast_router", multicast_router);
-	br_set_param_int(IFNAME_BR, "multicast_querier", multicast_querier);
-
-	/* allow use bridge IP address as IGMP/MLD query source IP (avoid cisco issue) */
-	br_set_param_int(IFNAME_BR, "multicast_query_use_ifaddr", 1);
-
-	br_set_param_int(IFNAME_BR, "multicast_snooping", (igmp_snoop) ? 1 : 0);
-
-	brport_set_m2u(wired_ifname, (igmp_snoop && wired_m2u == 1) ? 1 : 0);
-
-	phy_igmp_static_port(igmp_static_port);
-	phy_igmp_snooping((igmp_snoop && wired_m2u == 2) ? 1 : 0);
+    status = rc_bridge_config_apply(
+        &ops, IFNAME_BR, wired_ifname, multicast_router, multicast_querier,
+        1, igmp_snoop ? 1 : 0,
+        (igmp_snoop && wired_m2u == 1) ? 1 : 0,
+        igmp_static_port,
+        (igmp_snoop && wired_m2u == 2) ? 1 : 0,
+        &failure_count, &first_failure);
+    if (status != 0)
+        logmessage(LOGNAME,
+                   "LAN bridge multicast setup incomplete: %s failed first (status=%d; failed_operations=%d)",
+                   first_failure ? first_failure : "validation",
+                   status, failure_count);
+    return status;
 }
 
 void
@@ -762,7 +773,8 @@ start_lan(int is_ap_mode, int do_wait)
 		reload_lan_addr6();
 #endif
 
-	config_bridge(is_ap_mode);
+	operation_status = config_bridge(is_ap_mode);
+	start_status = rc_first_service_start_status(start_status, operation_status);
 	return start_status;
 }
 

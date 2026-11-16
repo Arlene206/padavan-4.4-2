@@ -252,7 +252,7 @@ void update_lan_status(int is_auto);
 int full_restart_lan(void);
 void init_loopback(void);
 void init_bridge(int is_ap_mode);
-void config_bridge(int is_ap_mode);
+int config_bridge(int is_ap_mode);
 void switch_config_base(void);
 void switch_config_storm(void);
 void switch_config_link(void);

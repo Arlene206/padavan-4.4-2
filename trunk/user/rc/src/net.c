@@ -681,34 +681,37 @@ start_igmpproxy(char *wan_ifname)
 int
 restart_iptv(int is_ap_mode)
 {
-	int stop_status;
-	int start_status = 0;
+    int operation_status;
+    int stop_status;
+    int start_status = 0;
 
-	config_bridge(is_ap_mode);
+    operation_status = config_bridge(is_ap_mode);
+    start_status = rc_first_service_start_status(start_status, operation_status);
 
-	if (!is_ap_mode) {
-		char *wan_ifname, *viptv_iflast;
-		
-		/* check used IPTV via VLAN interface */
-		viptv_iflast = nvram_safe_get("viptv_ifname");
-		if (*viptv_iflast && is_interface_exist(viptv_iflast))
-			wan_ifname = viptv_iflast;
-		else
-			wan_ifname = get_man_ifname(0);
-		return start_igmpproxy(wan_ifname);
-	} else {
-		stop_status = stop_igmpproxy(NULL);
-		if (stop_status != 0) {
-			logmessage("IPTV", "AP-mode proxy restart aborted because an existing proxy did not stop (status=%d)",
-				   stop_status);
-			return stop_status;
-		}
-		start_status = rc_first_service_start_status(start_status, start_udpxy(IFNAME_BR));
+    if (!is_ap_mode) {
+        char *wan_ifname, *viptv_iflast;
+
+        /* check used IPTV via VLAN interface */
+        viptv_iflast = nvram_safe_get("viptv_ifname");
+        if (*viptv_iflast && is_interface_exist(viptv_iflast))
+            wan_ifname = viptv_iflast;
+        else
+            wan_ifname = get_man_ifname(0);
+        operation_status = start_igmpproxy(wan_ifname);
+        return rc_first_service_start_status(start_status, operation_status);
+    }
+
+    stop_status = stop_igmpproxy(NULL);
+    if (stop_status != 0) {
+        logmessage("IPTV", "AP-mode proxy restart aborted because an existing proxy did not stop (status=%d)",
+                   stop_status);
+        return rc_first_service_start_status(start_status, stop_status);
+    }
+    start_status = rc_first_service_start_status(start_status, start_udpxy(IFNAME_BR));
 #if defined(APP_XUPNPD)
-		start_status = rc_first_service_start_status(start_status, start_xupnpd(IFNAME_BR));
+    start_status = rc_first_service_start_status(start_status, start_xupnpd(IFNAME_BR));
 #endif
-	}
-	return start_status;
+    return start_status;
 }
 
 void

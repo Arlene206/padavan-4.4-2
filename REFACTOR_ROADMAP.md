@@ -1,10 +1,10 @@
 ## Current source / CI checkpoint
 
-- Current main before THIS checker correction: 5c74753c5af2951f477f733b1f3d6e1d78dc1824; LAN startup result propagation landed in 5c74753c5af2951f477f733b1f3d6e1d78dc1824.
-- Modem loader uses 7 NDIS and 4 RAS optional-driver alternatives; ancestor XY-C1 43848100619 failed at a stale literal-call assertion, not a firmware compile error. This patch checks alternative arrays, parameters, Kconfig modules and verified loader semantics. Exact-head XY-C1 rerun required.
-- On parent 5c74753c5af2951f477f733b1f3d6e1d78dc1824: XY-C1 43848474467 and Process/LAN 43848475098 were IN_PROGRESS at last inspection; WAN ARP 43848474894, VPN 43848474624, Inadyn 43848474126, detect_internet 43848474938, PID 1 queue 43848474904 SUCCESS. No current-source Build/TRX/artifact L3 or physical L4 result.
-- USB identity/module-family regression on ancestor aeba90439f0b68cd35a67be7d3e821164597bc4f passed as 43848100315. Module presence still does not prove selected-interface binding.
-- Next: check exact-head checker and LAN/Process results; then continue reliable device-binding evidence and broader RC startup/stop governance. Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains immutable at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Current main before THIS bridge configuration status slice: 47f1534749d11be908c9af57d5f1d31e28029ff8; status-returning LAN start/helper functions were repaired in 47f1534749d11be908c9af57d5f1d31e28029ff8.
+- config_bridge() now returns the first error from seven bridge/port/PHY setup operations after attempting every independent operation. start_lan() and restart_iptv() aggregate that status with their own results. New GNU89/Werror/ASan/UBSan host regression passed locally; exact-head Process source contract pending.
+- On parent 47f1534749d11be908c9af57d5f1d31e28029ff8: Process inventory 43849407767 and Process regression 43849407856, DNSMasq 43849407985, AI docs 43849407655, infosvr 43849407642, AdGuardHome 43849407657, AliDDNS 43849407685, AliyunDrive 43849407661, HTTPD 43849408102, WAN DHCP 43849408056, detect_internet 43849407600, detect_link 43849407631 and NVRAM 43849408107 SUCCESS. XY-C1 43849407925 was IN_PROGRESS at Build XY-C1; TRX/artifact result not confirmed.
+- No physical-router/L4 result. Board-specific optional IGMP sysfs/switch ioctl behavior still needs capability/hardware validation. Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains immutable at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Next: verify exact-head bridge policy and Process source wiring, XY-C1 Build/TRX/artifact and NVRAM; audit remaining bridge/IPTV status propagation.
 
 ## Whole-repository module status
 
