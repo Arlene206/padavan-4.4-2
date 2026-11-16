@@ -1,3 +1,13 @@
+## 2026-11-16 — Propagate USB printer daemon launch failures
+
+- Parent main: `f6fba229aba497988d2308c8c99879aca5da1214`. Review of `services_usb.c` found that `start_p910nd()` discarded `eval()`, `start_u2ec()` and `start_lpd()` discarded `system()`, and `exec_printer_daemons()` plus both public spooler entry points were void. The actual callers lost failures as well: `handle_notifications()` completed spooler requests and `on_deferred_hotplug_dev()` cleared the pending printer hotplug flag without checking launch results.
+- Converted the three launcher APIs and spooler entry points to status-returning functions. The printer loop records the first nonzero launch status while continuing attempts for every detected printer and both shared spoolers. Optional user hook failures are logged separately and do not suppress core printer daemon startup.
+- `handle_notifications()` now merges spooler restart status into the notification result so failed launches retain the incomplete marker. Deferred hotplug logs failure, restores `usb_hotplug_lp` and schedules its existing five-second retry.
+- Expanded the GNU89 service-start policy regression with printer first-error/continue cases, and the storage workflow now checks all source/caller edges and compiles/runs this test. Exact-SHA validation is pending for the commit produced by this slice.
+- Base SHA `f6fba229aba497988d2308c8c99879aca5da1214` has XY-C1 Build, TRX and artifact upload PASS on the same SHA; product-source L3 VERIFIED, physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Fix the DHCP IPTV optional-MTU compile failure
 
 - Parent main: `17df1d524e5f0ac72951381d56cf238c8699c1e9`. Exact-head XY-C1 run `43874973723` failed at `net_wan.c:4344`: `udhcpc_viptv_bound()` used `mtu_status` without declaring it. Pre-build regression/source steps 9–16 passed; TRX/artifact steps were skipped after compile failure.

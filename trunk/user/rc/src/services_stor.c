@@ -3267,6 +3267,7 @@ on_deferred_hotplug_dev(void)
 #if defined (USE_USB_SUPPORT)
 	int plug_modem = 0;
 	int unplug_modem = 0;
+	int printer_start_status;
 #endif
 	int storage_start_result;
 
@@ -3289,7 +3290,14 @@ on_deferred_hotplug_dev(void)
 	if (nvram_match("usb_hotplug_lp", "1"))
 	{
 		nvram_set_int_temp("usb_hotplug_lp", 0);
-		try_start_usb_printer_spoolers();
+		printer_start_status = try_start_usb_printer_spoolers();
+		if (printer_start_status != 0) {
+			logmessage("USB Printer",
+				   "deferred printer startup failed; preserving pending event for retry (status=%d)",
+				   printer_start_status);
+			nvram_set_int_temp("usb_hotplug_lp", 1);
+			alarm(5);
+		}
 	}
 
 	if (nvram_match("usb_unplug_md", "1"))

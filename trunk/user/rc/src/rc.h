@@ -725,19 +725,19 @@ int safe_remove_all_stor_devices(int do_spindown);
 #if defined (USE_USB_SUPPORT)
 /* services_usb.c */
 #if defined (SRV_U2EC)
-void start_u2ec(void);
+int start_u2ec(void);
 int stop_u2ec(void);
 #endif
 #if defined (SRV_LPRD)
-void start_lpd(void);
+int start_lpd(void);
 int stop_lpd(void);
 #endif
-void start_p910nd(char *devlp);
+int start_p910nd(char *devlp);
 int stop_p910nd(void);
 void safe_remove_usb_device(int port, const char *dev_name);
-void restart_usb_printer_spoolers(void);
+int restart_usb_printer_spoolers(void);
 int stop_usb_printer_spoolers(void);
-void try_start_usb_printer_spoolers(void);
+int try_start_usb_printer_spoolers(void);
 void try_start_usb_modem_to_wan(void);
 #endif
 

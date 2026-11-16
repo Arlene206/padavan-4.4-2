@@ -1,10 +1,9 @@
 ## Current source / CI checkpoint
 
-- Product-source parent: `17df1d524e5f0ac72951381d56cf238c8699c1e9`; static MAN/IPoE validation rejects malformed IPv4/netmasks before interface setup; PPP ip-up validates canonical IPCP endpoints before lease publication.
-- XY-C1 Firmware Validation `43874973723`: FAIL in Build XY-C1 because `udhcpc_viptv_bound()` used `mtu_status` without declaring it. This commit adds the missing local and regression/source-contract assertions. TRX/artifact were skipped.
-- NVRAM transaction `43874973747`, Process inventory/lifecycle `43874973647`, AI docs `43874973791`, AdGuardHome `43874973840`, AliDDNS `43874973707`, AliyunDrive `43874973891`, infosvr `43874973811`: PASS on the parent SHA.
-- WAN DHCP callback and route contracts already cover optional MTU result semantics; this commit adds the missing IPTV declaration coverage. Recheck both on exact new SHA.
-- Firmware L3 and physical-router L4 NOT VERIFIED.
+- Product-source parent: `f6fba229aba497988d2308c8c99879aca5da1214`; WAN static MAN/IPoE rejects malformed IPv4/netmasks before interface setup, PPP ip-up validates canonical IPCP endpoints before lease publication, and DHCPv6 teardown preserves previous runtime interface state.
+- XY-C1 Firmware Validation `43876689861`: PASS on this exact SHA, including Build XY-C1, TRX output verification and artifact upload. Firmware product-source L3 VERIFIED; physical-router L4 NOT VERIFIED.
+- WAN DHCP `43876690140`, WAN route `43876689913`, teardown `43876690232`, NVRAM `43876690184`, process lifecycle `43876690199`, process inventory `43876690163`, DNSMasq `43876690078`, miniupnpd `43876690083`, USB modem identity `43876690111`, detect_internet `43876690026`, detect_link `43876690176`, infosvr `43876689855`, AdGuardHome `43876690213`, AliDDNS `43876689993`, AliyunDrive `43876690064`, VPN server `43876690139`, HTTPD security `43876690034`, WAN gateway ARP `43876690059`, AI docs `43876690148`: PASS on the same source SHA.
+- Current independent RC finding: USB printer launchers returned void/discarded `system()`/`eval()` statuses; the notification handler marked spooler restart complete despite failure, and deferred hotplug lost the pending event. The current slice propagates the first nonzero launcher result, continues later launch attempts, re-arms deferred hotplug, and retains failed notification markers. Storage workflow adds GNU89 and caller/source contracts; exact-head validation pending.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Whole-repository module status

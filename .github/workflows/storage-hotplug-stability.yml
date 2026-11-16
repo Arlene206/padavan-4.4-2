@@ -7,6 +7,8 @@ on:
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/optional_daemon_policy.h"
       - "trunk/user/rc/src/services_usb.c"
+      - "trunk/user/rc/src/service_start_status.h"
+      - "trunk/user/rc/src/tests/service_start_status.c"
       - ".github/workflows/storage-hotplug-stability.yml"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/scripts/files/sbin/mtd_storage.sh"
@@ -315,6 +317,14 @@ jobs:
             trunk/user/rc/src/tests/storage_service_stop_policy.c \
             -o /tmp/storage-service-stop-policy
           /tmp/storage-service-stop-policy
+      - name: Compile and run RC service launch status regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/service_start_status.c \
+            -o /tmp/service-start-status
+          /tmp/service-start-status
       - name: Verify whole storage caller graph, operation locks and failure propagation
         run: |
           python3 - <<'PY'
@@ -322,6 +332,7 @@ jobs:
 
           rc_dir = Path("trunk/user/rc/src")
           storage = (rc_dir / "services_stor.c").read_text()
+          usb = (rc_dir / "services_usb.c").read_text()
           policy = (rc_dir / "storage_ejected_inventory_policy.h").read_text()
           optware_policy = (rc_dir / "storage_optware_start_policy.h").read_text()
           optware_policy_test = (rc_dir / "tests/storage_optware_start_policy.c").read_text()
@@ -379,11 +390,62 @@ jobs:
           assert "Notification %s failed; completion marker retained" in notifications
           assert "Wireless notification %s failed" not in notifications
 
+          # USB printer startup must report launcher errors to both retry paths.
+          u2ec = function_body(usb, "start_u2ec(void)")
+          assert 'start_status = system("/usr/sbin/u2ec &");' in u2ec
+          assert "if (start_status != 0)" in u2ec
+          assert u2ec.index("if (start_status != 0)") < u2ec.index('nvram_set("apps_u2ec_ex", "1");')
+          assert "return start_status;" in u2ec and "return 0;" in u2ec
+
+          lpd = function_body(usb, "start_lpd(void)")
+          assert 'start_status = system("/usr/sbin/lpd &");' in lpd
+          assert "if (start_status != 0)" in lpd and "return start_status;" in lpd
+
+          p910nd = function_body(usb, "start_p910nd(char *devlp)")
+          assert 'start_status = eval("/usr/sbin/p910nd", "-b", "-f", devlp, "0");' in p910nd
+          assert 'start_status = eval("/usr/sbin/p910nd", "-f", devlp, "0");' in p910nd
+          assert "return start_status;" in p910nd
+
+          printer_start = function_body(usb, "exec_printer_daemons(int call_fw)")
+          assert "start_status = start_p910nd(dev_lp);" in printer_start
+          assert "start_status = start_u2ec();" in printer_start
+          assert "start_status = start_lpd();" in printer_start
+          assert printer_start.count("rc_first_service_start_status(") == 3
+          assert "return first_status;" in printer_start
+
+          printer_restart = function_body(usb, "restart_usb_printer_spoolers(void)")
+          assert "if (stop_status != 0)" in printer_restart
+          assert "return stop_status;" in printer_restart
+          assert "return exec_printer_daemons(0);" in printer_restart
+          printer_hotplug_start = function_body(usb, "try_start_usb_printer_spoolers(void)")
+          assert "if (stop_status != 0)" in printer_hotplug_start
+          assert "return stop_status;" in printer_hotplug_start
+          assert "return exec_printer_daemons(1);" in printer_hotplug_start
+
+          spooler = 'else if (strcmp(entry->d_name, RCN_RESTART_SPOOLER) == 0)'
+          assert spooler in notifications
+          spooler_body = notifications[notifications.index(spooler):notifications.index('else if (!strcmp(entry->d_name, "on_hotplug_usb_printer"))')]
+          assert "action_result = rc_notify_merge_action_result(" in spooler_body
+          assert "restart_usb_printer_spoolers()" in spooler_body
+
+          deferred_printer = function_body(storage, "on_deferred_hotplug_dev(void)")
+          assert "printer_start_status = try_start_usb_printer_spoolers();" in deferred_printer
+          assert "if (printer_start_status != 0)" in deferred_printer
+          assert deferred_printer.index('nvram_set_int_temp("usb_hotplug_lp", 0)') < deferred_printer.index("printer_start_status = try_start_usb_printer_spoolers();")
+          assert deferred_printer.index("if (printer_start_status != 0)") < deferred_printer.index('nvram_set_int_temp("usb_hotplug_lp", 1)') < deferred_printer.index("alarm(5)")
+
+          service_start_test = (rc_dir / "tests/service_start_status.c").read_text()
+          assert "test_usb_printer_launchers_preserve_first_failure_and_continue" in service_start_test
+
           paths = (
               ".github/workflows/storage-hotplug-stability.yml",
               "trunk/user/rc/src/rc.c",
               "trunk/user/rc/src/common_ex.c",
               "trunk/user/rc/src/services_stor.c",
+              "trunk/user/rc/src/services_usb.c",
+              "trunk/user/rc/src/rc.h",
+              "trunk/user/rc/src/service_start_status.h",
+              "trunk/user/rc/src/tests/service_start_status.c",
               "trunk/user/rc/src/storage_ejected_inventory_policy.h",
               "trunk/user/rc/src/tests/storage_ejected_inventory_policy.c",
               "trunk/user/shared/src/process_inventory.h",

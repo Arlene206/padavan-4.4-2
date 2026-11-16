@@ -1455,7 +1455,8 @@ handle_notifications(void)
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_SPOOLER) == 0)
 		{
-			restart_usb_printer_spoolers();
+			action_result = rc_notify_merge_action_result(
+				action_result, restart_usb_printer_spoolers());
 		}
 		else if (!strcmp(entry->d_name, "on_hotplug_usb_printer"))
 		{
