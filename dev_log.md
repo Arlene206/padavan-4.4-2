@@ -1,3 +1,12 @@
+## 2026-11-17 — Repair PPPoE WANX checker and restore mandatory handoff checkpoint
+
+- Parent main: `4e1d18dd4d95ab16163a2373d70a674e00990db3`; source fix `4e1d18dd4d95ab16163a2373d70a674e00990db3`.
+- Exact-head Process `43928812921` and XY-C1 `43928812622` failed in `check_modem_wan_start_status.py:209`: the new WANX raw regex was double-escaped, so it searched for literal backslash-s instead of whitespace. The GNU89 modem WAN policy test itself passed before the checker stopped the job.
+- Exact-head AI docs `43928812779` failed because the shortened handoff omitted the mandatory "Mandatory handoff checkpoint" / conditional document-edit / no-op rule. Restored the cross-session execution mandate and accurate first-action contract.
+- THIS COMMIT changes only the checker regex and handoff/log/roadmap records. New exact-head Process, XY-C1 and AI docs checks are pending; current L3 remains unverified until same-SHA Build, TRX and artifact upload all pass. Physical-router L4 NOT VERIFIED; frozen backup unchanged.
+
+---
+
 ## 2026-11-17 02:26 CST (UTC+8) — Report manual PPPoE WANX setup failures
 
 - Parent main: `59681e0b5edf6803a47280c0c0256f596d217392`.

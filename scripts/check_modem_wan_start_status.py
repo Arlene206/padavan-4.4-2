@@ -203,7 +203,7 @@ assert "if (mtu_status != 0)" in wanx
 wanx_error_pos = ppp_branch.index("if (wanx_status != 0)")
 wanx_abort_pos = ppp_branch.index("if (!i_pppoe && wanx_status != 0)")
 wanx_capture = re.search(
-    r"wan_start_status\\s*=\\s*rc_first_service_start_status\\s*\\(\\s*wan_start_status\\s*,\\s*wanx_status\\s*\\)\\s*;",
+    r"wan_start_status\s*=\s*rc_first_service_start_status\s*\(\s*wan_start_status\s*,\s*wanx_status\s*\)\s*;",
     ppp_branch[wanx_error_pos:wanx_abort_pos],
 )
 assert wanx_capture, "configured PPPoE MAN failures must reach the WAN startup result"
