@@ -1385,3 +1385,43 @@ for required_path in (
     assert required_path in process_workflow
     assert required_path in xy_workflow
 print("RC CPU watchdog restart verifies module state and propagates notification failures: PASS")
+
+
+# DDNS restart notifications must preserve stop/start failures. The start
+# handler already performs its own stop-before-start operation; disabled or
+# AP-mode configurations only need an explicit stop.
+ddns_restart_policy = (root / "trunk/user/rc/src/ddns_restart_policy.h").read_text()
+ddns_restart_test = (root / "trunk/user/rc/src/tests/ddns_restart_policy.c").read_text()
+ddns_restart_rc = (root / "trunk/user/rc/src/rc.c").read_text()
+ddns_restart_branch = ddns_restart_rc.split(
+    'strcmp(entry->d_name, RCN_RESTART_DDNS) == 0', 1
+)[1].split('else if (strcmp(entry->d_name, RCN_RESTART_DI) == 0', 1)[0]
+assert '#include "ddns_restart_policy.h"' in ddns_restart_rc
+assert "rc_ddns_restart_run(get_ap_mode()," in ddns_restart_branch
+assert 'nvram_match("ddns_enable_x", "1")' in ddns_restart_branch
+assert "start_ddns, stop_ddns" in ddns_restart_branch
+assert "action_result = rc_notify_merge_action_result(action_result, ddns_status);" in ddns_restart_branch
+assert "stop_ddns();" not in ddns_restart_branch
+assert "start_ddns(1);" not in ddns_restart_branch
+assert "if (ap_mode || !ddns_enabled)" in ddns_restart_policy
+assert "return stop();" in ddns_restart_policy
+assert "return start(1);" in ddns_restart_policy
+for test_case in (
+    "test_enabled_router_uses_one_start_transaction",
+    "test_enabled_router_propagates_start_failure",
+    "test_disabled_ddns_stops_without_starting",
+    "test_disabled_ddns_propagates_stop_failure",
+    "test_ap_mode_stops_even_when_ddns_is_enabled",
+    "test_ap_mode_propagates_stop_failure",
+    "test_invalid_callbacks_fail_without_side_effects",
+):
+    assert test_case in ddns_restart_test
+assert "Compile and run RC DDNS restart result policy regression" in process_workflow
+assert "Compile and run RC DDNS restart result policy regression" in xy_workflow
+for required_path in (
+    '"trunk/user/rc/src/ddns_restart_policy.h"',
+    '"trunk/user/rc/src/tests/ddns_restart_policy.c"',
+):
+    assert required_path in process_workflow
+    assert required_path in xy_workflow
+print("RC DDNS restart notification preserves disabled/AP behavior and operation failures: PASS")

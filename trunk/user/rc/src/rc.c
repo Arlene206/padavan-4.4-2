@@ -50,6 +50,7 @@
 #include "wireless_module_load_policy.h"
 #include "vpn_server_lifecycle_lock.h"
 #include "rc_notify_batch_policy.h"
+#include "ddns_restart_policy.h"
 #include <rc_notify_queue.h>
 #include "gpio_pins.h"
 #include "switch.h"
@@ -1645,8 +1646,10 @@ handle_notifications(void)
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_DDNS) == 0)
 		{
-			stop_ddns();
-			start_ddns(1);
+			int ddns_status = rc_ddns_restart_run(get_ap_mode(),
+							       nvram_match("ddns_enable_x", "1"),
+							       start_ddns, stop_ddns);
+			action_result = rc_notify_merge_action_result(action_result, ddns_status);
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_DI) == 0)
 		{
