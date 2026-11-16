@@ -37,6 +37,7 @@
 #include "rc.h"
 #include "dnsmasq_lifecycle_lock.h"
 #include "service_start_status.h"
+#include "ipv6_cleanup_policy.h"
 
 #if defined (USE_IPV6)
 
@@ -133,20 +134,25 @@ int clear_if_route6(char *ifname)
 	return doSystem("ip -6 route flush dev %s", ifname);
 }
 
-void clear_if_neigh6(char *ifname)
+int clear_if_neigh6(char *ifname)
 {
-	if (is_interface_exist(ifname))
-		doSystem("ip -6 neigh flush dev %s", ifname);
+	if (!ifname || !ifname[0]) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (!is_interface_exist(ifname))
+		return 0;
+	return doSystem("ip -6 neigh flush dev %s", ifname);
 }
 
-void clear_all_addr6(void)
+int clear_all_addr6(void)
 {
-	doSystem("ip -6 addr flush scope global");
+	return doSystem("ip -6 addr flush scope global");
 }
 
-void clear_all_route6(void)
+int clear_all_route6(void)
 {
-	system("ip -6 route flush scope all");
+	return doSystem("ip -6 route flush scope all");
 }
 
 int
@@ -220,9 +226,14 @@ full_restart_ipv6(int ipv6_type_old)
 							dnsmasq_stop_status);
 
 	if (ipv6_type == IPV6_DISABLED) {
-		clear_all_route6();
-		clear_all_addr6();
-		clear_if_neigh6(IFNAME_BR);
+		operation_status = rc_ipv6_disable_cleanup_apply(
+			clear_all_route6, clear_all_addr6, clear_if_neigh6, IFNAME_BR);
+		if (operation_status != 0)
+			logmessage(LOGNAME, "IPv6 disable global route/address/neighbor cleanup incomplete (status=%d)",
+				   operation_status);
+		restart_status = rc_first_service_start_status(restart_status,
+								operation_status);
+
 		operation_status = stop_sit_tunnel();
 		if (operation_status != 0)
 			logmessage(LOGNAME, "IPv6 disable could not remove SIT tunnel (status=%d)",
@@ -236,7 +247,12 @@ full_restart_ipv6(int ipv6_type_old)
 		set_libc_gai(1);
 		/* This no-notify refresh cannot recurse into restart_dns(). */
 		refresh_resolvconf_nonfatal_no_notify("IPv6 disabled", 0);
-		reload_nat_modules();
+		operation_status = reload_nat_modules();
+		if (operation_status != 0)
+			logmessage(LOGNAME, "IPv6 disable could not reload NAT modules (status=%d)",
+				   operation_status);
+		restart_status = rc_first_service_start_status(restart_status,
+								operation_status);
 		operation_status = restart_firewall();
 		if (operation_status != 0)
 			logmessage(LOGNAME, "IPv6 disable could not refresh firewall/UPnP mappings (status=%d)",
@@ -259,7 +275,12 @@ full_restart_ipv6(int ipv6_type_old)
 	} else {
 		set_libc_gai(0);
 		control_if_ipv6_all(1);
-		clear_all_addr6();
+		operation_status = clear_all_addr6();
+		if (operation_status != 0)
+			logmessage(LOGNAME, "IPv6 enable could not clear stale global addresses (status=%d)",
+				   operation_status);
+		restart_status = rc_first_service_start_status(restart_status,
+								operation_status);
 		reset_lan6_vars();
 		reload_lan_addr6();
 
@@ -324,7 +345,12 @@ full_restart_ipv6(int ipv6_type_old)
 				}
 			}
 		}
-		reload_nat_modules();
+		operation_status = reload_nat_modules();
+		if (operation_status != 0)
+			logmessage(LOGNAME, "IPv6 reconfiguration could not reload NAT modules (status=%d)",
+				   operation_status);
+		restart_status = rc_first_service_start_status(restart_status,
+								operation_status);
 	}
 #if defined (APP_NFSD)
 	if (nfs_stop_status == 0) {

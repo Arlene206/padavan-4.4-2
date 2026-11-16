@@ -10,6 +10,8 @@ on:
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/ipv6_restart_policy.h"
       - "trunk/user/rc/src/tests/ipv6_restart_policy.c"
+      - "trunk/user/rc/src/ipv6_cleanup_policy.h"
+      - "trunk/user/rc/src/tests/ipv6_cleanup_policy.c"
       - "trunk/user/rc/src/service_start_status.h"
       - "trunk/user/rc/src/net_wan6.c"
       - "trunk/user/rc/src/wan6_teardown_policy.h"
@@ -39,6 +41,8 @@ on:
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/ipv6_restart_policy.h"
       - "trunk/user/rc/src/tests/ipv6_restart_policy.c"
+      - "trunk/user/rc/src/ipv6_cleanup_policy.h"
+      - "trunk/user/rc/src/tests/ipv6_cleanup_policy.c"
       - "trunk/user/rc/src/service_start_status.h"
       - "trunk/user/rc/src/net_wan6.c"
       - "trunk/user/rc/src/wan6_teardown_policy.h"
@@ -81,6 +85,14 @@ jobs:
             trunk/user/rc/src/tests/ipv6_restart_policy.c \
             -o /tmp/ipv6-restart-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/ipv6-restart-policy
+      - name: Compile and run IPv6 global cleanup result propagation regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/ipv6_cleanup_policy.c \
+            -o /tmp/ipv6-cleanup-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/ipv6-cleanup-policy
       - name: Compile and run WAN IPv6 teardown selection regression
         run: |
           set -eu
@@ -126,6 +138,8 @@ jobs:
           rc_source = (rc / "rc.c").read_text()
           ipv6_policy = (rc / "ipv6_restart_policy.h").read_text()
           ipv6_test = (rc / "tests/ipv6_restart_policy.c").read_text()
+          ipv6_cleanup_policy = (rc / "ipv6_cleanup_policy.h").read_text()
+          ipv6_cleanup_test = (rc / "tests/ipv6_cleanup_policy.c").read_text()
           wan6_policy = (rc / "wan6_teardown_policy.h").read_text()
           wan6_test = (rc / "tests/wan6_teardown_policy.c").read_text()
           header = (rc / "rc.h").read_text()
@@ -455,6 +469,30 @@ jobs:
           assert "if (lltd_stop_status == 0 && nvram_match(\"lltd_enable\", \"1\"))" in full_ipv6
           should_publish = body(ipv6_policy, "ipv6_restart_should_publish_type(")
           assert "return restart_status == 0;" in should_publish
+          clear_neigh = body(net6, "int clear_if_neigh6(char *ifname)")
+          clear_addr_all = body(net6, "int clear_all_addr6(void)")
+          clear_route_all = body(net6, "int clear_all_route6(void)")
+          assert "if (!ifname || !ifname[0])" in clear_neigh
+          assert 'return doSystem("ip -6 neigh flush dev %s", ifname);' in clear_neigh
+          assert 'return doSystem("ip -6 addr flush scope global");' in clear_addr_all
+          assert 'return doSystem("ip -6 route flush scope all");' in clear_route_all
+          assert 'system("ip -6 route flush scope all")' not in clear_route_all
+          assert "int clear_if_neigh6(char *ifname);" in header
+          assert "int clear_all_addr6(void);" in header
+          assert "int clear_all_route6(void);" in header
+          assert "rc_first_service_start_status(first_status, status)" in ipv6_cleanup_policy
+          assert "test_all_cleanup_steps_run_and_first_error_is_preserved" in ipv6_cleanup_test
+          assert "test_invalid_bridge_is_reported_after_global_cleanup" in ipv6_cleanup_test
+          assert workflow.count('"trunk/user/rc/src/ipv6_cleanup_policy.h"') == 2
+          assert workflow.count('"trunk/user/rc/src/tests/ipv6_cleanup_policy.c"') == 2
+          assert "ipv6-cleanup-policy" in workflow
+          ipv6_restart = body(net6, "full_restart_ipv6(int ipv6_type_old)")
+          ipv6_restart_compact = " ".join(ipv6_restart.split())
+          assert "rc_ipv6_disable_cleanup_apply(clear_all_route6, clear_all_addr6, clear_if_neigh6, IFNAME_BR)" in ipv6_restart_compact
+          assert "operation_status = clear_all_addr6();" in ipv6_restart
+          assert ipv6_restart.count("operation_status = reload_nat_modules();") == 2
+          assert "reload_nat_modules();" not in ipv6_restart
+          assert "restart_status = rc_first_service_start_status(restart_status, operation_status);" in ipv6_restart_compact
           notification = body(rc_source, "handle_notifications(void)")
           ipv6_case_start = notification.index('else if (!strcmp(entry->d_name, RCN_RESTART_IPV6))')
           ipv6_case_end = notification.index('else if (strcmp(entry->d_name, RCN_RESTART_RADV)', ipv6_case_start)
