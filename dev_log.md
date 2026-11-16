@@ -1,3 +1,13 @@
+## 2026-11-17 01:49 CST — Align WAN stop contract with required/optional modem control
+
+- Base main: `f5536dd46d24c8d0143c94a81a24a78a4d3cb15f`.
+- Two exact-SHA regressions exposed stale source-contract expectations caused by the NDIS control API change. The modem checker had searched for a prototype whose final parameter is split across lines; the WAN teardown workflow still required the old `if (control_status != 0)` test even though stop now ignores nonzero status when no control operation was required.
+- This commit updates the WAN teardown assertion to require initialization and forwarding of `control_required`, and to verify the production `modem_ndis_control_failed()` predicate. The modem checker signature-prefix correction from the parent is retained.
+- Parent exact-head USB modem identity run `43921625498` PASS. XY-C1 `43921624845` failed at the stale multiline signature anchor; Process inventory/fail-closed `43921624682` failed in the same `check_modem_wan_start_status.py` invocation. WAN teardown `43921624637` failed only at the old stop predicate assertion in its inline workflow contract. NVRAM audit `43921624686` subsequently completed PASS. No production-source failure was shown by these two stale assertions.
+- This workflow-contract correction triggers WAN teardown validation; the updated modem checker and XY-C1 trigger will rerun. No local test run is claimed. Physical-router L4 remains NOT VERIFIED; frozen backup unchanged.
+
+---
+
 ## 2026-11-17 01:47 CST — Handle multiline NDIS signature in source checker
 
 - Base main: `b61ca225bc996bbace4000a7aa5aa6972f9cf5db`.

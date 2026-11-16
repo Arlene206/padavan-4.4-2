@@ -71,7 +71,9 @@ jobs:
           assert usbnet_gate in stop
           assert stop.index(usbnet_gate) < stop.index('usbnet_ifname = get_wan_unit_value(unit, "ifname_t");') < stop.index("stop_wan_usbnet();")
           assert "stop_status = stop_wan_usbnet();" in stop
-          assert "if (control_status != 0)" in usbnet_stop
+          assert "control_required = 0;" in usbnet_stop
+          assert "ndis_control_network(ndis_ifname, modem_devnum, 0, &control_required)" in " ".join(usbnet_stop.split())
+          assert "modem_ndis_control_failed(control_required, control_status)" in usbnet_stop
           assert "ifdown_status != ENODEV" in usbnet_stop
           assert "return result;" in usbnet_stop
           assert stop.index(service_gate) < stop.index("stop_status = stop_wan_usbnet();") < stop.index(teardown)
