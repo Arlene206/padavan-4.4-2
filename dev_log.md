@@ -1,3 +1,11 @@
+## 2026-11-17 — Align legacy UPnP source assertion with firewall first-error return
+
+- Parent main: edeaf28ec35ad24aebaf6b1a82272cfe72939fd5. The new core firewall transaction host regression passed in exact-head Firewall Startup run 43939885812. The workflow then failed in the canonical checker at an older assertion that still required restart_firewall() to return upnp_status directly. The same assertion stopped exact-head XY-C1 run 43939886057 before Build/TRX/artifact; earlier XY host regressions passed.
+- Updated the canonical contract to require start_firewall_ex() result capture and rc_first_service_start_status(firewall_status, upnp_status), preserving both firewall and UPnP failures. The previous commit already wired transaction fault-injection compilation, source paths, and firmware workflow triggers.
+- c3 Firewall Startup and XY-C1 had also failed on the preceding stale reload_nat_modules signature; that correction is in edeaf. Fresh SHA validation is required. Physical-router L4 remains NOT VERIFIED; backup unchanged.
+
+---
+
 ## 2026-11-17 — Propagate core firewall transaction outcomes
 
 - Parent main: c3cf016298907f704ef1724ca317a5fc61d329e2. Converted start_firewall_ex() to return EBUSY for unresolved retained recovery state, EINVAL for unsafe interface tokens, and EIO for failed core restore/rollback/snapshot cleanup. Incomplete core or Adbyby rollback keeps forwarding fail-closed; successful core rules with only snapshot-cleanup failure remain active but report EIO so cleanup is retried before the next rebuild.

@@ -1,8 +1,8 @@
 ## Current source / CI checkpoint
 
-- Main parent: c3cf016298907f704ef1724ca317a5fc61d329e2. start_firewall_ex() now reports transaction/validation failures; restart_firewall() preserves core firewall status while always attempting UPnP refresh. Incomplete rollback remains fail-closed; snapshot cleanup failure retains cleanup state and reports EIO.
-- Exact-head c3 Firewall Startup 43938857743 and XY-C1 43938857763 failed before firmware build at the canonical checker, whose reload_nat_modules() signature still included its old int return type. This is fixed by matching the stable symbol name; the checker now covers firewall transaction/restart result propagation.
-- New Firewall Startup workflow compiles/runs the transaction regression under GNU89/-Werror/ASan/UBSan. Fresh exact-SHA XY-C1 Build/TRX/artifact is required; no current L3 build claim yet. Physical-router L4 remains NOT VERIFIED; backup remains read-only.
+- Main parent: edeaf28ec35ad24aebaf6b1a82272cfe72939fd5. Core firewall rebuild now reports validation, transaction, rollback and snapshot-cleanup failures; restart_firewall() always attempts UPnP refresh and returns the first nonzero firewall/UPnP status. Transaction fault-injection regression passed on edeaf.
+- Exact-head edeaf Firewall Startup 43939885812 and XY-C1 43939886057 reached the canonical checker after firewall policy, transaction, and prior module/UPnP host tests passed. They failed only because an older checker assertion still expected return upnp_status; this is corrected in the next atomic checker commit. XY-C1 Build/TRX/artifact was skipped.
+- The current checker includes source contracts for transaction status and first-error propagation. Fresh exact-SHA XY-C1 Build/TRX/artifact is still required; physical-router L4 remains NOT VERIFIED; backup stays read-only.
 
 
 ## Whole-repository module status

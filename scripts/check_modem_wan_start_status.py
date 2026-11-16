@@ -395,7 +395,8 @@ firewall_restart = compact(body(NET_SOURCE, "restart_firewall(void)"))
 assert "int restart_firewall(void);" in HEADER
 assert "upnp_status = update_upnp();" in firewall_restart
 assert "if (upnp_status != 0)" in firewall_restart
-assert "return upnp_status;" in firewall_restart
+assert "firewall_status = start_firewall_ex();" in firewall_restart
+assert "return rc_first_service_start_status(firewall_status, upnp_status);" in firewall_restart
 
 notify = compact(body(RC_SOURCE, "handle_notifications(void)"))
 for marker in (
