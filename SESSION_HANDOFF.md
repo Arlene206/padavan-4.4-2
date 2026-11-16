@@ -10,7 +10,7 @@ Every multi-file logical change must be created as one complete Git tree and one
 
 ## Current repository state
 
-- Latest main commit: `8795f568cf1c53d8aa9b045b5a1074d3634e8f42`. HTTPD run `43911560358` failed at step 27 only because its integration checker still expected the old module lock redirection; THIS COMMIT aligns the checker with `) 9>>"$lock_file"`, the default lock path and fail-closed flock status. USB storage run `43911560366` failed at new regression step 24; test xtrace was added in parent `8795f568cf1c53d8aa9b045b5a1074d3634e8f42`, replacement storage run pending. XY-C1 `43911560375` was still in progress on product SHA eff340.
+- Latest main commit: `6acfd5cc088bb3eafc5116a7ab017dc53845ae13`. USB storage xtrace run `43912334160` exposed the AWK END-block behavior: an unreadable directory yielded status 1 and incorrectly proceeded to `modprobe`. THIS COMMIT now validates a `cat` snapshot before and after taking the module lock and adds the post-lock read-error regression. HTTPD lock-assertion fix is in parent `6acfd5cc088bb3eafc5116a7ab017dc53845ae13`; exact-head HTTPD run pending. Product parent eff340 XY-C1 `43911560375` was still in progress at last poll.
 
 - Repository: `Arlene206/padavan-4.4-2`; current source parent before this slice: `e05ccbcb8c458ee2bc07c6020ed5af52b3d4cff8`.
 - Mount-link errno fix, GNU89 policy regression, storage source contracts, and workflow corrections are included together in THIS COMMIT.
@@ -21,16 +21,18 @@ Every multi-file logical change must be created as one complete Git tree and one
 
 ## Active task
 
-Two independent checker follow-ups are open. First, USB storage `43911560366` failed step 24 in `storage_module_load_lock.sh` without enough output; parent `8795f568cf1c53d8aa9b045b5a1074d3634e8f42` enables shell xtrace for the exact command. Second, HTTPD run `43911560358` failed its cross-workflow assertion because it still expected the original `) 9>/var/lock/fs_module.lock` redirection. THIS COMMIT updates that assertion to match the parameterized `) 9>>"$lock_file"` production fix while still requiring fail-closed flock behavior. Product automount code is unchanged.
+An exact-head test exposed the subtle AWK behavior in `func_load_module()`: when an input file cannot be opened, `END { exit !found }` can override the AWK input error and return 1, indistinguishable from `module absent`. Parent `8795f568cf1c53d8aa9b045b5a1074d3634e8f42` xtrace run `43912334160` proved the directory case passed through to `modprobe`. THIS COMMIT fixes this by taking a checked `cat` snapshot before AWK both outside and inside the lock. It also tests inventory becoming unreadable during lock wait; xtrace has been removed.
+
+Parent `6acfd5cc088bb3eafc5116a7ab017dc53845ae13` aligned the HTTPD cross-workflow checker; confirm its exact-head run before treating that contract as green.
 ## Verification boundary
 
-- Product source eff340: USB storage `43911560366` failed at new shell test step 24; the preceding 23 checks passed. Root cause is not yet known; xtrace is in parent 8795.
-- HTTPD `43911560358` failed solely at step 27, line 69, because of the stale lock-redirection assertion. THIS COMMIT corrects it; exact-head HTTPD validation pending.
-- XY-C1 run `43911560375` was in progress on product SHA eff340. Docs and Process runs on eff340 passed.
-- Frozen backup remains unchanged; physical-router L4 NOT VERIFIED.
+- Parent 8795 USB storage `43912334160`: all earlier checks passed; new shell test failed at unreadable-directory case because AWK status 1 masked an input-open error.
+- HTTPD lock-checker parent `6acfd5cc088bb3eafc5116a7ab017dc53845ae13`: exact-head run `43912642221` was queued at last poll.
+- Product parent eff340 XY-C1 `43911560375` was in progress; this commit changes product shell code and needs its own Build/TRX/artifact gate.
+- Frozen backup remains unchanged. Physical-router L4 NOT VERIFIED.
 ## Exact first action for the next GPT
 
-1. Inspect USB storage run on parent `8795f568cf1c53d8aa9b045b5a1074d3634e8f42` after xtrace; identify the first failing test command and fix it.
-2. Inspect exact-head HTTPD run for THIS COMMIT to verify the new cross-check assertions.
-3. Inspect XY-C1 run `43911560375` for same-SHA Build, TRX verification and artifact upload on eff340.
-4. Keep the backup branch unchanged and do not claim hardware L4.
+1. Inspect exact-head USB storage for THIS COMMIT; verify inventory read failures both before and after lock do not reach modprobe, and all existing storage checks pass.
+2. Inspect HTTPD run `43912642221` and its exact-head rerun triggered by this commit; confirm the refreshed lock assertion passes.
+3. Inspect XY-C1 Build, TRX verification and artifact upload for THIS product SHA.
+4. Continue independent storage hotplug work only after those gates; preserve the frozen backup and L4 boundary.

@@ -15,31 +15,44 @@ func_load_module()
 		''|*[!A-Za-z0-9_-]*) return 1 ;;
 	esac
 
-	# Distinguish an absent module from an unreadable /proc/modules inventory.
-	if awk -v module="$module_name" '$1 == module { found=1 } END { exit !found }' "$modules_file" 2>/dev/null; then
+	# Snapshot the inventory so read errors cannot be mistaken for "module absent".
+	if module_inventory=$(cat "$modules_file" 2>/dev/null); then
+		:
+	else
+		module_status=$?
+		logger -t "automount" "Unable to read loaded-module inventory $modules_file (status=$module_status)"
+		return "$module_status"
+	fi
+	if printf '%s\n' "$module_inventory" | awk -v module="$module_name" '$1 == module { found=1 } END { exit !found }'; then
 		return 0
 	else
 		module_status=$?
 		if [ "$module_status" -ne 1 ]; then
-			logger -t "automount" "Unable to read loaded-module inventory $modules_file (status=$module_status)"
+			logger -t "automount" "Unable to inspect loaded-module inventory $modules_file (status=$module_status)"
 			return "$module_status"
 		fi
 	fi
 
 	(
-		# Never run modprobe without the cross-process serialization lock.
 		if ! flock 9; then
 			logger -t "automount" "Unable to acquire filesystem-module lock $lock_file"
 			exit 1
 		fi
 
 		# Another hotplug worker may have loaded it while this process waited.
-		if awk -v module="$module_name" '$1 == module { found=1 } END { exit !found }' "$modules_file" 2>/dev/null; then
+		if module_inventory=$(cat "$modules_file" 2>/dev/null); then
+			:
+		else
+			module_status=$?
+			logger -t "automount" "Unable to re-read loaded-module inventory $modules_file (status=$module_status)"
+			exit "$module_status"
+		fi
+		if printf '%s\n' "$module_inventory" | awk -v module="$module_name" '$1 == module { found=1 } END { exit !found }'; then
 			exit 0
 		else
 			module_status=$?
 			if [ "$module_status" -ne 1 ]; then
-				logger -t "automount" "Unable to recheck loaded-module inventory $modules_file (status=$module_status)"
+				logger -t "automount" "Unable to inspect loaded-module inventory $modules_file (status=$module_status)"
 				exit "$module_status"
 			fi
 		fi

@@ -1,3 +1,12 @@
+## 2026-11-16 — Fail closed when the module inventory cannot be read
+
+- Parent main: `6acfd5cc088bb3eafc5116a7ab017dc53845ae13`. USB storage xtrace run `43912334160` localized the regression failure: AWK returned status 1 on a directory because `END { exit !found }` masked the input-open error. The first implementation therefore proceeded to modprobe. This was a real gap in the product logic, not only a brittle test.
+- Both pre-lock and post-lock inventory checks now snapshot `/proc/modules` through `cat` and parse the captured text; a failed read logs and returns before `modprobe`. Added coverage for an inventory that becomes unreadable during lock wait as well as an initially unreadable inventory. Removed diagnostic xtrace from the test after finding the cause.
+- HTTPD run `43911560358` found a stale cross-workflow assertion requiring the old literal lock redirection; the checker was aligned in parent `6acfd5cc088bb3eafc5116a7ab017dc53845ae13`. Its exact-head HTTPD run `43912642221` was queued at last poll.
+- Product parent eff340 XY-C1 `43911560375` was in progress at last poll. Exact-head USB storage, HTTPD and XY-C1 validation for THIS COMMIT pending. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Align HTTPD workflow's cross-check of automount module locking
 
 - Parent main: `8795f568cf1c53d8aa9b045b5a1074d3634e8f42`. HTTPD run `43911560358` failed at `Verify filesystem checker statuses gate read-write automount`, Python `<stdin>` line 69. The failure was a stale assertion requiring the old literal redirection `) 9>/var/lock/fs_module.lock`; the corrected module loader uses the configurable lock path and append-open `) 9>>"$lock_file"`.

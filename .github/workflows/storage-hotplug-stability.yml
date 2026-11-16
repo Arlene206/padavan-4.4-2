@@ -503,6 +503,7 @@ jobs:
           automount = Path("trunk/user/scripts/files/sbin/automount.sh").read_text()
           module_loader = automount[automount.index("func_load_module()"):automount.index("# Device names")]
           assert "if ! flock 9; then" in module_loader
+          assert 'module_inventory=$(cat "$modules_file" 2>/dev/null)' in module_loader
           assert "modules_file=" in module_loader
           assert "/proc/modules" in module_loader
           assert "lock_file=" in module_loader

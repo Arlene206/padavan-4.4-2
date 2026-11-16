@@ -1,5 +1,5 @@
 #!/bin/sh
-set -eux
+set -eu
 
 repo_root=$(CDPATH= cd -- "$(dirname "$0")/../../../.." && pwd)
 automount="$repo_root/trunk/user/scripts/files/sbin/automount.sh"
@@ -16,6 +16,10 @@ cat > "$tmpdir/bin/flock" <<'MOCK'
 printf 'flock %s\n' "$*" >> "$MOCK_CALLS"
 if [ "$MOCK_RACE_LOAD" = 1 ]; then
 	printf '%s 1 0 - Live 0x0\n' "$MOCK_RACE_MODULE" >> "$MOCK_MODULES_FILE"
+fi
+if [ "$MOCK_RACE_INVENTORY_ERROR" = 1 ]; then
+	rm -f "$MOCK_MODULES_FILE"
+	mkdir "$MOCK_MODULES_FILE"
 fi
 exit "$MOCK_FLOCK_STATUS"
 MOCK
@@ -44,8 +48,9 @@ MOCK_FLOCK_STATUS=0
 MOCK_MODPROBE_STATUS=0
 MOCK_RACE_LOAD=0
 MOCK_RACE_MODULE=
+MOCK_RACE_INVENTORY_ERROR=0
 export MOCK_CALLS MOCK_LOG MOCK_MODULES_FILE
-export MOCK_FLOCK_STATUS MOCK_MODPROBE_STATUS MOCK_RACE_LOAD MOCK_RACE_MODULE
+export MOCK_FLOCK_STATUS MOCK_MODPROBE_STATUS MOCK_RACE_LOAD MOCK_RACE_MODULE MOCK_RACE_INVENTORY_ERROR
 lock_file="$tmpdir/fs_module.lock"
 
 # An already-loaded module needs neither the lock nor a second modprobe.
@@ -117,6 +122,27 @@ if func_load_module ../ext4 "$MOCK_MODULES_FILE" "$lock_file"; then
 	exit 1
 fi
 [ ! -s "$MOCK_CALLS" ]
+
+# A read error after locking must also stop before modprobe.
+: > "$MOCK_CALLS"
+: > "$MOCK_MODULES_FILE"
+MOCK_FLOCK_STATUS=0
+MOCK_RACE_LOAD=0
+MOCK_RACE_INVENTORY_ERROR=1
+export MOCK_FLOCK_STATUS MOCK_RACE_LOAD MOCK_RACE_INVENTORY_ERROR
+if func_load_module ext4 "$MOCK_MODULES_FILE" "$lock_file"; then
+	echo "module loader ignored an inventory read error after locking" >&2
+	exit 1
+fi
+grep -qx 'flock 9' "$MOCK_CALLS"
+if grep -q '^modprobe ' "$MOCK_CALLS"; then
+	echo "module loader ran modprobe after an inventory read error" >&2
+	exit 1
+fi
+rmdir "$MOCK_MODULES_FILE"
+: > "$MOCK_MODULES_FILE"
+MOCK_RACE_INVENTORY_ERROR=0
+export MOCK_RACE_INVENTORY_ERROR
 
 # An unreadable module inventory is UNKNOWN, not evidence that the module is absent.
 : > "$MOCK_CALLS"
