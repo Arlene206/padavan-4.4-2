@@ -1900,6 +1900,8 @@ start_wan(void)
 				
 				if (is_same_subnet2(wan_addr, lan_addr, wan_mask, lan_mask)) {
 					wan_err = 1;
+					wan_start_status = rc_first_service_start_status(
+						wan_start_status, EADDRINUSE);
 					
 					logmessage(LOGNAME, "%s (%s) ERROR! Static IP [%s/%s] in LAN subnet [%s/%s]!",
 						"WAN", wan_ifname, wan_addr, wan_mask, lan_addr, lan_mask);

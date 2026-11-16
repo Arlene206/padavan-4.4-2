@@ -10,10 +10,10 @@ For each logical task, create all changed files in one Git tree and one atomic m
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2; active development ref is main.
-- Main baseline for this WAN adjunct-service status slice: 168527e76b4ba78f45d2268ecf8992563d93fbf6. Refetch main before each write and use a non-forced expected-SHA update.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; read-only. Startup branch recovery is complete.
-- Root dev_log.md remains far below the 120-entry archive threshold; part-012 preserves the oldest 100 complete records.
+- Repository: `Arlene206/padavan-4.4-2`; active development ref: `main`.
+- Parent main for this static IPoE overlap status fix: `68643ba87132dedc5945679d13e6b0e216861cdc`; each write must use a fresh main/tree read and non-forced expected-SHA compare-and-swap.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only. Initial branch/handoff recovery is complete; do not repeat.
+- Root `dev_log.md` contains 27 entries before this source milestone.
 
 ## Engineering baseline
 
@@ -23,14 +23,14 @@ For each logical task, create all changed files in one Git tree and one atomic m
 
 ## Active task
 
-launch_viptv_wan() and set_passthrough_pppoe(1) previously logged startup errors but discarded them. Both results now feed wan_start_status. C policy tests cover first-error retention; check_modem_wan_start_status.py checks both production call sites and aggregation ordering.
+Static IPoE WAN/LAN subnet overlap was already detected and prevented from continuing to `wan_up()`, but the rejection only set a local `wan_err`; it did not update the return value consumed by PID 1. The conflict branch now accumulates `EADDRINUSE` in `wan_start_status`. The WAN DHCP callback workflow now asserts this fail-closed status contract.
 
 ## Verification boundary
 
-- Parent d8d59 exact-SHA successes: WAN route 43868343214, Process inventory/lifecycle 43868343273, HTTPD security 43868343265, AI docs 43868343106, infosvr 43868343256, AdGuardHome 43868343268, AliyunDrive 43868343283 and AliDDNS 43868343245.
-- miniupnpd 43868343344 failed only because the test asserted one captured PPP migration call; the source correctly has two (USB RAS and ordinary PPP). The expected count is corrected on 168527.
-- XY-C1 43868343338 was still in Build XY-C1, TRX and artifact pending. NVRAM 43868343257 was still auditing. No L3/L4 claim.
-- The current adjunct-service source changes require fresh exact-SHA Process/XY-C1/WAN route validation.
+- Parent main: `68643ba87132dedc5945679d13e6b0e216861cdc`; the preceding miniupnpd checker correction now expects both PPP setup branches to capture `check_upnp_wanif_changed()` into `vlan_result`.
+- The latest parent exact-head Actions were still being triggered/settled when this slice began; no same-SHA XY-C1 Build + TRX + artifact L3 or hardware L4 is claimed.
+- Earlier verified successes on the preceding source/checker SHA included Process lifecycle, WAN route, HTTPD security, AI handoff, infosvr, AdGuardHome, AliyunDrive and AliDDNS.
+- Frozen backup remains unchanged and read-only.
 
 ## Exact first action for the next GPT
 

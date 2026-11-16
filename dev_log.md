@@ -1,3 +1,12 @@
+## 2026-11-16 — Propagate static IPoE subnet conflict to WAN startup status
+
+- Parent main: `68643ba87132dedc5945679d13e6b0e216861cdc`. Static IPoE WAN/LAN subnet overlap already set `wan_err` and blocked `wan_up()`, but failed to update `wan_start_status`. This could return success to PID 1 for a rejected WAN configuration. The branch now aggregates `EADDRINUSE` using first-error semantics.
+- Extended the WAN DHCP callback workflow to assert that the exact overlap branch contains the `EADDRINUSE` aggregation, before static address application proceeds.
+- The prior miniupnpd source-contract count was repaired to account for both PPP setup branches capturing migration status. Remaining next tasks are exact-head verification and the WAN IPTV/PPPoE adjunct startup status pass.
+- No same-SHA firmware Build/TRX/artifact L3 or physical-router L4 claim is made.
+
+---
+
 ## 2026-11-16 — Return configured IPTV and PPPoE passthrough startup failures
 
 - Parent main: 168527e76b4ba78f45d2268ecf8992563d93fbf6. Review of the WAN startup tail found two configured adjunct services whose failures were logged but discarded: launch_viptv_wan() (IPTV VLAN/static/DHCP service setup) and set_passthrough_pppoe(1) (including PPPoE-relay launch/readiness or stale-relay stop failure when passthrough is disabled).

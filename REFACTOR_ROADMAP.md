@@ -1,10 +1,11 @@
 ## Current source / CI checkpoint
 
-- Product-source baseline: 168527e76b4ba78f45d2268ecf8992563d93fbf6; PPP/IPoE required WAN errors are accumulated, and configured IPTV and PPPoE passthrough startup failures now also reach PID 1 via the first-error WAN status.
-- Added a C policy case for first-error preservation across IPTV and passthrough launch failures; shared source checker now verifies both call sites.
-- Parent d8d59 WAN route, Process inventory/lifecycle, HTTPD, AI docs, infosvr, AdGuardHome, AliyunDrive and AliDDNS passed. miniupnpd failed only on a stale expected call count of one versus two PPP paths; corrected on 168527.
-- XY-C1 was still building and NVRAM audit in progress on d8d59. No same-SHA L3/L4 claim.
-
+- Parent product/source SHA: `68643ba87132dedc5945679d13e6b0e216861cdc`.
+- Required normal PPP and IPoE migration, physical setup, PPPD launch, demand readiness, static address, EAPOL and DHCP launch errors now reach `start_wan()` through first-error aggregation.
+- Static IPoE WAN/LAN subnet overlap previously set `wan_err` and skipped `wan_up()` but left the service return status at success. It now accumulates `EADDRINUSE`; the WAN DHCP callback source regression verifies the overlap branch.
+- The most recent miniupnpd checker correction covers both captured PPP migration sites. Other earlier source checks for Process lifecycle, WAN route, HTTPD security, AI docs, infosvr, AdGuardHome, AliyunDrive and AliDDNS passed on the preceding source/checker SHA.
+- Current parent has no confirmed same-SHA XY-C1 Build + TRX + artifact L3 or physical-router L4 result.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Whole-repository module status
 

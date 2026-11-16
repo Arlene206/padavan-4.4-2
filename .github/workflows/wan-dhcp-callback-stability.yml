@@ -887,6 +887,13 @@ jobs:
           ipoe_static_begin = wan_start.index("/* Assign static IP address to i/f */")
           ipoe_static_end = wan_start.index("/* re-build iptables rules (final stage for IPoE static) */", ipoe_static_begin)
           ipoe_static_config = wan_start[ipoe_static_begin:ipoe_static_end]
+          subnet_conflict = "if (is_same_subnet2(wan_addr, lan_addr, wan_mask, lan_mask))"
+          subnet_conflict_start = ipoe_static_config.index(subnet_conflict)
+          subnet_conflict_end = ipoe_static_config.index("} else {", subnet_conflict_start)
+          subnet_conflict_path = ipoe_static_config[subnet_conflict_start:subnet_conflict_end]
+          assert "wan_err = 1;" in subnet_conflict_path
+          assert "wan_start_status = rc_first_service_start_status(" in subnet_conflict_path
+          assert "wan_start_status, EADDRINUSE);" in subnet_conflict_path
           address_apply = "address_status = ifconfig(wan_ifname, IFUP, wan_addr, wan_mask);"
           address_failure = "if (address_status != 0)"
           address_clear = 'clear_status = ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);'
