@@ -576,7 +576,7 @@ jobs:
           assert init_bridge.index('rc_bridge_init_record(&bridge_status, "2.4GHz AP radio startup", operation_status);') < init_bridge.index("operation_status = ifconfig(IFNAME_BR, IFUP, NULL, NULL);")
           assert "return rc_bridge_init_result(&bridge_status);" in init_bridge
 
-                    assert 'rc_bridge_init_record(&bridge_status, "required iNIC MII module", operation_status);' in init_bridge
+          assert 'rc_bridge_init_record(&bridge_status, "required iNIC MII module", operation_status);' in init_bridge
           assert "optional hw_nat bridge offload unavailable" in init_bridge
           assert 'init_bridge_load_module_verified("hw_nat", "ttl_regen=0")' in init_bridge
           assert ("int" + chr(10) + "switch_config_vlan(int first_call)") in lan
