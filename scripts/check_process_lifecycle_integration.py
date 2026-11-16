@@ -226,21 +226,35 @@ assert "PROCESS_PRESENCE_RUNNING" in pppoe_confirm
 assert "PROCESS_PRESENCE_UNKNOWN" in pppoe_confirm
 assert "sleep(1);" in pppoe_confirm
 assert "pppoe_relay_start_status(launch_status, presence)" in pppoe_confirm
-udpxy_start = net_source.split("void\nstart_udpxy(char *wan_ifname)", 1)[1].split("\n}\n", 1)[0]
+udpxy_start = net_source.split("int\nstart_udpxy(char *wan_ifname)", 1)[1].split("\n}\n#if defined(APP_XUPNPD)", 1)[0]
 assert "if (port < 1024)" in udpxy_start
 assert 'launch_status = eval("/usr/bin/msd_lite"' in udpxy_start
 assert 'MSD Lite launch failed (status=%d)' in udpxy_start
 assert 'launch_status = eval("/usr/sbin/udpxy"' in udpxy_start
 assert 'udpxy launch failed (status=%d)' in udpxy_start
 assert udpxy_start.count("if (launch_status != 0)") == 2
-xupnpd_start = net_source.split("void\nstart_xupnpd(char *wan_ifname)", 1)[1].split("\n}\n#endif", 1)[0]
+assert "return launch_status;" in udpxy_start
+assert "int start_udpxy(char *wan_ifname);" in rc_header
+xupnpd_start = net_source.split("int\nstart_xupnpd(char *wan_ifname)", 1)[1].split("\n}\n#endif", 1)[0]
 assert "if (!is_xupnpd_support())" in xupnpd_start
 assert "if (xport < 1024)" in xupnpd_start
 assert 'launch_status = eval("/usr/bin/xupnpd");' in xupnpd_start
 assert 'launch_status = system("/usr/bin/xupnpd &");' in xupnpd_start
 assert 'xupnpd launch command failed (status=%d)' in xupnpd_start
+assert "return launch_status;" in xupnpd_start
+assert "int start_xupnpd(char *wan_ifname);" in rc_header
+assert "if (fp1 == NULL)" in xupnpd_start and "if (fp2 == NULL)" in xupnpd_start
+assert "if (ferror(fp2))" in xupnpd_start and "fflush(fp1)" in xupnpd_start
+assert "fsync(fileno(fp1))" in xupnpd_start and "rename(tmp1, tmp2)" in xupnpd_start
+assert "unlink(tmp1)" in xupnpd_start
 assert xupnpd_start.index("if (has_daemon)") < xupnpd_start.index('launch_status = eval("/usr/bin/xupnpd");')
 assert xupnpd_start.index('launch_status = system("/usr/bin/xupnpd &");') < xupnpd_start.index("if (launch_status != 0)")
+igmpproxy_start = net_source.split("int\nstart_igmpproxy(char *wan_ifname)", 1)[1].split("\n}\n\nint\nrestart_iptv", 1)[0]
+assert '#include "service_start_status.h"' in net_source
+assert "rc_first_service_start_status(start_status, start_udpxy(wan_ifname))" in igmpproxy_start
+assert "rc_first_service_start_status(start_status, start_xupnpd(wan_ifname))" in igmpproxy_start
+assert "rc_first_service_start_status(start_status, config_status)" in igmpproxy_start
+assert 'eval("/bin/igmpproxy", igmpproxy_conf)' in igmpproxy_start
 igmpproxy_start = net_source.split("int\nstart_igmpproxy(char *wan_ifname)", 1)[1].split("\n}\n", 1)[0]
 assert '#include "igmpproxy_config_file.h"' in net_source
 assert "igmpproxy_config_publish(igmpproxy_conf, &config_values)" in igmpproxy_start

@@ -40,6 +40,7 @@
 #include "pppoe_relay_policy.h"
 #include "route_status_policy.h"
 #include "igmpproxy_config_file.h"
+#include "service_start_status.h"
 #if defined (APP_MSD_LITE)
 #include "msd_lite_config_file.h"
 #endif
@@ -328,13 +329,14 @@ stop_udpxy(void)
 	kill_services(svcs, 3, 1);
 }
 
-void
+int
 start_udpxy(char *wan_ifname)
 {
 	int port = nvram_get_int("udpxy_enable_x");
 	int launch_status;
+
 	if (port < 1024)
-		return;
+		return 0;
 
 #if defined (APP_MSD_LITE)
 	const char *src_conf = "/etc_ro/msd_lite.conf";
@@ -345,7 +347,7 @@ start_udpxy(char *wan_ifname)
 	if (config_status != 0) {
 		logmessage(LOGNAME, "MSD Lite configuration publication failed (status=%d)",
 			   config_status);
-		return;
+		return config_status;
 	}
 
 	nvram_set("msd_lite_enable", "1");
@@ -363,6 +365,7 @@ start_udpxy(char *wan_ifname)
 	if (launch_status != 0)
 		logmessage(LOGNAME, "udpxy launch failed (status=%d)", launch_status);
 #endif
+	return launch_status;
 }
 
 #if defined(APP_XUPNPD)
@@ -383,10 +386,11 @@ stop_xupnpd(void)
 	kill_services(svcs, 3, 1);
 }
 
-void
+int
 start_xupnpd(char *wan_ifname)
 {
 	int i, xport, has_daemon, launch_status;
+	int config_status, saved_errno, sync_status;
 	FILE *fp1, *fp2;
 	char tmp1[64], tmp2[64], line[256];
 	char *dir_src = "/etc_ro/xupnpd";
@@ -396,13 +400,13 @@ start_xupnpd(char *wan_ifname)
 	char *xlua[] = { "_http", "_m3u", "_main", "_mime", "_soap", "_ssdp", "_webapp", NULL };
 
 	if (!is_xupnpd_support())
-		return;
+		return 0;
 
 	unlink("/var/run/xupnpd.pid");
 
 	xport = nvram_get_int("xupnpd_enable_x");
 	if (xport < 1024)
-		return;
+		return 0;
 
 	if (!check_if_dir_exist(dir_dst))
 		mkdir(dir_dst, 0755);
@@ -434,66 +438,126 @@ start_xupnpd(char *wan_ifname)
 	if (!check_if_file_exist(tmp2))
 		doSystem("cp -f %s %s", tmp1, tmp2);
 
+	/*
+	 * Do not replace a working config with an empty/truncated file when the
+	 * old config cannot be read or a write/close/rename step fails.
+	 */
 	snprintf(tmp1, sizeof(tmp1), "%s/config/common.lua.tmp", dir_dst);
 	snprintf(tmp2, sizeof(tmp2), "%s/config/common.lua", dir_dst);
 	fp1 = fopen(tmp1, "w");
-	if (fp1) {
-		fp2 = fopen(tmp2, "r");
-		if (fp2) {
-			while (fgets(line, sizeof(line), fp2)){
-				if (strstr(line, "mcast_interface") && !strstr(line, "--"))
-					snprintf(line, sizeof(line), "cfg[\"mcast_interface\"]=\"%s\"\n", wan_ifname);
-				else if (strstr(line, "http_port") && !strstr(line, "--"))
-					snprintf(line, sizeof(line), "cfg[\"http_port\"]=%d\n", xport);
-				fprintf(fp1, "%s", line);
-			}
-			fclose(fp2);
-		}
+	if (fp1 == NULL)
+		return errno ? errno : EIO;
+	fp2 = fopen(tmp2, "r");
+	if (fp2 == NULL) {
+		saved_errno = errno ? errno : EIO;
 		fclose(fp1);
-		doSystem("mv -f %s %s", tmp1, tmp2);
+		unlink(tmp1);
+		return saved_errno;
+	}
+	config_status = 0;
+	while (fgets(line, sizeof(line), fp2)) {
+		if (strstr(line, "mcast_interface") && !strstr(line, "--"))
+			snprintf(line, sizeof(line), "cfg[\"mcast_interface\"]=\"%s\"\n", wan_ifname);
+		else if (strstr(line, "http_port") && !strstr(line, "--"))
+			snprintf(line, sizeof(line), "cfg[\"http_port\"]=%d\n", xport);
+		if (fputs(line, fp1) == EOF) {
+			config_status = errno ? errno : EIO;
+			break;
+		}
+	}
+	if (config_status == 0 && ferror(fp2))
+		config_status = errno ? errno : EIO;
+	if (fclose(fp2) != 0 && config_status == 0)
+		config_status = errno ? errno : EIO;
+	if (config_status == 0 && fflush(fp1) != 0)
+		config_status = errno ? errno : EIO;
+	if (config_status == 0) {
+		do {
+			errno = 0;
+			sync_status = fsync(fileno(fp1));
+		} while (sync_status != 0 && errno == EINTR);
+		if (sync_status != 0)
+			config_status = errno ? errno : EIO;
+	}
+	if (fclose(fp1) != 0 && config_status == 0)
+		config_status = errno ? errno : EIO;
+	if (config_status == 0 && rename(tmp1, tmp2) != 0)
+		config_status = errno ? errno : EIO;
+	if (config_status != 0) {
+		unlink(tmp1);
+		return config_status;
 	}
 
 	has_daemon = 0;
 	snprintf(tmp1, sizeof(tmp1), "%s/xupnpd.lua.tmp", dir_dst);
 	snprintf(tmp2, sizeof(tmp2), "%s/xupnpd.lua", dir_dst);
 	fp1 = fopen(tmp1, "w");
-	if (fp1) {
-		fp2 = fopen(tmp2, "r");
-		if (fp2) {
-			while (fgets(line, sizeof(line), fp2)){
-				if (strstr(line, "cfg.mcast_interface=") && !strstr(line, "--"))
-					snprintf(line, sizeof(line), "cfg.mcast_interface='%s'\n", wan_ifname);
-				else if (strstr(line, "cfg.http_port=") && !strstr(line, "--"))
-					snprintf(line, sizeof(line), "cfg.http_port=%d\n", xport);
-				else if (strstr(line, "cfg.udpxy_url=")) {
-					char *lua_rem = "--";
-					char *lan_addr = nvram_safe_get("lan_ipaddr_t");
-					int udpxy_port = nvram_get_int("udpxy_enable_x");
-					if (udpxy_port > 1023 && nvram_match("xupnpd_udpxy", "1"))
-						lua_rem = "";
-					if (udpxy_port == 0)
-						udpxy_port = 4022;
-					snprintf(line, sizeof(line), "%scfg.udpxy_url='http://%s:%d'\n", lua_rem, lan_addr, udpxy_port);
-				}
-				else if (strstr(line, "cfg.daemon") && !strstr(line, "--")) {
-					snprintf(line, sizeof(line), "cfg.daemon=true\n");
-					has_daemon = 1;
-				}
-				fprintf(fp1, "%s", line);
-			}
-			fclose(fp2);
-		}
+	if (fp1 == NULL)
+		return errno ? errno : EIO;
+	fp2 = fopen(tmp2, "r");
+	if (fp2 == NULL) {
+		saved_errno = errno ? errno : EIO;
 		fclose(fp1);
-		doSystem("mv -f %s %s", tmp1, tmp2);
-		
-		if (has_daemon)
-			launch_status = eval("/usr/bin/xupnpd");
-		else
-			launch_status = system("/usr/bin/xupnpd &");
-		if (launch_status != 0)
-			logmessage(LOGNAME, "xupnpd launch command failed (status=%d)", launch_status);
+		unlink(tmp1);
+		return saved_errno;
 	}
+	config_status = 0;
+	while (fgets(line, sizeof(line), fp2)) {
+		if (strstr(line, "cfg.mcast_interface=") && !strstr(line, "--"))
+			snprintf(line, sizeof(line), "cfg.mcast_interface='%s'\n", wan_ifname);
+		else if (strstr(line, "cfg.http_port=") && !strstr(line, "--"))
+			snprintf(line, sizeof(line), "cfg.http_port=%d\n", xport);
+		else if (strstr(line, "cfg.udpxy_url=")) {
+			char *lua_rem = "--";
+			char *lan_addr = nvram_safe_get("lan_ipaddr_t");
+			int udpxy_port = nvram_get_int("udpxy_enable_x");
+			if (udpxy_port > 1023 && nvram_match("xupnpd_udpxy", "1"))
+				lua_rem = "";
+			if (udpxy_port == 0)
+				udpxy_port = 4022;
+			snprintf(line, sizeof(line), "%scfg.udpxy_url='http://%s:%d'\n", lua_rem, lan_addr, udpxy_port);
+		}
+		else if (strstr(line, "cfg.daemon") && !strstr(line, "--")) {
+			snprintf(line, sizeof(line), "cfg.daemon=true\n");
+			has_daemon = 1;
+		}
+		if (fputs(line, fp1) == EOF) {
+			config_status = errno ? errno : EIO;
+			break;
+		}
+	}
+	if (config_status == 0 && ferror(fp2))
+		config_status = errno ? errno : EIO;
+	if (fclose(fp2) != 0 && config_status == 0)
+		config_status = errno ? errno : EIO;
+	if (config_status == 0 && fflush(fp1) != 0)
+		config_status = errno ? errno : EIO;
+	if (config_status == 0) {
+		do {
+			errno = 0;
+			sync_status = fsync(fileno(fp1));
+		} while (sync_status != 0 && errno == EINTR);
+		if (sync_status != 0)
+			config_status = errno ? errno : EIO;
+	}
+	if (fclose(fp1) != 0 && config_status == 0)
+		config_status = errno ? errno : EIO;
+	if (config_status == 0 && rename(tmp1, tmp2) != 0)
+		config_status = errno ? errno : EIO;
+	if (config_status != 0) {
+		unlink(tmp1);
+		return config_status;
+	}
+
+	if (has_daemon)
+		launch_status = eval("/usr/bin/xupnpd");
+	else
+		launch_status = system("/usr/bin/xupnpd &");
+	if (launch_status != 0)
+		logmessage(LOGNAME, "xupnpd launch command failed (status=%d)", launch_status);
+	return launch_status;
 }
+
 #endif
 
 int
@@ -519,6 +583,7 @@ start_igmpproxy(char *wan_ifname)
 	const char *altnet_mask;
 	char *igmpproxy_conf = "/etc/igmpproxy.conf";
 	int config_status;
+	int start_status = 0;
 
 	if (wan_ifname == NULL || *wan_ifname == '\0')
 		return EINVAL;
@@ -538,13 +603,13 @@ start_igmpproxy(char *wan_ifname)
 		}
 	}
 
-	start_udpxy(wan_ifname);
+	start_status = rc_first_service_start_status(start_status, start_udpxy(wan_ifname));
 #if defined(APP_XUPNPD)
-	start_xupnpd(wan_ifname);
+	start_status = rc_first_service_start_status(start_status, start_xupnpd(wan_ifname));
 #endif
 
 	if (nvram_invmatch("mr_enable_x", "1"))
-		return 0;
+		return start_status;
 
 	altnet = nvram_get("mr_altnet_x");
 	if (altnet == NULL || strlen(altnet) <= 6)
@@ -560,16 +625,18 @@ start_igmpproxy(char *wan_ifname)
 	if (config_status != 0) {
 		logmessage("IPTV", "igmpproxy config publication failed (status=%d)",
 			   config_status);
-		return config_status;
+		return rc_first_service_start_status(start_status, config_status);
 	}
 
-	return eval("/bin/igmpproxy", igmpproxy_conf);
+	return rc_first_service_start_status(start_status,
+					     eval("/bin/igmpproxy", igmpproxy_conf));
 }
 
 int
 restart_iptv(int is_ap_mode)
 {
 	int stop_status;
+	int start_status = 0;
 
 	config_bridge(is_ap_mode);
 
@@ -590,12 +657,12 @@ restart_iptv(int is_ap_mode)
 				   stop_status);
 			return stop_status;
 		}
-		start_udpxy(IFNAME_BR);
+		start_status = rc_first_service_start_status(start_status, start_udpxy(IFNAME_BR));
 #if defined(APP_XUPNPD)
-		start_xupnpd(IFNAME_BR);
+		start_status = rc_first_service_start_status(start_status, start_xupnpd(IFNAME_BR));
 #endif
 	}
-	return 0;
+	return start_status;
 }
 
 void

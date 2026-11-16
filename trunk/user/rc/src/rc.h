@@ -214,10 +214,10 @@ int create_vlan_iface_tracked(const char *dev_ifname, int vid, int prio, int mtu
 int remove_vlan_iface(const char *vlan_ifname);
 #if defined (APP_XUPNPD)
 void stop_xupnpd(void);
-void start_xupnpd(char *wan_ifname);
+int start_xupnpd(char *wan_ifname);
 #endif
 void stop_udpxy(void);
-void start_udpxy(char *wan_ifname);
+int start_udpxy(char *wan_ifname);
 int stop_igmpproxy(char *wan_ifname);
 int start_igmpproxy(char *wan_ifname);
 int restart_iptv(int is_ap_mode);
