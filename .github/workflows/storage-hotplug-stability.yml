@@ -228,7 +228,12 @@ jobs:
       - name: Check MTD storage save script syntax
         run: sh -n trunk/user/scripts/files/sbin/mtd_storage.sh
       - name: Verify MTD storage save retry after flash failure
-        run: sh trunk/user/scripts/tests/mtd_storage_save_retry.sh
+        run: |
+          set -eu
+          sh trunk/user/scripts/tests/mtd_storage_save_retry.sh
+          busybox_bin="$PWD/trunk/user/busybox/busybox-1.24.x/busybox"
+          test -x "$busybox_bin"
+          BUSYBOX_BIN="$busybox_bin" sh trunk/user/scripts/tests/mtd_storage_save_retry.sh
       - name: Verify MTD storage restore staging and rollback
         run: sh trunk/user/scripts/tests/mtd_storage_restore_transaction.sh
       - name: Verify MTD storage load rejects incomplete archives transactionally

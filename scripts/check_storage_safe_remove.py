@@ -745,8 +745,11 @@ for index, fixture in enumerate(mtd_storage_lock_tests):
 save_fixture = mtd_storage_lock_tests[0]
 require("flock -n 8" in save_fixture and
         "concurrent MTD save bypassed the operation lock" in save_fixture and
-        'sh "$sandbox/mtd_storage.sh" save' in save_fixture,
-        "MTD save regression must prove a competing process cannot enter an active transaction")
+        'run_mtd save' in save_fixture and
+        'ln -s "$BUSYBOX_BIN" "$sandbox/bin/flock"' in save_fixture and
+        '"$BUSYBOX_BIN" ash "$sandbox/mtd_storage.sh" "$1"' in save_fixture and
+        'BUSYBOX_BIN="$busybox_bin" sh trunk/user/scripts/tests/mtd_storage_save_retry.sh' in workflow,
+        "MTD save regression must exercise real BusyBox ash/flock and exclude competing transactions")
 
 presence_start = mtd_storage.index("func_rstats_presence()")
 presence_end = mtd_storage.index("\nfunc_stop_apps()", presence_start)
