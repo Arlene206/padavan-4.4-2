@@ -29,4 +29,29 @@ fput_string_stream(FILE *stream, const char *value)
 	return saved_errno;
 }
 
+/* Flush and close a stream after a sequence of formatted writes. */
+static int
+fclose_stream_status(FILE *stream)
+{
+	int saved_errno = 0;
+
+	if (!stream) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	errno = 0;
+	if (fflush(stream) != 0)
+		saved_errno = errno ? errno : EIO;
+	else if (ferror(stream))
+		saved_errno = errno ? errno : EIO;
+
+	if (fclose(stream) != 0 && saved_errno == 0)
+		saved_errno = errno ? errno : EIO;
+
+	if (saved_errno != 0)
+		errno = saved_errno;
+	return saved_errno;
+}
+
 #endif /* PADAVAN_FILE_WRITE_STATUS_H */

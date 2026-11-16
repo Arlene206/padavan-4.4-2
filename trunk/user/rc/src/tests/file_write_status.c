@@ -47,11 +47,56 @@ test_dev_full_reports_buffered_close_failure(void)
 	assert(errno == status);
 }
 
+
+static void
+test_stream_flush_and_close_status_regular_file(void)
+{
+	char path[] = "/tmp/fclose-stream-status.XXXXXX";
+	char buffer[32];
+	int fd;
+	FILE *stream;
+
+	fd = mkstemp(path);
+	assert(fd >= 0);
+	stream = fdopen(fd, "w");
+	assert(stream != NULL);
+	assert(fprintf(stream, "vpn-options\n") > 0);
+	assert(fclose_stream_status(stream) == 0);
+
+	stream = fopen(path, "r");
+	assert(stream != NULL);
+	assert(fgets(buffer, sizeof(buffer), stream) != NULL);
+	assert(strcmp(buffer, "vpn-options\n") == 0);
+	assert(fclose(stream) == 0);
+	assert(unlink(path) == 0);
+}
+
+static void
+test_stream_flush_reports_dev_full_failure(void)
+{
+	FILE *stream;
+	int status;
+
+	stream = fopen("/dev/full", "w");
+	if (!stream) {
+		puts("/dev/full unavailable; stream-close failure case skipped");
+		return;
+	}
+
+	assert(fprintf(stream, "vpn-options-that-cannot-be-written\n") > 0);
+	errno = 0;
+	status = fclose_stream_status(stream);
+	assert(status != 0);
+	assert(errno == status);
+}
+
 int
 main(void)
 {
 	test_regular_file_write_and_close();
 	test_dev_full_reports_buffered_close_failure();
+	test_stream_flush_and_close_status_regular_file();
+	test_stream_flush_reports_dev_full_failure();
 	puts("shared file write/close status regression: PASS");
 	return 0;
 }

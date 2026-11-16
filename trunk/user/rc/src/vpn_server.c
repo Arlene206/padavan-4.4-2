@@ -35,6 +35,7 @@
 #include "process_presence_start_policy.h"
 #include <process_inventory.h>
 #include <process_pidfile.h>
+#include <file_write_status.h>
 
 #define VPNS_LOG_NAME		"VPN server"
 #define VPNS_PPP_UP_SCRIPT	"/tmp/ppp/ip-up.vpns"
@@ -313,9 +314,16 @@ gen_vpns_pppd_options(int vpns_type)
 	fprintf(fp, "ip-down-script %s\n", VPNS_PPP_DW_SCRIPT);
 	fprintf(fp, "minunit %d\n", VPN_SERVER_PPP_UNIT);
 
-	fclose(fp);
-
-	chmod(vpns_opt, 0644);
+	if (fclose_stream_status(fp) != 0) {
+		logmessage(VPNS_LOG_NAME, "cannot flush or close PPP VPN options (errno=%d)",
+			   errno ? errno : EIO);
+		return -1;
+	}
+	if (chmod(vpns_opt, 0644) != 0) {
+		logmessage(VPNS_LOG_NAME, "cannot set PPP VPN options permissions (errno=%d)",
+			   errno ? errno : EIO);
+		return -1;
+	}
 
 	return 0;
 }

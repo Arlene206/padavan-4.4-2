@@ -114,6 +114,15 @@ a=body(vpn,"reapply_vpn_server(void)")
 ap=body(vpn,"reapply_vpn_server_locked(void)")
 ordered(s,["vpn_server_lifecycle_lock_acquire()","if (lock_fd < 0)","start_vpn_server_locked()","vpn_server_lifecycle_lock_release(lock_fd)"],"start")
 require("return -1;" in s and "gen_vpns_pppd_options(i_type)" in sp,"start wrapper/private helper incomplete")
+options_writer=body(vpn,"gen_vpns_pppd_options(int vpns_type)")
+require('#include <file_write_status.h>' in vpn and
+        "fclose_stream_status(fp)" in options_writer and
+        "chmod(vpns_opt, 0644)" in options_writer and
+        "return 0;" in options_writer,
+        "PPP VPN options generation must report buffered-write, close and permission failures")
+require("test_stream_flush_reports_dev_full_failure" in
+        read("trunk/user/rc/src/tests/file_write_status.c"),
+        "PPP options stream close/write failure regression is missing")
 ordered(t,["vpn_server_lifecycle_lock_acquire()","if (lock_fd < 0)","return -1;","stop_vpn_server_locked()","vpn_server_lifecycle_lock_release(lock_fd)"],"stop")
 require("kill_services_with_pidfiles(svcs, pidfile_paths, \"pppd\", 1, 5, 1)" in tp and "kill_pidfile_s" not in tp,"private stop helper must preflight all PPP clients before signaling")
 ordered(r,["vpn_server_lifecycle_lock_acquire()","if (lock_fd < 0)","stop_vpn_server_locked()","if (stop_status != 0)","vpn_server_lifecycle_lock_release(lock_fd)","return vpn_server_restart_first_error(stop_status,","start_vpn_server_locked()","restart_firewall()","safe_start_xl2tpd_locked()","vpn_server_lifecycle_lock_release(lock_fd)","return restart_status;"],"restart")
