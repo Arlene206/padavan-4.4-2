@@ -1,3 +1,13 @@
+## 2026-11-16 — Preserve bridge ioctl errno across socket close
+
+- Parent main: `7ce997801add3b30e42cd1cc76f14ddc0c45ef5c`. The bridge-add idempotency wrapper distinguishes EEXIST from other bridge-add failures before probing kernel bridge membership. The shared `br_add_del_bridge()` helper did not preserve the ioctl errno across its subsequent `close(sockfd)`.
+- Save errno immediately after ioctl and restore it after close on ioctl failure, so bridge-init classification always sees the actual bridge operation result rather than a later close-side errno.
+- Extended Process source contract to assert save-before-close and restore-on-failure ordering. Existing bridge initialization policy regression continues to cover EEXIST and fail-closed unknown inventory.
+- On the parent SHA, Process `43860044486` and AI docs `43860044408` passed; XY-C1 `43860044821` and NVRAM `43860044318` were still in progress. This source slice requires fresh exact-head Actions. No same-SHA firmware L3 or router L4 claim.
+- Next: validate exact-head Process/AI docs and check whether previous XY-C1/NVRAM runs completed; continue focused network utility caller audit.
+
+---
+
 ## 2026-11-16 — Fail closed on switch VLAN reconfiguration during WAN restart
 
 - Parent main: `0828b3a8acf119345bc2381f89772f213288862d`. Call-site review found `full_restart_wan()` still ignored the newly status-returning `switch_config_vlan(0)` and continued to `start_wan()` regardless of VLAN ioctl failures.

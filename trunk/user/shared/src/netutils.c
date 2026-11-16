@@ -738,7 +738,7 @@ vconfig_del_if(const char *vifname)
 int
 br_add_del_bridge(const char *brname, int is_add)
 {
-	int sockfd, ret;
+	int sockfd, ret, saved_errno;
 	char bridge_name[IFNAMSIZ];
 
 	if (copy_ifname(bridge_name, sizeof(bridge_name), brname) < 0)
@@ -747,9 +747,12 @@ br_add_del_bridge(const char *brname, int is_add)
 		return -1;
 
 	ret = ioctl(sockfd, (is_add) ? SIOCBRADDBR : SIOCBRDELBR, bridge_name);
+	saved_errno = errno;
 
 	close(sockfd);
 
+	if (ret < 0)
+		errno = saved_errno;
 	return ret;
 }
 

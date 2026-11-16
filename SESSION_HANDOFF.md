@@ -11,33 +11,37 @@ For each logical task, create all changed files in one Git tree and one atomic m
 ## Current repository state
 
 - Repository: Arlene206/padavan-4.4-2; active branch: main.
-- Parent for THIS WAN restart VLAN-status slice: `0828b3a8acf119345bc2381f89772f213288862d`; fetch live main and use expected-SHA non-forced CAS on the next write.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. One-time startup comparison found main 588 commits ahead / 1 behind; do not repeat backup/archive recovery.
-- Latest source milestone `b715097b8fdb76ed1e96bdeed6bedafde47eeefd` verifies required iNIC MII module load and reports optional hw_nat offload accurately. Latest checker/handoff correction is `0828b3a8acf119345bc2381f89772f213288862d`.
+- Parent for THIS bridge ioctl errno-preservation slice: `7ce997801add3b30e42cd1cc76f14ddc0c45ef5c`; fetch live main and use expected-SHA non-forced CAS on the next write.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. One-time startup comparison found main 588 commits ahead / 1 behind; do not repeat archive recovery.
+- Latest LAN/switch module status source baseline: `b715097b8fdb76ed1e96bdeed6bedafde47eeefd`.
+- Latest WAN restart switch-VLAN fail-closed fix: `7ce997801add3b30e42cd1cc76f14ddc0c45ef5c`.
 
 ## Active task
 
-Call-site tracing after changing `switch_config_vlan()` to return status found `full_restart_wan()` still discarded its result. A failed VLAN-rule or switch bridge-mode ioctl could therefore be followed by WAN restart on incomplete switch state. THIS slice now captures the status, logs and aborts WAN restart before `start_wan()` when required switch VLAN reconfiguration fails. Process workflow adds `net_wan.c` to source triggers and checks fail-closed ordering.
+The new bridge initializer classifies `br_add_del_bridge()` EEXIST using `errno`, then verifies the interface is an existing bridge. The shared helper performed its ioctl and then called `close(sockfd)` before returning without preserving the ioctl error number. A failed close could overwrite the original ioctl `errno`, preventing correct EEXIST classification (or changing the reported failure). This slice saves `errno` immediately after ioctl and restores it after close whenever the ioctl failed.
 
-Earlier slices remain:
-- `init_bridge()` propagates essential bridge/VLAN, switch base/storm/link, interface/member and required iNIC MII module errors into PID1.
-- `switch_config_base/storm/link()` attempt independent settings and preserve first failure; optional LED and `hw_nat` offload remain non-fatal.
-- Wireless module post-load verification is reused because `module_smart_load()` returning zero is not authoritative.
+Process regression now inspects the production helper and asserts that the ioctl errno is saved before close and restored on failure. Existing bridge idempotency policy tests exercise EEXIST/other-error/unknown-inventory cases.
 
 ## Verification boundary
 
-- Exact-head Process run `43858811934` on `59047eb21838e0cf78dd24e0a6eab78bea7fc886` compiled and passed bridge-init, bridge membership, wireless module post-load and other policy regressions, but its final source contract failed due to a false-positive negative substring assertion. Exact failure was fixed in `0828b3a8acf119345bc2381f89772f213288862d` by comparing complete stripped lines.
-- Exact-head AI docs run `43858811955` on `59047eb21838e0cf78dd24e0a6eab78bea7fc886` failed because the handoff omitted the required literal `Before context exhaustion`; the handoff contract was corrected in `0828b3a8acf119345bc2381f89772f213288862d`.
-- On `0828b3a8acf119345bc2381f89772f213288862d`, Process `43859776339` and AI docs `43859776315` were IN_PROGRESS. Other NVRAM/infosvr/AdGuard/transport tests were also IN_PROGRESS. Recheck their exact status; do not infer pass.
-- THIS WAN restart call-site fix needs fresh Process / XY-C1 Actions. No same-SHA firmware Build+TRX+artifact L3 or physical router L4 result is claimed.
+On source SHA `7ce997801add3b30e42cd1cc76f14ddc0c45ef5c`:
+- Process inventory and lifecycle fail-closed regression `43860044486`: SUCCESS.
+- AI handoff documentation contract `43860044408`: SUCCESS.
+- HTTPD Authentication and Security `43860044873`: SUCCESS.
+- WAN route operation status `43860044772`: SUCCESS.
+- WAN interface teardown `43860044356`: SUCCESS.
+- AliDDNS signed API transport `43860044474`: SUCCESS.
+- AdGuardHome configuration security `43860044911`: SUCCESS.
+- detect_link `43860044785`, detect_internet `43860044834`, DNSMasq `43860044694`, VPN `43860044807`, infosvr `43860044473`, USB modem identity `43860044356`, WAN DHCP callback `43860044830`, and secondary Process inventory `43860044744`: SUCCESS.
+- XY-C1 Firmware Validation `43860044821` and NVRAM transaction boundary audit `43860044318`: IN_PROGRESS at last inspection; check exact current results, do not assume.
+- No same-SHA XY-C1 Build+TRX+artifact L3 or physical-router L4 was established at last inspection.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head Process and AI docs reruns, plus XY-C1, NVRAM, HTTPD security and relevant service Actions on THIS commit.
-2. Verify `full_restart_wan()` returns before any `start_wan()` when switch VLAN configuration fails.
-3. Continue the RC/driver call-site scan for ignored newly-introduced status-returning functions and unchecked required modules.
-4. XY-C1 L3 requires Build, TRX validation and artifact upload on the same production-source SHA; physical hardware remains L4-only.
+1. Inspect exact-head Process and AI handoff checks for this errno fix; check whether the prior XY-C1 run `43860044821` and NVRAM run `43860044318` have completed.
+2. Verify Process source contract and bridge policy regression, then continue the RC/shared network utility callsite audit for other newly status-bearing APIs or reliable errno propagation defects.
+3. Record XY-C1 L3 only when Build, TRX validation and artifact upload pass on the same production-source SHA. Physical router verification remains L4-only.
 
-## Verification and governance rules
+## Verification and governance
 
-Preserve security, architecture, compatibility, target toolchain and required tests. Main only; frozen backup read-only. One full Git tree and atomic commit per logical task; non-forced expected-SHA update. Update `dev_log.md` for source milestones and retain 20–119 entries. Distinguish host regression, exact-SHA Actions, firmware/TRX L3 and physical router L4. Never claim unrun results.
+Preserve security, architecture, compatibility, target toolchain and necessary tests. Main only; frozen backup read-only. One full Git tree and atomic commit per logical task, non-forced expected-SHA update. Update `dev_log.md` for source milestones and retain 20–119 entries. Distinguish host regression, exact-SHA CI, firmware/TRX L3 and physical router L4. Never claim an unrun result.
