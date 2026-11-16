@@ -540,6 +540,12 @@ jobs:
           assert "storage_mount_inventory_is_complete(mount_count)" in inventory_gate
           assert "return -1;" in inventory_gate
           assert "storage_mount_inventory_has_mounts(mount_count) ? 1 : 0" in inventory_gate
+          # Guard the C declarations themselves: body-only contracts can pass
+          # even when duplicated return-type specifiers make firmware RC uncompilable.
+          assert "int\nstart_stor_apps(void)" in storage
+          assert "void\nint\nstart_stor_apps(void)" not in storage
+          assert "static int\ntry_start_stor_apps(void)" in storage
+          assert "static int\nstatic int\ntry_start_stor_apps(void)" not in storage
           storage_start = function_body(storage, "start_stor_apps(void)")
           assert "int start_status = 0;" in storage_start
           assert "service_status = run_ftp();" in storage_start

@@ -3065,7 +3065,6 @@ stop_stor_apps(void)
 	return stop_status;
 }
 
-void
 int
 start_stor_apps(void)
 {
@@ -3201,7 +3200,6 @@ failed:
 	return -1;
 }
 
-static int
 static int
 try_start_stor_apps(void)
 {
