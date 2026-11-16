@@ -444,8 +444,9 @@ jobs:
               "start_dns_dhcpd_locked(0)",
           ):
               assert call in full_ipv6, call
-          assert "restart_status = rc_first_service_start_status(restart_status, dnsmasq_stop_status);" in full_ipv6
-          assert "restart_status = rc_first_service_start_status(restart_status, operation_status);" in full_ipv6
+          full_ipv6_compact = " ".join(full_ipv6.split())
+          assert "restart_status = rc_first_service_start_status(restart_status, dnsmasq_stop_status);" in full_ipv6_compact
+          assert "restart_status = rc_first_service_start_status(restart_status, operation_status);" in full_ipv6_compact
           assert "return restart_status;" in full_ipv6
           assert "if (lock_release_status != 0)" in full_ipv6
           assert "operation_status = full_restart_wan();" in full_ipv6
