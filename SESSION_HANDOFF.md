@@ -1,42 +1,42 @@
 # Cross-session execution mandate
 
-Mandatory handoff checkpoint: The checkpoint is mandatory; a document edit is conditional. Every session MUST inspect live repository state and compare it with SESSION_HANDOFF.md before ending or handing off. Verify source baseline, active task, exact-head Actions, validation boundary, blockers and precise first action. If the checkpoint remains accurate, do not make a documentation-only commit.
+Mandatory handoff checkpoint: Every session MUST inspect live repository state and compare it with this file before ending or handing off. Verify the source baseline, active task, relevant exact-head Actions, validation boundary, blockers and precise first action. The checkpoint is mandatory; a document edit is conditional. If all checkpoint facts and the first action remain accurate, leave this file untouched and do not create a no-op commit.
 
-For each logical task, create all changed files in one Git tree and one atomic main commit parented to freshly fetched main; update main with exact expected SHA using non-forced compare-and-swap. Never force-push, create partial commits, or touch the frozen backup.
+Before context exhaustion, finish or reduce the current safe slice, run its regression checks, inspect exact-SHA Actions, commit completed work atomically, and preserve the exact next task here.
 
-Before context exhaustion, finish the current safe slice, check exact-head Actions and preserve the precise first next action here.
+Continue this repository as one continuous engineering effort across ChatGPT conversations. Recover once, do not repeat completed audits, and do not ask the user to choose the next task.
+
+Every logical change must be created as one complete Git tree and one atomic commit parented to freshly fetched main, then update main with a non-forced expected-SHA compare-and-swap. Never force-push, split a logical multi-file change into half-commits, or modify the frozen backup branch.
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2; product development remains on `main` only.
-- Current `main` source baseline: `8f0d792ec0ab7569ffd1ecf7216008b2396b2faf` (`fix(storage): preserve integrated startup retry events`). This commit is the storage retry fix; the current follow-up removes only four erroneous duplicate workflow assertions, with no product-source changes.
-- Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only, never modify or delete.
-- PR #1 (`fix/aliddns-ca-bundle-bootstrap`) is closed and unmerged, 17 commits ahead of its base. Current main has independently changed the CA bootstrap implementation; the PR branch is archival, not a development base.
+- Repository: `Arlene206/padavan-4.4-2`; main at handoff checkpoint: `435293278a5deca3b80bd5a21f876a49445d7430`.
+- Latest product-source commit found in recent main history: `339d62070960aea11fee1d0b5b18fbf7e373cb86`.
+- Frozen backup branch `backup/pre-plugin-overhaul-2026-11-14`: `not returned`; read-only.
+- Storage hotplug now propagates FTP/Samba/NFS start failures through `start_stor_apps()` and `try_start_stor_apps()`, while continuing configured starts and preserving one-shot event handling. Safe-removal restart failures are logged.
+- Storage media/download helpers `run_dms()`, `run_itunes()`, `run_torrent()`, and `run_aria()` return status; the shared post-launch check reports launch failure, absent process and unknown process-inventory failure. The aggregator preserves first failure across all seven configured daemons.
+- USB modem hotplug returns WAN reconnect failures, retains coalesced replug events until unplug completes, restores failed event flags, and schedules retry through the existing five-second alarm.
+- WAN IPv6 restart/teardown propagates the first failed stop/start status. LAN/Wi-Fi startup changes propagate service-start failures rather than silently reporting success.
+- Mount-link errno normalization on current main: NOT CONFIRMED — inspect create_mp_link() and ensure media/download callers do not inherit stale errno.
 
-## Active task — USB storage integrated-service startup retry
+## Active task
 
-- `start_stor_apps()` returns the first required failure while continuing independent FTP/Samba/NFS and optional media starts. Its duplicate declaration defects were fixed in `0111177585699cfacbf7878d1554eeb6bc861537`; exact-head XY-C1 run `43888486194` passed Build, TRX verification and artifact upload on that then-current source SHA. Subsequent source changes mean this result does not establish L3 for the current code.
-- Remaining defect fixed here: `try_start_stor_apps()` formerly cleared `usb_hotplug_ms` even when the integrated daemon startup result was nonzero. The deferred callback then scheduled `alarm(5)` but had already discarded its retry event. The new path clears the flag only on status 0 and keeps failure pending.
-- The Optware child result is consumed once before retrying integrated daemons. If the asynchronous child is still running, the callback returns before restarting FTP/Samba/NFS/media daemons; the Optware script is still launched only after releasing `storage.lock`.
-- Regression coverage: `trunk/user/rc/src/tests/service_start_status.c`, `trunk/user/rc/src/service_start_status.h`, and `.github/workflows/storage-hotplug-stability.yml`.
+Continue P1 storage and router-service reliability. The immediate storage edge is `create_mp_link()`: keep its boolean success API for existing callers, but make failure errno deterministic, ensure the errno-normalizing wrapper is declared before every media caller, and retain the first useful filesystem/inventory error. Verify all paths that can fail (invalid input, mount inventory open/read/parse/close, path length, directory preparation, symlink creation, incomplete inventory cleanup). Do not change the existing mount selection/fallback semantics without tests.
 
-## Verification boundary and current blockers
+The errno-isolation wrapper is not confirmed in current main. First implement it with a GNU89 regression and source-contract test, then verify the storage workflow.
 
-- Local host service-start policy regression (from the 8f0 source change): GNU89, `-Wall -Wextra -Werror`, AddressSanitizer and UndefinedBehaviorSanitizer: PASS, including positive/negative startup failure retention.
-- Exact-head Actions for `8f0d792ec0ab7569ffd1ecf7216008b2396b2faf`:
-  - USB storage hotplug `43893228398`: FAIL at the whole storage caller graph step. The causal assertion is a duplicate pair of incorrectly double-escaped newline checks in the workflow (`"\\nint\\nstart_stor_apps(void)"`), not a product-source failure. The original correct newline-aware declaration checks pass and remain in place; this follow-up removes only the four duplicate escaped assertions.
-  - WAN route operation status `43893228430`: PASS.
-  - Process inventory/fail-closed `43893228310`: PASS; Process lifecycle inventory `43893228288`: PASS.
-  - NVRAM transaction boundary `43893228512`: PASS.
-  - AI handoff documentation `43893228266`: PASS; VSFTPD `43893228286`, USB modem identity `43893228115`, NFS `43893228172`, Samba `43893228324`, HTTPD security `43893228169`, AliDDNS `43893228296`, infosvr `43893228293`, and AliyunDrive `43893228138`: PASS.
-  - XY-C1 Firmware Validation `43893228097`: IN_PROGRESS at the last query. Its Build/TRX/artifact outcome is not yet available; do not claim L3 for 8f0.
-- The older XY-C1 pass on `0111177585699cfacbf7878d1554eeb6bc861537` is not evidence for later source commits. Physical-router L4 remains NOT VERIFIED.
-- Prior source-checker failures on a706 were subsequently addressed: WAN route now passes on 8f0 (87cbea whitespace normalization); process-inventory/lifecycle workflow checks pass on 8f0 after the 7b8 checker adjustment.
+## Verification boundary
 
+- Exact product-source SHA for current checkpoint: `339d62070960aea11fee1d0b5b18fbf7e373cb86`.
+- XY-C1 Firmware Validation exact-SHA status: UNVERIFIED.
+
+- Exact-SHA workflow runs observed: `AliDDNS signed API transport security regression`=success (run 43894246294); `AliyunDrive WebDAV lifecycle stability regression`=success (run 43894245942); `Process inventory and lifecycle fail-closed regression`=success (run 43894246097); `infosvr packet and signal lifecycle stability regression`=success (run 43894245954); `AI handoff documentation contract`=success (run 43894246002); `AdGuardHome config security regression`=success (run 43894246085); `USB storage hotplug stability regression`=success (run 43894246341); `NVRAM transaction boundary audit`=success (run 43894245938).
+- A prior Build/TRX/artifact PASS is valid only for the SHA on which all three passed; do not reuse it for later source commits.
+- Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Check the exact-head Actions triggered by the workflow-only follow-up commit. Confirm the USB storage hotplug workflow passes now that the four duplicate, incorrectly escaped declarations assertions are removed; verify the original newline-aware C declaration checks still execute.
-2. Re-check XY-C1 Firmware Validation for the source SHA `8f0d792ec0ab7569ffd1ecf7216008b2396b2faf` and its Build, TRX verification and artifact upload stages. If it is still pending, work another independent source issue rather than waiting. Require all same-SHA stages before claiming firmware L3.
-3. Then continue the P1 cross-userland RC startup-result audit, tracing actual callers and preserving process identity, lock order, and first-error semantics.
-4. Keep physical-router L4 NOT VERIFIED until actual device evidence exists.
+1. Fetch live main and inspect exact-SHA storage-hotplug, process-lifecycle, WAN-route, USB-modem, and XY-C1 runs for `339d62070960aea11fee1d0b5b18fbf7e373cb86`; read failing job logs instead of repeating old audits.
+2. Compile and run `trunk/user/rc/src/tests/storage_nfs_export_policy.c` in GNU89 mode with `-Wall -Wextra -Werror -fsanitize=address,undefined`; run `scripts/check_storage_safe_remove.py` and the relevant workflow source contracts.
+3. If `create_mp_link()` errno handling passes, move to the next storage lifecycle defect; if it fails, fix the exact cause in one atomic commit. Do not wait on PENDING jobs—work on independent source slices.
+4. Do not claim current L3 without Build XY-C1, TRX verification and artifact upload passing on the same source SHA. Preserve the frozen backup. Physical-router L4 remains unverified.

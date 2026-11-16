@@ -1,3 +1,14 @@
+## 2026-11-16 — Stabilize mount-link errno and storage daemon status reporting
+
+- Main parent at checkpoint: `435293278a5deca3b80bd5a21f876a49445d7430`; latest source commit identified: `339d62070960aea11fee1d0b5b18fbf7e373cb86`.
+- Storage service startup status is propagated for FTP/Samba/NFS and media/download daemons; deferred hotplug merges the first integrated service error with Optware worker state. USB modem coalesced unplug/replug state and retry restoration are covered by a pure GNU89 policy regression. WAN IPv6 and LAN/Wi-Fi startup failure propagation are also in the source history.
+- Mount-link errno normalization on current source: not confirmed; the next GPT must verify/implement it before treating media startup errors as deterministic.
+- Exact product-source SHA: `339d62070960aea11fee1d0b5b18fbf7e373cb86`. XY-C1 exact-SHA status: UNVERIFIED; individual steps: not returned.
+- Do not treat missing checks as PASS or carry forward older Build/TRX/artifact results to this SHA. Physical-router L4 remains NOT VERIFIED.
+- Next: verify storage mount-link error normalization and its GNU89/source-contract tests, then continue storage lifecycle hardening.
+
+---
+
 ## 2026-11-16 — Remove duplicate escaped storage declaration assertions
 
 - Parent main: 8f0d792ec0ab7569ffd1ecf7216008b2396b2faf. Exact-head USB storage run 43893228398 failed at source-check line 218 because an earlier editing script accidentally duplicated four declaration checks with literal double-escaped \\n sequences. The original newline-aware C declaration assertions immediately above were correct; they remain unchanged.

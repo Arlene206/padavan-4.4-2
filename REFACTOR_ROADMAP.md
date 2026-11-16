@@ -1,10 +1,11 @@
 ## Current source / CI checkpoint
 
-- Current product-source commit be65a873365598d99cccce9513e1e720203b6d8a: USB modem WAN reconnect result now flows from the startup helper to deferred hotplug; failed modem plug/unplug transitions re-arm their NVRAM event flags and schedule alarm(5). USB modem workflow has helper/caller source assertions and push/PR path coverage for services_stor.c/services_usb.c.
-- Exact-SHA XY-C1 43884258941 was IN_PROGRESS, USB modem identity 43884258738 QUEUED, storage 43884258495 IN_PROGRESS, process lifecycle 43884258642 IN_PROGRESS and NVRAM 43884258482 IN_PROGRESS at last inspection. Refresh exact-head results before handoff.
-- Prior product-source SHA cd5ccbefc26a9f71b0c971800b2f5b0d9cad450d passed same-SHA XY-C1 Build, TRX and artifact upload; current source SHA needs its own result. Physical-router L4 NOT VERIFIED.
-- Storage workflow on parent ea794e3 passed all 24 steps; AI handoff docs on ea794e3 failed because of missing required handoff checkpoint wording, now restored in SESSION_HANDOFF.md.
-- Next: validate this modem slice and handoff docs, then continue the P1 cross-userland startup-result audit.
+- Main checkpoint: `435293278a5deca3b80bd5a21f876a49445d7430`; latest product-source SHA identified in recent history: `339d62070960aea11fee1d0b5b18fbf7e373cb86`.
+- Storage application startup returns first errors from all seven configured services, with daemon process-readiness checks. The deferred storage hotplug path merges service results with Optware async status and keeps the existing one-shot event behavior.
+- USB modem hotplug preserves simultaneous unplug/replug events until the unplug transition completes and retries failed transitions after five seconds. WAN IPv6 and LAN/Wi-Fi startup paths propagate service failures.
+- Mount-link errno normalization: not confirmed — immediate storage follow-up must verify/implement deterministic errno.
+- XY-C1 Firmware Validation on exact source SHA `339d62070960aea11fee1d0b5b18fbf7e373cb86`: UNVERIFIED. Do not mark current L3 verified without same-SHA Build, TRX verification and artifact upload. Physical-router L4 remains NOT VERIFIED.
+- Frozen backup remains read-only at `backup/pre-plugin-overhaul-2026-11-14` (`not returned`).
 
 ## Whole-repository module status
 
