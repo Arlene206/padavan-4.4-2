@@ -23,6 +23,7 @@ def ordered(source: str, tokens: tuple[str, ...], label: str) -> None:
 
 
 script = read("trunk/user/shadowsocks/scripts/shadowsocks.sh")
+monitor = read("trunk/user/shadowsocks/scripts/ss-monitor")
 helper = read("trunk/user/shadowsocks/scripts/shadowsocks_process_lifecycle.sh")
 makefile = read("trunk/user/shadowsocks/Makefile")
 test = read("trunk/user/shadowsocks/tests/process_lifecycle.sh")
@@ -31,6 +32,16 @@ workflow = read(".github/workflows/shadowsocks-lifecycle.yml")
 busybox_config = read("trunk/user/busybox/busybox-1.24.x/procps/Config.src")
 busybox_pgrep = read("trunk/user/busybox/busybox-1.24.x/procps/pgrep.c")
 
+require(". /usr/bin/shadowsocks_process_lifecycle.sh || exit 1" in monitor and
+        "ss_stop_named_processes ssr-server" in monitor and
+        'ss_stop_named_processes "$bin"' in monitor and
+        "ss_stop_named_processes chinadns-ng" in monitor and
+        "ss_stop_named_processes dns2tcp dnsproxy" in monitor and
+        "killall -q -9 ssr-server" not in monitor and
+        "killall -q -9 $bin" not in monitor and
+        "kill -9 chinadns-ng" not in monitor and
+        monitor.count("if stop_dns_proxy; then") == 3,
+        "watchcat restarts must use validated bounded stop gates and block replacement launches on failure")
 require(". /usr/bin/shadowsocks_process_lifecycle.sh || exit 1" in script,
         "runtime script must load the installed lifecycle helper")
 require("$(ROMFSINST) $(THISDIR)/scripts/ /usr/bin/" in makefile,
@@ -98,6 +109,7 @@ require("exit_on_term" in test and "exit_on_kill" in test and
         "never_exit" in test and "Shadowsocks process lifecycle regression: PASS" in test,
         "host regression must cover graceful, forced and failed shutdown")
 for path in ("trunk/user/shadowsocks/scripts/shadowsocks.sh",
+             "trunk/user/shadowsocks/scripts/ss-monitor",
              "trunk/user/shadowsocks/scripts/shadowsocks_process_lifecycle.sh",
              "trunk/user/shadowsocks/tests/process_lifecycle.sh",
              "trunk/user/shadowsocks/Makefile",

@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'trunk/user/shadowsocks/scripts/shadowsocks.sh'
+      - 'trunk/user/shadowsocks/scripts/ss-monitor'
       - 'trunk/user/shadowsocks/scripts/shadowsocks_process_lifecycle.sh'
       - 'trunk/user/shadowsocks/tests/process_lifecycle.sh'
       - 'trunk/user/shadowsocks/tests/adblock_config.sh'
@@ -37,6 +38,7 @@ jobs:
       - name: Check shell syntax
         run: |
           sh -n trunk/user/shadowsocks/scripts/shadowsocks.sh
+          sh -n trunk/user/shadowsocks/scripts/ss-monitor
           sh -n trunk/user/shadowsocks/scripts/shadowsocks_process_lifecycle.sh
           sh -n trunk/user/shadowsocks/tests/process_lifecycle.sh
           sh -n trunk/user/shadowsocks/tests/adblock_config.sh
