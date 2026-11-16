@@ -1,9 +1,9 @@
 ## Current source / CI checkpoint
 
-- Live main before THIS static LAN route restart-status slice: `43d0ebe973f06f578282531eed4abc0fdba1bb3b`. The current source baseline already propagates essential bridge/VLAN/switch/module status and aborts full WAN restart on switch VLAN ioctl failure.
-- THIS change also captures `add_static_lan_routes(IFNAME_BR)` during `full_restart_wan()` and returns before `start_wan()` if LAN route restoration fails; Process source contract covers that ordering.
-- On parent `90ac78ccccb7acbf6ab75956999b4847a3628fd8`, Process `43860760675` failed only at its final source contract due to the LAN member count assertion. Commit `43d0ebe973f06f578282531eed4abc0fdba1bb3b` tightened that check; exact Process `43860996821` and AI docs `43860997587` were pending on that checker-fix SHA.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. No same-source-SHA XY-C1 Build+TRX+artifact L3 or hardware L4 result is claimed.
+- Live main before THIS WAN restart status slice: `01d9147b742391933a22781b42eb1213063cb1c1`. Full WAN restart already aborts on static LAN route restoration and switch VLAN configuration failures.
+- THIS slice requires switch MAC table clear before WAN start, and propagates configured L2TP server start errors across full restart, normal reconnect and deferred reconnect. Positive `safe_start_xl2tpd()` denotes an already-running shared daemon and remains success.
+- Process source contract checks these return semantics and callers. Exact-parent Process `43861241910`, AI docs `43861242056`, NVRAM `43861243064` and XY-C1 `43861242089` were pending/queued; THIS commit needs fresh exact-head runs.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. No same-SHA XY-C1 Build+TRX+artifact L3 or hardware L4 result claimed.
 
 ## Whole-repository module status
 

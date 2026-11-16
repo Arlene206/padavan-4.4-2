@@ -511,6 +511,9 @@ jobs:
           switch_storm = body(lan, "switch_config_storm(void)")
           switch_link = body(lan, "switch_config_link(void)")
           full_wan_restart = body(net_wan, "full_restart_wan(void)")
+          l2tp_start_merge = body(net_wan, "merge_l2tp_server_start_status(int wan_status)")
+          try_wan_reconnect = body(net_wan, "try_wan_reconnect(int try_use_modem, long pause_in_seconds)")
+          deferred_wan_connect = body(net_wan, "deferred_wan_connect(void)")
           bridge_create = body(lan, "init_bridge_add_bridge(const char *bridge_ifname)")
           bridge_add = body(netutils, "br_add_del_bridge(const char *brname, int is_add)")
           bridge_member_add = body(netutils, "br_add_del_if_internal(const char *brname, const char *ifname, int is_add,")
@@ -592,6 +595,16 @@ jobs:
           assert "status = add_static_lan_routes(IFNAME_BR);" in full_wan_restart
           assert "static LAN routes could not be restored" in full_wan_restart
           assert full_wan_restart.index("return status;") < full_wan_restart.index("status = start_wan();")
+          assert "status = phy_clear_mac_table();" in full_wan_restart
+          assert "switch MAC table could not be cleared" in full_wan_restart
+          assert full_wan_restart.index("switch MAC table could not be cleared") < full_wan_restart.index("status = start_wan();")
+          assert 'nvram_match("l2tp_srv_t", "1")' in l2tp_start_merge
+          assert "xl2tp_status = safe_start_xl2tpd();" in l2tp_start_merge
+          assert "xl2tp_status < 0" in l2tp_start_merge
+          assert "wan_status == 0" in l2tp_start_merge
+          assert "return xl2tp_status;" in l2tp_start_merge
+          for caller in (full_wan_restart, try_wan_reconnect, deferred_wan_connect):
+              assert "return merge_l2tp_server_start_status(status);" in caller
           print("LAN bridge initialization status and caller aggregation: PASS")
           print("LAN startup error propagation and caller aggregation: PASS")
           PY

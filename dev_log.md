@@ -9,6 +9,16 @@
 
 ---
 
+## 2026-11-16 — Check WAN restart MAC table and L2TP service results
+
+- Parent main: `01d9147b742391933a22781b42eb1213063cb1c1`. Further `full_restart_wan()` tracing found ignored int-returning operations: `phy_clear_mac_table()` and `safe_start_xl2tpd()`. The former is an ioctl on MTK ESW and RTL8367; the latter returns negative on lock/process/config/start failure, zero on launch success, and positive one when the shared daemon is already running.
+- `full_restart_wan()` now fails before WAN startup if the switch MAC table cannot be cleared. New `merge_l2tp_server_start_status()` preserves WAN-start failure, treats positive already-running as success, and surfaces configured L2TP server launch failure when WAN start succeeded.
+- Applied L2TP result aggregation in full restart, normal reconnect and deferred reconnect; none of the three connect paths now silently discards a negative L2TP server start status.
+- Process source contract checks MAC clear ordering and the normalized L2TP result across all three call paths. Exact-parent Process `43861241910`, AI docs `43861242056`, NVRAM `43861243064` and XY-C1 `43861242089` were pending/queued; this slice requires fresh exact-head checks. No L3/L4 claim.
+- Next: validate exact-head Process/WAN route and inspect remaining int-returning WAN/RC callsites.
+
+---
+
 ## 2026-11-16 — Restore static LAN routes before restarting WAN
 
 - Parent main: `43d0ebe973f06f578282531eed4abc0fdba1bb3b`. `full_restart_wan()` had already been updated to stop before WAN startup when switch VLAN reconfiguration failed, but it still discarded the int result from `add_static_lan_routes(IFNAME_BR)`.

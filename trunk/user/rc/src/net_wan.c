@@ -2723,6 +2723,23 @@ wan_down(char *wan_ifname, int unit, int is_static)
 	return status;
 }
 
+static int
+merge_l2tp_server_start_status(int wan_status)
+{
+	int xl2tp_status;
+
+	if (!nvram_match("l2tp_srv_t", "1"))
+		return wan_status;
+
+	/* safe_start_xl2tpd() returns 1 when the shared daemon is already running. */
+	xl2tp_status = safe_start_xl2tpd();
+	if (wan_status == 0 && xl2tp_status < 0) {
+		logmessage(LOGNAME, "L2TP server start failed after WAN start (status=%d)", xl2tp_status);
+		return xl2tp_status;
+	}
+	return wan_status;
+}
+
 int
 full_restart_wan(void)
 {
@@ -2738,7 +2755,12 @@ full_restart_wan(void)
 	clear_if_route4(get_man_ifname(0));
 	clear_if_route4(IFNAME_BR);
 	flush_route_caches();
-	phy_clear_mac_table();
+	status = phy_clear_mac_table();
+	if (status != 0) {
+		logmessage(LOGNAME, "aborting full WAN restart because switch MAC table could not be cleared (status=%d)",
+			   status);
+		return status;
+	}
 	update_router_mode();
 	reset_wan_vars();
 	status = add_static_lan_routes(IFNAME_BR);
@@ -2766,9 +2788,7 @@ full_restart_wan(void)
 	}
 #endif
 	status = start_wan();
-	if (nvram_match("l2tp_srv_t", "1"))
-		safe_start_xl2tpd();
-	return status;
+	return merge_l2tp_server_start_status(status);
 }
 
 int
@@ -2796,9 +2816,7 @@ try_wan_reconnect(int try_use_modem, long pause_in_seconds)
 		select_usb_modem_to_wan();
 	notify_reset_detect_link();
 	status = start_wan();
-	if (nvram_match("l2tp_srv_t", "1"))
-		safe_start_xl2tpd();
-	return status;
+	return merge_l2tp_server_start_status(status);
 }
 
 int
@@ -2811,9 +2829,7 @@ deferred_wan_connect(void)
 	select_usb_modem_to_wan();
 	notify_reset_detect_link();
 	status = start_wan();
-	if (nvram_match("l2tp_srv_t", "1"))
-		safe_start_xl2tpd();
-	return status;
+	return merge_l2tp_server_start_status(status);
 }
 
 void
