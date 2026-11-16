@@ -11,7 +11,7 @@ For each logical task, create all changed files in one Git tree and one atomic m
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; active development ref: `main`.
-- Parent main for this PPP ip-up IPCP address validation slice: `8ab4d6ecb4e6b39078aaf5b944c91085f9bc8668`; all writes use a fresh parent/tree and non-forced expected-SHA compare-and-swap.
+- Parent main for this PPP ip-up regression follow-up: `bacfb1d9d9c814fdc6d122de5e8e34cf85dcb900`; all writes use a fresh parent/tree and non-forced expected-SHA compare-and-swap.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only. Startup and backup recovery completed once; do not repeat.
 - Root dev log remains below its 120-entry archive threshold.
 
@@ -24,33 +24,20 @@ For each logical task, create all changed files in one Git tree and one atomic m
 
 ## Active task
 
-Static IPoE WAN/LAN subnet overlap already prevented `wan_up()`, but the branch only set local `wan_err` and did not update the return status consumed by PID 1. It now accumulates `EADDRINUSE` using `rc_first_service_start_status()`. The WAN DHCP callback workflow checks that exact conflict branch and its caller-visible result.
-
-## Active task
-
-PPP `ipup_main()` previously treated missing `IPLOCAL` as optional and continued to publish callback state; if `IPREMOTE` was absent it retained a stale WAN gateway. Since pppd invokes `ip-up` when IPCP has come up and provides both local and remote IPv4 endpoints, the callback now validates both before interface/NVRAM mutation. The GNU89 policy test covers missing/empty endpoint values and verifies there are no side effects.
+PPP `ipup_main()` now requires both negotiated IPCP IPv4 endpoints before touching interface or NVRAM state. Missing `IPLOCAL` previously skipped address application but still published interface identity; missing `IPREMOTE` could retain a stale gateway. The callback policy and source workflow now enforce fail-closed behavior.
 
 ## Verification boundary
 
-Exact-head Actions for parent `c38c9d288707e98616c796bb0724e64fd3885eab`:
-- WAN DHCP callback `43869140586`: PASS.
-- WAN route `43869140499`, Process lifecycle `43869140664`, Process inventory `43869140439`, miniupnpd `43869140553`, AI docs `43869140667`, HTTPD `43869140668`, infosvr `43869140608`, AliDDNS `43869140787`, VPN `43869140953`, DNSMasq `43869140657`, AdGuardHome `43869140393`, AliyunDrive `43869140626`, WAN teardown `43869140587`, WAN ARP `43869140602`, detect_internet `43869140477`, detect_link `43869140381`, USB identity `43869140444`: PASS.
-- NVRAM `43869140525`: PASS.
-- XY-C1 firmware `43869140714`: IN_PROGRESS at last poll; Build XY-C1 was active, TRX/artifact pending.
-- New PPP ip-up change requires exact-head WAN DHCP and XY-C1 verification. No same-SHA firmware Build + TRX + artifact L3 or physical-router L4 result is claimed.
-- Frozen backup remains unchanged and read-only.
+Exact-head Actions for parent `bacfb1d9d9c814fdc6d122de5e8e34cf85dcb900`:
+- WAN DHCP callback `43870165716`: FAIL during GNU89 compile of `ppp_wan_ipup_policy.c`; `test_interface_failure_preserves_published_state()` still used the old four-argument policy call after the policy required local, remote, netmask, ops and context. The call is corrected in the current follow-up.
+- PASS: AI docs `43870165549`, AdGuardHome `43870165477`, AliyunDrive `43870164931`, Process final inventory `43870164946`, AliDDNS `43870164965`, WAN route `43870164920`, infosvr `43870164981`, VPN `43870164985`, and HTTPD `43870164960`.
+- NVRAM `43870165218`, Process lifecycle `43870164923`, and XY-C1 firmware `43870165029` were still in progress at last poll.
+- No same-SHA firmware Build + TRX + artifact L3 or physical-router L4 is claimed. Frozen backup remains read-only.
 
 ## Exact first action for the next GPT
 
-1. Verify exact-head WAN DHCP regression and Process/miniupnpd source checks for the static IPoE overlap correction; inspect the first causal failure if any.
-2. Check XY-C1 Build, TRX verification and artifact upload on one identical source SHA, plus NVRAM audit completion.
-3. Continue the WAN adjunct-service startup audit (IPTV and PPPoE passthrough), preserving WAN core availability while propagating configured-service failures to PID 1.
-4. Keep optional notification, tuning and cleanup best-effort; physical-router L4 remains unverified.
-
-## Exact first action for the next GPT
-
-1. Inspect exact-head WAN DHCP callback and XY-C1 Build/TRX/artifact Actions for this PPP ip-up IPCP endpoint validation; investigate any first causal failure.
-2. Continue the bounded review of PPP IPv6 up/down callbacks and DHCPv6 lease/generation transitions, preserving stale-session fencing and rollback behavior.
-3. Keep optional DNS refresh and notifications best-effort only where documented; preserve route and session-lock error returns.
-4. Claim firmware L3 only after Build, TRX verification and artifact upload all pass on one identical SHA. Physical-router L4 remains unverified.
+1. Inspect the exact-head WAN DHCP callback run after the regression call-signature fix; verify that compilation, policy execution and the source-contract step all pass.
+2. Inspect XY-C1 Build, TRX verification and artifact upload on one identical SHA; NVRAM audit on the parent was still in progress.
+3. Continue the bounded PPP IPv6 up/down and DHCPv6 lease/generation audit, preserving stale-session fencing and rollback semantics.
+4. Claim firmware L3 only after same-SHA Build, TRX and artifact upload pass. Physical-router L4 remains unverified.
 

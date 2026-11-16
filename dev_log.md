@@ -1,3 +1,12 @@
+## 2026-11-16 — Fix PPP IPCP regression call arity after exact-head compile failure
+
+- Parent main: `bacfb1d9d9c814fdc6d122de5e8e34cf85dcb900`. Exact-head WAN DHCP callback run `43870165716` reached the PPP IPv4 callback test compile and failed because `test_interface_failure_preserves_published_state()` retained a four-argument call after `ppp_wan_ipup_apply_address()` gained its required remote-address argument. The failure was confined to the regression call site; the production change was not compiled by that step.
+- Added the missing peer address to the test invocation. Cleaned duplicate handoff headings left by the prior concurrent doc merge and updated the CI ledger.
+- Parent PASS: AI docs `43870165549`, AdGuardHome `43870165477`, AliyunDrive `43870164931`, Process final inventory `43870164946`, AliDDNS `43870164965`, WAN route `43870164920`, infosvr `43870164981`, VPN `43870164985`, HTTPD `43870164960`. NVRAM `43870165218`, Process lifecycle `43870164923`, and XY-C1 `43870165029` were pending at last poll.
+- Next: verify the new exact-head WAN DHCP compile, policy regression and source contract; continue the PPP IPv6/DHCPv6 callback audit only after the compile gate is green.
+
+---
+
 ## 2026-11-16 — Reject incomplete PPP IPCP addresses before publishing WAN state
 
 - Parent main: `8ab4d6ecb4e6b39078aaf5b944c91085f9bc8668`. `ipup_main()` treated missing `IPLOCAL` as optional, skipping interface-address application but still publishing interface identity and continuing into `wan_up()`. Missing `IPREMOTE` left the previous NVRAM gateway in place. PPPD invokes `ip-up` when IPCP has come up and provides both IPv4 endpoint variables; absent/empty values are an inconsistent callback contract.

@@ -1,9 +1,9 @@
 ## Current source / CI checkpoint
 
-- Product/source baseline: `c38c9d288707e98616c796bb0724e64fd3885eab`; configured IPTV/PPPoE passthrough failures and static-IPoE WAN/LAN overlap reach WAN first-error status.
-- PPP ip-up previously skipped address application when `IPLOCAL` was missing and retained the previous gateway when `IPREMOTE` was missing. Both negotiated IPv4 endpoints are now mandatory before interface/NVRAM state changes; regression covers missing and empty values.
-- Parent exact-head WAN DHCP callback `43869140586`, WAN route `43869140499`, Process lifecycle `43869140664`, Process inventory `43869140439`, miniupnpd `43869140553`, AI docs `43869140667`, HTTPD `43869140668`, infosvr `43869140608`, AliDDNS `43869140787`, VPN `43869140953`, DNSMasq `43869140657`, AdGuardHome `43869140393`, AliyunDrive `43869140626`, WAN teardown `43869140587`, WAN ARP `43869140602`, detect_internet `43869140477`, detect_link `43869140381`, USB identity `43869140444`, and NVRAM `43869140525` passed.
-- XY-C1 `43869140714` was still in Build XY-C1 with TRX/artifact pending. No same-SHA firmware L3 or physical-router L4 claim.
+- Product/source baseline: `bacfb1d9d9c814fdc6d122de5e8e34cf85dcb900`; configured IPTV/PPPoE passthrough and static-IPoE overlap errors propagate through first-error WAN startup status.
+- PPP ip-up now requires both non-empty IPCP IPv4 endpoints before configuring the interface or publishing interface/gateway state. The initial regression SHA exposed one stale four-argument test call; the WAN DHCP run `43870165716` failed at GNU89 compile, and that test call is corrected in this follow-up.
+- Same-parent PASS: AI docs `43870165549`, AdGuardHome `43870165477`, AliyunDrive `43870164931`, Process final inventory `43870164946`, AliDDNS `43870164965`, WAN route `43870164920`, infosvr `43870164981`, VPN `43870164985`, HTTPD `43870164960`.
+- NVRAM `43870165218`, Process lifecycle `43870164923`, and XY-C1 `43870165029` were pending at last poll. No same-SHA firmware L3 or physical-router L4.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 ## Whole-repository module status
 

@@ -66,8 +66,8 @@ test_interface_failure_preserves_published_state(void)
 {
 	struct fake_ipup fake = { EIO, "", "192.0.2.9", "255.255.255.255" };
 
-	assert(ppp_wan_ipup_apply_address("198.51.100.2", "255.255.255.255",
-					  &fake_ops, &fake) == EIO);
+	assert(ppp_wan_ipup_apply_address("198.51.100.2", "198.51.100.1",
+					  "255.255.255.255", &fake_ops, &fake) == EIO);
 	assert(strcmp(fake.events, "C") == 0);
 	assert(strcmp(fake.ipaddr, "192.0.2.9") == 0);
 	assert(strcmp(fake.netmask, "255.255.255.255") == 0);
