@@ -147,4 +147,39 @@ modem_node_file_remove(const char *directory, const char *name)
 	return -1;
 }
 
+
+typedef int (*modem_node_file_writer_fn)(const char *, const char *, const char *);
+typedef int (*modem_node_file_remover_fn)(const char *, const char *);
+
+/*
+ * A failed NDIS metadata replacement must not leave the previous interface
+ * identity behind: Linux may reuse wwanX/wethX for another USB device.
+ * Return -2 when cleanup also fails so the caller can flag residual stale state.
+ */
+static int
+modem_node_file_publish_with_cleanup(const char *directory, const char *name,
+				     const char *contents, int contents_valid,
+				     modem_node_file_writer_fn write_fn,
+				     modem_node_file_remover_fn remove_fn)
+{
+	if (!modem_node_name_is_safe(name) || !remove_fn)
+		return -1;
+
+	if (contents_valid && contents && write_fn &&
+	    write_fn(directory, name, contents) == 0)
+		return 0;
+
+	return remove_fn(directory, name) == 0 ? -1 : -2;
+}
+
+static int
+modem_node_file_publish_identity(const char *directory, const char *name,
+				 const char *contents, int contents_valid)
+{
+	return modem_node_file_publish_with_cleanup(directory, name, contents,
+					    contents_valid,
+					    modem_node_file_write,
+					    modem_node_file_remove);
+}
+
 #endif /* PADAVAN_MODEM_NODE_FILE_H */

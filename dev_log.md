@@ -1,3 +1,13 @@
+## 2026-11-16 — Clear stale NDIS identity after publication failure
+
+- Parent main: `d6738c390b0578ba07a7bd9f0c2c23a4a1bca764`. Exact-parent USB modem WDM/NDIS run `43846822594`, Process runs `43846822569`/`43846822993`, HTTPD `43846822596`, AI docs `43846822710`, WAN teardown `43846822592`, infosvr `43846822597`, AdGuardHome `43846822892`, AliDDNS `43846822840` and AliyunDrive `43846822598` passed. XY-C1 `43846822718` and NVRAM `43846822673` were still in progress; no L3 claim.
+- Found `mdev_net_main()` retained old `wwanX/wethX` identity metadata on truncated content or failed atomic replacement. This differed from WDM/TTY handlers, which remove stale metadata on publication failure.
+- Added injectable fail-closed identity publication policy: valid replacement succeeds; invalid/write failure removes the prior entry; cleanup failure returns a distinct status for explicit logging. Wired this into `mdev_net_main()`.
+- Added GNU89/Werror/ASan/UBSan failure-injection regression and exact production-path source checks to the USB modem identity workflow.
+- Next: inspect exact-head USB identity and XY-C1/NVRAM Actions; then continue module readiness and broad RC startup status governance.
+
+---
+
 ## 2026-11-16 — Make manual RAS modem-node selection fail closed
 
 - Parent main: `1c1fa9679e625a468b04fc12cbd2794683e810fc`. Exact-head Process, HTTPD, AI handoff, infosvr, AdGuardHome, AliDDNS, AliyunDrive and NVRAM regressions all passed. XY-C1 run `43846110844` remained in progress after its policy tests; target Build/TRX/artifact was not yet complete.

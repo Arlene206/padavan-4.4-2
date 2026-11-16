@@ -287,7 +287,7 @@ out_unlock:
 
 int mdev_net_main(int argc, char **argv)
 {
-	int isLock, devnum, data_len;
+	int isLock, devnum, data_len, publish_status;
 	char usb_port_id[64], node_data[128];
 	char *device_name, *action;
 
@@ -337,11 +337,16 @@ int mdev_net_main(int argc, char **argv)
 
 	// Publish root-managed metadata through atomic replacement.
 	data_len = snprintf(node_data, sizeof(node_data),
-			    "pref=%d\ndevnum=%d\nportid=%s\n",
+			    "pref=%d\\ndevnum=%d\\nportid=%s\\n",
 			    1, devnum, usb_port_id);
-	if (data_len < 0 || data_len >= (int)sizeof(node_data) ||
-	    modem_node_file_write(MODEM_NODE_DIR, device_name, node_data) != 0) {
-		usb_dbg("(%s): Failed to publish modem node metadata.\n", device_name);
+	publish_status = modem_node_file_publish_identity(
+		MODEM_NODE_DIR, device_name, node_data,
+		data_len >= 0 && data_len < (int)sizeof(node_data));
+	if (publish_status != 0) {
+		if (publish_status == -2)
+			usb_dbg("(%s): Failed to publish and remove stale modem metadata.\\n", device_name);
+		else
+			usb_dbg("(%s): Failed to publish modem metadata; stale metadata removed.\\n", device_name);
 		goto out_unlock;
 	}
 

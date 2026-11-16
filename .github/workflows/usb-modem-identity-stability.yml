@@ -83,6 +83,17 @@ jobs:
           assert "realpath(device_path, resolved_path)" in resolve
           assert "sleep(1)" in resolve[resolve.index("DEVICE_TYPE_MODEM_WDM"):]
 
+          net = body(hotplug, "int mdev_net_main(")
+          assert "data_len >= 0 && data_len < (int)sizeof(node_data)" in net
+          assert "modem_node_file_publish_identity(" in net
+          assert "publish_status == -2" in net
+          publish = body(metadata, "modem_node_file_publish_with_cleanup(")
+          assert "write_fn(directory, name, contents) == 0" in publish
+          assert "return remove_fn(directory, name) == 0 ? -1 : -2;" in publish
+          publish_wrapper = body(metadata, "modem_node_file_publish_identity(")
+          assert "modem_node_file_publish_with_cleanup(" in publish_wrapper
+          assert "test_metadata_publication_cleanup" in test
+
           wdm = body(hotplug, "mdev_wdm_main(")
           assert "get_usb_port_by_device(device_name" in wdm
           assert "get_usb_devnum(usb_port_id)" in wdm

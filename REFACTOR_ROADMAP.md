@@ -1,9 +1,11 @@
 ## Current source / CI checkpoint
 
-- Current parent main for THIS corrective checker slice: `9e284e758526ac281228e86b81dc349adbeff783`. The preceding source commit `37f0046` passed its WAN modem/boot first-error checks but Process lifecycle failed on a stale `void start_wan()` parser. This repair changes the parser to `int start_wan()` and aligns the HTTPD security workflow with the real int-return callback/VLAN fail-fast status contract.
-- The latest product source commit `9e284e7` implements same-device NDIS TTY selection by physical USB port ID + devnum, including manual/preferred selection constraints and host regression. USB modem WDM/NDIS identity run `43844807532` PASSED. Process `43844807348` and XY-C1 `43844807421` were still IN_PROGRESS at last observation; HTTPD run `43844807351` failed the stale return contract now corrected in THIS commit.
-- AI handoff `43844807461`, Infosvr `43844807516`, WAN teardown `43844807410`, AdGuardHome `43844807404`, AliyunDrive `43844807369`, AliDDNS `43844807524`, prior WAN DHCP `43844254326`, miniupnpd `43844254468` and WAN route `43844254309` passed on their recorded heads. Confirm exact SHA before relying on them.
-- Next product review: map `reload_modem_modules()` and module load/unload return semantics before changing any optional-driver failure policy. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` stays at `72f4f157a084f8184b9597ca5bf334b8080e5807` and remains immutable. No current-head L3 build/TRX or L4 hardware result is established.
+- Current main before THIS metadata cleanup slice: `d6738c390b0578ba07a7bd9f0c2c23a4a1bca764`; this source fix changes modem metadata publication/cleanup and its host/source regression.
+- Exact-head parent `d6738c390b0578ba07a7bd9f0c2c23a4a1bca764`: USB modem identity `43846822594`, Process lifecycle `43846822569` and `43846822993`, HTTPD Security `43846822596`, AI handoff `43846822710`, WAN teardown `43846822592`, infosvr `43846822597`, AdGuardHome `43846822892`, AliDDNS `43846822840`, AliyunDrive `43846822598` SUCCESS. XY-C1 `43846822718` and NVRAM `43846822673` were IN_PROGRESS at last observation; recheck before relying on them.
+- USB modem path includes NDIS physical USB port ID + devnum matching and fail-closed RAS manual-index behavior. THIS slice additionally clears stale `wwanX/wethX` metadata after failed/truncated NDIS metadata publication; exact-head USB identity Action required.
+- No current-source XY-C1 Build/TRX/artifact L3 result or physical-router/L4 result is established. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Next: inspect exact-head modem identity/XY-C1/NVRAM; then review `reload_modem_modules()` readiness carefully and broaden RC startup-result propagation outside modem-only work.
+
 ## Whole-repository module status
 
 ### P1 process inventory / service lifecycle — tri-state foundation L2 VERIFIED; strict PID identity migration extended through PPPD/udhcpc/INICD and VPN/WAN/LAN/USB stop gates; xl2tpd and crond UNKNOWN start gates migrated; product-source L3 VERIFIED on be7fd XY-C1 build/TRX/artifact

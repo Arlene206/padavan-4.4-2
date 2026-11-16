@@ -6,6 +6,81 @@
 #include <unistd.h>
 #include "../modem_node_file.h"
 
+static int test_metadata_write_calls;
+static int test_metadata_remove_calls;
+static int test_metadata_write_result;
+static int test_metadata_remove_result;
+
+static int
+test_metadata_write(const char *directory, const char *name, const char *contents)
+{
+	assert(strcmp(directory, "/modem") == 0);
+	assert(strcmp(name, "wwan0") == 0);
+	assert(strcmp(contents, "pref=1\\n") == 0);
+	test_metadata_write_calls++;
+	return test_metadata_write_result;
+}
+
+static int
+test_metadata_remove(const char *directory, const char *name)
+{
+	assert(strcmp(directory, "/modem") == 0);
+	assert(strcmp(name, "wwan0") == 0);
+	test_metadata_remove_calls++;
+	return test_metadata_remove_result;
+}
+
+static void
+test_metadata_publication_cleanup(void)
+{
+	test_metadata_write_calls = 0;
+	test_metadata_remove_calls = 0;
+	test_metadata_write_result = 0;
+	test_metadata_remove_result = 0;
+
+	/* Successful replacement keeps the newly published identity. */
+	assert(modem_node_file_publish_with_cleanup("/modem", "wwan0",
+					    "pref=1\\n", 1,
+					    test_metadata_write,
+					    test_metadata_remove) == 0);
+	assert(test_metadata_write_calls == 1);
+	assert(test_metadata_remove_calls == 0);
+
+	/* Failed replacement invalidates the previous interface identity. */
+	test_metadata_write_result = -1;
+	assert(modem_node_file_publish_with_cleanup("/modem", "wwan0",
+					    "pref=1\\n", 1,
+					    test_metadata_write,
+					    test_metadata_remove) == -1);
+	assert(test_metadata_write_calls == 2);
+	assert(test_metadata_remove_calls == 1);
+
+	/* Invalid or truncated content is never written and clears stale identity. */
+	assert(modem_node_file_publish_with_cleanup("/modem", "wwan0",
+					    "pref=1\\n", 0,
+					    test_metadata_write,
+					    test_metadata_remove) == -1);
+	assert(test_metadata_write_calls == 2);
+	assert(test_metadata_remove_calls == 2);
+
+	/* Distinguish failed cleanup so hotplug can log residual stale state. */
+	test_metadata_remove_result = -1;
+	assert(modem_node_file_publish_with_cleanup("/modem", "wwan0",
+					    "pref=1\\n", 1,
+					    test_metadata_write,
+					    test_metadata_remove) == -2);
+	assert(test_metadata_write_calls == 3);
+	assert(test_metadata_remove_calls == 3);
+
+	/* Without a remover, refuse to publish because failure cannot be cleaned up. */
+	assert(modem_node_file_publish_with_cleanup("/modem", "wwan0",
+					    "pref=1\\n", 1,
+					    test_metadata_write, NULL) == -1);
+	assert(test_metadata_write_calls == 3);
+	assert(test_metadata_remove_calls == 3);
+}
+
+
 int
 main(void)
 {
@@ -16,6 +91,8 @@ main(void)
 	FILE *fp;
 	char line[64];
 	int n;
+
+	test_metadata_publication_cleanup();
 
 	assert(modem_node_manual_index_matches(-1, 0));
 	assert(modem_node_manual_index_matches(4, 4));
@@ -71,7 +148,7 @@ main(void)
 	n = snprintf(escape_path, sizeof(escape_path), "%s/escape", root);
 	assert(n > 0 && n < (int)sizeof(escape_path));
 
-	assert(modem_node_file_write(directory, "ttyUSB0", "pref=1\ndevnum=7\n") == 0);
+	assert(modem_node_file_publish_identity(directory, "ttyUSB0", "pref=1\ndevnum=7\n", 1) == 0);
 	assert(lstat(directory, &st) == 0 && S_ISDIR(st.st_mode));
 	assert((st.st_mode & 0777) == 0755);
 	assert(st.st_uid == geteuid());
