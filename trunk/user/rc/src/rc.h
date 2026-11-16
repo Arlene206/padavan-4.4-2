@@ -224,7 +224,7 @@ int start_igmpproxy(char *wan_ifname);
 int restart_iptv(int is_ap_mode);
 void flush_conntrack_table(char *ip);
 void flush_route_caches(void);
-void clear_if_route4(char *ifname);
+int clear_if_route4(char *ifname);
 int  is_ftp_conntrack_loaded(int ftp_port0, int ftp_port1);
 void hw_vlan_tx_map(int idx, int vid);
 int reload_nat_modules(void);

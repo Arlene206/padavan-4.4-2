@@ -731,10 +731,14 @@ flush_route_caches(void)
 	system("ip route flush cache");
 }
 
-void
+int
 clear_if_route4(char *ifname)
 {
-	doSystem("ip route flush dev %s scope %s", ifname, "global");
+	if (!ifname || !ifname[0])
+		return EINVAL;
+
+	/* Keep the interface name as one argv element; never interpolate it into a shell. */
+	return eval("ip", "route", "flush", "dev", ifname, "scope", "global");
 }
 
 int

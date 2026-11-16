@@ -189,6 +189,8 @@ on:
       - "trunk/user/shared/src/include/router_account_policy.h"
       - "trunk/user/shared/src/tests/router_account_policy.c"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/wan_route_flush_policy.h"
+      - "trunk/user/rc/src/tests/wan_route_flush_policy.c"
       - "trunk/user/rc/src/net6.c"
       - "trunk/user/rc/src/vpn_openvpn.c"
       - "trunk/user/rc/src/rc.c"
@@ -1154,6 +1156,11 @@ jobs:
             trunk/user/rc/src/tests/switch_status_policy.c \
             -o /tmp/switch_status_policy
           /tmp/switch_status_policy
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/wan_route_flush_policy.c \
+            -o /tmp/wan_route_flush_policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/wan_route_flush_policy
           python3 - <<'PY'
           from pathlib import Path
 
@@ -1164,6 +1171,8 @@ jobs:
           rstats = (root / "rstats.c").read_text()
           detect_link = (root / "detect_link.c").read_text()
           net_wan = (root / "net_wan.c").read_text()
+          route_flush_policy = (root / "wan_route_flush_policy.h").read_text()
+          route_flush_test = (root / "tests/wan_route_flush_policy.c").read_text()
           net_lan = (root / "net_lan.c").read_text()
           net = (root / "net.c").read_text()
           hwnat_policy = (root / "hwnat_config_policy.h").read_text()
@@ -1292,6 +1301,15 @@ jobs:
           assert 'doSystem("echo 1 > /sys/fast_classifier/skip_to_bridge_ingress")' not in sfe_reload
 
           lan_restart = body(net_lan, "restart_switch_config_vlan(void)")
+          clear_route = body(net, "clear_if_route4(char *ifname)")
+          assert 'return eval("ip", "route", "flush", "dev", ifname, "scope", "global")' in " ".join(clear_route.split())
+          assert "doSystem" not in clear_route
+          full_restart_routes = body(net_wan, "full_restart_wan(void)")
+          assert "rc_wan_route_flush_apply(route_ifnames, 2, clear_if_route4)" in full_restart_routes
+          assert full_restart_routes.index("if (route_flush_status != 0)") < full_restart_routes.index("phy_clear_mac_table()")
+          assert "return route_flush_status;" in full_restart_routes
+          assert "rc_first_service_start_status(first_status, status)" in route_flush_policy
+          assert "test_all_interfaces_are_attempted_and_first_error_is_preserved" in route_flush_test
           assert lan_restart.index("if (get_ap_mode())") < lan_restart.index("pvid_wan_before = phy_vlan_pvid_wan_get();")
           assert "switch_status_vlan_pvid_changed(pvid_wan_before, pvid_wan_after)" in lan_restart
           assert "unable to compare WAN switch PVID" in lan_restart
@@ -1304,6 +1322,8 @@ jobs:
               "trunk/user/rc/src/rstats.c",
               "trunk/user/rc/src/detect_link.c",
               "trunk/user/rc/src/net_wan.c",
+              "trunk/user/rc/src/wan_route_flush_policy.h",
+              "trunk/user/rc/src/tests/wan_route_flush_policy.c",
               "trunk/user/rc/src/net_lan.c",
               "trunk/user/rc/src/net.c",
               "trunk/user/rc/src/hwnat_config_policy.h",

@@ -32,6 +32,8 @@ HWNAT_POLICY_SOURCE = (RC / "hwnat_config_policy.h").read_text()
 HWNAT_POLICY_TEST = (RC / "tests/hwnat_config_policy.c").read_text()
 SFE_POLICY_SOURCE = (RC / "sfe_config_policy.h").read_text()
 SFE_POLICY_TEST = (RC / "tests/sfe_config_policy.c").read_text()
+ROUTE_FLUSH_POLICY_SOURCE = (RC / "wan_route_flush_policy.h").read_text()
+ROUTE_FLUSH_POLICY_TEST = (RC / "tests/wan_route_flush_policy.c").read_text()
 POLICY_SOURCE = (RC / "modem_wan_start_policy.h").read_text()
 WAN_TEST = (RC / "tests/modem_wan_start_policy.c").read_text()
 
@@ -317,6 +319,22 @@ assert "xl2tp_status = safe_start_xl2tpd();" in l2tp_start_merge
 assert "wan_status == 0 && xl2tp_status < 0" in l2tp_start_merge
 assert "return xl2tp_status;" in l2tp_start_merge
 assert "return wan_status;" in l2tp_start_merge
+
+route_flush = compact(body(NET_SOURCE, "clear_if_route4(char *ifname)"))
+assert 'return eval("ip", "route", "flush", "dev", ifname, "scope", "global")' in route_flush
+assert "doSystem" not in route_flush
+assert "int clear_if_route4(char *ifname);" in HEADER
+route_policy = compact(ROUTE_FLUSH_POLICY_SOURCE)
+assert "rc_first_service_start_status(first_status, status)" in route_policy
+assert "if (!ifnames[i] || !ifnames[i][0])" in route_policy
+assert "test_all_interfaces_are_attempted_and_first_error_is_preserved" in ROUTE_FLUSH_POLICY_TEST
+assert "test_invalid_interface_does_not_skip_other_cleanup" in ROUTE_FLUSH_POLICY_TEST
+full_restart_routes = compact(body(WAN_SOURCE, "full_restart_wan(void)"))
+route_apply_pos = full_restart_routes.index("route_flush_status = rc_wan_route_flush_apply(route_ifnames, 2, clear_if_route4);")
+assert route_apply_pos < full_restart_routes.index("flush_route_caches();")
+assert full_restart_routes.index("flush_route_caches();") < full_restart_routes.index("if (route_flush_status != 0)")
+assert full_restart_routes.index("if (route_flush_status != 0)") < full_restart_routes.index("phy_clear_mac_table()")
+assert "return route_flush_status;" in full_restart_routes
 
 for signature in (
     "full_restart_wan(void)",

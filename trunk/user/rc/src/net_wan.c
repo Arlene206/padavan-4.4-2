@@ -32,6 +32,7 @@
 
 #include "rc.h"
 #include "service_start_status.h"
+#include "wan_route_flush_policy.h"
 #include <process_inventory.h>
 #include <process_pidfile.h>
 #include "process_presence_start_policy.h"
@@ -2857,6 +2858,8 @@ full_restart_wan(void)
 {
 	int status;
 	int switch_vlan_status;
+	int route_flush_status;
+	char *route_ifnames[2];
 
 	if (get_ap_mode())
 		return 0;
@@ -2864,9 +2867,16 @@ full_restart_wan(void)
 		logmessage(LOGNAME, "aborting full WAN restart because services did not stop");
 		return -1;
 	}
-	clear_if_route4(get_man_ifname(0));
-	clear_if_route4(IFNAME_BR);
+	route_ifnames[0] = get_man_ifname(0);
+	route_ifnames[1] = IFNAME_BR;
+	route_flush_status = rc_wan_route_flush_apply(route_ifnames, 2,
+						       clear_if_route4);
 	flush_route_caches();
+	if (route_flush_status != 0) {
+		logmessage(LOGNAME, "aborting full WAN restart because interface routes could not be flushed (status=%d)",
+			   route_flush_status);
+		return route_flush_status;
+	}
 	status = phy_clear_mac_table();
 	if (status != 0) {
 		logmessage(LOGNAME, "aborting full WAN restart because switch MAC table could not be cleared (status=%d)",
