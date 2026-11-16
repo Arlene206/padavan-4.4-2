@@ -1,3 +1,14 @@
+## 2026-11-16 — Always execute fail-closed Samba/FTP stop from AiDisk UI
+
+- Whole-tree lifecycle inventory on exact source SHA `8f55030bb5b7ec29f1cd6bc199a530b9eecfab53` passed: scanner self-test and 6,255 text files across 9,501 tracked tree entries; 0 missing candidates and 0 read errors. Artifact #14186597970 contains the complete JSON/Markdown report.
+- The report found 27 actual `pids()` callsites; `is_dns_dhcpd_run()` has only its declaration and definition, with no caller in the tracked user tree. The highest-risk state-changing consumers were the Samba and FTP disable branches in `trunk/user/httpd/src/aidisk.c`.
+- Fixed the disable path: removed legacy `pids()` prechecks that interpreted a NULL process list (including scan failure) as ABSENT and skipped shutdown; now both actions always call `/sbin/stop_samba` / `/sbin/stop_ftp`. Those RC handlers already own tri-state inventory, verify absence and return failures for UNKNOWN/failed stops, which the UI surfaces.
+- Added a source integration regression requiring both stop handlers and rejecting legacy `pids()` checks in the AiDisk toggle callback. Added the AiDisk source path to XY-C1 firmware validation triggers so the changed HTTPD object is covered by a current MIPS build.
+- Parent main: `8f55030bb5b7ec29f1cd6bc199a530b9eecfab53`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. Exact parent Process inventory #43776730111 and AI docs #43776730107 PASS; inventory artifact #14186597970 uploaded.
+- THIS COMMIT: exact-head Process lifecycle regression, XY-C1 Build/TRX/artifact and AI handoff documentation checks are pending; no L3/L4 result is claimed until the XY-C1 job passes on this SHA.
+
+---
+
 ## 2026-11-15 — Add full user-tree lifecycle inventory to Process CI
 
 - All eight exact-head 4997 Actions PASS, including Process #43775696137, AI handoff #43775695951, NVRAM #43775696126 and SkipDB #43775696130. SkipDB passed its reducer-wrapped GPIO source contract, configuration, all targets and regression tests.

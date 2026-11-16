@@ -658,9 +658,7 @@ ej_set_AiDisk_status(int eid, webs_t wp, int argc, char **argv)
 		else if (!strcmp(flag, "off")) {
 			nvram_set_int("enable_samba", 0);
 			nvram_commit_safe();
-			if (!pids("smbd"))
-				goto SET_AIDISK_STATUS_SUCCESS;
-
+			/* Stop handler owns tri-state checks; do not gate it on a Boolean query. */
 			result = system("/sbin/stop_samba");
 		}
 		else {
@@ -679,8 +677,7 @@ ej_set_AiDisk_status(int eid, webs_t wp, int argc, char **argv)
 		else if (!strcmp(flag, "off")) {
 			nvram_set_int("enable_ftp", 0);
 			nvram_commit_safe();
-			if (!pids("vsftpd"))
-				goto SET_AIDISK_STATUS_SUCCESS;
+			/* Stop handler owns tri-state checks; do not gate it on a Boolean query. */
 			result = system("/sbin/stop_ftp");
 		}
 		else {
