@@ -707,8 +707,10 @@ assert modem_remove.index("if (stop_status != 0)") < modem_remove.index("set_usb
 print("WAN and USB modem DHCP/PPP identity-bound teardown integration: PASS")
 
 usbnet_stop = usb_modem.split("int\nstop_wan_usbnet(void)", 1)[1].split("\n}\n", 1)[0]
-assert "ndis_control_network(ndis_ifname, modem_devnum, 0)" in usbnet_stop
-assert "if (control_status != 0)" in usbnet_stop
+usbnet_stop_compact = " ".join(usbnet_stop.split())
+assert "control_required = 0;" in usbnet_stop_compact
+assert "ndis_control_network(ndis_ifname, modem_devnum, 0, &control_required)" in usbnet_stop_compact
+assert "modem_ndis_control_failed(control_required, control_status)" in usbnet_stop_compact
 assert 'ifdown_status = ifconfig(ndis_ifname, 0, "0.0.0.0", NULL)' in usbnet_stop
 assert "ifdown_status != ENODEV" in usbnet_stop
 assert 'is_usbnet_has_module(ndis_ifname, "cdc_mbim")' in usbnet_stop

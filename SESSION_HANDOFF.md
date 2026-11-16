@@ -10,24 +10,26 @@ Every multi-file logical change must be created as one complete Git tree and one
 
 ## Current repository state
 
-- Parent main before THIS COMMIT: `f5536dd46d24c8d0143c94a81a24a78a4d3cb15f`. It includes the NDIS control-session startup gate and the checker prefix correction for the line-wrapped `ndis_control_network()` definition.
+- Parent main before THIS COMMIT: `a8acbb08d8cf2d8c80713ac2f670ef8ca9dd20e5`. It contains the NDIS required/optional control-status API and the line-wrap-resilient modem source checker.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable and read-only.
-- USB modem identity workflow on source parent `b61ca225bc996bbace4000a7aa5aa6972f9cf5db` run `43921625498` PASS. Prior XY-C1 `43921624845` and Process inventory/fail-closed `43921624682` both failed because the modem source checker did not match the wrapped function signature; the parent fixes the prefix.
-- WAN teardown `43921624637` failed at an inline assertion requiring the old `if (control_status != 0)` source pattern. The stop path now legitimately uses `modem_ndis_control_failed(control_required, control_status)` so optional no-op does not become a false teardown failure. THIS COMMIT updates that assertion. NVRAM `43921624686` PASS.
+- USB modem identity run `43921625498` PASS on source parent `b61ca225bc996bbace4000a7aa5aa6972f9cf5db`.
+- WAN teardown run on parent `a8acbb08d8cf2d8c80713ac2f670ef8ca9dd20e5`, `43922685825`, PASS after its workflow contract was aligned. Process regression on ancestor `f5536dd...`, `43922140695`, failed because its shared integration checker still expected the old NDIS stop-call arity and raw status condition. THIS COMMIT fixes that checker. Its push and PR path filters already cover the script.
+- XY-C1 run `43922140859` on `f5536dd...` was at Build XY-C1 / in_progress at last poll.
 
 ## Active task
 
-THIS COMMIT aligns the WAN teardown workflow's static contract with the required/optional NDIS control result API. It checks that the stop function initializes and passes `control_required` and gates required failures through `modem_ndis_control_failed()`. No production source changes.
+THIS COMMIT aligns `scripts/check_process_lifecycle_integration.py` with the NDIS stop contract. It checks the whitespace-normalized four-argument call, `control_required` initialization and `modem_ndis_control_failed()`. No production source behavior changed.
 
 ## Verification boundary
 
-- Parent modem identity regression `43921625498` PASS. Parent XY-C1 and Process regressions were blocked by the stale function-signature checker, and WAN teardown by the stale stop predicate; neither indicated a product-code failure. NVRAM `43921624686` PASS.
-- THIS COMMIT triggers fresh WAN teardown, XY-C1, and Process regression validation. Exact-head results must be checked before marking these closed.
-- No local compiler/firmware execution claimed; device-side modem testing and physical-router L4 remain NOT VERIFIED. Frozen backup remains unchanged.
+- Parent WAN teardown `43922685825` PASS. Earlier USB modem identity `43921625498` PASS.
+- Process integration `43922140695` failed at the stale NDIS stop-call assertion; THIS COMMIT triggers a new Process run.
+- The XY-C1 checker prefix correction on `f5536dd...` still requires exact-head result inspection. Do not mark firmware L3 until the semantic checker, Build XY-C1, TRX verification and artifact upload all pass on a single source SHA.
+- No local test execution claimed. Hardware/router L4 remains NOT VERIFIED. Frozen backup remains unchanged.
 
 ## Exact first action for the next GPT
 
-1. Inspect THIS COMMIT's exact-head WAN teardown run; confirm the updated optional/required control assertion passes.
-2. Inspect exact-head XY-C1 and Process inventory/fail-closed runs; require the modem source checker to pass beyond NDIS extraction and verify GNU89 modem policy tests. Only mark firmware L3 if Build, TRX and artifact upload all pass on the same source SHA.
-3. Continue one independent WAN/RC service-start result-propagation fix while pending checks run.
+1. Inspect THIS COMMIT's exact-head Process regression and AI docs run. Require all integration contracts to pass, including the updated NDIS stop assertion.
+2. Check XY-C1 run `43922140859` for the earlier checker fix; if failed or pending, diagnose exact logs and rerun only with a justified validation-triggered source/workflow change.
+3. Confirm WAN teardown `43922685825` remains PASS; then continue one independent P1 WAN/RC startup-result propagation issue while pending checks run.
 4. Keep frozen backup read-only and physical-router L4 NOT VERIFIED.

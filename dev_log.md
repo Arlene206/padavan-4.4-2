@@ -1,3 +1,13 @@
+## 2026-11-17 01:52 CST — Align shared process checker with NDIS stop contract
+
+- Base main: `a8acbb08d8cf2d8c80713ac2f670ef8ca9dd20e5`.
+- The Process lifecycle regression on ancestor SHA `f5536dd46d24c8d0143c94a81a24a78a4d3cb15f` failed in `scripts/check_process_lifecycle_integration.py` because it expected the old three-argument `ndis_control_network()` call and raw `if (control_status != 0)` condition. The NDIS control-result API now passes `&control_required` and uses `modem_ndis_control_failed()` so optional no-control drivers are not reported as teardown failures.
+- Updated the integration checker to normalize whitespace and assert the new required/optional contract. The checker is already covered by push and pull-request path filters.
+- Parent WAN teardown run `43922685825` PASS with the updated WAN contract. The earlier Process failure was a stale assertion, not a production-source failure. On ancestor `f5536dd...`, XY-C1 run `43922140859` was still building at last poll; inspect exact build/TRX/artifact result separately.
+- This commit triggers Process regression and AI docs validation. No local test execution is claimed. Target MIPS/router L4 remains NOT VERIFIED; frozen backup unchanged.
+
+---
+
 ## 2026-11-17 01:49 CST — Align WAN stop contract with required/optional modem control
 
 - Base main: `f5536dd46d24c8d0143c94a81a24a78a4d3cb15f`.
