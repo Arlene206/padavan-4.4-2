@@ -244,7 +244,7 @@ assert 'xupnpd launch command failed (status=%d)' in xupnpd_start
 assert "return launch_status;" in xupnpd_start
 assert "int start_xupnpd(char *wan_ifname);" in rc_header
 assert "if (fp1 == NULL)" in xupnpd_start and "if (fp2 == NULL)" in xupnpd_start
-assert "if (ferror(fp2))" in xupnpd_start and "fflush(fp1)" in xupnpd_start
+assert "ferror(fp2)" in xupnpd_start and "fflush(fp1)" in xupnpd_start
 assert "fsync(fileno(fp1))" in xupnpd_start and "rename(tmp1, tmp2)" in xupnpd_start
 assert "unlink(tmp1)" in xupnpd_start
 assert xupnpd_start.index("if (has_daemon)") < xupnpd_start.index('launch_status = eval("/usr/bin/xupnpd");')
