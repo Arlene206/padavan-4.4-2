@@ -15,11 +15,11 @@ For each logical task, create all changed files in one Git tree and one atomic m
 
 ## Active task
 
-Latest main source commit `8a8dfed5441936dc9fcf8e9414f45a21684aff33` adds verified result aggregation for USB/XHCI/EHCI/OHCI, AHCI, MMC/SDHCI, MTK AES and IPSet boot module groups, including XHCI parameter preservation; the XY-C1 workflow has a GNU89/Werror/ASan/UBSan module-load policy test and semantic source contract. Exact-head XY-C1 and related module workflows are pending.
+Latest main source commit `8a8dfed5441936dc9fcf8e9414f45a21684aff33` contains verified status aggregation for USB/XHCI/EHCI/OHCI, AHCI, MMC/SDHCI, MTK AES and IPSet boot module groups, including preservation of XHCI parameters. Its XY-C1 build, TRX and artifact validation remain in progress at last inspection (run `43823036488`, Build XY-C1 step still running).
 
-The IGMP proxy lifecycle source change in `3e7acc5caeb8b8a9d0588edbcc8ab9292b750479` passed XY-C1 Build, TRX and artifact upload (run `43820348179`). Static IPTV regression also passed. WAN-route workflow still has one brittle MAN teardown count assertion: a later exact-head run showed the aggregate count assertion failing even though the targeted production function contains all three guarded route deletes and the new stop_igmpproxy() accumulation. Existing semantic MAN teardown contract separately enforces the new stop result; lower-bound the historic route cleanup count instead of depending on an exact implementation count. This follow-up only changes the test assertion.
+IGMP proxy lifecycle source commit `3e7acc5caeb8b8a9d0588edbcc8ab9292b750479` passed XY-C1 Build/TRX/artifact. Static IPTV regression passed. WAN-route exact-SHA checker chain still fails only in older exact operation-count assertions: after fixing MAN teardown count, the next failure was its stale MAN up exact accumulation count; WAN up has the same stale count (+1 from the correctly accumulated proxy result). This follow-up makes the historical operation counts lower bounds, while the independent semantic checker already requires explicit start/stop proxy status capture and aggregation.
 
-Next: inspect exact-head WAN-route run after this checker-only patch and XY-C1 workflow for `8a8dfed...`. Then audit `reload_modem_modules()` internals and config ownership before modifying any legacy void API.
+Next: check exact-head WAN-route after this test-only patch, and check XY-C1 for boot module commit `8a8dfed...`. Then continue tracing legacy `reload_modem_modules()` implementation/callers before modifying any of its void API.
 
 ## Files and caller chain reviewed
 

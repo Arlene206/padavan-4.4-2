@@ -1,3 +1,11 @@
+## 2026-11-16 — Relax MAN/WAN up operation counts in WAN source contract
+
+- Parent: ea22f196ad50bfc07aaa64547e02001f5946ae99. Exact-head WAN run 43823569962 passed C host tests and earlier cleanup checks but failed at a stale MAN-up aggregation-count assertion. Inspection of source at that exact SHA confirmed MAN-up has four accumulations (the added IGMP start is the fourth) and WAN-up has seven (the added IGMP start is the seventh). Previous exact equality expectations were 3 and 6.
+- Replaced only those exact equality checks with lower-bound checks; semantic caller assertions separately require the IGMP proxy status to be stored and accumulated.
+- XY-C1 run 43823036488 for boot module source 8a8dfed... was still building XY-C1 at last inspection.
+- Next: check exact-head WAN and target build, then audit reload_modem_modules() before any API change.
+---
+
 ## 2026-11-16 — Make MAN teardown source-check count resilient
 
 - Parent: 8a8dfed5441936dc9fcf8e9414f45a21684aff33. WAN run 43821921846 passed sanitizer host tests and the first source checker, then failed at the second source-contract assertion for the total MAN teardown status-aggregation count. The targeted source is independently checked for each route delete and the new stop_igmpproxy() result, so a hard-coded exact count is unnecessary; the regression now requires the original minimum count (>=5) and the specific new proxy assertion remains separately required.
