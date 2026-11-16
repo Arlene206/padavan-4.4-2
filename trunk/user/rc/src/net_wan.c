@@ -2873,11 +2873,10 @@ full_restart_wan(void)
 	}
 	route_ifnames[0] = get_man_ifname(0);
 	route_ifnames[1] = IFNAME_BR;
-	route_flush_status = rc_wan_route_flush_apply(route_ifnames, 2,
-						       clear_if_route4);
-	flush_route_caches();
+	route_flush_status = rc_wan_route_flush_and_cache_apply(
+		route_ifnames, 2, clear_if_route4, flush_route_caches);
 	if (route_flush_status != 0) {
-		logmessage(LOGNAME, "aborting full WAN restart because interface routes could not be flushed (status=%d)",
+		logmessage(LOGNAME, "aborting full WAN restart because interface routes or the global route cache could not be flushed (status=%d)",
 			   route_flush_status);
 		return route_flush_status;
 	}

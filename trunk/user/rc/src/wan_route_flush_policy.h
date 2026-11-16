@@ -34,4 +34,18 @@ rc_wan_route_flush_apply(char *const *ifnames, unsigned int count,
 	return first_status;
 }
 
+typedef int (*rc_wan_route_cache_flush_fn)(void);
+
+/* Attempt the independent global cache flush even after interface failures. */
+static inline int
+rc_wan_route_flush_and_cache_apply(char *const *ifnames, unsigned int count,
+				   rc_wan_route_flush_fn flush,
+				   rc_wan_route_cache_flush_fn flush_cache)
+{
+	int first_status = rc_wan_route_flush_apply(ifnames, count, flush);
+	int cache_status = flush_cache ? flush_cache() : EINVAL;
+
+	return rc_first_service_start_status(first_status, cache_status);
+}
+
 #endif /* RC_WAN_ROUTE_FLUSH_POLICY_H */

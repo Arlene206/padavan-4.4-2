@@ -724,10 +724,10 @@ flush_conntrack_table(char *ip)
 	return rc_conntrack_flush_apply(ip, fput_string);
 }
 
-void
+int
 flush_route_caches(void)
 {
-	system("ip route flush cache");
+	return eval("ip", "route", "flush", "cache");
 }
 
 int

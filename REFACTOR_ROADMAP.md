@@ -1,9 +1,11 @@
 ## Current source / CI checkpoint
 
-- Product-source conntrack result-propagation commit cffc149 is L3 VERIFIED by XY-C1 run 43973861873 (firmware Build, TRX verification and artifact upload all passed).
-- LAN teardown commit 759c18d captures clear_if_route4(IFNAME_BR)'s return, logs failure and aggregates conntrack→route→bridge-down errors while continuing IPv6 and interface cleanup. Process source integration and status regression passed on 759c18d (Process 43976717949 and Process lifecycle 43976718109).
-- WAN route run 43976718132 failed only because its inline assertion still expected the old stop_lan() return that omitted route_status; this commit updates it to enforce the new nested aggregator and cleanup order. WAN DHCP 43976717974 and AI handoff 43976717913 passed.
-- XY-C1 43976717898 for LAN teardown source SHA 759c18d was pending at last poll. Same-SHA Build/TRX/artifact is required for current L3. Physical-router L4 remains NOT VERIFIED.
+- Conntrack propagation fix `cffc1497fda9f65d9a0b163bad5acc1723c23f81` passed exact-source XY-C1 run `43973861873`: firmware build, TRX verification and artifact upload. L3 is verified for cffc149.
+- LAN teardown fix `759c18d860ba1c0cb547f43fa7ca8d21b6580987` captures and aggregates bridge route-flush errors with conntrack and bridge shutdown; exact Process source/regression passed.
+- Exact parent `2c503c9` WAN route `43977147385`, Process `43977147335` and AI handoff `43977147281` passed; NVRAM `43977147536` was still running.
+- Current P1 route-cache slice returns the `ip route flush cache` status, merges it with per-interface route errors before the full WAN restart gate, and adds injected GNU89/ASan/UBSan coverage. Exact-head WAN route, Process, AI handoff and XY-C1 are pending.
+- Exact 759c18 XY-C1 `43976717898` was still building at last poll; Build/TRX/artifact not yet complete. The new source change requires same-SHA product evidence before L3 can be claimed.
+- Frozen backup remains read-only; physical-router L4 remains **NOT VERIFIED**.
 
 ## Whole-repository module status
 

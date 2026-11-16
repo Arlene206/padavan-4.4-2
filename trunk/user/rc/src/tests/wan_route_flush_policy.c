@@ -8,6 +8,8 @@
 static int mock_status[2];
 static int mock_calls;
 static char *mock_ifnames[2];
+static int mock_cache_status;
+static int mock_cache_calls;
 
 static int
 mock_flush_route(char *ifname)
@@ -18,12 +20,21 @@ mock_flush_route(char *ifname)
 	return mock_status[index];
 }
 
+static int
+mock_flush_route_cache(void)
+{
+	++mock_cache_calls;
+	return mock_cache_status;
+}
+
 static void
 reset_case(int first_status, int second_status)
 {
 	mock_status[0] = first_status;
 	mock_status[1] = second_status;
 	mock_calls = 0;
+	mock_cache_status = 0;
+	mock_cache_calls = 0;
 	mock_ifnames[0] = NULL;
 	mock_ifnames[1] = NULL;
 }
@@ -66,6 +77,41 @@ test_invalid_interface_does_not_skip_other_cleanup(void)
 }
 
 static void
+test_global_cache_flush_is_attempted_and_errors_are_preserved(void)
+{
+	char *ifnames[] = { "eth3", "br0" };
+
+	/* Global cache cleanup still runs after a per-interface route failure. */
+	reset_case(EIO, EPERM);
+	mock_cache_status = ENOSPC;
+	assert(rc_wan_route_flush_and_cache_apply(
+		ifnames, 2, mock_flush_route, mock_flush_route_cache) == EIO);
+	assert(mock_calls == 2);
+	assert(mock_cache_calls == 1);
+
+	/* A cache-only failure must prevent route-dependent restart work. */
+	reset_case(0, 0);
+	mock_cache_status = EACCES;
+	assert(rc_wan_route_flush_and_cache_apply(
+		ifnames, 2, mock_flush_route, mock_flush_route_cache) == EACCES);
+	assert(mock_calls == 2);
+	assert(mock_cache_calls == 1);
+
+	reset_case(0, 0);
+	assert(rc_wan_route_flush_and_cache_apply(
+		ifnames, 2, mock_flush_route, mock_flush_route_cache) == 0);
+	assert(mock_calls == 2);
+	assert(mock_cache_calls == 1);
+
+	/* A missing cache callback is an error, but interface cleanup was tried. */
+	reset_case(0, 0);
+	assert(rc_wan_route_flush_and_cache_apply(
+		ifnames, 2, mock_flush_route, NULL) == EINVAL);
+	assert(mock_calls == 2);
+	assert(mock_cache_calls == 0);
+}
+
+static void
 test_invalid_policy_arguments_fail_closed(void)
 {
 	char *ifnames[] = { "eth3" };
@@ -82,6 +128,7 @@ main(void)
 	test_all_interfaces_are_attempted_and_first_error_is_preserved();
 	test_successful_flush_returns_zero();
 	test_invalid_interface_does_not_skip_other_cleanup();
+	test_global_cache_flush_is_attempted_and_errors_are_preserved();
 	test_invalid_policy_arguments_fail_closed();
 	puts("WAN route flush attempt and first-error policy: PASS");
 	return 0;
