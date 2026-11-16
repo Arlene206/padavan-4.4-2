@@ -51,7 +51,7 @@ func_save() { :; }
 
 # Source the complete production script with its explicit test-only
 # dispatcher guard; this keeps heredoc-containing functions intact.
-set -- check nolog
+set -- check nolog test
 RED_SOCKS_TEST_MODE=1
 export RED_SOCKS_TEST_MODE
 . "$ROOT/trunk/user/redsocks/redsocks.sh"
