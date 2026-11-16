@@ -4,45 +4,42 @@ Mandatory handoff checkpoint: Every session MUST inspect live repository state a
 
 Continue the recorded engineering task across ChatGPT conversations. Recover live repository state once, do not repeat completed audits, and do not ask the user what to do next.
 
-For each logical task, create all changed files in one Git tree and one atomic main commit parented to freshly fetched `main`; update `main` with exact expected SHA using a non-forced compare-and-swap. Never force-push, rewrite history, create partial commits, or touch the frozen backup. Before context exhaustion, record precise live refs, exact Action results and the next concrete task.
+For each logical task, create all changed files in one Git tree and one atomic main commit parented to freshly fetched `main`; update `main` with exact expected SHA using a non-forced compare-and-swap. Never force-push, rewrite history, create partial commits, or touch the frozen backup.
 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; active branch: `main`.
-- Parent main for THIS TTY identity slice: `37f00465dec9af78f3e366a16e903ddc600603c2`. Refetch live `main` before every later write and use expected-SHA non-forced compare-and-swap.
-- Frozen archive: `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable.
-- Startup protocol, root governance, archive index, backup marker and PR #1 recovery are complete; do not repeat that audit.
-- Root `dev_log.md` contained 87 newest-first records before THIS commit; this entry makes 88, inside the required 20–119 window.
+- Parent for THIS HTTPD workflow contract correction: `70e20841ef6dc6198fda5036521760f99d43a46d`. Refetch live main before every subsequent write and use expected-SHA non-forced CAS.
+- Frozen archive: `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only.
+- Startup governance/archive/backup/PR recovery are already complete; do not repeat the startup audit.
+- `dev_log.md` contains 88 records before this change; this entry will make 89. Keep the file within 20–119 records.
 
 ## Active task
 
-The NDIS USB modem WAN control-TTY fallback now has a same-physical-device selection policy:
-- The NDIS interface is resolved to its USB port ID; its kernel devnum is already supplied by NDIS discovery.
-- Candidate TTY metadata must contain one well-formed `pref=0|1`, `devnum=1..127` and `portid`, and both identity fields must match the NDIS interface's physical identity.
-- A configured `modem_node` index is a hard pin, but only if that TTY node belongs to the same physical USB device. A mismatched manual choice fails closed instead of switching silently.
-- Without a manual index, the selector chooses a same-device preferred node first and then any same-device TTY fallback.
-- WDM lookup remains constrained to the same port ID + devnum and does not inherit the TTY manual-selection behavior.
-
-This closes the concrete cross-modem control-TTY selection risk at source/policy level. Do not call it verified until the exact-head GNU89/Werror/ASan/UBSan and source-contract Actions pass.
+The exact-parent HTTPD Authentication workflow run exposed one more stale source contract in its USB metadata step:
+- Workflow `43845149417`, job `133223331331`, passed the standalone modem metadata policy binary and the USB hotplug metadata staging check.
+- The embedded Python assertion then failed because it expected the removed generic `get_modem_node("ttyUSB", devnum, NULL)` selector to remain in `usb_modem.c`.
+- The NDIS TTY control path now correctly uses `get_modem_node_by_usb_identity("ttyUSB", ndis_port_id, devnum)`; THIS commit updates the workflow's source assertion to require that identity-bound selection instead.
+- This is a checker correction only; no production behavior is changed here.
 
 ## Verification boundary
 
-Exact-head `9e284e758526ac281228e86b81dc349adbeff783` observations:
+Exact-head observations on parent `70e20841ef6dc6198fda5036521760f99d43a46d`:
 
-- USB modem WDM/NDIS physical identity run `43844807532`: SUCCESS. It validates the new same-device TTY selection policy and host/source regression checks, not physical multi-modem hardware.
-- Process lifecycle integration run `43844807348`: IN_PROGRESS at last observation; an earlier parent run failed because `check_process_lifecycle_integration.py` parsed the former `void start_wan()` signature. THIS corrective commit updates that parser to the current `int start_wan()` definition. Exact-head rerun required.
-- XY-C1 Firmware Validation run `43844807421`: IN_PROGRESS at last observation. It must complete Build XY-C1, TRX verification and artifact upload before L3 is claimed.
-- HTTPD Authentication/Security run `43844807351`: FAIL in its embedded `start_wan()` checker because it searched for bare `return;` in a function that now returns `int`. THIS corrective commit asserts the actual callback setup and VLAN error returns and preserves their ordering.
-- AI handoff docs `43844807461`: SUCCESS; Infosvr packet regression `43844807516`: SUCCESS; WAN teardown `43844807410`: SUCCESS; AdGuardHome `43844807404`: SUCCESS; AliyunDrive `43844807369`: SUCCESS; AliDDNS `43844807524`: SUCCESS.
-- Prior `f0902af` WAN DHCP callback `43844254326` and miniupnpd config `43844254468` passed. Earlier exact-head WAN route `43844254309` passed. Use each Action's exact `head_sha` when interpreting results.
-- No current-source XY-C1 Build/TRX/artifact PASS or physical-router/L4 evidence is established at the `9e284e7` parent.
+- Process inventory/lifecycle run `43845149493`: SUCCESS after the current int-return `start_wan(void)` source-checker fix.
+- XY-C1 run `43845149433`: IN_PROGRESS at the `Build XY-C1` step on last inspection. Earlier policy regression steps had passed; no TRX verification or artifact-upload result yet, so no L3 pass is claimed.
+- AI handoff docs `43845149351`, infosvr `43845149279`, AdGuardHome `43845149408`, AliDDNS `43845149268`, AliyunDrive `43845149455`: SUCCESS.
+- HTTPD Authentication `43845149417`: FAIL at `Verify USB modem node metadata staging`. The metadata policy binary and preceding hotplug metadata contract printed PASS; the only observed failure was the stale generic TTY getter assertion fixed by THIS commit.
+- NVRAM transaction boundary `43845149529`: IN_PROGRESS at last inspection.
+- USB WDM/NDIS identity test `43844807532` on parent `9e284e758526ac281228e86b81dc349adbeff783`: SUCCESS, including GNU89/Werror/ASan/UBSan test and the same-device TTY source contract.
+- No exact-parent XY-C1 TRX/artifact L3 result or physical-router/L4 result is established.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-head Process lifecycle, XY-C1 Firmware Validation, HTTPD Security, USB modem WDM/NDIS identity, AI handoff and Infosvr Actions. Read failed job logs. Confirm Process and HTTPD are green; require XY-C1 Build, TRX verification and artifact upload before L3.
-2. Then investigate `reload_modem_modules()` readiness and failure propagation. Map all modem driver alternatives, supported module configurations, module dependency ordering and all callers of `module_smart_load()` / `module_smart_unload()`. Separate optional-driver absence from a failure that makes the selected device unusable; add a small host policy and source-linked regression before changing behavior.
-3. Continue whole-repository user-space stability/security governance after the modem readiness slice; do not return to already-completed NDIS TTY identity matching unless its exact-head workflow exposes a defect.
+1. Fetch current main and inspect exact-head HTTPD, XY-C1, NVRAM, Process and AI handoff actions. Read failures, and do not count XY-C1 L3 until Build, TRX verification and artifact upload all complete.
+2. Inspect the unresolved `reload_modem_modules()` contract carefully. `module_smart_load()` can return zero both for an already-loaded module and for a failed load; `/sys/module` post-load state is authoritative. Do not require every alternative NDIS driver to load. Determine which selected-device readiness condition can be tested after USB host initialization, and propagate only well-defined failures.
+3. Broaden stability/security governance beyond USB modem work when the above integration gates are green.
 
 ## Governance constraints
 
-Preserve security, architecture, compatibility, target-toolchain and mandatory tests. Use only `main`; frozen backup is read-only. Update root `dev_log.md` for every code/documentation commit; keep the root record window at 20–119 and preserve archives/indexes verbatim. Distinguish source, CI and firmware validation levels. No force-push, history rewrite, or unrun-test/build/hardware claim.
+Preserve security, architecture, compatibility, target-toolchain and mandatory tests. Use only `main`; the frozen backup remains read-only. Update `dev_log.md` for every code/documentation commit and preserve archived shards/indexes verbatim. Distinguish source, CI, firmware and physical-router validation. Never claim an unrun test/build/hardware result.

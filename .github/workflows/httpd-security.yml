@@ -2479,7 +2479,7 @@ jobs:
           assert "fchmod(fd, 0644)" in helper
           assert 'fopen(node_fname, "r")' in reader
           assert 'fopen(node_fname, "r+")' not in reader
-          assert 'get_modem_node("ttyUSB", devnum, NULL)' in reader
+          assert 'get_modem_node_by_usb_identity("ttyUSB", ndis_port_id, devnum)' in reader
           net_start = hotplug.index("int mdev_net_main(")
           tty_start = hotplug.index("int mdev_tty_main(", net_start)
           net_handler = hotplug[net_start:tty_start]

@@ -1,3 +1,13 @@
+## 2026-11-16 — Correct USB TTY selector contract in HTTPD workflow
+
+- Parent main: `70e20841ef6dc6198fda5036521760f99d43a46d`. HTTPD Authentication run `43845149417`, job `133223331331`, passed the modem metadata policy binary and hotplug metadata atomic-staging source contract, then failed only because the workflow still expected the removed generic `get_modem_node("ttyUSB", devnum, NULL)` call.
+- The NDIS TTY path now uses `get_modem_node_by_usb_identity("ttyUSB", ndis_port_id, devnum)`; updated the workflow contract to assert the physical-identity-bound call instead of preserving a stale selector.
+- Process inventory run `43845149493` passed after the int-return `start_wan()` source contract correction. AI docs `43845149351`, infosvr `43845149279`, AdGuardHome `43845149408`, AliDDNS `43845149268`, and AliyunDrive `43845149455` passed.
+- XY-C1 `43845149433` was still building at last inspection; NVRAM `43845149529` remained in progress. No current-parent L3 or L4 result is claimed.
+- Next: inspect exact-head HTTPD/XY-C1/NVRAM results, then determine how to verify modem driver loading without treating optional alternative NDIS drivers as mandatory.
+
+---
+
 ## 2026-11-16 — Fix process lifecycle and HTTPD WAN return contracts
 
 - Parent main `9e284e758526ac281228e86b81dc349adbeff783` introduced NDIS control-TTY same-device matching by physical USB port ID + devnum; USB modem WDM/NDIS identity run `43844807532` passed. Process lifecycle run `43844807348` still contained an old `void\nstart_wan(void)` parser; updated it to the current int-return signature.
