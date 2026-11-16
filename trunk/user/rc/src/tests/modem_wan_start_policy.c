@@ -76,6 +76,33 @@ test_physical_wan_ifup_failure_survives_cleanup(void)
 	assert(status == ENODEV);
 }
 
+static void
+test_required_ppp_failures_reach_wan_start_status(void)
+{
+	int status = 0;
+
+	status = rc_first_service_start_status(status, EBUSY); /* UPnP migration */
+	status = rc_first_service_start_status(status, ENODEV); /* PPTP/L2TP physical WAN */
+	status = rc_first_service_start_status(status, EIO); /* pppd launch */
+	status = rc_first_service_start_status(status, ETIMEDOUT); /* demand readiness */
+	status = rc_first_service_start_status(status, EACCES); /* best-effort restore */
+
+	assert(status == EBUSY);
+}
+
+static void
+test_required_ipoe_failures_reach_wan_start_status(void)
+{
+	int status = 0;
+
+	status = rc_first_service_start_status(status, EBUSY); /* UPnP migration */
+	status = rc_first_service_start_status(status, EADDRNOTAVAIL); /* static IPv4 address */
+	status = rc_first_service_start_status(status, EACCES); /* EAPOL */
+	status = rc_first_service_start_status(status, EIO); /* DHCP client */
+
+	assert(status == EBUSY);
+}
+
 int
 main(void)
 {
@@ -84,6 +111,8 @@ main(void)
 	test_first_modem_error_survives_best_effort_followup();
 	test_ras_physical_setup_error_survives_ras_launch();
 	test_physical_wan_ifup_failure_survives_cleanup();
+	test_required_ppp_failures_reach_wan_start_status();
+	test_required_ipoe_failures_reach_wan_start_status();
 	puts("USB modem WAN startup status policy: PASS");
 	return 0;
 }

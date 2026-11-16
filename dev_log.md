@@ -1,3 +1,14 @@
+## 2026-11-16 — Propagate required PPP and IPoE startup failures to PID 1
+
+- Parent main: `48ff82881c7e83c29ab64a5285ee9d2bf8be6955`. Targeted review of `start_wan()` found required PPP/IPoE transitions that aborted startup or set a per-WAN error flag without entering the status returned to PID 1: PPP/IPoE UPnP migration stop, PPTP/L2TP physical setup, pppd launch, demand PPP readiness, static IPv4 assignment, EAPOL startup and DHCP client launch.
+- Each required failure now enters the first-error WAN accumulator before `continue` or best-effort recovery. PPPoE's intentional best-effort physical setup behavior and optional MTU/UPnP notification behavior are unchanged.
+- `wait_ppp_up()` now returns zero only for readiness success and retains the underlying interface, socket or route error for the caller.
+- Added GNU89 policy regressions for PPP/IPoE first-error retention and source-contract coverage for each mandatory operation; updated WAN route workflow demand-readiness assertions to the explicit status contract.
+- Parent `48ff8288` AI docs, NVRAM, AliDDNS, infosvr, AliyunDrive, AdGuardHome, Process inventory and WAN DHCP callback runs were queued at last inspection; no exact-head source tests or firmware L3 are claimed yet.
+- Next: inspect exact-head Process, XY-C1, WAN route/DHCP and AI docs; continue checking required callback/lease failure propagation. No physical-router L4 claim.
+
+---
+
 ## 2026-11-16 — Align WAN DHCP callback contract with the static MAN address status variable
 
 - Parent main: `3c7a5a125f670335cb1b305674790eece80b1dcc`. WAN route operation regression `43866768822` and AI handoff docs `43866769102` passed. WAN DHCP callback `43866769025` passed all six native GNU89 regression binaries, then failed in its final source-contract step because it still expected `launch_status = ifconfig(...)`. The MAN startup fix intentionally records the direct address result in `address_status` before aggregating route and gateway failures.

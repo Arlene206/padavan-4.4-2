@@ -1,9 +1,9 @@
 ## Current source / CI checkpoint
 
-- Product-source checkpoint: `3c7a5a125f670335cb1b305674790eece80b1dcc`; required MAN address/route/gateway/physical IPv6 result aggregation uses first-error semantics.
-- WAN route `43866768822` and AI docs `43866769102`: SUCCESS. WAN DHCP callback `43866769025`: stale source assertion expected the superseded direct `launch_status = ifconfig(...)` assignment after six native regressions passed.
-- This correction updates the workflow to verify `address_status = ifconfig(...)` and preserves the source implementation.
-- No same-SHA L3/L4 claim.
+- Product-source baseline: `48ff82881c7e83c29ab64a5285ee9d2bf8be6955`; required PPP/IPoE migration, physical PPTP/L2TP setup, pppd launch, demand readiness, static IPv4, EAPOL and DHCP failures now aggregate into PID 1's first-error WAN status.
+- `wait_ppp_up()` returns 0 only after readiness and preserves interface/socket/route failure status. Added GNU89 first-error tests and source contracts for the required PPP/IPoE operations.
+- The WAN route workflow now asserts the explicit demand readiness status contract and that the failure is aggregated before physical WAN restore.
+- Parent `48ff8288` exact-head checks were queued; this source SHA requires fresh Process, XY-C1 and WAN route/DHCP validation. No L3/L4 claim.
 
 
 ## Whole-repository module status

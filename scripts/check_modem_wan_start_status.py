@@ -91,6 +91,45 @@ assert "return rc_first_service_start_status(modem_start_status, wan_start_statu
 assert re.search(r"wan_start_status\s*=\s*rc_first_service_start_status\s*\(\s*wan_start_status\s*,\s*ipv6_status\s*\)\s*;", wan_start)
 assert "vlan_result = launch_wan_usbnet(unit);" in wan_start
 assert "vlan_result = launch_wan_modem_ras(unit);" in wan_start
+
+wait_ppp = compact(body(WAN_SOURCE, "wait_ppp_up(char *ppp_ifname, int unit)"))
+assert "return interface_status;" in wait_ppp
+assert "return socket_status;" in wait_ppp
+assert "return route_status ? route_status : EIO;" in wait_ppp
+assert "return 0;" in wait_ppp[wait_ppp.index('doSystem("ping -c1 %s", ppp_gate);'):]
+ppp_branch_start = wan_start.index("char *proto_desc, *ppp_ifname = IFNAME_PPP;")
+ipoe_branch_start = wan_start.index("else if (wan_proto == IPV4_WAN_PROTO_IPOE_DHCP", ppp_branch_start)
+ppp_branch = wan_start[ppp_branch_start:ipoe_branch_start]
+for operation in (
+    "vlan_result = check_upnp_wanif_changed(ppp_ifname);",
+    "vlan_result = launch_wan_pppd(unit, wan_proto);",
+    "vlan_result = wait_ppp_up(ppp_ifname, unit);",
+):
+    operation_pos = ppp_branch.index(operation)
+    next_continue = ppp_branch.index("continue;", operation_pos)
+    failure_path = ppp_branch[operation_pos:next_continue]
+    assert "wan_start_status = rc_first_service_start_status" in failure_path, (
+        operation + " failures must reach the WAN startup result"
+    )
+wanx_failure_pos = ppp_branch.index("if (!i_pppoe && wanx_status != 0)")
+wanx_failure_end = ppp_branch.index("continue;", wanx_failure_pos)
+assert "wan_start_status = rc_first_service_start_status" in ppp_branch[wanx_failure_pos:wanx_failure_end]
+
+ipoe_end = wan_start.index("return rc_first_service_start_status(modem_start_status, wan_start_status);", ipoe_branch_start)
+ipoe_branch = wan_start[ipoe_branch_start:ipoe_end]
+migration_pos = ipoe_branch.index("vlan_result = check_upnp_wanif_changed(wan_ifname);")
+migration_end = ipoe_branch.index("continue;", migration_pos)
+assert "wan_start_status = rc_first_service_start_status" in ipoe_branch[migration_pos:migration_end]
+address_pos = ipoe_branch.index("if (address_status != 0)")
+address_end = ipoe_branch.index("/* re-build iptables rules (final stage for IPoE static) */", address_pos)
+assert "wan_start_status = rc_first_service_start_status" in ipoe_branch[address_pos:address_end]
+auth_pos = ipoe_branch.index("if (auth_status != 0)")
+auth_end = ipoe_branch.index("/* We are done configuration */", auth_pos)
+assert "wan_start_status = rc_first_service_start_status" in ipoe_branch[auth_pos:auth_end]
+dhcp_pos = ipoe_branch.index("if (dhcp_status != 0)")
+dhcp_end = ipoe_branch.index('set_wan_unit_value_int(unit, "err", wan_err);', dhcp_pos)
+assert "wan_start_status = rc_first_service_start_status" in ipoe_branch[dhcp_pos:dhcp_end]
+
 aggregate_pattern = r"modem_start_status\s*=\s*rc_first_service_start_status\s*\(\s*modem_start_status\s*,\s*vlan_result\s*\)\s*;"
 aggregate_matches = list(re.finditer(aggregate_pattern, wan_start))
 assert len(aggregate_matches) == 3

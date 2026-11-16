@@ -1509,23 +1509,31 @@ static int
 wait_ppp_up(char *ppp_ifname, int unit)
 {
 	int timeout, sockfd, route_status;
+	int interface_status, failure_status, socket_status;
 	struct ifreq ifr;
 	char *ppp_gate;
 
 	/* Wait for pppX to be created */
 	timeout = 5;
-	while (ifconfig(ppp_ifname, IFUP, NULL, NULL)) {
+	while ((interface_status = ifconfig(ppp_ifname, IFUP, NULL, NULL)) != 0) {
 		/* Six failed probes (five one-second waits) mean the interface never appeared. */
 		if (timeout-- <= 0) {
-			logmessage(LOGNAME, "PPP interface %s did not appear before startup timeout", ppp_ifname);
-			return 0;
+			failure_status = (interface_status < 0 && errno != 0) ?
+				errno : interface_status;
+			logmessage(LOGNAME, "PPP interface %s did not appear before startup timeout (status=%d)",
+				   ppp_ifname, failure_status);
+			return failure_status;
 		}
 		sleep(1);
 	}
 
 	/* Retrieve IP info */
-	if ((sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0)
-		return 0;
+	if ((sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) {
+		socket_status = errno ? errno : EIO;
+		logmessage(LOGNAME, "cannot inspect demand PPP interface %s (errno=%d)",
+			   ppp_ifname, socket_status);
+		return socket_status;
+	}
 
 	/* Store temporary IP address */
 	ppp_gate = "";
@@ -1555,14 +1563,14 @@ wait_ppp_up(char *ppp_ifname, int unit)
 		 * attempt. Demand pppd remains persistent; a later ip-up callback retries
 		 * wan_up() route setup after start_wan() restores physical WAN publication.
 		 */
-		return 0;
+		return route_status ? route_status : EIO;
 	}
 
 	/* Stimulate link up */
 	if (is_valid_ipv4(ppp_gate))
 		doSystem("ping -c1 %s", ppp_gate);
 
-	return 1;
+	return 0;
 }
 
 static void
@@ -1786,8 +1794,12 @@ start_wan(void)
 			else
 				proto_desc = "L2TP";
 			
-			if (check_upnp_wanif_changed(ppp_ifname) != 0) {
-				logmessage(LOGNAME, "aborting WAN startup for unit %d: miniupnpd did not stop before interface migration", unit);
+			vlan_result = check_upnp_wanif_changed(ppp_ifname);
+			if (vlan_result != 0) {
+				wan_start_status = rc_first_service_start_status(
+					wan_start_status, vlan_result);
+				logmessage(LOGNAME, "aborting WAN startup for unit %d: miniupnpd did not stop before interface migration (status=%d)",
+					   unit, vlan_result);
 				continue;
 			}
 			set_wan_unit_value(unit, "proto_t", proto_desc);
@@ -1805,6 +1817,8 @@ start_wan(void)
 				logmessage(LOGNAME, "WAN physical interface setup incomplete on %s (status=%d)",
 					   wan_ifname, wanx_status);
 			if (!i_pppoe && wanx_status != 0) {
+				wan_start_status = rc_first_service_start_status(
+					wan_start_status, wanx_status);
 				logmessage(LOGNAME, "aborting WAN PPP startup for unit %d: physical WAN setup failed (status=%d)",
 					   unit, wanx_status);
 				restore_wan_after_ppp_start_failure(unit, wan_ifname);
@@ -1825,18 +1839,28 @@ start_wan(void)
 			set_wan_unit_value_int(unit, "pppoe_demand", i_demand);
 			
 			/* Launch the PPP client only after the options file is finalized. */
-			if (launch_wan_pppd(unit, wan_proto) != 0) {
-				logmessage(LOGNAME, "aborting WAN PPP startup for unit %d after launch failure", unit);
+			vlan_result = launch_wan_pppd(unit, wan_proto);
+			if (vlan_result != 0) {
+				wan_start_status = rc_first_service_start_status(
+					wan_start_status, vlan_result);
+				logmessage(LOGNAME, "aborting WAN PPP startup for unit %d after launch failure (status=%d)",
+					   unit, vlan_result);
 				/* Do not leave a phantom ppp0 interface in firewall/UPnP state. */
 				restore_wan_after_ppp_start_failure(unit, wan_ifname);
 				continue;
 			}
-			
+
 			/* Pretend that the WAN interface is up */
-			if (i_demand && !wait_ppp_up(ppp_ifname, unit)) {
-				logmessage(LOGNAME, "aborting WAN PPP startup for unit %d because the demand interface or route setup is incomplete", unit);
-				restore_wan_after_ppp_start_failure(unit, wan_ifname);
-				continue;
+			if (i_demand) {
+				vlan_result = wait_ppp_up(ppp_ifname, unit);
+				if (vlan_result != 0) {
+					wan_start_status = rc_first_service_start_status(
+						wan_start_status, vlan_result);
+					logmessage(LOGNAME, "aborting WAN PPP startup for unit %d because the demand interface or route setup is incomplete (status=%d)",
+						   unit, vlan_result);
+					restore_wan_after_ppp_start_failure(unit, wan_ifname);
+					continue;
+				}
 			}
 		}
 		else if (wan_proto == IPV4_WAN_PROTO_IPOE_DHCP ||
@@ -1845,8 +1869,12 @@ start_wan(void)
 			int wan_auth_mode, wan_err = 0, wan_upnp_status, auth_status, dhcp_status;
 			
 			/* Configure DHCP connection. */
-			if (check_upnp_wanif_changed(wan_ifname) != 0) {
-				logmessage(LOGNAME, "aborting WAN startup for unit %d: miniupnpd did not stop before interface migration", unit);
+			vlan_result = check_upnp_wanif_changed(wan_ifname);
+			if (vlan_result != 0) {
+				wan_start_status = rc_first_service_start_status(
+					wan_start_status, vlan_result);
+				logmessage(LOGNAME, "aborting WAN startup for unit %d: miniupnpd did not stop before interface migration (status=%d)",
+					   unit, vlan_result);
 				continue;
 			}
 			set_wan_unit_value(unit, "proto_t", "IPoE");
@@ -1878,6 +1906,8 @@ start_wan(void)
 					address_status = ifconfig(wan_ifname, IFUP, wan_addr, wan_mask);
 					if (address_status != 0) {
 						wan_err = 1;
+						wan_start_status = rc_first_service_start_status(
+							wan_start_status, address_status);
 						logmessage(LOGNAME, "failed to configure static WAN address on %s (status=%d)",
 							   wan_ifname, address_status);
 						clear_status = ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
@@ -1898,6 +1928,8 @@ start_wan(void)
 			if (wan_auth_mode > 1) {
 				auth_status = start_auth_eapol(wan_ifname, unit, wan_auth_mode - 2);
 				if (auth_status != 0) {
+					wan_start_status = rc_first_service_start_status(
+						wan_start_status, auth_status);
 					logmessage(LOGNAME, "WAN EAPOL authentication startup failed on %s (status=%d); skipping address/lease setup",
 						   wan_ifname, auth_status);
 					set_wan_unit_value_int(unit, "err", 1);
@@ -1926,6 +1958,8 @@ start_wan(void)
 				dhcp_status = start_udhcpc_wan(wan_ifname, unit, 0);
 				if (dhcp_status != 0) {
 					wan_err = 1;
+					wan_start_status = rc_first_service_start_status(
+						wan_start_status, dhcp_status);
 					logmessage(LOGNAME, "WAN DHCP client launch failed on %s (status=%d)",
 						   wan_ifname, dhcp_status);
 				}

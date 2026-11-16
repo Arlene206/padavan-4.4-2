@@ -282,18 +282,20 @@ jobs:
           demand_wait = body(wan, "wait_ppp_up(char *ppp_ifname, int unit)")
           preset_call = demand_wait.index("route_status = preset_wan_ppp_routes(ppp_ifname, unit);")
           ready_gate = demand_wait.index("if (!route_status_demand_ready(route_status))")
-          ready_failure = demand_wait.index("return 0;", ready_gate)
+          ready_failure = demand_wait.index("return route_status ? route_status : EIO;", ready_gate)
           demand_ping = demand_wait.index('doSystem("ping -c1 %s", ppp_gate);')
           assert preset_call < ready_gate < ready_failure < demand_ping
           assert "PPP demand route preinstallation incomplete" in demand_wait
           assert "EEXIST-normalized entries may predate this" in demand_wait
-          assert "return 1;" in demand_wait[demand_ping:]
+          assert "return 0;" in demand_wait[demand_ping:]
 
           demand_start = body(wan, "start_wan(void)")
-          demand_start_gate = demand_start.index("if (i_demand && !wait_ppp_up(ppp_ifname, unit))")
-          demand_fallback = demand_start.index("restore_wan_after_ppp_start_failure(unit, wan_ifname);", demand_start_gate)
+          demand_start_gate = demand_start.index("vlan_result = wait_ppp_up(ppp_ifname, unit);")
+          demand_start_error = demand_start.index("if (vlan_result != 0)", demand_start_gate)
+          demand_status = demand_start.index("wan_start_status = rc_first_service_start_status(wan_start_status, vlan_result);", demand_start_error)
+          demand_fallback = demand_start.index("restore_wan_after_ppp_start_failure(unit, wan_ifname);", demand_status)
           demand_continue = demand_start.index("continue;", demand_fallback)
-          assert demand_start_gate < demand_fallback < demand_continue
+          assert demand_start_gate < demand_start_error < demand_status < demand_fallback < demand_continue
           demand_restore = body(wan, "restore_wan_after_ppp_start_failure(int unit, char *wan_ifname)")
           assert 'set_wan_unit_value(unit, "ifname_t", wan_ifname);' in demand_restore
           assert "start_firewall_ex();" in demand_restore
