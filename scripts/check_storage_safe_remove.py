@@ -739,8 +739,8 @@ require('if ! exec 9>>"$lock_file"; then' in lock_setup and
         lock_setup.index("flock -n 9"),
         "MTD commands must acquire a nonblocking lock under the protected private directory")
 for index, fixture in enumerate(mtd_storage_lock_tests):
-    require('lock_dir="$sandbox/private"' in fixture or
-            'lock_dir="$base/private"' in fixture,
+    require(r'lock_dir=\"$sandbox/private\"' in fixture or
+            r'lock_dir=\"$base/private\"' in fixture,
             "MTD fixture must isolate the operation lock: index {}".format(index))
 save_fixture = mtd_storage_lock_tests[0]
 require("flock -n 8" in save_fixture and
