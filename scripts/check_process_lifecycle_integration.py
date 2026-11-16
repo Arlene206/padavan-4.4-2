@@ -907,7 +907,17 @@ for band, block, stop_auth, stop_radio, status_var in (
         f"rc_first_service_start_status(start_status, {status_var})"
     ), f"{band} boot status must be aggregated after rollback is attempted"
 watchdog_start = services_source.split("int" + chr(10) + "start_watchdog_cpu(void)", 1)[1].split(chr(10) + "}", 1)[0]
-assert 'module_smart_load("rt_timer_wdg", NULL)' in watchdog_start
+common_source = (root / "trunk/user/rc/src/common_ex.c").read_text()
+module_load_start = common_source.split("int" + chr(10) + "module_smart_load(", 1)[1].split(
+    chr(10) + "}", 1
+)[0]
+assert "if (is_module_loaded(module_name))" in module_load_start
+assert "return 0;" in module_load_start
+assert "return (ret == 0) ? 1 : 0;" in module_load_start
+assert watchdog_start.index('module_smart_load("rt_timer_wdg", NULL)') < watchdog_start.index(
+    'if (!is_module_loaded("rt_timer_wdg"))'
+)
+assert "if (!module_smart_load(" not in watchdog_start
 assert "CPU watchdog module startup failed" in watchdog_start
 assert "return EIO;" in watchdog_start and "return 0;" in watchdog_start
 assert "rc_first_service_start_status(start_status, start_watchdog_cpu())" in boot_services

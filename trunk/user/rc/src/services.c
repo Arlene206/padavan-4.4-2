@@ -1324,7 +1324,13 @@ start_watchdog_cpu(void)
 {
 	if (nvram_get_int("watchdog_cpu") == 0)
 		return 0;
-	if (!module_smart_load("rt_timer_wdg", NULL)) {
+	/*
+	 * module_smart_load() returns zero for both "already loaded" and
+	 * "load failed". Verify module state instead of treating its return as
+	 * a boolean success flag.
+	 */
+	(void)module_smart_load("rt_timer_wdg", NULL);
+	if (!is_module_loaded("rt_timer_wdg")) {
 		logmessage(LOGNAME, "CPU watchdog module startup failed");
 		return EIO;
 	}
