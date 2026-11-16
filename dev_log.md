@@ -1,3 +1,11 @@
+## 2026-11-17 — Include the inline service-start result policy in firewall_ex
+
+- Exact-head 09ea XY-C1 `43947164750` reached MIPS link and failed with undefined references to `rc_first_service_start_status` from `firewall_ex.o`. The helper is static-inline in `service_start_status.h`; `firewall_ex.c` had not included that header. Added the include and added a canonical source assertion.
+- Exact-head 89a43d9 Firewall Startup `43948306770`, Process regression `43948306885`, HTTPD `43948306816`, AI handoff `43948306828`, USB modem `43948306849`, infosvr `43948306784`, AliDDNS `43948306867`, AdGuardHome `43948306841`, and AliyunDrive `43948306780` passed. NVRAM `43948306748` remained pending and XY-C1 `43948306746` was still building.
+- This is a production link correction. Exact-SHA Build/TRX/artifact must pass again; physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Align NAT module assertions with policy inputs and HW NAT API
 
 - Exact-head 39190 Firewall Startup `43947724068` and Process regression `43947724044` failed at the new source checker because it reused `POLICY_SOURCE/POLICY_TEST`, which refer to modem-WAN policy files. Added dedicated `MODULE_POLICY_SOURCE/MODULE_POLICY_TEST` bindings for the wireless module policy and regression.

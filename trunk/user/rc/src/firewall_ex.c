@@ -30,6 +30,7 @@
 #include <unistd.h>
 
 #include "rc.h"
+#include "service_start_status.h"
 #include "firewall_ppp_interface_policy.h"
 #include "vpn_server_lease_policy.h"
 #include "vpn_server_lease_lock.h"

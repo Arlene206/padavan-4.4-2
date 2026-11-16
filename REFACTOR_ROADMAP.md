@@ -1,8 +1,8 @@
 ## Current source / CI checkpoint
 
-- Main parent: `391902a4f936c8967d6e83999892853683333d1f`. Exact-head 39190 Firewall Startup and Process regression failed because the canonical checker read the module-policy assertions from the existing modem-WAN policy variables; it now binds the wireless module policy header and test separately. HTTPD failed on the stale one-argument `hwnat_configure` contract; the implementation now accepts the allow-state to avoid logging a still-loaded disabled module as enabled.
-- Exact-head 39190 USB modem identity, AI handoff, process inventory and WAN route suites passed. NVRAM, USB storage and XY-C1 Build/TRX/artifact were pending at last poll. 09ea checker-only SHA passed Firewall Startup and Process regression; its XY-C1 run remained pending.
-- NAT module unload postcondition code and ASan/UBSan unit tests are present on 39190 but its own exact-head build/test validation is not yet complete. No physical-router L4 claim.
+- Main parent: `89a43d9afab380b167b8b47a80b4b3837976e33f`. Exact-head 09ea XY-C1 `43947164750` failed at firmware link because `firewall_ex.o` referenced the static-inline `rc_first_service_start_status` helper without including `service_start_status.h`. The current repair adds the include and a canonical assertion.
+- Exact-head 89a43d9 Firewall Startup, Process regression, HTTPD, AI handoff, USB modem, infosvr, AliDDNS, AdGuardHome and AliyunDrive passed; NVRAM was pending and XY-C1 was cross-building. Exact-head 39190 policy/test source validation still needs a new green run following checker repairs.
+- Next verification: firmware link/Build/TRX/artifact on the new SHA, then validate the NAT module unload policy tests and HW NAT/SFE state transitions. No physical-router L4 claim.
 
 
 
