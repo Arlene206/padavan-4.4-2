@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+"""Source and regression contracts for Redsocks process lifecycle."""
+from pathlib import Path
+import re
+
+ROOT = Path(__file__).resolve().parents[1]
+SOURCE = ROOT / "trunk/user/redsocks/redsocks.sh"
+TEST = ROOT / "scripts/tests/redsocks_lifecycle.sh"
+WORKFLOW = ROOT / ".github/workflows/redsocks-lifecycle.yml"
+source = SOURCE.read_text()
+test = TEST.read_text()
+workflow = WORKFLOW.read_text()
+
+def require(condition, message):
+    if not condition:
+        raise SystemExit(f"Redsocks lifecycle contract: FAIL: {message}")
+
+def body(signature):
+    match = re.search(rf"(?m)^{re.escape(signature)}\s*\{{(.*?)^\}}", source, re.S)
+    require(match is not None, f"missing {signature}")
+    return match.group(1)
+
+state = body("redsocks_process_state()")
+wait = body("redsocks_wait_stopped()")
+start = body("func_start()")
+stop = body("func_stop()")
+require('pidof "$BINARY_NAME"' in state and 'redsocks_pid_status' in state and
+        'return 2' in state and 'return 1' in state and 'return 0' in state,
+        "process inventory must distinguish RUNNING, confirmed ABSENT and UNKNOWN")
+require('while [ "$redsocks_wait" -lt 5 ]; do' in wait and
+        'redsocks_process_state' in wait and 'sleep 1 || return 2' in wait,
+        "stop wait must use bounded tri-state polling and preserve sleep errors")
+require('killall -q "$BINARY_NAME"' in stop and
+        'killall -q -9 "$BINARY_NAME"' in stop and
+        stop.index('killall -q "$BINARY_NAME"') < stop.index('redsocks_wait_stopped') <
+        stop.index('killall -q -9 "$BINARY_NAME"') < stop.rindex('redsocks_wait_stopped'),
+        "TERM, bounded wait, KILL and final absence verification must be ordered")
+require('TERM postcondition unknown; refusing KILL escalation' in stop and
+        'pre-KILL process inventory unknown; refusing signal' in stop and
+        'return 1' in stop,
+        "UNKNOWN must block destructive escalation and propagate stop failure")
+require('redsocks_process_state' in start and
+        'if ! func_stop; then' in start and
+        start.index('if ! func_stop; then') < start.index('func_redsocks'),
+        "start must refuse duplicate launch when existing daemon stop fails")
+require('func_stop && func_start' in source,
+        "restart must gate replacement start on successful stop")
+for marker in ("UNKNOWN inventory", "UNKNOWN after TERM", "sleep failure",
+               "force stop signal sequence incorrect", "stuck daemon was reported stopped",
+               "replacement daemon launched after failed stop"):
+    require(marker in test, f"missing regression marker {marker}")
+paths = (
+    ".github/workflows/redsocks-lifecycle.yml",
+    "scripts/check_redsocks_lifecycle.py",
+    "scripts/tests/redsocks_lifecycle.sh",
+    "trunk/user/redsocks/redsocks.sh",
+)
+for block in (workflow.split("  push:",1)[1].split("  pull_request:",1)[0],
+              workflow.split("  pull_request:",1)[1].split("permissions:",1)[0]):
+    for path in paths:
+        require(block.count(f'      - "{path}"') == 1, f"path filter missing or duplicated: {path}")
+print("Redsocks lifecycle source and restart contracts: PASS")

@@ -32,12 +32,82 @@ func_save(){
 /sbin/mtd_storage.sh save
 }
 
+redsocks_process_state()
+{
+	if redsocks_pid_output=$(pidof "$BINARY_NAME" 2>/dev/null); then
+		redsocks_pid_status=0
+	else
+		redsocks_pid_status=$?
+	fi
+	case "$redsocks_pid_status" in
+	0)
+		[ -n "$redsocks_pid_output" ] || return 2
+		case "$redsocks_pid_output" in
+			*[!0123456789\ ]*) return 2 ;;
+		esac
+		redsocks_pid_count=0
+		for redsocks_pid in $redsocks_pid_output; do
+			case "$redsocks_pid" in
+				''|0*|1|*[!0-9]*) return 2 ;;
+			esac
+			[ "${#redsocks_pid}" -le 10 ] || return 2
+			[ "$redsocks_pid" -gt 1 ] 2>/dev/null || return 2
+			redsocks_pid_count=$((redsocks_pid_count + 1))
+		done
+		[ "$redsocks_pid_count" -gt 0 ] || return 2
+		return 0
+		;;
+	1)
+		[ -z "$redsocks_pid_output" ] && return 1
+		return 2
+		;;
+	*) return 2 ;;
+	esac
+}
+
+redsocks_wait_stopped()
+{
+	redsocks_wait=0
+	while [ "$redsocks_wait" -lt 5 ]; do
+		if redsocks_process_state; then
+			redsocks_state=0
+		else
+			redsocks_state=$?
+		fi
+		case "$redsocks_state" in
+			1) return 0 ;;
+			0) ;;
+			*) return 2 ;;
+		esac
+		sleep 1 || return 2
+		redsocks_wait=$((redsocks_wait + 1))
+	done
+	if redsocks_process_state; then
+		return 1
+	else
+		redsocks_state=$?
+	fi
+	case "$redsocks_state" in
+		1) return 0 ;;
+		0) return 1 ;;
+		*) return 2 ;;
+	esac
+}
+
 func_start(){
 MODE=true
-if [ -n "`pidof redsocks`" ]
-then
-	func_stop
-	logger -t $BINARY_NAME "ALREADY RUNNING: KILLED"
+if redsocks_process_state; then
+	if ! func_stop; then
+		logger -t "$BINARY_NAME" "existing process could not be stopped; refusing duplicate launch"
+		return 1
+	fi
+	logger -t "$BINARY_NAME" "ALREADY RUNNING: KILLED"
+else
+	redsocks_state=$?
+	if [ "$redsocks_state" -ne 1 ]; then
+		logger -t "$BINARY_NAME" "process inventory unknown; refusing duplicate launch"
+		return 1
+	fi
 fi
 if [ ! -f $REDSOCKS_CONF ]
 then
@@ -133,8 +203,56 @@ iptables -t nat -A OUTPUT -p tcp -j $CHAIN_NAME
 }
 
 func_stop(){
-killall $BINARY_NAME
-logger -t $BINARY_NAME "KILLED"
+	if redsocks_process_state; then
+		redsocks_state=0
+	else
+		redsocks_state=$?
+	fi
+	case "$redsocks_state" in
+		1) return 0 ;;
+		0) ;;
+		*)
+			logger -t "$BINARY_NAME" "process inventory unknown; refusing stop"
+			return 1
+			;;
+	esac
+
+	killall -q "$BINARY_NAME" >/dev/null 2>&1 || :
+	if redsocks_wait_stopped; then
+		logger -t "$BINARY_NAME" "KILLED"
+		return 0
+	else
+		redsocks_wait_status=$?
+	fi
+	case "$redsocks_wait_status" in
+		1) ;;
+		*)
+			logger -t "$BINARY_NAME" "TERM postcondition unknown; refusing KILL escalation"
+			return 1
+			;;
+	esac
+
+	if redsocks_process_state; then
+		redsocks_state=0
+	else
+		redsocks_state=$?
+	fi
+	case "$redsocks_state" in
+		1) return 0 ;;
+		0) ;;
+		*)
+			logger -t "$BINARY_NAME" "pre-KILL process inventory unknown; refusing signal"
+			return 1
+			;;
+	esac
+
+	killall -q -9 "$BINARY_NAME" >/dev/null 2>&1 || :
+	if redsocks_wait_stopped; then
+		logger -t "$BINARY_NAME" "KILLED"
+		return 0
+	fi
+	logger -t "$BINARY_NAME" "process remains running or unknown after KILL"
+	return 1
 }
 
 case "$ARG1" in
@@ -151,8 +269,7 @@ clean)
 	func_clean
 	;;
 restart)
-	func_stop
-	func_start
+	func_stop && func_start
 	;;
 *)
 	echo "Usage: $0 {start [ ARG2:Server IP ARG3:Server PORT ]|stop|iptables [ ARG1:Server IP ]|restart}"
