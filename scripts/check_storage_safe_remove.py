@@ -90,6 +90,9 @@ ftp_test = read("trunk/user/rc/src/tests/ftp_daemon_policy.c")
 workflow = read(".github/workflows/storage-hotplug-stability.yml")
 xy_workflow = read(".github/workflows/xy-c1-firmware-validation.yml")
 mtd_storage = read("trunk/user/scripts/files/sbin/mtd_storage.sh")
+httpd_header = read("trunk/user/httpd/src/httpd.h")
+httpd_upload = read("trunk/user/httpd/src/upload.c")
+httpd_web_ex = read("trunk/user/httpd/src/web_ex.c")
 mtd_storage_lock_tests = tuple(
     read("trunk/user/scripts/tests/" + name)
     for name in (
@@ -535,9 +538,28 @@ restore_start = mtd_storage.index("func_restore()")
 restore_end = mtd_storage.index("\nfunc_erase()", restore_start)
 restore_body = mtd_storage[restore_start:restore_end]
 require('if ! touch "$slk"; then' in restore_body and
-        restore_body.index('if ! touch "$slk"; then') < restore_body.index('stat -c %s "$tbz"') <
+        restore_body.index('if ! touch "$slk"; then') < restore_body.index('stat -c %s "$rtbz"') <
         restore_body.index("func_stop_apps"),
         "restore must establish the save barrier before validating or replacing its archive")
+require('rtbz="/tmp/.httpd-private/storage-restore.tar.bz2"' in mtd_storage and
+        'stat -c %s "$rtbz"' in restore_body and
+        'tar xjf "$rtbz"' in restore_body and
+        '"$tbz"' not in restore_body,
+        "MTD restore must consume a dedicated upload archive separate from backup output")
+require('#define STORAGE_RESTORE_FIFO_FILENAME\t"/tmp/.httpd-private/storage-restore.tar.bz2"' in httpd_header and
+        'const char *upload_file = STORAGE_RESTORE_FIFO_FILENAME;' in httpd_upload and
+        'sizeof(STORAGE_RESTORE_FIFO_FILENAME)' in httpd_upload and
+        'const char *upload_file = STORAGE_RESTORE_FIFO_FILENAME;' in httpd_web_ex,
+        "HTTPD restore upload and CGI must use the dedicated restore archive")
+backup_handler_start = httpd_web_ex.index("static void\\ndo_storage_file")
+backup_handler_end = httpd_web_ex.index("static void\\ndo_syslog_file", backup_handler_start)
+backup_handler = httpd_web_ex[backup_handler_start:backup_handler_end]
+require('char *storage_file = STORAGE_FIFO_FILENAME;' in backup_handler and
+        'STORAGE_RESTORE_FIFO_FILENAME' not in backup_handler,
+        "HTTPD backup download must retain its independent backup archive path")
+require('existing backup archive' in mtd_storage_restore_test and
+        'grep -Fqx \\'existing backup archive\\' "$sandbox/private/storage.tar.bz2"' in mtd_storage_restore_test,
+        "restore regression must preserve an independent existing backup archive")
 require("RESTORE_FAIL_TOUCH_PATH" in mtd_storage_restore_test and
         "restore lock creation failure unexpectedly succeeded" in mtd_storage_restore_test,
         "restore transaction regression must reject save-lock creation failure without mutation")

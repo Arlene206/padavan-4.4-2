@@ -4811,7 +4811,7 @@ do_restore_nv_cgi(const char *url, FILE *stream)
 static void
 do_restore_st_cgi(const char *url, FILE *stream)
 {
-	const char *upload_file = STORAGE_FIFO_FILENAME;
+	const char *upload_file = STORAGE_RESTORE_FIFO_FILENAME;
 	int upload_ready, ret = -1;
 
 	/* Never let a rejected POST consume an older retained retry archive. */

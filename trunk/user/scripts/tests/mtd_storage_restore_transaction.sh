@@ -26,7 +26,9 @@ printf '%s\n' '#!/bin/sh' > "$sandbox/incoming/start_script.sh"
 printf '%s\n' 'new=restored-value' > "$sandbox/incoming/new.conf"
 chmod 755 "$sandbox/incoming/start_script.sh"
 printf '%s\n' 'dev:    size   erasesize  name' 'mtd5: 00010000 00010000 "Storage"' > "$sandbox/proc-mtd"
-"$real_tar" -cjf "$sandbox/private/storage.tar.bz2" -C "$sandbox/incoming" .
+"$real_tar" -cjf "$sandbox/private/storage-restore.tar.bz2" -C "$sandbox/incoming" .
+# Keep an independent backup/download artifact present throughout restore.
+printf '%s\n' 'existing backup archive' > "$sandbox/private/storage.tar.bz2"
 
 # Redirect firmware paths into the fixture and replace only the service
 # launcher. The restore function itself remains the production implementation.
@@ -35,6 +37,7 @@ sed \
   -e "s|^slk=.*|slk=\"$sandbox/private/storage_locked\"|" \
   -e "s|^lock_dir=.*|lock_dir=\"$sandbox/private\"|" \
   -e "s|^tmp=.*|tmp=\"$sandbox/private/storage.tar\"|" \
+  -e "s|^rtbz=.*|rtbz=\"$sandbox/private/storage-restore.tar.bz2\"|" \
   -e "s|proc_root=\"/proc\"|proc_root=\"$sandbox/proc\"|" \
   -e "s|tmp_storage=\"/tmp/.httpd-private/storage-restore\"|tmp_storage=\"$sandbox/restore\"|" \
   -e "s|/sbin/rstats|$sandbox/bin/rstats|" \
@@ -131,7 +134,8 @@ if RESTORE_FAIL_TOUCH_PATH="$sandbox/private/storage_locked" run_restore; then
 fi
 grep -Fqx 'old=preserve-me' "$sandbox/storage/original.conf"
 test -f "$sandbox/proc/321/stat"
-test -s "$sandbox/private/storage.tar.bz2"
+test -s "$sandbox/private/storage-restore.tar.bz2"
+grep -Fqx 'existing backup archive' "$sandbox/private/storage.tar.bz2"
 test ! -e "$sandbox/private/storage_locked"
 test ! -s "$RSTAT_KILL_LOG"
 test ! -s "$MV_COUNT_FILE"
@@ -142,7 +146,7 @@ if RESTORE_FAIL_CP=1 run_restore; then
 fi
 grep -Fqx 'old=preserve-me' "$sandbox/storage/original.conf"
 test ! -e "$sandbox/storage/new.conf"
-test -f "$sandbox/private/storage.tar.bz2"
+test -f "$sandbox/private/storage-restore.tar.bz2"
 test -f "$sandbox/private/storage_locked"
 # The marker created by restore must make a concurrent MTD save fail before
 # it reads or writes the flash partition.
@@ -163,7 +167,7 @@ if run_restore; then
 fi
 grep -Fqx 'old=preserve-me' "$sandbox/storage/original.conf"
 test -f "$sandbox/proc/321/stat"
-test -s "$sandbox/private/storage.tar.bz2"
+test -s "$sandbox/private/storage-restore.tar.bz2"
 test -f "$sandbox/private/storage_locked"
 test ! -s "$RSTAT_KILL_LOG"
 test ! -s "$MV_COUNT_FILE"
@@ -179,7 +183,7 @@ fi
 grep -Fqx 'old=preserve-me' "$sandbox/storage/original.conf"
 test -f "$sandbox/proc/321/stat"
 test -s "$RSTAT_KILL_LOG"
-test -s "$sandbox/private/storage.tar.bz2"
+test -s "$sandbox/private/storage-restore.tar.bz2"
 test -f "$sandbox/private/storage_locked"
 test ! -s "$MV_COUNT_FILE"
 
@@ -190,7 +194,7 @@ if RESTORE_FAIL_MV_AT=2 run_restore; then
 fi
 grep -Fqx 'old=preserve-me' "$sandbox/storage/original.conf"
 test ! -e "$sandbox/storage/new.conf"
-test -f "$sandbox/private/storage.tar.bz2"
+test -f "$sandbox/private/storage-restore.tar.bz2"
 test -f "$sandbox/private/storage_locked"
 set -- "$sandbox"/storage.rollback.*
 test ! -e "$1"
@@ -210,7 +214,7 @@ test -d "$1"
 grep -Fqx 'old=preserve-me' "$1/original.conf"
 test ! -e "$RSTAT_PROC_ROOT/321/stat"
 test ! -s "$RSTAT_LOG"
-test -f "$sandbox/private/storage.tar.bz2"
+test -f "$sandbox/private/storage-restore.tar.bz2"
 test -f "$sandbox/private/storage_locked"
 set -- "$sandbox"/storage.restore.*
 test ! -e "$1"
@@ -237,7 +241,8 @@ kill "$daemon_pid" 2>/dev/null || :
 test ! -e "$sandbox/storage/original.conf"
 grep -Fqx 'new=restored-value' "$sandbox/storage/new.conf"
 test -f "$sandbox/storage/start_script.sh"
-test ! -e "$sandbox/private/storage.tar.bz2"
+test ! -e "$sandbox/private/storage-restore.tar.bz2"
+grep -Fqx 'existing backup archive' "$sandbox/private/storage.tar.bz2"
 test ! -e "$sandbox/private/storage_locked"
 set -- "$sandbox"/storage.rollback.*
 test ! -e "$1"

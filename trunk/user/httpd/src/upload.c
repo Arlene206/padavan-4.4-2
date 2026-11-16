@@ -411,9 +411,9 @@ httpd_restore_st_upload_consume_ready(void)
 void
 do_restore_st_post(const char *url, FILE *stream, int clen, char *boundary)
 {
-	const char *upload_file = STORAGE_FIFO_FILENAME;
+	const char *upload_file = STORAGE_RESTORE_FIFO_FILENAME;
 	char bndr[128];
-	char staging_file[sizeof(STORAGE_FIFO_FILENAME) + sizeof(".upload.XXXXXX")];
+	char staging_file[sizeof(STORAGE_RESTORE_FIFO_FILENAME) + sizeof(".upload.XXXXXX")];
 	FILE *staging_fp;
 	const unsigned char *p;
 	int bndr_len;

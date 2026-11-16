@@ -8,6 +8,7 @@ dir_storage="/etc/storage"
 slk="/tmp/.httpd-private/.storage_locked"
 tmp="/tmp/.httpd-private/storage.tar"
 tbz="${tmp}.bz2"
+rtbz="/tmp/.httpd-private/storage-restore.tar.bz2"
 hsh="/tmp/.httpd-private/storage_md5"
 lock_dir="/tmp/.httpd-private"
 lock_file="${lock_dir}/.mtd_storage.lock"
@@ -397,7 +398,7 @@ func_restore()
 {
 	local fsz tmp_storage restore_suffix stage_storage rollback_storage rollback_suffix had_storage
 
-	[ ! -f "$tbz" ] && exit 1
+	[ ! -f "$rtbz" ] && exit 1
 
 	# Block concurrent MTD saves before reading or replacing the restore archive.
 	if ! touch "$slk"; then
@@ -406,10 +407,10 @@ func_restore()
 		return 1
 	fi
 
-	fsz=`stat -c %s "$tbz" 2>/dev/null`
+	fsz=`stat -c %s "$rtbz" 2>/dev/null`
 	if [ -z "$fsz" ] || [ "$fsz" -lt 16 ] || [ "$fsz" -gt "$mtd_part_size" ] ; then
 		result=1
-		rm -f "$tbz"
+		rm -f "$rtbz"
 		logger -t "Storage restore" "Invalid BZ2 file size: $fsz"
 		return 1
 	fi
@@ -425,7 +426,7 @@ func_restore()
 		fi
 		tmp_storage="/tmp/.httpd-private/storage-restore-$restore_suffix"
 	done
-	tar xjf "$tbz" -C "$tmp_storage" 2>/dev/null
+	tar xjf "$rtbz" -C "$tmp_storage" 2>/dev/null
 	if [ $? -ne 0 ] ; then
 		result=1
 		rm -rf "$tmp_storage"
@@ -524,7 +525,7 @@ func_restore()
 		return 1
 	fi
 
-	rm -f "$tbz"
+	rm -f "$rtbz"
 	rm -rf "$tmp_storage"
 	if [ "$had_storage" -eq 1 ] && ! rm -rf "$rollback_storage"; then
 		logger -t "Storage restore" "Restored settings are active; previous storage backup remains at $rollback_storage"

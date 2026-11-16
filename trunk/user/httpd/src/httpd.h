@@ -38,6 +38,7 @@
 #define PROFILE_FIFO_UPLOAD	"/tmp/.httpd-private/settings_u.prf"
 #define PROFILE_FIFO_DOWNLOAD	"/tmp/.httpd-private/settings_d.prf"
 #define STORAGE_FIFO_FILENAME	"/tmp/.httpd-private/storage.tar.bz2"
+#define STORAGE_RESTORE_FIFO_FILENAME	"/tmp/.httpd-private/storage-restore.tar.bz2"
 
 /* Generic MIME type handler */
 struct mime_handler {
