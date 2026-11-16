@@ -117,12 +117,6 @@ on:
       - "scripts/check_samba_shared_header.py"
       - "scripts/check_dhcp6c_duid_header_staging.py"
       - ".github/workflows/xy-c1-firmware-validation.yml"
-  pull_request:
-    paths:
-      - "trunk/user/rc/src/net.c"
-      - "trunk/user/rc/src/xupnpd_config_file.h"
-      - "trunk/user/rc/src/tests/xupnpd_config_file.c"
-      - ".github/workflows/xy-c1-firmware-validation.yml"
   workflow_dispatch:
 
 permissions:
