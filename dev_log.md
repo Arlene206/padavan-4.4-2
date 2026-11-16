@@ -1,3 +1,35 @@
+## 2026-11-16 — Fail closed on unknown AliyunDrive WebDAV process state
+
+- Commit `982ec548a132a5a06f4a81872f5ae920fb685da3` adds tri-state pidof validation, bounded waits, UNKNOWN propagation and fresh name revalidation before SIGKILL. UNKNOWN blocks duplicate start, successful stop and destructive escalation.
+- Added error, malformed, empty-success, contradictory-status, post-TERM UNKNOWN and sleep-failure coverage. Exact-head inventory, process lifecycle, handoff, AliyunDrive lifecycle and NVRAM checks all PASS.
+- No target BusyBox/MIPS/uClibc, firmware/TRX or L4 validation is claimed.
+
+---
+
+## 2026-11-16 — Complete DDNSTO tri-state stop and restart gating
+
+- Source commit `8e1b0a3c10b8518726d2f6333e10887fffff6444` adds validated RUNNING/ABSENT/UNKNOWN process inventory and bounded waits; UNKNOWN after TERM and sleep failures block SIGKILL. Test helper extraction and contract follow-ups landed in `21c4d645b5b5cd0ccd1a1eb555d3181da57955fc`, `f78ac4a4542a60988fc295d21e3b5afdf9175171`, and `7968c1eaeaa324066d850cef020ccebc238c8821`.
+- Initial exact-head failures were test/checker contract issues: production start legitimately reads the enable switch before the stop gate, and the checker initially required the state helper inline rather than through `kill_z`. Corrected both without weakening the production gate.
+- Exact-head DDNSTO lifecycle and handoff checks on `7968c1e` PASS. No target/L4 claim.
+
+---
+
+## 2026-11-16 — Remove unsafe stale PID-file signals from legacy RC wrappers
+
+- Commit `1e43d33ce171a0ea4fd5c9cc81ff67a21d017468` removes transient PID-file handling from scutclient and mentohust wrappers. The old code could SIGKILL a reused unrelated PID, rewrite the file with the short-lived shell PID, and remove it after the action.
+- Added a regression that seeds a nonexistent high PID and verifies both wrappers leave the stale marker untouched while preserving their daemon stop/logout commands.
+- Exact-head legacy-wrapper regression, process lifecycle, inventory, handoff and NVRAM checks PASS. Exact-head XY-C1 build was still in progress; no L3/L4 claim.
+
+---
+
+## 2026-11-16 — Gate Redsocks stop and restart on verified daemon absence
+
+- Commit `39a2cb22ee211a42ab84214b4268b7d541c1babe` adds tri-state pidof inventory, bounded TERM/KILL waits, fresh pre-KILL revalidation and start/restart fail-closed gating.
+- Its first exact-head Redsocks workflow failed because a sed range truncated the heredoc inside production `func_start`. Follow-up `081c53bab84b5850dec61f2fe8cc607c6e6b9d08` adds a test-only dispatcher guard and sources the complete production script instead of extracting partial functions.
+- Exact-head Actions on `081c53b`: inventory `43799550922`, process lifecycle `43799550880`, NVRAM `43799550890`, Redsocks lifecycle `43799550943`, handoff `43799550886` were pending/in progress at the checkpoint.
+
+---
+
 ## 2026-11-16 — Gate Shadowsocks watchcat restarts on verified shutdown
 
 - Adbyby updater stop-gate regression correction `867e4812019a43276249b144a1d49cb1d90691c8` fixed a malformed shell assertion; exact-head inventory, process lifecycle, handoff, Adbyby config and NVRAM checks all PASS.

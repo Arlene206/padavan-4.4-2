@@ -8,9 +8,10 @@ Before context exhaustion, record exact refs, Action states and the first next a
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Earlier source baseline: `0731e7aa932661260456a3f95f0fbebbecc42fa2`. Current meaningful engineering baseline: Adbyby updater gate + regression correction `867e4812019a43276249b144a1d49cb1d90691c8`; Shadowsocks watchcat lifecycle gate `a8d50172afff0c081eb1b5c0f12d45dd07dc94f8`. Live main at this checkpoint: `a8d50172afff0c081eb1b5c0f12d45dd07dc94f8`.
+- Current product-source/test baseline: Redsocks tri-state stop/restart gate `081c53bab84b5850dec61f2fe8cc607c6e6b9d08` (exact-head Actions pending). Recent exact-head validated slices: Adbyby updater gate `867e4812019a43276249b144a1d49cb1d90691c8` PASS; Shadowsocks watchcat `a8d50172afff0c081eb1b5c0f12d45dd07dc94f8` PASS; AliyunDrive `982ec548a132a5a06f4a81872f5ae920fb685da3` PASS; DDNSTO `7968c1eaeaa324066d850cef020ccebc238c8821` lifecycle/checker PASS. Live main at checkpoint before this documentation commit: `081c53bab84b5850dec61f2fe8cc607c6e6b9d08`.
 - `main` is the only development branch. The frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify or rewrite it.
-- Startup protocol, handoff, roadmap and log archive were recovered once in this session. Do not repeat the initial audit.
+- Startup protocol, handoff, roadmap, log archive, branch inventory and legacy PR #1 were recovered once in this session. The only refs are `main` and the frozen backup; do not repeat the initial audit.
+- Legacy PR #1 was inspected and is already CLOSED: head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`, base `9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74` (17 commits ahead of its old base; PR head is 765 commits behind current main). All substantive source/test work is already present on main identically or in a stronger successor: AliDDNS HMAC helper/package/tests and CA bootstrap are identical; current `aliddns.sh` has the stronger exact-argv `/proc` keeper rather than the PR's broad `kill_ps`; current `copyscripts.sh` retains CA failure propagation and stronger private FRP-script handling; main's workflow remains push-only. PR-only `pull_request` trigger and stale broad `kill_ps` implementation are intentionally not ported. The PR branch is absent from refs; no valid unmerged work remains to port and no close action is needed.
 - This documentation checkpoint updates this file and `dev_log.md` only; no source changes are included.
 
 ## Verified engineering progress in this session
@@ -37,6 +38,22 @@ Before context exhaustion, record exact refs, Action states and the first next a
    - Updated `scripts/check_zerotier_lifecycle.py` to assert the tri-state helper and explicitly prohibit SIGKILL escalation when the graceful-stop result is UNKNOWN.
    - Exact-SHA ZeroTier workflow run `43794876436`: PASS, including source/RC integration contract. Exact-SHA AI docs run `43794876451`: FAIL because the previous handoff was stale and lacked the mandatory checkpoint section; the present checkpoint addresses that failure.
 
+5. AliyunDrive WebDAV process inventory — commit `982ec548a132a5a06f4a81872f5ae920fb685da3`.
+   - Added RUNNING / confirmed ABSENT / UNKNOWN pidof classification; malformed output, status/output contradictions, command errors and sleep failures are UNKNOWN. UNKNOWN blocks start, stop, KILL escalation and cleanup; a fresh validated name lookup is required before SIGKILL.
+   - Extended `trunk/user/aliyundrive-webdav/tests/aliyundrive_webdav_lifecycle.sh` and source checker. Exact-head inventory, process lifecycle, handoff, AliyunDrive lifecycle and NVRAM Actions all PASS.
+
+6. DDNSTO tri-state process lifecycle — source commit `8e1b0a3c10b8518726d2f6333e10887fffff6444`, test extraction `21c4d645b5b5cd0ccd1a1eb555d3181da57955fc`, assertion/checker correction `f78ac4a4542a60988fc295d21e3b5afdf9175171` / `7968c1eaeaa324066d850cef020ccebc238c8821`.
+   - Added validated RUNNING/ABSENT/UNKNOWN pidof semantics and bounded waits; UNKNOWN after TERM and sleep errors block KILL. The regression sources the production state helper; start's expected enable-switch NVRAM lookup is distinguished from credential lookup.
+   - The first exact run exposed an over-strict checker assertion that expected the state helper inline in `start_zero`; the production gate correctly calls `kill_z`. The checker was aligned to that call boundary. Exact-head DDNSTO lifecycle and handoff checks on `7968c1e` PASS.
+
+7. Legacy scutclient/mentohust wrapper PID safety — commit `1e43d33ce171a0ea4fd5c9cc81ff67a21d017468`.
+   - Removed short-lived wrapper PID-file logic that could SIGKILL a stale/reused unrelated PID, rewrite the file with the transient shell PID, and then delete it. Added a regression using a deliberately nonexistent high PID and verified stop/logout behavior remains intact.
+   - Exact-head legacy wrapper regression, process lifecycle, inventory, handoff and NVRAM checks PASS. Exact-head XY-C1 firmware build was still IN PROGRESS at the last check; do not claim L3 until Build, TRX verification and artifact upload complete.
+
+8. Redsocks stop/restart gate — source/test/checker commit `39a2cb22ee211a42ab84214b4268b7d541c1babe`; test harness correction `081c53bab84b5850dec61f2fe8cc607c6e6b9d08`.
+   - Added tri-state pidof inventory, bounded stop postcondition, fresh pre-KILL revalidation and start/restart fail-closed gates. Regression covers malformed/error inventories, UNKNOWN after TERM, sleep failure, graceful stop, bounded KILL escalation, stuck daemon and replacement-launch prevention.
+   - Exact `39a2cb2` Redsocks job failed because sed function extraction cut through a heredoc in `func_start`. The follow-up adds a test-only CLI-dispatch guard and sources the complete production script, preserving heredoc content. Exact-head Actions on `081c53b` are pending: inventory `43799550922`, process lifecycle `43799550880`, NVRAM `43799550890`, Redsocks lifecycle `43799550943`, handoff `43799550886`.
+
 ## Verification boundary
 
 - All PASS statements above refer to Actions for the exact SHA named in the same item.
@@ -49,17 +66,18 @@ Before context exhaustion, record exact refs, Action states and the first next a
 
 ## Active task
 
-Adbyby updater shutdown gating is complete. The stop-gate source change is in `11b27a31408148389f77a852b7b7414661be2149`; its regression test syntax was repaired on `867e4812019a43276249b144a1d49cb1d90691c8`. Exact-SHA checks on `867e481`: inventory, process lifecycle, handoff validation, Adbyby host/config regression, and NVRAM transaction boundary all PASS. The regression now asserts that failed/unknown shutdown prevents updater staging, rules, DNS, and replacement-daemon launch.
+Redsocks lifecycle regression correction is the current active slice. Production source and regression are on main at `081c53bab84b5850dec61f2fe8cc607c6e6b9d08`; the preceding `39a2cb2` exact-head job failed only because the test harness's sed range truncated the heredoc-containing production `func_start`. The corrected test sources the whole script behind a test-only CLI-dispatch guard. The exact `081c53b` push checks are PENDING/IN PROGRESS; do not claim L2 closure until the Redsocks workflow and sibling checks pass.
 
-Current active lifecycle slice: Shadowsocks watchcat previously used unchecked name-wide `killall -9` for SSR server and V2Ray/XRay/Trojan recovery, and invalid `kill -9 chinadns-ng` (a process name is not a PID). The `ss-monitor` script now loads the shared tri-state lifecycle helper and gates SSR server, selected proxy, ChinaDNS-ng, and DNS proxy replacement on verified bounded stop results. Source contract and workflow path/syntax checks were integrated. Commits: source/checker/workflow `ecaabcad6af552b21f135b90d9109962df5d8daa`; workflow path + stop-before-restart contract `2498b18c2c98fd588529fd96676dee5de03985fe`; ChinaDNS DNS-proxy failure gate and checker repair `a8d50172afff0c081eb1b5c0f12d45dd07dc94f8`.
+Completed source/host slices with exact-head PASS: Adbyby updater gate `867e481`; Shadowsocks watchcat `a8d5017`; AliyunDrive process inventory `982ec54`; DDNSTO lifecycle/checker `7968c1e`; legacy scutclient/mentohust stale-pidfile regression `1e43d33` (XY-C1 build remains pending). The AdGuardHome checker correction `bcc06e5` is already on main. Frozen backup remains unchanged.
 
-Exact-head push Actions for `a8d5017` are pending at checkpoint: inventory run `43798722181`, process lifecycle `43798722252`, handoff validation `43798722254`, Shadowsocks lifecycle `43798722278`, and NVRAM boundary `43798722201`. Do not claim the Shadowsocks slice validated until these exact-SHA checks finish. The earlier exact-head Shadowsocks run on `ecaabca` completed successfully; its exact current-source successor is `a8d5017`.
+Legacy PR #1 is CLOSED and its branch ref is absent. The 17-commit PR diff was compared against current main: HMAC helper/package/tests and CA bootstrap are already present identically; main has stronger AliDDNS keeper identity checks and FRP script hardening. The PR's stale broad `kill_ps` and pull_request trigger are not valid work to port. No unmerged product change remains.
 
 ## Exact first action for the next GPT
 
-1. Inspect only the exact-head push Actions for `a8d50172afff0c081eb1b5c0f12d45dd07dc94f8`; triage the first causal failure from its job log and repair on latest `main`. If all pass, record the verified boundary without a docs-only CI-status refresh.
-2. Use the process lifecycle inventory artifact from run `43798722181` to select the next highest-risk remaining direct signal/stop caller. Do not repeat the completed Adbyby updater gate or Shadowsocks watchcat stop-gate work.
-3. Keep L3/L4 claims separate: no physical-router validation was performed for these shell-only slices.
+1. Inspect exact-head push Actions for `081c53bab84b5850dec61f2fe8cc607c6e6b9d08`, especially Redsocks run `43799550943`; triage the first causal failure from logs and repair on latest main. Check sibling inventory/process/NVRAM/handoff runs by exact head SHA.
+2. If all pass, mark Redsocks L2 host-verified and continue from the latest whole-tree process inventory; do not repeat Adbyby, Shadowsocks, AliyunDrive, DDNSTO or legacy PID-file work.
+3. Recheck XY-C1 run `43799216333` on source SHA `1e43d33ce171a0ea4fd5c9cc81ff67a21d017468`; claim L3 only if Build, TRX verification and artifact upload all complete on that exact SHA.
+4. Keep all target BusyBox/MIPS/uClibc and physical-router L4 claims separate; none is established by host tests alone.
 
 ## Governance and safety constraints
 
