@@ -425,6 +425,7 @@ jobs:
           header = (rc / "rc.h").read_text()
           regression = (rc / "tests/service_start_status.c").read_text()
           net = (rc / "net.c").read_text()
+          net_wan = (rc / "net_wan.c").read_text()
           bridge_policy = (rc / "bridge_config_policy.h").read_text()
           bridge_regression = (rc / "tests/bridge_config_policy.c").read_text()
           bridge_init_policy = (rc / "bridge_init_policy.h").read_text()
@@ -508,6 +509,7 @@ jobs:
           switch_base = body(lan, "switch_config_base(void)")
           switch_storm = body(lan, "switch_config_storm(void)")
           switch_link = body(lan, "switch_config_link(void)")
+          full_wan_restart = body(net_wan, "full_restart_wan(void)")
           bridge_create = body(lan, "init_bridge_add_bridge(const char *bridge_ifname)")
           module_loader = body(lan, "init_bridge_load_module_verified(const char *module_name, const char *module_param)")
           assert ("int" + chr(10) + "init_bridge(int is_ap_mode)") in lan
@@ -570,6 +572,10 @@ jobs:
           assert "rc_notify_merge_action_result(action_result, switch_config_base())" in body(init, "handle_notifications(void)")
           assert "rc_notify_merge_action_result(action_result, switch_config_storm())" in body(init, "handle_notifications(void)")
           assert "rc_notify_merge_action_result(action_result, switch_config_link())" in body(init, "handle_notifications(void)")
+          assert "switch_vlan_status = switch_config_vlan(0);" in full_wan_restart
+          assert "if (switch_vlan_status != 0)" in full_wan_restart
+          assert "return switch_vlan_status;" in full_wan_restart
+          assert full_wan_restart.index("return switch_vlan_status;") < full_wan_restart.index("status = start_wan();")
           print("LAN bridge initialization status and caller aggregation: PASS")
           print("LAN startup error propagation and caller aggregation: PASS")
           PY

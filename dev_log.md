@@ -1,3 +1,13 @@
+## 2026-11-16 — Fail closed on switch VLAN reconfiguration during WAN restart
+
+- Parent main: `0828b3a8acf119345bc2381f89772f213288862d`. Call-site review found `full_restart_wan()` still ignored the newly status-returning `switch_config_vlan(0)` and continued to `start_wan()` regardless of VLAN ioctl failures.
+- `full_restart_wan()` now captures switch VLAN configuration status, logs the failure and returns before WAN startup if VLAN rules or switch bridge mode could not be configured. This avoids publishing a WAN session on unverified switch VLAN state after the old WAN has been stopped.
+- Process source checker now loads `net_wan.c` and verifies the failure return occurs before `start_wan()`; workflow path filters include this file.
+- Exact-head Process and AI docs results for `0828b3a8acf119345bc2381f89772f213288862d` were pending at last inspection after correcting the previous run's false-positive source assertion and handoff wording. THIS fix requires new exact-head Actions; no firmware L3 or physical L4 claim.
+- Next: inspect exact Actions, then continue searching callers of recently converted status-returning switch/bridge APIs.
+
+---
+
 ## 2026-11-16 — Correct exact-head Process and handoff contracts
 
 - Parent main: `b715097b8fdb76ed1e96bdeed6bedafde47eeefd`. Exact-head Process run `43858811934`, job `133269937845`, failed only at the new negative bridge-member source assertion after all compiled policy regressions (including bridge, wireless-module post-load and bridge membership) had passed. The check used substring containment and falsely matched the unchecked-call text inside the assignment form; changed it to compare complete stripped source lines.

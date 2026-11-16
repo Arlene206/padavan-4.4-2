@@ -2727,6 +2727,7 @@ int
 full_restart_wan(void)
 {
 	int status;
+	int switch_vlan_status;
 
 	if (get_ap_mode())
 		return 0;
@@ -2743,7 +2744,12 @@ full_restart_wan(void)
 	add_static_lan_routes(IFNAME_BR);
 	select_usb_modem_to_wan();
 	notify_reset_detect_link();
-	switch_config_vlan(0);
+	switch_vlan_status = switch_config_vlan(0);
+	if (switch_vlan_status != 0) {
+		logmessage(LOGNAME, "aborting full WAN restart because switch VLAN reconfiguration failed (status=%d)",
+			   switch_vlan_status);
+		return switch_vlan_status;
+	}
 #if defined (USE_GMAC2_TO_GPHY) || defined (USE_GMAC2_TO_GSW)
 	if (disassembly_bridges_wan() != 0) {
 		logmessage(LOGNAME, "aborting full WAN restart because WAN bridge teardown failed");

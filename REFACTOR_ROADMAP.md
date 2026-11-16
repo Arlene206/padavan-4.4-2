@@ -1,9 +1,9 @@
 ## Current source / CI checkpoint
 
-- Live main before THIS module-load verification slice: `59047eb21838e0cf78dd24e0a6eab78bea7fc886`. The preceding switch base/storm/link result propagation is source commit `2c0a0f1be6edf5a604a71ce02e726d0b2393a00c`; its exact-head Process/XY-C1 checks were queued at the last query.
-- THIS slice reuses the verified module-load policy already used for wireless/USB drivers. Required `iNIC_mii` now uses post-load `/sys/module` verification and contributes to PID1 bridge health; optional `hw_nat` offload is verified/logged accurately and remains non-fatal. Process source contract asserts required-vs-optional treatment.
-- Exact AI handoff docs run `43858670960` on `2c0a...` failed only because its explicit handoff checkpoint sentence was missing; it was restored on `59047eb21838e0cf78dd24e0a6eab78bea7fc886`. Exact rerun `43858811955` was in progress at last query. THIS module change requires new exact-SHA checks.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. No same-SHA XY-C1 Build+TRX+artifact L3 or physical-router L4 result is claimed.
+- Live main before THIS WAN-restart result-propagation fix: `0828b3a8acf119345bc2381f89772f213288862d`. The previous source milestone `b715097b8fdb76ed1e96bdeed6bedafde47eeefd` verifies required iNIC MII module load and treats hw_nat offload as optional.
+- Found `full_restart_wan()` discarded the return from the newly status-bearing `switch_config_vlan(0)`; it now fails closed before `start_wan()` when required VLAN/switch-mode configuration fails. Process source regression checks this ordering and the workflow watches `net_wan.c`.
+- Process `43858811934` on `59047...` failed only because the negative bare-call assertion matched an assignment substring; fixed in `0828b3a8acf119345bc2381f89772f213288862d`. AI docs `43858811955` failed because the handoff missed literal `Before context exhaustion`; also fixed in `0828...`. Exact reruns were pending at last check.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. No same-SHA XY-C1 Build+TRX+artifact L3 or physical router L4 result claimed.
 
 ## Whole-repository module status
 

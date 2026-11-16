@@ -11,33 +11,33 @@ For each logical task, create all changed files in one Git tree and one atomic m
 ## Current repository state
 
 - Repository: Arlene206/padavan-4.4-2; active branch: main.
-- Parent for THIS module-load verification slice: `59047eb21838e0cf78dd24e0a6eab78bea7fc886`; fetch live main and use expected-SHA non-forced CAS on the next write.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. The one-time startup comparison found main 588 commits ahead / 1 behind; do not repeat branch/archive recovery.
-- The latest source milestone is `2c0a0f1be6edf5a604a71ce02e726d0b2393a00c`: switch base/storm/link PHY failures now reach PID1/runtime notification status. A separate documentation-contract correction is `59047eb21838e0cf78dd24e0a6eab78bea7fc886`.
+- Parent for THIS WAN restart VLAN-status slice: `0828b3a8acf119345bc2381f89772f213288862d`; fetch live main and use expected-SHA non-forced CAS on the next write.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. One-time startup comparison found main 588 commits ahead / 1 behind; do not repeat backup/archive recovery.
+- Latest source milestone `b715097b8fdb76ed1e96bdeed6bedafde47eeefd` verifies required iNIC MII module load and reports optional hw_nat offload accurately. Latest checker/handoff correction is `0828b3a8acf119345bc2381f89772f213288862d`.
 
 ## Active task
 
-A review found two unverified module-load call sites inside LAN bridge initialization:
-- `module_smart_load()` is documented by `wireless_module_load_policy.h` as returning zero both for already-loaded modules and failed `modprobe`. Existing `rc_module_load_verified()` checks post-load `/sys/module` state and has a dedicated regression.
-- On `USE_RT3352_MII` boards, `iNIC_mii` is required for the MII/iNIC LAN path. It now uses post-load verification and records failure into `init_bridge()`/PID1 startup health.
-- `hw_nat` is optional L2 offload. It now uses post-load verification and reports enabled/unavailable accurately without classifying offload absence as essential bridge failure.
-- Existing verified module policy test is already compiled/run by Process workflow; new source contracts assert both call sites and their required/optional classification.
-- The switch status result propagation from the previous source milestone remains in place: base (jumbo/green/EEE), four storm settings and WAN+LAN port link controls are checked; unsupported MTK optional features are successful no-ops, LEDs remain best-effort.
+Call-site tracing after changing `switch_config_vlan()` to return status found `full_restart_wan()` still discarded its result. A failed VLAN-rule or switch bridge-mode ioctl could therefore be followed by WAN restart on incomplete switch state. THIS slice now captures the status, logs and aborts WAN restart before `start_wan()` when required switch VLAN reconfiguration fails. Process workflow adds `net_wan.c` to source triggers and checks fail-closed ordering.
+
+Earlier slices remain:
+- `init_bridge()` propagates essential bridge/VLAN, switch base/storm/link, interface/member and required iNIC MII module errors into PID1.
+- `switch_config_base/storm/link()` attempt independent settings and preserve first failure; optional LED and `hw_nat` offload remain non-fatal.
+- Wireless module post-load verification is reused because `module_smart_load()` returning zero is not authoritative.
 
 ## Verification boundary
 
-- Exact-head Process run on earlier bridge commit `aa5d3c9f2566927a4b17fce5d391f525cccc8095`: `43857640159`, job `133265909696`, SUCCESS; bridge init/member policy tests and LAN source contract passed.
-- Exact-head AI handoff documentation run `43858670960` on `2c0a0f1be6edf5a604a71ce02e726d0b2393a00c` failed because a required explicit end-of-session checkpoint sentence was missing. Job `133269446982` identified the exact validator failure; checkpoint wording was restored in `59047eb21838e0cf78dd24e0a6eab78bea7fc886`. Its exact rerun was in progress at last inspection.
-- On `2c0a0f1be6edf5a604a71ce02e726d0b2393a00c`, Process `43858670762` and XY-C1 `43858670860` were queued at last query; several service and security runs were in progress. Recheck exact run IDs and outcomes rather than assuming them.
-- THIS module verification change requires fresh exact-SHA Process and XY-C1 Actions. No same-SHA firmware Build+TRX+artifact L3 or physical router L4 result is currently established.
+- Exact-head Process run `43858811934` on `59047eb21838e0cf78dd24e0a6eab78bea7fc886` compiled and passed bridge-init, bridge membership, wireless module post-load and other policy regressions, but its final source contract failed due to a false-positive negative substring assertion. Exact failure was fixed in `0828b3a8acf119345bc2381f89772f213288862d` by comparing complete stripped lines.
+- Exact-head AI docs run `43858811955` on `59047eb21838e0cf78dd24e0a6eab78bea7fc886` failed because the handoff omitted the required literal `Before context exhaustion`; the handoff contract was corrected in `0828b3a8acf119345bc2381f89772f213288862d`.
+- On `0828b3a8acf119345bc2381f89772f213288862d`, Process `43859776339` and AI docs `43859776315` were IN_PROGRESS. Other NVRAM/infosvr/AdGuard/transport tests were also IN_PROGRESS. Recheck their exact status; do not infer pass.
+- THIS WAN restart call-site fix needs fresh Process / XY-C1 Actions. No same-SHA firmware Build+TRX+artifact L3 or physical router L4 result is claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect exact-head Process, XY-C1, NVRAM, HTTPD security, AI docs and relevant service Actions for THIS change; repair any causal failure.
-2. Verify the module post-load source contract and tests pass; no host-only result substitutes for target toolchain.
-3. Continue scanning RC initialization for unchecked required modules or startup operations, while keeping HW offload/LED/other optional hardware accelerators non-fatal.
-4. XY-C1 L3 is established only when Build, TRX validation and artifact upload all pass on one identical production-source SHA; physical hardware remains L4-only.
+1. Inspect exact-head Process and AI docs reruns, plus XY-C1, NVRAM, HTTPD security and relevant service Actions on THIS commit.
+2. Verify `full_restart_wan()` returns before any `start_wan()` when switch VLAN configuration fails.
+3. Continue the RC/driver call-site scan for ignored newly-introduced status-returning functions and unchecked required modules.
+4. XY-C1 L3 requires Build, TRX validation and artifact upload on the same production-source SHA; physical hardware remains L4-only.
 
 ## Verification and governance rules
 
-Preserve security, architecture, compatibility, target toolchain and required tests. Main only; frozen backup read-only. One full Git tree and atomic commit per logical task; non-forced expected-SHA update. Update `dev_log.md` for source milestones and keep its 20–119 newest entries. Distinguish host regression, exact-SHA Actions, firmware/TRX L3, and physical-router L4. Never claim an unrun result.
+Preserve security, architecture, compatibility, target toolchain and required tests. Main only; frozen backup read-only. One full Git tree and atomic commit per logical task; non-forced expected-SHA update. Update `dev_log.md` for source milestones and retain 20–119 entries. Distinguish host regression, exact-SHA Actions, firmware/TRX L3 and physical router L4. Never claim unrun results.
