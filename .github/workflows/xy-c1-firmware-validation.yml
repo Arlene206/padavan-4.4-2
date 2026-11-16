@@ -54,6 +54,11 @@ on:
       - "trunk/user/rc/src/vpn_openvpn.c"
       - "trunk/user/rc/src/openvpn_process_stop_policy.h"
       - "trunk/user/rc/src/usb_modem.c"
+      - "trunk/configs/boards/XY-C1/kernel-4.4.x.config"
+      - "trunk/linux-4.4.x/drivers/usb/serial/Kconfig"
+      - "trunk/linux-4.4.x/drivers/usb/serial/Makefile"
+      - "trunk/linux-4.4.x/drivers/usb/serial/option.c"
+      - "scripts/check_usb_modem_driver_config.py"
       - "trunk/user/rc/src/service_lifecycle_policy.h"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/wireless_module_load_policy.h"
@@ -208,6 +213,9 @@ jobs:
 
       - name: Verify boot hardware module result propagation
         run: python3 scripts/check_rc_boot_module_loads.py
+
+      - name: Verify XY-C1 USB modem driver configuration
+        run: python3 scripts/check_usb_modem_driver_config.py
 
       - name: Compile and run RC watchdog module restart postcondition regression
         run: |

@@ -1,3 +1,15 @@
+## 2026-11-16 15:52 Beijing — Enable XY-C1 USB serial option modem driver
+
+- Parent main: `3905bc882d54ee5a37f5dd0493742d9a752565ff`. Process lifecycle exact-main run `43826215394`, job `133160569142`, and the exact-head AI handoff, AdGuardHome, AliDDNS, infosvr, AliyunDrive and NVRAM checks all completed SUCCESS on this parent SHA.
+- Completed the deferred `reload_modem_modules()` trace across `usb_modem.c`, its boot-time and `RCN_RESTART_MODEM` callers in `rc.c`, helper implementations in `common_ex.c`, and target Linux Kconfig/Makefile.
+- Confirmed a concrete target-profile mismatch: RC always requests `option` for RAS modem mode, but XY-C1 explicitly disabled `CONFIG_USB_SERIAL_OPTION`. The in-tree Linux 4.4 Kconfig identifies this as the GSM/CDMA serial driver for Option, Huawei, Audiovox, Novatel Wireless and Anydata devices, and its Makefile builds `option.o`. The module therefore could not be loaded in the XY-C1 firmware despite being requested by RC.
+- Enabled `CONFIG_USB_SERIAL_OPTION=m`. Added `scripts/check_usb_modem_driver_config.py` to verify that all 11 modules requested by `reload_modem_modules()` are configured as loadable modules and that the option Kconfig/Makefile wiring is present; wired the check and all relevant paths into `.github/workflows/xy-c1-firmware-validation.yml`.
+- `module_smart_load()` has ambiguous zero returns (already loaded or failure). `module_smart_unload()` returns one both for busy/refcount-positive and successful removal, and zero for absent/refcount-read failure/removal failure. Driver lists include alternatives, so no unsafe blanket error propagation or void-API change was made.
+- THIS COMMIT has no local checkout execution. Exact-head XY-C1 build/TRX/artifact Actions are pending. Prior source `8a8dfed...` had XY-C1 L3 SUCCESS on run `43823036488`, but that image predates this config change. No L4 hardware validation.
+- Next: inspect the exact-head XY-C1 workflow and repair any config/kernel build failure; after a green target build, continue device-aware reload status and regression design.
+
+---
+
 ## 2026-11-16 15:38 Beijing — Fix boot module aggregate call-order contract
 
 - Parent main: `4bfc47d4aec1548c600039c89a98dc7464e022dc`. Process exact-head run `43825080891`, job `133156882058`, completed all compiled/runtime tests successfully, then failed its final source integration checker at line 1298 because the checker searched for a bare `load_mmc_modules();` call.
