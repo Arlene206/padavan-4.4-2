@@ -77,7 +77,6 @@ on:
       - "trunk/user/mentohust/scripts/mentohust.sh"
       - "trunk/user/ttyd/ttyd.sh"
       - "trunk/user/ttyd/tests/ttyd_lifecycle.sh"
-      - "trunk/user/ttyd/ttyd.sh"
       - "trunk/user/openssh/sshd.sh"
       - "trunk/user/dropbear/sshd.sh"
       - "trunk/user/dropbear/Makefile"
@@ -108,6 +107,8 @@ on:
       - "scripts/check_process_lifecycle_integration.py"
       - ".github/workflows/process-lifecycle-regression.yml"
 
+      - "trunk/user/ttyd/ttyd.sh"
+      - "trunk/user/ttyd/tests/ttyd_lifecycle.sh"
 permissions:
   contents: read
 

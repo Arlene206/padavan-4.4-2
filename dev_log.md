@@ -1,3 +1,11 @@
+## 2026-11-16 — Correct ttyd workflow pull-request path coverage
+
+- Parent main: `081cc03d1a24ffbd363bef4c34dde5324274607f`; product-source commit `081cc03d1a24ffbd363bef4c34dde5324274607f` passed exact-head Process regression `43805106747`, process inventory `43805106755`, AI handoff `43805106748`, NVRAM audit `43805106742`, AliDDNS `43805106695`, AliyunDrive `43805106786`, infosvr `43805106821`, and AdGuardHome `43805106813`. XY-C1 run `43805106803` was still IN_PROGRESS at last check.
+- The Process workflow's pull_request path filter did not yet include the newly added ttyd wrapper/regression, because the earlier path insertion had matched the push section; that also left a duplicate push `ttyd.sh` entry. Moved one path into the PR filter, retained the new test's push monitoring, added both ttyd paths to PR monitoring, and removed the duplicate push entry.
+- The exact-head Process job passed the ttyd shell regression against the repository's actual shared `process_lifecycle.sh`. The workflow filter correction is workflow-only; no new firmware or device validation is implied.
+- Next: exact-SHA check this commit's AI handoff/triggered workflow; then investigate the roadmap's P1 discarded RC startup results, beginning with `void start_adguardhome()` and `void start_ddnsto()` and tracing all callers before API changes.
+---
+
 ## 2026-11-16 — Gate ttyd lifecycle on verified process state
 
 - Parent main: 0c9fa82488838d7069ad7a043e3307a88ed19afb; frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
