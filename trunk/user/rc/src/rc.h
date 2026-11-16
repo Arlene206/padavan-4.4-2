@@ -368,7 +368,7 @@ int get_lan_dhcp6s_irt(void);
 int get_lan_dhcp6s_prefix_size(void);
 int store_lan_addr6(char *lan_addr6_new);
 void reload_lan_addr6(void);
-void clear_lan_addr6(void);
+int clear_lan_addr6(void);
 void reset_lan6_vars(void);
 char *get_lan_addr6_host(char *p_addr6s);
 char *get_lan_addr6_prefix(char *p_addr6s);

@@ -150,9 +150,9 @@ void reload_lan_addr6(void)
 		doSystem("ip -6 addr add %s dev %s", lan_addr6, IFNAME_BR);
 }
 
-void clear_lan_addr6(void)
+int clear_lan_addr6(void)
 {
-	clear_if_addr6(IFNAME_BR);
+	return clear_if_addr6(IFNAME_BR);
 }
 
 char *get_lan_addr6_host(char *p_addr6s)

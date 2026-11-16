@@ -938,7 +938,7 @@ start_lan(int is_ap_mode, int do_wait)
 int
 stop_lan(int is_ap_mode)
 {
-	int conntrack_status = 0, route_status = 0;
+	int conntrack_status = 0, route_status = 0, ipv6_status = 0;
 	if (is_ap_mode) {
 		char *svcs[] = { "detect_wan", NULL };
 		const char *pidfiles[] = { "/var/run/udhcpc_lan.pid", NULL };
@@ -973,7 +973,9 @@ stop_lan(int is_ap_mode)
 	}
 
 #if defined (USE_IPV6)
-	clear_lan_addr6();
+	ipv6_status = clear_lan_addr6();
+	if (ipv6_status != 0)
+		logmessage(LOGNAME, "LAN IPv6 address cleanup failed (status=%d)", ipv6_status);
 #endif
 
 	/* Bring down LAN interface */
@@ -982,7 +984,9 @@ stop_lan(int is_ap_mode)
 		if (status != 0 && is_ap_mode)
 			notify_run_detect_internet(2);
 		return rc_first_service_start_status(
-			rc_first_service_start_status(conntrack_status, route_status), status);
+			rc_first_service_start_status(
+				rc_first_service_start_status(conntrack_status, route_status), ipv6_status),
+			status);
 	}
 }
 

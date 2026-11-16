@@ -1,3 +1,12 @@
+## 2026-11-16 — Propagate LAN IPv6 address cleanup failures
+
+- Parent main: 8befa2b20295be8182053dc4e224174db471ed82. clear_lan_addr6() currently discarded clear_if_addr6(IFNAME_BR)'s errno-style result, allowing stop_lan() to report success after failed IPv6 address cleanup.
+- Changed clear_lan_addr6() and rc.h declaration to return int. stop_lan() captures/logs ipv6_status and aggregates first failure in conntrack → IPv4 route → IPv6 address → bridge-down order without skipping bridge shutdown.
+- Added service_start_status regression cases for IPv6-only failure, prior route error precedence and bridge-down-only failure; Process checker validates wrapper return and production aggregation. WAN route checker validates updated result order; XY-C1 path filter adds net_lan6.c.
+- Exact 8bef AI handoff 43979147640 PASS; Firewall Startup 43979147580, USB modem 43979148326, AdGuardHome 43979147629, infosvr 43979147611 and AliDDNS 43979147585 PASS. Process 43979148973 and XY-C1 43979147638 were pending at last poll; current-source L3 and physical-router L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Align shared and HTTPD route-startup contracts with global cache flush API
 
 - Parent main: `bb0c693125f0ddfd4e845d6c9d4f8fb58f68d2e2`; product-source route-cache change is `493f981e4db110923ca8d16328e29aec541a3734`. The WAN route workflow `43978255126` passed, including the injected GNU89/ASan/UBSan global-cache regression.

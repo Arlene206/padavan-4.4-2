@@ -206,9 +206,10 @@ jobs:
           assert "conntrack_status = flush_conntrack_table(lan_ip);" in stop_lan_body
           stop_lan_compact = "".join(stop_lan_body.split())
           assert "route_status = clear_if_route4(IFNAME_BR);" in stop_lan_body
-          assert "returnrc_first_service_start_status(rc_first_service_start_status(conntrack_status,route_status),status);" in stop_lan_compact
+          assert "ipv6_status = clear_lan_addr6();" in stop_lan_body
+          assert "returnrc_first_service_start_status(rc_first_service_start_status(rc_first_service_start_status(conntrack_status,route_status),ipv6_status),status);" in stop_lan_compact
           route_flush_at = stop_lan_compact.index("route_status=clear_if_route4(IFNAME_BR);")
-          ipv6_cleanup_at = stop_lan_compact.index("clear_lan_addr6();")
+          ipv6_cleanup_at = stop_lan_compact.index("ipv6_status=clear_lan_addr6();")
           bridge_down_at = stop_lan_compact.index("ifconfig(IFNAME_BR,0,NULL,NULL);")
           assert route_flush_at < ipv6_cleanup_at < bridge_down_at
 

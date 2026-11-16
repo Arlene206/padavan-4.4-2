@@ -1,11 +1,10 @@
 ## Current source / CI checkpoint
 
-- Conntrack teardown source `cffc149` is L3 VERIFIED by exact XY-C1 run `43973861873` (Build, TRX verification and artifact upload).
-- LAN IPv4 route teardown fix `759c18d` captures and aggregates `clear_if_route4(IFNAME_BR)`.
-- Product-source route-cache change `493f981` now returns and aggregates the global `ip route flush cache` result with per-interface route flushes; exact 493f WAN route `43978255126` passed its injected regression and source check.
-- Exact 493f Process regression `43978254976`, Firewall Startup `43978255243`, HTTPD security `43978255197` and XY-C1 `43978254941` failed before final validation because their checker contracts still expected the old route/cache call structure. THIS COMMIT updates the shared and HTTPD checks to the combined helper. Exact reruns are required; current route-cache L3 is NOT VERIFIED.
-- AI handoff root-log repair `bb0c693` restored the 23-entry root log; exact AI docs run `43978638161` PASS.
-- Physical-router L4 remains **NOT VERIFIED**.
+- Conntrack propagation source cffc149 is L3 VERIFIED by XY-C1 run 43973861873 (Build/TRX/artifact). LAN IPv4 route cleanup source 759c18d also passed exact XY-C1 run 43976717898.
+- Route-cache source 493f981 returns the global ip route flush cache result and combines it with interface route flushes; exact WAN route run 43978255126 PASS, but exact XY-C1 run 43978254941 FAILED, so latest route-cache L3 is not verified.
+- Exact 8bef shared WAN checker correction is in place. AI handoff 43979147640 PASS, Firewall Startup 43979147580 PASS, USB modem 43979148326 PASS, AdGuardHome 43979147629 PASS, infosvr 43979147611 PASS, AliDDNS 43979147585 PASS. Process 43979148973 and XY-C1 43979147638 pending; NVRAM/HTTPD/AliyunDrive pending at last poll.
+- Current P1 slice makes clear_lan_addr6() return clear_if_addr6() status and propagates it through stop_lan() after conntrack/IPv4 route cleanup, while still attempting bridge shutdown. Added first-error tests, Process integration assertions, WAN source contracts and XY-C1 trigger for net_lan6.c.
+- Exact-head Process, WAN route, AI handoff, XY-C1 Build/TRX/artifact required before latest-source L3 can be claimed. Frozen backup remains immutable; physical-router L4 NOT VERIFIED.
 
 ## Whole-repository module status
 
