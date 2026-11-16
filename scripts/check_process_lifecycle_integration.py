@@ -1505,3 +1505,51 @@ for required_path in (
     assert required_path in process_workflow
     assert required_path in xy_workflow
 print("RC UPnP restart preserves daemon stop failure in PID 1 result: PASS")
+
+
+# full_restart_lan() is a single PID-1 notification transaction: retain first
+# failure from status-bearing teardown, recovery, reload and start operations.
+lan_source = (root / "trunk/user/rc/src/net_lan.c").read_text()
+lan_test = (root / "trunk/user/rc/src/tests/service_start_status.c").read_text()
+lan_rc = (root / "trunk/user/rc/src/rc.c").read_text()
+assert '#include "service_start_status.h"' in lan_source
+lan_start = lan_source.index("int" + chr(10) + "full_restart_lan(void)")
+lan_brace = lan_source.index("{", lan_start)
+lan_depth = 0
+for lan_index in range(lan_brace, len(lan_source)):
+    if lan_source[lan_index] == "{":
+        lan_depth += 1
+    elif lan_source[lan_index] == "}":
+        lan_depth -= 1
+        if lan_depth == 0:
+            lan_body = lan_source[lan_start:lan_index + 1]
+            break
+else:
+    raise AssertionError("unterminated full_restart_lan()")
+for contract in (
+    'lan_restart_record_status(&restart_status, "stop logger", stop_logger())',
+    'lan_restart_record_status(&restart_status, "stop LLTD", stop_lltd())',
+    'lan_restart_record_status(&restart_status, "stop infosvr", stop_infosvr())',
+    'lan_restart_record_status(&restart_status, "stop networkmap", stop_networkmap())',
+    'lan_restart_record_status(&restart_status, "stop miniupnpd", stop_upnp())',
+    'lan_restart_record_status(&restart_status, "stop DNSMasq", dnsmasq_status)',
+    'lan_restart_record_status(&restart_status, "stop LAN services", lan_status)',
+    'lan_restart_record_status(&restart_status, "start logger", start_logger(0))',
+    'lan_restart_record_status(&restart_status, "start VPN server after WAN restart",',
+    'lan_restart_record_status(&restart_status, "restart VPN server",',
+    'lan_restart_record_status(&restart_status, "restart IPTV services",',
+    'lan_restart_record_status(&restart_status, "reload NFS exports", reload_nfsd())',
+    'lan_restart_record_status(&restart_status, "reload NetBIOS services", reload_nmbd())',
+    'lan_restart_record_status(&restart_status, "start infosvr", start_infosvr())',
+    'lan_restart_record_status(&restart_status, "start LLTD", start_lltd())',
+    'lan_restart_record_status(&restart_status, "start networkmap", start_networkmap(1))',
+    'lan_restart_record_status(&restart_status, "restart IAPP daemon",',
+    'lan_restart_record_status(&restart_status, "notify HTTPD logout",',
+    'return restart_status;',
+):
+    assert contract in lan_body, contract
+assert "return dnsmasq_status;" not in lan_body
+assert "rc_notify_merge_action_result(action_result, full_restart_lan())" in lan_rc
+assert "test_first_error_survives_lan_restart_recovery" in lan_test
+assert "test_negative_and_positive_statuses_are_preserved" in lan_test
+print("RC full LAN restart first-error propagation and PID 1 integration: PASS")

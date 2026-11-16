@@ -37,6 +37,7 @@
 #include "dnsmasq_lifecycle_lock.h"
 #include "switch.h"
 #include "switch_status_policy.h"
+#include "service_start_status.h"
 #include <gpioutils.h>
 
 #if BOARD_RAM_SIZE < 32
@@ -789,13 +790,22 @@ stop_lan(int is_ap_mode)
 	}
 }
 
+static void
+lan_restart_record_status(int *first_status, const char *operation, int status)
+{
+	if (status != 0)
+		logmessage(LOGNAME, "LAN restart %s failed (status=%d)", operation, status);
+	*first_status = rc_first_service_start_status(*first_status, status);
+}
+
 int
 full_restart_lan(void)
 {
 	int is_wan_err = 0, is_lan_stp = 0;
 	int is_ap_mode, log_remote, lan_status;
-	int dnsmasq_lock, dnsmasq_lock_errno;
+	int dnsmasq_lock, dnsmasq_lock_errno, release_status;
 	int dnsmasq_status, dnsmasq_start_status, vpn_status;
+	int restart_status = 0;
 
 	is_ap_mode = get_ap_mode();
 	log_remote = nvram_invmatch("log_ipaddr", "");
@@ -821,37 +831,48 @@ full_restart_lan(void)
 		logmessage(LOGNAME, "cannot acquire DNSMasq lifecycle lock after VPN preflight (errno=%d)",
 			   dnsmasq_lock_errno);
 		/* VPN was stopped successfully; restore it because LAN work never began. */
-		restart_vpn_server();
+		restart_status = dnsmasq_lock_errno;
+		lan_restart_record_status(&restart_status, "restore VPN after DNSMasq lock failure",
+					  restart_vpn_server());
 		errno = dnsmasq_lock_errno;
-		return dnsmasq_lock_errno;
+		return restart_status;
 	}
 
-	/* stop logger if remote */
+	/* Record every status-bearing stop; continue safe teardown and preserve
+	 * the first error for PID 1's incomplete-notification accounting. */
 	if (log_remote)
-		stop_logger();
-
-	stop_lltd();
-	stop_infosvr();
-	stop_networkmap();
-	stop_upnp();
-	/* Preserve DNSMasq lifecycle errors for PID 1 notification accounting. */
+		lan_restart_record_status(&restart_status, "stop logger", stop_logger());
+	lan_restart_record_status(&restart_status, "stop LLTD", stop_lltd());
+	lan_restart_record_status(&restart_status, "stop infosvr", stop_infosvr());
+	lan_restart_record_status(&restart_status, "stop networkmap", stop_networkmap());
+	lan_restart_record_status(&restart_status, "stop miniupnpd", stop_upnp());
+	/* Preserve DNSMasq status for its start gate and aggregate it separately. */
 	dnsmasq_status = stop_dns_dhcpd_locked();
+	lan_restart_record_status(&restart_status, "stop DNSMasq", dnsmasq_status);
 	lan_status = stop_lan(is_ap_mode);
+	lan_restart_record_status(&restart_status, "stop LAN services", lan_status);
 	if (lan_status != 0) {
 		logmessage(LOGNAME, "LAN restart aborted because previous LAN services did not stop (status=%d)",
 			   lan_status);
 		if (dnsmasq_status == 0) {
 			dnsmasq_start_status = start_dns_dhcpd_locked(is_ap_mode);
-			if (dnsmasq_start_status != 0)
-				logmessage(LOGNAME, "DNSMasq recovery after aborted LAN restart failed (status=%d)",
-					   dnsmasq_start_status);
+			lan_restart_record_status(&restart_status, "restore DNSMasq after aborted LAN restart",
+						  dnsmasq_start_status);
 		}
-		if (dnsmasq_lifecycle_lock_release(dnsmasq_lock) != 0)
-			logmessage(LOGNAME, "cannot release DNSMasq lifecycle lock after aborted LAN restart (errno=%d)", errno);
+		release_status = dnsmasq_lifecycle_lock_release(dnsmasq_lock);
+		if (release_status != 0) {
+			dnsmasq_lock_errno = errno ? errno : EIO;
+			logmessage(LOGNAME, "cannot release DNSMasq lifecycle lock after aborted LAN restart (errno=%d)",
+				   dnsmasq_lock_errno);
+			release_status = dnsmasq_lock_errno;
+		}
+		lan_restart_record_status(&restart_status, "release DNSMasq lock after aborted LAN restart",
+					  release_status);
 		/* VPN stopped cleanly before this attempt; restore it after releasing
 		 * the DNSMasq lock so firewall/DNS callbacks cannot invert lock order. */
-		restart_vpn_server();
-		return lan_status;
+		lan_restart_record_status(&restart_status, "restore VPN after aborted LAN restart",
+					  restart_vpn_server());
+		return restart_status;
 	}
 
 	reset_lan_vars();
@@ -870,7 +891,7 @@ full_restart_lan(void)
 
 	/* start logger if remote */
 	if (log_remote)
-		start_logger(0);
+		lan_restart_record_status(&restart_status, "start logger", start_logger(0));
 
 #if defined(APP_SMBD)
 	/* update SMB fastpath owner address */
@@ -881,21 +902,23 @@ full_restart_lan(void)
 	if (dnsmasq_status == 0) {
 		dnsmasq_start_status = start_dns_dhcpd_locked(is_ap_mode);
 		dnsmasq_status = dnsmasq_start_status;
-		if (dnsmasq_start_status != 0)
-			logmessage(LOGNAME, "DNSMasq restart after LAN reconfiguration failed (status=%d)",
-				   dnsmasq_start_status);
+		lan_restart_record_status(&restart_status, "restart DNSMasq", dnsmasq_start_status);
 	} else {
 		logmessage(LOGNAME, "DNSMasq restart skipped because the previous process did not stop (status=%d)",
 			   dnsmasq_status);
 	}
 	/* Release before later WAN/VPN work can request a DNS cache reload. */
-	if (dnsmasq_lifecycle_lock_release(dnsmasq_lock) != 0) {
+	release_status = dnsmasq_lifecycle_lock_release(dnsmasq_lock);
+	if (release_status != 0) {
 		dnsmasq_lock_errno = errno ? errno : EIO;
 		logmessage(LOGNAME, "cannot release DNSMasq lifecycle lock after LAN restart (errno=%d)",
 			   dnsmasq_lock_errno);
 		if (dnsmasq_status == 0)
 			dnsmasq_status = dnsmasq_lock_errno;
+		release_status = dnsmasq_lock_errno;
 	}
+	lan_restart_record_status(&restart_status, "release DNSMasq lock after LAN restart",
+				  release_status);
 	if (!is_ap_mode) {
 		if (is_lan_stp) {
 			br_set_stp(IFNAME_BR, 1);
@@ -904,45 +927,45 @@ full_restart_lan(void)
 		
 		if (is_wan_err) {
 			full_restart_wan();
-			start_vpn_server();
+			lan_restart_record_status(&restart_status, "start VPN server after WAN restart",
+						  start_vpn_server());
 		} else {
 			/* restart vpn server, firewall and miniupnpd */
-			restart_vpn_server();
+			lan_restart_record_status(&restart_status, "restart VPN server",
+						  restart_vpn_server());
 		}
 	}
 
 	/* restart igmpproxy, udpxy, xupnpd */
 	if (!is_wan_err)
-		restart_iptv(is_ap_mode);
+		lan_restart_record_status(&restart_status, "restart IPTV services",
+					  restart_iptv(is_ap_mode));
 
 #if defined(APP_NFSD)
 	/* reload NFS server exports */
-	reload_nfsd();
+	lan_restart_record_status(&restart_status, "reload NFS exports", reload_nfsd());
 #endif
 
 #if defined(APP_SMBD) || defined(APP_NMBD)
-	reload_nmbd();
+	lan_restart_record_status(&restart_status, "reload NetBIOS services", reload_nmbd());
 #endif
 
-	start_infosvr();
-	start_lltd();
+	lan_restart_record_status(&restart_status, "start infosvr", start_infosvr());
+	lan_restart_record_status(&restart_status, "start LLTD", start_lltd());
 
 	/* start ARP network scanner */
-	start_networkmap(1);
+	lan_restart_record_status(&restart_status, "start networkmap", start_networkmap(1));
 
 	/* force httpd logout */
-	system("/usr/bin/iappd.sh restart");
+	lan_restart_record_status(&restart_status, "restart IAPP daemon",
+				  system("/usr/bin/iappd.sh restart"));
 	{
 		char *httpd_services[] = { "httpd", NULL };
-		int signal_status = signal_services_by_identity(httpd_services, SIGUSR1);
-		if (signal_status != 0)
-			logmessage(LOGNAME,
-				   "HTTPD logout notification incomplete (status=%d)",
-				   signal_status);
+		lan_restart_record_status(&restart_status, "notify HTTPD logout",
+					  signal_services_by_identity(httpd_services, SIGUSR1));
 	}
 
-	/* This return value reports the DNSMasq lifecycle portion of the LAN restart. */
-	return dnsmasq_status;
+	return restart_status;
 }
 
 void
