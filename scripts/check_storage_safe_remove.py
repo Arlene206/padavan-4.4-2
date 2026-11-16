@@ -672,6 +672,22 @@ for path in ("trunk/user/scripts/files/sbin/mtd_storage.sh",
     require('"' + path + '"' in xy_workflow,
             "XY-C1 must trigger for product persistence dependency " + path)
 
+presence_start = mtd_storage.index("func_rstats_presence()")
+presence_end = mtd_storage.index("\nfunc_stop_apps()", presence_start)
+presence_helper = mtd_storage[presence_start:presence_end]
+stop_start = mtd_storage.index("func_stop_apps()")
+stop_end = mtd_storage.index("\nfunc_start_apps()", stop_start)
+stop_helper = mtd_storage[stop_start:stop_end]
+require('local proc_root="/proc"' in presence_helper and
+        '"$proc_root"/[0-9]*' in presence_helper and
+        "return 2" in presence_helper and
+        "stat_comm=${stat_line#" in presence_helper,
+        "rstats procfs inventory must distinguish malformed/unreadable scans from absence")
+require("func_rstats_presence" in stop_helper and
+        "killall -q rstats" in stop_helper and
+        "for attempts in 1 2 3 4 5" in stop_helper and
+        "rstats did not stop within the bounded wait" in stop_helper,
+        "storage app stop must verify bounded rstats absence rather than trust killall status")
 restore_start = mtd_storage.index("func_restore()")
 restore_end = mtd_storage.index("\nfunc_erase()", restore_start)
 restore = mtd_storage[restore_start:restore_end]
@@ -682,6 +698,17 @@ require(restore.index("cp -a") < restore.index("func_stop_apps") <
         restore.index('mv "$dir_storage" "$rollback_storage"') <
         restore.index('mv "$stage_storage" "$dir_storage"'),
         "storage restore must stage before stopping apps and replacing live settings")
+restore_stop = restore[restore.index("if ! func_stop_apps; then"):restore.index("\n\thad_storage=0")]
+require('rm -rf "$stage_storage" "$tmp_storage"' in restore_stop and
+        "return 1" in restore_stop,
+        "storage restore must retain the live directory and abort when rstats stop is not confirmed")
+reset_start = mtd_storage.index("\nreset)\n", mtd_storage.index('case "$1" in'))
+reset_end = mtd_storage.index("\n\t;;", reset_start)
+reset_case = mtd_storage[reset_start:reset_end]
+require(reset_case.index('touch "$slk"') < reset_case.index("func_stop_apps") <
+        reset_case.index("func_reset") < reset_case.index("func_fill") and
+        "elif ! func_stop_apps; then" in reset_case,
+        "storage reset must establish its save barrier and confirm rstats stop before deleting settings")
 require('mv "$rollback_storage" "$dir_storage"' in restore and
         "restore install and rollback both failed" in restore and
         "Cannot prepare complete storage restore tree" in restore,
@@ -690,5 +717,9 @@ require("RESTORE_FAIL_CP=1" in mtd_storage_restore_test and
         "RESTORE_FAIL_MV_AT=2" in mtd_storage_restore_test and
         "rollback" in mtd_storage_restore_test,
         "storage restore regression must inject copy and install-rename failures")
+require("malformed stat record" in mtd_storage_restore_test and
+        "incomplete procfs inventory unexpectedly authorized storage restore" in mtd_storage_restore_test and
+        "RSTAT_STOP_FAIL=1 run_restore" in mtd_storage_restore_test,
+        "storage restore regression must cover UNKNOWN procfs state and failed daemon stop")
 
 print("Storage eject inventory, failure propagation and persistence gates: PASS")

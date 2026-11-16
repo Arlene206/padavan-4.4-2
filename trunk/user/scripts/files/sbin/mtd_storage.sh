@@ -31,10 +31,68 @@ func_mdir()
 	[ ! -d "$dir_storage" ] && mkdir -p -m 755 $dir_storage
 }
 
+# Return 0 when rstats is running, 1 when absent and 2 when procfs
+# cannot provide a complete answer. A partial scan must never authorize a
+# destructive storage restore/reset.
+func_rstats_presence()
+{
+	local proc_root="/proc"
+	local proc_entry proc_pid stat_line stat_comm
+
+	[ -d "$proc_root" ] && [ -r "$proc_root" ] || return 2
+	for proc_entry in "$proc_root"/[0-9]*; do
+		[ -d "$proc_entry" ] || continue
+		proc_pid=${proc_entry##*/}
+		case "$proc_pid" in
+			''|*[!0-9]*) continue ;;
+		esac
+		if ! IFS= read -r stat_line < "$proc_entry/stat"; then
+			[ ! -d "$proc_entry" ] && continue
+			return 2
+		fi
+		case "$stat_line" in
+			"$proc_pid ("*) ;;
+			*) return 2 ;;
+		esac
+		stat_comm=${stat_line#"$proc_pid ("}
+		case "$stat_comm" in
+			*") "*) ;;
+			*) return 2 ;;
+		esac
+		stat_comm=${stat_comm%)*}
+		[ "$stat_comm" = "rstats" ] && return 0
+	done
+	return 1
+}
+
 func_stop_apps()
 {
-	killall -q rstats
-	[ $? -eq 0 ] && sleep 1
+	local attempts presence
+
+	func_rstats_presence
+	presence=$?
+	case "$presence" in
+		1) return 0 ;;
+		0) ;;
+		*) logger -t "Storage" "Cannot verify rstats process inventory; refusing storage mutation"; return 1 ;;
+	esac
+
+	# killall status alone is not a stop postcondition. Recheck procfs until the
+	# daemon is confirmed absent; a missing/partial inventory aborts the caller.
+	killall -q rstats >/dev/null 2>&1 || true
+	for attempts in 1 2 3 4 5; do
+		func_rstats_presence
+		presence=$?
+		case "$presence" in
+			1) return 0 ;;
+			0) ;;
+			*) logger -t "Storage" "rstats process state became unknown; refusing storage mutation"; return 1 ;;
+		esac
+		[ "$attempts" -lt 5 ] && sleep 1 || :
+	done
+
+	logger -t "Storage" "rstats did not stop within the bounded wait; refusing storage mutation"
+	return 1
 }
 
 func_start_apps()
@@ -367,7 +425,12 @@ func_restore()
 		rollback_storage="${dir_storage}.rollback.$$-$rollback_suffix"
 	done
 
-	func_stop_apps
+	if ! func_stop_apps; then
+		result=1
+		rm -rf "$stage_storage" "$tmp_storage"
+		logger -t "Storage restore" "rstats did not stop cleanly; previous storage tree retained"
+		return 1
+	fi
 	had_storage=0
 	if [ -d "$dir_storage" ]; then
 		if ! mv "$dir_storage" "$rollback_storage"; then
@@ -1013,8 +1076,14 @@ erase)
 	func_erase
 	;;
 reset)
-	func_stop_apps
-	if func_reset && func_fill; then
+	# Establish the save barrier before stopping apps or touching the tree.
+	if ! touch "$slk"; then
+		result=1
+		logger -t "Storage reset" "Cannot create storage save lock: $slk"
+	elif ! func_stop_apps; then
+		result=1
+		logger -t "Storage reset" "Reset aborted because rstats did not stop cleanly; save lock retained"
+	elif func_reset && func_fill; then
 		# Release the barrier only after the complete default tree exists.
 		if ! rm -f "$slk"; then
 			result=1
