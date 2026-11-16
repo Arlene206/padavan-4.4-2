@@ -26,7 +26,7 @@ Validation and CI repair status:
 
 ## Verification boundary
 
-- Exact `e2a43d7` AI handoff `43815932791`, Process lifecycle `43815932847`, HTTPD security `43815932882`, AliyunDrive `43815932706`, AliDDNS `43815932894`, AdGuardHome `43815932884`, and infosvr `43815932852` PASS. DNSMasq `43815932909` failed only because its source checker expected the old `return dnsmasq_lock_errno;`; this commit aligns it with LAN's aggregate `return restart_status;`. XY-C1 `43815932794` was still in progress. Exact b2 XY-C1 `43814395678` later completed Build, TRX verification and artifact upload SUCCESS.
+- Exact `e2a43d79ca372a70af9262e1b0463945d64d644c`: AI handoff `43815932791`, Process lifecycle `43815932847`, HTTPD security `43815932882`, AliyunDrive `43815932706`, AliDDNS `43815932894`, AdGuardHome `43815932884`, infosvr `43815932852`, and NVRAM `43815932797` PASS. DNSMasq `43815932909` reached its embedded source contract but failed while finding the old lock-return statement. Follow-up `78af5220da96994440003d1e794ea948457dbd5f` corrected the assertion target but accidentally removed YAML block indentation: its exact workflow `43816311414` failed before creating a job. THIS COMMIT restores the Python indentation. XY-C1 `43815932794` was still IN_PROGRESS at last e2 observation; exact b2 XY-C1 `43814395678` later completed Build, TRX verification and artifact upload SUCCESS.
 
 
 - L1/L2 source and policy regression: PASS on the exact b2/7ac evidence above.
@@ -38,7 +38,7 @@ Validation and CI repair status:
 
 ## Exact first action for the next GPT
 
-1. Check the exact-head AI handoff, DNSMasq lifecycle, HTTPD security and Process regression Actions for THIS COMMIT. Confirm the validator now sees at least 20 complete root log records and both source contracts accept `full_restart_lan()` returning the first-error aggregate. Diagnose the first causal failure if any.
+1. Check the exact-head DNSMasq lifecycle, AI handoff, and XY-C1 Actions for THIS COMMIT. Confirm the embedded Python source checker executes with the corrected YAML indentation and validates the real lock-failure rollback source; diagnose first causal failure if any. AI log-retention should remain PASS after restoration.
 2. Recheck the pending NVRAM run `43815228491` only as a useful checkpoint; do not let unrelated pending checks block independent work.
 3. Continue the P1 repository-wide RC service-result audit outside `full_restart_lan()`: trace enabled notification/startup callers through helper return values and cleanup/rollback paths; implement only confirmed dropped results with caller-aware regression coverage.
 

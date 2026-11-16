@@ -1,3 +1,12 @@
+## 2026-11-16 — Restore YAML block indentation in DNSMasq source contract
+
+- Parent main: `78af5220da96994440003d1e794ea948457dbd5f`; product-source baseline remains `b2d3288b6282c16cf23859eb9e7f8fdce083cd62`.
+- Exact e2 DNSMasq workflow `43815932909` got through host regressions but its source integration check still expected the old LAN lock-acquisition return. Commit `78af5220da96994440003d1e794ea948457dbd5f` changed the assertion to the aggregate return and added rollback checks, but the three new assertions lost the surrounding YAML block's indentation. Exact 78 workflow `43816311414` consequently failed before creating a job.
+- THIS COMMIT restores the heredoc Python lines to the block indentation. No source behavior changed.
+- Exact e2 AI docs `43815932791`, Process `43815932847`, HTTPD `43815932882`, AliyunDrive `43815932706`, AliDDNS `43815932894`, AdGuardHome `43815932884`, infosvr `43815932852`, and NVRAM `43815932797` PASS. The e2 XY-C1 run `43815932794` was still IN_PROGRESS at the last check; current product-source L3 remains b2 run `43814395678` (Build/TRX/artifact PASS).
+- THIS COMMIT exact-head DNSMasq and AI/XY checks remain to be verified. No L4 physical-router test is claimed.
+---
+
 ## 2026-11-16 14:36 Beijing — Align DNSMasq lock-recovery contract with LAN status aggregation
 
 - Parent main: `e2a43d79ca372a70af9262e1b0463945d64d644c`; product-source baseline remains `b2d3288b6282c16cf23859eb9e7f8fdce083cd62`.
