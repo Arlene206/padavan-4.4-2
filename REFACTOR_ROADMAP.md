@@ -1,9 +1,9 @@
 ## Current source / CI checkpoint
 
-- Live main before THIS essential bridge/VLAN initialization status slice: `9f71cebf2e323d8dc84bca7cfd312d027ca5aab1`. Loopback address setup correctly gates route installation in source commit `1f232209a9aa41d520939c18ab783609e9b791b0`; its newline-safe Process source assertion correction is `9f71cebf2e323d8dc84bca7cfd312d027ca5aab1`.
-- THIS change adds first-error propagation for essential `init_bridge()` and `switch_config_vlan()` operations, safe duplicate bridge-create confirmation, PID 1 aggregation, runtime notification results, and GNU89/Werror/ASan/UBSan policy/source regression coverage. Optional multicast and iNIC isolation capabilities remain separately classified.
-- Parent Process run `43852281303` failed only at the loopback definition assertion; commit `9f71cebf2e323d8dc84bca7cfd312d027ca5aab1` fixes that checker. Exact-head Process/XY-C1/storage/NVRAM reruns for THIS slice are pending publication. No same-SHA XY-C1 Build+TRX+artifact L3 or physical L4 result is claimed.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Recheck current Actions, then continue checked switch base/storm/link setup without conflating optional board capabilities.
+- Live main before THIS conditional bridge-member result correction: `aa5d3c9f2566927a4b17fce5d391f525cccc8095`; essential bridge/VLAN initialization status propagation is in `aa5d3c9f2566927a4b17fce5d391f525cccc8095`.
+- Exact-SHA Process job `133265909696` on `aa5d3c9f2566927a4b17fce5d391f525cccc8095` passed the bridge-init and bridge-membership GNU89/Werror/ASan/UBSan tests and the LAN source contract. Post-review correction captures the router GMAC2 fallback member once inside its conditional branch and captures the AP tagged LAN member; the Process source checker now requires both.
+- THIS correction needs fresh exact-head Actions. On the preceding source SHA, NVRAM `43857640139`, USB storage `43857640310`, HTTPD authentication `43857640193`, AI docs `43857640173`, VPN `43857640155` and XY-C1 `43857640160` were pending at the last inspection. No same-SHA XY-C1 Build+TRX+artifact L3 or physical L4 result was established.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Whole-repository module status
 

@@ -251,12 +251,15 @@ init_bridge(int is_ap_mode)
 			rc_bridge_init_record(&bridge_status, "attach GMAC2 VLAN1", operation_status);
 		} else
 #endif
-operation_status = br_add_del_if(IFNAME_BR, IFNAME_LAN, 1);
-		rc_bridge_init_record(&bridge_status, "attach LAN bridge port", operation_status);
+		{
+			operation_status = br_add_del_if(IFNAME_BR, IFNAME_LAN, 1);
+			rc_bridge_init_record(&bridge_status, "attach router LAN port", operation_status);
+		}
 	} else {
 #if defined (AP_MODE_LAN_TAGGED)
 		/* add eth2 (or eth2.1) to bridge */
-		br_add_del_if(IFNAME_BR, IFNAME_LAN, 1);
+		operation_status = br_add_del_if(IFNAME_BR, IFNAME_LAN, 1);
+		rc_bridge_init_record(&bridge_status, "attach AP LAN port", operation_status);
 #else
 		/* add only eth2 to bridge */
 		operation_status = br_add_del_if(IFNAME_BR, IFNAME_MAC, 1);

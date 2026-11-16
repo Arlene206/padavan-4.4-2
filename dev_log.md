@@ -1,3 +1,13 @@
+## 2026-11-16 — Correct conditional LAN bridge member status accounting
+
+- Parent main: `aa5d3c9f2566927a4b17fce5d391f525cccc8095`. Exact-head Process run `43857640159` on that parent passed. Job `133265909696` confirms the bridge-init policy binary, multicast policy binary, bridge-membership regression and LAN production source contract all passed.
+- A post-commit review found the router GMAC2 conditional `else` path recorded its status outside the conditional block, which could record the preceding eth2.1 attach twice; AP tagged mode also discarded its LAN member attach result.
+- Scoped the router fallback attach and status record inside the preprocessor-controlled else block, and added status capture for the AP tagged LAN port. Strengthened the Process source contract to require both branches and reject the unchecked bare call.
+- All unrelated exact-SHA checks listed in the preceding entry were passing; NVRAM `43857640139`, storage `43857640310`, HTTPD authentication `43857640193`, AI docs `43857640173`, VPN `43857640155`, and XY-C1 `43857640160` were still running at that inspection. No L3/L4 claim.
+- Exact-head checks for THIS correction are pending. Next: inspect Process and the remaining same-SHA checks, then continue switch base/storm/link coverage.
+
+---
+
 ## 2026-11-16 — Propagate essential bridge/VLAN initialization status
 
 - Parent main: `9f71cebf2e323d8dc84bca7cfd312d027ca5aab1`. This slice covers required Ethernet/bridge/VLAN initialization; the existing `config_bridge()` multicast policy remains a distinct optional-feature path.
