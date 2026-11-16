@@ -181,6 +181,7 @@ wan_mtu_failure = wan_dhcp_bound[wan_dhcp_bound.index("if (mtu_status != 0)"):wa
 assert "i_err =" not in wan_mtu_failure and "route_setup_status =" not in wan_mtu_failure and "return " not in wan_mtu_failure
 
 iptv_dhcp_bound = compact(body(WAN_SOURCE, "udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)"))
+assert "int interface_status, rollback_status, route_setup_status, mtu_status;" in iptv_dhcp_bound
 assert "mtu_status = set_interface_mtu(man_ifname, dhcp_mtu);" in iptv_dhcp_bound
 assert 'logmessage(log_prefix, "%s (%s) MTU setup incomplete (status=%d)"' in iptv_dhcp_bound
 iptv_mtu_failure = iptv_dhcp_bound[iptv_dhcp_bound.index("if (mtu_status != 0)"):iptv_dhcp_bound.index("logmessage(log_prefix,", iptv_dhcp_bound.index("if (mtu_status != 0)"))]

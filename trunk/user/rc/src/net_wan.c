@@ -4186,7 +4186,7 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 	char old_ip[INET_ADDRSTRLEN], old_mask[INET_ADDRSTRLEN];
 	unsigned int parsed_value;
 	int lease_dur, is_changed, i_err, dhcp_mtu, mtu_seen, route_result;
-	int interface_status, rollback_status, route_setup_status;
+	int interface_status, rollback_status, route_setup_status, mtu_status;
 	int route_cleanup_status, route_rollback_status, multicast_status = 0;
 	struct wan_dhcp_interface_context interface_context;
 	struct wan_dhcp_route_transition_context route_context;

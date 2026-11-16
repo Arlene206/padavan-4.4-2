@@ -1,3 +1,12 @@
+## 2026-11-16 — Fix the DHCP IPTV optional-MTU compile failure
+
+- Parent main: `17df1d524e5f0ac72951381d56cf238c8699c1e9`. Exact-head XY-C1 run `43874973723` failed at `net_wan.c:4344`: `udhcpc_viptv_bound()` used `mtu_status` without declaring it. Pre-build regression/source steps 9–16 passed; TRX/artifact steps were skipped after compile failure.
+- Added the missing `mtu_status` local to the IPTV DHCP callback. Extended the WAN DHCP embedded source contract and `scripts/check_modem_wan_start_status.py` to require both declaration and MTU assignment, catching this GNU89 compile error before firmware packaging.
+- Parent exact-head NVRAM `43874973747`, Process inventory `43874973647`, AI docs `43874973791`, AdGuardHome `43874973840`, AliDDNS `43874973707`, AliyunDrive `43874973891`, infosvr `43874973811`: PASS.
+- Next: inspect exact-SHA XY-C1 Build/TRX/artifact and WAN DHCP/route Actions. Do not claim firmware L3 until all firmware stages pass on one SHA; physical-router L4 remains unverified.
+
+---
+
 ## 2026-11-16 — Trigger XY-C1 firmware validation for PPP policy dependencies
 
 - Parent main: `f16167cf2ea3666810341f1edd65bfcafeda28dc`. PPP ip-up strict-address validation lives in `ppp_wan_ipup_policy.h` and its `dhcp_lease_policy.h` dependency, with production-linked regression coverage in `tests/ppp_wan_ipup_policy.c`. WAN DHCP regression `43873889736` had passed on the previous tested SHA, but the XY-C1 workflow only watched `net_ppp.c`, so header/test-only changes did not schedule a firmware cross-build.

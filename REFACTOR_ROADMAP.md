@@ -1,10 +1,11 @@
 ## Current source / CI checkpoint
 
-- Product-source parent: `f16167cf2ea3666810341f1edd65bfcafeda28dc`; PPP ip-up validates canonical local/peer IPCP IPv4 addresses and contiguous netmask before interface setup or lease publication.
-- Exact-head WAN route `43874341443`, AI docs `43874341634`, Process inventory/lifecycle `43874341728`, AliDDNS `43874341573`, AdGuardHome `43874341534`, AliyunDrive `43874341457`, infosvr `43874341851`: PASS.
-- NVRAM transaction `43874341561`: IN_PROGRESS at last poll.
-- XY-C1 was not triggered for the PPP policy header/test changes because the path filter omitted those dependencies. This commit adds all relevant headers/tests; confirm the same-SHA Build, TRX and artifact upload.
-- Firmware L3 and physical-router L4 are NOT VERIFIED.
+- Product-source parent: `17df1d524e5f0ac72951381d56cf238c8699c1e9`; static MAN/IPoE validation rejects malformed IPv4/netmasks before interface setup; PPP ip-up validates canonical IPCP endpoints before lease publication.
+- XY-C1 Firmware Validation `43874973723`: FAIL in Build XY-C1 because `udhcpc_viptv_bound()` used `mtu_status` without declaring it. This commit adds the missing local and regression/source-contract assertions. TRX/artifact were skipped.
+- NVRAM transaction `43874973747`, Process inventory/lifecycle `43874973647`, AI docs `43874973791`, AdGuardHome `43874973840`, AliDDNS `43874973707`, AliyunDrive `43874973891`, infosvr `43874973811`: PASS on the parent SHA.
+- WAN DHCP callback and route contracts already cover optional MTU result semantics; this commit adds the missing IPTV declaration coverage. Recheck both on exact new SHA.
+- Firmware L3 and physical-router L4 NOT VERIFIED.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Whole-repository module status
 
