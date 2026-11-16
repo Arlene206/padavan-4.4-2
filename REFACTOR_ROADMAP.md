@@ -1,9 +1,9 @@
 ## Current source / CI checkpoint
 
-- Product-source conntrack result-propagation commit: cffc1497fda9f65d9a0b163bad5acc1723c23f81. Exact-source XY-C1 run 43973861873 PASS, including Build XY-C1, TRX output verification and artifact upload; product-source L3 is VERIFIED at cffc149.
-- Exact 44fd WAN route 43974652676, Process 43974652670 and AI handoff 43974652705 all passed. Exact 0b934 WAN DHCP callback 43975364179, AdGuardHome 43975363862, infosvr 43975363999 and AliyunDrive 43975363922 passed. AI handoff 43975363964 failed only because dev_log.md exceeded the 119-record window; this commit archives 100 oldest records into part-013 and retains 20. Process 43975363957 and NVRAM 43975364308 were pending at last poll.
-- Next P1 defect: stop_lan() discards clear_if_route4(IFNAME_BR)'s status. Capture/aggregate it with conntrack and bridge-down results while continuing cleanup; test both first-error retention and attempted interface shutdown.
-- Frozen backup remains read-only. Physical-router L4 remains NOT VERIFIED.
+- Product-source conntrack result-propagation commit: cffc1497fda9f65d9a0b163bad5acc1723c23f81. Exact-source XY-C1 run 43973861873 PASS, including firmware build, TRX verification and artifact upload; product-source L3 is VERIFIED at cffc149.
+- Exact 44fd WAN route 43974652676, Process 43974652670 and AI handoff 43974652705 passed. Exact 0b934 WAN DHCP callback 43975364179, Process 43975363957, AdGuardHome 43975363862, infosvr 43975363999 and AliyunDrive 43975363922 passed. AI handoff 43975363964 failed only because root log count reached 120; 344db6b rotates 100 records into part-013 and retains 20.
+- Current P1 slice fixes stop_lan() discarding clear_if_route4(IFNAME_BR). It aggregates conntrack, static-route flush and bridge-down statuses while continuing IPv6/interface cleanup; the first-error regression covers route-only, earlier conntrack and later bridge failure.
+- Exact-head Process, WAN route, AI handoff and XY-C1 runs are required for this slice. Frozen backup is immutable; physical-router L4 remains NOT VERIFIED.
 
 ## Whole-repository module status
 

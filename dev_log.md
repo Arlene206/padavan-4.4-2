@@ -1,3 +1,12 @@
+## 2026-11-16 — Preserve LAN static-route flush failures during teardown
+
+- Parent main: 344db6b6cb4309ad1a2cdbf29b2cc0ee50ad5898. In stop_lan(), clear_if_route4(IFNAME_BR) returned the route-flush result but its caller discarded it. If conntrack and bridge ifconfig succeeded, a failed static-route cleanup was silently reported as a successful LAN teardown.
+- Captured and logged route_status, then nested first-error aggregation across conntrack cleanup, route flush and bridge shutdown. IPv6 cleanup and ifconfig remain attempted after a route failure; AP-mode behavior is unchanged.
+- Added service_start_status regression coverage for route-only failure, earlier conntrack error precedence, and bridge-down-only failure. Added Process integration assertions for result capture, aggregation and route→IPv6→interface operation ordering. Existing Process and XY-C1 workflows already compile this test and trigger on net_lan.c.
+- Parent source L3: XY-C1 run 43973861873 on cffc149 passed Build, TRX verification and artifact upload. The exact 344db6b handoff rerun and this slice's exact-head Process/WAN/XY-C1 checks are pending. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Update WAN DHCP callback contract for conntrack cleanup status
 
 - Parent main: `44fd9bedf4b7b1ab4e9d4408a6157681158774d3`. Exact `44fd9bed` WAN route, Process inventory, AI handoff, NVRAM, AdGuardHome, AliDDNS, AliyunDrive and infosvr Actions passed.

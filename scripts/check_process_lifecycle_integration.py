@@ -1718,3 +1718,20 @@ sysctl_regression = (root / "trunk/user/rc/src/tests/service_start_status.c").re
 assert "test_sysctl_pppoe_relay_failure_keeps_notification_pending" in sysctl_regression
 assert "rc_notify_merge_action_result(action_result, restart_status)" in sysctl_regression
 print("RC sysctl PPPoE relay status reaches PID 1 notification result: PASS")
+
+
+# stop_lan() previously discarded clear_if_route4() status. Preserve its
+# failure after conntrack cleanup while still attempting IPv6/interface teardown.
+lan_teardown = c_function_body(lan_source, "stop_lan(int is_ap_mode)")
+lan_teardown_compact = "".join(lan_teardown.split())
+assert "intconntrack_status=0,route_status=0;" in lan_teardown_compact
+assert "route_status=clear_if_route4(IFNAME_BR);" in lan_teardown_compact
+assert 'if(route_status!=0)logmessage(LOGNAME,"LANroutecleanupfailed(status=%d)",route_status);' in lan_teardown_compact
+assert "returnrc_first_service_start_status(rc_first_service_start_status(conntrack_status,route_status),status);" in lan_teardown_compact
+route_flush_at = lan_teardown_compact.index("route_status=clear_if_route4(IFNAME_BR);")
+ipv6_cleanup_at = lan_teardown_compact.index("clear_lan_addr6();")
+bridge_down_at = lan_teardown_compact.index("ifconfig(IFNAME_BR,0,NULL,NULL);")
+assert route_flush_at < ipv6_cleanup_at < bridge_down_at
+assert "test_router_lan_teardown_preserves_route_failure_and_continues" in lan_test
+assert "test_router_lan_teardown_preserves_route_failure_and_continues();" in lan_test
+print("LAN route flush errno reaches stop_lan() result without skipping later cleanup: PASS")

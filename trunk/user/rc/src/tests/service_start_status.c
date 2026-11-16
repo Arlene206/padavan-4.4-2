@@ -52,6 +52,52 @@ test_lan_start_preserves_first_required_failure(void)
 }
 
 static void
+test_router_lan_teardown_preserves_route_failure_and_continues(void)
+{
+	int status = 0;
+	int conntrack_status = 0;
+	int route_status = EIO;
+	int bridge_status = 0;
+	int route_flush_attempts = 0;
+	int bridge_down_attempts = 0;
+
+	status = rc_first_service_start_status(status, conntrack_status);
+	route_flush_attempts++;
+	status = rc_first_service_start_status(status, route_status);
+	bridge_down_attempts++;
+	status = rc_first_service_start_status(status, bridge_status);
+	assert(route_flush_attempts == 1);
+	assert(bridge_down_attempts == 1);
+	assert(status == EIO);
+
+	/* Conntrack remains the first failure, but route and bridge cleanup run. */
+	status = 0;
+	conntrack_status = EBUSY;
+	route_status = EIO;
+	bridge_status = EACCES;
+	route_flush_attempts = 0;
+	bridge_down_attempts = 0;
+	status = rc_first_service_start_status(status, conntrack_status);
+	route_flush_attempts++;
+	status = rc_first_service_start_status(status, route_status);
+	bridge_down_attempts++;
+	status = rc_first_service_start_status(status, bridge_status);
+	assert(route_flush_attempts == 1);
+	assert(bridge_down_attempts == 1);
+	assert(status == EBUSY);
+
+	/* A successful route flush must not hide a later bridge-down failure. */
+	status = 0;
+	conntrack_status = 0;
+	route_status = 0;
+	bridge_status = EACCES;
+	status = rc_first_service_start_status(status, conntrack_status);
+	status = rc_first_service_start_status(status, route_status);
+	status = rc_first_service_start_status(status, bridge_status);
+	assert(status == EACCES);
+}
+
+static void
 test_loopback_start_preserves_first_required_failure(void)
 {
 	int status = 0;
@@ -260,6 +306,7 @@ main(void)
 	assert(rc_first_service_start_status(-5, 9) == -5);
 	assert(rc_first_service_start_status(4, 0) == 4);
 	test_first_error_survives_lan_restart_recovery();
+	test_router_lan_teardown_preserves_route_failure_and_continues();
 	test_negative_and_positive_statuses_are_preserved();
 	test_usb_printer_launchers_preserve_first_failure_and_continue();
 	test_usb_printer_optional_hook_failure_is_reported_and_core_launches_continue();

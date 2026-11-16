@@ -938,7 +938,7 @@ start_lan(int is_ap_mode, int do_wait)
 int
 stop_lan(int is_ap_mode)
 {
-	int conntrack_status = 0;
+	int conntrack_status = 0, route_status = 0;
 	if (is_ap_mode) {
 		char *svcs[] = { "detect_wan", NULL };
 		const char *pidfiles[] = { "/var/run/udhcpc_lan.pid", NULL };
@@ -966,8 +966,10 @@ stop_lan(int is_ap_mode)
 					   conntrack_status);
 		}
 
-		/* Remove static routes */
-		clear_if_route4(IFNAME_BR);
+		/* Remove static routes and retain failure while continuing teardown. */
+		route_status = clear_if_route4(IFNAME_BR);
+		if (route_status != 0)
+			logmessage(LOGNAME, "LAN route cleanup failed (status=%d)", route_status);
 	}
 
 #if defined (USE_IPV6)
@@ -979,7 +981,8 @@ stop_lan(int is_ap_mode)
 		int status = ifconfig(IFNAME_BR, 0, NULL, NULL);
 		if (status != 0 && is_ap_mode)
 			notify_run_detect_internet(2);
-		return rc_first_service_start_status(conntrack_status, status);
+		return rc_first_service_start_status(
+			rc_first_service_start_status(conntrack_status, route_status), status);
 	}
 }
 
