@@ -75,7 +75,7 @@ prepare_case()
 	cat >> "$base/mtd_storage.sh" <<'EOF_MOCK_FUNCTIONS'
 func_stop_apps()
 {
-	printf '%s\\n' stop >> "$STOP_LOG"
+	printf '%s\n' stop >> "$STOP_LOG"
 	[ "${STOP_APPS_FAIL:-0}" != 1 ]
 }
 func_fill()
