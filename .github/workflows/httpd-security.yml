@@ -1307,7 +1307,7 @@ jobs:
           assert 'return eval("ip", "route", "flush", "dev", ifname, "scope", "global")' in " ".join(clear_route.split())
           assert "doSystem" not in clear_route
           full_restart_routes = body(net_wan, "full_restart_wan(void)")
-          assert "rc_wan_route_flush_apply(route_ifnames, 2, clear_if_route4)" in full_restart_routes
+          assert "rc_wan_route_flush_apply(route_ifnames, 2, clear_if_route4)" in " ".join(full_restart_routes.split())
           assert full_restart_routes.index("if (route_flush_status != 0)") < full_restart_routes.index("phy_clear_mac_table()")
           assert "return route_flush_status;" in full_restart_routes
           assert "rc_first_service_start_status(first_status, status)" in route_flush_policy
