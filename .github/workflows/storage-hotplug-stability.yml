@@ -551,8 +551,28 @@ jobs:
           assert "service_status = run_ftp();" in storage_start
           assert "service_status = run_samba();" in storage_start
           assert "service_status = run_nfsd_locked();" in storage_start
-          assert storage_start.count("rc_first_service_start_status(") == 3
+          assert "service_status = run_dms(0);" in storage_start
+          assert "service_status = run_itunes();" in storage_start
+          assert "service_status = run_torrent();" in storage_start
+          assert "service_status = run_aria();" in storage_start
+          assert storage_start.count("rc_first_service_start_status(") == 7
           assert "return start_status;" in storage_start
+
+          for signature in ("run_dms(int force_rescan)", "run_itunes(void)",
+                            "run_torrent(void)", "run_aria(void)"):
+              daemon_start = function_body(storage, signature)
+              assert "return storage_log_daemon_start_result(" in daemon_start
+              assert "return errno ? errno : EIO;" in daemon_start
+          daemon_result = function_body(storage, "storage_log_daemon_start_result(")
+          assert "status = rc_first_service_start_status(status, ENOENT);" in daemon_result
+          assert "status = rc_first_service_start_status(status, process_status);" in daemon_result
+          assert "return status;" in daemon_result
+          assert "int run_dms(int force_rescan);" in rc_header
+          assert "int run_itunes(void);" in rc_header
+          assert "int run_torrent(void);" in rc_header
+          assert "int run_aria(void);" in rc_header
+          assert "is_torrent_run() == PROCESS_PRESENCE_RUNNING" in storage_start
+          assert "is_aria_run() == PROCESS_PRESENCE_RUNNING" in storage_start
           assert "int start_stor_apps(void);" in rc_header
           assert "void start_stor_apps(void);" not in rc_header
 

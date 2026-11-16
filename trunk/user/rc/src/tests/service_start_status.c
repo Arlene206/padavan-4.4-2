@@ -157,6 +157,26 @@ test_storage_app_startup_preserves_first_failure_and_continues(void)
 	status = rc_first_service_start_status(status, ENODEV);
 	assert(attempts == 3);
 	assert(status == ENODEV);
+
+	/* Optional media/download daemons also feed the shared startup status. */
+	status = 0;
+	attempts = 0;
+	attempts++;
+	status = rc_first_service_start_status(status, 0);       /* FTP */
+	attempts++;
+	status = rc_first_service_start_status(status, 0);       /* Samba */
+	attempts++;
+	status = rc_first_service_start_status(status, 0);       /* NFS */
+	attempts++;
+	status = rc_first_service_start_status(status, EBUSY);   /* MiniDLNA */
+	attempts++;
+	status = rc_first_service_start_status(status, 0);       /* Firefly */
+	attempts++;
+	status = rc_first_service_start_status(status, ENODEV);  /* Transmission */
+	attempts++;
+	status = rc_first_service_start_status(status, EACCES);  /* Aria */
+	assert(attempts == 7);
+	assert(status == EBUSY);
 }
 
 static void

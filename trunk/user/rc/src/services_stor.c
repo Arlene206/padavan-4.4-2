@@ -146,20 +146,29 @@ storage_daemon_presence(const char *daemon, int *scan_error)
  * daemon being visible. Report both rather than silently accepting either.
  */
 #if defined (APP_MINIDLNA) || defined (APP_FIREFLY) || defined (APP_TRMD) || defined (APP_ARIA)
-static void
+static int
 storage_log_daemon_start_result(const char *apps_name, int launch_status,
 				enum process_presence process_state)
 {
+	int status = launch_status;
+	int process_status;
+
 	if (launch_status != 0)
 		logmessage(apps_name, "launch command failed (status=%d)", launch_status);
 
-	if (process_state == PROCESS_PRESENCE_RUNNING)
+	if (process_state == PROCESS_PRESENCE_RUNNING) {
 		logmessage(apps_name, "daemon is started");
-	else if (process_state == PROCESS_PRESENCE_ABSENT)
+	} else if (process_state == PROCESS_PRESENCE_ABSENT) {
 		logmessage(apps_name, "daemon is absent in post-launch process inventory");
-	else
+		status = rc_first_service_start_status(status, ENOENT);
+	} else {
+		process_status = errno ? errno : EIO;
 		logmessage(apps_name, "cannot verify daemon startup (scan error=%d)",
-			   errno ? errno : EIO);
+			   process_status);
+		status = rc_first_service_start_status(status, process_status);
+	}
+
+	return status;
 }
 #endif
 
@@ -1988,7 +1997,7 @@ int update_minidlna_conf(const char *link_path, const char *conf_path)
 	return status;
 }
 
-void run_dms(int force_rescan)
+int run_dms(int force_rescan)
 {
 	int db_rescan_mode;
 	int process_state;
@@ -2009,17 +2018,17 @@ void run_dms(int force_rescan)
 	};
 
 	if (!nvram_match("apps_dms", "1"))
-		return;
+		return 0;
 
 	if (!is_dms_support())
-		return;
+		return 0;
 
 	process_state = is_dms_run();
 	if (process_state == PROCESS_PRESENCE_RUNNING)
-		return;
+		return 0;
 	if (process_state != PROCESS_PRESENCE_ABSENT) {
 		logmessage("minidlna", "startup skipped because process inventory is unknown");
-		return;
+		return errno ? errno : EIO;
 	}
 
 	unlink(link_path);
@@ -2028,14 +2037,14 @@ void run_dms(int force_rescan)
 		if (!create_mp_link(dest_dir, link_path, 1))
 		{
 			logmessage(apps_name, "Cannot start: unable to create DB dir (/%s) on any volumes!", dest_dir);
-			return;
+			return errno ? errno : EIO;
 		}
 	}
 
 	config_status = update_minidlna_conf(link_path, conf_path);
 	if (config_status != 0) {
 		logmessage(apps_name, "refusing daemon launch after configuration failure");
-		return;
+		return config_status;
 	}
 
 	ether_atoe(nvram_safe_get("il0macaddr"), mac_bin);
@@ -2049,8 +2058,8 @@ void run_dms(int force_rescan)
 
 	launch_status = _eval(minidlna_argv, NULL, 0, NULL);
 	process_state = is_dms_run();
-	storage_log_daemon_start_result(apps_name, launch_status,
-					(enum process_presence)process_state);
+	return storage_log_daemon_start_result(apps_name, launch_status,
+						(enum process_presence)process_state);
 }
 
 void restart_dms(int force_rescan)
@@ -2148,7 +2157,7 @@ update_firefly_conf(const char *link_path, const char *conf_path,
 				      nvram_safe_get("http_passwd"));
 }
 
-void run_itunes(void)
+int run_itunes(void)
 {
 	char *apps_name = "iTunes Server";
 	char *link_path = "/mnt/firefly";
@@ -2162,60 +2171,60 @@ void run_itunes(void)
 	int path_length;
 
 	if (!nvram_match("apps_itunes", "1"))
-		return;
+		return 0;
 
 	if (!is_itunes_support())
-		return;
+		return 0;
 
 	process_state = is_itunes_run();
 	if (process_state == PROCESS_PRESENCE_RUNNING)
-		return;
+		return 0;
 	if (process_state != PROCESS_PRESENCE_ABSENT) {
 		logmessage("mt-daapd", "startup skipped because process inventory is unknown");
-		return;
+		return errno ? errno : EIO;
 	}
 
 	unlink(link_path);
 	if (!create_mp_link(dest_dir, link_path, 0)) {
 		if (!create_mp_link(dest_dir, link_path, 1)) {
 			logmessage(apps_name, "Cannot start: unable to create DB dir (/%s) on any volumes!", dest_dir);
-			return;
+			return errno ? errno : EIO;
 		}
 	}
 
 	if (mkdir(conf_path, 0755) != 0 && errno != EEXIST) {
 		config_status = errno ? errno : EIO;
 		logmessage(apps_name, "configuration directory creation failed (status=%d)", config_status);
-		return;
+		return config_status;
 	}
 
 	path_length = snprintf(conf_old, sizeof(conf_old), "%s/%s", "/etc/storage", conf_file);
 	if (path_length < 0 || (size_t)path_length >= sizeof(conf_old)) {
 		logmessage(apps_name, "legacy configuration path is too long");
-		return;
+		return ENAMETOOLONG;
 	}
 	path_length = snprintf(conf_new, sizeof(conf_new), "%s/%s", conf_path, conf_file);
 	if (path_length < 0 || (size_t)path_length >= sizeof(conf_new)) {
 		logmessage(apps_name, "configuration path is too long");
-		return;
+		return ENAMETOOLONG;
 	}
 	if (!check_if_file_exist(conf_new) && check_if_file_exist(conf_old) &&
 	    rename(conf_old, conf_new) != 0) {
 		config_status = errno ? errno : EIO;
 		logmessage(apps_name, "legacy configuration migration failed (status=%d)", config_status);
-		return;
+		return config_status;
 	}
 
 	config_status = update_firefly_conf(link_path, conf_path, conf_file);
 	if (config_status != 0) {
 		logmessage(apps_name, "configuration publication failed (status=%d)", config_status);
-		return;
+		return config_status;
 	}
 
 	launch_status = eval("/usr/bin/mt-daapd", "-c", conf_new);
 	process_state = is_itunes_run();
-	storage_log_daemon_start_result(apps_name, launch_status,
-					(enum process_presence)process_state);
+	return storage_log_daemon_start_result(apps_name, launch_status,
+						(enum process_presence)process_state);
 }
 
 void restart_itunes(void)
@@ -2308,7 +2317,7 @@ stop_torrent(void)
 	return storage_service_stop_complete(status, is_torrent_run());
 }
 
-void run_torrent(void)
+int run_torrent(void)
 {
 	char *apps_name = "Transmission";
 	char *link_path = "/mnt/transmission";
@@ -2317,29 +2326,29 @@ void run_torrent(void)
 	int launch_status;
 
 	if (!nvram_match("trmd_enable", "1"))
-		return;
+		return 0;
 
 	if (!is_torrent_support())
-		return;
+		return 0;
 
 	process_state = is_torrent_run();
 	if (process_state == PROCESS_PRESENCE_RUNNING)
-		return;
+		return 0;
 	if (process_state != PROCESS_PRESENCE_ABSENT) {
 		logmessage("transmission-daemon", "startup skipped because process inventory is unknown");
-		return;
+		return errno ? errno : EIO;
 	}
 
 	unlink(link_path);
 	if (!create_mp_link(dest_dir, link_path, 0)) {
 		logmessage(apps_name, "Cannot start: please create dir \"%s\" on target volume!", dest_dir);
-		return;
+		return errno ? errno : EIO;
 	}
 
 	launch_status = eval("/usr/bin/transmission.sh", "start");
 	process_state = is_torrent_run();
-	storage_log_daemon_start_result(apps_name, launch_status,
-					(enum process_presence)process_state);
+	return storage_log_daemon_start_result(apps_name, launch_status,
+						(enum process_presence)process_state);
 }
 
 void restart_torrent(void)
@@ -2437,7 +2446,7 @@ stop_aria(void)
 	return storage_service_stop_complete(status, is_aria_run());
 }
 
-void run_aria(void)
+int run_aria(void)
 {
 	char *apps_name = "Aria";
 	char *link_path = "/mnt/aria";
@@ -2446,29 +2455,29 @@ void run_aria(void)
 	int launch_status;
 
 	if (!nvram_match("aria_enable", "1"))
-		return;
+		return 0;
 
 	if (!is_aria_support())
-		return;
+		return 0;
 
 	process_state = is_aria_run();
 	if (process_state == PROCESS_PRESENCE_RUNNING)
-		return;
+		return 0;
 	if (process_state != PROCESS_PRESENCE_ABSENT) {
 		logmessage("aria2c", "startup skipped because process inventory is unknown");
-		return;
+		return errno ? errno : EIO;
 	}
 
 	unlink(link_path);
 	if (!create_mp_link(dest_dir, link_path, 0)) {
 		logmessage(apps_name, "Cannot start: please create dir \"%s\" on target volume!", dest_dir);
-		return;
+		return errno ? errno : EIO;
 	}
 
 	launch_status = eval("/usr/bin/aria.sh", "start");
 	process_state = is_aria_run();
-	storage_log_daemon_start_result(apps_name, launch_status,
-					(enum process_presence)process_state);
+	return storage_log_daemon_start_result(apps_name, launch_status,
+						(enum process_presence)process_state);
 }
 
 void restart_aria(void)
@@ -3070,7 +3079,9 @@ start_stor_apps(void)
 {
 	int need_restart_fw = 0;
 	int start_status = 0;
-#if defined (APP_FTPD) || defined (APP_SMBD) || defined (APP_NFSD)
+#if defined (APP_FTPD) || defined (APP_SMBD) || defined (APP_NFSD) || \
+    defined (APP_MINIDLNA) || defined (APP_FIREFLY) || \
+    defined (APP_TRMD) || defined (APP_ARIA)
 	int service_status;
 #endif
 
@@ -3080,7 +3091,7 @@ start_stor_apps(void)
 		logmessage("Storage", "FTP startup did not reach its daemon postconditions");
 	start_status = rc_first_service_start_status(start_status, service_status);
 	if (nvram_match("ftpd_wopen", "1"))
-		need_restart_fw |= is_ftp_run();
+		need_restart_fw |= (is_ftp_run() == PROCESS_PRESENCE_RUNNING);
 #endif
 #if defined (APP_SMBD)
 	service_status = run_samba();
@@ -3095,18 +3106,22 @@ start_stor_apps(void)
 	start_status = rc_first_service_start_status(start_status, service_status);
 #endif
 #if defined (APP_MINIDLNA)
-	run_dms(0);
+	service_status = run_dms(0);
+	start_status = rc_first_service_start_status(start_status, service_status);
 #endif
 #if defined (APP_FIREFLY)
-	run_itunes();
+	service_status = run_itunes();
+	start_status = rc_first_service_start_status(start_status, service_status);
 #endif
 #if defined (APP_TRMD)
-	run_torrent();
-	need_restart_fw |= is_torrent_run();
+	service_status = run_torrent();
+	start_status = rc_first_service_start_status(start_status, service_status);
+	need_restart_fw |= (is_torrent_run() == PROCESS_PRESENCE_RUNNING);
 #endif
 #if defined (APP_ARIA)
-	run_aria();
-	need_restart_fw |= is_aria_run();
+	service_status = run_aria();
+	start_status = rc_first_service_start_status(start_status, service_status);
+	need_restart_fw |= (is_aria_run() == PROCESS_PRESENCE_RUNNING);
 #endif
 
 	if (need_restart_fw && nvram_match("fw_enable_x", "1"))
