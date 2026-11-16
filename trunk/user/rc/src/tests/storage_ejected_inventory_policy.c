@@ -96,6 +96,14 @@ main(void)
 	assert(!storage_ejected_may_unmount_device(0, 0));
 	assert(!storage_ejected_may_unmount_device(1, -1));
 
+	assert(storage_ejected_storage_start_retry_required(3, 1));
+	assert(storage_ejected_storage_start_retry_required(3, -1));
+	assert(!storage_ejected_storage_start_retry_required(3, 0));
+	assert(storage_ejected_storage_start_retry_required(-1, 0));
+	assert(storage_ejected_storage_start_retry_required(-1, -1));
+	assert(!storage_ejected_storage_start_retry_required(0, 1));
+	assert(!storage_ejected_storage_start_retry_required(0, 0));
+
 	assert(storage_ejected_inventory_complete(0, 0, 0));
 	assert(!storage_ejected_inventory_complete(1, 0, 0));
 	assert(!storage_ejected_inventory_complete(0, 1, 0));

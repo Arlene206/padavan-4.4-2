@@ -244,4 +244,12 @@ storage_ejected_may_unmount_device(int mount_inventory_complete,
 	return mount_inventory_complete && swapoff_status == 0;
 }
 
+/* Retry service startup only while remaining storage may need the services. */
+static int
+storage_ejected_storage_start_retry_required(int remaining_mounts, int start_status)
+{
+	return remaining_mounts < 0 ||
+		(remaining_mounts > 0 && start_status != 0);
+}
+
 #endif /* PADAVAN_STORAGE_EJECTED_INVENTORY_POLICY_H */

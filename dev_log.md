@@ -1,3 +1,12 @@
+## 2026-11-17 00:25 CST — Preserve storage-app retries after targeted eject
+
+- Parent main: `8fca58d5479d65fcc8811934f41a71026a240c37`. Found a reliability gap in `safe_remove_stor_device()`: after stopping integrated storage services, a failed restart while other mounts remained was logged but did not restore `usb_hotplug_ms` or arm the deferred five-second retry. An UNKNOWN final mount inventory also left services safely stopped but had no scheduled re-check.
+- Added `storage_ejected_storage_start_retry_required()`: retry when remaining mount count is UNKNOWN, or when mounts remain and service startup failed; never retry solely because a service failed when no mounts remain. The real eject path now sets the existing `usb_hotplug_ms` event and calls `alarm(5)` only after freeing the inventory and releasing the storage-operation lock.
+- Extended the existing GNU89 policy regression for positive/zero/unknown mount counts and success/failure statuses. Added source contracts for the failed-start and UNKNOWN branches plus event re-arming/lock ordering. The existing storage workflow already includes these source/test paths and runs the policy test with compiler warnings as errors and sanitizers.
+- No local repository checkout is available, so no local compile or full source checker is claimed. Process inventory/lifecycle run `43907096476` was IN_PROGRESS on parent `8fca58d5479d65fcc8811934f41a71026a240c37` at last poll. The source slice's exact-head USB storage and XY-C1 Build/TRX/artifact checks are pending. Product SHA `d6fac506d564e8277e6c81ec2dd18620b6509144` previously passed the storage regression and XY-C1 L3. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 00:21 CST — Add the missing local C-function extractor to process checker
 
 - Parent main: `d935aed8045f940a42d4c19d46b26bcfdcdd09cb`. Exact-head Process inventory/lifecycle run `43906449302`, job `133436469037`, failed at step 38 because the checker-only fix called `body()`, but `scripts/check_process_lifecycle_integration.py` has no such helper (the similarly named helper exists only in a different standalone checker and is not imported). The failure was `NameError: name 'body' is not defined`.

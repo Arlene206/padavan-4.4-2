@@ -160,6 +160,16 @@ require("umount_all_storage()" in eject and "count_stor_mountpoint()" in eject,
 require("storage_safe_remove_complete(path_status, fallback_status, mount_count)" in eject,
         "eject must use the fail-closed postcondition")
 require("return result;" in eject, "eject must return operation status")
+targeted_eject = body(storage, "safe_remove_stor_device(")
+require("storage_ejected_storage_start_retry_required(mount_count, start_status)" in targeted_eject and
+        "storage_ejected_storage_start_retry_required(mount_count, 0)" in targeted_eject,
+        "targeted eject must retry failed service startup and unknown mount inventory")
+retry_schedule = targeted_eject.rsplit("if (retry_storage_start)", 1)[-1]
+require('nvram_set_int_temp("usb_hotplug_ms", 1);' in retry_schedule and "alarm(5);" in retry_schedule,
+        "targeted eject must re-arm the existing five-second deferred storage retry")
+require(targeted_eject.rfind("file_unlock(storage_lock);") < targeted_eject.rfind("if (retry_storage_start)"),
+        "deferred storage retry must be scheduled only after releasing the storage operation lock")
+
 require("int safe_remove_all_stor_devices(int do_spindown);" in rc_header,
         "RC header must expose the checked eject result")
 require('ret = safe_remove_all_stor_devices(1);' in rc,

@@ -3508,7 +3508,7 @@ safe_remove_stor_device(int port_b, int port_e, const char *dev_name, int do_spi
 	int storage_lock;
 	int port, has_mounted_port = 0, has_swapon_port = 0;
 	int unmount_status, ejected_status, mount_count;
-	int start_status;
+	int start_status, retry_storage_start = 0;
 	disk_info_t *disks_info, *follow_disk;
 
 	storage_lock = storage_operation_lock_acquire(file_lock);
@@ -3551,14 +3551,20 @@ safe_remove_stor_device(int port_b, int port_e, const char *dev_name, int do_spi
 			mount_count = count_stor_mountpoint();
 			if (mount_count > 0) {
 				start_status = start_stor_apps();
-				if (start_status != 0)
+				if (start_status != 0) {
 					logmessage("Storage", "storage services failed to restart after safe removal (status=%d)", start_status);
+					retry_storage_start = storage_ejected_storage_start_retry_required(
+						mount_count, start_status);
+				}
 #if defined(APP_NFSD)
 			} else if (mount_count == 0 && unmount_status == 0 && ejected_status == 0) {
 				unload_nfsd();
 #endif
 			} else if (mount_count < 0 || unmount_status != 0 || ejected_status != 0) {
 				logmessage("Storage", "storage state is uncertain; leaving services stopped rather than assuming eject succeeded");
+				if (mount_count < 0)
+					retry_storage_start = storage_ejected_storage_start_retry_required(
+						mount_count, 0);
 			}
 		} else if (unmount_status != 0) {
 			logmessage("Storage", "safe removal incomplete; active swap could not be disabled or mounted data could not be unmounted");
@@ -3567,6 +3573,12 @@ safe_remove_stor_device(int port_b, int port_e, const char *dev_name, int do_spi
 
 	free_disk_data(disks_info);
 	file_unlock(storage_lock);
+	if (retry_storage_start) {
+		nvram_set_int_temp("usb_hotplug_ms", 1);
+		logmessage("Storage", "queued storage application retry after safe removal; retrying in five seconds");
+		alarm(5);
+	}
+
 }
 
 int
