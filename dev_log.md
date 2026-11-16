@@ -26,7 +26,7 @@
 
 - Commit `39a2cb22ee211a42ab84214b4268b7d541c1babe` adds tri-state pidof inventory, bounded TERM/KILL waits, fresh pre-KILL revalidation and start/restart fail-closed gating.
 - Its first exact-head Redsocks workflow failed because a sed range truncated the heredoc inside production `func_start`. Follow-up `081c53bab84b5850dec61f2fe8cc607c6e6b9d08` adds a test-only dispatcher guard and sources the complete production script instead of extracting partial functions.
-- Exact-head `081c53b` inventory `43799550922`, process lifecycle `43799550880` and handoff `43799550886` PASS; NVRAM `43799550890` was IN PROGRESS; Redsocks `43799550943` failed because the source harness omitted the script's second argument. Follow-up `fbc61e15eb5365bbcc7b000e99e053ebf1adf734` supplied `check nolog` but exposed a missing third argument; `31a0841d657ef8be12457c828a04c46945d02bf5` now supplies `check nolog test`. Exact Redsocks `43799793322` and handoff `43799793399` were IN PROGRESS at checkpoint.
+- Exact-head `081c53b` inventory `43799550922`, process lifecycle `43799550880` and handoff `43799550886` PASS; NVRAM `43799550890` was IN PROGRESS; Redsocks `43799550943` failed because the source harness omitted the script's second argument. Follow-up `fbc61e15eb5365bbcc7b000e99e053ebf1adf734` supplied `check nolog` but exposed a missing third argument; `31a0841d657ef8be12457c828a04c46945d02bf5` now supplies `check nolog test`. `31a0841` then reached the sleep-failure test, but the fixture defaulted TERM to immediate stop and never exercised sleep. Follow-up `92ead5be2f584c10391c9b9b1cf2bcff48d5921f` sets `TEST_TERM_MODE=keep`; exact Redsocks `43799882544` and handoff `43799882540` were IN PROGRESS at checkpoint.
 
 ---
 
