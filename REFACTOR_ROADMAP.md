@@ -1,11 +1,10 @@
 ## Current source / CI checkpoint
 
-- Product-source baseline cd5ccbefc26a9f71b0c971800b2f5b0d9cad450d: same-SHA XY-C1 Build, TRX output verification and artifact upload PASS; firmware L3 VERIFIED for that product tree only. Physical-router L4 NOT VERIFIED.
-- Storage-hotplug ea794e3 run 43882865182: PASS all 24 steps, including BusyBox ash lifecycle, storage regressions, complete caller graph and final checked-eject/persistence gate.
-- AI docs ea794e3 run 43882864787: FAIL because SESSION_HANDOFF.md lacked the exact end-of-session checkpoint sentence required by the live checker; this commit restores the required phrase and full checkpoint statement.
-- New P1 source fix: USB modem WAN reconnect results now propagate from try_start_usb_modem_to_wan() to deferred hotplug; failed unplug/plug attempts restore usb_unplug_md/usb_hotplug_md and schedule the existing alarm(5) retry. USB modem workflow gains helper/caller contracts and push/PR paths for services_stor.c/services_usb.c.
-- Other exact-parent runs: AdGuardHome 43882869197, infosvr 43882865220, AliyunDrive 43882864990, process inventory 43882864867, NVRAM 43882864826 and AliDDNS 43882864791 PASS.
-- Next: verify exact-head modem/XY-C1/docs Actions; then continue cross-userland startup-result audit.
+- Current product-source commit be65a873365598d99cccce9513e1e720203b6d8a: USB modem WAN reconnect result now flows from the startup helper to deferred hotplug; failed modem plug/unplug transitions re-arm their NVRAM event flags and schedule alarm(5). USB modem workflow has helper/caller source assertions and push/PR path coverage for services_stor.c/services_usb.c.
+- Exact-SHA XY-C1 43884258941 was IN_PROGRESS, USB modem identity 43884258738 QUEUED, storage 43884258495 IN_PROGRESS, process lifecycle 43884258642 IN_PROGRESS and NVRAM 43884258482 IN_PROGRESS at last inspection. Refresh exact-head results before handoff.
+- Prior product-source SHA cd5ccbefc26a9f71b0c971800b2f5b0d9cad450d passed same-SHA XY-C1 Build, TRX and artifact upload; current source SHA needs its own result. Physical-router L4 NOT VERIFIED.
+- Storage workflow on parent ea794e3 passed all 24 steps; AI handoff docs on ea794e3 failed because of missing required handoff checkpoint wording, now restored in SESSION_HANDOFF.md.
+- Next: validate this modem slice and handoff docs, then continue the P1 cross-userland startup-result audit.
 
 ## Whole-repository module status
 
