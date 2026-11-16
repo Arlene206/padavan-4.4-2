@@ -191,9 +191,10 @@ require('if ! clear_iptable; then' in stop and
         stop.index('if ! clear_iptable; then') < stop.index('if ! del_dns; then') <
         stop.index('if ! adg_stop_daemon; then') < stop.index('rm -rf /tmp/AdGuardHome'),
         "stop must verify firewall cleanup and resolver reload before stopping daemon and removing its workdir")
-require('pidof AdGuardHome' in stop_daemon and 'killall -9 AdGuardHome' in stop_daemon and
-        'pidof AdGuardHome' in wait_stopped,
-        "stop must re-enumerate the process by name, not cache a numeric PID")
+require('pidof AdGuardHome' in process_state and
+        'adg_process_state' in stop_daemon and 'killall -9 AdGuardHome' in stop_daemon and
+        'adg_process_state' in wait_stopped,
+        "stop must re-enumerate and validate the live process by name, not cache a numeric PID")
 require('echo /tmp/.adguardhome.lifecycle.lock' in lock_path and
         'never unlink this file' in script and
         '[ -L "$adg_lock_file" ]' in lock_prepare and
@@ -255,7 +256,7 @@ for marker in (
     "chmod failure published a config",
     "startup changed DNS/firewall before config validation",
     "duplicate start changed config/DNS/firewall state or launched again",
-    "stop accepted UNKNOWN process inventory: error",
+    "stop accepted UNKNOWN process inventory:",
     "UNKNOWN after TERM triggered name-wide SIGKILL",
     "sleep failure triggered SIGKILL",
     "nonzero TERM status overrode confirmed ABSENT",
