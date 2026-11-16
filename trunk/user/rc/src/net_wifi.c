@@ -889,6 +889,7 @@ reconnect_apcli(const char *ifname_apcli, int force)
 int
 restart_wifi_wl(int radio_on, int need_reload_conf)
 {
+	int auth_start_status;
 #if BOARD_HAS_5G_RADIO
 	if (wireless_restart_preflight(need_reload_conf, gen_ralink_config_5g) < 0) {
 		logmessage(LOGNAME, "Wireless restart aborted: failed to generate 5GHz configuration");
@@ -929,7 +930,15 @@ restart_wifi_wl(int radio_on, int need_reload_conf)
 		return -1;
 	}
 
-	start_8021x_wl();
+	auth_start_status = start_8021x_wl();
+	if (auth_start_status != 0) {
+		logmessage(LOGNAME, "5GHz wireless restart aborted: 802.1X authenticator launch failed (status=%d)", auth_start_status);
+		if (stop_8021x_wl() != 0)
+			logmessage(LOGNAME, "5GHz 802.1X startup rollback could not stop authenticator");
+		if (stop_wifi_all_wl() < 0)
+			logmessage(LOGNAME, "5GHz wireless restart rollback was incomplete");
+		return -1;
+	}
 #if defined (BOARD_MT7615_DBDC) || defined (BOARD_MT7915_DBDC)
 	if (need_reload_conf) {
 		int rt_radio_on = get_enabled_radio_rt();
@@ -948,7 +957,19 @@ restart_wifi_wl(int radio_on, int need_reload_conf)
 			return -1;
 		}
 
-		start_8021x_rt();
+		auth_start_status = start_8021x_rt();
+		if (auth_start_status != 0) {
+			logmessage(LOGNAME, "DBDC startup aborted: 2.4GHz 802.1X authenticator launch failed (status=%d)", auth_start_status);
+			if (stop_8021x_rt() != 0)
+				logmessage(LOGNAME, "DBDC rollback could not stop the 2.4GHz 802.1X daemon");
+			if (stop_8021x_wl() != 0)
+				logmessage(LOGNAME, "DBDC rollback could not stop the 5GHz 802.1X daemon");
+			if (stop_wifi_all_rt() < 0)
+				logmessage(LOGNAME, "DBDC 2.4GHz startup rollback was incomplete");
+			if (stop_wifi_all_wl() < 0)
+				logmessage(LOGNAME, "DBDC 5GHz startup rollback was incomplete");
+			return -1;
+		}
 	}
 #endif
 	restart_guest_lan_isolation();
@@ -967,6 +988,8 @@ restart_wifi_wl(int radio_on, int need_reload_conf)
 int
 restart_wifi_rt(int radio_on, int need_reload_conf)
 {
+	int auth_start_status;
+
 	if (wireless_restart_preflight(need_reload_conf, gen_ralink_config_2g) < 0) {
 		logmessage(LOGNAME, "Wireless restart aborted: failed to generate 2.4GHz configuration");
 		return -1;
@@ -1006,7 +1029,15 @@ restart_wifi_rt(int radio_on, int need_reload_conf)
 		return -1;
 	}
 
-	start_8021x_rt();
+	auth_start_status = start_8021x_rt();
+	if (auth_start_status != 0) {
+		logmessage(LOGNAME, "2.4GHz wireless restart aborted: 802.1X authenticator launch failed (status=%d)", auth_start_status);
+		if (stop_8021x_rt() != 0)
+			logmessage(LOGNAME, "2.4GHz 802.1X startup rollback could not stop authenticator");
+		if (stop_wifi_all_rt() < 0)
+			logmessage(LOGNAME, "2.4GHz wireless restart rollback was incomplete");
+		return -1;
+	}
 #if defined (BOARD_MT7615_DBDC) || defined (BOARD_MT7915_DBDC)
 	if (need_reload_conf) {
 		int wl_radio_on = get_enabled_radio_wl();
@@ -1025,7 +1056,19 @@ restart_wifi_rt(int radio_on, int need_reload_conf)
 			return -1;
 		}
 
-		start_8021x_wl();
+		auth_start_status = start_8021x_wl();
+		if (auth_start_status != 0) {
+			logmessage(LOGNAME, "DBDC startup aborted: 5GHz 802.1X authenticator launch failed (status=%d)", auth_start_status);
+			if (stop_8021x_wl() != 0)
+				logmessage(LOGNAME, "DBDC rollback could not stop the 5GHz 802.1X daemon");
+			if (stop_8021x_rt() != 0)
+				logmessage(LOGNAME, "DBDC rollback could not stop the 2.4GHz 802.1X daemon");
+			if (stop_wifi_all_wl() < 0)
+				logmessage(LOGNAME, "DBDC 5GHz startup rollback was incomplete");
+			if (stop_wifi_all_rt() < 0)
+				logmessage(LOGNAME, "DBDC 2.4GHz startup rollback was incomplete");
+			return -1;
+		}
 	}
 #endif
 	restart_guest_lan_isolation();
@@ -1050,14 +1093,13 @@ int is_need_8021x(char *auth_mode)
 	return 0;
 }
 
-void
+int
 start_8021x_wl(void)
 {
+	int start_status = 0;
 #if BOARD_HAS_5G_RADIO
-	int start_status;
-
 	if (!get_enabled_radio_wl())
-		return;
+		return 0;
 
 	if (is_need_8021x(nvram_wlan_get(1, "auth_mode"))) {
 		start_status = eval("rt2860apd", "-i", IFNAME_5G_MAIN);
@@ -1069,22 +1111,24 @@ start_8021x_wl(void)
 	const char *wifname = find_wlan_if_up(1);
 
 	if (!wifname)
-		return;
+		return start_status;
 
 	int wl_KickStaRssiLow = nvram_get_int("wl_KickStaRssiLow");
 	int wl_AssocReqRssiThres = nvram_get_int("wl_AssocReqRssiThres");
 	doSystem("iwpriv %s set %s=%d", wifname, "KickStaRssiLow", wl_KickStaRssiLow);
 	doSystem("iwpriv %s set %s=%d", wifname, "AssocReqRssiThres", wl_AssocReqRssiThres);
+	return start_status;
 }
 
-void
+
+int
 start_8021x_rt(void)
 {
-	int start_status;
+	int start_status = 0;
 
 #if !defined(USE_RT3352_MII)
 	if (!get_enabled_radio_rt())
-		return;
+		return 0;
 #endif
 	if (is_need_8021x(nvram_wlan_get(0, "auth_mode"))) {
 		start_status = eval("rtinicapd", "-i", IFNAME_2G_MAIN);
@@ -1095,13 +1139,15 @@ start_8021x_rt(void)
 	const char *wifname = find_wlan_if_up(0);
 
 	if (!wifname)
-		return;
+		return start_status;
 
 	int rt_KickStaRssiLow = nvram_get_int("rt_KickStaRssiLow");
 	int rt_AssocReqRssiThres = nvram_get_int("rt_AssocReqRssiThres");
 	doSystem("iwpriv %s set %s=%d", wifname, "KickStaRssiLow", rt_KickStaRssiLow);
 	doSystem("iwpriv %s set %s=%d", wifname, "AssocReqRssiThres", rt_AssocReqRssiThres);
+	return start_status;
 }
+
 
 int
 stop_8021x_wl(void)

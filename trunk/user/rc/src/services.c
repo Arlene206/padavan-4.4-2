@@ -1340,8 +1340,8 @@ start_services_once(int is_ap_mode)
 {
 	int start_status = 0;
 
-	start_8021x_wl();
-	start_8021x_rt();
+	start_status = rc_first_service_start_status(start_status, start_8021x_wl());
+	start_status = rc_first_service_start_status(start_status, start_8021x_rt());
 	start_status = rc_first_service_start_status(start_status, start_httpd(0));
 	start_status = rc_first_service_start_status(start_status, start_telnetd());
 #if defined(APP_SSHD)

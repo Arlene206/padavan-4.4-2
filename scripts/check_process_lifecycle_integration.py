@@ -875,8 +875,8 @@ print("detect_internet/detect_link/WAN gateway tri-state start-gate integration:
 
 wifi_source = (root / "trunk/user/rc/src/net_wifi.c").read_text()
 rc_source = (root / "trunk/user/rc/src/rc.c").read_text()
-start_8021x_wl = wifi_source.split("void\nstart_8021x_wl(void)", 1)[1].split("\n}", 1)[0]
-start_8021x_rt = wifi_source.split("void\nstart_8021x_rt(void)", 1)[1].split("\n}", 1)[0]
+start_8021x_wl = wifi_source.split("int\nstart_8021x_wl(void)", 1)[1].split("\n}", 1)[0]
+start_8021x_rt = wifi_source.split("int\nstart_8021x_rt(void)", 1)[1].split("\n}", 1)[0]
 assert 'start_status = eval("rt2860apd", "-i", IFNAME_5G_MAIN);' in start_8021x_wl
 assert 'if (start_status != 0)' in start_8021x_wl
 assert '802.1X 5GHz authenticator launch failed (status=%d)' in start_8021x_wl
@@ -886,6 +886,16 @@ assert start_8021x_wl.index('start_status = eval("rt2860apd"') < start_8021x_wl.
 assert 'start_status = eval("rtinicapd", "-i", IFNAME_2G_MAIN);' in start_8021x_rt
 assert 'if (start_status != 0)' in start_8021x_rt
 assert '802.1X 2.4GHz authenticator launch failed (status=%d)' in start_8021x_rt
+assert "return start_status;" in start_8021x_wl
+assert "return start_status;" in start_8021x_rt
+services_source = (root / "trunk/user/rc/src/services.c").read_text()
+boot_services = services_source.split("start_services_once(int is_ap_mode)", 1)[1].split("\n}", 1)[0]
+assert "rc_first_service_start_status(start_status, start_8021x_wl())" in boot_services
+assert "rc_first_service_start_status(start_status, start_8021x_rt())" in boot_services
+assert "auth_start_status = start_8021x_wl();" in restart_wifi_wl
+assert "auth_start_status = start_8021x_rt();" in restart_wifi_rt
+assert "wireless restart aborted: 802.1X authenticator launch failed" in restart_wifi_wl
+assert "wireless restart aborted: 802.1X authenticator launch failed" in restart_wifi_rt
 assert start_8021x_rt.index('start_status = eval("rtinicapd"') < start_8021x_rt.index(
     '802.1X 2.4GHz authenticator launch failed'
 )
