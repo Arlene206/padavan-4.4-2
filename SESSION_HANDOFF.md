@@ -8,24 +8,24 @@ Every logical multi-file change must be one complete Git tree and one atomic mai
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`. Parent for this LAN IPv6 reload slice: `7c46a6055c60c2fc534610cedd9189cf30ace4d6`.
-- Exact `7c46a60` Actions: Process regression `43979698102`, Firewall Startup `43979698600`, AI handoff `43979698471` and HTTPD security `43979698034` PASS. WAN route `43979698355` was still in progress. XY-C1 `43979698609` had passed host/source checks and was building; TRX verification and artifact upload remained pending. Current-source L3 is NOT VERIFIED until exact Build/TRX/artifact steps all pass.
-- LAN IPv6 teardown commit `7c46a6055c60c2fc534610cedd9189cf30ace4d6` propagates the `clear_if_addr6(IFNAME_BR)` result through `clear_lan_addr6()` and `stop_lan()`; Process, Firewall and AI checks passed, WAN and XY-C1 remained pending.
-- This slice makes `reload_lan_addr6()` return clear/add failures, gates address publication on successful clear, and replaces shell-interpolated `doSystem()` with argv-based `eval()`. Both `start_lan()` and `full_restart_ipv6()` propagate failures while continuing independent work. Added injectable GNU89/ASan/UBSan tests and Process/Firewall/WAN/XY source/path contracts.
+- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`. Source commit under test: `176e93e3e20889bdddcdab8769f3a4e9665ef01e`.
+- LAN IPv6 reload behavior is implemented: stale address flush gates add; clear/add statuses are returned and propagated to LAN startup / IPv6 restart; command invocation uses argv-based `eval()`. The new GNU89/ASan/UBSan regression passed on the exact source SHA.
+- Exact `176e93e` Actions: WAN route `43982636461` PASS, including the new LAN IPv6 reload test and inline source contracts; AI handoff `43982635895` PASS. Process `43982636314`, Firewall Startup `43982636272`, and XY-C1 `43982636425` failed at the shared source checker assertion for compacted whitespace. Process log confirms the new C regression itself PASS before checker failure; Firewall and XY stopped at the same checker. XY firmware Build/TRX/artifact were skipped, so product-source L3 remains NOT VERIFIED.
+- The checker fix in this commit changes only assertions to match `compact()` semantics (whitespace is collapsed to single spaces). All production behavior and C regression remain unchanged. Exact-SHA Process/Firewall/XY verification must be rerun.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Physical-router L4 remains **NOT VERIFIED**.
 
 ## Active task
 
-Validate the LAN IPv6 address reload result-propagation fix in this commit. `reload_lan_addr6()` returns stale-clear/address-add errors; addition is gated on successful clear; the NVRAM value is one argv element passed through `eval()`; `start_lan()` and `full_restart_ipv6()` aggregate the result while continuing independent work. Inspect exact-SHA Process, Firewall, WAN route, AI docs and XY-C1 Actions. XY-C1 Build/TRX/artifact remains the product-source L3 gate.
+Verify the checker whitespace-normalization correction in this commit. Then confirm Process, Firewall Startup, WAN route, AI handoff and XY-C1 on the exact head SHA. The new LAN IPv6 C policy test already passed in WAN and in the Process log before the checker assertion failed; XY-C1 product build remains blocked until the shared checker passes.
 
 ## Verification boundary
 
-- Exact `7c46a6055c60c2fc534610cedd9189cf30ace4d6` Process regression `43979698102`, Firewall Startup `43979698600`, AI handoff `43979698471` and HTTPD security `43979698034` PASS.
-- Exact `7c46a6055c60c2fc534610cedd9189cf30ace4d6` WAN route `43979698355` was in progress; XY-C1 `43979698609` was building after host/source regressions, with TRX/artifact pending. No L3 claim until all three pass on one SHA.
-- This reload slice requires its own exact-SHA verification. Physical-router L4 remains **NOT VERIFIED**.
+- Exact `176e93e3e20889bdddcdab8769f3a4e9665ef01e`: WAN route `43982636461` PASS; AI handoff `43982635895` PASS.
+- Process `43982636314`, Firewall `43982636272`, and XY-C1 `43982636425` FAIL at one false-negative checker assertion: `compact()` normalizes whitespace to spaces, while the new assertions incorrectly expected whitespace removal. New C test itself PASS; WAN ran it and all inline assertions PASS.
+- XY-C1 Build/TRX/artifact were skipped because the checker failed before build. Product-source L3 NOT VERIFIED; physical-router L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; inspect this commit's exact-head Process, Firewall, WAN route, AI docs and XY-C1 runs. Diagnose first causal failures without waiting on unrelated pending runs.
-2. Confirm XY-C1 Build, TRX verification and artifact upload on one exact SHA. Current-source L3 remains unverified until then; physical-router L4 remains NOT VERIFIED.
-3. Continue the IPv6 security audit in `net_wan6.c`, especially shell-formatted `doSystem("ip -6 addr add ...")` call sites and input provenance. Preserve frozen backup and use expected-SHA non-forced main updates.
+1. Fetch exact-head Actions for the checker-fix commit. Confirm Process, Firewall, WAN route, AI handoff and XY-C1 all pass; inspect logs for any new assertion failure.
+2. Confirm XY-C1 Build, TRX verification and artifact upload on one SHA. Do not claim L3 before all product steps pass.
+3. Continue IPv6 audit in `net_wan6.c`, checking remaining dynamic command arguments and whether validated address/interface inputs are passed safely. Preserve backup immutability and use atomic expected-SHA updates.

@@ -348,28 +348,28 @@ assert "rc_first_service_start_status(first_status, cache_status)" in cache_poli
 assert "test_global_cache_flush_is_attempted_and_errors_are_preserved" in ROUTE_FLUSH_POLICY_TEST
 # LAN IPv6 reload preserves clear/add errors and avoids shell interpolation.
 reload_policy = compact(LAN_ADDR6_RELOAD_POLICY_SOURCE)
-assert "if(!clear_address||(has_address&&!add_address))returnEINVAL;" in reload_policy
-assert "status=clear_address();" in reload_policy
-assert "if(status!=0||!has_address)returnstatus;" in reload_policy
-assert "returnadd_address(context);" in reload_policy
+assert "if (!clear_address || (has_address && !add_address)) return EINVAL;" in reload_policy
+assert "status = clear_address();" in reload_policy
+assert "if (status != 0 || !has_address) return status;" in reload_policy
+assert "return add_address(context);" in reload_policy
 assert "test_clear_failure_prevents_new_address_publication" in LAN_ADDR6_RELOAD_POLICY_TEST
 assert "test_add_failure_is_returned_after_successful_clear" in LAN_ADDR6_RELOAD_POLICY_TEST
 reload_lan = compact(body(NET_LAN6_SOURCE, "reload_lan_addr6(void)"))
-assert "returnrc_lan_addr6_reload_apply(lan_addr6&&lan_addr6[0]," in reload_lan
+assert "return rc_lan_addr6_reload_apply(lan_addr6 && lan_addr6[0]," in reload_lan
 clear_reload = compact(body(NET_LAN6_SOURCE, "clear_lan_addr6_for_reload(void)"))
-assert "returnclear_if_addr6(IFNAME_BR);" in clear_reload
+assert "return clear_if_addr6(IFNAME_BR);" in clear_reload
 add_reload = compact(body(NET_LAN6_SOURCE, "add_lan_addr6_for_reload(void *context)"))
-assert 'returneval("ip","-6","addr","add",lan_addr6,"dev",IFNAME_BR);' in add_reload
+assert 'return eval("ip", "-6", "addr", "add", lan_addr6, "dev", IFNAME_BR);' in add_reload
 assert "doSystem(" not in add_reload
 assert "int reload_lan_addr6(void);" in HEADER
 assert "void reload_lan_addr6(void);" not in HEADER
 lan_start = compact(body(NET_LAN_SOURCE, "start_lan(int is_ap_mode, int do_wait)"))
 assert "operation_status = reload_lan_addr6();" in NET_LAN_SOURCE
-assert "start_status=rc_first_service_start_status(start_status,operation_status);" in lan_start
+assert "start_status = rc_first_service_start_status(start_status, operation_status);" in lan_start
 assert "LAN IPv6 address reload failed (status=%d)" in lan_start
 ipv6_restart = compact(body(NET6_SOURCE, "full_restart_ipv6(int ipv6_type_old)"))
-assert "operation_status=reload_lan_addr6();" in ipv6_restart
-assert "restart_status=rc_first_service_start_status(restart_status,operation_status);" in ipv6_restart
+assert "operation_status = reload_lan_addr6();" in ipv6_restart
+assert "restart_status = rc_first_service_start_status(restart_status, operation_status);" in ipv6_restart
 assert "IPv6 enable could not reload LAN address (status=%d)" in ipv6_restart
 
 for signature in (

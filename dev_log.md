@@ -1,3 +1,12 @@
+## 2026-11-16 — Correct LAN IPv6 reload checker normalization
+
+- Parent: `176e93e3e20889bdddcdab8769f3a4e9665ef01e`. Exact-source CI exposed a checker-only regression: `compact()` collapses whitespace to a single space, but newly added assertions expected all whitespace to be removed.
+- Fixed those assertions to match the checker's established normalization contract. No production C code or policy test changed.
+- Exact parent runs: WAN route `43982636461` PASS, including new IPv6 reload regression and inline contracts; AI handoff `43982635895` PASS. Process `43982636314`, Firewall `43982636272`, XY-C1 `43982636425` failed at that same assertion; the new C policy test passed in Process before the assertion. XY build/TRX/artifact skipped and remain unverified.
+- Rerun all exact-head suites after this commit. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Make LAN IPv6 address reload fail-visible and shell-safe
 
 - Parent main: `7c46a6055c60c2fc534610cedd9189cf30ace4d6`. The previous `reload_lan_addr6()` returned void, discarded stale-address flush and address-add results, and interpolated the NVRAM address into shell-formatted `doSystem()`. LAN startup and IPv6 restart could report success after address setup failed.
