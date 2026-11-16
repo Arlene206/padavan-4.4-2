@@ -517,20 +517,33 @@ assert direct_firewall_references == 16, (
 )
 print("VPN client/server and complete direct firewall caller status contracts: PASS")
 
-# SFE is optional acceleration, but only touch its sysfs controls after a
-# post-load probe confirms the module actually exists.
+# Optional SFE and HW NAT transitions must use strict tri-state
+# postcondition helpers; legacy Boolean probes can hide sysfs failures.
 assert '#include "wireless_module_load_policy.h"' in NET_SOURCE
 nat_reload = compact(body(NET_SOURCE, "reload_nat_modules(void)"))
-assert 'rc_module_load_verified("fast_classifier", NULL, &module_ops)' in nat_reload
-assert "if (rc_module_load_verified(" in nat_reload
-assert "sfe_loaded = 1;" in nat_reload
-assert "sfe_loaded = 0;" in nat_reload
+assert "if (sfe_enable)" in nat_reload
+assert 'module_status = rc_module_load_verified("fast_classifier", NULL, &module_ops);' in nat_reload
+assert 'module_status = rc_module_unload_verified("fast_classifier", 1, &module_unload_ops);' in nat_reload
+assert "if (sfe_loaded)" in nat_reload
 assert "continuing without SFE" in nat_reload
-assert 'rc_module_unload_verified("fast_classifier", 1, &module_unload_ops)' in nat_reload
-assert 'sfe_loaded = is_module_loaded("fast_classifier");' in nat_reload
+assert 'is_module_loaded("fast_classifier")' not in nat_reload
 assert 'rc_module_load_verified("hw_nat", hnat_param, &module_ops)' in nat_reload
 assert 'rc_module_unload_verified("hw_nat", 0, &module_unload_ops)' in nat_reload
+assert "if (!hwnat_allow)" in nat_reload
+assert "if (hwnat_loaded == 0)" in nat_reload
+assert "if (hwnat_loaded == 1)" in nat_reload
+assert "hwnat_loaded = is_hwnat_loaded_status();" in nat_reload
+assert 'is_hwnat_loaded();' not in nat_reload
+assert 'if (hwnat_loaded && !hwnat_allow)' not in nat_reload
+assert "int hwnat_loaded = 0;" in nat_reload
 assert "hwnat_configure(hwnat_wan_vid, hwnat_allow);" in nat_reload
+assert 'return is_module_loaded_status("hw_nat");' in NET_SOURCE
+
+assert 'ftp_module_loaded = is_module_loaded_status("nf_conntrack_ftp");' in nat_reload
+assert "if (ftp_module_loaded < 0)" in nat_reload
+assert "module_status = -ftp_module_loaded;" in nat_reload
+assert "if (ftp_reconfigure_allowed && ftp_module_loaded == 1 && loaded_ftp == 0)" in nat_reload
+assert 'is_module_loaded("nf_conntrack_ftp")' not in nat_reload
 assert 'module_smart_load("hw_nat", hnat_param);' not in nat_reload
 assert 'module_smart_load("fast_classifier", NULL);' not in nat_reload
 assert 'rc_module_unload_verified("nf_nat_pptp", 1, &module_unload_ops)' in nat_reload
@@ -567,10 +580,14 @@ assert "test_unload_postcondition_probe_error_is_reported" in MODULE_POLICY_TEST
 
 # HW NAT must not be reported enabled unless the WAN VID sysfs write succeeds.
 hwnat_config = compact(body(NET_SOURCE, "hwnat_configure(int wan_vid, int hwnat_allow)"))
-assert "rc_hwnat_configure_policy(hwnat_allow, module_loaded, wan_vid, hwnat_set_wan_vid)" in hwnat_config
+assert "if (!hwnat_allow)" in hwnat_config
+assert "module_loaded = is_hwnat_loaded_status();" in hwnat_config
+assert "if (module_loaded < 0)" in hwnat_config
+assert "return -module_loaded;" in hwnat_config
+assert "rc_hwnat_configure_policy(hwnat_allow, module_loaded == 1, wan_vid, hwnat_set_wan_vid)" in hwnat_config
 assert "return status;" in hwnat_config
 assert "module_param_set_int" not in hwnat_config
-assert hwnat_config.index("rc_hwnat_configure_policy(") < hwnat_config.index("if (!module_loaded)")
+assert hwnat_config.index("if (!hwnat_allow)") < hwnat_config.index("module_loaded = is_hwnat_loaded_status()") < hwnat_config.index("rc_hwnat_configure_policy(")
 assert "hwnat_set_wan_vid(int wan_vid)" in compact(NET_SOURCE)
 assert "test_wan_vid_write_failure_is_reported" in HWNAT_POLICY_TEST
 assert "test_missing_wan_vid_is_reported" in HWNAT_POLICY_TEST

@@ -8,22 +8,25 @@ Every logical multi-file change must be one complete Git tree and one atomic mai
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2; current parent for this checker correction: 1e10514145025ceb0ce9e0a0cd5468e28e6b7fa0. Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only.
-- Source slice: restart_all_sysctl() now returns the errno-style status of set_passthrough_pppoe(1), logs the failure, and its sole RCN_RESTART_SYSCTL caller merges the result into PID 1's notification status.
-- The new checker caught and corrected a doubled-backslash whitespace regex before the queued Process job ran; it now checks the whitespace-compacted function signature. The host regression checks positive errno retention and notification failure mapping.
+- Repository: `Arlene206/padavan-4.4-2`; development branch: `main`.
+- Source parent: `d83760b4c8e5514fd996f986b1400b7b794876f4`. d287 exact-head XY-C1 `43967039935` passed Build, TRX output verification and artifact upload; its WAN `43967040074`, Process `43967040068`, AI handoff `43967040010`, NVRAM `43967039938`, AdGuardHome `43967039819`, infosvr `43967039889`, AliyunDrive `43967040044` and AliDDNS `43967040108` all passed. This establishes L3 for the exact d287 source only.
+- d837 contains the independent sysctl/PPPoE status checker correction. Its AI handoff `43969335259` passed; Process `43969335166`, NVRAM `43969335303`, AdGuardHome `43969335428`, AliDDNS `43969335268` were running at last poll.
+- Active source defect: `net.c` used lossy Boolean module probes to gate HW NAT disable, FTP helper configuration and SFE enable/disable. The new slice migrates those callsites to strict tri-state state handling and carries probe errno instead of suppressing unknown state.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains recorded at `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. Never alter it. Physical-router L4 remains **NOT VERIFIED**.
 
 ## Active task
 
-Verify exact-head Process lifecycle and XY-C1 for the PPPoE sysctl result-propagation commit and this checker correction. The preceding source/checker baseline d28729a has a complete XY-C1 Build/TRX/artifact pass; that L3 result does not cover the new sysctl source change.
+Complete and validate the strict tri-state module state transition changes in HW NAT, FTP and SFE. A negative sysfs probe means UNKNOWN, not ABSENT: propagate its errno; do not skip unload; do not reconfigure FTP conntrack parameters while the module state is unknown; and do not touch SFE sysfs unless load is verified. Check all caller contracts and exact-head Actions after commit.
 
 ## Verification boundary
 
-- d28729af exact-head WAN route 43967040074 PASS, AI handoff 43967040010 PASS, Process inventory 43967040068 PASS, NVRAM audit 43967039938 PASS, and XY-C1 Build/TRX/artifact run 43967039935 PASS.
-- Commit 1e105141 introduced the sysctl PPPoE status propagation; its Process lifecycle job 43968920396 was queued and XY-C1 43968920456 was building when polled. The checker fix in this commit is now in place before Process execution; exact-head reruns are pending.
-- Current sysctl commit Build/TRX/artifact must all pass on the same current SHA before claiming L3. Physical-router L4 remains NOT VERIFIED.
+- d287 exact-head firmware L3 is verified by Build XY-C1, TRX output and artifact upload in run `43967039935`; no later source commits inherit that result.
+- d837 AI handoff passed. Its exact Process/NVRAM/AdGuardHome/AliDDNS actions were in progress at last poll.
+- Existing injected module policy tests already verify direct load probe errors, unload pre/post probe errors, busy modules and first-error retention. The new production source contract extends `scripts/check_modem_wan_start_status.py` to assert strict HW NAT, FTP and SFE handling; same-SHA Process, Firewall Startup and XY-C1 checks are required.
+- Physical-router L4 remains **NOT VERIFIED**.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head Process and XY-C1 runs for this checker correction. Verify host regression/source integration and same-SHA Build XY-C1, TRX output and artifact upload.
-2. If those pass, continue auditing remaining dropped RC/network statuses. The next candidate is flush_conntrack_table() under RCN_RESTART_NETFILTER; inspect return semantics and all callers before API changes.
-3. Keep full-tree atomic commits and expected-SHA non-forced CAS; never alter the frozen backup or claim physical-router L4 without device evidence.
+1. Fetch live `main` and inspect the exact-head Process lifecycle, Firewall Startup, XY-C1 and AI handoff actions for this strict HW NAT/FTP/SFE change. Fix failures from the exact job logs.
+2. Continue P1 RC/network result-propagation work. The currently queued separate candidate is `flush_conntrack_table()` under `RCN_RESTART_NETFILTER`; trace its return contract and all callers before changing the API.
+3. Use complete-tree atomic main commits with non-forced expected-SHA updates; keep the backup read-only and never claim physical-router L4 without hardware evidence.

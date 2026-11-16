@@ -1,3 +1,12 @@
+## 2026-11-16 — Propagate unknown NAT module state through HW NAT, FTP and SFE
+
+- Parent main: `d83760b4c8e5514fd996f986b1400b7b794876f4`. Confirmed a remaining module-state defect in `net.c`: HW NAT, FTP and SFE branches used the legacy Boolean probe before invoking strict load/unload helpers. A negative `/sys/module` probe could be treated as absence and silently skip a required teardown or configuration check.
+- HW NAT now returns tri-state status; disabled mode invokes verified unload unconditionally, enabled mode surfaces initial probe errno, only verified-loaded modules receive radio sysfs writes, and configuration propagates unknown module state. FTP parameter reconfiguration is blocked on UNKNOWN rather than risking a live helper mutation. SFE enable/disable now uses verified load/unload on every transition and returns the actual failure status.
+- d287 exact-head XY-C1 `43967039935` passed Build XY-C1, TRX verification and artifact upload; WAN route `43967040074`, Process `43967040068`, AI handoff `43967040010`, NVRAM `43967039938`, HTTPD/AdGuardHome `43967039819`, infosvr `43967039889`, AliyunDrive `43967040044`, AliDDNS `43967040108` all passed. This is L3 only for d287, not the new source.
+- d837's unrelated sysctl checker correction has AI handoff `43969335259` PASS; Process regression `43969335166`, NVRAM `43969335303`, AdGuardHome `43969335428`, AliDDNS `43969335268` were in progress at last poll. New exact-head Process, Firewall Startup, XY-C1 and handoff tests must validate this module-state source slice. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Correct whitespace contract in sysctl status checker
 
 - Parent main: 1e10514145025ceb0ce9e0a0cd5468e28e6b7fa0. Review of the new Process integration assertion found its raw-string regex had doubled backslashes, so it looked for literal slash-s tokens rather than whitespace. Replaced that unnecessary regex with a whitespace-compacted exact signature assertion; the C function-body and actual caller contracts remain in place.

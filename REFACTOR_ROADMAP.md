@@ -1,10 +1,11 @@
 ## Current source / CI checkpoint
 
-- Current source slice parent: 1e10514145025ceb0ce9e0a0cd5468e28e6b7fa0. restart_all_sysctl() now returns PPPoE relay startup/readiness failures through the RCN_RESTART_SYSCTL PID 1 result; host regression and caller/prototype checker are wired to Process/XY-C1 paths.
-- Exact-head d28729a XY-C1 Build, TRX verification and artifact upload all passed (43967039935). Its WAN route 43967040074, AI handoff 43967040010, Process inventory 43967040068 and NVRAM audit 43967039938 also passed.
-- Review caught a doubled-backslash regex in the new sysctl source checker before its first queued Process execution. This commit replaces it with a whitespace-compacted exact function signature check; actual source/caller/status contracts remain enforced.
-- Exact-head Process and XY-C1 runs for the sysctl source commit 1e105 are pending. Do not reuse d28729a's firmware result for the new C source.
-- Next candidate is the ignored flush_conntrack_table() result in RCN_RESTART_NETFILTER. Inspect its return contract and callers before making source changes. Frozen backup stays read-only; physical-router L4 remains NOT VERIFIED.
+- Parent source: `d83760b4c8e5514fd996f986b1400b7b794876f4`. d287 exact-head XY-C1 `43967039935` passed Build, TRX verification and artifact upload; d287 WAN, Process, AI handoff, NVRAM, HTTPD/AdGuardHome, infosvr, AliyunDrive and AliDDNS also passed.
+- d837 is an independent checker-only correction for the PPPoE sysctl result-propagation work; AI handoff `43969335259` passed, while Process/NVRAM/AdGuardHome/AliDDNS were still in progress at last poll.
+- This source slice fixes lossy Boolean module-state gates in HW NAT, FTP helper and SFE transitions. Unknown sysfs state now propagates errno, blocks FTP helper parameter mutation, and cannot silently suppress strict unload or load postcondition checks.
+- `scripts/check_modem_wan_start_status.py` now asserts caller-side strict tri-state behavior in addition to existing injected module policy tests. Exact-head Process, Firewall Startup, XY-C1 and AI handoff checks are required.
+- Firmware L3 is verified for d287 only; this newer production-source change requires its own same-SHA Build/TRX/artifact validation. Physical-router L4 remains **NOT VERIFIED**.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` stays read-only. Continue P1 RC/network result-propagation work across userland.
 
 ## Whole-repository module status
 

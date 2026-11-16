@@ -768,12 +768,9 @@ is_ftp_conntrack_loaded(int ftp_port0, int ftp_port1)
 
 #if defined (USE_HW_NAT)
 static int
-is_hwnat_loaded(void)
+is_hwnat_loaded_status(void)
 {
-	if (!is_module_loaded("hw_nat"))
-		return 0;
-
-	return 1;
+	return is_module_loaded_status("hw_nat");
 }
 
 static int
@@ -844,7 +841,7 @@ static int
 hwnat_configure(int wan_vid, int hwnat_allow)
 {
 	const char *hwnat_status = "Disabled";
-	int module_loaded = is_hwnat_loaded();
+	int module_loaded;
 	int status;
 
 	if (!hwnat_allow) {
@@ -852,7 +849,15 @@ hwnat_configure(int wan_vid, int hwnat_allow)
 		return 0;
 	}
 
-	status = rc_hwnat_configure_policy(hwnat_allow, module_loaded, wan_vid,
+	module_loaded = is_hwnat_loaded_status();
+	if (module_loaded < 0) {
+		status = -module_loaded;
+		logmessage(LOGNAME, "Hardware NAT/Routing: cannot verify module state (status=%d)",
+			   status);
+		return status;
+	}
+
+	status = rc_hwnat_configure_policy(hwnat_allow, module_loaded == 1, wan_vid,
 					   hwnat_set_wan_vid);
 	if (status != 0) {
 		if (wan_vid < 0)
@@ -940,7 +945,7 @@ reload_nat_modules(void)
 	char hnat_param[80];
 	int hwnat_wan_vid = -1;
 	int hwnat_allow = is_hwnat_allow();
-	int hwnat_loaded = is_hwnat_loaded();
+	int hwnat_loaded = 0;
 	int ipv6_nat = nvram_get_int("ip6_lan_auto");
 #endif
 #if defined (USE_SFE)
@@ -970,16 +975,25 @@ reload_nat_modules(void)
 	sip_modules[1].required = (wan_nat_x != 0);
 
 #if defined (USE_HW_NAT)
-	if (hwnat_loaded && !hwnat_allow) {
+	if (!hwnat_allow) {
+		/* The strict unload helper handles absent, loaded and unknown states. */
 		module_status = rc_module_unload_verified("hw_nat", 0,
 							 &module_unload_ops);
 		if (module_status != 0) {
-			logmessage(LOGNAME, "Hardware NAT disable requested but hw_nat remains loaded (status=%d)",
+			logmessage(LOGNAME, "Hardware NAT disable requested but hw_nat state could not be cleared (status=%d)",
 				   module_status);
 			reload_status = rc_first_service_start_status(reload_status,
 								 module_status);
 		}
-		hwnat_loaded = is_hwnat_loaded();
+	} else {
+		hwnat_loaded = is_hwnat_loaded_status();
+		if (hwnat_loaded < 0) {
+			module_status = -hwnat_loaded;
+			logmessage(LOGNAME, "Hardware NAT requested but module state cannot be verified (status=%d)",
+				   module_status);
+			reload_status = rc_first_service_start_status(reload_status,
+								 module_status);
+		}
 	}
 #endif
 
@@ -1038,16 +1052,25 @@ reload_nat_modules(void)
 		}
 	}
 
-	ftp_module_loaded = is_module_loaded("nf_conntrack_ftp");
-	loaded_ftp = ftp_module_loaded ?
-		is_ftp_conntrack_loaded(needed_ftp0, needed_ftp1) : 0;
+	ftp_module_loaded = is_module_loaded_status("nf_conntrack_ftp");
 	ftp_reconfigure_allowed = 1;
-	if (ftp_module_loaded && loaded_ftp == 0) {
+	if (ftp_module_loaded < 0) {
+		module_status = -ftp_module_loaded;
+		logmessage(LOGNAME, "Cannot verify nf_conntrack_ftp module state; preserving current helpers (status=%d)",
+			   module_status);
+		reload_status = rc_first_service_start_status(reload_status, module_status);
+		ftp_reconfigure_allowed = 0;
+		loaded_ftp = 0;
+	} else {
+		loaded_ftp = ftp_module_loaded == 1 ?
+			is_ftp_conntrack_loaded(needed_ftp0, needed_ftp1) : 0;
+	}
+	if (ftp_reconfigure_allowed && ftp_module_loaded == 1 && loaded_ftp == 0) {
 		/* A failed parameter read is not the same as an absent module. */
 		logmessage(LOGNAME, "Cannot read active nf_conntrack_ftp ports; preserving the current helper");
 		reload_status = rc_first_service_start_status(reload_status, EIO);
 		ftp_reconfigure_allowed = 0;
-	} else if (loaded_ftp == 1) {
+	} else if (ftp_reconfigure_allowed && loaded_ftp == 1) {
 		/* Remove the NAT consumer before changing conntrack module parameters. */
 		module_status = rc_module_unload_verified("nf_nat_ftp", 0,
 							 &module_unload_ops);
@@ -1112,28 +1135,32 @@ reload_nat_modules(void)
 		if (hwnat_wan_vid < 0) {
 			logmessage(LOGNAME, "Hardware NAT/Routing: skipping WAN VID load/update after switch PVID failure (%d)",
 				   hwnat_wan_vid);
-		} else if (!hwnat_loaded) {
+		} else if (hwnat_loaded == 0) {
 			snprintf(hnat_param, sizeof(hnat_param), "wan_vid=%d", hwnat_wan_vid);
 			module_status = rc_module_load_verified("hw_nat", hnat_param,
 								&module_ops);
-			if (module_status != 0) {
+			if (module_status == 0) {
+				hwnat_loaded = 1;
+			} else {
 				logmessage(LOGNAME, "Hardware NAT requested but hw_nat failed to load (status=%d); continuing without hardware offload",
 					   module_status);
 				reload_status = rc_first_service_start_status(reload_status,
 									 module_status);
+				hwnat_loaded = 0;
 			}
-			hwnat_loaded = is_hwnat_loaded();
 		}
 #if defined (USE_MT7615_AP) || defined (USE_MT7915_AP) || defined (USE_MT76X2_AP)
-		module_status = rc_hwnat_configure_radio_policy(
-			hwnat_allow, hwnat_loaded, nvram_get_int("hw_nat_mode"),
-			ipv6_nat, IFNAME_2G_MAIN, IFNAME_5G_MAIN,
-			hwnat_set_radio_registration, hwnat_set_ipv6_nat_debug);
-		if (module_status != 0) {
-			logmessage(LOGNAME, "Hardware NAT radio configuration incomplete (status=%d)",
-				   module_status);
-			reload_status = rc_first_service_start_status(reload_status,
+		if (hwnat_loaded == 1) {
+			module_status = rc_hwnat_configure_radio_policy(
+					hwnat_allow, 1, nvram_get_int("hw_nat_mode"),
+						ipv6_nat, IFNAME_2G_MAIN, IFNAME_5G_MAIN,
+						hwnat_set_radio_registration, hwnat_set_ipv6_nat_debug);
+			if (module_status != 0) {
+				logmessage(LOGNAME, "Hardware NAT radio configuration incomplete (status=%d)",
+					   module_status);
+				reload_status = rc_first_service_start_status(reload_status,
 								 module_status);
+			}
 		}
 #endif
 	}
@@ -1145,27 +1172,26 @@ reload_nat_modules(void)
 #endif
 #if defined (USE_SFE)
 	sfe_enable = nvram_get_int("sfe_enable");
-	sfe_loaded = is_module_loaded("fast_classifier");
-
-	if (sfe_loaded && !sfe_enable) {
+	if (sfe_enable) {
+		module_status = rc_module_load_verified("fast_classifier", NULL, &module_ops);
+		if (module_status == 0) {
+			sfe_loaded = 1;
+		} else {
+			sfe_loaded = 0;
+			reload_status = rc_first_service_start_status(reload_status,
+								 module_status);
+			logmessage(LOGNAME, "Software flow offload requested but fast_classifier failed verification (status=%d); continuing without SFE",
+				   module_status);
+		}
+	} else {
 		module_status = rc_module_unload_verified("fast_classifier", 1,
-							 &module_unload_ops);
+						 &module_unload_ops);
+		sfe_loaded = 0;
 		if (module_status != 0) {
-			logmessage(LOGNAME, "Software flow offload disable requested but fast_classifier remains loaded (status=%d)",
+			logmessage(LOGNAME, "Software flow offload disable requested but fast_classifier remains loaded or its state is unknown (status=%d)",
 				   module_status);
 			reload_status = rc_first_service_start_status(reload_status,
 								 module_status);
-		}
-		sfe_loaded = is_module_loaded("fast_classifier");
-	}
-	if (sfe_enable && !sfe_loaded) {
-		if (rc_module_load_verified("fast_classifier", NULL, &module_ops) == 0)
-			sfe_loaded = 1;
-		else {
-			sfe_loaded = 0;
-			reload_status = rc_first_service_start_status(reload_status,
-								 EIO);
-			logmessage(LOGNAME, "Software flow offload requested but fast_classifier failed to load; continuing without SFE");
 		}
 	}
 	if (sfe_loaded) {
