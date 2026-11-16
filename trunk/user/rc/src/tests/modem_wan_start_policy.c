@@ -126,6 +126,30 @@ test_ras_physical_setup_error_survives_ras_launch(void)
 }
 
 static void
+test_manual_pppoe_physical_setup_failure_is_reported_without_blocking_pppd(void)
+{
+	int status = 0;
+	int is_pppoe = 1;
+	int wanx_status = EINVAL;
+	int pppd_status = 0;
+	int pppd_attempts = 0;
+
+	/* A configured MAN failure is reportable, but PPPoE does not need its
+	 * physical IPv4 lease and must retain the existing best-effort PPP attempt. */
+	if (wanx_status != 0)
+		status = rc_first_service_start_status(status, wanx_status);
+	if (!is_pppoe && wanx_status != 0)
+		return;
+
+	pppd_attempts++;
+	status = rc_first_service_start_status(status, pppd_status);
+
+	assert(pppd_attempts == 1);
+	assert(status == EINVAL);
+	assert(rc_first_service_start_status(EBUSY, wanx_status) == EBUSY);
+}
+
+static void
 test_physical_wan_ifup_failure_survives_cleanup(void)
 {
 	int status = 0;
@@ -245,6 +269,7 @@ main(void)
 	test_ndis_required_control_success_allows_dhcp();
 	test_first_modem_error_survives_best_effort_followup();
 	test_ras_physical_setup_error_survives_ras_launch();
+	test_manual_pppoe_physical_setup_failure_is_reported_without_blocking_pppd();
 	test_physical_wan_ifup_failure_survives_cleanup();
 	test_required_ppp_failures_reach_wan_start_status();
 	test_required_ipoe_failures_reach_wan_start_status();

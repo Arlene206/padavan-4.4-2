@@ -200,9 +200,16 @@ assert "launch_status = EINVAL;" in man_invalid_path
 assert "invalid static WAN IPv4 address or netmask" in man_invalid_path
 assert 'logmessage(LOGNAME, "MAN interface %s MTU setup incomplete (status=%d)"' in wanx
 assert "if (mtu_status != 0)" in wanx
-wanx_failure_pos = ppp_branch.index("if (!i_pppoe && wanx_status != 0)")
-wanx_failure_end = ppp_branch.index("continue;", wanx_failure_pos)
-assert "wan_start_status = rc_first_service_start_status" in ppp_branch[wanx_failure_pos:wanx_failure_end]
+wanx_error_pos = ppp_branch.index("if (wanx_status != 0)")
+wanx_abort_pos = ppp_branch.index("if (!i_pppoe && wanx_status != 0)")
+wanx_capture = re.search(
+    r"wan_start_status\\s*=\\s*rc_first_service_start_status\\s*\\(\\s*wan_start_status\\s*,\\s*wanx_status\\s*\\)\\s*;",
+    ppp_branch[wanx_error_pos:wanx_abort_pos],
+)
+assert wanx_capture, "configured PPPoE MAN failures must reach the WAN startup result"
+assert "WAN physical interface setup incomplete" in ppp_branch[wanx_error_pos:wanx_abort_pos]
+assert "test_manual_pppoe_physical_setup_failure_is_reported_without_blocking_pppd" in WAN_TEST
+assert ppp_branch.index("vlan_result = launch_wan_pppd(unit, wan_proto);", wanx_abort_pos) > wanx_abort_pos
 
 ipoe_end = wan_start.index("return rc_first_service_start_status(modem_start_status, wan_start_status);", ipoe_branch_start)
 ipoe_branch = wan_start[ipoe_branch_start:ipoe_end]

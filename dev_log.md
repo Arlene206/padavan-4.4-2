@@ -1,3 +1,15 @@
+## 2026-11-17 02:26 CST (UTC+8) — Report manual PPPoE WANX setup failures
+
+- Parent main: `59681e0b5edf6803a47280c0c0256f596d217392`.
+- In the standard PPTP/L2TP/PPPoE branch of `start_wan()`, configured PPPoE MAN modes call `launch_wanx()`, but a nonzero result was merged only inside the non-PPPoE abort branch. A failed configured DHCP/ZeroConf/static physical-WAN setup could therefore be logged and then disappear from the returned WAN startup status while PPPD continued.
+- Move first-error aggregation to the common nonzero WANX-result path. PPPoE remains best-effort and still attempts PPPD without waiting for a physical IPv4 lease; PPTP/L2TP retain their existing abort and physical-WAN restore behavior.
+- Added `test_manual_pppoe_physical_setup_failure_is_reported_without_blocking_pppd()` to the GNU89 modem WAN policy suite and strengthened `scripts/check_modem_wan_start_status.py` to bind the status merge to the production call path. Existing Process and XY-C1 workflows already compile/run this suite and checker for these paths.
+- Parent exact-head Process run [43927478287] and AI docs [43927478510] passed; USB modem identity [43927478496] passed. Parent XY-C1 run [43927478225] was still in progress on `59681e0b5edf6803a47280c0c0256f596d217392`. New exact-head Process/XY-C1/AI-docs results are pending; no L3 result is claimed for THIS COMMIT. Physical-router L4 remains NOT VERIFIED.
+- Resulting commit: THIS COMMIT.
+- Next: inspect exact-head Process, XY-C1 Build/TRX/artifact and AI docs results for THIS COMMIT; if checks pass, continue the P1 RC startup-result audit at `reload_nat_modules()` and its callers.
+
+---
+
 ## 2026-11-16 — Correct WAN UPnP checker regex escaping
 
 - Parent main: `1b06d3178c366ae764f894d6bb15847b8f5f6e21`; production UPnP result propagation is in `1b06d3178c366ae764f894d6bb15847b8f5f6e21`.

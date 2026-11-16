@@ -1825,12 +1825,15 @@ start_wan(void)
 				wanx_status = launch_wanx(wan_ifname, unit, !i_pppoe, 0);
 			else if (i_pppoe && i_pppoe_man == 2)
 				wanx_status = launch_wanx(wan_ifname, unit, 0, 1);
-			if (wanx_status != 0)
-				logmessage(LOGNAME, "WAN physical interface setup incomplete on %s (status=%d)",
-					   wan_ifname, wanx_status);
-			if (!i_pppoe && wanx_status != 0) {
+			if (wanx_status != 0) {
+				/* PPPoE can start without a physical IPv4 lease. Keep pppd best-effort,
+				 * but report failure of the explicitly configured physical WAN path. */
 				wan_start_status = rc_first_service_start_status(
 					wan_start_status, wanx_status);
+				logmessage(LOGNAME, "WAN physical interface setup incomplete on %s (status=%d)",
+					   wan_ifname, wanx_status);
+			}
+			if (!i_pppoe && wanx_status != 0) {
 				logmessage(LOGNAME, "aborting WAN PPP startup for unit %d: physical WAN setup failed (status=%d)",
 					   unit, wanx_status);
 				restore_wan_after_ppp_start_failure(unit, wan_ifname);
