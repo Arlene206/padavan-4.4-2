@@ -3,6 +3,7 @@
 
 #include <arpa/inet.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -41,6 +42,62 @@ xupnpd_config_valid_ipv4(const char *address)
 	struct in_addr parsed;
 
 	return address != NULL && inet_pton(AF_INET, address, &parsed) == 1;
+}
+
+/*
+ * Open only a regular, non-symlink config file. O_NONBLOCK makes a path swap
+ * to a FIFO harmless; lstat/fstat identity comparison closes the path-swap
+ * window even on platforms without O_NOFOLLOW.
+ */
+static inline FILE *
+xupnpd_config_source_open(const char *source_path)
+{
+	struct stat path_stat, source_stat;
+	int flags = O_RDONLY | O_NONBLOCK;
+	int fd, saved_errno;
+	FILE *source;
+
+	if (source_path == NULL) {
+		errno = EINVAL;
+		return NULL;
+	}
+	if (lstat(source_path, &path_stat) != 0)
+		return NULL;
+	if (S_ISLNK(path_stat.st_mode)) {
+		errno = ELOOP;
+		return NULL;
+	}
+	if (!S_ISREG(path_stat.st_mode)) {
+		errno = EINVAL;
+		return NULL;
+	}
+#ifdef O_NOFOLLOW
+	flags |= O_NOFOLLOW;
+#endif
+	fd = open(source_path, flags);
+	if (fd < 0)
+		return NULL;
+	if (fstat(fd, &source_stat) != 0) {
+		saved_errno = errno ? errno : EIO;
+		close(fd);
+		errno = saved_errno;
+		return NULL;
+	}
+	if (!S_ISREG(source_stat.st_mode) ||
+	    source_stat.st_dev != path_stat.st_dev ||
+	    source_stat.st_ino != path_stat.st_ino) {
+		close(fd);
+		errno = EAGAIN;
+		return NULL;
+	}
+	source = fdopen(fd, "r");
+	if (source == NULL) {
+		saved_errno = errno ? errno : EIO;
+		close(fd);
+		errno = saved_errno;
+		return NULL;
+	}
+	return source;
 }
 
 /* Create an exclusive same-directory temporary file; never follow a

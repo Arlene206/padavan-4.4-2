@@ -254,9 +254,17 @@ xupnpd_config_test = (root / "trunk/user/rc/src/tests/xupnpd_config_file.c").rea
 assert "mkstemp(temporary)" in xupnpd_config_header
 assert "lstat(destination, &st)" in xupnpd_config_header
 assert "fchmod(fd, mode)" in xupnpd_config_header
+assert "xupnpd_config_source_open(tmp2)" in xupnpd_start
+assert xupnpd_start.count("xupnpd_config_source_open(tmp2)") == 2
+assert 'fopen(tmp2, "r")' not in xupnpd_start
+assert "lstat(source_path, &path_stat)" in xupnpd_config_header
+assert "O_NONBLOCK" in xupnpd_config_header and "O_NOFOLLOW" in xupnpd_config_header
+assert "source_stat.st_dev != path_stat.st_dev" in xupnpd_config_header
 assert "test_unique_exclusive_temp_and_symlink" not in xupnpd_config_test
 assert "must-not-change" in xupnpd_config_test
 assert "os.execute" in xupnpd_config_test
+assert "test_source_rejects_symlinks_and_special_files" in xupnpd_config_test
+assert "mkfifo(fifo_path" in xupnpd_config_test
 
 assert "ferror(fp2)" in xupnpd_start and "fflush(fp1)" in xupnpd_start
 assert "fsync(fileno(fp1))" in xupnpd_start and "rename(tmp1, tmp2)" in xupnpd_start

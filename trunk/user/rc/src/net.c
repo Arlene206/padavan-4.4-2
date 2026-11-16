@@ -459,7 +459,7 @@ start_xupnpd(char *wan_ifname)
 		unlink(tmp1);
 		return saved_errno;
 	}
-	fp2 = fopen(tmp2, "r");
+	fp2 = xupnpd_config_source_open(tmp2);
 	if (fp2 == NULL) {
 		saved_errno = errno ? errno : EIO;
 		fclose(fp1);
@@ -512,7 +512,7 @@ start_xupnpd(char *wan_ifname)
 		unlink(tmp1);
 		return saved_errno;
 	}
-	fp2 = fopen(tmp2, "r");
+	fp2 = xupnpd_config_source_open(tmp2);
 	if (fp2 == NULL) {
 		saved_errno = errno ? errno : EIO;
 		fclose(fp1);

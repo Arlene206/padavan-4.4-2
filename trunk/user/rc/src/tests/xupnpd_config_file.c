@@ -43,6 +43,36 @@ read_text(const char *path, char *out, size_t size)
 	assert(fclose(fp) == 0);
 }
 
+static void
+test_source_rejects_symlinks_and_special_files(const char *directory)
+{
+	char regular[PATH_MAX], symlink_path[PATH_MAX], fifo_path[PATH_MAX];
+	FILE *source;
+
+	join(regular, sizeof(regular), directory, "source.lua");
+	join(symlink_path, sizeof(symlink_path), directory, "source-link.lua");
+	join(fifo_path, sizeof(fifo_path), directory, "source.fifo");
+	write_text(regular, "regular config\n", 0644);
+
+	source = xupnpd_config_source_open(regular);
+	assert(source != NULL);
+	assert(fclose(source) == 0);
+
+	assert(symlink(regular, symlink_path) == 0);
+	errno = 0;
+	assert(xupnpd_config_source_open(symlink_path) == NULL);
+	assert(errno == ELOOP);
+
+	assert(mkfifo(fifo_path, 0600) == 0);
+	errno = 0;
+	assert(xupnpd_config_source_open(fifo_path) == NULL);
+	assert(errno == EINVAL);
+
+	assert(unlink(symlink_path) == 0);
+	assert(unlink(fifo_path) == 0);
+	assert(unlink(regular) == 0);
+}
+
 int
 main(void)
 {
@@ -98,6 +128,7 @@ main(void)
 	assert(xupnpd_config_valid_ipv4("192.168.1.1"));
 	assert(!xupnpd_config_valid_ipv4("192.168.1.1';os.execute('id')"));
 	assert(!xupnpd_config_valid_ipv4("999.1.1.1"));
+	test_source_rejects_symlinks_and_special_files(dir);
 
 	assert(unlink(destination) == 0);
 	join(destination, sizeof(destination), dir, "common.lua");
