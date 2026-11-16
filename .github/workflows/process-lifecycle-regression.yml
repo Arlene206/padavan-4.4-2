@@ -274,5 +274,10 @@ jobs:
             trunk/user/rc/src/tests/msd_lite_config_file.c \
             -o "$RUNNER_TEMP/msd-lite-config-file-regression"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/msd-lite-config-file-regression"
+      - name: Verify OpenSSH PID-file reload identity
+        run: |
+          sh -n trunk/user/openssh/sshd.sh
+          sh -n trunk/user/openssh/tests/sshd_pidfile_lifecycle.sh
+          sh trunk/user/openssh/tests/sshd_pidfile_lifecycle.sh
       - name: Verify shared-library and RC integration boundaries
         run: python3 scripts/check_process_lifecycle_integration.py

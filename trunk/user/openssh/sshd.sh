@@ -191,9 +191,92 @@ func_stop()
 	killall -q sshd
 }
 
+# Resolve an sshd PID to a stable procfs start-time identity.
+# PID files are untrusted state: never signal a recycled PID or another daemon.
+sshd_process_start_time()
+{
+	local pid="$1"
+	local proc_root="${SSHD_PROC_ROOT:-/proc}"
+	local process_dir="$proc_root/$pid"
+	local process_comm stat_line start_time
+
+	case "$pid" in
+	''|*[!0-9]*|0|1)
+		return 1
+		;;
+	esac
+	[ "$pid" -gt 1 ] 2>/dev/null || return 1
+	[ -d "$process_dir" ] || return 1
+	IFS= read -r process_comm < "$process_dir/comm" || return 1
+	[ "$process_comm" = "sshd" ] || return 1
+	IFS= read -r stat_line < "$process_dir/stat" || return 1
+	case "$stat_line" in
+	"$pid ("*") "*) ;;
+	*) return 1 ;;
+	esac
+	start_time=$(printf '%s\n' "$stat_line" |
+		awk '{ sub(/^.*\) /, ""); if (NF >= 20) print $20 }') || return 1
+	case "$start_time" in
+	''|*[!0-9]*)
+		return 1
+		;;
+	esac
+	printf '%s\n' "$start_time"
+}
+
 func_reload()
 {
-	kill -SIGHUP "$(cat "$pid_file")"
+	local pid pid_again start_time current_start_time reload_status
+
+	if [ ! -f "$pid_file" ] || [ -L "$pid_file" ] || [ ! -r "$pid_file" ]; then
+		logger -t "sshd" "reload refused: PID file is missing, unreadable or unsafe"
+		return 1
+	fi
+	pid=$(cat "$pid_file" 2>/dev/null) || {
+		logger -t "sshd" "reload refused: cannot read PID file"
+		return 1
+	}
+	case "$pid" in
+	''|*[!0-9]*|0|1)
+		logger -t "sshd" "reload refused: PID file does not contain one valid PID"
+		return 1
+		;;
+	esac
+	[ "$pid" -gt 1 ] 2>/dev/null || {
+		logger -t "sshd" "reload refused: PID is outside the valid process range"
+		return 1
+	}
+	start_time=$(sshd_process_start_time "$pid") || {
+		logger -t "sshd" "reload refused: PID does not identify a live sshd process"
+		return 1
+	}
+	if [ -L "$pid_file" ] || [ ! -f "$pid_file" ]; then
+		logger -t "sshd" "reload refused: PID file changed during validation"
+		return 1
+	fi
+	pid_again=$(cat "$pid_file" 2>/dev/null) || {
+		logger -t "sshd" "reload refused: PID file disappeared during validation"
+		return 1
+	}
+	if [ "$pid_again" != "$pid" ]; then
+		logger -t "sshd" "reload refused: PID file changed during validation"
+		return 1
+	fi
+	current_start_time=$(sshd_process_start_time "$pid") || {
+		logger -t "sshd" "reload refused: sshd process disappeared during validation"
+		return 1
+	}
+	if [ "$current_start_time" != "$start_time" ]; then
+		logger -t "sshd" "reload refused: PID identity changed during validation"
+		return 1
+	fi
+
+	kill -HUP "$pid"
+	reload_status=$?
+	if [ "$reload_status" -ne 0 ]; then
+		logger -t "sshd" "reload signal failed for PID $pid (status=$reload_status)"
+	fi
+	return "$reload_status"
 }
 
 action_status=0
