@@ -1,8 +1,8 @@
 ## Current source / CI checkpoint
 
-- Last meaningful product-source/test baseline: `831ebfbe3cf15d88d9f943c80d26545c6794e88b`; live main before this documentation commit was the same SHA. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Last meaningful product-source/test baseline: `831ebfbe3cf15d88d9f943c80d26545c6794e88b`; live main parent before this documentation update was `c17d2121b58c0fe608c4c24f9ce638fb4dffdad3`. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - Exact-head L2 PASS: Adbyby updater `867e481`; Shadowsocks watchcat `a8d5017`; AliyunDrive `982ec54`; DDNSTO lifecycle/checker `7968c1e`; legacy wrapper stale-pidfile workflow `1e43d33` (its XY-C1 build is still pending).
-- Redsocks `831ebfb`: dynamic lifecycle regression passed on parent `63d6606`; the checker’s heredoc-truncated body parser was corrected. Exact-head Redsocks `43800078490` and handoff `43800078518` are queued. No L2 closure yet.
+- Redsocks `831ebfb`: exact-head shell syntax, dynamic lifecycle regression and source checker PASS; Redsocks `43800078490` and handoff `43800078518` both SUCCESS. L2 host verification is closed; target Bash/BusyBox and live service behavior remain unverified.
 - Legacy PR #1 is closed; all substantive AliDDNS/CA source work is already on main in identical or stronger form. No unmerged product work remains to port.
 - No physical-router runtime or L4 validation is claimed. The only current L3 candidate is the still-pending XY-C1 run on `1e43d33`; do not transfer that result to later source SHAs.
 
