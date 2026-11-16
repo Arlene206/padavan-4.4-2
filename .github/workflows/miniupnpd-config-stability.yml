@@ -157,7 +157,7 @@ jobs:
           assert "void restart_upnp(void);" not in declarations
           start_wan = function_body(wan, "start_wan(void)")
           assert start_wan.count("if (check_upnp_wanif_changed(ppp_ifname) != 0)") == 0
-          assert start_wan.count("vlan_result = check_upnp_wanif_changed(ppp_ifname);") == 1
+          assert start_wan.count("vlan_result = check_upnp_wanif_changed(ppp_ifname);") == 2
           assert "if (vlan_result != 0)" in start_wan
           assert start_wan.count("if (check_upnp_wanif_changed(wan_ifname) != 0)") == 0
           assert start_wan.count("vlan_result = check_upnp_wanif_changed(wan_ifname);") == 1

@@ -1,10 +1,9 @@
 ## Current source / CI checkpoint
 
-- Product-source checkpoint: ccca92b531d44c2476b6041a8adc3cbdec2f3a9f; PPP/IPoE required startup failures are accumulated and demand PPP readiness returns zero only on success.
-- Modem WAN policy and RC first-error tests passed under GNU89 + ASan/UBSan. The shared checker failed because it expected raw interface_status instead of errno-normalized failure_status.
-- WAN route, miniupnpd and HTTPD workflows failed on stale/misformatted source assertions from before the PPP refactor; production source was not modified for these validator failures.
-- Same-SHA successes: AI docs, infosvr, VPN, WAN ARP, detect_link, USB modem identity, WAN DHCP, DNSMasq, process inventory, detect_internet, AliDDNS, AdGuardHome, WAN teardown and AliyunDrive. NVRAM was pending.
-- No same-SHA XY-C1 Build/TRX/artifact L3 or physical-router L4.
+- Product-source checkpoint: d8d59acfb40c8d439682d8764e872283bed4a23c; required PPP/IPoE failures are accumulated into PID 1 status and demand PPP readiness returns 0 only on success.
+- Exact-head WAN route, Process inventory/lifecycle, HTTPD, AI docs, infosvr, AdGuardHome, AliyunDrive and AliDDNS checks passed.
+- miniupnpd failed only because its old assertion expected one captured PPP migration call, while the source has two separate calls (USB RAS and ordinary PPP). This workflow-only correction changes expected count to two and preserves separate IPoE and rollback gates.
+- XY-C1 was still compiling, TRX/artifact pending. NVRAM audit in progress. No L3/L4 claim.
 
 
 ## Whole-repository module status

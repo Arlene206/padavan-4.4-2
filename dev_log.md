@@ -1,3 +1,13 @@
+## 2026-11-16 — Correct miniupnpd migration call-count contract after PPP refactor
+
+- Parent main: d8d59acfb40c8d439682d8764e872283bed4a23c. WAN route `43868343214`, Process inventory/lifecycle `43868343273`, HTTPD security `43868343265`, AI docs `43868343106`, infosvr `43868343256`, AdGuardHome `43868343268`, AliyunDrive `43868343283` and AliDDNS `43868343245` passed.
+- The miniupnpd workflow reached its final source contract then failed because it expected one captured PPP interface-migration call in start_wan(). There are intentionally two: one for the USB RAS modem path and one for ordinary PPP. The IPoE migration path is a separate wan_ifname call. All three now use the same captured-status gate; the rollback helper retains its independent stop gate.
+- Updated the workflow to require both PPP calls rather than weakening the count to an unbounded presence check. No production source change.
+- XY-C1 `43868343338` was still building; TRX verification and artifact upload were pending. NVRAM `43868343257` was still auditing. No firmware L3 claim.
+- Next: inspect this miniupnpd workflow repair plus XY-C1 Build/TRX/artifact and NVRAM exact-SHA checks; then continue a bounded WAN adjunct-service status pass.
+
+---
+
 ## 2026-11-16 — Align WAN/PPP integration checks with the explicit startup status contract
 
 - Parent main: ccca92b531d44c2476b6041a8adc3cbdec2f3a9f. Modem WAN policy and RC first-error tests compiled and passed under GNU89 + ASan/UBSan. The shared checker then failed because it expected raw interface_status, while the implementation converts negative ifconfig results to captured errno and returns failure_status.
