@@ -1,38 +1,41 @@
 # Cross-session execution mandate
 
-Continue the exact repository engineering task below. Startup and handoff recovery have already been completed earlier; do not repeat the bootstrap audit or completed work.
+Every session MUST perform an end-of-session handoff checkpoint before ending. The checkpoint is mandatory; a document edit is conditional. Continue the recorded engineering task across conversations: recover live repository state once, do not repeat completed audits, and do not ask the user what to do next.
 
-Every logical task must create all changed files in one Git tree and one commit parented to freshly fetched main, then update main by exact expected SHA with force:false. Never force-push, rewrite history, or create partial commits. Preserve the immutable backup and all archive shards/index.
+For each logical task, create all changed files in one Git tree and one atomic main commit parented to freshly fetched main; update main with exact expected SHA using a non-forced compare-and-swap. Never force-push, rewrite history, or create partial commits. Preserve the immutable backup and archive shards/index. Before context exhaustion, record precise live refs, exact Action results, and the next concrete task.
 
-## Repository state
+## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; active branch: `main`.
-- Latest code commit: `b2d3288b6282c16cf23859eb9e7f8fdce083cd62` (full LAN restart status propagation).
-- Frozen archive ref: `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`. Do not modify, move, rewrite or delete.
-- Bootstrap, startup protocol, handoff, roadmap, log archive/index, branches and legacy PR #1 have already been audited; PR #1 is closed and substantive valid content is on main.
+- Current main before this checker/handoff repair: `f66dc26260ba426245ad403b6703b5ba6d52336a`.
+- Latest product-source commit: `b2d3288b6282c16cf23859eb9e7f8fdce083cd62` (LAN restart first-error propagation).
+- Frozen archival ref: `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify, move, rewrite or delete.
+- Startup protocol, bootstrap, handoff, roadmap, log archive/index, branch inventory and legacy PR #1 were audited earlier. PR #1 is closed, valid AliDDNS work already on main. Do not repeat the audit.
+- UPnP stop-result work at `68da0e2bd19dab24b3ab0b576c87cbf43e25832a`, with workflow follow-up `c6cf7147ee636ab6a715ee35f9219f4c5c92a3e1`, is complete. Exact c6 Process `43811174980`, miniupnpd `43811175012`, AI docs `43811174933`, and XY-C1 `43811175036` all PASS; XY Build, TRX and artifact upload succeeded on c6 only.
 
-## Active verification failure
+## Active task
 
-The code commit `b2d3288` updates `full_restart_lan()` to preserve first failure from status-bearing service stops, recovery, VPN/IPTV restart, NFS/NetBIOS reload, infosvr/LLTD/networkmap start, IAPP restart and HTTPD logout. It reuses `rc_first_service_start_status()`, extends `tests/service_start_status.c`, adds caller/source contracts in `scripts/check_process_lifecycle_integration.py`, and adds XY-C1 pre-build test execution.
+The LAN restart source commit `b2d3288` now aggregates first failures from status-bearing stop, restore, restart, reload, start and HTTPD logout operations in `full_restart_lan()`. It reuses `rc_first_service_start_status()`, extends the GNU89 service-status regression, and checks PID 1 notification aggregation. The test itself passed in both Process and XY-C1 jobs on b2.
 
-Exact-head Process workflow run `43814394160` for `b2d3288` failed before any job ran because the PR path list in `.github/workflows/process-lifecycle-regression.yml` contains this malformed one-line fragment:
-`      - "trunk/user/rc/src/rc.h"      - "trunk/user/rc/src/net_lan.c"      - "trunk/user/rc/src/service_start_status.h"      - "trunk/user/rc/src/tests/service_start_status.c"`
-Replace it with four separate YAML list entries (one per line), preserving the existing rc.h entry. The push path list is already properly formatted.
-Exact-head XY-C1 run `43814395678` and AI handoff run `43814395799` were in progress at last observation; Process inventory `43814395870` was also in progress. Query their final status as well as the new fix's Actions.
+There are two concrete follow-ups from exact Actions:
+
+1. Process workflow was malformed in b2 because PR path entries were concatenated on one line. Commit `f66dc26260ba426245ad403b6703b5ba6d52336a` repaired the YAML. The resulting Process run `43814587870` reached its final source checker but failed at the pre-existing assertion expecting literal `stop_lltd();`, which the production change intentionally wrapped in `lan_restart_record_status(..., stop_lltd())`. THIS COMMIT updates the ordering contract to match the new checked callsites and preserve the lock/rollback ordering assertion.
+2. AI handoff run `43814587897` failed because the current handoff did not preserve the exact required checkpoint sentence and canonical section headings. THIS COMMIT restores the mandatory checkpoint language and all validator-required headings.
+
+No production source behavior is changed in this checker/document repair.
 
 ## Verification boundary
 
-- Latest confirmed firmware L3 baseline remains `c6cf7147ee636ab6a715ee35f9219f4c5c92a3e1`: XY-C1 run `43811175036` successfully completed Build, TRX verification and artifact upload; Process `43811174980`, miniupnpd `43811175012`, and AI docs `43811174933` also passed on that exact SHA.
-- On exact `b2d3288`, Process workflow `43814394160` failed due malformed YAML (no job execution); XY-C1 `43814395678`, AI docs `43814395799` and Process inventory `43814395870` were pending.
-- No current-head firmware build/TRX/artifact or L4 hardware result is established.
+- Exact `b2d3288b6282c16cf23859eb9e7f8fdce083cd62`: service-status regression passed in Process and XY-C1. Process workflow run `43814394160` failed before a job ran due to malformed YAML. AI docs `43814395799` failed because the handoff omitted the mandatory end-of-session accuracy checkpoint. XY-C1 run `43814395678` remained IN_PROGRESS at last check, after the LAN service status test passed; Build, TRX and artifact upload were still pending.
+- Exact `f66dc26260ba426245ad403b6703b5ba6d52336a`: Process `43814587870` failed only at the old literal stop-call ordering assertion (compile and preceding regressions passed); AI docs `43814587897` failed on the same missing handoff phrase. Other exact-head Adbyby/AliDDNS/AliyunDrive workflows `43814588010`, `43814587964`, `43814587985` passed.
+- The latest confirmed L3 firmware baseline is older exact SHA `c6cf7147ee636ab6a715ee35f9219f4c5c92a3e1`. No Build/TRX/artifact success is claimed for b2, f66, or current main. No L4 physical-router test has been performed.
 
-## Exact first action for next GPT
+## Exact first action for the next GPT
 
-1. Repair the malformed PR paths in `.github/workflows/process-lifecycle-regression.yml` with an atomic workflow + dev_log + handoff commit on current main.
-2. Check exact-head XY-C1 and AI docs on `b2d3288`, plus new exact-head Process run after repair. Inspect the first failing step logs. Confirm the service-status test runs in Process and XY-C1, and checker passes.
-3. For L3, require Build XY-C1, TRX verification and artifact upload success for the exact latest source SHA.
-4. Continue broader P1 RC status-return audit only after closing the CI repair; work on independent areas while unrelated checks remain pending.
+1. Check the exact-head Process lifecycle and AI handoff Actions after THIS repair. Confirm the process source checker reaches PASS and the handoff validator accepts this record; inspect first causal logs if not.
+2. Check b2 XY-C1 run `43814395678` for its final Build, TRX verification and artifact upload status. For current L3, require all three on the latest product-source SHA; do not transfer c6 evidence.
+3. Continue the P1 full-repository RC status-return audit outside `full_restart_lan()`, fixing only confirmed dropped results with caller-aware regression tests, and work on independent modules while unrelated checks are pending.
 
-## Governance
+## Governance constraints
 
-Preserve security, architecture, compatibility, target-toolchain and test rules. Develop only on main. Update dev_log for each code/documentation commit; keep handoff current. Do not claim unrun checks or carry old firmware results forward.
+Preserve security, architecture, compatibility, target-toolchain and mandatory testing. Use only `main`; do not touch the frozen backup. Update root dev_log for every code/documentation commit. Keep root log within 20–119 records and 384 KiB; preserve archives and index. At every handoff checkpoint distinguish product-source SHA from current docs/checker SHA and record exact run IDs/statuses.

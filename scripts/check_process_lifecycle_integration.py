@@ -702,12 +702,12 @@ lan_restart_transaction = net_lan_dhcp.split("int\nfull_restart_lan(void)", 1)[1
 lan_vpn_stop = lan_restart_transaction.index("vpn_status = stop_vpn_server()")
 lan_vpn_failure = lan_restart_transaction.index("if (vpn_status != 0)", lan_vpn_stop)
 lan_vpn_abort = lan_restart_transaction.index("return vpn_status;", lan_vpn_failure)
-lan_first_other_stop = lan_restart_transaction.index("stop_lltd();")
+lan_first_other_stop = lan_restart_transaction.index('lan_restart_record_status(&restart_status, "stop LLTD", stop_lltd())')
 assert lan_vpn_stop < lan_vpn_failure < lan_vpn_abort < lan_first_other_stop
 assert lan_restart_transaction.count("stop_vpn_server();") == 1
 lan_dhcp_failure = lan_restart_transaction.index("if (lan_status != 0)")
 lan_dns_unlock = lan_restart_transaction.index("dnsmasq_lifecycle_lock_release(dnsmasq_lock)", lan_dhcp_failure)
-lan_vpn_restore = lan_restart_transaction.index("restart_vpn_server();", lan_dns_unlock)
+lan_vpn_restore = lan_restart_transaction.index('lan_restart_record_status(&restart_status, "restore VPN after aborted LAN restart",', lan_dns_unlock)
 assert lan_dhcp_failure < lan_dns_unlock < lan_vpn_restore
 print("LAN restart VPN fail-closed stop and rollback integration: PASS")
 
