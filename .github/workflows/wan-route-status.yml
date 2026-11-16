@@ -491,7 +491,6 @@ jobs:
           assert "rc_ipv6_disable_cleanup_apply(clear_all_route6, clear_all_addr6, clear_if_neigh6, IFNAME_BR)" in ipv6_restart_compact
           assert "operation_status = clear_all_addr6();" in ipv6_restart
           assert ipv6_restart.count("operation_status = reload_nat_modules();") == 2
-          assert "reload_nat_modules();" not in ipv6_restart
           assert "restart_status = rc_first_service_start_status(restart_status, operation_status);" in ipv6_restart_compact
           notification = body(rc_source, "handle_notifications(void)")
           ipv6_case_start = notification.index('else if (!strcmp(entry->d_name, RCN_RESTART_IPV6))')
