@@ -1,3 +1,11 @@
+## 2026-11-16 — Update MAN teardown regression count for captured IGMP status
+
+- Parent: 73be5eb266a47b7b610a07880ee791d98e1a1279. Exact-head WAN workflow `43821468810` passed its first source checker after whitespace normalization, including static IPTV host regression, then failed the second route/cleanup checker because MAN teardown's expected aggregation count was stale (5; now 6 after adding the IGMP proxy stop result).
+- The workflow contract now expects the sixth legitimate first-error accumulation. Production source and all C host tests are unchanged.
+- XY-C1 firmware run `43820348179` for source parent `3e7acc5...` completed SUCCESS: build, TRX verification and artifact upload all passed. The current commit is checker-only.
+- Next: check exact-head WAN-route and XY-C1 runs; continue independent boot module result propagation after checker is green.
+---
+
 ## 2026-11-16 — Fix exact-head WAN proxy source-contract false negative
 
 - Parent: 3e7acc5caeb8b8a9d0588edbcc8ab9292b750479. The exact-SHA WAN route run 43820348062 reached all host tests; the static IPTV regression printed PASS under GNU89/Werror/ASan/UBSan. The source-contract script alone failed because it searched for a whitespace-sensitive one-line rendering of a correctly multi-line nested route_status_accumulate() return.
