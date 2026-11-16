@@ -12,6 +12,8 @@ export TEST_RUN_MARKER TEST_START_FAIL_FILE
 
 TEST_RUNNING=0
 TEST_ENABLE=1
+TEST_PIDOF_MODE=normal
+TEST_SLEEP_FAIL=0
 TEST_TERM_BEHAVIOR=stuck
 TEST_KILL_BEHAVIOR=exit
 TEST_SLEEP_COUNT=0
@@ -43,6 +45,12 @@ nvram() {
 }
 pidof() {
   [ "$1" = "aliyundrive-webdav" ] || return 2
+  case "$TEST_PIDOF_MODE" in
+    error|unknown-after-term) return 2 ;;
+    empty-success) return 0 ;;
+    malformed) printf '%s\n' '12345 nope'; return 0 ;;
+    inconsistent) printf '%s\n' '12345'; return 1 ;;
+  esac
   if [ "$TEST_RUNNING" = 1 ] || [ -e "$TEST_RUN_MARKER" ]; then
     printf '%s\n' '12345'
     return 0
@@ -62,11 +70,13 @@ killall() {
     [ "$1" = "aliyundrive-webdav" ] || return 2
     TEST_TERM_COUNT=$((TEST_TERM_COUNT + 1))
     [ "$TEST_TERM_BEHAVIOR" = "immediate" ] && test_mark_stopped
+    [ "$TEST_TERM_BEHAVIOR" = "unknown-after-term" ] && TEST_PIDOF_MODE=error
   fi
   return 0
 }
 sleep() {
   TEST_SLEEP_COUNT=$((TEST_SLEEP_COUNT + 1))
+  [ "$TEST_SLEEP_FAIL" != 1 ] || return 1
   if [ "$TEST_TERM_BEHAVIOR" = "after-one-poll" ] && [ "$TEST_SLEEP_COUNT" -eq 1 ]; then
     test_mark_stopped
   fi
@@ -161,6 +171,49 @@ fi
 flock -u 8
 exec 8>&-
 
+# pidof must distinguish confirmed absence from command errors and malformed output.
+for TEST_PIDOF_MODE in error empty-success malformed inconsistent; do
+  if ald_process_state; then
+    echo "FAIL: pidof mode $TEST_PIDOF_MODE was accepted as a valid process state" >&2
+    exit 1
+  else
+    TEST_STATE_STATUS=$?
+  fi
+  [ "$TEST_STATE_STATUS" -eq 2 ] || {
+    echo "FAIL: pidof mode $TEST_PIDOF_MODE did not return UNKNOWN" >&2; exit 1;
+  }
+done
+TEST_PIDOF_MODE=normal
+TEST_RUNNING=0
+TEST_ENABLE=1
+rm -f "$TEST_ARG_LOG"
+if start_ald; then
+  echo "FAIL: pidof error was accepted as process absence during start" >&2; exit 1
+fi
+[ ! -e "$TEST_ARG_LOG" ] || {
+  echo "FAIL: unknown process inventory allowed a duplicate launch" >&2; exit 1;
+}
+TEST_RUNNING=1
+TEST_TERM_COUNT=0
+TEST_KILL_COUNT=0
+TEST_PIDOF_MODE=error
+if kill_ald; then
+  echo "FAIL: pidof error was accepted as process absence during stop" >&2; exit 1
+fi
+[ "$TEST_TERM_COUNT" -eq 0 ] && [ "$TEST_KILL_COUNT" -eq 0 ] || {
+  echo "FAIL: unknown process inventory caused a signal" >&2; exit 1;
+}
+if ald_wait_started; then
+  echo "FAIL: unknown startup inventory was accepted as readiness" >&2; exit 1
+else
+  TEST_STATE_STATUS=$?
+fi
+[ "$TEST_STATE_STATUS" -eq 2 ] || {
+  echo "FAIL: unknown startup inventory did not propagate UNKNOWN" >&2; exit 1;
+}
+TEST_PIDOF_MODE=normal
+TEST_RUNNING=0
+
 # No-process stop is a no-op and must not signal anything.
 TEST_RUNNING=0
 TEST_TERM_COUNT=0
@@ -171,6 +224,36 @@ kill_ald || { echo "FAIL: no-process stop returned failure" >&2; exit 1; }
 [ "$TEST_TERM_COUNT" -eq 0 ] && [ "$TEST_KILL_COUNT" -eq 0 ] || {
   echo "FAIL: no-process stop sent a signal" >&2; exit 1;
 }
+
+# If process inventory becomes UNKNOWN after TERM, never escalate to KILL.
+TEST_RUNNING=1
+TEST_PIDOF_MODE=normal
+TEST_TERM_BEHAVIOR=unknown-after-term
+TEST_TERM_COUNT=0
+TEST_KILL_COUNT=0
+TEST_SLEEP_COUNT=0
+if kill_ald; then
+  echo "FAIL: UNKNOWN after TERM was reported as stopped" >&2; exit 1
+fi
+[ "$TEST_TERM_COUNT" -eq 1 ] && [ "$TEST_KILL_COUNT" -eq 0 ] || {
+  echo "FAIL: UNKNOWN after TERM triggered KILL" >&2; exit 1;
+}
+TEST_PIDOF_MODE=normal
+TEST_TERM_BEHAVIOR=stuck
+
+# A failed sleep primitive is UNKNOWN, not proof that the daemon exited.
+TEST_RUNNING=1
+TEST_SLEEP_FAIL=1
+TEST_TERM_COUNT=0
+TEST_KILL_COUNT=0
+if kill_ald; then
+  echo "FAIL: sleep failure was reported as a successful stop" >&2; exit 1
+fi
+[ "$TEST_TERM_COUNT" -eq 1 ] && [ "$TEST_KILL_COUNT" -eq 0 ] || {
+  echo "FAIL: sleep failure allowed KILL escalation" >&2; exit 1;
+}
+TEST_SLEEP_FAIL=0
+TEST_RUNNING=0
 
 # A daemon that exits during the TERM grace period must never receive KILL.
 TEST_RUNNING=1

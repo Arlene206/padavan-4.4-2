@@ -7,37 +7,96 @@ ALD_STOP_WAIT_SECONDS=5
 ALD_START_WAIT_SECONDS=10
 ALD_LOCK_FILE=${ALD_LOCK_FILE:-/var/lock/aliyundrive-webdav.lock}
 
+ald_process_state() {
+  # pidof has three outcomes: RUNNING, confirmed ABSENT, or UNKNOWN.
+  if ald_pid_output=$(pidof "$NAME" 2>/dev/null); then
+    ald_pid_status=0
+  else
+    ald_pid_status=$?
+  fi
+  case "$ald_pid_status" in
+    0)
+      [ -n "$ald_pid_output" ] || return 2
+      case "$ald_pid_output" in
+        *[!0123456789\ ]*) return 2 ;;
+      esac
+      ald_pid_count=0
+      for ald_pid in $ald_pid_output; do
+        case "$ald_pid" in
+          ''|0*|1|*[!0-9]*) return 2 ;;
+        esac
+        [ "${#ald_pid}" -le 10 ] || return 2
+        [ "$ald_pid" -gt 1 ] 2>/dev/null || return 2
+        ald_pid_count=$((ald_pid_count + 1))
+      done
+      [ "$ald_pid_count" -gt 0 ] || return 2
+      return 0
+      ;;
+    1)
+      [ -z "$ald_pid_output" ] && return 1
+      return 2
+      ;;
+    *) return 2 ;;
+  esac
+}
+
 ald_wait_stopped() {
   ald_wait=0
   while [ "$ald_wait" -lt "$ALD_STOP_WAIT_SECONDS" ]; do
-    if ! pidof "$NAME" >/dev/null 2>&1; then
-      return 0
+    if ald_process_state; then
+      ald_state=0
+    else
+      ald_state=$?
     fi
-    sleep 1
+    case "$ald_state" in
+      1) return 0 ;;
+      0) ;;
+      *) return 2 ;;
+    esac
+    sleep 1 || return 2
     ald_wait=$((ald_wait + 1))
   done
 
-  if pidof "$NAME" >/dev/null 2>&1; then
+  if ald_process_state; then
     return 1
+  else
+    ald_state=$?
   fi
-  return 0
+  case "$ald_state" in
+    1) return 0 ;;
+    0) return 1 ;;
+    *) return 2 ;;
+  esac
 }
 
 
 ald_wait_started() {
   ald_wait=0
   while [ "$ald_wait" -lt "$ALD_START_WAIT_SECONDS" ]; do
-    if pidof "$NAME" >/dev/null 2>&1; then
-      return 0
+    if ald_process_state; then
+      ald_state=0
+    else
+      ald_state=$?
     fi
-    sleep 1
+    case "$ald_state" in
+      0) return 0 ;;
+      1) ;;
+      *) return 2 ;;
+    esac
+    sleep 1 || return 2
     ald_wait=$((ald_wait + 1))
   done
 
-  if pidof "$NAME" >/dev/null 2>&1; then
+  if ald_process_state; then
     return 0
+  else
+    ald_state=$?
   fi
-  return 1
+  case "$ald_state" in
+    0) return 0 ;;
+    1) return 1 ;;
+    *) return 2 ;;
+  esac
 }
 
 ald_run_locked() {
@@ -141,24 +200,57 @@ ald_secure_workdir() {
 
 ald_kill_unlocked() {
   NAME=aliyundrive-webdav
-  if ! pidof "$NAME" >/dev/null 2>&1; then
-    return 0
+  if ald_process_state; then
+    ald_state=0
+  else
+    ald_state=$?
   fi
+  case "$ald_state" in
+    1) return 0 ;;
+    0) ;;
+    *)
+      logger -t "阿里云盘" "无法确认进程状态，拒绝发送信号"
+      return 1
+      ;;
+  esac
 
   logger -t "阿里云盘" "关闭进程..."
-  killall "$NAME" >/dev/null 2>&1
+  killall "$NAME" >/dev/null 2>&1 || :
   if ald_wait_stopped; then
     return 0
+  else
+    ald_wait_status=$?
   fi
+  case "$ald_wait_status" in
+    1) ;;
+    *)
+      logger -t "阿里云盘" "TERM后进程状态未知，拒绝升级信号"
+      return 1
+      ;;
+  esac
+
+  # A fresh validated name lookup is required before KILL escalation.
+  if ald_process_state; then
+    ald_state=0
+  else
+    ald_state=$?
+  fi
+  case "$ald_state" in
+    1) return 0 ;;
+    0) ;;
+    *)
+      logger -t "阿里云盘" "强制停止前进程状态未知，拒绝发送信号"
+      return 1
+      ;;
+  esac
 
   logger -t "阿里云盘" "正常停止超时，尝试强制停止"
-  # Re-enumerate by process name; never signal a cached numeric PID.
-  killall -9 "$NAME" >/dev/null 2>&1
+  killall -9 "$NAME" >/dev/null 2>&1 || :
   if ald_wait_stopped; then
     return 0
   fi
 
-  logger -t "阿里云盘" "进程仍在运行，保留运行状态"
+  logger -t "阿里云盘" "进程仍在运行或状态未知，保留运行状态"
   return 1
 }
 
@@ -169,9 +261,15 @@ ald_start_unlocked() {
   case "$enable" in
     1|on|true|yes|enabled)
       # Repeated RC/UI start notifications must not launch duplicate servers.
-      if pidof "$NAME" >/dev/null 2>&1; then
+      if ald_process_state; then
         logger -t "阿里云盘" "服务已在运行，跳过重复启动"
         return 0
+      else
+        ald_state=$?
+      fi
+      if [ "$ald_state" -ne 1 ]; then
+        logger -t "阿里云盘" "无法确认进程状态，拒绝启动重复实例"
+        return 1
       fi
 
       refresh_token="$(nvram get ald_refresh_token)"
@@ -220,8 +318,15 @@ ald_start_unlocked() {
           -S "$read_buf_size" --cache-size "$cache_size" \
           --cache-ttl "$cache_ttl" --workdir "$ALD_WORK_DIR" >/dev/null 2>&1 9>&-
       ) &
-      if ! ald_wait_started; then
-        logger -t "阿里云盘" "启动后未能确认服务进程就绪"
+      if ald_wait_started; then
+        :
+      else
+        ald_start_status=$?
+        if [ "$ald_start_status" -eq 2 ]; then
+          logger -t "阿里云盘" "启动后进程状态未知"
+        else
+          logger -t "阿里云盘" "启动后未能确认服务进程就绪"
+        fi
         return 1
       fi
       ;;

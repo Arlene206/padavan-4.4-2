@@ -145,6 +145,7 @@ def function_body(source: str, signature: str) -> str:
     return source[opening + 1:closing]
 
 
+process_state = function_body(launcher, "ald_process_state() {")
 wait_stopped = function_body(launcher, "ald_wait_stopped() {")
 wait_started = function_body(launcher, "ald_wait_started() {")
 lock = function_body(launcher, "ald_run_locked() {")
@@ -170,27 +171,34 @@ require('ald_secure_workdir || return 1' in start and
         'exec 9>&-' in start,
         "daemon launch must protect token storage, suppress token-bearing INFO logs, and close inherited lifecycle lock")
 
-require('while [ "$ald_wait" -lt "$ALD_STOP_WAIT_SECONDS" ]; do' in wait_stopped and
-        'sleep 1' in wait_stopped and 'pidof "$NAME"' in wait_stopped and
-        'return 1' in wait_stopped,
-        "daemon stop polling must be bounded and confirm process absence")
+require('pidof "$NAME"' in process_state and
+        'case "$ald_pid_status" in' in process_state and
+        '[ -z "$ald_pid_output" ] && return 1' in process_state and
+        '[ -n "$ald_pid_output" ] || return 2' in process_state and
+        'return 2' in process_state,
+        "pidof must distinguish valid RUNNING, confirmed ABSENT and UNKNOWN output/status combinations")
 
-require('if ! pidof "$NAME" >/dev/null 2>&1; then' in stop and
-        'killall "$NAME"' in stop and
-        'if ald_wait_stopped; then' in stop and
-        'killall -9 "$NAME"' in stop and
+require('while [ "$ald_wait" -lt "$ALD_STOP_WAIT_SECONDS" ]; do' in wait_stopped and
+        'ald_process_state' in wait_stopped and 'sleep 1 || return 2' in wait_stopped and
+        'return 1' in wait_stopped and 'return 2' in wait_stopped,
+        "daemon stop polling must be bounded and propagate UNKNOWN/sleep failure")
+
+require('ald_process_state' in stop and 'killall "$NAME"' in stop and
+        'if ald_wait_stopped; then' in stop and 'killall -9 "$NAME"' in stop and
         stop.index('killall "$NAME"') < stop.index('ald_wait_stopped') <
         stop.index('killall -9 "$NAME"') < stop.rindex('ald_wait_stopped') and
+        'ald_process_state' in stop and 'TERM后进程状态未知' in stop and
         'return 1' in stop,
-        "stop must use name-based TERM, bounded wait, fresh name-based KILL and final absence check")
+        "stop must block KILL on UNKNOWN and require a fresh validated name lookup before escalation")
 
 require('aliyundrive_process=' not in stop and
         'kill -9 "$aliyundrive_process"' not in launcher and
         'killall -9 "$NAME"' in stop,
         "stop must never signal a cached PID that may have been reused")
 
-require('if pidof "$NAME" >/dev/null 2>&1; then' in start and
-        start.index('if pidof "$NAME"') < start.index('refresh_token=') and
+require('ald_process_state' in start and
+        '无法确认进程状态，拒绝启动重复实例' in start and
+        start.index('ald_process_state') < start.index('refresh_token=') and
         '跳过重复启动' in start,
         "duplicate start must exit before reading credentials or launching another daemon")
 
@@ -223,8 +231,8 @@ require('set -- "$@" --domain-id "$domain_id"' in start and
 
 
 require('while [ "$ald_wait" -lt "$ALD_START_WAIT_SECONDS" ]; do' in wait_started and
-        'pidof "$NAME"' in wait_started and 'sleep 1' in wait_started and
-        'return 1' in wait_started and
+        'ald_process_state' in wait_started and 'sleep 1 || return 2' in wait_started and
+        'return 1' in wait_started and 'return 2' in wait_started and
         start.index('ald_wait_started') > start.index('"$ALD_BIN"'),
         "start must wait a bounded interval and fail unless the daemon becomes observable")
 
@@ -289,6 +297,10 @@ require(all(field in variables for field in ald_fields) and
         "HTTPD settings must continue to notify RC when AliyunDrive configuration changes")
 
 for marker in (
+    "FAIL: pidof error was accepted as process absence during start",
+    "FAIL: pidof error was accepted as process absence during stop",
+    "FAIL: UNKNOWN after TERM triggered KILL",
+    "FAIL: sleep failure allowed KILL escalation",
     "FAIL: graceful stop escalated or used a cached numeric PID",
     "FAIL: bounded TERM/KILL/absence sequence is incorrect",
     "FAIL: permanently running daemon was reported stopped",
