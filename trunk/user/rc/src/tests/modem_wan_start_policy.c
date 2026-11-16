@@ -181,6 +181,20 @@ test_wan_adjunct_service_failures_reach_start_status(void)
 }
 
 static void
+test_static_ipoe_upnp_reload_failure_reaches_start_status(void)
+{
+	int status = 0;
+	int wan_up_status = 0;
+	int wan_upnp_status = EIO;
+
+	status = rc_first_service_start_status(status, wan_up_status);
+	status = rc_first_service_start_status(status, wan_upnp_status);
+
+	assert(status == EIO);
+	assert(rc_first_service_start_status(ENETUNREACH, wan_upnp_status) == ENETUNREACH);
+}
+
+static void
 test_modem_hotplug_retry_mask_preserves_failed_and_coalesced_events(void)
 {
 	unsigned int retry_mask;
@@ -235,6 +249,7 @@ main(void)
 	test_required_ppp_failures_reach_wan_start_status();
 	test_required_ipoe_failures_reach_wan_start_status();
 	test_wan_adjunct_service_failures_reach_start_status();
+	test_static_ipoe_upnp_reload_failure_reaches_start_status();
 	test_modem_hotplug_retry_mask_preserves_failed_and_coalesced_events();
 	test_static_wan_address_and_netmask_validation();
 	puts("USB modem WAN startup status policy: PASS");

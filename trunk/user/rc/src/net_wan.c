@@ -1974,8 +1974,11 @@ start_wan(void)
 							   wan_ifname, wan_up_status);
 					/* Update UPnP forwards after WAN setup; do not hide reload failure. */
 					wan_upnp_status = update_upnp();
-					if (wan_upnp_status != 0)
+					if (wan_upnp_status != 0) {
+						wan_start_status = rc_first_service_start_status(
+							wan_start_status, wan_upnp_status);
 						logmessage(LOGNAME, "UPnP update incomplete after WAN startup (status=%d)", wan_upnp_status);
+					}
 				}
 			} else {
 				dhcp_status = start_udhcpc_wan(wan_ifname, unit, 0);

@@ -206,6 +206,18 @@ assert "wan_start_status = rc_first_service_start_status" in ppp_branch[wanx_fai
 
 ipoe_end = wan_start.index("return rc_first_service_start_status(modem_start_status, wan_start_status);", ipoe_branch_start)
 ipoe_branch = wan_start[ipoe_branch_start:ipoe_end]
+upnp_reload_call = "wan_upnp_status = update_upnp();"
+assert upnp_reload_call in ipoe_branch
+upnp_reload_pos = ipoe_branch.index(upnp_reload_call)
+assert ipoe_branch.index("wan_up_status = wan_up(wan_ifname, unit, 1);") < upnp_reload_pos
+upnp_failure_pos = ipoe_branch.index("if (wan_upnp_status != 0)", upnp_reload_pos)
+upnp_log_pos = ipoe_branch.index("UPnP update incomplete after WAN startup", upnp_failure_pos)
+upnp_status_match = re.search(
+    r"wan_start_status\\s*=\\s*rc_first_service_start_status\\s*\\(\\s*wan_start_status\\s*,\\s*wan_upnp_status\\s*\\)\\s*;",
+    ipoe_branch[upnp_failure_pos:upnp_log_pos],
+)
+assert upnp_status_match, "static IPoE UPnP reload failure must reach the WAN start result"
+assert upnp_failure_pos < upnp_failure_pos + upnp_status_match.start() < upnp_log_pos
 migration_pos = ipoe_branch.index("vlan_result = check_upnp_wanif_changed(wan_ifname);")
 migration_end = ipoe_branch.index("continue;", migration_pos)
 assert "wan_start_status = rc_first_service_start_status" in ipoe_branch[migration_pos:migration_end]

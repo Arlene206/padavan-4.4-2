@@ -1,3 +1,12 @@
+## 2026-11-16 — Propagate static IPoE UPnP mapping reload failures
+
+- Parent main: `6e4511c0607b892bdc101f38f5bbf7c40b86fa49`.
+- In `start_wan()`, static IPoE called int-returning `update_upnp()` after successful route setup but only logged a nonzero result. PID 1 could therefore receive success while miniupnpd's mapping refresh had failed; the helper can report process-inventory, start/stop and signal errors.
+- The static IPoE path now merges `wan_upnp_status` into `wan_start_status` using first-error semantics, without aborting other startup work. Added a GNU89 policy regression for UPnP failure plus retention of an earlier error, and a semantic source contract requiring the status merge before the diagnostic.
+- A local GNU89/Werror/ASan/UBSan first-error smoke test passed. The full repository policy regression and canonical checker require exact-head Process CI; same-SHA XY-C1 Build/TRX/artifact is also required before current L3 can be claimed. Physical-router L4 remains NOT VERIFIED; frozen backup unchanged.
+
+---
+
 ## 2026-11-17 01:52 CST — Align shared process checker with NDIS stop contract
 
 - Base main: `a8acbb08d8cf2d8c80713ac2f670ef8ca9dd20e5`.
