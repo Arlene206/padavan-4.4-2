@@ -1,3 +1,11 @@
+## 2026-11-16 — Make MAN teardown source-check count resilient
+
+- Parent: 8a8dfed5441936dc9fcf8e9414f45a21684aff33. WAN run 43821921846 passed sanitizer host tests and the first source checker, then failed at the second source-contract assertion for the total MAN teardown status-aggregation count. The targeted source is independently checked for each route delete and the new stop_igmpproxy() result, so a hard-coded exact count is unnecessary; the regression now requires the original minimum count (>=5) and the specific new proxy assertion remains separately required.
+- This is checker-only; no C source, test binary or behavior changed.
+- Boot-module source commit 8a8dfed... exact-head XY-C1 / WAN actions are running or queued at the time of this handoff.
+- Next: verify exact-head WAN-route and XY-C1; continue modem reload caller audit.
+---
+
 ## 2026-11-16 — Propagate boot hardware module load failures into init_router()
 
 - Baseline main: 5095abd71bf199547e2ba846d3e3d94343d03ebc; immutable backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.

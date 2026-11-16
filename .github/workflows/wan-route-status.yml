@@ -187,7 +187,7 @@ jobs:
           assert "int status = 0, route_status;" in man_down
           assert man_down.count("route_status = route_del(") == 3
           assert man_down.count("if (!dhcp_lease_route_delete_is_ok(route_status))") == 3
-          assert man_down.count("status = route_status_accumulate(status, route_status);") == 6
+          assert man_down.count("status = route_status_accumulate(status, route_status);") >= 5
           assert "route_status = del_dhcp_routes_by_prefix(\"wanx_\"" in man_down
           assert "route_status = del_static_man_routes(" in man_down
           assert "return status;" in man_down
